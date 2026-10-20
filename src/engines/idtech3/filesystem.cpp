@@ -22,9 +22,16 @@ Error mountGameDir(SearchSet& set, const std::filesystem::path& install, std::st
     for (std::filesystem::directory_iterator it(*dir, ec), end; !ec && it != end; it.increment(ec))
         if (fs::toLower(it->path().extension().string()) == ".pk3" && it->is_regular_file(ec))
             paks.push_back(it->path());
-    std::sort(paks.begin(), paks.end(), [](const auto& a, const auto& b) {
-        return fs::toLower(a.filename().string()) < fs::toLower(b.filename().string());
-    });
+    // Compared in upper case: that puts '_' after the letters, unlike lower
+    // case, and decides which pak overrides which.
+    auto upper = [](const std::filesystem::path& p) {
+        std::string s = p.filename().string();
+        for (char& c : s)
+            if (c >= 'a' && c <= 'z')
+                c = static_cast<char>(c - 'a' + 'A');
+        return s;
+    };
+    std::sort(paks.begin(), paks.end(), [&](const auto& a, const auto& b) { return upper(a) < upper(b); });
     if (paks.size() >= kPrioritiesPerGameDir)
         return Error::fail("Too many .pk3 files in " + dir->string());
 

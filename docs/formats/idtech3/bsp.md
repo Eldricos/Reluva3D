@@ -56,7 +56,7 @@ single precision.
 | 32 | i32 × 2 | position in the lightmap |
 | 40 | i32 × 2 | size in the lightmap |
 | 48 | f32[3] | lightmap origin in the world |
-| 60 | f32[3][3] | lightmap s and t vectors; [2] is the surface normal (for patches too) |
+| 60 | f32[3][3] | lightmap s and t vectors and the surface normal; for patches, [0] and [1] are the patch's bounds instead |
 | 96 | i32 × 2 | patch width and height in control points |
 
 Patches are grids of quadratic Bézier patches: width × height control

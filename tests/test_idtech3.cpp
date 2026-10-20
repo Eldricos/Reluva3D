@@ -219,6 +219,9 @@ static void testFilesystemAndDetection(const std::filesystem::path& tmp) {
     test::writeFile(base / "PAK1.pk3", test::buildZip({{"a.txt", toBytes("pak1"), {}},
                                                        {"b.txt", toBytes("pak1"), {}}}));
     test::writeFile(base / "zz_broken.pk3", toBytes("not a zip"));
+    // In upper case '_' sorts after letters, so pak_c.pk3 beats pakb.pk3.
+    test::writeFile(base / "pak_c.pk3", test::buildZip({{"c.txt", toBytes("underscore"), {}}}));
+    test::writeFile(base / "pakb.pk3", test::buildZip({{"c.txt", toBytes("letter"), {}}}));
     test::writeFile(base / "b.txt", toBytes("loose"));
 
     SearchSet set;
@@ -228,6 +231,7 @@ static void testFilesystemAndDetection(const std::filesystem::path& tmp) {
     std::vector<uint8_t> data;
     CHECK(!set.read("a.txt", data) && data == toBytes("pak1"));
     CHECK(!set.read("b.txt", data) && data == toBytes("loose"));
+    CHECK(!set.read("c.txt", data) && data == toBytes("underscore"));
     CHECK(mountGameDir(set, tmp, "missing", 1, warnings));
 
     ShaderLibrary lib;

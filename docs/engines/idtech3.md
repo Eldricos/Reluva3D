@@ -60,13 +60,19 @@ The renderer and file formats are the shared, well-documented part. The
 game logic is the hard part, and there are several possible routes. Each
 one has to be checked before anything is written:
 
-- **Licences.** Only code under a GPLv3-compatible licence can be used.
-  id's 2005 GPL release of Quake III Arena (GPL version 2 or later)
-  qualifies. **Check exactly what Raven released for Elite Force, and
-  under what licence**, before using any of it. Game SDKs from the era
-  often came under their own licences, which aren't compatible with the
-  GPL. If it isn't clearly GPL-compatible, use it only as observed
-  behaviour, the same as the running game.
+- **Licences.** Reluva's own code is all new. The GPL Quake III Arena
+  source (id's 2005 release, ioquake3) may be read as documentation of the
+  formats the games share, never copied.
+- **Raven's Elite Force game source is off-limits.** The single-player
+  game source Raven published in 2002 (the "STEF Game Source", expansion
+  version) comes under Raven's *Limited Use Software License Agreement*,
+  not the GPL. It allows only modifications that run with the retail game,
+  and forbids derivative works, reverse engineering and translation. Don't
+  copy it, and don't read it to write Reluva code; treat it like the leaked
+  source CONTRIBUTING.md warns about. The same goes for the multiplayer SDK
+  unless it turns out to carry a GPL-compatible licence. It also wouldn't
+  help with the shared formats: by its own ReadMe it holds only the game
+  DLLs' code, not the executable's renderer or map loading.
 - **Holomatch (multiplayer)**: if the retail paks hold the game logic as
   Quake III VM bytecode (`vm/*.qvm`), the original logic could run in a
   QVM interpreter, with the engine providing the system calls it makes.

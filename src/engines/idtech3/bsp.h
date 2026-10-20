@@ -83,7 +83,7 @@ struct BspSurface {
     int32_t lightmap = 0; // -1: none
     std::array<int32_t, 2> lightmapPos{}, lightmapSize{};
     std::array<float, 3> lightmapOrigin{};
-    std::array<std::array<float, 3>, 3> lightmapVecs{}; // for patches, [2] is the normal
+    std::array<std::array<float, 3>, 3> lightmapVecs{}; // s, t, normal; patches: bounds, bounds, normal
     int32_t patchWidth = 0, patchHeight = 0;           // patch control points
 };
 

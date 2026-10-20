@@ -27,9 +27,10 @@ A game folder (`baseEF` for Elite Force) is searched in this order, first
 match wins:
 
 1. loose files in the folder and its subfolders;
-2. the folder's `.pk3` files, the last name first in case-insensitive
-   order: `pak2.pk3` before `pak1.pk3` before `pak0.pk3`. That's how patches
-   replace files: they add a later pak.
+2. the folder's `.pk3` files, the last name first, comparing names in
+   upper case (so `_` sorts after the letters): `pak2.pk3` before
+   `pak1.pk3` before `pak0.pk3`, and `pak_x.pk3` before `paka.pk3`. That's
+   how patches replace files: they add a later pak.
 
 A mod's folder goes on top of the base game's, in the same order inside it
 (`mountGameDir`'s `layer`). File names are matched ignoring case, with `\`
