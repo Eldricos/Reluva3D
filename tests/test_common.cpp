@@ -8,12 +8,16 @@
 #include "common/audio/mp3.h"
 #include "common/audio/wav.h"
 #include "data/tone440_mp3.h"
+#include "common/archive.h"
 #include "common/config.h"
 #include "common/detection.h"
 #include "common/font.h"
 #include "common/fs.h"
+#include "common/image.h"
 #include "common/md5.h"
 #include "common/text.h"
+#include "common/zip.h"
+#include "zip_writer.h"
 
 #include <cstdio>
 #include <memory>
@@ -211,6 +215,109 @@ static void testMixer() {
     CHECK(m.play(nullptr, SoundType::Effects) == kNoSound && m.play(make(22050, 1, {}), SoundType::Effects) == kNoSound);
 }
 
+static void testZip(const std::filesystem::path& tmp) {
+    using test::toBytes;
+    CHECK(crc32(reinterpret_cast<const uint8_t*>("123456789"), 9) == 0xcbf43926);
+
+    // "textures/borg/borgfloor1\n" 12 times, raw-deflated by zlib.
+    std::string text;
+    for (int i = 0; i < 12; ++i)
+        text += "textures/borg/borgfloor1\n";
+    const std::vector<uint8_t> deflated = {0x2b, 0x49, 0xad, 0x28, 0x29, 0x2d, 0x4a, 0x2d, 0xd6, 0x4f,
+                                           0xca, 0x2f, 0x4a, 0x07, 0x13, 0x69, 0x39, 0xf9, 0xf9, 0x45,
+                                           0x86, 0x5c, 0x25, 0xa3, 0x12, 0xe8, 0x12, 0x00};
+    std::filesystem::remove_all(tmp);
+    const auto path = tmp / "pak0.pk3";
+    test::writeFile(path, test::buildZip({{"Scripts/", {}, {}},
+                                          {"Scripts/Borg.shader", toBytes("hello"), {}},
+                                          {"maps/list.txt", toBytes(text), deflated},
+                                          {"empty.cfg", {}, {}}},
+                                         "a comment"));
+    ZipArchive zip;
+    CHECK(!zip.open(path));
+    CHECK(zip.entries().size() == 3); // the folder entry is left out
+    CHECK(zip.has("scripts\\BORG.shader") && !zip.has("scripts/"));
+    std::vector<uint8_t> data;
+    CHECK(!zip.read("scripts/borg.shader", data) && data == toBytes("hello"));
+    CHECK(!zip.read("MAPS/LIST.TXT", data) && data == toBytes(text));
+    CHECK(!zip.read("empty.cfg", data) && data.empty());
+    CHECK(zip.read("missing.txt", data));
+
+    // A wrong CRC, and something that isn't a zip.
+    auto damaged = test::buildZip({{"a.txt", toBytes("abc"), {}}});
+    damaged[30 + 5] = 'X'; // the file's data, after the 30-byte header and name
+    test::writeFile(path, damaged);
+    CHECK(!zip.open(path) && zip.read("a.txt", data));
+    test::writeFile(path, toBytes("definitely not a zip archive"));
+    CHECK(zip.open(path));
+    std::filesystem::remove_all(tmp);
+}
+
+static void testSearchSet(const std::filesystem::path& tmp) {
+    using test::toBytes;
+    std::filesystem::remove_all(tmp);
+    test::writeFile(tmp / "low.zip", test::buildZip({{"a.txt", toBytes("low"), {}}, {"b.txt", toBytes("b"), {}}}));
+    test::writeFile(tmp / "high.zip", test::buildZip({{"A.TXT", toBytes("high"), {}}}));
+    test::writeFile(tmp / "dir" / "Sub" / "C.txt", toBytes("loose"));
+
+    SearchSet set;
+    auto open = [](const std::filesystem::path& p) {
+        auto z = std::make_unique<ZipArchive>();
+        CHECK(!z->open(p));
+        return z;
+    };
+    set.add(open(tmp / "low.zip"), 1);
+    set.add(open(tmp / "high.zip"), 2);
+    auto dir = std::make_unique<DirectoryArchive>();
+    CHECK(!dir->open(tmp / "dir"));
+    set.add(std::move(dir), 0);
+
+    std::vector<uint8_t> data;
+    CHECK(!set.read("a.txt", data) && data == toBytes("high"));
+    CHECK(!set.read("b.txt", data) && data == toBytes("b"));
+    CHECK(!set.read("sub/c.txt", data) && data == toBytes("loose"));
+    CHECK(set.read("d.txt", data));
+    const auto names = set.list();
+    CHECK(names.size() == 3 && names[0] == "A.TXT" && names[2] == "Sub/C.txt");
+    CHECK(set.archives().size() == 3 && set.archives()[0] == set.find("a.txt"));
+    CHECK(normalizeArchiveName("\\\\Textures\\\\Base//Floor.TGA") == "textures/base/floor.tga");
+    std::filesystem::remove_all(tmp);
+}
+
+static void testImage() {
+    // 2x2 uncompressed 24-bit TGA, stored bottom row first (descriptor 0).
+    std::vector<uint8_t> tga = {0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 2, 0, 24, 0};
+    for (uint8_t v : {0, 0, 255, 0, 255, 0,      // bottom: red, green (stored B, G, R)
+                      255, 0, 0, 255, 255, 255}) // top: blue, white
+        tga.push_back(v);
+    image::Image img;
+    CHECK(!image::decode(tga, img));
+    CHECK(img.w == 2 && img.h == 2);
+    auto is = [&](int x, int y, uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+        const uint8_t* p = img.pixel(x, y);
+        return p[0] == r && p[1] == g && p[2] == b && p[3] == a;
+    };
+    CHECK(is(0, 0, 0, 0, 255, 255) && is(1, 0, 255, 255, 255, 255));
+    CHECK(is(0, 1, 255, 0, 0, 255) && is(1, 1, 0, 255, 0, 255));
+
+    // 3x1 RLE 32-bit TGA, top row first (descriptor 0x28): a run of 3.
+    const std::vector<uint8_t> rle = {0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 1, 0, 32, 0x28,
+                                      0x82, 10, 20, 30, 128};
+    CHECK(!image::decode(rle, img));
+    CHECK(img.w == 3 && img.h == 1 && is(0, 0, 30, 20, 10, 128) && is(2, 0, 30, 20, 10, 128));
+    CHECK(image::decode({1, 2, 3}, img));
+
+    // Blending half-transparent red over black.
+    Surface s;
+    s.create(2, 1, PixelFormat::RGBA32);
+    img.w = 1;
+    img.h = 1;
+    img.rgba = {255, 0, 0, 128};
+    image::blit(s, img, 1, 0);
+    image::blit(s, img, 5, 5); // clipped away
+    CHECK(s.row(0)[0] == 0 && s.row(0)[4] == 128 && s.row(0)[7] == 255);
+}
+
 int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_tests";
     testMd5();
@@ -221,6 +328,9 @@ int main() {
     testMixer();
     testFsAndDetection(tmp / "fs");
     testConfig(tmp / "cfg");
+    testZip(tmp / "zip");
+    testSearchSet(tmp / "search");
+    testImage();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

@@ -55,6 +55,9 @@ add_library(reluva_common STATIC
     src/common/config.cpp
     src/common/fs.cpp
     src/common/md5.cpp
+    src/common/archive.cpp
+    src/common/zip.cpp
+    src/common/image.cpp
     src/common/detection.cpp
     src/common/audio/decode.cpp
     src/common/audio/mixer.cpp
@@ -65,7 +68,7 @@ add_library(reluva_common STATIC
 target_include_directories(reluva_common PUBLIC src)
 # Third-party headers (third_party/, see each README) as system includes, so
 # our warnings don't apply to them.
-target_include_directories(reluva_common SYSTEM PRIVATE third_party/minimp3)
+target_include_directories(reluva_common SYSTEM PRIVATE third_party/minimp3 third_party/stb)
 target_link_libraries(reluva_common PRIVATE reluva_warnings)
 
 # --- engines: talk only to common/ --------------------------------------------
