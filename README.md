@@ -11,15 +11,19 @@ included: you point Reluva at your own installed copy.
 ```
 src/common/        platform-independent core: System interface, events,
                    surfaces, config, case-insensitive file lookup, detection,
-                   text and a built-in font
+                   text and a built-in font; archives (folders, .zip/.pk3) and
+                   search sets; image decoding (TGA, JPEG, PNG, BMP)
   audio/           sound decoders and the mixer, shared by every engine: WAV (PCM, IMA ADPCM), MP3
-third_party/       outside code Reluva builds in, each with its licence (minimp3)
+third_party/       outside code Reluva builds in, each with its licence (minimp3, stb_image)
 src/backends/sdl3/ the only code that touches SDL (window, rendering, input, audio)
 src/launcher/      Dear ImGui game list: add / remove / start games
 src/engines/       one directory per engine, plus registry.cpp listing them
   testbed/         built-in test "game" that exercises the backend
   newworlds/       Star Trek: New Worlds: readers for its archives and their
                    files; currently runs as a data viewer
+  idtech3/         games on the Quake III Arena engine, starting with Star Trek:
+                   Voyager - Elite Force: search path, shader scripts, BSP
+                   maps; currently runs as a data viewer (docs/engines/idtech3.md)
 src/tools/         reluva-tool, utilities for studying game data
 tests/             unit tests for common/ and the engines
 ```
@@ -77,6 +81,13 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   scroll, **+/-** change the text size and **F** switches to the game's fonts.
   For fonts, **Left/Right** picks one, **+/-** change the size and **B** outlines
   the glyphs' boxes.
+
+- Elite Force (id Tech 3) also opens as a data viewer, starting on its maps.
+  **Tab** switches between maps, textures and files. For maps, **Left/Right** picks one,
+  drag (or **Shift+arrows**) rotates, the wheel (or **+/-**) zooms, **W/A/S/D/Q/E** move,
+  **P** shows or hides patches, **I** the info and **R** resets the view. For textures,
+  **Left/Right** step through them (**PageUp/PageDown** by 10). The files page lists the
+  search path and which archive each file comes from.
 
 The config is saved as `reluva.ini` in SDL's preferences folder
 (`~/.local/share/reluva/reluva/` on Linux, `%APPDATA%\reluva\reluva\` on Windows).

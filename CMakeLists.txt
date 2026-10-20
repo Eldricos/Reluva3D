@@ -103,7 +103,16 @@ add_library(reluva_engines STATIC
     src/engines/newworlds/string_viewer.cpp
     src/engines/newworlds/fif.cpp
     src/engines/newworlds/font_viewer.cpp
-    src/engines/newworlds/levels.cpp)
+    src/engines/newworlds/levels.cpp
+    src/engines/idtech3/idtech3.cpp
+    src/engines/idtech3/games.cpp
+    src/engines/idtech3/filesystem.cpp
+    src/engines/idtech3/lexer.cpp
+    src/engines/idtech3/entities.cpp
+    src/engines/idtech3/shader.cpp
+    src/engines/idtech3/bsp.cpp
+    src/engines/idtech3/viewers.cpp
+    src/engines/idtech3/map_viewer.cpp)
 target_link_libraries(reluva_engines PUBLIC reluva_common PRIVATE reluva_warnings)
 
 # --- executable: SDL3 backend + ImGui launcher --------------------------------
@@ -128,4 +137,9 @@ if(RELUVA_BUILD_TESTS)
     add_executable(reluva_newworlds_tests tests/test_newworlds_cat.cpp)
     target_link_libraries(reluva_newworlds_tests PRIVATE reluva_engines reluva_warnings)
     add_test(NAME newworlds_cat COMMAND reluva_newworlds_tests)
+
+    add_executable(reluva_idtech3_tests tests/test_idtech3.cpp)
+    target_link_libraries(reluva_idtech3_tests PRIVATE reluva_engines reluva_warnings)
+    target_include_directories(reluva_idtech3_tests PRIVATE tests)
+    add_test(NAME idtech3 COMMAND reluva_idtech3_tests)
 endif()

@@ -8,11 +8,13 @@ namespace reluva {
 // Each engine exposes one accessor. Add new engines here.
 const MetaEngine& testbedMetaEngine();
 const MetaEngine& newWorldsMetaEngine();
+const MetaEngine& idTech3MetaEngine();
 
 const std::vector<const MetaEngine*>& allEngines() {
     static const std::vector<const MetaEngine*> engines = {
         &testbedMetaEngine(),
         &newWorldsMetaEngine(),
+        &idTech3MetaEngine(),
     };
     return engines;
 }
