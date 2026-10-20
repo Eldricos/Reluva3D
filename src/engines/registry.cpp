@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#include "engines/registry.h"
+
+namespace reluva {
+
+// Each engine exposes one accessor. Add new engines here.
+const MetaEngine& testbedMetaEngine();
+const MetaEngine& newWorldsMetaEngine();
+
+const std::vector<const MetaEngine*>& allEngines() {
+    static const std::vector<const MetaEngine*> engines = {
+        &testbedMetaEngine(),
+        &newWorldsMetaEngine(),
+    };
+    return engines;
+}
+
+const MetaEngine* findEngine(std::string_view id) {
+    for (const MetaEngine* e : allEngines())
+        if (id == e->id())
+            return e;
+    return nullptr;
+}
+
+std::vector<DetectedGame> detectGames(const std::filesystem::path& dir) {
+    std::vector<DetectedGame> all;
+    for (const MetaEngine* e : allEngines()) {
+        auto found = e->detect(dir);
+        all.insert(all.end(), found.begin(), found.end());
+    }
+    return all;
+}
+
+} // namespace reluva

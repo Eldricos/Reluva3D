@@ -1,0 +1,61 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#pragma once
+
+#include "common/system.h"
+
+#include <SDL3/SDL.h>
+
+#include <vector>
+
+namespace reluva {
+
+class SdlSystem : public System {
+public:
+    SdlSystem() = default;
+    ~SdlSystem() override;
+    SdlSystem(const SdlSystem&) = delete;
+    SdlSystem& operator=(const SdlSystem&) = delete;
+
+    Error init();
+
+    // Used by the launcher, which draws with ImGui directly on SDL.
+    SDL_Window* window() const { return window_; }
+    SDL_Renderer* renderer() const { return renderer_; }
+    // Drop the game framebuffer and return the window to launcher mode.
+    void resetForLauncher();
+    // True once the user closed the window during a game.
+    bool quitRequested() const { return quitRequested_; }
+
+    // System
+    Error initGraphics(int width, int height, PixelFormat format) override;
+    void setPalette(const Color* colors, int start, int count) override;
+    void updateScreen(const Surface& surface) override;
+    void setWindowTitle(const std::string& title) override;
+    bool pollEvent(Event& event) override;
+    uint64_t getMillis() const override;
+    void delayMillis(uint32_t ms) override;
+    Error startAudio(AudioCallback callback) override;
+    void stopAudio() override;
+    int audioRate() const override { return kAudioRate; }
+
+private:
+    static constexpr int kAudioRate = 44100;
+    static void SDLCALL audioThunk(void* userdata, SDL_AudioStream* stream, int additional, int total);
+
+    SDL_Window* window_ = nullptr;
+    SDL_Renderer* renderer_ = nullptr;
+    SDL_Texture* gameTexture_ = nullptr;
+    int gameW_ = 0, gameH_ = 0;
+    PixelFormat gameFormat_ = PixelFormat::CLUT8;
+    uint32_t palette_[256] = {};          // RGBA32, byte order R,G,B,A
+    std::vector<uint32_t> convertBuffer_; // CLUT8 -> RGBA32 staging
+    bool quitRequested_ = false;
+
+    SDL_AudioStream* audioStream_ = nullptr;
+    AudioCallback audioCallback_;
+    std::vector<int16_t> audioBuffer_; // audio thread only
+};
+
+} // namespace reluva
