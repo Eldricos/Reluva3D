@@ -61,6 +61,12 @@ public:
         return call(command, args, ignored);
     }
 
+    // One frame of the menus at `time` (ms), the way the original engine
+    // runs them while not connected to a game: if no menu covers the
+    // screen (one just closed itself, say), the main menu opens; then
+    // they draw (pictures()).
+    Error refresh(int32_t time);
+
     // What GetGlconfig reports, in pixels.
     void setScreenSize(int width, int height) {
         width_ = width;
@@ -118,6 +124,7 @@ private:
     std::filesystem::path keyFile_;
     std::string cdKey_;
     bool cdKeyRead_ = false;
+    bool mainMenuNotFullscreen_ = false; // IsFullscreen seems to mean something else
 };
 
 } // namespace reluva::idtech3::eliteforce

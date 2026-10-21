@@ -30,6 +30,14 @@ Quake III's order: 2 shutdown, 3 key event (key, down), 4 mouse event
 (dx, dy), 5 refresh (time), 6 is fullscreen, 7 set active menu (menu),
 8 console command, 9 draw the connect screen.
 
+Each frame, while not connected to a game, the engine asks `vmMain(6)`
+(is a menu covering the screen?) and, if not, opens the main menu with
+`vmMain(7, 1)` before `vmMain(5, time)` draws; Quake III's client does
+the same. The menus rely on it: the main menu sends a player without a
+checked CD key straight to the CD key screen, without opening itself,
+and Accept closes that screen, leaving no menu. Without this step the
+screen stays black.
+
 | # | Call | Basis | Evidence (from `qvm-run ... ui.qvm 1`) |
 |---|---|---|---|
 | 0 | `Error(text)` | seen | `"UI_LoadMenuText : MP_NORMALTEXT.DAT file not found!\n"`: missing menu text is fatal |

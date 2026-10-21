@@ -3089,8 +3089,7 @@ int cmdUiRun(int argc, char** argv) {
     for (int f = 0; ok && f < frames; ++f) {
         ui.clearPictures();
         const int32_t time = 1000 + f * 16;
-        ui.setTime(time);
-        ok = step("Refresh", ui.call(ef::UiHost::Refresh, {time}));
+        ok = step("Refresh", ui.refresh(time));
     }
 
     // What was registered, and whether the engine can find it.

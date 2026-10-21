@@ -282,9 +282,8 @@ void MenuViewer::update(uint64_t nowMs) {
     std::vector<eliteforce::UiHost::Picture> pictures;
     syncCursor();
     if (ui_) {
-        ui_->setTime(time);
         ui_->clearPictures();
-        if (Error err = ui_->call(eliteforce::UiHost::Refresh, {time})) {
+        if (Error err = ui_->refresh(time)) {
             stop(err);
         } else {
             pictures = ui_->pictures();

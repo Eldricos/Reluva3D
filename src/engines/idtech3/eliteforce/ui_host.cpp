@@ -105,6 +105,26 @@ Error UiHost::call(int32_t command, const std::vector<int32_t>& args, int32_t& r
     return err;
 }
 
+Error UiHost::refresh(int32_t time) {
+    setTime(time);
+    int32_t fullscreen = 0;
+    if (Error err = call(IsFullscreen, {}, fullscreen))
+        return err;
+    if (!fullscreen && !mainMenuNotFullscreen_) {
+        if (Error err = call(SetActiveMenu, {1})) // the main menu
+            return err;
+        // It should cover the screen now; if it doesn't, opening it every
+        // frame would only keep resetting it.
+        if (Error err = call(IsFullscreen, {}, fullscreen))
+            return err;
+        if (!fullscreen) {
+            mainMenuNotFullscreen_ = true;
+            log_ += "Reluva: the main menu doesn't report covering the screen; not reopening it\n";
+        }
+    }
+    return call(Refresh, {time});
+}
+
 bool UiHost::cdKeyLooksValid(const std::string& key) {
     // The menus' own rule: up to 22 characters, 18 of them letters or
     // digits (the rest, say, dashes).

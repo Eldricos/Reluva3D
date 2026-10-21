@@ -45,6 +45,7 @@ static char text[64];
 static int cursorShader;
 static int cursorX, cursorY; /* the menus' own pointer, in 640x480 units */
 static char typed[64];
+static int menuOpen, menusOpened;
 static int typedLength;
 
 int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int arg5, int arg6, int arg7, int arg8,
@@ -66,27 +67,23 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
         cursorShader = trap_R_RegisterShaderNoMip("menu/common/cursor");
         trap_GetGlconfig(glconfig);
         return length * 100 + count;
-    case 2: return testCvar.integer; /* after the engine changed it, once updated */
+    /* Its menus: commands as the engine sends them */
     case 3:
-        if (arg0) { /* a key: typed characters come with 1024 added */
-            if ((arg0 & 1024) && arg1 && typedLength < 63) {
-                typed[typedLength++] = arg0 & 255;
-                typed[typedLength] = 0;
-            }
-            return 0;
+        /* a key: typed characters come with 1024 added */
+        if ((arg0 & 1024) && arg1 && typedLength < 63) {
+            typed[typedLength++] = arg0 & 255;
+            typed[typedLength] = 0;
         }
-        trap_Cvar_Update(&testCvar);
-        return testCvar.integer;
-    case 4:
-        if (arg0 || arg1) { /* the mouse moved: the pointer moves, kept on the screen */
-            cursorX += arg0;
-            cursorY += arg1;
-            cursorX = cursorX < 0 ? 0 : cursorX > 640 ? 640 : cursorX;
-            cursorY = cursorY < 0 ? 0 : cursorY > 480 ? 480 : cursorY;
-            return 0;
-        }
-        return glconfig[1281 + 10] * 1000 + glconfig[1281 + 11]; /* vidWidth, vidHeight */
-    case 5:                                                         /* refresh(time) */
+        return 0;
+    case 4: /* the mouse moved: the pointer moves, kept on the screen */
+        cursorX += arg0;
+        cursorY += arg1;
+        cursorX = cursorX < 0 ? 0 : cursorX > 640 ? 640 : cursorX;
+        cursorY = cursorY < 0 ? 0 : cursorY > 480 ? 480 : cursorY;
+        return 0;
+    case 5: /* refresh(time): nothing without a menu open */
+        if (!menuOpen)
+            return arg0;
         color[0] = 1;
         color[1] = 0.5f;
         color[2] = 0;
@@ -102,19 +99,33 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
         trap_R_DrawStretchPic((cursorX - 16) * glconfig[1281 + 10] / 640, (cursorY - 16) * glconfig[1281 + 11] / 480,
                               32 * glconfig[1281 + 10] / 640, 32 * glconfig[1281 + 11] / 480, 0, 0, 1, 1, cursorShader);
         return arg0;
-    case 6: /* the file's first line, through the names list and strncpy */
+    case 6: return menuOpen; /* is a menu covering the screen */
+    case 7:                  /* set the active menu: 0 none, else open one */
+        menuOpen = arg0 != 0;
+        menusOpened += menuOpen;
+        return 0;
+
+    /* Tests of single calls, numbered past the engine's commands */
+    case 20: return testCvar.integer; /* after the engine changed it, once updated */
+    case 21:
+        trap_Cvar_Update(&testCvar);
+        return testCvar.integer;
+    case 22: return glconfig[1281 + 10] * 1000 + glconfig[1281 + 11]; /* vidWidth, vidHeight */
+    case 23: /* the file's first line, through the names list and strncpy */
         trap_Cvar_Set("ui_text", file);
         trap_Cvar_VariableStringBuffer("ui_text", text, 4);
         strncpy(list, text, 8);
         return list[0] * 1000000 + list[1] * 1000 + list[3] + list[7];
-    case 7: return (int)(sqrt(trap_Cvar_VariableValue("ui_number")) * 10);
-    case 8: return testCvar.modificationCount;
-    case 10: return typed[0] * 1000 + typedLength; /* what was typed */
-    case 11: return trap_SetCDKey(arg0 ? "WXYZ-2345" : "WXYZ-2345-6789-ABCD-EF");
-    case 12:
+    case 24: return (int)(sqrt(trap_Cvar_VariableValue("ui_number")) * 10);
+    case 25: return testCvar.modificationCount;
+    case 26: trap_Error("boom"); return 1;
+    case 27: return typed[0] * 1000 + typedLength; /* what was typed */
+    case 28: return trap_SetCDKey(arg0 ? "WXYZ-2345" : "WXYZ-2345-6789-ABCD-EF");
+    case 29:
         trap_GetCDKey(text, sizeof(text));
         return text[0] * 1000 + text[21];
-    case 9: trap_Error("boom"); return 1;
+    case 30: menuOpen = 0; return 0; /* the last menu closes itself, as Accept on the CD key screen does */
+    case 31: return menusOpened;
     }
     return -1;
 }

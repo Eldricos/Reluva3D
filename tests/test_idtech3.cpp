@@ -896,13 +896,14 @@ static void testUiHost(const std::filesystem::path& tmp) {
     CHECK(!ui.call(ef::UiHost::Init, {}, r) && r == 1202); // 12 bytes, 2 .txt files directly in scripts/
     CHECK(ui.log() == "fake ui\n");
     CHECK(cvars.string("ui_test") == "7" && cvars.find("ui_test")->flags == CvarStore::Archive);
-    CHECK(!ui.call(2, {}, r) && r == 7);
+    CHECK(!ui.call(20, {}, r) && r == 7);
     cvars.set("ui_test", "9");
-    CHECK(!ui.call(2, {}, r) && r == 7); // the program's copy changes on Cvar_Update
-    CHECK(!ui.call(3, {}, r) && r == 9);
-    CHECK(!ui.call(8, {}, r) && r == 2);
-    CHECK(!ui.call(4, {}, r) && r == 640480);
+    CHECK(!ui.call(20, {}, r) && r == 7); // the program's copy changes on Cvar_Update
+    CHECK(!ui.call(21, {}, r) && r == 9);
+    CHECK(!ui.call(25, {}, r) && r == 2);
+    CHECK(!ui.call(22, {}, r) && r == 640480);
 
+    CHECK(!ui.call(ef::UiHost::SetActiveMenu, {1}));
     CHECK(!ui.call(ef::UiHost::Refresh, {1234}, r) && r == 1234);
     CHECK(ui.pictures().size() == 3); // two, then the pointer
     if (ui.pictures().size() == 3) {
@@ -912,29 +913,38 @@ static void testUiHost(const std::filesystem::path& tmp) {
         CHECK(ui.shaders().name(p.shader) == "menu/test");
         CHECK(ui.pictures()[1].color == (std::array<float, 4>{1, 1, 1, 1}));
     }
-    CHECK(!ui.call(6, {}, r) && r == 'h' * 1000000 + 'e' * 1000); // "hel", then NUL padding
+    CHECK(!ui.call(23, {}, r) && r == 'h' * 1000000 + 'e' * 1000); // "hel", then NUL padding
     CHECK(cvars.string("ui_text") == "hello world\n");
     cvars.set("ui_number", "16");
-    CHECK(!ui.call(7, {}, r) && r == 40);
-    err = ui.call(9, {}, r);
+    CHECK(!ui.call(24, {}, r) && r == 40);
+    err = ui.call(26, {}, r);
     CHECK(err && err.message.find("boom") != std::string::npos);
-    CHECK(!ui.call(2, {}, r) && r == 9); // usable again after the program's error
+    CHECK(!ui.call(20, {}, r) && r == 9); // usable again after the program's error
     // Typed characters come as keys with 1024 added; plain keys don't type.
     CHECK(!ui.call(ef::UiHost::KeyEvent, {'q', 1}));
     CHECK(!ui.call(ef::UiHost::KeyEvent, {'Q' | 1024, 1}));
-    CHECK(!ui.call(10, {}, r) && r == 'Q' * 1000 + 1);
+    CHECK(!ui.call(27, {}, r) && r == 'Q' * 1000 + 1);
 
     // The CD key: taken if it has 18 letters and digits, kept in the key
     // file, read back by a new run, which then counts it as checked.
     ui.setKeyFile(tmp / "save" / "cdkey.txt");
-    CHECK(!ui.call(11, {1}, r) && r == 0 && !std::filesystem::exists(tmp / "save" / "cdkey.txt"));
-    CHECK(!ui.call(11, {0}, r) && r == 1 && std::filesystem::exists(tmp / "save" / "cdkey.txt"));
-    CHECK(!ui.call(12, {}, r) && r == 'W' * 1000 + 'F');
+    CHECK(!ui.call(28, {1}, r) && r == 0 && !std::filesystem::exists(tmp / "save" / "cdkey.txt"));
+    CHECK(!ui.call(28, {0}, r) && r == 1 && std::filesystem::exists(tmp / "save" / "cdkey.txt"));
+    CHECK(!ui.call(29, {}, r) && r == 'W' * 1000 + 'F');
     CvarStore fresh;
     ef::UiHost again(set, fresh);
     again.setKeyFile(tmp / "save" / "cdkey.txt");
     CHECK(!again.load() && !again.call(ef::UiHost::Init) && fresh.string("ui_cdkeychecked") == "1");
-    CHECK(!again.call(12, {}, r) && r == 'W' * 1000 + 'F');
+    CHECK(!again.call(29, {}, r) && r == 'W' * 1000 + 'F');
+
+    // A frame with no menu open opens the main one, as the original
+    // engine does while not connected; with one open, it's left alone.
+    CHECK(!ui.call(31, {}, r) && r == 1);
+    ui.clearPictures();
+    CHECK(!ui.refresh(2000) && !ui.call(31, {}, r) && r == 1 && ui.pictures().size() == 4);
+    CHECK(!ui.call(30));
+    ui.clearPictures();
+    CHECK(!ui.refresh(2016) && !ui.call(31, {}, r) && r == 2 && ui.pictures().size() == 4);
 
     CHECK(ui.unhandled().empty());
     std::filesystem::remove_all(tmp);
