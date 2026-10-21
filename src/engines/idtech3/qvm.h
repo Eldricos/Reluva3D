@@ -1,0 +1,93 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#pragma once
+
+#include "common/types.h"
+
+#include <cstdint>
+#include <functional>
+#include <string>
+#include <vector>
+
+namespace reluva::idtech3 {
+
+// A Quake III virtual machine program (.qvm): game code compiled to
+// bytecode, run by an interpreter, which reaches the engine only through
+// numbered system calls. See docs/formats/idtech3/qvm.md.
+class Qvm {
+public:
+    // The engine's side: system call `number` with the VM's argument words
+    // (args[0] is the first argument; there are at least 16). It returns
+    // the call's result. A handler may read and write the VM's memory and
+    // call back into it.
+    using SystemCall = std::function<int32_t(Qvm& vm, int number, const int32_t* args)>;
+
+    static constexpr int kMainArgs = 13; // vmMain's command and twelve arguments
+
+    Error load(const std::vector<uint8_t>& file);
+    void setSystemCall(SystemCall handler) { syscall_ = std::move(handler); }
+    // Stops a call (with an error) after this many instructions; 0 = never.
+    void setInstructionLimit(uint64_t limit) { limit_ = limit; }
+
+    // Calls vmMain(command, args...); fails on any fault in the program
+    // (bad address, bad jump, stack overflow, division by zero...), naming
+    // the instruction.
+    Error call(int32_t command, const std::vector<int32_t>& args, int32_t& result);
+
+    // The VM's memory, for system calls: addresses are offsets into it.
+    std::vector<uint8_t>& memory() { return data_; }
+    bool valid(int64_t address, int64_t size) const {
+        return address >= 0 && size >= 0 && address + size <= int64_t(data_.size());
+    }
+    // A NUL-terminated string at `address` (cut at the end of memory or at
+    // `max` bytes); empty if the address is outside memory.
+    std::string string(int32_t address, size_t max = 4096) const;
+    int32_t readInt(int32_t address) const;
+    void writeInt(int32_t address, int32_t value);
+    // A float passed in an argument word.
+    static float asFloat(int32_t word);
+    static int32_t fromFloat(float value);
+
+    size_t instructionCount() const { return code_.size(); }
+    uint64_t executed() const { return executed_; } // by the last call(), including nested ones
+
+    struct Instruction {
+        uint8_t op;
+        int32_t operand;
+    };
+    const std::vector<Instruction>& code() const { return code_; }
+    // Where the initialised data ends and the zero-filled part begins, and
+    // the literal block (strings) within the data.
+    uint32_t dataLength() const { return dataLength_; }
+    uint32_t litStart() const { return litStart_; }
+
+private:
+    Error run(int32_t& result);
+
+    std::vector<Instruction> code_;
+    std::vector<uint8_t> data_; // a power of two in size; the stack is at the top
+    uint32_t dataLength_ = 0, litStart_ = 0;
+    int32_t programStack_ = 0;  // the stack pointer between calls
+    int32_t stackBottom_ = 0;   // the stack may not grow below this
+    SystemCall syscall_;
+    uint64_t limit_ = 0, executed_ = 0;
+    int depth_ = 0; // nested call() through system calls
+};
+
+// The opcodes (docs/formats/idtech3/qvm.md), in their numbering.
+namespace qvmop {
+enum : uint8_t {
+    Undef, Ignore, Break, Enter, Leave, Call, Push, Pop, Const, Local, Jump,
+    Eq, Ne, Lti, Lei, Gti, Gei, Ltu, Leu, Gtu, Geu, Eqf, Nef, Ltf, Lef, Gtf, Gef,
+    Load1, Load2, Load4, Store1, Store2, Store4, Arg, BlockCopy,
+    Sex8, Sex16, Negi, Add, Sub, Divi, Divu, Modi, Modu, Muli, Mulu,
+    Band, Bor, Bxor, Bcom, Lsh, Rshi, Rshu, Negf, Addf, Subf, Divf, Mulf, Cvif, Cvfi,
+    Count
+};
+// Bytes of operand after each opcode: 4, 1 (Arg) or 0.
+int operandSize(uint8_t op);
+const char* name(uint8_t op);
+} // namespace qvmop
+
+} // namespace reluva::idtech3

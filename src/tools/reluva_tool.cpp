@@ -47,6 +47,11 @@
 //   reluva-tool model-check <game folder> [filter] [-v]  for every .md3 surface, the shader or image it
 //                                                  names and whether it's found; where missing files
 //                                                  of the same name are; -v lists every miss
+//   reluva-tool qvm-info <game folder> <vm/x.qvm> [-s]  a QVM's sizes, functions, and the system calls its
+//                                                  code makes (found in the code, not run); -s its strings
+//   reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]
+//                                                  run vmMain(command, args) answering every system
+//                                                  call with 0, and log each call and its arguments
 //   reluva-tool shader-check <game folder>         count the shader directives the engine doesn't know
 //                                                  or draw yet, with example shaders
 
@@ -73,6 +78,7 @@
 #include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/entities.h"
 #include "engines/idtech3/md3.h"
+#include "engines/idtech3/qvm.h"
 #include "engines/idtech3/shader.h"
 #endif
 
@@ -2684,6 +2690,140 @@ int cmdModelCheck(int argc, char** argv) {
     return 0;
 }
 
+// Loads a QVM from a game folder's search path.
+bool loadQvm(const char* folder, const char* name, reluva::idtech3::Qvm& vm) {
+    reluva::SearchSet set;
+    if (!mountIdTech3(folder, set))
+        return false;
+    Bytes data;
+    reluva::Error err = set.read(name, data);
+    if (!err)
+        err = vm.load(data);
+    if (err) {
+        std::fprintf(stderr, "%s: %s\n", name, err.message.c_str());
+        return false;
+    }
+    return true;
+}
+
+int cmdQvmInfo(int argc, char** argv) {
+    if (argc < 4 || argc > 5) {
+        std::fprintf(stderr, "usage: reluva-tool qvm-info <game folder> <vm/x.qvm> [-s]\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    q3::Qvm vm;
+    if (!loadQvm(argv[2], argv[3], vm))
+        return 1;
+    const auto& code = vm.code();
+    int functions = 0;
+    // System calls in the code: a constant negative target just before a
+    // CALL. Per number: how many call sites, and in how many functions.
+    std::map<int, std::pair<int, std::set<int>>> calls;
+    int indirect = 0, function = -1;
+    for (size_t i = 0; i < code.size(); ++i) {
+        if (code[i].op == q3::qvmop::Enter) {
+            ++functions;
+            function = int(i);
+        }
+        if (code[i].op != q3::qvmop::Call)
+            continue;
+        if (i > 0 && code[i - 1].op == q3::qvmop::Const) {
+            const int32_t target = code[i - 1].operand;
+            if (target < 0) {
+                auto& [n, fns] = calls[-1 - target];
+                ++n;
+                fns.insert(function);
+            }
+        } else {
+            ++indirect;
+        }
+    }
+    std::printf("%s: %zu instructions in %d functions, %u bytes of initialised data and literals, %zu bytes of memory\n",
+                argv[3], code.size(), functions, unsigned(vm.dataLength()), vm.memory().size());
+    std::printf("%d calls through function pointers\n", indirect);
+    std::printf("system calls (number: call sites, functions):\n");
+    for (const auto& [number, info] : calls)
+        std::printf("  %4d: %4d sites in %3zu functions\n", number, info.first, info.second.size());
+    if (argc == 5 && std::strcmp(argv[4], "-s") == 0) {
+        // Printable runs in the initialised data, which hold the strings.
+        const auto& mem = vm.memory();
+        std::string run;
+        size_t start = 0;
+        for (size_t i = 0; i < mem.size() && i < vm.dataLength() + 0x100000; ++i) {
+            const char c = char(mem[i]);
+            if (c >= 32 && c < 127) {
+                if (run.empty())
+                    start = i;
+                run += c;
+                continue;
+            }
+            if (c == 0 && run.size() >= 3)
+                std::printf("  %8zu  %s\n", start, run.c_str());
+            run.clear();
+        }
+    }
+    return 0;
+}
+
+int cmdQvmRun(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    q3::Qvm vm;
+    if (!loadQvm(argv[2], argv[3], vm))
+        return 1;
+    int32_t command = 0;
+    std::vector<int32_t> args;
+    uint64_t limit = 50'000'000;
+    bool haveCommand = false;
+    for (int i = 4; i < argc; ++i) {
+        if (std::strcmp(argv[i], "-limit") == 0 && i + 1 < argc)
+            limit = std::strtoull(argv[++i], nullptr, 0);
+        else if (!haveCommand) {
+            command = int32_t(std::strtol(argv[i], nullptr, 0));
+            haveCommand = true;
+        } else
+            args.push_back(int32_t(std::strtol(argv[i], nullptr, 0)));
+    }
+    vm.setInstructionLimit(limit);
+    // Log each system call; an argument pointing at text shows the text.
+    int logged = 0;
+    vm.setSystemCall([&](q3::Qvm& v, int number, const int32_t* a) -> int32_t {
+        ++logged;
+        std::printf("syscall %4d (", number);
+        int last = 5;
+        while (last >= 0 && a[last] == 0)
+            --last;
+        for (int i = 0; i <= last; ++i) {
+            std::printf("%s%d", i ? ", " : "", a[i]);
+            if (a[i] > 0 && v.valid(a[i], 1)) {
+                const std::string s = v.string(a[i], 120);
+                bool printable = s.size() >= 2;
+                for (char c : s)
+                    printable = printable && ((c >= 32 && c < 127) || c == '\n' || c == '\t');
+                if (printable) {
+                    std::string shown;
+                    for (char c : s)
+                        shown += c == '\n' ? std::string("\\n") : std::string(1, c);
+                    std::printf(" \"%s\"", shown.c_str());
+                }
+            }
+        }
+        std::printf(")\n");
+        return 0;
+    });
+    int32_t result = 0;
+    reluva::Error err = vm.call(command, args, result);
+    std::printf("vmMain(%d) %s %d after %llu instructions and %d system calls\n", command,
+                err ? "failed:" : "returned", err ? 0 : result, static_cast<unsigned long long>(vm.executed()), logged);
+    if (err)
+        std::printf("  %s\n", err.message.c_str());
+    return err ? 1 : 0;
+}
+
 int cmdShaderCheck(int argc, char** argv) {
     if (argc != 3) {
         std::fprintf(stderr, "usage: reluva-tool shader-check <game folder>\n");
@@ -2827,6 +2967,10 @@ int main(int argc, char** argv) {
         return cmdShaderCheck(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "model-check") == 0)
         return cmdModelCheck(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "qvm-info") == 0)
+        return cmdQvmInfo(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "qvm-run") == 0)
+        return cmdQvmRun(argc, argv);
 #endif
     std::fprintf(stderr,
                  "usage:\n"
@@ -2864,6 +3008,8 @@ int main(int argc, char** argv) {
                  "  reluva-tool image-check <game folder> [map name filter]\n"
                  "  reluva-tool shader-check <game folder>\n"
                  "  reluva-tool model-check <game folder> [name filter] [-v]\n"
+                 "  reluva-tool qvm-info <game folder> <vm/x.qvm> [-s]\n"
+                 "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
 #endif
                  "");
     return 2;

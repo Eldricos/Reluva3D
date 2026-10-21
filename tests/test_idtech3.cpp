@@ -12,8 +12,10 @@
 #include "engines/idtech3/md3.h"
 #include "engines/idtech3/model_cache.h"
 #include "engines/idtech3/patch.h"
+#include "engines/idtech3/qvm.h"
 #include "engines/idtech3/shader.h"
 #include "engines/registry.h"
+#include "data/qvm/test_vm_qvm.h"
 #include "zip_writer.h"
 
 #include <cmath>
@@ -538,6 +540,223 @@ static void testLightGrid() {
     CHECK(grid.empty() && grid.sample({0, 0, 0}).ambient[0] > 0);
 }
 
+// Builds a QVM from instructions, initialised data and literals.
+struct QvmAsm {
+    std::vector<std::pair<uint8_t, int32_t>> code;
+    std::vector<uint8_t> data, lit;
+    int32_t bss = 0;
+    int add(uint8_t op, int32_t operand = 0) {
+        code.emplace_back(op, operand);
+        return int(code.size()) - 1;
+    }
+    std::vector<uint8_t> build(int32_t magic = 0x12721444) const {
+        std::vector<uint8_t> bytes;
+        for (const auto& [op, v] : code) {
+            bytes.push_back(op);
+            const int n = qvmop::operandSize(op);
+            for (int i = 0; i < n; ++i)
+                bytes.push_back(uint8_t(uint32_t(v) >> (8 * i)));
+        }
+        while (bytes.size() % 4)
+            bytes.push_back(0);
+        std::vector<uint8_t> out;
+        auto i32 = [&](int32_t x) {
+            for (int i = 0; i < 4; ++i)
+                out.push_back(uint8_t(uint32_t(x) >> (8 * i)));
+        };
+        const int32_t header = 32;
+        i32(magic);
+        i32(int32_t(code.size()));
+        i32(header);
+        i32(int32_t(bytes.size()));
+        i32(header + int32_t(bytes.size()));
+        i32(int32_t(data.size()));
+        i32(int32_t(lit.size()));
+        i32(bss);
+        out.insert(out.end(), bytes.begin(), bytes.end());
+        out.insert(out.end(), data.begin(), data.end());
+        out.insert(out.end(), lit.begin(), lit.end());
+        return out;
+    }
+};
+
+static void testQvm() {
+    using namespace qvmop;
+    int32_t r = 0;
+    // vmMain(command, a, b) = command + a * b; arguments sit at
+    // sp + frame + 8 after ENTER frame.
+    {
+        QvmAsm a;
+        a.add(Enter, 8);
+        a.add(Local, 16), a.add(Load4);
+        a.add(Local, 20), a.add(Load4), a.add(Local, 24), a.add(Load4), a.add(Muli), a.add(Add);
+        a.add(Leave, 8);
+        Qvm vm;
+        CHECK(!vm.load(a.build()));
+        CHECK(!vm.call(3, {4, 5}, r) && r == 23);
+        CHECK(!vm.call(-7, {-2, 3}, r) && r == -13);
+    }
+    // Recursion: factorial through calls, frames and ARG.
+    QvmAsm f;
+    f.add(Enter, 16);
+    f.add(Local, 24), f.add(Load4), f.add(Arg, 8), f.add(Const, 0), f.add(Call), f.add(Leave, 16);
+    const int fact = f.add(Enter, 16);
+    f.code[4].second = fact;
+    f.add(Local, 24), f.add(Load4), f.add(Const, 1);
+    const int gt = f.add(Gti, 0);
+    f.add(Const, 1), f.add(Leave, 16);
+    f.code[size_t(gt)].second = int32_t(f.code.size());
+    f.add(Local, 24), f.add(Load4);
+    f.add(Local, 24), f.add(Load4), f.add(Const, 1), f.add(Sub), f.add(Arg, 8), f.add(Const, fact), f.add(Call);
+    f.add(Muli), f.add(Leave, 16);
+    Qvm vm;
+    CHECK(!vm.load(f.build()));
+    CHECK(!vm.call(5, {}, r) && r == 120);
+    CHECK(!vm.call(10, {}, r) && r == 3628800);
+
+    // A system call with a string and a number, and one that calls back
+    // into the VM while it's running.
+    {
+        QvmAsm a;
+        a.lit = {'h', 'i', 0, 0};
+        a.data = {0, 0, 0, 0};
+        a.add(Enter, 16);
+        a.add(Const, 4), a.add(Arg, 8), a.add(Const, 42), a.add(Arg, 12), a.add(Const, -2), a.add(Call);
+        a.add(Const, 1), a.add(Add);
+        a.add(Local, 24), a.add(Load4), a.add(Arg, 8), a.add(Const, -6), a.add(Call), a.add(Add);
+        a.add(Leave, 16);
+        Qvm s;
+        CHECK(!s.load(a.build()));
+        Qvm inner;
+        CHECK(!inner.load(f.build()));
+        std::string seen;
+        int calls = 0;
+        s.setSystemCall([&](Qvm& v, int number, const int32_t* args) -> int32_t {
+            ++calls;
+            if (number == 1) {
+                seen = v.string(args[0]) + "/" + std::to_string(args[1]);
+                return 100;
+            }
+            if (number == 5) {
+                // Back into a VM from a system call: here another one, and
+                // the running one keeps its state.
+                int32_t out = 0;
+                return inner.call(args[0], {}, out) ? -1 : out;
+            }
+            return 0;
+        });
+        CHECK(!s.call(4, {}, r) && r == 101 + 24 && seen == "hi/42" && calls == 2);
+        CHECK(s.executed() > 10);
+    }
+
+    // Memory: bytes and halfwords sign-extended, block copy, initialised data.
+    {
+        QvmAsm a;
+        a.data = {0x80, 0xff, 0x34, 0x12, 1, 2, 3, 4};
+        a.bss = 64;
+        a.add(Enter, 8);
+        a.add(Const, 0), a.add(Load1), a.add(Sex8);       // -128
+        a.add(Const, 0), a.add(Load2), a.add(Sex16), a.add(Add); // -128 + -128
+        a.add(Const, 16), a.add(Const, 4), a.add(BlockCopy, 4);
+        a.add(Const, 16), a.add(Load4), a.add(Add);       // + 0x04030201
+        a.add(Const, 20), a.add(Const, 0x55), a.add(Store1);
+        a.add(Const, 20), a.add(Load1), a.add(Add);       // + 0x55
+        a.add(Leave, 8);
+        Qvm m;
+        CHECK(!m.load(a.build()));
+        CHECK(!m.call(0, {}, r) && r == -256 + 0x04030201 + 0x55);
+        CHECK(m.readInt(16) == 0x04030201 && m.memory()[20] == 0x55 && m.readInt(0) == int32_t(0x1234ff80));
+    }
+
+    // Floats, unsigned comparison, division edge cases.
+    {
+        QvmAsm a;
+        a.add(Enter, 8);
+        a.add(Const, Qvm::fromFloat(1.5f)), a.add(Const, Qvm::fromFloat(2.25f)), a.add(Mulf);
+        a.add(Const, 3), a.add(Cvif), a.add(Addf), a.add(Negf), a.add(Cvfi); // -(3.375 + 3) -> -6
+        a.add(Const, -1), a.add(Const, 1);
+        const int b = a.add(Ltu, 0); // 0xffffffff < 1 unsigned: false
+        a.add(Const, 1000), a.add(Add);
+        a.code[size_t(b)].second = int32_t(a.code.size());
+        a.add(Const, INT32_MIN), a.add(Const, -1), a.add(Divi), a.add(Const, INT32_MIN), a.add(Sub), a.add(Add);
+        a.add(Const, -7), a.add(Const, 2), a.add(Modi), a.add(Add);    // -1
+        a.add(Const, -8), a.add(Const, 1), a.add(Rshi), a.add(Add);    // -4
+        a.add(Const, -8), a.add(Const, 28), a.add(Rshu), a.add(Add);   // 15
+        a.add(Leave, 8);
+        Qvm m;
+        CHECK(!m.load(a.build()));
+        CHECK(!m.call(0, {}, r) && r == -6 + 1000 + 0 - 1 - 4 + 15);
+    }
+
+    // Faults are errors that name the instruction, not crashes.
+    auto runs = [&](std::vector<std::pair<uint8_t, int32_t>> code, uint64_t limit = 0) {
+        QvmAsm a;
+        a.code = std::move(code);
+        Qvm m;
+        if (m.load(a.build()))
+            return std::string("load");
+        m.setInstructionLimit(limit);
+        Error err = m.call(0, {}, r);
+        return err ? err.message : std::string();
+    };
+    CHECK(runs({{Enter, 8}, {Const, -100}, {Load4, 0}, {Leave, 8}}).find("reads outside memory") != std::string::npos);
+    CHECK(runs({{Enter, 8}, {Const, 1 << 29}, {Const, 1}, {Store4, 0}, {Leave, 8}}).find("writes outside") != std::string::npos);
+    CHECK(runs({{Enter, 8}, {Const, 1}, {Const, 0}, {Divi, 0}, {Leave, 8}}).find("division by zero") != std::string::npos);
+    CHECK(runs({{Enter, 8}, {Const, 99}, {Jump, 0}}).find("jumps to 99") != std::string::npos);
+    CHECK(runs({{Enter, 8}, {Const, 1}, {Jump, 0}}, 1000).find("instruction limit") != std::string::npos);
+    CHECK(runs({{Enter, 0x20000}, {Leave, 0x20000}}).find("stack overflow") != std::string::npos);
+    CHECK(runs({{Enter, 8}, {Add, 0}, {Leave, 8}}).find("operand stack") != std::string::npos);
+    CHECK(runs({{Enter, 8}, {Const, 5}, {Call, 0}, {Leave, 8}}).find("calls 5") != std::string::npos);
+    CHECK(runs({{Enter, 8}, {Eq, 50}, {Leave, 8}}) == "load"); // branch target checked on load
+    // Damaged files.
+    Qvm bad;
+    CHECK(bad.load({1, 2, 3}));
+    auto file = f.build();
+    file[0] = 0;
+    CHECK(bad.load(file));
+    file = f.build();
+    file[32] = 200; // an unknown opcode
+    CHECK(bad.load(file));
+    file = f.build();
+    file[4] = 100; // more instructions than the code holds
+    CHECK(bad.load(file));
+    CHECK(!bad.load(f.build(0x12721445))); // the second version's magic
+}
+
+// tests/data/qvm/test_vm.c compiled by the Quake III compiler: every case
+// must give what the same program gives compiled natively.
+static void testCompiledQvm() {
+    Qvm vm;
+    Error err = vm.load(std::vector<uint8_t>(std::begin(kTestVmQvm), std::end(kTestVmQvm)));
+    CHECK(!err);
+    if (err)
+        return;
+    std::string printed;
+    vm.setSystemCall([&](Qvm& v, int number, const int32_t* args) -> int32_t {
+        switch (number) {
+        case 0: printed = v.string(args[0]); return int32_t(printed.size()) * 3;
+        case 1: return args[0] * 2 + args[1];
+        case 2: {
+            int32_t out = 0;
+            return v.call(args[0], {args[1]}, out) ? -999 : out;
+        }
+        case 3: return Qvm::fromFloat(Qvm::asFloat(args[0]) / 2.0f);
+        default: return 0;
+        }
+    });
+    for (const QvmCase& c : kQvmCases) {
+        int32_t r = 0;
+        err = vm.call(c.command, {c.arg0, c.arg1, 6, 0, 0, 0, 0, 0, 0, 0, 0, 100}, r);
+        if (err || r != c.expected)
+            std::fprintf(stderr, "case %d(%d, %d): got %d, expected %d %s\n", c.command, c.arg0, c.arg1, r,
+                         c.expected, err ? err.message.c_str() : "");
+        CHECK(!err && r == c.expected);
+    }
+    // Case 7 builds a string and prints it.
+    int32_t r = 0;
+    CHECK(!vm.call(7, {42, -17}, r) && printed == "value 42 and -17");
+}
+
 static void testFilesystemAndDetection(const std::filesystem::path& tmp) {
     using test::toBytes;
     std::filesystem::remove_all(tmp);
@@ -607,6 +826,8 @@ int main() {
     testMd3();
     testSkinAndPlacement();
     testLightGrid();
+    testQvm();
+    testCompiledQvm();
     testFilesystemAndDetection(tmp / "fs");
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
