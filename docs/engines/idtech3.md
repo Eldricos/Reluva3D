@@ -26,7 +26,7 @@ every engine.
 | File system | done: `baseEF` loose files over its paks, later paks first (`filesystem.cpp`, [pk3.md](../formats/idtech3/pk3.md)) |
 | Text files | done: tokenizer ([text.md](../formats/idtech3/text.md)) and entity lump |
 | Shader scripts | parsed; maps, animMap, blendFunc, surfaceparm and skyParms interpreted ([shader.md](../formats/idtech3/shader.md)) |
-| Maps | every BSP lump read and validated ([bsp.md](../formats/idtech3/bsp.md)) |
+| Maps | every BSP lump read and validated; all 67 retail maps load ([bsp.md](../formats/idtech3/bsp.md)) |
 | Images | TGA, JPEG, PNG (`common/image.cpp`) |
 | Viewer | Maps (wireframe), Textures and Files pages |
 | Renderer | not started, see below |
@@ -34,10 +34,9 @@ every engine.
 
 ## Next steps
 
-1. **Check against the retail data.** Run the viewer on an owned copy:
-   confirm every map loads (version 46, record sizes), add the paks'
-   hashes to `games.cpp`, and write down any Elite Force-specific shader
-   directives or entity keys.
+1. **Check against the retail data.** Done for maps (all 67 load) and
+   detection (one release). Still to do: write down any Elite
+   Force-specific shader directives or entity keys.
 2. **3D rendering in `System`.** The `System` interface only presents a
    software framebuffer today. Real-time 3D needs the GPU, so the plan is
    an optional 3D interface in `src/common/` (textures, vertex and index

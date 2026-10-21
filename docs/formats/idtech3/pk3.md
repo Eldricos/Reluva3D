@@ -48,6 +48,9 @@ player, `stvoyHM.exe` for Holomatch), the native game and menu code
 (`efgamex86.dll`, `efuix86.dll`) and the Bink video player
 (`binkw32.dll`), so the cinematics are probably Bink videos inside the pak.
 
+`pak0.pk3` holds 67 maps and a `vm/` folder with `qagame.qvm`,
+`cgame.qvm` and `ui.qvm` (see `docs/engines/idtech3.md`).
+
 **Still to check with owned copies:** whether patches or the Expansion
-Pack add paks, the hashes of other releases (`reluva --hash
-baseEF/pak0.pk3`), and whether `pak0.pk3` holds a `vm/` folder.
+Pack add paks, and the hashes of other releases (`reluva --hash
+baseEF/pak0.pk3`).

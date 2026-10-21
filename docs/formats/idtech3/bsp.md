@@ -1,11 +1,10 @@
 # id Tech 3: compiled maps (`maps/*.bsp`)
 
 Status: **all lumps read and cross-checked** (`src/engines/idtech3/bsp.cpp`);
-the light grid is kept raw. Checked on maps built by the tests. **Not yet
-checked against Elite Force's retail maps.** Elite Force's tools are
-derived from Quake III's, so its maps are expected to be the same version
-46, but this needs confirming: the reader fails with a clear message if
-the version or any record size differs.
+the light grid is kept raw. **Verified on all 67 retail Elite Force maps**
+(`reluva-tool bsp-check`, October 2026): every one is version 46 with the
+record sizes below, and 27 of them need the corrections described at the
+end.
 
 Sources: the GPL Quake III Arena source (`code/qcommon/qfiles.h`, the map
 compiler and renderer) and the community's "Unofficial Quake 3 Map Specs".
