@@ -7,7 +7,11 @@ equ trap_Cvar_VariableStringBuffer  -8
 equ trap_LocateGameData             -16
 equ trap_SetConfigstring            -19
 equ trap_GetConfigstring            -20
+equ trap_SetBrushModel              -24
+equ trap_Trace                      -25
+equ trap_PointContents              -26
 equ trap_LinkEntity                 -31
 equ trap_UnlinkEntity               -32
+equ trap_EntitiesInBox              -33
 equ trap_GetEntityToken             -38
 equ ceil                            -112

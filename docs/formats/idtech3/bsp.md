@@ -82,6 +82,27 @@ the rest, normalizes the blended direction, then adds 32 to the ambient
 light (capped at 255). `src/engines/idtech3/light_grid.cpp`; read from the
 GPL renderer's `tr_bsp.c` and `tr_light.c`.
 
+## Collision
+
+How Reluva moves things through a map (`collision.cpp`; the behaviour is
+Quake III's, the code Reluva's own). Brushes are convex volumes, each the
+intersection of the half-spaces behind its sides' planes, with the
+contents of its shader (`solid`, `playerclip`, `water`...); the compiler
+adds bevel planes so boxes slide along edges properly. A trace sweeps an
+axis-aligned box from a start to an end: the box is made symmetric about
+its centre, and each plane is pushed out by how far the box reaches along
+its normal (the sum of `|normal[i]| * halfSize[i]`), which turns the box
+into a point. Through the BSP tree, the swept box goes down whichever
+sides of each node's plane it touches, to the leaves, and is clipped
+against the leaves' brushes (each brush once per trace) whose contents
+share a bit with the mask: the line is inside a brush between the last
+plane it enters and the first it leaves. The move stops 1/8 unit short
+of what it hits, so the next move doesn't start inside it. A trace that
+starts inside a brush reports `startSolid`, and `allSolid` when it ends
+inside too. Brush models (`*1`, `*2`... for doors and lifts) have no tree
+of their own: their brushes are tested directly, in the model's own
+coordinates. Curved surfaces (patches) don't collide yet.
+
 ## What the reader checks
 
 Every lump lies inside the file and holds whole records; every index into

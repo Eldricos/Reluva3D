@@ -153,7 +153,24 @@ III's game calls; unlike the menus, 0 prints and 1 is the error.
 | 19 | `GetConfigstring(index, buffer, size)` | seen | 510 calls while looking for a free index |
 | 37 | `GetEntityToken(buffer, size)` → more? | seen | `(buffer, 1024)`; answering 0 gives "SpawnEntities: no entities" |
 | 38 | `FS_GetFileList(folder, extension, buffer, size)` | seen | `("models/players2", …, buffer, 2048)`: Elite Force's player models |
-| 2, 4, 8, 9, 11–14, 16, 17, 20–36 | the rest of Quake III's game calls, in its order | order | |
+| 23 | `SetBrushModel(ent, name)` | seen | `(ent, *(ent + 324))`: the entity's `model` key, `"*N"` |
+| 24 | `Trace(results, start, mins, maxs, end, passEntityNum, contentMask)` | seen | 81 calls on hm_dn1 (items dropping to the floor). The masks are Quake III's values: `0x6000001` (solid, bodies, corpses), `0x2000000` (bodies), `0x2010000` (bodies, player clip), `1` (solid). Afterwards the code reads +4 (`startsolid`), +8 compared with 1.0 (`fraction`), surface flags against 16 (Quake III's `SURF_NOIMPACT`), the entity number against 1023 (none): Quake III's `trace_t` |
+| 25–33 | `PointContents`, `InPVS`, `InPVSIgnorePortals`, `AdjustAreaPortalState`, `AreasConnected`, `LinkEntity`, `UnlinkEntity`, `EntitiesInBox`, `EntityContact` | order | `LinkEntity` called 81 times on hm_dn1 |
+| 2, 4, 8, 9, 11–14, 16, 17, 20–22, 34–36 | the rest of Quake III's game calls, in its order | order | |
+
+The entities' first 300 bytes, which the engine reads and writes, are
+Quake III's `sharedEntity_t` with an 8-byte shorter entity state: 200
+bytes of `entityState_t`, then `entityShared_t` at 200 (linked, linkcount,
+svFlags, singleClient, bmodel, mins at 220, maxs at 232, contents at 244,
+absmin at 248, absmax at 260, currentOrigin at 272, currentAngles at 284,
+ownerNum at 296). The evidence, from the traces' arguments: the moving
+box is `ent+220` and `ent+232`, the entity to ignore `*(ent+296)` or
+`*ent` (`s.number`); the game copies 12 bytes to `ent+92` (`s.origin`, as
+in Quake III) before `SetBrushModel`, and stores Quake III's
+`CONTENTS_TRIGGER` at `ent+244`; it reads `ent+272` after moving things.
+`s.modelindex` is taken to be at Quake III's 160 (what's missing from the
+entity state would then come after it), to be checked when the client
+game draws brush models. Entities are 588 bytes, clients 740.
 
 Reluva's side: `src/engines/idtech3/eliteforce/game_host.cpp`, run by
 `reluva-tool game-run <game folder> <map>`. Starting a level follows the
@@ -164,10 +181,13 @@ reads them: a quoted string or a run of non-blank characters, comments
 skipped; it answers 0 at the end), then runs three frames
 (`vmMain(8, levelTime)`, 100 ms apart) to let things settle. Implemented
 so far: printing and errors, cvars, files, `LocateGameData`,
-configstrings, linking and unlinking (recorded by entity number), the
-entity text, the server info string. Calls that fill in the game's own
-structures (traces, `SetBrushModel`, user commands) wait until their
-layouts are checked; `game-run` lists them.
+configstrings, the entity text, the server info string; linking (filling
+in `absmin`/`absmax`, a unit larger than the entity's box, as the original
+does), `SetBrushModel`, traces against the world and linked entities,
+point contents, entities in a box, entity contact and the PVS tests.
+Areas and area portals aren't separated yet. `game-run` also drops a
+player's box from every spawn point (raised 9 units, as Quake III's game
+spawns players) as a check of the collision model on its own.
 | 111 | `ceil` | order | Quake III's game numbers `floor` 110 and `ceil` 111 |
 
 ## Client game (`vm/cgame.qvm`)

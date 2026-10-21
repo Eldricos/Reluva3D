@@ -5,6 +5,8 @@
 
 #include "common/archive.h"
 #include "common/types.h"
+#include "engines/idtech3/bsp.h"
+#include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/qvm.h"
 #include "engines/idtech3/vm_services.h"
@@ -13,6 +15,7 @@
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
 #include <vector>
@@ -50,8 +53,9 @@ public:
     Error load();
     // Starts a level: sets the map's cvars, hands the game its entity
     // text (the BSP's entity lump) and calls Init, then runs a few frames
-    // as the original server does to let things settle.
-    Error startLevel(const std::string& mapName, std::string entities, int32_t randomSeed = 0);
+    // as the original server does to let things settle. The map is also
+    // what things collide with.
+    Error startLevel(const std::string& mapName, std::shared_ptr<const Bsp> map, int32_t randomSeed = 0);
     Error runFrame();
     Error call(int32_t command, const std::vector<int32_t>& args, int32_t& result);
 
@@ -67,6 +71,10 @@ public:
         int32_t clientSize = 0;
     };
     const GameData& gameData() const { return gameData_; }
+    // A field of an entity, read from the game's memory (see the layout
+    // in game_host.cpp).
+    int32_t entityInt(int32_t number, int32_t offset);
+    Vec3f entityVec(int32_t number, int32_t offset);
     // Entity numbers linked into the world (LinkEntity), not unlinked since.
     const std::set<int32_t>& linked() const { return linked_; }
     const std::map<int32_t, std::string>& configstrings() const { return configstrings_; }
@@ -85,11 +93,20 @@ private:
     std::string nextEntityToken();
     int32_t entityNumber(int32_t address) const;
     std::string infoString(int32_t flag) const;
+    int32_t entityAddress(int32_t number) const;
+    Vec3f readVec(int32_t address);
+    void writeVec(int32_t address, const Vec3f& v);
+    void linkEntity(int32_t address);
+    void clipMove(int32_t results, const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
+               int32_t passEntity, int32_t mask);
+    int32_t pointContents(const Vec3f& point, int32_t passEntity);
 
     const SearchSet& files_;
     CvarStore& cvars_;
     Qvm vm_;
     VmFiles vmFiles_;
+    std::shared_ptr<const Bsp> map_;
+    std::unique_ptr<CollisionWorld> world_;
     std::string entityText_;
     size_t entityPos_ = 0;
     GameData gameData_;

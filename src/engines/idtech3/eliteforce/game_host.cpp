@@ -3,7 +3,9 @@
 
 #include "engines/idtech3/eliteforce/game_host.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 
 namespace reluva::idtech3::eliteforce {
@@ -58,6 +60,28 @@ enum GameCall : int {
 
 constexpr int32_t kFrameMs = 100; // Quake III servers default to 10 frames a second (sv_fps)
 
+// The start of every entity, the part the engine reads and writes, as
+// Elite Force lays it out (found from the game's own code: what it passes
+// to traces and SetBrushModel, see eliteforce-syscalls.md). An entity
+// state of 200 bytes (Quake III's is 208), then Quake III's
+// entityShared_t.
+namespace ent {
+constexpr int32_t Number = 0;       // s.number
+constexpr int32_t ModelIndex = 160; // s.modelindex, at Quake III's offset (assumed: the 8 bytes Elite Force lacks come later)
+constexpr int32_t Linked = 200;
+constexpr int32_t LinkCount = 204;
+constexpr int32_t BModel = 216;
+constexpr int32_t Mins = 220, Maxs = 232;
+constexpr int32_t Contents = 244;
+constexpr int32_t AbsMin = 248, AbsMax = 260;
+constexpr int32_t CurrentOrigin = 272, CurrentAngles = 284;
+constexpr int32_t OwnerNum = 296;
+constexpr int32_t SharedEnd = 300;
+} // namespace ent
+
+constexpr int32_t kEntityNone = 1023, kEntityWorld = 1022;
+constexpr int32_t kTraceSize = 56; // Quake III's trace_t, as Elite Force's code reads it
+
 } // namespace
 
 GameHost::GameHost(const SearchSet& files, CvarStore& cvars) : files_(files), cvars_(cvars), vmFiles_(files) {
@@ -77,7 +101,12 @@ Error GameHost::call(int32_t command, const std::vector<int32_t>& args, int32_t&
     return vm_.call(command, args, result);
 }
 
-Error GameHost::startLevel(const std::string& mapName, std::string entities, int32_t randomSeed) {
+Error GameHost::startLevel(const std::string& mapName, std::shared_ptr<const Bsp> map, int32_t randomSeed) {
+    if (!map)
+        return Error::fail("No map");
+    map_ = std::move(map);
+    world_ = std::make_unique<CollisionWorld>(*map_);
+    linked_.clear();
     // What the original server sets before starting the game code.
     cvars_.create("mapname", "", CvarStore::ServerInfo | CvarStore::ReadOnly);
     cvars_.set("mapname", mapName, true);
@@ -85,7 +114,7 @@ Error GameHost::startLevel(const std::string& mapName, std::string entities, int
     cvars_.create("g_gametype", "0", CvarStore::ServerInfo | CvarStore::Latch);
     cvars_.create("dedicated", "0", CvarStore::Latch);
     cvars_.create("sv_cheats", "0", CvarStore::ServerInfo | CvarStore::ReadOnly);
-    entityText_ = std::move(entities);
+    entityText_ = map_->entities;
     entityPos_ = 0;
     levelTime_ = 0;
     int32_t ignored = 0;
@@ -145,6 +174,190 @@ int32_t GameHost::entityNumber(int32_t address) const {
     return offset % gameData_.entitySize == 0 ? offset / gameData_.entitySize : -1;
 }
 
+int32_t GameHost::entityAddress(int32_t number) const {
+    if (number < 0 || number >= gameData_.count || gameData_.entitySize < ent::SharedEnd)
+        return -1;
+    return gameData_.entities + number * gameData_.entitySize;
+}
+
+Vec3f GameHost::readVec(int32_t address) {
+    Vec3f v{};
+    if (address)
+        for (int i = 0; i < 3; ++i)
+            v[size_t(i)] = Qvm::asFloat(vm_.readInt(address + 4 * i));
+    return v;
+}
+
+void GameHost::writeVec(int32_t address, const Vec3f& v) {
+    for (int i = 0; i < 3; ++i)
+        vm_.writeInt(address + 4 * i, Qvm::fromFloat(v[size_t(i)]));
+}
+
+int32_t GameHost::entityInt(int32_t number, int32_t offset) {
+    const int32_t a = entityAddress(number);
+    return a < 0 ? 0 : vm_.readInt(a + offset);
+}
+
+Vec3f GameHost::entityVec(int32_t number, int32_t offset) {
+    const int32_t a = entityAddress(number);
+    return a < 0 ? Vec3f{} : readVec(a + offset);
+}
+
+void GameHost::linkEntity(int32_t address) {
+    const int32_t n = entityNumber(address);
+    if (n < 0)
+        return;
+    linked_.insert(n);
+    // Entities without the shared part (not Elite Force's layout): only
+    // recorded.
+    if (gameData_.entitySize < ent::SharedEnd || !vm_.checkWrite(address, ent::SharedEnd))
+        return;
+    // The box it fills in the world, a unit larger all round (moves stop
+    // just short of edges); a turned brush model by its farthest corner.
+    const Vec3f origin = readVec(address + ent::CurrentOrigin), angles = readVec(address + ent::CurrentAngles);
+    const Vec3f mins = readVec(address + ent::Mins), maxs = readVec(address + ent::Maxs);
+    Vec3f absMin{}, absMax{};
+    if (vm_.readInt(address + ent::BModel) && (angles[0] || angles[1] || angles[2])) {
+        float radius = 0;
+        for (int i = 0; i < 3; ++i) {
+            const float m = std::max(std::abs(mins[size_t(i)]), std::abs(maxs[size_t(i)]));
+            radius += m * m;
+        }
+        radius = std::sqrt(radius);
+        for (int i = 0; i < 3; ++i) {
+            absMin[size_t(i)] = origin[size_t(i)] - radius;
+            absMax[size_t(i)] = origin[size_t(i)] + radius;
+        }
+    } else {
+        for (int i = 0; i < 3; ++i) {
+            absMin[size_t(i)] = origin[size_t(i)] + mins[size_t(i)];
+            absMax[size_t(i)] = origin[size_t(i)] + maxs[size_t(i)];
+        }
+    }
+    for (int i = 0; i < 3; ++i) {
+        absMin[size_t(i)] -= 1;
+        absMax[size_t(i)] += 1;
+    }
+    writeVec(address + ent::AbsMin, absMin);
+    writeVec(address + ent::AbsMax, absMax);
+    vm_.writeInt(address + ent::Linked, 1);
+    vm_.writeInt(address + ent::LinkCount, vm_.readInt(address + ent::LinkCount) + 1);
+}
+
+void GameHost::clipMove(int32_t results, const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
+                     int32_t passEntity, int32_t mask) {
+    if (!vm_.checkWrite(results, kTraceSize))
+        return;
+    TraceResult best;
+    int32_t hit = kEntityNone;
+    if (world_) {
+        best = world_->trace(start, end, mins, maxs, 0, mask);
+        hit = best.fraction < 1 ? kEntityWorld : kEntityNone;
+    }
+    // The bounds of the whole move, for skipping entities nowhere near.
+    Vec3f moveMin{}, moveMax{};
+    for (int i = 0; i < 3; ++i) {
+        moveMin[size_t(i)] = std::min(start[size_t(i)], end[size_t(i)]) + mins[size_t(i)] - 1;
+        moveMax[size_t(i)] = std::max(start[size_t(i)], end[size_t(i)]) + maxs[size_t(i)] + 1;
+    }
+    const int32_t passOwner = passEntity >= 0 ? entityInt(passEntity, ent::OwnerNum) : -1;
+    for (int32_t n : linked_) {
+        if (best.allSolid)
+            break;
+        // Not the mover itself, nor what it owns or what owns it.
+        if (n == passEntity || (passEntity >= 0 && (entityInt(n, ent::OwnerNum) == passEntity || n == passOwner)))
+            continue;
+        const int32_t contents = entityInt(n, ent::Contents);
+        if (!(contents & mask))
+            continue;
+        const Vec3f absMin = entityVec(n, ent::AbsMin), absMax = entityVec(n, ent::AbsMax);
+        bool apart = false;
+        for (int i = 0; i < 3; ++i)
+            apart |= absMin[size_t(i)] > moveMax[size_t(i)] || absMax[size_t(i)] < moveMin[size_t(i)];
+        if (apart)
+            continue;
+        const Vec3f origin = entityVec(n, ent::CurrentOrigin);
+        TraceResult t;
+        if (entityInt(n, ent::BModel) && world_) {
+            // Its brushes, where it stands now (turning not yet followed).
+            Vec3f s = start, e = end;
+            for (int i = 0; i < 3; ++i) {
+                s[size_t(i)] -= origin[size_t(i)];
+                e[size_t(i)] -= origin[size_t(i)];
+            }
+            t = world_->trace(s, e, mins, maxs, entityInt(n, ent::ModelIndex), mask);
+            for (int i = 0; i < 3; ++i)
+                t.endPos[size_t(i)] += origin[size_t(i)];
+        } else {
+            Vec3f boxMin = entityVec(n, ent::Mins), boxMax = entityVec(n, ent::Maxs);
+            for (int i = 0; i < 3; ++i) {
+                boxMin[size_t(i)] += origin[size_t(i)];
+                boxMax[size_t(i)] += origin[size_t(i)];
+            }
+            t = CollisionWorld::traceBox(start, end, mins, maxs, boxMin, boxMax, contents);
+        }
+        if (t.allSolid || t.startSolid) {
+            best.allSolid |= t.allSolid;
+            best.startSolid = true;
+            hit = n;
+        }
+        if (t.fraction < best.fraction) {
+            const bool startSolid = best.startSolid;
+            best = t;
+            best.startSolid |= startSolid;
+            hit = n;
+        }
+    }
+    for (int i = 0; i < 3; ++i)
+        best.endPos[size_t(i)] = start[size_t(i)] + best.fraction * (end[size_t(i)] - start[size_t(i)]);
+    // Quake III's trace_t: allsolid, startsolid, fraction, endpos, the
+    // plane (normal, dist, type, sign bits), surfaceFlags, contents,
+    // entityNum.
+    vm_.writeInt(results + 0, best.allSolid);
+    vm_.writeInt(results + 4, best.startSolid);
+    vm_.writeInt(results + 8, Qvm::fromFloat(best.fraction));
+    writeVec(results + 12, best.endPos);
+    writeVec(results + 24, best.normal);
+    vm_.writeInt(results + 36, Qvm::fromFloat(best.dist));
+    int type = 3, signs = 0;
+    for (int i = 0; i < 3; ++i) {
+        if (best.normal[size_t(i)] == 1 || best.normal[size_t(i)] == -1)
+            type = i;
+        if (best.normal[size_t(i)] < 0)
+            signs |= 1 << i;
+    }
+    vm_.memory()[size_t(results + 40)] = uint8_t(type);
+    vm_.memory()[size_t(results + 41)] = uint8_t(signs);
+    vm_.memory()[size_t(results + 42)] = 0;
+    vm_.memory()[size_t(results + 43)] = 0;
+    vm_.writeInt(results + 44, best.surfaceFlags);
+    vm_.writeInt(results + 48, best.contents);
+    vm_.writeInt(results + 52, hit);
+}
+
+int32_t GameHost::pointContents(const Vec3f& point, int32_t passEntity) {
+    int32_t result = world_ ? world_->pointContents(point, 0) : 0;
+    for (int32_t n : linked_) {
+        if (n == passEntity)
+            continue;
+        const Vec3f origin = entityVec(n, ent::CurrentOrigin);
+        if (entityInt(n, ent::BModel) && world_) {
+            const Vec3f local{point[0] - origin[0], point[1] - origin[1], point[2] - origin[2]};
+            if (world_->pointContents(local, entityInt(n, ent::ModelIndex)))
+                result |= entityInt(n, ent::Contents);
+        } else {
+            const Vec3f mins = entityVec(n, ent::Mins), maxs = entityVec(n, ent::Maxs);
+            bool inside = true;
+            for (int i = 0; i < 3; ++i)
+                inside &= point[size_t(i)] >= origin[size_t(i)] + mins[size_t(i)] &&
+                          point[size_t(i)] <= origin[size_t(i)] + maxs[size_t(i)];
+            if (inside)
+                result |= entityInt(n, ent::Contents);
+        }
+    }
+    return result;
+}
+
 std::string GameHost::infoString(int32_t flag) const {
     std::string info;
     for (const CvarStore::Cvar& cv : cvars_.all())
@@ -200,14 +413,85 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         return 0;
     }
     case GetServerinfo: vm.writeString(a[0], infoString(CvarStore::ServerInfo), a[1]); return 0;
-    case LinkEntity:
-        if (const int32_t n = entityNumber(a[0]); n >= 0)
-            linked_.insert(n);
-        return 0;
+    case LinkEntity: linkEntity(a[0]); return 0;
     case UnlinkEntity:
-        if (const int32_t n = entityNumber(a[0]); n >= 0)
+        if (const int32_t n = entityNumber(a[0]); n >= 0) {
             linked_.erase(n);
+            if (gameData_.entitySize >= ent::SharedEnd)
+                vm.writeInt(a[0] + ent::Linked, 0);
+        }
         return 0;
+    case SetBrushModel: { // (ent, "*N"): one of the map's brush models
+        const std::string name = str(1, 64);
+        if (name.size() < 2 || name[0] != '*') {
+            vm.abort("SetBrushModel: '" + name + "' isn't a brush model");
+            return 0;
+        }
+        const int model = std::atoi(name.c_str() + 1);
+        Vec3f mins{}, maxs{};
+        if (!world_ || model <= 0 || !world_->modelBounds(model, mins, maxs)) {
+            vm.abort("SetBrushModel: the map has no model " + name);
+            return 0;
+        }
+        if (gameData_.entitySize < ent::SharedEnd || !vm.checkWrite(a[0], ent::SharedEnd))
+            return 0;
+        vm.writeInt(a[0] + ent::ModelIndex, model);
+        vm.writeInt(a[0] + ent::BModel, 1);
+        writeVec(a[0] + ent::Mins, mins);
+        writeVec(a[0] + ent::Maxs, maxs);
+        vm.writeInt(a[0] + ent::Contents, -1); // whatever its brushes hold
+        linkEntity(a[0]);
+        return 0;
+    }
+    case Trace: {
+        const Vec3f zero{};
+        clipMove(a[0], readVec(a[1]), a[2] ? readVec(a[2]) : zero, a[3] ? readVec(a[3]) : zero, readVec(a[4]), a[5],
+              a[6]);
+        return 0;
+    }
+    case PointContents: return pointContents(readVec(a[0]), a[1]);
+    case InPvs:
+    case InPvsIgnorePortals: {
+        if (!world_)
+            return 1;
+        const int l1 = world_->leafAt(readVec(a[0])), l2 = world_->leafAt(readVec(a[1]));
+        if (l1 < 0 || l2 < 0)
+            return 0;
+        return map_->clusterVisible(map_->leafs[size_t(l1)].cluster, map_->leafs[size_t(l2)].cluster);
+    }
+    case AdjustAreaPortalState: return 0; // areas aren't separated yet
+    case AreasConnected: return 1;
+    case EntitiesInBox: { // (mins, maxs, list, max) -> how many
+        const Vec3f mins = readVec(a[0]), maxs = readVec(a[1]);
+        int32_t count = 0;
+        for (int32_t n : linked_) {
+            if (count >= a[3])
+                break;
+            const Vec3f absMin = entityVec(n, ent::AbsMin), absMax = entityVec(n, ent::AbsMax);
+            bool apart = false;
+            for (int i = 0; i < 3; ++i)
+                apart |= absMin[size_t(i)] > maxs[size_t(i)] || absMax[size_t(i)] < mins[size_t(i)];
+            if (!apart)
+                vm.writeInt(a[2] + 4 * count++, n);
+        }
+        return count;
+    }
+    case EntityContact: { // (mins, maxs, ent): whether the box touches it
+        const Vec3f mins = readVec(a[0]), maxs = readVec(a[1]);
+        const int32_t n = entityNumber(a[2]);
+        if (n < 0)
+            return 0;
+        const Vec3f origin = entityVec(n, ent::CurrentOrigin);
+        if (entityInt(n, ent::BModel) && world_) {
+            const Vec3f at{-origin[0], -origin[1], -origin[2]};
+            return world_->trace(at, at, mins, maxs, entityInt(n, ent::ModelIndex), -1).startSolid;
+        }
+        const Vec3f absMin = entityVec(n, ent::AbsMin), absMax = entityVec(n, ent::AbsMax);
+        for (int i = 0; i < 3; ++i)
+            if (absMin[size_t(i)] > maxs[size_t(i)] || absMax[size_t(i)] < mins[size_t(i)])
+                return 0;
+        return 1;
+    }
     case GetEntityToken: {
         const std::string token = nextEntityToken();
         vm.writeString(a[0], token, a[1]);

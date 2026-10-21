@@ -3157,7 +3157,8 @@ int cmdGameRun(int argc, char** argv) {
     if (map.rfind("maps/", 0) == 0)
         map = map.substr(5);
     Bytes data;
-    q3::Bsp bsp;
+    auto bspOwned = std::make_shared<q3::Bsp>();
+    q3::Bsp& bsp = *bspOwned;
     if (reluva::Error err = set.read("maps/" + map + ".bsp", data); err || (err = q3::parseBsp(data, bsp))) {
         std::fprintf(stderr, "maps/%s.bsp: %s\n", map.c_str(), err.message.c_str());
         return 1;
@@ -3180,7 +3181,7 @@ int cmdGameRun(int argc, char** argv) {
         std::printf("load: %s\n", err.message.c_str());
         return 1;
     }
-    reluva::Error started = game.startLevel(map, bsp.entities);
+    reluva::Error started = game.startLevel(map, bspOwned);
     std::printf("start level (Init and 3 frames): %s\n", started ? started.message.c_str() : "ok");
     bool ok = !started;
     for (int f = 0; ok && f < frames; ++f)
@@ -3197,6 +3198,41 @@ int cmdGameRun(int argc, char** argv) {
     }
     for (const std::string& c : game.consoleCommands())
         std::printf("console command: %s\n", c.c_str());
+
+    // A check of the collision model on its own: a player's box dropped
+    // from each spawn point (raised 9 units, as Quake III's game puts
+    // players there, since spawn points often sit exactly a player's
+    // height above the floor) should land a little below it, not start
+    // in a wall.
+    std::vector<q3::Entity> ents;
+    if (!q3::parseEntities(bsp.entities, ents)) {
+        const q3::CollisionWorld world(bsp);
+        const q3::Vec3f mins{-15, -15, -24}, maxs{15, 15, 32};
+        int spawns = 0, stuck = 0, falling = 0;
+        float shortest = 1e9f, longest = 0;
+        for (const q3::Entity& e : ents) {
+            float o[3];
+            if (e.classname().rfind("info_player", 0) != 0 || !e.vector("origin", o))
+                continue;
+            ++spawns;
+            const q3::Vec3f start{o[0], o[1], o[2] + 9}, end{o[0], o[1], o[2] - 4096};
+            const q3::TraceResult t =
+                world.trace(start, end, mins, maxs, 0, q3::contents::Solid | q3::contents::PlayerClip);
+            if (t.startSolid)
+                ++stuck;
+            else if (t.fraction == 1)
+                ++falling;
+            else {
+                const float drop = start[2] - t.endPos[2];
+                shortest = std::min(shortest, drop);
+                longest = std::max(longest, drop);
+            }
+        }
+        if (spawns)
+            std::printf("collision check: %d spawn points; a player's box dropped from each lands %.1f to %.1f "
+                        "units below; %d start inside something, %d fall out of the map\n",
+                        spawns, spawns > stuck + falling ? shortest : 0.0f, longest, stuck, falling);
+    }
     for (const auto& [number, count] : game.unhandled())
         std::printf("not implemented: system call %d (%d calls)\n", number, count);
     return ok ? 0 : 1;

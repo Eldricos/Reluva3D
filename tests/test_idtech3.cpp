@@ -4,6 +4,7 @@
 // Tests for the id Tech 3 engine's readers, on data built here.
 
 #include "engines/idtech3/bsp.h"
+#include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
@@ -900,6 +901,91 @@ static void testSoundLibrary(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+// A small map for collision: a floor in the world (x and y -512..512, z
+// -64..0) and one brush model, *1, a door 16 x 128 x 128 standing on its
+// own origin.
+static std::shared_ptr<Bsp> collisionMap() {
+    auto bsp = std::make_shared<Bsp>();
+    bsp->shaders.push_back({"textures/test/solid", 0, contents::Solid});
+    auto addBox = [&](Vec3f mins, Vec3f maxs) {
+        const int first = int(bsp->brushSides.size());
+        for (int axis = 0; axis < 3; ++axis) {
+            BspPlane hi, lo;
+            hi.normal[size_t(axis)] = 1;
+            hi.dist = maxs[size_t(axis)];
+            lo.normal[size_t(axis)] = -1;
+            lo.dist = -mins[size_t(axis)];
+            bsp->brushSides.push_back({int(bsp->planes.size()), 0});
+            bsp->planes.push_back(hi);
+            bsp->brushSides.push_back({int(bsp->planes.size()), 0});
+            bsp->planes.push_back(lo);
+        }
+        bsp->brushes.push_back({first, 6, 0});
+    };
+    addBox({-512, -512, -64}, {512, 512, 0});
+    addBox({-8, -64, 0}, {8, 64, 128});
+    // One node, far below everything: the floor's leaf in front, an empty one behind.
+    BspPlane split;
+    split.normal = {0, 0, 1};
+    split.dist = -10000;
+    bsp->planes.push_back(split);
+    BspNode node;
+    node.plane = int(bsp->planes.size()) - 1;
+    node.children = {-1, -2};
+    bsp->nodes.push_back(node);
+    BspLeaf floorLeaf;
+    floorLeaf.numLeafBrushes = 1;
+    bsp->leafs.push_back(floorLeaf);
+    BspLeaf empty;
+    empty.cluster = -1;
+    bsp->leafs.push_back(empty);
+    bsp->leafBrushes.push_back(0);
+    BspModel world;
+    world.mins = {-512, -512, -64};
+    world.maxs = {512, 512, 0};
+    world.numBrushes = 1;
+    BspModel door;
+    door.mins = {-8, -64, 0};
+    door.maxs = {8, 64, 128};
+    door.firstBrush = 1;
+    door.numBrushes = 1;
+    bsp->models = {world, door};
+    return bsp;
+}
+
+static bool near(float a, float b) { return std::fabs(a - b) < 1e-3f; }
+
+static void testCollision() {
+    const auto bsp = collisionMap();
+    const CollisionWorld world(*bsp);
+    const Vec3f zero{};
+    // A point falling onto the floor stops an eighth above it.
+    TraceResult t = world.trace({0, 0, 100}, {0, 0, -100}, zero, zero, 0, contents::Solid);
+    CHECK(!t.startSolid && near(t.endPos[2], 0.125f) && near(t.fraction, 99.875f / 200));
+    CHECK(t.normal[2] == 1 && t.contents == contents::Solid && near(t.dist, 0));
+    // A player's box (feet 24 below its origin) stops with its feet there.
+    t = world.trace({0, 0, 100}, {0, 0, -100}, {-15, -15, -24}, {15, 15, 32}, 0, contents::Solid);
+    CHECK(near(t.endPos[2], 24.125f));
+    // Nothing beyond the floor's edge; nothing for a mask without solid.
+    CHECK(world.trace({1000, 0, 100}, {1000, 0, -100}, zero, zero, 0, contents::Solid).fraction == 1);
+    CHECK(world.trace({0, 0, 100}, {0, 0, -100}, zero, zero, 0, contents::Water).fraction == 1);
+    // Starting inside: startSolid; staying inside: allSolid.
+    t = world.trace({0, 0, -10}, {0, 0, -1000}, zero, zero, 0, contents::Solid);
+    CHECK(t.startSolid && !t.allSolid);
+    t = world.trace({0, 0, -10}, {0, 0, -20}, zero, zero, 0, contents::Solid);
+    CHECK(t.startSolid && t.allSolid && t.fraction == 0);
+    // Sideways into the door (model 1, in its own coordinates).
+    t = world.trace({-100, 0, 64}, {100, 0, 64}, zero, zero, 1, contents::Solid);
+    CHECK(near(t.endPos[0], -8.125f) && t.normal[0] == -1);
+    CHECK(world.pointContents({0, 0, -32}, 0) == contents::Solid && world.pointContents({0, 0, 32}, 0) == 0);
+    CHECK(world.pointContents({0, 0, 64}, 1) == contents::Solid);
+    Vec3f mins, maxs;
+    CHECK(world.modelBounds(1, mins, maxs) && maxs[2] == 128 && !world.modelBounds(2, mins, maxs));
+    // A box entity.
+    t = CollisionWorld::traceBox({0, 0, 100}, {0, 0, -100}, zero, zero, {-16, -16, 0}, {16, 16, 32}, contents::Body);
+    CHECK(near(t.endPos[2], 32.125f) && t.contents == contents::Body);
+}
+
 // The game logic starting a level: its entities handed over token by
 // token, as the original server does, by a QVM the Quake III compiler
 // made from tests/data/qvm/fake_game.c.
@@ -916,16 +1002,19 @@ static void testGameHost(const std::filesystem::path& tmp) {
     ef::GameHost game(set, cvars);
     CHECK(!game.load());
     const std::string entities = "{\n\"classname\" \"worldspawn\"\n\"message\" \"Borg Cube, deck 4\"\n}\n"
-                                 "// a comment\n{\n\"classname\" \"info_player_deathmatch\"\n"
-                                 "\"origin\" \"64 -32 24\"\n}\n/* another */ {\n\"classname\" \"item_health\"\n}\n";
-    const Error err = game.startLevel("borg2", entities);
+                                 "// a comment\n{\n\"classname\" \"func_door\"\n\"model\" \"*1\"\n"
+                                 "\"origin\" \"200 0 0\"\n}\n/* another */ {\n\"classname\" \"item_health\"\n"
+                                 "\"origin\" \"-200 0 16\"\n}\n";
+    auto map = collisionMap();
+    map->entities = entities;
+    const Error err = game.startLevel("borg2", map);
     CHECK(!err);
     if (err) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return;
     }
     CHECK(game.log() == "------- Game Initialization -------\n");
-    CHECK(game.gameData().count == 3 && game.gameData().entitySize == 48 && game.gameData().clientSize == 4);
+    CHECK(game.gameData().count == 3 && game.gameData().entitySize == 352 && game.gameData().clientSize == 4);
     CHECK((game.linked() == std::set<int32_t>{1, 2})); // the world unlinked
     CHECK(game.configstrings().count(12) && game.configstrings().at(12) == "borg2");
     CHECK(game.levelTime() == 300);
@@ -934,12 +1023,37 @@ static void testGameHost(const std::filesystem::path& tmp) {
     CHECK(!game.call(21, {2}, r) && r == 'i' * 1000 + 't');
     CHECK(!game.call(21, {0}, r) && r == 'w' * 1000 + 'o');
     CHECK(!game.call(22, {}, r) && r == 803); // sv_maxclients 8, ceil(2.25)
+
+    // SetBrushModel: the door's model, box and contents, linked.
+    CHECK(!game.call(30, {1}, r) && r == 111);
+    CHECK(game.entityVec(1, 232)[2] == 128 && game.entityInt(1, 244) == -1);
+    // Linking fills in the box in the world, a unit larger: the item's z -16..16 around 16.
+    CHECK(!game.call(27, {2}, r) && r == -1 * 1000 + 33);
+    // Traces down onto the floor, the door (entity 1) and the item (2), in eighths.
+    CHECK(!game.call(24, {0, 0, 100, 0, -1}, r) && r == 1022);
+    CHECK(!game.call(25, {}, r) && r == 1);
+    CHECK(!game.call(26, {}, r) && r == 1000); // the floor's normal points up
+    CHECK(!game.call(24, {200, 0, 500, 0, -1}, r) && r == 1);
+    CHECK(!game.call(25, {}, r) && r == 128 * 8 + 1);
+    CHECK(!game.call(24, {-200, 0, 500, 0, -1}, r) && r == 2);
+    CHECK(!game.call(25, {}, r) && r == 32 * 8 + 1);
+    CHECK(!game.call(24, {-200, 0, 500, 0, 2}, r) && r == 1022); // ignoring the item
+    CHECK(!game.call(24, {0, 0, 100, 16, -1}, r) && !game.call(25, {}, r) && r == 16 * 8 + 1); // a box
+    CHECK(!game.call(24, {0, 0, -10, 0, -1}, r) && !game.call(26, {}, r) && r == 101); // starting in the floor
+    CHECK(!game.call(24, {1000, 0, 100, 0, -1}, r) && r == 1023); // nothing there
+    CHECK(!game.call(28, {0, 0, -32}, r) && r == contents::Solid);
+    CHECK(!game.call(28, {200, 0, 64}, r) && r == -1); // inside the door
+    CHECK(!game.call(28, {0, 0, 64}, r) && r == 0);
+    CHECK(!game.call(29, {-200, 0, 16}, r) && r == 102);
+    CHECK(!game.call(29, {0, 0, 300}, r) && r == 0);
     CHECK(game.unhandled().empty());
 
     // Broken entity text: the game's own error stops it.
     ef::GameHost broken(set, cvars);
     CHECK(!broken.load());
-    const Error e2 = broken.startLevel("x", "{ \"classname\" \"worldspawn\" ");
+    auto brokenMap = std::make_shared<Bsp>();
+    brokenMap->entities = "{ \"classname\" \"worldspawn\" ";
+    const Error e2 = broken.startLevel("x", brokenMap);
     CHECK(e2 && e2.message.find("broken entity text") != std::string::npos);
     std::filesystem::remove_all(tmp);
 }
@@ -1090,6 +1204,7 @@ int main() {
     testCvars();
     testVmFileList();
     testSoundLibrary(tmp / "sounds");
+    testCollision();
     testGameHost(tmp / "game");
     testJumpTableGuard();
     testUiHost(tmp / "ui");
