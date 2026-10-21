@@ -3439,12 +3439,26 @@ int cmdGameRun(int argc, char** argv) {
                     cgame.models().size(), cgame.skins().size(), cgame.shaders().size(), cgame.sounds().size(),
                     cgame.commands().size());
         if (!err) {
-            // One frame, to see what the client game asks for to draw one.
-            int32_t ignored = 0;
-            const reluva::Error frame =
-                cgame.call(ef::CgameHost::DrawActiveFrame, {game.levelTime(), 0, 0}, ignored);
-            std::printf("cgame DrawActiveFrame(%d): %s after %llu instructions\n", game.levelTime(),
-                        frame ? frame.message.c_str() : "ok", static_cast<unsigned long long>(cgame.vm().executed()));
+            // A few frames, a new snapshot each, to see what the client game
+            // asks for to draw them.
+            for (int f = 0; f < 3; ++f) {
+                if (f)
+                    game.runFrame();
+                cgame.newSnapshot(game.levelTime());
+                int32_t ignored = 0;
+                const reluva::Error frame =
+                    cgame.call(ef::CgameHost::DrawActiveFrame, {game.levelTime(), 0, 0}, ignored);
+                std::printf("cgame DrawActiveFrame(%d): %s after %llu instructions\n", game.levelTime(),
+                            frame ? frame.message.c_str() : "ok",
+                            static_cast<unsigned long long>(cgame.vm().executed()));
+                if (frame)
+                    break;
+            }
+            const auto& requests = cgame.snapshotRequests();
+            for (size_t i = 0; i < requests.size(); ++i)
+                std::printf("cgame asked for snapshot %d at %d%s\n", requests[i].first, requests[i].second,
+                            i ? (" (" + std::to_string(requests[i].second - requests[i - 1].second) + " from the last)").c_str()
+                              : "");
         }
         for (const auto& [number, count] : cgame.unhandled()) {
             const auto& a = cgame.firstUnhandled().at(number);

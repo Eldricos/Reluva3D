@@ -35,6 +35,7 @@ enum CgameCall : int {
     AddCommand = 15,
     SendClientCommand = 16,
     UpdateScreen = 17,
+    SClearLoopingSounds = 30,
     CmLoadMap = 18,
     CmNumInlineModels = 19,
     SRegisterSound = 34,
@@ -47,6 +48,8 @@ enum CgameCall : int {
     RModelBounds = 47,
     GetGlconfig = 49,
     GetGameState = 50,
+    GetCurrentSnapshotNumber = 51,
+    GetSnapshot = 52,
     RRegisterShaderNoMip = 57,
     MemoryRemaining = 58,
 };
@@ -209,6 +212,16 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         }
         return 0;
     }
+    case SClearLoopingSounds: return 0; // sounds in the world: later
+    case GetCurrentSnapshotNumber: // (&number, &serverTime)
+        vm.writeInt(a[0], snapshotNumber_);
+        vm.writeInt(a[1], snapshotTime_);
+        return 0;
+    case GetSnapshot: // (number, snapshot_t*) -> whether it's there: not yet
+        snapshotRequests_.emplace_back(a[0], a[1]);
+        ++unhandled_[number];
+        firstUnhandled_.try_emplace(number, std::array<int32_t, 6>{a[0], a[1], a[2], a[3], a[4], a[5]});
+        return 0;
     case MemoryRemaining: return 64 << 20; // plenty: the client game loads every player model up front
     case GetGlconfig: writeGlconfig(a[0]); return 0;
     case GetGameState: writeGameState(a[0]); return 0;

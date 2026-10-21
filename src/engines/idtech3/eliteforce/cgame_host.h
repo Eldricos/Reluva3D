@@ -47,6 +47,15 @@ public:
     // CG_INIT for the player `clientNum`.
     Error init(int32_t clientNum, int32_t serverMessageNum = 0, int32_t serverCommandSequence = 0);
     Error call(int32_t command, const std::vector<int32_t>& args, int32_t& result);
+    // A new snapshot from the server: what GetCurrentSnapshotNumber
+    // reports (its number counts up from 1, with the server's time).
+    void newSnapshot(int32_t serverTime) {
+        ++snapshotNumber_;
+        snapshotTime_ = serverTime;
+    }
+    // Where the client game asked for each snapshot (GetSnapshot's
+    // number and buffer), in order: not filled in yet.
+    const std::vector<std::pair<int32_t, int32_t>>& snapshotRequests() const { return snapshotRequests_; }
 
     Qvm& vm() { return vm_; }
     // What it registered, by handle.
@@ -90,6 +99,8 @@ private:
     std::map<int, int> unhandled_;
     std::map<int, std::array<int32_t, 6>> firstUnhandled_;
     int32_t time_ = 0;
+    int32_t snapshotNumber_ = 0, snapshotTime_ = 0;
+    std::vector<std::pair<int32_t, int32_t>> snapshotRequests_;
 };
 
 } // namespace reluva::idtech3::eliteforce

@@ -233,6 +233,7 @@ numbering wherever it can be checked:
 | 17 | `UpdateScreen()` | seen | after each loading caption copied to a buffer: "collision map", "sounds", "game media"... |
 | 18 | `CM_LoadMap(name)` | seen | `"maps/<mapname>.bsp"` |
 | 19 | `CM_NumInlineModels()` | seen | where the brush models would be registered |
+| 30 | `S_ClearLoopingSounds()` | seen | at the start of a frame |
 | 34 | `S_RegisterSound(name)` | seen | the countdown voices, footsteps, item sounds |
 | 35 | `S_StartBackgroundTrack(intro, loop)` | seen | two strings made from a configstring |
 | 36 | `R_LoadWorldMap(name)` | seen | the map name |
@@ -243,6 +244,8 @@ numbering wherever it can be checked:
 | 47 | `R_ModelBounds(model, mins, maxs)` | seen | 7 calls after registering models (on hm_dn1); brush models (`*N`) too in Quake III's client game |
 | 49 | `GetGlconfig(&glconfig)` | seen | into the field after the game state |
 | 50 | `GetGameState(&gameState)` | seen | into the start of the client game's static block |
+| 51 | `GetCurrentSnapshotNumber(&number, &serverTime)` | seen | the first call of a frame; unanswered, it read 25376 as the number ("CG_ReadNextSnapshot: way out of range") |
+| 52 | `GetSnapshot(number, snapshot_t*)` → whether it's there | order | |
 | 57 | `R_RegisterShaderNoMip(name)` | seen | crosshairs, HUD pieces, fonts |
 | 58 | `MemoryRemaining()` | seen | answered 0, the client game prints "Memory is low.  Using deferred model." and skips loading player models |
 | 100, 102 | `memset`, `strncpy` | seen | |
