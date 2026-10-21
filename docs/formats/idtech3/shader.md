@@ -92,7 +92,7 @@ Read from the GPL Quake III Arena renderer (`tr_shader.c`,
 | shader | `deformVertexes bulge <width> <height> <speed>` | along the normals by height * sin(s * width + time * speed) |
 | shader | `deformVertexes move <x> <y> <z> <func> ...` | the whole surface by the vector times the wave |
 | shader | `sort`, `polygonOffset`, `nomipmaps`, `nopicmip`, `portal` | see above |
-| stage | `map <image>` / `clampMap <image>` | the stage's texture; `$lightmap` and `$whiteimage` are special |
+| stage | `map <image>` / `clampMap <image>` | the stage's texture; `$lightmap` is special, and `$whiteimage` and `*white` both name a plain white image |
 | stage | `animMap <fps> <image>...` | frames played at `fps` |
 | stage | `blendFunc add\|filter\|blend` or `<src> <dst>` | `GL_ONE GL_ONE`, `GL_DST_COLOR GL_ZERO`, `GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA`, or explicit factors |
 | stage | `rgbGen identity\|identityLighting\|vertex\|exactVertex\|oneMinusVertex\|wave ...\|const ( r g b )\|entity\|oneMinusEntity` | the colour (lightingDiffuse uses the vertex colours for now) |

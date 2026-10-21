@@ -2954,7 +2954,7 @@ int cmdUiRun(int argc, char** argv) {
     }
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
-    int frames = 1, menu = 1, width = 640, height = 480, glwords = 5120;
+    int frames = 1, menu = 1, width = 640, height = 480, glwords = 5124;
     bool traceCalls = false, verbose = false;
     for (int i = 3; i < argc; ++i) {
         if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)

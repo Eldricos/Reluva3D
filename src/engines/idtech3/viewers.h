@@ -17,11 +17,16 @@
 //           R to reset the view, I to show or hide the info.
 // Files:    Up/Down, PageUp/PageDown, Home/End scroll the search path's files.
 // Textures: Left/Right step, PageUp/PageDown jump 10, Home/End.
+// Menu:     the game's own menus (Elite Force: vm/ui.qvm) running; keys
+//           and the mouse go to them, Ctrl+Tab and Ctrl+Esc leave, Ctrl+R
+//           starts them again.
 // Maps:     Left/Right pick a map; drag (or arrow keys with Shift) to rotate,
 //           wheel or +/- to zoom, W/A/S/D/Q/E to move, R to reset the view,
 //           P to show or hide patches, I to show or hide the info.
 
 #include "engines/idtech3/bsp.h"
+#include "engines/idtech3/cvars.h"
+#include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/games.h"
 #include "engines/idtech3/shader.h"
 #include "engines/idtech3/light_grid.h"
@@ -65,6 +70,9 @@ public:
     // Pages that draw with System::init3D; the engine puts the 2D
     // framebuffer back when leaving one.
     virtual bool uses3D() const { return false; }
+    // Whether Esc and Tab (which otherwise leave and switch pages) go to
+    // the page instead.
+    virtual bool takesKey(const Event& /*ev*/) const { return false; }
 
 protected:
     void clear(uint8_t r, uint8_t g, uint8_t b);
@@ -203,6 +211,37 @@ private:
     int lastX_ = 0, lastY_ = 0;
     int frame_ = 0; // when not animating
     uint64_t startMs_ = 0;
+};
+
+class MenuViewer : public Page {
+public:
+    explicit MenuViewer(ViewerContext& ctx);
+    ~MenuViewer() override;
+    const char* name() const override { return "Menu"; }
+    size_t count() const override { return available_ ? 1 : 0; }
+    void activate() override;
+    void deactivate() override;
+    void handleEvent(const Event& ev) override;
+    void update(uint64_t nowMs) override;
+    bool uses3D() const override { return renderer_ != nullptr; }
+    bool takesKey(const Event& ev) const override;
+
+private:
+    void start();
+    void stop(const Error& err);
+
+    bool available_ = false;
+    gfx::Renderer3D* renderer_ = nullptr;
+    std::unique_ptr<ShaderCache> shaders_;
+    std::vector<int> materials_; // by the menus' shader handle; -2 not made yet
+    CvarStore cvars_;
+    std::unique_ptr<eliteforce::UiHost> ui_; // kept while other pages are shown
+    Surface overlay_;
+    std::string error_;
+    uint64_t startMs_ = 0, shownMs_ = 0;
+    bool haveMouse_ = false;
+    int lastX_ = 0, lastY_ = 0;
+    float mouseX_ = 0, mouseY_ = 0; // movement not yet passed on
 };
 
 class MapViewer : public Page {

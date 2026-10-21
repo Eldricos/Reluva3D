@@ -35,7 +35,7 @@ char *strncpy(char *dest, const char *src, int count);
 float sqrt(float f);
 
 static vmCvar_t testCvar;
-static int glconfig[1298]; /* Elite Force's glconfig_t: 5120 bytes of strings, then words */
+static int glconfig[1298]; /* Elite Force's glconfig_t: 5120 bytes of strings, a word, then Quake III's 17 */
 static int shader;
 static char file[64];
 static char list[256];
@@ -63,14 +63,14 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
     case 3:
         trap_Cvar_Update(&testCvar);
         return testCvar.integer;
-    case 4: return glconfig[1280 + 10] * 1000 + glconfig[1280 + 11]; /* vidWidth, vidHeight */
+    case 4: return glconfig[1281 + 10] * 1000 + glconfig[1281 + 11]; /* vidWidth, vidHeight */
     case 5:                                                         /* refresh(time) */
         color[0] = 1;
         color[1] = 0.5f;
         color[2] = 0;
         color[3] = 1;
         trap_R_SetColor(color);
-        trap_R_DrawStretchPic(10, 20, glconfig[1280 + 10] / 2, 30, 0, 0, 1, 0.5f, shader);
+        trap_R_DrawStretchPic(10, 20, glconfig[1281 + 10] / 2, 30, 0, 0, 1, 0.5f, shader);
         trap_R_SetColor(0);
         trap_R_DrawStretchPic(0, 0, 1, 1, 0, 0, 1, 1, shader);
         return arg0;

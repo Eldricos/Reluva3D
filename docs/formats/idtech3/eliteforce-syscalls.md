@@ -72,19 +72,20 @@ Quake III's order: 2 shutdown, 3 key event (key, down), 4 mouse event
 
 Structures the engine fills in:
 
-- `glconfig_t` (call 43). `reluva-tool qvm-refs` on the address the menus
-  pass shows a smaller structure than Quake III's: its four strings at 0,
-  1024, 2048 and 3072 (each passed on as an argument, to be printed), so
-  the extensions string is 2048 bytes rather than 8192; words read from
-  5128 to 5168; and the menus' next variable at 5192 or 5196 (5196 is
-  read 310 times, which fits the white shader every filled rectangle is
-  drawn with). With Quake III's 17 words starting at 5120, `vidWidth` and
-  `vidHeight` would be at 5160 and 5164; but the code reads 5164 and 5168
-  and never 5160, which would fit an extra word of Elite Force's own
-  first. Still to settle with `reluva-tool qvm-dis -ref` on those
-  addresses; `ui-run -glwords 5124` tries the second reading.
-  Writing Quake III's 11,332 bytes left the menus' screen size at 0 (every
-  picture 0×0) and overwrote their own variables.
+- `glconfig_t` (call 43): renderer, vendor and version strings of 1024
+  bytes and a 2048-byte extensions string (Quake III's is 8192), then a
+  word of Elite Force's own, then Quake III's 17 words: 5192 bytes. Found
+  with `reluva-tool qvm-refs` on the address the menus pass: the strings
+  at 0, 1024, 2048 and 3072 are each passed on to be printed; the menus'
+  next variable starts at 5192 (5196, read 310 times, fits the white
+  shader that filled rectangles use). Right after the call the menus
+  compute their scale (`qvm-dis -ref`): the word at 5164 times 1/640, the
+  word at 5168 times 1/480, so `vidWidth` is at 5164 and `vidHeight` at
+  5168, Quake III's words 10 and 11 counted from 5124. With these, the
+  main menu's pictures fill a 640×480 screen as expected. (Writing Quake
+  III's 11,332 bytes had left the screen size at 0 and overwritten the
+  menus' own variables.) What the extra word at 5120 means is unknown;
+  Reluva leaves it 0.
 - `uiClientState_t` (call 44), assumed to be Quake III's: connection state
   (1 = disconnected), two more words, three 1024-byte strings.
 
@@ -93,8 +94,13 @@ Files the menus read at init: `ext_data/mp_normaltext.dat`,
 from `g_language`), `ext_data/fonts.dat`, `scripts/arenas.txt`,
 `scripts/*.arena`, `scripts/*.bot`.
 
+Key numbers (`KeyEvent`) are assumed to be Quake III's: ASCII for
+printable keys, Tab 9, Enter 13, Escape 27, Backspace 127, then from 128
+its list (arrows 132–135, F1 145, mouse buttons 178–180, wheel 183–184).
+`MouseEvent` takes movement in 640×480 units.
+
 Reluva's side: `src/engines/idtech3/eliteforce/ui_host.cpp`, run by
-`reluva-tool ui-run`.
+`reluva-tool ui-run` and shown by the Menu page (`menu_viewer.cpp`).
 
 ## Game logic (`vm/qagame.qvm`)
 

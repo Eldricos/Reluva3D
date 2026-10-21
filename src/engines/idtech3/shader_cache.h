@@ -19,8 +19,10 @@ namespace reluva::idtech3 {
 // How a surface is lit, which decides the original's implicit shader for
 // names without a script and what $lightmap and lightingDiffuse mean:
 // lightmapped map surfaces, map surfaces lit by their vertex colours, and
-// models lit by a light (the light grid, for models in a map).
-enum class Lighting { Lightmap, Vertex, Diffuse };
+// models lit by a light (the light grid, for models in a map); and
+// pictures drawn flat on the screen (menus, the HUD), tinted by their
+// vertex colours, with no depth test or culling.
+enum class Lighting { Lightmap, Vertex, Diffuse, TwoD };
 
 // Shaders turned into what the GPU draws, shared by everything a page
 // shows: each stage's textures loaded and states decided once, the parts

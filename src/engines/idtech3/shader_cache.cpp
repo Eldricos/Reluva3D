@@ -312,6 +312,16 @@ int ShaderCache::material(const std::string& name, Lighting lighting) {
             tex.blendDst = "gl_zero";
             tex.rgbGen = ShaderStage::RgbGen::Identity;
             d.stages = {lm, tex};
+        } else if (lighting == Lighting::TwoD) {
+            // Pictures: blended by their alpha, coloured by the vertices,
+            // the image clamped and without mipmaps.
+            tex.blendSrc = "gl_src_alpha";
+            tex.blendDst = "gl_one_minus_src_alpha";
+            tex.rgbGen = ShaderStage::RgbGen::Vertex;
+            tex.alphaGen = ShaderStage::AlphaGen::Vertex;
+            tex.clamp = true;
+            d.noMipmaps = true;
+            d.stages = {tex};
         } else {
             tex.rgbGen = lighting == Lighting::Vertex ? ShaderStage::RgbGen::ExactVertex
                                                       : ShaderStage::RgbGen::LightingDiffuse;
@@ -395,6 +405,10 @@ void ShaderCache::draw(int material, const gfx::DrawCall& base, gfx::TextureId l
         default: break; // identity, entity, lightingSpecular, portal: opaque
         }
 
+        if (m.lighting == Lighting::TwoD) {
+            call.state.depthTest = call.state.depthWrite = false;
+            call.state.cull = gfx::Cull::None;
+        }
         if (sky) {
             call.followCamera = true;
             call.texGen = gfx::TexGen::Uv2; // the cloud coordinates

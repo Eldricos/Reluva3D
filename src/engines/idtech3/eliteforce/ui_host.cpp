@@ -66,7 +66,7 @@ enum UiCall : int {
 
 // glconfig_t as Elite Force's menus use it (qvm-refs): renderer, vendor
 // and version strings of 1024 bytes and a 2048-byte extensions string,
-// then words up to byte 5192, where the menus' next variable starts.
+// then a word of Elite Force's own and Quake III's 17 words, to byte 5192.
 // Quake III's extensions string is 8192 bytes.
 constexpr int32_t kGlconfigStrings = 1024 * 3 + 2048;
 constexpr int32_t kGlconfigSize = 5192;

@@ -11,7 +11,8 @@
 //
 // For now the engine is a data viewer (see viewers.h for the keys): it
 // mounts the game's search path and shows its files, textures and maps.
-// Tab switches pages; Esc goes back to the launcher.
+// Tab switches pages; Esc goes back to the launcher (on the Menu page,
+// Ctrl+Tab and Ctrl+Esc, as the menus take Tab and Esc).
 
 #include "engines/engine.h"
 #include "engines/idtech3/filesystem.h"
@@ -49,6 +50,7 @@ public:
 
         ViewerContext ctx{sys_, screen_, files_, shaders_, game_, warnings};
         std::vector<std::unique_ptr<Page>> pages;
+        pages.push_back(std::make_unique<MenuViewer>(ctx));
         pages.push_back(std::make_unique<WorldViewer>(ctx));
         pages.push_back(std::make_unique<ModelViewer>(ctx));
         pages.push_back(std::make_unique<MapViewer>(ctx));
@@ -66,9 +68,10 @@ public:
             while (sys_.pollEvent(ev)) {
                 if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher)
                     return Error::success();
-                if (ev.type == EventType::KeyDown && ev.key == key::Escape)
+                const bool pageKey = pages[page]->takesKey(ev);
+                if (ev.type == EventType::KeyDown && ev.key == key::Escape && !pageKey)
                     return Error::success();
-                if (ev.type == EventType::KeyDown && ev.key == key::Tab) {
+                if (ev.type == EventType::KeyDown && ev.key == key::Tab && !pageKey) {
                     // Leaving a 3D page: its renderer goes, the framebuffer comes back.
                     const bool was3D = pages[page]->uses3D();
                     pages[page]->deactivate();

@@ -80,7 +80,7 @@ bool applyStageDirective(ShaderStage& stage, const Directive& d) {
         stage.clamp = d.keyword == "clampmap";
         if (a0 == "$lightmap")
             stage.lightmap = true;
-        else if (a0 == "$whiteimage")
+        else if (a0 == "$whiteimage" || a0 == "*white") // the renderer's built-in white image
             stage.whiteImage = true;
         else if (!args.empty())
             stage.maps = {args[0]};
