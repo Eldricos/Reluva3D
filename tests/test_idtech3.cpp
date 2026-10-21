@@ -306,6 +306,19 @@ static void testFilesystemAndDetection(const std::filesystem::path& tmp) {
     lib.load(set);
     CHECK(lib.size() == 1 && lib.find("textures/x"));
 
+    // Images are found whichever extension is written, .tga first.
+    test::writeFile(base / "textures" / "a.jpg", toBytes("jpg"));
+    test::writeFile(base / "textures" / "b.tga", toBytes("tga"));
+    test::writeFile(base / "textures" / "b.jpg", toBytes("jpg"));
+    test::writeFile(base / "v1.5" / "c.tga", toBytes("tga"));
+    SearchSet images;
+    CHECK(!mountGameDir(images, tmp, "baseef", 0, warnings));
+    CHECK(findImage(images, "textures/a.tga") == "textures/a.jpg");
+    CHECK(findImage(images, "textures/a") == "textures/a.jpg");
+    CHECK(findImage(images, "textures/b.jpg") == "textures/b.tga");
+    CHECK(findImage(images, "v1.5/c") == "v1.5/c.tga"); // a dot in a folder isn't an extension
+    CHECK(findImage(images, "textures/none.tga").empty());
+
     // Not Elite Force until the executable is there too.
     const MetaEngine* meta = findEngine("idtech3");
     CHECK(meta && meta->detect(tmp).empty());

@@ -140,6 +140,11 @@ private:
     uint64_t fpsStart_ = 0;
     int frames_ = 0;
     float fps_ = 0;
+    // Per second: average milliseconds per frame spent issuing draws, and
+    // presenting (which includes waiting for vsync).
+    double drawSum_ = 0, presentSum_ = 0;
+    float drawMs_ = 0, presentMs_ = 0;
+    std::string device_;
 };
 
 class MapViewer : public Page {

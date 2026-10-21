@@ -42,6 +42,8 @@
 //                                                  (e.g. .../BaseEF), report failures and corrections
 //   reluva-tool pk3-list <game folder> [filter]    list the search path's files, with sizes and the
 //                                                  archive each comes from
+//   reluva-tool image-check <game folder> [map]    list the images maps' shaders use that can't be
+//                                                  found (only maps whose name contains map)
 
 #include "common/audio/decode.h"
 #include "common/audio/wav.h"
@@ -60,6 +62,7 @@
 #include "common/zip.h"
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/filesystem.h"
+#include "engines/idtech3/shader.h"
 
 #include <map>
 #include <memory>
@@ -2428,6 +2431,61 @@ int cmdBspCheck(int argc, char** argv) {
     return failed ? 1 : 0;
 }
 
+int cmdImageCheck(int argc, char** argv) {
+    if (argc != 3 && argc != 4) {
+        std::fprintf(stderr, "usage: reluva-tool image-check <game folder> [map name filter]\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    std::vector<std::string> warnings;
+    q3::ShaderLibrary shaders;
+    shaders.load(set, &warnings);
+    for (const std::string& w : warnings)
+        std::fprintf(stderr, "warning: %s\n", w.c_str());
+    const std::string filter = argc == 4 ? reluva::normalizeArchiveName(argv[3]) : std::string();
+
+    std::map<std::string, int> missingEverywhere; // image -> maps missing it
+    int maps = 0;
+    Bytes data;
+    for (const std::string& name : set.list()) {
+        const std::string key = reluva::normalizeArchiveName(name);
+        if (key.rfind("maps/", 0) != 0 || key.size() < 4 || key.compare(key.size() - 4, 4, ".bsp") != 0 ||
+            key.find(filter) == std::string::npos)
+            continue;
+        q3::Bsp bsp;
+        if (set.read(name, data) || q3::parseBsp(data, bsp))
+            continue;
+        ++maps;
+        // Every image each shader names: its stages' maps, or for a shader
+        // without a script, the image of its own name.
+        std::map<std::string, std::string> missing; // image -> a shader wanting it
+        for (const q3::BspShader& s : bsp.shaders) {
+            std::vector<std::string> images;
+            const q3::ShaderDef* def = shaders.find(s.name);
+            if (!def)
+                images.push_back(s.name);
+            else
+                for (const q3::ShaderStage& st : def->stages)
+                    for (const std::string& m : st.maps)
+                        if (!m.empty() && m[0] != '$')
+                            images.push_back(m);
+            for (const std::string& img : images)
+                if (q3::findImage(set, img).empty())
+                    missing.emplace(reluva::normalizeArchiveName(img), std::string(def ? "script " : "") + s.name);
+        }
+        std::printf("%s: %zu shaders, %zu missing images\n", name.c_str(), bsp.shaders.size(), missing.size());
+        for (const auto& [img, shader] : missing) {
+            std::printf("    %-56s (shader %s)\n", img.c_str(), shader.c_str());
+            ++missingEverywhere[img];
+        }
+    }
+    std::printf("%d maps, %zu distinct missing images\n", maps, missingEverywhere.size());
+    return 0;
+}
+
 int cmdPk3List(int argc, char** argv) {
     if (argc != 3 && argc != 4) {
         std::fprintf(stderr, "usage: reluva-tool pk3-list <game folder> [name filter]\n");
@@ -2510,6 +2568,8 @@ int main(int argc, char** argv) {
         return cmdBspCheck(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "pk3-list") == 0)
         return cmdPk3List(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "image-check") == 0)
+        return cmdImageCheck(argc, argv);
     std::fprintf(stderr,
                  "usage:\n"
                  "  reluva-tool hexdump <file> [offset] [length]\n"
@@ -2539,6 +2599,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool geo-faces <file.geo>\n"
                  "  reluva-tool lbp-info <file> [output prefix]\n"
                  "  reluva-tool bsp-check <game folder, e.g. .../BaseEF>\n"
-                 "  reluva-tool pk3-list <game folder> [name filter]\n");
+                 "  reluva-tool pk3-list <game folder> [name filter]\n"
+                 "  reluva-tool image-check <game folder> [map name filter]\n");
     return 2;
 }

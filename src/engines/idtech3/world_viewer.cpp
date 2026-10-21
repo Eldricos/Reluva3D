@@ -10,6 +10,7 @@
 #include "common/font.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -58,6 +59,7 @@ void WorldViewer::activate() {
         return;
     }
     overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
+    device_ = renderer_->deviceName();
     world_ = std::make_unique<WorldRenderer>(*renderer_);
     load(index_);
 }
@@ -185,28 +187,40 @@ void WorldViewer::update(uint64_t nowMs) {
     const float fovY = 2 * std::atan(std::tan(kPi / 4) / aspect);
     const gfx::Mat4 viewProj =
         gfx::multiply(gfx::perspective(fovY, aspect, 4, 32768), gfx::lookAlong(pos_, forward, {0, 0, 1}));
+    using Clock = std::chrono::steady_clock;
+    const auto t0 = Clock::now();
     renderer_->beginFrame(viewProj, {40, 48, 64});
     world_->draw();
     drawOverlay(nowMs);
+    const auto t1 = Clock::now();
     renderer_->endFrame(&overlay_);
+    const auto t2 = Clock::now();
+    drawSum_ += std::chrono::duration<double, std::milli>(t1 - t0).count();
+    presentSum_ += std::chrono::duration<double, std::milli>(t2 - t1).count();
 }
 
 void WorldViewer::drawOverlay(uint64_t nowMs) {
     ++frames_;
     if (nowMs - fpsStart_ >= 1000) {
         fps_ = float(frames_) * 1000.0f / float(nowMs - fpsStart_);
+        drawMs_ = float(drawSum_ / frames_);
+        presentMs_ = float(presentSum_ / frames_);
         fpsStart_ = nowMs;
         frames_ = 0;
+        drawSum_ = presentSum_ = 0;
     }
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
     if (!showInfo_ && error_.empty())
         return;
     std::vector<std::string> lines = info_;
+    const size_t errorLine = error_.empty() ? size_t(-1) : lines.size();
     if (!error_.empty())
         lines.push_back(error_);
-    char where[96];
-    std::snprintf(where, sizeof where, "at %.0f %.0f %.0f, %.0f fps", pos_[0], pos_[1], pos_[2], fps_);
+    char where[160];
+    std::snprintf(where, sizeof where, "at %.0f %.0f %.0f, %.0f fps: %.1f ms drawing, %.1f ms presenting", pos_[0],
+                  pos_[1], pos_[2], fps_, drawMs_, presentMs_);
     lines.push_back(where);
+    lines.push_back("GPU: " + device_);
     // A translucent box behind the text keeps it readable.
     const int lh = font::kLineHeight;
     size_t widest = 0;
@@ -220,7 +234,7 @@ void WorldViewer::drawOverlay(uint64_t nowMs) {
     }
     for (size_t i = 0; i < lines.size(); ++i)
         font::drawText(overlay_, 4, 3 + int(i) * lh, lines[i],
-                       !error_.empty() && i == lines.size() - 2 ? Color{255, 120, 120} : Color{230, 230, 230});
+                       i == errorLine ? Color{255, 120, 120} : Color{230, 230, 230});
 }
 
 } // namespace reluva::idtech3

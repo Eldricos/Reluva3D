@@ -48,6 +48,11 @@ struct ShaderDef {
 // `file` is recorded in each definition and used in messages.
 Error parseShaderFile(std::string_view text, const std::string& file, std::vector<ShaderDef>& out);
 
+// The file an image name refers to: shaders and maps name images with or
+// without an extension, and the original finds the .tga or the .jpg
+// whichever is written (.png too, for mods). Empty if there's none.
+std::string findImage(const SearchSet& files, std::string_view name);
+
 // Every shader of a game: all scripts/*.shader files in a search set. When
 // two files define a name, the first parsed wins; files are parsed in name
 // order. Problems with single files are collected, not fatal.

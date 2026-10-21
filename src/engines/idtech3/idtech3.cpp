@@ -84,7 +84,9 @@ public:
             }
             pages[page]->update(sys_.getMillis());
             sys_.updateScreen(screen_);
-            sys_.delayMillis(10);
+            // 3D pages are paced by presenting (vsync); the rest needn't spin.
+            if (!pages[page]->uses3D())
+                sys_.delayMillis(10);
         }
     }
 

@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace reluva::gfx {
@@ -99,6 +100,8 @@ public:
     // The size given to System::init3D: the frame's pixels.
     virtual int width() const = 0;
     virtual int height() const = 0;
+    // The GPU and driver doing the work, for diagnostics.
+    virtual std::string deviceName() const = 0;
 
     // A frame: begin, any number of draws (in order), end. `viewProj` maps
     // world positions to clip space.

@@ -124,8 +124,9 @@ Error SdlSystem::init() {
         return Error::fail(std::string("SDL_CreateRenderer failed: ") + SDL_GetError());
     SDL_SetRenderVSync(renderer_, 1);
 
-    SDL_Log("Video driver: %s, renderer: %s%s%s", SDL_GetCurrentVideoDriver(), SDL_GetRendererName(renderer_),
-            gpu_ ? ", GPU driver: " : "", gpu_ ? SDL_GetGPUDeviceDriver(gpu_) : "");
+    SDL_Log("Video driver: %s, renderer: %s%s%s%s%s", SDL_GetCurrentVideoDriver(), SDL_GetRendererName(renderer_),
+            gpu_ ? ", GPU driver: " : "", gpu_ ? SDL_GetGPUDeviceDriver(gpu_) : "", gpu_ ? ", device: " : "",
+            gpu_ ? SDL_GetStringProperty(SDL_GetGPUDeviceProperties(gpu_), SDL_PROP_GPU_DEVICE_NAME_STRING, "?") : "");
     return Error::success();
 }
 

@@ -112,6 +112,18 @@ Error parseShaderFile(std::string_view text, const std::string& file, std::vecto
     return Error::success();
 }
 
+std::string findImage(const SearchSet& files, std::string_view name) {
+    std::string base(name);
+    const size_t dot = base.find_last_of('.');
+    const size_t slash = base.find_last_of("/\\");
+    if (dot != std::string::npos && (slash == std::string::npos || dot > slash))
+        base.resize(dot);
+    for (const char* ext : {".tga", ".jpg", ".png"})
+        if (files.has(base + ext))
+            return base + ext;
+    return {};
+}
+
 void ShaderLibrary::add(ShaderDef def) {
     if (byName_.try_emplace(normalizeArchiveName(def.name), shaders_.size()).second)
         shaders_.push_back(std::move(def));

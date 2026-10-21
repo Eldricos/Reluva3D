@@ -87,27 +87,20 @@ void WorldRenderer::clear() {
 }
 
 gfx::TextureId WorldRenderer::image(const std::string& name, bool clamp, const SearchSet& files) {
-    // Shaders name images with or without an extension, and the file may be
-    // a .tga or a .jpg whichever is written: try both.
-    const std::string base = stripExtension(name);
-    const std::string key = normalizeArchiveName(base) + (clamp ? "|clamp" : "");
+    const std::string key = normalizeArchiveName(stripExtension(name)) + (clamp ? "|clamp" : "");
     if (auto it = images_.find(key); it != images_.end())
         return it->second;
 
     gfx::TextureId id = missingTexture_;
     std::vector<uint8_t> data;
-    for (const char* ext : {".tga", ".jpg", ".png"}) {
-        if (files.read(base + ext, data))
-            continue;
-        image::Image img;
-        if (image::decode(data, img))
-            break;
+    image::Image img;
+    if (const std::string file = findImage(files, name);
+        !file.empty() && !files.read(file, data) && !image::decode(data, img)) {
         gfx::TextureParams params;
         params.clamp = clamp;
         gfx::TextureId t = 0;
         if (!r_.createTexture(img.w, img.h, img.rgba.data(), params, t))
             id = t;
-        break;
     }
     if (id == missingTexture_)
         ++missing_;

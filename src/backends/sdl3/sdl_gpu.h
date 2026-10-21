@@ -33,6 +33,7 @@ public:
     void destroyMesh(gfx::MeshId id) override;
     int width() const override { return width_; }
     int height() const override { return height_; }
+    std::string deviceName() const override;
     void beginFrame(const gfx::Mat4& viewProj, Color clear) override;
     void draw(const gfx::DrawCall& call) override;
     void endFrame(const Surface* overlay) override;

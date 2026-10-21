@@ -266,6 +266,17 @@ Error SdlGpuRenderer::createTexture(int width, int height, const uint8_t* rgba, 
     return Error::success();
 }
 
+std::string SdlGpuRenderer::deviceName() const {
+    const SDL_PropertiesID props = SDL_GetGPUDeviceProperties(device_);
+    std::string name = SDL_GetStringProperty(props, SDL_PROP_GPU_DEVICE_NAME_STRING, "unknown GPU");
+    name += std::string(" (") + SDL_GetGPUDeviceDriver(device_);
+    if (const char* driver = SDL_GetStringProperty(props, SDL_PROP_GPU_DEVICE_DRIVER_NAME_STRING, nullptr))
+        name += std::string(", ") + driver;
+    if (const char* version = SDL_GetStringProperty(props, SDL_PROP_GPU_DEVICE_DRIVER_VERSION_STRING, nullptr))
+        name += std::string(" ") + version;
+    return name + ")";
+}
+
 void SdlGpuRenderer::destroyTexture(gfx::TextureId id) {
     auto it = textures_.find(id);
     if (it == textures_.end() || id == white_)
