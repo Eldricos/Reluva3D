@@ -33,15 +33,18 @@
 #include "engines/idtech3/light_grid.h"
 #include "engines/idtech3/model_cache.h"
 #include "engines/idtech3/shader_cache.h"
+#include "engines/idtech3/sounds.h"
 #include "engines/idtech3/world_renderer.h"
 
 #include "common/archive.h"
+#include "common/audio/mixer.h"
 #include "common/events.h"
 #include "common/image.h"
 #include "common/system.h"
 
 #include <array>
 #include <cstdint>
+#include <map>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -57,6 +60,7 @@ struct ViewerContext {
     const GameInfo& game;
     const std::vector<std::string>& warnings; // problems loading the game's files
     std::filesystem::path savePath;           // where this game's own files go (GameTarget::savePath)
+    audio::Mixer* mixer = nullptr;            // sound output; none if the system has no audio
 };
 
 class Page {
@@ -235,6 +239,7 @@ private:
     void pinCursor();
     void syncCursor();
     void findCursor();
+    void playSound(const std::string& name, int channel);
 
     bool available_ = false;
     gfx::Renderer3D* renderer_ = nullptr;
@@ -242,6 +247,8 @@ private:
     std::vector<int> materials_; // by the menus' shader handle; -2 not made yet
     CvarStore cvars_;
     std::unique_ptr<eliteforce::UiHost> ui_; // kept while other pages are shown
+    SoundLibrary sounds_{ctx_.files};
+    std::map<int, audio::SoundHandle> channels_; // the sound on each of the menus' channels
     Surface overlay_;
     std::string error_;
     std::string reportPath_; // where the details of the last stop were written

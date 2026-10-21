@@ -100,6 +100,10 @@ public:
     // arguments and any text they point at, for reports when the menus
     // stop. The CD key is left out.
     std::vector<std::string> recentCalls() const;
+    // S_StartLocalSound: a registered sound to play now, not placed in the
+    // world, on a channel (a new sound on the same channel, other than 0,
+    // replaces the one there). Unset: sounds are only registered.
+    std::function<void(const std::string& sound, int channel)> startLocalSound;
     // Called by every system call before it's handled, for logging.
     std::function<void(int number, const int32_t* args)> trace;
 

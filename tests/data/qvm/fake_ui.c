@@ -33,6 +33,8 @@ void trap_Cvar_Register(vmCvar_t *cvar, const char *name, const char *value, int
 void trap_Cvar_Update(vmCvar_t *cvar);
 int trap_SetCDKey(const char *key); /* Elite Force's 57: whether the key is taken */
 int trap_R_RegisterModel(const char *name);
+int trap_S_RegisterSound(const char *name);
+void trap_S_StartLocalSound(int sound, int channel);
 void trap_R_ModelBounds(int model, float *mins, float *maxs); /* Elite Force's 58 */
 char *strncpy(char *dest, const char *src, int count);
 float sqrt(float f);
@@ -47,6 +49,7 @@ static int cursorShader;
 static int cursorX, cursorY; /* the menus' own pointer, in 640x480 units */
 static char typed[64];
 static int menuOpen, menusOpened;
+static int clickSound;
 static int typedLength;
 
 int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int arg5, int arg6, int arg7, int arg8,
@@ -66,11 +69,15 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
         count = trap_FS_GetFileList("scripts", ".txt", list, sizeof(list));
         shader = trap_R_RegisterShaderNoMip("menu/test");
         cursorShader = trap_R_RegisterShaderNoMip("menu/common/cursor");
+        clickSound = trap_S_RegisterSound("sound/interface/button1.wav");
         trap_GetGlconfig(glconfig);
         return length * 100 + count;
     /* Its menus: commands as the engine sends them */
     case 3:
-        /* a key: typed characters come with 1024 added */
+        /* a key: typed characters come with 1024 added; the left mouse
+         * button clicks */
+        if (arg0 == 178 && arg1)
+            trap_S_StartLocalSound(clickSound, 6);
         if ((arg0 & 1024) && arg1 && typedLength < 63) {
             typed[typedLength++] = arg0 & 255;
             typed[typedLength] = 0;
@@ -130,6 +137,10 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
     }
     case 30: menuOpen = 0; return 0; /* the last menu closes itself, as Accept on the CD key screen does */
     case 31: return menusOpened;
+    case 33: /* a menu sound, on the menus' channel */
+        trap_S_StartLocalSound(trap_S_RegisterSound("sound/interface/button1.wav"), 6);
+        trap_S_StartLocalSound(0, 6); /* none: nothing to play */
+        return 0;
     case 32: /* a switch whose cases start at 100: its table's address is folded */
         switch (arg0) {
         case 100: return 1; case 101: return 7; case 102: return 3; case 103: return 9;

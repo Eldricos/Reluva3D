@@ -20,3 +20,5 @@ equ sqrt                            -107
 equ trap_SetCDKey                   -58
 equ trap_R_RegisterModel            -19
 equ trap_R_ModelBounds              -59
+equ trap_S_RegisterSound            -32
+equ trap_S_StartLocalSound          -33

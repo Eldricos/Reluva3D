@@ -14,6 +14,7 @@
 // Tab switches pages; Esc goes back to the launcher (on the Menu page,
 // Ctrl+Tab and Ctrl+Esc, as the menus take Tab and Esc).
 
+#include "common/audio/mixer.h"
 #include "engines/engine.h"
 #include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/games.h"
@@ -48,7 +49,16 @@ public:
             return err;
         screen_.create(kScreenW, kScreenH, PixelFormat::RGBA32);
 
-        ViewerContext ctx{sys_, screen_, files_, shaders_, game_, warnings, target_.savePath};
+        // One mixer for every page's sounds; without audio output, none.
+        audio::Mixer mixer(sys_.audioRate());
+        const bool audioOut = !audio::startMixerOutput(sys_, mixer);
+        struct AudioOff { // stops the output before the mixer goes
+            System& sys;
+            ~AudioOff() { sys.stopAudio(); }
+        } audioOff{sys_};
+
+        ViewerContext ctx{sys_, screen_, files_, shaders_, game_, warnings, target_.savePath,
+                          audioOut ? &mixer : nullptr};
         std::vector<std::unique_ptr<Page>> pages;
         pages.push_back(std::make_unique<MenuViewer>(ctx));
         pages.push_back(std::make_unique<WorldViewer>(ctx));

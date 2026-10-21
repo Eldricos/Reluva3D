@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 
@@ -134,6 +135,8 @@ void MenuViewer::start() {
     ui_->setScreenSize(kFrameW, kFrameH);
     if (!ctx_.savePath.empty())
         ui_->setKeyFile(ctx_.savePath / "cdkey.txt");
+    if (ctx_.mixer)
+        ui_->startLocalSound = [this](const std::string& name, int channel) { playSound(name, channel); };
     Error err = ui_->load();
     if (!err)
         err = ui_->call(eliteforce::UiHost::Init);
@@ -239,7 +242,29 @@ void MenuViewer::stop(const Error& err) {
     ui_.reset();
 }
 
+void MenuViewer::playSound(const std::string& name, int channel) {
+    const auto sound = sounds_.get(name);
+    if (!sound)
+        return;
+    // A channel other than 0 holds one sound at a time, as in the original.
+    if (channel != 0) {
+        if (const auto it = channels_.find(channel); it != channels_.end())
+            ctx_.mixer->stop(it->second);
+    }
+    // At s_volume, as the original (0.8 unless set).
+    const CvarStore::Cvar* volume = cvars_.find("s_volume");
+    const float scale = volume ? std::clamp(std::strtof(volume->value.c_str(), nullptr), 0.0f, 1.0f) : 0.8f;
+    const audio::SoundHandle handle =
+        ctx_.mixer->play(sound, audio::SoundType::Effects, int(scale * float(audio::kMaxVolume)));
+    if (channel != 0)
+        channels_[channel] = handle;
+}
+
 void MenuViewer::deactivate() {
+    if (ctx_.mixer)
+        for (const auto& [channel, handle] : channels_)
+            ctx_.mixer->stop(handle);
+    channels_.clear();
     if (renderer_) {
         ctx_.sys.setMouseCursorVisible(true);
         ctx_.sys.setTextInput(false);

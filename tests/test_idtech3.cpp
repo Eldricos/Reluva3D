@@ -16,6 +16,8 @@
 #include "engines/idtech3/patch.h"
 #include "engines/idtech3/qvm.h"
 #include "engines/idtech3/shader.h"
+#include "engines/idtech3/sounds.h"
+#include "common/audio/wav.h"
 #include "engines/registry.h"
 #include "data/qvm/fake_ui_qvm.h"
 #include "data/qvm/test_vm_qvm.h"
@@ -869,6 +871,32 @@ static void testVmFileList() {
     CHECK(table.name(2) == "gfx/b" && table.name(0).empty() && table.name(3).empty());
 }
 
+// Sounds by name: decoded once, missing and broken ones remembered.
+static void testSoundLibrary(const std::filesystem::path& tmp) {
+    using test::toBytes;
+    audio::Sound tone;
+    tone.rate = 22050;
+    tone.channels = 1;
+    tone.format = 1;
+    for (int i = 0; i < 2205; ++i)
+        tone.samples.push_back(int16_t(i % 50 < 25 ? 8000 : -8000));
+    std::filesystem::remove_all(tmp);
+    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
+                    test::buildZip({{"sound/interface/Button1.wav", audio::encodePcmWav(tone), {}},
+                                    {"sound/broken.wav", toBytes("not a sound"), {}}}));
+    SearchSet set;
+    std::vector<std::string> warnings;
+    CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
+    SoundLibrary sounds(set);
+    const auto a = sounds.get("sound/interface/button1.wav");
+    CHECK(a && a->rate == 22050 && a->channels == 1 && a->frames() == 2205 && a->samples[30] == -8000);
+    CHECK(sounds.get("SOUND\\interface\\BUTTON1.WAV") == a); // the same, decoded once
+    CHECK(!sounds.get("sound/missing.wav") && !sounds.get("sound/broken.wav") && !sounds.get(""));
+    CHECK(sounds.problems().size() == 2);
+    CHECK(!sounds.get("sound/missing.wav") && sounds.problems().size() == 2); // not tried again
+    std::filesystem::remove_all(tmp);
+}
+
 // The tables switch statements jump through are found and kept from
 // writes: a system call writing over one stops the run, named.
 static void testJumpTableGuard() {
@@ -877,13 +905,13 @@ static void testJumpTableGuard() {
     CHECK(!vm.protectedRanges().empty());
     if (vm.protectedRanges().empty())
         return;
-    // vmMain's (commands 0..32) and test command 32's (cases 100..107):
+    // vmMain's (commands 0..33) and test command 32's (cases 100..107):
     // exactly their entries, nothing before them.
     // (They may sit side by side, as one range.)
     size_t bytes = 0;
     for (const auto& [first, end] : vm.protectedRanges())
         bytes += end - first;
-    CHECK(bytes == 4 * (33 + 8));
+    CHECK(bytes == 4 * (34 + 8));
     const auto table = vm.protectedRanges().front();
     vm.setSystemCall([&](Qvm& v, int number, const int32_t*) -> int32_t {
         if (number == 1) // Print, during Init
@@ -988,6 +1016,12 @@ static void testUiHost(const std::filesystem::path& tmp) {
     ui.clearPictures();
     CHECK(!ui.refresh(2016) && !ui.call(31, {}, r) && r == 2 && ui.pictures().size() == 4);
 
+    // A menu sound: passed on by name with its channel.
+    std::vector<std::pair<std::string, int>> played;
+    ui.startLocalSound = [&](const std::string& name, int channel) { played.emplace_back(name, channel); };
+    CHECK(!ui.call(33));
+    CHECK(played.size() == 1 && played[0].first == "sound/interface/button1.wav" && played[0].second == 6);
+
     CHECK(ui.unhandled().empty());
     std::filesystem::remove_all(tmp);
 }
@@ -1008,6 +1042,7 @@ int main() {
     testCompiledQvm();
     testCvars();
     testVmFileList();
+    testSoundLibrary(tmp / "sounds");
     testJumpTableGuard();
     testUiHost(tmp / "ui");
     testFilesystemAndDetection(tmp / "fs");

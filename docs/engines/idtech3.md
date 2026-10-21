@@ -32,7 +32,7 @@ every engine.
 | Game code | QVM interpreter done and tested against compiler output ([qvm.md](../formats/idtech3/qvm.md)). Elite Force's system calls worked out from its own code ([eliteforce-syscalls.md](../formats/idtech3/eliteforce-syscalls.md)); the menus' calls implemented (`eliteforce/ui_host.cpp`, `reluva-tool ui-run`): console variables, files, registering, drawing. The Menu page runs them and draws them with the GPU renderer, with the keyboard and mouse; on the retail game the setup, CD key and main menus work. Not yet: their sounds, 3D models, starting a game; cgame, qagame |
 | Viewer | Menu (the game's own menus), World (3D, with entities' models), Models, Maps (wireframe), Textures and Files pages |
 | Renderer | every shader stage with its blend, depth, alpha test, rgbGen/alphaGen, tcGen/tcMod and animMap; deformVertexes wave/bulge/move; sort order; sky boxes and cloud layers; fog volumes (by camera distance); the original's implicit shaders and light scaling ([shader.md](../formats/idtech3/shader.md)). Not yet: autosprites, portals, dynamic lights, visibility culling |
-| Sound | not started |
+| Sound | sounds by name, decoded once (`sounds.cpp`), mixed by `common/audio`'s mixer; the menus' sounds play. Not yet: sounds placed in the world, looping sounds, music |
 
 ## Next steps
 
@@ -60,7 +60,8 @@ every engine.
 4. **Models**: done for MD3 (see the table). Still to do: interpolating
    between frames, the players' `animation.cfg`, `projectionShadow`, and
    checking Elite Force's models on the Models page.
-5. **Sound**: WAV effects and the music through `common/audio`.
+5. **Sound**: the menus' effects play. Still to do: sounds placed in the
+   world (distance and direction), looping sounds, and the music.
 6. **Game code**: see below.
 
 ## Game code: open questions

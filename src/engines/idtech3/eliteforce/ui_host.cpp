@@ -289,7 +289,10 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         pictures_.push_back({f(0), f(1), f(2), f(3), f(4), f(5), f(6), f(7), a[8], color_});
         return 0;
     case SRegisterSound: return sounds_.add(str(0, 256));
-    case SStartLocalSound: return 0; // sound: later
+    case SStartLocalSound: // (sound, channel); the menus use channel 6
+        if (startLocalSound && !sounds_.name(a[0]).empty())
+            startLocalSound(sounds_.name(a[0]), a[1]);
+        return 0;
     case KeyKeynumToStringBuf: {
         std::string name = a[0] > 32 && a[0] < 127 ? std::string(1, char(a[0])) : "#" + std::to_string(a[0]);
         vm.writeString(a[1], name, a[2]);
