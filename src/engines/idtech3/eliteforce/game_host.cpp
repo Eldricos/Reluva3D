@@ -162,6 +162,17 @@ Error GameHost::beginClient(int32_t clientNum) {
     return call(ClientBegin, {clientNum}, ignored);
 }
 
+void GameHost::writeUserCommand(Qvm& vm, int32_t address, const UserCommand& cmd) {
+    vm.writeInt(address, cmd.serverTime);
+    vm.writeInt(address + 4, cmd.buttons);
+    for (int i = 0; i < 3; ++i)
+        vm.writeInt(address + 8 + 4 * i, cmd.angles[size_t(i)]);
+    vm.memory()[size_t(address + 20)] = cmd.weapon;
+    vm.memory()[size_t(address + 21)] = uint8_t(cmd.forward);
+    vm.memory()[size_t(address + 22)] = uint8_t(cmd.right);
+    vm.memory()[size_t(address + 23)] = uint8_t(cmd.up);
+}
+
 Error GameHost::clientThink(int32_t clientNum, const UserCommand& cmd) {
     commands_[clientNum] = cmd;
     int32_t ignored = 0;
@@ -515,14 +526,7 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         const UserCommand cmd = it == commands_.end() ? UserCommand{levelTime_} : it->second;
         if (!vm.checkWrite(a[1], 24))
             return 0;
-        vm.writeInt(a[1], cmd.serverTime);
-        for (int i = 0; i < 3; ++i)
-            vm.writeInt(a[1] + 4 + 4 * i, cmd.angles[size_t(i)]);
-        vm.writeInt(a[1] + 16, cmd.buttons);
-        vm.memory()[size_t(a[1] + 20)] = cmd.weapon;
-        vm.memory()[size_t(a[1] + 21)] = uint8_t(cmd.forward);
-        vm.memory()[size_t(a[1] + 22)] = uint8_t(cmd.right);
-        vm.memory()[size_t(a[1] + 23)] = uint8_t(cmd.up);
+        writeUserCommand(vm, a[1], cmd);
         return 0;
     }
     case SetConfigstring: configstrings_[a[0]] = str(1, 8192); return 0;

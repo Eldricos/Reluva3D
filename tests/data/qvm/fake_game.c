@@ -22,8 +22,8 @@ typedef struct {
 
 typedef struct {
     int serverTime;
-    int angles[3];
     int buttons;
+    int angles[3];
     unsigned char weapon;
     signed char forwardmove, rightmove, upmove;
 } usercmd_t; /* 24 bytes */

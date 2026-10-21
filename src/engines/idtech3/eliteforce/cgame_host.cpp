@@ -492,15 +492,7 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         const auto it = userCommands_.find(a[0]);
         if (it == userCommands_.end() || !vm.checkWrite(a[1], 24))
             return 0;
-        const GameHost::UserCommand& c = it->second;
-        vm.writeInt(a[1], c.serverTime);
-        for (int i = 0; i < 3; ++i)
-            vm.writeInt(a[1] + 4 + 4 * i, c.angles[size_t(i)]);
-        vm.writeInt(a[1] + 16, c.buttons);
-        vm.memory()[size_t(a[1] + 20)] = c.weapon;
-        vm.memory()[size_t(a[1] + 21)] = uint8_t(c.forward);
-        vm.memory()[size_t(a[1] + 22)] = uint8_t(c.right);
-        vm.memory()[size_t(a[1] + 23)] = uint8_t(c.up);
+        GameHost::writeUserCommand(vm, a[1], it->second);
         return 1;
     }
     case SetUserCmdValue: weaponSelect_ = a[0]; return 0; // (weapon, sensitivity scale): what the next commands carry
