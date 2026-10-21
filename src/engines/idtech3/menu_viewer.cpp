@@ -359,6 +359,13 @@ void MenuViewer::update(uint64_t nowMs) {
         lines.push_back(error_);
         lines.push_back("Ctrl+R: start them again.");
     }
+    if (ui_ && !ui_->unhandled().empty()) {
+        // Calls the menus made that Reluva answers with 0 for now.
+        std::string calls = "System calls not implemented yet:";
+        for (const auto& [number, count] : ui_->unhandled())
+            calls += " " + std::to_string(number) + " (x" + std::to_string(count) + ")";
+        lines.push_back(calls);
+    }
     if (nowMs - shownMs_ < kHintMs)
         lines.push_back("Keys and mouse go to the menus. Ctrl+Tab: next page, Ctrl+Esc: launcher, Ctrl+R: restart.");
     const int lh = font::kLineHeight;

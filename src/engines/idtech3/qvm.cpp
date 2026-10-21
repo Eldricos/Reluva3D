@@ -154,6 +154,7 @@ Error Qvm::load(const std::vector<uint8_t>& file) {
             std::swap(data_[i], data_[i + 3]), std::swap(data_[i + 1], data_[i + 2]);
     dataLength_ = uint32_t(dataLength);
     litStart_ = uint32_t(dataLength);
+    litEnd_ = uint32_t(dataLength + litLength);
     programStack_ = int32_t(size);
     stackBottom_ = programStack_ - kStackSize;
     return Error::success();

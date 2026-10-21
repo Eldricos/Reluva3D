@@ -57,7 +57,9 @@
 //                                                  structure at address, by offset: which fields it uses
 //   reluva-tool qvm-dis <game folder> <vm/x.qvm> <first> [count]   list instructions, with the text,
 //   reluva-tool qvm-dis <game folder> <vm/x.qvm> -ref <address> [size]  floats and system calls they
-//                                                  use; -ref: the code around each use of an address
+//   reluva-tool qvm-dis <game folder> <vm/x.qvm> -str <text>  use; -ref: the code around each use of an
+//                                                  address; -str: the functions using strings with the
+//                                                  text, and the functions they call
 //   reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]
 //                                                  run Elite Force's menus (vm/ui.qvm) with the engine's
 //                                                  system calls: Init, SetActiveMenu, Refresh; report
@@ -2752,7 +2754,7 @@ int cmdQvmInfo(int argc, char** argv) {
         }
     }
     std::printf("%s: %zu instructions in %d functions, %u bytes of initialised data and literals, %zu bytes of memory\n",
-                argv[3], code.size(), functions, unsigned(vm.dataLength()), vm.memory().size());
+                argv[3], code.size(), functions, unsigned(vm.litEnd()), vm.memory().size());
     std::printf("%d calls through function pointers\n", indirect);
     std::printf("system calls (number: call sites, functions):\n");
     for (const auto& [number, info] : calls)
@@ -2762,7 +2764,7 @@ int cmdQvmInfo(int argc, char** argv) {
         const auto& mem = vm.memory();
         std::string run;
         size_t start = 0;
-        for (size_t i = 0; i < mem.size() && i < vm.dataLength() + 0x100000; ++i) {
+        for (size_t i = 0; i < mem.size() && i < vm.litEnd(); ++i) {
             const char c = char(mem[i]);
             if (c >= 32 && c < 127) {
                 if (run.empty())
@@ -2885,7 +2887,9 @@ void printQvmInstruction(const reluva::idtech3::Qvm& vm, size_t i, bool mark) {
         const int32_t v = in.operand;
         if (i + 1 < code.size() && code[i + 1].op == q3::qvmop::Call && v < 0)
             std::printf("    ; system call %d", -1 - v);
-        else if (v > 0 && uint32_t(v) >= vm.litStart() && uint32_t(v) < vm.dataLength()) {
+        else if (i + 1 < code.size() && code[i + 1].op == q3::qvmop::Call)
+            std::printf("    ; calls the function at %d", v);
+        else if (v > 0 && uint32_t(v) >= vm.litStart() && uint32_t(v) < vm.litEnd()) {
             const std::string text = vm.string(v, 60);
             bool printable = text.size() >= 2;
             for (char c : text)
@@ -2904,7 +2908,8 @@ void printQvmInstruction(const reluva::idtech3::Qvm& vm, size_t i, bool mark) {
 int cmdQvmDis(int argc, char** argv) {
     if (argc < 5) {
         std::fprintf(stderr, "usage: reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count]\n"
-                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -ref <address> [size]\n");
+                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -ref <address> [size]\n"
+                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -str <text>\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -2912,6 +2917,68 @@ int cmdQvmDis(int argc, char** argv) {
     if (!loadQvm(argv[2], argv[3], vm))
         return 1;
     const auto& code = vm.code();
+    // The function holding instruction i: from its ENTER to the next one.
+    auto functionAt = [&](size_t i) {
+        size_t first = i;
+        while (first > 0 && code[first].op != q3::qvmop::Enter)
+            --first;
+        size_t last = first + 1;
+        while (last < code.size() && code[last].op != q3::qvmop::Enter)
+            ++last;
+        return std::make_pair(first, last);
+    };
+    if (std::strcmp(argv[4], "-str") == 0 && argc >= 6) {
+        // Every function using a string that contains the text, then the
+        // functions those call, each listed whole.
+        auto lower = [](std::string t) {
+            for (char& c : t)
+                c = char(std::tolower(static_cast<unsigned char>(c)));
+            return t;
+        };
+        const std::string needle = lower(argv[5]);
+        const auto& mem = vm.memory();
+        std::map<int32_t, std::string> strings; // address -> text
+        for (size_t i = 0; i < vm.litEnd();) {
+            size_t j = i;
+            while (j < vm.litEnd() && mem[j] >= 32 && mem[j] < 127)
+                ++j;
+            if (j < vm.litEnd() && mem[j] == 0 && j > i &&
+                lower(std::string(mem.begin() + long(i), mem.begin() + long(j))).find(needle) != std::string::npos)
+                strings[int32_t(i)] = std::string(mem.begin() + long(i), mem.begin() + long(j));
+            i = j + 1;
+        }
+        std::set<size_t> users, callees;
+        for (const auto& [address, text] : strings) {
+            std::printf("string at %d: \"%s\"\n", address, text.c_str());
+            for (size_t i = 0; i < code.size(); ++i)
+                if (code[i].op == q3::qvmop::Const && code[i].operand == address)
+                    users.insert(functionAt(i).first);
+        }
+        for (size_t f : users) {
+            const auto [first, last] = functionAt(f);
+            for (size_t i = first; i + 1 < last; ++i)
+                if (code[i].op == q3::qvmop::Const && code[i + 1].op == q3::qvmop::Call && code[i].operand >= 0 &&
+                    size_t(code[i].operand) < code.size() && !users.count(size_t(code[i].operand)))
+                    callees.insert(size_t(code[i].operand));
+        }
+        size_t printed = 0;
+        auto list = [&](size_t f, const char* why) {
+            const auto [first, last] = functionAt(f);
+            std::printf("=== function at %zu (%s), %zu instructions\n", first, why, last - first);
+            if (printed > 4000) {
+                std::printf("    (not listed: over 4000 lines already)\n");
+                return;
+            }
+            for (size_t i = first; i < last; ++i)
+                printQvmInstruction(vm, i, false);
+            printed += last - first;
+        };
+        for (size_t f : users)
+            list(f, "uses the string");
+        for (size_t f : callees)
+            list(f, "called by one above");
+        return 0;
+    }
     if (std::strcmp(argv[4], "-ref") == 0 && argc >= 6) {
         // The code around every constant pointing into [address, address + size).
         const long long base = std::strtoll(argv[5], nullptr, 0);
@@ -3230,7 +3297,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool qvm-info <game folder> <vm/x.qvm> [-s]\n"
                  "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
                  "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
-                 "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size]\n"
+                 "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text>\n"
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif
                  "");

@@ -70,17 +70,18 @@ public:
         int32_t operand;
     };
     const std::vector<Instruction>& code() const { return code_; }
-    // Where the initialised data ends and the zero-filled part begins, and
-    // the literal block (strings) within the data.
+    // The initialised words end at dataLength(); the literal block
+    // (strings) runs from litStart() to litEnd(); zeros follow.
     uint32_t dataLength() const { return dataLength_; }
     uint32_t litStart() const { return litStart_; }
+    uint32_t litEnd() const { return litEnd_; }
 
 private:
     Error run(int32_t& result);
 
     std::vector<Instruction> code_;
     std::vector<uint8_t> data_; // a power of two in size; the stack is at the top
-    uint32_t dataLength_ = 0, litStart_ = 0;
+    uint32_t dataLength_ = 0, litStart_ = 0, litEnd_ = 0;
     int32_t programStack_ = 0;  // the stack pointer between calls
     int32_t stackBottom_ = 0;   // the stack may not grow below this
     SystemCall syscall_;
