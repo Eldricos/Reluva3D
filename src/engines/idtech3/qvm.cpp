@@ -105,29 +105,34 @@ bool Qvm::checkWrite(int64_t address, int64_t size) {
 }
 
 void Qvm::findJumpTables() {
-    // A switch compiles to: (index) CONST 2, LSH, CONST table, ADD, LOAD4,
+    // A switch compiles to: (index) CONST 2, LSH, CONST base, ADD, LOAD4,
     // JUMP, after range checks CONST lo, LTI and CONST hi, GTI on the
-    // index (and SUB lo when lo isn't 0). The table holds instruction
-    // numbers for lo..hi.
+    // index. The compiler folds lo into the constant (base = table - 4 *
+    // lo), so the table, instruction numbers for lo..hi, starts at base +
+    // 4 * lo.
     using namespace qvmop;
     protected_.clear();
     const auto count = int32_t(code_.size());
     for (size_t i = 0; i + 3 < code_.size(); ++i) {
         if (code_[i].op != Const || code_[i + 1].op != Add || code_[i + 2].op != Load4 || code_[i + 3].op != Jump)
             continue;
-        const int64_t table = code_[i].operand;
         int64_t lo = 0, hi = -1;
-        bool subtracted = false;
+        bool haveLo = false, haveHi = false;
         for (size_t j = i > 16 ? i - 16 : 0; j < i; ++j) {
-            if (code_[j].op == Const && j + 1 < i && code_[j + 1].op == Lti)
+            if (code_[j].op == Const && j + 1 < i && code_[j + 1].op == Lti) {
                 lo = code_[j].operand;
-            if (code_[j].op == Const && j + 1 < i && code_[j + 1].op == Gti)
+                haveLo = true;
+            }
+            if (code_[j].op == Const && j + 1 < i && code_[j + 1].op == Gti) {
                 hi = code_[j].operand;
-            if (code_[j].op == Sub)
-                subtracted = true;
+                haveHi = true;
+            }
         }
-        const int64_t entries = subtracted ? hi - lo + 1 : hi + 1;
-        if (hi < lo || entries <= 0 || entries > 4096 || table < 0 || table + 4 * entries > int64_t(dataLength_))
+        const int64_t table = int64_t(code_[i].operand) + 4 * lo;
+        const int64_t entries = hi - lo + 1;
+        // Anything unexpected: leave it unprotected rather than guess.
+        if (!haveLo || !haveHi || entries <= 0 || entries > 4096 || table < 0 ||
+            table + 4 * entries > int64_t(litEnd_))
             continue;
         bool plausible = true;
         for (int64_t e = 0; e < entries && plausible; ++e) {

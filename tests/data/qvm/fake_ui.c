@@ -126,6 +126,12 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
         return text[0] * 1000 + text[21];
     case 30: menuOpen = 0; return 0; /* the last menu closes itself, as Accept on the CD key screen does */
     case 31: return menusOpened;
+    case 32: /* a switch whose cases start at 100: its table's address is folded */
+        switch (arg0) {
+        case 100: return 1; case 101: return 7; case 102: return 3; case 103: return 9;
+        case 104: return 2; case 105: return 8; case 106: return 4; case 107: return 6;
+        }
+        return 0;
     }
     return -1;
 }

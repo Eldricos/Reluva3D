@@ -877,8 +877,14 @@ static void testJumpTableGuard() {
     CHECK(!vm.protectedRanges().empty());
     if (vm.protectedRanges().empty())
         return;
+    // vmMain's (commands 0..32) and test command 32's (cases 100..107):
+    // exactly their entries, nothing before them.
+    // (They may sit side by side, as one range.)
+    size_t bytes = 0;
+    for (const auto& [first, end] : vm.protectedRanges())
+        bytes += end - first;
+    CHECK(bytes == 4 * (33 + 8));
     const auto table = vm.protectedRanges().front();
-    CHECK(table.second - table.first >= 4 * 8); // vmMain's, for its commands
     vm.setSystemCall([&](Qvm& v, int number, const int32_t*) -> int32_t {
         if (number == 1) // Print, during Init
             v.writeString(int32_t(table.first), "-75", 4);
@@ -891,6 +897,10 @@ static void testJumpTableGuard() {
     CHECK(vm.readInt(int32_t(table.first)) >= 0 && vm.readInt(int32_t(table.first)) < int32_t(vm.code().size()));
     vm.setSystemCall(nullptr);
     CHECK(!vm.call(0, {}, r) && r == 4); // the table intact, it still works
+    const int expected[8] = {1, 7, 3, 9, 2, 8, 4, 6};
+    for (int i = 0; i < 8; ++i)
+        CHECK(!vm.call(32, {100 + i}, r) && r == expected[i]);
+    CHECK(!vm.call(32, {99}, r) && r == 0);
 }
 
 // The menus' system calls, called by a QVM the Quake III compiler made

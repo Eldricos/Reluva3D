@@ -80,8 +80,11 @@ stops runaway code. Integer arithmetic wraps; division by zero is an
 error; out-of-range float-to-int conversions saturate.
 
 The tables `switch` statements jump through are found when a program is
-loaded (the compiler's pattern: `CONST 2, LSH, CONST table, ADD, LOAD4,
-JUMP`, after range checks on the index) and kept read-only: the program
+loaded (the compiler's pattern: `CONST 2, LSH, CONST base, ADD, LOAD4,
+JUMP`, after the range checks `CONST lo, LTI` and `CONST hi, GTI` on the
+index; the compiler folds the first case into the constant, `base =
+table - 4 * lo`, so the table's hi - lo + 1 entries start at `base + 4 *
+lo`) and kept read-only: the program
 never writes them, so a write there, by its code or by a system call, is
 a fault, reported where it happens and naming the call. Otherwise a stray
 write shows up only later, as a jump somewhere absurd. Hosts write the
