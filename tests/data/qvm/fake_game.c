@@ -29,13 +29,14 @@ typedef struct {
 } usercmd_t; /* 24 bytes */
 
 typedef struct {
-    /* the entity state: 200 bytes in Elite Force */
+    /* the entity state: 204 bytes in Elite Force */
     int number;
     char state1[156];
     int modelindex; /* at 160 */
-    char state2[36];
-    /* the part the engine shares, from 200 */
-    int linked, linkcount, svFlags, singleClient, bmodel;
+    char state2[40];
+    /* the part the engine shares, from 204: one field fewer than Quake
+     * III's before the box (which one isn't known) */
+    int linked, unknown1, unknown2, bmodel;
     float mins[3], maxs[3];
     int contents;
     float absmin[3], absmax[3];

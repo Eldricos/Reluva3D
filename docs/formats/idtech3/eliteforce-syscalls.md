@@ -156,22 +156,28 @@ III's game calls; unlike the menus, 0 prints and 1 is the error.
 | 23 | `SetBrushModel(ent, name)` | seen | `(ent, *(ent + 324))`: the entity's `model` key, `"*N"` |
 | 24 | `Trace(results, start, mins, maxs, end, passEntityNum, contentMask)` | seen | 81 calls on hm_dn1 (items dropping to the floor). The masks are Quake III's values: `0x6000001` (solid, bodies, corpses), `0x2000000` (bodies), `0x2010000` (bodies, player clip), `1` (solid). Afterwards the code reads +4 (`startsolid`), +8 compared with 1.0 (`fraction`), surface flags against 16 (Quake III's `SURF_NOIMPACT`), the entity number against 1023 (none): Quake III's `trace_t` |
 | 25–33 | `PointContents`, `InPVS`, `InPVSIgnorePortals`, `AdjustAreaPortalState`, `AreasConnected`, `LinkEntity`, `UnlinkEntity`, `EntitiesInBox`, `EntityContact` | order | `LinkEntity` called 81 times on hm_dn1 |
-| 36 | `GetUsercmd(clientNum, usercmd_t*)` | seen | `(clientNum, ent->client + 464)`: `ent+300` is the entity's client, the command at 464 in it. In Quake III the client starts with the player state, then `pers.connected`, then `pers.cmd`, so Elite Force's player state would be 460 bytes. The command is taken to be Quake III's 24-byte `usercmd_t` (server time, three angles, buttons, weapon, forward, right, up), to confirm with `qvm-dis -blockcopies` |
+| 36 | `GetUsercmd(clientNum, usercmd_t*)` | seen | `(clientNum, ent->client + 464)`: `ent+300` is the entity's client, the command at 464 in it. In Quake III the client starts with the player state, then `pers.connected`, then `pers.cmd`, so Elite Force's player state would be 460 bytes. The command is taken to be Quake III's 24-byte `usercmd_t` (server time, three angles, buttons, weapon, forward, right, up), confirmed by `qvm-dis -blockcopies`: 24-byte copies six times in qagame, a 460-byte one once |
 | 2, 4, 8, 9, 11–14, 16, 17, 20–22, 34, 35 | the rest of Quake III's game calls, in its order | order | |
 
 The entities' first 300 bytes, which the engine reads and writes, are
-Quake III's `sharedEntity_t` with an 8-byte shorter entity state: 200
-bytes of `entityState_t`, then `entityShared_t` at 200 (linked, linkcount,
-svFlags, singleClient, bmodel, mins at 220, maxs at 232, contents at 244,
-absmin at 248, absmax at 260, currentOrigin at 272, currentAngles at 284,
-ownerNum at 296). The evidence, from the traces' arguments: the moving
-box is `ent+220` and `ent+232`, the entity to ignore `*(ent+296)` or
-`*ent` (`s.number`); the game copies 12 bytes to `ent+92` (`s.origin`, as
-in Quake III) before `SetBrushModel`, and stores Quake III's
-`CONTENTS_TRIGGER` at `ent+244`; it reads `ent+272` after moving things.
-`s.modelindex` is taken to be at Quake III's 160 (what's missing from the
-entity state would then come after it), to be checked when the client
-game draws brush models. Entities are 588 bytes, clients 740.
+Quake III's `sharedEntity_t` with a smaller entity state and one field
+fewer in the shared part: 204 bytes of `entityState_t` (Quake III's is
+208), then `entityShared_t` at 204: `linked` at 204, two of Quake III's
+`linkcount`, `svFlags` and `singleClient` (which, not known yet), `bmodel`
+at 216, mins at 220, maxs at 232, contents at 244, absmin at 248, absmax
+at 260, currentOrigin at 272, currentAngles at 284, ownerNum at 296. The
+evidence, from the traces' arguments: the moving box is `ent+220` and
+`ent+232`, the entity to ignore `*(ent+296)` or `*ent` (`s.number`); the
+game copies 12 bytes to `ent+92` (`s.origin`, as in Quake III) before
+`SetBrushModel`, and stores Quake III's `CONTENTS_TRIGGER` at `ent+244`;
+it reads `ent+272` after moving things; the client pointer follows at
+`ent+300`. The sizes come from `qvm-dis -blockcopies` (structures the
+code copies whole): 204 bytes twice in qagame and three times in cgame
+(and 408 = 2 x 204), the entity state; 460 bytes once in qagame and six
+times in cgame, the player state; 24 bytes, the user command; 56, the
+trace. `s.modelindex` is taken to be at Quake III's 160 (the 4 bytes
+Elite Force lacks would then come after it), to be checked when the
+client game draws brush models. Entities are 588 bytes, clients 740.
 
 Reluva's side: `src/engines/idtech3/eliteforce/game_host.cpp`, run by
 `reluva-tool game-run <game folder> <map>`. Starting a level follows the

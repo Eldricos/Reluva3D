@@ -3237,8 +3237,15 @@ int cmdGameRun(int argc, char** argv) {
         }
         ok = step("RunFrame", game.runFrame());
         if (player) {
+            // The entity's position, and the player state as Quake III lays
+            // it out (commandTime 0, origin 20, velocity 32, groundEntityNum
+            // 68), to be checked against Elite Force's.
             const auto o = game.entityVec(0, 272);
-            std::printf("  client 0 at %.1f %.1f %.1f\n", o[0], o[1], o[2]);
+            const auto po = game.clientVec(0, 20), pv = game.clientVec(0, 32);
+            std::printf("  client 0 at %.1f %.1f %.1f; player state: commandTime %d, origin %.1f %.1f %.1f, "
+                        "velocity %.1f %.1f %.1f, ground %d; commands read so far %d\n",
+                        o[0], o[1], o[2], game.clientInt(0, 0), po[0], po[1], po[2], pv[0], pv[1], pv[2],
+                        game.clientInt(0, 68), (game.callCounts().count(36) ? game.callCounts().at(36) : 0));
         }
     }
 

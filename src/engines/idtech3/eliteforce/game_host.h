@@ -95,6 +95,11 @@ public:
     // in game_host.cpp).
     int32_t entityInt(int32_t number, int32_t offset);
     Vec3f entityVec(int32_t number, int32_t offset);
+    // A field of a client (gclient_t, which starts with the player state).
+    int32_t clientInt(int32_t clientNum, int32_t offset);
+    Vec3f clientVec(int32_t clientNum, int32_t offset);
+    // How many times each system call has been made since the start.
+    const std::map<int, int>& callCounts() const { return callCounts_; }
     // Entity numbers linked into the world (LinkEntity), not unlinked since.
     const std::set<int32_t>& linked() const { return linked_; }
     const std::map<int32_t, std::string>& configstrings() const { return configstrings_; }
@@ -144,6 +149,7 @@ private:
     std::map<int32_t, std::string> dropped_;
     std::string log_;
     std::map<int, int> unhandled_;
+    std::map<int, int> callCounts_;
     int32_t levelTime_ = 0;
     uint64_t startMs_ = 0;
 };

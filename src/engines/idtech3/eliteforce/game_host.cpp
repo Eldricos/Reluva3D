@@ -62,14 +62,16 @@ constexpr int32_t kFrameMs = 100; // Quake III servers default to 10 frames a se
 
 // The start of every entity, the part the engine reads and writes, as
 // Elite Force lays it out (found from the game's own code: what it passes
-// to traces and SetBrushModel, see eliteforce-syscalls.md). An entity
-// state of 200 bytes (Quake III's is 208), then Quake III's
-// entityShared_t.
+// to traces and SetBrushModel, and the size of what it copies whole; see
+// eliteforce-syscalls.md). An entity state of 204 bytes (Quake III's is
+// 208), then entityShared_t at 204, with one field fewer than Quake III's
+// before the box (which of linkcount, svFlags and singleClient isn't
+// known yet, so only `linked` and `bmodel`, the same either way, are
+// written).
 namespace ent {
 constexpr int32_t Number = 0;       // s.number
-constexpr int32_t ModelIndex = 160; // s.modelindex, at Quake III's offset (assumed: the 8 bytes Elite Force lacks come later)
-constexpr int32_t Linked = 200;
-constexpr int32_t LinkCount = 204;
+constexpr int32_t ModelIndex = 160; // s.modelindex, at Quake III's offset (assumed: the 4 bytes Elite Force lacks come later)
+constexpr int32_t Linked = 204;
 constexpr int32_t BModel = 216;
 constexpr int32_t Mins = 220, Maxs = 232;
 constexpr int32_t Contents = 244;
@@ -225,6 +227,18 @@ Vec3f GameHost::entityVec(int32_t number, int32_t offset) {
     return a < 0 ? Vec3f{} : readVec(a + offset);
 }
 
+int32_t GameHost::clientInt(int32_t clientNum, int32_t offset) {
+    if (clientNum < 0 || !gameData_.clientSize || offset + 4 > gameData_.clientSize)
+        return 0;
+    return vm_.readInt(gameData_.clients + clientNum * gameData_.clientSize + offset);
+}
+
+Vec3f GameHost::clientVec(int32_t clientNum, int32_t offset) {
+    if (clientNum < 0 || !gameData_.clientSize || offset + 12 > gameData_.clientSize)
+        return {};
+    return readVec(gameData_.clients + clientNum * gameData_.clientSize + offset);
+}
+
 void GameHost::linkEntity(int32_t address) {
     const int32_t n = entityNumber(address);
     if (n < 0)
@@ -263,7 +277,6 @@ void GameHost::linkEntity(int32_t address) {
     writeVec(address + ent::AbsMin, absMin);
     writeVec(address + ent::AbsMax, absMax);
     vm_.writeInt(address + ent::Linked, 1);
-    vm_.writeInt(address + ent::LinkCount, vm_.readInt(address + ent::LinkCount) + 1);
 }
 
 void GameHost::clipMove(int32_t results, const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
@@ -391,6 +404,7 @@ std::string GameHost::infoString(int32_t flag) const {
 int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     if (trace)
         trace(number, a);
+    ++callCounts_[number];
     auto str = [&](int i, size_t max = 1024) { return vm.string(a[i], max); };
     int32_t result = 0;
     if (commonSystemCall(vm, number, a, result))
