@@ -22,7 +22,7 @@ every engine.
 
 | Part | State |
 |---|---|
-| Detection | Elite Force, by file names only: needs sizes and MD5s from owned copies |
+| Detection | Elite Force: one Windows release by pak0.pk3's hash; other releases by file names, shown as "unknown release" |
 | File system | done: `baseEF` loose files over its paks, later paks first (`filesystem.cpp`, [pk3.md](../formats/idtech3/pk3.md)) |
 | Text files | done: tokenizer ([text.md](../formats/idtech3/text.md)) and entity lump |
 | Shader scripts | parsed; maps, animMap, blendFunc, surfaceparm and skyParms interpreted ([shader.md](../formats/idtech3/shader.md)) |
@@ -77,8 +77,10 @@ one has to be checked before anything is written:
   Quake III VM bytecode (`vm/*.qvm`), the original logic could run in a
   QVM interpreter, with the engine providing the system calls it makes.
   The original assets would then work unchanged, as ScummVM runs games'
-  own scripts. To check: list the paks' `vm/` folder in the Files page.
-- **Single player**: its logic ships as native x86 code (a DLL), which a
-  portable engine can't load. It would have to be reimplemented from
+  own scripts. To check: whether `pak0.pk3` has a `vm/` folder (the
+  install folder doesn't; it would be inside the pak).
+- **Single player**: its logic ships as native x86 code
+  (`efgamex86.dll`, with the menus in `efuix86.dll`), which a portable
+  engine can't load. It would have to be reimplemented from
   observed behaviour and the map data (entities, scripts), following
   CONTRIBUTING.md.

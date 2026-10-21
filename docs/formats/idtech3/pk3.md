@@ -38,7 +38,16 @@ and `/` treated alike.
 
 ## Elite Force
 
-The retail game keeps its data in `baseEF/pak0.pk3`; patches and the
-Expansion Pack add more paks. **To check with an owned copy:** the list of
-paks per release, and their sizes and MD5s for the detection table
-(`reluva --hash baseEF/pak0.pk3`).
+A Windows install seen in October 2026 holds a single 566,234,769-byte
+`baseEF/pak0.pk3`, next to `efconfig.cfg` and `hmconfig.cfg` (single-player
+and Holomatch settings) and no other paks. Its detection entry is in
+`src/engines/idtech3/games.cpp`.
+
+The install folder also holds both executables (`stvoy.exe` for single
+player, `stvoyHM.exe` for Holomatch), the native game and menu code
+(`efgamex86.dll`, `efuix86.dll`) and the Bink video player
+(`binkw32.dll`), so the cinematics are probably Bink videos inside the pak.
+
+**Still to check with owned copies:** whether patches or the Expansion
+Pack add paks, the hashes of other releases (`reluva --hash
+baseEF/pak0.pk3`), and whether `pak0.pk3` holds a `vm/` folder.

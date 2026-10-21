@@ -26,5 +26,8 @@ const GameInfo* findGame(std::string_view gameId);
 
 // The detection table for every game, for MetaEngine::detect.
 const std::vector<GameVariant>& detectionTable();
+// The same games by file names only, for releases not in detectionTable()
+// yet; consulted only when nothing there matches.
+const std::vector<GameVariant>& fallbackTable();
 
 } // namespace reluva::idtech3

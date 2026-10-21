@@ -96,7 +96,8 @@ public:
     const char* name() const override { return "id Tech 3"; }
 
     std::vector<DetectedGame> detect(const std::filesystem::path& dir) const override {
-        return detectFromTable(id(), detectionTable(), dir);
+        auto found = detectFromTable(id(), detectionTable(), dir);
+        return found.empty() ? detectFromTable(id(), fallbackTable(), dir) : found;
     }
 
     std::unique_ptr<Engine> create(System& system, const GameTarget& target) const override {

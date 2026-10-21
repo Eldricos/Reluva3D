@@ -242,8 +242,13 @@ static void testFilesystemAndDetection(const std::filesystem::path& tmp) {
     const MetaEngine* meta = findEngine("idtech3");
     CHECK(meta && meta->detect(tmp).empty());
     test::writeFile(tmp / "STVOY.EXE", toBytes("MZ"));
+    // The test's pak0.pk3 isn't a known release: found by name, and only once.
     auto found = meta ? meta->detect(tmp) : std::vector<DetectedGame>{};
     CHECK(found.size() == 1 && found[0].gameId == "stvef" && findGame(found[0].gameId));
+    CHECK(found.size() == 1 && found[0].description.find("unknown release") != std::string::npos);
+    // Every known release names pak0.pk3's size and hash.
+    for (const GameVariant& v : detectionTable())
+        CHECK(!v.files.empty() && !v.files[0].md5.empty() && v.files[0].size > 0);
     CHECK(!findGame("nope"));
     std::filesystem::remove_all(tmp);
 }
