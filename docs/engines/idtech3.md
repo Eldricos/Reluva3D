@@ -29,10 +29,10 @@ every engine.
 | Maps | every BSP lump read and validated; all 67 retail maps load ([bsp.md](../formats/idtech3/bsp.md)) |
 | Images | TGA, JPEG, PNG (`common/image.cpp`) |
 | Models | MD3 with every frame, tags, `.skin` files, players put together from their parts, lit by the light grid in maps ([md3.md](../formats/idtech3/md3.md)); placed where entities name a model. Items and characters wait for the game code |
-| Game code | QVM interpreter done and tested against compiler output ([qvm.md](../formats/idtech3/qvm.md)); Elite Force's system calls still to be worked out with `qvm-info`/`qvm-run` |
+| Game code | QVM interpreter done and tested against compiler output ([qvm.md](../formats/idtech3/qvm.md)). Elite Force's system calls worked out from its own code ([eliteforce-syscalls.md](../formats/idtech3/eliteforce-syscalls.md)); the menus' calls implemented (`eliteforce/ui_host.cpp`, `reluva-tool ui-run`): console variables, files, registering, recorded drawing. Not yet: showing the menus, sound, cgame, qagame |
 | Viewer | World (3D, with entities' models), Models, Maps (wireframe), Textures and Files pages |
 | Renderer | every shader stage with its blend, depth, alpha test, rgbGen/alphaGen, tcGen/tcMod and animMap; deformVertexes wave/bulge/move; sort order; sky boxes and cloud layers; fog volumes (by camera distance); the original's implicit shaders and light scaling ([shader.md](../formats/idtech3/shader.md)). Not yet: autosprites, portals, dynamic lights, visibility culling |
-| Models, sound, game code | not started |
+| Sound | not started |
 
 ## Next steps
 

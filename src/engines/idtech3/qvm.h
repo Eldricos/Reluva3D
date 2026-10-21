@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace reluva::idtech3 {
@@ -35,6 +36,14 @@ public:
     // the instruction.
     Error call(int32_t command, const std::vector<int32_t>& args, int32_t& result);
 
+    // From a system call: ends the run once the call returns, with this
+    // error from call() (the game code's own fatal errors, or memory a
+    // call can't touch). A nested call() made since also fails.
+    void abort(std::string message) {
+        if (abort_.empty())
+            abort_ = std::move(message);
+    }
+
     // The VM's memory, for system calls: addresses are offsets into it.
     std::vector<uint8_t>& memory() { return data_; }
     bool valid(int64_t address, int64_t size) const {
@@ -45,6 +54,10 @@ public:
     std::string string(int32_t address, size_t max = 4096) const;
     int32_t readInt(int32_t address) const;
     void writeInt(int32_t address, int32_t value);
+    // Copies `text` into a buffer of `size` bytes at `address`, cut to fit
+    // and NUL-terminated; false (and nothing written) if the buffer isn't
+    // inside memory or `size` is 0.
+    bool writeString(int32_t address, std::string_view text, int32_t size);
     // A float passed in an argument word.
     static float asFloat(int32_t word);
     static int32_t fromFloat(float value);
@@ -73,6 +86,7 @@ private:
     SystemCall syscall_;
     uint64_t limit_ = 0, executed_ = 0;
     int depth_ = 0; // nested call() through system calls
+    std::string abort_;
 };
 
 // The opcodes (docs/formats/idtech3/qvm.md), in their numbering.

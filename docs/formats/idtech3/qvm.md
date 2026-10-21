@@ -88,9 +88,33 @@ error; out-of-range float-to-int conversions saturate.
 - `reluva-tool qvm-run <game folder> vm/ui.qvm [command [args...]]`: runs
   `vmMain` answering every system call with 0, logging each call's number
   and arguments, with the text of arguments that point at strings. This is
-  how Elite Force's system calls are worked out from its own code.
+  how Elite Force's system calls are worked out from its own code
+  ([eliteforce-syscalls.md](eliteforce-syscalls.md)).
+- `reluva-tool qvm-refs <game folder> vm/ui.qvm <address> <size>`: the
+  constants in the code that point into a structure at `address` (as seen
+  in a `qvm-run` log), by offset, with the instruction that uses each:
+  which fields of the structure the code reads or writes, to check its
+  layout.
+- `reluva-tool ui-run <game folder> [-frames N] [-menu M]`: runs Elite
+  Force's menus with the engine's real system calls (see the Elite Force
+  page) and reports what they print, register and draw, and the calls not
+  implemented yet.
 
-The test program in `tests/data/qvm/` is compiled with the Quake III
+## System calls shared by every program
+
+Whatever a game numbers the rest, the calls from 100 up have so far been
+the same in each module (Quake III's, and Elite Force's going by its logs):
+100 `memset(dest, value, count)`, 101 `memcpy`, 102 `strncpy(dest, src,
+count)`, 103 `sin`, 104 `cos`, 105 `atan2(y, x)`, 106 `sqrt`; floats are
+passed and returned as their bits. `floor`, `ceil` and the vector helpers
+come after these, at numbers that differ between modules.
+
+A `vmCvar_t`, through which the programs see console variables, is four
+words (handle, modification count, value as a float, value as an integer)
+and the value as a 256-byte string: 272 bytes, which is also the spacing of
+the structures Elite Force's menus register in turn.
+
+The test programs in `tests/data/qvm/` are compiled with the Quake III
 compiler tools (`q3lcc`, `q3asm`), built from the ioquake3 source; only
-their output, a QVM of Reluva's own test program, is committed. `lcc` is
+their output, QVMs of Reluva's own test programs, is committed. `lcc` is
 under its own licence (its `COPYRIGHT` file) and isn't part of Reluva.

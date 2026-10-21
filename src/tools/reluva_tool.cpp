@@ -52,6 +52,13 @@
 //   reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]
 //                                                  run vmMain(command, args) answering every system
 //                                                  call with 0, and log each call and its arguments
+//   reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>
+//                                                  the constants in a QVM's code that point into a
+//                                                  structure at address, by offset: which fields it uses
+//   reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-trace] [-v]
+//                                                  run Elite Force's menus (vm/ui.qvm) with the engine's
+//                                                  system calls: Init, SetActiveMenu, Refresh; report
+//                                                  what they print, register and draw
 //   reluva-tool shader-check <game folder>         count the shader directives the engine doesn't know
 //                                                  or draw yet, with example shaders
 
@@ -79,6 +86,8 @@
 #include "engines/idtech3/entities.h"
 #include "engines/idtech3/md3.h"
 #include "engines/idtech3/qvm.h"
+#include "engines/idtech3/cvars.h"
+#include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/shader.h"
 #endif
 
@@ -2824,6 +2833,127 @@ int cmdQvmRun(int argc, char** argv) {
     return err ? 1 : 0;
 }
 
+int cmdQvmRefs(int argc, char** argv) {
+    if (argc != 6) {
+        std::fprintf(stderr, "usage: reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    q3::Qvm vm;
+    if (!loadQvm(argv[2], argv[3], vm))
+        return 1;
+    const long long base = std::strtoll(argv[4], nullptr, 0), size = std::strtoll(argv[5], nullptr, 0);
+    // Constants inside the range are addresses of a structure's fields (or
+    // of the structure itself): per offset, how often, and what the code
+    // does with the address next.
+    std::map<long long, std::map<std::string, int>> refs;
+    const auto& code = vm.code();
+    for (size_t i = 0; i < code.size(); ++i) {
+        if (code[i].op != q3::qvmop::Const || code[i].operand < base || code[i].operand >= base + size)
+            continue;
+        const std::string next = i + 1 < code.size() ? q3::qvmop::name(code[i + 1].op) : "end";
+        ++refs[code[i].operand - base][next];
+    }
+    std::printf("constants between %lld and %lld in %s (offset: count followed-by...):\n", base, base + size, argv[3]);
+    for (const auto& [offset, nexts] : refs) {
+        int total = 0;
+        std::string what;
+        for (const auto& [op, n] : nexts) {
+            total += n;
+            what += " " + op + "x" + std::to_string(n);
+        }
+        std::printf("  %6lld: %4d %s\n", offset, total, what.c_str());
+    }
+    return 0;
+}
+
+int cmdUiRun(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-trace] [-v]\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    namespace ef = reluva::idtech3::eliteforce;
+    int frames = 1, menu = 1, width = 640, height = 480;
+    bool traceCalls = false, verbose = false;
+    for (int i = 3; i < argc; ++i) {
+        if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
+            frames = std::atoi(argv[++i]);
+        else if (std::strcmp(argv[i], "-menu") == 0 && i + 1 < argc)
+            menu = std::atoi(argv[++i]);
+        else if (std::strcmp(argv[i], "-size") == 0 && i + 1 < argc) {
+            char* end = nullptr;
+            width = int(std::strtol(argv[++i], &end, 10));
+            height = *end ? int(std::strtol(end + 1, nullptr, 10)) : 0;
+            if (width <= 0 || height <= 0) {
+                std::fprintf(stderr, "-size takes WIDTHxHEIGHT, e.g. 1280x960\n");
+                return 2;
+            }
+        }
+        else if (std::strcmp(argv[i], "-trace") == 0)
+            traceCalls = true;
+        else if (std::strcmp(argv[i], "-v") == 0)
+            verbose = true;
+    }
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    q3::CvarStore cvars;
+    ef::UiHost ui(set, cvars);
+    ui.setScreenSize(width, height);
+    ui.print = [](const std::string& text) { std::printf("ui: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : ""); };
+    if (traceCalls)
+        ui.trace = [](int number, const int32_t* a) {
+            std::printf("  syscall %3d (%d, %d, %d, %d)\n", number, a[0], a[1], a[2], a[3]);
+        };
+    auto step = [&](const char* what, reluva::Error err) {
+        std::printf("%s: %s after %llu instructions\n", what, err ? err.message.c_str() : "ok",
+                    static_cast<unsigned long long>(ui.vm().executed()));
+        return !err;
+    };
+    if (!step("load and GetApiVersion", ui.load()))
+        return 1;
+    bool ok = step("Init", ui.call(ef::UiHost::Init));
+    if (ok)
+        ok = step("SetActiveMenu", ui.call(ef::UiHost::SetActiveMenu, {menu}));
+    for (int f = 0; ok && f < frames; ++f) {
+        ui.clearPictures();
+        const int32_t time = 1000 + f * 16;
+        ui.setTime(time);
+        ok = step("Refresh", ui.call(ef::UiHost::Refresh, {time}));
+    }
+
+    // What was registered, and whether the engine can find it.
+    q3::ShaderLibrary shaders;
+    shaders.load(set);
+    int missing = 0;
+    for (int32_t h = 1; h <= int32_t(ui.shaders().size()); ++h) {
+        const std::string& name = ui.shaders().name(h);
+        if (!shaders.find(name) && q3::findImage(set, name).empty()) {
+            std::printf("shader not found: %s\n", name.c_str());
+            ++missing;
+        }
+    }
+    std::printf("%zu cvars, %zu shaders (%d not found), %zu models, %zu sounds registered\n", cvars.all().size(),
+                ui.shaders().size(), missing, ui.models().size(), ui.sounds().size());
+    std::printf("last frame: %zu pictures\n", ui.pictures().size());
+    size_t shown = 0;
+    for (const auto& p : ui.pictures()) {
+        if (!verbose && ++shown > 40) {
+            std::printf("  ... (-v lists them all)\n");
+            break;
+        }
+        std::printf("  %7.1f %7.1f %7.1f x %-7.1f st %.3f %.3f %.3f %.3f  rgba %.2f %.2f %.2f %.2f  %s\n", p.x, p.y, p.w,
+                    p.h, p.s1, p.t1, p.s2, p.t2, p.color[0], p.color[1], p.color[2], p.color[3],
+                    ui.shaders().name(p.shader).c_str());
+    }
+    for (const std::string& c : ui.commands())
+        std::printf("command: %s\n", c.c_str());
+    for (const auto& [number, count] : ui.unhandled())
+        std::printf("not implemented: system call %d (%d calls)\n", number, count);
+    return ok ? 0 : 1;
+}
+
 int cmdShaderCheck(int argc, char** argv) {
     if (argc != 3) {
         std::fprintf(stderr, "usage: reluva-tool shader-check <game folder>\n");
@@ -2971,6 +3101,10 @@ int main(int argc, char** argv) {
         return cmdQvmInfo(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "qvm-run") == 0)
         return cmdQvmRun(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "qvm-refs") == 0)
+        return cmdQvmRefs(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "ui-run") == 0)
+        return cmdUiRun(argc, argv);
 #endif
     std::fprintf(stderr,
                  "usage:\n"
@@ -3010,6 +3144,8 @@ int main(int argc, char** argv) {
                  "  reluva-tool model-check <game folder> [name filter] [-v]\n"
                  "  reluva-tool qvm-info <game folder> <vm/x.qvm> [-s]\n"
                  "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
+                 "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
+                 "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-trace] [-v]\n"
 #endif
                  "");
     return 2;

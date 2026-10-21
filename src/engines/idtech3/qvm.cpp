@@ -81,6 +81,15 @@ void Qvm::writeInt(int32_t address, int32_t value) {
         std::memcpy(&data_[size_t(address)], &value, 4);
 }
 
+bool Qvm::writeString(int32_t address, std::string_view text, int32_t size) {
+    if (size <= 0 || !valid(address, size))
+        return false;
+    const size_t n = std::min(text.size(), size_t(size) - 1);
+    std::memcpy(&data_[size_t(address)], text.data(), n);
+    data_[size_t(address) + n] = 0;
+    return true;
+}
+
 Error Qvm::load(const std::vector<uint8_t>& file) {
     code_.clear();
     data_.clear();
@@ -156,8 +165,12 @@ Error Qvm::call(int32_t command, const std::vector<int32_t>& args, int32_t& resu
         return Error::fail("No QVM loaded");
     if (depth_ >= kMaxDepth)
         return Error::fail("QVM calls nested too deeply");
-    if (depth_ == 0)
+    if (depth_ == 0) {
         executed_ = 0;
+        abort_.clear();
+    }
+    if (!abort_.empty())
+        return Error::fail(abort_);
     const int32_t saved = programStack_;
     // vmMain's arguments, with -1 as the return address that ends the run.
     int32_t sp = programStack_ - (8 + 4 * kMainArgs);
@@ -267,6 +280,8 @@ Error Qvm::run(int32_t& result) {
                 programStack_ = sp - 4; // nested calls run below this frame
                 r = syscall_(*this, number, args.data());
                 programStack_ = savedStack;
+                if (!abort_.empty())
+                    return Error::fail(abort_);
             }
             if (!push(r))
                 return fail(at, "operand stack overflow");

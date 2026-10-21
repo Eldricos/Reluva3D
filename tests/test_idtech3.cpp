@@ -4,6 +4,8 @@
 // Tests for the id Tech 3 engine's readers, on data built here.
 
 #include "engines/idtech3/bsp.h"
+#include "engines/idtech3/cvars.h"
+#include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/entities.h"
 #include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/games.h"
@@ -15,12 +17,16 @@
 #include "engines/idtech3/qvm.h"
 #include "engines/idtech3/shader.h"
 #include "engines/registry.h"
+#include "data/qvm/fake_ui_qvm.h"
 #include "data/qvm/test_vm_qvm.h"
+#include "engines/idtech3/vm_services.h"
 #include "zip_writer.h"
 
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <string>
 
 using namespace reluva;
@@ -814,6 +820,109 @@ static void testFilesystemAndDetection(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+static void testCvars() {
+    CvarStore cvars;
+    const CvarStore::Cvar& a = cvars.create("Sensitivity", "5.5", CvarStore::Archive);
+    CHECK(a.handle == 1 && a.modificationCount == 1);
+    CHECK(cvars.value("sensitivity") == 5.5f && cvars.integer("SENSITIVITY") == 5);
+    cvars.create("sensitivity", "1", CvarStore::Cheat); // exists: keeps its value, gains the flag
+    CHECK(cvars.string("sensitivity") == "5.5" && cvars.find("sensitivity")->flags == (CvarStore::Archive | CvarStore::Cheat));
+    cvars.set("sensitivity", "3");
+    CHECK(cvars.find("sensitivity")->modificationCount == 2);
+    cvars.set("sensitivity", "3"); // unchanged: not counted
+    CHECK(cvars.find("sensitivity")->modificationCount == 2);
+    cvars.create("version", "1.0", CvarStore::ReadOnly);
+    cvars.set("version", "2.0");
+    CHECK(cvars.string("version") == "1.0");
+    cvars.set("version", "2.0", true);
+    CHECK(cvars.string("version") == "2.0");
+    cvars.set("made_up", "x"); // created by the user, then claimed by the code with its default
+    CHECK(cvars.find("made_up")->flags == CvarStore::UserCreated);
+    cvars.create("made_up", "y", 0);
+    CHECK(cvars.find("made_up")->flags == 0 && cvars.find("made_up")->defaultValue == "y" &&
+          cvars.string("made_up") == "x");
+    CHECK(cvars.byHandle(2)->name == "version" && !cvars.byHandle(0) && !cvars.byHandle(4));
+}
+
+static void testVmFileList() {
+    using test::toBytes;
+    auto dir = std::make_unique<ZipArchive>();
+    const auto path = std::filesystem::temp_directory_path() / "reluva_idtech3_list.pk3";
+    test::writeFile(path, test::buildZip({{"scripts/a.arena", toBytes("a"), {}},
+                                          {"Scripts/B.ARENA", toBytes("b"), {}},
+                                          {"scripts/c.txt", toBytes("c"), {}},
+                                          {"scripts/deep/d.arena", toBytes("d"), {}},
+                                          {"scripts/deep/e.arena", toBytes("e"), {}},
+                                          {"scriptsx/f.arena", toBytes("f"), {}}}));
+    CHECK(!dir->open(path));
+    SearchSet set;
+    set.add(std::move(dir), 0);
+    const auto arenas = VmFiles::listNames(set, "scripts/", ".arena");
+    CHECK(arenas.size() == 2 && arenas[0] == "a.arena" && arenas[1] == "B.ARENA");
+    const auto folders = VmFiles::listNames(set, "scripts", "/");
+    CHECK(folders.size() == 1 && folders[0] == "deep");
+    CHECK(VmFiles::listNames(set, "scripts", "").size() == 3);
+    std::filesystem::remove(path);
+
+    HandleTable table;
+    CHECK(table.add("gfx/a") == 1 && table.add("GFX\\A") == 1 && table.add("gfx/b") == 2 && table.add("") == 0);
+    CHECK(table.name(2) == "gfx/b" && table.name(0).empty() && table.name(3).empty());
+}
+
+// The menus' system calls, called by a QVM the Quake III compiler made
+// from tests/data/qvm/fake_ui.c.
+static void testUiHost(const std::filesystem::path& tmp) {
+    using test::toBytes;
+    namespace ef = eliteforce;
+    std::filesystem::remove_all(tmp);
+    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
+                    test::buildZip({{"vm/ui.qvm", std::vector<uint8_t>(std::begin(kFakeUiQvm), std::end(kFakeUiQvm)), {}},
+                                    {"scripts/test.txt", toBytes("hello world\n"), {}},
+                                    {"scripts/other.txt", toBytes("x"), {}},
+                                    {"scripts/sub/deep.txt", toBytes("x"), {}},
+                                    {"scripts/a.shader", toBytes("x"), {}}}));
+    SearchSet set;
+    std::vector<std::string> warnings;
+    CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
+    CvarStore cvars;
+    ef::UiHost ui(set, cvars);
+    Error err = ui.load();
+    CHECK(!err);
+    if (err) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return;
+    }
+    int32_t r = 0;
+    CHECK(!ui.call(ef::UiHost::Init, {}, r) && r == 1202); // 12 bytes, 2 .txt files directly in scripts/
+    CHECK(ui.log() == "fake ui\n");
+    CHECK(cvars.string("ui_test") == "7" && cvars.find("ui_test")->flags == CvarStore::Archive);
+    CHECK(!ui.call(2, {}, r) && r == 7);
+    cvars.set("ui_test", "9");
+    CHECK(!ui.call(2, {}, r) && r == 7); // the program's copy changes on Cvar_Update
+    CHECK(!ui.call(3, {}, r) && r == 9);
+    CHECK(!ui.call(8, {}, r) && r == 2);
+    CHECK(!ui.call(4, {}, r) && r == 640480);
+
+    CHECK(!ui.call(ef::UiHost::Refresh, {1234}, r) && r == 1234);
+    CHECK(ui.pictures().size() == 2);
+    if (ui.pictures().size() == 2) {
+        const auto& p = ui.pictures()[0];
+        CHECK(p.x == 10 && p.y == 20 && p.w == 320 && p.h == 30 && p.s1 == 0 && p.t2 == 0.5f);
+        CHECK(p.color[0] == 1 && p.color[1] == 0.5f && p.color[2] == 0 && p.color[3] == 1);
+        CHECK(ui.shaders().name(p.shader) == "menu/test");
+        CHECK(ui.pictures()[1].color == (std::array<float, 4>{1, 1, 1, 1}));
+    }
+    CHECK(!ui.call(6, {}, r) && r == 'h' * 1000000 + 'e' * 1000); // "hel", then NUL padding
+    CHECK(cvars.string("ui_text") == "hello world\n");
+    cvars.set("ui_number", "16");
+    CHECK(!ui.call(7, {}, r) && r == 40);
+    err = ui.call(9, {}, r);
+    CHECK(err && err.message.find("boom") != std::string::npos);
+    CHECK(!ui.call(2, {}, r) && r == 9); // usable again after the program's error
+    CHECK(ui.unhandled().empty());
+    std::filesystem::remove_all(tmp);
+}
+
 int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_idtech3_tests";
     testLexer();
@@ -828,6 +937,9 @@ int main() {
     testLightGrid();
     testQvm();
     testCompiledQvm();
+    testCvars();
+    testVmFileList();
+    testUiHost(tmp / "ui");
     testFilesystemAndDetection(tmp / "fs");
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
