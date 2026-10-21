@@ -45,6 +45,8 @@ enum CgameCall : int {
     RRegisterSkin = 38,
     RRegisterShader = 39,
     RClearScene = 40,
+    RSetColor = 45,
+    RDrawStretchPic = 46,
     RModelBounds = 47,
     GetGlconfig = 49,
     GetGameState = 50,
@@ -189,6 +191,18 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case RRegisterShader:
     case RRegisterShaderNoMip: return shaders_.add(str(0, 256));
     case RClearScene: return 0;
+    case RSetColor: // (rgba or 0 for white)
+        if (!a[0])
+            color_ = {1, 1, 1, 1};
+        else
+            for (int i = 0; i < 4; ++i)
+                color_[size_t(i)] = Qvm::asFloat(vm.readInt(a[0] + 4 * i));
+        return 0;
+    case RDrawStretchPic: { // (x, y, w, h, s1, t1, s2, t2, shader)
+        auto f = [&](int i) { return Qvm::asFloat(a[i]); };
+        pictures_.push_back({f(0), f(1), f(2), f(3), f(4), f(5), f(6), f(7), a[8], color_});
+        return 0;
+    }
     case RModelBounds: { // (model, mins[3], maxs[3])
         std::array<float, 3> mins{}, maxs{};
         const std::string& name = models_.name(a[0]);

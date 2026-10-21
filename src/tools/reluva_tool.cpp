@@ -3448,9 +3448,18 @@ int cmdGameRun(int argc, char** argv) {
                 int32_t ignored = 0;
                 const reluva::Error frame =
                     cgame.call(ef::CgameHost::DrawActiveFrame, {game.levelTime(), 0, 0}, ignored);
-                std::printf("cgame DrawActiveFrame(%d): %s after %llu instructions\n", game.levelTime(),
+                std::printf("cgame DrawActiveFrame(%d): %s after %llu instructions, %zu pictures\n", game.levelTime(),
                             frame ? frame.message.c_str() : "ok",
-                            static_cast<unsigned long long>(cgame.vm().executed()));
+                            static_cast<unsigned long long>(cgame.vm().executed()), cgame.pictures().size());
+                if (f == 0) {
+                    // What the frame drew in 2D, by shader.
+                    std::map<std::string, int> byShader;
+                    for (const auto& p : cgame.pictures())
+                        ++byShader[cgame.shaders().name(p.shader)];
+                    for (const auto& [name, count] : byShader)
+                        std::printf("  %4d x %s\n", count, name.empty() ? "(none)" : name.c_str());
+                }
+                cgame.clearPictures();
                 if (frame)
                     break;
             }

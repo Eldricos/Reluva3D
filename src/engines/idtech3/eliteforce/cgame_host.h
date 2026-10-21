@@ -53,6 +53,17 @@ public:
         ++snapshotNumber_;
         snapshotTime_ = serverTime;
     }
+    // Its 2D drawing since clearPictures(), as the menus' (the loading
+    // screen, the HUD): a part of a shader stretched over a rectangle of
+    // the screen, tinted.
+    struct Picture {
+        float x, y, w, h;
+        float s1, t1, s2, t2;
+        int32_t shader; // in shaders()
+        std::array<float, 4> color;
+    };
+    const std::vector<Picture>& pictures() const { return pictures_; }
+    void clearPictures() { pictures_.clear(); }
     // Where the client game asked for each snapshot (GetSnapshot's
     // number and buffer), in order: not filled in yet.
     const std::vector<std::pair<int32_t, int32_t>>& snapshotRequests() const { return snapshotRequests_; }
@@ -100,6 +111,8 @@ private:
     std::map<int, std::array<int32_t, 6>> firstUnhandled_;
     int32_t time_ = 0;
     int32_t snapshotNumber_ = 0, snapshotTime_ = 0;
+    std::vector<Picture> pictures_;
+    std::array<float, 4> color_{1, 1, 1, 1};
     std::vector<std::pair<int32_t, int32_t>> snapshotRequests_;
 };
 
