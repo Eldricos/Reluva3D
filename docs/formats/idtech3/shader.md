@@ -33,7 +33,9 @@ textures/borg/floor          // the name: an image path without extension
 ```
 
 When several files define a name, the first one read wins. Reluva reads
-the files in name order.
+the files in name order. Names are looked up without their extension, as
+the original does: a model surface naming `models/x/y.tga` uses the script
+`models/x/y` if there is one, and only otherwise the image.
 
 A surface whose shader name has no definition is drawn with the image of
 that name (`.tga`, else `.jpg`) multiplied by its lightmap.

@@ -221,6 +221,8 @@ textures/sky/stars
     lib.add(first);
     lib.add(second);
     CHECK(lib.size() == 1 && lib.find("TEXTURES\\a")->file == "first.shader" && !lib.find("textures/b"));
+    // An extension is ignored, as models name their shaders "....tga".
+    CHECK(lib.find("textures/a.tga") && lib.find("Textures/A.JPG") && !lib.find("textures/a.b/c"));
 }
 
 // A tiny map: one triangle in one leaf of a two-leaf tree, one brush,

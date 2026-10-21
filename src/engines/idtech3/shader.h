@@ -119,8 +119,10 @@ public:
     void load(const SearchSet& files, std::vector<std::string>* warnings = nullptr);
     void add(ShaderDef def);
 
-    // By name, ignoring case and slash direction; nullptr if undefined
-    // (then the engine uses the image of the same name, see shader.md).
+    // By name, ignoring case, slash direction and any extension (a model's
+    // "models/x/y.tga" finds the script "models/x/y", as in the original);
+    // nullptr if undefined (then the engine uses the image of that name,
+    // see shader.md).
     const ShaderDef* find(std::string_view name) const;
     size_t size() const { return shaders_.size(); }
     const std::vector<ShaderDef>& all() const { return shaders_; }

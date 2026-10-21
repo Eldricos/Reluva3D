@@ -343,7 +343,13 @@ void ShaderLibrary::add(ShaderDef def) {
 }
 
 const ShaderDef* ShaderLibrary::find(std::string_view name) const {
-    auto it = byName_.find(normalizeArchiveName(name));
+    // Like the original, without any extension: models and skins often
+    // name "models/x/y.tga" where a script defines "models/x/y".
+    std::string key = normalizeArchiveName(name);
+    const size_t dot = key.find_last_of('.'), slash = key.find_last_of('/');
+    if (dot != std::string::npos && (slash == std::string::npos || dot > slash))
+        key.resize(dot);
+    auto it = byName_.find(key);
     return it == byName_.end() ? nullptr : &shaders_[it->second];
 }
 
