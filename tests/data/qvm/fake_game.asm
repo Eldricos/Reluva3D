@@ -15,3 +15,5 @@ equ trap_UnlinkEntity               -32
 equ trap_EntitiesInBox              -33
 equ trap_GetEntityToken             -38
 equ ceil                            -112
+equ trap_SendServerCommand          -18
+equ trap_GetUserinfo                -21

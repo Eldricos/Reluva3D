@@ -54,6 +54,8 @@ void trap_LinkEntity(entity_t *ent);
 void trap_UnlinkEntity(entity_t *ent);
 int trap_EntitiesInBox(const float *mins, const float *maxs, int *list, int maxCount);
 int trap_GetEntityToken(char *buffer, int size);
+void trap_GetUserinfo(int clientNum, char *buffer, int size);
+void trap_SendServerCommand(int clientNum, const char *text);
 float ceil(float f);
 
 static int same(const char *a, const char *b);
@@ -65,10 +67,13 @@ static entity_t entities[64];
 static int clients[8];
 static int numEntities;
 static int frames;
+static int spawnPoint;
 static char token[64];
 static char key[64];
 static char text[64];
 static trace_t tr;
+static char userinfo[256];
+static int player = -1; /* the joined player's entity */
 
 int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int arg5, int arg6, int arg7, int arg8,
            int arg9, int arg10, int arg11) {
@@ -88,6 +93,24 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
             trap_Error("the first entity isn't worldspawn");
         trap_UnlinkEntity(&entities[0]); /* the world isn't linked */
         return numEntities;
+    case 2: /* client connect(clientNum, firstTime, isBot): refused without a name */
+        trap_GetUserinfo(arg0, userinfo, sizeof(userinfo));
+        if (!userinfo[0] || userinfo[1] != 'n')
+            return (int)"No name given";
+        return 0;
+    case 3: /* client begin(clientNum): at the spawn point, announced */
+        player = numEntities++;
+        trap_LocateGameData(entities, numEntities, sizeof(entity_t), clients, sizeof(int));
+        entities[player].number = player;
+        copy(entities[player].classname, "player", sizeof(entities[player].classname));
+        entities[player].currentOrigin[0] = entities[spawnPoint].currentOrigin[0];
+        entities[player].currentOrigin[1] = entities[spawnPoint].currentOrigin[1];
+        entities[player].currentOrigin[2] = entities[spawnPoint].currentOrigin[2] + 9;
+        entities[player].contents = 0x2000000;
+        trap_LinkEntity(&entities[player]);
+        trap_SendServerCommand(-1, "print \"Reluva entered the game\n\"");
+        return 0;
+    case 31: return player;
     case 8: /* run a frame(levelTime) */
         frames++;
         return frames;
@@ -187,6 +210,8 @@ static int spawnOne(void) {
         else if (same(key, "origin"))
             readVector(token, ent->currentOrigin);
     }
+    if (ent->classname[0] == 'i' && ent->classname[1] == 'n')
+        spawnPoint = numEntities; /* info_player_... */
     numEntities++;
     trap_LocateGameData(entities, numEntities, sizeof(entity_t), clients, sizeof(int));
     if (ent->model[0] == '*') {

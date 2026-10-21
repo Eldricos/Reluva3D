@@ -1004,7 +1004,8 @@ static void testGameHost(const std::filesystem::path& tmp) {
     const std::string entities = "{\n\"classname\" \"worldspawn\"\n\"message\" \"Borg Cube, deck 4\"\n}\n"
                                  "// a comment\n{\n\"classname\" \"func_door\"\n\"model\" \"*1\"\n"
                                  "\"origin\" \"200 0 0\"\n}\n/* another */ {\n\"classname\" \"item_health\"\n"
-                                 "\"origin\" \"-200 0 16\"\n}\n";
+                                 "\"origin\" \"-200 0 16\"\n}\n{\n\"classname\" \"info_player_deathmatch\"\n"
+                                 "\"origin\" \"0 0 300\"\n}\n";
     auto map = collisionMap();
     map->entities = entities;
     const Error err = game.startLevel("borg2", map);
@@ -1014,8 +1015,8 @@ static void testGameHost(const std::filesystem::path& tmp) {
         return;
     }
     CHECK(game.log() == "------- Game Initialization -------\n");
-    CHECK(game.gameData().count == 3 && game.gameData().entitySize == 352 && game.gameData().clientSize == 4);
-    CHECK((game.linked() == std::set<int32_t>{1, 2})); // the world unlinked
+    CHECK(game.gameData().count == 4 && game.gameData().entitySize == 352 && game.gameData().clientSize == 4);
+    CHECK((game.linked() == std::set<int32_t>{1, 2, 3})); // the world unlinked
     CHECK(game.configstrings().count(12) && game.configstrings().at(12) == "borg2");
     CHECK(game.levelTime() == 300);
     int32_t r = 0;
@@ -1045,7 +1046,17 @@ static void testGameHost(const std::filesystem::path& tmp) {
     CHECK(!game.call(28, {200, 0, 64}, r) && r == -1); // inside the door
     CHECK(!game.call(28, {0, 0, 64}, r) && r == 0);
     CHECK(!game.call(29, {-200, 0, 16}, r) && r == 102);
-    CHECK(!game.call(29, {0, 0, 300}, r) && r == 0);
+    CHECK(!game.call(29, {0, 0, 300}, r) && r == 103); // the spawn point
+
+    // A player joins: refused without a name, then let in and placed.
+    std::string refused;
+    CHECK(!game.connectClient(0, "", refused) && refused == "No name given");
+    CHECK(!game.connectClient(0, "\\name\\Reluva\\model\\munro", refused) && refused.empty());
+    CHECK(!game.beginClient(0));
+    CHECK(!game.call(31, {}, r) && r == 4 && game.linked().count(4));
+    CHECK(game.entityVec(4, 272)[0] == 0 && game.entityVec(4, 272)[2] == 309); // the spawn point, 9 up
+    CHECK(game.serverCommands().size() == 1 && game.serverCommands()[0].first == -1 &&
+          game.serverCommands()[0].second == "print \"Reluva entered the game\n\"");
     CHECK(game.unhandled().empty());
 
     // Broken entity text: the game's own error stops it.

@@ -57,6 +57,12 @@ public:
     // what things collide with.
     Error startLevel(const std::string& mapName, std::shared_ptr<const Bsp> map, int32_t randomSeed = 0);
     Error runFrame();
+    // A player joining, as the original server does it: their userinfo
+    // (an info string: \\name\\...\\model\\...), then ClientConnect,
+    // which may refuse them (`refused` gets the game's reason), then
+    // ClientBegin, which puts them in the level.
+    Error connectClient(int32_t clientNum, const std::string& userinfo, std::string& refused);
+    Error beginClient(int32_t clientNum);
     Error call(int32_t command, const std::vector<int32_t>& args, int32_t& result);
 
     Qvm& vm() { return vm_; }
@@ -78,6 +84,11 @@ public:
     // Entity numbers linked into the world (LinkEntity), not unlinked since.
     const std::set<int32_t>& linked() const { return linked_; }
     const std::map<int32_t, std::string>& configstrings() const { return configstrings_; }
+    // What the game sent to clients (SendServerCommand), in order: the
+    // client (-1 for all) and the command text.
+    const std::vector<std::pair<int32_t, std::string>>& serverCommands() const { return serverCommands_; }
+    // Clients the game dropped, with its reason.
+    const std::map<int32_t, std::string>& dropped() const { return dropped_; }
     // Commands the game ran (SendConsoleCommand), in order.
     const std::vector<std::string>& consoleCommands() const { return consoleCommands_; }
 
@@ -113,6 +124,9 @@ private:
     std::set<int32_t> linked_;
     std::map<int32_t, std::string> configstrings_;
     std::vector<std::string> consoleCommands_;
+    std::map<int32_t, std::string> userinfo_;
+    std::vector<std::pair<int32_t, std::string>> serverCommands_;
+    std::map<int32_t, std::string> dropped_;
     std::string log_;
     std::map<int, int> unhandled_;
     int32_t levelTime_ = 0;

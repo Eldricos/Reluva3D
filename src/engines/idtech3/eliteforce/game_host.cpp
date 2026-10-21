@@ -133,6 +133,22 @@ Error GameHost::runFrame() {
     return call(RunFrame, {levelTime_}, ignored);
 }
 
+Error GameHost::connectClient(int32_t clientNum, const std::string& userinfo, std::string& refused) {
+    refused.clear();
+    userinfo_[clientNum] = userinfo;
+    int32_t reason = 0;
+    if (Error err = call(ClientConnect, {clientNum, 1, 0}, reason)) // first time, not a bot
+        return err;
+    if (reason)
+        refused = vm_.string(reason, 1024);
+    return Error::success();
+}
+
+Error GameHost::beginClient(int32_t clientNum) {
+    int32_t ignored = 0;
+    return call(ClientBegin, {clientNum}, ignored);
+}
+
 std::string GameHost::nextEntityToken() {
     const std::string& s = entityText_;
     size_t& i = entityPos_;
@@ -405,7 +421,14 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case LocateGameData:
         gameData_ = {a[0], a[1], a[2], a[3], a[4]};
         return 0;
-    case SendServerCommand: return 0; // no clients yet
+    case SendServerCommand: serverCommands_.emplace_back(a[0], str(1, 8192)); return 0;
+    case DropClient: dropped_[a[0]] = str(1, 1024); return 0;
+    case GetUserinfo: {
+        const auto it = userinfo_.find(a[0]);
+        vm.writeString(a[1], it == userinfo_.end() ? std::string() : it->second, a[2]);
+        return 0;
+    }
+    case SetUserinfo: userinfo_[a[0]] = str(1, 1024); return 0;
     case SetConfigstring: configstrings_[a[0]] = str(1, 8192); return 0;
     case GetConfigstring: {
         const auto it = configstrings_.find(a[0]);

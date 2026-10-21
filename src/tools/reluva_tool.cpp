@@ -65,10 +65,11 @@
 //                                                  run Elite Force's menus (vm/ui.qvm) with the engine's
 //                                                  system calls: Init, SetActiveMenu, Refresh; report
 //                                                  what they print, register and draw
-//   reluva-tool game-run <game folder> <map> [-frames N] [-trace]
+//   reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-trace]
 //                                                  start a level with Elite Force's game logic
 //                                                  (vm/qagame.qvm): Init with the map's entities, then
-//                                                  frames; report what it prints, sets and links
+//                                                  frames, with a player (client 0) joining unless
+//                                                  -noclient; report what it prints, sets and links
 //   reluva-tool shader-check <game folder>         count the shader directives the engine doesn't know
 //                                                  or draw yet, with example shaders
 
@@ -3135,18 +3136,20 @@ int cmdUiRun(int argc, char** argv) {
 
 int cmdGameRun(int argc, char** argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-trace]\n");
+        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-trace]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
     int frames = 10;
-    bool traceCalls = false;
+    bool traceCalls = false, noClient = false;
     for (int i = 4; i < argc; ++i) {
         if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
             frames = std::atoi(argv[++i]);
         else if (std::strcmp(argv[i], "-trace") == 0)
             traceCalls = true;
+        else if (std::strcmp(argv[i], "-noclient") == 0)
+            noClient = true;
     }
     reluva::SearchSet set;
     if (!mountIdTech3(argv[2], set))
@@ -3184,6 +3187,23 @@ int cmdGameRun(int argc, char** argv) {
     reluva::Error started = game.startLevel(map, bspOwned);
     std::printf("start level (Init and 3 frames): %s\n", started ? started.message.c_str() : "ok");
     bool ok = !started;
+    if (ok && !noClient) {
+        // A player joins, as on a listen server: client 0.
+        const std::string userinfo = "\\name\\Reluva\\model\\munro\\handicap\\100\\sex\\male\\color\\4"
+                                     "\\snaps\\20\\rate\\25000\\ip\\localhost";
+        std::string refused;
+        reluva::Error err = game.connectClient(0, userinfo, refused);
+        std::printf("client 0 connects: %s\n", err ? err.message.c_str() : refused.empty() ? "ok" : ("refused: " + refused).c_str());
+        ok = !err;
+        if (ok && refused.empty()) {
+            err = game.beginClient(0);
+            std::printf("client 0 begins: %s\n", err ? err.message.c_str() : "ok");
+            ok = !err;
+            const auto o = game.entityVec(0, 272);
+            std::printf("client 0's entity: %s at %.1f %.1f %.1f\n", game.linked().count(0) ? "linked" : "not linked",
+                        o[0], o[1], o[2]);
+        }
+    }
     for (int f = 0; ok && f < frames; ++f)
         ok = step("RunFrame", game.runFrame());
 
@@ -3198,6 +3218,14 @@ int cmdGameRun(int argc, char** argv) {
     }
     for (const std::string& c : game.consoleCommands())
         std::printf("console command: %s\n", c.c_str());
+    for (const auto& [client, text] : game.serverCommands()) {
+        std::string shown = text.size() > 120 ? text.substr(0, 120) + "..." : text;
+        while (!shown.empty() && shown.back() == '\n')
+            shown.pop_back();
+        std::printf("to client %d: %s\n", client, shown.c_str());
+    }
+    for (const auto& [client, reason] : game.dropped())
+        std::printf("client %d dropped: %s\n", client, reason.c_str());
 
     // A check of the collision model on its own: a player's box dropped
     // from each spawn point (raised 9 units, as Quake III's game puts
@@ -3434,7 +3462,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
                  "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
                  "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number>\n"
-                 "  reluva-tool game-run <game folder> <map> [-frames N] [-trace]\n"
+                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-trace]\n"
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif
                  "");

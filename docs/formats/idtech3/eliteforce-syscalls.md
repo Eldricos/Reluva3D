@@ -185,7 +185,13 @@ configstrings, the entity text, the server info string; linking (filling
 in `absmin`/`absmax`, a unit larger than the entity's box, as the original
 does), `SetBrushModel`, traces against the world and linked entities,
 point contents, entities in a box, entity contact and the PVS tests.
-Areas and area portals aren't separated yet. `game-run` also drops a
+Areas and area portals aren't separated yet. A player joins as on the original server: the
+userinfo string is stored for `GetUserinfo` (call 20), `vmMain(2,
+clientNum, 1, 0)` (connect: first time, not a bot) returns 0 or the
+address of the game's reason for refusing, and `vmMain(3, clientNum)`
+puts them in the level. What the game sends to clients
+(`SendServerCommand`, call 17) is recorded; `game-run` connects client
+0 unless given `-noclient`. `game-run` also drops a
 player's box from every spawn point (raised 9 units, as Quake III's game
 spawns players) as a check of the collision model on its own.
 | 111 | `ceil` | order | Quake III's game numbers `floor` 110 and `ceil` 111 |
