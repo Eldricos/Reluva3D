@@ -201,7 +201,15 @@ puts them in the level. What the game sends to clients
 0 unless given `-noclient`. Each frame, a joined player's command is handed over with
 `vmMain(7, clientNum)` (ClientThink, which reads it with call 36) before
 the frame runs; `game-run` sends an idle player's empty commands and
-prints where the player is after each frame. `game-run` also drops a
+prints where the player is after each frame. With the `g_holoIntro` cvar at its default
+(1), a new player is held for Holomatch's holodeck intro: the game doesn't
+take their commands (its copy at `client + 464` stays empty) and doesn't
+announce them; the client game presumably ends the intro. With
+`g_holoIntro 0` (`game-run -set g_holoIntro 0`) the game announces
+"entered the game" and moves the player by their commands: run forward
+(byte 21 of the command, 127), the player moved 8.9 units in the first
+100 ms on hm_dn1. That confirms Quake III's usercmd_t layout for Elite
+Force and the game's own movement code running on Reluva's collision. `game-run` also drops a
 player's box from every spawn point (raised 9 units, as Quake III's game
 spawns players) as a check of the collision model on its own.
 | 111 | `ceil` | order | Quake III's game numbers `floor` 110 and `ceil` 111 |
