@@ -1073,6 +1073,13 @@ static void testGameHost(const std::filesystem::path& tmp) {
     CHECK(!game.call(33, {}, r) && r == 1000 + 16384 * 100000);
     CHECK(!game.call(34, {}, r) && r == 3000000 + 255 * 10000 + 1 * 100 + 60);
     CHECK(game.entityVec(4, 272)[0] == 127); // moved by it
+    // Its snapshot: every linked entity (the door, the item, the spawn
+    // point, the player's box at 4: the stand-in's player isn't entity 0),
+    // each the first 204 bytes of the game's entity.
+    const auto snap = game.snapshot(0);
+    CHECK(snap.serverTime == 300 && snap.entities.size() == 4 && snap.entities[0].size() == 204);
+    CHECK(snap.entities[0][0] == 1 && snap.entities[3][0] == 4); // s.number
+    CHECK(snap.serverCommandSequence == 1);
     CHECK(game.serverCommands().size() == 1 && game.serverCommands()[0].first == -1 &&
           game.serverCommands()[0].second == "print \"Reluva entered the game\n\"");
     CHECK(game.unhandled().empty());
@@ -1116,6 +1123,32 @@ static void testCgameHost(const std::filesystem::path& tmp) {
     CHECK(!cgame.call(24, {}, r) && r == 101);
     CHECK((cgame.commands() == std::vector<std::string>{"+zoom", "weapnext"}));
     CHECK(cgame.music().first == "music/intro" && cgame.music().second == "music/loop");
+
+    // A snapshot, in Elite Force's snapshot_t (52740 bytes).
+    CHECK(!cgame.call(25, {}, r) && r == -1); // none yet
+    ef::GameHost::Snapshot snap;
+    snap.serverTime = 1300;
+    snap.playerState.assign(460, 0);
+    snap.playerState[0] = 7;   // the first word: 7
+    snap.playerState[456] = 2; // the last: 2
+    for (int e = 0; e < 3; ++e) {
+        std::vector<uint8_t> state(204, 0);
+        state[0] = uint8_t(10 + e); // s.number
+        state[200] = uint8_t(e);    // the last word
+        snap.entities.push_back(state);
+    }
+    snap.serverCommandSequence = 2;
+    cgame.newSnapshot(snap);
+    CHECK(!cgame.call(25, {}, r) && r == 1300);
+    CHECK(!cgame.call(26, {}, r) && r == 3002);
+    CHECK(!cgame.call(27, {}, r) && r == 9);
+    CHECK(!cgame.call(28, {2}, r) && r == 12 * 1000 + 2);
+    CHECK(cgame.snapshotRequests().size() == 2 && cgame.snapshotRequests()[1].first == 1);
+    // Server commands, split into words.
+    cgame.setServerCommands({"print \"Reluva entered the game\n\"", "cs 544 \"n\\Reluva\""});
+    CHECK(!cgame.call(29, {1, 1}, r) && r == 2000 + 'R');
+    CHECK(!cgame.call(29, {2, 0}, r) && r == 3000 + 'c');
+    CHECK(!cgame.call(29, {3, 0}, r) && r == -1);
     CHECK(cgame.unhandled().empty());
     std::filesystem::remove_all(tmp);
 }

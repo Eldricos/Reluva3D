@@ -3440,11 +3440,22 @@ int cmdGameRun(int argc, char** argv) {
                     cgame.commands().size());
         if (!err) {
             // A few frames, a new snapshot each, to see what the client game
-            // asks for to draw them.
+            // does with them.
+            const auto [at208, at212] = game.svFlagsEvidence();
+            std::printf("svFlags: %d linked entities have flags at 208, %d at 212; taken to be at %d\n", at208, at212,
+                        game.svFlagsOffset());
             for (int f = 0; f < 3; ++f) {
                 if (f)
                     game.runFrame();
-                cgame.newSnapshot(game.levelTime());
+                std::vector<std::string> commands;
+                for (const auto& [to, text] : game.serverCommands())
+                    if (to == 0 || to == -1)
+                        commands.push_back(text);
+                cgame.setServerCommands(commands);
+                auto snap = game.snapshot(0);
+                std::printf("snapshot at %d: %zu entities, %d server commands\n", snap.serverTime, snap.entities.size(),
+                            snap.serverCommandSequence);
+                cgame.newSnapshot(std::move(snap));
                 int32_t ignored = 0;
                 const reluva::Error frame =
                     cgame.call(ef::CgameHost::DrawActiveFrame, {game.levelTime(), 0, 0}, ignored);

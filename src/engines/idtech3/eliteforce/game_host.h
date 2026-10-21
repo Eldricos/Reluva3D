@@ -103,6 +103,24 @@ public:
     // (an entity number, 1022 the world, 1023 nothing).
     TraceResult traceMove(const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
                           int32_t passEntity, int32_t mask, int32_t& hit, bool entities = true);
+    // What the server sends a player each frame: the level time, their
+    // player state and the entities they can see, copied byte for byte
+    // from the game's memory (the first 460 bytes of their client, the
+    // first 204 of each entity), and how many commands the game has sent
+    // them so far.
+    struct Snapshot {
+        int32_t serverTime = 0;
+        std::vector<uint8_t> playerState;
+        std::vector<std::vector<uint8_t>> entities; // entity states, in entity order
+        int32_t serverCommandSequence = 0;
+    };
+    static constexpr int32_t kPlayerStateSize = 460, kEntityStateSize = 204;
+    Snapshot snapshot(int32_t clientNum);
+    // Where svFlags is in Elite Force's entities (208 or 212: one of the
+    // two words between `linked` and `bmodel`), found from the entities
+    // themselves, and the evidence: how many entities have flags at each.
+    int32_t svFlagsOffset();
+    std::pair<int, int> svFlagsEvidence();
     // How many times each system call has been made since the start.
     const std::map<int, int>& callCounts() const { return callCounts_; }
     // Entity numbers linked into the world (LinkEntity), not unlinked since.

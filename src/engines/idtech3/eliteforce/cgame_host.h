@@ -7,6 +7,7 @@
 #include "common/types.h"
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/cvars.h"
+#include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/qvm.h"
 #include "engines/idtech3/vm_services.h"
 
@@ -47,12 +48,13 @@ public:
     // CG_INIT for the player `clientNum`.
     Error init(int32_t clientNum, int32_t serverMessageNum = 0, int32_t serverCommandSequence = 0);
     Error call(int32_t command, const std::vector<int32_t>& args, int32_t& result);
-    // A new snapshot from the server: what GetCurrentSnapshotNumber
-    // reports (its number counts up from 1, with the server's time).
-    void newSnapshot(int32_t serverTime) {
-        ++snapshotNumber_;
-        snapshotTime_ = serverTime;
-    }
+    // A new snapshot from the server, numbered from 1: what
+    // GetCurrentSnapshotNumber reports and GetSnapshot hands over (the
+    // last 32 are kept).
+    void newSnapshot(GameHost::Snapshot snapshot);
+    // The commands the server has sent this player, in order (what
+    // GetServerCommand hands over, by sequence number from 1).
+    void setServerCommands(std::vector<std::string> commands) { serverCommands_ = std::move(commands); }
     // Its 2D drawing since clearPictures(), as the menus' (the loading
     // screen, the HUD): a part of a shader stretched over a rectangle of
     // the screen, tinted.
@@ -65,7 +67,7 @@ public:
     const std::vector<Picture>& pictures() const { return pictures_; }
     void clearPictures() { pictures_.clear(); }
     // Where the client game asked for each snapshot (GetSnapshot's
-    // number and buffer), in order: not filled in yet.
+    // number and buffer), in order.
     const std::vector<std::pair<int32_t, int32_t>>& snapshotRequests() const { return snapshotRequests_; }
 
     Qvm& vm() { return vm_; }
@@ -111,6 +113,9 @@ private:
     std::map<int, std::array<int32_t, 6>> firstUnhandled_;
     int32_t time_ = 0;
     int32_t snapshotNumber_ = 0, snapshotTime_ = 0;
+    std::map<int32_t, GameHost::Snapshot> snapshots_; // by number
+    std::vector<std::string> serverCommands_;
+    std::vector<std::string> args_; // the command being handled, split as Quake III's Cmd_TokenizeString does
     std::vector<Picture> pictures_;
     std::array<float, 4> color_{1, 1, 1, 1};
     std::vector<std::pair<int32_t, int32_t>> snapshotRequests_;

@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cstdlib>
+#include <algorithm>
 #include <cstring>
 
 namespace reluva::idtech3::eliteforce {
@@ -52,6 +53,7 @@ enum CgameCall : int {
     GetGameState = 50,
     GetCurrentSnapshotNumber = 51,
     GetSnapshot = 52,
+    GetServerCommand = 53,
     RRegisterShaderNoMip = 57,
     MemoryRemaining = 58,
 };
@@ -68,7 +70,50 @@ constexpr int32_t kGameStateSize = 4 * kMaxConfigstrings + kGameStateChars + 4;
 constexpr int32_t kGlconfigWords = 5124;
 constexpr int32_t kGlconfigSize = 5192;
 
+// snapshot_t, as Elite Force's client game lays it out (the second
+// snapshot buffer is 52740 bytes after the first; the fields it reads
+// through its snapshot pointers match): Quake III's, with Elite Force's
+// player and entity states.
+constexpr int32_t kSnapshotSize = 52740;
+constexpr int32_t kSnapServerTime = 8, kSnapPlayerState = 44; // the area mask is at 12, zeros: every area visible
+constexpr int32_t kSnapNumEntities = 504, kSnapEntities = 508;
+constexpr int32_t kSnapNumServerCommands = 52732, kSnapServerCommandSequence = 52736;
+constexpr int32_t kMaxSnapshotEntities = 256;
+
+// A command line split into words as Quake III's Cmd_TokenizeString does:
+// at white space, a quoted string as one word, // comments ending it.
+std::vector<std::string> tokenize(const std::string& line) {
+    std::vector<std::string> words;
+    size_t i = 0;
+    while (true) {
+        while (i < line.size() && static_cast<unsigned char>(line[i]) <= ' ')
+            ++i;
+        if (i >= line.size() || (line[i] == '/' && i + 1 < line.size() && line[i + 1] == '/'))
+            return words;
+        std::string word;
+        if (line[i] == '"') {
+            ++i;
+            while (i < line.size() && line[i] != '"')
+                word += line[i++];
+            if (i < line.size())
+                ++i;
+        } else {
+            while (i < line.size() && static_cast<unsigned char>(line[i]) > ' ')
+                word += line[i++];
+        }
+        words.push_back(std::move(word));
+    }
+}
+
 } // namespace
+
+void CgameHost::newSnapshot(GameHost::Snapshot snapshot) {
+    ++snapshotNumber_;
+    snapshotTime_ = snapshot.serverTime;
+    snapshots_[snapshotNumber_] = std::move(snapshot);
+    while (snapshots_.size() > 32)
+        snapshots_.erase(snapshots_.begin());
+}
 
 CgameHost::CgameHost(const SearchSet& files, CvarStore& cvars) : files_(files), cvars_(cvars), vmFiles_(files) {
     vm_.setSystemCall([this](Qvm& vm, int number, const int32_t* args) { return systemCall(vm, number, args); });
@@ -163,9 +208,15 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case CvarUpdate: cvars_.updateVmCvar(vm, a[0]); return 0;
     case CvarSet: cvars_.set(str(0, 256), str(1, 256)); return 0;
     case CvarVariableStringBuffer: vm.writeString(a[1], cvars_.string(str(0, 256)), a[2]); return 0;
-    case Argc: return 0;
-    case Argv: vm.writeString(a[1], "", a[2]); return 0;
-    case Args: vm.writeString(a[0], "", a[1]); return 0;
+    case Argc: return int32_t(args_.size());
+    case Argv: vm.writeString(a[1], a[0] >= 0 && size_t(a[0]) < args_.size() ? args_[size_t(a[0])] : "", a[2]); return 0;
+    case Args: {
+        std::string rest;
+        for (size_t i = 1; i < args_.size(); ++i)
+            rest += (i > 1 ? " " : "") + args_[i];
+        vm.writeString(a[0], rest, a[1]);
+        return 0;
+    }
     case FsFOpenFile: return vmFiles_.open(vm, a[0], a[1], a[2]);
     case FsRead: return vmFiles_.read(vm, a[0], a[1], a[2]);
     case FsFCloseFile: vmFiles_.close(a[0]); return 0;
@@ -231,11 +282,31 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         vm.writeInt(a[0], snapshotNumber_);
         vm.writeInt(a[1], snapshotTime_);
         return 0;
-    case GetSnapshot: // (number, snapshot_t*) -> whether it's there: not yet
+    case GetSnapshot: { // (number, snapshot_t*) -> whether it's still there
         snapshotRequests_.emplace_back(a[0], a[1]);
-        ++unhandled_[number];
-        firstUnhandled_.try_emplace(number, std::array<int32_t, 6>{a[0], a[1], a[2], a[3], a[4], a[5]});
-        return 0;
+        const auto it = snapshots_.find(a[0]);
+        if (it == snapshots_.end() || !vm.checkWrite(a[1], kSnapshotSize))
+            return 0;
+        const GameHost::Snapshot& s = it->second;
+        std::memset(&vm.memory()[size_t(a[1])], 0, size_t(kSnapNumEntities)); // flags, ping, area mask (all visible)
+        vm.writeInt(a[1] + kSnapServerTime, s.serverTime);
+        std::memcpy(&vm.memory()[size_t(a[1] + kSnapPlayerState)], s.playerState.data(),
+                    std::min(s.playerState.size(), size_t(GameHost::kPlayerStateSize)));
+        const auto count = int32_t(std::min(s.entities.size(), size_t(kMaxSnapshotEntities)));
+        vm.writeInt(a[1] + kSnapNumEntities, count);
+        for (int32_t i = 0; i < count; ++i)
+            std::memcpy(&vm.memory()[size_t(a[1] + kSnapEntities + i * GameHost::kEntityStateSize)],
+                        s.entities[size_t(i)].data(), size_t(GameHost::kEntityStateSize));
+        vm.writeInt(a[1] + kSnapNumServerCommands, 0);
+        vm.writeInt(a[1] + kSnapServerCommandSequence, s.serverCommandSequence);
+        return 1;
+    }
+    case GetServerCommand: { // (sequence) -> whether it's there; it becomes Argc/Argv
+        if (a[0] < 1 || size_t(a[0]) > serverCommands_.size())
+            return 0;
+        args_ = tokenize(serverCommands_[size_t(a[0] - 1)]);
+        return 1;
+    }
     case MemoryRemaining: return 64 << 20; // plenty: the client game loads every player model up front
     case GetGlconfig: writeGlconfig(a[0]); return 0;
     case GetGameState: writeGameState(a[0]); return 0;

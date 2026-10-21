@@ -245,7 +245,8 @@ numbering wherever it can be checked:
 | 49 | `GetGlconfig(&glconfig)` | seen | into the field after the game state |
 | 50 | `GetGameState(&gameState)` | seen | into the start of the client game's static block |
 | 51 | `GetCurrentSnapshotNumber(&number, &serverTime)` | seen | the first call of a frame; unanswered, it read 25376 as the number ("CG_ReadNextSnapshot: way out of range") |
-| 52 | `GetSnapshot(number, snapshot_t*)` → whether it's there | order | |
+| 52 | `GetSnapshot(number, snapshot_t*)` → whether it's there | seen | into `cg.activeSnapshots[0]` (733228, 12 bytes after the latest snapshot time 51 writes, as in Quake III's `cg_t`) |
+| 53 | `GetServerCommand(sequence)` → whether it's there; its words become `Argc`/`Argv` | order | |
 | 57 | `R_RegisterShaderNoMip(name)` | seen | crosshairs, HUD pieces, fonts |
 | 58 | `MemoryRemaining()` | seen | answered 0, the client game prints "Memory is low.  Using deferred model." and skips loading player models |
 | 100, 102 | `memset`, `strncpy` | seen | |
@@ -265,5 +266,19 @@ game's configstrings. As in Quake III, configstrings 0 and 1 are the
 server's own: the info strings of every server-info cvar (`mapname`,
 `g_gametype`...) and every system-info one, set after the game starts and
 after each frame. The client game finds the map's name in 0; without it,
-it asked to load `maps/.bsp`. Snapshots (the player state and entities each
-frame) and drawing come next.
+it asked to load `maps/.bsp`. 
+The snapshot (`snapshot_t`) is Quake III's with Elite Force's player and
+entity states: snapFlags 0, ping 4, serverTime 8, the area mask 12 (32
+bytes), the player state 44 (460 bytes), numEntities 504, the entity
+states 508 (256 of 204 bytes), numServerCommands 52732,
+serverCommandSequence 52736: 52740 bytes. The evidence: the client game
+stores the address 52740 bytes past its first snapshot buffer (its
+second); through its current-snapshot pointer (733220) it reads 0, 8, 12,
+44 (copied whole), fields up to 340, 504 and 508; through its
+next-snapshot pointer (733224) 52736. The server copies the player state
+and entity states byte for byte from the game (the first 460 bytes of
+the player's client, the first 204 of each entity), so their insides
+needn't be known. It sends every linked entity but the player's own and
+those flagged not to be sent (SVF_NOCLIENT, bit 1 of svFlags, which is at
+208 or 212: Reluva takes whichever word has flags in the running game);
+no visibility culling yet.

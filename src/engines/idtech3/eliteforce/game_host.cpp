@@ -250,6 +250,49 @@ Vec3f GameHost::clientVec(int32_t clientNum, int32_t offset) {
     return readVec(gameData_.clients + clientNum * gameData_.clientSize + offset);
 }
 
+std::pair<int, int> GameHost::svFlagsEvidence() {
+    // svFlags holds small flag bits (Quake III's SVF_NOCLIENT is 1, for
+    // triggers and other entities the client never sees); the other word
+    // (linkcount or singleClient, never written by Reluva) stays 0.
+    int at208 = 0, at212 = 0;
+    for (int32_t n : linked_) {
+        const int32_t v208 = entityInt(n, 208), v212 = entityInt(n, 212);
+        at208 += v208 > 0 && v208 < 0x10000;
+        at212 += v212 > 0 && v212 < 0x10000;
+    }
+    return {at208, at212};
+}
+
+int32_t GameHost::svFlagsOffset() {
+    const auto [at208, at212] = svFlagsEvidence();
+    return at208 > at212 ? 208 : 212;
+}
+
+GameHost::Snapshot GameHost::snapshot(int32_t clientNum) {
+    Snapshot snap;
+    snap.serverTime = levelTime_;
+    snap.playerState.assign(size_t(kPlayerStateSize), 0);
+    const int32_t client = gameData_.clients + clientNum * gameData_.clientSize;
+    if (gameData_.clientSize >= kPlayerStateSize && vm_.valid(client, kPlayerStateSize))
+        std::memcpy(snap.playerState.data(), &vm_.memory()[size_t(client)], size_t(kPlayerStateSize));
+    // Every linked entity but the player's own (the client game makes that
+    // one from the player state) and those flagged not to be sent
+    // (SVF_NOCLIENT, 1), as the original server does; no visibility
+    // culling yet. At most 256, the snapshot's room.
+    const int32_t svFlags = svFlagsOffset();
+    for (int32_t n : linked_) {
+        if (n == clientNum || (entityInt(n, svFlags) & 1))
+            continue;
+        const int32_t a = entityAddress(n);
+        if (a < 0 || snap.entities.size() >= 256)
+            continue;
+        snap.entities.emplace_back(&vm_.memory()[size_t(a)], &vm_.memory()[size_t(a)] + kEntityStateSize);
+    }
+    for (const auto& [to, text] : serverCommands_)
+        snap.serverCommandSequence += to == clientNum || to == -1;
+    return snap;
+}
+
 void GameHost::linkEntity(int32_t address) {
     const int32_t n = entityNumber(address);
     if (n < 0)
