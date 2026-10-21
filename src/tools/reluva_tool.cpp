@@ -66,7 +66,7 @@
 //                                                  run Elite Force's menus (vm/ui.qvm) with the engine's
 //                                                  system calls: Init, SetActiveMenu, Refresh; report
 //                                                  what they print, register and draw
-//   reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk] [-trace]
+//   reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk] [-set name value] [-trace]
 //                                                  start a level with Elite Force's game logic
 //                                                  (vm/qagame.qvm): Init with the map's entities, then
 //                                                  frames, with a player (client 0) joining unless
@@ -3155,13 +3155,14 @@ int cmdUiRun(int argc, char** argv) {
 
 int cmdGameRun(int argc, char** argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk] [-trace]\n");
+        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk] [-set name value] [-trace]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
     int frames = 10;
     bool traceCalls = false, noClient = false, walk = false;
+    std::vector<std::pair<std::string, std::string>> settings; // -set name value
     for (int i = 4; i < argc; ++i) {
         if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
             frames = std::atoi(argv[++i]);
@@ -3171,6 +3172,10 @@ int cmdGameRun(int argc, char** argv) {
             noClient = true;
         else if (std::strcmp(argv[i], "-walk") == 0)
             walk = true;
+        else if (std::strcmp(argv[i], "-set") == 0 && i + 2 < argc) {
+            settings.emplace_back(argv[i + 1], argv[i + 2]);
+            i += 2;
+        }
     }
     reluva::SearchSet set;
     if (!mountIdTech3(argv[2], set))
@@ -3188,6 +3193,8 @@ int cmdGameRun(int argc, char** argv) {
         return 1;
     }
     q3::CvarStore cvars;
+    for (const auto& [name, value] : settings)
+        cvars.set(name, value);
     ef::GameHost game(set, cvars);
     game.print = [](const std::string& text) {
         std::printf("game: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
@@ -3253,6 +3260,15 @@ int cmdGameRun(int argc, char** argv) {
                         "velocity %.1f %.1f %.1f, ground %d; commands read so far %d\n",
                         o[0], o[1], o[2], game.clientInt(0, 0), po[0], po[1], po[2], pv[0], pv[1], pv[2],
                         game.clientInt(0, 68), (game.callCounts().count(36) ? game.callCounts().at(36) : 0));
+            // Quake III's pm_type (4), pm_flags (12), pm_time (16); and the
+            // game's copy of the last command (client + 464): its time and
+            // the forward byte (21).
+            const int32_t cmdTime = game.clientInt(0, 464), cmdMoves = game.clientInt(0, 464 + 20);
+            std::printf("    pm_type %d, pm_flags 0x%x, pm_time %d; the game's command: time %d, weapon %d, "
+                        "forward %d, right %d, up %d\n",
+                        game.clientInt(0, 4), unsigned(game.clientInt(0, 12)), game.clientInt(0, 16), cmdTime,
+                        cmdMoves & 0xff, int8_t((cmdMoves >> 8) & 0xff), int8_t((cmdMoves >> 16) & 0xff),
+                        int8_t((cmdMoves >> 24) & 0xff));
         }
     }
 
@@ -3539,7 +3555,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
                  "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
                  "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -blockcopies\n"
-                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk] [-trace]\n"
+                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk] [-set name value] [-trace]\n"
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif
                  "");
