@@ -71,12 +71,14 @@
 #ifdef RELUVA_ENGINE_IDTECH3
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/filesystem.h"
+#include "engines/idtech3/entities.h"
 #include "engines/idtech3/md3.h"
 #include "engines/idtech3/shader.h"
 #endif
 
 #include <map>
 #include <memory>
+#include <set>
 
 #include <algorithm>
 #include <cctype>
@@ -2542,8 +2544,11 @@ int cmdModelCheck(int argc, char** argv) {
         const size_t slash = s.find_last_of('/');
         return slash == std::string::npos ? std::string() : s.substr(0, slash);
     };
+    Bytes data;
     std::multimap<std::string, std::string> imagesByStem;
     std::vector<std::string> models;
+    std::set<std::string> mapShadersBare, mapModels; // what the maps use: shader names without extension, models
+    std::vector<std::string> maps;
     for (const std::string& n : set.list()) {
         const std::string key = reluva::normalizeArchiveName(n);
         if (key.size() > 4) {
@@ -2552,8 +2557,32 @@ int cmdModelCheck(int argc, char** argv) {
                 imagesByStem.emplace(stem(key), key);
             else if (ext == ".md3" && key.find(filter) != std::string::npos)
                 models.push_back(n);
+            else if (ext == ".bsp" && key.rfind("maps/", 0) == 0)
+                maps.push_back(n);
         }
     }
+    // A shader name as maps store it: without an extension.
+    auto bare = [](const std::string& name) {
+        std::string s = reluva::normalizeArchiveName(name);
+        const size_t dot = s.find_last_of('.'), slash = s.find_last_of('/');
+        if (dot != std::string::npos && (slash == std::string::npos || dot > slash))
+            s.resize(dot);
+        return s;
+    };
+    for (const std::string& n : maps) {
+        q3::Bsp bsp;
+        if (set.read(n, data) || q3::parseBsp(data, bsp))
+            continue;
+        for (const q3::BspShader& s : bsp.shaders)
+            mapShadersBare.insert(bare(s.name));
+        std::vector<q3::Entity> entities;
+        if (!q3::parseEntities(bsp.entities, entities))
+            for (const q3::Entity& e : entities)
+                for (const char* k : {"model", "model2"})
+                    if (const std::string m = e.get(k); !m.empty() && m[0] != '*')
+                        mapModels.insert(reluva::normalizeArchiveName(m));
+    }
+
 
     // Kinds of result, with counts and a few examples.
     std::map<std::string, std::pair<int, std::vector<std::string>>> kinds;
@@ -2564,7 +2593,6 @@ int cmdModelCheck(int argc, char** argv) {
             ex.push_back(example);
     };
     int surfaces = 0, unreadable = 0;
-    Bytes data;
     for (const std::string& path : models) {
         q3::Md3Model m;
         if (set.read(path, data) || q3::parseMd3(data, m)) {
@@ -2575,7 +2603,11 @@ int cmdModelCheck(int argc, char** argv) {
         // A skin next to the model, as players have, picks shaders first.
         std::string skins;
         std::map<std::string, std::string> skin;
-        for (const std::string& n : {base + ".skin", base + "_default.skin"})
+        // Lower-detail copies (head_1.md3) use the main model's skins.
+        std::string main = base;
+        if (main.size() > 2 && main[main.size() - 2] == '_' && (main.back() == '1' || main.back() == '2'))
+            main.resize(main.size() - 2);
+        for (const std::string& n : {base + ".skin", base + "_default.skin", main + ".skin", main + "_default.skin"})
             if (set.has(n)) {
                 skins += " " + n;
                 if (skin.empty() && !set.read(n, data))
@@ -2627,6 +2659,11 @@ int cmdModelCheck(int argc, char** argv) {
                 kind += found.empty() ? ", no file of that name anywhere"
                                       : sameFolder ? ", a file of that name in the model's folder"
                                                    : ", a file of that name elsewhere";
+                // Does a map show it: built into a map (whose surfaces keep
+                // the model's shader names), or placed by an entity?
+                const bool inMap = mapShadersBare.count(bare(name)) != 0;
+                const bool placed = mapModels.count(reluva::normalizeArchiveName(path)) != 0;
+                kind += inMap ? " [built into a map]" : placed ? " [placed by a map entity]" : " [not used by any map]";
                 count(kind, where + (img != name ? " needs " + img : std::string()) +
                                 (found.empty() ? std::string() : " ->" + found));
                 if (verbose)
