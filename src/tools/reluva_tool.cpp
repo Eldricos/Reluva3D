@@ -66,11 +66,12 @@
 //                                                  run Elite Force's menus (vm/ui.qvm) with the engine's
 //                                                  system calls: Init, SetActiveMenu, Refresh; report
 //                                                  what they print, register and draw
-//   reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-trace]
+//   reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk] [-trace]
 //                                                  start a level with Elite Force's game logic
 //                                                  (vm/qagame.qvm): Init with the map's entities, then
 //                                                  frames, with a player (client 0) joining unless
-//                                                  -noclient; report what it prints, sets and links
+//                                                  -noclient (-walk: it runs forward); report what it
+//                                                  prints, sets and links
 //   reluva-tool shader-check <game folder>         count the shader directives the engine doesn't know
 //                                                  or draw yet, with example shaders
 
@@ -3154,13 +3155,13 @@ int cmdUiRun(int argc, char** argv) {
 
 int cmdGameRun(int argc, char** argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-trace]\n");
+        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk] [-trace]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
     int frames = 10;
-    bool traceCalls = false, noClient = false;
+    bool traceCalls = false, noClient = false, walk = false;
     for (int i = 4; i < argc; ++i) {
         if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
             frames = std::atoi(argv[++i]);
@@ -3168,6 +3169,8 @@ int cmdGameRun(int argc, char** argv) {
             traceCalls = true;
         else if (std::strcmp(argv[i], "-noclient") == 0)
             noClient = true;
+        else if (std::strcmp(argv[i], "-walk") == 0)
+            walk = true;
     }
     reluva::SearchSet set;
     if (!mountIdTech3(argv[2], set))
@@ -3223,12 +3226,16 @@ int cmdGameRun(int argc, char** argv) {
         }
     }
     const bool player = ok && !noClient && game.linked().count(0);
+    const auto startPos = player ? game.entityVec(0, 272) : q3::Vec3f{};
     for (int f = 0; ok && f < frames; ++f) {
         if (player) {
             // The player does nothing, as a server would see from an idle
-            // client: an empty command for the coming frame.
+            // client: an empty command for the coming frame; with -walk,
+            // runs forward (from the third frame, once standing).
             ef::GameHost::UserCommand cmd;
             cmd.serverTime = game.levelTime() + 100;
+            if (walk && f >= 2)
+                cmd.forward = 127;
             if (reluva::Error err = game.clientThink(0, cmd)) {
                 step("ClientThink", err);
                 ok = false;
@@ -3249,6 +3256,12 @@ int cmdGameRun(int argc, char** argv) {
         }
     }
 
+    if (player) {
+        const auto o = game.entityVec(0, 272);
+        std::printf("client 0 moved %.1f units across and %.1f up over the frames\n",
+                    std::sqrt((o[0] - startPos[0]) * (o[0] - startPos[0]) + (o[1] - startPos[1]) * (o[1] - startPos[1])),
+                    o[2] - startPos[2]);
+    }
     if (player) {
         // What the game's movement code meets: its trace down from where
         // the player is, with a player's box and mask, ignoring the player.
@@ -3526,7 +3539,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
                  "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
                  "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -blockcopies\n"
-                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-trace]\n"
+                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk] [-trace]\n"
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif
                  "");
