@@ -256,5 +256,9 @@ are the menus' `glconfig_t`.
 
 Reluva's side: `src/engines/idtech3/eliteforce/cgame_host.cpp`, started
 by `reluva-tool game-run <game folder> <map> -cgame` with the server
-game's configstrings. Snapshots (the player state and entities each
+game's configstrings. As in Quake III, configstrings 0 and 1 are the
+server's own: the info strings of every server-info cvar (`mapname`,
+`g_gametype`...) and every system-info one, set after the game starts and
+after each frame. The client game finds the map's name in 0; without it,
+it asked to load `maps/.bsp`. Snapshots (the player state and entities each
 frame) and drawing come next.

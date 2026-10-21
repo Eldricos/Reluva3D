@@ -122,6 +122,7 @@ Error GameHost::startLevel(const std::string& mapName, std::shared_ptr<const Bsp
     int32_t ignored = 0;
     if (Error err = call(Init, {levelTime_, randomSeed, 0}, ignored))
         return err;
+    updateInfoConfigstrings();
     // "Run a few frames to allow everything to settle", as the original does.
     for (int i = 0; i < 3; ++i)
         if (Error err = runFrame())
@@ -132,7 +133,17 @@ Error GameHost::startLevel(const std::string& mapName, std::shared_ptr<const Bsp
 Error GameHost::runFrame() {
     levelTime_ += kFrameMs;
     int32_t ignored = 0;
-    return call(RunFrame, {levelTime_}, ignored);
+    Error err = call(RunFrame, {levelTime_}, ignored);
+    updateInfoConfigstrings();
+    return err;
+}
+
+void GameHost::updateInfoConfigstrings() {
+    // Configstrings 0 and 1 are the server's: every server-info cvar
+    // (mapname, g_gametype...) and every system-info one, as the client
+    // game reads them (it finds the map's name in 0).
+    configstrings_[0] = infoString(CvarStore::ServerInfo);
+    configstrings_[1] = infoString(CvarStore::SystemInfo);
 }
 
 Error GameHost::connectClient(int32_t clientNum, const std::string& userinfo, std::string& refused) {

@@ -128,6 +128,7 @@ private:
     std::string nextEntityToken();
     int32_t entityNumber(int32_t address) const;
     std::string infoString(int32_t flag) const;
+    void updateInfoConfigstrings();
     int32_t entityAddress(int32_t number) const;
     Vec3f readVec(int32_t address);
     void writeVec(int32_t address, const Vec3f& v);

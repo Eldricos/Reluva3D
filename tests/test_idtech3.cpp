@@ -1020,6 +1020,8 @@ static void testGameHost(const std::filesystem::path& tmp) {
     CHECK(game.gameData().count == 4 && game.gameData().entitySize == 352 && game.gameData().clientSize == 4);
     CHECK((game.linked() == std::set<int32_t>{1, 2, 3})); // the world unlinked
     CHECK(game.configstrings().count(12) && game.configstrings().at(12) == "borg2");
+    // The server info, as the client game finds the map's name.
+    CHECK(game.configstrings().count(0) && game.configstrings().at(0).find("\\mapname\\borg2") != std::string::npos);
     CHECK(game.levelTime() == 300);
     int32_t r = 0;
     CHECK(!game.call(23, {}, r) && r == 3); // the three settling frames
