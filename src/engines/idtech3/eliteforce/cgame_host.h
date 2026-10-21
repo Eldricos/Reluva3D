@@ -10,6 +10,7 @@
 #include "engines/idtech3/qvm.h"
 #include "engines/idtech3/vm_services.h"
 
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -66,6 +67,8 @@ public:
     std::function<void(const std::string&)> print;
     const std::string& log() const { return log_; }
     const std::map<int, int>& unhandled() const { return unhandled_; }
+    // The arguments of the first call to each call not implemented.
+    const std::map<int, std::array<int32_t, 6>>& firstUnhandled() const { return firstUnhandled_; }
     std::function<void(int number, const int32_t* args)> trace;
 
 private:
@@ -85,6 +88,7 @@ private:
     std::shared_ptr<const Bsp> map_;
     std::string log_;
     std::map<int, int> unhandled_;
+    std::map<int, std::array<int32_t, 6>> firstUnhandled_;
     int32_t time_ = 0;
 };
 

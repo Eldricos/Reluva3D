@@ -240,9 +240,11 @@ numbering wherever it can be checked:
 | 38 | `R_RegisterSkin(name)` | order | |
 | 39 | `R_RegisterShader(name)` | seen | `powerups/quad`, `white`... |
 | 40 | `R_ClearScene()` | seen | after clearing a structure |
+| 47 | `R_ModelBounds(model, mins, maxs)` | seen | 7 calls after registering models (on hm_dn1); brush models (`*N`) too in Quake III's client game |
 | 49 | `GetGlconfig(&glconfig)` | seen | into the field after the game state |
 | 50 | `GetGameState(&gameState)` | seen | into the start of the client game's static block |
 | 57 | `R_RegisterShaderNoMip(name)` | seen | crosshairs, HUD pieces, fonts |
+| 58 | `MemoryRemaining()` | seen | answered 0, the client game prints "Memory is low.  Using deferred model." and skips loading player models |
 | 100, 102 | `memset`, `strncpy` | seen | |
 
 The game state (`gamestate_t`) is Quake III's: the client game clears

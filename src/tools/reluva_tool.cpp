@@ -61,7 +61,8 @@
 //                                                  address; -str: the functions using strings with the
 //                                                  text, and the functions they call; -syscall: the code
 //                                                  before every call to one system call; -blockcopies:
-//                                                  the sizes of the structures the code copies whole
+//                                                  the sizes of the structures the code copies whole;
+//                                                  -fields: the offsets used through a global pointer
 //   reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]
 //                                                  run Elite Force's menus (vm/ui.qvm) with the engine's
 //                                                  system calls: Init, SetActiveMenu, Refresh; report
@@ -2927,7 +2928,8 @@ int cmdQvmDis(int argc, char** argv) {
                              "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -ref <address> [size]\n"
                              "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -str <text>\n"
                              "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -syscall <number>\n"
-                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -blockcopies\n");
+                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -blockcopies\n"
+                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -fields <address of a pointer>\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -2995,6 +2997,33 @@ int cmdQvmDis(int argc, char** argv) {
             list(f, "uses the string");
         for (size_t f : callees)
             list(f, "called by one above");
+        return 0;
+    }
+    if (std::strcmp(argv[4], "-fields") == 0 && argc >= 6) {
+        // The fields used through a pointer kept in a global variable:
+        // CONST global, LOAD4 (the pointer), CONST offset, ADD. By offset,
+        // how often, and what the code then does (LOAD4: reads, STORE4 or
+        // a later store: writes; ARG: passes the field's address).
+        const int32_t global = int32_t(std::strtol(argv[5], nullptr, 0));
+        std::map<int32_t, std::map<std::string, int>> fields;
+        for (size_t i = 0; i + 4 < code.size(); ++i) {
+            if (code[i].op != q3::qvmop::Const || code[i].operand != global || code[i + 1].op != q3::qvmop::Load4)
+                continue;
+            if (code[i + 2].op == q3::qvmop::Const && code[i + 3].op == q3::qvmop::Add)
+                ++fields[code[i + 2].operand][q3::qvmop::name(code[i + 4].op)];
+            else
+                ++fields[0][q3::qvmop::name(code[i + 2].op)];
+        }
+        std::printf("fields used through the pointer at %d (offset: count followed-by...):\n", global);
+        for (const auto& [offset, nexts] : fields) {
+            int total = 0;
+            std::string what;
+            for (const auto& [op, n] : nexts) {
+                total += n;
+                what += " " + op + "x" + std::to_string(n);
+            }
+            std::printf("  %6d: %4d %s\n", offset, total, what.c_str());
+        }
         return 0;
     }
     if (std::strcmp(argv[4], "-blockcopies") == 0) {
@@ -3409,8 +3438,19 @@ int cmdGameRun(int argc, char** argv) {
         std::printf("cgame registered %zu models, %zu skins, %zu shaders, %zu sounds; added %zu commands\n",
                     cgame.models().size(), cgame.skins().size(), cgame.shaders().size(), cgame.sounds().size(),
                     cgame.commands().size());
-        for (const auto& [number, count] : cgame.unhandled())
-            std::printf("cgame: not implemented: system call %d (%d calls)\n", number, count);
+        if (!err) {
+            // One frame, to see what the client game asks for to draw one.
+            int32_t ignored = 0;
+            const reluva::Error frame =
+                cgame.call(ef::CgameHost::DrawActiveFrame, {game.levelTime(), 0, 0}, ignored);
+            std::printf("cgame DrawActiveFrame(%d): %s after %llu instructions\n", game.levelTime(),
+                        frame ? frame.message.c_str() : "ok", static_cast<unsigned long long>(cgame.vm().executed()));
+        }
+        for (const auto& [number, count] : cgame.unhandled()) {
+            const auto& a = cgame.firstUnhandled().at(number);
+            std::printf("cgame: not implemented: system call %d (%d calls), first (%d, %d, %d, %d, %d, %d)\n", number,
+                        count, a[0], a[1], a[2], a[3], a[4], a[5]);
+        }
         ok = ok && !err;
     }
     return ok ? 0 : 1;
@@ -3611,7 +3651,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool qvm-info <game folder> <vm/x.qvm> [-s]\n"
                  "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
                  "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
-                 "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -blockcopies\n"
+                 "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -blockcopies | -fields <address>\n"
                  "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame] [-trace]\n"
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif

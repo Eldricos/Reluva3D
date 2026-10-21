@@ -3,6 +3,10 @@
 
 #include "engines/idtech3/eliteforce/cgame_host.h"
 
+#include "engines/idtech3/md3.h"
+
+#include <array>
+#include <cstdlib>
 #include <cstring>
 
 namespace reluva::idtech3::eliteforce {
@@ -40,9 +44,11 @@ enum CgameCall : int {
     RRegisterSkin = 38,
     RRegisterShader = 39,
     RClearScene = 40,
+    RModelBounds = 47,
     GetGlconfig = 49,
     GetGameState = 50,
     RRegisterShaderNoMip = 57,
+    MemoryRemaining = 58,
 };
 
 // gamestate_t, as Elite Force's client game lays it out: the same size as
@@ -180,9 +186,36 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case RRegisterShader:
     case RRegisterShaderNoMip: return shaders_.add(str(0, 256));
     case RClearScene: return 0;
+    case RModelBounds: { // (model, mins[3], maxs[3])
+        std::array<float, 3> mins{}, maxs{};
+        const std::string& name = models_.name(a[0]);
+        if (!name.empty() && name[0] == '*') { // one of the map's brush models
+            const int n = std::atoi(name.c_str() + 1);
+            if (map_ && n > 0 && size_t(n) < map_->models.size()) {
+                mins = map_->models[size_t(n)].mins;
+                maxs = map_->models[size_t(n)].maxs;
+            }
+        } else if (!name.empty()) { // an MD3's first frame, as the original renderer gives
+            std::vector<uint8_t> data;
+            Md3Model md3;
+            if (!files_.read(name, data) && !parseMd3(data, md3) && !md3.frames.empty()) {
+                mins = md3.frames[0].mins;
+                maxs = md3.frames[0].maxs;
+            }
+        }
+        for (int i = 0; i < 3; ++i) {
+            vm.writeInt(a[1] + 4 * i, Qvm::fromFloat(mins[size_t(i)]));
+            vm.writeInt(a[2] + 4 * i, Qvm::fromFloat(maxs[size_t(i)]));
+        }
+        return 0;
+    }
+    case MemoryRemaining: return 64 << 20; // plenty: the client game loads every player model up front
     case GetGlconfig: writeGlconfig(a[0]); return 0;
     case GetGameState: writeGameState(a[0]); return 0;
-    default: ++unhandled_[number]; return 0;
+    default:
+        if (!unhandled_[number]++)
+            firstUnhandled_[number] = {a[0], a[1], a[2], a[3], a[4], a[5]};
+        return 0;
     }
 }
 
