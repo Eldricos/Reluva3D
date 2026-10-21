@@ -924,13 +924,17 @@ static void testUiHost(const std::filesystem::path& tmp) {
     CHECK(!ui.call(ef::UiHost::KeyEvent, {'Q' | 1024, 1}));
     CHECK(!ui.call(10, {}, r) && r == 'Q' * 1000 + 1);
 
-    // The CD key: kept in the key file, read back by a new run.
+    // The CD key: taken if it has 18 letters and digits, kept in the key
+    // file, read back by a new run, which then counts it as checked.
     ui.setKeyFile(tmp / "save" / "cdkey.txt");
-    CHECK(!ui.call(11) && std::filesystem::exists(tmp / "save" / "cdkey.txt"));
-    CHECK(!ui.call(12, {}, r) && r == 'W' * 1000 + 'Z');
-    ef::UiHost again(set, cvars);
+    CHECK(!ui.call(11, {1}, r) && r == 0 && !std::filesystem::exists(tmp / "save" / "cdkey.txt"));
+    CHECK(!ui.call(11, {0}, r) && r == 1 && std::filesystem::exists(tmp / "save" / "cdkey.txt"));
+    CHECK(!ui.call(12, {}, r) && r == 'W' * 1000 + 'F');
+    CvarStore fresh;
+    ef::UiHost again(set, fresh);
     again.setKeyFile(tmp / "save" / "cdkey.txt");
-    CHECK(!again.load() && !again.call(12, {}, r) && r == 'W' * 1000 + 'Z');
+    CHECK(!again.load() && !again.call(ef::UiHost::Init) && fresh.string("ui_cdkeychecked") == "1");
+    CHECK(!again.call(12, {}, r) && r == 'W' * 1000 + 'F');
 
     CHECK(ui.unhandled().empty());
     std::filesystem::remove_all(tmp);

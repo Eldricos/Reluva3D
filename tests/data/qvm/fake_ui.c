@@ -31,8 +31,8 @@ void trap_R_DrawStretchPic(float x, float y, float w, float h, float s1, float t
 void trap_GetGlconfig(int *glconfig);
 void trap_Cvar_Register(vmCvar_t *cvar, const char *name, const char *value, int flags);
 void trap_Cvar_Update(vmCvar_t *cvar);
+int trap_SetCDKey(const char *key); /* Elite Force's 57: whether the key is taken */
 void trap_GetCDKey(char *buffer, int size);
-void trap_SetCDKey(const char *key);
 char *strncpy(char *dest, const char *src, int count);
 float sqrt(float f);
 
@@ -110,10 +110,10 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
     case 7: return (int)(sqrt(trap_Cvar_VariableValue("ui_number")) * 10);
     case 8: return testCvar.modificationCount;
     case 10: return typed[0] * 1000 + typedLength; /* what was typed */
-    case 11: trap_SetCDKey("WXYZ"); return 0;
+    case 11: return trap_SetCDKey(arg0 ? "WXYZ-2345" : "WXYZ-2345-6789-ABCD-EF");
     case 12:
         trap_GetCDKey(text, sizeof(text));
-        return text[0] * 1000 + text[3];
+        return text[0] * 1000 + text[21];
     case 9: trap_Error("boom"); return 1;
     }
     return -1;

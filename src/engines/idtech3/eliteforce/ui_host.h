@@ -95,6 +95,8 @@ public:
 
 private:
     int32_t systemCall(Qvm& vm, int number, const int32_t* args);
+    const std::string& storedCdKey();
+    static bool cdKeyLooksValid(const std::string& key);
     void writeGlconfig(int32_t address);
     void writeClientState(int32_t address);
 

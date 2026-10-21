@@ -67,7 +67,8 @@ Quake III's order: 2 shutdown, 3 key event (key, down), 4 mouse event
 | 54 | `Cvar_Register(&vmCvar, name, default, flags)` | seen | 65 calls in init: `(…, "ui_ffa_fraglimit", "20", 1)`; the structures are 272 bytes apart, a `vmCvar_t` |
 | 55 | `Cvar_Update(&vmCvar)` | order | |
 | 56 | `MemoryRemaining()` | order | |
-| 57, 58 | `GetCDKey(buffer, size)`, `SetCDKey(key)` | order | |
+| 57 | `SetCDKey(key)` → whether it's taken | seen | the CD key screen's Accept (`qvm-dis -str cdkey`): called with the typed key alone once the menus' own check passes; nonzero closes the screen and sets `ui_cdkeychecked`, zero plays the error sound |
+| 58 | `GetCDKey(buffer, size)` | assumed | the one call left; to confirm with `qvm-dis -syscall 58` |
 | 100–106 | `memset`, `memcpy`, `strncpy`, `sin`, `cos`, `atan2`, `sqrt` | seen | `memset(buffer, 0, 20000)`, `strncpy(buffer, "ext_data/mp_normaltext.dat", 63)` |
 
 Structures the engine fills in:
@@ -106,9 +107,18 @@ keeps it under the system's mouse by watching where the menus draw it
 puts it in the corner, which shows how the picture sits relative to the
 point, then each frame it sends the step from there to the mouse.
 
-The CD key (`GetCDKey`, `SetCDKey`) is kept by Reluva in the game's own
-folder in its data directory (`games/<target>/cdkey.txt`), not where the
-original keeps it.
+The CD key screen (Holomatch only). The menus check the key themselves
+first: at most 22 characters, exactly 18 of them letters or digits (the
+others, say, dashes). Then they ask the engine with call 57. The original
+engine checks the key further against rules of its own, for the online
+authorisation service, which no longer runs; Reluva applies the menus'
+rule again, keeps the key in the game's folder in its data directory
+(`games/<target>/cdkey.txt`, not where the original keeps it) and answers
+that it's taken. The menus ask for a key whenever `ui_cdkeychecked` is 0
+when the main menu opens, and set it once one is accepted; with a kept key
+Reluva sets it after `Init`, as an earlier accepted entry would have.
+Answering 57 as if it were `GetCDKey` had overwritten the typed key with
+an empty one and declined every key.
 
 Reluva's side: `src/engines/idtech3/eliteforce/ui_host.cpp`, run by
 `reluva-tool ui-run` and shown by the Menu page (`menu_viewer.cpp`).

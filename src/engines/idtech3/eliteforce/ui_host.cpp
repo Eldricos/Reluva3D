@@ -61,8 +61,8 @@ enum UiCall : int {
     CvarRegister = 54,
     CvarUpdate = 55,
     MemoryRemaining = 56,
-    GetCdKey = 57,
-    SetCdKey = 58,
+    SetCdKey = 57, // (key) -> whether it's taken; seen on the CD key screen's Accept
+    GetCdKey = 58, // (buffer, size), assumed: the call left after 57
 };
 
 // glconfig_t as Elite Force's menus use it (qvm-refs): renderer, vendor
@@ -96,7 +96,36 @@ Error UiHost::load() {
 }
 
 Error UiHost::call(int32_t command, const std::vector<int32_t>& args, int32_t& result) {
-    return vm_.call(command, args, result);
+    Error err = vm_.call(command, args, result);
+    // The menus ask for the CD key until ui_cdkeychecked is set, which
+    // they do once one is accepted. With a key kept from an earlier run,
+    // that has happened.
+    if (!err && command == Init && cdKeyLooksValid(storedCdKey()))
+        cvars_.set("ui_cdkeychecked", "1", true);
+    return err;
+}
+
+bool UiHost::cdKeyLooksValid(const std::string& key) {
+    // The menus' own rule: up to 22 characters, 18 of them letters or
+    // digits (the rest, say, dashes).
+    if (key.size() > 22)
+        return false;
+    int alphanumeric = 0;
+    for (char c : key)
+        alphanumeric += (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+    return alphanumeric == 18;
+}
+
+const std::string& UiHost::storedCdKey() {
+    if (!cdKeyRead_) {
+        // Kept by Reluva, not where the original keeps it.
+        cdKeyRead_ = true;
+        if (!keyFile_.empty()) {
+            std::ifstream in(keyFile_);
+            std::getline(in, cdKey_);
+        }
+    }
+    return cdKey_;
 }
 
 void UiHost::writeGlconfig(int32_t address) {
@@ -234,27 +263,24 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     }
     case CvarUpdate: cvars_.updateVmCvar(vm, a[0]); return 0;
     case MemoryRemaining: return 8 << 20;
-    case GetCdKey:
-        if (!cdKeyRead_) {
-            // Kept by Reluva, not where the original keeps it.
-            cdKeyRead_ = true;
-            if (!keyFile_.empty()) {
-                std::ifstream in(keyFile_);
-                std::getline(in, cdKey_);
-            }
-        }
-        vm.writeString(a[0], cdKey_, a[1]);
-        return 0;
     case SetCdKey: {
-        cdKey_ = str(0, 64);
+        // The CD key screen's Accept, after the menus' own check: whether
+        // the engine takes the key. The original engine also checks it
+        // against its own rules for the online service, which is gone;
+        // Reluva applies the menus' rule again and keeps the key.
+        const std::string key = str(0, 64);
+        if (!cdKeyLooksValid(key))
+            return 0;
+        cdKey_ = key;
         cdKeyRead_ = true;
         if (!keyFile_.empty()) {
             std::error_code ec;
             std::filesystem::create_directories(keyFile_.parent_path(), ec);
             std::ofstream(keyFile_) << cdKey_ << '\n';
         }
-        return 0;
+        return 1;
     }
+    case GetCdKey: vm.writeString(a[0], storedCdKey(), a[1]); return 0;
     default: ++unhandled_[number]; return 0;
     }
 }
