@@ -133,6 +133,7 @@ if(RELUVA_ENGINE_IDTECH3)
     src/engines/idtech3/model_cache.cpp
     src/engines/idtech3/model_viewer.cpp
     src/engines/idtech3/menu_viewer.cpp
+    src/engines/idtech3/play_viewer.cpp
     src/engines/idtech3/qvm.cpp
     src/engines/idtech3/cvars.cpp
     src/engines/idtech3/sounds.cpp

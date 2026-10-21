@@ -88,17 +88,29 @@ public:
         std::vector<uint8_t> bytes;
         int32_t clearedSize = 0;
     };
+    // Each RenderScene draws the entities added since the last ClearScene
+    // or RenderScene from its own view: the player's, and others such as
+    // the HUD's heads (which don't draw the world).
+    struct View {
+        std::vector<uint8_t> refdef;
+        size_t firstEntity = 0, entityCount = 0; // in entities
+    };
     struct Scene {
-        std::vector<SceneEntity> entities;
+        std::vector<SceneEntity> entities; // every one added this frame
         int polys = 0, lights = 0;
-        std::vector<uint8_t> view; // set by RenderScene
+        std::vector<uint8_t> view; // set by RenderScene: the last one
         int renders = 0;
+        std::vector<View> views; // every RenderScene, in order
+        size_t pending = 0;      // entities from here wait for the next RenderScene
     };
     const Scene& scene() const { return scene_; }
     void clearScene() { scene_ = Scene{}; }
     // Where the client game asked for each snapshot (GetSnapshot's
     // number and buffer), in order.
     const std::vector<std::pair<int32_t, int32_t>>& snapshotRequests() const { return snapshotRequests_; }
+    // A command typed or bound to a key that the client game may handle
+    // itself (CG_CONSOLE_COMMAND: "weapnext", "weapon 3"...): whether it did.
+    Error consoleCommand(const std::string& text, bool& handled);
 
     Qvm& vm() { return vm_; }
     // What it registered, by handle.

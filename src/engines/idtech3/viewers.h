@@ -21,12 +21,19 @@
 //           typing and the mouse go to them (their own pointer follows
 //           the mouse, the system's is hidden), Ctrl+Tab and Ctrl+Esc
 //           leave, Ctrl+R starts them again.
+// Play:     a Holomatch level run by the game's own code (Elite Force:
+//           vm/qagame.qvm and vm/cgame.qvm) with you as the player:
+//           W/A/S/D move, the mouse looks (it's held by the window),
+//           Space jumps, C crouches, click fires, wheel or 1-9 pick a
+//           weapon; PageUp/PageDown pick a map, Ctrl+R restarts.
 // Maps:     Left/Right pick a map; drag (or arrow keys with Shift) to rotate,
 //           wheel or +/- to zoom, W/A/S/D/Q/E to move, R to reset the view,
 //           P to show or hide patches, I to show or hide the info.
 
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/cvars.h"
+#include "engines/idtech3/eliteforce/cgame_host.h"
+#include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/games.h"
 #include "engines/idtech3/shader.h"
@@ -262,6 +269,49 @@ private:
     float measuredX_ = 0, measuredY_ = 0; // where its picture last put it
     float pendingX_ = 0, pendingY_ = 0;   // the steps sent since, in pixels expected
     float gainX_ = 1, gainY_ = 1;         // pixels moved per pixel expected
+};
+
+class PlayViewer : public Page {
+public:
+    explicit PlayViewer(ViewerContext& ctx);
+    ~PlayViewer() override;
+    const char* name() const override { return "Play"; }
+    size_t count() const override { return names_.size(); }
+    void activate() override;
+    void deactivate() override;
+    void handleEvent(const Event& ev) override;
+    void update(uint64_t nowMs) override;
+    bool uses3D() const override { return renderer_ != nullptr; }
+
+private:
+    enum Held { Forward, Back, Left, Right, Jump, Crouch, TurnLeft, TurnRight, HeldCount };
+    void start(int index);
+    void stop(const std::string& why);
+    void runGame(uint64_t nowMs);
+    void sendServerCommands();
+    void consoleCommand(const std::string& text);
+    void drawOverlay(uint64_t nowMs, bool haveView, size_t entities);
+
+    std::vector<std::string> names_; // maps
+    int index_ = 0;
+    gfx::Renderer3D* renderer_ = nullptr;
+    std::unique_ptr<ShaderCache> shaders_;
+    std::unique_ptr<WorldRenderer> world_;
+    std::vector<int> materials_; // by the client game's shader handle; -2 not made yet
+    CvarStore cvars_;
+    std::unique_ptr<eliteforce::GameHost> game_;
+    std::unique_ptr<eliteforce::CgameHost> cgame_;
+    Surface overlay_;
+    std::string error_, notice_;
+    bool showInfo_ = true;
+    uint64_t shownMs_ = 0, lastMs_ = 0;
+    int32_t clientTime_ = 0; // the player's time in the level, ms
+    // The player's view angles in degrees (pitch counts downwards), and
+    // what they hold.
+    float yaw_ = 0, pitch_ = 0;
+    std::array<bool, HeldCount> held_{};
+    bool attack_ = false;
+    gfx::Vec3 eye_{};
 };
 
 class MapViewer : public Page {

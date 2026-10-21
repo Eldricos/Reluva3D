@@ -159,6 +159,9 @@ public:
     // world positions to clip space; `eye` is the camera's position.
     virtual void beginFrame(const Mat4& viewProj, const Vec3& eye, Color clear) = 0;
     virtual void draw(const DrawCall& call) = 0;
+    // A new view for the draws that follow, within the frame (a 2D layer
+    // over the 3D view).
+    virtual void setView(const Mat4& viewProj, const Vec3& eye) = 0;
     // Presents the frame, with `overlay` (RGBA32, the frame's size, blended
     // by its alpha) on top if given.
     virtual void endFrame(const Surface* overlay) = 0;

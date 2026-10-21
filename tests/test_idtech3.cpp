@@ -1160,8 +1160,15 @@ static void testCgameHost(const std::filesystem::path& tmp) {
     CHECK(!cgame.call(30, {}, r) && r == 2100);
     // A scene: its entities kept with the size that cleared them, the view.
     CHECK(!cgame.call(31, {}, r));
-    CHECK(cgame.scene().entities.size() == 2 && cgame.scene().entities[0].clearedSize == 160);
-    CHECK(cgame.scene().renders == 1 && cgame.scene().view.size() == 112 && cgame.scene().view[8] == 0x80);
+    CHECK(cgame.scene().entities.size() == 3 && cgame.scene().entities[0].clearedSize == 160);
+    CHECK(cgame.scene().renders == 2 && cgame.scene().view.size() == 112 && cgame.scene().view[8] == 0x80);
+    // Each render with the entities added since the last.
+    CHECK(cgame.scene().views.size() == 2 && cgame.scene().views[0].entityCount == 2 &&
+          cgame.scene().views[1].firstEntity == 2 && cgame.scene().views[1].entityCount == 1 &&
+          cgame.scene().views[0].refdef[76] == 0 && cgame.scene().views[1].refdef[76] == 1);
+    bool handled = false;
+    CHECK(!cgame.consoleCommand("weapnext", handled) && handled);
+    CHECK(!cgame.consoleCommand("weapon 3", handled) && !handled);
     // A tag: tag_top half way between the box's two frames.
     int32_t box = 0;
     CHECK(!cgame.call(33, {}, box) && box > 0);

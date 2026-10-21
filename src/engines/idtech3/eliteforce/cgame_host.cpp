@@ -187,6 +187,14 @@ Error CgameHost::call(int32_t command, const std::vector<int32_t>& args, int32_t
     return vm_.call(command, args, result);
 }
 
+Error CgameHost::consoleCommand(const std::string& text, bool& handled) {
+    args_ = tokenize(text);
+    int32_t result = 0;
+    Error err = call(ConsoleCommand, {}, result);
+    handled = !err && result;
+    return err;
+}
+
 Error CgameHost::init(int32_t clientNum, int32_t serverMessageNum, int32_t serverCommandSequence) {
     int32_t ignored = 0;
     return call(Init, {serverMessageNum, serverCommandSequence, clientNum}, ignored);
@@ -298,7 +306,7 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case RRegisterSkin: return skins_.add(str(0, 256));
     case RRegisterShader:
     case RRegisterShaderNoMip: return shaders_.add(str(0, 256));
-    case RClearScene: return 0;
+    case RClearScene: scene_.pending = scene_.entities.size(); return 0;
     case RSetColor: // (rgba or 0 for white)
         if (!a[0])
             color_ = {1, 1, 1, 1};
@@ -436,6 +444,8 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         if (vm.valid(a[0], kRefdefSize))
             scene_.view.assign(&vm.memory()[size_t(a[0])], &vm.memory()[size_t(a[0])] + kRefdefSize);
         ++scene_.renders;
+        scene_.views.push_back({scene_.view, scene_.pending, scene_.entities.size() - scene_.pending});
+        scene_.pending = scene_.entities.size();
         return 0;
     case RLerpTag: { // (orientation_t*, model, startFrame, endFrame, frac, tagName) -> found
         auto [it, added] = md3s_.try_emplace(a[1]);

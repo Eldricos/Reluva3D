@@ -36,6 +36,10 @@ public:
     std::string deviceName() const override;
     void beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3& eye, Color clear) override;
     void draw(const gfx::DrawCall& call) override;
+    void setView(const gfx::Mat4& viewProj, const gfx::Vec3& eye) override {
+        viewProj_ = viewProj;
+        eye_ = eye;
+    }
     void endFrame(const Surface* overlay) override;
 
 private:

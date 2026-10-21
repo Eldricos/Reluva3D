@@ -49,6 +49,9 @@ public:
     // Whether the system's mouse pointer shows over the game (for games
     // that draw their own).
     virtual void setMouseCursorVisible(bool visible) { (void)visible; }
+    // Whether the mouse is held by the window, hidden, for looking around:
+    // MouseMove events then carry only how far it moved (moveX, moveY).
+    virtual void setRelativeMouse(bool on) { (void)on; }
 
     // --- Time ---------------------------------------------------------------
     virtual uint64_t getMillis() const = 0;

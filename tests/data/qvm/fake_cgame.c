@@ -67,6 +67,9 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
         shader = trap_R_RegisterShader("powerups/quad");
         trap_S_StartBackgroundTrack("music/intro", "music/loop");
         return arg2; /* the client number */
+    case 2: /* a console command: handled if it's weapnext */
+        trap_Argv(0, word, sizeof(word));
+        return word[0] == 'w' && word[4] == 'n';
     case 20: /* configstring arg0: its first two characters */
         s = gameState.stringData + gameState.stringOffsets[arg0];
         return s[0] * 1000 + s[1];
@@ -100,6 +103,10 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
         memset(refdef, 0, sizeof(refdef));
         refdef[2] = 640;
         refdef[3] = 480;
+        trap_R_RenderScene(refdef);
+        /* then one more without the level, as the HUD draws heads */
+        trap_R_AddRefEntityToScene(refEntity);
+        refdef[19] = 1;
         trap_R_RenderScene(refdef);
         return 0;
     case 32: /* a tag between frames 0 and 1, half way: its origin's z, and whether found */

@@ -61,6 +61,7 @@ public:
                           audioOut ? &mixer : nullptr};
         std::vector<std::unique_ptr<Page>> pages;
         pages.push_back(std::make_unique<MenuViewer>(ctx));
+        pages.push_back(std::make_unique<PlayViewer>(ctx));
         pages.push_back(std::make_unique<WorldViewer>(ctx));
         pages.push_back(std::make_unique<ModelViewer>(ctx));
         pages.push_back(std::make_unique<MapViewer>(ctx));

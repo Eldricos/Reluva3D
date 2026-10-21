@@ -67,13 +67,15 @@
 //                                                  run Elite Force's menus (vm/ui.qvm) with the engine's
 //                                                  system calls: Init, SetActiveMenu, Refresh; report
 //                                                  what they print, register and draw
-//   reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame] [-trace]
+//   reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N]] [-trace]
 //                                                  start a level with Elite Force's game logic
 //                                                  (vm/qagame.qvm): Init with the map's entities, then
 //                                                  frames, with a player (client 0) joining unless
 //                                                  -noclient (-walk: it runs forward); report what it
 //                                                  prints, sets and links; -cgame: then start the
 //                                                  client game (vm/cgame.qvm) for the player
+//                                                  (-entities N: dump N of its scene's entities
+//                                                  word by word)
 //   reluva-tool shader-check <game folder>         count the shader directives the engine doesn't know
 //                                                  or draw yet, with example shaders
 
@@ -3186,13 +3188,14 @@ int cmdUiRun(int argc, char** argv) {
 
 int cmdGameRun(int argc, char** argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame] [-trace]\n");
+        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N]] [-trace]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
     int frames = 10;
     bool traceCalls = false, noClient = false, walk = false, runCgame = false;
+    int dumpEntities = 0; // -entities N: with -cgame, N of the scene's entities word by word
     std::vector<std::pair<std::string, std::string>> settings; // -set name value
     std::string walkDirection = "forward";
     for (int i = 4; i < argc; ++i) {
@@ -3204,6 +3207,8 @@ int cmdGameRun(int argc, char** argv) {
             noClient = true;
         else if (std::strcmp(argv[i], "-cgame") == 0)
             runCgame = true;
+        else if (std::strcmp(argv[i], "-entities") == 0 && i + 1 < argc)
+            dumpEntities = std::atoi(argv[++i]);
         else if (std::strcmp(argv[i], "-walk") == 0) {
             walk = true;
             // An optional direction: forward (the default), back, left, right.
@@ -3492,6 +3497,49 @@ int cmdGameRun(int argc, char** argv) {
                                     real(32), real(36), real(40), real(44), word(72));
                     }
                 }
+                if (f == 0 && dumpEntities) {
+                    // A few of the scene's entities word by word, for working
+                    // out refEntity_t's layout: different models first. Each
+                    // word as a whole number and as a float, and what it
+                    // names if it's a registered model, skin or shader handle.
+                    const auto& scene = cgame.scene();
+                    std::vector<size_t> picked;
+                    std::set<int32_t> seen;
+                    for (int pass = 0; pass < 2; ++pass)
+                        for (size_t i = 0; i < scene.entities.size() && picked.size() < size_t(dumpEntities); ++i) {
+                            const auto& b = scene.entities[i].bytes;
+                            if (b.size() < 160 || std::find(picked.begin(), picked.end(), i) != picked.end())
+                                continue;
+                            int32_t key = 0;
+                            std::memcpy(&key, &b[8], 4);
+                            if (pass == 0 && !seen.insert(key).second)
+                                continue;
+                            picked.push_back(i);
+                        }
+                    for (size_t i : picked) {
+                        const auto& b = scene.entities[i].bytes;
+                        std::printf("  scene entity %zu (cleared by %d):\n", i, scene.entities[i].clearedSize);
+                        for (int at = 0; at < 160; at += 4) {
+                            int32_t v;
+                            std::memcpy(&v, &b[size_t(at)], 4);
+                            const float fl = q3::Qvm::asFloat(v);
+                            std::string names;
+                            if (v > 0 && v < 4096) {
+                                if (!cgame.models().name(v).empty())
+                                    names += " model:" + cgame.models().name(v);
+                                if (!cgame.skins().name(v).empty())
+                                    names += " skin:" + cgame.skins().name(v);
+                                if (!cgame.shaders().name(v).empty())
+                                    names += " shader:" + cgame.shaders().name(v);
+                            }
+                            const bool showFloat = std::isfinite(fl) && std::fabs(fl) > 1e-6f && std::fabs(fl) < 1e7f;
+                            char floatText[32] = "";
+                            if (showFloat)
+                                std::snprintf(floatText, sizeof floatText, " %.4g", fl);
+                            std::printf("    %3d: %11d 0x%08x%s%s\n", at, v, unsigned(v), floatText, names.c_str());
+                        }
+                    }
+                }
                 if (f == 0) {
                     // What the frame drew in 2D, by shader.
                     std::map<std::string, int> byShader;
@@ -3716,7 +3764,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
                  "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
                  "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -blockcopies | -fields <address>\n"
-                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame] [-trace]\n"
+                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N]] [-trace]\n"
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif
                  "");

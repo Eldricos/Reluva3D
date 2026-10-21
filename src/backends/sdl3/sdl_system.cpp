@@ -249,6 +249,8 @@ bool SdlSystem::pollEvent(Event& out) {
             out.type = EventType::MouseMove;
             out.mouseX = static_cast<int>(ev.motion.x);
             out.mouseY = static_cast<int>(ev.motion.y);
+            out.moveX = ev.motion.xrel;
+            out.moveY = ev.motion.yrel;
             out.mods = translateMods(SDL_GetModState());
             return true;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
@@ -289,6 +291,11 @@ void SdlSystem::setMouseCursorVisible(bool visible) {
         SDL_ShowCursor();
     else
         SDL_HideCursor();
+}
+
+void SdlSystem::setRelativeMouse(bool on) {
+    if (window_)
+        SDL_SetWindowRelativeMouseMode(window_, on);
 }
 
 uint64_t SdlSystem::getMillis() const { return SDL_GetTicks(); }
