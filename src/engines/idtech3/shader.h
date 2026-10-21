@@ -4,8 +4,11 @@
 #pragma once
 
 #include "common/archive.h"
+#include "common/gfx3d.h"
 #include "common/types.h"
 
+#include <array>
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -20,9 +23,9 @@ struct Directive {
     std::vector<std::string> args;
 };
 
-// A rendering pass ("stage") of a shader. The fields pick out what the
-// renderer needs most; every directive is kept in `directives` for the
-// rest. See docs/formats/idtech3/shader.md.
+// A rendering pass ("stage") of a shader, as described in
+// docs/formats/idtech3/shader.md. Every directive is also kept, as
+// written, in `directives`.
 struct ShaderStage {
     std::vector<std::string> maps; // one image, or animMap's frames
     float animFps = 0;             // animMap's rate; 0 = not animated
@@ -30,7 +33,45 @@ struct ShaderStage {
     bool lightmap = false;         // map $lightmap
     bool whiteImage = false;       // map $whiteimage
     std::string blendSrc, blendDst; // GL_* names, lower case; empty = opaque
+
+    enum class RgbGen : uint8_t {
+        Default, Identity, IdentityLighting, Vertex, ExactVertex, OneMinusVertex, LightingDiffuse,
+        Wave, Const, Entity, OneMinusEntity,
+    } rgbGen = RgbGen::Default;
+    gfx::Wave rgbWave;
+    std::array<float, 3> rgbConst{1, 1, 1};
+    enum class AlphaGen : uint8_t {
+        Default, Identity, Vertex, OneMinusVertex, Wave, Const, Entity, OneMinusEntity, LightingSpecular, Portal,
+    } alphaGen = AlphaGen::Default;
+    gfx::Wave alphaWave;
+    float alphaConst = 1;
+    float portalRange = 256; // alphaGen portal's distance
+
+    enum class TcGen : uint8_t { Default, Base, Lightmap, Environment, Vector } tcGen = TcGen::Default;
+    std::array<std::array<float, 3>, 2> tcVectors{};
+    struct TcMod {
+        enum class Type : uint8_t { Rotate, Scale, Scroll, Stretch, Transform, Turb, EntityTranslate } type;
+        std::array<float, 6> v{}; // rotate: degrees/s; scale, scroll: s t; transform: m00 m01 m10 m11 t0 t1
+        gfx::Wave wave;           // stretch, turb (turb ignores func)
+    };
+    std::vector<TcMod> tcMods; // in order
+
+    gfx::AlphaTest alphaFunc = gfx::AlphaTest::None;
+    bool depthEqual = false; // depthFunc equal
+    bool depthWrite = false; // depthWrite (opaque stages write depth anyway)
+    bool detail = false;
+
     std::vector<Directive> directives;
+};
+
+struct ShaderDeform {
+    enum class Type : uint8_t {
+        Wave, Normal, Bulge, Move, Autosprite, Autosprite2, Text, ProjectionShadow, Other,
+    } type = Type::Other;
+    float spread = 0;                // wave: 1 / div
+    gfx::Wave wave;                  // wave, normal (amplitude, frequency), move
+    std::array<float, 3> vector{};   // move
+    float width = 0, height = 0, speed = 0; // bulge
 };
 
 struct ShaderDef {
@@ -39,7 +80,24 @@ struct ShaderDef {
     std::vector<std::string> surfaceParms; // lower case
     std::vector<ShaderStage> stages;
     std::vector<Directive> directives; // the shader-level ones
-    bool sky = false; // has skyParms
+
+    enum class Cull : uint8_t { Front, Back, None } cull = Cull::Front; // the side that's hidden
+    std::vector<ShaderDeform> deforms;
+    float sort = 0;             // 0 = not given; see sortKey() in world_renderer.cpp
+    bool polygonOffset = false;
+    bool noMipmaps = false, noPicmip = false;
+    bool portal = false;
+
+    bool sky = false;           // skyParms
+    std::string skyFarBox;      // e.g. "env/space1" for env/space1_rt.tga...; empty for none
+    float cloudHeight = 512;
+    bool fog = false;           // fogParms
+    std::array<float, 3> fogColor{};
+    float fogDistance = 0;      // where the fog becomes opaque
+
+    // Directives this parser doesn't know, lower case, shader and stage
+    // ones alike, for finding out what a game adds.
+    std::vector<std::string> unknown;
 
     bool hasSurfaceParm(std::string_view parm) const;
 };

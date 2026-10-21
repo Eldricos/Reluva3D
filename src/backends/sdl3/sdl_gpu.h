@@ -34,7 +34,7 @@ public:
     int width() const override { return width_; }
     int height() const override { return height_; }
     std::string deviceName() const override;
-    void beginFrame(const gfx::Mat4& viewProj, Color clear) override;
+    void beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3& eye, Color clear) override;
     void draw(const gfx::DrawCall& call) override;
     void endFrame(const Surface* overlay) override;
 
@@ -74,6 +74,7 @@ private:
     SDL_GPUCommandBuffer* cmd_ = nullptr;
     SDL_GPURenderPass* pass_ = nullptr;
     gfx::Mat4 viewProj_{};
+    gfx::Vec3 eye_{};
     SDL_GPUGraphicsPipeline* boundPipeline_ = nullptr;
     gfx::MeshId boundMesh_ = 0;
 };

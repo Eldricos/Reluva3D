@@ -82,6 +82,7 @@ void WorldViewer::load(int index) {
         error_ = err.message;
         world_->clear();
     }
+    loadedMs_ = ctx_.sys.getMillis();
 
     // Start where the player does, or above the middle of the map.
     start_ = {0, 0, 0};
@@ -116,6 +117,12 @@ void WorldViewer::load(int index) {
                       world_->triangleCount(), world_->batchCount(), world_->textureCount(), world_->missingImages(),
                       bsp.lightmapCount());
         info_.push_back(line);
+        // What the map's shaders use that isn't drawn yet.
+        std::string missing;
+        for (const auto& [feature, n] : world_->unsupported())
+            missing += (missing.empty() ? "" : ", ") + feature + (n > 1 ? " x" + std::to_string(n) : "");
+        if (!missing.empty())
+            info_.push_back("Not drawn yet: " + missing);
     }
 }
 
@@ -189,8 +196,8 @@ void WorldViewer::update(uint64_t nowMs) {
         gfx::multiply(gfx::perspective(fovY, aspect, 4, 32768), gfx::lookAlong(pos_, forward, {0, 0, 1}));
     using Clock = std::chrono::steady_clock;
     const auto t0 = Clock::now();
-    renderer_->beginFrame(viewProj, {40, 48, 64});
-    world_->draw();
+    renderer_->beginFrame(viewProj, pos_, {40, 48, 64});
+    world_->draw(float(nowMs - loadedMs_) / 1000.0f);
     drawOverlay(nowMs);
     const auto t1 = Clock::now();
     renderer_->endFrame(&overlay_);

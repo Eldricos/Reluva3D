@@ -70,4 +70,30 @@ Vec3 transformPoint(const Mat4& m, const Vec3& p) {
     return {out[0] / w, out[1] / w, out[2] / w};
 }
 
+float evaluate(const Wave& wave, float time) {
+    // Must match wave() in the backend's vertex shader.
+    constexpr float kTau = 6.28318530718f;
+    const float x = wave.phase + time * wave.frequency;
+    const float f = x - std::floor(x);
+    float v = 0;
+    switch (wave.func) {
+    case WaveFunc::Sin: v = std::sin(f * kTau); break;
+    case WaveFunc::Triangle: v = f < 0.25f ? 4 * f : f < 0.75f ? 2 - 4 * f : 4 * f - 4; break;
+    case WaveFunc::Square: v = f < 0.5f ? 1.0f : -1.0f; break;
+    case WaveFunc::Sawtooth: v = f; break;
+    case WaveFunc::InverseSawtooth: v = 1 - f; break;
+    case WaveFunc::Noise: {
+        // Smoothly interpolated values in -1..1 at whole numbers.
+        auto hash = [](float n) {
+            const float h = std::sin(n * 12.9898f) * 43758.5453f;
+            return (h - std::floor(h)) * 2 - 1;
+        };
+        const float i = std::floor(x);
+        v = hash(i) + (hash(i + 1) - hash(i)) * (f * f * (3 - 2 * f));
+        break;
+    }
+    }
+    return wave.base + wave.amplitude * v;
+}
+
 } // namespace reluva::gfx

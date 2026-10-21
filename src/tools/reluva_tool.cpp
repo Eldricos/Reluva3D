@@ -44,6 +44,8 @@
 //                                                  archive each comes from
 //   reluva-tool image-check <game folder> [map]    list the images maps' shaders use that can't be
 //                                                  found (only maps whose name contains map)
+//   reluva-tool shader-check <game folder>         count the shader directives the engine doesn't know
+//                                                  or draw yet, with example shaders
 
 #include "common/audio/decode.h"
 #include "common/audio/wav.h"
@@ -2499,6 +2501,56 @@ int cmdImageCheck(int argc, char** argv) {
     return 0;
 }
 
+int cmdShaderCheck(int argc, char** argv) {
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: reluva-tool shader-check <game folder>\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    std::vector<std::string> warnings;
+    q3::ShaderLibrary shaders;
+    shaders.load(set, &warnings);
+    for (const std::string& w : warnings)
+        std::printf("problem: %s\n", w.c_str());
+
+    // Feature -> (count, a few shaders using it).
+    std::map<std::string, std::pair<int, std::vector<std::string>>> found;
+    auto add = [&](const std::string& what, const q3::ShaderDef& d) {
+        auto& [n, examples] = found[what];
+        ++n;
+        if (examples.size() < 3 && std::find(examples.begin(), examples.end(), d.name) == examples.end())
+            examples.push_back(d.name);
+    };
+    static const char* const deformNames[] = {"wave", "normal", "bulge", "move", "autosprite", "autosprite2",
+                                              "text", "projectionShadow", "other"};
+    for (const q3::ShaderDef& d : shaders.all()) {
+        for (const std::string& u : d.unknown)
+            add("unknown directive: " + u, d);
+        for (const q3::ShaderDeform& df : d.deforms)
+            if (df.type != q3::ShaderDeform::Type::Wave && df.type != q3::ShaderDeform::Type::Bulge &&
+                df.type != q3::ShaderDeform::Type::Move && df.type != q3::ShaderDeform::Type::Normal)
+                add(std::string("not drawn: deformVertexes ") + deformNames[size_t(df.type)], d);
+        if (d.deforms.size() > 2)
+            add("not drawn: more than two deformVertexes", d);
+        if (d.portal)
+            add("not drawn: portal (shown as a plain surface)", d);
+        for (const q3::ShaderStage& st : d.stages)
+            if (st.blendSrc == "gl_src_alpha_saturate")
+                add("not drawn: blendFunc GL_SRC_ALPHA_SATURATE", d);
+    }
+    std::printf("%zu shaders\n", shaders.size());
+    for (const auto& [what, info] : found) {
+        std::printf("%5d  %s  (e.g.", info.first, what.c_str());
+        for (const std::string& e : info.second)
+            std::printf(" %s", e.c_str());
+        std::printf(")\n");
+    }
+    return 0;
+}
+
 int cmdPk3List(int argc, char** argv) {
     if (argc != 3 && argc != 4) {
         std::fprintf(stderr, "usage: reluva-tool pk3-list <game folder> [name filter]\n");
@@ -2588,6 +2640,8 @@ int main(int argc, char** argv) {
         return cmdPk3List(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "image-check") == 0)
         return cmdImageCheck(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "shader-check") == 0)
+        return cmdShaderCheck(argc, argv);
 #endif
     std::fprintf(stderr,
                  "usage:\n"
@@ -2623,6 +2677,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool bsp-check <game folder, e.g. .../BaseEF>\n"
                  "  reluva-tool pk3-list <game folder> [name filter]\n"
                  "  reluva-tool image-check <game folder> [map name filter]\n"
+                 "  reluva-tool shader-check <game folder>\n"
 #endif
                  "");
     return 2;

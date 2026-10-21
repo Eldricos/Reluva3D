@@ -31,9 +31,10 @@ for stage in vert frag; do
         echo "alignas(4) inline const uint8_t kDraw${name}Spirv[] = {"
         od -An -v -tx1 "$tmp/draw.$stage.spv" | sed 's/ \([0-9a-f][0-9a-f]\)/0x\1,/g; s/^/   /'
         echo "};"
-        echo "inline const char kDraw${name}Msl[] = R\"msl("
-        cat "$tmp/draw.$stage.metal"
-        echo ")msl\";"
+        # One literal per line: Visual Studio refuses literals over 16 KB.
+        echo "inline const char kDraw${name}Msl[] ="
+        sed 's/^\(.*\)$/    R"msl(\1\n)msl"/' "$tmp/draw.$stage.metal"
+        echo "    ;"
     } >> "$tmp/$out"
 done
 echo "} // namespace reluva::shaders" >> "$tmp/$out"

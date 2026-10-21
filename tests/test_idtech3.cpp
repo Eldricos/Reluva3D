@@ -62,6 +62,110 @@ static void testEntities() {
     CHECK(parseEntities("{ \"a\" \"b\"", ents));
 }
 
+static void testShaderStages() {
+    const std::string text = R"(
+textures/effects/panel
+{
+    cull none
+    deformVertexes wave 64 sin 0 3 0 0.5
+    deformVertexes move 0 0 1 sawtooth 0 8 0 1
+    deformVertexes autosprite
+    sort additive
+    polygonOffset
+    nomipmaps
+    efMadeUpDirective 1 2
+    {
+        map textures/effects/a.tga
+        rgbGen wave triangle 0.5 0.5 0.25 2
+        alphaGen const 0.4
+        tcGen vector ( 0.01 0 0 ) ( 0 0.01 0 )
+        tcMod scroll 0.5 -1
+        tcMod turb 0 0.1 0 0.3
+        tcMod rotate 90
+        tcMod stretch sin 1 0.2 0 1
+        tcMod transform 1 0 0 1 0.5 0.25
+        depthFunc equal
+        depthWrite
+        alphaFunc GE128
+    }
+    {
+        map $whiteimage
+        rgbGen const ( 0.25 0.5 1 )
+        alphaGen oneMinusVertex
+        tcGen environment
+        tcMod turb sin 0 0.2 0.5 1
+        efStageThing
+    }
+}
+env/sky
+{
+    skyParms env/space - -
+    fogParms ( 0.5 0.25 0 ) 300
+    sort 7
+}
+)";
+    std::vector<ShaderDef> defs;
+    CHECK(!parseShaderFile(text, "x.shader", defs));
+    CHECK(defs.size() == 2);
+    if (defs.size() != 2 || defs[0].stages.size() != 2)
+        return;
+    const ShaderDef& d = defs[0];
+    CHECK(d.cull == ShaderDef::Cull::None && d.sort == 10 && d.polygonOffset && d.noMipmaps);
+    CHECK(d.deforms.size() == 3);
+    CHECK(d.deforms[0].type == ShaderDeform::Type::Wave && d.deforms[0].spread == 1.0f / 64);
+    CHECK(d.deforms[0].wave.amplitude == 3 && d.deforms[0].wave.frequency == 0.5f);
+    CHECK(d.deforms[1].type == ShaderDeform::Type::Move && d.deforms[1].vector[2] == 1 &&
+          d.deforms[1].wave.func == gfx::WaveFunc::Sawtooth && d.deforms[1].wave.amplitude == 8);
+    CHECK(d.deforms[2].type == ShaderDeform::Type::Autosprite);
+    CHECK((d.unknown == std::vector<std::string>{"efmadeupdirective", "efstagething"}));
+
+    const ShaderStage& a = d.stages[0];
+    CHECK(a.rgbGen == ShaderStage::RgbGen::Wave && a.rgbWave.func == gfx::WaveFunc::Triangle &&
+          a.rgbWave.phase == 0.25f && a.rgbWave.frequency == 2);
+    CHECK(a.alphaGen == ShaderStage::AlphaGen::Const && a.alphaConst == 0.4f);
+    CHECK(a.tcGen == ShaderStage::TcGen::Vector && a.tcVectors[0][0] == 0.01f && a.tcVectors[1][1] == 0.01f);
+    CHECK(a.tcMods.size() == 5);
+    if (a.tcMods.size() == 5) {
+        using M = ShaderStage::TcMod::Type;
+        CHECK(a.tcMods[0].type == M::Scroll && a.tcMods[0].v[0] == 0.5f && a.tcMods[0].v[1] == -1);
+        CHECK(a.tcMods[1].type == M::Turb && a.tcMods[1].wave.amplitude == 0.1f && a.tcMods[1].wave.frequency == 0.3f);
+        CHECK(a.tcMods[2].type == M::Rotate && a.tcMods[2].v[0] == 90);
+        CHECK(a.tcMods[3].type == M::Stretch && a.tcMods[3].wave.base == 1 && a.tcMods[3].wave.amplitude == 0.2f);
+        CHECK(a.tcMods[4].type == M::Transform && a.tcMods[4].v[4] == 0.5f && a.tcMods[4].v[5] == 0.25f);
+    }
+    CHECK(a.depthEqual && a.depthWrite && a.alphaFunc == gfx::AlphaTest::Ge128);
+
+    const ShaderStage& b = d.stages[1];
+    CHECK(b.whiteImage && b.rgbGen == ShaderStage::RgbGen::Const && b.rgbConst[1] == 0.5f && b.rgbConst[2] == 1);
+    CHECK(b.alphaGen == ShaderStage::AlphaGen::OneMinusVertex && b.tcGen == ShaderStage::TcGen::Environment);
+    // turb with the (ignored) function name written
+    CHECK(b.tcMods.size() == 1 && b.tcMods[0].wave.amplitude == 0.2f && b.tcMods[0].wave.phase == 0.5f);
+
+    const ShaderDef& sky = defs[1];
+    CHECK(sky.sky && sky.skyFarBox == "env/space" && sky.cloudHeight == 512 && sky.sort == 7);
+    CHECK(sky.fog && sky.fogColor[0] == 0.5f && sky.fogColor[1] == 0.25f && sky.fogDistance == 300);
+}
+
+static void testWaves() {
+    auto approx = [](float a, float b) { return std::fabs(a - b) < 1e-4f; };
+    gfx::Wave w{gfx::WaveFunc::Sin, 1, 2, 0, 1};
+    CHECK(approx(gfx::evaluate(w, 0), 1) && approx(gfx::evaluate(w, 0.25f), 3) && approx(gfx::evaluate(w, 0.75f), -1));
+    w.func = gfx::WaveFunc::Triangle;
+    CHECK(approx(gfx::evaluate(w, 0.25f), 3) && approx(gfx::evaluate(w, 0.5f), 1) && approx(gfx::evaluate(w, 0.75f), -1));
+    w.func = gfx::WaveFunc::Square;
+    CHECK(approx(gfx::evaluate(w, 0.1f), 3) && approx(gfx::evaluate(w, 0.6f), -1));
+    w.func = gfx::WaveFunc::Sawtooth;
+    CHECK(approx(gfx::evaluate(w, 0.25f), 1.5f) && approx(gfx::evaluate(w, 1.25f), 1.5f));
+    w.func = gfx::WaveFunc::InverseSawtooth;
+    CHECK(approx(gfx::evaluate(w, 0.25f), 2.5f));
+    w = {gfx::WaveFunc::Sin, 0, 1, 0.25f, 0}; // no frequency: constant, set by the phase
+    CHECK(approx(gfx::evaluate(w, 0), 1) && approx(gfx::evaluate(w, 100), 1));
+    w.func = gfx::WaveFunc::Noise;
+    w.frequency = 1;
+    for (float t = 0; t < 5; t += 0.37f)
+        CHECK(gfx::evaluate(w, t) >= -1 && gfx::evaluate(w, t) <= 1);
+}
+
 static void testShaders() {
     const std::string text = R"(
 // A comment before the first shader.
@@ -106,8 +210,13 @@ textures/sky/stars
     CHECK(parseShaderFile("nobrace map", "x.shader", defs));
 
     ShaderLibrary lib;
-    lib.add({"Textures/A", "first.shader", {}, {}, {}, false});
-    lib.add({"textures/a", "second.shader", {}, {}, {}, false});
+    ShaderDef first, second;
+    first.name = "Textures/A";
+    first.file = "first.shader";
+    second.name = "textures/a";
+    second.file = "second.shader";
+    lib.add(first);
+    lib.add(second);
     CHECK(lib.size() == 1 && lib.find("TEXTURES\\a")->file == "first.shader" && !lib.find("textures/b"));
 }
 
@@ -339,6 +448,8 @@ int main() {
     testLexer();
     testEntities();
     testShaders();
+    testShaderStages();
+    testWaves();
     testBsp();
     testPatch();
     testFilesystemAndDetection(tmp / "fs");

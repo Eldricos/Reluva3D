@@ -137,6 +137,7 @@ private:
     int lastX_ = 0, lastY_ = 0;
     bool showInfo_ = true;
     uint64_t lastMs_ = 0;
+    uint64_t loadedMs_ = 0; // shader animations run from when the map was loaded
     uint64_t fpsStart_ = 0;
     int frames_ = 0;
     float fps_ = 0;

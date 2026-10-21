@@ -25,11 +25,11 @@ every engine.
 | Detection | Elite Force: one Windows release by pak0.pk3's hash; other releases by file names, shown as "unknown release" |
 | File system | done: `baseEF` loose files over its paks, later paks first (`filesystem.cpp`, [pk3.md](../formats/idtech3/pk3.md)) |
 | Text files | done: tokenizer ([text.md](../formats/idtech3/text.md)) and entity lump |
-| Shader scripts | parsed; maps, animMap, blendFunc, surfaceparm and skyParms interpreted ([shader.md](../formats/idtech3/shader.md)) |
+| Shader scripts | every Quake III directive parsed into typed fields, unknown ones listed (`reluva-tool shader-check`) ([shader.md](../formats/idtech3/shader.md)) |
 | Maps | every BSP lump read and validated; all 67 retail maps load ([bsp.md](../formats/idtech3/bsp.md)) |
 | Images | TGA, JPEG, PNG (`common/image.cpp`) |
 | Viewer | World (3D), Maps (wireframe), Textures and Files pages |
-| Renderer | first version: every model's surfaces with patches tessellated, the first image stage of each shader times its lightmap (or vertex colours), translucent shaders blended, cull modes, alphaFunc; sky and nodraw skipped (`world_renderer.cpp`, on `gfx::Renderer3D`) |
+| Renderer | every shader stage with its blend, depth, alpha test, rgbGen/alphaGen, tcGen/tcMod and animMap; deformVertexes wave/bulge/move; sort order; sky boxes and cloud layers; fog volumes (by camera distance); the original's implicit shaders and light scaling ([shader.md](../formats/idtech3/shader.md)). Not yet: autosprites, portals, dynamic lights, visibility culling |
 | Models, sound, game code | not started |
 
 ## Next steps
@@ -48,11 +48,11 @@ every engine.
    run at the monitor's 144 Hz with about 1.2 ms of CPU time per frame.
    The Metal path
    (macOS) is generated but untested.
-3. **World renderer**, continued: every shader stage instead of the first
-   image (`rgbGen`, `alphaGen`, `tcMod`, `tcGen environment`, animMap
-   animation, `deformVertexes`), sky boxes, fog volumes, sorting
-   translucent surfaces by distance, then visibility culling with the BSP
-   tree and vis data. Check the look against the original game.
+3. **World renderer**, continued: autosprite deforms, portals and
+   mirrors, sorting translucent surfaces by distance, fog by depth inside
+   the volume, then visibility culling with the BSP tree and vis data.
+   Check the look against the original game, and run `reluva-tool
+   shader-check` on it for directives Elite Force adds.
 4. **Models**: MD3 (to confirm which model formats Elite Force uses for
    its characters and weapons).
 5. **Sound**: WAV effects and the music through `common/audio`.

@@ -16,12 +16,19 @@ namespace {
 Error sdlError(const char* what) { return Error::fail(std::string(what) + ": " + SDL_GetError()); }
 
 // The layouts of draw.vert's and draw.frag's uniform blocks (std140).
+struct DeformUniforms {
+    float a[4], b[4], c[4];
+};
 struct VertexUniforms {
     float viewProj[16];
-    float texRow0[4];
-    float texRow1[4];
+    float eye[4];
+    float preRow0[4], preRow1[4], postRow0[4], postRow1[4];
+    float turb[4];
+    float texVec0[4], texVec1[4];
     float color[4];
-    float flags[4];
+    float mode[4];
+    float mode2[4];
+    DeformUniforms deforms[2];
 };
 struct FragmentUniforms {
     float params[4];
@@ -45,7 +52,7 @@ SDL_GPUBlendFactor blendFactor(gfx::Blend b) {
 
 uint32_t packState(const gfx::DrawState& s) {
     return uint32_t(s.src) | uint32_t(s.dst) << 4 | uint32_t(s.depthTest) << 8 | uint32_t(s.depthWrite) << 9 |
-           uint32_t(s.cull) << 10 | uint32_t(s.depthEqual) << 12;
+           uint32_t(s.cull) << 10 | uint32_t(s.depthEqual) << 12 | uint32_t(s.depthBias) << 13;
 }
 
 } // namespace
@@ -288,7 +295,7 @@ void SdlGpuRenderer::destroyTexture(gfx::TextureId id) {
 Error SdlGpuRenderer::createMesh(const std::vector<gfx::Vertex>& vertices, const std::vector<uint32_t>& indices,
                                  gfx::MeshId& out) {
     out = 0;
-    static_assert(sizeof(gfx::Vertex) == 32, "the pipeline's vertex layout");
+    static_assert(sizeof(gfx::Vertex) == 44, "the pipeline's vertex layout");
     if (vertices.empty() || indices.empty())
         return Error::fail("Empty mesh");
     Mesh m;
@@ -332,11 +339,12 @@ SDL_GPUGraphicsPipeline* SdlGpuRenderer::pipeline(const gfx::DrawState& state) {
     buffer.slot = 0;
     buffer.pitch = sizeof(gfx::Vertex);
     buffer.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
-    SDL_GPUVertexAttribute attrs[4] = {};
+    SDL_GPUVertexAttribute attrs[5] = {};
     attrs[0] = {0, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, uint32_t(offsetof(gfx::Vertex, pos))};
     attrs[1] = {1, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, uint32_t(offsetof(gfx::Vertex, uv))};
     attrs[2] = {2, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, uint32_t(offsetof(gfx::Vertex, uv2))};
-    attrs[3] = {3, 0, SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM, uint32_t(offsetof(gfx::Vertex, color))};
+    attrs[3] = {3, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, uint32_t(offsetof(gfx::Vertex, normal))};
+    attrs[4] = {4, 0, SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM, uint32_t(offsetof(gfx::Vertex, color))};
 
     SDL_GPUColorTargetDescription target{};
     target.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
@@ -352,13 +360,19 @@ SDL_GPUGraphicsPipeline* SdlGpuRenderer::pipeline(const gfx::DrawState& state) {
     info.vertex_input_state.vertex_buffer_descriptions = &buffer;
     info.vertex_input_state.num_vertex_buffers = 1;
     info.vertex_input_state.vertex_attributes = attrs;
-    info.vertex_input_state.num_vertex_attributes = 4;
+    info.vertex_input_state.num_vertex_attributes = 5;
     info.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
     info.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
     info.rasterizer_state.cull_mode = state.cull == gfx::Cull::Back    ? SDL_GPU_CULLMODE_BACK
                                       : state.cull == gfx::Cull::Front ? SDL_GPU_CULLMODE_FRONT
                                                                        : SDL_GPU_CULLMODE_NONE;
     info.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
+    if (state.depthBias) {
+        // Towards the camera; depth runs 0 (near) to 1 (far).
+        info.rasterizer_state.enable_depth_bias = true;
+        info.rasterizer_state.depth_bias_constant_factor = -2.0f;
+        info.rasterizer_state.depth_bias_slope_factor = -1.0f;
+    }
     info.depth_stencil_state.enable_depth_test = state.depthTest;
     info.depth_stencil_state.enable_depth_write = state.depthWrite;
     info.depth_stencil_state.compare_op = state.depthEqual ? SDL_GPU_COMPAREOP_EQUAL : SDL_GPU_COMPAREOP_LESS_OR_EQUAL;
@@ -373,8 +387,9 @@ SDL_GPUGraphicsPipeline* SdlGpuRenderer::pipeline(const gfx::DrawState& state) {
     return p;
 }
 
-void SdlGpuRenderer::beginFrame(const gfx::Mat4& viewProj, Color clear) {
+void SdlGpuRenderer::beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3& eye, Color clear) {
     viewProj_ = viewProj;
+    eye_ = eye;
     boundPipeline_ = nullptr;
     boundMesh_ = 0;
     cmd_ = SDL_AcquireGPUCommandBuffer(device_);
@@ -422,12 +437,42 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     SDL_BindGPUFragmentSamplers(pass_, 0, &binding, 1);
 
     VertexUniforms vu{};
-    std::copy(viewProj_.begin(), viewProj_.end(), vu.viewProj);
-    std::copy(call.texRow0.begin(), call.texRow0.end(), vu.texRow0);
-    std::copy(call.texRow1.begin(), call.texRow1.end(), vu.texRow1);
-    std::copy(call.color.begin(), call.color.end(), vu.color);
-    vu.flags[0] = call.useUv2 ? 1.0f : 0.0f;
-    vu.flags[1] = call.useVertexColor ? 1.0f : 0.0f;
+    auto put = [](float* out, const auto& in) { std::copy(in.begin(), in.end(), out); };
+    put(vu.viewProj, viewProj_);
+    put(vu.eye, eye_);
+    vu.eye[3] = call.time;
+    put(vu.preRow0, call.preRow0);
+    put(vu.preRow1, call.preRow1);
+    put(vu.postRow0, call.postRow0);
+    put(vu.postRow1, call.postRow1);
+    vu.turb[0] = call.turbAmplitude;
+    vu.turb[1] = call.turbPhase;
+    put(vu.texVec0, call.texVector0);
+    put(vu.texVec1, call.texVector1);
+    put(vu.color, call.color);
+    vu.mode[0] = float(call.texGen);
+    vu.mode[1] = float(call.rgbSource);
+    vu.mode[2] = float(call.alphaSource);
+    vu.mode[3] = call.fogDistance;
+    vu.mode2[0] = call.followCamera ? 1.0f : 0.0f;
+    for (size_t i = 0; i < call.deforms.size(); ++i) {
+        const gfx::Deform& d = call.deforms[i];
+        DeformUniforms& u = vu.deforms[i];
+        u.a[0] = float(d.type);
+        u.a[1] = float(d.wave.func);
+        u.a[2] = d.wave.base;
+        u.a[3] = d.wave.amplitude;
+        u.b[0] = d.wave.phase;
+        u.b[1] = d.wave.frequency;
+        u.b[2] = d.spread;
+        if (d.type == gfx::Deform::Type::Bulge) {
+            u.c[0] = d.width;
+            u.c[1] = d.height;
+            u.c[2] = d.speed;
+        } else {
+            put(u.c, d.vector);
+        }
+    }
     SDL_PushGPUVertexUniformData(cmd_, 0, &vu, sizeof(vu));
     FragmentUniforms fu{};
     fu.params[0] = float(call.state.alphaTest);
