@@ -2,8 +2,13 @@
 
 Status: **every Quake III directive parsed and drawn** except those listed
 at the end (`src/engines/idtech3/shader.cpp`, `world_renderer.cpp`).
-Checked on generated test maps; Elite Force's own scripts still to be
-surveyed with `reluva-tool shader-check`.
+Checked on generated test maps and on the retail Elite Force maps, which
+look as in the original. `reluva-tool shader-check` on Elite Force
+(October 2026): 1872 shaders, **no directive outside Quake III's set**;
+not drawn yet are `deformVertexes autosprite2` (2 shaders,
+`textures/scavenger/fire1` and `fire2`), `deformVertexes projectionShadow`
+(1, for models' shadows) and portals/mirrors (10, e.g.
+`textures/common/mirror1`, `textures/common/portal`).
 
 Sources: the Quake III Arena shader manual id Software published for map
 makers, and the GPL Quake III Arena source (`code/renderer/tr_shader.c`)
