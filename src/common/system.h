@@ -4,6 +4,7 @@
 #pragma once
 
 #include "common/events.h"
+#include "common/gfx3d.h"
 #include "common/types.h"
 
 #include <cstdint>
@@ -26,6 +27,19 @@ public:
     // Copy the surface to the screen and present it.
     virtual void updateScreen(const Surface& surface) = 0;
     virtual void setWindowTitle(const std::string& title) = 0;
+
+    // --- 3D graphics (optional) ----------------------------------------------
+    // Switch to GPU rendering of width x height frames, scaled to the window
+    // like the framebuffer. `out` stays valid, and its textures and meshes
+    // alive, until the next initGraphics() or init3D() or the engine ends;
+    // updateScreen() does nothing meanwhile. Fails (out = nullptr) when the
+    // backend or the machine can't render 3D.
+    virtual Error init3D(int width, int height, gfx::Renderer3D*& out) {
+        (void)width;
+        (void)height;
+        out = nullptr;
+        return Error::fail("3D rendering is not available");
+    }
 
     // --- Input --------------------------------------------------------------
     // Returns false when no more events are pending.

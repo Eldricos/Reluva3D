@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 #include "backends/sdl3/sdl_system.h"
+#include "backends/sdl3/sdl_gpu.h"
 
 #include <cstring>
 
@@ -73,12 +74,17 @@ MouseButton translateButton(uint8_t b) {
 
 } // namespace
 
+SdlSystem::SdlSystem() = default;
+
 SdlSystem::~SdlSystem() {
     stopAudio();
+    release3D();
     if (gameTexture_)
         SDL_DestroyTexture(gameTexture_);
     if (renderer_)
         SDL_DestroyRenderer(renderer_);
+    if (gpu_)
+        SDL_DestroyGPUDevice(gpu_);
     if (window_)
         SDL_DestroyWindow(window_);
     SDL_Quit();
@@ -96,18 +102,57 @@ Error SdlSystem::init() {
     if (!window_)
         return Error::fail(std::string("SDL_CreateWindow failed: ") + SDL_GetError());
 
-    renderer_ = SDL_CreateRenderer(window_, nullptr);
+    // The renderer runs on a GPU device of our own when it can, so engines
+    // can draw 3D on the same device (init3D). Asking SDL for a particular
+    // renderer (SDL_RENDER_DRIVER) other than "gpu" skips this.
+    const char* driver = SDL_GetHint(SDL_HINT_RENDER_DRIVER);
+    if (!driver || std::strcmp(driver, "gpu") == 0) {
+        gpu_ = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_MSL, false, nullptr);
+        if (gpu_) {
+            renderer_ = SDL_CreateGPURenderer(gpu_, window_);
+            if (!renderer_) {
+                SDL_DestroyGPUDevice(gpu_);
+                gpu_ = nullptr;
+            }
+        }
+        if (!gpu_)
+            SDL_Log("No GPU device, so no 3D: %s", SDL_GetError());
+    }
+    if (!renderer_)
+        renderer_ = SDL_CreateRenderer(window_, nullptr);
     if (!renderer_)
         return Error::fail(std::string("SDL_CreateRenderer failed: ") + SDL_GetError());
     SDL_SetRenderVSync(renderer_, 1);
 
-    SDL_Log("Video driver: %s, renderer: %s", SDL_GetCurrentVideoDriver(),
-            SDL_GetRendererName(renderer_));
+    SDL_Log("Video driver: %s, renderer: %s%s%s", SDL_GetCurrentVideoDriver(), SDL_GetRendererName(renderer_),
+            gpu_ ? ", GPU driver: " : "", gpu_ ? SDL_GetGPUDeviceDriver(gpu_) : "");
+    return Error::success();
+}
+
+void SdlSystem::release3D() { renderer3d_.reset(); }
+
+Error SdlSystem::init3D(int width, int height, gfx::Renderer3D*& out) {
+    out = nullptr;
+    release3D();
+    if (!gpu_)
+        return Error::fail("3D rendering needs a GPU with Vulkan or Metal support");
+    if (gameTexture_) {
+        SDL_DestroyTexture(gameTexture_);
+        gameTexture_ = nullptr;
+    }
+    gameW_ = gameH_ = 0;
+    auto r = std::make_unique<SdlGpuRenderer>(gpu_, renderer_);
+    if (Error err = r->init(width, height))
+        return err;
+    renderer3d_ = std::move(r);
+    SDL_SetRenderLogicalPresentation(renderer_, width, height, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    out = renderer3d_.get();
     return Error::success();
 }
 
 void SdlSystem::resetForLauncher() {
     stopAudio();
+    release3D();
     if (gameTexture_) {
         SDL_DestroyTexture(gameTexture_);
         gameTexture_ = nullptr;
@@ -118,6 +163,7 @@ void SdlSystem::resetForLauncher() {
 }
 
 Error SdlSystem::initGraphics(int width, int height, PixelFormat format) {
+    release3D();
     if (gameTexture_)
         SDL_DestroyTexture(gameTexture_);
     gameTexture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA32,

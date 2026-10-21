@@ -58,6 +58,7 @@ add_library(reluva_common STATIC
     src/common/archive.cpp
     src/common/zip.cpp
     src/common/image.cpp
+    src/common/gfx3d.cpp
     src/common/detection.cpp
     src/common/audio/decode.cpp
     src/common/audio/mixer.cpp
@@ -112,13 +113,17 @@ add_library(reluva_engines STATIC
     src/engines/idtech3/shader.cpp
     src/engines/idtech3/bsp.cpp
     src/engines/idtech3/viewers.cpp
-    src/engines/idtech3/map_viewer.cpp)
+    src/engines/idtech3/map_viewer.cpp
+    src/engines/idtech3/patch.cpp
+    src/engines/idtech3/world_renderer.cpp
+    src/engines/idtech3/world_viewer.cpp)
 target_link_libraries(reluva_engines PUBLIC reluva_common PRIVATE reluva_warnings)
 
 # --- executable: SDL3 backend + ImGui launcher --------------------------------
 add_executable(reluva
     src/main.cpp
     src/backends/sdl3/sdl_system.cpp
+    src/backends/sdl3/sdl_gpu.cpp
     src/launcher/launcher.cpp)
 target_link_libraries(reluva PRIVATE reluva_engines imgui SDL3::SDL3 reluva_warnings)
 

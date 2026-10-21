@@ -73,6 +73,19 @@ At the end of the configure step, CMake prints a summary of SDL's features.
 `SDL_ALSA` should say `ON`. If one says `OFF`, its `-dev` package is missing.
 Install it, delete `build/`, and configure again.
 
+**3D rendering** (the Elite Force World page) uses SDL's GPU API: Vulkan on
+Linux and Windows, Metal on macOS. Nothing extra is needed to build it. To run
+it, the graphics driver must support Vulkan, as current drivers for AMD, Intel
+and NVIDIA do (on Debian/Ubuntu, Mesa's is `mesa-vulkan-drivers`). Without
+one, Reluva falls back to SDL's usual renderer: everything else works and the
+World page says 3D isn't available. Setting `SDL_RENDER_DRIVER` to another
+renderer (e.g. `opengl`) forces that fallback.
+
+The shaders are compiled into `src/backends/sdl3/shaders/compiled.h`, which is
+committed. Only after changing `draw.vert` or `draw.frag` run
+`src/backends/sdl3/shaders/build.sh`, which needs `glslang-tools` and
+`spirv-cross`.
+
 **IDE (optional):** VS Code with the *CMake Tools* and *C/C++* extensions opens
 the folder directly. CLion and Qt Creator also open `CMakeLists.txt` directly.
 

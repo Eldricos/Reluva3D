@@ -7,6 +7,10 @@
 // hold, while the renderer and game code are written. Tab switches pages,
 // Esc returns to the launcher.
 //
+// World:    the map drawn by the GPU renderer. Left/Right pick a map; drag
+//           to look, W/A/S/D to move, Space/C (or E/Q) up and down, Shift
+//           to go faster, R back to the start point, I to show or hide
+//           the info.
 // Files:    Up/Down, PageUp/PageDown, Home/End scroll the search path's files.
 // Textures: Left/Right step, PageUp/PageDown jump 10, Home/End.
 // Maps:     Left/Right pick a map; drag (or arrow keys with Shift) to rotate,
@@ -16,6 +20,7 @@
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/games.h"
 #include "engines/idtech3/shader.h"
+#include "engines/idtech3/world_renderer.h"
 
 #include "common/archive.h"
 #include "common/events.h"
@@ -24,6 +29,7 @@
 
 #include <array>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -46,8 +52,12 @@ public:
     virtual const char* name() const = 0;
     virtual size_t count() const = 0;   // pages with nothing to show are skipped
     virtual void activate() = 0;        // redraw and retitle after switching here
+    virtual void deactivate() {}        // before switching away
     virtual void handleEvent(const Event& ev) = 0;
     virtual void update(uint64_t /*nowMs*/) {}
+    // Pages that draw with System::init3D; the engine puts the 2D
+    // framebuffer back when leaving one.
+    virtual bool uses3D() const { return false; }
 
 protected:
     void clear(uint8_t r, uint8_t g, uint8_t b);
@@ -90,6 +100,46 @@ private:
 
     std::vector<std::string> names_;
     int index_ = 0;
+};
+
+class WorldViewer : public Page {
+public:
+    explicit WorldViewer(ViewerContext& ctx);
+    ~WorldViewer() override;
+    const char* name() const override { return "World"; }
+    size_t count() const override { return names_.size(); }
+    void activate() override;
+    void deactivate() override;
+    void handleEvent(const Event& ev) override;
+    void update(uint64_t nowMs) override;
+    bool uses3D() const override { return renderer_ != nullptr; }
+
+private:
+    void load(int index);
+    void toStart();
+    void drawOverlay(uint64_t nowMs);
+
+    std::vector<std::string> names_;
+    int index_ = 0;
+    gfx::Renderer3D* renderer_ = nullptr; // valid while this page is shown
+    std::unique_ptr<WorldRenderer> world_;
+    Surface overlay_;
+    std::string error_;
+    std::vector<std::string> info_;
+    std::array<float, 3> start_{};
+    float startYaw_ = 0;
+
+    // Fly camera, in the map's units (Z up); yaw 0 looks along +X.
+    std::array<float, 3> pos_{};
+    float yaw_ = 0, pitch_ = 0;
+    bool held_[8] = {}; // forward, back, left, right, up, down, fast, (unused)
+    bool dragging_ = false;
+    int lastX_ = 0, lastY_ = 0;
+    bool showInfo_ = true;
+    uint64_t lastMs_ = 0;
+    uint64_t fpsStart_ = 0;
+    int frames_ = 0;
+    float fps_ = 0;
 };
 
 class MapViewer : public Page {

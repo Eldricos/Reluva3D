@@ -8,10 +8,12 @@
 #include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/games.h"
 #include "engines/idtech3/lexer.h"
+#include "engines/idtech3/patch.h"
 #include "engines/idtech3/shader.h"
 #include "engines/registry.h"
 #include "zip_writer.h"
 
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -224,6 +226,57 @@ static void testBsp() {
     CHECK(parseBsp({'I', 'B', 'S', 'P'}, bsp));
 }
 
+static void testPatch() {
+    // A 3x3 patch bulging up in the middle: every control point at height
+    // 0 but the centre one at 4, normals pointing up.
+    BspVertex control[9];
+    for (int y = 0; y < 3; ++y)
+        for (int x = 0; x < 3; ++x) {
+            BspVertex& v = control[y * 3 + x];
+            v.pos = {float(x) * 8, float(y) * 8, x == 1 && y == 1 ? 4.0f : 0.0f};
+            v.st = {float(x) / 2, float(y) / 2};
+            v.normal = {0, 0, 1};
+            v.color = {200, 100, 0, 255};
+        }
+    std::vector<BspVertex> verts(1); // something already there: indices must be offset
+    std::vector<uint32_t> idx;
+    tessellatePatch(control, 3, 3, 4, verts, idx);
+    CHECK(verts.size() == 1 + 25 && idx.size() == 16 * 6);
+    // Corners stay put; the middle is the Bezier point: 4 * (2 * 0.5 * 0.5)^2 = 1.
+    CHECK(verts[1].pos[0] == 0 && verts[1].pos[2] == 0 && verts[25].pos[0] == 16 && verts[25].pos[1] == 16);
+    const BspVertex& mid = verts[1 + 12];
+    CHECK(std::fabs(mid.pos[0] - 8) < 1e-5f && std::fabs(mid.pos[2] - 1) < 1e-5f);
+    CHECK(std::fabs(mid.st[0] - 0.5f) < 1e-5f && mid.color[0] == 200 && std::fabs(mid.normal[2] - 1) < 1e-5f);
+    bool inRange = true, clockwise = true;
+    for (size_t i = 0; i + 2 < idx.size(); i += 3) {
+        for (int k = 0; k < 3; ++k)
+            inRange = inRange && idx[i + k] >= 1 && idx[i + k] < verts.size();
+        // Clockwise seen from above (where the normals point): the
+        // geometric normal points down.
+        const auto& a = verts[idx[i]].pos;
+        const auto& b = verts[idx[i + 1]].pos;
+        const auto& c = verts[idx[i + 2]].pos;
+        const float nz = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+        clockwise = clockwise && nz < 0;
+    }
+    CHECK(inRange && clockwise);
+    // Normals pointing down flip the winding.
+    for (BspVertex& v : control)
+        v.normal = {0, 0, -1};
+    std::vector<BspVertex> down;
+    std::vector<uint32_t> downIdx;
+    tessellatePatch(control, 3, 3, 4, down, downIdx);
+    const auto& a = down[downIdx[0]].pos;
+    const auto& b = down[downIdx[1]].pos;
+    const auto& c = down[downIdx[2]].pos;
+    CHECK((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]) > 0);
+    // Two blocks side by side share their edge: 5x3 control points.
+    std::vector<BspVertex> wide(15, control[0]), out;
+    std::vector<uint32_t> outIdx;
+    tessellatePatch(wide.data(), 5, 3, 2, out, outIdx);
+    CHECK(out.size() == 5 * 3 && outIdx.size() == 4 * 2 * 6);
+}
+
 static void testFilesystemAndDetection(const std::filesystem::path& tmp) {
     using test::toBytes;
     std::filesystem::remove_all(tmp);
@@ -274,6 +327,7 @@ int main() {
     testEntities();
     testShaders();
     testBsp();
+    testPatch();
     testFilesystemAndDetection(tmp / "fs");
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);

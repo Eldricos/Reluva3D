@@ -28,8 +28,8 @@ every engine.
 | Shader scripts | parsed; maps, animMap, blendFunc, surfaceparm and skyParms interpreted ([shader.md](../formats/idtech3/shader.md)) |
 | Maps | every BSP lump read and validated; all 67 retail maps load ([bsp.md](../formats/idtech3/bsp.md)) |
 | Images | TGA, JPEG, PNG (`common/image.cpp`) |
-| Viewer | Maps (wireframe), Textures and Files pages |
-| Renderer | not started, see below |
+| Viewer | World (3D), Maps (wireframe), Textures and Files pages |
+| Renderer | first version: every model's surfaces with patches tessellated, the first image stage of each shader times its lightmap (or vertex colours), translucent shaders blended, cull modes, alphaFunc; sky and nodraw skipped (`world_renderer.cpp`, on `gfx::Renderer3D`) |
 | Models, sound, game code | not started |
 
 ## Next steps
@@ -37,17 +37,19 @@ every engine.
 1. **Check against the retail data.** Done for maps (all 67 load) and
    detection (one release). Still to do: write down any Elite
    Force-specific shader directives or entity keys.
-2. **3D rendering in `System`.** The `System` interface only presents a
-   software framebuffer today. Real-time 3D needs the GPU, so the plan is
-   an optional 3D interface in `src/common/` (textures, vertex and index
-   buffers, pipeline states for the blend, depth and cull modes shader
-   stages ask for, and draw calls), implemented by the SDL3 backend with
-   SDL's GPU API (Vulkan, Metal, Direct3D 12). Engines would still never
-   include SDL, and later 3D engines get the same interface for free. The
-   2D framebuffer path stays for 2D games and the viewers.
-3. **World renderer** on that interface: patch tessellation, lightmaps,
-   shader stages (`rgbGen`, `tcMod`...), sky, fog, then visibility culling
-   with the BSP tree and vis data.
+2. **3D rendering in `System`.** Done: `gfx::Renderer3D` in
+   `src/common/gfx3d.h` (textures, static meshes, draw calls with blend,
+   depth, cull and alpha-test state, a 2D overlay), reached through
+   `System::init3D`. The SDL3 backend implements it with SDL's GPU API
+   (`src/backends/sdl3/sdl_gpu.cpp`) on the same GPU device as SDL's
+   renderer, which the launcher keeps using. Shaders: see
+   `src/backends/sdl3/shaders/build.sh`. Vulkan is tested; the Metal path
+   (macOS) is generated but untested.
+3. **World renderer**, continued: every shader stage instead of the first
+   image (`rgbGen`, `alphaGen`, `tcMod`, `tcGen environment`, animMap
+   animation, `deformVertexes`), sky boxes, fog volumes, sorting
+   translucent surfaces by distance, then visibility culling with the BSP
+   tree and vis data. Check the look against the original game.
 4. **Models**: MD3 (to confirm which model formats Elite Force uses for
    its characters and weapons).
 5. **Sound**: WAV effects and the music through `common/audio`.

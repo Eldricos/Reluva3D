@@ -49,6 +49,7 @@ public:
 
         ViewerContext ctx{sys_, screen_, files_, shaders_, game_, warnings};
         std::vector<std::unique_ptr<Page>> pages;
+        pages.push_back(std::make_unique<WorldViewer>(ctx));
         pages.push_back(std::make_unique<MapViewer>(ctx));
         pages.push_back(std::make_unique<TextureViewer>(ctx));
         pages.push_back(std::make_unique<FileViewer>(ctx));
@@ -67,6 +68,12 @@ public:
                 if (ev.type == EventType::KeyDown && ev.key == key::Escape)
                     return Error::success();
                 if (ev.type == EventType::KeyDown && ev.key == key::Tab) {
+                    // Leaving a 3D page: its renderer goes, the framebuffer comes back.
+                    const bool was3D = pages[page]->uses3D();
+                    pages[page]->deactivate();
+                    if (was3D)
+                        if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32))
+                            return err;
                     do
                         page = (page + 1) % pages.size();
                     while (pages[page]->count() == 0);

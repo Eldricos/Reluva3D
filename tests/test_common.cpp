@@ -13,12 +13,14 @@
 #include "common/detection.h"
 #include "common/font.h"
 #include "common/fs.h"
+#include "common/gfx3d.h"
 #include "common/image.h"
 #include "common/md5.h"
 #include "common/text.h"
 #include "common/zip.h"
 #include "zip_writer.h"
 
+#include <cmath>
 #include <cstdio>
 #include <memory>
 #include <fstream>
@@ -318,6 +320,26 @@ static void testImage() {
     CHECK(s.row(0)[0] == 0 && s.row(0)[4] == 128 && s.row(0)[7] == 255);
 }
 
+static void testGfxMath() {
+    using namespace reluva::gfx;
+    auto near = [](float a, float b) { return std::fabs(a - b) < 1e-4f; };
+    auto same = [&](const Vec3& a, const Vec3& b) { return near(a[0], b[0]) && near(a[1], b[1]) && near(a[2], b[2]); };
+    // Depth runs 0 at the near plane to 1 at the far one; +Y stays up.
+    const Mat4 proj = perspective(3.14159265f / 2, 1, 4, 100);
+    CHECK(same(transformPoint(proj, {0, 0, -4}), {0, 0, 0}));
+    CHECK(same(transformPoint(proj, {0, 0, -100}), {0, 0, 1}));
+    CHECK(same(transformPoint(proj, {4, 4, -4}), {1, 1, 0}));
+    // Looking along +X from (10, 0, 0) with Z up: +X is ahead (-Z in view
+    // space), +Y is to the left, +Z up.
+    const Mat4 view = lookAlong({10, 0, 0}, {1, 0, 0}, {0, 0, 1});
+    CHECK(same(transformPoint(view, {15, 0, 0}), {0, 0, -5}));
+    CHECK(same(transformPoint(view, {10, 2, 0}), {-2, 0, 0}));
+    CHECK(same(transformPoint(view, {10, 0, 3}), {0, 3, 0}));
+    CHECK(multiply(identity(), view) == view && multiply(view, identity()) == view);
+    const Mat4 both = multiply(proj, view);
+    CHECK(same(transformPoint(both, {14, 0, 0}), transformPoint(proj, transformPoint(view, {14, 0, 0}))));
+}
+
 int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_tests";
     testMd5();
@@ -331,6 +353,7 @@ int main() {
     testZip(tmp / "zip");
     testSearchSet(tmp / "search");
     testImage();
+    testGfxMath();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else
