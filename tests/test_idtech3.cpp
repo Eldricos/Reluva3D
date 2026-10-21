@@ -111,7 +111,8 @@ textures/sky/stars
 
 // A tiny map: one triangle in one leaf of a two-leaf tree, one brush,
 // one lightmap and vis data for two clusters.
-static std::vector<uint8_t> buildBsp(int version = 46, int badIndex = -1) {
+static std::vector<uint8_t> buildBsp(int version = 46, int badIndex = -1, int32_t lightmap = 0, int32_t fog = -1,
+                                     int32_t type = 1) {
     std::vector<uint8_t> lumps[17];
     auto i32 = [](std::vector<uint8_t>& v, int32_t x) {
         for (int i = 0; i < 4; ++i)
@@ -159,7 +160,7 @@ static std::vector<uint8_t> buildBsp(int version = 46, int badIndex = -1) {
     }
     i32(lumps[11], 0); i32(lumps[11], 1); i32(lumps[11], badIndex >= 0 ? badIndex : 2);
     // Surface: shader 0, no fog, planar, vertices 0-2, indices 0-2, lightmap 0.
-    for (int32_t x : {0, -1, 1, 0, 3, 0, 3, 0, 0, 0, 16, 16})
+    for (int32_t x : {0, fog, type, 0, 3, 0, 3, lightmap, 0, 0, 16, 16})
         i32(lumps[13], x);
     for (int k = 0; k < 12; ++k)
         f32(lumps[13], k == 11 ? 1.f : 0.f);
@@ -201,8 +202,22 @@ static void testBsp() {
     CHECK(bsp.clusterVisible(0, 0) && !bsp.clusterVisible(0, 1) && bsp.clusterVisible(1, 0));
     CHECK(bsp.clusterVisible(-1, 1));
 
-    CHECK(parseBsp(buildBsp(47), bsp));    // wrong version
-    CHECK(parseBsp(buildBsp(46, 3), bsp)); // index past the surface's vertices
+    CHECK(bsp.fixes.total() == 0);
+
+    CHECK(parseBsp(buildBsp(47), bsp)); // wrong version
+    // An index past the surface's vertices; the message says which.
+    err = parseBsp(buildBsp(46, 3), bsp);
+    CHECK(err && err.message == "BSP surface 0: index 2 is vertex 3 (of 3)");
+
+    // What the original engine tolerates: a lightmap past the end (vertex
+    // lighting), a missing fog, a flare's vertices, an unknown type.
+    CHECK(!parseBsp(buildBsp(46, -1, 5, 2), bsp));
+    CHECK(bsp.surfaces[0].lightmap == -1 && bsp.surfaces[0].fog == -1);
+    CHECK(bsp.fixes.lightmaps == 1 && bsp.fixes.fogs == 1 && bsp.fixes.total() == 2);
+    CHECK(!parseBsp(buildBsp(46, 7, 0, -1, 4), bsp)); // a flare's bad index doesn't matter
+    CHECK(bsp.surfaces[0].type == SurfaceType::Flare && bsp.surfaces[0].numVertices == 0 && bsp.fixes.flares == 1);
+    CHECK(!parseBsp(buildBsp(46, -1, 0, -1, 9), bsp));
+    CHECK(bsp.surfaces[0].type == SurfaceType::Bad && bsp.fixes.types == 1);
     auto truncated = buildBsp();
     truncated.resize(truncated.size() - 1);
     CHECK(parseBsp(truncated, bsp));

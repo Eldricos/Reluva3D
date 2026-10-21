@@ -38,6 +38,10 @@
 //                                                  corner, and dump the bytes where the walk stops
 //   reluva-tool lbp-info <file> [out]              decode a texture, show its key and colours,
 //                                                  write <out>.bmp and <out>_alpha.bmp
+//   reluva-tool bsp-check <game folder>            load every maps/*.bsp of an id Tech 3 game folder
+//                                                  (e.g. .../BaseEF), report failures and corrections
+//   reluva-tool pk3-list <game folder> [filter]    list the search path's files, with sizes and the
+//                                                  archive each comes from
 
 #include "common/audio/decode.h"
 #include "common/audio/wav.h"
@@ -53,6 +57,9 @@
 #include "engines/newworlds/model_textures.h"
 #include "engines/newworlds/model_render.h"
 #include "common/font.h"
+#include "common/zip.h"
+#include "engines/idtech3/bsp.h"
+#include "engines/idtech3/filesystem.h"
 
 #include <map>
 #include <memory>
@@ -2369,6 +2376,81 @@ int cmdGeoSurvey(int argc, char** argv) {
     return 0;
 }
 
+// Mounts an id Tech 3 game folder (".../BaseEF") the way the engine does.
+bool mountIdTech3(const char* folder, reluva::SearchSet& set) {
+    const std::filesystem::path dir = std::filesystem::path(folder).lexically_normal();
+    const std::filesystem::path path = dir.has_filename() ? dir : dir.parent_path();
+    std::vector<std::string> warnings;
+    if (reluva::Error err =
+            reluva::idtech3::mountGameDir(set, path.parent_path(), path.filename().string(), 0, warnings)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return false;
+    }
+    for (const std::string& w : warnings)
+        std::fprintf(stderr, "warning: %s\n", w.c_str());
+    return true;
+}
+
+int cmdBspCheck(int argc, char** argv) {
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: reluva-tool bsp-check <game folder>\n");
+        return 2;
+    }
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    int maps = 0, failed = 0, corrected = 0;
+    Bytes data;
+    for (const std::string& name : set.list()) {
+        const std::string key = reluva::normalizeArchiveName(name);
+        if (key.rfind("maps/", 0) != 0 || key.size() < 4 || key.compare(key.size() - 4, 4, ".bsp") != 0)
+            continue;
+        ++maps;
+        reluva::idtech3::Bsp bsp;
+        reluva::Error err = set.read(name, data);
+        if (!err)
+            err = reluva::idtech3::parseBsp(data, bsp);
+        if (err) {
+            ++failed;
+            std::printf("FAIL %s: %s\n", name.c_str(), err.message.c_str());
+            continue;
+        }
+        const auto& f = bsp.fixes;
+        if (f.total())
+            ++corrected;
+        std::printf("ok   %s: %zu surfaces, %zu lightmaps", name.c_str(), bsp.surfaces.size(), bsp.lightmapCount());
+        if (f.total())
+            std::printf("; corrected: %d lightmap, %d fog, %d flare/bad, %d type", f.lightmaps, f.fogs, f.flares,
+                        f.types);
+        std::printf("\n");
+    }
+    std::printf("%d maps: %d failed, %d loaded with corrections\n", maps, failed, corrected);
+    return failed ? 1 : 0;
+}
+
+int cmdPk3List(int argc, char** argv) {
+    if (argc != 3 && argc != 4) {
+        std::fprintf(stderr, "usage: reluva-tool pk3-list <game folder> [name filter]\n");
+        return 2;
+    }
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    const std::string filter = argc == 4 ? reluva::normalizeArchiveName(argv[3]) : std::string();
+    for (const std::string& name : set.list()) {
+        if (!filter.empty() && reluva::normalizeArchiveName(name).find(filter) == std::string::npos)
+            continue;
+        const reluva::Archive* a = set.find(name);
+        long long size = -1;
+        if (const auto* zip = dynamic_cast<const reluva::ZipArchive*>(a))
+            if (const auto* e = zip->entry(name))
+                size = e->size;
+        std::printf("%10lld  %-60s %s\n", size, name.c_str(),
+                    std::filesystem::path(a->describe()).filename().string().c_str());
+    }
+    return 0;
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -2424,6 +2506,10 @@ int main(int argc, char** argv) {
         return cmdGeoSheet(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "geo-faces") == 0)
         return cmdGeoFaces(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "bsp-check") == 0)
+        return cmdBspCheck(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "pk3-list") == 0)
+        return cmdPk3List(argc, argv);
     std::fprintf(stderr,
                  "usage:\n"
                  "  reluva-tool hexdump <file> [offset] [length]\n"
@@ -2451,6 +2537,8 @@ int main(int argc, char** argv) {
                  "  reluva-tool geo-sheet [-l|-t] <out.ppm> <name filter> <file.cat>...\n"
                  "  reluva-tool gmf-info <file.gmf> [record number]\n"
                  "  reluva-tool geo-faces <file.geo>\n"
-                 "  reluva-tool lbp-info <file> [output prefix]\n");
+                 "  reluva-tool lbp-info <file> [output prefix]\n"
+                 "  reluva-tool bsp-check <game folder, e.g. .../BaseEF>\n"
+                 "  reluva-tool pk3-list <game folder> [name filter]\n");
     return 2;
 }

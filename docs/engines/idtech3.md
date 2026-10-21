@@ -73,12 +73,22 @@ one has to be checked before anything is written:
   unless it turns out to carry a GPL-compatible licence. It also wouldn't
   help with the shared formats: by its own ReadMe it holds only the game
   DLLs' code, not the executable's renderer or map loading.
-- **Holomatch (multiplayer)**: if the retail paks hold the game logic as
-  Quake III VM bytecode (`vm/*.qvm`), the original logic could run in a
-  QVM interpreter, with the engine providing the system calls it makes.
-  The original assets would then work unchanged, as ScummVM runs games'
-  own scripts. To check: whether `pak0.pk3` has a `vm/` folder (the
-  install folder doesn't; it would be inside the pak).
+- **Holomatch (multiplayer)**: `pak0.pk3` holds `vm/qagame.qvm` (server
+  game logic), `vm/cgame.qvm` (client: HUD, effects, prediction) and
+  `vm/ui.qvm` (menus): game logic as Quake III VM bytecode. So the original
+  logic can run in a QVM interpreter, with the engine providing the
+  system calls it makes, the way ScummVM runs games' own scripts. The
+  bytecode stays in the user's copy; Reluva only runs it.
+  - The QVM file format and instruction set are the same as Quake III's,
+    documented in the GPL source and community write-ups, so the
+    interpreter is new code written from that documentation.
+  - The system calls (numbers, arguments and meanings) are Elite Force's
+    own. They have to be worked out from the bytecode in an owned copy
+    (reverse engineering for interoperability, allowed by CONTRIBUTING.md
+    where local law permits) and from Quake III's documented ones where
+    they match, never from Raven's SDK.
+  - Probably only Holomatch uses the QVMs; single player has its DLLs. To
+    confirm.
 - **Single player**: its logic ships as native x86 code
   (`efgamex86.dll`, with the menus in `efuix86.dll`), which a portable
   engine can't load. It would have to be reimplemented from

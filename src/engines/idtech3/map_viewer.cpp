@@ -81,6 +81,10 @@ void MapViewer::load(int index) {
                     " leafs, " + std::to_string(bsp_.visClusters) + " clusters, " +
                     std::to_string(bsp_.lightmapCount()) + " lightmaps, " + std::to_string(bsp_.fogs.size()) +
                     " fogs");
+    if (const auto& f = bsp_.fixes; f.total())
+        info_.push_back("Corrected, as the original does: " + std::to_string(f.lightmaps) + " lightmap, " +
+                        std::to_string(f.fogs) + " fog, " + std::to_string(f.flares) + " flare/bad, " +
+                        std::to_string(f.types) + " type");
     int missing = 0;
     for (const BspShader& s : bsp_.shaders)
         if (!ctx_.shaders.find(s.name) && !ctx_.files.has(s.name + ".tga") && !ctx_.files.has(s.name + ".jpg"))

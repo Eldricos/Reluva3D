@@ -110,6 +110,16 @@ struct Bsp {
     int32_t visClusters = 0, visClusterBytes = 0;
     std::vector<uint8_t> visData; // visClusters * visClusterBytes bits
 
+    // Values the original engine tolerates and parseBsp() corrected, as
+    // described in bsp.md: how many surfaces had each.
+    struct Fixes {
+        int lightmaps = 0; // lightmap past the end: now -1 (vertex lighting)
+        int fogs = 0;      // fog that doesn't exist: now -1
+        int flares = 0;    // flare or Bad surface with vertices or indices: now none
+        int types = 0;     // unknown surface type: now Bad
+        int total() const { return lightmaps + fogs + flares + types; }
+    } fixes;
+
     size_t lightmapCount() const { return lightmaps.size() / (kLightmapSize * kLightmapSize * 3); }
     // Whether cluster `to` can be seen from cluster `from`. Without vis data
     // (or for clusters outside the map) everything is visible.
@@ -118,7 +128,9 @@ struct Bsp {
 
 // Parse a whole .bsp file. Checks the header, that every lump lies inside
 // the file and holds whole records, and that every index between lumps is
-// in range, so the rest of the engine can trust the result.
+// in range, so the rest of the engine can trust the result. Out-of-range
+// values the original engine tolerates are corrected instead (see `fixes`);
+// errors name the record, the field and its value.
 Error parseBsp(const std::vector<uint8_t>& data, Bsp& out);
 
 } // namespace reluva::idtech3

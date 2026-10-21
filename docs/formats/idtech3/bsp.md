@@ -67,6 +67,25 @@ tessellates them; the file holds only the control points.
 
 Every lump lies inside the file and holds whole records; every index into
 another lump is in range (node planes and children, leaf ranges, model and
-brush ranges, surface shaders, fogs, vertices, indices and lightmaps); a
-patch's size matches its vertex count; vis data covers every cluster. The
-rest of the engine relies on this and doesn't check again.
+brush ranges, surface shaders, vertices and indices); a patch's size
+matches its vertex count; vis data covers every cluster. Errors name the
+record, the field and its value, e.g. `BSP surface 0: index 2 is vertex 3
+(of 3)`. The rest of the engine relies on this and doesn't check again.
+
+### Tolerated, as the original engine does
+
+Some Elite Force maps hold values out of range that the original engine
+accepts. Reluva corrects them the same way and counts them (`Bsp::fixes`,
+shown in the map viewer and by `reluva-tool bsp-check`):
+
+| Value | Original behaviour | Reluva sets |
+|---|---|---|
+| surface lightmap ≥ lightmap count | lit by its vertex colours | lightmap −1 |
+| surface fog that doesn't exist | not checked | fog −1 |
+| flare (or bad surface) with vertices or indices | never used | no vertices or indices |
+| unknown surface type | (ioquake3 refuses the map) | type 0, never drawn |
+
+The original's behaviour was read from the GPL Quake III Arena renderer
+(`tr_bsp.c`, `tr_shader.c`). The last row is more lenient than Quake III,
+since Elite Force's engine may differ; maps that need it show up in
+`bsp-check`'s counts.

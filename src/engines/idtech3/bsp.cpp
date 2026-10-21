@@ -87,63 +87,119 @@ bool inRange(int64_t first, int64_t count, size_t size) {
 
 bool validIndex(int64_t i, size_t size) { return i >= 0 && i < static_cast<int64_t>(size); }
 
-Error bad(const std::string& what, size_t i) {
-    return Error::fail("BSP " + what + " " + std::to_string(i) + " refers outside its lump");
+std::string num(int64_t v) { return std::to_string(v); }
+
+// "BSP surface 12: shader 40 (of 38)"
+Error bad(const std::string& what, size_t i, const std::string& detail) {
+    return Error::fail("BSP " + what + " " + std::to_string(i) + ": " + detail);
+}
+std::string range(const char* field, int64_t first, int64_t count, size_t size) {
+    return std::string(field) + " " + num(first) + "+" + num(count) + " (of " + num(int64_t(size)) + ")";
+}
+std::string index(const char* field, int64_t v, size_t size) {
+    return std::string(field) + " " + num(v) + " (of " + num(int64_t(size)) + ")";
+}
+
+// Values the original engine tolerates, made consistent so the checks
+// below and the rest of the engine needn't special-case them. See bsp.md.
+void normalize(Bsp& b) {
+    const size_t lightmaps = b.lightmapCount();
+    for (BspSurface& s : b.surfaces) {
+        // A lightmap past the end: lit by its vertex colours instead.
+        if (s.lightmap >= 0 && size_t(s.lightmap) >= lightmaps) {
+            s.lightmap = -1;
+            ++b.fixes.lightmaps;
+        }
+        // A fog that doesn't exist: no fog.
+        if (s.fog < -1 || (s.fog >= 0 && size_t(s.fog) >= b.fogs.size())) {
+            s.fog = -1;
+            ++b.fixes.fogs;
+        }
+        // A type we don't know: kept as Bad, which nothing draws.
+        const int32_t type = static_cast<int32_t>(s.type);
+        if (type < 0 || type > 4) {
+            s.type = SurfaceType::Bad;
+            ++b.fixes.types;
+        }
+        // Bad surfaces and flares use neither vertices nor indices.
+        if (s.type == SurfaceType::Bad && (s.numVertices || s.numIndices)) {
+            s.firstVertex = s.numVertices = s.firstIndex = s.numIndices = 0;
+            ++b.fixes.flares;
+        }
+        if (s.type == SurfaceType::Flare && (s.numVertices || s.numIndices)) {
+            s.firstVertex = s.numVertices = s.firstIndex = s.numIndices = 0;
+            ++b.fixes.flares;
+        }
+    }
 }
 
 Error validate(const Bsp& b) {
     for (size_t i = 0; i < b.nodes.size(); ++i) {
         const BspNode& n = b.nodes[i];
         if (!validIndex(n.plane, b.planes.size()))
-            return bad("node", i);
-        for (int32_t c : n.children)
-            if (c >= 0 ? !validIndex(c, b.nodes.size()) : !validIndex(-int64_t(c) - 1, b.leafs.size()))
-                return bad("node", i);
+            return bad("node", i, index("plane", n.plane, b.planes.size()));
+        for (int32_t c : n.children) {
+            if (c >= 0 && !validIndex(c, b.nodes.size()))
+                return bad("node", i, index("child node", c, b.nodes.size()));
+            if (c < 0 && !validIndex(-int64_t(c) - 1, b.leafs.size()))
+                return bad("node", i, index("child leaf", -int64_t(c) - 1, b.leafs.size()));
+        }
     }
     for (size_t i = 0; i < b.leafs.size(); ++i) {
         const BspLeaf& l = b.leafs[i];
-        if (!inRange(l.firstLeafSurface, l.numLeafSurfaces, b.leafSurfaces.size()) ||
-            !inRange(l.firstLeafBrush, l.numLeafBrushes, b.leafBrushes.size()) ||
-            (b.visClusterBytes && l.cluster >= b.visClusters))
-            return bad("leaf", i);
+        if (!inRange(l.firstLeafSurface, l.numLeafSurfaces, b.leafSurfaces.size()))
+            return bad("leaf", i, range("leaf surfaces", l.firstLeafSurface, l.numLeafSurfaces, b.leafSurfaces.size()));
+        if (!inRange(l.firstLeafBrush, l.numLeafBrushes, b.leafBrushes.size()))
+            return bad("leaf", i, range("leaf brushes", l.firstLeafBrush, l.numLeafBrushes, b.leafBrushes.size()));
+        if (b.visClusterBytes && l.cluster >= b.visClusters)
+            return bad("leaf", i, index("cluster", l.cluster, size_t(b.visClusters)));
     }
     for (size_t i = 0; i < b.leafSurfaces.size(); ++i)
         if (!validIndex(b.leafSurfaces[i], b.surfaces.size()))
-            return bad("leaf surface", i);
+            return bad("leaf surface", i, index("surface", b.leafSurfaces[i], b.surfaces.size()));
     for (size_t i = 0; i < b.leafBrushes.size(); ++i)
         if (!validIndex(b.leafBrushes[i], b.brushes.size()))
-            return bad("leaf brush", i);
+            return bad("leaf brush", i, index("brush", b.leafBrushes[i], b.brushes.size()));
     for (size_t i = 0; i < b.models.size(); ++i) {
         const BspModel& m = b.models[i];
-        if (!inRange(m.firstSurface, m.numSurfaces, b.surfaces.size()) ||
-            !inRange(m.firstBrush, m.numBrushes, b.brushes.size()))
-            return bad("model", i);
+        if (!inRange(m.firstSurface, m.numSurfaces, b.surfaces.size()))
+            return bad("model", i, range("surfaces", m.firstSurface, m.numSurfaces, b.surfaces.size()));
+        if (!inRange(m.firstBrush, m.numBrushes, b.brushes.size()))
+            return bad("model", i, range("brushes", m.firstBrush, m.numBrushes, b.brushes.size()));
     }
     for (size_t i = 0; i < b.brushes.size(); ++i) {
         const BspBrush& br = b.brushes[i];
-        if (!inRange(br.firstSide, br.numSides, b.brushSides.size()) || !validIndex(br.shader, b.shaders.size()))
-            return bad("brush", i);
+        if (!inRange(br.firstSide, br.numSides, b.brushSides.size()))
+            return bad("brush", i, range("sides", br.firstSide, br.numSides, b.brushSides.size()));
+        if (!validIndex(br.shader, b.shaders.size()))
+            return bad("brush", i, index("shader", br.shader, b.shaders.size()));
     }
-    for (size_t i = 0; i < b.brushSides.size(); ++i)
-        if (!validIndex(b.brushSides[i].plane, b.planes.size()) || !validIndex(b.brushSides[i].shader, b.shaders.size()))
-            return bad("brush side", i);
+    for (size_t i = 0; i < b.brushSides.size(); ++i) {
+        if (!validIndex(b.brushSides[i].plane, b.planes.size()))
+            return bad("brush side", i, index("plane", b.brushSides[i].plane, b.planes.size()));
+        if (!validIndex(b.brushSides[i].shader, b.shaders.size()))
+            return bad("brush side", i, index("shader", b.brushSides[i].shader, b.shaders.size()));
+    }
     for (size_t i = 0; i < b.fogs.size(); ++i)
         if (!validIndex(b.fogs[i].brush, b.brushes.size()))
-            return bad("fog", i);
-    const size_t lightmaps = b.lightmapCount();
+            return bad("fog", i, index("brush", b.fogs[i].brush, b.brushes.size()));
     for (size_t i = 0; i < b.surfaces.size(); ++i) {
         const BspSurface& s = b.surfaces[i];
-        if (!validIndex(s.shader, b.shaders.size()) || (s.fog >= 0 && !validIndex(s.fog, b.fogs.size())) ||
-            !inRange(s.firstVertex, s.numVertices, b.vertices.size()) ||
-            !inRange(s.firstIndex, s.numIndices, b.indices.size()) ||
-            (s.lightmap >= 0 && !validIndex(s.lightmap, lightmaps)))
-            return bad("surface", i);
-        for (int32_t k = 0; k < s.numIndices; ++k)
-            if (!validIndex(b.indices[size_t(s.firstIndex + k)], size_t(s.numVertices)))
-                return bad("surface", i);
+        if (!validIndex(s.shader, b.shaders.size()))
+            return bad("surface", i, index("shader", s.shader, b.shaders.size()));
+        if (!inRange(s.firstVertex, s.numVertices, b.vertices.size()))
+            return bad("surface", i, range("vertices", s.firstVertex, s.numVertices, b.vertices.size()));
+        if (!inRange(s.firstIndex, s.numIndices, b.indices.size()))
+            return bad("surface", i, range("indices", s.firstIndex, s.numIndices, b.indices.size()));
+        for (int32_t k = 0; k < s.numIndices; ++k) {
+            const int32_t v = b.indices[size_t(s.firstIndex + k)];
+            if (!validIndex(v, size_t(s.numVertices)))
+                return bad("surface", i, "index " + num(k) + " is vertex " + num(v) + " (of " + num(s.numVertices) + ")");
+        }
         if (s.type == SurfaceType::Patch &&
             (s.patchWidth < 1 || s.patchHeight < 1 || int64_t(s.patchWidth) * s.patchHeight != s.numVertices))
-            return Error::fail("BSP surface " + std::to_string(i) + ": patch size doesn't match its vertices");
+            return bad("surface", i, "patch " + num(s.patchWidth) + "x" + num(s.patchHeight) + " but " +
+                                         num(s.numVertices) + " vertices");
     }
     return Error::success();
 }
@@ -283,6 +339,7 @@ Error parseBsp(const std::vector<uint8_t>& data, Bsp& out) {
         out.visData.assign(data.begin() + std::ptrdiff_t(vis.offset + 8),
                            data.begin() + std::ptrdiff_t(vis.offset + 8 + size_t(out.visClusters) * out.visClusterBytes));
     }
+    normalize(out);
     return validate(out);
 }
 
