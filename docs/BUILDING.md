@@ -73,6 +73,14 @@ At the end of the configure step, CMake prints a summary of SDL's features.
 `SDL_ALSA` should say `ON`. If one says `OFF`, its `-dev` package is missing.
 Install it, delete `build/`, and configure again.
 
+**Engines** can be left out of the build with CMake options:
+`RELUVA_ENGINE_IDTECH3` (Elite Force, on by default) and
+`RELUVA_ENGINE_NEWWORLDS` (Star Trek: New Worlds, **off** by default for now,
+because two of its files hold string literals longer than Visual Studio
+accepts). To build New Worlds with GCC or Clang:
+`cmake -S . -B build -DRELUVA_ENGINE_NEWWORLDS=ON`. In Visual Studio the options
+are under *Project > CMake Settings*.
+
 **3D rendering** (the Elite Force World page) uses SDL's GPU API: Vulkan on
 Linux and Windows, Metal on macOS. Nothing extra is needed to build it. To run
 it, the graphics driver must support Vulkan, as current drivers for AMD, Intel

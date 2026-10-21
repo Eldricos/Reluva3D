@@ -47,6 +47,7 @@
 
 #include "common/audio/decode.h"
 #include "common/audio/wav.h"
+#ifdef RELUVA_ENGINE_NEWWORLDS
 #include "engines/newworlds/cat_archive.h"
 #include "engines/newworlds/fif.h"
 #include "engines/newworlds/string_table.h"
@@ -58,11 +59,14 @@
 #include "engines/newworlds/mdl.h"
 #include "engines/newworlds/model_textures.h"
 #include "engines/newworlds/model_render.h"
+#endif
 #include "common/font.h"
 #include "common/zip.h"
+#ifdef RELUVA_ENGINE_IDTECH3
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/shader.h"
+#endif
 
 #include <map>
 #include <memory>
@@ -120,6 +124,7 @@ void hexdump(const Bytes& d, size_t off, size_t len) {
         std::printf("\n");
     }
 }
+#ifdef RELUVA_ENGINE_NEWWORLDS
 
 // Unix time -> "YYYY-MM-DD HH:MM" (UTC), without platform time functions.
 std::string formatTime(uint32_t t) {
@@ -134,6 +139,7 @@ std::string formatTime(uint32_t t) {
                   int(secs / 3600), int(secs / 60 % 60));
     return buf;
 }
+#endif // RELUVA_ENGINE_NEWWORLDS
 
 long long parseNumber(const char* s) { return std::strtoll(s, nullptr, 0); }
 
@@ -152,6 +158,7 @@ int cmdHexdump(int argc, char** argv) {
     hexdump(d, size_t(std::max(0LL, off)), len);
     return 0;
 }
+#ifdef RELUVA_ENGINE_NEWWORLDS
 
 // Current understanding (see docs/formats/newworlds/cat.md): the file is a
 // tree of chunks, each a u16 tag + u32 size + payload.
@@ -759,6 +766,8 @@ int cmdTexKeys(int argc, char** argv) {
 }
 
 
+#endif // RELUVA_ENGINE_NEWWORLDS
+
 // A payload counts as a container if it splits exactly into chunks whose
 // tags look plausible. Small tag limit keeps random data from qualifying.
 bool tilesIntoChunks(const Bytes& d, size_t begin, size_t end) {
@@ -889,6 +898,7 @@ int cmdTable(int argc, char** argv) {
 }
 
 
+#ifdef RELUVA_ENGINE_NEWWORLDS
 bool writeObj(const reluva::newworlds::GeoModel& m, const std::string& path) {
     std::ofstream f(path);
     f << "# exported by reluva-tool geo-info\n";
@@ -2379,6 +2389,9 @@ int cmdGeoSurvey(int argc, char** argv) {
     return 0;
 }
 
+#endif // RELUVA_ENGINE_NEWWORLDS
+
+#ifdef RELUVA_ENGINE_IDTECH3
 // Mounts an id Tech 3 game folder (".../BaseEF") the way the engine does.
 bool mountIdTech3(const char* folder, reluva::SearchSet& set) {
     const std::filesystem::path dir = std::filesystem::path(folder).lexically_normal();
@@ -2509,11 +2522,20 @@ int cmdPk3List(int argc, char** argv) {
     return 0;
 }
 
+#endif // RELUVA_ENGINE_IDTECH3
+
 } // namespace
 
 int main(int argc, char** argv) {
     if (argc >= 2 && std::strcmp(argv[1], "hexdump") == 0)
         return cmdHexdump(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "chunks") == 0)
+        return cmdChunks(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "words") == 0)
+        return cmdWords(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "table") == 0)
+        return cmdTable(argc, argv);
+#ifdef RELUVA_ENGINE_NEWWORLDS
     if (argc >= 2 && std::strcmp(argv[1], "cat-probe") == 0)
         return cmdCatProbe(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "cat-list") == 0)
@@ -2528,12 +2550,6 @@ int main(int argc, char** argv) {
         return cmdTexSurvey(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "tex-keys") == 0)
         return cmdTexKeys(argc, argv);
-    if (argc >= 2 && std::strcmp(argv[1], "chunks") == 0)
-        return cmdChunks(argc, argv);
-    if (argc >= 2 && std::strcmp(argv[1], "words") == 0)
-        return cmdWords(argc, argv);
-    if (argc >= 2 && std::strcmp(argv[1], "table") == 0)
-        return cmdTable(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "geo-info") == 0)
         return cmdGeoInfo(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "geo-survey") == 0)
@@ -2564,24 +2580,28 @@ int main(int argc, char** argv) {
         return cmdGeoSheet(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "geo-faces") == 0)
         return cmdGeoFaces(argc, argv);
+#endif
+#ifdef RELUVA_ENGINE_IDTECH3
     if (argc >= 2 && std::strcmp(argv[1], "bsp-check") == 0)
         return cmdBspCheck(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "pk3-list") == 0)
         return cmdPk3List(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "image-check") == 0)
         return cmdImageCheck(argc, argv);
+#endif
     std::fprintf(stderr,
                  "usage:\n"
                  "  reluva-tool hexdump <file> [offset] [length]\n"
+                 "  reluva-tool chunks <file>\n"
+                 "  reluva-tool words <file> [offset] [count]\n"
+                 "  reluva-tool table <file> [values per row] [offset]\n"
+#ifdef RELUVA_ENGINE_NEWWORLDS
                  "  reluva-tool cat-probe <file.cat> [-q]\n"
                  "  reluva-tool cat-list <file.cat>\n"
                  "  reluva-tool cat-extract <file.cat> <output dir> [name filter]\n"
                  "  reluva-tool stb-dump <file.stb | file.cat>\n"
                  "  reluva-tool tex-survey <file.cat>...\n"
                  "  reluva-tool tex-keys <file.cat>...\n"
-                 "  reluva-tool chunks <file>\n"
-                 "  reluva-tool words <file> [offset] [count]\n"
-                 "  reluva-tool table <file> [values per row] [offset]\n"
                  "  reluva-tool geo-info <file.geo> [out.obj]\n"
                  "  reluva-tool geo-survey <file.cat>...\n"
                  "  reluva-tool geo-textures [-a] <file.cat>...\n"
@@ -2598,8 +2618,12 @@ int main(int argc, char** argv) {
                  "  reluva-tool gmf-info <file.gmf> [record number]\n"
                  "  reluva-tool geo-faces <file.geo>\n"
                  "  reluva-tool lbp-info <file> [output prefix]\n"
+#endif
+#ifdef RELUVA_ENGINE_IDTECH3
                  "  reluva-tool bsp-check <game folder, e.g. .../BaseEF>\n"
                  "  reluva-tool pk3-list <game folder> [name filter]\n"
-                 "  reluva-tool image-check <game folder> [map name filter]\n");
+                 "  reluva-tool image-check <game folder> [map name filter]\n"
+#endif
+                 "");
     return 2;
 }

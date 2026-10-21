@@ -43,6 +43,9 @@ cmake --build build -j
 ./build/reluva
 ```
 
+Engines are CMake options (`RELUVA_ENGINE_IDTECH3` on, `RELUVA_ENGINE_NEWWORLDS`
+off by default for now); see the build notes.
+
 See **[docs/BUILDING.md](docs/BUILDING.md)** for step-by-step instructions for
 Linux (with each distro's packages) and Windows with Visual Studio 2022.
 

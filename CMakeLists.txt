@@ -7,6 +7,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(RELUVA_USE_SYSTEM_SDL "Use an installed SDL3 instead of building it" OFF)
 option(RELUVA_BUILD_TESTS "Build unit tests" ON)
+# Engines can be left out of the build, like ScummVM's. New Worlds is off
+# by default for now: two of its source files hold string literals longer
+# than Visual Studio accepts (error C2026).
+option(RELUVA_ENGINE_NEWWORLDS "Build the Star Trek: New Worlds engine" OFF)
+option(RELUVA_ENGINE_IDTECH3 "Build the id Tech 3 engine (Star Trek: Voyager - Elite Force)" ON)
 
 include(FetchContent)
 
@@ -75,48 +80,56 @@ target_link_libraries(reluva_common PRIVATE reluva_warnings)
 # --- engines: talk only to common/ --------------------------------------------
 add_library(reluva_engines STATIC
     src/engines/registry.cpp
-    src/engines/testbed/testbed.cpp
-    src/engines/newworlds/newworlds.cpp
-    src/engines/newworlds/cat_archive.cpp
-    src/engines/newworlds/string_table.cpp
-    src/engines/newworlds/texture.cpp
-    src/engines/newworlds/geo.cpp
-    src/engines/newworlds/gmf.cpp
-    src/engines/newworlds/model_textures.cpp
-    src/engines/newworlds/ground_textures.cpp
-    src/engines/newworlds/mdl.cpp
-    src/engines/newworlds/arf.cpp
-    src/engines/newworlds/map_viewer.cpp
-    src/engines/newworlds/mission_viewer.cpp
-    src/engines/newworlds/briefing.cpp
-    src/engines/newworlds/mission_script.cpp
-    src/engines/newworlds/mission_scripts.cpp
-    src/engines/newworlds/game_ui.cpp
-    src/engines/newworlds/colony.cpp
-    src/engines/newworlds/model_render.cpp
-    src/engines/newworlds/star_system.cpp
-    src/engines/newworlds/world.cpp
-    src/engines/newworlds/model_pose.cpp
-    src/engines/newworlds/economy.cpp
-    src/engines/newworlds/model_viewer.cpp
-    src/engines/newworlds/texture_viewer.cpp
-    src/engines/newworlds/sound_viewer.cpp
-    src/engines/newworlds/string_viewer.cpp
-    src/engines/newworlds/fif.cpp
-    src/engines/newworlds/font_viewer.cpp
-    src/engines/newworlds/levels.cpp
-    src/engines/idtech3/idtech3.cpp
-    src/engines/idtech3/games.cpp
-    src/engines/idtech3/filesystem.cpp
-    src/engines/idtech3/lexer.cpp
-    src/engines/idtech3/entities.cpp
-    src/engines/idtech3/shader.cpp
-    src/engines/idtech3/bsp.cpp
-    src/engines/idtech3/viewers.cpp
-    src/engines/idtech3/map_viewer.cpp
-    src/engines/idtech3/patch.cpp
-    src/engines/idtech3/world_renderer.cpp
-    src/engines/idtech3/world_viewer.cpp)
+    src/engines/testbed/testbed.cpp)
+if(RELUVA_ENGINE_NEWWORLDS)
+    target_sources(reluva_engines PRIVATE
+        src/engines/newworlds/newworlds.cpp
+        src/engines/newworlds/cat_archive.cpp
+        src/engines/newworlds/string_table.cpp
+        src/engines/newworlds/texture.cpp
+        src/engines/newworlds/geo.cpp
+        src/engines/newworlds/gmf.cpp
+        src/engines/newworlds/model_textures.cpp
+        src/engines/newworlds/ground_textures.cpp
+        src/engines/newworlds/mdl.cpp
+        src/engines/newworlds/arf.cpp
+        src/engines/newworlds/map_viewer.cpp
+        src/engines/newworlds/mission_viewer.cpp
+        src/engines/newworlds/briefing.cpp
+        src/engines/newworlds/mission_script.cpp
+        src/engines/newworlds/mission_scripts.cpp
+        src/engines/newworlds/game_ui.cpp
+        src/engines/newworlds/colony.cpp
+        src/engines/newworlds/model_render.cpp
+        src/engines/newworlds/star_system.cpp
+        src/engines/newworlds/world.cpp
+        src/engines/newworlds/model_pose.cpp
+        src/engines/newworlds/economy.cpp
+        src/engines/newworlds/model_viewer.cpp
+        src/engines/newworlds/texture_viewer.cpp
+        src/engines/newworlds/sound_viewer.cpp
+        src/engines/newworlds/string_viewer.cpp
+        src/engines/newworlds/fif.cpp
+        src/engines/newworlds/font_viewer.cpp
+        src/engines/newworlds/levels.cpp)
+    target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_NEWWORLDS)
+endif()
+if(RELUVA_ENGINE_IDTECH3)
+    target_sources(reluva_engines PRIVATE
+        src/engines/idtech3/idtech3.cpp
+        src/engines/idtech3/games.cpp
+        src/engines/idtech3/filesystem.cpp
+        src/engines/idtech3/lexer.cpp
+        src/engines/idtech3/entities.cpp
+        src/engines/idtech3/shader.cpp
+        src/engines/idtech3/bsp.cpp
+        src/engines/idtech3/viewers.cpp
+        src/engines/idtech3/map_viewer.cpp
+        src/engines/idtech3/patch.cpp
+        src/engines/idtech3/world_renderer.cpp
+        src/engines/idtech3/world_viewer.cpp)
+    target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_IDTECH3)
+endif()
 target_link_libraries(reluva_engines PUBLIC reluva_common PRIVATE reluva_warnings)
 
 # --- executable: SDL3 backend + ImGui launcher --------------------------------
@@ -139,12 +152,16 @@ if(RELUVA_BUILD_TESTS)
     target_include_directories(reluva_tests PRIVATE tests)
     add_test(NAME common COMMAND reluva_tests)
 
-    add_executable(reluva_newworlds_tests tests/test_newworlds_cat.cpp)
-    target_link_libraries(reluva_newworlds_tests PRIVATE reluva_engines reluva_warnings)
-    add_test(NAME newworlds_cat COMMAND reluva_newworlds_tests)
+    if(RELUVA_ENGINE_NEWWORLDS)
+        add_executable(reluva_newworlds_tests tests/test_newworlds_cat.cpp)
+        target_link_libraries(reluva_newworlds_tests PRIVATE reluva_engines reluva_warnings)
+        add_test(NAME newworlds_cat COMMAND reluva_newworlds_tests)
+    endif()
 
-    add_executable(reluva_idtech3_tests tests/test_idtech3.cpp)
-    target_link_libraries(reluva_idtech3_tests PRIVATE reluva_engines reluva_warnings)
-    target_include_directories(reluva_idtech3_tests PRIVATE tests)
-    add_test(NAME idtech3 COMMAND reluva_idtech3_tests)
+    if(RELUVA_ENGINE_IDTECH3)
+        add_executable(reluva_idtech3_tests tests/test_idtech3.cpp)
+        target_link_libraries(reluva_idtech3_tests PRIVATE reluva_engines reluva_warnings)
+        target_include_directories(reluva_idtech3_tests PRIVATE tests)
+        add_test(NAME idtech3 COMMAND reluva_idtech3_tests)
+    endif()
 endif()

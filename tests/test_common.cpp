@@ -322,8 +322,8 @@ static void testImage() {
 
 static void testGfxMath() {
     using namespace reluva::gfx;
-    auto near = [](float a, float b) { return std::fabs(a - b) < 1e-4f; };
-    auto same = [&](const Vec3& a, const Vec3& b) { return near(a[0], b[0]) && near(a[1], b[1]) && near(a[2], b[2]); };
+    auto approx = [](float a, float b) { return std::fabs(a - b) < 1e-4f; };
+    auto same = [&](const Vec3& a, const Vec3& b) { return approx(a[0], b[0]) && approx(a[1], b[1]) && approx(a[2], b[2]); };
     // Depth runs 0 at the near plane to 1 at the far one; +Y stays up.
     const Mat4 proj = perspective(3.14159265f / 2, 1, 4, 100);
     CHECK(same(transformPoint(proj, {0, 0, -4}), {0, 0, 0}));
