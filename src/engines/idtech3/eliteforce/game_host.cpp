@@ -279,12 +279,10 @@ void GameHost::linkEntity(int32_t address) {
     vm_.writeInt(address + ent::Linked, 1);
 }
 
-void GameHost::clipMove(int32_t results, const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
-                     int32_t passEntity, int32_t mask) {
-    if (!vm_.checkWrite(results, kTraceSize))
-        return;
+TraceResult GameHost::traceMove(const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
+                                int32_t passEntity, int32_t mask, int32_t& hit, bool entities) {
     TraceResult best;
-    int32_t hit = kEntityNone;
+    hit = kEntityNone;
     if (world_) {
         best = world_->trace(start, end, mins, maxs, 0, mask);
         hit = best.fraction < 1 ? kEntityWorld : kEntityNone;
@@ -297,7 +295,7 @@ void GameHost::clipMove(int32_t results, const Vec3f& start, const Vec3f& mins, 
     }
     const int32_t passOwner = passEntity >= 0 ? entityInt(passEntity, ent::OwnerNum) : -1;
     for (int32_t n : linked_) {
-        if (best.allSolid)
+        if (best.allSolid || !entities)
             break;
         // Not the mover itself, nor what it owns or what owns it.
         if (n == passEntity || (passEntity >= 0 && (entityInt(n, ent::OwnerNum) == passEntity || n == passOwner)))
@@ -345,6 +343,15 @@ void GameHost::clipMove(int32_t results, const Vec3f& start, const Vec3f& mins, 
     }
     for (int i = 0; i < 3; ++i)
         best.endPos[size_t(i)] = start[size_t(i)] + best.fraction * (end[size_t(i)] - start[size_t(i)]);
+    return best;
+}
+
+void GameHost::clipMove(int32_t results, const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
+                        int32_t passEntity, int32_t mask) {
+    if (!vm_.checkWrite(results, kTraceSize))
+        return;
+    int32_t hit = kEntityNone;
+    const TraceResult best = traceMove(start, mins, maxs, end, passEntity, mask, hit);
     // Quake III's trace_t: allsolid, startsolid, fraction, endpos, the
     // plane (normal, dist, type, sign bits), surfaceFlags, contents,
     // entityNum.

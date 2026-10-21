@@ -98,6 +98,11 @@ public:
     // A field of a client (gclient_t, which starts with the player state).
     int32_t clientInt(int32_t clientNum, int32_t offset);
     Vec3f clientVec(int32_t clientNum, int32_t offset);
+    // A trace as the game's Trace call makes it: the world and (unless
+    // `entities` is false) linked entities; `hit` gets what stopped it
+    // (an entity number, 1022 the world, 1023 nothing).
+    TraceResult traceMove(const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
+                          int32_t passEntity, int32_t mask, int32_t& hit, bool entities = true);
     // How many times each system call has been made since the start.
     const std::map<int, int>& callCounts() const { return callCounts_; }
     // Entity numbers linked into the world (LinkEntity), not unlinked since.

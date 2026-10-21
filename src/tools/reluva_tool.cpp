@@ -3249,6 +3249,28 @@ int cmdGameRun(int argc, char** argv) {
         }
     }
 
+    if (player) {
+        // What the game's movement code meets: its trace down from where
+        // the player is, with a player's box and mask, ignoring the player.
+        const auto o = game.entityVec(0, 272);
+        const q3::Vec3f mins{-15, -15, -24}, maxs{15, 15, 32}, end{o[0], o[1], o[2] - 64};
+        const int32_t mask = q3::contents::Solid | q3::contents::PlayerClip | q3::contents::Body;
+        for (bool withEntities : {true, false}) {
+            int32_t hit = 0;
+            const q3::TraceResult t = game.traceMove(o, mins, maxs, end, 0, mask, hit, withEntities);
+            std::printf("trace down from client 0 (%s): fraction %.3f, startsolid %d, allsolid %d, hits %d, lands at %.1f\n",
+                        withEntities ? "world and entities" : "world only", t.fraction, t.startSolid, t.allSolid, hit,
+                        t.endPos[2]);
+            if (withEntities && hit >= 0 && hit < 1022) {
+                const auto eo = game.entityVec(hit, 272), emin = game.entityVec(hit, 220), emax = game.entityVec(hit, 232);
+                std::printf("  entity %d: origin %.1f %.1f %.1f, box %.1f %.1f %.1f to %.1f %.1f %.1f, contents %d, "
+                            "brush model %d (model %d), owner %d\n",
+                            hit, eo[0], eo[1], eo[2], emin[0], emin[1], emin[2], emax[0], emax[1], emax[2],
+                            game.entityInt(hit, 244), game.entityInt(hit, 216), game.entityInt(hit, 160),
+                            game.entityInt(hit, 296));
+            }
+        }
+    }
     const auto& gd = game.gameData();
     std::printf("level time %d ms; entity array at %d: %d in use, %d bytes each; clients at %d, %d bytes each\n",
                 game.levelTime(), gd.entities, gd.count, gd.entitySize, gd.clients, gd.clientSize);
