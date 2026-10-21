@@ -66,7 +66,7 @@
 //                                                  run Elite Force's menus (vm/ui.qvm) with the engine's
 //                                                  system calls: Init, SetActiveMenu, Refresh; report
 //                                                  what they print, register and draw
-//   reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk] [-set name value] [-trace]
+//   reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-trace]
 //                                                  start a level with Elite Force's game logic
 //                                                  (vm/qagame.qvm): Init with the map's entities, then
 //                                                  frames, with a player (client 0) joining unless
@@ -3155,7 +3155,7 @@ int cmdUiRun(int argc, char** argv) {
 
 int cmdGameRun(int argc, char** argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk] [-set name value] [-trace]\n");
+        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-trace]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -3163,6 +3163,7 @@ int cmdGameRun(int argc, char** argv) {
     int frames = 10;
     bool traceCalls = false, noClient = false, walk = false;
     std::vector<std::pair<std::string, std::string>> settings; // -set name value
+    std::string walkDirection = "forward";
     for (int i = 4; i < argc; ++i) {
         if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
             frames = std::atoi(argv[++i]);
@@ -3170,8 +3171,12 @@ int cmdGameRun(int argc, char** argv) {
             traceCalls = true;
         else if (std::strcmp(argv[i], "-noclient") == 0)
             noClient = true;
-        else if (std::strcmp(argv[i], "-walk") == 0)
+        else if (std::strcmp(argv[i], "-walk") == 0) {
             walk = true;
+            // An optional direction: forward (the default), back, left, right.
+            if (i + 1 < argc && argv[i + 1][0] != '-')
+                walkDirection = argv[++i];
+        }
         else if (std::strcmp(argv[i], "-set") == 0 && i + 2 < argc) {
             settings.emplace_back(argv[i + 1], argv[i + 2]);
             i += 2;
@@ -3241,8 +3246,16 @@ int cmdGameRun(int argc, char** argv) {
             // runs forward (from the third frame, once standing).
             ef::GameHost::UserCommand cmd;
             cmd.serverTime = game.levelTime() + 100;
-            if (walk && f >= 2)
-                cmd.forward = 127;
+            if (walk && f >= 2) {
+                if (walkDirection == "back")
+                    cmd.forward = -127;
+                else if (walkDirection == "left")
+                    cmd.right = -127;
+                else if (walkDirection == "right")
+                    cmd.right = 127;
+                else
+                    cmd.forward = 127;
+            }
             if (reluva::Error err = game.clientThink(0, cmd)) {
                 step("ClientThink", err);
                 ok = false;
@@ -3284,6 +3297,19 @@ int cmdGameRun(int argc, char** argv) {
         const auto o = game.entityVec(0, 272);
         const q3::Vec3f mins{-15, -15, -24}, maxs{15, 15, 32}, end{o[0], o[1], o[2] - 64};
         const int32_t mask = q3::contents::Solid | q3::contents::PlayerClip | q3::contents::Body;
+        // And sideways: how far a player's box could go along each axis.
+        for (int axis = 0; axis < 2; ++axis)
+            for (float sign : {1.0f, -1.0f}) {
+                q3::Vec3f to = o;
+                to[size_t(axis)] += sign * 512;
+                to[2] += 1; // just off the floor
+                q3::Vec3f from = o;
+                from[2] += 1;
+                int32_t hit = 0;
+                const q3::TraceResult t = game.traceMove(from, mins, maxs, to, 0, mask, hit);
+                std::printf("trace %s%c from client 0: %.1f units free, hits %d%s\n", sign > 0 ? "+" : "-",
+                            "xy"[axis], t.fraction * 512, hit, t.startSolid ? " (starts inside)" : "");
+            }
         for (bool withEntities : {true, false}) {
             int32_t hit = 0;
             const q3::TraceResult t = game.traceMove(o, mins, maxs, end, 0, mask, hit, withEntities);
@@ -3555,7 +3581,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
                  "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
                  "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -blockcopies\n"
-                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk] [-set name value] [-trace]\n"
+                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-trace]\n"
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif
                  "");
