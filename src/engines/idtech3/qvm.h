@@ -9,6 +9,7 @@
 #include <functional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace reluva::idtech3 {
@@ -43,6 +44,17 @@ public:
         if (abort_.empty())
             abort_ = std::move(message);
     }
+
+    // Whether a system call may write [address, address + size): inside
+    // memory and clear of the code's jump tables (see protectedRanges()).
+    // If not, the run is aborted, naming the system call, and false
+    // returned. writeInt and writeString check this themselves.
+    bool checkWrite(int64_t address, int64_t size);
+    // The tables `switch` statements jump through (instruction numbers in
+    // the data), found when loading: the program never changes them, so a
+    // write there is a fault, caught where it happens rather than when a
+    // switch later jumps somewhere absurd. [first, end) byte ranges.
+    const std::vector<std::pair<uint32_t, uint32_t>>& protectedRanges() const { return protected_; }
 
     // The VM's memory, for system calls: addresses are offsets into it.
     std::vector<uint8_t>& memory() { return data_; }
@@ -88,6 +100,13 @@ private:
     uint64_t limit_ = 0, executed_ = 0;
     int depth_ = 0; // nested call() through system calls
     std::string abort_;
+    std::vector<std::pair<uint32_t, uint32_t>> protected_; // sorted, not overlapping
+    uint32_t protectedEnd_ = 0;                             // nothing protected from here up
+    int currentSyscall_ = -1;                               // the system call running, for messages
+
+    void findJumpTables();
+    // The protected range overlapping [address, address + size), or nullptr.
+    const std::pair<uint32_t, uint32_t>* protectedOverlap(int64_t address, int64_t size) const;
 };
 
 // The opcodes (docs/formats/idtech3/qvm.md), in their numbering.

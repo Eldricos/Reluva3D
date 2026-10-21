@@ -869,6 +869,30 @@ static void testVmFileList() {
     CHECK(table.name(2) == "gfx/b" && table.name(0).empty() && table.name(3).empty());
 }
 
+// The tables switch statements jump through are found and kept from
+// writes: a system call writing over one stops the run, named.
+static void testJumpTableGuard() {
+    Qvm vm;
+    CHECK(!vm.load(std::vector<uint8_t>(std::begin(kFakeUiQvm), std::end(kFakeUiQvm))));
+    CHECK(!vm.protectedRanges().empty());
+    if (vm.protectedRanges().empty())
+        return;
+    const auto table = vm.protectedRanges().front();
+    CHECK(table.second - table.first >= 4 * 8); // vmMain's, for its commands
+    vm.setSystemCall([&](Qvm& v, int number, const int32_t*) -> int32_t {
+        if (number == 1) // Print, during Init
+            v.writeString(int32_t(table.first), "-75", 4);
+        return 0;
+    });
+    int32_t r = 0;
+    const Error err = vm.call(1, {}, r);
+    CHECK(err && err.message.find("system call 1") != std::string::npos &&
+          err.message.find("jump table") != std::string::npos);
+    CHECK(vm.readInt(int32_t(table.first)) >= 0 && vm.readInt(int32_t(table.first)) < int32_t(vm.code().size()));
+    vm.setSystemCall(nullptr);
+    CHECK(!vm.call(0, {}, r) && r == 4); // the table intact, it still works
+}
+
 // The menus' system calls, called by a QVM the Quake III compiler made
 // from tests/data/qvm/fake_ui.c.
 static void testUiHost(const std::filesystem::path& tmp) {
@@ -966,6 +990,7 @@ int main() {
     testCompiledQvm();
     testCvars();
     testVmFileList();
+    testJumpTableGuard();
     testUiHost(tmp / "ui");
     testFilesystemAndDetection(tmp / "fs");
     if (failures)

@@ -79,6 +79,19 @@ masks addresses to wrap within memory instead). An instruction budget
 stops runaway code. Integer arithmetic wraps; division by zero is an
 error; out-of-range float-to-int conversions saturate.
 
+The tables `switch` statements jump through are found when a program is
+loaded (the compiler's pattern: `CONST 2, LSH, CONST table, ADD, LOAD4,
+JUMP`, after range checks on the index) and kept read-only: the program
+never writes them, so a write there, by its code or by a system call, is
+a fault, reported where it happens and naming the call. Otherwise a stray
+write shows up only later, as a jump somewhere absurd. Hosts write the
+program's memory through `checkWrite`, `writeInt` and `writeString`, which
+apply the same rule.
+
+When the Menu page's menus stop, it writes the error, the last 64 system
+calls with their arguments, and what the menus printed to
+`menus-stopped.txt` in the game's folder in Reluva's data directory.
+
 ## Tools
 
 - `reluva-tool qvm-info <game folder> vm/ui.qvm [-s]`: sizes, function

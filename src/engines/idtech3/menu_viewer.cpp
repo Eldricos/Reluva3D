@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <fstream>
 
 namespace reluva::idtech3 {
 
@@ -198,6 +199,19 @@ void MenuViewer::stop(const Error& err) {
             log.pop_back();
         error_ += " (last printed: " + log.substr(log.rfind('\n') == std::string::npos ? 0 : log.rfind('\n') + 1) + ")";
     }
+    // The details, for a report: the last calls they made.
+    if (ui_ && !ctx_.savePath.empty()) {
+        std::error_code ec;
+        std::filesystem::create_directories(ctx_.savePath, ec);
+        const std::filesystem::path report = ctx_.savePath / "menus-stopped.txt";
+        std::ofstream out(report);
+        out << error_ << "\n\nThe last system calls, oldest first:\n";
+        for (const std::string& line : ui_->recentCalls())
+            out << "  " << line << "\n";
+        out << "\nWhat the menus printed:\n" << ui_->log();
+        if (out)
+            reportPath_ = report.string();
+    }
     ui_.reset();
 }
 
@@ -217,17 +231,20 @@ bool MenuViewer::takesKey(const Event& ev) const {
 }
 
 void MenuViewer::handleEvent(const Event& ev) {
+    if (ev.type == EventType::KeyDown && ev.key == 'r' && (ev.mods & keymod::Ctrl)) {
+        // Ctrl+R: start the menus again, stopped or not.
+        ui_.reset();
+        error_.clear();
+        reportPath_.clear();
+        start();
+        return;
+    }
     if (!ui_)
         return;
     Error err;
     switch (ev.type) {
     case EventType::KeyDown:
     case EventType::KeyUp:
-        if (ev.type == EventType::KeyDown && ev.key == 'r' && (ev.mods & keymod::Ctrl)) {
-            ui_.reset(); // Ctrl+R: start the menus again
-            start();
-            return;
-        }
         if (const int32_t k = toQ3Key(ev.key))
             err = ui_->call(eliteforce::UiHost::KeyEvent, {k, ev.type == EventType::KeyDown});
         break;
@@ -356,6 +373,8 @@ void MenuViewer::update(uint64_t nowMs) {
     std::vector<std::string> lines;
     if (!error_.empty()) {
         lines.push_back(error_);
+        if (!reportPath_.empty())
+            lines.push_back("Details: " + reportPath_);
         lines.push_back("Ctrl+R: start them again.");
     }
     if (ui_ && !ui_->unhandled().empty()) {

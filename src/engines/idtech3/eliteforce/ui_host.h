@@ -96,6 +96,10 @@ public:
     const std::vector<std::string>& commands() const { return commands_; }
     // Calls not implemented yet: number -> how many times.
     const std::map<int, int>& unhandled() const { return unhandled_; }
+    // The last system calls made (oldest first), with their first
+    // arguments and any text they point at, for reports when the menus
+    // stop. The CD key is left out.
+    std::vector<std::string> recentCalls() const;
     // Called by every system call before it's handled, for logging.
     std::function<void(int number, const int32_t* args)> trace;
 
@@ -125,6 +129,13 @@ private:
     std::string cdKey_;
     bool cdKeyRead_ = false;
     bool mainMenuNotFullscreen_ = false; // IsFullscreen seems to mean something else
+    struct Recent {
+        int number = -1;
+        int32_t args[4] = {};
+        std::string text; // what args[0] or args[1] point at, if text
+    };
+    std::array<Recent, 64> recent_{};
+    size_t recentNext_ = 0;
 };
 
 } // namespace reluva::idtech3::eliteforce

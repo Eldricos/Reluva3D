@@ -149,10 +149,8 @@ const std::string& UiHost::storedCdKey() {
 }
 
 void UiHost::writeGlconfig(int32_t address) {
-    if (!vm_.valid(address, kGlconfigSize)) {
-        vm_.abort("GetGlconfig: the structure isn't inside the program's memory");
+    if (!vm_.checkWrite(address, kGlconfigSize))
         return;
-    }
     std::memset(&vm_.memory()[size_t(address)], 0, kGlconfigSize);
     vm_.writeString(address, "Reluva", 1024);
     vm_.writeString(address + 1024, "Reluva", 1024);
@@ -176,17 +174,49 @@ void UiHost::writeGlconfig(int32_t address) {
 }
 
 void UiHost::writeClientState(int32_t address) {
-    if (!vm_.valid(address, kClientStateSize)) {
-        vm_.abort("GetClientState: the structure isn't inside the program's memory");
+    if (!vm_.checkWrite(address, kClientStateSize))
         return;
-    }
     std::memset(&vm_.memory()[size_t(address)], 0, kClientStateSize);
     vm_.writeInt(address, 1); // connState: disconnected
+}
+
+std::vector<std::string> UiHost::recentCalls() const {
+    std::vector<std::string> out;
+    for (size_t i = 0; i < recent_.size(); ++i) {
+        const Recent& r = recent_[(recentNext_ + i) % recent_.size()];
+        if (r.number < 0)
+            continue;
+        std::string line = "system call " + std::to_string(r.number) + " (" + std::to_string(r.args[0]) + ", " +
+                           std::to_string(r.args[1]) + ", " + std::to_string(r.args[2]) + ", " +
+                           std::to_string(r.args[3]) + ")";
+        if (!r.text.empty())
+            line += " \"" + r.text + "\"";
+        out.push_back(std::move(line));
+    }
+    return out;
 }
 
 int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     if (trace)
         trace(number, a);
+    {
+        Recent& r = recent_[recentNext_];
+        recentNext_ = (recentNext_ + 1) % recent_.size();
+        r.number = number;
+        std::copy(a, a + 4, r.args);
+        r.text.clear();
+        if (number != SetCdKey && number != GetCdKey)
+            for (int i = 0; i < 2 && r.text.empty(); ++i) {
+                if (a[i] <= 0 || !vm.valid(a[i], 1))
+                    continue;
+                std::string t = vm.string(a[i], 60);
+                bool printable = t.size() >= 2;
+                for (char c : t)
+                    printable = printable && c >= 32 && c < 127;
+                if (printable)
+                    r.text = std::move(t);
+            }
+    }
     auto str = [&](int i, size_t max = 1024) { return vm.string(a[i], max); };
     auto f = [&](int i) { return Qvm::asFloat(a[i]); };
     int32_t result = 0;

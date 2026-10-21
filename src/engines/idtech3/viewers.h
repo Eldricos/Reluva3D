@@ -244,6 +244,7 @@ private:
     std::unique_ptr<eliteforce::UiHost> ui_; // kept while other pages are shown
     Surface overlay_;
     std::string error_;
+    std::string reportPath_; // where the details of the last stop were written
     uint64_t startMs_ = 0, shownMs_ = 0;
     // The mouse, and the menus' own pointer as last drawn (both in frame
     // pixels); the pointer's picture is drawn offset from its point.

@@ -34,12 +34,10 @@ int32_t VmFiles::read(Qvm& vm, int32_t buffer, int32_t length, int32_t handle) {
     const auto it = open_.find(handle);
     if (it == open_.end() || length <= 0)
         return 0;
-    if (!vm.valid(buffer, length)) {
-        vm.abort("FS_Read into memory outside the program");
-        return 0;
-    }
     OpenFile& f = it->second;
     const size_t n = std::min(size_t(length), f.data.size() - f.position);
+    if (!vm.checkWrite(buffer, int64_t(n)))
+        return 0;
     if (n)
         std::memcpy(&vm.memory()[size_t(buffer)], &f.data[f.position], n);
     f.position += n;
@@ -98,24 +96,20 @@ bool commonSystemCall(Qvm& vm, int number, const int32_t* a, int32_t& result) {
     result = 0;
     switch (number) {
     case 100: // memset(dest, value, count)
-        if (!vm.valid(a[0], a[2]))
-            vm.abort("memset outside the program's memory");
-        else if (a[2] > 0)
+        if (a[2] > 0 && vm.checkWrite(a[0], a[2]))
             std::memset(&vm.memory()[size_t(a[0])], a[1], size_t(a[2]));
         result = a[0];
         return true;
     case 101: // memcpy(dest, src, count)
-        if (!vm.valid(a[0], a[2]) || !vm.valid(a[1], a[2]))
-            vm.abort("memcpy outside the program's memory");
-        else if (a[2] > 0)
+        if (!vm.valid(a[1], a[2]))
+            vm.abort("memcpy from outside the program's memory");
+        else if (a[2] > 0 && vm.checkWrite(a[0], a[2]))
             std::memmove(&vm.memory()[size_t(a[0])], &vm.memory()[size_t(a[1])], size_t(a[2]));
         result = a[0];
         return true;
     case 102: { // strncpy(dest, src, count): copies up to count bytes, pads with NULs
-        if (!vm.valid(a[0], a[2])) {
-            vm.abort("strncpy outside the program's memory");
+        if (a[2] <= 0 || !vm.checkWrite(a[0], a[2]))
             return true;
-        }
         const std::string src = vm.string(a[1], size_t(std::max(a[2], 0)));
         for (int32_t i = 0; i < a[2]; ++i)
             vm.memory()[size_t(a[0] + i)] = size_t(i) < src.size() ? uint8_t(src[size_t(i)]) : 0;

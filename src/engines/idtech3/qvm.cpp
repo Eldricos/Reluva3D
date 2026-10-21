@@ -77,12 +77,82 @@ int32_t Qvm::readInt(int32_t address) const {
 }
 
 void Qvm::writeInt(int32_t address, int32_t value) {
-    if (valid(address, 4))
+    if (valid(address, 4) && (uint32_t(address) >= protectedEnd_ || checkWrite(address, 4)))
         std::memcpy(&data_[size_t(address)], &value, 4);
+}
+
+const std::pair<uint32_t, uint32_t>* Qvm::protectedOverlap(int64_t address, int64_t size) const {
+    if (address >= int64_t(protectedEnd_) || size <= 0)
+        return nullptr;
+    // The first range ending after address, if it starts before the write ends.
+    auto it = std::upper_bound(protected_.begin(), protected_.end(), uint32_t(std::max<int64_t>(address, 0)),
+                               [](uint32_t a, const std::pair<uint32_t, uint32_t>& r) { return a < r.second; });
+    return it != protected_.end() && int64_t(it->first) < address + size ? &*it : nullptr;
+}
+
+bool Qvm::checkWrite(int64_t address, int64_t size) {
+    const std::string who = currentSyscall_ >= 0 ? "system call " + std::to_string(currentSyscall_) : "the engine";
+    if (!valid(address, size)) {
+        abort(who + " wrote outside the program's memory, at " + std::to_string(address));
+        return false;
+    }
+    if (const auto* r = protectedOverlap(address, size)) {
+        abort(who + " wrote " + std::to_string(size) + " bytes at " + std::to_string(address) +
+              ", over the jump table at " + std::to_string(r->first) + "-" + std::to_string(r->second));
+        return false;
+    }
+    return true;
+}
+
+void Qvm::findJumpTables() {
+    // A switch compiles to: (index) CONST 2, LSH, CONST table, ADD, LOAD4,
+    // JUMP, after range checks CONST lo, LTI and CONST hi, GTI on the
+    // index (and SUB lo when lo isn't 0). The table holds instruction
+    // numbers for lo..hi.
+    using namespace qvmop;
+    protected_.clear();
+    const auto count = int32_t(code_.size());
+    for (size_t i = 0; i + 3 < code_.size(); ++i) {
+        if (code_[i].op != Const || code_[i + 1].op != Add || code_[i + 2].op != Load4 || code_[i + 3].op != Jump)
+            continue;
+        const int64_t table = code_[i].operand;
+        int64_t lo = 0, hi = -1;
+        bool subtracted = false;
+        for (size_t j = i > 16 ? i - 16 : 0; j < i; ++j) {
+            if (code_[j].op == Const && j + 1 < i && code_[j + 1].op == Lti)
+                lo = code_[j].operand;
+            if (code_[j].op == Const && j + 1 < i && code_[j + 1].op == Gti)
+                hi = code_[j].operand;
+            if (code_[j].op == Sub)
+                subtracted = true;
+        }
+        const int64_t entries = subtracted ? hi - lo + 1 : hi + 1;
+        if (hi < lo || entries <= 0 || entries > 4096 || table < 0 || table + 4 * entries > int64_t(dataLength_))
+            continue;
+        bool plausible = true;
+        for (int64_t e = 0; e < entries && plausible; ++e) {
+            const int32_t target = readInt(int32_t(table + 4 * e));
+            plausible = target >= 0 && target < count;
+        }
+        if (plausible)
+            protected_.emplace_back(uint32_t(table), uint32_t(table + 4 * entries));
+    }
+    std::sort(protected_.begin(), protected_.end());
+    std::vector<std::pair<uint32_t, uint32_t>> merged;
+    for (const auto& r : protected_) {
+        if (!merged.empty() && r.first <= merged.back().second)
+            merged.back().second = std::max(merged.back().second, r.second);
+        else
+            merged.push_back(r);
+    }
+    protected_ = std::move(merged);
+    protectedEnd_ = protected_.empty() ? 0 : protected_.back().second;
 }
 
 bool Qvm::writeString(int32_t address, std::string_view text, int32_t size) {
     if (size <= 0 || !valid(address, size))
+        return false;
+    if (!checkWrite(address, int64_t(std::min(text.size() + 1, size_t(size)))))
         return false;
     const size_t n = std::min(text.size(), size_t(size) - 1);
     std::memcpy(&data_[size_t(address)], text.data(), n);
@@ -155,6 +225,7 @@ Error Qvm::load(const std::vector<uint8_t>& file) {
     dataLength_ = uint32_t(dataLength);
     litStart_ = uint32_t(dataLength);
     litEnd_ = uint32_t(dataLength + litLength);
+    findJumpTables();
     programStack_ = int32_t(size);
     stackBottom_ = programStack_ - kStackSize;
     return Error::success();
@@ -279,7 +350,10 @@ Error Qvm::run(int32_t& result) {
             if (syscall_) {
                 const int32_t savedStack = programStack_;
                 programStack_ = sp - 4; // nested calls run below this frame
+                const int savedSyscall = currentSyscall_;
+                currentSyscall_ = number;
                 r = syscall_(*this, number, args.data());
+                currentSyscall_ = savedSyscall;
                 programStack_ = savedStack;
                 if (!abort_.empty())
                     return Error::fail(abort_);
@@ -348,6 +422,9 @@ Error Qvm::run(int32_t& result) {
             const int size = in.op == Store1 ? 1 : in.op == Store2 ? 2 : 4;
             if (!valid(address, size))
                 return fail(at, "writes outside memory at " + std::to_string(address));
+            if (const auto* r = protectedOverlap(address, size))
+                return fail(at, "writes at " + std::to_string(address) + ", over the jump table at " +
+                                    std::to_string(r->first) + "-" + std::to_string(r->second));
             uint8_t* p = &data_[size_t(address)];
             if (size == 1)
                 p[0] = uint8_t(value);
@@ -374,6 +451,8 @@ Error Qvm::run(int32_t& result) {
             const int32_t src = stack[size_t(top--)], dest = stack[size_t(top--)];
             if (!valid(src, in.operand) || !valid(dest, in.operand))
                 return fail(at, "copies outside memory");
+            if (protectedOverlap(dest, in.operand))
+                return fail(at, "copies over a jump table, at " + std::to_string(dest));
             std::memmove(&data_[size_t(dest)], &data_[size_t(src)], size_t(in.operand));
             break;
         }

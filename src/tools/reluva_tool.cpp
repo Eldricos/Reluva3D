@@ -2757,6 +2757,11 @@ int cmdQvmInfo(int argc, char** argv) {
     std::printf("%s: %zu instructions in %d functions, %u bytes of initialised data and literals, %zu bytes of memory\n",
                 argv[3], code.size(), functions, unsigned(vm.litEnd()), vm.memory().size());
     std::printf("%d calls through function pointers\n", indirect);
+    size_t tableBytes = 0;
+    for (const auto& [first, end] : vm.protectedRanges())
+        tableBytes += end - first;
+    std::printf("%zu switch jump tables (%zu bytes), kept from writes while running\n", vm.protectedRanges().size(),
+                tableBytes);
     std::printf("system calls (number: call sites, functions):\n");
     for (const auto& [number, info] : calls)
         std::printf("  %4d: %4d sites in %3zu functions\n", number, info.first, info.second.size());
