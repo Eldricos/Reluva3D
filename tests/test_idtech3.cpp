@@ -904,8 +904,8 @@ static void testUiHost(const std::filesystem::path& tmp) {
     CHECK(!ui.call(4, {}, r) && r == 640480);
 
     CHECK(!ui.call(ef::UiHost::Refresh, {1234}, r) && r == 1234);
-    CHECK(ui.pictures().size() == 2);
-    if (ui.pictures().size() == 2) {
+    CHECK(ui.pictures().size() == 3); // two, then the pointer
+    if (ui.pictures().size() == 3) {
         const auto& p = ui.pictures()[0];
         CHECK(p.x == 10 && p.y == 20 && p.w == 320 && p.h == 30 && p.s1 == 0 && p.t2 == 0.5f);
         CHECK(p.color[0] == 1 && p.color[1] == 0.5f && p.color[2] == 0 && p.color[3] == 1);
@@ -919,6 +919,19 @@ static void testUiHost(const std::filesystem::path& tmp) {
     err = ui.call(9, {}, r);
     CHECK(err && err.message.find("boom") != std::string::npos);
     CHECK(!ui.call(2, {}, r) && r == 9); // usable again after the program's error
+    // Typed characters come as keys with 1024 added; plain keys don't type.
+    CHECK(!ui.call(ef::UiHost::KeyEvent, {'q', 1}));
+    CHECK(!ui.call(ef::UiHost::KeyEvent, {'Q' | 1024, 1}));
+    CHECK(!ui.call(10, {}, r) && r == 'Q' * 1000 + 1);
+
+    // The CD key: kept in the key file, read back by a new run.
+    ui.setKeyFile(tmp / "save" / "cdkey.txt");
+    CHECK(!ui.call(11) && std::filesystem::exists(tmp / "save" / "cdkey.txt"));
+    CHECK(!ui.call(12, {}, r) && r == 'W' * 1000 + 'Z');
+    ef::UiHost again(set, cvars);
+    again.setKeyFile(tmp / "save" / "cdkey.txt");
+    CHECK(!again.load() && !again.call(12, {}, r) && r == 'W' * 1000 + 'Z');
+
     CHECK(ui.unhandled().empty());
     std::filesystem::remove_all(tmp);
 }

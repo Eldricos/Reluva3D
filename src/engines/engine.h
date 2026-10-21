@@ -21,6 +21,9 @@ struct GameTarget {
     std::string gameId;
     std::string description;
     std::filesystem::path path; // game data directory
+    // Where the engine may keep files for this game (settings, saves); may
+    // not exist yet. Set by the frontend.
+    std::filesystem::path savePath;
 };
 
 // A running game. Created by its MetaEngine, run once, then destroyed.

@@ -38,6 +38,8 @@ public:
     void setWindowTitle(const std::string& title) override;
     Error init3D(int width, int height, gfx::Renderer3D*& out) override;
     bool pollEvent(Event& event) override;
+    void setTextInput(bool on) override;
+    void setMouseCursorVisible(bool visible) override;
     uint64_t getMillis() const override;
     void delayMillis(uint32_t ms) override;
     Error startAudio(AudioCallback callback) override;

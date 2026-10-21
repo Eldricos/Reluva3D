@@ -17,9 +17,10 @@
 //           R to reset the view, I to show or hide the info.
 // Files:    Up/Down, PageUp/PageDown, Home/End scroll the search path's files.
 // Textures: Left/Right step, PageUp/PageDown jump 10, Home/End.
-// Menu:     the game's own menus (Elite Force: vm/ui.qvm) running; keys
-//           and the mouse go to them, Ctrl+Tab and Ctrl+Esc leave, Ctrl+R
-//           starts them again.
+// Menu:     the game's own menus (Elite Force: vm/ui.qvm) running; keys,
+//           typing and the mouse go to them (their own pointer follows
+//           the mouse, the system's is hidden), Ctrl+Tab and Ctrl+Esc
+//           leave, Ctrl+R starts them again.
 // Maps:     Left/Right pick a map; drag (or arrow keys with Shift) to rotate,
 //           wheel or +/- to zoom, W/A/S/D/Q/E to move, R to reset the view,
 //           P to show or hide patches, I to show or hide the info.
@@ -41,6 +42,7 @@
 
 #include <array>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
@@ -54,6 +56,7 @@ struct ViewerContext {
     const ShaderLibrary& shaders;
     const GameInfo& game;
     const std::vector<std::string>& warnings; // problems loading the game's files
+    std::filesystem::path savePath;           // where this game's own files go (GameTarget::savePath)
 };
 
 class Page {
@@ -229,6 +232,9 @@ public:
 private:
     void start();
     void stop(const Error& err);
+    void pinCursor();
+    void syncCursor();
+    void findCursor();
 
     bool available_ = false;
     gfx::Renderer3D* renderer_ = nullptr;
@@ -239,9 +245,12 @@ private:
     Surface overlay_;
     std::string error_;
     uint64_t startMs_ = 0, shownMs_ = 0;
-    bool haveMouse_ = false;
-    int lastX_ = 0, lastY_ = 0;
-    float mouseX_ = 0, mouseY_ = 0; // movement not yet passed on
+    // The mouse, and the menus' own pointer as last drawn (both in frame
+    // pixels); the pointer's picture is drawn offset from its point.
+    bool haveMouse_ = false, haveCursor_ = false, calibrate_ = false;
+    int mouseX_ = 0, mouseY_ = 0;
+    float cursorX_ = 0, cursorY_ = 0;
+    float cursorOffsetX_ = 0, cursorOffsetY_ = 0;
 };
 
 class MapViewer : public Page {

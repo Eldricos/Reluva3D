@@ -28,6 +28,8 @@ constexpr int32_t Up = 132, Down = 133, Left = 134, Right = 135;
 constexpr int32_t Alt = 136, Ctrl = 137, Shift = 138, Insert = 139, Delete = 140;
 constexpr int32_t PageDown = 141, PageUp = 142, Home = 143, End = 144, F1 = 145;
 constexpr int32_t KpEnter = 169;
+// Added to a character's code for typed text, as against keys.
+constexpr int32_t CharFlag = 1024;
 constexpr int32_t Mouse1 = 178, Mouse2 = 179, Mouse3 = 180, WheelDown = 183, WheelUp = 184;
 } // namespace q3key
 
@@ -64,6 +66,27 @@ int32_t toQ3Key(uint32_t k) {
     return 0;
 }
 
+// The code points in UTF-8 text.
+std::vector<uint32_t> decodeUtf8(const char* s) {
+    std::vector<uint32_t> out;
+    for (size_t i = 0; s[i];) {
+        const auto c = static_cast<unsigned char>(s[i]);
+        const int extra = c < 0x80 ? 0 : (c >> 5) == 6 ? 1 : (c >> 4) == 14 ? 2 : (c >> 3) == 30 ? 3 : -1;
+        if (extra < 0) {
+            ++i;
+            continue;
+        }
+        uint32_t cp = extra == 0 ? c : c & (0x3f >> extra);
+        size_t j = 1;
+        for (; j <= size_t(extra) && (static_cast<unsigned char>(s[i + j]) >> 6) == 2; ++j)
+            cp = (cp << 6) | (static_cast<unsigned char>(s[i + j]) & 0x3f);
+        if (j == size_t(extra) + 1)
+            out.push_back(cp);
+        i += j;
+    }
+    return out;
+}
+
 int32_t toQ3Button(MouseButton b) {
     switch (b) {
     case MouseButton::Left: return q3key::Mouse1;
@@ -95,14 +118,21 @@ void MenuViewer::activate() {
     shaders_ = std::make_unique<ShaderCache>(*renderer_, ctx_.files, ctx_.shaders);
     materials_.clear();
     shownMs_ = 0;
+    // The menus draw their own pointer, and have text fields.
+    ctx_.sys.setMouseCursorVisible(false);
+    ctx_.sys.setTextInput(true);
     if (!ui_ && error_.empty())
         start();
+    else if (ui_)
+        pinCursor();
     setTitle(error_.empty() ? "Elite Force's own menus (vm/ui.qvm)" : "stopped");
 }
 
 void MenuViewer::start() {
     ui_ = std::make_unique<eliteforce::UiHost>(ctx_.files, cvars_);
     ui_->setScreenSize(kFrameW, kFrameH);
+    if (!ctx_.savePath.empty())
+        ui_->setKeyFile(ctx_.savePath / "cdkey.txt");
     Error err = ui_->load();
     if (!err)
         err = ui_->call(eliteforce::UiHost::Init);
@@ -110,6 +140,53 @@ void MenuViewer::start() {
         err = ui_->call(eliteforce::UiHost::SetActiveMenu, {1}); // the main menu
     if (err)
         stop(err);
+    else
+        pinCursor();
+}
+
+void MenuViewer::pinCursor() {
+    // The menus keep their own pointer, moved by steps and kept on the
+    // screen: a big step up and left puts it in the corner, where its
+    // picture shows how it's drawn relative to the point it stands for.
+    if (Error err = ui_->call(eliteforce::UiHost::MouseEvent, {-100000, -100000}))
+        stop(err);
+    calibrate_ = true;
+    haveCursor_ = false;
+}
+
+void MenuViewer::syncCursor() {
+    // Step the menus' pointer to where the mouse is, from where its
+    // picture was last drawn and the steps sent since.
+    if (!ui_ || !haveCursor_ || !haveMouse_)
+        return;
+    const auto dx = int32_t(std::lround((float(mouseX_) - cursorX_) * 640.0f / float(kFrameW)));
+    const auto dy = int32_t(std::lround((float(mouseY_) - cursorY_) * 480.0f / float(kFrameH)));
+    if (!dx && !dy)
+        return;
+    cursorX_ += float(dx) * float(kFrameW) / 640.0f;
+    cursorY_ += float(dy) * float(kFrameH) / 480.0f;
+    if (Error err = ui_->call(eliteforce::UiHost::MouseEvent, {dx, dy}))
+        stop(err);
+}
+
+void MenuViewer::findCursor() {
+    // The pointer is the last picture drawn with the cursor shader.
+    const auto& pictures = ui_->pictures();
+    for (auto it = pictures.rbegin(); it != pictures.rend(); ++it) {
+        if (normalizeArchiveName(ui_->shaders().name(it->shader)).rfind("menu/common/cursor", 0) != 0)
+            continue;
+        if (calibrate_) {
+            // In the corner: the picture's offset from the point.
+            calibrate_ = false;
+            cursorOffsetX_ = std::abs(it->x) < 100 ? it->x : 0;
+            cursorOffsetY_ = std::abs(it->y) < 100 ? it->y : 0;
+        }
+        cursorX_ = it->x - cursorOffsetX_;
+        cursorY_ = it->y - cursorOffsetY_;
+        haveCursor_ = true;
+        return;
+    }
+    haveCursor_ = false;
 }
 
 void MenuViewer::stop(const Error& err) {
@@ -125,6 +202,10 @@ void MenuViewer::stop(const Error& err) {
 }
 
 void MenuViewer::deactivate() {
+    if (renderer_) {
+        ctx_.sys.setMouseCursorVisible(true);
+        ctx_.sys.setTextInput(false);
+    }
     materials_.clear();
     shaders_.reset();
     renderer_ = nullptr;
@@ -150,8 +231,22 @@ void MenuViewer::handleEvent(const Event& ev) {
         if (const int32_t k = toQ3Key(ev.key))
             err = ui_->call(eliteforce::UiHost::KeyEvent, {k, ev.type == EventType::KeyDown});
         break;
+    case EventType::TextInput:
+        // Characters for text fields, each as a key press with the
+        // character flag (the original's menus go by Latin-1).
+        for (uint32_t cp : decodeUtf8(ev.text))
+            if (cp >= 32 && cp < 256 && cp != 127 && !err)
+                err = ui_->call(eliteforce::UiHost::KeyEvent, {int32_t(cp) | q3key::CharFlag, 1});
+        break;
     case EventType::MouseDown:
     case EventType::MouseUp:
+        // Clicks land where the mouse is.
+        mouseX_ = ev.mouseX;
+        mouseY_ = ev.mouseY;
+        haveMouse_ = true;
+        syncCursor();
+        if (!ui_)
+            return;
         if (const int32_t k = toQ3Button(ev.button))
             err = ui_->call(eliteforce::UiHost::KeyEvent, {k, ev.type == EventType::MouseDown});
         break;
@@ -163,22 +258,12 @@ void MenuViewer::handleEvent(const Event& ev) {
                 err = ui_->call(eliteforce::UiHost::KeyEvent, {k, 0});
         }
         break;
-    case EventType::MouseMove: {
-        // The menus move their own cursor by deltas, in 640x480 units.
-        if (haveMouse_) {
-            mouseX_ += float(ev.mouseX - lastX_) * 640.0f / float(kFrameW);
-            mouseY_ += float(ev.mouseY - lastY_) * 480.0f / float(kFrameH);
-            const auto dx = int32_t(mouseX_), dy = int32_t(mouseY_);
-            mouseX_ -= float(dx);
-            mouseY_ -= float(dy);
-            if (dx || dy)
-                err = ui_->call(eliteforce::UiHost::MouseEvent, {dx, dy});
-        }
+    case EventType::MouseMove:
+        // Followed in update(), once per frame.
+        mouseX_ = ev.mouseX;
+        mouseY_ = ev.mouseY;
         haveMouse_ = true;
-        lastX_ = ev.mouseX;
-        lastY_ = ev.mouseY;
         break;
-    }
     default: break;
     }
     if (err)
@@ -195,13 +280,16 @@ void MenuViewer::update(uint64_t nowMs) {
     const auto time = int32_t(nowMs - startMs_);
 
     std::vector<eliteforce::UiHost::Picture> pictures;
+    syncCursor();
     if (ui_) {
         ui_->setTime(time);
         ui_->clearPictures();
-        if (Error err = ui_->call(eliteforce::UiHost::Refresh, {time}))
+        if (Error err = ui_->call(eliteforce::UiHost::Refresh, {time})) {
             stop(err);
-        else
+        } else {
             pictures = ui_->pictures();
+            findCursor();
+        }
     }
 
     // Every picture a quad in one mesh, in screen pixels.

@@ -97,7 +97,18 @@ from `g_language`), `ext_data/fonts.dat`, `scripts/arenas.txt`,
 Key numbers (`KeyEvent`) are assumed to be Quake III's: ASCII for
 printable keys, Tab 9, Enter 13, Escape 27, Backspace 127, then from 128
 its list (arrows 132–135, F1 145, mouse buttons 178–180, wheel 183–184).
-`MouseEvent` takes movement in 640×480 units.
+Typed text comes as `KeyEvent(character + 1024, 1)`, Quake III's
+character flag, separately from the keys themselves; the menus' text
+fields (the CD key, names) only take those. `MouseEvent` takes movement in
+640×480 units; the menus keep their own pointer on the screen. Reluva
+keeps it under the system's mouse by watching where the menus draw it
+(the picture with `menu/common/cursor`): a large step up and left first
+puts it in the corner, which shows how the picture sits relative to the
+point, then each frame it sends the step from there to the mouse.
+
+The CD key (`GetCDKey`, `SetCDKey`) is kept by Reluva in the game's own
+folder in its data directory (`games/<target>/cdkey.txt`), not where the
+original keeps it.
 
 Reluva's side: `src/engines/idtech3/eliteforce/ui_host.cpp`, run by
 `reluva-tool ui-run` and shown by the Menu page (`menu_viewer.cpp`).

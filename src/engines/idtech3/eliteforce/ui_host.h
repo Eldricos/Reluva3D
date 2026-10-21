@@ -11,6 +11,7 @@
 
 #include <array>
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <map>
 #include <string>
@@ -70,6 +71,9 @@ public:
     // its own (docs/formats/idtech3/eliteforce-syscalls.md). For trying
     // other layouts.
     void setGlconfigWords(int32_t offset) { glconfigWords_ = offset; }
+    // Where the CD key the menus ask for is kept (GetCDKey, SetCDKey); none:
+    // it's only remembered while running.
+    void setKeyFile(std::filesystem::path path) { keyFile_ = std::move(path); }
     // The clock Milliseconds reports.
     void setTime(int32_t ms) { time_ = ms; }
 
@@ -109,6 +113,9 @@ private:
     int32_t glconfigWords_ = 5124;
     int32_t catcher_ = 0;
     bool overstrike_ = false;
+    std::filesystem::path keyFile_;
+    std::string cdKey_;
+    bool cdKeyRead_ = false;
 };
 
 } // namespace reluva::idtech3::eliteforce

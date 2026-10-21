@@ -17,3 +17,5 @@ equ trap_Cvar_Register              -55
 equ trap_Cvar_Update                -56
 equ strncpy                         -103
 equ sqrt                            -107
+equ trap_GetCDKey                   -58
+equ trap_SetCDKey                   -59

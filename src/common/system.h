@@ -44,6 +44,11 @@ public:
     // --- Input --------------------------------------------------------------
     // Returns false when no more events are pending.
     virtual bool pollEvent(Event& event) = 0;
+    // Whether typed text arrives as TextInput events (off by default).
+    virtual void setTextInput(bool on) { (void)on; }
+    // Whether the system's mouse pointer shows over the game (for games
+    // that draw their own).
+    virtual void setMouseCursorVisible(bool visible) { (void)visible; }
 
     // --- Time ---------------------------------------------------------------
     virtual uint64_t getMillis() const = 0;

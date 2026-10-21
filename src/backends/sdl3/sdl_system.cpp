@@ -153,6 +153,8 @@ Error SdlSystem::init3D(int width, int height, gfx::Renderer3D*& out) {
 
 void SdlSystem::resetForLauncher() {
     stopAudio();
+    SDL_StopTextInput(window_);
+    SDL_ShowCursor();
     release3D();
     if (gameTexture_) {
         SDL_DestroyTexture(gameTexture_);
@@ -262,11 +264,31 @@ bool SdlSystem::pollEvent(Event& out) {
             out.type = EventType::MouseWheel;
             out.wheelY = ev.wheel.integer_y;
             return true;
+        case SDL_EVENT_TEXT_INPUT:
+            if (!ev.text.text)
+                break;
+            out.type = EventType::TextInput;
+            SDL_strlcpy(out.text, ev.text.text, sizeof out.text);
+            return true;
         default:
             break; // ignore everything else
         }
     }
     return false;
+}
+
+void SdlSystem::setTextInput(bool on) {
+    if (on)
+        SDL_StartTextInput(window_);
+    else
+        SDL_StopTextInput(window_);
+}
+
+void SdlSystem::setMouseCursorVisible(bool visible) {
+    if (visible)
+        SDL_ShowCursor();
+    else
+        SDL_HideCursor();
 }
 
 uint64_t SdlSystem::getMillis() const { return SDL_GetTicks(); }

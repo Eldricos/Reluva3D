@@ -48,7 +48,7 @@ public:
             return err;
         screen_.create(kScreenW, kScreenH, PixelFormat::RGBA32);
 
-        ViewerContext ctx{sys_, screen_, files_, shaders_, game_, warnings};
+        ViewerContext ctx{sys_, screen_, files_, shaders_, game_, warnings, target_.savePath};
         std::vector<std::unique_ptr<Page>> pages;
         pages.push_back(std::make_unique<MenuViewer>(ctx));
         pages.push_back(std::make_unique<WorldViewer>(ctx));

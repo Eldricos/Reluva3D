@@ -56,6 +56,7 @@ enum class EventType {
     MouseDown,
     MouseUp,
     MouseWheel,
+    TextInput, // text typed, after the keyboard layout and dead keys (System::setTextInput)
 };
 
 enum class MouseButton { None, Left, Right, Middle };
@@ -69,6 +70,7 @@ struct Event {
     MouseButton button = MouseButton::None;
     int clicks = 0;              // MouseDown/MouseUp: 1, or 2 for a double click, ...
     int wheelY = 0;
+    char text[32] = {};          // TextInput: UTF-8, NUL-terminated
 };
 
 } // namespace reluva

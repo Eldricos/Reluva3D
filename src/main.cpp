@@ -18,14 +18,16 @@
 
 using namespace reluva;
 
-static std::filesystem::path configPath() {
+static std::filesystem::path dataDir() {
     std::filesystem::path dir = ".";
     if (char* pref = SDL_GetPrefPath("reluva", "reluva")) {
         dir = pref;
         SDL_free(pref);
     }
-    return dir / "reluva.ini";
+    return dir;
 }
+
+static std::filesystem::path configPath() { return dataDir() / "reluva.ini"; }
 
 // `reluva --hash <file>...` prints detection signatures for building tables.
 static int printHashes(int argc, char** argv) {
@@ -63,10 +65,10 @@ int main(int argc, char** argv) {
     if (argc >= 2) {
         std::string name = argv[1];
         if (name == "testbed")
-            direct = GameTarget{"testbed", "testbed", "testbed", "Testbed", {}};
+            direct = GameTarget{"testbed", "testbed", "testbed", "Testbed", {}, {}};
         else if (config.hasSection(name) && name != Config::kGlobalSection)
             direct = GameTarget{name, config.get(name, "engine"), config.get(name, "gameid"),
-                                config.get(name, "description", name), config.get(name, "path")};
+                                config.get(name, "description", name), config.get(name, "path"), {}};
         else {
             std::fprintf(stderr, "Unknown target '%s'\n", name.c_str());
             return 1;
@@ -81,6 +83,8 @@ int main(int argc, char** argv) {
             continue;
         }
 
+        // Each game's own files (settings, saves) go in a folder named after its target.
+        target->savePath = dataDir() / "games" / target->target;
         SDL_Log("Starting %s (%s)", target->description.c_str(), meta->name());
         auto engine = meta->create(system, *target);
         Error err = engine->run();

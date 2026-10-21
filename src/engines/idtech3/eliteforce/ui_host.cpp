@@ -4,6 +4,7 @@
 #include "engines/idtech3/eliteforce/ui_host.h"
 
 #include <cstring>
+#include <fstream>
 #include <string>
 
 namespace reluva::idtech3::eliteforce {
@@ -233,8 +234,27 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     }
     case CvarUpdate: cvars_.updateVmCvar(vm, a[0]); return 0;
     case MemoryRemaining: return 8 << 20;
-    case GetCdKey: vm.writeString(a[0], "", a[1]); return 0;
-    case SetCdKey: return 0;
+    case GetCdKey:
+        if (!cdKeyRead_) {
+            // Kept by Reluva, not where the original keeps it.
+            cdKeyRead_ = true;
+            if (!keyFile_.empty()) {
+                std::ifstream in(keyFile_);
+                std::getline(in, cdKey_);
+            }
+        }
+        vm.writeString(a[0], cdKey_, a[1]);
+        return 0;
+    case SetCdKey: {
+        cdKey_ = str(0, 64);
+        cdKeyRead_ = true;
+        if (!keyFile_.empty()) {
+            std::error_code ec;
+            std::filesystem::create_directories(keyFile_.parent_path(), ec);
+            std::ofstream(keyFile_) << cdKey_ << '\n';
+        }
+        return 0;
+    }
     default: ++unhandled_[number]; return 0;
     }
 }
