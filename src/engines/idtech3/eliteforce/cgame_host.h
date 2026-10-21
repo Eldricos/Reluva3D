@@ -6,8 +6,10 @@
 #include "common/archive.h"
 #include "common/types.h"
 #include "engines/idtech3/bsp.h"
+#include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/game_host.h"
+#include "engines/idtech3/md3.h"
 #include "engines/idtech3/qvm.h"
 #include "engines/idtech3/vm_services.h"
 
@@ -66,6 +68,34 @@ public:
     };
     const std::vector<Picture>& pictures() const { return pictures_; }
     void clearPictures() { pictures_.clear(); }
+    // The weapon the client game last selected (SetUserCmdValue), which
+    // the player's next commands carry.
+    int32_t weaponSelect() const { return weaponSelect_; }
+    // A command the player gave (numbered from 1), for the client game's
+    // prediction: GetCurrentCmdNumber, GetUserCmd (the last 64 kept).
+    void addUserCommand(const GameHost::UserCommand& cmd) {
+        userCommands_[++userCommandNumber_] = cmd;
+        while (userCommands_.size() > 64)
+            userCommands_.erase(userCommands_.begin());
+    }
+    // A frame's 3D scene, as the client game hands it over: the entities
+    // it adds (each a refEntity_t, kept as the 256 bytes from its address
+    // until the layout is known, with the size of the memset that cleared
+    // it, if one did) and the view it renders them from (refdef_t, the
+    // 112 bytes the client game clears at start-up: Quake III's without
+    // its text).
+    struct SceneEntity {
+        std::vector<uint8_t> bytes;
+        int32_t clearedSize = 0;
+    };
+    struct Scene {
+        std::vector<SceneEntity> entities;
+        int polys = 0, lights = 0;
+        std::vector<uint8_t> view; // set by RenderScene
+        int renders = 0;
+    };
+    const Scene& scene() const { return scene_; }
+    void clearScene() { scene_ = Scene{}; }
     // Where the client game asked for each snapshot (GetSnapshot's
     // number and buffer), in order.
     const std::vector<std::pair<int32_t, int32_t>>& snapshotRequests() const { return snapshotRequests_; }
@@ -119,6 +149,14 @@ private:
     std::vector<Picture> pictures_;
     std::array<float, 4> color_{1, 1, 1, 1};
     std::vector<std::pair<int32_t, int32_t>> snapshotRequests_;
+    std::map<int32_t, GameHost::UserCommand> userCommands_;
+    int32_t userCommandNumber_ = 0;
+    Scene scene_;
+    std::map<int32_t, int32_t> cleared_; // memset(address, 0, size): the last size by address
+    std::map<int32_t, std::shared_ptr<const Md3Model>> md3s_; // by model handle, for tags
+    std::array<float, 3> tempBoxMins_{}, tempBoxMaxs_{};
+    std::unique_ptr<CollisionWorld> world_;
+    int32_t weaponSelect_ = 0;
 };
 
 } // namespace reluva::idtech3::eliteforce

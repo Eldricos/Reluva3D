@@ -7,7 +7,10 @@
 
 #include <array>
 #include <cstdlib>
+#include "engines/idtech3/collision.h"
+
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 
 namespace reluva::idtech3::eliteforce {
@@ -36,9 +39,21 @@ enum CgameCall : int {
     AddCommand = 15,
     SendClientCommand = 16,
     UpdateScreen = 17,
-    SClearLoopingSounds = 30,
     CmLoadMap = 18,
     CmNumInlineModels = 19,
+    CmInlineModel = 20,
+    CmTempBoxModel = 22,
+    CmPointContents = 23,
+    CmTransformedPointContents = 24,
+    CmBoxTrace = 25,
+    CmTransformedBoxTrace = 26,
+    CmMarkFragments = 27,
+    SStartSound = 28,
+    SStartLocalSound = 29,
+    SClearLoopingSounds = 30,
+    SAddLoopingSound = 31,
+    SUpdateEntityPosition = 32,
+    SRespatialize = 33,
     SRegisterSound = 34,
     SStartBackgroundTrack = 35,
     RLoadWorldMap = 36,
@@ -46,14 +61,22 @@ enum CgameCall : int {
     RRegisterSkin = 38,
     RRegisterShader = 39,
     RClearScene = 40,
+    RAddRefEntityToScene = 41,
+    RAddPolyToScene = 42,
+    RAddLightToScene = 43,
+    RRenderScene = 44,
     RSetColor = 45,
     RDrawStretchPic = 46,
     RModelBounds = 47,
+    RLerpTag = 48,
     GetGlconfig = 49,
     GetGameState = 50,
     GetCurrentSnapshotNumber = 51,
     GetSnapshot = 52,
     GetServerCommand = 53,
+    GetCurrentCmdNumber = 54,
+    GetUserCmd = 55,
+    SetUserCmdValue = 56,
     RRegisterShaderNoMip = 57,
     MemoryRemaining = 58,
 };
@@ -79,6 +102,38 @@ constexpr int32_t kSnapServerTime = 8, kSnapPlayerState = 44; // the area mask i
 constexpr int32_t kSnapNumEntities = 504, kSnapEntities = 508;
 constexpr int32_t kSnapNumServerCommands = 52732, kSnapServerCommandSequence = 52736;
 constexpr int32_t kMaxSnapshotEntities = 256;
+
+constexpr int32_t kRefdefSize = 112;      // the client game clears this much of cg.refdef
+constexpr int32_t kRefEntityKept = 256;   // bytes kept of each refEntity_t until its size is known
+constexpr int32_t kTempBoxModel = 0x10000; // CM_TempBoxModel's handle (the original keeps one at a time too)
+
+// Quake III's trace_t (56 bytes), as the game logic's traces.
+void writeTrace(Qvm& vm, int32_t address, const TraceResult& t, int32_t entityNum) {
+    if (!vm.checkWrite(address, 56))
+        return;
+    vm.writeInt(address + 0, t.allSolid);
+    vm.writeInt(address + 4, t.startSolid);
+    vm.writeInt(address + 8, Qvm::fromFloat(t.fraction));
+    for (int i = 0; i < 3; ++i) {
+        vm.writeInt(address + 12 + 4 * i, Qvm::fromFloat(t.endPos[size_t(i)]));
+        vm.writeInt(address + 24 + 4 * i, Qvm::fromFloat(t.normal[size_t(i)]));
+    }
+    vm.writeInt(address + 36, Qvm::fromFloat(t.dist));
+    int type = 3, signs = 0;
+    for (int i = 0; i < 3; ++i) {
+        if (t.normal[size_t(i)] == 1 || t.normal[size_t(i)] == -1)
+            type = i;
+        if (t.normal[size_t(i)] < 0)
+            signs |= 1 << i;
+    }
+    vm.memory()[size_t(address + 40)] = uint8_t(type);
+    vm.memory()[size_t(address + 41)] = uint8_t(signs);
+    vm.memory()[size_t(address + 42)] = 0;
+    vm.memory()[size_t(address + 43)] = 0;
+    vm.writeInt(address + 44, t.surfaceFlags);
+    vm.writeInt(address + 48, t.contents);
+    vm.writeInt(address + 52, entityNum);
+}
 
 // A command line split into words as Quake III's Cmd_TokenizeString does:
 // at white space, a quoted string as one word, // comments ending it.
@@ -185,6 +240,8 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         trace(number, a);
     auto str = [&](int i, size_t max = 1024) { return vm.string(a[i], max); };
     int32_t result = 0;
+    if (number == 100 && a[1] == 0) // memset(address, 0, size): kept, to learn the sizes of what it clears
+        cleared_[a[0]] = a[2];
     if (commonSystemCall(vm, number, a, result))
         return result;
 
@@ -301,6 +358,142 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         vm.writeInt(a[1] + kSnapServerCommandSequence, s.serverCommandSequence);
         return 1;
     }
+    case CmInlineModel: return a[0]; // the map's model n is clip model n
+    case CmTempBoxModel: // (mins, maxs): a box to trace against, until the next one
+        for (int i = 0; i < 3; ++i) {
+            tempBoxMins_[size_t(i)] = Qvm::asFloat(vm.readInt(a[0] + 4 * i));
+            tempBoxMaxs_[size_t(i)] = Qvm::asFloat(vm.readInt(a[1] + 4 * i));
+        }
+        return kTempBoxModel;
+    case CmPointContents: // (point, model)
+    case CmTransformedPointContents: { // (point, model, origin, angles): turning not yet followed
+        Vec3f p{};
+        for (int i = 0; i < 3; ++i) {
+            p[size_t(i)] = Qvm::asFloat(vm.readInt(a[0] + 4 * i));
+            if (number == CmTransformedPointContents && a[2])
+                p[size_t(i)] -= Qvm::asFloat(vm.readInt(a[2] + 4 * i));
+        }
+        if (a[1] == kTempBoxModel) {
+            for (int i = 0; i < 3; ++i)
+                if (p[size_t(i)] < tempBoxMins_[size_t(i)] || p[size_t(i)] > tempBoxMaxs_[size_t(i)])
+                    return 0;
+            return contents::Body;
+        }
+        if (!map_)
+            return 0;
+        if (!world_)
+            world_ = std::make_unique<CollisionWorld>(*map_);
+        return world_->pointContents(p, a[1]);
+    }
+    case CmBoxTrace: // (results, start, end, mins, maxs, model, brushmask)
+    case CmTransformedBoxTrace: { // ... origin, angles: turning not yet followed
+        auto vec = [&](int32_t addr) {
+            Vec3f v{};
+            if (addr)
+                for (int i = 0; i < 3; ++i)
+                    v[size_t(i)] = Qvm::asFloat(vm.readInt(addr + 4 * i));
+            return v;
+        };
+        Vec3f start = vec(a[1]), end = vec(a[2]);
+        const Vec3f mins = vec(a[3]), maxs = vec(a[4]), origin = number == CmTransformedBoxTrace ? vec(a[7]) : Vec3f{};
+        for (int i = 0; i < 3; ++i) {
+            start[size_t(i)] -= origin[size_t(i)];
+            end[size_t(i)] -= origin[size_t(i)];
+        }
+        TraceResult t;
+        if (a[5] == kTempBoxModel)
+            t = CollisionWorld::traceBox(start, end, mins, maxs, tempBoxMins_, tempBoxMaxs_, contents::Body);
+        else if (map_) {
+            if (!world_)
+                world_ = std::make_unique<CollisionWorld>(*map_);
+            t = world_->trace(start, end, mins, maxs, a[5], a[6]);
+        }
+        for (int i = 0; i < 3; ++i)
+            t.endPos[size_t(i)] += origin[size_t(i)];
+        writeTrace(vm, a[0], t, t.fraction < 1 ? 1022 : 1023);
+        return 0;
+    }
+    case CmMarkFragments: return 0; // decals on walls: later
+    case SStartSound:
+    case SStartLocalSound:
+    case SAddLoopingSound:
+    case SUpdateEntityPosition:
+    case SRespatialize:
+        return 0; // sounds in the world: later
+    case RAddRefEntityToScene: {
+        SceneEntity e;
+        const int32_t n = std::max<int32_t>(0, std::min<int32_t>(kRefEntityKept, int32_t(vm.memory().size()) - a[0]));
+        if (a[0] > 0 && vm.valid(a[0], n))
+            e.bytes.assign(&vm.memory()[size_t(a[0])], &vm.memory()[size_t(a[0])] + n);
+        if (const auto it = cleared_.find(a[0]); it != cleared_.end())
+            e.clearedSize = it->second;
+        scene_.entities.push_back(std::move(e));
+        return 0;
+    }
+    case RAddPolyToScene: ++scene_.polys; return 0;
+    case RAddLightToScene: ++scene_.lights; return 0;
+    case RRenderScene:
+        if (vm.valid(a[0], kRefdefSize))
+            scene_.view.assign(&vm.memory()[size_t(a[0])], &vm.memory()[size_t(a[0])] + kRefdefSize);
+        ++scene_.renders;
+        return 0;
+    case RLerpTag: { // (orientation_t*, model, startFrame, endFrame, frac, tagName) -> found
+        auto [it, added] = md3s_.try_emplace(a[1]);
+        if (added) {
+            std::vector<uint8_t> data;
+            auto md3 = std::make_shared<Md3Model>();
+            const std::string& name = models_.name(a[1]);
+            if (!name.empty() && name[0] != '*' && !files_.read(name, data) && !parseMd3(data, *md3))
+                it->second = std::move(md3);
+        }
+        if (!vm.checkWrite(a[0], 48))
+            return 0;
+        // The tag between two frames: the origin and axes blended (the
+        // axes renormalised), as the original renderer does.
+        const Md3Model* m = it->second.get();
+        const std::string tagName = str(5, 64);
+        const Md3Tag* t0 = m ? m->tag(std::clamp(a[2], 0, int32_t(m->frames.size()) - 1), tagName) : nullptr;
+        const Md3Tag* t1 = m ? m->tag(std::clamp(a[3], 0, int32_t(m->frames.size()) - 1), tagName) : nullptr;
+        if (!t0 || !t1) {
+            for (int i = 0; i < 12; ++i)
+                vm.writeInt(a[0] + 4 * i, Qvm::fromFloat(i >= 3 && (i - 3) % 4 == 0 ? 1.0f : 0.0f));
+            return 0;
+        }
+        const float frac = Qvm::asFloat(a[4]);
+        for (int i = 0; i < 3; ++i)
+            vm.writeInt(a[0] + 4 * i,
+                        Qvm::fromFloat(t0->origin[size_t(i)] + frac * (t1->origin[size_t(i)] - t0->origin[size_t(i)])));
+        for (int j = 0; j < 3; ++j) {
+            std::array<float, 3> axis{};
+            float length = 0;
+            for (int i = 0; i < 3; ++i) {
+                axis[size_t(i)] = t0->axis[size_t(j)][size_t(i)] +
+                                  frac * (t1->axis[size_t(j)][size_t(i)] - t0->axis[size_t(j)][size_t(i)]);
+                length += axis[size_t(i)] * axis[size_t(i)];
+            }
+            length = length > 0 ? std::sqrt(length) : 1;
+            for (int i = 0; i < 3; ++i)
+                vm.writeInt(a[0] + 12 + 12 * j + 4 * i, Qvm::fromFloat(axis[size_t(i)] / length));
+        }
+        return 1;
+    }
+    case GetCurrentCmdNumber: return userCommandNumber_;
+    case GetUserCmd: { // (number, usercmd_t*) -> whether it's still kept
+        const auto it = userCommands_.find(a[0]);
+        if (it == userCommands_.end() || !vm.checkWrite(a[1], 24))
+            return 0;
+        const GameHost::UserCommand& c = it->second;
+        vm.writeInt(a[1], c.serverTime);
+        for (int i = 0; i < 3; ++i)
+            vm.writeInt(a[1] + 4 + 4 * i, c.angles[size_t(i)]);
+        vm.writeInt(a[1] + 16, c.buttons);
+        vm.memory()[size_t(a[1] + 20)] = c.weapon;
+        vm.memory()[size_t(a[1] + 21)] = uint8_t(c.forward);
+        vm.memory()[size_t(a[1] + 22)] = uint8_t(c.right);
+        vm.memory()[size_t(a[1] + 23)] = uint8_t(c.up);
+        return 1;
+    }
+    case SetUserCmdValue: weaponSelect_ = a[0]; return 0; // (weapon, sensitivity scale): what the next commands carry
     case GetServerCommand: { // (sequence) -> whether it's there; it becomes Argc/Argv
         if (a[0] < 1 || size_t(a[0]) > serverCommands_.size())
             return 0;

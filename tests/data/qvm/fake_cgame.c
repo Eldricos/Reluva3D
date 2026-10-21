@@ -27,6 +27,13 @@ void trap_GetCurrentSnapshotNumber(int *number, int *serverTime);
 int trap_GetSnapshot(int number, snapshot_t *snap);
 int trap_GetServerCommand(int sequence);
 int trap_Argc(void);
+int trap_GetCurrentCmdNumber(void);
+int trap_GetUserCmd(int number, int *cmd);
+void trap_R_ClearScene(void);
+void trap_R_AddRefEntityToScene(const int *ent);
+void trap_R_RenderScene(const int *refdef);
+int trap_R_LerpTag(float *tag, int model, int startFrame, int endFrame, float frac, const char *tagName);
+void *memset(void *dest, int value, int count);
 void trap_Argv(int n, char *buffer, int size);
 void trap_AddCommand(const char *name);
 void trap_GetGameState(gameState_t *gs);
@@ -40,6 +47,10 @@ static int glconfig[1298]; /* Elite Force's glconfig_t: 5120 bytes of strings, a
 static int model, shader;
 static snapshot_t snap;
 static char word[64];
+static int ucmd[6];
+static int refEntity[40]; /* 160 bytes, cleared before use */
+static int refdef[28];    /* 112 bytes */
+static float tag[12];
 
 int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int arg5, int arg6, int arg7, int arg8,
            int arg9, int arg10, int arg11) {
@@ -75,6 +86,26 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
     case 26: return snap.numEntities * 1000 + snap.serverCommandSequence;
     case 27: return snap.ps[0] + snap.ps[114]; /* the player state's first and last words */
     case 28: return snap.entities[arg0][0] * 1000 + snap.entities[arg0][50];
+    case 30: /* the latest command: its number * 1000 + its forward byte */
+        n = trap_GetCurrentCmdNumber();
+        if (!trap_GetUserCmd(n, ucmd))
+            return -1;
+        return n * 1000 + (signed char)(ucmd[5] >> 8);
+    case 31: /* a scene: two entities, then rendered */
+        trap_R_ClearScene();
+        memset(refEntity, 0, sizeof(refEntity));
+        refEntity[2] = model;
+        trap_R_AddRefEntityToScene(refEntity);
+        trap_R_AddRefEntityToScene(refEntity);
+        memset(refdef, 0, sizeof(refdef));
+        refdef[2] = 640;
+        refdef[3] = 480;
+        trap_R_RenderScene(refdef);
+        return 0;
+    case 32: /* a tag between frames 0 and 1, half way: its origin's z, and whether found */
+        n = trap_R_LerpTag(tag, arg0, 0, 1, 0.5f, "tag_top");
+        return (int)tag[2] * 10 + n;
+    case 33: return trap_R_RegisterModel("models/test/box.md3");
     case 29: /* server command arg0: how many words, and the first letter of word arg1 */
         if (!trap_GetServerCommand(arg0))
             return -1;

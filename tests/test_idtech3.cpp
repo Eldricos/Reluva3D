@@ -1102,7 +1102,8 @@ static void testCgameHost(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
     test::writeFile(tmp / "BaseEF" / "pak0.pk3",
                     test::buildZip({{"vm/cgame.qvm",
-                                     std::vector<uint8_t>(std::begin(kFakeCgameQvm), std::end(kFakeCgameQvm)), {}}}));
+                                     std::vector<uint8_t>(std::begin(kFakeCgameQvm), std::end(kFakeCgameQvm)), {}},
+                                    {"models/test/box.md3", buildMd3(), {}}}));
     SearchSet set;
     std::vector<std::string> warnings;
     CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
@@ -1149,6 +1150,25 @@ static void testCgameHost(const std::filesystem::path& tmp) {
     CHECK(!cgame.call(29, {1, 1}, r) && r == 2000 + 'R');
     CHECK(!cgame.call(29, {2, 0}, r) && r == 3000 + 'c');
     CHECK(!cgame.call(29, {3, 0}, r) && r == -1);
+
+    // The player's commands, for prediction.
+    CHECK(!cgame.call(30, {}, r) && r == -1); // none yet
+    ef::GameHost::UserCommand cmd;
+    cmd.forward = 100;
+    cgame.addUserCommand(cmd);
+    cgame.addUserCommand(cmd);
+    CHECK(!cgame.call(30, {}, r) && r == 2100);
+    // A scene: its entities kept with the size that cleared them, the view.
+    CHECK(!cgame.call(31, {}, r));
+    CHECK(cgame.scene().entities.size() == 2 && cgame.scene().entities[0].clearedSize == 160);
+    CHECK(cgame.scene().renders == 1 && cgame.scene().view.size() == 112 && cgame.scene().view[8] == 0x80);
+    // A tag: tag_top half way between the box's two frames.
+    int32_t box = 0;
+    CHECK(!cgame.call(33, {}, box) && box > 0);
+    Md3Model boxModel;
+    CHECK(!parseMd3(buildMd3(), boxModel));
+    const float halfway = (boxModel.tag(0, "tag_top")->origin[2] + boxModel.tag(1, "tag_top")->origin[2]) / 2;
+    CHECK(!cgame.call(32, {box}, r) && r == int(halfway) * 10 + 1);
     CHECK(cgame.unhandled().empty());
     std::filesystem::remove_all(tmp);
 }

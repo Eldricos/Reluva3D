@@ -233,7 +233,19 @@ numbering wherever it can be checked:
 | 17 | `UpdateScreen()` | seen | after each loading caption copied to a buffer: "collision map", "sounds", "game media"... |
 | 18 | `CM_LoadMap(name)` | seen | `"maps/<mapname>.bsp"` |
 | 19 | `CM_NumInlineModels()` | seen | where the brush models would be registered |
+| 20 | `CM_InlineModel(index)` → clip handle | order | |
+| 22 | `CM_TempBoxModel(mins, maxs)` → clip handle | order | |
+| 23 | `CM_PointContents(point, model)` | seen | `(point, 0)` in a frame |
+| 24 | `CM_TransformedPointContents(point, model, origin, angles)` | order | |
+| 25 | `CM_BoxTrace(results, start, end, mins, maxs, model, brushmask)` | seen | seven arguments in a frame, the model 0 |
+| 26 | `CM_TransformedBoxTrace(...as 25, origin, angles)` | order | |
+| 27 | `CM_MarkFragments(numPoints, points, projection, maxPoints, pointBuffer, maxFragments, fragmentBuffer)` | seen | `(4, ..., 384, ..., 128, ...)`: wall decals |
+| 28 | `S_StartSound(origin, entityNum, channel, sound)` | seen | `(0, 253, 0, 14)` |
+| 29 | `S_StartLocalSound(sound, channel)` | seen | `(9, 6)` |
 | 30 | `S_ClearLoopingSounds()` | seen | at the start of a frame |
+| 31 | `S_AddLoopingSound(...)` | order | |
+| 32 | `S_UpdateEntityPosition(entityNum, origin)` | seen | 247 calls in three frames, one per entity |
+| 33 | `S_Respatialize(entityNum, origin, axis, inWater)` | seen | once a frame |
 | 34 | `S_RegisterSound(name)` | seen | the countdown voices, footsteps, item sounds |
 | 35 | `S_StartBackgroundTrack(intro, loop)` | seen | two strings made from a configstring |
 | 36 | `R_LoadWorldMap(name)` | seen | the map name |
@@ -241,12 +253,19 @@ numbering wherever it can be checked:
 | 38 | `R_RegisterSkin(name)` | order | |
 | 39 | `R_RegisterShader(name)` | seen | `powerups/quad`, `white`... |
 | 40 | `R_ClearScene()` | seen | after clearing a structure |
+| 41 | `R_AddRefEntityToScene(refEntity_t*)` | seen | about 170 a frame on hm_dn1 |
+| 42, 43 | `R_AddPolyToScene`, `R_AddLightToScene` | order | |
+| 44 | `R_RenderScene(refdef_t*)` | seen | once a frame, `cg.refdef` (the 112 bytes cleared at start-up) |
 | 47 | `R_ModelBounds(model, mins, maxs)` | seen | 7 calls after registering models (on hm_dn1); brush models (`*N`) too in Quake III's client game |
+| 48 | `R_LerpTag(orientation_t*, model, startFrame, endFrame, frac, tagName)` → found | seen | `(..., 62, 0, 174, 1.0, ...)` |
 | 49 | `GetGlconfig(&glconfig)` | seen | into the field after the game state |
 | 50 | `GetGameState(&gameState)` | seen | into the start of the client game's static block |
 | 51 | `GetCurrentSnapshotNumber(&number, &serverTime)` | seen | the first call of a frame; unanswered, it read 25376 as the number ("CG_ReadNextSnapshot: way out of range") |
 | 52 | `GetSnapshot(number, snapshot_t*)` → whether it's there | seen | into `cg.activeSnapshots[0]` (733228, 12 bytes after the latest snapshot time 51 writes, as in Quake III's `cg_t`) |
 | 53 | `GetServerCommand(sequence)` → whether it's there; its words become `Argc`/`Argv` | order | |
+| 54 | `GetCurrentCmdNumber()` | seen | before 55 |
+| 55 | `GetUserCmd(number, usercmd_t*)` → whether it's kept | seen | 201 calls in three frames, from (current - 63): 64 commands kept, as in Quake III |
+| 56 | `SetUserCmdValue(weapon, sensitivityScale)` | seen | `(1, ...)` once a frame |
 | 57 | `R_RegisterShaderNoMip(name)` | seen | crosshairs, HUD pieces, fonts |
 | 58 | `MemoryRemaining()` | seen | answered 0, the client game prints "Memory is low.  Using deferred model." and skips loading player models |
 | 100, 102 | `memset`, `strncpy` | seen | |

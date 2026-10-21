@@ -3452,6 +3452,10 @@ int cmdGameRun(int argc, char** argv) {
                     if (to == 0 || to == -1)
                         commands.push_back(text);
                 cgame.setServerCommands(commands);
+                ef::GameHost::UserCommand idle;
+                idle.serverTime = game.levelTime();
+                cgame.addUserCommand(idle);
+                cgame.clearScene();
                 auto snap = game.snapshot(0);
                 std::printf("snapshot at %d: %zu entities, %d server commands\n", snap.serverTime, snap.entities.size(),
                             snap.serverCommandSequence);
@@ -3462,6 +3466,32 @@ int cmdGameRun(int argc, char** argv) {
                 std::printf("cgame DrawActiveFrame(%d): %s after %llu instructions, %zu pictures\n", game.levelTime(),
                             frame ? frame.message.c_str() : "ok",
                             static_cast<unsigned long long>(cgame.vm().executed()), cgame.pictures().size());
+                {
+                    // The frame's 3D scene: the entities added (and the sizes of
+                    // the memsets that cleared them: refEntity_t's size), and the
+                    // view, read as Quake III's refdef_t: x, y, width, height,
+                    // fov x, fov y, view origin (24), axes (36), time (72).
+                    const auto& scene = cgame.scene();
+                    std::map<int32_t, int> sizes;
+                    for (const auto& e : scene.entities)
+                        ++sizes[e.clearedSize];
+                    std::string sizeText;
+                    for (const auto& [size, count] : sizes)
+                        sizeText += " " + std::to_string(count) + " cleared by " + std::to_string(size);
+                    std::printf("  scene: %zu entities (%s), %d polygons, %d lights, rendered %d times\n",
+                                scene.entities.size(), sizeText.c_str(), scene.polys, scene.lights, scene.renders);
+                    if (scene.view.size() >= 80) {
+                        auto word = [&](int at) {
+                            int32_t v;
+                            std::memcpy(&v, &scene.view[size_t(at)], 4);
+                            return v;
+                        };
+                        auto real = [&](int at) { return q3::Qvm::asFloat(word(at)); };
+                        std::printf("  view: %d,%d %dx%d, fov %.1f x %.1f, eye %.1f %.1f %.1f, forward %.2f %.2f %.2f, time %d\n",
+                                    word(0), word(4), word(8), word(12), real(16), real(20), real(24), real(28),
+                                    real(32), real(36), real(40), real(44), word(72));
+                    }
+                }
                 if (f == 0) {
                     // What the frame drew in 2D, by shader.
                     std::map<std::string, int> byShader;
