@@ -154,6 +154,20 @@ III's game calls; unlike the menus, 0 prints and 1 is the error.
 | 37 | `GetEntityToken(buffer, size)` → more? | seen | `(buffer, 1024)`; answering 0 gives "SpawnEntities: no entities" |
 | 38 | `FS_GetFileList(folder, extension, buffer, size)` | seen | `("models/players2", …, buffer, 2048)`: Elite Force's player models |
 | 2, 4, 8, 9, 11–14, 16, 17, 20–36 | the rest of Quake III's game calls, in its order | order | |
+
+Reluva's side: `src/engines/idtech3/eliteforce/game_host.cpp`, run by
+`reluva-tool game-run <game folder> <map>`. Starting a level follows the
+original server: it sets `mapname` and the server cvars, calls
+`vmMain(0, 0, seed, 0)`, during which the game reads the BSP's entity
+text with call 37 (each call gives one token, as Quake III's `COM_Parse`
+reads them: a quoted string or a run of non-blank characters, comments
+skipped; it answers 0 at the end), then runs three frames
+(`vmMain(8, levelTime)`, 100 ms apart) to let things settle. Implemented
+so far: printing and errors, cvars, files, `LocateGameData`,
+configstrings, linking and unlinking (recorded by entity number), the
+entity text, the server info string. Calls that fill in the game's own
+structures (traces, `SetBrushModel`, user commands) wait until their
+layouts are checked; `game-run` lists them.
 | 111 | `ceil` | order | Quake III's game numbers `floor` 110 and `ceil` 111 |
 
 ## Client game (`vm/cgame.qvm`)

@@ -5,6 +5,7 @@
 
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/cvars.h"
+#include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/entities.h"
 #include "engines/idtech3/filesystem.h"
@@ -19,6 +20,7 @@
 #include "engines/idtech3/sounds.h"
 #include "common/audio/wav.h"
 #include "engines/registry.h"
+#include "data/qvm/fake_game_qvm.h"
 #include "data/qvm/fake_ui_qvm.h"
 #include "data/qvm/test_vm_qvm.h"
 #include "engines/idtech3/vm_services.h"
@@ -29,6 +31,7 @@
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <set>
 #include <string>
 
 using namespace reluva;
@@ -897,6 +900,50 @@ static void testSoundLibrary(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+// The game logic starting a level: its entities handed over token by
+// token, as the original server does, by a QVM the Quake III compiler
+// made from tests/data/qvm/fake_game.c.
+static void testGameHost(const std::filesystem::path& tmp) {
+    namespace ef = eliteforce;
+    std::filesystem::remove_all(tmp);
+    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
+                    test::buildZip({{"vm/qagame.qvm",
+                                     std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}}}));
+    SearchSet set;
+    std::vector<std::string> warnings;
+    CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
+    CvarStore cvars;
+    ef::GameHost game(set, cvars);
+    CHECK(!game.load());
+    const std::string entities = "{\n\"classname\" \"worldspawn\"\n\"message\" \"Borg Cube, deck 4\"\n}\n"
+                                 "// a comment\n{\n\"classname\" \"info_player_deathmatch\"\n"
+                                 "\"origin\" \"64 -32 24\"\n}\n/* another */ {\n\"classname\" \"item_health\"\n}\n";
+    const Error err = game.startLevel("borg2", entities);
+    CHECK(!err);
+    if (err) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return;
+    }
+    CHECK(game.log() == "------- Game Initialization -------\n");
+    CHECK(game.gameData().count == 3 && game.gameData().entitySize == 48 && game.gameData().clientSize == 4);
+    CHECK((game.linked() == std::set<int32_t>{1, 2})); // the world unlinked
+    CHECK(game.configstrings().count(12) && game.configstrings().at(12) == "borg2");
+    CHECK(game.levelTime() == 300);
+    int32_t r = 0;
+    CHECK(!game.call(23, {}, r) && r == 3); // the three settling frames
+    CHECK(!game.call(21, {2}, r) && r == 'i' * 1000 + 't');
+    CHECK(!game.call(21, {0}, r) && r == 'w' * 1000 + 'o');
+    CHECK(!game.call(22, {}, r) && r == 803); // sv_maxclients 8, ceil(2.25)
+    CHECK(game.unhandled().empty());
+
+    // Broken entity text: the game's own error stops it.
+    ef::GameHost broken(set, cvars);
+    CHECK(!broken.load());
+    const Error e2 = broken.startLevel("x", "{ \"classname\" \"worldspawn\" ");
+    CHECK(e2 && e2.message.find("broken entity text") != std::string::npos);
+    std::filesystem::remove_all(tmp);
+}
+
 // The tables switch statements jump through are found and kept from
 // writes: a system call writing over one stops the run, named.
 static void testJumpTableGuard() {
@@ -1043,6 +1090,7 @@ int main() {
     testCvars();
     testVmFileList();
     testSoundLibrary(tmp / "sounds");
+    testGameHost(tmp / "game");
     testJumpTableGuard();
     testUiHost(tmp / "ui");
     testFilesystemAndDetection(tmp / "fs");

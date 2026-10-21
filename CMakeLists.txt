@@ -138,6 +138,7 @@ if(RELUVA_ENGINE_IDTECH3)
     src/engines/idtech3/sounds.cpp
     src/engines/idtech3/vm_services.cpp
     src/engines/idtech3/eliteforce/ui_host.cpp
+    src/engines/idtech3/eliteforce/game_host.cpp
         src/engines/idtech3/world_viewer.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_IDTECH3)
 endif()

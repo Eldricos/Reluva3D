@@ -65,6 +65,10 @@
 //                                                  run Elite Force's menus (vm/ui.qvm) with the engine's
 //                                                  system calls: Init, SetActiveMenu, Refresh; report
 //                                                  what they print, register and draw
+//   reluva-tool game-run <game folder> <map> [-frames N] [-trace]
+//                                                  start a level with Elite Force's game logic
+//                                                  (vm/qagame.qvm): Init with the map's entities, then
+//                                                  frames; report what it prints, sets and links
 //   reluva-tool shader-check <game folder>         count the shader directives the engine doesn't know
 //                                                  or draw yet, with example shaders
 
@@ -93,6 +97,7 @@
 #include "engines/idtech3/md3.h"
 #include "engines/idtech3/qvm.h"
 #include "engines/idtech3/cvars.h"
+#include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/shader.h"
 #endif
@@ -3128,6 +3133,75 @@ int cmdUiRun(int argc, char** argv) {
     return ok ? 0 : 1;
 }
 
+int cmdGameRun(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-trace]\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    namespace ef = reluva::idtech3::eliteforce;
+    int frames = 10;
+    bool traceCalls = false;
+    for (int i = 4; i < argc; ++i) {
+        if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
+            frames = std::atoi(argv[++i]);
+        else if (std::strcmp(argv[i], "-trace") == 0)
+            traceCalls = true;
+    }
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    std::string map = argv[3];
+    if (map.size() > 4 && map.compare(map.size() - 4, 4, ".bsp") == 0)
+        map.resize(map.size() - 4);
+    if (map.rfind("maps/", 0) == 0)
+        map = map.substr(5);
+    Bytes data;
+    q3::Bsp bsp;
+    if (reluva::Error err = set.read("maps/" + map + ".bsp", data); err || (err = q3::parseBsp(data, bsp))) {
+        std::fprintf(stderr, "maps/%s.bsp: %s\n", map.c_str(), err.message.c_str());
+        return 1;
+    }
+    q3::CvarStore cvars;
+    ef::GameHost game(set, cvars);
+    game.print = [](const std::string& text) {
+        std::printf("game: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
+    };
+    if (traceCalls)
+        game.trace = [](int number, const int32_t* a) {
+            std::printf("  syscall %3d (%d, %d, %d, %d)\n", number, a[0], a[1], a[2], a[3]);
+        };
+    auto step = [&](const char* what, reluva::Error err) {
+        std::printf("%s: %s after %llu instructions\n", what, err ? err.message.c_str() : "ok",
+                    static_cast<unsigned long long>(game.vm().executed()));
+        return !err;
+    };
+    if (reluva::Error err = game.load()) {
+        std::printf("load: %s\n", err.message.c_str());
+        return 1;
+    }
+    reluva::Error started = game.startLevel(map, bsp.entities);
+    std::printf("start level (Init and 3 frames): %s\n", started ? started.message.c_str() : "ok");
+    bool ok = !started;
+    for (int f = 0; ok && f < frames; ++f)
+        ok = step("RunFrame", game.runFrame());
+
+    const auto& gd = game.gameData();
+    std::printf("level time %d ms; entity array at %d: %d in use, %d bytes each; clients at %d, %d bytes each\n",
+                game.levelTime(), gd.entities, gd.count, gd.entitySize, gd.clients, gd.clientSize);
+    std::printf("%zu entities linked into the world, %zu configstrings set, %zu cvars\n", game.linked().size(),
+                game.configstrings().size(), cvars.all().size());
+    for (const auto& [index, text] : game.configstrings()) {
+        std::string shown = text.size() > 100 ? text.substr(0, 100) + "..." : text;
+        std::printf("  configstring %4d: %s\n", index, shown.c_str());
+    }
+    for (const std::string& c : game.consoleCommands())
+        std::printf("console command: %s\n", c.c_str());
+    for (const auto& [number, count] : game.unhandled())
+        std::printf("not implemented: system call %d (%d calls)\n", number, count);
+    return ok ? 0 : 1;
+}
+
 int cmdShaderCheck(int argc, char** argv) {
     if (argc != 3) {
         std::fprintf(stderr, "usage: reluva-tool shader-check <game folder>\n");
@@ -3279,6 +3353,8 @@ int main(int argc, char** argv) {
         return cmdQvmRefs(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "qvm-dis") == 0)
         return cmdQvmDis(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "game-run") == 0)
+        return cmdGameRun(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "ui-run") == 0)
         return cmdUiRun(argc, argv);
 #endif
@@ -3322,6 +3398,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
                  "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
                  "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number>\n"
+                 "  reluva-tool game-run <game folder> <map> [-frames N] [-trace]\n"
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif
                  "");
