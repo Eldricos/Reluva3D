@@ -7,6 +7,7 @@
 #include "engines/idtech3/viewers.h"
 
 #include "common/font.h"
+#include "common/fs.h"
 
 #include <algorithm>
 #include <cmath>
@@ -132,6 +133,7 @@ void MenuViewer::activate() {
 
 void MenuViewer::start() {
     ui_ = std::make_unique<eliteforce::UiHost>(ctx_.files, cvars_);
+    commandsSeen_ = 0;
     ui_->setScreenSize(kFrameW, kFrameH);
     if (!ctx_.savePath.empty())
         ui_->setKeyFile(ctx_.savePath / "cdkey.txt");
@@ -215,6 +217,42 @@ void MenuViewer::findCursor() {
         return;
     }
     haveCursor_ = false;
+}
+
+void MenuViewer::checkCommands() {
+    // The commands the menus have run since the last look: one that
+    // starts a level (Engage runs "map <name>", after setting the game's
+    // cvars) shows it on the Play page.
+    const auto& commands = ui_->commands();
+    for (; commandsSeen_ < commands.size(); ++commandsSeen_) {
+        std::string line = commands[commandsSeen_];
+        lastCommand_ = line;
+        while (!lastCommand_.empty() && (lastCommand_.back() == '\n' || lastCommand_.back() == ' '))
+            lastCommand_.pop_back();
+        lastCommandMs_ = ctx_.sys.getMillis();
+        for (char& c : line)
+            if (c == ';' || c == '\n')
+                c = ' ';
+        std::vector<std::string> words;
+        size_t i = 0;
+        while (i < line.size()) {
+            while (i < line.size() && static_cast<unsigned char>(line[i]) <= ' ')
+                ++i;
+            size_t j = i;
+            while (j < line.size() && static_cast<unsigned char>(line[j]) > ' ')
+                ++j;
+            if (j > i)
+                words.push_back(line.substr(i, j - i));
+            i = j;
+        }
+        for (size_t w = 0; w + 1 < words.size(); ++w) {
+            const std::string verb = fs::toLower(words[w]);
+            if (verb == "map" || verb == "devmap" || verb == "spmap" || verb == "spdevmap") {
+                ctx_.requestPage = "Play";
+                ctx_.requestMap = words[w + 1];
+            }
+        }
+    }
 }
 
 void MenuViewer::stop(const Error& err) {
@@ -334,6 +372,8 @@ void MenuViewer::handleEvent(const Event& ev) {
     }
     if (err)
         stop(err);
+    else if (ui_)
+        checkCommands();
 }
 
 void MenuViewer::update(uint64_t nowMs) {
@@ -354,6 +394,7 @@ void MenuViewer::update(uint64_t nowMs) {
         } else {
             pictures = ui_->pictures();
             findCursor();
+            checkCommands();
         }
     }
 
@@ -433,6 +474,8 @@ void MenuViewer::update(uint64_t nowMs) {
             calls += " " + std::to_string(number) + " (x" + std::to_string(count) + ")";
         lines.push_back(calls);
     }
+    if (!lastCommand_.empty() && nowMs - lastCommandMs_ < kHintMs)
+        lines.push_back("The menus ran: " + lastCommand_);
     if (nowMs - shownMs_ < kHintMs)
         lines.push_back("Keys and mouse go to the menus. Ctrl+Tab: next page, Ctrl+Esc: launcher, Ctrl+R: restart.");
     const int lh = font::kLineHeight;

@@ -58,7 +58,7 @@ public:
         } audioOff{sys_};
 
         ViewerContext ctx{sys_, screen_, files_, shaders_, game_, warnings, target_.savePath,
-                          audioOut ? &mixer : nullptr};
+                          audioOut ? &mixer : nullptr, {}, {}, {}};
         std::vector<std::unique_ptr<Page>> pages;
         pages.push_back(std::make_unique<MenuViewer>(ctx));
         pages.push_back(std::make_unique<PlayViewer>(ctx));
@@ -73,6 +73,17 @@ public:
         if (page == pages.size())
             return Error::fail("No files found in " + target_.path.string() + "/" + game_.baseDir);
         pages[page]->activate();
+        // Leaving a 3D page: its renderer goes, the framebuffer comes back.
+        auto switchTo = [&](size_t next) -> Error {
+            const bool was3D = pages[page]->uses3D();
+            pages[page]->deactivate();
+            if (was3D)
+                if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32))
+                    return err;
+            page = next;
+            pages[page]->activate();
+            return Error::success();
+        };
 
         while (true) {
             Event ev;
@@ -83,19 +94,26 @@ public:
                 if (ev.type == EventType::KeyDown && ev.key == key::Escape && !pageKey)
                     return Error::success();
                 if (ev.type == EventType::KeyDown && ev.key == key::Tab && !pageKey) {
-                    // Leaving a 3D page: its renderer goes, the framebuffer comes back.
-                    const bool was3D = pages[page]->uses3D();
-                    pages[page]->deactivate();
-                    if (was3D)
-                        if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32))
-                            return err;
+                    size_t next = page;
                     do
-                        page = (page + 1) % pages.size();
-                    while (pages[page]->count() == 0);
-                    pages[page]->activate();
+                        next = (next + 1) % pages.size();
+                    while (pages[next]->count() == 0);
+                    if (Error err = switchTo(next))
+                        return err;
                     continue;
                 }
                 pages[page]->handleEvent(ev);
+            }
+            // A page asking for another (the menus starting a level).
+            if (!ctx.requestPage.empty()) {
+                const std::string wanted = std::move(ctx.requestPage);
+                ctx.requestPage.clear();
+                for (size_t i = 0; i < pages.size(); ++i)
+                    if (wanted == pages[i]->name() && pages[i]->count() > 0 && i != page) {
+                        if (Error err = switchTo(i))
+                            return err;
+                        break;
+                    }
             }
             pages[page]->update(sys_.getMillis());
             sys_.updateScreen(screen_);

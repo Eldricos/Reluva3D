@@ -103,6 +103,14 @@ void PlayViewer::activate() {
     models_ = std::make_unique<ModelCache>(*renderer_, *shaders_, ctx_.files);
     shownMs_ = 0;
     ctx_.sys.setRelativeMouse(true);
+    // A level the menus asked for.
+    if (!ctx_.requestMap.empty()) {
+        const std::string wanted = normalizeArchiveName("maps/" + ctx_.requestMap + ".bsp");
+        for (size_t i = 0; i < names_.size(); ++i)
+            if (names_[i] == wanted)
+                index_ = int(i);
+        ctx_.requestMap.clear();
+    }
     start(index_);
 }
 
@@ -229,7 +237,16 @@ void PlayViewer::consoleCommand(const std::string& text) {
         notice_ = "The client game doesn't know \"" + text + "\"";
 }
 
+bool PlayViewer::takesKey(const Event& ev) const {
+    // Esc goes back to the menus, as in the game; with Ctrl it leaves.
+    return ev.type == EventType::KeyDown && ev.key == key::Escape && !(ev.mods & keymod::Ctrl);
+}
+
 void PlayViewer::handleEvent(const Event& ev) {
+    if (ev.type == EventType::KeyDown && ev.key == key::Escape) {
+        ctx_.requestPage = "Menu";
+        return;
+    }
     if (!renderer_ || names_.empty())
         return;
     auto hold = [&](uint32_t k, bool down) {
@@ -524,7 +541,7 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
     }
     if (nowMs - shownMs_ < kHintMs) {
         lines.push_back("W/A/S/D move, the mouse looks, Space jumps, C crouches, click fires, wheel or 1-9 picks a weapon.");
-        lines.push_back("PageUp/PageDown: another map, I: info, Ctrl+R: restart, Tab: next page, Esc: launcher.");
+        lines.push_back("PageUp/PageDown: another map, I: info, Ctrl+R: restart, Esc: the menus, Tab: next page, Ctrl+Esc: launcher.");
     }
     const int lh = font::kLineHeight;
     for (size_t i = 0; i < lines.size(); ++i) {

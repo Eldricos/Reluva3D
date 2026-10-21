@@ -25,7 +25,9 @@
 //           vm/qagame.qvm and vm/cgame.qvm) with you as the player:
 //           W/A/S/D move, the mouse looks (it's held by the window),
 //           Space jumps, C crouches, click fires, wheel or 1-9 pick a
-//           weapon; PageUp/PageDown pick a map, Ctrl+R restarts.
+//           weapon; PageUp/PageDown pick a map, Ctrl+R restarts, Esc
+//           goes back to the menus (Ctrl+Esc to the launcher). Starting
+//           a level from the menus (Engage) comes here.
 // Maps:     Left/Right pick a map; drag (or arrow keys with Shift) to rotate,
 //           wheel or +/- to zoom, W/A/S/D/Q/E to move, R to reset the view,
 //           P to show or hide patches, I to show or hide the info.
@@ -69,6 +71,13 @@ struct ViewerContext {
     const std::vector<std::string>& warnings; // problems loading the game's files
     std::filesystem::path savePath;           // where this game's own files go (GameTarget::savePath)
     audio::Mixer* mixer = nullptr;            // sound output; none if the system has no audio
+    // The console variables, one set for every page that runs game code,
+    // as the original has one: what's chosen in the menus applies to the
+    // level started from them.
+    CvarStore cvars;
+    // A page asking for another to be shown (by name), as when the menus
+    // start a level on the Play page; `requestMap` is the level.
+    std::string requestPage, requestMap;
 };
 
 class Page {
@@ -248,13 +257,17 @@ private:
     void syncCursor();
     void findCursor();
     void playSound(const std::string& name, int channel);
+    void checkCommands();
 
     bool available_ = false;
     gfx::Renderer3D* renderer_ = nullptr;
     std::unique_ptr<ShaderCache> shaders_;
     std::vector<int> materials_; // by the menus' shader handle; -2 not made yet
-    CvarStore cvars_;
+    CvarStore& cvars_ = ctx_.cvars;
     std::unique_ptr<eliteforce::UiHost> ui_; // kept while other pages are shown
+    size_t commandsSeen_ = 0;                // of ui_->commands()
+    std::string lastCommand_;                // shown for a while, to see what buttons do
+    uint64_t lastCommandMs_ = 0;
     SoundLibrary sounds_{ctx_.files};
     std::map<int, audio::SoundHandle> channels_; // the sound on each of the menus' channels
     Surface overlay_;
@@ -283,6 +296,7 @@ public:
     void handleEvent(const Event& ev) override;
     void update(uint64_t nowMs) override;
     bool uses3D() const override { return renderer_ != nullptr; }
+    bool takesKey(const Event& ev) const override;
 
 private:
     enum Held { Forward, Back, Left, Right, Jump, Crouch, TurnLeft, TurnRight, HeldCount };
@@ -314,7 +328,7 @@ private:
     int otherEntities_ = 0;            // this frame's entities that aren't models
     std::set<std::string> unloadable_; // models this frame couldn't draw
     std::vector<int> materials_; // by the client game's shader handle; -2 not made yet
-    CvarStore cvars_;
+    CvarStore& cvars_ = ctx_.cvars;
     std::unique_ptr<eliteforce::GameHost> game_;
     std::unique_ptr<eliteforce::CgameHost> cgame_;
     Surface overlay_;
