@@ -301,3 +301,30 @@ needn't be known. It sends every linked entity but the player's own and
 those flagged not to be sent (SVF_NOCLIENT, bit 1 of svFlags, which is at
 208 or 212: Reluva takes whichever word has flags in the running game);
 no visibility culling yet.
+
+The view (`refdef_t`, call 44) is Quake III's first 112 bytes, without
+its text: x, y, width, height 0-12, fov x 16, fov y 20, the eye 24, the
+axes 36 (forward, left, up), time 72, flags 76 (1: no world, for the
+HUD's heads), the area mask 80. The evidence: on hm_dn1 the player's
+view read 0,0 640x480, fov 80 x 64.4, the eye 26 units above the
+player's origin, forward (0, -1, 0).
+
+A scene entity (`refEntity_t`, call 41) is 160 bytes (the size of the
+memset that clears each): Quake III's 140, field for field, then 20 more
+that were 0 in every entity seen. Type 0 (0: a model), render flags 4,
+model 8, lighting origin 12, shadow plane 24, axes 28 (forward, left,
+up), non-normalized axes 64, origin 68, frame 80, old origin 84, old
+frame 96, back-lerp 100, skin number 104, custom skin 108, custom shader
+112, RGBA 116, texture coordinates 120, shader time 128, radius 132,
+rotation 136. The evidence, from `reluva-tool game-run ... -cgame
+-entities 8` on hm_dn1: the player's legs, torso and head have their
+model handles at 8 (`lower.mdr`, `upper.mdr`, `head.md3`) and their skin
+handles at 108 (`lower_default.skin`...), the player's origin at 12 and
+68 and 84, the floor's height at 24, an identity or turned axis at 28,
+frames at 80 (174, 121); the first-person weapon (`phaser.md3`) has
+render flags 12 (Quake III's first person 4 and depth hack 8), a
+turned, slightly bobbing axis, an origin just in front of and below the
+eye, and white (-1) at 116; the player's own body has flag 2 (Quake
+III's third person: drawn only in mirrors), as Quake III's client game
+does. Elite Force's player models are named `.mdr`; Reluva draws `.md3`
+models only so far.

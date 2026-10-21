@@ -54,6 +54,7 @@
 #include <map>
 #include <filesystem>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -290,13 +291,28 @@ private:
     void runGame(uint64_t nowMs);
     void sendServerCommands();
     void consoleCommand(const std::string& text);
-    void drawOverlay(uint64_t nowMs, bool haveView, size_t entities);
+    void placeEntities(const eliteforce::CgameHost::View& view);
+    int modelId(int32_t handle);
+    void drawOverlay(uint64_t nowMs, bool haveView);
 
     std::vector<std::string> names_; // maps
     int index_ = 0;
     gfx::Renderer3D* renderer_ = nullptr;
     std::unique_ptr<ShaderCache> shaders_;
     std::unique_ptr<WorldRenderer> world_;
+    std::unique_ptr<ModelCache> models_;
+    LightGrid grid_;
+    std::map<int32_t, int> modelIds_; // the client game's model handle -> models_ id (-1: can't load)
+    // This frame's model entities, ready to draw.
+    struct Placed {
+        int model = -1, frame = 0;
+        gfx::Mat4 transform{};
+        PointLight light;
+        const Skin* skin = nullptr;
+    };
+    std::vector<Placed> placed_;
+    int otherEntities_ = 0;            // this frame's entities that aren't models
+    std::set<std::string> unloadable_; // models this frame couldn't draw
     std::vector<int> materials_; // by the client game's shader handle; -2 not made yet
     CvarStore cvars_;
     std::unique_ptr<eliteforce::GameHost> game_;

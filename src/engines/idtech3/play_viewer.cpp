@@ -6,14 +6,16 @@
 // with one player, whose commands come from the keyboard and mouse; the
 // client game (vm/cgame.qvm) gets a snapshot after each server frame and
 // says what to draw: the level from the player's eye, then the HUD.
-// Entities (players, items, weapons) wait until the layout of the
-// client game's refEntity_t is known.
+// Entities the client game adds as models are drawn with their skins,
+// lit by the light grid; other kinds (sprites, beams...) not yet.
 
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
+#include "engines/idtech3/entities.h"
 #include "engines/idtech3/viewers.h"
 
 #include "common/font.h"
+#include "common/fs.h"
 
 #include <algorithm>
 #include <cmath>
@@ -35,6 +37,18 @@ constexpr float kMouseDegrees = 5 * 0.022f;
 constexpr int32_t kButtonAttack = 1;
 // refdef_t's flag for views without the level (the HUD's heads).
 constexpr int32_t kNoWorldModel = 1;
+// refEntity_t: Quake III's 140 bytes, then 20 of Elite Force's own (see
+// eliteforce-syscalls.md). Its type (0: a model), render flags, model,
+// lighting origin, axes (forward, left, up), origin, frame, old frame
+// and how far back towards it, custom skin.
+namespace refent {
+constexpr size_t Type = 0, Flags = 4, Model = 8, LightingOrigin = 12, Axes = 28, Origin = 68, Frame = 80,
+                 OldFrame = 96, BackLerp = 100, CustomSkin = 108;
+constexpr int32_t TypeModel = 0;
+// Render flags (Quake III's): drawn only in mirrors and portals (the
+// player's own body); lit from the lighting origin.
+constexpr int32_t ThirdPerson = 2, UseLightingOrigin = 0x80;
+} // namespace refent
 
 int32_t readInt(const std::vector<uint8_t>& bytes, size_t at) {
     int32_t v = 0;
@@ -86,6 +100,7 @@ void PlayViewer::activate() {
     overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
     shaders_ = std::make_unique<ShaderCache>(*renderer_, ctx_.files, ctx_.shaders);
     world_ = std::make_unique<WorldRenderer>(*renderer_, *shaders_);
+    models_ = std::make_unique<ModelCache>(*renderer_, *shaders_, ctx_.files);
     shownMs_ = 0;
     ctx_.sys.setRelativeMouse(true);
     start(index_);
@@ -98,6 +113,8 @@ void PlayViewer::deactivate() {
     cgame_.reset();
     game_.reset();
     materials_.clear();
+    modelIds_.clear();
+    models_.reset();
     world_.reset();
     shaders_.reset();
     renderer_ = nullptr;
@@ -110,6 +127,8 @@ void PlayViewer::start(int index) {
     cgame_.reset();
     game_.reset();
     materials_.clear();
+    modelIds_.clear();
+    models_->clear();
     world_->clear();
     shaders_->clear();
     yaw_ = pitch_ = 0;
@@ -127,6 +146,16 @@ void PlayViewer::start(int index) {
     if (err) {
         stop("Couldn't load " + path + ": " + err.message);
         return;
+    }
+    // The light grid lights models, with the worldspawn's cell size if it
+    // gives one.
+    grid_ = LightGrid{};
+    {
+        float cell[3] = {64, 64, 128};
+        std::vector<Entity> entities;
+        if (!parseEntities(bsp->entities, entities) && !entities.empty())
+            entities[0].vector("gridsize", cell);
+        grid_.build(*bsp, {cell[0], cell[1], cell[2]});
     }
 
     // The server: the level, and the player joining it. The holodeck
@@ -307,12 +336,12 @@ void PlayViewer::update(uint64_t nowMs) {
     // level in it (refdef_t: fov y at 20, the eye at 24, the axes from 36:
     // forward, left, up).
     const std::vector<uint8_t>* view = nullptr;
-    size_t viewEntities = 0;
+    const eliteforce::CgameHost::View* sceneView = nullptr;
     if (cgame_)
         for (const auto& v : cgame_->scene().views)
             if (!(readInt(v.refdef, 76) & kNoWorldModel)) {
                 view = &v.refdef;
-                viewEntities = v.entityCount;
+                sceneView = &v;
                 break;
             }
     const float aspect = float(kFrameW) / float(kFrameH);
@@ -324,10 +353,16 @@ void PlayViewer::update(uint64_t nowMs) {
             gfx::multiply(gfx::perspective(fovY, aspect, 4, 32768), gfx::lookAlong(eye_, forward, up));
         renderer_->beginFrame(viewProj, eye_, {0, 0, 0});
         constexpr float kLastOpaque = 5;
+        placeEntities(*sceneView);
         world_->drawSky(time);
         world_->drawSurfaces(time, 0, kLastOpaque);
+        for (const Placed& p : placed_)
+            models_->draw(p.model, p.frame, p.transform, p.light, time, p.skin, 0, kLastOpaque);
         world_->drawSurfaces(time, kLastOpaque + 0.5f);
+        for (const Placed& p : placed_)
+            models_->draw(p.model, p.frame, p.transform, p.light, time, p.skin, kLastOpaque + 0.5f);
     } else {
+        placed_.clear();
         renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
     }
 
@@ -392,13 +427,65 @@ void PlayViewer::update(uint64_t nowMs) {
         }
     }
 
-    drawOverlay(nowMs, view != nullptr, viewEntities);
+    drawOverlay(nowMs, view != nullptr);
     renderer_->endFrame(&overlay_);
     if (mesh)
         renderer_->destroyMesh(mesh);
 }
 
-void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView, size_t entities) {
+void PlayViewer::placeEntities(const eliteforce::CgameHost::View& view) {
+    // The view's entities that are models, where the client game put them.
+    placed_.clear();
+    otherEntities_ = 0;
+    unloadable_.clear();
+    const auto& entities = cgame_->scene().entities;
+    for (size_t i = view.firstEntity; i < view.firstEntity + view.entityCount && i < entities.size(); ++i) {
+        const std::vector<uint8_t>& e = entities[i].bytes;
+        if (readInt(e, refent::Type) != refent::TypeModel) {
+            ++otherEntities_;
+            continue;
+        }
+        const int32_t flags = readInt(e, refent::Flags);
+        if (flags & refent::ThirdPerson)
+            continue;
+        const int model = modelId(readInt(e, refent::Model));
+        if (model < 0)
+            continue;
+        Placed p;
+        p.model = model;
+        const gfx::Vec3 origin = readVec(e, refent::Origin);
+        p.transform = placement(origin, {readVec(e, refent::Axes), readVec(e, refent::Axes + 12),
+                                         readVec(e, refent::Axes + 24)});
+        // The nearer of the two frames it's between.
+        p.frame = readFloat(e, refent::BackLerp) < 0.5f ? readInt(e, refent::Frame) : readInt(e, refent::OldFrame);
+        p.light = grid_.sample(flags & refent::UseLightingOrigin ? readVec(e, refent::LightingOrigin) : origin);
+        if (const int32_t skin = readInt(e, refent::CustomSkin); skin > 0 && !cgame_->skins().name(skin).empty())
+            p.skin = &models_->skin(cgame_->skins().name(skin));
+        placed_.push_back(p);
+    }
+}
+
+int PlayViewer::modelId(int32_t handle) {
+    // The client game's model handle to a loaded model, loaded on first
+    // use; -1 if it can't be.
+    if (handle <= 0)
+        return -1;
+    if (const auto it = modelIds_.find(handle); it != modelIds_.end()) {
+        if (it->second < 0)
+            unloadable_.insert(cgame_->models().name(handle));
+        return it->second;
+    }
+    const std::string name = cgame_->models().name(handle);
+    int id = -1;
+    if (name.size() > 4 && fs::toLower(name.substr(name.size() - 4)) == ".md3")
+        id = models_->load(name);
+    modelIds_[handle] = id;
+    if (id < 0)
+        unloadable_.insert(name);
+    return id;
+}
+
+void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
     std::vector<std::string> lines;
     if (!error_.empty()) {
@@ -408,10 +495,16 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView, size_t entities) {
     if (showInfo_) {
         char line[200];
         if (game_) {
-            std::snprintf(line, sizeof line, "time %.1f s, eye at %.0f %.0f %.0f%s; %zu entities in view (not drawn yet)",
+            std::snprintf(line, sizeof line, "time %.1f s, eye at %.0f %.0f %.0f%s; %zu models drawn, %d other entities not yet",
                           float(clientTime_) / 1000.0f, eye_[0], eye_[1], eye_[2],
-                          haveView ? "" : " (no view yet)", entities);
+                          haveView ? "" : " (no view yet)", placed_.size(), otherEntities_);
             lines.push_back(line);
+            if (!unloadable_.empty()) {
+                std::string names = "Models not drawn (only .md3 so far):";
+                for (const std::string& n : unloadable_)
+                    names += " " + n;
+                lines.push_back(names.size() > 150 ? names.substr(0, 150) + "..." : names);
+            }
         }
         for (const auto* host : {"server", "client"}) {
             const std::map<int, int>* unhandled = nullptr;
