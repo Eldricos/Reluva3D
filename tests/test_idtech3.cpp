@@ -6,6 +6,7 @@
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
+#include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/entities.h"
@@ -21,6 +22,7 @@
 #include "engines/idtech3/sounds.h"
 #include "common/audio/wav.h"
 #include "engines/registry.h"
+#include "data/qvm/fake_cgame_qvm.h"
 #include "data/qvm/fake_game_qvm.h"
 #include "data/qvm/fake_ui_qvm.h"
 #include "data/qvm/test_vm_qvm.h"
@@ -1083,6 +1085,39 @@ static void testGameHost(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+// The client game starting: the server's configstrings handed over as
+// its game state (Quake III's gamestate_t), by a QVM the Quake III
+// compiler made from tests/data/qvm/fake_cgame.c.
+static void testCgameHost(const std::filesystem::path& tmp) {
+    namespace ef = eliteforce;
+    std::filesystem::remove_all(tmp);
+    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
+                    test::buildZip({{"vm/cgame.qvm",
+                                     std::vector<uint8_t>(std::begin(kFakeCgameQvm), std::end(kFakeCgameQvm)), {}}}));
+    SearchSet set;
+    std::vector<std::string> warnings;
+    CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
+    CvarStore cvars;
+    ef::CgameHost cgame(set, cvars);
+    CHECK(!cgame.load());
+    cgame.setConfigstrings({{12, "baseef-1"}, {289, "sound/player/fry.wav"}, {544, "n\\Reluva\\t\\0"}, {5, ""}});
+    int32_t r = 0;
+    CHECK(!cgame.call(ef::CgameHost::Init, {0, 0, 3}, r) && r == 3);
+    CHECK(cgame.log() == "fake cgame\n");
+    CHECK(!cgame.call(20, {12}, r) && r == 'b' * 1000 + 'a');
+    CHECK(!cgame.call(21, {289}, r) && r == 20);
+    CHECK(!cgame.call(20, {544}, r) && r == 'n' * 1000 + '\\');
+    CHECK(!cgame.call(21, {5}, r) && r == 0);   // empty
+    CHECK(!cgame.call(21, {100}, r) && r == 0); // never set
+    CHECK(!cgame.call(22, {}, r) && r == 1 + 9 + 21 + 13);
+    CHECK(!cgame.call(23, {}, r) && r == 640480);
+    CHECK(!cgame.call(24, {}, r) && r == 101);
+    CHECK((cgame.commands() == std::vector<std::string>{"+zoom", "weapnext"}));
+    CHECK(cgame.music().first == "music/intro" && cgame.music().second == "music/loop");
+    CHECK(cgame.unhandled().empty());
+    std::filesystem::remove_all(tmp);
+}
+
 // The tables switch statements jump through are found and kept from
 // writes: a system call writing over one stops the run, named.
 static void testJumpTableGuard() {
@@ -1231,6 +1266,7 @@ int main() {
     testSoundLibrary(tmp / "sounds");
     testCollision();
     testGameHost(tmp / "game");
+    testCgameHost(tmp / "cgame");
     testJumpTableGuard();
     testUiHost(tmp / "ui");
     testFilesystemAndDetection(tmp / "fs");

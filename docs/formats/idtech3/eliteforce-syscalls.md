@@ -216,7 +216,45 @@ spawns players) as a check of the collision model on its own.
 
 ## Client game (`vm/cgame.qvm`)
 
-124,371 instructions in 583 functions; it uses 0–60 and 100–107. Not run
-yet: it needs a level loaded. Quake III's client calls are the starting
-point; it has more than 60, so where Elite Force's differ will show when
-it runs.
+124,371 instructions in 583 functions; it uses 0–60 and 100–107.
+`vmMain(0, serverMessageNum, serverCommandSequence, clientNum)` starts it
+(Quake III's order). Its start-up, run with every call answered 0
+(`qvm-run ... cgame.qvm 0 0 0 0`), matches Quake III's client game
+numbering wherever it can be checked:
+
+| # | Call | Basis | Evidence |
+|---|---|---|---|
+| 0 | `Print(text)` | seen | `"^1CG_LoadIngameText : mp_ingametext.dat file not found!"`, and it carries on |
+| 1 | `Error(text)` | seen | `"Client/Server game mismatch: baseef-1/"` (configstring 12 against its own version), the last call |
+| 3 | `Cvar_Register(&vmCvar, name, default, flags)` | seen | `cg_fov` "80", `cg_drawGun`...; 272 bytes apart |
+| 6 | `Cvar_VariableStringBuffer(name, buffer, size)` | seen | `g_language`, `sv_running` |
+| 10 | `FS_FOpenFile(path, &handle, mode)` | seen | `ext_data/mp_ingametext.dat`, `ext_data/fonts.dat` |
+| 15 | `AddCommand(name)` | seen | `+zoom`, `weapnext`, `say`, `kill`... |
+| 17 | `UpdateScreen()` | seen | after each loading caption copied to a buffer: "collision map", "sounds", "game media"... |
+| 18 | `CM_LoadMap(name)` | seen | `"maps/<mapname>.bsp"` |
+| 19 | `CM_NumInlineModels()` | seen | where the brush models would be registered |
+| 34 | `S_RegisterSound(name)` | seen | the countdown voices, footsteps, item sounds |
+| 35 | `S_StartBackgroundTrack(intro, loop)` | seen | two strings made from a configstring |
+| 36 | `R_LoadWorldMap(name)` | seen | the map name |
+| 37 | `R_RegisterModel(name)` | seen | `models/weaphits/explosion.md3`... |
+| 38 | `R_RegisterSkin(name)` | order | |
+| 39 | `R_RegisterShader(name)` | seen | `powerups/quad`, `white`... |
+| 40 | `R_ClearScene()` | seen | after clearing a structure |
+| 49 | `GetGlconfig(&glconfig)` | seen | into the field after the game state |
+| 50 | `GetGameState(&gameState)` | seen | into the start of the client game's static block |
+| 57 | `R_RegisterShaderNoMip(name)` | seen | crosshairs, HUD pieces, fonts |
+| 100, 102 | `memset`, `strncpy` | seen | |
+
+The game state (`gamestate_t`) is Quake III's: the client game clears
+195,416 bytes for its static block, the game state goes at its start
+(call 50), the screen settings 20,100 bytes on (call 49), which is
+exactly Quake III's `gamestate_t`: an offset into the text for each of
+1024 configstrings, 16,000 bytes of text (offset 0 an empty string), the
+count of text used. The configstring numbers are Quake III's too (sounds
+from 288, players from 544, the game version at 12). The screen settings
+are the menus' `glconfig_t`.
+
+Reluva's side: `src/engines/idtech3/eliteforce/cgame_host.cpp`, started
+by `reluva-tool game-run <game folder> <map> -cgame` with the server
+game's configstrings. Snapshots (the player state and entities each
+frame) and drawing come next.

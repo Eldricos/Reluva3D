@@ -66,12 +66,13 @@
 //                                                  run Elite Force's menus (vm/ui.qvm) with the engine's
 //                                                  system calls: Init, SetActiveMenu, Refresh; report
 //                                                  what they print, register and draw
-//   reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-trace]
+//   reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame] [-trace]
 //                                                  start a level with Elite Force's game logic
 //                                                  (vm/qagame.qvm): Init with the map's entities, then
 //                                                  frames, with a player (client 0) joining unless
 //                                                  -noclient (-walk: it runs forward); report what it
-//                                                  prints, sets and links
+//                                                  prints, sets and links; -cgame: then start the
+//                                                  client game (vm/cgame.qvm) for the player
 //   reluva-tool shader-check <game folder>         count the shader directives the engine doesn't know
 //                                                  or draw yet, with example shaders
 
@@ -100,6 +101,7 @@
 #include "engines/idtech3/md3.h"
 #include "engines/idtech3/qvm.h"
 #include "engines/idtech3/cvars.h"
+#include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/shader.h"
@@ -3155,13 +3157,13 @@ int cmdUiRun(int argc, char** argv) {
 
 int cmdGameRun(int argc, char** argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-trace]\n");
+        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame] [-trace]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
     int frames = 10;
-    bool traceCalls = false, noClient = false, walk = false;
+    bool traceCalls = false, noClient = false, walk = false, runCgame = false;
     std::vector<std::pair<std::string, std::string>> settings; // -set name value
     std::string walkDirection = "forward";
     for (int i = 4; i < argc; ++i) {
@@ -3171,6 +3173,8 @@ int cmdGameRun(int argc, char** argv) {
             traceCalls = true;
         else if (std::strcmp(argv[i], "-noclient") == 0)
             noClient = true;
+        else if (std::strcmp(argv[i], "-cgame") == 0)
+            runCgame = true;
         else if (std::strcmp(argv[i], "-walk") == 0) {
             walk = true;
             // An optional direction: forward (the default), back, left, right.
@@ -3382,6 +3386,33 @@ int cmdGameRun(int argc, char** argv) {
     }
     for (const auto& [number, count] : game.unhandled())
         std::printf("not implemented: system call %d (%d calls)\n", number, count);
+
+    if (ok && runCgame) {
+        // The player's client game, started with what the server has set.
+        ef::CgameHost cgame(set, cvars);
+        cgame.print = [](const std::string& text) {
+            std::printf("cgame: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
+        };
+        if (traceCalls)
+            cgame.trace = [](int number, const int32_t* a) {
+                std::printf("  cgame syscall %3d (%d, %d, %d, %d)\n", number, a[0], a[1], a[2], a[3]);
+            };
+        reluva::Error err = cgame.load();
+        if (!err) {
+            cgame.setConfigstrings(game.configstrings());
+            err = cgame.init(0);
+        }
+        std::printf("cgame Init: %s after %llu instructions\n", err ? err.message.c_str() : "ok",
+                    static_cast<unsigned long long>(cgame.vm().executed()));
+        std::printf("cgame loaded %s for collision, %s to draw; music %s / %s\n", cgame.collisionMap().c_str(),
+                    cgame.worldMap().c_str(), cgame.music().first.c_str(), cgame.music().second.c_str());
+        std::printf("cgame registered %zu models, %zu skins, %zu shaders, %zu sounds; added %zu commands\n",
+                    cgame.models().size(), cgame.skins().size(), cgame.shaders().size(), cgame.sounds().size(),
+                    cgame.commands().size());
+        for (const auto& [number, count] : cgame.unhandled())
+            std::printf("cgame: not implemented: system call %d (%d calls)\n", number, count);
+        ok = ok && !err;
+    }
     return ok ? 0 : 1;
 }
 
@@ -3581,7 +3612,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
                  "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
                  "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -blockcopies\n"
-                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-trace]\n"
+                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame] [-trace]\n"
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif
                  "");
