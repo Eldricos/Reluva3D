@@ -56,7 +56,7 @@ private:
     struct Surface {
         uint32_t firstIndex = 0, indexCount = 0;
         int vertexCount = 0;
-        int material = -1; // from the model's own shader name
+        int material = -1; // from the model's own shader name, once first needed
     };
     struct Loaded {
         Md3Model md3;

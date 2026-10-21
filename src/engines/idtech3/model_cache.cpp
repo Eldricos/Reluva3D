@@ -81,7 +81,8 @@ int ModelCache::load(const std::string& path, std::string* error) {
             out.firstIndex = uint32_t(indices.size());
             out.indexCount = uint32_t(s.indices.size());
             out.vertexCount = s.vertexCount;
-            out.material = shaders_.material(s.shaders.empty() ? std::string() : s.shaders.front(), Lighting::Diffuse);
+            // The surface's own shader is looked up when first drawn
+            // without a skin naming another, so unused ones aren't loaded.
             const uint32_t base = uint32_t(vertices.size());
             for (size_t i = 0; i < s.vertices.size(); ++i) {
                 gfx::Vertex v{};
@@ -124,11 +125,18 @@ void ModelCache::draw(int id, int frame, const gfx::Mat4& transform, const Point
     const int frames = int(m.md3.frames.size());
     frame = ((frame % frames) + frames) % frames;
     for (size_t i = 0; i < m.surfaces.size(); ++i) {
-        const Surface& s = m.surfaces[i];
-        int material = s.material;
+        Surface& s = models_[size_t(id)].surfaces[i];
+        int material = -1;
         if (skin)
             if (auto it = skin->find(fs::toLower(m.md3.surfaces[i].name)); it != skin->end())
                 material = shaders_.material(it->second, Lighting::Diffuse);
+        if (material < 0) {
+            if (s.material < 0) {
+                const auto& names = m.md3.surfaces[i].shaders;
+                s.material = shaders_.material(names.empty() ? std::string() : names.front(), Lighting::Diffuse);
+            }
+            material = s.material;
+        }
         const ShaderCache::Material& mat = shaders_.get(material);
         if (mat.skip || mat.sort < sortMin || mat.sort > sortMax)
             continue;

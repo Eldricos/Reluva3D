@@ -44,6 +44,9 @@
 //                                                  archive each comes from
 //   reluva-tool image-check <game folder> [map]    list the images maps' shaders use that can't be
 //                                                  found (only maps whose name contains map)
+//   reluva-tool model-check <game folder> [filter] [-v]  for every .md3 surface, the shader or image it
+//                                                  names and whether it's found; where missing files
+//                                                  of the same name are; -v lists every miss
 //   reluva-tool shader-check <game folder>         count the shader directives the engine doesn't know
 //                                                  or draw yet, with example shaders
 
@@ -63,10 +66,12 @@
 #include "engines/newworlds/model_render.h"
 #endif
 #include "common/font.h"
+#include "common/fs.h"
 #include "common/zip.h"
 #ifdef RELUVA_ENGINE_IDTECH3
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/filesystem.h"
+#include "engines/idtech3/md3.h"
 #include "engines/idtech3/shader.h"
 #endif
 
@@ -2501,6 +2506,147 @@ int cmdImageCheck(int argc, char** argv) {
     return 0;
 }
 
+int cmdModelCheck(int argc, char** argv) {
+    if (argc < 3 || argc > 5) {
+        std::fprintf(stderr, "usage: reluva-tool model-check <game folder> [name filter] [-v]\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    std::string filter;
+    bool verbose = false;
+    for (int i = 3; i < argc; ++i) {
+        if (std::strcmp(argv[i], "-v") == 0)
+            verbose = true;
+        else
+            filter = reluva::normalizeArchiveName(argv[i]);
+    }
+    std::vector<std::string> warnings;
+    q3::ShaderLibrary shaders;
+    shaders.load(set, &warnings);
+
+    // Every image by its file name without folder or extension, to say
+    // where a missing one might be.
+    auto stem = [](const std::string& path) {
+        std::string s = reluva::normalizeArchiveName(path);
+        if (const size_t slash = s.find_last_of('/'); slash != std::string::npos)
+            s = s.substr(slash + 1);
+        if (const size_t dot = s.find_last_of('.'); dot != std::string::npos)
+            s.resize(dot);
+        return s;
+    };
+    auto folder = [](const std::string& path) {
+        const std::string s = reluva::normalizeArchiveName(path);
+        const size_t slash = s.find_last_of('/');
+        return slash == std::string::npos ? std::string() : s.substr(0, slash);
+    };
+    std::multimap<std::string, std::string> imagesByStem;
+    std::vector<std::string> models;
+    for (const std::string& n : set.list()) {
+        const std::string key = reluva::normalizeArchiveName(n);
+        if (key.size() > 4) {
+            const std::string ext = key.substr(key.size() - 4);
+            if (ext == ".tga" || ext == ".jpg" || ext == ".png")
+                imagesByStem.emplace(stem(key), key);
+            else if (ext == ".md3" && key.find(filter) != std::string::npos)
+                models.push_back(n);
+        }
+    }
+
+    // Kinds of result, with counts and a few examples.
+    std::map<std::string, std::pair<int, std::vector<std::string>>> kinds;
+    auto count = [&](const std::string& kind, const std::string& example) {
+        auto& [n, ex] = kinds[kind];
+        ++n;
+        if (ex.size() < 3)
+            ex.push_back(example);
+    };
+    int surfaces = 0, unreadable = 0;
+    Bytes data;
+    for (const std::string& path : models) {
+        q3::Md3Model m;
+        if (set.read(path, data) || q3::parseMd3(data, m)) {
+            ++unreadable;
+            continue;
+        }
+        const std::string base = reluva::normalizeArchiveName(path).substr(0, path.size() - 4);
+        // A skin next to the model, as players have, picks shaders first.
+        std::string skins;
+        std::map<std::string, std::string> skin;
+        for (const std::string& n : {base + ".skin", base + "_default.skin"})
+            if (set.has(n)) {
+                skins += " " + n;
+                if (skin.empty() && !set.read(n, data))
+                    skin = q3::parseSkin(std::string_view(reinterpret_cast<const char*>(data.data()), data.size()));
+            }
+        for (const q3::Md3Surface& s : m.surfaces) {
+            ++surfaces;
+            std::string name = s.shaders.empty() ? std::string() : s.shaders.front();
+            std::string via;
+            if (auto it = skin.find(reluva::fs::toLower(s.name)); it != skin.end()) {
+                name = it->second;
+                via = "skin: ";
+            }
+            const std::string where = path + " surface " + s.name + ": \"" + name + "\"";
+            if (name.empty()) {
+                count("no shader name" + std::string(skins.empty() ? "" : " (model has skins)"), where + skins);
+                continue;
+            }
+            std::vector<std::string> wanted; // images it needs
+            if (const q3::ShaderDef* def = shaders.find(name)) {
+                for (const q3::ShaderStage& st : def->stages)
+                    for (const std::string& img : st.maps)
+                        if (!img.empty() && img[0] != '$')
+                            wanted.push_back(img);
+                if (wanted.empty()) {
+                    count(via + "found: script without images", where);
+                    continue;
+                }
+            } else {
+                wanted.push_back(name);
+            }
+            bool allFound = true;
+            for (const std::string& img : wanted) {
+                if (!q3::findImage(set, img).empty())
+                    continue;
+                allFound = false;
+                // Where files of that name are, if anywhere.
+                std::string kind = via + (shaders.find(name) ? "missing image of a script" : "missing image");
+                if (img.find('/') == std::string::npos && img.find('\\') == std::string::npos)
+                    kind += ", name without a folder";
+                const auto range = imagesByStem.equal_range(stem(img));
+                std::string found;
+                bool sameFolder = false;
+                for (auto it = range.first; it != range.second; ++it) {
+                    found += " " + it->second;
+                    if (folder(it->second) == folder(path))
+                        sameFolder = true;
+                }
+                kind += found.empty() ? ", no file of that name anywhere"
+                                      : sameFolder ? ", a file of that name in the model's folder"
+                                                   : ", a file of that name elsewhere";
+                count(kind, where + (img != name ? " needs " + img : std::string()) +
+                                (found.empty() ? std::string() : " ->" + found));
+                if (verbose)
+                    std::printf("MISSING %s%s ->%s\n", where.c_str(), img != name ? (" needs " + img).c_str() : "",
+                                found.empty() ? " (none)" : found.c_str());
+            }
+            if (allFound)
+                count(via + "found", where);
+        }
+    }
+    std::printf("%zu models, %d surfaces, %d models unreadable\n", models.size(), surfaces, unreadable);
+    for (const auto& [kind, info] : kinds) {
+        std::printf("%6d  %s\n", info.first, kind.c_str());
+        if (kind.find("found") == std::string::npos || kind.find("missing") != std::string::npos)
+            for (const std::string& e : info.second)
+                std::printf("          e.g. %s\n", e.c_str());
+    }
+    return 0;
+}
+
 int cmdShaderCheck(int argc, char** argv) {
     if (argc != 3) {
         std::fprintf(stderr, "usage: reluva-tool shader-check <game folder>\n");
@@ -2642,6 +2788,8 @@ int main(int argc, char** argv) {
         return cmdImageCheck(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "shader-check") == 0)
         return cmdShaderCheck(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "model-check") == 0)
+        return cmdModelCheck(argc, argv);
 #endif
     std::fprintf(stderr,
                  "usage:\n"
@@ -2678,6 +2826,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool pk3-list <game folder> [name filter]\n"
                  "  reluva-tool image-check <game folder> [map name filter]\n"
                  "  reluva-tool shader-check <game folder>\n"
+                 "  reluva-tool model-check <game folder> [name filter] [-v]\n"
 #endif
                  "");
     return 2;

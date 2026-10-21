@@ -130,7 +130,8 @@ void ModelViewer::show(int index) {
     resetView();
 
     info_.push_back(e.name);
-    for (const Md3Model* m : parts) {
+    for (size_t pi = 0; pi < parts.size(); ++pi) {
+        const Md3Model* m = parts[pi];
         size_t verts = 0, tris = 0;
         std::set<std::string> shaderNames;
         for (const Md3Surface& s : m->surfaces) {
@@ -147,6 +148,25 @@ void ModelViewer::show(int index) {
                       m->name.empty() ? "model" : m->name.c_str(), m->frames.size(), m->surfaces.size(), verts, tris,
                       tags.empty() ? "" : ", tags: ", tags.c_str());
         info_.push_back(line);
+        // Each surface's shader (from the skin if it names one) and whether
+        // it, or the image it needs, is there.
+        for (const Md3Surface& s : m->surfaces) {
+            std::string shader = s.shaders.empty() ? std::string() : s.shaders.front();
+            if (const Skin* skin = skins_[pi])
+                if (auto it = skin->find(fs::toLower(s.name)); it != skin->end())
+                    shader = it->second;
+            bool found = !shader.empty();
+            if (const ShaderDef* def = ctx_.shaders.find(shader)) {
+                for (const ShaderStage& st : def->stages)
+                    for (const std::string& img : st.maps)
+                        if (!img.empty() && img[0] != '$' && findImage(ctx_.files, img).empty())
+                            found = false;
+            } else if (found) {
+                found = !findImage(ctx_.files, shader).empty();
+            }
+            info_.push_back("  " + s.name + ": " + (shader.empty() ? std::string("(no shader)") : shader) +
+                            (found ? "" : "  [MISSING]"));
+        }
     }
 }
 
