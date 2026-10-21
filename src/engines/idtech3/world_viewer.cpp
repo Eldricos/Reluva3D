@@ -8,6 +8,7 @@
 #include "engines/idtech3/viewers.h"
 
 #include "common/font.h"
+#include "common/fs.h"
 
 #include <algorithm>
 #include <chrono>
@@ -41,8 +42,12 @@ WorldViewer::WorldViewer(ViewerContext& ctx) : Page(ctx) {
 WorldViewer::~WorldViewer() { deactivate(); }
 
 void WorldViewer::deactivate() {
-    // The renderer's resources go with it when the engine leaves 3D.
+    // The renderer's resources go with it when the engine leaves 3D; the
+    // shader cache last, as the others draw through it.
+    placed_.clear();
+    models_.reset();
     world_.reset();
+    shaders_.reset();
     renderer_ = nullptr;
 }
 
@@ -60,7 +65,9 @@ void WorldViewer::activate() {
     }
     overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
     device_ = renderer_->deviceName();
-    world_ = std::make_unique<WorldRenderer>(*renderer_);
+    shaders_ = std::make_unique<ShaderCache>(*renderer_, ctx_.files, ctx_.shaders);
+    world_ = std::make_unique<WorldRenderer>(*renderer_, *shaders_);
+    models_ = std::make_unique<ModelCache>(*renderer_, *shaders_, ctx_.files);
     load(index_);
 }
 
@@ -71,13 +78,17 @@ void WorldViewer::load(int index) {
     const std::string& name = names_[size_t(index)];
     setTitle(name + " (" + std::to_string(index + 1) + "/" + std::to_string(names_.size()) + ")");
 
+    placed_.clear();
+    models_->clear();
+    world_->clear();
+    shaders_->clear();
     std::vector<uint8_t> data;
     Bsp bsp;
     Error err = ctx_.files.read(name, data);
     if (!err)
         err = parseBsp(data, bsp);
     if (!err)
-        err = world_->load(bsp, ctx_.files, ctx_.shaders);
+        err = world_->load(bsp, ctx_.shaders);
     if (err) {
         error_ = err.message;
         world_->clear();
@@ -91,7 +102,40 @@ void WorldViewer::load(int index) {
         for (int i = 0; i < 3; ++i)
             start_[size_t(i)] = (bsp.models[0].mins[size_t(i)] + bsp.models[0].maxs[size_t(i)]) / 2;
     std::vector<Entity> entities;
+    int unloadable = 0;
+    grid_ = LightGrid{};
     if (!parseEntities(bsp.entities, entities)) {
+        // The light grid, with the worldspawn's cell size if it gives one.
+        float cell[3] = {64, 64, 128};
+        if (!entities.empty())
+            entities[0].vector("gridsize", cell);
+        grid_.build(bsp, {cell[0], cell[1], cell[2]});
+
+        // Models named by entities (brush models, "*n", are map geometry).
+        // Items and characters get theirs from the game code, so they
+        // aren't shown here.
+        for (const Entity& e : entities)
+            for (const char* key : {"model", "model2"}) {
+                const std::string model = e.get(key);
+                if (model.size() < 4 || fs::toLower(model.substr(model.size() - 4)) != ".md3")
+                    continue;
+                const int id = models_->load(model);
+                if (id < 0) {
+                    ++unloadable;
+                    continue;
+                }
+                float origin[3] = {0, 0, 0}, angles[3] = {0, 0, 0};
+                e.vector("origin", origin);
+                if (!e.vector("angles", angles))
+                    angles[1] = std::strtof(e.get("angle", "0").c_str(), nullptr);
+                Placed p;
+                p.model = id;
+                p.transform = placement({origin[0], origin[1], origin[2]},
+                                        anglesToAxes({angles[0], angles[1], angles[2]}));
+                p.light = grid_.sample({origin[0], origin[1], origin[2]});
+                placed_.push_back(p);
+            }
+
         const Entity* start = nullptr;
         for (const char* cls : {"info_player_start", "info_player_deathmatch"}) {
             for (const Entity& e : entities)
@@ -114,12 +158,15 @@ void WorldViewer::load(int index) {
     if (error_.empty()) {
         char line[160];
         std::snprintf(line, sizeof line, "%zu triangles in %zu batches, %zu images (%d missing), %zu lightmaps",
-                      world_->triangleCount(), world_->batchCount(), world_->textureCount(), world_->missingImages(),
-                      bsp.lightmapCount());
+                      world_->triangleCount(), world_->batchCount(), shaders_->imageCount(),
+                      shaders_->missingImages(), bsp.lightmapCount());
+        info_.push_back(line);
+        std::snprintf(line, sizeof line, "%zu models placed by entities%s%s", placed_.size(),
+                      unloadable ? ", couldn't load " : "", unloadable ? std::to_string(unloadable).c_str() : "");
         info_.push_back(line);
         // What the map's shaders use that isn't drawn yet.
         std::string missing;
-        for (const auto& [feature, n] : world_->unsupported())
+        for (const auto& [feature, n] : shaders_->unsupported())
             missing += (missing.empty() ? "" : ", ") + feature + (n > 1 ? " x" + std::to_string(n) : "");
         if (!missing.empty())
             info_.push_back("Not drawn yet: " + missing);
@@ -197,7 +244,17 @@ void WorldViewer::update(uint64_t nowMs) {
     using Clock = std::chrono::steady_clock;
     const auto t0 = Clock::now();
     renderer_->beginFrame(viewProj, pos_, {40, 48, 64});
-    world_->draw(float(nowMs - loadedMs_) / 1000.0f);
+    // Opaque surfaces and models, then translucent ones over them (sort
+    // keys above "see through").
+    constexpr float kLastOpaque = 5;
+    const float time = float(nowMs - loadedMs_) / 1000.0f;
+    world_->drawSky(time);
+    world_->drawSurfaces(time, 0, kLastOpaque);
+    for (const Placed& p : placed_)
+        models_->draw(p.model, 0, p.transform, p.light, time, nullptr, 0, kLastOpaque);
+    world_->drawSurfaces(time, kLastOpaque + 0.5f);
+    for (const Placed& p : placed_)
+        models_->draw(p.model, 0, p.transform, p.light, time, nullptr, kLastOpaque + 0.5f);
     drawOverlay(nowMs);
     const auto t1 = Clock::now();
     renderer_->endFrame(&overlay_);

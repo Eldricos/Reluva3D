@@ -86,8 +86,10 @@ float evaluate(const Wave& wave, float time);
 // reflection of the camera off the surface (environment mapping), or the
 // position's dot products with two vectors.
 enum class TexGen : uint8_t { Uv, Uv2, Environment, Vector };
-// Where colour and alpha come from (times DrawCall::color).
-enum class ColorSource : uint8_t { Constant, Vertex, OneMinusVertex };
+// Where colour and alpha come from (times DrawCall::color). Lighting: the
+// draw call's ambient light, plus its directed light times how much the
+// normal faces the light's direction (alpha 1).
+enum class ColorSource : uint8_t { Constant, Vertex, OneMinusVertex, Lighting };
 
 // Moves vertices on the GPU each frame.
 struct Deform {
@@ -104,6 +106,10 @@ struct Deform {
 struct DrawCall {
     MeshId mesh = 0;
     uint32_t firstIndex = 0, indexCount = 0;
+    int32_t vertexOffset = 0; // added to every index, e.g. to pick an animation frame's vertices
+    // Places the mesh in the world. Deforms and texture coordinates from
+    // positions (Vector, turbulence) use the mesh's own coordinates.
+    Mat4 model = identity();
     TextureId texture = 0; // 0: white
     TexGen texGen = TexGen::Uv;
     Vec3 texVector0{}, texVector1{}; // TexGen::Vector's two vectors
@@ -119,6 +125,8 @@ struct DrawCall {
     // constant. Components may exceed 1 (results are clamped).
     std::array<float, 4> color{1, 1, 1, 1};
     ColorSource rgbSource = ColorSource::Constant, alphaSource = ColorSource::Constant;
+    Vec3 ambientLight{}, directedLight{}; // for ColorSource::Lighting, 1 = full
+    Vec3 lightDirection{0, 0, 1};         // towards the light, in world space
     // > 0: the fragment's alpha is instead clamp(distance from the camera
     // / fogDistance), for blending a fog colour over drawn geometry.
     float fogDistance = 0;

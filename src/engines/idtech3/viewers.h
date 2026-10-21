@@ -11,6 +11,10 @@
 //           to look, W/A/S/D to move, Space/C (or E/Q) up and down, Shift
 //           to go faster, R back to the start point, I to show or hide
 //           the info.
+// Models:   every .md3; players (lower, upper and head in one folder) put
+//           together. Left/Right step, PageUp/PageDown jump 10; drag to
+//           turn, wheel or +/- to zoom, A to animate, ,/. to step frames,
+//           R to reset the view, I to show or hide the info.
 // Files:    Up/Down, PageUp/PageDown, Home/End scroll the search path's files.
 // Textures: Left/Right step, PageUp/PageDown jump 10, Home/End.
 // Maps:     Left/Right pick a map; drag (or arrow keys with Shift) to rotate,
@@ -20,6 +24,9 @@
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/games.h"
 #include "engines/idtech3/shader.h"
+#include "engines/idtech3/light_grid.h"
+#include "engines/idtech3/model_cache.h"
+#include "engines/idtech3/shader_cache.h"
 #include "engines/idtech3/world_renderer.h"
 
 #include "common/archive.h"
@@ -122,7 +129,17 @@ private:
     std::vector<std::string> names_;
     int index_ = 0;
     gfx::Renderer3D* renderer_ = nullptr; // valid while this page is shown
+    std::unique_ptr<ShaderCache> shaders_;  // the next three draw through it
     std::unique_ptr<WorldRenderer> world_;
+    std::unique_ptr<ModelCache> models_;
+    LightGrid grid_;
+    // Models the map's entities name, lit by the light grid where they stand.
+    struct Placed {
+        int model = -1;
+        gfx::Mat4 transform{};
+        PointLight light;
+    };
+    std::vector<Placed> placed_;
     Surface overlay_;
     std::string error_;
     std::vector<std::string> info_;
@@ -146,6 +163,46 @@ private:
     double drawSum_ = 0, presentSum_ = 0;
     float drawMs_ = 0, presentMs_ = 0;
     std::string device_;
+};
+
+class ModelViewer : public Page {
+public:
+    explicit ModelViewer(ViewerContext& ctx);
+    ~ModelViewer() override;
+    const char* name() const override { return "Models"; }
+    size_t count() const override { return entries_.size(); }
+    void activate() override;
+    void deactivate() override;
+    void handleEvent(const Event& ev) override;
+    void update(uint64_t nowMs) override;
+    bool uses3D() const override { return renderer_ != nullptr; }
+
+private:
+    struct Entry {
+        std::string name; // the .md3, or the player's folder
+        bool player = false;
+    };
+    void show(int index);
+    void resetView();
+
+    std::vector<Entry> entries_;
+    int index_ = 0;
+    gfx::Renderer3D* renderer_ = nullptr;
+    std::unique_ptr<ShaderCache> shaders_;
+    std::unique_ptr<ModelCache> models_;
+    Surface overlay_;
+    std::vector<std::string> info_;
+    std::string error_;
+    int model_ = -1;                     // a single model
+    int lower_ = -1, upper_ = -1, head_ = -1; // a player's parts
+    const Skin* skins_[3] = {};
+    std::array<float, 3> center_{};
+    float radius_ = 32;
+    float yaw_ = 0, pitch_ = 0, distance_ = 100;
+    bool dragging_ = false, animate_ = false, showInfo_ = true;
+    int lastX_ = 0, lastY_ = 0;
+    int frame_ = 0; // when not animating
+    uint64_t startMs_ = 0;
 };
 
 class MapViewer : public Page {

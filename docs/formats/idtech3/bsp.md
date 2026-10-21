@@ -39,7 +39,7 @@ single precision.
 | 12 | fogs | 72 | char[64] shader, i32 brush, i32 visible side (−1 = none) |
 | 13 | surfaces | 104 | see below |
 | 14 | lightmaps | 49152 | 128×128 RGB |
-| 15 | light grid | 8 | u8[3] ambient, u8[3] directed colour, u8[2] direction (latitude, longitude); the grid's size comes from the world model's bounds |
+| 15 | light grid | 8 | u8[3] ambient, u8[3] directed colour, u8 longitude, u8 latitude of the direction towards the light; see below |
 | 16 | visibility | — | i32 cluster count, i32 bytes per cluster, then one bit per cluster pair: bit `to` of row `from` set when `to` can be seen from `from` |
 
 ### Surfaces
@@ -61,6 +61,26 @@ single precision.
 Patches are grids of quadratic Bézier patches: width × height control
 points (both odd), each 3×3 block one patch, sharing edges. The engine
 tessellates them; the file holds only the control points.
+
+## The light grid
+
+Light sampled on a regular grid, for lighting models. Cells are 64 × 64 ×
+128 units unless the worldspawn entity's `gridsize` key says otherwise.
+Grid points lie on multiples of the cell size inside the world model's
+bounds: from ceil(mins / size) × size to floor(maxs / size) × size on each
+axis, X fastest, then Y, then Z. If the lump's size doesn't match, the
+original ignores the grid.
+
+Colours are stored at half brightness like lightmaps (doubled, keeping the
+hue). The direction is two angles × 2π/256: longitude (byte 6) from +Z,
+latitude (byte 7) around it, giving (cos lat · sin lng, sin lat · sin lng,
+cos lng).
+
+To light a point the original blends the eight surrounding grid points by
+distance, skipping any that are all black (inside walls) and rescaling
+the rest, normalizes the blended direction, then adds 32 to the ambient
+light (capped at 255). `src/engines/idtech3/light_grid.cpp`; read from the
+GPL renderer's `tr_bsp.c` and `tr_light.c`.
 
 ## What the reader checks
 

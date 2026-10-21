@@ -88,10 +88,13 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   the glyphs' boxes.
 
 - Elite Force (id Tech 3) also opens as a data viewer, starting on its maps in 3D.
-  **Tab** switches between the 3D world, wireframe maps, textures and files. In the world,
+  **Tab** switches between the 3D world, models, wireframe maps, textures and files. In the world,
   **Left/Right** picks a map, drag to look, **W/A/S/D** move, **Space/C** (or **E/Q**) go up
   and down, **Shift** goes faster, **R** returns to the start and **I** shows or hides the
-  info; it needs a GPU with Vulkan (Linux, Windows) or Metal (macOS). For wireframe maps,
+  info; it needs a GPU with Vulkan (Linux, Windows) or Metal (macOS). Models placed by the
+  map's entities show too. The models page shows every model, players put together:
+  **Left/Right** step, drag to turn, the wheel zooms, **A** animates, **,/.** step frames.
+  For wireframe maps,
   **Left/Right** picks one,
   drag (or **Shift+arrows**) rotates, the wheel (or **+/-**) zooms, **W/A/S/D/Q/E** move,
   **P** shows or hides patches, **I** the info and **R** resets the view. For textures,

@@ -21,6 +21,7 @@ struct DeformUniforms {
 };
 struct VertexUniforms {
     float viewProj[16];
+    float model[16];
     float eye[4];
     float preRow0[4], preRow1[4], postRow0[4], postRow1[4];
     float turb[4];
@@ -28,6 +29,7 @@ struct VertexUniforms {
     float color[4];
     float mode[4];
     float mode2[4];
+    float ambient[4], directed[4], lightDir[4];
     DeformUniforms deforms[2];
 };
 struct FragmentUniforms {
@@ -439,6 +441,10 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     VertexUniforms vu{};
     auto put = [](float* out, const auto& in) { std::copy(in.begin(), in.end(), out); };
     put(vu.viewProj, viewProj_);
+    put(vu.model, call.model);
+    put(vu.ambient, call.ambientLight);
+    put(vu.directed, call.directedLight);
+    put(vu.lightDir, call.lightDirection);
     put(vu.eye, eye_);
     vu.eye[3] = call.time;
     put(vu.preRow0, call.preRow0);
@@ -478,7 +484,7 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     fu.params[0] = float(call.state.alphaTest);
     SDL_PushGPUFragmentUniformData(cmd_, 0, &fu, sizeof(fu));
 
-    SDL_DrawGPUIndexedPrimitives(pass_, call.indexCount, 1, call.firstIndex, 0, 0);
+    SDL_DrawGPUIndexedPrimitives(pass_, call.indexCount, 1, call.firstIndex, call.vertexOffset, 0);
 }
 
 void SdlGpuRenderer::endFrame(const Surface* overlay) {

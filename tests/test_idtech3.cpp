@@ -8,6 +8,9 @@
 #include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/games.h"
 #include "engines/idtech3/lexer.h"
+#include "engines/idtech3/light_grid.h"
+#include "engines/idtech3/md3.h"
+#include "engines/idtech3/model_cache.h"
 #include "engines/idtech3/patch.h"
 #include "engines/idtech3/shader.h"
 #include "engines/registry.h"
@@ -386,6 +389,153 @@ static void testPatch() {
     CHECK(out.size() == 5 * 3 && outIdx.size() == 4 * 2 * 6);
 }
 
+// A two-frame MD3 with one tag and one triangle; frame 1 is frame 0
+// moved up 64 units.
+static std::vector<uint8_t> buildMd3(int badIndex = -1) {
+    std::vector<uint8_t> out;
+    auto i32 = [&](int32_t x) {
+        for (int i = 0; i < 4; ++i)
+            out.push_back(uint8_t(uint32_t(x) >> (8 * i)));
+    };
+    auto i16 = [&](int16_t x) {
+        out.push_back(uint8_t(uint16_t(x)));
+        out.push_back(uint8_t(uint16_t(x) >> 8));
+    };
+    auto f32 = [&](float f) {
+        int32_t x;
+        std::memcpy(&x, &f, 4);
+        i32(x);
+    };
+    auto name = [&](const char* s, size_t n) {
+        std::vector<uint8_t> b(n, 0);
+        std::memcpy(b.data(), s, std::strlen(s));
+        out.insert(out.end(), b.begin(), b.end());
+    };
+    const int frames = 2, tags = 1;
+    const int ofsFrames = 108, ofsTags = ofsFrames + 56 * frames, ofsSurf = ofsTags + 112 * frames * tags;
+    out.insert(out.end(), {'I', 'D', 'P', '3'});
+    i32(15);
+    name("models/test/box.md3", 64);
+    i32(0); i32(frames); i32(tags); i32(1); i32(0);
+    i32(ofsFrames); i32(ofsTags); i32(ofsSurf); i32(0);
+    for (int f = 0; f < frames; ++f) {
+        for (float v : {-8.f, -8.f, 0.f + 64 * f, 8.f, 8.f, 16.f + 64 * f, 0.f, 0.f, 0.f, 12.f})
+            f32(v);
+        name(f ? "up" : "rest", 16);
+    }
+    for (int f = 0; f < frames; ++f) {
+        name("tag_top", 64);
+        for (float v : {0.f, 0.f, 16.f + 64 * f, 1.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 1.f})
+            f32(v);
+    }
+    // Surface: header (108), shader (68), triangle (12), st (3 * 8), xyz (2 * 3 * 8).
+    const int ofsShaders = 108, ofsTris = ofsShaders + 68, ofsSt = ofsTris + 12, ofsXyz = ofsSt + 24,
+              ofsEnd = ofsXyz + 48;
+    out.insert(out.end(), {'I', 'D', 'P', '3'});
+    name("box", 64);
+    i32(0); i32(frames); i32(1); i32(3); i32(1);
+    i32(ofsTris); i32(ofsShaders); i32(ofsSt); i32(ofsXyz); i32(ofsEnd);
+    name("models/test/box", 64);
+    i32(0);
+    i32(0); i32(1); i32(badIndex >= 0 ? badIndex : 2);
+    for (float v : {0.f, 0.f, 1.f, 0.f, 0.f, 1.f})
+        f32(v);
+    for (int f = 0; f < frames; ++f)
+        for (int v = 0; v < 3; ++v) {
+            i16(int16_t(v == 1 ? 64 * 8 : 0)); // x 8 for vertex 1 (1/64 units)
+            i16(int16_t(v == 2 ? 64 * 8 : 0));
+            i16(int16_t(64 * 64 * f));
+            i16(int16_t(v == 0 ? 0 : (64 << 8) | 64)); // straight up; lat 64 lng 64 points along +y
+        }
+    return out;
+}
+
+static void testMd3() {
+    Md3Model m;
+    Error err = parseMd3(buildMd3(), m);
+    CHECK(!err);
+    if (err) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return;
+    }
+    CHECK(m.name == "models/test/box.md3" && m.frames.size() == 2 && m.tagCount == 1 && m.surfaces.size() == 1);
+    CHECK(m.frames[1].name == "up" && m.frames[1].maxs[2] == 80 && m.frames[0].radius == 12);
+    const Md3Tag* top = m.tag(1, "tag_top");
+    CHECK(top && top->origin[2] == 80 && top->axis[2][2] == 1 && !m.tag(0, "tag_head") && !m.tag(5, "tag_top"));
+    const Md3Surface& s = m.surfaces[0];
+    CHECK(s.name == "box" && s.shaders.size() == 1 && s.shaders[0] == "models/test/box");
+    CHECK((s.indices == std::vector<uint32_t>{0, 1, 2}) && s.vertexCount == 3 && s.vertices.size() == 6);
+    CHECK(s.st[1][0] == 1 && s.st[2][1] == 1);
+    CHECK(s.vertices[1].pos[0] == 8 && s.vertices[2].pos[1] == 8 && s.vertices[3 + 0].pos[2] == 64);
+    // Normal 0 (both angles 0) points up; lat 64 lng 64 (a quarter turn each) along +y.
+    CHECK(std::fabs(s.vertices[0].normal[2] - 1) < 1e-5f);
+    CHECK(std::fabs(s.vertices[1].normal[1] - 1) < 1e-5f && std::fabs(s.vertices[1].normal[2]) < 1e-5f);
+
+    CHECK(parseMd3(buildMd3(3), m)); // a triangle using a vertex past the end
+    auto cut = buildMd3();
+    cut.resize(cut.size() - 4);
+    CHECK(parseMd3(cut, m));
+    CHECK(parseMd3({'I', 'D', 'P', '2'}, m));
+}
+
+static void testSkinAndPlacement() {
+    const Skin skin = parseSkin("h_Head,models/players2/munro/head.tga\r\ntag_head,\n\nbody , models/x/body \nempty,\n");
+    CHECK(skin.size() == 2 && skin.at("h_head") == "models/players2/munro/head.tga" && skin.at("body") == "models/x/body");
+
+    auto approx = [](float a, float b) { return std::fabs(a - b) < 1e-4f; };
+    // Yaw 90: forward is +y, left is -x.
+    auto axes = anglesToAxes({0, 90, 0});
+    CHECK(approx(axes[0][1], 1) && approx(axes[1][0], -1) && approx(axes[2][2], 1));
+    // Pitch 90 (down positive): forward points down.
+    axes = anglesToAxes({90, 0, 0});
+    CHECK(approx(axes[0][2], -1));
+    // A tag 10 up in a model placed at (100, 0, 0) turned 90: what's
+    // attached 5 along its x lands at (100, 5, 10).
+    Md3Tag tag;
+    tag.origin = {0, 0, 10};
+    tag.axis = {{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}};
+    const gfx::Mat4 m = gfx::multiply(placement({100, 0, 0}, anglesToAxes({0, 90, 0})), tagPlacement(tag));
+    const gfx::Vec3 p = gfx::transformPoint(m, {5, 0, 0});
+    CHECK(approx(p[0], 100) && approx(p[1], 5) && approx(p[2], 10));
+}
+
+static void testLightGrid() {
+    // A world 0..128 x 0..64 x 0..128 holds 3 x 2 x 2 grid points.
+    Bsp bsp;
+    BspModel world;
+    world.mins = {0, 0, 0};
+    world.maxs = {128, 64, 128};
+    bsp.models.push_back(world);
+    bsp.lightGrid.assign(3 * 2 * 2 * 8, 0);
+    auto point = [&](int x, int y, int z) { return &bsp.lightGrid[size_t(((z * 2 + y) * 3 + x) * 8)]; };
+    for (int z = 0; z < 2; ++z)
+        for (int y = 0; y < 2; ++y)
+            for (int x = 0; x < 3; ++x) {
+                uint8_t* p = point(x, y, z);
+                p[0] = p[1] = p[2] = uint8_t(x == 0 ? 40 : 80); // ambient, doubled on loading
+                p[3] = p[4] = p[5] = 50;                        // directed
+                p[6] = 0;                                      // from straight above
+            }
+    point(2, 0, 0)[0] = point(2, 0, 0)[1] = point(2, 0, 0)[2] = 0; // inside a wall
+    LightGrid grid;
+    grid.build(bsp);
+    CHECK(!grid.empty());
+    auto approx = [](float a, float b) { return std::fabs(a - b) < 1e-3f; };
+    // On grid point (0,0,0): 40 doubled, plus the minimum ambient of 32.
+    PointLight l = grid.sample({0, 0, 0});
+    CHECK(approx(l.ambient[0], 112) && approx(l.directed[0], 100) && approx(l.direction[2], 1));
+    // Halfway between x = 0 and 1: 80 and 160 blend to 120, + 32.
+    l = grid.sample({32, 0, 0});
+    CHECK(approx(l.ambient[0], 152));
+    // Next to the point in a wall, it's skipped, not blended as black.
+    l = grid.sample({96, 0, 0});
+    CHECK(approx(l.ambient[0], 160 + 32));
+    // A grid of the wrong size is ignored, and sampling still gives light.
+    bsp.lightGrid.resize(8);
+    grid.build(bsp);
+    CHECK(grid.empty() && grid.sample({0, 0, 0}).ambient[0] > 0);
+}
+
 static void testFilesystemAndDetection(const std::filesystem::path& tmp) {
     using test::toBytes;
     std::filesystem::remove_all(tmp);
@@ -452,6 +602,9 @@ int main() {
     testWaves();
     testBsp();
     testPatch();
+    testMd3();
+    testSkinAndPlacement();
+    testLightGrid();
     testFilesystemAndDetection(tmp / "fs");
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);

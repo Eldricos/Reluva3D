@@ -28,7 +28,8 @@ every engine.
 | Shader scripts | every Quake III directive parsed into typed fields, unknown ones listed (`reluva-tool shader-check`) ([shader.md](../formats/idtech3/shader.md)) |
 | Maps | every BSP lump read and validated; all 67 retail maps load ([bsp.md](../formats/idtech3/bsp.md)) |
 | Images | TGA, JPEG, PNG (`common/image.cpp`) |
-| Viewer | World (3D), Maps (wireframe), Textures and Files pages |
+| Models | MD3 with every frame, tags, `.skin` files, players put together from their parts, lit by the light grid in maps ([md3.md](../formats/idtech3/md3.md)); placed where entities name a model. Items and characters wait for the game code |
+| Viewer | World (3D, with entities' models), Models, Maps (wireframe), Textures and Files pages |
 | Renderer | every shader stage with its blend, depth, alpha test, rgbGen/alphaGen, tcGen/tcMod and animMap; deformVertexes wave/bulge/move; sort order; sky boxes and cloud layers; fog volumes (by camera distance); the original's implicit shaders and light scaling ([shader.md](../formats/idtech3/shader.md)). Not yet: autosprites, portals, dynamic lights, visibility culling |
 | Models, sound, game code | not started |
 
@@ -55,8 +56,9 @@ every engine.
    RTX 2080, and Elite Force's 1872 shaders use no directive outside
    Quake III's. What's left for its maps: autosprite2 (two fire shaders)
    and the ten portal/mirror shaders.
-4. **Models**: MD3 (to confirm which model formats Elite Force uses for
-   its characters and weapons).
+4. **Models**: done for MD3 (see the table). Still to do: interpolating
+   between frames, the players' `animation.cfg`, `projectionShadow`, and
+   checking Elite Force's models on the Models page.
 5. **Sound**: WAV effects and the music through `common/audio`.
 6. **Game code**: see below.
 

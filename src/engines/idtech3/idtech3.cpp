@@ -50,6 +50,7 @@ public:
         ViewerContext ctx{sys_, screen_, files_, shaders_, game_, warnings};
         std::vector<std::unique_ptr<Page>> pages;
         pages.push_back(std::make_unique<WorldViewer>(ctx));
+        pages.push_back(std::make_unique<ModelViewer>(ctx));
         pages.push_back(std::make_unique<MapViewer>(ctx));
         pages.push_back(std::make_unique<TextureViewer>(ctx));
         pages.push_back(std::make_unique<FileViewer>(ctx));

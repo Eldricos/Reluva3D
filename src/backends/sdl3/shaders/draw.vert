@@ -23,6 +23,7 @@ struct DeformData {
 
 layout(set = 1, binding = 0) uniform Draw {
     mat4 viewProj;
+    mat4 model;
     vec4 eye;      // xyz: camera position, w: time in seconds
     vec4 preRow0;  // xyz: texture transform before turbulence
     vec4 preRow1;
@@ -33,8 +34,11 @@ layout(set = 1, binding = 0) uniform Draw {
     vec4 texVec1;  // xyz: for v
     vec4 color;
     vec4 mode;     // x: texGen (0 uv, 1 uv2, 2 environment, 3 vector), y: rgb source, z: alpha source
-                   // (0 constant, 1 vertex, 2 one minus vertex), w: fog distance (0 off)
+                   // (0 constant, 1 vertex, 2 one minus vertex, 3 lighting), w: fog distance (0 off)
     vec4 mode2;    // x: follow the camera
+    vec4 ambient;  // xyz: ambient light for the lighting colour source
+    vec4 directed; // xyz: directed light
+    vec4 lightDir; // xyz: towards the light, world space
     DeformData deforms[2];
 };
 
@@ -68,8 +72,10 @@ float wave(float func, float base, float amp, float phase, float freq, float t) 
     return base + amp * v;
 }
 
-vec4 source(float which, vec4 vertexColor) {
+vec4 source(float which, vec4 vertexColor, vec3 normal) {
     int w = int(which + 0.5);
+    if (w == 3)
+        return vec4(clamp(ambient.rgb + directed.rgb * max(dot(normal, lightDir.xyz), 0.0), 0.0, 1.0), 1.0);
     return w == 1 ? vertexColor : (w == 2 ? vec4(1.0) - vertexColor : vec4(1.0));
 }
 
@@ -87,7 +93,8 @@ void main() {
             pos += deforms[i].c.xyz * wave(deforms[i].a.y, deforms[i].a.z, deforms[i].a.w, deforms[i].b.x, deforms[i].b.y, t);
         }
     }
-    vec3 world = mode2.x > 0.5 ? pos + eye.xyz : pos;
+    vec3 world = mode2.x > 0.5 ? pos + eye.xyz : (model * vec4(pos, 1.0)).xyz;
+    vec3 normal = normalize(mat3(model) * inNormal);
 
     vec2 uv;
     int gen = int(mode.x + 0.5);
@@ -96,7 +103,7 @@ void main() {
     } else if (gen == 2) {
         // Reflect the direction to the camera off the surface.
         vec3 toEye = normalize(eye.xyz - world);
-        vec3 r = inNormal * (2.0 * dot(inNormal, toEye)) - toEye;
+        vec3 r = normal * (2.0 * dot(normal, toEye)) - toEye;
         uv = vec2(0.5 + r.y * 0.5, 0.5 - r.z * 0.5);
     } else if (gen == 3) {
         uv = vec2(dot(pos, texVec0.xyz), dot(pos, texVec1.xyz));
@@ -112,7 +119,7 @@ void main() {
     h = vec3(uv, 1.0);
     outUv = vec2(dot(postRow0.xyz, h), dot(postRow1.xyz, h));
 
-    outColor = vec4(source(mode.y, inColor).rgb, source(mode.z, inColor).a) * color;
+    outColor = vec4(source(mode.y, inColor, normal).rgb, source(mode.z, inColor, normal).a) * color;
     if (mode.w > 0.0)
         outColor = vec4(color.rgb, clamp(distance(world, eye.xyz) / mode.w, 0.0, 1.0));
     gl_Position = viewProj * vec4(world, 1.0);

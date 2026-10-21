@@ -127,6 +127,11 @@ if(RELUVA_ENGINE_IDTECH3)
         src/engines/idtech3/map_viewer.cpp
         src/engines/idtech3/patch.cpp
         src/engines/idtech3/world_renderer.cpp
+    src/engines/idtech3/shader_cache.cpp
+    src/engines/idtech3/md3.cpp
+    src/engines/idtech3/light_grid.cpp
+    src/engines/idtech3/model_cache.cpp
+    src/engines/idtech3/model_viewer.cpp
         src/engines/idtech3/world_viewer.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_IDTECH3)
 endif()
