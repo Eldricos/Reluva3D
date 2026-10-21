@@ -252,6 +252,9 @@ private:
     int mouseX_ = 0, mouseY_ = 0;
     float cursorX_ = 0, cursorY_ = 0;
     float cursorOffsetX_ = 0, cursorOffsetY_ = 0;
+    float measuredX_ = 0, measuredY_ = 0; // where its picture last put it
+    float pendingX_ = 0, pendingY_ = 0;   // the steps sent since, in pixels expected
+    float gainX_ = 1, gainY_ = 1;         // pixels moved per pixel expected
 };
 
 class MapViewer : public Page {

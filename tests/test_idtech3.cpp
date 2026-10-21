@@ -914,7 +914,8 @@ static void testUiHost(const std::filesystem::path& tmp) {
                                     {"scripts/test.txt", toBytes("hello world\n"), {}},
                                     {"scripts/other.txt", toBytes("x"), {}},
                                     {"scripts/sub/deep.txt", toBytes("x"), {}},
-                                    {"scripts/a.shader", toBytes("x"), {}}}));
+                                    {"scripts/a.shader", toBytes("x"), {}},
+                                    {"models/test/box.md3", buildMd3(), {}}}));
     SearchSet set;
     std::vector<std::string> warnings;
     CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
@@ -964,12 +965,19 @@ static void testUiHost(const std::filesystem::path& tmp) {
     ui.setKeyFile(tmp / "save" / "cdkey.txt");
     CHECK(!ui.call(28, {1}, r) && r == 0 && !std::filesystem::exists(tmp / "save" / "cdkey.txt"));
     CHECK(!ui.call(28, {0}, r) && r == 1 && std::filesystem::exists(tmp / "save" / "cdkey.txt"));
-    CHECK(!ui.call(29, {}, r) && r == 'W' * 1000 + 'F');
+    // Call 58, the model bounds the main menu asks for: frame 0's box.
+    Md3Model box;
+    CHECK(!parseMd3(buildMd3(), box));
+    const auto& f0 = box.frames[0];
+    const int boxCode = int(f0.mins[0] * 10) + int(f0.mins[1] * 100) + int(f0.mins[2] * 1000) +
+                        int(f0.maxs[0] * 10000) + int(f0.maxs[1] * 100000) + int(f0.maxs[2] * 1000000);
+    CHECK(boxCode != 0);
+    CHECK(!ui.call(29, {}, r) && r == boxCode);
+    CHECK(!ui.call(29, {99}, r) && r == 0); // no such model: zeros
     CvarStore fresh;
     ef::UiHost again(set, fresh);
     again.setKeyFile(tmp / "save" / "cdkey.txt");
     CHECK(!again.load() && !again.call(ef::UiHost::Init) && fresh.string("ui_cdkeychecked") == "1");
-    CHECK(!again.call(29, {}, r) && r == 'W' * 1000 + 'F');
 
     // A frame with no menu open opens the main one, as the original
     // engine does while not connected; with one open, it's left alone.

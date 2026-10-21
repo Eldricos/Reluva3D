@@ -18,4 +18,5 @@ equ trap_Cvar_Update                -56
 equ strncpy                         -103
 equ sqrt                            -107
 equ trap_SetCDKey                   -58
-equ trap_GetCDKey                   -59
+equ trap_R_RegisterModel            -19
+equ trap_R_ModelBounds              -59

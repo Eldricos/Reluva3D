@@ -3,6 +3,8 @@
 
 #include "engines/idtech3/eliteforce/ui_host.h"
 
+#include "engines/idtech3/md3.h"
+
 #include <cstring>
 #include <fstream>
 #include <string>
@@ -62,7 +64,7 @@ enum UiCall : int {
     CvarUpdate = 55,
     MemoryRemaining = 56,
     SetCdKey = 57, // (key) -> whether it's taken; seen on the CD key screen's Accept
-    GetCdKey = 58, // (buffer, size), assumed: the call left after 57
+    RModelBounds = 58, // (model, mins[3], maxs[3]); seen after registering the phaser model
 };
 
 // glconfig_t as Elite Force's menus use it (qvm-refs): renderer, vendor
@@ -205,7 +207,7 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         r.number = number;
         std::copy(a, a + 4, r.args);
         r.text.clear();
-        if (number != SetCdKey && number != GetCdKey)
+        if (number != SetCdKey)
             for (int i = 0; i < 2 && r.text.empty(); ++i) {
                 if (a[i] <= 0 || !vm.valid(a[i], 1))
                     continue;
@@ -330,7 +332,23 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         }
         return 1;
     }
-    case GetCdKey: vm.writeString(a[0], storedCdKey(), a[1]); return 0;
+    case RModelBounds: {
+        // The first frame's box, as the original renderer gives; zeros for
+        // a model it can't read.
+        auto [it, added] = modelBounds_.try_emplace(a[0]);
+        if (added) {
+            std::vector<uint8_t> data;
+            Md3Model md3;
+            const std::string& name = models_.name(a[0]);
+            if (!name.empty() && !files_.read(name, data) && !parseMd3(data, md3) && !md3.frames.empty())
+                it->second = {md3.frames[0].mins, md3.frames[0].maxs};
+        }
+        for (int i = 0; i < 3; ++i) {
+            vm.writeInt(a[1] + 4 * i, Qvm::fromFloat(it->second.first[size_t(i)]));
+            vm.writeInt(a[2] + 4 * i, Qvm::fromFloat(it->second.second[size_t(i)]));
+        }
+        return 0;
+    }
     default: ++unhandled_[number]; return 0;
     }
 }

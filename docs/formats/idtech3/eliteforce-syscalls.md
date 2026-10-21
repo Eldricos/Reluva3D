@@ -76,7 +76,7 @@ screen stays black.
 | 55 | `Cvar_Update(&vmCvar)` | order | |
 | 56 | `MemoryRemaining()` | order | |
 | 57 | `SetCDKey(key)` → whether it's taken | seen | the CD key screen's Accept (`qvm-dis -str cdkey`): called with the typed key alone once the menus' own check passes; nonzero closes the screen and sets `ui_cdkeychecked`, zero plays the error sound |
-| 58 | `GetCDKey(buffer, size)` | assumed | the one call left; to confirm with `qvm-dis -syscall 58` |
+| 58 | `R_ModelBounds(model, mins[3], maxs[3])` | seen | the main menu, right after `R_RegisterModel("models/weapons2/phaser/phaser_w.md3")`: `(1, p, p + 12)`. There is no call to read the CD key back. Taking 58 for `GetCDKey` wrote the key at address 1, over `vmMain`'s jump table, and the menus crashed |
 | 100–106 | `memset`, `memcpy`, `strncpy`, `sin`, `cos`, `atan2`, `sqrt` | seen | `memset(buffer, 0, 20000)`, `strncpy(buffer, "ext_data/mp_normaltext.dat", 63)` |
 
 Structures the engine fills in:
@@ -126,7 +126,7 @@ that it's taken. The menus ask for a key whenever `ui_cdkeychecked` is 0
 when the main menu opens, and set it once one is accepted; with a kept key
 Reluva sets it after `Init`, as an earlier accepted entry would have.
 Answering 57 as if it were `GetCDKey` had overwritten the typed key with
-an empty one and declined every key.
+an empty one and declined every key. The menus never read the key back.
 
 Reluva's side: `src/engines/idtech3/eliteforce/ui_host.cpp`, run by
 `reluva-tool ui-run` and shown by the Menu page (`menu_viewer.cpp`).

@@ -32,7 +32,8 @@ void trap_GetGlconfig(int *glconfig);
 void trap_Cvar_Register(vmCvar_t *cvar, const char *name, const char *value, int flags);
 void trap_Cvar_Update(vmCvar_t *cvar);
 int trap_SetCDKey(const char *key); /* Elite Force's 57: whether the key is taken */
-void trap_GetCDKey(char *buffer, int size);
+int trap_R_RegisterModel(const char *name);
+void trap_R_ModelBounds(int model, float *mins, float *maxs); /* Elite Force's 58 */
 char *strncpy(char *dest, const char *src, int count);
 float sqrt(float f);
 
@@ -121,9 +122,12 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
     case 26: trap_Error("boom"); return 1;
     case 27: return typed[0] * 1000 + typedLength; /* what was typed */
     case 28: return trap_SetCDKey(arg0 ? "WXYZ-2345" : "WXYZ-2345-6789-ABCD-EF");
-    case 29:
-        trap_GetCDKey(text, sizeof(text));
-        return text[0] * 1000 + text[21];
+    case 29: { /* a model's box: the six values, each times 10, summed with weights */
+        float mins[3], maxs[3];
+        trap_R_ModelBounds(arg0 ? arg0 : trap_R_RegisterModel("models/test/box.md3"), mins, maxs);
+        return (int)(mins[0] * 10) + (int)(mins[1] * 100) + (int)(mins[2] * 1000) + (int)(maxs[0] * 10000) +
+               (int)(maxs[1] * 100000) + (int)(maxs[2] * 1000000);
+    }
     case 30: menuOpen = 0; return 0; /* the last menu closes itself, as Accept on the CD key screen does */
     case 31: return menusOpened;
     case 32: /* a switch whose cases start at 100: its table's address is folded */

@@ -153,6 +153,7 @@ void MenuViewer::pinCursor() {
         stop(err);
     calibrate_ = true;
     haveCursor_ = false;
+    pendingX_ = pendingY_ = 0;
 }
 
 void MenuViewer::syncCursor() {
@@ -160,12 +161,20 @@ void MenuViewer::syncCursor() {
     // picture was last drawn and the steps sent since.
     if (!ui_ || !haveCursor_ || !haveMouse_)
         return;
-    const auto dx = int32_t(std::lround((float(mouseX_) - cursorX_) * 640.0f / float(kFrameW)));
-    const auto dy = int32_t(std::lround((float(mouseY_) - cursorY_) * 480.0f / float(kFrameH)));
+    // Whole steps only, towards the mouse: the pointer moves in steps of
+    // 1.5 pixels here, so rounding would overshoot and come back every
+    // frame, jiggling it (and the highlight of whatever it's on). The
+    // steps are scaled by how far one moved the picture before (gain_),
+    // in case the menus scale movement themselves.
+    const float unitX = gainX_ * float(kFrameW) / 640.0f, unitY = gainY_ * float(kFrameH) / 480.0f;
+    const auto dx = int32_t((float(mouseX_) - cursorX_) / unitX);
+    const auto dy = int32_t((float(mouseY_) - cursorY_) / unitY);
     if (!dx && !dy)
         return;
-    cursorX_ += float(dx) * float(kFrameW) / 640.0f;
-    cursorY_ += float(dy) * float(kFrameH) / 480.0f;
+    cursorX_ += float(dx) * unitX;
+    cursorY_ += float(dy) * unitY;
+    pendingX_ += float(dx) * unitX;
+    pendingY_ += float(dy) * unitY;
     if (Error err = ui_->call(eliteforce::UiHost::MouseEvent, {dx, dy}))
         stop(err);
 }
@@ -182,8 +191,23 @@ void MenuViewer::findCursor() {
             cursorOffsetX_ = std::abs(it->x) < 100 ? it->x : 0;
             cursorOffsetY_ = std::abs(it->y) < 100 ? it->y : 0;
         }
-        cursorX_ = it->x - cursorOffsetX_;
-        cursorY_ = it->y - cursorOffsetY_;
+        const float x = it->x - cursorOffsetX_, y = it->y - cursorOffsetY_;
+        // How far the steps since the last frame moved it, against what
+        // was expected; not at the screen's edges, where it stops.
+        auto learn = [](float& gain, float moved, float expected, float pos, float size) {
+            if (std::abs(expected) < 3 || pos < 2 || pos > size - 2)
+                return;
+            const float ratio = moved / expected * gain;
+            if (ratio > 0.25f && ratio < 4)
+                gain = 0.5f * gain + 0.5f * ratio;
+        };
+        if (haveCursor_) {
+            learn(gainX_, x - measuredX_, pendingX_, x, float(kFrameW));
+            learn(gainY_, y - measuredY_, pendingY_, y, float(kFrameH));
+        }
+        pendingX_ = pendingY_ = 0;
+        cursorX_ = measuredX_ = x;
+        cursorY_ = measuredY_ = y;
         haveCursor_ = true;
         return;
     }

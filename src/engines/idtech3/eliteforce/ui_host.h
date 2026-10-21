@@ -77,8 +77,8 @@ public:
     // its own (docs/formats/idtech3/eliteforce-syscalls.md). For trying
     // other layouts.
     void setGlconfigWords(int32_t offset) { glconfigWords_ = offset; }
-    // Where the CD key the menus ask for is kept (GetCDKey, SetCDKey); none:
-    // it's only remembered while running.
+    // Where the CD key the menus take (call 57) is kept; none: it's only
+    // remembered while running.
     void setKeyFile(std::filesystem::path path) { keyFile_ = std::move(path); }
     // The clock Milliseconds reports.
     void setTime(int32_t ms) { time_ = ms; }
@@ -128,6 +128,7 @@ private:
     std::filesystem::path keyFile_;
     std::string cdKey_;
     bool cdKeyRead_ = false;
+    std::map<int32_t, std::pair<std::array<float, 3>, std::array<float, 3>>> modelBounds_; // by handle
     bool mainMenuNotFullscreen_ = false; // IsFullscreen seems to mean something else
     struct Recent {
         int number = -1;
