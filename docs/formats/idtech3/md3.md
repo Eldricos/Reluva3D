@@ -1,9 +1,17 @@
 # id Tech 3: models (`.md3`) and skins (`.skin`)
 
 Status: **implemented** (`src/engines/idtech3/md3.cpp`, drawn by
-`model_cache.cpp`); checked on generated models. Not yet surveyed on Elite
-Force's own models: the Models page and `reluva-tool pk3-list <game folder>
-.md3` show what it has.
+`model_cache.cpp`). **Checked on all 1156 retail Elite Force models**
+(`reluva-tool model-check`, October 2026): all read, and every one of
+their 3862 surfaces finds its shader or image (782 through skins) except
+12 that name none: models whose shader the game code picks
+(`models/misc/telep.md3`) and player heads whose skin the game chooses
+(`models/players/munrocrew/head.md3`). Placed models sit where the
+original puts them.
+
+Shader names are looked up without their extension: many models name
+`models/x/y.tga` where a script defines `models/x/y` (the Borg map objects
+do), see [shader.md](shader.md).
 
 Sources: the GPL Quake III Arena source (`code/qcommon/qfiles.h`, the
 renderer's `tr_model.c`, `tr_surface.c`), read for the layout, not copied.
