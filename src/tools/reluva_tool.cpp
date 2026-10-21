@@ -55,7 +55,10 @@
 //   reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>
 //                                                  the constants in a QVM's code that point into a
 //                                                  structure at address, by offset: which fields it uses
-//   reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-trace] [-v]
+//   reluva-tool qvm-dis <game folder> <vm/x.qvm> <first> [count]   list instructions, with the text,
+//   reluva-tool qvm-dis <game folder> <vm/x.qvm> -ref <address> [size]  floats and system calls they
+//                                                  use; -ref: the code around each use of an address
+//   reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]
 //                                                  run Elite Force's menus (vm/ui.qvm) with the engine's
 //                                                  system calls: Init, SetActiveMenu, Refresh; report
 //                                                  what they print, register and draw
@@ -2867,14 +2870,91 @@ int cmdQvmRefs(int argc, char** argv) {
     return 0;
 }
 
+// One instruction, with what its operand probably means: the text a
+// constant points at, a float, or the system call a call makes.
+void printQvmInstruction(const reluva::idtech3::Qvm& vm, size_t i, bool mark) {
+    namespace q3 = reluva::idtech3;
+    const auto& code = vm.code();
+    const auto& in = code[i];
+    std::printf("%s%7zu  %-9s", mark ? "> " : "  ", i, q3::qvmop::name(in.op));
+    if (q3::qvmop::operandSize(in.op))
+        std::printf(" %d", in.operand);
+    if (in.op == q3::qvmop::Enter)
+        std::printf("    ; function start, %d bytes of frame", in.operand);
+    if (in.op == q3::qvmop::Const) {
+        const int32_t v = in.operand;
+        if (i + 1 < code.size() && code[i + 1].op == q3::qvmop::Call && v < 0)
+            std::printf("    ; system call %d", -1 - v);
+        else if (v > 0 && uint32_t(v) >= vm.litStart() && uint32_t(v) < vm.dataLength()) {
+            const std::string text = vm.string(v, 60);
+            bool printable = text.size() >= 2;
+            for (char c : text)
+                printable = printable && ((c >= 32 && c < 127) || c == '\n');
+            if (printable)
+                std::printf("    ; \"%s\"", text.c_str());
+        }
+        const float f = q3::Qvm::asFloat(v);
+        const float a = std::fabs(f);
+        if ((v & 0x7f800000) != 0 && (v < -65536 || v > 65536) && a > 1e-6f && a < 1e7f)
+            std::printf("    ; %g as a float", double(f));
+    }
+    std::printf("\n");
+}
+
+int cmdQvmDis(int argc, char** argv) {
+    if (argc < 5) {
+        std::fprintf(stderr, "usage: reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count]\n"
+                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -ref <address> [size]\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    q3::Qvm vm;
+    if (!loadQvm(argv[2], argv[3], vm))
+        return 1;
+    const auto& code = vm.code();
+    if (std::strcmp(argv[4], "-ref") == 0 && argc >= 6) {
+        // The code around every constant pointing into [address, address + size).
+        const long long base = std::strtoll(argv[5], nullptr, 0);
+        const long long size = argc >= 7 ? std::strtoll(argv[6], nullptr, 0) : 4;
+        int found = 0;
+        for (size_t i = 0; i < code.size(); ++i) {
+            if (code[i].op != q3::qvmop::Const || code[i].operand < base || code[i].operand >= base + size)
+                continue;
+            if (++found > 50) {
+                std::printf("(more than 50; narrow the range)\n");
+                break;
+            }
+            size_t first = i >= 12 ? i - 12 : 0;
+            for (size_t j = i; j > first; --j)
+                if (code[j].op == q3::qvmop::Enter) {
+                    first = j;
+                    break;
+                }
+            const size_t last = std::min(code.size(), i + 16);
+            std::printf("--- offset %lld, instruction %zu\n", code[i].operand - base, i);
+            for (size_t j = first; j < last; ++j) {
+                if (j > i && code[j].op == q3::qvmop::Enter)
+                    break;
+                printQvmInstruction(vm, j, j == i);
+            }
+        }
+        return 0;
+    }
+    const size_t first = size_t(std::strtoull(argv[4], nullptr, 0));
+    const size_t count = argc >= 6 ? size_t(std::strtoull(argv[5], nullptr, 0)) : 40;
+    for (size_t j = first; j < code.size() && j < first + count; ++j)
+        printQvmInstruction(vm, j, false);
+    return 0;
+}
+
 int cmdUiRun(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-trace] [-v]\n");
+        std::fprintf(stderr, "usage: reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
-    int frames = 1, menu = 1, width = 640, height = 480;
+    int frames = 1, menu = 1, width = 640, height = 480, glwords = 5120;
     bool traceCalls = false, verbose = false;
     for (int i = 3; i < argc; ++i) {
         if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
@@ -2890,6 +2970,8 @@ int cmdUiRun(int argc, char** argv) {
                 return 2;
             }
         }
+        else if (std::strcmp(argv[i], "-glwords") == 0 && i + 1 < argc)
+            glwords = std::atoi(argv[++i]);
         else if (std::strcmp(argv[i], "-trace") == 0)
             traceCalls = true;
         else if (std::strcmp(argv[i], "-v") == 0)
@@ -2901,6 +2983,7 @@ int cmdUiRun(int argc, char** argv) {
     q3::CvarStore cvars;
     ef::UiHost ui(set, cvars);
     ui.setScreenSize(width, height);
+    ui.setGlconfigWords(glwords);
     ui.print = [](const std::string& text) { std::printf("ui: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : ""); };
     if (traceCalls)
         ui.trace = [](int number, const int32_t* a) {
@@ -3103,6 +3186,8 @@ int main(int argc, char** argv) {
         return cmdQvmRun(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "qvm-refs") == 0)
         return cmdQvmRefs(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "qvm-dis") == 0)
+        return cmdQvmDis(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "ui-run") == 0)
         return cmdUiRun(argc, argv);
 #endif
@@ -3145,7 +3230,8 @@ int main(int argc, char** argv) {
                  "  reluva-tool qvm-info <game folder> <vm/x.qvm> [-s]\n"
                  "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
                  "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
-                 "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-trace] [-v]\n"
+                 "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size]\n"
+                 "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif
                  "");
     return 2;

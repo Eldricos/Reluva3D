@@ -64,11 +64,12 @@ enum UiCall : int {
     SetCdKey = 58,
 };
 
-// glconfig_t as Quake III lays it out: four strings (renderer, vendor,
-// version, extensions), then 17 words. Elite Force's layout is assumed to
-// match until checked (see the syscall notes).
-constexpr int32_t kGlconfigStrings = 1024 * 3 + 8192;
-constexpr int32_t kGlconfigSize = kGlconfigStrings + 17 * 4;
+// glconfig_t as Elite Force's menus use it (qvm-refs): renderer, vendor
+// and version strings of 1024 bytes and a 2048-byte extensions string,
+// then words up to byte 5192, where the menus' next variable starts.
+// Quake III's extensions string is 8192 bytes.
+constexpr int32_t kGlconfigStrings = 1024 * 3 + 2048;
+constexpr int32_t kGlconfigSize = 5192;
 // uiClientState_t: three words, then three 1024-byte strings.
 constexpr int32_t kClientStateSize = 12 + 3 * 1024;
 
@@ -106,6 +107,7 @@ void UiHost::writeGlconfig(int32_t address) {
     vm_.writeString(address, "Reluva", 1024);
     vm_.writeString(address + 1024, "Reluva", 1024);
     vm_.writeString(address + 2048, "1.0", 1024);
+    // Quake III's 17 words, in its order, from glconfigWords_.
     const int32_t words[17] = {
         2048,   // maxTextureSize
         2,      // numTextureUnits
@@ -119,7 +121,8 @@ void UiHost::writeGlconfig(int32_t address) {
         0, 0, 0, // isFullscreen, stereoEnabled, smpActive
     };
     for (int i = 0; i < 17; ++i)
-        vm_.writeInt(address + kGlconfigStrings + 4 * i, words[i]);
+        if (glconfigWords_ + 4 * i + 4 <= kGlconfigSize)
+            vm_.writeInt(address + glconfigWords_ + 4 * i, words[i]);
 }
 
 void UiHost::writeClientState(int32_t address) {

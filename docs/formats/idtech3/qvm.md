@@ -95,6 +95,10 @@ error; out-of-range float-to-int conversions saturate.
   in a `qvm-run` log), by offset, with the instruction that uses each:
   which fields of the structure the code reads or writes, to check its
   layout.
+- `reluva-tool qvm-dis <game folder> vm/ui.qvm <first> [count]`: lists
+  instructions, noting the text a constant points at, constants that look
+  like floats, and the system call a call makes; with `-ref <address>
+  [size]`, the code around every use of an address instead.
 - `reluva-tool ui-run <game folder> [-frames N] [-menu M]`: runs Elite
   Force's menus with the engine's real system calls (see the Elite Force
   page) and reports what they print, register and draw, and the calls not

@@ -70,15 +70,23 @@ Quake III's order: 2 shutdown, 3 key event (key, down), 4 mouse event
 | 57, 58 | `GetCDKey(buffer, size)`, `SetCDKey(key)` | order | |
 | 100–106 | `memset`, `memcpy`, `strncpy`, `sin`, `cos`, `atan2`, `sqrt` | seen | `memset(buffer, 0, 20000)`, `strncpy(buffer, "ext_data/mp_normaltext.dat", 63)` |
 
-Structures the engine fills in, assumed to be Quake III's until checked
-with `reluva-tool qvm-refs`:
+Structures the engine fills in:
 
-- `glconfig_t` (call 43): renderer, vendor and version strings of 1024
-  bytes and an 8192-byte extensions string, then 17 words; the menus use
-  `vidWidth` and `vidHeight` (words 10 and 11) to scale their 640×480
-  layout.
-- `uiClientState_t` (call 44): connection state (1 = disconnected), two
-  more words, three 1024-byte strings.
+- `glconfig_t` (call 43). `reluva-tool qvm-refs` on the address the menus
+  pass shows a smaller structure than Quake III's: its four strings at 0,
+  1024, 2048 and 3072 (each passed on as an argument, to be printed), so
+  the extensions string is 2048 bytes rather than 8192; words read from
+  5128 to 5168; and the menus' next variable at 5192 or 5196 (5196 is
+  read 310 times, which fits the white shader every filled rectangle is
+  drawn with). With Quake III's 17 words starting at 5120, `vidWidth` and
+  `vidHeight` would be at 5160 and 5164; but the code reads 5164 and 5168
+  and never 5160, which would fit an extra word of Elite Force's own
+  first. Still to settle with `reluva-tool qvm-dis -ref` on those
+  addresses; `ui-run -glwords 5124` tries the second reading.
+  Writing Quake III's 11,332 bytes left the menus' screen size at 0 (every
+  picture 0×0) and overwrote their own variables.
+- `uiClientState_t` (call 44), assumed to be Quake III's: connection state
+  (1 = disconnected), two more words, three 1024-byte strings.
 
 Files the menus read at init: `ext_data/mp_normaltext.dat`,
 `ext_data/mp_buttontext.dat` and `ext_data/mp_itemnames.dat` (names built

@@ -65,6 +65,11 @@ public:
         width_ = width;
         height_ = height;
     }
+    // Where in glconfig_t Quake III's 17 words (maxTextureSize ...
+    // vidWidth, vidHeight ...) start: 5120, right after the strings, unless
+    // Elite Force has a word of its own first (5124). Being checked; see
+    // docs/formats/idtech3/eliteforce-syscalls.md.
+    void setGlconfigWords(int32_t offset) { glconfigWords_ = offset; }
     // The clock Milliseconds reports.
     void setTime(int32_t ms) { time_ = ms; }
 
@@ -101,6 +106,7 @@ private:
     std::string log_;
     int width_ = 640, height_ = 480;
     int32_t time_ = 0;
+    int32_t glconfigWords_ = 5120;
     int32_t catcher_ = 0;
     bool overstrike_ = false;
 };
