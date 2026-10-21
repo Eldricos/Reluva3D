@@ -60,7 +60,8 @@
 //   reluva-tool qvm-dis <game folder> <vm/x.qvm> -str <text>  use; -ref: the code around each use of an
 //                                                  address; -str: the functions using strings with the
 //                                                  text, and the functions they call; -syscall: the code
-//                                                  before every call to one system call
+//                                                  before every call to one system call; -blockcopies:
+//                                                  the sizes of the structures the code copies whole
 //   reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]
 //                                                  run Elite Force's menus (vm/ui.qvm) with the engine's
 //                                                  system calls: Init, SetActiveMenu, Refresh; report
@@ -2922,7 +2923,8 @@ int cmdQvmDis(int argc, char** argv) {
         std::fprintf(stderr, "usage: reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count]\n"
                              "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -ref <address> [size]\n"
                              "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -str <text>\n"
-                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -syscall <number>\n");
+                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -syscall <number>\n"
+                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -blockcopies\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -2990,6 +2992,22 @@ int cmdQvmDis(int argc, char** argv) {
             list(f, "uses the string");
         for (size_t f : callees)
             list(f, "called by one above");
+        return 0;
+    }
+    if (std::strcmp(argv[4], "-blockcopies") == 0) {
+        // Every structure copied whole, by size: a structure's size shows
+        // where the code copies one (a command into the movement code...).
+        std::map<int32_t, std::vector<size_t>> sizes;
+        for (size_t i = 0; i < code.size(); ++i)
+            if (code[i].op == q3::qvmop::BlockCopy)
+                sizes[code[i].operand].push_back(i);
+        std::printf("block copies by size (bytes: count, first instructions):\n");
+        for (const auto& [size, at] : sizes) {
+            std::printf("  %6d: %4zu ", size, at.size());
+            for (size_t k = 0; k < at.size() && k < 6; ++k)
+                std::printf(" %zu", at[k]);
+            std::printf("\n");
+        }
         return 0;
     }
     if (std::strcmp(argv[4], "-syscall") == 0 && argc >= 6) {
@@ -3204,8 +3222,25 @@ int cmdGameRun(int argc, char** argv) {
                         o[0], o[1], o[2]);
         }
     }
-    for (int f = 0; ok && f < frames; ++f)
+    const bool player = ok && !noClient && game.linked().count(0);
+    for (int f = 0; ok && f < frames; ++f) {
+        if (player) {
+            // The player does nothing, as a server would see from an idle
+            // client: an empty command for the coming frame.
+            ef::GameHost::UserCommand cmd;
+            cmd.serverTime = game.levelTime() + 100;
+            if (reluva::Error err = game.clientThink(0, cmd)) {
+                step("ClientThink", err);
+                ok = false;
+                break;
+            }
+        }
         ok = step("RunFrame", game.runFrame());
+        if (player) {
+            const auto o = game.entityVec(0, 272);
+            std::printf("  client 0 at %.1f %.1f %.1f\n", o[0], o[1], o[2]);
+        }
+    }
 
     const auto& gd = game.gameData();
     std::printf("level time %d ms; entity array at %d: %d in use, %d bytes each; clients at %d, %d bytes each\n",
@@ -3461,7 +3496,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool qvm-info <game folder> <vm/x.qvm> [-s]\n"
                  "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
                  "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
-                 "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number>\n"
+                 "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -blockcopies\n"
                  "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-trace]\n"
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif

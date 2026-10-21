@@ -17,3 +17,4 @@ equ trap_GetEntityToken             -38
 equ ceil                            -112
 equ trap_SendServerCommand          -18
 equ trap_GetUserinfo                -21
+equ trap_GetUsercmd                 -37

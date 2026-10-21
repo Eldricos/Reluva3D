@@ -156,7 +156,8 @@ III's game calls; unlike the menus, 0 prints and 1 is the error.
 | 23 | `SetBrushModel(ent, name)` | seen | `(ent, *(ent + 324))`: the entity's `model` key, `"*N"` |
 | 24 | `Trace(results, start, mins, maxs, end, passEntityNum, contentMask)` | seen | 81 calls on hm_dn1 (items dropping to the floor). The masks are Quake III's values: `0x6000001` (solid, bodies, corpses), `0x2000000` (bodies), `0x2010000` (bodies, player clip), `1` (solid). Afterwards the code reads +4 (`startsolid`), +8 compared with 1.0 (`fraction`), surface flags against 16 (Quake III's `SURF_NOIMPACT`), the entity number against 1023 (none): Quake III's `trace_t` |
 | 25–33 | `PointContents`, `InPVS`, `InPVSIgnorePortals`, `AdjustAreaPortalState`, `AreasConnected`, `LinkEntity`, `UnlinkEntity`, `EntitiesInBox`, `EntityContact` | order | `LinkEntity` called 81 times on hm_dn1 |
-| 2, 4, 8, 9, 11–14, 16, 17, 20–22, 34–36 | the rest of Quake III's game calls, in its order | order | |
+| 36 | `GetUsercmd(clientNum, usercmd_t*)` | seen | `(clientNum, ent->client + 464)`: `ent+300` is the entity's client, the command at 464 in it. In Quake III the client starts with the player state, then `pers.connected`, then `pers.cmd`, so Elite Force's player state would be 460 bytes. The command is taken to be Quake III's 24-byte `usercmd_t` (server time, three angles, buttons, weapon, forward, right, up), to confirm with `qvm-dis -blockcopies` |
+| 2, 4, 8, 9, 11–14, 16, 17, 20–22, 34, 35 | the rest of Quake III's game calls, in its order | order | |
 
 The entities' first 300 bytes, which the engine reads and writes, are
 Quake III's `sharedEntity_t` with an 8-byte shorter entity state: 200
@@ -191,7 +192,10 @@ clientNum, 1, 0)` (connect: first time, not a bot) returns 0 or the
 address of the game's reason for refusing, and `vmMain(3, clientNum)`
 puts them in the level. What the game sends to clients
 (`SendServerCommand`, call 17) is recorded; `game-run` connects client
-0 unless given `-noclient`. `game-run` also drops a
+0 unless given `-noclient`. Each frame, a joined player's command is handed over with
+`vmMain(7, clientNum)` (ClientThink, which reads it with call 36) before
+the frame runs; `game-run` sends an idle player's empty commands and
+prints where the player is after each frame. `game-run` also drops a
 player's box from every spawn point (raised 9 units, as Quake III's game
 spawns players) as a check of the collision model on its own.
 | 111 | `ceil` | order | Quake III's game numbers `floor` 110 and `ceil` 111 |

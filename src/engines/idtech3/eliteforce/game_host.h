@@ -63,6 +63,20 @@ public:
     // ClientBegin, which puts them in the level.
     Error connectClient(int32_t clientNum, const std::string& userinfo, std::string& refused);
     Error beginClient(int32_t clientNum);
+    // A player's input for one moment, as Quake III's usercmd_t (24
+    // bytes; Elite Force's is taken to be the same, see
+    // eliteforce-syscalls.md).
+    struct UserCommand {
+        int32_t serverTime = 0;          // ms, the level time it applies to
+        std::array<int32_t, 3> angles{}; // view pitch, yaw, roll: 65536 = a full turn
+        int32_t buttons = 0;
+        uint8_t weapon = 0;
+        int8_t forward = 0, right = 0, up = 0; // -127..127
+    };
+    // Hands the game a player's command and lets it act on it (ClientThink,
+    // which reads it with GetUsercmd), as the server does for each
+    // command a client sends.
+    Error clientThink(int32_t clientNum, const UserCommand& cmd);
     Error call(int32_t command, const std::vector<int32_t>& args, int32_t& result);
 
     Qvm& vm() { return vm_; }
@@ -125,6 +139,7 @@ private:
     std::map<int32_t, std::string> configstrings_;
     std::vector<std::string> consoleCommands_;
     std::map<int32_t, std::string> userinfo_;
+    std::map<int32_t, UserCommand> commands_;
     std::vector<std::pair<int32_t, std::string>> serverCommands_;
     std::map<int32_t, std::string> dropped_;
     std::string log_;

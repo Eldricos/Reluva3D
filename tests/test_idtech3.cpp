@@ -1055,6 +1055,20 @@ static void testGameHost(const std::filesystem::path& tmp) {
     CHECK(!game.beginClient(0));
     CHECK(!game.call(31, {}, r) && r == 4 && game.linked().count(4));
     CHECK(game.entityVec(4, 272)[0] == 0 && game.entityVec(4, 272)[2] == 309); // the spawn point, 9 up
+    // Its commands, field by field in Quake III's usercmd_t.
+    ef::GameHost::UserCommand cmd;
+    cmd.serverTime = 400;
+    cmd.angles = {1000, 16384, 0};
+    cmd.buttons = 5;
+    cmd.weapon = 3;
+    cmd.forward = 127;
+    cmd.right = -127;
+    cmd.up = 10;
+    CHECK(!game.clientThink(0, cmd));
+    CHECK(!game.call(32, {}, r) && r == 4005);
+    CHECK(!game.call(33, {}, r) && r == 1000 + 16384 * 100000);
+    CHECK(!game.call(34, {}, r) && r == 3000000 + 255 * 10000 + 1 * 100 + 60);
+    CHECK(game.entityVec(4, 272)[0] == 127); // moved by it
     CHECK(game.serverCommands().size() == 1 && game.serverCommands()[0].first == -1 &&
           game.serverCommands()[0].second == "print \"Reluva entered the game\n\"");
     CHECK(game.unhandled().empty());

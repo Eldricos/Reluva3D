@@ -149,6 +149,12 @@ Error GameHost::beginClient(int32_t clientNum) {
     return call(ClientBegin, {clientNum}, ignored);
 }
 
+Error GameHost::clientThink(int32_t clientNum, const UserCommand& cmd) {
+    commands_[clientNum] = cmd;
+    int32_t ignored = 0;
+    return call(ClientThink, {clientNum}, ignored);
+}
+
 std::string GameHost::nextEntityToken() {
     const std::string& s = entityText_;
     size_t& i = entityPos_;
@@ -429,6 +435,21 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         return 0;
     }
     case SetUserinfo: userinfo_[a[0]] = str(1, 1024); return 0;
+    case GetUsercmd: { // (clientNum, usercmd_t*): the last command, or an empty one
+        const auto it = commands_.find(a[0]);
+        const UserCommand cmd = it == commands_.end() ? UserCommand{levelTime_} : it->second;
+        if (!vm.checkWrite(a[1], 24))
+            return 0;
+        vm.writeInt(a[1], cmd.serverTime);
+        for (int i = 0; i < 3; ++i)
+            vm.writeInt(a[1] + 4 + 4 * i, cmd.angles[size_t(i)]);
+        vm.writeInt(a[1] + 16, cmd.buttons);
+        vm.memory()[size_t(a[1] + 20)] = cmd.weapon;
+        vm.memory()[size_t(a[1] + 21)] = uint8_t(cmd.forward);
+        vm.memory()[size_t(a[1] + 22)] = uint8_t(cmd.right);
+        vm.memory()[size_t(a[1] + 23)] = uint8_t(cmd.up);
+        return 0;
+    }
     case SetConfigstring: configstrings_[a[0]] = str(1, 8192); return 0;
     case GetConfigstring: {
         const auto it = configstrings_.find(a[0]);

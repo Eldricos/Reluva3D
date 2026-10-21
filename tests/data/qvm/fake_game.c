@@ -21,6 +21,14 @@ typedef struct {
 } trace_t; /* 56 bytes */
 
 typedef struct {
+    int serverTime;
+    int angles[3];
+    int buttons;
+    unsigned char weapon;
+    signed char forwardmove, rightmove, upmove;
+} usercmd_t; /* 24 bytes */
+
+typedef struct {
     /* the entity state: 200 bytes in Elite Force */
     int number;
     char state1[156];
@@ -56,6 +64,7 @@ int trap_EntitiesInBox(const float *mins, const float *maxs, int *list, int maxC
 int trap_GetEntityToken(char *buffer, int size);
 void trap_GetUserinfo(int clientNum, char *buffer, int size);
 void trap_SendServerCommand(int clientNum, const char *text);
+void trap_GetUsercmd(int clientNum, usercmd_t *cmd);
 float ceil(float f);
 
 static int same(const char *a, const char *b);
@@ -74,6 +83,7 @@ static char text[64];
 static trace_t tr;
 static char userinfo[256];
 static int player = -1; /* the joined player's entity */
+static usercmd_t ucmd;
 
 int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int arg5, int arg6, int arg7, int arg8,
            int arg9, int arg10, int arg11) {
@@ -111,6 +121,14 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
         trap_SendServerCommand(-1, "print \"Reluva entered the game\n\"");
         return 0;
     case 31: return player;
+    case 7: /* client think(clientNum): its command moves it along x */
+        trap_GetUsercmd(arg0, &ucmd);
+        if (player >= 0)
+            entities[player].currentOrigin[0] += ucmd.forwardmove;
+        return 0;
+    case 32: return ucmd.serverTime * 10 + ucmd.buttons;
+    case 33: return ucmd.angles[0] + ucmd.angles[1] * 100000;
+    case 34: return ucmd.weapon * 1000000 + (ucmd.forwardmove + 128) * 10000 + (ucmd.rightmove + 128) * 100 + ucmd.upmove + 50;
     case 8: /* run a frame(levelTime) */
         frames++;
         return frames;
