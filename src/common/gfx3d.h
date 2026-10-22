@@ -182,6 +182,12 @@ public:
     // The dynamic lights for draws with DrawCall::dynamicLights (at most
     // kMaxDynamicLights; the rest are left out).
     virtual void setDynamicLights(const std::vector<DynamicLight>& lights) = 0;
+    // Where the draws that follow land in the frame, in pixels (w or h 0:
+    // all of it), within the frame.
+    virtual void setViewport(int x, int y, int w, int h) = 0;
+    // The brightness the finished frame is shown with: each colour raised
+    // to 1 / gamma (1: as drawn), as the original's brightness setting.
+    virtual void setGamma(float gamma) = 0;
     // Presents the frame, with `overlay` (RGBA32, the frame's size, blended
     // by its alpha) on top if given.
     virtual void endFrame(const Surface* overlay) = 0;

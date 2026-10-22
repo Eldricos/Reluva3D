@@ -385,6 +385,7 @@ void MenuViewer::update(uint64_t nowMs) {
     ortho[12] = -1;
     ortho[13] = 1;
     ortho[15] = 1;
+    renderer_->setGamma(brightness(ctx_));
     renderer_->beginFrame(ortho, {0, 0, 0}, {0, 0, 0});
     if (mesh) {
         for (size_t i = 0; i < pictures.size(); ++i) {

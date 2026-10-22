@@ -90,6 +90,9 @@ struct ViewerContext {
 // bindings and the settings to keep (Archive cvars), if any changed.
 void loadConfig(ViewerContext& ctx);
 void saveConfig(ViewerContext& ctx);
+// The brightness setting (r_gamma, the menus' brightness slider; 1 unless
+// set), which 3D pages show their frames with.
+float brightness(const ViewerContext& ctx);
 
 class Page {
 public:
@@ -375,6 +378,8 @@ private:
     // The player's view angles in degrees (pitch counts downwards), and
     // what they hold.
     float yaw_ = 0, pitch_ = 0;
+    float mouseX_ = 0, mouseY_ = 0;         // moved since the last frame
+    float lastMouseX_ = 0, lastMouseY_ = 0; // the last frame's, for m_filter
     std::map<std::string, std::set<int32_t>> buttons_; // the engine's +buttons ("forward"...) and the keys holding each
     gfx::Vec3 eye_{};
 };

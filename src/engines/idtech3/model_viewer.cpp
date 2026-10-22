@@ -239,6 +239,7 @@ void ModelViewer::update(uint64_t nowMs) {
     const gfx::Mat4 viewProj =
         gfx::multiply(gfx::perspective(0.9f, aspect, 1, 8192),
                       gfx::lookAlong(eye, {-offset[0], -offset[1], -offset[2]}, {0, 0, 1}));
+    renderer_->setGamma(brightness(ctx_));
     renderer_->beginFrame(viewProj, eye, {70, 74, 82});
 
     // No map, so no light grid: a fixed light, as the original uses then.

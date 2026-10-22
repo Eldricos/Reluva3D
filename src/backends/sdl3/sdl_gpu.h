@@ -43,6 +43,8 @@ public:
         lights_.assign(lights.begin(), lights.begin() + std::min<ptrdiff_t>(ptrdiff_t(lights.size()),
                                                                              gfx::kMaxDynamicLights));
     }
+    void setViewport(int x, int y, int w, int h) override;
+    void setGamma(float gamma) override { gamma_ = gamma > 0.05f ? gamma : 1.0f; }
     void setView(const gfx::Mat4& viewProj, const gfx::Vec3& eye) override {
         viewProj_ = viewProj;
         eye_ = eye;
@@ -72,6 +74,14 @@ private:
     SDL_GPUTexture* depth_ = nullptr;
     SDL_Texture* colorView_ = nullptr;
     SDL_Texture* overlay_ = nullptr;
+    // The frame through the brightness curve, shown instead when it isn't
+    // 1: drawn from the frame (a texture of it, frameTexture_) with a quad
+    // over the whole of it.
+    float gamma_ = 1;
+    SDL_GPUTexture* gammaFrame_ = nullptr;
+    SDL_Texture* gammaView_ = nullptr;
+    gfx::TextureId frameTexture_ = 0;
+    gfx::MeshId screenQuad_ = 0;
     SDL_GPUShader* vertexShader_ = nullptr;
     SDL_GPUShader* fragmentShader_ = nullptr;
     SDL_GPUSampler* samplers_[8] = {}; // by clamp | mipmaps << 1 | nearest << 2

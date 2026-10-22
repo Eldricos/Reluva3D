@@ -243,6 +243,7 @@ void WorldViewer::update(uint64_t nowMs) {
         gfx::multiply(gfx::perspective(fovY, aspect, 4, 32768), gfx::lookAlong(pos_, forward, {0, 0, 1}));
     using Clock = std::chrono::steady_clock;
     const auto t0 = Clock::now();
+    renderer_->setGamma(brightness(ctx_));
     renderer_->beginFrame(viewProj, pos_, {40, 48, 64});
     // Opaque surfaces and models, then translucent ones over them (sort
     // keys above "see through").

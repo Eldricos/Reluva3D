@@ -246,6 +246,11 @@ void loadConfig(ViewerContext& ctx) {
     ctx.bindings.changed = false;
 }
 
+float brightness(const ViewerContext& ctx) {
+    const CvarStore::Cvar* gamma = ctx.cvars.find("r_gamma");
+    return gamma ? std::clamp(ctx.cvars.value("r_gamma"), 0.5f, 3.0f) : 1.0f;
+}
+
 void saveConfig(ViewerContext& ctx) {
     if (ctx.savePath.empty())
         return;

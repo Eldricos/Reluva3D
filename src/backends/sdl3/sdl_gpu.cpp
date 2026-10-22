@@ -70,6 +70,7 @@ SdlGpuRenderer::~SdlGpuRenderer() {
     }
     // Nothing may still be using the resources.
     SDL_WaitForGPUIdle(device_);
+    textures_.erase(frameTexture_); // the frame itself, released below
     for (auto& [id, t] : textures_)
         SDL_ReleaseGPUTexture(device_, t.texture);
     for (auto& [id, m] : meshes_) {
@@ -89,6 +90,10 @@ SdlGpuRenderer::~SdlGpuRenderer() {
         SDL_DestroyTexture(overlay_);
     if (colorView_)
         SDL_DestroyTexture(colorView_);
+    if (gammaView_)
+        SDL_DestroyTexture(gammaView_);
+    if (gammaFrame_)
+        SDL_ReleaseGPUTexture(device_, gammaFrame_);
     if (color_)
         SDL_ReleaseGPUTexture(device_, color_);
     if (depth_)
@@ -180,6 +185,27 @@ Error SdlGpuRenderer::init(int width, int height) {
         return sdlError("Cannot show the 3D frame");
     SDL_SetTextureBlendMode(colorView_, SDL_BLENDMODE_NONE);
 
+    // The brightness pass: a second frame, the first as a texture to draw
+    // from, and a quad covering it (clip space; v down the frame).
+    ci.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+    ci.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
+    gammaFrame_ = SDL_CreateGPUTexture(device_, &ci);
+    if (!gammaFrame_)
+        return sdlError("Cannot create the 3D frame");
+    const SDL_PropertiesID gprops = SDL_CreateProperties();
+    SDL_SetNumberProperty(gprops, SDL_PROP_TEXTURE_CREATE_FORMAT_NUMBER, SDL_PIXELFORMAT_RGBA32);
+    SDL_SetNumberProperty(gprops, SDL_PROP_TEXTURE_CREATE_ACCESS_NUMBER, SDL_TEXTUREACCESS_STATIC);
+    SDL_SetNumberProperty(gprops, SDL_PROP_TEXTURE_CREATE_WIDTH_NUMBER, width);
+    SDL_SetNumberProperty(gprops, SDL_PROP_TEXTURE_CREATE_HEIGHT_NUMBER, height);
+    SDL_SetPointerProperty(gprops, SDL_PROP_TEXTURE_CREATE_GPU_TEXTURE_POINTER, gammaFrame_);
+    gammaView_ = SDL_CreateTextureWithProperties(renderer_, gprops);
+    SDL_DestroyProperties(gprops);
+    if (!gammaView_)
+        return sdlError("Cannot show the 3D frame");
+    SDL_SetTextureBlendMode(gammaView_, SDL_BLENDMODE_NONE);
+    frameTexture_ = nextId_++;
+    textures_[frameTexture_] = Texture{color_, 1}; // clamped, no mipmaps
+
     overlay_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, width, height);
     if (!overlay_)
         return sdlError("Cannot create the overlay");
@@ -189,7 +215,32 @@ Error SdlGpuRenderer::init(int width, int height) {
     const uint8_t white[4] = {255, 255, 255, 255};
     gfx::TextureParams wp;
     wp.mipmaps = false;
-    return createTexture(1, 1, white, wp, white_);
+    if (Error err = createTexture(1, 1, white, wp, white_))
+        return err;
+    std::vector<gfx::Vertex> quad(4);
+    const float corners[4][4] = {{-1, -1, 0, 1}, {1, -1, 1, 1}, {1, 1, 1, 0}, {-1, 1, 0, 0}};
+    for (size_t i = 0; i < 4; ++i) {
+        quad[i].pos[0] = corners[i][0];
+        quad[i].pos[1] = corners[i][1];
+        quad[i].uv[0] = corners[i][2];
+        quad[i].uv[1] = corners[i][3];
+        quad[i].normal[2] = 1;
+        std::fill(std::begin(quad[i].color), std::end(quad[i].color), uint8_t(255));
+    }
+    return createMesh(quad, {0, 1, 2, 0, 2, 3}, screenQuad_);
+}
+
+void SdlGpuRenderer::setViewport(int x, int y, int w, int h) {
+    if (!pass_)
+        return;
+    SDL_GPUViewport v{};
+    v.x = float(w > 0 && h > 0 ? x : 0);
+    v.y = float(w > 0 && h > 0 ? y : 0);
+    v.w = float(w > 0 && h > 0 ? w : width_);
+    v.h = float(w > 0 && h > 0 ? h : height_);
+    v.min_depth = 0;
+    v.max_depth = 1;
+    SDL_SetGPUViewport(pass_, &v);
 }
 
 bool SdlGpuRenderer::upload(const void* data, uint32_t size, SDL_GPUBuffer* buffer) {
@@ -501,6 +552,10 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     SDL_PushGPUVertexUniformData(cmd_, 0, &vu, sizeof(vu));
     FragmentUniforms fu{};
     fu.params[0] = float(call.state.alphaTest);
+    if (call.texture == frameTexture_) {
+        fu.params[1] = 2; // the brightness pass
+        fu.params[2] = 1.0f / gamma_;
+    }
     if (call.dynamicLights) {
         fu.params[1] = 1;
         fu.lightCount[0] = float(lights_.size());
@@ -520,6 +575,33 @@ void SdlGpuRenderer::endFrame(const Surface* overlay) {
         SDL_EndGPURenderPass(pass_);
         pass_ = nullptr;
     }
+    // Brightness: the frame drawn into the second one through its curve.
+    const bool brighten = cmd_ && gamma_ != 1;
+    if (brighten) {
+        SDL_GPUColorTargetInfo color{};
+        color.texture = gammaFrame_;
+        color.load_op = SDL_GPU_LOADOP_DONT_CARE;
+        color.store_op = SDL_GPU_STOREOP_STORE;
+        SDL_GPUDepthStencilTargetInfo depth{};
+        depth.texture = depth_;
+        depth.load_op = SDL_GPU_LOADOP_DONT_CARE;
+        depth.store_op = SDL_GPU_STOREOP_DONT_CARE;
+        depth.stencil_load_op = SDL_GPU_LOADOP_DONT_CARE;
+        depth.stencil_store_op = SDL_GPU_STOREOP_DONT_CARE;
+        pass_ = SDL_BeginGPURenderPass(cmd_, &color, 1, &depth);
+        boundPipeline_ = nullptr;
+        boundMesh_ = 0;
+        viewProj_ = gfx::identity();
+        gfx::DrawCall call;
+        call.mesh = screenQuad_;
+        call.indexCount = 6;
+        call.texture = frameTexture_;
+        call.state.depthTest = call.state.depthWrite = false;
+        call.state.cull = gfx::Cull::None;
+        draw(call);
+        SDL_EndGPURenderPass(pass_);
+        pass_ = nullptr;
+    }
     // Submitted before the renderer's own commands, which then sample it.
     if (cmd_) {
         SDL_SubmitGPUCommandBuffer(cmd_);
@@ -527,7 +609,7 @@ void SdlGpuRenderer::endFrame(const Surface* overlay) {
     }
     SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
     SDL_RenderClear(renderer_);
-    SDL_RenderTexture(renderer_, colorView_, nullptr, nullptr);
+    SDL_RenderTexture(renderer_, brighten ? gammaView_ : colorView_, nullptr, nullptr);
     if (overlay && overlay->w == width_ && overlay->h == height_ && overlay->format == PixelFormat::RGBA32) {
         SDL_UpdateTexture(overlay_, nullptr, overlay->pixels.data(), overlay->pitch);
         SDL_RenderTexture(renderer_, overlay_, nullptr, nullptr);

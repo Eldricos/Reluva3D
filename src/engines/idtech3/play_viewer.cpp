@@ -33,9 +33,6 @@ constexpr int kFrameW = 960;
 constexpr int kFrameH = 720;
 constexpr uint64_t kHintMs = 8000;
 constexpr float kPi = 3.14159265358979f;
-// Degrees turned per unit the mouse moves: the original's defaults
-// (sensitivity 5, m_yaw and m_pitch 0.022).
-constexpr float kMouseDegrees = 5 * 0.022f;
 // The command's button bits: attack 1 (Quake III's) and alt attack 32
 // (Elite Force's own), found with reluva-tool game-run -buttons: holding
 // either changes the same player state words (weapon time, ammunition,
@@ -383,9 +380,9 @@ void PlayViewer::handleEvent(const Event& ev) {
         }
         break;
     case EventType::MouseMove:
-        // Moving the mouse up looks up: pitch counts downwards.
-        yaw_ -= ev.moveX * kMouseDegrees;
-        pitch_ = std::clamp(pitch_ + ev.moveY * kMouseDegrees, -89.0f, 89.0f);
+        // Turned into looking once a frame (runGame), as the settings say.
+        mouseX_ += ev.moveX;
+        mouseY_ += ev.moveY;
         break;
     default: break;
     }
@@ -396,14 +393,38 @@ void PlayViewer::runGame(uint64_t nowMs) {
         return;
     const int32_t dt = lastMs_ ? int32_t(std::min<uint64_t>(nowMs - lastMs_, 100)) : 0;
     lastMs_ = nowMs;
-    // Turning and looking by keys, as the original: 140 degrees a second
-    // (cl_yawspeed, cl_pitchspeed), half as fast again with +speed; with
-    // +strafe, left and right step instead.
-    const float turn = 140.0f * (held("speed") ? 1.5f : 1.0f) * float(dt) / 1000.0f;
+    // The settings, the original's names and defaults (the menus' Controls
+    // set them): a setting not yet made counts as its default.
+    auto setting = [&](const char* name, float fallback) {
+        return cvars_.find(name) ? cvars_.value(name) : fallback;
+    };
+    // The mouse: degrees per unit moved are the sensitivity times m_yaw and
+    // m_pitch (negative m_pitch: inverted); m_filter averages this frame's
+    // move with the last; without free look (cl_freelook 0, unless +mlook
+    // is held) it doesn't look up and down. Moving it up looks up: pitch
+    // counts downwards.
+    float mx = mouseX_, my = mouseY_;
+    mouseX_ = mouseY_ = 0;
+    if (setting("m_filter", 0) != 0) {
+        const float px = mx, py = my;
+        mx = (mx + lastMouseX_) / 2;
+        my = (my + lastMouseY_) / 2;
+        lastMouseX_ = px;
+        lastMouseY_ = py;
+    }
+    const float sensitivity = setting("sensitivity", 5);
+    yaw_ -= mx * sensitivity * setting("m_yaw", 0.022f);
+    if (setting("cl_freelook", 1) != 0 || held("mlook"))
+        pitch_ = std::clamp(pitch_ + my * sensitivity * setting("m_pitch", 0.022f), -89.0f, 89.0f);
+    // Turning and looking by keys: cl_yawspeed and cl_pitchspeed degrees a
+    // second, times cl_anglespeedkey with +speed; with +strafe, left and
+    // right step instead.
+    const float keyScale = (held("speed") ? setting("cl_anglespeedkey", 1.5f) : 1.0f) * float(dt) / 1000.0f;
     const bool strafe = held("strafe");
     if (!strafe)
-        yaw_ += float(held("left") - held("right")) * turn;
-    pitch_ = std::clamp(pitch_ + float(held("lookdown") - held("lookup")) * turn, -89.0f, 89.0f);
+        yaw_ += float(held("left") - held("right")) * setting("cl_yawspeed", 140) * keyScale;
+    pitch_ = std::clamp(pitch_ + float(held("lookdown") - held("lookup")) * setting("cl_pitchspeed", 140) * keyScale,
+                        -89.0f, 89.0f);
     if (dt > 0) {
         // The player's command for this moment, as a client sends one each
         // frame: where they look, how they move, what they press. The game
@@ -461,6 +482,7 @@ void PlayViewer::update(uint64_t nowMs) {
     if (!shownMs_)
         shownMs_ = nowMs;
     runGame(nowMs);
+    renderer_->setGamma(brightness(ctx_));
     const float time = float(clientTime_) / 1000.0f;
 
     // The player's view: the first the client game rendered with the
@@ -475,20 +497,32 @@ void PlayViewer::update(uint64_t nowMs) {
                 sceneView = &v;
                 break;
             }
-    const float aspect = float(kFrameW) / float(kFrameH);
     if (view) {
         eye_ = readVec(*view, 24);
         const gfx::Vec3 forward = readVec(*view, 36), up = readVec(*view, 60);
         const float fovY = std::clamp(readFloat(*view, 20), 1.0f, 170.0f) * kPi / 180.0f;
+        // Where on the screen (refdef_t's x, y, width, height, in the client
+        // game's 640x480): smaller with a smaller screen size setting.
+        int vx = 0, vy = 0, vw = kFrameW, vh = kFrameH;
+        if (const int32_t w = readInt(*view, 8), h = readInt(*view, 12); w > 0 && h > 0 && w <= 640 && h <= 480) {
+            vx = readInt(*view, 0) * kFrameW / 640;
+            vy = readInt(*view, 4) * kFrameH / 480;
+            vw = w * kFrameW / 640;
+            vh = h * kFrameH / 480;
+        }
+        const float aspect = float(vw) / float(vh);
         const gfx::Mat4 viewProj =
             gfx::multiply(gfx::perspective(fovY, aspect, 4, 32768), gfx::lookAlong(eye_, forward, up));
         renderer_->beginFrame(viewProj, eye_, {0, 0, 0});
+        renderer_->setViewport(vx, vy, vw, vh);
         constexpr float kLastOpaque = 5;
         // The view's dynamic lights (shots, explosions): on the level's
         // solid surfaces, and in the models' lighting.
+        // (Unless r_dynamiclight, the menus' Dynamic Lights, is off.)
         lights_.clear();
         const auto& sceneLights = cgame_->scene().lights;
-        for (size_t i = sceneView->firstLight; i < sceneView->firstLight + sceneView->lightCount; ++i)
+        const bool dynamicLights = !cvars_.find("r_dynamiclight") || cvars_.integer("r_dynamiclight") != 0;
+        for (size_t i = sceneView->firstLight; dynamicLights && i < sceneView->firstLight + sceneView->lightCount; ++i)
             if (i < sceneLights.size() && sceneLights[i].radius > 0)
                 lights_.push_back({sceneLights[i].origin, sceneLights[i].radius, sceneLights[i].color});
         placeEntities(*sceneView);
@@ -550,6 +584,7 @@ void PlayViewer::update(uint64_t nowMs) {
         ortho[12] = -1;
         ortho[13] = 1;
         ortho[15] = 1;
+        renderer_->setViewport(0, 0, 0, 0);
         renderer_->setView(ortho, {0, 0, 0});
         for (size_t i = 0; i < pictures.size(); ++i) {
             const int32_t handle = pictures[i].shader;
