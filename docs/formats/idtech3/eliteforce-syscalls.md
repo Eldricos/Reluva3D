@@ -405,3 +405,16 @@ Reluva's server runs a frame every 50 ms (Quake III's default `sv_fps
 client game doesn't smooth itself move in coarse steps). Models are
 drawn between their frame (80) and old frame (96), blended by the
 back-lerp (100) on the GPU, as the client game asks.
+
+Marks (scorches, holes) use call 27, Quake III's mark fragments:
+`(numPoints, points, projection, maxPoints, pointBuffer, maxFragments,
+fragmentBuffer)` -> how many fragments, each 8 bytes (first point, number
+of points) into the points written (12 bytes each). Seen: 4 points (a
+quad round the impact), up to 384 points. The client game then adds each
+fragment as a polygon (call 42: shader, vertex count, vertices; taken to
+be Quake III's 24-byte polyVert_t: position, texture coordinates,
+colour). Reluva's answer (`marks.cpp`) is new code from that behaviour:
+the world's surfaces (planar faces, triangle soups and patches,
+tessellated as drawn; not those flagged sky, noimpact or nomarks: 0x4,
+0x10, 0x20), each triangle facing against the projection clipped to the
+polygon's edges swept along the projection and to its reach both ways.

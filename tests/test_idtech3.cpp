@@ -14,6 +14,7 @@
 #include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/games.h"
 #include "engines/idtech3/lexer.h"
+#include "engines/idtech3/marks.h"
 #include "engines/idtech3/light_grid.h"
 #include "engines/idtech3/md3.h"
 #include "engines/idtech3/model_cache.h"
@@ -1357,6 +1358,65 @@ void testKeyBindings() {
     CHECK(parts.size() == 3 && parts[0] == "a \"b;c\"" && reluva::idtech3::splitCommand(parts[0]).size() == 2);
 }
 
+void testMarks() {
+    using namespace reluva::idtech3;
+    // A floor, 128 units square at height 0, facing up, as two triangles.
+    Bsp bsp;
+    bsp.shaders.push_back({"floor", 0, 1});
+    for (auto [x, y] : std::array<std::pair<float, float>, 4>{{{-64, -64}, {64, -64}, {64, 64}, {-64, 64}}}) {
+        BspVertex v;
+        v.pos = {x, y, 0};
+        v.normal = {0, 0, 1};
+        bsp.vertices.push_back(v);
+    }
+    bsp.indices = {0, 1, 2, 0, 2, 3};
+    BspSurface floor;
+    floor.type = SurfaceType::Planar;
+    floor.numVertices = 4;
+    floor.numIndices = 6;
+    bsp.surfaces.push_back(floor);
+    BspModel world;
+    world.numSurfaces = 1;
+    bsp.models.push_back(world);
+
+    MarkSurfaces marks(bsp);
+    CHECK(marks.triangleCount() == 2);
+    // A scorch 16 units across, just above the floor, pushed down onto it.
+    const std::vector<Vec3f> square{{-8, -8, 1}, {8, -8, 1}, {8, 8, 1}, {-8, 8, 1}};
+    std::vector<Vec3f> points;
+    std::vector<MarkSurfaces::Fragment> fragments;
+    marks.mark(square, {0, 0, -20}, 384, 128, points, fragments);
+    CHECK(!fragments.empty() && fragments.size() <= 2);
+    float area = 0;
+    for (const auto& f : fragments) {
+        CHECK(f.numPoints >= 3);
+        for (int i = 1; i + 1 < f.numPoints; ++i) {
+            const Vec3f& a = points[size_t(f.firstPoint)];
+            const Vec3f& b = points[size_t(f.firstPoint + i)];
+            const Vec3f& c = points[size_t(f.firstPoint + i + 1)];
+            area += std::fabs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) / 2;
+        }
+    }
+    for (const Vec3f& p : points)
+        CHECK(std::fabs(p[2]) < 1e-4f && std::fabs(p[0]) <= 8.001f && std::fabs(p[1]) <= 8.001f);
+    CHECK(std::fabs(area - 256) < 0.1f); // the whole square, on the floor
+    // From below, the floor faces away; too far above, it's out of reach.
+    points.clear();
+    fragments.clear();
+    marks.mark(square, {0, 0, 20}, 384, 128, points, fragments);
+    CHECK(fragments.empty());
+    const std::vector<Vec3f> high{{-8, -8, 100}, {8, -8, 100}, {8, 8, 100}, {-8, 8, 100}};
+    marks.mark(high, {0, 0, -20}, 384, 128, points, fragments);
+    CHECK(fragments.empty());
+    // Room for only a few points: nothing past the limit.
+    marks.mark(square, {0, 0, -20}, 4, 128, points, fragments);
+    CHECK(points.size() <= 4);
+    // A surface that takes no marks.
+    bsp.shaders[0].surfaceFlags = surfaceflags::NoMarks;
+    MarkSurfaces none(bsp);
+    CHECK(none.triangleCount() == 0);
+}
+
 int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_idtech3_tests";
     testLexer();
@@ -1373,6 +1433,7 @@ int main() {
     testCompiledQvm();
     testCvars();
     testKeyBindings();
+    testMarks();
     testVmFileList();
     testSoundLibrary(tmp / "sounds");
     testCollision();

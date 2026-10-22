@@ -120,6 +120,7 @@ if(RELUVA_ENGINE_IDTECH3)
         src/engines/idtech3/games.cpp
         src/engines/idtech3/filesystem.cpp
         src/engines/idtech3/lexer.cpp
+        src/engines/idtech3/marks.cpp
         src/engines/idtech3/entities.cpp
         src/engines/idtech3/shader.cpp
         src/engines/idtech3/bindings.cpp

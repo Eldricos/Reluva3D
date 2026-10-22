@@ -771,6 +771,29 @@ void PlayViewer::placeEntities(const eliteforce::CgameHost::View& view) {
     otherEntities_ = 0;
     unloadable_.clear();
     const gfx::Vec3 left = readVec(view.refdef, 48), up = readVec(view.refdef, 60);
+    // Polygons (marks: scorches, holes): each vertex a position, texture
+    // coordinates and a colour (Quake III's polyVert_t, 24 bytes), drawn
+    // as a fan.
+    const auto& polys = cgame_->scene().polys;
+    for (size_t i = view.firstPoly; i < view.firstPoly + view.polyCount && i < polys.size(); ++i) {
+        const auto& poly = polys[i];
+        const size_t n = std::min(size_t(std::max(poly.vertexCount, 0)), poly.vertices.size() / 24);
+        if (n < 3 || poly.shader <= 0)
+            continue;
+        const auto base = uint32_t(effectVertices_.size()), first = uint32_t(effectIndices_.size());
+        for (size_t k = 0; k < n; ++k) {
+            gfx::Vertex v{};
+            std::memcpy(v.pos, &poly.vertices[k * 24], 12);
+            std::memcpy(v.uv, &poly.vertices[k * 24 + 12], 8);
+            std::memcpy(v.color, &poly.vertices[k * 24 + 20], 4);
+            v.normal[2] = 1;
+            effectVertices_.push_back(v);
+        }
+        for (uint32_t k = 1; k + 1 < n; ++k)
+            for (uint32_t idx : {0u, k, k + 1})
+                effectIndices_.push_back(base + idx);
+        effects_.push_back({poly.shader, first, uint32_t(effectIndices_.size()) - first, {1, 1, 1, 1}, 0});
+    }
     const auto& entities = cgame_->scene().entities;
     for (size_t i = view.firstEntity; i < view.firstEntity + view.entityCount && i < entities.size(); ++i) {
         const std::vector<uint8_t>& e = entities[i].bytes;

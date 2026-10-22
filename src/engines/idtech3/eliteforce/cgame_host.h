@@ -9,6 +9,7 @@
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/game_host.h"
+#include "engines/idtech3/marks.h"
 #include "engines/idtech3/md3.h"
 #include "engines/idtech3/qvm.h"
 #include "engines/idtech3/vm_services.h"
@@ -187,6 +188,7 @@ private:
     std::map<int32_t, std::shared_ptr<const Md3Model>> md3s_; // by model handle, for tags
     std::array<float, 3> tempBoxMins_{}, tempBoxMaxs_{};
     std::unique_ptr<CollisionWorld> world_;
+    std::unique_ptr<MarkSurfaces> marks_; // made from map_ on the first mark
     int32_t weaponSelect_ = 0;
 };
 

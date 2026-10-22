@@ -297,6 +297,8 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
             return 0;
         }
         map_ = std::move(bsp);
+        world_.reset();
+        marks_.reset();
         return 0;
     }
     case CmNumInlineModels: return map_ ? int32_t(map_->models.size()) : 0;
@@ -426,7 +428,34 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         writeTrace(vm, a[0], t, t.fraction < 1 ? 1022 : 1023);
         return 0;
     }
-    case CmMarkFragments: return 0; // decals on walls: later
+    case CmMarkFragments: {
+        // (numPoints, points, projection, maxPoints, pointBuffer, maxFragments, fragmentBuffer) -> fragments:
+        // the pieces of the level under a mark, each (firstPoint, numPoints) into the points written.
+        if (!map_ || a[0] < 3 || a[0] > 64 || !vm.valid(a[1], a[0] * 12) || !vm.valid(a[2], 12))
+            return 0;
+        if (!marks_)
+            marks_ = std::make_unique<MarkSurfaces>(*map_);
+        auto vec = [&](int32_t at) {
+            return Vec3f{Qvm::asFloat(vm.readInt(at)), Qvm::asFloat(vm.readInt(at + 4)),
+                         Qvm::asFloat(vm.readInt(at + 8))};
+        };
+        std::vector<Vec3f> polygon;
+        for (int32_t i = 0; i < a[0]; ++i)
+            polygon.push_back(vec(a[1] + 12 * i));
+        std::vector<Vec3f> points;
+        std::vector<MarkSurfaces::Fragment> fragments;
+        marks_->mark(polygon, vec(a[2]), size_t(std::max(a[3], 0)), size_t(std::max(a[5], 0)), points, fragments);
+        if (!vm.checkWrite(a[4], int32_t(points.size()) * 12) || !vm.checkWrite(a[6], int32_t(fragments.size()) * 8))
+            return 0;
+        for (size_t i = 0; i < points.size(); ++i)
+            for (int c = 0; c < 3; ++c)
+                vm.writeInt(a[4] + int32_t(i) * 12 + 4 * c, Qvm::fromFloat(points[i][size_t(c)]));
+        for (size_t i = 0; i < fragments.size(); ++i) {
+            vm.writeInt(a[6] + int32_t(i) * 8, fragments[i].firstPoint);
+            vm.writeInt(a[6] + int32_t(i) * 8 + 4, fragments[i].numPoints);
+        }
+        return int32_t(fragments.size());
+    }
     case SStartSound:
     case SStartLocalSound:
     case SAddLoopingSound:
