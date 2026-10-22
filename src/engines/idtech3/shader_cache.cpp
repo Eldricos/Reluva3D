@@ -322,6 +322,13 @@ int ShaderCache::material(const std::string& name, Lighting lighting) {
             tex.clamp = true;
             d.noMipmaps = true;
             d.stages = {tex};
+        } else if (lighting == Lighting::Effect) {
+            // An effect's image: coloured and blended by the entity's colour.
+            tex.blendSrc = "gl_src_alpha";
+            tex.blendDst = "gl_one_minus_src_alpha";
+            tex.rgbGen = ShaderStage::RgbGen::Vertex;
+            tex.alphaGen = ShaderStage::AlphaGen::Vertex;
+            d.stages = {tex};
         } else {
             tex.rgbGen = lighting == Lighting::Vertex ? ShaderStage::RgbGen::ExactVertex
                                                       : ShaderStage::RgbGen::LightingDiffuse;
@@ -389,7 +396,16 @@ void ShaderCache::draw(int material, const gfx::DrawCall& base, gfx::TextureId l
             break;
         }
         case R::Const: call.color = {d.rgbConst[0], d.rgbConst[1], d.rgbConst[2], 1}; break;
-        case R::OneMinusEntity: call.color = {0, 0, 0, 1}; break;
+        case R::Entity:
+            if (m.lighting == Lighting::Effect)
+                call.rgbSource = gfx::ColorSource::Vertex;
+            break;
+        case R::OneMinusEntity:
+            if (m.lighting == Lighting::Effect)
+                call.rgbSource = gfx::ColorSource::OneMinusVertex;
+            else
+                call.color = {0, 0, 0, 1};
+            break;
         default: break; // identity: white
         }
         using A = ShaderStage::AlphaGen;
@@ -401,7 +417,16 @@ void ShaderCache::draw(int material, const gfx::DrawCall& base, gfx::TextureId l
         case A::OneMinusVertex: call.alphaSource = gfx::ColorSource::OneMinusVertex; break;
         case A::Wave: call.color[3] = std::clamp(gfx::evaluate(d.alphaWave, time), 0.0f, 1.0f); break;
         case A::Const: call.color[3] = d.alphaConst; break;
-        case A::OneMinusEntity: call.color[3] = 0; break;
+        case A::Entity:
+            if (m.lighting == Lighting::Effect)
+                call.alphaSource = gfx::ColorSource::Vertex;
+            break;
+        case A::OneMinusEntity:
+            if (m.lighting == Lighting::Effect)
+                call.alphaSource = gfx::ColorSource::OneMinusVertex;
+            else
+                call.color[3] = 0;
+            break;
         default: break; // identity, entity, lightingSpecular, portal: opaque
         }
 
@@ -409,6 +434,8 @@ void ShaderCache::draw(int material, const gfx::DrawCall& base, gfx::TextureId l
             call.state.depthTest = call.state.depthWrite = false;
             call.state.cull = gfx::Cull::None;
         }
+        if (m.lighting == Lighting::Effect)
+            call.state.cull = gfx::Cull::None;
         if (sky) {
             call.followCamera = true;
             call.texGen = gfx::TexGen::Uv2; // the cloud coordinates

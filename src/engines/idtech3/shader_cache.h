@@ -22,7 +22,10 @@ namespace reluva::idtech3 {
 // models lit by a light (the light grid, for models in a map); and
 // pictures drawn flat on the screen (menus, the HUD), tinted by their
 // vertex colours, with no depth test or culling.
-enum class Lighting { Lightmap, Vertex, Diffuse, TwoD };
+// Effect: the game's sprites and beams, whose colour (the entity's, which
+// rgbGen and alphaGen entity ask for) is in their vertices; both sides
+// drawn.
+enum class Lighting { Lightmap, Vertex, Diffuse, TwoD, Effect };
 
 // Shaders turned into what the GPU draws, shared by everything a page
 // shows: each stage's textures loaded and states decided once, the parts

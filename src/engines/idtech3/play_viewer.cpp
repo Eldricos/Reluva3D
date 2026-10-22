@@ -7,7 +7,8 @@
 // client game (vm/cgame.qvm) gets a snapshot after each server frame and
 // says what to draw: the level from the player's eye, then the HUD.
 // Entities the client game adds as models are drawn with their skins,
-// lit by the light grid; other kinds (sprites, beams...) not yet.
+// lit by the light grid; sprites, quads and lines (beams) with their
+// shaders and colours. Other kinds aren't drawn yet.
 
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
@@ -50,6 +51,15 @@ namespace refent {
 constexpr size_t Type = 0, Flags = 4, Model = 8, LightingOrigin = 12, Axes = 28, Origin = 68, Frame = 80,
                  OldFrame = 96, BackLerp = 100, CustomSkin = 108;
 constexpr int32_t TypeModel = 0;
+// Elite Force's effect types, read from what its client game adds when
+// firing (see eliteforce-syscalls.md): a quad in the entity's own axes
+// (left and up, radius at 136), a sprite facing the camera (radius at
+// 136, rotation in degrees at 132), a line from the origin to the old
+// origin (width at 132, the texture repeated along it as often as 140
+// says), and one tapering from the width at 132 to the one at 136.
+constexpr int32_t TypeQuad = 1, TypeSprite = 2, TypeLine = 9, TypeTaperedLine = 11;
+constexpr size_t OldOrigin = 84, CustomShader = 112, Rgba = 116, Rotation = 132, Radius = 136, Width = 132,
+                 EndWidth = 136, Repeat = 140;
 // Render flags (Quake III's): drawn only in mirrors and portals (the
 // player's own body); lit from the lighting origin.
 constexpr int32_t ThirdPerson = 2, UseLightingOrigin = 0x80;
@@ -127,6 +137,7 @@ void PlayViewer::deactivate() {
     game_.reset();
     materials_.clear();
     modelIds_.clear();
+    effectMaterials_.clear();
     models_.reset();
     world_.reset();
     shaders_.reset();
@@ -141,6 +152,7 @@ void PlayViewer::start(int index) {
     game_.reset();
     materials_.clear();
     modelIds_.clear();
+    effectMaterials_.clear();
     models_->clear();
     world_->clear();
     shaders_->clear();
@@ -472,8 +484,10 @@ void PlayViewer::update(uint64_t nowMs) {
         world_->drawSurfaces(time, kLastOpaque + 0.5f);
         for (const Placed& p : placed_)
             models_->draw(p.model, p.frame, p.transform, p.light, time, p.skin, kLastOpaque + 0.5f);
+        drawEffects(time);
     } else {
         placed_.clear();
+        effects_.clear();
         renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
     }
 
@@ -544,16 +558,113 @@ void PlayViewer::update(uint64_t nowMs) {
         renderer_->destroyMesh(mesh);
 }
 
+void PlayViewer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left, const gfx::Vec3& up) {
+    // An effect as one quad, in the entity's colour: corners a, b, c, d
+    // with texture coordinates (0,0), (1,0), (1,1), (0,1) unless given.
+    const int32_t type = readInt(e, refent::Type);
+    const int32_t shader = readInt(e, refent::CustomShader);
+    if (shader <= 0)
+        return;
+    auto add = [](const gfx::Vec3& a, const gfx::Vec3& b, float s) {
+        return gfx::Vec3{a[0] + b[0] * s, a[1] + b[1] * s, a[2] + b[2] * s};
+    };
+    const gfx::Vec3 origin = readVec(e, refent::Origin);
+    std::array<gfx::Vec3, 4> corners;
+    std::array<std::array<float, 2>, 4> uv{{{0, 0}, {1, 0}, {1, 1}, {0, 1}}};
+    if (type == refent::TypeSprite || type == refent::TypeQuad) {
+        const float r = readFloat(e, refent::Radius);
+        gfx::Vec3 l = left, u = up;
+        if (type == refent::TypeQuad) {
+            l = readVec(e, refent::Axes + 12);
+            u = readVec(e, refent::Axes + 24);
+        } else if (const float deg = readFloat(e, refent::Rotation); deg != 0) {
+            const float c = std::cos(deg * kPi / 180), s = std::sin(deg * kPi / 180);
+            for (int i = 0; i < 3; ++i) {
+                l[size_t(i)] = left[size_t(i)] * c + up[size_t(i)] * s;
+                u[size_t(i)] = up[size_t(i)] * c - left[size_t(i)] * s;
+            }
+        }
+        corners = {add(add(origin, l, r), u, r), add(add(origin, l, -r), u, r), add(add(origin, l, -r), u, -r),
+                   add(add(origin, l, r), u, -r)};
+    } else if (type == refent::TypeLine || type == refent::TypeTaperedLine) {
+        // Across the line, facing the camera as much as it can.
+        const gfx::Vec3 end = readVec(e, refent::OldOrigin);
+        const gfx::Vec3 along{end[0] - origin[0], end[1] - origin[1], end[2] - origin[2]};
+        const gfx::Vec3 toEye{eye_[0] - origin[0], eye_[1] - origin[1], eye_[2] - origin[2]};
+        gfx::Vec3 side{along[1] * toEye[2] - along[2] * toEye[1], along[2] * toEye[0] - along[0] * toEye[2],
+                       along[0] * toEye[1] - along[1] * toEye[0]};
+        const float len = std::sqrt(side[0] * side[0] + side[1] * side[1] + side[2] * side[2]);
+        if (len < 1e-6f)
+            return;
+        for (float& v : side)
+            v /= len;
+        const float w0 = readFloat(e, refent::Width) / 2;
+        const float w1 = type == refent::TypeTaperedLine ? readFloat(e, refent::EndWidth) / 2 : w0;
+        const float repeat = readFloat(e, refent::Repeat) > 0 ? readFloat(e, refent::Repeat) : 1.0f;
+        // The texture along the line, across it from one side to the other.
+        corners = {add(origin, side, w0), add(end, side, w1), add(end, side, -w1), add(origin, side, -w0)};
+        uv = {{{0, 0}, {repeat, 0}, {repeat, 1}, {0, 1}}};
+    } else {
+        ++otherEntities_;
+        return;
+    }
+    const auto base = uint32_t(effectVertices_.size());
+    const int32_t rgba = readInt(e, refent::Rgba);
+    for (size_t i = 0; i < 4; ++i) {
+        gfx::Vertex v{};
+        for (size_t k = 0; k < 3; ++k)
+            v.pos[k] = corners[i][k];
+        v.uv[0] = uv[i][0];
+        v.uv[1] = uv[i][1];
+        v.normal[2] = 1;
+        std::memcpy(v.color, &rgba, 4); // bytes r, g, b, a
+        effectVertices_.push_back(v);
+    }
+    effects_.push_back({shader, uint32_t(effectIndices_.size())});
+    for (uint32_t i : {0u, 1u, 2u, 0u, 2u, 3u})
+        effectIndices_.push_back(base + i);
+}
+
+void PlayViewer::drawEffects(float time) {
+    // This frame's effects, in the order the client game added them, over
+    // everything else (they blend, as their shaders say).
+    if (effects_.empty())
+        return;
+    gfx::MeshId mesh = 0;
+    if (renderer_->createMesh(effectVertices_, effectIndices_, mesh) || !mesh)
+        return;
+    for (const Effect& fx : effects_) {
+        if (size_t(fx.shader) >= effectMaterials_.size())
+            effectMaterials_.resize(size_t(fx.shader) + 1, -2);
+        int& material = effectMaterials_[size_t(fx.shader)];
+        if (material == -2)
+            material = shaders_->material(cgame_->shaders().name(fx.shader), Lighting::Effect);
+        if (material < 0 || shaders_->get(material).skip)
+            continue;
+        gfx::DrawCall call;
+        call.mesh = mesh;
+        call.firstIndex = fx.firstIndex;
+        call.indexCount = 6;
+        shaders_->draw(material, call, 0, time);
+    }
+    renderer_->destroyMesh(mesh);
+}
+
 void PlayViewer::placeEntities(const eliteforce::CgameHost::View& view) {
-    // The view's entities that are models, where the client game put them.
+    // The view's entities: models where the client game put them, and
+    // effects as quads facing the eye (refdef_t's axes: left at 48, up at 60).
     placed_.clear();
+    effects_.clear();
+    effectVertices_.clear();
+    effectIndices_.clear();
     otherEntities_ = 0;
     unloadable_.clear();
+    const gfx::Vec3 left = readVec(view.refdef, 48), up = readVec(view.refdef, 60);
     const auto& entities = cgame_->scene().entities;
     for (size_t i = view.firstEntity; i < view.firstEntity + view.entityCount && i < entities.size(); ++i) {
         const std::vector<uint8_t>& e = entities[i].bytes;
         if (readInt(e, refent::Type) != refent::TypeModel) {
-            ++otherEntities_;
+            addEffect(e, left, up);
             continue;
         }
         const int32_t flags = readInt(e, refent::Flags);
@@ -606,9 +717,9 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
     if (showInfo_) {
         char line[200];
         if (game_) {
-            std::snprintf(line, sizeof line, "time %.1f s, eye at %.0f %.0f %.0f%s; %zu models drawn, %d other entities not yet",
+            std::snprintf(line, sizeof line, "time %.1f s, eye at %.0f %.0f %.0f%s; %zu models and %zu effects drawn, %d other entities not yet",
                           float(clientTime_) / 1000.0f, eye_[0], eye_[1], eye_[2],
-                          haveView ? "" : " (no view yet)", placed_.size(), otherEntities_);
+                          haveView ? "" : " (no view yet)", placed_.size(), effects_.size(), otherEntities_);
             lines.push_back(line);
             // What the player's commands carry, to see that keys arrive.
             std::string held;

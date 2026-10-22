@@ -318,6 +318,8 @@ private:
     void runBinding(const std::string& line, int32_t key, bool down);
     bool held(const char* button) const;
     void placeEntities(const eliteforce::CgameHost::View& view);
+    void addEffect(const std::vector<uint8_t>& entity, const gfx::Vec3& left, const gfx::Vec3& up);
+    void drawEffects(float time);
     int modelId(int32_t handle);
     void drawOverlay(uint64_t nowMs, bool haveView);
 
@@ -337,7 +339,17 @@ private:
         const Skin* skin = nullptr;
     };
     std::vector<Placed> placed_;
-    int otherEntities_ = 0;            // this frame's entities that aren't models
+    // This frame's effects (sprites, beams): quads in one mesh, each with
+    // the client game's shader handle.
+    struct Effect {
+        int32_t shader = 0;
+        uint32_t firstIndex = 0;
+    };
+    std::vector<Effect> effects_;
+    std::vector<gfx::Vertex> effectVertices_;
+    std::vector<uint32_t> effectIndices_;
+    std::vector<int> effectMaterials_; // by shader handle; -2 not made yet
+    int otherEntities_ = 0;            // this frame's entities not drawn (kinds not done yet)
     std::set<std::string> unloadable_; // models this frame couldn't draw
     std::vector<int> materials_; // by the client game's shader handle; -2 not made yet
     CvarStore& cvars_ = ctx_.cvars;

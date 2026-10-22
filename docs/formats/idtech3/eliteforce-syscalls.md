@@ -360,3 +360,20 @@ word 48 is 0, so the original can't be sending it: its network protocol
 sends only the fields in its table, the rest reaching the client game as
 0. Reluva's snapshots zero it (`GameHost::kPlayerStateServerOnly`).
 Which other fields the protocol leaves out isn't known yet.
+
+Effects are scene entities of other types, seen with `reluva-tool
+game-run <game> hm_dn1 -cgame -cgameframes 30 -fire` (and `-altfire`)
+holding the phaser's fire against a wall (each field read off the
+entities the client game added):
+
+| Type | Seen as | Fields |
+|---|---|---|
+| 1 | alt fire's glow where it hits (`gfx/misc/sunny_flare`) | a quad in the entity's own axes; origin 68, shader 112, colour 116 (bytes r, g, b, a), radius 136 |
+| 2 | sparks where the beam hits (`gfx/misc/sunny_flare`) | a sprite facing the camera; origin 68, shader 112, colour 116, rotation in degrees 132 (the axes at 28 hold its sine and cosine: 350 with 0.1736), radius 136 |
+| 9 | the phaser's beam (`gfx/misc/phaser`), muzzle to wall | a line from the origin (68) to the old origin (84); width 132, 140 how often the texture repeats along it (5) |
+| 11 | alt fire's beam (`gfx/effects/whitelaser`) | a line tapering from the width at 132 (1.3) to the one at 136 (13.2); 140 as type 9 |
+
+The Play page draws these four as quads with their shaders (the
+`Effect` lighting in the shader cache: rgbGen and alphaGen entity take
+the entity's colour, put in the quad's vertices). Neither polygons nor
+dynamic lights were added while firing the phaser.
