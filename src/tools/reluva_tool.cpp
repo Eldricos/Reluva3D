@@ -80,6 +80,8 @@
 //                                                  -give: every weapon first; and the effects
 //                                                  seen reported); -buttons: hold each button bit
 //                                                  in turn and report what it changes
+//   reluva-tool file-show <game folder> <path>    print a file from the search path (a text file:
+//                                                  a config, a script)
 //   reluva-tool shader-show <game folder> <shader | model.md3 | model.mdr>  a shader's text as its script has it; for
 //                                                  a model, its surfaces' shaders and theirs
 //   reluva-tool shader-check <game folder>         count the shader directives the engine doesn't know
@@ -3897,6 +3899,25 @@ int cmdGameRun(int argc, char** argv) {
     return ok ? 0 : 1;
 }
 
+int cmdFileShow(int argc, char** argv) {
+    if (argc != 4) {
+        std::fprintf(stderr, "usage: reluva-tool file-show <game folder> <path>\n");
+        return 2;
+    }
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    Bytes data;
+    if (reluva::Error err = set.read(argv[3], data)) {
+        std::fprintf(stderr, "%s: %s\n", argv[3], err.message.c_str());
+        return 1;
+    }
+    std::fwrite(data.data(), 1, data.size(), stdout);
+    if (!data.empty() && data.back() != '\n')
+        std::printf("\n");
+    return 0;
+}
+
 int cmdShaderShow(int argc, char** argv) {
     if (argc != 4) {
         std::fprintf(stderr, "usage: reluva-tool shader-show <game folder> <shader | model.md3>\n");
@@ -4120,6 +4141,8 @@ int main(int argc, char** argv) {
         return cmdShaderCheck(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "shader-show") == 0)
         return cmdShaderShow(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "file-show") == 0)
+        return cmdFileShow(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "model-check") == 0)
         return cmdModelCheck(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "qvm-info") == 0)
@@ -4171,6 +4194,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool image-check <game folder> [map name filter]\n"
                  "  reluva-tool shader-check <game folder>\n"
                  "  reluva-tool shader-show <game folder> <shader | model.md3>\n"
+                 "  reluva-tool file-show <game folder> <path>\n"
                  "  reluva-tool model-check <game folder> [name filter] [-v]\n"
                  "  reluva-tool qvm-info <game folder> <vm/x.qvm> [-s]\n"
                  "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
