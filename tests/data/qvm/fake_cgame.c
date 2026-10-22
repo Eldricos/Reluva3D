@@ -93,7 +93,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
         n = trap_GetCurrentCmdNumber();
         if (!trap_GetUserCmd(n, ucmd))
             return -1;
-        return n * 1000 + (signed char)(ucmd[5] >> 8);
+        return n * 1000 + (signed char)ucmd[5];
     case 31: /* a scene: two entities, then rendered */
         trap_R_ClearScene();
         memset(refEntity, 0, sizeof(refEntity));

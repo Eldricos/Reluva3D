@@ -78,8 +78,8 @@ public:
     // command a client sends.
     Error clientThink(int32_t clientNum, const UserCommand& cmd);
     // Writes a command into game code's memory, laid out as usercmd_t:
-    // server time 0, buttons 4, angles 8, weapon 20, forward, right and
-    // up moves 21-23.
+    // server time 0, buttons 4, angles 8, forward, right and up moves
+    // 20-22, weapon 23.
     static void writeUserCommand(Qvm& vm, int32_t address, const UserCommand& cmd);
     Error call(int32_t command, const std::vector<int32_t>& args, int32_t& result);
 

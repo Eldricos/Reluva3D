@@ -156,7 +156,7 @@ III's game calls; unlike the menus, 0 prints and 1 is the error.
 | 23 | `SetBrushModel(ent, name)` | seen | `(ent, *(ent + 324))`: the entity's `model` key, `"*N"` |
 | 24 | `Trace(results, start, mins, maxs, end, passEntityNum, contentMask)` | seen | 81 calls on hm_dn1 (items dropping to the floor). The masks are Quake III's values: `0x6000001` (solid, bodies, corpses), `0x2000000` (bodies), `0x2010000` (bodies, player clip), `1` (solid). Afterwards the code reads +4 (`startsolid`), +8 compared with 1.0 (`fraction`), surface flags against 16 (Quake III's `SURF_NOIMPACT`), the entity number against 1023 (none): Quake III's `trace_t` |
 | 25–33 | `PointContents`, `InPVS`, `InPVSIgnorePortals`, `AdjustAreaPortalState`, `AreasConnected`, `LinkEntity`, `UnlinkEntity`, `EntitiesInBox`, `EntityContact` | order | `LinkEntity` called 81 times on hm_dn1 |
-| 36 | `GetUsercmd(clientNum, usercmd_t*)` | seen | `(clientNum, ent->client + 464)`: `ent+300` is the entity's client, the command at 464 in it. In Quake III the client starts with the player state, then `pers.connected`, then `pers.cmd`, so Elite Force's player state would be 460 bytes. The command is 24 bytes, as Quake III's `usercmd_t`, but with the buttons before the angles: server time 0, buttons 4, angles 8 (pitch, yaw, roll), weapon 20, forward 21, right 22, up 23. The size is confirmed by `qvm-dis -blockcopies`: 24-byte copies six times in qagame, a 460-byte one once |
+| 36 | `GetUsercmd(clientNum, usercmd_t*)` | seen | `(clientNum, ent->client + 464)`: `ent+300` is the entity's client, the command at 464 in it. In Quake III the client starts with the player state, then `pers.connected`, then `pers.cmd`, so Elite Force's player state would be 460 bytes. The command is 24 bytes, as Quake III's `usercmd_t`, but in another order: server time 0, buttons 4, angles 8 (pitch, yaw, roll), forward 20, right 21, up 22, weapon 23. The size is confirmed by `qvm-dis -blockcopies`: 24-byte copies six times in qagame, a 460-byte one once |
 | 2, 4, 8, 9, 11–14, 16, 17, 20–22, 34, 35 | the rest of Quake III's game calls, in its order | order | |
 
 The entities' first 300 bytes, which the engine reads and writes, are
@@ -207,12 +207,14 @@ take their commands (its copy at `client + 464` stays empty) and doesn't
 announce them; the client game presumably ends the intro. With
 `g_holoIntro 0` (`game-run -set g_holoIntro 0`) the game announces
 "entered the game" and moves the player by their commands: run forward
-(byte 21 of the command, 127), the player moved 8.9 units in the first
-100 ms on hm_dn1, confirming the moves' places and the game's own
-movement code running on Reluva's collision. The buttons' place came
-from playing: with Quake III's order (angles 4, buttons 16), looking up
-and down fired the phaser, the pitch landing in the buttons, and turning
-moved the view up and down. `game-run` also drops a
+(127 in byte 21 of the command, which is the right move), the player moved 8.9 units
+in the first 100 ms on hm_dn1: the game's own movement code running on
+Reluva's collision. The order of the fields came from playing: with
+Quake III's (angles 4, buttons 16), looking up and down fired the
+phaser, the pitch landing in the buttons; with the moves at 21-23 and
+the weapon at 20, forward strafed right, right moved up and down, up did
+nothing (an invalid weapon) and weapons didn't change: the moves are at
+20-22 and the weapon at 23. `game-run` also drops a
 player's box from every spawn point (raised 9 units, as Quake III's game
 spawns players) as a check of the collision model on its own.
 | 111 | `ceil` | order | Quake III's game numbers `floor` 110 and `ceil` 111 |
