@@ -3319,12 +3319,13 @@ int cmdGameRun(int argc, char** argv) {
                         game.clientInt(0, 68), (game.callCounts().count(36) ? game.callCounts().at(36) : 0));
             // Quake III's pm_type (4), pm_flags (12), pm_time (16); and the
             // game's copy of the last command (client + 464): its time and
-            // its moves and weapon (20-23).
-            const int32_t cmdTime = game.clientInt(0, 464), cmdMoves = game.clientInt(0, 464 + 20);
+            // its weapon (5) and moves (20-22).
+            const int32_t cmdTime = game.clientInt(0, 464), cmdMoves = game.clientInt(0, 464 + 20),
+                          cmdWeapon = (game.clientInt(0, 464 + 4) >> 8) & 0xff;
             std::printf("    pm_type %d, pm_flags 0x%x, pm_time %d; the game's command: time %d, weapon %d, "
                         "forward %d, right %d, up %d\n",
                         game.clientInt(0, 4), unsigned(game.clientInt(0, 12)), game.clientInt(0, 16), cmdTime,
-                        (cmdMoves >> 24) & 0xff, int8_t(cmdMoves & 0xff), int8_t((cmdMoves >> 8) & 0xff),
+                        cmdWeapon, int8_t(cmdMoves & 0xff), int8_t((cmdMoves >> 8) & 0xff),
                         int8_t((cmdMoves >> 16) & 0xff));
         }
     }
@@ -3360,7 +3361,7 @@ int cmdGameRun(int argc, char** argv) {
         };
         std::set<size_t> idle, ignored;
         run(0, 10, idle);
-        for (int bit = 0; bit < 12 && ok; ++bit) {
+        for (int bit = 0; bit < 8 && ok; ++bit) { // the buttons are a byte
             std::set<size_t> changed;
             run(1 << bit, 10, changed);
             run(0, 10, ignored);

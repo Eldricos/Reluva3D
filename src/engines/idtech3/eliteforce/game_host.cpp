@@ -172,13 +172,14 @@ Error GameHost::beginClient(int32_t clientNum) {
 
 void GameHost::writeUserCommand(Qvm& vm, int32_t address, const UserCommand& cmd) {
     vm.writeInt(address, cmd.serverTime);
-    vm.writeInt(address + 4, cmd.buttons);
+    // The buttons and the weapon a byte each, then two bytes of padding.
+    vm.writeInt(address + 4, (cmd.buttons & 0xff) | int32_t(cmd.weapon) << 8);
     for (int i = 0; i < 3; ++i)
         vm.writeInt(address + 8 + 4 * i, cmd.angles[size_t(i)]);
     vm.memory()[size_t(address + 20)] = uint8_t(cmd.forward);
     vm.memory()[size_t(address + 21)] = uint8_t(cmd.right);
     vm.memory()[size_t(address + 22)] = uint8_t(cmd.up);
-    vm.memory()[size_t(address + 23)] = cmd.weapon;
+    vm.memory()[size_t(address + 23)] = 0;
 }
 
 Error GameHost::clientThink(int32_t clientNum, const UserCommand& cmd) {
