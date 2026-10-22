@@ -94,14 +94,25 @@ public:
     struct View {
         std::vector<uint8_t> refdef;
         size_t firstEntity = 0, entityCount = 0; // in entities
+        size_t firstPoly = 0, polyCount = 0;     // in polys
     };
     struct Scene {
         std::vector<SceneEntity> entities; // every one added this frame
-        int polys = 0, lights = 0;
+        // Polygons (AddPolyToScene: shader, vertex count, the vertices'
+        // bytes, 24 each as Quake III's polyVert_t, until the layout's
+        // confirmed) and lights (AddLightToScene: the arguments as given).
+        struct Poly {
+            int32_t shader = 0, vertexCount = 0;
+            std::vector<uint8_t> vertices;
+        };
+        std::vector<Poly> polys;
+        std::vector<std::array<int32_t, 6>> lights;
         std::vector<uint8_t> view; // set by RenderScene: the last one
         int renders = 0;
         std::vector<View> views; // every RenderScene, in order
         size_t pending = 0;      // entities from here wait for the next RenderScene
+        size_t pendingPolys = 0; // the same for polygons
+
     };
     const Scene& scene() const { return scene_; }
     void clearScene() { scene_ = Scene{}; }

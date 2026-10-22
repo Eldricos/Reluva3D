@@ -306,7 +306,10 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case RRegisterSkin: return skins_.add(str(0, 256));
     case RRegisterShader:
     case RRegisterShaderNoMip: return shaders_.add(str(0, 256));
-    case RClearScene: scene_.pending = scene_.entities.size(); return 0;
+    case RClearScene:
+        scene_.pending = scene_.entities.size();
+        scene_.pendingPolys = scene_.polys.size();
+        return 0;
     case RSetColor: // (rgba or 0 for white)
         if (!a[0])
             color_ = {1, 1, 1, 1};
@@ -438,14 +441,25 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         scene_.entities.push_back(std::move(e));
         return 0;
     }
-    case RAddPolyToScene: ++scene_.polys; return 0;
-    case RAddLightToScene: ++scene_.lights; return 0;
+    case RAddPolyToScene: { // (shader, numVerts, verts)
+        Scene::Poly p;
+        p.shader = a[0];
+        p.vertexCount = a[1];
+        const int32_t bytes = std::clamp(a[1], 0, 256) * 24;
+        if (bytes > 0 && vm.valid(a[2], bytes))
+            p.vertices.assign(&vm.memory()[size_t(a[2])], &vm.memory()[size_t(a[2] + bytes)]);
+        scene_.polys.push_back(std::move(p));
+        return 0;
+    }
+    case RAddLightToScene: scene_.lights.push_back({a[0], a[1], a[2], a[3], a[4], a[5]}); return 0;
     case RRenderScene:
         if (vm.valid(a[0], kRefdefSize))
             scene_.view.assign(&vm.memory()[size_t(a[0])], &vm.memory()[size_t(a[0])] + kRefdefSize);
         ++scene_.renders;
-        scene_.views.push_back({scene_.view, scene_.pending, scene_.entities.size() - scene_.pending});
+        scene_.views.push_back({scene_.view, scene_.pending, scene_.entities.size() - scene_.pending,
+                                scene_.pendingPolys, scene_.polys.size() - scene_.pendingPolys});
         scene_.pending = scene_.entities.size();
+        scene_.pendingPolys = scene_.polys.size();
         return 0;
     case RLerpTag: { // (orientation_t*, model, startFrame, endFrame, frac, tagName) -> found
         auto [it, added] = md3s_.try_emplace(a[1]);
