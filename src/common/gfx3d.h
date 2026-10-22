@@ -107,6 +107,10 @@ struct DrawCall {
     MeshId mesh = 0;
     uint32_t firstIndex = 0, indexCount = 0;
     int32_t vertexOffset = 0; // added to every index, e.g. to pick an animation frame's vertices
+    // Positions and normals blended towards those this many vertices on
+    // instead (another animation frame's), by `backLerp` (0: none).
+    int32_t oldVertexOffset = 0;
+    float backLerp = 0;
     // Places the mesh in the world. Deforms and texture coordinates from
     // positions (Vector, turbulence) use the mesh's own coordinates.
     Mat4 model = identity();

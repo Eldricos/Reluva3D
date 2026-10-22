@@ -1023,7 +1023,7 @@ static void testGameHost(const std::filesystem::path& tmp) {
     CHECK(game.configstrings().count(12) && game.configstrings().at(12) == "borg2");
     // The server info, as the client game finds the map's name.
     CHECK(game.configstrings().count(0) && game.configstrings().at(0).find("\\mapname\\borg2") != std::string::npos);
-    CHECK(game.levelTime() == 300);
+    CHECK(game.levelTime() == 3 * ef::GameHost::kFrameMs);
     int32_t r = 0;
     CHECK(!game.call(23, {}, r) && r == 3); // the three settling frames
     CHECK(!game.call(21, {2}, r) && r == 'i' * 1000 + 't');
@@ -1060,7 +1060,7 @@ static void testGameHost(const std::filesystem::path& tmp) {
     CHECK(!game.beginClient(0));
     CHECK(!game.call(31, {}, r) && r == 4 && game.linked().count(4));
     CHECK(game.entityVec(4, 272)[0] == 0 && game.entityVec(4, 272)[2] == 309); // the spawn point, 9 up
-    // Its commands, field by field in Quake III's usercmd_t.
+    // Its commands, field by field in Elite Force's usercmd_t.
     ef::GameHost::UserCommand cmd;
     cmd.serverTime = 400;
     cmd.angles = {1000, 16384, 0};
@@ -1078,7 +1078,7 @@ static void testGameHost(const std::filesystem::path& tmp) {
     // point, the player's box at 4: the stand-in's player isn't entity 0),
     // each the first 204 bytes of the game's entity.
     const auto snap = game.snapshot(0);
-    CHECK(snap.serverTime == 300 && snap.entities.size() == 4 && snap.entities[0].size() == 204);
+    CHECK(snap.serverTime == 3 * ef::GameHost::kFrameMs && snap.entities.size() == 4 && snap.entities[0].size() == 204);
     CHECK(snap.entities[0][0] == 1 && snap.entities[3][0] == 4); // s.number
     CHECK(snap.serverCommandSequence == 1);
     // The player state, copied but for the word the original doesn't send.

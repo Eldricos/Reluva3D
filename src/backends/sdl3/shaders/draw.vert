@@ -11,6 +11,8 @@ layout(location = 1) in vec2 inUv;
 layout(location = 2) in vec2 inUv2;
 layout(location = 3) in vec3 inNormal;
 layout(location = 4) in vec4 inColor;
+layout(location = 5) in vec3 inOldPos;    // another animation frame's, blended towards by mode2.y
+layout(location = 6) in vec3 inOldNormal;
 
 layout(location = 0) out vec2 outUv;
 layout(location = 1) out vec4 outColor;
@@ -35,7 +37,7 @@ layout(set = 1, binding = 0) uniform Draw {
     vec4 color;
     vec4 mode;     // x: texGen (0 uv, 1 uv2, 2 environment, 3 vector), y: rgb source, z: alpha source
                    // (0 constant, 1 vertex, 2 one minus vertex, 3 lighting), w: fog distance (0 off)
-    vec4 mode2;    // x: follow the camera
+    vec4 mode2;    // x: follow the camera, y: how far towards the old frame's positions
     vec4 ambient;  // xyz: ambient light for the lighting colour source
     vec4 directed; // xyz: directed light
     vec4 lightDir; // xyz: towards the light, world space
@@ -81,20 +83,21 @@ vec4 source(float which, vec4 vertexColor, vec3 normal) {
 
 void main() {
     float t = eye.w;
-    vec3 pos = inPos;
+    vec3 pos = mix(inPos, inOldPos, mode2.y);
+    vec3 baseNormal = mode2.y != 0.0 ? normalize(mix(inNormal, inOldNormal, mode2.y)) : inNormal;
     for (int i = 0; i < 2; ++i) {
         int type = int(deforms[i].a.x + 0.5);
         if (type == 1) {
             float off = (pos.x + pos.y + pos.z) * deforms[i].b.z;
-            pos += inNormal * wave(deforms[i].a.y, deforms[i].a.z, deforms[i].a.w, deforms[i].b.x + off, deforms[i].b.y, t);
+            pos += baseNormal * wave(deforms[i].a.y, deforms[i].a.z, deforms[i].a.w, deforms[i].b.x + off, deforms[i].b.y, t);
         } else if (type == 2) {
-            pos += inNormal * deforms[i].c.y * sin(inUv.x * deforms[i].c.x + t * deforms[i].c.z);
+            pos += baseNormal * deforms[i].c.y * sin(inUv.x * deforms[i].c.x + t * deforms[i].c.z);
         } else if (type == 3) {
             pos += deforms[i].c.xyz * wave(deforms[i].a.y, deforms[i].a.z, deforms[i].a.w, deforms[i].b.x, deforms[i].b.y, t);
         }
     }
     vec3 world = mode2.x > 0.5 ? pos + eye.xyz : (model * vec4(pos, 1.0)).xyz;
-    vec3 normal = normalize(mat3(model) * inNormal);
+    vec3 normal = normalize(mat3(model) * baseNormal);
 
     vec2 uv;
     int gen = int(mode.x + 0.5);

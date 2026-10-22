@@ -337,16 +337,22 @@ SDL_GPUGraphicsPipeline* SdlGpuRenderer::pipeline(const gfx::DrawState& state) {
     if (auto it = pipelines_.find(key); it != pipelines_.end())
         return it->second;
 
-    SDL_GPUVertexBufferDescription buffer{};
-    buffer.slot = 0;
-    buffer.pitch = sizeof(gfx::Vertex);
-    buffer.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
-    SDL_GPUVertexAttribute attrs[5] = {};
+    // The mesh twice: its vertices, and (slot 1) the ones it's blended
+    // towards, another animation frame's.
+    SDL_GPUVertexBufferDescription buffers[2] = {};
+    for (uint32_t i = 0; i < 2; ++i) {
+        buffers[i].slot = i;
+        buffers[i].pitch = sizeof(gfx::Vertex);
+        buffers[i].input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
+    }
+    SDL_GPUVertexAttribute attrs[7] = {};
     attrs[0] = {0, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, uint32_t(offsetof(gfx::Vertex, pos))};
     attrs[1] = {1, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, uint32_t(offsetof(gfx::Vertex, uv))};
     attrs[2] = {2, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, uint32_t(offsetof(gfx::Vertex, uv2))};
     attrs[3] = {3, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, uint32_t(offsetof(gfx::Vertex, normal))};
     attrs[4] = {4, 0, SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM, uint32_t(offsetof(gfx::Vertex, color))};
+    attrs[5] = {5, 1, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, uint32_t(offsetof(gfx::Vertex, pos))};
+    attrs[6] = {6, 1, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, uint32_t(offsetof(gfx::Vertex, normal))};
 
     SDL_GPUColorTargetDescription target{};
     target.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
@@ -359,10 +365,10 @@ SDL_GPUGraphicsPipeline* SdlGpuRenderer::pipeline(const gfx::DrawState& state) {
     SDL_GPUGraphicsPipelineCreateInfo info{};
     info.vertex_shader = vertexShader_;
     info.fragment_shader = fragmentShader_;
-    info.vertex_input_state.vertex_buffer_descriptions = &buffer;
-    info.vertex_input_state.num_vertex_buffers = 1;
+    info.vertex_input_state.vertex_buffer_descriptions = buffers;
+    info.vertex_input_state.num_vertex_buffers = 2;
     info.vertex_input_state.vertex_attributes = attrs;
-    info.vertex_input_state.num_vertex_attributes = 5;
+    info.vertex_input_state.num_vertex_attributes = 7;
     info.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
     info.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
     info.rasterizer_state.cull_mode = state.cull == gfx::Cull::Back    ? SDL_GPU_CULLMODE_BACK
@@ -425,12 +431,21 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
         SDL_BindGPUGraphicsPipeline(pass_, p);
         boundPipeline_ = p;
     }
-    if (call.mesh != boundMesh_) {
-        SDL_GPUBufferBinding vb{mesh->second.vertices, 0};
-        SDL_GPUBufferBinding ib{mesh->second.indices, 0};
-        SDL_BindGPUVertexBuffers(pass_, 0, &vb, 1);
-        SDL_BindGPUIndexBuffer(pass_, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+    // The frame's vertices and the old frame's, by where the bindings
+    // start; without a blend both are the same.
+    const int32_t oldOffset = call.backLerp != 0 ? call.oldVertexOffset : call.vertexOffset;
+    if (call.mesh != boundMesh_ || call.vertexOffset != boundOffset_ || oldOffset != boundOldOffset_) {
+        SDL_GPUBufferBinding vb[2] = {
+            {mesh->second.vertices, uint32_t(call.vertexOffset) * uint32_t(sizeof(gfx::Vertex))},
+            {mesh->second.vertices, uint32_t(oldOffset) * uint32_t(sizeof(gfx::Vertex))}};
+        SDL_BindGPUVertexBuffers(pass_, 0, vb, 2);
+        if (call.mesh != boundMesh_) {
+            SDL_GPUBufferBinding ib{mesh->second.indices, 0};
+            SDL_BindGPUIndexBuffer(pass_, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+        }
         boundMesh_ = call.mesh;
+        boundOffset_ = call.vertexOffset;
+        boundOldOffset_ = oldOffset;
     }
     auto tex = textures_.find(call.texture);
     if (tex == textures_.end())
@@ -461,6 +476,7 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     vu.mode[2] = float(call.alphaSource);
     vu.mode[3] = call.fogDistance;
     vu.mode2[0] = call.followCamera ? 1.0f : 0.0f;
+    vu.mode2[1] = call.backLerp;
     for (size_t i = 0; i < call.deforms.size(); ++i) {
         const gfx::Deform& d = call.deforms[i];
         DeformUniforms& u = vu.deforms[i];
@@ -484,7 +500,7 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     fu.params[0] = float(call.state.alphaTest);
     SDL_PushGPUFragmentUniformData(cmd_, 0, &fu, sizeof(fu));
 
-    SDL_DrawGPUIndexedPrimitives(pass_, call.indexCount, 1, call.firstIndex, call.vertexOffset, 0);
+    SDL_DrawGPUIndexedPrimitives(pass_, call.indexCount, 1, call.firstIndex, 0, 0);
 }
 
 void SdlGpuRenderer::endFrame(const Surface* overlay) {

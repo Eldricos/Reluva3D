@@ -335,7 +335,8 @@ private:
     std::map<int32_t, int> modelIds_; // the client game's model handle -> models_ id (-1: can't load)
     // This frame's model entities, ready to draw.
     struct Placed {
-        int model = -1, frame = 0;
+        int model = -1, frame = 0, oldFrame = 0;
+        float backLerp = 0;
         gfx::Mat4 transform{};
         PointLight light;
         const Skin* skin = nullptr;

@@ -81,6 +81,7 @@ private:
     gfx::Vec3 eye_{};
     SDL_GPUGraphicsPipeline* boundPipeline_ = nullptr;
     gfx::MeshId boundMesh_ = 0;
+    int32_t boundOffset_ = 0, boundOldOffset_ = 0; // the vertex buffers' bindings, in vertices
 };
 
 } // namespace reluva

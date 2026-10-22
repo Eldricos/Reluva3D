@@ -122,6 +122,8 @@ public:
         std::vector<std::vector<uint8_t>> entities; // entity states, in entity order
         int32_t serverCommandSequence = 0;
     };
+    // Milliseconds a server frame: 20 a second, Quake III's default sv_fps.
+    static constexpr int32_t kFrameMs = 50;
     static constexpr int32_t kPlayerStateSize = 460, kEntityStateSize = 204;
     // A word of the player state the original's network protocol doesn't
     // send, which snapshots carry as 0.

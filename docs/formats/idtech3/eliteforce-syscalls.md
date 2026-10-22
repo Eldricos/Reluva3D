@@ -381,3 +381,9 @@ drawn with it in place of their own, in the entity's colour. Shader
 animations start at the entity's shader time, taken to be Quake III's
 128 (seconds of the level) when it holds a time that has come. Neither polygons nor
 dynamic lights were added while firing the phaser.
+
+Reluva's server runs a frame every 50 ms (Quake III's default `sv_fps
+20`; it ran every 100 ms before, which made events and anything the
+client game doesn't smooth itself move in coarse steps). Models are
+drawn between their frame (80) and old frame (96), blended by the
+back-lerp (100) on the GPU, as the client game asks.

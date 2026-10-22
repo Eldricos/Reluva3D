@@ -481,11 +481,11 @@ void PlayViewer::update(uint64_t nowMs) {
         world_->drawSurfaces(time, 0, kLastOpaque);
         for (const Placed& p : placed_)
             models_->draw(p.model, p.frame, p.transform, p.light, time - p.shaderTime, p.skin, 0, kLastOpaque,
-                          p.shader, &p.color);
+                          p.shader, &p.color, p.oldFrame, p.backLerp);
         world_->drawSurfaces(time, kLastOpaque + 0.5f);
         for (const Placed& p : placed_)
             models_->draw(p.model, p.frame, p.transform, p.light, time - p.shaderTime, p.skin, kLastOpaque + 0.5f,
-                          1e9f, p.shader, &p.color);
+                          1e9f, p.shader, &p.color, p.oldFrame, p.backLerp);
         drawEffects(time);
     } else {
         placed_.clear();
@@ -697,8 +697,10 @@ void PlayViewer::placeEntities(const eliteforce::CgameHost::View& view) {
         const gfx::Vec3 origin = readVec(e, refent::Origin);
         p.transform = placement(origin, {readVec(e, refent::Axes), readVec(e, refent::Axes + 12),
                                          readVec(e, refent::Axes + 24)});
-        // The nearer of the two frames it's between.
-        p.frame = readFloat(e, refent::BackLerp) < 0.5f ? readInt(e, refent::Frame) : readInt(e, refent::OldFrame);
+        // Between two frames, as far back towards the old one as it says.
+        p.frame = readInt(e, refent::Frame);
+        p.oldFrame = readInt(e, refent::OldFrame);
+        p.backLerp = readFloat(e, refent::BackLerp);
         p.light = grid_.sample(flags & refent::UseLightingOrigin ? readVec(e, refent::LightingOrigin) : origin);
         if (const int32_t skin = readInt(e, refent::CustomSkin); skin > 0 && !cgame_->skins().name(skin).empty())
             p.skin = &models_->skin(cgame_->skins().name(skin));

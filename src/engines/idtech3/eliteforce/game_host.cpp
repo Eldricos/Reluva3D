@@ -58,7 +58,6 @@ enum GameCall : int {
     Ceil = 111, // Quake III's game numbers floor 110 and ceil 111; Elite Force's code uses 111
 };
 
-constexpr int32_t kFrameMs = 100; // Quake III servers default to 10 frames a second (sv_fps)
 
 // The start of every entity, the part the engine reads and writes, as
 // Elite Force lays it out (found from the game's own code: what it passes

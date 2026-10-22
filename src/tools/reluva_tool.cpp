@@ -3303,7 +3303,7 @@ int cmdGameRun(int argc, char** argv) {
             // client: an empty command for the coming frame; with -walk,
             // runs forward (from the third frame, once standing).
             ef::GameHost::UserCommand cmd;
-            cmd.serverTime = game.levelTime() + 100;
+            cmd.serverTime = game.levelTime() + ef::GameHost::kFrameMs;
             if (walk && f >= 2) {
                 if (walkDirection == "back")
                     cmd.forward = -127;
@@ -3360,7 +3360,7 @@ int cmdGameRun(int argc, char** argv) {
             for (int f = 0; f < frames && ok; ++f) {
                 const auto before = state();
                 ef::GameHost::UserCommand cmd;
-                cmd.serverTime = game.levelTime() + 100;
+                cmd.serverTime = game.levelTime() + ef::GameHost::kFrameMs;
                 cmd.buttons = buttons;
                 cmd.weapon = 1;
                 if (reluva::Error err = game.clientThink(0, cmd); err || (err = game.runFrame())) {
@@ -3374,11 +3374,12 @@ int cmdGameRun(int argc, char** argv) {
             }
         };
         std::set<size_t> idle, ignored;
-        run(0, 10, idle);
+        const int second = 1000 / ef::GameHost::kFrameMs;
+        run(0, second, idle);
         for (int bit = 0; bit < 8 && ok; ++bit) { // the buttons are a byte
             std::set<size_t> changed;
-            run(1 << bit, 10, changed);
-            run(0, 10, ignored);
+            run(1 << bit, second, changed);
+            run(0, second, ignored);
             std::string list;
             for (size_t at : changed)
                 if (!idle.count(at))
@@ -3545,7 +3546,7 @@ int cmdGameRun(int argc, char** argv) {
                 }
                 ef::GameHost::UserCommand idle;
                 if (f) {
-                    idle.serverTime = game.levelTime() + 100;
+                    idle.serverTime = game.levelTime() + ef::GameHost::kFrameMs;
                     idle.weapon = uint8_t(fireButtons ? fireWeapon : 0);
                     idle.buttons = firing ? fireButtons : 0;
                     if (fireButtons)

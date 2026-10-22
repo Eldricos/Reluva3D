@@ -5,6 +5,7 @@
 
 #include "common/fs.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace reluva::idtech3 {
@@ -119,12 +120,15 @@ int ModelCache::load(const std::string& path, std::string* error) {
 
 void ModelCache::draw(int id, int frame, const gfx::Mat4& transform, const PointLight& light, float time,
                       const Skin* skin, float sortMin, float sortMax, const std::string& shader,
-                      const std::array<float, 4>* entity) {
+                      const std::array<float, 4>* entity, int oldFrame, float backLerp) {
     if (id < 0)
         return;
     const Loaded& m = models_[size_t(id)];
     const int frames = int(m.md3.frames.size());
     frame = ((frame % frames) + frames) % frames;
+    oldFrame = ((oldFrame % frames) + frames) % frames;
+    if (oldFrame == frame)
+        backLerp = 0;
     for (size_t i = 0; i < m.surfaces.size(); ++i) {
         Surface& s = models_[size_t(id)].surfaces[i];
         int material = shader.empty() ? -1 : shaders_.material(shader, Lighting::Diffuse);
@@ -146,6 +150,8 @@ void ModelCache::draw(int id, int frame, const gfx::Mat4& transform, const Point
         call.firstIndex = s.firstIndex;
         call.indexCount = s.indexCount;
         call.vertexOffset = frame * s.vertexCount;
+        call.oldVertexOffset = oldFrame * s.vertexCount;
+        call.backLerp = std::clamp(backLerp, 0.0f, 1.0f);
         call.model = transform;
         for (int c = 0; c < 3; ++c) {
             call.ambientLight[size_t(c)] = light.ambient[size_t(c)] / 255;
