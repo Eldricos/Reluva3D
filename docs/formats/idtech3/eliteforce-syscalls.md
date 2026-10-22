@@ -372,8 +372,19 @@ entities the client game added):
 | 2 | sparks where the beam hits (`gfx/misc/sunny_flare`) | a sprite facing the camera; origin 68, shader 112, colour 116, rotation in degrees 132 (the axes at 28 hold its sine and cosine: 350 with 0.1736), radius 136 |
 | 9 | the phaser's beam (`gfx/misc/phaser`), muzzle to wall | a line from the origin (68) to the old origin (84); width 132, 140 how often the texture repeats along it (5) |
 | 11 | alt fire's beam (`gfx/effects/whitelaser`) | a line tapering from the width at 132 (1.3) to the one at 136 (13.2); 140 as type 9 |
+| 12 | the I-MOD's beam (`gfx/misc/IMOD2`) | a cubic Bezier curve from the origin (68) through control points at 136 and 148 to the old origin (84); width 132 (4) |
+| 13 | rings and blasts (`gfx/effects/prifle_altblast`, `gfx/misc/red_ring2`) | taken to be a ring or cone round the first axis (28): radii 132 and 136 (both growing as the colour fades: 20 and 14, then 160 and 107), height 140 (1, 6), 144 taken as the texture's repeats round it; 148 (15, 1.5) and 152 (1) not known |
+| 14 | the Dreadnought's electricity (`gfx/misc/dnBolt`) | taken to be a jagged line from the origin to the old origin: width 132 (0.5 to 15), jitter 136 (0.1 to 0.5), texture scale 140 (0.2) |
 
-The Play page draws these four as quads with their shaders, the colour
+These came from `game-run ... -cgame -give -fire -weapon all` (and
+`-altfire`), which gives the player every weapon (the game's `give all`,
+with `sv_cheats` on) and fires each for two seconds. Dynamic lights
+(call 43: origin, intensity, red, green, blue) come with most weapons;
+they aren't drawn yet. Call 107 is made by some effects (its arguments:
+a float, two pointers to the same vector, a float, the vector again, a
+pointer); it isn't known yet.
+
+The Play page draws these as quads and ribbons with their shaders, the colour
 at 116 in their vertices and for rgbGen and alphaGen entity; a line's
 texture runs across it in s and along it in t (along it in s, the
 phaser's beam showed stripes). Models with a custom shader (112) are

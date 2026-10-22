@@ -57,9 +57,16 @@ constexpr int32_t TypeModel = 0;
 // 136, rotation in degrees at 132), a line from the origin to the old
 // origin (width at 132, the texture repeated along it as often as 140
 // says), and one tapering from the width at 132 to the one at 136.
-constexpr int32_t TypeQuad = 1, TypeSprite = 2, TypeLine = 9, TypeTaperedLine = 11;
+// More, from the other weapons: a cubic Bezier curve from the origin
+// through control points at 136 and 148 to the old origin (12), a ring
+// or cone round the first axis (13: radii at 132 and 136, height at 140,
+// 144 the texture's repeats round it), and electricity from the origin to
+// the old origin (14: width 132, jitter 136, texture scale 140).
+constexpr int32_t TypeQuad = 1, TypeSprite = 2, TypeLine = 9, TypeTaperedLine = 11, TypeCurve = 12,
+                  TypeCylinder = 13, TypeBolt = 14;
 constexpr size_t OldOrigin = 84, CustomShader = 112, Rgba = 116, ShaderTime = 128, Rotation = 132, Radius = 136,
-                 Width = 132, EndWidth = 136, Repeat = 140;
+                 Width = 132, EndWidth = 136, Repeat = 140, Control1 = 136, Control2 = 148, Jitter = 136,
+                 CylinderRepeat = 144;
 // Render flags (Quake III's): drawn only in mirrors and portals (the
 // player's own body); lit from the lighting origin.
 constexpr int32_t ThirdPerson = 2, UseLightingOrigin = 0x80;
@@ -577,71 +584,147 @@ float PlayViewer::shaderTime(const std::vector<uint8_t>& e) const {
 }
 
 void PlayViewer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left, const gfx::Vec3& up) {
-    // An effect as one quad, in the entity's colour: corners a, b, c, d
-    // with texture coordinates (0,0), (1,0), (1,1), (0,1) unless given.
     const int32_t type = readInt(e, refent::Type);
     const int32_t shader = readInt(e, refent::CustomShader);
     if (shader <= 0)
         return;
-    auto add = [](const gfx::Vec3& a, const gfx::Vec3& b, float s) {
-        return gfx::Vec3{a[0] + b[0] * s, a[1] + b[1] * s, a[2] + b[2] * s};
+    using V = gfx::Vec3;
+    auto add = [](const V& a, const V& b, float s) { return V{a[0] + b[0] * s, a[1] + b[1] * s, a[2] + b[2] * s}; };
+    auto sub = [](const V& a, const V& b) { return V{a[0] - b[0], a[1] - b[1], a[2] - b[2]}; };
+    auto cross = [](const V& a, const V& b) {
+        return V{a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
     };
-    const gfx::Vec3 origin = readVec(e, refent::Origin);
-    std::array<gfx::Vec3, 4> corners;
-    std::array<std::array<float, 2>, 4> uv{{{0, 0}, {1, 0}, {1, 1}, {0, 1}}};
+    auto normalized = [](V v) {
+        const float len = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+        if (len > 1e-6f)
+            for (float& c : v)
+                c /= len;
+        return v;
+    };
+    const auto first = uint32_t(effectIndices_.size());
+    const int32_t rgba = readInt(e, refent::Rgba);
+    auto vertex = [&](const V& pos, float s, float t) {
+        gfx::Vertex v{};
+        for (size_t k = 0; k < 3; ++k)
+            v.pos[k] = pos[k];
+        v.uv[0] = s;
+        v.uv[1] = t;
+        v.normal[2] = 1;
+        std::memcpy(v.color, &rgba, 4); // bytes r, g, b, a
+        effectVertices_.push_back(v);
+        return uint32_t(effectVertices_.size() - 1);
+    };
+    auto quad = [&](uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
+        for (uint32_t i : {a, b, c, a, c, d})
+            effectIndices_.push_back(i);
+    };
+    // A ribbon through `points`, facing the eye, as wide as `widths`
+    // says at each; the texture across it in s and along it in t, to
+    // `repeat` at the end.
+    auto ribbon = [&](const std::vector<V>& points, const std::vector<float>& widths, float repeat) {
+        uint32_t prevA = 0, prevB = 0;
+        for (size_t i = 0; i < points.size(); ++i) {
+            const V along = sub(points[std::min(i + 1, points.size() - 1)], points[i ? i - 1 : 0]);
+            const V side = normalized(cross(along, sub(eye_, points[i])));
+            const float t = repeat * float(i) / float(points.size() - 1);
+            const uint32_t a = vertex(add(points[i], side, widths[i] / 2), 0, t);
+            const uint32_t b = vertex(add(points[i], side, -widths[i] / 2), 1, t);
+            if (i)
+                quad(prevA, a, b, prevB);
+            prevA = a;
+            prevB = b;
+        }
+    };
+    const V origin = readVec(e, refent::Origin);
     if (type == refent::TypeSprite || type == refent::TypeQuad) {
         const float r = readFloat(e, refent::Radius);
-        gfx::Vec3 l = left, u = up;
+        V l = left, u = up;
         if (type == refent::TypeQuad) {
             l = readVec(e, refent::Axes + 12);
             u = readVec(e, refent::Axes + 24);
         } else if (const float deg = readFloat(e, refent::Rotation); deg != 0) {
-            const float c = std::cos(deg * kPi / 180), s = std::sin(deg * kPi / 180);
-            for (int i = 0; i < 3; ++i) {
-                l[size_t(i)] = left[size_t(i)] * c + up[size_t(i)] * s;
-                u[size_t(i)] = up[size_t(i)] * c - left[size_t(i)] * s;
+            const float c = std::cos(deg * kPi / 180), sn = std::sin(deg * kPi / 180);
+            for (size_t i = 0; i < 3; ++i) {
+                l[i] = left[i] * c + up[i] * sn;
+                u[i] = up[i] * c - left[i] * sn;
             }
         }
-        corners = {add(add(origin, l, r), u, r), add(add(origin, l, -r), u, r), add(add(origin, l, -r), u, -r),
-                   add(add(origin, l, r), u, -r)};
+        quad(vertex(add(add(origin, l, r), u, r), 0, 0), vertex(add(add(origin, l, -r), u, r), 1, 0),
+             vertex(add(add(origin, l, -r), u, -r), 1, 1), vertex(add(add(origin, l, r), u, -r), 0, 1));
     } else if (type == refent::TypeLine || type == refent::TypeTaperedLine) {
-        // Across the line, facing the camera as much as it can.
-        const gfx::Vec3 end = readVec(e, refent::OldOrigin);
-        const gfx::Vec3 along{end[0] - origin[0], end[1] - origin[1], end[2] - origin[2]};
-        const gfx::Vec3 toEye{eye_[0] - origin[0], eye_[1] - origin[1], eye_[2] - origin[2]};
-        gfx::Vec3 side{along[1] * toEye[2] - along[2] * toEye[1], along[2] * toEye[0] - along[0] * toEye[2],
-                       along[0] * toEye[1] - along[1] * toEye[0]};
-        const float len = std::sqrt(side[0] * side[0] + side[1] * side[1] + side[2] * side[2]);
-        if (len < 1e-6f)
-            return;
-        for (float& v : side)
-            v /= len;
-        const float w0 = readFloat(e, refent::Width) / 2;
-        const float w1 = type == refent::TypeTaperedLine ? readFloat(e, refent::EndWidth) / 2 : w0;
+        const float w0 = readFloat(e, refent::Width);
+        const float w1 = type == refent::TypeTaperedLine ? readFloat(e, refent::EndWidth) : w0;
         const float repeat = readFloat(e, refent::Repeat) > 0 ? readFloat(e, refent::Repeat) : 1.0f;
-        // The texture across the line from one side to the other (s), and
-        // repeated along it (t).
-        corners = {add(origin, side, w0), add(end, side, w1), add(end, side, -w1), add(origin, side, -w0)};
-        uv = {{{0, 0}, {0, repeat}, {1, repeat}, {1, 0}}};
+        ribbon({origin, readVec(e, refent::OldOrigin)}, {w0, w1}, repeat);
+    } else if (type == refent::TypeCurve) {
+        // A cubic Bezier curve from the origin through two control points
+        // to the old origin.
+        const V p0 = origin, p1 = readVec(e, refent::Control1), p2 = readVec(e, refent::Control2),
+                p3 = readVec(e, refent::OldOrigin);
+        std::vector<V> points;
+        constexpr int kSteps = 16;
+        for (int i = 0; i <= kSteps; ++i) {
+            const float t = float(i) / kSteps, m = 1 - t;
+            V p{};
+            for (size_t k = 0; k < 3; ++k)
+                p[k] = m * m * m * p0[k] + 3 * m * m * t * p1[k] + 3 * m * t * t * p2[k] + t * t * t * p3[k];
+            points.push_back(p);
+        }
+        ribbon(points, std::vector<float>(points.size(), readFloat(e, refent::Width)), 1);
+    } else if (type == refent::TypeBolt) {
+        // Electricity: a line broken into steps, each point pushed aside at
+        // random by the jitter times the step's length; new each frame.
+        const V end = readVec(e, refent::OldOrigin);
+        const V along = sub(end, origin);
+        const float len = std::sqrt(along[0] * along[0] + along[1] * along[1] + along[2] * along[2]);
+        const V dir = normalized(along);
+        V side1 = normalized(cross(dir, V{0, 0, 1}));
+        if (std::fabs(dir[2]) > 0.99f)
+            side1 = V{1, 0, 0};
+        const V side2 = cross(dir, side1);
+        const int steps = std::clamp(int(len / 16), 2, 32);
+        const float jitter = readFloat(e, refent::Jitter) * len / float(steps);
+        std::vector<V> points;
+        for (int i = 0; i <= steps; ++i) {
+            V p = add(origin, along, float(i) / float(steps));
+            if (i > 0 && i < steps) {
+                const float r1 = float(effectRandom_() % 2001) / 1000.0f - 1;
+                const float r2 = float(effectRandom_() % 2001) / 1000.0f - 1;
+                p = add(add(p, side1, r1 * jitter), side2, r2 * jitter);
+            }
+            points.push_back(p);
+        }
+        const float scale = readFloat(e, refent::Repeat);
+        ribbon(points, std::vector<float>(points.size(), readFloat(e, refent::Width)),
+               scale > 0 ? len * scale / 16 : 1);
+    } else if (type == refent::TypeCylinder) {
+        // A ring or cone around the first axis: the radius at 132 at the
+        // origin, the one at 136 a height (140) along the axis; the texture
+        // round it (repeated as 144 says) and up it.
+        const V axis = normalized(readVec(e, refent::Axes));
+        const V a1 = normalized(readVec(e, refent::Axes + 12)), a2 = normalized(cross(axis, a1));
+        const float r0 = readFloat(e, refent::Width), r1 = readFloat(e, refent::EndWidth);
+        const float height = readFloat(e, refent::Repeat);
+        const float around = readFloat(e, refent::CylinderRepeat) > 0 ? readFloat(e, refent::CylinderRepeat) : 1.0f;
+        const V top = add(origin, axis, height);
+        constexpr int kSides = 24;
+        uint32_t prevA = 0, prevB = 0;
+        for (int i = 0; i <= kSides; ++i) {
+            const float ang = 2 * kPi * float(i) / kSides;
+            const V radial =
+                add(V{a1[0] * std::cos(ang), a1[1] * std::cos(ang), a1[2] * std::cos(ang)}, a2, std::sin(ang));
+            const float s = around * float(i) / kSides;
+            const uint32_t a = vertex(add(origin, radial, r0), s, 1), b = vertex(add(top, radial, r1), s, 0);
+            if (i)
+                quad(prevA, a, b, prevB);
+            prevA = a;
+            prevB = b;
+        }
     } else {
         ++otherEntities_;
         return;
     }
-    const auto base = uint32_t(effectVertices_.size());
-    const int32_t rgba = readInt(e, refent::Rgba);
-    for (size_t i = 0; i < 4; ++i) {
-        gfx::Vertex v{};
-        for (size_t k = 0; k < 3; ++k)
-            v.pos[k] = corners[i][k];
-        v.uv[0] = uv[i][0];
-        v.uv[1] = uv[i][1];
-        v.normal[2] = 1;
-        std::memcpy(v.color, &rgba, 4); // bytes r, g, b, a
-        effectVertices_.push_back(v);
-    }
-    effects_.push_back({shader, uint32_t(effectIndices_.size()), entityColor(e), shaderTime(e)});
-    for (uint32_t i : {0u, 1u, 2u, 0u, 2u, 3u})
-        effectIndices_.push_back(base + i);
+    effects_.push_back({shader, first, uint32_t(effectIndices_.size()) - first, entityColor(e), shaderTime(e)});
 }
 
 void PlayViewer::drawEffects(float time) {
@@ -663,7 +746,7 @@ void PlayViewer::drawEffects(float time) {
         gfx::DrawCall call;
         call.mesh = mesh;
         call.firstIndex = fx.firstIndex;
-        call.indexCount = 6;
+        call.indexCount = fx.indexCount;
         shaders_->draw(material, call, 0, time - fx.shaderTime, false, &fx.color);
     }
     renderer_->destroyMesh(mesh);

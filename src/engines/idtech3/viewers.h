@@ -59,6 +59,7 @@
 #include <map>
 #include <filesystem>
 #include <memory>
+#include <random>
 #include <set>
 #include <string>
 #include <vector>
@@ -349,7 +350,7 @@ private:
     // the client game's shader handle.
     struct Effect {
         int32_t shader = 0;
-        uint32_t firstIndex = 0;
+        uint32_t firstIndex = 0, indexCount = 0;
         std::array<float, 4> color{1, 1, 1, 1};
         float shaderTime = 0;
     };
@@ -357,6 +358,7 @@ private:
     std::vector<gfx::Vertex> effectVertices_;
     std::vector<uint32_t> effectIndices_;
     std::vector<int> effectMaterials_; // by shader handle; -2 not made yet
+    std::minstd_rand effectRandom_;    // electricity's jitter
     int otherEntities_ = 0;            // this frame's entities not drawn (kinds not done yet)
     std::set<std::string> unloadable_; // models this frame couldn't draw
     std::vector<int> materials_; // by the client game's shader handle; -2 not made yet
