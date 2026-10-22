@@ -1,0 +1,93 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#pragma once
+
+#include "engines/idtech3/collision.h"
+#include "engines/idtech3/sounds.h"
+
+#include "common/audio/mixer.h"
+
+#include <array>
+#include <map>
+#include <memory>
+#include <optional>
+#include <set>
+#include <string>
+#include <utility>
+#include <vector>
+
+namespace reluva::idtech3 {
+
+// The sounds of a level, as the original's sound system plays what the
+// client game asks for (see docs/engines/idtech3.md): sounds placed in the
+// world or on entities, heard from the listener's position, louder near
+// and panned to the side they're on; looping sounds the client game
+// re-adds each frame; the music.
+class SoundSystem {
+public:
+    SoundSystem(audio::Mixer& mixer, SoundLibrary& sounds) : mixer_(mixer), sounds_(sounds) {}
+    ~SoundSystem() { stopAll(); }
+    SoundSystem(const SoundSystem&) = delete;
+    SoundSystem& operator=(const SoundSystem&) = delete;
+
+    // Channel 0 plays any number of sounds at once; on any other an
+    // entity's new sound replaces the one it has playing there.
+    static constexpr int kAutoChannel = 0;
+
+    // A sound at `origin`, or (without one) following entity `entity`.
+    void startSound(const std::optional<Vec3f>& origin, int entity, int channel, const std::string& name);
+    // A sound heard as it is, wherever the listener is (the announcer,
+    // the menus' sounds).
+    void startLocalSound(const std::string& name, int channel);
+    // Looping sounds: those added between clearLoopingSounds() and
+    // endFrame() play; the rest stop.
+    void clearLoopingSounds();
+    void addLoopingSound(int entity, const Vec3f& origin, const std::string& name);
+    void updateEntityPosition(int entity, const Vec3f& origin);
+    // Where the listener is (entity `entity`) and which way it faces:
+    // forward, left, up.
+    void respatialize(int entity, const Vec3f& origin, const std::array<Vec3f, 3>& axes);
+    // The music: `intro` once, then `loop` round and round (either may be
+    // empty); names without an extension are tried as .mp3 and .wav.
+    void startBackgroundTrack(const std::string& intro, const std::string& loop);
+    void stopBackgroundTrack();
+    // Each frame, after the client game's: positions and volumes brought
+    // up to date, looping sounds not re-added stopped, music moved on.
+    void endFrame();
+    // The effects' and music's volumes, 0 to 1.
+    void setVolumes(float effects, float music);
+    void stopAll();
+
+    // How loud (0..1) and where (-1 left .. 1 right) a sound at `origin`
+    // is heard from the listener: full volume within 80 units, then
+    // fading by 0.0008 a unit; panned by how far to the listener's right
+    // it is.
+    std::pair<float, float> spatialize(const Vec3f& origin) const;
+
+private:
+    struct Playing {
+        audio::SoundHandle handle = audio::kNoSound;
+        int entity = -1, channel = 0;
+        std::optional<Vec3f> origin; // fixed; else the entity's
+        bool local = false;
+    };
+    std::shared_ptr<const audio::Sound> find(const std::string& name);
+    void place(audio::SoundHandle handle, const std::optional<Vec3f>& origin, int entity);
+
+    audio::Mixer& mixer_;
+    SoundLibrary& sounds_;
+    std::vector<Playing> playing_;
+    std::map<int, Vec3f> entities_;
+    // Looping sounds by (entity, name): playing, and added this frame.
+    std::map<std::pair<int, std::string>, audio::SoundHandle> loops_;
+    std::map<std::pair<int, std::string>, Vec3f> loopsAdded_;
+    int listener_ = -1;
+    Vec3f listenerOrigin_{};
+    std::array<Vec3f, 3> listenerAxes_{{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}};
+    audio::SoundHandle music_ = audio::kNoSound;
+    std::shared_ptr<const audio::Sound> musicLoop_;
+    bool musicIntro_ = false;
+};
+
+} // namespace reluva::idtech3

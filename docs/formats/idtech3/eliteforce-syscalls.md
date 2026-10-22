@@ -418,3 +418,13 @@ the world's surfaces (planar faces, triangle soups and patches,
 tessellated as drawn; not those flagged sky, noimpact or nomarks: 0x4,
 0x10, 0x20), each triangle facing against the projection clipped to the
 polygon's edges swept along the projection and to its reach both ways.
+
+The client game's sound calls are Quake III's, by what they're passed:
+28 `S_StartSound(origin or 0, entityNum, channel, sfx)` (seen: an origin,
+1022, 0, a sound), 29 `S_StartLocalSound(sfx, channel)`, 30
+`S_ClearLoopingSounds()` once a frame, 31 `S_AddLoopingSound(entityNum,
+origin, velocity, sfx)` (the phaser's hum: 0, the player's origin, the
+zero vector, its sound), 32 `S_UpdateEntityPosition(entityNum, origin)`
+(about 80 a frame), 33 `S_Respatialize(entityNum, origin, axes,
+inWater)` (the player, the view's origin and axes), 34
+`S_RegisterSound(name)`, 35 `S_StartBackgroundTrack(intro, loop)`.

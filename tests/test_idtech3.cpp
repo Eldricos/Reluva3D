@@ -21,6 +21,7 @@
 #include "engines/idtech3/patch.h"
 #include "engines/idtech3/qvm.h"
 #include "engines/idtech3/shader.h"
+#include "engines/idtech3/sound_system.h"
 #include "engines/idtech3/sounds.h"
 #include "common/audio/wav.h"
 #include "engines/registry.h"
@@ -905,6 +906,80 @@ static void testSoundLibrary(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+static void testSoundSystem(const std::filesystem::path& tmp) {
+    audio::Sound tone;
+    tone.rate = 22050;
+    tone.channels = 1;
+    tone.format = 1;
+    tone.samples.assign(2205, 4000); // a tenth of a second
+    std::filesystem::remove_all(tmp);
+    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
+                    test::buildZip({{"sound/a.wav", audio::encodePcmWav(tone), {}},
+                                    {"sound/b.wav", audio::encodePcmWav(tone), {}},
+                                    {"music/intro.wav", audio::encodePcmWav(tone), {}},
+                                    {"music/loop.wav", audio::encodePcmWav(tone), {}}}));
+    SearchSet set;
+    std::vector<std::string> warnings;
+    CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
+    SoundLibrary library(set);
+    audio::Mixer mixer(22050);
+    SoundSystem sounds(mixer, library);
+    // Listening from the origin, facing +x (left +y, up +z).
+    sounds.respatialize(0, {0, 0, 0}, {{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}});
+    auto [near, nearPan] = sounds.spatialize({50, 0, 0});
+    CHECK(near == 1 && std::fabs(nearPan) < 1e-4f); // within 80 units, ahead
+    auto [mid, right] = sounds.spatialize({0, -580, 0});
+    CHECK(std::fabs(mid - 0.6f) < 1e-3f && right > 0.99f); // 500 past 80: 0.4 lost; to the right
+    auto [far, left] = sounds.spatialize({0, 2000, 0});
+    CHECK(far == 0 && left < -0.99f);
+
+    // Channel 0 adds; channel 1 replaces the entity's sound there.
+    std::vector<int16_t> out(2 * 64);
+    sounds.startSound(Vec3f{0, 0, 0}, 3, 0, "sound/a.wav");
+    sounds.startSound(Vec3f{0, 0, 0}, 3, 0, "sound/b.wav");
+    sounds.startSound(std::nullopt, 3, 1, "sound/a.wav");
+    sounds.startSound(std::nullopt, 3, 1, "sound/b.wav");
+    sounds.startSound(std::nullopt, 3, 1, "sound/missing.wav"); // nothing, and nothing stopped
+    mixer.mix(out.data(), 64);
+    int playing = 0;
+    for (audio::SoundHandle h = 1; h < 10; ++h)
+        playing += mixer.isPlaying(h);
+    CHECK(playing == 3);
+    sounds.stopAll();
+
+    // A looping sound plays while it's added each frame.
+    sounds.clearLoopingSounds();
+    sounds.addLoopingSound(5, {100, 0, 0}, "sound/a.wav");
+    sounds.endFrame();
+    auto effects = [&] {
+        int n = 0;
+        for (audio::SoundHandle h = 1; h < 20; ++h)
+            n += mixer.isPlaying(h);
+        return n;
+    };
+    CHECK(effects() == 1);
+    sounds.clearLoopingSounds();
+    sounds.addLoopingSound(5, {100, 0, 0}, "sound/a.wav");
+    sounds.endFrame();
+    CHECK(effects() == 1); // the same one
+    sounds.clearLoopingSounds();
+    sounds.endFrame();
+    CHECK(effects() == 0);
+
+    // Music: the intro, then the loop (names without an extension found).
+    sounds.startBackgroundTrack("music/intro", "music/loop");
+    CHECK(mixer.isTypePlaying(audio::SoundType::Music));
+    std::vector<int16_t> lots(2 * 4000);
+    mixer.mix(lots.data(), 4000); // past the intro's end
+    sounds.endFrame();
+    CHECK(mixer.isTypePlaying(audio::SoundType::Music));
+    mixer.mix(lots.data(), 4000);
+    CHECK(mixer.isTypePlaying(audio::SoundType::Music)); // looping
+    sounds.stopAll();
+    CHECK(!mixer.isTypePlaying(audio::SoundType::Music));
+    std::filesystem::remove_all(tmp);
+}
+
 // A small map for collision: a floor in the world (x and y -512..512, z
 // -64..0) and one brush model, *1, a door 16 x 128 x 128 standing on its
 // own origin.
@@ -1436,6 +1511,7 @@ int main() {
     testMarks();
     testVmFileList();
     testSoundLibrary(tmp / "sounds");
+    testSoundSystem(tmp / "soundsystem");
     testCollision();
     testGameHost(tmp / "game");
     testCgameHost(tmp / "cgame");

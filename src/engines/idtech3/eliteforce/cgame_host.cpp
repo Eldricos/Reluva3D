@@ -138,6 +138,11 @@ void writeTrace(Qvm& vm, int32_t address, const TraceResult& t, int32_t entityNu
 
 // A command line split into words as Quake III's Cmd_TokenizeString does:
 // at white space, a quoted string as one word, // comments ending it.
+Vec3f readVec3(const Qvm& vm, int32_t address) {
+    return {Qvm::asFloat(vm.readInt(address)), Qvm::asFloat(vm.readInt(address + 4)),
+            Qvm::asFloat(vm.readInt(address + 8))};
+}
+
 std::vector<std::string> tokenize(const std::string& line) {
     std::vector<std::string> words;
     size_t i = 0;
@@ -303,7 +308,11 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     }
     case CmNumInlineModels: return map_ ? int32_t(map_->models.size()) : 0;
     case SRegisterSound: return sounds_.add(str(0, 256));
-    case SStartBackgroundTrack: music_ = {str(0, 256), str(1, 256)}; return 0;
+    case SStartBackgroundTrack: // (intro, loop)
+        music_ = {str(0, 256), str(1, 256)};
+        if (soundSystem)
+            soundSystem->startBackgroundTrack(music_.first, music_.second);
+        return 0;
     case RLoadWorldMap: worldMap_ = str(0, 256); return 0;
     case RRegisterModel: return models_.add(str(0, 256));
     case RRegisterSkin: return skins_.add(str(0, 256));
@@ -349,7 +358,10 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         }
         return 0;
     }
-    case SClearLoopingSounds: return 0; // sounds in the world: later
+    case SClearLoopingSounds:
+        if (soundSystem)
+            soundSystem->clearLoopingSounds();
+        return 0;
     case GetCurrentSnapshotNumber: // (&number, &serverTime)
         vm.writeInt(a[0], snapshotNumber_);
         vm.writeInt(a[1], snapshotTime_);
@@ -456,12 +468,32 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         }
         return int32_t(fragments.size());
     }
-    case SStartSound:
-    case SStartLocalSound:
-    case SAddLoopingSound:
-    case SUpdateEntityPosition:
-    case SRespatialize:
-        return 0; // sounds in the world: later
+    // Sounds, by their registered handles (SRegisterSound), as Quake III's.
+    case SStartSound: // (origin or 0 to follow the entity, entityNum, channel, sfx)
+        if (soundSystem) {
+            std::optional<Vec3f> origin;
+            if (a[0] && vm.valid(a[0], 12))
+                origin = readVec3(vm, a[0]);
+            soundSystem->startSound(origin, a[1], a[2], sounds_.name(a[3]));
+        }
+        return 0;
+    case SStartLocalSound: // (sfx, channel)
+        if (soundSystem)
+            soundSystem->startLocalSound(sounds_.name(a[0]), a[1]);
+        return 0;
+    case SAddLoopingSound: // (entityNum, origin, velocity, sfx)
+        if (soundSystem && vm.valid(a[1], 12))
+            soundSystem->addLoopingSound(a[0], readVec3(vm, a[1]), sounds_.name(a[3]));
+        return 0;
+    case SUpdateEntityPosition: // (entityNum, origin)
+        if (soundSystem && vm.valid(a[1], 12))
+            soundSystem->updateEntityPosition(a[0], readVec3(vm, a[1]));
+        return 0;
+    case SRespatialize: // (entityNum, origin, axes, inWater)
+        if (soundSystem && vm.valid(a[1], 12) && vm.valid(a[2], 36))
+            soundSystem->respatialize(a[0], readVec3(vm, a[1]),
+                                      {readVec3(vm, a[2]), readVec3(vm, a[2] + 12), readVec3(vm, a[2] + 24)});
+        return 0;
     case RAddRefEntityToScene: {
         SceneEntity e;
         const int32_t n = std::max<int32_t>(0, std::min<int32_t>(kRefEntityKept, int32_t(vm.memory().size()) - a[0]));

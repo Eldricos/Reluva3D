@@ -12,6 +12,7 @@
 #include "engines/idtech3/marks.h"
 #include "engines/idtech3/md3.h"
 #include "engines/idtech3/qvm.h"
+#include "engines/idtech3/sound_system.h"
 #include "engines/idtech3/vm_services.h"
 
 #include <array>
@@ -147,6 +148,9 @@ public:
     const std::pair<std::string, std::string>& music() const { return music_; }
     // The loaded collision map, if CM_LoadMap found it.
     std::shared_ptr<const Bsp> map() const { return map_; }
+
+    // Where its sounds go (S_StartSound...); none if not set.
+    SoundSystem* soundSystem = nullptr;
 
     std::function<void(const std::string&)> print;
     const std::string& log() const { return log_; }

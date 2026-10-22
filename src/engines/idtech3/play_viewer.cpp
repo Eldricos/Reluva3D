@@ -140,6 +140,7 @@ void PlayViewer::deactivate() {
     // The level stops with the page; it starts again when shown.
     cgame_.reset();
     game_.reset();
+    stopSounds();
     materials_.clear();
     modelIds_.clear();
     effectMaterials_.clear();
@@ -155,6 +156,7 @@ void PlayViewer::start(int index) {
     error_.clear();
     cgame_.reset();
     game_.reset();
+    stopSounds();
     materials_.clear();
     modelIds_.clear();
     effectMaterials_.clear();
@@ -213,6 +215,10 @@ void PlayViewer::start(int index) {
 
     // The player's client game, given what the server has set.
     cgame_ = std::make_unique<eliteforce::CgameHost>(ctx_.files, cvars_);
+    if (ctx_.mixer) {
+        soundSystem_ = std::make_unique<SoundSystem>(*ctx_.mixer, soundLibrary_);
+        cgame_->soundSystem = soundSystem_.get();
+    }
     err = cgame_->load();
     if (!err) {
         cgame_->setConfigstrings(game_->configstrings());
@@ -239,6 +245,17 @@ void PlayViewer::stop(const std::string& why) {
     }
     cgame_.reset();
     game_.reset();
+    stopSounds();
+}
+
+void PlayViewer::stopSounds() {
+    // After the client game, which uses it; the mixer's volumes back as
+    // the other pages expect them.
+    soundSystem_.reset();
+    if (ctx_.mixer) {
+        ctx_.mixer->setTypeVolume(audio::SoundType::Effects, audio::kMaxVolume);
+        ctx_.mixer->setTypeVolume(audio::SoundType::Music, audio::kMaxVolume);
+    }
 }
 
 void PlayViewer::sendServerCommands() {
@@ -472,8 +489,19 @@ void PlayViewer::runGame(uint64_t nowMs) {
     cgame_->clearScene();
     cgame_->clearPictures();
     int32_t ignored = 0;
-    if (Error err = cgame_->call(eliteforce::CgameHost::DrawActiveFrame, {clientTime_, 0, 0}, ignored))
+    if (Error err = cgame_->call(eliteforce::CgameHost::DrawActiveFrame, {clientTime_, 0, 0}, ignored)) {
         stop("The client game stopped: " + err.message);
+        return;
+    }
+    if (soundSystem_) {
+        // At the original's settings: effects (s_volume) 0.8 and music
+        // (s_musicvolume) 0.25 unless the menus set them.
+        auto setting = [&](const char* name, float fallback) {
+            return cvars_.find(name) ? cvars_.value(name) : fallback;
+        };
+        soundSystem_->setVolumes(setting("s_volume", 0.8f), setting("s_musicvolume", 0.25f));
+        soundSystem_->endFrame();
+    }
 }
 
 void PlayViewer::update(uint64_t nowMs) {

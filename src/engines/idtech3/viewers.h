@@ -45,6 +45,7 @@
 #include "engines/idtech3/light_grid.h"
 #include "engines/idtech3/model_cache.h"
 #include "engines/idtech3/shader_cache.h"
+#include "engines/idtech3/sound_system.h"
 #include "engines/idtech3/sounds.h"
 #include "engines/idtech3/world_renderer.h"
 
@@ -328,6 +329,7 @@ private:
     float shaderTime(const std::vector<uint8_t>& entity) const;
     int modelId(int32_t handle);
     void addDynamicLights(PointLight& light, const gfx::Vec3& at) const;
+    void stopSounds();
     void drawOverlay(uint64_t nowMs, bool haveView);
 
     std::vector<std::string> names_; // maps
@@ -364,6 +366,8 @@ private:
     std::vector<int> effectMaterials_; // by shader handle; -2 not made yet
     std::minstd_rand effectRandom_;    // electricity's jitter
     std::vector<gfx::DynamicLight> lights_; // this frame's, from the client game
+    SoundLibrary soundLibrary_{ctx_.files};
+    std::unique_ptr<SoundSystem> soundSystem_; // while a level runs, with audio output
     int otherEntities_ = 0;            // this frame's entities not drawn (kinds not done yet)
     std::set<std::string> unloadable_; // models this frame couldn't draw
     std::vector<int> materials_; // by the client game's shader handle; -2 not made yet
