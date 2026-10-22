@@ -118,7 +118,8 @@ int ModelCache::load(const std::string& path, std::string* error) {
 }
 
 void ModelCache::draw(int id, int frame, const gfx::Mat4& transform, const PointLight& light, float time,
-                      const Skin* skin, float sortMin, float sortMax) {
+                      const Skin* skin, float sortMin, float sortMax, const std::string& shader,
+                      const std::array<float, 4>* entity) {
     if (id < 0)
         return;
     const Loaded& m = models_[size_t(id)];
@@ -126,8 +127,8 @@ void ModelCache::draw(int id, int frame, const gfx::Mat4& transform, const Point
     frame = ((frame % frames) + frames) % frames;
     for (size_t i = 0; i < m.surfaces.size(); ++i) {
         Surface& s = models_[size_t(id)].surfaces[i];
-        int material = -1;
-        if (skin)
+        int material = shader.empty() ? -1 : shaders_.material(shader, Lighting::Diffuse);
+        if (material < 0 && skin)
             if (auto it = skin->find(fs::toLower(m.md3.surfaces[i].name)); it != skin->end())
                 material = shaders_.material(it->second, Lighting::Diffuse);
         if (material < 0) {
@@ -151,7 +152,7 @@ void ModelCache::draw(int id, int frame, const gfx::Mat4& transform, const Point
             call.directedLight[size_t(c)] = light.directed[size_t(c)] / 255;
             call.lightDirection[size_t(c)] = light.direction[size_t(c)];
         }
-        shaders_.draw(material, call, 0, time);
+        shaders_.draw(material, call, 0, time, false, entity);
     }
 }
 

@@ -22,9 +22,8 @@ namespace reluva::idtech3 {
 // models lit by a light (the light grid, for models in a map); and
 // pictures drawn flat on the screen (menus, the HUD), tinted by their
 // vertex colours, with no depth test or culling.
-// Effect: the game's sprites and beams, whose colour (the entity's, which
-// rgbGen and alphaGen entity ask for) is in their vertices; both sides
-// drawn.
+// Effect: the game's sprites and beams, whose colour is in their
+// vertices; both sides drawn.
 enum class Lighting { Lightmap, Vertex, Diffuse, TwoD, Effect };
 
 // Shaders turned into what the GPU draws, shared by everything a page
@@ -73,7 +72,10 @@ public:
     // (mesh, index range, vertex offset, model matrix, light). `lightmap`
     // is what $lightmap stages show (0: white). `sky` draws cloud layers
     // around the camera, behind everything.
-    void draw(int material, const gfx::DrawCall& base, gfx::TextureId lightmap, float time, bool sky = false) const;
+    // `entity`: the colour rgbGen and alphaGen entity ask for (white if
+    // not given).
+    void draw(int material, const gfx::DrawCall& base, gfx::TextureId lightmap, float time, bool sky = false,
+              const std::array<float, 4>* entity = nullptr) const;
     // A fog pass over geometry drawn with `material`.
     void drawFog(int material, const gfx::DrawCall& base, const std::array<float, 3>& color, float distance,
                  float time) const;

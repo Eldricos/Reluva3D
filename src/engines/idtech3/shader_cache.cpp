@@ -341,8 +341,9 @@ int ShaderCache::material(const std::string& name, Lighting lighting) {
     return index;
 }
 
-void ShaderCache::draw(int material, const gfx::DrawCall& base, gfx::TextureId lightmap, float time,
-                       bool sky) const {
+void ShaderCache::draw(int material, const gfx::DrawCall& base, gfx::TextureId lightmap, float time, bool sky,
+                       const std::array<float, 4>* entity) const {
+    const std::array<float, 4> ent = entity ? *entity : std::array<float, 4>{1, 1, 1, 1};
     const Material& m = materials_[size_t(material)];
     for (const Stage& st : m.stages) {
         const ShaderStage& d = *st.def;
@@ -396,16 +397,8 @@ void ShaderCache::draw(int material, const gfx::DrawCall& base, gfx::TextureId l
             break;
         }
         case R::Const: call.color = {d.rgbConst[0], d.rgbConst[1], d.rgbConst[2], 1}; break;
-        case R::Entity:
-            if (m.lighting == Lighting::Effect)
-                call.rgbSource = gfx::ColorSource::Vertex;
-            break;
-        case R::OneMinusEntity:
-            if (m.lighting == Lighting::Effect)
-                call.rgbSource = gfx::ColorSource::OneMinusVertex;
-            else
-                call.color = {0, 0, 0, 1};
-            break;
+        case R::Entity: call.color = {ent[0], ent[1], ent[2], 1}; break;
+        case R::OneMinusEntity: call.color = {1 - ent[0], 1 - ent[1], 1 - ent[2], 1}; break;
         default: break; // identity: white
         }
         using A = ShaderStage::AlphaGen;
@@ -417,16 +410,8 @@ void ShaderCache::draw(int material, const gfx::DrawCall& base, gfx::TextureId l
         case A::OneMinusVertex: call.alphaSource = gfx::ColorSource::OneMinusVertex; break;
         case A::Wave: call.color[3] = std::clamp(gfx::evaluate(d.alphaWave, time), 0.0f, 1.0f); break;
         case A::Const: call.color[3] = d.alphaConst; break;
-        case A::Entity:
-            if (m.lighting == Lighting::Effect)
-                call.alphaSource = gfx::ColorSource::Vertex;
-            break;
-        case A::OneMinusEntity:
-            if (m.lighting == Lighting::Effect)
-                call.alphaSource = gfx::ColorSource::OneMinusVertex;
-            else
-                call.color[3] = 0;
-            break;
+        case A::Entity: call.color[3] = ent[3]; break;
+        case A::OneMinusEntity: call.color[3] = 1 - ent[3]; break;
         default: break; // identity, entity, lightingSpecular, portal: opaque
         }
 

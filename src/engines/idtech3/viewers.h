@@ -320,6 +320,8 @@ private:
     void placeEntities(const eliteforce::CgameHost::View& view);
     void addEffect(const std::vector<uint8_t>& entity, const gfx::Vec3& left, const gfx::Vec3& up);
     void drawEffects(float time);
+    static std::array<float, 4> entityColor(const std::vector<uint8_t>& entity);
+    float shaderTime(const std::vector<uint8_t>& entity) const;
     int modelId(int32_t handle);
     void drawOverlay(uint64_t nowMs, bool haveView);
 
@@ -337,6 +339,9 @@ private:
         gfx::Mat4 transform{};
         PointLight light;
         const Skin* skin = nullptr;
+        std::string shader; // in place of the model's own, if set
+        std::array<float, 4> color{1, 1, 1, 1};
+        float shaderTime = 0; // seconds: when its shader animations start
     };
     std::vector<Placed> placed_;
     // This frame's effects (sprites, beams): quads in one mesh, each with
@@ -344,6 +349,8 @@ private:
     struct Effect {
         int32_t shader = 0;
         uint32_t firstIndex = 0;
+        std::array<float, 4> color{1, 1, 1, 1};
+        float shaderTime = 0;
     };
     std::vector<Effect> effects_;
     std::vector<gfx::Vertex> effectVertices_;

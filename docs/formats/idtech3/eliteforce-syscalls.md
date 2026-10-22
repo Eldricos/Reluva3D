@@ -373,7 +373,11 @@ entities the client game added):
 | 9 | the phaser's beam (`gfx/misc/phaser`), muzzle to wall | a line from the origin (68) to the old origin (84); width 132, 140 how often the texture repeats along it (5) |
 | 11 | alt fire's beam (`gfx/effects/whitelaser`) | a line tapering from the width at 132 (1.3) to the one at 136 (13.2); 140 as type 9 |
 
-The Play page draws these four as quads with their shaders (the
-`Effect` lighting in the shader cache: rgbGen and alphaGen entity take
-the entity's colour, put in the quad's vertices). Neither polygons nor
+The Play page draws these four as quads with their shaders, the colour
+at 116 in their vertices and for rgbGen and alphaGen entity; a line's
+texture runs across it in s and along it in t (along it in s, the
+phaser's beam showed stripes). Models with a custom shader (112) are
+drawn with it in place of their own, in the entity's colour. Shader
+animations start at the entity's shader time, taken to be Quake III's
+128 (seconds of the level) when it holds a time that has come. Neither polygons nor
 dynamic lights were added while firing the phaser.

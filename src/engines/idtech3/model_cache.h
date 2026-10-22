@@ -46,11 +46,14 @@ public:
     const Skin& skin(const std::string& path);
 
     // Draws `frame` (wrapped to the model's frames) placed by `transform`
-    // and lit by `light`; a skin, if given, picks surfaces' shaders.
+    // and lit by `light`; a skin, if given, picks surfaces' shaders, and a
+    // shader named in `shader` replaces them all. `entity`: the colour
+    // rgbGen and alphaGen entity ask for.
     // `sortMin`..`sortMax`: only surfaces whose shader sorts in that range,
     // so translucent ones can be drawn after the rest of a scene.
     void draw(int id, int frame, const gfx::Mat4& transform, const PointLight& light, float time,
-              const Skin* skin = nullptr, float sortMin = 0, float sortMax = 1e9f);
+              const Skin* skin = nullptr, float sortMin = 0, float sortMax = 1e9f, const std::string& shader = {},
+              const std::array<float, 4>* entity = nullptr);
 
 private:
     struct Surface {

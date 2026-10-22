@@ -58,8 +58,8 @@ constexpr int32_t TypeModel = 0;
 // origin (width at 132, the texture repeated along it as often as 140
 // says), and one tapering from the width at 132 to the one at 136.
 constexpr int32_t TypeQuad = 1, TypeSprite = 2, TypeLine = 9, TypeTaperedLine = 11;
-constexpr size_t OldOrigin = 84, CustomShader = 112, Rgba = 116, Rotation = 132, Radius = 136, Width = 132,
-                 EndWidth = 136, Repeat = 140;
+constexpr size_t OldOrigin = 84, CustomShader = 112, Rgba = 116, ShaderTime = 128, Rotation = 132, Radius = 136,
+                 Width = 132, EndWidth = 136, Repeat = 140;
 // Render flags (Quake III's): drawn only in mirrors and portals (the
 // player's own body); lit from the lighting origin.
 constexpr int32_t ThirdPerson = 2, UseLightingOrigin = 0x80;
@@ -480,10 +480,12 @@ void PlayViewer::update(uint64_t nowMs) {
         world_->drawSky(time);
         world_->drawSurfaces(time, 0, kLastOpaque);
         for (const Placed& p : placed_)
-            models_->draw(p.model, p.frame, p.transform, p.light, time, p.skin, 0, kLastOpaque);
+            models_->draw(p.model, p.frame, p.transform, p.light, time - p.shaderTime, p.skin, 0, kLastOpaque,
+                          p.shader, &p.color);
         world_->drawSurfaces(time, kLastOpaque + 0.5f);
         for (const Placed& p : placed_)
-            models_->draw(p.model, p.frame, p.transform, p.light, time, p.skin, kLastOpaque + 0.5f);
+            models_->draw(p.model, p.frame, p.transform, p.light, time - p.shaderTime, p.skin, kLastOpaque + 0.5f,
+                          1e9f, p.shader, &p.color);
         drawEffects(time);
     } else {
         placed_.clear();
@@ -558,6 +560,22 @@ void PlayViewer::update(uint64_t nowMs) {
         renderer_->destroyMesh(mesh);
 }
 
+std::array<float, 4> PlayViewer::entityColor(const std::vector<uint8_t>& e) {
+    // refEntity_t's colour: bytes r, g, b, a.
+    std::array<float, 4> c{};
+    for (size_t i = 0; i < 4; ++i)
+        c[i] = (refent::Rgba + i < e.size() ? e[refent::Rgba + i] : 255) / 255.0f;
+    return c;
+}
+
+float PlayViewer::shaderTime(const std::vector<uint8_t>& e) const {
+    // When the entity's shader animations start, in seconds of the level
+    // (Quake III's shaderTime): an explosion's from its first frame. Only
+    // a time that has come is taken.
+    const float t = readFloat(e, refent::ShaderTime);
+    return t > 0 && t <= float(clientTime_) / 1000.0f + 1 ? t : 0;
+}
+
 void PlayViewer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left, const gfx::Vec3& up) {
     // An effect as one quad, in the entity's colour: corners a, b, c, d
     // with texture coordinates (0,0), (1,0), (1,1), (0,1) unless given.
@@ -601,9 +619,10 @@ void PlayViewer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left,
         const float w0 = readFloat(e, refent::Width) / 2;
         const float w1 = type == refent::TypeTaperedLine ? readFloat(e, refent::EndWidth) / 2 : w0;
         const float repeat = readFloat(e, refent::Repeat) > 0 ? readFloat(e, refent::Repeat) : 1.0f;
-        // The texture along the line, across it from one side to the other.
+        // The texture across the line from one side to the other (s), and
+        // repeated along it (t).
         corners = {add(origin, side, w0), add(end, side, w1), add(end, side, -w1), add(origin, side, -w0)};
-        uv = {{{0, 0}, {repeat, 0}, {repeat, 1}, {0, 1}}};
+        uv = {{{0, 0}, {0, repeat}, {1, repeat}, {1, 0}}};
     } else {
         ++otherEntities_;
         return;
@@ -620,7 +639,7 @@ void PlayViewer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left,
         std::memcpy(v.color, &rgba, 4); // bytes r, g, b, a
         effectVertices_.push_back(v);
     }
-    effects_.push_back({shader, uint32_t(effectIndices_.size())});
+    effects_.push_back({shader, uint32_t(effectIndices_.size()), entityColor(e), shaderTime(e)});
     for (uint32_t i : {0u, 1u, 2u, 0u, 2u, 3u})
         effectIndices_.push_back(base + i);
 }
@@ -645,7 +664,7 @@ void PlayViewer::drawEffects(float time) {
         call.mesh = mesh;
         call.firstIndex = fx.firstIndex;
         call.indexCount = 6;
-        shaders_->draw(material, call, 0, time);
+        shaders_->draw(material, call, 0, time - fx.shaderTime, false, &fx.color);
     }
     renderer_->destroyMesh(mesh);
 }
@@ -683,6 +702,12 @@ void PlayViewer::placeEntities(const eliteforce::CgameHost::View& view) {
         p.light = grid_.sample(flags & refent::UseLightingOrigin ? readVec(e, refent::LightingOrigin) : origin);
         if (const int32_t skin = readInt(e, refent::CustomSkin); skin > 0 && !cgame_->skins().name(skin).empty())
             p.skin = &models_->skin(cgame_->skins().name(skin));
+        // A shader in place of the model's own (explosions, shells), its
+        // colour fading as the client game says.
+        if (const int32_t shader = readInt(e, refent::CustomShader); shader > 0)
+            p.shader = cgame_->shaders().name(shader);
+        p.color = entityColor(e);
+        p.shaderTime = shaderTime(e);
         placed_.push_back(p);
     }
 }
