@@ -369,8 +369,8 @@ entities the client game added):
 
 | Type | Seen as | Fields |
 |---|---|---|
-| 1 | alt fire's glow where it hits (`gfx/misc/sunny_flare`) | a quad in the entity's own axes; origin 68, shader 112, colour 116 (bytes r, g, b, a), radius 136 |
-| 2 | sparks where the beam hits (`gfx/misc/sunny_flare`) | a sprite facing the camera; origin 68, shader 112, colour 116, rotation in degrees 132 (the axes at 28 hold its sine and cosine: 350 with 0.1736), radius 136 |
+| 1 | alt fire's glow where it hits (`gfx/misc/sunny_flare`), projectiles in flight (the scavenger rifle's alt fire: some 300 in two seconds, no model) | a sprite facing the camera: its axes are left as cleared (each along x, y, z), so it can't lie in them; origin 68, shader 112, colour 116 (bytes r, g, b, a), rotation in degrees 132, radius 136. (First taken for a quad in its axes, which drew these edge-on to a player looking along y: invisible.) |
+| 2 | sparks where the beam hits (`gfx/misc/sunny_flare`) | a quad in the entity's own axes: the first faces out of the wall hit (+y on a wall facing +y), the other two turned by the rotation at 132 (350 with sine 0.1736 in them); origin 68, shader 112, colour 116, radius 136 |
 | 9 | the phaser's beam (`gfx/misc/phaser`), muzzle to wall | a line from the origin (68) to the old origin (84); width 132, 140 how often the texture repeats along it (5) |
 | 11 | alt fire's beam (`gfx/effects/whitelaser`) | a line tapering from the width at 132 (1.3) to the one at 136 (13.2); 140 as type 9 |
 | 12 | the I-MOD's beam (`gfx/misc/IMOD2`) | a cubic Bezier curve from the origin (68) through control points at 136 and 148 to the old origin (84); width 132 (4) |

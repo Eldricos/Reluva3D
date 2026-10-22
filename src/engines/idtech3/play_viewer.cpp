@@ -52,17 +52,18 @@ constexpr size_t Type = 0, Flags = 4, Model = 8, LightingOrigin = 12, Axes = 28,
                  OldFrame = 96, BackLerp = 100, CustomSkin = 108;
 constexpr int32_t TypeModel = 0;
 // Elite Force's effect types, read from what its client game adds when
-// firing (see eliteforce-syscalls.md): a quad in the entity's own axes
-// (left and up, radius at 136), a sprite facing the camera (radius at
-// 136, rotation in degrees at 132), a line from the origin to the old
-// origin (width at 132, the texture repeated along it as often as 140
+// firing (see eliteforce-syscalls.md): a sprite facing the camera (1:
+// radius at 136, rotation in degrees at 132; its axes are left as they
+// were cleared), a quad in the entity's own axes (2: left and up, radius
+// at 136; the first axis faces out of what it lies on), a line from the
+// origin to the old origin (width at 132, the texture repeated along it as often as 140
 // says), and one tapering from the width at 132 to the one at 136.
 // More, from the other weapons: a cubic Bezier curve from the origin
 // through control points at 136 and 148 to the old origin (12), a ring
 // or cone round the first axis (13: radii at 132 and 136, height at 140,
 // 144 the texture's repeats round it), and electricity from the origin to
 // the old origin (14: width 132, jitter 136, texture scale 140).
-constexpr int32_t TypeQuad = 1, TypeSprite = 2, TypeLine = 9, TypeTaperedLine = 11, TypeCurve = 12,
+constexpr int32_t TypeSprite = 1, TypeQuad = 2, TypeLine = 9, TypeTaperedLine = 11, TypeCurve = 12,
                   TypeCylinder = 13, TypeBolt = 14;
 constexpr size_t OldOrigin = 84, CustomShader = 112, Rgba = 116, ShaderTime = 128, Rotation = 132, Radius = 136,
                  Width = 132, EndWidth = 136, Repeat = 140, Control1 = 136, Control2 = 148, Jitter = 136,
