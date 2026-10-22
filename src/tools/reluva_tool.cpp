@@ -80,6 +80,8 @@
 //                                                  -give: every weapon first; and the effects
 //                                                  seen reported); -buttons: hold each button bit
 //                                                  in turn and report what it changes
+//   reluva-tool shader-show <game folder> <shader | model.md3>  a shader's text as its script has it; for
+//                                                  a model, its surfaces' shaders and theirs
 //   reluva-tool shader-check <game folder>         count the shader directives the engine doesn't know
 //                                                  or draw yet, with example shaders
 
@@ -3864,6 +3866,82 @@ int cmdGameRun(int argc, char** argv) {
     return ok ? 0 : 1;
 }
 
+int cmdShaderShow(int argc, char** argv) {
+    if (argc != 4) {
+        std::fprintf(stderr, "usage: reluva-tool shader-show <game folder> <shader | model.md3>\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    std::vector<std::string> names;
+    const std::string what = argv[3];
+    if (what.size() > 4 && reluva::fs::toLower(what.substr(what.size() - 4)) == ".md3") {
+        // A model: each surface's shader.
+        Bytes data;
+        q3::Md3Model model;
+        if (reluva::Error err = set.read(what, data); err || (err = q3::parseMd3(data, model))) {
+            std::fprintf(stderr, "%s: %s\n", what.c_str(), err.message.c_str());
+            return 1;
+        }
+        for (const q3::Md3Surface& surface : model.surfaces) {
+            const std::string shader = surface.shaders.empty() ? std::string() : surface.shaders.front();
+            std::printf("surface %s: %d vertices, %zu triangles, shader %s\n", surface.name.c_str(),
+                        surface.vertexCount, surface.indices.size() / 3, shader.empty() ? "(none)" : shader.c_str());
+            if (!shader.empty() && std::find(names.begin(), names.end(), shader) == names.end())
+                names.push_back(shader);
+        }
+        std::printf("%zu frames\n", model.frames.size());
+    } else {
+        names.push_back(what);
+    }
+    // Each shader's text, as its script has it: the name, then the block
+    // from its brace to the matching one.
+    for (const std::string& name : names) {
+        std::string base = reluva::fs::toLower(name);
+        if (base.size() > 4 && (base.substr(base.size() - 4) == ".tga" || base.substr(base.size() - 4) == ".jpg"))
+            base.resize(base.size() - 4);
+        bool found = false;
+        for (const std::string& file : set.list()) {
+            const std::string key = reluva::normalizeArchiveName(file);
+            if (key.rfind("scripts/", 0) != 0 || key.size() < 7 || key.compare(key.size() - 7, 7, ".shader") != 0)
+                continue;
+            Bytes data;
+            if (set.read(file, data))
+                continue;
+            const std::string text(data.begin(), data.end());
+            const std::string lower = reluva::fs::toLower(text);
+            for (size_t at = lower.find(base); at != std::string::npos && !found; at = lower.find(base, at + 1)) {
+                // A whole token at the start of a line, followed by a brace.
+                const bool startsToken = at == 0 || static_cast<unsigned char>(lower[at - 1]) <= ' ';
+                const size_t after = at + base.size();
+                if (!startsToken || (after < lower.size() && static_cast<unsigned char>(lower[after]) > ' '))
+                    continue;
+                const size_t open = lower.find_first_not_of(" \t\r\n", after);
+                if (open == std::string::npos || lower[open] != '{')
+                    continue;
+                int depth = 0;
+                size_t end = open;
+                for (; end < text.size(); ++end) {
+                    if (text[end] == '{')
+                        ++depth;
+                    else if (text[end] == '}' && --depth == 0)
+                        break;
+                }
+                std::printf("--- %s, in %s:\n%s\n", name.c_str(), file.c_str(),
+                            text.substr(at, std::min(end + 1, text.size()) - at).c_str());
+                found = true;
+            }
+            if (found)
+                break;
+        }
+        if (!found)
+            std::printf("--- %s: no script defines it (the image itself, drawn the default way)\n", name.c_str());
+    }
+    return 0;
+}
+
 int cmdShaderCheck(int argc, char** argv) {
     if (argc != 3) {
         std::fprintf(stderr, "usage: reluva-tool shader-check <game folder>\n");
@@ -4005,6 +4083,8 @@ int main(int argc, char** argv) {
         return cmdImageCheck(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "shader-check") == 0)
         return cmdShaderCheck(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "shader-show") == 0)
+        return cmdShaderShow(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "model-check") == 0)
         return cmdModelCheck(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "qvm-info") == 0)
@@ -4055,6 +4135,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool pk3-list <game folder> [name filter]\n"
                  "  reluva-tool image-check <game folder> [map name filter]\n"
                  "  reluva-tool shader-check <game folder>\n"
+                 "  reluva-tool shader-show <game folder> <shader | model.md3>\n"
                  "  reluva-tool model-check <game folder> [name filter] [-v]\n"
                  "  reluva-tool qvm-info <game folder> <vm/x.qvm> [-s]\n"
                  "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
