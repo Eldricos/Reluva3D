@@ -3775,6 +3775,17 @@ int cmdGameRun(int argc, char** argv) {
             const auto& a = cgame.firstUnhandled().at(number);
             std::printf("cgame: not implemented: system call %d (%d calls), first (%d, %d, %d, %d, %d, %d)\n", number,
                         count, a[0], a[1], a[2], a[3], a[4], a[5]);
+            // Arguments that point at text, which often says what a call is.
+            for (int i = 0; i < 6; ++i) {
+                if (a[i] <= 0 || !cgame.vm().valid(a[i], 1))
+                    continue;
+                const std::string text = cgame.vm().string(a[i], 64);
+                bool printable = text.size() >= 2;
+                for (char c : text)
+                    printable = printable && static_cast<unsigned char>(c) >= 32 && static_cast<unsigned char>(c) < 127;
+                if (printable)
+                    std::printf("  argument %d is text: \"%s\"\n", i, text.c_str());
+            }
         }
         ok = ok && !err;
     }
