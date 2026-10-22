@@ -288,6 +288,7 @@ numbering wherever it can be checked:
 | 57 | `R_RegisterShaderNoMip(name)` | seen | crosshairs, HUD pieces, fonts |
 | 58 | `MemoryRemaining()` | seen | answered 0, the client game prints "Memory is low.  Using deferred model." and skips loading player models |
 | 100, 102 | `memset`, `strncpy` | seen | |
+| 107 | `floor(x)` | seen | one call site, the result converted to a whole number |
 
 The game state (`gamestate_t`) is Quake III's: the client game clears
 195,416 bytes for its static block, the game state goes at its start
@@ -380,9 +381,10 @@ These came from `game-run ... -cgame -give -fire -weapon all` (and
 `-altfire`), which gives the player every weapon (the game's `give all`,
 with `sv_cheats` on) and fires each for two seconds. Dynamic lights
 (call 43: origin, intensity, red, green, blue) come with most weapons;
-they aren't drawn yet. Call 107 is made by some effects (its arguments:
-a float, two pointers to the same vector, a float, the vector again, a
-pointer); it isn't known yet.
+they aren't drawn yet. Call 107 is `floor`: its one call site
+(instruction 33934) passes one value and turns the float it returns into
+a whole number (`CVFI`), as Quake III's client game numbers it; answered
+with 0 before, effects that round a time or a count went wrong.
 
 The Play page draws these as quads and ribbons with their shaders, the colour
 at 116 in their vertices and for rgbGen and alphaGen entity; a line's

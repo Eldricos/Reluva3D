@@ -3553,6 +3553,10 @@ int cmdGameRun(int argc, char** argv) {
             std::map<Key, int> polyCounts;
             std::map<Key, ef::CgameHost::Scene::Poly> polySamples;
             std::map<int, int> lightCounts;
+            // Models (handle, custom shader) seen while firing each weapon
+            // that never showed when not firing: projectiles and the like.
+            std::map<Key, std::set<std::pair<int32_t, int32_t>>> firedModels;
+            std::set<std::pair<int32_t, int32_t>> idleModels;
             std::map<int, std::array<int32_t, 6>> lightSamples;
             int weaponNow = 0;
             // With fire held, the first 10 frames are idle, to compare.
@@ -3630,6 +3634,15 @@ int cmdGameRun(int argc, char** argv) {
                             std::memcpy(&type, e.bytes.data(), 4);
                         if (type != 0 && typeCounts[{weaponNow, type}]++ == 0)
                             typeSamples[{weaponNow, type}] = e.bytes;
+                        if (type == 0 && e.bytes.size() >= 116) {
+                            int32_t model = 0, shader = 0;
+                            std::memcpy(&model, &e.bytes[8], 4);
+                            std::memcpy(&shader, &e.bytes[112], 4);
+                            if (!weaponNow)
+                                idleModels.insert({model, shader});
+                            else if (!idleModels.count({model, shader}))
+                                firedModels[{weaponNow, 0}].insert({model, shader});
+                        }
                     }
                     for (const auto& poly : scene.polys)
                         if (polyCounts[{weaponNow, poly.shader}]++ == 0)
@@ -3801,6 +3814,13 @@ int cmdGameRun(int argc, char** argv) {
                         std::printf("  type %d, the first:\n", key.second);
                         dumpWords(typeSamples[key], 160);
                     }
+                if (const auto it = firedModels.find({weapon, 0}); it != firedModels.end()) {
+                    std::printf("  models only while firing:");
+                    for (const auto& [model, shader] : it->second)
+                        std::printf(" %s%s%s", model > 0 ? cgame.models().name(model).c_str() : "(no model)",
+                                    shader > 0 ? " with " : "", shader > 0 ? cgame.shaders().name(shader).c_str() : "");
+                    std::printf("\n");
+                }
                 for (const auto& [key, count] : polyCounts) {
                     if (key.first != weapon)
                         continue;

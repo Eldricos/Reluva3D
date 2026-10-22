@@ -79,6 +79,7 @@ enum CgameCall : int {
     SetUserCmdValue = 56,
     RRegisterShaderNoMip = 57,
     MemoryRemaining = 58,
+    Floor = 107, // (x) -> x rounded down, a float; Quake III's client game number too
 };
 
 // gamestate_t, as Elite Force's client game lays it out: the same size as
@@ -516,6 +517,7 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         args_ = tokenize(serverCommands_[size_t(a[0] - 1)]);
         return 1;
     }
+    case Floor: return Qvm::fromFloat(std::floor(Qvm::asFloat(a[0])));
     case MemoryRemaining: return 64 << 20; // plenty: the client game loads every player model up front
     case GetGlconfig: writeGlconfig(a[0]); return 0;
     case GetGameState: writeGameState(a[0]); return 0;
