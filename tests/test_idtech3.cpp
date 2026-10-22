@@ -1018,7 +1018,7 @@ static void testGameHost(const std::filesystem::path& tmp) {
         return;
     }
     CHECK(game.log() == "------- Game Initialization -------\n");
-    CHECK(game.gameData().count == 4 && game.gameData().entitySize == 352 && game.gameData().clientSize == 4);
+    CHECK(game.gameData().count == 4 && game.gameData().entitySize == 352 && game.gameData().clientSize == 740);
     CHECK((game.linked() == std::set<int32_t>{1, 2, 3})); // the world unlinked
     CHECK(game.configstrings().count(12) && game.configstrings().at(12) == "borg2");
     // The server info, as the client game finds the map's name.
@@ -1081,6 +1081,18 @@ static void testGameHost(const std::filesystem::path& tmp) {
     CHECK(snap.serverTime == 300 && snap.entities.size() == 4 && snap.entities[0].size() == 204);
     CHECK(snap.entities[0][0] == 1 && snap.entities[3][0] == 4); // s.number
     CHECK(snap.serverCommandSequence == 1);
+    // The player state, copied but for the word the original doesn't send.
+    {
+        const int32_t client = game.gameData().clients;
+        CHECK(game.gameData().clientSize >= 460);
+        game.vm().writeInt(client + 44, 66);
+        game.vm().writeInt(client + 48, 166);
+        const auto withTimer = game.snapshot(0);
+        int32_t w44 = 0, w48 = -1;
+        std::memcpy(&w44, &withTimer.playerState[44], 4);
+        std::memcpy(&w48, &withTimer.playerState[48], 4);
+        CHECK(w44 == 66 && w48 == 0 && game.clientInt(0, 48) == 166);
+    }
     CHECK(game.serverCommands().size() == 1 && game.serverCommands()[0].first == -1 &&
           game.serverCommands()[0].second == "print \"Reluva entered the game\n\"");
     CHECK(game.unhandled().empty());

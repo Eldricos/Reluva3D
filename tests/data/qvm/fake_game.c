@@ -73,7 +73,7 @@ static void readVector(const char *text, float *v);
 static int spawnOne(void);
 
 static entity_t entities[64];
-static int clients[8];
+static int clients[8][185]; /* Elite Force's gclient_t is 740 bytes, the player state first */
 static int numEntities;
 static int frames;
 static int spawnPoint;
@@ -94,7 +94,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
         trap_Print("------- Game Initialization -------\n");
         trap_Cvar_VariableStringBuffer("mapname", text, sizeof(text));
         trap_SetConfigstring(12, text);
-        trap_LocateGameData(entities, 0, sizeof(entity_t), clients, sizeof(int));
+        trap_LocateGameData(entities, 0, sizeof(entity_t), clients, sizeof(clients[0]));
         while ((r = spawnOne()) == 1)
             ;
         if (r < 0)
@@ -110,7 +110,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
         return 0;
     case 3: /* client begin(clientNum): at the spawn point, announced */
         player = numEntities++;
-        trap_LocateGameData(entities, numEntities, sizeof(entity_t), clients, sizeof(int));
+        trap_LocateGameData(entities, numEntities, sizeof(entity_t), clients, sizeof(clients[0]));
         entities[player].number = player;
         copy(entities[player].classname, "player", sizeof(entities[player].classname));
         entities[player].currentOrigin[0] = entities[spawnPoint].currentOrigin[0];
@@ -231,7 +231,7 @@ static int spawnOne(void) {
     if (ent->classname[0] == 'i' && ent->classname[1] == 'n')
         spawnPoint = numEntities; /* info_player_... */
     numEntities++;
-    trap_LocateGameData(entities, numEntities, sizeof(entity_t), clients, sizeof(int));
+    trap_LocateGameData(entities, numEntities, sizeof(entity_t), clients, sizeof(clients[0]));
     if (ent->model[0] == '*') {
         trap_SetBrushModel(ent, ent->model); /* links it */
     } else {

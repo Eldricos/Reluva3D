@@ -123,6 +123,9 @@ public:
         int32_t serverCommandSequence = 0;
     };
     static constexpr int32_t kPlayerStateSize = 460, kEntityStateSize = 204;
+    // A word of the player state the original's network protocol doesn't
+    // send, which snapshots carry as 0.
+    static constexpr int32_t kPlayerStateServerOnly = 48;
     Snapshot snapshot(int32_t clientNum);
     // Where svFlags is in Elite Force's entities (208 or 212: one of the
     // two words between `linked` and `bmodel`), found from the entities

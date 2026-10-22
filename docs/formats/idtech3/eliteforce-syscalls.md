@@ -347,3 +347,16 @@ eye, and white (-1) at 116; the player's own body has flag 2 (Quake
 III's third person: drawn only in mirrors), as Quake III's client game
 does. Elite Force's player models are named `.mdr`; Reluva draws `.md3`
 models only so far.
+
+The player state differs from Quake III's from 48: gravity (800) and
+speed (250) are at 56 and 60, after two words of Elite Force's own. The
+word at 48 is a timer the server game sets to 200 when the player fires
+and counts down without stopping at 0 (-1100 at 1.3 s into a level with
+no firing); 52 stayed 0. The client game's phaser beam function (at
+instruction 69445 in the retail cgame.qvm: it traces 2048 units from the
+muzzle, then calls one of two beam functions, each called from nowhere
+else) returns without drawing for the local player unless the snapshot's
+word 48 is 0, so the original can't be sending it: its network protocol
+sends only the fields in its table, the rest reaching the client game as
+0. Reluva's snapshots zero it (`GameHost::kPlayerStateServerOnly`).
+Which other fields the protocol leaves out isn't known yet.

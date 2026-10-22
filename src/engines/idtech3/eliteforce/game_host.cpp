@@ -295,6 +295,14 @@ GameHost::Snapshot GameHost::snapshot(int32_t clientNum) {
     const int32_t client = gameData_.clients + clientNum * gameData_.clientSize;
     if (gameData_.clientSize >= kPlayerStateSize && vm_.valid(client, kPlayerStateSize))
         std::memcpy(snap.playerState.data(), &vm_.memory()[size_t(client)], size_t(kPlayerStateSize));
+    // The original sends the player state over its network protocol, which
+    // carries only some fields: the rest reach the client game as 0, even
+    // on a listen server. The word at 48, a timer of the server's (set to
+    // 200 on firing, counting down without stopping at 0), is one: the
+    // client game draws the phaser's beam only while it's 0 (see
+    // eliteforce-syscalls.md).
+    for (const int32_t at : {kPlayerStateServerOnly})
+        std::memset(&snap.playerState[size_t(at)], 0, 4);
     // Every linked entity but the player's own (the client game makes that
     // one from the player state) and those flagged not to be sent
     // (SVF_NOCLIENT, 1), as the original server does; no visibility
