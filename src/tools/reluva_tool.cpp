@@ -67,7 +67,7 @@
 //                                                  run Elite Force's menus (vm/ui.qvm) with the engine's
 //                                                  system calls: Init, SetActiveMenu, Refresh; report
 //                                                  what they print, register and draw
-//   reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give]] [-buttons] [-trace]
+//   reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]
 //                                                  start a level with Elite Force's game logic
 //                                                  (vm/qagame.qvm): Init with the map's entities, then
 //                                                  frames, with a player (client 0) joining unless
@@ -3194,7 +3194,7 @@ int cmdUiRun(int argc, char** argv) {
 
 int cmdGameRun(int argc, char** argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give]] [-buttons] [-trace]\n");
+        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -3209,6 +3209,7 @@ int cmdGameRun(int argc, char** argv) {
     // -give: cheats on and every weapon given first.
     int cgameFrames = 3, fireButtons = 0, fireWeapon = 1;
     bool giveAll = false;
+    std::string watchModel; // -watch: print the scene's entities with this model frame by frame
     constexpr int kFramesPerWeapon = 40;
     int dumpEntities = 0; // -entities N: with -cgame, N of the scene's entities word by word
     std::vector<std::pair<std::string, std::string>> settings; // -set name value
@@ -3230,6 +3231,8 @@ int cmdGameRun(int argc, char** argv) {
             fireWeapon = std::strcmp(argv[i + 1], "all") == 0 ? -1 : std::atoi(argv[i + 1]), ++i;
         else if (std::strcmp(argv[i], "-give") == 0)
             giveAll = true;
+        else if (std::strcmp(argv[i], "-watch") == 0 && i + 1 < argc)
+            watchModel = argv[++i];
         else if (std::strcmp(argv[i], "-cgameframes") == 0 && i + 1 < argc)
             cgameFrames = std::max(1, std::atoi(argv[++i]));
         else if (std::strcmp(argv[i], "-buttons") == 0)
@@ -3622,6 +3625,34 @@ int cmdGameRun(int argc, char** argv) {
                     std::printf("cgame DrawActiveFrame(%d): %s after %llu instructions, %zu pictures\n", game.levelTime(),
                             frame ? frame.message.c_str() : "ok",
                             static_cast<unsigned long long>(cgame.vm().executed()), cgame.pictures().size());
+                if (!watchModel.empty()) {
+                    // Entities with the watched model: colour, scale (axis
+                    // lengths), frames and where.
+                    for (const auto& e : cgame.scene().entities) {
+                        if (e.bytes.size() < 160)
+                            continue;
+                        auto word = [&](size_t at) {
+                            int32_t v;
+                            std::memcpy(&v, &e.bytes[at], 4);
+                            return v;
+                        };
+                        auto real = [&](size_t at) { return q3::Qvm::asFloat(word(at)); };
+                        const std::string name = cgame.models().name(word(8));
+                        if (word(0) != 0 || name.find(watchModel) == std::string::npos)
+                            continue;
+                        float len[3];
+                        for (int a = 0; a < 3; ++a)
+                            len[a] = std::sqrt(real(28 + 12 * size_t(a)) * real(28 + 12 * size_t(a)) +
+                                               real(32 + 12 * size_t(a)) * real(32 + 12 * size_t(a)) +
+                                               real(36 + 12 * size_t(a)) * real(36 + 12 * size_t(a)));
+                        std::printf("  time %d: %s colour %u %u %u %u, axes %.2f %.2f %.2f%s, frame %d (old %d, "
+                                    "back %.2f), shader %d, shader time %.3f, flags 0x%x, at %.0f %.0f %.0f\n",
+                                    game.levelTime(), name.c_str(), e.bytes[116], e.bytes[117], e.bytes[118],
+                                    e.bytes[119],
+                                    len[0], len[1], len[2], word(64) ? " (not normalized)" : "", word(80), word(96),
+                                    real(100), word(112), real(128), unsigned(word(4)), real(68), real(72), real(76));
+                    }
+                }
                 {
                     const auto& scene = cgame.scene();
                     auto& keep = firing ? lastFiringEntities : lastIdleEntities;
@@ -4141,7 +4172,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
                  "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
                  "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -blockcopies | -fields <address>\n"
-                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give]] [-buttons] [-trace]\n"
+                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n"
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif
                  "");
