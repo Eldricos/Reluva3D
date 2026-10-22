@@ -60,6 +60,13 @@ struct Md3Model {
 
 // Parse a whole .md3 file, checking every count and offset.
 Error parseMd3(const std::vector<uint8_t>& data, Md3Model& out);
+// Parse a whole .mdr file (Raven's skeletal models, "RDM5" version 2;
+// see docs/formats/idtech3/mdr.md), posed into an Md3Model: each frame's
+// vertices placed by their bones, each frame's tags from theirs. The most
+// detailed level of detail only.
+Error parseMdr(const std::vector<uint8_t>& data, Md3Model& out);
+// Either, by the file's first bytes.
+Error parseModel(const std::vector<uint8_t>& data, Md3Model& out);
 
 // A .skin file: which shader each surface uses, as lines of
 // "surfacename,shader" (tag lines and empty shaders are ignored).

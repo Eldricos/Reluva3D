@@ -11,7 +11,7 @@
 //           to look, W/A/S/D to move, Space/C (or E/Q) up and down, Shift
 //           to go faster, R back to the start point, I to show or hide
 //           the info.
-// Models:   every .md3; players (lower, upper and head in one folder) put
+// Models:   every .md3 and .mdr; players (lower, upper and head in one folder) put
 //           together. Left/Right step, PageUp/PageDown jump 10; drag to
 //           turn, wheel or +/- to zoom, A to animate, ,/. to step frames,
 //           R to reset the view, I to show or hide the info.

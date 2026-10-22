@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The data viewer's Models page: every .md3 in the game drawn on the GPU
+// The data viewer's Models page: every .md3 and .mdr in the game drawn on the GPU
 // with its shaders, players put together from their three parts.
 
 #include "engines/idtech3/viewers.h"
@@ -40,16 +40,22 @@ ModelViewer::ModelViewer(ViewerContext& ctx) : Page(ctx) {
     for (const std::string& n : ctx.files.list())
         names.insert(normalizeArchiveName(n));
     std::set<std::string> players;
+    // A player part in either format (Elite Force's bodies are .mdr).
+    auto has = [&](const std::string& dir, const char* part) {
+        return names.count(dir + "/" + part + ".md3") || names.count(dir + "/" + part + ".mdr");
+    };
     for (const std::string& n : names) {
-        if (!endsWith(n, ".md3"))
+        if (!endsWith(n, ".md3") && !endsWith(n, ".mdr"))
             continue;
         // Lower-detail copies of a model.
         if (endsWith(n, "_1.md3") || endsWith(n, "_2.md3"))
             continue;
         const std::string dir = folderOf(n);
-        const bool part = endsWith(n, "/lower.md3") || endsWith(n, "/upper.md3") || endsWith(n, "/head.md3");
-        if (part && names.count(dir + "/lower.md3") && names.count(dir + "/upper.md3") &&
-            names.count(dir + "/head.md3")) {
+        bool part = false;
+        for (const char* p : {"lower", "upper", "head"})
+            part = part || endsWith(n, (std::string("/") + p + ".md3").c_str()) ||
+                   endsWith(n, (std::string("/") + p + ".mdr").c_str());
+        if (part && has(dir, "lower") && has(dir, "upper") && has(dir, "head")) {
             if (players.insert(dir).second)
                 entries_.push_back({dir, true});
             continue;
@@ -97,9 +103,14 @@ void ModelViewer::show(int index) {
 
     std::vector<const Md3Model*> parts;
     if (e.player) {
-        lower_ = models_->load(e.name + "/lower.md3", &error_);
-        upper_ = models_->load(e.name + "/upper.md3", &error_);
-        head_ = models_->load(e.name + "/head.md3", &error_);
+        // Each part as .mdr if there is one (Elite Force's), else .md3.
+        auto part = [&](const char* name) {
+            const std::string mdr = e.name + "/" + name + ".mdr";
+            return models_->load(ctx_.files.has(mdr) ? mdr : e.name + "/" + name + ".md3", &error_);
+        };
+        lower_ = part("lower");
+        upper_ = part("upper");
+        head_ = part("head");
         if (lower_ < 0 || upper_ < 0 || head_ < 0) {
             info_.push_back(e.name);
             return;

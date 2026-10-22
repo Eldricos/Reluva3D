@@ -80,7 +80,7 @@
 //                                                  -give: every weapon first; and the effects
 //                                                  seen reported); -buttons: hold each button bit
 //                                                  in turn and report what it changes
-//   reluva-tool shader-show <game folder> <shader | model.md3>  a shader's text as its script has it; for
+//   reluva-tool shader-show <game folder> <shader | model.md3 | model.mdr>  a shader's text as its script has it; for
 //                                                  a model, its surfaces' shaders and theirs
 //   reluva-tool shader-check <game folder>         count the shader directives the engine doesn't know
 //                                                  or draw yet, with example shaders
@@ -2595,7 +2595,7 @@ int cmdModelCheck(int argc, char** argv) {
             const std::string ext = key.substr(key.size() - 4);
             if (ext == ".tga" || ext == ".jpg" || ext == ".png")
                 imagesByStem.emplace(stem(key), key);
-            else if (ext == ".md3" && key.find(filter) != std::string::npos)
+            else if ((ext == ".md3" || ext == ".mdr") && key.find(filter) != std::string::npos)
                 models.push_back(n);
             else if (ext == ".bsp" && key.rfind("maps/", 0) == 0)
                 maps.push_back(n);
@@ -2635,7 +2635,7 @@ int cmdModelCheck(int argc, char** argv) {
     int surfaces = 0, unreadable = 0;
     for (const std::string& path : models) {
         q3::Md3Model m;
-        if (set.read(path, data) || q3::parseMd3(data, m)) {
+        if (set.read(path, data) || q3::parseModel(data, m)) {
             ++unreadable;
             continue;
         }
@@ -3908,11 +3908,12 @@ int cmdShaderShow(int argc, char** argv) {
         return 1;
     std::vector<std::string> names;
     const std::string what = argv[3];
-    if (what.size() > 4 && reluva::fs::toLower(what.substr(what.size() - 4)) == ".md3") {
+    const std::string whatExt = what.size() > 4 ? reluva::fs::toLower(what.substr(what.size() - 4)) : "";
+    if (whatExt == ".md3" || whatExt == ".mdr") {
         // A model: each surface's shader.
         Bytes data;
         q3::Md3Model model;
-        if (reluva::Error err = set.read(what, data); err || (err = q3::parseMd3(data, model))) {
+        if (reluva::Error err = set.read(what, data); err || (err = q3::parseModel(data, model))) {
             std::fprintf(stderr, "%s: %s\n", what.c_str(), err.message.c_str());
             return 1;
         }
@@ -3923,7 +3924,10 @@ int cmdShaderShow(int argc, char** argv) {
             if (!shader.empty() && std::find(names.begin(), names.end(), shader) == names.end())
                 names.push_back(shader);
         }
-        std::printf("%zu frames\n", model.frames.size());
+        std::printf("%zu frames, %d tags each:", model.frames.size(), model.tagCount);
+        for (int t = 0; t < model.tagCount; ++t)
+            std::printf(" %s", model.tags[size_t(t)].name.c_str());
+        std::printf("\n");
     } else {
         names.push_back(what);
     }

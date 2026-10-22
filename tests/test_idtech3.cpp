@@ -980,6 +980,125 @@ static void testSoundSystem(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+// A small .mdr: two bones, two frames, one triangle whose first vertex
+// hangs half off each bone, one tag on bone 1. Frame 0: bone 0 at the
+// origin, bone 1 moved 10 along x; frame 1: bone 1 turned a quarter turn
+// about z as well. `packed`: the bones as 16-bit numbers.
+static std::vector<uint8_t> buildMdr(bool packed) {
+    std::vector<uint8_t> d;
+    auto i32 = [&](int32_t v) {
+        for (int k = 0; k < 4; ++k)
+            d.push_back(uint8_t(uint32_t(v) >> (8 * k)));
+    };
+    auto f32 = [&](float f) {
+        uint32_t bits;
+        std::memcpy(&bits, &f, 4);
+        i32(int32_t(bits));
+    };
+    auto u16 = [&](int v) {
+        d.push_back(uint8_t(v));
+        d.push_back(uint8_t(v >> 8));
+    };
+    auto text = [&](const char* t, size_t size) {
+        for (size_t k = 0; k < size; ++k)
+            d.push_back(k < std::strlen(t) ? uint8_t(t[k]) : 0);
+    };
+    using Bone = std::array<float, 12>; // rows of 3 x 4
+    const Bone still{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0};
+    const Bone moved{1, 0, 0, 10, 0, 1, 0, 0, 0, 0, 1, 0};
+    const Bone turned{0, -1, 0, 10, 1, 0, 0, 0, 0, 0, 1, 0};
+    const std::array<std::array<Bone, 2>, 2> frames{{{still, moved}, {still, turned}}};
+    const size_t frameSize = packed ? 40 + 2 * 24 : 56 + 2 * 48;
+    const int32_t framesAt = 104, lodAt = framesAt + 2 * int32_t(frameSize);
+    // One vertex: normal, st, one or two weights.
+    const size_t surfaceSize = 168 + (24 + 2 * 20) + 2 * (24 + 20) + 12;
+    const int32_t tagsAt = lodAt + 12 + int32_t(surfaceSize);
+    text("RDM5", 4);
+    i32(2);
+    text("test", 64);
+    i32(2);                              // frames
+    i32(2);                              // bones
+    i32(packed ? -framesAt : framesAt); // negative: packed
+    i32(1);                              // levels of detail
+    i32(lodAt);
+    i32(1); // tags
+    i32(tagsAt);
+    i32(tagsAt + 36);
+    for (const auto& frame : frames) {
+        for (int k = 0; k < 10; ++k)
+            f32(0); // bounds, origin, radius
+        if (!packed)
+            text("frame", 16);
+        for (const Bone& b : frame) {
+            if (packed) {
+                for (int r = 0; r < 3; ++r)
+                    u16(int(std::lround(b[size_t(r * 4 + 3)] * 64)) + 32768);
+                for (int r = 0; r < 3; ++r)
+                    for (int c = 0; c < 3; ++c)
+                        u16(int(std::lround(b[size_t(r * 4 + c)] * 32766)) + 32768);
+            } else {
+                for (float v : b)
+                    f32(v);
+            }
+        }
+    }
+    i32(1);  // surfaces
+    i32(12); // the first right after the level of detail
+    i32(12 + int32_t(surfaceSize));
+    i32(0);
+    text("Body", 64);
+    text("models/test/body", 64);
+    i32(0);
+    i32(0);
+    i32(3);   // vertices
+    i32(168); // right after the surface's header
+    i32(1);   // triangles
+    i32(int32_t(surfaceSize) - 12);
+    i32(0);
+    i32(0);
+    i32(int32_t(surfaceSize));
+    // Vertex 0: half on each bone, 1 along y from each; vertices 1 and 2 on bone 1.
+    f32(0), f32(0), f32(1), f32(0.25f), f32(0.5f), i32(2);
+    i32(0), f32(0.5f), f32(0), f32(1), f32(0);
+    i32(1), f32(0.5f), f32(0), f32(1), f32(0);
+    for (int v = 1; v < 3; ++v) {
+        f32(1), f32(0), f32(0), f32(0), f32(0), i32(1);
+        i32(1), f32(1), f32(float(v)), f32(0), f32(0);
+    }
+    i32(0), i32(1), i32(2);
+    i32(1);
+    text("tag_weapon", 32);
+    return d;
+}
+
+static void testMdr() {
+    for (bool packed : {false, true}) {
+        Md3Model m;
+        CHECK(!parseModel(buildMdr(packed), m));
+        CHECK(m.frames.size() == 2 && m.surfaces.size() == 1 && m.tagCount == 1);
+        const Md3Surface& s = m.surfaces[0];
+        CHECK(s.name == "body" && s.shaders[0] == "models/test/body" && s.vertexCount == 3);
+        CHECK(s.indices == std::vector<uint32_t>({0, 1, 2}) && s.st[0][0] == 0.25f && s.st[0][1] == 0.5f);
+        auto near = [](const Vec3& a, Vec3 b) {
+            return std::fabs(a[0] - b[0]) < 0.02f && std::fabs(a[1] - b[1]) < 0.02f && std::fabs(a[2] - b[2]) < 0.02f;
+        };
+        // Frame 0: vertex 0 between (0,1,0) and (10,1,0); vertex 1 at 10 + 1.
+        CHECK(near(s.vertices[0].pos, {5, 1, 0}) && near(s.vertices[1].pos, {11, 0, 0}));
+        CHECK(near(s.vertices[0].normal, {0, 0, 1}) && near(s.vertices[1].normal, {1, 0, 0}));
+        // Frame 1: bone 1 turned, so its offsets are too: (1,0,0) -> (0,1,0).
+        CHECK(near(s.vertices[3 + 1].pos, {10, 1, 0}) && near(s.vertices[3 + 2].pos, {10, 2, 0}));
+        CHECK(near(s.vertices[3 + 0].pos, {4.5f, 0.5f, 0}) && near(s.vertices[3 + 1].normal, {0, 1, 0}));
+        // The tag follows bone 1: its x axis is the matrix's first column.
+        const Md3Tag* tag = m.tag(1, "tag_weapon");
+        CHECK(tag && near(tag->origin, {10, 0, 0}) && near(tag->axis[0], {0, 1, 0}) && near(tag->axis[1], {-1, 0, 0}));
+    }
+    // A broken one: the triangles past the end.
+    std::vector<uint8_t> broken = buildMdr(false);
+    broken.resize(broken.size() - 60);
+    Md3Model m;
+    CHECK(parseModel(broken, m));
+}
+
 // A small map for collision: a floor in the world (x and y -512..512, z
 // -64..0) and one brush model, *1, a door 16 x 128 x 128 standing on its
 // own origin.
@@ -1509,6 +1628,7 @@ int main() {
     testCvars();
     testKeyBindings();
     testMarks();
+    testMdr();
     testVmFileList();
     testSoundLibrary(tmp / "sounds");
     testSoundSystem(tmp / "soundsystem");

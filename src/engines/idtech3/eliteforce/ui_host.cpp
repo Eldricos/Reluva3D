@@ -342,7 +342,7 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
             std::vector<uint8_t> data;
             Md3Model md3;
             const std::string& name = models_.name(a[0]);
-            if (!name.empty() && !files_.read(name, data) && !parseMd3(data, md3) && !md3.frames.empty())
+            if (!name.empty() && !files_.read(name, data) && !parseModel(data, md3) && !md3.frames.empty())
                 it->second = {md3.frames[0].mins, md3.frames[0].maxs};
         }
         for (int i = 0; i < 3; ++i) {

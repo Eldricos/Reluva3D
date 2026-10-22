@@ -70,7 +70,7 @@ int ModelCache::load(const std::string& path, std::string* error) {
     std::vector<uint8_t> data;
     Error err = files_.read(path, data);
     if (!err)
-        err = parseMd3(data, m.md3);
+        err = parseModel(data, m.md3);
 
     // Every surface's frames one after another; indices point into frame
     // 0 and a draw's vertex offset picks the frame.

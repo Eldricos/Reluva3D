@@ -944,7 +944,8 @@ int PlayViewer::modelId(int32_t handle) {
     }
     const std::string name = cgame_->models().name(handle);
     int id = -1;
-    if (name.size() > 4 && fs::toLower(name.substr(name.size() - 4)) == ".md3")
+    if (name.size() > 4 && (fs::toLower(name.substr(name.size() - 4)) == ".md3" ||
+                            fs::toLower(name.substr(name.size() - 4)) == ".mdr"))
         id = models_->load(name);
     modelIds_[handle] = id;
     if (id < 0)
@@ -976,7 +977,7 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
                           cgame_ ? cgame_->weaponSelect() : 0, held.empty() ? " nothing" : held.c_str());
             lines.push_back(line);
             if (!unloadable_.empty()) {
-                std::string names = "Models not drawn (only .md3 so far):";
+                std::string names = "Models not drawn (only .md3 and .mdr):";
                 for (const std::string& n : unloadable_)
                     names += " " + n;
                 lines.push_back(names.size() > 150 ? names.substr(0, 150) + "..." : names);

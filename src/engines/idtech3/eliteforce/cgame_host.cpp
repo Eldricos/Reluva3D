@@ -347,7 +347,7 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         } else if (!name.empty()) { // an MD3's first frame, as the original renderer gives
             std::vector<uint8_t> data;
             Md3Model md3;
-            if (!files_.read(name, data) && !parseMd3(data, md3) && !md3.frames.empty()) {
+            if (!files_.read(name, data) && !parseModel(data, md3) && !md3.frames.empty()) {
                 mins = md3.frames[0].mins;
                 maxs = md3.frames[0].maxs;
             }
@@ -541,7 +541,7 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
             std::vector<uint8_t> data;
             auto md3 = std::make_shared<Md3Model>();
             const std::string& name = models_.name(a[1]);
-            if (!name.empty() && name[0] != '*' && !files_.read(name, data) && !parseMd3(data, *md3))
+            if (!name.empty() && name[0] != '*' && !files_.read(name, data) && !parseModel(data, *md3))
                 it->second = std::move(md3);
         }
         if (!vm.checkWrite(a[0], 48))
