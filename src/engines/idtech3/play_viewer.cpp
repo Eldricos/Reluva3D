@@ -208,6 +208,15 @@ void PlayViewer::start(int index) {
         err = Error::fail("the game refused the player: " + refused);
     if (!err)
         err = game_->beginClient(0);
+    // What the menus asked the server to run once the level started
+    // (adding bots...), as typed at its console.
+    for (const std::string& command : ctx_.requestCommands) {
+        if (err)
+            break;
+        bool handled = false;
+        err = game_->serverCommand(command, &handled);
+    }
+    ctx_.requestCommands.clear();
     if (err) {
         stop("The server game stopped: " + err.message);
         return;
@@ -293,6 +302,14 @@ void PlayViewer::consoleCommand(const std::string& text) {
     bool handled = false;
     if (Error err = cgame_->consoleCommand(text, handled)) {
         stop("The client game stopped: " + err.message);
+        return;
+    }
+    if (handled)
+        return;
+    // On a server of one's own, its game's console commands (addbot,
+    // kick...) next; the rest goes to the server as the player's.
+    if (Error err = game_->serverCommand(text, &handled)) {
+        stop("The server game stopped: " + err.message);
         return;
     }
     if (handled)

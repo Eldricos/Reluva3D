@@ -6,9 +6,11 @@
 #include "common/archive.h"
 #include "common/types.h"
 #include "engines/idtech3/bindings.h"
+#include "engines/idtech3/botlib/bot_library.h"
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
+#include "engines/idtech3/entities.h"
 #include "engines/idtech3/qvm.h"
 #include "engines/idtech3/vm_services.h"
 
@@ -81,6 +83,17 @@ public:
     // A command a player sent the server ("say hello", "kill"...), which
     // the game reads with Argc and Argv (ClientCommand).
     Error clientCommand(int32_t clientNum, const std::string& text);
+    // A command typed at the server's console that the engine doesn't
+    // know ("addbot munro 3", "kick"...), handed to the game
+    // (ConsoleCommand); `handled` gets whether the game knew it.
+    Error serverCommand(const std::string& text, bool* handled = nullptr);
+    // The bots (clients the game asked for with BotAllocateClient).
+    const std::set<int32_t>& botClients() const { return botClients_; }
+    botlib::BotLibrary& botLibrary() { return bots_; }
+    // Each system call of the bot library's ranges (200 on) with its first
+    // arguments the first few times it was made, for finding out what
+    // Elite Force's numbers are.
+    const std::map<int, std::vector<std::vector<int32_t>>>& botCallSamples() const { return botCallSamples_; }
     // Writes a command into game code's memory, laid out as usercmd_t:
     // server time 0, buttons 4 and weapon 5 (a byte each), angles 8,
     // forward, right and up moves 20-22.
@@ -167,6 +180,11 @@ private:
     void clipMove(int32_t results, const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
                int32_t passEntity, int32_t mask);
     int32_t pointContents(const Vec3f& point, int32_t passEntity);
+    // The bot library's calls (game_bots.cpp).
+    int32_t botCall(Qvm& vm, int number, const int32_t* args);
+    void runBotFrame();
+    void runQueuedConsoleCommands();
+    std::vector<int32_t> botSnapshotEntities(int32_t clientNum);
 
     const SearchSet& files_;
     CvarStore& cvars_;
@@ -190,6 +208,15 @@ private:
     std::map<int, int> callCounts_;
     int32_t levelTime_ = 0;
     uint64_t startMs_ = 0;
+    // Bots.
+    botlib::BotLibrary bots_;
+    std::set<int32_t> clientsInUse_, botClients_;
+    std::map<int32_t, size_t> botMessagesRead_;           // per bot, server commands read so far
+    std::map<int32_t, std::vector<int32_t>> botSnapshots_; // per bot, the entities it sees this frame
+    std::vector<Entity> bspEntities_;
+    std::map<int, std::vector<std::vector<uint8_t>>> goalStacks_; // per goal state, its goals' bytes
+    std::map<int, std::vector<std::vector<int32_t>>> botCallSamples_;
+    size_t consoleCommandsRun_ = 0;
 };
 
 } // namespace reluva::idtech3::eliteforce

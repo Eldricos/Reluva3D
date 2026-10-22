@@ -61,9 +61,13 @@ every engine.
    between frames and the players' `animation.cfg` (the Models page plays
    them in pairs). Still to do: `projectionShadow`, and players in the
    Play page.
-5. **Sound**: the menus' effects play. Still to do: sounds placed in the
-   world (distance and direction), looping sounds, and the music.
-6. **Game code**: see below.
+5. **Bots**: they join and their library is set up: the `.aas` map with
+   areas and routes, characters, the bots' input
+   ([aas.md](../formats/idtech3/aas.md)). Still to do: choosing goals and
+   weapons, following routes, chat, predicting moves.
+6. **Sound**: done in the Play page: sounds placed in the world, looping
+   sounds and music, as the client game asks.
+7. **Game code**: see below.
 
 ## Game code: open questions
 

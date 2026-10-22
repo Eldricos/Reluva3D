@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 #include "engines/idtech3/eliteforce/game_host.h"
+#include "engines/idtech3/eliteforce/game_layout.h"
 
 #include <algorithm>
 #include <cmath>
@@ -59,28 +60,7 @@ enum GameCall : int {
 };
 
 
-// The start of every entity, the part the engine reads and writes, as
-// Elite Force lays it out (found from the game's own code: what it passes
-// to traces and SetBrushModel, and the size of what it copies whole; see
-// eliteforce-syscalls.md). An entity state of 204 bytes (Quake III's is
-// 208), then entityShared_t at 204, with one field fewer than Quake III's
-// before the box (which of linkcount, svFlags and singleClient isn't
-// known yet, so only `linked` and `bmodel`, the same either way, are
-// written).
-namespace ent {
-constexpr int32_t Number = 0;       // s.number
-constexpr int32_t ModelIndex = 160; // s.modelindex, at Quake III's offset (assumed: the 4 bytes Elite Force lacks come later)
-constexpr int32_t Linked = 204;
-constexpr int32_t BModel = 216;
-constexpr int32_t Mins = 220, Maxs = 232;
-constexpr int32_t Contents = 244;
-constexpr int32_t AbsMin = 248, AbsMax = 260;
-constexpr int32_t CurrentOrigin = 272, CurrentAngles = 284;
-constexpr int32_t OwnerNum = 296;
-constexpr int32_t SharedEnd = 300;
-} // namespace ent
 
-constexpr int32_t kEntityNone = 1023, kEntityWorld = 1022;
 constexpr int32_t kTraceSize = 56; // Quake III's trace_t, as Elite Force's code reads it
 
 } // namespace
@@ -115,6 +95,9 @@ Error GameHost::startLevel(const std::string& mapName, std::shared_ptr<const Bsp
     cvars_.create("g_gametype", "0", CvarStore::ServerInfo | CvarStore::Latch);
     cvars_.create("dedicated", "0", CvarStore::Latch);
     cvars_.create("sv_cheats", "0", CvarStore::ServerInfo | CvarStore::ReadOnly);
+    // The engine's bot settings (the game reads bot_enable when starting).
+    cvars_.create("bot_enable", "1", 0);
+    cvars_.create("bot_thinktime", "100", 0);
     entityText_ = map_->entities;
     entityPos_ = 0;
     levelTime_ = 0;
@@ -131,9 +114,13 @@ Error GameHost::startLevel(const std::string& mapName, std::shared_ptr<const Bsp
 
 Error GameHost::runFrame() {
     levelTime_ += kFrameMs;
+    // The bots think first (and send their commands), then the level runs.
+    runBotFrame();
     int32_t ignored = 0;
     Error err = call(RunFrame, {levelTime_}, ignored);
     updateInfoConfigstrings();
+    if (!err)
+        runQueuedConsoleCommands();
     return err;
 }
 
@@ -148,6 +135,7 @@ void GameHost::updateInfoConfigstrings() {
 Error GameHost::connectClient(int32_t clientNum, const std::string& userinfo, std::string& refused) {
     refused.clear();
     userinfo_[clientNum] = userinfo;
+    clientsInUse_.insert(clientNum);
     int32_t reason = 0;
     if (Error err = call(ClientConnect, {clientNum, 1, 0}, reason)) // first time, not a bot
         return err;
@@ -637,7 +625,11 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         return token.empty() ? 0 : 1;
     }
     case Ceil: return Qvm::fromFloat(std::ceil(Qvm::asFloat(a[0])));
-    default: ++unhandled_[number]; return 0;
+    default:
+        if (number == BotAllocateClient || number == BotFreeClient || number >= 200)
+            return botCall(vm, number, a);
+        ++unhandled_[number];
+        return 0;
     }
 }
 

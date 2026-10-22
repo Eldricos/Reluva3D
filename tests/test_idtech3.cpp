@@ -4,6 +4,9 @@
 // Tests for the id Tech 3 engine's readers, on data built here.
 
 #include "engines/idtech3/bindings.h"
+#include "engines/idtech3/botlib/aas.h"
+#include "engines/idtech3/botlib/bot_script.h"
+#include "engines/idtech3/botlib/character.h"
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
@@ -37,6 +40,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -1072,6 +1076,162 @@ static std::vector<uint8_t> buildMdr(bool packed) {
     return d;
 }
 
+// A small .aas file: three areas in a row along x (below 100, 100 to
+// 200, above 200), split by two planes, walkable both ways between
+// neighbours; version 5's header scrambled when `scramble`.
+static std::vector<uint8_t> buildAas(bool scramble) {
+    std::vector<std::vector<uint8_t>> lumps(14);
+    auto i32 = [](std::vector<uint8_t>& d, int32_t v) {
+        for (int k = 0; k < 4; ++k)
+            d.push_back(uint8_t(uint32_t(v) >> (8 * k)));
+    };
+    auto f32 = [&](std::vector<uint8_t>& d, float f) {
+        int32_t v;
+        std::memcpy(&v, &f, 4);
+        i32(d, v);
+    };
+    // Planes 0 (dummy), x = 100, x = 200.
+    for (float dist : {0.0f, 100.0f, 200.0f}) {
+        f32(lumps[2], 1), f32(lumps[2], 0), f32(lumps[2], 0), f32(lumps[2], dist), i32(lumps[2], 0);
+    }
+    // Areas 0 (dummy) to 3: number, faces, mins, maxs, center.
+    for (int a = 0; a < 4; ++a) {
+        i32(lumps[7], a), i32(lumps[7], 0), i32(lumps[7], 0);
+        const float x0 = float(a - 1) * 100, x1 = float(a) * 100;
+        for (float v : {x0, -50.0f, 0.0f, x1, 50.0f, 50.0f, (x0 + x1) / 2, 0.0f, 25.0f})
+            f32(lumps[7], v);
+    }
+    // Settings: grounded, standing; reachabilities: area 1 -> 2 (index 1),
+    // 2 -> 1 and 2 -> 3 (2, 3), 3 -> 2 (4); index 0 a dummy.
+    const int first[4] = {0, 1, 2, 4}, count[4] = {0, 1, 2, 1};
+    for (int a = 0; a < 4; ++a)
+        for (int v : {0, 1, 2, a == 0 ? 0 : 1, 0, count[a], first[a]})
+            i32(lumps[8], v);
+    struct R {
+        int to;
+        float x0, x1;
+    };
+    const R reach[] = {{0, 0, 0}, {2, 95, 105}, {1, 105, 95}, {3, 195, 205}, {2, 205, 195}};
+    for (const R& r : reach) {
+        i32(lumps[9], r.to), i32(lumps[9], 0), i32(lumps[9], 0);
+        for (float v : {r.x0, 0.0f, 0.0f, r.x1, 0.0f, 0.0f})
+            f32(lumps[9], v);
+        i32(lumps[9], r.to ? 2 : 0); // walking
+        lumps[9].push_back(10), lumps[9].push_back(0), lumps[9].push_back(0), lumps[9].push_back(0);
+    }
+    // Nodes: 0 dummy; 1 splits at x = 100 (front: node 2, back: area 1);
+    // 2 at x = 200 (front: area 3, back: area 2).
+    for (int v : {0, 0, 0, 1, 2, -1, 2, -3, -2})
+        i32(lumps[10], v);
+    std::vector<uint8_t> out = {'E', 'A', 'A', 'S'};
+    i32(out, scramble ? 5 : 4);
+    std::vector<uint8_t> header;
+    i32(header, 1234); // the BSP's checksum
+    int32_t at = 12 + 14 * 8;
+    for (const auto& l : lumps) {
+        i32(header, at), i32(header, int32_t(l.size()));
+        at += int32_t(l.size());
+    }
+    if (scramble)
+        for (size_t i = 0; i < header.size(); ++i)
+            header[i] ^= uint8_t(i * 119);
+    out.insert(out.end(), header.begin(), header.end());
+    for (const auto& l : lumps)
+        out.insert(out.end(), l.begin(), l.end());
+    return out;
+}
+
+static void testAas() {
+    using namespace reluva::idtech3::botlib;
+    for (bool scramble : {false, true}) {
+        AasWorld aas;
+        CHECK(!aas.load(buildAas(scramble)));
+        CHECK(aas.loaded() && aas.areaCount() == 4 && aas.bspChecksum() == 1234);
+        CHECK(aas.pointArea({50, 0, 10}) == 1 && aas.pointArea({150, 0, 10}) == 2 && aas.pointArea({250, 0, 10}) == 3);
+        // Area 1 to 3: two reachabilities (10 each), crossing area 2 from
+        // 105 to 195 (90 units walked, 0.33 a unit: 29), plus 1 for the goal.
+        int time = 0, reach = 0;
+        CHECK(aas.route(1, nullptr, 3, tfl::Default, time, reach));
+        CHECK(reach == 1 && time == 1 + 10 + 10 + 29);
+        // From a point: plus walking to the reachability's start.
+        const Vec3f at{35, 0, 0};
+        CHECK(aas.travelTime(1, at, 3, tfl::Default) == time + 19);
+        CHECK(aas.route(3, nullptr, 1, tfl::Default, time, reach) && reach == 4);
+        CHECK(aas.route(2, nullptr, 2, tfl::Default, time, reach) && time == 1);
+        // Without walking, no way.
+        CHECK(!aas.route(1, nullptr, 3, tfl::Jump | tfl::Air, time, reach));
+        // Area 2 turned off: no way through.
+        aas.enableArea(2, false);
+        CHECK(!aas.route(1, nullptr, 3, tfl::Default, time, reach));
+        aas.enableArea(2, true);
+        CHECK(aas.route(1, nullptr, 3, tfl::Default, time, reach));
+        std::vector<int> areas;
+        std::vector<Vec3f> points;
+        CHECK(aas.traceAreas({50, 0, 0}, {250, 0, 0}, areas, &points, 10) == 3);
+        CHECK(areas == std::vector<int>({1, 2, 3}) && std::fabs(points[1][0] - 100) < 0.01f);
+        CHECK(aas.nextReachability(2, 0) == 2 && aas.nextReachability(2, 2) == 3 && aas.nextReachability(2, 3) == 0);
+    }
+}
+
+static void testBotScript() {
+    using namespace reluva::idtech3::botlib;
+    const std::map<std::string, std::string> files = {
+        {"defs.h", "#define TWO 2\n#define SQUARE(x) ((x) * (x))\n#define NAME \"bot\" \"name\"\n"},
+        {"main.c", "#include \"defs.h\"\n"
+                   "#ifdef TWO\nfirst TWO\n#else\nnot this\n#endif\n"
+                   "#if TWO > 3 || !defined(TWO)\nnor this\n#elif SQUARE(TWO) == 4\nsquare SQUARE(3)\n#endif\n"
+                   "#ifndef THREE\n#define THREE 3\n#endif\n"
+                   "value $evalint(TWO * THREE + 1) $evalfloat(1 / 2.0) NAME -1.5\n"
+                   "/* a comment */ end // another\n"}};
+    BotScript script([&](const std::string& path, std::string& text) {
+        const auto it = files.find(path);
+        if (it == files.end())
+            return false;
+        text = it->second;
+        return true;
+    });
+    CHECK(script.open("main.c"));
+    std::vector<std::string> words;
+    BotToken t;
+    while (script.next(t))
+        words.push_back(t.text);
+    if (!script.error().empty())
+        std::fprintf(stderr, "%s\n", script.error().c_str());
+    CHECK(script.error().empty());
+    const std::vector<std::string> expected = {"first", "2", "square", "(", "(", "3", ")", "*", "(", "3", ")", ")",
+                                               "value", "7.000000", "0.500000", "botname", "-", "1.5", "end"};
+    CHECK(words == expected);
+    BotScript bad([](const std::string&, std::string&) { return false; });
+    CHECK(!bad.open("missing.c") && !bad.error().empty());
+}
+
+static void testBotCharacter() {
+    using namespace reluva::idtech3::botlib;
+    const std::map<std::string, std::string> files = {
+        {"bots/default_c.c", "skill 1 { 0 \"Default\" 1 0.5 2 7 }\nskill 4 { 0 \"Default\" 1 0.8 2 9 }\n"
+                             "skill 5 { 0 \"Default\" 1 1.0 2 9 }\n"},
+        {"bots/test_c.c", "#define NAME 0\nskill 1 { NAME \"Test\" 1 0.25 }\nskill 4 { NAME \"Test\" 1 0.75 }\n"}};
+    const BotScript::Loader load = [&](const std::string& path, std::string& text) {
+        const auto it = files.find(path);
+        if (it == files.end())
+            return false;
+        text = it->second;
+        return true;
+    };
+    BotCharacters chars;
+    const int a = chars.load(load, "bots/test_c.c", 1);
+    CHECK(a && chars.string(a, 0) == "Test" && chars.floatValue(a, 1) == 0.25f);
+    CHECK(chars.integer(a, 2) == 7); // from the default character
+    // Between 1 and 4: floats blended.
+    const int b = chars.load(load, "bots/test_c.c", 2.5f);
+    CHECK(b && std::fabs(chars.floatValue(b, 1) - 0.5f) < 1e-5f && chars.integer(b, 2) == 7);
+    // Skill 5 isn't in the file: the default character's.
+    const int c = chars.load(load, "bots/test_c.c", 5);
+    CHECK(c && chars.string(c, 0) == "Default" && chars.floatValue(c, 1) == 1.0f);
+    CHECK(chars.boundedFloat(a, 1, 0.5f, 1) == 0.5f && chars.boundedInteger(a, 2, 0, 5) == 5);
+    CHECK(!chars.load(load, "bots/none_c.c", 1) == false); // falls back to the default character
+}
+
 static void testPlayerAnimation() {
     const auto anims = parseAnimationConfig("sex f\nsoundpath alexa\n\n"
                                             "0\t47\t0\t10\t\t// BOTH_DEATH1\n"
@@ -1657,6 +1817,9 @@ int main() {
     testMarks();
     testMdr();
     testPlayerAnimation();
+    testAas();
+    testBotScript();
+    testBotCharacter();
     testVmFileList();
     testSoundLibrary(tmp / "sounds");
     testSoundSystem(tmp / "soundsystem");

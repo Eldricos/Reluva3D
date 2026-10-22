@@ -88,6 +88,8 @@ struct ViewerContext {
     // A page asking for another to be shown (by name), as when the menus
     // start a level on the Play page; `requestMap` is the level.
     std::string requestPage, requestMap;
+    // Commands for the level's server after it starts ("addbot munro 3"...).
+    std::vector<std::string> requestCommands;
 };
 
 // The settings: the game's default.cfg, then the player's own (Reluva's

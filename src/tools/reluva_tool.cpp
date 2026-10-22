@@ -62,12 +62,14 @@
 //                                                  text, and the functions they call; -syscall: the code
 //                                                  before every call to one system call; -blockcopies:
 //                                                  the sizes of the structures the code copies whole;
-//                                                  -fields: the offsets used through a global pointer
+//                                                  -fields: the offsets used through a global pointer;
+//                                                  -syscalls first last: each system call in the range
+//                                                  in short (calls, arguments, nearby texts)
 //   reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]
 //                                                  run Elite Force's menus (vm/ui.qvm) with the engine's
 //                                                  system calls: Init, SetActiveMenu, Refresh; report
 //                                                  what they print, register and draw
-//   reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]
+//   reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]
 //                                                  start a level with Elite Force's game logic
 //                                                  (vm/qagame.qvm): Init with the map's entities, then
 //                                                  frames, with a player (client 0) joining unless
@@ -2938,6 +2940,7 @@ int cmdQvmDis(int argc, char** argv) {
                              "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -ref <address> [size]\n"
                              "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -str <text>\n"
                              "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -syscall <number>\n"
+                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -syscalls <first> <last>\n"
                              "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -blockcopies\n"
                              "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -fields <address of a pointer>\n");
         return 2;
@@ -3070,6 +3073,83 @@ int cmdQvmDis(int argc, char** argv) {
         }
         return 0;
     }
+    if (std::strcmp(argv[4], "-syscalls") == 0 && argc >= 7) {
+        // Every system call from `first` to `last` the code makes, in
+        // short: how many calls, and for a few of them what each argument
+        // is made from (a number, a text, a local or global variable...),
+        // what the code does with the result, and texts the calling
+        // function uses (its messages often name what it calls).
+        const int lo = std::atoi(argv[5]), hi = std::atoi(argv[6]);
+        auto text = [&](int32_t v) -> std::string {
+            if (v <= 0 || uint32_t(v) < vm.litStart() || uint32_t(v) >= vm.litEnd())
+                return {};
+            const std::string t = vm.string(v, 48);
+            for (char c : t)
+                if (c < 32 || c >= 127)
+                    return {};
+            return t;
+        };
+        // What one argument is made from, from the instructions before its ARG.
+        auto describe = [&](size_t argAt, size_t from) -> std::string {
+            if (argAt == 0 || argAt - 1 < from)
+                return "?";
+            const auto& p = code[argAt - 1];
+            if (p.op == q3::qvmop::Const) {
+                if (const std::string t = text(p.operand); !t.empty())
+                    return "\"" + t + "\"";
+                return std::to_string(p.operand);
+            }
+            if (p.op == q3::qvmop::Local)
+                return "&local" + std::to_string(p.operand);
+            if (p.op == q3::qvmop::Load4 && argAt >= 2 && argAt - 2 >= from) {
+                const auto& pp = code[argAt - 2];
+                if (pp.op == q3::qvmop::Local)
+                    return "local" + std::to_string(pp.operand);
+                if (pp.op == q3::qvmop::Const)
+                    return "[" + std::to_string(pp.operand) + "]";
+                if (pp.op == q3::qvmop::Add && argAt >= 3 && code[argAt - 3].op == q3::qvmop::Const)
+                    return "[p+" + std::to_string(code[argAt - 3].operand) + "]";
+                return "[...]";
+            }
+            if (p.op == q3::qvmop::Add && argAt >= 2 && code[argAt - 2].op == q3::qvmop::Const)
+                return "p+" + std::to_string(code[argAt - 2].operand);
+            return std::string("(") + q3::qvmop::name(p.op) + ")";
+        };
+        for (int n = lo; n <= hi; ++n) {
+            const int32_t target = -1 - n;
+            std::vector<size_t> sites;
+            for (size_t i = 0; i + 1 < code.size(); ++i)
+                if (code[i].op == q3::qvmop::Const && code[i].operand == target && code[i + 1].op == q3::qvmop::Call)
+                    sites.push_back(i);
+            if (sites.empty())
+                continue;
+            std::printf("== %d: %zu calls\n", n, sites.size());
+            for (size_t k = 0; k < sites.size() && k < 3; ++k) {
+                const size_t i = sites[k];
+                const auto [first, last] = functionAt(i);
+                // The arguments: ARGs since the previous call in the function.
+                size_t from = i;
+                while (from > first && code[from - 1].op != q3::qvmop::Call)
+                    --from;
+                std::string args;
+                for (size_t j = from; j < i; ++j)
+                    if (code[j].op == q3::qvmop::Arg)
+                        args += " " + std::to_string(code[j].operand) + ":" + describe(j, from);
+                std::string after;
+                for (size_t j = i + 2; j < last && j < i + 5; ++j)
+                    after += std::string(" ") + q3::qvmop::name(code[j].op) +
+                             (q3::qvmop::operandSize(code[j].op) ? " " + std::to_string(code[j].operand) : "");
+                std::printf("  at %zu (function %zu): args%s; then%s\n", i, first, args.empty() ? " none" : args.c_str(),
+                            after.c_str());
+                std::set<std::string> seen;
+                for (size_t j = first; j < last && seen.size() < 3; ++j)
+                    if (code[j].op == q3::qvmop::Const)
+                        if (const std::string t = text(code[j].operand); t.size() >= 4 && seen.insert(t).second)
+                            std::printf("      uses \"%s\"\n", t.c_str());
+            }
+        }
+        return 0;
+    }
     if (std::strcmp(argv[4], "-ref") == 0 && argc >= 6) {
         // The code around every constant pointing into [address, address + size).
         const long long base = std::strtoll(argv[5], nullptr, 0);
@@ -3196,7 +3276,7 @@ int cmdUiRun(int argc, char** argv) {
 
 int cmdGameRun(int argc, char** argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n");
+        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -3215,6 +3295,7 @@ int cmdGameRun(int argc, char** argv) {
     constexpr int kFramesPerWeapon = 40;
     int dumpEntities = 0; // -entities N: with -cgame, N of the scene's entities word by word
     std::vector<std::pair<std::string, std::string>> settings; // -set name value
+    std::vector<std::string> addBots;                           // -addbot "name [skill]"
     std::string walkDirection = "forward";
     for (int i = 4; i < argc; ++i) {
         if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
@@ -3251,6 +3332,8 @@ int cmdGameRun(int argc, char** argv) {
             settings.emplace_back(argv[i + 1], argv[i + 2]);
             i += 2;
         }
+        else if (std::strcmp(argv[i], "-addbot") == 0 && i + 1 < argc)
+            addBots.emplace_back(argv[++i]);
     }
     reluva::SearchSet set;
     if (!mountIdTech3(argv[2], set))
@@ -3320,6 +3403,19 @@ int cmdGameRun(int argc, char** argv) {
                         o[0], o[1], o[2]);
         }
     }
+    // Bots, added at the server's console as the original's addbot.
+    for (const std::string& bot : addBots) {
+        if (!ok)
+            break;
+        bool handled = false;
+        reluva::Error err = game.serverCommand("addbot " + bot, &handled);
+        std::printf("addbot %s: %s\n", bot.c_str(),
+                    err ? err.message.c_str() : handled ? "ok" : "the game didn't take the command");
+        ok = !err;
+    }
+    std::map<int32_t, q3::Vec3f> botStart;
+    for (const int32_t c : game.botClients())
+        botStart[c] = game.entityVec(c, 272);
     const bool player = ok && !noClient && game.linked().count(0);
     const auto startPos = player ? game.entityVec(0, 272) : q3::Vec3f{};
     for (int f = 0; ok && f < frames; ++f) {
@@ -3465,6 +3561,30 @@ int cmdGameRun(int argc, char** argv) {
     }
     for (const std::string& c : game.consoleCommands())
         std::printf("console command: %s\n", c.c_str());
+    if (!addBots.empty() || !game.botClients().empty()) {
+        // The bots: where each started and is now, and the bot library's
+        // calls the game made, with the first arguments of the first few.
+        std::printf("bots: %zu\n", game.botClients().size());
+        for (const int32_t c : game.botClients()) {
+            const auto o = game.entityVec(c, 272);
+            const auto s = botStart.count(c) ? botStart[c] : q3::Vec3f{};
+            std::printf("  client %d: %s, at %.1f %.1f %.1f (was %.1f %.1f %.1f)\n", c,
+                        game.linked().count(c) ? "linked" : "not linked", o[0], o[1], o[2], s[0], s[1], s[2]);
+        }
+        const auto& aas = game.botLibrary().aas();
+        std::printf("aas: %s\n", aas.loaded() ? (std::to_string(aas.areaCount()) + " areas").c_str() : "not loaded");
+        for (const auto& [number, samples] : game.botCallSamples()) {
+            const auto counted = game.callCounts().find(number);
+            std::printf("  bot call %d: %d calls", number, counted == game.callCounts().end() ? 0 : counted->second);
+            for (const auto& args : samples) {
+                std::printf(" (");
+                for (size_t i = 0; i < args.size(); ++i)
+                    std::printf("%s%d", i ? " " : "", args[i]);
+                std::printf(")");
+            }
+            std::printf("\n");
+        }
+    }
     for (const auto& [client, text] : game.serverCommands()) {
         std::string shown = text.size() > 120 ? text.substr(0, 120) + "..." : text;
         while (!shown.empty() && shown.back() == '\n')
@@ -4199,8 +4319,8 @@ int main(int argc, char** argv) {
                  "  reluva-tool qvm-info <game folder> <vm/x.qvm> [-s]\n"
                  "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
                  "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
-                 "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -blockcopies | -fields <address>\n"
-                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n"
+                 "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -syscalls <first> <last> | -blockcopies | -fields <address>\n"
+                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n"
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif
                  "");

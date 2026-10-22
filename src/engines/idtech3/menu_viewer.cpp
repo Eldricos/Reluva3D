@@ -176,26 +176,20 @@ void MenuViewer::checkCommands() {
         while (!lastCommand_.empty() && (lastCommand_.back() == '\n' || lastCommand_.back() == ' '))
             lastCommand_.pop_back();
         lastCommandMs_ = ctx_.sys.getMillis();
-        for (char& c : line)
-            if (c == ';' || c == '\n')
-                c = ' ';
-        std::vector<std::string> words;
-        size_t i = 0;
-        while (i < line.size()) {
-            while (i < line.size() && static_cast<unsigned char>(line[i]) <= ' ')
-                ++i;
-            size_t j = i;
-            while (j < line.size() && static_cast<unsigned char>(line[j]) > ' ')
-                ++j;
-            if (j > i)
-                words.push_back(line.substr(i, j - i));
-            i = j;
-        }
-        for (size_t w = 0; w + 1 < words.size(); ++w) {
-            const std::string verb = fs::toLower(words[w]);
-            if (verb == "map" || verb == "devmap" || verb == "spmap" || verb == "spdevmap") {
+        // Each command of the line: one starting a level takes the menus
+        // to the Play page; the ones after it (adding bots...) are run
+        // there once the level has started.
+        for (const std::string& command : splitCommands(line)) {
+            const std::vector<std::string> words = splitCommand(command);
+            if (words.empty())
+                continue;
+            const std::string verb = fs::toLower(words[0]);
+            if ((verb == "map" || verb == "devmap" || verb == "spmap" || verb == "spdevmap") && words.size() >= 2) {
                 ctx_.requestPage = "Play";
-                ctx_.requestMap = words[w + 1];
+                ctx_.requestMap = words[1];
+                ctx_.requestCommands.clear();
+            } else if (!ctx_.requestMap.empty() && verb != "wait") {
+                ctx_.requestCommands.push_back(command);
             }
         }
     }

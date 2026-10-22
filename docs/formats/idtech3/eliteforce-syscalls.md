@@ -179,6 +179,37 @@ trace. `s.modelindex` is taken to be at Quake III's 160 (the 4 bytes
 Elite Force lacks would then come after it), to be checked when the
 client game draws brush models. Entities are 588 bytes, clients 740.
 
+### Bots
+
+Bots use Quake III's bot library, in the engine. The game asks for a bot's
+client with 34 (`BotAllocateClient`, a free client number or -1), connects
+it itself (`ClientConnect` with "is a bot" set) and gives it back with 35.
+The library's calls are numbered by range:
+
+- **200–211, the library.** Setting up, settings ("libvars"), loading the
+  level's `.aas`, starting a frame, the entities each frame, a bot's
+  snapshot entities and console messages, and its command
+  (`BotUserCommand`: the engine runs the client's think with it).
+- **303–318, the map.** Entity info, the area of a point, routes, BSP
+  entity keys, predicting a move.
+- **401–427, the elementary actions.** Attack, move, look, and so on.
+- **500–572, the AI.** Characters, chat, goals, movement and weapons.
+
+Up to 572 the numbers match Quake III's count and order. The elementary
+actions are three more than Quake III's (400–423), so Elite Force's order
+there isn't known yet; Reluva uses Quake III's until it is. The bot frame,
+`vmMain(10, time)`, runs before each server frame, as on the original
+server.
+
+Reluva's side: `src/engines/idtech3/eliteforce/game_bots.cpp` and
+`src/engines/idtech3/botlib/`. In place so far: bots joining, the library's
+setup and entities, the `.aas` map (areas, routes, travel times), the BSP's
+entity keys, characters, the elementary actions, and goal stacks.
+Choosing goals and weapons, moving along routes and chat answer "none" for
+now. `reluva-tool game-run ... -addbot "name skill"` adds bots and lists
+the calls they make. `reluva-tool qvm-dis ... -syscalls 200 599`
+summarises each of the game's calls in a range.
+
 Reluva's side: `src/engines/idtech3/eliteforce/game_host.cpp`, run by
 `reluva-tool game-run <game folder> <map>`. Starting a level follows the
 original server: it sets `mapname` and the server cvars, calls
