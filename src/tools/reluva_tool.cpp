@@ -67,7 +67,7 @@
 //                                                  run Elite Force's menus (vm/ui.qvm) with the engine's
 //                                                  system calls: Init, SetActiveMenu, Refresh; report
 //                                                  what they print, register and draw
-//   reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N]] [-buttons] [-trace]
+//   reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give]] [-buttons] [-trace]
 //                                                  start a level with Elite Force's game logic
 //                                                  (vm/qagame.qvm): Init with the map's entities, then
 //                                                  frames, with a player (client 0) joining unless
@@ -76,7 +76,8 @@
 //                                                  client game (vm/cgame.qvm) for the player
 //                                                  (-entities N: dump N of its scene's entities
 //                                                  word by word; -cgameframes N frames, -fire,
-//                                                  -altfire held with -weapon N, and the effects
+//                                                  -altfire held with -weapon N (all: each in turn),
+//                                                  -give: every weapon first; and the effects
 //                                                  seen reported); -buttons: hold each button bit
 //                                                  in turn and report what it changes
 //   reluva-tool shader-check <game folder>         count the shader directives the engine doesn't know
@@ -3191,7 +3192,7 @@ int cmdUiRun(int argc, char** argv) {
 
 int cmdGameRun(int argc, char** argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N]] [-buttons] [-trace]\n");
+        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give]] [-buttons] [-trace]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -3202,7 +3203,11 @@ int cmdGameRun(int argc, char** argv) {
     // With -cgame: how many client game frames (-cgameframes), and the
     // player holding fire or alt fire (-fire, -altfire) with a weapon
     // (-weapon, the phaser by default) from the second.
+    // (-weapon all: each of weapons 1 to 10 in turn, two seconds each.)
+    // -give: cheats on and every weapon given first.
     int cgameFrames = 3, fireButtons = 0, fireWeapon = 1;
+    bool giveAll = false;
+    constexpr int kFramesPerWeapon = 40;
     int dumpEntities = 0; // -entities N: with -cgame, N of the scene's entities word by word
     std::vector<std::pair<std::string, std::string>> settings; // -set name value
     std::string walkDirection = "forward";
@@ -3220,7 +3225,9 @@ int cmdGameRun(int argc, char** argv) {
         else if (std::strcmp(argv[i], "-altfire") == 0)
             fireButtons |= 32;
         else if (std::strcmp(argv[i], "-weapon") == 0 && i + 1 < argc)
-            fireWeapon = std::atoi(argv[++i]);
+            fireWeapon = std::strcmp(argv[i + 1], "all") == 0 ? -1 : std::atoi(argv[i + 1]), ++i;
+        else if (std::strcmp(argv[i], "-give") == 0)
+            giveAll = true;
         else if (std::strcmp(argv[i], "-cgameframes") == 0 && i + 1 < argc)
             cgameFrames = std::max(1, std::atoi(argv[++i]));
         else if (std::strcmp(argv[i], "-buttons") == 0)
@@ -3254,8 +3261,10 @@ int cmdGameRun(int argc, char** argv) {
         return 1;
     }
     q3::CvarStore cvars;
-    if (probeButtons || fireButtons)
+    if (probeButtons || fireButtons || giveAll)
         cvars.set("g_holoIntro", "0"); // the player has to be in the game
+    if (fireWeapon < 0 && fireButtons)
+        cgameFrames = std::max(cgameFrames, 10 + 10 * kFramesPerWeapon);
     for (const auto& [name, value] : settings)
         cvars.set(name, value);
     ef::GameHost game(set, cvars);
@@ -3290,6 +3299,15 @@ int cmdGameRun(int argc, char** argv) {
             err = game.beginClient(0);
             std::printf("client 0 begins: %s\n", err ? err.message.c_str() : "ok");
             ok = !err;
+            if (ok && giveAll) {
+                // The game's own cheat, once it has seen sv_cheats change.
+                cvars.set("sv_cheats", "1", true);
+                err = game.runFrame();
+                if (!err)
+                    err = game.clientCommand(0, "give all");
+                std::printf("give all: %s\n", err ? err.message.c_str() : "ok");
+                ok = !err;
+            }
             const auto o = game.entityVec(0, 272);
             std::printf("client 0's entity: %s at %.1f %.1f %.1f\n", game.linked().count(0) ? "linked" : "not linked",
                         o[0], o[1], o[2]);
@@ -3528,12 +3546,15 @@ int cmdGameRun(int argc, char** argv) {
             // The entities of the last idle frame and the last firing one,
             // to dump those firing adds.
             std::vector<std::vector<uint8_t>> lastIdleEntities, lastFiringEntities;
-            std::map<int32_t, int> typeCounts;
-            std::map<int32_t, std::vector<uint8_t>> typeSamples;
-            std::map<int32_t, int> polyCounts;
-            std::map<int32_t, ef::CgameHost::Scene::Poly> polySamples;
-            int lightCount = 0;
-            std::array<int32_t, 6> lightSample{};
+            // By the weapon fired (0 when not firing) and the type or shader.
+            using Key = std::pair<int, int32_t>;
+            std::map<Key, int> typeCounts;
+            std::map<Key, std::vector<uint8_t>> typeSamples;
+            std::map<Key, int> polyCounts;
+            std::map<Key, ef::CgameHost::Scene::Poly> polySamples;
+            std::map<int, int> lightCounts;
+            std::map<int, std::array<int32_t, 6>> lightSamples;
+            int weaponNow = 0;
             // With fire held, the first 10 frames are idle, to compare.
             constexpr int kIdleFrames = 10;
             int idleFrames = 0, firingFrames = 0;
@@ -3547,7 +3568,10 @@ int cmdGameRun(int argc, char** argv) {
                 ef::GameHost::UserCommand idle;
                 if (f) {
                     idle.serverTime = game.levelTime() + ef::GameHost::kFrameMs;
-                    idle.weapon = uint8_t(fireButtons ? fireWeapon : 0);
+                    weaponNow = !firing          ? 0
+                                : fireWeapon < 0 ? 1 + std::min(9, (f - kIdleFrames) / kFramesPerWeapon)
+                                                 : fireWeapon;
+                    idle.weapon = uint8_t(fireButtons ? (weaponNow ? weaponNow : std::max(fireWeapon, 1)) : 0);
                     idle.buttons = firing ? fireButtons : 0;
                     if (fireButtons)
                         game.clientThink(0, idle);
@@ -3561,7 +3585,7 @@ int cmdGameRun(int argc, char** argv) {
                         std::printf(" %d:%d", at, game.clientInt(0, at));
                     std::printf("\n");
                 }
-                if (fireButtons && (f % 5 == 0 || f == kIdleFrames)) {
+                if (fireButtons && f <= 30 && (f % 5 == 0 || f == kIdleFrames)) {
                     // The player state words firing changes (game-run -buttons):
                     // weapon time 44, flags 104, event sequence 108, events 112,
                     // 116, their parameters 120, 124, and 376, 396.
@@ -3604,15 +3628,15 @@ int cmdGameRun(int argc, char** argv) {
                         int32_t type = 0;
                         if (e.bytes.size() >= 4)
                             std::memcpy(&type, e.bytes.data(), 4);
-                        if (type != 0 && typeCounts[type]++ == 0)
-                            typeSamples[type] = e.bytes;
+                        if (type != 0 && typeCounts[{weaponNow, type}]++ == 0)
+                            typeSamples[{weaponNow, type}] = e.bytes;
                     }
                     for (const auto& poly : scene.polys)
-                        if (polyCounts[poly.shader]++ == 0)
-                            polySamples[poly.shader] = poly;
-                    if (!scene.lights.empty() && !lightCount)
-                        lightSample = scene.lights[0];
-                    lightCount += int(scene.lights.size());
+                        if (polyCounts[{weaponNow, poly.shader}]++ == 0)
+                            polySamples[{weaponNow, poly.shader}] = poly;
+                    if (!scene.lights.empty() && !lightCounts[weaponNow])
+                        lightSamples[weaponNow] = scene.lights[0];
+                    lightCounts[weaponNow] += int(scene.lights.size());
                 }
                 if (verbose) {
                     // The frame's 3D scene: the entities added (and the sizes of
@@ -3755,25 +3779,44 @@ int cmdGameRun(int argc, char** argv) {
                     ++shown;
                 }
             }
-            std::printf("over %d frames%s: entities that aren't models, by type:%s\n", cgameFrames,
-                        fireButtons ? " (holding fire)" : "", typeCounts.empty() ? " none" : "");
-            for (const auto& [type, count] : typeCounts) {
-                std::printf("  type %d: %d; the first:\n", type, count);
-                dumpWords(typeSamples[type], 160);
+            // Types the Play page draws: models (0), quads (1), sprites (2),
+            // lines (9, 11); samples of the others.
+            auto drawn = [](int32_t type) { return type == 1 || type == 2 || type == 9 || type == 11; };
+            std::set<int> weapons{0};
+            for (const auto& [key, count] : typeCounts)
+                weapons.insert(key.first);
+            for (const auto& [key, count] : polyCounts)
+                weapons.insert(key.first);
+            for (const auto& [weapon, count] : lightCounts)
+                weapons.insert(weapon);
+            for (int weapon : weapons) {
+                std::printf("over %d frames, %s: entities that aren't models, by type:", cgameFrames,
+                            weapon ? ("firing weapon " + std::to_string(weapon)).c_str() : "not firing");
+                for (const auto& [key, count] : typeCounts)
+                    if (key.first == weapon)
+                        std::printf(" %d (x%d%s)", key.second, count, drawn(key.second) ? "" : ", not drawn yet");
+                std::printf("\n");
+                for (const auto& [key, count] : typeCounts)
+                    if (key.first == weapon && !drawn(key.second)) {
+                        std::printf("  type %d, the first:\n", key.second);
+                        dumpWords(typeSamples[key], 160);
+                    }
+                for (const auto& [key, count] : polyCounts) {
+                    if (key.first != weapon)
+                        continue;
+                    const auto& sample = polySamples[key];
+                    std::printf("  polygons with %s (%d): %d, the first with %d vertices, its first two as 24 bytes "
+                                "each:\n",
+                                cgame.shaders().name(key.second).c_str(), key.second, count, sample.vertexCount);
+                    dumpWords(sample.vertices, 48);
+                }
+                if (const int lights = lightCounts[weapon]) {
+                    const auto& l = lightSamples[weapon];
+                    std::printf("  lights: %d, the first: (%d, %.4g, %.4g, %.4g, %.4g, %d)\n", lights, l[0],
+                                q3::Qvm::asFloat(l[1]), q3::Qvm::asFloat(l[2]), q3::Qvm::asFloat(l[3]),
+                                q3::Qvm::asFloat(l[4]), l[5]);
+                }
             }
-            std::printf("polygons, by shader:%s\n", polyCounts.empty() ? " none" : "");
-            for (const auto& [shader, count] : polyCounts) {
-                const auto& sample = polySamples[shader];
-                std::printf("  %s (%d): %d, the first with %d vertices, its first two as 24 bytes each:\n",
-                            cgame.shaders().name(shader).c_str(), shader, count, sample.vertexCount);
-                dumpWords(sample.vertices, 48);
-            }
-            std::printf("lights: %d", lightCount);
-            if (lightCount)
-                std::printf(", the first: (%d, %.4g, %.4g, %.4g, %.4g, %d)", lightSample[0],
-                            q3::Qvm::asFloat(lightSample[1]), q3::Qvm::asFloat(lightSample[2]),
-                            q3::Qvm::asFloat(lightSample[3]), q3::Qvm::asFloat(lightSample[4]), lightSample[5]);
-            std::printf("\n");
             const auto& requests = cgame.snapshotRequests();
             for (size_t i = 0; i < requests.size() && i < 6; ++i)
                 std::printf("cgame asked for snapshot %d at %d%s\n", requests[i].first, requests[i].second,
@@ -3997,7 +4040,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
                  "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
                  "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -blockcopies | -fields <address>\n"
-                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N]] [-buttons] [-trace]\n"
+                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give]] [-buttons] [-trace]\n"
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif
                  "");
