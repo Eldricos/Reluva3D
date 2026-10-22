@@ -57,9 +57,10 @@ every engine.
    RTX 2080, and Elite Force's 1872 shaders use no directive outside
    Quake III's. What's left for its maps: autosprite2 (two fire shaders)
    and the ten portal/mirror shaders.
-4. **Models**: done for MD3 (see the table). Still to do: interpolating
-   between frames, the players' `animation.cfg`, `projectionShadow`, and
-   checking Elite Force's models on the Models page.
+4. **Models**: done for MD3 and Elite Force's MDR, with interpolation
+   between frames and the players' `animation.cfg` (the Models page plays
+   them in pairs). Still to do: `projectionShadow`, and players in the
+   Play page.
 5. **Sound**: the menus' effects play. Still to do: sounds placed in the
    world (distance and direction), looping sounds, and the music.
 6. **Game code**: see below.

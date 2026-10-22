@@ -122,6 +122,7 @@ if(RELUVA_ENGINE_IDTECH3)
         src/engines/idtech3/lexer.cpp
         src/engines/idtech3/marks.cpp
         src/engines/idtech3/mdr.cpp
+        src/engines/idtech3/player_animation.cpp
         src/engines/idtech3/sound_system.cpp
         src/engines/idtech3/entities.cpp
         src/engines/idtech3/shader.cpp

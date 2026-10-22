@@ -14,6 +14,8 @@
 // Models:   every .md3 and .mdr; players (lower, upper and head in one folder) put
 //           together. Left/Right step, PageUp/PageDown jump 10; drag to
 //           turn, wheel or +/- to zoom, A to animate, ,/. to step frames,
+//           [ and ] to step through a player's animations (from its
+//           animation.cfg, legs and torso paired as the game plays them),
 //           T to place a player's torso on its legs' tag or as in its
 //           file, R to reset the view, I to show or hide the info.
 // Files:    Up/Down, PageUp/PageDown, Home/End scroll the search path's files.
@@ -45,6 +47,7 @@
 #include "engines/idtech3/shader.h"
 #include "engines/idtech3/light_grid.h"
 #include "engines/idtech3/model_cache.h"
+#include "engines/idtech3/player_animation.h"
 #include "engines/idtech3/shader_cache.h"
 #include "engines/idtech3/sound_system.h"
 #include "engines/idtech3/sounds.h"
@@ -251,7 +254,12 @@ private:
     bool torsoOnTag_ = true; // a player's torso placed on the legs' tag_torso (T toggles)
     int lastX_ = 0, lastY_ = 0;
     int frame_ = 0; // when not animating
-    uint64_t startMs_ = 0;
+    uint64_t startMs_ = 0, lastMs_ = 0;
+    // A player's animations (animation.cfg) and the pair playing.
+    std::vector<PlayerAnimation> anims_;
+    int legsAnim_ = 0, torsoAnim_ = 0;
+    float animTime_ = 0; // seconds into them
+    void nextAnimation(int step);
 };
 
 class MenuViewer : public Page {

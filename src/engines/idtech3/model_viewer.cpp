@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <optional>
 #include <set>
 
 namespace reluva::idtech3 {
@@ -100,6 +101,8 @@ void ModelViewer::show(int index) {
     skins_[0] = skins_[1] = skins_[2] = nullptr;
     frame_ = 0;
     startMs_ = ctx_.sys.getMillis();
+    anims_.clear();
+    animTime_ = 0;
 
     std::vector<const Md3Model*> parts;
     if (e.player) {
@@ -114,6 +117,21 @@ void ModelViewer::show(int index) {
         if (lower_ < 0 || upper_ < 0 || head_ < 0) {
             info_.push_back(e.name);
             return;
+        }
+        // Its animations: played in pairs, legs and torso, as the game does.
+        std::vector<uint8_t> cfg;
+        if (Error err = ctx_.files.read(e.name + "/animation.cfg", cfg); !err) {
+            anims_ = parseAnimationConfig(std::string(cfg.begin(), cfg.end()));
+            legsAnim_ = torsoAnim_ = -1;
+            for (size_t i = 0; i < anims_.size(); ++i) {
+                if (anims_[i].name == "LEGS_IDLE" || (legsAnim_ < 0 && anims_[i].part == PlayerAnimation::Part::Legs))
+                    legsAnim_ = int(i);
+                if (anims_[i].name == "TORSO_STAND" ||
+                    (torsoAnim_ < 0 && anims_[i].part == PlayerAnimation::Part::Torso))
+                    torsoAnim_ = int(i);
+            }
+            if (legsAnim_ < 0 || torsoAnim_ < 0)
+                anims_.clear();
         }
         skins_[0] = &models_->skin(e.name + "/lower_default.skin");
         skins_[1] = &models_->skin(e.name + "/upper_default.skin");
@@ -209,6 +227,8 @@ void ModelViewer::handleEvent(const Event& ev) {
             animate_ = !animate_;
         else if (ev.key == 't')
             torsoOnTag_ = !torsoOnTag_;
+        else if ((ev.key == '[' || ev.key == ']') && !anims_.empty())
+            nextAnimation(ev.key == ']' ? 1 : -1);
         else if (ev.key == ',')
             --frame_;
         else if (ev.key == '.')
@@ -239,10 +259,46 @@ void ModelViewer::handleEvent(const Event& ev) {
     }
 }
 
+void ModelViewer::nextAnimation(int step) {
+    // Through every animation: one for the whole body plays on both
+    // halves; a torso or legs one on its half, the other going back to
+    // standing or idling if it was playing one for the whole body.
+    const int n = int(anims_.size());
+    const int current = step > 0 ? std::max(legsAnim_, torsoAnim_) : std::min(legsAnim_, torsoAnim_);
+    const int i = ((current + step) % n + n) % n;
+    auto find = [&](const char* name, PlayerAnimation::Part part) {
+        for (size_t k = 0; k < anims_.size(); ++k)
+            if (anims_[k].name == name)
+                return int(k);
+        for (size_t k = 0; k < anims_.size(); ++k)
+            if (anims_[k].part == part)
+                return int(k);
+        return 0;
+    };
+    switch (anims_[size_t(i)].part) {
+    case PlayerAnimation::Part::Both: legsAnim_ = torsoAnim_ = i; break;
+    case PlayerAnimation::Part::Torso:
+        torsoAnim_ = i;
+        if (anims_[size_t(legsAnim_)].part != PlayerAnimation::Part::Legs)
+            legsAnim_ = find("LEGS_IDLE", PlayerAnimation::Part::Legs);
+        break;
+    case PlayerAnimation::Part::Legs:
+        legsAnim_ = i;
+        if (anims_[size_t(torsoAnim_)].part != PlayerAnimation::Part::Torso)
+            torsoAnim_ = find("TORSO_STAND", PlayerAnimation::Part::Torso);
+        break;
+    }
+    animTime_ = 0;
+    animate_ = true;
+}
+
 void ModelViewer::update(uint64_t nowMs) {
     if (!renderer_)
         return;
     const float time = float(nowMs - startMs_) / 1000.0f;
+    if (animate_ && lastMs_ != 0)
+        animTime_ += std::min(float(nowMs - lastMs_), 100.0f) / 1000.0f;
+    lastMs_ = nowMs;
     const int frame = animate_ ? int(time * kAnimationFps) : frame_;
 
     const gfx::Vec3 offset{std::cos(pitch_) * std::cos(yaw_), std::cos(pitch_) * std::sin(yaw_), std::sin(pitch_)};
@@ -268,21 +324,48 @@ void ModelViewer::update(uint64_t nowMs) {
         const Md3Model& legs = models_->model(lower_);
         const Md3Model& torso = models_->model(upper_);
         const int nl = int(legs.frames.size()), nt = int(torso.frames.size());
-        const int fl = ((frame % nl) + nl) % nl, ft = ((frame % nt) + nt) % nt;
+        // Each half's frame, the next and how far towards it: from its
+        // animation (animation.cfg) if the player has them, else frame by
+        // frame through the whole model.
+        int fl = ((frame % nl) + nl) % nl, ft = ((frame % nt) + nt) % nt, nextL = fl, nextT = ft;
+        float lerpL = 0, lerpT = 0;
+        if (!anims_.empty()) {
+            anims_[size_t(legsAnim_)].frameAt(animTime_, fl, nextL, lerpL);
+            anims_[size_t(torsoAnim_)].frameAt(animTime_, ft, nextT, lerpT);
+            fl = std::clamp(fl, 0, nl - 1), nextL = std::clamp(nextL, 0, nl - 1);
+            ft = std::clamp(ft, 0, nt - 1), nextT = std::clamp(nextT, 0, nt - 1);
+        }
+        // A tag between two frames.
+        auto tagBetween = [](const Md3Model& m, int a, int b, float f, const char* name) -> std::optional<Md3Tag> {
+            const Md3Tag* ta = m.tag(a, name);
+            const Md3Tag* tb = m.tag(b, name);
+            if (!ta || !tb)
+                return std::nullopt;
+            Md3Tag t = *ta;
+            for (size_t k = 0; k < 3; ++k) {
+                t.origin[k] += (tb->origin[k] - ta->origin[k]) * f;
+                for (size_t j = 0; j < 3; ++j)
+                    t.axis[k][j] += (tb->axis[k][j] - ta->axis[k][j]) * f;
+            }
+            return t;
+        };
         const gfx::Mat4 base = gfx::identity();
-        models_->draw(lower_, fl, base, light, time, skins_[0]);
+        models_->draw(lower_, nextL, base, light, time, skins_[0], 0, 1e9f, {}, nullptr, fl, 1 - lerpL);
         // (With T, the torso where its own file has it instead, to compare:
         // skeletal models' halves may already fit together.)
         gfx::Mat4 torsoAt = base;
-        if (const Md3Tag* t = legs.tag(fl, "tag_torso"); t && torsoOnTag_)
+        if (const auto t = tagBetween(legs, fl, nextL, lerpL, "tag_torso"); t && torsoOnTag_)
             torsoAt = gfx::multiply(base, tagPlacement(*t));
-        models_->draw(upper_, ft, torsoAt, light, time, skins_[1]);
+        models_->draw(upper_, nextT, torsoAt, light, time, skins_[1], 0, 1e9f, {}, nullptr, ft, 1 - lerpT);
         gfx::Mat4 headAt = torsoAt;
-        if (const Md3Tag* t = torso.tag(ft, "tag_head"))
+        if (const auto t = tagBetween(torso, ft, nextT, lerpT, "tag_head"))
             headAt = gfx::multiply(torsoAt, tagPlacement(*t));
         models_->draw(head_, 0, headAt, light, time, skins_[2]);
         frames = "legs frame " + std::to_string(fl + 1) + "/" + std::to_string(nl) + ", torso " +
                  std::to_string(ft + 1) + "/" + std::to_string(nt) +
+                 (anims_.empty() ? std::string()
+                                 : "; " + anims_[size_t(legsAnim_)].name + " with " +
+                                       anims_[size_t(torsoAnim_)].name + " ([ ]: animation)") +
                  (torsoOnTag_ ? "; torso on the legs' tag_torso (T: as in its file)"
                               : "; torso as in its file (T: on the legs' tag_torso)");
     }

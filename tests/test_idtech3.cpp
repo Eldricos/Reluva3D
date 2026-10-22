@@ -19,6 +19,7 @@
 #include "engines/idtech3/md3.h"
 #include "engines/idtech3/model_cache.h"
 #include "engines/idtech3/patch.h"
+#include "engines/idtech3/player_animation.h"
 #include "engines/idtech3/qvm.h"
 #include "engines/idtech3/shader.h"
 #include "engines/idtech3/sound_system.h"
@@ -1071,6 +1072,32 @@ static std::vector<uint8_t> buildMdr(bool packed) {
     return d;
 }
 
+static void testPlayerAnimation() {
+    const auto anims = parseAnimationConfig("sex f\nsoundpath alexa\n\n"
+                                            "0\t47\t0\t10\t\t// BOTH_DEATH1\n"
+                                            "95 18 0 15 // TORSO_GESTURE\n"
+                                            "134 2 0 1 // TORSO_STAND\n"
+                                            "138 14 14 10 // LEGS_WALKCR\n"
+                                            "208 10 10 15 // LEGS_IDLE\n"
+                                            "186 6 0 10 // LEGS_JUMP\n");
+    CHECK(anims.size() == 6);
+    CHECK(anims[0].name == "BOTH_DEATH1" && anims[0].part == PlayerAnimation::Part::Both && anims[0].first == 0);
+    CHECK(anims[2].part == PlayerAnimation::Part::Torso && anims[2].first == 134);
+    // Legs moved back by 138 - 95 into the legs model.
+    CHECK(anims[3].part == PlayerAnimation::Part::Legs && anims[3].first == 95);
+    CHECK(anims[4].name == "LEGS_IDLE" && anims[4].first == 165 && anims[4].loop == 10 && anims[4].fps == 15);
+    int frame = 0, next = 0;
+    float f = 0;
+    anims[4].frameAt(0.5f / 15, frame, next, f); // halfway through the first frame
+    CHECK(frame == 165 && next == 166 && std::fabs(f - 0.5f) < 1e-4f);
+    anims[4].frameAt(9.0f / 15, frame, next, f); // the last frame, on its way round to the first
+    CHECK(frame == 174 && next == 165);
+    anims[4].frameAt(23.0f / 15, frame, next, f); // looping
+    CHECK(frame == 168);
+    anims[5].frameAt(100, frame, next, f); // not looping: held on the last
+    CHECK(frame == 186 - 43 + 5 && next == frame && f == 0);
+}
+
 static void testMdr() {
     for (bool packed : {false, true}) {
         Md3Model m;
@@ -1629,6 +1656,7 @@ int main() {
     testKeyBindings();
     testMarks();
     testMdr();
+    testPlayerAnimation();
     testVmFileList();
     testSoundLibrary(tmp / "sounds");
     testSoundSystem(tmp / "soundsystem");

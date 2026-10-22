@@ -73,6 +73,32 @@ Players are three models in one folder: `lower.md3`, `upper.md3`,
 `head.md3`, assembled by their tags, with `<part>_<skin>.skin` choosing
 their shaders.
 
+## Player animations (`animation.cfg`)
+
+A player's folder holds an `animation.cfg` naming the runs of frames its
+parts play. How the file is read was taken from the GPL ioquake3 game code
+(`cg_players.c`); Reluva's reader is `src/engines/idtech3/player_animation.cpp`.
+
+Lines of words (`sex f`, `soundpath alexa`) are settings; every other line
+is four numbers and a comment naming the animation:
+
+    first-frame  frames  looping-frames  frames-per-second  // NAME
+
+- Names starting `BOTH_` play on legs and torso together, `TORSO_` on the
+  upper body only, `LEGS_` on the lower body only. Elite Force's file lists
+  them in that order, as Quake III's does.
+- The frame numbers count through both models as if one followed the
+  other, but the legs model has no torso frames: a legs animation's first
+  frame is that much earlier in the legs model, by the first legs
+  animation's first frame minus the first torso animation's (43 for
+  Elite Force's players: legs from 138 in the file, 95 in `lower.mdr`).
+- After playing through, an animation repeats its last *looping-frames*
+  frames, or with 0 stays on its last frame.
+- Legs and torso each play their own animation at their own speed; the
+  torso sits on the legs' `tag_torso` of the legs' current frame, the head
+  on the torso's `tag_head`. Drawing the halves on unrelated frames is
+  what tears them apart at the waist.
+
 ## Skins
 
 Text, one surface per line: `surfacename,shader`. Lines for tags
