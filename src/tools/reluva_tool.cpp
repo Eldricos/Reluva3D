@@ -3491,10 +3491,18 @@ int cmdGameRun(int argc, char** argv) {
         cgame.print = [](const std::string& text) {
             std::printf("cgame: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
         };
-        if (traceCalls)
-            cgame.trace = [](int number, const int32_t* a) {
+        // The client game's calls, counted by frame phase: idle, then
+        // (with -fire or -altfire) holding fire; the first arguments of each.
+        int phase = 0; // 0 start-up, 1 idle frames, 2 firing frames
+        std::array<std::map<int, int>, 3> phaseCalls;
+        std::map<int, std::array<int32_t, 4>> firingArgs;
+        cgame.trace = [&](int number, const int32_t* a) {
+            ++phaseCalls[size_t(phase)][number];
+            if (phase == 2 && !firingArgs.count(number))
+                firingArgs[number] = {a[0], a[1], a[2], a[3]};
+            if (traceCalls)
                 std::printf("  cgame syscall %3d (%d, %d, %d, %d)\n", number, a[0], a[1], a[2], a[3]);
-            };
+        };
         reluva::Error err = cgame.load();
         if (!err) {
             cgame.setConfigstrings(game.configstrings());
@@ -3522,16 +3530,35 @@ int cmdGameRun(int argc, char** argv) {
             std::map<int32_t, ef::CgameHost::Scene::Poly> polySamples;
             int lightCount = 0;
             std::array<int32_t, 6> lightSample{};
+            // With fire held, the first 10 frames are idle, to compare.
+            constexpr int kIdleFrames = 10;
+            int idleFrames = 0, firingFrames = 0;
             for (int f = 0; f < cgameFrames; ++f) {
                 const bool verbose = f < 3 || f == cgameFrames - 1;
+                const bool firing = fireButtons && f >= kIdleFrames;
+                if (f) {
+                    phase = firing ? 2 : 1;
+                    (firing ? firingFrames : idleFrames)++;
+                }
                 ef::GameHost::UserCommand idle;
                 if (f) {
                     idle.serverTime = game.levelTime() + 100;
                     idle.weapon = uint8_t(fireButtons ? fireWeapon : 0);
-                    idle.buttons = fireButtons;
+                    idle.buttons = firing ? fireButtons : 0;
                     if (fireButtons)
                         game.clientThink(0, idle);
                     game.runFrame();
+                }
+                if (fireButtons && (f % 5 == 0 || f == kIdleFrames)) {
+                    // The player state words firing changes (game-run -buttons):
+                    // weapon time 44, flags 104, event sequence 108, events 112,
+                    // 116, their parameters 120, 124, and 376, 396.
+                    std::printf("frame %2d%s: player state 44 %d, 104 0x%x, 108 %d, 112 %d, 116 %d, 120 %d, 124 %d, "
+                                "376 %d, 396 %d\n",
+                                f, firing ? " (firing)" : "", game.clientInt(0, 44), unsigned(game.clientInt(0, 104)),
+                                game.clientInt(0, 108), game.clientInt(0, 112), game.clientInt(0, 116),
+                                game.clientInt(0, 120), game.clientInt(0, 124), game.clientInt(0, 376),
+                                game.clientInt(0, 396));
                 }
                 std::vector<std::string> commands;
                 for (const auto& [to, text] : game.serverCommands())
@@ -3649,6 +3676,26 @@ int cmdGameRun(int argc, char** argv) {
                 cgame.clearPictures();
                 if (frame)
                     break;
+            }
+            if (fireButtons && idleFrames && firingFrames) {
+                // Calls a frame, idle and firing: what changes when firing.
+                std::printf("client game calls a frame, idle (%d frames) against firing (%d frames):\n", idleFrames,
+                            firingFrames);
+                std::set<int> numbers;
+                for (int ph = 1; ph <= 2; ++ph)
+                    for (const auto& [number, count] : phaseCalls[size_t(ph)])
+                        numbers.insert(number);
+                for (int number : numbers) {
+                    const float idleRate = float(phaseCalls[1][number]) / float(idleFrames);
+                    const float fireRate = float(phaseCalls[2][number]) / float(firingFrames);
+                    const auto it = firingArgs.find(number);
+                    std::printf("  call %3d: %7.2f idle, %7.2f firing%s", number, idleRate, fireRate,
+                                std::fabs(idleRate - fireRate) > 0.05f ? "  <- differs" : "");
+                    if (it != firingArgs.end())
+                        std::printf("  (first while firing: %d, %d, %d, %d)", it->second[0], it->second[1],
+                                    it->second[2], it->second[3]);
+                    std::printf("\n");
+                }
             }
             // The effects seen over the frames.
             auto dumpWords = [&](const std::vector<uint8_t>& b, size_t size) {
