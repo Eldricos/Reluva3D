@@ -293,13 +293,12 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         if (startLocalSound && !sounds_.name(a[0]).empty())
             startLocalSound(sounds_.name(a[0]), a[1]);
         return 0;
-    case KeyKeynumToStringBuf: {
-        std::string name = a[0] > 32 && a[0] < 127 ? std::string(1, char(a[0])) : "#" + std::to_string(a[0]);
-        vm.writeString(a[1], name, a[2]);
+    case KeyKeynumToStringBuf: vm.writeString(a[1], KeyBindings::keyName(a[0]), a[2]); return 0;
+    case KeyGetBindingBuf: vm.writeString(a[1], bindings ? bindings->get(a[0]) : std::string(), a[2]); return 0;
+    case KeySetBinding: // (key, command): the Controls menu
+        if (bindings)
+            bindings->set(a[0], str(1, 1024));
         return 0;
-    }
-    case KeyGetBindingBuf: vm.writeString(a[1], "", a[2]); return 0;
-    case KeySetBinding: return 0;
     case KeyIsDown: return 0;
     case KeyGetOverstrikeMode: return overstrike_;
     case KeySetOverstrikeMode: overstrike_ = a[0] != 0; return 0;

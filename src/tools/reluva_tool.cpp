@@ -67,7 +67,7 @@
 //                                                  run Elite Force's menus (vm/ui.qvm) with the engine's
 //                                                  system calls: Init, SetActiveMenu, Refresh; report
 //                                                  what they print, register and draw
-//   reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N]] [-trace]
+//   reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N]] [-buttons] [-trace]
 //                                                  start a level with Elite Force's game logic
 //                                                  (vm/qagame.qvm): Init with the map's entities, then
 //                                                  frames, with a player (client 0) joining unless
@@ -75,7 +75,8 @@
 //                                                  prints, sets and links; -cgame: then start the
 //                                                  client game (vm/cgame.qvm) for the player
 //                                                  (-entities N: dump N of its scene's entities
-//                                                  word by word)
+//                                                  word by word); -buttons: hold each button bit
+//                                                  in turn and report what it changes
 //   reluva-tool shader-check <game folder>         count the shader directives the engine doesn't know
 //                                                  or draw yet, with example shaders
 
@@ -3188,13 +3189,14 @@ int cmdUiRun(int argc, char** argv) {
 
 int cmdGameRun(int argc, char** argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N]] [-trace]\n");
+        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N]] [-buttons] [-trace]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
     int frames = 10;
     bool traceCalls = false, noClient = false, walk = false, runCgame = false;
+    bool probeButtons = false; // -buttons: what holding each button bit does
     int dumpEntities = 0; // -entities N: with -cgame, N of the scene's entities word by word
     std::vector<std::pair<std::string, std::string>> settings; // -set name value
     std::string walkDirection = "forward";
@@ -3207,6 +3209,8 @@ int cmdGameRun(int argc, char** argv) {
             noClient = true;
         else if (std::strcmp(argv[i], "-cgame") == 0)
             runCgame = true;
+        else if (std::strcmp(argv[i], "-buttons") == 0)
+            probeButtons = true;
         else if (std::strcmp(argv[i], "-entities") == 0 && i + 1 < argc)
             dumpEntities = std::atoi(argv[++i]);
         else if (std::strcmp(argv[i], "-walk") == 0) {
@@ -3236,6 +3240,8 @@ int cmdGameRun(int argc, char** argv) {
         return 1;
     }
     q3::CvarStore cvars;
+    if (probeButtons)
+        cvars.set("g_holoIntro", "0"); // the player has to be in the game
     for (const auto& [name, value] : settings)
         cvars.set(name, value);
     ef::GameHost game(set, cvars);
@@ -3323,6 +3329,49 @@ int cmdGameRun(int argc, char** argv) {
         }
     }
 
+    if (player && probeButtons && ok) {
+        // Each button bit held for a second with the phaser (weapon 1),
+        // then let go for a second: which words of the player state it
+        // changes, leaving out those that change when nothing is held.
+        // Firing shows in its weapon time and ammunition; alt fire should
+        // look like firing.
+        auto state = [&] {
+            std::vector<int32_t> words(ef::GameHost::kPlayerStateSize / 4);
+            for (size_t i = 0; i < words.size(); ++i)
+                words[i] = game.clientInt(0, int32_t(i * 4));
+            return words;
+        };
+        auto run = [&](int32_t buttons, int frames, std::set<size_t>& changed) {
+            for (int f = 0; f < frames && ok; ++f) {
+                const auto before = state();
+                ef::GameHost::UserCommand cmd;
+                cmd.serverTime = game.levelTime() + 100;
+                cmd.buttons = buttons;
+                cmd.weapon = 1;
+                if (reluva::Error err = game.clientThink(0, cmd); err || (err = game.runFrame())) {
+                    step("probe", err);
+                    ok = false;
+                }
+                const auto after = state();
+                for (size_t i = 1; i < after.size(); ++i) // not the command time
+                    if (after[i] != before[i])
+                        changed.insert(i * 4);
+            }
+        };
+        std::set<size_t> idle, ignored;
+        run(0, 10, idle);
+        for (int bit = 0; bit < 12 && ok; ++bit) {
+            std::set<size_t> changed;
+            run(1 << bit, 10, changed);
+            run(0, 10, ignored);
+            std::string list;
+            for (size_t at : changed)
+                if (!idle.count(at))
+                    list += " " + std::to_string(at);
+            std::printf("button bit %2d (%4d): player state words changed:%s\n", bit, 1 << bit,
+                        list.empty() ? " none" : list.c_str());
+        }
+    }
     if (player) {
         const auto o = game.entityVec(0, 272);
         std::printf("client 0 moved %.1f units across and %.1f up over the frames\n",
@@ -3764,7 +3813,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
                  "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
                  "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -blockcopies | -fields <address>\n"
-                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N]] [-trace]\n"
+                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-cgame [-entities N]] [-buttons] [-trace]\n"
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif
                  "");

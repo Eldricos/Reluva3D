@@ -3,6 +3,7 @@
 
 // Tests for the id Tech 3 engine's readers, on data built here.
 
+#include "engines/idtech3/bindings.h"
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
@@ -1309,6 +1310,41 @@ static void testUiHost(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+void testKeyBindings() {
+    using reluva::idtech3::KeyBindings;
+    namespace q3key = reluva::idtech3::q3key;
+    CHECK(KeyBindings::keyNumber("MOUSE2") == q3key::Mouse2 && KeyBindings::keyNumber("space") == q3key::Space);
+    CHECK(KeyBindings::keyNumber("W") == 'w' && KeyBindings::keyNumber("F12") == q3key::F1 + 11);
+    CHECK(KeyBindings::keyNumber("nonsense") == -1 && KeyBindings::keyNumber("0x22") == '"');
+    CHECK(KeyBindings::keyName(q3key::WheelUp) == "MWHEELUP" && KeyBindings::keyName('w') == "w");
+    CHECK(KeyBindings::keyName(';') == "SEMICOLON" && KeyBindings::keyName(q3key::F1 + 2) == "F3");
+
+    reluva::idtech3::CvarStore cvars;
+    KeyBindings b;
+    int ignored = 0;
+    auto readFile = [](const std::string& name, std::string& out) {
+        if (name != "more.cfg")
+            return false;
+        out = "bind x \"say hi\"\n";
+        return true;
+    };
+    b.execute("unbindall\nbind w +forward // a comment\nbind MOUSE2 \"+altattack\"\n"
+              "bind 3 \"weapon 3; echo three\"\nseta sensitivity 7\nset cl_run 0; exec more\n"
+              "unbind w\nbind TAB +scores\nconnect somewhere\n",
+              cvars, &ignored, readFile);
+    CHECK(b.get('w').empty() && b.get(q3key::Mouse2) == "+altattack" && b.get('3') == "weapon 3; echo three");
+    CHECK(b.get('x') == "say hi" && b.get(q3key::Tab) == "+scores" && b.changed);
+    CHECK(cvars.integer("sensitivity") == 7 && (cvars.find("sensitivity")->flags & cvars.Archive));
+    CHECK(cvars.integer("cl_run") == 0 && ignored == 1);
+    // Written and read back, the same.
+    KeyBindings again;
+    again.execute(b.write(), cvars);
+    for (int32_t k = 0; k < q3key::Count; ++k)
+        CHECK(again.get(k) == b.get(k));
+    const auto parts = reluva::idtech3::splitCommands("a \"b;c\"; d\ne // f; g");
+    CHECK(parts.size() == 3 && parts[0] == "a \"b;c\"" && reluva::idtech3::splitCommand(parts[0]).size() == 2);
+}
+
 int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_idtech3_tests";
     testLexer();
@@ -1324,6 +1360,7 @@ int main() {
     testQvm();
     testCompiledQvm();
     testCvars();
+    testKeyBindings();
     testVmFileList();
     testSoundLibrary(tmp / "sounds");
     testCollision();

@@ -23,15 +23,18 @@
 //           leave, Ctrl+R starts them again.
 // Play:     a Holomatch level run by the game's own code (Elite Force:
 //           vm/qagame.qvm and vm/cgame.qvm) with you as the player:
-//           W/A/S/D move, the mouse looks (it's held by the window),
-//           Space jumps, C crouches, click fires, wheel or 1-9 pick a
-//           weapon; PageUp/PageDown pick a map, Ctrl+R restarts, Esc
-//           goes back to the menus (Ctrl+Esc to the launcher). Starting
+//           keys do what they're bound to (the game's default.cfg, then
+//           the menus' Controls, kept in reluva.cfg in the save folder),
+//           the mouse looks (it's held by the window); Ctrl+PageUp and
+//           Ctrl+PageDown pick a map, Ctrl+I shows the info, Ctrl+R
+//           restarts, Esc goes back to the menus (Ctrl+Esc to the
+//           launcher). Starting
 //           a level from the menus (Engage) comes here.
 // Maps:     Left/Right pick a map; drag (or arrow keys with Shift) to rotate,
 //           wheel or +/- to zoom, W/A/S/D/Q/E to move, R to reset the view,
 //           P to show or hide patches, I to show or hide the info.
 
+#include "engines/idtech3/bindings.h"
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/cgame_host.h"
@@ -75,10 +78,17 @@ struct ViewerContext {
     // as the original has one: what's chosen in the menus applies to the
     // level started from them.
     CvarStore cvars;
+    KeyBindings bindings;
     // A page asking for another to be shown (by name), as when the menus
     // start a level on the Play page; `requestMap` is the level.
     std::string requestPage, requestMap;
 };
+
+// The settings: the game's default.cfg, then the player's own (Reluva's
+// config file in the save folder), and writing that file back with the
+// bindings and the settings to keep (Archive cvars), if any changed.
+void loadConfig(ViewerContext& ctx);
+void saveConfig(ViewerContext& ctx);
 
 class Page {
 public:
@@ -299,12 +309,14 @@ public:
     bool takesKey(const Event& ev) const override;
 
 private:
-    enum Held { Forward, Back, Left, Right, Jump, Crouch, TurnLeft, TurnRight, HeldCount };
     void start(int index);
     void stop(const std::string& why);
     void runGame(uint64_t nowMs);
     void sendServerCommands();
     void consoleCommand(const std::string& text);
+    static bool isButton(const std::string& name);
+    void runBinding(const std::string& line, int32_t key, bool down);
+    bool held(const char* button) const;
     void placeEntities(const eliteforce::CgameHost::View& view);
     int modelId(int32_t handle);
     void drawOverlay(uint64_t nowMs, bool haveView);
@@ -339,8 +351,7 @@ private:
     // The player's view angles in degrees (pitch counts downwards), and
     // what they hold.
     float yaw_ = 0, pitch_ = 0;
-    std::array<bool, HeldCount> held_{};
-    bool attack_ = false;
+    std::map<std::string, std::set<int32_t>> buttons_; // the engine's +buttons ("forward"...) and the keys holding each
     gfx::Vec3 eye_{};
 };
 

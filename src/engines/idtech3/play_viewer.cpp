@@ -18,6 +18,8 @@
 #include "common/fs.h"
 
 #include <algorithm>
+#include <cctype>
+#include <cstdlib>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -33,8 +35,11 @@ constexpr float kPi = 3.14159265358979f;
 // Degrees turned per unit the mouse moves: the original's defaults
 // (sensitivity 5, m_yaw and m_pitch 0.022).
 constexpr float kMouseDegrees = 5 * 0.022f;
-// Quake III's BUTTON_ATTACK, taken to be Elite Force's too.
-constexpr int32_t kButtonAttack = 1;
+// The command's button bits: Quake III's BUTTON_ATTACK, taken to be
+// Elite Force's too; alt attack's bit, Elite Force's own, isn't confirmed
+// yet (Quake III's first unused one; reluva-tool game-run -buttons shows
+// what each bit does).
+constexpr int32_t kButtonAttack = 1, kButtonAltAttack = 32;
 // refdef_t's flag for views without the level (the HUD's heads).
 constexpr int32_t kNoWorldModel = 1;
 // refEntity_t: Quake III's 140 bytes, then 20 of Elite Force's own (see
@@ -126,7 +131,7 @@ void PlayViewer::deactivate() {
     world_.reset();
     shaders_.reset();
     renderer_ = nullptr;
-    held_ = {};
+    buttons_.clear();
 }
 
 void PlayViewer::start(int index) {
@@ -228,13 +233,83 @@ void PlayViewer::sendServerCommands() {
 }
 
 void PlayViewer::consoleCommand(const std::string& text) {
-    if (!cgame_)
+    // As the original's client: commands it knows itself, then the client
+    // game's, and anything else goes to the server, whose game answers
+    // (an unknown command it prints as such).
+    const std::vector<std::string> w = splitCommand(text);
+    if (w.empty() || !cgame_ || !game_)
         return;
+    const std::string verb = fs::toLower(w[0]);
+    if (verb == "centerview") {
+        pitch_ = 0;
+        return;
+    }
+    if (verb == "vstr" && w.size() >= 2) {
+        runBinding(cvars_.string(w[1]), 0, true);
+        return;
+    }
+    if (verb == "togglemenu") {
+        ctx_.requestPage = "Menu";
+        return;
+    }
+    if (verb == "toggleconsole" || verb == "screenshot" || verb == "screenshotjpeg" || verb.rfind("messagemode", 0) == 0) {
+        notice_ = "\"" + text + "\" isn't done yet";
+        return;
+    }
     bool handled = false;
-    if (Error err = cgame_->consoleCommand(text, handled))
+    if (Error err = cgame_->consoleCommand(text, handled)) {
         stop("The client game stopped: " + err.message);
-    else if (!handled)
-        notice_ = "The client game doesn't know \"" + text + "\"";
+        return;
+    }
+    if (handled)
+        return;
+    if (Error err = game_->clientCommand(0, text))
+        stop("The server game stopped: " + err.message);
+}
+
+bool PlayViewer::isButton(const std::string& name) {
+    static const char* const kButtons[] = {"forward", "back", "moveleft", "moveright", "moveup", "movedown",
+                                           "left", "right", "lookup", "lookdown", "speed", "strafe",
+                                           "attack", "altattack", "mlook", "klook"};
+    for (const char* b : kButtons)
+        if (name == b)
+            return true;
+    return name.rfind("button", 0) == 0 && name.size() > 6 && name.size() <= 8 &&
+           std::isdigit(static_cast<unsigned char>(name[6]));
+}
+
+void PlayViewer::runBinding(const std::string& line, int32_t key, bool down) {
+    // A key's command: "+name" is held while the key is (the engine's own
+    // buttons, or the client game's +/- pair); others run on the press.
+    for (const std::string& command : splitCommands(line)) {
+        const std::vector<std::string> w = splitCommand(command);
+        if (w.empty())
+            continue;
+        if (w[0][0] == '+' || w[0][0] == '-') {
+            const std::string name = fs::toLower(w[0].substr(1));
+            if (w[0][0] == '-')
+                continue; // a key bound to "-x" alone does nothing useful
+            if (isButton(name)) {
+                if (down)
+                    buttons_[name].insert(key);
+                else
+                    buttons_[name].erase(key);
+            } else {
+                std::string text = (down ? "+" : "-") + name;
+                for (size_t i = 1; i < w.size(); ++i)
+                    text += " " + w[i];
+                consoleCommand(text);
+            }
+            continue;
+        }
+        if (down)
+            consoleCommand(command);
+    }
+}
+
+bool PlayViewer::held(const char* button) const {
+    const auto it = buttons_.find(button);
+    return it != buttons_.end() && !it->second.empty();
 }
 
 bool PlayViewer::takesKey(const Event& ev) const {
@@ -249,45 +324,43 @@ void PlayViewer::handleEvent(const Event& ev) {
     }
     if (!renderer_ || names_.empty())
         return;
-    auto hold = [&](uint32_t k, bool down) {
-        switch (k) {
-        case 'w': case key::Up: held_[Forward] = down; return true;
-        case 's': case key::Down: held_[Back] = down; return true;
-        case 'a': held_[Left] = down; return true;
-        case 'd': held_[Right] = down; return true;
-        case key::Space: held_[Jump] = down; return true;
-        case 'c': case key::LCtrl: held_[Crouch] = down; return true;
-        case key::Left: held_[TurnLeft] = down; return true;
-        case key::Right: held_[TurnRight] = down; return true;
-        default: return false;
-        }
-    };
     switch (ev.type) {
-    case EventType::KeyUp: hold(ev.key, false); break;
-    case EventType::KeyDown: {
-        if (ev.key == 'r' && (ev.mods & keymod::Ctrl)) {
-            start(index_);
-            return;
+    case EventType::KeyDown:
+    case EventType::KeyUp: {
+        const bool down = ev.type == EventType::KeyDown;
+        if (down && (ev.mods & keymod::Ctrl)) {
+            // Reluva's own: restart, another map, the info.
+            const int n = int(names_.size());
+            if (ev.key == 'r') {
+                start(index_);
+                return;
+            }
+            if (ev.key == key::PageUp || ev.key == key::PageDown) {
+                start((index_ + (ev.key == key::PageUp ? n - 1 : 1)) % n);
+                return;
+            }
+            if (ev.key == 'i') {
+                showInfo_ = !showInfo_;
+                return;
+            }
         }
-        if (hold(ev.key, true) || ev.repeat)
+        if (down && ev.repeat)
             return;
-        const int n = int(names_.size());
-        if (ev.key == key::PageUp || ev.key == key::PageDown)
-            start((index_ + (ev.key == key::PageUp ? n - 1 : 1)) % n);
-        else if (ev.key == 'i')
-            showInfo_ = !showInfo_;
-        else if (ev.key >= '1' && ev.key <= '9')
-            consoleCommand("weapon " + std::string(1, char(ev.key)));
+        if (const int32_t k = toQ3Key(ev.key))
+            runBinding(ctx_.bindings.get(k), k, down);
         break;
     }
     case EventType::MouseDown:
     case EventType::MouseUp:
-        if (ev.button == MouseButton::Left)
-            attack_ = ev.type == EventType::MouseDown;
+        if (const int32_t k = toQ3Button(ev.button))
+            runBinding(ctx_.bindings.get(k), k, ev.type == EventType::MouseDown);
         break;
     case EventType::MouseWheel:
-        if (ev.wheelY)
-            consoleCommand(ev.wheelY > 0 ? "weapprev" : "weapnext");
+        if (ev.wheelY) {
+            const int32_t k = ev.wheelY > 0 ? q3key::WheelUp : q3key::WheelDown;
+            runBinding(ctx_.bindings.get(k), k, true);
+            runBinding(ctx_.bindings.get(k), k, false);
+        }
         break;
     case EventType::MouseMove:
         // Moving the mouse up looks up: pitch counts downwards.
@@ -303,7 +376,14 @@ void PlayViewer::runGame(uint64_t nowMs) {
         return;
     const int32_t dt = lastMs_ ? int32_t(std::min<uint64_t>(nowMs - lastMs_, 100)) : 0;
     lastMs_ = nowMs;
-    yaw_ += float(held_[TurnLeft] - held_[TurnRight]) * 140.0f * float(dt) / 1000.0f;
+    // Turning and looking by keys, as the original: 140 degrees a second
+    // (cl_yawspeed, cl_pitchspeed), half as fast again with +speed; with
+    // +strafe, left and right step instead.
+    const float turn = 140.0f * (held("speed") ? 1.5f : 1.0f) * float(dt) / 1000.0f;
+    const bool strafe = held("strafe");
+    if (!strafe)
+        yaw_ += float(held("left") - held("right")) * turn;
+    pitch_ = std::clamp(pitch_ + float(held("lookdown") - held("lookup")) * turn, -89.0f, 89.0f);
     if (dt > 0) {
         // The player's command for this moment, as a client sends one each
         // frame: where they look, how they move, what they press. The game
@@ -312,11 +392,25 @@ void PlayViewer::runGame(uint64_t nowMs) {
         eliteforce::GameHost::UserCommand cmd;
         cmd.serverTime = clientTime_;
         cmd.angles = {toShort(pitch_), toShort(yaw_), 0};
-        cmd.buttons = attack_ ? kButtonAttack : 0;
+        for (const auto& [name, keys] : buttons_) {
+            if (keys.empty())
+                continue;
+            if (name == "attack")
+                cmd.buttons |= kButtonAttack;
+            else if (name == "altattack")
+                cmd.buttons |= kButtonAltAttack;
+            else if (name.rfind("button", 0) == 0)
+                cmd.buttons |= 1 << std::atoi(name.c_str() + 6);
+        }
         cmd.weapon = uint8_t(cgame_->weaponSelect());
-        cmd.forward = int8_t(127 * (held_[Forward] - held_[Back]));
-        cmd.right = int8_t(127 * (held_[Right] - held_[Left]));
-        cmd.up = int8_t(127 * (held_[Jump] - held_[Crouch]));
+        // Running unless +speed is held (cl_run 1, the default), or the reverse.
+        const int speed = (cvars_.find("cl_run") ? cvars_.integer("cl_run") != 0 : true) != held("speed") ? 127 : 64;
+        int side = held("moveright") - held("moveleft");
+        if (strafe)
+            side += held("right") - held("left");
+        cmd.forward = int8_t(std::clamp(speed * (held("forward") - held("back")), -127, 127));
+        cmd.right = int8_t(std::clamp(speed * side, -127, 127));
+        cmd.up = int8_t(std::clamp(speed * (held("moveup") - held("movedown")), -127, 127));
         if (Error err = game_->clientThink(0, cmd)) {
             stop("The server game stopped: " + err.message);
             return;
@@ -516,6 +610,14 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
                           float(clientTime_) / 1000.0f, eye_[0], eye_[1], eye_[2],
                           haveView ? "" : " (no view yet)", placed_.size(), otherEntities_);
             lines.push_back(line);
+            // What the player's commands carry, to see that keys arrive.
+            std::string held;
+            for (const auto& [name, keys] : buttons_)
+                if (!keys.empty())
+                    held += " +" + name;
+            std::snprintf(line, sizeof line, "weapon chosen by the client game: %d; held:%s",
+                          cgame_ ? cgame_->weaponSelect() : 0, held.empty() ? " nothing" : held.c_str());
+            lines.push_back(line);
             if (!unloadable_.empty()) {
                 std::string names = "Models not drawn (only .md3 so far):";
                 for (const std::string& n : unloadable_)
@@ -540,8 +642,8 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
             lines.push_back(notice_);
     }
     if (nowMs - shownMs_ < kHintMs) {
-        lines.push_back("W/A/S/D move, the mouse looks, Space jumps, C crouches, click fires, wheel or 1-9 picks a weapon.");
-        lines.push_back("PageUp/PageDown: another map, I: info, Ctrl+R: restart, Esc: the menus, Tab: next page, Ctrl+Esc: launcher.");
+        lines.push_back("Keys do what they're bound to (set in the menus' Controls). The mouse looks.");
+        lines.push_back("Ctrl+PageUp/PageDown: another map, Ctrl+I: info, Ctrl+R: restart, Esc: the menus, Ctrl+Esc: launcher.");
     }
     const int lh = font::kLineHeight;
     for (size_t i = 0; i < lines.size(); ++i) {

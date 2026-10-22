@@ -66,7 +66,7 @@ screen stays black.
 | 29, 30 | `CM_LerpTag`, `CM_LoadModel` | order | |
 | 31 | `S_RegisterSound(name)` → handle | seen | `"sound/interface/button1.wav"` |
 | 32 | `S_StartLocalSound(sound, channel)` | seen | `(1, 6)` as a menu closes, after the button sounds were registered; 6 is Quake III's local-sound channel. Reluva plays it at `s_volume` (0.8 unless set), a new sound on a channel other than 0 replacing the one there |
-| 33–41 | keys: `KeynumToStringBuf`, `GetBindingBuf`, `SetBinding`, `IsDown`, `GetOverstrikeMode`, `SetOverstrikeMode`, `ClearStates`, `GetCatcher`, `SetCatcher` | order | |
+| 33–41 | keys: `KeynumToStringBuf`, `GetBindingBuf`, `SetBinding`, `IsDown`, `GetOverstrikeMode`, `SetOverstrikeMode`, `ClearStates`, `GetCatcher`, `SetCatcher` | order | key numbers and names are Quake III's (the menus' own key events use them); bindings are the engine's, loaded from `default.cfg` |
 | 42 | `GetClipboardData(buffer, size)` | order | |
 | 43 | `GetGlconfig(&glconfig)` | seen | one pointer, during init, just before the fonts' shaders are registered |
 | 44 | `GetClientState(&state)` | order | |

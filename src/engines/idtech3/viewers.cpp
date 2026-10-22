@@ -9,6 +9,8 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 
 namespace reluva::idtech3 {
 
@@ -194,6 +196,69 @@ void TextureViewer::show(int index) {
     const Archive* from = ctx_.files.find(name);
     text(4, 4 + lh, info + (from ? "  from " + std::filesystem::path(from->describe()).filename().string() : ""),
          {150, 200, 255});
+}
+
+} // namespace reluva::idtech3
+
+namespace reluva::idtech3 {
+
+namespace {
+constexpr const char* kConfigName = "reluva.cfg";
+}
+
+void loadConfig(ViewerContext& ctx) {
+    auto readFile = [&](const std::string& name, std::string& out) {
+        // The player's own files first, then the game's.
+        if (!ctx.savePath.empty()) {
+            std::ifstream in(ctx.savePath / name, std::ios::binary);
+            if (in) {
+                out.assign(std::istreambuf_iterator<char>(in), {});
+                return true;
+            }
+        }
+        std::vector<uint8_t> data;
+        if (ctx.files.read(name, data))
+            return false;
+        out.assign(data.begin(), data.end());
+        return true;
+    };
+    std::string text;
+    std::vector<uint8_t> data;
+    if (!ctx.files.read("default.cfg", data))
+        ctx.bindings.execute(std::string(data.begin(), data.end()), ctx.cvars, nullptr, readFile);
+    if (!ctx.savePath.empty()) {
+        std::ifstream in(ctx.savePath / kConfigName, std::ios::binary);
+        if (in) {
+            text.assign(std::istreambuf_iterator<char>(in), {});
+            ctx.bindings.execute(text, ctx.cvars, nullptr, readFile);
+        }
+    }
+    if (ctx.bindings.empty()) {
+        // No default.cfg: the usual keys, so there's something to play with.
+        ctx.bindings.execute("bind w +forward; bind s +back; bind a +moveleft; bind d +moveright;"
+                             "bind SPACE +moveup; bind c +movedown; bind MOUSE1 +attack; bind MOUSE2 +altattack;"
+                             "bind MWHEELUP weapprev; bind MWHEELDOWN weapnext; bind SHIFT +speed;"
+                             "bind 1 \"weapon 1\"; bind 2 \"weapon 2\"; bind 3 \"weapon 3\"; bind 4 \"weapon 4\";"
+                             "bind 5 \"weapon 5\"; bind 6 \"weapon 6\"; bind 7 \"weapon 7\"; bind 8 \"weapon 8\";"
+                             "bind 9 \"weapon 9\"",
+                             ctx.cvars);
+    }
+    ctx.bindings.changed = false;
+}
+
+void saveConfig(ViewerContext& ctx) {
+    if (ctx.savePath.empty())
+        return;
+    std::string text = "// Reluva's settings for this game: key bindings and kept settings\n";
+    text += ctx.bindings.write();
+    for (const CvarStore::Cvar& cv : ctx.cvars.all())
+        if (cv.flags & CvarStore::Archive)
+            text += "seta " + cv.name + " \"" + cv.value + "\"\n";
+    std::error_code ec;
+    std::filesystem::create_directories(ctx.savePath, ec);
+    std::ofstream out(ctx.savePath / kConfigName, std::ios::binary);
+    out << text;
+    ctx.bindings.changed = false;
 }
 
 } // namespace reluva::idtech3

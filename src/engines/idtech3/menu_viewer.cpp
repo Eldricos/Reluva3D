@@ -23,52 +23,6 @@ constexpr int kFrameW = 960;
 constexpr int kFrameH = 720;
 constexpr uint64_t kHintMs = 6000;
 
-// Quake III's key numbers, which the menus take (Elite Force's assumed the
-// same): ASCII for printable keys, then its own list from 128.
-namespace q3key {
-constexpr int32_t Tab = 9, Enter = 13, Escape = 27, Space = 32, Backspace = 127;
-constexpr int32_t Up = 132, Down = 133, Left = 134, Right = 135;
-constexpr int32_t Alt = 136, Ctrl = 137, Shift = 138, Insert = 139, Delete = 140;
-constexpr int32_t PageDown = 141, PageUp = 142, Home = 143, End = 144, F1 = 145;
-constexpr int32_t KpEnter = 169;
-// Added to a character's code for typed text, as against keys.
-constexpr int32_t CharFlag = 1024;
-constexpr int32_t Mouse1 = 178, Mouse2 = 179, Mouse3 = 180, WheelDown = 183, WheelUp = 184;
-} // namespace q3key
-
-int32_t toQ3Key(uint32_t k) {
-    switch (k) {
-    case key::Tab: return q3key::Tab;
-    case key::Return: return q3key::Enter;
-    case key::KpEnter: return q3key::KpEnter;
-    case key::Escape: return q3key::Escape;
-    case key::Space: return q3key::Space;
-    case key::Backspace: return q3key::Backspace;
-    case key::Delete: return q3key::Delete;
-    case key::Up: return q3key::Up;
-    case key::Down: return q3key::Down;
-    case key::Left: return q3key::Left;
-    case key::Right: return q3key::Right;
-    case key::Insert: return q3key::Insert;
-    case key::Home: return q3key::Home;
-    case key::End: return q3key::End;
-    case key::PageUp: return q3key::PageUp;
-    case key::PageDown: return q3key::PageDown;
-    case key::LShift:
-    case key::RShift: return q3key::Shift;
-    case key::LCtrl:
-    case key::RCtrl: return q3key::Ctrl;
-    case key::LAlt:
-    case key::RAlt: return q3key::Alt;
-    default: break;
-    }
-    if (k >= key::F1 && k < key::F1 + 12)
-        return q3key::F1 + int32_t(k - key::F1);
-    if (k > 32 && k < 127)
-        return int32_t(k);
-    return 0;
-}
-
 // The code points in UTF-8 text.
 std::vector<uint32_t> decodeUtf8(const char* s) {
     std::vector<uint32_t> out;
@@ -88,15 +42,6 @@ std::vector<uint32_t> decodeUtf8(const char* s) {
         i += j;
     }
     return out;
-}
-
-int32_t toQ3Button(MouseButton b) {
-    switch (b) {
-    case MouseButton::Left: return q3key::Mouse1;
-    case MouseButton::Right: return q3key::Mouse2;
-    case MouseButton::Middle: return q3key::Mouse3;
-    default: return 0;
-    }
 }
 
 } // namespace
@@ -133,6 +78,7 @@ void MenuViewer::activate() {
 
 void MenuViewer::start() {
     ui_ = std::make_unique<eliteforce::UiHost>(ctx_.files, cvars_);
+    ui_->bindings = &ctx_.bindings;
     commandsSeen_ = 0;
     ui_->setScreenSize(kFrameW, kFrameH);
     if (!ctx_.savePath.empty())
@@ -299,6 +245,8 @@ void MenuViewer::playSound(const std::string& name, int channel) {
 }
 
 void MenuViewer::deactivate() {
+    // Settings and bindings changed in the menus, kept.
+    saveConfig(ctx_);
     if (ctx_.mixer)
         for (const auto& [channel, handle] : channels_)
             ctx_.mixer->stop(handle);

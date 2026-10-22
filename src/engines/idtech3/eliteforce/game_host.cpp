@@ -157,6 +157,14 @@ Error GameHost::connectClient(int32_t clientNum, const std::string& userinfo, st
     return Error::success();
 }
 
+Error GameHost::clientCommand(int32_t clientNum, const std::string& text) {
+    args_ = splitCommand(text);
+    int32_t ignored = 0;
+    Error err = call(ClientCommand, {clientNum}, ignored);
+    args_.clear();
+    return err;
+}
+
 Error GameHost::beginClient(int32_t clientNum) {
     int32_t ignored = 0;
     return call(ClientBegin, {clientNum}, ignored);
@@ -503,8 +511,8 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case CvarSet: cvars_.set(str(0, 256), str(1, 256)); return 0;
     case CvarVariableIntegerValue: return cvars_.integer(str(0, 256));
     case CvarVariableStringBuffer: vm.writeString(a[1], cvars_.string(str(0, 256)), a[2]); return 0;
-    case Argc: return 0;
-    case Argv: vm.writeString(a[1], "", a[2]); return 0;
+    case Argc: return int32_t(args_.size());
+    case Argv: vm.writeString(a[1], a[0] >= 0 && size_t(a[0]) < args_.size() ? args_[size_t(a[0])] : "", a[2]); return 0;
     case FsFOpenFile: return vmFiles_.open(vm, a[0], a[1], a[2]);
     case FsRead: return vmFiles_.read(vm, a[0], a[1], a[2]);
     case FsFCloseFile: vmFiles_.close(a[0]); return 0;

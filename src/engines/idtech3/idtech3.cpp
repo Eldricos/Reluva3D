@@ -58,7 +58,12 @@ public:
         } audioOff{sys_};
 
         ViewerContext ctx{sys_, screen_, files_, shaders_, game_, warnings, target_.savePath,
-                          audioOut ? &mixer : nullptr, {}, {}, {}};
+                          audioOut ? &mixer : nullptr, {}, {}, {}, {}};
+        loadConfig(ctx);
+        struct SaveConfig { // keeps settings changed while running, however it ends
+            ViewerContext& ctx;
+            ~SaveConfig() { saveConfig(ctx); }
+        } saveOnExit{ctx};
         std::vector<std::unique_ptr<Page>> pages;
         pages.push_back(std::make_unique<MenuViewer>(ctx));
         pages.push_back(std::make_unique<PlayViewer>(ctx));

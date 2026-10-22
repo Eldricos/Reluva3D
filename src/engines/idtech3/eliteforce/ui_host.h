@@ -5,6 +5,7 @@
 
 #include "common/archive.h"
 #include "common/types.h"
+#include "engines/idtech3/bindings.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/qvm.h"
 #include "engines/idtech3/vm_services.h"
@@ -104,6 +105,8 @@ public:
     // world, on a channel (a new sound on the same channel, other than 0,
     // replaces the one there). Unset: sounds are only registered.
     std::function<void(const std::string& sound, int channel)> startLocalSound;
+    // What keys do, which the Controls menu shows and changes; none if not set.
+    KeyBindings* bindings = nullptr;
     // Called by every system call before it's handled, for logging.
     std::function<void(int number, const int32_t* args)> trace;
 
