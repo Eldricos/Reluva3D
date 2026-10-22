@@ -207,6 +207,8 @@ void ModelViewer::handleEvent(const Event& ev) {
             i = n - 1;
         else if (ev.key == 'a')
             animate_ = !animate_;
+        else if (ev.key == 't')
+            torsoOnTag_ = !torsoOnTag_;
         else if (ev.key == ',')
             --frame_;
         else if (ev.key == '.')
@@ -269,8 +271,10 @@ void ModelViewer::update(uint64_t nowMs) {
         const int fl = ((frame % nl) + nl) % nl, ft = ((frame % nt) + nt) % nt;
         const gfx::Mat4 base = gfx::identity();
         models_->draw(lower_, fl, base, light, time, skins_[0]);
+        // (With T, the torso where its own file has it instead, to compare:
+        // skeletal models' halves may already fit together.)
         gfx::Mat4 torsoAt = base;
-        if (const Md3Tag* t = legs.tag(fl, "tag_torso"))
+        if (const Md3Tag* t = legs.tag(fl, "tag_torso"); t && torsoOnTag_)
             torsoAt = gfx::multiply(base, tagPlacement(*t));
         models_->draw(upper_, ft, torsoAt, light, time, skins_[1]);
         gfx::Mat4 headAt = torsoAt;
@@ -278,7 +282,9 @@ void ModelViewer::update(uint64_t nowMs) {
             headAt = gfx::multiply(torsoAt, tagPlacement(*t));
         models_->draw(head_, 0, headAt, light, time, skins_[2]);
         frames = "legs frame " + std::to_string(fl + 1) + "/" + std::to_string(nl) + ", torso " +
-                 std::to_string(ft + 1) + "/" + std::to_string(nt);
+                 std::to_string(ft + 1) + "/" + std::to_string(nt) +
+                 (torsoOnTag_ ? "; torso on the legs' tag_torso (T: as in its file)"
+                              : "; torso as in its file (T: on the legs' tag_torso)");
     }
 
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);

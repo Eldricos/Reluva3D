@@ -14,7 +14,8 @@
 // Models:   every .md3 and .mdr; players (lower, upper and head in one folder) put
 //           together. Left/Right step, PageUp/PageDown jump 10; drag to
 //           turn, wheel or +/- to zoom, A to animate, ,/. to step frames,
-//           R to reset the view, I to show or hide the info.
+//           T to place a player's torso on its legs' tag or as in its
+//           file, R to reset the view, I to show or hide the info.
 // Files:    Up/Down, PageUp/PageDown, Home/End scroll the search path's files.
 // Textures: Left/Right step, PageUp/PageDown jump 10, Home/End.
 // Menu:     the game's own menus (Elite Force: vm/ui.qvm) running; keys,
@@ -247,6 +248,7 @@ private:
     float radius_ = 32;
     float yaw_ = 0, pitch_ = 0, distance_ = 100;
     bool dragging_ = false, animate_ = false, showInfo_ = true;
+    bool torsoOnTag_ = true; // a player's torso placed on the legs' tag_torso (T toggles)
     int lastX_ = 0, lastY_ = 0;
     int frame_ = 0; // when not animating
     uint64_t startMs_ = 0;
