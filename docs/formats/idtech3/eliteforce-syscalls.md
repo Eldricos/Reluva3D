@@ -214,7 +214,18 @@ Quake III's (angles 4, buttons 16), looking up and down fired the
 phaser, the pitch landing in the buttons; with the moves at 21-23 and
 the weapon at 20, forward strafed right, right moved up and down, up did
 nothing (an invalid weapon) and weapons didn't change: the moves are at
-20-22 and the weapon at 23. `game-run` also drops a
+20-22 and the weapon at 23.
+
+The button bits, from `reluva-tool game-run <game> hm_dn1 -buttons`,
+which holds each bit for a second with the phaser and lists the player
+state words that change (leaving out those that change with nothing
+held): 1 and 32 change the same words (44, the weapon time in Quake
+III's player state; 92 to 120, 160, 316, 396; 1 also 376), so 1 is
+attack and 32 alt attack. 2 and 64 change only 396; 4 changes 12 (Quake
+III's pm_flags), 104 and 120; 8 changes 88 and 92 (Quake III's gesture
+plays a torso animation); 16 changes 88 and 92 (Quake III's walking).
+128 to 2048 change nothing. The default bindings (`default.cfg`) put
+alt attack on ALT. `game-run` also drops a
 player's box from every spawn point (raised 9 units, as Quake III's game
 spawns players) as a check of the collision model on its own.
 | 111 | `ceil` | order | Quake III's game numbers `floor` 110 and `ceil` 111 |

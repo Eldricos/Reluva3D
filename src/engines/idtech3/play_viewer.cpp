@@ -35,10 +35,10 @@ constexpr float kPi = 3.14159265358979f;
 // Degrees turned per unit the mouse moves: the original's defaults
 // (sensitivity 5, m_yaw and m_pitch 0.022).
 constexpr float kMouseDegrees = 5 * 0.022f;
-// The command's button bits: Quake III's BUTTON_ATTACK, taken to be
-// Elite Force's too; alt attack's bit, Elite Force's own, isn't confirmed
-// yet (Quake III's first unused one; reluva-tool game-run -buttons shows
-// what each bit does).
+// The command's button bits: attack 1 (Quake III's) and alt attack 32
+// (Elite Force's own), found with reluva-tool game-run -buttons: holding
+// either changes the same player state words (weapon time, ammunition,
+// events). See eliteforce-syscalls.md.
 constexpr int32_t kButtonAttack = 1, kButtonAltAttack = 32;
 // refdef_t's flag for views without the level (the HUD's heads).
 constexpr int32_t kNoWorldModel = 1;
