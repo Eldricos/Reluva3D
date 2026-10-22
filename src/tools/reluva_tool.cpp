@@ -3552,6 +3552,14 @@ int cmdGameRun(int argc, char** argv) {
                         game.clientThink(0, idle);
                     game.runFrame();
                 }
+                if (fireButtons && (f == 0 || f == kIdleFrames)) {
+                    // The player state's start, word by word: the client game
+                    // won't draw the phaser's beam unless the word at 48 is 0.
+                    std::printf("frame %2d: player state words 0-96:", f);
+                    for (int at = 0; at <= 96; at += 4)
+                        std::printf(" %d:%d", at, game.clientInt(0, at));
+                    std::printf("\n");
+                }
                 if (fireButtons && (f % 5 == 0 || f == kIdleFrames)) {
                     // The player state words firing changes (game-run -buttons):
                     // weapon time 44, flags 104, event sequence 108, events 112,
