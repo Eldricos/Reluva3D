@@ -3524,6 +3524,9 @@ int cmdGameRun(int argc, char** argv) {
             // What the frames add besides models, for working out how the
             // client game draws effects: entities by type, polygons by
             // shader, lights; a sample of each.
+            // The entities of the last idle frame and the last firing one,
+            // to dump those firing adds.
+            std::vector<std::vector<uint8_t>> lastIdleEntities, lastFiringEntities;
             std::map<int32_t, int> typeCounts;
             std::map<int32_t, std::vector<uint8_t>> typeSamples;
             std::map<int32_t, int> polyCounts;
@@ -3582,6 +3585,12 @@ int cmdGameRun(int argc, char** argv) {
                             static_cast<unsigned long long>(cgame.vm().executed()), cgame.pictures().size());
                 {
                     const auto& scene = cgame.scene();
+                    auto& keep = firing ? lastFiringEntities : lastIdleEntities;
+                    if (f) {
+                        keep.clear();
+                        for (const auto& e : scene.entities)
+                            keep.push_back(e.bytes);
+                    }
                     for (const auto& e : scene.entities) {
                         int32_t type = 0;
                         if (e.bytes.size() >= 4)
@@ -3716,6 +3725,27 @@ int cmdGameRun(int argc, char** argv) {
                     std::printf("    %3zu: %11d 0x%08x%s%s\n", at, v, unsigned(v), floatText, names.c_str());
                 }
             };
+            if (fireButtons && !lastIdleEntities.empty() && !lastFiringEntities.empty()) {
+                // Firing's entities: those of the last firing frame with a model
+                // handle (byte 8) more often than in the last idle frame.
+                std::map<int32_t, int> idleModels;
+                for (const auto& b : lastIdleEntities) {
+                    int32_t m = 0;
+                    std::memcpy(&m, &b[8], 4);
+                    ++idleModels[m];
+                }
+                int shown = 0;
+                for (const auto& b : lastFiringEntities) {
+                    int32_t m = 0;
+                    std::memcpy(&m, &b[8], 4);
+                    if (idleModels[m]-- > 0 || shown >= 4)
+                        continue;
+                    std::printf("an entity firing adds (model %d%s%s):\n", m, m > 0 ? " " : "",
+                                m > 0 ? cgame.models().name(m).c_str() : "");
+                    dumpWords(b, 160);
+                    ++shown;
+                }
+            }
             std::printf("over %d frames%s: entities that aren't models, by type:%s\n", cgameFrames,
                         fireButtons ? " (holding fire)" : "", typeCounts.empty() ? " none" : "");
             for (const auto& [type, count] : typeCounts) {
