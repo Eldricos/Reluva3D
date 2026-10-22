@@ -95,23 +95,31 @@ public:
         std::vector<uint8_t> refdef;
         size_t firstEntity = 0, entityCount = 0; // in entities
         size_t firstPoly = 0, polyCount = 0;     // in polys
+        size_t firstLight = 0, lightCount = 0;   // in lights
     };
     struct Scene {
         std::vector<SceneEntity> entities; // every one added this frame
         // Polygons (AddPolyToScene: shader, vertex count, the vertices'
         // bytes, 24 each as Quake III's polyVert_t, until the layout's
-        // confirmed) and lights (AddLightToScene: the arguments as given).
+        // confirmed) and lights (AddLightToScene: origin, intensity, which
+        // is the radius it reaches, and colour).
         struct Poly {
             int32_t shader = 0, vertexCount = 0;
             std::vector<uint8_t> vertices;
         };
         std::vector<Poly> polys;
-        std::vector<std::array<int32_t, 6>> lights;
+        struct Light {
+            std::array<float, 3> origin{};
+            float radius = 0;
+            std::array<float, 3> color{};
+        };
+        std::vector<Light> lights;
         std::vector<uint8_t> view; // set by RenderScene: the last one
         int renders = 0;
         std::vector<View> views; // every RenderScene, in order
         size_t pending = 0;      // entities from here wait for the next RenderScene
         size_t pendingPolys = 0; // the same for polygons
+        size_t pendingLights = 0; // and lights
 
     };
     const Scene& scene() const { return scene_; }

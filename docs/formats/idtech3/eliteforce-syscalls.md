@@ -380,8 +380,13 @@ entities the client game added):
 These came from `game-run ... -cgame -give -fire -weapon all` (and
 `-altfire`), which gives the player every weapon (the game's `give all`,
 with `sv_cheats` on) and fires each for two seconds. Dynamic lights
-(call 43: origin, intensity, red, green, blue) come with most weapons;
-they aren't drawn yet. Call 107 is `floor`: its one call site
+(call 43: a pointer to the origin, the intensity, which is how far the
+light reaches, then red, green, blue from 0 to 1) come with most weapons
+(radius 42 to 219 seen). The Play page draws them as Quake III does: on
+the level's solid surfaces each pixel within reach is brightened by the
+light's colour times its own (the light fading linearly to nothing at
+the radius), and models within reach add 16 * radius^2 / distance^2
+times the colour to their directed light, from the light's direction. Call 107 is `floor`: its one call site
 (instruction 33934) passes one value and turns the float it returns into
 a whole number (`CVFI`), as Quake III's client game numbers it; answered
 with 0 before, effects that round a time or a count went wrong.

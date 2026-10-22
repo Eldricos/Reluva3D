@@ -484,9 +484,17 @@ void PlayViewer::update(uint64_t nowMs) {
             gfx::multiply(gfx::perspective(fovY, aspect, 4, 32768), gfx::lookAlong(eye_, forward, up));
         renderer_->beginFrame(viewProj, eye_, {0, 0, 0});
         constexpr float kLastOpaque = 5;
+        // The view's dynamic lights (shots, explosions): on the level's
+        // solid surfaces, and in the models' lighting.
+        lights_.clear();
+        const auto& sceneLights = cgame_->scene().lights;
+        for (size_t i = sceneView->firstLight; i < sceneView->firstLight + sceneView->lightCount; ++i)
+            if (i < sceneLights.size() && sceneLights[i].radius > 0)
+                lights_.push_back({sceneLights[i].origin, sceneLights[i].radius, sceneLights[i].color});
         placeEntities(*sceneView);
         world_->drawSky(time);
         world_->drawSurfaces(time, 0, kLastOpaque);
+        world_->drawDynamicLights(lights_);
         for (const Placed& p : placed_)
             models_->draw(p.model, p.frame, p.transform, p.light, time - p.shaderTime, p.skin, 0, kLastOpaque,
                           p.shader, &p.color, p.oldFrame, p.backLerp);
@@ -785,7 +793,9 @@ void PlayViewer::placeEntities(const eliteforce::CgameHost::View& view) {
         p.frame = readInt(e, refent::Frame);
         p.oldFrame = readInt(e, refent::OldFrame);
         p.backLerp = readFloat(e, refent::BackLerp);
-        p.light = grid_.sample(flags & refent::UseLightingOrigin ? readVec(e, refent::LightingOrigin) : origin);
+        const gfx::Vec3 lightAt = flags & refent::UseLightingOrigin ? readVec(e, refent::LightingOrigin) : origin;
+        p.light = grid_.sample(lightAt);
+        addDynamicLights(p.light, lightAt);
         if (const int32_t skin = readInt(e, refent::CustomSkin); skin > 0 && !cgame_->skins().name(skin).empty())
             p.skin = &models_->skin(cgame_->skins().name(skin));
         // A shader in place of the model's own (explosions, shells), its
@@ -796,6 +806,44 @@ void PlayViewer::placeEntities(const eliteforce::CgameHost::View& view) {
         p.shaderTime = shaderTime(e);
         placed_.push_back(p);
     }
+}
+
+void PlayViewer::addDynamicLights(PointLight& light, const gfx::Vec3& at) const {
+    // Each dynamic light adds to a model's directed light, from its
+    // direction, as the original does: 16 * radius^2 / distance^2 times
+    // its colour (distances under 16 counted as 16), on the light grid's
+    // 0-255 scale.
+    // The directions summed weighted by strength: the grid's first.
+    gfx::Vec3 direction{};
+    float total = 0;
+    for (int c = 0; c < 3; ++c)
+        total += light.directed[size_t(c)];
+    for (size_t k = 0; k < 3; ++k)
+        direction[k] = light.direction[k] * total;
+    bool any = false;
+    for (const gfx::DynamicLight& l : lights_) {
+        gfx::Vec3 d{l.origin[0] - at[0], l.origin[1] - at[1], l.origin[2] - at[2]};
+        float dist = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+        if (dist >= l.radius)
+            continue;
+        if (dist > 0)
+            for (float& v : d)
+                v /= dist;
+        dist = std::max(dist, 16.0f);
+        const float power = 16 * l.radius * l.radius / (dist * dist);
+        for (size_t c = 0; c < 3; ++c) {
+            light.directed[c] = std::min(light.directed[c] + power * l.color[c], 255.0f);
+            direction[c] += d[c] * power;
+        }
+        any = true;
+    }
+    if (!any)
+        return;
+    const float len =
+        std::sqrt(direction[0] * direction[0] + direction[1] * direction[1] + direction[2] * direction[2]);
+    if (len > 1e-6f)
+        for (size_t k = 0; k < 3; ++k)
+            light.direction[k] = direction[k] / len;
 }
 
 int PlayViewer::modelId(int32_t handle) {
@@ -826,11 +874,12 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
         lines.push_back("Ctrl+R: start the level again, PageUp/PageDown: another map.");
     }
     if (showInfo_) {
-        char line[200];
+        char line[256];
         if (game_) {
-            std::snprintf(line, sizeof line, "time %.1f s, eye at %.0f %.0f %.0f%s; %zu models and %zu effects drawn, %d other entities not yet",
+            std::snprintf(line, sizeof line, "time %.1f s, eye at %.0f %.0f %.0f%s; %zu models, %zu effects and %zu lights drawn, %d other entities not yet",
                           float(clientTime_) / 1000.0f, eye_[0], eye_[1], eye_[2],
-                          haveView ? "" : " (no view yet)", placed_.size(), effects_.size(), otherEntities_);
+                          haveView ? "" : " (no view yet)", placed_.size(), effects_.size(), lights_.size(),
+                          otherEntities_);
             lines.push_back(line);
             // What the player's commands carry, to see that keys arrive.
             std::string held;

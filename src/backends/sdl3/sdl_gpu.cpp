@@ -34,6 +34,9 @@ struct VertexUniforms {
 };
 struct FragmentUniforms {
     float params[4];
+    float lightCount[4];
+    float lightPos[gfx::kMaxDynamicLights][4]; // xyz, radius
+    float lightColor[gfx::kMaxDynamicLights][4];
 };
 
 SDL_GPUBlendFactor blendFactor(gfx::Blend b) {
@@ -498,6 +501,15 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     SDL_PushGPUVertexUniformData(cmd_, 0, &vu, sizeof(vu));
     FragmentUniforms fu{};
     fu.params[0] = float(call.state.alphaTest);
+    if (call.dynamicLights) {
+        fu.params[1] = 1;
+        fu.lightCount[0] = float(lights_.size());
+        for (size_t i = 0; i < lights_.size(); ++i) {
+            std::copy(lights_[i].origin.begin(), lights_[i].origin.end(), fu.lightPos[i]);
+            fu.lightPos[i][3] = lights_[i].radius;
+            std::copy(lights_[i].color.begin(), lights_[i].color.end(), fu.lightColor[i]);
+        }
+    }
     SDL_PushGPUFragmentUniformData(cmd_, 0, &fu, sizeof(fu));
 
     SDL_DrawGPUIndexedPrimitives(pass_, call.indexCount, 1, call.firstIndex, 0, 0);

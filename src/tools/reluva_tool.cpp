@@ -3557,7 +3557,7 @@ int cmdGameRun(int argc, char** argv) {
             // that never showed when not firing: projectiles and the like.
             std::map<Key, std::set<std::pair<int32_t, int32_t>>> firedModels;
             std::set<std::pair<int32_t, int32_t>> idleModels;
-            std::map<int, std::array<int32_t, 6>> lightSamples;
+            std::map<int, ef::CgameHost::Scene::Light> lightSamples;
             int weaponNow = 0;
             // With fire held, the first 10 frames are idle, to compare.
             constexpr int kIdleFrames = 10;
@@ -3832,9 +3832,9 @@ int cmdGameRun(int argc, char** argv) {
                 }
                 if (const int lights = lightCounts[weapon]) {
                     const auto& l = lightSamples[weapon];
-                    std::printf("  lights: %d, the first: (%d, %.4g, %.4g, %.4g, %.4g, %d)\n", lights, l[0],
-                                q3::Qvm::asFloat(l[1]), q3::Qvm::asFloat(l[2]), q3::Qvm::asFloat(l[3]),
-                                q3::Qvm::asFloat(l[4]), l[5]);
+                    std::printf("  lights: %d, the first at %.1f %.1f %.1f, radius %.1f, colour %.2f %.2f %.2f\n",
+                                lights, l.origin[0], l.origin[1], l.origin[2], l.radius, l.color[0], l.color[1],
+                                l.color[2]);
                 }
             }
             const auto& requests = cgame.snapshotRequests();

@@ -324,6 +324,7 @@ private:
     static std::array<float, 4> entityColor(const std::vector<uint8_t>& entity);
     float shaderTime(const std::vector<uint8_t>& entity) const;
     int modelId(int32_t handle);
+    void addDynamicLights(PointLight& light, const gfx::Vec3& at) const;
     void drawOverlay(uint64_t nowMs, bool haveView);
 
     std::vector<std::string> names_; // maps
@@ -359,6 +360,7 @@ private:
     std::vector<uint32_t> effectIndices_;
     std::vector<int> effectMaterials_; // by shader handle; -2 not made yet
     std::minstd_rand effectRandom_;    // electricity's jitter
+    std::vector<gfx::DynamicLight> lights_; // this frame's, from the client game
     int otherEntities_ = 0;            // this frame's entities not drawn (kinds not done yet)
     std::set<std::string> unloadable_; // models this frame couldn't draw
     std::vector<int> materials_; // by the client game's shader handle; -2 not made yet

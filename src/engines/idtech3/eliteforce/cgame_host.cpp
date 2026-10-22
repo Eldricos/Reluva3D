@@ -310,6 +310,7 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case RClearScene:
         scene_.pending = scene_.entities.size();
         scene_.pendingPolys = scene_.polys.size();
+        scene_.pendingLights = scene_.lights.size();
         return 0;
     case RSetColor: // (rgba or 0 for white)
         if (!a[0])
@@ -452,15 +453,26 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         scene_.polys.push_back(std::move(p));
         return 0;
     }
-    case RAddLightToScene: scene_.lights.push_back({a[0], a[1], a[2], a[3], a[4], a[5]}); return 0;
+    case RAddLightToScene: { // (origin, intensity, r, g, b)
+        Scene::Light l;
+        if (vm.valid(a[0], 12))
+            for (int i = 0; i < 3; ++i)
+                l.origin[size_t(i)] = Qvm::asFloat(vm.readInt(a[0] + 4 * i));
+        l.radius = Qvm::asFloat(a[1]);
+        l.color = {Qvm::asFloat(a[2]), Qvm::asFloat(a[3]), Qvm::asFloat(a[4])};
+        scene_.lights.push_back(l);
+        return 0;
+    }
     case RRenderScene:
         if (vm.valid(a[0], kRefdefSize))
             scene_.view.assign(&vm.memory()[size_t(a[0])], &vm.memory()[size_t(a[0])] + kRefdefSize);
         ++scene_.renders;
         scene_.views.push_back({scene_.view, scene_.pending, scene_.entities.size() - scene_.pending,
-                                scene_.pendingPolys, scene_.polys.size() - scene_.pendingPolys});
+                                scene_.pendingPolys, scene_.polys.size() - scene_.pendingPolys,
+                                scene_.pendingLights, scene_.lights.size() - scene_.pendingLights});
         scene_.pending = scene_.entities.size();
         scene_.pendingPolys = scene_.polys.size();
+        scene_.pendingLights = scene_.lights.size();
         return 0;
     case RLerpTag: { // (orientation_t*, model, startFrame, endFrame, frac, tagName) -> found
         auto [it, added] = md3s_.try_emplace(a[1]);

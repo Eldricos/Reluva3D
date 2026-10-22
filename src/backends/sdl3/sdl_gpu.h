@@ -7,8 +7,11 @@
 
 #include <SDL3/SDL.h>
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <unordered_map>
+#include <vector>
 
 namespace reluva {
 
@@ -36,6 +39,10 @@ public:
     std::string deviceName() const override;
     void beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3& eye, Color clear) override;
     void draw(const gfx::DrawCall& call) override;
+    void setDynamicLights(const std::vector<gfx::DynamicLight>& lights) override {
+        lights_.assign(lights.begin(), lights.begin() + std::min<ptrdiff_t>(ptrdiff_t(lights.size()),
+                                                                             gfx::kMaxDynamicLights));
+    }
     void setView(const gfx::Mat4& viewProj, const gfx::Vec3& eye) override {
         viewProj_ = viewProj;
         eye_ = eye;
@@ -82,6 +89,7 @@ private:
     SDL_GPUGraphicsPipeline* boundPipeline_ = nullptr;
     gfx::MeshId boundMesh_ = 0;
     int32_t boundOffset_ = 0, boundOldOffset_ = 0; // the vertex buffers' bindings, in vertices
+    std::vector<gfx::DynamicLight> lights_;
 };
 
 } // namespace reluva

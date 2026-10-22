@@ -19,6 +19,9 @@ namespace reluva::idtech3 {
 namespace {
 
 constexpr int kPatchLevel = 6; // quads per Bezier block, each way
+// Shaders sorting up to "see through" (5) are opaque: the surfaces
+// dynamic lights reach.
+constexpr float kLastOpaqueSort = 5;
 
 gfx::Vertex toGfx(const BspVertex& v) {
     gfx::Vertex g;
@@ -55,6 +58,7 @@ void WorldRenderer::clear() {
     lightmaps_.clear();
     fogs_.clear();
     batches_.clear();
+    litSurfaces_.clear();
     skySides_ = {};
     skyMaterial_ = -1;
     triangles_ = 0;
@@ -153,7 +157,16 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
     // Every surface's triangles, grouped by what they're drawn with and
     // ordered by sort key.
     std::vector<gfx::Vertex> vertices;
-    std::map<std::tuple<float, int, int, int>, std::vector<uint32_t>> groups; // (sort, material, lightmap, fog)
+    using GroupKey = std::tuple<float, int, int, int>;
+    std::map<GroupKey, std::vector<uint32_t>> groups; // (sort, material, lightmap, fog)
+    // Opaque surfaces, for dynamic lights: their group, where their
+    // triangles start in it and how many indices, and their bounds.
+    struct Pending {
+        GroupKey group;
+        uint32_t offset = 0, count = 0;
+        std::array<float, 3> mins{}, maxs{};
+    };
+    std::vector<Pending> pending;
     std::vector<BspVertex> patchVerts;
     std::vector<uint32_t> patchIndices;
     for (const BspModel& model : bsp.models)
@@ -169,7 +182,9 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
             const ShaderCache::Material& mat = shaders_.get(mi);
             if (mat.skip)
                 continue;
-            std::vector<uint32_t>& out = groups[{mat.sort, mi, lightmapped ? s.lightmap : -1, s.fog}];
+            const GroupKey key{mat.sort, mi, lightmapped ? s.lightmap : -1, s.fog};
+            std::vector<uint32_t>& out = groups[key];
+            const auto offset = uint32_t(out.size());
             const uint32_t base = uint32_t(vertices.size());
             const BspVertex* v = &bsp.vertices[size_t(s.firstVertex)];
             if (s.type == SurfaceType::Patch) {
@@ -187,17 +202,32 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
                     for (int k = 0; k < 3; ++k)
                         out.push_back(base + uint32_t(bsp.indices[size_t(s.firstIndex + i + k)]));
             }
+            // Solid, unmoving surfaces take dynamic lights.
+            const bool deformed = mat.deforms[0].type != gfx::Deform::Type::None;
+            if (mat.sort <= kLastOpaqueSort && !deformed && out.size() > offset) {
+                Pending p{key, offset, uint32_t(out.size()) - offset, {1e9f, 1e9f, 1e9f}, {-1e9f, -1e9f, -1e9f}};
+                for (size_t vi = base; vi < vertices.size(); ++vi)
+                    for (size_t k = 0; k < 3; ++k) {
+                        p.mins[k] = std::min(p.mins[k], vertices[vi].pos[k]);
+                        p.maxs[k] = std::max(p.maxs[k], vertices[vi].pos[k]);
+                    }
+                pending.push_back(p);
+            }
         }
 
     std::vector<uint32_t> indices;
+    std::map<GroupKey, uint32_t> groupStart;
     for (const auto& [key, list] : groups) {
         if (list.empty())
             continue;
+        groupStart[key] = uint32_t(indices.size());
         batches_.push_back({std::get<0>(key), std::get<1>(key), std::get<2>(key), std::get<3>(key),
                             uint32_t(indices.size()), uint32_t(list.size())});
         indices.insert(indices.end(), list.begin(), list.end());
     }
     triangles_ = indices.size() / 3;
+    for (const Pending& p : pending)
+        litSurfaces_.push_back({groupStart[p.group] + p.offset, p.count, p.mins, p.maxs});
 
     // The sky, from the first sky shader the map uses.
     for (const BspShader& s : bsp.shaders)
@@ -234,6 +264,36 @@ void WorldRenderer::drawSky(float time) const {
             clouds.indexCount = cloudCount_;
             shaders_.draw(skyMaterial_, clouds, 0, time, true);
         }
+    }
+}
+
+void WorldRenderer::drawDynamicLights(const std::vector<gfx::DynamicLight>& lights) const {
+    if (lights.empty() || !mesh_)
+        return;
+    r_.setDynamicLights(lights);
+    const size_t n = std::min<size_t>(lights.size(), gfx::kMaxDynamicLights);
+    gfx::DrawCall call;
+    call.mesh = mesh_;
+    call.dynamicLights = true;
+    // Over what's drawn: the result is what's there times (1 + the light).
+    call.state.src = gfx::Blend::DstColor;
+    call.state.dst = gfx::Blend::One;
+    call.state.depthEqual = true;
+    call.state.depthWrite = false;
+    call.state.cull = gfx::Cull::None;
+    for (const LitSurface& s : litSurfaces_) {
+        bool reached = false;
+        for (size_t i = 0; i < n && !reached; ++i) {
+            const gfx::DynamicLight& l = lights[i];
+            reached = true;
+            for (size_t k = 0; k < 3; ++k)
+                reached = reached && l.origin[k] + l.radius >= s.mins[k] && l.origin[k] - l.radius <= s.maxs[k];
+        }
+        if (!reached)
+            continue;
+        call.firstIndex = s.firstIndex;
+        call.indexCount = s.indexCount;
+        r_.draw(call);
     }
 }
 

@@ -103,6 +103,15 @@ struct Deform {
     float width = 0, height = 0, speed = 0;
 };
 
+// A light added for a frame (a shot, an explosion): it brightens what's
+// within `radius` of `origin`, fading to nothing at the edge.
+struct DynamicLight {
+    Vec3 origin{};
+    float radius = 0;
+    Vec3 color{}; // 1 = full
+};
+constexpr int kMaxDynamicLights = 16;
+
 struct DrawCall {
     MeshId mesh = 0;
     uint32_t firstIndex = 0, indexCount = 0;
@@ -137,6 +146,10 @@ struct DrawCall {
     std::array<Deform, 2> deforms{};
     float time = 0;              // seconds, for the deforms
     bool followCamera = false;   // positions are relative to the camera (skies)
+    // Instead of the texture and colour, the light the frame's dynamic
+    // lights (Renderer3D::setDynamicLights) cast on each pixel: for a pass
+    // over drawn geometry that adds it.
+    bool dynamicLights = false;
     DrawState state;
 };
 
@@ -166,6 +179,9 @@ public:
     // A new view for the draws that follow, within the frame (a 2D layer
     // over the 3D view).
     virtual void setView(const Mat4& viewProj, const Vec3& eye) = 0;
+    // The dynamic lights for draws with DrawCall::dynamicLights (at most
+    // kMaxDynamicLights; the rest are left out).
+    virtual void setDynamicLights(const std::vector<DynamicLight>& lights) = 0;
     // Presents the frame, with `overlay` (RGBA32, the frame's size, blended
     // by its alpha) on top if given.
     virtual void endFrame(const Surface* overlay) = 0;

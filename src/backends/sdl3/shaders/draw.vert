@@ -16,6 +16,7 @@ layout(location = 6) in vec3 inOldNormal;
 
 layout(location = 0) out vec2 outUv;
 layout(location = 1) out vec4 outColor;
+layout(location = 2) out vec3 outWorld; // the position in the world, for dynamic lights
 
 struct DeformData {
     vec4 a; // x: type (0 none, 1 wave, 2 bulge, 3 move), y: wave function, z: base, w: amplitude
@@ -125,5 +126,6 @@ void main() {
     outColor = vec4(source(mode.y, inColor, normal).rgb, source(mode.z, inColor, normal).a) * color;
     if (mode.w > 0.0)
         outColor = vec4(color.rgb, clamp(distance(world, eye.xyz) / mode.w, 0.0, 1.0));
+    outWorld = world;
     gl_Position = viewProj * vec4(world, 1.0);
 }

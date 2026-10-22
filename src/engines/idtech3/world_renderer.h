@@ -34,6 +34,10 @@ public:
     // what's behind glass right.
     void drawSky(float time) const;
     void drawSurfaces(float time, float sortMin = 0, float sortMax = 1e9f) const;
+    // Adds `lights` to the opaque surfaces within their reach, as the
+    // original's dynamic lights: each pixel brightened in proportion to
+    // its colour. After the opaque surfaces are drawn.
+    void drawDynamicLights(const std::vector<gfx::DynamicLight>& lights) const;
 
     size_t batchCount() const { return batches_.size(); }
     size_t triangleCount() const { return triangles_; }
@@ -59,6 +63,13 @@ private:
     std::vector<gfx::TextureId> lightmaps_;
     std::vector<Fog> fogs_;
     std::vector<Batch> batches_; // in drawing order
+    // Each opaque surface's triangles (in the index buffer) and bounds,
+    // for dynamic lights.
+    struct LitSurface {
+        uint32_t firstIndex = 0, indexCount = 0;
+        std::array<float, 3> mins{}, maxs{};
+    };
+    std::vector<LitSurface> litSurfaces_;
     size_t triangles_ = 0;
 
     // The sky: a box around the camera, the far box's six sides then the
