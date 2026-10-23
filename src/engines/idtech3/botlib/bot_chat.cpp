@@ -274,7 +274,11 @@ void BotChat::setup(const BotScript::Loader& load, const std::function<std::stri
     {
         // Replies: [keys] = priority { messages }
         BotScript s(load);
-        if (s.open(file("rchatfile", "rchat.c"))) {
+        std::string probe;
+        if (!load(file("rchatfile", "rchat.c"), probe)) {
+            if (log)
+                *log += file("rchatfile", "rchat.c") + " not found: the bots won't reply to chat\n";
+        } else if (s.open(file("rchatfile", "rchat.c"))) {
             while (s.next(t)) {
                 if (!t.is("[")) {
                     s.fail("expected [, found " + t.text);
