@@ -3094,8 +3094,8 @@ int cmdQvmDis(int argc, char** argv) {
         for (const size_t f : callees) {
             const auto [cf, cl] = functionAt(f);
             std::printf("=== function at %zu (called by it), %zu instructions\n", cf, cl - cf);
-            if (cl - cf > 600) {
-                std::printf("    (not listed: over 600 instructions)\n");
+            if (cl - cf > 2000) {
+                std::printf("    (not listed: over 2000 instructions)\n");
                 continue;
             }
             for (size_t i = cf; i < cl; ++i)
