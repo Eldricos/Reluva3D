@@ -180,3 +180,29 @@ from `rnd.c`.
   again while others are left. When every line has been used lately,
   the one used longest ago is said.
 - **Escapes.** In a chosen line, `~` is removed when it is said.
+
+### Predicting movement
+
+The game asks where a player will be, for a bot leading its shots,
+judging a jump or dodging. The bot library simulates the player frame by
+frame:
+
+- gravity (800, 400 in water);
+- friction on the ground (6, 1 in water; at least as if moving at 100);
+- the move asked for, for some frames: walking (accelerating at 10, up to
+  320, or 100 crouching), jumping (270 up when it asks for up), swimming
+  (4, up to 150), and in the air accelerating at 1;
+- sliding along what it hits, and stepping up onto ledges up to 19 high
+  unless it has just jumped.
+
+It stops at the first of the events asked for:
+
+- landing, leaving the ground, or a gap deeper than a step ahead;
+- entering water, slime or lava;
+- landing hard enough to hurt;
+- reaching a given area, jump pad, teleporter or cluster portal;
+- hitting the floor of a given area.
+
+These values are the library's settings (`phys_*`), with Quake III's
+defaults. A player is on the ground when there is floor at most 10 units
+below, no steeper than 0.7.

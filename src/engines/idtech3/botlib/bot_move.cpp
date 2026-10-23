@@ -23,7 +23,7 @@ constexpr int kEntityWorld = 1022, kEntityNone = 1023;
 constexpr int kLiquid = contents::Water | contents::Slime | contents::Lava;
 
 Vec3f sub(const Vec3f& a, const Vec3f& b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
-Vec3f add(const Vec3f& a, const Vec3f& b) { return {a[0] + b[0], a[1] + b[1], a[2] + b[2]}; }
+Vec3f add_(const Vec3f& a, const Vec3f& b) { return {a[0] + b[0], a[1] + b[1], a[2] + b[2]}; }
 Vec3f scale(const Vec3f& a, float s) { return {a[0] * s, a[1] * s, a[2] * s}; }
 float dot(const Vec3f& a, const Vec3f& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
 float length(const Vec3f& v) { return std::sqrt(dot(v, v)); }
@@ -143,7 +143,7 @@ void BotLibrary::checkBlocked(const MoveState& ms, const Vec3f& dir, bool checkB
         mins[2] += kMaxStep;
         maxs[2] -= 10;
     }
-    const Trace t = trace(ms.origin, mins, maxs, add(ms.origin, scale(dir, 3)), ms.entity,
+    const Trace t = trace(ms.origin, mins, maxs, add_(ms.origin, scale(dir, 3)), ms.entity,
                           contents::Solid | contents::PlayerClip | contents::Body);
     if (!t.startSolid && t.entity != kEntityWorld && t.entity != kEntityNone) {
         result.blocked = true;
@@ -173,7 +173,7 @@ float BotLibrary::gapDistance(const MoveState& ms, const Vec3f& hordir) const {
         return 1;
     float startZ = t.end[2] + 1;
     for (float dist = 8; dist <= 100; dist += 8) {
-        Vec3f start = add(ms.origin, scale(hordir, dist));
+        Vec3f start = add_(ms.origin, scale(hordir, dist));
         start[2] = startZ + 24;
         const Vec3f end{start[0], start[1], start[2] - 48 - kMaxBarrier};
         t = trace(start, mins, maxs, end, ms.entity, contents::Solid | contents::PlayerClip);
@@ -372,12 +372,12 @@ BotMoveResult BotLibrary::travel(MoveState& ms, const AasReach& reach, bool fini
         for (int i = 0; i < 50; ++i) {
             vel[2] -= kGravity * 0.01f;
             if (vel[2] < 0 && org[2] + vel[2] < goal[2]) {
-                org = add(org, scale(vel, (goal[2] - org[2]) / vel[2]));
+                org = add_(org, scale(vel, (goal[2] - org[2]) / vel[2]));
                 out = sub(goal, org);
                 speed = 13 * std::min(normalize(out), 32.0f);
                 return true;
             }
-            org = add(org, vel);
+            org = add_(org, vel);
         }
         out = {};
         speed = 400;
@@ -429,7 +429,7 @@ BotMoveResult BotLibrary::travel(MoveState& ms, const AasReach& reach, bool fini
         if (finishing) {
             Vec3f v{};
             const float dist = horizontal(ms.origin, reach.end, v);
-            const Vec3f end = dist > 16 ? add(reach.end, scale(v, 16)) : reach.end;
+            const Vec3f end = dist > 16 ? add_(reach.end, scale(v, 16)) : reach.end;
             float speed = 400;
             if (!airControl(end, dir, speed)) {
                 dir = sub(reach.end, ms.origin);
@@ -472,12 +472,12 @@ BotMoveResult BotLibrary::travel(MoveState& ms, const AasReach& reach, bool fini
         // 80 units), then jump at the start towards the end.
         Vec3f back{};
         horizontal(reach.end, reach.start, back);
-        Vec3f runStart = add(reach.start, scale(back, 80));
+        Vec3f runStart = add_(reach.start, scale(back, 80));
         for (float gap = 0; gap < 80; gap += 10) {
-            Vec3f p = add(reach.start, scale(back, gap + 10));
+            Vec3f p = add_(reach.start, scale(back, gap + 10));
             p[2] += 2;
             if (aas_.pointArea(p) != ms.reachArea) {
-                runStart = add(reach.start, scale(back, gap));
+                runStart = add_(reach.start, scale(back, gap));
                 break;
             }
         }
@@ -626,7 +626,7 @@ bool BotLibrary::moveInDirection(int handle, const Vec3f& dirIn, float speed, in
     if (trace) {
         Vec3f mins{}, maxs{};
         AasWorld::presenceBox(presence::Crouch, mins, maxs);
-        const Vec3f ahead = add(ms->origin, scale(dir, 32));
+        const Vec3f ahead = add_(ms->origin, scale(dir, 32));
         const Trace t = trace({ahead[0], ahead[1], ahead[2] + kMaxStep}, mins, maxs,
                               {ahead[0], ahead[1], ahead[2] - kMaxStep - 40}, ms->entity,
                               contents::Solid | contents::PlayerClip);
@@ -652,7 +652,7 @@ bool addToTarget(const Vec3f& start, const Vec3f& end, float maxDist, float& dis
     Vec3f d = sub(end, start);
     const float len = normalize(d);
     if (dist + len >= maxDist) {
-        target = add(start, scale(d, maxDist - dist));
+        target = add_(start, scale(d, maxDist - dist));
         return true;
     }
     dist += len;
@@ -723,6 +723,238 @@ bool BotLibrary::predictVisiblePosition(const Vec3f& origin, int area, const Bot
         end = r.end;
     }
     return false;
+}
+
+bool BotLibrary::predictClientMovement(BotClientMove& move, int entity, const Vec3f& origin, int presenceType,
+                                       bool onGround, const Vec3f& velocityIn, const Vec3f& cmdMove, int cmdFrames,
+                                       int maxFrames, float frameTime, int stopEvents, int stopArea) {
+    move = BotClientMove{};
+    if (!trace)
+        return false;
+    if (frameTime <= 0)
+        frameTime = 0.1f;
+    // The movement settings, as the bot library's (its settings or Quake
+    // III's defaults).
+    auto setting = [&](const char* name, float fallback) {
+        const std::string v = libVar(name);
+        return v.empty() ? fallback : float(std::atof(v.c_str()));
+    };
+    const float friction = setting("phys_friction", 6), stopSpeed = setting("phys_stopspeed", 100);
+    const float gravity = setting("phys_gravity", 800), waterFriction = setting("phys_waterfriction", 1);
+    const float waterGravity = setting("phys_watergravity", 400);
+    const float maxWalk = setting("phys_maxwalkvelocity", 320), maxCrouch = setting("phys_maxcrouchvelocity", 100);
+    const float maxSwim = setting("phys_maxswimvelocity", 150);
+    const float walkAccel = setting("phys_walkaccelerate", 10), airAccel = setting("phys_airaccelerate", 1);
+    const float swimAccel = setting("phys_swimaccelerate", 4);
+    const float maxStep = setting("phys_maxstep", 19), maxSteepness = setting("phys_maxsteepness", 0.7f);
+    const float jumpVel = setting("phys_jumpvel", 270), maxBarrier = setting("phys_maxbarrier", 33);
+    constexpr int solid = contents::Solid | contents::PlayerClip | contents::Body;
+
+    auto box = [&](int presenceType, Vec3f& mins, Vec3f& maxs) {
+        AasWorld::presenceBox(presenceType == presence::Crouch ? presence::Crouch : presence::Normal, mins, maxs);
+    };
+    auto traceBox = [&](const Vec3f& from, const Vec3f& to, int presenceType, int pass) {
+        Vec3f mins{}, maxs{};
+        box(presenceType, mins, maxs);
+        return trace(from, mins, maxs, to, pass, solid);
+    };
+    auto swimming = [&](const Vec3f& p) {
+        return pointContents && (pointContents({p[0], p[1], p[2] - 2}) & kLiquid);
+    };
+    auto groundBelow = [&](const Vec3f& p, int presenceType) {
+        const Trace t = traceBox(p, {p[0], p[1], p[2] - 10}, presenceType, entity);
+        return !t.startSolid && t.fraction < 1 && p[2] - t.end[2] <= 10 && t.normal[2] >= maxSteepness;
+    };
+    // Speeding up towards `wishSpeed` along `dir`, as the game's movement does.
+    auto accelerate = [&](Vec3f& vel, const Vec3f& dir, float wishSpeed, float accel) {
+        const float add = wishSpeed - dot(vel, dir);
+        if (add <= 0)
+            return;
+        const float a = std::min(accel * frameTime * wishSpeed, add);
+        vel = add_(vel, scale(dir, a));
+    };
+    auto finish = [&](const Vec3f& at, const Vec3f& vel, const Trace& t, int event, int n, int area) {
+        move.endPos = at;
+        move.endArea = area;
+        move.velocity = vel;
+        move.traceStartSolid = t.startSolid;
+        move.traceFraction = t.fraction;
+        move.traceEnd = t.end;
+        move.traceEntity = t.entity;
+        move.presence = presenceType;
+        move.stopEvent = event;
+        move.time = float(n) * frameTime;
+        move.frames = n;
+        return true;
+    };
+
+    Vec3f org = origin, vel = velocityIn;
+    org[2] += 0.25f;
+    int jumpFrame = -1;
+    Trace t;
+    for (int n = 0; n < maxFrames; ++n) {
+        const bool swim = swimming(org);
+        const float g = swim ? waterGravity : gravity;
+        vel[2] -= g * frameTime;
+        if (onGround || swim) {
+            // Friction on the ground or in water.
+            const float speed = std::sqrt(vel[0] * vel[0] + vel[1] * vel[1]);
+            if (speed > 0) {
+                const float control = std::max(speed, stopSpeed);
+                const float f = std::max(0.0f, speed - frameTime * control * (swim ? waterFriction : friction)) / speed;
+                vel[0] *= f;
+                vel[1] *= f;
+            }
+        }
+        bool crouch = false;
+        if (n < cmdFrames) {
+            // The command: walking, crouching (down a lot), jumping (up)
+            // or swimming, accelerating on the ground faster than in the air.
+            float maxVel = maxWalk, accel = airAccel;
+            Vec3f dir = cmdMove;
+            if (onGround) {
+                if (cmdMove[2] < -300) {
+                    crouch = true;
+                    maxVel = maxCrouch;
+                }
+                if (!swim && cmdMove[2] > 1) {
+                    vel[2] = jumpVel;
+                    jumpFrame = n;
+                } else {
+                    accel = walkAccel;
+                }
+            }
+            if (swim) {
+                maxVel = maxSwim;
+                accel = swimAccel;
+            } else {
+                dir[2] = 0;
+            }
+            const float wish = std::min(normalize(dir), maxVel);
+            if (wish > 0)
+                accelerate(vel, dir, wish, accel);
+        }
+        if (crouch)
+            presenceType = presence::Crouch;
+        else if (presenceType == presence::Crouch) {
+            const int a = aas_.pointArea(org);
+            if (a && (aas_.settings(a).presence & presence::Normal))
+                presenceType = presence::Normal;
+        }
+        // This frame's move, sliding along what it hits and stepping up
+        // onto what's low enough.
+        const Vec3f lastOrg = org;
+        Vec3f left = scale(vel, frameTime);
+        int tries = 0;
+        do {
+            const Vec3f end = add_(org, left);
+            t = traceBox(org, end, presenceType, entity);
+            if (stopEvents & (stopevent::EnterArea | stopevent::TouchJumpPad | stopevent::TouchTeleporter |
+                              stopevent::TouchClusterPortal)) {
+                std::vector<int> areas;
+                std::vector<Vec3f> points;
+                aas_.traceAreas(org, t.end, areas, &points, 20);
+                for (size_t i = 0; i < areas.size(); ++i) {
+                    const int c = aas_.settings(areas[i]).contents;
+                    int event = 0;
+                    if ((stopEvents & stopevent::EnterArea) && areas[i] == stopArea)
+                        event = stopevent::EnterArea;
+                    else if ((stopEvents & stopevent::TouchJumpPad) && n && (c & areacontents::JumpPad))
+                        event = stopevent::TouchJumpPad;
+                    else if ((stopEvents & stopevent::TouchTeleporter) && (c & areacontents::Teleporter))
+                        event = stopevent::TouchTeleporter;
+                    else if ((stopEvents & stopevent::TouchClusterPortal) && (c & areacontents::ClusterPortal))
+                        event = stopevent::TouchClusterPortal;
+                    if (event)
+                        return finish(points[i], vel, t, event, n, areas[i]);
+                }
+            }
+            org = t.end;
+            if (t.fraction >= 1)
+                break;
+            const Vec3f normal = t.normal;
+            if ((stopEvents & stopevent::HitGroundArea) && normal[2] > maxSteepness) {
+                const Vec3f p{org[0], org[1], org[2] + 0.5f};
+                if (aas_.pointArea(p) == stopArea)
+                    return finish(p, vel, t, stopevent::HitGroundArea, n, stopArea);
+            }
+            // A wall: a step up onto it if it's low enough, unless just jumped.
+            bool stepped = false;
+            if (std::fabs(normal[2]) < 0.001f && (jumpFrame < 0 || n - jumpFrame > 2)) {
+                const Vec3f start{org[0] - normal[0] * 0.25f, org[1] - normal[1] * 0.25f, org[2] + maxStep};
+                const Vec3f up{start[0], start[1], start[2]};
+                const Trace rise = traceBox(org, up, presenceType, entity);
+                const Vec3f top = rise.end;
+                const Trace over = traceBox(top, add_(top, {left[0] * (1 - t.fraction), left[1] * (1 - t.fraction), 0}),
+                                            presenceType, entity);
+                const Trace down = traceBox(over.end, {over.end[0], over.end[1], org[2]}, presenceType, entity);
+                if (!rise.startSolid && !down.startSolid && over.fraction > 0 && down.normal[2] > maxSteepness &&
+                    down.end[2] > org[2]) {
+                    org = down.end;
+                    left = {0, 0, 0};
+                    vel[2] = 0;
+                    stepped = true;
+                }
+            }
+            if (!stepped) {
+                // Sliding along it: what's left of the move, and the
+                // velocity, without the part into it.
+                const Vec3f before = vel;
+                const float rest = 1 - t.fraction;
+                left = scale(left, rest);
+                left = sub(left, scale(normal, dot(left, normal)));
+                vel = sub(vel, scale(normal, dot(vel, normal)));
+                if (normal[2] > maxSteepness)
+                    onGround = true;
+                if (stopEvents & stopevent::HitGroundDamage) {
+                    // Landing hard: falling damage.
+                    float delta = 0;
+                    if (before[2] < 0 && vel[2] > before[2] && !onGround)
+                        delta = before[2];
+                    else if (onGround)
+                        delta = vel[2] - before[2];
+                    delta = delta * frameTime * 10;
+                    delta = delta * delta * 0.0001f;
+                    if (!swim && delta > 40)
+                        return finish(org, vel, t, stopevent::HitGroundDamage, n, aas_.pointArea(org));
+                }
+            }
+        } while (++tries < 20 && length(left) > 0.01f);
+        if (vel[2] * frameTime <= 10) { // not rising more than 10 units a frame
+            // Into slime, lava or water at the feet.
+            const Vec3f feet{org[0], org[1], org[2] - 22};
+            const int pc = pointContents ? pointContents(feet) : 0;
+            const int area = aas_.pointArea(org);
+            const int ac = area ? aas_.settings(area).contents : 0;
+            int event = 0;
+            if ((pc & contents::Lava) || (ac & areacontents::Lava))
+                event |= stopevent::EnterLava;
+            if ((pc & contents::Slime) || (ac & areacontents::Slime))
+                event |= stopevent::EnterSlime;
+            if ((pc & contents::Water) || (ac & areacontents::Water))
+                event |= stopevent::EnterWater;
+            if (event & stopEvents) {
+                finish(org, vel, t, event & stopEvents, n, area);
+                move.endContents = pc;
+                return true;
+            }
+        }
+        onGround = groundBelow(org, presenceType);
+        if (onGround) {
+            if (stopEvents & stopevent::HitGround)
+                return finish(org, vel, t, stopevent::HitGround, n, aas_.pointArea(org));
+        } else if (stopEvents & stopevent::LeaveGround) {
+            return finish(org, vel, t, stopevent::LeaveGround, n, aas_.pointArea(org));
+        } else if (stopEvents & stopevent::Gap) {
+            // Off the edge of a drop deeper than a step (not into water).
+            const Vec3f end{org[0], org[1], org[2] - 48 - maxBarrier};
+            const Trace gap = traceBox(org, end, presence::Crouch, -1);
+            if (!gap.startSolid && gap.end[2] < org[2] - maxStep - 1 &&
+                !(pointContents && (pointContents(end) & contents::Water)))
+                return finish(lastOrg, vel, t, stopevent::Gap, n, aas_.pointArea(lastOrg));
+        }
+    }
+    return finish(org, vel, t, stopevent::None, maxFrames, aas_.pointArea(org));
 }
 
 } // namespace reluva::idtech3::botlib

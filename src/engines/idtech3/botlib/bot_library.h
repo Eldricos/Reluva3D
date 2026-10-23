@@ -88,6 +88,28 @@ struct BotInitMove {
     int orMoveFlags = 0;
 };
 
+// Why a movement prediction stopped (what the game asked to stop at).
+namespace stopevent {
+constexpr int None = 0, HitGround = 1, LeaveGround = 2, EnterWater = 4, EnterSlime = 8, EnterLava = 16,
+              HitGroundDamage = 32, Gap = 64, TouchJumpPad = 128, TouchTeleporter = 256, EnterArea = 512,
+              HitGroundArea = 1024, HitBoundingBox = 2048, TouchClusterPortal = 4096;
+} // namespace stopevent
+
+// Where a player moving as given ends up (aas_clientmove_t).
+struct BotClientMove {
+    Vec3f endPos{};
+    int endArea = 0;
+    Vec3f velocity{};
+    // The last trace: started in solid, how far, where, what it hit.
+    bool traceStartSolid = false;
+    float traceFraction = 1;
+    Vec3f traceEnd{};
+    int traceEntity = 0;
+    int presence = 0, stopEvent = 0, endContents = 0;
+    float time = 0;
+    int frames = 0;
+};
+
 // Contents the bot library traces against (Quake III's numbers).
 namespace contents {
 constexpr int Solid = 1, Lava = 8, Slime = 16, Water = 32, PlayerClip = 0x10000, Body = 0x2000000;
@@ -132,6 +154,7 @@ public:
         Vec3f end{};
         bool startSolid = false;
         int entity = 1023; // 1022 the world, 1023 nothing
+        Vec3f normal{};    // of what it hit
     };
     std::function<Trace(const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end, int passEntity,
                         int mask)>
@@ -223,6 +246,13 @@ public:
     void resetLastAvoidReach(int handle);
     bool movementViewTarget(int handle, const BotGoal& goal, int travelFlags, float lookahead, Vec3f& target);
     bool predictVisiblePosition(const Vec3f& origin, int area, const BotGoal& goal, int travelFlags, Vec3f& target);
+    // A player's movement simulated frame by frame (`frameTime` seconds
+    // each): moving by `cmdMove` (a direction and speed; up to jump, down
+    // a lot to crouch) for the first `cmdFrames`, falling, sliding along
+    // walls and up steps, until one of the `stopEvents` or `maxFrames`.
+    bool predictClientMovement(BotClientMove& move, int entity, const Vec3f& origin, int presenceType, bool onGround,
+                               const Vec3f& velocity, const Vec3f& cmdMove, int cmdFrames, int maxFrames,
+                               float frameTime, int stopEvents, int stopArea);
 
 private:
     struct LevelItem {

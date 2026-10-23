@@ -380,7 +380,7 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
                          int mask) {
             int32_t hit = kEntityNone;
             const TraceResult t = traceMove(start, mins, maxs, end, pass, mask, hit);
-            return botlib::BotLibrary::Trace{t.fraction, t.endPos, t.startSolid, hit};
+            return botlib::BotLibrary::Trace{t.fraction, t.endPos, t.startSolid, hit, t.normal};
         };
         b.pointContents = [this](const Vec3f& p) { return world_ ? world_->pointContents(p, 0) : 0; };
         return b.loadMap(str(0, 256));
@@ -520,7 +520,33 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
         p[2] -= 2;
         return world_ && (world_->pointContents(p, 0) & kContentsLiquid) ? 1 : 0;
     }
-    case AasPredictClientMovement: return fail(); // not yet
+    case AasPredictClientMovement: {
+        // (move*, entity, origin, presencetype, onground, velocity, cmdmove,
+        // cmdframes, maxframes, frametime, stopevent, stoparea, visualize)
+        botlib::BotClientMove m;
+        const bool ok = b.predictClientMovement(m, a[1], vec(a[2]), a[3], a[4] != 0, vec(a[5]), vec(a[6]), a[7], a[8],
+                                                flt(9), a[10], a[11]);
+        // aas_clientmove_t: endpos, endarea, velocity, the trace
+        // (startsolid, fraction, endpos, ent, lastarea, area, planenum),
+        // presencetype, stopevent, endcontents, time, frames.
+        if (!vm.checkWrite(a[0], 84))
+            return 0;
+        const int32_t p = a[0];
+        std::memset(&vm.memory()[size_t(p)], 0, 84);
+        writeVec(p, m.endPos);
+        vm.writeInt(p + 12, m.endArea);
+        writeVec(p + 16, m.velocity);
+        vm.writeInt(p + 28, m.traceStartSolid);
+        vm.writeInt(p + 32, Qvm::fromFloat(m.traceFraction));
+        writeVec(p + 36, m.traceEnd);
+        vm.writeInt(p + 48, m.traceEntity);
+        vm.writeInt(p + 64, m.presence);
+        vm.writeInt(p + 68, m.stopEvent);
+        vm.writeInt(p + 72, m.endContents);
+        vm.writeInt(p + 76, Qvm::fromFloat(m.time));
+        vm.writeInt(p + 80, m.frames);
+        return ok;
+    }
 
     case EaSay: b.say(a[0], str(1)); return 0;
     case EaSayTeam: b.sayTeam(a[0], str(1)); return 0;

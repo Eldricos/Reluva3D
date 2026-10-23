@@ -1328,6 +1328,35 @@ static void testBotAi() {
     lib.initMoveState(ms, init);
     lib.moveToGoal(ms, far, tfl::Default);
     CHECK(lib.getInput(1, 0.1f).speed == 40);
+
+    // Predicting a move: a floor where a standing player's origin is 24
+    // above z = 0.
+    lib.trace = [](const Vec3f& start, const Vec3f& mins, const Vec3f&, const Vec3f& end, int, int) {
+        BotLibrary::Trace t;
+        const float floor = -mins[2];
+        t.end = end;
+        if (end[2] < floor && start[2] >= floor) {
+            t.fraction = (start[2] - floor) / (start[2] - end[2]);
+            for (int i = 0; i < 3; ++i)
+                t.end[size_t(i)] = start[size_t(i)] + (end[size_t(i)] - start[size_t(i)]) * t.fraction;
+            t.entity = 1022;
+            t.normal = {0, 0, 1};
+        }
+        return t;
+    };
+    BotClientMove cm;
+    CHECK(lib.predictClientMovement(cm, 1, {50, 0, 200}, presence::Normal, false, {}, {}, 0, 50, 0.1f,
+                                    stopevent::HitGround, 0));
+    // (On the ground counts from 10 units above it, as the original's.)
+    CHECK(cm.stopEvent == stopevent::HitGround && cm.endPos[2] >= 24 && cm.endPos[2] <= 34 && cm.frames > 3);
+    // Running along +x for half a second on the floor.
+    CHECK(lib.predictClientMovement(cm, 1, {50, 0, 24}, presence::Normal, true, {}, {400, 0, 0}, 5, 5, 0.1f, 0, 0));
+    CHECK(cm.stopEvent == stopevent::None && cm.endPos[0] > 100 && cm.velocity[0] > 250 &&
+          std::fabs(cm.endPos[2] - 24) < 1);
+    // Entering area 3 on the way.
+    CHECK(lib.predictClientMovement(cm, 1, {150, 0, 24}, presence::Normal, true, {320, 0, 0}, {400, 0, 0}, 20, 20,
+                                    0.1f, stopevent::EnterArea, 3));
+    CHECK(cm.stopEvent == stopevent::EnterArea && cm.endArea == 3 && std::fabs(cm.endPos[0] - 200) < 1);
 }
 
 static void testBotChat() {
