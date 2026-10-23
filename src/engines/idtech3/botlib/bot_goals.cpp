@@ -291,11 +291,11 @@ bool BotLibrary::topGoal(int handle, BotGoal& goal, int depth) const {
 int BotLibrary::loadItemWeights(int handle, const std::string& file) {
     GoalState* gs = state(goalStates_, handle);
     if (!gs)
-        return 13; // can't load item weights
+        return blerr::CannotLoadItemWeights;
     loadConfigs();
     gs->weights = weights(file);
     if (!gs->weights)
-        return 13;
+        return blerr::CannotLoadItemWeights;
     // Each item description's weight, by its class name.
     gs->weightIndex.clear();
     for (const ItemInfo& item : items_)

@@ -123,6 +123,7 @@ if(RELUVA_ENGINE_IDTECH3)
         src/engines/idtech3/marks.cpp
         src/engines/idtech3/mdr.cpp
         src/engines/idtech3/botlib/aas.cpp
+        src/engines/idtech3/botlib/bot_chat.cpp
         src/engines/idtech3/botlib/bot_config.cpp
         src/engines/idtech3/botlib/bot_goals.cpp
         src/engines/idtech3/botlib/bot_library.cpp

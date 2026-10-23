@@ -262,10 +262,12 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     switch (number) {
     case Print: {
         const std::string text = str(0, 4096);
+        // Kept (the last 4 KB) as well as handed on.
+        log_ += text;
+        if (log_.size() > 8192)
+            log_.erase(0, log_.size() - 4096);
         if (print)
             print(text);
-        else
-            log_ += text;
         return 0;
     }
     case Error_: vm.abort("cgame.qvm: " + str(0)); return 0;

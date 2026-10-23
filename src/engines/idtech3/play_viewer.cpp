@@ -224,6 +224,9 @@ void PlayViewer::start(int index) {
 
     // The player's client game, given what the server has set.
     cgame_ = std::make_unique<eliteforce::CgameHost>(ctx_.files, cvars_);
+    cgame_->print = [this](const std::string& text) { addNotify(text); };
+    notify_.clear();
+    notifyPartial_.clear();
     if (ctx_.mixer) {
         soundSystem_ = std::make_unique<SoundSystem>(*ctx_.mixer, soundLibrary_);
         cgame_->soundSystem = soundSystem_.get();
@@ -970,8 +973,51 @@ int PlayViewer::modelId(int32_t handle) {
     return id;
 }
 
+void PlayViewer::addNotify(const std::string& text) {
+    // Whole lines, each kept 3 seconds (the original's con_notifytime),
+    // at most the last 4.
+    notifyPartial_ += text;
+    size_t end;
+    while ((end = notifyPartial_.find('\n')) != std::string::npos) {
+        notify_.emplace_back(ctx_.sys.getMillis(), notifyPartial_.substr(0, end));
+        notifyPartial_.erase(0, end + 1);
+        while (notify_.size() > 4)
+            notify_.pop_front();
+    }
+}
+
 void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
+    // The notify lines at the top, in their colours (^0-^7).
+    while (!notify_.empty() && nowMs - notify_.front().first > 3000)
+        notify_.pop_front();
+    static const Color kColors[8] = {{0, 0, 0},     {255, 0, 0},   {0, 255, 0},   {255, 255, 0},
+                                     {0, 0, 255},   {0, 255, 255}, {255, 0, 255}, {255, 255, 255}};
+    int notifyY = 4;
+    for (const auto& [when, line] : notify_) {
+        int x = 4;
+        Color color{255, 255, 255};
+        std::string run;
+        auto flush = [&] {
+            if (run.empty())
+                return;
+            font::drawText(overlay_, x + 1, notifyY + 1, run, {0, 0, 0}); // a shadow
+            font::drawText(overlay_, x, notifyY, run, color);
+            x += int(font::length(run)) * font::kAdvance;
+            run.clear();
+        };
+        for (size_t i = 0; i < line.size(); ++i) {
+            if (line[i] == '^' && i + 1 < line.size() && line[i + 1] != '^') {
+                flush();
+                color = kColors[(line[i + 1] - '0') & 7];
+                ++i;
+                continue;
+            }
+            run += line[i];
+        }
+        flush();
+        notifyY += font::kLineHeight;
+    }
     std::vector<std::string> lines;
     if (!error_.empty()) {
         lines.push_back(error_);

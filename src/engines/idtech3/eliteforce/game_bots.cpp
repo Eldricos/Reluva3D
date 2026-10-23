@@ -174,6 +174,7 @@ constexpr int32_t kContentsLiquid = 8 | 16 | 32;
 constexpr int32_t kInitMoveSize = 68;    // bot_initmove_t
 constexpr int32_t kWeaponInfoSize = 552; // weaponinfo_t: strings of 80
 constexpr int32_t kInventorySize = 256;  // the bots' inventory counts
+constexpr int32_t kMatchSize = 328;      // bot_match_t: text, type, subtype, 8 x (offset byte, length)
 
 
 } // namespace
@@ -278,6 +279,30 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
         vm.writeInt(p + 48, g.flags);
         vm.writeInt(p + 52, g.itemInfo);
         return 1;
+    };
+    // bot_match_t: the text (256), type, subtype, then each variable's
+    // offset (a signed byte) and length (an int after 3 bytes' padding).
+    auto writeMatch = [&](int32_t p, const botlib::BotMatch& m) {
+        std::memset(&vm.memory()[size_t(p)], 0, size_t(kMatchSize));
+        vm.writeString(p, m.text, 256);
+        vm.writeInt(p + 256, m.type);
+        vm.writeInt(p + 260, m.subtype);
+        for (int i = 0; i < botlib::BotMatch::kVariables; ++i) {
+            vm.memory()[size_t(p + 264 + 8 * i)] = uint8_t(int8_t(m.offset[size_t(i)]));
+            vm.writeInt(p + 268 + 8 * i, m.length[size_t(i)]);
+        }
+    };
+    auto readMatch = [&](int32_t p, botlib::BotMatch& m) {
+        if (!vm.valid(p, kMatchSize))
+            return false;
+        m.text = vm.string(p, 256);
+        m.type = vm.readInt(p + 256);
+        m.subtype = vm.readInt(p + 260);
+        for (int i = 0; i < botlib::BotMatch::kVariables; ++i) {
+            m.offset[size_t(i)] = int8_t(vm.memory()[size_t(p + 264 + 8 * i)]);
+            m.length[size_t(i)] = vm.readInt(p + 268 + 8 * i);
+        }
+        return true;
     };
     auto inventory = [&](int32_t p) {
         std::vector<int> counts(size_t(kInventorySize), 0);
@@ -551,27 +576,77 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
     case AiCharacteristicBInteger: return b.characters().boundedInteger(a[0], a[1], a[2], a[3]);
     case AiCharacteristicString: vm.writeString(a[2], b.characters().string(a[0], a[1]), a[3]); return 0;
 
-    // Chat: not yet; the bots load nothing and say nothing.
-    case AiAllocChatState: return b.allocState(b.chatStates);
-    case AiFreeChatState: botlib::BotLibrary::freeState(b.chatStates, a[0]); return 0;
-    case AiLoadChatFile: return botlib::blerr::None;
-    case AiSetChatGender:
-    case AiSetChatName:
-    case AiQueueConsoleMessage:
-    case AiRemoveConsoleMessage:
-    case AiInitialChat:
-    case AiEnterChat: return 0;
-    case AiNextConsoleMessage:
-    case AiNumConsoleMessage:
-    case AiReplyChat:
-    case AiChatLength:
-    case AiNumInitialChats:
-    case AiStringContains: return number == AiStringContains ? -1 : 0;
-    case AiFindMatch:
-    case AiMatchVariable:
-    case AiUnifyWhiteSpaces:
-    case AiReplaceSynonyms:
-    case AiGetChatMessage: return fail();
+    // Chat.
+    case AiAllocChatState: return b.chat.allocState();
+    case AiFreeChatState: b.chat.freeState(a[0]); return 0;
+    case AiLoadChatFile: // (chatstate, file, name)
+        if (b.chat.loadChatFile(a[0], b.scriptLoader(), str(1, 256), str(2, 256)))
+            return botlib::blerr::None;
+        if (print)
+            print("couldn't load chat " + str(2, 256) + " from " + str(1, 256) + "\n");
+        return botlib::blerr::CannotLoadInitialChat;
+    case AiSetChatGender: b.chat.setGender(a[0], a[1]); return 0;
+    case AiSetChatName: b.chat.setName(a[0], str(1, 256)); return 0;
+    case AiQueueConsoleMessage: b.chat.queueConsoleMessage(a[0], a[1], str(2, 256)); return 0;
+    case AiRemoveConsoleMessage: b.chat.removeConsoleMessage(a[0], a[1]); return 0;
+    case AiNextConsoleMessage: { // (chatstate, bot_consolemessage_t*): handle, time, type, text
+        const botlib::BotChat::ConsoleMessage* m = b.chat.nextConsoleMessage(a[0]);
+        if (!m || !vm.checkWrite(a[1], 12 + 256))
+            return 0;
+        vm.writeInt(a[1], m->handle);
+        vm.writeInt(a[1] + 4, Qvm::fromFloat(m->time));
+        vm.writeInt(a[1] + 8, m->type);
+        vm.writeString(a[1] + 12, m->text, 256);
+        return m->handle;
+    }
+    case AiNumConsoleMessage: return b.chat.numConsoleMessages(a[0]);
+    case AiInitialChat: // (chatstate, type, mcontext, var0..var7)
+    case AiReplyChat: { // (chatstate, message, mcontext, vcontext, var0..var7)
+        const int first = number == AiInitialChat ? 3 : 4;
+        std::vector<std::string> texts(8);
+        std::vector<const char*> vars(8, nullptr);
+        for (int i = 0; i < 8; ++i)
+            if (a[first + i]) {
+                texts[size_t(i)] = str(first + i, 256);
+                vars[size_t(i)] = texts[size_t(i)].c_str();
+            }
+        if (number == AiInitialChat) {
+            b.chat.initialChat(a[0], str(1, 256), a[2], vars);
+            return 0;
+        }
+        return b.chat.replyChat(a[0], str(1, 256), a[2], a[3], vars);
+    }
+    case AiChatLength: return b.chat.chatLength(a[0]);
+    case AiEnterChat: b.chat.enterChat(a[0], a[1], a[2]); return 0; // (chatstate, the bot's client, to whom)
+    case AiStringContains: return botlib::BotChat::stringContains(str(0), str(1), a[2] != 0);
+    case AiFindMatch: { // (text, bot_match_t*, context)
+        botlib::BotMatch m;
+        const bool found = b.chat.findMatch(str(0, 256), m, a[2]);
+        if (vm.checkWrite(a[1], kMatchSize))
+            writeMatch(a[1], m);
+        return found;
+    }
+    case AiMatchVariable: { // (bot_match_t*, variable, buffer, size)
+        botlib::BotMatch m;
+        if (!readMatch(a[0], m))
+            return 0;
+        vm.writeString(a[2], botlib::BotChat::matchVariable(m, a[1]), a[3]);
+        return 0;
+    }
+    case AiUnifyWhiteSpaces: { // (text): in place, never longer
+        std::string text = str(0, 1024);
+        botlib::BotChat::unifyWhiteSpaces(text);
+        vm.writeString(a[0], text, int32_t(text.size()) + 1);
+        return 0;
+    }
+    case AiReplaceSynonyms: { // (text, context): in place, kept to a message's length
+        std::string text = str(0, 256);
+        b.chat.replaceSynonyms(text, a[1]);
+        vm.writeString(a[0], text, 256);
+        return 0;
+    }
+    case AiNumInitialChats: return b.chat.numInitialChats(a[0], str(1, 256));
+    case AiGetChatMessage: vm.writeString(a[1], b.chat.takeChatMessage(a[0]), a[2]); return 0;
 
     // Goals.
     case AiAllocGoalState: return b.allocGoalState(a[0]);

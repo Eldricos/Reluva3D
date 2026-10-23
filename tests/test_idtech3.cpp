@@ -1330,6 +1330,59 @@ static void testBotAi() {
     CHECK(lib.getInput(1, 0.1f).speed == 40);
 }
 
+static void testBotChat() {
+    using namespace reluva::idtech3::botlib;
+    const std::map<std::string, std::string> files = {
+        {"syn.c", "1 { [(\"hello\", 1), (\"hi\", 1)] }\n"},
+        {"rnd.c", "greeting = { \"hey\"; \"yo\"; }\n"},
+        {"match.c", "2 { \"hello \", 0 = (5, 1);\n 0, \" says: \", 1 = (6, 0); }\n"},
+        {"rchat.c", "[\"hello\", !\"bye\"] = 5 { \"hello yourself, \", 0, \"!\"; }\n"},
+        {"bots/test_t.c", "chat \"other\" { type \"x\" { \"no\"; } }\n"
+                          "chat \"test\" { type \"game_enter\" { \"hi all, I'm \", 0, \".\"; greeting, \" there\"; } }\n"}};
+    const BotScript::Loader load = [&](const std::string& path, std::string& text) {
+        const auto it = files.find(path);
+        if (it == files.end())
+            return false;
+        text = it->second;
+        return true;
+    };
+    BotChat chat;
+    std::string log;
+    chat.setup(load, nullptr, &log);
+    CHECK(log.find("1 synonym lists, 1 random lists, 2 match templates, 1 replies") != std::string::npos);
+    BotMatch m;
+    CHECK(chat.findMatch("Bob says: good game\n", m, 2) && m.type == 6);
+    CHECK(BotChat::matchVariable(m, 0) == "Bob" && BotChat::matchVariable(m, 1) == "good game");
+    CHECK(!chat.findMatch("Bob says: hi", m, 4)); // not in that context
+    std::string text = "  a  ^7b !c ";
+    BotChat::unifyWhiteSpaces(text);
+    CHECK(text == "a 7b c");
+    text = "hi there, hit it";
+    chat.replaceSynonyms(text, 1);
+    CHECK(text == "hello there, hit it");
+
+    std::vector<std::string> said;
+    chat.command = [&](int client, const std::string& c) { said.push_back(std::to_string(client) + " " + c); };
+    const int cs = chat.allocState();
+    CHECK(chat.loadChatFile(cs, load, "bots/test_t.c", "TEST") && chat.numInitialChats(cs, "game_enter") == 2);
+    chat.setName(cs, "Munro");
+    std::vector<const char*> vars(8, nullptr);
+    vars[0] = "Munro";
+    chat.initialChat(cs, "game_enter", 0, vars);
+    std::string line = chat.takeChatMessage(cs);
+    CHECK(line == "hi all, I'm Munro." || line == "hey there" || line == "yo there");
+    vars[0] = "Bob";
+    CHECK(chat.replyChat(cs, "hello Munro", 0, 0, vars));
+    chat.enterChat(cs, 3, 0);
+    CHECK(said.size() == 1 && said[0] == "3 say hello yourself, Bob!");
+    CHECK(!chat.replyChat(cs, "hello and bye", 0, 0, vars)); // a ! key present
+    chat.queueConsoleMessage(cs, 1, "first");
+    chat.queueConsoleMessage(cs, 1, "second");
+    CHECK(chat.numConsoleMessages(cs) == 2 && chat.nextConsoleMessage(cs)->text == "first");
+    chat.removeConsoleMessage(cs, chat.nextConsoleMessage(cs)->handle);
+    CHECK(chat.nextConsoleMessage(cs)->text == "second");
+}
+
 static void testPlayerAnimation() {
     const auto anims = parseAnimationConfig("sex f\nsoundpath alexa\n\n"
                                             "0\t47\t0\t10\t\t// BOTH_DEATH1\n"
@@ -1919,6 +1972,7 @@ int main() {
     testBotScript();
     testBotCharacter();
     testBotAi();
+    testBotChat();
     testVmFileList();
     testSoundLibrary(tmp / "sounds");
     testSoundSystem(tmp / "soundsystem");

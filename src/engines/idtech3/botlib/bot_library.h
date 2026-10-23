@@ -4,6 +4,7 @@
 #pragma once
 
 #include "engines/idtech3/botlib/aas.h"
+#include "engines/idtech3/botlib/bot_chat.h"
 #include "engines/idtech3/botlib/bot_config.h"
 #include "engines/idtech3/botlib/bot_script.h"
 #include "engines/idtech3/botlib/character.h"
@@ -20,8 +21,10 @@ namespace reluva::idtech3::botlib {
 
 // The bot library's error codes (0: none), as the game reads them.
 namespace blerr {
-constexpr int None = 0, LibraryNotSetup = 1, InvalidEntityNumber = 4, NoAasFile = 6, CannotOpenAasFile = 7,
-              WrongAasFileId = 8, WrongAasFileVersion = 9, CannotReadAasLump = 10;
+constexpr int None = 0, LibraryNotSetup = 1, InvalidEntityNumber = 2, NoAasFile = 3, CannotOpenAasFile = 4,
+              WrongAasFileId = 5, WrongAasFileVersion = 6, CannotReadAasLump = 7, CannotLoadInitialChat = 8,
+              CannotLoadItemWeights = 9, CannotLoadItemConfig = 10, CannotLoadWeaponWeights = 11,
+              CannotLoadWeaponConfig = 12;
 } // namespace blerr
 
 // What a bot does this frame (the elementary actions), which the game
@@ -171,11 +174,8 @@ public:
     BotInput getInput(int client, float thinkTime);
     void resetInput(int client);
 
-    // Handles for the game's per-bot AI states (chat): numbers from 1
-    // handed out and taken back.
-    int allocState(std::vector<bool>& used);
-    static bool freeState(std::vector<bool>& used, int handle);
-    std::vector<bool> chatStates;
+    // Chat (bot_chat.cpp): its shared files read at setup.
+    BotChat chat;
 
     // Goals (bot_goals.cpp): the level's items, each bot's goal stack and
     // goals to avoid for a while, and choosing items by their weights.

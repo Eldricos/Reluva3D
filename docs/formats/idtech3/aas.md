@@ -149,3 +149,34 @@ kind of travel:
 
 In the goal's own area it walks straight to the goal, at 4 times the
 distance (up to 400).
+
+### Chat
+
+The bots' chat files go through the preprocessor too. A chat message is
+strings, numbers and names separated by commas and ended by `;`. A
+number is a variable, filled with words the game passes (a name, a
+weapon) or found in the line being answered. A name is a random word
+from `rnd.c`.
+
+| File | Form |
+|---|---|
+| `bots/<name>_t.c` | `chat "name" { type "game_enter" { messages } ... }`, the lines a bot says when something happens |
+| `rchat.c` | `[keys] = priority { messages }`, replies to what others say |
+| `match.c` | `context { pieces = (type, subtype); ... }`, templates for understanding a chat line |
+| `syn.c` | `context { [("word", weight), ("other", weight)] ... }`, synonyms |
+| `rnd.c` | `name = { messages }`, random words |
+
+- **Reply keys.** A key is a whole word (a string), `name` (the bot's
+  name is in the line), `<"a", "b">` (the bot is one of these),
+  `female`, `male` or `it`, or `(pieces)` (a match template). A `&` in
+  front means the key must be there; a `!` means it mustn't.
+- **Templates.** A template's pieces are strings, with `|` between
+  alternatives, and variable numbers. The strings must be found in
+  order, and each variable takes what lies between them.
+- **Synonyms.** Understanding a line turns every word of a list into the
+  list's first word. Saying a line turns them all into one word of the
+  list, chosen by weight.
+- **Choosing a line.** A line used in the last 20 seconds isn't chosen
+  again while others are left. When every line has been used lately,
+  the one used longest ago is said.
+- **Escapes.** In a chosen line, `~` is removed when it is said.

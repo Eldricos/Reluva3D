@@ -14,6 +14,12 @@ int BotLibrary::setup() {
     setup_ = true;
     if (print)
         print("------- BotLib Initialization -------\n");
+    chat.time = [this] { return time_; };
+    chat.command = [this](int client, const std::string& text) { command(client, text); };
+    std::string log;
+    chat.setup(scriptLoader(), [this](const std::string& name) { return libVar(name); }, &log);
+    if (print)
+        print(log);
     return blerr::None;
 }
 
@@ -170,25 +176,6 @@ void BotLibrary::resetInput(int client) {
     in.dir = {};
     in.speed = 0;
     in.actionFlags = jumped ? action::JumpedLastFrame : 0;
-}
-
-int BotLibrary::allocState(std::vector<bool>& used) {
-    for (size_t i = 0; i < used.size(); ++i)
-        if (!used[i]) {
-            used[i] = true;
-            return int(i) + 1;
-        }
-    if (used.size() >= size_t(kMaxClients))
-        return 0;
-    used.push_back(true);
-    return int(used.size());
-}
-
-bool BotLibrary::freeState(std::vector<bool>& used, int handle) {
-    if (handle < 1 || size_t(handle) > used.size() || !used[size_t(handle) - 1])
-        return false;
-    used[size_t(handle) - 1] = false;
-    return true;
 }
 
 } // namespace reluva::idtech3::botlib

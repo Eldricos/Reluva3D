@@ -19,13 +19,13 @@ void BotLibrary::freeWeaponState(int handle) {
 int BotLibrary::loadWeaponWeights(int handle, const std::string& file) {
     WeaponState* ws = state(weaponStates_, handle);
     if (!ws)
-        return 14; // can't load weapon weights
+        return blerr::CannotLoadWeaponWeights;
     loadConfigs();
     ws->weights = weights(file);
     if (!ws->weights)
-        return 14;
+        return blerr::CannotLoadWeaponWeights;
     if (weapons_.empty())
-        return 15; // no weapon descriptions
+        return blerr::CannotLoadWeaponConfig;
     ws->weightIndex.clear();
     for (const WeaponInfo& w : weapons_)
         ws->weightIndex.push_back(w.valid ? ws->weights->find(w.name) : -1);

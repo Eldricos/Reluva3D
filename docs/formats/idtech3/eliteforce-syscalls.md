@@ -256,8 +256,15 @@ Reluva's side: `src/engines/idtech3/eliteforce/game_bots.cpp` and
 setup and entities, the `.aas` map (areas, routes, travel times), the BSP's
 entity keys, characters, the elementary actions, goals (the level's items,
 chosen by the bots' item weights), weapons (chosen by weapon weights, and
-their descriptions) and movement along routes. Chat and move prediction
-answer "none" for now. `reluva-tool game-run ... -addbot "name skill"` adds bots and lists
+their descriptions), movement along routes, and chat (their chat files,
+replies, match templates and synonyms). Move prediction answers "none"
+for now. The chat calls are Quake III's with two differences. Setting a
+chat state's name (524) takes no client number. Entering a chat (516)
+is given the bot's own client, `(chatstate, bs->client, sendto)`, and
+the bot then says it with `say` (sendto 0) or `say_team` (1). Structures:
+a console message is 276 bytes (handle, time, type, 256 of text, two
+pointers); a match is 328 (256 of text, type, subtype, then 8 variables
+of an offset byte and a length). `reluva-tool game-run ... -addbot "name skill"` adds bots and lists
 the calls they make. `reluva-tool qvm-dis ... -syscalls 200 599`
 summarises each of the game's calls in a range, and `-func N` lists the
 function holding instruction N with the functions it calls.

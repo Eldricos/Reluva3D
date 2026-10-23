@@ -61,6 +61,7 @@
 
 #include <array>
 #include <cstdint>
+#include <deque>
 #include <map>
 #include <filesystem>
 #include <memory>
@@ -343,6 +344,11 @@ private:
     void addDynamicLights(PointLight& light, const gfx::Vec3& at) const;
     void stopSounds();
     void drawOverlay(uint64_t nowMs, bool haveView);
+    // What the client game prints (chat, kills, joins), shown at the top
+    // for a few seconds as the original's console does: its last lines.
+    void addNotify(const std::string& text);
+    std::deque<std::pair<uint64_t, std::string>> notify_;
+    std::string notifyPartial_; // a line not yet ended
 
     std::vector<std::string> names_; // maps
     int index_ = 0;
