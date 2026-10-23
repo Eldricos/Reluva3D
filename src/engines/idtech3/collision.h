@@ -35,8 +35,10 @@ struct TraceResult {
 // A map's solid parts for moving things through: a box (or a point) swept
 // along a line is stopped by the brushes it meets, each a convex volume
 // bounded by planes, found through the BSP tree. Brushes count when their
-// contents share a bit with the mask. Curved surfaces (patches) don't
-// collide yet. See docs/formats/idtech3/bsp.md.
+// contents share a bit with the mask. Curved surfaces (patches) collide
+// too: each is cut into triangles once, each triangle a thin convex
+// volume (its plane both ways, its edges, and its bounding box), found
+// through the same leaves. See docs/formats/idtech3/bsp.md.
 class CollisionWorld {
 public:
     explicit CollisionWorld(const Bsp& bsp);
@@ -63,11 +65,28 @@ private:
     struct Work; // one trace's state
     void traceNode(Work& w, int node) const;
     void traceBrush(Work& w, int brush) const;
+    void tracePatch(Work& w, int surface) const;
     int32_t brushContents(int brush) const;
+    void buildPatches();
+
+    // A triangle of a patch, as planes bounding it.
+    struct Facet {
+        std::vector<BspPlane> planes;
+        Vec3f mins{}, maxs{};
+    };
+    struct PatchCollide {
+        int32_t contents = 0, surfaceFlags = 0;
+        Vec3f mins{}, maxs{};
+        size_t firstFacet = 0, numFacets = 0;
+    };
 
     const Bsp& bsp_;
-    mutable std::vector<uint32_t> checked_; // per brush: the trace that last tested it
+    mutable std::vector<uint32_t> checked_;        // per brush: the trace that last tested it
+    mutable std::vector<uint32_t> checkedPatches_; // per surface, likewise
     mutable uint32_t traceCount_ = 0;
+    std::vector<Facet> facets_;
+    std::vector<int> patchOf_; // per surface: its PatchCollide, -1 none
+    std::vector<PatchCollide> patches_;
 };
 
 } // namespace reluva::idtech3

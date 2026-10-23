@@ -1412,6 +1412,49 @@ static void testBotChat() {
     CHECK(chat.nextConsoleMessage(cs)->text == "second");
 }
 
+static void testPatchCollision() {
+    using namespace reluva::idtech3;
+    // One patch, 3x3 control points over x and y from -64 to 64: flat at
+    // z = 0, or (bent) its middle row raised to 64, an arch along y.
+    for (bool bent : {false, true}) {
+        Bsp bsp;
+        bsp.shaders.push_back({"curve", 0, contents::Solid});
+        for (int y = 0; y < 3; ++y)
+            for (int x = 0; x < 3; ++x) {
+                BspVertex v;
+                v.pos = {float(x - 1) * 64, float(y - 1) * 64, bent && y == 1 ? 64.0f : 0.0f};
+                bsp.vertices.push_back(v);
+            }
+        BspSurface surf;
+        surf.type = SurfaceType::Patch;
+        surf.numVertices = 9;
+        surf.patchWidth = surf.patchHeight = 3;
+        bsp.surfaces.push_back(surf);
+        BspModel model;
+        model.numSurfaces = 1;
+        bsp.models.push_back(model);
+        CollisionWorld world(bsp);
+        const Vec3f mins{-15, -15, -24}, maxs{15, 15, 32};
+        // Dropped onto its middle: stopped with the box's bottom on it.
+        TraceResult t = world.trace({0, 0, 200}, {0, 0, -200}, mins, maxs, 0, contents::Solid);
+        const float top = bent ? 32.0f : 0.0f; // the arch's height there: half the raised row's
+        CHECK(t.fraction < 1 && !t.startSolid && std::fabs(t.endPos[2] - (top + 24.5f)) < 1);
+        CHECK(t.normal[2] > 0.9f);
+        // From below, too: both sides stop.
+        t = world.trace({0, 0, -200}, {0, 0, 200}, {}, {}, 0, contents::Solid);
+        CHECK(t.fraction < 1 && std::fabs(t.endPos[2] - (top - 0.5f)) < 1);
+        // A point passing beside it isn't stopped, nor other contents.
+        CHECK(world.trace({100, 0, 200}, {100, 0, -200}, {}, {}, 0, contents::Solid).fraction == 1);
+        CHECK(world.trace({0, 0, 200}, {0, 0, -200}, {}, {}, 0, contents::Water).fraction == 1);
+        if (bent) {
+            // Walking into the arch's slope from the side: stopped, the
+            // normal leaning back towards the walker.
+            t = world.trace({0, -100, 8}, {0, 100, 8}, {}, {}, 0, contents::Solid);
+            CHECK(t.fraction < 1 && t.normal[1] < -0.3f);
+        }
+    }
+}
+
 static void testPlayerAnimation() {
     const auto anims = parseAnimationConfig("sex f\nsoundpath alexa\n\n"
                                             "0\t47\t0\t10\t\t// BOTH_DEATH1\n"
@@ -2002,6 +2045,7 @@ int main() {
     testBotCharacter();
     testBotAi();
     testBotChat();
+    testPatchCollision();
     testVmFileList();
     testSoundLibrary(tmp / "sounds");
     testSoundSystem(tmp / "soundsystem");

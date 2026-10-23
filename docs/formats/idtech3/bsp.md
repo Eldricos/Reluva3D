@@ -101,7 +101,18 @@ of what it hits, so the next move doesn't start inside it. A trace that
 starts inside a brush reports `startSolid`, and `allSolid` when it ends
 inside too. Brush models (`*1`, `*2`... for doors and lifts) have no tree
 of their own: their brushes are tested directly, in the model's own
-coordinates. Curved surfaces (patches) don't collide yet.
+coordinates.
+
+Curved surfaces (patches) collide too, when their shader's contents
+share a bit with the mask. They are found through the leaves' surface
+lists, or a brush model's surfaces. Each patch is cut into triangles
+once, when the map loads. The more its control points bend, the finer it
+is cut: a quarter of its largest bend in units, 1 to 8 cuts per 3×3
+block. Each triangle collides like a thin brush, bounded by its own
+plane facing both ways (half a unit out on each side), its three edges
+(a tenth of a unit wide, so rounding leaves no cracks) and its bounding
+box. A move starting inside one isn't held there, so nothing sticks to
+the patch it stands on. Reluva's own solution, not the original's code.
 
 ## What the reader checks
 
