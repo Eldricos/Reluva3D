@@ -44,6 +44,7 @@ public:
                                                                              gfx::kMaxDynamicLights));
     }
     void setViewport(int x, int y, int w, int h) override;
+    void setDepthRange(float maxDepth) override;
     void setGamma(float gamma) override { gamma_ = gamma > 0.05f ? gamma : 1.0f; }
     void setView(const gfx::Mat4& viewProj, const gfx::Vec3& eye) override {
         viewProj_ = viewProj;
@@ -77,6 +78,8 @@ private:
     // The frame through the brightness curve, shown instead when it isn't
     // 1: drawn from the frame (a texture of it, frameTexture_) with a quad
     // over the whole of it.
+    SDL_GPUViewport viewport_{};
+    float maxDepth_ = 1;
     float gamma_ = 1;
     SDL_GPUTexture* gammaFrame_ = nullptr;
     SDL_Texture* gammaView_ = nullptr;

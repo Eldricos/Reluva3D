@@ -185,6 +185,10 @@ public:
     // Where the draws that follow land in the frame, in pixels (w or h 0:
     // all of it), within the frame.
     virtual void setViewport(int x, int y, int w, int h) = 0;
+    // The share of the depth range the draws that follow use, from the
+    // near end (1: all of it; reset each frame). Drawn with less, things
+    // stay in front of the rest, as the original's first-person weapon.
+    virtual void setDepthRange(float maxDepth) = 0;
     // The brightness the finished frame is shown with: each colour raised
     // to 1 / gamma (1: as drawn), as the original's brightness setting.
     virtual void setGamma(float gamma) = 0;

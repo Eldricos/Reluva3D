@@ -239,8 +239,22 @@ void SdlGpuRenderer::setViewport(int x, int y, int w, int h) {
     v.w = float(w > 0 && h > 0 ? w : width_);
     v.h = float(w > 0 && h > 0 ? h : height_);
     v.min_depth = 0;
-    v.max_depth = 1;
+    v.max_depth = maxDepth_;
+    viewport_ = v;
     SDL_SetGPUViewport(pass_, &v);
+}
+
+void SdlGpuRenderer::setDepthRange(float maxDepth) {
+    maxDepth = std::clamp(maxDepth, 0.01f, 1.0f);
+    if (maxDepth == maxDepth_)
+        return;
+    maxDepth_ = maxDepth;
+    if (!pass_)
+        return;
+    if (viewport_.w <= 0 || viewport_.h <= 0)
+        viewport_ = {0, 0, float(width_), float(height_), 0, 1};
+    viewport_.max_depth = maxDepth_;
+    SDL_SetGPUViewport(pass_, &viewport_);
 }
 
 bool SdlGpuRenderer::upload(const void* data, uint32_t size, SDL_GPUBuffer* buffer) {
@@ -453,6 +467,8 @@ void SdlGpuRenderer::beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3& eye,
     viewProj_ = viewProj;
     eye_ = eye;
     boundPipeline_ = nullptr;
+    maxDepth_ = 1;
+    viewport_ = {0, 0, float(width_), float(height_), 0, 1};
     boundMesh_ = 0;
     cmd_ = SDL_AcquireGPUCommandBuffer(device_);
     if (!cmd_)

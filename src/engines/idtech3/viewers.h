@@ -391,6 +391,7 @@ private:
         std::string shader; // in place of the model's own, if set
         std::array<float, 4> color{1, 1, 1, 1};
         float shaderTime = 0; // seconds: when its shader animations start
+        bool depthHack = false; // kept in front (the player's weapon)
     };
     std::vector<Placed> placed_;
     // This frame's effects (sprites, beams): quads in one mesh, each with
@@ -400,6 +401,7 @@ private:
         uint32_t firstIndex = 0, indexCount = 0;
         std::array<float, 4> color{1, 1, 1, 1};
         float shaderTime = 0;
+        bool depthHack = false;
     };
     std::vector<Effect> effects_;
     std::vector<gfx::Vertex> effectVertices_;

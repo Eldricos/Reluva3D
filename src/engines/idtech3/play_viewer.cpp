@@ -66,8 +66,11 @@ constexpr size_t OldOrigin = 84, CustomShader = 112, Rgba = 116, ShaderTime = 12
                  Width = 132, EndWidth = 136, Repeat = 140, Control1 = 136, Control2 = 148, Jitter = 136,
                  CylinderRepeat = 144;
 // Render flags (Quake III's): drawn only in mirrors and portals (the
-// player's own body); lit from the lighting origin.
-constexpr int32_t ThirdPerson = 2, UseLightingOrigin = 0x80;
+// player's own body); drawn in front of everything else, its depth kept
+// to the nearest 0.3 of the range (the player's weapon and its flash);
+// lit from the lighting origin.
+constexpr int32_t ThirdPerson = 2, DepthHack = 8, UseLightingOrigin = 0x80;
+constexpr float kDepthHackRange = 0.3f;
 } // namespace refent
 
 int32_t readInt(const std::vector<uint8_t>& bytes, size_t at) {
@@ -752,14 +755,20 @@ void PlayViewer::update(uint64_t nowMs) {
         world_->drawSky(time);
         world_->drawSurfaces(time, 0, kLastOpaque);
         world_->drawDynamicLights(lights_);
-        for (const Placed& p : placed_)
+        for (const Placed& p : placed_) {
+            renderer_->setDepthRange(p.depthHack ? refent::kDepthHackRange : 1);
             models_->draw(p.model, p.frame, p.transform, p.light, time - p.shaderTime, p.skin, 0, kLastOpaque,
                           p.shader, &p.color, p.oldFrame, p.backLerp);
+        }
+        renderer_->setDepthRange(1);
         world_->drawSurfaces(time, kLastOpaque + 0.5f);
-        for (const Placed& p : placed_)
+        for (const Placed& p : placed_) {
+            renderer_->setDepthRange(p.depthHack ? refent::kDepthHackRange : 1);
             models_->draw(p.model, p.frame, p.transform, p.light, time - p.shaderTime, p.skin, kLastOpaque + 0.5f,
                           1e9f, p.shader, &p.color, p.oldFrame, p.backLerp);
+        }
         drawEffects(time);
+        renderer_->setDepthRange(1);
     } else {
         placed_.clear();
         effects_.clear();
@@ -991,7 +1000,8 @@ void PlayViewer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left,
         ++otherEntities_;
         return;
     }
-    effects_.push_back({shader, first, uint32_t(effectIndices_.size()) - first, entityColor(e), shaderTime(e)});
+    effects_.push_back({shader, first, uint32_t(effectIndices_.size()) - first, entityColor(e), shaderTime(e),
+                        (readInt(e, refent::Flags) & refent::DepthHack) != 0});
 }
 
 void PlayViewer::drawEffects(float time) {
@@ -1014,6 +1024,7 @@ void PlayViewer::drawEffects(float time) {
         call.mesh = mesh;
         call.firstIndex = fx.firstIndex;
         call.indexCount = fx.indexCount;
+        renderer_->setDepthRange(fx.depthHack ? refent::kDepthHackRange : 1);
         shaders_->draw(material, call, 0, time - fx.shaderTime, false, &fx.color);
     }
     renderer_->destroyMesh(mesh);
@@ -1085,6 +1096,7 @@ void PlayViewer::placeEntities(const eliteforce::CgameHost::View& view) {
             p.shader = cgame_->shaders().name(shader);
         p.color = entityColor(e);
         p.shaderTime = shaderTime(e);
+        p.depthHack = flags & refent::DepthHack;
         placed_.push_back(p);
     }
 }
