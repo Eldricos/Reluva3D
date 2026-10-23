@@ -107,11 +107,13 @@ Curved surfaces (patches) collide too, when their shader's contents
 share a bit with the mask. They are found through the leaves' surface
 lists, or a brush model's surfaces. Each patch is cut into triangles
 once, when the map loads. The more its control points bend, the finer it
-is cut: a quarter of its largest bend in units, 1 to 8 cuts per 3×3
-block. Each triangle collides like a thin brush, bounded by its own
+is cut: twice the square root of its largest bend in units, 2 to 16 cuts
+per 3×3 block, so the triangles stay within about a tenth of a unit of
+the curve. Each triangle collides like a thin brush, bounded by its own
 plane facing both ways (half a unit out on each side), its three edges
-(a tenth of a unit wide, so rounding leaves no cracks) and its bounding
-box. A move starting inside one isn't held there, so nothing sticks to
+(a tenth of a unit wide, which covers the thin wedge left between two
+triangles on the inside of a bend, while the ridge it leaves on the
+outside is about a hundredth of a unit) and its bounding box. A move starting inside one isn't held there, so nothing sticks to
 the patch it stands on. Reluva's own solution, not the original's code.
 
 ## What the reader checks

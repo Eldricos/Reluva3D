@@ -42,9 +42,11 @@ CollisionWorld::CollisionWorld(const Bsp& bsp)
 
 void CollisionWorld::buildPatches() {
     // Each solid patch (its shader's contents not empty) cut into
-    // triangles, finer the more its control points bend (a quarter of the
-    // largest bend in units, 1 to 8 cuts per 3x3 block), each triangle
-    // kept as planes.
+    // triangles, finer the more its control points bend, each triangle
+    // kept as planes. A curve cut into n pieces strays from its chords by
+    // about its bend / (2 n^2): twice the square root of the largest bend
+    // in units (2 to 16 cuts per 3x3 block) keeps that under a tenth of a
+    // unit, so sliding along a pillar doesn't bump over its facets.
     patchOf_.assign(bsp_.surfaces.size(), -1);
     auto sub = [](const Vec3f& a, const Vec3f& b) { return Vec3f{a[0] - b[0], a[1] - b[1], a[2] - b[2]}; };
     auto cross = [](const Vec3f& a, const Vec3f& b) {
@@ -76,7 +78,7 @@ void CollisionWorld::buildPatches() {
             for (int y = 0; y + 2 < h; y += 2)
                 bend = std::max(bend,
                                 off(control[y * w + x].pos, control[(y + 1) * w + x].pos, control[(y + 2) * w + x].pos));
-        const int level = std::clamp(int(std::ceil(bend / 4)), 1, 8);
+        const int level = bend < 0.5f ? 1 : std::clamp(int(std::ceil(2 * std::sqrt(bend))), 2, 16);
         std::vector<BspVertex> verts;
         std::vector<uint32_t> indices;
         tessellatePatch(control, w, h, level, verts, indices);
@@ -100,8 +102,13 @@ void CollisionWorld::buildPatches() {
             const float d = dot(n, p[0]);
             f.planes.push_back({n, d + 0.5f});
             f.planes.push_back({{-n[0], -n[1], -n[2]}, -d + 0.5f});
-            // Its edges, facing out, a tenth of a unit wide of them so
-            // rounding leaves no cracks between neighbours.
+            // Its edges, facing out, a tenth of a unit wide of them: the
+            // edge planes lean with the triangle, so where two meet at an
+            // angle a thin wedge would be left between them on the inside
+            // of the bend (half a unit deep, as the triangles are thick).
+            // Cut as finely as above, neighbours meet at small angles, so
+            // that covers it, and the ridge it leaves on the outside of a
+            // curve is about a hundredth of a unit: nothing to catch on.
             for (int e = 0; e < 3; ++e) {
                 const Vec3f& a = p[e];
                 const Vec3f& b = p[(e + 1) % 3];
