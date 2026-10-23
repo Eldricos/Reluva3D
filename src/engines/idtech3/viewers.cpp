@@ -266,4 +266,24 @@ void saveConfig(ViewerContext& ctx) {
     ctx.bindings.changed = false;
 }
 
+std::vector<uint32_t> decodeUtf8(const char* s) {
+    std::vector<uint32_t> out;
+    for (size_t i = 0; s[i];) {
+        const auto c = static_cast<unsigned char>(s[i]);
+        const int extra = c < 0x80 ? 0 : (c >> 5) == 6 ? 1 : (c >> 4) == 14 ? 2 : (c >> 3) == 30 ? 3 : -1;
+        if (extra < 0) {
+            ++i;
+            continue;
+        }
+        uint32_t cp = extra == 0 ? c : c & (0x3f >> extra);
+        size_t j = 1;
+        for (; j <= size_t(extra) && (static_cast<unsigned char>(s[i + j]) >> 6) == 2; ++j)
+            cp = (cp << 6) | (static_cast<unsigned char>(s[i + j]) & 0x3f);
+        if (j == size_t(extra) + 1)
+            out.push_back(cp);
+        i += j;
+    }
+    return out;
+}
+
 } // namespace reluva::idtech3

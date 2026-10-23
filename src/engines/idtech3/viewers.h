@@ -31,7 +31,9 @@
 //           the mouse looks (it's held by the window); Ctrl+PageUp and
 //           Ctrl+PageDown pick a map, Ctrl+I shows the info, Ctrl+R
 //           restarts, Esc goes back to the menus (Ctrl+Esc to the
-//           launcher). Starting
+//           launcher). ~ opens the console (lines starting / are
+//           commands, others are said); messagemode (T) types a chat
+//           line. Starting
 //           a level from the menus (Engage) comes here.
 // Maps:     Left/Right pick a map; drag (or arrow keys with Shift) to rotate,
 //           wheel or +/- to zoom, W/A/S/D/Q/E to move, R to reset the view,
@@ -313,6 +315,9 @@ private:
     float gainX_ = 1, gainY_ = 1;         // pixels moved per pixel expected
 };
 
+// The code points in UTF-8 text (typed characters).
+std::vector<uint32_t> decodeUtf8(const char* s);
+
 class PlayViewer : public Page {
 public:
     explicit PlayViewer(ViewerContext& ctx);
@@ -344,11 +349,29 @@ private:
     void addDynamicLights(PointLight& light, const gfx::Vec3& at) const;
     void stopSounds();
     void drawOverlay(uint64_t nowMs, bool haveView);
-    // What the client game prints (chat, kills, joins), shown at the top
-    // for a few seconds as the original's console does: its last lines.
-    void addNotify(const std::string& text);
+    // What the games print: kept for the console, and the client game's
+    // (chat, kills, joins) shown at the top for a few seconds, as the
+    // original's console does with its last lines.
+    void addPrint(const std::string& text, bool notify);
     std::deque<std::pair<uint64_t, std::string>> notify_;
-    std::string notifyPartial_; // a line not yet ended
+    std::string printPartial_[2]; // a line not yet ended, per game
+    std::deque<std::string> consoleLines_;
+    // Typing: the console (~) or a chat line (messagemode, T).
+    enum class Typing { None, Console, Say, SayTeam, Tell };
+    Typing typing_ = Typing::None;
+    std::string field_;
+    size_t cursor_ = 0;
+    int32_t tellClient_ = -1;
+    uint32_t swallowChar_ = 0;    // the character of the key that opened the typing
+    uint32_t bindingKeyChar_ = 0; // the character of the key whose binding is running
+    int consoleScroll_ = 0;    // lines back from the newest
+    std::vector<std::string> history_;
+    size_t historyPos_ = 0;
+    void openTyping(Typing t, int32_t client = -1, uint32_t key = 0);
+    void closeTyping();
+    void typingEvent(const Event& ev);
+    void submitTyping();
+    void drawColoured(int x, int y, const std::string& line);
 
     std::vector<std::string> names_; // maps
     int index_ = 0;

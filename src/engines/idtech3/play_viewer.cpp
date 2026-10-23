@@ -135,6 +135,7 @@ void PlayViewer::activate() {
 }
 
 void PlayViewer::deactivate() {
+    closeTyping();
     if (renderer_)
         ctx_.sys.setRelativeMouse(false);
     // The level stops with the page; it starts again when shown.
@@ -195,6 +196,9 @@ void PlayViewer::start(int index) {
     // way to watch it.
     cvars_.set("g_holoIntro", "0");
     game_ = std::make_unique<eliteforce::GameHost>(ctx_.files, cvars_);
+    game_->print = [this](const std::string& text) { addPrint(text, false); };
+    printPartial_[0].clear();
+    closeTyping();
     err = game_->load();
     if (!err)
         err = game_->startLevel(map, bsp, int32_t(ctx_.sys.getMillis()));
@@ -224,9 +228,9 @@ void PlayViewer::start(int index) {
 
     // The player's client game, given what the server has set.
     cgame_ = std::make_unique<eliteforce::CgameHost>(ctx_.files, cvars_);
-    cgame_->print = [this](const std::string& text) { addNotify(text); };
+    cgame_->print = [this](const std::string& text) { addPrint(text, true); };
     notify_.clear();
-    notifyPartial_.clear();
+    printPartial_[1].clear();
     if (ctx_.mixer) {
         soundSystem_ = std::make_unique<SoundSystem>(*ctx_.mixer, soundLibrary_);
         cgame_->soundSystem = soundSystem_.get();
@@ -298,7 +302,34 @@ void PlayViewer::consoleCommand(const std::string& text) {
         ctx_.requestPage = "Menu";
         return;
     }
-    if (verb == "toggleconsole" || verb == "screenshot" || verb == "screenshotjpeg" || verb.rfind("messagemode", 0) == 0) {
+    if (verb == "toggleconsole") {
+        if (typing_ == Typing::Console)
+            closeTyping();
+        else
+            openTyping(Typing::Console);
+        return;
+    }
+    if (verb == "messagemode" || verb == "messagemode2") {
+        openTyping(verb == "messagemode" ? Typing::Say : Typing::SayTeam, -1, bindingKeyChar_);
+        return;
+    }
+    if (verb == "messagemode3" || verb == "messagemode4") {
+        // A word to the player in the crosshair, or the last to hit you,
+        // as the client game says.
+        int32_t client = -1;
+        if (Error err = cgame_->call(verb == "messagemode3" ? 4 : 5, {}, client)) {
+            stop("The client game stopped: " + err.message);
+            return;
+        }
+        if (client >= 0)
+            openTyping(Typing::Tell, client, bindingKeyChar_);
+        return;
+    }
+    if (verb == "clear") {
+        consoleLines_.clear();
+        return;
+    }
+    if (verb == "screenshot" || verb == "screenshotjpeg") {
         notice_ = "\"" + text + "\" isn't done yet";
         return;
     }
@@ -368,16 +399,151 @@ bool PlayViewer::held(const char* button) const {
 
 bool PlayViewer::takesKey(const Event& ev) const {
     // Esc goes back to the menus, as in the game; with Ctrl it leaves.
-    return ev.type == EventType::KeyDown && ev.key == key::Escape && !(ev.mods & keymod::Ctrl);
+    // While typing, every key is the typing's (Tab, Esc too), but Ctrl+Esc.
+    if (ev.type == EventType::KeyDown && ev.key == key::Escape && (ev.mods & keymod::Ctrl))
+        return false;
+    return typing_ != Typing::None || (ev.type == EventType::KeyDown && ev.key == key::Escape);
+}
+
+void PlayViewer::openTyping(Typing t, int32_t client, uint32_t key) {
+    // The keys held are let go, as the original's typing takes them.
+    buttons_.clear();
+    typing_ = t;
+    tellClient_ = client;
+    field_.clear();
+    cursor_ = 0;
+    consoleScroll_ = 0;
+    historyPos_ = history_.size();
+    swallowChar_ = key;
+    ctx_.sys.setTextInput(true);
+}
+
+void PlayViewer::closeTyping() {
+    if (typing_ != Typing::None && renderer_)
+        ctx_.sys.setTextInput(false);
+    typing_ = Typing::None;
+    field_.clear();
+    cursor_ = 0;
+}
+
+void PlayViewer::submitTyping() {
+    std::string text = field_;
+    const Typing t = typing_;
+    field_.clear();
+    cursor_ = 0;
+    if (t == Typing::Console) {
+        // Lines starting / or \ are commands; others are said, as the
+        // original's console does once connected.
+        if (text.empty())
+            return;
+        std::replace(text.begin(), text.end(), '"', '\'');
+        if (history_.empty() || history_.back() != text)
+            history_.push_back(text);
+        historyPos_ = history_.size();
+        consoleLines_.push_back("]" + text);
+        consoleScroll_ = 0;
+        if (text[0] == '/' || text[0] == '\\')
+            consoleCommand(text.substr(1));
+        else
+            consoleCommand("say \"" + text + "\"");
+        return;
+    }
+    closeTyping();
+    if (text.empty())
+        return;
+    // Quotes would end the line early: they become apostrophes.
+    std::replace(text.begin(), text.end(), '"', '\'');
+    if (t == Typing::Say)
+        consoleCommand("say \"" + text + "\"");
+    else if (t == Typing::SayTeam)
+        consoleCommand("say_team \"" + text + "\"");
+    else if (t == Typing::Tell)
+        consoleCommand("tell " + std::to_string(tellClient_) + " \"" + text + "\"");
+}
+
+void PlayViewer::typingEvent(const Event& ev) {
+    if (ev.type == EventType::TextInput) {
+        // Characters typed (Latin-1, as the original's), but the one of the
+        // key that opened the typing, and the console key in the console.
+        for (uint32_t cp : decodeUtf8(ev.text)) {
+            if (cp == swallowChar_) {
+                swallowChar_ = 0;
+                continue;
+            }
+            swallowChar_ = 0;
+            if (cp < 32 || cp == 127 || cp > 255 || field_.size() >= 255)
+                continue;
+            if (typing_ == Typing::Console && (cp == '`' || cp == '~'))
+                continue;
+            field_.insert(cursor_++, 1, char(cp));
+        }
+        return;
+    }
+    if (ev.type != EventType::KeyDown)
+        return;
+    swallowChar_ = 0;
+    switch (ev.key) {
+    case key::Escape: closeTyping(); return;
+    case key::Return:
+    case key::KpEnter: submitTyping(); return;
+    case key::Backspace:
+        if (cursor_ > 0)
+            field_.erase(--cursor_, 1);
+        return;
+    case key::Delete:
+        if (cursor_ < field_.size())
+            field_.erase(cursor_, 1);
+        return;
+    case key::Left: cursor_ = cursor_ > 0 ? cursor_ - 1 : 0; return;
+    case key::Right: cursor_ = std::min(field_.size(), cursor_ + 1); return;
+    case key::Home: cursor_ = 0; return;
+    case key::End: cursor_ = field_.size(); return;
+    default: break;
+    }
+    if (typing_ != Typing::Console)
+        return;
+    switch (ev.key) {
+    case '`': closeTyping(); return; // the console key closes it again
+    case key::Up:
+    case key::Down:
+        // Earlier lines typed, back and forth.
+        if (history_.empty())
+            return;
+        if (ev.key == key::Up && historyPos_ > 0)
+            --historyPos_;
+        else if (ev.key == key::Down && historyPos_ < history_.size())
+            ++historyPos_;
+        field_ = historyPos_ < history_.size() ? history_[historyPos_] : std::string();
+        cursor_ = field_.size();
+        return;
+    case key::PageUp: consoleScroll_ = std::min(consoleScroll_ + 4, int(consoleLines_.size())); return;
+    case key::PageDown: consoleScroll_ = std::max(consoleScroll_ - 4, 0); return;
+    default: return;
+    }
 }
 
 void PlayViewer::handleEvent(const Event& ev) {
+    if (typing_ != Typing::None) {
+        // Typing takes the keys and characters; the mouse still looks.
+        if (ev.type == EventType::MouseMove) {
+            mouseX_ += ev.moveX;
+            mouseY_ += ev.moveY;
+        } else {
+            typingEvent(ev);
+        }
+        return;
+    }
     if (ev.type == EventType::KeyDown && ev.key == key::Escape) {
         ctx_.requestPage = "Menu";
         return;
     }
     if (!renderer_ || names_.empty())
         return;
+    if (ev.type == EventType::KeyDown && ev.key == '`' && !(ev.mods & keymod::Ctrl)) {
+        // The console key, whatever it's bound to, as in the original.
+        openTyping(Typing::Console, -1, '`');
+        return;
+    }
     switch (ev.type) {
     case EventType::KeyDown:
     case EventType::KeyUp: {
@@ -400,8 +566,12 @@ void PlayViewer::handleEvent(const Event& ev) {
         }
         if (down && ev.repeat)
             return;
+        // The key's character, in case its command opens typing (so it
+        // isn't typed as well).
+        bindingKeyChar_ = ev.key < 128 ? ev.key : 0;
         if (const int32_t k = toQ3Key(ev.key))
             runBinding(ctx_.bindings.get(k), k, down);
+        bindingKeyChar_ = 0;
         break;
     }
     case EventType::MouseDown:
@@ -978,51 +1148,93 @@ int PlayViewer::modelId(int32_t handle) {
     return id;
 }
 
-void PlayViewer::addNotify(const std::string& text) {
-    // Whole lines, each kept 3 seconds (the original's con_notifytime),
-    // at most the last 4.
-    notifyPartial_ += text;
+void PlayViewer::addPrint(const std::string& text, bool notify) {
+    // Whole lines into the console (the last thousand); the client game's
+    // also on screen, each 3 seconds (the original's con_notifytime), at
+    // most the last 4.
+    std::string& partial = printPartial_[notify ? 1 : 0];
+    partial += text;
     size_t end;
-    while ((end = notifyPartial_.find('\n')) != std::string::npos) {
-        notify_.emplace_back(ctx_.sys.getMillis(), notifyPartial_.substr(0, end));
-        notifyPartial_.erase(0, end + 1);
+    while ((end = partial.find('\n')) != std::string::npos) {
+        const std::string line = partial.substr(0, end);
+        partial.erase(0, end + 1);
+        consoleLines_.push_back(line);
+        while (consoleLines_.size() > 1000)
+            consoleLines_.pop_front();
+        if (consoleScroll_ > 0)
+            ++consoleScroll_;
+        if (!notify)
+            continue;
+        notify_.emplace_back(ctx_.sys.getMillis(), line);
         while (notify_.size() > 4)
             notify_.pop_front();
     }
 }
 
+void PlayViewer::drawColoured(int x, int y, const std::string& line) {
+    // A line in the original's colours (^0-^7), with a shadow.
+    static const Color kColors[8] = {{0, 0, 0},     {255, 0, 0},   {0, 255, 0},   {255, 255, 0},
+                                     {0, 0, 255},   {0, 255, 255}, {255, 0, 255}, {255, 255, 255}};
+    Color color{255, 255, 255};
+    std::string run;
+    auto flush = [&] {
+        if (run.empty())
+            return;
+        font::drawText(overlay_, x + 1, y + 1, run, {0, 0, 0});
+        font::drawText(overlay_, x, y, run, color);
+        x += int(font::length(run)) * font::kAdvance;
+        run.clear();
+    };
+    for (size_t i = 0; i < line.size(); ++i) {
+        if (line[i] == '^' && i + 1 < line.size() && line[i + 1] != '^') {
+            flush();
+            color = kColors[(line[i + 1] - '0') & 7];
+            ++i;
+            continue;
+        }
+        run += line[i];
+    }
+    flush();
+}
+
 void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
-    // The notify lines at the top, in their colours (^0-^7).
     // (A line printed during this frame is stamped a little after nowMs.)
     while (!notify_.empty() && notify_.front().first + 3000 < nowMs)
         notify_.pop_front();
-    static const Color kColors[8] = {{0, 0, 0},     {255, 0, 0},   {0, 255, 0},   {255, 255, 0},
-                                     {0, 0, 255},   {0, 255, 255}, {255, 0, 255}, {255, 255, 255}};
-    int notifyY = 4;
-    for (const auto& [when, line] : notify_) {
-        int x = 4;
-        Color color{255, 255, 255};
-        std::string run;
-        auto flush = [&] {
-            if (run.empty())
-                return;
-            font::drawText(overlay_, x + 1, notifyY + 1, run, {0, 0, 0}); // a shadow
-            font::drawText(overlay_, x, notifyY, run, color);
-            x += int(font::length(run)) * font::kAdvance;
-            run.clear();
-        };
-        for (size_t i = 0; i < line.size(); ++i) {
-            if (line[i] == '^' && i + 1 < line.size() && line[i + 1] != '^') {
-                flush();
-                color = kColors[(line[i + 1] - '0') & 7];
-                ++i;
-                continue;
+    const int lh = font::kLineHeight;
+    const bool blink = (nowMs / 250) % 2 == 0;
+    if (typing_ == Typing::Console) {
+        // The console over the top half: the lines printed, newest at the
+        // bottom (PageUp/PageDown scroll), and what's being typed.
+        const int height = kFrameH / 2;
+        for (int yy = 0; yy < height; ++yy) {
+            uint8_t* p = overlay_.row(yy);
+            for (int x = 0; x < kFrameW; ++x) {
+                p[x * 4 + 0] = 10, p[x * 4 + 1] = 14, p[x * 4 + 2] = 24;
+                p[x * 4 + 3] = 215;
             }
-            run += line[i];
         }
-        flush();
-        notifyY += font::kLineHeight;
+        for (int x = 0; x < kFrameW; ++x) {
+            uint8_t* p = overlay_.row(height) + x * 4;
+            p[0] = 200, p[1] = 140, p[2] = 40, p[3] = 255;
+        }
+        int y = height - 2 * lh - 4;
+        drawColoured(4, height - lh - 4, "]" + field_.substr(0, cursor_) + (blink ? "_" : " ") + field_.substr(cursor_));
+        for (int i = int(consoleLines_.size()) - 1 - consoleScroll_; i >= 0 && y >= 0; --i, y -= lh)
+            drawColoured(4, y, consoleLines_[size_t(i)]);
+    } else {
+        // The notify lines at the top, then a chat line being typed.
+        int notifyY = 4;
+        for (const auto& [when, line] : notify_) {
+            drawColoured(4, notifyY, line);
+            notifyY += lh;
+        }
+        if (typing_ != Typing::None) {
+            const char* prompt = typing_ == Typing::Say ? "Say: " : typing_ == Typing::SayTeam ? "Say Team: " : "Tell: ";
+            drawColoured(4, notifyY, std::string("^7") + prompt + field_.substr(0, cursor_) + (blink ? "_" : " ") +
+                                         field_.substr(cursor_));
+        }
     }
     std::vector<std::string> lines;
     if (!error_.empty()) {
@@ -1069,10 +1281,9 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
             lines.push_back(notice_);
     }
     if (nowMs - shownMs_ < kHintMs) {
-        lines.push_back("Keys do what they're bound to (set in the menus' Controls). The mouse looks.");
+        lines.push_back("Keys do what they're bound to (set in the menus' Controls). The mouse looks. ~: the console.");
         lines.push_back("Ctrl+PageUp/PageDown: another map, Ctrl+I: info, Ctrl+R: restart, Esc: the menus, Ctrl+Esc: launcher.");
     }
-    const int lh = font::kLineHeight;
     for (size_t i = 0; i < lines.size(); ++i) {
         const int y = kFrameH - int(lines.size() - i) * lh - 4;
         const int w = std::min(kFrameW, int(font::length(lines[i])) * font::kAdvance + 8);
