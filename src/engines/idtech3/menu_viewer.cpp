@@ -272,10 +272,12 @@ void MenuViewer::handleEvent(const Event& ev) {
         return;
     Error err;
     switch (ev.type) {
+    // Only presses: Elite Force's menus act on a release as on a press
+    // (a click counted twice), so the original's engine can't have sent
+    // them releases.
     case EventType::KeyDown:
-    case EventType::KeyUp:
         if (const int32_t k = toQ3Key(ev.key))
-            err = ui_->call(eliteforce::UiHost::KeyEvent, {k, ev.type == EventType::KeyDown});
+            err = ui_->call(eliteforce::UiHost::KeyEvent, {k, 1});
         break;
     case EventType::TextInput:
         // Characters for text fields, each as a key press with the
@@ -285,7 +287,6 @@ void MenuViewer::handleEvent(const Event& ev) {
                 err = ui_->call(eliteforce::UiHost::KeyEvent, {int32_t(cp) | q3key::CharFlag, 1});
         break;
     case EventType::MouseDown:
-    case EventType::MouseUp:
         // Clicks land where the mouse is.
         mouseX_ = ev.mouseX;
         mouseY_ = ev.mouseY;
@@ -294,14 +295,12 @@ void MenuViewer::handleEvent(const Event& ev) {
         if (!ui_)
             return;
         if (const int32_t k = toQ3Button(ev.button))
-            err = ui_->call(eliteforce::UiHost::KeyEvent, {k, ev.type == EventType::MouseDown});
+            err = ui_->call(eliteforce::UiHost::KeyEvent, {k, 1});
         break;
     case EventType::MouseWheel:
         if (ev.wheelY) {
             const int32_t k = ev.wheelY > 0 ? q3key::WheelUp : q3key::WheelDown;
             err = ui_->call(eliteforce::UiHost::KeyEvent, {k, 1});
-            if (!err)
-                err = ui_->call(eliteforce::UiHost::KeyEvent, {k, 0});
         }
         break;
     case EventType::MouseMove:
