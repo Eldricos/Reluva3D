@@ -174,9 +174,7 @@ constexpr int32_t kContentsLiquid = 8 | 16 | 32;
 constexpr int32_t kInitMoveSize = 68;    // bot_initmove_t
 constexpr int32_t kWeaponInfoSize = 552; // weaponinfo_t: strings of 80
 constexpr int32_t kInventorySize = 256;  // the bots' inventory counts
-// Elite Force's alt attack action flag: assumed (Quake III has none)
-// until the game's conversion to a command is read.
-constexpr int kActionAltAttack = 0x4;
+
 
 } // namespace
 
@@ -509,7 +507,7 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
     case EaGesture: b.input(a[0]).actionFlags |= botlib::action::Gesture; return 0;
     case EaTalk: b.input(a[0]).actionFlags |= botlib::action::Talk; return 0;
     case EaAttack: b.input(a[0]).actionFlags |= botlib::action::Attack; return 0;
-    case EaAltAttack: b.input(a[0]).actionFlags |= kActionAltAttack; return 0;
+    case EaAltAttack: b.input(a[0]).actionFlags |= botlib::action::AltAttack; return 0;
     case EaUse: b.input(a[0]).actionFlags |= botlib::action::Use; return 0;
     case EaRespawn: b.input(a[0]).actionFlags |= botlib::action::Respawn; return 0;
     case EaCrouch: b.input(a[0]).actionFlags |= botlib::action::Crouch; return 0;

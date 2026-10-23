@@ -25,11 +25,13 @@ constexpr int None = 0, LibraryNotSetup = 1, InvalidEntityNumber = 4, NoAasFile 
 } // namespace blerr
 
 // What a bot does this frame (the elementary actions), which the game
-// turns into its user command.
+// turns into its user command. Elite Force's values, the bot library's
+// older ones (read from the game's conversion; eliteforce-syscalls.md):
+// jumping and moving up share a bit, as do crouching and moving down.
 namespace action {
-constexpr int Attack = 0x1, Use = 0x2, Respawn = 0x8, Jump = 0x10, MoveUp = 0x20, Crouch = 0x80, MoveDown = 0x100,
-              MoveForward = 0x200, MoveBack = 0x800, MoveLeft = 0x1000, MoveRight = 0x2000, DelayedJump = 0x8000,
-              Talk = 0x10000, Gesture = 0x20000, Walk = 0x80000, JumpedLastFrame = 0x10000000;
+constexpr int Attack = 0x1, Use = 0x2, Respawn = 0x4, Jump = 0x8, MoveUp = 0x8, Crouch = 0x10, MoveDown = 0x10,
+              MoveForward = 0x20, MoveBack = 0x40, MoveLeft = 0x80, MoveRight = 0x100, DelayedJump = 0x200,
+              Talk = 0x400, Gesture = 0x800, Walk = 0x1000, AltAttack = 0x2000, JumpedLastFrame = 0x10000000;
 } // namespace action
 
 struct BotInput {

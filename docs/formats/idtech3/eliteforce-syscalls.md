@@ -224,8 +224,29 @@ the bot library's older one, with an alt attack added at the end:
 | 426 | reset the input | once a bot frame |
 | 427 | alt attack | next to every attack |
 
-The flag the alt attack sets in the bot's input isn't known yet: the
-game turns the flags into its command's buttons. Reluva assumes `0x4`.
+The actions set flags in the bot's input, which the game turns into its
+command (the function after `EA_GetInput`'s caller). Its flags are the
+bot library's older values:
+
+| Flag | Action | Becomes |
+|---|---|---|
+| `0x1` | attack | button 1 |
+| `0x2` | use | button 4 |
+| `0x4` | respawn | the buttons set to 1 (attack); dropped with attack while attack is held |
+| `0x8` | jump, move up | up +127 |
+| `0x10` | crouch, move down | up −127 |
+| `0x20`, `0x40` | forward, back | forward ±127 |
+| `0x80`, `0x100` | left, right | right ∓127 |
+| `0x200` | delayed jump | turned into a jump |
+| `0x400` | talk | button 2 |
+| `0x800` | gesture | button 8 |
+| `0x1000` | walk | button 16 |
+| `0x2000` | alt attack | button 32 |
+
+The weapon goes into the command's weapon byte. The move direction and
+speed (0 to 400) become forward and right, scaled to 127 at 400, in the
+view's frame, and the view angles are turned into the command's angles
+less the player's delta angles.
 
 The bot frame, `vmMain(10, time)`, runs before each server frame, as on
 the original server.
