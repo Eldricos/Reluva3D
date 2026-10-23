@@ -123,7 +123,11 @@ if(RELUVA_ENGINE_IDTECH3)
         src/engines/idtech3/marks.cpp
         src/engines/idtech3/mdr.cpp
         src/engines/idtech3/botlib/aas.cpp
+        src/engines/idtech3/botlib/bot_config.cpp
+        src/engines/idtech3/botlib/bot_goals.cpp
         src/engines/idtech3/botlib/bot_library.cpp
+        src/engines/idtech3/botlib/bot_move.cpp
+        src/engines/idtech3/botlib/bot_weapons.cpp
         src/engines/idtech3/botlib/bot_script.cpp
         src/engines/idtech3/botlib/character.cpp
         src/engines/idtech3/player_animation.cpp

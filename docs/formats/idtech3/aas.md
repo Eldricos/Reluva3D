@@ -105,3 +105,47 @@ are read as they are. Others blend the floats between 1 and 4, or between
 falls back to the default character, `bots/default_c.c`, then to the
 file's first skill. Characteristics the file leaves out come from the
 default character. Reluva's side: `bot_script.cpp`, `character.cpp`.
+
+### Weights, items and weapons
+
+These files are also read through the preprocessor.
+
+- **Weights** (`bots/<name>_i.c` for items, `_w.c` for weapons). Each is
+  `weight "name"` followed by either `return w;` or a
+  `switch (INVENTORY_SLOT) { case N: ... default: ... }`, and switches may
+  nest. A case applies while the bot's count in that slot is below N; the
+  default applies in every other case. `balance(w, min, max)` counts as w.
+  Item weights are found by the item's class name, weapon weights by the
+  weapon's name.
+- **Items** (`items.c`). Each is `iteminfo "classname" { name model
+  modelindex type index respawntime mins {x, y, z} maxs {x, y, z} }`. The
+  map's entities of those classes are the level's items. They are matched
+  to the game's item entities (type 2) by model index, within 30 units.
+  An item a bot has chosen is avoided for its respawn time (at least 10
+  seconds, 30 if none is given). Items worth more than nothing are
+  compared by weight divided by a hundredth of the time to get there.
+- **Weapons** (`weapons.c`). It has `weaponinfo { number name projectile
+  speed ... }` and `projectileinfo { name damage radius ... }` blocks.
+  Each weapon carries the description of its projectile, matched by name.
+  The game reads them back as Quake III's `weaponinfo_t` (552 bytes,
+  strings of 80).
+
+### Movement
+
+Each frame the bot takes the reachability out of its area that is
+quickest on to the goal. It doesn't step straight back into the area it
+came from. It gives up on a reachability it has tried more than four
+times in six seconds. It keeps the reachability while still in the same
+area, for 5 seconds (10 for elevators and jump pads). Then it acts by the
+kind of travel:
+
+- walking: to the start, then to the end, slowing before drops;
+- barrier jumps: jump within 9 units of the start;
+- jumps: a run-up from up to 80 units behind the start, then a jump
+  towards the end;
+- ledges: walk off, then steer in the air towards where it lands;
+- teleporters and jump pads: walk into them;
+- elevators: ride, then step off when level with the end.
+
+In the goal's own area it walks straight to the goal, at 4 times the
+distance (up to 400).

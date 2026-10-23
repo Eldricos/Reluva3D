@@ -4,6 +4,7 @@
 #pragma once
 
 #include "engines/idtech3/botlib/aas.h"
+#include "engines/idtech3/botlib/bot_config.h"
 #include "engines/idtech3/botlib/bot_script.h"
 #include "engines/idtech3/botlib/character.h"
 
@@ -11,6 +12,7 @@
 #include <array>
 #include <functional>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -38,6 +40,53 @@ struct BotInput {
     int actionFlags = 0;
     int weapon = 0;
 };
+
+// What a bot goes for: an item, a spot.
+struct BotGoal {
+    Vec3f origin{};
+    int area = 0;
+    Vec3f mins{}, maxs{};
+    int entity = 0, number = 0, flags = 0, itemInfo = 0;
+};
+namespace goalflag {
+constexpr int Item = 1, Roam = 2, Dropped = 4;
+} // namespace goalflag
+
+// How moving went this frame, for the game.
+struct BotMoveResult {
+    bool failure = false;
+    int type = 0;
+    bool blocked = false;
+    int blockEntity = 0;
+    int travelType = 0, flags = 0, weapon = 0;
+    Vec3f moveDir{}, idealViewAngles{};
+};
+namespace moveflag {
+constexpr int BarrierJump = 1, OnGround = 2, Swimming = 4, AgainstLadder = 8, WaterJump = 16, Teleported = 32,
+              Walk = 512;
+} // namespace moveflag
+namespace moveresult {
+constexpr int MovementView = 1, SwimView = 2, Waiting = 4, MovementViewSet = 8, MovementWeapon = 16,
+              OnTopOfObstacle = 32, OnTopOfFuncBob = 64, OnTopOfElevator = 128;
+constexpr int TypeInSolidArea = 7, TypeElevatorUp = 2; // result types
+} // namespace moveresult
+namespace movetype {
+constexpr int Walk = 1, Crouch = 2, Jump = 4;
+} // namespace movetype
+// The state the game sets each frame before moving (bot_initmove_t).
+struct BotInitMove {
+    Vec3f origin{}, velocity{}, viewOffset{};
+    int entity = 0, client = 0;
+    float thinkTime = 0;
+    int presence = 0;
+    Vec3f viewAngles{};
+    int orMoveFlags = 0;
+};
+
+// Contents the bot library traces against (Quake III's numbers).
+namespace contents {
+constexpr int Solid = 1, Lava = 8, Slime = 16, Water = 32, PlayerClip = 0x10000, Body = 0x2000000;
+} // namespace contents
 
 // An entity as the game describes it to the bot library each frame.
 struct BotEntityState {
@@ -72,6 +121,21 @@ public:
     // A command a bot sends as if typed ("say hello").
     std::function<void(int client, const std::string& command)> clientCommand;
     std::function<void(const std::string& text)> print;
+    // A box swept through the world and its entities (the engine's trace).
+    struct Trace {
+        float fraction = 1;
+        Vec3f end{};
+        bool startSolid = false;
+        int entity = 1023; // 1022 the world, 1023 nothing
+    };
+    std::function<Trace(const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end, int passEntity,
+                        int mask)>
+        trace;
+    std::function<int(const Vec3f& point)> pointContents;
+    // The map's entities (classname, origin...), from 1 as the original
+    // numbers them.
+    std::function<bool(int entity, const std::string& key, std::string& value)> entityKey;
+    int entityCount = 0;
 
     int setup();
     int shutdown();
@@ -105,13 +169,122 @@ public:
     BotInput getInput(int client, float thinkTime);
     void resetInput(int client);
 
-    // Handles for the game's per-bot AI states (chat, goals, movement,
-    // weapons): numbers from 1 handed out and taken back.
+    // Handles for the game's per-bot AI states (chat): numbers from 1
+    // handed out and taken back.
     int allocState(std::vector<bool>& used);
     static bool freeState(std::vector<bool>& used, int handle);
-    std::vector<bool> chatStates, goalStates, moveStates, weaponStates;
+    std::vector<bool> chatStates;
+
+    // Goals (bot_goals.cpp): the level's items, each bot's goal stack and
+    // goals to avoid for a while, and choosing items by their weights.
+    int allocGoalState(int client);
+    void freeGoalState(int handle);
+    void resetGoalState(int handle);
+    void resetAvoidGoals(int handle);
+    void pushGoal(int handle, const BotGoal& goal);
+    void popGoal(int handle);
+    void emptyGoalStack(int handle);
+    bool topGoal(int handle, BotGoal& goal, int depth = 1) const;
+    int loadItemWeights(int handle, const std::string& file);
+    void freeItemWeights(int handle);
+    bool chooseLtgItem(int handle, const Vec3f& origin, const std::vector<int>& inventory, int travelFlags);
+    bool chooseNbgItem(int handle, const Vec3f& origin, const std::vector<int>& inventory, int travelFlags,
+                       const BotGoal* ltg, float maxTime);
+    static bool touchingGoal(const Vec3f& origin, const BotGoal& goal);
+    bool itemGoalInVisButNotVisible(int viewer, const Vec3f& eye, const BotGoal& goal);
+    int levelItemGoal(int index, const std::string& name, BotGoal& goal) const;
+    float avoidGoalTime(int handle, int number) const;
+    void removeFromAvoidGoals(int handle, int number);
+    void initLevelItems();
+    void updateEntityItems();
+    std::string goalName(int number) const;
+    int nextCampSpotGoal(int num, BotGoal& goal) const;
+    bool mapLocationGoal(const std::string& name, BotGoal& goal) const;
+    // The area a bot at a point is in, or its last one with reachabilities.
+    int reachabilityArea(const Vec3f& origin) const;
+
+    // Weapons (bot_weapons.cpp).
+    int allocWeaponState();
+    void freeWeaponState(int handle);
+    int loadWeaponWeights(int handle, const std::string& file);
+    int chooseBestFightWeapon(int handle, const std::vector<int>& inventory) const;
+    const WeaponInfo* weaponInfo(int weapon) const;
+
+    // Movement (bot_move.cpp): following routes, per kind of travel.
+    int allocMoveState();
+    void freeMoveState(int handle);
+    void resetMoveState(int handle);
+    void initMoveState(int handle, const BotInitMove& init);
+    BotMoveResult moveToGoal(int handle, const BotGoal& goal, int travelFlags);
+    bool moveInDirection(int handle, const Vec3f& dir, float speed, int type);
+    void resetAvoidReach(int handle);
+    void resetLastAvoidReach(int handle);
+    bool movementViewTarget(int handle, const BotGoal& goal, int travelFlags, float lookahead, Vec3f& target);
+    bool predictVisiblePosition(const Vec3f& origin, int area, const BotGoal& goal, int travelFlags, Vec3f& target);
 
 private:
+    struct LevelItem {
+        int number = 0, itemInfo = 0, flags = 0;
+        float weight = 0;
+        Vec3f origin{};
+        int goalArea = 0;
+        Vec3f goalOrigin{};
+        int entity = 0;
+        float timeout = 0;
+    };
+    struct GoalState {
+        int client = 0, lastArea = 0;
+        std::shared_ptr<WeightConfig> weights;
+        std::vector<int> weightIndex; // per item info
+        std::vector<BotGoal> stack;
+        std::map<int, float> avoid; // goal number -> until when
+    };
+    struct WeaponState {
+        std::shared_ptr<WeightConfig> weights;
+        std::vector<int> weightIndex; // per weapon
+    };
+    struct MoveState {
+        Vec3f origin{}, velocity{}, viewOffset{}, viewAngles{}, lastOrigin{};
+        int entity = 0, client = 0, presence = 0, moveFlags = 0;
+        float thinkTime = 0;
+        int area = 0, lastArea = 0, lastGoalArea = 0, lastReach = 0, reachArea = 0, jumpReach = 0;
+        float reachTime = 0;
+        std::map<int, std::pair<float, int>> avoidReach; // reachability -> until when, tries
+    };
+    struct Spot {
+        Vec3f origin{};
+        int area = 0;
+        std::string name;
+    };
+    template <class T> static T* state(std::vector<std::unique_ptr<T>>& v, int handle) {
+        return handle >= 1 && size_t(handle) <= v.size() ? v[size_t(handle) - 1].get() : nullptr;
+    }
+    template <class T> static const T* state(const std::vector<std::unique_ptr<T>>& v, int handle) {
+        return handle >= 1 && size_t(handle) <= v.size() ? v[size_t(handle) - 1].get() : nullptr;
+    }
+    template <class T> static int alloc(std::vector<std::unique_ptr<T>>& v) {
+        for (size_t i = 0; i < v.size(); ++i)
+            if (!v[i]) {
+                v[i] = std::make_unique<T>();
+                return int(i) + 1;
+            }
+        v.push_back(std::make_unique<T>());
+        return int(v.size());
+    }
+    std::shared_ptr<WeightConfig> weights(const std::string& file);
+    void loadConfigs();
+    int bestReachableArea(const Vec3f& origin, const Vec3f& mins, const Vec3f& maxs, Vec3f& goalOrigin) const;
+    bool itemAllowed(const LevelItem& li) const;
+    bool chooseItem(int handle, const Vec3f& origin, const std::vector<int>& inventory, int travelFlags,
+                    const BotGoal* ltg, float maxTime, bool nearby);
+    int reachabilityToGoal(const Vec3f& origin, int area, int lastGoalArea, int lastArea, MoveState* ms,
+                           const BotGoal& goal, int travelFlags);
+    bool onGround(const MoveState& ms) const;
+    void checkBlocked(const MoveState& ms, const Vec3f& dir, bool checkBottom, BotMoveResult& result) const;
+    float gapDistance(const MoveState& ms, const Vec3f& hordir) const;
+    BotMoveResult travel(MoveState& ms, const AasReach& reach, bool finishing);
+    int entityOnTopOf(const MoveState& ms) const;
+
     bool setup_ = false;
     std::map<std::string, std::string> libVars_;
     std::vector<std::string> defines_;
@@ -121,6 +294,16 @@ private:
     std::vector<BotEntityInfo> entities_ = std::vector<BotEntityInfo>(size_t(kMaxEntities));
     std::array<BotInput, kMaxClients> inputs_{};
     BotCharacters characters_;
+    bool configsLoaded_ = false;
+    std::vector<ItemInfo> items_;
+    std::vector<WeaponInfo> weapons_;
+    std::map<std::string, std::shared_ptr<WeightConfig>> weightFiles_;
+    std::vector<LevelItem> levelItems_;
+    std::vector<Spot> mapLocations_, campSpots_;
+    std::vector<std::unique_ptr<GoalState>> goalStates_;
+    std::vector<std::unique_ptr<WeaponState>> weaponStates_;
+    std::vector<std::unique_ptr<MoveState>> moveStates_;
+    std::map<int, std::string> modelTypes_; // brush model number -> its entity's class
 };
 
 } // namespace reluva::idtech3::botlib

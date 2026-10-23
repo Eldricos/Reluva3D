@@ -6,6 +6,7 @@
 #include "engines/idtech3/botlib/bot_library.h"
 
 #include <algorithm>
+#include <cstdlib>
 
 namespace reluva::idtech3::botlib {
 
@@ -20,6 +21,10 @@ int BotLibrary::shutdown() {
     setup_ = false;
     aas_ = AasWorld{};
     entities_.assign(size_t(kMaxEntities), {});
+    levelItems_.clear();
+    goalStates_.clear();
+    weaponStates_.clear();
+    moveStates_.clear();
     return blerr::None;
 }
 
@@ -49,6 +54,16 @@ int BotLibrary::loadMap(const std::string& mapName) {
               std::to_string(aas_.reachabilities().size()) + " reachabilities\n");
     entities_.assign(size_t(kMaxEntities), {});
     frames_ = 0;
+    // The brush models' kinds (elevators, doors...), for movement; the
+    // item and weapon descriptions; the level's items.
+    modelTypes_.clear();
+    for (int e = 1; entityKey && e <= entityCount; ++e) {
+        std::string model, classname;
+        if (entityKey(e, "model", model) && model.size() > 1 && model[0] == '*' && entityKey(e, "classname", classname))
+            modelTypes_[std::atoi(model.c_str() + 1)] = classname;
+    }
+    loadConfigs();
+    initLevelItems();
     return blerr::None;
 }
 

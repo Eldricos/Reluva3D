@@ -195,20 +195,51 @@ The library's calls are numbered by range:
 - **401–427, the elementary actions.** Attack, move, look, and so on.
 - **500–572, the AI.** Characters, chat, goals, movement and weapons.
 
-Up to 572 the numbers match Quake III's count and order. The elementary
-actions are three more than Quake III's (400–423), so Elite Force's order
-there isn't known yet; Reluva uses Quake III's until it is. The bot frame,
-`vmMain(10, time)`, runs before each server frame, as on the original
-server.
+200–211, 303–318 and 500–572 are Quake III's numbers. The game's own
+calls confirm them: what each passes, such as travel flags `0x11C0FBE`
+(Quake III's default set) to 316, a 13-argument move prediction to 318,
+and chat calls next to "game_enter" and "level_start".
+
+The elementary actions are in a different order from Quake III 1.32's,
+the bot library's older one, with an alt attack added at the end:
+
+| # | Action | Evidence |
+|---|---|---|
+| 400 | say | |
+| 401 | say to the team | `(client, "what do you say?")`, as Quake III's team orders |
+| 402–405 | use an item, drop an item, use an inventory item, drop one | not used |
+| 406 | gesture | in the "accompany" goal code |
+| 407 | command | `(client, buffer)` after "team %s" |
+| 408 | select a weapon | `(client, bs->weaponnum)`, every frame |
+| 409 | talk | twice, as Quake III's |
+| 410 | attack | with 427 where the bot fires; in the "q3tourney6" map script |
+| 411 | use | |
+| 412 | respawn | twice, as Quake III's |
+| 413, 414 | jump, delayed jump | not used by the game |
+| 415 | crouch | in the "accompany" goal code |
+| 416–422 | move up, down, forward, back, left, right; move | not used by the game |
+| 423 | view | `(client, bs->viewangles)` |
+| 424 | end of a regular frame | not used |
+| 425 | get the input | `(client, thinktime, bot_input_t*)`, once a bot frame |
+| 426 | reset the input | once a bot frame |
+| 427 | alt attack | next to every attack |
+
+The flag the alt attack sets in the bot's input isn't known yet: the
+game turns the flags into its command's buttons. Reluva assumes `0x4`.
+
+The bot frame, `vmMain(10, time)`, runs before each server frame, as on
+the original server.
 
 Reluva's side: `src/engines/idtech3/eliteforce/game_bots.cpp` and
 `src/engines/idtech3/botlib/`. In place so far: bots joining, the library's
 setup and entities, the `.aas` map (areas, routes, travel times), the BSP's
-entity keys, characters, the elementary actions, and goal stacks.
-Choosing goals and weapons, moving along routes and chat answer "none" for
-now. `reluva-tool game-run ... -addbot "name skill"` adds bots and lists
+entity keys, characters, the elementary actions, goals (the level's items,
+chosen by the bots' item weights), weapons (chosen by weapon weights, and
+their descriptions) and movement along routes. Chat and move prediction
+answer "none" for now. `reluva-tool game-run ... -addbot "name skill"` adds bots and lists
 the calls they make. `reluva-tool qvm-dis ... -syscalls 200 599`
-summarises each of the game's calls in a range.
+summarises each of the game's calls in a range, and `-func N` lists the
+function holding instruction N with the functions it calls.
 
 Reluva's side: `src/engines/idtech3/eliteforce/game_host.cpp`, run by
 `reluva-tool game-run <game folder> <map>`. Starting a level follows the

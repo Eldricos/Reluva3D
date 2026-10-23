@@ -5,6 +5,7 @@
 
 #include "engines/idtech3/bindings.h"
 #include "engines/idtech3/botlib/aas.h"
+#include "engines/idtech3/botlib/bot_library.h"
 #include "engines/idtech3/botlib/bot_script.h"
 #include "engines/idtech3/botlib/character.h"
 #include "engines/idtech3/bsp.h"
@@ -1232,6 +1233,103 @@ static void testBotCharacter() {
     CHECK(!chars.load(load, "bots/none_c.c", 1) == false); // falls back to the default character
 }
 
+static void testBotAi() {
+    using namespace reluva::idtech3::botlib;
+    const std::map<std::string, std::string> files = {
+        {"botfiles/w.c", "weight \"a\" { switch(1) { case 2: return 10; case 5: { switch(2) { default: return 30; } }"
+                         " default: return balance(50, 40, 60); } }\nweight \"b\" return 7;\n"
+                         "weight \"item_armor\" return 100;\nweight \"Phaser\" { switch(3) { case 1: return 0; default: return 20; } }\n"},
+        {"botfiles/items.c", "iteminfo \"item_armor\" { name \"Armor\" model \"m.md3\" modelindex 3 type 1 index 2"
+                             " respawntime 25 mins {-15,-15,-15} maxs {15,15,15} }\n"},
+        {"botfiles/weapons.c", "projectileinfo { name \"bolt\" damage 20 radius 1.5 }\n"
+                               "weaponinfo { number 2 name \"Phaser\" projectile \"bolt\" speed 0 offset {0, 5, -10} }\n"}};
+    auto read = [&](const std::string& path, std::vector<uint8_t>& data) {
+        if (path == "maps/test.aas") {
+            data = buildAas(true);
+            return true;
+        }
+        const auto it = files.find(path);
+        if (it == files.end())
+            return false;
+        data.assign(it->second.begin(), it->second.end());
+        return true;
+    };
+    BotLibrary lib;
+    lib.readFile = read;
+    // Fuzzy weights: a case while the count is below it.
+    auto w = readWeightConfig(lib.scriptLoader(), "w.c");
+    CHECK(w && w->weights.size() == 4);
+    std::vector<int> inv(256, 0);
+    CHECK(w->evaluate(w->find("a"), inv) == 10);
+    inv[1] = 3;
+    CHECK(w->evaluate(w->find("a"), inv) == 30);
+    inv[1] = 9;
+    CHECK(w->evaluate(w->find("a"), inv) == 50 && w->evaluate(w->find("b"), inv) == 7);
+    std::vector<WeaponInfo> weapons;
+    CHECK(readWeaponConfig(lib.scriptLoader(), "weapons.c", weapons) && weapons[2].valid);
+    CHECK(weapons[2].proj.damage == 20 && weapons[2].offset[2] == -10 && weapons[2].proj.radius == 1.5f);
+
+    // A level with an armour in area 2, its entity seen twice in place.
+    lib.entityCount = 1;
+    lib.entityKey = [](int e, const std::string& key, std::string& value) {
+        if (e != 1)
+            return false;
+        if (key == "classname")
+            value = "item_armor";
+        else if (key == "origin")
+            value = "150 0 10";
+        else
+            return false;
+        return true;
+    };
+    CHECK(lib.setup() == blerr::None && lib.loadMap("test") == blerr::None);
+    BotEntityState item;
+    item.type = 2;
+    item.modelIndex = 3;
+    item.origin = {150, 0, 10};
+    for (float t : {0.1f, 0.2f}) {
+        lib.startFrame(t);
+        lib.updateEntity(5, &item);
+    }
+    lib.updateEntityItems();
+    const int gs = lib.allocGoalState(0);
+    CHECK(lib.loadItemWeights(gs, "w.c") == blerr::None);
+    CHECK(lib.chooseLtgItem(gs, {50, 0, 0}, inv, tfl::Default));
+    BotGoal goal;
+    CHECK(lib.topGoal(gs, goal) && goal.area == 2 && goal.entity == 5 && (goal.flags & goalflag::Item));
+    CHECK(lib.goalName(goal.number) == "Armor");
+    // Avoided for a while once chosen.
+    lib.popGoal(gs);
+    CHECK(!lib.chooseLtgItem(gs, {50, 0, 0}, inv, tfl::Default));
+    const int ws = lib.allocWeaponState();
+    CHECK(lib.loadWeaponWeights(ws, "w.c") == blerr::None);
+    inv[3] = 1;
+    CHECK(lib.chooseBestFightWeapon(ws, inv) == 2);
+
+    // Moving: from area 1 towards area 3, walking along +x to the first
+    // reachability's start.
+    const int ms = lib.allocMoveState();
+    BotInitMove init;
+    init.origin = {30, 0, 0};
+    init.client = 1;
+    init.presence = presence::Normal;
+    init.orMoveFlags = moveflag::OnGround;
+    lib.initMoveState(ms, init);
+    BotGoal far;
+    far.area = 3;
+    far.origin = {250, 0, 0};
+    const BotMoveResult r = lib.moveToGoal(ms, far, tfl::Default);
+    CHECK(!r.failure && (r.travelType & travel::TypeMask) == travel::Walk);
+    const BotInput in = lib.getInput(1, 0.1f);
+    CHECK(in.dir[0] > 0.99f && in.speed == 400);
+    // In the goal's area: straight to it, slower when close.
+    lib.resetInput(1);
+    init.origin = {240, 0, 0};
+    lib.initMoveState(ms, init);
+    lib.moveToGoal(ms, far, tfl::Default);
+    CHECK(lib.getInput(1, 0.1f).speed == 40);
+}
+
 static void testPlayerAnimation() {
     const auto anims = parseAnimationConfig("sex f\nsoundpath alexa\n\n"
                                             "0\t47\t0\t10\t\t// BOTH_DEATH1\n"
@@ -1820,6 +1918,7 @@ int main() {
     testAas();
     testBotScript();
     testBotCharacter();
+    testBotAi();
     testVmFileList();
     testSoundLibrary(tmp / "sounds");
     testSoundSystem(tmp / "soundsystem");
