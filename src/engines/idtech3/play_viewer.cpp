@@ -452,7 +452,7 @@ void PlayViewer::runGame(uint64_t nowMs) {
     const float sensitivity = setting("sensitivity", 5);
     yaw_ -= mx * sensitivity * setting("m_yaw", 0.022f);
     if (setting("cl_freelook", 1) != 0 || held("mlook"))
-        pitch_ = std::clamp(pitch_ + my * sensitivity * setting("m_pitch", 0.022f), -89.0f, 89.0f);
+        pitch_ += my * sensitivity * setting("m_pitch", 0.022f);
     // Turning and looking by keys: cl_yawspeed and cl_pitchspeed degrees a
     // second, times cl_anglespeedkey with +speed; with +strafe, left and
     // right step instead.
@@ -460,8 +460,13 @@ void PlayViewer::runGame(uint64_t nowMs) {
     const bool strafe = held("strafe");
     if (!strafe)
         yaw_ += float(held("left") - held("right")) * setting("cl_yawspeed", 140) * keyScale;
-    pitch_ = std::clamp(pitch_ + float(held("lookdown") - held("lookup")) * setting("cl_pitchspeed", 140) * keyScale,
-                        -89.0f, 89.0f);
+    pitch_ += float(held("lookdown") - held("lookup")) * setting("cl_pitchspeed", 140) * keyScale;
+    // Not held within straight up and down here: the game keeps the view
+    // there, adding its own offset (the player state's delta angles, set
+    // when spawning to face the spawn point's way). Holding the command's
+    // pitch as well left the view stuck above level whenever that offset
+    // pointed upwards. Kept to a turn either way, as it wraps anyway.
+    pitch_ = std::remainder(pitch_, 360.0f);
     if (dt > 0) {
         // The player's command for this moment, as a client sends one each
         // frame: where they look, how they move, what they press. The game
@@ -989,7 +994,8 @@ void PlayViewer::addNotify(const std::string& text) {
 void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
     // The notify lines at the top, in their colours (^0-^7).
-    while (!notify_.empty() && nowMs - notify_.front().first > 3000)
+    // (A line printed during this frame is stamped a little after nowMs.)
+    while (!notify_.empty() && notify_.front().first + 3000 < nowMs)
         notify_.pop_front();
     static const Color kColors[8] = {{0, 0, 0},     {255, 0, 0},   {0, 255, 0},   {255, 255, 0},
                                      {0, 0, 255},   {0, 255, 255}, {255, 0, 255}, {255, 255, 255}};
