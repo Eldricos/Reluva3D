@@ -64,7 +64,7 @@ void CollisionWorld::buildPatches() {
         const BspVertex* control = &bsp_.vertices[size_t(surf.firstVertex)];
         const int w = surf.patchWidth, h = surf.patchHeight;
         // Within a sixteenth of a unit of round (2 * sqrt(bend) cuts).
-        const int level = patchLevel(control, w, h, 0.0625f);
+        const int level = patchLevel(control, w, h, 0.125f);
         std::vector<BspVertex> verts;
         std::vector<uint32_t> indices;
         tessellatePatch(control, w, h, level, verts, indices);

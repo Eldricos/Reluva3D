@@ -235,6 +235,7 @@ void PlayViewer::start(int index) {
     // The player's client game, given what the server has set.
     cgame_ = std::make_unique<eliteforce::CgameHost>(ctx_.files, cvars_);
     cgame_->print = [this](const std::string& text) { addPrint(text, true); };
+    cgame_->subdivisions = videoSettings(cvars_).subdivisions;
     notify_.clear();
     printPartial_[1].clear();
     if (ctx_.mixer) {
@@ -689,6 +690,8 @@ void PlayViewer::runGame(uint64_t nowMs) {
     }
     cgame_->clearScene();
     cgame_->clearPictures();
+    if (soundSystem_)
+        soundSystem_->setTime(nowMs);
     int32_t ignored = 0;
     if (Error err = cgame_->call(eliteforce::CgameHost::DrawActiveFrame, {clientTime_, 0, 0}, ignored)) {
         stop("The client game stopped: " + err.message);

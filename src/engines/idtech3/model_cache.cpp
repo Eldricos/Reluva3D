@@ -79,7 +79,7 @@ int ModelCache::load(const std::string& path, std::string* error) {
             }
     Error err = files_.read(file, data);
     if (!err)
-        err = parseModel(data, m.md3);
+        err = parseModel(data, m.md3, lodBias_); // an MDR's own levels of detail
 
     // Every surface's frames one after another; indices point into frame
     // 0 and a draw's vertex offset picks the frame.

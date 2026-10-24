@@ -448,7 +448,7 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         if (!map_ || a[0] < 3 || a[0] > 64 || !vm.valid(a[1], a[0] * 12) || !vm.valid(a[2], 12))
             return 0;
         if (!marks_)
-            marks_ = std::make_unique<MarkSurfaces>(*map_);
+            marks_ = std::make_unique<MarkSurfaces>(*map_, subdivisions);
         auto vec = [&](int32_t at) {
             return Vec3f{Qvm::asFloat(vm.readInt(at)), Qvm::asFloat(vm.readInt(at + 4)),
                          Qvm::asFloat(vm.readInt(at + 8))};

@@ -28,9 +28,9 @@ constexpr int32_t Sky = 0x4, NoImpact = 0x10, NoMarks = 0x20;
 class MarkSurfaces {
 public:
     // The world's surfaces (the map's first model): planar faces,
-    // triangle soups and patches, tessellated `patchLevel` quads a block
-    // each way, as they're drawn.
-    explicit MarkSurfaces(const Bsp& bsp, int patchLevel = 6);
+    // triangle soups and patches, tessellated as they're drawn: straying
+    // from round by at most `subdivisions` units (r_subdivisions).
+    explicit MarkSurfaces(const Bsp& bsp, float subdivisions = 4);
 
     struct Fragment {
         int32_t firstPoint = 0, numPoints = 0; // in the points handed back

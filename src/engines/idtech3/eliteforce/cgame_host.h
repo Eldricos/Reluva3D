@@ -151,6 +151,7 @@ public:
 
     // Where its sounds go (S_StartSound...); none if not set.
     SoundSystem* soundSystem = nullptr;
+    float subdivisions = 4; // r_subdivisions, for marks on curves to lie on them as drawn
 
     std::function<void(const std::string&)> print;
     const std::string& log() const { return log_; }

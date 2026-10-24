@@ -50,7 +50,7 @@ void clip(std::vector<Vec3f>& poly, const ClipPlane& plane) {
 
 } // namespace
 
-MarkSurfaces::MarkSurfaces(const Bsp& bsp, int patchLevel) {
+MarkSurfaces::MarkSurfaces(const Bsp& bsp, float subdivisions) {
     if (bsp.models.empty())
         return;
     const BspModel& world = bsp.models[0];
@@ -72,7 +72,8 @@ MarkSurfaces::MarkSurfaces(const Bsp& bsp, int patchLevel) {
         if (s.type == SurfaceType::Patch) {
             patchVerts.clear();
             patchIndices.clear();
-            tessellatePatch(v, s.patchWidth, s.patchHeight, patchLevel, patchVerts, patchIndices);
+            tessellatePatch(v, s.patchWidth, s.patchHeight, patchLevel(v, s.patchWidth, s.patchHeight, subdivisions),
+                            patchVerts, patchIndices);
             verts = patchVerts.data();
             patchIdx.assign(patchIndices.begin(), patchIndices.end());
             idx = patchIdx.data();

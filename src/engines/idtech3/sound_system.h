@@ -9,6 +9,7 @@
 #include "common/audio/mixer.h"
 
 #include <array>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <optional>
@@ -31,9 +32,13 @@ public:
     SoundSystem(const SoundSystem&) = delete;
     SoundSystem& operator=(const SoundSystem&) = delete;
 
-    // Channel 0 plays any number of sounds at once; on any other an
-    // entity's new sound replaces the one it has playing there.
+    // As the original's: a new sound never cuts one already playing, on
+    // any channel. One the entity started under 50 ms ago is a repeat and
+    // skipped, and an entity plays at most 5 of the same sound at once
+    // (the listener 9). Channel 0 is the original's "any channel".
     static constexpr int kAutoChannel = 0;
+    // The time now, for telling repeats; each frame before the client game.
+    void setTime(uint64_t ms) { nowMs_ = ms; }
 
     // A sound at `origin`, or (without one) following entity `entity`.
     void startSound(const std::optional<Vec3f>& origin, int entity, int channel, const std::string& name);
@@ -71,7 +76,11 @@ private:
         int entity = -1, channel = 0;
         std::optional<Vec3f> origin; // fixed; else the entity's
         bool local = false;
+        std::string name;
+        uint64_t startMs = 0;
     };
+    // Whether `entity` may start `name` now (see kAutoChannel).
+    bool allowed(int entity, bool local, const std::string& name) const;
     std::shared_ptr<const audio::Sound> find(const std::string& name);
     void place(audio::SoundHandle handle, const std::optional<Vec3f>& origin, int entity);
 
@@ -83,6 +92,7 @@ private:
     std::map<std::pair<int, std::string>, audio::SoundHandle> loops_;
     std::map<std::pair<int, std::string>, Vec3f> loopsAdded_;
     int listener_ = -1;
+    uint64_t nowMs_ = 0;
     Vec3f listenerOrigin_{};
     std::array<Vec3f, 3> listenerAxes_{{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}};
     audio::SoundHandle music_ = audio::kNoSound;

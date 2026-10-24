@@ -15,6 +15,7 @@
 
 #include "common/fs.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 
@@ -69,7 +70,7 @@ Bone unpack(const std::vector<uint8_t>& d, size_t at) {
 
 } // namespace
 
-Error parseMdr(const std::vector<uint8_t>& data, Md3Model& out) {
+Error parseMdr(const std::vector<uint8_t>& data, Md3Model& out, int lod) {
     out = Md3Model{};
     const size_t size = data.size();
     if (size < kHeaderSize || std::memcmp(data.data(), "RDM5", 4) != 0)
@@ -116,13 +117,21 @@ Error parseMdr(const std::vector<uint8_t>& data, Md3Model& out) {
         }
     }
 
-    // The first (most detailed) level of detail's surfaces. Each vertex is
+    // The level of detail's surfaces (0 the most detailed; the levels
+    // follow each other, each giving where it ends). Each vertex is
     // placed by its weights: the sum of each bone's matrix times the
     // weight's offset, times the weight; its normal likewise, rotated only.
-    if (!inside(size, ofsLods, kLodSize))
+    int64_t lodAt = ofsLods;
+    if (!inside(size, lodAt, kLodSize))
         return Error::fail("MDR levels of detail outside the file");
-    const int32_t numSurfaces = i32(data, size_t(ofsLods));
-    int64_t surfaceAt = int64_t(ofsLods) + i32(data, size_t(ofsLods) + 4);
+    for (int l = 0; l < std::min(lod, numLods - 1); ++l) {
+        const int64_t next = lodAt + i32(data, size_t(lodAt) + 8);
+        if (next <= lodAt || !inside(size, next, kLodSize))
+            break; // the last good one
+        lodAt = next;
+    }
+    const int32_t numSurfaces = i32(data, size_t(lodAt));
+    int64_t surfaceAt = lodAt + i32(data, size_t(lodAt) + 4);
     for (int32_t s = 0; s < numSurfaces; ++s) {
         if (!inside(size, surfaceAt, kSurfaceSize))
             return Error::fail("MDR surface outside the file");
@@ -218,9 +227,9 @@ Error parseMdr(const std::vector<uint8_t>& data, Md3Model& out) {
     return Error::success();
 }
 
-Error parseModel(const std::vector<uint8_t>& data, Md3Model& out) {
+Error parseModel(const std::vector<uint8_t>& data, Md3Model& out, int lod) {
     if (data.size() >= 4 && std::memcmp(data.data(), "RDM5", 4) == 0)
-        return parseMdr(data, out);
+        return parseMdr(data, out, lod);
     return parseMd3(data, out);
 }
 

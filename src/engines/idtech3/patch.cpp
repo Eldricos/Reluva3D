@@ -145,7 +145,7 @@ int patchLevel(const BspVertex* control, int width, int height, float error) {
     const float bend = patchBend(control, width, height);
     if (bend < 0.5f)
         return 1;
-    return std::clamp(int(std::ceil(std::sqrt(bend / (4 * std::max(error, 0.01f))))), 2, 16);
+    return std::clamp(int(std::ceil(std::sqrt(bend / (2 * std::max(error, 0.01f))))), 2, 16);
 }
 
 } // namespace reluva::idtech3

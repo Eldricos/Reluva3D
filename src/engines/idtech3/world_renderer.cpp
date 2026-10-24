@@ -190,12 +190,10 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
             if (s.type == SurfaceType::Patch) {
                 patchVerts.clear();
                 patchIndices.clear();
-                // Curves cut finely enough to stray from round by at most an
-                // eighth of r_subdivisions (4, the default: half a unit,
-                // about as fine as the original draws them).
+                // Curves cut finely enough to stray from round by at most
+                // r_subdivisions units, as the original's.
                 tessellatePatch(v, s.patchWidth, s.patchHeight,
-                                patchLevel(v, s.patchWidth, s.patchHeight, subdivisions_ / 8), patchVerts,
-                                patchIndices);
+                                patchLevel(v, s.patchWidth, s.patchHeight, subdivisions_), patchVerts, patchIndices);
                 for (const BspVertex& pv : patchVerts)
                     vertices.push_back(toGfx(pv));
                 for (uint32_t i : patchIndices)

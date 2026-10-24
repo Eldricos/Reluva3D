@@ -62,36 +62,39 @@ void SoundSystem::place(audio::SoundHandle handle, const std::optional<Vec3f>& o
     mixer_.setPan(handle, int(pan * float(audio::kMaxPan)));
 }
 
+bool SoundSystem::allowed(int entity, bool local, const std::string& name) const {
+    // Local sounds count as the listener's.
+    const auto owner = [&](const Playing& p) { return p.local ? listener_ : p.entity; };
+    const int who = local ? listener_ : entity;
+    int inPlay = 0;
+    for (const Playing& p : playing_) {
+        if (p.handle == audio::kNoSound || owner(p) != who || p.name != name || !mixer_.isPlaying(p.handle))
+            continue;
+        if (nowMs_ - p.startMs < 50)
+            return false;
+        ++inPlay;
+    }
+    return inPlay <= (who == listener_ ? 8 : 4);
+}
+
 void SoundSystem::startSound(const std::optional<Vec3f>& origin, int entity, int channel, const std::string& name) {
     const auto sound = find(name);
-    if (!sound)
+    if (!sound || !allowed(entity, false, name))
         return;
-    if (channel != kAutoChannel)
-        for (Playing& p : playing_)
-            if (!p.local && p.entity == entity && p.channel == channel) {
-                mixer_.stop(p.handle);
-                p.handle = audio::kNoSound;
-            }
     const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::Effects, 0);
     if (handle == audio::kNoSound)
         return;
     place(handle, origin, entity);
-    playing_.push_back({handle, entity, channel, origin, false});
+    playing_.push_back({handle, entity, channel, origin, false, name, nowMs_});
 }
 
 void SoundSystem::startLocalSound(const std::string& name, int channel) {
     const auto sound = find(name);
-    if (!sound)
+    if (!sound || !allowed(-1, true, name))
         return;
-    if (channel != kAutoChannel)
-        for (Playing& p : playing_)
-            if (p.local && p.channel == channel) {
-                mixer_.stop(p.handle);
-                p.handle = audio::kNoSound;
-            }
     const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::Effects);
     if (handle != audio::kNoSound)
-        playing_.push_back({handle, -1, channel, std::nullopt, true});
+        playing_.push_back({handle, -1, channel, std::nullopt, true, name, nowMs_});
 }
 
 void SoundSystem::clearLoopingSounds() { loopsAdded_.clear(); }

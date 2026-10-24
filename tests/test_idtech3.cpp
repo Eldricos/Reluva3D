@@ -940,18 +940,22 @@ static void testSoundSystem(const std::filesystem::path& tmp) {
     auto [far, left] = sounds.spatialize({0, 2000, 0});
     CHECK(far == 0 && left < -0.99f);
 
-    // Channel 0 adds; channel 1 replaces the entity's sound there.
+    // No sound cuts another, on any channel; the same sound on the same
+    // entity within 50 ms is a repeat, skipped.
     std::vector<int16_t> out(2 * 64);
+    sounds.setTime(1000);
     sounds.startSound(Vec3f{0, 0, 0}, 3, 0, "sound/a.wav");
     sounds.startSound(Vec3f{0, 0, 0}, 3, 0, "sound/b.wav");
-    sounds.startSound(std::nullopt, 3, 1, "sound/a.wav");
-    sounds.startSound(std::nullopt, 3, 1, "sound/b.wav");
+    sounds.startSound(std::nullopt, 3, 1, "sound/a.wav"); // a repeat
+    sounds.startSound(std::nullopt, 4, 1, "sound/a.wav");
     sounds.startSound(std::nullopt, 3, 1, "sound/missing.wav"); // nothing, and nothing stopped
+    sounds.setTime(1100);
+    sounds.startSound(std::nullopt, 3, 1, "sound/a.wav"); // no longer a repeat
     mixer.mix(out.data(), 64);
     int playing = 0;
     for (audio::SoundHandle h = 1; h < 10; ++h)
         playing += mixer.isPlaying(h);
-    CHECK(playing == 3);
+    CHECK(playing == 4);
     sounds.stopAll();
 
     // A looping sound plays while it's added each frame.
