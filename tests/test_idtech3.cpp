@@ -2034,7 +2034,9 @@ void testVideoSettings() {
     cvars.set("r_subdivisions", "999");
     cvars.set("r_lodBias", "1");
     cvars.set("r_fastsky", "1");
+    cvars.set("r_ext_texture_filter_anisotropic", "1");
     v = videoSettings(cvars);
+    CHECK(v.anisotropic);
     CHECK(v.width == 640 && v.height == 480 && v.fullscreen);
     CHECK(v.picmip == 4 && !v.nearest && v.mipmaps && !v.mipNearest);
     CHECK(v.subdivisions == 80 && v.lodBias == 1 && v.fastSky);

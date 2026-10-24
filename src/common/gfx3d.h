@@ -50,6 +50,7 @@ struct TextureParams {
     bool mipmaps = true;  // generate mipmaps and filter between them
     bool nearest = false; // nearest-neighbour instead of linear filtering
     bool mipNearest = false; // the nearest mipmap instead of blending two (bilinear, not trilinear)
+    bool anisotropic = false; // anisotropic filtering, for mipmapped textures
 };
 
 // Blend factors for result = src * srcFactor + dst * dstFactor.

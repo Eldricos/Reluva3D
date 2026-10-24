@@ -114,6 +114,7 @@ struct VideoSettings {
     int picmip = 0;                // r_picmip: textures halved this many times (texture detail)
     // r_texturemode: GL_{NEAREST,LINEAR}[_MIPMAP_{NEAREST,LINEAR}]
     bool nearest = false, mipmaps = true, mipNearest = true;
+    bool anisotropic = false;  // r_ext_texture_filter_anisotropic
     bool vertexLight = false;  // r_vertexLight: the level lit by its vertices, not its lightmaps
     float subdivisions = 4;    // r_subdivisions: how far curves may stray from round, in units (geometric detail)
     int lodBias = 0;           // r_lodBias: models' lower details used (geometric detail)

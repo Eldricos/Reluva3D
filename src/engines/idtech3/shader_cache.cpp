@@ -178,6 +178,7 @@ gfx::TextureId ShaderCache::image(const std::string& name, bool clamp, bool mipm
             params.mipmaps = textureOptions_.mipmaps;
             params.nearest = textureOptions_.nearest;
             params.mipNearest = textureOptions_.mipNearest;
+            params.anisotropic = textureOptions_.anisotropic;
         }
         // Texture detail: halved (each 2x2 pixels averaged), down to a
         // pixel at least.
@@ -314,6 +315,14 @@ ShaderCache::Material ShaderCache::makeMaterial(const ShaderDef& def, Lighting l
 }
 
 int ShaderCache::material(const ShaderDef& def, Lighting lighting, bool sky) {
+    if (lighting == Lighting::TwoD && !(def.noMipmaps && def.noPicmip)) {
+        // Pictures (menus, the HUD) are registered without mipmaps, so the
+        // texture detail and filter settings leave them alone.
+        ShaderDef flat = def;
+        flat.noMipmaps = flat.noPicmip = true;
+        materials_.push_back(makeMaterial(flat, lighting, sky));
+        return static_cast<int>(materials_.size()) - 1;
+    }
     materials_.push_back(makeMaterial(def, lighting, sky));
     return static_cast<int>(materials_.size()) - 1;
 }

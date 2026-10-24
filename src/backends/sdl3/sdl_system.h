@@ -54,6 +54,7 @@ private:
     void release3D();
 
     SDL_Window* window_ = nullptr;
+    bool relativeMouse_ = false; // held by setRelativeMouse, held again when the window changes
     SDL_Renderer* renderer_ = nullptr;
     SDL_GPUDevice* gpu_ = nullptr; // set when renderer_ runs on SDL's GPU API, which 3D needs
     std::unique_ptr<SdlGpuRenderer> renderer3d_;

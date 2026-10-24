@@ -134,14 +134,18 @@ Error SdlGpuRenderer::init(int width, int height) {
     if (!vertexShader_ || !fragmentShader_)
         return sdlError("Cannot create the 3D shaders");
 
-    for (int i = 0; i < 16; ++i) {
-        const bool clamp = i & 1, mipmaps = i & 2, nearest = i & 4, mipNearest = i & 8;
+    for (int i = 0; i < 32; ++i) {
+        const bool clamp = i & 1, mipmaps = i & 2, nearest = i & 4, mipNearest = i & 8, anisotropic = i & 16;
         SDL_GPUSamplerCreateInfo info{};
         info.min_filter = info.mag_filter = nearest ? SDL_GPU_FILTER_NEAREST : SDL_GPU_FILTER_LINEAR;
         info.mipmap_mode = nearest || mipNearest ? SDL_GPU_SAMPLERMIPMAPMODE_NEAREST : SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
         info.address_mode_u = info.address_mode_v = info.address_mode_w =
             clamp ? SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE : SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
         info.max_lod = mipmaps ? 1000.0f : 0.0f;
+        // Sharper textures seen at a slant; every Vulkan and Metal device
+        // SDL takes has it.
+        info.enable_anisotropy = anisotropic && mipmaps;
+        info.max_anisotropy = 16.0f;
         samplers_[i] = SDL_CreateGPUSampler(device_, &info);
         if (!samplers_[i])
             return sdlError("Cannot create a sampler");
@@ -340,7 +344,7 @@ Error SdlGpuRenderer::createTexture(int width, int height, const uint8_t* rgba, 
 
     out = nextId_++;
     textures_[out] = {tex, int(params.clamp) | int(levels > 1) << 1 | int(params.nearest) << 2 |
-                               int(params.mipNearest) << 3};
+                               int(params.mipNearest) << 3 | int(params.anisotropic) << 4};
     return Error::success();
 }
 

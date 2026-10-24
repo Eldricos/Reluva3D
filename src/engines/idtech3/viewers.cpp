@@ -223,6 +223,25 @@ void loadConfig(ViewerContext& ctx) {
         out.assign(data.begin(), data.end());
         return true;
     };
+    // The engine's own settings, which its config file keeps (Archive)
+    // like the game code's: the menus show and change them.
+    static const char* const kEngineCvars[][2] = {
+        // Video.
+        {"r_mode", "5"}, {"r_fullscreen", "0"}, {"r_customwidth", "1600"}, {"r_customheight", "1024"},
+        {"r_picmip", "0"}, {"r_texturemode", "GL_LINEAR_MIPMAP_NEAREST"}, {"r_vertexLight", "0"},
+        {"r_subdivisions", "4"}, {"r_lodbias", "0"}, {"r_fastsky", "0"}, {"r_gamma", "1"},
+        {"r_dynamiclight", "1"}, {"r_ext_texture_filter_anisotropic", "0"}, {"r_lowEndVideo", "0"},
+        {"r_glDriver", "opengl32"}, {"r_allowExtensions", "1"}, {"r_colorbits", "32"}, {"r_texturebits", "32"},
+        {"r_ext_compress_textures", "0"},
+        // Input.
+        {"sensitivity", "5"}, {"m_pitch", "0.022"}, {"m_yaw", "0.022"}, {"m_filter", "0"},
+        {"cl_freelook", "1"}, {"cl_run", "1"}, {"cl_yawspeed", "140"}, {"cl_pitchspeed", "140"},
+        {"cl_anglespeedkey", "1.5"},
+        // Sound.
+        {"s_volume", "0.8"}, {"s_musicvolume", "0.25"},
+    };
+    for (const auto& [name, value] : kEngineCvars)
+        ctx.cvars.create(name, value, CvarStore::Archive);
     std::string text;
     std::vector<uint8_t> data;
     if (!ctx.files.read("default.cfg", data))
@@ -280,6 +299,7 @@ VideoSettings videoSettings(const CvarStore& c) {
         v.mipmaps = mode.find("MIPMAP") != std::string::npos;
         v.mipNearest = mode.size() >= 8 && mode.compare(mode.size() - 8, 8, "_NEAREST") == 0;
     }
+    v.anisotropic = integer("r_ext_texture_filter_anisotropic", 0) != 0;
     v.vertexLight = integer("r_vertexLight", 0) != 0;
     if (c.find("r_subdivisions"))
         v.subdivisions = std::clamp(c.value("r_subdivisions"), 1.0f, 80.0f);
@@ -289,7 +309,7 @@ VideoSettings videoSettings(const CvarStore& c) {
 }
 
 void applyVideoSettings(const VideoSettings& v, ShaderCache& shaders, WorldRenderer* world, ModelCache* models) {
-    shaders.setTextureOptions({v.picmip, v.nearest, v.mipmaps, v.mipNearest});
+    shaders.setTextureOptions({v.picmip, v.nearest, v.mipmaps, v.mipNearest, v.anisotropic});
     if (world)
         world->setOptions(v.vertexLight, v.subdivisions, v.fastSky);
     if (models)

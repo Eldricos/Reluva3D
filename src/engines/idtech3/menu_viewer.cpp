@@ -45,7 +45,6 @@ void MenuViewer::activate() {
     }
     overlay_.create(frameW_, frameH_, PixelFormat::RGBA32);
     shaders_ = std::make_unique<ShaderCache>(*renderer_, ctx_.files, ctx_.shaders);
-    applyVideoSettings(video, *shaders_, nullptr, nullptr);
     materials_.clear();
     shownMs_ = 0;
     // The menus draw their own pointer, and have text fields.
@@ -312,8 +311,11 @@ void MenuViewer::update(uint64_t nowMs) {
     if (!shownMs_)
         shownMs_ = nowMs;
     if (restart_) {
+        // As the original's vid_restart: the menus start over too (at the
+        // main menu), so they lay themselves out for the new size.
         restart_ = false;
         deactivate();
+        ui_.reset();
         activate();
         if (!renderer_)
             return;

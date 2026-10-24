@@ -155,6 +155,8 @@ void SdlSystem::resetForLauncher() {
     stopAudio();
     SDL_StopTextInput(window_);
     SDL_ShowCursor();
+    relativeMouse_ = false;
+    SDL_SetWindowRelativeMouseMode(window_, false);
     SDL_SetWindowFullscreen(window_, false);
     release3D();
     if (gameTexture_) {
@@ -273,6 +275,17 @@ bool SdlSystem::pollEvent(Event& out) {
             out.type = EventType::TextInput;
             SDL_strlcpy(out.text, ev.text.text, sizeof out.text);
             return true;
+        case SDL_EVENT_WINDOW_FOCUS_GAINED:
+        case SDL_EVENT_WINDOW_RESIZED:
+        case SDL_EVENT_WINDOW_ENTER_FULLSCREEN:
+        case SDL_EVENT_WINDOW_LEAVE_FULLSCREEN:
+            // The window changed under a held mouse: hold it again, as some
+            // systems let it go.
+            if (relativeMouse_) {
+                SDL_SetWindowRelativeMouseMode(window_, false);
+                SDL_SetWindowRelativeMouseMode(window_, true);
+            }
+            break;
         default:
             break; // ignore everything else
         }
@@ -298,17 +311,27 @@ void SdlSystem::setVideoMode(int width, int height, bool fullscreen) {
     if (!window_)
         return;
     // Fullscreen at the desktop's own mode (null), which needs no mode switch.
-    SDL_SetWindowFullscreenMode(window_, nullptr);
-    SDL_SetWindowFullscreen(window_, fullscreen);
-    if (fullscreen)
-        return;
+    const bool wasFullscreen = (SDL_GetWindowFlags(window_) & SDL_WINDOW_FULLSCREEN) != 0;
+    if (fullscreen != wasFullscreen) {
+        SDL_SetWindowFullscreenMode(window_, nullptr);
+        SDL_SetWindowFullscreen(window_, fullscreen);
+    }
     SDL_Rect usable{};
-    if (SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(window_), &usable) && width <= usable.w && height <= usable.h &&
-        !(SDL_GetWindowFlags(window_) & SDL_WINDOW_MAXIMIZED))
+    int w = 0, h = 0;
+    SDL_GetWindowSize(window_, &w, &h);
+    if (!fullscreen && (w != width || h != height) &&
+        SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(window_), &usable) && width <= usable.w &&
+        height <= usable.h && !(SDL_GetWindowFlags(window_) & SDL_WINDOW_MAXIMIZED))
         SDL_SetWindowSize(window_, width, height);
+    // The changes happen in their own time on some systems: wait, so the
+    // mouse is held by the window as it ends up.
+    SDL_SyncWindow(window_);
+    if (relativeMouse_)
+        SDL_SetWindowRelativeMouseMode(window_, true);
 }
 
 void SdlSystem::setRelativeMouse(bool on) {
+    relativeMouse_ = on;
     if (window_)
         SDL_SetWindowRelativeMouseMode(window_, on);
 }
