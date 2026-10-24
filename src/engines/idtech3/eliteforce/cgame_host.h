@@ -148,9 +148,6 @@ private:
     Scene scene_;
     std::map<int32_t, int32_t> cleared_; // memset(address, 0, size): the last size by address
     std::map<int32_t, std::shared_ptr<const Md3Model>> md3s_; // by model handle, for tags
-    // Looping sounds added without an entity this frame: each told apart
-    // by its order, which stays the same from frame to frame.
-    int loopsThisFrame_ = 0;
     std::array<float, 3> tempBoxMins_{}, tempBoxMaxs_{};
     std::unique_ptr<CollisionWorld> world_;
     std::unique_ptr<MarkSurfaces> marks_; // made from map_ on the first mark

@@ -878,11 +878,21 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
                 lines.push_back(loops.size() > 150 ? loops.substr(0, 150) + "..." : loops);
             }
             if (soundSystem_ && !soundSystem_->missing().empty()) {
-                // Each with why (not found, or not readable), the last few.
-                const auto& problems = soundLibrary_.problems();
-                lines.push_back(std::to_string(soundSystem_->missing().size()) + " sounds couldn't be played:");
-                for (size_t i = problems.size() > 3 ? problems.size() - 3 : 0; i < problems.size(); ++i)
-                    lines.push_back("  " + (problems[i].size() > 150 ? problems[i].substr(0, 150) + "..." : problems[i]));
+                // Their names, the voices' (which the game files lack, as the
+                // original's) left out, then why the last one failed.
+                std::string names;
+                size_t voices = 0;
+                for (const std::string& n : soundSystem_->missing()) {
+                    if (n.rfind("sound/voice/", 0) == 0)
+                        ++voices;
+                    else
+                        names += " " + n;
+                }
+                lines.push_back(std::to_string(soundSystem_->missing().size()) + " sounds couldn't be played (" +
+                                std::to_string(voices) + " voices):" + (names.size() > 120 ? names.substr(0, 120) + "..." : names));
+                if (const auto& problems = soundLibrary_.problems(); !problems.empty())
+                    lines.push_back("  last: " + (problems.back().size() > 150 ? problems.back().substr(0, 150) + "..."
+                                                                               : problems.back()));
             }
             std::snprintf(line, sizeof line, "%d areas; sight checks a closed door blocked: %d%s", game_->areaCount(),
                           game_->closedDoorBlocks(), cvars_.integer("cm_noAreas") ? " (cm_noAreas 1: areas ignored)" : "");

@@ -134,9 +134,11 @@ void SoundSystem::note(std::string line) {
 }
 
 std::vector<std::string> SoundSystem::loopingNow() const {
+    // Every loop the client game asked for this frame, and whether it plays.
     std::vector<std::string> out;
-    for (const auto& [key, handle] : loops_)
-        out.push_back(key.second + " (entity " + std::to_string(key.first) + ")");
+    for (const auto& [key, origin] : loopsAdded_)
+        out.push_back((key.second.empty() ? std::string("(no name)") : key.second) + " (entity " +
+                      std::to_string(key.first) + (loops_.count(key) ? ")" : ", not found)"));
     return out;
 }
 

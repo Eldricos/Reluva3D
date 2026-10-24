@@ -358,7 +358,7 @@ numbering wherever it can be checked:
 | 28 | `S_StartSound(origin, entityNum, channel, sound)` | seen | `(0, 253, 0, 14)` |
 | 29 | `S_StartLocalSound(sound, channel)` | seen | `(9, 6)` |
 | 30 | `S_ClearLoopingSounds()` | seen | at the start of a frame |
-| 31 | `S_AddLoopingSound(...)` | order | taken in either of Quake III's forms, `(entityNum, origin, velocity, sound)` or the earlier `(origin, velocity, sound)` (a first argument of 1024 or more is an address), until a trace shows which |
+| 31 | `S_AddLoopingSound(entityNum, origin, velocity, sound)` | seen | `(0, 839836, 12912, 109)` every frame while firing (`game-run -cgame -fire -trace`): Quake III's later form, with the entity |
 | 32 | `S_UpdateEntityPosition(entityNum, origin)` | seen | 247 calls in three frames, one per entity |
 | 33 | `S_Respatialize(entityNum, origin, axis, inWater)` | seen | once a frame |
 | 34 | `S_RegisterSound(name)` | seen | the countdown voices, footsteps, item sounds |
