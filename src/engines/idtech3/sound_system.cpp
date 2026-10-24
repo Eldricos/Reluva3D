@@ -62,24 +62,32 @@ void SoundSystem::place(audio::SoundHandle handle, const std::optional<Vec3f>& o
     mixer_.setPan(handle, int(pan * float(audio::kMaxPan)));
 }
 
-bool SoundSystem::allowed(int entity, bool local, const std::string& name) const {
+bool SoundSystem::allowed(int entity, bool local, const std::string& name, const std::optional<Vec3f>& origin) const {
     // Local sounds count as the listener's.
     const auto owner = [&](const Playing& p) { return p.local ? listener_ : p.entity; };
     const int who = local ? listener_ : entity;
-    int inPlay = 0;
-    for (const Playing& p : playing_) {
-        if (p.handle == audio::kNoSound || owner(p) != who || p.name != name || !mixer_.isPlaying(p.handle))
-            continue;
-        if (nowMs_ - p.startMs < 50)
+    // Sounds placed at a spot (shots, impacts, often all on the world's
+    // number) are only repeats at the same spot.
+    auto samePlace = [&](const Playing& p) {
+        if (p.origin.has_value() != origin.has_value())
             return false;
-        ++inPlay;
-    }
-    return inPlay <= (who == listener_ ? 8 : 4);
+        if (!origin)
+            return true;
+        float d2 = 0;
+        for (size_t k = 0; k < 3; ++k)
+            d2 += ((*p.origin)[k] - (*origin)[k]) * ((*p.origin)[k] - (*origin)[k]);
+        return d2 < 1;
+    };
+    for (const Playing& p : playing_)
+        if (p.handle != audio::kNoSound && owner(p) == who && p.name == name && nowMs_ - p.startMs < 50 &&
+            samePlace(p) && mixer_.isPlaying(p.handle))
+            return false;
+    return true;
 }
 
 void SoundSystem::startSound(const std::optional<Vec3f>& origin, int entity, int channel, const std::string& name) {
     const auto sound = find(name);
-    if (!sound || !allowed(entity, false, name))
+    if (!sound || !allowed(entity, false, name, origin))
         return;
     const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::Effects, 0);
     if (handle == audio::kNoSound)
@@ -90,7 +98,7 @@ void SoundSystem::startSound(const std::optional<Vec3f>& origin, int entity, int
 
 void SoundSystem::startLocalSound(const std::string& name, int channel) {
     const auto sound = find(name);
-    if (!sound || !allowed(-1, true, name))
+    if (!sound || !allowed(-1, true, name, std::nullopt))
         return;
     const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::Effects);
     if (handle != audio::kNoSound)

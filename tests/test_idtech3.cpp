@@ -946,16 +946,19 @@ static void testSoundSystem(const std::filesystem::path& tmp) {
     sounds.setTime(1000);
     sounds.startSound(Vec3f{0, 0, 0}, 3, 0, "sound/a.wav");
     sounds.startSound(Vec3f{0, 0, 0}, 3, 0, "sound/b.wav");
-    sounds.startSound(std::nullopt, 3, 1, "sound/a.wav"); // a repeat
+    sounds.startSound(std::nullopt, 3, 1, "sound/a.wav"); // following it, not at that spot: not a repeat
+    sounds.startSound(std::nullopt, 3, 2, "sound/a.wav"); // but this is
     sounds.startSound(std::nullopt, 4, 1, "sound/a.wav");
     sounds.startSound(std::nullopt, 3, 1, "sound/missing.wav"); // nothing, and nothing stopped
+    sounds.startSound(Vec3f{0, 0, 0}, 3, 0, "sound/a.wav");   // a repeat at the same spot
+    sounds.startSound(Vec3f{64, 0, 0}, 3, 0, "sound/a.wav");  // elsewhere: not one
     sounds.setTime(1100);
     sounds.startSound(std::nullopt, 3, 1, "sound/a.wav"); // no longer a repeat
     mixer.mix(out.data(), 64);
     int playing = 0;
     for (audio::SoundHandle h = 1; h < 10; ++h)
         playing += mixer.isPlaying(h);
-    CHECK(playing == 4);
+    CHECK(playing == 6);
     sounds.stopAll();
 
     // A looping sound plays while it's added each frame.

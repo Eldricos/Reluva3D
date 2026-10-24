@@ -324,6 +324,25 @@ void PlayViewer::consoleCommand(const std::string& text) {
     }
     if (handled)
         return;
+    // Settings, after the client game's own commands as the original's
+    // console: set (seta, sets, setu) name value, or a setting's name
+    // alone (shows it) or with a value.
+    if ((verb == "set" || verb == "seta" || verb == "sets" || verb == "setu") && w.size() >= 3) {
+        const int32_t flags = verb == "seta"   ? CvarStore::Archive
+                              : verb == "sets" ? CvarStore::ServerInfo
+                              : verb == "setu" ? CvarStore::UserInfo
+                                               : 0;
+        cvars_.create(w[1], w[2], flags);
+        cvars_.set(w[1], w[2]);
+        return;
+    }
+    if (const CvarStore::Cvar* cv = cvars_.find(w[0])) {
+        if (w.size() == 1)
+            addPrint("\"" + cv->name + "\" is \"" + cv->value + "\"\n", false);
+        else
+            cvars_.set(w[0], w[1]);
+        return;
+    }
     // On a server of one's own, its game's console commands (addbot,
     // kick...) next; the rest goes to the server as the player's.
     if (Error err = game_->serverCommand(text, &handled)) {
@@ -832,6 +851,9 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
                     held += " +" + name;
             std::snprintf(line, sizeof line, "weapon chosen by the client game: %d; held:%s",
                           cgame_ ? cgame_->weaponSelect() : 0, held.empty() ? " nothing" : held.c_str());
+            lines.push_back(line);
+            std::snprintf(line, sizeof line, "%d areas; sight checks a closed door blocked: %d%s", game_->areaCount(),
+                          game_->closedDoorBlocks(), cvars_.integer("cm_noAreas") ? " (cm_noAreas 1: areas ignored)" : "");
             lines.push_back(line);
             if (!shown_.unloadable.empty()) {
                 std::string names = "Models not drawn (only .md3 and .mdr):";

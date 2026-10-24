@@ -88,7 +88,8 @@ Error GameHost::startLevel(const std::string& mapName, std::shared_ptr<const Bsp
     map_ = std::move(map);
     world_ = std::make_unique<CollisionWorld>(*map_);
     areaPortals_ = std::make_unique<AreaPortals>(world_->areaCount());
-    entityAreas_.clear();
+    closedDoorBlocks_ = 0;
+    cvars_.create("cm_noAreas", "0", 0); // 1: every area joined, as the original's
     linked_.clear();
     // What the original server sets before starting the game code.
     cvars_.create("mapname", "", CvarStore::ServerInfo | CvarStore::ReadOnly);
@@ -348,23 +349,34 @@ void GameHost::linkEntity(int32_t address) {
     writeVec(address + ent::AbsMin, absMin);
     writeVec(address + ent::AbsMax, absMax);
     vm_.writeInt(address + ent::Linked, 1);
-    // The areas it touches, as the original's server keeps them: the
-    // first, and a second if it stands between two (a door in its portal).
-    if (world_) {
-        std::vector<int> leafs;
-        world_->boxLeafs(absMin, absMax, leafs);
-        std::pair<int, int> areas{-1, -1};
-        for (int leaf : leafs) {
-            const int area = world_->leafArea(leaf);
-            if (area < 0)
-                continue;
-            if (areas.first != -1 && areas.first != area)
-                areas.second = area;
-            else
-                areas.first = area;
-        }
-        entityAreas_[n] = areas;
+}
+
+std::pair<int, int> GameHost::entityAreas(int32_t n) {
+    // The areas its box (as last linked) touches, as the original's
+    // server keeps them: the first, and a second if it stands between two
+    // (a door in its portal).
+    std::pair<int, int> areas{-1, -1};
+    if (!world_)
+        return areas;
+    std::vector<int> leafs;
+    world_->boxLeafs(entityVec(n, ent::AbsMin), entityVec(n, ent::AbsMax), leafs);
+    for (int leaf : leafs) {
+        const int area = world_->leafArea(leaf);
+        if (area < 0)
+            continue;
+        if (areas.first != -1 && areas.first != area)
+            areas.second = area;
+        else
+            areas.first = area;
     }
+    return areas;
+}
+
+bool GameHost::areasConnected(int area1, int area2) const {
+    // The original's cm_noAreas: every area counted as joined.
+    if (cvars_.find("cm_noAreas") && cvars_.integer("cm_noAreas"))
+        return true;
+    return areaPortals_ && areaPortals_->connected(area1, area2);
 }
 
 TraceResult GameHost::traceMove(const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
@@ -608,14 +620,19 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         if (!map_->clusterVisible(map_->leafs[size_t(l1)].cluster, map_->leafs[size_t(l2)].cluster))
             return 0;
         // Not through a closed door, unless asked to ignore portals.
-        return number == InPvsIgnorePortals || areaPortals_->connected(world_->leafArea(l1), world_->leafArea(l2));
+        if (number == InPvsIgnorePortals || areasConnected(world_->leafArea(l1), world_->leafArea(l2)))
+            return 1;
+        ++closedDoorBlocks_;
+        return 0;
     }
     case AdjustAreaPortalState: // (entity, open): the portal its door stands in
-        if (const auto it = entityAreas_.find(entityNumber(a[0])); it != entityAreas_.end() && areaPortals_ &&
-                                                                   it->second.second != -1)
-            areaPortals_->adjust(it->second.first, it->second.second, a[1] != 0);
+        if (const int32_t n = entityNumber(a[0]); n >= 0 && areaPortals_ && gameData_.entitySize >= ent::SharedEnd) {
+            const auto [area1, area2] = entityAreas(n);
+            if (area2 != -1)
+                areaPortals_->adjust(area1, area2, a[1] != 0);
+        }
         return 0;
-    case AreasConnected: return areaPortals_ && areaPortals_->connected(a[0], a[1]);
+    case AreasConnected: return areasConnected(a[0], a[1]);
     case EntitiesInBox: { // (mins, maxs, list, max) -> how many
         const Vec3f mins = readVec(a[0]), maxs = readVec(a[1]);
         int32_t count = 0;

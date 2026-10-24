@@ -122,6 +122,8 @@ public:
     // A trace as the game's Trace call makes it: the world and (unless
     // `entities` is false) linked entities; `hit` gets what stopped it
     // (an entity number, 1022 the world, 1023 nothing).
+    std::pair<int, int> entityAreas(int32_t n);
+    bool areasConnected(int area1, int area2) const;
     TraceResult traceMove(const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
                           int32_t passEntity, int32_t mask, int32_t& hit, bool entities = true);
     // What the server sends a player each frame: the level time, their
@@ -151,6 +153,10 @@ public:
     const std::map<int, int>& callCounts() const { return callCounts_; }
     // Entity numbers linked into the world (LinkEntity), not unlinked since.
     const std::set<int32_t>& linked() const { return linked_; }
+    // The map's areas (cut by its doors' portals), and how many times
+    // InPvs said no only because a closed door stood between.
+    int areaCount() const { return world_ ? world_->areaCount() : 0; }
+    int closedDoorBlocks() const { return closedDoorBlocks_; }
     const std::map<int32_t, std::string>& configstrings() const { return configstrings_; }
     // What the game sent to clients (SendServerCommand), in order: the
     // client (-1 for all) and the command text.
@@ -193,7 +199,7 @@ private:
     std::shared_ptr<const Bsp> map_;
     std::unique_ptr<CollisionWorld> world_;
     std::unique_ptr<AreaPortals> areaPortals_; // which areas join up through open doors
-    std::map<int32_t, std::pair<int, int>> entityAreas_; // by entity, when last linked: its area(s), -1 none
+    int closedDoorBlocks_ = 0; // InPvs answers a closed door made "no"
     std::string entityText_;
     std::vector<std::string> args_; // the command being handled
     size_t entityPos_ = 0;

@@ -32,10 +32,11 @@ public:
     SoundSystem(const SoundSystem&) = delete;
     SoundSystem& operator=(const SoundSystem&) = delete;
 
-    // As the original's: a new sound never cuts one already playing, on
-    // any channel. One the entity started under 50 ms ago is a repeat and
-    // skipped, and an entity plays at most 5 of the same sound at once
-    // (the listener 9). Channel 0 is the original's "any channel".
+    // A new sound never cuts one already playing, on any channel; the same
+    // sound the entity started under 50 ms ago (at the same spot, if it
+    // was given one) is a repeat and skipped, as the original's. (ioq3 also caps each entity at 5 of one sound at
+    // once, which silenced rapid fire here, so that's left out.) Channel 0
+    // is the original's "any channel".
     static constexpr int kAutoChannel = 0;
     // The time now, for telling repeats; each frame before the client game.
     void setTime(uint64_t ms) { nowMs_ = ms; }
@@ -80,7 +81,7 @@ private:
         uint64_t startMs = 0;
     };
     // Whether `entity` may start `name` now (see kAutoChannel).
-    bool allowed(int entity, bool local, const std::string& name) const;
+    bool allowed(int entity, bool local, const std::string& name, const std::optional<Vec3f>& origin) const;
     std::shared_ptr<const audio::Sound> find(const std::string& name);
     void place(audio::SoundHandle handle, const std::optional<Vec3f>& origin, int entity);
 
