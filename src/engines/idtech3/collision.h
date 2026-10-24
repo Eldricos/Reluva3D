@@ -78,15 +78,29 @@ private:
     void buildPatches();
 
     // A triangle of a patch, as planes bounding it.
+    // (Its planes kept in place: a trace near a curve tests many facets.)
     struct Facet {
-        std::vector<BspPlane> planes;
+        std::array<BspPlane, 11> planes{}; // its plane both ways, 3 edges, 6 box sides
+        int planeCount = 0;
         Vec3f mins{}, maxs{};
+        void add(const BspPlane& p) { planes[size_t(planeCount++)] = p; }
     };
+    // Neighbouring facets (as tessellated, a run along a row) under one
+    // box, and runs of those under another, so a trace skips most of a
+    // big curve at once.
+    struct FacetGroup {
+        Vec3f mins{}, maxs{};
+        size_t first = 0, count = 0; // facets, or (for the outer level) runs
+    };
+    static constexpr size_t kFacetRun = 16;
     struct PatchCollide {
         int32_t contents = 0, surfaceFlags = 0;
         Vec3f mins{}, maxs{};
         size_t firstFacet = 0, numFacets = 0;
+        size_t firstGroup = 0, numGroups = 0; // outer groups, in groups_
     };
+    std::vector<FacetGroup> runs_;   // facets, kFacetRun at most each
+    std::vector<FacetGroup> groups_; // runs, kFacetRun at most each
 
     const Bsp& bsp_;
     mutable std::vector<uint32_t> checked_;        // per brush: the trace that last tested it

@@ -176,8 +176,12 @@ code copies whole): 204 bytes twice in qagame and three times in cgame
 (and 408 = 2 x 204), the entity state; 460 bytes once in qagame and six
 times in cgame, the player state; 24 bytes, the user command; 56, the
 trace. `s.modelindex` is taken to be at Quake III's 160 (the 4 bytes
-Elite Force lacks would then come after it), to be checked when the
-client game draws brush models. Entities are 588 bytes, clients 740.
+Elite Force lacks would then come after it), and `s.solid` at Quake
+III's 176 (Elite Force lacking only Quake III's last field, `generic1`):
+the server writes it on linking as the original does (0xffffff for a
+brush model, else a solid box's size, a byte each: half width, depth
+below, height above + 32), and the client game draws doors and lifts
+as brush models only when it says so. Entities are 588 bytes, clients 740.
 
 ### Bots
 

@@ -18,6 +18,11 @@ namespace reluva::idtech3::eliteforce {
 namespace ent {
 constexpr int32_t Number = 0;       // s.number
 constexpr int32_t ModelIndex = 160; // s.modelindex, at Quake III's offset (assumed: the 4 bytes Elite Force lacks come later)
+// s.solid at Quake III's offset (assumed as above: Elite Force lacking
+// only Quake III's last field, generic1): what the client game draws a
+// brush entity by, and predicts collisions with.
+constexpr int32_t Solid = 176;
+constexpr int32_t kSolidBrushModel = 0xffffff;
 constexpr int32_t Linked = 204;
 constexpr int32_t BModel = 216;
 constexpr int32_t Mins = 220, Maxs = 232;

@@ -114,7 +114,10 @@ plane facing both ways (half a unit out on each side), its three edges
 (a tenth of a unit wide, which covers the thin wedge left between two
 triangles on the inside of a bend, while the ridge it leaves on the
 outside is about a hundredth of a unit) and its bounding box. A move starting inside one isn't held there, so nothing sticks to
-the patch it stands on. Reluva's own solution, not the original's code.
+the patch it stands on. As a big curve has thousands of triangles, they
+are kept in runs of 16 (neighbours, as cut) under one box, and runs of
+16 runs under another, so a trace skips most of them at once. Reluva's
+own solution, not the original's code.
 
 ## What the reader checks
 

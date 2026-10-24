@@ -869,6 +869,9 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
                           timing_.server, timing_.client, timing_.draw,
                           soundSystem_ ? soundSystem_->playingCount() : size_t(0));
             lines.push_back(line);
+            if (soundSystem_)
+                for (const std::string& r : soundSystem_->recent())
+                    lines.push_back("sound: " + (r.size() > 140 ? r.substr(0, 140) + "..." : r));
             if (soundSystem_ && !soundSystem_->missing().empty()) {
                 // Each with why (not found, or not readable), the last few.
                 const auto& problems = soundLibrary_.problems();

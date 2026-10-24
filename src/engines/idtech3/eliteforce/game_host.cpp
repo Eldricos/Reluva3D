@@ -349,6 +349,18 @@ void GameHost::linkEntity(int32_t address) {
     writeVec(address + ent::AbsMin, absMin);
     writeVec(address + ent::AbsMax, absMax);
     vm_.writeInt(address + ent::Linked, 1);
+    // Its size for the client game, as the original's server encodes it:
+    // a brush model's marker, or a solid box's half width, depth below
+    // and height above (+32), a byte each; 0 for what isn't solid.
+    int32_t solid = 0;
+    constexpr int32_t kSolidOrBody = 1 | 0x2000000;
+    if (vm_.readInt(address + ent::BModel)) {
+        solid = ent::kSolidBrushModel;
+    } else if (vm_.readInt(address + ent::Contents) & kSolidOrBody) {
+        const auto clampByte = [](float v) { return std::clamp(int32_t(v), 1, 255); };
+        solid = (clampByte(maxs[2] + 32) << 16) | (clampByte(-mins[2]) << 8) | clampByte(maxs[0]);
+    }
+    vm_.writeInt(address + ent::Solid, solid);
 }
 
 std::pair<int, int> GameHost::entityAreas(int32_t n) {

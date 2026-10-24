@@ -91,7 +91,10 @@ bool SoundSystem::allowed(int entity, bool local, const std::string& name, const
 
 void SoundSystem::startSound(const std::optional<Vec3f>& origin, int entity, int channel, const std::string& name) {
     const auto sound = find(name);
-    if (!sound || !allowed(entity, false, name, origin))
+    const bool ok = sound && allowed(entity, false, name, origin);
+    note(name + " (entity " + std::to_string(entity) + ", channel " + std::to_string(channel) + "): " +
+         (!sound ? "not found" : ok ? "played" : "skipped as a repeat"));
+    if (!ok)
         return;
     const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::Effects, 0);
     if (handle == audio::kNoSound)
@@ -102,11 +105,20 @@ void SoundSystem::startSound(const std::optional<Vec3f>& origin, int entity, int
 
 void SoundSystem::startLocalSound(const std::string& name, int channel) {
     const auto sound = find(name);
-    if (!sound || !allowed(-1, true, name, std::nullopt))
+    const bool ok = sound && allowed(-1, true, name, std::nullopt);
+    note(name + " (local, channel " + std::to_string(channel) + "): " +
+         (!sound ? "not found" : ok ? "played" : "skipped as a repeat"));
+    if (!ok)
         return;
     const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::Effects);
     if (handle != audio::kNoSound)
         playing_.push_back({handle, -1, channel, std::nullopt, true, name, nowMs_});
+}
+
+void SoundSystem::note(std::string line) {
+    recent_.push_back(std::move(line));
+    while (recent_.size() > 4)
+        recent_.pop_front();
 }
 
 void SoundSystem::clearLoopingSounds() { loopsAdded_.clear(); }

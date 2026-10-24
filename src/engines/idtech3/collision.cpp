@@ -86,8 +86,8 @@ void CollisionWorld::buildPatches() {
             // Its plane both ways, half a unit thick, so even a point
             // can't pass between them.
             const float d = dot(n, p[0]);
-            f.planes.push_back({n, d + 0.5f});
-            f.planes.push_back({{-n[0], -n[1], -n[2]}, -d + 0.5f});
+            f.add({n, d + 0.5f});
+            f.add({{-n[0], -n[1], -n[2]}, -d + 0.5f});
             // Its edges, facing out, a tenth of a unit wide of them: the
             // edge planes lean with the triangle, so where two meet at an
             // angle a thin wedge would be left between them on the inside
@@ -107,7 +107,7 @@ void CollisionWorld::buildPatches() {
                 if (dot(en, p[(e + 2) % 3]) - dot(en, a) > 0)
                     for (float& c : en)
                         c = -c;
-                f.planes.push_back({en, dot(en, a) + 0.1f});
+                f.add({en, dot(en, a) + 0.1f});
             }
             // And its bounding box, so a box's corners don't get past
             // its edges' planes.
@@ -121,14 +121,37 @@ void CollisionWorld::buildPatches() {
                 up.dist = hi + 0.5f;
                 down.normal[size_t(axis)] = -1;
                 down.dist = -(lo - 0.5f);
-                f.planes.push_back(up);
-                f.planes.push_back(down);
+                f.add(up);
+                f.add(down);
                 pc.mins[size_t(axis)] = std::min(pc.mins[size_t(axis)], f.mins[size_t(axis)]);
                 pc.maxs[size_t(axis)] = std::max(pc.maxs[size_t(axis)], f.maxs[size_t(axis)]);
             }
             facets_.push_back(std::move(f));
         }
         pc.numFacets = facets_.size() - pc.firstFacet;
+        // The facets in runs under boxes, and the runs likewise.
+        auto bound = [](FacetGroup& g, const Vec3f& mins, const Vec3f& maxs) {
+            for (size_t k = 0; k < 3; ++k) {
+                g.mins[k] = std::min(g.mins[k], mins[k]);
+                g.maxs[k] = std::max(g.maxs[k], maxs[k]);
+            }
+        };
+        const size_t firstRun = runs_.size();
+        for (size_t f = pc.firstFacet; f < pc.firstFacet + pc.numFacets; f += kFacetRun) {
+            FacetGroup run{{1e9f, 1e9f, 1e9f}, {-1e9f, -1e9f, -1e9f}, f,
+                           std::min(kFacetRun, pc.firstFacet + pc.numFacets - f)};
+            for (size_t i = run.first; i < run.first + run.count; ++i)
+                bound(run, facets_[i].mins, facets_[i].maxs);
+            runs_.push_back(run);
+        }
+        pc.firstGroup = groups_.size();
+        for (size_t r = firstRun; r < runs_.size(); r += kFacetRun) {
+            FacetGroup group{{1e9f, 1e9f, 1e9f}, {-1e9f, -1e9f, -1e9f}, r, std::min(kFacetRun, runs_.size() - r)};
+            for (size_t i = group.first; i < group.first + group.count; ++i)
+                bound(group, runs_[i].mins, runs_[i].maxs);
+            groups_.push_back(group);
+        }
+        pc.numGroups = groups_.size() - pc.firstGroup;
         if (pc.numFacets) {
             patchOf_[s] = int(patches_.size());
             patches_.push_back(pc);
@@ -157,24 +180,19 @@ void CollisionWorld::tracePatch(Work& w, int surface) const {
     };
     if (apart(pc.mins, pc.maxs))
         return;
-    for (size_t f = pc.firstFacet; f < pc.firstFacet + pc.numFacets; ++f) {
-        const Facet& facet = facets_[f];
-        if (apart(facet.mins, facet.maxs))
-            continue;
-        // As a brush's sides (traceBrush).
+    // Each facet as a brush's sides (traceBrush).
+    auto testFacet = [&](const Facet& facet) {
         float enter = -1, leave = 1;
         const BspPlane* hitPlane = nullptr;
-        bool startsOut = false, endsOut = false, outside = false;
-        for (const BspPlane& p : facet.planes) {
+        bool startsOut = false;
+        for (int pi = 0; pi < facet.planeCount; ++pi) {
+            const BspPlane& p = facet.planes[size_t(pi)];
             const float dist = p.dist + w.offset(p.normal);
             const float d1 = dot(w.start, p.normal) - dist;
             const float d2 = dot(w.end, p.normal) - dist;
             startsOut |= d1 > 0;
-            endsOut |= d2 > 0;
-            if (d1 > 0 && (d2 >= kClipEpsilon || d2 >= d1)) {
-                outside = true;
-                break;
-            }
+            if (d1 > 0 && (d2 >= kClipEpsilon || d2 >= d1))
+                return; // outside it all the way
             if (d1 <= 0 && d2 <= 0)
                 continue;
             if (d1 > d2) {
@@ -187,13 +205,10 @@ void CollisionWorld::tracePatch(Work& w, int surface) const {
                 leave = std::min(leave, (d1 + kClipEpsilon) / (d1 - d2));
             }
         }
-        if (outside)
-            continue;
-        if (!startsOut) {
-            // Starting inside a patch (standing on one's edge): not held
-            // there, as the original's patches only stop what enters them.
-            continue;
-        }
+        // Starting inside a patch (standing on one's edge): not held there,
+        // as the original's patches only stop what enters them.
+        if (!startsOut)
+            return;
         if (enter < leave && enter > -1 && enter < w.result.fraction && hitPlane) {
             w.result.fraction = std::max(enter, 0.0f);
             w.result.normal = hitPlane->normal;
@@ -201,7 +216,19 @@ void CollisionWorld::tracePatch(Work& w, int surface) const {
             w.result.surfaceFlags = pc.surfaceFlags;
             w.result.contents = pc.contents;
         }
-        (void)endsOut;
+    };
+    for (size_t g = pc.firstGroup; g < pc.firstGroup + pc.numGroups; ++g) {
+        const FacetGroup& group = groups_[g];
+        if (apart(group.mins, group.maxs))
+            continue;
+        for (size_t r = group.first; r < group.first + group.count; ++r) {
+            const FacetGroup& run = runs_[r];
+            if (apart(run.mins, run.maxs))
+                continue;
+            for (size_t f = run.first; f < run.first + run.count; ++f)
+                if (!apart(facets_[f].mins, facets_[f].maxs))
+                    testFacet(facets_[f]);
+        }
     }
 }
 
