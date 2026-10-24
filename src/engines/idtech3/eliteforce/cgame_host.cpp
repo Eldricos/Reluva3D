@@ -358,6 +358,7 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         return 0;
     }
     case SClearLoopingSounds:
+        loopsThisFrame_ = 0;
         if (soundSystem)
             soundSystem->clearLoopingSounds();
         return 0;
@@ -480,8 +481,15 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         if (soundSystem)
             soundSystem->startLocalSound(sounds_.name(a[0]), a[1]);
         return 0;
-    case SAddLoopingSound: // (entityNum, origin, velocity, sfx)
-        if (soundSystem && vm.valid(a[1], 12))
+    case SAddLoopingSound:
+        // (entityNum, origin, velocity, sfx) as Quake III's later releases,
+        // or (origin, velocity, sfx) as its earlier ones: an entity number
+        // is under 1024, an address of the program's beyond.
+        if (!soundSystem)
+            return 0;
+        if (a[0] >= 1024 && vm.valid(a[0], 12))
+            soundSystem->addLoopingSound(-2 - loopsThisFrame_++, readVec3(vm, a[0]), sounds_.name(a[2]));
+        else if (vm.valid(a[1], 12))
             soundSystem->addLoopingSound(a[0], readVec3(vm, a[1]), sounds_.name(a[3]));
         return 0;
     case SUpdateEntityPosition: // (entityNum, origin)

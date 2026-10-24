@@ -358,7 +358,7 @@ numbering wherever it can be checked:
 | 28 | `S_StartSound(origin, entityNum, channel, sound)` | seen | `(0, 253, 0, 14)` |
 | 29 | `S_StartLocalSound(sound, channel)` | seen | `(9, 6)` |
 | 30 | `S_ClearLoopingSounds()` | seen | at the start of a frame |
-| 31 | `S_AddLoopingSound(...)` | order | |
+| 31 | `S_AddLoopingSound(...)` | order | taken in either of Quake III's forms, `(entityNum, origin, velocity, sound)` or the earlier `(origin, velocity, sound)` (a first argument of 1024 or more is an address), until a trace shows which |
 | 32 | `S_UpdateEntityPosition(entityNum, origin)` | seen | 247 calls in three frames, one per entity |
 | 33 | `S_Respatialize(entityNum, origin, axis, inWater)` | seen | once a frame |
 | 34 | `S_RegisterSound(name)` | seen | the countdown voices, footsteps, item sounds |
@@ -383,6 +383,7 @@ numbering wherever it can be checked:
 | 56 | `SetUserCmdValue(weapon, sensitivityScale)` | seen | `(1, ...)` once a frame |
 | 57 | `R_RegisterShaderNoMip(name)` | seen | crosshairs, HUD pieces, fonts |
 | 58 | `MemoryRemaining()` | seen | answered 0, the client game prints "Memory is low.  Using deferred model." and skips loading player models |
+| 60 | unknown: `("model", value)` | seen | one call site (`qvm-dis -syscall 60`, instruction 42881), after checking the client is the local player; maybe setting the player's `model` setting. Not answered (0) until its second argument is known |
 | 100, 102 | `memset`, `strncpy` | seen | |
 | 107 | `floor(x)` | seen | one call site, the result converted to a whole number |
 
