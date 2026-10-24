@@ -50,12 +50,12 @@ std::pair<float, float> SoundSystem::spatialize(const Vec3f& origin) const {
     return {volume, dist > 1e-4f ? pan : 0.0f};
 }
 
-void SoundSystem::place(audio::SoundHandle handle, const std::optional<Vec3f>& origin, int entity) {
+float SoundSystem::place(audio::SoundHandle handle, const std::optional<Vec3f>& origin, int entity) {
     // The listener's own sounds are heard as they are.
     if (!origin && entity == listener_) {
         mixer_.setVolume(handle, audio::kMaxVolume);
         mixer_.setPan(handle, 0);
-        return;
+        return 1;
     }
     // At its spot, or where its entity was last said to be: the map's
     // origin for one never placed, as the original keeps it (not at the
@@ -68,6 +68,7 @@ void SoundSystem::place(audio::SoundHandle handle, const std::optional<Vec3f>& o
     const auto [volume, pan] = spatialize(at);
     mixer_.setVolume(handle, int(volume * float(audio::kMaxVolume)));
     mixer_.setPan(handle, int(pan * float(audio::kMaxPan)));
+    return volume;
 }
 
 bool SoundSystem::allowed(int entity, bool local, const std::string& name, const std::optional<Vec3f>& origin) const {
@@ -101,14 +102,19 @@ void SoundSystem::startSound(const std::optional<Vec3f>& origin, int entity, int
         std::snprintf(where, sizeof where, "at %.0f %.0f %.0f", (*origin)[0], (*origin)[1], (*origin)[2]);
     else
         std::snprintf(where, sizeof where, "following it");
-    note(name + " (entity " + std::to_string(entity) + ", channel " + std::to_string(channel) + ", " + where + "): " +
-         (!sound ? "not found" : ok ? "played" : "skipped as a repeat"));
-    if (!ok)
+    const std::string what = name + " (entity " + std::to_string(entity) + ", channel " + std::to_string(channel) +
+                             ", " + where + "): ";
+    if (!ok) {
+        note(what + (!sound ? "not found" : "skipped as a repeat"));
         return;
+    }
     const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::Effects, 0);
     if (handle == audio::kNoSound)
         return;
-    place(handle, origin, entity);
+    char volume[48];
+    std::snprintf(volume, sizeof volume, "played at volume %.2f (listener %d)", place(handle, origin, entity),
+                  listener_);
+    note(what + volume);
     playing_.push_back({handle, entity, channel, origin, false, name, nowMs_});
 }
 

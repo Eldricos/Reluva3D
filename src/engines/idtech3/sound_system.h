@@ -91,7 +91,8 @@ private:
     // Whether `entity` may start `name` now (see kAutoChannel).
     bool allowed(int entity, bool local, const std::string& name, const std::optional<Vec3f>& origin) const;
     std::shared_ptr<const audio::Sound> find(const std::string& name);
-    void place(audio::SoundHandle handle, const std::optional<Vec3f>& origin, int entity);
+    // Sets the sound's volume and pan for where it is; the volume.
+    float place(audio::SoundHandle handle, const std::optional<Vec3f>& origin, int entity);
 
     audio::Mixer& mixer_;
     SoundLibrary& sounds_;
