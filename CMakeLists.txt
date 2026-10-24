@@ -148,6 +148,7 @@ if(RELUVA_ENGINE_IDTECH3)
     src/engines/idtech3/model_viewer.cpp
     src/engines/idtech3/menu_viewer.cpp
     src/engines/idtech3/play_viewer.cpp
+    src/engines/idtech3/scene_drawer.cpp
     src/engines/idtech3/qvm.cpp
     src/engines/idtech3/cvars.cpp
     src/engines/idtech3/sounds.cpp
@@ -157,6 +158,7 @@ if(RELUVA_ENGINE_IDTECH3)
     src/engines/idtech3/eliteforce/game_host.cpp
     src/engines/idtech3/eliteforce/game_bots.cpp
     src/engines/idtech3/eliteforce/cgame_host.cpp
+    src/engines/idtech3/eliteforce/scene.cpp
         src/engines/idtech3/world_viewer.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_IDTECH3)
 endif()

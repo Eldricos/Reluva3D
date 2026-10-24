@@ -50,6 +50,7 @@
 #include "engines/idtech3/light_grid.h"
 #include "engines/idtech3/model_cache.h"
 #include "engines/idtech3/player_animation.h"
+#include "engines/idtech3/scene_drawer.h"
 #include "engines/idtech3/shader_cache.h"
 #include "engines/idtech3/sound_system.h"
 #include "engines/idtech3/sounds.h"
@@ -315,7 +316,8 @@ private:
     int frameW_ = 960, frameH_ = 720; // r_mode
     bool restart_ = false;            // the menus ran vid_restart
     std::unique_ptr<ShaderCache> shaders_;
-    std::vector<int> materials_; // by the menus' shader handle; -2 not made yet
+    std::unique_ptr<ModelCache> models_;   // the models the menus show
+    std::unique_ptr<SceneDrawer> scene_;   // their pictures and scenes
     CvarStore& cvars_ = ctx_.cvars;
     std::unique_ptr<eliteforce::UiHost> ui_; // kept while other pages are shown
     size_t commandsSeen_ = 0;                // of ui_->commands()
@@ -363,13 +365,6 @@ private:
     static bool isButton(const std::string& name);
     void runBinding(const std::string& line, int32_t key, bool down);
     bool held(const char* button) const;
-    void placeEntities(const eliteforce::CgameHost::View& view);
-    void addEffect(const std::vector<uint8_t>& entity, const gfx::Vec3& left, const gfx::Vec3& up);
-    void drawEffects(float time);
-    static std::array<float, 4> entityColor(const std::vector<uint8_t>& entity);
-    float shaderTime(const std::vector<uint8_t>& entity) const;
-    int modelId(int32_t handle);
-    void addDynamicLights(PointLight& light, const gfx::Vec3& at) const;
     void stopSounds();
     void drawOverlay(uint64_t nowMs, bool haveView);
     // What the games print: kept for the console, and the client game's
@@ -404,40 +399,16 @@ private:
     std::unique_ptr<WorldRenderer> world_;
     std::unique_ptr<ModelCache> models_;
     LightGrid grid_;
-    std::map<int32_t, int> modelIds_; // the client game's model handle -> models_ id (-1: can't load)
-    // This frame's model entities, ready to draw.
-    struct Placed {
-        int model = -1, frame = 0, oldFrame = 0;
-        float backLerp = 0;
-        gfx::Mat4 transform{};
-        PointLight light;
-        const Skin* skin = nullptr;
-        std::string shader; // in place of the model's own, if set
-        std::array<float, 4> color{1, 1, 1, 1};
-        float shaderTime = 0; // seconds: when its shader animations start
-        bool depthHack = false; // kept in front (the player's weapon)
+    std::unique_ptr<SceneDrawer> scene_; // the client game's scenes and pictures
+    // What the player's view drew this frame, for the info line.
+    struct Shown {
+        size_t models = 0, effects = 0, lights = 0;
+        int other = 0; // entities not drawn (kinds not done yet)
+        std::set<std::string> unloadable;
     };
-    std::vector<Placed> placed_;
-    // This frame's effects (sprites, beams): quads in one mesh, each with
-    // the client game's shader handle.
-    struct Effect {
-        int32_t shader = 0;
-        uint32_t firstIndex = 0, indexCount = 0;
-        std::array<float, 4> color{1, 1, 1, 1};
-        float shaderTime = 0;
-        bool depthHack = false;
-    };
-    std::vector<Effect> effects_;
-    std::vector<gfx::Vertex> effectVertices_;
-    std::vector<uint32_t> effectIndices_;
-    std::vector<int> effectMaterials_; // by shader handle; -2 not made yet
-    std::minstd_rand effectRandom_;    // electricity's jitter
-    std::vector<gfx::DynamicLight> lights_; // this frame's, from the client game
+    Shown shown_;
     SoundLibrary soundLibrary_{ctx_.files};
     std::unique_ptr<SoundSystem> soundSystem_; // while a level runs, with audio output
-    int otherEntities_ = 0;            // this frame's entities not drawn (kinds not done yet)
-    std::set<std::string> unloadable_; // models this frame couldn't draw
-    std::vector<int> materials_; // by the client game's shader handle; -2 not made yet
     CvarStore& cvars_ = ctx_.cvars;
     std::unique_ptr<eliteforce::GameHost> game_;
     std::unique_ptr<eliteforce::CgameHost> cgame_;

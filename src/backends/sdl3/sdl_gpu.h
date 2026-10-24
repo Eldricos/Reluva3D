@@ -45,6 +45,7 @@ public:
     }
     void setViewport(int x, int y, int w, int h) override;
     void setDepthRange(float maxDepth) override;
+    void clearDepth() override;
     void setGamma(float gamma) override { gamma_ = gamma > 0.05f ? gamma : 1.0f; }
     void setView(const gfx::Mat4& viewProj, const gfx::Vec3& eye) override {
         viewProj_ = viewProj;

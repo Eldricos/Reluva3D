@@ -104,8 +104,6 @@ constexpr int32_t kSnapNumEntities = 504, kSnapEntities = 508;
 constexpr int32_t kSnapNumServerCommands = 52732, kSnapServerCommandSequence = 52736;
 constexpr int32_t kMaxSnapshotEntities = 256;
 
-constexpr int32_t kRefdefSize = 112;      // the client game clears this much of cg.refdef
-constexpr int32_t kRefEntityKept = 256;   // bytes kept of each refEntity_t until its size is known
 constexpr int32_t kTempBoxModel = 0x10000; // CM_TempBoxModel's handle (the original keeps one at a time too)
 
 // Quake III's trace_t (56 bytes), as the game logic's traces.
@@ -320,11 +318,7 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case RRegisterSkin: return skins_.add(str(0, 256));
     case RRegisterShader:
     case RRegisterShaderNoMip: return shaders_.add(str(0, 256));
-    case RClearScene:
-        scene_.pending = scene_.entities.size();
-        scene_.pendingPolys = scene_.polys.size();
-        scene_.pendingLights = scene_.lights.size();
-        return 0;
+    case RClearScene: scene_.clear(); return 0;
     case RSetColor: // (rgba or 0 for white)
         if (!a[0])
             color_ = {1, 1, 1, 1};
@@ -497,46 +491,15 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
                                       {readVec3(vm, a[2]), readVec3(vm, a[2] + 12), readVec3(vm, a[2] + 24)});
         return 0;
     case RAddRefEntityToScene: {
-        SceneEntity e;
-        const int32_t n = std::max<int32_t>(0, std::min<int32_t>(kRefEntityKept, int32_t(vm.memory().size()) - a[0]));
-        if (a[0] > 0 && vm.valid(a[0], n))
-            e.bytes.assign(&vm.memory()[size_t(a[0])], &vm.memory()[size_t(a[0])] + n);
-        if (const auto it = cleared_.find(a[0]); it != cleared_.end())
-            e.clearedSize = it->second;
-        scene_.entities.push_back(std::move(e));
+        const auto it = cleared_.find(a[0]);
+        scene_.addEntity(vm, a[0], it != cleared_.end() ? it->second : 0);
         return 0;
     }
-    case RAddPolyToScene: { // (shader, numVerts, verts)
-        Scene::Poly p;
-        p.shader = a[0];
-        p.vertexCount = a[1];
-        const int32_t bytes = std::clamp(a[1], 0, 256) * 24;
-        if (bytes > 0 && vm.valid(a[2], bytes))
-            p.vertices.assign(&vm.memory()[size_t(a[2])], &vm.memory()[size_t(a[2] + bytes)]);
-        scene_.polys.push_back(std::move(p));
+    case RAddPolyToScene: scene_.addPoly(vm, a[0], a[1], a[2]); return 0; // (shader, numVerts, verts)
+    case RAddLightToScene: // (origin, intensity, r, g, b)
+        scene_.addLight(vm, a[0], Qvm::asFloat(a[1]), Qvm::asFloat(a[2]), Qvm::asFloat(a[3]), Qvm::asFloat(a[4]));
         return 0;
-    }
-    case RAddLightToScene: { // (origin, intensity, r, g, b)
-        Scene::Light l;
-        if (vm.valid(a[0], 12))
-            for (int i = 0; i < 3; ++i)
-                l.origin[size_t(i)] = Qvm::asFloat(vm.readInt(a[0] + 4 * i));
-        l.radius = Qvm::asFloat(a[1]);
-        l.color = {Qvm::asFloat(a[2]), Qvm::asFloat(a[3]), Qvm::asFloat(a[4])};
-        scene_.lights.push_back(l);
-        return 0;
-    }
-    case RRenderScene:
-        if (vm.valid(a[0], kRefdefSize))
-            scene_.view.assign(&vm.memory()[size_t(a[0])], &vm.memory()[size_t(a[0])] + kRefdefSize);
-        ++scene_.renders;
-        scene_.views.push_back({scene_.view, scene_.pending, scene_.entities.size() - scene_.pending,
-                                scene_.pendingPolys, scene_.polys.size() - scene_.pendingPolys,
-                                scene_.pendingLights, scene_.lights.size() - scene_.pendingLights});
-        scene_.pending = scene_.entities.size();
-        scene_.pendingPolys = scene_.polys.size();
-        scene_.pendingLights = scene_.lights.size();
-        return 0;
+    case RRenderScene: scene_.render(vm, a[0], pictures_.size()); return 0;
     case RLerpTag: { // (orientation_t*, model, startFrame, endFrame, frac, tagName) -> found
         auto [it, added] = md3s_.try_emplace(a[1]);
         if (added) {
@@ -546,36 +509,7 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
             if (!name.empty() && name[0] != '*' && !files_.read(name, data) && !parseModel(data, *md3))
                 it->second = std::move(md3);
         }
-        if (!vm.checkWrite(a[0], 48))
-            return 0;
-        // The tag between two frames: the origin and axes blended (the
-        // axes renormalised), as the original renderer does.
-        const Md3Model* m = it->second.get();
-        const std::string tagName = str(5, 64);
-        const Md3Tag* t0 = m ? m->tag(std::clamp(a[2], 0, int32_t(m->frames.size()) - 1), tagName) : nullptr;
-        const Md3Tag* t1 = m ? m->tag(std::clamp(a[3], 0, int32_t(m->frames.size()) - 1), tagName) : nullptr;
-        if (!t0 || !t1) {
-            for (int i = 0; i < 12; ++i)
-                vm.writeInt(a[0] + 4 * i, Qvm::fromFloat(i >= 3 && (i - 3) % 4 == 0 ? 1.0f : 0.0f));
-            return 0;
-        }
-        const float frac = Qvm::asFloat(a[4]);
-        for (int i = 0; i < 3; ++i)
-            vm.writeInt(a[0] + 4 * i,
-                        Qvm::fromFloat(t0->origin[size_t(i)] + frac * (t1->origin[size_t(i)] - t0->origin[size_t(i)])));
-        for (int j = 0; j < 3; ++j) {
-            std::array<float, 3> axis{};
-            float length = 0;
-            for (int i = 0; i < 3; ++i) {
-                axis[size_t(i)] = t0->axis[size_t(j)][size_t(i)] +
-                                  frac * (t1->axis[size_t(j)][size_t(i)] - t0->axis[size_t(j)][size_t(i)]);
-                length += axis[size_t(i)] * axis[size_t(i)];
-            }
-            length = length > 0 ? std::sqrt(length) : 1;
-            for (int i = 0; i < 3; ++i)
-                vm.writeInt(a[0] + 12 + 12 * j + 4 * i, Qvm::fromFloat(axis[size_t(i)] / length));
-        }
-        return 1;
+        return writeLerpTag(vm, a[0], it->second.get(), a[2], a[3], Qvm::asFloat(a[4]), str(5, 64));
     }
     case GetCurrentCmdNumber: return userCommandNumber_;
     case GetUserCmd: { // (number, usercmd_t*) -> whether it's still kept

@@ -191,6 +191,10 @@ public:
     // near end (1: all of it; reset each frame). Drawn with less, things
     // stay in front of the rest, as the original's first-person weapon.
     virtual void setDepthRange(float maxDepth) = 0;
+    // Forgets the depths drawn so far, so the draws that follow aren't
+    // hidden by them (a second scene over the first, as the original
+    // clears depth for each view).
+    virtual void clearDepth() = 0;
     // The brightness the finished frame is shown with: each colour raised
     // to 1 / gamma (1: as drawn), as the original's brightness setting.
     virtual void setGamma(float gamma) = 0;

@@ -45,6 +45,7 @@ enum UiCall : int {
     RSetColor = 26,
     RDrawStretchPic = 27,
     UpdateScreen = 28,
+    CmLerpTag = 29, // Quake III's number; (orientation_t*, model, startFrame, endFrame, frac, tagName)
     SRegisterSound = 31,
     SStartLocalSound = 32,
     KeyKeynumToStringBuf = 33,
@@ -269,13 +270,25 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case RRegisterModel: return models_.add(str(0, 256));
     case RRegisterSkin: return skins_.add(str(0, 256));
     case RRegisterShaderNoMip: return shaders_.add(str(0, 256));
-    case RClearScene:
-    case RAddRefEntityToScene:
-    case RAddPolyToScene:
-    case RAddLightToScene:
-    case RRenderScene:
-    case UpdateScreen:
-        return 0; // 3D scenes in the menus: later
+    case RClearScene: scene_.clear(); return 0;
+    case RAddRefEntityToScene: scene_.addEntity(vm, a[0], 0); return 0;
+    case RAddPolyToScene: scene_.addPoly(vm, a[0], a[1], a[2]); return 0; // (shader, numVerts, verts)
+    case RAddLightToScene: // (origin, intensity, r, g, b)
+        scene_.addLight(vm, a[0], Qvm::asFloat(a[1]), Qvm::asFloat(a[2]), Qvm::asFloat(a[3]), Qvm::asFloat(a[4]));
+        return 0;
+    case RRenderScene: scene_.render(vm, a[0], pictures_.size()); return 0;
+    case UpdateScreen: return 0; // drawn each frame anyway
+    case CmLerpTag: {
+        auto [it, added] = md3s_.try_emplace(a[1]);
+        if (added) {
+            std::vector<uint8_t> data;
+            auto md3 = std::make_shared<Md3Model>();
+            const std::string& name = models_.name(a[1]);
+            if (!name.empty() && !files_.read(name, data) && !parseModel(data, *md3))
+                it->second = std::move(md3);
+        }
+        return writeLerpTag(vm, a[0], it->second.get(), a[2], a[3], Qvm::asFloat(a[4]), str(5, 64));
+    }
     case RSetColor:
         if (!a[0])
             color_ = {1, 1, 1, 1};

@@ -7,6 +7,7 @@
 #include "common/types.h"
 #include "engines/idtech3/bindings.h"
 #include "engines/idtech3/cvars.h"
+#include "engines/idtech3/eliteforce/scene.h"
 #include "engines/idtech3/qvm.h"
 #include "engines/idtech3/vm_services.h"
 
@@ -15,6 +16,7 @@
 #include <filesystem>
 #include <functional>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -44,12 +46,7 @@ public:
 
     // One picture: a part (s1,t1)-(s2,t2) of a shader stretched over a
     // screen rectangle, tinted by the colour set before it.
-    struct Picture {
-        float x, y, w, h;
-        float s1, t1, s2, t2;
-        int32_t shader; // in shaders()
-        std::array<float, 4> color;
-    };
+    using Picture = eliteforce::Picture;
 
     UiHost(const SearchSet& files, CvarStore& cvars);
 
@@ -86,9 +83,17 @@ public:
 
     Qvm& vm() { return vm_; }
     const std::vector<Picture>& pictures() const { return pictures_; }
-    void clearPictures() { pictures_.clear(); }
+    // The 3D scenes drawn among them (the player model in Player
+    // settings...), each over the pictures before it.
+    const Scene& scene() const { return scene_; }
+    // Forgets the last frame's pictures and scenes, before the next.
+    void clearPictures() {
+        pictures_.clear();
+        scene_ = Scene{};
+    }
     const HandleTable& shaders() const { return shaders_; }
     const HandleTable& models() const { return models_; }
+    const HandleTable& skins() const { return skins_; }
     const HandleTable& sounds() const { return sounds_; }
     // Text the menus print; by default, kept in log().
     std::function<void(const std::string&)> print;
@@ -123,6 +128,8 @@ private:
     VmFiles vmFiles_;
     HandleTable shaders_, models_, skins_, sounds_;
     std::vector<Picture> pictures_;
+    Scene scene_;
+    std::map<int32_t, std::shared_ptr<const Md3Model>> md3s_; // by model handle, for tags
     std::array<float, 4> color_{1, 1, 1, 1};
     std::vector<std::string> commands_;
     std::map<int, int> unhandled_;

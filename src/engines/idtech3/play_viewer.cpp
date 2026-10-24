@@ -13,6 +13,7 @@
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/entities.h"
+#include "engines/idtech3/scene_drawer.h"
 #include "engines/idtech3/viewers.h"
 
 #include "common/font.h"
@@ -36,54 +37,6 @@ constexpr float kPi = 3.14159265358979f;
 // either changes the same player state words (weapon time, ammunition,
 // events). See eliteforce-syscalls.md.
 constexpr int32_t kButtonAttack = 1, kButtonAltAttack = 32;
-// refdef_t's flag for views without the level (the HUD's heads).
-constexpr int32_t kNoWorldModel = 1;
-// refEntity_t: Quake III's 140 bytes, then 20 of Elite Force's own (see
-// eliteforce-syscalls.md). Its type (0: a model), render flags, model,
-// lighting origin, axes (forward, left, up), origin, frame, old frame
-// and how far back towards it, custom skin.
-namespace refent {
-constexpr size_t Type = 0, Flags = 4, Model = 8, LightingOrigin = 12, Axes = 28, Origin = 68, Frame = 80,
-                 OldFrame = 96, BackLerp = 100, CustomSkin = 108;
-constexpr int32_t TypeModel = 0;
-// Elite Force's effect types, read from what its client game adds when
-// firing (see eliteforce-syscalls.md): a sprite facing the camera (1:
-// radius at 136, rotation in degrees at 132; its axes are left as they
-// were cleared), a quad in the entity's own axes (2: left and up, radius
-// at 136; the first axis faces out of what it lies on), a line from the
-// origin to the old origin (width at 132, the texture repeated along it as often as 140
-// says), and one tapering from the width at 132 to the one at 136.
-// More, from the other weapons: a cubic Bezier curve from the origin
-// through control points at 136 and 148 to the old origin (12), a ring
-// or cone round the first axis (13: radii at 132 and 136, height at 140,
-// 144 the texture's repeats round it), and electricity from the origin to
-// the old origin (14: width 132, jitter 136, texture scale 140).
-constexpr int32_t TypeSprite = 1, TypeQuad = 2, TypeLine = 9, TypeTaperedLine = 11, TypeCurve = 12,
-                  TypeCylinder = 13, TypeBolt = 14;
-constexpr size_t OldOrigin = 84, CustomShader = 112, Rgba = 116, ShaderTime = 128, Rotation = 132, Radius = 136,
-                 Width = 132, EndWidth = 136, Repeat = 140, Control1 = 136, Control2 = 148, Jitter = 136,
-                 CylinderRepeat = 144;
-// Render flags (Quake III's): drawn only in mirrors and portals (the
-// player's own body); drawn in front of everything else, its depth kept
-// to the nearest 0.3 of the range (the player's weapon and its flash);
-// lit from the lighting origin.
-constexpr int32_t ThirdPerson = 2, DepthHack = 8, UseLightingOrigin = 0x80;
-constexpr float kDepthHackRange = 0.3f;
-} // namespace refent
-
-int32_t readInt(const std::vector<uint8_t>& bytes, size_t at) {
-    int32_t v = 0;
-    if (at + 4 <= bytes.size())
-        std::memcpy(&v, &bytes[at], 4);
-    return v;
-}
-
-float readFloat(const std::vector<uint8_t>& bytes, size_t at) { return Qvm::asFloat(readInt(bytes, at)); }
-
-gfx::Vec3 readVec(const std::vector<uint8_t>& bytes, size_t at) {
-    return {readFloat(bytes, at), readFloat(bytes, at + 4), readFloat(bytes, at + 8)};
-}
-
 // An angle in degrees as usercmd_t carries it: 65536 to a full turn.
 int32_t toShort(float degrees) { return int32_t(std::lround(degrees * 65536.0f / 360.0f)) & 0xffff; }
 
@@ -127,6 +80,7 @@ void PlayViewer::activate() {
     world_ = std::make_unique<WorldRenderer>(*renderer_, *shaders_);
     models_ = std::make_unique<ModelCache>(*renderer_, *shaders_, ctx_.files);
     applyVideoSettings(video, *shaders_, world_.get(), models_.get());
+    scene_ = std::make_unique<SceneDrawer>(*renderer_, *shaders_, *models_);
     shownMs_ = 0;
     ctx_.sys.setRelativeMouse(true);
     // A level the menus asked for.
@@ -148,9 +102,7 @@ void PlayViewer::deactivate() {
     cgame_.reset();
     game_.reset();
     stopSounds();
-    materials_.clear();
-    modelIds_.clear();
-    effectMaterials_.clear();
+    scene_.reset();
     models_.reset();
     world_.reset();
     shaders_.reset();
@@ -164,9 +116,8 @@ void PlayViewer::start(int index) {
     cgame_.reset();
     game_.reset();
     stopSounds();
-    materials_.clear();
-    modelIds_.clear();
-    effectMaterials_.clear();
+    if (scene_)
+        scene_->reset();
     models_->clear();
     world_->clear();
     shaders_->clear();
@@ -235,6 +186,7 @@ void PlayViewer::start(int index) {
     // The player's client game, given what the server has set.
     cgame_ = std::make_unique<eliteforce::CgameHost>(ctx_.files, cvars_);
     cgame_->print = [this](const std::string& text) { addPrint(text, true); };
+    scene_->setHandles({&cgame_->models(), &cgame_->skins(), &cgame_->shaders()});
     cgame_->subdivisions = videoSettings(cvars_).subdivisions;
     notify_.clear();
     printPartial_[1].clear();
@@ -717,453 +669,34 @@ void PlayViewer::update(uint64_t nowMs) {
     renderer_->setGamma(brightness(ctx_));
     const float time = float(clientTime_) / 1000.0f;
 
-    // The player's view: the first the client game rendered with the
-    // level in it (refdef_t: fov y at 20, the eye at 24, the axes from 36:
-    // forward, left, up).
-    const std::vector<uint8_t>* view = nullptr;
-    const eliteforce::CgameHost::View* sceneView = nullptr;
-    if (cgame_)
-        for (const auto& v : cgame_->scene().views)
-            if (!(readInt(v.refdef, 76) & kNoWorldModel)) {
-                view = &v.refdef;
-                sceneView = &v;
-                break;
-            }
-    if (view) {
-        eye_ = readVec(*view, 24);
-        const gfx::Vec3 forward = readVec(*view, 36), up = readVec(*view, 60);
-        const float fovY = std::clamp(readFloat(*view, 20), 1.0f, 170.0f) * kPi / 180.0f;
-        // Where on the screen (refdef_t's x, y, width, height, in the client
-        // game's 640x480): smaller with a smaller screen size setting.
-        int vx = 0, vy = 0, vw = frameW_, vh = frameH_;
-        if (const int32_t w = readInt(*view, 8), h = readInt(*view, 12); w > 0 && h > 0 && w <= 640 && h <= 480) {
-            vx = readInt(*view, 0) * frameW_ / 640;
-            vy = readInt(*view, 4) * frameH_ / 480;
-            vw = w * frameW_ / 640;
-            vh = h * frameH_ / 480;
-        }
-        const float aspect = float(vw) / float(vh);
-        const gfx::Mat4 viewProj =
-            gfx::multiply(gfx::perspective(fovY, aspect, 4, 32768), gfx::lookAlong(eye_, forward, up));
-        renderer_->beginFrame(viewProj, eye_, {0, 0, 0});
-        renderer_->setViewport(vx, vy, vw, vh);
-        constexpr float kLastOpaque = 5;
-        // The view's dynamic lights (shots, explosions): on the level's
-        // solid surfaces, and in the models' lighting.
-        // (Unless r_dynamiclight, the menus' Dynamic Lights, is off.)
-        lights_.clear();
-        const auto& sceneLights = cgame_->scene().lights;
+    // The client game's frame: each scene it rendered over the pictures
+    // drawn before it, the rest of its pictures (the HUD) over them all.
+    // The player's view is the first with the level in it.
+    renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
+    bool haveView = false;
+    if (cgame_) {
+        const auto& scene = cgame_->scene();
+        const auto& pictures = cgame_->pictures();
         const bool dynamicLights = !cvars_.find("r_dynamiclight") || cvars_.integer("r_dynamiclight") != 0;
-        for (size_t i = sceneView->firstLight; dynamicLights && i < sceneView->firstLight + sceneView->lightCount; ++i)
-            if (i < sceneLights.size() && sceneLights[i].radius > 0)
-                lights_.push_back({sceneLights[i].origin, sceneLights[i].radius, sceneLights[i].color});
-        placeEntities(*sceneView);
-        world_->drawSky(time);
-        world_->drawSurfaces(time, 0, kLastOpaque);
-        world_->drawDynamicLights(lights_);
-        for (const Placed& p : placed_) {
-            renderer_->setDepthRange(p.depthHack ? refent::kDepthHackRange : 1);
-            models_->draw(p.model, p.frame, p.transform, p.light, time - p.shaderTime, p.skin, 0, kLastOpaque,
-                          p.shader, &p.color, p.oldFrame, p.backLerp);
+        size_t drawn = 0;
+        bool first = true;
+        for (const auto& v : scene.views) {
+            scene_->drawPictures(pictures, drawn, v.picturesBefore, 640, 480, time);
+            drawn = std::max(drawn, v.picturesBefore);
+            scene_->drawView(scene, v, 640, 480, time, first, world_.get(), &grid_, dynamicLights);
+            first = false;
+            if (!haveView && !(readInt(v.refdef, 76) & kNoWorldModel)) {
+                haveView = true;
+                eye_ = scene_->eye();
+                shown_ = {scene_->placedCount(), scene_->effectCount(), scene_->lightCount(),
+                          scene_->otherEntities(), scene_->unloadable()};
+            }
         }
-        renderer_->setDepthRange(1);
-        world_->drawSurfaces(time, kLastOpaque + 0.5f);
-        for (const Placed& p : placed_) {
-            renderer_->setDepthRange(p.depthHack ? refent::kDepthHackRange : 1);
-            models_->draw(p.model, p.frame, p.transform, p.light, time - p.shaderTime, p.skin, kLastOpaque + 0.5f,
-                          1e9f, p.shader, &p.color, p.oldFrame, p.backLerp);
-        }
-        drawEffects(time);
-        renderer_->setDepthRange(1);
-    } else {
-        placed_.clear();
-        effects_.clear();
-        renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
+        scene_->drawPictures(pictures, drawn, pictures.size(), 640, 480, time);
     }
 
-    // The HUD over it, in the client game's 640x480 screen.
-    std::vector<eliteforce::CgameHost::Picture> pictures;
-    if (cgame_)
-        pictures = cgame_->pictures();
-    std::vector<gfx::Vertex> vertices;
-    std::vector<uint32_t> indices;
-    vertices.reserve(pictures.size() * 4);
-    indices.reserve(pictures.size() * 6);
-    for (const auto& p : pictures) {
-        const auto base = uint32_t(vertices.size());
-        uint8_t rgba[4];
-        for (int i = 0; i < 4; ++i)
-            rgba[i] = uint8_t(std::clamp(p.color[size_t(i)], 0.0f, 1.0f) * 255.0f + 0.5f);
-        const float xs[4] = {p.x, p.x + p.w, p.x + p.w, p.x};
-        const float ys[4] = {p.y, p.y, p.y + p.h, p.y + p.h};
-        const float ss[4] = {p.s1, p.s2, p.s2, p.s1};
-        const float ts[4] = {p.t1, p.t1, p.t2, p.t2};
-        for (int i = 0; i < 4; ++i) {
-            gfx::Vertex v{};
-            v.pos[0] = xs[i];
-            v.pos[1] = ys[i];
-            v.uv[0] = ss[i];
-            v.uv[1] = ts[i];
-            v.normal[2] = 1;
-            std::memcpy(v.color, rgba, 4);
-            vertices.push_back(v);
-        }
-        for (uint32_t i : {0u, 1u, 2u, 0u, 2u, 3u})
-            indices.push_back(base + i);
-    }
-    gfx::MeshId mesh = 0;
-    if (!vertices.empty())
-        renderer_->createMesh(vertices, indices, mesh);
-    if (mesh) {
-        gfx::Mat4 ortho{};
-        ortho[0] = 2.0f / 640.0f;
-        ortho[5] = -2.0f / 480.0f;
-        ortho[10] = 1;
-        ortho[12] = -1;
-        ortho[13] = 1;
-        ortho[15] = 1;
-        renderer_->setViewport(0, 0, 0, 0);
-        renderer_->setView(ortho, {0, 0, 0});
-        for (size_t i = 0; i < pictures.size(); ++i) {
-            const int32_t handle = pictures[i].shader;
-            if (handle <= 0)
-                continue;
-            if (size_t(handle) >= materials_.size())
-                materials_.resize(size_t(handle) + 1, -2);
-            int& material = materials_[size_t(handle)];
-            if (material == -2)
-                material = shaders_->material(cgame_->shaders().name(handle), Lighting::TwoD);
-            if (material < 0 || shaders_->get(material).skip)
-                continue;
-            gfx::DrawCall call;
-            call.mesh = mesh;
-            call.firstIndex = uint32_t(i * 6);
-            call.indexCount = 6;
-            shaders_->draw(material, call, 0, time);
-        }
-    }
-
-    drawOverlay(nowMs, view != nullptr);
+    drawOverlay(nowMs, haveView);
     renderer_->endFrame(&overlay_);
-    if (mesh)
-        renderer_->destroyMesh(mesh);
-}
-
-std::array<float, 4> PlayViewer::entityColor(const std::vector<uint8_t>& e) {
-    // refEntity_t's colour: bytes r, g, b, a.
-    std::array<float, 4> c{};
-    for (size_t i = 0; i < 4; ++i)
-        c[i] = (refent::Rgba + i < e.size() ? e[refent::Rgba + i] : 255) / 255.0f;
-    return c;
-}
-
-float PlayViewer::shaderTime(const std::vector<uint8_t>& e) const {
-    // When the entity's shader animations start, in seconds of the level
-    // (Quake III's shaderTime): an explosion's from its first frame. Only
-    // a time that has come is taken.
-    const float t = readFloat(e, refent::ShaderTime);
-    return t > 0 && t <= float(clientTime_) / 1000.0f + 1 ? t : 0;
-}
-
-void PlayViewer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left, const gfx::Vec3& up) {
-    const int32_t type = readInt(e, refent::Type);
-    const int32_t shader = readInt(e, refent::CustomShader);
-    if (shader <= 0)
-        return;
-    using V = gfx::Vec3;
-    auto add = [](const V& a, const V& b, float s) { return V{a[0] + b[0] * s, a[1] + b[1] * s, a[2] + b[2] * s}; };
-    auto sub = [](const V& a, const V& b) { return V{a[0] - b[0], a[1] - b[1], a[2] - b[2]}; };
-    auto cross = [](const V& a, const V& b) {
-        return V{a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
-    };
-    auto normalized = [](V v) {
-        const float len = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-        if (len > 1e-6f)
-            for (float& c : v)
-                c /= len;
-        return v;
-    };
-    const auto first = uint32_t(effectIndices_.size());
-    const int32_t rgba = readInt(e, refent::Rgba);
-    auto vertex = [&](const V& pos, float s, float t) {
-        gfx::Vertex v{};
-        for (size_t k = 0; k < 3; ++k)
-            v.pos[k] = pos[k];
-        v.uv[0] = s;
-        v.uv[1] = t;
-        v.normal[2] = 1;
-        std::memcpy(v.color, &rgba, 4); // bytes r, g, b, a
-        effectVertices_.push_back(v);
-        return uint32_t(effectVertices_.size() - 1);
-    };
-    auto quad = [&](uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
-        for (uint32_t i : {a, b, c, a, c, d})
-            effectIndices_.push_back(i);
-    };
-    // A ribbon through `points`, facing the eye, as wide as `widths`
-    // says at each; the texture across it in s and along it in t, to
-    // `repeat` at the end.
-    auto ribbon = [&](const std::vector<V>& points, const std::vector<float>& widths, float repeat) {
-        uint32_t prevA = 0, prevB = 0;
-        for (size_t i = 0; i < points.size(); ++i) {
-            const V along = sub(points[std::min(i + 1, points.size() - 1)], points[i ? i - 1 : 0]);
-            const V side = normalized(cross(along, sub(eye_, points[i])));
-            const float t = repeat * float(i) / float(points.size() - 1);
-            const uint32_t a = vertex(add(points[i], side, widths[i] / 2), 0, t);
-            const uint32_t b = vertex(add(points[i], side, -widths[i] / 2), 1, t);
-            if (i)
-                quad(prevA, a, b, prevB);
-            prevA = a;
-            prevB = b;
-        }
-    };
-    const V origin = readVec(e, refent::Origin);
-    if (type == refent::TypeSprite || type == refent::TypeQuad) {
-        const float r = readFloat(e, refent::Radius);
-        V l = left, u = up;
-        if (type == refent::TypeQuad) {
-            l = readVec(e, refent::Axes + 12);
-            u = readVec(e, refent::Axes + 24);
-        } else if (const float deg = readFloat(e, refent::Rotation); deg != 0) {
-            const float c = std::cos(deg * kPi / 180), sn = std::sin(deg * kPi / 180);
-            for (size_t i = 0; i < 3; ++i) {
-                l[i] = left[i] * c + up[i] * sn;
-                u[i] = up[i] * c - left[i] * sn;
-            }
-        }
-        quad(vertex(add(add(origin, l, r), u, r), 0, 0), vertex(add(add(origin, l, -r), u, r), 1, 0),
-             vertex(add(add(origin, l, -r), u, -r), 1, 1), vertex(add(add(origin, l, r), u, -r), 0, 1));
-    } else if (type == refent::TypeLine || type == refent::TypeTaperedLine) {
-        const float w0 = readFloat(e, refent::Width);
-        const float w1 = type == refent::TypeTaperedLine ? readFloat(e, refent::EndWidth) : w0;
-        const float repeat = readFloat(e, refent::Repeat) > 0 ? readFloat(e, refent::Repeat) : 1.0f;
-        ribbon({origin, readVec(e, refent::OldOrigin)}, {w0, w1}, repeat);
-    } else if (type == refent::TypeCurve) {
-        // A cubic Bezier curve from the origin through two control points
-        // to the old origin.
-        const V p0 = origin, p1 = readVec(e, refent::Control1), p2 = readVec(e, refent::Control2),
-                p3 = readVec(e, refent::OldOrigin);
-        std::vector<V> points;
-        constexpr int kSteps = 16;
-        for (int i = 0; i <= kSteps; ++i) {
-            const float t = float(i) / kSteps, m = 1 - t;
-            V p{};
-            for (size_t k = 0; k < 3; ++k)
-                p[k] = m * m * m * p0[k] + 3 * m * m * t * p1[k] + 3 * m * t * t * p2[k] + t * t * t * p3[k];
-            points.push_back(p);
-        }
-        ribbon(points, std::vector<float>(points.size(), readFloat(e, refent::Width)), 1);
-    } else if (type == refent::TypeBolt) {
-        // Electricity: a line broken into steps, each point pushed aside at
-        // random by the jitter times the step's length; new each frame.
-        const V end = readVec(e, refent::OldOrigin);
-        const V along = sub(end, origin);
-        const float len = std::sqrt(along[0] * along[0] + along[1] * along[1] + along[2] * along[2]);
-        const V dir = normalized(along);
-        V side1 = normalized(cross(dir, V{0, 0, 1}));
-        if (std::fabs(dir[2]) > 0.99f)
-            side1 = V{1, 0, 0};
-        const V side2 = cross(dir, side1);
-        const int steps = std::clamp(int(len / 16), 2, 32);
-        const float jitter = readFloat(e, refent::Jitter) * len / float(steps);
-        std::vector<V> points;
-        for (int i = 0; i <= steps; ++i) {
-            V p = add(origin, along, float(i) / float(steps));
-            if (i > 0 && i < steps) {
-                const float r1 = float(effectRandom_() % 2001) / 1000.0f - 1;
-                const float r2 = float(effectRandom_() % 2001) / 1000.0f - 1;
-                p = add(add(p, side1, r1 * jitter), side2, r2 * jitter);
-            }
-            points.push_back(p);
-        }
-        const float scale = readFloat(e, refent::Repeat);
-        ribbon(points, std::vector<float>(points.size(), readFloat(e, refent::Width)),
-               scale > 0 ? len * scale / 16 : 1);
-    } else if (type == refent::TypeCylinder) {
-        // A ring or cone around the first axis: the radius at 132 at the
-        // origin, the one at 136 a height (140) along the axis; the texture
-        // round it (repeated as 144 says) and up it.
-        const V axis = normalized(readVec(e, refent::Axes));
-        const V a1 = normalized(readVec(e, refent::Axes + 12)), a2 = normalized(cross(axis, a1));
-        const float r0 = readFloat(e, refent::Width), r1 = readFloat(e, refent::EndWidth);
-        const float height = readFloat(e, refent::Repeat);
-        const float around = readFloat(e, refent::CylinderRepeat) > 0 ? readFloat(e, refent::CylinderRepeat) : 1.0f;
-        const V top = add(origin, axis, height);
-        constexpr int kSides = 24;
-        uint32_t prevA = 0, prevB = 0;
-        for (int i = 0; i <= kSides; ++i) {
-            const float ang = 2 * kPi * float(i) / kSides;
-            const V radial =
-                add(V{a1[0] * std::cos(ang), a1[1] * std::cos(ang), a1[2] * std::cos(ang)}, a2, std::sin(ang));
-            const float s = around * float(i) / kSides;
-            const uint32_t a = vertex(add(origin, radial, r0), s, 1), b = vertex(add(top, radial, r1), s, 0);
-            if (i)
-                quad(prevA, a, b, prevB);
-            prevA = a;
-            prevB = b;
-        }
-    } else {
-        ++otherEntities_;
-        return;
-    }
-    effects_.push_back({shader, first, uint32_t(effectIndices_.size()) - first, entityColor(e), shaderTime(e),
-                        (readInt(e, refent::Flags) & refent::DepthHack) != 0});
-}
-
-void PlayViewer::drawEffects(float time) {
-    // This frame's effects, in the order the client game added them, over
-    // everything else (they blend, as their shaders say).
-    if (effects_.empty())
-        return;
-    gfx::MeshId mesh = 0;
-    if (renderer_->createMesh(effectVertices_, effectIndices_, mesh) || !mesh)
-        return;
-    for (const Effect& fx : effects_) {
-        if (size_t(fx.shader) >= effectMaterials_.size())
-            effectMaterials_.resize(size_t(fx.shader) + 1, -2);
-        int& material = effectMaterials_[size_t(fx.shader)];
-        if (material == -2)
-            material = shaders_->material(cgame_->shaders().name(fx.shader), Lighting::Effect);
-        if (material < 0 || shaders_->get(material).skip)
-            continue;
-        gfx::DrawCall call;
-        call.mesh = mesh;
-        call.firstIndex = fx.firstIndex;
-        call.indexCount = fx.indexCount;
-        renderer_->setDepthRange(fx.depthHack ? refent::kDepthHackRange : 1);
-        shaders_->draw(material, call, 0, time - fx.shaderTime, false, &fx.color);
-    }
-    renderer_->destroyMesh(mesh);
-}
-
-void PlayViewer::placeEntities(const eliteforce::CgameHost::View& view) {
-    // The view's entities: models where the client game put them, and
-    // effects as quads facing the eye (refdef_t's axes: left at 48, up at 60).
-    placed_.clear();
-    effects_.clear();
-    effectVertices_.clear();
-    effectIndices_.clear();
-    otherEntities_ = 0;
-    unloadable_.clear();
-    const gfx::Vec3 left = readVec(view.refdef, 48), up = readVec(view.refdef, 60);
-    // Polygons (marks: scorches, holes): each vertex a position, texture
-    // coordinates and a colour (Quake III's polyVert_t, 24 bytes), drawn
-    // as a fan.
-    const auto& polys = cgame_->scene().polys;
-    for (size_t i = view.firstPoly; i < view.firstPoly + view.polyCount && i < polys.size(); ++i) {
-        const auto& poly = polys[i];
-        const size_t n = std::min(size_t(std::max(poly.vertexCount, 0)), poly.vertices.size() / 24);
-        if (n < 3 || poly.shader <= 0)
-            continue;
-        const auto base = uint32_t(effectVertices_.size()), first = uint32_t(effectIndices_.size());
-        for (size_t k = 0; k < n; ++k) {
-            gfx::Vertex v{};
-            std::memcpy(v.pos, &poly.vertices[k * 24], 12);
-            std::memcpy(v.uv, &poly.vertices[k * 24 + 12], 8);
-            std::memcpy(v.color, &poly.vertices[k * 24 + 20], 4);
-            v.normal[2] = 1;
-            effectVertices_.push_back(v);
-        }
-        for (uint32_t k = 1; k + 1 < n; ++k)
-            for (uint32_t idx : {0u, k, k + 1})
-                effectIndices_.push_back(base + idx);
-        effects_.push_back({poly.shader, first, uint32_t(effectIndices_.size()) - first, {1, 1, 1, 1}, 0});
-    }
-    const auto& entities = cgame_->scene().entities;
-    for (size_t i = view.firstEntity; i < view.firstEntity + view.entityCount && i < entities.size(); ++i) {
-        const std::vector<uint8_t>& e = entities[i].bytes;
-        if (readInt(e, refent::Type) != refent::TypeModel) {
-            addEffect(e, left, up);
-            continue;
-        }
-        const int32_t flags = readInt(e, refent::Flags);
-        if (flags & refent::ThirdPerson)
-            continue;
-        const int model = modelId(readInt(e, refent::Model));
-        if (model < 0)
-            continue;
-        Placed p;
-        p.model = model;
-        const gfx::Vec3 origin = readVec(e, refent::Origin);
-        p.transform = placement(origin, {readVec(e, refent::Axes), readVec(e, refent::Axes + 12),
-                                         readVec(e, refent::Axes + 24)});
-        // Between two frames, as far back towards the old one as it says.
-        p.frame = readInt(e, refent::Frame);
-        p.oldFrame = readInt(e, refent::OldFrame);
-        p.backLerp = readFloat(e, refent::BackLerp);
-        const gfx::Vec3 lightAt = flags & refent::UseLightingOrigin ? readVec(e, refent::LightingOrigin) : origin;
-        p.light = grid_.sample(lightAt);
-        addDynamicLights(p.light, lightAt);
-        if (const int32_t skin = readInt(e, refent::CustomSkin); skin > 0 && !cgame_->skins().name(skin).empty())
-            p.skin = &models_->skin(cgame_->skins().name(skin));
-        // A shader in place of the model's own (explosions, shells), its
-        // colour fading as the client game says.
-        if (const int32_t shader = readInt(e, refent::CustomShader); shader > 0)
-            p.shader = cgame_->shaders().name(shader);
-        p.color = entityColor(e);
-        p.shaderTime = shaderTime(e);
-        p.depthHack = flags & refent::DepthHack;
-        placed_.push_back(p);
-    }
-}
-
-void PlayViewer::addDynamicLights(PointLight& light, const gfx::Vec3& at) const {
-    // Each dynamic light adds to a model's directed light, from its
-    // direction, as the original does: 16 * radius^2 / distance^2 times
-    // its colour (distances under 16 counted as 16), on the light grid's
-    // 0-255 scale.
-    // The directions summed weighted by strength: the grid's first.
-    gfx::Vec3 direction{};
-    float total = 0;
-    for (int c = 0; c < 3; ++c)
-        total += light.directed[size_t(c)];
-    for (size_t k = 0; k < 3; ++k)
-        direction[k] = light.direction[k] * total;
-    bool any = false;
-    for (const gfx::DynamicLight& l : lights_) {
-        gfx::Vec3 d{l.origin[0] - at[0], l.origin[1] - at[1], l.origin[2] - at[2]};
-        float dist = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
-        if (dist >= l.radius)
-            continue;
-        if (dist > 0)
-            for (float& v : d)
-                v /= dist;
-        dist = std::max(dist, 16.0f);
-        const float power = 16 * l.radius * l.radius / (dist * dist);
-        for (size_t c = 0; c < 3; ++c) {
-            light.directed[c] = std::min(light.directed[c] + power * l.color[c], 255.0f);
-            direction[c] += d[c] * power;
-        }
-        any = true;
-    }
-    if (!any)
-        return;
-    const float len =
-        std::sqrt(direction[0] * direction[0] + direction[1] * direction[1] + direction[2] * direction[2]);
-    if (len > 1e-6f)
-        for (size_t k = 0; k < 3; ++k)
-            light.direction[k] = direction[k] / len;
-}
-
-int PlayViewer::modelId(int32_t handle) {
-    // The client game's model handle to a loaded model, loaded on first
-    // use; -1 if it can't be.
-    if (handle <= 0)
-        return -1;
-    if (const auto it = modelIds_.find(handle); it != modelIds_.end()) {
-        if (it->second < 0)
-            unloadable_.insert(cgame_->models().name(handle));
-        return it->second;
-    }
-    const std::string name = cgame_->models().name(handle);
-    int id = -1;
-    if (name.size() > 4 && (fs::toLower(name.substr(name.size() - 4)) == ".md3" ||
-                            fs::toLower(name.substr(name.size() - 4)) == ".mdr"))
-        id = models_->load(name);
-    modelIds_[handle] = id;
-    if (id < 0)
-        unloadable_.insert(name);
-    return id;
 }
 
 void PlayViewer::addPrint(const std::string& text, bool notify) {
@@ -1264,8 +797,8 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
         if (game_) {
             std::snprintf(line, sizeof line, "time %.1f s, eye at %.0f %.0f %.0f%s; %zu models, %zu effects and %zu lights drawn, %d other entities not yet",
                           float(clientTime_) / 1000.0f, eye_[0], eye_[1], eye_[2],
-                          haveView ? "" : " (no view yet)", placed_.size(), effects_.size(), lights_.size(),
-                          otherEntities_);
+                          haveView ? "" : " (no view yet)", shown_.models, shown_.effects, shown_.lights,
+                          shown_.other);
             lines.push_back(line);
             // What the player's commands carry, to see that keys arrive.
             std::string held;
@@ -1275,9 +808,9 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
             std::snprintf(line, sizeof line, "weapon chosen by the client game: %d; held:%s",
                           cgame_ ? cgame_->weaponSelect() : 0, held.empty() ? " nothing" : held.c_str());
             lines.push_back(line);
-            if (!unloadable_.empty()) {
+            if (!shown_.unloadable.empty()) {
                 std::string names = "Models not drawn (only .md3 and .mdr):";
-                for (const std::string& n : unloadable_)
+                for (const std::string& n : shown_.unloadable)
                     names += " " + n;
                 lines.push_back(names.size() > 150 ? names.substr(0, 150) + "..." : names);
             }

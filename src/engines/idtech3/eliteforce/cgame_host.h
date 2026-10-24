@@ -9,6 +9,7 @@
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/game_host.h"
+#include "engines/idtech3/eliteforce/scene.h"
 #include "engines/idtech3/marks.h"
 #include "engines/idtech3/md3.h"
 #include "engines/idtech3/qvm.h"
@@ -59,15 +60,8 @@ public:
     // The commands the server has sent this player, in order (what
     // GetServerCommand hands over, by sequence number from 1).
     void setServerCommands(std::vector<std::string> commands) { serverCommands_ = std::move(commands); }
-    // Its 2D drawing since clearPictures(), as the menus' (the loading
-    // screen, the HUD): a part of a shader stretched over a rectangle of
-    // the screen, tinted.
-    struct Picture {
-        float x, y, w, h;
-        float s1, t1, s2, t2;
-        int32_t shader; // in shaders()
-        std::array<float, 4> color;
-    };
+    // Its 2D drawing since clearPictures() (the loading screen, the HUD).
+    using Picture = eliteforce::Picture;
     const std::vector<Picture>& pictures() const { return pictures_; }
     void clearPictures() { pictures_.clear(); }
     // The weapon the client game last selected (SetUserCmdValue), which
@@ -80,50 +74,10 @@ public:
         while (userCommands_.size() > 64)
             userCommands_.erase(userCommands_.begin());
     }
-    // A frame's 3D scene, as the client game hands it over: the entities
-    // it adds (each a refEntity_t, kept as the 256 bytes from its address
-    // until the layout is known, with the size of the memset that cleared
-    // it, if one did) and the view it renders them from (refdef_t, the
-    // 112 bytes the client game clears at start-up: Quake III's without
-    // its text).
-    struct SceneEntity {
-        std::vector<uint8_t> bytes;
-        int32_t clearedSize = 0;
-    };
-    // Each RenderScene draws the entities added since the last ClearScene
-    // or RenderScene from its own view: the player's, and others such as
-    // the HUD's heads (which don't draw the world).
-    struct View {
-        std::vector<uint8_t> refdef;
-        size_t firstEntity = 0, entityCount = 0; // in entities
-        size_t firstPoly = 0, polyCount = 0;     // in polys
-        size_t firstLight = 0, lightCount = 0;   // in lights
-    };
-    struct Scene {
-        std::vector<SceneEntity> entities; // every one added this frame
-        // Polygons (AddPolyToScene: shader, vertex count, the vertices'
-        // bytes, 24 each as Quake III's polyVert_t, until the layout's
-        // confirmed) and lights (AddLightToScene: origin, intensity, which
-        // is the radius it reaches, and colour).
-        struct Poly {
-            int32_t shader = 0, vertexCount = 0;
-            std::vector<uint8_t> vertices;
-        };
-        std::vector<Poly> polys;
-        struct Light {
-            std::array<float, 3> origin{};
-            float radius = 0;
-            std::array<float, 3> color{};
-        };
-        std::vector<Light> lights;
-        std::vector<uint8_t> view; // set by RenderScene: the last one
-        int renders = 0;
-        std::vector<View> views; // every RenderScene, in order
-        size_t pending = 0;      // entities from here wait for the next RenderScene
-        size_t pendingPolys = 0; // the same for polygons
-        size_t pendingLights = 0; // and lights
-
-    };
+    // A frame's 3D scene, as the client game hands it over (scene.h).
+    using SceneEntity = eliteforce::SceneEntity;
+    using View = eliteforce::View;
+    using Scene = eliteforce::Scene;
     const Scene& scene() const { return scene_; }
     void clearScene() { scene_ = Scene{}; }
     // Where the client game asked for each snapshot (GetSnapshot's

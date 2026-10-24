@@ -4,6 +4,7 @@
 // The Menu page: the game's own menus (vm/ui.qvm) run by the QVM
 // interpreter, their pictures drawn by the GPU renderer.
 
+#include "engines/idtech3/scene_drawer.h"
 #include "engines/idtech3/viewers.h"
 
 #include "common/font.h"
@@ -45,7 +46,10 @@ void MenuViewer::activate() {
     }
     overlay_.create(frameW_, frameH_, PixelFormat::RGBA32);
     shaders_ = std::make_unique<ShaderCache>(*renderer_, ctx_.files, ctx_.shaders);
-    materials_.clear();
+    models_ = std::make_unique<ModelCache>(*renderer_, *shaders_, ctx_.files);
+    // The settings reach the models the menus show (pictures keep theirs).
+    applyVideoSettings(video, *shaders_, nullptr, models_.get());
+    scene_ = std::make_unique<SceneDrawer>(*renderer_, *shaders_, *models_);
     shownMs_ = 0;
     // The menus draw their own pointer, and have text fields.
     ctx_.sys.setMouseCursorVisible(false);
@@ -61,6 +65,8 @@ void MenuViewer::activate() {
 
 void MenuViewer::start() {
     ui_ = std::make_unique<eliteforce::UiHost>(ctx_.files, cvars_);
+    if (scene_)
+        scene_->reset(); // new handles
     ui_->bindings = &ctx_.bindings;
     commandsSeen_ = 0;
     ui_->setScreenSize(frameW_, frameH_);
@@ -235,7 +241,8 @@ void MenuViewer::deactivate() {
         ctx_.sys.setMouseCursorVisible(true);
         ctx_.sys.setTextInput(false);
     }
-    materials_.clear();
+    scene_.reset();
+    models_.reset();
     shaders_.reset();
     renderer_ = nullptr;
 }
@@ -340,65 +347,24 @@ void MenuViewer::update(uint64_t nowMs) {
         }
     }
 
-    // Every picture a quad in one mesh, in screen pixels.
-    std::vector<gfx::Vertex> vertices;
-    std::vector<uint32_t> indices;
-    vertices.reserve(pictures.size() * 4);
-    indices.reserve(pictures.size() * 6);
-    for (const auto& p : pictures) {
-        const auto base = uint32_t(vertices.size());
-        uint8_t rgba[4];
-        for (int i = 0; i < 4; ++i)
-            rgba[i] = uint8_t(std::clamp(p.color[size_t(i)], 0.0f, 1.0f) * 255.0f + 0.5f);
-        const float xs[4] = {p.x, p.x + p.w, p.x + p.w, p.x};
-        const float ys[4] = {p.y, p.y, p.y + p.h, p.y + p.h};
-        const float ss[4] = {p.s1, p.s2, p.s2, p.s1};
-        const float ts[4] = {p.t1, p.t1, p.t2, p.t2};
-        for (int i = 0; i < 4; ++i) {
-            gfx::Vertex v{};
-            v.pos[0] = xs[i];
-            v.pos[1] = ys[i];
-            v.uv[0] = ss[i];
-            v.uv[1] = ts[i];
-            v.normal[2] = 1;
-            std::memcpy(v.color, rgba, 4);
-            vertices.push_back(v);
-        }
-        for (uint32_t i : {0u, 1u, 2u, 0u, 2u, 3u})
-            indices.push_back(base + i);
-    }
-    gfx::MeshId mesh = 0;
-    if (!vertices.empty())
-        renderer_->createMesh(vertices, indices, mesh);
-
-    // Pixels to clip space: x right, y down, as the menus count.
-    gfx::Mat4 ortho{};
-    ortho[0] = 2.0f / float(frameW_);
-    ortho[5] = -2.0f / float(frameH_);
-    ortho[10] = 1;
-    ortho[12] = -1;
-    ortho[13] = 1;
-    ortho[15] = 1;
+    // The pictures, in screen pixels as the menus count, with each 3D
+    // scene (the player model in Player settings...) over the pictures
+    // drawn before it.
     renderer_->setGamma(brightness(ctx_));
-    renderer_->beginFrame(ortho, {0, 0, 0}, {0, 0, 0});
-    if (mesh) {
-        for (size_t i = 0; i < pictures.size(); ++i) {
-            const int32_t handle = pictures[i].shader;
-            if (handle <= 0)
-                continue;
-            if (size_t(handle) >= materials_.size())
-                materials_.resize(size_t(handle) + 1, -2);
-            int& material = materials_[size_t(handle)];
-            if (material == -2)
-                material = shaders_->material(ui_ ? ui_->shaders().name(handle) : std::string(), Lighting::TwoD);
-            if (material < 0 || shaders_->get(material).skip)
-                continue;
-            gfx::DrawCall call;
-            call.mesh = mesh;
-            call.firstIndex = uint32_t(i * 6);
-            call.indexCount = 6;
-            shaders_->draw(material, call, 0, float(time) / 1000.0f);
+    renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
+    if (ui_) {
+        const float seconds = float(time) / 1000.0f;
+        const auto& scene = ui_->scene();
+        scene_->setHandles({&ui_->models(), &ui_->skins(), &ui_->shaders()});
+        size_t drawn = 0;
+        bool first = true;
+        for (const auto& v : scene.views) {
+            scene_->drawPictures(pictures, drawn, v.picturesBefore, frameW_, frameH_, seconds);
+            drawn = std::max(drawn, v.picturesBefore);
+            scene_->drawView(scene, v, frameW_, frameH_, seconds, first, nullptr, nullptr, true);
+            first = false;
         }
+        scene_->drawPictures(pictures, drawn, pictures.size(), frameW_, frameH_, seconds);
     }
 
     // Errors, and for a while how to leave.
@@ -433,8 +399,6 @@ void MenuViewer::update(uint64_t nowMs) {
         font::drawText(overlay_, 4, y, lines[i], i == 0 && !error_.empty() ? Color{255, 120, 120} : Color{230, 230, 230});
     }
     renderer_->endFrame(&overlay_);
-    if (mesh)
-        renderer_->destroyMesh(mesh);
 }
 
 } // namespace reluva::idtech3

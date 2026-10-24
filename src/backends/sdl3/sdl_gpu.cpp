@@ -261,6 +261,29 @@ void SdlGpuRenderer::setDepthRange(float maxDepth) {
     SDL_SetGPUViewport(pass_, &viewport_);
 }
 
+void SdlGpuRenderer::clearDepth() {
+    if (!pass_ || !cmd_)
+        return;
+    // A new pass over the same frame: its colours kept, its depth cleared.
+    SDL_EndGPURenderPass(pass_);
+    SDL_GPUColorTargetInfo color{};
+    color.texture = color_;
+    color.load_op = SDL_GPU_LOADOP_LOAD;
+    color.store_op = SDL_GPU_STOREOP_STORE;
+    SDL_GPUDepthStencilTargetInfo depth{};
+    depth.texture = depth_;
+    depth.clear_depth = 1.0f;
+    depth.load_op = SDL_GPU_LOADOP_CLEAR;
+    depth.store_op = SDL_GPU_STOREOP_DONT_CARE;
+    depth.stencil_load_op = SDL_GPU_LOADOP_DONT_CARE;
+    depth.stencil_store_op = SDL_GPU_STOREOP_DONT_CARE;
+    pass_ = SDL_BeginGPURenderPass(cmd_, &color, 1, &depth);
+    boundPipeline_ = nullptr;
+    boundMesh_ = 0;
+    if (pass_ && viewport_.w > 0 && viewport_.h > 0)
+        SDL_SetGPUViewport(pass_, &viewport_);
+}
+
 bool SdlGpuRenderer::upload(const void* data, uint32_t size, SDL_GPUBuffer* buffer) {
     SDL_GPUTransferBufferCreateInfo ti{};
     ti.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
