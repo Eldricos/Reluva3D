@@ -192,6 +192,8 @@ private:
     VmFiles vmFiles_;
     std::shared_ptr<const Bsp> map_;
     std::unique_ptr<CollisionWorld> world_;
+    std::unique_ptr<AreaPortals> areaPortals_; // which areas join up through open doors
+    std::map<int32_t, std::pair<int, int>> entityAreas_; // by entity, when last linked: its area(s), -1 none
     std::string entityText_;
     std::vector<std::string> args_; // the command being handled
     size_t entityPos_ = 0;

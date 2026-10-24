@@ -376,6 +376,87 @@ int CollisionWorld::leafAt(const Vec3f& point) const {
     return -1 - node;
 }
 
+void CollisionWorld::boxLeafs(const Vec3f& mins, const Vec3f& maxs, std::vector<int>& leafs) const {
+    if (bsp_.nodes.empty()) {
+        if (!bsp_.leafs.empty())
+            leafs.push_back(0);
+        return;
+    }
+    std::vector<int> stack{0};
+    while (!stack.empty()) {
+        const int node = stack.back();
+        stack.pop_back();
+        if (node < 0) {
+            leafs.push_back(-1 - node);
+            continue;
+        }
+        const BspNode& n = bsp_.nodes[size_t(node)];
+        const BspPlane& p = bsp_.planes[size_t(n.plane)];
+        // The box's nearest and farthest corners from the plane.
+        float lo = -p.dist, hi = -p.dist;
+        for (size_t k = 0; k < 3; ++k) {
+            lo += p.normal[k] * (p.normal[k] >= 0 ? mins[k] : maxs[k]);
+            hi += p.normal[k] * (p.normal[k] >= 0 ? maxs[k] : mins[k]);
+        }
+        if (hi >= 0)
+            stack.push_back(n.children[0]);
+        if (lo < 0)
+            stack.push_back(n.children[1]);
+    }
+}
+
+int CollisionWorld::areaCount() const {
+    int count = 0;
+    for (const BspLeaf& l : bsp_.leafs)
+        count = std::max(count, l.area + 1);
+    return count;
+}
+
+AreaPortals::AreaPortals(int areaCount)
+    : count_(std::max(areaCount, 0)), open_(size_t(count_) * size_t(count_), 0), group_(size_t(count_), 0) {
+    flood();
+}
+
+void AreaPortals::adjust(int area1, int area2, bool open) {
+    if (area1 < 0 || area2 < 0 || area1 >= count_ || area2 >= count_)
+        return;
+    int& a = open_[size_t(area1) * size_t(count_) + size_t(area2)];
+    int& b = open_[size_t(area2) * size_t(count_) + size_t(area1)];
+    if (open) {
+        ++a;
+        ++b;
+    } else if (a > 0) { // the original stops on closing a closed one
+        --a;
+        --b;
+    }
+    flood();
+}
+
+bool AreaPortals::connected(int area1, int area2) const {
+    if (area1 < 0 || area2 < 0 || area1 >= count_ || area2 >= count_)
+        return false;
+    return group_[size_t(area1)] == group_[size_t(area2)];
+}
+
+void AreaPortals::flood() {
+    std::fill(group_.begin(), group_.end(), -1);
+    for (int start = 0; start < count_; ++start) {
+        if (group_[size_t(start)] >= 0)
+            continue;
+        std::vector<int> stack{start};
+        group_[size_t(start)] = start;
+        while (!stack.empty()) {
+            const int area = stack.back();
+            stack.pop_back();
+            for (int other = 0; other < count_; ++other)
+                if (group_[size_t(other)] < 0 && open_[size_t(area) * size_t(count_) + size_t(other)] > 0) {
+                    group_[size_t(other)] = start;
+                    stack.push_back(other);
+                }
+        }
+    }
+}
+
 int32_t CollisionWorld::pointContents(const Vec3f& point, int model) const {
     auto inside = [&](int brush) {
         const BspBrush& b = bsp_.brushes[size_t(brush)];

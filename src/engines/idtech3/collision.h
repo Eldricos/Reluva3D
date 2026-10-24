@@ -52,6 +52,14 @@ public:
     int32_t pointContents(const Vec3f& point, int model) const;
     // The leaf a point is in, for visibility.
     int leafAt(const Vec3f& point) const;
+    // The leaves a box touches (inside or on their edges).
+    void boxLeafs(const Vec3f& mins, const Vec3f& maxs, std::vector<int>& leafs) const;
+    // The area a leaf is in (-1: none, as solid leaves).
+    int leafArea(int leaf) const {
+        return leaf >= 0 && size_t(leaf) < bsp_.leafs.size() ? bsp_.leafs[size_t(leaf)].area : -1;
+    }
+    // How many areas the map is cut into (by its area portals).
+    int areaCount() const;
     bool modelBounds(int model, Vec3f& mins, Vec3f& maxs) const;
     int modelCount() const { return int(bsp_.models.size()); }
     const Bsp& bsp() const { return bsp_; }
@@ -87,6 +95,25 @@ private:
     std::vector<Facet> facets_;
     std::vector<int> patchOf_; // per surface: its PatchCollide, -1 none
     std::vector<PatchCollide> patches_;
+};
+
+// Which of a map's areas join up, as the original keeps it: areas meet
+// only through area portals (where doors stand), each closed until the
+// game opens it (as many times as it's opened, less times closed); areas
+// joined through open ones, step by step, are connected.
+class AreaPortals {
+public:
+    explicit AreaPortals(int areaCount);
+    // The portal between two areas opened, or closed again.
+    void adjust(int area1, int area2, bool open);
+    // Whether the areas join up (never for -1).
+    bool connected(int area1, int area2) const;
+
+private:
+    void flood();
+    int count_ = 0;
+    std::vector<int> open_;  // count_ x count_: times each portal is open
+    std::vector<int> group_; // by area: areas with the same are connected
 };
 
 } // namespace reluva::idtech3

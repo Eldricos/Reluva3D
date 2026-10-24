@@ -2030,6 +2030,26 @@ void testMarks() {
     CHECK(none.triangleCount() == 0);
 }
 
+void testAreaPortals() {
+    using namespace reluva::idtech3;
+    // Three areas in a row, portals between 0-1 and 1-2.
+    AreaPortals areas(3);
+    CHECK(areas.connected(1, 1) && !areas.connected(0, 1) && !areas.connected(0, -1));
+    areas.adjust(0, 1, true);
+    CHECK(areas.connected(0, 1) && !areas.connected(0, 2));
+    areas.adjust(1, 2, true);
+    CHECK(areas.connected(0, 2));
+    // Opened twice, closed once: still open.
+    areas.adjust(0, 1, true);
+    areas.adjust(0, 1, false);
+    CHECK(areas.connected(0, 2));
+    areas.adjust(0, 1, false);
+    CHECK(!areas.connected(0, 2) && areas.connected(1, 2));
+    areas.adjust(0, 1, false); // closing a closed one changes nothing
+    areas.adjust(0, 1, true);
+    CHECK(areas.connected(0, 2));
+}
+
 void testVideoSettings() {
     using namespace reluva::idtech3;
     CvarStore cvars;
@@ -2091,6 +2111,7 @@ int main() {
     testBotChat();
     testPatchCollision();
     testVideoSettings();
+    testAreaPortals();
     testVmFileList();
     testSoundLibrary(tmp / "sounds");
     testSoundSystem(tmp / "soundsystem");

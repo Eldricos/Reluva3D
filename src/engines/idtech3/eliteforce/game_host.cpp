@@ -87,6 +87,8 @@ Error GameHost::startLevel(const std::string& mapName, std::shared_ptr<const Bsp
         return Error::fail("No map");
     map_ = std::move(map);
     world_ = std::make_unique<CollisionWorld>(*map_);
+    areaPortals_ = std::make_unique<AreaPortals>(world_->areaCount());
+    entityAreas_.clear();
     linked_.clear();
     // What the original server sets before starting the game code.
     cvars_.create("mapname", "", CvarStore::ServerInfo | CvarStore::ReadOnly);
@@ -346,6 +348,23 @@ void GameHost::linkEntity(int32_t address) {
     writeVec(address + ent::AbsMin, absMin);
     writeVec(address + ent::AbsMax, absMax);
     vm_.writeInt(address + ent::Linked, 1);
+    // The areas it touches, as the original's server keeps them: the
+    // first, and a second if it stands between two (a door in its portal).
+    if (world_) {
+        std::vector<int> leafs;
+        world_->boxLeafs(absMin, absMax, leafs);
+        std::pair<int, int> areas{-1, -1};
+        for (int leaf : leafs) {
+            const int area = world_->leafArea(leaf);
+            if (area < 0)
+                continue;
+            if (areas.first != -1 && areas.first != area)
+                areas.second = area;
+            else
+                areas.first = area;
+        }
+        entityAreas_[n] = areas;
+    }
 }
 
 TraceResult GameHost::traceMove(const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
@@ -586,10 +605,17 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         const int l1 = world_->leafAt(readVec(a[0])), l2 = world_->leafAt(readVec(a[1]));
         if (l1 < 0 || l2 < 0)
             return 0;
-        return map_->clusterVisible(map_->leafs[size_t(l1)].cluster, map_->leafs[size_t(l2)].cluster);
+        if (!map_->clusterVisible(map_->leafs[size_t(l1)].cluster, map_->leafs[size_t(l2)].cluster))
+            return 0;
+        // Not through a closed door, unless asked to ignore portals.
+        return number == InPvsIgnorePortals || areaPortals_->connected(world_->leafArea(l1), world_->leafArea(l2));
     }
-    case AdjustAreaPortalState: return 0; // areas aren't separated yet
-    case AreasConnected: return 1;
+    case AdjustAreaPortalState: // (entity, open): the portal its door stands in
+        if (const auto it = entityAreas_.find(entityNumber(a[0])); it != entityAreas_.end() && areaPortals_ &&
+                                                                   it->second.second != -1)
+            areaPortals_->adjust(it->second.first, it->second.second, a[1] != 0);
+        return 0;
+    case AreasConnected: return areaPortals_ && areaPortals_->connected(a[0], a[1]);
     case EntitiesInBox: { // (mins, maxs, list, max) -> how many
         const Vec3f mins = readVec(a[0]), maxs = readVec(a[1]);
         int32_t count = 0;
