@@ -319,6 +319,11 @@ void MenuViewer::update(uint64_t nowMs) {
         activate();
         if (!renderer_)
             return;
+        // What the menus chose, shown for a while (r_fullscreen is theirs:
+        // Apply sets it from the Full Screen line).
+        lastCommand_ = "vid_restart: " + std::to_string(frameW_) + "x" + std::to_string(frameH_) +
+                       (videoSettings(ctx_.cvars).fullscreen ? ", full screen" : ", in a window");
+        lastCommandMs_ = nowMs;
     }
     const auto time = int32_t(nowMs - startMs_);
 

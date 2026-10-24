@@ -105,7 +105,7 @@ private:
     const ShaderLibrary& shaders_;
     std::vector<Material> materials_;
     std::map<std::pair<std::string, Lighting>, int> byName_;
-    std::deque<ShaderDef> implicit_; // the original's shaders for names without a script (stable addresses)
+    std::deque<ShaderDef> implicit_; // the original's shaders for names without a script, and pictures' copies (stable addresses)
     std::unordered_map<std::string, gfx::TextureId> images_; // by normalized name and flags
     gfx::TextureId missingTexture_ = 0;
     gfx::TextureId whiteTexture_ = 0;

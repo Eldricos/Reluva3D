@@ -318,7 +318,8 @@ int ShaderCache::material(const ShaderDef& def, Lighting lighting, bool sky) {
     if (lighting == Lighting::TwoD && !(def.noMipmaps && def.noPicmip)) {
         // Pictures (menus, the HUD) are registered without mipmaps, so the
         // texture detail and filter settings leave them alone.
-        ShaderDef flat = def;
+        // The copy is kept: the material's stages point into it.
+        ShaderDef& flat = implicit_.emplace_back(def);
         flat.noMipmaps = flat.noPicmip = true;
         materials_.push_back(makeMaterial(flat, lighting, sky));
         return static_cast<int>(materials_.size()) - 1;
