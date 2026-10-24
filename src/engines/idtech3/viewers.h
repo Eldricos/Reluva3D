@@ -360,6 +360,8 @@ private:
     void start(int index);
     void stop(const std::string& why);
     void runGame(uint64_t nowMs);
+    void drawLoadingScreen();
+    bool loadingFailed_ = false; // the client game couldn't draw its loading screen
     void sendServerCommands();
     void consoleCommand(const std::string& text);
     static bool isButton(const std::string& name);

@@ -108,6 +108,9 @@ public:
     float subdivisions = 4; // r_subdivisions, for marks on curves to lie on them as drawn
 
     std::function<void(const std::string&)> print;
+    // UpdateScreen: while it loads, the client game asks for the screen to
+    // be shown as it stands (its loading information); unset, nothing is.
+    std::function<void()> updateScreen;
     const std::string& log() const { return log_; }
     const std::map<int, int>& unhandled() const { return unhandled_; }
     // The arguments of the first call to each call not implemented.

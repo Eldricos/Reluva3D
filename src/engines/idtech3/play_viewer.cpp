@@ -198,7 +198,10 @@ void PlayViewer::start(int index) {
     if (!err) {
         cgame_->setConfigstrings(game_->configstrings());
         sendServerCommands();
+        loadingFailed_ = false;
+        cgame_->updateScreen = [this] { drawLoadingScreen(); };
         err = cgame_->init(0, 0, 0);
+        cgame_->updateScreen = nullptr;
     }
     if (err) {
         stop("The client game stopped: " + err.message);
@@ -207,6 +210,28 @@ void PlayViewer::start(int index) {
     clientTime_ = game_->levelTime();
     lastMs_ = 0;
     cgame_->newSnapshot(game_->snapshot(0));
+}
+
+void PlayViewer::drawLoadingScreen() {
+    // As the original: the client game's frame drawn now, in the middle of
+    // its loading, which only draws what it's loading (the level's picture,
+    // its name, the media so far); then shown.
+    if (!cgame_ || !renderer_ || loadingFailed_)
+        return;
+    cgame_->clearPictures();
+    cgame_->clearScene();
+    int32_t ignored = 0;
+    if (cgame_->call(eliteforce::CgameHost::DrawActiveFrame, {game_ ? game_->levelTime() : 0, 0, 0}, ignored)) {
+        loadingFailed_ = true; // it can't yet; the level goes on loading regardless
+        return;
+    }
+    renderer_->setGamma(brightness(ctx_));
+    renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
+    scene_->drawPictures(cgame_->pictures(), 0, cgame_->pictures().size(), 640, 480, 0);
+    std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
+    renderer_->endFrame(&overlay_);
+    cgame_->clearPictures();
+    cgame_->clearScene();
 }
 
 void PlayViewer::stop(const std::string& why) {

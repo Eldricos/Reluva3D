@@ -113,6 +113,8 @@ private:
     static std::array<float, 4> entityColor(const std::vector<uint8_t>& entity);
     static float shaderTime(const std::vector<uint8_t>& entity, float time);
     int modelId(int32_t handle);
+    // The level of detail to draw `model` at, where it is in the view.
+    int lodLevel(int model, int frame, const gfx::Vec3& origin) const;
     int material(std::vector<int>& cache, int32_t handle, Lighting lighting);
     void addDynamicLights(PointLight& light, const gfx::Vec3& at) const;
     static const std::string& name(const HandleTable* table, int32_t handle);
@@ -150,7 +152,8 @@ private:
     std::vector<uint32_t> effectIndices_;
     std::minstd_rand effectRandom_;         // electricity's jitter
     std::vector<gfx::DynamicLight> lights_; // this view's
-    gfx::Vec3 eye_{};
+    gfx::Vec3 eye_{}, forward_{1, 0, 0};
+    float focal_ = 1; // the view's 1 / tan(half its height's angle)
     int otherEntities_ = 0;            // entities not drawn (kinds not done yet)
     std::set<std::string> unloadable_; // models this view couldn't draw
 };

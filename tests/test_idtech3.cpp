@@ -1506,6 +1506,10 @@ static void testMdr() {
         // The tag follows bone 1: its x axis is the matrix's first column.
         const Md3Tag* tag = m.tag(1, "tag_weapon");
         CHECK(tag && near(tag->origin, {10, 0, 0}) && near(tag->axis[0], {0, 1, 0}) && near(tag->axis[1], {-1, 0, 0}));
+        // A level of detail past its only one: that one.
+        Md3Model low;
+        CHECK(!parseModel(buildMdr(packed), low, 2) && low.surfaces.size() == 1 &&
+              low.surfaces[0].vertices.size() == s.vertices.size());
     }
     // A broken one: the triangles past the end.
     std::vector<uint8_t> broken = buildMdr(false);

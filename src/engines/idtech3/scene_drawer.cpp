@@ -369,6 +369,8 @@ void SceneDrawer::placeEntities(const eliteforce::Scene& scene, const eliteforce
     otherEntities_ = 0;
     unloadable_.clear();
     const gfx::Vec3 left = readVec(view.refdef, 48), up = readVec(view.refdef, 60);
+    forward_ = readVec(view.refdef, 36);
+    focal_ = 1 / std::tan(std::clamp(readFloat(view.refdef, 20), 1.0f, 170.0f) * kPi / 360.0f);
     // Polygons (marks: scorches, holes, shadows): each vertex a position,
     // texture coordinates and a colour (Quake III's polyVert_t, 24 bytes),
     // drawn as a fan.
@@ -404,8 +406,8 @@ void SceneDrawer::placeEntities(const eliteforce::Scene& scene, const eliteforce
         if (model < 0)
             continue;
         Placed p;
-        p.model = model;
         const gfx::Vec3 origin = readVec(e, refent::Origin);
+        p.model = models_.lod(model, lodLevel(model, readInt(e, refent::Frame), origin));
         p.transform = placement(origin, {readVec(e, refent::Axes), readVec(e, refent::Axes + 12),
                                          readVec(e, refent::Axes + 24)});
         // Between two frames, as far back towards the old one as it says.
@@ -464,6 +466,22 @@ void SceneDrawer::addDynamicLights(PointLight& light, const gfx::Vec3& at) const
     if (len > 1e-6f)
         for (size_t k = 0; k < 3; ++k)
             light.direction[k] = direction[k] / len;
+}
+
+int SceneDrawer::lodLevel(int model, int frame, const gfx::Vec3& origin) const {
+    // As the original: the model's radius as seen, as a share of half the
+    // view's height (1 at most; 0 when it's at or behind the eye, as the
+    // first-person weapon), picks the level: 1 - 5 times it, of the
+    // levels there are; then the detail setting moves it further down.
+    const int count = models_.lodCount(model);
+    if (count < 2)
+        return 0;
+    const float dist = (origin[0] - eye_[0]) * forward_[0] + (origin[1] - eye_[1]) * forward_[1] +
+                       (origin[2] - eye_[2]) * forward_[2];
+    const float seen = dist > 0 ? std::min(models_.radius(model, frame) * focal_ / dist, 1.0f) : 0.0f;
+    const float detail = seen > 0 ? 1 - seen * 5 : 0;
+    const int level = std::clamp(int(detail * float(count)), 0, count - 1);
+    return std::clamp(level + models_.lodBias(), 0, count - 1);
 }
 
 int SceneDrawer::modelId(int32_t handle) {

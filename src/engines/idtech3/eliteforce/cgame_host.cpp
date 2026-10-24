@@ -292,7 +292,10 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case FsRead: return vmFiles_.read(vm, a[0], a[1], a[2]);
     case FsFCloseFile: vmFiles_.close(a[0]); return 0;
     case AddCommand: commands_.push_back(str(0, 64)); return 0;
-    case UpdateScreen: return 0; // the loading screen: nothing to show yet
+    case UpdateScreen: // the loading screen
+        if (updateScreen)
+            updateScreen();
+        return 0;
     case CmLoadMap: {
         collisionMap_ = str(0, 256);
         std::vector<uint8_t> data;

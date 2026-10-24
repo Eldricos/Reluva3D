@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 namespace reluva::idtech3 {
 
@@ -66,20 +67,57 @@ int ModelCache::load(const std::string& path, std::string* error) {
             *error = path + " couldn't be loaded";
         return it->second;
     }
-    Loaded m;
     std::vector<uint8_t> data;
-    std::string file = path;
-    const std::string lower = fs::toLower(path);
-    if (lodBias_ > 0 && lower.size() > 4 && lower.compare(lower.size() - 4, 4, ".md3") == 0)
-        for (int k = lodBias_; k >= 1; --k)
-            if (const std::string lod = path.substr(0, path.size() - 4) + "_" + std::to_string(k) + ".md3";
-                files_.has(lod)) {
-                file = lod;
+    std::string why;
+    Error err = files_.read(path, data);
+    const int id = err ? -1 : add(path, data, 0, &why);
+    if (id < 0) {
+        if (error)
+            *error = err ? err.message : why;
+        byPath_[key] = -1;
+        return -1;
+    }
+    byPath_[key] = id;
+    // The lower levels of detail: an MDR's own, or an MD3's files beside it.
+    std::vector<int> lods;
+    if (data.size() >= 88 && std::memcmp(data.data(), "RDM5", 4) == 0) {
+        int32_t count = 0;
+        std::memcpy(&count, &data[84], 4);
+        for (int level = 1; level < std::min(count, 8); ++level)
+            if (const int lodId = add(path, data, level, nullptr); lodId >= 0)
+                lods.push_back(lodId);
+    } else if (const std::string lower = fs::toLower(path);
+               lower.size() > 4 && lower.compare(lower.size() - 4, 4, ".md3") == 0) {
+        for (int level = 1; level <= 2; ++level) {
+            std::vector<uint8_t> lodData;
+            const std::string lodPath = path.substr(0, path.size() - 4) + "_" + std::to_string(level) + ".md3";
+            const int lodId = files_.read(lodPath, lodData) ? -1 : add(lodPath, lodData, 0, nullptr);
+            if (lodId < 0)
                 break;
-            }
-    Error err = files_.read(file, data);
-    if (!err)
-        err = parseModel(data, m.md3, lodBias_); // an MDR's own levels of detail
+            lods.push_back(lodId);
+        }
+    }
+    models_[size_t(id)].lods = std::move(lods);
+    return id;
+}
+
+float ModelCache::radius(int id, int frame) const {
+    const Md3Model& md3 = models_[size_t(id)].md3;
+    if (md3.frames.empty())
+        return 0;
+    const int frames = int(md3.frames.size());
+    const Md3Frame& f = md3.frames[size_t(((frame % frames) + frames) % frames)];
+    float r2 = 0;
+    for (size_t k = 0; k < 3; ++k) {
+        const float c = std::max(std::fabs(f.mins[k]), std::fabs(f.maxs[k]));
+        r2 += c * c;
+    }
+    return std::sqrt(r2);
+}
+
+int ModelCache::add(const std::string& path, const std::vector<uint8_t>& data, int level, std::string* error) {
+    Loaded m;
+    Error err = parseModel(data, m.md3, level);
 
     // Every surface's frames one after another; indices point into frame
     // 0 and a draw's vertex offset picks the frame.
@@ -118,13 +156,10 @@ int ModelCache::load(const std::string& path, std::string* error) {
     if (err) {
         if (error)
             *error = err.message;
-        byPath_[key] = -1;
         return -1;
     }
     models_.push_back(std::move(m));
-    const int id = static_cast<int>(models_.size()) - 1;
-    byPath_[key] = id;
-    return id;
+    return static_cast<int>(models_.size()) - 1;
 }
 
 void ModelCache::draw(int id, int frame, const gfx::Mat4& transform, const PointLight& light, float time,

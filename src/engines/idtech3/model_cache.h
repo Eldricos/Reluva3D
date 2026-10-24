@@ -10,6 +10,7 @@
 #include "common/archive.h"
 #include "common/gfx3d.h"
 
+#include <algorithm>
 #include <map>
 #include <string>
 #include <unordered_map>
@@ -41,10 +42,23 @@ public:
     // The model at `path`, loaded on first use; -1 (with the reason in
     // `error`, if given) when it can't be.
     int load(const std::string& path, std::string* error = nullptr);
-    // The model detail setting (r_lodBias) for models loaded from now
-    // on: an .md3 with lower-detail versions beside it (name_1.md3,
-    // name_2.md3) loads that many steps down, as far as there are.
+    // Models' levels of detail: an .md3's lower-detail versions beside it
+    // (name_1.md3, name_2.md3), an .mdr's own. Each is loaded with the
+    // model; level 0 is the model itself.
+    int lodCount(int id) const { return 1 + int(models_[size_t(id)].lods.size()); }
+    // The id to draw for `level` (past the last, the last).
+    int lod(int id, int level) const {
+        const auto& lods = models_[size_t(id)].lods;
+        return level <= 0 || lods.empty() ? id : lods[size_t(std::min(level, int(lods.size()))) - 1];
+    }
+    // How far the model reaches from its origin in `frame`, as the
+    // original measures it for choosing a level: the length of the
+    // farthest corner of its box.
+    float radius(int id, int frame) const;
+    // The model detail setting (r_lodBias): how many levels further down
+    // to draw than the distance says.
     void setLodBias(int bias) { lodBias_ = bias; }
+    int lodBias() const { return lodBias_; }
     const Md3Model& model(int id) const { return models_[size_t(id)].md3; }
     // A skin file's contents, read on first use (empty if missing).
     const Skin& skin(const std::string& path);
@@ -71,7 +85,10 @@ private:
         Md3Model md3;
         gfx::MeshId mesh = 0;
         std::vector<Surface> surfaces;
+        std::vector<int> lods; // the lower levels' ids, from level 1
     };
+    // One level of a model, from `data`; -1 with the reason in `error`.
+    int add(const std::string& path, const std::vector<uint8_t>& data, int level, std::string* error);
 
     gfx::Renderer3D& r_;
     ShaderCache& shaders_;
