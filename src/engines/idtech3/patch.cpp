@@ -120,4 +120,32 @@ void tessellatePatch(const BspVertex* control, int width, int height, int level,
         }
 }
 
+float patchBend(const BspVertex* control, int width, int height) {
+    auto off = [](const std::array<float, 3>& a, const std::array<float, 3>& m, const std::array<float, 3>& b) {
+        float d2 = 0;
+        for (size_t k = 0; k < 3; ++k) {
+            const float d = m[k] - (a[k] + b[k]) / 2;
+            d2 += d * d;
+        }
+        return std::sqrt(d2);
+    };
+    float bend = 0;
+    for (int y = 0; y < height; ++y)
+        for (int x = 0; x + 2 < width; x += 2)
+            bend = std::max(bend, off(control[y * width + x].pos, control[y * width + x + 1].pos,
+                                      control[y * width + x + 2].pos));
+    for (int x = 0; x < width; ++x)
+        for (int y = 0; y + 2 < height; y += 2)
+            bend = std::max(bend, off(control[y * width + x].pos, control[(y + 1) * width + x].pos,
+                                      control[(y + 2) * width + x].pos));
+    return bend;
+}
+
+int patchLevel(const BspVertex* control, int width, int height, float error) {
+    const float bend = patchBend(control, width, height);
+    if (bend < 0.5f)
+        return 1;
+    return std::clamp(int(std::ceil(std::sqrt(bend / (4 * std::max(error, 0.01f))))), 2, 16);
+}
+
 } // namespace reluva::idtech3

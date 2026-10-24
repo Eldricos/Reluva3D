@@ -29,8 +29,6 @@ namespace reluva::idtech3 {
 
 namespace {
 
-constexpr int kFrameW = 960;
-constexpr int kFrameH = 720;
 constexpr uint64_t kHintMs = 8000;
 constexpr float kPi = 3.14159265358979f;
 // The command's button bits: attack 1 (Quake III's) and alt attack 32
@@ -111,7 +109,11 @@ PlayViewer::PlayViewer(ViewerContext& ctx) : Page(ctx) {
 PlayViewer::~PlayViewer() { deactivate(); }
 
 void PlayViewer::activate() {
-    if (Error err = ctx_.sys.init3D(kFrameW, kFrameH, renderer_)) {
+    const VideoSettings video = videoSettings(ctx_.cvars);
+    frameW_ = video.width;
+    frameH_ = video.height;
+    ctx_.sys.setVideoMode(frameW_, frameH_, video.fullscreen);
+    if (Error err = ctx_.sys.init3D(frameW_, frameH_, renderer_)) {
         renderer_ = nullptr;
         ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::RGBA32);
         clear(16, 18, 24);
@@ -120,10 +122,11 @@ void PlayViewer::activate() {
         setTitle("3D rendering not available");
         return;
     }
-    overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
+    overlay_.create(frameW_, frameH_, PixelFormat::RGBA32);
     shaders_ = std::make_unique<ShaderCache>(*renderer_, ctx_.files, ctx_.shaders);
     world_ = std::make_unique<WorldRenderer>(*renderer_, *shaders_);
     models_ = std::make_unique<ModelCache>(*renderer_, *shaders_, ctx_.files);
+    applyVideoSettings(video, *shaders_, world_.get(), models_.get());
     shownMs_ = 0;
     ctx_.sys.setRelativeMouse(true);
     // A level the menus asked for.
@@ -729,12 +732,12 @@ void PlayViewer::update(uint64_t nowMs) {
         const float fovY = std::clamp(readFloat(*view, 20), 1.0f, 170.0f) * kPi / 180.0f;
         // Where on the screen (refdef_t's x, y, width, height, in the client
         // game's 640x480): smaller with a smaller screen size setting.
-        int vx = 0, vy = 0, vw = kFrameW, vh = kFrameH;
+        int vx = 0, vy = 0, vw = frameW_, vh = frameH_;
         if (const int32_t w = readInt(*view, 8), h = readInt(*view, 12); w > 0 && h > 0 && w <= 640 && h <= 480) {
-            vx = readInt(*view, 0) * kFrameW / 640;
-            vy = readInt(*view, 4) * kFrameH / 480;
-            vw = w * kFrameW / 640;
-            vh = h * kFrameH / 480;
+            vx = readInt(*view, 0) * frameW_ / 640;
+            vy = readInt(*view, 4) * frameH_ / 480;
+            vw = w * frameW_ / 640;
+            vh = h * frameH_ / 480;
         }
         const float aspect = float(vw) / float(vh);
         const gfx::Mat4 viewProj =
@@ -1219,15 +1222,15 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
     if (typing_ == Typing::Console) {
         // The console over the top half: the lines printed, newest at the
         // bottom (PageUp/PageDown scroll), and what's being typed.
-        const int height = kFrameH / 2;
+        const int height = frameH_ / 2;
         for (int yy = 0; yy < height; ++yy) {
             uint8_t* p = overlay_.row(yy);
-            for (int x = 0; x < kFrameW; ++x) {
+            for (int x = 0; x < frameW_; ++x) {
                 p[x * 4 + 0] = 10, p[x * 4 + 1] = 14, p[x * 4 + 2] = 24;
                 p[x * 4 + 3] = 215;
             }
         }
-        for (int x = 0; x < kFrameW; ++x) {
+        for (int x = 0; x < frameW_; ++x) {
             uint8_t* p = overlay_.row(height) + x * 4;
             p[0] = 200, p[1] = 140, p[2] = 40, p[3] = 255;
         }
@@ -1297,8 +1300,8 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
         lines.push_back("Ctrl+PageUp/PageDown: another map, Ctrl+I: info, Ctrl+R: restart, Esc: the menus, Ctrl+Esc: launcher.");
     }
     for (size_t i = 0; i < lines.size(); ++i) {
-        const int y = kFrameH - int(lines.size() - i) * lh - 4;
-        const int w = std::min(kFrameW, int(font::length(lines[i])) * font::kAdvance + 8);
+        const int y = frameH_ - int(lines.size() - i) * lh - 4;
+        const int w = std::min(frameW_, int(font::length(lines[i])) * font::kAdvance + 8);
         for (int yy = y - 2; yy < y + lh; ++yy) {
             uint8_t* p = overlay_.row(yy);
             for (int x = 0; x < w; ++x)

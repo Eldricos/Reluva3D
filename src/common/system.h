@@ -52,6 +52,10 @@ public:
     // Whether the mouse is held by the window, hidden, for looking around:
     // MouseMove events then carry only how far it moved (moveX, moveY).
     virtual void setRelativeMouse(bool on) { (void)on; }
+    // The window for a game's video mode: the whole screen, or a window of
+    // width x height (when it fits on the screen; the frame is letterboxed
+    // in whatever size the window is).
+    virtual void setVideoMode(int width, int height, bool fullscreen) { (void)width, (void)height, (void)fullscreen; }
 
     // --- Time ---------------------------------------------------------------
     virtual uint64_t getMillis() const = 0;

@@ -25,6 +25,14 @@ public:
     WorldRenderer(const WorldRenderer&) = delete;
     WorldRenderer& operator=(const WorldRenderer&) = delete;
 
+    // The video settings for the next load: the level lit by its vertices
+    // instead of its lightmaps; how far curves may stray from round, in
+    // units; the sky left plain (the frame's clear colour shows).
+    void setOptions(bool vertexLight, float subdivisions, bool fastSky) {
+        vertexLight_ = vertexLight;
+        subdivisions_ = subdivisions;
+        fastSky_ = fastSky;
+    }
     // Builds the GPU data for `bsp`.
     Error load(const Bsp& bsp, const ShaderLibrary& library);
     void clear();
@@ -43,6 +51,8 @@ public:
     size_t triangleCount() const { return triangles_; }
 
 private:
+    bool vertexLight_ = false, fastSky_ = false;
+    float subdivisions_ = 4;
     struct Batch {
         float sort = 3;
         int material = 0;

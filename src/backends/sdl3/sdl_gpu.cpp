@@ -134,11 +134,11 @@ Error SdlGpuRenderer::init(int width, int height) {
     if (!vertexShader_ || !fragmentShader_)
         return sdlError("Cannot create the 3D shaders");
 
-    for (int i = 0; i < 8; ++i) {
-        const bool clamp = i & 1, mipmaps = i & 2, nearest = i & 4;
+    for (int i = 0; i < 16; ++i) {
+        const bool clamp = i & 1, mipmaps = i & 2, nearest = i & 4, mipNearest = i & 8;
         SDL_GPUSamplerCreateInfo info{};
         info.min_filter = info.mag_filter = nearest ? SDL_GPU_FILTER_NEAREST : SDL_GPU_FILTER_LINEAR;
-        info.mipmap_mode = nearest ? SDL_GPU_SAMPLERMIPMAPMODE_NEAREST : SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
+        info.mipmap_mode = nearest || mipNearest ? SDL_GPU_SAMPLERMIPMAPMODE_NEAREST : SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
         info.address_mode_u = info.address_mode_v = info.address_mode_w =
             clamp ? SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE : SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
         info.max_lod = mipmaps ? 1000.0f : 0.0f;
@@ -339,7 +339,8 @@ Error SdlGpuRenderer::createTexture(int width, int height, const uint8_t* rgba, 
     SDL_ReleaseGPUTransferBuffer(device_, tb);
 
     out = nextId_++;
-    textures_[out] = {tex, int(params.clamp) | int(levels > 1) << 1 | int(params.nearest) << 2};
+    textures_[out] = {tex, int(params.clamp) | int(levels > 1) << 1 | int(params.nearest) << 2 |
+                               int(params.mipNearest) << 3};
     return Error::success();
 }
 

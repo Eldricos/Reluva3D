@@ -28,6 +28,7 @@
 #include "engines/idtech3/shader.h"
 #include "engines/idtech3/sound_system.h"
 #include "engines/idtech3/sounds.h"
+#include "engines/idtech3/viewers.h"
 #include "common/audio/wav.h"
 #include "engines/registry.h"
 #include "data/qvm/fake_cgame_qvm.h"
@@ -2021,6 +2022,39 @@ void testMarks() {
     CHECK(none.triangleCount() == 0);
 }
 
+void testVideoSettings() {
+    using namespace reluva::idtech3;
+    CvarStore cvars;
+    VideoSettings v = videoSettings(cvars);
+    CHECK(v.width == 960 && v.height == 720 && !v.fullscreen && v.mipmaps && v.subdivisions == 4);
+    cvars.set("r_mode", "3");
+    cvars.set("r_fullscreen", "1");
+    cvars.set("r_picmip", "9");
+    cvars.set("r_texturemode", "GL_LINEAR_MIPMAP_LINEAR");
+    cvars.set("r_subdivisions", "999");
+    cvars.set("r_lodBias", "1");
+    cvars.set("r_fastsky", "1");
+    v = videoSettings(cvars);
+    CHECK(v.width == 640 && v.height == 480 && v.fullscreen);
+    CHECK(v.picmip == 4 && !v.nearest && v.mipmaps && !v.mipNearest);
+    CHECK(v.subdivisions == 80 && v.lodBias == 1 && v.fastSky);
+    cvars.set("r_mode", "-1");
+    cvars.set("r_customwidth", "1920");
+    cvars.set("r_customheight", "1080");
+    cvars.set("r_texturemode", "GL_NEAREST");
+    v = videoSettings(cvars);
+    CHECK(v.width == 1920 && v.height == 1080 && v.nearest && !v.mipmaps);
+
+    // A 3x3 patch: flat cuts once, a bend cuts finer for a smaller error.
+    BspVertex control[9];
+    for (int i = 0; i < 9; ++i)
+        control[i].pos = {float(i % 3) * 64, float(i / 3) * 64, 0};
+    CHECK(patchLevel(control, 3, 3, 4) == 1);
+    control[4].pos[2] = 64;
+    const int coarse = patchLevel(control, 3, 3, 4), fine = patchLevel(control, 3, 3, 0.5f);
+    CHECK(coarse >= 2 && fine > coarse && fine <= 16);
+}
+
 int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_idtech3_tests";
     testLexer();
@@ -2046,6 +2080,7 @@ int main() {
     testBotAi();
     testBotChat();
     testPatchCollision();
+    testVideoSettings();
     testVmFileList();
     testSoundLibrary(tmp / "sounds");
     testSoundSystem(tmp / "soundsystem");

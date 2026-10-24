@@ -87,7 +87,7 @@ private:
     gfx::MeshId screenQuad_ = 0;
     SDL_GPUShader* vertexShader_ = nullptr;
     SDL_GPUShader* fragmentShader_ = nullptr;
-    SDL_GPUSampler* samplers_[8] = {}; // by clamp | mipmaps << 1 | nearest << 2
+    SDL_GPUSampler* samplers_[16] = {}; // by clamp | mipmaps << 1 | nearest << 2 | mipNearest << 3
     std::unordered_map<uint32_t, SDL_GPUGraphicsPipeline*> pipelines_; // by packed DrawState
     std::unordered_map<gfx::TextureId, Texture> textures_;
     std::unordered_map<gfx::MeshId, Mesh> meshes_;

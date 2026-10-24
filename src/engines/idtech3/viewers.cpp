@@ -8,6 +8,7 @@
 #include "common/font.h"
 
 #include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -249,6 +250,50 @@ void loadConfig(ViewerContext& ctx) {
 float brightness(const ViewerContext& ctx) {
     const CvarStore::Cvar* gamma = ctx.cvars.find("r_gamma");
     return gamma ? std::clamp(ctx.cvars.value("r_gamma"), 0.5f, 3.0f) : 1.0f;
+}
+
+VideoSettings videoSettings(const CvarStore& c) {
+    VideoSettings v;
+    auto integer = [&](const char* name, int fallback) { return c.find(name) ? c.integer(name) : fallback; };
+    // r_mode: Quake III's list of sizes; -1 the custom size.
+    static const int kModes[][2] = {{320, 240},  {400, 300},   {512, 384},  {640, 480},
+                                    {800, 600},  {960, 720},   {1024, 768}, {1152, 864},
+                                    {1280, 1024}, {1600, 1200}, {2048, 1536}, {856, 480}};
+    if (c.find("r_mode")) {
+        const int mode = c.integer("r_mode");
+        if (mode == -1) {
+            v.width = std::clamp(integer("r_customwidth", 1600), 320, 7680);
+            v.height = std::clamp(integer("r_customheight", 1024), 240, 4320);
+        } else if (mode >= 0 && mode < int(std::size(kModes))) {
+            v.width = kModes[mode][0];
+            v.height = kModes[mode][1];
+        }
+    }
+    v.fullscreen = integer("r_fullscreen", 0) != 0;
+    v.picmip = std::clamp(integer("r_picmip", 0), 0, 4);
+    if (c.find("r_texturemode")) {
+        std::string mode = c.string("r_texturemode");
+        for (char& ch : mode)
+            ch = char(std::toupper(static_cast<unsigned char>(ch)));
+        // GL_<filter>[_MIPMAP_<between levels>]
+        v.nearest = mode.rfind("GL_NEAREST", 0) == 0;
+        v.mipmaps = mode.find("MIPMAP") != std::string::npos;
+        v.mipNearest = mode.size() >= 8 && mode.compare(mode.size() - 8, 8, "_NEAREST") == 0;
+    }
+    v.vertexLight = integer("r_vertexLight", 0) != 0;
+    if (c.find("r_subdivisions"))
+        v.subdivisions = std::clamp(c.value("r_subdivisions"), 1.0f, 80.0f);
+    v.lodBias = std::clamp(integer("r_lodBias", 0), 0, 2);
+    v.fastSky = integer("r_fastsky", 0) != 0;
+    return v;
+}
+
+void applyVideoSettings(const VideoSettings& v, ShaderCache& shaders, WorldRenderer* world, ModelCache* models) {
+    shaders.setTextureOptions({v.picmip, v.nearest, v.mipmaps, v.mipNearest});
+    if (world)
+        world->setOptions(v.vertexLight, v.subdivisions, v.fastSky);
+    if (models)
+        models->setLodBias(v.lodBias);
 }
 
 void saveConfig(ViewerContext& ctx) {

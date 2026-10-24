@@ -155,6 +155,7 @@ void SdlSystem::resetForLauncher() {
     stopAudio();
     SDL_StopTextInput(window_);
     SDL_ShowCursor();
+    SDL_SetWindowFullscreen(window_, false);
     release3D();
     if (gameTexture_) {
         SDL_DestroyTexture(gameTexture_);
@@ -291,6 +292,20 @@ void SdlSystem::setMouseCursorVisible(bool visible) {
         SDL_ShowCursor();
     else
         SDL_HideCursor();
+}
+
+void SdlSystem::setVideoMode(int width, int height, bool fullscreen) {
+    if (!window_)
+        return;
+    // Fullscreen at the desktop's own mode (null), which needs no mode switch.
+    SDL_SetWindowFullscreenMode(window_, nullptr);
+    SDL_SetWindowFullscreen(window_, fullscreen);
+    if (fullscreen)
+        return;
+    SDL_Rect usable{};
+    if (SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(window_), &usable) && width <= usable.w && height <= usable.h &&
+        !(SDL_GetWindowFlags(window_) & SDL_WINDOW_MAXIMIZED))
+        SDL_SetWindowSize(window_, width, height);
 }
 
 void SdlSystem::setRelativeMouse(bool on) {

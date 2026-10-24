@@ -21,4 +21,12 @@ namespace reluva::idtech3 {
 void tessellatePatch(const BspVertex* control, int width, int height, int level, std::vector<BspVertex>& vertices,
                      std::vector<uint32_t>& indices);
 
+// How much a patch bends: the farthest any row or column of three
+// control points has its middle one off the line between its ends, in
+// units. A curve cut into n pieces strays from them by about bend / (4 n^2).
+float patchBend(const BspVertex* control, int width, int height);
+// The cuts per 3x3 block for a patch to stray from round by at most
+// `error` units, 1 to 16.
+int patchLevel(const BspVertex* control, int width, int height, float error);
+
 } // namespace reluva::idtech3

@@ -68,7 +68,16 @@ int ModelCache::load(const std::string& path, std::string* error) {
     }
     Loaded m;
     std::vector<uint8_t> data;
-    Error err = files_.read(path, data);
+    std::string file = path;
+    const std::string lower = fs::toLower(path);
+    if (lodBias_ > 0 && lower.size() > 4 && lower.compare(lower.size() - 4, 4, ".md3") == 0)
+        for (int k = lodBias_; k >= 1; --k)
+            if (const std::string lod = path.substr(0, path.size() - 4) + "_" + std::to_string(k) + ".md3";
+                files_.has(lod)) {
+                file = lod;
+                break;
+            }
+    Error err = files_.read(file, data);
     if (!err)
         err = parseModel(data, m.md3);
 

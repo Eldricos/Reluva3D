@@ -63,22 +63,8 @@ void CollisionWorld::buildPatches() {
             continue;
         const BspVertex* control = &bsp_.vertices[size_t(surf.firstVertex)];
         const int w = surf.patchWidth, h = surf.patchHeight;
-        // How far the middle control points of each row and column of
-        // three stand off the line between its ends.
-        float bend = 0;
-        auto off = [&](const Vec3f& a, const Vec3f& m, const Vec3f& b) {
-            const Vec3f mid{(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2};
-            const Vec3f d = sub(m, mid);
-            return std::sqrt(dot(d, d));
-        };
-        for (int y = 0; y < h; ++y)
-            for (int x = 0; x + 2 < w; x += 2)
-                bend = std::max(bend, off(control[y * w + x].pos, control[y * w + x + 1].pos, control[y * w + x + 2].pos));
-        for (int x = 0; x < w; ++x)
-            for (int y = 0; y + 2 < h; y += 2)
-                bend = std::max(bend,
-                                off(control[y * w + x].pos, control[(y + 1) * w + x].pos, control[(y + 2) * w + x].pos));
-        const int level = bend < 0.5f ? 1 : std::clamp(int(std::ceil(2 * std::sqrt(bend))), 2, 16);
+        // Within a sixteenth of a unit of round (2 * sqrt(bend) cuts).
+        const int level = patchLevel(control, w, h, 0.0625f);
         std::vector<BspVertex> verts;
         std::vector<uint32_t> indices;
         tessellatePatch(control, w, h, level, verts, indices);

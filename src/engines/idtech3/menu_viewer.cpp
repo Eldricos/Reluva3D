@@ -19,8 +19,6 @@ namespace reluva::idtech3 {
 
 namespace {
 
-constexpr int kFrameW = 960;
-constexpr int kFrameH = 720;
 constexpr uint64_t kHintMs = 6000;
 
 } // namespace
@@ -32,7 +30,11 @@ MenuViewer::MenuViewer(ViewerContext& ctx) : Page(ctx) {
 MenuViewer::~MenuViewer() { deactivate(); }
 
 void MenuViewer::activate() {
-    if (Error err = ctx_.sys.init3D(kFrameW, kFrameH, renderer_)) {
+    const VideoSettings video = videoSettings(ctx_.cvars);
+    frameW_ = video.width;
+    frameH_ = video.height;
+    ctx_.sys.setVideoMode(frameW_, frameH_, video.fullscreen);
+    if (Error err = ctx_.sys.init3D(frameW_, frameH_, renderer_)) {
         renderer_ = nullptr;
         ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::RGBA32);
         clear(16, 18, 24);
@@ -41,8 +43,9 @@ void MenuViewer::activate() {
         setTitle("3D rendering not available");
         return;
     }
-    overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
+    overlay_.create(frameW_, frameH_, PixelFormat::RGBA32);
     shaders_ = std::make_unique<ShaderCache>(*renderer_, ctx_.files, ctx_.shaders);
+    applyVideoSettings(video, *shaders_, nullptr, nullptr);
     materials_.clear();
     shownMs_ = 0;
     // The menus draw their own pointer, and have text fields.
@@ -50,8 +53,10 @@ void MenuViewer::activate() {
     ctx_.sys.setTextInput(true);
     if (!ui_ && error_.empty())
         start();
-    else if (ui_)
+    else if (ui_) {
+        ui_->setScreenSize(frameW_, frameH_);
         pinCursor();
+    }
     setTitle(error_.empty() ? "Elite Force's own menus (vm/ui.qvm)" : "stopped");
 }
 
@@ -59,7 +64,7 @@ void MenuViewer::start() {
     ui_ = std::make_unique<eliteforce::UiHost>(ctx_.files, cvars_);
     ui_->bindings = &ctx_.bindings;
     commandsSeen_ = 0;
-    ui_->setScreenSize(kFrameW, kFrameH);
+    ui_->setScreenSize(frameW_, frameH_);
     if (!ctx_.savePath.empty())
         ui_->setKeyFile(ctx_.savePath / "cdkey.txt");
     if (ctx_.mixer)
@@ -96,7 +101,7 @@ void MenuViewer::syncCursor() {
     // frame, jiggling it (and the highlight of whatever it's on). The
     // steps are scaled by how far one moved the picture before (gain_),
     // in case the menus scale movement themselves.
-    const float unitX = gainX_ * float(kFrameW) / 640.0f, unitY = gainY_ * float(kFrameH) / 480.0f;
+    const float unitX = gainX_ * float(frameW_) / 640.0f, unitY = gainY_ * float(frameH_) / 480.0f;
     const auto dx = int32_t((float(mouseX_) - cursorX_) / unitX);
     const auto dy = int32_t((float(mouseY_) - cursorY_) / unitY);
     if (!dx && !dy)
@@ -132,8 +137,8 @@ void MenuViewer::findCursor() {
                 gain = 0.5f * gain + 0.5f * ratio;
         };
         if (haveCursor_) {
-            learn(gainX_, x - measuredX_, pendingX_, x, float(kFrameW));
-            learn(gainY_, y - measuredY_, pendingY_, y, float(kFrameH));
+            learn(gainX_, x - measuredX_, pendingX_, x, float(frameW_));
+            learn(gainY_, y - measuredY_, pendingY_, y, float(frameH_));
         }
         pendingX_ = pendingY_ = 0;
         cursorX_ = measuredX_ = x;
@@ -163,7 +168,10 @@ void MenuViewer::checkCommands() {
             if (words.empty())
                 continue;
             const std::string verb = fs::toLower(words[0]);
-            if ((verb == "map" || verb == "devmap" || verb == "spmap" || verb == "spdevmap") && words.size() >= 2) {
+            if (verb == "vid_restart") {
+                // The video settings changed: the page starts its drawing over.
+                restart_ = true;
+            } else if ((verb == "map" || verb == "devmap" || verb == "spmap" || verb == "spdevmap") && words.size() >= 2) {
                 ctx_.requestPage = "Play";
                 ctx_.requestMap = words[1];
                 ctx_.requestCommands.clear();
@@ -303,6 +311,13 @@ void MenuViewer::update(uint64_t nowMs) {
         startMs_ = nowMs;
     if (!shownMs_)
         shownMs_ = nowMs;
+    if (restart_) {
+        restart_ = false;
+        deactivate();
+        activate();
+        if (!renderer_)
+            return;
+    }
     const auto time = int32_t(nowMs - startMs_);
 
     std::vector<eliteforce::UiHost::Picture> pictures;
@@ -351,8 +366,8 @@ void MenuViewer::update(uint64_t nowMs) {
 
     // Pixels to clip space: x right, y down, as the menus count.
     gfx::Mat4 ortho{};
-    ortho[0] = 2.0f / float(kFrameW);
-    ortho[5] = -2.0f / float(kFrameH);
+    ortho[0] = 2.0f / float(frameW_);
+    ortho[5] = -2.0f / float(frameH_);
     ortho[10] = 1;
     ortho[12] = -1;
     ortho[13] = 1;
@@ -401,8 +416,8 @@ void MenuViewer::update(uint64_t nowMs) {
         lines.push_back("Keys and mouse go to the menus. Ctrl+Tab: next page, Ctrl+Esc: launcher, Ctrl+R: restart.");
     const int lh = font::kLineHeight;
     for (size_t i = 0; i < lines.size(); ++i) {
-        const int y = kFrameH - int(lines.size() - i) * lh - 4;
-        const int w = std::min(kFrameW, int(font::length(lines[i])) * font::kAdvance + 8);
+        const int y = frameH_ - int(lines.size() - i) * lh - 4;
+        const int w = std::min(frameW_, int(font::length(lines[i])) * font::kAdvance + 8);
         for (int yy = y - 2; yy < y + lh; ++yy) {
             uint8_t* p = overlay_.row(yy);
             for (int x = 0; x < w; ++x)

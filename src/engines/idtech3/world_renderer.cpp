@@ -18,7 +18,6 @@ namespace reluva::idtech3 {
 
 namespace {
 
-constexpr int kPatchLevel = 6; // quads per Bezier block, each way
 // Shaders sorting up to "see through" (5) are opaque: the surfaces
 // dynamic lights reach.
 constexpr float kLastOpaqueSort = 5;
@@ -122,7 +121,8 @@ void WorldRenderer::buildSky(const ShaderDef& sky) {
     if (!sky.skyFarBox.empty())
         for (int side = 0; side < 6; ++side)
             skySides_[size_t(side)] =
-                shaders_.image(sky.skyFarBox + "_" + kSuffix[kImageForSide[side]], true, !sky.noMipmaps);
+                shaders_.image(sky.skyFarBox + "_" + kSuffix[kImageForSide[side]], true, !sky.noMipmaps,
+                               !sky.noPicmip);
 }
 
 Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
@@ -176,7 +176,7 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
                 continue;
             // Triangle soups are always lit by their vertices, as are
             // surfaces without a lightmap.
-            const bool lightmapped = s.lightmap >= 0 && s.type != SurfaceType::TriangleSoup;
+            const bool lightmapped = s.lightmap >= 0 && s.type != SurfaceType::TriangleSoup && !vertexLight_;
             const int mi = shaders_.material(bsp.shaders[size_t(s.shader)].name,
                                              lightmapped ? Lighting::Lightmap : Lighting::Vertex);
             const ShaderCache::Material& mat = shaders_.get(mi);
@@ -190,7 +190,12 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
             if (s.type == SurfaceType::Patch) {
                 patchVerts.clear();
                 patchIndices.clear();
-                tessellatePatch(v, s.patchWidth, s.patchHeight, kPatchLevel, patchVerts, patchIndices);
+                // Curves cut finely enough to stray from round by at most an
+                // eighth of r_subdivisions (4, the default: half a unit,
+                // about as fine as the original draws them).
+                tessellatePatch(v, s.patchWidth, s.patchHeight,
+                                patchLevel(v, s.patchWidth, s.patchHeight, subdivisions_ / 8), patchVerts,
+                                patchIndices);
                 for (const BspVertex& pv : patchVerts)
                     vertices.push_back(toGfx(pv));
                 for (uint32_t i : patchIndices)
@@ -244,7 +249,7 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
 
 void WorldRenderer::drawSky(float time) const {
     // Around the camera, before the rest, which covers it.
-    if (skyMesh_) {
+    if (skyMesh_ && !fastSky_) {
         for (size_t side = 0; side < 6; ++side) {
             if (!skySides_[side])
                 continue;

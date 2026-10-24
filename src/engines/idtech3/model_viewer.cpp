@@ -86,6 +86,7 @@ void ModelViewer::activate() {
     overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
     shaders_ = std::make_unique<ShaderCache>(*renderer_, ctx_.files, ctx_.shaders);
     models_ = std::make_unique<ModelCache>(*renderer_, *shaders_, ctx_.files);
+    applyVideoSettings(videoSettings(ctx_.cvars), *shaders_, nullptr, models_.get());
     show(index_);
 }
 

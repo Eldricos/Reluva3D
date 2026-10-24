@@ -41,6 +41,10 @@ public:
     // The model at `path`, loaded on first use; -1 (with the reason in
     // `error`, if given) when it can't be.
     int load(const std::string& path, std::string* error = nullptr);
+    // The model detail setting (r_lodBias) for models loaded from now
+    // on: an .md3 with lower-detail versions beside it (name_1.md3,
+    // name_2.md3) loads that many steps down, as far as there are.
+    void setLodBias(int bias) { lodBias_ = bias; }
     const Md3Model& model(int id) const { return models_[size_t(id)].md3; }
     // A skin file's contents, read on first use (empty if missing).
     const Skin& skin(const std::string& path);
@@ -57,6 +61,7 @@ public:
               const std::array<float, 4>* entity = nullptr, int oldFrame = 0, float backLerp = 0);
 
 private:
+    int lodBias_ = 0;
     struct Surface {
         uint32_t firstIndex = 0, indexCount = 0;
         int vertexCount = 0;

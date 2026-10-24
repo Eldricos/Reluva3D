@@ -147,9 +147,9 @@ gfx::TextureId ShaderCache::white() {
     return whiteTexture_;
 }
 
-gfx::TextureId ShaderCache::image(const std::string& name, bool clamp, bool mipmaps) {
-    const std::string key =
-        normalizeArchiveName(stripExtension(name)) + (clamp ? "|clamp" : "") + (mipmaps ? "" : "|nomip");
+gfx::TextureId ShaderCache::image(const std::string& name, bool clamp, bool mipmaps, bool picmip) {
+    const std::string key = normalizeArchiveName(stripExtension(name)) + (clamp ? "|clamp" : "") +
+                            (mipmaps ? "" : "|nomip") + (picmip ? "|picmip" : "");
     if (auto it = images_.find(key); it != images_.end())
         return it->second;
 
@@ -173,6 +173,32 @@ gfx::TextureId ShaderCache::image(const std::string& name, bool clamp, bool mipm
         gfx::TextureParams params;
         params.clamp = clamp;
         params.mipmaps = mipmaps;
+        if (mipmaps) {
+            // The settings' filter, for textures in the world.
+            params.mipmaps = textureOptions_.mipmaps;
+            params.nearest = textureOptions_.nearest;
+            params.mipNearest = textureOptions_.mipNearest;
+        }
+        // Texture detail: halved (each 2x2 pixels averaged), down to a
+        // pixel at least.
+        for (int i = 0; picmip && i < textureOptions_.picmip && (img.w > 1 || img.h > 1); ++i) {
+            const int w = std::max(1, img.w / 2), h = std::max(1, img.h / 2);
+            std::vector<uint8_t> half(size_t(w) * size_t(h) * 4);
+            for (int y = 0; y < h; ++y)
+                for (int x = 0; x < w; ++x)
+                    for (int c = 0; c < 4; ++c) {
+                        int sum = 0;
+                        for (int dy = 0; dy < 2; ++dy)
+                            for (int dx = 0; dx < 2; ++dx) {
+                                const int sx = std::min(img.w - 1, x * 2 + dx), sy = std::min(img.h - 1, y * 2 + dy);
+                                sum += img.rgba[(size_t(sy) * size_t(img.w) + size_t(sx)) * 4 + size_t(c)];
+                            }
+                        half[(size_t(y) * size_t(w) + size_t(x)) * 4 + size_t(c)] = uint8_t((sum + 2) / 4);
+                    }
+            img.rgba = std::move(half);
+            img.w = w;
+            img.h = h;
+        }
         gfx::TextureId t = 0;
         if (!r_.createTexture(img.w, img.h, img.rgba.data(), params, t))
             id = t;
@@ -193,7 +219,7 @@ ShaderCache::Stage ShaderCache::makeStage(const ShaderStage& def, const ShaderDe
         st.frames = {white()};
     } else {
         for (const std::string& m : def.maps)
-            st.frames.push_back(image(m, def.clamp, !shader.noMipmaps));
+            st.frames.push_back(image(m, def.clamp, !shader.noMipmaps, !shader.noPicmip));
     }
 
     const bool blends = stageBlends(def);
@@ -401,6 +427,10 @@ void ShaderCache::draw(int material, const gfx::DrawCall& base, gfx::TextureId l
         case R::OneMinusEntity: call.color = {1 - ent[0], 1 - ent[1], 1 - ent[2], 1}; break;
         default: break; // identity: white
         }
+        // Lit by its vertices (no lightmap, or the vertex lighting
+        // setting): a lightmap stage is the vertex colours instead.
+        if (st.lightmap && !lightmap && m.lighting == Lighting::Vertex)
+            call.rgbSource = gfx::ColorSource::Vertex;
         using A = ShaderStage::AlphaGen;
         switch (d.alphaGen) {
         case A::Vertex:

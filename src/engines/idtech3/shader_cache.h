@@ -65,7 +65,16 @@ public:
     int material(const ShaderDef& def, Lighting lighting, bool sky = false);
     const Material& get(int material) const { return materials_[size_t(material)]; }
 
-    gfx::TextureId image(const std::string& name, bool clamp, bool mipmaps);
+    // `picmip`: the texture detail setting may make it smaller.
+    gfx::TextureId image(const std::string& name, bool clamp, bool mipmaps, bool picmip = false);
+    // The video settings for textures loaded from now on: each halved
+    // `picmip` times (unless its shader says nopicmip), and how mipmapped
+    // ones are filtered (r_texturemode).
+    struct TextureOptions {
+        int picmip = 0;
+        bool nearest = false, mipmaps = true, mipNearest = false;
+    };
+    void setTextureOptions(const TextureOptions& options) { textureOptions_ = options; }
     gfx::TextureId white();
 
     // Draws every stage of `material` over the geometry `base` describes
@@ -101,6 +110,7 @@ private:
     gfx::TextureId whiteTexture_ = 0;
     int missing_ = 0;
     std::map<std::string, int> unsupported_;
+    TextureOptions textureOptions_;
 };
 
 } // namespace reluva::idtech3

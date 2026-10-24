@@ -49,6 +49,7 @@ struct TextureParams {
     bool clamp = false;   // clamp coordinates to the edge instead of repeating
     bool mipmaps = true;  // generate mipmaps and filter between them
     bool nearest = false; // nearest-neighbour instead of linear filtering
+    bool mipNearest = false; // the nearest mipmap instead of blending two (bilinear, not trilinear)
 };
 
 // Blend factors for result = src * srcFactor + dst * dstFactor.

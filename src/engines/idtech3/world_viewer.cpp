@@ -68,6 +68,7 @@ void WorldViewer::activate() {
     shaders_ = std::make_unique<ShaderCache>(*renderer_, ctx_.files, ctx_.shaders);
     world_ = std::make_unique<WorldRenderer>(*renderer_, *shaders_);
     models_ = std::make_unique<ModelCache>(*renderer_, *shaders_, ctx_.files);
+    applyVideoSettings(videoSettings(ctx_.cvars), *shaders_, world_.get(), models_.get());
     load(index_);
 }
 

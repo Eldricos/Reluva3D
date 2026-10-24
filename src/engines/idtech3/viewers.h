@@ -104,6 +104,26 @@ void saveConfig(ViewerContext& ctx);
 // set), which 3D pages show their frames with.
 float brightness(const ViewerContext& ctx);
 
+// The video settings the original's Video and Graphics menus set (Quake
+// III's cvars), as Reluva applies them; a setting not made counts as the
+// original's default, but the size, which is Reluva's 960x720 until a
+// mode is chosen.
+struct VideoSettings {
+    int width = 960, height = 720; // r_mode (r_customwidth/height for -1)
+    bool fullscreen = false;       // r_fullscreen
+    int picmip = 0;                // r_picmip: textures halved this many times (texture detail)
+    // r_texturemode: GL_{NEAREST,LINEAR}[_MIPMAP_{NEAREST,LINEAR}]
+    bool nearest = false, mipmaps = true, mipNearest = true;
+    bool vertexLight = false;  // r_vertexLight: the level lit by its vertices, not its lightmaps
+    float subdivisions = 4;    // r_subdivisions: how far curves may stray from round, in units (geometric detail)
+    int lodBias = 0;           // r_lodBias: models' lower details used (geometric detail)
+    bool fastSky = false;      // r_fastsky: the sky left plain
+};
+VideoSettings videoSettings(const CvarStore& cvars);
+// Gives the caches the settings that change how things load (call before
+// loading); a null cache is skipped.
+void applyVideoSettings(const VideoSettings& v, ShaderCache& shaders, WorldRenderer* world, ModelCache* models);
+
 class Page {
 public:
     explicit Page(ViewerContext& ctx) : ctx_(ctx) {}
@@ -291,6 +311,8 @@ private:
 
     bool available_ = false;
     gfx::Renderer3D* renderer_ = nullptr;
+    int frameW_ = 960, frameH_ = 720; // r_mode
+    bool restart_ = false;            // the menus ran vid_restart
     std::unique_ptr<ShaderCache> shaders_;
     std::vector<int> materials_; // by the menus' shader handle; -2 not made yet
     CvarStore& cvars_ = ctx_.cvars;
@@ -377,6 +399,7 @@ private:
     int index_ = 0;
     gfx::Renderer3D* renderer_ = nullptr;
     std::unique_ptr<ShaderCache> shaders_;
+    int frameW_ = 960, frameH_ = 720; // r_mode
     std::unique_ptr<WorldRenderer> world_;
     std::unique_ptr<ModelCache> models_;
     LightGrid grid_;
