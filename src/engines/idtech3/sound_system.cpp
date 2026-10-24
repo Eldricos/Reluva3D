@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 
 namespace reluva::idtech3 {
 
@@ -56,7 +57,10 @@ void SoundSystem::place(audio::SoundHandle handle, const std::optional<Vec3f>& o
         mixer_.setPan(handle, 0);
         return;
     }
-    Vec3f at = listenerOrigin_;
+    // At its spot, or where its entity was last said to be: the map's
+    // origin for one never placed, as the original keeps it (not at the
+    // listener, which would be heard everywhere).
+    Vec3f at{};
     if (origin)
         at = *origin;
     else if (const auto it = entities_.find(entity); it != entities_.end())
@@ -92,7 +96,12 @@ bool SoundSystem::allowed(int entity, bool local, const std::string& name, const
 void SoundSystem::startSound(const std::optional<Vec3f>& origin, int entity, int channel, const std::string& name) {
     const auto sound = find(name);
     const bool ok = sound && allowed(entity, false, name, origin);
-    note(name + " (entity " + std::to_string(entity) + ", channel " + std::to_string(channel) + "): " +
+    char where[64];
+    if (origin)
+        std::snprintf(where, sizeof where, "at %.0f %.0f %.0f", (*origin)[0], (*origin)[1], (*origin)[2]);
+    else
+        std::snprintf(where, sizeof where, "following it");
+    note(name + " (entity " + std::to_string(entity) + ", channel " + std::to_string(channel) + ", " + where + "): " +
          (!sound ? "not found" : ok ? "played" : "skipped as a repeat"));
     if (!ok)
         return;
