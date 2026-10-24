@@ -41,7 +41,13 @@ public:
     // Drawing opaque surfaces, then models, then translucent surfaces keeps
     // what's behind glass right.
     void drawSky(float time) const;
-    void drawSurfaces(float time, float sortMin = 0, float sortMax = 1e9f) const;
+    // `worldOnly`: the level's own surfaces, not its brush entities' (doors,
+    // lifts), which the game places (drawModel).
+    void drawSurfaces(float time, float sortMin = 0, float sortMax = 1e9f, bool worldOnly = false) const;
+    // Brush entity `model` (*1, *2...) placed by `transform`, its surfaces
+    // that sort in sortMin..sortMax.
+    void drawModel(int model, const gfx::Mat4& transform, float time, float sortMin = 0,
+                   float sortMax = 1e9f) const;
     // Adds `lights` to the opaque surfaces within their reach, as the
     // original's dynamic lights: each pixel brightened in proportion to
     // its colour. After the opaque surfaces are drawn.
@@ -59,6 +65,7 @@ private:
         int lightmap = -1; // index into lightmaps_, or -1
         int fog = -1;      // index into fogs_, or -1
         uint32_t firstIndex = 0, indexCount = 0;
+        int model = 0; // the map's model the surfaces belong to (0: the world)
     };
     struct Fog {
         std::array<float, 3> color{};

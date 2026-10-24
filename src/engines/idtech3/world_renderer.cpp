@@ -157,8 +157,8 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
     // Every surface's triangles, grouped by what they're drawn with and
     // ordered by sort key.
     std::vector<gfx::Vertex> vertices;
-    using GroupKey = std::tuple<float, int, int, int>;
-    std::map<GroupKey, std::vector<uint32_t>> groups; // (sort, material, lightmap, fog)
+    using GroupKey = std::tuple<float, int, int, int, int>;
+    std::map<GroupKey, std::vector<uint32_t>> groups; // (sort, material, lightmap, fog, model)
     // Opaque surfaces, for dynamic lights: their group, where their
     // triangles start in it and how many indices, and their bounds.
     struct Pending {
@@ -169,7 +169,8 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
     std::vector<Pending> pending;
     std::vector<BspVertex> patchVerts;
     std::vector<uint32_t> patchIndices;
-    for (const BspModel& model : bsp.models)
+    for (size_t mi = 0; mi < bsp.models.size(); ++mi) {
+        const BspModel& model = bsp.models[mi];
         for (int si = model.firstSurface; si < model.firstSurface + model.numSurfaces; ++si) {
             const BspSurface& s = bsp.surfaces[size_t(si)];
             if (s.type != SurfaceType::Planar && s.type != SurfaceType::TriangleSoup && s.type != SurfaceType::Patch)
@@ -177,12 +178,12 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
             // Triangle soups are always lit by their vertices, as are
             // surfaces without a lightmap.
             const bool lightmapped = s.lightmap >= 0 && s.type != SurfaceType::TriangleSoup && !vertexLight_;
-            const int mi = shaders_.material(bsp.shaders[size_t(s.shader)].name,
-                                             lightmapped ? Lighting::Lightmap : Lighting::Vertex);
-            const ShaderCache::Material& mat = shaders_.get(mi);
+            const int materialIndex = shaders_.material(bsp.shaders[size_t(s.shader)].name,
+                                                        lightmapped ? Lighting::Lightmap : Lighting::Vertex);
+            const ShaderCache::Material& mat = shaders_.get(materialIndex);
             if (mat.skip)
                 continue;
-            const GroupKey key{mat.sort, mi, lightmapped ? s.lightmap : -1, s.fog};
+            const GroupKey key{mat.sort, materialIndex, lightmapped ? s.lightmap : -1, s.fog, int(mi)};
             std::vector<uint32_t>& out = groups[key];
             const auto offset = uint32_t(out.size());
             const uint32_t base = uint32_t(vertices.size());
@@ -205,9 +206,10 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
                     for (int k = 0; k < 3; ++k)
                         out.push_back(base + uint32_t(bsp.indices[size_t(s.firstIndex + i + k)]));
             }
-            // Solid, unmoving surfaces take dynamic lights.
+            // Solid, unmoving surfaces take dynamic lights (the world's:
+            // brush entities move).
             const bool deformed = mat.deforms[0].type != gfx::Deform::Type::None;
-            if (mat.sort <= kLastOpaqueSort && !deformed && out.size() > offset) {
+            if (mi == 0 && mat.sort <= kLastOpaqueSort && !deformed && out.size() > offset) {
                 Pending p{key, offset, uint32_t(out.size()) - offset, {1e9f, 1e9f, 1e9f}, {-1e9f, -1e9f, -1e9f}};
                 for (size_t vi = base; vi < vertices.size(); ++vi)
                     for (size_t k = 0; k < 3; ++k) {
@@ -217,6 +219,7 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
                 pending.push_back(p);
             }
         }
+    }
 
     std::vector<uint32_t> indices;
     std::map<GroupKey, uint32_t> groupStart;
@@ -225,7 +228,7 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
             continue;
         groupStart[key] = uint32_t(indices.size());
         batches_.push_back({std::get<0>(key), std::get<1>(key), std::get<2>(key), std::get<3>(key),
-                            uint32_t(indices.size()), uint32_t(list.size())});
+                            uint32_t(indices.size()), uint32_t(list.size()), std::get<4>(key)});
         indices.insert(indices.end(), list.begin(), list.end());
     }
     triangles_ = indices.size() / 3;
@@ -300,12 +303,27 @@ void WorldRenderer::drawDynamicLights(const std::vector<gfx::DynamicLight>& ligh
     }
 }
 
-void WorldRenderer::drawSurfaces(float time, float sortMin, float sortMax) const {
+void WorldRenderer::drawSurfaces(float time, float sortMin, float sortMax, bool worldOnly) const {
     for (const Batch& b : batches_) {
-        if (b.sort < sortMin || b.sort > sortMax)
+        if (b.sort < sortMin || b.sort > sortMax || (worldOnly && b.model != 0))
             continue;
         gfx::DrawCall base;
         base.mesh = mesh_;
+        base.firstIndex = b.firstIndex;
+        base.indexCount = b.indexCount;
+        shaders_.draw(b.material, base, b.lightmap >= 0 ? lightmaps_[size_t(b.lightmap)] : 0, time);
+        if (b.fog >= 0)
+            shaders_.drawFog(b.material, base, fogs_[size_t(b.fog)].color, fogs_[size_t(b.fog)].distance, time);
+    }
+}
+
+void WorldRenderer::drawModel(int model, const gfx::Mat4& transform, float time, float sortMin, float sortMax) const {
+    for (const Batch& b : batches_) {
+        if (b.model != model || b.sort < sortMin || b.sort > sortMax)
+            continue;
+        gfx::DrawCall base;
+        base.mesh = mesh_;
+        base.model = transform;
         base.firstIndex = b.firstIndex;
         base.indexCount = b.indexCount;
         shaders_.draw(b.material, base, b.lightmap >= 0 ? lightmaps_[size_t(b.lightmap)] : 0, time);

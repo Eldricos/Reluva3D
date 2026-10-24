@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 
 namespace reluva::idtech3 {
@@ -155,7 +156,9 @@ void SceneDrawer::drawView(const eliteforce::Scene& scene, const eliteforce::Vie
     placeEntities(scene, view, withWorld && grid ? *grid : kNoLevel, time);
     if (withWorld) {
         world->drawSky(time);
-        world->drawSurfaces(time, 0, kLastOpaque);
+        world->drawSurfaces(time, 0, kLastOpaque, true);
+        for (const auto& [model, transform] : brushes_)
+            world->drawModel(model, transform, time, 0, kLastOpaque);
         world->drawDynamicLights(lights_);
     }
     for (const Placed& p : placed_) {
@@ -164,8 +167,11 @@ void SceneDrawer::drawView(const eliteforce::Scene& scene, const eliteforce::Vie
                      &p.color, p.oldFrame, p.backLerp);
     }
     r_.setDepthRange(1);
-    if (withWorld)
-        world->drawSurfaces(time, kLastOpaque + 0.5f);
+    if (withWorld) {
+        world->drawSurfaces(time, kLastOpaque + 0.5f, 1e9f, true);
+        for (const auto& [model, transform] : brushes_)
+            world->drawModel(model, transform, time, kLastOpaque + 0.5f);
+    }
     for (const Placed& p : placed_) {
         r_.setDepthRange(p.depthHack ? refent::kDepthHackRange : 1);
         models_.draw(p.model, p.frame, p.transform, p.light, time - p.shaderTime, p.skin, kLastOpaque + 0.5f, 1e9f,
@@ -363,6 +369,7 @@ void SceneDrawer::placeEntities(const eliteforce::Scene& scene, const eliteforce
     // The view's entities: models where the program put them, and effects
     // as quads facing the eye (refdef_t's axes: left at 48, up at 60).
     placed_.clear();
+    brushes_.clear();
     effects_.clear();
     effectVertices_.clear();
     effectIndices_.clear();
@@ -402,6 +409,16 @@ void SceneDrawer::placeEntities(const eliteforce::Scene& scene, const eliteforce
         const int32_t flags = readInt(e, refent::Flags);
         if (flags & refent::ThirdPerson)
             continue;
+        // One of the level's own models (*1, *2...: doors, lifts), where the
+        // game has moved it.
+        if (const std::string& n = name(handles_.models, readInt(e, refent::Model)); n.size() > 1 && n[0] == '*') {
+            std::array<gfx::Vec3, 3> axes{readVec(e, refent::Axes), readVec(e, refent::Axes + 12),
+                                          readVec(e, refent::Axes + 24)};
+            if (axes[0] == gfx::Vec3{} && axes[1] == gfx::Vec3{} && axes[2] == gfx::Vec3{})
+                axes = {gfx::Vec3{1, 0, 0}, gfx::Vec3{0, 1, 0}, gfx::Vec3{0, 0, 1}}; // left cleared: unturned
+            brushes_.push_back({std::atoi(n.c_str() + 1), placement(readVec(e, refent::Origin), axes)});
+            continue;
+        }
         const int model = modelId(readInt(e, refent::Model));
         if (model < 0)
             continue;

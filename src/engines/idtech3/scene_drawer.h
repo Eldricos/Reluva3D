@@ -18,6 +18,7 @@
 #include <random>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace reluva::idtech3 {
@@ -138,6 +139,8 @@ private:
         bool depthHack = false; // kept in front (the player's weapon)
     };
     std::vector<Placed> placed_;
+    std::vector<std::pair<int, gfx::Mat4>> brushes_; // the level's models (*N) placed this view
+
     // This view's effects (sprites, beams, marks): in one mesh, each with
     // the program's shader handle.
     struct Effect {
