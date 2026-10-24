@@ -70,6 +70,8 @@ public:
     const std::set<std::string>& missing() const { return missing_; }
     // The last few sounds asked for, and what became of each.
     const std::deque<std::string>& recent() const { return recent_; }
+    // The looping sounds playing now.
+    std::vector<std::string> loopingNow() const;
 
     // How loud (0..1) and where (-1 left .. 1 right) a sound at `origin`
     // is heard from the listener: full volume within 80 units, then

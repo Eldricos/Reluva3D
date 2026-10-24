@@ -116,9 +116,19 @@ void SoundSystem::startLocalSound(const std::string& name, int channel) {
 }
 
 void SoundSystem::note(std::string line) {
+    // Footsteps left out: they'd crowd out the rest.
+    if (line.find("/footsteps/") != std::string::npos)
+        return;
     recent_.push_back(std::move(line));
-    while (recent_.size() > 4)
+    while (recent_.size() > 5)
         recent_.pop_front();
+}
+
+std::vector<std::string> SoundSystem::loopingNow() const {
+    std::vector<std::string> out;
+    for (const auto& [key, handle] : loops_)
+        out.push_back(key.second + " (entity " + std::to_string(key.first) + ")");
+    return out;
 }
 
 void SoundSystem::clearLoopingSounds() { loopsAdded_.clear(); }
