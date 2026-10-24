@@ -160,6 +160,10 @@ public:
                         int mask)>
         trace;
     std::function<int(const Vec3f& point)> pointContents;
+    // A brush model's box (*1, *2... as numbers), unmoved, and where the
+    // brush entity with it (a lift) is now.
+    std::function<bool(int model, Vec3f& mins, Vec3f& maxs)> modelBounds;
+    std::function<bool(int model, Vec3f& origin)> moverOrigin;
     // The map's entities (classname, origin...), from 1 as the original
     // numbers them.
     std::function<bool(int entity, const std::string& key, std::string& value)> entityKey;
@@ -336,6 +340,13 @@ private:
     std::vector<std::unique_ptr<WeaponState>> weaponStates_;
     std::vector<std::unique_ptr<MoveState>> moveStates_;
     std::map<int, std::string> modelTypes_; // brush model number -> its entity's class
+    // Lifts, as the original's movement sees them: where the mover with
+    // brush model `model` is now; whether it's down (its top below the
+    // reachability's start); the middle of its top at the start's height;
+    // whether a bot at `origin` stands on it.
+    bool moverDown(const AasReach& reach) const;
+    Vec3f moverBottomCenter(const AasReach& reach) const;
+    bool onMover(const Vec3f& origin, int entity, const AasReach& reach) const;
 };
 
 } // namespace reluva::idtech3::botlib

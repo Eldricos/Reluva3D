@@ -383,6 +383,19 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
             return botlib::BotLibrary::Trace{t.fraction, t.endPos, t.startSolid, hit, t.normal};
         };
         b.pointContents = [this](const Vec3f& p) { return world_ ? world_->pointContents(p, 0) : 0; };
+        b.modelBounds = [this](int model, Vec3f& mins, Vec3f& maxs) {
+            return world_ && world_->modelBounds(model, mins, maxs);
+        };
+        b.moverOrigin = [this](int model, Vec3f& origin) {
+            // The linked brush entity with that model, as the original's
+            // bot library finds a lift.
+            for (const int32_t n : linked_)
+                if (entityInt(n, ent::BModel) && entityInt(n, ent::ModelIndex) == model) {
+                    origin = entityVec(n, ent::CurrentOrigin);
+                    return true;
+                }
+            return false;
+        };
         return b.loadMap(str(0, 256));
     }
     case LibUpdateEntity: {

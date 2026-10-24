@@ -120,6 +120,40 @@ bool BotLibrary::onGround(const MoveState& ms) const {
     return !t.startSolid && t.fraction < 1 && ms.velocity[2] <= 10;
 }
 
+bool BotLibrary::moverDown(const AasReach& reach) const {
+    Vec3f mins{}, maxs{}, origin{};
+    const int model = reach.face & 0xffff;
+    if (!modelBounds || !moverOrigin || !modelBounds(model, mins, maxs) || !moverOrigin(model, origin))
+        return false;
+    return origin[2] + maxs[2] < reach.start[2];
+}
+
+Vec3f BotLibrary::moverBottomCenter(const AasReach& reach) const {
+    Vec3f mins{}, maxs{}, origin{};
+    const int model = reach.face & 0xffff;
+    if (modelBounds)
+        modelBounds(model, mins, maxs);
+    if (moverOrigin)
+        moverOrigin(model, origin);
+    return {origin[0] + (mins[0] + maxs[0]) / 2, origin[1] + (mins[1] + maxs[1]) / 2, reach.start[2]};
+}
+
+bool BotLibrary::onMover(const Vec3f& origin, int entity, const AasReach& reach) const {
+    // Within its box (and 16 units) across, and a short box dropped from
+    // above the bot lands on it.
+    Vec3f mins{}, maxs{}, at{};
+    const int model = reach.face & 0xffff;
+    if (!trace || !modelBounds || !moverOrigin || !modelBounds(model, mins, maxs) || !moverOrigin(model, at))
+        return false;
+    for (size_t i = 0; i < 2; ++i)
+        if (origin[i] > at[i] + maxs[i] + 16 || origin[i] < at[i] + mins[i] - 16)
+            return false;
+    const Trace t = trace({origin[0], origin[1], origin[2] + 24}, {-16, -16, -8}, {16, 16, 8},
+                          {origin[0], origin[1], origin[2] - 48}, entity, contents::Solid | contents::PlayerClip);
+    return !t.startSolid && t.entity != kEntityNone && t.entity != kEntityWorld &&
+           entityInfo(t.entity).modelIndex == model;
+}
+
 int BotLibrary::entityOnTopOf(const MoveState& ms) const {
     if (!trace)
         return -1;
@@ -575,7 +609,6 @@ BotMoveResult BotLibrary::travel(MoveState& ms, const AasReach& reach, bool fini
         result.moveDir = dir;
         break;
     }
-    case travel::Elevator:
     case travel::FuncBob: {
         // Onto the platform at the start; ride it until level with the
         // end, then step off.
@@ -601,6 +634,55 @@ BotMoveResult BotLibrary::travel(MoveState& ms, const AasReach& reach, bool fini
                 move(client, dir, 6 * std::min(dist, 60.0f));
             result.moveDir = dir;
         }
+        break;
+    }
+    case travel::Elevator: {
+        // As the original's: on the lift, step off once level with the end,
+        // else stand in its middle and ride; off it, wait beside it while
+        // it's up, and step on (towards its middle) when it's down.
+        if (onMover(ms.origin, ms.entity, reach)) {
+            if (std::fabs(ms.origin[2] - reach.end[2]) < kMaxBarrier) {
+                horizontal(ms.origin, reach.end, dir);
+                move(client, dir, 400);
+            } else {
+                const float dist = horizontal(ms.origin, moverBottomCenter(reach), dir);
+                if (dist > 10)
+                    move(client, dir, 4 * std::min(dist, 100.0f));
+                result.flags |= moveresult::Waiting;
+            }
+            result.moveDir = dir;
+            break;
+        }
+        Vec3f toEnd = sub(reach.end, ms.origin);
+        if (float dist = normalize(toEnd); dist < 64) {
+            // Nearly there: off the lift at the top.
+            if (6 * std::min(dist, 60.0f) > 5)
+                move(client, toEnd, 6 * std::min(dist, 60.0f));
+            result.moveDir = toEnd;
+            ms.reachTime = 0;
+            break;
+        }
+        Vec3f toStart{};
+        const float distStart = horizontal(ms.origin, reach.start, toStart);
+        if (!moverDown(reach)) {
+            // Up: wait at the start till it comes down.
+            checkBlocked(ms, toStart, false, result);
+            if (6 * std::min(distStart, 60.0f) > 5)
+                move(client, toStart, 6 * std::min(distStart, 60.0f));
+            result.moveDir = toStart;
+            result.type = moveresult::TypeElevatorUp;
+            result.flags |= moveresult::Waiting;
+            break;
+        }
+        Vec3f toCenter{};
+        const float distCenter = horizontal(ms.origin, moverBottomCenter(reach), toCenter);
+        const bool towardsCenter = distStart < 20 || distCenter < distStart ||
+                                   toStart[0] * toCenter[0] + toStart[1] * toCenter[1] < 0;
+        dir = towardsCenter ? toCenter : toStart;
+        const float dist = towardsCenter ? distCenter : distStart;
+        checkBlocked(ms, dir, false, result);
+        move(client, dir, 6 * std::min(dist, 60.0f));
+        result.moveDir = dir;
         break;
     }
     default: result.failure = true; break;
