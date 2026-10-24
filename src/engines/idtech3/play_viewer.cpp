@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cstdlib>
 #include <cmath>
 #include <cstdio>
@@ -675,6 +676,11 @@ void PlayViewer::runGame(uint64_t nowMs) {
     }
     // The server keeps a frame ahead of the player's time, so the client
     // game always has the snapshot after it to move things towards.
+    using Clock = std::chrono::steady_clock;
+    auto ms = [](Clock::time_point from) {
+        return std::chrono::duration<float, std::milli>(Clock::now() - from).count();
+    };
+    const auto serverStart = Clock::now();
     while (game_->levelTime() <= clientTime_) {
         if (Error err = game_->runFrame()) {
             stop("The server game stopped: " + err.message);
@@ -684,15 +690,18 @@ void PlayViewer::runGame(uint64_t nowMs) {
         cgame_->setConfigstrings(game_->configstrings());
         cgame_->newSnapshot(game_->snapshot(0));
     }
+    timing_.server = ms(serverStart);
     cgame_->clearScene();
     cgame_->clearPictures();
     if (soundSystem_)
         soundSystem_->setTime(nowMs);
     int32_t ignored = 0;
+    const auto clientStart = Clock::now();
     if (Error err = cgame_->call(eliteforce::CgameHost::DrawActiveFrame, {clientTime_, 0, 0}, ignored)) {
         stop("The client game stopped: " + err.message);
         return;
     }
+    timing_.client = ms(clientStart);
     if (soundSystem_) {
         // At the original's settings: effects (s_volume) 0.8 and music
         // (s_musicvolume) 0.25 unless the menus set them.
@@ -716,6 +725,7 @@ void PlayViewer::update(uint64_t nowMs) {
     // The client game's frame: each scene it rendered over the pictures
     // drawn before it, the rest of its pictures (the HUD) over them all.
     // The player's view is the first with the level in it.
+    const auto drawStart = std::chrono::steady_clock::now();
     renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
     bool haveView = false;
     if (cgame_) {
@@ -738,6 +748,7 @@ void PlayViewer::update(uint64_t nowMs) {
         }
         scene_->drawPictures(pictures, drawn, pictures.size(), 640, 480, time);
     }
+    timing_.draw = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - drawStart).count();
 
     drawOverlay(nowMs, haveView);
     renderer_->endFrame(&overlay_);
@@ -852,6 +863,19 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
             std::snprintf(line, sizeof line, "weapon chosen by the client game: %d; held:%s",
                           cgame_ ? cgame_->weaponSelect() : 0, held.empty() ? " nothing" : held.c_str());
             lines.push_back(line);
+            // Where each frame's time goes, smoothed, to find what's slow.
+            std::snprintf(line, sizeof line,
+                          "frame: server and bots %.1f ms, client game %.1f ms, drawing %.1f ms; %zu sounds playing",
+                          timing_.server, timing_.client, timing_.draw,
+                          soundSystem_ ? soundSystem_->playingCount() : size_t(0));
+            lines.push_back(line);
+            if (soundSystem_ && !soundSystem_->missing().empty()) {
+                // Each with why (not found, or not readable), the last few.
+                const auto& problems = soundLibrary_.problems();
+                lines.push_back(std::to_string(soundSystem_->missing().size()) + " sounds couldn't be played:");
+                for (size_t i = problems.size() > 3 ? problems.size() - 3 : 0; i < problems.size(); ++i)
+                    lines.push_back("  " + (problems[i].size() > 150 ? problems[i].substr(0, 150) + "..." : problems[i]));
+            }
             std::snprintf(line, sizeof line, "%d areas; sight checks a closed door blocked: %d%s", game_->areaCount(),
                           game_->closedDoorBlocks(), cvars_.integer("cm_noAreas") ? " (cm_noAreas 1: areas ignored)" : "");
             lines.push_back(line);

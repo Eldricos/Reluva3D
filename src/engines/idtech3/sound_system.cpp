@@ -23,12 +23,16 @@ std::shared_ptr<const audio::Sound> SoundSystem::find(const std::string& name) {
         return nullptr;
     if (auto sound = sounds_.get(name))
         return sound;
-    // Without an extension: the formats the games use.
-    if (name.find('.', name.rfind('/') == std::string::npos ? 0 : name.rfind('/')) == std::string::npos) {
-        for (const char* ext : {".mp3", ".wav"})
-            if (auto sound = sounds_.get(name + ext))
+    // Without an extension, or with the other one: the formats the games
+    // use.
+    const size_t slash = name.rfind('/');
+    const size_t dot = name.find('.', slash == std::string::npos ? 0 : slash);
+    const std::string stem = dot == std::string::npos ? name : name.substr(0, dot);
+    for (const char* ext : {".wav", ".mp3"})
+        if (stem + ext != name)
+            if (auto sound = sounds_.get(stem + ext))
                 return sound;
-    }
+    missing_.insert(name);
     return nullptr;
 }
 

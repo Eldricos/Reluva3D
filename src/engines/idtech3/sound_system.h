@@ -64,6 +64,9 @@ public:
     // The effects' and music's volumes, 0 to 1.
     void setVolumes(float effects, float music);
     void stopAll();
+    size_t playingCount() const { return playing_.size(); }
+    // Sounds asked for that couldn't be found or read.
+    const std::set<std::string>& missing() const { return missing_; }
 
     // How loud (0..1) and where (-1 left .. 1 right) a sound at `origin`
     // is heard from the listener: full volume within 80 units, then
@@ -92,6 +95,7 @@ private:
     // Looping sounds by (entity, name): playing, and added this frame.
     std::map<std::pair<int, std::string>, audio::SoundHandle> loops_;
     std::map<std::pair<int, std::string>, Vec3f> loopsAdded_;
+    std::set<std::string> missing_;
     int listener_ = -1;
     uint64_t nowMs_ = 0;
     Vec3f listenerOrigin_{};

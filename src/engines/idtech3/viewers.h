@@ -409,6 +409,10 @@ private:
         std::set<std::string> unloadable;
     };
     Shown shown_;
+    struct Timing {
+        float server = 0, client = 0, draw = 0; // ms, the last frame's
+    };
+    Timing timing_;
     SoundLibrary soundLibrary_{ctx_.files};
     std::unique_ptr<SoundSystem> soundSystem_; // while a level runs, with audio output
     CvarStore& cvars_ = ctx_.cvars;
