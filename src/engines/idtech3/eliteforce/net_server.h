@@ -22,6 +22,13 @@
 
 namespace reluva::idtech3::eliteforce {
 
+// The commands that tell a client the configstrings that changed from
+// `before` to `now`, as the original's server sends them: cs <index>
+// "<text>", or for one of 1000 characters or more, the pieces bcs0,
+// bcs1..., bcs2 (the client game hears of it at the last).
+std::vector<std::string> configstringCommands(const std::map<int32_t, std::string>& before,
+                                              const std::map<int32_t, std::string>& now);
+
 // The server's side of Elite Force's network play (protocol 24, as the
 // retail game patched to 1.2 speaks it: eliteforce-network.md): players
 // on other machines find it (getinfo, getstatus), join it (getchallenge,

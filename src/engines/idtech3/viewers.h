@@ -385,6 +385,13 @@ private:
     void drawLoadingScreen();
     bool loadingFailed_ = false; // the client game couldn't draw its loading screen
     void sendServerCommands();
+    eliteforce::GameHost::Snapshot localSnapshot();
+    // On one's own server, what the client game has been sent: the
+    // configstrings as last sent, and the commands (configstring changes
+    // and the game's), by sequence from 1.
+    std::map<int32_t, std::string> localConfigstrings_;
+    std::vector<std::string> localCommands_;
+    size_t localCommandsSeen_ = 0; // of the game's serverCommands()
     void consoleCommand(const std::string& text);
     static bool isButton(const std::string& name);
     void runBinding(const std::string& line, int32_t key, bool down);

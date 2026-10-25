@@ -235,6 +235,9 @@ void PlayViewer::start(int index) {
         return;
     }
     startHosting();
+    localConfigstrings_ = game_->configstrings();
+    localCommands_.clear();
+    localCommandsSeen_ = 0;
 
     // The player's client game, given what the server has set.
     if (Error e = startClientGame(game_->configstrings(), 0, 0)) {
@@ -243,7 +246,7 @@ void PlayViewer::start(int index) {
     }
     clientTime_ = game_->levelTime();
     lastMs_ = 0;
-    cgame_->newSnapshot(game_->snapshot(0));
+    cgame_->newSnapshot(localSnapshot());
 }
 
 std::string PlayViewer::userinfo() const {
@@ -409,11 +412,23 @@ void PlayViewer::stopSounds() {
 }
 
 void PlayViewer::sendServerCommands() {
-    std::vector<std::string> commands;
-    for (const auto& [to, text] : game_->serverCommands())
-        if (to == 0 || to == -1)
-            commands.push_back(text);
-    cgame_->setServerCommands(std::move(commands));
+    // What the server would send the player over the network, in order:
+    // the configstrings that changed (cs, bcs: the client game sets up a
+    // player who joined by theirs), then the game's commands to them.
+    for (std::string& change : eliteforce::configstringCommands(localConfigstrings_, game_->configstrings()))
+        localCommands_.push_back(std::move(change));
+    localConfigstrings_ = game_->configstrings();
+    const auto& commands = game_->serverCommands();
+    for (; localCommandsSeen_ < commands.size(); ++localCommandsSeen_)
+        if (commands[localCommandsSeen_].first == 0 || commands[localCommandsSeen_].first == -1)
+            localCommands_.push_back(commands[localCommandsSeen_].second);
+    cgame_->setServerCommands(localCommands_);
+}
+
+eliteforce::GameHost::Snapshot PlayViewer::localSnapshot() {
+    eliteforce::GameHost::Snapshot snap = game_->snapshot(0);
+    snap.serverCommandSequence = int32_t(localCommands_.size());
+    return snap;
 }
 
 void PlayViewer::consoleCommand(const std::string& text) {
@@ -914,8 +929,7 @@ bool PlayViewer::runLocal(uint64_t nowMs, int32_t dt) {
                 return false;
             }
         sendServerCommands();
-        cgame_->setConfigstrings(game_->configstrings());
-        cgame_->newSnapshot(game_->snapshot(0));
+        cgame_->newSnapshot(localSnapshot());
     }
     timing_.server = ms(serverStart);
     if (dt > 0) {

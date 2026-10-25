@@ -29,6 +29,29 @@ constexpr uint64_t kChallengeMs = 60000;
 
 } // namespace
 
+std::vector<std::string> configstringCommands(const std::map<int32_t, std::string>& before,
+                                              const std::map<int32_t, std::string>& now) {
+    std::vector<std::string> out;
+    for (const auto& [index, text] : now) {
+        const auto it = before.find(index);
+        if (it != before.end() && it->second == text)
+            continue;
+        const std::string i = std::to_string(index);
+        if (text.size() < kConfigstringPiece) {
+            out.push_back("cs " + i + " \"" + text + "\"");
+            continue;
+        }
+        for (size_t at = 0; at < text.size(); at += kConfigstringPiece) {
+            const char* kind = at == 0 ? "bcs0 " : at + kConfigstringPiece >= text.size() ? "bcs2 " : "bcs1 ";
+            out.push_back(kind + i + " \"" + text.substr(at, kConfigstringPiece) + "\"");
+        }
+    }
+    for (const auto& [index, text] : before)
+        if (!now.count(index))
+            out.push_back("cs " + std::to_string(index) + " \"\"");
+    return out;
+}
+
 NetServer::NetServer(GameHost& game, CvarStore& cvars, std::unique_ptr<reluva::net::UdpSocket> socket)
     : game_(game), cvars_(cvars), socket_(std::move(socket)) {
     cvars_.create("sv_timeout", "200", 0);
@@ -487,26 +510,8 @@ Error NetServer::frame(uint64_t now) {
                 c.zombieSince = now;
             }
     // Configstrings that changed, to those that have had a game state.
-    const auto& now_cs = game_.configstrings();
-    std::vector<std::string> changes;
-    for (const auto& [index, text] : now_cs) {
-        const auto it = configstrings_.find(index);
-        if (it != configstrings_.end() && it->second == text)
-            continue;
-        const std::string i = std::to_string(index);
-        if (text.size() < kConfigstringPiece) {
-            changes.push_back("cs " + i + " \"" + text + "\"");
-            continue;
-        }
-        for (size_t at = 0; at < text.size(); at += kConfigstringPiece) {
-            const char* kind = at == 0 ? "bcs0 " : at + kConfigstringPiece >= text.size() ? "bcs2 " : "bcs1 ";
-            changes.push_back(kind + i + " \"" + text.substr(at, kConfigstringPiece) + "\"");
-        }
-    }
-    for (const auto& [index, text] : configstrings_)
-        if (!now_cs.count(index))
-            changes.push_back("cs " + std::to_string(index) + " \"\"");
-    configstrings_ = now_cs;
+    const std::vector<std::string> changes = configstringCommands(configstrings_, game_.configstrings());
+    configstrings_ = game_.configstrings();
     for (Client& c : clients_)
         if (c.state >= State::Primed)
             for (const std::string& change : changes)
