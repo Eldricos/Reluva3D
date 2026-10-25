@@ -360,7 +360,7 @@ void WorldRenderer::drawSurfaces(float time, float sortMin, float sortMax, bool 
         base.firstIndex = b.firstIndex;
         base.indexCount = b.indexCount;
         // Only what can be seen (setView), when that's known.
-        if (culling_ && b.model == 0) {
+        if (culling_) {
             if (!b.visibleCount)
                 continue;
             base.firstIndex = b.visibleFirst;
@@ -468,11 +468,19 @@ void WorldRenderer::setView(const std::array<float, 3>& eye, const std::array<ui
     for (int32_t sf : pvsSurfaces_)
         if (inside(surfaceRanges_[size_t(sf)]))
             perBatch[size_t(surfaceRanges_[size_t(sf)].batch)].push_back(sf);
-    // Each batch's surfaces one after another: the frame's whole list.
+    // Each batch's surfaces one after another: the frame's whole list. The
+    // brush entities' (doors, lifts: placed where the game moves them, not
+    // culled) whole.
     frameIndices_.clear();
     frameSurfaces_ = 0;
     for (size_t b = 0; b < batches_.size(); ++b) {
         batches_[b].visibleFirst = uint32_t(frameIndices_.size());
+        if (batches_[b].model != 0) {
+            frameIndices_.insert(frameIndices_.end(), allIndices_.begin() + batches_[b].firstIndex,
+                                 allIndices_.begin() + batches_[b].firstIndex + batches_[b].indexCount);
+            batches_[b].visibleCount = batches_[b].indexCount;
+            continue;
+        }
         for (int32_t sf : perBatch[b]) {
             const SurfaceRange& r = surfaceRanges_[size_t(sf)];
             frameMark_[size_t(sf)] = frameStamp_;
@@ -509,7 +517,8 @@ void WorldRenderer::drawModel(int model, const gfx::Mat4& transform, float time,
         gfx::DrawCall base;
         base.mesh = mesh_;
         base.model = transform;
-        base.firstIndex = b.firstIndex;
+        // From the frame's list while culling (setView), else as loaded.
+        base.firstIndex = culling_ ? b.visibleFirst : b.firstIndex;
         base.indexCount = b.indexCount;
         shaders_.draw(b.material, base, b.lightmap >= 0 ? lightmaps_[size_t(b.lightmap)] : 0, time);
         if (b.fog >= 0)
