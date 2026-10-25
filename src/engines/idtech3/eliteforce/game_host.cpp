@@ -279,6 +279,7 @@ int32_t GameHost::svFlagsOffset() {
 }
 
 GameHost::Snapshot GameHost::snapshot(int32_t clientNum) {
+    ++snapshotsMade_;
     Snapshot snap;
     snap.serverTime = levelTime_;
     snap.playerState.assign(size_t(kPlayerStateSize), 0);

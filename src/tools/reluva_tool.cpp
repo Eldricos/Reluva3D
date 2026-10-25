@@ -3700,12 +3700,12 @@ int cmdGameRun(int argc, char** argv) {
                     cgame.models().size(), cgame.skins().size(), cgame.shaders().size(), cgame.sounds().size(),
                     cgame.commands().size());
         if (!err && eventsTest) {
-            // Fire held for three seconds as the Play page runs it (a command
-            // each 7 ms frame, the server a frame ahead, a snapshot each
-            // server frame, the client game drawing every frame), then for
-            // three as one command per server frame: the events the server
-            // gave the player (its event sequence, player state word 108)
-            // against the sounds the client game started.
+            // Fire held for three seconds at a time as the Play page runs it
+            // (a command each frame, the server a frame ahead, a snapshot
+            // each server frame, the client game drawing every frame), at
+            // frame lengths from 7 ms to 80 ms: the events the server gave
+            // the player (its event sequence, player state word 108) against
+            // the sounds the client game started.
             auto runFor = [&](int stepMs, const char* how) {
                 soundsStarted.clear();
                 const int32_t firstEvent = game.clientInt(0, 108);
@@ -3749,8 +3749,11 @@ int cmdGameRun(int argc, char** argv) {
                 for (const auto& [name, count] : soundsStarted)
                     std::printf("  %4d  %s\n", count, name.c_str());
             };
-            runFor(7, "a command every 7 ms (as the Play page at 144 fps)");
-            runFor(int(ef::GameHost::kFrameMs), "a command each server frame");
+            // From 144 frames a second down to 12, as a slow frame rate gives.
+            for (int stepMs : {7, 16, 33, 50, 80}) {
+                const std::string how = "a command every " + std::to_string(stepMs) + " ms";
+                runFor(stepMs, how.c_str());
+            }
         } else if (!err) {
             // A few frames, a new snapshot each, to see what the client game
             // does with them.

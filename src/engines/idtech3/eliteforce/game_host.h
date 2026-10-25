@@ -118,6 +118,8 @@ public:
     Vec3f entityVec(int32_t number, int32_t offset);
     // A field of a client (gclient_t, which starts with the player state).
     int32_t clientInt(int32_t clientNum, int32_t offset);
+    // How many snapshots have been made (snapshot()), for counting.
+    int snapshotsMade() const { return snapshotsMade_; }
     Vec3f clientVec(int32_t clientNum, int32_t offset);
     // A trace as the game's Trace call makes it: the world and (unless
     // `entities` is false) linked entities; `hit` gets what stopped it
@@ -204,6 +206,7 @@ private:
     std::vector<std::string> args_; // the command being handled
     size_t entityPos_ = 0;
     GameData gameData_;
+    int snapshotsMade_ = 0;
     std::set<int32_t> linked_;
     std::map<int32_t, std::string> configstrings_;
     std::vector<std::string> consoleCommands_;

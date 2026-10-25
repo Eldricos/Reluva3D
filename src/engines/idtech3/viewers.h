@@ -413,6 +413,14 @@ private:
         float server = 0, client = 0, draw = 0; // ms, the last frame's
     };
     Timing timing_;
+    struct FrameNote {
+        uint64_t ms = 0;
+        int dt = 0;
+        bool command = false;
+        int snapshots = 0;
+        int32_t events = 0;
+    };
+    std::deque<FrameNote> recentFrames_; // the last two seconds'
     SoundLibrary soundLibrary_{ctx_.files};
     std::unique_ptr<SoundSystem> soundSystem_; // while a level runs, with audio output
     CvarStore& cvars_ = ctx_.cvars;

@@ -691,6 +691,12 @@ void PlayViewer::runGame(uint64_t nowMs) {
         cgame_->newSnapshot(game_->snapshot(0));
     }
     timing_.server = ms(serverStart);
+    // The last two seconds' frames, for the info line: each frame's length,
+    // whether it sent a command, how many snapshots, and the player's event
+    // sequence (player state word 108) as the server has it.
+    recentFrames_.push_back({nowMs, dt, dt > 0, game_->snapshotsMade(), game_->clientInt(0, 108)});
+    while (!recentFrames_.empty() && recentFrames_.front().ms + 2000 < nowMs)
+        recentFrames_.pop_front();
     cgame_->clearScene();
     cgame_->clearPictures();
     if (soundSystem_)
@@ -869,6 +875,21 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
                           timing_.server, timing_.client, timing_.draw,
                           soundSystem_ ? soundSystem_->playingCount() : size_t(0));
             lines.push_back(line);
+            if (recentFrames_.size() > 1) {
+                const auto& first = recentFrames_.front();
+                const auto& last = recentFrames_.back();
+                int commands = 0, longest = 0;
+                for (const auto& f : recentFrames_) {
+                    commands += f.command;
+                    longest = std::max(longest, f.dt);
+                }
+                std::snprintf(line, sizeof line,
+                              "last 2 s: %zu frames (%.1f ms each, the longest %d), %d commands, %d snapshots, %d "
+                              "player events on the server",
+                              recentFrames_.size(), float(last.ms - first.ms) / float(recentFrames_.size() - 1), longest,
+                              commands, last.snapshots - first.snapshots, last.events - first.events);
+                lines.push_back(line);
+            }
             if (soundSystem_) {
                 for (const std::string& r : soundSystem_->recent())
                     lines.push_back("sound: " + (r.size() > 140 ? r.substr(0, 140) + "..." : r));
