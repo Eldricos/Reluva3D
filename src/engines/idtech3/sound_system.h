@@ -68,8 +68,9 @@ public:
     size_t playingCount() const { return playing_.size(); }
     // Sounds asked for that couldn't be found or read.
     const std::set<std::string>& missing() const { return missing_; }
-    // The last few sounds asked for, and what became of each.
-    const std::deque<std::string>& recent() const { return recent_; }
+    // The sounds asked for in the last two seconds, by name and entity
+    // (the latest six): how many times, and what became of the last.
+    std::vector<std::string> recent() const;
     // The looping sounds playing now.
     std::vector<std::string> loopingNow() const;
 
@@ -101,9 +102,15 @@ private:
     // Looping sounds by (entity, name): playing, and added this frame.
     std::map<std::pair<int, std::string>, audio::SoundHandle> loops_;
     std::map<std::pair<int, std::string>, Vec3f> loopsAdded_;
-    void note(std::string line);
+    void note(const std::string& name, int entity, std::string line);
+    struct Start {
+        uint64_t ms = 0;
+        std::string name;
+        int entity = 0;
+        std::string line;
+    };
+    std::deque<Start> starts_;
     std::set<std::string> missing_;
-    std::deque<std::string> recent_;
     int listener_ = -1;
     uint64_t nowMs_ = 0;
     Vec3f listenerOrigin_{};

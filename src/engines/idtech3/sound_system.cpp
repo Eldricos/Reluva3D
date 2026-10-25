@@ -105,7 +105,7 @@ void SoundSystem::startSound(const std::optional<Vec3f>& origin, int entity, int
     const std::string what = name + " (entity " + std::to_string(entity) + ", channel " + std::to_string(channel) +
                              ", " + where + "): ";
     if (!ok) {
-        note(what + (!sound ? "not found" : "skipped as a repeat"));
+        note(name, entity, what + (!sound ? "not found" : "skipped as a repeat"));
         return;
     }
     const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::Effects, 0);
@@ -114,14 +114,14 @@ void SoundSystem::startSound(const std::optional<Vec3f>& origin, int entity, int
     char volume[48];
     std::snprintf(volume, sizeof volume, "played at volume %.2f (listener %d)", place(handle, origin, entity),
                   listener_);
-    note(what + volume);
+    note(name, entity, what + volume);
     playing_.push_back({handle, entity, channel, origin, false, name, nowMs_});
 }
 
 void SoundSystem::startLocalSound(const std::string& name, int channel) {
     const auto sound = find(name);
     const bool ok = sound && allowed(-1, true, name, std::nullopt);
-    note(name + " (local, channel " + std::to_string(channel) + "): " +
+    note(name, -1, name + " (local, channel " + std::to_string(channel) + "): " +
          (!sound ? "not found" : ok ? "played" : "skipped as a repeat"));
     if (!ok)
         return;
@@ -130,13 +130,36 @@ void SoundSystem::startLocalSound(const std::string& name, int channel) {
         playing_.push_back({handle, -1, channel, std::nullopt, true, name, nowMs_});
 }
 
-void SoundSystem::note(std::string line) {
-    // Footsteps left out: they'd crowd out the rest.
-    if (line.find("/footsteps/") != std::string::npos)
-        return;
-    recent_.push_back(std::move(line));
-    while (recent_.size() > 5)
-        recent_.pop_front();
+void SoundSystem::note(const std::string& name, int entity, std::string line) {
+    // Each sound asked for in the last two seconds, by name and entity:
+    // how often, and what became of the last.
+    starts_.push_back({nowMs_, name, entity, std::move(line)});
+    while (!starts_.empty() && starts_.front().ms + 2000 < nowMs_)
+        starts_.pop_front();
+}
+
+std::vector<std::string> SoundSystem::recent() const {
+    struct Summary {
+        int count = 0;
+        const std::string* last = nullptr;
+        uint64_t lastMs = 0;
+    };
+    std::map<std::pair<std::string, int>, Summary> by;
+    for (const Start& s : starts_) {
+        Summary& sum = by[{s.name, s.entity}];
+        ++sum.count;
+        sum.last = &s.line;
+        sum.lastMs = s.ms;
+    }
+    // The most recent first.
+    std::vector<std::pair<uint64_t, std::string>> lines;
+    for (const auto& [key, sum] : by)
+        lines.emplace_back(sum.lastMs, std::to_string(sum.count) + " in 2 s, last " + *sum.last);
+    std::sort(lines.begin(), lines.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+    std::vector<std::string> out;
+    for (size_t i = 0; i < lines.size() && i < 6; ++i)
+        out.push_back(lines[i].second);
+    return out;
 }
 
 std::vector<std::string> SoundSystem::loopingNow() const {
