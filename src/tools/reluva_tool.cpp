@@ -71,7 +71,7 @@
 //                                                  run Elite Force's menus (vm/ui.qvm) with the engine's
 //                                                  system calls: Init, SetActiveMenu, Refresh; report
 //                                                  what they print, register and draw
-//   reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]
+//   reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]
 //                                                  start a level with Elite Force's game logic
 //                                                  (vm/qagame.qvm): Init with the map's entities, then
 //                                                  frames, with a player (client 0) joining unless
@@ -3306,7 +3306,7 @@ int cmdUiRun(int argc, char** argv) {
 
 int cmdGameRun(int argc, char** argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n");
+        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -3326,6 +3326,7 @@ int cmdGameRun(int argc, char** argv) {
     int dumpEntities = 0; // -entities N: with -cgame, N of the scene's entities word by word
     std::vector<std::pair<std::string, std::string>> settings; // -set name value
     std::vector<std::string> addBots;                           // -addbot "name [skill]"
+    bool eventsTest = false; // -events: with -cgame, the player's events against the sounds they bring
     std::string walkDirection = "forward";
     for (int i = 4; i < argc; ++i) {
         if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
@@ -3364,6 +3365,8 @@ int cmdGameRun(int argc, char** argv) {
         }
         else if (std::strcmp(argv[i], "-addbot") == 0 && i + 1 < argc)
             addBots.emplace_back(argv[++i]);
+        else if (std::strcmp(argv[i], "-events") == 0)
+            eventsTest = true;
     }
     reluva::SearchSet set;
     if (!mountIdTech3(argv[2], set))
@@ -3672,7 +3675,10 @@ int cmdGameRun(int argc, char** argv) {
         int phase = 0; // 0 start-up, 1 idle frames, 2 firing frames
         std::array<std::map<int, int>, 3> phaseCalls;
         std::map<int, std::array<int32_t, 4>> firingArgs;
+        std::map<std::string, int> soundsStarted; // -events: S_StartSound by name
         cgame.trace = [&](int number, const int32_t* a) {
+            if (eventsTest && number == 28)
+                ++soundsStarted[cgame.sounds().name(a[3])];
             ++phaseCalls[size_t(phase)][number];
             if (phase == 2 && !firingArgs.count(number))
                 firingArgs[number] = {a[0], a[1], a[2], a[3]};
@@ -3691,7 +3697,59 @@ int cmdGameRun(int argc, char** argv) {
         std::printf("cgame registered %zu models, %zu skins, %zu shaders, %zu sounds; added %zu commands\n",
                     cgame.models().size(), cgame.skins().size(), cgame.shaders().size(), cgame.sounds().size(),
                     cgame.commands().size());
-        if (!err) {
+        if (!err && eventsTest) {
+            // Fire held for three seconds as the Play page runs it (a command
+            // each 7 ms frame, the server a frame ahead, a snapshot each
+            // server frame, the client game drawing every frame), then for
+            // three as one command per server frame: the events the server
+            // gave the player (its event sequence, player state word 108)
+            // against the sounds the client game started.
+            auto runFor = [&](int stepMs, const char* how) {
+                soundsStarted.clear();
+                const int32_t firstEvent = game.clientInt(0, 108);
+                const int32_t firstAmmo = game.clientInt(0, 396);
+                int32_t clientTime = game.levelTime();
+                for (int t = 0; t < 3000 && ok; t += stepMs) {
+                    clientTime += stepMs;
+                    ef::GameHost::UserCommand cmd;
+                    cmd.serverTime = clientTime;
+                    cmd.buttons = fireButtons ? fireButtons : 1;
+                    cmd.weapon = uint8_t(std::max(fireWeapon, 1));
+                    if (reluva::Error e = game.clientThink(0, cmd)) {
+                        std::printf("server: %s\n", e.message.c_str());
+                        return;
+                    }
+                    cgame.addUserCommand(cmd);
+                    while (game.levelTime() <= clientTime) {
+                        if (reluva::Error e = game.runFrame()) {
+                            std::printf("server: %s\n", e.message.c_str());
+                            return;
+                        }
+                        std::vector<std::string> commands;
+                        for (const auto& [to, text] : game.serverCommands())
+                            if (to == 0 || to == -1)
+                                commands.push_back(text);
+                        cgame.setServerCommands(commands);
+                        cgame.setConfigstrings(game.configstrings());
+                        cgame.newSnapshot(game.snapshot(0));
+                    }
+                    cgame.clearScene();
+                    cgame.clearPictures();
+                    int32_t ignored = 0;
+                    if (reluva::Error e = cgame.call(ef::CgameHost::DrawActiveFrame, {clientTime, 0, 0}, ignored)) {
+                        std::printf("cgame: %s\n", e.message.c_str());
+                        return;
+                    }
+                }
+                std::printf("%s: the server gave the player %d events (ammunition word 396: %d to %d); the client "
+                            "game started these sounds:\n",
+                            how, game.clientInt(0, 108) - firstEvent, firstAmmo, game.clientInt(0, 396));
+                for (const auto& [name, count] : soundsStarted)
+                    std::printf("  %4d  %s\n", count, name.c_str());
+            };
+            runFor(7, "a command every 7 ms (as the Play page at 144 fps)");
+            runFor(int(ef::GameHost::kFrameMs), "a command each server frame");
+        } else if (!err) {
             // A few frames, a new snapshot each, to see what the client game
             // does with them.
             const auto [at208, at212] = game.svFlagsEvidence();
@@ -4350,7 +4408,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
                  "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
                  "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -syscalls <first> <last> | -func <instruction> | -blockcopies | -fields <address>\n"
-                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n"
+                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n"
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif
                  "");
