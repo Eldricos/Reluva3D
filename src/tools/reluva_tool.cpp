@@ -89,6 +89,7 @@
 //   reluva-tool shader-show <game folder> <shader | model.md3 | model.mdr>  a shader's text as its script has it; for
 //                                                  a model, its surfaces' shaders and theirs
 //   reluva-tool shader-check <game folder>         count the shader directives the engine doesn't know
+//   reluva-tool portal-check <game folder>         each map's portal and mirror surfaces and portal entities
 //                                                  or draw yet, with example shaders
 
 #include "common/audio/decode.h"
@@ -4225,6 +4226,55 @@ int cmdShaderShow(int argc, char** argv) {
     return 0;
 }
 
+int cmdPortalCheck(int argc, char** argv) {
+    // Every map's portals and mirrors: the surfaces whose shader says
+    // `portal`, and the entities that place their cameras (Quake III's
+    // misc_portal_surface, aimed by its target, a misc_portal_camera).
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: reluva-tool portal-check <game folder>\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    q3::ShaderLibrary shaders;
+    shaders.load(set, nullptr);
+    Bytes data;
+    for (const std::string& name : set.list()) {
+        const std::string key = reluva::normalizeArchiveName(name);
+        if (key.rfind("maps/", 0) != 0 || key.size() < 4 || key.compare(key.size() - 4, 4, ".bsp") != 0)
+            continue;
+        q3::Bsp bsp;
+        if (set.read(name, data) || q3::parseBsp(data, bsp))
+            continue;
+        std::map<std::string, int> portalSurfaces;
+        for (const q3::BspSurface& s : bsp.surfaces)
+            if (s.shader >= 0 && size_t(s.shader) < bsp.shaders.size())
+                if (const q3::ShaderDef* def = shaders.find(bsp.shaders[size_t(s.shader)].name); def && def->portal)
+                    ++portalSurfaces[def->name];
+        std::vector<q3::Entity> entities;
+        q3::parseEntities(bsp.entities, entities);
+        std::vector<const q3::Entity*> portalEntities;
+        for (const q3::Entity& e : entities)
+            if (e.classname().rfind("misc_portal", 0) == 0)
+                portalEntities.push_back(&e);
+        if (portalSurfaces.empty() && portalEntities.empty())
+            continue;
+        std::printf("%s:\n", key.c_str());
+        for (const auto& [shader, count] : portalSurfaces)
+            std::printf("  %d surface%s with %s\n", count, count == 1 ? "" : "s", shader.c_str());
+        for (const q3::Entity* e : portalEntities) {
+            std::printf("  %s", e->classname().c_str());
+            for (const auto& [k, v] : e->pairs)
+                if (k != "classname")
+                    std::printf(" %s \"%s\"", k.c_str(), v.c_str());
+            std::printf("\n");
+        }
+    }
+    return 0;
+}
+
 int cmdShaderCheck(int argc, char** argv) {
     if (argc != 3) {
         std::fprintf(stderr, "usage: reluva-tool shader-check <game folder>\n");
@@ -4366,6 +4416,8 @@ int main(int argc, char** argv) {
         return cmdImageCheck(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "shader-check") == 0)
         return cmdShaderCheck(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "portal-check") == 0)
+        return cmdPortalCheck(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "shader-show") == 0)
         return cmdShaderShow(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "file-show") == 0)
@@ -4420,6 +4472,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool pk3-list <game folder> [name filter]\n"
                  "  reluva-tool image-check <game folder> [map name filter]\n"
                  "  reluva-tool shader-check <game folder>\n"
+                 "  reluva-tool portal-check <game folder>\n"
                  "  reluva-tool shader-show <game folder> <shader | model.md3>\n"
                  "  reluva-tool file-show <game folder> <path>\n"
                  "  reluva-tool model-check <game folder> [name filter] [-v]\n"
