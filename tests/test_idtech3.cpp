@@ -31,6 +31,7 @@
 #include "engines/idtech3/player_animation.h"
 #include "engines/idtech3/qvm.h"
 #include "engines/idtech3/server_browser.h"
+#include "backends/sockets/socket_net.h"
 #include "engines/idtech3/shader.h"
 #include "engines/idtech3/sound_system.h"
 #include "engines/idtech3/sounds.h"
@@ -50,6 +51,8 @@
 #include <cstring>
 #include <map>
 #include <memory>
+#include <thread>
+#include <chrono>
 #include <set>
 #include <string>
 
@@ -1732,7 +1735,7 @@ static void testGameHost(const std::filesystem::path& tmp) {
 
 // A player joining over the network: the fake game's server, and a
 // client talking to it through sockets in memory (some datagrams lost).
-static void testNetworkPlay(const std::filesystem::path& tmp) {
+static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets) {
     namespace ef = eliteforce;
     std::filesystem::remove_all(tmp);
     test::writeFile(tmp / "BaseEF" / "pak0.pk3",
@@ -1752,12 +1755,24 @@ static void testNetworkPlay(const std::filesystem::path& tmp) {
         CHECK(false);
         return;
     }
+    // In memory, or through the system's own sockets on this machine.
     auto network = net::LoopbackNetwork::create();
-    ef::NetServer server(game, cvars, network->open(27960));
+    std::string socketError;
+    std::unique_ptr<net::UdpSocket> serverSocket =
+        systemSockets ? net::openSystemUdp(0, socketError) : network->open(27960);
+    std::unique_ptr<net::UdpSocket> clientSocket = systemSockets ? net::openSystemUdp(0, socketError) : network->open(0);
+    if (!serverSocket || !clientSocket) {
+        std::printf("(network play over system sockets not tested: %s)\n", socketError.c_str());
+        return;
+    }
+    const uint16_t serverPort = serverSocket->port();
+    ef::NetServer server(game, cvars, std::move(serverSocket));
     server.levelStarted();
-    ef::NetClient client(network->open(0), {0x7f000001u, 27960}, "\\name\\Remote\\snaps\\20", 77);
+    ef::NetClient client(std::move(clientSocket), {0x7f000001u, serverPort}, "\\name\\Remote\\snaps\\20", 77);
     uint64_t now = 1000;
     auto tick = [&] {
+        if (systemSockets)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2)); // for datagrams to arrive
         client.frame(now);
         CHECK(!server.receive(now));
         CHECK(!game.runFrame());
@@ -1772,7 +1787,7 @@ static void testNetworkPlay(const std::filesystem::path& tmp) {
     CHECK(server.players().size() == 1 && server.players()[0].second == "Remote");
     // Loaded: its moves put it in the level and move it along.
     client.setLoaded();
-    // From now on every fourth datagram each way is lost.
+    // From now on every fourth datagram each way is lost (in memory).
     network->setDropFilter([](const net::Address&, const net::Address&, size_t index) { return index % 4 == 3; });
     std::vector<ef::GameHost::Snapshot> got;
     for (int i = 0; i < 60; ++i) {
@@ -2377,7 +2392,8 @@ int main() {
     testSoundSystem(tmp / "soundsystem");
     testCollision();
     testGameHost(tmp / "game");
-    testNetworkPlay(tmp / "netplay");
+    testNetworkPlay(tmp / "netplay", false);
+    testNetworkPlay(tmp / "netplay-udp", true);
     testCgameHost(tmp / "cgame");
     testJumpTableGuard();
     testUiHost(tmp / "ui");

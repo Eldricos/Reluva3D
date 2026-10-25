@@ -44,6 +44,8 @@
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
+#include "engines/idtech3/eliteforce/net_client.h"
+#include "engines/idtech3/eliteforce/net_server.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/games.h"
 #include "engines/idtech3/shader.h"
@@ -92,6 +94,8 @@ struct ViewerContext {
     // A page asking for another to be shown (by name), as when the menus
     // start a level on the Play page; `requestMap` is the level.
     std::string requestPage, requestMap;
+    // A server to join on the Play page (connect <address>).
+    std::string requestConnect;
     // Commands for the level's server after it starts ("addbot munro 3"...).
     std::vector<std::string> requestCommands;
 };
@@ -360,7 +364,24 @@ public:
 private:
     void start(int index);
     void stop(const std::string& why);
+    void reset();
+    // The level's drawing (and its light grid) from a map file; false
+    // (stopped, with why) if it can't be loaded.
+    bool loadLevel(const std::string& path, std::shared_ptr<Bsp>& bsp);
+    // The player's client game, with the server's configstrings, the
+    // message its game state came in and the command sequence it starts at.
+    Error startClientGame(const std::map<int32_t, std::string>& configstrings, int32_t serverMessage,
+                          int32_t commandSequence);
+    // The player's settings as the server is told them (name, model...).
+    std::string userinfo() const;
+    // Opening the level to players on other machines (patch 1.2's game only).
+    void startHosting();
+    // Joining a server on another machine instead of running one.
+    void connect(const std::string& address);
     void runGame(uint64_t nowMs);
+    bool runLocal(uint64_t nowMs, int32_t dt);
+    void runRemote(uint64_t nowMs, int32_t dt);
+    eliteforce::GameHost::UserCommand buildCommand();
     void drawLoadingScreen();
     bool loadingFailed_ = false; // the client game couldn't draw its loading screen
     void sendServerCommands();
@@ -426,6 +447,9 @@ private:
     std::unique_ptr<SoundSystem> soundSystem_; // while a level runs, with audio output
     CvarStore& cvars_ = ctx_.cvars;
     std::unique_ptr<eliteforce::GameHost> game_;
+    std::unique_ptr<eliteforce::NetServer> server_; // others joining the level run here
+    std::unique_ptr<eliteforce::NetClient> client_; // or: playing on another machine's server
+    std::string serverAddress_;
     std::unique_ptr<eliteforce::CgameHost> cgame_;
     Surface overlay_;
     std::string error_, notice_;

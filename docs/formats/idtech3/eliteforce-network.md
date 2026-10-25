@@ -1,10 +1,16 @@
 # Elite Force: the Holomatch network protocol
 
-Status: **documented, not implemented**. This page is a specification
-for a server and a client that talk to the retail Elite Force Holomatch
-(patch 1.2) over the network. Nothing on it has been tested against the
-retail executable by Reluva yet; where the sources disagree with what
-Reluva has measured in the game's own code, both are given.
+Status: **implemented, not yet tried against the retail game**. This
+page is a specification for a server and a client that talk to the
+retail Elite Force Holomatch (patch 1.2) over the network. Reluva's
+(`src/engines/idtech3/wire/`, `eliteforce/net_fields.cpp`,
+`net_server.cpp`, `net_client.cpp`) is tested with Reluva at both ends,
+in memory with datagrams lost and over the system's sockets; not yet
+against the retail executable. Not done: the pure check (`cp`: Reluva's
+server is never pure and its client doesn't send one), downloads, rate
+limits, the master servers, and leaving out of snapshots what a player
+can't see. Where the sources disagree with what Reluva has measured in
+the game's own code, both are given.
 
 Sources: Lilium Voyager (a GPL ioquake3 fork that plays Elite Force
 Holomatch and talks to the retail game; its `ELITEFORCE` and

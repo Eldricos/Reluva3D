@@ -58,7 +58,7 @@ public:
         } audioOff{sys_};
 
         ViewerContext ctx{sys_, screen_, files_, shaders_, game_, warnings, target_.savePath,
-                          audioOut ? &mixer : nullptr, {}, {}, {}, {}, {}};
+                          audioOut ? &mixer : nullptr, {}, {}, {}, {}, {}, {}};
         loadConfig(ctx);
         struct SaveConfig { // keeps settings changed while running, however it ends
             ViewerContext& ctx;

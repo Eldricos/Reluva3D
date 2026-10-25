@@ -119,6 +119,10 @@
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
+#include "engines/idtech3/eliteforce/net_client.h"
+#include "engines/idtech3/eliteforce/net_server.h"
+#include "engines/idtech3/info_string.h"
+#include "backends/sockets/socket_net.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/shader.h"
 #endif
@@ -137,6 +141,8 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <chrono>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -3305,6 +3311,167 @@ int cmdUiRun(int argc, char** argv) {
     return ok ? 0 : 1;
 }
 
+// Network play from a terminal (protocol 24, eliteforce-network.md):
+// hosting a level as a server with no player of its own, for others to
+// join for `seconds`; or, with -join, joining a server and reporting
+// what it sends while walking forward.
+int cmdNetRun(int argc, char** argv) {
+    namespace q3 = reluva::idtech3;
+    namespace ef = reluva::idtech3::eliteforce;
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool net-run <game folder> <map> [seconds] [-port N] [-addbot <name>]...\n"
+                             "       reluva-tool net-run <game folder> -join <host[:port]> [seconds] [-name <name>]\n");
+        return 1;
+    }
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    const bool join = std::strcmp(argv[3], "-join") == 0;
+    if (join && argc < 5) {
+        std::fprintf(stderr, "net-run: -join needs an address\n");
+        return 1;
+    }
+    int seconds = 60, port = 27960;
+    std::string name = "ReluvaTool";
+    std::vector<std::string> bots;
+    for (int i = join ? 5 : 4; i < argc; ++i) {
+        if (std::strcmp(argv[i], "-port") == 0 && i + 1 < argc)
+            port = std::atoi(argv[++i]);
+        else if (std::strcmp(argv[i], "-name") == 0 && i + 1 < argc)
+            name = argv[++i];
+        else if (std::strcmp(argv[i], "-addbot") == 0 && i + 1 < argc)
+            bots.emplace_back(argv[++i]);
+        else if (argv[i][0] != '-')
+            seconds = std::max(1, std::atoi(argv[i]));
+        else
+            std::fprintf(stderr, "net-run: ignoring %s (not an option it knows)\n", argv[i]);
+    }
+    using Clock = std::chrono::steady_clock;
+    const auto start = Clock::now();
+    auto nowMs = [&] { return uint64_t(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - start).count()) + 1; };
+    std::string err;
+    q3::CvarStore cvars;
+
+    if (join) {
+        const auto [host, p] = reluva::net::splitHostPort(argv[4], 27960);
+        uint32_t ip = 0;
+        if (!reluva::net::resolveSystemHost(host, ip)) {
+            std::fprintf(stderr, "net-run: can't find %s\n", host.c_str());
+            return 1;
+        }
+        auto socket = reluva::net::openSystemUdp(0, err);
+        if (!socket) {
+            std::fprintf(stderr, "net-run: %s\n", err.c_str());
+            return 1;
+        }
+        const reluva::net::Address server{ip, p};
+        std::printf("joining %s from port %u\n", server.toString().c_str(), socket->port());
+        ef::NetClient client(std::move(socket), server,
+                             "\\name\\" + name + "\\model\\munro\\handicap\\100\\snaps\\20\\rate\\25000", 4321);
+        auto state = client.state();
+        size_t snapshots = 0, entities = 0, commandsSeen = 0;
+        int32_t lastTime = 0;
+        while (nowMs() < uint64_t(seconds) * 1000) {
+            const uint64_t now = nowMs();
+            client.frame(now);
+            if (client.state() != state) {
+                state = client.state();
+                std::printf("%6.2f s: state %d%s%s\n", double(now) / 1000, int(state),
+                            client.message().empty() ? "" : ": ", client.message().c_str());
+                if (state == ef::NetClient::State::Disconnected)
+                    return 1;
+            }
+            if (client.takeNewGamestate()) {
+                const auto& cs = client.configstrings();
+                std::printf("game state: %zu configstrings, map %s, commands from %d\n", cs.size(),
+                            cs.count(0) ? q3::infoValue(cs.at(0), "mapname").c_str() : "?",
+                            client.gamestateCommandSequence());
+                client.setLoaded();
+            }
+            for (const auto& snap : client.takeSnapshots()) {
+                ++snapshots;
+                entities = snap.entities.size();
+                lastTime = snap.serverTime;
+                if (snapshots == 1 || snapshots % 100 == 0) {
+                    float origin[3] = {};
+                    if (snap.playerState.size() >= 32)
+                        std::memcpy(origin, snap.playerState.data() + 20, 12);
+                    std::printf("snapshot %zu: server time %d, %zu entities, player at (%.0f %.0f %.0f)\n", snapshots,
+                                snap.serverTime, entities, double(origin[0]), double(origin[1]), double(origin[2]));
+                }
+            }
+            for (; commandsSeen < client.serverCommands().size(); ++commandsSeen)
+                if (!client.serverCommands()[commandsSeen].empty())
+                    std::printf("server command %zu: %s\n", commandsSeen + 1, client.serverCommands()[commandsSeen].c_str());
+            if (client.hasSnapshot()) {
+                ef::GameHost::UserCommand cmd;
+                cmd.serverTime = client.serverTime();
+                cmd.forward = 127;
+                client.addCommand(cmd);
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+        std::printf("%zu snapshots (the last at server time %d, %zu entities); leaving\n", snapshots, lastTime, entities);
+        client.disconnect();
+        return snapshots ? 0 : 1;
+    }
+
+    std::string map = argv[3];
+    if (map.size() > 4 && map.compare(map.size() - 4, 4, ".bsp") == 0)
+        map.resize(map.size() - 4);
+    Bytes data;
+    auto bsp = std::make_shared<q3::Bsp>();
+    if (reluva::Error e = set.read("maps/" + map + ".bsp", data); e || (e = q3::parseBsp(data, *bsp))) {
+        std::fprintf(stderr, "maps/%s.bsp: %s\n", map.c_str(), e.message.c_str());
+        return 1;
+    }
+    cvars.set("g_holoIntro", "0");
+    cvars.create("dedicated", "1", 0);
+    ef::GameHost game(set, cvars);
+    game.print = [](const std::string& text) {
+        std::printf("game: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
+    };
+    if (reluva::Error e = game.load(); e || (e = game.startLevel(map, bsp, int32_t(start.time_since_epoch().count())))) {
+        std::fprintf(stderr, "net-run: %s\n", e.message.c_str());
+        return 1;
+    }
+    std::printf("game code: Elite Force %s layout\n", game.layout().version == 12 ? "1.2" : "1.0");
+    if (game.layout().version != 12)
+        std::printf("warning: the protocol carries patch 1.2's layouts; players joining 1.0's game won't see it right\n");
+    for (const std::string& bot : bots)
+        if (reluva::Error e = game.serverCommand("addbot " + bot))
+            std::fprintf(stderr, "net-run: addbot: %s\n", e.message.c_str());
+    auto socket = reluva::net::openSystemUdp(uint16_t(port), err);
+    if (!socket) {
+        std::fprintf(stderr, "net-run: %s\n", err.c_str());
+        return 1;
+    }
+    ef::NetServer server(game, cvars, std::move(socket));
+    server.print = [](const std::string& text) { std::printf("server: %s", text.c_str()); };
+    server.levelStarted();
+    std::printf("hosting %s on port %u for %d s\n", map.c_str(), server.port(), seconds);
+    const int32_t startTime = game.levelTime();
+    while (nowMs() < uint64_t(seconds) * 1000) {
+        const uint64_t now = nowMs();
+        if (reluva::Error e = server.receive(now)) {
+            std::fprintf(stderr, "net-run: %s\n", e.message.c_str());
+            return 1;
+        }
+        while (game.levelTime() - startTime < int32_t(now)) {
+            if (reluva::Error e = game.runFrame(); e || (e = server.frame(now))) {
+                std::fprintf(stderr, "net-run: %s\n", e.message.c_str());
+                return 1;
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    std::printf("done; players at the end:");
+    for (const auto& [number, who] : server.players())
+        std::printf(" %d: %s", number, who.c_str());
+    std::printf("\n");
+    return 0;
+}
+
 int cmdGameRun(int argc, char** argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n");
@@ -4434,6 +4601,8 @@ int main(int argc, char** argv) {
         return cmdQvmDis(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "game-run") == 0)
         return cmdGameRun(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "net-run") == 0)
+        return cmdNetRun(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "ui-run") == 0)
         return cmdUiRun(argc, argv);
 #endif
@@ -4480,6 +4649,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
                  "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
                  "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -syscalls <first> <last> | -func <instruction> | -blockcopies | -fields <address>\n"
+                 "  reluva-tool net-run <game folder> <map> [seconds] [-port N] [-addbot name]... | -join <host[:port]> [seconds] [-name name]\n"
                  "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n"
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif

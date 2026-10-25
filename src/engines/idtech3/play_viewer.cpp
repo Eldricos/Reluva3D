@@ -13,6 +13,7 @@
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/entities.h"
+#include "engines/idtech3/info_string.h"
 #include "engines/idtech3/scene_drawer.h"
 #include "engines/idtech3/viewers.h"
 
@@ -87,6 +88,13 @@ void PlayViewer::activate() {
     scene_ = std::make_unique<SceneDrawer>(*renderer_, *shaders_, *models_);
     shownMs_ = 0;
     ctx_.sys.setRelativeMouse(true);
+    // A server the menus asked to join.
+    if (!ctx_.requestConnect.empty()) {
+        const std::string address = ctx_.requestConnect;
+        ctx_.requestConnect.clear();
+        connect(address);
+        return;
+    }
     // A level the menus asked for.
     if (!ctx_.requestMap.empty()) {
         const std::string wanted = normalizeArchiveName("maps/" + ctx_.requestMap + ".bsp");
@@ -103,6 +111,10 @@ void PlayViewer::deactivate() {
     if (renderer_)
         ctx_.sys.setRelativeMouse(false);
     // The level stops with the page; it starts again when shown.
+    if (client_)
+        client_->disconnect();
+    client_.reset();
+    server_.reset();
     cgame_.reset();
     game_.reset();
     stopSounds();
@@ -114,9 +126,12 @@ void PlayViewer::deactivate() {
     buttons_.clear();
 }
 
-void PlayViewer::start(int index) {
-    index_ = index;
+void PlayViewer::reset() {
     error_.clear();
+    if (client_)
+        client_->disconnect();
+    client_.reset();
+    server_.reset();
     cgame_.reset();
     game_.reset();
     stopSounds();
@@ -126,11 +141,10 @@ void PlayViewer::start(int index) {
     world_->clear();
     shaders_->clear();
     yaw_ = pitch_ = 0;
-    const std::string& path = names_[size_t(index)];
-    std::string map = path.substr(5, path.size() - 9); // without maps/ and .bsp
-    setTitle(map + " (" + std::to_string(index + 1) + "/" + std::to_string(names_.size()) + ")");
+}
 
-    auto bsp = std::make_shared<Bsp>();
+bool PlayViewer::loadLevel(const std::string& path, std::shared_ptr<Bsp>& bsp) {
+    bsp = std::make_shared<Bsp>();
     std::vector<uint8_t> data;
     Error err = ctx_.files.read(path, data);
     if (!err)
@@ -139,18 +153,55 @@ void PlayViewer::start(int index) {
         err = world_->load(*bsp, ctx_.shaders);
     if (err) {
         stop("Couldn't load " + path + ": " + err.message);
-        return;
+        return false;
     }
     // The light grid lights models, with the worldspawn's cell size if it
     // gives one.
     grid_ = LightGrid{};
-    {
-        float cell[3] = {64, 64, 128};
-        std::vector<Entity> entities;
-        if (!parseEntities(bsp->entities, entities) && !entities.empty())
-            entities[0].vector("gridsize", cell);
-        grid_.build(*bsp, {cell[0], cell[1], cell[2]});
+    float cell[3] = {64, 64, 128};
+    std::vector<Entity> entities;
+    if (!parseEntities(bsp->entities, entities) && !entities.empty())
+        entities[0].vector("gridsize", cell);
+    grid_.build(*bsp, {cell[0], cell[1], cell[2]});
+    return true;
+}
+
+Error PlayViewer::startClientGame(const std::map<int32_t, std::string>& configstrings, int32_t serverMessage,
+                                  int32_t commandSequence) {
+    cgame_ = std::make_unique<eliteforce::CgameHost>(ctx_.files, cvars_);
+    cgame_->print = [this](const std::string& text) { addPrint(text, true); };
+    scene_->setHandles({&cgame_->models(), &cgame_->skins(), &cgame_->shaders()});
+    cgame_->subdivisions = videoSettings(cvars_).subdivisions;
+    notify_.clear();
+    printPartial_[1].clear();
+    if (ctx_.mixer) {
+        soundSystem_ = std::make_unique<SoundSystem>(*ctx_.mixer, soundLibrary_);
+        cgame_->soundSystem = soundSystem_.get();
     }
+    Error err = cgame_->load();
+    if (!err) {
+        cgame_->setConfigstrings(configstrings);
+        if (client_)
+            cgame_->setServerCommands(client_->serverCommands());
+        else
+            sendServerCommands();
+        loadingFailed_ = false;
+        cgame_->updateScreen = [this] { drawLoadingScreen(); };
+        err = cgame_->init(0, serverMessage, commandSequence);
+        cgame_->updateScreen = nullptr;
+    }
+    return err;
+}
+
+void PlayViewer::start(int index) {
+    index_ = index;
+    reset();
+    const std::string& path = names_[size_t(index)];
+    std::string map = path.substr(5, path.size() - 9); // without maps/ and .bsp
+    setTitle(map + " (" + std::to_string(index + 1) + "/" + std::to_string(names_.size()) + ")");
+    std::shared_ptr<Bsp> bsp;
+    if (!loadLevel(path, bsp))
+        return;
 
     // The server: the level, and the player joining it. The holodeck
     // intro, which holds new players in place, is off until there's a
@@ -160,15 +211,12 @@ void PlayViewer::start(int index) {
     game_->print = [this](const std::string& text) { addPrint(text, false); };
     printPartial_[0].clear();
     closeTyping();
-    err = game_->load();
+    Error err = game_->load();
     if (!err)
         err = game_->startLevel(map, bsp, int32_t(ctx_.sys.getMillis()));
     std::string refused;
     if (!err)
-        err = game_->connectClient(0,
-                                   "\\name\\Reluva\\model\\munro\\handicap\\100\\sex\\male\\color\\4"
-                                   "\\snaps\\20\\rate\\25000\\ip\\localhost",
-                                   refused);
+        err = game_->connectClient(0, userinfo() + "\\ip\\localhost", refused);
     if (!err && !refused.empty())
         err = Error::fail("the game refused the player: " + refused);
     if (!err)
@@ -186,34 +234,128 @@ void PlayViewer::start(int index) {
         stop("The server game stopped: " + err.message);
         return;
     }
+    startHosting();
 
     // The player's client game, given what the server has set.
-    cgame_ = std::make_unique<eliteforce::CgameHost>(ctx_.files, cvars_);
-    cgame_->print = [this](const std::string& text) { addPrint(text, true); };
-    scene_->setHandles({&cgame_->models(), &cgame_->skins(), &cgame_->shaders()});
-    cgame_->subdivisions = videoSettings(cvars_).subdivisions;
-    notify_.clear();
-    printPartial_[1].clear();
-    if (ctx_.mixer) {
-        soundSystem_ = std::make_unique<SoundSystem>(*ctx_.mixer, soundLibrary_);
-        cgame_->soundSystem = soundSystem_.get();
-    }
-    err = cgame_->load();
-    if (!err) {
-        cgame_->setConfigstrings(game_->configstrings());
-        sendServerCommands();
-        loadingFailed_ = false;
-        cgame_->updateScreen = [this] { drawLoadingScreen(); };
-        err = cgame_->init(0, 0, 0);
-        cgame_->updateScreen = nullptr;
-    }
-    if (err) {
-        stop("The client game stopped: " + err.message);
+    if (Error e = startClientGame(game_->configstrings(), 0, 0)) {
+        stop("The client game stopped: " + e.message);
         return;
     }
     clientTime_ = game_->levelTime();
     lastMs_ = 0;
     cgame_->newSnapshot(game_->snapshot(0));
+}
+
+std::string PlayViewer::userinfo() const {
+    // The player's settings the menus keep (name, model...), as the
+    // original sends them: every user-info setting.
+    std::string info;
+    for (const CvarStore::Cvar& cv : cvars_.all())
+        if ((cv.flags & CvarStore::UserInfo) && !cv.value.empty())
+            setInfoValue(info, cv.name, cv.value);
+    auto fallback = [&](const char* key, const char* value) {
+        if (infoValue(info, key).empty())
+            setInfoValue(info, key, value);
+    };
+    fallback("name", "Reluva");
+    fallback("model", "munro");
+    fallback("handicap", "100");
+    fallback("snaps", "20");
+    fallback("rate", "25000");
+    fallback("sex", "male");
+    fallback("color", "4");
+    return info;
+}
+
+void PlayViewer::startHosting() {
+    // Others can join over the network: on the original's port (or the
+    // next of its four, if taken), only with patch 1.2's game code,
+    // whose layouts the protocol carries.
+    if (game_->layout().version != 12) {
+        addPrint("Not open to other players: network play needs Elite Force's patch 1.2 (pak1-pak3.pk3)\n", false);
+        return;
+    }
+    std::unique_ptr<net::UdpSocket> socket;
+    for (int p = 0; p < ServerBrowser::kServerPorts && !socket; ++p)
+        if (ctx_.sys.openUdp(uint16_t(ServerBrowser::kServerPort + p), socket))
+            socket.reset();
+    if (!socket) {
+        addPrint("Not open to other players: no network\n", false);
+        return;
+    }
+    server_ = std::make_unique<eliteforce::NetServer>(*game_, cvars_, std::move(socket));
+    server_->print = [this](const std::string& text) { addPrint(text, false); };
+    server_->reserve(0);
+    server_->levelStarted();
+    addPrint("Open to other players on port " + std::to_string(server_->port()) + "\n", false);
+}
+
+void PlayViewer::connect(const std::string& address) {
+    reset();
+    setTitle("Connecting to " + address);
+    const auto [host, port] = net::splitHostPort(address, ServerBrowser::kServerPort);
+    uint32_t ip = 0;
+    if (!ctx_.sys.resolveHost(host, ip)) {
+        stop("Couldn't find " + host);
+        return;
+    }
+    std::unique_ptr<net::UdpSocket> socket;
+    if (Error err = ctx_.sys.openUdp(0, socket)) {
+        stop("No network: " + err.message);
+        return;
+    }
+    // The qport tells the server it's still us if a router changes our port.
+    const auto qport = uint16_t(ctx_.sys.getMillis() * 2654435761u >> 16);
+    serverAddress_ = address;
+    client_ = std::make_unique<eliteforce::NetClient>(std::move(socket), net::Address{ip, port}, userinfo(), qport);
+    lastMs_ = 0;
+}
+
+void PlayViewer::runRemote(uint64_t nowMs, int32_t dt) {
+    // Playing on someone else's server: what it sends, a level loaded
+    // when a game state comes, its snapshots for the client game, and the
+    // player's commands back.
+    client_->frame(nowMs);
+    if (client_->state() == eliteforce::NetClient::State::Disconnected) {
+        const std::string why = client_->message().empty() ? "Disconnected" : client_->message();
+        client_.reset();
+        stop(why);
+        return;
+    }
+    if (client_->takeNewGamestate()) {
+        const auto& cs = client_->configstrings();
+        const std::string map = cs.count(0) ? infoValue(cs.at(0), "mapname") : std::string();
+        cgame_.reset();
+        stopSounds();
+        if (scene_)
+            scene_->reset();
+        models_->clear();
+        world_->clear();
+        shaders_->clear();
+        setTitle(map + " on " + serverAddress_);
+        std::shared_ptr<Bsp> bsp;
+        if (!loadLevel(normalizeArchiveName("maps/" + map + ".bsp"), bsp))
+            return;
+        if (Error err = startClientGame(cs, client_->gamestateMessage(), client_->gamestateCommandSequence())) {
+            stop("The client game stopped: " + err.message);
+            return;
+        }
+        client_->setLoaded();
+    }
+    if (!cgame_)
+        return;
+    cgame_->setServerCommands(client_->serverCommands());
+    for (eliteforce::GameHost::Snapshot& snap : client_->takeSnapshots())
+        cgame_->newSnapshot(std::move(snap));
+    if (!client_->hasSnapshot())
+        return;
+    clientTime_ = client_->serverTime();
+    if (dt > 0) {
+        eliteforce::GameHost::UserCommand cmd = buildCommand();
+        cmd.serverTime = clientTime_;
+        client_->addCommand(cmd);
+        cgame_->addUserCommand(cmd);
+    }
 }
 
 void PlayViewer::drawLoadingScreen() {
@@ -247,6 +389,10 @@ void PlayViewer::stop(const std::string& why) {
             last.pop_back();
         error_ += " (last printed: " + last.substr(last.rfind('\n') == std::string::npos ? 0 : last.rfind('\n') + 1) + ")";
     }
+    if (client_)
+        client_->disconnect();
+    client_.reset();
+    server_.reset();
     cgame_.reset();
     game_.reset();
     stopSounds();
@@ -313,6 +459,21 @@ void PlayViewer::consoleCommand(const std::string& text) {
             openTyping(Typing::Tell, client, bindingKeyChar_);
         return;
     }
+    if (verb == "connect" && w.size() >= 2) {
+        connect(w[1]);
+        return;
+    }
+    if (verb == "reconnect" && !serverAddress_.empty()) {
+        connect(serverAddress_);
+        return;
+    }
+    if (verb == "disconnect") {
+        // Back to the menus, as the original.
+        if (client_)
+            client_->disconnect();
+        ctx_.requestPage = "Menu";
+        return;
+    }
     if (verb == "clear") {
         consoleLines_.clear();
         return;
@@ -352,6 +513,13 @@ void PlayViewer::consoleCommand(const std::string& text) {
             cvars_.set(w[0], w[1]);
         return;
     }
+    // On someone else's server, the rest goes to it as the player's.
+    if (client_) {
+        client_->addClientCommand(text);
+        return;
+    }
+    if (!game_)
+        return;
     // On a server of one's own, its game's console commands (addbot,
     // kick...) next; the rest goes to the server as the player's.
     if (Error err = game_->serverCommand(text, &handled)) {
@@ -608,7 +776,7 @@ void PlayViewer::handleEvent(const Event& ev) {
 }
 
 void PlayViewer::runGame(uint64_t nowMs) {
-    if (!game_ || !cgame_)
+    if (!client_ && (!game_ || !cgame_))
         return;
     const int32_t dt = lastMs_ ? int32_t(std::min<uint64_t>(nowMs - lastMs_, 100)) : 0;
     lastMs_ = nowMs;
@@ -649,68 +817,20 @@ void PlayViewer::runGame(uint64_t nowMs) {
     // pitch as well left the view stuck above level whenever that offset
     // pointed upwards. Kept to a turn either way, as it wraps anyway.
     pitch_ = std::remainder(pitch_, 360.0f);
-    if (dt > 0)
-        clientTime_ += dt;
-    // The server first, kept a frame ahead of the player's time, so the
-    // client game always has the snapshot after it to move things towards;
-    // then the player's command, stamped with a time the server has
-    // reached, as the original's client stamps commands with the
-    // snapshots' time. Given first, a command was up to a frame ahead of
-    // the server, and with long frames (50 ms and more) the player's
-    // weapon stopped firing and their sounds stopped (game-run -events).
     using Clock = std::chrono::steady_clock;
     auto ms = [](Clock::time_point from) {
         return std::chrono::duration<float, std::milli>(Clock::now() - from).count();
     };
-    const auto serverStart = Clock::now();
-    while (game_->levelTime() <= clientTime_) {
-        if (Error err = game_->runFrame()) {
-            stop("The server game stopped: " + err.message);
+    if (client_) {
+        const auto start = Clock::now();
+        runRemote(nowMs, dt);
+        timing_.server = ms(start);
+        if (!cgame_ || !client_ || !client_->hasSnapshot())
             return;
-        }
-        sendServerCommands();
-        cgame_->setConfigstrings(game_->configstrings());
-        cgame_->newSnapshot(game_->snapshot(0));
-    }
-    timing_.server = ms(serverStart);
-    if (dt > 0) {
-        // The player's command for this moment, as a client sends one each
-        // frame: where they look, how they move, what they press. The game
-        // moves the player by it at once, as the original server does.
-        eliteforce::GameHost::UserCommand cmd;
-        cmd.serverTime = clientTime_;
-        cmd.angles = {toShort(pitch_), toShort(yaw_), 0};
-        for (const auto& [name, keys] : buttons_) {
-            if (keys.empty())
-                continue;
-            if (name == "attack")
-                cmd.buttons |= kButtonAttack;
-            else if (name == "altattack")
-                cmd.buttons |= kButtonAltAttack;
-            else if (name.rfind("button", 0) == 0)
-                cmd.buttons |= 1 << std::atoi(name.c_str() + 6);
-        }
-        cmd.weapon = uint8_t(cgame_->weaponSelect());
-        // Running unless +speed is held (cl_run 1, the default), or the reverse.
-        const int speed = (cvars_.find("cl_run") ? cvars_.integer("cl_run") != 0 : true) != held("speed") ? 127 : 64;
-        int side = held("moveright") - held("moveleft");
-        if (strafe)
-            side += held("right") - held("left");
-        cmd.forward = int8_t(std::clamp(speed * (held("forward") - held("back")), -127, 127));
-        cmd.right = int8_t(std::clamp(speed * side, -127, 127));
-        cmd.up = int8_t(std::clamp(speed * (held("moveup") - held("movedown")), -127, 127));
-        if (Error err = game_->clientThink(0, cmd)) {
-            stop("The server game stopped: " + err.message);
+    } else {
+        if (!runLocal(nowMs, dt))
             return;
-        }
-        cgame_->addUserCommand(cmd);
     }
-    // The last two seconds' frames, for the info line: each frame's length,
-    // whether it sent a command, how many snapshots, and the player's event
-    // sequence (player state word 108) as the server has it.
-    recentFrames_.push_back({nowMs, dt, dt > 0, game_->snapshotsMade(), game_->clientInt(0, 108)});
-    while (!recentFrames_.empty() && recentFrames_.front().ms + 2000 < nowMs)
-        recentFrames_.pop_front();
     cgame_->clearScene();
     cgame_->clearPictures();
     if (soundSystem_)
@@ -731,6 +851,91 @@ void PlayViewer::runGame(uint64_t nowMs) {
         soundSystem_->setVolumes(setting("s_volume", 0.8f), setting("s_musicvolume", 0.25f));
         soundSystem_->endFrame();
     }
+}
+
+eliteforce::GameHost::UserCommand PlayViewer::buildCommand() {
+    // The player's command for this moment, as a client sends one each
+    // frame: where they look, how they move, what they press.
+    eliteforce::GameHost::UserCommand cmd;
+    cmd.angles = {toShort(pitch_), toShort(yaw_), 0};
+    for (const auto& [name, keys] : buttons_) {
+        if (keys.empty())
+            continue;
+        if (name == "attack")
+            cmd.buttons |= kButtonAttack;
+        else if (name == "altattack")
+            cmd.buttons |= kButtonAltAttack;
+        else if (name.rfind("button", 0) == 0)
+            cmd.buttons |= 1 << std::atoi(name.c_str() + 6);
+    }
+    cmd.weapon = uint8_t(cgame_ ? cgame_->weaponSelect() : 0);
+    // Running unless +speed is held (cl_run 1, the default), or the reverse.
+    const int speed = (cvars_.find("cl_run") ? cvars_.integer("cl_run") != 0 : true) != held("speed") ? 127 : 64;
+    const bool strafe = held("strafe");
+    int side = held("moveright") - held("moveleft");
+    if (strafe)
+        side += held("right") - held("left");
+    cmd.forward = int8_t(std::clamp(speed * (held("forward") - held("back")), -127, 127));
+    cmd.right = int8_t(std::clamp(speed * side, -127, 127));
+    cmd.up = int8_t(std::clamp(speed * (held("moveup") - held("movedown")), -127, 127));
+    return cmd;
+}
+
+bool PlayViewer::runLocal(uint64_t nowMs, int32_t dt) {
+    if (dt > 0)
+        clientTime_ += dt;
+    // The server first, kept a frame ahead of the player's time, so the
+    // client game always has the snapshot after it to move things towards;
+    // then the player's command, stamped with a time the server has
+    // reached, as the original's client stamps commands with the
+    // snapshots' time. Given first, a command was up to a frame ahead of
+    // the server, and with long frames (50 ms and more) the player's
+    // weapon stopped firing and their sounds stopped (game-run -events).
+    using Clock = std::chrono::steady_clock;
+    auto ms = [](Clock::time_point from) {
+        return std::chrono::duration<float, std::milli>(Clock::now() - from).count();
+    };
+    const auto serverStart = Clock::now();
+    // Players on other machines: what they sent first, then, after each
+    // of the game's frames, what they're sent.
+    if (server_)
+        if (Error err = server_->receive(nowMs)) {
+            stop("The server game stopped: " + err.message);
+            return false;
+        }
+    while (game_->levelTime() <= clientTime_) {
+        if (Error err = game_->runFrame()) {
+            stop("The server game stopped: " + err.message);
+            return false;
+        }
+        if (server_)
+            if (Error err = server_->frame(nowMs)) {
+                stop("The server game stopped: " + err.message);
+                return false;
+            }
+        sendServerCommands();
+        cgame_->setConfigstrings(game_->configstrings());
+        cgame_->newSnapshot(game_->snapshot(0));
+    }
+    timing_.server = ms(serverStart);
+    if (dt > 0) {
+        // The game moves the player by their command at once, as the
+        // original server does.
+        eliteforce::GameHost::UserCommand cmd = buildCommand();
+        cmd.serverTime = clientTime_;
+        if (Error err = game_->clientThink(0, cmd)) {
+            stop("The server game stopped: " + err.message);
+            return false;
+        }
+        cgame_->addUserCommand(cmd);
+    }
+    // The last two seconds' frames, for the info line: each frame's length,
+    // whether it sent a command, how many snapshots, and the player's event
+    // sequence (player state word 108) as the server has it.
+    recentFrames_.push_back({nowMs, dt, dt > 0, game_->snapshotsMade(), game_->clientInt(0, 108)});
+    while (!recentFrames_.empty() && recentFrames_.front().ms + 2000 < nowMs)
+        recentFrames_.pop_front();
+    return true;
 }
 
 void PlayViewer::update(uint64_t nowMs) {
@@ -895,6 +1100,21 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
         for (int i = int(consoleLines_.size()) - 1 - consoleScroll_; i >= 0 && y >= 0; --i, y -= lh)
             drawColoured(4, y, consoleLines_[size_t(i)]);
     } else {
+        // Joining a server: how far it has got, in the middle.
+        if (client_ && (!cgame_ || !client_->hasSnapshot())) {
+            static const char* const kStates[] = {"", "Disconnected", "", "Asking for a challenge", "Connecting",
+                                                  "Waiting for the level", "", "Loading the level", "Joining"};
+            const auto st = size_t(client_->state());
+            std::string status = (st < 9 ? kStates[st] : "") + std::string(" - ") + serverAddress_;
+            if (client_->state() <= eliteforce::NetClient::State::Challenging)
+                status += " (" + std::to_string(client_->connectPackets()) + ")";
+            const int x = std::max(4, (frameW_ - int(font::length(status)) * font::kAdvance) / 2);
+            drawColoured(x, frameH_ / 2 - lh, status);
+            if (!client_->message().empty()) {
+                const int mx = std::max(4, (frameW_ - int(font::length(client_->message())) * font::kAdvance) / 2);
+                drawColoured(mx, frameH_ / 2 + lh, client_->message());
+            }
+        }
         // The notify lines at the top, then a chat line being typed.
         int notifyY = 4;
         for (const auto& [when, line] : notify_) {
@@ -986,9 +1206,26 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
                               renderer_->hasStencil() ? "" : " (none: no stencil buffer)");
                 lines.push_back(line);
             }
-            std::snprintf(line, sizeof line, "%d areas; sight checks a closed door blocked: %d%s", game_->areaCount(),
-                          game_->closedDoorBlocks(), cvars_.integer("cm_noAreas") ? " (cm_noAreas 1: areas ignored)" : "");
-            lines.push_back(line);
+            if (game_) {
+                std::snprintf(line, sizeof line, "%d areas; sight checks a closed door blocked: %d%s",
+                              game_->areaCount(), game_->closedDoorBlocks(),
+                              cvars_.integer("cm_noAreas") ? " (cm_noAreas 1: areas ignored)" : "");
+                lines.push_back(line);
+            }
+            // Network play: who has joined this level, or the server played on.
+            if (server_) {
+                std::string players = "Open to others on port " + std::to_string(server_->port()) + ";";
+                const auto joined = server_->players();
+                if (joined.empty())
+                    players += " no one has joined";
+                for (const auto& [number, name] : joined)
+                    players += " " + std::to_string(number) + ": " + name;
+                lines.push_back(players);
+            } else if (client_) {
+                lines.push_back("Playing on " + serverAddress_ + " (" + client_->server().toString() + ")");
+            } else if (game_ && game_->layout().version != 12) {
+                lines.push_back("Not open to others: network play needs patch 1.2");
+            }
             if (!shown_.unloadable.empty()) {
                 std::string names = "Models not drawn (only .md3 and .mdr):";
                 for (const std::string& n : shown_.unloadable)

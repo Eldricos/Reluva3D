@@ -72,9 +72,21 @@ every engine.
    goals and weapons, follow routes (lifts included), predict moves and
    chat ([aas.md](../formats/idtech3/aas.md)). They don't answer chat:
    the retail data has no reply file for them.
-6. **Sound**: done in the Play page: sounds placed in the world, looping
+6. **Network play**: Elite Force's protocol 24, as the retail game patched to
+   1.2 speaks it ([eliteforce-network.md](../formats/idtech3/eliteforce-network.md)).
+   The Play page opens each level it starts to other players on port
+   27960 (or the next free of 27961-27963), when the game code is
+   patch 1.2's: the protocol carries 1.2's layouts, and Reluva picks the
+   game code's layout (1.0's or 1.2's) by the size of the player states
+   it copies. `connect <address>` (the console, or the menus' server
+   list, whose local search and pings work) joins another's server;
+   `reconnect` and `disconnect` as the original. `reluva-tool net-run`
+   hosts a level with no player of its own, or joins one and reports
+   what it's sent. Still to do: trying it against the retail game; the
+   pure check, downloads, master servers, and snapshot culling.
+7. **Sound**: done in the Play page: sounds placed in the world, looping
    sounds and music, as the client game asks.
-7. **Game code**: see below.
+8. **Game code**: see below.
 
 ## Game code: open questions
 

@@ -184,6 +184,12 @@ void MenuViewer::checkCommands() {
             if (verb == "vid_restart") {
                 // The video settings changed: the page starts its drawing over.
                 restart_ = true;
+            } else if (verb == "connect" && words.size() >= 2) {
+                // Joining a server (the server list's Engage).
+                ctx_.requestPage = "Play";
+                ctx_.requestConnect = words[1];
+                ctx_.requestMap.clear();
+                ctx_.requestCommands.clear();
             } else if ((verb == "map" || verb == "devmap" || verb == "spmap" || verb == "spdevmap") && words.size() >= 2) {
                 ctx_.requestPage = "Play";
                 ctx_.requestMap = words[1];
