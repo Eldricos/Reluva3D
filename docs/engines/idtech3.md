@@ -55,8 +55,8 @@ every engine.
    the volume (culling by the vis data, areas and the view is done).
    Checked against the original: retail maps look right at 144 fps on an
    RTX 2080, and Elite Force's 1872 shaders use no directive outside
-   Quake III's. What's left for its maps: autosprite2 (two fire shaders)
-   and the ten portal/mirror shaders.
+   Quake III's; their autosprite2 fire and portal/mirror shaders are
+   drawn too.
 4. **Models**: done for MD3 and Elite Force's MDR, with interpolation
    between frames and the players' `animation.cfg` (the Models page plays
    them in pairs), and every level of detail. Players show in the Play
