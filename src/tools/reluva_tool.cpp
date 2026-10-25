@@ -3706,26 +3706,20 @@ int cmdGameRun(int argc, char** argv) {
             // frame lengths from 7 ms to 80 ms: the events the server gave
             // the player (its event sequence, player state word 108) against
             // the sounds the client game started.
-            auto runFor = [&](int stepMs, const char* how) {
+            // serverFirst: the server run up to the command's time before it's
+            // given the command (as the original's client stamps commands
+            // with the snapshots' time), not after.
+            auto runFor = [&](int stepMs, bool serverFirst) {
                 soundsStarted.clear();
                 const int32_t firstEvent = game.clientInt(0, 108);
                 const int32_t firstAmmo = game.clientInt(0, 396);
+                const int32_t firstCommandTime = game.clientInt(0, 0);
                 int32_t clientTime = game.levelTime();
-                for (int t = 0; t < 3000 && ok; t += stepMs) {
-                    clientTime += stepMs;
-                    ef::GameHost::UserCommand cmd;
-                    cmd.serverTime = clientTime;
-                    cmd.buttons = fireButtons ? fireButtons : 1;
-                    cmd.weapon = uint8_t(std::max(fireWeapon, 1));
-                    if (reluva::Error e = game.clientThink(0, cmd)) {
-                        std::printf("server: %s\n", e.message.c_str());
-                        return;
-                    }
-                    cgame.addUserCommand(cmd);
+                auto runServer = [&] {
                     while (game.levelTime() <= clientTime) {
                         if (reluva::Error e = game.runFrame()) {
                             std::printf("server: %s\n", e.message.c_str());
-                            return;
+                            return false;
                         }
                         std::vector<std::string> commands;
                         for (const auto& [to, text] : game.serverCommands())
@@ -3735,6 +3729,23 @@ int cmdGameRun(int argc, char** argv) {
                         cgame.setConfigstrings(game.configstrings());
                         cgame.newSnapshot(game.snapshot(0));
                     }
+                    return true;
+                };
+                for (int t = 0; t < 3000 && ok; t += stepMs) {
+                    clientTime += stepMs;
+                    if (serverFirst && !runServer())
+                        return;
+                    ef::GameHost::UserCommand cmd;
+                    cmd.serverTime = clientTime;
+                    cmd.buttons = fireButtons ? fireButtons : 1;
+                    cmd.weapon = uint8_t(std::max(fireWeapon, 1));
+                    if (reluva::Error e = game.clientThink(0, cmd)) {
+                        std::printf("server: %s\n", e.message.c_str());
+                        return;
+                    }
+                    cgame.addUserCommand(cmd);
+                    if (!serverFirst && !runServer())
+                        return;
                     cgame.clearScene();
                     cgame.clearPictures();
                     int32_t ignored = 0;
@@ -3743,17 +3754,20 @@ int cmdGameRun(int argc, char** argv) {
                         return;
                     }
                 }
-                std::printf("%s: the server gave the player %d events (ammunition word 396: %d to %d); the client "
-                            "game started these sounds:\n",
-                            how, game.clientInt(0, 108) - firstEvent, firstAmmo, game.clientInt(0, 396));
+                std::printf("a command every %d ms, %s: the server gave the player %d events (command time %d to %d, "
+                            "ammunition word 396: %d to %d); the client game started these sounds:\n",
+                            stepMs, serverFirst ? "the server run first" : "the command first",
+                            game.clientInt(0, 108) - firstEvent, firstCommandTime, game.clientInt(0, 0), firstAmmo,
+                            game.clientInt(0, 396));
                 for (const auto& [name, count] : soundsStarted)
                     std::printf("  %4d  %s\n", count, name.c_str());
             };
-            // From 144 frames a second down to 12, as a slow frame rate gives.
-            for (int stepMs : {7, 16, 33, 50, 80}) {
-                const std::string how = "a command every " + std::to_string(stepMs) + " ms";
-                runFor(stepMs, how.c_str());
-            }
+            // From 144 frames a second down to 12, as a slow frame rate gives,
+            // each both ways; 7 ms again at the end, as each run starts where
+            // the last stopped.
+            for (const auto& [stepMs, serverFirst] : std::vector<std::pair<int, bool>>{
+                     {7, false}, {16, false}, {16, true}, {50, false}, {50, true}, {80, true}, {7, false}})
+                runFor(stepMs, serverFirst);
         } else if (!err) {
             // A few frames, a new snapshot each, to see what the client game
             // does with them.
