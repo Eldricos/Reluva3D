@@ -181,7 +181,13 @@ subnets) or IPv6. For an Internet address:
   for 5 seconds, the client is let in.
 
 Raven's servers are long gone, so in practice every server lets everyone
-in.
+in, but a retail server still tries them for a player it doesn't count as
+local, and lets them in only once that has failed. Seen with a retail
+server in a virtual machine joined from its host (October 2026): its
+console showed `Resolving authenticate.stef1.ravensoft.com`, and the
+challenge came after about 20 seconds (seven `getchallenge` requests, 3
+seconds apart). The retail game would wait the same; nothing a client
+can change.
 
 ## Netchan
 
