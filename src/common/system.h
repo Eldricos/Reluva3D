@@ -12,6 +12,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace reluva {
 
@@ -85,6 +86,9 @@ public:
         (void)ip;
         return false;
     }
+    // The broadcast address of each network the machine is on (255.255.255.255
+    // reaches only one of them when there are several).
+    virtual std::vector<uint32_t> broadcastAddresses() { return {}; }
 };
 
 } // namespace reluva

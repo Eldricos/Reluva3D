@@ -181,14 +181,14 @@ add_executable(reluva
     src/launcher/launcher.cpp)
 target_link_libraries(reluva PRIVATE reluva_engines imgui SDL3::SDL3 reluva_warnings)
 if(WIN32)
-    target_link_libraries(reluva PRIVATE ws2_32)
+    target_link_libraries(reluva PRIVATE ws2_32 iphlpapi)
 endif()
 
 # --- developer tools -----------------------------------------------------------
 add_executable(reluva-tool src/tools/reluva_tool.cpp src/backends/sockets/socket_net.cpp)
 target_link_libraries(reluva-tool PRIVATE reluva_engines reluva_warnings)
 if(WIN32)
-    target_link_libraries(reluva-tool PRIVATE ws2_32)
+    target_link_libraries(reluva-tool PRIVATE ws2_32 iphlpapi)
 endif()
 
 # --- tests ----------------------------------------------------------------------
@@ -209,7 +209,7 @@ if(RELUVA_BUILD_TESTS)
         add_executable(reluva_idtech3_tests tests/test_idtech3.cpp src/backends/sockets/socket_net.cpp)
         target_link_libraries(reluva_idtech3_tests PRIVATE reluva_engines reluva_warnings)
         if(WIN32)
-            target_link_libraries(reluva_idtech3_tests PRIVATE ws2_32)
+            target_link_libraries(reluva_idtech3_tests PRIVATE ws2_32 iphlpapi)
         endif()
         target_include_directories(reluva_idtech3_tests PRIVATE tests)
         add_test(NAME idtech3 COMMAND reluva_idtech3_tests)

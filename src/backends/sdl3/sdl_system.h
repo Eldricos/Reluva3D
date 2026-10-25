@@ -49,6 +49,7 @@ public:
     int audioRate() const override { return kAudioRate; }
     Error openUdp(uint16_t port, std::unique_ptr<net::UdpSocket>& out) override;
     bool resolveHost(const std::string& host, uint32_t& ip) override;
+    std::vector<uint32_t> broadcastAddresses() override;
 
 private:
     static constexpr int kAudioRate = 44100;

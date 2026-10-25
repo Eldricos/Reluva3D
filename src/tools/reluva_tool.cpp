@@ -3498,8 +3498,12 @@ int cmdNetFind(int argc, char** argv) {
         send({ip, port}, "getinfo xxx");
         send({ip, port}, "getstatus xxx");
     } else {
-        for (uint16_t p = 27960; p < 27964; ++p)
+        const std::vector<uint32_t> broadcasts = reluva::net::systemBroadcastAddresses();
+        for (uint16_t p = 27960; p < 27964; ++p) {
             send(reluva::net::Address::broadcast(p), "getinfo xxx");
+            for (uint32_t b : broadcasts)
+                send({b, p}, "getinfo xxx");
+        }
     }
     int answers = 0;
     using Clock = std::chrono::steady_clock;

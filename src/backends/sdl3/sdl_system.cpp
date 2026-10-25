@@ -378,4 +378,6 @@ Error SdlSystem::openUdp(uint16_t port, std::unique_ptr<net::UdpSocket>& out) {
 
 bool SdlSystem::resolveHost(const std::string& host, uint32_t& ip) { return net::resolveSystemHost(host, ip); }
 
+std::vector<uint32_t> SdlSystem::broadcastAddresses() { return net::systemBroadcastAddresses(); }
+
 } // namespace reluva

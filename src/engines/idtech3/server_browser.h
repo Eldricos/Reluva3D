@@ -28,6 +28,9 @@ public:
     // `socket`: where the requests go from and answers come to.
     explicit ServerBrowser(std::unique_ptr<net::UdpSocket> socket) : socket_(std::move(socket)) {}
 
+    // Besides 255.255.255.255, the broadcast address of each network the
+    // machine is on: the local search goes to each.
+    void setBroadcasts(std::vector<uint32_t> addresses) { broadcasts_ = std::move(addresses); }
     // The two commands; `now` in ms.
     void localServers(uint64_t now);
     // `address`: a.b.c.d[:port] (host names already resolved by the caller).
@@ -54,6 +57,7 @@ private:
     std::unique_ptr<net::UdpSocket> socket_;
     std::vector<net::Address> local_;
     uint64_t scanStart_ = 0; // when the local network was last asked
+    std::vector<uint32_t> broadcasts_;
     static constexpr uint64_t kScanMs = 5000;
     struct Ping {
         net::Address address;

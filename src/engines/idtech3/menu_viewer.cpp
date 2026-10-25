@@ -77,8 +77,10 @@ void MenuViewer::start() {
     // The server list: on a socket of its own, if the system has a network.
     if (!browser_) {
         std::unique_ptr<net::UdpSocket> socket;
-        if (!ctx_.sys.openUdp(0, socket) && socket)
+        if (!ctx_.sys.openUdp(0, socket) && socket) {
             browser_ = std::make_unique<ServerBrowser>(std::move(socket));
+            browser_->setBroadcasts(ctx_.sys.broadcastAddresses());
+        }
     }
     ui_->browser = browser_.get();
     ui_->resolveHost = [this](const std::string& host, uint32_t& ip) { return ctx_.sys.resolveHost(host, ip); };

@@ -3,6 +3,8 @@
 
 #include "backends/sockets/socket_net.h"
 
+#include <algorithm>
+
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -12,6 +14,7 @@
 #endif
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <iphlpapi.h>
 using SocketHandle = SOCKET;
 constexpr SocketHandle kNoSocket = INVALID_SOCKET;
 #else
@@ -19,6 +22,8 @@ constexpr SocketHandle kNoSocket = INVALID_SOCKET;
 #include <cerrno>
 #include <cstring>
 #include <fcntl.h>
+#include <ifaddrs.h>
+#include <net/if.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -148,6 +153,51 @@ bool resolveSystemHost(const std::string& host, uint32_t& ip) {
     ip = ntohl(reinterpret_cast<const sockaddr_in*>(found->ai_addr)->sin_addr.s_addr);
     freeaddrinfo(found);
     return true;
+}
+
+std::vector<uint32_t> systemBroadcastAddresses() {
+    std::vector<uint32_t> out;
+    auto add = [&](uint32_t b) {
+        if (b && b != 0xffffffffu && std::find(out.begin(), out.end(), b) == out.end())
+            out.push_back(b);
+    };
+#ifdef _WIN32
+    if (!startSockets())
+        return out;
+    ULONG size = 16384;
+    std::vector<uint8_t> buffer;
+    ULONG result = ERROR_BUFFER_OVERFLOW;
+    for (int tries = 0; tries < 3 && result == ERROR_BUFFER_OVERFLOW; ++tries) {
+        buffer.resize(size);
+        result = GetAdaptersAddresses(AF_INET,
+                                      GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_DNS_SERVER,
+                                      nullptr, reinterpret_cast<IP_ADAPTER_ADDRESSES*>(buffer.data()), &size);
+    }
+    if (result != NO_ERROR)
+        return out;
+    for (auto* a = reinterpret_cast<IP_ADAPTER_ADDRESSES*>(buffer.data()); a; a = a->Next) {
+        if (a->OperStatus != IfOperStatusUp || a->IfType == IF_TYPE_SOFTWARE_LOOPBACK)
+            continue;
+        for (auto* u = a->FirstUnicastAddress; u; u = u->Next) {
+            if (u->Address.lpSockaddr->sa_family != AF_INET || u->OnLinkPrefixLength == 0 ||
+                u->OnLinkPrefixLength >= 32)
+                continue;
+            const uint32_t ip = ntohl(reinterpret_cast<const sockaddr_in*>(u->Address.lpSockaddr)->sin_addr.s_addr);
+            const uint32_t mask = 0xffffffffu << (32 - u->OnLinkPrefixLength);
+            add(ip | ~mask);
+        }
+    }
+#else
+    ifaddrs* list = nullptr;
+    if (getifaddrs(&list) != 0)
+        return out;
+    for (ifaddrs* i = list; i; i = i->ifa_next)
+        if (i->ifa_addr && i->ifa_addr->sa_family == AF_INET && (i->ifa_flags & IFF_BROADCAST) &&
+            (i->ifa_flags & IFF_UP) && i->ifa_broadaddr)
+            add(ntohl(reinterpret_cast<const sockaddr_in*>(i->ifa_broadaddr)->sin_addr.s_addr));
+    freeifaddrs(list);
+#endif
+    return out;
 }
 
 } // namespace reluva::net

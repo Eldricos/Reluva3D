@@ -18,9 +18,15 @@ void ServerBrowser::localServers(uint64_t now) {
     local_.clear();
     scanStart_ = now;
     // Twice, in case one is lost; the 'xxx' is a challenge servers echo.
+    // To 255.255.255.255, as the original, which leaves by one network
+    // only, and to each network's own broadcast address (a virtual
+    // machine's network...).
     for (int i = 0; i < 2; ++i)
-        for (int p = 0; p < kServerPorts; ++p)
+        for (int p = 0; p < kServerPorts; ++p) {
             send(net::Address::broadcast(uint16_t(kServerPort + p)), "getinfo xxx");
+            for (uint32_t b : broadcasts_)
+                send({b, uint16_t(kServerPort + p)}, "getinfo xxx");
+        }
 }
 
 void ServerBrowser::ping(const net::Address& address, uint64_t now) {
