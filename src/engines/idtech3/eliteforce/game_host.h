@@ -67,6 +67,13 @@ public:
     // ClientBegin, which puts them in the level.
     Error connectClient(int32_t clientNum, const std::string& userinfo, std::string& refused);
     Error beginClient(int32_t clientNum);
+    // A player's settings changed (their userinfo, ClientUserinfoChanged).
+    Error userinfoChanged(int32_t clientNum, const std::string& userinfo);
+    // A player leaving (ClientDisconnect); their slot is free again.
+    Error disconnectClient(int32_t clientNum);
+    // Whether no player or bot has slot `clientNum`.
+    bool clientSlotFree(int32_t clientNum) const { return !clientsInUse_.count(clientNum); }
+    bool isBot(int32_t clientNum) const { return botClients_.count(clientNum) != 0; }
     // A player's input for one moment, as Elite Force's usercmd_t (24
     // bytes, see eliteforce-syscalls.md): Quake III's fields with the
     // buttons before the angles.
@@ -173,6 +180,10 @@ public:
     const std::vector<std::pair<int32_t, std::string>>& serverCommands() const { return serverCommands_; }
     // Clients the game dropped, with its reason.
     const std::map<int32_t, std::string>& dropped() const { return dropped_; }
+    // Every DropClient, in order: the client and the reason.
+    const std::vector<std::pair<int32_t, std::string>>& drops() const { return drops_; }
+    // Entity `number`'s state (its first 204 bytes); empty if there's none.
+    std::vector<uint8_t> entityState(int32_t number);
     // Commands the game ran (SendConsoleCommand), in order.
     const std::vector<std::string>& consoleCommands() const { return consoleCommands_; }
 
@@ -223,6 +234,7 @@ private:
     std::map<int32_t, UserCommand> commands_;
     std::vector<std::pair<int32_t, std::string>> serverCommands_;
     std::map<int32_t, std::string> dropped_;
+    std::vector<std::pair<int32_t, std::string>> drops_;
     std::string log_;
     std::map<int, int> unhandled_;
     std::map<int, int> callCounts_;

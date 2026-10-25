@@ -99,6 +99,18 @@ Error GameHost::startLevel(const std::string& mapName, std::shared_ptr<const Bsp
     cvars_.create("g_gametype", "0", CvarStore::ServerInfo | CvarStore::Latch);
     cvars_.create("dedicated", "0", CvarStore::Latch);
     cvars_.create("sv_cheats", "0", CvarStore::ServerInfo | CvarStore::ReadOnly);
+    // What the original's server adds for clients over the network
+    // (eliteforce-network.md): its protocol and name in the server info,
+    // and in the system info the level's id (changing with every level,
+    // so commands from before it can be told apart), whether it's pure
+    // (Reluva's isn't: it doesn't check clients' paks) and its frame rate.
+    cvars_.create("protocol", "24", CvarStore::ServerInfo | CvarStore::ReadOnly);
+    cvars_.create("sv_hostname", "Reluva", CvarStore::ServerInfo | CvarStore::Archive);
+    cvars_.create("sv_serverid", "0", CvarStore::SystemInfo | CvarStore::ReadOnly);
+    cvars_.set("sv_serverid", std::to_string(randomSeed & 0x7fffffff), true);
+    cvars_.create("sv_pure", "0", CvarStore::SystemInfo);
+    cvars_.set("sv_pure", "0", true);
+    cvars_.create("sv_fps", "20", CvarStore::SystemInfo);
     // The engine's bot settings (the game reads bot_enable when starting).
     cvars_.create("bot_enable", "1", 0);
     cvars_.create("bot_thinktime", "100", 0);
@@ -146,6 +158,28 @@ Error GameHost::connectClient(int32_t clientNum, const std::string& userinfo, st
     if (reason)
         refused = vm_.string(reason, 1024);
     return Error::success();
+}
+
+Error GameHost::userinfoChanged(int32_t clientNum, const std::string& userinfo) {
+    userinfo_[clientNum] = userinfo;
+    int32_t ignored = 0;
+    return call(ClientUserinfoChanged, {clientNum}, ignored);
+}
+
+std::vector<uint8_t> GameHost::entityState(int32_t number) {
+    const int32_t a = entityAddress(number);
+    if (a < 0 || !vm_.valid(a, kEntityStateSize))
+        return {};
+    return {&vm_.memory()[size_t(a)], &vm_.memory()[size_t(a)] + kEntityStateSize};
+}
+
+Error GameHost::disconnectClient(int32_t clientNum) {
+    int32_t ignored = 0;
+    Error err = call(ClientDisconnect, {clientNum}, ignored);
+    clientsInUse_.erase(clientNum);
+    userinfo_.erase(clientNum);
+    commands_.erase(clientNum);
+    return err;
 }
 
 Error GameHost::clientCommand(int32_t clientNum, const std::string& text) {
@@ -580,7 +614,10 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         gameData_ = {a[0], a[1], a[2], a[3], a[4]};
         return 0;
     case SendServerCommand: serverCommands_.emplace_back(a[0], str(1, 8192)); return 0;
-    case DropClient: dropped_[a[0]] = str(1, 1024); return 0;
+    case DropClient:
+        dropped_[a[0]] = str(1, 1024);
+        drops_.emplace_back(a[0], dropped_[a[0]]);
+        return 0;
     case GetUserinfo: {
         const auto it = userinfo_.find(a[0]);
         vm.writeString(a[1], it == userinfo_.end() ? std::string() : it->second, a[2]);

@@ -13,7 +13,9 @@
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
+#include "engines/idtech3/eliteforce/net_client.h"
 #include "engines/idtech3/eliteforce/net_fields.h"
+#include "engines/idtech3/eliteforce/net_server.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/entities.h"
 #include "engines/idtech3/filesystem.h"
@@ -1728,6 +1730,86 @@ static void testGameHost(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+// A player joining over the network: the fake game's server, and a
+// client talking to it through sockets in memory (some datagrams lost).
+static void testNetworkPlay(const std::filesystem::path& tmp) {
+    namespace ef = eliteforce;
+    std::filesystem::remove_all(tmp);
+    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
+                    test::buildZip({{"vm/qagame.qvm",
+                                     std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}}}));
+    SearchSet set;
+    std::vector<std::string> warnings;
+    CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
+    CvarStore cvars;
+    ef::GameHost game(set, cvars);
+    CHECK(!game.load());
+    auto map = collisionMap();
+    map->entities = "{\n\"classname\" \"worldspawn\"\n}\n{\n\"classname\" \"func_door\"\n\"model\" \"*1\"\n"
+                    "\"origin\" \"200 0 0\"\n}\n{\n\"classname\" \"item_health\"\n\"origin\" \"-200 0 16\"\n}\n"
+                    "{\n\"classname\" \"info_player_deathmatch\"\n\"origin\" \"0 0 300\"\n}\n";
+    if (game.startLevel("borg2", map, 1234)) {
+        CHECK(false);
+        return;
+    }
+    auto network = net::LoopbackNetwork::create();
+    ef::NetServer server(game, cvars, network->open(27960));
+    server.levelStarted();
+    ef::NetClient client(network->open(0), {0x7f000001u, 27960}, "\\name\\Remote\\snaps\\20", 77);
+    uint64_t now = 1000;
+    auto tick = [&] {
+        client.frame(now);
+        CHECK(!server.receive(now));
+        CHECK(!game.runFrame());
+        CHECK(!server.frame(now));
+        now += 50;
+    };
+    for (int i = 0; i < 40 && client.state() != ef::NetClient::State::Primed; ++i)
+        tick();
+    CHECK(client.state() == ef::NetClient::State::Primed && client.takeNewGamestate());
+    CHECK(client.configstrings().count(12) && client.configstrings().at(12) == "borg2");
+    CHECK(client.configstrings().at(0).find("\\protocol\\24") != std::string::npos);
+    CHECK(server.players().size() == 1 && server.players()[0].second == "Remote");
+    // Loaded: its moves put it in the level and move it along.
+    client.setLoaded();
+    // From now on every fourth datagram each way is lost.
+    network->setDropFilter([](const net::Address&, const net::Address&, size_t index) { return index % 4 == 3; });
+    std::vector<ef::GameHost::Snapshot> got;
+    for (int i = 0; i < 60; ++i) {
+        ef::GameHost::UserCommand cmd;
+        cmd.serverTime = game.levelTime();
+        cmd.forward = 127;
+        client.addCommand(cmd);
+        tick();
+        for (auto& snap : client.takeSnapshots())
+            got.push_back(std::move(snap));
+    }
+    CHECK(client.state() == ef::NetClient::State::Active && got.size() > 20);
+    CHECK(game.linked().count(4) && game.entityVec(4, 272)[0] > 100); // moved by its commands
+    // What it has is what the server has (the door's state, every byte).
+    if (!got.empty()) {
+        const auto& last = got.back();
+        bool foundDoor = false;
+        for (const auto& e : last.entities)
+            if (e[0] == 1)
+                foundDoor = e == game.entityState(1);
+        CHECK(foundDoor);
+        CHECK(last.serverTime <= game.levelTime() && last.serverTime > game.levelTime() - 500);
+    }
+    // The game's announcement reached it.
+    bool announced = false;
+    for (const std::string& c : client.serverCommands())
+        announced = announced || c.find("entered the game") != std::string::npos;
+    CHECK(announced);
+    // Leaving.
+    network->setDropFilter(nullptr);
+    client.disconnect();
+    for (int i = 0; i < 4; ++i)
+        tick();
+    CHECK(server.players().empty() && game.clientSlotFree(0));
+    std::filesystem::remove_all(tmp);
+}
+
 // The client game starting: the server's configstrings handed over as
 // its game state (Quake III's gamestate_t), by a QVM the Quake III
 // compiler made from tests/data/qvm/fake_cgame.c.
@@ -2295,6 +2377,7 @@ int main() {
     testSoundSystem(tmp / "soundsystem");
     testCollision();
     testGameHost(tmp / "game");
+    testNetworkPlay(tmp / "netplay");
     testCgameHost(tmp / "cgame");
     testJumpTableGuard();
     testUiHost(tmp / "ui");

@@ -142,6 +142,7 @@ private:
     int32_t snapshotNumber_ = 0, snapshotTime_ = 0;
     std::map<int32_t, GameHost::Snapshot> snapshots_; // by number
     std::vector<std::string> serverCommands_;
+    std::string bigConfigstring_; // a long configstring coming in pieces (bcs0, bcs1, bcs2)
     std::vector<std::string> args_; // the command being handled, split as Quake III's Cmd_TokenizeString does
     std::vector<Picture> pictures_;
     std::array<float, 4> color_{1, 1, 1, 1};

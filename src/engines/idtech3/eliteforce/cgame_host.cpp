@@ -538,7 +538,27 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case GetServerCommand: { // (sequence) -> whether it's there; it becomes Argc/Argv
         if (a[0] < 1 || size_t(a[0]) > serverCommands_.size())
             return 0;
-        args_ = tokenize(serverCommands_[size_t(a[0] - 1)]);
+        // As the original's client, the engine acts on some first: a
+        // configstring that changed (cs index "text", or in pieces, bcs0,
+        // bcs1... bcs2, which the client game doesn't see until the last,
+        // as one cs) is set before the client game hears of it.
+        std::string text = serverCommands_[size_t(a[0] - 1)];
+        args_ = tokenize(text);
+        const std::string verb = args_.empty() ? std::string() : args_[0];
+        if ((verb == "bcs0" || verb == "bcs1" || verb == "bcs2") && args_.size() >= 3) {
+            if (verb == "bcs0")
+                bigConfigstring_.clear();
+            bigConfigstring_ += args_[2];
+            if (verb != "bcs2")
+                return 0;
+            text = "cs " + args_[1] + " \"" + bigConfigstring_ + "\"";
+            args_ = {"cs", args_[1], bigConfigstring_};
+        }
+        if (!args_.empty() && args_[0] == "cs" && args_.size() >= 2) {
+            const int32_t index = std::atoi(args_[1].c_str());
+            if (index >= 0 && index < kMaxConfigstrings)
+                configstrings_[index] = args_.size() >= 3 ? args_[2] : std::string();
+        }
         return 1;
     }
     case Floor: return Qvm::fromFloat(std::floor(Qvm::asFloat(a[0])));
