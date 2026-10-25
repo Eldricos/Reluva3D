@@ -1766,7 +1766,8 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
         return;
     }
     const uint16_t serverPort = serverSocket->port();
-    ef::NetServer server(game, cvars, std::move(serverSocket));
+    auto serverOwned = std::make_unique<ef::NetServer>(game, cvars, std::move(serverSocket));
+    ef::NetServer& server = *serverOwned;
     server.levelStarted();
     ef::NetClient client(std::move(clientSocket), {0x7f000001u, serverPort}, "\\name\\Remote\\snaps\\20", 77);
     uint64_t now = 1000;
@@ -1816,12 +1817,29 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
     for (const std::string& c : client.serverCommands())
         announced = announced || c.find("entered the game") != std::string::npos;
     CHECK(announced);
+    // Snapshots while loading are flagged not active; in the game, not.
+    CHECK(!got.empty() && (got.back().snapFlags & 2) == 0);
     // Leaving.
     network->setDropFilter(nullptr);
     client.disconnect();
     for (int i = 0; i < 4; ++i)
         tick();
     CHECK(server.players().empty() && game.clientSlotFree(0));
+    // Another joins, and the server shuts down: it's told so.
+    if (!systemSockets) {
+        ef::NetClient second(network->open(0), {0x7f000001u, serverPort}, "\\name\\Second", 78);
+        for (int i = 0; i < 20 && second.state() != ef::NetClient::State::Primed; ++i) {
+            second.frame(now);
+            CHECK(!server.receive(now));
+            CHECK(!game.runFrame());
+            CHECK(!server.frame(now));
+            now += 50;
+        }
+        CHECK(second.state() == ef::NetClient::State::Primed);
+        serverOwned.reset();
+        second.frame(now);
+        CHECK(second.state() == ef::NetClient::State::Disconnected && second.message() == "Server shut down");
+    }
     std::filesystem::remove_all(tmp);
 }
 

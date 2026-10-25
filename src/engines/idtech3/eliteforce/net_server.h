@@ -43,6 +43,10 @@ std::vector<std::string> configstringCommands(const std::map<int32_t, std::strin
 class NetServer {
 public:
     NetServer(GameHost& game, CvarStore& cvars, std::unique_ptr<reluva::net::UdpSocket> socket);
+    // Tells everyone connected that the server has gone.
+    ~NetServer();
+    NetServer(const NetServer&) = delete;
+    NetServer& operator=(const NetServer&) = delete;
 
     // Slots the network mustn't give out (the page's own player).
     void reserve(int32_t clientNum) { reserved_.insert(clientNum); }
@@ -125,6 +129,7 @@ private:
     std::map<int32_t, std::string> configstrings_; // as last sent
     size_t serverCommandsSeen_ = 0, dropsSeen_ = 0;
     int32_t checksumFeed_ = 0;
+    int levelCount_ = 0;
     uint32_t random_ = 0x1234567u;
     uint32_t nextRandom();
 };

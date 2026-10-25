@@ -195,7 +195,7 @@ void NetClient::parseSnapshot(wire::MessageReader& r, uint64_t now) {
     snap.message = chan_.incomingSequence();
     snap.serverTime = r.longValue();
     const int32_t deltaNum = r.byte();
-    r.byte(); // snap flags
+    const int32_t flags = r.byte();
     const int32_t maskBytes = std::clamp(r.byte(), 0, 32);
     const std::vector<uint8_t> mask = r.data(size_t(maskBytes));
     std::copy(mask.begin(), mask.end(), snap.areaMask.begin());
@@ -247,6 +247,7 @@ void NetClient::parseSnapshot(wire::MessageReader& r, uint64_t now) {
         out.entities.push_back(state);
     out.serverCommandSequence = serverCommandSequence_;
     out.areaMask = snap.areaMask;
+    out.snapFlags = flags;
     newSnapshots_.push_back(std::move(out));
     adjustTime(snap.serverTime, now);
 }

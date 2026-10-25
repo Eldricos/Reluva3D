@@ -382,6 +382,7 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
             return 0;
         const GameHost::Snapshot& s = it->second;
         std::memset(&vm.memory()[size_t(a[1])], 0, size_t(l.numEntities)); // flags, ping, area mask (all visible)
+        vm.writeInt(a[1], s.snapFlags);
         vm.writeInt(a[1] + kSnapServerTime, s.serverTime);
         std::memcpy(&vm.memory()[size_t(a[1] + kSnapAreaMask)], s.areaMask.data(), s.areaMask.size());
         std::memcpy(&vm.memory()[size_t(a[1] + kSnapPlayerState)], s.playerState.data(),

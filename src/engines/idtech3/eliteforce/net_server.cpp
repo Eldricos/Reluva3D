@@ -59,6 +59,24 @@ NetServer::NetServer(GameHost& game, CvarStore& cvars, std::unique_ptr<reluva::n
     random_ ^= uint32_t(reinterpret_cast<uintptr_t>(this));
 }
 
+NetServer::~NetServer() {
+    // As the original when it shuts down: a last message to everyone,
+    // twice in case one is lost, telling them it's gone.
+    for (Client& c : clients_) {
+        if (c.state < State::Connected)
+            continue;
+        if (c.reliableSequence - c.reliableAcknowledge < kMaxReliable) {
+            ++c.reliableSequence;
+            c.reliable[size_t(c.reliableSequence & (kMaxReliable - 1))] = "disconnect Server shut down";
+        }
+        for (int i = 0; i < 2; ++i) {
+            wire::MessageWriter w;
+            writeReliable(c, w);
+            transmit(c, w);
+        }
+    }
+}
+
 uint32_t NetServer::nextRandom() {
     random_ = random_ * 1103515245u + 12345u;
     return random_ >> 1;
@@ -75,6 +93,7 @@ void NetServer::levelStarted() {
     serverCommandsSeen_ = game_.serverCommands().size();
     dropsSeen_ = game_.drops().size();
     checksumFeed_ = int32_t(nextRandom());
+    ++levelCount_;
     for (Client& c : clients_)
         if (c.state >= State::Connected) {
             c.state = State::Connected;
@@ -451,7 +470,8 @@ void NetServer::sendSnapshot(Client& c, uint64_t now) {
     w.longValue(c.lastClientCommand);
     w.longValue(s.serverTime);
     w.byte(uint32_t(deltaNum));
-    w.byte(0); // snap flags
+    // Snap flags: 2 not active (still loading); 4 changes with each level.
+    w.byte((c.state != State::Active ? 2u : 0u) | (levelCount_ & 1 ? 4u : 0u));
     const int maskBytes = std::min(32, (game_.areaCount() + 7) / 8);
     w.byte(uint32_t(maskBytes));
     w.data(s.areaMask.data(), size_t(maskBytes));
@@ -538,10 +558,12 @@ Error NetServer::frame(uint64_t now) {
             drop(c, "timed out", now);
             continue;
         }
-        if (c.state == State::Active && levelTime >= c.nextSnapshotTime) {
+        // As the original: snapshots to those loading the level too
+        // (flagged not active), whose clocks they set.
+        if (c.state >= State::Primed && levelTime >= c.nextSnapshotTime) {
             c.nextSnapshotTime = levelTime + c.snapMs;
             sendSnapshot(c, now);
-        } else if (c.state != State::Active && now - c.gamestateMs >= 1000) {
+        } else if (c.state == State::Connected && now - c.gamestateMs >= 1000) {
             // Something now and then while it loads (its commands, if
             // any), so a lost game state is noticed: its acknowledgement
             // passes it.

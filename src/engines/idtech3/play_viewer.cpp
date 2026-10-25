@@ -310,6 +310,9 @@ void PlayViewer::connect(const std::string& address) {
     // The qport tells the server it's still us if a router changes our port.
     const auto qport = uint16_t(ctx_.sys.getMillis() * 2654435761u >> 16);
     serverAddress_ = address;
+    joinStartMs_ = ctx_.sys.getMillis();
+    joinState_ = eliteforce::NetClient::State::Disconnected;
+    addPrint("Joining " + address + "\n", false);
     client_ = std::make_unique<eliteforce::NetClient>(std::move(socket), net::Address{ip, port}, userinfo(), qport);
     lastMs_ = 0;
 }
@@ -319,10 +322,25 @@ void PlayViewer::runRemote(uint64_t nowMs, int32_t dt) {
     // when a game state comes, its snapshots for the client game, and the
     // player's commands back.
     client_->frame(nowMs);
+    // How long each step of joining took, for the console.
+    if (client_->state() != joinState_) {
+        joinState_ = client_->state();
+        static const char* const kSteps[] = {"", "disconnected", "", "asking for a challenge", "connecting",
+                                             "waiting for the level", "", "loading the level", "level loaded, joining the game"};
+        const auto st = size_t(joinState_);
+        char line[128];
+        std::snprintf(line, sizeof line, "%.2f s: %s\n", double(nowMs - joinStartMs_) / 1000,
+                      st < 9 ? kSteps[st] : "?");
+        addPrint(line, false);
+    }
     if (client_->state() == eliteforce::NetClient::State::Disconnected) {
-        const std::string why = client_->message().empty() ? "Disconnected" : client_->message();
+        // Back to the menus, which show why, as the original.
+        const std::string why = client_->message().empty() ? "Server disconnected" : client_->message();
         client_.reset();
         stop(why);
+        cvars_.create("com_errorMessage", "", 0);
+        cvars_.set("com_errorMessage", why);
+        ctx_.requestPage = "Menu";
         return;
     }
     if (client_->takeNewGamestate()) {
@@ -350,14 +368,16 @@ void PlayViewer::runRemote(uint64_t nowMs, int32_t dt) {
     cgame_->setServerCommands(client_->serverCommands());
     for (eliteforce::GameHost::Snapshot& snap : client_->takeSnapshots())
         cgame_->newSnapshot(std::move(snap));
-    if (!client_->hasSnapshot())
-        return;
-    clientTime_ = client_->serverTime();
+    // Commands go out as soon as the level is loaded, as the original's
+    // client sends them: the first puts the player in the game.
+    if (client_->hasSnapshot())
+        clientTime_ = client_->serverTime();
     if (dt > 0) {
         eliteforce::GameHost::UserCommand cmd = buildCommand();
-        cmd.serverTime = clientTime_;
+        cmd.serverTime = client_->hasSnapshot() ? clientTime_ : 0;
         client_->addCommand(cmd);
-        cgame_->addUserCommand(cmd);
+        if (client_->hasSnapshot())
+            cgame_->addUserCommand(cmd);
     }
 }
 

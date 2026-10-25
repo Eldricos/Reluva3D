@@ -457,6 +457,8 @@ private:
     std::unique_ptr<eliteforce::NetServer> server_; // others joining the level run here
     std::unique_ptr<eliteforce::NetClient> client_; // or: playing on another machine's server
     std::string serverAddress_;
+    uint64_t joinStartMs_ = 0;
+    eliteforce::NetClient::State joinState_ = eliteforce::NetClient::State::Disconnected;
     std::unique_ptr<eliteforce::CgameHost> cgame_;
     Surface overlay_;
     std::string error_, notice_;

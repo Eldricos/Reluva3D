@@ -153,6 +153,9 @@ public:
         // closed door), as the original's server works it out; the client
         // game hands it to the renderer.
         std::array<uint8_t, 32> areaMask{};
+        // 2: sent while the player is still loading the level (not
+        // active); 4: changes with each level; 1: delayed by the rate.
+        int32_t snapFlags = 0;
     };
     // Milliseconds a server frame: 20 a second, Quake III's default sv_fps.
     static constexpr int32_t kFrameMs = 50;
