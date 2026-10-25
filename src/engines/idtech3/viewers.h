@@ -428,6 +428,14 @@ private:
     std::unique_ptr<eliteforce::CgameHost> cgame_;
     Surface overlay_;
     std::string error_, notice_;
+    // The screenshot command waiting for its frame: whether to say so, and
+    // the file's name if given.
+    struct Screenshot {
+        bool wanted = false, silent = false;
+        std::string name;
+    };
+    Screenshot screenshot_;
+    void saveScreenshot();
     bool showInfo_ = true;
     uint64_t shownMs_ = 0, lastMs_ = 0;
     int32_t clientTime_ = 0; // the player's time in the level, ms

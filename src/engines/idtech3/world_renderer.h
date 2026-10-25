@@ -52,6 +52,8 @@ public:
     // original's dynamic lights: each pixel brightened in proportion to
     // its colour. After the opaque surfaces are drawn.
     void drawDynamicLights(const std::vector<gfx::DynamicLight>& lights) const;
+    // Every sort its shaders have (brush entities' included), in order.
+    const std::vector<float>& sorts() const { return sorts_; }
     // Where a view is and which areas closed doors hide (refdef_t's area
     // mask: a bit set for each hidden one): from then on the draws are of
     // only the level's surfaces that can be seen from there, as the
@@ -118,6 +120,7 @@ private:
     std::vector<gfx::TextureId> lightmaps_;
     std::vector<Fog> fogs_;
     std::vector<Batch> batches_; // in drawing order
+    std::vector<float> sorts_;   // its batches' and sprites' sorts, in order
     // Each opaque surface's triangles (in the index buffer) and bounds,
     // for dynamic lights.
     struct LitSurface {

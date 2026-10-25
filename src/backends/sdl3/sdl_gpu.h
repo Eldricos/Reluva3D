@@ -57,8 +57,17 @@ public:
         eye_ = eye;
     }
     void endFrame(const Surface* overlay) override;
+    void captureNextFrame() override { captureWanted_ = true; }
+    bool takeCapture(std::vector<uint8_t>& rgba) override {
+        if (capture_.empty())
+            return false;
+        rgba.swap(capture_);
+        capture_.clear();
+        return true;
+    }
 
 private:
+    void capture(SDL_GPUTexture* frame);
     struct Texture {
         SDL_GPUTexture* texture = nullptr;
         int sampler = 0; // index into samplers_
@@ -96,6 +105,8 @@ private:
     SDL_GPUTexture* gammaFrame_ = nullptr;
     SDL_Texture* gammaView_ = nullptr;
     gfx::TextureId frameTexture_ = 0;
+    bool captureWanted_ = false;
+    std::vector<uint8_t> capture_; // the frame kept by captureNextFrame()
     gfx::MeshId screenQuad_ = 0;
     SDL_GPUShader* vertexShader_ = nullptr;
     SDL_GPUShader* fragmentShader_ = nullptr;

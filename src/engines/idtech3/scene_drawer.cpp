@@ -172,39 +172,67 @@ void SceneDrawer::drawView(const eliteforce::Scene& scene, const eliteforce::Vie
 }
 
 void SceneDrawer::drawLayers(float time, WorldRenderer* world, bool throughPortal) {
-    // The level's solid surfaces and models, then its translucent ones and
-    // the models' translucent parts, then effects. Through a mirror or
-    // portal, the player's own body (third person) is seen and their
-    // weapon (first person) isn't, as the original draws them.
+    // The level's solid surfaces and models, with the dynamic lights over
+    // them, and the effects that sort with them (marks); then everything
+    // else as the original sorts it: by the shaders' sorts, whether the
+    // level's, the models' or the effects', so glass, beams and sprites
+    // overlap in the same order as there. Through a mirror or portal, the
+    // player's own body (third person) is seen and their weapon (first
+    // person) isn't, as the original draws them.
     constexpr float kLastOpaque = 5;
     auto shown = [&](const Placed& p) { return throughPortal ? !p.firstPerson : !p.thirdPerson; };
+    for (Effect& fx : effects_) {
+        fx.material = material(effectMaterials_, fx.shader, Lighting::Effect);
+        if (fx.material >= 0 && shaders_.get(fx.material).skip)
+            fx.material = -1;
+        fx.sort = fx.material >= 0 ? shaders_.get(fx.material).sort : 0;
+    }
+    auto drawModels = [&](float sortMin, float sortMax) {
+        for (const Placed& p : placed_) {
+            if (!shown(p))
+                continue;
+            r_.setDepthRange(p.depthHack && !throughPortal ? refent::kDepthHackRange : 1);
+            models_.draw(p.model, p.frame, p.transform, p.light, time - p.shaderTime, p.skin, sortMin, sortMax,
+                         p.shader, &p.color, p.oldFrame, p.backLerp);
+        }
+        r_.setDepthRange(1);
+    };
     if (world) {
         world->drawSurfaces(time, 0, kLastOpaque, true);
         for (const auto& [model, transform] : brushes_)
             world->drawModel(model, transform, time, 0, kLastOpaque);
         world->drawDynamicLights(lights_);
     }
-    for (const Placed& p : placed_) {
-        if (!shown(p))
+    drawModels(0, kLastOpaque);
+    drawEffects(time, 0, kLastOpaque);
+
+    // The translucent sorts this view has.
+    std::vector<float> sorts;
+    if (world)
+        sorts = world->sorts();
+    for (const Placed& p : placed_)
+        if (shown(p))
+            models_.addSorts(p.model, p.skin, p.shader, sorts);
+    for (const Effect& fx : effects_)
+        if (fx.material >= 0)
+            sorts.push_back(fx.sort);
+    std::sort(sorts.begin(), sorts.end());
+    sorts.erase(std::unique(sorts.begin(), sorts.end()), sorts.end());
+    for (float sort : sorts) {
+        if (sort <= kLastOpaque)
             continue;
-        r_.setDepthRange(p.depthHack && !throughPortal ? refent::kDepthHackRange : 1);
-        models_.draw(p.model, p.frame, p.transform, p.light, time - p.shaderTime, p.skin, 0, kLastOpaque, p.shader,
-                     &p.color, p.oldFrame, p.backLerp);
+        if (world) {
+            world->drawSurfaces(time, sort, sort, true);
+            for (const auto& [model, transform] : brushes_)
+                world->drawModel(model, transform, time, sort, sort);
+        }
+        drawModels(sort, sort);
+        drawEffects(time, sort, sort);
     }
-    r_.setDepthRange(1);
-    if (world) {
-        world->drawSurfaces(time, kLastOpaque + 0.5f, 1e9f, true);
-        for (const auto& [model, transform] : brushes_)
-            world->drawModel(model, transform, time, kLastOpaque + 0.5f);
+    if (effectMesh_) {
+        r_.destroyMesh(effectMesh_);
+        effectMesh_ = 0;
     }
-    for (const Placed& p : placed_) {
-        if (!shown(p))
-            continue;
-        r_.setDepthRange(p.depthHack && !throughPortal ? refent::kDepthHackRange : 1);
-        models_.draw(p.model, p.frame, p.transform, p.light, time - p.shaderTime, p.skin, kLastOpaque + 0.5f, 1e9f,
-                     p.shader, &p.color, p.oldFrame, p.backLerp);
-    }
-    drawEffects(time);
     r_.setDepthRange(1);
 }
 
@@ -559,26 +587,24 @@ void SceneDrawer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left
                         (readInt(e, refent::Flags) & refent::DepthHack) != 0});
 }
 
-void SceneDrawer::drawEffects(float time) {
-    // This view's effects, in the order the program added them, over
-    // everything else (they blend, as their shaders say).
+void SceneDrawer::drawEffects(float time, float sortMin, float sortMax) {
+    // This view's effects whose shaders sort in sortMin..sortMax, in the
+    // order the program added them.
     if (effects_.empty())
         return;
-    gfx::MeshId mesh = 0;
-    if (r_.createMesh(effectVertices_, effectIndices_, mesh) || !mesh)
+    if (!effectMesh_ && (r_.createMesh(effectVertices_, effectIndices_, effectMesh_) || !effectMesh_))
         return;
     for (const Effect& fx : effects_) {
-        const int m = material(effectMaterials_, fx.shader, Lighting::Effect);
-        if (m < 0 || shaders_.get(m).skip)
+        if (fx.material < 0 || fx.sort < sortMin || fx.sort > sortMax)
             continue;
         gfx::DrawCall call;
-        call.mesh = mesh;
+        call.mesh = effectMesh_;
         call.firstIndex = fx.firstIndex;
         call.indexCount = fx.indexCount;
         r_.setDepthRange(fx.depthHack ? refent::kDepthHackRange : 1);
-        shaders_.draw(m, call, 0, time - fx.shaderTime, false, &fx.color);
+        shaders_.draw(fx.material, call, 0, time - fx.shaderTime, false, &fx.color);
     }
-    r_.destroyMesh(mesh);
+    r_.setDepthRange(1);
 }
 
 void SceneDrawer::placeEntities(const eliteforce::Scene& scene, const eliteforce::View& view, const LightGrid& grid,

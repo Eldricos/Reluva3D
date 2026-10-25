@@ -220,6 +220,12 @@ public:
     // Presents the frame, with `overlay` (RGBA32, the frame's size, blended
     // by its alpha) on top if given.
     virtual void endFrame(const Surface* overlay) = 0;
+    // Keeps a copy of the next finished frame (as shown, brightness
+    // included, without the overlay) for takeCapture().
+    virtual void captureNextFrame() = 0;
+    // The kept frame: width() x height(), RGBA, rows top to bottom; false
+    // if none was kept since the last call (or it couldn't be read back).
+    virtual bool takeCapture(std::vector<uint8_t>& rgba) = 0;
 };
 
 } // namespace reluva::gfx

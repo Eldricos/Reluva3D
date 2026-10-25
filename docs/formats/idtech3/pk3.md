@@ -1,7 +1,8 @@
 # id Tech 3: `.pk3` archives and the search path
 
 Status: **implemented**; checked on archives built by Python's `zipfile`
-and by the tests. Not yet checked against the retail Elite Force paks.
+and by the tests, and on the retail Elite Force paks, from which the
+levels, models, sounds and game code all load.
 Readers: `src/common/zip.cpp` (the archive), `src/engines/idtech3/filesystem.cpp`
 (the search order).
 

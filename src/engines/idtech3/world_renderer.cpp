@@ -69,6 +69,7 @@ void WorldRenderer::clear() {
     lightmaps_.clear();
     fogs_.clear();
     batches_.clear();
+    sorts_.clear();
     litSurfaces_.clear();
     skySides_ = {};
     skyMaterial_ = -1;
@@ -333,6 +334,12 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
 
     if (indices.empty())
         return Error::fail("The map has nothing to draw");
+    for (const Batch& b : batches_)
+        sorts_.push_back(b.sort);
+    for (const Sprite& sp : sprites_)
+        sorts_.push_back(sp.sort);
+    std::sort(sorts_.begin(), sorts_.end());
+    sorts_.erase(std::unique(sorts_.begin(), sorts_.end()), sorts_.end());
     return r_.createMesh(vertices, indices, mesh_);
 }
 
@@ -419,7 +426,8 @@ void WorldRenderer::drawSurfaces(float time, float sortMin, float sortMax, bool 
         shaders_.draw(b.material, base, b.lightmap >= 0 ? lightmaps_[size_t(b.lightmap)] : 0, time);
         if (b.fog >= 0)
             shaders_.drawFog(b.material, base, fogs_[size_t(b.fog)].color, fogs_[size_t(b.fog)].distance, time);
-    }    drawSprites(time, sortMin, sortMax);
+    }
+    drawSprites(time, sortMin, sortMax);
 }
 
 int WorldRenderer::leafAt(const std::array<float, 3>& p) const {

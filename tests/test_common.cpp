@@ -309,6 +309,16 @@ static void testImage() {
     CHECK(img.w == 3 && img.h == 1 && is(0, 0, 30, 20, 10, 128) && is(2, 0, 30, 20, 10, 128));
     CHECK(image::decode({1, 2, 3}, img));
 
+    // Encoding a TGA and reading it back (alpha dropped).
+    image::Image two;
+    two.w = 2;
+    two.h = 2;
+    two.rgba = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    image::Image back;
+    CHECK(!image::decode(image::encodeTga(two), back));
+    CHECK(back.w == 2 && back.h == 2 && back.rgba == std::vector<uint8_t>({1, 2, 3, 255, 5, 6, 7, 255, 9, 10, 11,
+                                                                           255, 13, 14, 15, 255}));
+
     // Blending half-transparent red over black.
     Surface s;
     s.create(2, 1, PixelFormat::RGBA32);

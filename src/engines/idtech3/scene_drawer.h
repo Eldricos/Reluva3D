@@ -114,7 +114,7 @@ private:
     void placeEntities(const eliteforce::Scene& scene, const eliteforce::View& view, const LightGrid& grid,
                        float time);
     void addEffect(const std::vector<uint8_t>& entity, const gfx::Vec3& left, const gfx::Vec3& up, float time);
-    void drawEffects(float time);
+    void drawEffects(float time, float sortMin, float sortMax);
     static std::array<float, 4> entityColor(const std::vector<uint8_t>& entity);
     static float shaderTime(const std::vector<uint8_t>& entity, float time);
     int modelId(int32_t handle);
@@ -166,8 +166,11 @@ private:
         std::array<float, 4> color{1, 1, 1, 1};
         float shaderTime = 0;
         bool depthHack = false;
+        int material = -1; // set when drawn (-1: not drawn)
+        float sort = 0;    // its material's
     };
     std::vector<Effect> effects_;
+    gfx::MeshId effectMesh_ = 0; // effects_' vertices, while a view is drawn
     std::vector<gfx::Vertex> effectVertices_;
     std::vector<uint32_t> effectIndices_;
     std::minstd_rand effectRandom_;         // electricity's jitter

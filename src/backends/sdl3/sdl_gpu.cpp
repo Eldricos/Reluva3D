@@ -699,6 +699,40 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     SDL_DrawGPUIndexedPrimitives(pass_, call.indexCount, 1, call.firstIndex, 0, 0);
 }
 
+// Submits the frame's commands with a copy of `frame` into memory, waits
+// for them and keeps it.
+void SdlGpuRenderer::capture(SDL_GPUTexture* frame) {
+    const uint32_t size = uint32_t(width_) * uint32_t(height_) * 4;
+    SDL_GPUTransferBufferCreateInfo ti{};
+    ti.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
+    ti.size = size;
+    SDL_GPUTransferBuffer* buffer = SDL_CreateGPUTransferBuffer(device_, &ti);
+    if (!buffer) {
+        SDL_SubmitGPUCommandBuffer(cmd_);
+        return;
+    }
+    SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd_);
+    SDL_GPUTextureRegion from{};
+    from.texture = frame;
+    from.w = uint32_t(width_);
+    from.h = uint32_t(height_);
+    from.d = 1;
+    SDL_GPUTextureTransferInfo to{};
+    to.transfer_buffer = buffer;
+    SDL_DownloadFromGPUTexture(copy, &from, &to);
+    SDL_EndGPUCopyPass(copy);
+    SDL_GPUFence* fence = SDL_SubmitGPUCommandBufferAndAcquireFence(cmd_);
+    if (fence) {
+        SDL_WaitForGPUFences(device_, true, &fence, 1);
+        SDL_ReleaseGPUFence(device_, fence);
+        if (const auto* pixels = static_cast<const uint8_t*>(SDL_MapGPUTransferBuffer(device_, buffer, false))) {
+            capture_.assign(pixels, pixels + size);
+            SDL_UnmapGPUTransferBuffer(device_, buffer);
+        }
+    }
+    SDL_ReleaseGPUTransferBuffer(device_, buffer);
+}
+
 void SdlGpuRenderer::endFrame(const Surface* overlay) {
     stencilMode_ = StencilMode::None; // the brightness pass draws everything
     mirrored_ = false;
@@ -734,10 +768,12 @@ void SdlGpuRenderer::endFrame(const Surface* overlay) {
         pass_ = nullptr;
     }
     // Submitted before the renderer's own commands, which then sample it.
-    if (cmd_) {
+    if (cmd_ && captureWanted_)
+        capture(brighten ? gammaFrame_ : color_);
+    else if (cmd_)
         SDL_SubmitGPUCommandBuffer(cmd_);
-        cmd_ = nullptr;
-    }
+    cmd_ = nullptr;
+    captureWanted_ = false;
     SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
     SDL_RenderClear(renderer_);
     SDL_RenderTexture(renderer_, brighten ? gammaView_ : colorView_, nullptr, nullptr);

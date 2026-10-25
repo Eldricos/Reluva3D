@@ -162,6 +162,29 @@ int ModelCache::add(const std::string& path, const std::vector<uint8_t>& data, i
     return static_cast<int>(models_.size()) - 1;
 }
 
+int ModelCache::surfaceMaterial(int id, size_t i, const Skin* skin, const std::string& shader) {
+    Loaded& m = models_[size_t(id)];
+    int material = shader.empty() ? -1 : shaders_.material(shader, Lighting::Diffuse);
+    if (material < 0 && skin)
+        if (auto it = skin->find(fs::toLower(m.md3.surfaces[i].name)); it != skin->end())
+            material = shaders_.material(it->second, Lighting::Diffuse);
+    if (material >= 0)
+        return material;
+    Surface& s = m.surfaces[i];
+    if (s.material < 0) {
+        const auto& names = m.md3.surfaces[i].shaders;
+        s.material = shaders_.material(names.empty() ? std::string() : names.front(), Lighting::Diffuse);
+    }
+    return s.material;
+}
+
+void ModelCache::addSorts(int id, const Skin* skin, const std::string& shader, std::vector<float>& out) {
+    if (id < 0)
+        return;
+    for (size_t i = 0; i < models_[size_t(id)].surfaces.size(); ++i)
+        out.push_back(shaders_.get(surfaceMaterial(id, i, skin, shader)).sort);
+}
+
 void ModelCache::draw(int id, int frame, const gfx::Mat4& transform, const PointLight& light, float time,
                       const Skin* skin, float sortMin, float sortMax, const std::string& shader,
                       const std::array<float, 4>* entity, int oldFrame, float backLerp) {
@@ -174,18 +197,8 @@ void ModelCache::draw(int id, int frame, const gfx::Mat4& transform, const Point
     if (oldFrame == frame)
         backLerp = 0;
     for (size_t i = 0; i < m.surfaces.size(); ++i) {
-        Surface& s = models_[size_t(id)].surfaces[i];
-        int material = shader.empty() ? -1 : shaders_.material(shader, Lighting::Diffuse);
-        if (material < 0 && skin)
-            if (auto it = skin->find(fs::toLower(m.md3.surfaces[i].name)); it != skin->end())
-                material = shaders_.material(it->second, Lighting::Diffuse);
-        if (material < 0) {
-            if (s.material < 0) {
-                const auto& names = m.md3.surfaces[i].shaders;
-                s.material = shaders_.material(names.empty() ? std::string() : names.front(), Lighting::Diffuse);
-            }
-            material = s.material;
-        }
+        const Surface& s = m.surfaces[i];
+        const int material = surfaceMaterial(id, i, skin, shader);
         const ShaderCache::Material& mat = shaders_.get(material);
         if (mat.skip || mat.sort < sortMin || mat.sort > sortMax)
             continue;

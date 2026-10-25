@@ -17,6 +17,7 @@
 #include "engines/idtech3/viewers.h"
 
 #include "common/font.h"
+#include "common/image.h"
 #include "common/fs.h"
 
 #include <algorithm>
@@ -26,6 +27,8 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 
 namespace reluva::idtech3 {
 
@@ -315,7 +318,12 @@ void PlayViewer::consoleCommand(const std::string& text) {
         return;
     }
     if (verb == "screenshot" || verb == "screenshotjpeg") {
-        notice_ = "\"" + text + "\" isn't done yet";
+        // The next frame, kept when it's drawn (saveScreenshot()). As the
+        // original: "silent" says nothing; another word names the file.
+        // Both are written as TGA files.
+        screenshot_ = Screenshot{true, w.size() >= 2 && w[1] == "silent",
+                                 w.size() >= 2 && w[1] != "silent" ? w[1] : std::string()};
+        renderer_->captureNextFrame();
         return;
     }
     bool handled = false;
@@ -764,6 +772,51 @@ void PlayViewer::update(uint64_t nowMs) {
 
     drawOverlay(nowMs, haveView);
     renderer_->endFrame(&overlay_);
+    if (screenshot_.wanted)
+        saveScreenshot();
+}
+
+// The frame kept for the screenshot command, as the original's: in
+// screenshots/ in the save folder, as the name given or the first of
+// shot0000.tga to shot9999.tga not taken.
+void PlayViewer::saveScreenshot() {
+    const Screenshot shot = screenshot_;
+    screenshot_ = {};
+    std::vector<uint8_t> rgba;
+    if (ctx_.savePath.empty() || !renderer_->takeCapture(rgba)) {
+        addPrint("Couldn't take the screenshot\n", true);
+        return;
+    }
+    const std::filesystem::path folder = ctx_.savePath / "screenshots";
+    std::error_code ec;
+    std::filesystem::create_directories(folder, ec);
+    std::string name = shot.name;
+    if (name.empty())
+        for (int i = 0; i <= 9999; ++i) {
+            char buf[16];
+            std::snprintf(buf, sizeof buf, "shot%04d.tga", i);
+            if (!std::filesystem::exists(folder / buf, ec)) {
+                name = buf;
+                break;
+            }
+        }
+    else if (std::filesystem::path(name).extension() != ".tga")
+        name += ".tga";
+    if (name.empty() || std::filesystem::path(name).filename().string() != name) {
+        addPrint("Couldn't take the screenshot: no name free\n", true);
+        return;
+    }
+    image::Image img;
+    img.w = renderer_->width();
+    img.h = renderer_->height();
+    img.rgba = std::move(rgba);
+    const std::vector<uint8_t> tga = image::encodeTga(img);
+    std::ofstream out(folder / name, std::ios::binary);
+    out.write(reinterpret_cast<const char*>(tga.data()), std::streamsize(tga.size()));
+    if (!out)
+        addPrint("Couldn't write screenshots/" + name + "\n", true);
+    else if (!shot.silent)
+        addPrint("Wrote screenshots/" + name + "\n", true);
 }
 
 void PlayViewer::addPrint(const std::string& text, bool notify) {

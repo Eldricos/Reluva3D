@@ -73,6 +73,9 @@ public:
     void draw(int id, int frame, const gfx::Mat4& transform, const PointLight& light, float time,
               const Skin* skin = nullptr, float sortMin = 0, float sortMax = 1e9f, const std::string& shader = {},
               const std::array<float, 4>* entity = nullptr, int oldFrame = 0, float backLerp = 0);
+    // Adds to `out` the sorts of the shaders draw() would draw model `id`
+    // with (the same `skin` and `shader`).
+    void addSorts(int id, const Skin* skin, const std::string& shader, std::vector<float>& out);
 
 private:
     int lodBias_ = 0;
@@ -87,6 +90,8 @@ private:
         std::vector<Surface> surfaces;
         std::vector<int> lods; // the lower levels' ids, from level 1
     };
+    // The material surface `i` of model `id` is drawn with.
+    int surfaceMaterial(int id, size_t i, const Skin* skin, const std::string& shader);
     // One level of a model, from `data`; -1 with the reason in `error`.
     int add(const std::string& path, const std::vector<uint8_t>& data, int level, std::string* error);
 

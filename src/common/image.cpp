@@ -37,6 +37,25 @@ Error decode(const std::vector<uint8_t>& data, Image& out) {
     return Error::success();
 }
 
+std::vector<uint8_t> encodeTga(const Image& img) {
+    std::vector<uint8_t> out(18, 0);
+    out[2] = 2; // uncompressed true-colour
+    out[12] = uint8_t(img.w & 0xff);
+    out[13] = uint8_t(img.w >> 8);
+    out[14] = uint8_t(img.h & 0xff);
+    out[15] = uint8_t(img.h >> 8);
+    out[16] = 24; // bits per pixel; descriptor 0: rows from the bottom
+    out.reserve(out.size() + static_cast<size_t>(img.w) * img.h * 3);
+    for (int y = img.h - 1; y >= 0; --y)
+        for (int x = 0; x < img.w; ++x) {
+            const uint8_t* p = img.pixel(x, y);
+            out.push_back(p[2]);
+            out.push_back(p[1]);
+            out.push_back(p[0]);
+        }
+    return out;
+}
+
 void blit(Surface& dst, const Image& img, int x, int y) {
     if (dst.format != PixelFormat::RGBA32)
         return;

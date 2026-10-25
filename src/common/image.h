@@ -25,6 +25,10 @@ struct Image {
 // apart by their contents. Uses stb_image (third_party/stb).
 Error decode(const std::vector<uint8_t>& data, Image& out);
 
+// Encode the image as an uncompressed 24-bit TGA (bottom row first, as
+// most programs write them); alpha is dropped.
+std::vector<uint8_t> encodeTga(const Image& img);
+
 // Copy the image into an RGBA32 surface with its top-left corner at (x, y),
 // clipped to it, blending by alpha over what's there.
 void blit(Surface& dst, const Image& img, int x, int y);

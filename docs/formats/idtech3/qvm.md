@@ -3,8 +3,10 @@
 Status: **interpreter implemented** (`src/engines/idtech3/qvm.cpp`), tested
 on hand-built programs and on a C program compiled by the Quake III compiler
 (`tests/data/qvm/`), whose every result matches the same program compiled
-natively. Elite Force's own QVMs not yet surveyed: `reluva-tool qvm-info`
-and `qvm-run` are for that.
+natively, and running Elite Force's own three QVMs (the menus, the client
+game and the server game, Holomatch played with them); their system calls
+are in [eliteforce-syscalls.md](eliteforce-syscalls.md). `reluva-tool
+qvm-info` and `qvm-run` look inside them.
 
 Sources: the GPL Quake III Arena source (`qcommon/qfiles.h`, `vm.c`,
 `vm_interpreted.c`, `vm_local.h`), read for the format and behaviour, not
