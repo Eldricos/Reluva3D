@@ -5,8 +5,9 @@ page is a specification for a server and a client that talk to the
 retail Elite Force Holomatch (patch 1.2) over the network. Reluva's
 (`src/engines/idtech3/wire/`, `eliteforce/net_fields.cpp`,
 `net_server.cpp`, `net_client.cpp`) is tested with Reluva at both ends,
-in memory with datagrams lost and over the system's sockets; not yet
-against the retail executable. Not done: the pure check (`cp`: Reluva's
+in memory with datagrams lost and over the system's sockets, and was
+played Reluva to Reluva on the retail data patched to 1.2 (October
+2026); not yet against the retail executable. Not done: the pure check (`cp`: Reluva's
 server is never pure and its client doesn't send one), downloads, rate
 limits, the master servers, and leaving out of snapshots what a player
 can't see. Where the sources disagree with what Reluva has measured in

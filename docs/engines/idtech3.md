@@ -82,7 +82,8 @@ every engine.
    list, whose local search and pings work) joins another's server;
    `reconnect` and `disconnect` as the original. `reluva-tool net-run`
    hosts a level with no player of its own, or joins one and reports
-   what it's sent. Still to do: trying it against the retail game; the
+   what it's sent. Played Reluva to Reluva, and solo, on the retail data
+   patched to 1.2 (which also confirms 1.2's layouts). Still to do: trying it against the retail game; the
    pure check, downloads, master servers, and snapshot culling.
 7. **Sound**: done in the Play page: sounds placed in the world, looping
    sounds and music, as the client game asks.
