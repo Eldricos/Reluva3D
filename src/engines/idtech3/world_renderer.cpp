@@ -55,6 +55,7 @@ void WorldRenderer::clear() {
     mesh_ = skyMesh_ = 0;
     culling_ = false;
     viewCluster_ = -2;
+    pvsSurfaces_.clear();
     viewMask_ = {};
     surfaceRanges_.clear();
     allIndices_.clear();
@@ -179,6 +180,7 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
     struct Placed {
         GroupKey group;
         uint32_t offset = 0, count = 0;
+        std::array<float, 3> mins{}, maxs{};
     };
     std::vector<std::optional<Placed>> placed(bsp.surfaces.size());
     std::vector<BspVertex> patchVerts;
@@ -223,8 +225,15 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
             // Solid, unmoving surfaces take dynamic lights (the world's:
             // brush entities move).
             const bool deformed = mat.deforms[0].type != gfx::Deform::Type::None;
-            if (mi == 0 && out.size() > offset)
-                placed[size_t(si)] = Placed{key, offset, uint32_t(out.size()) - offset};
+            if (mi == 0 && out.size() > offset) {
+                Placed p{key, offset, uint32_t(out.size()) - offset, {1e9f, 1e9f, 1e9f}, {-1e9f, -1e9f, -1e9f}};
+                for (size_t vi = base; vi < vertices.size(); ++vi)
+                    for (size_t k = 0; k < 3; ++k) {
+                        p.mins[k] = std::min(p.mins[k], vertices[vi].pos[k]);
+                        p.maxs[k] = std::max(p.maxs[k], vertices[vi].pos[k]);
+                    }
+                placed[size_t(si)] = p;
+            }
             if (mi == 0 && mat.sort <= kLastOpaqueSort && !deformed && out.size() > offset) {
                 Pending p{key, offset, uint32_t(out.size()) - offset, {1e9f, 1e9f, 1e9f}, {-1e9f, -1e9f, -1e9f}, si};
                 for (size_t vi = base; vi < vertices.size(); ++vi)
@@ -256,7 +265,7 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
     for (size_t s = 0; s < placed.size(); ++s)
         if (placed[s])
             surfaceRanges_[s] = {groupBatch[placed[s]->group], groupStart[placed[s]->group] + placed[s]->offset,
-                                 placed[s]->count};
+                                 placed[s]->count, placed[s]->mins, placed[s]->maxs};
     // What visibility needs of the map, kept.
     visPlanes_ = bsp.planes;
     visNodes_ = bsp.nodes;
@@ -320,8 +329,13 @@ void WorldRenderer::drawDynamicLights(const std::vector<gfx::DynamicLight>& ligh
     call.state.depthWrite = false;
     call.state.cull = gfx::Cull::None;
     for (const LitSurface& s : litSurfaces_) {
-        if (culling_ && (s.surface < 0 || visibleMark_[size_t(s.surface)] != visibleStamp_))
-            continue;
+        // Only those drawn this frame, from where they are in its list.
+        uint32_t first = s.firstIndex;
+        if (culling_) {
+            if (s.surface < 0 || frameMark_[size_t(s.surface)] != frameStamp_)
+                continue;
+            first = frameFirst_[size_t(s.surface)];
+        }
         bool reached = false;
         for (size_t i = 0; i < n && !reached; ++i) {
             const gfx::DynamicLight& l = lights[i];
@@ -331,7 +345,7 @@ void WorldRenderer::drawDynamicLights(const std::vector<gfx::DynamicLight>& ligh
         }
         if (!reached)
             continue;
-        call.firstIndex = s.firstIndex;
+        call.firstIndex = first;
         call.indexCount = s.indexCount;
         r_.draw(call);
     }
@@ -370,67 +384,118 @@ int WorldRenderer::leafAt(const std::array<float, 3>& p) const {
     return -1 - node;
 }
 
-void WorldRenderer::setView(const std::array<float, 3>& eye, const std::array<uint8_t, 32>& areaMask) {
+void WorldRenderer::setView(const std::array<float, 3>& eye, const std::array<uint8_t, 32>& areaMask,
+                            const gfx::Mat4& viewProj) {
     // As the original's renderer: the leaves whose cluster the eye's can
     // see (the map's vis data) and whose area a closed door doesn't hide
-    // (the area mask, a bit set for each hidden one), and their surfaces.
-    // Worked out again only when the cluster or the mask changes; outside
-    // the map (no cluster), everything.
+    // (the area mask, a bit set for each hidden one), and their surfaces,
+    // worked out again when the cluster or the mask changes; then, each
+    // frame the view moves, those of them inside the view. Outside the map
+    // (no cluster), everything.
     if (!mesh_)
         return;
     const int leaf = leafAt(eye);
     const int cluster = leaf >= 0 && size_t(leaf) < visLeafs_.size() ? visLeafs_[size_t(leaf)].cluster : -1;
-    if (cluster == viewCluster_ && areaMask == viewMask_)
-        return;
-    viewCluster_ = cluster;
-    viewMask_ = areaMask;
-    if (cluster < 0 || visData_.empty()) {
-        culling_ = false;
-        return;
-    }
-    if (visibleMark_.size() != surfaceRanges_.size())
-        visibleMark_.assign(surfaceRanges_.size(), 0);
-    ++visibleStamp_;
-    const uint8_t* pvs = &visData_[size_t(cluster) * size_t(visClusterBytes_)];
-    for (const BspLeaf& l : visLeafs_) {
-        if (l.cluster < 0 || l.cluster >= visClusters_ || !(pvs[l.cluster >> 3] & (1 << (l.cluster & 7))))
-            continue;
-        if (l.area >= 0 && l.area < 256 && (areaMask[size_t(l.area >> 3)] & (1 << (l.area & 7))))
-            continue; // behind a closed door
-        for (int i = 0; i < l.numLeafSurfaces; ++i) {
-            const int32_t s = visLeafSurfaces_[size_t(l.firstLeafSurface + i)];
-            if (s >= 0 && size_t(s) < visibleMark_.size())
-                visibleMark_[size_t(s)] = visibleStamp_;
+    bool changed = false;
+    if (cluster != viewCluster_ || areaMask != viewMask_) {
+        changed = true;
+        viewCluster_ = cluster;
+        viewMask_ = areaMask;
+        pvsSurfaces_.clear();
+        if (cluster >= 0 && !visData_.empty()) {
+            if (visibleMark_.size() != surfaceRanges_.size())
+                visibleMark_.assign(surfaceRanges_.size(), 0);
+            ++visibleStamp_;
+            const uint8_t* pvs = &visData_[size_t(cluster) * size_t(visClusterBytes_)];
+            for (const BspLeaf& l : visLeafs_) {
+                if (l.cluster < 0 || l.cluster >= visClusters_ || !(pvs[l.cluster >> 3] & (1 << (l.cluster & 7))))
+                    continue;
+                if (l.area >= 0 && l.area < 256 && (areaMask[size_t(l.area >> 3)] & (1 << (l.area & 7))))
+                    continue; // behind a closed door
+                for (int i = 0; i < l.numLeafSurfaces; ++i) {
+                    const int32_t sf = visLeafSurfaces_[size_t(l.firstLeafSurface + i)];
+                    if (sf >= 0 && size_t(sf) < visibleMark_.size() && visibleMark_[size_t(sf)] != visibleStamp_ &&
+                        surfaceRanges_[size_t(sf)].batch >= 0) {
+                        visibleMark_[size_t(sf)] = visibleStamp_;
+                        pvsSurfaces_.push_back(sf);
+                    }
+                }
+            }
         }
     }
-    // Each batch's visible triangles, after all of them in the index list
-    // (dynamic lights draw from those, by surface).
-    std::vector<std::vector<uint32_t>> perBatch(batches_.size());
-    for (size_t s = 0; s < surfaceRanges_.size(); ++s) {
-        const SurfaceRange& r = surfaceRanges_[s];
-        if (r.batch < 0 || visibleMark_[s] != visibleStamp_)
-            continue;
-        auto& out = perBatch[size_t(r.batch)];
-        out.insert(out.end(), allIndices_.begin() + r.firstIndex, allIndices_.begin() + r.firstIndex + r.count);
+    if (cluster < 0 || visData_.empty()) {
+        // Everything, from the list as loaded.
+        if (culling_) {
+            r_.setMeshIndices(mesh_, allIndices_);
+            culling_ = false;
+        }
+        return;
     }
-    std::vector<uint32_t> indices = allIndices_;
+    if (!changed && culling_ && viewProj == viewProj_)
+        return;
+    viewProj_ = viewProj;
+    // The view's four sides (left, right, bottom, top) from its matrix's
+    // rows: a point is inside where each plane's a x + b y + c z + d >= 0.
+    // A box is out when its corner furthest along a plane's normal is.
+    auto row = [&](int r) {
+        return std::array<float, 4>{viewProj[size_t(r)], viewProj[size_t(4 + r)], viewProj[size_t(8 + r)],
+                                    viewProj[size_t(12 + r)]};
+    };
+    const auto r0 = row(0), r1 = row(1), r3 = row(3);
+    std::array<std::array<float, 4>, 4> planes{};
+    for (size_t k = 0; k < 4; ++k) {
+        planes[0][k] = r3[k] + r0[k];
+        planes[1][k] = r3[k] - r0[k];
+        planes[2][k] = r3[k] + r1[k];
+        planes[3][k] = r3[k] - r1[k];
+    }
+    auto inside = [&](const SurfaceRange& r) {
+        for (const auto& p : planes) {
+            float d = p[3];
+            for (size_t k = 0; k < 3; ++k)
+                d += p[k] * (p[k] >= 0 ? r.maxs[k] : r.mins[k]);
+            if (d < 0)
+                return false;
+        }
+        return true;
+    };
+    if (frameMark_.size() != surfaceRanges_.size()) {
+        frameMark_.assign(surfaceRanges_.size(), 0);
+        frameFirst_.assign(surfaceRanges_.size(), 0);
+    }
+    ++frameStamp_;
+    std::vector<std::vector<int32_t>> perBatch(batches_.size());
+    for (int32_t sf : pvsSurfaces_)
+        if (inside(surfaceRanges_[size_t(sf)]))
+            perBatch[size_t(surfaceRanges_[size_t(sf)].batch)].push_back(sf);
+    // Each batch's surfaces one after another: the frame's whole list.
+    frameIndices_.clear();
+    frameSurfaces_ = 0;
     for (size_t b = 0; b < batches_.size(); ++b) {
-        batches_[b].visibleFirst = uint32_t(indices.size());
-        batches_[b].visibleCount = uint32_t(perBatch[b].size());
-        indices.insert(indices.end(), perBatch[b].begin(), perBatch[b].end());
+        batches_[b].visibleFirst = uint32_t(frameIndices_.size());
+        for (int32_t sf : perBatch[b]) {
+            const SurfaceRange& r = surfaceRanges_[size_t(sf)];
+            frameMark_[size_t(sf)] = frameStamp_;
+            frameFirst_[size_t(sf)] = uint32_t(frameIndices_.size());
+            frameIndices_.insert(frameIndices_.end(), allIndices_.begin() + r.firstIndex,
+                                 allIndices_.begin() + r.firstIndex + r.count);
+            ++frameSurfaces_;
+        }
+        batches_[b].visibleCount = uint32_t(frameIndices_.size()) - batches_[b].visibleFirst;
     }
-    culling_ = !r_.setMeshIndices(mesh_, indices);
+    if (frameIndices_.empty())
+        frameIndices_.push_back(0); // a buffer can't be empty; nothing draws from it
+    culling_ = !r_.setMeshIndices(mesh_, frameIndices_);
 }
 
 WorldRenderer::Visibility WorldRenderer::visibility() const {
     Visibility v;
     v.cluster = viewCluster_ < -1 ? -1 : viewCluster_;
     v.culling = culling_;
-    for (size_t s = 0; s < surfaceRanges_.size(); ++s)
-        if (surfaceRanges_[s].batch >= 0) {
-            ++v.total;
-            v.visible += !culling_ || (s < visibleMark_.size() && visibleMark_[s] == visibleStamp_);
-        }
+    for (const SurfaceRange& r : surfaceRanges_)
+        v.total += r.batch >= 0;
+    v.potentiallyVisible = culling_ ? pvsSurfaces_.size() : v.total;
+    v.visible = culling_ ? frameSurfaces_ : v.total;
     for (uint8_t byte : viewMask_)
         for (int bit = 0; bit < 8; ++bit)
             v.hiddenAreas += (byte >> bit) & 1;

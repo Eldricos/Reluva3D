@@ -56,7 +56,10 @@ public:
     // mask: a bit set for each hidden one): from then on drawSurfaces draws
     // only the level's surfaces that can be seen from there, as the
     // original's renderer does. Without it, every surface is drawn.
-    void setView(const std::array<float, 3>& eye, const std::array<uint8_t, 32>& areaMask);
+    // `viewProj` (the view's projection times its placement) leaves out,
+    // each frame, the surfaces wholly outside the view.
+    void setView(const std::array<float, 3>& eye, const std::array<uint8_t, 32>& areaMask,
+                 const gfx::Mat4& viewProj);
 
     size_t batchCount() const { return batches_.size(); }
     // What the last setView found, for the info line: the eye's cluster
@@ -65,7 +68,7 @@ public:
     struct Visibility {
         int cluster = -1;
         bool culling = false;
-        size_t visible = 0, total = 0;
+        size_t visible = 0, potentiallyVisible = 0, total = 0; // drawn, past the vis data and doors, all
         int hiddenAreas = 0;
     };
     Visibility visibility() const;
@@ -109,6 +112,7 @@ private:
     struct SurfaceRange {
         int batch = -1; // -1: drawn by no batch
         uint32_t firstIndex = 0, count = 0;
+        std::array<float, 3> mins{}, maxs{}; // its bounds
     };
     int leafAt(const std::array<float, 3>& p) const;
     std::vector<SurfaceRange> surfaceRanges_;
@@ -122,8 +126,16 @@ private:
     bool culling_ = false;
     int viewCluster_ = -2;
     std::array<uint8_t, 32> viewMask_{};
-    std::vector<uint32_t> visibleMark_; // per surface: visibleStamp_ when it can be seen
+    std::vector<uint32_t> visibleMark_; // per surface: visibleStamp_ when past the vis data and doors
     uint32_t visibleStamp_ = 0;
+    std::vector<int32_t> pvsSurfaces_; // those surfaces
+    gfx::Mat4 viewProj_{};
+    // This frame's: the surfaces inside the view (frameMark_ == frameStamp_),
+    // where each starts in the index list, and the list.
+    std::vector<uint32_t> frameMark_, frameFirst_;
+    uint32_t frameStamp_ = 0;
+    std::vector<uint32_t> frameIndices_;
+    size_t frameSurfaces_ = 0;
     size_t triangles_ = 0;
 
     // The sky: a box around the camera, the far box's six sides then the

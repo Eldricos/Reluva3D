@@ -923,8 +923,11 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
             }
             if (world_) {
                 const WorldRenderer::Visibility v = world_->visibility();
-                std::snprintf(line, sizeof line, "visibility: cluster %d, %zu of %zu surfaces drawn%s, %d areas hidden",
-                              v.cluster, v.visible, v.total, v.culling ? "" : " (all: no culling)", v.hiddenAreas);
+                std::snprintf(line, sizeof line,
+                              "visibility: cluster %d, %zu of %zu surfaces drawn (%zu past the vis data and doors)%s, "
+                              "%d areas hidden",
+                              v.cluster, v.visible, v.total, v.potentiallyVisible,
+                              v.culling ? "" : " (all: no culling)", v.hiddenAreas);
                 lines.push_back(line);
             }
             std::snprintf(line, sizeof line, "%d areas; sight checks a closed door blocked: %d%s", game_->areaCount(),

@@ -160,7 +160,7 @@ void SceneDrawer::drawView(const eliteforce::Scene& scene, const eliteforce::Vie
         std::array<uint8_t, 32> areaMask{};
         if (refdef.size() >= 112)
             std::copy(refdef.begin() + 80, refdef.begin() + 112, areaMask.begin());
-        world->setView(eye_, areaMask);
+        world->setView(eye_, areaMask, viewProj);
         world->drawSky(time);
         world->drawSurfaces(time, 0, kLastOpaque, true);
         for (const auto& [model, transform] : brushes_)

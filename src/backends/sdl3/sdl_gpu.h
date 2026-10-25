@@ -62,11 +62,13 @@ private:
     struct Mesh {
         SDL_GPUBuffer* vertices = nullptr;
         SDL_GPUBuffer* indices = nullptr;
+        uint32_t indexBytes = 0; // the index buffer's size
     };
 
     // Copies `size` bytes into a GPU buffer or texture region through a
-    // transfer buffer, in a command buffer of its own.
-    bool upload(const void* data, uint32_t size, SDL_GPUBuffer* buffer);
+    // transfer buffer, in a command buffer of its own. `cycle`: into a
+    // fresh copy of the buffer if frames still on the GPU use it.
+    bool upload(const void* data, uint32_t size, SDL_GPUBuffer* buffer, bool cycle = false);
     SDL_GPUGraphicsPipeline* pipeline(const gfx::DrawState& state);
 
     SDL_GPUDevice* device_;

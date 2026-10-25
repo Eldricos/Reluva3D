@@ -284,7 +284,7 @@ void SdlGpuRenderer::clearDepth() {
         SDL_SetGPUViewport(pass_, &viewport_);
 }
 
-bool SdlGpuRenderer::upload(const void* data, uint32_t size, SDL_GPUBuffer* buffer) {
+bool SdlGpuRenderer::upload(const void* data, uint32_t size, SDL_GPUBuffer* buffer, bool cycle) {
     SDL_GPUTransferBufferCreateInfo ti{};
     ti.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
     ti.size = size;
@@ -305,7 +305,7 @@ bool SdlGpuRenderer::upload(const void* data, uint32_t size, SDL_GPUBuffer* buff
     SDL_GPUBufferRegion dst{};
     dst.buffer = buffer;
     dst.size = size;
-    SDL_UploadToGPUBuffer(copy, &src, &dst, false);
+    SDL_UploadToGPUBuffer(copy, &src, &dst, cycle);
     SDL_EndGPUCopyPass(copy);
     const bool ok = SDL_SubmitGPUCommandBuffer(cmd);
     SDL_ReleaseGPUTransferBuffer(device_, tb);
@@ -414,6 +414,7 @@ Error SdlGpuRenderer::createMesh(const std::vector<gfx::Vertex>& vertices, const
             SDL_ReleaseGPUBuffer(device_, m.indices);
         return err;
     }
+    m.indexBytes = uint32_t(indices.size() * sizeof(uint32_t));
     out = nextId_++;
     meshes_[out] = m;
     return Error::success();
@@ -423,19 +424,27 @@ Error SdlGpuRenderer::setMeshIndices(gfx::MeshId id, const std::vector<uint32_t>
     auto it = meshes_.find(id);
     if (it == meshes_.end() || indices.empty())
         return Error::fail("No such mesh, or no indices");
-    // A new buffer: the old one may still be in use by frames on the GPU,
-    // and SDL releases it once they're done.
-    SDL_GPUBufferCreateInfo bi{};
-    bi.usage = SDL_GPU_BUFFERUSAGE_INDEX;
-    bi.size = uint32_t(indices.size() * sizeof(uint32_t));
-    SDL_GPUBuffer* buffer = SDL_CreateGPUBuffer(device_, &bi);
-    if (!buffer || !upload(indices.data(), bi.size, buffer)) {
-        if (buffer)
-            SDL_ReleaseGPUBuffer(device_, buffer);
-        return sdlError("Cannot replace a mesh's indices");
+    // Into the buffer there is when they fit (cycled, as frames still on
+    // the GPU may use it: changed every frame, as the view turns); else a
+    // bigger one, the old released once those frames are done.
+    const auto bytes = uint32_t(indices.size() * sizeof(uint32_t));
+    if (bytes <= it->second.indexBytes) {
+        if (!upload(indices.data(), bytes, it->second.indices, true))
+            return sdlError("Cannot replace a mesh's indices");
+    } else {
+        SDL_GPUBufferCreateInfo bi{};
+        bi.usage = SDL_GPU_BUFFERUSAGE_INDEX;
+        bi.size = bytes + bytes / 2;
+        SDL_GPUBuffer* buffer = SDL_CreateGPUBuffer(device_, &bi);
+        if (!buffer || !upload(indices.data(), bytes, buffer)) {
+            if (buffer)
+                SDL_ReleaseGPUBuffer(device_, buffer);
+            return sdlError("Cannot replace a mesh's indices");
+        }
+        SDL_ReleaseGPUBuffer(device_, it->second.indices);
+        it->second.indices = buffer;
+        it->second.indexBytes = bi.size;
     }
-    SDL_ReleaseGPUBuffer(device_, it->second.indices);
-    it->second.indices = buffer;
     if (boundMesh_ == id)
         boundMesh_ = 0; // bind the new indices on its next draw
     return Error::success();
