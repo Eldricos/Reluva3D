@@ -62,6 +62,10 @@ public:
     // surface is drawn.
     void setView(int slot, const std::array<float, 3>& eye, const std::array<uint8_t, 32>& areaMask,
                  const gfx::Mat4& viewProj);
+    // Which way the current view looks (its left, up and forward axes, and
+    // whether it's a mirror's): autosprite surfaces are turned to face it.
+    void setCamera(const std::array<float, 3>& left, const std::array<float, 3>& up,
+                   const std::array<float, 3>& forward, bool mirrored);
     // The mirror and portal surfaces the current view draws, nearest
     // first: the plane they lie in (its normal facing `eye`), bounds, and
     // how far off a portal's view is drawn (0: a mirror's always is).
@@ -164,6 +168,18 @@ private:
     gfx::MeshId drawMesh() const { return culled() ? culled()->mesh : mesh_; }
     // The level's mirror and portal surfaces.
     std::vector<Portal> portals_;
+    // Its autosprite surfaces, kept as laid out and turned as drawn.
+    struct Sprite {
+        int surface = -1, material = 0, lightmap = -1, fog = -1;
+        float sort = 3;
+        uint8_t kind = 1; // 1 autosprite, 2 autosprite2
+        std::vector<gfx::Vertex> vertices;
+        std::vector<uint32_t> indices; // relative to the vertices
+    };
+    std::vector<Sprite> sprites_;
+    std::array<std::array<float, 3>, 3> camera_{}; // left, up, forward
+    bool cameraMirrored_ = false, cameraSet_ = false;
+    void drawSprites(float time, float sortMin, float sortMax) const;
     size_t triangles_ = 0;
 
     // The sky: a box around the camera, the far box's six sides then the

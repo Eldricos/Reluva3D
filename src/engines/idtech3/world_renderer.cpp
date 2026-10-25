@@ -57,6 +57,7 @@ void WorldRenderer::clear() {
     }
     activeSlot_ = 0;
     portals_.clear();
+    sprites_.clear();
     for (gfx::MeshId m : {mesh_, skyMesh_})
         if (m)
             r_.destroyMesh(m);
@@ -203,6 +204,25 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
             const ShaderCache::Material& mat = shaders_.get(materialIndex);
             if (mat.skip)
                 continue;
+            // Quads that turn to face the camera: kept aside, rebuilt as
+            // they're drawn (a quad each four vertices and six indices).
+            if (mat.autosprite && mi == 0 && s.type != SurfaceType::Patch && s.numVertices >= 4 &&
+                s.numVertices % 4 == 0 && s.numIndices == s.numVertices / 4 * 6) {
+                Sprite sp;
+                sp.surface = si;
+                sp.material = materialIndex;
+                sp.lightmap = lightmapped ? s.lightmap : -1;
+                sp.fog = s.fog;
+                sp.sort = mat.sort;
+                sp.kind = mat.autosprite;
+                const BspVertex* sv = &bsp.vertices[size_t(s.firstVertex)];
+                for (int i = 0; i < s.numVertices; ++i)
+                    sp.vertices.push_back(toGfx(sv[i]));
+                for (int i = 0; i < s.numIndices; ++i)
+                    sp.indices.push_back(uint32_t(bsp.indices[size_t(s.firstIndex + i)]));
+                sprites_.push_back(std::move(sp));
+                continue;
+            }
             const GroupKey key{mat.sort, materialIndex, lightmapped ? s.lightmap : -1, s.fog, int(mi)};
             std::vector<uint32_t>& out = groups[key];
             const auto offset = uint32_t(out.size());
@@ -399,7 +419,7 @@ void WorldRenderer::drawSurfaces(float time, float sortMin, float sortMax, bool 
         shaders_.draw(b.material, base, b.lightmap >= 0 ? lightmaps_[size_t(b.lightmap)] : 0, time);
         if (b.fog >= 0)
             shaders_.drawFog(b.material, base, fogs_[size_t(b.fog)].color, fogs_[size_t(b.fog)].distance, time);
-    }
+    }    drawSprites(time, sortMin, sortMax);
 }
 
 int WorldRenderer::leafAt(const std::array<float, 3>& p) const {
@@ -446,10 +466,10 @@ void WorldRenderer::setView(int slot, const std::array<float, 3>& eye, const std
                     continue; // behind a closed door
                 for (int i = 0; i < l.numLeafSurfaces; ++i) {
                     const int32_t sf = visLeafSurfaces_[size_t(l.firstLeafSurface + i)];
-                    if (sf >= 0 && size_t(sf) < v.visibleMark.size() && v.visibleMark[size_t(sf)] != v.visibleStamp &&
-                        surfaceRanges_[size_t(sf)].batch >= 0) {
+                    if (sf >= 0 && size_t(sf) < v.visibleMark.size() && v.visibleMark[size_t(sf)] != v.visibleStamp) {
                         v.visibleMark[size_t(sf)] = v.visibleStamp;
-                        v.pvsSurfaces.push_back(sf);
+                        if (surfaceRanges_[size_t(sf)].batch >= 0)
+                            v.pvsSurfaces.push_back(sf);
                     }
                 }
             }
@@ -569,6 +589,142 @@ void WorldRenderer::drawSurfaceShape(int surface, const gfx::DrawState& state) c
     }
     call.state = state;
     r_.draw(call);
+}
+
+void WorldRenderer::setCamera(const std::array<float, 3>& left, const std::array<float, 3>& up,
+                              const std::array<float, 3>& forward, bool mirrored) {
+    camera_ = {left, up, forward};
+    cameraMirrored_ = mirrored;
+    cameraSet_ = true;
+}
+
+void WorldRenderer::drawSprites(float time, float sortMin, float sortMax) const {
+    // As the original: an autosprite's every quad rebuilt round its middle
+    // facing the camera (as wide as its corners reach / sqrt 2, its texture
+    // the whole image); an autosprite2's turned about its long axis (the
+    // line between its two short edges' middles) to face it, its corners
+    // keeping their texture coordinates. Without a camera (setCamera), as
+    // they're laid out.
+    const ViewSlot* view = culled();
+    std::vector<gfx::Vertex> verts;
+    std::vector<uint32_t> idx;
+    struct Part {
+        const Sprite* sprite;
+        uint32_t first, count;
+    };
+    std::vector<Part> parts;
+    using V = std::array<float, 3>;
+    auto at = [](const gfx::Vertex& v) { return V{v.pos[0], v.pos[1], v.pos[2]}; };
+    auto put = [](gfx::Vertex& v, const V& p) {
+        for (size_t k = 0; k < 3; ++k)
+            v.pos[k] = p[k];
+    };
+    V left = camera_[0];
+    if (cameraMirrored_)
+        for (float& c : left)
+            c = -c;
+    for (const Sprite& sp : sprites_) {
+        if (sp.sort < sortMin || sp.sort > sortMax)
+            continue;
+        if (view && (size_t(sp.surface) >= view->visibleMark.size() ||
+                     view->visibleMark[size_t(sp.surface)] != view->visibleStamp))
+            continue;
+        const auto first = uint32_t(idx.size());
+        for (size_t q = 0; q + 3 < sp.vertices.size(); q += 4) {
+            const gfx::Vertex* in = &sp.vertices[q];
+            const auto qb = uint32_t(verts.size());
+            if (!cameraSet_) {
+                verts.insert(verts.end(), in, in + 4);
+            } else if (sp.kind == 1) {
+                V mid{};
+                for (int i = 0; i < 4; ++i)
+                    for (size_t k = 0; k < 3; ++k)
+                        mid[k] += in[i].pos[k] / 4;
+                V d{in[0].pos[0] - mid[0], in[0].pos[1] - mid[1], in[0].pos[2] - mid[2]};
+                const float radius = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]) * 0.707f;
+                const float corners[4][2] = {{1, 1}, {-1, 1}, {-1, -1}, {1, -1}}; // left, up
+                const float st[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+                for (int i = 0; i < 4; ++i) {
+                    gfx::Vertex v = in[0];
+                    put(v, {mid[0] + (left[0] * corners[i][0] + camera_[1][0] * corners[i][1]) * radius,
+                            mid[1] + (left[1] * corners[i][0] + camera_[1][1] * corners[i][1]) * radius,
+                            mid[2] + (left[2] * corners[i][0] + camera_[1][2] * corners[i][1]) * radius});
+                    v.uv[0] = st[i][0];
+                    v.uv[1] = st[i][1];
+                    verts.push_back(v);
+                }
+            } else {
+                gfx::Vertex out[4] = {in[0], in[1], in[2], in[3]};
+                static const int edge[6][2] = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}};
+                int nums[2] = {0, 0};
+                float lengths[2] = {1e30f, 1e30f};
+                for (int j = 0; j < 6; ++j) {
+                    const V a = at(in[edge[j][0]]), b = at(in[edge[j][1]]);
+                    const float l = (a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) +
+                                    (a[2] - b[2]) * (a[2] - b[2]);
+                    if (l < lengths[0]) {
+                        nums[1] = nums[0];
+                        lengths[1] = lengths[0];
+                        nums[0] = j;
+                        lengths[0] = l;
+                    } else if (l < lengths[1]) {
+                        nums[1] = j;
+                        lengths[1] = l;
+                    }
+                }
+                V mid[2];
+                for (int j = 0; j < 2; ++j) {
+                    const V a = at(in[edge[nums[j]][0]]), b = at(in[edge[nums[j]][1]]);
+                    mid[j] = {(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2};
+                }
+                const V major{mid[1][0] - mid[0][0], mid[1][1] - mid[0][1], mid[1][2] - mid[0][2]};
+                const V& f = camera_[2];
+                V minor{major[1] * f[2] - major[2] * f[1], major[2] * f[0] - major[0] * f[2],
+                        major[0] * f[1] - major[1] * f[0]};
+                const float ml = std::sqrt(minor[0] * minor[0] + minor[1] * minor[1] + minor[2] * minor[2]);
+                if (ml > 1e-6f)
+                    for (float& c : minor)
+                        c /= ml;
+                const uint32_t* qi = &sp.indices[q / 4 * 6];
+                for (int j = 0; j < 2; ++j) {
+                    const int e0 = edge[nums[j]][0], e1 = edge[nums[j]][1];
+                    const float l = 0.5f * std::sqrt(lengths[j]);
+                    // Which way round the edge runs in the triangles says which
+                    // way to spread it.
+                    int k = 0;
+                    for (; k < 5; ++k)
+                        if (qi[k] == uint32_t(q) + uint32_t(e0) && qi[k + 1] == uint32_t(q) + uint32_t(e1))
+                            break;
+                    const float s = k == 5 ? 1.0f : -1.0f;
+                    put(out[e0], {mid[j][0] + minor[0] * l * s, mid[j][1] + minor[1] * l * s,
+                                  mid[j][2] + minor[2] * l * s});
+                    put(out[e1], {mid[j][0] - minor[0] * l * s, mid[j][1] - minor[1] * l * s,
+                                  mid[j][2] - minor[2] * l * s});
+                }
+                verts.insert(verts.end(), out, out + 4);
+            }
+            for (uint32_t i : {0u, 1u, 2u, 3u, 4u, 5u})
+                idx.push_back(qb + sp.indices[q / 4 * 6 + i] - uint32_t(q));
+        }
+        parts.push_back({&sp, first, uint32_t(idx.size()) - first});
+    }
+    if (parts.empty())
+        return;
+    gfx::MeshId mesh = 0;
+    if (r_.createMesh(verts, idx, mesh) || !mesh)
+        return;
+    for (const Part& p : parts) {
+        gfx::DrawCall base;
+        base.mesh = mesh;
+        base.firstIndex = p.first;
+        base.indexCount = p.count;
+        const int lm = p.sprite->lightmap;
+        shaders_.draw(p.sprite->material, base, lm >= 0 ? lightmaps_[size_t(lm)] : 0, time);
+        if (p.sprite->fog >= 0)
+            shaders_.drawFog(p.sprite->material, base, fogs_[size_t(p.sprite->fog)].color,
+                             fogs_[size_t(p.sprite->fog)].distance, time);
+    }
+    r_.destroyMesh(mesh);
 }
 
 WorldRenderer::Visibility WorldRenderer::visibility() const {

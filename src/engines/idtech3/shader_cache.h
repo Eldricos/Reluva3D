@@ -47,6 +47,9 @@ public:
         Lighting lighting = Lighting::Lightmap;
         std::vector<Stage> stages;
         std::array<gfx::Deform, 2> deforms{};
+        // deformVertexes autosprite (1: each quad facing the camera) or
+        // autosprite2 (2: each turned about its long axis to face it).
+        uint8_t autosprite = 0;
         bool portal = false;    // a mirror or portal surface
         float portalRange = 0;  // beyond which a portal's view isn't drawn (mirrors: always is)
     };

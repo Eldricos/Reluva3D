@@ -161,6 +161,7 @@ void SceneDrawer::drawView(const eliteforce::Scene& scene, const eliteforce::Vie
         if (refdef.size() >= 112)
             std::copy(refdef.begin() + 80, refdef.begin() + 112, areaMask.begin());
         world->setView(0, eye_, areaMask, viewProj);
+        world->setCamera(readVec(refdef, 48), up, forward, false);
         world->drawSky(time);
         // A mirror or portal in view: what's seen through it first, inside
         // its shape; then the rest over it, past its depth.
@@ -380,6 +381,7 @@ void SceneDrawer::drawPortalView(WorldRenderer& world, const std::array<uint8_t,
     r_.setMirrored(mirrored);
     r_.setView(viewProj, eye);
     world.setView(1, entity->oldOrigin, areaMask, viewProj);
+    world.setCamera(l2, u2, f2, mirrored);
     world.drawSky(time);
     drawLayers(time, &world, true);
     // Back to the main view: the surface's depth written, so nothing
@@ -389,6 +391,7 @@ void SceneDrawer::drawPortalView(WorldRenderer& world, const std::array<uint8_t,
     r_.clearDepth();
     r_.setView(mainViewProj, eye_);
     world.setView(0, eye_, areaMask, mainViewProj);
+    world.setCamera(left, up, forward, false);
     gfx::DrawState depth = shape;
     depth.depthTest = depth.depthWrite = true;
     world.drawSurfaceShape(surface.surface, depth);
