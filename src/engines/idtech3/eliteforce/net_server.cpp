@@ -61,15 +61,24 @@ NetServer::NetServer(GameHost& game, CvarStore& cvars, std::unique_ptr<reluva::n
 
 NetServer::~NetServer() {
     // As the original when it shuts down: a last message to everyone,
-    // twice in case one is lost, telling them it's gone.
-    for (Client& c : clients_) {
-        if (c.state < State::Connected)
-            continue;
-        if (c.reliableSequence - c.reliableAcknowledge < kMaxReliable) {
-            ++c.reliableSequence;
-            c.reliable[size_t(c.reliableSequence & (kMaxReliable - 1))] = "disconnect Server shut down";
-        }
-        for (int i = 0; i < 2; ++i) {
+    // telling them it's gone.
+    for (Client& c : clients_)
+        if (c.state >= State::Connected)
+            finalMessage(c, "Server shut down", lastNow_);
+}
+
+void NetServer::finalMessage(Client& c, const std::string& reason, uint64_t now) {
+    // As the original: the reason as a command, and twice, a snapshot
+    // with it (the client game reads commands as snapshots say they're
+    // there; the retail client acts on disconnect only then).
+    if (c.reliableSequence - c.reliableAcknowledge < kMaxReliable) {
+        ++c.reliableSequence;
+        c.reliable[size_t(c.reliableSequence & (kMaxReliable - 1))] = "disconnect " + reason;
+    }
+    for (int i = 0; i < 2; ++i) {
+        if (c.state >= State::Primed) {
+            sendSnapshot(c, now);
+        } else {
             wire::MessageWriter w;
             writeReliable(c, w);
             transmit(c, w);
@@ -141,6 +150,7 @@ std::string NetServer::infoString(const std::string& challenge) const {
 }
 
 Error NetServer::receive(uint64_t now) {
+    lastNow_ = now;
     reluva::net::Address from;
     std::vector<uint8_t> d;
     while (socket_->receive(from, d)) {
@@ -503,11 +513,8 @@ void NetServer::sendSnapshot(Client& c, uint64_t now) {
 void NetServer::drop(Client& c, const std::string& reason, uint64_t now) {
     if (c.state <= State::Zombie)
         return;
-    // Its last message: the reason, as a command it acts on.
-    addReliable(c, "disconnect " + reason);
-    wire::MessageWriter w;
-    writeReliable(c, w);
-    transmit(c, w);
+    // Its last message, while it's still in the game, then out.
+    finalMessage(c, reason, now);
     game_.disconnectClient(c.number);
     if (print)
         print(c.name + " " + reason + "\n");
@@ -516,18 +523,15 @@ void NetServer::drop(Client& c, const std::string& reason, uint64_t now) {
 }
 
 Error NetServer::frame(uint64_t now) {
+    lastNow_ = now;
     // Players the game dropped (kicked, a bad password...).
     const auto& drops = game_.drops();
     for (; dropsSeen_ < drops.size(); ++dropsSeen_)
         for (Client& c : clients_)
             if (c.state >= State::Connected && c.number == drops[dropsSeen_].first) {
-                // The game has dropped them itself: no ClientDisconnect again.
-                addReliable(c, "disconnect " + drops[dropsSeen_].second);
-                wire::MessageWriter w;
-                writeReliable(c, w);
-                transmit(c, w);
-                c.state = State::Zombie;
-                c.zombieSince = now;
+                // As the original's engine when the game drops a player:
+                // told why, and the game told they've gone (ClientDisconnect).
+                drop(c, drops[dropsSeen_].second, now);
             }
     // Configstrings that changed, to those that have had a game state.
     const std::vector<std::string> changes = configstringCommands(configstrings_, game_.configstrings());

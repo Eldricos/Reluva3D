@@ -112,6 +112,7 @@ private:
     void sendSnapshot(Client& c, uint64_t now);
     void transmit(Client& c, const wire::MessageWriter& w);
     void drop(Client& c, const std::string& reason, uint64_t now);
+    void finalMessage(Client& c, const std::string& reason, uint64_t now);
     void applyUserinfo(Client& c);
     Client* clientFor(const reluva::net::Address& from, uint16_t qport);
 
@@ -130,6 +131,7 @@ private:
     size_t serverCommandsSeen_ = 0, dropsSeen_ = 0;
     int32_t checksumFeed_ = 0;
     int levelCount_ = 0;
+    uint64_t lastNow_ = 0;
     uint32_t random_ = 0x1234567u;
     uint32_t nextRandom();
 };

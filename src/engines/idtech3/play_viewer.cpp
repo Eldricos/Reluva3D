@@ -331,7 +331,7 @@ void PlayViewer::runRemote(uint64_t nowMs, int32_t dt) {
         char line[128];
         std::snprintf(line, sizeof line, "%.2f s: %s\n", double(nowMs - joinStartMs_) / 1000,
                       st < 9 ? kSteps[st] : "?");
-        addPrint(line, false);
+        addPrint(line, true); // on screen for a few seconds too
     }
     if (client_->state() == eliteforce::NetClient::State::Disconnected) {
         // Back to the menus, which show why, as the original.
