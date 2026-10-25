@@ -99,7 +99,8 @@ constexpr int32_t kGlconfigSize = 5192;
 // through its snapshot pointers match): Quake III's, with Elite Force's
 // player and entity states.
 constexpr int32_t kSnapshotSize = 52740;
-constexpr int32_t kSnapServerTime = 8, kSnapPlayerState = 44; // the area mask is at 12, zeros: every area visible
+constexpr int32_t kSnapServerTime = 8, kSnapPlayerState = 44;
+constexpr int32_t kSnapAreaMask = 12; // 32 bytes: a bit set for each area hidden behind a closed door
 constexpr int32_t kSnapNumEntities = 504, kSnapEntities = 508;
 constexpr int32_t kSnapNumServerCommands = 52732, kSnapServerCommandSequence = 52736;
 constexpr int32_t kMaxSnapshotEntities = 256;
@@ -373,6 +374,7 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         const GameHost::Snapshot& s = it->second;
         std::memset(&vm.memory()[size_t(a[1])], 0, size_t(kSnapNumEntities)); // flags, ping, area mask (all visible)
         vm.writeInt(a[1] + kSnapServerTime, s.serverTime);
+        std::memcpy(&vm.memory()[size_t(a[1] + kSnapAreaMask)], s.areaMask.data(), s.areaMask.size());
         std::memcpy(&vm.memory()[size_t(a[1] + kSnapPlayerState)], s.playerState.data(),
                     std::min(s.playerState.size(), size_t(GameHost::kPlayerStateSize)));
         const auto count = int32_t(std::min(s.entities.size(), size_t(kMaxSnapshotEntities)));

@@ -166,6 +166,9 @@ public:
     // Indices refer to `vertices`; every three make a triangle.
     virtual Error createMesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices,
                              MeshId& out) = 0;
+    // Replaces a mesh's indices (its vertices kept), as a level's visible
+    // surfaces change.
+    virtual Error setMeshIndices(MeshId id, const std::vector<uint32_t>& indices) = 0;
     virtual void destroyMesh(MeshId id) = 0;
 
     // The size given to System::init3D: the frame's pixels.

@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <optional>
 #include <tuple>
 
 namespace reluva::idtech3 {
@@ -52,6 +53,11 @@ void WorldRenderer::clear() {
         if (m)
             r_.destroyMesh(m);
     mesh_ = skyMesh_ = 0;
+    culling_ = false;
+    viewCluster_ = -2;
+    viewMask_ = {};
+    surfaceRanges_.clear();
+    allIndices_.clear();
     for (gfx::TextureId t : lightmaps_)
         r_.destroyTexture(t);
     lightmaps_.clear();
@@ -165,8 +171,16 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
         GroupKey group;
         uint32_t offset = 0, count = 0;
         std::array<float, 3> mins{}, maxs{};
+        int surface = -1;
     };
     std::vector<Pending> pending;
+    // Every world surface's triangles in its group, to draw only those
+    // that can be seen (setView).
+    struct Placed {
+        GroupKey group;
+        uint32_t offset = 0, count = 0;
+    };
+    std::vector<std::optional<Placed>> placed(bsp.surfaces.size());
     std::vector<BspVertex> patchVerts;
     std::vector<uint32_t> patchIndices;
     for (size_t mi = 0; mi < bsp.models.size(); ++mi) {
@@ -209,8 +223,10 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
             // Solid, unmoving surfaces take dynamic lights (the world's:
             // brush entities move).
             const bool deformed = mat.deforms[0].type != gfx::Deform::Type::None;
+            if (mi == 0 && out.size() > offset)
+                placed[size_t(si)] = Placed{key, offset, uint32_t(out.size()) - offset};
             if (mi == 0 && mat.sort <= kLastOpaqueSort && !deformed && out.size() > offset) {
-                Pending p{key, offset, uint32_t(out.size()) - offset, {1e9f, 1e9f, 1e9f}, {-1e9f, -1e9f, -1e9f}};
+                Pending p{key, offset, uint32_t(out.size()) - offset, {1e9f, 1e9f, 1e9f}, {-1e9f, -1e9f, -1e9f}, si};
                 for (size_t vi = base; vi < vertices.size(); ++vi)
                     for (size_t k = 0; k < 3; ++k) {
                         p.mins[k] = std::min(p.mins[k], vertices[vi].pos[k]);
@@ -223,17 +239,33 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
 
     std::vector<uint32_t> indices;
     std::map<GroupKey, uint32_t> groupStart;
+    std::map<GroupKey, int> groupBatch;
     for (const auto& [key, list] : groups) {
         if (list.empty())
             continue;
         groupStart[key] = uint32_t(indices.size());
+        groupBatch[key] = int(batches_.size());
         batches_.push_back({std::get<0>(key), std::get<1>(key), std::get<2>(key), std::get<3>(key),
                             uint32_t(indices.size()), uint32_t(list.size()), std::get<4>(key)});
         indices.insert(indices.end(), list.begin(), list.end());
     }
     triangles_ = indices.size() / 3;
     for (const Pending& p : pending)
-        litSurfaces_.push_back({groupStart[p.group] + p.offset, p.count, p.mins, p.maxs});
+        litSurfaces_.push_back({groupStart[p.group] + p.offset, p.count, p.mins, p.maxs, p.surface});
+    surfaceRanges_.assign(bsp.surfaces.size(), {});
+    for (size_t s = 0; s < placed.size(); ++s)
+        if (placed[s])
+            surfaceRanges_[s] = {groupBatch[placed[s]->group], groupStart[placed[s]->group] + placed[s]->offset,
+                                 placed[s]->count};
+    // What visibility needs of the map, kept.
+    visPlanes_ = bsp.planes;
+    visNodes_ = bsp.nodes;
+    visLeafs_ = bsp.leafs;
+    visLeafSurfaces_ = bsp.leafSurfaces;
+    visClusters_ = bsp.visClusters;
+    visClusterBytes_ = bsp.visClusterBytes;
+    visData_ = bsp.visData;
+    allIndices_ = indices;
 
     // The sky, from the first sky shader the map uses.
     for (const BspShader& s : bsp.shaders)
@@ -288,6 +320,8 @@ void WorldRenderer::drawDynamicLights(const std::vector<gfx::DynamicLight>& ligh
     call.state.depthWrite = false;
     call.state.cull = gfx::Cull::None;
     for (const LitSurface& s : litSurfaces_) {
+        if (culling_ && (s.surface < 0 || visibleMark_[size_t(s.surface)] != visibleStamp_))
+            continue;
         bool reached = false;
         for (size_t i = 0; i < n && !reached; ++i) {
             const gfx::DynamicLight& l = lights[i];
@@ -311,10 +345,96 @@ void WorldRenderer::drawSurfaces(float time, float sortMin, float sortMax, bool 
         base.mesh = mesh_;
         base.firstIndex = b.firstIndex;
         base.indexCount = b.indexCount;
+        // Only what can be seen (setView), when that's known.
+        if (culling_ && b.model == 0) {
+            if (!b.visibleCount)
+                continue;
+            base.firstIndex = b.visibleFirst;
+            base.indexCount = b.visibleCount;
+        }
         shaders_.draw(b.material, base, b.lightmap >= 0 ? lightmaps_[size_t(b.lightmap)] : 0, time);
         if (b.fog >= 0)
             shaders_.drawFog(b.material, base, fogs_[size_t(b.fog)].color, fogs_[size_t(b.fog)].distance, time);
     }
+}
+
+int WorldRenderer::leafAt(const std::array<float, 3>& p) const {
+    if (visNodes_.empty())
+        return visLeafs_.empty() ? -1 : 0;
+    int node = 0;
+    while (node >= 0) {
+        const BspNode& n = visNodes_[size_t(node)];
+        const BspPlane& pl = visPlanes_[size_t(n.plane)];
+        node = n.children[p[0] * pl.normal[0] + p[1] * pl.normal[1] + p[2] * pl.normal[2] - pl.dist >= 0 ? 0 : 1];
+    }
+    return -1 - node;
+}
+
+void WorldRenderer::setView(const std::array<float, 3>& eye, const std::array<uint8_t, 32>& areaMask) {
+    // As the original's renderer: the leaves whose cluster the eye's can
+    // see (the map's vis data) and whose area a closed door doesn't hide
+    // (the area mask, a bit set for each hidden one), and their surfaces.
+    // Worked out again only when the cluster or the mask changes; outside
+    // the map (no cluster), everything.
+    if (!mesh_)
+        return;
+    const int leaf = leafAt(eye);
+    const int cluster = leaf >= 0 && size_t(leaf) < visLeafs_.size() ? visLeafs_[size_t(leaf)].cluster : -1;
+    if (cluster == viewCluster_ && areaMask == viewMask_)
+        return;
+    viewCluster_ = cluster;
+    viewMask_ = areaMask;
+    if (cluster < 0 || visData_.empty()) {
+        culling_ = false;
+        return;
+    }
+    if (visibleMark_.size() != surfaceRanges_.size())
+        visibleMark_.assign(surfaceRanges_.size(), 0);
+    ++visibleStamp_;
+    const uint8_t* pvs = &visData_[size_t(cluster) * size_t(visClusterBytes_)];
+    for (const BspLeaf& l : visLeafs_) {
+        if (l.cluster < 0 || l.cluster >= visClusters_ || !(pvs[l.cluster >> 3] & (1 << (l.cluster & 7))))
+            continue;
+        if (l.area >= 0 && l.area < 256 && (areaMask[size_t(l.area >> 3)] & (1 << (l.area & 7))))
+            continue; // behind a closed door
+        for (int i = 0; i < l.numLeafSurfaces; ++i) {
+            const int32_t s = visLeafSurfaces_[size_t(l.firstLeafSurface + i)];
+            if (s >= 0 && size_t(s) < visibleMark_.size())
+                visibleMark_[size_t(s)] = visibleStamp_;
+        }
+    }
+    // Each batch's visible triangles, after all of them in the index list
+    // (dynamic lights draw from those, by surface).
+    std::vector<std::vector<uint32_t>> perBatch(batches_.size());
+    for (size_t s = 0; s < surfaceRanges_.size(); ++s) {
+        const SurfaceRange& r = surfaceRanges_[s];
+        if (r.batch < 0 || visibleMark_[s] != visibleStamp_)
+            continue;
+        auto& out = perBatch[size_t(r.batch)];
+        out.insert(out.end(), allIndices_.begin() + r.firstIndex, allIndices_.begin() + r.firstIndex + r.count);
+    }
+    std::vector<uint32_t> indices = allIndices_;
+    for (size_t b = 0; b < batches_.size(); ++b) {
+        batches_[b].visibleFirst = uint32_t(indices.size());
+        batches_[b].visibleCount = uint32_t(perBatch[b].size());
+        indices.insert(indices.end(), perBatch[b].begin(), perBatch[b].end());
+    }
+    culling_ = !r_.setMeshIndices(mesh_, indices);
+}
+
+WorldRenderer::Visibility WorldRenderer::visibility() const {
+    Visibility v;
+    v.cluster = viewCluster_ < -1 ? -1 : viewCluster_;
+    v.culling = culling_;
+    for (size_t s = 0; s < surfaceRanges_.size(); ++s)
+        if (surfaceRanges_[s].batch >= 0) {
+            ++v.total;
+            v.visible += !culling_ || (s < visibleMark_.size() && visibleMark_[s] == visibleStamp_);
+        }
+    for (uint8_t byte : viewMask_)
+        for (int bit = 0; bit < 8; ++bit)
+            v.hiddenAreas += (byte >> bit) & 1;
+    return v;
 }
 
 void WorldRenderer::drawModel(int model, const gfx::Mat4& transform, float time, float sortMin, float sortMax) const {

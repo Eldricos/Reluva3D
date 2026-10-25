@@ -497,6 +497,12 @@ animations start at the entity's shader time, taken to be Quake III's
 128 (seconds of the level) when it holds a time that has come. Neither polygons nor
 dynamic lights were added while firing the phaser.
 
+Snapshots carry the area mask at 12 (32 bytes, a bit set for each area
+not joined to the player's, from the eye taken 26 units above the
+origin), as the original's server sends it; the client game copies it
+into the view (refdef_t from 80, the end of the 112 bytes it clears),
+and the renderer leaves out the leaves in those areas.
+
 The Play page runs the server's frames first, up to a frame ahead of
 the player's time, then gives the server the player's command stamped
 with that time, which the client game then predicts from the snapshots:

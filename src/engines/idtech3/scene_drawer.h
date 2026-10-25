@@ -96,7 +96,7 @@ public:
     // whether depths are already clear. `time` in seconds is the shaders'
     // clock; dynamic lights only if `dynamicLights`.
     void drawView(const eliteforce::Scene& scene, const eliteforce::View& view, int screenW, int screenH,
-                  float time, bool firstView, const WorldRenderer* world, const LightGrid* grid, bool dynamicLights);
+                  float time, bool firstView, WorldRenderer* world, const LightGrid* grid, bool dynamicLights);
 
     // What the last view drew, for the info line.
     const gfx::Vec3& eye() const { return eye_; }

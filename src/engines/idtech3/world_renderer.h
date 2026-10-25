@@ -52,8 +52,23 @@ public:
     // original's dynamic lights: each pixel brightened in proportion to
     // its colour. After the opaque surfaces are drawn.
     void drawDynamicLights(const std::vector<gfx::DynamicLight>& lights) const;
+    // Where the view is and which areas closed doors hide (refdef_t's area
+    // mask: a bit set for each hidden one): from then on drawSurfaces draws
+    // only the level's surfaces that can be seen from there, as the
+    // original's renderer does. Without it, every surface is drawn.
+    void setView(const std::array<float, 3>& eye, const std::array<uint8_t, 32>& areaMask);
 
     size_t batchCount() const { return batches_.size(); }
+    // What the last setView found, for the info line: the eye's cluster
+    // (-1 outside the map), whether only what's visible is drawn, how many
+    // of the level's surfaces are, of how many, and the areas hidden.
+    struct Visibility {
+        int cluster = -1;
+        bool culling = false;
+        size_t visible = 0, total = 0;
+        int hiddenAreas = 0;
+    };
+    Visibility visibility() const;
     size_t triangleCount() const { return triangles_; }
 
 private:
@@ -66,6 +81,7 @@ private:
         int fog = -1;      // index into fogs_, or -1
         uint32_t firstIndex = 0, indexCount = 0;
         int model = 0; // the map's model the surfaces belong to (0: the world)
+        uint32_t visibleFirst = 0, visibleCount = 0; // its triangles that can be seen (setView)
     };
     struct Fog {
         std::array<float, 3> color{};
@@ -85,8 +101,29 @@ private:
     struct LitSurface {
         uint32_t firstIndex = 0, indexCount = 0;
         std::array<float, 3> mins{}, maxs{};
+        int surface = -1; // the map's
     };
     std::vector<LitSurface> litSurfaces_;
+    // Visibility (setView): each world surface's triangles, the map's
+    // leaves and vis data, and what the last view could see.
+    struct SurfaceRange {
+        int batch = -1; // -1: drawn by no batch
+        uint32_t firstIndex = 0, count = 0;
+    };
+    int leafAt(const std::array<float, 3>& p) const;
+    std::vector<SurfaceRange> surfaceRanges_;
+    std::vector<uint32_t> allIndices_;
+    std::vector<BspPlane> visPlanes_;
+    std::vector<BspNode> visNodes_;
+    std::vector<BspLeaf> visLeafs_;
+    std::vector<int32_t> visLeafSurfaces_;
+    int32_t visClusters_ = 0, visClusterBytes_ = 0;
+    std::vector<uint8_t> visData_;
+    bool culling_ = false;
+    int viewCluster_ = -2;
+    std::array<uint8_t, 32> viewMask_{};
+    std::vector<uint32_t> visibleMark_; // per surface: visibleStamp_ when it can be seen
+    uint32_t visibleStamp_ = 0;
     size_t triangles_ = 0;
 
     // The sky: a box around the camera, the far box's six sides then the

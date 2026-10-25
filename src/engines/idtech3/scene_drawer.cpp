@@ -117,7 +117,7 @@ void SceneDrawer::drawPictures(const std::vector<eliteforce::Picture>& pictures,
 }
 
 void SceneDrawer::drawView(const eliteforce::Scene& scene, const eliteforce::View& view, int screenW, int screenH,
-                           float time, bool firstView, const WorldRenderer* world, const LightGrid* grid,
+                           float time, bool firstView, WorldRenderer* world, const LightGrid* grid,
                            bool dynamicLights) {
     const std::vector<uint8_t>& refdef = view.refdef;
     const bool withWorld = world && !(readInt(refdef, 76) & kNoWorldModel);
@@ -155,6 +155,12 @@ void SceneDrawer::drawView(const eliteforce::Scene& scene, const eliteforce::Vie
     static const LightGrid kNoLevel;
     placeEntities(scene, view, withWorld && grid ? *grid : kNoLevel, time);
     if (withWorld) {
+        // Only the level's surfaces that can be seen from the eye, past the
+        // doors the area mask (refdef_t's last 32 bytes, from 80) closes.
+        std::array<uint8_t, 32> areaMask{};
+        if (refdef.size() >= 112)
+            std::copy(refdef.begin() + 80, refdef.begin() + 112, areaMask.begin());
+        world->setView(eye_, areaMask);
         world->drawSky(time);
         world->drawSurfaces(time, 0, kLastOpaque, true);
         for (const auto& [model, transform] : brushes_)

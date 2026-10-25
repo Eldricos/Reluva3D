@@ -138,6 +138,10 @@ public:
         std::vector<uint8_t> playerState;
         std::vector<std::vector<uint8_t>> entities; // entity states, in entity order
         int32_t serverCommandSequence = 0;
+        // A bit set for each area the player's isn't joined to (behind a
+        // closed door), as the original's server works it out; the client
+        // game hands it to the renderer.
+        std::array<uint8_t, 32> areaMask{};
     };
     // Milliseconds a server frame: 20 a second, Quake III's default sv_fps.
     static constexpr int32_t kFrameMs = 50;

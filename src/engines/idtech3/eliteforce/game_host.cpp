@@ -309,6 +309,18 @@ GameHost::Snapshot GameHost::snapshot(int32_t clientNum) {
     }
     for (const auto& [to, text] : serverCommands_)
         snap.serverCommandSequence += to == clientNum || to == -1;
+    // The areas: from the player's eye (taken as 26 units up, the
+    // standing view height), each not joined to its area hidden. Outside
+    // any area, or with cm_noAreas, none.
+    if (world_ && areaPortals_ && !(cvars_.find("cm_noAreas") && cvars_.integer("cm_noAreas"))) {
+        Vec3f eye = entityVec(clientNum, ent::CurrentOrigin);
+        eye[2] += 26;
+        const int area = world_->leafArea(world_->leafAt(eye));
+        if (area >= 0)
+            for (int a = 0; a < std::min(world_->areaCount(), 256); ++a)
+                if (!areaPortals_->connected(area, a))
+                    snap.areaMask[size_t(a >> 3)] |= uint8_t(1 << (a & 7));
+    }
     return snap;
 }
 

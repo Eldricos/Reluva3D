@@ -34,6 +34,7 @@ public:
     Error createMesh(const std::vector<gfx::Vertex>& vertices, const std::vector<uint32_t>& indices,
                      gfx::MeshId& out) override;
     void destroyMesh(gfx::MeshId id) override;
+    Error setMeshIndices(gfx::MeshId id, const std::vector<uint32_t>& indices) override;
     int width() const override { return width_; }
     int height() const override { return height_; }
     std::string deviceName() const override;

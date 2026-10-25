@@ -419,6 +419,28 @@ Error SdlGpuRenderer::createMesh(const std::vector<gfx::Vertex>& vertices, const
     return Error::success();
 }
 
+Error SdlGpuRenderer::setMeshIndices(gfx::MeshId id, const std::vector<uint32_t>& indices) {
+    auto it = meshes_.find(id);
+    if (it == meshes_.end() || indices.empty())
+        return Error::fail("No such mesh, or no indices");
+    // A new buffer: the old one may still be in use by frames on the GPU,
+    // and SDL releases it once they're done.
+    SDL_GPUBufferCreateInfo bi{};
+    bi.usage = SDL_GPU_BUFFERUSAGE_INDEX;
+    bi.size = uint32_t(indices.size() * sizeof(uint32_t));
+    SDL_GPUBuffer* buffer = SDL_CreateGPUBuffer(device_, &bi);
+    if (!buffer || !upload(indices.data(), bi.size, buffer)) {
+        if (buffer)
+            SDL_ReleaseGPUBuffer(device_, buffer);
+        return sdlError("Cannot replace a mesh's indices");
+    }
+    SDL_ReleaseGPUBuffer(device_, it->second.indices);
+    it->second.indices = buffer;
+    if (boundMesh_ == id)
+        boundMesh_ = 0; // bind the new indices on its next draw
+    return Error::success();
+}
+
 void SdlGpuRenderer::destroyMesh(gfx::MeshId id) {
     auto it = meshes_.find(id);
     if (it == meshes_.end())
