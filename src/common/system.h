@@ -5,10 +5,12 @@
 
 #include "common/events.h"
 #include "common/gfx3d.h"
+#include "common/net.h"
 #include "common/types.h"
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string>
 
 namespace reluva {
@@ -68,6 +70,21 @@ public:
     virtual Error startAudio(AudioCallback callback) = 0;
     virtual void stopAudio() = 0;
     virtual int audioRate() const = 0;
+
+    // --- Network (optional) --------------------------------------------------
+    // A UDP socket on `port` (0: any), for games played over a network;
+    // fails when the backend has none.
+    virtual Error openUdp(uint16_t port, std::unique_ptr<net::UdpSocket>& out) {
+        (void)port;
+        out = nullptr;
+        return Error::fail("The network is not available");
+    }
+    // A host's name (or a.b.c.d) as its IPv4 address; false if not found.
+    virtual bool resolveHost(const std::string& host, uint32_t& ip) {
+        (void)host;
+        (void)ip;
+        return false;
+    }
 };
 
 } // namespace reluva

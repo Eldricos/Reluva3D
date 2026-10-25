@@ -74,6 +74,14 @@ void MenuViewer::start() {
         ui_->setKeyFile(ctx_.savePath / "cdkey.txt");
     if (ctx_.mixer)
         ui_->startLocalSound = [this](const std::string& name, int channel) { playSound(name, channel); };
+    // The server list: on a socket of its own, if the system has a network.
+    if (!browser_) {
+        std::unique_ptr<net::UdpSocket> socket;
+        if (!ctx_.sys.openUdp(0, socket) && socket)
+            browser_ = std::make_unique<ServerBrowser>(std::move(socket));
+    }
+    ui_->browser = browser_.get();
+    ui_->resolveHost = [this](const std::string& host, uint32_t& ip) { return ctx_.sys.resolveHost(host, ip); };
     Error err = ui_->load();
     if (!err)
         err = ui_->call(eliteforce::UiHost::Init);
@@ -338,6 +346,9 @@ void MenuViewer::update(uint64_t nowMs) {
     syncCursor();
     if (ui_) {
         ui_->clearPictures();
+        if (browser_)
+            browser_->update(nowMs);
+        ui_->now = nowMs;
         if (Error err = ui_->refresh(time)) {
             stop(err);
         } else {

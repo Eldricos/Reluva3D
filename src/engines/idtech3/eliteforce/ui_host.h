@@ -9,6 +9,7 @@
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/scene.h"
 #include "engines/idtech3/qvm.h"
+#include "engines/idtech3/server_browser.h"
 #include "engines/idtech3/vm_services.h"
 
 #include <array>
@@ -114,6 +115,23 @@ public:
     KeyBindings* bindings = nullptr;
     // Called by every system call before it's handled, for logging.
     std::function<void(int number, const int32_t* args)> trace;
+    // Finding servers for the server list (calls 46 to 53, and the
+    // "localservers" and "ping" commands, run as soon as the menus run
+    // them); none: the lists stay empty. `resolveHost` turns a server's
+    // name into its address. `now`: the browser's clock, in ms.
+    ServerBrowser* browser = nullptr;
+    std::function<bool(const std::string& host, uint32_t& ip)> resolveHost;
+    uint64_t now = 0;
+    // What GetClientState reports (uiClientState_t), for the connecting
+    // screen: connState as Quake III's (1 disconnected, 3 connecting, 4
+    // challenging, 5 connected, 6 loading, 7 primed, 8 active), how many
+    // connect requests were sent, the player's number, the server's name,
+    // and the messages to show.
+    struct ClientState {
+        int32_t connState = 1, connectPacketCount = 0, clientNum = 0;
+        std::string serverName, updateInfo, message;
+    };
+    ClientState clientState;
 
 private:
     int32_t systemCall(Qvm& vm, int number, const int32_t* args);
@@ -121,6 +139,7 @@ private:
     static bool cdKeyLooksValid(const std::string& key);
     void writeGlconfig(int32_t address);
     void writeClientState(int32_t address);
+    bool browserCommand(const std::string& line);
 
     const SearchSet& files_;
     CvarStore& cvars_;

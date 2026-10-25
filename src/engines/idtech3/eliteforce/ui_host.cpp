@@ -5,6 +5,8 @@
 
 #include "engines/idtech3/md3.h"
 
+#include "common/fs.h"
+
 #include <cstring>
 #include <fstream>
 #include <string>
@@ -61,6 +63,14 @@ enum UiCall : int {
     GetGlconfig = 43,
     GetClientState = 44,
     GetConfigString = 45,
+    LanGetLocalServerCount = 46,
+    LanGetLocalServerAddressString = 47, // (n, buffer, size)
+    LanGetGlobalServerCount = 48,
+    LanGetGlobalServerAddressString = 49,
+    LanGetPingQueueCount = 50,
+    LanClearPing = 51,   // (n)
+    LanGetPing = 52,     // (n, buffer, size, &time)
+    LanGetPingInfo = 53, // (n, buffer, size)
     CvarRegister = 54,
     CvarUpdate = 55,
     MemoryRemaining = 56,
@@ -180,7 +190,35 @@ void UiHost::writeClientState(int32_t address) {
     if (!vm_.checkWrite(address, kClientStateSize))
         return;
     std::memset(&vm_.memory()[size_t(address)], 0, kClientStateSize);
-    vm_.writeInt(address, 1); // connState: disconnected
+    vm_.writeInt(address, clientState.connState);
+    vm_.writeInt(address + 4, clientState.connectPacketCount);
+    vm_.writeInt(address + 8, clientState.clientNum);
+    vm_.writeString(address + 12, clientState.serverName, 1024);
+    vm_.writeString(address + 12 + 1024, clientState.updateInfo, 1024);
+    vm_.writeString(address + 12 + 2048, clientState.message, 1024);
+}
+
+bool UiHost::browserCommand(const std::string& line) {
+    // The server list's own commands, run at once as the original runs
+    // them (EXEC_NOW), so the menus see their pings straight away.
+    if (!browser)
+        return false;
+    const std::vector<std::string> words = splitCommand(line);
+    if (words.empty())
+        return false;
+    const std::string verb = fs::toLower(words[0]);
+    if (verb == "localservers") {
+        browser->localServers();
+        return true;
+    }
+    if (verb == "ping" && words.size() >= 2) {
+        const auto [host, port] = net::splitHostPort(words.back(), ServerBrowser::kServerPort);
+        uint32_t ip = 0;
+        if (resolveHost && resolveHost(host, ip))
+            browser->ping({ip, port}, now);
+        return true;
+    }
+    return false;
 }
 
 std::vector<std::string> UiHost::recentCalls() const {
@@ -262,7 +300,15 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     }
     case Argc: return 0;
     case Argv: vm.writeString(a[1], "", a[2]); return 0;
-    case CmdExecuteText: commands_.push_back(str(1, 4096)); return 0;
+    case CmdExecuteText: {
+        const std::string text = str(1, 4096);
+        bool handled = false;
+        for (const std::string& command : splitCommands(text))
+            handled = browserCommand(command) || handled;
+        if (!handled)
+            commands_.push_back(text);
+        return 0;
+    }
     case FsFOpenFile: return vmFiles_.open(vm, a[0], a[1], a[2]);
     case FsRead: return vmFiles_.read(vm, a[0], a[1], a[2]);
     case FsFCloseFile: vmFiles_.close(a[0]); return 0;
@@ -321,6 +367,29 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case GetClipboardData: vm.writeString(a[0], "", a[1]); return 0;
     case GetGlconfig: writeGlconfig(a[0]); return 0;
     case GetClientState: writeClientState(a[0]); return 0;
+    case LanGetLocalServerCount: return browser ? browser->localServerCount() : 0;
+    case LanGetLocalServerAddressString:
+        vm.writeString(a[1], browser ? browser->localServerAddress(a[0]) : std::string(), a[2]);
+        return 0;
+    case LanGetGlobalServerCount: return 0; // the master servers aren't asked yet
+    case LanGetGlobalServerAddressString: vm.writeString(a[1], "", a[2]); return 0;
+    case LanGetPingQueueCount: return browser ? browser->pingQueueCount() : 0;
+    case LanClearPing:
+        if (browser)
+            browser->clearPing(a[0]);
+        return 0;
+    case LanGetPing: {
+        std::string address;
+        int time = 0;
+        if (browser)
+            browser->getPing(a[0], now, cvars_.integer("cl_maxPing") ? cvars_.integer("cl_maxPing") : 800, address,
+                             time);
+        vm.writeString(a[1], address, a[2]);
+        if (vm.checkWrite(a[3], 4))
+            vm.writeInt(a[3], time);
+        return 0;
+    }
+    case LanGetPingInfo: vm.writeString(a[1], browser ? browser->pingInfo(a[0]) : std::string(), a[2]); return 0;
     case GetConfigString: vm.writeString(a[1], "", a[2]); return 0;
     case CvarRegister: {
         const CvarStore::Cvar& cv = cvars_.create(str(1, 256), str(2, 256), a[3]);

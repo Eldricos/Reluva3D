@@ -64,6 +64,7 @@ add_library(reluva_common STATIC
     src/common/zip.cpp
     src/common/image.cpp
     src/common/gfx3d.cpp
+    src/common/net.cpp
     src/common/detection.cpp
     src/common/audio/decode.cpp
     src/common/audio/mixer.cpp
@@ -132,6 +133,7 @@ if(RELUVA_ENGINE_IDTECH3)
         src/engines/idtech3/botlib/bot_script.cpp
         src/engines/idtech3/botlib/character.cpp
         src/engines/idtech3/player_animation.cpp
+        src/engines/idtech3/server_browser.cpp
         src/engines/idtech3/sound_system.cpp
         src/engines/idtech3/entities.cpp
         src/engines/idtech3/shader.cpp
@@ -169,12 +171,19 @@ add_executable(reluva
     src/main.cpp
     src/backends/sdl3/sdl_system.cpp
     src/backends/sdl3/sdl_gpu.cpp
+    src/backends/sockets/socket_net.cpp
     src/launcher/launcher.cpp)
 target_link_libraries(reluva PRIVATE reluva_engines imgui SDL3::SDL3 reluva_warnings)
+if(WIN32)
+    target_link_libraries(reluva PRIVATE ws2_32)
+endif()
 
 # --- developer tools -----------------------------------------------------------
-add_executable(reluva-tool src/tools/reluva_tool.cpp)
+add_executable(reluva-tool src/tools/reluva_tool.cpp src/backends/sockets/socket_net.cpp)
 target_link_libraries(reluva-tool PRIVATE reluva_engines reluva_warnings)
+if(WIN32)
+    target_link_libraries(reluva-tool PRIVATE ws2_32)
+endif()
 
 # --- tests ----------------------------------------------------------------------
 if(RELUVA_BUILD_TESTS)

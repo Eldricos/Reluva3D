@@ -319,6 +319,7 @@ private:
     std::unique_ptr<ModelCache> models_;   // the models the menus show
     std::unique_ptr<SceneDrawer> scene_;   // their pictures and scenes
     CvarStore& cvars_ = ctx_.cvars;
+    std::unique_ptr<ServerBrowser> browser_;  // the server list's, once the menus start
     std::unique_ptr<eliteforce::UiHost> ui_; // kept while other pages are shown
     size_t commandsSeen_ = 0;                // of ui_->commands()
     std::string lastCommand_;                // shown for a while, to see what buttons do

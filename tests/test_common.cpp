@@ -16,6 +16,7 @@
 #include "common/gfx3d.h"
 #include "common/image.h"
 #include "common/md5.h"
+#include "common/net.h"
 #include "common/text.h"
 #include "common/zip.h"
 #include "zip_writer.h"
@@ -286,6 +287,29 @@ static void testSearchSet(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+static void testNet() {
+    net::Address a;
+    CHECK(net::parseAddress("192.168.1.20:27961", 27960, a) && a.ip == 0xc0a80114u && a.port == 27961);
+    CHECK(net::parseAddress("10.0.0.1", 27960, a) && a.port == 27960 && a.isLan());
+    CHECK(a.toString() == "10.0.0.1:27960");
+    CHECK(!net::parseAddress("256.0.0.1", 1, a) && !net::parseAddress("1.2.3", 1, a) &&
+          !net::parseAddress("example.com", 1, a));
+    const net::Address google{0x08080808u, 1};
+    CHECK(!google.isLan());
+
+    // Two sockets in memory: one to the other, and a broadcast.
+    auto network = net::LoopbackNetwork::create();
+    auto server = network->open(27960), other = network->open(27961), client = network->open(0);
+    CHECK(server && client && other && client->port() == 27962 && !network->open(27960));
+    CHECK(client->send({0x7f000001u, 27960}, {1, 2, 3}));
+    net::Address from;
+    std::vector<uint8_t> data;
+    CHECK(server->receive(from, data) && data == std::vector<uint8_t>({1, 2, 3}) && from.port == 27962);
+    CHECK(!server->receive(from, data));
+    client->send(net::Address::broadcast(27960), {4});
+    CHECK(server->receive(from, data) && data.size() == 1 && !other->receive(from, data));
+}
+
 static void testImage() {
     // 2x2 uncompressed 24-bit TGA, stored bottom row first (descriptor 0).
     std::vector<uint8_t> tga = {0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 2, 0, 24, 0};
@@ -363,6 +387,7 @@ int main() {
     testZip(tmp / "zip");
     testSearchSet(tmp / "search");
     testImage();
+    testNet();
     testGfxMath();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);

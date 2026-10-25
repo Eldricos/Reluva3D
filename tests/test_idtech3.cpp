@@ -25,6 +25,7 @@
 #include "engines/idtech3/patch.h"
 #include "engines/idtech3/player_animation.h"
 #include "engines/idtech3/qvm.h"
+#include "engines/idtech3/server_browser.h"
 #include "engines/idtech3/shader.h"
 #include "engines/idtech3/sound_system.h"
 #include "engines/idtech3/sounds.h"
@@ -2088,6 +2089,49 @@ void testVideoSettings() {
     CHECK(coarse >= 2 && fine > coarse && fine <= 16);
 }
 
+static void testServerBrowser() {
+    using reluva::idtech3::ServerBrowser;
+    auto network = net::LoopbackNetwork::create();
+    auto server = network->open(27961);
+    ServerBrowser browser(network->open(0));
+    browser.localServers();
+    net::Address from;
+    std::vector<uint8_t> data;
+    int asked = 0;
+    while (server->receive(from, data))
+        asked += std::string(data.begin() + 4, data.end()) == "getinfo xxx";
+    CHECK(asked == 2); // twice on its port
+    auto reply = [&](const std::string& text) {
+        std::vector<uint8_t> d(4, 0xff);
+        d.insert(d.end(), text.begin(), text.end());
+        server->send(from, d);
+    };
+    reply("infoResponse \"\\hostname\\Test\\mapname\\hm_borg1\"");
+    browser.update(1000);
+    CHECK(browser.localServerCount() == 1 && browser.localServerAddress(0) == "127.0.0.1:27961");
+    // A ping: waiting, then answered.
+    browser.ping({0x7f000001u, 27961}, 2000);
+    std::string address;
+    int time = -1;
+    browser.getPing(0, 2010, 800, address, time);
+    CHECK(browser.pingQueueCount() == 1 && address == "127.0.0.1:27961" && time == 0);
+    reply("infoResponse \"\\hostname\\Test\"");
+    browser.update(2042);
+    browser.getPing(0, 2050, 800, address, time);
+    CHECK(time == 42 && browser.pingInfo(0) == "\\hostname\\Test");
+    browser.clearPing(0);
+    CHECK(browser.pingQueueCount() == 0);
+    // Not answered: given up on after cl_maxPing.
+    browser.ping({0x7f000001u, 27999}, 3000);
+    browser.getPing(0, 3900, 800, address, time);
+    CHECK(time == 900);
+    // Quake III's form, on the next line.
+    std::vector<uint8_t> q3(4, 0xff);
+    const std::string text = "infoResponse\n\\hostname\\Q3\n";
+    q3.insert(q3.end(), text.begin(), text.end());
+    CHECK(ServerBrowser::infoFromResponse(q3) == "\\hostname\\Q3");
+}
+
 int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_idtech3_tests";
     testLexer();
@@ -2115,6 +2159,7 @@ int main() {
     testPatchCollision();
     testVideoSettings();
     testAreaPortals();
+    testServerBrowser();
     testVmFileList();
     testSoundLibrary(tmp / "sounds");
     testSoundSystem(tmp / "soundsystem");

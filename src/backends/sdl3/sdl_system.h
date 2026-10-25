@@ -47,6 +47,8 @@ public:
     Error startAudio(AudioCallback callback) override;
     void stopAudio() override;
     int audioRate() const override { return kAudioRate; }
+    Error openUdp(uint16_t port, std::unique_ptr<net::UdpSocket>& out) override;
+    bool resolveHost(const std::string& host, uint32_t& ip) override;
 
 private:
     static constexpr int kAudioRate = 44100;

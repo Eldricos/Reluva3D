@@ -3,6 +3,7 @@
 
 #include "backends/sdl3/sdl_system.h"
 #include "backends/sdl3/sdl_gpu.h"
+#include "backends/sockets/socket_net.h"
 
 #include <cstring>
 
@@ -368,5 +369,13 @@ void SdlSystem::stopAudio() {
     }
     audioCallback_ = nullptr;
 }
+
+Error SdlSystem::openUdp(uint16_t port, std::unique_ptr<net::UdpSocket>& out) {
+    std::string error;
+    out = net::openSystemUdp(port, error);
+    return out ? Error::success() : Error::fail(error);
+}
+
+bool SdlSystem::resolveHost(const std::string& host, uint32_t& ip) { return net::resolveSystemHost(host, ip); }
 
 } // namespace reluva
