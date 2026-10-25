@@ -2319,7 +2319,7 @@ static void testServerBrowser() {
     auto network = net::LoopbackNetwork::create();
     auto server = network->open(27961);
     ServerBrowser browser(network->open(0));
-    browser.localServers();
+    browser.localServers(500);
     net::Address from;
     std::vector<uint8_t> data;
     int asked = 0;

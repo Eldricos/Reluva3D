@@ -208,7 +208,7 @@ bool UiHost::browserCommand(const std::string& line) {
         return false;
     const std::string verb = fs::toLower(words[0]);
     if (verb == "localservers") {
-        browser->localServers();
+        browser->localServers(now);
         return true;
     }
     if (verb == "ping" && words.size() >= 2) {

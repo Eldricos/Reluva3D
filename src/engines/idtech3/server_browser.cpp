@@ -14,8 +14,9 @@ void ServerBrowser::send(const net::Address& to, const std::string& text) {
     socket_->send(to, data);
 }
 
-void ServerBrowser::localServers() {
+void ServerBrowser::localServers(uint64_t now) {
     local_.clear();
+    scanStart_ = now;
     // Twice, in case one is lost; the 'xxx' is a challenge servers echo.
     for (int i = 0; i < 2; ++i)
         for (int p = 0; p < kServerPorts; ++p)
@@ -77,8 +78,10 @@ void ServerBrowser::update(uint64_t now) {
                 p.time = std::max(1, int(now - p.start));
                 p.info = info;
             }
-        if (std::find(local_.begin(), local_.end(), from) == local_.end() && int(local_.size()) < kMaxLocalServers &&
-            from.isLan())
+        // Answers while the local network is being asked make its list
+        // (whatever their address: not every network uses the private ranges).
+        if (scanStart_ && now - scanStart_ < kScanMs && std::find(local_.begin(), local_.end(), from) == local_.end() &&
+            int(local_.size()) < kMaxLocalServers)
             local_.push_back(from);
     }
 }

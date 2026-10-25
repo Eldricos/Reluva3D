@@ -3472,6 +3472,54 @@ int cmdNetRun(int argc, char** argv) {
     return 0;
 }
 
+// Looking for servers as the menus' list does (getinfo, broadcast on the
+// four server ports), or asking one (getinfo and getstatus), printing
+// every answer as it comes, for when the list stays empty.
+int cmdNetFind(int argc, char** argv) {
+    std::string err;
+    auto socket = reluva::net::openSystemUdp(0, err);
+    if (!socket) {
+        std::fprintf(stderr, "net-find: %s\n", err.c_str());
+        return 1;
+    }
+    auto send = [&](const reluva::net::Address& to, const std::string& text) {
+        std::vector<uint8_t> d(4, 0xff);
+        d.insert(d.end(), text.begin(), text.end());
+        const bool sent = socket->send(to, d);
+        std::printf("sent \"%s\" to %s%s\n", text.c_str(), to.toString().c_str(), sent ? "" : " (failed)");
+    };
+    if (argc >= 3) {
+        const auto [host, port] = reluva::net::splitHostPort(argv[2], 27960);
+        uint32_t ip = 0;
+        if (!reluva::net::resolveSystemHost(host, ip)) {
+            std::fprintf(stderr, "net-find: can't find %s\n", host.c_str());
+            return 1;
+        }
+        send({ip, port}, "getinfo xxx");
+        send({ip, port}, "getstatus xxx");
+    } else {
+        for (uint16_t p = 27960; p < 27964; ++p)
+            send(reluva::net::Address::broadcast(p), "getinfo xxx");
+    }
+    int answers = 0;
+    using Clock = std::chrono::steady_clock;
+    const auto until = Clock::now() + std::chrono::seconds(3);
+    while (Clock::now() < until) {
+        reluva::net::Address from;
+        std::vector<uint8_t> d;
+        while (socket->receive(from, d)) {
+            ++answers;
+            std::string text;
+            for (uint8_t c : d)
+                text += c == 0xff ? std::string("\\xff") : c == '\n' ? std::string("\\n") : std::string(1, char(c));
+            std::printf("from %s (%zu bytes): %s\n", from.toString().c_str(), d.size(), text.c_str());
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    std::printf("%d answer(s)\n", answers);
+    return answers ? 0 : 1;
+}
+
 int cmdGameRun(int argc, char** argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n");
@@ -4603,6 +4651,8 @@ int main(int argc, char** argv) {
         return cmdGameRun(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "net-run") == 0)
         return cmdNetRun(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "net-find") == 0)
+        return cmdNetFind(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "ui-run") == 0)
         return cmdUiRun(argc, argv);
 #endif
@@ -4649,6 +4699,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
                  "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
                  "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -syscalls <first> <last> | -func <instruction> | -blockcopies | -fields <address>\n"
+                 "  reluva-tool net-find [host[:port]]\n"
                  "  reluva-tool net-run <game folder> <map> [seconds] [-port N] [-addbot name]... | -join <host[:port]> [seconds] [-name name]\n"
                  "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n"
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"

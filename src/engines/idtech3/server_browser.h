@@ -29,7 +29,7 @@ public:
     explicit ServerBrowser(std::unique_ptr<net::UdpSocket> socket) : socket_(std::move(socket)) {}
 
     // The two commands; `now` in ms.
-    void localServers();
+    void localServers(uint64_t now);
     // `address`: a.b.c.d[:port] (host names already resolved by the caller).
     void ping(const net::Address& address, uint64_t now);
     // Reads the answers that have come; call each frame.
@@ -53,6 +53,8 @@ public:
 private:
     std::unique_ptr<net::UdpSocket> socket_;
     std::vector<net::Address> local_;
+    uint64_t scanStart_ = 0; // when the local network was last asked
+    static constexpr uint64_t kScanMs = 5000;
     struct Ping {
         net::Address address;
         bool used = false;
