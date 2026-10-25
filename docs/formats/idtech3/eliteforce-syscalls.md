@@ -472,6 +472,7 @@ entities the client game added):
 | 11 | alt fire's beam (`gfx/effects/whitelaser`) | a line tapering from the width at 132 (1.3) to the one at 136 (13.2); 140 as type 9 |
 | 12 | the I-MOD's beam (`gfx/misc/IMOD2`) | a cubic Bezier curve from the origin (68) through control points at 136 and 148 to the old origin (84); width 132 (4) |
 | 13 | rings and blasts (`gfx/effects/prifle_altblast`, `gfx/misc/red_ring2`) | taken to be a ring or cone round the first axis (28): radii 132 and 136 (both growing as the colour fades: 20 and 14, then 160 and 107), height 140 (1, 6), 144 taken as the texture's repeats round it; 148 (15, 1.5) and 152 (1) not known |
+| 8 | a mirror's or portal's camera (Quake III's portal surface entity, its type one on) | origin 68 and old origin 84 (the same for a mirror: seen as 2392 -936 52 twice), axes 28 (as the game set them), frame 80, old frame 96, skin number 104 (how a portal's camera turns) |
 | 14 | the Dreadnought's electricity (`gfx/misc/dnBolt`) | taken to be a jagged line from the origin to the old origin: width 132 (0.5 to 15), jitter 136 (0.1 to 0.5), texture scale 140 (0.2) |
 
 These came from `game-run ... -cgame -give -fire -weapon all` (and

@@ -74,7 +74,8 @@ SdlGpuRenderer::~SdlGpuRenderer() {
     for (auto& [id, t] : textures_)
         SDL_ReleaseGPUTexture(device_, t.texture);
     for (auto& [id, m] : meshes_) {
-        SDL_ReleaseGPUBuffer(device_, m.vertices);
+        if (!m.sharedVertices)
+            SDL_ReleaseGPUBuffer(device_, m.vertices);
         SDL_ReleaseGPUBuffer(device_, m.indices);
     }
     for (auto& [key, p] : pipelines_)
@@ -163,10 +164,13 @@ Error SdlGpuRenderer::init(int width, int height) {
     color_ = SDL_CreateGPUTexture(device_, &ci);
     if (!color_)
         return sdlError("Cannot create the 3D frame");
-    for (SDL_GPUTextureFormat f : {SDL_GPU_TEXTUREFORMAT_D32_FLOAT, SDL_GPU_TEXTUREFORMAT_D24_UNORM}) {
+    // Depth with a stencil (for mirrors and portals) if the device has one.
+    for (SDL_GPUTextureFormat f : {SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT, SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT,
+                                   SDL_GPU_TEXTUREFORMAT_D32_FLOAT, SDL_GPU_TEXTUREFORMAT_D24_UNORM}) {
         if (SDL_GPUTextureSupportsFormat(device_, f, SDL_GPU_TEXTURETYPE_2D,
                                          SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET)) {
             depthFormat_ = f;
+            hasStencil_ = f == SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT || f == SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT;
             break;
         }
     }
@@ -275,13 +279,21 @@ void SdlGpuRenderer::clearDepth() {
     depth.clear_depth = 1.0f;
     depth.load_op = SDL_GPU_LOADOP_CLEAR;
     depth.store_op = SDL_GPU_STOREOP_DONT_CARE;
-    depth.stencil_load_op = SDL_GPU_LOADOP_DONT_CARE;
-    depth.stencil_store_op = SDL_GPU_STOREOP_DONT_CARE;
+    // The marks kept.
+    depth.stencil_load_op = hasStencil_ ? SDL_GPU_LOADOP_LOAD : SDL_GPU_LOADOP_DONT_CARE;
+    depth.stencil_store_op = hasStencil_ ? SDL_GPU_STOREOP_STORE : SDL_GPU_STOREOP_DONT_CARE;
     pass_ = SDL_BeginGPURenderPass(cmd_, &color, 1, &depth);
     boundPipeline_ = nullptr;
     boundMesh_ = 0;
     if (pass_ && viewport_.w > 0 && viewport_.h > 0)
         SDL_SetGPUViewport(pass_, &viewport_);
+    if (pass_)
+        SDL_SetGPUStencilReference(pass_, 1);
+}
+
+void SdlGpuRenderer::setStencilMode(StencilMode mode) {
+    if (hasStencil_)
+        stencilMode_ = mode;
 }
 
 bool SdlGpuRenderer::upload(const void* data, uint32_t size, SDL_GPUBuffer* buffer, bool cycle) {
@@ -450,17 +462,42 @@ Error SdlGpuRenderer::setMeshIndices(gfx::MeshId id, const std::vector<uint32_t>
     return Error::success();
 }
 
+Error SdlGpuRenderer::createIndexedMesh(gfx::MeshId vertices, const std::vector<uint32_t>& indices,
+                                        gfx::MeshId& out) {
+    out = 0;
+    auto source = meshes_.find(vertices);
+    if (source == meshes_.end() || indices.empty())
+        return Error::fail("No such mesh, or no indices");
+    Mesh m;
+    m.vertices = source->second.vertices;
+    m.sharedVertices = true;
+    SDL_GPUBufferCreateInfo bi{};
+    bi.usage = SDL_GPU_BUFFERUSAGE_INDEX;
+    bi.size = uint32_t(indices.size() * sizeof(uint32_t));
+    m.indices = SDL_CreateGPUBuffer(device_, &bi);
+    if (!m.indices || !upload(indices.data(), bi.size, m.indices)) {
+        if (m.indices)
+            SDL_ReleaseGPUBuffer(device_, m.indices);
+        return sdlError("Cannot create a mesh");
+    }
+    m.indexBytes = bi.size;
+    out = nextId_++;
+    meshes_[out] = m;
+    return Error::success();
+}
+
 void SdlGpuRenderer::destroyMesh(gfx::MeshId id) {
     auto it = meshes_.find(id);
     if (it == meshes_.end())
         return;
-    SDL_ReleaseGPUBuffer(device_, it->second.vertices);
+    if (!it->second.sharedVertices)
+        SDL_ReleaseGPUBuffer(device_, it->second.vertices);
     SDL_ReleaseGPUBuffer(device_, it->second.indices);
     meshes_.erase(it);
 }
 
 SDL_GPUGraphicsPipeline* SdlGpuRenderer::pipeline(const gfx::DrawState& state) {
-    const uint32_t key = packState(state);
+    const uint32_t key = packState(state) | uint32_t(stencilMode_) << 14 | uint32_t(mirrored_) << 16;
     if (auto it = pipelines_.find(key); it != pipelines_.end())
         return it->second;
 
@@ -501,7 +538,8 @@ SDL_GPUGraphicsPipeline* SdlGpuRenderer::pipeline(const gfx::DrawState& state) {
     info.rasterizer_state.cull_mode = state.cull == gfx::Cull::Back    ? SDL_GPU_CULLMODE_BACK
                                       : state.cull == gfx::Cull::Front ? SDL_GPU_CULLMODE_FRONT
                                                                        : SDL_GPU_CULLMODE_NONE;
-    info.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
+    info.rasterizer_state.front_face =
+        mirrored_ ? SDL_GPU_FRONTFACE_CLOCKWISE : SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
     if (state.depthBias) {
         // Towards the camera; depth runs 0 (near) to 1 (far).
         info.rasterizer_state.enable_depth_bias = true;
@@ -511,6 +549,16 @@ SDL_GPUGraphicsPipeline* SdlGpuRenderer::pipeline(const gfx::DrawState& state) {
     info.depth_stencil_state.enable_depth_test = state.depthTest;
     info.depth_stencil_state.enable_depth_write = state.depthWrite;
     info.depth_stencil_state.compare_op = state.depthEqual ? SDL_GPU_COMPAREOP_EQUAL : SDL_GPU_COMPAREOP_LESS_OR_EQUAL;
+    if (stencilMode_ != StencilMode::None) {
+        // Mark: 1 wherever drawn; Inside: drawn only where it's 1.
+        SDL_GPUStencilOpState op{};
+        op.fail_op = op.depth_fail_op = SDL_GPU_STENCILOP_KEEP;
+        op.pass_op = stencilMode_ == StencilMode::Mark ? SDL_GPU_STENCILOP_REPLACE : SDL_GPU_STENCILOP_KEEP;
+        op.compare_op = stencilMode_ == StencilMode::Mark ? SDL_GPU_COMPAREOP_ALWAYS : SDL_GPU_COMPAREOP_EQUAL;
+        info.depth_stencil_state.enable_stencil_test = true;
+        info.depth_stencil_state.front_stencil_state = info.depth_stencil_state.back_stencil_state = op;
+        info.depth_stencil_state.compare_mask = info.depth_stencil_state.write_mask = 0xff;
+    }
     info.target_info.color_target_descriptions = &target;
     info.target_info.num_color_targets = 1;
     info.target_info.depth_stencil_format = depthFormat_;
@@ -542,9 +590,15 @@ void SdlGpuRenderer::beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3& eye,
     depth.clear_depth = 1.0f;
     depth.load_op = SDL_GPU_LOADOP_CLEAR;
     depth.store_op = SDL_GPU_STOREOP_DONT_CARE;
-    depth.stencil_load_op = SDL_GPU_LOADOP_DONT_CARE;
-    depth.stencil_store_op = SDL_GPU_STOREOP_DONT_CARE;
+    // No marks to start with.
+    depth.clear_stencil = 0;
+    depth.stencil_load_op = hasStencil_ ? SDL_GPU_LOADOP_CLEAR : SDL_GPU_LOADOP_DONT_CARE;
+    depth.stencil_store_op = hasStencil_ ? SDL_GPU_STOREOP_STORE : SDL_GPU_STOREOP_DONT_CARE;
+    stencilMode_ = StencilMode::None;
+    mirrored_ = false;
     pass_ = SDL_BeginGPURenderPass(cmd_, &color, 1, &depth);
+    if (pass_)
+        SDL_SetGPUStencilReference(pass_, 1);
 }
 
 void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
@@ -646,6 +700,8 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
 }
 
 void SdlGpuRenderer::endFrame(const Surface* overlay) {
+    stencilMode_ = StencilMode::None; // the brightness pass draws everything
+    mirrored_ = false;
     if (pass_) {
         SDL_EndGPURenderPass(pass_);
         pass_ = nullptr;

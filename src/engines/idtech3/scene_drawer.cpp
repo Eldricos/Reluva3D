@@ -120,6 +120,7 @@ void SceneDrawer::drawView(const eliteforce::Scene& scene, const eliteforce::Vie
                            float time, bool firstView, WorldRenderer* world, const LightGrid* grid,
                            bool dynamicLights) {
     const std::vector<uint8_t>& refdef = view.refdef;
+    mainRefdef_ = refdef;
     const bool withWorld = world && !(readInt(refdef, 76) & kNoWorldModel);
     // refdef_t: fov y at 20, the eye at 24, the axes from 36: forward,
     // left, up.
@@ -143,7 +144,6 @@ void SceneDrawer::drawView(const eliteforce::Scene& scene, const eliteforce::Vie
         r_.clearDepth();
     r_.setView(viewProj, eye_);
     r_.setViewport(vx, vy, vw, vh);
-    constexpr float kLastOpaque = 5;
     // The view's dynamic lights (shots, explosions): on the level's solid
     // surfaces, and in the models' lighting.
     lights_.clear();
@@ -160,31 +160,239 @@ void SceneDrawer::drawView(const eliteforce::Scene& scene, const eliteforce::Vie
         std::array<uint8_t, 32> areaMask{};
         if (refdef.size() >= 112)
             std::copy(refdef.begin() + 80, refdef.begin() + 112, areaMask.begin());
-        world->setView(eye_, areaMask, viewProj);
+        world->setView(0, eye_, areaMask, viewProj);
         world->drawSky(time);
+        // A mirror or portal in view: what's seen through it first, inside
+        // its shape; then the rest over it, past its depth.
+        if (r_.hasStencil())
+            drawPortalView(*world, areaMask, readVec(refdef, 48), fovY, aspect, viewProj, time);
+    }
+    drawLayers(time, world && withWorld ? world : nullptr, false);
+}
+
+void SceneDrawer::drawLayers(float time, WorldRenderer* world, bool throughPortal) {
+    // The level's solid surfaces and models, then its translucent ones and
+    // the models' translucent parts, then effects. Through a mirror or
+    // portal, the player's own body (third person) is seen and their
+    // weapon (first person) isn't, as the original draws them.
+    constexpr float kLastOpaque = 5;
+    auto shown = [&](const Placed& p) { return throughPortal ? !p.firstPerson : !p.thirdPerson; };
+    if (world) {
         world->drawSurfaces(time, 0, kLastOpaque, true);
         for (const auto& [model, transform] : brushes_)
             world->drawModel(model, transform, time, 0, kLastOpaque);
         world->drawDynamicLights(lights_);
     }
     for (const Placed& p : placed_) {
-        r_.setDepthRange(p.depthHack ? refent::kDepthHackRange : 1);
+        if (!shown(p))
+            continue;
+        r_.setDepthRange(p.depthHack && !throughPortal ? refent::kDepthHackRange : 1);
         models_.draw(p.model, p.frame, p.transform, p.light, time - p.shaderTime, p.skin, 0, kLastOpaque, p.shader,
                      &p.color, p.oldFrame, p.backLerp);
     }
     r_.setDepthRange(1);
-    if (withWorld) {
+    if (world) {
         world->drawSurfaces(time, kLastOpaque + 0.5f, 1e9f, true);
         for (const auto& [model, transform] : brushes_)
             world->drawModel(model, transform, time, kLastOpaque + 0.5f);
     }
     for (const Placed& p : placed_) {
-        r_.setDepthRange(p.depthHack ? refent::kDepthHackRange : 1);
+        if (!shown(p))
+            continue;
+        r_.setDepthRange(p.depthHack && !throughPortal ? refent::kDepthHackRange : 1);
         models_.draw(p.model, p.frame, p.transform, p.light, time - p.shaderTime, p.skin, kLastOpaque + 0.5f, 1e9f,
                      p.shader, &p.color, p.oldFrame, p.backLerp);
     }
     drawEffects(time);
     r_.setDepthRange(1);
+}
+
+namespace {
+
+using V3 = gfx::Vec3;
+V3 sub3(const V3& a, const V3& b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
+float dot3(const V3& a, const V3& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+V3 cross3(const V3& a, const V3& b) {
+    return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
+}
+V3 scale3(const V3& a, float s) { return {a[0] * s, a[1] * s, a[2] * s}; }
+V3 add3(const V3& a, const V3& b) { return {a[0] + b[0], a[1] + b[1], a[2] + b[2]}; }
+
+// `v` turned `degrees` about the unit axis `axis`.
+V3 rotateAbout(const V3& v, const V3& axis, float degrees) {
+    const float r = degrees * kPi / 180, c = std::cos(r), s = std::sin(r);
+    return add3(add3(scale3(v, c), scale3(cross3(axis, v), s)), scale3(axis, dot3(axis, v) * (1 - c)));
+}
+
+// A 4x4 matrix's inverse (column-major), by Gauss-Jordan elimination.
+gfx::Mat4 inverse(const gfx::Mat4& m) {
+    double a[4][8] = {};
+    for (int r = 0; r < 4; ++r) {
+        for (int c = 0; c < 4; ++c)
+            a[r][c] = m[size_t(c * 4 + r)];
+        a[r][4 + r] = 1;
+    }
+    for (int c = 0; c < 4; ++c) {
+        int pivot = c;
+        for (int r = c + 1; r < 4; ++r)
+            if (std::fabs(a[r][c]) > std::fabs(a[pivot][c]))
+                pivot = r;
+        std::swap(a[c], a[pivot]);
+        const double p = a[c][c] != 0 ? a[c][c] : 1e-12;
+        for (double& v : a[c])
+            v /= p;
+        for (int r = 0; r < 4; ++r)
+            if (r != c) {
+                const double f = a[r][c];
+                for (int k = 0; k < 8; ++k)
+                    a[r][k] -= f * a[c][k];
+            }
+    }
+    gfx::Mat4 out{};
+    for (int r = 0; r < 4; ++r)
+        for (int c = 0; c < 4; ++c)
+            out[size_t(c * 4 + r)] = float(a[r][4 + c]);
+    return out;
+}
+
+} // namespace
+
+void SceneDrawer::drawPortalView(WorldRenderer& world, const std::array<uint8_t, 32>& areaMask, const gfx::Vec3& left,
+                                 float fovY, float aspect, const gfx::Mat4& mainViewProj, float time) {
+    // As the original: the nearest mirror or portal surface in view with a
+    // portal entity within 64 units of its plane; a portal (not a mirror)
+    // only within its shader's range.
+    const auto portals = world.visiblePortals(eye_);
+    const PortalEntity* entity = nullptr;
+    WorldRenderer::Portal surface;
+    for (const auto& p : portals) {
+        for (const PortalEntity& e : portalEntities_) {
+            const float d = dot3(e.origin, p.normal) - p.dist;
+            if (d > 64 || d < -64)
+                continue;
+            const bool mirror = e.origin == e.oldOrigin;
+            float d2 = 0;
+            for (size_t k = 0; k < 3; ++k) {
+                const float c = std::clamp(eye_[k], p.mins[k], p.maxs[k]) - eye_[k];
+                d2 += c * c;
+            }
+            if (!mirror && d2 > p.range * p.range)
+                continue;
+            entity = &e;
+            surface = p;
+            break;
+        }
+        if (entity)
+            break;
+    }
+    if (!entity)
+        return;
+    // The surface's axes (its normal, facing the eye, first) and where the
+    // view comes out: a mirror's own, turned back; a portal's camera.
+    std::array<V3, 3> sAxis;
+    sAxis[0] = surface.normal;
+    {
+        // Any direction across the normal.
+        const V3 helper = std::fabs(sAxis[0][2]) < 0.9f ? V3{0, 0, 1} : V3{1, 0, 0};
+        sAxis[1] = cross3(helper, sAxis[0]);
+        const float l = std::sqrt(dot3(sAxis[1], sAxis[1]));
+        sAxis[1] = scale3(sAxis[1], 1 / l);
+        sAxis[2] = cross3(sAxis[0], sAxis[1]);
+    }
+    V3 sOrigin;
+    std::array<V3, 3> cAxis;
+    V3 cOrigin;
+    if (entity->origin == entity->oldOrigin) {
+        sOrigin = scale3(sAxis[0], surface.dist);
+        cOrigin = sOrigin;
+        cAxis = {scale3(sAxis[0], -1), sAxis[1], sAxis[2]};
+    } else {
+        const float d = dot3(entity->origin, sAxis[0]) - surface.dist;
+        sOrigin = sub3(entity->origin, scale3(sAxis[0], d));
+        cOrigin = entity->oldOrigin;
+        cAxis = {scale3(entity->axes[0], -1), scale3(entity->axes[1], -1), entity->axes[2]};
+        // Turning, as its frames and skin number say.
+        float turn = 0;
+        if (entity->oldFrame)
+            turn = entity->frame ? time * float(entity->frame)
+                                 : float(entity->skinNum) + std::sin(time * 1000 * 0.003f) * 4;
+        else
+            turn = float(entity->skinNum);
+        if (turn != 0) {
+            cAxis[1] = rotateAbout(cAxis[1], cAxis[0], turn);
+            cAxis[2] = cross3(cAxis[0], cAxis[1]);
+        }
+    }
+    auto mirrorVector = [&](const V3& v) {
+        V3 out{};
+        for (size_t i = 0; i < 3; ++i)
+            out = add3(out, scale3(cAxis[i], dot3(v, sAxis[i])));
+        return out;
+    };
+    auto mirrorPoint = [&](const V3& p) { return add3(mirrorVector(sub3(p, sOrigin)), cOrigin); };
+    // The main view's placement taken through it.
+    const V3 forward = readVec(mainRefdef_, 36), up = readVec(mainRefdef_, 60);
+    const V3 eye = mirrorPoint(eye_);
+    const V3 f2 = mirrorVector(forward), l2 = mirrorVector(left), u2 = mirrorVector(up);
+    const bool mirrored = dot3(cross3(f2, l2), u2) < 0; // turned inside out: drawn flipped
+    const gfx::Mat4 view = gfx::lookAlong(eye, f2, u2);
+    gfx::Mat4 proj = gfx::perspective(fovY, aspect, 4, 32768);
+    if (mirrored)
+        for (int c = 0; c < 4; ++c)
+            proj[size_t(c * 4)] = -proj[size_t(c * 4)];
+    // Nothing between the camera and the surface: the near plane laid on
+    // the surface's plane (as seen from the camera, facing away from it),
+    // so what's behind it is clipped (Lengyel's oblique near plane, for
+    // depth 0 to 1).
+    {
+        const V3 n = scale3(cAxis[0], -1);
+        const float d = dot3(cOrigin, n);
+        const gfx::Mat4 viewInverse = inverse(view);
+        // The plane in the view's own space: (view^-1)^T times (n, -d).
+        std::array<float, 4> plane{};
+        const std::array<float, 4> world{n[0], n[1], n[2], -d};
+        for (int j = 0; j < 4; ++j)
+            for (int i = 0; i < 4; ++i)
+                plane[size_t(j)] += viewInverse[size_t(j * 4 + i)] * world[size_t(i)];
+        const gfx::Mat4 projInverse = inverse(proj);
+        const std::array<float, 4> corner{plane[0] > 0 ? 1.0f : -1.0f, plane[1] > 0 ? 1.0f : -1.0f, 1, 1};
+        std::array<float, 4> q{};
+        for (int r = 0; r < 4; ++r)
+            for (int c = 0; c < 4; ++c)
+                q[size_t(r)] += projInverse[size_t(c * 4 + r)] * corner[size_t(c)];
+        const float s = plane[0] * q[0] + plane[1] * q[1] + plane[2] * q[2] + plane[3] * q[3];
+        if (std::fabs(s) > 1e-9f)
+            for (int c = 0; c < 4; ++c)
+                proj[size_t(c * 4 + 2)] = plane[size_t(c)] / s;
+    }
+    const gfx::Mat4 viewProj = gfx::multiply(proj, view);
+
+    // Where the surface is on the screen, marked; the view through it
+    // drawn only there (its own sky first), turned inside out for a mirror.
+    gfx::DrawState shape;
+    shape.src = gfx::Blend::Zero;
+    shape.dst = gfx::Blend::One; // colours kept
+    shape.depthTest = shape.depthWrite = false;
+    shape.cull = gfx::Cull::None;
+    r_.setStencilMode(gfx::Renderer3D::StencilMode::Mark);
+    world.drawSurfaceShape(surface.surface, shape);
+    r_.setStencilMode(gfx::Renderer3D::StencilMode::Inside);
+    r_.setMirrored(mirrored);
+    r_.setView(viewProj, eye);
+    world.setView(1, entity->oldOrigin, areaMask, viewProj);
+    world.drawSky(time);
+    drawLayers(time, &world, true);
+    // Back to the main view: the surface's depth written, so nothing
+    // behind it draws over what's seen through it.
+    r_.setMirrored(false);
+    r_.setStencilMode(gfx::Renderer3D::StencilMode::None);
+    r_.clearDepth();
+    r_.setView(mainViewProj, eye_);
+    world.setView(0, eye_, areaMask, mainViewProj);
+    gfx::DrawState depth = shape;
+    depth.depthTest = depth.depthWrite = true;
+    world.drawSurfaceShape(surface.surface, depth);
+    ++portalViews_;
 }
 
 std::array<float, 4> SceneDrawer::entityColor(const std::vector<uint8_t>& e) {
@@ -375,6 +583,7 @@ void SceneDrawer::placeEntities(const eliteforce::Scene& scene, const eliteforce
     // The view's entities: models where the program put them, and effects
     // as quads facing the eye (refdef_t's axes: left at 48, up at 60).
     placed_.clear();
+    portalEntities_.clear();
     brushes_.clear();
     effects_.clear();
     effectVertices_.clear();
@@ -408,13 +617,23 @@ void SceneDrawer::placeEntities(const eliteforce::Scene& scene, const eliteforce
     }
     for (size_t i = view.firstEntity; i < view.firstEntity + view.entityCount && i < scene.entities.size(); ++i) {
         const std::vector<uint8_t>& e = scene.entities[i].bytes;
+        if (readInt(e, refent::Type) == refent::TypePortal) {
+            // A mirror's or portal's camera (Quake III's portal surface,
+            // its type one on in Elite Force's numbering): where it is,
+            // where it looks from (the same for a mirror), its axes, and
+            // how it turns (frame, old frame, skin number).
+            portalEntities_.push_back({readVec(e, refent::Origin), readVec(e, refent::OldOrigin),
+                                       {readVec(e, refent::Axes), readVec(e, refent::Axes + 12),
+                                        readVec(e, refent::Axes + 24)},
+                                       readInt(e, refent::Frame), readInt(e, refent::OldFrame),
+                                       readInt(e, refent::SkinNum)});
+            continue;
+        }
         if (readInt(e, refent::Type) != refent::TypeModel) {
             addEffect(e, left, up, time);
             continue;
         }
         const int32_t flags = readInt(e, refent::Flags);
-        if (flags & refent::ThirdPerson)
-            continue;
         // One of the level's own models (*1, *2...: doors, lifts), where the
         // game has moved it.
         if (const std::string& n = name(handles_.models, readInt(e, refent::Model)); n.size() > 1 && n[0] == '*') {
@@ -449,6 +668,8 @@ void SceneDrawer::placeEntities(const eliteforce::Scene& scene, const eliteforce
         p.color = entityColor(e);
         p.shaderTime = shaderTime(e, time);
         p.depthHack = flags & refent::DepthHack;
+        p.thirdPerson = flags & refent::ThirdPerson;
+        p.firstPerson = flags & refent::FirstPerson;
         placed_.push_back(p);
     }
 }

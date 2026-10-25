@@ -35,6 +35,7 @@ public:
                      gfx::MeshId& out) override;
     void destroyMesh(gfx::MeshId id) override;
     Error setMeshIndices(gfx::MeshId id, const std::vector<uint32_t>& indices) override;
+    Error createIndexedMesh(gfx::MeshId vertices, const std::vector<uint32_t>& indices, gfx::MeshId& out) override;
     int width() const override { return width_; }
     int height() const override { return height_; }
     std::string deviceName() const override;
@@ -47,6 +48,9 @@ public:
     void setViewport(int x, int y, int w, int h) override;
     void setDepthRange(float maxDepth) override;
     void clearDepth() override;
+    bool hasStencil() const override { return hasStencil_; }
+    void setStencilMode(StencilMode mode) override;
+    void setMirrored(bool mirrored) override { mirrored_ = mirrored; }
     void setGamma(float gamma) override { gamma_ = gamma > 0.05f ? gamma : 1.0f; }
     void setView(const gfx::Mat4& viewProj, const gfx::Vec3& eye) override {
         viewProj_ = viewProj;
@@ -63,6 +67,7 @@ private:
         SDL_GPUBuffer* vertices = nullptr;
         SDL_GPUBuffer* indices = nullptr;
         uint32_t indexBytes = 0; // the index buffer's size
+        bool sharedVertices = false; // another mesh's (createIndexedMesh)
     };
 
     // Copies `size` bytes into a GPU buffer or texture region through a
@@ -75,6 +80,9 @@ private:
     SDL_Renderer* renderer_;
     int width_ = 0, height_ = 0;
     SDL_GPUTextureFormat depthFormat_ = SDL_GPU_TEXTUREFORMAT_D16_UNORM;
+    bool hasStencil_ = false;
+    StencilMode stencilMode_ = StencilMode::None;
+    bool mirrored_ = false;
     SDL_GPUTexture* color_ = nullptr; // the frame, wrapped by colorView_ for the renderer
     SDL_GPUTexture* depth_ = nullptr;
     SDL_Texture* colorView_ = nullptr;

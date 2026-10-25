@@ -33,7 +33,7 @@ constexpr int32_t kNoWorldModel = 1;
 // and how far back towards it, custom skin.
 namespace refent {
 constexpr size_t Type = 0, Flags = 4, Model = 8, LightingOrigin = 12, Axes = 28, Origin = 68, Frame = 80,
-                 OldFrame = 96, BackLerp = 100, CustomSkin = 108;
+                 OldFrame = 96, BackLerp = 100, SkinNum = 104, CustomSkin = 108;
 constexpr int32_t TypeModel = 0;
 // Elite Force's effect types, read from what its client game adds when
 // firing (see eliteforce-syscalls.md): a sprite facing the camera (1:
@@ -49,6 +49,9 @@ constexpr int32_t TypeModel = 0;
 // the old origin (14: width 132, jitter 136, texture scale 140).
 constexpr int32_t TypeSprite = 1, TypeQuad = 2, TypeLine = 9, TypeTaperedLine = 11, TypeCurve = 12,
                   TypeCylinder = 13, TypeBolt = 14;
+// A mirror's or portal's camera (game-run -cgame on a map with a mirror:
+// origin and old origin the same, at the mirror; axes as cleared).
+constexpr int32_t TypePortal = 8;
 constexpr size_t OldOrigin = 84, CustomShader = 112, Rgba = 116, ShaderTime = 128, Rotation = 132, Radius = 136,
                  Width = 132, EndWidth = 136, Repeat = 140, Control1 = 136, Control2 = 148, Jitter = 136,
                  CylinderRepeat = 144;
@@ -56,7 +59,7 @@ constexpr size_t OldOrigin = 84, CustomShader = 112, Rgba = 116, ShaderTime = 12
 // player's own body); drawn in front of everything else, its depth kept
 // to the nearest 0.3 of the range (the player's weapon and its flash);
 // lit from the lighting origin.
-constexpr int32_t ThirdPerson = 2, DepthHack = 8, UseLightingOrigin = 0x80;
+constexpr int32_t ThirdPerson = 2, FirstPerson = 4, DepthHack = 8, UseLightingOrigin = 0x80;
 constexpr float kDepthHackRange = 0.3f;
 } // namespace refent
 
@@ -104,6 +107,7 @@ public:
     size_t effectCount() const { return effects_.size(); }
     size_t lightCount() const { return lights_.size(); }
     int otherEntities() const { return otherEntities_; }
+    int portalViews() const { return portalViews_; }
     const std::set<std::string>& unloadable() const { return unloadable_; }
 
 private:
@@ -137,9 +141,22 @@ private:
         std::array<float, 4> color{1, 1, 1, 1};
         float shaderTime = 0;   // seconds: when its shader animations start
         bool depthHack = false; // kept in front (the player's weapon)
+        bool thirdPerson = false, firstPerson = false; // only through mirrors; not through them
     };
     std::vector<Placed> placed_;
     std::vector<std::pair<int, gfx::Mat4>> brushes_; // the level's models (*N) placed this view
+    // Mirrors' and portals' cameras this view.
+    struct PortalEntity {
+        gfx::Vec3 origin{}, oldOrigin{};
+        std::array<gfx::Vec3, 3> axes{};
+        int32_t frame = 0, oldFrame = 0, skinNum = 0;
+    };
+    std::vector<PortalEntity> portalEntities_;
+    std::vector<uint8_t> mainRefdef_;
+    int portalViews_ = 0; // drawn so far, for the info line
+    void drawLayers(float time, WorldRenderer* world, bool throughPortal);
+    void drawPortalView(WorldRenderer& world, const std::array<uint8_t, 32>& areaMask, const gfx::Vec3& left,
+                        float fovY, float aspect, const gfx::Mat4& mainViewProj, float time);
 
     // This view's effects (sprites, beams, marks): in one mesh, each with
     // the program's shader handle.

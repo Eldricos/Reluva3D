@@ -47,6 +47,8 @@ public:
         Lighting lighting = Lighting::Lightmap;
         std::vector<Stage> stages;
         std::array<gfx::Deform, 2> deforms{};
+        bool portal = false;    // a mirror or portal surface
+        float portalRange = 0;  // beyond which a portal's view isn't drawn (mirrors: always is)
     };
 
     ShaderCache(gfx::Renderer3D& renderer, const SearchSet& files, const ShaderLibrary& shaders);

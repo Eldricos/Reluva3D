@@ -257,8 +257,14 @@ ShaderCache::Material ShaderCache::makeMaterial(const ShaderDef& def, Lighting l
         m.skip = true;
         return m;
     }
-    if (def.portal)
-        note("portal (drawn as a plain surface)");
+    // A mirror or portal: the view through it is drawn first (SceneDrawer),
+    // this over it; how far off it's drawn, the alphaGen portal range.
+    if (def.portal) {
+        m.portal = true;
+        for (const ShaderStage& s : def.stages)
+            if (s.alphaGen == ShaderStage::AlphaGen::Portal)
+                m.portalRange = std::max(m.portalRange, s.portalRange);
+    }
 
     for (const ShaderStage& s : def.stages)
         m.stages.push_back(makeStage(s, def));
@@ -452,7 +458,8 @@ void ShaderCache::draw(int material, const gfx::DrawCall& base, gfx::TextureId l
         case A::Const: call.color[3] = d.alphaConst; break;
         case A::Entity: call.color[3] = ent[3]; break;
         case A::OneMinusEntity: call.color[3] = 1 - ent[3]; break;
-        default: break; // identity, entity, lightingSpecular, portal: opaque
+        case A::Portal: call.fogDistance = d.portalRange; break; // see-through near, the stage's own far off
+        default: break; // identity, lightingSpecular: opaque
         }
 
         if (m.lighting == Lighting::TwoD) {

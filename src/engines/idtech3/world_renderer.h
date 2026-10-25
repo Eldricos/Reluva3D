@@ -52,14 +52,30 @@ public:
     // original's dynamic lights: each pixel brightened in proportion to
     // its colour. After the opaque surfaces are drawn.
     void drawDynamicLights(const std::vector<gfx::DynamicLight>& lights) const;
-    // Where the view is and which areas closed doors hide (refdef_t's area
-    // mask: a bit set for each hidden one): from then on drawSurfaces draws
+    // Where a view is and which areas closed doors hide (refdef_t's area
+    // mask: a bit set for each hidden one): from then on the draws are of
     // only the level's surfaces that can be seen from there, as the
-    // original's renderer does. Without it, every surface is drawn.
-    // `viewProj` (the view's projection times its placement) leaves out,
-    // each frame, the surfaces wholly outside the view.
-    void setView(const std::array<float, 3>& eye, const std::array<uint8_t, 32>& areaMask,
+    // original's renderer does, until another setView. `viewProj` (the
+    // view's projection times its placement) leaves out, each frame, the
+    // surfaces wholly outside the view. Each view `slot` (0 the player's,
+    // 1 a mirror's or portal's) keeps its own selection. Without it, every
+    // surface is drawn.
+    void setView(int slot, const std::array<float, 3>& eye, const std::array<uint8_t, 32>& areaMask,
                  const gfx::Mat4& viewProj);
+    // The mirror and portal surfaces the current view draws, nearest
+    // first: the plane they lie in (its normal facing `eye`), bounds, and
+    // how far off a portal's view is drawn (0: a mirror's always is).
+    struct Portal {
+        int surface = -1;
+        std::array<float, 3> normal{};
+        float dist = 0;
+        std::array<float, 3> mins{}, maxs{};
+        float range = 0;
+    };
+    std::vector<Portal> visiblePortals(const std::array<float, 3>& eye) const;
+    // A mirror or portal surface's triangles in the current view, drawn
+    // with `state` (untextured: for marking where it is, or its depth).
+    void drawSurfaceShape(int surface, const gfx::DrawState& state) const;
 
     size_t batchCount() const { return batches_.size(); }
     // What the last setView found, for the info line: the eye's cluster
@@ -84,7 +100,6 @@ private:
         int fog = -1;      // index into fogs_, or -1
         uint32_t firstIndex = 0, indexCount = 0;
         int model = 0; // the map's model the surfaces belong to (0: the world)
-        uint32_t visibleFirst = 0, visibleCount = 0; // its triangles that can be seen (setView)
     };
     struct Fog {
         std::array<float, 3> color{};
@@ -123,19 +138,32 @@ private:
     std::vector<int32_t> visLeafSurfaces_;
     int32_t visClusters_ = 0, visClusterBytes_ = 0;
     std::vector<uint8_t> visData_;
-    bool culling_ = false;
-    int viewCluster_ = -2;
-    std::array<uint8_t, 32> viewMask_{};
-    std::vector<uint32_t> visibleMark_; // per surface: visibleStamp_ when past the vis data and doors
-    uint32_t visibleStamp_ = 0;
-    std::vector<int32_t> pvsSurfaces_; // those surfaces
-    gfx::Mat4 viewProj_{};
-    // This frame's: the surfaces inside the view (frameMark_ == frameStamp_),
-    // where each starts in the index list, and the list.
-    std::vector<uint32_t> frameMark_, frameFirst_;
-    uint32_t frameStamp_ = 0;
-    std::vector<uint32_t> frameIndices_;
-    size_t frameSurfaces_ = 0;
+    // A view's selection (setView): its cluster and area mask, the
+    // surfaces past them (visibleMark == visibleStamp), and this frame's
+    // inside the view (frameMark == frameStamp), where each starts in its
+    // index list, the list (in its own mesh, over the level's vertices)
+    // and where each batch's part of it is.
+    struct ViewSlot {
+        gfx::MeshId mesh = 0;
+        bool culling = false;
+        int cluster = -2;
+        std::array<uint8_t, 32> mask{};
+        std::vector<uint32_t> visibleMark;
+        uint32_t visibleStamp = 0;
+        std::vector<int32_t> pvsSurfaces;
+        gfx::Mat4 viewProj{};
+        std::vector<uint32_t> frameMark, frameFirst;
+        uint32_t frameStamp = 0;
+        std::vector<uint32_t> frameIndices;
+        size_t frameSurfaces = 0;
+        std::vector<std::pair<uint32_t, uint32_t>> batchRanges; // first, count
+    };
+    std::array<ViewSlot, 2> slots_;
+    int activeSlot_ = 0;
+    const ViewSlot* culled() const { return slots_[size_t(activeSlot_)].culling ? &slots_[size_t(activeSlot_)] : nullptr; }
+    gfx::MeshId drawMesh() const { return culled() ? culled()->mesh : mesh_; }
+    // The level's mirror and portal surfaces.
+    std::vector<Portal> portals_;
     size_t triangles_ = 0;
 
     // The sky: a box around the camera, the far box's six sides then the

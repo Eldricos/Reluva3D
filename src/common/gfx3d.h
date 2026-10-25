@@ -166,6 +166,9 @@ public:
     // Indices refer to `vertices`; every three make a triangle.
     virtual Error createMesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices,
                              MeshId& out) = 0;
+    // A mesh of its own indices over another's vertices (shared, not
+    // copied; destroyed before that one), for another view's selection.
+    virtual Error createIndexedMesh(MeshId vertices, const std::vector<uint32_t>& indices, MeshId& out) = 0;
     // Replaces a mesh's indices (its vertices kept), as a level's visible
     // surfaces change.
     virtual Error setMeshIndices(MeshId id, const std::vector<uint32_t>& indices) = 0;
@@ -198,6 +201,19 @@ public:
     // hidden by them (a second scene over the first, as the original
     // clears depth for each view).
     virtual void clearDepth() = 0;
+    // A per-pixel mark (stencil) for drawing one view inside part of
+    // another, as a mirror: Mark marks where the draws that follow land
+    // (whatever their depth); Inside draws only where marked; None (the
+    // default, again each frame) neither. The marks are cleared each frame
+    // and kept by clearDepth(). Without a stencil buffer, false and no
+    // marks.
+    enum class StencilMode : uint8_t { None, Mark, Inside };
+    virtual bool hasStencil() const = 0;
+    virtual void setStencilMode(StencilMode mode) = 0;
+    // A mirrored view: the draws that follow have their faces' winding
+    // the other way round, so culling keeps the same faces (until set
+    // back, and each frame).
+    virtual void setMirrored(bool mirrored) = 0;
     // The brightness the finished frame is shown with: each colour raised
     // to 1 / gamma (1: as drawn), as the original's brightness setting.
     virtual void setGamma(float gamma) = 0;
