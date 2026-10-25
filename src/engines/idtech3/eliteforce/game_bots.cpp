@@ -212,15 +212,15 @@ std::vector<int32_t> GameHost::botSnapshotEntities(int32_t clientNum) {
     // game is sent (not SVF_NOCLIENT), but itself, that its eyes could see
     // (the PVS); brush models always.
     std::vector<int32_t> out;
-    const Vec3f origin = entityVec(clientNum, ent::CurrentOrigin);
+    const Vec3f origin = entityVec(clientNum, layout_.currentOrigin);
     const Vec3f eye{origin[0], origin[1], origin[2] + 26};
     const int32_t svFlags = svFlagsOffset();
     const int eyeLeaf = world_ ? world_->leafAt(eye) : -1;
     for (const int32_t n : linked_) {
         if (n == clientNum || (entityInt(n, svFlags) & 1))
             continue;
-        if (eyeLeaf >= 0 && !entityInt(n, ent::BModel)) {
-            const int leaf = world_->leafAt(entityVec(n, ent::CurrentOrigin));
+        if (eyeLeaf >= 0 && !entityInt(n, layout_.bmodel)) {
+            const int leaf = world_->leafAt(entityVec(n, layout_.currentOrigin));
             if (leaf >= 0 && !map_->clusterVisible(map_->leafs[size_t(eyeLeaf)].cluster, map_->leafs[size_t(leaf)].cluster))
                 continue;
         }
@@ -390,8 +390,8 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
             // The linked brush entity with that model, as the original's
             // bot library finds a lift.
             for (const int32_t n : linked_)
-                if (entityInt(n, ent::BModel) && entityInt(n, ent::ModelIndex) == model) {
-                    origin = entityVec(n, ent::CurrentOrigin);
+                if (entityInt(n, layout_.bmodel) && entityInt(n, layout_.modelIndex) == model) {
+                    origin = entityVec(n, layout_.currentOrigin);
                     return true;
                 }
             return false;

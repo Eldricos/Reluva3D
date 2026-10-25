@@ -5,6 +5,7 @@
 
 #include "common/archive.h"
 #include "common/types.h"
+#include "engines/idtech3/eliteforce/game_layout.h"
 #include "engines/idtech3/bindings.h"
 #include "engines/idtech3/botlib/bot_library.h"
 #include "engines/idtech3/bsp.h"
@@ -102,6 +103,9 @@ public:
 
     Qvm& vm() { return vm_; }
     int32_t levelTime() const { return levelTime_; }
+    // The layout the game code was built with (1.0 or patch 1.2's), known
+    // once it's loaded.
+    const GameLayout& layout() const { return layout_; }
 
     // What the game has told the engine.
     struct GameData {
@@ -145,7 +149,7 @@ public:
     };
     // Milliseconds a server frame: 20 a second, Quake III's default sv_fps.
     static constexpr int32_t kFrameMs = 50;
-    static constexpr int32_t kPlayerStateSize = 460, kEntityStateSize = 204;
+    static constexpr int32_t kPlayerStateSize = 460, kEntityStateSize = 204; // 1.0's; see layout()
     // A word of the player state the original's network protocol doesn't
     // send, which snapshots carry as 0.
     static constexpr int32_t kPlayerStateServerOnly = 48;
@@ -210,6 +214,7 @@ private:
     std::vector<std::string> args_; // the command being handled
     size_t entityPos_ = 0;
     GameData gameData_;
+    GameLayout layout_ = kLayout10;
     int snapshotsMade_ = 0;
     std::set<int32_t> linked_;
     std::map<int32_t, std::string> configstrings_;

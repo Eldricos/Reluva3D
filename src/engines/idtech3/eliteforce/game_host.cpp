@@ -75,6 +75,7 @@ Error GameHost::load() {
         return Error::fail("vm/qagame.qvm: " + err.message);
     if (Error err = vm_.load(data))
         return Error::fail("vm/qagame.qvm: " + err.message);
+    layout_ = detectLayout(vm_);
     return Error::success();
 }
 
@@ -220,7 +221,7 @@ int32_t GameHost::entityNumber(int32_t address) const {
 }
 
 int32_t GameHost::entityAddress(int32_t number) const {
-    if (number < 0 || number >= gameData_.count || gameData_.entitySize < ent::SharedEnd)
+    if (number < 0 || number >= gameData_.count || gameData_.entitySize < layout_.sharedEnd)
         return -1;
     return gameData_.entities + number * gameData_.entitySize;
 }
@@ -274,6 +275,8 @@ std::pair<int, int> GameHost::svFlagsEvidence() {
 }
 
 int32_t GameHost::svFlagsOffset() {
+    if (layout_.svFlags >= 0)
+        return layout_.svFlags;
     const auto [at208, at212] = svFlagsEvidence();
     return at208 > at212 ? 208 : 212;
 }
@@ -282,10 +285,11 @@ GameHost::Snapshot GameHost::snapshot(int32_t clientNum) {
     ++snapshotsMade_;
     Snapshot snap;
     snap.serverTime = levelTime_;
-    snap.playerState.assign(size_t(kPlayerStateSize), 0);
+    const int32_t size = layout_.playerStateSize;
+    snap.playerState.assign(size_t(size), 0);
     const int32_t client = gameData_.clients + clientNum * gameData_.clientSize;
-    if (gameData_.clientSize >= kPlayerStateSize && vm_.valid(client, kPlayerStateSize))
-        std::memcpy(snap.playerState.data(), &vm_.memory()[size_t(client)], size_t(kPlayerStateSize));
+    if (gameData_.clientSize >= size && vm_.valid(client, size))
+        std::memcpy(snap.playerState.data(), &vm_.memory()[size_t(client)], size_t(size));
     // The original sends the player state over its network protocol, which
     // carries only some fields: the rest reach the client game as 0, even
     // on a listen server. The word at 48, a timer of the server's (set to
@@ -313,7 +317,7 @@ GameHost::Snapshot GameHost::snapshot(int32_t clientNum) {
     // standing view height), each not joined to its area hidden. Outside
     // any area, or with cm_noAreas, none.
     if (world_ && areaPortals_ && !(cvars_.find("cm_noAreas") && cvars_.integer("cm_noAreas"))) {
-        Vec3f eye = entityVec(clientNum, ent::CurrentOrigin);
+        Vec3f eye = entityVec(clientNum, layout_.currentOrigin);
         eye[2] += 26;
         const int area = world_->leafArea(world_->leafAt(eye));
         if (area >= 0)
@@ -331,14 +335,14 @@ void GameHost::linkEntity(int32_t address) {
     linked_.insert(n);
     // Entities without the shared part (not Elite Force's layout): only
     // recorded.
-    if (gameData_.entitySize < ent::SharedEnd || !vm_.checkWrite(address, ent::SharedEnd))
+    if (gameData_.entitySize < layout_.sharedEnd || !vm_.checkWrite(address, layout_.sharedEnd))
         return;
     // The box it fills in the world, a unit larger all round (moves stop
     // just short of edges); a turned brush model by its farthest corner.
-    const Vec3f origin = readVec(address + ent::CurrentOrigin), angles = readVec(address + ent::CurrentAngles);
-    const Vec3f mins = readVec(address + ent::Mins), maxs = readVec(address + ent::Maxs);
+    const Vec3f origin = readVec(address + layout_.currentOrigin), angles = readVec(address + layout_.currentAngles);
+    const Vec3f mins = readVec(address + layout_.mins), maxs = readVec(address + layout_.maxs);
     Vec3f absMin{}, absMax{};
-    if (vm_.readInt(address + ent::BModel) && (angles[0] || angles[1] || angles[2])) {
+    if (vm_.readInt(address + layout_.bmodel) && (angles[0] || angles[1] || angles[2])) {
         float radius = 0;
         for (int i = 0; i < 3; ++i) {
             const float m = std::max(std::abs(mins[size_t(i)]), std::abs(maxs[size_t(i)]));
@@ -359,21 +363,21 @@ void GameHost::linkEntity(int32_t address) {
         absMin[size_t(i)] -= 1;
         absMax[size_t(i)] += 1;
     }
-    writeVec(address + ent::AbsMin, absMin);
-    writeVec(address + ent::AbsMax, absMax);
-    vm_.writeInt(address + ent::Linked, 1);
+    writeVec(address + layout_.absMin, absMin);
+    writeVec(address + layout_.absMax, absMax);
+    vm_.writeInt(address + layout_.linked, 1);
     // Its size for the client game, as the original's server encodes it:
     // a brush model's marker, or a solid box's half width, depth below
     // and height above (+32), a byte each; 0 for what isn't solid.
     int32_t solid = 0;
     constexpr int32_t kSolidOrBody = 1 | 0x2000000;
-    if (vm_.readInt(address + ent::BModel)) {
-        solid = ent::kSolidBrushModel;
-    } else if (vm_.readInt(address + ent::Contents) & kSolidOrBody) {
+    if (vm_.readInt(address + layout_.bmodel)) {
+        solid = kSolidBrushModel;
+    } else if (vm_.readInt(address + layout_.contents) & kSolidOrBody) {
         const auto clampByte = [](float v) { return std::clamp(int32_t(v), 1, 255); };
         solid = (clampByte(maxs[2] + 32) << 16) | (clampByte(-mins[2]) << 8) | clampByte(maxs[0]);
     }
-    vm_.writeInt(address + ent::Solid, solid);
+    vm_.writeInt(address + layout_.solid, solid);
 }
 
 std::pair<int, int> GameHost::entityAreas(int32_t n) {
@@ -384,7 +388,7 @@ std::pair<int, int> GameHost::entityAreas(int32_t n) {
     if (!world_)
         return areas;
     std::vector<int> leafs;
-    world_->boxLeafs(entityVec(n, ent::AbsMin), entityVec(n, ent::AbsMax), leafs);
+    world_->boxLeafs(entityVec(n, layout_.absMin), entityVec(n, layout_.absMax), leafs);
     for (int leaf : leafs) {
         const int area = world_->leafArea(leaf);
         if (area < 0)
@@ -418,36 +422,36 @@ TraceResult GameHost::traceMove(const Vec3f& start, const Vec3f& mins, const Vec
         moveMin[size_t(i)] = std::min(start[size_t(i)], end[size_t(i)]) + mins[size_t(i)] - 1;
         moveMax[size_t(i)] = std::max(start[size_t(i)], end[size_t(i)]) + maxs[size_t(i)] + 1;
     }
-    const int32_t passOwner = passEntity >= 0 ? entityInt(passEntity, ent::OwnerNum) : -1;
+    const int32_t passOwner = passEntity >= 0 ? entityInt(passEntity, layout_.ownerNum) : -1;
     for (int32_t n : linked_) {
         if (best.allSolid || !entities)
             break;
         // Not the mover itself, nor what it owns or what owns it.
-        if (n == passEntity || (passEntity >= 0 && (entityInt(n, ent::OwnerNum) == passEntity || n == passOwner)))
+        if (n == passEntity || (passEntity >= 0 && (entityInt(n, layout_.ownerNum) == passEntity || n == passOwner)))
             continue;
-        const int32_t contents = entityInt(n, ent::Contents);
+        const int32_t contents = entityInt(n, layout_.contents);
         if (!(contents & mask))
             continue;
-        const Vec3f absMin = entityVec(n, ent::AbsMin), absMax = entityVec(n, ent::AbsMax);
+        const Vec3f absMin = entityVec(n, layout_.absMin), absMax = entityVec(n, layout_.absMax);
         bool apart = false;
         for (int i = 0; i < 3; ++i)
             apart |= absMin[size_t(i)] > moveMax[size_t(i)] || absMax[size_t(i)] < moveMin[size_t(i)];
         if (apart)
             continue;
-        const Vec3f origin = entityVec(n, ent::CurrentOrigin);
+        const Vec3f origin = entityVec(n, layout_.currentOrigin);
         TraceResult t;
-        if (entityInt(n, ent::BModel) && world_) {
+        if (entityInt(n, layout_.bmodel) && world_) {
             // Its brushes, where it stands now (turning not yet followed).
             Vec3f s = start, e = end;
             for (int i = 0; i < 3; ++i) {
                 s[size_t(i)] -= origin[size_t(i)];
                 e[size_t(i)] -= origin[size_t(i)];
             }
-            t = world_->trace(s, e, mins, maxs, entityInt(n, ent::ModelIndex), mask);
+            t = world_->trace(s, e, mins, maxs, entityInt(n, layout_.modelIndex), mask);
             for (int i = 0; i < 3; ++i)
                 t.endPos[size_t(i)] += origin[size_t(i)];
         } else {
-            Vec3f boxMin = entityVec(n, ent::Mins), boxMax = entityVec(n, ent::Maxs);
+            Vec3f boxMin = entityVec(n, layout_.mins), boxMax = entityVec(n, layout_.maxs);
             for (int i = 0; i < 3; ++i) {
                 boxMin[size_t(i)] += origin[size_t(i)];
                 boxMax[size_t(i)] += origin[size_t(i)];
@@ -507,19 +511,19 @@ int32_t GameHost::pointContents(const Vec3f& point, int32_t passEntity) {
     for (int32_t n : linked_) {
         if (n == passEntity)
             continue;
-        const Vec3f origin = entityVec(n, ent::CurrentOrigin);
-        if (entityInt(n, ent::BModel) && world_) {
+        const Vec3f origin = entityVec(n, layout_.currentOrigin);
+        if (entityInt(n, layout_.bmodel) && world_) {
             const Vec3f local{point[0] - origin[0], point[1] - origin[1], point[2] - origin[2]};
-            if (world_->pointContents(local, entityInt(n, ent::ModelIndex)))
-                result |= entityInt(n, ent::Contents);
+            if (world_->pointContents(local, entityInt(n, layout_.modelIndex)))
+                result |= entityInt(n, layout_.contents);
         } else {
-            const Vec3f mins = entityVec(n, ent::Mins), maxs = entityVec(n, ent::Maxs);
+            const Vec3f mins = entityVec(n, layout_.mins), maxs = entityVec(n, layout_.maxs);
             bool inside = true;
             for (int i = 0; i < 3; ++i)
                 inside &= point[size_t(i)] >= origin[size_t(i)] + mins[size_t(i)] &&
                           point[size_t(i)] <= origin[size_t(i)] + maxs[size_t(i)];
             if (inside)
-                result |= entityInt(n, ent::Contents);
+                result |= entityInt(n, layout_.contents);
         }
     }
     return result;
@@ -602,8 +606,8 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case UnlinkEntity:
         if (const int32_t n = entityNumber(a[0]); n >= 0) {
             linked_.erase(n);
-            if (gameData_.entitySize >= ent::SharedEnd)
-                vm.writeInt(a[0] + ent::Linked, 0);
+            if (gameData_.entitySize >= layout_.sharedEnd)
+                vm.writeInt(a[0] + layout_.linked, 0);
         }
         return 0;
     case SetBrushModel: { // (ent, "*N"): one of the map's brush models
@@ -618,13 +622,13 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
             vm.abort("SetBrushModel: the map has no model " + name);
             return 0;
         }
-        if (gameData_.entitySize < ent::SharedEnd || !vm.checkWrite(a[0], ent::SharedEnd))
+        if (gameData_.entitySize < layout_.sharedEnd || !vm.checkWrite(a[0], layout_.sharedEnd))
             return 0;
-        vm.writeInt(a[0] + ent::ModelIndex, model);
-        vm.writeInt(a[0] + ent::BModel, 1);
-        writeVec(a[0] + ent::Mins, mins);
-        writeVec(a[0] + ent::Maxs, maxs);
-        vm.writeInt(a[0] + ent::Contents, -1); // whatever its brushes hold
+        vm.writeInt(a[0] + layout_.modelIndex, model);
+        vm.writeInt(a[0] + layout_.bmodel, 1);
+        writeVec(a[0] + layout_.mins, mins);
+        writeVec(a[0] + layout_.maxs, maxs);
+        vm.writeInt(a[0] + layout_.contents, -1); // whatever its brushes hold
         linkEntity(a[0]);
         return 0;
     }
@@ -651,7 +655,7 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         return 0;
     }
     case AdjustAreaPortalState: // (entity, open): the portal its door stands in
-        if (const int32_t n = entityNumber(a[0]); n >= 0 && areaPortals_ && gameData_.entitySize >= ent::SharedEnd) {
+        if (const int32_t n = entityNumber(a[0]); n >= 0 && areaPortals_ && gameData_.entitySize >= layout_.sharedEnd) {
             const auto [area1, area2] = entityAreas(n);
             if (area2 != -1)
                 areaPortals_->adjust(area1, area2, a[1] != 0);
@@ -664,7 +668,7 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         for (int32_t n : linked_) {
             if (count >= a[3])
                 break;
-            const Vec3f absMin = entityVec(n, ent::AbsMin), absMax = entityVec(n, ent::AbsMax);
+            const Vec3f absMin = entityVec(n, layout_.absMin), absMax = entityVec(n, layout_.absMax);
             bool apart = false;
             for (int i = 0; i < 3; ++i)
                 apart |= absMin[size_t(i)] > maxs[size_t(i)] || absMax[size_t(i)] < mins[size_t(i)];
@@ -678,12 +682,12 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         const int32_t n = entityNumber(a[2]);
         if (n < 0)
             return 0;
-        const Vec3f origin = entityVec(n, ent::CurrentOrigin);
-        if (entityInt(n, ent::BModel) && world_) {
+        const Vec3f origin = entityVec(n, layout_.currentOrigin);
+        if (entityInt(n, layout_.bmodel) && world_) {
             const Vec3f at{-origin[0], -origin[1], -origin[2]};
-            return world_->trace(at, at, mins, maxs, entityInt(n, ent::ModelIndex), -1).startSolid;
+            return world_->trace(at, at, mins, maxs, entityInt(n, layout_.modelIndex), -1).startSolid;
         }
-        const Vec3f absMin = entityVec(n, ent::AbsMin), absMax = entityVec(n, ent::AbsMax);
+        const Vec3f absMin = entityVec(n, layout_.absMin), absMax = entityVec(n, layout_.absMax);
         for (int i = 0; i < 3; ++i)
             if (absMin[size_t(i)] > maxs[size_t(i)] || absMax[size_t(i)] < mins[size_t(i)])
                 return 0;

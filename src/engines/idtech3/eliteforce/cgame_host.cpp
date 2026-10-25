@@ -98,12 +98,19 @@ constexpr int32_t kGlconfigSize = 5192;
 // snapshot buffer is 52740 bytes after the first; the fields it reads
 // through its snapshot pointers match): Quake III's, with Elite Force's
 // player and entity states.
-constexpr int32_t kSnapshotSize = 52740;
+// After the player state (1.0's 460 bytes, patch 1.2's 468) the offsets
+// follow from its size: 504, 508, 52732, 52736 and 52740 bytes with 1.0's.
 constexpr int32_t kSnapServerTime = 8, kSnapPlayerState = 44;
 constexpr int32_t kSnapAreaMask = 12; // 32 bytes: a bit set for each area hidden behind a closed door
-constexpr int32_t kSnapNumEntities = 504, kSnapEntities = 508;
-constexpr int32_t kSnapNumServerCommands = 52732, kSnapServerCommandSequence = 52736;
 constexpr int32_t kMaxSnapshotEntities = 256;
+struct SnapshotLayout {
+    int32_t numEntities, entities, numServerCommands, serverCommandSequence, size;
+};
+SnapshotLayout snapshotLayout(int32_t playerStateSize) {
+    const int32_t numEntities = kSnapPlayerState + playerStateSize, entities = numEntities + 4;
+    const int32_t numServerCommands = entities + kMaxSnapshotEntities * GameHost::kEntityStateSize;
+    return {numEntities, entities, numServerCommands, numServerCommands + 4, numServerCommands + 8};
+}
 
 constexpr int32_t kTempBoxModel = 0x10000; // CM_TempBoxModel's handle (the original keeps one at a time too)
 
@@ -185,6 +192,7 @@ Error CgameHost::load() {
         return Error::fail("vm/cgame.qvm: " + err.message);
     if (Error err = vm_.load(data))
         return Error::fail("vm/cgame.qvm: " + err.message);
+    layout_ = detectLayout(vm_);
     return Error::success();
 }
 
@@ -369,21 +377,23 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case GetSnapshot: { // (number, snapshot_t*) -> whether it's still there
         snapshotRequests_.emplace_back(a[0], a[1]);
         const auto it = snapshots_.find(a[0]);
-        if (it == snapshots_.end() || !vm.checkWrite(a[1], kSnapshotSize))
+        const SnapshotLayout l = snapshotLayout(layout_.playerStateSize);
+        if (it == snapshots_.end() || !vm.checkWrite(a[1], l.size))
             return 0;
         const GameHost::Snapshot& s = it->second;
-        std::memset(&vm.memory()[size_t(a[1])], 0, size_t(kSnapNumEntities)); // flags, ping, area mask (all visible)
+        std::memset(&vm.memory()[size_t(a[1])], 0, size_t(l.numEntities)); // flags, ping, area mask (all visible)
         vm.writeInt(a[1] + kSnapServerTime, s.serverTime);
         std::memcpy(&vm.memory()[size_t(a[1] + kSnapAreaMask)], s.areaMask.data(), s.areaMask.size());
         std::memcpy(&vm.memory()[size_t(a[1] + kSnapPlayerState)], s.playerState.data(),
-                    std::min(s.playerState.size(), size_t(GameHost::kPlayerStateSize)));
+                    std::min(s.playerState.size(), size_t(layout_.playerStateSize)));
         const auto count = int32_t(std::min(s.entities.size(), size_t(kMaxSnapshotEntities)));
-        vm.writeInt(a[1] + kSnapNumEntities, count);
+        vm.writeInt(a[1] + l.numEntities, count);
         for (int32_t i = 0; i < count; ++i)
-            std::memcpy(&vm.memory()[size_t(a[1] + kSnapEntities + i * GameHost::kEntityStateSize)],
-                        s.entities[size_t(i)].data(), size_t(GameHost::kEntityStateSize));
-        vm.writeInt(a[1] + kSnapNumServerCommands, 0);
-        vm.writeInt(a[1] + kSnapServerCommandSequence, s.serverCommandSequence);
+            std::memcpy(&vm.memory()[size_t(a[1] + l.entities + i * GameHost::kEntityStateSize)],
+                        s.entities[size_t(i)].data(),
+                        std::min(s.entities[size_t(i)].size(), size_t(GameHost::kEntityStateSize)));
+        vm.writeInt(a[1] + l.numServerCommands, 0);
+        vm.writeInt(a[1] + l.serverCommandSequence, s.serverCommandSequence);
         return 1;
     }
     case CmInlineModel: return a[0]; // the map's model n is clip model n

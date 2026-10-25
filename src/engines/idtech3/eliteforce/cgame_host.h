@@ -88,6 +88,8 @@ public:
     Error consoleCommand(const std::string& text, bool& handled);
 
     Qvm& vm() { return vm_; }
+    // The layout its code was built with (1.0 or patch 1.2's), once loaded.
+    const GameLayout& layout() const { return layout_; }
     // What it registered, by handle.
     const HandleTable& models() const { return models_; }
     const HandleTable& skins() const { return skins_; }
@@ -125,6 +127,7 @@ private:
     const SearchSet& files_;
     CvarStore& cvars_;
     Qvm vm_;
+    GameLayout layout_ = kLayout10;
     VmFiles vmFiles_;
     std::map<int32_t, std::string> configstrings_;
     HandleTable models_, skins_, shaders_, sounds_;
