@@ -3367,6 +3367,8 @@ int cmdGameRun(int argc, char** argv) {
             addBots.emplace_back(argv[++i]);
         else if (std::strcmp(argv[i], "-events") == 0)
             eventsTest = true;
+        else
+            std::fprintf(stderr, "game-run: ignoring %s (not an option it knows)\n", argv[i]);
     }
     reluva::SearchSet set;
     if (!mountIdTech3(argv[2], set))
