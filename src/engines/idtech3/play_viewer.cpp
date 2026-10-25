@@ -641,11 +641,34 @@ void PlayViewer::runGame(uint64_t nowMs) {
     // pitch as well left the view stuck above level whenever that offset
     // pointed upwards. Kept to a turn either way, as it wraps anyway.
     pitch_ = std::remainder(pitch_, 360.0f);
+    if (dt > 0)
+        clientTime_ += dt;
+    // The server first, kept a frame ahead of the player's time, so the
+    // client game always has the snapshot after it to move things towards;
+    // then the player's command, stamped with a time the server has
+    // reached, as the original's client stamps commands with the
+    // snapshots' time. Given first, a command was up to a frame ahead of
+    // the server, and with long frames (50 ms and more) the player's
+    // weapon stopped firing and their sounds stopped (game-run -events).
+    using Clock = std::chrono::steady_clock;
+    auto ms = [](Clock::time_point from) {
+        return std::chrono::duration<float, std::milli>(Clock::now() - from).count();
+    };
+    const auto serverStart = Clock::now();
+    while (game_->levelTime() <= clientTime_) {
+        if (Error err = game_->runFrame()) {
+            stop("The server game stopped: " + err.message);
+            return;
+        }
+        sendServerCommands();
+        cgame_->setConfigstrings(game_->configstrings());
+        cgame_->newSnapshot(game_->snapshot(0));
+    }
+    timing_.server = ms(serverStart);
     if (dt > 0) {
         // The player's command for this moment, as a client sends one each
         // frame: where they look, how they move, what they press. The game
         // moves the player by it at once, as the original server does.
-        clientTime_ += dt;
         eliteforce::GameHost::UserCommand cmd;
         cmd.serverTime = clientTime_;
         cmd.angles = {toShort(pitch_), toShort(yaw_), 0};
@@ -674,23 +697,6 @@ void PlayViewer::runGame(uint64_t nowMs) {
         }
         cgame_->addUserCommand(cmd);
     }
-    // The server keeps a frame ahead of the player's time, so the client
-    // game always has the snapshot after it to move things towards.
-    using Clock = std::chrono::steady_clock;
-    auto ms = [](Clock::time_point from) {
-        return std::chrono::duration<float, std::milli>(Clock::now() - from).count();
-    };
-    const auto serverStart = Clock::now();
-    while (game_->levelTime() <= clientTime_) {
-        if (Error err = game_->runFrame()) {
-            stop("The server game stopped: " + err.message);
-            return;
-        }
-        sendServerCommands();
-        cgame_->setConfigstrings(game_->configstrings());
-        cgame_->newSnapshot(game_->snapshot(0));
-    }
-    timing_.server = ms(serverStart);
     // The last two seconds' frames, for the info line: each frame's length,
     // whether it sent a command, how many snapshots, and the player's event
     // sequence (player state word 108) as the server has it.

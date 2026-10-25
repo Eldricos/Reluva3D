@@ -497,6 +497,16 @@ animations start at the entity's shader time, taken to be Quake III's
 128 (seconds of the level) when it holds a time that has come. Neither polygons nor
 dynamic lights were added while firing the phaser.
 
+The Play page runs the server's frames first, up to a frame ahead of
+the player's time, then gives the server the player's command stamped
+with that time, which the client game then predicts from the snapshots:
+as the original's client stamps commands with the snapshots' time, a
+command never ahead of the server. Given first, up to a frame ahead,
+with frames of 50 ms or more the client game stopped producing the
+player's events (`game-run -cgame -give -events -weapon 7`: 31 fire
+sounds in 3 s at 50 ms per command with the server first, none with the
+command first).
+
 Reluva's server runs a frame every 50 ms (Quake III's default `sv_fps
 20`; it ran every 100 ms before, which made events and anything the
 client game doesn't smooth itself move in coarse steps). Models are
