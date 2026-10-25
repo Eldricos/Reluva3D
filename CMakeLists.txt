@@ -133,6 +133,8 @@ if(RELUVA_ENGINE_IDTECH3)
         src/engines/idtech3/botlib/bot_script.cpp
         src/engines/idtech3/botlib/character.cpp
         src/engines/idtech3/player_animation.cpp
+        src/engines/idtech3/wire/message.cpp
+        src/engines/idtech3/wire/netchan.cpp
         src/engines/idtech3/server_browser.cpp
         src/engines/idtech3/sound_system.cpp
         src/engines/idtech3/entities.cpp
@@ -161,6 +163,7 @@ if(RELUVA_ENGINE_IDTECH3)
     src/engines/idtech3/eliteforce/game_bots.cpp
     src/engines/idtech3/eliteforce/cgame_host.cpp
     src/engines/idtech3/eliteforce/scene.cpp
+    src/engines/idtech3/eliteforce/net_fields.cpp
         src/engines/idtech3/world_viewer.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_IDTECH3)
 endif()

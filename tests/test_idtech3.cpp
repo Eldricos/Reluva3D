@@ -13,6 +13,7 @@
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
+#include "engines/idtech3/eliteforce/net_fields.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/entities.h"
 #include "engines/idtech3/filesystem.h"
@@ -22,6 +23,8 @@
 #include "engines/idtech3/light_grid.h"
 #include "engines/idtech3/md3.h"
 #include "engines/idtech3/model_cache.h"
+#include "engines/idtech3/wire/message.h"
+#include "engines/idtech3/wire/netchan.h"
 #include "engines/idtech3/patch.h"
 #include "engines/idtech3/player_animation.h"
 #include "engines/idtech3/qvm.h"
@@ -2089,6 +2092,131 @@ void testVideoSettings() {
     CHECK(coarse >= 2 && fine > coarse && fine <= 16);
 }
 
+static void testNetMessages() {
+    using reluva::idtech3::wire::MessageReader;
+    using reluva::idtech3::wire::MessageWriter;
+    // Bits fill each byte from the bottom, values lowest bit first.
+    MessageWriter w;
+    w.bits(5, 3);
+    w.bits(0x1ff, 9);
+    CHECK(w.bytes() == std::vector<uint8_t>({0xfd, 0x0f}));
+    // A string inside a byte starts at the byte after the next.
+    w.string("hi");
+    CHECK(w.bytes().size() == 6 && w.bytes()[3] == 'h' && w.bytes()[5] == 0);
+    w.longValue(-2);
+    w.smallFloat(-12);
+    w.smallFloat(0.5f);
+    w.shortValue(-300);
+    MessageReader r(w.bytes());
+    CHECK(r.bits(3) == 5 && r.bits(9) == 0x1ff && r.string() == "hi" && r.longValue() == -2);
+    CHECK(r.smallFloat() == -12 && r.smallFloat() == 0.5f && r.shortValue() == -300 && !r.overflowed());
+    CHECK(r.bits(8) == 0 && r.byte() == -1 && r.overflowed());
+    // Small floats: a whole number in 14 bits, anything else in 33.
+    MessageWriter f;
+    f.smallFloat(100);
+    CHECK(f.bitCount() == 14);
+    f.smallFloat(5000);
+    CHECK(f.bitCount() == 14 + 33);
+
+    // The netchan: scrambling undone, pieces joined, old ones dropped.
+    std::vector<uint8_t> d;
+    for (int i = 0; i < 40; ++i)
+        d.push_back(uint8_t(i * 7));
+    std::vector<uint8_t> scrambled = d;
+    reluva::idtech3::wire::Netchan::scramble(scrambled);
+    CHECK(scrambled != d && std::equal(d.begin(), d.begin() + 6, scrambled.begin()));
+    reluva::idtech3::wire::Netchan::unscramble(scrambled);
+    CHECK(scrambled == d);
+    reluva::idtech3::wire::Netchan client(true, 1234), server(false, 0);
+    std::vector<uint8_t> big(2700);
+    for (size_t i = 0; i < big.size(); ++i)
+        big[i] = uint8_t(i * 31);
+    const auto pieces = client.transmit(big);
+    CHECK(pieces.size() == 3 && pieces[0].size() == 10 + 1300);
+    uint16_t qport = 0;
+    CHECK(reluva::idtech3::wire::Netchan::clientQport(pieces[0], qport) && qport == 1234);
+    std::vector<uint8_t> got;
+    CHECK(!server.process(pieces[0], got) && !server.process(pieces[1], got) && server.process(pieces[2], got));
+    CHECK(got == big && server.incomingSequence() == 1);
+    const auto small = client.transmit({1, 2, 3});
+    CHECK(small.size() == 1 && server.process(small[0], got) && got == std::vector<uint8_t>({1, 2, 3}));
+    CHECK(!server.process(small[0], got)); // a repeat
+    const auto reply = server.transmit({9, 8, 7, 6, 5});
+    CHECK(reply[0].size() == 4 + 5 && client.process(reply[0], got) && got == std::vector<uint8_t>({9, 8, 7, 6, 5}));
+}
+
+static void testNetDeltas() {
+    using namespace reluva::idtech3::eliteforce;
+    using reluva::idtech3::wire::MessageReader;
+    using reluva::idtech3::wire::MessageWriter;
+    auto put = [](std::vector<uint8_t>& s, int32_t at, int32_t v) { std::memcpy(s.data() + at, &v, 4); };
+    auto putF = [&](std::vector<uint8_t>& s, int32_t at, float v) {
+        int32_t i;
+        std::memcpy(&i, &v, 4);
+        put(s, at, i);
+    };
+    std::vector<uint8_t> a(kNetEntityStateSize, 0), b;
+    put(a, 0, 17);
+    put(a, 4, 1);
+    putF(a, 24, 100.25f);
+    putF(a, 28, -64);
+    put(a, 176, 0xffffff);
+    b = a;
+    putF(b, 24, 101);
+    putF(b, 28, -60);
+    // Moving on x and y: predefined vector 2, so 10 + 1 + 1 + 5 bits and the values.
+    MessageWriter w;
+    writeEntityDelta(w, a, b, false);
+    CHECK(w.bitCount() == 17 + 14 + 14);
+    writeEntityDelta(w, a, a, false); // unchanged: nothing
+    CHECK(w.bitCount() == 17 + 28);
+    std::vector<uint8_t> zero;
+    writeEntityDelta(w, zero, a, true); // a baseline: an explicit vector
+    writeEntityRemoved(w, 17);
+    MessageReader r(w.bytes());
+    std::vector<uint8_t> out;
+    CHECK(r.bits(10) == 17 && !readEntityDelta(r, 17, a, out) && out == b);
+    CHECK(r.bits(10) == 17 && !readEntityDelta(r, 17, zero, out) && out == a);
+    CHECK(r.bits(10) == 17 && readEntityDelta(r, 17, a, out) && out.empty());
+
+    std::vector<uint8_t> p(kNetPlayerStateSize, 0), q;
+    put(p, 0, 123456);
+    putF(p, 20, 12.5f);
+    put(p, 16, -5);    // pm_time, signed
+    put(p, 180, -10);  // viewheight, signed
+    put(p, 204, -3);   // stats[0]
+    put(p, 396 + 8, 40); // ammo[2]
+    put(p, 332 + 4, 99999); // powerups[1]
+    put(p, 56, 777);   // introTime, last
+    put(p, 48, 200);   // not sent
+    MessageWriter pw;
+    writePlayerDelta(pw, {}, p);
+    CHECK(pw.bitCount() > 48 + 4);
+    MessageReader pr(pw.bytes());
+    readPlayerDelta(pr, {}, q);
+    put(p, 48, 0);
+    CHECK(q == p && !pr.overflowed());
+
+    GameHost::UserCommand c0, c1;
+    c1.serverTime = 5000;
+    c1.angles = {-1000, 16384, 0};
+    c1.forward = 127;
+    c1.right = -127;
+    c1.buttons = 1 | 32;
+    c1.weapon = 4;
+    GameHost::UserCommand c2 = c1;
+    c2.serverTime = 5016;
+    c2.forward = -128;
+    MessageWriter cw;
+    writeUserCommand(cw, c0, c1);
+    writeUserCommand(cw, c1, c2);
+    MessageReader cr(cw.bytes());
+    const GameHost::UserCommand r1 = readUserCommand(cr, c0), r2 = readUserCommand(cr, r1);
+    CHECK(r1.serverTime == 5000 && r1.angles[0] == (-1000 & 0xffff) && r1.angles[1] == 16384 && r1.forward == 127 &&
+          r1.right == -127 && r1.buttons == 33 && r1.weapon == 4);
+    CHECK(r2.serverTime == 5016 && r2.forward == -127 && r2.right == -127);
+}
+
 static void testServerBrowser() {
     using reluva::idtech3::ServerBrowser;
     auto network = net::LoopbackNetwork::create();
@@ -2160,6 +2288,8 @@ int main() {
     testVideoSettings();
     testAreaPortals();
     testServerBrowser();
+    testNetMessages();
+    testNetDeltas();
     testVmFileList();
     testSoundLibrary(tmp / "sounds");
     testSoundSystem(tmp / "soundsystem");
