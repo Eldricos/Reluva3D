@@ -44,6 +44,33 @@ struct PixelFormat {
     uint32_t toArgb(uint32_t value, const uint32_t* palette) const;
     uint32_t fromArgb(uint32_t argb) const;
 };
+// PixelFormat::toArgb for many pixels of one format: each channel's
+// position worked out once, its scaling to 8 bits a table.
+class ArgbConverter {
+public:
+    ArgbConverter(const PixelFormat& format, const uint32_t* palette);
+    uint32_t operator()(uint32_t value) const {
+        if (general_)
+            return format_.toArgb(value, palette_);
+        uint32_t argb = alpha_;
+        for (const Channel& c : channels_)
+            argb |= uint32_t(c.table[((value >> c.shift) & c.mask) >> c.drop]) << c.to;
+        return argb;
+    }
+    // `count` pixels from `bytes` (stored in the format) to `out`.
+    void row(const uint8_t* bytes, int count, uint32_t* out) const;
+
+private:
+    struct Channel {
+        uint32_t shift = 0, mask = 0, drop = 0, to = 0;
+        uint8_t table[256]{};
+    };
+    PixelFormat format_;
+    const uint32_t* palette_;
+    bool general_ = false; // palettized or luminance: toArgb itself
+    uint32_t alpha_ = 0;   // 0xff000000 without an alpha channel
+    std::vector<Channel> channels_;
+};
 PixelFormat rgbFormat(int bits); // 8 (palettized), 16 (565), 24, 32 (X888)
 PixelFormat zFormat(int bits);
 // Texture formats offered: 565, 1555, 4444, 555, 8888, X888.

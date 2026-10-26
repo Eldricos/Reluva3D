@@ -96,6 +96,57 @@ uint32_t PixelFormat::fromArgb(uint32_t argb) const {
     return v;
 }
 
+ArgbConverter::ArgbConverter(const PixelFormat& format, const uint32_t* palette)
+    : format_(format), palette_(palette) {
+    if (format.flags & (kPfPaletteIndexed8 | kPfLuminance)) {
+        general_ = true;
+        return;
+    }
+    const bool alpha = (format.flags & kPfAlphaPixels) && format.a;
+    if (!alpha)
+        alpha_ = 0xff000000u;
+    const std::pair<uint32_t, uint32_t> masks[4] = {{format.r, 16}, {format.g, 8}, {format.b, 0}, {format.a, 24}};
+    for (int i = 0; i < (alpha ? 4 : 3); ++i) {
+        const uint32_t mask = masks[i].first;
+        if (!mask)
+            continue;
+        Channel c;
+        const int width = widthOf(mask);
+        c.shift = uint32_t(shiftOf(mask));
+        c.mask = mask >> c.shift;
+        c.drop = width > 8 ? uint32_t(width - 8) : 0;
+        c.to = masks[i].second;
+        const uint32_t values = 1u << std::min(width, 8);
+        for (uint32_t v = 0; v < values; ++v) // as channel() scales them
+            c.table[v] = uint8_t(channel((v << c.drop) << c.shift, mask));
+        channels_.push_back(c);
+    }
+}
+
+void ArgbConverter::row(const uint8_t* bytes, int count, uint32_t* out) const {
+    switch (format_.bytes()) {
+    case 1:
+        for (int i = 0; i < count; ++i)
+            out[i] = (*this)(bytes[i]);
+        break;
+    case 2:
+        for (int i = 0; i < count; ++i)
+            out[i] = (*this)(uint32_t(bytes[2 * i] | bytes[2 * i + 1] << 8));
+        break;
+    case 3:
+        for (int i = 0; i < count; ++i)
+            out[i] = (*this)(uint32_t(bytes[3 * i] | bytes[3 * i + 1] << 8 | bytes[3 * i + 2] << 16));
+        break;
+    default:
+        for (int i = 0; i < count; ++i) {
+            uint32_t v;
+            std::memcpy(&v, bytes + 4 * i, 4);
+            out[i] = (*this)(v);
+        }
+        break;
+    }
+}
+
 PixelFormat rgbFormat(int bits) {
     PixelFormat f;
     f.flags = kPfRgb;
@@ -600,10 +651,16 @@ void DirectX::State::present() {
         }
     frame.width = w, frame.height = h;
     frame.pixels.assign(size_t(w) * size_t(h), 0xff000000u);
-    for (int y = 0; y < h; ++y)
-        for (int x = 0; x < w; ++x)
-            if (x0 + x >= 0 && y0 + y >= 0 && x0 + x < p->d.width && y0 + y < p->d.height)
-                frame.pixels[size_t(y) * size_t(w) + size_t(x)] = p->argb(x0 + x, y0 + y);
+    // The part of the window on the surface, a row at a time.
+    const int from = std::max(0, -x0), to = std::min(w, p->d.width - x0);
+    const dx::ArgbConverter convert(p->d.format, p->paletteArgb());
+    const uint32_t bytes = p->d.format.bytes();
+    for (int y = std::max(0, -y0); y < std::min(h, p->d.height - y0) && from < to; ++y) {
+        const uint32_t at = p->d.memory + uint32_t((y0 + y) * p->d.pitch) + uint32_t(x0 + from) * bytes;
+        if (!cpu.valid(at, uint32_t(to - from) * bytes))
+            continue;
+        convert.row(cpu.memory().data() + at, to - from, frame.pixels.data() + size_t(y) * size_t(w) + size_t(from));
+    }
     ++frame.number;
     if (owner.presented)
         owner.presented(frame);

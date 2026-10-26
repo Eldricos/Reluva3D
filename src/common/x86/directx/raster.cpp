@@ -56,9 +56,28 @@ uint32_t vertexWord(const uint8_t* p) {
     std::memcpy(&v, p, 4);
     return v;
 }
+// x / 255, x / 31 and x / 63 as floats, by table.
+struct Fractions {
+    float of255[256], of31[32], of63[64];
+    Fractions() {
+        for (int i = 0; i < 256; ++i)
+            of255[i] = float(i) / 255;
+        for (int i = 0; i < 32; ++i)
+            of31[i] = float(i) / 31;
+        for (int i = 0; i < 64; ++i)
+            of63[i] = float(i) / 63;
+    }
+};
+const Fractions kFractions;
+// std::floor to an int, for values an int holds.
+int floorInt(float v) {
+    const int i = int(v);
+    return i - (float(i) > v);
+}
+
 Color unpack(uint32_t argb) {
-    return {float(argb >> 16 & 0xff) / 255, float(argb >> 8 & 0xff) / 255, float(argb & 0xff) / 255,
-            float(argb >> 24) / 255};
+    const float* f = kFractions.of255;
+    return {f[argb >> 16 & 0xff], f[argb >> 8 & 0xff], f[argb & 0xff], f[argb >> 24]};
 }
 uint32_t pack(float r, float g, float b, float a) {
     auto c = [](float v) { return uint32_t(std::clamp(v, 0.0f, 1.0f) * 255.0f + 0.5f); };
@@ -464,6 +483,7 @@ void Device::line(const ClipVertex& a0, const ClipVertex& b0) {
             return;
         a = project(a), b = project(b);
     }
+    prepareSamplers();
     const int steps = std::max(1, int(std::max(std::fabs(b.x - a.x), std::fabs(b.y - a.y))));
     float attr[kAttributes];
     for (int i = 0; i <= steps; ++i) {
@@ -484,6 +504,7 @@ void Device::point(const ClipVertex& a0) {
                 return;
         a = project(a);
     }
+    prepareSamplers();
     float attr[kAttributes];
     attr[0] = a.diffuse.r, attr[1] = a.diffuse.g, attr[2] = a.diffuse.b, attr[3] = a.diffuse.a;
     attr[4] = a.specular.r, attr[5] = a.specular.g, attr[6] = a.specular.b, attr[7] = a.specular.a;
@@ -551,6 +572,7 @@ void Device::rasterize(const ClipVertex& a, const ClipVertex& b, const ClipVerte
         if (texels > 0)
             lod[st] = float(0.5 * std::log2(texels / area));
     }
+    prepareSamplers();
     // z, 1/w and the attributes (divided by w) are planes on the screen:
     // f = fx x + fy y + f0.
     const int n = 2 + count;
@@ -590,17 +612,25 @@ void Device::rasterize(const ClipVertex& a, const ClipVertex& b, const ClipVerte
         const int xs = int(from), xe = int(to);
         for (int k = 0; k < n; ++k)
             row[k] = f0[k] + fy[k] * float(y) + fx[k] * float(xs);
-        for (int x = xs; x <= xe; ++x, [&] {
-                 for (int k = 0; k < n; ++k)
-                     row[k] += fx[k];
-             }()) {
-            bool inside = true;
-            for (int i = 0; i < 3 && inside; ++i) {
-                const double w = e[i].a * x + e[i].b * y + e[i].c;
-                inside = w > 0 || (w == 0 && e[i].topLeft);
+        // The pixels inside: each edge's test only changes once along the
+        // row, so they run from the first inside to the last.
+        auto inside = [&](int x) {
+            for (const Edge& ed : e) {
+                const double w = ed.a * x + ed.b * y + ed.c;
+                if (!(w > 0 || (w == 0 && ed.topLeft)))
+                    return false;
             }
-            if (!inside)
-                continue;
+            return true;
+        };
+        int first = xs, last = xe;
+        while (first <= last && !inside(first))
+            ++first;
+        while (last >= first && !inside(last))
+            --last;
+        for (int x = xs; x < first; ++x)
+            for (int k = 0; k < n; ++k)
+                row[k] += fx[k];
+        for (int x = first; x <= last; ++x) {
             const float rhw = row[1];
             const float inv = rhw != 0 ? 1 / rhw : 0;
             for (int k = 0; k < count; ++k)
@@ -608,6 +638,8 @@ void Device::rasterize(const ClipVertex& a, const ClipVertex& b, const ClipVerte
             if (cfg_.flat)
                 std::copy(flatColors, flatColors + 8, here);
             pixel(x, y, row[0], inv, here);
+            for (int k = 0; k < n; ++k)
+                row[k] += fx[k];
         }
     }
 }
@@ -661,17 +693,35 @@ const DecodedTexture* Device::texture(int stage) {
     return &fill;
 }
 
-uint32_t Device::sample(int stage, float u, float v, bool& keyed) {
-    const DecodedTexture* t = bound[stage];
-    if (!t || t->levels.empty())
+void Device::prepareSamplers() {
+    for (int st = 0; st < stages; ++st) {
+        Sampler& sm = samplers_[st];
+        const DecodedTexture* t = bound[st];
+        if (!t || t->levels.empty()) {
+            sm.argb = nullptr;
+            continue;
+        }
+        const StageConfig& sc = cfg_.stage[st];
+        const float l = lod[st];
+        size_t level = 0;
+        if (sc.mipFilter >= 2 && l > 0)
+            level = std::min(t->levels.size() - 1, size_t(sc.mipFilter == 3 ? std::lround(l) : int(l)));
+        const DecodedTexture::Level& tex = t->levels[level];
+        sm.argb = tex.argb.data();
+        sm.keyed = tex.keyed.data();
+        sm.width = tex.width, sm.height = tex.height;
+        sm.fw = float(tex.width), sm.fh = float(tex.height);
+        sm.linear = (l > 0 ? sc.minFilter : sc.magFilter) >= 2;
+        sm.addressU = sc.addressU, sm.addressV = sc.addressV, sm.border = sc.border;
+        auto pow2 = [](int n) { return n > 0 && (n & (n - 1)) == 0; };
+        sm.wrapPow2 = sc.addressU <= 1 && sc.addressV <= 1 && pow2(tex.width) && pow2(tex.height);
+    }
+}
+
+uint32_t Device::sample(int stage, float u, float v, bool* keyed) {
+    const Sampler& sm = samplers_[stage];
+    if (!sm.argb)
         return 0xffffffffu;
-    const StageConfig& st = cfg_.stage[stage];
-    const float l = lod[stage];
-    size_t level = 0;
-    if (st.mipFilter >= 2 && l > 0)
-        level = std::min(t->levels.size() - 1, size_t(st.mipFilter == 3 ? std::lround(l) : int(l)));
-    const DecodedTexture::Level& tex = t->levels[level];
-    const bool linear = (l > 0 ? st.minFilter : st.magFilter) >= 2;
     auto address = [](int i, int size, uint32_t mode, bool& border) {
         if (mode <= 1) // wrap: the common case first
             return i >= 0 && i < size ? i : ((i % size) + size) % size;
@@ -689,30 +739,38 @@ uint32_t Device::sample(int stage, float u, float v, bool& keyed) {
         }
     };
     auto texel = [&](int x, int y, bool& isKeyed) {
-        bool border = false;
-        x = address(x, tex.width, st.addressU, border);
-        y = address(y, tex.height, st.addressV, border);
-        if (border)
-            return st.border;
-        const size_t at = size_t(y) * size_t(tex.width) + size_t(x);
-        isKeyed = isKeyed || tex.keyed[at];
-        return tex.argb[at];
+        if (sm.wrapPow2) {
+            x &= sm.width - 1;
+            y &= sm.height - 1;
+        } else {
+            bool border = false;
+            x = address(x, sm.width, sm.addressU, border);
+            y = address(y, sm.height, sm.addressV, border);
+            if (border)
+                return sm.border;
+        }
+        const size_t at = size_t(y) * size_t(sm.width) + size_t(x);
+        if (keyed)
+            isKeyed = isKeyed || sm.keyed[at];
+        return sm.argb[at];
     };
-    const float fx = u * float(tex.width), fy = v * float(tex.height);
-    if (!linear) {
+    const float fx = u * sm.fw, fy = v * sm.fh;
+    if (!sm.linear) {
         bool k = false;
-        const uint32_t r = texel(int(std::floor(fx)), int(std::floor(fy)), k);
-        keyed = k;
+        const uint32_t r = texel(floorInt(fx), floorInt(fy), k);
+        if (keyed)
+            *keyed = k;
         return r;
     }
     const float gx = fx - 0.5f, gy = fy - 0.5f;
-    const int ix = int(std::floor(gx)), iy = int(std::floor(gy));
+    const int ix = floorInt(gx), iy = floorInt(gy);
     const int ax = int((gx - float(ix)) * 256), ay = int((gy - float(iy)) * 256); // 8-bit weights
     bool k00 = false, k10 = false, k01 = false, k11 = false;
     const uint32_t t00 = texel(ix, iy, k00), t10 = texel(ix + 1, iy, k10);
     const uint32_t t01 = texel(ix, iy + 1, k01), t11 = texel(ix + 1, iy + 1, k11);
     // The colour key keys the nearest texel's colour.
-    keyed = ax < 128 ? (ay < 128 ? k00 : k01) : (ay < 128 ? k10 : k11);
+    if (keyed)
+        *keyed = ax < 128 ? (ay < 128 ? k00 : k01) : (ay < 128 ? k10 : k11);
     // Two channels at a time (0x00ff00ff masks), weights out of 256.
     auto mix = [](uint32_t p, uint32_t q, int w) {
         const uint32_t rb = ((p & 0xff00ff) * uint32_t(256 - w) + (q & 0xff00ff) * uint32_t(w)) >> 8 & 0xff00ff;
@@ -778,8 +836,13 @@ void Device::pixel(int x, int y, float z, float eyeW, const float* attr) {
     if (cf.zTest && x < depth->d.width && y < depth->d.height) {
         zAt = mem + depth->d.memory + uint32_t(y * depth->d.pitch) + uint32_t(x) * cf.zBytes;
         uint32_t raw = 0;
-        std::memcpy(&raw, zAt, cf.zBytes);
-        zNew = uint32_t(std::floor(double(std::clamp(z, 0.0f, 1.0f)) * cf.zMax + 0.5));
+        if (cf.zBytes == 2)
+            std::memcpy(&raw, zAt, 2);
+        else if (cf.zBytes == 4)
+            std::memcpy(&raw, zAt, 4);
+        else
+            std::memcpy(&raw, zAt, cf.zBytes);
+        zNew = uint32_t(double(std::clamp(z, 0.0f, 1.0f)) * cf.zMax + 0.5); // >= 0: truncating is flooring
         if (!compare(cf.zFunc, float(zNew), float(raw & cf.zMask)))
             return;
     }
@@ -791,57 +854,59 @@ void Device::pixel(int x, int y, float z, float eyeW, const float* attr) {
     for (int st = 0; st < stages; ++st) {
         const StageConfig& sc = cf.stage[st];
         bool k = false;
-        const Color tex = unpack(sample(st, attr[8 + 2 * st], attr[9 + 2 * st], k));
+        const Color tex = unpack(sample(st, attr[8 + 2 * st], attr[9 + 2 * st], cf.colorKey ? &k : nullptr));
         if (bound[st] && k)
             keyed = true;
-        auto arg = [&](uint32_t a) {
-            Color v;
+        auto arg = [&](uint32_t a, float* v) {
+            const Color* c;
             switch (a & 0xf) {
-            case 0: v = diffuse; break;
-            case 2: v = tex; break;
-            case 3: v = cf.factor; break;
-            case 4: v = specular; break;
-            default: v = current; break;
+            case 0: c = &diffuse; break;
+            case 2: c = &tex; break;
+            case 3: c = &cf.factor; break;
+            case 4: c = &specular; break;
+            default: c = &current; break;
             }
+            v[0] = c->r, v[1] = c->g, v[2] = c->b, v[3] = c->a;
             if (a & 0x10)
-                v = {1 - v.r, 1 - v.g, 1 - v.b, 1 - v.a};
+                for (int i = 0; i < 4; ++i)
+                    v[i] = 1 - v[i];
             if (a & 0x20)
-                v = {v.a, v.a, v.a, v.a};
-            return v;
+                v[0] = v[1] = v[2] = v[3];
         };
         // One operation on three channels (colour) or one (alpha).
-        auto apply = [&](uint32_t op, const Color& a1, const Color& a2, float* out, int from, int to) {
-            const float x1[4] = {a1.r, a1.g, a1.b, a1.a}, x2[4] = {a2.r, a2.g, a2.b, a2.a};
-            for (int i = from; i < to; ++i) {
-                float r;
-                switch (op) {
-                case 2: r = x1[i]; break;
-                case 3: r = x2[i]; break;
-                case 4: r = x1[i] * x2[i]; break;
-                case 5: r = 2 * x1[i] * x2[i]; break;
-                case 6: r = 4 * x1[i] * x2[i]; break;
-                case 7: r = x1[i] + x2[i]; break;
-                case 8: r = x1[i] + x2[i] - 0.5f; break;
-                case 9: r = 2 * (x1[i] + x2[i] - 0.5f); break;
-                case 10: r = x1[i] - x2[i]; break;
-                case 11: r = x1[i] + x2[i] - x1[i] * x2[i]; break;
-                case 12: r = x1[i] * diffuse.a + x2[i] * (1 - diffuse.a); break;
-                case 13: r = x1[i] * tex.a + x2[i] * (1 - tex.a); break;
-                case 14: r = x1[i] * cf.factor.a + x2[i] * (1 - cf.factor.a); break;
-                case 15: r = x1[i] + x2[i] * (1 - tex.a); break;
-                case 16: r = x1[i] * current.a + x2[i] * (1 - current.a); break;
-                case 18: r = x1[i] + x1[3] * x2[i]; break;       // MODULATEALPHA_ADDCOLOR
-                case 19: r = i == 3 ? x1[3] * x2[3] : x1[i] + x2[i]; break;
-                case 20: r = x1[i] + (1 - x1[3]) * x2[i]; break; // MODULATEINVALPHA_ADDCOLOR
-                default: r = x1[i] * x2[i]; break;
-                }
-                out[i] = std::clamp(r, 0.0f, 1.0f);
+        auto apply = [&](uint32_t op, uint32_t arg1, uint32_t arg2, float* out, int from, int to) {
+            float x1[4], x2[4];
+            arg(arg1, x1);
+            arg(arg2, x2);
+            auto each = [&](auto f) {
+                for (int i = from; i < to; ++i)
+                    out[i] = std::clamp(f(i), 0.0f, 1.0f);
+            };
+            switch (op) {
+            case 2: each([&](int i) { return x1[i]; }); break;
+            case 3: each([&](int i) { return x2[i]; }); break;
+            case 5: each([&](int i) { return 2 * x1[i] * x2[i]; }); break;
+            case 6: each([&](int i) { return 4 * x1[i] * x2[i]; }); break;
+            case 7: each([&](int i) { return x1[i] + x2[i]; }); break;
+            case 8: each([&](int i) { return x1[i] + x2[i] - 0.5f; }); break;
+            case 9: each([&](int i) { return 2 * (x1[i] + x2[i] - 0.5f); }); break;
+            case 10: each([&](int i) { return x1[i] - x2[i]; }); break;
+            case 11: each([&](int i) { return x1[i] + x2[i] - x1[i] * x2[i]; }); break;
+            case 12: each([&](int i) { return x1[i] * diffuse.a + x2[i] * (1 - diffuse.a); }); break;
+            case 13: each([&](int i) { return x1[i] * tex.a + x2[i] * (1 - tex.a); }); break;
+            case 14: each([&](int i) { return x1[i] * cf.factor.a + x2[i] * (1 - cf.factor.a); }); break;
+            case 15: each([&](int i) { return x1[i] + x2[i] * (1 - tex.a); }); break;
+            case 16: each([&](int i) { return x1[i] * current.a + x2[i] * (1 - current.a); }); break;
+            case 18: each([&](int i) { return x1[i] + x1[3] * x2[i]; }); break; // MODULATEALPHA_ADDCOLOR
+            case 19: each([&](int i) { return i == 3 ? x1[3] * x2[3] : x1[i] + x2[i]; }); break;
+            case 20: each([&](int i) { return x1[i] + (1 - x1[3]) * x2[i]; }); break; // MODULATEINVALPHA_ADDCOLOR
+            default: each([&](int i) { return x1[i] * x2[i]; }); break;               // MODULATE and the rest
             }
         };
         float result[4] = {current.r, current.g, current.b, current.a};
-        apply(sc.colorOp, arg(sc.colorArg1), arg(sc.colorArg2), result, 0, 3);
+        apply(sc.colorOp, sc.colorArg1, sc.colorArg2, result, 0, 3);
         if (sc.alphaOp != 1)
-            apply(sc.alphaOp, arg(sc.alphaArg1), arg(sc.alphaArg2), result, 3, 4);
+            apply(sc.alphaOp, sc.alphaArg1, sc.alphaArg2, result, 3, 4);
         current = {result[0], result[1], result[2], result[3]};
     }
     if (cf.colorKey && keyed)
@@ -875,18 +940,26 @@ void Device::pixel(int x, int y, float z, float eyeW, const float* attr) {
     auto readTarget = [&]() -> Color {
         uint32_t raw = 0;
         std::memcpy(&raw, at, bytes);
+        const Fractions& f = kFractions;
         if (cf.target == PixelConfig::Target::Rgb565)
-            return {float(raw >> 11) / 31, float(raw >> 5 & 63) / 63, float(raw & 31) / 31, 1};
+            return {f.of31[raw >> 11 & 31], f.of63[raw >> 5 & 63], f.of31[raw & 31], 1};
         if (cf.target == PixelConfig::Target::Rgb888)
-            return {float(raw >> 16 & 0xff) / 255, float(raw >> 8 & 0xff) / 255, float(raw & 0xff) / 255, 1};
+            return {f.of255[raw >> 16 & 0xff], f.of255[raw >> 8 & 0xff], f.of255[raw & 0xff], 1};
         return unpack(target->d.format.toArgb(raw, target->paletteArgb()));
     };
     float out[4] = {current.r, current.g, current.b, current.a};
     if (cf.blend) {
         const Color dst = readTarget();
         const float sv[4] = {current.r, current.g, current.b, current.a}, dv[4] = {dst.r, dst.g, dst.b, dst.a};
-        for (int i = 0; i < 4; ++i)
-            out[i] = sv[i] * blendFactor(cf.srcBlend, current, dst, i) + dv[i] * blendFactor(cf.destBlend, current, dst, i);
+        if (cf.srcBlend == 5 && cf.destBlend == 6) { // SRCALPHA, INVSRCALPHA: the usual
+            const float a = current.a, ia = 1 - current.a;
+            for (int i = 0; i < 4; ++i)
+                out[i] = sv[i] * a + dv[i] * ia;
+        } else {
+            for (int i = 0; i < 4; ++i)
+                out[i] = sv[i] * blendFactor(cf.srcBlend, current, dst, i) +
+                         dv[i] * blendFactor(cf.destBlend, current, dst, i);
+        }
     }
     auto channel = [](float v, float max) { return uint32_t(std::clamp(v, 0.0f, 1.0f) * max + 0.5f); };
     if (cf.target == PixelConfig::Target::Rgb565) {
@@ -899,8 +972,12 @@ void Device::pixel(int x, int y, float z, float eyeW, const float* attr) {
         const uint32_t v = target->d.format.fromArgb(pack(out[0], out[1], out[2], out[3]));
         std::memcpy(at, &v, bytes);
     }
-    if (zAt && cf.zWrite)
-        std::memcpy(zAt, &zNew, cf.zBytes);
+    if (zAt && cf.zWrite) {
+        if (cf.zBytes == 2)
+            std::memcpy(zAt, &zNew, 2);
+        else
+            std::memcpy(zAt, &zNew, cf.zBytes);
+    }
 }
 
 // Clear(count, D3DRECT*, flags, colour, z): the rectangles (or the

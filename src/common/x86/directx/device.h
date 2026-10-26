@@ -130,7 +130,21 @@ private:
     // each stage's u and v).
     void pixel(int x, int y, float z, float eyeW, const float* attributes);
     const DecodedTexture* texture(int stage);
-    uint32_t sample(int stage, float u, float v, bool& keyed);
+    // A texel of a stage's texture at u, v (0xffffffff without one); with
+    // `keyed`, whether it's keyed out by the colour key.
+    uint32_t sample(int stage, float u, float v, bool* keyed);
+    // Each stage's texture as it's sampled for the triangle being drawn
+    // (its mip level, by `lod`), set by prepareSamplers.
+    struct Sampler {
+        const uint32_t* argb = nullptr; // none: no texture
+        const uint8_t* keyed = nullptr;
+        int width = 0, height = 0;
+        float fw = 0, fh = 0;
+        bool linear = false;
+        bool wrapPow2 = false; // both ways wrap, and the sizes are powers of two
+        uint32_t addressU = 0, addressV = 0, border = 0;
+    } samplers_[8];
+    void prepareSamplers();
     bool projected = false; // the vertices being drawn came transformed (XYZRHW)
     int stages = 0;         // texture stages in use
     float lod[8]{};         // the mip level each stage samples, for the triangle being drawn
