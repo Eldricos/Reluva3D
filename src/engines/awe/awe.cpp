@@ -113,6 +113,10 @@ public:
                     continue;
                 }
                 pages[page]->handleEvent(ev);
+                if (pages[page]->quitRequested()) {
+                    pages[page]->deactivate();
+                    return Error::success();
+                }
             }
             pages[page]->update(sys_.getMillis());
             sys_.delayMillis(10);

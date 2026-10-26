@@ -182,5 +182,4 @@ The page then does the following:
 Not done yet:
 
 - walking in through the scene flag;
-- `PUZZ` screens;
-- saved games.
+- `PUZZ` screens other than saving and loading ([saves.md](saves.md));

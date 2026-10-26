@@ -91,7 +91,7 @@ bool Story::startAct(std::string_view arg) {
             found = &r;
     if (!found)
         return false;
-    row_ = found;
+    row_ = *found;
     previousLocation_ = location_;
     location_ = row_->location;
     loading_ = true;
@@ -123,10 +123,30 @@ void Story::update(float seconds) {
     }
 }
 
+void Story::restore(const ActRow& row, const std::string& location) {
+    row_ = row;
+    previousLocation_ = location_;
+    location_ = location;
+    restoring_ = true;
+    // At once: the load's own fade out has been waited for by the caller.
+    loading_ = waitingLoad_ = true;
+    leavingScene();
+    const bool flush =
+        !previousLocation_.empty() && previousLocation_ != location_ && (state_.act < "04a" || state_.act >= "08a");
+    if (onLoadLocation)
+        onLoadLocation(location_, flush);
+    else
+        locationLoaded();
+}
+
 void Story::locationLoaded() {
     if (!loading_ || !waitingLoad_)
         return;
     loading_ = waitingLoad_ = false;
+    if (restoring_) {
+        restoring_ = false;
+        return;
+    }
     if (row_ && given(row_->postLoad))
         main_.run(row_->postLoad);
 }

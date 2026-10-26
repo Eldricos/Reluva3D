@@ -11,6 +11,7 @@
 #include "engines/awe/gr2.h"
 #include "engines/awe/granny_dll.h"
 #include "engines/awe/model.h"
+#include "engines/awe/savegame.h"
 #include "engines/awe/tables.h"
 #include "engines/awe/viewers.h"
 #include "common/archive.h"
@@ -369,7 +370,8 @@ public:
 int cmdAweShot(int argc, char** argv) {
     if (argc < 5) {
         std::fprintf(stderr, "usage: reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds|movies> <out.tga> "
-                             "[key...]\n  keys: left right up down pgup pgdn home end esc, or one character; ms:N lets N milliseconds pass;\n"
+                             "[key...]\n  keys: left right up down pgup pgdn home end esc enter f2 f3, or one character;\n"
+                             "  savedir:<folder> for the game\'s saves; ms:N lets N milliseconds pass;\n"
                              "  move:x,y and click:x,y move and click the mouse\n");
         return 2;
     }
@@ -383,7 +385,12 @@ int cmdAweShot(int argc, char** argv) {
     screen.create(awe::kScreenW, awe::kScreenH, reluva::PixelFormat::RGBA32);
     awe::GameFonts fonts;
     const bool haveFonts = !fonts.load(files);
-    awe::ViewerContext ctx{sys, files, nullptr, nullptr, screen, {}, haveFonts ? &fonts : nullptr};
+    // "savedir:<folder>" among the keys: where the game's saves go.
+    std::filesystem::path saves;
+    for (int i = 5; i < argc; i++)
+        if (std::strncmp(argv[i], "savedir:", 8) == 0)
+            saves = argv[i] + 8;
+    awe::ViewerContext ctx{sys, files, nullptr, nullptr, screen, saves, haveFonts ? &fonts : nullptr};
     std::unique_ptr<awe::Page> page;
     const std::string which = argv[3];
     if (which == "scenes")
@@ -413,6 +420,8 @@ int cmdAweShot(int argc, char** argv) {
             }
             continue;
         }
+        if (k.rfind("savedir:", 0) == 0)
+            continue;
         reluva::Event ev;
         if (k.rfind("click:", 0) == 0 || k.rfind("move:", 0) == 0) {
             // The mouse moved to, or clicked at, x,y on the screen.
@@ -431,7 +440,8 @@ int cmdAweShot(int argc, char** argv) {
         namespace key = reluva::key;
         ev.key = k == "left" ? key::Left : k == "right" ? key::Right : k == "up" ? key::Up : k == "down" ? key::Down
                : k == "pgup" ? key::PageUp : k == "pgdn" ? key::PageDown : k == "home" ? key::Home
-               : k == "end" ? key::End : k == "esc" ? key::Escape : uint32_t(uint8_t(k[0]));
+               : k == "end" ? key::End : k == "esc" ? key::Escape : k == "enter" ? key::Return
+               : k == "f2" ? key::F1 + 1 : k == "f3" ? key::F1 + 2 : uint32_t(uint8_t(k[0]));
         page->handleEvent(ev);
     }
     page->update(sys.now);
@@ -638,9 +648,67 @@ int cmdBinkInfo(int argc, char** argv) {
     return 0;
 }
 
+// A saved game's records, and whether writing it back gives a file of the
+// same size (the buffers' old memory aside, the same layout).
+int cmdAweSave(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool awe-save <slot.ac2>... [-v]\n");
+        return 2;
+    }
+    bool verbose = false;
+    for (int i = 2; i < argc; i++)
+        verbose |= std::strcmp(argv[i], "-v") == 0;
+    int failed = 0;
+    for (int i = 2; i < argc; i++) {
+        if (std::strcmp(argv[i], "-v") == 0)
+            continue;
+        std::vector<uint8_t> data;
+        awe::SaveGame save;
+        if (!readFile(argv[i], data)) {
+            std::printf("%s: can't read\n", argv[i]);
+            failed++;
+            continue;
+        }
+        if (reluva::Error e = awe::readSaveGame(data, save)) {
+            std::printf("%s: %s\n", argv[i], e.message.c_str());
+            failed++;
+            continue;
+        }
+        const size_t again = awe::writeSaveGame(save).size();
+        std::printf("%s: \"%s\" %s %s, act %02d%c, %s, %s; time %d weather %d moving %d; %zu tags, %zu timers, "
+                    "%zu text tags, %zu positions, %zu talks, %zu items%s%s; written back %zu bytes of %zu\n",
+                    argv[i], save.description.c_str(), save.date.c_str(), save.time.c_str(), save.actMajor,
+                    char('a' + save.actMinor - 1), save.location.c_str(), save.scene.c_str(), save.timeOfDay,
+                    save.weather, save.moving, save.tags.size(), save.timers.size(), save.texts.size(),
+                    save.positions.size(), save.talks.size(), save.items.size(), save.player ? ", player" : "",
+                    save.follower ? ", follower" : "", again, data.size());
+        if (again != data.size())
+            failed++;
+        if (verbose) {
+            for (const auto& [n, v] : save.tags)
+                std::printf("  tag %s = %d\n", n.c_str(), v);
+            for (const auto& [n, v] : save.timers)
+                std::printf("  timer %s = %d\n", n.c_str(), v);
+            for (const auto& [n, v] : save.texts)
+                std::printf("  text %s = %s\n", n.c_str(), v.c_str());
+            for (const auto& p : save.positions)
+                std::printf("  position %s %s (%g, %g, %g) turned %g\n", p.scene.c_str(), p.character.c_str(),
+                            p.at.position[0], p.at.position[1], p.at.position[2], p.at.rotation[1]);
+            for (const auto& k : save.talks)
+                std::printf("  talk %s %s part %d thread %d status %d nest %d\n", k.name.c_str(), k.act.c_str(),
+                            k.part, k.thread, k.status, k.nest);
+            for (const auto& it : save.items)
+                std::printf("  item %s state %d slot %d page %d\n", it.name.c_str(), it.state, it.slot, it.page);
+        }
+    }
+    return failed ? 1 : 0;
+}
+
 } // namespace
 
 int aweToolCommand(int argc, char** argv) {
+    if (argc >= 2 && std::strcmp(argv[1], "awe-save") == 0)
+        return cmdAweSave(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "gr2-info") == 0)
         return cmdGr2Info(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "bink-info") == 0)
@@ -674,5 +742,6 @@ const char* aweToolUsage() {
            "  reluva-tool ac2-dump <scene.ac2>...\n"
            "  reluva-tool awe-path <game folder> <scene.ac2> <a0> <b0> <a1> <b1>\n"
            "  reluva-tool awe-scripts <game folder> [-v]\n"
+           "  reluva-tool awe-save <slot.ac2>... [-v]\n"
            "  reluva-tool gr2-model <model.gr2> [-anim <anim.gr2> <seconds>] [-obj out.obj] [-track bone]\n";
 }

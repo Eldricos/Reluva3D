@@ -283,6 +283,12 @@ std::string baseSceneOf(const std::string& name) {
     return name.substr(0, u) + name.substr(dot);
 }
 
+// The part after the last slash or backslash.
+std::string fileNameOf(const std::string& path) {
+    const size_t slash = path.find_last_of("/\\");
+    return slash == std::string::npos ? path : path.substr(slash + 1);
+}
+
 std::string folderOf(const std::string& name) {
     const size_t slash = name.find_last_of("/\\");
     return slash == std::string::npos ? std::string() : name.substr(0, slash);
@@ -377,6 +383,7 @@ void ScenePage::load() {
     scriptObject_ = nullptr;
     resumeAfter_ = nullptr;
     sceneShown_ = true;
+    slots_.reset();
     if (names_.empty())
         return draw();
     auto read = [&](const std::string& name, Ac2Scene& out) {
@@ -432,6 +439,13 @@ void ScenePage::load() {
 
 void ScenePage::enterScene() {
     playMusic();
+    // The save and load screens (PUZZ save, load).
+    for (const Ac2Record& r : scene_.records)
+        if (r.tag == "PUZZ" && (fs::toLower(r.text("value")) == "save" || fs::toLower(r.text("value")) == "load"))
+            openSlots(fs::toLower(r.text("value")) == "save");
+    // A saved game being restored runs no scene events (0x436331).
+    if (restoring_)
+        return;
     // The first event whose condition holds, queued (0x436a90).
     for (const Ac2Record& r : scene_.records)
         if (r.tag == "EVNT")
@@ -443,6 +457,8 @@ void ScenePage::enterScene() {
                         goto queued;
                     }
 queued:
+    if (restoring_)
+        return;
     // The visit, after the events: "!beenhere this" holds during the
     // first visit's.
     std::string& acts = state_.texts[state_.scene];
@@ -580,8 +596,8 @@ void ScenePage::beginLoad(const std::string& location, bool forAct) {
     // faded in if the screen was faded out.
     const LocationLoad keep = load_;
     load_ = LocationLoad();
-    if (!forAct)
-        load_.scene = keep.scene, load_.verb = keep.verb, load_.entry = keep.entry, load_.runner = keep.runner;
+    load_.scene = keep.scene, load_.verb = keep.verb, load_.entry = keep.entry, load_.runner = keep.runner;
+    load_.restore = keep.restore;
     load_.forAct = forAct;
     load_.location = location;
     load_.files = locationFiles(location);
@@ -601,6 +617,17 @@ void ScenePage::updateLoad() {
     if (l.state == 1) {
         // A scene in another place: once faded out.
         if (fade_ >= 1) {
+            if (l.restore) {
+                // A saved game's location (states 7, 2, 3, 8).
+                const SaveGame::Act& a = restoring_->act;
+                ActRow row;
+                row.act = state_.act;
+                row.preLoad = a.preLoad, row.location = fs::toLower(a.location), row.postLoad = a.postLoad;
+                row.completion = a.completion, row.event = a.event, row.music = a.music;
+                row.time = a.timeOfDay, row.weather = a.weather, row.moving = a.moving;
+                story_->restore(row, l.location);
+                return;
+            }
             if (playing_)
                 story_->leavingScene();
             beginLoad(l.location, false);
@@ -632,6 +659,13 @@ void ScenePage::updateLoad() {
         if (l.forAct) {
             l.state = 0;
             story_->locationLoaded();
+            if (l.restore) {
+                finishRestore();
+                if (ScriptRunner* r = l.runner) {
+                    l.runner = nullptr;
+                    r->finished(l.verb);
+                }
+            }
             return;
         }
         // The scene, faded in (states 6, 9).
@@ -669,6 +703,12 @@ void ScenePage::newGame() {
     movieRunner_ = nullptr;
     sceneShown_ = true;
     load_ = LocationLoad();
+    restoring_.reset();
+    npcPositions_.clear();
+    gameScene_.clear();
+    previousMenu_.clear();
+    yesNo_.reset();
+    slots_.reset();
     logScript("new game");
     runner_->run("musica motoetheme, movie logos inscene, scene menu.main_01 1 0");
 }
@@ -828,8 +868,14 @@ void ScenePage::loadCharacters() {
             }
         } else if (c.player && playing_) {
             if (const auto kept = positions_.find(state_.scene); kept != positions_.end())
-                c.x = kept->second[0], c.z = kept->second[1];
+                c.x = kept->second[0], c.z = kept->second[1], c.rotY = kept->second[2];
         }
+        if (!c.player)
+            if (const auto kept = npcPositions_.find(state_.scene + "|" + fs::toLower(fileNameOf(file)));
+                kept != npcPositions_.end()) {
+                const SaveGame::Placement& p = kept->second;
+                c.x = p.position[0], c.y = p.position[1], c.z = p.position[2], c.rotY = p.rotation[1];
+            }
         c.home = normalizeDegrees(c.rotY * 57.29578f);
         // Its animations: <who>_<name>.gr2 beside its model, loaded as
         // they're asked for.
@@ -1110,6 +1156,21 @@ void ScenePage::draw() {
             rows.push_back({a.y, a.h});
         dialogue_->setChoiceAreas(std::move(rows));
     }
+    if (slots_ && !load_.screen && !movie_)
+        drawSlots();
+    if (yesNo_ && ctx_.fonts) {
+        // The box: the question and Yes / No as the dialogue's choices.
+        DialogueBoxPictures pics;
+        pics.window = &picture("interface/dialoguewin01.png");
+        pics.bullet = &picture("interface/dialoguewin04.png");
+        pics.bulletOn = &picture("interface/dialoguewin05.png");
+        const auto areas = drawDialogueBox(ctx_.screen, *ctx_.fonts, pics, kScreenH - 200, yesNo_->text,
+                                           ctx_.fonts->colour("popup menu text"),
+                                           {interfaceText("yes"), interfaceText("no")}, -1);
+        yesNo_->rows.clear();
+        for (const auto& a : areas)
+            yesNo_->rows.push_back({a.y, a.h});
+    }
     if (load_.screen) {
         // The location's picture, the wheel turning at its foot (0x422ff0).
         const image::Image& back = picture("interface/loading/loading_" +
@@ -1168,6 +1229,8 @@ void ScenePage::update(uint64_t nowMs) {
     }
     if (load_.state)
         updateLoad();
+    if (slots_)
+        slots_->sinceClick += dt;
     if (charactersDue_ && nowMs >= charactersAt_ + 400) {
         charactersDue_ = false;
         loadCharacters();
@@ -1295,7 +1358,25 @@ void ScenePage::update(uint64_t nowMs) {
         }
     }
     prepareScreenshot(renderer_);
+    if (grabDue_)
+        renderer_->captureNextFrame();
     renderer_->endFrame(&ctx_.screen);
+    if (grabDue_) {
+        // The view for a save's thumbnail, the 2D over the 3D.
+        image::Image img;
+        img.w = kScreenW, img.h = kScreenH;
+        if (renderer_->takeCapture(img.rgba)) {
+            const auto& o = ctx_.screen.pixels;
+            if (o.size() == img.rgba.size())
+                for (size_t i = 0; i < img.rgba.size(); i += 4) {
+                    const int a = o[i + 3];
+                    for (size_t c = 0; c < 3; c++)
+                        img.rgba[i + c] = uint8_t((o[i + c] * a + img.rgba[i + c] * (255 - a)) / 255);
+                }
+            grab_ = std::move(img);
+            grabDue_ = false;
+        }
+    }
     finishScreenshot(renderer_, &ctx_.screen);
 }
 
@@ -1612,9 +1693,14 @@ bool ScenePage::changeScene(const std::string& name, int entry) {
     dialogue_->leaveScene(sceneName());
     // Leaving (0x423390): where the player was is kept (the game keeps
     // the scene itself), and the act's time, weather and moving apply.
-    for (const Character& c : characters_)
+    for (const Character& c : characters_) {
         if (c.player)
-            positions_[state_.scene] = {c.x, c.z};
+            positions_[state_.scene] = {c.x, c.z, c.rotY};
+        else if (c.record)
+            // The game keeps the scene, so its characters stay where they
+            // are (and are saved there: POSI).
+            npcPositions_[state_.scene + "|" + fs::toLower(fileNameOf(c.name))] = {{c.x, c.y, c.z}, {0, c.rotY, 0}};
+    }
     state_.lastScene = state_.scene;
     story_->leavingScene();
     index_ = found;
@@ -2071,6 +2157,59 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
     }
     if (v == "movie")
         return startMovie(runner, e, wait);
+    if (v == "preload") {
+        // preload quick | slotN (0x40a54a): the quick save, else the
+        // developers' text\scripts\slotN.ac2.
+        const std::string what = lower(e.arg(1));
+        if (what == "quick")
+            preload(savesFolder() / "quick.ac2", false);
+        else
+            preload("text/scripts/" + what + ".ac2", true);
+        return false;
+    }
+    if (v == "load") {
+        // To the save preloaded (0x412570): its act, its location behind
+        // the loading screen, its scene; the event waits till then.
+        if (!restoring_)
+            return false;
+        state_.act = actName(restoring_->actMajor, restoring_->actMinor);
+        loadDialogue();
+        load_ = LocationLoad();
+        load_.state = 1;
+        load_.restore = true;
+        load_.location = fs::toLower(restoring_->location);
+        // trailing spaces in the saved cells ("calais.hall ")
+        while (!load_.location.empty() && load_.location.back() == ' ')
+            load_.location.pop_back();
+        load_.verb = v;
+        load_.runner = wait ? &runner : nullptr;
+        fadeTarget_ = 1;
+        return wait;
+    }
+    if (v == "menu") {
+        openMenu(lower(e.arg(1)));
+        return false;
+    }
+    if (v == "previous") {
+        previous(lower(e.arg(1)) == "scene");
+        return false;
+    }
+    if (v == "action") {
+        if (slots_)
+            slotAction(lower(e.arg(1)), lower(e.arg(2)));
+        return false;
+    }
+    if (v == "yesno") {
+        yesNo_ = std::make_unique<YesNo>();
+        yesNo_->text = interfaceText(lower(e.arg(1)));
+        yesNo_->kind = std::atoi(e.arg(2).c_str());
+        draw();
+        return false;
+    }
+    if (v == "quit") {
+        quit_ = true;
+        return false;
+    }
     if (v == "musica" || v == "music") {
         // sound\music\<name>.mp3, looping (0x40a860).
         playLooping("sound\\music\\" + lower(e.arg(1)) + ".mp3", true);
@@ -2147,6 +2286,17 @@ void ScenePage::line(int x0, int y0, int x1, int y1, Color c) {
 }
 
 void ScenePage::handleEvent(const Event& ev) {
+    if (yesNo_) {
+        // The yes/no box takes every click and key while it's up.
+        if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
+            for (size_t i = 0; i < yesNo_->rows.size(); i++)
+                if (ev.mouseY >= yesNo_->rows[i].first && ev.mouseY < yesNo_->rows[i].first + yesNo_->rows[i].second)
+                    return answer(i == 0);
+        } else if (ev.type == EventType::KeyDown && (ev.key == key::Return || ev.key == key::Escape)) {
+            answer(ev.key == key::Return);
+        }
+        return;
+    }
     if (movie_) {
         // Escape skips it, unless it's the legal notice (0x409860); clicks
         // don't.
@@ -2177,6 +2327,8 @@ void ScenePage::handleEvent(const Event& ev) {
     if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
         if (!runner_->idle())
             return; // the game takes no clicks while a script runs
+        if (slots_ && !hotspotAt(ev.mouseX, ev.mouseY) && slotClick(ev.mouseX, ev.mouseY))
+            return;
         runner_->setFromCharacter(false);
         if (const Ac2Record* spot = hotspotAt(ev.mouseX, ev.mouseY)) {
             runScript(*spot);
@@ -2192,6 +2344,8 @@ void ScenePage::handleEvent(const Event& ev) {
         return;
     }
     if (ev.type != EventType::KeyDown)
+        return;
+    if (playing_ && gameKey(ev.key))
         return;
     if (const int d = step(ev.key, index_, int(names_.size()))) {
         index_ += d;

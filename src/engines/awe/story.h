@@ -8,6 +8,7 @@
 #include "engines/awe/tables.h"
 
 #include <functional>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -49,9 +50,13 @@ public:
 
     void setActs(std::vector<ActRow> acts) {
         acts_ = std::move(acts);
-        row_ = nullptr;
+        row_.reset();
     }
-    const ActRow* row() const { return row_; }
+    const ActRow* row() const { return row_ ? &*row_ : nullptr; }
+    // A saved game's act (0x422470): its row as saved (acts.txt isn't read
+    // again), its location loaded through onLoadLocation, but neither
+    // PreLoad nor Post Load run; done() once loaded.
+    void restore(const ActRow& row, const std::string& location);
 
     // "act [<act>]" (0x409eaa -> 0x422580): the act changes (or, with no
     // argument, starts again), its dialogue tables are loaded and, if
@@ -84,7 +89,8 @@ private:
     GameState& state_;
     ScriptRunner& main_;
     std::vector<ActRow> acts_;
-    const ActRow* row_ = nullptr;
+    std::optional<ActRow> row_; // the act's row, as it was read (or saved)
+    bool restoring_ = false;
     std::string location_, previousLocation_;
     bool loading_ = false, waitingLoad_ = false;
     float second_ = 0;

@@ -27,6 +27,7 @@
 #include "engines/awe/model.h"
 #include "engines/awe/model_draw.h"
 #include "engines/awe/movie_player.h"
+#include "engines/awe/savegame.h"
 
 #include <array>
 #include <deque>
@@ -74,6 +75,8 @@ public:
     }
     // Whether Escape is the page's now (a movie skipped), not the way out.
     virtual bool wantsEscape() const { return false; }
+    // Whether the page asks to go back to the launcher (the game's quit).
+    virtual bool quitRequested() const { return false; }
     // Saves the next frame shown, as a TGA file (the window title says
     // where).
     void requestScreenshot(std::filesystem::path file) { shotFile_ = std::move(file); }
@@ -141,7 +144,8 @@ public:
     void deactivate() override;
     void handleEvent(const Event& ev) override;
     void update(uint64_t nowMs) override;
-    bool wantsEscape() const override { return movie_ != nullptr; }
+    bool wantsEscape() const override { return movie_ != nullptr || playing_; }
+    bool quitRequested() const override { return quit_; }
 
 private:
     // A character placed in the scene, animated as the game animates
@@ -222,6 +226,55 @@ private:
     void enterScene();
     void playMusic();
     void newGame();
+
+    // Saved games (scene_saves.cpp; docs/formats/awe/saves.md). The
+    // game's own format: Saved.Games/slot<N>.ac2 and .bmp, quick.ac2,
+    // kept in Reluva's save folder for the game.
+    std::filesystem::path savesFolder() const;
+    SaveGame captureSave(const std::string& description) const;
+    // "preload": the story state from a save; "load" then goes there.
+    bool preload(const std::filesystem::path& file, bool fromGame);
+    void finishRestore();
+    // "menu <name>", "previous [scene]": the menus and back.
+    void openMenu(const std::string& name);
+    void previous(bool toScene);
+    // A game key: the in-game, save or load menu (the view kept for the
+    // thumbnail), F2 quick save, F3 quick load. False if it isn't one.
+    bool gameKey(uint32_t key);
+    bool quickSave();
+    // The save and load screens (a scene's PUZZ save/load: 0x4347a0,
+    // 0x424260).
+    struct SlotMenu {
+        bool save = false;
+        int count = 0;          // slots there are
+        int page = 0, row = 0;  // first slot shown (a multiple of 3), the row picked
+        std::string name;       // save: the name typed
+        struct Row {
+            bool exists = false;
+            std::string description, date, time;
+            image::Image thumbnail;
+        } rows[3];
+        int lastRow = -1;
+        float sinceClick = 10;
+    };
+    std::unique_ptr<SlotMenu> slots_;
+    void openSlots(bool save);
+    void refreshSlots();
+    void slotAction(const std::string& word, const std::string& second);
+    bool slotCondition(const std::string& word) const;
+    bool slotClick(int x, int y);
+    void slotKey(uint32_t key);
+    void drawSlots();
+    // The yes/no box (0x432930): its question and its kind (0 quit the
+    // program, 1 quit the game, 2 overwrite a save); the choice's rows.
+    struct YesNo {
+        std::string text;
+        int kind = 0;
+        std::vector<std::pair<int, int>> rows;
+    };
+    std::unique_ptr<YesNo> yesNo_;
+    void answer(bool yes);
+    std::string interfaceText(const std::string& tag);
     // "movie <name> [inscene] [silent]" (0x40a725); false if there's no
     // such movie. endMovie: it's over (or skipped).
     bool startMovie(ScriptRunner& runner, const ScriptEvent& e, bool wait);
@@ -282,7 +335,7 @@ private:
     std::unique_ptr<Story> story_;
     bool playing_ = false;
     std::map<std::string, audio::SoundHandle> music_;
-    std::map<std::string, std::array<float, 2>> positions_;
+    std::map<std::string, std::array<float, 3>> positions_; // the player's x, z and heading, by scene file left
     float fade_ = 0, fadeTarget_ = 0;
     // "movie": the one playing over everything, its subtitles, the runner
     // waiting on it; and whether a scene is shown (one not "inscene" is
@@ -302,6 +355,7 @@ private:
         std::string scene, verb; // a scene's: its name, and the verb waiting ("scene", "gotoscene")
         int entry = 1;
         ScriptRunner* runner = nullptr;
+        bool restore = false; // a saved game's
     } load_;
     std::string location_; // the current scene's folder ("sirkeci.market")
     void beginLoad(const std::string& location, bool forAct);
@@ -314,6 +368,16 @@ private:
     std::vector<Subtitle> movieSubtitles_;
     ScriptRunner* movieRunner_ = nullptr;
     bool sceneShown_ = true;
+    // Saved games: the save being restored (between "preload" and "load"),
+    // NPCs' positions by scene file and model file (the game keeps its
+    // scenes, so they stay where they were), the game scene and the menu
+    // the menus return to, the view grabbed for a thumbnail.
+    std::unique_ptr<SaveGame> restoring_;
+    std::map<std::string, SaveGame::Placement> npcPositions_;
+    std::string gameScene_, previousMenu_;
+    image::Image grab_;
+    bool grabDue_ = false, quit_ = false;
+    std::map<std::string, std::string> interfaceTexts_;
     ScriptRunner* fadeRunner_ = nullptr;
     std::string dialogueAct_ = "-";   // the act whose table is loaded
     audio::SoundHandle voice_ = audio::kNoSound;

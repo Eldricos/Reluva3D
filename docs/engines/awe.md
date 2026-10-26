@@ -79,8 +79,10 @@ scenes, two Granny files, the text tables, two backgrounds):
   own events, as `acts.txt` and the game's act code say (see
   [../formats/awe/acts.md](../formats/awe/acts.md)). Scene music, timers,
   completion conditions, `savescene`/`gotoscene`, fades and movies (with
-  their subtitles; Escape skips them) work; loading screens and saved
-  games don't yet.
+  their subtitles; Escape skips them), loading screens, and saved games
+  in the game's own format (the save and load screens, F2/F3, the
+  developers' saves: see [../formats/awe/saves.md](../formats/awe/saves.md))
+  work.
 - **Characters: animated as the game animates them.** Up to ten
   animations each on body, head and eye layers, blended by the files'
   track masks; blinking, idle gestures and their routines; `anim`,
@@ -113,7 +115,8 @@ scenes, two Granny files, the text tables, two backgrounds):
     install read, with cameras compared against the DLL: the regression
     test);
   - `bink-info` (a movie's header and frames; `-yuv`, `-wav`, `-tga` to
-    decode it).
+    decode it);
+  - `awe-save` (a saved game's records, read and written back).
 - **Tests:** `tests/test_awe.cpp`, on files built in the test.
 
 Corrections to the plan below:
@@ -138,8 +141,7 @@ Next:
    records and member types the samples didn't have.
 2. A native port of the path-finder's lattice search (`0x42f1f0`),
    checked path for path against the game's (`awe-path`).
-3. Loading screens, saved games; walking in, and the characters'
-   shadows.
+3. The options screen; walking in, and the characters' shadows.
 4. Native decoding of the compressed curve formats (the DLL expands them
    for now).
 5. Native Oodle1 and Bink-texture decoding, checked against the DLL, to

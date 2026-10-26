@@ -61,6 +61,8 @@ struct GameState {
     // "talk <name> <act> <part>": whether every line of the part not
     // marked Optional was said (the dialogue's own test, 0x439e40).
     std::function<bool(const std::string& name, const std::string& act, int part)> partTold;
+    // "action <word>": what the save or load screen allows (up, down...).
+    std::function<bool(const std::string& word)> action;
 };
 
 std::string talkKey(std::string_view name, std::string_view act, int part, int thread);

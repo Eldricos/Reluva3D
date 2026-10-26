@@ -125,6 +125,9 @@ bool testClause(std::string_view clause, const GameState& state) {
     } else if (word == "lastscene") {
         // The scene left last: its path contains the name. [likely]
         result = !arg.empty() && fs::toLower(state.lastScene).find(fs::toLower(arg)) != std::string::npos;
+    } else if (word == "action") {
+        // The save or load screen's (0x407ec4); false without one.
+        result = state.action && state.action(fs::toLower(arg));
     } else if (word == "has")
         result = state.items.count(fs::toLower(arg)) != 0;
     else if (word == "act")
