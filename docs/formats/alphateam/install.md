@@ -7,8 +7,14 @@ names alone and are to be confirmed.
 
 ## Identification
 
-To do: run `reluva --hash` on `LEGOATeam.exe`, `Locale_en.pac` and `Bhvr.pac`
-and record the sizes and MD5s here (see [../../engines/alphateam.md](../../engines/alphateam.md)).
+| File | Size | MD5 of first 5000 bytes |
+|---|---|---|
+| `LEGOATeam.exe` | 61,440 | `f4e48a14ef43f73ded1536266e16b94b` |
+| `Bhvr.pac` | 4,532,456 | `6e2ed1e3cc81583995361fa0ff31bd77` |
+| `Etc.pac` | 11,794,154 | `4a1e77f9c0b6d1d912571666838c91c5` |
+
+`Locale_en.pac` is still to be hashed. Detection will need it to tell
+the languages apart.
 
 ## Install folder (`C:\Program Files\LEGO Media\Games\LEGO Alpha Team`)
 
@@ -28,13 +34,14 @@ and record the sizes and MD5s here (see [../../engines/alphateam.md](../../engin
 | `NiA3dSound.dll` | 69,632 | NetImmerse's sound, through Aureal A3D |
 | `Ambient.pac` | 126,598,304 | *guess*: ambient sound and music |
 | `Audio.pac` | 92,796,224 | *guess*: sound effects |
-| `Bhvr.pac` | 4,532,456 | *guess*: behaviour scripts or tables |
-| `Etc.pac` | 11,794,154 | *guess*: everything else (interface, fonts) |
+| `Bhvr.pac` | 4,532,456 | 74 DLLs, the puzzle parts' code ([pac.md](pac.md)) |
+| `Etc.pac` | 11,794,154 | interface images, fonts, the 111 puzzles ([pac.md](pac.md)) |
 | `Fin.pac` | 20,642,530 | unknown (*guess*: the ending, or "final" assets) |
 | `LMap.pac` | 53,475,662 | *guess*: level maps, or lightmaps |
 | `Map.pac` | 19,654,043 | *guess*: maps |
 | `Locale_en.pac` | 82,323,720 | English text and voice; other languages presumably ship `Locale_<xx>.pac` |
-| `Config.txt`, `Game.txt` | 0 | empty; *guess*: markers the game or the launcher look for |
+| `Config.txt` | 0 | empty |
+| `Game.txt` | 0 | the game's settings, which it writes when they're changed. The readme names its `Width`, `Height` and `BPP` lines |
 
 Detection should key on `Locale_<xx>.pac` (one variant per language) plus
 `LEGOATeam.exe` existing, as New Worlds keys on its archive: patches tend
@@ -52,8 +59,9 @@ to replace the executable, not the large archives.
 - `readme.txt`, `license.txt`, `Strings_en.txt`: text worth reading for the
   game's documented behaviour (keys, options, known issues), as New Worlds'
   readme was.
-- Whether the game checks for the CD (by volume label or a file) is to be
-  found; Reluva wouldn't need to.
+- The game checks for its CD: `LEGOATeam.exe` calls `GetVolumeInformationA`
+  and holds the text "Please place game CD in drive" and `LEGOAT`. Reluva
+  will answer that check itself, so no CD is needed.
 
 ## Not needed by Reluva
 

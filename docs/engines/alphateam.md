@@ -1,6 +1,7 @@
 # LEGO Alpha Team: plan
 
-Status: planning. Nothing is implemented yet. This is the plan for adding
+Status: planning. Nothing is implemented yet; the choice of how the game
+runs (phase 3) is made, from measurements of the retail files. This is the plan for adding
 LEGO Alpha Team (LEGO Media, 2000), the first of the LEGO games Reluva
 is meant to run. The install is described in
 [../formats/alphateam/install.md](../formats/alphateam/install.md).
@@ -82,44 +83,148 @@ as a viewer; it checks each reader against all the retail files.
 - **Intro movie** (`lmiintro.avi`, CD only): an AVI reader and whichever
   codec it uses. Not needed to play, so last.
 
-### 3. How the game will run: a decision
+### 3. How the game will run: measured, B1 chosen
 
-Two ways, as with Elite Force:
+Measured on the retail files (October 2026) with a PE import census of
+every module, the 74 DLLs inside `Bhvr.pac` included.
 
-- **A. Reimplement the game.** Its rules, behaviours and menus written
-  anew from the data, observation and study of the DLLs. Fully native,
-  but every mission's logic has to be worked out.
-- **B. Run the game's own DLLs in the x86 interpreter** (`common/x86`),
-  as Elite Force's single player runs `efgamex86.dll`. Faithful by
-  construction. Its cost is the boundary:
-  - B1: run the four game DLLs and NetImmerse's in the interpreter;
-    stand in only for Windows, DirectX 7 (Direct3D, DirectInput,
-    DirectSound) and A3D. That's a far wider Windows than Elite Force
-    needed: files, windows and messages, COM interfaces, timers,
-    probably threads and C++ exceptions (structured exception handling
-    isn't dispatched yet). NetImmerse's scene graph would run in the
-    interpreter every frame, so speed matters.
-  - B2: run the four game DLLs in the interpreter, and stand in for
-    NetImmerse natively: the classes and functions they import from
-    `Ni*.dll`, backed by phase 2's scene graph. Less Windows, and the
-    heavy per-frame work runs natively, but C++ objects cross the
-    boundary (vtables and object layouts in emulated memory must match
-    NetImmerse's).
+**The game is mostly compiled code.** Alpha Team is a contraption-puzzle
+game. Each puzzle part (`T0001`, `U0188`...) has its own behaviour DLL
+in `Bhvr.pac`, and the puzzles are text files (`.PUZ`) that place the
+parts. Most missions ship a `_SOLVED.PUZ` too. The game's code adds up to:
 
-What decides it is measurable, so measure first:
+| Code | Size |
+|---|---|
+| `LEGOATeam.exe` and the four `*Comp.dll` | 1.0 MB |
+| 74 behaviour DLLs in `Bhvr.pac` | 4.5 MB |
 
-- `reluva-tool pe-info` on every DLL: how many imports each game DLL
-  takes from `Ni*.dll`, from each other, and from Windows/DirectX.
-- `reluva-tool x86-run` on each game DLL: how far its start-up gets
-  and what it calls.
-- How much of the game is data (behaviours in `Bhvr.pac`) and how much
-  is code.
+**What that code calls:**
 
-Recommendation: decide after that census. If the game DLLs use a
-bounded part of NetImmerse (a few hundred imports), B2 gives the most
-faithful game for the least risk, and phase 2's native renderer is
-what it draws with. If they use most of it, or the logic turns out to
-be mostly data, A becomes the cheaper path.
+| Called | Unique functions | Notes |
+|---|---|---|
+| NetImmerse (`Ni*.dll`) | 792 | NiMain 596, NiAnimation 119, NiA3dSound 41, NiCollision 32, NiDirect3d 4 |
+| ↳ of which constructors | 58 | 42 NetImmerse classes created directly (NiNode, NiTriShape, NiCamera, NiStream...) |
+| ↳ vtables / static data | 19 / 95 | the game subclasses NetImmerse's classes |
+| MSVCP60 (C++ library) | 129 | `std::string`, fstreams, locale |
+
+**What everything calls, NetImmerse included**, i.e. what B1 has to supply:
+
+| Library | Functions |
+|---|---|
+| KERNEL32 | 44: files, file mapping, find-file, critical sections, one event, timers, `LoadLibraryA`/`GetProcAddress`, the CD check |
+| USER32 / GDI32 | 27 / 3: one window, its messages, the cursor |
+| ADVAPI32 | 5: the registry |
+| WINMM | 1: `timeGetTime` |
+| DDRAW | 3: `DirectDrawCreate(Ex)` and `Enumerate`. Direct3D 7 is reached through it ("NiDirect3D NetImmerse Version 7.0"). Only `NiDirect3d.dll` uses it |
+| DINPUT | 1: `DirectInputCreateA` (LoadComp) |
+| OLE32 | 3: `CoCreateInstance` for Aureal A3D (NiA3dSound) and Direct3D |
+| MSVCRT | 79: the C library, `_beginthread` (one thread, started by the exe), C++ exceptions (`_CxxThrowException`, LoadComp) |
+| MSVCP60 | 156 |
+
+No DirectSound, no other threads, no SSE or MMX needed (the interpreter
+reports a Pentium, so any CPU-specific paths stay off).
+
+#### A. Reimplement the game natively
+
+Pros:
+- Fastest at run time, and the most portable (no interpreter).
+- Free to improve: widescreen, higher resolutions, modern input.
+- The data side is needed anyway (phase 2), so it isn't wasted.
+
+Cons:
+- 5.5 MB of compiled C++ to rewrite: 74 puzzle parts' behaviours, plus
+  the rules, physics and menus in the four `*Comp.dll`.
+- A contraption puzzle only works if every part behaves exactly as the
+  original's did (timings, momentum, electricity). Small differences
+  break the shipped puzzles' solutions.
+- Needs a complete native NetImmerse too: scene graph, animation,
+  collision, NIF loading.
+- By far the most work, with the least certain result.
+
+#### B1. Run all the original code in the x86 interpreter, NetImmerse included; stand in for Windows and DirectX
+
+Pros:
+- Faithful by construction. Every behaviour DLL, NetImmerse's own physics,
+  collision and animation run as shipped. The `_SOLVED.PUZ` files give a
+  ready test: load one, run it, see it solve.
+- The Windows surface is small and fully documented: about 170 plain
+  functions plus three COM areas (DirectDraw/Direct3D 7, DirectInput,
+  A3D). Elite Force's Win32 process and PE loader already cover the
+  loading, relocation, imports and much of KERNEL32.
+- Every interface it implements is public (Microsoft's API docs, the
+  DirectX 7 SDK docs, Aureal's A3D SDK docs). No NetImmerse internals
+  need to be guessed.
+- The work carries over to any later LEGO game built the same way, and to
+  other Win9x/DirectX 7 games.
+- It can become native piece by piece. Any export of `NiMain.dll` (matrix
+  maths, bounds, culling) can later be swapped for a native function where
+  profiling shows the time goes.
+
+Cons:
+- Speed. The interpreter runs about 50 million instructions a second.
+  The game asked for a Pentium II 233, roughly 4 to 6 times that, and
+  here NetImmerse's per-frame scene-graph work runs interpreted too. It
+  needs a decoded-instruction cache (already noted in x86.md as the next
+  speed-up) or a simple JIT, plus native replacements for hot NiMain
+  exports.
+- MSVCP60 and MSVCRT aren't in the install. MSVCRT can be stood in for
+  natively (C functions). MSVCP60 is C++ with object layouts
+  (`std::string`, streams) that must match VC6's. That could be a native
+  stand-in, or a small replacement DLL built for x86 with clang, like the
+  tests' DLL, and run in the interpreter.
+- New interpreter features:
+  - C++ exceptions, i.e. structured exception handling dispatch, which is
+    listed as a known limit today;
+  - one extra thread (`_beginthread`), run cooperatively;
+  - COM objects (vtables of native functions);
+  - `GetVolumeInformationA` answering the CD check.
+- Direct3D 7's fixed-function pipeline (render states, texture stages,
+  vertex formats) must be mapped onto `gfx::Renderer3D`, which may need a
+  few additions.
+
+#### B2. Run only the game's code in the interpreter, with a native NetImmerse
+
+Pros:
+- NetImmerse's heavy per-frame work runs natively, so speed isn't a worry.
+- Little of Windows or DirectX is needed: just what the game's own
+  modules call.
+
+Cons:
+- The boundary is C++, not C. The game creates 42 NetImmerse classes
+  itself, subclasses them through their vtables and reads 95 of their
+  static data items. Its compiled code also reads and writes their fields
+  directly through inlined accessors. A native NetImmerse would need every
+  class's binary layout and vtable order to match the original exactly,
+  with nothing to check against but the binaries.
+- 792 functions to reimplement with matching behaviour, including NIF
+  streaming (the game registers its own loaders with `NiStream`) and
+  NetImmerse's collision and animation, which the puzzles' physics depend
+  on.
+- It amounts to rewriting NetImmerse to be binary-compatible: more work
+  than B1 and less faithful, while still needing the interpreter.
+
+**Decision: B1.** It's the only option whose hard parts are all documented
+public interfaces, it keeps the puzzles' physics exact, and the
+`_SOLVED.PUZ` files give an automatic check. Its main risk, speed, has
+known remedies that can be measured as the work goes. Phase 2's native
+readers (`.pac`, NIF, TGA, fonts) are still worth having, for tools and
+the viewer, and as the start of native replacements later.
+
+B1's order of work:
+
+1. `.pac` reader and the viewer's images, fonts and puzzles (phases 1
+   and 2).
+2. Load `LEGOATeam.exe` and every DLL in the interpreter, with stand-ins
+   for the libraries above. Then let `DDPackedDirFileLib`'s loader pull a
+   behaviour DLL out of `Bhvr.pac`. `reluva-tool x86-run` shows how far it
+   gets.
+3. MSVCRT, MSVCP60, C++ exceptions and the extra thread, until the game
+   reaches its first `DirectDrawCreateEx`.
+4. DirectDraw/Direct3D 7 on `gfx::Renderer3D`: the menus first, then a
+   puzzle.
+5. DirectInput on `System` events, then A3D on the mixer.
+6. Speed: an instruction cache, then native NiMain hot spots, measured
+   against a puzzle's frame time.
 
 ### 4. Playing
 
@@ -136,14 +241,11 @@ Whichever way phase 3 chose:
 
 ## What's needed from the game owner
 
-Game files can't go in the repository, and this environment doesn't
-have them. Development needs one of:
-
-- the files themselves in the session (uploaded, or in a folder the
-  session can read), for format work; `Bhvr.pac`, `Etc.pac`,
-  `LEGOATeam.exe` and the DLLs first;
-- or the output of the tools above run on a local install
-  (`reluva --hash`, `reluva-tool pe-info`, `pac-list` once written).
+Game files can't go in the repository. The executables, the DLLs,
+`Bhvr.pac` and `Etc.pac` have been provided for study. Still needed: the
+other archives (`Locale_en.pac` for detection; `Map.pac`, `LMap.pac` and
+`Fin.pac` for the models and levels; `Audio.pac` and `Ambient.pac` for
+sound).
 
 Also useful: the CD's `readme.txt` and `Strings_en.txt` (the game's own
 description of its keys and options), and screenshots or a recording of
