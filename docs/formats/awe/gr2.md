@@ -102,11 +102,37 @@ prints the whole tree.
   ending its control's interval (`Curve::evaluate`). This is checked by
   eye only so far.
 
+## Compressed curves
+
+Most animations have the plain curves above. About 30 of the 1,701 have
+some of Granny's compressed curve formats: a `CurveData` variant whose
+type names the format. The formats seen are `DaIdentity`,
+`DaConstant32f`, `D3Constant32f`, `DaK32fC32f`, `D3K16uC16u` and
+`D4nK8uC7u` (quaternions as 7-bit components, scaled by tables inside the
+DLL).
+
+The DLL expands them: `GrannyReadEntireFileFromMemory` loads the file,
+then each such curve goes through `GrannyCurveExtractKnotValues`, which
+gives its knots and controls. An identity or constant curve gives one
+knot of its value. The curves are found in the DLL's memory with the
+same members' offsets Reluva reads from the file's own type definitions,
+since the loaded structures are those types. The expanded curves go to
+the same B-spline evaluation as the plain ones. `vendor01_walk` and
+`poirot_suprised` render posed as they should.
+
+## Vector tracks
+
+About 80 animations also have vector tracks: "Displacement Max
+Triangles", "value", "TrackMasktrackmask". These are settings that 3D
+Studio MAX animated, which the exporter kept. Nothing suggests the game
+uses them, so they aren't read (`awe-check` counts them).
+
 ## Still to do
 
 - Decode Oodle1 and the Bink textures natively, checked byte for byte
   against the DLL on every file. The interpreter takes about 2.5 seconds
   per 512×512 texture.
-- Check the curve evaluation against Granny's on more animations.
+- Check the curve evaluation against Granny's (`GrannyEvaluateCurveAtT`)
+  on more animations.
 - The face: how the game drives the face bones (the `_f*` animations,
   `blink`, `eyeleft`...).

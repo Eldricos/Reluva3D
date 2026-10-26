@@ -155,6 +155,7 @@ Error Gr2File::open(const std::vector<uint8_t>& file, const Gr2Decompressor& dec
     }
     if (rootTypeSection >= sections_.size() || rootSection >= sections_.size())
         return Error::fail("Granny root out of range");
+    bytes_ = file;
     rootType_ = sectionBase_[rootTypeSection] + rootTypeOffset;
     rootObject_ = sectionBase_[rootSection] + rootOffset;
     return Error::success();

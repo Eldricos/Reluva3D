@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -51,6 +52,8 @@ struct Gr2Result {
     std::string vertexLayout;    // the first mesh's vertex members
     std::set<int> degrees;       // curve degrees used
     std::set<std::string> compressions;
+    uint32_t vectorTracks = 0;
+    bool compressedCurves = false; // expanded by the DLL
 };
 
 std::string layoutOf(const awe::Gr2Object& vertexData) {
@@ -65,39 +68,28 @@ std::string layoutOf(const awe::Gr2Object& vertexData) {
     return s;
 }
 
-// Checks one curve as Curve::evaluate reads it.
-void checkCurve(const awe::Gr2Object& track, const char* name, int dimension, Gr2Result& r,
-                const std::string& trackName) {
-    const awe::Gr2Object c = track.object(name);
-    if (!c.valid())
+// Checks one curve as loaded (plain, or expanded by the DLL from a
+// compressed format), as Curve::evaluate will read it.
+void checkCurve(const awe::Curve& c, const char* name, int dimension, Gr2Result& r, const std::string& trackName) {
+    if (c.knots.empty())
         return;
-    if (!c.member("Knots") || !c.member("Controls")) {
-        std::string members;
-        for (const awe::Gr2Member& m : c.members())
-            members += " " + m.name;
-        r.warnings.push_back(trackName + " " + name + ": not a plain curve (members:" + members + ")");
-        return;
-    }
-    const uint32_t knots = c.count("Knots"), controls = c.count("Controls");
-    const int degree = int(c.number("Degree"));
-    if (knots == 0)
-        return;
-    r.degrees.insert(degree);
-    if (degree < 0 || degree > 3)
-        r.warnings.push_back(trackName + " " + name + ": degree " + std::to_string(degree));
-    if (controls != knots * uint32_t(dimension))
-        r.warnings.push_back(trackName + " " + name + ": " + std::to_string(knots) + " knots but " +
-                             std::to_string(controls) + " controls (expected " +
-                             std::to_string(knots * uint32_t(dimension)) + ")");
-    float last = -1e30f;
-    for (uint32_t i = 0; i < knots; i++) {
-        const float k = float(c.element("Knots", i).number("Real32"));
-        if (k < last) {
+    r.degrees.insert(c.degree);
+    if (c.degree < 0 || c.degree > 3)
+        r.warnings.push_back(trackName + " " + name + ": degree " + std::to_string(c.degree));
+    if (c.controls.size() != c.knots.size() * size_t(dimension))
+        r.warnings.push_back(trackName + " " + name + ": " + std::to_string(c.knots.size()) + " knots but " +
+                             std::to_string(c.controls.size()) + " controls (expected " +
+                             std::to_string(c.knots.size() * size_t(dimension)) + ")");
+    for (size_t i = 1; i < c.knots.size(); i++)
+        if (c.knots[i] < c.knots[i - 1]) {
             r.warnings.push_back(trackName + " " + name + ": knots go backwards at " + std::to_string(i));
             break;
         }
-        last = k;
-    }
+    for (float v : c.controls)
+        if (!std::isfinite(v)) {
+            r.warnings.push_back(trackName + " " + name + ": a control isn't a number");
+            break;
+        }
 }
 
 Gr2Result checkGr2(const reluva::Archive& files, const std::string& name, awe::GrannyDll& dll, bool textures) {
@@ -187,7 +179,7 @@ Gr2Result checkGr2(const reluva::Archive& files, const std::string& name, awe::G
 
     if (root.count("Animations") > 0) {
         awe::Animation anim;
-        if (reluva::Error e = awe::loadAnimation(file, anim)) {
+        if (reluva::Error e = awe::loadAnimation(file, anim, &dll)) {
             r.error = "animation: " + e.message;
             return r;
         }
@@ -197,18 +189,19 @@ Gr2Result checkGr2(const reluva::Archive& files, const std::string& name, awe::G
             r.warnings.push_back("duration " + std::to_string(anim.duration));
         if (root.count("Animations") > 1)
             r.warnings.push_back(std::to_string(root.count("Animations")) + " animations (only the first is read)");
+        // Vector tracks are the exporter's leftovers ("Displacement Max
+        // Triangles", "value", "TrackMasktrackmask"): counted, not read.
         const awe::Gr2Object a = root.element("Animations", 0);
-        for (uint32_t g = 0; g < a.count("TrackGroups"); g++) {
-            const awe::Gr2Object group = a.element("TrackGroups", g);
-            if (group.count("VectorTracks") > 0)
-                r.warnings.push_back(std::to_string(group.count("VectorTracks")) + " vector tracks (not read)");
-            for (uint32_t t = 0; t < group.count("TransformTracks"); t++) {
-                const awe::Gr2Object track = group.element("TransformTracks", t);
-                const std::string tn = track.string("Name");
-                checkCurve(track, "PositionCurve", 3, r, tn);
-                checkCurve(track, "OrientationCurve", 4, r, tn);
-                checkCurve(track, "ScaleShearCurve", 9, r, tn);
-            }
+        for (uint32_t g = 0; g < a.count("TrackGroups"); g++)
+            r.vectorTracks += a.element("TrackGroups", g).count("VectorTracks");
+        for (const awe::Gr2Object& track : {a.element("TrackGroups", 0)})
+            for (uint32_t t = 0; t < track.count("TransformTracks"); t++)
+                if (!track.element("TransformTracks", t).object("PositionCurve").member("Knots"))
+                    r.compressedCurves = true;
+        for (const awe::AnimationTrack& t : anim.tracks) {
+            checkCurve(t.position, "PositionCurve", 3, r, t.bone);
+            checkCurve(t.orientation, "OrientationCurve", 4, r, t.bone);
+            checkCurve(t.scaleShear, "ScaleShearCurve", 9, r, t.bone);
         }
     }
     if (!r.model && !r.animation && r.error.empty())
@@ -276,7 +269,7 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
         return 1;
     }
 
-    size_t failed = 0, warned = 0, models = 0, animations = 0;
+    size_t failed = 0, warned = 0, models = 0, animations = 0, compressed = 0, withVectors = 0;
     std::map<std::string, size_t> layouts, compressions;
     std::map<int, size_t> degrees;
     for (size_t i = 0; i < names.size(); i++) {
@@ -288,6 +281,8 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
         }
         models += r.model;
         animations += r.animation;
+        compressed += r.compressedCurves;
+        withVectors += r.vectorTracks > 0;
         if (!r.vertexLayout.empty())
             layouts[r.vertexLayout]++;
         for (int d : r.degrees)
@@ -312,6 +307,8 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
         std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
     std::printf("Granny: %zu files, %zu failed, %zu with warnings; %zu models, %zu animations (%.1f s)\n",
                 names.size(), failed, warned, models, animations, seconds);
+    std::printf("  %zu animations with compressed curves (expanded by granny2.dll), %zu with vector tracks (not used)\n",
+                compressed, withVectors);
     std::printf("  section compression:");
     for (const auto& [c, n] : compressions)
         std::printf(" %s in %zu files", c.c_str(), n);

@@ -97,9 +97,8 @@ Next:
 3. Read the script interpreter in `motoe.exe`: the full list of verbs and
    their arguments.
 4. The scenes' video loops (BINK objects) drawn in the Scenes page.
-5. The ~30 animations whose curves are Granny's compressed kind
-   (`CurveData`), and the vector tracks (on the faces?) of about 80, that
-   `awe-check` reports.
+5. Native decoding of the compressed curve formats (the DLL expands them
+   for now).
 6. Native Oodle1 and Bink-texture decoding, checked against the DLL, to
    load models in a fraction of the time.
 

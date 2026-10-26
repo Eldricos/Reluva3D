@@ -97,8 +97,11 @@ struct Animation {
     std::vector<AnimationTrack> tracks;
 };
 
-// Reads the file's first animation (its first track group).
-Error loadAnimation(const Gr2File& file, Animation& out);
+// Reads the file's first animation (its first track group). Curves in
+// Granny's compressed formats (CurveData: D4nK8uC7u and the like) are
+// expanded to plain ones by the DLL when one is given; without it, their
+// tracks keep the bones at rest.
+Error loadAnimation(const Gr2File& file, Animation& out, GrannyDll* dll = nullptr);
 
 // A skeleton's pose: each bone's world matrix and its skinning matrix
 // (world times inverse rest world).

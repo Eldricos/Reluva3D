@@ -132,7 +132,7 @@ void ModelPage::loadAnimation() {
     Gr2File file;
     Error err = openGr2(ctx_.files, name, *ctx_.granny, file);
     if (!err)
-        err = awe::loadAnimation(file, anim_);
+        err = awe::loadAnimation(file, anim_, ctx_.granny);
     if (err)
         error_ = fileOf(name) + ": " + err.message;
     else

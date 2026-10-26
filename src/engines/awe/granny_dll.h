@@ -45,6 +45,27 @@ public:
     Error camera(const Camera& in, int width, int height, float view[16], float projection[16],
                  const std::vector<float>* points = nullptr, std::vector<float>* windowPoints = nullptr);
 
+    // A file loaded by the DLL itself (GrannyReadEntireFileFromMemory),
+    // for what Reluva only reads through it: its curves in compressed
+    // formats. `info` is its granny_file_info in the DLL's memory, laid out
+    // as the file's own types describe.
+    struct LoadedFile {
+        uint32_t file = 0, info = 0, bytes = 0;
+    };
+    Error loadFile(const std::vector<uint8_t>& gr2, LoadedFile& out);
+    void freeFile(LoadedFile& file);
+    uint32_t read32(uint32_t address) const { return cpu_ ? cpu_->read32(address) : 0; }
+
+    // Expands the curve (a granny_curve2) at `address` in a loaded file to
+    // its knots and controls (knots x dimension values), with
+    // GrannyCurveExtractKnotValues; an identity or constant curve gives
+    // `identity` (or its constant) at one knot.
+    struct PlainCurve {
+        int degree = 0, dimension = 0;
+        std::vector<float> knots, controls;
+    };
+    Error expandCurve(uint32_t address, const std::vector<float>& identity, PlainCurve& out);
+
 private:
     std::unique_ptr<x86::Cpu> cpu_;
     std::unique_ptr<x86::Win32Process> process_;

@@ -129,6 +129,8 @@ public:
     Error open(const std::vector<uint8_t>& file, const Gr2Decompressor& decompress = {});
 
     uint32_t version() const { return version_; }
+    // The file as it was given to open().
+    const std::vector<uint8_t>& bytes() const { return bytes_; }
     uint32_t typeTag() const { return typeTag_; }
     const std::vector<Gr2Section>& sections() const { return sections_; }
     Gr2Object root() const { return Gr2Object(this, rootType_, rootObject_); }
@@ -162,6 +164,7 @@ private:
     std::vector<Gr2Section> sections_;
     std::vector<uint32_t> sectionBase_;
     std::vector<uint8_t> memory_;
+    std::vector<uint8_t> bytes_;
     mutable std::map<uint32_t, std::vector<Gr2Member>> typeCache_;
 };
 

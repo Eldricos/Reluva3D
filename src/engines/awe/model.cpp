@@ -268,7 +268,7 @@ void Curve::evaluate(float t, int dimension, float* out) const {
         out[c] = c < 4 ? d[p][c] : 0.0f;
 }
 
-Error loadAnimation(const Gr2File& file, Animation& out) {
+Error loadAnimation(const Gr2File& file, Animation& out, GrannyDll* dll) {
     out = Animation();
     const Gr2Object root = file.root();
     if (root.count("Animations") == 0)
@@ -280,14 +280,67 @@ Error loadAnimation(const Gr2File& file, Animation& out) {
     if (anim.count("TrackGroups") == 0)
         return Error::fail("The animation has no tracks");
     const Gr2Object group = anim.element("TrackGroups", 0);
+    static const char* const kCurves[3] = {"PositionCurve", "OrientationCurve", "ScaleShearCurve"};
+    bool compressed = false;
     for (uint32_t i = 0; i < group.count("TransformTracks"); i++) {
         const Gr2Object t = group.element("TransformTracks", i);
         AnimationTrack track;
         track.bone = t.string("Name");
-        track.position = readCurve(t.object("PositionCurve"));
-        track.orientation = readCurve(t.object("OrientationCurve"));
-        track.scaleShear = readCurve(t.object("ScaleShearCurve"));
+        Curve* curves[3] = {&track.position, &track.orientation, &track.scaleShear};
+        for (int c = 0; c < 3; c++) {
+            const Gr2Object curve = t.object(kCurves[c]);
+            if (curve.member("Knots"))
+                *curves[c] = readCurve(curve);
+            else
+                compressed |= curve.valid();
+        }
         out.tracks.push_back(std::move(track));
+    }
+    if (!compressed || !dll)
+        return Error::success();
+
+    // Compressed curves: the DLL loads the file and expands them. Its
+    // structures are the file's types, so the same members' offsets lead
+    // to the curves in its memory.
+    GrannyDll::LoadedFile loaded;
+    if (Error e = dll->loadFile(file.bytes(), loaded))
+        return Error::fail("expanding compressed curves: " + e.message);
+    struct Free {
+        GrannyDll& dll;
+        GrannyDll::LoadedFile& f;
+        ~Free() { dll.freeFile(f); }
+    } freeLater{*dll, loaded};
+    auto offset = [](const Gr2Object& o, const char* name) {
+        const Gr2Member* m = o.member(name);
+        return m ? m->offset : 0u;
+    };
+    // file info -> Animations[0] -> TrackGroups[0] -> TransformTracks
+    const uint32_t animation = dll->read32(dll->read32(loaded.info + offset(root, "Animations") + 4));
+    const uint32_t trackGroup = dll->read32(dll->read32(animation + offset(anim, "TrackGroups") + 4));
+    const Gr2Object::Array tracks = group.array("TransformTracks");
+    const uint32_t first = dll->read32(trackGroup + offset(group, "TransformTracks") + 4);
+    if (!animation || !trackGroup || !first || dll->read32(trackGroup + offset(group, "TransformTracks")) != tracks.count)
+        return Error::fail("expanding compressed curves: the DLL's file differs");
+    const std::vector<float> identities[3] = {
+        {0, 0, 0}, {0, 0, 0, 1}, {1, 0, 0, 0, 1, 0, 0, 0, 1}};
+    const int dimensions[3] = {3, 4, 9};
+    for (uint32_t i = 0; i < tracks.count; i++) {
+        const Gr2Object t = group.element("TransformTracks", i);
+        Curve* curves[3] = {&out.tracks[i].position, &out.tracks[i].orientation, &out.tracks[i].scaleShear};
+        for (int c = 0; c < 3; c++) {
+            const Gr2Object curve = t.object(kCurves[c]);
+            if (!curve.valid() || curve.member("Knots"))
+                continue;
+            GrannyDll::PlainCurve plain;
+            if (Error e = dll->expandCurve(first + i * tracks.stride + offset(t, kCurves[c]), identities[c], plain))
+                return Error::fail("expanding " + out.tracks[i].bone + "'s " + kCurves[c] + ": " + e.message);
+            if (plain.dimension != dimensions[c])
+                return Error::fail(out.tracks[i].bone + "'s " + kCurves[c] + " has " + std::to_string(plain.dimension) +
+                                   " values a knot, not " + std::to_string(dimensions[c]));
+            curves[c]->degree = plain.degree;
+            curves[c]->knots = std::move(plain.knots);
+            curves[c]->controls = std::move(plain.controls);
+        }
     }
     return Error::success();
 }

@@ -3,6 +3,7 @@
 
 #include "engines/awe/granny_dll.h"
 
+#include <algorithm>
 #include <cstring>
 #include <string>
 
@@ -187,6 +188,105 @@ Error GrannyDll::camera(const Camera& in, int width, int height, float view[16],
     }
     mem.free(cam);
     mem.free(pt);
+    return e;
+}
+
+Error GrannyDll::loadFile(const std::vector<uint8_t>& gr2, LoadedFile& out) {
+    out = LoadedFile();
+    if (!module_)
+        return Error::fail("granny2.dll isn't loaded");
+    const uint32_t read = module_->exportAddress("_GrannyReadEntireFileFromMemory@8");
+    const uint32_t info = module_->exportAddress("_GrannyGetFileInfo@4");
+    if (!read || !info)
+        return Error::fail("granny2.dll can't read files from memory");
+    x86::Arena& mem = process_->memory();
+    out.bytes = mem.alloc(uint32_t(gr2.size()) + kPadding);
+    if (!out.bytes)
+        return Error::fail("Out of emulated memory");
+    std::memcpy(cpu_->memory().data() + out.bytes, gr2.data(), gr2.size());
+    // GrannyReadEntireFileFromMemory(MemorySize, Memory) -> granny_file*
+    Error e = cpu_->call(read, {uint32_t(gr2.size()), out.bytes}, out.file);
+    if (!e && !out.file)
+        e = Error::fail("granny2.dll couldn't read the file");
+    // GrannyGetFileInfo(File) -> granny_file_info*
+    if (!e)
+        e = cpu_->call(info, {out.file}, out.info);
+    if (!e && !out.info)
+        e = Error::fail("granny2.dll found no file info");
+    if (e)
+        freeFile(out);
+    return e;
+}
+
+void GrannyDll::freeFile(LoadedFile& file) {
+    if (!module_)
+        return;
+    if (file.file) {
+        uint32_t ignored = 0;
+        if (const uint32_t free = module_->exportAddress("_GrannyFreeFile@4"))
+            cpu_->call(free, {file.file}, ignored);
+    }
+    if (file.bytes)
+        process_->memory().free(file.bytes);
+    file = LoadedFile();
+}
+
+Error GrannyDll::expandCurve(uint32_t address, const std::vector<float>& identity, PlainCurve& out) {
+    out = PlainCurve();
+    if (!module_)
+        return Error::fail("granny2.dll isn't loaded");
+    const uint32_t knotCount = module_->exportAddress("_GrannyCurveGetKnotCount@4");
+    const uint32_t dimension = module_->exportAddress("_GrannyCurveGetDimension@4");
+    const uint32_t degree = module_->exportAddress("_GrannyCurveGetDegree@4");
+    const uint32_t extract = module_->exportAddress("_GrannyCurveExtractKnotValues@24");
+    if (!knotCount || !dimension || !degree || !extract)
+        return Error::fail("granny2.dll has no curve functions");
+    uint32_t n = 0, dim = 0, deg = 0;
+    if (Error e = cpu_->call(knotCount, {address}, n))
+        return e;
+    if (Error e = cpu_->call(dimension, {address}, dim))
+        return e;
+    if (Error e = cpu_->call(degree, {address}, deg))
+        return e;
+    if (dim == 0 || dim > 16)
+        dim = uint32_t(identity.size());
+    const uint32_t knots = std::max<uint32_t>(n, 1);
+    if (knots > 100000)
+        return Error::fail("curve with " + std::to_string(knots) + " knots");
+    x86::Arena& mem = process_->memory();
+    const uint32_t knotOut = mem.alloc(4 * knots), controlOut = mem.alloc(4 * knots * dim),
+                   ident = mem.alloc(4 * uint32_t(identity.size()) + 4);
+    Error e;
+    if (!knotOut || !controlOut || !ident) {
+        e = Error::fail("Out of emulated memory");
+    } else {
+        for (size_t i = 0; i < identity.size(); i++) {
+            uint32_t v;
+            std::memcpy(&v, &identity[i], 4);
+            cpu_->write32(ident + 4 * uint32_t(i), v);
+        }
+        // GrannyCurveExtractKnotValues(Curve, KnotIndex, KnotCount,
+        //                              KnotResults, ControlResults, IdentityVector)
+        uint32_t ignored = 0;
+        e = cpu_->call(extract, {address, 0, knots, knotOut, controlOut, ident}, ignored);
+    }
+    if (!e) {
+        auto f = [&](uint32_t a) {
+            const uint32_t v = cpu_->read32(a);
+            float r;
+            std::memcpy(&r, &v, 4);
+            return r;
+        };
+        out.degree = int(deg);
+        out.dimension = int(dim);
+        for (uint32_t i = 0; i < knots; i++)
+            out.knots.push_back(n ? f(knotOut + 4 * i) : 0.0f);
+        for (uint32_t i = 0; i < knots * dim; i++)
+            out.controls.push_back(f(controlOut + 4 * i));
+    }
+    mem.free(knotOut);
+    mem.free(controlOut);
+    mem.free(ident);
     return e;
 }
 

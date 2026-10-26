@@ -390,7 +390,7 @@ void ScenePage::loadCharacters() {
                 auto anim = std::make_shared<Animation>();
                 Error e = openGr2(ctx_.files, path, *ctx_.granny, gr2);
                 if (!e)
-                    e = awe::loadAnimation(gr2, *anim);
+                    e = awe::loadAnimation(gr2, *anim, ctx_.granny);
                 a = animations_.emplace(path, e ? nullptr : anim).first;
             }
             if (a->second) {
