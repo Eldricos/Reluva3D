@@ -195,6 +195,7 @@ Error SpGameHost::startLevel(const std::string& mapName, std::shared_ptr<const B
         lightGrid_ = LightGrid{};
         lightGrid_.build(*map_, {cell[0], cell[1], cell[2]});
     }
+    marks_.reset();
     areaPortals_ = std::make_unique<AreaPortals>(world_->areaCount());
     linked_.clear();
     for (uint32_t a : levelText_)
@@ -812,7 +813,31 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
     }
     case 23: clientTrace(c, false); return 0; // CM_BoxTrace
     case 24: clientTrace(c, true); return 0;  // CM_TransformedBoxTrace
-    case 25: return 0;                        // CM_MarkFragments: no wall marks yet
+    case 25: { // CM_MarkFragments(numPoints, points, projection, maxPoints, pointBuffer, maxFragments, fragmentBuffer)
+        // -> fragments: the pieces of the level under a mark (scorches,
+        // bullet holes), each (first point, point count) into the points.
+        const uint32_t count = a(0);
+        if (!map_ || count < 3 || count > 64 || !c.valid(a(1), count * 12) || !c.valid(a(2), 12))
+            return 0;
+        if (!marks_)
+            marks_ = std::make_unique<MarkSurfaces>(*map_, 4.0f);
+        std::vector<Vec3f> polygon;
+        for (uint32_t i = 0; i < count; ++i)
+            polygon.push_back(readVec(a(1) + 12 * i));
+        std::vector<Vec3f> points;
+        std::vector<MarkSurfaces::Fragment> fragments;
+        marks_->mark(polygon, readVec(a(2)), std::min<uint32_t>(a(3), 4096), std::min<uint32_t>(a(5), 1024), points,
+                     fragments);
+        if (!c.valid(a(4), uint32_t(points.size()) * 12) || !c.valid(a(6), uint32_t(fragments.size()) * 8))
+            return 0;
+        for (size_t i = 0; i < points.size(); ++i)
+            writeVec(a(4) + uint32_t(i) * 12, points[i]);
+        for (size_t i = 0; i < fragments.size(); ++i) {
+            c.write32(a(6) + uint32_t(i) * 8, uint32_t(fragments[i].firstPoint));
+            c.write32(a(6) + uint32_t(i) * 8 + 4, uint32_t(fragments[i].numPoints));
+        }
+        return uint32_t(fragments.size());
+    }
     // Sound, played if there's somewhere to play it.
     case 26: // S_StartSound(origin or 0, entity, channel, sfx)
         if (voiceLog && (a(2) == 3 || a(2) == 4 || sounds_.name(int32_t(a(3))).find("voice") != std::string::npos))

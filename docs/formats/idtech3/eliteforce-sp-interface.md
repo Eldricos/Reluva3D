@@ -138,7 +138,7 @@ This is Quake III's native-DLL convention:
 | 9–12 | `FS_FOpenFile`, `FS_Read`, `FS_Write`, `FS_FCloseFile` |
 | 13–15 | `SendConsoleCommand(text)`, `AddCommand(name)`, `SendClientCommand(text)` |
 | 16 | `UpdateScreen()` |
-| 17–25 | collision: `CM_LoadMap(name)`, `CM_NumInlineModels()`, `CM_InlineModel(n)`, `CM_TempBoxModel(mins, maxs)`, `CM_PointContents(point, model)`, `CM_TransformedPointContents(point, model, origin, angles)`, `CM_BoxTrace` (7 arguments), `CM_TransformedBoxTrace` (9), `CM_MarkFragments` (7) |
+| 17–25 | collision: `CM_LoadMap(name)`, `CM_NumInlineModels()`, `CM_InlineModel(n)`, `CM_TempBoxModel(mins, maxs)`, `CM_PointContents(point, model)`, `CM_TransformedPointContents(point, model, origin, angles)`, `CM_BoxTrace` (7 arguments), `CM_TransformedBoxTrace` (9), `CM_MarkFragments(numPoints, points, projection, maxPoints, pointBuffer, maxFragments, fragmentBuffer)` → fragments, each (first point, count), as Quake III's |
 | 26–33 | sound: `StartSound(origin, entity, channel, sfx)`, `StartLocalSound(sfx, channel)`, `ClearLoopingSounds()`, `AddLoopingSound` (4), `UpdateEntityPosition(entity, origin)`, `Respatialize` (4), `RegisterSound(name)`, `StartBackgroundTrack(intro, loop)` |
 | 34–37 | force feedback (the engine's code for `FFC10.dll`): start (effect), stop (effect), a third taking an effect, stop all. Reluva can ignore these. |
 | 38–42 | `R_LoadWorldMap`, `R_RegisterModel`, `R_RegisterSkin`, `R_RegisterShader`, `R_RegisterShaderNoMip` |
