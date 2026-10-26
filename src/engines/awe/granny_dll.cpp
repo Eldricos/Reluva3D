@@ -4,6 +4,7 @@
 #include "engines/awe/granny_dll.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
 #include <string>
 
@@ -20,6 +21,9 @@ constexpr uint32_t kPadding = 64;
 
 Error GrannyDll::load(const std::vector<uint8_t>& dll) {
     cpu_ = std::make_unique<x86::Cpu>(kMemory);
+    // A call that runs away fails instead of hanging: the largest texture
+    // takes well under a billion instructions.
+    cpu_->setInstructionLimit(4'000'000'000ull);
     process_ = std::make_unique<x86::Win32Process>(*cpu_);
     module_ = nullptr;
     // Its start-up asks where Windows is (for a log file it never writes
@@ -109,6 +113,11 @@ Error GrannyDll::binkTexture(int width, int height, uint32_t flags, const std::v
         e = cpu_->call(binkDecompressTexture_,
                        {uint32_t(width), uint32_t(height), flags, uint32_t(in.size()), src, layout, stride, dst},
                        ignored);
+        if (e) {
+            char at[32];
+            std::snprintf(at, sizeof at, " (at 0x%08x)", cpu_->faultEip);
+            e = Error::fail("Bink texture: " + e.message + at);
+        }
         if (!e)
             rgba.assign(cpu_->memory().begin() + dst, cpu_->memory().begin() + dst + size);
     }
