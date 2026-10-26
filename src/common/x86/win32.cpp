@@ -141,10 +141,14 @@ Win32Process::Win32Process(Cpu& cpu) : cpu_(cpu) {
     // The thread: its stack, and its information block (which FS points
     // at): the exception handler chain's head, the stack's bounds, its own
     // address and the process's block's.
-    const uint32_t stack = arena_->alloc(kStackSize, 0x10000);
+    // At the top of memory, below the native functions, so the bottom is
+    // free for images: an EXE without relocations must be at 0x400000.
+    const uint32_t top = (cpu.nativeBase() & ~0xffffu) - 0x10000;
+    const uint32_t stack = top - kStackSize;
+    tib_ = stack - 2 * Cpu::kPageSize;
+    peb_ = stack - Cpu::kPageSize;
+    arena_->claim(tib_, 2 * Cpu::kPageSize + kStackSize);
     stackTop_ = stack + kStackSize;
-    tib_ = arena_->alloc(Cpu::kPageSize, Cpu::kPageSize);
-    peb_ = arena_->alloc(Cpu::kPageSize, Cpu::kPageSize);
     cpu.write32(tib_ + 0x00, 0xffffffffu);
     cpu.write32(tib_ + 0x04, stackTop_);
     cpu.write32(tib_ + 0x08, stack);
@@ -156,8 +160,8 @@ Win32Process::Win32Process(Cpu& cpu) : cpu_(cpu) {
     cpu.fsBase = tib_;
     cpu.setStack(stackTop_ - 16);
 
-    commandLine_ = arena_->alloc(64);
-    cpu.writeString(commandLine_, "stvoy.exe", 64);
+    commandLine_ = arena_->alloc(1024);
+    cpu.writeString(commandLine_, programName_, 1024);
     environment_ = arena_->alloc(16); // empty: two NULs
     environmentW_ = arena_->alloc(16);
     addStandIns();
@@ -177,9 +181,42 @@ uint32_t Win32Process::moduleHandle(const std::string& name) const {
     return m ? m->base : 0;
 }
 
+void Win32Process::setProgram(const std::string& exeName, const std::string& folder) {
+    programName_ = exeName;
+    programFolder_ = folder;
+    setCurrentFolder(folder);
+    // Quoted, as Windows' shell starts programs.
+    cpu_.writeString(commandLine_, "\"" + folder + exeName + "\"", 1024);
+}
+
 void Win32Process::provide(const std::string& dll, const std::string& function, Cpu::Native fn) {
     const std::string key = dllKey(dll) + "!" + function;
     provided_[key] = cpu_.addNative(dll + "!" + function, std::move(fn));
+}
+
+void Win32Process::provideStdcall(const std::string& dll, const std::string& function, int args,
+                                  std::function<uint32_t(Cpu&)> fn) {
+    stdcall(dll.c_str(), function.c_str(), args, std::move(fn));
+}
+
+void Win32Process::provideCdecl(const std::string& dll, const std::string& function, std::function<uint32_t(Cpu&)> fn) {
+    provide(dll, function, [fn = std::move(fn)](Cpu& c) {
+        c.reg[Cpu::EAX] = fn(c);
+        return 0u;
+    });
+}
+
+void Win32Process::provideData(const std::string& dll, const std::string& name, uint32_t address) {
+    provided_[dllKey(dll) + "!" + name] = address;
+}
+
+bool Win32Process::provides(const std::string& dll, const std::string& name) const {
+    return provided_.count(dllKey(dll) + "!" + name) != 0;
+}
+
+uint32_t Win32Process::provided(const std::string& dll, const std::string& name) const {
+    auto it = provided_.find(dllKey(dll) + "!" + name);
+    return it == provided_.end() ? 0 : it->second;
 }
 
 void Win32Process::stdcall(const char* dll, const char* name, int args, std::function<uint32_t(Cpu&)> fn) {
@@ -255,6 +292,15 @@ Error Win32Process::load(const std::string& name, const std::vector<uint8_t>& fi
     m->entry = pe.entryPoint ? base + pe.entryPoint : 0;
     modules_.push_back(std::move(m));
     out = modules_.back().get();
+    return Error::success();
+}
+
+Error Win32Process::start(const Module& exe, uint32_t& exitCode) {
+    exitCode = 0;
+    if (!exe.entry)
+        return Error::fail(exe.name + " has no entry point");
+    if (Error e = cpu_.call(exe.entry, {}, exitCode); e)
+        return Error::fail(exe.name + ": " + e.message);
     return Error::success();
 }
 
@@ -362,11 +408,11 @@ void Win32Process::addStandIns() {
         return c.arg(0) ? moduleHandle(c.string(c.arg(0))) : kExeHandle;
     });
     stdcall(k, "GetModuleFileNameA", 3, [this](Cpu& c) {
-        std::string name = "stvoy.exe";
+        std::string name = programName_;
         for (const auto& m : modules_)
             if (m->base == c.arg(0))
                 name = m->name;
-        const std::string path = "C:\\STVEF\\" + name;
+        const std::string path = programFolder_ + name;
         const uint32_t size = c.arg(2);
         if (!c.writeString(c.arg(1), path, size))
             return 0u;
@@ -446,29 +492,20 @@ void Win32Process::addStandIns() {
     stdcall(k, "GetFileType", 1, [](Cpu& c) {
         return c.arg(0) >= kStdHandles && c.arg(0) <= kStdHandles + 2 ? 2u : 0u; // FILE_TYPE_CHAR
     });
-    stdcall(k, "WriteFile", 5, [say](Cpu& c) {
+    stdcall(k, "WriteFile", 5, [this, say](Cpu& c) {
         const uint32_t handle = c.arg(0), buffer = c.arg(1), size = c.arg(2), written = c.arg(3);
         if (!c.valid(buffer, size))
             return 0u;
         if (handle == kStdHandles + 1 || handle == kStdHandles + 2)
             say(std::string(reinterpret_cast<const char*>(c.memory().data() + buffer), size));
+        else if (OpenFile* f = file(handle))
+            if (std::fwrite(c.memory().data() + buffer, 1, size, f->file) != size)
+                return 0u;
         if (written)
             c.write32(written, size);
         return 1u;
     });
-    stdcall(k, "CreateFileA", 7, [this](Cpu&) {
-        lastError_ = 2; // ERROR_FILE_NOT_FOUND
-        return kInvalidHandle;
-    });
-    stdcall(k, "ReadFile", 5, [](Cpu& c) {
-        if (c.arg(3))
-            c.write32(c.arg(3), 0);
-        return 0u;
-    });
-    stdcall(k, "SetFilePointer", 4, [](Cpu&) { return 0xffffffffu; });
-    stdcall(k, "SetEndOfFile", 1, [](Cpu&) { return 1u; });
-    stdcall(k, "FlushFileBuffers", 1, [](Cpu&) { return 1u; });
-    stdcall(k, "CloseHandle", 1, [](Cpu&) { return 1u; });
+    addFileStandIns();
 
     // Text: code page 1252, mapped to Unicode's first 256 characters (the
     // C runtime's locale tables are built from these; the "C" locale only

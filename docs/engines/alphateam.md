@@ -262,6 +262,43 @@ B1's order of work:
 6. Speed: an instruction cache, then native NiMain hot spots, measured
    against a puzzle's frame time.
 
+Progress:
+
+- Done: `src/engines/netimmerse/alphateam/game_process.cpp` loads
+  `LEGOATeam.exe` and the 9 DLLs it needs from the game folder, each after
+  those it imports from: `DDPackedDirFileLib`, `NiMain` (relocated: its
+  address is taken), `NiAnimation`, `BaseClassComp`, `BehaviorComp`,
+  `NiA3dSound`, `NiCollision`, `NiDirect3d`, `LoadComp`, then the program.
+- The process believes it's installed in
+  `C:\Program Files\LEGO Media\Games\LEGO Alpha Team\`, which is the
+  game folder. Writing files isn't allowed yet.
+- The CD-ROM drive (D:) has the retail CD's label, `LEGOATEN`.
+- `reluva-tool at-run <game folder>` runs all of it and reports how far it
+  gets: the imports nothing stands in for, by DLL, and on a failure the
+  last instructions (as module+offset) and the last stand-ins called.
+- Done: MSVCRT (all 79 imports, `src/common/x86/msvcrt.cpp`) and KERNEL32's
+  files.
+- **Where it stops now:** at the first MSVCP60 call, `std::_Lockit` in
+  `DDPackedDirFileLib`'s static constructors, 137 instructions in.
+
+MSVCP60 (the C++ library, 156 imports) is next. Measured from the game's
+own code:
+- Visual C++ 6's `std::string` is 16 bytes: an allocator byte, then the
+  characters' pointer, the length and the capacity. The game's inline code
+  reads them at +4 and +8 and calls the library's private helpers
+  (`_Grow`, `_Eos`, `_Split`, `_Tidy`, `_Freeze`, `_Refcnt`), so a
+  replacement must keep the same buffer protocol: a reference-count byte
+  before the characters.
+- `basic_streambuf`'s virtual functions, in order (from the game's own
+  `DDMappedFileBuf` vftable and NiMain's `strstreambuf` subclass): the
+  destructor, `overflow`, `pbackfail`, `showmanyc`, `underflow`, `uflow`,
+  `xsgetn`, `xsputn`, `seekoff`, `seekpos`, `setbuf`, `sync`, `imbue`.
+- clang targeting `i686-pc-windows-msvc` gives exactly the names the game
+  imports for our own declarations, the function-local static in
+  `_Nullstr` included. So the plan is a replacement MSVCP60 written here
+  in C++ and built with clang into a DLL, as the tests' DLL is, to run in
+  the interpreter beside the game.
+
 ### 4. Playing
 
 Whichever way phase 3 chose:

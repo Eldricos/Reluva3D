@@ -11,6 +11,8 @@
 //   reluva-tool cat-extract <file> <dir> [filter]  extract files whose name contains filter
 //   reluva-tool pac-list <file.pac>                list a .pac archive's contents (LEGO Alpha Team)
 //   reluva-tool pac-extract <file> <dir> [filter]  extract files whose name contains filter
+//   reluva-tool at-run <game folder> [-v]          run LEGO Alpha Team's own code in the x86 interpreter
+//                                                  and report how far it gets
 //   reluva-tool fin-check <Fin.pac> [file.pac...]  read every model; count the objects read, and check
 //                                                  their links and (in the other archives) their images
 //   reluva-tool stb-dump <file.stb | file.cat>     print a string table, or list an archive's
@@ -112,6 +114,7 @@
 #include "engines/newworlds/model_render.h"
 #endif
 #ifdef RELUVA_ENGINE_NETIMMERSE
+#include "engines/netimmerse/alphateam/game_process.h"
 #include "engines/netimmerse/fin.h"
 #include "engines/netimmerse/pac_archive.h"
 #endif
@@ -5266,6 +5269,100 @@ int cmdFinCheck(int argc, char** argv) {
     }
     return failed || notExact || badLinks || !missingImages.empty() ? 1 : 0;
 }
+
+int cmdAtRun(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool at-run <game folder> [-v] [-limit instructions] [-trace count] "
+                             "[-memory MB]\n");
+        return 2;
+    }
+    bool verbose = false;
+    int traceCount = 24;
+    uint64_t limit = 4000000000ull;
+    uint32_t memoryMb = 1024;
+    for (int a = 3; a < argc; ++a) {
+        const std::string arg = argv[a];
+        if (arg == "-v")
+            verbose = true;
+        else if (arg == "-limit" && a + 1 < argc)
+            limit = std::strtoull(argv[++a], nullptr, 0);
+        else if (arg == "-trace" && a + 1 < argc)
+            traceCount = std::atoi(argv[++a]);
+        else if (arg == "-memory" && a + 1 < argc)
+            memoryMb = uint32_t(std::atoi(argv[++a]));
+    }
+    using reluva::netimmerse::alphateam::GameProcess;
+    using reluva::x86::Cpu;
+    GameProcess game(argv[2], std::min<uint32_t>(memoryMb, 3072));
+    Cpu& cpu = game.cpu();
+    cpu.setInstructionLimit(limit);
+    game.process().output = [](const std::string& text) { std::printf("[program] %s\n", text.c_str()); };
+
+    if (reluva::Error e = game.load()) {
+        std::fprintf(stderr, "%s\n", e.message.c_str());
+        return 1;
+    }
+    std::printf("loaded:");
+    for (const std::string& m : game.loadOrder())
+        std::printf(" %s@%08x", m.c_str(), game.process().module(m)->base);
+    std::printf("\n");
+    // What nothing stands in for yet, by DLL.
+    std::map<std::string, std::vector<std::string>> missing;
+    for (const std::string& m : game.process().missingImports())
+        missing[m.substr(0, m.find('!'))].push_back(m.substr(m.find('!') + 1));
+    for (const auto& [dll, names] : missing) {
+        std::printf("not stood in for: %s, %zu imports\n", dll.c_str(), names.size());
+        if (verbose)
+            for (const std::string& n : names)
+                std::printf("    %s\n", n.c_str());
+    }
+
+    // Where a failure happened: the last instructions (as module+offset)
+    // and the last calls to stood-in functions.
+    std::vector<uint32_t> recent(size_t(std::max(traceCount, 1)));
+    std::vector<std::string> calls(16);
+    size_t recentAt = 0, callsAt = 0;
+    cpu.trace = [&](Cpu& c) {
+        recent[recentAt++ % recent.size()] = c.eip;
+        if (const std::string* n = c.nativeName(c.eip))
+            calls[callsAt++ % calls.size()] = *n;
+    };
+    auto where = [&](uint32_t a) {
+        for (const std::string& name : game.loadOrder()) {
+            const auto* m = game.process().module(name);
+            if (a >= m->base && a < m->base + m->size) {
+                char b[96];
+                std::snprintf(b, sizeof b, "%s+%x", name.c_str(), a - m->base);
+                return std::string(b);
+            }
+        }
+        char b[16];
+        std::snprintf(b, sizeof b, "%08x", a);
+        return std::string(b);
+    };
+    auto failed = [&](const reluva::Error& e) {
+        std::printf("failed after %llu instructions: %s\nlast instructions:", (unsigned long long)cpu.executed(),
+                    e.message.c_str());
+        for (size_t i = recentAt > recent.size() ? recentAt - recent.size() : 0; i < recentAt; ++i)
+            std::printf(" %s", where(recent[i % recent.size()]).c_str());
+        std::printf("\nlast calls to stand-ins:");
+        for (size_t i = callsAt > calls.size() ? callsAt - calls.size() : 0; i < callsAt; ++i)
+            std::printf(" %s", calls[i % calls.size()].c_str());
+        std::printf("\n");
+        return 1;
+    };
+
+    if (reluva::Error e = game.attach())
+        return failed(e);
+    std::printf("every DLL's start-up done: %llu instructions\n", (unsigned long long)cpu.executed());
+    uint32_t exitCode = 0;
+    const uint64_t before = cpu.executed();
+    if (reluva::Error e = game.run(exitCode))
+        return failed(e);
+    std::printf("the program returned %u after %llu instructions\n", exitCode,
+                (unsigned long long)(cpu.executed() - before));
+    return 0;
+}
 #endif // RELUVA_ENGINE_NETIMMERSE
 
 int main(int argc, char** argv) {
@@ -5330,6 +5427,8 @@ int main(int argc, char** argv) {
         return cmdPacExtract(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "fin-check") == 0)
         return cmdFinCheck(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "at-run") == 0)
+        return cmdAtRun(argc, argv);
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
     if (argc >= 2 && std::strcmp(argv[1], "bsp-check") == 0)
@@ -5409,6 +5508,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool pac-list <file.pac>\n"
                  "  reluva-tool pac-extract <file.pac> <output dir> [name filter]\n"
                  "  reluva-tool fin-check <Fin.pac> [file.pac...]\n"
+                 "  reluva-tool at-run <game folder> [-v] [-limit instructions] [-trace count] [-memory MB]\n"
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
                  "  reluva-tool bsp-check <game folder, e.g. .../BaseEF>\n"

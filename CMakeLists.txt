@@ -73,6 +73,8 @@ add_library(reluva_common STATIC
     src/common/x86/cpu.cpp
     src/common/x86/fpu.cpp
     src/common/x86/win32.cpp
+    src/common/x86/win32_files.cpp
+    src/common/x86/msvcrt.cpp
     src/common/x86/format.cpp
     src/common/detection.cpp
     src/common/audio/decode.cpp
@@ -184,6 +186,7 @@ if(RELUVA_ENGINE_IDTECH3)
 endif()
 if(RELUVA_ENGINE_NETIMMERSE)
     target_sources(reluva_engines PRIVATE
+        src/engines/netimmerse/alphateam/game_process.cpp
         src/engines/netimmerse/data.cpp
         src/engines/netimmerse/fin.cpp
         src/engines/netimmerse/model_page.cpp

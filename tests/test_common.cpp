@@ -21,6 +21,7 @@
 #include "common/net.h"
 #include "common/text.h"
 #include "common/x86/cpu.h"
+#include "common/x86/msvcrt.h"
 #include "common/x86/win32.h"
 #include "common/zip.h"
 #include "zip_writer.h"
@@ -496,6 +497,92 @@ static void testX86Dll() {
     }
 }
 
+// MSVCRT's stand-ins and KERNEL32's files, called as the program would.
+static void testMsvcrtAndFiles(const std::filesystem::path& tmp) {
+    std::filesystem::create_directories(tmp / "Game");
+    {
+        std::ofstream(tmp / "Game" / "Data.txt", std::ios::binary) << "hello world";
+        std::ofstream(tmp / "Game" / "Other.bin", std::ios::binary) << "x";
+    }
+    x86::Cpu cpu(64u << 20);
+    x86::Win32Process process(cpu);
+    process.setProgram("Prog.exe", "C:\\Game\\");
+    process.mapPath = [&](const std::string& path, bool forWriting) -> std::optional<std::filesystem::path> {
+        if (forWriting || path.rfind("C:\\Game\\", 0) != 0)
+            return std::nullopt;
+        if (path.size() == 8)
+            return tmp / "Game";
+        return fs::findFile(tmp / "Game", path.substr(8)).value_or(tmp / "Game" / "missing");
+    };
+    process.cdLabel = "LEGOATEN";
+    x86::addMsvcrt(process);
+    auto fn = [&](const char* dll, const char* name) { return process.provided(dll, name); };
+    auto text = [&](const std::string& s) {
+        const uint32_t a = process.memory().alloc(uint32_t(s.size() + 1));
+        cpu.writeString(a, s, uint32_t(s.size() + 1));
+        return a;
+    };
+    uint32_t r = 0;
+    CHECK(!cpu.call(fn("MSVCRT.dll", "strlen"), {text("abcdef")}, r) && r == 6);
+    CHECK(!cpu.call(fn("MSVCRT.dll", "_stricmp"), {text("Alpha"), text("aLPHA")}, r) && r == 0);
+    CHECK(!cpu.call(fn("MSVCRT.dll", "strcmp"), {text("a"), text("b")}, r) && int32_t(r) < 0);
+    // Visual C++'s rand: from seed 1, 41, 18467, 6334.
+    CHECK(!cpu.call(fn("MSVCRT.dll", "srand"), {1}, r));
+    for (uint32_t expected : {41u, 18467u, 6334u})
+        CHECK(!cpu.call(fn("MSVCRT.dll", "rand"), {}, r) && r == expected);
+    // sscanf and sprintf.
+    const uint32_t vars = process.memory().alloc(64);
+    cpu.write32(vars + 48, vars);
+    cpu.write32(vars + 52, vars + 4);
+    cpu.write32(vars + 56, vars + 8);
+    CHECK(x86::scanFormat(cpu, "12 3.5 word", "%d %f %s", vars + 48) == 3);
+    float f = 0;
+    const uint32_t fbits = cpu.read32(vars + 4);
+    std::memcpy(&f, &fbits, 4);
+    CHECK(cpu.read32(vars) == 12 && f == 3.5f && cpu.string(vars + 8) == "word");
+    CHECK(!cpu.call(fn("MSVCRT.dll", "sprintf"), {vars + 16, text("%s-%03d"), text("id"), 7}, r) && r == 6 &&
+          cpu.string(vars + 16) == "id-007");
+    // The FPU-stack ones: _ftol cuts towards zero, _CIpow takes x below y.
+    cpu.fpuPush(-2.7);
+    CHECK(!cpu.call(fn("MSVCRT.dll", "_ftol"), {}, r) && r == uint32_t(-2) && cpu.reg[x86::Cpu::EDX] == 0xffffffffu);
+    cpu.fpuPush(2);
+    cpu.fpuPush(10);
+    CHECK(!cpu.call(fn("MSVCRT.dll", "_CIpow"), {}, r) && cpu.fpuPop() == 1024);
+    // _EH_prolog: a frame of the previous FS:[0], the handler (EAX) and -1,
+    // linked in, with EBP pointing at the caller's EBP kept above it.
+    const uint32_t chain = cpu.read32(cpu.fsBase);
+    cpu.reg[x86::Cpu::EAX] = 0x1234;
+    cpu.reg[x86::Cpu::EBP] = 0x5555;
+    const uint32_t espBefore = cpu.reg[x86::Cpu::ESP];
+    CHECK(!cpu.call(fn("MSVCRT.dll", "_EH_prolog"), {}, r));
+    const uint32_t frame = cpu.read32(cpu.fsBase);
+    CHECK(frame == espBefore - 4 - 12 && cpu.read32(frame) == chain && cpu.read32(frame + 4) == 0x1234 &&
+          cpu.read32(frame + 8) == 0xffffffffu && cpu.read32(frame + 12) == 0x5555 && cpu.reg[x86::Cpu::EBP] == frame + 12);
+    cpu.write32(cpu.fsBase, chain);
+
+    // Files: fopen relative to the program's folder, fread, fclose.
+    CHECK(!cpu.call(fn("MSVCRT.dll", "fopen"), {text("data.txt"), text("r")}, r) && r != 0);
+    const uint32_t file = r;
+    CHECK(!cpu.call(fn("MSVCRT.dll", "fread"), {vars, 1, 32, file}, r) && r == 11);
+    CHECK(std::string(reinterpret_cast<const char*>(cpu.memory().data() + vars), 11) == "hello world");
+    CHECK(!cpu.call(fn("MSVCRT.dll", "fclose"), {file}, r) && r == 0);
+    CHECK(!cpu.call(fn("MSVCRT.dll", "fopen"), {text("nothere.txt"), text("rb")}, r) && r == 0);
+    // CreateFileA, a mapped view, a search, the CD's label.
+    CHECK(!cpu.call(fn("KERNEL32.dll", "CreateFileA"), {text("C:\\Game\\DATA.TXT"), 0x80000000u, 1, 0, 3, 0, 0}, r) &&
+          r != 0xffffffffu);
+    const uint32_t handle = r;
+    CHECK(!cpu.call(fn("KERNEL32.dll", "CreateFileMappingA"), {handle, 0, 2, 0, 0, 0}, r) && r != 0);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "MapViewOfFile"), {r, 4, 0, 6, 0}, r) && cpu.string(r, 5) == "world");
+    const uint32_t find = process.memory().alloc(320);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "FindFirstFileA"), {text("C:\\Game\\*.txt"), find}, r) && r != 0xffffffffu &&
+          cpu.string(find + 44) == "Data.txt" && cpu.read32(find + 32) == 11);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "FindNextFileA"), {r, find}, r) && r == 0);
+    const uint32_t label = process.memory().alloc(32);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetVolumeInformationA"), {text("D:\\"), label, 32, 0, 0, 0, 0, 0}, r) && r == 1 &&
+          cpu.string(label) == "LEGOATEN");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetDriveTypeA"), {text("D:\\")}, r) && r == 5);
+}
+
 int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_tests";
     testMd5();
@@ -514,6 +601,7 @@ int main() {
     testGfxMath();
     testX86Instructions();
     testX86Dll();
+    testMsvcrtAndFiles(tmp / "msvcrt");
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else
