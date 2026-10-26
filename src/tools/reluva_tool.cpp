@@ -3784,8 +3784,10 @@ int cmdBinkDecode(int argc, char** argv) {
                 if (key.size() < 4 || key.compare(key.size() - 4, 4, ".bik") != 0)
                     continue;
                 Bytes movie;
-                std::string what = "unreadable";
-                if (!set.read(key, movie) && movie.size() >= 28)
+                std::string what = "too short to be a movie";
+                if (reluva::Error e = set.read(key, movie))
+                    what = "unreadable: " + e.message;
+                else if (movie.size() >= 28)
                     what = std::string(reinterpret_cast<const char*>(movie.data()), 4) + ", " +
                            std::to_string(movie[20] | movie[21] << 8) + "x" + std::to_string(movie[24] | movie[25] << 8) +
                            ", " + std::to_string(movie.size()) + " bytes";
