@@ -247,6 +247,18 @@ private:
     std::vector<std::pair<int32_t, std::string>> serverCommands_;
     std::map<std::string, std::vector<uint8_t>> saveChunks_;
     std::map<int, int> callCounts_, cgameCallCounts_, cgameUnhandled_;
+    // Voices playing (sounds on CHAN_VOICE, 3, or CHAN_VOICE_ATTEN, 4), by
+    // entity: what the game reads in VoiceVolume (import slot 37) to know
+    // a line is still being spoken (its scripts wait for it) and to move
+    // the speaker's mouth, as the original's sound code fills it.
+    struct Voice {
+        std::shared_ptr<const audio::Sound> sound;
+        int32_t startMs = 0;
+        float average = 0; // the sound's mean square level, its thresholds' scale
+    };
+    std::map<int32_t, Voice> voices_;
+    void startVoice(int32_t entity, const std::string& name);
+    void updateVoiceVolumes();
     // The client game.
     struct Snapshot {
         int32_t number = 0, serverTime = 0, serverCommandSequence = 0, commandNumber = 0;

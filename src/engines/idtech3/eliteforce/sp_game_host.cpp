@@ -241,8 +241,74 @@ Error SpGameHost::connectPlayer(const std::string& userinfo, std::string& refuse
     return e;
 }
 
+void SpGameHost::startVoice(int32_t entity, const std::string& name) {
+    if (entity < 0 || entity >= kMaxEntities || name.empty())
+        return;
+    auto sound = soundLibrary_.get(name);
+    if (!sound || sound->rate <= 0 || sound->frames() == 0)
+        return;
+    // Its overall level, as the mean square of its samples' high bytes
+    // (the measure the original compares a moment of it against).
+    double sum = 0;
+    const size_t frames = sound->frames(), step = std::max<size_t>(1, frames / 4096);
+    size_t n = 0;
+    for (size_t i = 0; i < frames; i += step, ++n) {
+        const int v = sound->samples[i * size_t(sound->channels)] >> 8;
+        sum += double(v * v);
+    }
+    voices_[entity] = {sound, levelTime_, float(n ? sum / double(n) : 0)};
+    // Speaking from now, as the original marks it on starting (-1: started,
+    // silent so far), so the game sees it in the same frame.
+    if (voiceVolume_)
+        cpu_->write32(voiceVolume_ + 4 * uint32_t(entity), 0xffffffffu);
+}
+
+void SpGameHost::updateVoiceVolumes() {
+    // As the original's mixer does each pass: every entity 0, then each one
+    // speaking given how loud its voice is where it has got to (the mean
+    // square of ten samples a hundred apart) against s_threshold1-4 times
+    // the sound's own level: -1 quiet, then 5 to 8. A line that has ended
+    // leaves 0, which ends the scripts' wait for it.
+    if (!voiceVolume_)
+        return;
+    std::memset(cpu_->memory().data() + voiceVolume_, 0, 4 * kMaxEntities);
+    auto threshold = [&](const char* name, float fallback) {
+        return cvars_.find(name) ? cvars_.value(name) : fallback;
+    };
+    const float t1 = threshold("s_threshold1", 0.5f), t2 = threshold("s_threshold2", 4.0f),
+                t3 = threshold("s_threshold3", 7.0f), t4 = threshold("s_threshold4", 8.0f);
+    for (auto it = voices_.begin(); it != voices_.end();) {
+        const Voice& v = it->second;
+        const size_t frames = v.sound->frames();
+        const size_t at = size_t(int64_t(levelTime_ - v.startMs) * v.sound->rate / 1000);
+        if (at >= frames) {
+            it = voices_.erase(it);
+            continue;
+        }
+        double sum = 0;
+        int n = 0;
+        for (size_t i = at; i < frames && n < 10; i += 100, ++n) {
+            const int s = v.sound->samples[i * size_t(v.sound->channels)] >> 8;
+            sum += double(s * s);
+        }
+        const float level = float(sum / std::max(n, 1));
+        int32_t value = 8;
+        if (t1 * v.average > level)
+            value = -1;
+        else if (t2 * v.average > level)
+            value = 5;
+        else if (t3 * v.average > level)
+            value = 6;
+        else if (t4 * v.average > level)
+            value = 7;
+        cpu_->write32(voiceVolume_ + 4 * uint32_t(it->first), uint32_t(value));
+        ++it;
+    }
+}
+
 Error SpGameHost::runFrame() {
     levelTime_ += kFrameMs;
+    updateVoiceVolumes();
     if (Error e = callGame(RunFrame, {uint32_t(levelTime_)}))
         return e;
     if (cgameRunning_)
@@ -717,6 +783,8 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
     case 25: return 0;                        // CM_MarkFragments: no wall marks yet
     // Sound, played if there's somewhere to play it.
     case 26: // S_StartSound(origin or 0, entity, channel, sfx)
+        if (a(2) == 3 || a(2) == 4)
+            startVoice(int32_t(a(1)), sounds_.name(int32_t(a(3))));
         if (soundSystem)
             soundSystem->startSound(a(0) ? std::optional<Vec3f>(readVec(a(0))) : std::nullopt, int(a(1)), int(a(2)),
                                     sounds_.name(int32_t(a(3))));

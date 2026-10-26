@@ -329,3 +329,36 @@ As the original engine reads and fills them.
 - Configstring changes reach the client game as `cs <index> "<text>"`
   server commands.
 - `S_GetSampleLength` returns its float in the x87's ST(0), not in EAX.
+
+## Voices
+
+The engine fills the import table's `VoiceVolume` array (slot 37), one int
+per entity, the way its sound mixer does (0x424a10):
+
+- **Each pass:** every entry is set to 0.
+- **Each sound playing on channel 3 (`CHAN_VOICE`) or 4 (`CHAN_VOICE_ATTEN`):**
+  its entity's entry gets a level from the samples where it has got to
+  (0x424560). The mean square of ten samples' high bytes, a hundred
+  apart, is compared with `s_threshold1`–`4` (0.5, 4, 7 and 8) scaled by
+  the sound's own level:
+  - −1 below the first;
+  - 5, 6 or 7 below the others;
+  - 8 above them all.
+- **Starting a voice** sets −1 at once (0x423cde).
+
+The game uses it two ways:
+
+- **Lip sync:** the speaker's mouth moves with the level.
+- **Scripts:** a voice line's task ends when its entity's entry is 0
+  again. Without it, the scripts run every line at once: the voices
+  overlap and each subtitle replaces the last immediately.
+
+## Subtitles
+
+- During a cutscene (`g_subtitles` 2, the default), the game sends each
+  scripted voice line to the client game as a server command:
+  `ct "<text key>" <sound index>`.
+- `cts` clears the subtitles.
+- Showing a subtitle stops the intro's scrolling text (`st "<text key>"`).
+- `CG_INIT` is passed the number of server commands the client has
+  received so far, which the client game counts on from.
