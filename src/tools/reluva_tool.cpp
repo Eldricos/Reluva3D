@@ -3751,13 +3751,14 @@ int cmdX86Run(int argc, char** argv) {
 int cmdSpRun(int argc, char** argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] "
-                             "[-set name value]... [-trace] [-noclient] [-cgame] [-watch]\n");
+                             "[-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]...\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
     int frames = 20;
     bool traceCalls = false, noClient = false, runCgame = false, watch = false;
+    std::vector<std::string> finds; // -find text: entities with a text field containing it
     std::string dllPath;
     std::vector<std::pair<std::string, std::string>> settings;
     for (int i = 4; i < argc; ++i) {
@@ -3773,6 +3774,8 @@ int cmdSpRun(int argc, char** argv) {
             runCgame = true;
         else if (std::strcmp(argv[i], "-watch") == 0)
             watch = runCgame = true;
+        else if (std::strcmp(argv[i], "-find") == 0 && i + 1 < argc)
+            finds.push_back(reluva::fs::toLower(argv[++i]));
         else if (std::strcmp(argv[i], "-set") == 0 && i + 2 < argc) {
             settings.emplace_back(argv[i + 1], argv[i + 2]);
             i += 2;
@@ -3965,6 +3968,35 @@ int cmdSpRun(int argc, char** argv) {
     std::printf("%d frames run (level time %d ms): %d entities, %zu linked; %llu instructions in %.2f s\n", frames,
                 game.levelTime(), game.entityCount(), game.linked().size(),
                 (unsigned long long)game.cpu().executed(), seconds);
+    // Entities with a text field (a pointer to text) containing what was
+    // asked for: each such field's offset and text, and the entity's other
+    // text fields, for telling what they are.
+    if (!finds.empty()) {
+        reluva::x86::Cpu& cpu = game.cpu();
+        const int32_t size = game.entitySize();
+        for (int32_t n = 0; n < game.entityCount(); ++n) {
+            std::vector<std::pair<int32_t, std::string>> texts;
+            bool match = false;
+            for (int32_t off = 0; off + 4 <= size; off += 4) {
+                const uint32_t p = uint32_t(game.entityInt(n, off));
+                if (!cpu.valid(p, 1))
+                    continue;
+                const std::string t = cpu.string(p, 64);
+                if (t.size() < 3 || !std::all_of(t.begin(), t.end(), [](char c) { return c > 32 && c < 127; }))
+                    continue;
+                texts.emplace_back(off, t);
+                for (const std::string& f : finds)
+                    match = match || reluva::fs::toLower(t).find(f) != std::string::npos;
+            }
+            if (!match)
+                continue;
+            std::printf("entity %d (in use %d, linked %d):", n, game.entityInt(n, ef::SpEntityLayout{}.inUse),
+                        game.entityInt(n, ef::SpEntityLayout{}.linked));
+            for (const auto& [off, t] : texts)
+                std::printf(" +0x%x=\"%s\"", off, t.c_str());
+            std::printf("\n");
+        }
+    }
     std::printf("configstrings:\n");
     int shown = 0;
     for (const auto& [index, text] : game.configstrings())
