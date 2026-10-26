@@ -1054,25 +1054,37 @@ bool ScenePage::hidden(const Ac2Record& o) const {
     return !file.empty() && hiddenNames_.count(fs::toLower(file.substr(file.find_last_of('/') + 1)));
 }
 
+namespace {
+
+// Whether a screen point is in an object's outline (listD: hotspots and
+// characters have one), by the crossings of a ray to the right; false if
+// it has none.
+bool inOutline(const Ac2Record& o, int sx, int sy) {
+    const Ac2Value* outline = o.field("listD");
+    if (!outline || outline->numbers.size() < 3)
+        return false;
+    bool inside = false;
+    const auto& pts = outline->numbers;
+    for (size_t i = 0, j = pts.size() - 1; i < pts.size(); j = i++) {
+        const float xi = float(pts[i].first), yi = float(pts[i].second);
+        const float xj = float(pts[j].first), yj = float(pts[j].second);
+        if ((yi > float(sy)) != (yj > float(sy)) && float(sx) < (xj - xi) * (float(sy) - yi) / (yj - yi) + xi)
+            inside = !inside;
+    }
+    return inside;
+}
+
+} // namespace
+
 const Ac2Record* ScenePage::hotspotAt(int sx, int sy) const {
     const Ac2Record* hit = nullptr;
     for (const Ac2Record* o : scene_.objects()) {
         if (o->tag != "SPOT" || hidden(*o) || !testCondition(o->text("condition"), state_))
             continue;
         const Ac2Value* outline = o->field("listD");
-        bool inside = false;
-        if (outline && outline->numbers.size() >= 3) {
-            // Its outline, by the crossings of a ray to the right.
-            const auto& pts = outline->numbers;
-            for (size_t i = 0, j = pts.size() - 1; i < pts.size(); j = i++) {
-                const float xi = float(pts[i].first), yi = float(pts[i].second);
-                const float xj = float(pts[j].first), yj = float(pts[j].second);
-                if ((yi > float(sy)) != (yj > float(sy)) && float(sx) < (xj - xi) * (float(sy) - yi) / (yj - yi) + xi)
-                    inside = !inside;
-            }
-        } else {
-            inside = sx >= o->i("left") && sx < o->i("right") && sy >= o->i("top") && sy < o->i("bottom");
-        }
+        const bool inside = outline && outline->numbers.size() >= 3
+                                ? inOutline(*o, sx, sy)
+                                : sx >= o->i("left") && sx < o->i("right") && sy >= o->i("top") && sy < o->i("bottom");
         if (inside)
             hit = o; // the last drawn is on top
     }
@@ -1280,8 +1292,14 @@ const Ac2Record* ScenePage::characterAt(int sx, int sy) const {
     for (const Ac2Record* o : scene_.objects()) {
         if (o->tag != "NPCX" || o->text("script").empty() || !testCondition(o->text("condition"), state_))
             continue;
-        // Where it stands: from its feet to a head's height, about a third
-        // as wide.
+        // Its outline on the screen, if it has one.
+        if (const Ac2Value* outline = o->field("listD"); outline && outline->numbers.size() >= 3) {
+            if (inOutline(*o, sx, sy))
+                hit = o;
+            continue;
+        }
+        // Else where it stands: from its feet to a head's height, about a
+        // third as wide.
         float x = o->f("x"), z = o->f("z");
         for (const Character& c : characters_)
             if (c.record == o)
