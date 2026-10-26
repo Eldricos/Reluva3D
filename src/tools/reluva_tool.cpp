@@ -3896,19 +3896,32 @@ int cmdSpRun(int argc, char** argv) {
     for (int f = 0; f < frames; ++f) {
         if (reluva::Error e = game.runFrame())
             return failed(("frame " + std::to_string(f + 1)).c_str(), e);
-        if (game.clientGameRunning())
-            if (reluva::Error e = game.drawClientFrame({}))
+        if (game.clientGameRunning()) {
+            ef::SpGameHost::UserCommand cmd;
+            cmd.serverTime = game.levelTime();
+            if (reluva::Error e = game.clientThink(cmd))
+                return failed(("command " + std::to_string(f + 1)).c_str(), e);
+            if (reluva::Error e = game.drawClientFrame(game.levelTime()))
                 return failed(("client frame " + std::to_string(f + 1)).c_str(), e);
+        }
     }
     if (game.clientGameRunning()) {
-        const ef::SpGameHost::ClientFrame& cf = game.lastClientFrame();
-        std::printf("last client frame: %zu scene entities, %d polygons, %d lights, %d scenes rendered, %d pictures\n",
-                    cf.entityModels.size(), cf.polys, cf.lights, cf.scenes, cf.pictures);
+        const ef::Scene& scene = game.scene();
+        std::printf("last client frame: %zu scene entities, %zu polygons, %zu lights, %zu scenes rendered, %zu pictures\n",
+                    scene.entities.size(), scene.polys.size(), scene.lights.size(), scene.views.size(),
+                    game.pictures().size());
         std::map<std::string, int> byModel;
-        for (const int32_t m : cf.entityModels)
+        for (const ef::SceneEntity& e : scene.entities) {
+            const int32_t m = ef::SpGameHost::entityModel(e);
             ++byModel[m ? game.models().name(m) : std::string("(no model)")];
+        }
         for (const auto& [name, count] : byModel)
             std::printf("  %3d x %s\n", count, name.c_str());
+        std::map<std::string, int> byShader;
+        for (const ef::Picture& p : game.pictures())
+            ++byShader[game.shaders().name(p.shader)];
+        for (const auto& [name, count] : byShader)
+            std::printf("  picture %3d x %s\n", count, name.c_str());
     }
     const double seconds =
         std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();

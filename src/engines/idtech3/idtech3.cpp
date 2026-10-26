@@ -64,7 +64,7 @@ public:
         } audioOff{sys_};
 
         ViewerContext ctx{sys_, screen_, files_, shaders_, game_, warnings, target_.savePath,
-                          audioOut ? &mixer : nullptr, {}, {}, {}, {}, {}, {}, {}};
+                          audioOut ? &mixer : nullptr, {}, {}, {}, {}, {}, {}, {}, target_.path};
         // A pak just downloaded: in the search path at once, above the
         // rest, and the shader scripts read again (it may bring its own).
         int added = 0;
@@ -84,6 +84,7 @@ public:
         std::vector<std::unique_ptr<Page>> pages;
         pages.push_back(std::make_unique<MenuViewer>(ctx));
         pages.push_back(std::make_unique<PlayViewer>(ctx));
+        pages.push_back(std::make_unique<SpPlayViewer>(ctx));
         pages.push_back(std::make_unique<WorldViewer>(ctx));
         pages.push_back(std::make_unique<ModelViewer>(ctx));
         pages.push_back(std::make_unique<MapViewer>(ctx));

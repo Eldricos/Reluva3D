@@ -46,6 +46,7 @@
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/net_client.h"
 #include "engines/idtech3/eliteforce/net_server.h"
+#include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/games.h"
 #include "engines/idtech3/shader.h"
@@ -101,6 +102,9 @@ struct ViewerContext {
     std::function<Error(const std::filesystem::path&)> addPak;
     // Commands for the level's server after it starts ("addbot munro 3"...).
     std::vector<std::string> requestCommands;
+    // The game's install folder (the one holding BaseEF), where native
+    // game code (efgamex86.dll) sits.
+    std::filesystem::path installPath;
 };
 
 // The settings: the game's default.cfg, then the player's own (Reluva's
@@ -492,6 +496,54 @@ private:
     float lastMouseX_ = 0, lastMouseY_ = 0; // the last frame's, for m_filter
     std::map<std::string, std::set<int32_t>> buttons_; // the engine's +buttons ("forward"...) and the keys holding each
     gfx::Vec3 eye_{};
+};
+
+// Elite Force's single player: the retail game code (efgamex86.dll, run in
+// the x86 interpreter) on its maps, drawn as the Play page draws Holomatch.
+class SpPlayViewer : public Page {
+public:
+    explicit SpPlayViewer(ViewerContext& ctx);
+    ~SpPlayViewer() override;
+    const char* name() const override { return "Single player"; }
+    size_t count() const override { return names_.size(); }
+    void activate() override;
+    void deactivate() override;
+    void handleEvent(const Event& ev) override;
+    void update(uint64_t nowMs) override;
+    bool uses3D() const override { return renderer_ != nullptr; }
+    bool takesKey(const Event& ev) const override;
+
+private:
+    void start(int index);
+    void stop(const std::string& why);
+    void runGame(uint64_t nowMs);
+    void runBinding(const std::string& line, int32_t key, bool down);
+    bool held(const char* button) const;
+    void drawOverlay();
+
+    std::vector<std::string> names_; // the single-player maps
+    int index_ = 0;
+    std::vector<uint8_t> dll_;       // efgamex86.dll
+    gfx::Renderer3D* renderer_ = nullptr;
+    std::unique_ptr<ShaderCache> shaders_;
+    std::unique_ptr<WorldRenderer> world_;
+    std::unique_ptr<ModelCache> models_;
+    std::unique_ptr<SceneDrawer> scene_;
+    LightGrid grid_;
+    int frameW_ = 960, frameH_ = 720;
+    CvarStore& cvars_ = ctx_.cvars;
+    std::unique_ptr<eliteforce::SpGameHost> game_;
+    Surface overlay_;
+    std::string error_;
+    bool showInfo_ = true;
+    uint64_t lastMs_ = 0;
+    int32_t clientTime_ = 0;
+    float yaw_ = 0, pitch_ = 0, mouseX_ = 0, mouseY_ = 0;
+    std::map<std::string, std::set<int32_t>> buttons_;
+    struct Timing {
+        float server = 0, client = 0, draw = 0; // ms, the last frame's
+    };
+    Timing timing_;
 };
 
 class MapViewer : public Page {

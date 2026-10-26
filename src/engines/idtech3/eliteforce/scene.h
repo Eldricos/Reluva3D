@@ -81,6 +81,11 @@ struct Scene {
     void addPoly(Qvm& vm, int32_t shader, int32_t count, int32_t address);
     void addLight(Qvm& vm, int32_t origin, float intensity, float r, float g, float b);
     void render(Qvm& vm, int32_t refdef, size_t picturesSoFar);
+    // The same from bytes already read (native programs' memory).
+    void addEntity(const uint8_t* bytes, size_t size, int32_t clearedSize);
+    void addPoly(int32_t shader, int32_t count, const uint8_t* vertices);
+    void addLight(const std::array<float, 3>& origin, float intensity, float r, float g, float b);
+    void render(const uint8_t* refdef, size_t picturesSoFar);
 };
 
 // LerpTag (orientation_t*, model, startFrame, endFrame, frac, tagName):
@@ -89,6 +94,10 @@ struct Scene {
 // whether it was found (if not, at the origin, unrotated).
 int32_t writeLerpTag(Qvm& vm, int32_t address, const Md3Model* model, int32_t startFrame, int32_t endFrame,
                      float frac, const std::string& tagName);
+
+// The same tag as 12 floats (origin, then the three axes); whether found.
+bool lerpTag(const Md3Model* model, int32_t startFrame, int32_t endFrame, float frac, const std::string& tagName,
+             std::array<float, 12>& out);
 
 constexpr int32_t kRefdefSize = 112;    // the client game clears this much of cg.refdef
 constexpr int32_t kRefEntityKept = 256; // bytes kept of each refEntity_t

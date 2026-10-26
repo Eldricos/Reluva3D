@@ -10,6 +10,8 @@
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
+#include "engines/idtech3/eliteforce/scene.h"
+#include "engines/idtech3/md3.h"
 #include "engines/idtech3/vm_services.h"
 
 #include <array>
@@ -107,26 +109,37 @@ public:
         int8_t forward = 0, right = 0, up = 0;
     };
     static constexpr int32_t kPlayerStateSize = 544, kEntityStateSize = 232, kUserCmdSize = 28;
+    static constexpr int32_t kRefEntitySize = 152; // refEntity_t, as the original renderer copies it
     // Starts the client game on the level (its CG_INIT: it registers what
     // it will draw), once the player has joined.
     Error startClientGame();
-    // One frame of the client game (CG_DRAW_ACTIVE_FRAME at the level
-    // time), with the player's input, which the server game gets on its
-    // next frame (ClientThink).
-    Error drawClientFrame(const UserCommand& input);
+    // The player's input for a moment (its server time set by the caller),
+    // which the server game acts on at once (ClientThink), as the
+    // original's server does with each command; the client game reads it
+    // back for its prediction.
+    Error clientThink(const UserCommand& cmd);
+    // One frame of the client game (CG_DRAW_ACTIVE_FRAME) at `time`, the
+    // player's time in the level.
+    Error drawClientFrame(int32_t time);
+    // A command the player ran (a key's binding, the console): the client
+    // game's if it knows it, else sent to the server game (ClientCommand),
+    // as the original engine does.
+    Error clientConsoleCommand(const std::string& text);
+    // The weapon the client game has chosen (SetUserCmdValue), for commands.
+    uint8_t weaponSelect() const { return clientWeapon_; }
     bool clientGameRunning() const { return cgameRunning_; }
     // What the client game registered, by kind.
     const HandleTable& models() const { return models_; }
     const HandleTable& shaders() const { return shaders_; }
     const HandleTable& skins() const { return skins_; }
     const HandleTable& sounds() const { return sounds_; }
-    // What the last client frame drew: 3D scene entities (the model handle
-    // of each), polygons, lights, rendered scenes, 2D pictures.
-    struct ClientFrame {
-        std::vector<int32_t> entityModels;
-        int polys = 0, lights = 0, scenes = 0, pictures = 0;
-    };
-    const ClientFrame& lastClientFrame() const { return lastFrame_; }
+    // What the last client frame drew: its scenes (each RenderScene's view
+    // of the entities, polygons and lights added) and 2D pictures, as the
+    // Holomatch client game's, for the same drawer.
+    const Scene& scene() const { return lastScene_; }
+    const std::vector<Picture>& pictures() const { return lastPictures_; }
+    // A scene entity's model handle (refEntity_t's at 8).
+    static int32_t entityModel(const SceneEntity& e);
     // The snapshots made so far (one each server frame once the client
     // game runs).
     int32_t snapshotCount() const { return snapshotNumber_; }
@@ -246,7 +259,11 @@ private:
     uint8_t clientWeapon_ = 0;
     std::vector<std::string> clientCommands_; // AddCommand's names
     HandleTable models_, shaders_, skins_, sounds_;
-    ClientFrame frame_, lastFrame_;
+    Scene scene_, lastScene_;
+    std::vector<Picture> pictures_, lastPictures_;
+    std::array<float, 4> color_{1, 1, 1, 1};
+    std::map<int32_t, std::shared_ptr<Md3Model>> md3s_; // by model handle, loaded for tags and bounds
+    const Md3Model* md3(int32_t handle);
     std::vector<std::pair<Vec3f, Vec3f>> tempBoxes_; // CM_TempBoxModel's box
     static constexpr uint32_t kTempBoxModel = 255;
     int32_t levelTime_ = 0;

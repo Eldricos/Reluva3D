@@ -233,16 +233,6 @@ Error SpGameHost::connectPlayer(const std::string& userinfo, std::string& refuse
 }
 
 Error SpGameHost::runFrame() {
-    // The player's latest input first, as the server takes commands before
-    // running the frame.
-    if (cgameRunning_ && commandNumber_ > 0) {
-        const uint32_t cmd = process_->memory().alloc(kUserCmdSize);
-        writeUserCommand(cmd, commands_[size_t(commandNumber_ & 63)]);
-        const Error e = callGame(ClientThink, {0, cmd});
-        process_->memory().free(cmd);
-        if (e)
-            return e;
-    }
     levelTime_ += kFrameMs;
     if (Error e = callGame(RunFrame, {uint32_t(levelTime_)}))
         return e;
@@ -726,30 +716,64 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
     case 40: return uint32_t(skins_.add(str(0, 256)));
     case 41:
     case 42: return uint32_t(shaders_.add(str(0, 256)));
-    case 43: frame_.entityModels.clear(); frame_.polys = frame_.lights = 0; return 0; // R_ClearScene
-    case 44: frame_.entityModels.push_back(int32_t(c.read32(a(0) + 8))); return 0; // R_AddRefEntityToScene
+    case 43: scene_.clear(); return 0; // R_ClearScene
+    case 44:                           // R_AddRefEntityToScene(refEntity)
+        if (c.valid(a(0), kRefEntitySize))
+            scene_.addEntity(c.memory().data() + a(0), kRefEntitySize, 0);
+        return 0;
     case 45: { // R_LightForPoint(point, ambient, directed, direction): a plain light for now
         writeVec(a(1), {128, 128, 128});
         writeVec(a(2), {128, 128, 128});
         writeVec(a(3), {0, 0, 1});
         return 1;
     }
-    case 46: ++frame_.polys; return 0;
-    case 47: ++frame_.lights; return 0;
-    case 48: ++frame_.scenes; return 0; // R_RenderScene(refdef)
-    case 49: return 0;                  // R_SetColor
-    case 50: case 51: case 54: ++frame_.pictures; return 0;
-    case 52: // R_ModelBounds(model, mins, maxs)
-        writeVec(a(1), {});
-        writeVec(a(2), {});
+    case 46: { // R_AddPolyToScene(shader, vertex count, vertices)
+        const uint32_t bytes = std::min<uint32_t>(a(1), 256) * 24;
+        scene_.addPoly(int32_t(a(0)), int32_t(a(1)), bytes && c.valid(a(2), bytes) ? c.memory().data() + a(2) : nullptr);
         return 0;
-    case 53: { // R_LerpTag(orientation, model, startFrame, endFrame, frac, tag): not found yet
-        const uint32_t o = a(0);
-        writeVec(o, {});
-        writeVec(o + 12, {1, 0, 0});
-        writeVec(o + 24, {0, 1, 0});
-        writeVec(o + 36, {0, 0, 1});
+    }
+    case 47: // R_AddLightToScene(origin, intensity, r, g, b)
+        scene_.addLight(readVec(a(0)), readFloat(c.reg[x86::Cpu::ESP] + 12), readFloat(c.reg[x86::Cpu::ESP] + 16),
+                        readFloat(c.reg[x86::Cpu::ESP] + 20), readFloat(c.reg[x86::Cpu::ESP] + 24));
         return 0;
+    case 48: // R_RenderScene(refdef)
+        scene_.render(c.valid(a(0), kRefdefSize) ? c.memory().data() + a(0) : nullptr, pictures_.size());
+        return 0;
+    case 49: // R_SetColor(rgba, or 0 for white)
+        if (!a(0))
+            color_ = {1, 1, 1, 1};
+        else
+            for (int i = 0; i < 4; ++i)
+                color_[size_t(i)] = readFloat(a(0) + 4 * uint32_t(i));
+        return 0;
+    case 50: { // R_DrawStretchPic(x, y, w, h, s1, t1, s2, t2, shader)
+        auto f = [&](int n) { return readFloat(c.reg[x86::Cpu::ESP] + 8 + 4 * uint32_t(n)); };
+        pictures_.push_back({f(0), f(1), f(2), f(3), f(4), f(5), f(6), f(7), int32_t(a(8)), color_});
+        return 0;
+    }
+    case 51: case 54: return 0; // the saved game's picture; rotated pictures: not yet
+    case 52: { // R_ModelBounds(model, mins, maxs)
+        Vec3f mins{}, maxs{};
+        const std::string& name = models_.name(int32_t(a(0)));
+        if (!name.empty() && name[0] == '*') {
+            if (world_)
+                world_->modelBounds(std::atoi(name.c_str() + 1), mins, maxs);
+        } else if (const Md3Model* m = md3(int32_t(a(0))); m && !m->frames.empty()) {
+            mins = m->frames[0].mins;
+            maxs = m->frames[0].maxs;
+        }
+        writeVec(a(1), mins);
+        writeVec(a(2), maxs);
+        return 0;
+    }
+    case 53: { // R_LerpTag(orientation, model, startFrame, endFrame, frac, tag) -> found
+        std::array<float, 12> o{};
+        const bool found = lerpTag(md3(int32_t(a(1))), int32_t(a(2)), int32_t(a(3)),
+                                   readFloat(c.reg[x86::Cpu::ESP] + 24), str(5, 64), o);
+        if (c.valid(a(0), 48))
+            for (int i = 0; i < 12; ++i)
+                c.write32(a(0) + 4 * uint32_t(i), floatBits(o[size_t(i)]));
+        return found ? 1 : 0;
     }
     case 55: return 0; // R_Scissor?
     case 56: writeGlconfig(a(0)); return 0;
@@ -796,6 +820,26 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
     case 70: c.fpuPush(0.0); return 0;                // S_GetSampleLength(sfx): a float, in ST(0)
     default: ++cgameUnhandled_[number]; return 0;
     }
+}
+
+int32_t SpGameHost::entityModel(const SceneEntity& e) {
+    if (e.bytes.size() < 12)
+        return 0;
+    int32_t v;
+    std::memcpy(&v, e.bytes.data() + 8, 4);
+    return v;
+}
+
+const Md3Model* SpGameHost::md3(int32_t handle) {
+    auto [it, added] = md3s_.try_emplace(handle);
+    if (added) {
+        const std::string& name = models_.name(handle);
+        std::vector<uint8_t> data;
+        auto m = std::make_shared<Md3Model>();
+        if (!name.empty() && name[0] != '*' && !files_.read(name, data) && !parseModel(data, *m))
+            it->second = std::move(m);
+    }
+    return it->second.get();
 }
 
 void SpGameHost::clientTrace(x86::Cpu& c, bool transformed) {
@@ -1030,17 +1074,44 @@ Error SpGameHost::startClientGame() {
     return cpu_->call(cgameVmMain_, {CgInit, uint32_t(snapshotNumber_)}, ignored);
 }
 
-Error SpGameHost::drawClientFrame(const UserCommand& input) {
+Error SpGameHost::clientThink(const UserCommand& input) {
     UserCommand cmd = input;
-    cmd.serverTime = levelTime_;
     cmd.weapon = clientWeapon_;
     commands_[size_t(++commandNumber_ & 63)] = cmd;
-    frame_ = {};
+    const uint32_t address = process_->memory().alloc(kUserCmdSize);
+    writeUserCommand(address, cmd);
+    const Error e = callGame(ClientThink, {0, address});
+    process_->memory().free(address);
+    return e;
+}
+
+Error SpGameHost::drawClientFrame(int32_t time) {
+    scene_ = {};
+    pictures_.clear();
     syncCvars();
     uint32_t ignored = 0;
-    const Error e = cpu_->call(cgameVmMain_, {CgDrawActiveFrame, uint32_t(levelTime_), 0}, ignored);
-    lastFrame_ = frame_;
+    const Error e = cpu_->call(cgameVmMain_, {CgDrawActiveFrame, uint32_t(time), 0}, ignored);
+    lastScene_ = std::move(scene_);
+    lastPictures_ = std::move(pictures_);
+    scene_ = {};
+    pictures_.clear();
     return e;
+}
+
+Error SpGameHost::clientConsoleCommand(const std::string& text) {
+    tokenize(text);
+    if (args_.empty())
+        return Error::success();
+    uint32_t handled = 0;
+    if (cgameRunning_) {
+        syncCvars();
+        if (Error e = cpu_->call(cgameVmMain_, {CgConsoleCommand}, handled))
+            return e;
+    }
+    if (handled)
+        return Error::success();
+    tokenize(text);
+    return callGame(ClientCommand, {0});
 }
 
 // --- The engine's functions ---------------------------------------------------------
