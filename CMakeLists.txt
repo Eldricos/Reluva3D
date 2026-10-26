@@ -192,6 +192,7 @@ if(RELUVA_ENGINE_NFS)
         src/engines/nfs/text_table.cpp
         src/engines/nfs/ffn.cpp
         src/engines/nfs/bnk.cpp
+        src/engines/nfs/mus.cpp
         src/engines/nfs/fce.cpp
         src/engines/nfs/frd.cpp
         src/engines/nfs/col.cpp

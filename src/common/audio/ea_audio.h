@@ -29,6 +29,13 @@ void decodeEaXaFrame(const uint8_t* frame, EaXaChannel& channel, int16_t* out, i
 // A mono stream of frames, `samples` long; fails if the data is short.
 Error decodeEaXa(const uint8_t* data, size_t size, size_t samples, std::vector<int16_t>& out);
 
+// A stereo data block of EA's SCxl streams (SCDl): u32 samples, each
+// channel's starting history (s16 previous, s16 the one before), then per
+// 28 samples a filter byte and a shift byte (left in the high nibbles) and
+// 28 bytes of residuals (left high nibble, right low). Appends the
+// interleaved samples to `out`.
+Error decodeEaXaStereoBlock(const uint8_t* data, size_t size, std::vector<int16_t>& out);
+
 // EA MicroTalk ("UTalk", "UTK"), a linear-predictive speech codec: mono,
 // 22,050 Hz, 432 samples a frame. The stream starts with a few header bits
 // and then holds frames back to back, bits read from each byte's lowest

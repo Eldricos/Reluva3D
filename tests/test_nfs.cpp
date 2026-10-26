@@ -13,6 +13,7 @@
 #include "engines/nfs/fsh.h"
 #include "engines/nfs/game_files.h"
 #include "engines/nfs/hrz.h"
+#include "engines/nfs/mus.h"
 #include "engines/nfs/games.h"
 #include "engines/nfs/refpack.h"
 #include "engines/nfs/text_table.h"
@@ -933,6 +934,89 @@ void testSoundBank() {
     CHECK(parseSoundBank(Bytes{'B', 'N', 'K', 'x', 2, 0, 0, 0, 0, 0, 0, 0}, bank));
 }
 
+void testMusic() {
+    // A stream of two segments: EA-XA stereo (one block of 30 samples:
+    // two groups) and PCM stereo (2 samples).
+    auto chunk = [](Bytes& out, const char* tag, const Bytes& body) {
+        out.insert(out.end(), tag, tag + 4);
+        put32(out, uint32_t(8 + body.size()));
+        out.insert(out.end(), body.begin(), body.end());
+    };
+    Bytes mus;
+    chunk(mus, "SCHl", ptHeader({{0x82, 2}, {0x83, 7}, {0x85, 30}}));
+    Bytes count;
+    put32(count, 1);
+    chunk(mus, "SCCl", count);
+    Bytes xa;
+    put32(xa, 30);
+    for (int v : {100, 0, -100, 0}) // left previous, before; right previous, before
+        put16(xa, unsigned(v));
+    xa.push_back(0x10); // filters: left 1, right 0
+    xa.push_back(0xcc); // shifts 12, 12: residuals as they are
+    xa.push_back(0x1f); // left +1, right -1
+    xa.insert(xa.end(), 27, 0);
+    Bytes group2(30, 0);
+    group2[1] = 0xcc;
+    xa.insert(xa.end(), group2.begin(), group2.end());
+    chunk(mus, "SCDl", xa);
+    chunk(mus, "SCEl", {});
+    const uint32_t second = uint32_t(mus.size());
+    chunk(mus, "SCHl", ptHeader({{0x82, 2}, {0x85, 2}}));
+    chunk(mus, "SCCl", count);
+    Bytes pcm;
+    put32(pcm, 2);
+    for (int v : {1, -1, 2, -2})
+        put16(pcm, unsigned(v));
+    chunk(mus, "SCDl", pcm);
+    chunk(mus, "SCEl", {});
+
+    MusicStream stream;
+    CHECK(!stream.open(mus));
+    CHECK(stream.segments().size() == 2 && stream.segmentAt(second) == 1 && stream.segmentAt(4) == -1);
+    audio::Sound s;
+    CHECK(!stream.decode(0, s));
+    CHECK(s.channels == 2 && s.samples.size() == 60);
+    if (s.samples.size() == 60) {
+        // Left: 1 + 240/256 x 100 = 1 + 94; right: -1 + 0.
+        CHECK(s.samples[0] == 1 + ((240 * 100 + 128) >> 8) && s.samples[1] == -1);
+        CHECK(s.samples[56] == 0 && s.samples[57] == 0); // the second group, filter 0
+    }
+    CHECK(!stream.decode(1, s));
+    CHECK(s.samples == (std::vector<int16_t>{1, -1, 2, -2}));
+    Bytes cut(mus.begin(), mus.end() - 3);
+    CHECK(stream.open(cut));
+
+    // A map of three sections: 0 goes to 1 (values 0-49) or 2 (50-100),
+    // 1 to 0, 2 nowhere; one event; then the offsets, big-endian.
+    Bytes map = {'P', 'F', 'D', 'x', 0, 0, 3, 16, 0, 0, 0, 1};
+    auto section = [&](uint8_t kind, std::vector<std::array<uint8_t, 3>> routes) {
+        Bytes r(28, 0);
+        r[0] = kind;
+        r[1] = uint8_t(routes.size());
+        r[2] = r[3] = 0xff;
+        for (size_t k = 0; k < routes.size(); ++k)
+            for (int i = 0; i < 3; ++i)
+                r[4 + 3 * k + i] = routes[k][i];
+        map.insert(map.end(), r.begin(), r.end());
+    };
+    section(1, {{0, 49, 1}, {50, 100, 2}});
+    section(2, {{0, 100, 0}});
+    section(3, {});
+    map.insert(map.end(), 16, 0);
+    for (uint32_t o : {0u, second, 0x01020304u})
+        put32be(map, o);
+    MusicMap m;
+    CHECK(!parseMusicMap(map, m));
+    CHECK(m.sections.size() == 3 && m.events.size() == 1 && m.offsets.size() == 3);
+    CHECK(m.offsets[1] == second && m.offsets[2] == 0x01020304u);
+    CHECK(m.next(0, 10) == 1 && m.next(0, 50) == 2 && m.next(0, 100) == 2 && m.next(1, 70) == 0);
+    CHECK(m.next(2, 0) == -1 && m.next(5, 0) == -1 && m.sections[2].kind == 3);
+    Bytes badRoute = map;
+    badRoute[12 + 6] = 3; // section 0's first route to section 3
+    CHECK(parseMusicMap(badRoute, m));
+    CHECK(parseMusicMap(Bytes(map.begin(), map.end() - 1), m));
+}
+
 void testGameFiles(const stdfs::path& tmp) {
     const stdfs::path install = tmp / "files/install", cd = tmp / "files/cd";
     touch(install / "FeData/text/text.eng", "eng");
@@ -993,6 +1077,7 @@ int main() {
     testHorizon();
     testCollision();
     testSoundBank();
+    testMusic();
     stdfs::remove_all(tmp);
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);

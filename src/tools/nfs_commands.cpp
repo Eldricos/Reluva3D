@@ -14,6 +14,7 @@
 #include "engines/nfs/fsh.h"
 #include "engines/nfs/game_files.h"
 #include "engines/nfs/hrz.h"
+#include "engines/nfs/mus.h"
 #include "engines/nfs/refpack.h"
 #include "engines/nfs/text_table.h"
 #include "engines/nfs/viewers.h"
@@ -51,6 +52,8 @@ const char* const kUsageLines =
     "  reluva-tool frd-obj <file.frd> <out.obj> [detail 0-2]\n"
     "  reluva-tool bnk-info <file.bnk | file.viv name>\n"
     "  reluva-tool bnk-wav <file.bnk | file.viv name> <output dir>\n"
+    "  reluva-tool mus-info <file.mus> [file.map | file.lin]\n"
+    "  reluva-tool mus-wav <file.mus> <segment | all> <output dir>\n"
     "  reluva-tool nfs-survey <folder>... [-v]\n"
     "  reluva-tool nfs-page <game folder> <out.tga> <page> [key...]\n";
 
@@ -304,7 +307,8 @@ int cmdNfsSurvey(int argc, char** argv) {
     struct Count {
         int ok = 0, failed = 0;
     };
-    Count vivs, banks, pictures, tables, fonts, models, tracks, collisions, horizons, soundBanks, sounds;
+    Count vivs, banks, pictures, tables, fonts, models, tracks, collisions, horizons, soundBanks, sounds, streams,
+        segments, maps;
     std::vector<std::string> unsupported; // in EA's other compression schemes
     auto lower = [](std::string s) {
         for (char& c : s)
@@ -358,6 +362,29 @@ int cmdNfsSurvey(int argc, char** argv) {
                     reluva::audio::Sound sound;
                     report(sounds, what + ":" + std::to_string(i), reluva::nfs::decodeBankSound(data, *bank.slots[i], sound));
                 }
+        } else if (ext == ".mus") {
+            reluva::nfs::MusicStream stream;
+            const Error err = stream.open(std::move(data));
+            report(streams, what, err);
+            for (size_t i = 0; i < stream.segments().size(); ++i) {
+                reluva::audio::Sound sound;
+                report(segments, what + ":" + std::to_string(i), stream.decode(i, sound));
+            }
+        } else if (ext == ".map" || ext == ".lin") {
+            // Checked against the .mus beside it, whose segments it names.
+            reluva::nfs::MusicMap map;
+            Error err = reluva::nfs::parseMusicMap(data, map);
+            std::vector<uint8_t> mus;
+            const stdfs::path musPath = stdfs::path(what).replace_extension(".mus");
+            reluva::nfs::MusicStream stream;
+            if (!err && readFile(musPath, mus) && !stream.open(std::move(mus))) {
+                bool match = map.offsets.size() == stream.segments().size();
+                for (size_t i = 0; match && i < map.offsets.size(); ++i)
+                    match = map.offsets[i] == stream.segments()[i].offset;
+                if (!match)
+                    err = Error::fail("its offsets don't match " + musPath.string() + "'s segments");
+            }
+            report(maps, what, err);
         } else if (ext == ".hrz") {
             reluva::nfs::Horizon horizon;
             report(horizons, what, reluva::nfs::parseHorizon(std::string(data.begin(), data.end()), horizon));
@@ -385,7 +412,8 @@ int cmdNfsSurvey(int argc, char** argv) {
                     if (!viv.read(e.name, data))
                         check(e.name, std::move(data), path.string() + ":" + e.name);
             } else if (ext == ".fsh" || ext == ".qfs" || ext == ".ffn" || ext == ".fce" || ext == ".frd" ||
-                       ext == ".col" || ext == ".hrz" || ext == ".bnk" || lower(path.stem().string()) == "text") {
+                       ext == ".col" || ext == ".hrz" || ext == ".bnk" || ext == ".mus" || ext == ".map" ||
+                       ext == ".lin" || lower(path.stem().string()) == "text") {
                 std::vector<uint8_t> data;
                 if (!readFile(path, data)) {
                     report(banks, path.string(), Error::fail("can't read it"));
@@ -396,12 +424,13 @@ int cmdNfsSurvey(int argc, char** argv) {
         }
     }
 
-    const Count* all[] = {&vivs,   &banks,  &pictures,   &tables,   &fonts,      &models,
-                          &tracks, &collisions, &horizons, &soundBanks, &sounds};
-    const char* names[] = {".viv archives", ".fsh/.qfs banks", "pictures",   "text tables", "fonts", ".fce models",
-                           ".frd tracks",   ".col files",      ".hrz files", ".bnk banks",  "sounds"};
+    const Count* all[] = {&vivs,       &banks,      &pictures, &tables,  &fonts,    &models, &tracks,
+                          &collisions, &horizons,   &soundBanks, &sounds, &streams, &segments, &maps};
+    const char* names[] = {".viv archives", ".fsh/.qfs banks", "pictures",    "text tables", "fonts",
+                           ".fce models",   ".frd tracks",     ".col files",  ".hrz files",  ".bnk banks",
+                           "sounds",        ".mus streams",    "music segments", ".map/.lin maps"};
     int failed = 0;
-    for (int i = 0; i < 11; ++i) {
+    for (int i = 0; i < 14; ++i) {
         std::printf("%-16s %6d read, %d failed\n", names[i], all[i]->ok, all[i]->failed);
         failed += all[i]->failed;
     }
@@ -697,6 +726,91 @@ int cmdBnkWav(int argc, char** argv) {
     return failed ? 1 : 0;
 }
 
+int cmdMusInfo(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool mus-info <file.mus> [file.map | file.lin]\n");
+        return 2;
+    }
+    std::vector<uint8_t> data;
+    if (!readFile(argv[2], data)) {
+        std::fprintf(stderr, "Can't read %s\n", argv[2]);
+        return 1;
+    }
+    reluva::nfs::MusicStream stream;
+    if (Error err = stream.open(std::move(data)))
+        return fail(err);
+    reluva::nfs::MusicMap map;
+    const bool haveMap = argc > 3;
+    if (haveMap) {
+        std::vector<uint8_t> m;
+        if (!readFile(argv[3], m)) {
+            std::fprintf(stderr, "Can't read %s\n", argv[3]);
+            return 1;
+        }
+        if (Error err = reluva::nfs::parseMusicMap(m, map))
+            return fail(err);
+    }
+    std::printf("%zu segments\n", stream.segments().size());
+    int mismatched = 0;
+    for (size_t i = 0; i < stream.segments().size(); ++i) {
+        const auto& s = stream.segments()[i];
+        std::printf("  %3zu at %9u  %-5s %d ch %5d Hz %7u samples (%.2f s), %zu blocks", i, s.offset,
+                    compressionName(s.header.compression), s.header.channels, s.header.rate, s.header.samples,
+                    double(s.header.samples) / s.header.rate, s.blocks.size());
+        if (haveMap && i < map.sections.size()) {
+            const auto& sec = map.sections[i];
+            if (map.offsets[i] != s.offset)
+                ++mismatched;
+            std::printf("  kind %d", sec.kind);
+            for (const auto& r : sec.routes)
+                std::printf("  %d-%d: %d", r.low, r.high, r.next);
+            if (sec.routes.empty())
+                std::printf("  (no route)");
+        }
+        std::printf("\n");
+    }
+    if (haveMap) {
+        std::printf("map: %zu sections, %zu events; offsets %s the segments'\n", map.sections.size(), map.events.size(),
+                    mismatched == 0 && map.sections.size() == stream.segments().size() ? "match" : "DON'T match");
+        return mismatched ? 1 : 0;
+    }
+    return 0;
+}
+
+int cmdMusWav(int argc, char** argv) {
+    if (argc < 5) {
+        std::fprintf(stderr, "usage: reluva-tool mus-wav <file.mus> <segment | all> <output dir>\n");
+        return 2;
+    }
+    std::vector<uint8_t> data;
+    if (!readFile(argv[2], data)) {
+        std::fprintf(stderr, "Can't read %s\n", argv[2]);
+        return 1;
+    }
+    reluva::nfs::MusicStream stream;
+    if (Error err = stream.open(std::move(data)))
+        return fail(err);
+    const bool all = std::strcmp(argv[3], "all") == 0;
+    const size_t only = all ? 0 : size_t(std::atoi(argv[3]));
+    int written = 0;
+    for (size_t i = 0; i < stream.segments().size(); ++i) {
+        if (!all && i != only)
+            continue;
+        reluva::audio::Sound sound;
+        if (Error err = stream.decode(i, sound))
+            return fail(err);
+        char name[32];
+        std::snprintf(name, sizeof name, "%03zu.wav", i);
+        if (!writeFile(stdfs::path(argv[4]) / name, wavFile(sound))) {
+            std::fprintf(stderr, "can't write into %s\n", argv[4]);
+            return 1;
+        }
+        ++written;
+    }
+    std::printf("%d segments written to %s\n", written, argv[4]);
+    return 0;
+}
+
 // Draws one of the engine's viewer pages after the keys given, as the
 // engine would, without a window: for checking pages and taking pictures
 // of them.
@@ -784,6 +898,10 @@ int runNfsCommand(int argc, char** argv) {
         return cmdBnkInfo(argc, argv);
     if (std::strcmp(cmd, "bnk-wav") == 0)
         return cmdBnkWav(argc, argv);
+    if (std::strcmp(cmd, "mus-info") == 0)
+        return cmdMusInfo(argc, argv);
+    if (std::strcmp(cmd, "mus-wav") == 0)
+        return cmdMusWav(argc, argv);
     if (std::strcmp(cmd, "nfs-survey") == 0)
         return cmdNfsSurvey(argc, argv);
     if (std::strcmp(cmd, "nfs-page") == 0)

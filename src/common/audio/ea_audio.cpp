@@ -59,6 +59,41 @@ Error decodeEaXa(const uint8_t* data, size_t size, size_t samples, std::vector<i
     return Error::success();
 }
 
+Error decodeEaXaStereoBlock(const uint8_t* data, size_t size, std::vector<int16_t>& out) {
+    if (size < 12)
+        return Error::fail("EA-XA block too short");
+    const uint32_t samples = data[0] | uint32_t(data[1]) << 8 | uint32_t(data[2]) << 16 | uint32_t(data[3]) << 24;
+    const size_t groups = (size_t(samples) + kEaXaFrameSamples - 1) / kEaXaFrameSamples;
+    if (12 + groups * 30 > size)
+        return Error::fail("EA-XA block shorter than its " + std::to_string(samples) + " samples");
+    auto s16 = [&](size_t at) { return static_cast<int16_t>(data[at] | data[at + 1] << 8); };
+    EaXaChannel ch[2];
+    ch[0].previous = s16(4);
+    ch[0].beforePrevious = s16(6);
+    ch[1].previous = s16(8);
+    ch[1].beforePrevious = s16(10);
+    const size_t first = out.size();
+    out.resize(first + size_t(samples) * 2);
+    // Each channel's group as a mono frame (filter and shift byte, then its
+    // 14 bytes of nibbles), so decodeEaXaFrame does the work.
+    for (size_t g = 0; g < groups; ++g) {
+        const uint8_t* p = data + 12 + g * 30;
+        const int count = static_cast<int>(std::min<size_t>(kEaXaFrameSamples, samples - g * kEaXaFrameSamples));
+        for (int c = 0; c < 2; ++c) {
+            uint8_t frame[kEaXaFrameBytes];
+            const int shiftOf = c ? (p[1] & 0x0f) : (p[1] >> 4);
+            frame[0] = static_cast<uint8_t>((c ? (p[0] & 0x0f) : (p[0] >> 4)) << 4 | shiftOf);
+            for (int i = 0; i < 14; ++i) {
+                const int a = c ? (p[2 + 2 * i] & 0x0f) : (p[2 + 2 * i] >> 4);
+                const int b = c ? (p[3 + 2 * i] & 0x0f) : (p[3 + 2 * i] >> 4);
+                frame[1 + i] = static_cast<uint8_t>(a << 4 | b);
+            }
+            decodeEaXaFrame(frame, ch[c], out.data() + first + g * kEaXaFrameSamples * 2 + c, count, 2);
+        }
+    }
+    return Error::success();
+}
+
 // --- MicroTalk ------------------------------------------------------------------
 
 namespace {
