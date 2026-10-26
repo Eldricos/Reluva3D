@@ -46,8 +46,8 @@ cmake --build build -j
 ./build/reluva
 ```
 
-Engines are CMake options (`RELUVA_ENGINE_IDTECH3` on, `RELUVA_ENGINE_NEWWORLDS`
-and `RELUVA_ENGINE_NETIMMERSE` off by default for now); see the build notes.
+Engines are CMake options (`RELUVA_ENGINE_IDTECH3` and `RELUVA_ENGINE_NETIMMERSE`
+on, `RELUVA_ENGINE_NEWWORLDS` off by default for now); see the build notes.
 
 See **[docs/BUILDING.md](docs/BUILDING.md)** for step-by-step instructions for
 Linux (with each distro's packages) and Windows with Visual Studio 2022.
@@ -91,7 +91,8 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   For fonts, **Left/Right** picks one, **+/-** change the size and **B** outlines
   the glyphs' boxes.
 
-- LEGO Alpha Team (NetImmerse, off in the build by default) opens as a data viewer too.
+- LEGO Alpha Team (NetImmerse) opens as a data viewer too: add its install folder, the one
+  holding `LEGOATeam.exe` and the `.pac` files.
   **Tab** switches between the archives, models, textures, sounds and text. For models,
   **Left/Right** step (**PageUp/PageDown** by 10), drag to turn, the wheel (or **+/-**)
   zooms, **W/A/S/D/Q/E** move, **T**, **L** and **B** turn textures, lightmaps and a

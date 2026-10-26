@@ -74,11 +74,13 @@ At the end of the configure step, CMake prints a summary of SDL's features.
 Install it, delete `build/`, and configure again.
 
 **Engines** can be left out of the build with CMake options:
-`RELUVA_ENGINE_IDTECH3` (Elite Force, on by default) and
+`RELUVA_ENGINE_IDTECH3` (Elite Force, on by default),
+`RELUVA_ENGINE_NETIMMERSE` (LEGO Alpha Team, on by default; for now it opens
+as a data viewer) and
 `RELUVA_ENGINE_NEWWORLDS` (Star Trek: New Worlds, **off** by default for now,
 because two of its files hold string literals longer than Visual Studio
-accepts), and `RELUVA_ENGINE_NETIMMERSE` (LEGO Alpha Team, **off** by default
-until it runs the game; for now it opens as a data viewer). To build New Worlds with GCC or Clang:
+accepts). An engine left out of the build doesn't recognise its games: the
+launcher then says no supported game was found. To build New Worlds with GCC or Clang:
 `cmake -S . -B build -DRELUVA_ENGINE_NEWWORLDS=ON`. In Visual Studio the options
 are under *Project > CMake Settings*.
 

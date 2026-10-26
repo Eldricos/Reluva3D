@@ -34,8 +34,9 @@ for the game.
 
 - Engine id `netimmerse`, in `src/engines/netimmerse/`: `.pac` archives,
   NIF reading, the scene graph, rendering through `gfx::Renderer3D`, sound
-  through `common/audio`. Built behind `RELUVA_ENGINE_NETIMMERSE`, off by
-  default until the game starts.
+  through `common/audio`. Built behind `RELUVA_ENGINE_NETIMMERSE`, on by
+  default (it was off at first, which left the launcher not recognising
+  the game in a default build).
 - Game id `legoalphateam`, with what is specific to it in
   `src/engines/netimmerse/alphateam/`.
 - Formats documented under `docs/formats/alphateam/` (`.pac`, the
