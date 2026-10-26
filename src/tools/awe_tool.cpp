@@ -10,6 +10,7 @@
 #include "engines/awe/gr2.h"
 #include "engines/awe/granny_dll.h"
 #include "engines/awe/model.h"
+#include "engines/awe/tables.h"
 #include "common/image.h"
 
 #include <cstdio>
@@ -264,11 +265,44 @@ int cmdAc2Dump(int argc, char** argv) {
     return failed ? 1 : 0;
 }
 
+// Prints a text table (Text/*.txt) row by row, cells as the game's
+// script commands where they parse as some.
+int cmdAweTable(int argc, char** argv) {
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: reluva-tool awe-table <file.txt>\n");
+        return 2;
+    }
+    std::vector<uint8_t> data;
+    if (!readFile(argv[2], data))
+        return 1;
+    const awe::Table t = awe::parseTable(awe::decodeText(data));
+    std::printf("%zu columns, %zu rows\n", t.headings.size(), t.rows.size());
+    for (size_t r = 0; r < t.rows.size(); r++) {
+        std::printf("[%zu]\n", r);
+        for (size_t c = 0; c < t.rows[r].size(); c++) {
+            if (t.rows[r][c].empty())
+                continue;
+            std::printf("  %s: %s\n", c < t.headings.size() ? t.headings[c].c_str() : "?", t.rows[r][c].c_str());
+            const std::vector<awe::Command> cmds = awe::parseCommands(t.rows[r][c]);
+            if (cmds.size() > 1)
+                for (const awe::Command& cmd : cmds) {
+                    std::printf("    -");
+                    for (const std::string& w : cmd.words)
+                        std::printf(" [%s]", w.c_str());
+                    std::printf("\n");
+                }
+        }
+    }
+    return 0;
+}
+
 } // namespace
 
 int aweToolCommand(int argc, char** argv) {
     if (argc >= 2 && std::strcmp(argv[1], "gr2-info") == 0)
         return cmdGr2Info(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "awe-table") == 0)
+        return cmdAweTable(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "ac2-dump") == 0)
         return cmdAc2Dump(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "gr2-model") == 0)
@@ -278,6 +312,7 @@ int aweToolCommand(int argc, char** argv) {
 
 const char* aweToolUsage() {
     return "  reluva-tool gr2-info <file.gr2> [-t] [-n elements] [-dll granny2.dll]\n"
+           "  reluva-tool awe-table <file.txt>\n"
            "  reluva-tool ac2-dump <scene.ac2>...\n"
            "  reluva-tool gr2-model <model.gr2> [-anim <anim.gr2> <seconds>] [-obj out.obj]\n";
 }

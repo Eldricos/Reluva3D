@@ -186,7 +186,8 @@ if(RELUVA_ENGINE_AWE)
         src/engines/awe/ac2.cpp
         src/engines/awe/gr2.cpp
         src/engines/awe/granny_dll.cpp
-        src/engines/awe/model.cpp)
+        src/engines/awe/model.cpp
+        src/engines/awe/tables.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_AWE)
 endif()
 target_link_libraries(reluva_engines PUBLIC reluva_common PRIVATE reluva_warnings)
@@ -225,6 +226,12 @@ if(RELUVA_BUILD_TESTS)
         add_executable(reluva_newworlds_tests tests/test_newworlds_cat.cpp)
         target_link_libraries(reluva_newworlds_tests PRIVATE reluva_engines reluva_warnings)
         add_test(NAME newworlds_cat COMMAND reluva_newworlds_tests)
+    endif()
+
+    if(RELUVA_ENGINE_AWE)
+        add_executable(reluva_awe_tests tests/test_awe.cpp)
+        target_link_libraries(reluva_awe_tests PRIVATE reluva_engines reluva_warnings)
+        add_test(NAME awe COMMAND reluva_awe_tests)
     endif()
 
     if(RELUVA_ENGINE_IDTECH3)
