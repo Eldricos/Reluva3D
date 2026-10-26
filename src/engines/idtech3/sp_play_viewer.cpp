@@ -45,6 +45,9 @@ SpPlayViewer::SpPlayViewer(ViewerContext& ctx) : Page(ctx) {
     if (!in)
         return;
     dll_.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    // Its menus, if they're there too.
+    if (std::ifstream ui{ctx.installPath / "efuix86.dll", std::ios::binary})
+        uiDll_.assign(std::istreambuf_iterator<char>(ui), std::istreambuf_iterator<char>());
     // Its maps: all but Holomatch's.
     for (const std::string& n : ctx.files.list()) {
         const std::string key = normalizeArchiveName(n);
@@ -81,13 +84,119 @@ void SpPlayViewer::activate() {
     applyVideoSettings(video, *shaders_, world_.get(), models_.get());
     scene_ = std::make_unique<SceneDrawer>(*renderer_, *shaders_, *models_);
     ctx_.sys.setRelativeMouse(true);
-    start(index_);
+    if (ctx_.mixer)
+        soundSystem_ = std::make_unique<SoundSystem>(*ctx_.mixer, soundLibrary_);
+    startMs_ = 0;
+    if (!uiDll_.empty())
+        startMenus();
+    if (!ui_)
+        start(index_);
+}
+
+void SpPlayViewer::startMenus() {
+    menuError_.clear();
+    ui_ = std::make_unique<eliteforce::SpUiHost>(ctx_.files, cvars_);
+    ui_->print = [](const std::string& text) { std::fputs(text.c_str(), stdout); };
+    ui_->bindings = &ctx_.bindings;
+    ui_->startLocalSound = [this](const std::string& sound, int channel) {
+        if (soundSystem_)
+            soundSystem_->startLocalSound(sound, channel);
+    };
+    ui_->configString = [this](int32_t index, std::string& out) {
+        if (!game_)
+            return false;
+        const auto it = game_->configstrings().find(index);
+        if (it == game_->configstrings().end())
+            return false;
+        out = it->second;
+        return true;
+    };
+    if (Error err = ui_->load(uiDll_))
+        return menusStopped(err);
+    if (Error err = ui_->setActiveMenu("main"))
+        return menusStopped(err);
+    runMenuCommands();
+}
+
+void SpPlayViewer::menusStopped(const Error& err) {
+    // The game goes on without them (Esc then leaves the page).
+    menuError_ = "efuix86.dll: " + err.message;
+    ui_.reset();
+}
+
+bool SpPlayViewer::menusHaveKeys() const { return ui_ && (ui_->catcher() & eliteforce::SpUiHost::kCatchUi); }
+
+void SpPlayViewer::menuKey(int32_t key) {
+    if (!ui_)
+        return;
+    if (Error err = ui_->keyEvent(key))
+        return menusStopped(err);
+    runMenuCommands();
+}
+
+void SpPlayViewer::runMenuCommands() {
+    if (!ui_)
+        return;
+    for (const std::string& line : ui_->takeCommands())
+        runCommand(line);
+}
+
+void SpPlayViewer::runCommand(const std::string& line) {
+    // What the menus run, as the original's console would.
+    const std::vector<std::string> w = splitCommand(line);
+    if (w.empty())
+        return;
+    lastCommand_ = line;
+    lastCommandMs_ = nowMs_;
+    const std::string cmd = fs::toLower(w[0]);
+    if (cmd == "map" || cmd == "devmap" || cmd == "spmap") {
+        if (w.size() < 2)
+            return;
+        std::string map = fs::toLower(w[1]);
+        if (map.size() > 4 && map.compare(map.size() - 4, 4, ".bsp") == 0)
+            map.resize(map.size() - 4);
+        const auto it = std::find(names_.begin(), names_.end(), "maps/" + map + ".bsp");
+        if (it == names_.end()) {
+            error_ = "There's no map " + map;
+            return;
+        }
+        start(int(it - names_.begin()));
+    } else if (cmd == "disconnect") {
+        endGame();
+        if (ui_)
+            if (Error err = ui_->setActiveMenu("main"))
+                menusStopped(err);
+    } else if (cmd == "quit") {
+        endGame();
+        ctx_.requestPage = "Menu";
+    } else if (cmd == "music") {
+        if (soundSystem_ && w.size() >= 2)
+            soundSystem_->startBackgroundTrack(w[1], w.size() >= 3 ? w[2] : w[1]);
+    } else if (cmd == "bind" || cmd == "unbind" || cmd == "unbindall" || cmd == "set" || cmd == "seta" ||
+               cmd == "sets" || cmd == "setu" || cmd == "exec") {
+        ctx_.bindings.execute(line, cvars_, nullptr, [this](const std::string& name, std::string& text) {
+            std::vector<uint8_t> data;
+            if (ctx_.files.read(name, data))
+                return false;
+            text.assign(data.begin(), data.end());
+            return true;
+        });
+    } else if (cmd == "load" || cmd == "save") {
+        lastCommand_ = line + " (saved games aren't supported yet)";
+    } else if (cmd == "cvar_restart" || cmd == "snd_restart" || cmd == "in_restart" || cmd == "vid_restart" ||
+               cmd == "s_enable_a3d" || cmd == "s_disable_a3d") {
+        // Nothing to restart here.
+    } else if (game_) {
+        if (Error err = game_->clientConsoleCommand(line))
+            stop("The game stopped: " + err.message);
+    }
 }
 
 void SpPlayViewer::deactivate() {
     if (renderer_)
         ctx_.sys.setRelativeMouse(false);
     game_.reset();
+    ui_.reset();
     soundSystem_.reset();
     scene_.reset();
     models_.reset();
@@ -99,8 +208,14 @@ void SpPlayViewer::deactivate() {
 
 void SpPlayViewer::stop(const std::string& why) {
     error_ = why;
+    endGame();
+}
+
+void SpPlayViewer::endGame() {
     game_.reset();
-    soundSystem_.reset();
+    if (soundSystem_)
+        soundSystem_->stopAll();
+    buttons_.clear();
 }
 
 void SpPlayViewer::start(int index) {
@@ -108,7 +223,14 @@ void SpPlayViewer::start(int index) {
         return;
     index_ = index;
     error_.clear();
-    game_.reset();
+    endGame();
+    // The menus close as a level loads (SetActiveMenu(0)).
+    if (ui_) {
+        if (Error err = ui_->setActiveMenu(""))
+            menusStopped(err);
+        else
+            ui_->setCatcher(ui_->catcher() & ~eliteforce::SpUiHost::kCatchUi);
+    }
     scene_->reset();
     models_->clear();
     world_->clear();
@@ -141,11 +263,7 @@ void SpPlayViewer::start(int index) {
     // then the client half.
     game_ = std::make_unique<eliteforce::SpGameHost>(ctx_.files, cvars_);
     game_->print = [](const std::string& text) { std::fputs(text.c_str(), stdout); };
-    soundSystem_.reset();
-    if (ctx_.mixer) {
-        soundSystem_ = std::make_unique<SoundSystem>(*ctx_.mixer, soundLibrary_);
-        game_->soundSystem = soundSystem_.get();
-    }
+    game_->soundSystem = soundSystem_.get();
     if ((err = game_->load(dll_)))
         return stop("efgamex86.dll: " + err.message);
     if ((err = game_->startLevel(map, bsp, eliteforce::SpGameHost::mapChecksum(data), 0)))
@@ -201,21 +319,24 @@ bool SpPlayViewer::takesKey(const Event& ev) const {
 }
 
 void SpPlayViewer::handleEvent(const Event& ev) {
-    if (ev.type == EventType::KeyDown && ev.key == key::Escape) {
-        ctx_.requestPage = "Menu";
-        return;
-    }
-    if (!renderer_ || names_.empty())
+    if (!renderer_)
         return;
     switch (ev.type) {
     case EventType::KeyDown:
     case EventType::KeyUp: {
         const bool down = ev.type == EventType::KeyDown;
-        if (down && (ev.mods & keymod::Ctrl)) {
-            // Reluva's own: restart, another map, the info line.
+        if (down && (ev.mods & keymod::Ctrl) && !names_.empty()) {
+            // Reluva's own: restart, another map (without the menus), the
+            // info line.
             const int n = int(names_.size());
-            if (ev.key == 'r')
+            if (ev.key == 'r') {
+                if (!game_ && !uiDll_.empty()) {
+                    ui_.reset();
+                    error_.clear();
+                    return startMenus();
+                }
                 return start(index_);
+            }
             if (ev.key == key::PageUp || ev.key == key::PageDown)
                 return start((index_ + (ev.key == key::PageUp ? n - 1 : 1)) % n);
             if (ev.key == 'i') {
@@ -223,20 +344,77 @@ void SpPlayViewer::handleEvent(const Event& ev) {
                 return;
             }
         }
-        if (down && ev.repeat)
+        const int32_t k = toQ3Key(ev.key);
+        if (ui_ && k) {
+            if (down)
+                ui_->keysDown.insert(k);
+            else
+                ui_->keysDown.erase(k);
+        }
+        if (down && ev.key == key::Escape) {
+            // As the original's engine: to the menus if they have the
+            // keys, else the in-game menu (the main one without a game).
+            if (!ui_) {
+                ctx_.requestPage = "Menu";
+                return;
+            }
+            if (menusHaveKeys())
+                return menuKey(q3key::Escape);
+            if (Error err = ui_->setActiveMenu(game_ ? "ingame" : "main"))
+                return menusStopped(err);
+            return runMenuCommands();
+        }
+        if (!k)
             return;
-        if (const int32_t k = toQ3Key(ev.key))
-            runBinding(ctx_.bindings.get(k), k, down);
+        if (down) {
+            // Presses go to the menus while they have the keys (repeats
+            // too, for scrolling); releases always end what a key held.
+            if (menusHaveKeys())
+                return menuKey(k);
+            if (!ev.repeat)
+                runBinding(ctx_.bindings.get(k), k, true);
+        } else {
+            runBinding(ctx_.bindings.get(k), k, false);
+        }
         break;
     }
+    case EventType::TextInput:
+        // Characters for the menus' text fields, as key presses with the
+        // character flag (Latin-1).
+        if (menusHaveKeys())
+            for (uint32_t cp : decodeUtf8(ev.text))
+                if (cp >= 32 && cp < 256 && cp != 127 && ui_)
+                    menuKey(int32_t(cp) | q3key::CharFlag);
+        break;
     case EventType::MouseDown:
-    case EventType::MouseUp:
-        if (const int32_t k = toQ3Button(ev.button))
-            runBinding(ctx_.bindings.get(k), k, ev.type == EventType::MouseDown);
+    case EventType::MouseUp: {
+        const int32_t k = toQ3Button(ev.button);
+        if (!k)
+            break;
+        const bool down = ev.type == EventType::MouseDown;
+        if (ui_) {
+            if (down)
+                ui_->keysDown.insert(k);
+            else
+                ui_->keysDown.erase(k);
+        }
+        if (down && menusHaveKeys())
+            return menuKey(k);
+        runBinding(ctx_.bindings.get(k), k, down);
+        break;
+    }
+    case EventType::MouseWheel:
+        if (ev.wheelY && menusHaveKeys())
+            menuKey(ev.wheelY > 0 ? q3key::WheelUp : q3key::WheelDown);
         break;
     case EventType::MouseMove:
-        mouseX_ += ev.moveX;
-        mouseY_ += ev.moveY;
+        if (menusHaveKeys()) {
+            if (Error err = ui_->mouseEvent(int32_t(ev.moveX), int32_t(ev.moveY)))
+                menusStopped(err);
+        } else {
+            mouseX_ += ev.moveX;
+            mouseY_ += ev.moveY;
+        }
         break;
     default: break;
     }
@@ -303,24 +481,53 @@ void SpPlayViewer::runGame(uint64_t nowMs) {
     if (Error err = game_->drawClientFrame(clientTime_))
         return stop("The client game stopped: " + err.message);
     timing_.client = ms(clientStart);
-    if (soundSystem_) {
-        // The original's volumes unless the menus set them.
-        soundSystem_->setVolumes(setting("s_volume", 0.8f), setting("s_musicvolume", 0.25f));
+    if (soundSystem_)
         soundSystem_->endFrame();
-    }
 }
 
 void SpPlayViewer::update(uint64_t nowMs) {
     if (!renderer_)
         return;
-    runGame(nowMs);
+    nowMs_ = nowMs;
+    if (!startMs_)
+        startMs_ = nowMs;
+    // The game waits while a menu has the keys, as the original's single
+    // player pauses.
+    if (menusHaveKeys())
+        lastMs_ = nowMs;
+    else
+        runGame(nowMs);
+    if (soundSystem_) {
+        auto setting = [&](const char* name, float fallback) { return cvars_.find(name) ? cvars_.value(name) : fallback; };
+        soundSystem_->setVolumes(setting("s_volume", 0.8f), setting("s_musicvolume", 0.25f));
+    }
+
+    // The menus: the main one whenever there's no game and none is open,
+    // as the original's engine; whether they cover the game; their frame.
+    bool fullscreen = false;
+    if (ui_) {
+        ui_->connectionState = game_ && game_->clientGameRunning() ? 7 : 1;
+        Error err;
+        if (!game_ && !menusHaveKeys())
+            err = ui_->setActiveMenu("main");
+        if (!err)
+            fullscreen = ui_->fullscreen();
+        if (!err)
+            err = ui_->refresh(int32_t(nowMs - startMs_));
+        if (err)
+            menusStopped(err);
+        else
+            runMenuCommands();
+    }
+
     renderer_->setGamma(brightness(ctx_));
     const float time = float(clientTime_) / 1000.0f;
     const auto drawStart = std::chrono::steady_clock::now();
     renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
-    if (game_ && game_->clientGameRunning()) {
+    if (game_ && game_->clientGameRunning() && !fullscreen) {
         // Each scene over the pictures drawn before it, the rest (the HUD)
         // over them all, as the Play page draws.
+        scene_->setHandles({&game_->models(), &game_->skins(), &game_->shaders()});
         const eliteforce::Scene& scene = game_->scene();
         const auto& pictures = game_->pictures();
         const bool dynamicLights = !cvars_.find("r_dynamiclight") || cvars_.integer("r_dynamiclight") != 0;
@@ -334,6 +541,19 @@ void SpPlayViewer::update(uint64_t nowMs) {
         }
         scene_->drawPictures(pictures, drawn, pictures.size(), 640, 480, time);
     }
+    if (ui_) {
+        // The menus over it, with any models they show.
+        const float menuTime = float(nowMs - startMs_) / 1000.0f;
+        scene_->setHandles({&ui_->models(), &ui_->skins(), &ui_->shaders()});
+        const auto& pictures = ui_->pictures();
+        size_t drawn = 0;
+        for (const auto& v : ui_->scene().views) {
+            scene_->drawPictures(pictures, drawn, v.picturesBefore, 640, 480, menuTime);
+            drawn = std::max(drawn, v.picturesBefore);
+            scene_->drawView(ui_->scene(), v, 640, 480, menuTime, false, nullptr, nullptr, true);
+        }
+        scene_->drawPictures(pictures, drawn, pictures.size(), 640, 480, menuTime);
+    }
     timing_.draw = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - drawStart).count();
     drawOverlay();
     renderer_->endFrame(&overlay_);
@@ -344,24 +564,44 @@ void SpPlayViewer::drawOverlay() {
     auto line = [&](int y, const std::string& s, Color c) {
         // Text with a dark band behind it, for reading over the level.
         const int w = int(s.size()) * font::kAdvance + 8;
-        for (int yy = y; yy < std::min(y + font::kLineHeight, frameH_); ++yy) {
+        for (int yy = std::max(y, 0); yy < std::min(y + font::kLineHeight, frameH_); ++yy) {
             uint8_t* p = overlay_.row(yy);
             for (int x = 0; x < std::min(w, frameW_); ++x)
                 p[x * 4 + 3] = 160;
         }
         font::drawText(overlay_, 4, y, s, c);
     };
+    int y = 4;
     if (!error_.empty()) {
-        line(4, error_, {255, 120, 120});
-        line(4 + font::kLineHeight, "Ctrl+R: try again   Ctrl+PgUp/PgDn: another map   Esc: menu", {200, 200, 200});
-        return;
+        line(y, error_, {255, 120, 120});
+        y += font::kLineHeight;
+        line(y, "Ctrl+R: try again   Ctrl+PgUp/PgDn: another map   Esc: menu", {200, 200, 200});
+        y += font::kLineHeight;
     }
-    if (!showInfo_ || !game_)
-        return;
-    char buf[256];
-    std::snprintf(buf, sizeof buf, "%s  server %.1f ms  client %.1f ms  draw %.1f ms  (Ctrl+I hides this)",
-                  names_[size_t(index_)].c_str(), timing_.server, timing_.client, timing_.draw);
-    line(frameH_ - font::kLineHeight - 4, buf, {220, 220, 220});
+    if (!menuError_.empty()) {
+        line(y, "The game's menus stopped: " + menuError_ + " (Ctrl+R without a game: start them again)",
+             {255, 120, 120});
+        y += font::kLineHeight;
+    }
+    std::vector<std::string> bottom;
+    if (!lastCommand_.empty() && nowMs_ - lastCommandMs_ < 4000)
+        bottom.push_back("The menus ran: " + lastCommand_);
+    if (ui_ && !ui_->unhandled().empty()) {
+        std::string calls = "Menu functions not answered yet:";
+        for (const auto& [slot, count] : ui_->unhandled())
+            calls += " " + std::to_string(slot) + " (x" + std::to_string(count) + ")";
+        bottom.push_back(calls);
+    }
+    if (showInfo_ && game_ && !names_.empty()) {
+        char buf[256];
+        std::snprintf(buf, sizeof buf, "%s  server %.1f ms  client %.1f ms  draw %.1f ms  (Ctrl+I hides this)",
+                      names_[size_t(index_)].c_str(), timing_.server, timing_.client, timing_.draw);
+        bottom.push_back(buf);
+    }
+    if (startMs_ && nowMs_ - startMs_ < 6000)
+        bottom.push_back("Esc: the game's menu   Ctrl+Esc: leave   Ctrl+PgUp/PgDn: a map without the menus");
+    for (size_t i = 0; i < bottom.size(); ++i)
+        line(frameH_ - int(bottom.size() - i) * font::kLineHeight - 4, bottom[i], {220, 220, 220});
 }
 
 } // namespace reluva::idtech3

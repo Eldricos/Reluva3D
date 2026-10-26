@@ -216,6 +216,34 @@ The UI works differently from the game:
 | 10 | `UpdateConnectionString(text)`: `"(n)"` with each connection attempt |
 | 11 | `UpdateConnectionMessageString(text)`: a server's `print` message |
 
+### How the engine drives them
+
+From `stvoy.exe` (its copy of the 12 functions is at 0x57f320):
+
+- **Keys.** Presses reach `KeyEvent(key)` only while the key catcher has
+  the menus' bit, 2 (KEYCATCH_UI). Releases never do: they still end what
+  a key's binding started. Typed characters arrive as `key | 0x400`, except
+  `` ` `` and `~`.
+- **Esc.**
+  - If the menus have the keys, it goes to them as `KeyEvent(27)`.
+  - Otherwise, in a game (connection state 7), the engine calls
+    `SetActiveMenu("ingame")`.
+  - Otherwise it calls `SetActiveMenu("main")`.
+- **Each frame.**
+  1. The engine asks export 5 whether the menus cover the screen. If they
+     don't, it draws the game, or the connecting/loading screens
+     (exports 8 and 9).
+  2. With no game running and the menus not holding the keys, it opens
+     `"main"`.
+  3. It calls `Refresh(realtime)`.
+- **Loading a level** calls `SetActiveMenu(0)`, which closes the menus.
+- **What the menus ask for.** They run plain console commands through
+  `Cmd_ExecuteText`: `map borg1`, `map tutorial`, `load <name>`,
+  `save <name>`, `disconnect`, `quit`, `music <intro> [<loop>]`,
+  `exec default.cfg`, `cvar_restart`, `snd_restart`, `in_restart`.
+- **Return values.** `Printf(format, ...)` and `Error(level, format, ...)`
+  take printf arguments. `Cvar_VariableValue` returns its float in ST(0).
+
 ### The engine's functions for the menus
 
 | Slot | Function |

@@ -86,6 +86,9 @@ public:
     // A map file's checksum as the original's engine makes it (MD4, its
     // four words XOR'd together), which the game is handed.
     static int32_t mapChecksum(const std::vector<uint8_t>& file);
+    // glconfig_t as the original engine fills it (5196 bytes, a 640 x 480
+    // screen), for the client game and the menus.
+    static void writeGlconfigTo(x86::Cpu& cpu, uint32_t address);
     // The player joining (ClientConnect, then ClientBegin); `refused` gets
     // the game's reason if it says no.
     Error connectPlayer(const std::string& userinfo, std::string& refused);

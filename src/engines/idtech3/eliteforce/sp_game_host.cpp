@@ -1095,30 +1095,32 @@ void SpGameHost::tokenize(const std::string& text) {
         args_.push_back(word);
 }
 
-void SpGameHost::writeGlconfig(uint32_t address) {
+void SpGameHost::writeGlconfig(uint32_t address) { writeGlconfigTo(*cpu_, address); }
+
+void SpGameHost::writeGlconfigTo(x86::Cpu& cpu, uint32_t address) {
     // glconfig_t as the original engine fills it (5196 bytes): the
     // renderer's, vendor's and version text (1024 each) and the extensions
     // (2048), then Quake III's numbers from 5120 with two more of Elite
     // Force's before the screen size (at 5168 and 5172).
     constexpr uint32_t kSize = 5196, kNumbers = 5120;
-    if (!cpu_->valid(address, kSize))
+    if (!cpu.valid(address, kSize))
         return;
-    std::memset(cpu_->memory().data() + address, 0, kSize);
-    cpu_->writeString(address, "Reluva", 1024);
-    cpu_->writeString(address + 1024, "Reluva", 1024);
-    cpu_->writeString(address + 2048, "1.0", 1024);
+    std::memset(cpu.memory().data() + address, 0, kSize);
+    cpu.writeString(address, "Reluva", 1024);
+    cpu.writeString(address + 1024, "Reluva", 1024);
+    cpu.writeString(address + 2048, "1.0", 1024);
     const uint32_t w = address + kNumbers;
-    cpu_->write32(w + 0, 2048); // maxTextureSize
-    cpu_->write32(w + 4, 2);    // texture units
-    cpu_->write32(w + 8, 32);   // colour bits
-    cpu_->write32(w + 12, 24);  // depth bits
-    cpu_->write32(w + 16, 8);   // stencil bits
-    cpu_->write32(w + 28, 1);   // deviceSupportsGamma
-    cpu_->write32(w + 36, 1);   // textureEnvAddAvailable
-    cpu_->write32(w + 48, 640); // vidWidth
-    cpu_->write32(w + 52, 480); // vidHeight
-    cpu_->write32(w + 56, floatBits(640.0f / 480.0f));
-    cpu_->write32(w + 60, 60); // displayFrequency
+    cpu.write32(w + 0, 2048); // maxTextureSize
+    cpu.write32(w + 4, 2);    // texture units
+    cpu.write32(w + 8, 32);   // colour bits
+    cpu.write32(w + 12, 24);  // depth bits
+    cpu.write32(w + 16, 8);   // stencil bits
+    cpu.write32(w + 28, 1);   // deviceSupportsGamma
+    cpu.write32(w + 36, 1);   // textureEnvAddAvailable
+    cpu.write32(w + 48, 640); // vidWidth
+    cpu.write32(w + 52, 480); // vidHeight
+    cpu.write32(w + 56, floatBits(640.0f / 480.0f));
+    cpu.write32(w + 60, 60); // displayFrequency
 }
 
 void SpGameHost::writeGameState(uint32_t address) {

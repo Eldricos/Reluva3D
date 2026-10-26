@@ -123,6 +123,7 @@
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
+#include "engines/idtech3/eliteforce/sp_ui_host.h"
 #include "engines/idtech3/eliteforce/net_client.h"
 #include "engines/idtech3/eliteforce/net_server.h"
 #include "engines/idtech3/info_string.h"
@@ -3745,6 +3746,113 @@ int cmdX86Run(int argc, char** argv) {
     return 0;
 }
 
+// Runs Elite Force's single-player menus (efuix86.dll, in the x86
+// interpreter): GetUIAPI, Init, the main menu, then frames, with keys
+// pressed along the way; reports what they drew and the commands they ran.
+int cmdSpMenus(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool sp-menus <game folder> [-dll efuix86.dll] [-frames N] "
+                             "[-menu name] [-key frame key]... [-set name value]...\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    namespace ef = reluva::idtech3::eliteforce;
+    int frames = 10;
+    std::string dllPath, menu = "main";
+    std::vector<std::pair<int, int32_t>> keys; // (frame, key)
+    std::vector<std::pair<std::string, std::string>> settings;
+    for (int i = 3; i < argc; ++i) {
+        if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
+            frames = std::atoi(argv[++i]);
+        else if (std::strcmp(argv[i], "-dll") == 0 && i + 1 < argc)
+            dllPath = argv[++i];
+        else if (std::strcmp(argv[i], "-menu") == 0 && i + 1 < argc)
+            menu = argv[++i];
+        else if (std::strcmp(argv[i], "-key") == 0 && i + 2 < argc) {
+            // A key's number, or its name ("ENTER", "MOUSE1", "DOWNARROW").
+            int32_t k = q3::KeyBindings::keyNumber(argv[i + 2]);
+            if (k < 0)
+                k = std::atoi(argv[i + 2]);
+            keys.emplace_back(std::atoi(argv[i + 1]), k);
+            i += 2;
+        } else if (std::strcmp(argv[i], "-set") == 0 && i + 2 < argc) {
+            settings.emplace_back(argv[i + 1], argv[i + 2]);
+            i += 2;
+        } else
+            std::fprintf(stderr, "sp-menus: ignoring %s\n", argv[i]);
+    }
+    if (dllPath.empty()) {
+        std::filesystem::path folder = std::filesystem::path(argv[2]).lexically_normal();
+        if (!folder.has_filename())
+            folder = folder.parent_path();
+        for (const std::filesystem::path& p : {folder.parent_path() / "efuix86.dll", folder / "efuix86.dll"})
+            if (std::filesystem::exists(p)) {
+                dllPath = p.string();
+                break;
+            }
+        if (dllPath.empty()) {
+            std::fprintf(stderr, "efuix86.dll isn't beside %s; give it with -dll\n", argv[2]);
+            return 1;
+        }
+    }
+    Bytes dll;
+    if (!readFile(dllPath.c_str(), dll))
+        return 1;
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    q3::CvarStore cvars;
+    for (const auto& [name, value] : settings)
+        cvars.set(name, value);
+    q3::KeyBindings bindings;
+    ef::SpUiHost ui(set, cvars);
+    ui.bindings = &bindings;
+    ui.print = [](const std::string& text) {
+        std::printf("menus: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
+    };
+    ui.startLocalSound = [](const std::string& sound, int channel) {
+        std::printf("sound: %s (channel %d)\n", sound.c_str(), channel);
+    };
+    auto failed = [&](const char* what, const reluva::Error& e) {
+        std::printf("%s failed: %s\n", what, e.message.c_str());
+        std::printf("instructions run: %llu, at 0x%08x\n", (unsigned long long)ui.cpu().executed(), ui.cpu().faultEip);
+        return 1;
+    };
+    if (reluva::Error e = ui.load(dll))
+        return failed("Loading efuix86.dll", e);
+    std::printf("efuix86.dll loaded; %zu shaders, %zu sounds registered\n", ui.shaders().size(), ui.sounds().size());
+    if (reluva::Error e = ui.setActiveMenu(menu))
+        return failed("SetActiveMenu", e);
+    for (int f = 0; f < frames; ++f) {
+        for (const auto& [at, k] : keys)
+            if (at == f) {
+                std::printf("[frame %d] key %s (%d)\n", f, q3::KeyBindings::keyName(k).c_str(), k);
+                if (reluva::Error e = ui.keyEvent(k))
+                    return failed("KeyEvent", e);
+            }
+        if (reluva::Error e = ui.refresh(f * 50))
+            return failed("Refresh", e);
+        for (const std::string& command : ui.takeCommands())
+            std::printf("[frame %d] command: %s\n", f, command.c_str());
+        if (f == 0 || f == frames - 1) {
+            std::map<std::string, int> shown;
+            for (const auto& p : ui.pictures())
+                ++shown[ui.shaders().name(p.shader)];
+            std::printf("[frame %d] %zu pictures, %zu scenes, catcher %d, fullscreen %d:\n", f, ui.pictures().size(),
+                        ui.scene().views.size(), ui.catcher(), ui.fullscreen() ? 1 : 0);
+            for (const auto& [name, count] : shown)
+                std::printf("  %4d x %s\n", count, name.empty() ? "(none)" : name.c_str());
+        }
+    }
+    if (!ui.unhandled().empty()) {
+        std::printf("engine functions not answered yet:");
+        for (const auto& [slot, count] : ui.unhandled())
+            std::printf(" %d (x%d)", slot, count);
+        std::printf("\n");
+    }
+    return 0;
+}
+
 // Runs Elite Force's single-player game logic (efgamex86.dll, in the x86
 // interpreter) on a map: GetGameAPI, Init with the map's entities, the
 // player joining, then frames; reports what the game did.
@@ -5434,6 +5542,8 @@ int main(int argc, char** argv) {
         return cmdX86Run(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "sp-run") == 0)
         return cmdSpRun(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "sp-menus") == 0)
+        return cmdSpMenus(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "ibi-dump") == 0)
         return cmdIbiDump(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "bsp-entities") == 0)
@@ -5492,6 +5602,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool x86-run <file.dll> [-call Export [arg|table]...]\n"
                  "  reluva-tool ibi-dump <game folder> <script>\n"
                  "  reluva-tool bsp-entities <game folder> <map> [text]...\n"
+                 "  reluva-tool sp-menus <game folder> [-dll efuix86.dll] [-frames N] [-menu name] [-key frame key]...\n"
                  "  reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] [-set name value]... [-trace]\n"
                  "  reluva-tool pk3-sums <game folder> [feed]\n"
                  "  reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-addbot name]... | -join <host[:port]> [seconds] [-name name]\n"

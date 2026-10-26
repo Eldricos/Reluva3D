@@ -47,6 +47,7 @@
 #include "engines/idtech3/eliteforce/net_client.h"
 #include "engines/idtech3/eliteforce/net_server.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
+#include "engines/idtech3/eliteforce/sp_ui_host.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/games.h"
 #include "engines/idtech3/shader.h"
@@ -515,14 +516,25 @@ public:
 private:
     void start(int index);
     void stop(const std::string& why);
+    void endGame();
     void runGame(uint64_t nowMs);
     void runBinding(const std::string& line, int32_t key, bool down);
     bool held(const char* button) const;
     void drawOverlay();
+    // The game's menus (efuix86.dll), when it's there: started at the main
+    // menu; Esc opens the in-game one. While a menu has the keys, the game
+    // waits, as the original's single player.
+    void startMenus();
+    bool menusHaveKeys() const;
+    void menuKey(int32_t key);
+    void runMenuCommands();
+    void runCommand(const std::string& line);
+    void menusStopped(const Error& err);
 
     std::vector<std::string> names_; // the single-player maps
     int index_ = 0;
     std::vector<uint8_t> dll_;       // efgamex86.dll
+    std::vector<uint8_t> uiDll_;     // efuix86.dll
     gfx::Renderer3D* renderer_ = nullptr;
     std::unique_ptr<ShaderCache> shaders_;
     std::unique_ptr<WorldRenderer> world_;
@@ -532,10 +544,12 @@ private:
     int frameW_ = 960, frameH_ = 720;
     CvarStore& cvars_ = ctx_.cvars;
     std::unique_ptr<eliteforce::SpGameHost> game_;
+    std::unique_ptr<eliteforce::SpUiHost> ui_;
     SoundLibrary soundLibrary_{ctx_.files};
-    std::unique_ptr<SoundSystem> soundSystem_; // while a level runs, with audio output
+    std::unique_ptr<SoundSystem> soundSystem_; // with audio output
     Surface overlay_;
-    std::string error_;
+    std::string error_, menuError_, lastCommand_;
+    uint64_t lastCommandMs_ = 0, startMs_ = 0, nowMs_ = 0;
     bool showInfo_ = true;
     uint64_t lastMs_ = 0;
     int32_t clientTime_ = 0;
