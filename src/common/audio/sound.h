@@ -14,12 +14,15 @@ namespace reluva::audio {
 struct Sound {
     int rate = 0;     // samples per second
     int channels = 0; // 1 or 2
-    int format = 0;   // the source's format: a WAV format tag (1 PCM, 0x11 IMA ADPCM), or kFormatMp3
+    int format = 0;   // the source's format: a WAV format tag (1 PCM, 0x11 IMA ADPCM), or a kFormat* below
     std::vector<int16_t> samples;
     size_t frames() const { return channels ? samples.size() / size_t(channels) : 0; }
 };
 
 // Sound::format for MP3 sources (not a WAV tag in use: those are 16-bit).
 constexpr int kFormatMp3 = 0x10055;
+// Sound::format for Electronic Arts' codecs (ea_audio.h).
+constexpr int kFormatEaXa = 0x1ea07;
+constexpr int kFormatMicroTalk = 0x1ea09;
 
 } // namespace reluva::audio

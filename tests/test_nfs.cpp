@@ -4,6 +4,7 @@
 // Tests for the Need for Speed engine's detection and folder finding,
 // against folders built here, so no game data is needed.
 
+#include "engines/nfs/bnk.h"
 #include "engines/nfs/col.h"
 #include "engines/nfs/fce.h"
 #include "engines/nfs/ffn.h"
@@ -863,6 +864,75 @@ void testCollision() {
     CHECK(parseCollision(Bytes{'C', 'O', 'L', 'X'}, c));
 }
 
+// A PT header: tags (tag, length, big-endian value), then 0xFF.
+Bytes ptHeader(std::vector<std::pair<uint8_t, uint32_t>> tags) {
+    Bytes b = {'P', 'T', 0, 0, 0x06, 1, 25, 0xfd};
+    for (auto [tag, value] : tags) {
+        const int n = value > 0xffffff ? 4 : value > 0xffff ? 3 : value > 0xff ? 2 : 1;
+        b.push_back(tag);
+        b.push_back(uint8_t(n));
+        for (int i = n - 1; i >= 0; --i)
+            b.push_back(uint8_t(value >> (8 * i)));
+    }
+    b.push_back(0xff);
+    return b;
+}
+
+void testSoundBank() {
+    // Four slots: PCM, empty (0), EA-XA, and a stale one pointing into the
+    // audio; the headers' area ends at 128, the audio follows.
+    Bytes b = {'B', 'N', 'K', 'l', 2, 0, 4, 0};
+    put32(b, 128);
+    b.resize(12 + 16, 0);
+    const Bytes pcm = ptHeader({{0x85, 3}, {0x88, 128}, {0x84, 16000}});
+    const Bytes xa = ptHeader({{0x83, 7}, {0x85, 30}, {0x88, 134}, {0x86, 2}, {0x87, 20}, {0x92, 1}});
+    putU32(b, 12, uint32_t(b.size() - 12));
+    b.insert(b.end(), pcm.begin(), pcm.end());
+    putU32(b, 20, uint32_t(b.size() - 20));
+    b.insert(b.end(), xa.begin(), xa.end());
+    putU32(b, 24, uint32_t(140 - 24)); // into the audio: no header there
+    b.resize(128, 0);
+    for (int16_t v : {100, -200, 300})
+        put16(b, uint16_t(v));
+    Bytes frames(30, 0);
+    frames[0] = 0x0c;
+    frames[1] = 0x70; // 7, then zeros
+    frames[15] = 0x0c;
+    b.insert(b.end(), frames.begin(), frames.end());
+
+    SoundBank bank;
+    CHECK(!parseSoundBank(b, bank));
+    CHECK(bank.version == 2 && bank.slots.size() == 4);
+    if (bank.slots.size() != 4)
+        return;
+    CHECK(bank.slots[0] && !bank.slots[1] && bank.slots[2] && !bank.slots[3]);
+    if (!bank.slots[0] || !bank.slots[2])
+        return;
+    const SoundHeader& p = *bank.slots[0];
+    CHECK(p.compression == SoundHeader::kPcm16 && p.channels == 1 && p.rate == 16000 && p.samples == 3);
+    const SoundHeader& x = *bank.slots[2];
+    CHECK(x.compression == SoundHeader::kEaXa && x.rate == 22050 && x.samples == 30 && x.dataOffset == 134);
+    CHECK(x.loopStart == 2 && x.loopLength == 20 && x.tags.at(0x92) == 1 && x.tags.at(0x06) == 25);
+
+    audio::Sound sound;
+    CHECK(!decodeBankSound(b, p, sound));
+    CHECK(sound.rate == 16000 && sound.samples == (std::vector<int16_t>{100, -200, 300}));
+    CHECK(!decodeBankSound(b, x, sound));
+    CHECK(sound.format == audio::kFormatEaXa && sound.samples.size() == 30 && sound.samples[0] == 7);
+
+    // Damage: an unknown compression, data past the end, a cut header.
+    SoundHeader odd = x;
+    odd.compression = 3;
+    CHECK(decodeBankSound(b, odd, sound));
+    odd = x;
+    odd.dataOffset = uint32_t(b.size() + 1);
+    CHECK(decodeBankSound(b, odd, sound));
+    Bytes cut(b.begin(), b.begin() + 40);
+    putU32(cut, 8, 40);
+    CHECK(parseSoundBank(cut, bank));
+    CHECK(parseSoundBank(Bytes{'B', 'N', 'K', 'x', 2, 0, 0, 0, 0, 0, 0, 0}, bank));
+}
+
 void testGameFiles(const stdfs::path& tmp) {
     const stdfs::path install = tmp / "files/install", cd = tmp / "files/cd";
     touch(install / "FeData/text/text.eng", "eng");
@@ -922,6 +992,7 @@ int main() {
     testTrack();
     testHorizon();
     testCollision();
+    testSoundBank();
     stdfs::remove_all(tmp);
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);

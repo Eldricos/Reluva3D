@@ -21,6 +21,8 @@ const char* formatName(int format) {
     case 1: return "PCM";
     case 0x11: return "IMA ADPCM";
     case kFormatMp3: return "MP3";
+    case kFormatEaXa: return "EA-XA";
+    case kFormatMicroTalk: return "MicroTalk";
     default: return "?";
     }
 }

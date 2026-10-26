@@ -74,6 +74,7 @@ add_library(reluva_common STATIC
     src/common/x86/format.cpp
     src/common/detection.cpp
     src/common/audio/decode.cpp
+    src/common/audio/ea_audio.cpp
     src/common/audio/mixer.cpp
     src/common/audio/mp3.cpp
     src/common/audio/wav.cpp
@@ -190,6 +191,7 @@ if(RELUVA_ENGINE_NFS)
         src/engines/nfs/fsh.cpp
         src/engines/nfs/text_table.cpp
         src/engines/nfs/ffn.cpp
+        src/engines/nfs/bnk.cpp
         src/engines/nfs/fce.cpp
         src/engines/nfs/frd.cpp
         src/engines/nfs/col.cpp

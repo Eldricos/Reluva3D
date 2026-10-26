@@ -5,6 +5,7 @@
 
 #include "common/events.h"
 #include "common/image.h"
+#include "engines/nfs/bnk.h"
 #include "engines/nfs/col.h"
 #include "engines/nfs/fce.h"
 #include "engines/nfs/ffn.h"
@@ -48,6 +49,8 @@ const char* const kUsageLines =
     "  reluva-tool fce-obj <file.fce | file.viv name> <out.obj>\n"
     "  reluva-tool frd-check <file.frd>...\n"
     "  reluva-tool frd-obj <file.frd> <out.obj> [detail 0-2]\n"
+    "  reluva-tool bnk-info <file.bnk | file.viv name>\n"
+    "  reluva-tool bnk-wav <file.bnk | file.viv name> <output dir>\n"
     "  reluva-tool nfs-survey <folder>... [-v]\n"
     "  reluva-tool nfs-page <game folder> <out.tga> <page> [key...]\n";
 
@@ -301,7 +304,7 @@ int cmdNfsSurvey(int argc, char** argv) {
     struct Count {
         int ok = 0, failed = 0;
     };
-    Count vivs, banks, pictures, tables, fonts, models, tracks, collisions, horizons;
+    Count vivs, banks, pictures, tables, fonts, models, tracks, collisions, horizons, soundBanks, sounds;
     std::vector<std::string> unsupported; // in EA's other compression schemes
     auto lower = [](std::string s) {
         for (char& c : s)
@@ -346,6 +349,15 @@ int cmdNfsSurvey(int argc, char** argv) {
         } else if (ext == ".col") {
             reluva::nfs::TrackCollision collision;
             report(collisions, what, reluva::nfs::parseCollision(data, collision));
+        } else if (ext == ".bnk") {
+            reluva::nfs::SoundBank bank;
+            const Error err = reluva::nfs::parseSoundBank(data, bank);
+            report(soundBanks, what, err);
+            for (size_t i = 0; i < bank.slots.size(); ++i)
+                if (bank.slots[i]) {
+                    reluva::audio::Sound sound;
+                    report(sounds, what + ":" + std::to_string(i), reluva::nfs::decodeBankSound(data, *bank.slots[i], sound));
+                }
         } else if (ext == ".hrz") {
             reluva::nfs::Horizon horizon;
             report(horizons, what, reluva::nfs::parseHorizon(std::string(data.begin(), data.end()), horizon));
@@ -373,7 +385,7 @@ int cmdNfsSurvey(int argc, char** argv) {
                     if (!viv.read(e.name, data))
                         check(e.name, std::move(data), path.string() + ":" + e.name);
             } else if (ext == ".fsh" || ext == ".qfs" || ext == ".ffn" || ext == ".fce" || ext == ".frd" ||
-                       ext == ".col" || ext == ".hrz" || lower(path.stem().string()) == "text") {
+                       ext == ".col" || ext == ".hrz" || ext == ".bnk" || lower(path.stem().string()) == "text") {
                 std::vector<uint8_t> data;
                 if (!readFile(path, data)) {
                     report(banks, path.string(), Error::fail("can't read it"));
@@ -384,11 +396,12 @@ int cmdNfsSurvey(int argc, char** argv) {
         }
     }
 
-    const Count* all[] = {&vivs, &banks, &pictures, &tables, &fonts, &models, &tracks, &collisions, &horizons};
-    const char* names[] = {".viv archives", ".fsh/.qfs banks", "pictures", "text tables", "fonts",
-                           ".fce models", ".frd tracks", ".col files", ".hrz files"};
+    const Count* all[] = {&vivs,   &banks,  &pictures,   &tables,   &fonts,      &models,
+                          &tracks, &collisions, &horizons, &soundBanks, &sounds};
+    const char* names[] = {".viv archives", ".fsh/.qfs banks", "pictures",   "text tables", "fonts", ".fce models",
+                           ".frd tracks",   ".col files",      ".hrz files", ".bnk banks",  "sounds"};
     int failed = 0;
-    for (int i = 0; i < 9; ++i) {
+    for (int i = 0; i < 11; ++i) {
         std::printf("%-16s %6d read, %d failed\n", names[i], all[i]->ok, all[i]->failed);
         failed += all[i]->failed;
     }
@@ -582,6 +595,108 @@ int cmdFrdObj(int argc, char** argv) {
     return 0;
 }
 
+// A sound as a 16-bit PCM WAV file.
+std::vector<uint8_t> wavFile(const reluva::audio::Sound& s) {
+    std::vector<uint8_t> out;
+    auto u32 = [&](uint32_t v) {
+        for (int i = 0; i < 4; ++i)
+            out.push_back(uint8_t(v >> (8 * i)));
+    };
+    auto u16 = [&](unsigned v) {
+        out.push_back(uint8_t(v));
+        out.push_back(uint8_t(v >> 8));
+    };
+    const uint32_t bytes = uint32_t(s.samples.size() * 2);
+    out.insert(out.end(), {'R', 'I', 'F', 'F'});
+    u32(36 + bytes);
+    out.insert(out.end(), {'W', 'A', 'V', 'E', 'f', 'm', 't', ' '});
+    u32(16);
+    u16(1);
+    u16(unsigned(s.channels));
+    u32(uint32_t(s.rate));
+    u32(uint32_t(s.rate * s.channels * 2));
+    u16(unsigned(s.channels * 2));
+    u16(16);
+    out.insert(out.end(), {'d', 'a', 't', 'a'});
+    u32(bytes);
+    for (int16_t v : s.samples)
+        u16(uint16_t(v));
+    return out;
+}
+
+const char* compressionName(int c) {
+    switch (c) {
+    case reluva::nfs::SoundHeader::kPcm16: return "PCM";
+    case reluva::nfs::SoundHeader::kEaXa: return "EA-XA";
+    case reluva::nfs::SoundHeader::kMicroTalk: return "MicroTalk";
+    default: return "?";
+    }
+}
+
+int cmdBnkInfo(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool bnk-info <file.bnk | file.viv name>\n");
+        return 2;
+    }
+    std::vector<uint8_t> data;
+    if (Error err = load(argv[2], argc > 3 ? argv[3] : nullptr, data))
+        return fail(err);
+    reluva::nfs::SoundBank bank;
+    if (Error err = reluva::nfs::parseSoundBank(data, bank))
+        return fail(err);
+    std::printf("version %d, %zu slots\n", bank.version, bank.slots.size());
+    for (size_t i = 0; i < bank.slots.size(); ++i) {
+        if (!bank.slots[i])
+            continue;
+        const auto& h = *bank.slots[i];
+        std::printf("  %3zu %-9s %d ch %5d Hz %8u samples (%.2f s) at %u", i, compressionName(h.compression),
+                    h.channels, h.rate, h.samples, double(h.samples) / h.rate, h.dataOffset);
+        if (h.loopLength)
+            std::printf(" loop %u+%u", h.loopStart, h.loopLength);
+        std::printf("  tags");
+        for (const auto& [tag, value] : h.tags)
+            if (tag < 0x82 || tag > 0x88)
+                std::printf(" %02x=%u", tag, value);
+        std::printf("\n");
+    }
+    return 0;
+}
+
+int cmdBnkWav(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool bnk-wav <file.bnk | file.viv name> <output dir>\n");
+        return 2;
+    }
+    const bool inViv = argc > 4;
+    std::vector<uint8_t> data;
+    if (Error err = load(argv[2], inViv ? argv[3] : nullptr, data))
+        return fail(err);
+    reluva::nfs::SoundBank bank;
+    if (Error err = reluva::nfs::parseSoundBank(data, bank))
+        return fail(err);
+    const stdfs::path outDir = argv[inViv ? 4 : 3];
+    int written = 0, failed = 0;
+    for (size_t i = 0; i < bank.slots.size(); ++i) {
+        if (!bank.slots[i])
+            continue;
+        reluva::audio::Sound sound;
+        if (Error err = reluva::nfs::decodeBankSound(data, *bank.slots[i], sound)) {
+            std::fprintf(stderr, "sound %zu: %s\n", i, err.message.c_str());
+            ++failed;
+            continue;
+        }
+        char name[32];
+        std::snprintf(name, sizeof name, "%03zu.wav", i);
+        if (!writeFile(outDir / name, wavFile(sound))) {
+            std::fprintf(stderr, "can't write into %s\n", outDir.string().c_str());
+            return 1;
+        }
+        ++written;
+    }
+    std::printf("%d sounds written to %s\n", written, outDir.string().c_str());
+    return failed ? 1 : 0;
+}
+
 // Draws one of the engine's viewer pages after the keys given, as the
 // engine would, without a window: for checking pages and taking pictures
 // of them.
@@ -665,6 +780,10 @@ int runNfsCommand(int argc, char** argv) {
         return cmdFrdCheck(argc, argv);
     if (std::strcmp(cmd, "frd-obj") == 0)
         return cmdFrdObj(argc, argv);
+    if (std::strcmp(cmd, "bnk-info") == 0)
+        return cmdBnkInfo(argc, argv);
+    if (std::strcmp(cmd, "bnk-wav") == 0)
+        return cmdBnkWav(argc, argv);
     if (std::strcmp(cmd, "nfs-survey") == 0)
         return cmdNfsSurvey(argc, argv);
     if (std::strcmp(cmd, "nfs-page") == 0)
