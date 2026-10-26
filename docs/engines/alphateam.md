@@ -336,12 +336,46 @@ Progress:
 - In exclusive fullscreen, changing the display mode now makes it the
   desktop's size and puts the program's window over the whole screen, as
   DirectDraw does. The pointer and the window then agree.
-- `at-run -click <frame>[@x,y]` clicks when a frame is shown, and
+- `at-run -click <frame>[@x,y]` clicks when a frame is shown (where the
+  game's pointer is, without a place), and
   `-move <frame>@dx,dy` moves the pointer. A click on frame 20 leaves the
   demo for "Destination: Alpha Team Headquarters" and the main menu
   (Adventure, Single Missions, Options, Exit Game). Moving the game's
   pointer onto "Exit Game" and clicking brings up "Really Exit Game?".
   Everything the game imports is now stood in for.
+- Into a mission, from the menus. The `at-run` options that help:
+  - `-fixed-clock`: the clock follows the instruction count, so runs repeat
+    exactly.
+  - `-quit <frame>`; `-limit 0` for no instruction limit.
+  - `-point <frame>@x,y`: puts the game's own pointer on the screen with
+    `DDMouse::SetPosition`. Relative moves land unevenly, so this is the
+    reliable way to aim.
+  - `-click <frame>` clicks where the pointer is.
+  - `-key <frame>@vk` presses a key.
+  - `-watch dll!export`: each frame, the calls to a function of the
+    program's, with their first arguments and what they returned.
+  - Tracing (`-log`, `-trace`) only when asked, so the instruction cache
+    stays in use.
+
+  The route: click on frame 25 (past the demo), then Single Missions (frame
+  110), "Alpha Team Training Area" (225), and the check mark (240). The
+  mission loads (around frame 400) and is drawn correctly: the camera
+  flies over the board, and the goal text says to click to begin. A click
+  (420) starts the exercise: the text bar becomes the camera controls and
+  the go button.
+
+  Then it goes no further. Dash stands still, and clicks have no effect,
+  even placed exactly on the go button, a camera arrow or a tile. The
+  scene keeps animating. What's known:
+  - Clicks reach the game as on the menus: through
+    `DDMouse::ProcessMouseClick` to the one button route the UI manager
+    set, as `SendEvent` 7 and 8.
+  - It isn't waiting on sound: `Sound_IsPlaying` and `GetStatus` say
+    nothing is playing, and the streaming-audio thread now runs.
+  - Timers and scripted camera waits (`DDTimer::NewTimer`,
+    `DDDirector::CameraMoveDone`, `FadeDone`) aren't used here.
+  - Next: follow what the UI manager's click handler does with a click
+    during the mission, and what keeps the simulation from starting.
 - Done: the engine plays the game (`alphateam/player.{h,cpp}`).
   - The program's main loop never returns, so it runs on a thread of its
     own. The engine's thread queues the player's input and takes the
@@ -371,9 +405,7 @@ Progress:
 - Not there yet:
   - **sound:** no A3D object, so `CoCreateInstance` fails and the game
     plays without sound;
-  - **the streaming-audio thread:** it calls `UpdateBuffers` every 50 ms.
-    It's started but not run (`Win32Process::threadsNotRun`), as threads
-    aren't scheduled yet;
+  - **the training mission's simulation:** see "Into a mission" below;
   - **more speed.**
 
 #### DirectDraw and Direct3D 7

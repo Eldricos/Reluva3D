@@ -180,7 +180,15 @@ void Win32Process::addSystemStandIns() {
         c.write32(c.arg(0) + 4, uint32_t(us >> 32));
         return 1u;
     });
-    stdcall(k, "Sleep", 1, [](Cpu&) { return 0u; });
+    // Sleep: a thread gives way for that long; the main thread lets the
+    // threads that are due have their turn.
+    stdcall(k, "Sleep", 1, [this](Cpu& c) {
+        if (inThread())
+            threadSleep(c.arg(0));
+        else
+            runThreads();
+        return 0u;
+    });
 
     // Synchronisation, for one thread.
     stdcall(k, "InitializeCriticalSection", 1, [](Cpu& c) {

@@ -969,6 +969,10 @@ void Cpu::callNative(uint32_t address) {
     }
     eip = pop();
     reg[ESP] += popBytes;
+    if (yield_) {
+        yield_ = false;
+        throw Yield{};
+    }
 }
 
 // Runs instructions through the decoded-instruction cache (cpu_cache.cpp),
@@ -1014,6 +1018,40 @@ Error Cpu::call(uint32_t address, const std::vector<uint32_t>& args, uint32_t& r
     reg[ESP] = savedEsp;
     eip = savedEip;
     return Error::success();
+}
+
+Cpu::Context Cpu::context() const { return {reg, eip, eflags, fsBase, fpu}; }
+
+void Cpu::setContext(const Context& c) {
+    reg = c.reg;
+    eip = c.eip;
+    eflags = c.eflags;
+    fsBase = c.fsBase;
+    fpu = c.fpu;
+}
+
+Error Cpu::resume() {
+    const uint32_t never = nativeBase_ - kNativeStride; // call()'s return address, which a thread never reaches
+    if (depth_ == 0) {
+        limitAt_ = executed_ + limit_;
+        faultEip = 0;
+    }
+    ++depth_;
+    try {
+        runUntil(never);
+    } catch (Yield&) {
+        --depth_;
+        return Error::success();
+    } catch (Fault& f) {
+        if (faultEip == 0 || depth_ == 1) {
+            faultReg = reg;
+            faultEip = instructionStart_;
+        }
+        --depth_;
+        return Error::fail(f.message);
+    }
+    --depth_;
+    return Error::fail("a thread returned to where nothing called it from");
 }
 
 } // namespace reluva::x86

@@ -153,9 +153,25 @@ public:
     // did; its run then ends with an error saying so.
     std::optional<uint32_t> exited;
 
-    // Threads the program started, which aren't run yet: their start
-    // addresses and arguments.
-    std::vector<std::pair<uint32_t, uint32_t>> threadsNotRun;
+    // --- Threads ---------------------------------------------------------------
+    // The program's other threads take turns with its main one: when the
+    // main thread sleeps or looks for messages, each thread that's due runs
+    // (Cpu::resume) until it sleeps itself or ends. A thread's Sleep is where
+    // it gives way, so code shared between threads is never run by two at
+    // once.
+    // Starts a thread at `start` with `arg` (its first turn comes at the
+    // main thread's next Sleep or look for messages); its handle.
+    uint32_t startThread(uint32_t start, uint32_t arg);
+    // The threads that are due, each for a turn. Nothing while one runs.
+    void runThreads();
+    bool inThread() const { return current_ >= 0; }
+    // For the running thread's natives: it sleeps for `ms` (giving way), or
+    // ends.
+    void threadSleep(uint32_t ms);
+    void threadEnd();
+    // Threads started, and those still going.
+    size_t threadsStarted() const { return threads_.size(); }
+    size_t threadsRunning() const;
 
     // --- Windows and messages (USER32, GDI32) -----------------------------------
     // The desktop the program sees.
@@ -230,6 +246,15 @@ private:
     std::map<std::string, uint32_t> provided_;
     std::vector<std::string> missing_;
     uint32_t stackTop_ = 0, tib_ = 0, peb_ = 0;
+    struct Thread {
+        uint32_t handle = 0;
+        Cpu::Context context;
+        uint32_t wakeAt = 0; // in milliseconds()
+        bool finished = false;
+    };
+    std::vector<Thread> threads_;
+    int current_ = -1;       // the thread running (-1: the main one)
+    uint32_t threadReturn_ = 0; // where a thread's function returns to: a native that ends it
     std::string programName_ = "stvoy.exe", programFolder_ = "C:\\STVEF\\";
     uint32_t commandLine_ = 0, environment_ = 0, environmentW_ = 0;
     uint32_t lastError_ = 0;

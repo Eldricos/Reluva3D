@@ -72,6 +72,12 @@ public:
         uint8_t tags = 0xff; // a bit set for each empty register
         uint16_t control = 0x027f, status = 0;
     } fpu;
+    // A thread's registers, flags, x87 unit and FS base.
+    struct Context {
+        std::array<uint32_t, 8> reg{};
+        uint32_t eip = 0, eflags = 0x202, fsBase = 0;
+        Fpu fpu;
+    };
 
     // --- Native code ---------------------------------------------------------
     // A C++ function run when the emulated code calls `address()` of it:
@@ -107,6 +113,15 @@ public:
     // Stops a run with an error after this many more instructions (0: never).
     void setInstructionLimit(uint64_t limit) { limit_ = limit; }
     uint64_t executed() const { return executed_; }
+    // The thread running, for switching between the program's threads.
+    Context context() const;
+    void setContext(const Context& c);
+    // Runs from the current state (a thread switched in) until a native
+    // function yields (yield()), or the run fails.
+    Error resume();
+    // Ends the run resume() began once the native function running returns,
+    // with eip and esp as if it had returned.
+    void yield() { yield_ = true; }
     // Ends the current run with an error once the native function running
     // returns (a fatal error of the program's, say).
     void abort(std::string message) {
@@ -209,6 +224,8 @@ private:
     void decode(Cached& e);
     int depth_ = 0;
     std::string abort_;
+    bool yield_ = false;
+    struct Yield {};
 };
 
 // The hot paths of running instructions, inline.

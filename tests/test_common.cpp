@@ -774,6 +774,46 @@ static void testX86Dll(bool cached) {
     }
 }
 
+// The program's threads, run in turns: one counts and sleeps 50 ms at a
+// time, getting its turn when the main thread sleeps and it's due; one
+// returns, which ends it.
+static void testThreads() {
+    x86::Cpu cpu(64u << 20);
+    x86::Win32Process process(cpu);
+    uint32_t now = 1000;
+    process.milliseconds = [&] { return now; };
+    const uint32_t slot = process.memory().alloc(4), counter = process.memory().alloc(4);
+    cpu.write32(slot, process.provided("KERNEL32.dll", "Sleep"));
+    auto code = [&](std::vector<uint8_t> bytes) {
+        const uint32_t at = process.memory().alloc(uint32_t(bytes.size()));
+        std::copy(bytes.begin(), bytes.end(), cpu.memory().begin() + at);
+        return at;
+    };
+    auto le = [](uint32_t v) { return std::vector<uint8_t>{uint8_t(v), uint8_t(v >> 8), uint8_t(v >> 16), uint8_t(v >> 24)}; };
+    std::vector<uint8_t> counting = {0xff, 0x05}; // inc dword [counter]
+    for (uint8_t b : le(counter))
+        counting.push_back(b);
+    counting.insert(counting.end(), {0x6a, 50, 0xff, 0x15}); // push 50; call [Sleep]
+    for (uint8_t b : le(slot))
+        counting.push_back(b);
+    counting.insert(counting.end(), {0xeb, 0xf0}); // jmp back to the start
+    std::vector<uint8_t> sleeping = {0x6a, 0, 0xff, 0x15}; // the main thread: Sleep(0); return
+    for (uint8_t b : le(slot))
+        sleeping.push_back(b);
+    sleeping.push_back(0xc3);
+    const uint32_t thread = code(counting), main = code(sleeping), returning = code({0xc3});
+    process.startThread(thread, 7);
+    process.startThread(returning, 0);
+    CHECK(process.threadsStarted() == 2 && process.threadsRunning() == 2);
+    uint32_t r = 0;
+    CHECK(!cpu.call(main, {}, r) && cpu.read32(counter) == 1 && process.threadsRunning() == 1);
+    CHECK(!cpu.call(main, {}, r) && cpu.read32(counter) == 1); // not due yet
+    now += 50;
+    CHECK(!cpu.call(main, {}, r) && cpu.read32(counter) == 2);
+    now += 120;
+    CHECK(!cpu.call(main, {}, r) && cpu.read32(counter) == 3 && !process.inThread());
+}
+
 // MSVCRT's stand-ins and KERNEL32's files, called as the program would.
 static void testMsvcrtAndFiles(const std::filesystem::path& tmp) {
     std::filesystem::create_directories(tmp / "Game");
@@ -1443,6 +1483,7 @@ int main() {
     testX86Dll(true);
     testX86Dll(false);
     testX86CacheAgreement();
+    testThreads();
     testMsvcrtAndFiles(tmp / "msvcrt");
     testMsvcp60(tmp / "msvcp60");
     testWindowsAndRegistry();

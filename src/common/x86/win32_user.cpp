@@ -434,6 +434,7 @@ void Win32Process::addUserStandIns() {
             return (hwnd == 0 || m.window == hwnd || m.message == kWmQuit) &&
                    ((first == 0 && last == 0) || (m.message >= first && m.message <= last));
         };
+        runThreads();
         auto it = std::find_if(messages_.begin(), messages_.end(), matches);
         if (it == messages_.end() && idle) {
             idle();

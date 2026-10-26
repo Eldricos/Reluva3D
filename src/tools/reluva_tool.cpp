@@ -5273,18 +5273,24 @@ int cmdFinCheck(int argc, char** argv) {
 int cmdAtRun(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool at-run <game folder> [-v] [-limit instructions] [-trace count] "
-                             "[-memory MB] [-log] [-shots folder] [-every frames] [-click frame[@x,y]]... [-move frame@dx,dy]...\n");
+                             "[-memory MB] [-log] [-shots folder] [-every frames] [-click frame[@x,y]]... [-move frame@dx,dy]... "
+                             "[-key frame@vk]... [-quit frame] [-fixed-clock] [-watch dll!export]... [-point frame@x,y]...\n");
         return 2;
     }
     bool verbose = false;
-    int traceCount = 24;
+    int traceCount = 0; // instructions kept for a failure (0: none, which keeps the instruction cache in use)
+    uint64_t quitAt = 0;
+    bool fixedClock = false;
+    // -watch: calls to a function of the program's (an export), with what
+    // they return, summed up per frame.
+    std::vector<std::string> watches;
     uint64_t limit = 4000000000ull;
     uint32_t memoryMb = 1024;
     bool log = false;
     std::string shots;
     uint64_t every = 30;
     // -click: a left click when a frame is shown, at a place on the screen
-    // (the middle if none is given).
+    // (where the pointer is if none is given).
     struct Click {
         uint64_t frame;
         int x = -1, y = -1;
@@ -5293,6 +5299,12 @@ int cmdAtRun(int argc, char** argv) {
     // -move: the pointer moved by (dx, dy) when a frame is shown, as a mouse
     // moves it.
     std::vector<Click> moves;
+    // -key: a key pressed (a Windows virtual-key code) when a frame is shown,
+    // let go at the next.
+    std::vector<Click> keys;
+    // -point: the game's own pointer put at a place on the screen when a
+    // frame is shown (DDMouse's position, 0..1 from the bottom left).
+    std::vector<Click> points;
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
         if (arg == "-v")
@@ -5311,7 +5323,23 @@ int cmdAtRun(int argc, char** argv) {
             if (const char* at = std::strchr(argv[a], '@'))
                 std::sscanf(at + 1, "%d,%d", &k.x, &k.y);
             moves.push_back(k);
-        } else if (arg == "-every" && a + 1 < argc)
+        } else if (arg == "-key" && a + 1 < argc) {
+            Click k{std::strtoull(argv[++a], nullptr, 0), 0, 0};
+            if (const char* at = std::strchr(argv[a], '@'))
+                k.x = int(std::strtol(at + 1, nullptr, 0));
+            keys.push_back(k);
+        } else if (arg == "-point" && a + 1 < argc) {
+            Click k{std::strtoull(argv[++a], nullptr, 0), 0, 0};
+            if (const char* at = std::strchr(argv[a], '@'))
+                std::sscanf(at + 1, "%d,%d", &k.x, &k.y);
+            points.push_back(k);
+        } else if (arg == "-quit" && a + 1 < argc)
+            quitAt = std::strtoull(argv[++a], nullptr, 0);
+        else if (arg == "-fixed-clock")
+            fixedClock = true;
+        else if (arg == "-watch" && a + 1 < argc)
+            watches.push_back(argv[++a]);
+        else if (arg == "-every" && a + 1 < argc)
             every = std::max<uint64_t>(1, std::strtoull(argv[++a], nullptr, 0));
         else if (arg == "-limit" && a + 1 < argc)
             limit = std::strtoull(argv[++a], nullptr, 0);
@@ -5326,6 +5354,11 @@ int cmdAtRun(int argc, char** argv) {
     Cpu& cpu = game.cpu();
     cpu.setInstructionLimit(limit);
     game.process().output = [](const std::string& text) { std::printf("[program] %s\n", text.c_str()); };
+    // -fixed-clock: the clock follows the instructions run (40,000 to a
+    // millisecond), not the time, so a run with the same input repeats
+    // exactly.
+    if (fixedClock)
+        game.process().milliseconds = [&cpu] { return uint32_t(cpu.executed() / 40000); };
     // -shots: the first frame shown and every `every`th, as TGA files.
     uint64_t framesShown = 0;
     auto saveFrame = [&shots](const reluva::x86::DirectX::Frame& f) {
@@ -5344,23 +5377,62 @@ int cmdAtRun(int argc, char** argv) {
         std::fwrite(f.pixels.data(), 4, f.pixels.size(), out); // 0xAARRGGBB is BGRA in memory
         std::fclose(out);
     };
+    struct Watch {
+        std::string name;
+        uint32_t address = 0;
+        std::map<uint32_t, unsigned> results; // this frame's
+        std::vector<std::pair<uint32_t, uint32_t>> pending; // return address, esp
+        std::vector<std::array<uint32_t, 4>> args;           // this frame's first calls' (on the stack)
+    };
+    std::vector<Watch> watched;
     game.directX().presented = [&](const reluva::x86::DirectX::Frame& f) {
         ++framesShown;
+        for (Watch& w : watched) {
+            if (w.results.empty())
+                continue;
+            std::printf("frame %llu: %s returned", (unsigned long long)f.number, w.name.c_str());
+            for (const auto& [value, count] : w.results)
+                std::printf(" 0x%x (x%u)", value, count);
+            std::printf(", given");
+            for (const auto& a : w.args)
+                std::printf(" (%x %x %x %x)", a[0], a[1], a[2], a[3]);
+            std::printf("\n");
+            w.results.clear();
+            w.args.clear();
+        }
         reluva::x86::Win32Process& p = game.process();
         for (const Click& k : moves)
             if (f.number == k.frame)
                 p.mouseMoveTo(p.cursorX + k.x, p.cursorY + k.y);
         for (const Click& k : clicks) {
             if (f.number == k.frame) {
-                p.mouseMoveTo(k.x >= 0 ? k.x : f.width / 2, k.y >= 0 ? k.y : f.height / 2);
+                if (k.x >= 0 && k.y >= 0)
+                    p.mouseMoveTo(k.x, k.y);
                 p.mouseButton(0, true);
                 std::printf("clicked at %d,%d on frame %llu\n", p.cursorX, p.cursorY, (unsigned long long)f.number);
             } else if (f.number == k.frame + 1) {
                 p.mouseButton(0, false);
             }
         }
+        for (const Click& k : points) {
+            if (f.number != k.frame)
+                continue;
+            const auto* load = p.module("LoadComp.dll");
+            const uint32_t setPosition = load ? load->exportAddress("?SetPosition@DDMouse@@SAXABVNiPoint3@@@Z") : 0;
+            const uint32_t point = p.memory().alloc(12);
+            const float xyz[3] = {float(k.x) / float(f.width), 1 - float(k.y) / float(f.height), 0};
+            std::memcpy(cpu.memory().data() + point, xyz, 12);
+            uint32_t ignored = 0;
+            if (!setPosition || cpu.call(setPosition, {point}, ignored))
+                std::printf("-point: couldn't set the pointer on frame %llu\n", (unsigned long long)f.number);
+        }
+        for (const Click& k : keys)
+            if (f.number == k.frame || f.number == k.frame + 1)
+                p.key(uint32_t(k.x), 0, f.number == k.frame);
         if (!shots.empty() && (f.number == 1 || f.number % every == 0))
             saveFrame(f);
+        if (quitAt && f.number >= quitAt)
+            cpu.requestStop();
     };
 
     if (reluva::Error e = game.load()) {
@@ -5395,22 +5467,45 @@ int cmdAtRun(int argc, char** argv) {
             std::printf("  (x%u)\n", repeats);
         repeats = 0;
     };
-    cpu.trace = [&](Cpu& c) {
-        recent[recentAt++ % recent.size()] = c.eip;
-        if (const std::string* n = c.nativeName(c.eip)) {
-            calls[callsAt++ % calls.size()] = *n;
-            if (log) {
-                if (*n == lastLogged) {
-                    ++repeats;
-                } else {
-                    flushLog();
-                    std::printf("call %s\n", n->c_str());
-                    lastLogged = *n;
-                    repeats = 1;
+    for (const std::string& name : watches) {
+        const size_t bang = name.find('!');
+        const auto* m = bang == std::string::npos ? nullptr : game.process().module(name.substr(0, bang));
+        const uint32_t address = m ? m->exportAddress(name.substr(bang + 1)) : 0;
+        if (!address)
+            std::printf("-watch: no %s\n", name.c_str());
+        else
+            watched.push_back({name, address, {}, {}, {}});
+    }
+    if (traceCount > 0 || log || !watched.empty())
+        cpu.trace = [&](Cpu& c) {
+            for (Watch& w : watched) { // a call, or a return from one
+                if (c.eip == w.address) {
+                    const uint32_t sp = c.reg[Cpu::ESP];
+                    w.pending.push_back({c.read32(sp), sp + 4});
+                    if (w.args.size() < 4)
+                        w.args.push_back({c.read32(sp + 4), c.read32(sp + 8), c.read32(sp + 12), c.read32(sp + 16)});
+                }
+                else if (!w.pending.empty() && c.eip == w.pending.back().first &&
+                         c.reg[Cpu::ESP] >= w.pending.back().second) {
+                    ++w.results[c.reg[Cpu::EAX]];
+                    w.pending.pop_back();
                 }
             }
-        }
-    };
+            recent[recentAt++ % recent.size()] = c.eip;
+            if (const std::string* n = c.nativeName(c.eip)) {
+                calls[callsAt++ % calls.size()] = *n;
+                if (log) {
+                    if (*n == lastLogged) {
+                        ++repeats;
+                    } else {
+                        flushLog();
+                        std::printf("call %s\n", n->c_str());
+                        lastLogged = *n;
+                        repeats = 1;
+                    }
+                }
+            }
+        };
     auto where = [&](uint32_t a) {
         for (const std::string& name : game.loadOrder()) {
             const auto* m = game.process().module(name);
@@ -5425,8 +5520,8 @@ int cmdAtRun(int argc, char** argv) {
         return std::string(b);
     };
     auto failed = [&](const reluva::Error& e) {
-        std::printf("failed after %llu instructions: %s\nlast instructions:", (unsigned long long)cpu.executed(),
-                    e.message.c_str());
+        std::printf("failed after %llu instructions: %s, at %s\nlast instructions:",
+                    (unsigned long long)cpu.executed(), e.message.c_str(), where(cpu.faultEip).c_str());
         for (size_t i = recentAt > recent.size() ? recentAt - recent.size() : 0; i < recentAt; ++i)
             std::printf(" %s", where(recent[i % recent.size()]).c_str());
         std::printf("\nlast calls to stand-ins:");
@@ -5451,8 +5546,13 @@ int cmdAtRun(int argc, char** argv) {
     if (const auto* w = game.process().window(game.process().mainWindow()))
         std::printf("window: \"%s\" (class %s), %dx%d at %d,%d, %s\n", w->title.c_str(), w->className.c_str(),
                     w->width, w->height, w->x, w->y, w->visible ? "shown" : "hidden");
-    if (ran)
+    if (ran && !(quitAt && framesShown >= quitAt))
         return failed(ran);
+    if (ran) {
+        std::printf("stopped at frame %llu, after %llu instructions\n", (unsigned long long)framesShown,
+                    (unsigned long long)cpu.executed());
+        return 0;
+    }
     std::printf("the program returned %u after %llu instructions\n", exitCode,
                 (unsigned long long)(cpu.executed() - before));
     return 0;

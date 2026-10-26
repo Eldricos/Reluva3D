@@ -164,7 +164,77 @@ Win32Process::Win32Process(Cpu& cpu) : cpu_(cpu) {
     cpu.writeString(commandLine_, programName_, 1024);
     environment_ = arena_->alloc(16); // empty: two NULs
     environmentW_ = arena_->alloc(16);
+    threadReturn_ = cpu.addNative("thread returned", [this](Cpu&) {
+        threadEnd();
+        return 0u;
+    });
     addStandIns();
+}
+
+// --- Threads
+
+namespace {
+constexpr uint32_t kThreadStackSize = 1u << 20;
+} // namespace
+
+uint32_t Win32Process::startThread(uint32_t start, uint32_t arg) {
+    // Its stack, and a thread information block like the main one's.
+    const uint32_t tib = arena_->alloc(Cpu::kPageSize + kThreadStackSize, Cpu::kPageSize);
+    const uint32_t stack = tib + Cpu::kPageSize, top = stack + kThreadStackSize;
+    const uint32_t id = 0x104 + 4 * uint32_t(threads_.size() + 1);
+    cpu_.write32(tib + 0x00, 0xffffffffu); // no exception handlers yet
+    cpu_.write32(tib + 0x04, top);
+    cpu_.write32(tib + 0x08, stack);
+    cpu_.write32(tib + 0x18, tib);
+    cpu_.write32(tib + 0x20, 0x100);
+    cpu_.write32(tib + 0x24, id);
+    cpu_.write32(tib + 0x30, peb_);
+    Thread t;
+    t.handle = 0x7fc00000u + id;
+    t.context.eip = start;
+    t.context.fsBase = tib;
+    t.context.reg[Cpu::ESP] = top - 16 - 8;
+    cpu_.write32(top - 16 - 8, threadReturn_); // its function returns to the end of the thread
+    cpu_.write32(top - 16 - 4, arg);
+    t.context.fpu.control = 0x027f;
+    t.wakeAt = milliseconds();
+    threads_.push_back(t);
+    return t.handle;
+}
+
+void Win32Process::runThreads() {
+    if (current_ >= 0)
+        return;
+    for (size_t i = 0; i < threads_.size(); ++i) {
+        if (threads_[i].finished || int32_t(milliseconds() - threads_[i].wakeAt) < 0)
+            continue;
+        const Cpu::Context main = cpu_.context();
+        current_ = int(i);
+        cpu_.setContext(threads_[i].context);
+        const Error e = cpu_.resume();
+        threads_[i].context = cpu_.context();
+        current_ = -1;
+        cpu_.setContext(main);
+        if (e) {
+            threads_[i].finished = true;
+            if (output)
+                output("A thread failed: " + e.message + "\n");
+        }
+    }
+}
+
+void Win32Process::threadSleep(uint32_t ms) {
+    threads_[size_t(current_)].wakeAt = milliseconds() + ms;
+    cpu_.yield();
+}
+
+void Win32Process::threadEnd() {
+    threads_[size_t(current_)].finished = true;
+    cpu_.yield();
+}
+
+size_t Win32Process::threadsRunning() const {
+    return size_t(std::count_if(threads_.begin(), threads_.end(), [](const Thread& t) { return !t.finished; }));
 }
 
 const Win32Process::Module* Win32Process::module(const std::string& name) const {
