@@ -6,6 +6,7 @@
 
 #include "engines/nfs/fce.h"
 #include "engines/nfs/ffn.h"
+#include "engines/nfs/frd.h"
 #include "engines/nfs/folders.h"
 #include "engines/nfs/fsh.h"
 #include "engines/nfs/game_files.h"
@@ -585,6 +586,173 @@ void testModel() {
     CHECK(parseModel(Bytes(100, 0), m));
 }
 
+void putF(Bytes& b, float f) {
+    uint32_t v;
+    std::memcpy(&v, &f, 4);
+    put32(b, v);
+}
+
+void putPolygon(Bytes& b, std::array<uint16_t, 4> v, uint16_t texture) {
+    for (uint16_t i : v)
+        put16(b, i);
+    put16(b, texture);
+    put16(b, 0);
+    b.push_back(0x10);
+    b.push_back(0xf9);
+}
+
+// A one-block track (frd.md): the header, the block, its polygons and
+// object layers, the extra object groups and the texture table.
+Bytes makeTrack() {
+    Bytes b(28, 0);
+    put32(b, 0); // one block, stored as one less
+    for (float f : {10.f, 1.f, 20.f})
+        putF(b, f); // centre
+    for (int i = 0; i < 12; ++i)
+        putF(b, float(i)); // corners
+    const uint32_t nV = 5;
+    for (uint32_t v : {nV, 4u, 4u, 4u, nV, 1u})
+        put32(b, v);
+    for (uint32_t i = 0; i < nV; ++i)
+        for (float f : {float(i), 0.f, -float(i)})
+            putF(b, f);
+    for (uint32_t i = 0; i < nV; ++i)
+        put32(b, 0xff102030u + i);
+    for (int i = 0; i < 300; ++i) {
+        put16(b, i == 0 ? 0 : 0xffff);
+        put16(b, 0xffff);
+    }
+    // Records: start, positions, polygons, road vectors, refs, polygon
+    // objects, sounds, lights.
+    for (uint32_t n : {7u, 1u, 1u, 1u, 0u, 0u, 1u, 1u})
+        put32(b, n);
+    b.insert(b.end(), 8 + 8 + 12 + 16 + 16, 0xab);
+    // Polygons: list 4 (the road) has two, list 6 (lanes) one, the rest 0.
+    for (int list = 0; list < 7; ++list) {
+        const uint32_t n = list == 4 ? 2 : list == 6 ? 1 : 0;
+        put32(b, n);
+        if (!n)
+            continue;
+        put32(b, n);
+        if (list == 4) {
+            putPolygon(b, {1, 2, 3, 4}, 0);
+            putPolygon(b, {1, 3, 4, 4}, 1);
+        } else {
+            putPolygon(b, {2, 3, 4, 1}, 1);
+        }
+    }
+    // Object layers: the first holds a type-1 object of one polygon and a
+    // type-4 entry; the rest are empty.
+    put32(b, 1);
+    put32(b, 2);
+    put32(b, 1);
+    put32(b, 1);
+    putPolygon(b, {0, 0, 1, 1}, 0);
+    put32(b, 4);
+    for (int i = 0; i < 3; ++i)
+        put32(b, 0);
+    // Extra objects: 4 * 1 + 1 groups; the first holds a still object and
+    // a moving one.
+    put32(b, 2);
+    put32(b, 4);
+    put32(b, 0);
+    put32(b, 0xffffffe0);
+    for (float f : {100.f, 2.f, 300.f})
+        putF(b, f);
+    put32(b, 0);
+    put32(b, 3);
+    for (int i = 0; i < 3; ++i)
+        for (float f : {float(i), 1.f, 0.f})
+            putF(b, f);
+    for (int i = 0; i < 3; ++i)
+        put32(b, 0xffffffff);
+    put32(b, 1);
+    putPolygon(b, {0, 1, 2, 2}, 0);
+    put32(b, 3); // moving: type, 8 + 12 + 8 bytes, key count, 2 bytes, keys
+    b.insert(b.end(), 28, 0);
+    put16(b, 2);
+    put16(b, 6);
+    for (int k = 0; k < 2; ++k) {
+        put32(b, uint32_t(k) << 16);
+        put32(b, 0);
+        put32(b, 0);
+        for (int q : {0, 0, k * 100, 16384})
+            put16(b, unsigned(q));
+    }
+    put32(b, 1);
+    for (float f : {0.f, 0.f, 0.f})
+        putF(b, f);
+    put32(b, 0xffffffff);
+    put32(b, 0);
+    for (int g = 1; g < 5; ++g)
+        put32(b, 0);
+    // Textures: width, height, u32, 8 corners, u32, lane, picture.
+    put32(b, 2);
+    for (int t = 0; t < 2; ++t) {
+        put16(b, 64);
+        put16(b, 32);
+        put32(b, 0);
+        for (int k = 0; k < 8; ++k)
+            putF(b, k * 0.125f);
+        put32(b, 0);
+        b.push_back(t == 1);
+        put16(b, uint16_t(40 + t));
+    }
+    return b;
+}
+
+void testTrack() {
+    const Bytes file = makeTrack();
+    Track t;
+    CHECK(!parseTrack(file, t));
+    CHECK(t.blocks.size() == 1 && t.textures.size() == 2 && t.extraObjects.size() == 5);
+    if (t.blocks.size() == 1) {
+        const Track::Block& b = t.blocks[0];
+        CHECK(b.centre[2] == 20.f && b.corners[3][2] == 11.f);
+        CHECK(b.vertices.size() == 5 && b.vertices[3][2] == -3.f && b.colours[1] == 0xff102031u);
+        CHECK(b.objectVertices == 1 && b.highResVertices == 4);
+        CHECK(b.neighbours == (std::vector<int16_t>{0}));
+        CHECK(b.startPosition == 7 && b.positions.size() == 8 && b.sounds.size() == 16 && b.lights.size() == 16);
+        CHECK(b.polygons[4].size() == 2 && b.polygons[6].size() == 1 && b.polygons[0].empty());
+        if (b.polygons[4].size() == 2) {
+            CHECK(b.polygons[4][1].vertices == (std::array<uint16_t, 4>{1, 3, 4, 4}));
+            CHECK(b.polygons[4][1].texture == 1 && b.polygons[4][1].flags == 0x10 && b.polygons[4][1].extra == 0xf9);
+        }
+        CHECK(b.objectLayers[0].size() == 2 && b.objectLayers[1].empty());
+        if (b.objectLayers[0].size() == 2)
+            CHECK(b.objectLayers[0][0].polygons.size() == 1 && b.objectLayers[0][1].type == 4 &&
+                  b.objectLayers[0][1].polygons.empty());
+    }
+    if (t.extraObjects.size() == 5 && t.extraObjects[0].size() == 2) {
+        const auto& still = t.extraObjects[0][0];
+        CHECK(still.type == 4 && still.reference[2] == 300.f && still.vertices.size() == 3 && still.polygons.size() == 1);
+        const auto& moving = t.extraObjects[0][1];
+        CHECK(moving.type == 3 && moving.keys.size() == 2 && moving.keys[1].position[0] == 65536 &&
+              moving.keys[1].rotation[2] == 100 && moving.vertices.size() == 1);
+    }
+    if (t.textures.size() == 2) {
+        CHECK(t.textures[0].width == 64 && t.textures[0].height == 32 && t.textures[0].corners[7] == 0.875f);
+        CHECK(!t.textures[0].lane && t.textures[1].lane && t.textures[1].picture == 41);
+    }
+
+    // Damage is caught: a byte too many, a polygon past the vertices, a
+    // texture past the table, counts that disagree, an unknown object type.
+    Bytes extra = file;
+    extra.push_back(0);
+    CHECK(parseTrack(extra, t));
+    CHECK(parseTrack(Bytes(file.begin(), file.end() - 1), t));
+    const size_t polys = 28 + 4 + 84 + 16 * 5 + 1200 + 32 + 8 + 8 + 12 + 16 + 16 + 4 * 4; // lists 0-3: one count each
+    Bytes outside = file;
+    outside[polys + 8] = 9; // the first road polygon's first vertex
+    CHECK(parseTrack(outside, t));
+    Bytes badTexture = file;
+    badTexture[polys + 8 + 8] = 2;
+    CHECK(parseTrack(badTexture, t));
+    Bytes disagree = file;
+    disagree[polys + 4] = 3;
+    CHECK(parseTrack(disagree, t));
+}
+
 void testGameFiles(const stdfs::path& tmp) {
     const stdfs::path install = tmp / "files/install", cd = tmp / "files/cd";
     touch(install / "FeData/text/text.eng", "eng");
@@ -641,6 +809,7 @@ int main() {
     testFont();
     testGameFiles(tmp);
     testModel();
+    testTrack();
     stdfs::remove_all(tmp);
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);

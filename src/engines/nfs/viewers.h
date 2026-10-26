@@ -9,14 +9,17 @@
 #include "common/system.h"
 #include "common/types.h"
 #include "engines/nfs/fce.h"
+#include "engines/nfs/frd.h"
 #include "engines/nfs/ffn.h"
 #include "engines/nfs/folders.h"
 #include "engines/nfs/fsh.h"
 #include "engines/nfs/game_files.h"
 #include "engines/nfs/text_table.h"
 
+#include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -173,6 +176,63 @@ private:
     bool textures_ = true, cullBack_ = true, spin_ = false, dragging_ = false;
     float yaw_ = 0, pitch_ = 0, distance_ = 5, radius_ = 2;
     int lastX_ = 0, lastY_ = 0;
+    uint64_t lastMs_ = 0;
+};
+
+// The tracks in 3D, with their textures, objects and lane markings.
+//   PageUp/PageDown: track   W/S/A/D: move   arrows or drag: look
+//   Space/C: up/down   Shift: faster   N/B: next/previous block
+//   1/2/3: road detail   T: textures   V: vertex light   L: lanes
+//   O: objects   X: other texture set   F: back faces   R: start
+class TrackPage : public Page {
+public:
+    TrackPage(const GameFiles& files, const GameFolders& folders);
+    ~TrackPage() override;
+    const char* name() const override { return "Tracks"; }
+    bool empty() const override { return tracks_.empty(); }
+    void activate(System& sys) override;
+    void deactivate() override;
+    bool uses3D() const override { return renderer_ != nullptr; }
+    void handleEvent(const Event& ev) override;
+    void draw(Surface& screen) override; // when 3D isn't available
+    void update(uint64_t nowMs) override;
+
+private:
+    // Draw calls of one kind of polygon, a range of the mesh's indices
+    // each, one per picture.
+    struct Batch {
+        gfx::TextureId texture = 0;
+        uint32_t firstIndex = 0, indexCount = 0;
+        bool additive = false;
+    };
+    enum Kind { kRoadLow, kRoadMedium, kRoadHigh, kObjects, kLanes, kKinds };
+
+    void load(int index);
+    void release();
+    void toBlock(int block);
+    gfx::TextureId picture(const std::string& sheet, int number, bool lane, bool* additive);
+
+    const GameFiles& files_;
+    GameFolders folders_;
+    std::vector<std::string> tracks_; // trkNNN folders
+    int index_ = 0;
+    gfx::Renderer3D* renderer_ = nullptr;
+    std::string unavailable_;
+    Surface overlay_;
+    Track track_;
+    std::string error_;
+    gfx::MeshId mesh_ = 0;
+    std::vector<gfx::TextureId> textures_;
+    std::map<std::string, ShapeBank> banks_; // loaded sheets, by file name
+    std::map<std::string, std::pair<gfx::TextureId, bool>> pictures_; // "sheet/number" -> texture, additive
+    std::array<std::vector<Batch>, kKinds> batches_;
+    int detail_ = 2, textureSet_ = 0, block_ = 0;
+    bool textured_ = true, vertexLight_ = true, lanes_ = true, objects_ = true, cullBack_ = false;
+    std::set<uint32_t> held_;
+    bool dragging_ = false;
+    int lastX_ = 0, lastY_ = 0;
+    std::array<float, 3> eye_{};
+    float yaw_ = 0, pitch_ = 0;
     uint64_t lastMs_ = 0;
 };
 

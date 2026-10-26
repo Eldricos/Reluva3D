@@ -7,6 +7,7 @@
 #include "common/image.h"
 #include "engines/nfs/fce.h"
 #include "engines/nfs/ffn.h"
+#include "engines/nfs/frd.h"
 #include "engines/nfs/folders.h"
 #include "engines/nfs/fsh.h"
 #include "engines/nfs/game_files.h"
@@ -17,6 +18,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -42,6 +44,8 @@ const char* const kUsageLines =
     "  reluva-tool ffn-render <file.ffn> <out.tga> [text]\n"
     "  reluva-tool fce-info <file.fce | file.viv name>\n"
     "  reluva-tool fce-obj <file.fce | file.viv name> <out.obj>\n"
+    "  reluva-tool frd-check <file.frd>...\n"
+    "  reluva-tool frd-obj <file.frd> <out.obj> [detail 0-2]\n"
     "  reluva-tool nfs-survey <folder>... [-v]\n"
     "  reluva-tool nfs-page <game folder> <out.tga> <page> [key...]\n";
 
@@ -469,6 +473,99 @@ int cmdFceObj(int argc, char** argv) {
     return 0;
 }
 
+int cmdFrdCheck(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool frd-check <file.frd>...\n");
+        return 2;
+    }
+    int failed = 0;
+    for (int i = 2; i < argc; ++i) {
+        std::vector<uint8_t> data;
+        reluva::nfs::Track track;
+        Error err = readFile(argv[i], data) ? reluva::nfs::parseTrack(data, track) : Error::fail("can't read it");
+        if (err) {
+            std::printf("%s: FAILED: %s\n", argv[i], err.message.c_str());
+            ++failed;
+            continue;
+        }
+        size_t vertices = 0, road = 0, lanes = 0, objects = 0, extras = 0, moving = 0, lights = 0, sounds = 0;
+        for (const auto& b : track.blocks) {
+            vertices += b.vertices.size();
+            road += b.polygons[4].size();
+            lanes += b.polygons[6].size();
+            for (const auto& layer : b.objectLayers)
+                for (const auto& o : layer)
+                    objects += o.polygons.size();
+            lights += b.lights.size() / 16;
+            sounds += b.sounds.size() / 16;
+        }
+        for (const auto& g : track.extraObjects)
+            for (const auto& o : g) {
+                ++extras;
+                moving += o.type == 3;
+            }
+        std::printf("%s: %zu blocks, %zu vertices, %zu road polygons (high detail), %zu lane polygons, %zu object "
+                    "polygons, %zu placed objects (%zu moving), %zu textures, %zu lights, %zu sounds\n",
+                    argv[i], track.blocks.size(), vertices, road, lanes, objects, extras, moving, track.textures.size(),
+                    lights, sounds);
+    }
+    return failed ? 1 : 0;
+}
+
+// Writes a track's road and objects as Wavefront OBJ, mirrored as Reluva
+// draws it, for checking its shape in other programs.
+int cmdFrdObj(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool frd-obj <file.frd> <out.obj> [detail 0-2]\n");
+        return 2;
+    }
+    std::vector<uint8_t> data;
+    if (!readFile(argv[2], data)) {
+        std::fprintf(stderr, "Can't read %s\n", argv[2]);
+        return 1;
+    }
+    reluva::nfs::Track track;
+    if (Error err = reluva::nfs::parseTrack(data, track))
+        return fail(err);
+    const int detail = argc > 4 ? std::clamp(std::atoi(argv[4]), 0, 2) : 2;
+    std::ofstream out(argv[3]);
+    size_t base = 1, uv = 1;
+    auto emit = [&](const std::vector<reluva::nfs::Track::Vec3>& verts, const reluva::nfs::Track::Vec3& offset,
+                    const std::vector<reluva::nfs::Track::Polygon>& polys, const char* group) {
+        out << "g " << group << "\n";
+        for (const auto& v : verts)
+            out << "v " << v[0] + offset[0] << ' ' << v[1] + offset[1] << ' ' << -(v[2] + offset[2]) << "\n";
+        for (const auto& p : polys) {
+            const auto& t = track.textures[p.texture];
+            for (int k = 0; k < 4; ++k)
+                out << "vt " << t.corners[2 * k] << ' ' << 1 - t.corners[2 * k + 1] << "\n";
+            out << "f";
+            for (int k = 0; k < 4; ++k)
+                out << ' ' << base + p.vertices[k] << '/' << uv + k;
+            out << "\n";
+            uv += 4;
+        }
+        base += verts.size();
+    };
+    for (size_t i = 0; i < track.blocks.size(); ++i) {
+        const auto& b = track.blocks[i];
+        std::vector<reluva::nfs::Track::Polygon> polys = b.polygons[2 * detail];
+        for (const auto& layer : b.objectLayers)
+            for (const auto& o : layer)
+                polys.insert(polys.end(), o.polygons.begin(), o.polygons.end());
+        emit(b.vertices, {0, 0, 0}, polys, ("block" + std::to_string(i)).c_str());
+    }
+    for (const auto& g : track.extraObjects)
+        for (const auto& o : g)
+            if (o.type == 4)
+                emit(o.vertices, o.reference, o.polygons, "object");
+    if (!out) {
+        std::fprintf(stderr, "can't write %s\n", argv[3]);
+        return 1;
+    }
+    return 0;
+}
+
 // Draws one of the engine's viewer pages after the keys given, as the
 // engine would, without a window: for checking pages and taking pictures
 // of them.
@@ -548,6 +645,10 @@ int runNfsCommand(int argc, char** argv) {
         return cmdFceInfo(argc, argv);
     if (std::strcmp(cmd, "fce-obj") == 0)
         return cmdFceObj(argc, argv);
+    if (std::strcmp(cmd, "frd-check") == 0)
+        return cmdFrdCheck(argc, argv);
+    if (std::strcmp(cmd, "frd-obj") == 0)
+        return cmdFrdObj(argc, argv);
     if (std::strcmp(cmd, "nfs-survey") == 0)
         return cmdNfsSurvey(argc, argv);
     if (std::strcmp(cmd, "nfs-page") == 0)

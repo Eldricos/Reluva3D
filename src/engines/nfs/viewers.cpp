@@ -405,6 +405,7 @@ std::vector<std::unique_ptr<Page>> makePages(const char* gameName, const GameFol
                                              const GameFiles& files) {
     std::vector<std::unique_ptr<Page>> pages;
     pages.push_back(std::make_unique<InfoPage>(gameName, folders));
+    pages.push_back(std::make_unique<TrackPage>(files, folders));
     pages.push_back(std::make_unique<CarPage>(files));
     pages.push_back(std::make_unique<TexturePage>(files));
     pages.push_back(std::make_unique<StringPage>(files));

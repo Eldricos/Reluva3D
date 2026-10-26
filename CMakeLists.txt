@@ -191,7 +191,9 @@ if(RELUVA_ENGINE_NFS)
         src/engines/nfs/text_table.cpp
         src/engines/nfs/ffn.cpp
         src/engines/nfs/fce.cpp
+        src/engines/nfs/frd.cpp
         src/engines/nfs/car_viewer.cpp
+        src/engines/nfs/track_viewer.cpp
         src/engines/nfs/game_files.cpp
         src/engines/nfs/viewers.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_NFS)
