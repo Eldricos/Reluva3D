@@ -102,11 +102,13 @@ int GameFonts::draw(Surface& dst, const TextStyle& style, int x, int y, std::str
 std::vector<Subtitle> parseSubtitles(std::string_view text) {
     std::vector<Subtitle> out;
     const Table t = parseTable(text);
-    const int speaker = t.column("Speaker"), line = t.column("Line"), duration = t.column("Duration");
+    const int name = t.column("Name"), speaker = t.column("Speaker"), line = t.column("Line"),
+              duration = t.column("Duration");
     if (line < 0 || duration < 0)
         return out;
     for (size_t r = 0; r < t.rows.size(); r++) {
         Subtitle s;
+        s.name = name < 0 ? std::string() : t.cell(r, name);
         s.speaker = t.cell(r, speaker);
         // The speaker cells have stray spaces ("Moinsieur Bouc ").
         while (!s.speaker.empty() && s.speaker.back() == ' ')

@@ -54,6 +54,7 @@ private:
 
 // A movie's subtitles: who speaks, what, and when (seconds from its start).
 struct Subtitle {
+    std::string name; // the movie it's for (the Name column: the game plays a movie's by its name)
     std::string speaker, line;
     double start = 0, end = 0;
 };

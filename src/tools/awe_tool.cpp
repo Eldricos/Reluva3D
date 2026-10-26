@@ -369,7 +369,7 @@ public:
 int cmdAweShot(int argc, char** argv) {
     if (argc < 5) {
         std::fprintf(stderr, "usage: reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds|movies> <out.tga> "
-                             "[key...]\n  keys: left right up down pgup pgdn home end, or one character; ms:N lets N milliseconds pass;\n"
+                             "[key...]\n  keys: left right up down pgup pgdn home end esc, or one character; ms:N lets N milliseconds pass;\n"
                              "  move:x,y and click:x,y move and click the mouse\n");
         return 2;
     }
@@ -431,7 +431,7 @@ int cmdAweShot(int argc, char** argv) {
         namespace key = reluva::key;
         ev.key = k == "left" ? key::Left : k == "right" ? key::Right : k == "up" ? key::Up : k == "down" ? key::Down
                : k == "pgup" ? key::PageUp : k == "pgdn" ? key::PageDown : k == "home" ? key::Home
-               : k == "end" ? key::End : uint32_t(uint8_t(k[0]));
+               : k == "end" ? key::End : k == "esc" ? key::Escape : uint32_t(uint8_t(k[0]));
         page->handleEvent(ev);
     }
     page->update(sys.now);

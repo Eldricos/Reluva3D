@@ -139,6 +139,38 @@ The runner also knows verbs that nothing in the install uses: `animate`
 Their arguments are as the install uses them; the handlers of the less
 common verbs are still to be read in detail.
 
+## Movies
+
+`movie <name> [inscene] [silent]` (`0x40a725`) plays a cutscene. The
+game's movie object is `0x42ac00..0x42af10`.
+
+1. **The file.** The game looks for `FMV\<name>.bik`, then
+   `Movies\<name>.bik`, then the same on the CD. If there's none, the
+   event ends at once.
+2. **The scene.** Unless `inscene` is one of the arguments, the scene is
+   left for the movie (`0x436410`) and every sound stops (`0x425250`).
+   Nothing is drawn behind the movie, and a `scene` command normally
+   follows.
+3. **Sound.** `silent` plays the movie without its own sound.
+4. **Drawing.** The movie plays as a 2D video object, full screen. All
+   the movies are 1024×768, 15 frames a second, with stereo 44.1 kHz
+   sound.
+5. **Subtitles.** The game loads `Text\Movies\<name>.txt` into the
+   dialogue and starts the conversation named after the movie
+   (`0x42ae7d`) in its movie mode, where each line waits for its
+   Duration's start time. Only rows whose Name is the movie's are shown:
+   `logos.txt`, a copy of `intro.txt`, shows nothing with the logos.
+6. **The end.** The event is done when the movie ends (`0x40c490`). The
+   runner then deletes the movie object and resets the dialogue.
+7. **Skipping.** Escape skips a movie (`0x409860`: it sets the runner's
+   wait to 0.001 s, which ends the current event), unless its name
+   contains `legal`. Clicks don't skip.
+
+`musica <name>` plays `sound\music\<name>.mp3`, looping.
+
+When the program starts, it queues `musica motoetheme, movie logos
+inscene` before the main menu (see [acts.md](acts.md)).
+
 ## In Reluva
 
 `ScriptRunner` (`src/engines/awe/script.cpp`) is the runner: the queue,
@@ -153,6 +185,7 @@ script, or the first of its conditional scripts whose condition holds.
 It does `walk` and `run` (along the game's paths, to cells, walk points
 or characters), `talk` (with the dialogue manager: [dialogue.md](dialogue.md)),
 `act` and `scene`/`gotoscene` (with `Story`: [acts.md](acts.md)), `fade`,
+`movie` and `musica` (above),
 `sound`/`sounda`, `hide`, `show`, `take` and `update`, and the
 characters' verbs (`anim`, `turn`, `look`, `rotate`, `animate`, `pause`,
 `resume`, `loop`, `attach`, `detach`: [characters.md](characters.md)).

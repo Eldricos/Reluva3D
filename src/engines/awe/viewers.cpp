@@ -92,6 +92,25 @@ void Page::fill(int x, int y, int w, int h, Color c, uint8_t alpha) {
         }
 }
 
+void Page::drawSubtitles(const std::vector<Subtitle>& subtitles, double seconds) {
+    // Those due at that time, at the bottom in the game's dialogue style.
+    const TextStyle* style = ctx_.fonts ? ctx_.fonts->style("dialogue") : nullptr;
+    if (!style || !style->font)
+        return;
+    std::vector<std::string> lines;
+    for (const Subtitle& sub : subtitles)
+        if (seconds >= sub.start && seconds < sub.end)
+            for (const std::string& l : style->font->wrap(sub.line, style->pixels, kScreenW - 160))
+                lines.push_back(l);
+    const int lh = style->font->lineHeight(style->pixels);
+    int y = kScreenH - 40 - int(lines.size()) * lh;
+    for (const std::string& l : lines) {
+        ctx_.fonts->draw(ctx_.screen, *style, (kScreenW - style->font->width(l, style->pixels)) / 2, y, l,
+                         {255, 255, 255});
+        y += lh;
+    }
+}
+
 void Page::frame(int x, int y, int w, int h, Color c) {
     fill(x, y, w, 1, c);
     fill(x, y + h - 1, w, 1, c);
@@ -269,6 +288,16 @@ std::string folderOf(const std::string& name) {
     return slash == std::string::npos ? std::string() : name.substr(0, slash);
 }
 
+// The rows named for the movie: the game starts its subtitles as the
+// conversation of that name (0x42ae7d), so logos.txt, a copy of intro's,
+// shows nothing.
+std::vector<Subtitle> moviesOwn(std::vector<Subtitle> all, const std::string& movie) {
+    all.erase(std::remove_if(all.begin(), all.end(),
+                             [&](const Subtitle& s) { return !s.name.empty() && fs::toLower(s.name) != movie; }),
+              all.end());
+    return all;
+}
+
 } // namespace
 
 ScenePage::ScenePage(ViewerContext& ctx) : Page(ctx) {
@@ -346,6 +375,7 @@ void ScenePage::load() {
     hover_ = {};
     scriptObject_ = nullptr;
     resumeAfter_ = nullptr;
+    sceneShown_ = true;
     if (names_.empty())
         return draw();
     auto read = [&](const std::string& name, Ac2Scene& out) {
@@ -433,17 +463,68 @@ void ScenePage::playMusic() {
             ++it;
         }
     }
-    for (const std::string& file : want) {
-        if (music_.count(file))
-            continue;
-        std::vector<uint8_t> data;
-        auto sound = std::make_shared<audio::Sound>();
-        if (!ctx_.mixer || ctx_.files.read(file, data) || audio::decodeSound(data, *sound))
-            continue;
-        const bool isMusic = file.find("music") != std::string::npos;
-        music_[file] = ctx_.mixer->play(sound, isMusic ? audio::SoundType::Music : audio::SoundType::Effects,
-                                        audio::kMaxVolume, 0, true);
+    for (const std::string& file : want)
+        playLooping(file, file.find("music") != std::string::npos);
+}
+
+void ScenePage::playLooping(const std::string& file, bool music) {
+    if (music_.count(file))
+        return;
+    std::vector<uint8_t> data;
+    auto sound = std::make_shared<audio::Sound>();
+    if (!ctx_.mixer || ctx_.files.read(file, data) || audio::decodeSound(data, *sound))
+        return;
+    music_[file] = ctx_.mixer->play(sound, music ? audio::SoundType::Music : audio::SoundType::Effects,
+                                    audio::kMaxVolume, 0, true);
+}
+
+bool ScenePage::startMovie(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
+    const std::string name = fs::toLower(e.arg(1));
+    auto flag = [&](const char* f) { return fs::toLower(e.arg(2)) == f || fs::toLower(e.arg(3)) == f; };
+    // FMV\, then Movies\ (0x42ac70); none: the event ends at once.
+    std::string path;
+    for (const std::string& p : {"fmv/" + name + ".bik", "movies/" + name + ".bik", name + ".bik"})
+        if (path.empty() && ctx_.files.has(p))
+            path = p;
+    std::vector<uint8_t> data;
+    if (path.empty() || ctx_.files.read(path, data)) {
+        logScript("    (no movie " + name + ")");
+        return false;
     }
+    // Unless "inscene", the scene is left for it and every sound stops
+    // (0x436410, 0x425250); "silent" plays it without its own.
+    if (!flag("inscene")) {
+        sceneShown_ = false;
+        for (const auto& [file, handle] : music_)
+            if (ctx_.mixer)
+                ctx_.mixer->stop(handle);
+        music_.clear();
+    }
+    auto player = std::make_unique<MoviePlayer>(ctx_.mixer);
+    if (Error err = player->open(std::move(data), lastMs_, !flag("silent"))) {
+        logScript("    (" + name + ": " + err.message + ")");
+        return false;
+    }
+    movie_ = std::move(player);
+    movieName_ = name;
+    // Its subtitles: Text\Movies\<name>.txt (the game plays them through
+    // the dialogue in its movie mode).
+    movieSubtitles_.clear();
+    std::vector<uint8_t> text;
+    if (!ctx_.files.read("text/movies/" + name + ".txt", text))
+        movieSubtitles_ = moviesOwn(parseSubtitles(decodeText(text)), name);
+    movieRunner_ = wait ? &runner : nullptr;
+    return wait;
+}
+
+void ScenePage::endMovie() {
+    movie_.reset();
+    movieSubtitles_.clear();
+    if (ScriptRunner* r = movieRunner_) {
+        movieRunner_ = nullptr;
+        r->finished("movie");
+    }
+    draw();
 }
 
 void ScenePage::newGame() {
@@ -462,8 +543,11 @@ void ScenePage::newGame() {
     positions_.clear();
     scriptLog_.clear();
     fade_ = fadeTarget_ = 0;
+    movie_.reset();
+    movieRunner_ = nullptr;
+    sceneShown_ = true;
     logScript("new game");
-    runner_->run("scene menu.main_01 1 0");
+    runner_->run("musica motoetheme, movie logos inscene, scene menu.main_01 1 0");
 }
 
 void ScenePage::drawParticles(const ParticleSystem& system, bool keepAlpha) {
@@ -903,8 +987,17 @@ void ScenePage::draw() {
             rows.push_back({a.y, a.h});
         dialogue_->setChoiceAreas(std::move(rows));
     }
-    if (fade_ > 0)
+    if (movie_ || !sceneShown_) {
+        // The movie over everything, else black: no scene is shown.
+        fill(0, 0, kScreenW, kScreenH, Color{0, 0, 0});
+        if (movie_ && movie_->frame().w) {
+            const image::Image& f = movie_->frame();
+            image::blit(ctx_.screen, f, (kScreenW - f.w) / 2, (kScreenH - f.h) / 2);
+            drawSubtitles(movieSubtitles_, movie_->seconds());
+        }
+    } else if (fade_ > 0) {
         fill(0, 0, kScreenW, kScreenH, Color{0, 0, 0}, uint8_t(fade_ * 255));
+    }
     help(std::string("Left/Right: scene  Up/Down: object  H: hotspots  I: info  M: moving  W: weather  G: grid  "
                      "N: new game  click: walk") +
          (renderer_ ? "  C: characters" : "  (no 3D: no characters)"));
@@ -922,6 +1015,13 @@ void ScenePage::update(uint64_t nowMs) {
     const float dt = lastMs_ ? std::min(0.1f, float(nowMs - lastMs_) / 1000.0f) : 0.0f;
     lastMs_ = nowMs;
     time_ = time;
+    if (movie_) {
+        // Over when its last frame's time has gone by (0x40c490).
+        if (movie_->update(nowMs))
+            draw();
+        if (movie_->done(nowMs))
+            endMovie();
+    }
     if (charactersDue_ && nowMs >= charactersAt_ + 400) {
         charactersDue_ = false;
         loadCharacters();
@@ -1033,7 +1133,7 @@ void ScenePage::update(uint64_t nowMs) {
         renderer_->draw(call);
     }
     // The characters, through the scene's camera.
-    if (const Ac2Record* camr = scene_.camera(); camr && showCharacters_) {
+    if (const Ac2Record* camr = scene_.camera(); camr && showCharacters_ && !movie_ && sceneShown_) {
         const SceneCamera cam = SceneCamera::fromRecord(*camr);
         renderer_->setView(cam.viewProjection(), cam.eye());
         renderer_->clearDepth();
@@ -1810,6 +1910,13 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
         story_->startAct(lower(e.arg(1)));
         return false;
     }
+    if (v == "movie")
+        return startMovie(runner, e, wait);
+    if (v == "musica" || v == "music") {
+        // sound\music\<name>.mp3, looping (0x40a860).
+        playLooping("sound\\music\\" + lower(e.arg(1)) + ".mp3", true);
+        return false;
+    }
     if (v == "fade") {
         // fade in|out [picture]: over half a second (a guess).
         fadeTarget_ = lower(e.arg(1)) == "out" ? 1.0f : 0.0f;
@@ -1881,6 +1988,13 @@ void ScenePage::line(int x0, int y0, int x1, int y1, Color c) {
 }
 
 void ScenePage::handleEvent(const Event& ev) {
+    if (movie_) {
+        // Escape skips it, unless it's the legal notice (0x409860); clicks
+        // don't.
+        if (ev.type == EventType::KeyDown && ev.key == key::Escape && movieName_.find("legal") == std::string::npos)
+            endMovie();
+        return;
+    }
     if (dialogue_->active() && (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown)) {
         if (ev.type == EventType::MouseMove)
             dialogue_->mouseMove(ev.mouseX, ev.mouseY);
@@ -1956,35 +2070,23 @@ void ScenePage::handleEvent(const Event& ev) {
 
 // --- Movies ---------------------------------------------------------------------
 
-MoviePage::MoviePage(ViewerContext& ctx) : Page(ctx) {
+MoviePage::MoviePage(ViewerContext& ctx) : Page(ctx), player_(ctx.mixer) {
     names_ = listFiles(ctx.files, {"movies/", "elements/", "locations/"}, {".bik"});
 }
 
-MoviePage::~MoviePage() { stop(); }
+MoviePage::~MoviePage() { player_.stop(); }
 
 void MoviePage::activate() {
     begin2D();
     open();
 }
 
-void MoviePage::deactivate() { stop(); }
-
-void MoviePage::stop() {
-    if (ctx_.mixer && sound_ != audio::kNoSound)
-        ctx_.mixer->stop(sound_);
-    sound_ = audio::kNoSound;
-}
+void MoviePage::deactivate() { player_.stop(); }
 
 void MoviePage::open() {
-    stop();
-    file_.reset();
-    video_.reset();
-    soundtrack_.reset();
-    frame_ = image::Image();
+    player_.stop();
     subtitles_.clear();
     info_.clear();
-    next_ = 0;
-    paused_ = false;
     clear(0, 0, 0);
     if (names_.empty())
         return;
@@ -1995,103 +2097,46 @@ void MoviePage::open() {
         stem = stem.substr(0, stem.rfind('.'));
         std::vector<uint8_t> text;
         if (!ctx_.files.read("text/movies/" + fs::toLower(stem) + ".txt", text))
-            subtitles_ = parseSubtitles(decodeText(text));
+            subtitles_ = moviesOwn(parseSubtitles(decodeText(text)), fs::toLower(stem));
     }
     std::vector<uint8_t> data;
-    auto file = std::make_unique<video::BinkFile>();
-    auto video = std::make_unique<video::BinkVideoDecoder>();
     Error e = ctx_.files.read(name, data);
     if (!e)
-        e = file->open(std::move(data));
-    if (!e)
-        e = video->init(file->width(), file->height(), file->revision(), file->flags());
+        e = player_.open(std::move(data), ctx_.sys.getMillis());
     if (e) {
         info_ = e.message;
         return;
     }
+    const video::BinkFile& file = *player_.file();
     char buf[160];
-    std::snprintf(buf, sizeof buf, "%dx%d, %zu frames at %.2f fps, revision %c", file->width(), file->height(),
-                  file->frameCount(), file->fps(), file->revision());
+    std::snprintf(buf, sizeof buf, "%dx%d, %zu frames at %.2f fps, revision %c", file.width(), file.height(),
+                  file.frameCount(), file.fps(), file.revision());
     info_ = buf;
-    // The soundtrack, decoded whole and played alongside.
-    if (!file->audioTracks().empty()) {
-        const video::BinkAudioTrack& t = file->audioTracks()[0];
-        video::BinkAudioDecoder dec;
-        auto sound = std::make_shared<audio::Sound>();
-        if (Error ae = dec.init(t.sampleRate, t.channels, t.dct)) {
-            info_ += ", sound: " + ae.message;
-        } else {
-            for (size_t i = 0; i < file->frameCount(); i++) {
-                video::BinkFile::Frame f;
-                if (!file->frame(i, f) && !f.audio.empty() && f.audio[0].size)
-                    dec.decode(f.audio[0].data, f.audio[0].size, sound->samples, f.audioBytes[0]);
-            }
-            sound->rate = t.sampleRate;
-            sound->channels = t.channels;
-            sound->format = 0;
-            info_ += ", sound " + std::to_string(t.sampleRate) + " Hz";
-            soundtrack_ = sound;
-            if (ctx_.mixer)
-                sound_ = ctx_.mixer->play(sound, audio::SoundType::Speech);
-        }
-    }
-    file_ = std::move(file);
-    video_ = std::move(video);
-    startMs_ = ctx_.sys.getMillis();
+    if (player_.hasSound())
+        info_ += ", sound " + std::to_string(file.audioTracks()[0].sampleRate) + " Hz";
+    if (!player_.error().empty())
+        info_ += ", " + player_.error();
     ctx_.sys.setWindowTitle("Movies: " + name);
 }
 
 void MoviePage::update(uint64_t nowMs) {
-    if (file_ && !paused_ && file_->frameCount() > 0 && file_->fps() > 0) {
-        // Decode up to the frame due now (skipping none: each builds on the last).
-        const size_t due = size_t(double(nowMs - startMs_) * file_->fps() / 1000.0);
-        bool drawn = false;
-        while (next_ <= due && next_ < file_->frameCount()) {
-            video::BinkFile::Frame f;
-            Error e = file_->frame(next_, f);
-            if (!e)
-                e = video_->decode(f.video.data, f.video.size);
-            if (e)
-                info_ = "frame " + std::to_string(next_) + ": " + e.message;
-            next_++;
-            drawn = true;
-        }
-        if (next_ >= file_->frameCount() && due >= file_->frameCount() && loop_ && !soundtrack_) {
-            // Video loops (no sound) start over.
-            open();
-            return;
-        }
-        if (drawn) {
-            video_->toRgba(frame_.rgba);
-            frame_.w = video_->width();
-            frame_.h = video_->height();
-        }
+    player_.update(nowMs);
+    // Video loops (no sound) start over.
+    if (player_.loaded() && !player_.hasSound() && !player_.paused() && player_.done(nowMs)) {
+        open();
+        return;
     }
     clear(0, 0, 0);
-    if (frame_.w)
-        image::blit(ctx_.screen, frame_, (kScreenW - frame_.w) / 2, (kScreenH - frame_.h) / 2);
-    // The subtitles due at the frame shown, at the bottom in the game's
-    // dialogue style.
-    const TextStyle* style = ctx_.fonts ? ctx_.fonts->style("dialogue") : nullptr;
-    if (style && style->font && file_ && file_->fps() > 0) {
-        const double t = double(next_) / file_->fps();
-        std::vector<std::string> lines;
-        for (const Subtitle& sub : subtitles_)
-            if (t >= sub.start && t < sub.end)
-                for (const std::string& l : style->font->wrap(sub.line, style->pixels, kScreenW - 160))
-                    lines.push_back(l);
-        const int lh = style->font->lineHeight(style->pixels);
-        int y = kScreenH - 40 - int(lines.size()) * lh;
-        for (const std::string& l : lines) {
-            ctx_.fonts->draw(ctx_.screen, *style, (kScreenW - style->font->width(l, style->pixels)) / 2, y, l,
-                             {255, 255, 255});
-            y += lh;
-        }
-    }
+    const image::Image& frame = player_.frame();
+    if (frame.w)
+        image::blit(ctx_.screen, frame, (kScreenW - frame.w) / 2, (kScreenH - frame.h) / 2);
+    drawSubtitles(subtitles_, player_.seconds());
     label(4, 2,
           (names_.empty() ? std::string("No movies") : names_[size_t(index_)]) + "  (" + std::to_string(index_ + 1) +
               "/" + std::to_string(names_.size()) + ")  " + info_ +
-              (file_ ? "  frame " + std::to_string(next_) + "/" + std::to_string(file_->frameCount()) : "") +
+              (player_.loaded() ? "  frame " + std::to_string(player_.next()) + "/" +
+                                      std::to_string(player_.file()->frameCount())
+                                : "") +
               (subtitles_.empty() ? "" : ", " + std::to_string(subtitles_.size()) + " subtitles"),
           {255, 230, 150});
     help("Left/Right: movie  Space: pause  Enter: restart");
@@ -2106,21 +2151,8 @@ void MoviePage::handleEvent(const Event& ev) {
         open();
     } else if (ev.key == key::Return) {
         open();
-    } else if (ev.key == key::Space && file_) {
-        paused_ = !paused_;
-        if (paused_) {
-            stop();
-        } else {
-            // Carry on from the frame shown, the sound from the same time.
-            startMs_ = ctx_.sys.getMillis() - uint64_t(double(next_) * 1000.0 / file_->fps());
-            if (soundtrack_ && ctx_.mixer) {
-                auto rest = std::make_shared<audio::Sound>(*soundtrack_);
-                const size_t from = std::min(rest->samples.size(),
-                                             size_t(double(next_) / file_->fps() * rest->rate) * size_t(rest->channels));
-                rest->samples.erase(rest->samples.begin(), rest->samples.begin() + ptrdiff_t(from));
-                sound_ = ctx_.mixer->play(rest, audio::SoundType::Speech);
-            }
-        }
+    } else if (ev.key == key::Space && player_.loaded()) {
+        player_.pause(!player_.paused(), ctx_.sys.getMillis());
     }
 }
 

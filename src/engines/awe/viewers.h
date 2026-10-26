@@ -26,6 +26,7 @@
 #include "engines/awe/granny_dll.h"
 #include "engines/awe/model.h"
 #include "engines/awe/model_draw.h"
+#include "engines/awe/movie_player.h"
 
 #include <array>
 #include <deque>
@@ -71,6 +72,8 @@ public:
         present();
         finishScreenshot(nullptr, &ctx_.screen);
     }
+    // Whether Escape is the page's now (a movie skipped), not the way out.
+    virtual bool wantsEscape() const { return false; }
     // Saves the next frame shown, as a TGA file (the window title says
     // where).
     void requestScreenshot(std::filesystem::path file) { shotFile_ = std::move(file); }
@@ -94,6 +97,8 @@ protected:
     void clear(uint8_t r, uint8_t g, uint8_t b);
     void fill(int x, int y, int w, int h, Color c, uint8_t alpha = 255);
     void frame(int x, int y, int w, int h, Color c);
+    // A movie's subtitles due at `seconds`, at the bottom of the screen.
+    void drawSubtitles(const std::vector<Subtitle>& subtitles, double seconds);
     int text(int x, int y, const std::string& s, Color c = {230, 230, 230}, int scale = 1);
     // Text on a dark box, for reading over pictures.
     void label(int x, int y, const std::string& s, Color c = {230, 230, 230});
@@ -136,6 +141,7 @@ public:
     void deactivate() override;
     void handleEvent(const Event& ev) override;
     void update(uint64_t nowMs) override;
+    bool wantsEscape() const override { return movie_ != nullptr; }
 
 private:
     // A character placed in the scene, animated as the game animates
@@ -216,6 +222,12 @@ private:
     void enterScene();
     void playMusic();
     void newGame();
+    // "movie <name> [inscene] [silent]" (0x40a725); false if there's no
+    // such movie. endMovie: it's over (or skipped).
+    bool startMovie(ScriptRunner& runner, const ScriptEvent& e, bool wait);
+    void endMovie();
+    // "musica <name>": sound\music\<name>.mp3, looping.
+    void playLooping(const std::string& file, bool music);
     void playSound(const std::string& name);
     void logScript(const std::string& line);
     bool hidden(const Ac2Record& o) const;
@@ -272,6 +284,14 @@ private:
     std::map<std::string, audio::SoundHandle> music_;
     std::map<std::string, std::array<float, 2>> positions_;
     float fade_ = 0, fadeTarget_ = 0;
+    // "movie": the one playing over everything, its subtitles, the runner
+    // waiting on it; and whether a scene is shown (one not "inscene" is
+    // left for the movie: black until the next scene).
+    std::unique_ptr<MoviePlayer> movie_;
+    std::string movieName_;
+    std::vector<Subtitle> movieSubtitles_;
+    ScriptRunner* movieRunner_ = nullptr;
+    bool sceneShown_ = true;
     ScriptRunner* fadeRunner_ = nullptr;
     std::string dialogueAct_ = "-";   // the act whose table is loaded
     audio::SoundHandle voice_ = audio::kNoSound;
@@ -352,19 +372,11 @@ public:
 
 private:
     void open();
-    void stop();
     std::vector<std::string> names_;
     int index_ = 0;
-    std::unique_ptr<video::BinkFile> file_;
-    std::unique_ptr<video::BinkVideoDecoder> video_;
-    image::Image frame_; // the frame shown
+    MoviePlayer player_;
     std::vector<Subtitle> subtitles_;
     std::string info_;
-    size_t next_ = 0;      // the next frame to decode
-    uint64_t startMs_ = 0; // when frame 0 was due
-    bool paused_ = false, loop_ = true;
-    std::shared_ptr<audio::Sound> soundtrack_;
-    audio::SoundHandle sound_ = audio::kNoSound;
 };
 
 // Text files: tables, dialogue, subtitles.

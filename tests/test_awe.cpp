@@ -110,7 +110,7 @@ void testText() {
         "\t\t\t\t\r\n")));
     CHECK(subs.size() == 2);
     if (subs.size() == 2) {
-        CHECK(subs[0].speaker == "Moinsieur Bouc" && subs[0].line == "I dined with him, Poirot!");
+        CHECK(subs[0].name == "intro" && subs[0].speaker == "Moinsieur Bouc" && subs[0].line == "I dined with him, Poirot!");
         CHECK(std::fabs(subs[0].start - 26.192) < 1e-9 && std::fabs(subs[0].end - 37.208) < 1e-9);
         CHECK(subs[1].line == "Monsieur Poirot!");
     }

@@ -169,10 +169,11 @@ The page then does the following:
 - Entering a scene plays its music and queues its event.
 - `scene` and `gotoscene` keep the player's place for walk point -1.
 - `fade` takes half a second. This is a guess.
+- Movies play full screen with their subtitles, and Escape skips them
+  (see [script.md](script.md#movies)).
 
 Not done yet:
 
-- movies inside the game;
 - the loading screen;
 - walking in through the scene flag;
 - `PUZZ` screens;

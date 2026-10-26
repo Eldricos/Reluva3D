@@ -78,8 +78,9 @@ scenes, two Granny files, the text tables, two backgrounds):
   menu, Play, act 01A's scripts and location, and on through the scenes'
   own events, as `acts.txt` and the game's act code say (see
   [../formats/awe/acts.md](../formats/awe/acts.md)). Scene music, timers,
-  completion conditions, `savescene`/`gotoscene` and fades work; movies
-  inside the game, loading screens and saved games don't yet.
+  completion conditions, `savescene`/`gotoscene`, fades and movies (with
+  their subtitles; Escape skips them) work; loading screens and saved
+  games don't yet.
 - **Characters: animated as the game animates them.** Up to ten
   animations each on body, head and eye layers, blended by the files'
   track masks; blinking, idle gestures and their routines; `anim`,
@@ -137,8 +138,8 @@ Next:
    records and member types the samples didn't have.
 2. A native port of the path-finder's lattice search (`0x42f1f0`),
    checked path for path against the game's (`awe-path`).
-3. Movies inside a game, loading screens, saved games; walking in, and
-   the characters' shadows.
+3. Loading screens, saved games; walking in, and the characters'
+   shadows.
 4. Native decoding of the compressed curve formats (the DLL expands them
    for now).
 5. Native Oodle1 and Bink-texture decoding, checked against the DLL, to

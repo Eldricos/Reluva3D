@@ -93,7 +93,7 @@ public:
             Event ev;
             while (sys_.pollEvent(ev)) {
                 if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher ||
-                    (ev.type == EventType::KeyDown && ev.key == key::Escape)) {
+                    (ev.type == EventType::KeyDown && ev.key == key::Escape && !pages[page]->wantsEscape())) {
                     pages[page]->deactivate();
                     return Error::success();
                 }
