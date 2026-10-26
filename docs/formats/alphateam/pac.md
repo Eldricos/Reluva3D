@@ -34,6 +34,17 @@ data comes in.
 The directory ends 4 bytes before the header's data start in both
 archives. Those 4 bytes are zero.
 
+## Reading them
+
+`src/engines/netimmerse/pac_archive.{h,cpp}` reads them as an `Archive`.
+Names are looked up ignoring case. It checks the header's size against the
+file's, and checks that every entry's name and fields lie inside the
+directory and its data inside the archive.
+Entries whose flags aren't 0 are listed but not read, until an archive
+shows what the flags mean. `reluva-tool pac-list <file.pac>` lists an
+archive (offset, size, date, name), and `reluva-tool pac-extract <file.pac>
+<dir> [filter]` writes its files out.
+
 ## Contents seen
 
 - `Bhvr.pac`: 74 Windows DLLs (4.5 MB), one per kind of puzzle part,

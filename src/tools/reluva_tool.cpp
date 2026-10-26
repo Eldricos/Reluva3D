@@ -9,6 +9,8 @@
 //                                                  layout and work out unknown entry kinds
 //   reluva-tool cat-list <file>                    list a .cat file's contents
 //   reluva-tool cat-extract <file> <dir> [filter]  extract files whose name contains filter
+//   reluva-tool pac-list <file.pac>                list a .pac archive's contents (LEGO Alpha Team)
+//   reluva-tool pac-extract <file> <dir> [filter]  extract files whose name contains filter
 //   reluva-tool stb-dump <file.stb | file.cat>     print a string table, or list an archive's
 //   reluva-tool tex-survey <file.cat>...           group every texture by header layout
 //   reluva-tool tex-keys <file.cat>...             compare each colour key with the image corners
@@ -107,6 +109,9 @@
 #include "engines/newworlds/model_textures.h"
 #include "engines/newworlds/model_render.h"
 #endif
+#ifdef RELUVA_ENGINE_NETIMMERSE
+#include "engines/netimmerse/pac_archive.h"
+#endif
 #include "common/font.h"
 #include "common/fs.h"
 #include "common/pe.h"
@@ -192,10 +197,9 @@ void hexdump(const Bytes& d, size_t off, size_t len) {
         std::printf("\n");
     }
 }
-#ifdef RELUVA_ENGINE_NEWWORLDS
 
 // Unix time -> "YYYY-MM-DD HH:MM" (UTC), without platform time functions.
-std::string formatTime(uint32_t t) {
+[[maybe_unused]] std::string formatTime(uint32_t t) {
     int64_t days = t / 86400, secs = t % 86400;
     int64_t z = days + 719468, era = z / 146097, doe = z - era * 146097;
     int64_t yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
@@ -207,7 +211,6 @@ std::string formatTime(uint32_t t) {
                   int(secs / 3600), int(secs / 60 % 60));
     return buf;
 }
-#endif // RELUVA_ENGINE_NEWWORLDS
 
 long long parseNumber(const char* s) { return std::strtoll(s, nullptr, 0); }
 
@@ -5089,6 +5092,76 @@ int cmdPk3List(int argc, char** argv) {
 
 } // namespace
 
+#ifdef RELUVA_ENGINE_NETIMMERSE
+int cmdPacList(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool pac-list <file.pac>\n");
+        return 2;
+    }
+    reluva::netimmerse::PacArchive pac;
+    if (reluva::Error err = pac.open(argv[2])) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    uint64_t total = 0;
+    for (const auto& e : pac.entries()) {
+        const auto t = reluva::netimmerse::PacArchive::unixTime(e.modified);
+        std::printf("%10u %9u  %-16s %s%s\n", e.offset, e.size, formatTime(uint32_t(t)).c_str(), e.name.c_str(),
+                    e.flags ? ("  flags " + std::to_string(e.flags)).c_str() : "");
+        total += e.size;
+    }
+    std::printf("%zu files, %llu bytes, data from %u\n", pac.entries().size(),
+                static_cast<unsigned long long>(total), pac.dataStart());
+    return 0;
+}
+
+int cmdPacExtract(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool pac-extract <file.pac> <output dir> [name filter]\n");
+        return 2;
+    }
+    reluva::netimmerse::PacArchive pac;
+    if (reluva::Error err = pac.open(argv[2])) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    const std::filesystem::path outDir = argv[3];
+    const std::string filter = argc > 4 ? reluva::fs::toLower(argv[4]) : "";
+    std::error_code ec;
+    std::filesystem::create_directories(outDir, ec);
+    std::vector<uint8_t> data;
+    unsigned written = 0;
+    for (const auto& e : pac.entries()) {
+        if (reluva::fs::toLower(e.name).find(filter) == std::string::npos)
+            continue;
+        // Names come from the archive: refuse anything that could escape outDir.
+        const std::filesystem::path rel(e.name);
+        bool safe = !rel.is_absolute() && !rel.has_root_name() && rel.has_filename();
+        for (const auto& part : rel)
+            safe &= part != "..";
+        if (!safe) {
+            std::fprintf(stderr, "skipping unsafe name %s\n", e.name.c_str());
+            continue;
+        }
+        if (reluva::Error err = pac.read(e, data)) {
+            std::fprintf(stderr, "%s\n", err.message.c_str());
+            return 1;
+        }
+        const std::filesystem::path out = outDir / rel;
+        std::filesystem::create_directories(out.parent_path(), ec);
+        std::ofstream f(out, std::ios::binary);
+        f.write(reinterpret_cast<const char*>(data.data()), std::streamsize(data.size()));
+        if (!f) {
+            std::fprintf(stderr, "cannot write %s\n", out.string().c_str());
+            return 1;
+        }
+        ++written;
+    }
+    std::printf("extracted %u files to %s\n", written, outDir.string().c_str());
+    return 0;
+}
+#endif // RELUVA_ENGINE_NETIMMERSE
+
 int main(int argc, char** argv) {
     if (argc >= 2 && std::strcmp(argv[1], "hexdump") == 0)
         return cmdHexdump(argc, argv);
@@ -5143,6 +5216,12 @@ int main(int argc, char** argv) {
         return cmdGeoSheet(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "geo-faces") == 0)
         return cmdGeoFaces(argc, argv);
+#endif
+#ifdef RELUVA_ENGINE_NETIMMERSE
+    if (argc >= 2 && std::strcmp(argv[1], "pac-list") == 0)
+        return cmdPacList(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "pac-extract") == 0)
+        return cmdPacExtract(argc, argv);
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
     if (argc >= 2 && std::strcmp(argv[1], "bsp-check") == 0)
@@ -5217,6 +5296,10 @@ int main(int argc, char** argv) {
                  "  reluva-tool gmf-info <file.gmf> [record number]\n"
                  "  reluva-tool geo-faces <file.geo>\n"
                  "  reluva-tool lbp-info <file> [output prefix]\n"
+#endif
+#ifdef RELUVA_ENGINE_NETIMMERSE
+                 "  reluva-tool pac-list <file.pac>\n"
+                 "  reluva-tool pac-extract <file.pac> <output dir> [name filter]\n"
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
                  "  reluva-tool bsp-check <game folder, e.g. .../BaseEF>\n"

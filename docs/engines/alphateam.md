@@ -55,14 +55,15 @@ Each phase ends with something that runs and is committed.
 
 - Hash the key files (`reluva --hash LEGOATeam.exe Locale_en.pac Bhvr.pac`)
   and add the detection table; the launcher then finds the game.
-- Work out the `.pac` format from the files: compare the archives'
-  headers, find the directory and how names, offsets and sizes are kept,
-  check for compression. `Bhvr.pac` (4.5 MB) is the smallest to start on.
-  `DDPackedDirFileLib.dll` is small enough to read directly if the files
-  alone don't settle it.
-- `PacArchive : Archive`, so `.pac` files join a `SearchSet` like any
-  other archive.
-- `reluva-tool pac-list` and `pac-extract`, as for New Worlds' `.cat`.
+- Done: the `.pac` format, worked out from `Bhvr.pac` and `Etc.pac`
+  ([pac.md](../formats/alphateam/pac.md)). The other archives are still to
+  be checked against it.
+- Done: `PacArchive : Archive` (`src/engines/netimmerse/pac_archive.cpp`), so
+  `.pac` files join a `SearchSet` like any other archive. It's tested in
+  `tests/test_netimmerse.cpp`, on archives the tests build.
+- Done: `reluva-tool pac-list` and `pac-extract`, as for New Worlds' `.cat`.
+  On `Bhvr.pac` and `Etc.pac` they give the same 549 files, byte for byte,
+  as a separate script written from the format notes.
 - Write down what the archives hold: extensions and counts per archive.
   That inventory decides phases 2 and 3.
 

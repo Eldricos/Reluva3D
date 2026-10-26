@@ -12,6 +12,8 @@ option(RELUVA_BUILD_TESTS "Build unit tests" ON)
 # than Visual Studio accepts (error C2026).
 option(RELUVA_ENGINE_NEWWORLDS "Build the Star Trek: New Worlds engine" OFF)
 option(RELUVA_ENGINE_IDTECH3 "Build the id Tech 3 engine (Star Trek: Voyager - Elite Force)" ON)
+# Off until it runs a game: so far it has only the .pac reader and its tools.
+option(RELUVA_ENGINE_NETIMMERSE "Build the NetImmerse engine (LEGO Alpha Team)" OFF)
 
 include(FetchContent)
 
@@ -179,6 +181,11 @@ if(RELUVA_ENGINE_IDTECH3)
         src/engines/idtech3/world_viewer.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_IDTECH3)
 endif()
+if(RELUVA_ENGINE_NETIMMERSE)
+    target_sources(reluva_engines PRIVATE
+        src/engines/netimmerse/pac_archive.cpp)
+    target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_NETIMMERSE)
+endif()
 target_link_libraries(reluva_engines PUBLIC reluva_common PRIVATE reluva_warnings)
 
 # --- executable: SDL3 backend + ImGui launcher --------------------------------
@@ -222,5 +229,11 @@ if(RELUVA_BUILD_TESTS)
         endif()
         target_include_directories(reluva_idtech3_tests PRIVATE tests)
         add_test(NAME idtech3 COMMAND reluva_idtech3_tests)
+    endif()
+
+    if(RELUVA_ENGINE_NETIMMERSE)
+        add_executable(reluva_netimmerse_tests tests/test_netimmerse.cpp)
+        target_link_libraries(reluva_netimmerse_tests PRIVATE reluva_engines reluva_warnings)
+        add_test(NAME netimmerse COMMAND reluva_netimmerse_tests)
     endif()
 endif()

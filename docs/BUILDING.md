@@ -77,7 +77,9 @@ Install it, delete `build/`, and configure again.
 `RELUVA_ENGINE_IDTECH3` (Elite Force, on by default) and
 `RELUVA_ENGINE_NEWWORLDS` (Star Trek: New Worlds, **off** by default for now,
 because two of its files hold string literals longer than Visual Studio
-accepts). To build New Worlds with GCC or Clang:
+accepts), and `RELUVA_ENGINE_NETIMMERSE` (LEGO Alpha Team, **off** by default
+until it runs the game; for now it adds only `reluva-tool`'s `.pac` commands
+and their tests). To build New Worlds with GCC or Clang:
 `cmake -S . -B build -DRELUVA_ENGINE_NEWWORLDS=ON`. In Visual Studio the options
 are under *Project > CMake Settings*.
 

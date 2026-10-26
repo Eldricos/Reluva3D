@@ -26,8 +26,8 @@ src/engines/       one directory per engine, plus registry.cpp listing them
   idtech3/         games on the Quake III Arena engine, starting with Star Trek:
                    Voyager - Elite Force: search path, shader scripts, BSP
                    maps; currently runs as a data viewer (docs/engines/idtech3.md)
-  netimmerse/      planned: games on NetImmerse, starting with LEGO Alpha Team
-                   (docs/engines/alphateam.md)
+  netimmerse/      games on NetImmerse, starting with LEGO Alpha Team: so far its
+                   .pac archives (docs/engines/alphateam.md)
 src/tools/         reluva-tool, utilities for studying game data
 tests/             unit tests for common/ and the engines
 ```
@@ -46,7 +46,7 @@ cmake --build build -j
 ```
 
 Engines are CMake options (`RELUVA_ENGINE_IDTECH3` on, `RELUVA_ENGINE_NEWWORLDS`
-off by default for now); see the build notes.
+and `RELUVA_ENGINE_NETIMMERSE` off by default for now); see the build notes.
 
 See **[docs/BUILDING.md](docs/BUILDING.md)** for step-by-step instructions for
 Linux (with each distro's packages) and Windows with Visual Studio 2022.
@@ -58,7 +58,8 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   runs the test pattern.
 - `reluva --hash <files...>` prints detection signatures for an engine's table.
 - `reluva-tool` has developer tools for studying game data: `hexdump`,
-  `cat-probe`, `cat-list` and `cat-extract` (New Worlds archives).
+  `cat-probe`, `cat-list` and `cat-extract` (New Worlds archives), `pac-list`
+  and `pac-extract` (LEGO Alpha Team archives).
 - In game: **Ctrl+F5** returns to the launcher, **Alt+Enter** toggles fullscreen.
 - New Worlds currently opens as a data viewer. **Tab** switches between missions, models,
   textures, maps, sounds, strings and fonts, **Left/Right** step through them and **F** cycles filters.
