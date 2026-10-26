@@ -187,7 +187,9 @@ if(RELUVA_ENGINE_AWE)
         src/engines/awe/gr2.cpp
         src/engines/awe/granny_dll.cpp
         src/engines/awe/model.cpp
-        src/engines/awe/tables.cpp)
+        src/engines/awe/tables.cpp
+        src/engines/awe/viewers.cpp
+        src/engines/awe/model_viewer.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_AWE)
 endif()
 target_link_libraries(reluva_engines PUBLIC reluva_common PRIVATE reluva_warnings)

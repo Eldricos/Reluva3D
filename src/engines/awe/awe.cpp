@@ -7,8 +7,20 @@
 // Everything in this engine must come from the game's data files, observed
 // behaviour of the original, or documented reverse engineering of a legally
 // owned copy. Never from leaked source code. See CONTRIBUTING.md.
+//
+// For now the engine is a data viewer (viewers.h): scenes, pictures,
+// models with their animations, text and sounds. Tab moves between them;
+// Esc goes back to the launcher.
 
 #include "engines/engine.h"
+
+#include "common/archive.h"
+#include "common/audio/mixer.h"
+#include "common/fs.h"
+#include "engines/awe/viewers.h"
+
+#include <fstream>
+#include <iterator>
 
 namespace reluva {
 
@@ -32,11 +44,73 @@ class AweEngine : public Engine {
 public:
     AweEngine(System& system, GameTarget target) : sys_(system), target_(std::move(target)) {}
 
-    Error run() override { return Error::fail("The Orient Express engine has nothing to show yet"); }
+    Error run() override {
+        if (Error err = files_.open(target_.path))
+            return err;
+        // The models need the game's granny2.dll (for decompressing them);
+        // without it the other pages still work.
+        std::unique_ptr<awe::GrannyDll> granny;
+        if (const auto dll = fs::findFile(target_.path, "granny2.dll")) {
+            std::ifstream in(*dll, std::ios::binary);
+            const std::vector<uint8_t> data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+            granny = std::make_unique<awe::GrannyDll>();
+            if (granny->load(data))
+                granny.reset();
+        }
+        screen_.create(awe::kScreenW, awe::kScreenH, PixelFormat::RGBA32);
+        audio::Mixer mixer(sys_.audioRate());
+        const bool audioOut = !audio::startMixerOutput(sys_, mixer);
+        struct AudioStop {
+            System& sys;
+            bool on;
+            ~AudioStop() {
+                if (on)
+                    sys.stopAudio();
+            }
+        } audioStop{sys_, audioOut};
+        awe::ViewerContext ctx{sys_, files_, granny.get(), audioOut ? &mixer : nullptr, screen_};
+
+        std::vector<std::unique_ptr<awe::Page>> pages;
+        pages.push_back(std::make_unique<awe::ScenePage>(ctx));
+        pages.push_back(std::make_unique<awe::ModelPage>(ctx));
+        pages.push_back(std::make_unique<awe::PicturePage>(ctx));
+        pages.push_back(std::make_unique<awe::TextPage>(ctx));
+        pages.push_back(std::make_unique<awe::SoundPage>(ctx));
+        size_t page = 0;
+        while (page < pages.size() && pages[page]->count() == 0)
+            page++;
+        if (page == pages.size())
+            return Error::fail("No scenes, models, pictures, text or sounds found in " + target_.path.string());
+        pages[page]->activate();
+
+        while (true) {
+            Event ev;
+            while (sys_.pollEvent(ev)) {
+                if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher ||
+                    (ev.type == EventType::KeyDown && ev.key == key::Escape)) {
+                    pages[page]->deactivate();
+                    return Error::success();
+                }
+                if (ev.type == EventType::KeyDown && ev.key == key::Tab) {
+                    pages[page]->deactivate();
+                    do
+                        page = (page + 1) % pages.size();
+                    while (pages[page]->count() == 0);
+                    pages[page]->activate();
+                    continue;
+                }
+                pages[page]->handleEvent(ev);
+            }
+            pages[page]->update(sys_.getMillis());
+            sys_.delayMillis(10);
+        }
+    }
 
 private:
     System& sys_;
     GameTarget target_;
+    DirectoryArchive files_;
+    Surface screen_;
 };
 
 class AweMetaEngine : public MetaEngine {

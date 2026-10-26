@@ -11,6 +11,11 @@
 #include "engines/awe/granny_dll.h"
 #include "engines/awe/model.h"
 #include "engines/awe/tables.h"
+#include "engines/awe/viewers.h"
+#include "common/archive.h"
+#include "common/system.h"
+
+#include <deque>
 #include "common/image.h"
 
 #include <cstdio>
@@ -296,11 +301,90 @@ int cmdAweTable(int argc, char** argv) {
     return 0;
 }
 
+// A System with no window: the last frame shown is kept, events come from
+// a queue.
+class HeadlessSystem : public reluva::System {
+public:
+    reluva::Surface last;
+    std::deque<reluva::Event> events;
+    reluva::Error initGraphics(int, int, reluva::PixelFormat) override { return reluva::Error::success(); }
+    void setPalette(const reluva::Color*, int, int) override {}
+    void updateScreen(const reluva::Surface& s) override { last = s; }
+    void setWindowTitle(const std::string&) override {}
+    bool pollEvent(reluva::Event& ev) override {
+        if (events.empty())
+            return false;
+        ev = events.front();
+        events.pop_front();
+        return true;
+    }
+    uint64_t getMillis() const override { return 0; }
+    void delayMillis(uint32_t) override {}
+    reluva::Error startAudio(AudioCallback) override { return reluva::Error::fail("no audio"); }
+    void stopAudio() override {}
+    int audioRate() const override { return 44100; }
+};
+
+// Shows a page of the engine's viewer without a window, presses keys on
+// it, and saves the screen as a TGA file.
+int cmdAweShot(int argc, char** argv) {
+    if (argc < 5) {
+        std::fprintf(stderr, "usage: reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds> <out.tga> "
+                             "[key...]\n  keys: left right up down pgup pgdn home end, or one character\n");
+        return 2;
+    }
+    reluva::DirectoryArchive files;
+    if (reluva::Error e = files.open(argv[2])) {
+        std::fprintf(stderr, "%s\n", e.message.c_str());
+        return 1;
+    }
+    HeadlessSystem sys;
+    reluva::Surface screen;
+    screen.create(awe::kScreenW, awe::kScreenH, reluva::PixelFormat::RGBA32);
+    awe::ViewerContext ctx{sys, files, nullptr, nullptr, screen};
+    std::unique_ptr<awe::Page> page;
+    const std::string which = argv[3];
+    if (which == "scenes")
+        page = std::make_unique<awe::ScenePage>(ctx);
+    else if (which == "pictures")
+        page = std::make_unique<awe::PicturePage>(ctx);
+    else if (which == "text")
+        page = std::make_unique<awe::TextPage>(ctx);
+    else if (which == "sounds")
+        page = std::make_unique<awe::SoundPage>(ctx);
+    else {
+        std::fprintf(stderr, "unknown page %s\n", which.c_str());
+        return 2;
+    }
+    std::printf("%zu items\n", page->count());
+    page->activate();
+    for (int i = 5; i < argc; i++) {
+        const std::string k = argv[i];
+        reluva::Event ev;
+        ev.type = reluva::EventType::KeyDown;
+        namespace key = reluva::key;
+        ev.key = k == "left" ? key::Left : k == "right" ? key::Right : k == "up" ? key::Up : k == "down" ? key::Down
+               : k == "pgup" ? key::PageUp : k == "pgdn" ? key::PageDown : k == "home" ? key::Home
+               : k == "end" ? key::End : uint32_t(uint8_t(k[0]));
+        page->handleEvent(ev);
+    }
+    page->update(0);
+    reluva::image::Image img;
+    img.w = sys.last.w;
+    img.h = sys.last.h;
+    img.rgba = sys.last.pixels;
+    const std::vector<uint8_t> tga = reluva::image::encodeTga(img);
+    std::ofstream(argv[4], std::ios::binary).write(reinterpret_cast<const char*>(tga.data()), std::streamsize(tga.size()));
+    return 0;
+}
+
 } // namespace
 
 int aweToolCommand(int argc, char** argv) {
     if (argc >= 2 && std::strcmp(argv[1], "gr2-info") == 0)
         return cmdGr2Info(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "awe-shot") == 0)
+        return cmdAweShot(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "awe-table") == 0)
         return cmdAweTable(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "ac2-dump") == 0)
@@ -313,6 +397,7 @@ int aweToolCommand(int argc, char** argv) {
 const char* aweToolUsage() {
     return "  reluva-tool gr2-info <file.gr2> [-t] [-n elements] [-dll granny2.dll]\n"
            "  reluva-tool awe-table <file.txt>\n"
+           "  reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds> <out.tga> [key...]\n"
            "  reluva-tool ac2-dump <scene.ac2>...\n"
            "  reluva-tool gr2-model <model.gr2> [-anim <anim.gr2> <seconds>] [-obj out.obj]\n";
 }

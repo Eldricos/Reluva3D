@@ -466,8 +466,10 @@ std::vector<const Ac2Record*> Ac2Scene::objects() const {
 }
 
 bool isAc2Object(std::string_view tag) {
+    // (The object factory also makes FOOT objects, but a scene's FOOT
+    // record is its footstep setting, read before the factory is asked.)
     for (const char* t : {"2DOB", "2DAN", "NING", "BINK", "SPOT", "ITEM", "LITE", "PART", "RAIN", "SNOW", "NPCX",
-                          "PCXX", "FOOT"})
+                          "PCXX"})
         if (tag == t)
             return true;
     return false;
