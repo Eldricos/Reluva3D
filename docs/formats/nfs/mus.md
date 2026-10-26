@@ -58,7 +58,7 @@ Data blocks:
   own history.
 - **PCM:** u32 samples, then interleaved 16-bit stereo.
 
-Only the four-segment showcase tracks (`show*.mus`) are PCM.
+The PCM streams are six of the eight showcase tracks (`show1`, `3`, `4`, `5`, `7`, `8`) and `srv2.mus`; `show2` and `show6` are EA-XA.
 
 ## Pathfinder maps (`.map`, `.lin`)
 
