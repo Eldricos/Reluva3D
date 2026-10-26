@@ -12,6 +12,7 @@
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/scene.h"
+#include "engines/idtech3/light_grid.h"
 #include "engines/idtech3/md3.h"
 #include "engines/idtech3/sound_system.h"
 #include "engines/idtech3/sounds.h"
@@ -233,6 +234,7 @@ private:
     const x86::Win32Process::Module* module_ = nullptr;
     uint32_t imports_ = 0, exports_ = 0, voiceVolume_ = 0, argvBuffer_ = 0;
     std::shared_ptr<const Bsp> map_;
+    LightGrid lightGrid_;
     std::unique_ptr<CollisionWorld> world_;
     std::unique_ptr<AreaPortals> areaPortals_;
     std::vector<uint32_t> levelText_;

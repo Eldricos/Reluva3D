@@ -6,6 +6,7 @@
 #include "common/md4.h"
 #include "common/x86/format.h"
 #include "engines/idtech3/eliteforce/game_layout.h"
+#include "engines/idtech3/entities.h"
 
 #include <algorithm>
 #include <array>
@@ -185,6 +186,15 @@ Error SpGameHost::startLevel(const std::string& mapName, std::shared_ptr<const B
         return Error::fail("The game isn't loaded");
     map_ = std::move(map);
     world_ = std::make_unique<CollisionWorld>(*map_);
+    {
+        // The light grid, for LightForPoint (the worldspawn's "gridsize").
+        float cell[3] = {64, 64, 128};
+        std::vector<Entity> entities;
+        if (!parseEntities(map_->entities, entities) && !entities.empty())
+            entities[0].vector("gridsize", cell);
+        lightGrid_ = LightGrid{};
+        lightGrid_.build(*map_, {cell[0], cell[1], cell[2]});
+    }
     areaPortals_ = std::make_unique<AreaPortals>(world_->areaCount());
     linked_.clear();
     for (uint32_t a : levelText_)
@@ -855,10 +865,13 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
         if (c.valid(a(0), kRefEntitySize))
             scene_.addEntity(c.memory().data() + a(0), kRefEntitySize, 0);
         return 0;
-    case 45: { // R_LightForPoint(point, ambient, directed, direction): a plain light for now
-        writeVec(a(1), {128, 128, 128});
-        writeVec(a(2), {128, 128, 128});
-        writeVec(a(3), {0, 0, 1});
+    case 45: { // R_LightForPoint(point, ambient, directed, direction) -> whether the level has a light grid
+        if (lightGrid_.empty())
+            return 0;
+        const PointLight light = lightGrid_.sample(readVec(a(0)), false);
+        writeVec(a(1), {light.ambient[0], light.ambient[1], light.ambient[2]});
+        writeVec(a(2), {light.directed[0], light.directed[1], light.directed[2]});
+        writeVec(a(3), {light.direction[0], light.direction[1], light.direction[2]});
         return 1;
     }
     case 46: { // R_AddPolyToScene(shader, vertex count, vertices)

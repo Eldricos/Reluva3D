@@ -142,7 +142,7 @@ This is Quake III's native-DLL convention:
 | 26–33 | sound: `StartSound(origin, entity, channel, sfx)`, `StartLocalSound(sfx, channel)`, `ClearLoopingSounds()`, `AddLoopingSound` (4), `UpdateEntityPosition(entity, origin)`, `Respatialize` (4), `RegisterSound(name)`, `StartBackgroundTrack(intro, loop)` |
 | 34–37 | force feedback (the engine's code for `FFC10.dll`): start (effect), stop (effect), a third taking an effect, stop all. Reluva can ignore these. |
 | 38–42 | `R_LoadWorldMap`, `R_RegisterModel`, `R_RegisterSkin`, `R_RegisterShader`, `R_RegisterShaderNoMip` |
-| 43–48 | `R_ClearScene`, `R_AddRefEntityToScene`, `R_LightForPoint` (4), `R_AddPolyToScene` (3), `R_AddLightToScene` (5), `R_RenderScene(refdef)` |
+| 43–48 | `R_ClearScene`, `R_AddRefEntityToScene`, `R_LightForPoint(point, ambient, directed, dir)` (the light grid as stored, without the models' minimum ambient; 0 when the level has no grid), `R_AddPolyToScene` (3), `R_AddLightToScene` (5), `R_RenderScene(refdef)` |
 | 49, 50 | `R_SetColor(rgba)`, `R_DrawStretchPic` (9) |
 | 51 | `R_DrawScreenShot(x, y, w, h)`: the saved-game screenshot, through the renderer's raw-image drawing |
 | 52, 53 | `R_ModelBounds(model, mins, maxs)`, `R_LerpTag` (6) |
