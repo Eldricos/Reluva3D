@@ -85,6 +85,7 @@ add_library(reluva_common STATIC
     src/common/x86/directx/interfaces.cpp
     src/common/x86/directx/d3d7.cpp
     src/common/x86/directx/raster.cpp
+    src/common/x86/directx/dinput.cpp
     src/common/x86/format.cpp
     src/common/detection.cpp
     src/common/audio/decode.cpp

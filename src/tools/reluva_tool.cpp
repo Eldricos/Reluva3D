@@ -5273,7 +5273,7 @@ int cmdFinCheck(int argc, char** argv) {
 int cmdAtRun(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool at-run <game folder> [-v] [-limit instructions] [-trace count] "
-                             "[-memory MB] [-log] [-shots folder] [-every frames]\n");
+                             "[-memory MB] [-log] [-shots folder] [-every frames] [-click frame[@x,y]]... [-move frame@dx,dy]...\n");
         return 2;
     }
     bool verbose = false;
@@ -5283,6 +5283,16 @@ int cmdAtRun(int argc, char** argv) {
     bool log = false;
     std::string shots;
     uint64_t every = 30;
+    // -click: a left click when a frame is shown, at a place on the screen
+    // (the middle if none is given).
+    struct Click {
+        uint64_t frame;
+        int x = -1, y = -1;
+    };
+    std::vector<Click> clicks;
+    // -move: the pointer moved by (dx, dy) when a frame is shown, as a mouse
+    // moves it.
+    std::vector<Click> moves;
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
         if (arg == "-v")
@@ -5291,7 +5301,17 @@ int cmdAtRun(int argc, char** argv) {
             log = true;
         else if (arg == "-shots" && a + 1 < argc)
             shots = argv[++a];
-        else if (arg == "-every" && a + 1 < argc)
+        else if (arg == "-click" && a + 1 < argc) {
+            Click k{std::strtoull(argv[++a], nullptr, 0)};
+            if (const char* at = std::strchr(argv[a], '@'))
+                std::sscanf(at + 1, "%d,%d", &k.x, &k.y);
+            clicks.push_back(k);
+        } else if (arg == "-move" && a + 1 < argc) {
+            Click k{std::strtoull(argv[++a], nullptr, 0), 0, 0};
+            if (const char* at = std::strchr(argv[a], '@'))
+                std::sscanf(at + 1, "%d,%d", &k.x, &k.y);
+            moves.push_back(k);
+        } else if (arg == "-every" && a + 1 < argc)
             every = std::max<uint64_t>(1, std::strtoull(argv[++a], nullptr, 0));
         else if (arg == "-limit" && a + 1 < argc)
             limit = std::strtoull(argv[++a], nullptr, 0);
@@ -5326,6 +5346,19 @@ int cmdAtRun(int argc, char** argv) {
     };
     game.directX().presented = [&](const reluva::x86::DirectX::Frame& f) {
         ++framesShown;
+        reluva::x86::Win32Process& p = game.process();
+        for (const Click& k : moves)
+            if (f.number == k.frame)
+                p.mouseMoveTo(p.cursorX + k.x, p.cursorY + k.y);
+        for (const Click& k : clicks) {
+            if (f.number == k.frame) {
+                p.mouseMoveTo(k.x >= 0 ? k.x : f.width / 2, k.y >= 0 ? k.y : f.height / 2);
+                p.mouseButton(0, true);
+                std::printf("clicked at %d,%d on frame %llu\n", p.cursorX, p.cursorY, (unsigned long long)f.number);
+            } else if (f.number == k.frame + 1) {
+                p.mouseButton(0, false);
+            }
+        }
         if (!shots.empty() && (f.number == 1 || f.number % every == 0))
             saveFrame(f);
     };

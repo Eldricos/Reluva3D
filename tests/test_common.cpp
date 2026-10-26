@@ -22,6 +22,7 @@
 #include "common/text.h"
 #include "common/x86/com.h"
 #include "common/x86/cpu.h"
+#include "common/x86/directx/dinput.h"
 #include "common/x86/directx/directx.h"
 #include "common/x86/msvcp60.h"
 #include "common/x86/msvcrt.h"
@@ -977,6 +978,151 @@ static void testDirectX() {
     CHECK(call(device, 2, {}) == 0);
 }
 
+// Input as the engine passes it on: window messages (with a double click
+// for a class that asks for them), key states, the pointer kept within
+// ClipCursor's rectangle; and DirectInput's mouse and keyboard, read as a
+// state and as a buffer.
+static void testInput() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    x86::DirectInput directInput(process);
+    uint32_t now = 1000;
+    process.milliseconds = [&] { return now; };
+    auto fn = [&](const char* dll, const char* name) { return process.provided(dll, name); };
+    auto text = [&](const std::string& s) {
+        const uint32_t a = process.memory().alloc(uint32_t(s.size() + 1));
+        cpu.writeString(a, s, uint32_t(s.size() + 1));
+        return a;
+    };
+    uint32_t r = 0;
+    const uint32_t proc = cpu.addNative("test!InputProc", [](x86::Cpu& c) {
+        c.reg[x86::Cpu::EAX] = c.arg(1) == 0x81 ? 1 : 0;
+        return 16u;
+    });
+    const uint32_t wc = process.memory().alloc(40);
+    cpu.write32(wc, 0x8); // CS_DBLCLKS
+    cpu.write32(wc + 4, proc);
+    cpu.write32(wc + 36, text("Game"));
+    CHECK(!cpu.call(fn("USER32.dll", "RegisterClassA"), {wc}, r) && r != 0);
+    // A popup window (no frame) at 100,50.
+    CHECK(!cpu.call(fn("USER32.dll", "CreateWindowExA"), {0, text("Game"), 0, 0x80000000u, 100, 50, 320, 200, 0, 0, 0, 0},
+                    r) && r != 0);
+    const uint32_t hwnd = r;
+    const uint32_t msg = process.memory().alloc(28);
+    auto next = [&]() -> std::array<uint32_t, 4> {
+        if (cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) || !r)
+            return {0, 0, 0, 0};
+        return {cpu.read32(msg), cpu.read32(msg + 4), cpu.read32(msg + 8), cpu.read32(msg + 12)};
+    };
+    process.mouseMoveTo(130, 70);
+    CHECK((next() == std::array<uint32_t, 4>{hwnd, 0x200, 0, 30 | 20u << 16}));
+    process.mouseButton(0, true);
+    CHECK((next() == std::array<uint32_t, 4>{hwnd, 0x201, 1, 30 | 20u << 16}));
+    process.mouseButton(0, false);
+    CHECK(next()[1] == 0x202);
+    now += 200;
+    process.mouseButton(0, true); // soon after, in the same place: a double click
+    CHECK(next()[1] == 0x203);
+    process.mouseButton(0, false);
+    now += 1000;
+    process.mouseButton(0, true); // too late for one
+    CHECK(next()[1] == 0x202 && next()[1] == 0x201);
+    process.mouseButton(0, false);
+    next();
+    process.key(0x41, 0x1e, true); // A
+    auto k = next();
+    CHECK(k[1] == 0x100 && k[2] == 0x41 && k[3] == (1 | 0x1eu << 16));
+    CHECK(!cpu.call(fn("USER32.dll", "GetKeyState"), {0x41}, r) && (r & 0x8000));
+    process.key(0x41, 0x1e, false);
+    k = next();
+    CHECK(k[1] == 0x101 && k[3] == (1 | 0x1eu << 16 | 3u << 30));
+    CHECK(!cpu.call(fn("USER32.dll", "GetKeyState"), {0x41}, r) && !(r & 0x8000));
+    // ClipCursor keeps the pointer in.
+    const uint32_t rc = process.memory().alloc(16);
+    for (uint32_t i = 0; i < 4; ++i)
+        cpu.write32(rc + 4 * i, i == 0 ? 100 : i == 1 ? 50 : i == 2 ? 420 : 250);
+    CHECK(!cpu.call(fn("USER32.dll", "ClipCursor"), {rc}, r) && r == 1);
+    process.mouseMoveTo(1000, 0);
+    CHECK(process.cursorX == 419 && process.cursorY == 50);
+    CHECK(!cpu.call(fn("USER32.dll", "ClipCursor"), {0}, r));
+    process.mouseMoveTo(130, 70);
+    while (next()[1]) {
+    }
+
+    // DirectInput.
+    auto guid = [&](const char* g) {
+        const uint32_t a = process.memory().alloc(16);
+        x86::ComHost::writeGuid(cpu, a, g);
+        return a;
+    };
+    auto call = [&](uint32_t self, int index, std::vector<uint32_t> args) {
+        args.insert(args.begin(), self);
+        const bool ok = !cpu.call(cpu.read32(cpu.read32(self) + 4 * uint32_t(index)), args, r);
+        CHECK(ok);
+        return r;
+    };
+    const uint32_t out = process.memory().alloc(4);
+    CHECK(!cpu.call(fn("DINPUT.dll", "DirectInputCreateA"), {0, 0x700, out, 0}, r) && r == 0);
+    const uint32_t di = cpu.read32(out);
+    CHECK(call(di, 3, {guid("{6f1d2b60-d5a0-11cf-bfc7-444553540000}"), out, 0}) == 0); // CreateDevice: the mouse
+    const uint32_t mouse = cpu.read32(out);
+    // A mouse format as c_dfDIMouse is: X, Y, Z (LONGs), four buttons (BYTEs).
+    const uint32_t objects = process.memory().alloc(7 * 16), format = process.memory().alloc(24);
+    const uint32_t axisGuids[3] = {guid("{a36d02e0-c9f3-11cf-bfc7-444553540000}"),
+                                   guid("{a36d02e1-c9f3-11cf-bfc7-444553540000}"),
+                                   guid("{a36d02e2-c9f3-11cf-bfc7-444553540000}")};
+    for (uint32_t i = 0; i < 7; ++i) {
+        const uint32_t o = objects + 16 * i;
+        cpu.write32(o, i < 3 ? axisGuids[i] : 0);
+        cpu.write32(o + 4, i < 3 ? 4 * i : 12 + (i - 3));
+        cpu.write32(o + 8, i < 3 ? 0x3 | 0xffff00u : 0xc | 0xffff00u | (i > 4 ? 0x80000000u : 0));
+    }
+    const uint32_t fmt[6] = {24, 16, 2 /* relative axes */, 16, 7, objects};
+    for (uint32_t i = 0; i < 6; ++i)
+        cpu.write32(format + 4 * i, fmt[i]);
+    CHECK(call(mouse, 11, {format}) == 0);     // SetDataFormat
+    const uint32_t state = process.memory().alloc(256);
+    CHECK(call(mouse, 9, {16, state}) == 0x8007000cu); // GetDeviceState before Acquire
+    const uint32_t prop = process.memory().alloc(20);
+    const uint32_t bufferSize[5] = {20, 16, 0, 0, 8};
+    for (uint32_t i = 0; i < 5; ++i)
+        cpu.write32(prop + 4 * i, bufferSize[i]);
+    CHECK(call(mouse, 6, {1, prop}) == 0);      // SetProperty: DIPROP_BUFFERSIZE
+    CHECK(call(mouse, 7, {}) == 0);             // Acquire
+    process.mouseMoveTo(140, 65);
+    process.mouseButton(1, true);
+    CHECK(call(mouse, 9, {16, state}) == 0);
+    CHECK(int32_t(cpu.read32(state)) == 10 && int32_t(cpu.read32(state + 4)) == -5 && cpu.read32(state + 8) == 0 &&
+          cpu.read8(state + 12) == 0 && cpu.read8(state + 13) == 0x80);
+    CHECK(call(mouse, 9, {16, state}) == 0 && cpu.read32(state) == 0); // the movement was read
+    // The buffer: X moved, Y moved, button 1 pressed.
+    const uint32_t data = process.memory().alloc(8 * 16), count = process.memory().alloc(4);
+    cpu.write32(count, 8);
+    CHECK(call(mouse, 10, {16, data, count, 0}) == 0 && cpu.read32(count) == 3);
+    CHECK(cpu.read32(data) == 0 && cpu.read32(data + 4) == 10 && cpu.read32(data + 16) == 4 &&
+          int32_t(cpu.read32(data + 20)) == -5 && cpu.read32(data + 32) == 13 && cpu.read32(data + 36) == 0x80);
+    process.mouseButton(1, false);
+
+    // The keyboard, with a format of 256 keys by scan code.
+    CHECK(call(di, 3, {guid("{6f1d2b61-d5a0-11cf-bfc7-444553540000}"), out, 0}) == 0);
+    const uint32_t keyboard = cpu.read32(out);
+    const uint32_t keys = process.memory().alloc(256 * 16), keyGuid = guid("{55728220-d33c-11cf-bfc7-444553540000}");
+    for (uint32_t i = 0; i < 256; ++i) {
+        cpu.write32(keys + 16 * i, keyGuid);
+        cpu.write32(keys + 16 * i + 4, i);
+        cpu.write32(keys + 16 * i + 8, 0x8000000cu | i << 8);
+    }
+    const uint32_t keyFmt[6] = {24, 16, 0, 256, 256, keys};
+    for (uint32_t i = 0; i < 6; ++i)
+        cpu.write32(format + 4 * i, keyFmt[i]);
+    CHECK(call(keyboard, 11, {format}) == 0);
+    CHECK(call(keyboard, 7, {}) == 0);
+    process.key(0x41, 0x1e, true);
+    CHECK(call(keyboard, 9, {256, state}) == 0 && cpu.read8(state + 0x1e) == 0x80 && cpu.read8(state + 0x1f) == 0);
+    process.key(0x41, 0x1e, false);
+    CHECK(call(keyboard, 9, {256, state}) == 0 && cpu.read8(state + 0x1e) == 0);
+}
+
 int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_tests";
     testMd5();
@@ -999,6 +1145,7 @@ int main() {
     testMsvcp60(tmp / "msvcp60");
     testWindowsAndRegistry();
     testDirectX();
+    testInput();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

@@ -33,52 +33,6 @@ public:
     uint32_t size(uint32_t address) const;
     uint32_t freeBytes() const;
 
-    // Threads the program started, which aren't run yet: their start
-    // addresses and arguments.
-    std::vector<std::pair<uint32_t, uint32_t>> threadsNotRun;
-
-    // --- Windows and messages (USER32, GDI32) -----------------------------------
-    // The desktop the program sees.
-    int screenWidth = 800, screenHeight = 600, screenBits = 16;
-    struct Window {
-        std::string className, title;
-        uint32_t proc = 0; // its window procedure
-        uint32_t style = 0, exStyle = 0;
-        int x = 0, y = 0, width = 0, height = 0; // the whole window, on the screen
-        bool visible = false;
-    };
-    const Window* window(uint32_t handle) const;
-    // A window's client area on the screen: left, top, width, height.
-    std::optional<std::array<int, 4>> clientArea(uint32_t handle) const;
-    // The first window the program made that's still there; 0 if none.
-    uint32_t mainWindow() const;
-    // Queues a message as PostMessageA does: how the engine passes input on.
-    void postMessage(uint32_t window, uint32_t message, uint32_t wParam, uint32_t lParam);
-    // Calls a window's procedure as SendMessageA does; 0 if there's no such window.
-    uint32_t sendMessage(uint32_t window, uint32_t message, uint32_t wParam, uint32_t lParam);
-    // The mouse pointer, on the screen.
-    int cursorX = 0, cursorY = 0;
-    // Called when the program looks for a message and none is queued.
-    std::function<void()> idle;
-    // What MessageBoxA shows: by default, passed to `output`.
-    std::function<void(const std::string& caption, const std::string& text)> messageBox;
-
-    // --- The registry (ADVAPI32) ------------------------------------------------
-    // Keys are full paths from a root ("HKEY_LOCAL_MACHINE\\Software\\..."),
-    // matched ignoring case. Values set by the program stay in memory;
-    // `registryWritten` tells the engine, to keep them if it wants.
-    void setRegistryValue(const std::string& key, const std::string& name, uint32_t type, std::vector<uint8_t> data);
-    void setRegistryString(const std::string& key, const std::string& name, const std::string& text);
-    std::optional<std::vector<uint8_t>> registryValue(const std::string& key, const std::string& name,
-                                                      uint32_t* type = nullptr) const;
-    std::function<void(const std::string& key, const std::string& name)> registryWritten;
-
-    // --- COM (ole32) --------------------------------------------------------------
-    // Makes the object CoCreateInstance asks for (its class and interface as
-    // "{xxxxxxxx-...}"), writing its address to `out`; returns the HRESULT.
-    // Without it, no class is registered.
-    std::function<uint32_t(const std::string& clsid, const std::string& iid, uint32_t out)> createComObject;
-
 private:
     Cpu& cpu_;
     std::map<uint32_t, uint32_t> free_, used_; // start -> size
@@ -203,10 +157,13 @@ public:
         uint32_t style = 0, exStyle = 0;
         int x = 0, y = 0, width = 0, height = 0; // the whole window, on the screen
         bool visible = false;
+        uint32_t classStyle = 0; // its class's (CS_DBLCLKS: it gets double clicks)
     };
     const Window* window(uint32_t handle) const;
     // A window's client area on the screen: left, top, width, height.
     std::optional<std::array<int, 4>> clientArea(uint32_t handle) const;
+    // Moves and sizes a window (as SetWindowPos does).
+    void moveWindow(uint32_t handle, int x, int y, int width, int height);
     // The first window the program made that's still there; 0 if none.
     uint32_t mainWindow() const;
     // Queues a message as PostMessageA does: how the engine passes input on.
@@ -217,6 +174,26 @@ public:
     int cursorX = 0, cursorY = 0;
     // Called when the program looks for a message and none is queued.
     std::function<void()> idle;
+    // --- Input, as the engine passes it on ---------------------------------------
+    // The pointer moved to (x, y) on the screen (kept within ClipCursor's
+    // rectangle): WM_MOUSEMOVE to the main window, in its client
+    // coordinates, with the buttons held.
+    void mouseMoveTo(int x, int y);
+    // A mouse button (0 left, 1 right, 2 middle) pressed or released where
+    // the pointer is; a second press soon after, near the first, is a
+    // double click for a window whose class asks for them.
+    void mouseButton(int button, bool down);
+    // The wheel turned, in WHEEL_DELTA units (120 a notch; forward positive).
+    void mouseWheel(int delta);
+    // A key pressed or released: its virtual-key code and its scan code.
+    void key(uint32_t virtualKey, uint32_t scanCode, bool down);
+    // The same input as raw devices see it (DirectInput listens).
+    struct RawInput {
+        enum class Kind { Motion, Button, Wheel, Key } kind;
+        int a = 0, b = 0; // Motion: dx, dy; Button: button, down; Wheel: delta; Key: scan code, down
+    };
+    std::vector<std::function<void(const RawInput&)>> rawInput;
+
     // What MessageBoxA shows: by default, passed to `output`.
     std::function<void(const std::string& caption, const std::string& text)> messageBox;
 
@@ -255,7 +232,19 @@ private:
     void addSystemStandIns();
     void addUserStandIns();
     void addRegistryStandIns();
-    std::map<std::string, uint32_t> classes_; // lower-case name -> window procedure
+    struct WindowClass {
+        uint32_t proc = 0, style = 0;
+    };
+    std::map<std::string, WindowClass> classes_; // by lower-case name
+    uint32_t buttons_ = 0;                      // MK_ flags held
+    std::array<uint8_t, 256> keysDown_{};        // by virtual key
+    std::optional<std::array<int, 4>> clip_;     // ClipCursor's: left, top, right, bottom
+    uint32_t lastClickTime_ = 0;
+    int lastClickButton_ = -1, lastClickX_ = 0, lastClickY_ = 0;
+    void notify(const RawInput& r) {
+        for (const auto& f : rawInput)
+            f(r);
+    }
     std::map<uint32_t, Window> windows_;
     uint32_t nextWindow_ = 0x10010;
     struct Message {

@@ -5,6 +5,7 @@
 
 #include "common/types.h"
 #include "common/x86/cpu.h"
+#include "common/x86/directx/dinput.h"
 #include "common/x86/directx/directx.h"
 #include "common/x86/win32.h"
 
@@ -49,6 +50,7 @@ private:
     std::unique_ptr<x86::Cpu> cpu_;
     std::unique_ptr<x86::Win32Process> process_;
     std::unique_ptr<x86::DirectX> directX_;
+    std::unique_ptr<x86::DirectInput> directInput_;
     std::vector<std::string> order_;
     std::vector<const x86::Win32Process::Module*> modules_;
 };

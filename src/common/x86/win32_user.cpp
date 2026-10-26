@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <cstring>
 
 namespace reluva::x86 {
@@ -71,6 +72,96 @@ std::optional<std::array<int, 4>> Win32Process::clientArea(uint32_t handle) cons
                               std::max(0, w->height - f.top - f.bottom)};
 }
 
+// --- Input
+
+namespace {
+constexpr uint32_t kWmMouseMove = 0x200, kWmLButtonDown = 0x201, kWmLButtonDblClk = 0x203, kWmMouseWheel = 0x20a,
+                   kWmKeyUp = 0x101;
+constexpr uint32_t kCsDblClks = 0x8;
+constexpr uint32_t kDoubleClickMs = 500;
+constexpr int kDoubleClickDistance = 4;
+// MK_ flags for buttons 0, 1, 2.
+constexpr uint32_t kButtonFlags[3] = {0x1, 0x2, 0x10};
+uint32_t point(int x, int y) { return uint32_t(uint16_t(int16_t(x))) | uint32_t(uint16_t(int16_t(y))) << 16; }
+} // namespace
+
+void Win32Process::mouseMoveTo(int x, int y) {
+    if (clip_) {
+        x = std::clamp(x, (*clip_)[0], std::max((*clip_)[0], (*clip_)[2] - 1));
+        y = std::clamp(y, (*clip_)[1], std::max((*clip_)[1], (*clip_)[3] - 1));
+    }
+    const int dx = x - cursorX, dy = y - cursorY;
+    cursorX = x, cursorY = y;
+    if (dx || dy)
+        notify({RawInput::Kind::Motion, dx, dy});
+    if (const uint32_t w = mainWindow())
+        if (auto area = clientArea(w))
+            postMessage(w, kWmMouseMove, buttons_, point(x - (*area)[0], y - (*area)[1]));
+}
+
+void Win32Process::mouseButton(int button, bool down) {
+    if (button < 0 || button > 2)
+        return;
+    const uint32_t flag = kButtonFlags[button];
+    if (down)
+        buttons_ |= flag;
+    else
+        buttons_ &= ~flag;
+    keysDown_[button == 0 ? 1 : button == 1 ? 2 : 4] = down;
+    notify({RawInput::Kind::Button, button, down});
+    const uint32_t w = mainWindow();
+    auto area = w ? clientArea(w) : std::nullopt;
+    if (!area)
+        return;
+    // WM_LBUTTONDOWN/UP/DBLCLK, then the right button's three, then the
+    // middle's.
+    uint32_t message = kWmLButtonDown + 3 * uint32_t(button) + (down ? 0 : 1);
+    if (down) {
+        const uint32_t now = milliseconds();
+        if ((window(w)->classStyle & kCsDblClks) && lastClickButton_ == button &&
+            now - lastClickTime_ <= kDoubleClickMs && std::abs(cursorX - lastClickX_) <= kDoubleClickDistance &&
+            std::abs(cursorY - lastClickY_) <= kDoubleClickDistance) {
+            message = kWmLButtonDblClk + 3 * uint32_t(button);
+            lastClickButton_ = -1;
+        } else {
+            lastClickButton_ = button;
+            lastClickTime_ = now;
+            lastClickX_ = cursorX, lastClickY_ = cursorY;
+        }
+    }
+    postMessage(w, message, buttons_, point(cursorX - (*area)[0], cursorY - (*area)[1]));
+}
+
+void Win32Process::mouseWheel(int delta) {
+    notify({RawInput::Kind::Wheel, delta, 0});
+    if (const uint32_t w = mainWindow())
+        postMessage(w, kWmMouseWheel, buttons_ | uint32_t(uint16_t(int16_t(delta))) << 16, point(cursorX, cursorY));
+}
+
+// WM_KEYDOWN and WM_KEYUP: lParam has the repeat count (1), the scan
+// code, and for a release the previous-state and transition bits.
+void Win32Process::key(uint32_t virtualKey, uint32_t scanCode, bool down) {
+    const bool was = keysDown_[virtualKey & 0xff] != 0;
+    keysDown_[virtualKey & 0xff] = down;
+    notify({RawInput::Kind::Key, int(scanCode), down});
+    const uint32_t w = mainWindow();
+    if (!w)
+        return;
+    uint32_t lParam = 1 | (scanCode & 0xff) << 16 | (scanCode & 0x100 ? 1u << 24 : 0); // 0x100: an extended key
+    if (down && was)
+        lParam |= 1u << 30;
+    if (!down)
+        lParam |= 3u << 30;
+    postMessage(w, down ? kWmKeyDown : kWmKeyUp, virtualKey, lParam);
+}
+
+void Win32Process::moveWindow(uint32_t handle, int x, int y, int width, int height) {
+    auto it = windows_.find(handle);
+    if (it == windows_.end())
+        return;
+    it->second.x = x, it->second.y = y, it->second.width = width, it->second.height = height;
+}
+
 uint32_t Win32Process::mainWindow() const { return windows_.empty() ? 0 : windows_.begin()->first; }
 
 void Win32Process::postMessage(uint32_t window, uint32_t message, uint32_t wParam, uint32_t lParam) {
@@ -111,7 +202,7 @@ void Win32Process::addUserStandIns() {
         const std::string name = lower(c.string(c.read32(p + 36)));
         if (name.empty() || classes_.count(name))
             return 0u;
-        classes_[name] = c.read32(p + 4);
+        classes_[name] = {c.read32(p + 4), c.read32(p)};
         return uint32_t(0xc000 + classes_.size()); // an atom
     });
     // CreateWindowExA: WM_NCCREATE then WM_CREATE go to the procedure, with
@@ -136,7 +227,8 @@ void Win32Process::addUserStandIns() {
         Window& win = windows_[handle];
         win.className = c.string(className);
         win.title = title ? c.string(title) : std::string();
-        win.proc = cls->second;
+        win.proc = cls->second.proc;
+        win.classStyle = cls->second.style;
         win.style = style & ~kWsVisible;
         win.exStyle = exStyle;
         win.x = x, win.y = y, win.width = w, win.height = h;
@@ -378,14 +470,25 @@ void Win32Process::addUserStandIns() {
     });
     // ShowCursor(show): the display count after counting up or down.
     stdcall(u, "ShowCursor", 1, [this](Cpu& c) { return uint32_t(cursorShown_ += c.arg(0) ? 1 : -1); });
+    // ClipCursor(rect or 0): keeps the pointer within the rectangle.
     stdcall(u, "ClipCursor", 1, [this](Cpu& c) {
         if (c.arg(0) && c.valid(c.arg(0), 16)) {
             const uint32_t p = c.arg(0);
-            cursorX = std::clamp(cursorX, int(int32_t(c.read32(p))), int(int32_t(c.read32(p + 8))) - 1);
-            cursorY = std::clamp(cursorY, int(int32_t(c.read32(p + 4))), int(int32_t(c.read32(p + 12))) - 1);
+            clip_ = std::array<int, 4>{int32_t(c.read32(p)), int32_t(c.read32(p + 4)), int32_t(c.read32(p + 8)),
+                                       int32_t(c.read32(p + 12))};
+            cursorX = std::clamp(cursorX, (*clip_)[0], std::max((*clip_)[0], (*clip_)[2] - 1));
+            cursorY = std::clamp(cursorY, (*clip_)[1], std::max((*clip_)[1], (*clip_)[3] - 1));
+        } else {
+            clip_.reset();
         }
         return 1u;
     });
+    // GetKeyState and GetAsyncKeyState(key): the top bit while it's down.
+    auto keyState = [this](Cpu& c) {
+        return keysDown_[c.arg(0) & 0xff] ? 0xffff8000u : 0u; // the mouse buttons are VK_LBUTTON and the like
+    };
+    stdcall(u, "GetKeyState", 1, keyState);
+    stdcall(u, "GetAsyncKeyState", 1, keyState);
 
     // --- Device contexts
     stdcall(u, "GetDC", 1, [](Cpu& c) { return kDeviceContext + (c.arg(0) & 0xffff); });

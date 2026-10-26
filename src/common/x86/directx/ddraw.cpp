@@ -222,6 +222,7 @@ std::optional<uint32_t> DirectDraw::invoke(const ComInterface& iface, int index,
     if (m == "SetCooperativeLevel") {
         s->window = c.arg(1);
         s->exclusive = (c.arg(2) & kScExclusive) != 0;
+        s->noWindowChanges = (c.arg(2) & 0x4) != 0; // DDSCL_NOWINDOWCHANGES
         return kDDOk;
     }
     if (m == "SetDisplayMode") {
@@ -230,11 +231,27 @@ std::optional<uint32_t> DirectDraw::invoke(const ComInterface& iface, int index,
         if (std::none_of(modes.begin(), modes.end(),
                          [&](const DirectX::Mode& mode) { return mode.width == w && mode.height == h && mode.bits == bits; }))
             return kDDErrInvalidMode;
+        // The desktop becomes the mode, and a fullscreen program's window
+        // covers it.
+        if (!s->desktopWidth) {
+            s->desktopWidth = s->process.screenWidth;
+            s->desktopHeight = s->process.screenHeight;
+            s->desktopBits = s->process.screenBits;
+        }
         s->width = w, s->height = h, s->bits = bits;
+        s->process.screenWidth = w, s->process.screenHeight = h, s->process.screenBits = bits;
+        if (s->exclusive && !s->noWindowChanges && s->window)
+            s->process.moveWindow(s->window, 0, 0, w, h);
         return kDDOk;
     }
     if (m == "RestoreDisplayMode") {
         s->width = s->height = s->bits = 0;
+        if (s->desktopWidth) {
+            s->process.screenWidth = s->desktopWidth;
+            s->process.screenHeight = s->desktopHeight;
+            s->process.screenBits = s->desktopBits;
+            s->desktopWidth = 0;
+        }
         return kDDOk;
     }
     if (m == "GetAvailableVidMem") {
