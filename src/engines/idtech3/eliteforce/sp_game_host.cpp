@@ -250,7 +250,7 @@ void SpGameHost::startVoice(int32_t entity, const std::string& name) {
         log("voice not counted: entity " + std::to_string(entity) + ", sound '" + name + "'");
         return;
     }
-    auto sound = soundLibrary_.get(name);
+    auto sound = soundLibrary_.find(name);
     if (!sound || sound->rate <= 0 || sound->frames() == 0) {
         log("voice not counted: " + name + " couldn't be read (entity " + std::to_string(entity) + ")");
         return;
@@ -945,7 +945,7 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
         double ms = 0;
         const std::string& name = sounds_.name(int32_t(a(0)));
         if (!name.empty())
-            if (auto sound = soundLibrary_.get(name); sound && sound->rate > 0)
+            if (auto sound = soundLibrary_.find(name); sound && sound->rate > 0)
                 ms = double(sound->frames()) / double(sound->rate) * 1000.0;
         c.fpuPush(ms);
         return 0;

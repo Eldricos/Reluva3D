@@ -24,6 +24,9 @@ public:
 
     // The sound, or nullptr (missing or undecodable).
     std::shared_ptr<const audio::Sound> get(std::string_view name);
+    // As get, but also tried without its extension or with the other one
+    // (.wav, .mp3): the games ask for "x.wav" where only "x.mp3" is shipped.
+    std::shared_ptr<const audio::Sound> find(std::string_view name);
 
     size_t loaded() const { return sounds_.size(); }
     // Names that failed, with why.

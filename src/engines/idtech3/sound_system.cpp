@@ -22,17 +22,8 @@ constexpr float kAttenuation = 0.0008f;
 std::shared_ptr<const audio::Sound> SoundSystem::find(const std::string& name) {
     if (name.empty())
         return nullptr;
-    if (auto sound = sounds_.get(name))
+    if (auto sound = sounds_.find(name))
         return sound;
-    // Without an extension, or with the other one: the formats the games
-    // use.
-    const size_t slash = name.rfind('/');
-    const size_t dot = name.find('.', slash == std::string::npos ? 0 : slash);
-    const std::string stem = dot == std::string::npos ? name : name.substr(0, dot);
-    for (const char* ext : {".wav", ".mp3"})
-        if (stem + ext != name)
-            if (auto sound = sounds_.get(stem + ext))
-                return sound;
     missing_.insert(name);
     return nullptr;
 }
