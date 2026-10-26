@@ -16,6 +16,7 @@
 #include "common/archive.h"
 #include "common/image.h"
 #include "common/system.h"
+#include "common/video/bink_file.h"
 
 #include <algorithm>
 #include <cmath>
@@ -451,11 +452,55 @@ int cmdAweCamera(int argc, char** argv) {
     return worst < 0.01f ? 0 : 1;
 }
 
+// A Bink file's header, audio tracks and frames.
+int cmdBinkInfo(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool bink-info <file.bik> [-frames]\n");
+        return 2;
+    }
+    std::vector<uint8_t> data;
+    if (!readFile(argv[2], data))
+        return 1;
+    reluva::video::BinkFile bink;
+    if (reluva::Error e = bink.open(std::move(data))) {
+        std::fprintf(stderr, "%s\n", e.message.c_str());
+        return 1;
+    }
+    std::printf("Bink revision '%c': %dx%d, %zu frames at %u/%u (%.3f fps), flags 0x%08x%s%s, largest frame %u bytes\n",
+                bink.revision(), bink.width(), bink.height(), bink.frameCount(), bink.fpsNumerator(),
+                bink.fpsDenominator(), bink.fps(), bink.flags(), bink.hasAlpha() ? " (alpha)" : "",
+                bink.grayscale() ? " (grey)" : "", bink.largestFrame());
+    for (const reluva::video::BinkAudioTrack& t : bink.audioTracks())
+        std::printf("  audio track %u: %d Hz, %d channel%s, %s, flags 0x%04x\n", t.id, t.sampleRate, t.channels,
+                    t.channels == 1 ? "" : "s", t.dct ? "DCT" : "FFT", t.flags);
+    const bool list = argc > 3 && std::strcmp(argv[3], "-frames") == 0;
+    size_t keyframes = 0, videoBytes = 0, audioBytes = 0, decoded = 0;
+    for (size_t i = 0; i < bink.frameCount(); i++) {
+        reluva::video::BinkFile::Frame f;
+        if (reluva::Error e = bink.frame(i, f)) {
+            std::fprintf(stderr, "%s\n", e.message.c_str());
+            return 1;
+        }
+        keyframes += f.keyframe;
+        videoBytes += f.video.size;
+        for (size_t t = 0; t < f.audio.size(); t++)
+            audioBytes += f.audio[t].size, decoded += f.audioBytes[t];
+        if (list)
+            std::printf("  frame %4zu%s: video %6zu bytes, audio %6zu bytes (%u bytes decoded)\n", i, f.keyframe ? " key" : "    ",
+                        f.video.size, f.audio.empty() ? 0 : f.audio[0].size, f.audioBytes.empty() ? 0 : f.audioBytes[0]);
+    }
+    std::printf("%zu keyframes; video %zu bytes, audio %zu bytes (%zu bytes decoded)\n", keyframes, videoBytes, audioBytes,
+                decoded);
+    return 0;
+}
+
 } // namespace
 
 int aweToolCommand(int argc, char** argv) {
     if (argc >= 2 && std::strcmp(argv[1], "gr2-info") == 0)
         return cmdGr2Info(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "bink-info") == 0)
+        return cmdBinkInfo(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "awe-camera") == 0)
         return cmdAweCamera(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "awe-check") == 0)
@@ -474,6 +519,7 @@ int aweToolCommand(int argc, char** argv) {
 const char* aweToolUsage() {
     return "  reluva-tool awe-check <game folder> [-gr2|-ac2|-text] [-only text] [-textures] [-j threads] [-v]\n"
            "  reluva-tool awe-camera <game folder> <scene.ac2> [x y z]...\n"
+           "  reluva-tool bink-info <file.bik> [-frames]\n"
            "  reluva-tool gr2-info <file.gr2> [-t] [-n elements] [-dll granny2.dll]\n"
            "  reluva-tool awe-table <file.txt>\n"
            "  reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds> <out.tga> [key...]\n"
