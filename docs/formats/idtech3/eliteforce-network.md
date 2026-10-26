@@ -741,8 +741,17 @@ map load; it seeds the pure checksums of both sides.
 
 ## Master server
 
-For later. Elite Force's masters spoke Quake III's master protocol with
-Raven's twists:
+Done in Reluva (`server_browser.cpp`, `net_server.cpp`), and seen working
+in October 2026: Raven's master doesn't answer; the community's
+`efmaster.tjps.eu`, `master.stvef.org` and `master.stef1.daggolin.de`
+answer `getservers 24` (in lower or upper case hexadecimal), list a
+Reluva public server after its heartbeat, and are dpmaster: they leave out
+empty and full servers unless the query asks for them (`full empty`, which
+Reluva always adds), check on a server with `getinfo`, and don't answer
+`getservers EliteForce 24` except the first. The client reports the
+Internet list's count as -1 until a master answers, as the original's
+does, which the menus wait on. Elite Force's masters spoke Quake III's
+master protocol with Raven's twists:
 
 - Master: `master.stef1.ravensoft.com`, port 27953 (Raven's, gone;
   Lilium's second default is a community master, `efmaster.tjps.eu`).
