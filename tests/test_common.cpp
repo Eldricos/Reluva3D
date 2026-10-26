@@ -21,6 +21,7 @@
 #include "common/net.h"
 #include "common/text.h"
 #include "common/x86/cpu.h"
+#include "common/x86/msvcp60.h"
 #include "common/x86/msvcrt.h"
 #include "common/x86/win32.h"
 #include "common/zip.h"
@@ -581,6 +582,157 @@ static void testMsvcrtAndFiles(const std::filesystem::path& tmp) {
     CHECK(!cpu.call(fn("KERNEL32.dll", "GetVolumeInformationA"), {text("D:\\"), label, 32, 0, 0, 0, 0, 0}, r) && r == 1 &&
           cpu.string(label) == "LEGOATEN");
     CHECK(!cpu.call(fn("KERNEL32.dll", "GetDriveTypeA"), {text("D:\\")}, r) && r == 5);
+
+    // MulDiv rounds half away from zero; date and time text from a
+    // SYSTEMTIME (2001-02-03, a Saturday, 14:05:09).
+    CHECK(!cpu.call(fn("KERNEL32.dll", "MulDiv"), {10, 3, 4}, r) && r == 8);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "MulDiv"), {uint32_t(-10), 3, 4}, r) && r == uint32_t(-8));
+    CHECK(!cpu.call(fn("KERNEL32.dll", "MulDiv"), {1, 2, 0}, r) && r == 0xffffffffu);
+    const uint32_t st = process.memory().alloc(16);
+    const uint16_t when[8] = {2001, 2, 6, 3, 14, 5, 9, 0};
+    for (int i = 0; i < 8; ++i)
+        cpu.write16(st + 2 * i, when[i]);
+    const uint32_t out = process.memory().alloc(64);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetDateFormatA"), {0x409, 0, st, 0, out, 64}, r) && r == 9 &&
+          cpu.string(out) == "2/3/2001");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetDateFormatA"), {0x409, 2, st, 0, out, 64}, r) &&
+          cpu.string(out) == "Saturday, February 03, 2001");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetTimeFormatA"), {0x409, 0, st, 0, out, 64}, r) &&
+          cpu.string(out) == "2:05:09 PM");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetTimeFormatA"), {0x409, 0, st, text("HH'h'mm"), out, 0}, r) && r == 6);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "QueryPerformanceFrequency"), {out}, r) && r == 1 && cpu.read32(out) == 1000000);
+}
+
+// Reluva's MSVCP60.dll, called as the games call it: strings in Visual C++
+// 6's layout, a file stream reading lines, a growing string stream buffer
+// and cerr.
+static void testMsvcp60(const std::filesystem::path& tmp) {
+    std::filesystem::create_directories(tmp / "Game");
+    std::ofstream(tmp / "Game" / "Lines.txt", std::ios::binary) << "first line\nsecond\n";
+    x86::Cpu cpu(64u << 20);
+    x86::Win32Process process(cpu);
+    process.setProgram("Prog.exe", "C:\\Game\\");
+    process.mapPath = [&](const std::string& path, bool forWriting) -> std::optional<std::filesystem::path> {
+        if (forWriting || path.rfind("C:\\Game\\", 0) != 0)
+            return std::nullopt;
+        return fs::findFile(tmp / "Game", path.substr(8)).value_or(tmp / "Game" / "missing");
+    };
+    std::string output;
+    process.output = [&](const std::string& text) { output += text; };
+    x86::addMsvcrt(process);
+    const x86::Win32Process::Module* lib = nullptr;
+    CHECK(!x86::loadMsvcp60(process, lib));
+    if (!lib)
+        return;
+    CHECK(!process.attach(*lib));
+    CHECK(process.missingImports().empty());
+    auto fn = [&](const char* name) {
+        const uint32_t a = lib->exportAddress(name);
+        CHECK(a != 0);
+        return a;
+    };
+    auto text = [&](const std::string& s) {
+        const uint32_t a = process.memory().alloc(uint32_t(s.size() + 1));
+        cpu.writeString(a, s, uint32_t(s.size() + 1));
+        return a;
+    };
+    uint32_t r = 0;
+    auto method = [&](uint32_t self, const char* name, std::vector<uint32_t> args) {
+        cpu.reg[x86::Cpu::ECX] = self;
+        const bool ok = !cpu.call(fn(name), args, r);
+        CHECK(ok);
+        return r;
+    };
+    // string: the characters at +4, length +8, capacity +12, a 0 count
+    // before them.
+    const char* kCtorChars = "??0?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QAE@PBDABV?$allocator@D@1@@Z";
+    const char* kAppend = "?append@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QAEAAV12@PBDI@Z";
+    const char* kFind = "?find@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QBEIPBDII@Z";
+    const char* kSubstr = "?substr@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QBE?AV12@II@Z";
+    const char* kErase = "?erase@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QAEAAV12@II@Z";
+    const char* kFreeze = "?_Freeze@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AAEXXZ";
+    const char* kDtor = "??1?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QAE@XZ";
+    const char* kEq = "??8std@@YA_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@0@PBD@Z";
+    const char* kRfind = "?rfind@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QBEIPBDII@Z";
+    const uint32_t s1 = process.memory().alloc(16), s2 = process.memory().alloc(16);
+    method(s1, kCtorChars, {text("hello world"), 0});
+    auto chars = [&](uint32_t s) { return cpu.read32(s + 4) ? cpu.string(cpu.read32(s + 4)) : std::string(); };
+    CHECK(chars(s1) == "hello world" && cpu.read32(s1 + 8) == 11 && cpu.read32(s1 + 12) >= 11 &&
+          cpu.read8(cpu.read32(s1 + 4) - 1) == 0);
+    method(s1, kAppend, {text(", again and again"), 17});
+    CHECK(chars(s1) == "hello world, again and again" && cpu.read32(s1 + 8) == 28);
+    CHECK(method(s1, kFind, {text("again"), 0, 5}) == 13 && method(s1, kRfind, {text("again"), 0xffffffffu, 5}) == 23);
+    CHECK(method(s1, kFind, {text("absent"), 0, 6}) == 0xffffffffu);
+    cpu.reg[x86::Cpu::ECX] = s1;
+    CHECK(method(s1, kSubstr, {s2, 6, 5}) == s2 && chars(s2) == "world");
+    CHECK(!cpu.call(fn(kEq), {s2, text("world")}, r) && (r & 0xff) == 1);
+    method(s1, kErase, {5, 0xffffffffu});
+    CHECK(chars(s1) == "hello" && cpu.read32(s1 + 8) == 5);
+    method(s1, kFreeze, {});
+    CHECK(cpu.read8(cpu.read32(s1 + 4) - 1) == 255);
+    method(s1, kDtor, {});
+    method(s2, kDtor, {});
+    CHECK(cpu.read32(s1 + 4) == 0 && cpu.read32(s2 + 8) == 0);
+
+    // ifstream: the ios at +0x5c, its state at +4; lines, then bytes.
+    const uint32_t in = process.memory().alloc(0x5c + 0x34);
+    method(in, "??0?$basic_ifstream@DU?$char_traits@D@std@@@std@@QAE@PBDH@Z", {text("C:\\Game\\Lines.txt"), 1, 1});
+    const uint32_t ios = in + cpu.read32(cpu.read32(in) + 4);
+    CHECK(ios == in + 0x5c && cpu.read32(ios + 4) == 0 && cpu.read32(in + 8 + 0x50) != 0);
+    CHECK(cpu.read32(ios) == lib->exportAddress("??_7?$basic_ifstream@DU?$char_traits@D@std@@@std@@6B@"));
+    const uint32_t buffer = process.memory().alloc(64);
+    method(in, "?getline@?$basic_istream@DU?$char_traits@D@std@@@std@@QAEAAV12@PADHD@Z", {buffer, 64, '\n'});
+    CHECK(cpu.string(buffer) == "first line" && cpu.read32(in + 4) == 11 && cpu.read32(ios + 4) == 0);
+    method(in, "?read@?$basic_istream@DU?$char_traits@D@std@@@std@@QAEAAV12@PADH@Z", {buffer, 3});
+    CHECK(cpu.string(buffer, 3) == "sec" && cpu.read32(in + 4) == 3);
+    CHECK(method(in, "?get@?$basic_istream@DU?$char_traits@D@std@@@std@@QAEHXZ", {}) == 'o');
+    method(in, "?read@?$basic_istream@DU?$char_traits@D@std@@@std@@QAEAAV12@PADH@Z", {buffer, 10});
+    CHECK(cpu.read32(in + 4) == 3 && cpu.read32(ios + 4) == 3); // "nd\n", then eof and fail
+    method(in, "??_D?$basic_ifstream@DU?$char_traits@D@std@@@std@@QAEXXZ", {});
+    const uint32_t missing = process.memory().alloc(0x5c + 0x34);
+    method(missing, "??0?$basic_ifstream@DU?$char_traits@D@std@@@std@@QAE@PBDH@Z", {text("C:\\Game\\No.txt"), 1, 1});
+    CHECK(cpu.read32(missing + 0x5c + 4) == 2);
+
+    // A strstreambuf as the games build one: the base constructor, their
+    // own vftable of the library's functions, then _Init (here growing as
+    // it's written).
+    const uint32_t sb = process.memory().alloc(0x50);
+    method(sb, "??0?$basic_streambuf@DU?$char_traits@D@std@@@std@@IAE@XZ", {});
+    const uint32_t vft = process.memory().alloc(13 * 4), base = cpu.read32(sb);
+    for (int i = 0; i < 13; ++i)
+        cpu.write32(vft + 4 * i, cpu.read32(base + 4 * i));
+    cpu.write32(vft + 4 * 1, fn("?overflow@strstreambuf@std@@MAEHH@Z"));
+    cpu.write32(vft + 4 * 2, fn("?pbackfail@strstreambuf@std@@MAEHH@Z"));
+    cpu.write32(vft + 4 * 4, fn("?underflow@strstreambuf@std@@MAEHXZ"));
+    cpu.write32(vft + 4 * 8, fn("?seekoff@strstreambuf@std@@MAE?AV?$fpos@H@2@JW4seekdir@ios_base@2@H@Z"));
+    cpu.write32(vft + 4 * 9, fn("?seekpos@strstreambuf@std@@MAE?AV?$fpos@H@2@V32@H@Z"));
+    cpu.write32(sb, vft);
+    method(sb, "?_Init@strstreambuf@std@@IAEXHPAD0H@Z", {0, 0, 0, 0});
+    const std::string long_ = "0123456789abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    CHECK(method(sb, "?xsputn@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MAEHPBDH@Z",
+                 {text(long_), uint32_t(long_.size())}) == long_.size());
+    const uint32_t back = process.memory().alloc(128);
+    CHECK(method(sb, "?xsgetn@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MAEHPADH@Z", {back, 128}) == long_.size() &&
+          cpu.string(back, uint32_t(long_.size())) == long_);
+    const uint32_t pos = process.memory().alloc(24);
+    method(sb, "?seekoff@strstreambuf@std@@MAE?AV?$fpos@H@2@JW4seekdir@ios_base@2@H@Z", {pos, 10, 0, 1});
+    CHECK(cpu.read32(pos) == 10);
+    CHECK(method(sb, "?xsgetn@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MAEHPADH@Z", {back, 3}) == 3 &&
+          cpu.string(back, 3) == "abc");
+    method(sb, "??1strstreambuf@std@@UAE@XZ", {});
+
+    // cerr << "n = " << 42 << " x = " << 1.5f << endl
+    const uint32_t cerr = fn("?cerr@std@@3V?$basic_ostream@DU?$char_traits@D@std@@@1@A");
+    const uint32_t putChars = fn("??6std@@YAAAV?$basic_ostream@DU?$char_traits@D@std@@@0@AAV10@PBD@Z");
+    CHECK(!cpu.call(putChars, {cerr, text("n = ")}, r) && r == cerr);
+    method(cerr, "??6?$basic_ostream@DU?$char_traits@D@std@@@std@@QAEAAV01@H@Z", {42});
+    CHECK(!cpu.call(putChars, {cerr, text(" x = ")}, r));
+    const float x = 1.5f;
+    uint32_t xbits;
+    std::memcpy(&xbits, &x, 4);
+    method(cerr, "??6?$basic_ostream@DU?$char_traits@D@std@@@std@@QAEAAV01@M@Z", {xbits});
+    CHECK(!cpu.call(fn("?endl@std@@YAAAV?$basic_ostream@DU?$char_traits@D@std@@@1@AAV21@@Z"), {cerr}, r));
+    CHECK(output == "n = 42 x = 1.5\n");
 }
 
 int main() {
@@ -602,6 +754,7 @@ int main() {
     testX86Instructions();
     testX86Dll();
     testMsvcrtAndFiles(tmp / "msvcrt");
+    testMsvcp60(tmp / "msvcp60");
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

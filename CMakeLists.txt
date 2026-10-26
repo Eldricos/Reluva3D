@@ -74,7 +74,9 @@ add_library(reluva_common STATIC
     src/common/x86/fpu.cpp
     src/common/x86/win32.cpp
     src/common/x86/win32_files.cpp
+    src/common/x86/win32_system.cpp
     src/common/x86/msvcrt.cpp
+    src/common/x86/msvcp60.cpp
     src/common/x86/format.cpp
     src/common/detection.cpp
     src/common/audio/decode.cpp

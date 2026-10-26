@@ -159,6 +159,8 @@ private:
     uint64_t startMs_ = 0;
     void addStandIns();
     void addFileStandIns();
+    void addSystemStandIns();
+    uint32_t nextEvent_ = 0;
     std::string currentFolder_ = "C:\\";
     std::map<uint32_t, OpenFile> files_;
     uint32_t nextFile_ = 0x2000;

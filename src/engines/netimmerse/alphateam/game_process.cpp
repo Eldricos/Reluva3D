@@ -5,6 +5,7 @@
 
 #include "common/fs.h"
 #include "common/pe.h"
+#include "common/x86/msvcp60.h"
 #include "common/x86/msvcrt.h"
 
 #include <algorithm>
@@ -94,7 +95,13 @@ Error GameProcess::load() {
     if (Error e = find(kProgram))
         return e;
 
-    // Each module after those it imports from.
+    // Our C++ library first (the game's DLLs import Visual C++ 6's), then
+    // each module after those it imports from.
+    const x86::Win32Process::Module* library = nullptr;
+    if (Error e = x86::loadMsvcp60(*process_, library))
+        return e;
+    order_.push_back(library->name);
+    modules_.push_back(library);
     std::set<std::string> done;
     std::function<Error(const std::string&, int)> place = [&](const std::string& key, int depth) -> Error {
         if (done.count(key))

@@ -278,26 +278,66 @@ Progress:
   last instructions (as module+offset) and the last stand-ins called.
 - Done: MSVCRT (all 79 imports, `src/common/x86/msvcrt.cpp`) and KERNEL32's
   files.
-- **Where it stops now:** at the first MSVCP60 call, `std::_Lockit` in
-  `DDPackedDirFileLib`'s static constructors, 137 instructions in.
+- Done: MSVCP60, as our own DLL (below), and the rest of KERNEL32's
+  imports (`src/common/x86/win32_system.cpp`: system information, the
+  performance counter, critical sections and events for one thread, date
+  and time text).
+- Every DLL's start-up (static constructors and `DllMain`) now runs
+  through: 130,057 instructions, NiMain's processor check included.
+- **Where it stops now:** in `WinMain`, at USER32's `FindWindowA` (the
+  check for a copy of the game already running), 139,948 instructions in.
+  USER32 (27 imports), GDI32, ADVAPI32 (the registry), ole32, DirectDraw
+  and DirectInput are next.
 
-MSVCP60 (the C++ library, 156 imports) is next. Measured from the game's
-own code:
-- Visual C++ 6's `std::string` is 16 bytes: an allocator byte, then the
-  characters' pointer, the length and the capacity. The game's inline code
-  reads them at +4 and +8 and calls the library's private helpers
-  (`_Grow`, `_Eos`, `_Split`, `_Tidy`, `_Freeze`, `_Refcnt`), so a
-  replacement must keep the same buffer protocol: a reference-count byte
-  before the characters.
-- `basic_streambuf`'s virtual functions, in order (from the game's own
-  `DDMappedFileBuf` vftable and NiMain's `strstreambuf` subclass): the
-  destructor, `overflow`, `pbackfail`, `showmanyc`, `underflow`, `uflow`,
-  `xsgetn`, `xsputn`, `seekoff`, `seekpos`, `setbuf`, `sync`, `imbue`.
-- clang targeting `i686-pc-windows-msvc` gives exactly the names the game
-  imports for our own declarations, the function-local static in
-  `_Nullstr` included. So the plan is a replacement MSVCP60 written here
-  in C++ and built with clang into a DLL, as the tests' DLL is, to run in
-  the interpreter beside the game.
+#### MSVCP60
+
+The game's code derives from the C++ library's classes, builds them
+inline and reads their fields, so stand-ins written natively (as MSVCRT's
+are) won't do: the objects have to be laid out as Visual C++ 6's were.
+`src/common/x86/runtime/msvcp60.cpp` is a replacement written here, each
+function doing what the C++ standard says. `build_msvcp60.sh` builds it
+with clang (`i686-pc-windows-msvc`, freestanding, importing only MSVCRT)
+into a DLL embedded in Reluva and loaded before the game's modules.
+`msvcp60.def` maps each of the 167 names the game imports to its function.
+clang was checked to give the same names for the same declarations, but
+plain structs at measured offsets plus the `.def` keep the layouts under
+our control. The tests call it as the game does (`testMsvcp60`).
+
+Measured from the game's code (its inline constructors, the offsets it
+reads, the vftables it builds for its own subclasses):
+
+| Class | Size | What the game touches |
+|---|---|---|
+| `string` | 16 | allocator byte, characters +4, length +8, capacity +12; a sharing count in the byte before the characters (255: frozen); calls `_Grow`, `_Copy`, `_Eos`, `_Split`, `_Freeze`, `_Refcnt`, `_Tidy` |
+| `ios_base` | 0x28 | state +4, exceptions +8, flags +0xc, precision +0x10, width +0x14, the locale pointer +0x20, the standard-stream index +0x24 (set to 0 inline) |
+| `basic_ios` | 0x34 | stream buffer +0x28, tied stream +0x2c, fill +0x30 (set to `' '` inline) |
+| `basic_streambuf` | 0x38 | get/put starts +4/+8; pointers to where the starts, next characters (+0x14, +0x18) and counts (+0x24, +0x28) are kept (+0xc, +0x10, +0x1c, +0x20, +0x2c, +0x30); locale +0x34. The get count is from the next character |
+| `basic_filebuf` | 0x54 | its own locale +0x4c, the `FILE*` +0x50 |
+| `strstreambuf` | 0x50 | built inline by NiMain, then `_Init(n, get, put, mode)` |
+| `istream`, `ostream` | 8, 4 + the ios | the vbtable pointer (the ios's offset is its second entry), the read count +4 |
+| `ifstream`, `ofstream`, `fstream` | ios at +0x5c, +0x58, +0x60 | filebuf at +8, +4, +0xc |
+| `istrstream`, `ostrstream` | ios at +0x58, +0x54 | |
+| `ctype<char>` | 0x18 | built inline by LoadComp and a behaviour DLL: the reference count +4, `_Getctype`'s 16 bytes copied to +8, the table +0x10 |
+| `fpos<int>` | 24 | offset, a 64-bit position at +8, state +16 |
+
+- Destructors and the vftable entries of the streams take `this` at the
+  ios. Constructors take a hidden last argument, whether to build the
+  ios.
+- Exported vftables, in order:
+  - `ctype<char>`: destructor, `do_tolower` (range), `do_tolower` (char),
+    `do_toupper` (range), `do_toupper` (char);
+  - `basic_streambuf`: destructor, `overflow`, `pbackfail`, `showmanyc`,
+    `underflow`, `uflow`, `xsgetn`, `xsputn`, `seekoff`, `seekpos`,
+    `setbuf`, `sync`, `imbue`.
+- Open modes: in 1, out 2, ate 4, app 8, trunc 0x10, binary 0x20. State
+  bits: eof 1, fail 2, bad 4.
+- File buffers read and write the `FILE` directly and keep no characters
+  of their own, so inline `sgetc` and similar always reach the virtual
+  functions.
+- Only the "C" locale, with `ctype<char>` its one facet.
+- `_Lockit` does nothing while the process runs one thread.
+- What would throw (`_Xlen`, `_Xran`, a stream's exception mask) prints why
+  and aborts, as exceptions aren't dispatched yet.
 
 ### 4. Playing
 
