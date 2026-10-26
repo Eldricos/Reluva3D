@@ -14,10 +14,78 @@ should serve the family, with per-game differences in a table, rather than
 one engine per game. Orient Express is built first. The other two get
 added once their file lists have been compared against it.
 
-This is a plan. Nothing here has been confirmed against the data yet. Every
-claim about a format is a guess from file names and sizes, and is marked
-as one. As each one is checked, it moves to `docs/formats/awe/` with a
-note on how it was worked out (CONTRIBUTING.md).
+This page began as a plan written from a directory listing alone. The
+sections from "What the install holds" onwards keep that plan. Where
+sample files have since confirmed or corrected it, "Where it stands"
+below says so, and the formats are written up in `docs/formats/awe/`
+with how each was worked out (CONTRIBUTING.md).
+
+## Where it stands
+
+Worked out from a set of the game's files (the executable and DLLs, three
+scenes, two Granny files, the text tables, two backgrounds):
+
+- **Detection:** `motoe.exe` and `Text/itemlist.txt` (English 1.0), with
+  a fallback for other releases.
+- **Scenes (`.ac2`): read.** The layout was read from `motoe.exe`'s
+  scene loader and each object class's load function, and checked byte
+  for byte against the samples. See
+  [../formats/awe/ac2.md](../formats/awe/ac2.md). Scenes list their
+  pictures (with screen positions and depth), hotspots (rectangles,
+  scripts, sounds), characters (model, position, animations, walk
+  points), particles, lights, videos, the camera, music and events. Many
+  fields are named only by their offset in the original's objects so far.
+- **Granny models and animations (`.gr2`): read and drawn.** Sections are
+  Oodle1-compressed and textures Bink-compressed. Both are decoded by the
+  game's own `granny2.dll` in the x86 interpreter, so the data never
+  leaves the user's copy. Skeletons, skinned meshes, textures and the
+  animation curves all work. Poirot renders textured and walking. See
+  [../formats/awe/gr2.md](../formats/awe/gr2.md).
+- **Text tables and script commands: read.** UTF-16 tab-separated
+  tables; commands split into verbs and arguments. See
+  [../formats/awe/text.md](../formats/awe/text.md).
+- **The engine is a data viewer** for now, like New Worlds and Elite Force
+  were before they played. Its pages are Scenes, Models (textured,
+  animated, with the mouse to turn and zoom), Pictures, Text and Sounds.
+  Tab moves between them.
+- **reluva-tool:**
+  - `ac2-dump` (one scene in full, or many checked to their ends);
+  - `gr2-info` (sections, and with `-t` the whole type tree);
+  - `gr2-model` (a summary, posed by an animation, written as OBJ with
+    its textures);
+  - `awe-table` (a text table with its commands split);
+  - `awe-shot` (a viewer page drawn without a window, saved as TGA).
+- **Tests:** `tests/test_awe.cpp`, on files built in the test.
+
+Corrections to the plan below:
+
+- **`.01` and `.02` backgrounds are two camera views of a room**, not a
+  picture and its mask: `Athens.1-4_1-2.01.jpg` looks at the door,
+  `.02.png` at the window. The PNG views have alpha where the windows
+  are, so the moving scenery outside (`Elements/Skies`, `Snowscapes`,
+  the blizzard videos) shows through.
+- **`.ac2` is not text.** It's the game's objects written field by field.
+  Saves use the same extension with different records.
+- **Granny animations need no curve decompression.** The 2.5 exporter
+  wrote plain B-spline curves.
+- **The model textures are inside the `.gr2` files**, Bink-compressed. The
+  folders' few JPEGs are extras.
+
+Next:
+
+1. Run sweeps over a full install: `reluva-tool ac2-dump Locations/*/*.ac2`
+   (every scene to its `DONE`) and `gr2-info` over `Models/`, to find
+   records and member types the samples didn't have.
+2. Read the camera's projection, so characters stand where they belong on
+   the backgrounds. This needs a room scene with its background. Then draw
+   the characters in the scene page, with the 3D renderer.
+3. Read the script interpreter in `motoe.exe`: the full list of verbs and
+   their arguments.
+4. A native Bink video decoder (movies, and the scenes' video loops), from
+   the MultimediaWiki description. No movie was in the samples.
+5. TrueType text for the game's own fonts.
+6. Native Oodle1 and Bink-texture decoding, checked against the DLL, to
+   load models in a fraction of the time.
 
 ## What the install holds
 

@@ -26,6 +26,10 @@ src/engines/       one directory per engine, plus registry.cpp listing them
   idtech3/         games on the Quake III Arena engine, starting with Star Trek:
                    Voyager - Elite Force: search path, shader scripts, BSP
                    maps; currently runs as a data viewer (docs/engines/idtech3.md)
+  awe/             AWE Productions' Agatha Christie games, starting with Murder
+                   on the Orient Express: scenes (.ac2), Granny 2 models and
+                   animations, text tables; currently runs as a data viewer
+                   (docs/engines/awe.md)
 src/tools/         reluva-tool, utilities for studying game data
 tests/             unit tests for common/ and the engines
 ```
@@ -43,8 +47,8 @@ cmake --build build -j
 ./build/reluva
 ```
 
-Engines are CMake options (`RELUVA_ENGINE_IDTECH3` on, `RELUVA_ENGINE_NEWWORLDS`
-off by default for now); see the build notes.
+Engines are CMake options (`RELUVA_ENGINE_IDTECH3` and `RELUVA_ENGINE_AWE` on,
+`RELUVA_ENGINE_NEWWORLDS` off by default for now); see the build notes.
 
 See **[docs/BUILDING.md](docs/BUILDING.md)** for step-by-step instructions for
 Linux (with each distro's packages) and Windows with Visual Studio 2022.
@@ -57,6 +61,12 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
 - `reluva --hash <files...>` prints detection signatures for an engine's table.
 - `reluva-tool` has developer tools for studying game data: `hexdump`,
   `cat-probe`, `cat-list` and `cat-extract` (New Worlds archives).
+- Murder on the Orient Express opens as a data viewer: **Tab** switches between
+  scenes, models, pictures, text and sounds, and each page lists its keys at
+  the bottom (scenes: **Left/Right** scene, **Up/Down** an object's fields,
+  **H** hotspots; models: **Up/Down** animation, drag and wheel to view). The
+  models need the game's `granny2.dll`, which Reluva runs in its x86
+  interpreter to decompress them.
 - In game: **Ctrl+F5** returns to the launcher, **Alt+Enter** toggles fullscreen.
 - New Worlds currently opens as a data viewer. **Tab** switches between missions, models,
   textures, maps, sounds, strings and fonts, **Left/Right** step through them and **F** cycles filters.
