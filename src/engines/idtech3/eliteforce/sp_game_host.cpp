@@ -1117,7 +1117,13 @@ Error SpGameHost::startClientGame() {
     makeSnapshot();
     syncCvars();
     uint32_t ignored = 0;
-    return cpu_->call(cgameVmMain_, {CgInit, uint32_t(snapshotNumber_)}, ignored);
+    // CG_INIT's argument is the server commands received so far (the
+    // original engine passes its client's command sequence), which the
+    // client game counts on from.
+    int32_t received = 0;
+    for (const auto& [to, text] : serverCommands_)
+        received += to == 0 || to == -1;
+    return cpu_->call(cgameVmMain_, {CgInit, uint32_t(received)}, ignored);
 }
 
 Error SpGameHost::clientThink(const UserCommand& input) {

@@ -11,8 +11,9 @@
 //
 // For now the engine is a data viewer (see viewers.h for the keys): it
 // mounts the game's search path and shows its files, textures and maps.
-// Tab switches pages; Esc goes back to the launcher (on the Menu page,
-// Ctrl+Tab and Ctrl+Esc, as the menus take Tab and Esc).
+// Ctrl+Tab switches pages (Tab itself belongs to the game: its scores, its
+// objectives); Esc goes back to the launcher (on the Menu page Ctrl+Esc,
+// as the menus take Esc).
 
 #include "common/audio/mixer.h"
 #include "common/fs.h"
@@ -116,7 +117,7 @@ public:
                 const bool pageKey = pages[page]->takesKey(ev);
                 if (ev.type == EventType::KeyDown && ev.key == key::Escape && !pageKey)
                     return Error::success();
-                if (ev.type == EventType::KeyDown && ev.key == key::Tab && !pageKey) {
+                if (ev.type == EventType::KeyDown && ev.key == key::Tab && (ev.mods & keymod::Ctrl)) {
                     size_t next = page;
                     do
                         next = (next + 1) % pages.size();

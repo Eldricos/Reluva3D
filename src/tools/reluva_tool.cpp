@@ -4065,9 +4065,11 @@ int cmdSpRun(int argc, char** argv) {
             std::printf("  %4d %s\n", index, text.substr(0, 100).c_str());
     for (const std::string& c : game.consoleCommands())
         std::printf("console command: %s", c.c_str());
+    std::printf("server commands to the player: %zu\n", game.serverCommands().size());
+    int commandsShown = 0;
     for (const auto& [client, text] : game.serverCommands())
-        if (shown++ < 80)
-            std::printf("to client %d: %s\n", client, text.substr(0, 100).c_str());
+        if (commandsShown++ < 60)
+            std::printf("  to %d: %s\n", client, text.substr(0, 100).c_str());
     std::printf("engine calls:");
     for (const auto& [slot, count] : game.callCounts())
         std::printf(" %d:%d", slot, count);

@@ -264,7 +264,7 @@ void MenuViewer::deactivate() {
 }
 
 bool MenuViewer::takesKey(const Event& ev) const {
-    // Esc and Tab belong to the menus; with Ctrl they leave, as elsewhere.
+    // Esc belongs to the menus; with Ctrl it leaves, as elsewhere.
     return ui_ && !(ev.mods & keymod::Ctrl);
 }
 

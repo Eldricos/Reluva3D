@@ -59,7 +59,7 @@ void WorldViewer::activate() {
         clear(16, 18, 24);
         text(4, 4, "The World page needs 3D rendering, which isn't available:", {255, 120, 120});
         text(4, 4 + font::kLineHeight, err.message);
-        text(4, 4 + 3 * font::kLineHeight, "Tab: the other pages still work.");
+        text(4, 4 + 3 * font::kLineHeight, "Ctrl+Tab: the other pages still work.");
         setTitle("3D rendering not available");
         return;
     }

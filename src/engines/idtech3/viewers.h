@@ -4,8 +4,8 @@
 #pragma once
 
 // The id Tech 3 engine's data viewer: pages showing what a game's files
-// hold, while the renderer and game code are written. Tab switches pages,
-// Esc returns to the launcher.
+// hold, while the renderer and game code are written. Ctrl+Tab switches
+// pages (Tab is the game's), Esc returns to the launcher.
 //
 // World:    the map drawn by the GPU renderer. Left/Right pick a map; drag
 //           to look, W/A/S/D to move, Space/C (or E/Q) up and down, Shift
@@ -22,8 +22,8 @@
 // Textures: Left/Right step, PageUp/PageDown jump 10, Home/End.
 // Menu:     the game's own menus (Elite Force: vm/ui.qvm) running; keys,
 //           typing and the mouse go to them (their own pointer follows
-//           the mouse, the system's is hidden), Ctrl+Tab and Ctrl+Esc
-//           leave, Ctrl+R starts them again.
+//           the mouse, the system's is hidden), Ctrl+Esc leaves, Ctrl+R
+//           starts them again.
 // Play:     a Holomatch level run by the game's own code (Elite Force:
 //           vm/qagame.qvm and vm/cgame.qvm) with you as the player:
 //           keys do what they're bound to (the game's default.cfg, then
@@ -151,8 +151,7 @@ public:
     // Pages that draw with System::init3D; the engine puts the 2D
     // framebuffer back when leaving one.
     virtual bool uses3D() const { return false; }
-    // Whether Esc and Tab (which otherwise leave and switch pages) go to
-    // the page instead.
+    // Whether Esc (which otherwise leaves) goes to the page instead.
     virtual bool takesKey(const Event& /*ev*/) const { return false; }
 
 protected:

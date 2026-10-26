@@ -95,7 +95,7 @@ public:
     // --- The client game (the DLL's other half) ---------------------------
     // vmMain's commands.
     enum CgameCommand : int {
-        CgInit = 0,       // (serverMessageNum)
+        CgInit = 0,       // (serverCommandSequence)
         CgShutdown = 1,
         CgConsoleCommand = 2,
         CgDrawActiveFrame = 3, // (serverTime, stereo)
