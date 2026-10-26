@@ -238,6 +238,7 @@ void PlayViewer::start(int index) {
     localConfigstrings_ = game_->configstrings();
     localCommands_.clear();
     localCommandsSeen_ = 0;
+    localRestartsSeen_ = game_->restarts();
 
     // The player's client game, given what the server has set.
     if (Error e = startClientGame(game_->configstrings(), 0, 0)) {
@@ -247,6 +248,55 @@ void PlayViewer::start(int index) {
     clientTime_ = game_->levelTime();
     lastMs_ = 0;
     cgame_->newSnapshot(localSnapshot());
+}
+
+bool PlayViewer::changeLevel(const std::string& map) {
+    // As the original's map command on a server with players: the level
+    // loaded, the game started afresh on it, the players and bots kept;
+    // those on other machines are sent the new level's game state.
+    const std::string path = normalizeArchiveName("maps/" + map + ".bsp");
+    if (!ctx_.files.has(path)) {
+        addPrint("Can't find map " + path + "\n", false);
+        return true;
+    }
+    cgame_.reset();
+    stopSounds();
+    if (scene_)
+        scene_->reset();
+    models_->clear();
+    world_->clear();
+    shaders_->clear();
+    std::shared_ptr<Bsp> bsp;
+    if (!loadLevel(path, bsp))
+        return false;
+    for (size_t i = 0; i < names_.size(); ++i)
+        if (names_[i] == path)
+            index_ = int(i);
+    setTitle(map + " (" + std::to_string(index_ + 1) + "/" + std::to_string(names_.size()) + ")");
+    std::vector<int32_t> players;
+    if (Error err = game_->changeLevel(map, bsp, int32_t(ctx_.sys.getMillis()), players)) {
+        stop("The server game stopped: " + err.message);
+        return false;
+    }
+    // The page's own player is in the level at once.
+    if (std::find(players.begin(), players.end(), 0) != players.end())
+        if (Error err = game_->beginClient(0)) {
+            stop("The server game stopped: " + err.message);
+            return false;
+        }
+    if (server_)
+        server_->levelStarted();
+    localConfigstrings_ = game_->configstrings();
+    localCommands_.clear();
+    localCommandsSeen_ = game_->serverCommands().size();
+    localRestartsSeen_ = game_->restarts();
+    if (Error err = startClientGame(game_->configstrings(), 0, 0)) {
+        stop("The client game stopped: " + err.message);
+        return false;
+    }
+    clientTime_ = game_->levelTime();
+    cgame_->newSnapshot(localSnapshot());
+    return false; // this frame's done
 }
 
 std::string PlayViewer::userinfo() const {
@@ -442,6 +492,11 @@ void PlayViewer::sendServerCommands() {
     for (; localCommandsSeen_ < commands.size(); ++localCommandsSeen_)
         if (commands[localCommandsSeen_].first == 0 || commands[localCommandsSeen_].first == -1)
             localCommands_.push_back(commands[localCommandsSeen_].second);
+    // A map_restart, which the client game starts its level over for.
+    if (game_->restarts() != localRestartsSeen_) {
+        localRestartsSeen_ = game_->restarts();
+        localCommands_.push_back("map_restart");
+    }
     cgame_->setServerCommands(localCommands_);
 }
 
@@ -938,7 +993,7 @@ bool PlayViewer::runLocal(uint64_t nowMs, int32_t dt) {
             stop("The server game stopped: " + err.message);
             return false;
         }
-    while (game_->levelTime() <= clientTime_) {
+    while (game_->levelTime() <= clientTime_ && !game_->levelRequested()) {
         if (Error err = game_->runFrame()) {
             stop("The server game stopped: " + err.message);
             return false;
@@ -952,6 +1007,9 @@ bool PlayViewer::runLocal(uint64_t nowMs, int32_t dt) {
         cgame_->newSnapshot(localSnapshot());
     }
     timing_.server = ms(serverStart);
+    // A new level the game (the end of a match, a vote) or a player asked for.
+    if (game_->levelRequested())
+        return changeLevel(game_->takeRequestedMap());
     if (dt > 0) {
         // The game moves the player by their command at once, as the
         // original server does.

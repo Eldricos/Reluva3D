@@ -147,6 +147,22 @@ void NetClient::serverCommand(int32_t sequence, const std::string& text) {
     if (serverCommands_.size() < size_t(sequence))
         serverCommands_.resize(size_t(sequence));
     serverCommands_[size_t(sequence - 1)] = text;
+    // Configstrings that changed, kept here too (the level's id in the
+    // system info goes back with every packet), as the original's client
+    // keeps its game state.
+    const std::vector<std::string> words = splitCommand(text);
+    if (words.size() >= 2 && (words[0] == "cs" || words[0] == "bcs0" || words[0] == "bcs1" || words[0] == "bcs2")) {
+        const int32_t index = std::atoi(words[1].c_str());
+        const std::string value = words.size() >= 3 ? words[2] : std::string();
+        if (words[0] == "bcs0")
+            bigConfigstring_ = value;
+        else if (words[0] == "bcs1")
+            bigConfigstring_ += value;
+        else if (words[0] == "bcs2")
+            configstrings_[index] = bigConfigstring_ + value;
+        else
+            configstrings_[index] = value;
+    }
     if (text.rfind("disconnect", 0) == 0) {
         // Protocol 24's reason is the rest of the line, unquoted.
         state_ = State::Disconnected;

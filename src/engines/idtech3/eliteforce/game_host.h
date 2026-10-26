@@ -22,6 +22,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace reluva::idtech3::eliteforce {
@@ -67,6 +68,22 @@ public:
     // ClientBegin, which puts them in the level.
     Error connectClient(int32_t clientNum, const std::string& userinfo, std::string& refused);
     Error beginClient(int32_t clientNum);
+    // map_restart, done now: the game code restarted in place and
+    // everyone back in the level (a full change to the same map, through
+    // requestedMap(), if the game type or player count changed).
+    Error restartLevel();
+    // How many restarts there have been (the server tells players of each).
+    int restarts() const { return restarts_; }
+    // A level the game or a player asked for (map, devmap), for the page to
+    // load and hand to changeLevel(); empty if none.
+    bool levelRequested() const { return !requestedMap_.empty(); }
+    std::string takeRequestedMap() { return std::exchange(requestedMap_, std::string()); }
+    // A new level: the game code started afresh on it and everyone
+    // connected again; `players` gets the players (not bots), who are put
+    // in the level when they've loaded it.
+    Error changeLevel(const std::string& mapName, std::shared_ptr<const Bsp> map, int32_t randomSeed,
+                      std::vector<int32_t>& players);
+    const std::string& mapName() const { return mapName_; }
     // A player's settings changed (their userinfo, ClientUserinfoChanged).
     Error userinfoChanged(int32_t clientNum, const std::string& userinfo);
     // A player leaving (ClientDisconnect); their slot is free again.
@@ -214,6 +231,9 @@ private:
     int32_t botCall(Qvm& vm, int number, const int32_t* args);
     void runBotFrame();
     void runQueuedConsoleCommands();
+    bool engineCommand(const std::vector<std::string>& words);
+    Error reloadGame();
+    Error reconnectClients(const std::set<int32_t>& clients, bool beginHumans);
     std::vector<int32_t> botSnapshotEntities(int32_t clientNum);
 
     const SearchSet& files_;
@@ -229,6 +249,12 @@ private:
     size_t entityPos_ = 0;
     GameData gameData_;
     GameLayout layout_ = kLayout10;
+    std::vector<uint8_t> qvmData_; // for restarting the game code
+    std::string mapName_, requestedMap_;
+    int32_t randomSeed_ = 0;
+    int32_t restartTime_ = 0; // a delayed map_restart's level time (0: none)
+    int restarts_ = 0;
+    std::string levelGametype_, levelMaxClients_; // as the level started
     int snapshotsMade_ = 0;
     std::set<int32_t> linked_;
     std::map<int32_t, std::string> configstrings_;

@@ -392,6 +392,9 @@ private:
     std::map<int32_t, std::string> localConfigstrings_;
     std::vector<std::string> localCommands_;
     size_t localCommandsSeen_ = 0; // of the game's serverCommands()
+    int localRestartsSeen_ = 0;    // of the game's map_restarts
+    // Loading the level the game asked for (false: this frame is over).
+    bool changeLevel(const std::string& map);
     void consoleCommand(const std::string& text);
     static bool isButton(const std::string& name);
     void runBinding(const std::string& line, int32_t key, bool down);

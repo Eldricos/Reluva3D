@@ -82,7 +82,14 @@ every engine.
    list, whose local search and pings work) joins another's server;
    `reconnect` and `disconnect` as the original. `reluva-tool net-run`
    hosts a level with no player of its own, or joins one and reports
-   what it's sent. Played Reluva to Reluva, and solo, on the retail data
+   what it's sent. Level changes on a Reluva host keep everyone, as the
+   original's: the game's `map` (the end of a match, a vote) loads the
+   level, starts the game code afresh and connects every player and bot
+   again, those on other machines sent the new game state; `map_restart`
+   (with a delay unless `g_doWarmup`, counted down in the warmup
+   configstring) restarts the game code in place, a game type or player
+   count change making it a full change; `vstr`, `kick`, `clientkick` and
+   `set` are the engine's as well. Played Reluva to Reluva, and solo, on the retail data
    patched to 1.2 (which also confirms 1.2's layouts). Still to do: trying it against the retail game; the
    pure check, downloads, master servers, and snapshot culling.
 7. **Sound**: done in the Play page: sounds placed in the world, looping

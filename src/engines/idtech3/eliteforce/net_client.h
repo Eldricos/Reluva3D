@@ -115,6 +115,7 @@ private:
     int32_t gamestateSequence_ = 0, gamestateMessage_ = 0, checksumFeed_ = 0;
     bool newGamestate_ = false;
     std::vector<std::string> serverCommands_;
+    std::string bigConfigstring_; // one coming in pieces (bcs0, bcs1, bcs2)
     int32_t serverCommandSequence_ = 0; // the last received
     struct Snap {
         bool valid = false;

@@ -96,6 +96,7 @@ private:
         int32_t gamestateMessage = -1;
         uint64_t gamestateMs = 0;
         GameHost::UserCommand lastCommand;
+        bool begun = false; // put in the level (ClientBegin) since it last loaded
         int ping = 0;
         std::array<Frame, kPacketBackup> frames;
     };
@@ -113,6 +114,7 @@ private:
     void transmit(Client& c, const wire::MessageWriter& w);
     void drop(Client& c, const std::string& reason, uint64_t now);
     void finalMessage(Client& c, const std::string& reason, uint64_t now);
+    void noteServerId();
     void applyUserinfo(Client& c);
     Client* clientFor(const reluva::net::Address& from, uint16_t qport);
 
@@ -131,6 +133,9 @@ private:
     size_t serverCommandsSeen_ = 0, dropsSeen_ = 0;
     int32_t checksumFeed_ = 0;
     int levelCount_ = 0;
+    int restartsSeen_ = 0; // of the game's map_restarts
+    int32_t serverId_ = 0;             // the level's id (sv_serverid)
+    std::set<int32_t> restartedIds_;   // its ids before each map_restart
     uint64_t lastNow_ = 0;
     uint32_t random_ = 0x1234567u;
     uint32_t nextRandom();

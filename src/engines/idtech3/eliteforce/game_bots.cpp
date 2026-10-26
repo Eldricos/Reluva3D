@@ -180,6 +180,12 @@ constexpr int32_t kMatchSize = 328;      // bot_match_t: text, type, subtype, 8 
 } // namespace
 
 Error GameHost::serverCommand(const std::string& text, bool* handled) {
+    // The engine's own commands first (map_restart, map, kick...).
+    if (engineCommand(splitCommand(text))) {
+        if (handled)
+            *handled = true;
+        return Error::success();
+    }
     args_ = splitCommand(text);
     int32_t result = 0;
     Error err = call(ConsoleCommand, {}, result);
@@ -191,9 +197,9 @@ Error GameHost::serverCommand(const std::string& text, bool* handled) {
 
 void GameHost::runQueuedConsoleCommands() {
     // What the game asked the server to run (SendConsoleCommand): the
-    // engine's own commands aren't here yet, so each goes back to the game
-    // as a console command (addbot, kick...), as the original does with
-    // commands it doesn't know.
+    // engine's own commands, and the rest back to the game as a console
+    // command (addbot...), as the original does with commands it doesn't
+    // know.
     while (consoleCommandsRun_ < consoleCommands_.size()) {
         const std::string text = consoleCommands_[consoleCommandsRun_++];
         for (const std::string& command : splitCommands(text)) {

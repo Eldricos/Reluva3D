@@ -3,8 +3,10 @@
 
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/game_layout.h"
+#include "engines/idtech3/info_string.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -76,6 +78,7 @@ Error GameHost::load() {
     if (Error err = vm_.load(data))
         return Error::fail("vm/qagame.qvm: " + err.message);
     layout_ = detectLayout(vm_);
+    qvmData_ = std::move(data);
     return Error::success();
 }
 
@@ -117,6 +120,11 @@ Error GameHost::startLevel(const std::string& mapName, std::shared_ptr<const Bsp
     entityText_ = map_->entities;
     entityPos_ = 0;
     levelTime_ = 0;
+    mapName_ = mapName;
+    randomSeed_ = randomSeed;
+    restartTime_ = 0;
+    levelGametype_ = cvars_.string("g_gametype");
+    levelMaxClients_ = cvars_.string("sv_maxclients");
     int32_t ignored = 0;
     if (Error err = call(Init, {levelTime_, randomSeed, 0}, ignored))
         return err;
@@ -129,6 +137,10 @@ Error GameHost::startLevel(const std::string& mapName, std::shared_ptr<const Bsp
 }
 
 Error GameHost::runFrame() {
+    // A restart asked for with a delay (map_restart 5), when it's time.
+    if (restartTime_ && levelTime_ >= restartTime_)
+        if (Error err = restartLevel())
+            return err;
     levelTime_ += kFrameMs;
     // The bots think first (and send their commands), then the level runs.
     runBotFrame();
@@ -158,6 +170,172 @@ Error GameHost::connectClient(int32_t clientNum, const std::string& userinfo, st
     if (reason)
         refused = vm_.string(reason, 1024);
     return Error::success();
+}
+
+Error GameHost::reloadGame() {
+    // The game code from scratch, as the original reloads it, and what
+    // the engine knew of its entities forgotten.
+    if (Error err = vm_.load(qvmData_))
+        return Error::fail("vm/qagame.qvm: " + err.message);
+    linked_.clear();
+    gameData_ = GameData{};
+    restartTime_ = 0;
+    if (world_)
+        areaPortals_ = std::make_unique<AreaPortals>(world_->areaCount());
+    return Error::success();
+}
+
+Error GameHost::reconnectClients(const std::set<int32_t>& clients, bool beginHumans) {
+    // Every player and bot connected again, not for the first time (the
+    // game keeps what it saved of them); bots are put in the level at
+    // once, players too if `beginHumans`.
+    for (const int32_t c : clients) {
+        const bool bot = botClients_.count(c) != 0;
+        clientsInUse_.insert(c);
+        int32_t reason = 0;
+        if (Error err = call(ClientConnect, {c, 0, bot ? 1 : 0}, reason))
+            return err;
+        if (reason) {
+            dropped_[c] = vm_.string(reason, 1024);
+            drops_.emplace_back(c, dropped_[c]);
+            continue;
+        }
+        if (bot || beginHumans)
+            if (Error err = beginClient(c))
+                return err;
+    }
+    return Error::success();
+}
+
+Error GameHost::restartLevel() {
+    // map_restart, as the original: a variable that needs the level loaded
+    // again (the game type, the number of players) makes it a full change
+    // to the same map; otherwise the game code restarts in place, a few
+    // frames settle it, and every player and bot is back in the game.
+    restartTime_ = 0;
+    if (cvars_.string("g_gametype") != levelGametype_ || cvars_.string("sv_maxclients") != levelMaxClients_) {
+        requestedMap_ = mapName_;
+        return Error::success();
+    }
+    int32_t ignored = 0;
+    if (Error err = call(Shutdown, {1}, ignored))
+        return err;
+    if (Error err = reloadGame())
+        return err;
+    cvars_.set("sv_serverid", std::to_string((randomSeed_ + levelTime_ + 1) & 0x7fffffff), true);
+    entityText_ = map_ ? map_->entities : std::string();
+    entityPos_ = 0;
+    if (Error err = call(Init, {levelTime_, randomSeed_ + levelTime_, 1}, ignored))
+        return err;
+    updateInfoConfigstrings();
+    for (int i = 0; i < 3; ++i)
+        if (Error err = runFrame())
+            return err;
+    const std::set<int32_t> clients = clientsInUse_;
+    if (Error err = reconnectClients(clients, true))
+        return err;
+    ++restarts_;
+    return Error::success();
+}
+
+Error GameHost::changeLevel(const std::string& mapName, std::shared_ptr<const Bsp> map, int32_t randomSeed,
+                            std::vector<int32_t>& players) {
+    // A new level, as the original's map command: the game code shut down
+    // and started afresh on it, and everyone connected again; bots are put
+    // in the level, players (`players`) when they've loaded it.
+    const std::set<int32_t> clients = clientsInUse_;
+    int32_t ignored = 0;
+    if (Error err = call(Shutdown, {0}, ignored))
+        return err;
+    if (Error err = reloadGame())
+        return err;
+    configstrings_.clear();
+    requestedMap_.clear();
+    if (Error err = startLevel(mapName, std::move(map), randomSeed))
+        return err;
+    if (Error err = reconnectClients(clients, false))
+        return err;
+    players.clear();
+    for (const int32_t c : clients)
+        if (!botClients_.count(c) && clientsInUse_.count(c) && !dropped_.count(c))
+            players.push_back(c);
+    return Error::success();
+}
+
+bool GameHost::engineCommand(const std::vector<std::string>& w) {
+    // The original engine's own console commands that the game runs
+    // (SendConsoleCommand) or a player types at the server.
+    if (w.empty())
+        return false;
+    std::string verb = w[0];
+    for (char& ch : verb)
+        ch = char(std::tolower(static_cast<unsigned char>(ch)));
+    if (verb == "map_restart") {
+        // With a delay (5 seconds unless one is given) when g_doWarmup is
+        // off: the restart time goes in the warmup configstring (5) for
+        // the client game to count down.
+        const int delay = w.size() > 1 ? std::atoi(w[1].c_str()) : 5;
+        if (restartTime_)
+            return true;
+        if (delay > 0 && !cvars_.integer("g_doWarmup")) {
+            restartTime_ = levelTime_ + delay * 1000;
+            configstrings_[5] = std::to_string(restartTime_);
+            return true;
+        }
+        if (Error err = restartLevel())
+            if (print)
+                print("map_restart: " + err.message + "\n");
+        return true;
+    }
+    if (verb == "map" || verb == "devmap" || verb == "spmap" || verb == "spdevmap") {
+        if (w.size() > 1)
+            requestedMap_ = w[1];
+        return true;
+    }
+    if (verb == "vstr") {
+        // A variable's text run as commands (the game's nextmap).
+        if (w.size() > 1)
+            consoleCommands_.push_back(cvars_.string(w[1]));
+        return true;
+    }
+    if (verb == "kick" || verb == "clientkick") {
+        // By number (clientkick, or kick with a number), or by name.
+        if (w.size() < 2)
+            return true;
+        int32_t target = -1;
+        const std::string& who = w[1];
+        if (verb == "clientkick" || (!who.empty() && std::isdigit(static_cast<unsigned char>(who[0]))))
+            target = std::atoi(who.c_str());
+        else
+            for (const int32_t c : clientsInUse_) {
+                const auto it = configstrings_.find(544 + c); // CS_PLAYERS
+                if (it != configstrings_.end() && infoValue(it->second, "n") == who)
+                    target = c;
+            }
+        if (target < 0 || !clientsInUse_.count(target))
+            return true;
+        if (botClients_.count(target)) {
+            disconnectClient(target);
+        } else {
+            // Players: the network server sends them off and disconnects them.
+            dropped_[target] = "was kicked";
+            drops_.emplace_back(target, "was kicked");
+        }
+        return true;
+    }
+    if (verb == "set" || verb == "seta" || verb == "sets" || verb == "setu") {
+        if (w.size() > 2)
+            cvars_.set(w[1], w[2]);
+        return true;
+    }
+    if (verb == "wait")
+        return true;
+    // A variable's name and a value sets it, as the original's console.
+    if (w.size() == 2 && cvars_.find(w[0])) {
+        cvars_.set(w[0], w[1]);
+        return true;
+    }
+    return false;
 }
 
 Error GameHost::userinfoChanged(int32_t clientNum, const std::string& userinfo) {

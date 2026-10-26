@@ -19,6 +19,7 @@
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/entities.h"
 #include "engines/idtech3/filesystem.h"
+#include "engines/idtech3/info_string.h"
 #include "engines/idtech3/games.h"
 #include "engines/idtech3/lexer.h"
 #include "engines/idtech3/marks.h"
@@ -58,6 +59,7 @@
 
 using namespace reluva;
 using namespace reluva::idtech3;
+namespace q3 = reluva::idtech3;
 
 static int failures = 0;
 
@@ -1819,6 +1821,58 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
     CHECK(announced);
     // Snapshots while loading are flagged not active; in the game, not.
     CHECK(!got.empty() && (got.back().snapFlags & 2) == 0);
+    if (!systemSockets) {
+        network->setDropFilter(nullptr);
+        auto play = [&](int ticks) {
+            for (int i = 0; i < ticks; ++i) {
+                ef::GameHost::UserCommand cmd;
+                cmd.serverTime = game.levelTime();
+                cmd.forward = 127;
+                client.addCommand(cmd);
+                tick();
+                for (auto& snap : client.takeSnapshots())
+                    got.push_back(std::move(snap));
+            }
+        };
+        // map_restart: the game starts over in place, the player is told
+        // and is back in the level; the snapshots' level flag changes.
+        const int32_t flagBefore = got.back().snapFlags & 4;
+        bool handled = false;
+        CHECK(!game.serverCommand("map_restart 0", &handled) && handled && game.restarts() == 1);
+        CHECK(game.linked().count(4)); // the player back at the spawn point
+        got.clear();
+        play(10);
+        bool restartSent = false;
+        for (const std::string& c : client.serverCommands())
+            restartSent = restartSent || c == "map_restart";
+        CHECK(restartSent && client.state() == ef::NetClient::State::Active && !got.empty() &&
+              (got.back().snapFlags & 4) != flagBefore);
+        // Its moves still count: it has the level's new id.
+        CHECK(client.configstrings().count(1) &&
+              q3::infoValue(client.configstrings().at(1), "sv_serverid") == cvars.string("sv_serverid"));
+        CHECK(game.entityVec(4, 272)[0] > 100);
+        // A delayed restart: the warmup configstring says when, then it happens.
+        CHECK(!game.serverCommand("map_restart 1") && game.restarts() == 1);
+        CHECK(game.configstrings().count(5) && std::atoi(game.configstrings().at(5).c_str()) > game.levelTime());
+        play(25);
+        CHECK(game.restarts() == 2);
+        // map: a new level asked for, loaded by whoever runs the server;
+        // the player is sent its game state and joins it.
+        CHECK(!game.serverCommand("map borg2") && game.levelRequested());
+        std::vector<int32_t> players;
+        CHECK(!game.changeLevel(game.takeRequestedMap(), map, 99, players) && players == std::vector<int32_t>{0});
+        server.levelStarted();
+        bool newLevel = false;
+        for (int i = 0; i < 20 && !newLevel; ++i) {
+            tick();
+            newLevel = client.takeNewGamestate();
+        }
+        CHECK(newLevel && client.configstrings().count(12) && client.configstrings().at(12) == "borg2");
+        client.setLoaded();
+        got.clear();
+        play(10);
+        CHECK(!got.empty() && game.linked().count(4) && client.state() == ef::NetClient::State::Active);
+    }
     // Leaving.
     network->setDropFilter(nullptr);
     client.disconnect();

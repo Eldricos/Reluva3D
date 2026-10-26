@@ -103,12 +103,16 @@ void NetServer::levelStarted() {
     dropsSeen_ = game_.drops().size();
     checksumFeed_ = int32_t(nextRandom());
     ++levelCount_;
+    restartsSeen_ = game_.restarts();
+    restartedIds_.clear();
+    serverId_ = cvars_.integer("sv_serverid");
     for (Client& c : clients_)
         if (c.state >= State::Connected) {
             c.state = State::Connected;
             c.gamestateMessage = -1;
             c.deltaMessage = -1;
             c.nextSnapshotTime = 0;
+            c.begun = false;
         }
 }
 
@@ -149,8 +153,19 @@ std::string NetServer::infoString(const std::string& challenge) const {
     return info;
 }
 
+void NetServer::noteServerId() {
+    // The level's id changed by a map_restart: the old one is still this
+    // level's, for packets sent before the client heard.
+    const int32_t id = cvars_.integer("sv_serverid");
+    if (id != serverId_) {
+        restartedIds_.insert(serverId_);
+        serverId_ = id;
+    }
+}
+
 Error NetServer::receive(uint64_t now) {
     lastNow_ = now;
+    noteServerId();
     reluva::net::Address from;
     std::vector<uint8_t> d;
     while (socket_->receive(from, d)) {
@@ -319,6 +334,10 @@ Error NetServer::packet(Client& c, const std::vector<uint8_t>& datagram, uint64_
     // Commands from before the level it has: the game state again once
     // it has had a message since the last one.
     if (serverId != cvars_.integer("sv_serverid")) {
+        // From before a map_restart of this level: ignored, as the
+        // original does, until the client hears of the new id.
+        if (restartedIds_.count(serverId))
+            return Error::success();
         if (c.messageAcknowledge > c.gamestateMessage)
             sendGamestate(c, now);
         return Error::success();
@@ -355,8 +374,10 @@ Error NetServer::packet(Client& c, const std::vector<uint8_t>& datagram, uint64_
                 c.state = State::Active;
                 c.deltaMessage = -1;
                 c.lastCommand = GameHost::UserCommand{};
-                if (Error err = game_.beginClient(c.number))
-                    return err;
+                if (!c.begun)
+                    if (Error err = game_.beginClient(c.number))
+                        return err;
+                c.begun = true;
             }
             if (c.state != State::Active)
                 break;
@@ -547,6 +568,22 @@ Error NetServer::frame(uint64_t now) {
         for (Client& c : clients_)
             if (c.state >= State::Primed && (to == -1 || to == c.number))
                 addReliable(c, text);
+    }
+    // A map_restart: everyone is told, and is back in the level (the game
+    // has put them there), as the original's server does.
+    if (game_.restarts() != restartsSeen_) {
+        restartsSeen_ = game_.restarts();
+        noteServerId();
+        ++levelCount_; // the snapshots' flag 4
+        for (Client& c : clients_) {
+            if (c.state < State::Connected)
+                continue;
+            addReliable(c, "map_restart");
+            c.begun = true;
+            c.deltaMessage = -1;
+            if (c.state == State::Primed)
+                c.state = State::Active;
+        }
     }
     const uint64_t timeoutMs = uint64_t(std::max(1, cvars_.integer("sv_timeout"))) * 1000;
     const int32_t levelTime = game_.levelTime();

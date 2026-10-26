@@ -656,6 +656,13 @@ Commands the engine handles (others go to the server game):
   the game state is sent again; a client whose `cp` fails is sent one
   snapshot and dropped ("Unpure client detected. Invalid .PK3 files
   referenced!").
+- A `map_restart` doesn't send a new game state: the server game restarts
+  in place, every client is connected and put in the level again, and
+  each is sent the command `map_restart` (after the configstrings that
+  changed, among them the system info with the new `sv_serverid`). Until a
+  client has heard of the new id its packets carry the old one, which the
+  server ignores without resending the game state (Reluva keeps the
+  level's earlier ids for this).
 - After a map change every connected client goes back to connected
   (bots straight to active), and the server sends a new game state when
   their next packet arrives. Until the client acknowledges it, its
