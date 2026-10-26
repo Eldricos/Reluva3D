@@ -631,13 +631,17 @@ void Device::rasterize(const ClipVertex& a, const ClipVertex& b, const ClipVerte
             for (int k = 0; k < n; ++k)
                 row[k] += fx[k];
         for (int x = first; x <= last; ++x) {
-            const float rhw = row[1];
-            const float inv = rhw != 0 ? 1 / rhw : 0;
-            for (int k = 0; k < count; ++k)
-                here[k] = row[2 + k] * inv;
-            if (cfg_.flat)
-                std::copy(flatColors, flatColors + 8, here);
-            pixel(x, y, row[0], inv, here);
+            uint8_t* zAt;
+            uint32_t zNew;
+            if (depthTest(x, y, row[0], zAt, zNew)) { // the attributes only for pixels that pass
+                const float rhw = row[1];
+                const float inv = rhw != 0 ? 1 / rhw : 0;
+                for (int k = 0; k < count; ++k)
+                    here[k] = row[2 + k] * inv;
+                if (cfg_.flat)
+                    std::copy(flatColors, flatColors + 8, here);
+                shade(x, y, row[0], inv, here, zAt, zNew);
+            }
             for (int k = 0; k < n; ++k)
                 row[k] += fx[k];
         }
@@ -715,6 +719,7 @@ void Device::prepareSamplers() {
         sm.addressU = sc.addressU, sm.addressV = sc.addressV, sm.border = sc.border;
         auto pow2 = [](int n) { return n > 0 && (n & (n - 1)) == 0; };
         sm.wrapPow2 = sc.addressU <= 1 && sc.addressV <= 1 && pow2(tex.width) && pow2(tex.height);
+        sm.clampBoth = sc.addressU == 3 && sc.addressV == 3;
     }
 }
 
@@ -742,6 +747,9 @@ uint32_t Device::sample(int stage, float u, float v, bool* keyed) {
         if (sm.wrapPow2) {
             x &= sm.width - 1;
             y &= sm.height - 1;
+        } else if (sm.clampBoth) {
+            x = std::clamp(x, 0, sm.width - 1);
+            y = std::clamp(y, 0, sm.height - 1);
         } else {
             bool border = false;
             x = address(x, sm.width, sm.addressU, border);
@@ -765,18 +773,22 @@ uint32_t Device::sample(int stage, float u, float v, bool* keyed) {
     const float gx = fx - 0.5f, gy = fy - 0.5f;
     const int ix = floorInt(gx), iy = floorInt(gy);
     const int ax = int((gx - float(ix)) * 256), ay = int((gy - float(iy)) * 256); // 8-bit weights
-    bool k00 = false, k10 = false, k01 = false, k11 = false;
-    const uint32_t t00 = texel(ix, iy, k00), t10 = texel(ix + 1, iy, k10);
-    const uint32_t t01 = texel(ix, iy + 1, k01), t11 = texel(ix + 1, iy + 1, k11);
-    // The colour key keys the nearest texel's colour.
-    if (keyed)
-        *keyed = ax < 128 ? (ay < 128 ? k00 : k01) : (ay < 128 ? k10 : k11);
     // Two channels at a time (0x00ff00ff masks), weights out of 256.
     auto mix = [](uint32_t p, uint32_t q, int w) {
         const uint32_t rb = ((p & 0xff00ff) * uint32_t(256 - w) + (q & 0xff00ff) * uint32_t(w)) >> 8 & 0xff00ff;
         const uint32_t ag = ((p >> 8 & 0xff00ff) * uint32_t(256 - w) + (q >> 8 & 0xff00ff) * uint32_t(w)) & 0xff00ff00;
         return rb | ag;
     };
+    if (!keyed && ix >= 0 && iy >= 0 && ix + 1 < sm.width && iy + 1 < sm.height) { // all four inside: no addressing
+        const uint32_t* p = sm.argb + size_t(iy) * size_t(sm.width) + size_t(ix);
+        return mix(mix(p[0], p[1], ax), mix(p[sm.width], p[sm.width + 1], ax), ay);
+    }
+    bool k00 = false, k10 = false, k01 = false, k11 = false;
+    const uint32_t t00 = texel(ix, iy, k00), t10 = texel(ix + 1, iy, k10);
+    const uint32_t t01 = texel(ix, iy + 1, k01), t11 = texel(ix + 1, iy + 1, k11);
+    // The colour key keys the nearest texel's colour.
+    if (keyed)
+        *keyed = ax < 128 ? (ay < 128 ? k00 : k01) : (ay < 128 ? k10 : k11);
     return mix(mix(t00, t10, ax), mix(t01, t11, ax), ay);
 }
 
@@ -816,7 +828,24 @@ void Device::configure() {
         const auto& st = stageStates[size_t(i)];
         c.stage[i] = {st[kColorOp],  st[kColorArg1], st[kColorArg2], st[kAlphaOp],   st[kAlphaArg1],
                       st[kAlphaArg2], st[kAddressU], st[kAddressV], st[kBorderColor], st[kMagFilter],
-                      st[kMinFilter], st[kMipFilter]};
+                      st[kMinFilter], st[kMipFilter], {},           false};
+    }
+    // The quick path's stages.
+    c.simpleStages = true;
+    for (int i = 0; i < stages; ++i) {
+        StageConfig& sc = c.stage[i];
+        const uint32_t args[4] = {sc.colorArg1, sc.colorArg2, sc.alphaArg1, sc.alphaArg2};
+        sc.usesTexture = false;
+        for (int k = 0; k < 4; ++k) {
+            const uint32_t a = args[k] & 0xf;
+            sc.source[k] = uint8_t(a == 0 || a == 2 || a == 3 || a == 4 ? a : 1);
+            if (args[k] & 0x30)
+                c.simpleStages = false;
+        }
+        const bool alphaUsed = sc.alphaOp != 1;
+        sc.usesTexture = sc.source[0] == 2 || sc.source[1] == 2 || (alphaUsed && (sc.source[2] == 2 || sc.source[3] == 2));
+        if (sc.colorOp < 2 || sc.colorOp > 4 || sc.alphaOp < 1 || sc.alphaOp > 4)
+            c.simpleStages = false;
     }
     const PixelFormat& f = target->d.format;
     c.target = f.flags & (kPfPaletteIndexed8 | kPfAlphaPixels) ? PixelConfig::Target::Generic
@@ -826,14 +855,22 @@ void Device::configure() {
 }
 
 void Device::pixel(int x, int y, float z, float eyeW, const float* attr) {
+    uint8_t* zAt;
+    uint32_t zNew;
+    if (depthTest(x, y, z, zAt, zNew))
+        shade(x, y, z, eyeW, attr, zAt, zNew);
+}
+
+// Whether a pixel is on the target and passes the depth test; where its
+// depth is, and the depth it would write.
+bool Device::depthTest(int x, int y, float z, uint8_t*& zAt, uint32_t& zNew) {
+    zAt = nullptr;
+    zNew = 0;
     if (x < 0 || y < 0 || x >= target->d.width || y >= target->d.height)
-        return;
+        return false;
     const PixelConfig& cf = cfg_;
-    uint8_t* mem = s->cpu.memory().data();
-    // Depth.
-    uint8_t* zAt = nullptr;
-    uint32_t zNew = 0;
     if (cf.zTest && x < depth->d.width && y < depth->d.height) {
+        uint8_t* mem = s->cpu.memory().data();
         zAt = mem + depth->d.memory + uint32_t(y * depth->d.pitch) + uint32_t(x) * cf.zBytes;
         uint32_t raw = 0;
         if (cf.zBytes == 2)
@@ -844,9 +881,49 @@ void Device::pixel(int x, int y, float z, float eyeW, const float* attr) {
             std::memcpy(&raw, zAt, cf.zBytes);
         zNew = uint32_t(double(std::clamp(z, 0.0f, 1.0f)) * cf.zMax + 0.5); // >= 0: truncating is flooring
         if (!compare(cf.zFunc, float(zNew), float(raw & cf.zMask)))
-            return;
+            return false;
     }
+    return true;
+}
+
+// A pixel past the depth test: texture stages, then the rest (finish).
+void Device::shade(int x, int y, float z, float eyeW, const float* attr, uint8_t* zAt, uint32_t zNew) {
+    const PixelConfig& cf = cfg_;
     // Texture stages.
+    if (cf.simpleStages && !cf.colorKey) {
+        // Sources: diffuse, current, texture, factor, specular.
+        float src[5][4] = {{attr[0], attr[1], attr[2], attr[3]},
+                           {attr[0], attr[1], attr[2], attr[3]},
+                           {},
+                           {cf.factor.r, cf.factor.g, cf.factor.b, cf.factor.a},
+                           {attr[4], attr[5], attr[6], attr[7]}};
+        for (int st = 0; st < stages; ++st) {
+            const StageConfig& sc = cf.stage[st];
+            if (sc.usesTexture) {
+                const uint32_t t = sample(st, attr[8 + 2 * st], attr[9 + 2 * st], nullptr);
+                const float* f = kFractions.of255;
+                src[2][0] = f[t >> 16 & 0xff], src[2][1] = f[t >> 8 & 0xff], src[2][2] = f[t & 0xff];
+                src[2][3] = f[t >> 24];
+            }
+            float result[4];
+            auto apply = [&](uint32_t op, const float* x1, const float* x2, int from, int to) {
+                if (op == 4)
+                    for (int i = from; i < to; ++i)
+                        result[i] = std::clamp(x1[i] * x2[i], 0.0f, 1.0f);
+                else
+                    for (int i = from; i < to; ++i)
+                        result[i] = std::clamp(op == 2 ? x1[i] : x2[i], 0.0f, 1.0f);
+            };
+            apply(sc.colorOp, src[sc.source[0]], src[sc.source[1]], 0, 3);
+            if (sc.alphaOp != 1)
+                apply(sc.alphaOp, src[sc.source[2]], src[sc.source[3]], 3, 4);
+            else
+                result[3] = src[1][3];
+            std::copy(result, result + 4, src[1]);
+        }
+        finish(x, y, z, eyeW, attr, Color{src[1][0], src[1][1], src[1][2], src[1][3]}, zAt, zNew);
+        return;
+    }
     const Color diffuse{attr[0], attr[1], attr[2], attr[3]};
     const Color specular{attr[4], attr[5], attr[6], attr[7]};
     Color current = diffuse;
@@ -911,11 +988,21 @@ void Device::pixel(int x, int y, float z, float eyeW, const float* attr) {
     }
     if (cf.colorKey && keyed)
         return;
+    finish(x, y, z, eyeW, attr, current, zAt, zNew);
+}
+
+// The rest of a pixel's way, from its colour after the texture stages:
+// specular, alpha test, fog, blending, the write.
+void Device::finish(int x, int y, float z, float eyeW, const float* attr, Color current, uint8_t* zAt,
+                    uint32_t zNew) {
+    const PixelConfig& cf = cfg_;
+    uint8_t* mem = s->cpu.memory().data();
+    const Color specular{attr[4], attr[5], attr[6], attr[7]};
     if (cf.specular)
         current = {std::min(1.0f, current.r + specular.r), std::min(1.0f, current.g + specular.g),
                    std::min(1.0f, current.b + specular.b), current.a};
     // Alpha test, against the reference in 0..255.
-    if (cf.alphaTest && !compare(cf.alphaFunc, std::floor(current.a * 255 + 0.5f), cf.alphaRef))
+    if (cf.alphaTest && !compare(cf.alphaFunc, float(floorInt(current.a * 255 + 0.5f)), cf.alphaRef))
         return;
     // Fog: by depth (table fog) or from the vertices.
     if (cf.fog) {

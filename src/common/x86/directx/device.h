@@ -129,6 +129,10 @@ private:
     // `attributes` are the vertex attributes there (diffuse, specular, then
     // each stage's u and v).
     void pixel(int x, int y, float z, float eyeW, const float* attributes);
+    bool depthTest(int x, int y, float z, uint8_t*& zAt, uint32_t& zNew);
+    void shade(int x, int y, float z, float eyeW, const float* attributes, uint8_t* zAt, uint32_t zNew);
+    void finish(int x, int y, float z, float eyeW, const float* attributes, Color current, uint8_t* zAt,
+                uint32_t zNew);
     const DecodedTexture* texture(int stage);
     // A texel of a stage's texture at u, v (0xffffffff without one); with
     // `keyed`, whether it's keyed out by the colour key.
@@ -142,6 +146,7 @@ private:
         float fw = 0, fh = 0;
         bool linear = false;
         bool wrapPow2 = false; // both ways wrap, and the sizes are powers of two
+        bool clampBoth = false; // both ways clamp
         uint32_t addressU = 0, addressV = 0, border = 0;
     } samplers_[8];
     void prepareSamplers();
@@ -155,6 +160,11 @@ private:
     struct StageConfig {
         uint32_t colorOp, colorArg1, colorArg2, alphaOp, alphaArg1, alphaArg2;
         uint32_t addressU, addressV, border, magFilter, minFilter, mipFilter;
+        // For the quick path (PixelConfig::simpleStages): the arguments as
+        // sources (0 diffuse, 1 current, 2 texture, 3 factor, 4 specular),
+        // and whether the texture is one.
+        uint8_t source[4];
+        bool usesTexture;
     };
     struct PixelConfig {
         bool zTest = false, zWrite = false, alphaTest = false, blend = false, fog = false, colorKey = false,
@@ -164,6 +174,9 @@ private:
         bool fogByZ = false; // table fog by depth, not by the eye's distance
         Color fogColor, factor;
         StageConfig stage[8];
+        // Every stage SELECTARG1, SELECTARG2 or MODULATE (alpha also
+        // DISABLE) of plain arguments: they're combined the quick way.
+        bool simpleStages = false;
         enum class Target { Generic, Rgb565, Rgb888 } target = Target::Generic;
         double zMax = 0;
         uint32_t zBytes = 0, zMask = 0;
