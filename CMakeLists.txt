@@ -194,6 +194,7 @@ if(RELUVA_ENGINE_NFS)
         src/engines/nfs/bnk.cpp
         src/engines/nfs/mus.cpp
         src/engines/nfs/mad.cpp
+        src/engines/nfs/media_viewer.cpp
         src/engines/nfs/fce.cpp
         src/engines/nfs/frd.cpp
         src/engines/nfs/col.cpp

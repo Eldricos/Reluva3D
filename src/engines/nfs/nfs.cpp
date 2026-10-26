@@ -10,10 +10,12 @@
 // code. See CONTRIBUTING.md.
 //
 // For now the engine is a data viewer: what it found (the folders, the
-// CD's files, tracks and cars), then the game's pictures, strings and
-// fonts (see viewers.h for the keys). Tab switches between them; Esc goes
+// CD's files, tracks and cars), then the tracks and cars in 3D, the
+// game's pictures, strings and fonts, its sounds, music and movies (see
+// viewers.h for the keys). Tab switches between them; Esc goes
 // back to the launcher.
 
+#include "common/audio/mixer.h"
 #include "engines/engine.h"
 #include "engines/nfs/folders.h"
 #include "engines/nfs/game_files.h"
@@ -44,11 +46,20 @@ public:
             return Error::fail("No tracks (GameData/Tracks/trkNNN) found in " + folders.install.string());
         nfs::GameFiles files;
         files.scan(folders);
-        auto pages = nfs::makePages(game_.name, folders, files);
 
         if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32))
             return err;
         screen_.create(kScreenW, kScreenH, PixelFormat::RGBA32);
+
+        // One mixer for the pages' sounds; without audio output, none. The
+        // pages go before it.
+        audio::Mixer mixer(sys_.audioRate());
+        const bool audioOut = !audio::startMixerOutput(sys_, mixer);
+        struct AudioOff { // stops the output before the mixer goes
+            System& sys;
+            ~AudioOff() { sys.stopAudio(); }
+        } audioOff{sys_};
+        auto pages = nfs::makePages(game_.name, folders, files, audioOut ? &mixer : nullptr);
 
         size_t page = 0;
         bool dirty = true;
@@ -93,6 +104,8 @@ public:
                 pages[page]->update(sys_.getMillis());
                 continue;
             }
+            if (pages[page]->tick(sys_.getMillis()))
+                dirty = true;
             if (dirty) {
                 pages[page]->draw(screen_);
                 dirty = false;

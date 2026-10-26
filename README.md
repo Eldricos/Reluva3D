@@ -27,8 +27,9 @@ src/engines/       one directory per engine, plus registry.cpp listing them
                    Voyager - Elite Force: search path, shader scripts, BSP
                    maps; currently runs as a data viewer (docs/engines/idtech3.md)
   nfs/             Need for Speed III: Hot Pursuit: its archives, pictures,
-                   text, fonts, car models and tracks; currently runs as a
-                   data viewer, the tracks and cars in 3D
+                   text, fonts, car models, tracks, sounds, music and
+                   movies; currently runs as a data viewer, the tracks and
+                   cars in 3D
                    (docs/engines/nfs.md)
 src/tools/         reluva-tool, utilities for studying game data
 tests/             unit tests for common/ and the engines
@@ -62,7 +63,8 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
 - `reluva-tool` has developer tools for studying game data: `hexdump`,
   `cat-probe`, `cat-list` and `cat-extract` (New Worlds archives); `viv-list`,
   `viv-extract`, `fsh-info`, `fsh-dump`, `text-dump`, `ffn-render`, `fce-info`, `fce-obj`,
-  `frd-check`, `frd-obj`, `nfs-survey` and `nfs-page` (Need for Speed III).
+  `frd-check`, `frd-obj`, `bnk-info`, `bnk-wav`, `mus-info`, `mus-wav`, `mad-info`,
+  `mad-frames`, `mad-wav`, `nfs-survey` and `nfs-page` (Need for Speed III).
 - In game: **Ctrl+F5** returns to the launcher, **Alt+Enter** toggles fullscreen.
 - New Worlds currently opens as a data viewer. **Tab** switches between missions, models,
   textures, maps, sounds, strings and fonts, **Left/Right** step through them and **F** cycles filters.
@@ -112,7 +114,8 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   in a copy of the CD beside the install (a folder with `nfs3.exe` and
   `GameData/Audio/pc`), or wherever `cdpath=` in the game's section of `reluva.ini`
   says. It opens as a data viewer: **Tab** switches between what it found (the folders,
-  tracks and cars), the tracks and cars in 3D, textures, strings and fonts. The 3D pages
+  tracks and cars), the tracks and cars in 3D, textures, strings, fonts, sounds, music
+  and movies. The 3D pages
   need a GPU with Vulkan (Linux, Windows) or Metal (macOS). On tracks, **PageUp/PageDown**
   pick one, **W/A/S/D** move, the arrows or a drag look, **Space/C** go up and down,
   **Shift** goes faster, **N/B** jump to the next or previous piece of road, **1/2/3** pick
@@ -125,7 +128,13 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   last), **B** changes the background and **A** turns alpha off and on. For strings,
   **Left/Right** pick a language, **Up/Down**, **PageUp/PageDown** and **Home/End** scroll,
   and **F** switches between the game's font and Reluva's. For fonts, **Left/Right** pick
-  one and **+/-** change the size.
+  one and **+/-** change the size. For sounds, **PageUp/PageDown** pick a bank, **Up/Down**
+  a sound in it (played as it's picked; **P** turns that off), **Space** plays it and **S**
+  stops it. For music, **Up/Down** pick a stream and **Space** plays it from its first
+  section, each section leading to the next as its map says for the intensity, which
+  **Left/Right** change; **N** moves on at once and **L** switches between the map and the
+  linear order. For movies, **Up/Down** pick one, **Space** pauses, **Left/Right** jump 5
+  seconds and **PageUp/PageDown** step a frame.
 
 The config is saved as `reluva.ini` in SDL's preferences folder
 (`~/.local/share/reluva/reluva/` on Linux, `%APPDATA%\reluva\reluva\` on Windows).

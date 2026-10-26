@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "common/audio/mixer.h"
 #include "common/events.h"
 #include "common/gfx3d.h"
 #include "common/image.h"
@@ -12,6 +13,9 @@
 #include "engines/nfs/col.h"
 #include "engines/nfs/frd.h"
 #include "engines/nfs/hrz.h"
+#include "engines/nfs/bnk.h"
+#include "engines/nfs/mad.h"
+#include "engines/nfs/mus.h"
 #include "engines/nfs/ffn.h"
 #include "engines/nfs/folders.h"
 #include "engines/nfs/fsh.h"
@@ -54,6 +58,9 @@ public:
     virtual void draw(Surface& /*screen*/) {}
     // 3D pages: draws a frame.
     virtual void update(uint64_t /*nowMs*/) {}
+    // 2D pages: called often while shown, for playback; true when the page
+    // needs drawing again.
+    virtual bool tick(uint64_t /*nowMs*/) { return false; }
 };
 
 // What the engine found: the folders, the CD's files, tracks and cars.
@@ -259,8 +266,118 @@ private:
     uint64_t lastMs_ = 0;
 };
 
-// Every page, in Tab order, those with nothing to show left out.
+// Every sound in every bank (.bnk), loose or in a .viv: speech, engines,
+// effects. Without audio output the sounds are only listed.
+//   Up/Down: sound   PageUp/PageDown: bank   Home/End: first/last sound
+//   Space/Enter: play   S: stop   P: play as selected on/off
+class SoundPage : public Page {
+public:
+    SoundPage(const GameFiles& files, audio::Mixer* mixer);
+    const char* name() const override { return "Sounds"; }
+    bool empty() const override { return banks_.empty(); }
+    void deactivate() override;
+    void handleKey(uint32_t key, uint16_t mods) override;
+    void draw(Surface& screen) override;
+    bool tick(uint64_t nowMs) override;
+
+private:
+    void load(int bank);
+    void select(int sound);
+    void play();
+
+    const GameFiles& files_;
+    audio::Mixer* mixer_;
+    std::vector<FileRef> banks_;
+    int bank_ = -1;
+    std::vector<uint8_t> data_;
+    SoundBank loaded_;
+    std::vector<int> sounds_; // the bank's slots that hold a sound
+    int sound_ = 0;
+    std::string error_, soundError_;
+    std::shared_ptr<audio::Sound> decoded_;
+    audio::SoundHandle playing_ = audio::kNoSound;
+    bool autoPlay_ = true;
+};
+
+// The music streams (.mus), played as their Pathfinder map (.map) leads
+// from segment to segment by an intensity, or in the linear order (.lin).
+//   Up/Down: stream   Space: play/stop   Left/Right: intensity
+//   L: map or linear order   N: next segment now   Home: first segment
+class MusicPage : public Page {
+public:
+    MusicPage(const GameFiles& files, audio::Mixer* mixer);
+    const char* name() const override { return "Music"; }
+    bool empty() const override { return streams_.empty(); }
+    void deactivate() override;
+    void handleKey(uint32_t key, uint16_t mods) override;
+    void draw(Surface& screen) override;
+    bool tick(uint64_t nowMs) override;
+
+private:
+    void load(int stream);
+    void start(int section);
+    void stop();
+    int following(int section) const;
+    const MusicMap* activeMap() const;
+
+    const GameFiles& files_;
+    audio::Mixer* mixer_;
+    std::vector<FileRef> streams_;
+    int stream_ = -1;
+    MusicStream loaded_;
+    MusicMap map_, linear_;
+    bool haveMap_ = false, haveLinear_ = false, useLinear_ = false;
+    std::string error_, mapError_;
+    int intensity_ = 50;
+    int section_ = -1; // playing
+    std::vector<int> history_;
+    std::shared_ptr<audio::Sound> current_;
+    audio::SoundHandle playing_ = audio::kNoSound;
+    uint64_t lastDraw_ = 0;
+};
+
+// The movies (.mad) with their sound.
+//   Up/Down: movie   Space: pause   Left/Right: 5 seconds back/on
+//   Home: start   PageUp/PageDown: frame by frame (paused)
+class MoviePage : public Page {
+public:
+    MoviePage(const GameFiles& files, audio::Mixer* mixer);
+    const char* name() const override { return "Movies"; }
+    bool empty() const override { return movies_.empty(); }
+    void activate(System& sys) override;
+    void deactivate() override;
+    void handleKey(uint32_t key, uint16_t mods) override;
+    void draw(Surface& screen) override;
+    bool tick(uint64_t nowMs) override;
+
+private:
+    void load(int movie);
+    void seek(int frame, uint64_t nowMs);
+    void showFrame(int frame);
+    void stopSound();
+    double frameMs() const;
+
+    const GameFiles& files_;
+    audio::Mixer* mixer_;
+    std::vector<FileRef> movies_;
+    int movie_ = -1;
+    MadMovie loaded_;
+    std::string error_;
+    std::shared_ptr<audio::Sound> audio_;
+    MadDecoder decoder_;
+    int decoded_ = -1; // the frame the decoder holds
+    Surface picture_;
+    bool paused_ = false;
+    // The clock: the audio's position while it plays, else time since
+    // startMs_ from startFrame_.
+    int startFrame_ = 0;
+    uint64_t startMs_ = 0, nowMs_ = 0;
+    audio::SoundHandle playing_ = audio::kNoSound;
+};
+
+// Every page, in Tab order, those with nothing to show left out. The
+// mixer plays the pages' sounds; null without audio output.
 std::vector<std::unique_ptr<Page>> makePages(const char* gameName, const GameFolders& folders,
-                                             const GameFiles& files);
+                                             const GameFiles& files, audio::Mixer* mixer = nullptr);
 
 } // namespace reluva::nfs

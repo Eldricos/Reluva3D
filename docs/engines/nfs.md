@@ -3,12 +3,14 @@
 Engine id `nfs`, to live in `src/engines/nfs/`. First game: Need for
 Speed III: Hot Pursuit (`nfs3`).
 
-Status: **Phase 2 done**:
+Status: **Phase 3 done**:
 
 - the engine detects the game and finds its folders;
 - it reads the archives, pictures, text and fonts;
 - it reads the car models, tracks, virtual roads and skies;
-- it shows them as a data viewer, the tracks and cars in 3D.
+- it decodes the sound banks, the music and its maps, and the movies;
+- it shows all of these as a data viewer, the tracks and cars in 3D, and
+  plays the sounds, music and movies.
 
 This page records what
 the retail data holds, what was tried, and the order the work should go
@@ -297,7 +299,50 @@ What was planned:
 - Done when all nine tracks and all cars draw correctly against
   screenshots from the original.
 
-### Phase 3: sound and video
+### Phase 3: sound and video (done)
+
+What was built, with each format written up in `docs/formats/nfs/`:
+
+- **Decoders**, each checked on every retail file (`nfs-survey`):
+  - [bnk.md](../formats/nfs/bnk.md): sound banks. Their codecs are in
+    `common/audio/ea_audio.cpp`:
+    - EA-XA ADPCM;
+    - EA's MicroTalk speech codec, bit-exact with a public-domain
+      reference decoder on all 1,869 English speech sounds;
+  - [mus.md](../formats/nfs/mus.md): the music streams, and the
+    Pathfinder maps that lead from segment to segment by an intensity;
+  - [mad.md](../formats/nfs/mad.md): the Madcow movies and their sound.
+    All frames match FFmpeg's decode, apart from 21 high-quantiser frames
+    where FFmpeg wraps 16-bit values. The audio matches sample for
+    sample.
+- **The Sounds page** lists every bank's sounds, shows the selected
+  one's waveform and plays it.
+- **The Music page** plays a stream from its first section. Each section
+  leads to the next as the map's routes say for the intensity, which can
+  be changed while it plays, or by the linear order (`.lin`).
+- **The Movies page** plays the movies with their sound, which keeps the
+  time. It can pause, jump and step frame by frame.
+- **The engine** starts the mixer's audio output for the pages.
+- **Tools:** `reluva-tool bnk-info`, `bnk-wav`, `mus-info`, `mus-wav`,
+  `mad-info`, `mad-frames`, `mad-wav`. `nfs-survey` now also covers
+  banks, streams, maps and movies.
+- **Unit tests** on hand-built data, and the MicroTalk decoder against
+  reference output.
+
+Checked under Xvfb with SDL's dummy audio driver: the pages play and
+move on as they should, but nobody listened to the output. The decoded
+audio was checked as WAV files: spectrograms, and the comparisons above.
+
+Not done yet:
+
+- segments follow each other with a gap of up to a few milliseconds, as
+  the mixer can't queue a sound to start when another ends;
+- which section a race's music starts at, and what the maps' events and
+  sections' first bytes do (the game's own player would tell);
+- the banks' unknown header tags;
+- the engine sounds' looping and pitch, which belong with the game.
+
+What was planned:
 
 - BNK banks and EA ADPCM decoder, into `common/audio`. The ASF stream
   (`.mus`) and the Pathfinder `.map`'s segment choices, for music that
@@ -376,6 +421,21 @@ Allowed under CONTRIBUTING.md:
   parameters in `0x6F` text blocks (`A0 B45 R24 ROTATE`).
 - The font header's flags and the size field that's 11 bytes short in
   two fonts.
+
+- The sound header tags not understood ([bnk.md](../formats/nfs/bnk.md)):
+  `0x92` (1 or 2, but not bytes per sample), `0x06` (25 on most sounds)
+  and the rest.
+- In the Pathfinder maps ([mus.md](../formats/nfs/mus.md)):
+  - the sections' first byte;
+  - the 16-byte events;
+  - header byte 5;
+  - which section a race starts at (Reluva starts at 0);
+  - what the game feeds in as the intensity.
+- In the movies ([mad.md](../formats/nfs/mad.md)):
+  - whether the game's decoder keeps the quantiser in 16 bits, as FFmpeg
+    does;
+  - what the game shows for the demos' fade-in frames;
+  - the frame header's unused fields.
 
 - Which track number is which track. Is `_8.qfs` the 8-bit (software
   renderer) texture set?

@@ -3,6 +3,8 @@
 
 #include "engines/nfs/viewers.h"
 
+#include "engines/nfs/page_draw.h"
+
 #include "common/events.h"
 #include "common/font.h"
 #include "common/fs.h"
@@ -14,39 +16,7 @@ namespace reluva::nfs {
 
 namespace {
 
-constexpr int kMargin = 16;
-constexpr Color kBackground{16, 20, 32};
-constexpr Color kTitleColor{255, 200, 64};
-constexpr Color kLabelColor{150, 160, 180};
-constexpr Color kTextColor{230, 230, 230};
-constexpr Color kWarnColor{255, 120, 100};
-
-void fill(Surface& s, int x0, int y0, int w, int h, Color c) {
-    for (int y = std::max(y0, 0); y < std::min(y0 + h, s.h); ++y) {
-        uint8_t* p = s.row(y) + std::max(x0, 0) * 4;
-        for (int x = std::max(x0, 0); x < std::min(x0 + w, s.w); ++x, p += 4) {
-            p[0] = c.r;
-            p[1] = c.g;
-            p[2] = c.b;
-            p[3] = 255;
-        }
-    }
-}
-
-void clear(Surface& s) { fill(s, 0, 0, s.w, s.h, kBackground); }
-
-// A line of text with the built-in font, cut to fit the screen.
-void text(Surface& s, int x, int y, const std::string& utf8, Color c) {
-    const size_t room = static_cast<size_t>(std::max(0, s.w - x - kMargin) / font::kAdvance);
-    font::drawText(s, x, y, font::length(utf8) > room ? utf8.substr(0, room) : utf8, c);
-}
-
-// A page's title line and, at the bottom, its keys.
-void frame(Surface& s, const std::string& title, const std::string& keys) {
-    clear(s);
-    text(s, kMargin, 8, title, kTitleColor);
-    text(s, kMargin, s.h - font::kLineHeight - 4, keys + "   Tab: next page   Esc: launcher", kLabelColor);
-}
+using namespace page;
 
 std::string join(const std::vector<std::string>& names) {
     std::string out;
@@ -402,7 +372,7 @@ void FontPage::draw(Surface& s) {
 // --- All pages ----------------------------------------------------------------
 
 std::vector<std::unique_ptr<Page>> makePages(const char* gameName, const GameFolders& folders,
-                                             const GameFiles& files) {
+                                             const GameFiles& files, audio::Mixer* mixer) {
     std::vector<std::unique_ptr<Page>> pages;
     pages.push_back(std::make_unique<InfoPage>(gameName, folders));
     pages.push_back(std::make_unique<TrackPage>(files, folders));
@@ -410,6 +380,9 @@ std::vector<std::unique_ptr<Page>> makePages(const char* gameName, const GameFol
     pages.push_back(std::make_unique<TexturePage>(files));
     pages.push_back(std::make_unique<StringPage>(files));
     pages.push_back(std::make_unique<FontPage>(files));
+    pages.push_back(std::make_unique<SoundPage>(files, mixer));
+    pages.push_back(std::make_unique<MusicPage>(files, mixer));
+    pages.push_back(std::make_unique<MoviePage>(files, mixer));
     std::erase_if(pages, [](const std::unique_ptr<Page>& p) { return p->empty(); });
     return pages;
 }
