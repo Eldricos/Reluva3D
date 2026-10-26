@@ -85,9 +85,8 @@ private:
     void send(const net::Address& to, const std::string& text);
 };
 
-// The master servers (sv_master1 to sv_master5), created with Elite
-// Force's defaults if not set: Raven's (long gone), then the community's
-// that the GPL engine running Elite Force uses.
+// The master servers (sv_master1 to sv_master5), created with defaults
+// if not set: Raven's (long gone), then three of the community's.
 std::vector<std::string> masterServerNames(CvarStore& cvars);
 
 } // namespace reluva::idtech3

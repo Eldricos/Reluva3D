@@ -123,6 +123,7 @@
 #include "engines/idtech3/eliteforce/net_server.h"
 #include "engines/idtech3/info_string.h"
 #include "engines/idtech3/pure.h"
+#include "engines/idtech3/server_browser.h"
 #include "backends/sockets/socket_net.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/shader.h"
@@ -3557,6 +3558,64 @@ int cmdPk3Sums(int argc, char** argv) {
     return 0;
 }
 
+// Asking master servers for their lists, as the menus' Internet list
+// does (and in dpmaster's form too), printing what each answers.
+int cmdNetMaster(int argc, char** argv) {
+    namespace q3 = reluva::idtech3;
+    std::vector<std::string> names;
+    for (int i = 2; i < argc; ++i)
+        names.emplace_back(argv[i]);
+    if (names.empty()) {
+        q3::CvarStore cvars;
+        names = q3::masterServerNames(cvars);
+    }
+    std::string err;
+    auto socket = reluva::net::openSystemUdp(0, err);
+    if (!socket) {
+        std::fprintf(stderr, "net-master: %s\n", err.c_str());
+        return 1;
+    }
+    int answers = 0;
+    for (const std::string& name : names) {
+        const auto [host, port] = reluva::net::splitHostPort(name, q3::ServerBrowser::kMasterPort);
+        uint32_t ip = 0;
+        if (!reluva::net::resolveSystemHost(host, ip)) {
+            std::printf("%s: can't find it\n", name.c_str());
+            continue;
+        }
+        const reluva::net::Address master{ip, port};
+        std::printf("%s (%s):\n", name.c_str(), master.toString().c_str());
+        for (const char* query : {"getservers 24", "getservers 24 full empty", "getservers EliteForce 24 full empty"}) {
+            std::vector<uint8_t> d(4, 0xff);
+            d.insert(d.end(), query, query + std::strlen(query));
+            socket->send(master, d);
+            using Clock = std::chrono::steady_clock;
+            const auto until = Clock::now() + std::chrono::seconds(3);
+            int got = 0;
+            while (Clock::now() < until) {
+                reluva::net::Address from;
+                std::vector<uint8_t> reply;
+                while (socket->receive(from, reply)) {
+                    ++got;
+                    ++answers;
+                    const auto servers = q3::ServerBrowser::serversFromResponse(reply);
+                    std::string head;
+                    for (size_t i = 4; i < reply.size() && head.size() < 60; ++i)
+                        head += reply[i] >= 32 && reply[i] < 127 ? char(reply[i]) : '.';
+                    std::printf("  \"%s\": %zu bytes from %s, %zu servers: %s\n", query, reply.size(),
+                                from.toString().c_str(), servers.size(), head.c_str());
+                    for (size_t i = 0; i < servers.size() && i < 5; ++i)
+                        std::printf("    %s\n", servers[i].toString().c_str());
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            }
+            if (!got)
+                std::printf("  \"%s\": no answer\n", query);
+        }
+    }
+    return answers ? 0 : 1;
+}
+
 int cmdGameRun(int argc, char** argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n");
@@ -4690,6 +4749,8 @@ int main(int argc, char** argv) {
         return cmdNetRun(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "net-find") == 0)
         return cmdNetFind(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "net-master") == 0)
+        return cmdNetMaster(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "pk3-sums") == 0)
         return cmdPk3Sums(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "ui-run") == 0)
@@ -4739,6 +4800,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
                  "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -syscalls <first> <last> | -func <instruction> | -blockcopies | -fields <address>\n"
                  "  reluva-tool net-find [host[:port]]\n"
+                 "  reluva-tool net-master [master[:port]]...\n"
                  "  reluva-tool pk3-sums <game folder> [feed]\n"
                  "  reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-addbot name]... | -join <host[:port]> [seconds] [-name name]\n"
                  "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n"

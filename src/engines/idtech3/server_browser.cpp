@@ -32,8 +32,14 @@ void ServerBrowser::localServers(uint64_t now) {
 void ServerBrowser::globalServers(const std::vector<net::Address>& masters, int protocol, const std::string& keywords) {
     global_.clear();
     masters_ = masters;
+    // Raven's master listed every server; the community's (dpmaster) leave
+    // out empty and full ones unless asked for them, so they're asked.
+    std::string words = keywords;
+    for (const char* w : {"full", "empty"})
+        if ((" " + words + " ").find(std::string(" ") + w + " ") == std::string::npos)
+            words += (words.empty() ? "" : " ") + std::string(w);
     for (const net::Address& m : masters)
-        send(m, "getservers " + std::to_string(protocol) + (keywords.empty() ? "" : " " + keywords));
+        send(m, "getservers " + std::to_string(protocol) + " " + words);
 }
 
 std::string ServerBrowser::globalServerAddress(int n) const {
@@ -178,8 +184,12 @@ std::string ServerBrowser::pingInfo(int n) const {
 }
 
 std::vector<std::string> masterServerNames(CvarStore& cvars) {
+    // Raven's first, as the original; then the community's (those the GPL
+    // engine and community guides list, October 2026).
     cvars.create("sv_master1", "master.stef1.ravensoft.com", 0);
     cvars.create("sv_master2", "efmaster.tjps.eu", CvarStore::Archive);
+    cvars.create("sv_master3", "master.stvef.org", CvarStore::Archive);
+    cvars.create("sv_master4", "master.stef1.daggolin.de", CvarStore::Archive);
     std::vector<std::string> out;
     for (int i = 1; i <= 5; ++i) {
         const std::string name = cvars.string("sv_master" + std::to_string(i));
