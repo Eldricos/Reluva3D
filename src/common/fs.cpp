@@ -27,7 +27,7 @@ static std::optional<stdfs::path> findEntry(const stdfs::path& dir, const std::s
     return std::nullopt;
 }
 
-std::optional<stdfs::path> findFile(const stdfs::path& dir, std::string_view relative) {
+static std::optional<stdfs::path> findPath(const stdfs::path& dir, std::string_view relative) {
     stdfs::path current = dir;
     size_t start = 0;
     while (start <= relative.size()) {
@@ -43,10 +43,23 @@ std::optional<stdfs::path> findFile(const stdfs::path& dir, std::string_view rel
         }
         start = slash + 1;
     }
-    std::error_code ec;
-    if (!stdfs::is_regular_file(current, ec))
-        return std::nullopt;
     return current;
+}
+
+std::optional<stdfs::path> findFile(const stdfs::path& dir, std::string_view relative) {
+    auto found = findPath(dir, relative);
+    std::error_code ec;
+    if (!found || !stdfs::is_regular_file(*found, ec))
+        return std::nullopt;
+    return found;
+}
+
+std::optional<stdfs::path> findDirectory(const stdfs::path& dir, std::string_view relative) {
+    auto found = findPath(dir, relative);
+    std::error_code ec;
+    if (!found || !stdfs::is_directory(*found, ec))
+        return std::nullopt;
+    return found;
 }
 
 std::optional<std::string> md5File(const stdfs::path& file, uint64_t maxBytes) {

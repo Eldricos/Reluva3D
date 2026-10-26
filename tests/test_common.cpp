@@ -8,13 +8,26 @@
 #include "common/audio/mp3.h"
 #include "common/audio/wav.h"
 #include "data/tone440_mp3.h"
+#include "data/x86_testdll.h"
+#include "common/archive.h"
 #include "common/config.h"
 #include "common/detection.h"
 #include "common/font.h"
 #include "common/fs.h"
+#include "common/gfx3d.h"
+#include "common/image.h"
+#include "common/md4.h"
 #include "common/md5.h"
+#include "common/net.h"
 #include "common/text.h"
+#include "common/x86/cpu.h"
+#include "common/x86/win32.h"
+#include "common/zip.h"
+#include "zip_writer.h"
 
+#include <algorithm>
+#include <cmath>
+#include <cstring>
 #include <cstdio>
 #include <memory>
 #include <fstream>
@@ -211,6 +224,278 @@ static void testMixer() {
     CHECK(m.play(nullptr, SoundType::Effects) == kNoSound && m.play(make(22050, 1, {}), SoundType::Effects) == kNoSound);
 }
 
+static void testZip(const std::filesystem::path& tmp) {
+    using test::toBytes;
+    CHECK(crc32(reinterpret_cast<const uint8_t*>("123456789"), 9) == 0xcbf43926);
+
+    // "textures/borg/borgfloor1\n" 12 times, raw-deflated by zlib.
+    std::string text;
+    for (int i = 0; i < 12; ++i)
+        text += "textures/borg/borgfloor1\n";
+    const std::vector<uint8_t> deflated = {0x2b, 0x49, 0xad, 0x28, 0x29, 0x2d, 0x4a, 0x2d, 0xd6, 0x4f,
+                                           0xca, 0x2f, 0x4a, 0x07, 0x13, 0x69, 0x39, 0xf9, 0xf9, 0x45,
+                                           0x86, 0x5c, 0x25, 0xa3, 0x12, 0xe8, 0x12, 0x00};
+    std::filesystem::remove_all(tmp);
+    const auto path = tmp / "pak0.pk3";
+    test::writeFile(path, test::buildZip({{"Scripts/", {}, {}},
+                                          {"Scripts/Borg.shader", toBytes("hello"), {}},
+                                          {"maps/list.txt", toBytes(text), deflated},
+                                          {"empty.cfg", {}, {}}},
+                                         "a comment"));
+    ZipArchive zip;
+    CHECK(!zip.open(path));
+    CHECK(zip.entries().size() == 3); // the folder entry is left out
+    CHECK(zip.has("scripts\\BORG.shader") && !zip.has("scripts/"));
+    std::vector<uint8_t> data;
+    CHECK(!zip.read("scripts/borg.shader", data) && data == toBytes("hello"));
+    CHECK(!zip.read("MAPS/LIST.TXT", data) && data == toBytes(text));
+    CHECK(!zip.read("empty.cfg", data) && data.empty());
+    CHECK(zip.read("missing.txt", data));
+
+    // A wrong CRC, and something that isn't a zip.
+    auto damaged = test::buildZip({{"a.txt", toBytes("abc"), {}}});
+    damaged[30 + 5] = 'X'; // the file's data, after the 30-byte header and name
+    test::writeFile(path, damaged);
+    CHECK(!zip.open(path) && zip.read("a.txt", data));
+    test::writeFile(path, toBytes("definitely not a zip archive"));
+    CHECK(zip.open(path));
+    std::filesystem::remove_all(tmp);
+}
+
+static void testSearchSet(const std::filesystem::path& tmp) {
+    using test::toBytes;
+    std::filesystem::remove_all(tmp);
+    test::writeFile(tmp / "low.zip", test::buildZip({{"a.txt", toBytes("low"), {}}, {"b.txt", toBytes("b"), {}}}));
+    test::writeFile(tmp / "high.zip", test::buildZip({{"A.TXT", toBytes("high"), {}}}));
+    test::writeFile(tmp / "dir" / "Sub" / "C.txt", toBytes("loose"));
+
+    SearchSet set;
+    auto open = [](const std::filesystem::path& p) {
+        auto z = std::make_unique<ZipArchive>();
+        CHECK(!z->open(p));
+        return z;
+    };
+    set.add(open(tmp / "low.zip"), 1);
+    set.add(open(tmp / "high.zip"), 2);
+    auto dir = std::make_unique<DirectoryArchive>();
+    CHECK(!dir->open(tmp / "dir"));
+    set.add(std::move(dir), 0);
+
+    std::vector<uint8_t> data;
+    CHECK(!set.read("a.txt", data) && data == toBytes("high"));
+    CHECK(!set.read("b.txt", data) && data == toBytes("b"));
+    CHECK(!set.read("sub/c.txt", data) && data == toBytes("loose"));
+    CHECK(set.read("d.txt", data));
+    const auto names = set.list();
+    CHECK(names.size() == 3 && names[0] == "A.TXT" && names[2] == "Sub/C.txt");
+    CHECK(set.archives().size() == 3 && set.archives()[0] == set.find("a.txt"));
+    CHECK(normalizeArchiveName("\\\\Textures\\\\Base//Floor.TGA") == "textures/base/floor.tga");
+    std::filesystem::remove_all(tmp);
+}
+
+static void testMd4() {
+    // RFC 1320's test values.
+    auto hex = [](const std::string& text) {
+        const auto d = md4(text.data(), text.size());
+        std::string out;
+        char buf[3];
+        for (uint8_t b : d) {
+            std::snprintf(buf, sizeof buf, "%02x", b);
+            out += buf;
+        }
+        return out;
+    };
+    CHECK(hex("") == "31d6cfe0d16ae931b73c59d7e0c089c0");
+    CHECK(hex("abc") == "a448017aaf21d8525fc10ae87aa6729d");
+    CHECK(hex("message digest") == "d9130a8164549fe818874806e1c7014b");
+    CHECK(hex("12345678901234567890123456789012345678901234567890123456789012345678901234567890") ==
+          "e33b4ddc9c38f2199c3e7b164fcc0536");
+}
+
+static void testNet() {
+    net::Address a;
+    CHECK(net::parseAddress("192.168.1.20:27961", 27960, a) && a.ip == 0xc0a80114u && a.port == 27961);
+    CHECK(net::parseAddress("10.0.0.1", 27960, a) && a.port == 27960 && a.isLan());
+    CHECK(a.toString() == "10.0.0.1:27960");
+    CHECK(!net::parseAddress("256.0.0.1", 1, a) && !net::parseAddress("1.2.3", 1, a) &&
+          !net::parseAddress("example.com", 1, a));
+    const net::Address google{0x08080808u, 1};
+    CHECK(!google.isLan());
+
+    // Two sockets in memory: one to the other, and a broadcast.
+    auto network = net::LoopbackNetwork::create();
+    auto server = network->open(27960), other = network->open(27961), client = network->open(0);
+    CHECK(server && client && other && client->port() == 27962 && !network->open(27960));
+    CHECK(client->send({0x7f000001u, 27960}, {1, 2, 3}));
+    net::Address from;
+    std::vector<uint8_t> data;
+    CHECK(server->receive(from, data) && data == std::vector<uint8_t>({1, 2, 3}) && from.port == 27962);
+    CHECK(!server->receive(from, data));
+    client->send(net::Address::broadcast(27960), {4});
+    CHECK(server->receive(from, data) && data.size() == 1 && !other->receive(from, data));
+}
+
+static void testImage() {
+    // 2x2 uncompressed 24-bit TGA, stored bottom row first (descriptor 0).
+    std::vector<uint8_t> tga = {0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 2, 0, 24, 0};
+    for (uint8_t v : {0, 0, 255, 0, 255, 0,      // bottom: red, green (stored B, G, R)
+                      255, 0, 0, 255, 255, 255}) // top: blue, white
+        tga.push_back(v);
+    image::Image img;
+    CHECK(!image::decode(tga, img));
+    CHECK(img.w == 2 && img.h == 2);
+    auto is = [&](int x, int y, uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+        const uint8_t* p = img.pixel(x, y);
+        return p[0] == r && p[1] == g && p[2] == b && p[3] == a;
+    };
+    CHECK(is(0, 0, 0, 0, 255, 255) && is(1, 0, 255, 255, 255, 255));
+    CHECK(is(0, 1, 255, 0, 0, 255) && is(1, 1, 0, 255, 0, 255));
+
+    // 3x1 RLE 32-bit TGA, top row first (descriptor 0x28): a run of 3.
+    const std::vector<uint8_t> rle = {0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 1, 0, 32, 0x28,
+                                      0x82, 10, 20, 30, 128};
+    CHECK(!image::decode(rle, img));
+    CHECK(img.w == 3 && img.h == 1 && is(0, 0, 30, 20, 10, 128) && is(2, 0, 30, 20, 10, 128));
+    CHECK(image::decode({1, 2, 3}, img));
+
+    // Encoding a TGA and reading it back (alpha dropped).
+    image::Image two;
+    two.w = 2;
+    two.h = 2;
+    two.rgba = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    image::Image back;
+    CHECK(!image::decode(image::encodeTga(two), back));
+    CHECK(back.w == 2 && back.h == 2 && back.rgba == std::vector<uint8_t>({1, 2, 3, 255, 5, 6, 7, 255, 9, 10, 11,
+                                                                           255, 13, 14, 15, 255}));
+
+    // Blending half-transparent red over black.
+    Surface s;
+    s.create(2, 1, PixelFormat::RGBA32);
+    img.w = 1;
+    img.h = 1;
+    img.rgba = {255, 0, 0, 128};
+    image::blit(s, img, 1, 0);
+    image::blit(s, img, 5, 5); // clipped away
+    CHECK(s.row(0)[0] == 0 && s.row(0)[4] == 128 && s.row(0)[7] == 255);
+}
+
+static void testGfxMath() {
+    using namespace reluva::gfx;
+    auto approx = [](float a, float b) { return std::fabs(a - b) < 1e-4f; };
+    auto same = [&](const Vec3& a, const Vec3& b) { return approx(a[0], b[0]) && approx(a[1], b[1]) && approx(a[2], b[2]); };
+    // Depth runs 0 at the near plane to 1 at the far one; +Y stays up.
+    const Mat4 proj = perspective(3.14159265f / 2, 1, 4, 100);
+    CHECK(same(transformPoint(proj, {0, 0, -4}), {0, 0, 0}));
+    CHECK(same(transformPoint(proj, {0, 0, -100}), {0, 0, 1}));
+    CHECK(same(transformPoint(proj, {4, 4, -4}), {1, 1, 0}));
+    // Looking along +X from (10, 0, 0) with Z up: +X is ahead (-Z in view
+    // space), +Y is to the left, +Z up.
+    const Mat4 view = lookAlong({10, 0, 0}, {1, 0, 0}, {0, 0, 1});
+    CHECK(same(transformPoint(view, {15, 0, 0}), {0, 0, -5}));
+    CHECK(same(transformPoint(view, {10, 2, 0}), {-2, 0, 0}));
+    CHECK(same(transformPoint(view, {10, 0, 3}), {0, 3, 0}));
+    CHECK(multiply(identity(), view) == view && multiply(view, identity()) == view);
+    const Mat4 both = multiply(proj, view);
+    CHECK(same(transformPoint(both, {14, 0, 0}), transformPoint(proj, transformPoint(view, {14, 0, 0}))));
+}
+
+// Runs `code` (hand-encoded, ending in RET) as a function of no arguments.
+static uint32_t runX86(x86::Cpu& cpu, std::vector<uint8_t> code, bool* ok = nullptr) {
+    const uint32_t at = 0x2000;
+    std::copy(code.begin(), code.end(), cpu.memory().begin() + at);
+    uint32_t result = 0;
+    const Error e = cpu.call(at, {}, result);
+    if (ok)
+        *ok = !e;
+    else if (e)
+        std::fprintf(stderr, "x86: %s\n", e.message.c_str());
+    return result;
+}
+
+static void testX86Instructions() {
+    x86::Cpu cpu(16u << 20);
+    cpu.setStack(0x100000);
+    // mov eax, 5; add eax, 0xfffffffb; setz al; movzx eax, al; ret
+    CHECK(runX86(cpu, {0xb8, 5, 0, 0, 0, 0x83, 0xc0, 0xfb, 0x0f, 0x94, 0xc0, 0x0f, 0xb6, 0xc0, 0xc3}) == 1);
+    // mov ecx, 10; xor eax, eax; loop: add eax, ecx; dec ecx; jnz loop; ret  (55)
+    CHECK(runX86(cpu, {0xb9, 10, 0, 0, 0, 0x31, 0xc0, 0x01, 0xc8, 0x49, 0x75, 0xfb, 0xc3}) == 55);
+    // mov eax, -7; cdq; mov ecx, 2; idiv ecx; imul eax, edx, 100; ret  (edx = -1, eax = -100)
+    CHECK(runX86(cpu, {0xb8, 0xf9, 0xff, 0xff, 0xff, 0x99, 0xb9, 2, 0, 0, 0, 0xf7, 0xf9, 0x6b, 0xc2, 100, 0xc3}) ==
+          uint32_t(-100));
+    // mov eax, 0x80000000; sar eax, 31; shr eax, 28; ret  (0xf)
+    CHECK(runX86(cpu, {0xb8, 0, 0, 0, 0x80, 0xc1, 0xf8, 31, 0xc1, 0xe8, 28, 0xc3}) == 0xf);
+    // mov eax, 0x12345678; bswap eax; ret
+    CHECK(runX86(cpu, {0xb8, 0x78, 0x56, 0x34, 0x12, 0x0f, 0xc8, 0xc3}) == 0x78563412);
+    // rep stosb then repe cmpsb: mov edi, 0x3000; mov ecx, 8; mov al, 0x41; rep stosb;
+    // mov esi, 0x3000; mov edi, 0x3004; mov ecx, 4; repe cmpsb; mov eax, ecx; ret  (0: all equal)
+    CHECK(runX86(cpu, {0xbf, 0, 0x30, 0, 0, 0xb9, 8, 0, 0, 0, 0xb0, 0x41, 0xf3, 0xaa, 0xbe, 0, 0x30, 0, 0, 0xbf, 4, 0x30,
+                       0, 0, 0xb9, 4, 0, 0, 0, 0xf3, 0xa6, 0x89, 0xc8, 0xc3}) == 0);
+    CHECK(cpu.read32(0x3000) == 0x41414141);
+    // x87: fld1; fld1; faddp; fsqrt; fstp dword [0x3000]; mov eax, [0x3000]; ret  (sqrt 2 as a float)
+    runX86(cpu, {0xd9, 0xe8, 0xd9, 0xe8, 0xde, 0xc1, 0xd9, 0xfa, 0xd9, 0x1d, 0, 0x30, 0, 0, 0xa1, 0, 0x30, 0, 0, 0xc3});
+    float f;
+    const uint32_t bitsOfF = cpu.read32(0x3000);
+    std::memcpy(&f, &bitsOfF, 4);
+    CHECK(f == std::sqrt(2.0f));
+    // fs: mov eax, fs:[4]; ret
+    cpu.fsBase = 0x4000;
+    cpu.write32(0x4004, 0xabcd);
+    CHECK(runX86(cpu, {0x64, 0xa1, 4, 0, 0, 0, 0xc3}) == 0xabcd);
+    // Faults: a null read, and division by zero, fail the call.
+    bool ok = true;
+    runX86(cpu, {0xa1, 0, 0, 0, 0, 0xc3}, &ok);
+    CHECK(!ok);
+    runX86(cpu, {0x31, 0xc9, 0xf7, 0xf1, 0xc3}, &ok);
+    CHECK(!ok);
+    // A native function, stdcall with one argument: push 20; call [native]; ret
+    const uint32_t native = cpu.addNative("double", [](x86::Cpu& c) {
+        c.reg[x86::Cpu::EAX] = c.arg(0) * 2;
+        return 4u;
+    });
+    cpu.write32(0x3100, native);
+    CHECK(runX86(cpu, {0x6a, 20, 0xff, 0x15, 0, 0x31, 0, 0, 0xc3}) == 40);
+}
+
+static void testX86Dll() {
+    x86::Cpu cpu(64u << 20);
+    x86::Win32Process process(cpu);
+    const x86::Win32Process::Module* m = nullptr;
+    const std::vector<uint8_t> file(std::begin(kX86TestDll), std::end(kX86TestDll));
+    CHECK(!process.load("testdll.dll", file, m));
+    if (!m)
+        return;
+    CHECK(process.missingImports().empty());
+    CHECK(!process.attach(*m));
+    uint32_t r = 0;
+    CHECK(!cpu.call(m->exportAddress("testdll_attached"), {}, r) && r == 0x0a280105);
+    unsigned heapSum = 0;
+    for (unsigned i = 0; i < 100; ++i)
+        heapSum += uint8_t(i * 7);
+    CHECK(!cpu.call(m->exportAddress("testdll_heap"), {100}, r) && r == heapSum);
+    const uint32_t run = m->exportAddress("testdll_run");
+    CHECK(run != 0);
+    const int inputs = int(sizeof kX86TestInputs / sizeof kX86TestInputs[0]);
+    for (int t = 0; t < int(sizeof kX86TestExpected / sizeof kX86TestExpected[0]); ++t)
+        for (int i = 0; i < inputs; ++i) {
+            const Error e = cpu.call(run, {uint32_t(t), kX86TestInputs[i][0], kX86TestInputs[i][1]}, r);
+            if (e || r != kX86TestExpected[t][i]) {
+                std::fprintf(stderr, "x86 test %d, input %d: %s (0x%08x, expected 0x%08x)\n", t, i,
+                             e ? e.message.c_str() : "wrong result", r, kX86TestExpected[t][i]);
+                ++failures;
+            }
+        }
+    // Loaded again it goes elsewhere, relocated: its table of function
+    // pointers (test 13) must still work.
+    const x86::Win32Process::Module* again = nullptr;
+    CHECK(!process.load("testdll2.dll", file, again));
+    if (again) {
+        CHECK(again->base != m->base);
+        for (int i = 0; i < inputs; ++i)
+            CHECK(!cpu.call(again->exportAddress("testdll_run"), {13, kX86TestInputs[i][0], kX86TestInputs[i][1]}, r) &&
+                  r == kX86TestExpected[13][i]);
+    }
+}
+
 int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_tests";
     testMd5();
@@ -221,6 +506,14 @@ int main() {
     testMixer();
     testFsAndDetection(tmp / "fs");
     testConfig(tmp / "cfg");
+    testZip(tmp / "zip");
+    testSearchSet(tmp / "search");
+    testImage();
+    testNet();
+    testMd4();
+    testGfxMath();
+    testX86Instructions();
+    testX86Dll();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

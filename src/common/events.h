@@ -56,6 +56,7 @@ enum class EventType {
     MouseDown,
     MouseUp,
     MouseWheel,
+    TextInput, // text typed, after the keyboard layout and dead keys (System::setTextInput)
 };
 
 enum class MouseButton { None, Left, Right, Middle };
@@ -66,9 +67,11 @@ struct Event {
     uint16_t mods = 0;           // KeyDown/KeyUp, and the mouse events (keymod bits)
     bool repeat = false;         // KeyDown auto-repeat
     int mouseX = 0, mouseY = 0;  // mouse events, in game framebuffer pixels
+    float moveX = 0, moveY = 0;  // MouseMove: how far the mouse moved, in its own units (System::setRelativeMouse)
     MouseButton button = MouseButton::None;
     int clicks = 0;              // MouseDown/MouseUp: 1, or 2 for a double click, ...
     int wheelY = 0;
+    char text[32] = {};          // TextInput: UTF-8, NUL-terminated
 };
 
 } // namespace reluva

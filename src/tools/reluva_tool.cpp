@@ -38,9 +38,63 @@
 //                                                  corner, and dump the bytes where the walk stops
 //   reluva-tool lbp-info <file> [out]              decode a texture, show its key and colours,
 //                                                  write <out>.bmp and <out>_alpha.bmp
+//   reluva-tool bsp-check <game folder>            load every maps/*.bsp of an id Tech 3 game folder
+//                                                  (e.g. .../BaseEF), report failures and corrections
+//   reluva-tool pk3-list <game folder> [filter]    list the search path's files, with sizes and the
+//                                                  archive each comes from
+//   reluva-tool image-check <game folder> [map]    list the images maps' shaders use that can't be
+//                                                  found (only maps whose name contains map)
+//   reluva-tool model-check <game folder> [filter] [-v]  for every .md3 surface, the shader or image it
+//                                                  names and whether it's found; where missing files
+//                                                  of the same name are; -v lists every miss
+//   reluva-tool qvm-info <game folder> <vm/x.qvm> [-s]  a QVM's sizes, functions, and the system calls its
+//                                                  code makes (found in the code, not run); -s its strings
+//   reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]
+//                                                  run vmMain(command, args) answering every system
+//                                                  call with 0, and log each call and its arguments
+//   reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>
+//                                                  the constants in a QVM's code that point into a
+//                                                  structure at address, by offset: which fields it uses
+//   reluva-tool qvm-dis <game folder> <vm/x.qvm> <first> [count]   list instructions, with the text,
+//   reluva-tool qvm-dis <game folder> <vm/x.qvm> -ref <address> [size]  floats and system calls they
+//   reluva-tool qvm-dis <game folder> <vm/x.qvm> -str <text>  use; -ref: the code around each use of an
+//                                                  address; -str: the functions using strings with the
+//                                                  text, and the functions they call; -syscall: the code
+//                                                  before every call to one system call; -blockcopies:
+//                                                  the sizes of the structures the code copies whole;
+//                                                  -fields: the offsets used through a global pointer;
+//                                                  -syscalls first last: each system call in the range
+//                                                  in short (calls, arguments, nearby texts);
+//                                                  -func N: the function holding instruction N and
+//                                                  the functions it calls
+//   reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]
+//                                                  run Elite Force's menus (vm/ui.qvm) with the engine's
+//                                                  system calls: Init, SetActiveMenu, Refresh; report
+//                                                  what they print, register and draw
+//   reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]
+//                                                  start a level with Elite Force's game logic
+//                                                  (vm/qagame.qvm): Init with the map's entities, then
+//                                                  frames, with a player (client 0) joining unless
+//                                                  -noclient (-walk: it runs forward); report what it
+//                                                  prints, sets and links; -cgame: then start the
+//                                                  client game (vm/cgame.qvm) for the player
+//                                                  (-entities N: dump N of its scene's entities
+//                                                  word by word; -cgameframes N frames, -fire,
+//                                                  -altfire held with -weapon N (all: each in turn),
+//                                                  -give: every weapon first; and the effects
+//                                                  seen reported); -buttons: hold each button bit
+//                                                  in turn and report what it changes
+//   reluva-tool file-show <game folder> <path>    print a file from the search path (a text file:
+//                                                  a config, a script)
+//   reluva-tool shader-show <game folder> <shader | model.md3 | model.mdr>  a shader's text as its script has it; for
+//                                                  a model, its surfaces' shaders and theirs
+//   reluva-tool shader-check <game folder>         count the shader directives the engine doesn't know
+//   reluva-tool portal-check <game folder>         each map's portal and mirror surfaces and portal entities
+//                                                  or draw yet, with example shaders
 
 #include "common/audio/decode.h"
 #include "common/audio/wav.h"
+#ifdef RELUVA_ENGINE_NEWWORLDS
 #include "engines/newworlds/cat_archive.h"
 #include "engines/newworlds/fif.h"
 #include "engines/newworlds/string_table.h"
@@ -52,10 +106,36 @@
 #include "engines/newworlds/mdl.h"
 #include "engines/newworlds/model_textures.h"
 #include "engines/newworlds/model_render.h"
+#endif
 #include "common/font.h"
+#include "common/fs.h"
+#include "common/pe.h"
+#include "common/x86/cpu.h"
+#include "common/x86/win32.h"
+#include "common/zip.h"
+#ifdef RELUVA_ENGINE_IDTECH3
+#include "engines/idtech3/bsp.h"
+#include "engines/idtech3/filesystem.h"
+#include "engines/idtech3/entities.h"
+#include "engines/idtech3/md3.h"
+#include "engines/idtech3/qvm.h"
+#include "engines/idtech3/cvars.h"
+#include "engines/idtech3/eliteforce/cgame_host.h"
+#include "engines/idtech3/eliteforce/game_host.h"
+#include "engines/idtech3/eliteforce/sp_game_host.h"
+#include "engines/idtech3/eliteforce/net_client.h"
+#include "engines/idtech3/eliteforce/net_server.h"
+#include "engines/idtech3/info_string.h"
+#include "engines/idtech3/pure.h"
+#include "engines/idtech3/server_browser.h"
+#include "backends/sockets/socket_net.h"
+#include "engines/idtech3/eliteforce/ui_host.h"
+#include "engines/idtech3/shader.h"
+#endif
 
 #include <map>
 #include <memory>
+#include <set>
 
 #include <algorithm>
 #include <cctype>
@@ -67,6 +147,8 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <chrono>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -110,6 +192,7 @@ void hexdump(const Bytes& d, size_t off, size_t len) {
         std::printf("\n");
     }
 }
+#ifdef RELUVA_ENGINE_NEWWORLDS
 
 // Unix time -> "YYYY-MM-DD HH:MM" (UTC), without platform time functions.
 std::string formatTime(uint32_t t) {
@@ -124,6 +207,7 @@ std::string formatTime(uint32_t t) {
                   int(secs / 3600), int(secs / 60 % 60));
     return buf;
 }
+#endif // RELUVA_ENGINE_NEWWORLDS
 
 long long parseNumber(const char* s) { return std::strtoll(s, nullptr, 0); }
 
@@ -142,6 +226,7 @@ int cmdHexdump(int argc, char** argv) {
     hexdump(d, size_t(std::max(0LL, off)), len);
     return 0;
 }
+#ifdef RELUVA_ENGINE_NEWWORLDS
 
 // Current understanding (see docs/formats/newworlds/cat.md): the file is a
 // tree of chunks, each a u16 tag + u32 size + payload.
@@ -749,6 +834,8 @@ int cmdTexKeys(int argc, char** argv) {
 }
 
 
+#endif // RELUVA_ENGINE_NEWWORLDS
+
 // A payload counts as a container if it splits exactly into chunks whose
 // tags look plausible. Small tag limit keeps random data from qualifying.
 bool tilesIntoChunks(const Bytes& d, size_t begin, size_t end) {
@@ -879,6 +966,7 @@ int cmdTable(int argc, char** argv) {
 }
 
 
+#ifdef RELUVA_ENGINE_NEWWORLDS
 bool writeObj(const reluva::newworlds::GeoModel& m, const std::string& path) {
     std::ofstream f(path);
     f << "# exported by reluva-tool geo-info\n";
@@ -2369,11 +2457,2648 @@ int cmdGeoSurvey(int argc, char** argv) {
     return 0;
 }
 
+#endif // RELUVA_ENGINE_NEWWORLDS
+
+#ifdef RELUVA_ENGINE_IDTECH3
+// Mounts an id Tech 3 game folder (".../BaseEF") the way the engine does.
+bool mountIdTech3(const char* folder, reluva::SearchSet& set) {
+    const std::filesystem::path dir = std::filesystem::path(folder).lexically_normal();
+    const std::filesystem::path path = dir.has_filename() ? dir : dir.parent_path();
+    std::vector<std::string> warnings;
+    if (reluva::Error err =
+            reluva::idtech3::mountGameDir(set, path.parent_path(), path.filename().string(), 0, warnings)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return false;
+    }
+    for (const std::string& w : warnings)
+        std::fprintf(stderr, "warning: %s\n", w.c_str());
+    return true;
+}
+
+int cmdBspCheck(int argc, char** argv) {
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: reluva-tool bsp-check <game folder>\n");
+        return 2;
+    }
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    int maps = 0, failed = 0, corrected = 0;
+    Bytes data;
+    for (const std::string& name : set.list()) {
+        const std::string key = reluva::normalizeArchiveName(name);
+        if (key.rfind("maps/", 0) != 0 || key.size() < 4 || key.compare(key.size() - 4, 4, ".bsp") != 0)
+            continue;
+        ++maps;
+        reluva::idtech3::Bsp bsp;
+        reluva::Error err = set.read(name, data);
+        if (!err)
+            err = reluva::idtech3::parseBsp(data, bsp);
+        if (err) {
+            ++failed;
+            std::printf("FAIL %s: %s\n", name.c_str(), err.message.c_str());
+            continue;
+        }
+        const auto& f = bsp.fixes;
+        if (f.total())
+            ++corrected;
+        std::printf("ok   %s: %zu surfaces, %zu lightmaps", name.c_str(), bsp.surfaces.size(), bsp.lightmapCount());
+        if (f.total())
+            std::printf("; corrected: %d lightmap, %d fog, %d flare/bad, %d type", f.lightmaps, f.fogs, f.flares,
+                        f.types);
+        std::printf("\n");
+    }
+    std::printf("%d maps: %d failed, %d loaded with corrections\n", maps, failed, corrected);
+    return failed ? 1 : 0;
+}
+
+int cmdImageCheck(int argc, char** argv) {
+    if (argc != 3 && argc != 4) {
+        std::fprintf(stderr, "usage: reluva-tool image-check <game folder> [map name filter]\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    std::vector<std::string> warnings;
+    q3::ShaderLibrary shaders;
+    shaders.load(set, &warnings);
+    for (const std::string& w : warnings)
+        std::fprintf(stderr, "warning: %s\n", w.c_str());
+    const std::string filter = argc == 4 ? reluva::normalizeArchiveName(argv[3]) : std::string();
+
+    std::map<std::string, int> missingEverywhere; // image -> maps missing it
+    int maps = 0;
+    Bytes data;
+    for (const std::string& name : set.list()) {
+        const std::string key = reluva::normalizeArchiveName(name);
+        if (key.rfind("maps/", 0) != 0 || key.size() < 4 || key.compare(key.size() - 4, 4, ".bsp") != 0 ||
+            key.find(filter) == std::string::npos)
+            continue;
+        q3::Bsp bsp;
+        if (set.read(name, data) || q3::parseBsp(data, bsp))
+            continue;
+        ++maps;
+        // Every image each shader names: its stages' maps, or for a shader
+        // without a script, the image of its own name.
+        std::map<std::string, std::string> missing; // image -> a shader wanting it
+        for (const q3::BspShader& s : bsp.shaders) {
+            std::vector<std::string> images;
+            const q3::ShaderDef* def = shaders.find(s.name);
+            if (!def)
+                images.push_back(s.name);
+            else
+                for (const q3::ShaderStage& st : def->stages)
+                    for (const std::string& m : st.maps)
+                        if (!m.empty() && m[0] != '$')
+                            images.push_back(m);
+            for (const std::string& img : images)
+                if (q3::findImage(set, img).empty())
+                    missing.emplace(reluva::normalizeArchiveName(img), std::string(def ? "script " : "") + s.name);
+        }
+        std::printf("%s: %zu shaders, %zu missing images\n", name.c_str(), bsp.shaders.size(), missing.size());
+        for (const auto& [img, shader] : missing) {
+            std::printf("    %-56s (shader %s)\n", img.c_str(), shader.c_str());
+            ++missingEverywhere[img];
+        }
+    }
+    std::printf("%d maps, %zu distinct missing images\n", maps, missingEverywhere.size());
+    return 0;
+}
+
+int cmdModelCheck(int argc, char** argv) {
+    if (argc < 3 || argc > 5) {
+        std::fprintf(stderr, "usage: reluva-tool model-check <game folder> [name filter] [-v]\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    std::string filter;
+    bool verbose = false;
+    for (int i = 3; i < argc; ++i) {
+        if (std::strcmp(argv[i], "-v") == 0)
+            verbose = true;
+        else
+            filter = reluva::normalizeArchiveName(argv[i]);
+    }
+    std::vector<std::string> warnings;
+    q3::ShaderLibrary shaders;
+    shaders.load(set, &warnings);
+
+    // Every image by its file name without folder or extension, to say
+    // where a missing one might be.
+    auto stem = [](const std::string& path) {
+        std::string s = reluva::normalizeArchiveName(path);
+        if (const size_t slash = s.find_last_of('/'); slash != std::string::npos)
+            s = s.substr(slash + 1);
+        if (const size_t dot = s.find_last_of('.'); dot != std::string::npos)
+            s.resize(dot);
+        return s;
+    };
+    auto folder = [](const std::string& path) {
+        const std::string s = reluva::normalizeArchiveName(path);
+        const size_t slash = s.find_last_of('/');
+        return slash == std::string::npos ? std::string() : s.substr(0, slash);
+    };
+    Bytes data;
+    std::multimap<std::string, std::string> imagesByStem;
+    std::vector<std::string> models;
+    std::set<std::string> mapShadersBare, mapModels; // what the maps use: shader names without extension, models
+    std::vector<std::string> maps;
+    for (const std::string& n : set.list()) {
+        const std::string key = reluva::normalizeArchiveName(n);
+        if (key.size() > 4) {
+            const std::string ext = key.substr(key.size() - 4);
+            if (ext == ".tga" || ext == ".jpg" || ext == ".png")
+                imagesByStem.emplace(stem(key), key);
+            else if ((ext == ".md3" || ext == ".mdr") && key.find(filter) != std::string::npos)
+                models.push_back(n);
+            else if (ext == ".bsp" && key.rfind("maps/", 0) == 0)
+                maps.push_back(n);
+        }
+    }
+    // A shader name as maps store it: without an extension.
+    auto bare = [](const std::string& name) {
+        std::string s = reluva::normalizeArchiveName(name);
+        const size_t dot = s.find_last_of('.'), slash = s.find_last_of('/');
+        if (dot != std::string::npos && (slash == std::string::npos || dot > slash))
+            s.resize(dot);
+        return s;
+    };
+    for (const std::string& n : maps) {
+        q3::Bsp bsp;
+        if (set.read(n, data) || q3::parseBsp(data, bsp))
+            continue;
+        for (const q3::BspShader& s : bsp.shaders)
+            mapShadersBare.insert(bare(s.name));
+        std::vector<q3::Entity> entities;
+        if (!q3::parseEntities(bsp.entities, entities))
+            for (const q3::Entity& e : entities)
+                for (const char* k : {"model", "model2"})
+                    if (const std::string m = e.get(k); !m.empty() && m[0] != '*')
+                        mapModels.insert(reluva::normalizeArchiveName(m));
+    }
+
+
+    // Kinds of result, with counts and a few examples.
+    std::map<std::string, std::pair<int, std::vector<std::string>>> kinds;
+    auto count = [&](const std::string& kind, const std::string& example) {
+        auto& [n, ex] = kinds[kind];
+        ++n;
+        if (ex.size() < 3)
+            ex.push_back(example);
+    };
+    int surfaces = 0, unreadable = 0;
+    for (const std::string& path : models) {
+        q3::Md3Model m;
+        if (set.read(path, data) || q3::parseModel(data, m)) {
+            ++unreadable;
+            continue;
+        }
+        const std::string base = reluva::normalizeArchiveName(path).substr(0, path.size() - 4);
+        // A skin next to the model, as players have, picks shaders first.
+        std::string skins;
+        std::map<std::string, std::string> skin;
+        // Lower-detail copies (head_1.md3) use the main model's skins.
+        std::string main = base;
+        if (main.size() > 2 && main[main.size() - 2] == '_' && (main.back() == '1' || main.back() == '2'))
+            main.resize(main.size() - 2);
+        for (const std::string& n : {base + ".skin", base + "_default.skin", main + ".skin", main + "_default.skin"})
+            if (set.has(n)) {
+                skins += " " + n;
+                if (skin.empty() && !set.read(n, data))
+                    skin = q3::parseSkin(std::string_view(reinterpret_cast<const char*>(data.data()), data.size()));
+            }
+        for (const q3::Md3Surface& s : m.surfaces) {
+            ++surfaces;
+            std::string name = s.shaders.empty() ? std::string() : s.shaders.front();
+            std::string via;
+            if (auto it = skin.find(reluva::fs::toLower(s.name)); it != skin.end()) {
+                name = it->second;
+                via = "skin: ";
+            }
+            const std::string where = path + " surface " + s.name + ": \"" + name + "\"";
+            if (name.empty()) {
+                count("no shader name" + std::string(skins.empty() ? "" : " (model has skins)"), where + skins);
+                continue;
+            }
+            std::vector<std::string> wanted; // images it needs
+            if (const q3::ShaderDef* def = shaders.find(name)) {
+                for (const q3::ShaderStage& st : def->stages)
+                    for (const std::string& img : st.maps)
+                        if (!img.empty() && img[0] != '$')
+                            wanted.push_back(img);
+                if (wanted.empty()) {
+                    count(via + "found: script without images", where);
+                    continue;
+                }
+            } else {
+                wanted.push_back(name);
+            }
+            bool allFound = true;
+            for (const std::string& img : wanted) {
+                if (!q3::findImage(set, img).empty())
+                    continue;
+                allFound = false;
+                // Where files of that name are, if anywhere.
+                std::string kind = via + (shaders.find(name) ? "missing image of a script" : "missing image");
+                if (img.find('/') == std::string::npos && img.find('\\') == std::string::npos)
+                    kind += ", name without a folder";
+                const auto range = imagesByStem.equal_range(stem(img));
+                std::string found;
+                bool sameFolder = false;
+                for (auto it = range.first; it != range.second; ++it) {
+                    found += " " + it->second;
+                    if (folder(it->second) == folder(path))
+                        sameFolder = true;
+                }
+                kind += found.empty() ? ", no file of that name anywhere"
+                                      : sameFolder ? ", a file of that name in the model's folder"
+                                                   : ", a file of that name elsewhere";
+                // Does a map show it: built into a map (whose surfaces keep
+                // the model's shader names), or placed by an entity?
+                const bool inMap = mapShadersBare.count(bare(name)) != 0;
+                const bool placed = mapModels.count(reluva::normalizeArchiveName(path)) != 0;
+                kind += inMap ? " [built into a map]" : placed ? " [placed by a map entity]" : " [not used by any map]";
+                count(kind, where + (img != name ? " needs " + img : std::string()) +
+                                (found.empty() ? std::string() : " ->" + found));
+                if (verbose)
+                    std::printf("MISSING %s%s ->%s\n", where.c_str(), img != name ? (" needs " + img).c_str() : "",
+                                found.empty() ? " (none)" : found.c_str());
+            }
+            if (allFound)
+                count(via + "found", where);
+        }
+    }
+    std::printf("%zu models, %d surfaces, %d models unreadable\n", models.size(), surfaces, unreadable);
+    for (const auto& [kind, info] : kinds) {
+        std::printf("%6d  %s\n", info.first, kind.c_str());
+        if (kind.find("found") == std::string::npos || kind.find("missing") != std::string::npos)
+            for (const std::string& e : info.second)
+                std::printf("          e.g. %s\n", e.c_str());
+    }
+    return 0;
+}
+
+// Loads a QVM from a game folder's search path.
+bool loadQvm(const char* folder, const char* name, reluva::idtech3::Qvm& vm) {
+    reluva::SearchSet set;
+    if (!mountIdTech3(folder, set))
+        return false;
+    Bytes data;
+    reluva::Error err = set.read(name, data);
+    if (!err)
+        err = vm.load(data);
+    if (err) {
+        std::fprintf(stderr, "%s: %s\n", name, err.message.c_str());
+        return false;
+    }
+    return true;
+}
+
+int cmdQvmInfo(int argc, char** argv) {
+    if (argc < 4 || argc > 5) {
+        std::fprintf(stderr, "usage: reluva-tool qvm-info <game folder> <vm/x.qvm> [-s]\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    q3::Qvm vm;
+    if (!loadQvm(argv[2], argv[3], vm))
+        return 1;
+    const auto& code = vm.code();
+    int functions = 0;
+    // System calls in the code: a constant negative target just before a
+    // CALL. Per number: how many call sites, and in how many functions.
+    std::map<int, std::pair<int, std::set<int>>> calls;
+    int indirect = 0, function = -1;
+    for (size_t i = 0; i < code.size(); ++i) {
+        if (code[i].op == q3::qvmop::Enter) {
+            ++functions;
+            function = int(i);
+        }
+        if (code[i].op != q3::qvmop::Call)
+            continue;
+        if (i > 0 && code[i - 1].op == q3::qvmop::Const) {
+            const int32_t target = code[i - 1].operand;
+            if (target < 0) {
+                auto& [n, fns] = calls[-1 - target];
+                ++n;
+                fns.insert(function);
+            }
+        } else {
+            ++indirect;
+        }
+    }
+    std::printf("%s: %zu instructions in %d functions, %u bytes of initialised data and literals, %zu bytes of memory\n",
+                argv[3], code.size(), functions, unsigned(vm.litEnd()), vm.memory().size());
+    std::printf("%d calls through function pointers\n", indirect);
+    size_t tableBytes = 0;
+    for (const auto& [first, end] : vm.protectedRanges())
+        tableBytes += end - first;
+    std::printf("%zu switch jump tables (%zu bytes), kept from writes while running\n", vm.protectedRanges().size(),
+                tableBytes);
+    std::printf("system calls (number: call sites, functions):\n");
+    for (const auto& [number, info] : calls)
+        std::printf("  %4d: %4d sites in %3zu functions\n", number, info.first, info.second.size());
+    if (argc == 5 && std::strcmp(argv[4], "-s") == 0) {
+        // Printable runs in the initialised data, which hold the strings.
+        const auto& mem = vm.memory();
+        std::string run;
+        size_t start = 0;
+        for (size_t i = 0; i < mem.size() && i < vm.litEnd(); ++i) {
+            const char c = char(mem[i]);
+            if (c >= 32 && c < 127) {
+                if (run.empty())
+                    start = i;
+                run += c;
+                continue;
+            }
+            if (c == 0 && run.size() >= 3)
+                std::printf("  %8zu  %s\n", start, run.c_str());
+            run.clear();
+        }
+    }
+    return 0;
+}
+
+int cmdQvmRun(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    q3::Qvm vm;
+    if (!loadQvm(argv[2], argv[3], vm))
+        return 1;
+    int32_t command = 0;
+    std::vector<int32_t> args;
+    uint64_t limit = 50'000'000;
+    bool haveCommand = false;
+    for (int i = 4; i < argc; ++i) {
+        if (std::strcmp(argv[i], "-limit") == 0 && i + 1 < argc)
+            limit = std::strtoull(argv[++i], nullptr, 0);
+        else if (!haveCommand) {
+            command = int32_t(std::strtol(argv[i], nullptr, 0));
+            haveCommand = true;
+        } else
+            args.push_back(int32_t(std::strtol(argv[i], nullptr, 0)));
+    }
+    vm.setInstructionLimit(limit);
+    // Log each system call; an argument pointing at text shows the text.
+    int logged = 0;
+    vm.setSystemCall([&](q3::Qvm& v, int number, const int32_t* a) -> int32_t {
+        ++logged;
+        std::printf("syscall %4d (", number);
+        int last = 5;
+        while (last >= 0 && a[last] == 0)
+            --last;
+        for (int i = 0; i <= last; ++i) {
+            std::printf("%s%d", i ? ", " : "", a[i]);
+            if (a[i] > 0 && v.valid(a[i], 1)) {
+                const std::string s = v.string(a[i], 120);
+                bool printable = s.size() >= 2;
+                for (char c : s)
+                    printable = printable && ((c >= 32 && c < 127) || c == '\n' || c == '\t');
+                if (printable) {
+                    std::string shown;
+                    for (char c : s)
+                        shown += c == '\n' ? std::string("\\n") : std::string(1, c);
+                    std::printf(" \"%s\"", shown.c_str());
+                }
+            }
+        }
+        std::printf(")\n");
+        return 0;
+    });
+    int32_t result = 0;
+    reluva::Error err = vm.call(command, args, result);
+    std::printf("vmMain(%d) %s %d after %llu instructions and %d system calls\n", command,
+                err ? "failed:" : "returned", err ? 0 : result, static_cast<unsigned long long>(vm.executed()), logged);
+    if (err)
+        std::printf("  %s\n", err.message.c_str());
+    return err ? 1 : 0;
+}
+
+int cmdQvmRefs(int argc, char** argv) {
+    if (argc != 6) {
+        std::fprintf(stderr, "usage: reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    q3::Qvm vm;
+    if (!loadQvm(argv[2], argv[3], vm))
+        return 1;
+    const long long base = std::strtoll(argv[4], nullptr, 0), size = std::strtoll(argv[5], nullptr, 0);
+    // Constants inside the range are addresses of a structure's fields (or
+    // of the structure itself): per offset, how often, and what the code
+    // does with the address next.
+    std::map<long long, std::map<std::string, int>> refs;
+    const auto& code = vm.code();
+    for (size_t i = 0; i < code.size(); ++i) {
+        if (code[i].op != q3::qvmop::Const || code[i].operand < base || code[i].operand >= base + size)
+            continue;
+        const std::string next = i + 1 < code.size() ? q3::qvmop::name(code[i + 1].op) : "end";
+        ++refs[code[i].operand - base][next];
+    }
+    std::printf("constants between %lld and %lld in %s (offset: count followed-by...):\n", base, base + size, argv[3]);
+    for (const auto& [offset, nexts] : refs) {
+        int total = 0;
+        std::string what;
+        for (const auto& [op, n] : nexts) {
+            total += n;
+            what += " " + op + "x" + std::to_string(n);
+        }
+        std::printf("  %6lld: %4d %s\n", offset, total, what.c_str());
+    }
+    return 0;
+}
+
+// One instruction, with what its operand probably means: the text a
+// constant points at, a float, or the system call a call makes.
+void printQvmInstruction(const reluva::idtech3::Qvm& vm, size_t i, bool mark) {
+    namespace q3 = reluva::idtech3;
+    const auto& code = vm.code();
+    const auto& in = code[i];
+    std::printf("%s%7zu  %-9s", mark ? "> " : "  ", i, q3::qvmop::name(in.op));
+    if (q3::qvmop::operandSize(in.op))
+        std::printf(" %d", in.operand);
+    if (in.op == q3::qvmop::Enter)
+        std::printf("    ; function start, %d bytes of frame", in.operand);
+    if (in.op == q3::qvmop::Const) {
+        const int32_t v = in.operand;
+        if (i + 1 < code.size() && code[i + 1].op == q3::qvmop::Call && v < 0)
+            std::printf("    ; system call %d", -1 - v);
+        else if (i + 1 < code.size() && code[i + 1].op == q3::qvmop::Call)
+            std::printf("    ; calls the function at %d", v);
+        else if (v > 0 && uint32_t(v) >= vm.litStart() && uint32_t(v) < vm.litEnd()) {
+            const std::string text = vm.string(v, 60);
+            bool printable = text.size() >= 2;
+            for (char c : text)
+                printable = printable && ((c >= 32 && c < 127) || c == '\n');
+            if (printable)
+                std::printf("    ; \"%s\"", text.c_str());
+        }
+        const float f = q3::Qvm::asFloat(v);
+        const float a = std::fabs(f);
+        if ((v & 0x7f800000) != 0 && (v < -65536 || v > 65536) && a > 1e-6f && a < 1e7f)
+            std::printf("    ; %g as a float", double(f));
+    }
+    std::printf("\n");
+}
+
+int cmdQvmDis(int argc, char** argv) {
+    if (argc < 5) {
+        std::fprintf(stderr, "usage: reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count]\n"
+                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -ref <address> [size]\n"
+                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -str <text>\n"
+                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -syscall <number>\n"
+                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -syscalls <first> <last>\n"
+                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -func <instruction>\n"
+                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -blockcopies\n"
+                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -fields <address of a pointer>\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    q3::Qvm vm;
+    if (!loadQvm(argv[2], argv[3], vm))
+        return 1;
+    const auto& code = vm.code();
+    // The function holding instruction i: from its ENTER to the next one.
+    auto functionAt = [&](size_t i) {
+        size_t first = i;
+        while (first > 0 && code[first].op != q3::qvmop::Enter)
+            --first;
+        size_t last = first + 1;
+        while (last < code.size() && code[last].op != q3::qvmop::Enter)
+            ++last;
+        return std::make_pair(first, last);
+    };
+    if (std::strcmp(argv[4], "-str") == 0 && argc >= 6) {
+        // Every function using a string that contains the text, then the
+        // functions those call, each listed whole.
+        auto lower = [](std::string t) {
+            for (char& c : t)
+                c = char(std::tolower(static_cast<unsigned char>(c)));
+            return t;
+        };
+        const std::string needle = lower(argv[5]);
+        const auto& mem = vm.memory();
+        std::map<int32_t, std::string> strings; // address -> text
+        for (size_t i = 0; i < vm.litEnd();) {
+            size_t j = i;
+            while (j < vm.litEnd() && mem[j] >= 32 && mem[j] < 127)
+                ++j;
+            if (j < vm.litEnd() && mem[j] == 0 && j > i &&
+                lower(std::string(mem.begin() + long(i), mem.begin() + long(j))).find(needle) != std::string::npos)
+                strings[int32_t(i)] = std::string(mem.begin() + long(i), mem.begin() + long(j));
+            i = j + 1;
+        }
+        std::set<size_t> users, callees;
+        for (const auto& [address, text] : strings) {
+            std::printf("string at %d: \"%s\"\n", address, text.c_str());
+            for (size_t i = 0; i < code.size(); ++i)
+                if (code[i].op == q3::qvmop::Const && code[i].operand == address)
+                    users.insert(functionAt(i).first);
+        }
+        for (size_t f : users) {
+            const auto [first, last] = functionAt(f);
+            for (size_t i = first; i + 1 < last; ++i)
+                if (code[i].op == q3::qvmop::Const && code[i + 1].op == q3::qvmop::Call && code[i].operand >= 0 &&
+                    size_t(code[i].operand) < code.size() && !users.count(size_t(code[i].operand)))
+                    callees.insert(size_t(code[i].operand));
+        }
+        size_t printed = 0;
+        auto list = [&](size_t f, const char* why) {
+            const auto [first, last] = functionAt(f);
+            std::printf("=== function at %zu (%s), %zu instructions\n", first, why, last - first);
+            if (printed > 4000) {
+                std::printf("    (not listed: over 4000 lines already)\n");
+                return;
+            }
+            for (size_t i = first; i < last; ++i)
+                printQvmInstruction(vm, i, false);
+            printed += last - first;
+        };
+        for (size_t f : users)
+            list(f, "uses the string");
+        for (size_t f : callees)
+            list(f, "called by one above");
+        return 0;
+    }
+    if (std::strcmp(argv[4], "-fields") == 0 && argc >= 6) {
+        // The fields used through a pointer kept in a global variable:
+        // CONST global, LOAD4 (the pointer), CONST offset, ADD. By offset,
+        // how often, and what the code then does (LOAD4: reads, STORE4 or
+        // a later store: writes; ARG: passes the field's address).
+        const int32_t global = int32_t(std::strtol(argv[5], nullptr, 0));
+        std::map<int32_t, std::map<std::string, int>> fields;
+        for (size_t i = 0; i + 4 < code.size(); ++i) {
+            if (code[i].op != q3::qvmop::Const || code[i].operand != global || code[i + 1].op != q3::qvmop::Load4)
+                continue;
+            if (code[i + 2].op == q3::qvmop::Const && code[i + 3].op == q3::qvmop::Add)
+                ++fields[code[i + 2].operand][q3::qvmop::name(code[i + 4].op)];
+            else
+                ++fields[0][q3::qvmop::name(code[i + 2].op)];
+        }
+        std::printf("fields used through the pointer at %d (offset: count followed-by...):\n", global);
+        for (const auto& [offset, nexts] : fields) {
+            int total = 0;
+            std::string what;
+            for (const auto& [op, n] : nexts) {
+                total += n;
+                what += " " + op + "x" + std::to_string(n);
+            }
+            std::printf("  %6d: %4d %s\n", offset, total, what.c_str());
+        }
+        return 0;
+    }
+    if (std::strcmp(argv[4], "-blockcopies") == 0) {
+        // Every structure copied whole, by size: a structure's size shows
+        // where the code copies one (a command into the movement code...).
+        std::map<int32_t, std::vector<size_t>> sizes;
+        for (size_t i = 0; i < code.size(); ++i)
+            if (code[i].op == q3::qvmop::BlockCopy)
+                sizes[code[i].operand].push_back(i);
+        std::printf("block copies by size (bytes: count, first instructions):\n");
+        for (const auto& [size, at] : sizes) {
+            std::printf("  %6d: %4zu ", size, at.size());
+            for (size_t k = 0; k < at.size() && k < 6; ++k)
+                std::printf(" %zu", at[k]);
+            std::printf("\n");
+        }
+        return 0;
+    }
+    if (std::strcmp(argv[4], "-syscall") == 0 && argc >= 6) {
+        // The code before every call to one system call: how its arguments are made.
+        const int32_t target = -1 - int32_t(std::strtol(argv[5], nullptr, 0));
+        int found = 0;
+        for (size_t i = 0; i + 1 < code.size(); ++i) {
+            if (code[i].op != q3::qvmop::Const || code[i].operand != target || code[i + 1].op != q3::qvmop::Call)
+                continue;
+            if (++found > 30) {
+                std::printf("(more than 30 calls)\n");
+                break;
+            }
+            const size_t first = std::max(functionAt(i).first, i >= 16 ? i - 16 : 0);
+            std::printf("--- call at instruction %zu\n", i);
+            for (size_t j = first; j < std::min(code.size(), i + 8); ++j)
+                printQvmInstruction(vm, j, j == i);
+        }
+        return 0;
+    }
+    if (std::strcmp(argv[4], "-func") == 0 && argc >= 6) {
+        // The whole function holding an instruction, then each function it
+        // calls, whole.
+        const size_t at = size_t(std::strtoull(argv[5], nullptr, 0));
+        if (at >= code.size())
+            return 1;
+        const auto [first, last] = functionAt(at);
+        std::set<size_t> callees;
+        for (size_t i = first; i + 1 < last; ++i)
+            if (code[i].op == q3::qvmop::Const && code[i + 1].op == q3::qvmop::Call && code[i].operand >= 0 &&
+                size_t(code[i].operand) < code.size() && size_t(code[i].operand) != first)
+                callees.insert(size_t(code[i].operand));
+        std::printf("=== function at %zu, %zu instructions\n", first, last - first);
+        for (size_t i = first; i < last; ++i)
+            printQvmInstruction(vm, i, i == at);
+        for (const size_t f : callees) {
+            const auto [cf, cl] = functionAt(f);
+            std::printf("=== function at %zu (called by it), %zu instructions\n", cf, cl - cf);
+            if (cl - cf > 2000) {
+                std::printf("    (not listed: over 2000 instructions)\n");
+                continue;
+            }
+            for (size_t i = cf; i < cl; ++i)
+                printQvmInstruction(vm, i, false);
+        }
+        return 0;
+    }
+    if (std::strcmp(argv[4], "-syscalls") == 0 && argc >= 7) {
+        // Every system call from `first` to `last` the code makes, in
+        // short: how many calls, and for a few of them what each argument
+        // is made from (a number, a text, a local or global variable...),
+        // what the code does with the result, and texts the calling
+        // function uses (its messages often name what it calls).
+        const int lo = std::atoi(argv[5]), hi = std::atoi(argv[6]);
+        auto text = [&](int32_t v) -> std::string {
+            if (v <= 0 || uint32_t(v) < vm.litStart() || uint32_t(v) >= vm.litEnd())
+                return {};
+            const std::string t = vm.string(v, 48);
+            for (char c : t)
+                if (c < 32 || c >= 127)
+                    return {};
+            return t;
+        };
+        // What one argument is made from, from the instructions before its ARG.
+        auto describe = [&](size_t argAt, size_t from) -> std::string {
+            if (argAt == 0 || argAt - 1 < from)
+                return "?";
+            const auto& p = code[argAt - 1];
+            if (p.op == q3::qvmop::Const) {
+                if (const std::string t = text(p.operand); !t.empty())
+                    return "\"" + t + "\"";
+                return std::to_string(p.operand);
+            }
+            if (p.op == q3::qvmop::Local)
+                return "&local" + std::to_string(p.operand);
+            if (p.op == q3::qvmop::Load4 && argAt >= 2 && argAt - 2 >= from) {
+                const auto& pp = code[argAt - 2];
+                if (pp.op == q3::qvmop::Local)
+                    return "local" + std::to_string(pp.operand);
+                if (pp.op == q3::qvmop::Const)
+                    return "[" + std::to_string(pp.operand) + "]";
+                if (pp.op == q3::qvmop::Add && argAt >= 3 && code[argAt - 3].op == q3::qvmop::Const)
+                    return "[p+" + std::to_string(code[argAt - 3].operand) + "]";
+                return "[...]";
+            }
+            if (p.op == q3::qvmop::Add && argAt >= 2 && code[argAt - 2].op == q3::qvmop::Const)
+                return "p+" + std::to_string(code[argAt - 2].operand);
+            return std::string("(") + q3::qvmop::name(p.op) + ")";
+        };
+        for (int n = lo; n <= hi; ++n) {
+            const int32_t target = -1 - n;
+            std::vector<size_t> sites;
+            for (size_t i = 0; i + 1 < code.size(); ++i)
+                if (code[i].op == q3::qvmop::Const && code[i].operand == target && code[i + 1].op == q3::qvmop::Call)
+                    sites.push_back(i);
+            if (sites.empty())
+                continue;
+            std::printf("== %d: %zu calls\n", n, sites.size());
+            for (size_t k = 0; k < sites.size() && k < 3; ++k) {
+                const size_t i = sites[k];
+                const auto [first, last] = functionAt(i);
+                // The arguments: ARGs since the previous call in the function.
+                size_t from = i;
+                while (from > first && code[from - 1].op != q3::qvmop::Call)
+                    --from;
+                std::string args;
+                for (size_t j = from; j < i; ++j)
+                    if (code[j].op == q3::qvmop::Arg)
+                        args += " " + std::to_string(code[j].operand) + ":" + describe(j, from);
+                std::string after;
+                for (size_t j = i + 2; j < last && j < i + 5; ++j)
+                    after += std::string(" ") + q3::qvmop::name(code[j].op) +
+                             (q3::qvmop::operandSize(code[j].op) ? " " + std::to_string(code[j].operand) : "");
+                std::printf("  at %zu (function %zu): args%s; then%s\n", i, first, args.empty() ? " none" : args.c_str(),
+                            after.c_str());
+                std::set<std::string> seen;
+                for (size_t j = first; j < last && seen.size() < 3; ++j)
+                    if (code[j].op == q3::qvmop::Const)
+                        if (const std::string t = text(code[j].operand); t.size() >= 4 && seen.insert(t).second)
+                            std::printf("      uses \"%s\"\n", t.c_str());
+            }
+        }
+        return 0;
+    }
+    if (std::strcmp(argv[4], "-ref") == 0 && argc >= 6) {
+        // The code around every constant pointing into [address, address + size).
+        const long long base = std::strtoll(argv[5], nullptr, 0);
+        const long long size = argc >= 7 ? std::strtoll(argv[6], nullptr, 0) : 4;
+        int found = 0;
+        for (size_t i = 0; i < code.size(); ++i) {
+            if (code[i].op != q3::qvmop::Const || code[i].operand < base || code[i].operand >= base + size)
+                continue;
+            if (++found > 50) {
+                std::printf("(more than 50; narrow the range)\n");
+                break;
+            }
+            size_t first = i >= 12 ? i - 12 : 0;
+            for (size_t j = i; j > first; --j)
+                if (code[j].op == q3::qvmop::Enter) {
+                    first = j;
+                    break;
+                }
+            const size_t last = std::min(code.size(), i + 16);
+            std::printf("--- offset %lld, instruction %zu\n", code[i].operand - base, i);
+            for (size_t j = first; j < last; ++j) {
+                if (j > i && code[j].op == q3::qvmop::Enter)
+                    break;
+                printQvmInstruction(vm, j, j == i);
+            }
+        }
+        return 0;
+    }
+    const size_t first = size_t(std::strtoull(argv[4], nullptr, 0));
+    const size_t count = argc >= 6 ? size_t(std::strtoull(argv[5], nullptr, 0)) : 40;
+    for (size_t j = first; j < code.size() && j < first + count; ++j)
+        printQvmInstruction(vm, j, false);
+    return 0;
+}
+
+int cmdUiRun(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    namespace ef = reluva::idtech3::eliteforce;
+    int frames = 1, menu = 1, width = 640, height = 480, glwords = 5124;
+    bool traceCalls = false, verbose = false;
+    for (int i = 3; i < argc; ++i) {
+        if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
+            frames = std::atoi(argv[++i]);
+        else if (std::strcmp(argv[i], "-menu") == 0 && i + 1 < argc)
+            menu = std::atoi(argv[++i]);
+        else if (std::strcmp(argv[i], "-size") == 0 && i + 1 < argc) {
+            char* end = nullptr;
+            width = int(std::strtol(argv[++i], &end, 10));
+            height = *end ? int(std::strtol(end + 1, nullptr, 10)) : 0;
+            if (width <= 0 || height <= 0) {
+                std::fprintf(stderr, "-size takes WIDTHxHEIGHT, e.g. 1280x960\n");
+                return 2;
+            }
+        }
+        else if (std::strcmp(argv[i], "-glwords") == 0 && i + 1 < argc)
+            glwords = std::atoi(argv[++i]);
+        else if (std::strcmp(argv[i], "-trace") == 0)
+            traceCalls = true;
+        else if (std::strcmp(argv[i], "-v") == 0)
+            verbose = true;
+    }
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    q3::CvarStore cvars;
+    ef::UiHost ui(set, cvars);
+    ui.setScreenSize(width, height);
+    ui.setGlconfigWords(glwords);
+    ui.print = [](const std::string& text) { std::printf("ui: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : ""); };
+    if (traceCalls)
+        ui.trace = [](int number, const int32_t* a) {
+            std::printf("  syscall %3d (%d, %d, %d, %d)\n", number, a[0], a[1], a[2], a[3]);
+        };
+    auto step = [&](const char* what, reluva::Error err) {
+        std::printf("%s: %s after %llu instructions\n", what, err ? err.message.c_str() : "ok",
+                    static_cast<unsigned long long>(ui.vm().executed()));
+        return !err;
+    };
+    if (!step("load and GetApiVersion", ui.load()))
+        return 1;
+    bool ok = step("Init", ui.call(ef::UiHost::Init));
+    if (ok)
+        ok = step("SetActiveMenu", ui.call(ef::UiHost::SetActiveMenu, {menu}));
+    for (int f = 0; ok && f < frames; ++f) {
+        ui.clearPictures();
+        const int32_t time = 1000 + f * 16;
+        ok = step("Refresh", ui.refresh(time));
+    }
+
+    // What was registered, and whether the engine can find it.
+    q3::ShaderLibrary shaders;
+    shaders.load(set);
+    int missing = 0;
+    for (int32_t h = 1; h <= int32_t(ui.shaders().size()); ++h) {
+        const std::string& name = ui.shaders().name(h);
+        if (!shaders.find(name) && q3::findImage(set, name).empty()) {
+            std::printf("shader not found: %s\n", name.c_str());
+            ++missing;
+        }
+    }
+    std::printf("%zu cvars, %zu shaders (%d not found), %zu models, %zu sounds registered\n", cvars.all().size(),
+                ui.shaders().size(), missing, ui.models().size(), ui.sounds().size());
+    std::printf("last frame: %zu pictures\n", ui.pictures().size());
+    size_t shown = 0;
+    for (const auto& p : ui.pictures()) {
+        if (!verbose && ++shown > 40) {
+            std::printf("  ... (-v lists them all)\n");
+            break;
+        }
+        std::printf("  %7.1f %7.1f %7.1f x %-7.1f st %.3f %.3f %.3f %.3f  rgba %.2f %.2f %.2f %.2f  %s\n", p.x, p.y, p.w,
+                    p.h, p.s1, p.t1, p.s2, p.t2, p.color[0], p.color[1], p.color[2], p.color[3],
+                    ui.shaders().name(p.shader).c_str());
+    }
+    for (const std::string& c : ui.commands())
+        std::printf("command: %s\n", c.c_str());
+    for (const auto& [number, count] : ui.unhandled())
+        std::printf("not implemented: system call %d (%d calls)\n", number, count);
+    return ok ? 0 : 1;
+}
+
+// Network play from a terminal (protocol 24, eliteforce-network.md):
+// hosting a level as a server with no player of its own, for others to
+// join for `seconds`; or, with -join, joining a server and reporting
+// what it sends while walking forward.
+int cmdNetRun(int argc, char** argv) {
+    namespace q3 = reluva::idtech3;
+    namespace ef = reluva::idtech3::eliteforce;
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-addbot <name>]...\n"
+                             "       reluva-tool net-run <game folder> -join <host[:port]> [seconds] [-name <name>]\n");
+        return 1;
+    }
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    const bool join = std::strcmp(argv[3], "-join") == 0;
+    if (join && argc < 5) {
+        std::fprintf(stderr, "net-run: -join needs an address\n");
+        return 1;
+    }
+    int seconds = 60, port = 27960;
+    std::string name = "ReluvaTool";
+    std::vector<std::string> bots;
+    bool publicServer = false; // dedicated 2: listed with the master servers
+    for (int i = join ? 5 : 4; i < argc; ++i) {
+        if (std::strcmp(argv[i], "-port") == 0 && i + 1 < argc)
+            port = std::atoi(argv[++i]);
+        else if (std::strcmp(argv[i], "-name") == 0 && i + 1 < argc)
+            name = argv[++i];
+        else if (std::strcmp(argv[i], "-addbot") == 0 && i + 1 < argc)
+            bots.emplace_back(argv[++i]);
+        else if (std::strcmp(argv[i], "-public") == 0)
+            publicServer = true;
+        else if (argv[i][0] != '-')
+            seconds = std::max(1, std::atoi(argv[i]));
+        else
+            std::fprintf(stderr, "net-run: ignoring %s (not an option it knows)\n", argv[i]);
+    }
+    using Clock = std::chrono::steady_clock;
+    const auto start = Clock::now();
+    auto nowMs = [&] { return uint64_t(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - start).count()) + 1; };
+    std::string err;
+    q3::CvarStore cvars;
+
+    if (join) {
+        const auto [host, p] = reluva::net::splitHostPort(argv[4], 27960);
+        uint32_t ip = 0;
+        if (!reluva::net::resolveSystemHost(host, ip)) {
+            std::fprintf(stderr, "net-run: can't find %s\n", host.c_str());
+            return 1;
+        }
+        auto socket = reluva::net::openSystemUdp(0, err);
+        if (!socket) {
+            std::fprintf(stderr, "net-run: %s\n", err.c_str());
+            return 1;
+        }
+        const reluva::net::Address server{ip, p};
+        std::printf("joining %s from port %u\n", server.toString().c_str(), socket->port());
+        ef::NetClient client(std::move(socket), server,
+                             "\\name\\" + name + "\\model\\munro\\handicap\\100\\snaps\\20\\rate\\25000", 4321);
+        auto state = client.state();
+        size_t snapshots = 0, entities = 0, commandsSeen = 0;
+        int32_t lastTime = 0;
+        while (nowMs() < uint64_t(seconds) * 1000) {
+            const uint64_t now = nowMs();
+            client.frame(now);
+            if (client.state() != state) {
+                state = client.state();
+                std::printf("%6.2f s: state %d%s%s\n", double(now) / 1000, int(state),
+                            client.message().empty() ? "" : ": ", client.message().c_str());
+                if (state == ef::NetClient::State::Disconnected)
+                    return 1;
+            }
+            if (client.takeNewGamestate()) {
+                const auto& cs = client.configstrings();
+                std::printf("game state: %zu configstrings, map %s, commands from %d\n", cs.size(),
+                            cs.count(0) ? q3::infoValue(cs.at(0), "mapname").c_str() : "?",
+                            client.gamestateCommandSequence());
+                client.setLoaded();
+            }
+            for (const auto& snap : client.takeSnapshots()) {
+                ++snapshots;
+                entities = snap.entities.size();
+                lastTime = snap.serverTime;
+                if (snapshots == 1 || snapshots % 100 == 0) {
+                    float origin[3] = {};
+                    if (snap.playerState.size() >= 32)
+                        std::memcpy(origin, snap.playerState.data() + 20, 12);
+                    std::printf("snapshot %zu: server time %d, %zu entities, player at (%.0f %.0f %.0f)\n", snapshots,
+                                snap.serverTime, entities, double(origin[0]), double(origin[1]), double(origin[2]));
+                }
+            }
+            for (; commandsSeen < client.serverCommands().size(); ++commandsSeen)
+                if (!client.serverCommands()[commandsSeen].empty())
+                    std::printf("server command %zu: %s\n", commandsSeen + 1, client.serverCommands()[commandsSeen].c_str());
+            if (client.hasSnapshot()) {
+                ef::GameHost::UserCommand cmd;
+                cmd.serverTime = client.serverTime();
+                cmd.forward = 127;
+                client.addCommand(cmd);
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+        std::printf("%zu snapshots (the last at server time %d, %zu entities); leaving\n", snapshots, lastTime, entities);
+        client.disconnect();
+        return snapshots ? 0 : 1;
+    }
+
+    std::string map = argv[3];
+    if (map.size() > 4 && map.compare(map.size() - 4, 4, ".bsp") == 0)
+        map.resize(map.size() - 4);
+    Bytes data;
+    auto bsp = std::make_shared<q3::Bsp>();
+    if (reluva::Error e = set.read("maps/" + map + ".bsp", data); e || (e = q3::parseBsp(data, *bsp))) {
+        std::fprintf(stderr, "maps/%s.bsp: %s\n", map.c_str(), e.message.c_str());
+        return 1;
+    }
+    cvars.set("g_holoIntro", "0");
+    cvars.create("dedicated", "1", 0);
+    if (publicServer)
+        cvars.set("dedicated", "2");
+    ef::GameHost game(set, cvars);
+    game.print = [](const std::string& text) {
+        std::printf("game: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
+    };
+    if (reluva::Error e = game.load(); e || (e = game.startLevel(map, bsp, int32_t(start.time_since_epoch().count())))) {
+        std::fprintf(stderr, "net-run: %s\n", e.message.c_str());
+        return 1;
+    }
+    std::printf("game code: Elite Force %s layout\n", game.layout().version == 12 ? "1.2" : "1.0");
+    if (game.layout().version != 12)
+        std::printf("warning: the protocol carries patch 1.2's layouts; players joining 1.0's game won't see it right\n");
+    for (const std::string& bot : bots)
+        if (reluva::Error e = game.serverCommand("addbot " + bot))
+            std::fprintf(stderr, "net-run: addbot: %s\n", e.message.c_str());
+    auto socket = reluva::net::openSystemUdp(uint16_t(port), err);
+    if (!socket) {
+        std::fprintf(stderr, "net-run: %s\n", err.c_str());
+        return 1;
+    }
+    ef::NetServer server(game, cvars, std::move(socket));
+    server.print = [](const std::string& text) { std::printf("server: %s", text.c_str()); };
+    server.resolveHost = [](const std::string& host, uint32_t& ip) { return reluva::net::resolveSystemHost(host, ip); };
+    server.setFiles(&set);
+    server.levelStarted();
+    std::printf("hosting %s on port %u for %d s\n", map.c_str(), server.port(), seconds);
+    const int32_t startTime = game.levelTime();
+    while (nowMs() < uint64_t(seconds) * 1000) {
+        const uint64_t now = nowMs();
+        if (reluva::Error e = server.receive(now)) {
+            std::fprintf(stderr, "net-run: %s\n", e.message.c_str());
+            return 1;
+        }
+        while (game.levelTime() - startTime < int32_t(now)) {
+            if (reluva::Error e = game.runFrame(); e || (e = server.frame(now))) {
+                std::fprintf(stderr, "net-run: %s\n", e.message.c_str());
+                return 1;
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    std::printf("done; players at the end:");
+    for (const auto& [number, who] : server.players())
+        std::printf(" %d: %s", number, who.c_str());
+    std::printf("\n");
+    return 0;
+}
+
+// Looking for servers as the menus' list does (getinfo, broadcast on the
+// four server ports), or asking one (getinfo and getstatus), printing
+// every answer as it comes, for when the list stays empty.
+int cmdNetFind(int argc, char** argv) {
+    std::string err;
+    auto socket = reluva::net::openSystemUdp(0, err);
+    if (!socket) {
+        std::fprintf(stderr, "net-find: %s\n", err.c_str());
+        return 1;
+    }
+    auto send = [&](const reluva::net::Address& to, const std::string& text) {
+        std::vector<uint8_t> d(4, 0xff);
+        d.insert(d.end(), text.begin(), text.end());
+        const bool sent = socket->send(to, d);
+        std::printf("sent \"%s\" to %s%s\n", text.c_str(), to.toString().c_str(), sent ? "" : " (failed)");
+    };
+    if (argc >= 3) {
+        const auto [host, port] = reluva::net::splitHostPort(argv[2], 27960);
+        uint32_t ip = 0;
+        if (!reluva::net::resolveSystemHost(host, ip)) {
+            std::fprintf(stderr, "net-find: can't find %s\n", host.c_str());
+            return 1;
+        }
+        send({ip, port}, "getinfo xxx");
+        send({ip, port}, "getstatus xxx");
+    } else {
+        const std::vector<uint32_t> broadcasts = reluva::net::systemBroadcastAddresses();
+        for (uint16_t p = 27960; p < 27964; ++p) {
+            send(reluva::net::Address::broadcast(p), "getinfo xxx");
+            for (uint32_t b : broadcasts)
+                send({b, p}, "getinfo xxx");
+        }
+    }
+    int answers = 0;
+    using Clock = std::chrono::steady_clock;
+    const auto until = Clock::now() + std::chrono::seconds(3);
+    while (Clock::now() < until) {
+        reluva::net::Address from;
+        std::vector<uint8_t> d;
+        while (socket->receive(from, d)) {
+            ++answers;
+            std::string text;
+            for (uint8_t c : d)
+                text += c == 0xff ? std::string("\\xff") : c == '\n' ? std::string("\\n") : std::string(1, char(c));
+            std::printf("from %s (%zu bytes): %s\n", from.toString().c_str(), d.size(), text.c_str());
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    std::printf("%d answer(s)\n", answers);
+    return answers ? 0 : 1;
+}
+
+// Each .pk3's checksum in a game folder, as id Tech 3 games tell them
+// apart (and the pure check's, with a feed if given).
+int cmdPk3Sums(int argc, char** argv) {
+    namespace q3 = reluva::idtech3;
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool pk3-sums <game folder> [feed]\n");
+        return 1;
+    }
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    const bool withFeed = argc >= 4;
+    const auto feed = int32_t(withFeed ? std::strtoll(argv[3], nullptr, 10) : 0);
+    for (const reluva::Archive* a : set.archives())
+        if (const auto* pak = dynamic_cast<const reluva::ZipArchive*>(a)) {
+            std::printf("%s: %u", pak->describe().c_str(), uint32_t(q3::pakChecksum(*pak)));
+            if (withFeed)
+                std::printf(" (pure %d)", q3::pakChecksum(*pak, feed));
+            std::printf("\n");
+        }
+    if (withFeed)
+        std::printf("%s\n", q3::pureCommand(set, feed, "").c_str());
+    return 0;
+}
+
+// Asking master servers for their lists, as the menus' Internet list
+// does (and in dpmaster's form too), printing what each answers.
+int cmdNetMaster(int argc, char** argv) {
+    namespace q3 = reluva::idtech3;
+    std::vector<std::string> names;
+    for (int i = 2; i < argc; ++i)
+        names.emplace_back(argv[i]);
+    if (names.empty()) {
+        q3::CvarStore cvars;
+        names = q3::masterServerNames(cvars);
+    }
+    std::string err;
+    auto socket = reluva::net::openSystemUdp(0, err);
+    if (!socket) {
+        std::fprintf(stderr, "net-master: %s\n", err.c_str());
+        return 1;
+    }
+    int answers = 0;
+    for (const std::string& name : names) {
+        const auto [host, port] = reluva::net::splitHostPort(name, q3::ServerBrowser::kMasterPort);
+        uint32_t ip = 0;
+        if (!reluva::net::resolveSystemHost(host, ip)) {
+            std::printf("%s: can't find it\n", name.c_str());
+            continue;
+        }
+        const reluva::net::Address master{ip, port};
+        std::printf("%s (%s):\n", name.c_str(), master.toString().c_str());
+        for (const char* query : {"getservers 24", "getservers 24 full empty", "getservers EliteForce 24 full empty"}) {
+            std::vector<uint8_t> d(4, 0xff);
+            d.insert(d.end(), query, query + std::strlen(query));
+            socket->send(master, d);
+            using Clock = std::chrono::steady_clock;
+            const auto until = Clock::now() + std::chrono::seconds(3);
+            int got = 0;
+            while (Clock::now() < until) {
+                reluva::net::Address from;
+                std::vector<uint8_t> reply;
+                while (socket->receive(from, reply)) {
+                    ++got;
+                    ++answers;
+                    const auto servers = q3::ServerBrowser::serversFromResponse(reply);
+                    std::string head;
+                    for (size_t i = 4; i < reply.size() && head.size() < 60; ++i)
+                        head += reply[i] >= 32 && reply[i] < 127 ? char(reply[i]) : '.';
+                    std::printf("  \"%s\": %zu bytes from %s, %zu servers: %s\n", query, reply.size(),
+                                from.toString().c_str(), servers.size(), head.c_str());
+                    for (size_t i = 0; i < servers.size() && i < 5; ++i)
+                        std::printf("    %s\n", servers[i].toString().c_str());
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            }
+            if (!got)
+                std::printf("  \"%s\": no answer\n", query);
+        }
+    }
+    return answers ? 0 : 1;
+}
+
+// What a Windows executable or DLL holds and needs (for working out how
+// native game code such as Elite Force's single player DLLs could run):
+// its sections, exports, imports and relocations.
+// Loads a 32-bit Windows DLL into the x86 interpreter, runs its start-up
+// (DllMain, its C runtime's initialisation) and, if asked, one of its
+// exports: to see how far emulation gets with a game's DLL and what it
+// calls. "table" as an argument passes a table of functions that report
+// their calls (an engine's import table, as GetGameAPI takes).
+int cmdX86Run(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool x86-run <file.dll> [-call Export [arg|table]...] [-table slots]\n"
+                             "                           [-limit instructions] [-trace count] [-memory MB]\n");
+        return 2;
+    }
+    std::string exportName;
+    std::vector<std::string> callArgs;
+    int tableSlots = 128, traceCount = 16;
+    uint64_t limit = 2000000000ull;
+    uint32_t memoryMb = 512;
+    for (int a = 3; a < argc; ++a) {
+        const std::string arg = argv[a];
+        if (arg == "-call" && a + 1 < argc) {
+            exportName = argv[++a];
+            while (a + 1 < argc && argv[a + 1][0] != '-')
+                callArgs.push_back(argv[++a]);
+        } else if (arg == "-table" && a + 1 < argc)
+            tableSlots = std::atoi(argv[++a]);
+        else if (arg == "-limit" && a + 1 < argc)
+            limit = std::strtoull(argv[++a], nullptr, 0);
+        else if (arg == "-trace" && a + 1 < argc)
+            traceCount = std::atoi(argv[++a]);
+        else if (arg == "-memory" && a + 1 < argc)
+            memoryMb = uint32_t(std::atoi(argv[++a]));
+    }
+    Bytes file;
+    if (!readFile(argv[2], file))
+        return 1;
+    reluva::x86::Cpu cpu(std::min<uint32_t>(memoryMb, 3072) << 20);
+    cpu.setInstructionLimit(limit);
+    reluva::x86::Win32Process process(cpu);
+    process.output = [](const std::string& text) { std::printf("[program] %s\n", text.c_str()); };
+
+    // The last instructions run, to show where a failure happened.
+    std::vector<uint32_t> recent(size_t(std::max(traceCount, 1)));
+    size_t recentAt = 0;
+    cpu.trace = [&](reluva::x86::Cpu& c) { recent[recentAt++ % recent.size()] = c.eip; };
+    auto failed = [&](const reluva::Error& e) {
+        std::printf("failed: %s\nlast instructions:", e.message.c_str());
+        for (size_t i = recentAt > recent.size() ? recentAt - recent.size() : 0; i < recentAt; ++i)
+            std::printf(" %08x", recent[i % recent.size()]);
+        std::printf("\n");
+        return 1;
+    };
+
+    const std::string name = std::filesystem::path(argv[2]).filename().string();
+    const reluva::x86::Win32Process::Module* m = nullptr;
+    if (reluva::Error e = process.load(name, file, m)) {
+        std::fprintf(stderr, "%s\n", e.message.c_str());
+        return 1;
+    }
+    std::printf("%s loaded at 0x%08x (asked for 0x%08x), %u bytes\n", name.c_str(), m->base,
+                uint32_t(m->image.imageBase), m->size);
+    for (const std::string& missing : process.missingImports())
+        std::printf("  not stood in for: %s\n", missing.c_str());
+    uint64_t before = cpu.executed();
+    if (reluva::Error e = process.attach(*m))
+        return failed(e);
+    std::printf("start-up (DllMain) done: %llu instructions\n", (unsigned long long)(cpu.executed() - before));
+    if (exportName.empty())
+        return 0;
+
+    const uint32_t address = m->exportAddress(exportName);
+    if (!address) {
+        std::fprintf(stderr, "%s has no export %s\n", name.c_str(), exportName.c_str());
+        return 1;
+    }
+    // The table: each slot a function that prints its call.
+    int reported = 0;
+    const uint32_t table = process.memory().alloc(uint32_t(tableSlots) * 4);
+    for (int i = 0; i < tableSlots; ++i) {
+        const uint32_t fn = cpu.addNative("table[" + std::to_string(i) + "]", [i, &reported](reluva::x86::Cpu& c) {
+            if (reported++ < 500) {
+                // Arguments as numbers, or as text where they point at some.
+                std::string args;
+                for (int n = 0; n < 4; ++n) {
+                    const uint32_t v = c.arg(n);
+                    const std::string text = c.string(v, 80);
+                    const bool printable = text.size() >= 2 && std::all_of(text.begin(), text.end(), [](char ch) {
+                        return ch == '\n' || ch == '\t' || (uint8_t(ch) >= 32 && uint8_t(ch) < 127);
+                    });
+                    char buf[24];
+                    std::snprintf(buf, sizeof buf, "0x%x", v);
+                    args += (n ? ", " : "") + (printable ? std::string(buf) + " \"" + text + "\"" : std::string(buf));
+                }
+                std::printf("  table[%d](%s) from 0x%08x\n", i, args.c_str(), c.read32(c.reg[reluva::x86::Cpu::ESP]));
+            }
+            c.reg[reluva::x86::Cpu::EAX] = 0;
+            return 0u;
+        });
+        cpu.write32(table + 4 * uint32_t(i), fn);
+    }
+    std::vector<uint32_t> args;
+    for (const std::string& a : callArgs)
+        args.push_back(a == "table" ? table : uint32_t(std::strtoul(a.c_str(), nullptr, 0)));
+    uint32_t result = 0;
+    before = cpu.executed();
+    if (reluva::Error e = cpu.call(address, args, result))
+        return failed(e);
+    std::printf("%s returned 0x%08x after %llu instructions\n", exportName.c_str(), result,
+                (unsigned long long)(cpu.executed() - before));
+    // If it's a pointer, what it points at (a table of the DLL's functions?).
+    if (cpu.valid(result, 4)) {
+        for (uint32_t i = 0; i < 64 && cpu.valid(result + 4 * i, 4); ++i) {
+            const uint32_t v = cpu.read32(result + 4 * i);
+            const bool inModule = v >= m->base && v < m->base + m->size;
+            std::printf("  [%2u] 0x%08x%s\n", i, v, inModule ? (" (" + name + "+0x" + [&] {
+                char b[16];
+                std::snprintf(b, sizeof b, "%x", v - m->base);
+                return std::string(b);
+            }() + ")").c_str() : "");
+        }
+    }
+    return 0;
+}
+
+// Runs Elite Force's single-player game logic (efgamex86.dll, in the x86
+// interpreter) on a map: GetGameAPI, Init with the map's entities, the
+// player joining, then frames; reports what the game did.
+int cmdSpRun(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] "
+                             "[-set name value]... [-trace] [-noclient] [-cgame] [-watch]\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    namespace ef = reluva::idtech3::eliteforce;
+    int frames = 20;
+    bool traceCalls = false, noClient = false, runCgame = false, watch = false;
+    std::string dllPath;
+    std::vector<std::pair<std::string, std::string>> settings;
+    for (int i = 4; i < argc; ++i) {
+        if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
+            frames = std::atoi(argv[++i]);
+        else if (std::strcmp(argv[i], "-dll") == 0 && i + 1 < argc)
+            dllPath = argv[++i];
+        else if (std::strcmp(argv[i], "-trace") == 0)
+            traceCalls = true;
+        else if (std::strcmp(argv[i], "-noclient") == 0)
+            noClient = true;
+        else if (std::strcmp(argv[i], "-cgame") == 0)
+            runCgame = true;
+        else if (std::strcmp(argv[i], "-watch") == 0)
+            watch = runCgame = true;
+        else if (std::strcmp(argv[i], "-set") == 0 && i + 2 < argc) {
+            settings.emplace_back(argv[i + 1], argv[i + 2]);
+            i += 2;
+        } else
+            std::fprintf(stderr, "sp-run: ignoring %s\n", argv[i]);
+    }
+    // The DLL sits beside the game's folder (the install's), or in it.
+    if (dllPath.empty()) {
+        std::filesystem::path folder = std::filesystem::path(argv[2]).lexically_normal();
+        if (!folder.has_filename())
+            folder = folder.parent_path();
+        for (const std::filesystem::path& p : {folder.parent_path() / "efgamex86.dll", folder / "efgamex86.dll"})
+            if (std::filesystem::exists(p)) {
+                dllPath = p.string();
+                break;
+            }
+        if (dllPath.empty()) {
+            std::fprintf(stderr, "efgamex86.dll isn't beside %s; give it with -dll\n", argv[2]);
+            return 1;
+        }
+    }
+    Bytes dll;
+    if (!readFile(dllPath.c_str(), dll))
+        return 1;
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    std::string map = argv[3];
+    if (map.size() > 4 && map.compare(map.size() - 4, 4, ".bsp") == 0)
+        map.resize(map.size() - 4);
+    if (map.rfind("maps/", 0) == 0)
+        map = map.substr(5);
+    Bytes data;
+    auto bsp = std::make_shared<q3::Bsp>();
+    if (reluva::Error err = set.read("maps/" + map + ".bsp", data); err || (err = q3::parseBsp(data, *bsp))) {
+        std::fprintf(stderr, "maps/%s.bsp: %s\n", map.c_str(), err.message.c_str());
+        return 1;
+    }
+    q3::CvarStore cvars;
+    for (const auto& [name, value] : settings)
+        cvars.set(name, value);
+    ef::SpGameHost game(set, cvars);
+    game.print = [](const std::string& text) {
+        std::printf("game: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
+    };
+    // For a failure's report: the last engine calls, and (set up once the
+    // DLL is loaded) the last instructions run.
+    std::vector<std::pair<int, uint32_t>> recentCalls(16);
+    size_t callsAt = 0;
+    game.trace = [&](int slot, uint32_t from) {
+        recentCalls[callsAt++ % recentCalls.size()] = {slot, from};
+        if (traceCalls)
+            std::printf("  engine[%d] from 0x%08x\n", slot, from);
+    };
+    std::vector<uint32_t> recent(64);
+    size_t recentAt = 0;
+    auto failed = [&](const char* what, const reluva::Error& e) {
+        reluva::x86::Cpu& cpu = game.cpu();
+        std::printf("%s failed: %s\n", what, e.message.c_str());
+        std::printf("instructions run: %llu\n", (unsigned long long)cpu.executed());
+        // Addresses as the DLL's own (at its preferred base), to look up.
+        const uint32_t base = game.module() ? game.module()->base : 0;
+        const uint32_t preferred = game.module() ? uint32_t(game.module()->image.imageBase) : 0;
+        const uint32_t size = game.module() ? game.module()->size : 0;
+        auto dll = [&](uint32_t a) {
+            char b[32];
+            if (a >= base && a < base + size)
+                std::snprintf(b, sizeof b, "%08x", a - base + preferred);
+            else
+                std::snprintf(b, sizeof b, "(%08x)", a);
+            return std::string(b);
+        };
+        std::printf("last instructions (at the DLL's own addresses):");
+        for (size_t i = recentAt > recent.size() ? recentAt - recent.size() : 0, k = 0; i < recentAt; ++i, ++k)
+            std::printf("%s%s", k % 8 ? " " : "\n  ", dll(recent[i % recent.size()]).c_str());
+        std::printf("\nlast engine calls:");
+        for (size_t i = callsAt > recentCalls.size() ? callsAt - recentCalls.size() : 0; i < callsAt; ++i)
+            std::printf(" %d@%s", recentCalls[i % recentCalls.size()].first,
+                        dll(recentCalls[i % recentCalls.size()].second).c_str());
+        std::printf("\nregisters: eax %08x ecx %08x edx %08x ebx %08x esp %08x ebp %08x esi %08x edi %08x\n",
+                    cpu.faultReg[0], cpu.faultReg[1], cpu.faultReg[2], cpu.faultReg[3], cpu.faultReg[4], cpu.faultReg[5],
+                    cpu.faultReg[6], cpu.faultReg[7]);
+        // Return addresses on the stack: words pointing into the DLL's code.
+        std::printf("stack (words pointing into the DLL):");
+        int shown = 0;
+        const uint32_t sp = cpu.faultReg[reluva::x86::Cpu::ESP];
+        for (uint32_t a = sp; shown < 24 && cpu.valid(a, 4) && a < sp + 0x4000; a += 4) {
+            const uint32_t v = cpu.read32(a);
+            if (v >= base && v < base + 0xbb000) { // .text
+                std::printf("%s%s", shown % 8 ? " " : "\n  ", dll(v).c_str());
+                ++shown;
+            }
+        }
+        std::printf("\n");
+        return 1;
+    };
+    const auto started = std::chrono::steady_clock::now();
+    if (reluva::Error e = game.load(dll))
+        return failed("loading", e);
+    std::printf("efgamex86.dll loaded at 0x%08x\n", game.module()->base);
+    game.cpu().trace = [&](reluva::x86::Cpu& c) { recent[recentAt++ % recent.size()] = c.eip; };
+    if (reluva::Error e = game.startLevel(map, bsp, ef::SpGameHost::mapChecksum(data), 0))
+        return failed("Init", e);
+    std::printf("Init done: %d entities (%d bytes each), %zu linked, %zu configstrings\n", game.entityCount(),
+                game.entitySize(), game.linked().size(), game.configstrings().size());
+    if (!noClient) {
+        std::string refused;
+        if (reluva::Error e = game.connectPlayer("\\name\\Munro\\model\\munro/main", refused))
+            return failed("the player joining", e);
+        if (!refused.empty())
+            std::printf("the game refused the player: %s\n", refused.c_str());
+        else
+            std::printf("player joined\n");
+    }
+    if (runCgame && !noClient) {
+        const uint64_t before = game.cpu().executed();
+        if (reluva::Error e = game.startClientGame())
+            return failed("the client game's start-up", e);
+        std::printf("client game started: %llu instructions; %zu models, %zu shaders, %zu skins, %zu sounds registered\n",
+                    (unsigned long long)(game.cpu().executed() - before), game.models().size(), game.shaders().size(),
+                    game.skins().size(), game.sounds().size());
+    }
+    for (int f = 0; f < frames; ++f) {
+        if (reluva::Error e = game.runFrame())
+            return failed(("frame " + std::to_string(f + 1)).c_str(), e);
+        if (game.clientGameRunning()) {
+            ef::SpGameHost::UserCommand cmd;
+            cmd.serverTime = game.levelTime();
+            if (reluva::Error e = game.clientThink(cmd))
+                return failed(("command " + std::to_string(f + 1)).c_str(), e);
+            if (reluva::Error e = game.drawClientFrame(game.levelTime()))
+                return failed(("client frame " + std::to_string(f + 1)).c_str(), e);
+            // Once a second of the level: the camera, the view, the player.
+            if (watch && game.levelTime() % 1000 == 0) {
+                reluva::x86::Cpu& cpu = game.cpu();
+                auto f = [&cpu](uint32_t at) {
+                    const uint32_t u = cpu.read32(at);
+                    float v;
+                    std::memcpy(&v, &u, 4);
+                    return v;
+                };
+                auto bytesFloat = [](const std::vector<uint8_t>& b, size_t at) {
+                    float v = 0;
+                    if (at + 4 <= b.size())
+                        std::memcpy(&v, b.data() + at, 4);
+                    return v;
+                };
+                reluva::idtech3::Vec3f cam{};
+                const bool camera = game.cameraPosition(cam);
+                std::string view = "no view";
+                if (!game.scene().views.empty()) {
+                    const auto& r = game.scene().views[0].refdef;
+                    char b[96];
+                    std::snprintf(b, sizeof b, "view at %.0f %.0f %.0f", bytesFloat(r, 24), bytesFloat(r, 28),
+                                  bytesFloat(r, 32));
+                    view = b;
+                }
+                const uint32_t ps = uint32_t(game.entityInt(0, ef::SpEntityLayout{}.client));
+                std::printf("[%5d ms] camera %s (%.0f %.0f %.0f); %s; player at %.0f %.0f %.0f, pm_type %d; "
+                            "%zu scene entities, %zu pictures; cg_thirdPerson %s\n",
+                            game.levelTime(), camera ? "on" : "off", cam[0], cam[1], cam[2], view.c_str(), f(ps + 20),
+                            f(ps + 24), f(ps + 28), int(cpu.read32(ps + 4)), game.scene().entities.size(),
+                            game.pictures().size(), cvars.string("cg_thirdPerson").c_str());
+                static size_t commandsShown = 0;
+                for (; commandsShown < game.consoleCommands().size(); ++commandsShown)
+                    std::printf("           console command: %s", game.consoleCommands()[commandsShown].c_str());
+            }
+        }
+    }
+    if (game.clientGameRunning()) {
+        const ef::Scene& scene = game.scene();
+        std::printf("last client frame: %zu scene entities, %zu polygons, %zu lights, %zu scenes rendered, %zu pictures\n",
+                    scene.entities.size(), scene.polys.size(), scene.lights.size(), scene.views.size(),
+                    game.pictures().size());
+        std::map<std::string, int> byModel;
+        for (const ef::SceneEntity& e : scene.entities) {
+            const int32_t m = ef::SpGameHost::entityModel(e);
+            ++byModel[m ? game.models().name(m) : std::string("(no model)")];
+        }
+        for (const auto& [name, count] : byModel)
+            std::printf("  %3d x %s\n", count, name.c_str());
+        std::map<std::string, int> byShader;
+        for (const ef::Picture& p : game.pictures())
+            ++byShader[game.shaders().name(p.shader)];
+        for (const auto& [name, count] : byShader)
+            std::printf("  picture %3d x %s\n", count, name.c_str());
+    }
+    const double seconds =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
+    std::printf("%d frames run (level time %d ms): %d entities, %zu linked; %llu instructions in %.2f s\n", frames,
+                game.levelTime(), game.entityCount(), game.linked().size(),
+                (unsigned long long)game.cpu().executed(), seconds);
+    std::printf("configstrings:\n");
+    int shown = 0;
+    for (const auto& [index, text] : game.configstrings())
+        if (shown++ < 40)
+            std::printf("  %4d %s\n", index, text.substr(0, 100).c_str());
+    for (const std::string& c : game.consoleCommands())
+        std::printf("console command: %s", c.c_str());
+    for (const auto& [client, text] : game.serverCommands())
+        if (shown++ < 80)
+            std::printf("to client %d: %s\n", client, text.substr(0, 100).c_str());
+    std::printf("engine calls:");
+    for (const auto& [slot, count] : game.callCounts())
+        std::printf(" %d:%d", slot, count);
+    std::printf("\nclient game calls:");
+    for (const auto& [n, count] : game.cgameCallCounts())
+        std::printf(" %d:%d%s", n, count, game.cgameUnhandled().count(n) ? "?" : "");
+    std::printf("  (? not answered yet)\n");
+    return 0;
+}
+
+int cmdPeInfo(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool pe-info <file.dll|file.exe> [-all]\n");
+        return 2;
+    }
+    Bytes d;
+    if (!readFile(argv[2], d))
+        return 1;
+    const bool all = argc > 3 && std::strcmp(argv[3], "-all") == 0;
+    reluva::PeImage pe;
+    if (reluva::Error err = reluva::parsePe(d, pe)) {
+        std::fprintf(stderr, "%s: %s\n", argv[2], err.message.c_str());
+        return 1;
+    }
+    std::printf("machine 0x%x (%s), %s, characteristics 0x%x (%s), linker %s, built %u (unix time)\n", pe.machine,
+                pe.machine == 0x14c ? "x86" : pe.machine == 0x8664 ? "x86-64" : "other", pe.pe32Plus ? "PE32+" : "PE32",
+                pe.characteristics, (pe.characteristics & 0x2000) ? "DLL" : "executable", pe.linkerVersion.c_str(),
+                pe.timestamp);
+    std::printf("image base 0x%llx, size 0x%x, entry point RVA 0x%x, subsystem %u (2 GUI, 3 console)\n",
+                static_cast<unsigned long long>(pe.imageBase), pe.imageSize, pe.entryPoint, pe.subsystem);
+    std::printf("relocations: %u%s; TLS: %s", pe.relocationCount,
+                pe.relocationCount ? " (can load at another address)" : " (fixed address)", pe.hasTls ? "yes" : "no");
+    for (const std::string& o : pe.otherDirectories)
+        std::printf("; %s", o.c_str());
+    std::printf("\n\nsections:\n");
+    for (const auto& sec : pe.sections)
+        std::printf("  %-8s rva 0x%06x size 0x%06x file 0x%06x+0x%06x %s%s%s%s\n", sec.name.c_str(), sec.virtualAddress,
+                    sec.virtualSize, sec.rawOffset, sec.rawSize, (sec.characteristics & 0x20000000) ? "exec " : "",
+                    (sec.characteristics & 0x40000000) ? "read " : "", (sec.characteristics & 0x80000000) ? "write " : "",
+                    (sec.characteristics & 0x80) ? "(zero-filled)" : "");
+    std::printf("\nexports (%s): %zu\n", pe.exportName.c_str(), pe.exports.size());
+    for (const auto& x : pe.exports)
+        std::printf("  %4u %-40s rva 0x%06x%s%s\n", x.ordinal, x.name.empty() ? "(by ordinal)" : x.name.c_str(), x.rva,
+                    x.forwarder.empty() ? "" : " -> ", x.forwarder.c_str());
+    size_t total = 0;
+    for (const auto& dll : pe.imports)
+        total += dll.functions.size();
+    std::printf("\nimports: %zu functions from %zu DLLs\n", total, pe.imports.size());
+    for (const auto& dll : pe.imports) {
+        std::printf("  %s: %zu\n", dll.name.c_str(), dll.functions.size());
+        std::string line;
+        for (const auto& f : dll.functions) {
+            const std::string n = f.name.empty() ? "#" + std::to_string(f.ordinal) : f.name;
+            if (line.size() + n.size() > 100) {
+                std::printf("    %s\n", line.c_str());
+                line.clear();
+            }
+            line += (line.empty() ? "" : " ") + n;
+        }
+        if (!line.empty())
+            std::printf("    %s\n", line.c_str());
+    }
+    (void)all;
+    return 0;
+}
+
+int cmdGameRun(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    namespace ef = reluva::idtech3::eliteforce;
+    int frames = 10;
+    bool traceCalls = false, noClient = false, walk = false, runCgame = false;
+    bool probeButtons = false; // -buttons: what holding each button bit does
+    // With -cgame: how many client game frames (-cgameframes), and the
+    // player holding fire or alt fire (-fire, -altfire) with a weapon
+    // (-weapon, the phaser by default) from the second.
+    // (-weapon all: each of weapons 1 to 10 in turn, two seconds each.)
+    // -give: cheats on and every weapon given first.
+    int cgameFrames = 3, fireButtons = 0, fireWeapon = 1;
+    bool giveAll = false;
+    std::string watchModel; // -watch: print the scene's entities with this model frame by frame
+    constexpr int kFramesPerWeapon = 40;
+    int dumpEntities = 0; // -entities N: with -cgame, N of the scene's entities word by word
+    std::vector<std::pair<std::string, std::string>> settings; // -set name value
+    std::vector<std::string> addBots;                           // -addbot "name [skill]"
+    bool eventsTest = false; // -events: with -cgame, the player's events against the sounds they bring
+    std::string walkDirection = "forward";
+    for (int i = 4; i < argc; ++i) {
+        if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
+            frames = std::atoi(argv[++i]);
+        else if (std::strcmp(argv[i], "-trace") == 0)
+            traceCalls = true;
+        else if (std::strcmp(argv[i], "-noclient") == 0)
+            noClient = true;
+        else if (std::strcmp(argv[i], "-cgame") == 0)
+            runCgame = true;
+
+        else if (std::strcmp(argv[i], "-fire") == 0)
+            fireButtons |= 1;
+        else if (std::strcmp(argv[i], "-altfire") == 0)
+            fireButtons |= 32;
+        else if (std::strcmp(argv[i], "-weapon") == 0 && i + 1 < argc)
+            fireWeapon = std::strcmp(argv[i + 1], "all") == 0 ? -1 : std::atoi(argv[i + 1]), ++i;
+        else if (std::strcmp(argv[i], "-give") == 0)
+            giveAll = true;
+        else if (std::strcmp(argv[i], "-watch") == 0 && i + 1 < argc)
+            watchModel = argv[++i];
+        else if (std::strcmp(argv[i], "-cgameframes") == 0 && i + 1 < argc)
+            cgameFrames = std::max(1, std::atoi(argv[++i]));
+        else if (std::strcmp(argv[i], "-buttons") == 0)
+            probeButtons = true;
+        else if (std::strcmp(argv[i], "-entities") == 0 && i + 1 < argc)
+            dumpEntities = std::atoi(argv[++i]);
+        else if (std::strcmp(argv[i], "-walk") == 0) {
+            walk = true;
+            // An optional direction: forward (the default), back, left, right.
+            if (i + 1 < argc && argv[i + 1][0] != '-')
+                walkDirection = argv[++i];
+        }
+        else if (std::strcmp(argv[i], "-set") == 0 && i + 2 < argc) {
+            settings.emplace_back(argv[i + 1], argv[i + 2]);
+            i += 2;
+        }
+        else if (std::strcmp(argv[i], "-addbot") == 0 && i + 1 < argc)
+            addBots.emplace_back(argv[++i]);
+        else if (std::strcmp(argv[i], "-events") == 0)
+            eventsTest = true;
+        else
+            std::fprintf(stderr, "game-run: ignoring %s (not an option it knows)\n", argv[i]);
+    }
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    std::string map = argv[3];
+    if (map.size() > 4 && map.compare(map.size() - 4, 4, ".bsp") == 0)
+        map.resize(map.size() - 4);
+    if (map.rfind("maps/", 0) == 0)
+        map = map.substr(5);
+    Bytes data;
+    auto bspOwned = std::make_shared<q3::Bsp>();
+    q3::Bsp& bsp = *bspOwned;
+    if (reluva::Error err = set.read("maps/" + map + ".bsp", data); err || (err = q3::parseBsp(data, bsp))) {
+        std::fprintf(stderr, "maps/%s.bsp: %s\n", map.c_str(), err.message.c_str());
+        return 1;
+    }
+    q3::CvarStore cvars;
+    if (probeButtons || fireButtons || giveAll)
+        cvars.set("g_holoIntro", "0"); // the player has to be in the game
+    if (fireWeapon < 0 && fireButtons)
+        cgameFrames = std::max(cgameFrames, 10 + 10 * kFramesPerWeapon);
+    for (const auto& [name, value] : settings)
+        cvars.set(name, value);
+    ef::GameHost game(set, cvars);
+    game.print = [](const std::string& text) {
+        std::printf("game: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
+    };
+    if (traceCalls)
+        game.trace = [](int number, const int32_t* a) {
+            std::printf("  syscall %3d (%d, %d, %d, %d)\n", number, a[0], a[1], a[2], a[3]);
+        };
+    auto step = [&](const char* what, reluva::Error err) {
+        std::printf("%s: %s after %llu instructions\n", what, err ? err.message.c_str() : "ok",
+                    static_cast<unsigned long long>(game.vm().executed()));
+        return !err;
+    };
+    if (reluva::Error err = game.load()) {
+        std::printf("load: %s\n", err.message.c_str());
+        return 1;
+    }
+    reluva::Error started = game.startLevel(map, bspOwned);
+    std::printf("start level (Init and 3 frames): %s\n", started ? started.message.c_str() : "ok");
+    bool ok = !started;
+    if (ok && !noClient) {
+        // A player joins, as on a listen server: client 0.
+        const std::string userinfo = "\\name\\Reluva\\model\\munro\\handicap\\100\\sex\\male\\color\\4"
+                                     "\\snaps\\20\\rate\\25000\\ip\\localhost";
+        std::string refused;
+        reluva::Error err = game.connectClient(0, userinfo, refused);
+        std::printf("client 0 connects: %s\n", err ? err.message.c_str() : refused.empty() ? "ok" : ("refused: " + refused).c_str());
+        ok = !err;
+        if (ok && refused.empty()) {
+            err = game.beginClient(0);
+            std::printf("client 0 begins: %s\n", err ? err.message.c_str() : "ok");
+            ok = !err;
+            if (ok && giveAll) {
+                // The game's own cheat, once it has seen sv_cheats change.
+                cvars.set("sv_cheats", "1", true);
+                err = game.runFrame();
+                if (!err)
+                    err = game.clientCommand(0, "give all");
+                std::printf("give all: %s\n", err ? err.message.c_str() : "ok");
+                ok = !err;
+            }
+            const auto o = game.entityVec(0, 272);
+            std::printf("client 0's entity: %s at %.1f %.1f %.1f\n", game.linked().count(0) ? "linked" : "not linked",
+                        o[0], o[1], o[2]);
+        }
+    }
+    // Bots, added at the server's console as the original's addbot.
+    for (const std::string& bot : addBots) {
+        if (!ok)
+            break;
+        bool handled = false;
+        reluva::Error err = game.serverCommand("addbot " + bot, &handled);
+        std::printf("addbot %s: %s\n", bot.c_str(),
+                    err ? err.message.c_str() : handled ? "ok" : "the game didn't take the command");
+        ok = !err;
+    }
+    std::map<int32_t, q3::Vec3f> botStart;
+    for (const int32_t c : game.botClients())
+        botStart[c] = game.entityVec(c, 272);
+    const bool player = ok && !noClient && game.linked().count(0);
+    const auto startPos = player ? game.entityVec(0, 272) : q3::Vec3f{};
+    for (int f = 0; ok && f < frames; ++f) {
+        if (player) {
+            // The player does nothing, as a server would see from an idle
+            // client: an empty command for the coming frame; with -walk,
+            // runs forward (from the third frame, once standing).
+            ef::GameHost::UserCommand cmd;
+            cmd.serverTime = game.levelTime() + ef::GameHost::kFrameMs;
+            if (walk && f >= 2) {
+                if (walkDirection == "back")
+                    cmd.forward = -127;
+                else if (walkDirection == "left")
+                    cmd.right = -127;
+                else if (walkDirection == "right")
+                    cmd.right = 127;
+                else
+                    cmd.forward = 127;
+            }
+            if (reluva::Error err = game.clientThink(0, cmd)) {
+                step("ClientThink", err);
+                ok = false;
+                break;
+            }
+        }
+        ok = step("RunFrame", game.runFrame());
+        if (player) {
+            // The entity's position, and the player state as Quake III lays
+            // it out (commandTime 0, origin 20, velocity 32, groundEntityNum
+            // 68), to be checked against Elite Force's.
+            const auto o = game.entityVec(0, 272);
+            const auto po = game.clientVec(0, 20), pv = game.clientVec(0, 32);
+            std::printf("  client 0 at %.1f %.1f %.1f; player state: commandTime %d, origin %.1f %.1f %.1f, "
+                        "velocity %.1f %.1f %.1f, ground %d; commands read so far %d\n",
+                        o[0], o[1], o[2], game.clientInt(0, 0), po[0], po[1], po[2], pv[0], pv[1], pv[2],
+                        game.clientInt(0, 68), (game.callCounts().count(36) ? game.callCounts().at(36) : 0));
+            // Quake III's pm_type (4), pm_flags (12), pm_time (16); and the
+            // game's copy of the last command (client + 464): its time and
+            // its weapon (5) and moves (20-22).
+            const int32_t cmdTime = game.clientInt(0, 464), cmdMoves = game.clientInt(0, 464 + 20),
+                          cmdWeapon = (game.clientInt(0, 464 + 4) >> 8) & 0xff;
+            std::printf("    pm_type %d, pm_flags 0x%x, pm_time %d; the game's command: time %d, weapon %d, "
+                        "forward %d, right %d, up %d\n",
+                        game.clientInt(0, 4), unsigned(game.clientInt(0, 12)), game.clientInt(0, 16), cmdTime,
+                        cmdWeapon, int8_t(cmdMoves & 0xff), int8_t((cmdMoves >> 8) & 0xff),
+                        int8_t((cmdMoves >> 16) & 0xff));
+        }
+    }
+
+    if (player && probeButtons && ok) {
+        // Each button bit held for a second with the phaser (weapon 1),
+        // then let go for a second: which words of the player state it
+        // changes, leaving out those that change when nothing is held.
+        // Firing shows in its weapon time and ammunition; alt fire should
+        // look like firing.
+        auto state = [&] {
+            std::vector<int32_t> words(ef::GameHost::kPlayerStateSize / 4);
+            for (size_t i = 0; i < words.size(); ++i)
+                words[i] = game.clientInt(0, int32_t(i * 4));
+            return words;
+        };
+        auto run = [&](int32_t buttons, int frames, std::set<size_t>& changed) {
+            for (int f = 0; f < frames && ok; ++f) {
+                const auto before = state();
+                ef::GameHost::UserCommand cmd;
+                cmd.serverTime = game.levelTime() + ef::GameHost::kFrameMs;
+                cmd.buttons = buttons;
+                cmd.weapon = 1;
+                if (reluva::Error err = game.clientThink(0, cmd); err || (err = game.runFrame())) {
+                    step("probe", err);
+                    ok = false;
+                }
+                const auto after = state();
+                for (size_t i = 1; i < after.size(); ++i) // not the command time
+                    if (after[i] != before[i])
+                        changed.insert(i * 4);
+            }
+        };
+        std::set<size_t> idle, ignored;
+        const int second = 1000 / ef::GameHost::kFrameMs;
+        run(0, second, idle);
+        for (int bit = 0; bit < 8 && ok; ++bit) { // the buttons are a byte
+            std::set<size_t> changed;
+            run(1 << bit, second, changed);
+            run(0, second, ignored);
+            std::string list;
+            for (size_t at : changed)
+                if (!idle.count(at))
+                    list += " " + std::to_string(at);
+            std::printf("button bit %2d (%4d): player state words changed:%s\n", bit, 1 << bit,
+                        list.empty() ? " none" : list.c_str());
+        }
+    }
+    if (player) {
+        const auto o = game.entityVec(0, 272);
+        std::printf("client 0 moved %.1f units across and %.1f up over the frames\n",
+                    std::sqrt((o[0] - startPos[0]) * (o[0] - startPos[0]) + (o[1] - startPos[1]) * (o[1] - startPos[1])),
+                    o[2] - startPos[2]);
+    }
+    if (player) {
+        // What the game's movement code meets: its trace down from where
+        // the player is, with a player's box and mask, ignoring the player.
+        const auto o = game.entityVec(0, 272);
+        const q3::Vec3f mins{-15, -15, -24}, maxs{15, 15, 32}, end{o[0], o[1], o[2] - 64};
+        const int32_t mask = q3::contents::Solid | q3::contents::PlayerClip | q3::contents::Body;
+        // And sideways: how far a player's box could go along each axis.
+        for (int axis = 0; axis < 2; ++axis)
+            for (float sign : {1.0f, -1.0f}) {
+                q3::Vec3f to = o;
+                to[size_t(axis)] += sign * 512;
+                to[2] += 1; // just off the floor
+                q3::Vec3f from = o;
+                from[2] += 1;
+                int32_t hit = 0;
+                const q3::TraceResult t = game.traceMove(from, mins, maxs, to, 0, mask, hit);
+                std::printf("trace %s%c from client 0: %.1f units free, hits %d%s\n", sign > 0 ? "+" : "-",
+                            "xy"[axis], t.fraction * 512, hit, t.startSolid ? " (starts inside)" : "");
+            }
+        for (bool withEntities : {true, false}) {
+            int32_t hit = 0;
+            const q3::TraceResult t = game.traceMove(o, mins, maxs, end, 0, mask, hit, withEntities);
+            std::printf("trace down from client 0 (%s): fraction %.3f, startsolid %d, allsolid %d, hits %d, lands at %.1f\n",
+                        withEntities ? "world and entities" : "world only", t.fraction, t.startSolid, t.allSolid, hit,
+                        t.endPos[2]);
+            if (withEntities && hit >= 0 && hit < 1022) {
+                const auto eo = game.entityVec(hit, 272), emin = game.entityVec(hit, 220), emax = game.entityVec(hit, 232);
+                std::printf("  entity %d: origin %.1f %.1f %.1f, box %.1f %.1f %.1f to %.1f %.1f %.1f, contents %d, "
+                            "brush model %d (model %d), owner %d\n",
+                            hit, eo[0], eo[1], eo[2], emin[0], emin[1], emin[2], emax[0], emax[1], emax[2],
+                            game.entityInt(hit, 244), game.entityInt(hit, 216), game.entityInt(hit, 160),
+                            game.entityInt(hit, 296));
+            }
+        }
+    }
+    const auto& gd = game.gameData();
+    std::printf("level time %d ms; entity array at %d: %d in use, %d bytes each; clients at %d, %d bytes each\n",
+                game.levelTime(), gd.entities, gd.count, gd.entitySize, gd.clients, gd.clientSize);
+    std::printf("%zu entities linked into the world, %zu configstrings set, %zu cvars\n", game.linked().size(),
+                game.configstrings().size(), cvars.all().size());
+    for (const auto& [index, text] : game.configstrings()) {
+        std::string shown = text.size() > 100 ? text.substr(0, 100) + "..." : text;
+        std::printf("  configstring %4d: %s\n", index, shown.c_str());
+    }
+    for (const std::string& c : game.consoleCommands())
+        std::printf("console command: %s\n", c.c_str());
+    if (!addBots.empty() || !game.botClients().empty()) {
+        // The bots: where each started and is now, and the bot library's
+        // calls the game made, with the first arguments of the first few.
+        std::printf("bots: %zu\n", game.botClients().size());
+        for (const int32_t c : game.botClients()) {
+            const auto o = game.entityVec(c, 272);
+            const auto s = botStart.count(c) ? botStart[c] : q3::Vec3f{};
+            std::printf("  client %d: %s, at %.1f %.1f %.1f (was %.1f %.1f %.1f)\n", c,
+                        game.linked().count(c) ? "linked" : "not linked", o[0], o[1], o[2], s[0], s[1], s[2]);
+        }
+        const auto& aas = game.botLibrary().aas();
+        std::printf("aas: %s\n", aas.loaded() ? (std::to_string(aas.areaCount()) + " areas").c_str() : "not loaded");
+        for (const auto& [number, samples] : game.botCallSamples()) {
+            const auto counted = game.callCounts().find(number);
+            std::printf("  bot call %d: %d calls", number, counted == game.callCounts().end() ? 0 : counted->second);
+            for (const auto& args : samples) {
+                std::printf(" (");
+                for (size_t i = 0; i < args.size(); ++i)
+                    std::printf("%s%d", i ? " " : "", args[i]);
+                std::printf(")");
+            }
+            std::printf("\n");
+        }
+    }
+    for (const auto& [client, text] : game.serverCommands()) {
+        std::string shown = text.size() > 120 ? text.substr(0, 120) + "..." : text;
+        while (!shown.empty() && shown.back() == '\n')
+            shown.pop_back();
+        std::printf("to client %d: %s\n", client, shown.c_str());
+    }
+    for (const auto& [client, reason] : game.dropped())
+        std::printf("client %d dropped: %s\n", client, reason.c_str());
+
+    // A check of the collision model on its own: a player's box dropped
+    // from each spawn point (raised 9 units, as Quake III's game puts
+    // players there, since spawn points often sit exactly a player's
+    // height above the floor) should land a little below it, not start
+    // in a wall.
+    std::vector<q3::Entity> ents;
+    if (!q3::parseEntities(bsp.entities, ents)) {
+        const q3::CollisionWorld world(bsp);
+        const q3::Vec3f mins{-15, -15, -24}, maxs{15, 15, 32};
+        int spawns = 0, stuck = 0, falling = 0;
+        float shortest = 1e9f, longest = 0;
+        for (const q3::Entity& e : ents) {
+            float o[3];
+            if (e.classname().rfind("info_player", 0) != 0 || !e.vector("origin", o))
+                continue;
+            ++spawns;
+            const q3::Vec3f start{o[0], o[1], o[2] + 9}, end{o[0], o[1], o[2] - 4096};
+            const q3::TraceResult t =
+                world.trace(start, end, mins, maxs, 0, q3::contents::Solid | q3::contents::PlayerClip);
+            if (t.startSolid)
+                ++stuck;
+            else if (t.fraction == 1)
+                ++falling;
+            else {
+                const float drop = start[2] - t.endPos[2];
+                shortest = std::min(shortest, drop);
+                longest = std::max(longest, drop);
+            }
+        }
+        if (spawns)
+            std::printf("collision check: %d spawn points; a player's box dropped from each lands %.1f to %.1f "
+                        "units below; %d start inside something, %d fall out of the map\n",
+                        spawns, spawns > stuck + falling ? shortest : 0.0f, longest, stuck, falling);
+    }
+    for (const auto& [number, count] : game.unhandled())
+        std::printf("not implemented: system call %d (%d calls)\n", number, count);
+
+    if (ok && runCgame) {
+        // The player's client game, started with what the server has set.
+        ef::CgameHost cgame(set, cvars);
+        cgame.print = [](const std::string& text) {
+            std::printf("cgame: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
+        };
+        // The client game's calls, counted by frame phase: idle, then
+        // (with -fire or -altfire) holding fire; the first arguments of each.
+        int phase = 0; // 0 start-up, 1 idle frames, 2 firing frames
+        std::array<std::map<int, int>, 3> phaseCalls;
+        std::map<int, std::array<int32_t, 4>> firingArgs;
+        std::map<std::string, int> soundsStarted; // -events: S_StartSound by name
+        cgame.trace = [&](int number, const int32_t* a) {
+            if (eventsTest && number == 28)
+                ++soundsStarted[cgame.sounds().name(a[3])];
+            ++phaseCalls[size_t(phase)][number];
+            if (phase == 2 && !firingArgs.count(number))
+                firingArgs[number] = {a[0], a[1], a[2], a[3]};
+            if (traceCalls)
+                std::printf("  cgame syscall %3d (%d, %d, %d, %d)\n", number, a[0], a[1], a[2], a[3]);
+        };
+        reluva::Error err = cgame.load();
+        if (!err) {
+            cgame.setConfigstrings(game.configstrings());
+            err = cgame.init(0);
+        }
+        std::printf("cgame Init: %s after %llu instructions\n", err ? err.message.c_str() : "ok",
+                    static_cast<unsigned long long>(cgame.vm().executed()));
+        std::printf("cgame loaded %s for collision, %s to draw; music %s / %s\n", cgame.collisionMap().c_str(),
+                    cgame.worldMap().c_str(), cgame.music().first.c_str(), cgame.music().second.c_str());
+        std::printf("cgame registered %zu models, %zu skins, %zu shaders, %zu sounds; added %zu commands\n",
+                    cgame.models().size(), cgame.skins().size(), cgame.shaders().size(), cgame.sounds().size(),
+                    cgame.commands().size());
+        if (!err && eventsTest) {
+            // Fire held for three seconds at a time as the Play page runs it
+            // (a command each frame, the server a frame ahead, a snapshot
+            // each server frame, the client game drawing every frame), at
+            // frame lengths from 7 ms to 80 ms: the events the server gave
+            // the player (its event sequence, player state word 108) against
+            // the sounds the client game started.
+            // serverFirst: the server run up to the command's time before it's
+            // given the command (as the original's client stamps commands
+            // with the snapshots' time), not after.
+            auto runFor = [&](int stepMs, bool serverFirst) {
+                soundsStarted.clear();
+                const int32_t firstEvent = game.clientInt(0, 108);
+                const int32_t firstAmmo = game.clientInt(0, 396);
+                const int32_t firstCommandTime = game.clientInt(0, 0);
+                int32_t clientTime = game.levelTime();
+                auto runServer = [&] {
+                    while (game.levelTime() <= clientTime) {
+                        if (reluva::Error e = game.runFrame()) {
+                            std::printf("server: %s\n", e.message.c_str());
+                            return false;
+                        }
+                        std::vector<std::string> commands;
+                        for (const auto& [to, text] : game.serverCommands())
+                            if (to == 0 || to == -1)
+                                commands.push_back(text);
+                        cgame.setServerCommands(commands);
+                        cgame.setConfigstrings(game.configstrings());
+                        cgame.newSnapshot(game.snapshot(0));
+                    }
+                    return true;
+                };
+                for (int t = 0; t < 3000 && ok; t += stepMs) {
+                    clientTime += stepMs;
+                    if (serverFirst && !runServer())
+                        return;
+                    ef::GameHost::UserCommand cmd;
+                    cmd.serverTime = clientTime;
+                    cmd.buttons = fireButtons ? fireButtons : 1;
+                    cmd.weapon = uint8_t(std::max(fireWeapon, 1));
+                    if (reluva::Error e = game.clientThink(0, cmd)) {
+                        std::printf("server: %s\n", e.message.c_str());
+                        return;
+                    }
+                    cgame.addUserCommand(cmd);
+                    if (!serverFirst && !runServer())
+                        return;
+                    cgame.clearScene();
+                    cgame.clearPictures();
+                    int32_t ignored = 0;
+                    if (reluva::Error e = cgame.call(ef::CgameHost::DrawActiveFrame, {clientTime, 0, 0}, ignored)) {
+                        std::printf("cgame: %s\n", e.message.c_str());
+                        return;
+                    }
+                }
+                std::printf("a command every %d ms, %s: the server gave the player %d events (command time %d to %d, "
+                            "ammunition word 396: %d to %d); the client game started these sounds:\n",
+                            stepMs, serverFirst ? "the server run first" : "the command first",
+                            game.clientInt(0, 108) - firstEvent, firstCommandTime, game.clientInt(0, 0), firstAmmo,
+                            game.clientInt(0, 396));
+                for (const auto& [name, count] : soundsStarted)
+                    std::printf("  %4d  %s\n", count, name.c_str());
+            };
+            // From 144 frames a second down to 12, as a slow frame rate gives,
+            // each both ways; 7 ms again at the end, as each run starts where
+            // the last stopped.
+            for (const auto& [stepMs, serverFirst] : std::vector<std::pair<int, bool>>{
+                     {7, false}, {16, false}, {16, true}, {50, false}, {50, true}, {80, true}, {7, false}})
+                runFor(stepMs, serverFirst);
+        } else if (!err) {
+            // A few frames, a new snapshot each, to see what the client game
+            // does with them.
+            const auto [at208, at212] = game.svFlagsEvidence();
+            std::printf("svFlags: %d linked entities have flags at 208, %d at 212; taken to be at %d\n", at208, at212,
+                        game.svFlagsOffset());
+            // What the frames add besides models, for working out how the
+            // client game draws effects: entities by type, polygons by
+            // shader, lights; a sample of each.
+            // The entities of the last idle frame and the last firing one,
+            // to dump those firing adds.
+            std::vector<std::vector<uint8_t>> lastIdleEntities, lastFiringEntities;
+            // By the weapon fired (0 when not firing) and the type or shader.
+            using Key = std::pair<int, int32_t>;
+            std::map<Key, int> typeCounts;
+            std::map<Key, std::vector<uint8_t>> typeSamples;
+            std::map<Key, int> polyCounts;
+            std::map<Key, ef::CgameHost::Scene::Poly> polySamples;
+            std::map<int, int> lightCounts;
+            // Models (handle, custom shader) seen while firing each weapon
+            // that never showed when not firing: projectiles and the like.
+            std::map<Key, std::set<std::pair<int32_t, int32_t>>> firedModels;
+            std::set<std::pair<int32_t, int32_t>> idleModels;
+            std::map<int, ef::CgameHost::Scene::Light> lightSamples;
+            int weaponNow = 0;
+            // With fire held, the first 10 frames are idle, to compare.
+            constexpr int kIdleFrames = 10;
+            int idleFrames = 0, firingFrames = 0;
+            for (int f = 0; f < cgameFrames; ++f) {
+                const bool verbose = f < 3 || f == cgameFrames - 1;
+                const bool firing = fireButtons && f >= kIdleFrames;
+                if (f) {
+                    phase = firing ? 2 : 1;
+                    (firing ? firingFrames : idleFrames)++;
+                }
+                ef::GameHost::UserCommand idle;
+                if (f) {
+                    idle.serverTime = game.levelTime() + ef::GameHost::kFrameMs;
+                    weaponNow = !firing          ? 0
+                                : fireWeapon < 0 ? 1 + std::min(9, (f - kIdleFrames) / kFramesPerWeapon)
+                                                 : fireWeapon;
+                    idle.weapon = uint8_t(fireButtons ? (weaponNow ? weaponNow : std::max(fireWeapon, 1)) : 0);
+                    idle.buttons = firing ? fireButtons : 0;
+                    if (fireButtons)
+                        game.clientThink(0, idle);
+                    game.runFrame();
+                }
+                if (fireButtons && (f == 0 || f == kIdleFrames)) {
+                    // The player state's start, word by word: the client game
+                    // won't draw the phaser's beam unless the word at 48 is 0.
+                    std::printf("frame %2d: player state words 0-96:", f);
+                    for (int at = 0; at <= 96; at += 4)
+                        std::printf(" %d:%d", at, game.clientInt(0, at));
+                    std::printf("\n");
+                }
+                if (fireButtons && f <= 30 && (f % 5 == 0 || f == kIdleFrames)) {
+                    // The player state words firing changes (game-run -buttons):
+                    // weapon time 44, flags 104, event sequence 108, events 112,
+                    // 116, their parameters 120, 124, and 376, 396.
+                    std::printf("frame %2d%s: player state 44 %d, 104 0x%x, 108 %d, 112 %d, 116 %d, 120 %d, 124 %d, "
+                                "376 %d, 396 %d\n",
+                                f, firing ? " (firing)" : "", game.clientInt(0, 44), unsigned(game.clientInt(0, 104)),
+                                game.clientInt(0, 108), game.clientInt(0, 112), game.clientInt(0, 116),
+                                game.clientInt(0, 120), game.clientInt(0, 124), game.clientInt(0, 376),
+                                game.clientInt(0, 396));
+                }
+                std::vector<std::string> commands;
+                for (const auto& [to, text] : game.serverCommands())
+                    if (to == 0 || to == -1)
+                        commands.push_back(text);
+                cgame.setServerCommands(commands);
+                idle.serverTime = game.levelTime();
+                cgame.addUserCommand(idle);
+                cgame.clearScene();
+                auto snap = game.snapshot(0);
+                if (verbose)
+                    std::printf("snapshot at %d: %zu entities, %d server commands\n", snap.serverTime,
+                                snap.entities.size(), snap.serverCommandSequence);
+                cgame.newSnapshot(std::move(snap));
+                int32_t ignored = 0;
+                const reluva::Error frame =
+                    cgame.call(ef::CgameHost::DrawActiveFrame, {game.levelTime(), 0, 0}, ignored);
+                if (verbose || frame)
+                    std::printf("cgame DrawActiveFrame(%d): %s after %llu instructions, %zu pictures\n", game.levelTime(),
+                            frame ? frame.message.c_str() : "ok",
+                            static_cast<unsigned long long>(cgame.vm().executed()), cgame.pictures().size());
+                if (!watchModel.empty()) {
+                    // Entities with the watched model: colour, scale (axis
+                    // lengths), frames and where.
+                    for (const auto& e : cgame.scene().entities) {
+                        if (e.bytes.size() < 160)
+                            continue;
+                        auto word = [&](size_t at) {
+                            int32_t v;
+                            std::memcpy(&v, &e.bytes[at], 4);
+                            return v;
+                        };
+                        auto real = [&](size_t at) { return q3::Qvm::asFloat(word(at)); };
+                        const std::string name = cgame.models().name(word(8));
+                        if (word(0) != 0 || name.find(watchModel) == std::string::npos)
+                            continue;
+                        float len[3];
+                        for (int a = 0; a < 3; ++a)
+                            len[a] = std::sqrt(real(28 + 12 * size_t(a)) * real(28 + 12 * size_t(a)) +
+                                               real(32 + 12 * size_t(a)) * real(32 + 12 * size_t(a)) +
+                                               real(36 + 12 * size_t(a)) * real(36 + 12 * size_t(a)));
+                        std::printf("  time %d: %s colour %u %u %u %u, axes %.2f %.2f %.2f%s, frame %d (old %d, "
+                                    "back %.2f), shader %d, shader time %.3f, flags 0x%x, at %.0f %.0f %.0f\n",
+                                    game.levelTime(), name.c_str(), e.bytes[116], e.bytes[117], e.bytes[118],
+                                    e.bytes[119],
+                                    len[0], len[1], len[2], word(64) ? " (not normalized)" : "", word(80), word(96),
+                                    real(100), word(112), real(128), unsigned(word(4)), real(68), real(72), real(76));
+                    }
+                }
+                {
+                    const auto& scene = cgame.scene();
+                    auto& keep = firing ? lastFiringEntities : lastIdleEntities;
+                    if (f) {
+                        keep.clear();
+                        for (const auto& e : scene.entities)
+                            keep.push_back(e.bytes);
+                    }
+                    for (const auto& e : scene.entities) {
+                        int32_t type = 0;
+                        if (e.bytes.size() >= 4)
+                            std::memcpy(&type, e.bytes.data(), 4);
+                        if (type != 0 && typeCounts[{weaponNow, type}]++ == 0)
+                            typeSamples[{weaponNow, type}] = e.bytes;
+                        if (type == 0 && e.bytes.size() >= 116) {
+                            int32_t model = 0, shader = 0;
+                            std::memcpy(&model, &e.bytes[8], 4);
+                            std::memcpy(&shader, &e.bytes[112], 4);
+                            if (!weaponNow)
+                                idleModels.insert({model, shader});
+                            else if (!idleModels.count({model, shader}))
+                                firedModels[{weaponNow, 0}].insert({model, shader});
+                        }
+                    }
+                    for (const auto& poly : scene.polys)
+                        if (polyCounts[{weaponNow, poly.shader}]++ == 0)
+                            polySamples[{weaponNow, poly.shader}] = poly;
+                    if (!scene.lights.empty() && !lightCounts[weaponNow])
+                        lightSamples[weaponNow] = scene.lights[0];
+                    lightCounts[weaponNow] += int(scene.lights.size());
+                }
+                if (verbose) {
+                    // The frame's 3D scene: the entities added (and the sizes of
+                    // the memsets that cleared them: refEntity_t's size), and the
+                    // view, read as Quake III's refdef_t: x, y, width, height,
+                    // fov x, fov y, view origin (24), axes (36), time (72).
+                    const auto& scene = cgame.scene();
+                    std::map<int32_t, int> sizes;
+                    for (const auto& e : scene.entities)
+                        ++sizes[e.clearedSize];
+                    std::string sizeText;
+                    for (const auto& [size, count] : sizes)
+                        sizeText += " " + std::to_string(count) + " cleared by " + std::to_string(size);
+                    std::printf("  scene: %zu entities (%s), %d polygons, %d lights, rendered %d times\n",
+                                scene.entities.size(), sizeText.c_str(), int(scene.polys.size()), int(scene.lights.size()), scene.renders);
+                    if (scene.view.size() >= 80) {
+                        auto word = [&](int at) {
+                            int32_t v;
+                            std::memcpy(&v, &scene.view[size_t(at)], 4);
+                            return v;
+                        };
+                        auto real = [&](int at) { return q3::Qvm::asFloat(word(at)); };
+                        std::printf("  view: %d,%d %dx%d, fov %.1f x %.1f, eye %.1f %.1f %.1f, forward %.2f %.2f %.2f, time %d\n",
+                                    word(0), word(4), word(8), word(12), real(16), real(20), real(24), real(28),
+                                    real(32), real(36), real(40), real(44), word(72));
+                    }
+                }
+                if (f == 0 && dumpEntities) {
+                    // A few of the scene's entities word by word, for working
+                    // out refEntity_t's layout: different models first. Each
+                    // word as a whole number and as a float, and what it
+                    // names if it's a registered model, skin or shader handle.
+                    const auto& scene = cgame.scene();
+                    std::vector<size_t> picked;
+                    std::set<int32_t> seen;
+                    for (int pass = 0; pass < 2; ++pass)
+                        for (size_t i = 0; i < scene.entities.size() && picked.size() < size_t(dumpEntities); ++i) {
+                            const auto& b = scene.entities[i].bytes;
+                            if (b.size() < 160 || std::find(picked.begin(), picked.end(), i) != picked.end())
+                                continue;
+                            int32_t key = 0;
+                            std::memcpy(&key, &b[8], 4);
+                            if (pass == 0 && !seen.insert(key).second)
+                                continue;
+                            picked.push_back(i);
+                        }
+                    for (size_t i : picked) {
+                        const auto& b = scene.entities[i].bytes;
+                        std::printf("  scene entity %zu (cleared by %d):\n", i, scene.entities[i].clearedSize);
+                        for (int at = 0; at < 160; at += 4) {
+                            int32_t v;
+                            std::memcpy(&v, &b[size_t(at)], 4);
+                            const float fl = q3::Qvm::asFloat(v);
+                            std::string names;
+                            if (v > 0 && v < 4096) {
+                                if (!cgame.models().name(v).empty())
+                                    names += " model:" + cgame.models().name(v);
+                                if (!cgame.skins().name(v).empty())
+                                    names += " skin:" + cgame.skins().name(v);
+                                if (!cgame.shaders().name(v).empty())
+                                    names += " shader:" + cgame.shaders().name(v);
+                            }
+                            const bool showFloat = std::isfinite(fl) && std::fabs(fl) > 1e-6f && std::fabs(fl) < 1e7f;
+                            char floatText[32] = "";
+                            if (showFloat)
+                                std::snprintf(floatText, sizeof floatText, " %.4g", fl);
+                            std::printf("    %3d: %11d 0x%08x%s%s\n", at, v, unsigned(v), floatText, names.c_str());
+                        }
+                    }
+                }
+                if (f == 0) {
+                    // What the frame drew in 2D, by shader.
+                    std::map<std::string, int> byShader;
+                    for (const auto& p : cgame.pictures())
+                        ++byShader[cgame.shaders().name(p.shader)];
+                    for (const auto& [name, count] : byShader)
+                        std::printf("  %4d x %s\n", count, name.empty() ? "(none)" : name.c_str());
+                }
+                cgame.clearPictures();
+                if (frame)
+                    break;
+            }
+            if (fireButtons && idleFrames && firingFrames) {
+                // Calls a frame, idle and firing: what changes when firing.
+                std::printf("client game calls a frame, idle (%d frames) against firing (%d frames):\n", idleFrames,
+                            firingFrames);
+                std::set<int> numbers;
+                for (int ph = 1; ph <= 2; ++ph)
+                    for (const auto& [number, count] : phaseCalls[size_t(ph)])
+                        numbers.insert(number);
+                for (int number : numbers) {
+                    const float idleRate = float(phaseCalls[1][number]) / float(idleFrames);
+                    const float fireRate = float(phaseCalls[2][number]) / float(firingFrames);
+                    const auto it = firingArgs.find(number);
+                    std::printf("  call %3d: %7.2f idle, %7.2f firing%s", number, idleRate, fireRate,
+                                std::fabs(idleRate - fireRate) > 0.05f ? "  <- differs" : "");
+                    if (it != firingArgs.end())
+                        std::printf("  (first while firing: %d, %d, %d, %d)", it->second[0], it->second[1],
+                                    it->second[2], it->second[3]);
+                    std::printf("\n");
+                }
+            }
+            // The effects seen over the frames.
+            auto dumpWords = [&](const std::vector<uint8_t>& b, size_t size) {
+                for (size_t at = 0; at + 4 <= std::min(size, b.size()); at += 4) {
+                    int32_t v;
+                    std::memcpy(&v, &b[at], 4);
+                    const float fl = q3::Qvm::asFloat(v);
+                    std::string names;
+                    if (v > 0 && v < 4096) {
+                        if (!cgame.models().name(v).empty())
+                            names += " model:" + cgame.models().name(v);
+                        if (!cgame.shaders().name(v).empty())
+                            names += " shader:" + cgame.shaders().name(v);
+                    }
+                    char floatText[32] = "";
+                    if (std::isfinite(fl) && std::fabs(fl) > 1e-6f && std::fabs(fl) < 1e7f)
+                        std::snprintf(floatText, sizeof floatText, " %.4g", fl);
+                    std::printf("    %3zu: %11d 0x%08x%s%s\n", at, v, unsigned(v), floatText, names.c_str());
+                }
+            };
+            if (fireButtons && !lastIdleEntities.empty() && !lastFiringEntities.empty()) {
+                // Firing's entities: those of the last firing frame with a model
+                // handle (byte 8) more often than in the last idle frame.
+                std::map<int32_t, int> idleModels;
+                for (const auto& b : lastIdleEntities) {
+                    int32_t m = 0;
+                    std::memcpy(&m, &b[8], 4);
+                    ++idleModels[m];
+                }
+                int shown = 0;
+                for (const auto& b : lastFiringEntities) {
+                    int32_t m = 0;
+                    std::memcpy(&m, &b[8], 4);
+                    if (idleModels[m]-- > 0 || shown >= 4)
+                        continue;
+                    std::printf("an entity firing adds (model %d%s%s):\n", m, m > 0 ? " " : "",
+                                m > 0 ? cgame.models().name(m).c_str() : "");
+                    dumpWords(b, 160);
+                    ++shown;
+                }
+            }
+            // Types the Play page draws: models (0), quads (1), sprites (2),
+            // lines (9, 11); samples of the others.
+            auto drawn = [](int32_t type) { return type == 1 || type == 2 || type == 9 || type == 11; };
+            std::set<int> weapons{0};
+            for (const auto& [key, count] : typeCounts)
+                weapons.insert(key.first);
+            for (const auto& [key, count] : polyCounts)
+                weapons.insert(key.first);
+            for (const auto& [weapon, count] : lightCounts)
+                weapons.insert(weapon);
+            for (int weapon : weapons) {
+                std::printf("over %d frames, %s: entities that aren't models, by type:", cgameFrames,
+                            weapon ? ("firing weapon " + std::to_string(weapon)).c_str() : "not firing");
+                for (const auto& [key, count] : typeCounts)
+                    if (key.first == weapon)
+                        std::printf(" %d (x%d%s)", key.second, count, drawn(key.second) ? "" : ", not drawn yet");
+                std::printf("\n");
+                for (const auto& [key, count] : typeCounts)
+                    if (key.first == weapon && !drawn(key.second)) {
+                        std::printf("  type %d, the first:\n", key.second);
+                        dumpWords(typeSamples[key], 160);
+                    }
+                if (const auto it = firedModels.find({weapon, 0}); it != firedModels.end()) {
+                    std::printf("  models only while firing:");
+                    for (const auto& [model, shader] : it->second)
+                        std::printf(" %s%s%s", model > 0 ? cgame.models().name(model).c_str() : "(no model)",
+                                    shader > 0 ? " with " : "", shader > 0 ? cgame.shaders().name(shader).c_str() : "");
+                    std::printf("\n");
+                }
+                for (const auto& [key, count] : polyCounts) {
+                    if (key.first != weapon)
+                        continue;
+                    const auto& sample = polySamples[key];
+                    std::printf("  polygons with %s (%d): %d, the first with %d vertices, its first two as 24 bytes "
+                                "each:\n",
+                                cgame.shaders().name(key.second).c_str(), key.second, count, sample.vertexCount);
+                    dumpWords(sample.vertices, 48);
+                }
+                if (const int lights = lightCounts[weapon]) {
+                    const auto& l = lightSamples[weapon];
+                    std::printf("  lights: %d, the first at %.1f %.1f %.1f, radius %.1f, colour %.2f %.2f %.2f\n",
+                                lights, l.origin[0], l.origin[1], l.origin[2], l.radius, l.color[0], l.color[1],
+                                l.color[2]);
+                }
+            }
+            const auto& requests = cgame.snapshotRequests();
+            for (size_t i = 0; i < requests.size() && i < 6; ++i)
+                std::printf("cgame asked for snapshot %d at %d%s\n", requests[i].first, requests[i].second,
+                            i ? (" (" + std::to_string(requests[i].second - requests[i - 1].second) + " from the last)").c_str()
+                              : "");
+        }
+        for (const auto& [number, count] : cgame.unhandled()) {
+            const auto& a = cgame.firstUnhandled().at(number);
+            std::printf("cgame: not implemented: system call %d (%d calls), first (%d, %d, %d, %d, %d, %d)\n", number,
+                        count, a[0], a[1], a[2], a[3], a[4], a[5]);
+            // Arguments that point at text, which often says what a call is.
+            for (int i = 0; i < 6; ++i) {
+                if (a[i] <= 0 || !cgame.vm().valid(a[i], 1))
+                    continue;
+                const std::string text = cgame.vm().string(a[i], 64);
+                bool printable = text.size() >= 2;
+                for (char c : text)
+                    printable = printable && static_cast<unsigned char>(c) >= 32 && static_cast<unsigned char>(c) < 127;
+                if (printable)
+                    std::printf("  argument %d is text: \"%s\"\n", i, text.c_str());
+            }
+        }
+        ok = ok && !err;
+    }
+    return ok ? 0 : 1;
+}
+
+int cmdFileShow(int argc, char** argv) {
+    if (argc != 4) {
+        std::fprintf(stderr, "usage: reluva-tool file-show <game folder> <path>\n");
+        return 2;
+    }
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    Bytes data;
+    if (reluva::Error err = set.read(argv[3], data)) {
+        std::fprintf(stderr, "%s: %s\n", argv[3], err.message.c_str());
+        return 1;
+    }
+    std::fwrite(data.data(), 1, data.size(), stdout);
+    if (!data.empty() && data.back() != '\n')
+        std::printf("\n");
+    return 0;
+}
+
+int cmdShaderShow(int argc, char** argv) {
+    if (argc != 4) {
+        std::fprintf(stderr, "usage: reluva-tool shader-show <game folder> <shader | model.md3>\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    std::vector<std::string> names;
+    const std::string what = argv[3];
+    const std::string whatExt = what.size() > 4 ? reluva::fs::toLower(what.substr(what.size() - 4)) : "";
+    if (whatExt == ".md3" || whatExt == ".mdr") {
+        // A model: each surface's shader.
+        Bytes data;
+        q3::Md3Model model;
+        if (reluva::Error err = set.read(what, data); err || (err = q3::parseModel(data, model))) {
+            std::fprintf(stderr, "%s: %s\n", what.c_str(), err.message.c_str());
+            return 1;
+        }
+        for (const q3::Md3Surface& surface : model.surfaces) {
+            const std::string shader = surface.shaders.empty() ? std::string() : surface.shaders.front();
+            std::printf("surface %s: %d vertices, %zu triangles, shader %s\n", surface.name.c_str(),
+                        surface.vertexCount, surface.indices.size() / 3, shader.empty() ? "(none)" : shader.c_str());
+            if (!shader.empty() && std::find(names.begin(), names.end(), shader) == names.end())
+                names.push_back(shader);
+        }
+        std::printf("%zu frames, %d tags each:", model.frames.size(), model.tagCount);
+        for (int t = 0; t < model.tagCount; ++t)
+            std::printf(" %s", model.tags[size_t(t)].name.c_str());
+        std::printf("\n");
+    } else {
+        names.push_back(what);
+    }
+    // Each shader's text, as its script has it: the name, then the block
+    // from its brace to the matching one.
+    for (const std::string& name : names) {
+        std::string base = reluva::fs::toLower(name);
+        if (base.size() > 4 && (base.substr(base.size() - 4) == ".tga" || base.substr(base.size() - 4) == ".jpg"))
+            base.resize(base.size() - 4);
+        bool found = false;
+        for (const std::string& file : set.list()) {
+            const std::string key = reluva::normalizeArchiveName(file);
+            if (key.rfind("scripts/", 0) != 0 || key.size() < 7 || key.compare(key.size() - 7, 7, ".shader") != 0)
+                continue;
+            Bytes data;
+            if (set.read(file, data))
+                continue;
+            const std::string text(data.begin(), data.end());
+            const std::string lower = reluva::fs::toLower(text);
+            for (size_t at = lower.find(base); at != std::string::npos && !found; at = lower.find(base, at + 1)) {
+                // A whole token at the start of a line, followed by a brace.
+                const bool startsToken = at == 0 || static_cast<unsigned char>(lower[at - 1]) <= ' ';
+                const size_t after = at + base.size();
+                if (!startsToken || (after < lower.size() && static_cast<unsigned char>(lower[after]) > ' '))
+                    continue;
+                const size_t open = lower.find_first_not_of(" \t\r\n", after);
+                if (open == std::string::npos || lower[open] != '{')
+                    continue;
+                int depth = 0;
+                size_t end = open;
+                for (; end < text.size(); ++end) {
+                    if (text[end] == '{')
+                        ++depth;
+                    else if (text[end] == '}' && --depth == 0)
+                        break;
+                }
+                std::printf("--- %s, in %s:\n%s\n", name.c_str(), file.c_str(),
+                            text.substr(at, std::min(end + 1, text.size()) - at).c_str());
+                found = true;
+            }
+            if (found)
+                break;
+        }
+        if (!found)
+            std::printf("--- %s: no script defines it (the image itself, drawn the default way)\n", name.c_str());
+    }
+    return 0;
+}
+
+int cmdPortalCheck(int argc, char** argv) {
+    // Every map's portals and mirrors: the surfaces whose shader says
+    // `portal`, and the entities that place their cameras (Quake III's
+    // misc_portal_surface, aimed by its target, a misc_portal_camera).
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: reluva-tool portal-check <game folder>\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    q3::ShaderLibrary shaders;
+    shaders.load(set, nullptr);
+    Bytes data;
+    for (const std::string& name : set.list()) {
+        const std::string key = reluva::normalizeArchiveName(name);
+        if (key.rfind("maps/", 0) != 0 || key.size() < 4 || key.compare(key.size() - 4, 4, ".bsp") != 0)
+            continue;
+        q3::Bsp bsp;
+        if (set.read(name, data) || q3::parseBsp(data, bsp))
+            continue;
+        std::map<std::string, int> portalSurfaces;
+        for (const q3::BspSurface& s : bsp.surfaces)
+            if (s.shader >= 0 && size_t(s.shader) < bsp.shaders.size())
+                if (const q3::ShaderDef* def = shaders.find(bsp.shaders[size_t(s.shader)].name); def && def->portal)
+                    ++portalSurfaces[def->name];
+        std::vector<q3::Entity> entities;
+        q3::parseEntities(bsp.entities, entities);
+        std::vector<const q3::Entity*> portalEntities;
+        for (const q3::Entity& e : entities)
+            if (e.classname().rfind("misc_portal", 0) == 0)
+                portalEntities.push_back(&e);
+        if (portalSurfaces.empty() && portalEntities.empty())
+            continue;
+        std::printf("%s:\n", key.c_str());
+        for (const auto& [shader, count] : portalSurfaces)
+            std::printf("  %d surface%s with %s\n", count, count == 1 ? "" : "s", shader.c_str());
+        for (const q3::Entity* e : portalEntities) {
+            std::printf("  %s", e->classname().c_str());
+            for (const auto& [k, v] : e->pairs)
+                if (k != "classname")
+                    std::printf(" %s \"%s\"", k.c_str(), v.c_str());
+            std::printf("\n");
+        }
+    }
+    return 0;
+}
+
+int cmdShaderCheck(int argc, char** argv) {
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: reluva-tool shader-check <game folder>\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    std::vector<std::string> warnings;
+    q3::ShaderLibrary shaders;
+    shaders.load(set, &warnings);
+    for (const std::string& w : warnings)
+        std::printf("problem: %s\n", w.c_str());
+
+    // Feature -> (count, a few shaders using it).
+    std::map<std::string, std::pair<int, std::vector<std::string>>> found;
+    auto add = [&](const std::string& what, const q3::ShaderDef& d) {
+        auto& [n, examples] = found[what];
+        ++n;
+        if (examples.size() < 3 && std::find(examples.begin(), examples.end(), d.name) == examples.end())
+            examples.push_back(d.name);
+    };
+    static const char* const deformNames[] = {"wave", "normal", "bulge", "move", "autosprite", "autosprite2",
+                                              "text", "projectionShadow", "other"};
+    for (const q3::ShaderDef& d : shaders.all()) {
+        for (const std::string& u : d.unknown)
+            add("unknown directive: " + u, d);
+        for (const q3::ShaderDeform& df : d.deforms)
+            if (df.type != q3::ShaderDeform::Type::Wave && df.type != q3::ShaderDeform::Type::Bulge &&
+                df.type != q3::ShaderDeform::Type::Move && df.type != q3::ShaderDeform::Type::Normal)
+                add(std::string("not drawn: deformVertexes ") + deformNames[size_t(df.type)], d);
+        if (d.deforms.size() > 2)
+            add("not drawn: more than two deformVertexes", d);
+        if (d.portal)
+            add("not drawn: portal (shown as a plain surface)", d);
+        for (const q3::ShaderStage& st : d.stages)
+            if (st.blendSrc == "gl_src_alpha_saturate")
+                add("not drawn: blendFunc GL_SRC_ALPHA_SATURATE", d);
+    }
+    std::printf("%zu shaders\n", shaders.size());
+    for (const auto& [what, info] : found) {
+        std::printf("%5d  %s  (e.g.", info.first, what.c_str());
+        for (const std::string& e : info.second)
+            std::printf(" %s", e.c_str());
+        std::printf(")\n");
+    }
+    return 0;
+}
+
+int cmdPk3List(int argc, char** argv) {
+    if (argc != 3 && argc != 4) {
+        std::fprintf(stderr, "usage: reluva-tool pk3-list <game folder> [name filter]\n");
+        return 2;
+    }
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    const std::string filter = argc == 4 ? reluva::normalizeArchiveName(argv[3]) : std::string();
+    for (const std::string& name : set.list()) {
+        if (!filter.empty() && reluva::normalizeArchiveName(name).find(filter) == std::string::npos)
+            continue;
+        const reluva::Archive* a = set.find(name);
+        long long size = -1;
+        if (const auto* zip = dynamic_cast<const reluva::ZipArchive*>(a))
+            if (const auto* e = zip->entry(name))
+                size = e->size;
+        std::printf("%10lld  %-60s %s\n", size, name.c_str(),
+                    std::filesystem::path(a->describe()).filename().string().c_str());
+    }
+    return 0;
+}
+
+#endif // RELUVA_ENGINE_IDTECH3
+
 } // namespace
 
 int main(int argc, char** argv) {
     if (argc >= 2 && std::strcmp(argv[1], "hexdump") == 0)
         return cmdHexdump(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "chunks") == 0)
+        return cmdChunks(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "words") == 0)
+        return cmdWords(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "table") == 0)
+        return cmdTable(argc, argv);
+#ifdef RELUVA_ENGINE_NEWWORLDS
     if (argc >= 2 && std::strcmp(argv[1], "cat-probe") == 0)
         return cmdCatProbe(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "cat-list") == 0)
@@ -2388,12 +5113,6 @@ int main(int argc, char** argv) {
         return cmdTexSurvey(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "tex-keys") == 0)
         return cmdTexKeys(argc, argv);
-    if (argc >= 2 && std::strcmp(argv[1], "chunks") == 0)
-        return cmdChunks(argc, argv);
-    if (argc >= 2 && std::strcmp(argv[1], "words") == 0)
-        return cmdWords(argc, argv);
-    if (argc >= 2 && std::strcmp(argv[1], "table") == 0)
-        return cmdTable(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "geo-info") == 0)
         return cmdGeoInfo(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "geo-survey") == 0)
@@ -2424,18 +5143,64 @@ int main(int argc, char** argv) {
         return cmdGeoSheet(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "geo-faces") == 0)
         return cmdGeoFaces(argc, argv);
+#endif
+#ifdef RELUVA_ENGINE_IDTECH3
+    if (argc >= 2 && std::strcmp(argv[1], "bsp-check") == 0)
+        return cmdBspCheck(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "pk3-list") == 0)
+        return cmdPk3List(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "image-check") == 0)
+        return cmdImageCheck(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "shader-check") == 0)
+        return cmdShaderCheck(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "portal-check") == 0)
+        return cmdPortalCheck(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "shader-show") == 0)
+        return cmdShaderShow(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "file-show") == 0)
+        return cmdFileShow(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "model-check") == 0)
+        return cmdModelCheck(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "qvm-info") == 0)
+        return cmdQvmInfo(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "qvm-run") == 0)
+        return cmdQvmRun(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "qvm-refs") == 0)
+        return cmdQvmRefs(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "qvm-dis") == 0)
+        return cmdQvmDis(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "game-run") == 0)
+        return cmdGameRun(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "net-run") == 0)
+        return cmdNetRun(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "net-find") == 0)
+        return cmdNetFind(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "net-master") == 0)
+        return cmdNetMaster(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "pe-info") == 0)
+        return cmdPeInfo(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "x86-run") == 0)
+        return cmdX86Run(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "sp-run") == 0)
+        return cmdSpRun(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "pk3-sums") == 0)
+        return cmdPk3Sums(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "ui-run") == 0)
+        return cmdUiRun(argc, argv);
+#endif
     std::fprintf(stderr,
                  "usage:\n"
                  "  reluva-tool hexdump <file> [offset] [length]\n"
+                 "  reluva-tool chunks <file>\n"
+                 "  reluva-tool words <file> [offset] [count]\n"
+                 "  reluva-tool table <file> [values per row] [offset]\n"
+#ifdef RELUVA_ENGINE_NEWWORLDS
                  "  reluva-tool cat-probe <file.cat> [-q]\n"
                  "  reluva-tool cat-list <file.cat>\n"
                  "  reluva-tool cat-extract <file.cat> <output dir> [name filter]\n"
                  "  reluva-tool stb-dump <file.stb | file.cat>\n"
                  "  reluva-tool tex-survey <file.cat>...\n"
                  "  reluva-tool tex-keys <file.cat>...\n"
-                 "  reluva-tool chunks <file>\n"
-                 "  reluva-tool words <file> [offset] [count]\n"
-                 "  reluva-tool table <file> [values per row] [offset]\n"
                  "  reluva-tool geo-info <file.geo> [out.obj]\n"
                  "  reluva-tool geo-survey <file.cat>...\n"
                  "  reluva-tool geo-textures [-a] <file.cat>...\n"
@@ -2451,6 +5216,31 @@ int main(int argc, char** argv) {
                  "  reluva-tool geo-sheet [-l|-t] <out.ppm> <name filter> <file.cat>...\n"
                  "  reluva-tool gmf-info <file.gmf> [record number]\n"
                  "  reluva-tool geo-faces <file.geo>\n"
-                 "  reluva-tool lbp-info <file> [output prefix]\n");
+                 "  reluva-tool lbp-info <file> [output prefix]\n"
+#endif
+#ifdef RELUVA_ENGINE_IDTECH3
+                 "  reluva-tool bsp-check <game folder, e.g. .../BaseEF>\n"
+                 "  reluva-tool pk3-list <game folder> [name filter]\n"
+                 "  reluva-tool image-check <game folder> [map name filter]\n"
+                 "  reluva-tool shader-check <game folder>\n"
+                 "  reluva-tool portal-check <game folder>\n"
+                 "  reluva-tool shader-show <game folder> <shader | model.md3>\n"
+                 "  reluva-tool file-show <game folder> <path>\n"
+                 "  reluva-tool model-check <game folder> [name filter] [-v]\n"
+                 "  reluva-tool qvm-info <game folder> <vm/x.qvm> [-s]\n"
+                 "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
+                 "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
+                 "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -syscalls <first> <last> | -func <instruction> | -blockcopies | -fields <address>\n"
+                 "  reluva-tool net-find [host[:port]]\n"
+                 "  reluva-tool net-master [master[:port]]...\n"
+                 "  reluva-tool pe-info <file.dll|file.exe>\n"
+                 "  reluva-tool x86-run <file.dll> [-call Export [arg|table]...]\n"
+                 "  reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] [-set name value]... [-trace]\n"
+                 "  reluva-tool pk3-sums <game folder> [feed]\n"
+                 "  reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-addbot name]... | -join <host[:port]> [seconds] [-name name]\n"
+                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n"
+                 "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
+#endif
+                 "");
     return 2;
 }
