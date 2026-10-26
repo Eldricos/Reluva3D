@@ -54,6 +54,7 @@ GameProcess::GameProcess(std::filesystem::path gameDir, uint32_t memoryMb) : dir
     };
     process_->cdLabel = "LEGOATEN";
     x86::addMsvcrt(*process_);
+    directX_ = std::make_unique<x86::DirectX>(*process_);
 }
 
 Error GameProcess::load() {

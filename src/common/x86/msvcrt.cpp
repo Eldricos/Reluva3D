@@ -1159,10 +1159,14 @@ void addMsvcrt(Win32Process& process) {
     });
 
     // --- Threads ------------------------------------------------------------------------------------
-    // Not yet: the process has one thread.
-    cdecl("_beginthread", [](Cpu& c) {
-        c.abort("the program started a thread (_beginthread); threads aren't run yet");
-        return 0xffffffffu;
+    // Not run yet: the process has one thread. A thread started is kept
+    // (Win32Process::threadsNotRun) and given a handle, so the program goes
+    // on without it.
+    cdecl("_beginthread", [s](Cpu& c) {
+        s->p.threadsNotRun.push_back({c.arg(0), c.arg(2)});
+        if (s->p.output)
+            s->p.output("A thread was started at " + std::to_string(c.arg(0)) + "; threads aren't run yet\n");
+        return 0x7fc00000u + uint32_t(s->p.threadsNotRun.size());
     });
     cdecl("_endthread", [](Cpu& c) {
         c.abort("the program ended a thread (_endthread); threads aren't run yet");

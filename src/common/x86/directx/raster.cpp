@@ -1,0 +1,856 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+// Direct3D 7's fixed-function pipeline in software, as the DirectX 7
+// documentation describes it:
+// - vertices are transformed by the world, view and projection matrices
+//   (row vectors) and lit in camera space by the enabled lights and the
+//   material (or the vertex colours, as the material sources say);
+// - triangles are clipped to the view volume, projected into the
+//   viewport, culled by their winding on the screen, and filled with
+//   pixel centres at whole coordinates and a top-left rule;
+// - each pixel goes through the depth test, the texture stages (with
+//   wrapping, mip levels and bilinear filtering), the colour key, the
+//   alpha test, fog and blending, into the render target and Z buffer,
+//   whatever their pixel formats.
+
+#include "common/x86/directx/device.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+
+namespace reluva::x86::dx {
+
+namespace {
+
+// Render states.
+enum : uint32_t {
+    kZEnable = 7, kShadeMode = 9, kZWriteEnable = 14, kAlphaTestEnable = 15, kSrcBlend = 19, kDestBlend = 20,
+    kCullMode = 22, kZFunc = 23, kAlphaRef = 24, kAlphaFunc = 25, kAlphaBlendEnable = 27, kFogEnable = 28,
+    kSpecularEnable = 29, kFogColor = 34, kFogTableMode = 35, kFogStart = 36, kFogEnd = 37, kFogDensity = 38,
+    kColorKeyEnable = 41, kRangeFogEnable = 48, kTextureFactor = 60, kClipping = 136, kLighting = 137,
+    kAmbient = 139, kFogVertexMode = 140, kColorVertex = 141, kLocalViewer = 142, kNormalizeNormals = 143,
+    kDiffuseSource = 145, kSpecularSource = 146, kAmbientSource = 147, kEmissiveSource = 148
+};
+// Texture stage states.
+enum : uint32_t {
+    kColorOp = 1, kColorArg1 = 2, kColorArg2 = 3, kAlphaOp = 4, kAlphaArg1 = 5, kAlphaArg2 = 6, kTexCoordIndex = 11,
+    kAddressU = 13, kAddressV = 14, kBorderColor = 15, kMagFilter = 16, kMinFilter = 17, kMipFilter = 18,
+    kTextureTransformFlags = 24
+};
+constexpr int kAttributes = 8 + 2 * 8; // diffuse, specular, a u and v per stage
+
+float asFloat(uint32_t v) {
+    float f;
+    std::memcpy(&f, &v, 4);
+    return f;
+}
+float vertexFloat(const uint8_t* p) {
+    float f;
+    std::memcpy(&f, p, 4);
+    return f;
+}
+uint32_t vertexWord(const uint8_t* p) {
+    uint32_t v;
+    std::memcpy(&v, p, 4);
+    return v;
+}
+Color unpack(uint32_t argb) {
+    return {float(argb >> 16 & 0xff) / 255, float(argb >> 8 & 0xff) / 255, float(argb & 0xff) / 255,
+            float(argb >> 24) / 255};
+}
+uint32_t pack(float r, float g, float b, float a) {
+    auto c = [](float v) { return uint32_t(std::clamp(v, 0.0f, 1.0f) * 255.0f + 0.5f); };
+    return c(a) << 24 | c(r) << 16 | c(g) << 8 | c(b);
+}
+Color add(const Color& a, const Color& b) { return {a.r + b.r, a.g + b.g, a.b + b.b, a.a + b.a}; }
+Color mul(const Color& a, const Color& b) { return {a.r * b.r, a.g * b.g, a.b * b.b, a.a * b.a}; }
+Color scale(const Color& a, float k) { return {a.r * k, a.g * k, a.b * k, a.a * k}; }
+
+void transformPoint(const Matrix& m, const float in[4], float out[4]) {
+    for (int j = 0; j < 4; ++j)
+        out[j] = in[0] * m[size_t(j)] + in[1] * m[size_t(4 + j)] + in[2] * m[size_t(8 + j)] + in[3] * m[size_t(12 + j)];
+}
+void transformNormal(const Matrix& m, const float in[3], float out[3]) {
+    for (int j = 0; j < 3; ++j)
+        out[j] = in[0] * m[size_t(j)] + in[1] * m[size_t(4 + j)] + in[2] * m[size_t(8 + j)];
+}
+float dot3(const float a[3], const float b[3]) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+void normalize3(float v[3]) {
+    const float l = std::sqrt(dot3(v, v));
+    if (l > 0)
+        v[0] /= l, v[1] /= l, v[2] /= l;
+}
+
+bool compare(uint32_t func, float a, float b) { // a (new) against b (stored)
+    switch (func) {
+    case 1: return false;
+    case 2: return a < b;
+    case 3: return a == b;
+    case 4: return a <= b;
+    case 5: return a > b;
+    case 6: return a != b;
+    case 7: return a >= b;
+    default: return true;
+    }
+}
+
+float blendFactor(uint32_t f, const Color& src, const Color& dst, int channel) {
+    const float s[4] = {src.r, src.g, src.b, src.a}, d[4] = {dst.r, dst.g, dst.b, dst.a};
+    switch (f) {
+    case 1: return 0;
+    case 2: return 1;
+    case 3: return s[channel];
+    case 4: return 1 - s[channel];
+    case 5: return src.a;
+    case 6: return 1 - src.a;
+    case 7: return dst.a;
+    case 8: return 1 - dst.a;
+    case 9: return d[channel];
+    case 10: return 1 - d[channel];
+    case 11: return channel == 3 ? 1 : std::min(src.a, 1 - dst.a);
+    case 12: return src.a;     // BOTHSRCALPHA: source alpha, destination 1 - it
+    case 13: return 1 - src.a; // BOTHINVSRCALPHA
+    default: return 1;
+    }
+}
+
+// A clip-space vertex between two, `t` of the way.
+ClipVertex lerp(const ClipVertex& a, const ClipVertex& b, float t) {
+    ClipVertex r;
+    r.x = a.x + (b.x - a.x) * t;
+    r.y = a.y + (b.y - a.y) * t;
+    r.z = a.z + (b.z - a.z) * t;
+    r.w = a.w + (b.w - a.w) * t;
+    auto mix = [t](const Color& p, const Color& q) {
+        return Color{p.r + (q.r - p.r) * t, p.g + (q.g - p.g) * t, p.b + (q.b - p.b) * t, p.a + (q.a - p.a) * t};
+    };
+    r.diffuse = mix(a.diffuse, b.diffuse);
+    r.specular = mix(a.specular, b.specular);
+    for (int i = 0; i < 8; ++i)
+        for (int j = 0; j < 2; ++j)
+            r.tex[i][j] = a.tex[i][j] + (b.tex[i][j] - a.tex[i][j]) * t;
+    return r;
+}
+
+// The distance of a clip-space vertex inside each plane of the view volume.
+float planeDistance(const ClipVertex& v, int plane) {
+    switch (plane) {
+    case 0: return v.z;       // near
+    case 1: return v.w - v.z; // far
+    case 2: return v.w + v.x;
+    case 3: return v.w - v.x;
+    case 4: return v.w + v.y;
+    default: return v.w - v.y;
+    }
+}
+
+} // namespace
+
+// --- Vertices
+
+void Device::transformAndLight(const VertexLayout& layout, uint32_t vertices, uint32_t stride, uint32_t count,
+                               std::vector<ClipVertex>& out) {
+    Cpu& c = s->cpu;
+    out.resize(count);
+    if (!c.valid(vertices, stride * count))
+        return out.clear();
+    const uint8_t* mem = c.memory().data() + vertices;
+    const Matrix world = transforms[1], view = transforms[2], proj = transforms[3];
+    const Matrix worldView = multiply(world, view);
+    const Matrix all = multiply(worldView, proj);
+    const bool lighting = renderStates[kLighting] && !layout.rhw;
+    const bool colorVertex = renderStates[kColorVertex] != 0;
+    const bool specularOn = renderStates[kSpecularEnable] != 0;
+    const Color ambientLight = unpack(renderStates[kAmbient]);
+    const uint32_t fogMode = renderStates[kFogEnable] ? renderStates[kFogVertexMode] : 0;
+    const float fogStart = asFloat(renderStates[kFogStart]), fogEnd = asFloat(renderStates[kFogEnd]);
+    const float fogDensity = asFloat(renderStates[kFogDensity]);
+
+    // The enabled lights in camera space.
+    struct EyeLight {
+        const Light* l;
+        float pos[3], dir[3];
+    };
+    std::vector<EyeLight> eyeLights;
+    if (lighting)
+        for (const auto& [i, l] : lights)
+            if (l.enabled) {
+                EyeLight e{&l, {}, {}};
+                const float p[4] = {l.position[0], l.position[1], l.position[2], 1};
+                float q[4];
+                transformPoint(view, p, q);
+                e.pos[0] = q[0], e.pos[1] = q[1], e.pos[2] = q[2];
+                transformNormal(view, l.direction, e.dir);
+                normalize3(e.dir);
+                eyeLights.push_back(e);
+            }
+
+    for (uint32_t i = 0; i < count; ++i) {
+        const uint8_t* v = mem + i * stride;
+        ClipVertex& o = out[i];
+        const bool hasDiffuse = layout.diffuse, hasSpecular = layout.specular;
+        const Color vDiffuse = hasDiffuse ? unpack(vertexWord(v + layout.diffuseAt)) : Color{1, 1, 1, 1};
+        const Color vSpecular = hasSpecular ? unpack(vertexWord(v + layout.specularAt)) : Color{0, 0, 0, 0};
+        float eye[4] = {0, 0, 0, 1}, normal[3] = {0, 0, 0};
+        if (layout.rhw) {
+            o.x = vertexFloat(v), o.y = vertexFloat(v + 4), o.z = vertexFloat(v + 8), o.w = vertexFloat(v + 12);
+            o.diffuse = vDiffuse;
+            o.specular = vSpecular;
+            if (!hasSpecular)
+                o.specular.a = 1; // no fog factor given: none
+        } else {
+            const float p[4] = {vertexFloat(v), vertexFloat(v + 4), vertexFloat(v + 8), 1};
+            float clip[4];
+            transformPoint(all, p, clip);
+            o.x = clip[0], o.y = clip[1], o.z = clip[2], o.w = clip[3];
+            transformPoint(worldView, p, eye);
+            if (layout.normal) {
+                const float n[3] = {vertexFloat(v + layout.normalAt), vertexFloat(v + layout.normalAt + 4),
+                                    vertexFloat(v + layout.normalAt + 8)};
+                transformNormal(worldView, n, normal);
+                if (renderStates[kNormalizeNormals])
+                    normalize3(normal);
+            }
+            if (lighting) {
+                auto source = [&](uint32_t state, const Color& fromMaterial) {
+                    if (!colorVertex)
+                        return fromMaterial;
+                    if (renderStates[state] == 1 && hasDiffuse)
+                        return vDiffuse;
+                    if (renderStates[state] == 2 && hasSpecular)
+                        return vSpecular;
+                    return fromMaterial;
+                };
+                const Color mDiffuse = source(kDiffuseSource, material.diffuse);
+                const Color mAmbient = source(kAmbientSource, material.ambient);
+                const Color mSpecular = source(kSpecularSource, material.specular);
+                const Color mEmissive = source(kEmissiveSource, material.emissive);
+                Color d = add(mEmissive, mul(ambientLight, mAmbient)), sp{};
+                float toEye[3] = {-eye[0], -eye[1], -eye[2]};
+                if (renderStates[kLocalViewer])
+                    normalize3(toEye);
+                else
+                    toEye[0] = 0, toEye[1] = 0, toEye[2] = -1;
+                for (const EyeLight& e : eyeLights) {
+                    const Light& l = *e.l;
+                    float toLight[3];
+                    float atten = 1, spot = 1;
+                    if (l.type == 3) { // directional
+                        toLight[0] = -e.dir[0], toLight[1] = -e.dir[1], toLight[2] = -e.dir[2];
+                    } else {
+                        toLight[0] = e.pos[0] - eye[0], toLight[1] = e.pos[1] - eye[1], toLight[2] = e.pos[2] - eye[2];
+                        const float dist = std::sqrt(dot3(toLight, toLight));
+                        if (l.range > 0 && dist > l.range)
+                            continue;
+                        normalize3(toLight);
+                        const float a = l.att0 + l.att1 * dist + l.att2 * dist * dist;
+                        atten = a > 0 ? 1 / a : 1;
+                        if (l.type == 2) { // spot
+                            const float rho = -dot3(toLight, e.dir);
+                            const float cosPhi = std::cos(l.phi / 2), cosTheta = std::cos(l.theta / 2);
+                            if (rho <= cosPhi)
+                                spot = 0;
+                            else if (rho < cosTheta)
+                                spot = std::pow((rho - cosPhi) / std::max(cosTheta - cosPhi, 1e-6f),
+                                                l.falloff > 0 ? l.falloff : 1);
+                        }
+                    }
+                    d = add(d, scale(mul(l.ambient, mAmbient), atten));
+                    const float ndotl = std::max(0.0f, dot3(normal, toLight));
+                    d = add(d, scale(mul(l.diffuse, mDiffuse), atten * spot * ndotl));
+                    if (specularOn && ndotl > 0 && material.power > 0) {
+                        float h[3] = {toLight[0] + toEye[0], toLight[1] + toEye[1], toLight[2] + toEye[2]};
+                        normalize3(h);
+                        const float s = std::pow(std::max(0.0f, dot3(normal, h)), material.power);
+                        sp = add(sp, scale(mul(l.specular, mSpecular), atten * spot * s));
+                    }
+                }
+                o.diffuse = {d.r, d.g, d.b, mDiffuse.a};
+                o.specular = {sp.r, sp.g, sp.b, 1};
+            } else {
+                o.diffuse = vDiffuse;
+                o.specular = vSpecular;
+                o.specular.a = hasSpecular ? vSpecular.a : 1;
+            }
+            if (fogMode) {
+                const float dist = renderStates[kRangeFogEnable] ? std::sqrt(dot3(eye, eye)) : eye[2];
+                float f = 1;
+                if (fogMode == 3)
+                    f = fogEnd != fogStart ? (fogEnd - dist) / (fogEnd - fogStart) : 1;
+                else if (fogMode == 1)
+                    f = std::exp(-fogDensity * dist);
+                else if (fogMode == 2)
+                    f = std::exp(-(fogDensity * dist) * (fogDensity * dist));
+                o.specular.a = std::clamp(f, 0.0f, 1.0f);
+            }
+        }
+        // Each stage's coordinates: a set of the vertex's, or generated.
+        for (int st = 0; st < stages; ++st) {
+            const uint32_t index = stageStates[size_t(st)][kTexCoordIndex];
+            const uint32_t set = index & 0xffff, gen = index >> 16;
+            float coord[4] = {0, 0, 1, 0};
+            if (gen && !layout.rhw) {
+                float g[3] = {0, 0, 0};
+                if (gen == 1) { // CAMERASPACENORMAL
+                    g[0] = normal[0], g[1] = normal[1], g[2] = normal[2];
+                } else if (gen == 2) { // CAMERASPACEPOSITION
+                    g[0] = eye[0], g[1] = eye[1], g[2] = eye[2];
+                } else { // CAMERASPACEREFLECTIONVECTOR
+                    float e[3] = {eye[0], eye[1], eye[2]};
+                    normalize3(e);
+                    const float k = 2 * dot3(e, normal);
+                    g[0] = e[0] - k * normal[0], g[1] = e[1] - k * normal[1], g[2] = e[2] - k * normal[2];
+                }
+                coord[0] = g[0], coord[1] = g[1], coord[2] = g[2], coord[3] = 1;
+            } else if (int(set) < layout.texSets) {
+                const uint8_t* t = v + layout.texAt[set];
+                coord[0] = vertexFloat(t);
+                if (layout.texSize[set] > 1)
+                    coord[1] = vertexFloat(t + 4);
+            }
+            const uint32_t transformFlags = stageStates[size_t(st)][kTextureTransformFlags];
+            if ((transformFlags & 0xff) && !layout.rhw) {
+                float r[4];
+                transformPoint(transforms[16 + uint32_t(st)], coord, r);
+                if ((transformFlags & 0x100) && r[(transformFlags & 0xff) - 1] != 0) { // PROJECTED
+                    const float q = r[(transformFlags & 0xff) - 1];
+                    r[0] /= q, r[1] /= q;
+                }
+                coord[0] = r[0], coord[1] = r[1];
+            }
+            o.tex[st][0] = coord[0], o.tex[st][1] = coord[1];
+        }
+    }
+}
+
+ClipVertex Device::project(const ClipVertex& v) const {
+    ClipVertex p = v;
+    const float rhw = 1 / v.w;
+    p.x = float(viewport.x) + (v.x * rhw + 1) * float(viewport.width) / 2;
+    p.y = float(viewport.y) + (1 - v.y * rhw) * float(viewport.height) / 2;
+    p.z = viewport.minZ + v.z * rhw * (viewport.maxZ - viewport.minZ);
+    p.w = rhw;
+    return p;
+}
+
+// --- Primitives
+
+void Device::draw(uint32_t primitive, uint32_t fvf, uint32_t vertices, uint32_t stride, uint32_t vertexCount,
+                  uint32_t indices, uint32_t indexCount) {
+    const VertexLayout layout(fvf);
+    if (!layout.position || !target || !vertexCount)
+        return;
+    projected = layout.rhw;
+    stages = 0;
+    while (stages < 8 && stageStates[size_t(stages)][kColorOp] != 1)
+        ++stages;
+    for (int st = 0; st < stages; ++st)
+        bound[st] = texture(st);
+    std::vector<ClipVertex> v;
+    transformAndLight(layout, vertices, stride, vertexCount, v);
+    if (v.empty())
+        return;
+    Cpu& c = s->cpu;
+    std::vector<uint32_t> order;
+    if (indices) {
+        if (!c.valid(indices, indexCount * 2))
+            return;
+        order.resize(indexCount);
+        for (uint32_t i = 0; i < indexCount; ++i) {
+            order[i] = c.read16(indices + 2 * i);
+            if (order[i] >= v.size())
+                return;
+        }
+    } else {
+        order.resize(vertexCount);
+        for (uint32_t i = 0; i < vertexCount; ++i)
+            order[i] = i;
+    }
+    const size_t n = order.size();
+    switch (primitive) {
+    case 1: // points
+        for (size_t i = 0; i < n; ++i)
+            point(v[order[i]]);
+        break;
+    case 2: // line list
+        for (size_t i = 0; i + 1 < n; i += 2)
+            line(v[order[i]], v[order[i + 1]]);
+        break;
+    case 3: // line strip
+        for (size_t i = 0; i + 1 < n; ++i)
+            line(v[order[i]], v[order[i + 1]]);
+        break;
+    case 4: // triangle list
+        for (size_t i = 0; i + 2 < n; i += 3)
+            triangle(v[order[i]], v[order[i + 1]], v[order[i + 2]]);
+        break;
+    case 5: // triangle strip: every other one turned round to keep the winding
+        for (size_t i = 0; i + 2 < n; ++i)
+            if (i & 1)
+                triangle(v[order[i + 1]], v[order[i]], v[order[i + 2]]);
+            else
+                triangle(v[order[i]], v[order[i + 1]], v[order[i + 2]]);
+        break;
+    case 6: // triangle fan
+        for (size_t i = 1; i + 1 < n; ++i)
+            triangle(v[order[0]], v[order[i]], v[order[i + 1]]);
+        break;
+    default: break;
+    }
+    target->touched();
+    if (depth)
+        depth->touched();
+}
+
+// Clips a triangle to the view volume, projects it, culls it by its
+// winding, and fills what's left.
+void Device::triangle(const ClipVertex& a, const ClipVertex& b, const ClipVertex& c) {
+    std::vector<ClipVertex> poly;
+    if (projected) {
+        poly = {a, b, c};
+    } else {
+        poly = {a, b, c};
+        for (int plane = 0; plane < 6 && !poly.empty(); ++plane) {
+            std::vector<ClipVertex> next;
+            for (size_t i = 0; i < poly.size(); ++i) {
+                const ClipVertex& p = poly[i];
+                const ClipVertex& q = poly[(i + 1) % poly.size()];
+                const float dp = planeDistance(p, plane), dq = planeDistance(q, plane);
+                if (dp >= 0)
+                    next.push_back(p);
+                if ((dp >= 0) != (dq >= 0))
+                    next.push_back(lerp(p, q, dp / (dp - dq)));
+            }
+            poly.swap(next);
+        }
+        if (poly.size() < 3)
+            return;
+        for (ClipVertex& p : poly) {
+            if (p.w <= 0)
+                return;
+            p = project(p);
+        }
+    }
+    // Winding on the screen (y down): positive is clockwise.
+    float area = 0;
+    for (size_t i = 0; i < poly.size(); ++i) {
+        const ClipVertex& p = poly[i];
+        const ClipVertex& q = poly[(i + 1) % poly.size()];
+        area += p.x * q.y - q.x * p.y;
+    }
+    const uint32_t cull = renderStates[kCullMode];
+    if ((cull == 2 && area > 0) || (cull == 3 && area < 0) || area == 0)
+        return;
+    for (size_t i = 1; i + 1 < poly.size(); ++i)
+        rasterize(poly[0], poly[i], poly[i + 1]);
+}
+
+void Device::line(const ClipVertex& a0, const ClipVertex& b0) {
+    ClipVertex a = a0, b = b0;
+    if (!projected) {
+        for (int plane = 0; plane < 6; ++plane) {
+            const float da = planeDistance(a, plane), db = planeDistance(b, plane);
+            if (da < 0 && db < 0)
+                return;
+            if (da < 0)
+                a = lerp(a, b, da / (da - db));
+            else if (db < 0)
+                b = lerp(a, b, da / (da - db));
+        }
+        if (a.w <= 0 || b.w <= 0)
+            return;
+        a = project(a), b = project(b);
+    }
+    const int steps = std::max(1, int(std::max(std::fabs(b.x - a.x), std::fabs(b.y - a.y))));
+    float attr[kAttributes];
+    for (int i = 0; i <= steps; ++i) {
+        const ClipVertex p = lerp(a, b, float(i) / float(steps));
+        attr[0] = p.diffuse.r, attr[1] = p.diffuse.g, attr[2] = p.diffuse.b, attr[3] = p.diffuse.a;
+        attr[4] = p.specular.r, attr[5] = p.specular.g, attr[6] = p.specular.b, attr[7] = p.specular.a;
+        for (int st = 0; st < stages; ++st)
+            attr[8 + 2 * st] = p.tex[st][0], attr[9 + 2 * st] = p.tex[st][1];
+        pixel(int(std::lround(p.x)), int(std::lround(p.y)), p.z, p.w > 0 ? 1 / p.w : 1, attr);
+    }
+}
+
+void Device::point(const ClipVertex& a0) {
+    ClipVertex a = a0;
+    if (!projected) {
+        for (int plane = 0; plane < 6; ++plane)
+            if (planeDistance(a, plane) < 0)
+                return;
+        a = project(a);
+    }
+    float attr[kAttributes];
+    attr[0] = a.diffuse.r, attr[1] = a.diffuse.g, attr[2] = a.diffuse.b, attr[3] = a.diffuse.a;
+    attr[4] = a.specular.r, attr[5] = a.specular.g, attr[6] = a.specular.b, attr[7] = a.specular.a;
+    for (int st = 0; st < stages; ++st)
+        attr[8 + 2 * st] = a.tex[st][0], attr[9 + 2 * st] = a.tex[st][1];
+    pixel(int(std::lround(a.x)), int(std::lround(a.y)), a.z, a.w > 0 ? 1 / a.w : 1, attr);
+}
+
+// Fills a projected triangle: every pixel whose centre (whole
+// coordinates) is inside, or on a top or left edge.
+void Device::rasterize(const ClipVertex& a, const ClipVertex& b, const ClipVertex& c) {
+    const int left = std::max(viewport.x, 0), top = std::max(viewport.y, 0);
+    const int right = std::min(viewport.x + viewport.width, target->d.width);
+    const int bottom = std::min(viewport.y + viewport.height, target->d.height);
+    const int x0 = std::max(left, int(std::ceil(std::min({a.x, b.x, c.x}))));
+    const int x1 = std::min(right - 1, int(std::floor(std::max({a.x, b.x, c.x}))));
+    const int y0 = std::max(top, int(std::ceil(std::min({a.y, b.y, c.y}))));
+    const int y1 = std::min(bottom - 1, int(std::floor(std::max({a.y, b.y, c.y}))));
+    if (x0 > x1 || y0 > y1)
+        return;
+    // Edge functions, oriented so the inside is positive whatever the winding.
+    double area = double(b.x - a.x) * (c.y - a.y) - double(c.x - a.x) * (b.y - a.y);
+    if (area == 0)
+        return;
+    const ClipVertex* v[3] = {&a, &b, &c};
+    const double sign = area > 0 ? 1 : -1;
+    area *= sign;
+    struct Edge {
+        double a, b, c;
+        bool topLeft;
+    } e[3];
+    for (int i = 0; i < 3; ++i) {
+        const ClipVertex& p = *v[(i + 1) % 3];
+        const ClipVertex& q = *v[(i + 2) % 3];
+        // Positive on the side of v[i].
+        e[i].a = sign * (p.y - q.y);
+        e[i].b = sign * (q.x - p.x);
+        e[i].c = sign * (double(p.x) * q.y - double(q.x) * p.y);
+        e[i].topLeft = e[i].a > 0 || (e[i].a == 0 && e[i].b > 0);
+    }
+    // Attributes divided by w, and 1/w, to interpolate in screen space.
+    float attr[3][kAttributes];
+    const int count = 8 + 2 * stages;
+    for (int i = 0; i < 3; ++i) {
+        const ClipVertex& p = *v[i];
+        const float rhw = p.w;
+        const float plain[8] = {p.diffuse.r, p.diffuse.g, p.diffuse.b, p.diffuse.a,
+                                p.specular.r, p.specular.g, p.specular.b, p.specular.a};
+        for (int k = 0; k < 8; ++k)
+            attr[i][k] = plain[k] * rhw;
+        for (int st = 0; st < stages; ++st)
+            attr[i][8 + 2 * st] = p.tex[st][0] * rhw, attr[i][9 + 2 * st] = p.tex[st][1] * rhw;
+    }
+    const bool flat = renderStates[kShadeMode] == 1;
+    // Each stage's mip level for the triangle: texels per pixel.
+    for (int st = 0; st < stages; ++st) {
+        lod[st] = 0;
+        const DecodedTexture* t = bound[st];
+        if (!t || t->levels.empty())
+            continue;
+        const double du1 = (b.tex[st][0] - a.tex[st][0]) * t->levels[0].width;
+        const double dv1 = (b.tex[st][1] - a.tex[st][1]) * t->levels[0].height;
+        const double du2 = (c.tex[st][0] - a.tex[st][0]) * t->levels[0].width;
+        const double dv2 = (c.tex[st][1] - a.tex[st][1]) * t->levels[0].height;
+        const double texels = std::fabs(du1 * dv2 - du2 * dv1);
+        if (texels > 0)
+            lod[st] = float(0.5 * std::log2(texels / area));
+    }
+    float here[kAttributes];
+    for (int y = y0; y <= y1; ++y) {
+        for (int x = x0; x <= x1; ++x) {
+            double w[3];
+            bool inside = true;
+            for (int i = 0; i < 3 && inside; ++i) {
+                w[i] = e[i].a * x + e[i].b * y + e[i].c;
+                inside = w[i] > 0 || (w[i] == 0 && e[i].topLeft);
+            }
+            if (!inside)
+                continue;
+            const float l0 = float(w[0] / area), l1 = float(w[1] / area), l2 = float(w[2] / area);
+            const float z = l0 * a.z + l1 * b.z + l2 * c.z;
+            const float rhw = l0 * a.w + l1 * b.w + l2 * c.w;
+            const float inv = rhw != 0 ? 1 / rhw : 0;
+            for (int k = 0; k < count; ++k)
+                here[k] = (l0 * attr[0][k] + l1 * attr[1][k] + l2 * attr[2][k]) * inv;
+            if (flat) // the first vertex's colours
+                for (int k = 0; k < 8; ++k)
+                    here[k] = attr[0][k] / a.w;
+            pixel(x, y, z, inv, here);
+        }
+    }
+}
+
+// --- Textures
+
+const DecodedTexture* Device::texture(int stage) {
+    const std::shared_ptr<Surface>& t = textures[size_t(stage)];
+    if (!t)
+        return nullptr;
+    // The surface and its smaller mip levels.
+    std::vector<Surface*> levels{t.get()};
+    for (Surface* l = t.get(); l;) {
+        Surface* next = nullptr;
+        for (const auto& a : l->attached)
+            if (a->d.caps[0] & kCapsMipMap)
+                next = a.get();
+        if (next)
+            levels.push_back(next);
+        l = next;
+    }
+    DecodedTexture& d = decoded[t.get()];
+    bool fresh = d.owner.lock() == t && d.levels.size() == levels.size();
+    for (size_t i = 0; fresh && i < levels.size(); ++i)
+        fresh = d.versions[i] == levels[i]->d.version;
+    if (fresh)
+        return &d;
+    if (decoded.size() > 4096) // forget textures since freed
+        for (auto it = decoded.begin(); it != decoded.end();)
+            it = it->second.owner.expired() ? decoded.erase(it) : std::next(it);
+    DecodedTexture& fill = decoded[t.get()];
+    fill.owner = t;
+    fill.levels.clear();
+    fill.versions.clear();
+    for (Surface* l : levels) {
+        DecodedTexture::Level level{l->d.width, l->d.height, {}, {}};
+        level.argb.resize(size_t(l->d.width) * size_t(l->d.height));
+        level.keyed.assign(level.argb.size(), 0);
+        const uint32_t* pal = l->paletteArgb() ? l->paletteArgb() : t->paletteArgb();
+        for (int y = 0; y < l->d.height; ++y)
+            for (int x = 0; x < l->d.width; ++x) {
+                const uint32_t raw = l->pixel(x, y);
+                const size_t at = size_t(y) * size_t(l->d.width) + size_t(x);
+                level.argb[at] = l->d.format.toArgb(raw, pal);
+                if (t->hasSrcKey && raw >= t->srcKeyLow && raw <= t->srcKeyHigh)
+                    level.keyed[at] = 1;
+            }
+        fill.levels.push_back(std::move(level));
+        fill.versions.push_back(l->d.version);
+    }
+    return &fill;
+}
+
+uint32_t Device::sample(int stage, float u, float v, bool& keyed) {
+    const DecodedTexture* t = bound[stage];
+    if (!t || t->levels.empty())
+        return 0xffffffffu;
+    const auto& st = stageStates[size_t(stage)];
+    const float l = lod[stage];
+    size_t level = 0;
+    if (st[kMipFilter] >= 2 && l > 0)
+        level = std::min(t->levels.size() - 1, size_t(st[kMipFilter] == 3 ? std::lround(l) : int(l)));
+    const DecodedTexture::Level& tex = t->levels[level];
+    const bool linear = (l > 0 ? st[kMinFilter] : st[kMagFilter]) >= 2;
+    auto address = [&](int i, int size, uint32_t mode, bool& border) {
+        switch (mode) {
+        case 2: { // mirror
+            const int period = 2 * size;
+            int m = ((i % period) + period) % period;
+            return m < size ? m : period - 1 - m;
+        }
+        case 3: return std::clamp(i, 0, size - 1); // clamp
+        case 4:                                     // border
+            if (i < 0 || i >= size)
+                border = true;
+            return std::clamp(i, 0, size - 1);
+        default: return ((i % size) + size) % size; // wrap
+        }
+    };
+    auto texel = [&](int x, int y, bool& isKeyed) {
+        bool border = false;
+        x = address(x, tex.width, st[kAddressU], border);
+        y = address(y, tex.height, st[kAddressV], border);
+        if (border)
+            return st[kBorderColor];
+        const size_t at = size_t(y) * size_t(tex.width) + size_t(x);
+        isKeyed = isKeyed || tex.keyed[at];
+        return tex.argb[at];
+    };
+    const float fx = u * float(tex.width), fy = v * float(tex.height);
+    if (!linear) {
+        bool k = false;
+        const uint32_t r = texel(int(std::floor(fx)), int(std::floor(fy)), k);
+        keyed = k;
+        return r;
+    }
+    const float gx = fx - 0.5f, gy = fy - 0.5f;
+    const int ix = int(std::floor(gx)), iy = int(std::floor(gy));
+    const float ax = gx - float(ix), ay = gy - float(iy);
+    bool k00 = false, k10 = false, k01 = false, k11 = false;
+    const uint32_t t00 = texel(ix, iy, k00), t10 = texel(ix + 1, iy, k10);
+    const uint32_t t01 = texel(ix, iy + 1, k01), t11 = texel(ix + 1, iy + 1, k11);
+    // The colour key keys the nearest texel's colour.
+    keyed = ax < 0.5f ? (ay < 0.5f ? k00 : k01) : (ay < 0.5f ? k10 : k11);
+    uint32_t r = 0;
+    for (int shift = 0; shift < 32; shift += 8) {
+        const float c00 = float(t00 >> shift & 0xff), c10 = float(t10 >> shift & 0xff);
+        const float c01 = float(t01 >> shift & 0xff), c11 = float(t11 >> shift & 0xff);
+        const float top = c00 + (c10 - c00) * ax, bottom = c01 + (c11 - c01) * ax;
+        r |= uint32_t(std::clamp(top + (bottom - top) * ay + 0.5f, 0.0f, 255.0f)) << shift;
+    }
+    return r;
+}
+
+// --- Pixels
+
+void Device::pixel(int x, int y, float z, float eyeW, const float* attr) {
+    if (x < 0 || y < 0 || x >= target->d.width || y >= target->d.height)
+        return;
+    uint8_t* mem = s->cpu.memory().data();
+    // Depth.
+    const bool zOn = renderStates[kZEnable] && depth && x < depth->d.width && y < depth->d.height;
+    uint8_t* zAt = nullptr;
+    double zMax = 0, zStored = 0;
+    if (zOn) {
+        zAt = mem + depth->d.memory + uint32_t(y * depth->d.pitch) + uint32_t(x) * depth->d.format.bytes();
+        const uint32_t mask = depth->d.format.g ? depth->d.format.g : 0xffff;
+        zMax = double(mask);
+        uint32_t raw = 0;
+        std::memcpy(&raw, zAt, depth->d.format.bytes());
+        zStored = double(raw & mask);
+        const double zNew = double(std::clamp(z, 0.0f, 1.0f)) * zMax;
+        if (!compare(renderStates[kZFunc], float(std::floor(zNew + 0.5)), float(zStored)))
+            return;
+    }
+    // Texture stages.
+    const Color diffuse{attr[0], attr[1], attr[2], attr[3]};
+    const Color specular{attr[4], attr[5], attr[6], attr[7]};
+    const Color factor = unpack(renderStates[kTextureFactor]);
+    Color current = diffuse;
+    bool keyed = false;
+    for (int st = 0; st < stages; ++st) {
+        const auto& ss = stageStates[size_t(st)];
+        bool k = false;
+        const Color tex = unpack(sample(st, attr[8 + 2 * st], attr[9 + 2 * st], k));
+        if (bound[st] && k)
+            keyed = true;
+        auto arg = [&](uint32_t a) {
+            Color v;
+            switch (a & 0xf) {
+            case 0: v = diffuse; break;
+            case 1: v = current; break;
+            case 2: v = tex; break;
+            case 3: v = factor; break;
+            case 4: v = specular; break;
+            default: v = current; break;
+            }
+            if (a & 0x10)
+                v = {1 - v.r, 1 - v.g, 1 - v.b, 1 - v.a};
+            if (a & 0x20)
+                v = {v.a, v.a, v.a, v.a};
+            return v;
+        };
+        // One operation on three channels (colour) or one (alpha).
+        auto apply = [&](uint32_t op, const Color& a1, const Color& a2, float* out, int from, int to) {
+            const float x1[4] = {a1.r, a1.g, a1.b, a1.a}, x2[4] = {a2.r, a2.g, a2.b, a2.a};
+            const float cur[4] = {current.r, current.g, current.b, current.a};
+            for (int i = from; i < to; ++i) {
+                float r;
+                switch (op) {
+                case 2: r = x1[i]; break;
+                case 3: r = x2[i]; break;
+                case 4: r = x1[i] * x2[i]; break;
+                case 5: r = 2 * x1[i] * x2[i]; break;
+                case 6: r = 4 * x1[i] * x2[i]; break;
+                case 7: r = x1[i] + x2[i]; break;
+                case 8: r = x1[i] + x2[i] - 0.5f; break;
+                case 9: r = 2 * (x1[i] + x2[i] - 0.5f); break;
+                case 10: r = x1[i] - x2[i]; break;
+                case 11: r = x1[i] + x2[i] - x1[i] * x2[i]; break;
+                case 12: r = x1[i] * diffuse.a + x2[i] * (1 - diffuse.a); break;
+                case 13: r = x1[i] * tex.a + x2[i] * (1 - tex.a); break;
+                case 14: r = x1[i] * factor.a + x2[i] * (1 - factor.a); break;
+                case 15: r = x1[i] + x2[i] * (1 - tex.a); break;
+                case 16: r = x1[i] * cur[3] + x2[i] * (1 - cur[3]); break;
+                case 18: r = x1[i] + x1[3] * x2[i]; break;       // MODULATEALPHA_ADDCOLOR
+                case 19: r = i == 3 ? x1[3] * x2[3] : x1[i] + x2[i]; break;
+                case 20: r = x1[i] + (1 - x1[3]) * x2[i]; break; // MODULATEINVALPHA_ADDCOLOR
+                default: r = x1[i] * x2[i]; break;
+                }
+                out[i] = std::clamp(r, 0.0f, 1.0f);
+            }
+        };
+        float result[4] = {current.r, current.g, current.b, current.a};
+        apply(ss[kColorOp], arg(ss[kColorArg1]), arg(ss[kColorArg2]), result, 0, 3);
+        if (ss[kAlphaOp] != 1)
+            apply(ss[kAlphaOp], arg(ss[kAlphaArg1]), arg(ss[kAlphaArg2]), result, 3, 4);
+        current = {result[0], result[1], result[2], result[3]};
+    }
+    if (renderStates[kColorKeyEnable] && keyed)
+        return;
+    if (renderStates[kSpecularEnable])
+        current = {std::min(1.0f, current.r + specular.r), std::min(1.0f, current.g + specular.g),
+                   std::min(1.0f, current.b + specular.b), current.a};
+    // Alpha test, against the reference in 0..255.
+    if (renderStates[kAlphaTestEnable] &&
+        !compare(renderStates[kAlphaFunc], std::floor(current.a * 255 + 0.5f), float(renderStates[kAlphaRef] & 0xff)))
+        return;
+    // Fog: by depth (table fog) or from the vertices.
+    if (renderStates[kFogEnable]) {
+        float f = specular.a;
+        if (const uint32_t mode = renderStates[kFogTableMode]) {
+            const float d = projected || transforms[3][15] != 0 ? z : eyeW; // W-fog with a perspective projection
+            const float start = asFloat(renderStates[kFogStart]), end = asFloat(renderStates[kFogEnd]);
+            const float density = asFloat(renderStates[kFogDensity]);
+            if (mode == 3)
+                f = end != start ? (end - d) / (end - start) : 1;
+            else if (mode == 1)
+                f = std::exp(-density * d);
+            else
+                f = std::exp(-(density * d) * (density * d));
+        }
+        f = std::clamp(f, 0.0f, 1.0f);
+        const Color fog = unpack(renderStates[kFogColor]);
+        current = {current.r * f + fog.r * (1 - f), current.g * f + fog.g * (1 - f), current.b * f + fog.b * (1 - f),
+                   current.a};
+    }
+    // Blending with what's there.
+    const uint32_t bytes = target->d.format.bytes();
+    uint8_t* at = mem + target->d.memory + uint32_t(y * target->d.pitch) + uint32_t(x) * bytes;
+    uint32_t out;
+    if (renderStates[kAlphaBlendEnable]) {
+        uint32_t raw = 0;
+        std::memcpy(&raw, at, bytes);
+        const Color dst = unpack(target->d.format.toArgb(raw, target->paletteArgb()));
+        uint32_t sf = renderStates[kSrcBlend], df = renderStates[kDestBlend];
+        if (sf == 12) // BOTHSRCALPHA
+            sf = 5, df = 6;
+        else if (sf == 13)
+            sf = 6, df = 5;
+        float c[4];
+        const float sv[4] = {current.r, current.g, current.b, current.a}, dv[4] = {dst.r, dst.g, dst.b, dst.a};
+        for (int i = 0; i < 4; ++i)
+            c[i] = sv[i] * blendFactor(sf, current, dst, i) + dv[i] * blendFactor(df, current, dst, i);
+        out = target->d.format.fromArgb(pack(c[0], c[1], c[2], c[3]));
+    } else {
+        out = target->d.format.fromArgb(pack(current.r, current.g, current.b, current.a));
+    }
+    std::memcpy(at, &out, bytes);
+    if (zOn && renderStates[kZWriteEnable]) {
+        const uint32_t raw = uint32_t(std::floor(double(std::clamp(z, 0.0f, 1.0f)) * zMax + 0.5));
+        std::memcpy(zAt, &raw, depth->d.format.bytes());
+    }
+}
+
+// Clear(count, D3DRECT*, flags, colour, z): the rectangles (or the
+// viewport) of the target (flag 1) and the Z buffer (flag 2), within the
+// viewport.
+void Device::clear(uint32_t count, uint32_t rects, uint32_t flags, uint32_t color, float z) {
+    Cpu& c = s->cpu;
+    const Rect vp{viewport.x, viewport.y, viewport.x + viewport.width, viewport.y + viewport.height};
+    std::vector<Rect> areas;
+    if (count && rects && c.valid(rects, 16 * count))
+        for (uint32_t i = 0; i < count; ++i) {
+            Rect r = Rect::read(c, rects + 16 * i);
+            r.left = std::max(r.left, vp.left), r.top = std::max(r.top, vp.top);
+            r.right = std::min(r.right, vp.right), r.bottom = std::min(r.bottom, vp.bottom);
+            areas.push_back(r);
+        }
+    else
+        areas.push_back(vp);
+    for (const Rect& r : areas) {
+        if ((flags & 1) && target)
+            target->fill(r, target->d.format.fromArgb(color));
+        if ((flags & 2) && depth) {
+            const double max = double(depth->d.format.g ? depth->d.format.g : 0xffff);
+            depth->fill(r, uint32_t(std::floor(double(std::clamp(z, 0.0f, 1.0f)) * max + 0.5)));
+        }
+    }
+}
+
+} // namespace reluva::x86::dx

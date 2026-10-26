@@ -174,11 +174,55 @@ const Win32Process::Module* Win32Process::module(const std::string& name) const 
     return nullptr;
 }
 
+const Win32Process::Module* Win32Process::loadFromDisk(const std::string& name) {
+    if (!mapPath)
+        return nullptr;
+    std::string path = name;
+    if (path.find('\\') == std::string::npos && path.find(':') == std::string::npos)
+        path = programFolder_ + path;
+    else
+        path = fullPath(path);
+    if (path.find('.', path.rfind('\\') + 1) == std::string::npos) // no extension: .DLL is meant
+        path += ".dll";
+    const auto file = mapPath(path, false);
+    if (!file)
+        return nullptr;
+    std::FILE* f = std::fopen(file->string().c_str(), "rb");
+    if (!f)
+        return nullptr;
+    std::vector<uint8_t> bytes;
+    uint8_t buffer[65536];
+    for (size_t n; (n = std::fread(buffer, 1, sizeof buffer, f)) > 0;)
+        bytes.insert(bytes.end(), buffer, buffer + n);
+    std::fclose(f);
+    const Module* m = nullptr;
+    const std::string fileName = path.substr(path.rfind('\\') + 1);
+    if (load(fileName, bytes, m) || !m)
+        return nullptr;
+    if (Error e = attach(*m)) {
+        if (output)
+            output("LoadLibraryA: " + e.message + "\n");
+        return nullptr;
+    }
+    return m;
+}
+
 uint32_t Win32Process::moduleHandle(const std::string& name) const {
-    if (dllKey(name) == "kernel32.dll")
+    if (const Module* m = module(name))
+        return m->base;
+    // A DLL stood in for: one with something provided. Each gets a handle
+    // of its own, in the order first asked for; KERNEL32's is the first.
+    const std::string key = dllKey(name);
+    if (key == "kernel32.dll")
         return kKernel32Handle;
-    const Module* m = module(name);
-    return m ? m->base : 0;
+    auto known = std::find(standInDlls_.begin(), standInDlls_.end(), key);
+    if (known != standInDlls_.end())
+        return kKernel32Handle + 0x1000 * uint32_t(1 + (known - standInDlls_.begin()));
+    auto it = provided_.lower_bound(key + "!");
+    if (it == provided_.end() || it->first.compare(0, key.size() + 1, key + "!") != 0)
+        return 0;
+    standInDlls_.push_back(key);
+    return kKernel32Handle + 0x1000 * uint32_t(standInDlls_.size());
 }
 
 void Win32Process::setProgram(const std::string& exeName, const std::string& folder) {
@@ -369,16 +413,42 @@ void Win32Process::addStandIns() {
         arena_->free(old);
         return p;
     });
+    // VirtualAlloc(address, size, type, protection): anywhere, or at an
+    // address asked for if nothing's there (else ERROR_INVALID_ADDRESS, and
+    // the program tries elsewhere). Committing pages of a block reserved
+    // before gives them back as they are.
     stdcall(k, "VirtualAlloc", 4, [this](Cpu& c) {
-        const uint32_t address = c.arg(0), size = (c.arg(1) + 0xfff) & ~0xfffu;
-        if (!address)
-            return arena_->alloc(size, 0x10000);
-        // Committing pages reserved before: they're there already.
-        return c.valid(address, size) ? address : 0u;
+        const uint32_t size = (c.arg(1) + 0xfff) & ~0xfffu;
+        if (!c.arg(0)) {
+            const uint32_t a = arena_->alloc(size, 0x10000);
+            if (a)
+                virtualBlocks_[a] = size;
+            else
+                lastError_ = 8; // ERROR_NOT_ENOUGH_MEMORY
+            return a;
+        }
+        const uint32_t address = c.arg(0) & ~0xfffu;
+        auto it = virtualBlocks_.upper_bound(address);
+        if (it != virtualBlocks_.begin()) {
+            --it;
+            if (address >= it->first && address + size <= it->first + it->second)
+                return address;
+        }
+        const uint32_t base = address & ~0xffffu;
+        const uint32_t whole = (address + size - base + 0xfff) & ~0xfffu;
+        if (!arena_->claim(base, whole)) {
+            lastError_ = 487; // ERROR_INVALID_ADDRESS
+            return 0u;
+        }
+        virtualBlocks_[base] = whole;
+        return base; // a reservation starts on the 64 KB boundary below
+
     });
     stdcall(k, "VirtualFree", 3, [this](Cpu& c) {
-        if (c.arg(2) & 0x8000) // MEM_RELEASE
+        if (c.arg(2) & 0x8000) { // MEM_RELEASE
             arena_->free(c.arg(0));
+            virtualBlocks_.erase(c.arg(0));
+        }
         return 1u;
     });
     stdcall(k, "IsBadReadPtr", 2, [](Cpu& c) { return c.arg(1) && !c.valid(c.arg(0), c.arg(1)) ? 1u : 0u; });
@@ -422,8 +492,13 @@ void Win32Process::addStandIns() {
         const uint32_t handle = c.arg(0), name = c.arg(1);
         const bool byOrdinal = name < 0x10000;
         const std::string function = byOrdinal ? std::string() : c.string(name);
-        if (handle == kKernel32Handle) {
-            auto it = provided_.find("kernel32.dll!" + function);
+        if (handle >= kKernel32Handle && handle <= kKernel32Handle + 0x1000 * uint32_t(standInDlls_.size()) &&
+            (handle - kKernel32Handle) % 0x1000 == 0 && !byOrdinal) {
+            const uint32_t i = (handle - kKernel32Handle) / 0x1000;
+            const std::string dll = i == 0 ? "kernel32.dll" : standInDlls_[i - 1];
+            auto it = provided_.find(dll + "!" + function);
+            if (it == provided_.end())
+                lastError_ = 127; // ERROR_PROC_NOT_FOUND
             return it == provided_.end() ? 0u : it->second;
         }
         for (const auto& m : modules_)
@@ -432,13 +507,20 @@ void Win32Process::addStandIns() {
                     if ((byOrdinal ? e.ordinal == name : e.name == function) && e.forwarder.empty())
                         return m->base + e.rva;
         lastError_ = 127; // ERROR_PROC_NOT_FOUND
+        if (output)
+            output("GetProcAddress found no " + (byOrdinal ? "#" + std::to_string(name) : function) + "\n");
         return 0u;
     });
+    // LoadLibraryA: a module loaded or stood in for already, or else one
+    // in the program's folder (or where the name says), loaded and started.
     stdcall(k, "LoadLibraryA", 1, [this](Cpu& c) {
-        const uint32_t h = moduleHandle(c.string(c.arg(0)));
-        if (!h)
-            lastError_ = 126; // ERROR_MOD_NOT_FOUND
-        return h;
+        const std::string name = c.string(c.arg(0));
+        if (const uint32_t h = moduleHandle(name))
+            return h;
+        if (const Module* m = loadFromDisk(name))
+            return m->base;
+        lastError_ = 126; // ERROR_MOD_NOT_FOUND
+        return 0u;
     });
     stdcall(k, "FreeLibrary", 1, [](Cpu&) { return 1u; });
     stdcall(k, "DisableThreadLibraryCalls", 1, [](Cpu&) { return 1u; });

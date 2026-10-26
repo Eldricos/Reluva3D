@@ -20,7 +20,9 @@
 #include "common/md5.h"
 #include "common/net.h"
 #include "common/text.h"
+#include "common/x86/com.h"
 #include "common/x86/cpu.h"
+#include "common/x86/directx/directx.h"
 #include "common/x86/msvcp60.h"
 #include "common/x86/msvcrt.h"
 #include "common/x86/win32.h"
@@ -842,6 +844,139 @@ static void testWindowsAndRegistry() {
           asked == "{d8f1eee0-f634-11cf-8700-00a0245d918b}");
 }
 
+// DirectDraw and Direct3D 7 called through their vtables as a program
+// calls them: a 64x48 fullscreen mode with a back buffer and Z buffer, a
+// clear, a Gouraud triangle, a textured quad, the depth test, a flip.
+static void testDirectX() {
+    x86::Cpu cpu(32u << 20);
+    x86::Win32Process process(cpu);
+    x86::DirectX dx(process);
+    dx.modes.push_back({64, 48, 16});
+    uint32_t r = 0;
+    auto mem = [&](uint32_t size) { return process.memory().alloc(size); };
+    auto guid = [&](const char* g) {
+        const uint32_t a = mem(16);
+        x86::ComHost::writeGuid(cpu, a, g);
+        return a;
+    };
+    // Method `index` of the interface at `self`.
+    auto call = [&](uint32_t self, int index, std::vector<uint32_t> args) {
+        args.insert(args.begin(), self);
+        const bool ok = !cpu.call(cpu.read32(cpu.read32(self) + 4 * uint32_t(index)), args, r);
+        CHECK(ok);
+        return r;
+    };
+    auto bits = [](float f) {
+        uint32_t v;
+        std::memcpy(&v, &f, 4);
+        return v;
+    };
+    const uint32_t out = mem(4);
+    CHECK(!cpu.call(process.provided("DDRAW.dll", "DirectDrawCreateEx"),
+                    {0, out, guid("{15e65ec0-3b9c-11d2-b92f-00609797ea5b}"), 0}, r) && r == 0);
+    const uint32_t dd = cpu.read32(out);
+    CHECK(call(dd, 20, {0, 0x11}) == 0);                // SetCooperativeLevel: exclusive, fullscreen
+    CHECK(call(dd, 21, {64, 48, 16, 0, 0}) == 0);       // SetDisplayMode
+    CHECK(call(dd, 21, {65, 48, 16, 0, 0}) != 0);       // a mode not offered
+    // A flipping primary with one back buffer.
+    const uint32_t desc = mem(124);
+    auto clearDesc = [&] {
+        std::memset(cpu.memory().data() + desc, 0, 124);
+        cpu.write32(desc, 124);
+    };
+    clearDesc();
+    cpu.write32(desc + 4, 0x1 | 0x20);                       // CAPS, BACKBUFFERCOUNT
+    cpu.write32(desc + 20, 1);
+    cpu.write32(desc + 104, 0x200 | 0x10 | 0x8 | 0x2000);    // PRIMARY, FLIP, COMPLEX, 3DDEVICE
+    CHECK(call(dd, 6, {desc, out, 0}) == 0);                 // CreateSurface
+    const uint32_t primary = cpu.read32(out);
+    const uint32_t caps = mem(16);
+    cpu.write32(caps, 0x4); // BACKBUFFER
+    CHECK(call(primary, 12, {caps, out}) == 0);              // GetAttachedSurface
+    const uint32_t back = cpu.read32(out);
+    // A 16-bit Z buffer, attached.
+    clearDesc();
+    cpu.write32(desc + 4, 0x1 | 0x2 | 0x4 | 0x40);           // CAPS, HEIGHT, WIDTH, ZBUFFERBITDEPTH
+    cpu.write32(desc + 8, 48);
+    cpu.write32(desc + 12, 64);
+    cpu.write32(desc + 104, 0x20000);                        // ZBUFFER
+    CHECK(call(dd, 6, {desc, out, 0}) == 0);
+    CHECK(call(back, 3, {cpu.read32(out)}) == 0);            // AddAttachedSurface
+    // Direct3D, from the DirectDraw object, and a device on the back buffer.
+    CHECK(call(dd, 0, {guid("{f5049e77-4861-11d2-a407-00a0c90629a8}"), out}) == 0);
+    const uint32_t d3d = cpu.read32(out);
+    CHECK(call(d3d, 4, {guid("{84e63de0-46aa-11cf-816f-0000c020156e}"), back, out}) == 0); // CreateDevice
+    const uint32_t device = cpu.read32(out);
+
+    // Clear to blue, then a red-green-blue triangle (screen coordinates).
+    CHECK(call(device, 10, {0, 0, 3, 0xff0000ffu, bits(1.0f), 0}) == 0); // Clear target and Z
+    CHECK(call(device, 20, {22, 1}) == 0);                               // CULLMODE: none
+    const uint32_t verts = mem(4 * 28);
+    auto vertex = [&](uint32_t i, float x, float y, float z, uint32_t color, float u = 0, float v = 0) {
+        const uint32_t p = verts + i * 28; // XYZRHW, DIFFUSE, TEX1
+        cpu.write32(p, bits(x));
+        cpu.write32(p + 4, bits(y));
+        cpu.write32(p + 8, bits(z));
+        cpu.write32(p + 12, bits(1.0f));
+        cpu.write32(p + 16, color);
+        cpu.write32(p + 20, bits(u));
+        cpu.write32(p + 24, bits(v));
+    };
+    const uint32_t fvf = 0x4 | 0x40 | 0x100;
+    vertex(0, 0, 0, 0.5f, 0xffff0000u);
+    vertex(1, 32, 0, 0.5f, 0xffff0000u);
+    vertex(2, 0, 32, 0.5f, 0xffff0000u);
+    CHECK(call(device, 37, {0, 1, 2}) == 0); // stage 0 COLOROP: SELECTARG1
+    CHECK(call(device, 37, {0, 2, 0}) == 0); // COLORARG1: diffuse
+    CHECK(call(device, 25, {4, fvf, verts, 3, 0}) == 0); // DrawPrimitive: a triangle list
+    // A farther green triangle over it is hidden by the depth test.
+    vertex(0, 0, 0, 0.9f, 0xff00ff00u);
+    vertex(1, 32, 0, 0.9f, 0xff00ff00u);
+    vertex(2, 0, 32, 0.9f, 0xff00ff00u);
+    CHECK(call(device, 25, {4, fvf, verts, 3, 0}) == 0);
+    // A textured quad (2x2 texels, point sampled) at the bottom right.
+    clearDesc();
+    cpu.write32(desc + 4, 0x1 | 0x2 | 0x4 | 0x1000);
+    cpu.write32(desc + 8, 2);
+    cpu.write32(desc + 12, 2);
+    cpu.write32(desc + 72, 32);
+    cpu.write32(desc + 76, 0x40);    // RGB
+    cpu.write32(desc + 84, 16);
+    cpu.write32(desc + 88, 0xf800);
+    cpu.write32(desc + 92, 0x07e0);
+    cpu.write32(desc + 96, 0x001f);
+    cpu.write32(desc + 104, 0x1000); // TEXTURE
+    CHECK(call(dd, 6, {desc, out, 0}) == 0);
+    const uint32_t texture = cpu.read32(out);
+    CHECK(call(texture, 25, {0, desc, 1, 0}) == 0); // Lock
+    const uint32_t texels = cpu.read32(desc + 36), pitch = cpu.read32(desc + 16);
+    cpu.write16(texels, 0xffff);              // white
+    cpu.write16(texels + 2, 0xf800);          // red
+    cpu.write16(texels + pitch, 0x07e0);      // green
+    cpu.write16(texels + pitch + 2, 0x0000);  // black
+    CHECK(call(texture, 32, {0}) == 0);       // Unlock
+    CHECK(call(device, 35, {0, texture}) == 0);  // SetTexture
+    CHECK(call(device, 37, {0, 1, 4}) == 0);     // COLOROP: MODULATE
+    CHECK(call(device, 37, {0, 2, 2}) == 0);     // COLORARG1: texture
+    CHECK(call(device, 37, {0, 3, 0}) == 0);     // COLORARG2: diffuse
+    vertex(0, 40, 24, 0.5f, 0xffffffffu, 0, 0);
+    vertex(1, 64, 24, 0.5f, 0xffffffffu, 1, 0);
+    vertex(2, 40, 48, 0.5f, 0xffffffffu, 0, 1);
+    vertex(3, 64, 48, 0.5f, 0xffffffffu, 1, 1);
+    CHECK(call(device, 25, {5, fvf, verts, 4, 0}) == 0); // a strip
+    CHECK(call(primary, 11, {0, 1}) == 0); // Flip
+
+    const x86::DirectX::Frame& f = dx.frame();
+    CHECK(f.width == 64 && f.height == 48 && f.number == 1);
+    auto at = [&](int x, int y) { return f.pixels[size_t(y * f.width + x)] & 0xffffff; };
+    CHECK(at(5, 5) == 0xff0000);  // the near triangle
+    CHECK(at(40, 5) == 0x0000ff); // the clear colour
+    CHECK(at(31, 31) == 0x0000ff); // past the hypotenuse
+    CHECK(at(45, 28) == 0xffffff && at(58, 28) == 0xff0000 && at(45, 44) == 0x00ff00 && at(58, 44) == 0x000000);
+    // Release the device and the DirectDraw object's.
+    CHECK(call(device, 2, {}) == 0);
+}
+
 int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_tests";
     testMd5();
@@ -863,6 +998,7 @@ int main() {
     testMsvcrtAndFiles(tmp / "msvcrt");
     testMsvcp60(tmp / "msvcp60");
     testWindowsAndRegistry();
+    testDirectX();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

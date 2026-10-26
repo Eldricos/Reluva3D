@@ -79,6 +79,12 @@ add_library(reluva_common STATIC
     src/common/x86/win32_registry.cpp
     src/common/x86/msvcrt.cpp
     src/common/x86/msvcp60.cpp
+    src/common/x86/com.cpp
+    src/common/x86/directx/ddraw.cpp
+    src/common/x86/directx/surface.cpp
+    src/common/x86/directx/interfaces.cpp
+    src/common/x86/directx/d3d7.cpp
+    src/common/x86/directx/raster.cpp
     src/common/x86/format.cpp
     src/common/detection.cpp
     src/common/audio/decode.cpp

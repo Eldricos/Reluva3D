@@ -5273,7 +5273,7 @@ int cmdFinCheck(int argc, char** argv) {
 int cmdAtRun(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool at-run <game folder> [-v] [-limit instructions] [-trace count] "
-                             "[-memory MB] [-log]\n");
+                             "[-memory MB] [-log] [-shots folder] [-every frames]\n");
         return 2;
     }
     bool verbose = false;
@@ -5281,12 +5281,18 @@ int cmdAtRun(int argc, char** argv) {
     uint64_t limit = 4000000000ull;
     uint32_t memoryMb = 1024;
     bool log = false;
+    std::string shots;
+    uint64_t every = 30;
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
         if (arg == "-v")
             verbose = true;
         else if (arg == "-log")
             log = true;
+        else if (arg == "-shots" && a + 1 < argc)
+            shots = argv[++a];
+        else if (arg == "-every" && a + 1 < argc)
+            every = std::max<uint64_t>(1, std::strtoull(argv[++a], nullptr, 0));
         else if (arg == "-limit" && a + 1 < argc)
             limit = std::strtoull(argv[++a], nullptr, 0);
         else if (arg == "-trace" && a + 1 < argc)
@@ -5300,6 +5306,29 @@ int cmdAtRun(int argc, char** argv) {
     Cpu& cpu = game.cpu();
     cpu.setInstructionLimit(limit);
     game.process().output = [](const std::string& text) { std::printf("[program] %s\n", text.c_str()); };
+    // -shots: the first frame shown and every `every`th, as TGA files.
+    uint64_t framesShown = 0;
+    auto saveFrame = [&shots](const reluva::x86::DirectX::Frame& f) {
+        char name[64];
+        std::snprintf(name, sizeof name, "/frame%05llu.tga", (unsigned long long)f.number);
+        std::FILE* out = std::fopen((shots + name).c_str(), "wb");
+        if (!out)
+            return;
+        uint8_t header[18] = {};
+        header[2] = 2; // uncompressed true colour
+        header[12] = uint8_t(f.width), header[13] = uint8_t(f.width >> 8);
+        header[14] = uint8_t(f.height), header[15] = uint8_t(f.height >> 8);
+        header[16] = 32;
+        header[17] = 0x28; // top-down, 8 alpha bits
+        std::fwrite(header, 1, sizeof header, out);
+        std::fwrite(f.pixels.data(), 4, f.pixels.size(), out); // 0xAARRGGBB is BGRA in memory
+        std::fclose(out);
+    };
+    game.directX().presented = [&](const reluva::x86::DirectX::Frame& f) {
+        ++framesShown;
+        if (!shots.empty() && (f.number == 1 || f.number % every == 0))
+            saveFrame(f);
+    };
 
     if (reluva::Error e = game.load()) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
@@ -5380,6 +5409,11 @@ int cmdAtRun(int argc, char** argv) {
     uint32_t exitCode = 0;
     const uint64_t before = cpu.executed();
     reluva::Error ran = game.run(exitCode);
+    if (framesShown) {
+        std::printf("frames shown: %llu\n", (unsigned long long)framesShown);
+        if (!shots.empty())
+            saveFrame(game.directX().frame());
+    }
     // The program's window, if it made one.
     if (const auto* w = game.process().window(game.process().mainWindow()))
         std::printf("window: \"%s\" (class %s), %dx%d at %d,%d, %s\n", w->title.c_str(), w->className.c_str(),

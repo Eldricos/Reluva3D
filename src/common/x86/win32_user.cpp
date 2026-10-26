@@ -62,6 +62,15 @@ const Win32Process::Window* Win32Process::window(uint32_t handle) const {
     return it == windows_.end() ? nullptr : &it->second;
 }
 
+std::optional<std::array<int, 4>> Win32Process::clientArea(uint32_t handle) const {
+    const Window* w = window(handle);
+    if (!w)
+        return std::nullopt;
+    const Insets f = frameOf(w->style, false);
+    return std::array<int, 4>{w->x + f.left, w->y + f.top, std::max(0, w->width - f.left - f.right),
+                              std::max(0, w->height - f.top - f.bottom)};
+}
+
 uint32_t Win32Process::mainWindow() const { return windows_.empty() ? 0 : windows_.begin()->first; }
 
 void Win32Process::postMessage(uint32_t window, uint32_t message, uint32_t wParam, uint32_t lParam) {

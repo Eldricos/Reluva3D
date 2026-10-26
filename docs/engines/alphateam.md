@@ -256,8 +256,9 @@ B1's order of work:
    gets.
 3. MSVCRT, MSVCP60, C++ exceptions and the extra thread, until the game
    reaches its first `DirectDrawCreateEx`.
-4. DirectDraw/Direct3D 7 on `gfx::Renderer3D`: the menus first, then a
-   puzzle.
+4. DirectDraw/Direct3D 7: the menus first, then a puzzle. Done in
+   software first (see below); `gfx::Renderer3D` can come later, for
+   speed.
 5. DirectInput on `System` events, then A3D on the mixer.
 6. Speed: an instruction cache, then native NiMain hot spots, measured
    against a puzzle's frame time.
@@ -297,8 +298,76 @@ Progress:
   - asks the desktop's colour depth, then sets the window to 640×480 at
     80,60 (`at-run` reports the window);
   - calls `DirectDrawCreate` from NiDirect3d.
-- **Where it stops now:** at that `DirectDrawCreate`, 11.6 million
-  instructions in. It hasn't touched the registry yet.
+- Done: DirectDraw and Direct3D 7 (`src/common/x86/directx/`, below).
+  The game sets its 640×480 16-bit fullscreen mode and makes its renderer:
+  - a flipping primary surface with a back buffer;
+  - a Z buffer;
+  - the device, on the "HAL";
+  - 288 multi-texture modes found by its 594 test draws.
+  Then it shows its loading screen and plays its attract-mode demo: the
+  levels, with lightmaps, water, transparency and animated minifigures,
+  under the logo and "Click the mouse to begin!".
+- Fixed on the way:
+  - `VirtualAlloc` handed out addresses already in use. The behaviour
+    DLLs ask for NiMain's and DDPackedDirFileLib's base, 0x10000000.
+  - `LoadLibraryA` now loads DLLs from the game folder.
+    `LegoLogicComp.dll` is needed only by behaviour DLLs.
+  - Export names may be up to 4 KB; one of DDPackedDirFileLib's is 530
+    characters.
+  - Every DLL stood in for (DDRAW's, MSVCRT's...) has a module handle for
+    `GetProcAddress`. NiDirect3d finds `DirectDrawCreateEx` that way.
+- `at-run -shots <folder>` saves the frames shown (TGA). 3 billion
+  instructions take about 100 seconds and show 74 frames, so the game runs
+  at under one frame a second for now; speed is step 6.
+- **Where it stops now:** nowhere; it runs until the instruction limit.
+  Not there yet:
+  - **input:** DirectInput isn't stood in for, so the demo can't be
+    clicked past;
+  - **sound:** no A3D object, so `CoCreateInstance` fails and the game
+    plays without sound;
+  - **the streaming-audio thread:** `UpdateBuffers` every 50 ms is started
+    but not run (`Win32Process::threadsNotRun`), as threads aren't
+    scheduled yet.
+
+#### DirectDraw and Direct3D 7
+
+`src/common/x86/com.{h,cpp}` makes COM objects programs can call. Each
+interface is a vtable of native functions in the program's memory,
+dispatching to a C++ object. `directx/` has the objects, written from the
+DirectX 7 documentation. Interfaces, method orders and IIDs are the SDK
+headers' (`directx/interfaces.cpp`).
+
+- **DirectDraw:**
+  - one adapter with 3D;
+  - the modes `DirectX::modes` lists;
+  - surfaces in the program's memory, as programs lock them and write to
+    them;
+  - blits (stretching, colour keys, colour and depth fills) and flipping
+    chains;
+  - palettes and clippers.
+
+  What reaches the primary surface becomes `DirectX::frame()`, handed to
+  the engine. In a window, that's the window's client area.
+- **Direct3D 7:** RGB emulation and HAL devices, vertex buffers and state
+  blocks. The drawing is a software rasterizer (`directx/raster.cpp`):
+  - the fixed-function pipeline: transforms, lighting, materials and their
+    vertex-colour sources, and texture coordinate generation and
+    transforms;
+  - clipping to the view volume, and culling by winding;
+  - pixel centres at whole coordinates, with a top-left fill rule;
+  - perspective-correct interpolation;
+  - up to 8 texture stages with all the D3D7 operations from DISABLE to
+    BLENDCURRENTALPHA, mip levels and bilinear filtering;
+  - colour keys, the alpha test, vertex and table fog, all the blend
+    factors, and the depth test into any Z format.
+
+  Software first, rather than `gfx::Renderer3D`: the game locks and blits
+  surfaces as well as drawing into them, and doing both in one place keeps
+  them consistent. It also lets the frames be checked without a GPU.
+- `testDirectX` in `tests/test_common.cpp` checks these, called through
+  the vtables: a clear, a Gouraud triangle, the depth test, a textured
+  quad with point sampling, and a flip.
+
 - Registry keys the game's code names, for later:
   - `HKEY_CLASSES_ROOT\A3d` and the A3D COM class
     `{d8f1eee0-f634-11cf-8700-00a0245d918b}`, which the program registers

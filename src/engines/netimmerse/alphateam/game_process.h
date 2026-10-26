@@ -5,6 +5,7 @@
 
 #include "common/types.h"
 #include "common/x86/cpu.h"
+#include "common/x86/directx/directx.h"
 #include "common/x86/win32.h"
 
 #include <cstdint>
@@ -39,6 +40,7 @@ public:
 
     x86::Cpu& cpu() { return *cpu_; }
     x86::Win32Process& process() { return *process_; }
+    x86::DirectX& directX() { return *directX_; }
     // Module names in the order they were loaded (the program last).
     const std::vector<std::string>& loadOrder() const { return order_; }
 
@@ -46,6 +48,7 @@ private:
     std::filesystem::path dir_;
     std::unique_ptr<x86::Cpu> cpu_;
     std::unique_ptr<x86::Win32Process> process_;
+    std::unique_ptr<x86::DirectX> directX_;
     std::vector<std::string> order_;
     std::vector<const x86::Win32Process::Module*> modules_;
 };

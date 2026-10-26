@@ -7,6 +7,7 @@
 #include "common/types.h"
 #include "common/x86/cpu.h"
 
+#include <array>
 #include <cstdio>
 #include <filesystem>
 #include <functional>
@@ -32,6 +33,10 @@ public:
     uint32_t size(uint32_t address) const;
     uint32_t freeBytes() const;
 
+    // Threads the program started, which aren't run yet: their start
+    // addresses and arguments.
+    std::vector<std::pair<uint32_t, uint32_t>> threadsNotRun;
+
     // --- Windows and messages (USER32, GDI32) -----------------------------------
     // The desktop the program sees.
     int screenWidth = 800, screenHeight = 600, screenBits = 16;
@@ -43,6 +48,8 @@ public:
         bool visible = false;
     };
     const Window* window(uint32_t handle) const;
+    // A window's client area on the screen: left, top, width, height.
+    std::optional<std::array<int, 4>> clientArea(uint32_t handle) const;
     // The first window the program made that's still there; 0 if none.
     uint32_t mainWindow() const;
     // Queues a message as PostMessageA does: how the engine passes input on.
@@ -183,6 +190,10 @@ public:
     OpenFile* file(uint32_t handle);
     bool closeFile(uint32_t handle);
 
+    // Threads the program started, which aren't run yet: their start
+    // addresses and arguments.
+    std::vector<std::pair<uint32_t, uint32_t>> threadsNotRun;
+
     // --- Windows and messages (USER32, GDI32) -----------------------------------
     // The desktop the program sees.
     int screenWidth = 800, screenHeight = 600, screenBits = 16;
@@ -194,6 +205,8 @@ public:
         bool visible = false;
     };
     const Window* window(uint32_t handle) const;
+    // A window's client area on the screen: left, top, width, height.
+    std::optional<std::array<int, 4>> clientArea(uint32_t handle) const;
     // The first window the program made that's still there; 0 if none.
     uint32_t mainWindow() const;
     // Queues a message as PostMessageA does: how the engine passes input on.
@@ -273,6 +286,10 @@ private:
     std::map<uint32_t, Search> searches_;
     uint32_t bind(const std::string& dll, const std::string& function, uint32_t ordinal);
     uint32_t moduleHandle(const std::string& name) const;
+    // A DLL from the program's files, loaded and started (LoadLibraryA's).
+    const Module* loadFromDisk(const std::string& name);
+    mutable std::vector<std::string> standInDlls_; // lower-case names, by handle
+    std::map<uint32_t, uint32_t> virtualBlocks_;   // VirtualAlloc's: start -> size
     void stdcall(const char* dll, const char* name, int args, std::function<uint32_t(Cpu&)> fn);
 };
 
