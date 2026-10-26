@@ -21,6 +21,7 @@ namespace {
 
 enum BlockType { Skip, Scaled, Motion, RunBlock, Residue, Intra, Fill, Inter, PatternBlock, Raw };
 
+constexpr double kPi = 3.14159265358979323846; // not M_PI: MSVC only has it with _USE_MATH_DEFINES
 constexpr uint32_t kAlphaFlag = 0x00100000;
 constexpr uint16_t kAudioDct = 0x1000, kAudioStereo = 0x2000;
 
@@ -89,7 +90,7 @@ void inverseFft(std::vector<std::complex<double>>& a) {
             std::swap(a[i], a[j]);
     }
     for (size_t len = 2; len <= n; len <<= 1) {
-        const double ang = 2 * M_PI / double(len);
+        const double ang = 2 * kPi / double(len);
         const std::complex<double> w(std::cos(ang), std::sin(ang));
         for (size_t i = 0; i < n; i += len) {
             std::complex<double> wn(1, 0);
@@ -106,7 +107,7 @@ void inverseFft(std::vector<std::complex<double>>& a) {
 void dct3(float* x, int n) {
     std::vector<std::complex<double>> z(size_t(2 * n));
     for (int k = 0; k < n; ++k)
-        z[size_t(k)] = std::polar(double(k == 0 ? x[0] * 0.5f : x[k]), M_PI * k / (2.0 * n));
+        z[size_t(k)] = std::polar(double(k == 0 ? x[0] * 0.5f : x[k]), kPi * k / (2.0 * n));
     inverseFft(z);
     for (int m = 0; m < n; ++m)
         x[m] = float(z[size_t(m)].real());
