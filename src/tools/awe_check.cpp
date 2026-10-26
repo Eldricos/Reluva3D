@@ -10,6 +10,9 @@
 
 #include "common/archive.h"
 #include "common/fs.h"
+#include "common/video/bink_audio.h"
+#include "common/video/bink_file.h"
+#include "common/video/bink_video.h"
 #include "engines/awe/ac2.h"
 #include "engines/awe/camera.h"
 #include "engines/awe/gr2.h"
@@ -423,16 +426,82 @@ int checkText(const reluva::Archive& files, bool verbose) {
     return failed ? 1 : 0;
 }
 
+// Decodes every frame and the sound of every Bink file.
+int checkBink(const reluva::Archive& files, unsigned jobs, bool verbose) {
+    const std::vector<std::string> names = filesEndingWith(files, ".bik");
+    std::vector<std::string> results(names.size());
+    std::atomic<size_t> next{0};
+    std::atomic<uint64_t> frames{0};
+    const auto start = std::chrono::steady_clock::now();
+    auto worker = [&] {
+        for (size_t i; (i = next++) < names.size();) {
+            std::vector<uint8_t> data;
+            reluva::video::BinkFile bink;
+            reluva::video::BinkVideoDecoder video;
+            reluva::Error e = files.read(names[i], data);
+            if (!e)
+                e = bink.open(std::move(data));
+            if (!e)
+                e = video.init(bink.width(), bink.height(), bink.revision(), bink.flags());
+            std::vector<reluva::video::BinkAudioDecoder> audio(bink.audioTracks().size());
+            for (size_t t = 0; t < audio.size() && !e; t++)
+                if (reluva::Error ae = audio[t].init(bink.audioTracks()[t].sampleRate, bink.audioTracks()[t].channels,
+                                                     bink.audioTracks()[t].dct))
+                    e = reluva::Error::fail("audio track " + std::to_string(t) + ": " + ae.message);
+            std::vector<int16_t> pcm;
+            for (size_t f = 0; f < bink.frameCount() && !e; f++) {
+                reluva::video::BinkFile::Frame fr;
+                e = bink.frame(f, fr);
+                if (!e)
+                    e = video.decode(fr.video.data, fr.video.size);
+                for (size_t t = 0; t < audio.size() && !e; t++)
+                    if (fr.audio[t].size) {
+                        pcm.clear();
+                        e = audio[t].decode(fr.audio[t].data, fr.audio[t].size, pcm);
+                        // At least what the frame says (the last packet's
+                        // block runs past the end, and is cut there).
+                        if (!e && pcm.size() * 2 < fr.audioBytes[t])
+                            e = reluva::Error::fail("audio decoded to " + std::to_string(pcm.size() * 2) +
+                                                    " bytes, not " + std::to_string(fr.audioBytes[t]));
+                    }
+                if (e)
+                    e = reluva::Error::fail("frame " + std::to_string(f) + ": " + e.message);
+                else
+                    frames++;
+            }
+            char buf[200];
+            std::snprintf(buf, sizeof buf, "%dx%d, %zu frames, revision %c", bink.width(), bink.height(),
+                          bink.frameCount(), bink.revision() ? bink.revision() : '?');
+            results[i] = e ? "FAIL " + names[i] + ": " + e.message : (verbose ? "ok   " + names[i] + ": " + buf : "");
+        }
+    };
+    std::vector<std::thread> threads;
+    for (unsigned j = 0; j < std::max(1u, jobs); j++)
+        threads.emplace_back(worker);
+    for (std::thread& t : threads)
+        t.join();
+    size_t failed = 0;
+    for (const std::string& r : results) {
+        failed += r.rfind("FAIL", 0) == 0;
+        if (!r.empty())
+            std::printf("%s\n", r.c_str());
+    }
+    std::printf("Bink: %zu files, %zu failed, %llu frames decoded (%.1f s)\n", names.size(), failed,
+                (unsigned long long)frames.load(),
+                std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count());
+    return failed ? 1 : 0;
+}
+
 } // namespace
 
 int aweCheckCommand(int argc, char** argv) {
     std::string folder, filter;
-    bool gr2 = true, scenes = true, text = true, textures = false, verbose = false;
+    bool gr2 = true, scenes = true, text = true, bink = true, textures = false, verbose = false;
     unsigned jobs = std::max(1u, std::thread::hardware_concurrency());
     for (int i = 2; i < argc; i++) {
         const std::string a = argv[i];
-        if (a == "-gr2" || a == "-ac2" || a == "-text") {
-            gr2 = a == "-gr2", scenes = a == "-ac2", text = a == "-text";
+        if (a == "-gr2" || a == "-ac2" || a == "-text" || a == "-bik") {
+            gr2 = a == "-gr2", scenes = a == "-ac2", text = a == "-text", bink = a == "-bik";
         } else if (a == "-textures") {
             textures = true;
         } else if (a == "-v") {
@@ -446,7 +515,7 @@ int aweCheckCommand(int argc, char** argv) {
         }
     }
     if (folder.empty()) {
-        std::fprintf(stderr, "usage: reluva-tool awe-check <game folder> [-gr2|-ac2|-text] [-only text] [-textures] "
+        std::fprintf(stderr, "usage: reluva-tool awe-check <game folder> [-gr2|-ac2|-text|-bik] [-only text] [-textures] "
                              "[-j threads] [-v]\n");
         return 2;
     }
@@ -462,6 +531,8 @@ int aweCheckCommand(int argc, char** argv) {
         result |= checkScenes(files, verbose);
     if (gr2)
         result |= checkGr2Files(files, folder, filter, textures, jobs, verbose);
+    if (bink)
+        result |= checkBink(files, jobs, verbose);
     std::printf(result ? "Some files failed.\n" : "Everything read.\n");
     return result;
 }

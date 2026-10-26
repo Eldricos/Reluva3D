@@ -64,8 +64,9 @@ scenes, two Granny files, the text tables, two backgrounds):
   - `awe-table` (a text table with its commands split);
   - `awe-shot` (a viewer page drawn without a window, saved as TGA);
   - `awe-camera` (a scene's camera as granny2.dll and Reluva build it);
-  - `awe-check` (every Granny file, scene and text file of an install
-    read, with cameras compared against the DLL: the regression test);
+  - `awe-check` (every Granny file, scene, text file and movie of an
+    install read, with cameras compared against the DLL: the regression
+    test);
   - `bink-info` (a movie's header and frames; `-yuv`, `-wav`, `-tga` to
     decode it).
 - **Tests:** `tests/test_awe.cpp`, on files built in the test.

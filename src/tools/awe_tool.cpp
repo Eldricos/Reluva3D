@@ -508,7 +508,7 @@ int cmdBinkInfo(int argc, char** argv) {
             reluva::video::BinkFile::Frame f;
             bink.frame(i, f);
             if (!f.audio.empty() && f.audio[0].size)
-                if (reluva::Error e = dec.decode(f.audio[0].data, f.audio[0].size, pcm))
+                if (reluva::Error e = dec.decode(f.audio[0].data, f.audio[0].size, pcm, f.audioBytes[0]))
                     std::fprintf(stderr, "frame %zu: %s\n", i, e.message.c_str());
         }
         std::ofstream wav(wavFile, std::ios::binary);
@@ -603,7 +603,7 @@ int aweToolCommand(int argc, char** argv) {
 }
 
 const char* aweToolUsage() {
-    return "  reluva-tool awe-check <game folder> [-gr2|-ac2|-text] [-only text] [-textures] [-j threads] [-v]\n"
+    return "  reluva-tool awe-check <game folder> [-gr2|-ac2|-text|-bik] [-only text] [-textures] [-j threads] [-v]\n"
            "  reluva-tool awe-camera <game folder> <scene.ac2> [x y z]...\n"
            "  reluva-tool bink-info <file.bik> [-frames]\n"
            "  reluva-tool gr2-info <file.gr2> [-t] [-n elements] [-dll granny2.dll]\n"

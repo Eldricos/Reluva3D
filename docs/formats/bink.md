@@ -37,9 +37,13 @@ the Orient Express has 46 movies in `Movies/`, plus looping videos in
   - video: every frame byte for byte the same as
     `ffmpeg -i logos.bik -f rawvideo -pix_fmt yuv420p` gives
     (`reluva-tool bink-info logos.bik -yuv ours.yuv`);
-  - audio: the same length, every sample within ±1 (rounding) of
+  - audio: every sample within ±1 (rounding) of
     `ffmpeg -i logos.bik -c:a pcm_s16le`
-    (`reluva-tool bink-info logos.bik -wav ours.wav`).
+    (`reluva-tool bink-info logos.bik -wav ours.wav`). The one difference
+    is that Reluva cuts each packet's sound to the size its frame
+    declares. Only the file's last packet decodes to more (7,680 bytes
+    where 2,640 are declared): its block runs past the end of the movie.
+    FFmpeg keeps the whole block.
 
 ## Notes
 
@@ -53,6 +57,9 @@ the Orient Express has 46 movies in `Movies/`, plus looping videos in
   from both ends). It's checked against the plain sum to 1e-14.
 - Speed: `logos.bik`'s 539 1024×768 frames decode in about 2 seconds,
   about 280 frames a second.
+
+`reluva-tool awe-check <game folder> -bik` decodes every movie and loop
+of an install (several at once) and reports any failures.
 
 ## Still to do
 

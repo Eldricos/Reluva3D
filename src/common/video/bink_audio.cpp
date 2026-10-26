@@ -124,9 +124,18 @@ void BinkAudioDecoder::inverseDct(std::vector<float>& x, std::vector<float>& y) 
     }
 }
 
-Error BinkAudioDecoder::decode(const uint8_t* data, size_t size, std::vector<int16_t>& out) {
+Error BinkAudioDecoder::decode(const uint8_t* data, size_t size, std::vector<int16_t>& out, size_t maxBytes) {
     if (!frameLength_)
         return Error::fail("Bink audio: not initialised");
+    const size_t first = out.size();
+    struct Cut {
+        std::vector<int16_t>& out;
+        size_t first, max;
+        ~Cut() {
+            if (out.size() - first > max / 2)
+                out.resize(first + max / 2);
+        }
+    } cut{out, first, maxBytes};
     Bits bits(data, size);
     const size_t n = size_t(frameLength_);
     std::vector<float> coeffs(n), samples[2];

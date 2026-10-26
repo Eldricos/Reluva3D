@@ -7,6 +7,7 @@
 
 #include <complex>
 #include <cstdint>
+#include <cstddef>
 #include <vector>
 
 // Bink audio, the DCT form (the one Murder on the Orient Express's movies
@@ -20,8 +21,10 @@ class BinkAudioDecoder {
 public:
     Error init(int sampleRate, int channels, bool dct);
 
-    // Decodes a packet, appending its samples (interleaved when stereo).
-    Error decode(const uint8_t* data, size_t size, std::vector<int16_t>& out);
+    // Decodes a packet, appending its samples (interleaved when stereo):
+    // at most `maxBytes` bytes' worth if given (the frame's own count: a
+    // file's last block runs past its end).
+    Error decode(const uint8_t* data, size_t size, std::vector<int16_t>& out, size_t maxBytes = SIZE_MAX);
 
     int sampleRate() const { return rate_; }
     int channels() const { return channels_; }

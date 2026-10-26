@@ -688,7 +688,7 @@ void MoviePage::open() {
             for (size_t i = 0; i < file->frameCount(); i++) {
                 video::BinkFile::Frame f;
                 if (!file->frame(i, f) && !f.audio.empty() && f.audio[0].size)
-                    dec.decode(f.audio[0].data, f.audio[0].size, sound->samples);
+                    dec.decode(f.audio[0].data, f.audio[0].size, sound->samples, f.audioBytes[0]);
             }
             sound->rate = t.sampleRate;
             sound->channels = t.channels;
