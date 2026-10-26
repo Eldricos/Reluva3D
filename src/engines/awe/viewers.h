@@ -13,6 +13,7 @@
 #include "common/video/bink_file.h"
 #include "common/video/bink_video.h"
 #include "engines/awe/ac2.h"
+#include "engines/awe/actor.h"
 #include "engines/awe/conditions.h"
 #include "engines/awe/dialogue.h"
 #include "engines/awe/game_paths.h"
@@ -137,24 +138,32 @@ public:
     void update(uint64_t nowMs) override;
 
 private:
-    // A character placed in the scene, posed by its animation.
+    // A character placed in the scene, animated as the game animates
+    // them (Actor).
     struct Character {
         std::string name;
         std::shared_ptr<GpuModel> model;
-        std::shared_ptr<Animation> animation;
-        std::string animationName;
+        std::unique_ptr<Actor> actor;
         gfx::Mat4 placement{};
         // Where it stands and faces; while walking, the points still to
-        // reach (world x, z) and its walk.
+        // reach (world x, z).
         float x = 0, y = 0, z = 0, rotY = 0;
+        float home = 0; // its heading when placed, in degrees ("rotate home")
         bool player = false;
         std::string who;                  // "antoinette": the model's folder
         const Ac2Record* record = nullptr; // its object in the scene
         std::vector<std::pair<float, float>> path;
-        std::shared_ptr<Animation> walk;
-        float walkSpeed = 0;           // world units a second, from the walk itself
-        float walkDrift[3] = {0, 0, 0}; // how far the walk carries the body each loop, in the model's axes
-        float walkStart = 0;
+        float walkSpeed = 0; // world units a second, from the walk itself
+        // A script waiting on it (one at a time, as the game's +0xb5c):
+        // for "walk", "run", "rotate" or "anim" (that animation, by the
+        // name asked and the name played).
+        ScriptRunner* waiting = nullptr;
+        std::string waitVerb, waitAnim, waitAnimAs;
+        // Its own routine (the IDLE list), and whether "pause" stopped it.
+        std::unique_ptr<ScriptRunner> routine;
+        bool paused = false;
+        // Props attached ("attach clipboard"), posed by its animations.
+        std::vector<std::pair<std::string, std::shared_ptr<GpuModel>>> props;
     };
     // A video loop the scene shows (the countryside going by a window),
     // by the object that places it.
@@ -196,9 +205,9 @@ private:
     std::string scriptText(const std::string& name) override;
     const Ac2Record* hotspotAt(int sx, int sy) const;
     void runScript(const Ac2Record& object);
-    Character* scriptCharacter();
+    Character* scriptCharacter(const ScriptRunner& runner);
     // Walks a character to a cell along a path; false if there's none.
-    bool walkCharacter(Character& c, WalkGrid::Cell goal, bool toPoint);
+    bool walkCharacter(Character& c, WalkGrid::Cell goal, bool toPoint, bool run = false);
     // "scene <name> [wp] [flag]": the act's variant of it, the player at
     // walk point wp (-1: where they were when it was last left).
     bool changeScene(const std::string& name, int entry);
@@ -210,8 +219,24 @@ private:
     void playSound(const std::string& name);
     void logScript(const std::string& line);
     bool hidden(const Ac2Record& o) const;
-    bool loadWalk(Character& c);
-    void placeCharacter(Character& c, float time) const;
+    // Starts the character's walk (or run) along its path: false if it
+    // has no such animation.
+    bool startWalk(Character& c, bool run = false);
+    void placeCharacter(Character& c) const;
+    // The character verbs (turn, look, rotate, anim...): true if the
+    // script waits.
+    bool startCharacterVerb(ScriptRunner& runner, Character& c, const ScriptEvent& e, bool wait, bool& handled);
+    // Where a scene object or character is (x, z); false if there's none.
+    bool objectAt(const std::string& name, float& x, float& z) const;
+    Character* characterNamed(const std::string& who);
+    // A prop's model (models\objects\...), loaded once; null if none.
+    std::shared_ptr<GpuModel> propModel(const std::string& file);
+    // A character's routine: its first IDLE entry whose condition holds.
+    void queueRoutine(Character& c);
+    void lineStarted(const std::string& speaker) override;
+    void lineEnded(const std::string& speaker) override;
+    void mouth(const std::string& speaker, bool on) override;
+    int voiceLevel() override;
 
     std::vector<std::string> names_;
     int index_ = 0;
@@ -238,8 +263,6 @@ private:
     std::string pathSource_;
     // The scripts' state: tags, items and the act are state_'s.
     std::unique_ptr<ScriptRunner> runner_;
-    std::string walkVerb_;            // "walk" or "run", while a script waits on one
-    ScriptRunner* walkRunner_ = nullptr; // and which runner waits
     std::unique_ptr<DialogueManager> dialogue_;
     // A game played (N): the acts, the music playing (by file), where the
     // player was in each scene left, the screen's fade (0 clear, 1 black)
@@ -252,7 +275,9 @@ private:
     ScriptRunner* fadeRunner_ = nullptr;
     std::string dialogueAct_ = "-";   // the act whose table is loaded
     audio::SoundHandle voice_ = audio::kNoSound;
+    std::shared_ptr<audio::Sound> voiceSound_; // for its level: the lips move
     const Ac2Record* scriptObject_ = nullptr; // the hotspot a script is "this" of
+    const Ac2Record* resumeAfter_ = nullptr;  // the character clicked, its routine resumed after
     int entryPoint_ = -1; // the walk point the player arrives at, after "scene"
     std::set<std::string> hiddenNames_; // objects hidden by scripts, by name or file
     std::deque<std::string> scriptLog_;
@@ -260,6 +285,8 @@ private:
     float time_ = 0;
     image::Image dot_; // stands in for a particle texture that's missing
     uint64_t lastMs_ = 0;
+    bool charactersDue_ = false; // to load, once the page has stayed on the scene
+    uint64_t charactersAt_ = 0;
     // With 3D: the pictures behind the characters as one texture, the
     // characters, and the models and animations loaded so far.
     gfx::Renderer3D* renderer_ = nullptr;

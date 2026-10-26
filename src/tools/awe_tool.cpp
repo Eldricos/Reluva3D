@@ -198,6 +198,16 @@ int cmdGr2Model(int argc, char** argv) {
                 matched += b.name == t.bone;
         std::printf("animation \"%s\": %.3f s (step %.4f), %zu tracks, %zu on the model's bones\n", anim.name.c_str(),
                     anim.duration, anim.timeStep, anim.tracks.size(), matched);
+        if (!anim.mask.empty()) {
+            // Its track mask: the bones it weighs, by weight.
+            std::map<float, std::vector<std::string>> byWeight;
+            for (const auto& [bone, w] : anim.mask)
+                byWeight[w].push_back(bone);
+            std::printf("track mask:");
+            for (const auto& [w, bones] : byWeight)
+                std::printf(" %g on %zu bones (%s%s);", w, bones.size(), bones[0].c_str(), bones.size() > 1 ? "..." : "");
+            std::printf("\n");
+        }
     }
     if (!trackBone.empty()) {
         // The bone's place in the model (its own axes) through the

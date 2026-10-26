@@ -89,6 +89,26 @@ Mat4 toMatrix(const BoneTransform& t) {
     return m;
 }
 
+namespace {
+
+// The bones' TrackMask weights (their ExtendedData's "TrackMask<name>"
+// members), by mask name and bone name.
+std::map<std::string, std::map<std::string, float>> readTrackMasks(const Gr2Object& skeleton) {
+    std::map<std::string, std::map<std::string, float>> out;
+    for (uint32_t i = 0; i < skeleton.count("Bones"); i++) {
+        const Gr2Object b = skeleton.element("Bones", i);
+        const Gr2Object extended = b.object("ExtendedData");
+        if (!extended.valid())
+            continue;
+        for (const Gr2Member& m : extended.members())
+            if (m.name.rfind("TrackMask", 0) == 0)
+                out[m.name.substr(9)][b.string("Name")] = float(extended.number(m.name));
+    }
+    return out;
+}
+
+} // namespace
+
 Error loadModel(const Gr2File& file, GrannyDll* dll, Model& out) {
     out = Model();
     const Gr2Object root = file.root();
@@ -113,6 +133,7 @@ Error loadModel(const Gr2File& file, GrannyDll* dll, Model& out) {
         boneByName.emplace(bone.name, int(out.bones.size()));
         out.bones.push_back(std::move(bone));
     }
+    out.masks = readTrackMasks(skeleton);
 
     std::map<uint32_t, int> textureByAddress;
     auto texture = [&](const Gr2Object& t) -> int {
@@ -271,6 +292,13 @@ void Curve::evaluate(float t, int dimension, float* out) const {
 Error loadAnimation(const Gr2File& file, Animation& out, GrannyDll* dll) {
     out = Animation();
     const Gr2Object root = file.root();
+    // Its mask: how much each bone follows it (0x429f50 reads it from the
+    // file's skeleton, "TrackMasktrackmask").
+    if (root.count("Skeletons") > 0) {
+        auto masks = readTrackMasks(root.element("Skeletons", 0));
+        if (!masks.empty())
+            out.mask = masks.count("trackmask") ? masks["trackmask"] : masks.begin()->second;
+    }
     if (root.count("Animations") == 0)
         return Error::fail("The file has no animation");
     const Gr2Object anim = root.element("Animations", 0);
@@ -345,37 +373,41 @@ Error loadAnimation(const Gr2File& file, Animation& out, GrannyDll* dll) {
     return Error::success();
 }
 
-void computePose(const Model& model, const Animation* animation, float time, Pose& out,
-                 const std::vector<BoneTurn>* turns) {
+void sampleLocal(const Model& model, const Animation* animation, float time, std::vector<BoneTransform>& local) {
     const size_t n = model.bones.size();
-    out.world.assign(n, identityMatrix());
-    out.skinning.assign(n, identityMatrix());
-    std::vector<BoneTransform> local(n);
+    local.resize(n);
     for (size_t i = 0; i < n; i++)
         local[i] = model.bones[i].rest;
-    if (animation) {
-        for (const AnimationTrack& track : animation->tracks) {
-            size_t b = 0;
-            while (b < n && model.bones[b].name != track.bone)
-                b++;
-            if (b == n)
-                continue;
-            if (!track.position.empty())
-                track.position.evaluate(time, 3, local[b].position);
-            if (!track.orientation.empty()) {
-                float* q = local[b].orientation;
-                track.orientation.evaluate(time, 4, q);
-                const float len = std::sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
-                if (len > 0)
-                    for (int c = 0; c < 4; c++)
-                        q[c] /= len;
-                else
-                    q[3] = 1;
-            }
-            if (!track.scaleShear.empty())
-                track.scaleShear.evaluate(time, 9, local[b].scaleShear);
+    if (!animation)
+        return;
+    for (const AnimationTrack& track : animation->tracks) {
+        size_t b = 0;
+        while (b < n && model.bones[b].name != track.bone)
+            b++;
+        if (b == n)
+            continue;
+        if (!track.position.empty())
+            track.position.evaluate(time, 3, local[b].position);
+        if (!track.orientation.empty()) {
+            float* q = local[b].orientation;
+            track.orientation.evaluate(time, 4, q);
+            const float len = std::sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
+            if (len > 0)
+                for (int c = 0; c < 4; c++)
+                    q[c] /= len;
+            else
+                q[3] = 1;
         }
+        if (!track.scaleShear.empty())
+            track.scaleShear.evaluate(time, 9, local[b].scaleShear);
     }
+}
+
+void poseFromLocal(const Model& model, std::vector<BoneTransform> local, Pose& out, const std::vector<BoneTurn>* turns) {
+    const size_t n = model.bones.size();
+    local.resize(n);
+    out.world.assign(n, identityMatrix());
+    out.skinning.assign(n, identityMatrix());
     if (turns)
         for (const BoneTurn& t : *turns) {
             if (t.bone < 0 || size_t(t.bone) >= n)
@@ -395,6 +427,13 @@ void computePose(const Model& model, const Animation* animation, float time, Pos
         out.world[i] = parent >= 0 ? multiply(out.world[size_t(parent)], m) : m;
         out.skinning[i] = multiply(out.world[i], model.bones[i].inverseWorld);
     }
+}
+
+void computePose(const Model& model, const Animation* animation, float time, Pose& out,
+                 const std::vector<BoneTurn>* turns) {
+    std::vector<BoneTransform> local;
+    sampleLocal(model, animation, time, local);
+    poseFromLocal(model, std::move(local), out, turns);
 }
 
 void skin(const ModelMesh& mesh, const Pose& pose, std::vector<std::array<float, 3>>& positions,

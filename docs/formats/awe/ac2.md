@@ -254,11 +254,19 @@ the moving countryside), shown while `weather >0`.
 
 ### `MODL`, `ANIM`, `WALK`: models and characters
 
-- `MODL`, counted: a u32, a pair list, two u32s, two animation names
-  (text, 32: `sit`), a u32, a text.
+- `MODL`, counted: a u32 (`shadow`: the character casts one), a pair
+  list (models attached at load: `models\poirot\hat_model.gr2`), two
+  u32s, two animation names (text, 32: `anim`, the skeleton's track mask
+  `TrackMask<anim>` its animations are limited to, and `anim2`, a prefix
+  tried on every animation's name: `sit` makes `idle1` `sitidle1`), a
+  u32, and the condition (text) on which those two apply.
 - `ANIM`, counted: five f32s and three u16s (0.15, 5, 8, 8, 12, 50, 30,
-  20 on Debenham). A count over 8 adds that many named animations:
-  text (256), text (64), text (64).
+  20 on Debenham): the talk ease (twice it for full-body animations),
+  the blink interval and the idle variations' interval (each a least
+  and a most, in seconds), and the chances of variations 2, 3 and 4 on
+  (percent). A count over 8 adds that many renamed animations: a
+  condition (text, 256), the name scripts use (64) and the file played
+  for it (64), or a sound (`.wav`).
 - `WALK`: a u16 count, then points of u16, position (3 × f32), rotation
   (3 × f32).
 - Characters other than the player then have a tag: `FLLW` (u32: whom

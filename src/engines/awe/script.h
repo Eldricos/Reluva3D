@@ -77,6 +77,14 @@ public:
     // it). Anything else is ignored, as the game ignores it.
     void finished(std::string_view verb);
     bool idle() const { return queue_.empty() && !running_; }
+    // The event under way is dropped from being under way, kept at the
+    // front: the next update starts it again ("pause" of a character's
+    // routine: 0x4057f0).
+    void restart() {
+        running_ = false;
+        waitingFor_.clear();
+        waitLeft_ = -1;
+    }
     void clear();
 
     // The character the events act on (setchar), "" for the player's.

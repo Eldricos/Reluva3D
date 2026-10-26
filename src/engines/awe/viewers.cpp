@@ -345,6 +345,7 @@ void ScenePage::load() {
     path_.clear();
     hover_ = {};
     scriptObject_ = nullptr;
+    resumeAfter_ = nullptr;
     if (names_.empty())
         return draw();
     auto read = [&](const std::string& name, Ac2Scene& out) {
@@ -374,8 +375,14 @@ void ScenePage::load() {
     }
     if (const Ac2Record* cam = scene_.camera())
         grid_.load(*cam);
-    if (renderer_ && showCharacters_)
+    // In a game at once; when browsing, once the page stays on the scene
+    // (they take seconds to load).
+    charactersDue_ = renderer_ && showCharacters_;
+    if (charactersDue_ && playing_) {
+        charactersDue_ = false;
         loadCharacters();
+    }
+    charactersAt_ = lastMs_;
     loadLoops();
     for (const Ac2Record* o : scene_.objects())
         if (o->tag == "PART" || o->tag == "RAIN" || o->tag == "SNOW")
@@ -594,39 +601,12 @@ void ScenePage::loadCharacters() {
         c.model = found->second;
         if (!c.model)
             continue;
-        // Its animation: MODL's (sit), else standing idle, as files of the
-        // model's folder named <who>_<animation>.gr2.
         const std::string folder = folderOf(file);
         std::string who = file.substr(folder.size() + 1);
         who = who.substr(0, who.find("_model"));
-        std::vector<std::string> tries;
-        if (const Ac2Record* m = o->part("MODL"); m && !m->text("anim").empty()) {
-            const std::string a = fs::toLower(m->text("anim"));
-            tries = {who + "_" + a, who + "_" + a + "idle1", who + "_" + a + "1"};
-        }
-        tries.insert(tries.end(), {who + "_idle1", who + "_idle"});
-        for (const std::string& t : tries) {
-            const std::string path = folder + "/" + t + ".gr2";
-            if (!ctx_.files.has(path))
-                continue;
-            auto a = animations_.find(path);
-            if (a == animations_.end()) {
-                Gr2File gr2;
-                auto anim = std::make_shared<Animation>();
-                Error e = openGr2(ctx_.files, path, *ctx_.granny, gr2);
-                if (!e)
-                    e = awe::loadAnimation(gr2, *anim, ctx_.granny);
-                a = animations_.emplace(path, e ? nullptr : anim).first;
-            }
-            if (a->second) {
-                c.animation = a->second;
-                c.animationName = t;
-                break;
-            }
-        }
         c.x = o->f("x"), c.y = o->f("y"), c.z = o->f("z"), c.rotY = o->f("rotY");
         c.player = o->tag == "PCXX";
-        c.who = who;
+        c.who = fs::toLower(who);
         c.record = o;
         // Arriving by "scene <name> <n>": at its walk point n, else its
         // first; with -1 where they were when the scene was left
@@ -643,7 +623,63 @@ void ScenePage::loadCharacters() {
             if (const auto kept = positions_.find(state_.scene); kept != positions_.end())
                 c.x = kept->second[0], c.z = kept->second[1];
         }
-        placeCharacter(c, 0);
+        c.home = normalizeDegrees(c.rotY * 57.29578f);
+        // Its animations: <who>_<name>.gr2 beside its model, loaded as
+        // they're asked for.
+        auto loader = [this, folder, who](const std::string& name) -> std::shared_ptr<const Animation> {
+            const std::string path = folder + "/" + who + "_" + name + ".gr2";
+            auto a = animations_.find(path);
+            if (a == animations_.end()) {
+                std::shared_ptr<Animation> anim;
+                if (ctx_.files.has(path)) {
+                    Gr2File gr2;
+                    anim = std::make_shared<Animation>();
+                    if (openGr2(ctx_.files, path, *ctx_.granny, gr2) || awe::loadAnimation(gr2, *anim, ctx_.granny))
+                        anim.reset();
+                }
+                a = animations_.emplace(path, anim).first;
+            }
+            return a->second;
+        };
+        c.actor = std::make_unique<Actor>(c.model->model(), o, loader,
+                                          [this](const std::string& cond) { return testCondition(cond, state_); },
+                                          unsigned(characters_.size() + 1));
+        Actor* actor = c.actor.get();
+        actor->onAnimDone = [this, actor](const std::string& name) {
+            for (Character& ch : characters_)
+                if (ch.actor.get() == actor && ch.waiting && ch.waitVerb == "anim" &&
+                    (name == ch.waitAnim || name == ch.waitAnimAs)) {
+                    ScriptRunner* r = ch.waiting;
+                    ch.waiting = nullptr;
+                    r->finished("anim");
+                }
+        };
+        actor->onRotateDone = [this, actor]() {
+            for (Character& ch : characters_)
+                if (ch.actor.get() == actor && ch.waiting && ch.waitVerb == "rotate") {
+                    ScriptRunner* r = ch.waiting;
+                    ch.waiting = nullptr;
+                    r->finished("rotate");
+                }
+        };
+        actor->activate();
+        // Models MODL attaches at load, on their conditions (Poirot's hat,
+        // Antoinette's coat; her snowshoes with "tag snowshoeson").
+        if (const Ac2Record* m = o->part("MODL"))
+            if (const Ac2Value* list = m->field("list"))
+                for (const auto& [condition, path] : list->pairs) {
+                    const std::string prop = normalizeArchiveName(path);
+                    if (!testCondition(condition, state_))
+                        continue;
+                    if (auto pm = propModel(prop))
+                        c.props.push_back({prop, pm});
+                }
+        placeCharacter(c);
+        if (o->tag == "NPCX") {
+            c.routine = std::make_unique<ScriptRunner>(state_, *this);
+            c.routine->setCharacter(c.who);
+            queueRoutine(c);
+        }
         characters_.push_back(std::move(c));
     }
 }
@@ -828,8 +864,10 @@ void ScenePage::draw() {
                 char buf[200];
                 std::string anim;
                 for (const Character& c : characters_)
-                    if (c.name == normalizeArchiveName(o->text("file")) && !c.animationName.empty())
-                        anim = ", posed as " + c.animationName;
+                    if (c.record == o && c.actor)
+                        for (const Animator::Slot& sl : c.actor->animator().slots())
+                            if (sl.state != Animator::Stopped)
+                                anim += (anim.empty() ? ", playing " : " ") + sl.name;
                 std::snprintf(buf, sizeof buf, "%s %s at (%g, %g, %g), facing %g%s", o->tag.c_str(),
                               o->text("file").c_str(), o->f("x"), o->f("y"), o->f("z"), o->f("rotY"), anim.c_str());
                 lines.push_back(buf);
@@ -884,6 +922,11 @@ void ScenePage::update(uint64_t nowMs) {
     const float dt = lastMs_ ? std::min(0.1f, float(nowMs - lastMs_) / 1000.0f) : 0.0f;
     lastMs_ = nowMs;
     time_ = time;
+    if (charactersDue_ && nowMs >= charactersAt_ + 400) {
+        charactersDue_ = false;
+        loadCharacters();
+        draw();
+    }
     if (playing_)
         story_->update(dt);
     if (fade_ != fadeTarget_) {
@@ -896,18 +939,37 @@ void ScenePage::update(uint64_t nowMs) {
         draw();
     }
     runner_->update(dt);
+    // The clicked character's routine goes on once the main script is
+    // over (0x409cab).
+    if (resumeAfter_ && runner_->idle()) {
+        for (Character& c : characters_)
+            if (c.record == resumeAfter_)
+                c.paused = false;
+        resumeAfter_ = nullptr;
+    }
     if (dialogue_->active()) {
         dialogue_->update(dt);
         draw(); // the box moves, lines change
     }
     bool changed = advanceLoops(time);
     for (Character& c : characters_) {
-        if (c.path.empty())
+        // Its routine, unless paused; its animations and any turn.
+        if (c.routine && !c.paused)
+            c.routine->update(dt);
+        float heading = c.rotY * 57.29578f;
+        c.actor->setConversation(dialogue_->active());
+        const bool turning = c.actor->rotating();
+        c.actor->update(dt, heading);
+        if (turning)
+            c.rotY = heading / 57.29578f;
+        changed = true;
+        if (c.path.empty()) {
+            placeCharacter(c);
             continue;
+        }
         // On towards the next point, turning to face it (at most a turn
         // and a half a second, a guess; the game's planner turns along
         // its path).
-        changed = true;
         const float dx = c.path.front().first - c.x, dz = c.path.front().second - c.z;
         const float distance = std::sqrt(dx * dx + dz * dz), stepLength = c.walkSpeed * dt;
         if (distance > 0.001f) {
@@ -920,16 +982,20 @@ void ScenePage::update(uint64_t nowMs) {
         if (stepLength >= distance) {
             c.x = c.path.front().first, c.z = c.path.front().second;
             c.path.erase(c.path.begin());
-            // There: a script waiting on the walk goes on.
-            if (c.path.empty() && !walkVerb_.empty() && walkRunner_) {
-                const std::string verb = walkVerb_;
-                walkVerb_.clear();
-                walkRunner_->finished(verb);
+            if (c.path.empty()) {
+                // There: standing, and a script waiting on the walk goes on.
+                c.actor->play("idle1", 0, 0);
+                if (c.waiting && (c.waitVerb == "walk" || c.waitVerb == "run")) {
+                    ScriptRunner* r = c.waiting;
+                    const std::string verb = c.waitVerb;
+                    c.waiting = nullptr;
+                    r->finished(verb);
+                }
             }
         } else {
             c.x += dx / distance * stepLength, c.z += dz / distance * stepLength;
         }
-        placeCharacter(c, time);
+        placeCharacter(c);
     }
     for (auto& [o, system] : particles_)
         if (testCondition(system.settings().condition, state_)) {
@@ -972,10 +1038,14 @@ void ScenePage::update(uint64_t nowMs) {
         renderer_->setView(cam.viewProjection(), cam.eye());
         renderer_->clearDepth();
         for (const Character& c : characters_) {
-            const bool walking = !c.path.empty() && c.walk;
-            const Pose pose = walking ? poseAt(c.model->model(), c.walk.get(), time - c.walkStart)
-                                      : poseAt(c.model->model(), c.animation.get(), time);
+            Pose pose;
+            c.actor->animator().pose(pose);
             c.model->draw(pose, c.placement, false, frameMeshes_);
+            for (const auto& [name, prop] : c.props) {
+                Pose propPose;
+                c.actor->animator().poseFor(prop->model(), propPose);
+                prop->draw(propPose, c.placement, false, frameMeshes_);
+            }
         }
     }
     prepareScreenshot(renderer_);
@@ -1056,60 +1126,40 @@ void ScenePage::drawGrid() {
     }
 }
 
-bool ScenePage::loadWalk(Character& c) {
-    if (c.walk)
-        return true;
-    if (!ctx_.granny)
-        return false;
-    // <who>_walk.gr2 beside its model.
-    const std::string folder = folderOf(c.name);
-    std::string who = c.name.substr(folder.size() + 1);
-    who = who.substr(0, who.find("_model"));
-    const std::string path = folder + "/" + who + "_walk.gr2";
-    if (!ctx_.files.has(path))
-        return false;
-    Gr2File gr2;
-    auto anim = std::make_shared<Animation>();
-    if (openGr2(ctx_.files, path, *ctx_.granny, gr2) || awe::loadAnimation(gr2, *anim, ctx_.granny) ||
-        anim->duration <= 0)
+bool ScenePage::startWalk(Character& c, bool run) {
+    if (!c.actor || c.actor->play(run ? "run" : "walk", 0, 0).empty())
         return false;
     // The walk carries the body forward (the biped's root, Bip01, moves
     // the whole loop's distance): that is how fast it walks. The game's
     // characters move by that much, while the loop starts again from the
     // same place.
-    const Model& model = c.model->model();
-    int root = -1;
-    for (size_t b = 0; b < model.bones.size(); b++)
-        if (model.bones[b].name == "Bip01")
-            root = int(b);
-    if (root >= 0) {
-        Pose start, end;
-        computePose(model, anim.get(), 0, start);
-        computePose(model, anim.get(), anim->duration, end);
-        for (int k = 0; k < 3; k++)
-            c.walkDrift[k] = end.world[size_t(root)][size_t(12 + k)] - start.world[size_t(root)][size_t(12 + k)];
-        c.walkSpeed = std::sqrt(c.walkDrift[0] * c.walkDrift[0] + c.walkDrift[1] * c.walkDrift[1] +
-                                c.walkDrift[2] * c.walkDrift[2]) /
-                      anim->duration;
+    c.walkSpeed = 0;
+    if (const Animator::Slot* s = c.actor->animator().base(); s && s->animation->duration > 0) {
+        const Actor::Motion m = c.actor->motion(*s->animation);
+        c.walkSpeed = std::sqrt(m.drift[0] * m.drift[0] + m.drift[1] * m.drift[1] + m.drift[2] * m.drift[2]) /
+                      s->animation->duration;
     }
-    if (c.walkSpeed <= 1) {
-        c.walkSpeed = 150; // a walk in place: a guess at a walking pace
-        c.walkDrift[0] = c.walkDrift[1] = c.walkDrift[2] = 0;
-    }
-    c.walk = anim;
+    if (c.walkSpeed <= 1)
+        c.walkSpeed = run ? 300.0f : 150.0f; // a walk in place: a guess at a pace
     return true;
 }
 
-void ScenePage::placeCharacter(Character& c, float time) const {
+void ScenePage::placeCharacter(Character& c) const {
     c.placement = characterMatrix(c.x, c.y, c.z, c.rotY);
-    if (c.path.empty() || !c.walk)
+    const Animator::Slot* s = c.actor ? c.actor->animator().base() : nullptr;
+    if (!s || s->animation->duration <= 0 ||
+        !(s->name.find("walk") != std::string::npos || s->name.find("run") != std::string::npos ||
+          s->name.find("rotate") != std::string::npos))
         return;
-    // Back by how far the walk has carried the body this loop, as the
-    // character itself moves.
-    const float loop = std::fmod(std::max(0.0f, time - c.walkStart), c.walk->duration) / c.walk->duration;
+    // Back by how far the walk (or turn) has carried the body this loop,
+    // as the character itself moves (or turns).
+    const Actor::Motion m = c.actor->motion(*s->animation);
+    const float loop = std::fmod(s->clock, s->animation->duration) / s->animation->duration;
     gfx::Mat4 back = gfx::identity();
+    const float a = -loop * m.turn / 57.29578f;
+    back[0] = std::cos(a), back[1] = std::sin(a), back[4] = -std::sin(a), back[5] = std::cos(a);
     for (int k = 0; k < 3; k++)
-        back[size_t(12 + k)] = -loop * c.walkDrift[k];
+        back[size_t(12 + k)] = -loop * m.drift[k];
     c.placement = gfx::multiply(c.placement, back);
 }
 
@@ -1147,14 +1197,13 @@ void ScenePage::walkTo(int sx, int sy) {
         path_ = grid_.findPath(start, goal);
         pathSource_ = "Reluva's A*";
     }
-    if (who && path_.size() > 1 && loadWalk(*who)) {
+    if (who && path_.size() > 1 && startWalk(*who)) {
         who->path.clear();
         for (size_t i = 1; i < path_.size(); i++) {
             float px, pz;
             grid_.centre(path_[i], px, pz);
             who->path.push_back({px, pz});
         }
-        who->walkStart = time_;
     }
     draw();
 }
@@ -1223,18 +1272,57 @@ void ScenePage::runScript(const Ac2Record& object) {
     runner_->run(script);
 }
 
-ScenePage::Character* ScenePage::scriptCharacter() {
+ScenePage::Character* ScenePage::scriptCharacter(const ScriptRunner& runner) {
+    // setchar's, else the player's (0x4365d0).
+    const std::string who = fs::toLower(runner.character());
     Character* player = nullptr;
     for (Character& c : characters_) {
-        if (!runner_->character().empty() && c.who == runner_->character())
+        if (!who.empty() && c.who == who)
             return &c;
         if (c.player)
             player = &c;
     }
-    return runner_->character().empty() || runner_->character() == "antoinette" ? player : nullptr;
+    return who.empty() || who == "antoinette" ? player : nullptr;
 }
 
-bool ScenePage::walkCharacter(Character& c, WalkGrid::Cell goal, bool toPoint) {
+ScenePage::Character* ScenePage::characterNamed(const std::string& who) {
+    const std::string w = fs::toLower(who);
+    for (Character& c : characters_)
+        if (c.who == w || fs::toLower(c.record ? c.record->text("name") : "") == w)
+            return &c;
+    return nullptr;
+}
+
+bool ScenePage::objectAt(const std::string& name, float& x, float& z) const {
+    const std::string n = fs::toLower(name);
+    for (const Character& c : characters_)
+        if (c.who == n) {
+            x = c.x, z = c.z;
+            return true;
+        }
+    for (const Ac2Record* o : scene_.objects())
+        if (fs::toLower(o->text("name")) == n) {
+            x = o->f("x"), z = o->f("z");
+            return true;
+        }
+    return false;
+}
+
+void ScenePage::queueRoutine(Character& c) {
+    // The first IDLE entry whose condition holds (0x44087d; "loop" queues
+    // it again: 0x405940).
+    if (!c.routine || !c.record)
+        return;
+    for (const Ac2Record& part : c.record->parts)
+        if (const Ac2Value* idles = part.field("idles"))
+            for (const auto& [condition, script] : idles->pairs)
+                if (!script.empty() && testCondition(condition, state_)) {
+                    c.routine->run(script);
+                    return;
+                }
+}
+
+bool ScenePage::walkCharacter(Character& c, WalkGrid::Cell goal, bool toPoint, bool run) {
     const WalkGrid::Cell start = grid_.cellAt(c.x, c.z);
     if (!triedGamePaths_) {
         triedGamePaths_ = true;
@@ -1250,7 +1338,7 @@ bool ScenePage::walkCharacter(Character& c, WalkGrid::Cell goal, bool toPoint) {
         path_ = grid_.findPath(start, goal);
         pathSource_ = "Reluva's A*";
     }
-    if (path_.size() < 2 || !loadWalk(c))
+    if (path_.size() < 2 || !startWalk(c, run))
         return false;
     c.path.clear();
     for (size_t i = 1; i < path_.size(); i++) {
@@ -1258,7 +1346,6 @@ bool ScenePage::walkCharacter(Character& c, WalkGrid::Cell goal, bool toPoint) {
         grid_.centre(path_[i], px, pz);
         c.path.push_back({px, pz});
     }
-    c.walkStart = time_;
     return true;
 }
 
@@ -1309,6 +1396,162 @@ void ScenePage::logScript(const std::string& line) {
     scriptLog_.push_back(line);
     while (scriptLog_.size() > 8)
         scriptLog_.pop_front();
+}
+
+// --- Character verbs ----------------------------------------------------------
+
+std::shared_ptr<GpuModel> ScenePage::propModel(const std::string& file) {
+    // Kept with the characters' models: loading one decodes its textures.
+    if (file.empty() || !renderer_ || !ctx_.granny)
+        return nullptr;
+    auto found = models_.find(file);
+    if (found == models_.end()) {
+        Gr2File gr2;
+        Model m;
+        std::shared_ptr<GpuModel> gpu;
+        if (ctx_.files.has(file) && !openGr2(ctx_.files, file, *ctx_.granny, gr2) && !loadModel(gr2, ctx_.granny, m))
+            gpu = std::make_shared<GpuModel>(*renderer_, std::move(m));
+        found = models_.emplace(file, gpu).first;
+    }
+    return found->second;
+}
+
+bool ScenePage::startCharacterVerb(ScriptRunner& runner, Character& c, const ScriptEvent& e, bool wait,
+                                   bool& handled) {
+    const std::string v = e.verb();
+    auto lower = [](const std::string& t) { return fs::toLower(t); };
+    const std::string a1 = lower(e.arg(1)), a2 = lower(e.arg(2)), a3 = lower(e.arg(3));
+    const float body = normalizeDegrees(c.rotY * 57.29578f);
+    // The heading from the character to a point (0x425b10): 0 faces +Z.
+    auto headingTo = [&](float x, float z) { return normalizeDegrees(std::atan2(x - c.x, z - c.z) * 57.29578f); };
+    auto cellHeading = [&](const std::string& a, const std::string& b) {
+        float x, z;
+        grid_.centre({std::atoi(a.c_str()), std::atoi(b.c_str())}, x, z);
+        return headingTo(x, z);
+    };
+    auto upDown = [](const std::string& w) { return w == "up" ? 1 : w == "down" ? 2 : 0; };
+    handled = true;
+    if (v == "turn") {
+        // The head (0x40b7a8); it never waits.
+        if (a1 == "home" && a2 == "all") {
+            for (Character& ch : characters_)
+                ch.actor->headHome();
+        } else if (a1 == "home") {
+            c.actor->headHome();
+        } else if ((a1 == "up" || a1 == "down") && a2.empty()) {
+            c.actor->headAnimation("head" + a1, e.arg(2).empty() ? 0.5f : float(std::atof(e.arg(2).c_str())));
+        } else if (!a3.empty() || (!a2.empty() && a2 != "up" && a2 != "down")) {
+            // "turn a b [up|down]": toward a cell.
+            c.actor->turnHead(cellHeading(a1, a2), body, upDown(a3));
+        } else {
+            // Toward an object, else so many degrees from the body (more
+            // to its left).
+            float x, z;
+            const float heading =
+                objectAt(a1, x, z) ? headingTo(x, z) : normalizeDegrees(float(std::atof(a1.c_str())) + body);
+            c.actor->turnHead(heading, body, upDown(a2));
+        }
+        return false;
+    }
+    if (v == "look") {
+        // The eyes (0x40a5f1); a strength, not seconds; it never waits.
+        c.actor->look(a1, e.arg(2).empty() ? 1.0f : float(std::atof(e.arg(2).c_str())));
+        return false;
+    }
+    if (v == "rotate") {
+        // The body (0x40bfca): to a cell, a walk point's heading ("-sp2"
+        // the other way: facing the door), home, the camera, an object,
+        // or a heading in degrees.
+        float heading = 0;
+        bool have = true;
+        if (!a2.empty()) {
+            heading = cellHeading(a1, a2);
+        } else if (std::atof(a1.c_str()) == 0 && a1 != "0") {
+            const bool back = !a1.empty() && a1[0] == '-';
+            const std::string name = back ? a1.substr(1) : a1;
+            have = false;
+            if (name == "home") {
+                heading = c.home, have = true;
+            } else if (name.size() > 2 && name.compare(0, 2, "sp") == 0 && c.record) {
+                if (const Ac2Record* w = c.record->part("WALK"))
+                    for (const Ac2Record& pt : w->parts)
+                        if (pt.i("id") == std::atoi(name.c_str() + 2)) {
+                            heading = normalizeDegrees(pt.f("rotY") * 57.29578f), have = true;
+                            if (back)
+                                heading += heading <= 180 ? 180 : -180;
+                        }
+            } else if (name == "camera" && scene_.camera()) {
+                heading = normalizeDegrees(scene_.camera()->f("yaw") * 57.29578f), have = true; // a guess
+            } else {
+                float x, z;
+                if (objectAt(name, x, z))
+                    heading = headingTo(x, z), have = true;
+            }
+        } else {
+            heading = float(std::atof(a1.c_str()));
+        }
+        if (!have || !c.path.empty() || !c.actor->rotateTo(heading, body))
+            return false;
+        if (wait)
+            c.waiting = &runner, c.waitVerb = "rotate";
+        return wait;
+    }
+    if (v == "anim") {
+        // anim <name> [weight] [loops] [ease] (0x40c367). Done when it
+        // ends; at once if there's no such file (the game would wait for
+        // ever).
+        const float weight = float(std::atof(e.arg(2).c_str()));
+        const int loops = e.arg(3).empty() ? 1 : std::atoi(e.arg(3).c_str());
+        const std::string played = c.actor->anim(a1, weight, loops, float(std::atof(e.arg(4).c_str())));
+        if (played.empty() || loops == 0 || !wait)
+            return false;
+        c.waiting = &runner, c.waitVerb = "anim", c.waitAnim = a1, c.waitAnimAs = played;
+        return true;
+    }
+    if (v == "animate") {
+        c.actor->advance(float(std::atof(a1.c_str())));
+        return false;
+    }
+    if (v == "pause" || v == "resume") {
+        // The character's routine stops, its walk or turn with it, and
+        // starts its interrupted event again when resumed (0x4057f0).
+        if (v == "pause" && c.routine && !c.paused) {
+            c.paused = true;
+            c.routine->restart();
+            if (c.waiting == c.routine.get())
+                c.waiting = nullptr;
+            c.path.clear();
+            c.actor->play("idle1", 0, 0);
+        } else if (v == "resume") {
+            c.paused = false;
+        }
+        return false;
+    }
+    if (v == "loop") {
+        queueRoutine(c);
+        return false;
+    }
+    if (v == "attach" || v == "detach") {
+        // models\objects\<name>_model.gr2, moved by the character's own
+        // animations (0x426290, 0x4262d0).
+        if (v == "detach") {
+            c.props.erase(std::remove_if(c.props.begin(), c.props.end(),
+                                         [&](const auto& p) { return p.first.find(a1) != std::string::npos; }),
+                          c.props.end());
+            return false;
+        }
+        const std::string path = "models/objects/" + a1 + "_model.gr2";
+        for (const auto& p : c.props)
+            if (p.first == path)
+                return false;
+        if (auto m = propModel(path))
+            c.props.push_back({path, m});
+        return false;
+    }
+    if (v == "hideshadow" || v == "showshadow")
+        return false; // no shadows drawn yet
+    handled = false;
+    return false;
 }
 
 // --- Dialogue -----------------------------------------------------------------
@@ -1378,6 +1621,7 @@ bool ScenePage::playVoice(const std::string& file) {
     if (!ctx_.mixer || ctx_.files.read(file, data) || audio::decodeSound(data, *sound))
         return false;
     voice_ = ctx_.mixer->play(sound, audio::SoundType::Speech);
+    voiceSound_ = sound;
     return voice_ != audio::kNoSound;
 }
 
@@ -1403,7 +1647,55 @@ std::string ScenePage::sceneName() {
 }
 
 void ScenePage::turnHead(const std::string& speaker, const std::string& target) {
-    logScript("    (" + speaker + " looks " + (target.empty() ? std::string("home") : target) + ")");
+    // A line's Target (0x43bd30): "up"/"down" [w], a cell "a b [up|down]",
+    // someone "[up|down]"; empty: home again.
+    Character* c = characterNamed(speaker);
+    if (!c && fs::toLower(speaker) == "poirot")
+        c = characterNamed("poirotbed");
+    if (!c)
+        return;
+    std::vector<std::string> w;
+    for (const Command& cmd : parseCommands(target))
+        for (const std::string& word : cmd.words)
+            w.push_back(fs::toLower(word));
+    if (w.empty() || w[0] == "0") {
+        c->actor->headHome();
+        return;
+    }
+    ScriptEvent e{{"turn"}};
+    e.words.insert(e.words.end(), w.begin(), w.end());
+    bool handled = false;
+    startCharacterVerb(*runner_, *c, e, false, handled);
+}
+
+void ScenePage::lineStarted(const std::string& speaker) {
+    if (Character* c = characterNamed(speaker))
+        c->actor->lineStart();
+}
+
+void ScenePage::lineEnded(const std::string& speaker) {
+    if (Character* c = characterNamed(speaker))
+        c->actor->lineEnd();
+}
+
+void ScenePage::mouth(const std::string& speaker, bool on) {
+    if (Character* c = characterNamed(speaker))
+        c->actor->mouth(on);
+}
+
+int ScenePage::voiceLevel() {
+    // How loud the voice is where it plays: its samples over a thirtieth
+    // of a second, 0 when about silent.
+    if (!ctx_.mixer || !voiceSound_ || voice_ == audio::kNoSound || voiceSound_->channels <= 0)
+        return -1;
+    const size_t at = size_t(ctx_.mixer->position(voice_));
+    const size_t ch = size_t(voiceSound_->channels), frames = voiceSound_->frames();
+    const size_t span = size_t(std::max(1, voiceSound_->rate / 30));
+    double sum = 0;
+    size_t n = 0;
+    for (size_t f = at; f < std::min(frames, at + span); f++, n++)
+        sum += std::abs(double(voiceSound_->samples[f * ch]));
+    return n && sum / double(n) > 600 ? 1 : 0;
 }
 
 const Ac2Record* ScenePage::characterAt(int sx, int sy) const {
@@ -1448,8 +1740,23 @@ std::string ScenePage::scriptText(const std::string& name) {
 bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
     const std::string& v = e.verb();
     auto lower = [](const std::string& t) { return fs::toLower(t); };
+    {
+        bool handled = false;
+        Character* c = scriptCharacter(runner);
+        if (v == "pause" || v == "resume" || v == "loop" || v == "attach" || v == "detach")
+            c = v == "loop" ? nullptr : characterNamed(e.arg(1)) ? characterNamed(e.arg(1)) : c;
+        if (v == "loop")
+            for (Character& ch : characters_)
+                if (ch.routine.get() == &runner)
+                    c = &ch;
+        if (c) {
+            const bool waits = startCharacterVerb(runner, *c, e, wait, handled);
+            if (handled)
+                return waits;
+        }
+    }
     if (v == "walk" || v == "run") {
-        Character* c = scriptCharacter();
+        Character* c = scriptCharacter(runner);
         if (!c || grid_.empty())
             return false;
         WalkGrid::Cell goal;
@@ -1476,10 +1783,10 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
         } else {
             goal = {std::atoi(e.arg(1).c_str()), std::atoi(e.arg(2).c_str())};
         }
-        if (!walkCharacter(*c, goal, toPoint))
+        if (!walkCharacter(*c, goal, toPoint, v == "run"))
             return false;
         if (wait)
-            walkVerb_ = v, walkRunner_ = &runner;
+            c->waiting = &runner, c->waitVerb = v;
         return wait;
     }
     if (v == "scene" || v == "gotoscene") {
@@ -1604,6 +1911,7 @@ void ScenePage::handleEvent(const Event& ev) {
             // A character's own script: a talk then offers its generic
             // lines and goodbyes (0x4162a3).
             runner_->setFromCharacter(true);
+            resumeAfter_ = who;
             runScript(*who);
         }
         else

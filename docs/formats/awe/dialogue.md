@@ -468,12 +468,13 @@ no animation; the line still plays.
   `"sound\vo\" + line+0x111e`, then `"_%d"` with the alternative index if it is
   > 0, then `".wav"`. Example: `sound\vo\gen_locked01aa_1.wav`. Played with
   `0x424f90(path, 0, -1, 0, 1)`; the handle goes to +0x528.
-* No voice (play failed, so +0x528 = 0): stop the talking anim (`0x4046c0`).
+* No voice (play failed, so +0x528 = 0): the mouth moves all along
+  (`0x4046c0` starts `talk`).
   Text timer +0x28 = Duration's second number if > 0, else
   `wcslen(text)/15` seconds (integer division), at least 1.0.
 * Voice playing: +0x28 = 0. Lip sync each frame (0x43d3c0): the voice level
-  (`0x425140`) ≠ -1 and changed → `0x4046f0` (mouth on) if > 0, else
-  `0x4046c0`.
+  (`0x425140`) ≠ -1 and changed → `0x4046c0` (mouth on) if > 0, else
+  `0x4046f0` (mouth off). See [characters.md](characters.md#talking).
 
 ### 4.3 Event and the event file, 0x43c100 (sure)
 

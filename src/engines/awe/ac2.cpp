@@ -229,10 +229,18 @@ const FieldSpec kAnimSprite[] = {{"dec", F::F32}, {"df0", F::F32}, {"df4", F::F3
                                  {"dfa", F::U16}, {"dfc", F::U16}, {"e02", F::U16}};
 const FieldSpec kBink[] = {{"de4", F::F32}, {"yaw", F::F32}, {"pitch", F::F32}, {"roll", F::F32}, {"dd8", F::F32}};
 const FieldSpec kItem[] = {{"name", F::Str32}, {"e10", F::Str}, {"1610", F::U16}, {"1612", F::U16}};
-const FieldSpec kModel[] = {{"da0", F::U32},   {"list", F::StrPairs}, {"e30", F::U32}, {"e34", F::U32},
-                            {"anim", F::Str32}, {"anim2", F::Str32},  {"e38", F::U32}, {"text", F::Str}};
-const FieldSpec kAnimation[] = {{"10cc", F::F32}, {"10d4", F::F32}, {"10d8", F::F32}, {"10dc", F::F32},
-                                {"10e0", F::F32}, {"10e4", F::U16}, {"10e6", F::U16}, {"10e8", F::U16}};
+// MODL: the shadow flag (+0xda0), models attached at load, the track mask
+// of a pose (+0xe40, "sit": TrackMasksit) and the prefix tried on every
+// animation's name (+0xe80, "sit": sitidle1), and when those two apply
+// (+0xec0).
+const FieldSpec kModel[] = {{"shadow", F::U32}, {"list", F::StrPairs}, {"e30", F::U32}, {"e34", F::U32},
+                            {"anim", F::Str32},  {"anim2", F::Str32},  {"e38", F::U32}, {"condition", F::Str}};
+// ANIM: the talk ease (the base ease is twice it), the blink interval
+// (min, max), the idle variations' interval (min, max) and the chances
+// of variations 2, 3 and 4 on (percent).
+const FieldSpec kAnimation[] = {{"talkEase", F::F32},  {"blinkMin", F::F32}, {"blinkMax", F::F32},
+                                {"idleMin", F::F32},   {"idleMax", F::F32},  {"idle2", F::U16},
+                                {"idle3", F::U16},     {"idle4", F::U16}};
 const FieldSpec kSystem[] = {
     {"df0", F::F32}, {"df4", F::F32}, {"df8", F::F32}, {"dc8", F::F32}, {"dcc", F::F32}, {"dd0", F::F32},
     {"dc4", F::U16}, {"dd4", F::F32}, {"dec", F::U16}, {"dea", F::U16}, {"de4", F::F32}, {"de8", F::U16},
@@ -273,8 +281,9 @@ void readCharacter(Reader& r, Ac2Record& rec) {
         Ac2Record& a = rec.parts.back();
         const uint16_t n = r.u16();
         r.fields(a, kAnimation, std::size(kAnimation), n);
-        // Fields beyond the eighth: named animations, each a name and two
-        // short ones.
+        // Fields beyond the eighth: renamed animations, each a condition,
+        // the name scripts use and the file played for it ("alias /
+        // file").
         for (int k = 8; k < n && !r.fail(); k++) {
             Ac2Value v;
             v.type = T::TextPairs;

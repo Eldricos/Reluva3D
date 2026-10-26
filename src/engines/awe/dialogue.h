@@ -101,6 +101,17 @@ public:
         (void)speaker;
         (void)target;
     }
+    // The speaker's talking: a line starts (talkidle1: 0x404720) and ends
+    // (0x404760); the mouth moves or stops (0x4046c0, 0x4046f0).
+    virtual void lineStarted(const std::string& speaker) { (void)speaker; }
+    virtual void lineEnded(const std::string& speaker) { (void)speaker; }
+    virtual void mouth(const std::string& speaker, bool on) {
+        (void)speaker;
+        (void)on;
+    }
+    // The voice's level now (0x425140): 0 silent, more when it's loud; -1
+    // if unknown.
+    virtual int voiceLevel() { return -1; }
 };
 
 class DialogueManager {
@@ -194,6 +205,8 @@ private:
     int pending_ = 0; // after the Povent: 1 end the talk, 2 the next line, 3 the menu
     int colour_ = 8;
     std::string lastSpeaker_;
+    std::string speaker_; // whose line plays
+    int level_ = -1;      // the voice's last level
     std::string prefix_; // gen_<npc>_
     std::vector<std::string> turned_;
     // The box.

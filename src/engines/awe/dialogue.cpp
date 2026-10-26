@@ -581,10 +581,17 @@ void DialogueManager::speak() {
         if (std::find(turned_.begin(), turned_.end(), l.speaker) == turned_.end())
             turned_.push_back(l.speaker);
     }
+    speaker_ = l.speaker;
+    host_.lineStarted(speaker_);
     host_.stopVoice();
     voice_ = host_.playVoice(l.voiceFile());
-    if (!voice_)
+    level_ = -1;
+    // Without a voice the mouth moves all along (0x4046c0); with one, as
+    // its level does (0x43d3c0).
+    if (!voice_) {
         textLeft_ = l.duration > 0 ? l.duration : std::max(1.0f, float(int(l.text.size()) / 15));
+        host_.mouth(speaker_, true);
+    }
     // The Event column, else the line's event file, alongside the line.
     events_.clear();
     events_.setCharacter(l.speaker);
@@ -605,6 +612,7 @@ void DialogueManager::speak() {
 void DialogueManager::lineEnd() {
     host_.stopVoice();
     voice_ = false;
+    host_.lineEnded(speaker_);
     playing_ = false;
     events_.fastForward();
     Thread& t = part_->threads[size_t(thread_)];
@@ -753,6 +761,13 @@ void DialogueManager::update(float dt) {
     if (playing_) {
         events_.update(dt);
         lineTime_ += dt;
+        if (voice_) {
+            const int level = host_.voiceLevel();
+            if (level != -1 && level != level_) {
+                host_.mouth(speaker_, level > 0);
+                level_ = level;
+            }
+        }
         if (voice_ ? !host_.voicePlaying() : (textLeft_ -= dt) <= 0)
             lineEnd();
     }

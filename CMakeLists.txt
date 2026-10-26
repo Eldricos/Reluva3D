@@ -196,6 +196,8 @@ if(RELUVA_ENGINE_AWE)
         src/engines/awe/conditions.cpp
         src/engines/awe/script.cpp
         src/engines/awe/story.cpp
+        src/engines/awe/animator.cpp
+        src/engines/awe/actor.cpp
         src/engines/awe/dialogue.cpp
         src/engines/awe/dialogue_box.cpp
         src/engines/awe/sprite.cpp

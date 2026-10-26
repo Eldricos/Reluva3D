@@ -45,7 +45,8 @@ Verbs that wait have a form ending in `a` that doesn't: `walka`, `runa`,
 `talka`, `fadea`, `sounda`, `anima`, `turna`, `rotatea`, `playa`. Its
 handler starts the same thing and ends the event at once, so the script
 goes on while the walk (or sound...) does. Only `walka`, `rotatea`,
-`sounda` and `anima` are used.
+`sounda` and `anima` are used. (`turn` and `look` never wait, `a` or
+not.)
 
 `wait <seconds>` is the runner's own: it counts down, then ends.
 `setchar <name>` chooses the character that later events
@@ -84,16 +85,16 @@ scenes, menus).
 | Verb | Uses | Arguments | What it does |
 |------|-----:|-----------|--------------|
 | `talk` | 1107 | conversation, code (`a`, `ab`, `a+`, `1`), options (`nogen`, `forcegen`, `nogreet`, a number) | starts a conversation ([dialogue.md](dialogue.md)); waits until it's over |
-| `turn` | 1030 | degrees, a character's name, `home`, `up`/`down` | turns the character's head |
+| `turn` | 1030 | degrees, a character's name, a cell, `home`, `up`/`down` | turns the character's head ([characters.md](characters.md)); doesn't wait |
 | `scene` | 1026 | scene, walk point, a flag | goes to a scene (`0x423d40`): the act's variant of it, the player at its walk point (default 1); waits while it loads |
 | `wait` | 853 | seconds | waits |
 | `tag` | 841 | name, value / `+n` / `-n` | sets a story tag (`0x410940`): `tag x` sets 0, `+n` and `-n` add |
-| `anim` | 778 | animation, speed? | plays the character's `<who>_<anim>.gr2`; waits |
+| `anim` | 778 | animation, weight, loops, ease | plays the character's `<who>_<anim>.gr2` ([characters.md](characters.md)); waits |
 | `walk` | 433 | a cell (`walk 31 0`), a walk point (`sp3`), or a character | walks there along a path; waits |
 | `fade` | 416 | `in`/`out`, a picture | fades the screen; waits |
 | `setchar` | 361 | character | chooses who the next events act on |
-| `rotate` | 356 | degrees, a character, `-sp<n>` | turns the character's body; waits |
-| `look` | 297 | `left`/`right`/`home`, seconds | the character's eyes and head; waits |
+| `rotate` | 356 | degrees, a character, a cell, `home`, `-sp<n>` | turns the character's body; waits |
+| `look` | 297 | `left`/`right`/`home`, strength | the character's eyes; doesn't wait |
 | `sounda` | 263 | sound | plays `Sound\<name>.wav` |
 | `anima` | 229 | animation | `anim` without waiting |
 | `take` | 219 | item, or `this` | adds the item and hides its object (`this`: the hotspot, its item named by its picture, `...\sce<item>.png`) |
@@ -152,6 +153,7 @@ script, or the first of its conditional scripts whose condition holds.
 It does `walk` and `run` (along the game's paths, to cells, walk points
 or characters), `talk` (with the dialogue manager: [dialogue.md](dialogue.md)),
 `act` and `scene`/`gotoscene` (with `Story`: [acts.md](acts.md)), `fade`,
-`sound`/`sounda`, `hide`, `show`, `take` and `update`. It logs the rest
-in its info panel and ends them at once. Next: `turn`, `rotate`, `look`
-and `anim` on the characters.
+`sound`/`sounda`, `hide`, `show`, `take` and `update`, and the
+characters' verbs (`anim`, `turn`, `look`, `rotate`, `animate`, `pause`,
+`resume`, `loop`, `attach`, `detach`: [characters.md](characters.md)).
+It logs the rest in its info panel and ends them at once.

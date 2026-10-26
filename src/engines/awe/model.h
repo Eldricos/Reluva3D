@@ -8,6 +8,7 @@
 
 #include <array>
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -68,6 +69,9 @@ struct Model {
     std::vector<ModelMesh> meshes;
     std::vector<ModelTexture> textures;
     float unitsPerMeter = 100;
+    // The skeleton's track masks by name ("sitidle1"), each a weight by
+    // bone name: a seated character's animations are limited to one.
+    std::map<std::string, std::map<std::string, float>> masks;
     // Model space: Z up (3D Studio MAX's), as the files say.
 };
 
@@ -95,6 +99,10 @@ struct Animation {
     std::string name;
     float duration = 0, timeStep = 0;
     std::vector<AnimationTrack> tracks;
+    // How much each bone follows it, by bone name (its file's skeleton's
+    // TrackMask; the game's mask for layering it over others). Empty if
+    // the file has none.
+    std::map<std::string, float> mask;
 };
 
 // Reads the file's first animation (its first track group). Curves in
@@ -118,6 +126,11 @@ struct BoneTurn {
 // stay at rest), with any `turns` added.
 void computePose(const Model& model, const Animation* animation, float time, Pose& out,
                  const std::vector<BoneTurn>* turns = nullptr);
+// The same in two steps: each bone's transform relative to its parent
+// (rest where the animation has no track), and the pose those make.
+void sampleLocal(const Model& model, const Animation* animation, float time, std::vector<BoneTransform>& local);
+void poseFromLocal(const Model& model, std::vector<BoneTransform> local, Pose& out,
+                   const std::vector<BoneTurn>* turns = nullptr);
 // Skins a mesh's vertices for the pose: positions and normals.
 void skin(const ModelMesh& mesh, const Pose& pose, std::vector<std::array<float, 3>>& positions,
           std::vector<std::array<float, 3>>& normals);

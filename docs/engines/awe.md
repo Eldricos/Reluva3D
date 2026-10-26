@@ -80,6 +80,12 @@ scenes, two Granny files, the text tables, two backgrounds):
   [../formats/awe/acts.md](../formats/awe/acts.md)). Scene music, timers,
   completion conditions, `savescene`/`gotoscene` and fades work; movies
   inside the game, loading screens and saved games don't yet.
+- **Characters: animated as the game animates them.** Up to ten
+  animations each on body, head and eye layers, blended by the files'
+  track masks; blinking, idle gestures and their routines; `anim`,
+  `turn`, `look`, `rotate`, `pause`/`resume`, `attach`; talking in
+  conversations, heads turned to their Target and mouths moving with the
+  voice (see [../formats/awe/characters.md](../formats/awe/characters.md)).
 - **Particles** (`SNOW`, `RAIN`, `PART`) are simulated by the rules of
   the game's own update method and drawn as its point sprites are, among
   the scene's 2D layers by depth (snow outside the Salon's windows when
@@ -131,8 +137,8 @@ Next:
    records and member types the samples didn't have.
 2. A native port of the path-finder's lattice search (`0x42f1f0`),
    checked path for path against the game's (`awe-path`).
-3. The characters' verbs (`turn`, `rotate`, `look`, `anim`, the heads
-   and mouths in dialogue), and movies inside a game.
+3. Movies inside a game, loading screens, saved games; walking in, and
+   the characters' shadows.
 4. Native decoding of the compressed curve formats (the DLL expands them
    for now).
 5. Native Oodle1 and Bink-texture decoding, checked against the DLL, to
