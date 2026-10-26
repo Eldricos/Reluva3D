@@ -12,6 +12,7 @@
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/scene.h"
+#include "engines/idtech3/eliteforce/sp_savegame.h"
 #include "engines/idtech3/light_grid.h"
 #include "engines/idtech3/marks.h"
 #include "engines/idtech3/md3.h"
@@ -81,8 +82,10 @@ public:
     Error load(const std::vector<uint8_t>& dll);
     // Starts a level: the map's cvars, then the game's Init with the map's
     // entity text. `checksum`: the map file's (mapChecksum()).
+    // `loadMode`: 0 a new level, 1 a saved game being loaded, 2 an
+    // autosave (the game's Init and ClientConnect are told).
     Error startLevel(const std::string& mapName, std::shared_ptr<const Bsp> map, int32_t checksum,
-                     int32_t randomSeed = 0);
+                     int32_t randomSeed = 0, int32_t loadMode = 0);
     // A map file's checksum as the original's engine makes it (MD4, its
     // four words XOR'd together), which the game is handed.
     static int32_t mapChecksum(const std::vector<uint8_t>& file);
@@ -91,9 +94,30 @@ public:
     static void writeGlconfigTo(x86::Cpu& cpu, uint32_t address);
     // The player joining (ClientConnect, then ClientBegin); `refused` gets
     // the game's reason if it says no.
-    Error connectPlayer(const std::string& userinfo, std::string& refused);
+    Error connectPlayer(const std::string& userinfo, std::string& refused, int32_t loadMode = 0);
     // One server frame: the level time moves on and the game's RunFrame.
     Error runFrame();
+    // --- Saved games (sp_savegame.h) ---------------------------------------
+    // Where the game's own chunks go (AppendToSaveGame) and come from
+    // (ReadFromSaveGame); none: it can't save or load.
+    void setSaveStream(SaveWriter* writer, SaveReader* reader) {
+        saveWriter_ = writer;
+        saveReader_ = reader;
+    }
+    // The game's WriteLevel and ReadLevel (`autosave`: the level's start,
+    // carrying the player over).
+    Error writeLevel(bool autosave);
+    Error readLevel(bool autosave);
+    // The player's state into the playersave, playerammo<n> and
+    // borgadapt<n> cvars, as before a level change.
+    void savePlayer();
+    // The player's state (0 if there's none yet) and health.
+    uint32_t playerState() const;
+    int32_t playerHealth() const;
+    static constexpr uint32_t kPsHealth = 0xbc; // stats[STAT_HEALTH]
+    void setLevelTime(int32_t ms) { levelTime_ = ms; }
+    void replaceConfigstrings(const std::map<int32_t, std::string>& strings);
+
     // The game's GameAllowedToSaveHere(flag), which the menus ask through
     // the engine before opening (0 if the call fails).
     uint32_t allowedToSaveHere(uint32_t flag);
@@ -263,7 +287,8 @@ private:
     std::map<int32_t, std::string> configstrings_, userinfo_;
     std::vector<std::string> consoleCommands_;
     std::vector<std::pair<int32_t, std::string>> serverCommands_;
-    std::map<std::string, std::vector<uint8_t>> saveChunks_;
+    SaveWriter* saveWriter_ = nullptr;
+    SaveReader* saveReader_ = nullptr;
     std::map<int, int> callCounts_, cgameCallCounts_, cgameUnhandled_;
     // Voices playing (sounds on CHAN_VOICE, 3, or CHAN_VOICE_ATTEN, 4), by
     // entity: what the game reads in VoiceVolume (import slot 37) to know

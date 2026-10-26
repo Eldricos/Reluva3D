@@ -172,6 +172,7 @@ if(RELUVA_ENGINE_IDTECH3)
     src/engines/idtech3/eliteforce/game_host.cpp
     src/engines/idtech3/eliteforce/sp_game_host.cpp
     src/engines/idtech3/eliteforce/sp_ui_host.cpp
+    src/engines/idtech3/eliteforce/sp_savegame.cpp
     src/engines/idtech3/eliteforce/game_bots.cpp
     src/engines/idtech3/eliteforce/cgame_host.cpp
     src/engines/idtech3/eliteforce/scene.cpp

@@ -16,6 +16,7 @@
 
 #include <array>
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <map>
 #include <memory>
@@ -55,6 +56,20 @@ public:
     Error setActiveMenu(const std::string& name);
     // A console command for them; `handled` gets whether they knew it.
     Error consoleCommand(const std::string& text, bool* handled = nullptr);
+
+    // --- Saved games ----------------------------------------------------------
+    static constexpr uint32_t kShotSize = 256 * 256 * 4;
+    // A saved game's file by name (no folder or extension); false if
+    // there's none.
+    std::function<bool(const std::string& name, std::vector<uint8_t>& file)> readSave;
+    // Where saved games are written, listed with the game's own.
+    std::filesystem::path saveDir;
+    // The comment the save menu set for the next save (its description).
+    std::string saveComment;
+    // The picture of the game for the next save (256 x 256 RGBA, rows top
+    // first), taken as the in-game menu opens; empty: none.
+    void setCapture(const std::vector<uint8_t>& rgba);
+    std::vector<uint8_t> capture() const;
 
     // Who has the keys (kCatchUi while a menu is open), as they set it.
     int32_t catcher() const { return catcher_; }
@@ -109,7 +124,8 @@ private:
     std::unique_ptr<x86::Cpu> cpu_;
     std::unique_ptr<x86::Win32Process> process_;
     const x86::Win32Process::Module* module_ = nullptr;
-    uint32_t imports_ = 0, exports_ = 0, scratch_ = 0;
+    uint32_t imports_ = 0, exports_ = 0, scratch_ = 0, comment_ = 0, capture_ = 0;
+    bool captured_ = false;
     std::vector<std::string> args_;
     std::vector<std::string> commands_;
     int32_t catcher_ = 0;

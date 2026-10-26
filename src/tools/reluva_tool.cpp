@@ -123,6 +123,7 @@
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
+#include "engines/idtech3/eliteforce/sp_savegame.h"
 #include "engines/idtech3/eliteforce/sp_ui_host.h"
 #include "engines/idtech3/eliteforce/net_client.h"
 #include "engines/idtech3/eliteforce/net_server.h"
@@ -3859,7 +3860,7 @@ int cmdSpMenus(int argc, char** argv) {
 int cmdSpRun(int argc, char** argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] "
-                             "[-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus]\n");
+                             "[-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus] [-saveload]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -3868,6 +3869,7 @@ int cmdSpRun(int argc, char** argv) {
     bool traceCalls = false, noClient = false, runCgame = false, watch = false;
     std::vector<std::string> finds; // -find text: entities with a text field containing it
     bool icarusNames = false;       // -icarus: the script system's table of entity names
+    bool saveLoad = false;          // -saveload: save at the end, load into a fresh game
     std::string dllPath;
     std::vector<std::pair<std::string, std::string>> settings;
     for (int i = 4; i < argc; ++i) {
@@ -3887,6 +3889,8 @@ int cmdSpRun(int argc, char** argv) {
             finds.push_back(reluva::fs::toLower(argv[++i]));
         else if (std::strcmp(argv[i], "-icarus") == 0)
             icarusNames = true;
+        else if (std::strcmp(argv[i], "-saveload") == 0)
+            saveLoad = true;
         else if (std::strcmp(argv[i], "-set") == 0 && i + 2 < argc) {
             settings.emplace_back(argv[i + 1], argv[i + 2]);
             i += 2;
@@ -4081,6 +4085,39 @@ int cmdSpRun(int argc, char** argv) {
     std::printf("%d frames run (level time %d ms): %d entities, %zu linked; %llu instructions in %.2f s\n", frames,
                 game.levelTime(), game.entityCount(), game.linked().size(),
                 (unsigned long long)game.cpu().executed(), seconds);
+    // -saveload: the game's own part of a saved game (WriteLevel), then a
+    // fresh copy of the game started on the level as for loading it
+    // (ReadLevel), as a check that what it writes reads back.
+    if (saveLoad) {
+        namespace efs = reluva::idtech3::eliteforce;
+        efs::SaveWriter w;
+        game.setSaveStream(&w, nullptr);
+        reluva::Error e = game.writeLevel(false);
+        game.setSaveStream(nullptr, nullptr);
+        if (e)
+            return failed("WriteLevel", e), 1;
+        std::printf("saved: %zu bytes from the game\n", w.bytes().size());
+        ef::SpGameHost loaded(set, cvars);
+        loaded.print = game.print;
+        efs::SaveReader r(w.bytes());
+        if ((e = loaded.load(dll)))
+            return failed("Loading the DLL again", e), 1;
+        loaded.setSaveStream(nullptr, &r);
+        if ((e = loaded.startLevel(map, bsp, ef::SpGameHost::mapChecksum(data), 0, 1)))
+            return failed("Starting the level to load", e), 1;
+        if ((e = loaded.readLevel(false)))
+            return failed("ReadLevel", e), 1;
+        loaded.setSaveStream(nullptr, nullptr);
+        std::printf("loaded: %s\n", r.atEnd() ? "every chunk read back" : "chunks left over");
+        std::string refused;
+        if ((e = loaded.connectPlayer("\\name\\Munro\\model\\munro/main", refused, 1)))
+            return failed("The player joining the loaded game", e), 1;
+        for (int f = 0; f < 20; ++f)
+            if ((e = loaded.runFrame()))
+                return failed("A frame of the loaded game", e), 1;
+        std::printf("the loaded game ran 20 frames: level time %d ms, %d entities\n", loaded.levelTime(),
+                    loaded.entityCount());
+    }
     // Entities with a text field (a pointer to text) containing what was
     // asked for: each such field's offset and text, and the entity's other
     // text fields, for telling what they are.

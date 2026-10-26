@@ -514,8 +514,17 @@ public:
     bool takesKey(const Event& ev) const override;
 
 private:
-    void start(int index);
+    // A level: new (loadMode 0), or a saved game's (1, or 2 for an
+    // autosave) read on from `save` after its header.
+    void start(int index, int32_t loadMode = 0, eliteforce::SaveReader* save = nullptr);
     void stop(const std::string& why);
+    // Saved games (saves/<name>.sav), as the original's save, load and
+    // wipe commands; an autosave ("auto") as each new level starts.
+    void saveGame(const std::string& name, bool autosave);
+    void loadGame(std::string name);
+    bool readSave(const std::string& name, std::vector<uint8_t>& file) const;
+    std::vector<uint8_t> levelShot(const std::string& map) const;
+    void runGameCommands();
     void endGame();
     void runGame(uint64_t nowMs);
     void runBinding(const std::string& line, int32_t key, bool down);
@@ -528,10 +537,18 @@ private:
     bool menusHaveKeys() const;
     void menuKey(int32_t key);
     void runMenuCommands();
-    void runCommand(const std::string& line);
+    void runCommand(const std::string& line, bool fromGame = false);
     void menusStopped(const Error& err);
 
     std::vector<std::string> names_; // the single-player maps
+    std::string map_;                // the level running
+    std::string lastLoaded_;         // the saved game last loaded, for "load *respawn"
+    std::filesystem::path saveDir_;  // where saved games are written
+    size_t gameCommandsRun_ = 0;     // of the game's console commands
+    // The in-game menu waits a frame while the game is captured for the
+    // save menu's picture.
+    std::string pendingMenu_;
+    bool capturing_ = false;
     int index_ = 0;
     std::vector<uint8_t> dll_;       // efgamex86.dll
     std::vector<uint8_t> uiDll_;     // efuix86.dll

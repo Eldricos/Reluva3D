@@ -6,6 +6,7 @@
 #include "engines/idtech3/viewers.h"
 
 #include "common/font.h"
+#include "common/image.h"
 #include "common/fs.h"
 
 #include <algorithm>
@@ -13,6 +14,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <ctime>
 #include <fstream>
 
 namespace reluva::idtech3 {
@@ -87,6 +89,7 @@ void SpPlayViewer::activate() {
     if (ctx_.mixer)
         soundSystem_ = std::make_unique<SoundSystem>(*ctx_.mixer, soundLibrary_);
     startMs_ = 0;
+    saveDir_ = ctx_.savePath.empty() ? std::filesystem::path() : ctx_.savePath / "saves";
     if (!uiDll_.empty())
         startMenus();
     if (!ui_)
@@ -111,6 +114,8 @@ void SpPlayViewer::startMenus() {
         out = it->second;
         return true;
     };
+    ui_->saveDir = saveDir_;
+    ui_->readSave = [this](const std::string& name, std::vector<uint8_t>& file) { return readSave(name, file); };
     ui_->askGame = [this](uint32_t flag) { return game_ ? game_->allowedToSaveHere(flag) : flag; };
     if (Error err = ui_->load(uiDll_))
         return menusStopped(err);
@@ -142,17 +147,28 @@ void SpPlayViewer::runMenuCommands() {
         runCommand(line);
 }
 
-void SpPlayViewer::runCommand(const std::string& line) {
-    // What the menus run, as the original's console would.
+void SpPlayViewer::runCommand(const std::string& line, bool fromGame) {
+    // What the menus and the game run, as the original's console would.
     const std::vector<std::string> w = splitCommand(line);
     if (w.empty())
         return;
     lastCommand_ = line;
     lastCommandMs_ = nowMs_;
     const std::string cmd = fs::toLower(w[0]);
-    if (cmd == "map" || cmd == "devmap" || cmd == "spmap") {
+    if (cmd == "map" || cmd == "devmap" || cmd == "spmap" || cmd == "maptransition") {
         if (w.size() < 2)
             return;
+        // A level change carries the player over (maptransition); a new
+        // start doesn't, and forgets the last level's autosave.
+        if (cmd == "maptransition" && game_) {
+            game_->savePlayer();
+        } else {
+            cvars_.set("playersave", "");
+            if (w[1][0] != '_' && !saveDir_.empty()) {
+                std::error_code ec;
+                std::filesystem::remove(saveDir_ / "auto.sav", ec);
+            }
+        }
         std::string map = fs::toLower(w[1]);
         if (map.size() > 4 && map.compare(map.size() - 4, 4, ".bsp") == 0)
             map.resize(map.size() - 4);
@@ -182,12 +198,28 @@ void SpPlayViewer::runCommand(const std::string& line) {
             text.assign(data.begin(), data.end());
             return true;
         });
-    } else if (cmd == "load" || cmd == "save") {
-        lastCommand_ = line + " (saved games aren't supported yet)";
+    } else if (cmd == "save") {
+        if (w.size() == 2)
+            saveGame(w[1], false);
+        else
+            lastCommand_ = "USAGE: save <filename>";
+    } else if (cmd == "load") {
+        if (w.size() == 2)
+            loadGame(w[1]);
+        else
+            lastCommand_ = "USAGE: load <filename>";
+    } else if (cmd == "wipe") {
+        const std::string name = w.size() == 2 ? fs::toLower(w[1]) : std::string();
+        if (name.empty() || name == "auto" || name == "exitholodeck" || saveDir_.empty()) {
+            lastCommand_ = "Can't wipe 'auto' or 'exitholodeck'";
+        } else {
+            std::error_code ec;
+            std::filesystem::remove(saveDir_ / (w[1] + ".sav"), ec);
+        }
     } else if (cmd == "cvar_restart" || cmd == "snd_restart" || cmd == "in_restart" || cmd == "vid_restart" ||
                cmd == "s_enable_a3d" || cmd == "s_disable_a3d") {
         // Nothing to restart here.
-    } else if (game_) {
+    } else if (game_ && !fromGame) {
         if (Error err = game_->clientConsoleCommand(line))
             stop("The game stopped: " + err.message);
     }
@@ -219,7 +251,7 @@ void SpPlayViewer::endGame() {
     buttons_.clear();
 }
 
-void SpPlayViewer::start(int index) {
+void SpPlayViewer::start(int index, int32_t loadMode, eliteforce::SaveReader* save) {
     if (names_.empty() || !renderer_)
         return;
     index_ = index;
@@ -241,6 +273,10 @@ void SpPlayViewer::start(int index) {
     lastMs_ = 0;
     const std::string& path = names_[size_t(index)];
     std::string map = path.substr(5, path.size() - 9);
+    map_ = map;
+    gameCommandsRun_ = 0;
+    pendingMenu_.clear();
+    capturing_ = false;
     setTitle(map);
 
     // The level: its drawing and light grid, as the Play page's.
@@ -267,10 +303,41 @@ void SpPlayViewer::start(int index) {
     game_->soundSystem = soundSystem_.get();
     if ((err = game_->load(dll_)))
         return stop("efgamex86.dll: " + err.message);
-    if ((err = game_->startLevel(map, bsp, eliteforce::SpGameHost::mapChecksum(data), 0)))
+    // A saved game's chunks are read on as the original's loader does:
+    // the level started, then (but for an autosave) its time and
+    // configstrings, then the game's own.
+    game_->setSaveStream(nullptr, save);
+    if ((err = game_->startLevel(map, bsp, eliteforce::SpGameHost::mapChecksum(data), 0, loadMode)))
         return stop("The game couldn't start the level: " + err.message);
+    if (save) {
+        using eliteforce::chunkId;
+        const bool autosave = loadMode == 2;
+        if (!autosave) {
+            int32_t time = 0, residual = 0, count = 0;
+            std::vector<uint8_t> ignored;
+            if (!(err = save->nextInt(chunkId("TIME"), time)) && !(err = save->nextInt(chunkId("TIMR"), residual)) &&
+                !(err = save->next(chunkId("STRP"), ignored)) && !(err = save->nextInt(chunkId("CSCN"), count))) {
+                game_->setLevelTime(time);
+                std::map<int32_t, std::string> strings;
+                for (int32_t i = 0; i < count && !err; ++i) {
+                    int32_t at = 0;
+                    std::string text;
+                    if (!(err = save->nextInt(chunkId("CSIN"), at)))
+                        err = save->nextText(chunkId("CSDA"), text);
+                    strings[at] = text;
+                }
+                if (!err)
+                    game_->replaceConfigstrings(strings);
+            }
+            if (err)
+                return stop("The saved game couldn't be read: " + err.message);
+        }
+        if ((err = game_->readLevel(autosave)))
+            return stop("The game couldn't read the saved game: " + err.message);
+    }
+    game_->setSaveStream(nullptr, nullptr);
     std::string refused;
-    if ((err = game_->connectPlayer("\\name\\Munro\\model\\munro/main", refused)))
+    if ((err = game_->connectPlayer("\\name\\Munro\\model\\munro/main", refused, loadMode)))
         return stop("The player couldn't join: " + err.message);
     if (!refused.empty())
         return stop("The game refused the player: " + refused);
@@ -280,6 +347,229 @@ void SpPlayViewer::start(int index) {
     // The player's time from where the level is (it has settled for a few
     // frames before they joined).
     clientTime_ = game_->levelTime();
+    // A new level (not one loaded) is saved as "auto" as the player joins,
+    // as the original's (but the holodeck's and the brig's, "_" maps).
+    if (loadMode == 0 && !map.empty() && map[0] != '_')
+        saveGame("auto", true);
+}
+
+bool SpPlayViewer::readSave(const std::string& name, std::vector<uint8_t>& file) const {
+    // Those written here first, then the game folder's own.
+    if (!saveDir_.empty()) {
+        std::ifstream in(saveDir_ / (name + ".sav"), std::ios::binary);
+        if (in) {
+            file.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+            return true;
+        }
+    }
+    return !ctx_.files.read("saves/" + name + ".sav", file);
+}
+
+std::vector<uint8_t> SpPlayViewer::levelShot(const std::string& map) const {
+    // levelshots/<map>.tga at 256 x 256, as an autosave's picture.
+    std::vector<uint8_t> out(eliteforce::SpUiHost::kShotSize, 0);
+    std::vector<uint8_t> data;
+    image::Image img;
+    if (ctx_.files.read("levelshots/" + map + ".tga", data) || image::decode(data, img) || img.w <= 0 || img.h <= 0)
+        return out;
+    for (int y = 0; y < 256; ++y)
+        for (int x = 0; x < 256; ++x)
+            std::memcpy(&out[size_t(y * 256 + x) * 4], img.pixel(x * img.w / 256, y * img.h / 256), 4);
+    return out;
+}
+
+namespace {
+
+bool badSaveName(const std::string& name) {
+    return name.empty() || fs::toLower(name) == "current" || name.find("..") != std::string::npos ||
+           name.find_first_of("/\\:") != std::string::npos;
+}
+
+} // namespace
+
+void SpPlayViewer::saveGame(const std::string& name, bool autosave) {
+    // As the original's save command: the engine's chunks, then the
+    // game's (WriteLevel), to saves/<name>.sav.
+    using eliteforce::chunkId;
+    if (!game_ || !game_->clientGameRunning()) {
+        lastCommand_ = "You must be in a game to save.";
+        return;
+    }
+    if (!autosave) {
+        if (!map_.empty() && map_[0] == '_') {
+            lastCommand_ = "Cannot save on holodeck or brig.";
+            return;
+        }
+        if (game_->playerHealth() <= 0) {
+            lastCommand_ = "Can't savegame while dead!";
+            return;
+        }
+        if (badSaveName(name)) {
+            lastCommand_ = "Bad savegame name.";
+            return;
+        }
+    }
+    if (saveDir_.empty()) {
+        lastCommand_ = "There's nowhere to save games.";
+        return;
+    }
+    if (autosave)
+        game_->savePlayer();
+    eliteforce::SaveWriter w;
+    // Its description: the save menu's, else when and where.
+    std::string comment;
+    if (autosave) {
+        comment = "-------> " + map_;
+    } else if (ui_ && !ui_->saveComment.empty()) {
+        comment = ui_->saveComment;
+    } else {
+        char when[64] = {};
+        const std::time_t t = std::time(nullptr);
+        if (const std::tm* tm = std::localtime(&t))
+            std::strftime(when, sizeof when, "%m/%d/%y %H:%M", tm);
+        comment = std::string(when) + "  " + map_;
+    }
+    w.addText(chunkId("COMM"), comment, 128);
+    w.add(chunkId("SHOT"), autosave || !ui_ ? levelShot(map_) : ui_->capture());
+    w.addText(chunkId("MPCM"), map_, 1024);
+    // The cvars kept with a save (those flagged 2).
+    std::vector<const CvarStore::Cvar*> kept;
+    for (const CvarStore::Cvar& cv : cvars_.all())
+        if (cv.flags & 2)
+            kept.push_back(&cv);
+    w.addInt(chunkId("CVCN"), int32_t(kept.size()));
+    for (const CvarStore::Cvar* cv : kept) {
+        w.addText(chunkId("CVAR"), cv->name);
+        w.addText(chunkId("VALU"), cv->value);
+    }
+    w.addInt(chunkId("GAME"), autosave ? 1 : 0);
+    if (autosave) {
+        // The player carried over from the level before.
+        w.addText(chunkId("CVSV"), cvars_.string("playersave"), 1024);
+        for (int i = 0; i < 4; ++i)
+            w.addText(chunkId("AMMO"), cvars_.string("playerammo" + std::to_string(i)), 1024);
+        for (int i = 0; i < 32; ++i)
+            w.addText(chunkId("APTD"), cvars_.string("borgadapt" + std::to_string(i)), 1024);
+    } else {
+        w.addInt(chunkId("TIME"), game_->levelTime());
+        w.addInt(chunkId("TIMR"), 0);
+        w.add(chunkId("STRP"), nullptr, 0);
+        std::vector<std::pair<int32_t, const std::string*>> strings;
+        for (const auto& [index, text] : game_->configstrings())
+            if (index != 1 && !text.empty())
+                strings.emplace_back(index, &text);
+        w.addInt(chunkId("CSCN"), int32_t(strings.size()));
+        for (const auto& [index, text] : strings) {
+            w.addInt(chunkId("CSIN"), index);
+            w.addText(chunkId("CSDA"), *text);
+        }
+    }
+    game_->setSaveStream(&w, nullptr);
+    const Error err = game_->writeLevel(autosave);
+    game_->setSaveStream(nullptr, nullptr);
+    if (err)
+        return stop("The game couldn't save: " + err.message);
+    // Written as "current", then renamed, as the original's.
+    std::error_code ec;
+    std::filesystem::create_directories(saveDir_, ec);
+    const std::filesystem::path file = saveDir_ / (name + ".sav"), temp = saveDir_ / "current.sav";
+    {
+        std::ofstream out(temp, std::ios::binary);
+        out.write(reinterpret_cast<const char*>(w.bytes().data()), std::streamsize(w.bytes().size()));
+        if (!out) {
+            lastCommand_ = "Failed to create savegame " + temp.string();
+            return;
+        }
+    }
+    std::filesystem::remove(file, ec);
+    std::filesystem::rename(temp, file, ec);
+    if (ec) {
+        lastCommand_ = "Couldn't write " + file.string() + ": " + ec.message();
+        return;
+    }
+    if (!autosave)
+        lastCommand_ = "Saved " + name;
+}
+
+void SpPlayViewer::loadGame(std::string name) {
+    // As the original's load command: the engine's chunks, then the level
+    // started for them and the game's own (start()).
+    using eliteforce::chunkId;
+    if (name == "*respawn") {
+        // After dying: the saved game last loaded, if it's of this level;
+        // else the level's start.
+        std::string loadedMap;
+        std::vector<uint8_t> file;
+        if (!lastLoaded_.empty() && readSave(lastLoaded_, file)) {
+            eliteforce::SaveReader r(std::move(file));
+            std::vector<uint8_t> skip;
+            if (!r.next(chunkId("COMM"), skip) && !r.next(chunkId("SHOT"), skip))
+                r.nextText(chunkId("MPCM"), loadedMap);
+        }
+        name = !lastLoaded_.empty() && loadedMap == map_ ? lastLoaded_ : "auto";
+    }
+    if (badSaveName(name)) {
+        lastCommand_ = "Bad loadgame name.";
+        return;
+    }
+    std::vector<uint8_t> file;
+    if (!readSave(name, file)) {
+        lastCommand_ = "Failed to open savegame " + name;
+        return;
+    }
+    eliteforce::SaveReader r(std::move(file));
+    std::vector<uint8_t> skip;
+    std::string map;
+    int32_t count = 0, autosave = 0;
+    Error err;
+    if (!(err = r.next(chunkId("COMM"), skip)) && !(err = r.next(chunkId("SHOT"), skip)) &&
+        !(err = r.nextText(chunkId("MPCM"), map)) && !(err = r.nextInt(chunkId("CVCN"), count))) {
+        for (int32_t i = 0; i < count && !err; ++i) {
+            std::string cvar, value;
+            if (!(err = r.nextText(chunkId("CVAR"), cvar)) && !(err = r.nextText(chunkId("VALU"), value)))
+                cvars_.set(cvar, value);
+        }
+    }
+    if (!err && !(err = r.nextInt(chunkId("GAME"), autosave)) && autosave) {
+        std::string text;
+        if (!(err = r.nextText(chunkId("CVSV"), text)))
+            cvars_.set("playersave", text);
+        for (int i = 0; i < 4 && !err; ++i)
+            if (!(err = r.nextText(chunkId("AMMO"), text)))
+                cvars_.set("playerammo" + std::to_string(i), text);
+        for (int i = 0; i < 32 && !err; ++i)
+            if (!(err = r.nextText(chunkId("APTD"), text)))
+                cvars_.set("borgadapt" + std::to_string(i), text);
+    }
+    if (err) {
+        lastCommand_ = "Couldn't read " + name + ": " + err.message;
+        return;
+    }
+    const auto it = std::find(names_.begin(), names_.end(), "maps/" + fs::toLower(map) + ".bsp");
+    if (it == names_.end()) {
+        lastCommand_ = name + " is of a map that isn't here: " + map;
+        return;
+    }
+    lastLoaded_ = name;
+    lastCommand_ = "Loaded " + name;
+    start(int(it - names_.begin()), autosave ? 2 : 1, &r);
+}
+
+void SpPlayViewer::runGameCommands() {
+    // What the game sent to the console (a level change, a load after
+    // dying...), run as the original's console would.
+    if (!game_)
+        return;
+    const auto& all = game_->consoleCommands();
+    if (gameCommandsRun_ >= all.size())
+        return;
+    std::vector<std::string> lines;
+    for (size_t i = gameCommandsRun_; i < all.size(); ++i)
+        for (const std::string& line : splitCommands(all[i]))
+            lines.push_back(line);
+    gameCommandsRun_ = all.size();
+    for (const std::string& line : lines)
+        runCommand(line, true);
 }
 
 void SpPlayViewer::runBinding(const std::string& line, int32_t key, bool down) {
@@ -361,7 +651,13 @@ void SpPlayViewer::handleEvent(const Event& ev) {
             }
             if (menusHaveKeys())
                 return menuKey(q3key::Escape);
-            if (Error err = ui_->setActiveMenu(game_ ? "ingame" : "main"))
+            if (game_ && game_->clientGameRunning()) {
+                // The game is captured first (the next frame), for the
+                // save menu's picture.
+                pendingMenu_ = "ingame";
+                return;
+            }
+            if (Error err = ui_->setActiveMenu("main"))
                 return menusStopped(err);
             return runMenuCommands();
         }
@@ -492,12 +788,35 @@ void SpPlayViewer::update(uint64_t nowMs) {
     nowMs_ = nowMs;
     if (!startMs_)
         startMs_ = nowMs;
+    if (capturing_) {
+        // The last frame was kept: the save menu's picture, at 256 x 256,
+        // then the menu the player asked for.
+        capturing_ = false;
+        std::vector<uint8_t> rgba, shot;
+        const int w = renderer_->width(), h = renderer_->height();
+        if (renderer_->takeCapture(rgba) && w > 0 && h > 0 && rgba.size() >= size_t(w) * size_t(h) * 4) {
+            shot.resize(eliteforce::SpUiHost::kShotSize);
+            for (int y = 0; y < 256; ++y)
+                for (int x = 0; x < 256; ++x)
+                    std::memcpy(&shot[size_t(y * 256 + x) * 4],
+                                &rgba[(size_t(y * h / 256) * size_t(w) + size_t(x * w / 256)) * 4], 4);
+        }
+        if (ui_) {
+            ui_->setCapture(shot);
+            if (Error err = ui_->setActiveMenu(pendingMenu_))
+                menusStopped(err);
+            else
+                runMenuCommands();
+        }
+        pendingMenu_.clear();
+    }
     // The game waits while a menu has the keys, as the original's single
     // player pauses.
     if (menusHaveKeys())
         lastMs_ = nowMs;
     else
         runGame(nowMs);
+    runGameCommands();
     if (soundSystem_) {
         auto setting = [&](const char* name, float fallback) { return cvars_.find(name) ? cvars_.value(name) : fallback; };
         soundSystem_->setVolumes(setting("s_volume", 0.8f), setting("s_musicvolume", 0.25f));
@@ -557,6 +876,10 @@ void SpPlayViewer::update(uint64_t nowMs) {
     }
     timing_.draw = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - drawStart).count();
     drawOverlay();
+    if (!pendingMenu_.empty() && !capturing_) {
+        renderer_->captureNextFrame();
+        capturing_ = true;
+    }
     renderer_->endFrame(&overlay_);
 }
 

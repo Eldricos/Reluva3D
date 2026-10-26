@@ -430,3 +430,102 @@ onwards). `src/engines/idtech3/ambient_sets.cpp` implements them.
   the edge.
 - **Brush model set** (`AS_GetBModelSound(name, stage)`, 69). Returns the
   stage's `subWaves` sound handle, or -1.
+
+## Saved games
+
+The engine's save, load and wipe commands are in `stvoy.exe` (0x429990
+onwards). Reluva writes and reads the same files
+(`src/engines/idtech3/eliteforce/sp_savegame.cpp`, and the Single player
+page for the order).
+
+### The file
+
+`saves/<name>.sav` is a run of chunks. Each chunk is:
+
+| Bytes | Field |
+|---|---|
+| 4 | id: its four letters as a little-endian number (`COMM` is 0x434f4d4d) |
+| 4 | length |
+| 4 | checksum: the data's MD4, its four words XOR'd (the engine's block checksum) |
+| length | the data |
+| 4 | 0x1234abcd |
+
+- The engine only writes while `sv_testsave` is 0, and zeroes it while
+  saving.
+- Chunks are read back strictly in order. Reading a chunk with a
+  different id fails, and so does a different length when one is asked for.
+- The game's own chunks, from `AppendToSaveGame` and `ReadFromSaveGame`
+  (imports 16 and 17), are part of the same run.
+
+### What a save holds, in order
+
+`save <name>` checks the game first. It refuses with no game running, on
+`_` maps (the holodeck and the brig), with the player dead (stats[0] at
+player state +0xbc ≤ 0), and for the name `current`. The file is written
+as `current.sav` and then renamed.
+
+1. `COMM` (128 bytes): the description, set by the save menu through
+   engine function 43. Without one it is the date and time, then the map.
+   An autosave's is `-------> <map>`.
+2. `SHOT` (256 × 256 × 4): the picture. A normal save uses the screen
+   captured when the in-game menu opened; an autosave uses
+   `levelshots/<map>.tga`.
+3. `MPCM` (1024): the map's name.
+4. The cvars flagged 2: `CVCN` (their count), then for each a `CVAR`
+   (its name) and a `VALU` (its value), both NUL-terminated.
+5. `GAME` (4): 1 for an autosave, else 0.
+   - For an autosave it is followed by `CVSV` (the `playersave` cvar,
+     1024), 4 × `AMMO` (`playerammo0`–`3`) and 32 × `APTD` (`borgadapt0`–`31`).
+   - Otherwise it is followed by:
+     - `TIME` (the level time) and `TIMR` (residual time);
+     - `STRP`: an engine table of the client's, n × n ints. Reluva writes
+       it empty and skips it when reading;
+     - the configstrings: `CSCN` (the count), then for each non-empty one
+       except 1, `CSIN` (its index) and `CSDA` (its text with the NUL).
+6. The game's `WriteLevel(autosave)`.
+
+### Loading
+
+`load <name>` reads the save back in the same order.
+
+1. `COMM`, `SHOT` and `MPCM`.
+2. The cvars, which it sets.
+3. `GAME`, and for an autosave the player's cvars.
+4. It starts the map with load mode 2 for an autosave, else 1. The mode is
+   the last argument of `Init`, `ClientConnect` and `ClientBegin`.
+5. For a normal save only: the time and configstrings, replacing every
+   configstring.
+6. The game's `ReadLevel(autosave)`.
+7. The player joins.
+
+`load *respawn`, sent after dying, picks what to load: the save last
+loaded if it is of the same map, else `auto`.
+
+### Autosaves and level changes
+
+- **Autosave.** When the player joins a new level (load mode 0, a map
+  not starting with `_`), the engine saves it as `auto`.
+- **`map <name>`** clears `playersave` and deletes `auto` (unless the new
+  map starts with `_`).
+- **`maptransition <name>`**, which the game sends to change level, first
+  stores the player in cvars:
+  - `playersave`: `"%i %i %i %i %i %f %f %f"` of player state +0xbc,
+    +0xc8, +0xc4, +0x94, +0x98, then the view angles at +0x9c, +0xa0
+    and +0xa4;
+  - `playerammo<n>`: +0x17c, 4 ints;
+  - `borgadapt<n>`: +0x18c, 32 ints.
+
+  The game reads these back as the next level starts.
+
+### The menus' functions for saved games
+
+| Slot | Function |
+|---|---|
+| 39 | `(name, buffer)`: the save's `SHOT` |
+| 40 | `(name)`: its comment (128 bytes) |
+| 41 | `(name)`: whether its `COMM` and `SHOT` can be read |
+| 43 | `(text)`: the description for the next save |
+| 44 | `(&captured)`: the last screen capture |
+
+Engine function 33 captures the screen only in a game with no menu open,
+so calls to it from the menus do nothing.

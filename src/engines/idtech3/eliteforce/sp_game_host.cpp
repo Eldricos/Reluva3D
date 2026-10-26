@@ -6,6 +6,7 @@
 #include "common/md4.h"
 #include "common/x86/format.h"
 #include "engines/idtech3/eliteforce/game_layout.h"
+#include "engines/idtech3/eliteforce/sp_savegame.h"
 #include "engines/idtech3/entities.h"
 
 #include <algorithm>
@@ -80,13 +81,6 @@ std::string lower(std::string s) {
     return s;
 }
 
-std::string chunkName(uint32_t id) {
-    // Four characters, as the engine's own ('TIME' is 0x54494d45).
-    std::string s;
-    for (int i = 3; i >= 0; --i)
-        s += char((id >> (8 * i)) & 0xff);
-    return s;
-}
 
 } // namespace
 
@@ -179,7 +173,7 @@ int32_t SpGameHost::mapChecksum(const std::vector<uint8_t>& file) {
 }
 
 Error SpGameHost::startLevel(const std::string& mapName, std::shared_ptr<const Bsp> map, int32_t checksum,
-                             int32_t randomSeed) {
+                             int32_t randomSeed, int32_t loadMode) {
     if (!map)
         return Error::fail("No map");
     if (!exports_)
@@ -216,7 +210,7 @@ Error SpGameHost::startLevel(const std::string& mapName, std::shared_ptr<const B
     // Init(mapname, checksum, entity text, level time, random seed, global
     // time, a saved game just loaded: no).
     if (Error e = callGame(Init, {text(mapName), uint32_t(checksum), text(map_->entities), uint32_t(levelTime_),
-                                  uint32_t(randomSeed), now, 0}))
+                                  uint32_t(randomSeed), now, uint32_t(loadMode)}))
         return e;
     // Frames to let the level settle before anyone joins, as the original's
     // server runs them (three, then one more, 100 ms apart): the NPCs spawn
@@ -234,11 +228,11 @@ Error SpGameHost::startLevel(const std::string& mapName, std::shared_ptr<const B
     return Error::success();
 }
 
-Error SpGameHost::connectPlayer(const std::string& userinfo, std::string& refused) {
+Error SpGameHost::connectPlayer(const std::string& userinfo, std::string& refused, int32_t loadMode) {
     userinfo_[0] = userinfo;
     uint32_t reason = 0;
     // ClientConnect(client, first time, saved game loaded)
-    if (Error e = callGame(ClientConnect, {0, 1, 0}, &reason))
+    if (Error e = callGame(ClientConnect, {0, 1, uint32_t(loadMode)}, &reason))
         return e;
     if (reason) {
         refused = cpu_->string(reason, 1024);
@@ -247,7 +241,7 @@ Error SpGameHost::connectPlayer(const std::string& userinfo, std::string& refuse
     // ClientBegin(client, usercmd, saved game loaded): an empty command.
     const uint32_t cmd = process_->memory().alloc(64);
     cpu_->write32(cmd, uint32_t(levelTime_));
-    const Error e = callGame(ClientBegin, {0, cmd, 0});
+    const Error e = callGame(ClientBegin, {0, cmd, uint32_t(loadMode)});
     process_->memory().free(cmd);
     return e;
 }
@@ -337,6 +331,49 @@ Error SpGameHost::runFrame() {
     if (cgameRunning_)
         makeSnapshot();
     return Error::success();
+}
+
+Error SpGameHost::writeLevel(bool autosave) { return callGame(WriteLevel, {autosave ? 1u : 0u}); }
+
+Error SpGameHost::readLevel(bool autosave) { return callGame(ReadLevel, {autosave ? 1u : 0u}); }
+
+void SpGameHost::replaceConfigstrings(const std::map<int32_t, std::string>& strings) {
+    configstrings_ = strings;
+}
+
+uint32_t SpGameHost::playerState() const {
+    // Client 0's: its entity's client pointer (the player state leads the
+    // game's client structure).
+    if (!entities())
+        return 0;
+    const uint32_t ps = cpu_->read32(entityAddress(0) + uint32_t(kEntity.client));
+    return cpu_->valid(ps, kPlayerStateSize) ? ps : 0;
+}
+
+int32_t SpGameHost::playerHealth() const {
+    const uint32_t ps = playerState();
+    return ps ? int32_t(cpu_->read32(ps + kPsHealth)) : 0;
+}
+
+void SpGameHost::savePlayer() {
+    // As the original's engine before a level change and an autosave: the
+    // player's state into cvars the game reads back when the next level
+    // starts (health, armour, weapons, the current weapon, its state, the
+    // view angles; ammunition; the Borg's adaptations).
+    cvars_.set("playersave", "");
+    const uint32_t ps = playerState();
+    if (!ps)
+        return;
+    auto i = [&](uint32_t at) { return int32_t(cpu_->read32(ps + at)); };
+    auto f = [&](uint32_t at) { return double(readFloat(ps + at)); };
+    char buf[256];
+    std::snprintf(buf, sizeof buf, "%i %i %i %i %i %f %f %f", i(0xbc), i(0xc8), i(0xc4), i(0x94), i(0x98), f(0x9c),
+                  f(0xa0), f(0xa4));
+    cvars_.set("playersave", buf);
+    for (uint32_t n = 0; n < 4; ++n)
+        cvars_.set("playerammo" + std::to_string(n), std::to_string(i(0x17c + 4 * n)));
+    for (uint32_t n = 0; n < 32; ++n)
+        cvars_.set("borgadapt" + std::to_string(n), std::to_string(i(0x18c + 4 * n)));
 }
 
 uint32_t SpGameHost::allowedToSaveHere(uint32_t flag) {
@@ -1422,21 +1459,27 @@ void SpGameHost::addImports() {
 
     // Saved games: kept in memory for now.
     import(AppendToSaveGame, [this](x86::Cpu& c) -> uint32_t {
+        // (id, data, length): into the saved game being written.
         const uint32_t data = c.arg(1), length = c.arg(2);
-        if (!c.valid(data, length))
+        if (!saveWriter_ || !c.valid(data, length))
             return 0;
-        const uint8_t* p = c.memory().data() + data;
-        saveChunks_[chunkName(c.arg(0))].assign(p, p + length);
+        saveWriter_->add(c.arg(0), c.memory().data() + data, length);
         return 1;
     });
     import(ReadFromSaveGame, [this](x86::Cpu& c) -> uint32_t {
-        auto it = saveChunks_.find(chunkName(c.arg(0)));
+        // (id, buffer, length): the saved game's next chunk, which must be
+        // this one, this long.
         const uint32_t buffer = c.arg(1), length = c.arg(2);
-        if (it == saveChunks_.end() || !c.valid(buffer, length)) {
-            c.abort("ReadFromSaveGame: no chunk " + chunkName(c.arg(0)));
+        std::vector<uint8_t> data;
+        Error e = saveReader_ ? saveReader_->next(c.arg(0), data, length)
+                              : Error::fail("no saved game is being read");
+        if (!e && !c.valid(buffer, uint32_t(data.size())))
+            e = Error::fail("its buffer isn't in memory");
+        if (e) {
+            c.abort("ReadFromSaveGame(" + chunkName(c.arg(0)) + "): " + e.message);
             return 0;
         }
-        std::memcpy(c.memory().data() + buffer, it->second.data(), std::min<size_t>(length, it->second.size()));
+        std::memcpy(c.memory().data() + buffer, data.data(), data.size());
         return 1;
     });
 

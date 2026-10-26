@@ -5,6 +5,7 @@
 
 #include "common/x86/format.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
+#include "engines/idtech3/eliteforce/sp_savegame.h"
 
 #include <algorithm>
 #include <cmath>
@@ -69,9 +70,9 @@ enum Import : int {
     RegisterSound = 36,
     StartLocalLoopingSound = 37,
     DrawStretchRaw = 38,
-    SaveComment = 39,
-    SavePicture = 40,
-    SaveInfo = 41,
+    SavePicture = 39,
+    SaveComment = 40,
+    SaveReadable = 41,
     AllowedToSave = 42,
     SetSaveComment = 43,
     ScreenPixels = 44,
@@ -93,6 +94,7 @@ enum Import : int {
 };
 
 constexpr uint32_t kScratch = 4096;
+constexpr uint32_t kCommentSize = 128;
 
 uint32_t floatBits(float f) {
     uint32_t u;
@@ -179,6 +181,8 @@ Error SpUiHost::load(const std::vector<uint8_t>& dll) {
         return e;
     imports_ = process_->memory().alloc(4 * ImportCount);
     scratch_ = process_->memory().alloc(kScratch);
+    comment_ = process_->memory().alloc(kCommentSize);
+    capture_ = process_->memory().alloc(kShotSize);
     addImports();
     const uint32_t getUiApi = module_->exportAddress("GetUIAPI");
     if (!getUiApi)
@@ -201,6 +205,21 @@ Error SpUiHost::callUi(int index, const std::vector<uint32_t>& args, uint32_t* r
     if (result)
         *result = r;
     return Error::success();
+}
+
+void SpUiHost::setCapture(const std::vector<uint8_t>& rgba) {
+    captured_ = rgba.size() == kShotSize;
+    if (captured_)
+        std::memcpy(cpu_->memory().data() + capture_, rgba.data(), kShotSize);
+    else
+        std::memset(cpu_->memory().data() + capture_, 0, kShotSize);
+}
+
+std::vector<uint8_t> SpUiHost::capture() const {
+    if (!captured_)
+        return std::vector<uint8_t>(kShotSize, 0);
+    const uint8_t* p = cpu_->memory().data() + capture_;
+    return std::vector<uint8_t>(p, p + kShotSize);
 }
 
 Error SpUiHost::keyEvent(int32_t key) { return callUi(KeyEvent, {uint32_t(key)}); }
@@ -257,6 +276,16 @@ uint32_t SpUiHost::fileList(const std::string& folder, const std::string& extens
         if (!ext.empty() && (rest.size() < ext.size() || rest.compare(rest.size() - ext.size(), ext.size(), ext) != 0))
             continue;
         names.push_back(rest);
+    }
+    if (dir == "saves" && !saveDir.empty()) {
+        // Saved games written here too, besides those in the game's folder.
+        std::error_code ec;
+        for (const auto& entry : std::filesystem::directory_iterator(saveDir, ec)) {
+            const std::string n = lower(entry.path().filename().string());
+            if (entry.is_regular_file(ec) &&
+                (ext.empty() || (n.size() >= ext.size() && n.compare(n.size() - ext.size(), ext.size(), ext) == 0)))
+                names.push_back(n);
+        }
     }
     std::sort(names.begin(), names.end());
     names.erase(std::unique(names.begin(), names.end()), names.end());
@@ -488,6 +517,58 @@ void SpUiHost::addImports() {
     import(RegisterSound, [this](x86::Cpu& c) { return uint32_t(sounds_.add(str(c, 0, 256))); });
     import(StartLocalLoopingSound, [](x86::Cpu&) { return 0u; });
     import(DrawStretchRaw, [](x86::Cpu&) { return 0u; });
+
+    // Saved games, by name (no folder or extension), as the load and save
+    // menus ask: a picture, a comment, whether one can be read.
+    auto openSave = [this](x86::Cpu& c, int n, SaveReader& reader) {
+        std::vector<uint8_t> file;
+        if (!readSave || !readSave(str(c, n, 256), file))
+            return false;
+        reader = SaveReader(std::move(file));
+        return true;
+    };
+    import(SavePicture, [this, openSave](x86::Cpu& c) -> uint32_t {
+        // (name, buffer of 256 x 256 x 4)
+        SaveReader r;
+        std::vector<uint8_t> comment, shot;
+        if (!openSave(c, 0, r) || r.next(chunkId("COMM"), comment) || r.next(chunkId("SHOT"), shot, kShotSize) ||
+            !c.valid(c.arg(1), kShotSize))
+            return 0;
+        std::memcpy(c.memory().data() + c.arg(1), shot.data(), kShotSize);
+        return 1;
+    });
+    import(SaveComment, [this, openSave](x86::Cpu& c) -> uint32_t {
+        // (name) -> its comment (128 bytes), or 0
+        SaveReader r;
+        std::vector<uint8_t> comment;
+        if (!openSave(c, 0, r) || r.next(chunkId("COMM"), comment, kCommentSize))
+            return 0;
+        std::memcpy(c.memory().data() + comment_, comment.data(), kCommentSize);
+        return comment_;
+    });
+    import(SaveReadable, [this, openSave](x86::Cpu& c) -> uint32_t {
+        SaveReader r;
+        std::vector<uint8_t> data;
+        return openSave(c, 0, r) && !r.next(chunkId("COMM"), data, kCommentSize) &&
+                       !r.next(chunkId("SHOT"), data, kShotSize)
+                   ? 1
+                   : 0;
+    });
+    import(SetSaveComment, [this](x86::Cpu& c) {
+        saveComment = str(c, 0, kCommentSize);
+        return 0u;
+    });
+    import(ScreenShot, [](x86::Cpu&) {
+        // The original's captures only in a game with no menu open, so
+        // never from here; the page captures as the in-game menu opens.
+        return 0u;
+    });
+    import(ScreenPixels, [this](x86::Cpu& c) -> uint32_t {
+        // (&captured) -> the last capture, 256 x 256 x 4
+        if (c.arg(0))
+            c.write32(c.arg(0), captured_ ? 1 : 0);
+        return capture_;
+    });
 
     import(AllowedToSave, [this](x86::Cpu& c) -> uint32_t {
         // (flag): with no game, the flag itself (so SetActiveMenu, which

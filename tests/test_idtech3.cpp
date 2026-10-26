@@ -14,6 +14,7 @@
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/net_client.h"
+#include "engines/idtech3/eliteforce/sp_savegame.h"
 #include "engines/idtech3/eliteforce/net_fields.h"
 #include "engines/idtech3/eliteforce/net_server.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
@@ -966,6 +967,37 @@ static void testAmbientSets() {
     CHECK(far.size() == 1 && far[0].volume == 0);
     last = 5;
     CHECK(sets.addLocal("nothing", {}, {}, 7, last, 20000).empty() && last == 20000);
+}
+
+// Saved games' chunks: written and read back in order, checked.
+static void testSaveChunks() {
+    using namespace reluva::idtech3::eliteforce;
+    CHECK(chunkId("COMM") == 0x434f4d4d && chunkName(chunkId("SHOT")) == "SHOT");
+    SaveWriter w;
+    w.addText(chunkId("COMM"), "borg1", 128);
+    w.addInt(chunkId("GAME"), 7);
+    w.add(chunkId("STRP"), nullptr, 0);
+    w.addText(chunkId("CSDA"), "text");
+    // id, length, checksum, data, marker; the id's bytes little-endian.
+    CHECK(w.bytes().size() == (16 + 128) + (16 + 4) + 16 + (16 + 5));
+    CHECK(w.bytes()[0] == 'M' && w.bytes()[3] == 'C' && w.bytes()[4] == 128);
+    CHECK(w.bytes()[12 + 128] == 0xcd && w.bytes()[15 + 128] == 0x12);
+    SaveReader r(w.bytes());
+    std::string text;
+    int32_t v = 0;
+    std::vector<uint8_t> data;
+    CHECK(r.peek(chunkId("COMM")) && !r.peek(chunkId("GAME")));
+    CHECK(!r.nextText(chunkId("COMM"), text, 128) && text == "borg1");
+    CHECK(r.nextInt(chunkId("TIME"), v)); // not the next one
+    CHECK(!r.nextInt(chunkId("GAME"), v) && v == 7);
+    CHECK(r.next(chunkId("STRP"), data, 4)); // wrong length
+    CHECK(!r.next(chunkId("STRP"), data) && data.empty());
+    CHECK(!r.nextText(chunkId("CSDA"), text) && text == "text" && r.atEnd());
+    CHECK(r.next(chunkId("CSDA"), data)); // past the end
+    std::vector<uint8_t> damaged = w.bytes();
+    damaged[12 + 2] ^= 1;
+    SaveReader bad(damaged);
+    CHECK(bad.next(chunkId("COMM"), data));
 }
 
 // Sounds by name: decoded once, missing and broken ones remembered.
@@ -2769,6 +2801,7 @@ int main() {
     testVmFileList();
     testSoundLibrary(tmp / "sounds");
     testAmbientSets();
+    testSaveChunks();
     testSoundSystem(tmp / "soundsystem");
     testCollision();
     testGameHost(tmp / "game");
