@@ -83,7 +83,7 @@ scenes, menus).
 
 | Verb | Uses | Arguments | What it does |
 |------|-----:|-----------|--------------|
-| `talk` | 1107 | conversation, thread (`a`, `a+`...), options (`forcegen`...) | starts a conversation from `Text/Dialogue`; waits |
+| `talk` | 1107 | conversation, code (`a`, `ab`, `a+`, `1`), options (`nogen`, `forcegen`, `nogreet`, a number) | starts a conversation ([dialogue.md](dialogue.md)); waits until it's over |
 | `turn` | 1030 | degrees, a character's name, `home`, `up`/`down` | turns the character's head |
 | `scene` | 1026 | scene, walk point, a flag | goes to a scene (`0x423d40`): the act's variant of it, the player at its walk point (default 1); waits while it loads |
 | `wait` | 853 | seconds | waits |
@@ -149,7 +149,7 @@ does the state verbs itself (`tag`, `removetag`, `add`, `remove`,
 For now the Scenes page is that host. A click on a hotspot runs its
 script, or the first of its conditional scripts whose condition holds.
 It does `walk` and `run` (along the game's paths, to cells, walk points
-or characters), `scene`, `sound`/`sounda`, `hide`, `show`, `take` and
-`update`. It logs the rest in its info panel and ends them at once.
-Next: `talk` and the dialogue tables, `turn`, `rotate`, `look` and
-`anim` on the characters, `fade`, and the acts.
+or characters), `talk` (with the dialogue manager: [dialogue.md](dialogue.md)),
+`scene`, `sound`/`sounda`, `hide`, `show`, `take` and `update`. It logs
+the rest in its info panel and ends them at once. Next: `turn`,
+`rotate`, `look` and `anim` on the characters, `fade`, and the acts.

@@ -14,6 +14,7 @@
 #include "common/video/bink_video.h"
 #include "engines/awe/ac2.h"
 #include "engines/awe/conditions.h"
+#include "engines/awe/dialogue.h"
 #include "engines/awe/game_paths.h"
 #include "engines/awe/particles.h"
 #include "engines/awe/script.h"
@@ -122,7 +123,7 @@ private:
 
 // Scenes (Locations/**/*.ac2): their pictures where the scene places
 // them, hotspots, and what else the scene holds.
-class ScenePage : public Page, public ScriptHost {
+class ScenePage : public Page, public ScriptHost, public DialogueHost {
 public:
     explicit ScenePage(ViewerContext& ctx);
     ~ScenePage() override;
@@ -179,7 +180,17 @@ private:
     void walkTo(int sx, int sy);
     // Scripts: a click on a hotspot runs its script (or the first of its
     // conditional ones whose condition holds); the page does what they ask.
-    bool start(const ScriptEvent& e, bool wait) override;
+    bool start(ScriptRunner& runner, const ScriptEvent& e, bool wait) override;
+    // The dialogue's host: voices, event files, the scene's name.
+    bool playVoice(const std::string& file) override;
+    bool voicePlaying() override;
+    void stopVoice() override;
+    std::string readText(const std::string& file) override;
+    std::string sceneName() override;
+    void turnHead(const std::string& speaker, const std::string& target) override;
+    void loadDialogue();
+    bool startTalk(ScriptRunner& runner, const ScriptEvent& e);
+    const Ac2Record* characterAt(int sx, int sy) const;
     std::string scriptText(const std::string& name) override;
     const Ac2Record* hotspotAt(int sx, int sy) const;
     void runScript(const Ac2Record& object);
@@ -219,6 +230,10 @@ private:
     // The scripts' state: tags, items and the act are state_'s.
     std::unique_ptr<ScriptRunner> runner_;
     std::string walkVerb_;            // "walk" or "run", while a script waits on one
+    ScriptRunner* walkRunner_ = nullptr; // and which runner waits
+    std::unique_ptr<DialogueManager> dialogue_;
+    std::string dialogueAct_ = "-";   // the act whose table is loaded
+    audio::SoundHandle voice_ = audio::kNoSound;
     const Ac2Record* scriptObject_ = nullptr; // the hotspot a script is "this" of
     int entryPoint_ = -1; // the walk point the player arrives at, after "scene"
     std::set<std::string> hiddenNames_; // objects hidden by scripts, by name or file

@@ -502,7 +502,7 @@ void testParticles() {
 // instant. It records what it was asked.
 struct FakeHost : ScriptHost {
     std::vector<std::string> started;
-    bool start(const ScriptEvent& e, bool wait) override {
+    bool start(ScriptRunner&, const ScriptEvent& e, bool wait) override {
         std::string s = e.verb();
         for (size_t i = 1; i < e.words.size(); i++)
             s += " " + e.words[i];
@@ -587,21 +587,98 @@ void testDialogueBook() {
         "dia_observation\t02a\ta\t1\ta\tpoirot\t0\tOne must look.\t0\t0\t0\t0\t0\t0\t0\t0\t0\n"
         "dia_observation\t02a\ta\ta\ta\tantoinette\tantoinette up\t\"Well, yes.\"\t0\thas ribbon\ta\t"
         "scene restaurant_table.02\tanim no\tscene restaurant_table.07\t0\t1\t0\n"
-        "DIA_Other\t02a\tb\t3\tc\tmichel\t0\tOui.\t0\t0\t0\t0\t0\t0\t0\t0\t0\n";
+        "gen_locked\t0\t1\ta\ta\tantoinette\t0\tIt's locked.\t0\t0\t0\t0\t0\t0\t0\t0\t0\n"
+        "gen_locked\t0\t1\ta\ta\tantoinette\t0\tLocked.\t0\t0\t0\t0\t0\t0\t0\t0\t0\n";
     DialogueBook book;
     book.add(parseTable(table));
-    CHECK(book.conversationCount() == 2);
-    const auto& obs = book.conversation("Dia_Observation");
+    CHECK(book.parts().size() == 2);
+    const auto obs = book.conversation("Dia_Observation");
     CHECK(obs.size() == 2);
     if (obs.size() == 2) {
-        CHECK(obs[0].thread == "1" && obs[0].speaker == "poirot" && obs[0].target.empty() && obs[0].text == "One must look.");
-        CHECK(obs[0].voiceFile() == "sound/vo/dia_observation02aa1a.wav");
-        CHECK(obs[1].text == "Well, yes." && obs[1].target == "antoinette up" && obs[1].condition == "has ribbon");
-        CHECK(obs[1].before == "scene restaurant_table.02" && obs[1].event == "anim no" &&
-              obs[1].after == "scene restaurant_table.07" && obs[1].repeat == "a" && obs[1].optional == "1");
-        CHECK(obs[1].eventFile() == "text/dialogue/events/dia_observation_02a_aaa.txt");
+        CHECK(obs[0]->thread == "1" && obs[0]->threadCode == 0x60 && obs[0]->speaker == "poirot" && obs[0]->target.empty());
+        CHECK(obs[0]->voiceFile() == "sound/vo/dia_observation02aa1a.wav");
+        CHECK(obs[1]->text == "Well, yes." && obs[1]->target == "antoinette up" && obs[1]->condition == "has ribbon");
+        CHECK(obs[1]->before == "scene restaurant_table.02" && obs[1]->event == "anim no" &&
+              obs[1]->after == "scene restaurant_table.07" && obs[1]->repeatCode == 0 && obs[1]->optional == "1");
     }
-    CHECK(book.conversation("dia_other").size() == 1 && book.conversation("nothing").empty());
+    // Part "1" is code 100; a line with the nest before it again is an
+    // alternative, its recording numbered.
+    DialoguePart* locked = book.find("gen_locked", 100);
+    CHECK(locked && locked->threads.size() == 1 && locked->threads[0].lines.size() == 2);
+    if (locked && locked->threads[0].lines.size() == 2)
+        CHECK(locked->threads[0].lines[1].voiceFile() == "sound/vo/gen_locked01aa_1.wav");
+    CHECK(dialoguePartCode("a") == 0 && dialoguePartCode("1") == 100 && dialogueThreadCode("z1") == 26 &&
+          dialogueThreadCode("3") == 0x62 && dialogueNestCode("b") == 1);
+}
+
+// A conversation played through: no voices, so each line lasts its
+// length / 15 seconds (at least one).
+struct QuietHost : DialogueHost {
+    bool playVoice(const std::string&) override { return false; }
+    bool voicePlaying() override { return false; }
+    void stopVoice() override {}
+    std::string readText(const std::string&) override { return {}; }
+    std::string sceneName() override { return "salon_01"; }
+};
+
+void testDialogue() {
+    const char* table =
+        "Name\tAct\tConver.\tThread\tNest\tSpeaker\tTarget\tLine\tLine Translation\tCondition\tRepeat\tPrevent\t"
+        "Event\tPovent\tDuration\tOptional\tNotes\n"
+        "dia_obs\t02a\ta\t1\ta\tpoirot\t0\tLook.\t0\t0\t0\t0\t0\t0\t0\t0\t0\n"
+        "dia_obs\t02a\ta\ta\ta\tantoinette\t0\tThe ladies?\t0\t0\t0\t0\ttag sawladies 1\t0\t0\t0\t0\n"
+        "dia_obs\t02a\ta\ta\tb\tpoirot\t0\tYes.\t0\t0\t0\t0\t0\t0\t0\t0\t0\n"
+        "dia_obs\t02a\ta\tb\ta\tantoinette\t0\tThe man?\t0\t0\t0\t0\t0\t0\t0\t0\t0\n"
+        "dia_obs\t02a\ta\tc\ta\tantoinette\t0\tSecret.\t0\ttag never\t0\t0\t0\t0\t0\t0\t0\n"
+        "dia_obs\t02a\tb\t1\ta\tpoirot\t0\tGood.\t0\t0\t0\t0\t0\t0\t0\t0\t0\n";
+    GameState state;
+    FakeHost scripts;
+    QuietHost host;
+    DialogueManager d(state, scripts, host);
+    d.book().add(parseTable(table));
+    ScriptRunner main(state, scripts);
+    main.run("talk dia_obs a+");
+    // The runner waits on "talk": a stand-in starts the dialogue for it.
+    struct TalkHost : ScriptHost {
+        DialogueManager* d = nullptr;
+        bool start(ScriptRunner& r, const ScriptEvent& e, bool) override {
+            return e.verb() == "talk" && d->talk(r, e.arg(1), 0, -1, -1, false, -1, true, true);
+        }
+    } talker;
+    talker.d = &d;
+    ScriptRunner runner(state, talker);
+    runner.run("talk dia_obs a+, tag after 1");
+    runner.update(0.01f);
+    CHECK(d.active() && !runner.idle());
+    auto run = [&](float seconds) {
+        for (float t = 0; t < seconds; t += 0.05f) {
+            d.update(0.05f);
+            runner.update(0.05f);
+        }
+    };
+    run(1.0f); // the box slides in
+    CHECK(d.line() && d.line()->text == "Look.");
+    run(1.6f); // the opening, then the choices (not "Secret.": its condition fails)
+    CHECK(d.choosing() && d.choices().size() == 2);
+    if (d.choices().size() == 2) {
+        CHECK(d.choices()[0].text == "The ladies?" && d.choices()[1].text == "The man?");
+        d.setChoiceAreas({{640, 20}, {664, 20}});
+        d.click(100, 645);
+    }
+    CHECK(d.line() && d.line()->text == "The ladies?");
+    run(1.0f);
+    CHECK(state.tags["sawladies"] == 1); // its Event ran
+    run(1.6f);
+    // Heard to its end: kept for the "talk" condition.
+    CHECK(testCondition("talk dia_obs 02a aa", state) && !testCondition("talk dia_obs 02a ab", state));
+    // One choice left: played without asking; then part b, its opening.
+    CHECK(d.line() && d.line()->text == "The man?");
+    run(1.6f);
+    CHECK(d.line() && d.line()->text == "Good.");
+    run(4.0f); // the last line, the box slides out, the talk is done
+    CHECK(!d.active());
+    run(0.2f);
+    CHECK(state.tags["after"] == 1 && runner.idle());
 }
 
 } // namespace
@@ -618,6 +695,7 @@ int main() {
     testParticles();
     testScript();
     testDialogueBook();
+    testDialogue();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

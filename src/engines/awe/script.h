@@ -27,6 +27,8 @@ struct ScriptEvent {
     const std::string& arg(size_t i) const;
 };
 
+class ScriptRunner;
+
 // What scripts do to the world, for the runner to call.
 class ScriptHost {
 public:
@@ -35,7 +37,8 @@ public:
     // have one). Returns true if it goes on, to tell the runner with
     // ScriptRunner::finished() when it's over; false if it's done already.
     // `wait` is false for the "a" verbs: their finishing isn't waited for.
-    virtual bool start(const ScriptEvent& e, bool wait) = 0;
+    // `runner` is the one to tell.
+    virtual bool start(ScriptRunner& runner, const ScriptEvent& e, bool wait) = 0;
     // The text of text\scripts\<name>.txt, for "script <name>"; "" if
     // there's none.
     virtual std::string scriptText(const std::string& name) {
@@ -55,6 +58,16 @@ public:
     //     door knob's animation, fade out, the door's sound n...
     //   doorlocked <point> <L|R> <n>: the same, but the door stays shut.
     void run(std::string_view commands);
+    // Queues commands right after the event under way (the dialogue's
+    // terminating Povent: 0x409440).
+    void runNext(std::string_view commands);
+    // Runs what's queued through at once: each event started and ended,
+    // until none is left (0x409810, a line's events when it ends).
+    void fastForward();
+    // Whether the commands came from clicking a character (the game's
+    // runner +0xf4, set by 0x408c80): "talk" offers its generic lines then.
+    void setFromCharacter(bool from) { fromCharacter_ = from; }
+    bool fromCharacter() const { return fromCharacter_; }
     // Runs the next event if none is under way, and counts down a wait.
     void update(float seconds);
     // What the event under way started is over (its verb, as start() had
@@ -65,6 +78,7 @@ public:
 
     // The character the events act on (setchar), "" for the player's.
     const std::string& character() const { return character_; }
+    void setCharacter(const std::string& who) { character_ = who; }
     // Each event as it starts, for a log.
     std::function<void(const ScriptEvent& e)> onEvent;
 
@@ -86,6 +100,7 @@ private:
     std::string waitingFor_;    // the verb it waits on
     float waitLeft_ = -1;       // a "wait"'s seconds left
     std::string character_;
+    bool fromCharacter_ = false;
 };
 
 } // namespace reluva::awe

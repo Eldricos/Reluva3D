@@ -29,11 +29,10 @@ void blitOver(Surface& dst, const image::Image& img, int x, int y) {
 } // namespace
 
 std::vector<DialogueChoiceArea> drawDialogueBox(Surface& dst, const GameFonts& fonts, const DialogueBoxPictures& pictures,
-                                                const std::string& text, Color colour,
+                                                int top, const std::string& text, Color colour,
                                                 const std::vector<std::string>& choices, int highlighted) {
     std::vector<DialogueChoiceArea> areas;
     const int boxH = pictures.window && pictures.window->h > 0 ? pictures.window->h : 160;
-    const int top = dst.h - boxH;
     if (pictures.window && pictures.window->w > 0)
         blitOver(dst, *pictures.window, (dst.w - pictures.window->w) / 2, top);
     const TextStyle* style = fonts.style("dialogue");
@@ -41,7 +40,7 @@ std::vector<DialogueChoiceArea> drawDialogueBox(Surface& dst, const GameFonts& f
         return areas;
     ttf::Font& font = *style->font;
     const int lh = font.lineHeight(style->pixels);
-    const int margin = 80, width = dst.w - 2 * margin;
+    const int width = 944;
     if (choices.empty()) {
         // The line, centred both ways in the box.
         const std::vector<std::string> lines = font.wrap(text, style->pixels, width);
@@ -52,19 +51,20 @@ std::vector<DialogueChoiceArea> drawDialogueBox(Surface& dst, const GameFonts& f
         }
         return areas;
     }
-    // The choices, one under another from the top, each after its bullet.
+    // The choices, one under another, each after its bullet.
     const Color plain = fonts.colour("dialogue text when choosing", {255, 255, 130});
     const Color lit = fonts.colour("highlighted dialogue text when choosing", {255, 255, 180});
-    int y = top + 28;
+    constexpr int kLeft = 40;
+    int y = top + 25;
     for (size_t i = 0; i < choices.size(); i++) {
-        const std::vector<std::string> lines = font.wrap(choices[i], style->pixels, width - 24);
+        const std::vector<std::string> lines = font.wrap(choices[i], style->pixels, width);
         const bool on = int(i) == highlighted;
         const image::Image* bullet = on && pictures.bulletOn ? pictures.bulletOn : pictures.bullet;
         if (bullet && bullet->w > 0)
-            blitOver(dst, *bullet, margin, y + (lh - bullet->h) / 2);
-        DialogueChoiceArea area{margin, y, width, int(lines.size()) * lh};
+            blitOver(dst, *bullet, kLeft - 14, y + 5);
+        DialogueChoiceArea area{0, y, dst.w, int(lines.size()) * lh + 4};
         for (const std::string& l : lines) {
-            fonts.draw(dst, *style, margin + 24, y, l, on ? lit : plain);
+            fonts.draw(dst, *style, kLeft, y, l, on ? lit : plain);
             y += lh;
         }
         areas.push_back(area);

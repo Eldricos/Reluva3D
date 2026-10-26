@@ -7,6 +7,7 @@
 
 #include <cctype>
 #include <cstdlib>
+#include <string>
 #include <vector>
 
 namespace reluva::awe {
@@ -66,6 +67,31 @@ bool testClause(std::string_view clause, const GameState& state) {
             result = it != state.tags.end();
         else
             result = it != state.tags.end() && compare<int>(it->second, value, 0, parseNumber);
+    } else if (word == "talk") {
+        // talk <name> <act> <code> (0x408636 -> 0x439f60).
+        std::vector<std::string_view> w;
+        for (std::string_view rest = arg; !rest.empty();) {
+            const size_t sp = rest.find(' ');
+            if (sp != 0)
+                w.push_back(rest.substr(0, sp));
+            if (sp == std::string_view::npos)
+                break;
+            rest = trim(rest.substr(sp + 1));
+        }
+        result = false;
+        if (w.size() >= 3) {
+            const std::string name = fs::toLower(w[0]), act = fs::toLower(w[1]), code = fs::toLower(w[2]);
+            auto letter = [](char c) { return std::toupper(uint8_t(c)) - 'A'; };
+            if (code.size() == 1) {
+                result = state.partTold && state.partTold(name, act, letter(code[0]));
+            } else if (code.size() >= 2) {
+                const auto it = state.talks.find(talkKey(name, act, letter(code[0]), letter(code[1])));
+                if (it != state.talks.end()) {
+                    const TalkProgress& p = it->second;
+                    result = p.status != 0 || p.nest == -1 || (code.size() >= 3 && p.nest > letter(code[2]));
+                }
+            }
+        }
     } else if (word == "has")
         result = state.items.count(fs::toLower(arg)) != 0;
     else if (word == "act")
@@ -81,6 +107,10 @@ bool testClause(std::string_view clause, const GameState& state) {
 }
 
 } // namespace
+
+std::string talkKey(std::string_view name, std::string_view act, int part, int thread) {
+    return fs::toLower(name) + "|" + fs::toLower(act) + "|" + std::to_string(part) + "|" + std::to_string(thread);
+}
 
 bool testCondition(std::string_view condition, const GameState& state) {
     condition = trim(condition);

@@ -9,6 +9,7 @@
 #include "common/text.h"
 #include "common/video/bink_audio.h"
 #include "engines/awe/camera.h"
+#include "engines/awe/dialogue_box.h"
 #include "engines/awe/sprite.h"
 #include "engines/awe/tables.h"
 
@@ -274,6 +275,8 @@ ScenePage::ScenePage(ViewerContext& ctx) : Page(ctx) {
     names_ = listFiles(ctx.files, {"locations/"}, {".ac2"});
     state_.values["moving"] = 1;
     runner_ = std::make_unique<ScriptRunner>(state_, *this);
+    dialogue_ = std::make_unique<DialogueManager>(state_, *this, *this);
+    dialogue_->onLog = [this](const std::string& l) { logScript("    " + shorten(l, 150)); };
     runner_->onEvent = [this](const ScriptEvent& e) {
         std::string line;
         for (const std::string& w : e.words)
@@ -734,6 +737,31 @@ void ScenePage::draw() {
             y += font::kLineHeight;
         }
     }
+    if (dialogue_->boxShown() && ctx_.fonts) {
+        DialogueBoxPictures pics;
+        pics.window = &picture(dialogue_->window() == 1 ? "interface/dialoguewin02.png" : "interface/dialoguewin01.png");
+        pics.bullet = &picture("interface/dialoguewin04.png");
+        pics.bulletOn = &picture("interface/dialoguewin05.png");
+        // fonts.txt's colours by their place: 6 choices, 7 the one under
+        // the mouse, 8 Antoinette, 9 and 10 the others.
+        static const char* const kColours[] = {"dialogue text when choosing", "highlighted dialogue text when choosing",
+                                               "dialogue for main character",
+                                               "dialogue text for second character in conversation",
+                                               "dialogue text for third character in conversation"};
+        const int c = std::clamp(dialogue_->colour() - 6, 0, 4);
+        std::vector<std::string> choices;
+        for (const auto& ch : dialogue_->choices())
+            choices.push_back(ch.text);
+        const DialogueLine* said = dialogue_->line();
+        const auto areas = drawDialogueBox(ctx_.screen, *ctx_.fonts, pics, dialogue_->boxTop(),
+                                           said ? said->text : std::string(), ctx_.fonts->colour(kColours[c]),
+                                           dialogue_->choosing() ? choices : std::vector<std::string>(),
+                                           dialogue_->highlighted());
+        std::vector<std::pair<int, int>> rows;
+        for (const auto& a : areas)
+            rows.push_back({a.y, a.h});
+        dialogue_->setChoiceAreas(std::move(rows));
+    }
     help(std::string("Left/Right: scene  Up/Down: object  H: hotspots  I: info  M: moving  W: weather  G: grid  "
                      "click: walk") +
          (renderer_ ? "  C: characters" : "  (no 3D: no characters)"));
@@ -752,6 +780,10 @@ void ScenePage::update(uint64_t nowMs) {
     lastMs_ = nowMs;
     time_ = time;
     runner_->update(dt);
+    if (dialogue_->active()) {
+        dialogue_->update(dt);
+        draw(); // the box moves, lines change
+    }
     bool changed = advanceLoops(time);
     for (Character& c : characters_) {
         if (c.path.empty())
@@ -773,10 +805,10 @@ void ScenePage::update(uint64_t nowMs) {
             c.x = c.path.front().first, c.z = c.path.front().second;
             c.path.erase(c.path.begin());
             // There: a script waiting on the walk goes on.
-            if (c.path.empty() && !walkVerb_.empty()) {
+            if (c.path.empty() && !walkVerb_.empty() && walkRunner_) {
                 const std::string verb = walkVerb_;
                 walkVerb_.clear();
-                runner_->finished(verb);
+                walkRunner_->finished(verb);
             }
         } else {
             c.x += dx / distance * stepLength, c.z += dz / distance * stepLength;
@@ -1116,6 +1148,7 @@ bool ScenePage::changeScene(const std::string& name, int entry) {
         logScript("  (no scene " + name + ")");
         return false;
     }
+    dialogue_->leaveScene(sceneName());
     index_ = found;
     entryPoint_ = entry;
     load();
@@ -1143,6 +1176,127 @@ void ScenePage::logScript(const std::string& line) {
         scriptLog_.pop_front();
 }
 
+// --- Dialogue -----------------------------------------------------------------
+
+void ScenePage::loadDialogue() {
+    // The gen_ tables and the act's (the game loads the act's when it
+    // starts: 0x4224fb); with no act known, all of them in turn.
+    if (dialogueAct_ == state_.act)
+        return;
+    dialogueAct_ = state_.act;
+    DialogueBook& book = dialogue_->book();
+    book.clear();
+    std::vector<std::string> files = {"text/dialogue/gen_antoinette.txt", "text/dialogue/gen_comments.txt",
+                                      "text/dialogue/gen_characters.txt"};
+    if (!state_.act.empty())
+        files.push_back("text/dialogue/act" + state_.act + ".txt");
+    else
+        for (const std::string& f : listFiles(ctx_.files, {"text/dialogue/act"}, {".txt"}))
+            files.push_back(f);
+    for (const std::string& f : files) {
+        std::vector<uint8_t> data;
+        if (!ctx_.files.read(f, data))
+            book.add(parseTable(decodeText(data)));
+    }
+}
+
+bool ScenePage::startTalk(ScriptRunner& runner, const ScriptEvent& e) {
+    loadDialogue();
+    // talk <name> <code> [options] (0x40ba25): the code's letters are the
+    // part, thread and nest; a number n the part n + 99; a "+" at its end
+    // goes on to the next part.
+    const std::string code = fs::toLower(e.arg(2));
+    int part = 100, thread = -1, nest = -1;
+    if (!code.empty() && std::isalpha(uint8_t(code[0]))) {
+        part = std::toupper(uint8_t(code[0])) - 'A';
+        if (code.size() > 1 && code[1] != '+')
+            thread = std::toupper(uint8_t(code[1])) - 'A';
+        if (code.size() > 2 && code[2] != '+')
+            nest = std::toupper(uint8_t(code[2])) - 'A';
+    } else if (!code.empty()) {
+        part = std::atoi(code.c_str()) + 0x63;
+    }
+    const bool plus = !code.empty() && code.back() == '+';
+    bool gen = runner.fromCharacter(), greet = true;
+    int number = -1;
+    for (const std::string& opt : {fs::toLower(e.arg(3)), fs::toLower(e.arg(4))}) {
+        if (opt.empty())
+            continue;
+        if (opt == "nogen")
+            gen = false;
+        else if (opt == "forcegen")
+            gen = true;
+        else if (opt == "nogreet")
+            greet = false;
+        else
+            number = std::atoi(opt.c_str());
+    }
+    if (dialogue_->talk(runner, e.arg(1), part, thread, nest, gen, number, plus, greet))
+        return true;
+    return gen && dialogue_->noTalk(runner);
+}
+
+bool ScenePage::playVoice(const std::string& file) {
+    stopVoice();
+    std::vector<uint8_t> data;
+    auto sound = std::make_shared<audio::Sound>();
+    if (!ctx_.mixer || ctx_.files.read(file, data) || audio::decodeSound(data, *sound))
+        return false;
+    voice_ = ctx_.mixer->play(sound, audio::SoundType::Speech);
+    return voice_ != audio::kNoSound;
+}
+
+bool ScenePage::voicePlaying() { return ctx_.mixer && voice_ != audio::kNoSound && ctx_.mixer->isPlaying(voice_); }
+
+void ScenePage::stopVoice() {
+    if (ctx_.mixer && voice_ != audio::kNoSound)
+        ctx_.mixer->stop(voice_);
+    voice_ = audio::kNoSound;
+}
+
+std::string ScenePage::readText(const std::string& file) {
+    std::vector<uint8_t> data;
+    return ctx_.files.read(file, data) ? std::string() : decodeText(data);
+}
+
+std::string ScenePage::sceneName() {
+    if (names_.empty())
+        return {};
+    const std::string& n = names_[size_t(index_)];
+    const std::string file = n.substr(n.find_last_of('/') + 1);
+    return fs::toLower(file.substr(0, file.rfind('.')));
+}
+
+void ScenePage::turnHead(const std::string& speaker, const std::string& target) {
+    logScript("    (" + speaker + " looks " + (target.empty() ? std::string("home") : target) + ")");
+}
+
+const Ac2Record* ScenePage::characterAt(int sx, int sy) const {
+    const Ac2Record* camr = scene_.camera();
+    if (!camr)
+        return nullptr;
+    const SceneCamera cam = SceneCamera::fromRecord(*camr);
+    const Ac2Record* hit = nullptr;
+    for (const Ac2Record* o : scene_.objects()) {
+        if (o->tag != "NPCX" || o->text("script").empty() || !testCondition(o->text("condition"), state_))
+            continue;
+        // Where it stands: from its feet to a head's height, about a third
+        // as wide.
+        float x = o->f("x"), z = o->f("z");
+        for (const Character& c : characters_)
+            if (c.record == o)
+                x = c.x, z = c.z;
+        const float feet[3] = {x, o->f("y"), z}, head[3] = {x, o->f("y") + 170, z};
+        float fx, fy, hx, hy;
+        if (!cam.project(feet, kScreenW, kScreenH, fx, fy) || !cam.project(head, kScreenW, kScreenH, hx, hy))
+            continue;
+        const float h = fy - hy, half = h * 0.18f;
+        if (float(sy) >= hy && float(sy) <= fy && std::abs(float(sx) - fx) <= half)
+            hit = o;
+    }
+    return hit;
+}
+
 std::string ScenePage::scriptText(const std::string& name) {
     std::vector<uint8_t> data;
     if (ctx_.files.read("text/scripts/" + fs::toLower(name) + ".txt", data))
@@ -1150,7 +1304,7 @@ std::string ScenePage::scriptText(const std::string& name) {
     return decodeText(data);
 }
 
-bool ScenePage::start(const ScriptEvent& e, bool wait) {
+bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
     const std::string& v = e.verb();
     auto lower = [](const std::string& t) { return fs::toLower(t); };
     if (v == "walk" || v == "run") {
@@ -1184,7 +1338,7 @@ bool ScenePage::start(const ScriptEvent& e, bool wait) {
         if (!walkCharacter(*c, goal, toPoint))
             return false;
         if (wait)
-            walkVerb_ = v;
+            walkVerb_ = v, walkRunner_ = &runner;
         return wait;
     }
     if (v == "scene") {
@@ -1231,7 +1385,9 @@ bool ScenePage::start(const ScriptEvent& e, bool wait) {
         draw();
         return false;
     }
-    // The rest isn't done here yet (talk, turn, anim...): logged, and over.
+    if (v == "talk")
+        return startTalk(runner, e) && wait;
+    // The rest isn't done here yet (turn, anim...): logged, and over.
     logScript("    (not done yet: " + v + ")");
     return false;
 }
@@ -1251,6 +1407,14 @@ void ScenePage::line(int x0, int y0, int x1, int y1, Color c) {
 }
 
 void ScenePage::handleEvent(const Event& ev) {
+    if (dialogue_->active() && (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown)) {
+        if (ev.type == EventType::MouseMove)
+            dialogue_->mouseMove(ev.mouseX, ev.mouseY);
+        else if (ev.button == MouseButton::Left)
+            dialogue_->click(ev.mouseX, ev.mouseY);
+        draw();
+        return;
+    }
     if (ev.type == EventType::MouseMove && showGrid_) {
         float x, z;
         WalkGrid::Cell cell;
@@ -1266,8 +1430,15 @@ void ScenePage::handleEvent(const Event& ev) {
     if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
         if (!runner_->idle())
             return; // the game takes no clicks while a script runs
-        if (const Ac2Record* spot = hotspotAt(ev.mouseX, ev.mouseY))
+        runner_->setFromCharacter(false);
+        if (const Ac2Record* spot = hotspotAt(ev.mouseX, ev.mouseY)) {
             runScript(*spot);
+        } else if (const Ac2Record* who = characterAt(ev.mouseX, ev.mouseY)) {
+            // A character's own script: a talk then offers its generic
+            // lines and goodbyes (0x4162a3).
+            runner_->setFromCharacter(true);
+            runScript(*who);
+        }
         else
             walkTo(ev.mouseX, ev.mouseY);
         return;

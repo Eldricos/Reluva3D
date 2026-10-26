@@ -69,6 +69,11 @@ scenes, two Granny files, the text tables, two backgrounds):
   changes, sounds, items and tags work; dialogue and the characters'
   animations are next. `reluva-tool awe-scripts` lists every command an
   install's scripts use.
+- **Dialogue: plays.** Conversations run as the game's dialogue manager
+  runs them (see [../formats/awe/dialogue.md](../formats/awe/dialogue.md)):
+  the opening, the choices, each line's commands, recording and text in
+  the game's dialogue box, progress kept for the conditions, the
+  characters' generic lines and goodbyes.
 - **Particles** (`SNOW`, `RAIN`, `PART`) are simulated by the rules of
   the game's own update method and drawn as its point sprites are, among
   the scene's 2D layers by depth (snow outside the Salon's windows when
@@ -120,9 +125,8 @@ Next:
    records and member types the samples didn't have.
 2. A native port of the path-finder's lattice search (`0x42f1f0`),
    checked path for path against the game's (`awe-path`).
-3. Dialogue: `talk`, the conversation tables and their event files, the
-   dialogue box; then the characters' verbs (`turn`, `rotate`, `look`,
-   `anim`) and the acts (`acts.txt`).
+3. The characters' verbs (`turn`, `rotate`, `look`, `anim`, the heads
+   and mouths in dialogue), `fade`, and the acts (`acts.txt`).
 4. Native decoding of the compressed curve formats (the DLL expands them
    for now).
 5. Native Oodle1 and Bink-texture decoding, checked against the DLL, to

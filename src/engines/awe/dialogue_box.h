@@ -28,10 +28,13 @@ struct DialogueChoiceArea {
 };
 
 // Draws a line said (`choices` empty) or the choices (`text` ignored),
-// over `dst` keeping its alpha (an overlay). Returns where each choice is,
-// for clicks.
+// the box's top at `top` (it slides in and out), over `dst` keeping its
+// alpha (an overlay). Returns where each choice is, for clicks. As the
+// game lays it out (0x43cf90): the line wrapped at 944 pixels and centred;
+// the choices from 25 pixels down the box, at x = 40, a bullet before
+// each, 4 pixels apart.
 std::vector<DialogueChoiceArea> drawDialogueBox(Surface& dst, const GameFonts& fonts, const DialogueBoxPictures& pictures,
-                                                const std::string& text, Color colour,
+                                                int top, const std::string& text, Color colour,
                                                 const std::vector<std::string>& choices, int highlighted);
 
 } // namespace reluva::awe

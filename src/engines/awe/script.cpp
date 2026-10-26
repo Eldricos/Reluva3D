@@ -32,6 +32,25 @@ void ScriptRunner::run(std::string_view commands) {
         add(std::move(c.words), 0);
 }
 
+void ScriptRunner::runNext(std::string_view commands) {
+    if (queue_.empty())
+        return run(commands);
+    // Added at the back, then moved to just after the front.
+    std::deque<ScriptEvent> rest(queue_.begin() + 1, queue_.end());
+    queue_.erase(queue_.begin() + 1, queue_.end());
+    run(commands);
+    queue_.insert(queue_.end(), rest.begin(), rest.end());
+}
+
+void ScriptRunner::fastForward() {
+    for (int guard = 0; !idle() && guard < 1000; guard++) {
+        if (!running_)
+            start();
+        else
+            finished(waitingFor_);
+    }
+}
+
 void ScriptRunner::add(std::vector<std::string> words, int depth) {
     if (words.empty())
         return;
@@ -122,7 +141,7 @@ void ScriptRunner::start() {
     if (!base.empty())
         asked.words.front() = std::string(base);
     waitingFor_ = asked.verb();
-    const bool goesOn = host_.start(asked, base.empty());
+    const bool goesOn = host_.start(*this, asked, base.empty());
     if (!goesOn || !base.empty())
         finished(asked.verb());
 }
