@@ -284,10 +284,10 @@ Allowed under CONTRIBUTING.md:
   FRD/COL/FCE (Denis Auroux's NFS3 track and car format notes, as used
   by T3ED and FCEFinish), the MultimediaWiki pages on EA formats
   (RefPack, SHPI, SCHl/ASF, MAD), and fan wikis.
-- **Open-source readers, for comparison only.** OpenNFS (MIT) and
-  FFmpeg's EA demuxers and decoders (LGPL 2.1+). Copying code from them
-  needs their licence checked against GPL-3.0-or-later and credited;
-  writing from the format descriptions is preferred.
+- **Open-source readers, as references only.** OpenNFS (MIT) and
+  FFmpeg's EA demuxers and decoders (LGPL 2.1+) may be read to check our
+  understanding of a format. No code is copied from them: Reluva's code is
+  written from the format descriptions and the data (decided October 2026).
 
 ## Open questions
 
