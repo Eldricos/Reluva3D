@@ -3905,8 +3905,8 @@ int cmdSpRun(int argc, char** argv) {
                 return failed(("command " + std::to_string(f + 1)).c_str(), e);
             if (reluva::Error e = game.drawClientFrame(game.levelTime()))
                 return failed(("client frame " + std::to_string(f + 1)).c_str(), e);
-            // Once a second of the level: the camera, the view, the player.
-            if (watch && game.levelTime() % 1000 == 0) {
+            // Every five seconds of the level: the camera, the view, the player.
+            if (watch && game.levelTime() % 5000 == 0) {
                 reluva::x86::Cpu& cpu = game.cpu();
                 auto f = [&cpu](uint32_t at) {
                     const uint32_t u = cpu.read32(at);
@@ -3936,22 +3936,6 @@ int cmdSpRun(int argc, char** argv) {
                             game.levelTime(), camera ? "on" : "off", cam[0], cam[1], cam[2], view.c_str(), f(ps + 20),
                             f(ps + 24), f(ps + 28), int(cpu.read32(ps + 4)), game.scene().entities.size(),
                             game.pictures().size(), cvars.string("cg_thirdPerson").c_str());
-                // The text on screen: characters drawn from a 16x16 font
-                // sheet (chars_*), read back from where in it each comes,
-                // a new line where the height changes.
-                std::string onScreen;
-                float lastY = -1;
-                for (const ef::Picture& p : game.pictures()) {
-                    if (game.shaders().name(p.shader).find("chars") == std::string::npos)
-                        continue;
-                    const int ch = int(p.t1 * 16 + 0.01f) * 16 + int(p.s1 * 16 + 0.01f);
-                    if (lastY >= 0 && std::fabs(p.y - lastY) > 1)
-                        onScreen += " | ";
-                    lastY = p.y;
-                    onScreen += ch >= 32 && ch < 127 ? char(ch) : '?';
-                }
-                if (!onScreen.empty())
-                    std::printf("           text: %s\n", onScreen.substr(0, 600).c_str());
                 static size_t commandsShown = 0;
                 for (; commandsShown < game.consoleCommands().size(); ++commandsShown)
                     std::printf("           console command: %s", game.consoleCommands()[commandsShown].c_str());
