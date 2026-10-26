@@ -153,7 +153,7 @@ This is Quake III's native-DLL convention:
 | 63 | `SetUserCmdValue(weapon, sensitivity)` |
 | 64 | `MemoryRemaining()` |
 | 65–69 | ambient sound sets, as JK2: `S_UpdateAmbientSet(name, origin)`, `S_AddLocalSet` (5), `AS_ParseSets()` (reads `sound/sound.txt`), `AS_AddPrecacheEntry(name)`, `AS_GetBModelSound(name, stage)` |
-| 70 | `S_GetSampleLength(sfx)` → float |
+| 70 | `S_GetSampleLength(sfx)` → int ms |
 
 ## The renderer's functions
 
@@ -328,7 +328,10 @@ As the original engine reads and fills them.
   the player's view is set up.
 - Configstring changes reach the client game as `cs <index> "<text>"`
   server commands.
-- `S_GetSampleLength` returns its float in the x87's ST(0), not in EAX.
+- `S_GetSampleLength` returns whole milliseconds in EAX: the cgame's wrapper
+  (0x20032d50) stores EAX and loads it with `fild`, so a float left in ST(0)
+  is ignored and unbalances the x87 stack. Captions divide it over their
+  characters, so 0 ends each caption as soon as it starts.
 
 ## Voices
 

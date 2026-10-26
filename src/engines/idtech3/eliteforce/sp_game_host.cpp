@@ -941,13 +941,11 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
     case 63: clientWeapon_ = uint8_t(a(0)); return 0; // SetUserCmdValue(weapon, sensitivity)
     case 64: return 16u << 20;                        // MemoryRemaining()
     case 65: case 66: case 67: case 68: case 69: return 0; // ambient sound sets: not yet
-    case 70: { // S_GetSampleLength(sfx): milliseconds, a float in ST(0), as the original's
-        double ms = 0;
+    case 70: { // S_GetSampleLength(sfx): whole milliseconds in EAX (the cgame's wrapper loads it with fild)
         const std::string& name = sounds_.name(int32_t(a(0)));
         if (!name.empty())
             if (auto sound = soundLibrary_.find(name); sound && sound->rate > 0)
-                ms = double(sound->frames()) / double(sound->rate) * 1000.0;
-        c.fpuPush(ms);
+                return uint32_t(int64_t(sound->frames()) * 1000 / sound->rate);
         return 0;
     }
     default: ++cgameUnhandled_[number]; return 0;
