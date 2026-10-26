@@ -32,6 +32,46 @@ public:
     uint32_t size(uint32_t address) const;
     uint32_t freeBytes() const;
 
+    // --- Windows and messages (USER32, GDI32) -----------------------------------
+    // The desktop the program sees.
+    int screenWidth = 800, screenHeight = 600, screenBits = 16;
+    struct Window {
+        std::string className, title;
+        uint32_t proc = 0; // its window procedure
+        uint32_t style = 0, exStyle = 0;
+        int x = 0, y = 0, width = 0, height = 0; // the whole window, on the screen
+        bool visible = false;
+    };
+    const Window* window(uint32_t handle) const;
+    // The first window the program made that's still there; 0 if none.
+    uint32_t mainWindow() const;
+    // Queues a message as PostMessageA does: how the engine passes input on.
+    void postMessage(uint32_t window, uint32_t message, uint32_t wParam, uint32_t lParam);
+    // Calls a window's procedure as SendMessageA does; 0 if there's no such window.
+    uint32_t sendMessage(uint32_t window, uint32_t message, uint32_t wParam, uint32_t lParam);
+    // The mouse pointer, on the screen.
+    int cursorX = 0, cursorY = 0;
+    // Called when the program looks for a message and none is queued.
+    std::function<void()> idle;
+    // What MessageBoxA shows: by default, passed to `output`.
+    std::function<void(const std::string& caption, const std::string& text)> messageBox;
+
+    // --- The registry (ADVAPI32) ------------------------------------------------
+    // Keys are full paths from a root ("HKEY_LOCAL_MACHINE\\Software\\..."),
+    // matched ignoring case. Values set by the program stay in memory;
+    // `registryWritten` tells the engine, to keep them if it wants.
+    void setRegistryValue(const std::string& key, const std::string& name, uint32_t type, std::vector<uint8_t> data);
+    void setRegistryString(const std::string& key, const std::string& name, const std::string& text);
+    std::optional<std::vector<uint8_t>> registryValue(const std::string& key, const std::string& name,
+                                                      uint32_t* type = nullptr) const;
+    std::function<void(const std::string& key, const std::string& name)> registryWritten;
+
+    // --- COM (ole32) --------------------------------------------------------------
+    // Makes the object CoCreateInstance asks for (its class and interface as
+    // "{xxxxxxxx-...}"), writing its address to `out`; returns the HRESULT.
+    // Without it, no class is registered.
+    std::function<uint32_t(const std::string& clsid, const std::string& iid, uint32_t out)> createComObject;
+
 private:
     Cpu& cpu_;
     std::map<uint32_t, uint32_t> free_, used_; // start -> size
@@ -143,6 +183,46 @@ public:
     OpenFile* file(uint32_t handle);
     bool closeFile(uint32_t handle);
 
+    // --- Windows and messages (USER32, GDI32) -----------------------------------
+    // The desktop the program sees.
+    int screenWidth = 800, screenHeight = 600, screenBits = 16;
+    struct Window {
+        std::string className, title;
+        uint32_t proc = 0; // its window procedure
+        uint32_t style = 0, exStyle = 0;
+        int x = 0, y = 0, width = 0, height = 0; // the whole window, on the screen
+        bool visible = false;
+    };
+    const Window* window(uint32_t handle) const;
+    // The first window the program made that's still there; 0 if none.
+    uint32_t mainWindow() const;
+    // Queues a message as PostMessageA does: how the engine passes input on.
+    void postMessage(uint32_t window, uint32_t message, uint32_t wParam, uint32_t lParam);
+    // Calls a window's procedure as SendMessageA does; 0 if there's no such window.
+    uint32_t sendMessage(uint32_t window, uint32_t message, uint32_t wParam, uint32_t lParam);
+    // The mouse pointer, on the screen.
+    int cursorX = 0, cursorY = 0;
+    // Called when the program looks for a message and none is queued.
+    std::function<void()> idle;
+    // What MessageBoxA shows: by default, passed to `output`.
+    std::function<void(const std::string& caption, const std::string& text)> messageBox;
+
+    // --- The registry (ADVAPI32) ------------------------------------------------
+    // Keys are full paths from a root ("HKEY_LOCAL_MACHINE\\Software\\..."),
+    // matched ignoring case. Values set by the program stay in memory;
+    // `registryWritten` tells the engine, to keep them if it wants.
+    void setRegistryValue(const std::string& key, const std::string& name, uint32_t type, std::vector<uint8_t> data);
+    void setRegistryString(const std::string& key, const std::string& name, const std::string& text);
+    std::optional<std::vector<uint8_t>> registryValue(const std::string& key, const std::string& name,
+                                                      uint32_t* type = nullptr) const;
+    std::function<void(const std::string& key, const std::string& name)> registryWritten;
+
+    // --- COM (ole32) --------------------------------------------------------------
+    // Makes the object CoCreateInstance asks for (its class and interface as
+    // "{xxxxxxxx-...}"), writing its address to `out`; returns the HRESULT.
+    // Without it, no class is registered.
+    std::function<uint32_t(const std::string& clsid, const std::string& iid, uint32_t out)> createComObject;
+
 private:
     Cpu& cpu_;
     std::unique_ptr<Arena> arena_;
@@ -160,6 +240,23 @@ private:
     void addStandIns();
     void addFileStandIns();
     void addSystemStandIns();
+    void addUserStandIns();
+    void addRegistryStandIns();
+    std::map<std::string, uint32_t> classes_; // lower-case name -> window procedure
+    std::map<uint32_t, Window> windows_;
+    uint32_t nextWindow_ = 0x10010;
+    struct Message {
+        uint32_t window, message, wParam, lParam;
+    };
+    std::vector<Message> messages_;
+    int cursorShown_ = 0;
+    struct RegistryKey {
+        std::string path; // as first given
+        std::vector<std::pair<std::string, std::pair<uint32_t, std::vector<uint8_t>>>> values;
+    };
+    std::map<std::string, RegistryKey> registry_; // by lower-case path
+    std::map<uint32_t, std::string> openKeys_;    // handle -> lower-case path
+    uint32_t nextKey_ = 0x3000;
     uint32_t nextEvent_ = 0;
     std::string currentFolder_ = "C:\\";
     std::map<uint32_t, OpenFile> files_;

@@ -735,6 +735,113 @@ static void testMsvcp60(const std::filesystem::path& tmp) {
     CHECK(output == "n = 42 x = 1.5\n");
 }
 
+// USER32's windows and messages, the registry and COM, called as a
+// program calls them; the window procedure is a native function recording
+// the messages it gets.
+static void testWindowsAndRegistry() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    auto fn = [&](const char* dll, const char* name) { return process.provided(dll, name); };
+    auto text = [&](const std::string& s) {
+        const uint32_t a = process.memory().alloc(uint32_t(s.size() + 1));
+        cpu.writeString(a, s, uint32_t(s.size() + 1));
+        return a;
+    };
+    std::vector<uint32_t> seen;
+    const uint32_t proc = cpu.addNative("test!WndProc", [&](x86::Cpu& c) {
+        seen.push_back(c.arg(1));
+        c.reg[x86::Cpu::EAX] = c.arg(1) == 0x81 ? 1 : 0; // WM_NCCREATE goes on
+        return 16u;
+    });
+    uint32_t r = 0;
+    const uint32_t wc = process.memory().alloc(40);
+    cpu.write32(wc + 4, proc);
+    cpu.write32(wc + 36, text("TestClass"));
+    CHECK(!cpu.call(fn("USER32.dll", "RegisterClassA"), {wc}, r) && r != 0);
+    CHECK(!cpu.call(fn("USER32.dll", "CreateWindowExA"),
+                    {0, text("testclass"), text("Title"), 0x00cf0000, 10, 20, 648, 507, 0, 0, 0, 0}, r) && r != 0);
+    const uint32_t hwnd = r;
+    CHECK((seen == std::vector<uint32_t>{0x81, 0x1}));
+    CHECK(!cpu.call(fn("USER32.dll", "FindWindowA"), {text("TESTCLASS"), 0}, r) && r == hwnd);
+    CHECK(!cpu.call(fn("USER32.dll", "FindWindowA"), {text("Other"), 0}, r) && r == 0);
+    seen.clear();
+    CHECK(!cpu.call(fn("USER32.dll", "ShowWindow"), {hwnd, 1}, r) && r == 0);
+    CHECK((seen == std::vector<uint32_t>{0x18, 0x1c, 0x6, 0x7}));
+    // A thick frame (4) and a caption (19) around the client area.
+    const uint32_t rc = process.memory().alloc(16);
+    for (uint32_t v : {0u, 4u, 8u, 12u})
+        cpu.write32(rc + v, v == 8 ? 640 : v == 12 ? 480 : 0);
+    CHECK(!cpu.call(fn("USER32.dll", "AdjustWindowRect"), {rc, 0x00cf0000, 0}, r) && int32_t(cpu.read32(rc)) == -4 &&
+          int32_t(cpu.read32(rc + 4)) == -23 && cpu.read32(rc + 8) == 644 && cpu.read32(rc + 12) == 484);
+    CHECK(!cpu.call(fn("USER32.dll", "GetClientRect"), {hwnd, rc}, r) && cpu.read32(rc + 8) == 640 &&
+          cpu.read32(rc + 12) == 480);
+    // Posted messages come back from PeekMessageA and go to the procedure.
+    const uint32_t msg = process.memory().alloc(28);
+    CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 0);
+    process.postMessage(hwnd, 0x100, 'Q', 0); // WM_KEYDOWN
+    CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 1 && cpu.read32(msg) == hwnd &&
+          cpu.read32(msg + 4) == 0x100);
+    CHECK(!cpu.call(fn("USER32.dll", "TranslateMessage"), {msg}, r) && r == 1);
+    seen.clear();
+    CHECK(!cpu.call(fn("USER32.dll", "DispatchMessageA"), {msg}, r));
+    CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 1 && cpu.read32(msg + 4) == 0x102 &&
+          cpu.read32(msg + 8) == 'q');
+    CHECK((seen == std::vector<uint32_t>{0x100}));
+    CHECK(!cpu.call(fn("USER32.dll", "PostQuitMessage"), {3}, r));
+    CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, hwnd, 0, 0, 1}, r) && r == 1 && cpu.read32(msg + 4) == 0x12 &&
+          cpu.read32(msg + 8) == 3);
+    // Closing through DefWindowProcA destroys the window.
+    seen.clear();
+    CHECK(!cpu.call(fn("USER32.dll", "DefWindowProcA"), {hwnd, 0x10, 0, 0}, r));
+    CHECK((seen == std::vector<uint32_t>{0x2, 0x82}) && process.window(hwnd) == nullptr);
+
+    // The registry: a key made, a value set and read back; Windows' own
+    // locale list enumerated.
+    const uint32_t key = process.memory().alloc(4), disposition = process.memory().alloc(4);
+    CHECK(!cpu.call(fn("ADVAPI32.dll", "RegCreateKeyExA"),
+                    {0x80000002u, text("Software\\Test\\Game"), 0, 0, 0, 0, 0, key, disposition}, r) && r == 0 &&
+          cpu.read32(disposition) == 1);
+    CHECK(!cpu.call(fn("ADVAPI32.dll", "RegSetValueExA"), {cpu.read32(key), text("Path"), 0, 1, text("D:\\"), 4}, r) &&
+          r == 0);
+    CHECK(!cpu.call(fn("ADVAPI32.dll", "RegCloseKey"), {cpu.read32(key)}, r) && r == 0);
+    CHECK(!cpu.call(fn("ADVAPI32.dll", "RegOpenKeyExA"), {0x80000002u, text("SOFTWARE\\test"), 0, 1, key}, r) && r == 0);
+    CHECK(!cpu.call(fn("ADVAPI32.dll", "RegOpenKeyExA"), {0x80000002u, text("Software\\Absent"), 0, 1, key}, r) &&
+          r == 2);
+    CHECK(!cpu.call(fn("ADVAPI32.dll", "RegOpenKeyExA"), {0x80000002u, text("Software\\Test\\Game"), 0, 1, key}, r) &&
+          r == 0);
+    const uint32_t type = process.memory().alloc(4), data = process.memory().alloc(16), size = process.memory().alloc(4);
+    cpu.write32(size, 2);
+    CHECK(!cpu.call(fn("ADVAPI32.dll", "RegQueryValueExA"), {cpu.read32(key), text("path"), 0, type, data, size}, r) &&
+          r == 234 && cpu.read32(size) == 4);
+    cpu.write32(size, 16);
+    CHECK(!cpu.call(fn("ADVAPI32.dll", "RegQueryValueExA"), {cpu.read32(key), text("path"), 0, type, data, size}, r) &&
+          r == 0 && cpu.read32(type) == 1 && cpu.string(data) == "D:\\");
+    CHECK(process.registryValue("HKEY_LOCAL_MACHINE\\Software\\Test\\Game", "Path").has_value());
+    CHECK(!cpu.call(fn("ADVAPI32.dll", "RegOpenKeyExA"),
+                    {0x80000002u, text("System\\CurrentControlSet\\Control\\Nls\\Locale"), 0, 1, key}, r) && r == 0);
+    const uint32_t name = process.memory().alloc(32), nameSize = process.memory().alloc(4);
+    cpu.write32(nameSize, 32);
+    cpu.write32(size, 16);
+    CHECK(!cpu.call(fn("ADVAPI32.dll", "RegEnumValueA"), {cpu.read32(key), 1, name, nameSize, 0, type, data, size}, r) &&
+          r == 0 && cpu.string(name) == "00000409" && cpu.read32(nameSize) == 8 && cpu.string(data) == "1");
+    CHECK(!cpu.call(fn("ADVAPI32.dll", "RegEnumValueA"), {cpu.read32(key), 2, name, nameSize, 0, type, data, size}, r) &&
+          r == 259);
+
+    // COM: no class without the engine's; with it, the class asked for.
+    const uint32_t guids = process.memory().alloc(32), out = process.memory().alloc(4);
+    const uint8_t clsid[16] = {0xe0, 0xee, 0xf1, 0xd8, 0x34, 0xf6, 0xcf, 0x11, 0x87, 0, 0, 0xa0, 0x24, 0x5d, 0x91, 0x8b};
+    for (uint32_t i = 0; i < 16; ++i)
+        cpu.write8(guids + i, clsid[i]);
+    CHECK(!cpu.call(fn("ole32.dll", "CoCreateInstance"), {guids, 0, 1, guids + 16, out}, r) && r == 0x80040154u);
+    std::string asked;
+    process.createComObject = [&](const std::string& c, const std::string&, uint32_t) {
+        asked = c;
+        return 0u;
+    };
+    CHECK(!cpu.call(fn("ole32.dll", "CoCreateInstance"), {guids, 0, 1, guids + 16, out}, r) && r == 0 &&
+          asked == "{d8f1eee0-f634-11cf-8700-00a0245d918b}");
+}
+
 int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_tests";
     testMd5();
@@ -755,6 +862,7 @@ int main() {
     testX86Dll();
     testMsvcrtAndFiles(tmp / "msvcrt");
     testMsvcp60(tmp / "msvcp60");
+    testWindowsAndRegistry();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

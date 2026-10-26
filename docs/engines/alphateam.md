@@ -273,7 +273,7 @@ Progress:
   `C:\Program Files\LEGO Media\Games\LEGO Alpha Team\`, which is the
   game folder. Writing files isn't allowed yet.
 - The CD-ROM drive (D:) has the retail CD's label, `LEGOATEN`.
-- `reluva-tool at-run <game folder>` runs all of it and reports how far it
+- `reluva-tool at-run <game folder> [-log]` runs all of it and reports how far it
   gets: the imports nothing stands in for, by DLL, and on a failure the
   last instructions (as module+offset) and the last stand-ins called.
 - Done: MSVCRT (all 79 imports, `src/common/x86/msvcrt.cpp`) and KERNEL32's
@@ -284,10 +284,30 @@ Progress:
   and time text).
 - Every DLL's start-up (static constructors and `DllMain`) now runs
   through: 130,057 instructions, NiMain's processor check included.
-- **Where it stops now:** in `WinMain`, at USER32's `FindWindowA` (the
-  check for a copy of the game already running), 139,948 instructions in.
-  USER32 (27 imports), GDI32, ADVAPI32 (the registry), ole32, DirectDraw
-  and DirectInput are next.
+- Done: USER32 and GDI32 (`win32_user.cpp`), the registry (ADVAPI32) and
+  COM start-up (ole32) (`win32_registry.cpp`). Everything the game imports
+  is now stood in for except DirectDraw (3 imports) and DirectInput (1).
+- What the program does before it needs DirectDraw (`at-run -log` lists
+  every stand-in called):
+  - checks the CD;
+  - registers its window class and makes its window ("LEGO Alpha Team",
+    sized with `AdjustWindowRect`), and shows it;
+  - confines the pointer to it;
+  - finds the `.pac` archives and maps each into memory;
+  - asks the desktop's colour depth, then sets the window to 640×480 at
+    80,60 (`at-run` reports the window);
+  - calls `DirectDrawCreate` from NiDirect3d.
+- **Where it stops now:** at that `DirectDrawCreate`, 11.6 million
+  instructions in. It hasn't touched the registry yet.
+- Registry keys the game's code names, for later:
+  - `HKEY_CLASSES_ROOT\A3d` and the A3D COM class
+    `{d8f1eee0-f634-11cf-8700-00a0245d918b}`, which the program registers
+    itself;
+  - `ALPHABLENDMETHOD` under `HKEY_LOCAL_MACHINE\Software\NVIDIA
+    Corporation\RIVA 128\Direct3D`, a driver setting it writes;
+  - the installed locales, which LoadComp enumerates;
+  - `Software\LEGO Media\LEGO Alpha Team\Version`, read by a behaviour
+    DLL, with `DiscPath`, `SoundVolume` and similar names nearby.
 
 #### MSVCP60
 

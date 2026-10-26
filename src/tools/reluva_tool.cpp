@@ -5273,17 +5273,20 @@ int cmdFinCheck(int argc, char** argv) {
 int cmdAtRun(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool at-run <game folder> [-v] [-limit instructions] [-trace count] "
-                             "[-memory MB]\n");
+                             "[-memory MB] [-log]\n");
         return 2;
     }
     bool verbose = false;
     int traceCount = 24;
     uint64_t limit = 4000000000ull;
     uint32_t memoryMb = 1024;
+    bool log = false;
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
         if (arg == "-v")
             verbose = true;
+        else if (arg == "-log")
+            log = true;
         else if (arg == "-limit" && a + 1 < argc)
             limit = std::strtoull(argv[++a], nullptr, 0);
         else if (arg == "-trace" && a + 1 < argc)
@@ -5322,10 +5325,29 @@ int cmdAtRun(int argc, char** argv) {
     std::vector<uint32_t> recent(size_t(std::max(traceCount, 1)));
     std::vector<std::string> calls(16);
     size_t recentAt = 0, callsAt = 0;
+    // -log: every stand-in called, in order, repeats counted.
+    std::string lastLogged;
+    unsigned repeats = 0;
+    auto flushLog = [&] {
+        if (repeats > 1)
+            std::printf("  (x%u)\n", repeats);
+        repeats = 0;
+    };
     cpu.trace = [&](Cpu& c) {
         recent[recentAt++ % recent.size()] = c.eip;
-        if (const std::string* n = c.nativeName(c.eip))
+        if (const std::string* n = c.nativeName(c.eip)) {
             calls[callsAt++ % calls.size()] = *n;
+            if (log) {
+                if (*n == lastLogged) {
+                    ++repeats;
+                } else {
+                    flushLog();
+                    std::printf("call %s\n", n->c_str());
+                    lastLogged = *n;
+                    repeats = 1;
+                }
+            }
+        }
     };
     auto where = [&](uint32_t a) {
         for (const std::string& name : game.loadOrder()) {
@@ -5357,8 +5379,13 @@ int cmdAtRun(int argc, char** argv) {
     std::printf("every DLL's start-up done: %llu instructions\n", (unsigned long long)cpu.executed());
     uint32_t exitCode = 0;
     const uint64_t before = cpu.executed();
-    if (reluva::Error e = game.run(exitCode))
-        return failed(e);
+    reluva::Error ran = game.run(exitCode);
+    // The program's window, if it made one.
+    if (const auto* w = game.process().window(game.process().mainWindow()))
+        std::printf("window: \"%s\" (class %s), %dx%d at %d,%d, %s\n", w->title.c_str(), w->className.c_str(),
+                    w->width, w->height, w->x, w->y, w->visible ? "shown" : "hidden");
+    if (ran)
+        return failed(ran);
     std::printf("the program returned %u after %llu instructions\n", exitCode,
                 (unsigned long long)(cpu.executed() - before));
     return 0;

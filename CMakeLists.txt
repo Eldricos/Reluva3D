@@ -75,6 +75,8 @@ add_library(reluva_common STATIC
     src/common/x86/win32.cpp
     src/common/x86/win32_files.cpp
     src/common/x86/win32_system.cpp
+    src/common/x86/win32_user.cpp
+    src/common/x86/win32_registry.cpp
     src/common/x86/msvcrt.cpp
     src/common/x86/msvcp60.cpp
     src/common/x86/format.cpp

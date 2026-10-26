@@ -712,6 +712,8 @@ void Cpu::twoByte() {
 void Cpu::step() {
     instructionStart_ = eip;
     if (eip >= nativeBase_ - kNativeStride * kReturnSlots) {
+        if (trace)
+            trace(*this);
         callNative(eip);
         return;
     }

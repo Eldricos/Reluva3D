@@ -105,7 +105,8 @@ public:
         if (abort_.empty())
             abort_ = std::move(message);
     }
-    // Called before each instruction, with its address; for tracing.
+    // Called before each instruction, and before each native function is
+    // entered (eip is then its address); for tracing.
     std::function<void(Cpu& cpu)> trace;
 
     // The registers as they were when the last call() failed (before they
