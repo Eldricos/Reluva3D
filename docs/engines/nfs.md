@@ -3,7 +3,8 @@
 Engine id `nfs`, to live in `src/engines/nfs/`. First game: Need for
 Speed III: Hot Pursuit (`nfs3`).
 
-Status: **planning**. Nothing is implemented yet. This page records what
+Status: **Phase 0 done**: the engine detects the game, finds its folders
+and shows what it found. It reads no game data yet. This page records what
 the retail data holds, what was tried, and the order the work should go
 in. It becomes the engine's page as work lands, as `idtech3.md` is for id
 Tech 3.
@@ -159,7 +160,31 @@ fallback, reusing all of the data layer.
 Each phase ends with something runnable and with its findings written
 under `docs/formats/nfs/`, as CONTRIBUTING.md asks.
 
-### Phase 0: skeleton and detection
+### Phase 0: skeleton and detection (done)
+
+What was built:
+
+- `games.cpp` holds the game list and both detection tables.
+- `folders.cpp` finds the CD's files, in this order:
+  - the target's `cdpath` setting;
+  - the install itself;
+  - a folder beside the install with `nfs3.exe` and `GameData/Audio/pc`.
+
+  It also lists the tracks and cars.
+- Engines now get their target's whole config section as
+  `GameTarget::settings`, which is how `cdpath` reaches the engine.
+- The engine shows an info screen: the folders, the music and movies on
+  the CD, and the tracks and cars.
+- `tests/test_nfs.cpp` tests detection and folder finding on folders it
+  builds itself.
+
+Checked on the retail copy:
+
+- the install and the CD are each detected as the Classics release;
+- the install finds the CD beside it (9 tracks, 16 cars, 19 music
+  streams, 4 movies).
+
+What was planned:
 
 - `src/engines/nfs/` with `NfsMetaEngine`, a `GameInfo` table (`nfs3`;
   `nfs4` later), the `RELUVA_ENGINE_NFS` CMake option, and registry entry.

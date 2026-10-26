@@ -8,6 +8,7 @@
 #include "common/types.h"
 
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -24,6 +25,9 @@ struct GameTarget {
     // Where the engine may keep files for this game (settings, saves); may
     // not exist yet. Set by the frontend.
     std::filesystem::path savePath;
+    // Every key of the target's config section (path, engine... and any the
+    // user added for the engine, such as a CD folder).
+    std::map<std::string, std::string> settings;
 };
 
 // A running game. Created by its MetaEngine, run once, then destroyed.

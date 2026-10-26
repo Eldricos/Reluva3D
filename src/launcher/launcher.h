@@ -17,6 +17,9 @@ namespace reluva {
 
 class SdlSystem;
 
+// The game target a config section describes.
+GameTarget gameTargetFromConfig(const Config& config, const std::string& name);
+
 // The game list UI, drawn with Dear ImGui on the SDL renderer.
 class Launcher {
 public:

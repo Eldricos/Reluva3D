@@ -142,7 +142,7 @@ void Launcher::drawUi(std::optional<GameTarget>& launch, bool& quit) {
 
     ImGui::Spacing();
     if (ImGui::Button("Run Testbed", bsize))
-        launch = GameTarget{"testbed", "testbed", "testbed", "Testbed", {}, {}};
+        launch = GameTarget{"testbed", "testbed", "testbed", "Testbed", {}, {}, {}};
 
     ImGui::Spacing();
     if (ImGui::Button("Quit", bsize))
@@ -231,9 +231,16 @@ void Launcher::addGame(const DetectedGame& game, const std::string& path) {
     selected_ = name;
 }
 
-GameTarget Launcher::targetFromConfig(const std::string& name) const {
-    return GameTarget{name, config_.get(name, "engine"), config_.get(name, "gameid"),
-                      config_.get(name, "description", name), config_.get(name, "path"), {}};
+GameTarget gameTargetFromConfig(const Config& config, const std::string& name) {
+    return GameTarget{name,
+                      config.get(name, "engine"),
+                      config.get(name, "gameid"),
+                      config.get(name, "description", name),
+                      config.get(name, "path"),
+                      {},
+                      config.section(name)};
 }
+
+GameTarget Launcher::targetFromConfig(const std::string& name) const { return gameTargetFromConfig(config_, name); }
 
 } // namespace reluva

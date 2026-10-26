@@ -24,6 +24,8 @@ public:
     std::string get(const std::string& section, const std::string& key,
                     const std::string& fallback = {}) const;
     void set(const std::string& section, const std::string& key, const std::string& value);
+    // Every key of a section and its value; empty if there's no such section.
+    std::map<std::string, std::string> section(const std::string& section) const;
 
     bool hasSection(const std::string& section) const;
     void removeSection(const std::string& section);

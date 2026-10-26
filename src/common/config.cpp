@@ -68,6 +68,11 @@ void Config::set(const std::string& section, const std::string& key, const std::
     sections_[section][key] = value;
 }
 
+std::map<std::string, std::string> Config::section(const std::string& section) const {
+    auto s = sections_.find(section);
+    return s == sections_.end() ? std::map<std::string, std::string>{} : s->second;
+}
+
 bool Config::hasSection(const std::string& section) const { return sections_.count(section) != 0; }
 
 void Config::removeSection(const std::string& section) { sections_.erase(section); }

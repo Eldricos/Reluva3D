@@ -65,10 +65,9 @@ int main(int argc, char** argv) {
     if (argc >= 2) {
         std::string name = argv[1];
         if (name == "testbed")
-            direct = GameTarget{"testbed", "testbed", "testbed", "Testbed", {}, {}};
+            direct = GameTarget{"testbed", "testbed", "testbed", "Testbed", {}, {}, {}};
         else if (config.hasSection(name) && name != Config::kGlobalSection)
-            direct = GameTarget{name, config.get(name, "engine"), config.get(name, "gameid"),
-                                config.get(name, "description", name), config.get(name, "path"), {}};
+            direct = gameTargetFromConfig(config, name);
         else {
             std::fprintf(stderr, "Unknown target '%s'\n", name.c_str());
             return 1;
