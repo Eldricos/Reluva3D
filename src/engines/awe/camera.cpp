@@ -70,6 +70,24 @@ gfx::Vec3 SceneCamera::eye() const {
     return gfx::transformPoint(m, {offset[0], offset[1], offset[2]});
 }
 
+bool SceneCamera::floorAt(float sx, float sy, int width, int height, float& x, float& z) const {
+    // The ray through the pixel, in the camera's axes (looking down -Z),
+    // turned to the world's.
+    const float aspect = float(width) / float(height), t = std::tan(fovY / 2);
+    const float nx = 2 * sx / float(width) - 1, ny = 1 - 2 * sy / float(height);
+    Mat4 turn = rotationY(elevAzimRoll[1]);
+    turn = gfx::multiply(turn, rotationX(elevAzimRoll[0]));
+    turn = gfx::multiply(turn, rotationZ(elevAzimRoll[2]));
+    const gfx::Vec3 dir = gfx::transformPoint(turn, {nx * t * aspect, ny * t, -1});
+    const gfx::Vec3 from = eye();
+    if (dir[1] >= 0)
+        return false; // it doesn't come down to the floor
+    const float k = -from[1] / dir[1];
+    x = from[0] + k * dir[0];
+    z = from[2] + k * dir[2];
+    return true;
+}
+
 Mat4 SceneCamera::projection(float aspect) const {
     return gfx::perspective(fovY, aspect, nearPlane > 0 ? nearPlane : 1, farPlane > nearPlane ? farPlane : 10000);
 }

@@ -281,8 +281,8 @@ The record's fields are the Granny camera's, as
 | 74, 78, 7c | f32 | `Offset`: from that point, along the camera's own axes | −10, 276, 990 |
 | fov | f32 | `FOVY`, vertical, radians | 0.646 (37°) |
 | near, far | f32 | clip planes | 10, 10000 |
-| 3 × u16 | u16 | (the object's own: 1024, then the grid's cell size?) | 1024, 0, 20 |
-| grid | u16 size, then size × size bytes | | 64 × 64 |
+| 3 × u16 | u16 | (the object's own: 1024, 0, then the walk grid's cell size, at +0x23c) | 1024, 0, 20 |
+| grid | u16 size, then size × size bytes (at +0x23e) | the walk grid | 64 × 64 |
 | 3 × f32 | f32 | | |
 
 The view matrix is the inverse of
@@ -305,10 +305,56 @@ becomes (x, z, −y). Then it's turned by rotY about Y and moved to the
 character's x, y, z. Characters drawn this way stand where the
 backgrounds expect them: at a door, on the floor, at the right size.
 
-The grid is a 64 × 64 map of 0s and 1s, with 1s outlining the room's
-walls in the Salon. It differs between views of the same room, and how it
-maps to the world isn't known yet (`walk 31 0` in scripts may be cells
-of it).
+### The walk grid
+
+Each camera has its own map of where characters can walk: 64 × 64 cells
+over the floor (y = 0), centred on the world's origin, each `cell` units
+square (the u16 at +0x23c: 20, 25, 35 or 50 in the Salon's views). Cell
+(a, b) is byte a × 64 + b of the grid, and
+
+    x = (a − 32) · cell + cell / 2
+    z = (32 − b) · cell − cell / 2
+
+is its centre (`0x406dd0`). The other way (`0x406e60`), a point goes to
+the cell with (a − 32)·cell ≤ x ≤ (a − 31)·cell and
+(31 − b)·cell ≤ z ≤ (32 − b)·cell; on a boundary, the higher a and b.
+Drawn over the backgrounds, the 1s trace the floor's edges and what
+stands on it (the Salon's aisle between the chairs, the bar counter's
+foot), so the axes are right.
+
+Values (the path-finder's test, `0x42e8a0`): 0 open; 1 blocked; 2
+blocked unless the search allows it; 3 blocked on the first try at a path
+and open after (`0x42e9e0` copies the grid with 3s cleared). The cells
+outside a room are 0 too: the walls' 1s keep a search inside.
+
+- **Clicks:** `0x406f20` turns a screen point into a cell: Granny's picking
+  ray for the pixel (`GrannyGetPickingRay`, y counted from the bottom),
+  met with the floor plane, then the cell under that point. It can also
+  say whether the cell is open (0 or 3).
+- **Scripts:** `walk a b` walks to cell (a, b). In the samples, 17 of the
+  18 such commands in scenes with the player's character are reachable
+  from where it stands; `awe-check` counts them for a whole install.
+  `walk sp1` and the like walk to a character's walk point (the `POINT`s
+  of its `WALK` part); a name walks to that object (`0x440b30`).
+- **Paths** (`0x440ce0`): from the character's cell to the goal's, if they
+  are at least 3 apart (in a + b). The path-finder (a separate object,
+  `0x42e840`) is tried three times, each less strict: as the grid is,
+  accepted if the path has at most 20 points; with 3s open, under 32;
+  with the start and goal cells cleared too, under 32. Its points are
+  cells, walked to through their centres.
+
+  The search (`0x42f1f0`) isn't a plain grid search: it moves on a lattice
+  of 48 steps (to the 8 neighbours, then 2 and 3 cells away in knight-like
+  jumps; tables built at `0x42ea90`) in 8 headings, with turning costs
+  precomputed (`0x42ec60`, `0x42ed90`), then smooths the result
+  (`0x430690`). Reluva doesn't follow it yet: its `WalkGrid::findPath` is
+  A* over the 8 neighbours, shortened to the turns it needs, with the
+  game's three tries and minimum distance.
+
+Characters walk at their walk animation's own pace. The walk carries the
+body forward (Poirot's root, `Bip01`, moves 240 units in its 0.8 s
+loop: 300 units a second), and the loop starts again from the same place,
+so the character moves on by that much each loop.
 
 ## Conditions
 
@@ -337,5 +383,5 @@ no sample mixes them. Reluva's evaluator is `testCondition`
 ## Still to find
 
 - What the unnamed fields do: compare scenes, and watch the original.
-- The camera grid, and the `walk` command's arguments.
+- The path-finder's own lattice search, for paths that turn as the game's do.
 - The save format (`DESC`, `INFO`, `GLBT`...).

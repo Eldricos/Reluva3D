@@ -13,6 +13,7 @@
 #include "engines/awe/particles.h"
 #include "engines/awe/sprite.h"
 #include "engines/awe/tables.h"
+#include "engines/awe/walk_grid.h"
 
 #include <cmath>
 #include <cstdio>
@@ -321,6 +322,60 @@ void testCamera() {
     CHECK(top[0] == 10 && top[1] == 100 && top[2] == 20);
     const gfx::Vec3 front = gfx::transformPoint(m, {0, -1, 0});
     CHECK(front[2] == 21);
+    // A click finds the floor point that projects back to it.
+    for (const auto& p : points) {
+        if (p[1] != 0)
+            continue;
+        float x = 0, z = 0;
+        CHECK(c.floorAt(p[3], p[4], 1024, 768, x, z));
+        CHECK(std::fabs(x - p[0]) < 2 && std::fabs(z - p[2]) < 2);
+    }
+    float x, z;
+    CHECK(!c.floorAt(512, 0, 1024, 768, x, z)); // above the horizon
+}
+
+void testWalkGrid() {
+    // A 20-unit grid, blocked down the middle (a = 32) but for b = 50.
+    Ac2Record camr;
+    camr.tag = "CAMR";
+    Ac2Value size;
+    size.type = Ac2Value::Type::U16;
+    size.raw = 20;
+    Ac2Value grid;
+    grid.type = Ac2Value::Type::Bytes;
+    grid.raw = 64;
+    grid.bytes.assign(64 * 64, 0);
+    for (int b = 0; b < 64; b++)
+        if (b != 50)
+            grid.bytes[size_t(32 * 64 + b)] = 1;
+    grid.bytes[size_t(10 * 64 + 10)] = 3;
+    camr.fields = {{"23c", size}, {"grid", grid}};
+    WalkGrid g;
+    CHECK(g.load(camr) && g.cellSize() == 20);
+    // The game's conversions: x = (a - 32) * 20 + 10, z = (32 - b) * 20 - 10.
+    float x, z;
+    g.centre({31, 0}, x, z);
+    CHECK(x == -10 && z == 630);
+    WalkGrid::Cell c = g.cellAt(-10, 630);
+    CHECK(c.a == 31 && c.b == 0);
+    c = g.cellAt(0, 0); // on boundaries: the later of the two, on both
+    CHECK(c.a == 32 && c.b == 32);
+    CHECK(!g.cellAt(-700, 0).valid());
+    CHECK(g.at(32, 5) == 1 && g.blocked({32, 5}, true) && !g.blocked({32, 50}, false));
+    CHECK(g.blocked({10, 10}, false) && !g.blocked({10, 10}, true));
+    // Across the wall: through its one gap, at b = 50.
+    std::vector<WalkGrid::Cell> path = g.findPath({28, 10}, {36, 10});
+    CHECK(path.size() >= 3 && path.front() == (WalkGrid::Cell{28, 10}) && path.back() == (WalkGrid::Cell{36, 10}));
+    bool through = false;
+    for (size_t i = 0; i + 1 < path.size(); i++)
+        through |= (path[i].a <= 32) != (path[i + 1].a <= 32) && path[i].b >= 48 && path[i + 1].b >= 48;
+    CHECK(through);
+    for (const WalkGrid::Cell& p : path)
+        CHECK(!g.blocked(p, false));
+    CHECK(g.findPath({20, 20}, {21, 21}).empty()); // too near to walk
+    // Open ground: straight there.
+    path = g.findPath({0, 0}, {20, 30});
+    CHECK(path.size() == 2);
 }
 
 void testConditions() {
@@ -446,6 +501,7 @@ int main() {
     testGr2();
     testCurves();
     testCamera();
+    testWalkGrid();
     testConditions();
     testSprite();
     testParticles();

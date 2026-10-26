@@ -15,6 +15,7 @@
 #include "engines/awe/ac2.h"
 #include "engines/awe/conditions.h"
 #include "engines/awe/particles.h"
+#include "engines/awe/walk_grid.h"
 #include "engines/awe/game_text.h"
 #include "engines/awe/gr2.h"
 #include "engines/awe/granny_dll.h"
@@ -136,6 +137,15 @@ private:
         std::shared_ptr<Animation> animation;
         std::string animationName;
         gfx::Mat4 placement{};
+        // Where it stands and faces; while walking, the points still to
+        // reach (world x, z) and its walk.
+        float x = 0, y = 0, z = 0, rotY = 0;
+        bool player = false;
+        std::vector<std::pair<float, float>> path;
+        std::shared_ptr<Animation> walk;
+        float walkSpeed = 0;           // world units a second, from the walk itself
+        float walkDrift[3] = {0, 0, 0}; // how far the walk carries the body each loop, in the model's axes
+        float walkStart = 0;
     };
     // A video loop the scene shows (the countryside going by a window),
     // by the object that places it.
@@ -155,6 +165,14 @@ private:
     void draw();
     void releaseGpu();
     void line(int x0, int y0, int x1, int y1, Color c);
+    // A convex polygon (screen points), blended over the screen.
+    void fillPolygon(const std::vector<std::pair<float, float>>& points, Color c, uint8_t alpha);
+    void drawGrid();
+    // Walks the player's character to where the screen point is on the
+    // floor, along a path through the grid.
+    void walkTo(int sx, int sy);
+    bool loadWalk(Character& c);
+    void placeCharacter(Character& c, float time) const;
 
     std::vector<std::string> names_;
     int index_ = 0;
@@ -168,6 +186,13 @@ private:
     GameState state_;
     std::map<const Ac2Record*, Loop> loops_;
     std::map<const Ac2Record*, ParticleSystem> particles_;
+    // The camera's walk grid (G shows it), the cell under the mouse and
+    // the last path found.
+    WalkGrid grid_;
+    bool showGrid_ = false;
+    WalkGrid::Cell hover_;
+    std::vector<WalkGrid::Cell> path_;
+    float time_ = 0;
     image::Image dot_; // stands in for a particle texture that's missing
     uint64_t lastMs_ = 0;
     // With 3D: the pictures behind the characters as one texture, the

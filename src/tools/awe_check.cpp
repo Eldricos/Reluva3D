@@ -19,6 +19,7 @@
 #include "engines/awe/granny_dll.h"
 #include "engines/awe/model.h"
 #include "engines/awe/tables.h"
+#include "engines/awe/walk_grid.h"
 
 #include <algorithm>
 #include <atomic>
@@ -348,6 +349,14 @@ int checkScenes(const reluva::Archive& files, bool verbose) {
     std::vector<uint8_t> dllData;
     const bool haveDll = !files.read("granny2.dll", dllData) && !dll.load(dllData);
     std::map<std::string, size_t> tags, parts;
+    // The cameras' walk grids: their cell sizes and values, and the cells
+    // that characters, their walk points and "walk a b" commands land on.
+    struct Landing {
+        size_t open = 0, blocked = 0, off = 0;
+    };
+    std::map<int, size_t> cellSizes, cellValues, gridSizes;
+    Landing standing, points, walks;
+    size_t grids = 0, reachable = 0, unreachable = 0;
     for (const std::string& n : names) {
         // Text/Scripts' slots are saves, with records of their own.
         if (reluva::fs::toLower(n).rfind("text/scripts/", 0) == 0) {
@@ -378,6 +387,100 @@ int checkScenes(const reluva::Archive& files, bool verbose) {
                             error.empty() ? "" : ": ", error.c_str());
             }
         }
+        // A variant (an act's) has no camera of its own: its base's grid.
+        awe::WalkGrid grid;
+        const awe::Ac2Record* camr = scene.camera();
+        awe::Ac2Scene base;
+        if (!camr) {
+            const size_t u = n.rfind('_'), dot = n.rfind('.');
+            std::vector<uint8_t> baseData;
+            if (u != std::string::npos && dot == u + 4 && !files.read(n.substr(0, u) + n.substr(dot), baseData) &&
+                !awe::parseAc2(baseData, base))
+                camr = base.camera();
+        }
+        if (camr && grid.load(*camr) && scene.camera()) {
+            grids++;
+            cellSizes[grid.cellSize()]++;
+            if (const awe::Ac2Value* g = camr->field("grid"))
+                gridSizes[int(g->raw)]++;
+            for (int a = 0; a < awe::WalkGrid::kSize; a++)
+                for (int b = 0; b < awe::WalkGrid::kSize; b++)
+                    cellValues[grid.at(a, b)]++;
+        }
+        // The cells the player's character can reach from where it stands
+        // (3s open, as on the game's later tries).
+        std::vector<bool> reach;
+        for (const awe::Ac2Record* o : scene.objects())
+            if (o->tag == "PCXX" && !grid.empty() && reach.empty()) {
+                const awe::WalkGrid::Cell from = grid.cellAt(o->f("x"), o->f("z"));
+                if (!from.valid())
+                    continue;
+                reach.assign(64 * 64, false);
+                std::vector<awe::WalkGrid::Cell> todo{from};
+                reach[size_t(from.a * 64 + from.b)] = true;
+                while (!todo.empty()) {
+                    const awe::WalkGrid::Cell c = todo.back();
+                    todo.pop_back();
+                    for (const auto& [da, db] : {std::pair{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+                        const awe::WalkGrid::Cell nb{c.a + da, c.b + db};
+                        if (awe::WalkGrid::inside(nb.a, nb.b) && !reach[size_t(nb.a * 64 + nb.b)] &&
+                            !grid.blocked(nb, true)) {
+                            reach[size_t(nb.a * 64 + nb.b)] = true;
+                            todo.push_back(nb);
+                        }
+                    }
+                }
+            }
+        auto land = [&](Landing& l, awe::WalkGrid::Cell c, const std::string& what) {
+            if (grid.empty())
+                return;
+            if (!c.valid())
+                l.off++;
+            else if (grid.blocked(c, true))
+                l.blocked++;
+            else
+                l.open++;
+            if (verbose && (!c.valid() || grid.blocked(c, true)))
+                std::printf("WARN %s: %s on %s\n", n.c_str(), what.c_str(),
+                            c.valid() ? ("a blocked cell (" + std::to_string(c.a) + ", " + std::to_string(c.b) + ")").c_str()
+                                      : "no cell");
+        };
+        for (const awe::Ac2Record* o : scene.objects()) {
+            if (o->tag == "NPCX" || o->tag == "PCXX") {
+                land(standing, grid.cellAt(o->f("x"), o->f("z")), o->tag + " " + o->text("file"));
+                if (const awe::Ac2Record* w = o->part("WALK"))
+                    for (const awe::Ac2Record& pt : w->parts)
+                        land(points, grid.cellAt(pt.f("x"), pt.f("z")),
+                             "walk point " + std::to_string(pt.i("id")) + " of " + o->text("file"));
+            }
+            // Scripts: "walk a b" with two numbers walks to cell (a, b).
+            std::vector<std::string> scripts{o->text("script")};
+            if (const awe::Ac2Value* lb = o->field("listB"))
+                for (const auto& [cond, run] : lb->pairs)
+                    scripts.push_back(run);
+            for (const std::string& sc : scripts)
+                for (const awe::Command& c : awe::parseCommands(sc)) {
+                    if (c.words.size() != 3 || reluva::fs::toLower(c.verb()) != "walk")
+                        continue;
+                    char* e1 = nullptr;
+                    char* e2 = nullptr;
+                    const long a = std::strtol(c.words[1].c_str(), &e1, 10), b = std::strtol(c.words[2].c_str(), &e2, 10);
+                    if (*e1 || *e2)
+                        continue;
+                    const awe::WalkGrid::Cell cell{int(a), int(b)};
+                    land(walks, awe::WalkGrid::inside(cell.a, cell.b) ? cell : awe::WalkGrid::Cell(),
+                         "walk " + c.words[1] + " " + c.words[2]);
+                    if (!reach.empty() && awe::WalkGrid::inside(cell.a, cell.b)) {
+                        if (reach[size_t(cell.a * 64 + cell.b)])
+                            reachable++;
+                        else {
+                            unreachable++;
+                            if (verbose)
+                                std::printf("WARN %s: walk %ld %ld can't be reached from the player\n", n.c_str(), a, b);
+                        }
+                    }
+                }
+        }
         for (const awe::Ac2Record& r : scene.records) {
             tags[r.tag]++;
             for (const awe::Ac2Record& p : r.parts)
@@ -387,6 +490,25 @@ int checkScenes(const reluva::Archive& files, bool verbose) {
     std::printf("Scenes: %zu files, %zu failed (%zu saves in Text/Scripts not checked)\n", scenes, failed, saves);
     if (haveDll)
         std::printf("  cameras: %zu checked against granny2.dll, %zu differ\n", cameras, cameraMismatches);
+    std::printf("  walk grids: %zu; sizes", grids);
+    for (const auto& [v, k] : gridSizes)
+        std::printf(" %dx%d in %zu", v, v, k);
+    std::printf("; cells of");
+    for (const auto& [v, k] : cellSizes)
+        std::printf(" %d in %zu", v, k);
+    std::printf("; values");
+    for (const auto& [v, k] : cellValues)
+        std::printf(" %d: %zu", v, k);
+    std::printf("\n");
+    auto landing = [](const char* what, const Landing& l) {
+        std::printf("  %s: %zu on open cells, %zu on blocked ones, %zu off the grid%s\n", what, l.open, l.blocked, l.off,
+                    l.blocked + l.off ? " (-v lists them)" : "");
+    };
+    landing("characters standing", standing);
+    landing("their walk points", points);
+    landing("\"walk a b\" commands", walks);
+    std::printf("    of those in scenes with the player: %zu reachable from where the player stands, %zu not\n", reachable,
+                unreachable);
     std::printf("  records:");
     for (const auto& [t, n] : tags)
         std::printf(" %s %zu", t.c_str(), n);

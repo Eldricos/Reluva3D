@@ -141,7 +141,7 @@ bool openGr2(const std::string& file, awe::GrannyDll& dll, awe::Gr2File& gr2) {
 // Summarises a model; optionally poses it with an animation and writes
 // it as Wavefront OBJ (with its textures as TGA files beside it).
 int cmdGr2Model(int argc, char** argv) {
-    std::string file, animFile, objFile;
+    std::string file, animFile, objFile, trackBone;
     float time = 0;
     for (int i = 2; i < argc; i++) {
         if (std::strcmp(argv[i], "-anim") == 0 && i + 2 < argc) {
@@ -149,12 +149,15 @@ int cmdGr2Model(int argc, char** argv) {
             time = std::strtof(argv[++i], nullptr);
         } else if (std::strcmp(argv[i], "-obj") == 0 && i + 1 < argc) {
             objFile = argv[++i];
+        } else if (std::strcmp(argv[i], "-track") == 0 && i + 1 < argc) {
+            trackBone = argv[++i];
         } else {
             file = argv[i];
         }
     }
     if (file.empty()) {
-        std::fprintf(stderr, "usage: reluva-tool gr2-model <model.gr2> [-anim <anim.gr2> <seconds>] [-obj out.obj]\n");
+        std::fprintf(stderr, "usage: reluva-tool gr2-model <model.gr2> [-anim <anim.gr2> <seconds>] [-obj out.obj] "
+                             "[-track bone]\n");
         return 2;
     }
     awe::GrannyDll dll;
@@ -195,6 +198,25 @@ int cmdGr2Model(int argc, char** argv) {
                 matched += b.name == t.bone;
         std::printf("animation \"%s\": %.3f s (step %.4f), %zu tracks, %zu on the model's bones\n", anim.name.c_str(),
                     anim.duration, anim.timeStep, anim.tracks.size(), matched);
+    }
+    if (!trackBone.empty()) {
+        // The bone's place in the model (its own axes) through the
+        // animation, a line per time step.
+        int bone = -1;
+        for (size_t b = 0; b < model.bones.size(); b++)
+            if (model.bones[b].name == trackBone)
+                bone = int(b);
+        if (bone < 0) {
+            std::fprintf(stderr, "no bone %s\n", trackBone.c_str());
+            return 1;
+        }
+        const float step = anim.timeStep > 0 ? anim.timeStep : 1 / 60.0f;
+        awe::Pose pose;
+        for (float t = 0; t <= anim.duration + step / 2; t += step) {
+            awe::computePose(model, animFile.empty() ? nullptr : &anim, t, pose);
+            const awe::Mat4& m = pose.world[size_t(bone)];
+            std::printf("%.4f %g %g %g\n", t, m[12], m[13], m[14]);
+        }
     }
     if (objFile.empty())
         return 0;
@@ -337,7 +359,8 @@ public:
 int cmdAweShot(int argc, char** argv) {
     if (argc < 5) {
         std::fprintf(stderr, "usage: reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds|movies> <out.tga> "
-                             "[key...]\n  keys: left right up down pgup pgdn home end, or one character; ms:N lets N milliseconds pass\n");
+                             "[key...]\n  keys: left right up down pgup pgdn home end, or one character; ms:N lets N milliseconds pass;\n"
+                             "  move:x,y and click:x,y move and click the mouse\n");
         return 2;
     }
     reluva::DirectoryArchive files;
@@ -381,6 +404,19 @@ int cmdAweShot(int argc, char** argv) {
             continue;
         }
         reluva::Event ev;
+        if (k.rfind("click:", 0) == 0 || k.rfind("move:", 0) == 0) {
+            // The mouse moved to, or clicked at, x,y on the screen.
+            const bool click = k[0] == 'c';
+            const char* at = k.c_str() + (click ? 6 : 5);
+            char* end = nullptr;
+            ev.mouseX = int(std::strtol(at, &end, 10));
+            ev.mouseY = end && *end == ',' ? int(std::strtol(end + 1, nullptr, 10)) : 0;
+            ev.type = click ? reluva::EventType::MouseDown : reluva::EventType::MouseMove;
+            ev.button = click ? reluva::MouseButton::Left : reluva::MouseButton::None;
+            ev.clicks = click ? 1 : 0;
+            page->handleEvent(ev);
+            continue;
+        }
         ev.type = reluva::EventType::KeyDown;
         namespace key = reluva::key;
         ev.key = k == "left" ? key::Left : k == "right" ? key::Right : k == "up" ? key::Up : k == "down" ? key::Down
@@ -622,5 +658,5 @@ const char* aweToolUsage() {
            "  reluva-tool awe-table <file.txt>\n"
            "  reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds|movies> <out.tga> [key...]\n"
            "  reluva-tool ac2-dump <scene.ac2>...\n"
-           "  reluva-tool gr2-model <model.gr2> [-anim <anim.gr2> <seconds>] [-obj out.obj]\n";
+           "  reluva-tool gr2-model <model.gr2> [-anim <anim.gr2> <seconds>] [-obj out.obj] [-track bone]\n";
 }

@@ -77,11 +77,17 @@ void Page::fill(int x, int y, int w, int h, Color c, uint8_t alpha) {
     Surface& s = ctx_.screen;
     for (int yy = std::max(0, y); yy < std::min(s.h, y + h); yy++)
         for (int xx = std::max(0, x); xx < std::min(s.w, x + w); xx++) {
+            // Over what's there, by its alpha too: on an overlay, transparent
+            // where nothing is drawn, the colour isn't darkened by the
+            // emptiness under it.
             uint8_t* p = s.row(yy) + xx * 4;
-            p[0] = uint8_t((c.r * alpha + p[0] * (255 - alpha)) / 255);
-            p[1] = uint8_t((c.g * alpha + p[1] * (255 - alpha)) / 255);
-            p[2] = uint8_t((c.b * alpha + p[2] * (255 - alpha)) / 255);
-            p[3] = std::max(p[3], alpha); // for overlays, transparent where nothing is drawn
+            const int under = p[3] * (255 - alpha) / 255, out = alpha + under;
+            if (out == 0)
+                continue;
+            p[0] = uint8_t((c.r * alpha + p[0] * under) / out);
+            p[1] = uint8_t((c.g * alpha + p[1] * under) / out);
+            p[2] = uint8_t((c.b * alpha + p[2] * under) / out);
+            p[3] = uint8_t(out);
         }
 }
 
@@ -308,6 +314,9 @@ void ScenePage::load() {
     loops_.clear();
     particles_.clear();
     state_.act.clear();
+    grid_ = WalkGrid();
+    path_.clear();
+    hover_ = {};
     if (names_.empty())
         return draw();
     auto read = [&](const std::string& name, Ac2Scene& out) {
@@ -334,6 +343,8 @@ void ScenePage::load() {
     } else {
         scene_ = std::move(variant);
     }
+    if (const Ac2Record* cam = scene_.camera())
+        grid_.load(*cam);
     if (renderer_ && showCharacters_)
         loadCharacters();
     loadLoops();
@@ -508,7 +519,9 @@ void ScenePage::loadCharacters() {
                 break;
             }
         }
-        c.placement = characterMatrix(o->f("x"), o->f("y"), o->f("z"), o->f("rotY"));
+        c.x = o->f("x"), c.y = o->f("y"), c.z = o->f("z"), c.rotY = o->f("rotY");
+        c.player = o->tag == "PCXX";
+        placeCharacter(c, 0);
         characters_.push_back(std::move(c));
     }
 }
@@ -583,6 +596,8 @@ void ScenePage::draw() {
     for (const Ac2Record* o : pictures)
         if (!layered || depth(o) >= 0)
             place(o, layered);
+    if (showGrid_)
+        drawGrid();
     if (hotspots_)
         for (const Ac2Record* o : objects) {
             const int l = o->i("left"), t = o->i("top"), r = o->i("right"), b = o->i("bottom");
@@ -650,6 +665,15 @@ void ScenePage::draw() {
         for (const auto& [t, n] : tags)
             counts += " " + std::to_string(n) + " " + t;
         lines.push_back(counts);
+        if (!grid_.empty()) {
+            std::string g = "walk grid: cells of " + std::to_string(grid_.cellSize());
+            if (hover_.valid())
+                g += ", under the mouse (" + std::to_string(hover_.a) + ", " + std::to_string(hover_.b) +
+                     ") = " + std::to_string(grid_.at(hover_.a, hover_.b));
+            if (!path_.empty())
+                g += ", path of " + std::to_string(path_.size()) + " points";
+            lines.push_back(g);
+        }
         lines.push_back(std::string("train ") + (state_.values["moving"] ? "moving" : "stopped") + ", weather " +
                         (state_.values["weather"] ? "on" : "off") + (state_.act.empty() ? "" : ", act " + state_.act));
         if (const Ac2Record* cam = scene_.camera()) {
@@ -680,7 +704,8 @@ void ScenePage::draw() {
             y += font::kLineHeight;
         }
     }
-    help(std::string("Left/Right: scene  Up/Down: object  H: hotspots  I: info  M: moving  W: weather") +
+    help(std::string("Left/Right: scene  Up/Down: object  H: hotspots  I: info  M: moving  W: weather  G: grid  "
+                     "click: walk") +
          (renderer_ ? "  C: characters" : "  (no 3D: no characters)"));
     if (!renderer_)
         present();
@@ -695,7 +720,32 @@ void ScenePage::update(uint64_t nowMs) {
     // of a second, so a pause doesn't empty them).
     const float dt = lastMs_ ? std::min(0.1f, float(nowMs - lastMs_) / 1000.0f) : 0.0f;
     lastMs_ = nowMs;
+    time_ = time;
     bool changed = advanceLoops(time);
+    for (Character& c : characters_) {
+        if (c.path.empty())
+            continue;
+        // On towards the next point, turning to face it (at most a turn
+        // and a half a second, a guess; the game's planner turns along
+        // its path).
+        changed = true;
+        const float dx = c.path.front().first - c.x, dz = c.path.front().second - c.z;
+        const float distance = std::sqrt(dx * dx + dz * dz), stepLength = c.walkSpeed * dt;
+        if (distance > 0.001f) {
+            constexpr float kTwoPi = 6.2831853f;
+            float turn = std::remainder(std::atan2(dx, dz) - c.rotY, kTwoPi);
+            const float most = 9.4f * dt;
+            turn = std::clamp(turn, -most, most);
+            c.rotY = std::remainder(c.rotY + turn, kTwoPi);
+        }
+        if (stepLength >= distance) {
+            c.x = c.path.front().first, c.z = c.path.front().second;
+            c.path.erase(c.path.begin());
+        } else {
+            c.x += dx / distance * stepLength, c.z += dz / distance * stepLength;
+        }
+        placeCharacter(c, time);
+    }
     for (auto& [o, system] : particles_)
         if (testCondition(system.settings().condition, state_)) {
             system.update(dt);
@@ -736,12 +786,179 @@ void ScenePage::update(uint64_t nowMs) {
         const SceneCamera cam = SceneCamera::fromRecord(*camr);
         renderer_->setView(cam.viewProjection(), cam.eye());
         renderer_->clearDepth();
-        for (const Character& c : characters_)
-            c.model->draw(poseAt(c.model->model(), c.animation.get(), time), c.placement, false, frameMeshes_);
+        for (const Character& c : characters_) {
+            const bool walking = !c.path.empty() && c.walk;
+            const Pose pose = walking ? poseAt(c.model->model(), c.walk.get(), time - c.walkStart)
+                                      : poseAt(c.model->model(), c.animation.get(), time);
+            c.model->draw(pose, c.placement, false, frameMeshes_);
+        }
     }
     prepareScreenshot(renderer_);
     renderer_->endFrame(&ctx_.screen);
     finishScreenshot(renderer_, &ctx_.screen);
+}
+
+void ScenePage::fillPolygon(const std::vector<std::pair<float, float>>& points, Color c, uint8_t alpha) {
+    if (points.size() < 3)
+        return;
+    float minX = 1e9f, minY = 1e9f, maxX = -1e9f, maxY = -1e9f;
+    for (const auto& [x, y] : points) {
+        minX = std::min(minX, x), maxX = std::max(maxX, x);
+        minY = std::min(minY, y), maxY = std::max(maxY, y);
+    }
+    const int x0 = std::max(0, int(std::floor(minX))), x1 = std::min(kScreenW - 1, int(std::ceil(maxX)));
+    const int y0 = std::max(0, int(std::floor(minY))), y1 = std::min(kScreenH - 1, int(std::ceil(maxY)));
+    for (int y = y0; y <= y1; y++)
+        for (int x = x0; x <= x1; x++) {
+            // Inside if on the same side of every edge.
+            const float px = float(x) + 0.5f, py = float(y) + 0.5f;
+            int sign = 0;
+            bool inside = true;
+            for (size_t i = 0; i < points.size() && inside; i++) {
+                const auto& [ax, ay] = points[i];
+                const auto& [bx, by] = points[(i + 1) % points.size()];
+                const float cross = (bx - ax) * (py - ay) - (by - ay) * (px - ax);
+                const int s2 = cross > 0 ? 1 : cross < 0 ? -1 : 0;
+                if (s2 != 0) {
+                    if (sign != 0 && s2 != sign)
+                        inside = false;
+                    sign = s2;
+                }
+            }
+            if (inside)
+                fill(x, y, 1, 1, c, alpha);
+        }
+}
+
+void ScenePage::drawGrid() {
+    const Ac2Record* camr = scene_.camera();
+    if (!camr || grid_.empty())
+        return;
+    const SceneCamera cam = SceneCamera::fromRecord(*camr);
+    const float size = float(grid_.cellSize());
+    auto corner = [&](float x, float z, std::pair<float, float>& out) {
+        const float p[3] = {x, 0, z};
+        return cam.project(p, kScreenW, kScreenH, out.first, out.second);
+    };
+    // A cell's square on the floor, on the screen.
+    auto square = [&](WalkGrid::Cell cell, std::vector<std::pair<float, float>>& pts) {
+        const float x0 = float(cell.a - 32) * size, z1 = float(32 - cell.b) * size;
+        pts.assign(4, {});
+        return corner(x0, z1 - size, pts[0]) && corner(x0 + size, z1 - size, pts[1]) &&
+               corner(x0 + size, z1, pts[2]) && corner(x0, z1, pts[3]);
+    };
+    std::vector<std::pair<float, float>> pts;
+    for (int a = 0; a < WalkGrid::kSize; a++)
+        for (int b = 0; b < WalkGrid::kSize; b++) {
+            const uint8_t v = grid_.at(a, b);
+            if (v == 0 || !square({a, b}, pts))
+                continue;
+            // 1 blocked, 2 blocked unless allowed, 3 blocked at first.
+            const Color c = v == 1 ? Color{230, 50, 50} : v == 2 ? Color{240, 150, 40} : Color{240, 230, 60};
+            fillPolygon(pts, c, 90);
+        }
+    if (hover_.valid() && square(hover_, pts))
+        for (size_t i = 0; i < 4; i++)
+            line(int(pts[i].first), int(pts[i].second), int(pts[(i + 1) % 4].first), int(pts[(i + 1) % 4].second),
+                 grid_.blocked(hover_, true) ? Color{255, 80, 80} : Color{80, 255, 255});
+    for (size_t i = 0; i + 1 < path_.size(); i++) {
+        float x0, z0, x1, z1;
+        grid_.centre(path_[i], x0, z0);
+        grid_.centre(path_[i + 1], x1, z1);
+        std::pair<float, float> p0, p1;
+        if (corner(x0, z0, p0) && corner(x1, z1, p1))
+            line(int(p0.first), int(p0.second), int(p1.first), int(p1.second), {90, 255, 120});
+    }
+}
+
+bool ScenePage::loadWalk(Character& c) {
+    if (c.walk)
+        return true;
+    if (!ctx_.granny)
+        return false;
+    // <who>_walk.gr2 beside its model.
+    const std::string folder = folderOf(c.name);
+    std::string who = c.name.substr(folder.size() + 1);
+    who = who.substr(0, who.find("_model"));
+    const std::string path = folder + "/" + who + "_walk.gr2";
+    if (!ctx_.files.has(path))
+        return false;
+    Gr2File gr2;
+    auto anim = std::make_shared<Animation>();
+    if (openGr2(ctx_.files, path, *ctx_.granny, gr2) || awe::loadAnimation(gr2, *anim, ctx_.granny) ||
+        anim->duration <= 0)
+        return false;
+    // The walk carries the body forward (the biped's root, Bip01, moves
+    // the whole loop's distance): that is how fast it walks. The game's
+    // characters move by that much, while the loop starts again from the
+    // same place.
+    const Model& model = c.model->model();
+    int root = -1;
+    for (size_t b = 0; b < model.bones.size(); b++)
+        if (model.bones[b].name == "Bip01")
+            root = int(b);
+    if (root >= 0) {
+        Pose start, end;
+        computePose(model, anim.get(), 0, start);
+        computePose(model, anim.get(), anim->duration, end);
+        for (int k = 0; k < 3; k++)
+            c.walkDrift[k] = end.world[size_t(root)][size_t(12 + k)] - start.world[size_t(root)][size_t(12 + k)];
+        c.walkSpeed = std::sqrt(c.walkDrift[0] * c.walkDrift[0] + c.walkDrift[1] * c.walkDrift[1] +
+                                c.walkDrift[2] * c.walkDrift[2]) /
+                      anim->duration;
+    }
+    if (c.walkSpeed <= 1) {
+        c.walkSpeed = 150; // a walk in place: a guess at a walking pace
+        c.walkDrift[0] = c.walkDrift[1] = c.walkDrift[2] = 0;
+    }
+    c.walk = anim;
+    return true;
+}
+
+void ScenePage::placeCharacter(Character& c, float time) const {
+    c.placement = characterMatrix(c.x, c.y, c.z, c.rotY);
+    if (c.path.empty() || !c.walk)
+        return;
+    // Back by how far the walk has carried the body this loop, as the
+    // character itself moves.
+    const float loop = std::fmod(std::max(0.0f, time - c.walkStart), c.walk->duration) / c.walk->duration;
+    gfx::Mat4 back = gfx::identity();
+    for (int k = 0; k < 3; k++)
+        back[size_t(12 + k)] = -loop * c.walkDrift[k];
+    c.placement = gfx::multiply(c.placement, back);
+}
+
+void ScenePage::walkTo(int sx, int sy) {
+    const Ac2Record* camr = scene_.camera();
+    float x, z;
+    if (!camr || grid_.empty() ||
+        !SceneCamera::fromRecord(*camr).floorAt(float(sx), float(sy), kScreenW, kScreenH, x, z))
+        return;
+    const WalkGrid::Cell goal = grid_.cellAt(x, z);
+    // From the player's character (else the first character, else the
+    // grid's centre: the path alone is shown).
+    Character* who = nullptr;
+    for (Character& c : characters_)
+        if (c.player || !who)
+            who = &c;
+    WalkGrid::Cell start{32, 32};
+    if (who)
+        start = grid_.cellAt(who->x, who->z);
+    else
+        for (const Ac2Record* o : scene_.objects())
+            if (o->tag == "PCXX")
+                start = grid_.cellAt(o->f("x"), o->f("z"));
+    path_ = grid_.findPath(start, goal);
+    if (who && path_.size() > 1 && loadWalk(*who)) {
+        who->path.clear();
+        for (size_t i = 1; i < path_.size(); i++) {
+            float px, pz;
+            grid_.centre(path_[i], px, pz);
+            who->path.push_back({px, pz});
+        }
+        who->walkStart = time_;
+    }
+    draw();
 }
 
 void ScenePage::line(int x0, int y0, int x1, int y1, Color c) {
@@ -759,6 +976,22 @@ void ScenePage::line(int x0, int y0, int x1, int y1, Color c) {
 }
 
 void ScenePage::handleEvent(const Event& ev) {
+    if (ev.type == EventType::MouseMove && showGrid_) {
+        float x, z;
+        WalkGrid::Cell cell;
+        if (const Ac2Record* cam = scene_.camera();
+            cam && SceneCamera::fromRecord(*cam).floorAt(float(ev.mouseX), float(ev.mouseY), kScreenW, kScreenH, x, z))
+            cell = grid_.cellAt(x, z);
+        if (!(cell == hover_)) {
+            hover_ = cell;
+            draw();
+        }
+        return;
+    }
+    if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
+        walkTo(ev.mouseX, ev.mouseY);
+        return;
+    }
     if (ev.type != EventType::KeyDown)
         return;
     if (const int d = step(ev.key, index_, int(names_.size()))) {
@@ -774,6 +1007,9 @@ void ScenePage::handleEvent(const Event& ev) {
         draw();
     } else if (ev.key == 'h') {
         hotspots_ = !hotspots_;
+        draw();
+    } else if (ev.key == 'g') {
+        showGrid_ = !showGrid_;
         draw();
     } else if (ev.key == 'm' || ev.key == 'w') {
         int& v = state_.values[ev.key == 'm' ? "moving" : "weather"];
