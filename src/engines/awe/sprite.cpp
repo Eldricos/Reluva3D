@@ -68,4 +68,49 @@ void drawSprite(Surface& dst, const image::Image& img, const SpriteTransform& t,
     }
 }
 
+void drawPointSprite(Surface& dst, const image::Image& img, float x, float y, float size, const uint8_t rgba[4],
+                     bool additive, bool keepAlpha) {
+    if (img.w <= 0 || img.h <= 0 || size <= 0)
+        return;
+    const float left = x - size / 2, top = y - size / 2;
+    const int x0 = std::max(0, int(std::floor(left))), x1 = std::min(dst.w, int(std::ceil(left + size)));
+    const int y0 = std::max(0, int(std::floor(top))), y1 = std::min(dst.h, int(std::ceil(top + size)));
+    for (int py = y0; py < y1; py++) {
+        uint8_t* row = dst.row(py);
+        const float v = (float(py) + 0.5f - top) / size * float(img.h);
+        if (v < 0 || v >= float(img.h))
+            continue;
+        for (int px = x0; px < x1; px++) {
+            const float u = (float(px) + 0.5f - left) / size * float(img.w);
+            if (u < 0 || u >= float(img.w))
+                continue;
+            const uint8_t* t = img.pixel(std::min(img.w - 1, int(u)), std::min(img.h - 1, int(v)));
+            float c[4];
+            for (int ch = 0; ch < 4; ch++)
+                c[ch] = float(t[ch]) * float(rgba[ch]) / 255.0f;
+            uint8_t* d = row + px * 4;
+            if (additive) {
+                // ONE, ONE: the colour added whatever its alpha.
+                for (int ch = 0; ch < 3; ch++)
+                    d[ch] = uint8_t(std::min(255.0f, float(d[ch]) + c[ch]));
+                if (keepAlpha)
+                    d[3] = uint8_t(std::max(float(d[3]), std::max({c[0], c[1], c[2]})));
+                continue;
+            }
+            const float a = c[3] / 255.0f;
+            if (a <= 0)
+                continue;
+            if (keepAlpha) {
+                const float da = float(d[3]) / 255.0f * (1 - a), out = a + da;
+                for (int ch = 0; ch < 3; ch++)
+                    d[ch] = uint8_t(std::lround((c[ch] * a + float(d[ch]) * da) / out));
+                d[3] = uint8_t(std::lround(out * 255));
+            } else {
+                for (int ch = 0; ch < 3; ch++)
+                    d[ch] = uint8_t(std::lround(c[ch] * a + float(d[ch]) * (1 - a)));
+            }
+        }
+    }
+}
+
 } // namespace reluva::awe

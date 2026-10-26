@@ -10,6 +10,7 @@
 #include "engines/awe/game_text.h"
 #include "engines/awe/gr2.h"
 #include "engines/awe/model.h"
+#include "engines/awe/particles.h"
 #include "engines/awe/sprite.h"
 #include "engines/awe/tables.h"
 
@@ -371,6 +372,72 @@ void testSprite() {
     CHECK(dst.row(0)[0 * 4 + 3] == 0 && dst.row(5)[5 * 4 + 3] == 0);
 }
 
+Ac2Value realValue(float f) {
+    Ac2Value v;
+    v.type = Ac2Value::Type::F32;
+    std::memcpy(&v.raw, &f, 4);
+    return v;
+}
+
+void testParticles() {
+    // A SNOW record with a few fields: the rest are the class's defaults.
+    Ac2Record snow;
+    snow.tag = "SNOW";
+    snow.fields = {{"x", realValue(-730)}, {"y", realValue(300)}, {"z", realValue(-330)}, {"d0", realValue(-10500)}};
+    Ac2Record syst;
+    syst.tag = "SYST";
+    syst.fields = {{"dcc", realValue(-300)}};
+    snow.parts.push_back(syst);
+    ParticleSettings s = ParticleSettings::fromRecord(snow);
+    CHECK(s.mode == 2 && s.alphaBlend && s.condition == "weather >0");
+    CHECK(s.velocity[1] == -300 && s.burst == 5 && s.spread == 2000 && s.size == 30);
+    CHECK(s.depth == -10500 && s.position[1] == 300 && s.sway == 20);
+
+    // Falling: a burst at once, then down at 300 a second, gone below 0.
+    s.spread = 10;
+    s.sway = 0;
+    ParticleSystem fall(s);
+    fall.update(0.01f);
+    CHECK(fall.count() == 5);
+    std::vector<ParticleSystem::Point> pts;
+    fall.points(pts);
+    CHECK(pts.size() == 5 && pts[0].position[1] == 300);
+    CHECK(pts[0].position[0] >= -740 && pts[0].position[0] < -720 && pts[0].rgba[3] == 255);
+    s.interval = 100; // one burst only
+    ParticleSystem once(s);
+    once.update(0.01f);
+    once.update(0.5f);
+    pts.clear();
+    once.points(pts);
+    CHECK(pts.size() == 5 && std::fabs(pts[0].position[1] - 150) < 0.01f);
+    once.update(0.6f);
+    CHECK(once.count() == 0);
+
+    // Thrown straight up (mode 0, no spread across): gravity brings it back.
+    ParticleSettings t;
+    t.mode = 0;
+    t.velocity[0] = t.velocity[2] = 0;
+    t.velocity[1] = 100;
+    t.gravity = 100;
+    t.signY = 1;
+    t.burst = 1;
+    t.interval = 100;
+    t.position[1] = 10;
+    t.bounces = 0;
+    t.fadeIn = 1;
+    ParticleSystem up(t);
+    up.update(0.001f);
+    CHECK(up.count() == 1);
+    up.update(0.5f);
+    pts.clear();
+    up.points(pts);
+    // y = 10 + v*t - 50*t^2, v in [50, 100]: between 10 + 25 - 12.5 and 10 + 50 - 12.5.
+    CHECK(pts.size() == 1 && pts[0].position[1] > 22 && pts[0].position[1] < 48);
+    CHECK(pts[0].rgba[3] > 120 && pts[0].rgba[3] < 135); // half faded in
+    up.update(2.5f);
+    CHECK(up.count() == 0); // landed with no bounces left
+}
+
 } // namespace
 
 int main() {
@@ -381,6 +448,7 @@ int main() {
     testCamera();
     testConditions();
     testSprite();
+    testParticles();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

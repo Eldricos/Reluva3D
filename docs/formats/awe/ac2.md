@@ -195,9 +195,62 @@ texts and a u32.
 
 ### `SYST`: particles
 
-Counted, 28 fields of f32 and u16 (the full order is in `ac2.cpp`). In
-the main menu's snow: an emission rate of 15, a lifetime, a gravity of
-9.8, and so on.
+Counted, 28 fields of f32 and u16 (the full order is in `ac2.cpp`).
+`PART`, `RAIN` and `SNOW` are one class: they share every method (update
+`0x42cc20`, draw `0x42d470`) and differ only in their constructors'
+defaults (`0x42c5b0`, then `0x434290` for rain and `0x436f40` for snow).
+What the fields do, from those methods:
+
+| Field | Default (PART / RAIN / SNOW) | What |
+|-------|------------------------------|------|
+| `b08` (common) | 0 / 1 / 1 | 1: blended by alpha; 0: added (`ONE`, `ONE`) |
+| x, y, z (common) | 0 / (0, 1500, 0) / (0, 1500, 0) | the emitter, in the world (y up, as characters) |
+| rotX, rotY, rotZ (common) | 0 | pitch, yaw, roll: turn mode 0's motion (`D3DXMatrixRotationYawPitchRoll`) |
+| `d0` (common) | — / 500 / 500 | drawing depth among the 2D layers |
+| condition (common) | — / `weather >0` / `weather >0` | |
+| `df0`, `df4`, `df8` | 1, 1, 1 | colour, times 255 into the vertex colour |
+| `dc8`, `dcc`, `dd0` | 10, 50, 10 / −500, −1000, 0 / 0, −400, 0 | velocity: mode 2's, or mode 0's speeds per axis |
+| `dc4` | 5 / 50 / 5 | particles per burst |
+| `dd4` | 0.1 / 0.05 / 0.08 | seconds between bursts |
+| `dec` | 1 | times each particle is drawn |
+| `dea` | 1 / 2000 / 2000 | emitted within ±this of the emitter in x and z (whole numbers, `rand() % (2n) − n`) |
+| `de4` | 0.25 | mode 0: speed kept at each bounce |
+| `de8` | 3 | mode 0: bounces |
+| `ddc` | 4 / 30 / 30 | point size, in world units |
+| `e00` | 99 / 0.2 / 5 | lifetime, seconds |
+| `e04` | 0 / 2 / 2 | motion: 0 thrown, 1 still, 2 falling |
+| `e14`, `e18`, `e1c` | 0, 3, 5 | if set: on for `e18` s, off for `e1c` s (with the sound `b78`) |
+| `e28` | 0 | drawn in screen space (an orthographic 1024×768 view) |
+| `e0c`, `e10` | 0, 0 / 0, 0 / 20, 5 | sway: x plus `e0c`·sin(angle), the angle growing by `e10` a second |
+| `e08` | 9.8 | mode 0's gravity |
+| `e40`, `e44` | 0 | fade in over the first, out over the last so many seconds |
+| `e38`, `e3a`, `e3c` | 0, 1, 0 | mode 0: each axis's direction: 1 made positive, 2 negative, 0 as it comes (y: 0 is a coin toss) |
+
+Each frame, each particle moves by its mode:
+
+- **1, still:** stays where it was emitted (within ±`dea` on all three
+  axes); gone after its lifetime.
+- **2, falling:** the system's velocity times the frame's time; gone below
+  y = 0. Emitted within ±`dea` in x and z, at the emitter's height.
+- **0, thrown:** emitted with a random direction: around by a in [0, 2π),
+  out from straight up by b in [0, π/4], speeds (cos a·sin b·`dc8`,
+  r·cos b·`dcc`, sin a·sin b·`dd0`), r in [0.5, 1). Its position is its
+  start plus that velocity times its age, turned by the object's rotation,
+  with y lowered by ½·`e08`·age². Below y = 0, or past its lifetime, it
+  starts again from where it is with its velocity times `de4`, until it
+  has bounced `de8` times.
+
+New particles come `dc4` at a time every `dd4` seconds, at most 4,096.
+They are drawn as Direct3D point sprites (`POINTSPRITEENABLE`,
+`POINTSCALEENABLE`, `POINTSIZE` = `ddc`, `POINTSCALE_A` = `B` = 0,
+`C` = 1, `POINTSIZE_MAX` = 64): a square of `ddc` × the screen's height ÷
+the distance from the eye pixels, at most 64. The texture (the object's
+file) is multiplied by the vertex colour, with depth tested but not
+written.
+
+In Salon_01, snow falls past each window (x −730 and 580, from y 300,
+falling at 300 a second, at d0 −10500: in front of the snowscape, behind
+the moving countryside), shown while `weather >0`.
 
 ### `MODL`, `ANIM`, `WALK`: models and characters
 

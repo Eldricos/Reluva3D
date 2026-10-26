@@ -306,6 +306,7 @@ void ScenePage::load() {
     scene_ = Ac2Scene();
     characters_.clear();
     loops_.clear();
+    particles_.clear();
     state_.act.clear();
     if (names_.empty())
         return draw();
@@ -336,7 +337,56 @@ void ScenePage::load() {
     if (renderer_ && showCharacters_)
         loadCharacters();
     loadLoops();
+    for (const Ac2Record* o : scene_.objects())
+        if (o->tag == "PART" || o->tag == "RAIN" || o->tag == "SNOW")
+            particles_.emplace(o, ParticleSystem(ParticleSettings::fromRecord(*o)));
     draw();
+}
+
+void ScenePage::drawParticles(const ParticleSystem& system, bool keepAlpha) {
+    const ParticleSettings& s = system.settings();
+    const Ac2Record* camr = scene_.camera();
+    if (!camr && !s.screenSpace)
+        return;
+    const image::Image* img = &picture(s.texture);
+    if (img->w <= 0) {
+        // The texture isn't there: a soft white dot instead.
+        if (dot_.w == 0) {
+            dot_.w = dot_.h = 16;
+            dot_.rgba.resize(16 * 16 * 4);
+            for (int y = 0; y < 16; y++)
+                for (int x = 0; x < 16; x++) {
+                    const float dx = (float(x) - 7.5f) / 8, dy = (float(y) - 7.5f) / 8;
+                    uint8_t* p = dot_.pixel(x, y);
+                    p[0] = p[1] = p[2] = 255;
+                    p[3] = uint8_t(255 * std::clamp(1 - std::sqrt(dx * dx + dy * dy), 0.0f, 1.0f));
+                }
+        }
+        img = &dot_;
+    }
+    const SceneCamera cam = camr ? SceneCamera::fromRecord(*camr) : SceneCamera();
+    const gfx::Vec3 eye = cam.eye();
+    std::vector<ParticleSystem::Point> points;
+    system.points(points);
+    for (const ParticleSystem::Point& p : points) {
+        float x, y, distance;
+        if (s.screenSpace) {
+            // An orthographic 1024x768 view about the screen's centre, y up.
+            x = float(kScreenW) / 2 + p.position[0];
+            y = float(kScreenH) / 2 - p.position[1];
+            distance = std::sqrt(p.position[0] * p.position[0] + p.position[1] * p.position[1] +
+                                 p.position[2] * p.position[2]);
+        } else {
+            if (!cam.project(p.position, kScreenW, kScreenH, x, y))
+                continue;
+            const float d[3] = {p.position[0] - eye[0], p.position[1] - eye[1], p.position[2] - eye[2]};
+            distance = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+        }
+        // Direct3D's point scale with A = B = 0, C = 1: the size over the
+        // distance, times the screen's height; at most 64 pixels.
+        const float size = std::min(64.0f, distance > 0 ? s.size * float(kScreenH) / distance : 64.0f);
+        drawPointSprite(ctx_.screen, *img, x, y, size, p.rgba, !s.alphaBlend, keepAlpha);
+    }
 }
 
 void ScenePage::loadLoops() {
@@ -471,10 +521,15 @@ void ScenePage::draw() {
     // -11000, z 0). Those whose condition doesn't hold now are left out
     // (the countryside going by: "moving >0").
     std::vector<const Ac2Record*> pictures;
-    for (const Ac2Record* o : objects)
-        if ((hasExtension(o->text("file"), {".jpg", ".png", ".tga", ".bmp"}) || loops_.count(o)) &&
-            testCondition(o->text("condition"), state_))
+    for (const Ac2Record* o : objects) {
+        if (const auto ps = particles_.find(o); ps != particles_.end()) {
+            if (testCondition(ps->second.settings().condition, state_))
+                pictures.push_back(o);
+        } else if ((hasExtension(o->text("file"), {".jpg", ".png", ".tga", ".bmp"}) || loops_.count(o)) &&
+                   testCondition(o->text("condition"), state_)) {
             pictures.push_back(o);
+        }
+    }
     auto imageOf = [&](const Ac2Record* o) -> const image::Image& {
         const auto loop = loops_.find(o);
         return loop != loops_.end() ? loop->second.frame : picture(o->text("file"));
@@ -482,6 +537,8 @@ void ScenePage::draw() {
     // Placed as the game's sprites are: scaled, turned about the top-left
     // corner, moved (docs/formats/awe/ac2.md).
     auto place = [&](const Ac2Record* o, bool keepAlpha) {
+        if (const auto ps = particles_.find(o); ps != particles_.end())
+            return drawParticles(ps->second, keepAlpha);
         const image::Image& img = imageOf(o);
         if (img.w <= 0)
             return;
@@ -498,7 +555,11 @@ void ScenePage::draw() {
         else
             image::blit(ctx_.screen, img, int(t.x), int(t.y));
     };
-    auto depth = [](const Ac2Record* o) { return o->f("d0") != 0 ? o->f("d0") : o->f("z"); };
+    auto depth = [&](const Ac2Record* o) {
+        if (const auto ps = particles_.find(o); ps != particles_.end())
+            return ps->second.settings().depth;
+        return o->f("d0") != 0 ? o->f("d0") : o->f("z");
+    };
     std::stable_sort(pictures.begin(), pictures.end(),
                      [&](const Ac2Record* a, const Ac2Record* b) { return depth(a) < depth(b); });
     // With 3D, the characters go between the pictures behind them (depth
@@ -630,7 +691,17 @@ void ScenePage::update(uint64_t nowMs) {
     if (startMs_ == 0)
         startMs_ = nowMs;
     const float time = float(nowMs - startMs_) / 1000.0f;
-    if (advanceLoops(time))
+    // Particles move on by the time since the last frame (at most a tenth
+    // of a second, so a pause doesn't empty them).
+    const float dt = lastMs_ ? std::min(0.1f, float(nowMs - lastMs_) / 1000.0f) : 0.0f;
+    lastMs_ = nowMs;
+    bool changed = advanceLoops(time);
+    for (auto& [o, system] : particles_)
+        if (testCondition(system.settings().condition, state_)) {
+            system.update(dt);
+            changed = true;
+        }
+    if (changed)
         draw();
     if (!renderer_)
         return Page::update(nowMs);

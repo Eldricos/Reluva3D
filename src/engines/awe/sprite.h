@@ -28,4 +28,11 @@ struct SpriteTransform {
 // otherwise `dst` is taken as opaque.
 void drawSprite(Surface& dst, const image::Image& img, const SpriteTransform& t, bool keepAlpha);
 
+// A Direct3D point sprite, as the game draws particles: `img` over a
+// square `size` pixels wide centred on (x, y), times `rgba` (the vertex
+// colour: texture times diffuse, alpha too), then blended by its alpha or
+// added. `keepAlpha` as for drawSprite.
+void drawPointSprite(Surface& dst, const image::Image& img, float x, float y, float size, const uint8_t rgba[4],
+                     bool additive, bool keepAlpha);
+
 } // namespace reluva::awe

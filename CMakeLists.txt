@@ -195,6 +195,7 @@ if(RELUVA_ENGINE_AWE)
         src/engines/awe/tables.cpp
         src/engines/awe/conditions.cpp
         src/engines/awe/sprite.cpp
+        src/engines/awe/particles.cpp
         src/engines/awe/game_text.cpp
         src/engines/awe/viewers.cpp
         src/engines/awe/model_viewer.cpp

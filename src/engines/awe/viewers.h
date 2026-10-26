@@ -14,6 +14,7 @@
 #include "common/video/bink_video.h"
 #include "engines/awe/ac2.h"
 #include "engines/awe/conditions.h"
+#include "engines/awe/particles.h"
 #include "engines/awe/game_text.h"
 #include "engines/awe/gr2.h"
 #include "engines/awe/granny_dll.h"
@@ -146,6 +147,8 @@ private:
     };
     void load();
     void loadLoops();
+    // Draws a particle system's particles through the scene's camera.
+    void drawParticles(const ParticleSystem& system, bool keepAlpha);
     // Advances the loops to `time` seconds; whether any frame changed.
     bool advanceLoops(float time);
     void loadCharacters();
@@ -164,6 +167,9 @@ private:
     // weather (W), the act of the scene's variant.
     GameState state_;
     std::map<const Ac2Record*, Loop> loops_;
+    std::map<const Ac2Record*, ParticleSystem> particles_;
+    image::Image dot_; // stands in for a particle texture that's missing
+    uint64_t lastMs_ = 0;
     // With 3D: the pictures behind the characters as one texture, the
     // characters, and the models and animations loaded so far.
     gfx::Renderer3D* renderer_ = nullptr;

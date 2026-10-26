@@ -54,6 +54,10 @@ scenes, two Granny files, the text tables, two backgrounds):
   conditions (`moving >0`). M toggles the train moving (the countryside
   streaking past the windows) or stopped (the snowscape), and W toggles
   the weather. Salon_01 matches a walkthrough video of the game.
+- **Particles** (`SNOW`, `RAIN`, `PART`) are simulated by the rules of
+  the game's own update method and drawn as its point sprites are, among
+  the scene's 2D layers by depth (snow outside the Salon's windows when
+  the weather is on and the train stopped).
 - **The game's fonts** (`Text/fonts.txt`, `Interface/Fonts`) are drawn
   with stb_truetype, and the movies' subtitles show under them.
 - **Bink movies: decoded.** Video and audio match FFmpeg's output
@@ -103,10 +107,9 @@ Next:
    so characters can move about.
 3. Read the script interpreter in `motoe.exe`: the full list of verbs and
    their arguments.
-4. Particles (`SNOW`, `RAIN`, `PART`: the weather outside the windows).
-5. Native decoding of the compressed curve formats (the DLL expands them
+4. Native decoding of the compressed curve formats (the DLL expands them
    for now).
-6. Native Oodle1 and Bink-texture decoding, checked against the DLL, to
+5. Native Oodle1 and Bink-texture decoding, checked against the DLL, to
    load models in a fraction of the time.
 
 ## What the install holds
