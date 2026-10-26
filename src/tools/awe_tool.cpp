@@ -6,6 +6,7 @@
 
 #include "tools/awe_tool.h"
 
+#include "engines/awe/ac2.h"
 #include "engines/awe/gr2.h"
 #include "engines/awe/granny_dll.h"
 #include "engines/awe/model.h"
@@ -233,11 +234,43 @@ int cmdGr2Model(int argc, char** argv) {
     return 0;
 }
 
+// Reads scene files and prints what they hold; with several files, only
+// whether each reads to its end.
+int cmdAc2Dump(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool ac2-dump <scene.ac2>...\n");
+        return 2;
+    }
+    int failed = 0;
+    for (int i = 2; i < argc; i++) {
+        std::vector<uint8_t> data;
+        if (!readFile(argv[i], data)) {
+            failed++;
+            continue;
+        }
+        awe::Ac2Scene scene;
+        const reluva::Error err = awe::parseAc2(data, scene);
+        if (argc == 3)
+            std::fputs(awe::dumpAc2(scene).c_str(), stdout);
+        else
+            std::printf("%-60s %zu records%s%s\n", argv[i], scene.records.size(), err ? ": " : "",
+                        err ? err.message.c_str() : "");
+        if (err) {
+            if (argc == 3)
+                std::fprintf(stderr, "%s\n", err.message.c_str());
+            failed++;
+        }
+    }
+    return failed ? 1 : 0;
+}
+
 } // namespace
 
 int aweToolCommand(int argc, char** argv) {
     if (argc >= 2 && std::strcmp(argv[1], "gr2-info") == 0)
         return cmdGr2Info(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "ac2-dump") == 0)
+        return cmdAc2Dump(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "gr2-model") == 0)
         return cmdGr2Model(argc, argv);
     return -1;
@@ -245,5 +278,6 @@ int aweToolCommand(int argc, char** argv) {
 
 const char* aweToolUsage() {
     return "  reluva-tool gr2-info <file.gr2> [-t] [-n elements] [-dll granny2.dll]\n"
+           "  reluva-tool ac2-dump <scene.ac2>...\n"
            "  reluva-tool gr2-model <model.gr2> [-anim <anim.gr2> <seconds>] [-obj out.obj]\n";
 }

@@ -183,6 +183,7 @@ endif()
 if(RELUVA_ENGINE_AWE)
     target_sources(reluva_engines PRIVATE
         src/engines/awe/awe.cpp
+        src/engines/awe/ac2.cpp
         src/engines/awe/gr2.cpp
         src/engines/awe/granny_dll.cpp
         src/engines/awe/model.cpp)
