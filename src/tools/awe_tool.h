@@ -16,4 +16,7 @@ namespace reluva::awe {
 // reluva-tool awe-path: the game's path between two cells beside Reluva's
 // (awe_path.cpp).
 int aweCommandPath(int argc, char** argv);
+// reluva-tool awe-scripts: every script command of an install, by verb
+// (awe_scripts.cpp).
+int aweCommandScripts(int argc, char** argv);
 } // namespace reluva::awe

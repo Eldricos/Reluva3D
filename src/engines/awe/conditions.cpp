@@ -56,9 +56,17 @@ bool testClause(std::string_view clause, const GameState& state) {
     const std::string word = fs::toLower(clause.substr(0, space));
     const std::string_view arg = space == std::string_view::npos ? std::string_view() : trim(clause.substr(space + 1));
     bool result;
-    if (word == "tag")
-        result = state.tags.count(fs::toLower(arg)) != 0;
-    else if (word == "has")
+    if (word == "tag") {
+        // "tag name [n]": the tag's name, then how it compares.
+        const size_t space2 = arg.find(' ');
+        const std::string name = fs::toLower(arg.substr(0, space2));
+        const std::string_view value = space2 == std::string_view::npos ? std::string_view() : trim(arg.substr(space2 + 1));
+        const auto it = state.tags.find(name);
+        if (value.empty())
+            result = it != state.tags.end();
+        else
+            result = it != state.tags.end() && compare<int>(it->second, value, 0, parseNumber);
+    } else if (word == "has")
         result = state.items.count(fs::toLower(arg)) != 0;
     else if (word == "act")
         // Acts are numbered with a letter ("06a"), so they compare as text.

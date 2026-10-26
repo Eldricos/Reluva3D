@@ -26,12 +26,14 @@ namespace reluva::awe {
 struct GameState {
     std::string act;                 // "06a"; empty before the first
     std::map<std::string, int> values; // moving, weather, master...
-    std::set<std::string> tags;      // story flags set by scripts
+    std::map<std::string, int> tags; // story tags: numbers set by scripts ("tag name 1")
     std::set<std::string> items;     // what Poirot carries
 };
 
 // Whether `condition` holds. An empty one does; "0" never does. Words not
-// known here count as 0 (or as false, for those taking a name).
+// known here count as 0 (or as false, for those taking a name). "tag name"
+// holds if the tag exists (whatever its value); with a number, by its
+// value (0x408557).
 bool testCondition(std::string_view condition, const GameState& state);
 
 } // namespace reluva::awe

@@ -11,6 +11,7 @@
 #include "engines/awe/gr2.h"
 #include "engines/awe/model.h"
 #include "engines/awe/particles.h"
+#include "engines/awe/script.h"
 #include "engines/awe/sprite.h"
 #include "engines/awe/tables.h"
 #include "engines/awe/walk_grid.h"
@@ -382,7 +383,7 @@ void testConditions() {
     GameState st;
     st.values["moving"] = 1;
     st.act = "06b";
-    st.tags = {"bardraweropen"};
+    st.tags = {{"bardraweropen", 0}, {"eavesdrop04a", 3}};
     st.items = {"icetongs"};
     CHECK(testCondition("", st));
     CHECK(!testCondition("0", st));
@@ -395,7 +396,10 @@ void testConditions() {
     CHECK(!testCondition("act 07a", st));
     CHECK(testCondition("!has icebucket, act >06a", st));
     CHECK(!testCondition("!has icetongs", st));
-    CHECK(testCondition("tag BarDrawerOpen", st));
+    CHECK(testCondition("tag BarDrawerOpen", st)); // set, even to 0
+    CHECK(!testCondition("tag micheladmonish", st));
+    CHECK(testCondition("tag eavesdrop04a >2, tag eavesdrop04a <4, tag eavesdrop04a 3", st));
+    CHECK(!testCondition("tag eavesdrop04a 2", st));
     CHECK(!testCondition("!has sellotape, !tag bardraweropen", st));
     CHECK(testCondition("moving 1, act <07a", st));
     st.act.clear();
@@ -493,6 +497,88 @@ void testParticles() {
     CHECK(up.count() == 0); // landed with no bounces left
 }
 
+// A world for scripts: walks and fades take until told; the rest is
+// instant. It records what it was asked.
+struct FakeHost : ScriptHost {
+    std::vector<std::string> started;
+    bool start(const ScriptEvent& e, bool wait) override {
+        std::string s = e.verb();
+        for (size_t i = 1; i < e.words.size(); i++)
+            s += " " + e.words[i];
+        started.push_back(s + (wait ? "" : " (no wait)"));
+        return e.verb() == "walk" || e.verb() == "fade" || e.verb() == "talk";
+    }
+};
+
+void testScript() {
+    GameState state;
+    FakeHost host;
+    ScriptRunner r(state, host);
+    r.run("walk 31 0, scene salon_02 1, tag act04a 2, tag act04a +3, add ticket");
+    CHECK(!r.idle());
+    r.update(0.01f);
+    CHECK(host.started.size() == 1 && host.started[0] == "walk 31 0");
+    r.update(0.01f); // still walking
+    CHECK(host.started.size() == 1);
+    r.finished("talk"); // not what it waits for
+    r.update(0.01f);
+    CHECK(host.started.size() == 1);
+    r.finished("walk");
+    r.update(0.01f);
+    CHECK(host.started.size() == 2 && host.started[1] == "scene salon_02 1");
+    for (int i = 0; i < 4; i++)
+        r.update(0.01f);
+    CHECK(state.tags["act04a"] == 5 && state.items.count("ticket") == 1 && r.idle());
+
+    // The "a" forms don't wait; "wait" counts down; a fade after a walk
+    // starts as the walk ends.
+    host.started.clear();
+    r.run("walka sp1, talka dia_test a, wait 0.5, walk 3 4\nfade out");
+    r.update(0.01f);
+    CHECK(host.started.size() == 1 && host.started[0] == "walk sp1 (no wait)");
+    r.update(0.01f);
+    CHECK(host.started.size() == 2 && host.started[1] == "talk dia_test a (no wait)");
+    r.update(0.01f); // the wait starts
+    r.update(0.3f);
+    r.update(0.01f);
+    CHECK(host.started.size() == 2);
+    r.update(0.3f); // over
+    r.update(0.01f);
+    CHECK(host.started.size() == 3 && host.started[2] == "walk 3 4");
+    r.finished("walk");
+    CHECK(host.started.size() == 4 && host.started[3] == "fade out");
+    r.finished("fade");
+    CHECK(r.idle());
+    // removetag, setchar, remove.
+    r.run("removetag act04a, setchar debenham, remove ticket");
+    for (int i = 0; i < 3; i++)
+        r.update(0.01f);
+    CHECK(!state.tags.count("act04a") && r.character() == "debenham" && !state.items.count("ticket"));
+
+    // The door macros, and a script file.
+    struct FileHost : FakeHost {
+        std::string scriptText(const std::string& name) override {
+            return name == "door" ? "walk 40 26\nscript nested" : name == "nested" ? "tag nested 1" : "";
+        }
+    } files;
+    GameState state2;
+    ScriptRunner r2(state2, files);
+    r2.run("dooropen sp3 L 2, script door");
+    for (int i = 0; i < 40; i++) {
+        r2.update(0.5f);
+        r2.finished("walk");
+        r2.finished("fade");
+    }
+    CHECK(files.started.size() == 9);
+    if (files.started.size() == 9) {
+        CHECK(files.started[0] == "walk sp3" && files.started[1] == "rotate -sp3");
+        CHECK(files.started[2] == "anim doorknobL (no wait)" && files.started[3] == "turn down");
+        CHECK(files.started[4] == "fade out" && files.started[5] == "sound dooropen2 (no wait)");
+        CHECK(files.started[6] == "turn home" && files.started[7] == "animate 2" && files.started[8] == "walk 40 26");
+    }
+    CHECK(state2.tags["nested"] == 1 && r2.idle());
+}
+
 } // namespace
 
 int main() {
@@ -505,6 +591,7 @@ int main() {
     testConditions();
     testSprite();
     testParticles();
+    testScript();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

@@ -273,6 +273,13 @@ std::string folderOf(const std::string& name) {
 ScenePage::ScenePage(ViewerContext& ctx) : Page(ctx) {
     names_ = listFiles(ctx.files, {"locations/"}, {".ac2"});
     state_.values["moving"] = 1;
+    runner_ = std::make_unique<ScriptRunner>(state_, *this);
+    runner_->onEvent = [this](const ScriptEvent& e) {
+        std::string line;
+        for (const std::string& w : e.words)
+            line += (line.empty() ? "" : " ") + w;
+        logScript("  " + line);
+    };
 }
 
 ScenePage::~ScenePage() { releaseGpu(); }
@@ -317,6 +324,7 @@ void ScenePage::load() {
     grid_ = WalkGrid();
     path_.clear();
     hover_ = {};
+    scriptObject_ = nullptr;
     if (names_.empty())
         return draw();
     auto read = [&](const std::string& name, Ac2Scene& out) {
@@ -521,6 +529,14 @@ void ScenePage::loadCharacters() {
         }
         c.x = o->f("x"), c.y = o->f("y"), c.z = o->f("z"), c.rotY = o->f("rotY");
         c.player = o->tag == "PCXX";
+        c.who = who;
+        c.record = o;
+        // Arriving by "scene <name> <n>": at its walk point n.
+        if (c.player && entryPoint_ >= 0)
+            if (const Ac2Record* w = o->part("WALK"))
+                for (const Ac2Record& pt : w->parts)
+                    if (pt.i("id") == entryPoint_)
+                        c.x = pt.f("x"), c.z = pt.f("z"), c.rotY = pt.f("rotY");
         placeCharacter(c, 0);
         characters_.push_back(std::move(c));
     }
@@ -535,6 +551,8 @@ void ScenePage::draw() {
     // (the countryside going by: "moving >0").
     std::vector<const Ac2Record*> pictures;
     for (const Ac2Record* o : objects) {
+        if (hidden(*o))
+            continue;
         if (const auto ps = particles_.find(o); ps != particles_.end()) {
             if (testCondition(ps->second.settings().condition, state_))
                 pictures.push_back(o);
@@ -601,7 +619,7 @@ void ScenePage::draw() {
     if (hotspots_)
         for (const Ac2Record* o : objects) {
             const int l = o->i("left"), t = o->i("top"), r = o->i("right"), b = o->i("bottom");
-            if (o->tag != "SPOT" || r <= l || b <= t)
+            if (o->tag != "SPOT" || r <= l || b <= t || hidden(*o) || !testCondition(o->text("condition"), state_))
                 continue;
             // Its outline where it has one (listD), else its rectangle.
             const Ac2Value* outline = o->field("listD");
@@ -674,6 +692,18 @@ void ScenePage::draw() {
                 g += ", path of " + std::to_string(path_.size()) + " points by " + pathSource_;
             lines.push_back(g);
         }
+        if (!scriptLog_.empty()) {
+            std::string tags;
+            for (const auto& [t, v] : state_.tags)
+                tags += " " + t + "=" + std::to_string(v);
+            std::string items;
+            for (const std::string& i : state_.items)
+                items += " " + i;
+            lines.push_back("script: tags" + (tags.empty() ? std::string(" none") : tags) + "; items" +
+                            (items.empty() ? std::string(" none") : items));
+            for (const std::string& l : scriptLog_)
+                lines.push_back(l);
+        }
         lines.push_back(std::string("train ") + (state_.values["moving"] ? "moving" : "stopped") + ", weather " +
                         (state_.values["weather"] ? "on" : "off") + (state_.act.empty() ? "" : ", act " + state_.act));
         if (const Ac2Record* cam = scene_.camera()) {
@@ -721,6 +751,7 @@ void ScenePage::update(uint64_t nowMs) {
     const float dt = lastMs_ ? std::min(0.1f, float(nowMs - lastMs_) / 1000.0f) : 0.0f;
     lastMs_ = nowMs;
     time_ = time;
+    runner_->update(dt);
     bool changed = advanceLoops(time);
     for (Character& c : characters_) {
         if (c.path.empty())
@@ -741,6 +772,12 @@ void ScenePage::update(uint64_t nowMs) {
         if (stepLength >= distance) {
             c.x = c.path.front().first, c.z = c.path.front().second;
             c.path.erase(c.path.begin());
+            // There: a script waiting on the walk goes on.
+            if (c.path.empty() && !walkVerb_.empty()) {
+                const std::string verb = walkVerb_;
+                walkVerb_.clear();
+                runner_->finished(verb);
+            }
         } else {
             c.x += dx / distance * stepLength, c.z += dz / distance * stepLength;
         }
@@ -974,6 +1011,231 @@ void ScenePage::walkTo(int sx, int sy) {
     draw();
 }
 
+bool ScenePage::hidden(const Ac2Record& o) const {
+    if (hiddenNames_.empty())
+        return false;
+    for (const std::string& key : {o.text("name"), normalizeArchiveName(o.text("file"))})
+        if (!key.empty() && hiddenNames_.count(fs::toLower(key)))
+            return true;
+    // "hide sceorangejuice.jpg": by the file's name alone.
+    const std::string file = normalizeArchiveName(o.text("file"));
+    return !file.empty() && hiddenNames_.count(fs::toLower(file.substr(file.find_last_of('/') + 1)));
+}
+
+const Ac2Record* ScenePage::hotspotAt(int sx, int sy) const {
+    const Ac2Record* hit = nullptr;
+    for (const Ac2Record* o : scene_.objects()) {
+        if (o->tag != "SPOT" || hidden(*o) || !testCondition(o->text("condition"), state_))
+            continue;
+        const Ac2Value* outline = o->field("listD");
+        bool inside = false;
+        if (outline && outline->numbers.size() >= 3) {
+            // Its outline, by the crossings of a ray to the right.
+            const auto& pts = outline->numbers;
+            for (size_t i = 0, j = pts.size() - 1; i < pts.size(); j = i++) {
+                const float xi = float(pts[i].first), yi = float(pts[i].second);
+                const float xj = float(pts[j].first), yj = float(pts[j].second);
+                if ((yi > float(sy)) != (yj > float(sy)) && float(sx) < (xj - xi) * (float(sy) - yi) / (yj - yi) + xi)
+                    inside = !inside;
+            }
+        } else {
+            inside = sx >= o->i("left") && sx < o->i("right") && sy >= o->i("top") && sy < o->i("bottom");
+        }
+        if (inside)
+            hit = o; // the last drawn is on top
+    }
+    return hit;
+}
+
+void ScenePage::runScript(const Ac2Record& object) {
+    // The first conditional script whose condition holds, else its own.
+    std::string script = object.text("script");
+    if (const Ac2Value* alternatives = object.field("listB"))
+        for (const auto& [condition, run] : alternatives->pairs)
+            if (testCondition(condition, state_)) {
+                script = run;
+                break;
+            }
+    scriptObject_ = &object;
+    const Ac2Record* hot = object.part("HOTS");
+    const std::string name = !object.text("name").empty() ? object.text("name") : hot ? hot->text("name") : "";
+    logScript(name + ": " + shorten(script, 120));
+    runner_->run(script);
+}
+
+ScenePage::Character* ScenePage::scriptCharacter() {
+    Character* player = nullptr;
+    for (Character& c : characters_) {
+        if (!runner_->character().empty() && c.who == runner_->character())
+            return &c;
+        if (c.player)
+            player = &c;
+    }
+    return runner_->character().empty() || runner_->character() == "antoinette" ? player : nullptr;
+}
+
+bool ScenePage::walkCharacter(Character& c, WalkGrid::Cell goal, bool toPoint) {
+    const WalkGrid::Cell start = grid_.cellAt(c.x, c.z);
+    if (!triedGamePaths_) {
+        triedGamePaths_ = true;
+        std::vector<uint8_t> exe;
+        auto finder = std::make_unique<GamePathFinder>();
+        if (!ctx_.files.read("motoe.exe", exe) && !finder->load(exe))
+            gamePaths_ = std::move(finder);
+    }
+    if (gamePaths_) {
+        path_ = gamePaths_->findPath(grid_, start, goal, toPoint);
+        pathSource_ = "the game's path-finder";
+    } else {
+        path_ = grid_.findPath(start, goal);
+        pathSource_ = "Reluva's A*";
+    }
+    if (path_.size() < 2 || !loadWalk(c))
+        return false;
+    c.path.clear();
+    for (size_t i = 1; i < path_.size(); i++) {
+        float px, pz;
+        grid_.centre(path_[i], px, pz);
+        c.path.push_back({px, pz});
+    }
+    c.walkStart = time_;
+    return true;
+}
+
+bool ScenePage::changeScene(const std::string& name, int entry) {
+    // The scene's file by its name, the act's variant if there is one.
+    const std::string want = fs::toLower(name) + ".ac2";
+    const std::string variant = state_.act.empty() ? "" : fs::toLower(name) + "_" + state_.act + ".ac2";
+    int found = -1;
+    for (size_t i = 0; i < names_.size(); i++) {
+        const std::string file = fs::toLower(names_[i].substr(names_[i].find_last_of('/') + 1));
+        if (file == variant || (file == want && found < 0))
+            found = int(i);
+    }
+    if (found < 0) {
+        logScript("  (no scene " + name + ")");
+        return false;
+    }
+    index_ = found;
+    entryPoint_ = entry;
+    load();
+    entryPoint_ = -1;
+    return true;
+}
+
+void ScenePage::playSound(const std::string& name) {
+    if (soundFiles_.empty())
+        for (const std::string& f : listFiles(ctx_.files, {"sound/"}, {".wav", ".mp3"})) {
+            const std::string file = f.substr(f.find_last_of('/') + 1);
+            soundFiles_.emplace(fs::toLower(file.substr(0, file.rfind('.'))), f);
+        }
+    const auto it = soundFiles_.find(fs::toLower(name));
+    std::vector<uint8_t> data;
+    auto sound = std::make_shared<audio::Sound>();
+    if (!ctx_.mixer || it == soundFiles_.end() || ctx_.files.read(it->second, data) || audio::decodeSound(data, *sound))
+        return;
+    ctx_.mixer->play(sound, audio::SoundType::Effects);
+}
+
+void ScenePage::logScript(const std::string& line) {
+    scriptLog_.push_back(line);
+    while (scriptLog_.size() > 8)
+        scriptLog_.pop_front();
+}
+
+std::string ScenePage::scriptText(const std::string& name) {
+    std::vector<uint8_t> data;
+    if (ctx_.files.read("text/scripts/" + fs::toLower(name) + ".txt", data))
+        return {};
+    return decodeText(data);
+}
+
+bool ScenePage::start(const ScriptEvent& e, bool wait) {
+    const std::string& v = e.verb();
+    auto lower = [](const std::string& t) { return fs::toLower(t); };
+    if (v == "walk" || v == "run") {
+        Character* c = scriptCharacter();
+        if (!c || grid_.empty())
+            return false;
+        WalkGrid::Cell goal;
+        bool toPoint = false;
+        const std::string target = lower(e.arg(1));
+        if (!target.empty() && e.arg(2).empty() && !std::isdigit(uint8_t(target[0]))) {
+            // "walk sp3": the character's walk point 3; else an object.
+            float x = 0, z = 0;
+            bool have = false;
+            if (target.size() > 2 && target.compare(0, 2, "sp") == 0 && c->record) {
+                if (const Ac2Record* w = c->record->part("WALK"))
+                    for (const Ac2Record& pt : w->parts)
+                        if (pt.i("id") == std::atoi(target.c_str() + 2))
+                            x = pt.f("x"), z = pt.f("z"), have = true;
+                toPoint = true;
+            } else {
+                for (const Character& other : characters_)
+                    if (other.who == target)
+                        x = other.x, z = other.z, have = true;
+            }
+            if (!have)
+                return false;
+            goal = grid_.cellAt(x, z);
+        } else {
+            goal = {std::atoi(e.arg(1).c_str()), std::atoi(e.arg(2).c_str())};
+        }
+        if (!walkCharacter(*c, goal, toPoint))
+            return false;
+        if (wait)
+            walkVerb_ = v;
+        return wait;
+    }
+    if (v == "scene") {
+        changeScene(e.arg(1), e.arg(2).empty() ? 1 : std::atoi(e.arg(2).c_str()));
+        return false;
+    }
+    if (v == "sound") {
+        playSound(e.arg(1));
+        return false;
+    }
+    if (v == "hide" || v == "show") {
+        std::string name = lower(e.arg(1));
+        if (name == "this" && scriptObject_)
+            name = lower(!scriptObject_->text("name").empty() ? scriptObject_->text("name")
+                                                               : normalizeArchiveName(scriptObject_->text("file")));
+        if (v == "hide")
+            hiddenNames_.insert(name);
+        else
+            hiddenNames_.erase(name);
+        draw();
+        return false;
+    }
+    if (v == "take") {
+        // The item comes and the object goes (0x40b12f). "take this": the
+        // hotspot's, its item named by its picture ("...\scegun.png").
+        std::string item = lower(e.arg(1));
+        if (item == "this" && scriptObject_) {
+            const std::string file = lower(scriptObject_->text("file"));
+            const size_t sce = file.find("\\sce");
+            if (sce != std::string::npos)
+                item = file.substr(sce + 4, file.find('.', sce) - sce - 4);
+            hiddenNames_.insert(lower(!scriptObject_->text("name").empty() ? scriptObject_->text("name")
+                                                                           : normalizeArchiveName(scriptObject_->text("file"))));
+        } else {
+            hiddenNames_.insert(item);
+        }
+        if (item != "this")
+            state_.items.insert(item);
+        draw();
+        return false;
+    }
+    if (v == "update") {
+        // The scene's objects looked at again, for conditions now holding.
+        draw();
+        return false;
+    }
+    // The rest isn't done here yet (talk, turn, anim...): logged, and over.
+    logScript("    (not done yet: " + v + ")");
+    return false;
+}
+
 void ScenePage::line(int x0, int y0, int x1, int y1, Color c) {
     const int dx = std::abs(x1 - x0), dy = -std::abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
     for (int err = dx + dy;;) {
@@ -1002,7 +1264,12 @@ void ScenePage::handleEvent(const Event& ev) {
         return;
     }
     if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
-        walkTo(ev.mouseX, ev.mouseY);
+        if (!runner_->idle())
+            return; // the game takes no clicks while a script runs
+        if (const Ac2Record* spot = hotspotAt(ev.mouseX, ev.mouseY))
+            runScript(*spot);
+        else
+            walkTo(ev.mouseX, ev.mouseY);
         return;
     }
     if (ev.type != EventType::KeyDown)

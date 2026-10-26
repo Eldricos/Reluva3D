@@ -61,6 +61,14 @@ scenes, two Granny files, the text tables, two backgrounds):
   the floor walks the player's character there along a path planned by
   the game's own path-finder (run from `motoe.exe` in the x86
   interpreter, until a native port matches it; A* without it).
+- **Scripts: the runner works.** Commands run as the game's runner runs
+  them: queued as events, each finishing at once or when what it started
+  is over, the `a` forms not waiting, the door macros and script files
+  expanded (see [../formats/awe/script.md](../formats/awe/script.md)).
+  Clicking a hotspot in the Scenes page runs its script: walks, scene
+  changes, sounds, items and tags work; dialogue and the characters'
+  animations are next. `reluva-tool awe-scripts` lists every command an
+  install's scripts use.
 - **Particles** (`SNOW`, `RAIN`, `PART`) are simulated by the rules of
   the game's own update method and drawn as its point sprites are, among
   the scene's 2D layers by depth (snow outside the Salon's windows when
@@ -112,8 +120,9 @@ Next:
    records and member types the samples didn't have.
 2. A native port of the path-finder's lattice search (`0x42f1f0`),
    checked path for path against the game's (`awe-path`).
-3. Read the script interpreter in `motoe.exe`: the full list of verbs and
-   their arguments.
+3. Dialogue: `talk`, the conversation tables and their event files, the
+   dialogue box; then the characters' verbs (`turn`, `rotate`, `look`,
+   `anim`) and the acts (`acts.txt`).
 4. Native decoding of the compressed curve formats (the DLL expands them
    for now).
 5. Native Oodle1 and Bink-texture decoding, checked against the DLL, to

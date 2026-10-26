@@ -16,6 +16,7 @@
 #include "engines/awe/conditions.h"
 #include "engines/awe/game_paths.h"
 #include "engines/awe/particles.h"
+#include "engines/awe/script.h"
 #include "engines/awe/walk_grid.h"
 #include "engines/awe/game_text.h"
 #include "engines/awe/gr2.h"
@@ -23,9 +24,11 @@
 #include "engines/awe/model.h"
 #include "engines/awe/model_draw.h"
 
+#include <deque>
 #include <filesystem>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -119,7 +122,7 @@ private:
 
 // Scenes (Locations/**/*.ac2): their pictures where the scene places
 // them, hotspots, and what else the scene holds.
-class ScenePage : public Page {
+class ScenePage : public Page, public ScriptHost {
 public:
     explicit ScenePage(ViewerContext& ctx);
     ~ScenePage() override;
@@ -142,6 +145,8 @@ private:
         // reach (world x, z) and its walk.
         float x = 0, y = 0, z = 0, rotY = 0;
         bool player = false;
+        std::string who;                  // "antoinette": the model's folder
+        const Ac2Record* record = nullptr; // its object in the scene
         std::vector<std::pair<float, float>> path;
         std::shared_ptr<Animation> walk;
         float walkSpeed = 0;           // world units a second, from the walk itself
@@ -172,6 +177,19 @@ private:
     // Walks the player's character to where the screen point is on the
     // floor, along a path through the grid.
     void walkTo(int sx, int sy);
+    // Scripts: a click on a hotspot runs its script (or the first of its
+    // conditional ones whose condition holds); the page does what they ask.
+    bool start(const ScriptEvent& e, bool wait) override;
+    std::string scriptText(const std::string& name) override;
+    const Ac2Record* hotspotAt(int sx, int sy) const;
+    void runScript(const Ac2Record& object);
+    Character* scriptCharacter();
+    // Walks a character to a cell along a path; false if there's none.
+    bool walkCharacter(Character& c, WalkGrid::Cell goal, bool toPoint);
+    bool changeScene(const std::string& name, int entry);
+    void playSound(const std::string& name);
+    void logScript(const std::string& line);
+    bool hidden(const Ac2Record& o) const;
     bool loadWalk(Character& c);
     void placeCharacter(Character& c, float time) const;
 
@@ -198,6 +216,14 @@ private:
     std::unique_ptr<GamePathFinder> gamePaths_;
     bool triedGamePaths_ = false;
     std::string pathSource_;
+    // The scripts' state: tags, items and the act are state_'s.
+    std::unique_ptr<ScriptRunner> runner_;
+    std::string walkVerb_;            // "walk" or "run", while a script waits on one
+    const Ac2Record* scriptObject_ = nullptr; // the hotspot a script is "this" of
+    int entryPoint_ = -1; // the walk point the player arrives at, after "scene"
+    std::set<std::string> hiddenNames_; // objects hidden by scripts, by name or file
+    std::deque<std::string> scriptLog_;
+    std::map<std::string, std::string> soundFiles_; // sound name -> file
     float time_ = 0;
     image::Image dot_; // stands in for a particle texture that's missing
     uint64_t lastMs_ = 0;

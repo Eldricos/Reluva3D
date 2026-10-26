@@ -54,14 +54,5 @@ Conditions use the same form (`has`, `!has`, `tag <name> >N`), and
 `|` separates alternatives (`scene exterior.forest_01 | scene
 exterior.forest_14`).
 
-Verbs seen in the data so far: `act`, `add`, `anim`, `anima`, `attach`,
-`fade`, `has`, `look`, `movie`, `rotate`, `scene`, `setchar`, `sound`,
-`sounda`, `tag`, `take`, `talk`, `turn`, `wait`, `walk`, `yesno`. The
-executable's UTF-16 strings also include `camera`, `change`, `clear`,
-`combine`, `detach`, `gotoscene`, `globalhide`, `globalshow`, `hide`,
-`hideshadow`, `letterbox`, `music`, `pause`, `play`, `puzzle`,
-`removestate`, `removetag`, `reset`, `restore`, `resume`, `run`, `save`,
-`savepos`, `script`, `show`, `showshadow`, `stop`, `timer`, `walka`,
-`walkfast`, `wear`, `weather`. A list like this is only a lead: the full
-set, with each verb's arguments, comes from the script interpreter in
-`motoe.exe`, still to be read.
+How the commands run, and every verb the game uses, is in
+[script.md](script.md).

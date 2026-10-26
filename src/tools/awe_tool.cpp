@@ -649,6 +649,8 @@ int aweToolCommand(int argc, char** argv) {
         return cmdGr2Model(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "awe-path") == 0)
         return reluva::awe::aweCommandPath(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "awe-scripts") == 0)
+        return reluva::awe::aweCommandScripts(argc, argv);
     return -1;
 }
 
@@ -661,5 +663,6 @@ const char* aweToolUsage() {
            "  reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds|movies> <out.tga> [key...]\n"
            "  reluva-tool ac2-dump <scene.ac2>...\n"
            "  reluva-tool awe-path <game folder> <scene.ac2> <a0> <b0> <a1> <b1>\n"
+           "  reluva-tool awe-scripts <game folder> [-v]\n"
            "  reluva-tool gr2-model <model.gr2> [-anim <anim.gr2> <seconds>] [-obj out.obj] [-track bone]\n";
 }
