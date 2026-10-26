@@ -3753,12 +3753,18 @@ int cmdX86Run(int argc, char** argv) {
 // audio track as 16-bit PCM, for comparing with another decoder.
 int cmdBinkDecode(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool bink-decode <file.bik> [-frames N] [-yuv out.yuv] [-pcm out.pcm]\n");
+        std::fprintf(stderr, "usage: reluva-tool bink-decode <file.bik> [-frames N] [-yuv out.yuv] [-pcm out.pcm]\n"
+                             "       reluva-tool bink-decode <game folder> [video/name.bik] [options]\n"
+                             "  (a game folder alone lists its movies, inside its .pk3 files too)\n");
         return 2;
     }
+    // A game folder: a movie by name from its files (.pk3s included), or
+    // all of them listed with their revisions.
+    const bool folder = std::filesystem::is_directory(argv[2]);
+    const int first = folder && argc >= 4 && argv[3][0] != '-' ? 4 : 3;
     int frames = -1;
     std::string yuvPath, pcmPath;
-    for (int i = 3; i < argc; ++i) {
+    for (int i = first; i < argc; ++i) {
         if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
             frames = std::atoi(argv[++i]);
         else if (std::strcmp(argv[i], "-yuv") == 0 && i + 1 < argc)
@@ -3767,8 +3773,40 @@ int cmdBinkDecode(int argc, char** argv) {
             pcmPath = argv[++i];
     }
     Bytes data;
-    if (!readFile(argv[2], data))
+    if (folder) {
+        reluva::SearchSet set;
+        if (!mountIdTech3(argv[2], set))
+            return 1;
+        if (first == 3) {
+            int count = 0;
+            for (const std::string& n : set.list()) {
+                const std::string key = reluva::normalizeArchiveName(n);
+                if (key.size() < 4 || key.compare(key.size() - 4, 4, ".bik") != 0)
+                    continue;
+                Bytes movie;
+                std::string what = "unreadable";
+                if (!set.read(key, movie) && movie.size() >= 28)
+                    what = std::string(reinterpret_cast<const char*>(movie.data()), 4) + ", " +
+                           std::to_string(movie[20] | movie[21] << 8) + "x" + std::to_string(movie[24] | movie[25] << 8) +
+                           ", " + std::to_string(movie.size()) + " bytes";
+                std::printf("%s: %s\n", key.c_str(), what.c_str());
+                ++count;
+            }
+            std::printf("%d movies\n", count);
+            return 0;
+        }
+        std::string name = argv[3];
+        if (name.find('/') == std::string::npos && name.find('\\') == std::string::npos)
+            name = "video/" + name;
+        if (name.size() < 4 || name.compare(name.size() - 4, 4, ".bik") != 0)
+            name += ".bik";
+        if (reluva::Error e = set.read(name, data)) {
+            std::fprintf(stderr, "%s: %s\n", name.c_str(), e.message.c_str());
+            return 1;
+        }
+    } else if (!readFile(argv[2], data)) {
         return 1;
+    }
     reluva::bink::Movie movie;
     if (reluva::Error e = movie.open(std::move(data))) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
@@ -5707,6 +5745,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool x86-run <file.dll> [-call Export [arg|table]...]\n"
                  "  reluva-tool ibi-dump <game folder> <script>\n"
                  "  reluva-tool bsp-entities <game folder> <map> [text]...\n"
+                 "  reluva-tool bink-decode <file.bik, or game folder [video/name]> [-frames N] [-yuv out] [-pcm out]\n"
                  "  reluva-tool sp-menus <game folder> [-dll efuix86.dll] [-frames N] [-menu name] [-key frame key]...\n"
                  "  reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] [-set name value]... [-trace]\n"
                  "  reluva-tool pk3-sums <game folder> [feed]\n"
