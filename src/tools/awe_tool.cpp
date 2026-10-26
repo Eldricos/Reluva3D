@@ -17,9 +17,11 @@
 #include "common/image.h"
 #include "common/system.h"
 #include "common/video/bink_file.h"
+#include "common/video/bink_video.h"
 
 #include <algorithm>
 #include <cmath>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -455,7 +457,7 @@ int cmdAweCamera(int argc, char** argv) {
 // A Bink file's header, audio tracks and frames.
 int cmdBinkInfo(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool bink-info <file.bik> [-frames]\n");
+        std::fprintf(stderr, "usage: reluva-tool bink-info <file.bik> [-frames] [-yuv out.yuv [frames]] [-tga first]\n");
         return 2;
     }
     std::vector<uint8_t> data;
@@ -473,7 +475,59 @@ int cmdBinkInfo(int argc, char** argv) {
     for (const reluva::video::BinkAudioTrack& t : bink.audioTracks())
         std::printf("  audio track %u: %d Hz, %d channel%s, %s, flags 0x%04x\n", t.id, t.sampleRate, t.channels,
                     t.channels == 1 ? "" : "s", t.dct ? "DCT" : "FFT", t.flags);
-    const bool list = argc > 3 && std::strcmp(argv[3], "-frames") == 0;
+    bool list = false;
+    std::string yuvFile, tgaPrefix;
+    size_t yuvFrames = bink.frameCount(), tgaFrame = 0;
+    for (int i = 3; i < argc; i++) {
+        if (std::strcmp(argv[i], "-frames") == 0)
+            list = true;
+        else if (std::strcmp(argv[i], "-yuv") == 0 && i + 1 < argc) {
+            yuvFile = argv[++i];
+            if (i + 1 < argc && argv[i + 1][0] != '-')
+                yuvFrames = std::strtoul(argv[++i], nullptr, 10);
+        } else if (std::strcmp(argv[i], "-tga") == 0 && i + 1 < argc) {
+            tgaFrame = std::strtoul(argv[++i], nullptr, 10);
+            tgaPrefix = std::string(argv[2]) + "_frame";
+        }
+    }
+    if (!yuvFile.empty() || !tgaPrefix.empty()) {
+        // Decodes the video: as raw YUV 4:2:0 (as ffmpeg -pix_fmt yuv420p
+        // writes it, to compare), and one frame as a TGA picture.
+        reluva::video::BinkVideoDecoder dec;
+        if (reluva::Error e = dec.init(bink.width(), bink.height(), bink.revision(), bink.flags())) {
+            std::fprintf(stderr, "%s\n", e.message.c_str());
+            return 1;
+        }
+        std::ofstream yuv;
+        if (!yuvFile.empty())
+            yuv.open(yuvFile, std::ios::binary);
+        const size_t last = std::max(yuvFile.empty() ? 0 : yuvFrames, tgaPrefix.empty() ? 0 : tgaFrame + 1);
+        const auto start = std::chrono::steady_clock::now();
+        for (size_t i = 0; i < last && i < bink.frameCount(); i++) {
+            reluva::video::BinkFile::Frame f;
+            bink.frame(i, f);
+            if (reluva::Error e = dec.decode(f.video.data, f.video.size))
+                std::fprintf(stderr, "frame %zu: %s\n", i, e.message.c_str());
+            if (yuv && i < yuvFrames)
+                for (int p = 0; p < 3; p++) {
+                    const int w = p ? (bink.width() + 1) / 2 : bink.width(), h = p ? (bink.height() + 1) / 2 : bink.height();
+                    for (int y = 0; y < h; y++)
+                        yuv.write(reinterpret_cast<const char*>(dec.plane(p) + y * dec.stride(p)), w);
+                }
+            if (!tgaPrefix.empty() && i == tgaFrame) {
+                reluva::image::Image img;
+                img.w = bink.width();
+                img.h = bink.height();
+                dec.toRgba(img.rgba);
+                const std::vector<uint8_t> tga = reluva::image::encodeTga(img);
+                const std::string name = tgaPrefix + std::to_string(i) + ".tga";
+                std::ofstream(name, std::ios::binary).write(reinterpret_cast<const char*>(tga.data()), std::streamsize(tga.size()));
+                std::printf("wrote %s\n", name.c_str());
+            }
+        }
+        std::printf("decoded %zu frames in %.2f s\n", last,
+                    std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count());
+    }
     size_t keyframes = 0, videoBytes = 0, audioBytes = 0, decoded = 0;
     for (size_t i = 0; i < bink.frameCount(); i++) {
         reluva::video::BinkFile::Frame f;

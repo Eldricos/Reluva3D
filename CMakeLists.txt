@@ -79,11 +79,12 @@ add_library(reluva_common STATIC
     src/common/audio/wav.cpp
     src/common/font.cpp
     src/common/text.cpp
-    src/common/video/bink_file.cpp)
+    src/common/video/bink_file.cpp
+    src/common/video/bink_video.cpp)
 target_include_directories(reluva_common PUBLIC src)
 # Third-party headers (third_party/, see each README) as system includes, so
 # our warnings don't apply to them.
-target_include_directories(reluva_common SYSTEM PRIVATE third_party/minimp3 third_party/stb)
+target_include_directories(reluva_common SYSTEM PRIVATE third_party/minimp3 third_party/stb third_party/ffmpeg_bink)
 target_link_libraries(reluva_common PRIVATE reluva_warnings)
 
 # --- engines: talk only to common/ --------------------------------------------
