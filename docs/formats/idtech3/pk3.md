@@ -49,7 +49,8 @@ server's checksum feed as a first word. `reluva-tool pk3-sums <game
 folder> [feed]` prints them (`src/engines/idtech3/pure.cpp`). The GPL
 engine that runs Elite Force knows the retail paks by theirs: `pak0.pk3`
 3376297517, `pak1.pk3` 596947475, `pak2.pk3` 3960871590, `pak3.pk3`
-1592359207.
+1592359207; `pk3-sums` gives the same for the retail paks (October 2026),
+and joining a pure retail server with them works.
 
 ## Elite Force
 
