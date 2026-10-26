@@ -32,6 +32,7 @@ void ServerBrowser::localServers(uint64_t now) {
 void ServerBrowser::globalServers(const std::vector<net::Address>& masters, int protocol, const std::string& keywords) {
     global_.clear();
     masters_ = masters;
+    globalWaiting_ = !masters.empty();
     // Raven's master listed every server; the community's (dpmaster) leave
     // out empty and full ones unless asked for them, so they're asked.
     std::string words = keywords;
@@ -133,6 +134,8 @@ void ServerBrowser::update(uint64_t now) {
     std::vector<uint8_t> data;
     while (socket_->receive(from, data)) {
         if (std::find(masters_.begin(), masters_.end(), from) != masters_.end()) {
+            if (std::string(data.begin(), data.end()).find("getserversResponse") != std::string::npos)
+                globalWaiting_ = false;
             for (const net::Address& a : serversFromResponse(data))
                 if (std::find(global_.begin(), global_.end(), a) == global_.end() && global_.size() < kMaxGlobalServers)
                     global_.push_back(a);

@@ -2654,6 +2654,7 @@ static void testServerBrowser() {
     // address in hexadecimal) taken.
     auto master = network->open(27953);
     browser.globalServers({{0x7f000001u, 27953}}, 24, "");
+    CHECK(browser.globalServerCount() == -1); // waiting for an answer
     CHECK(master->receive(from, data) && std::string(data.begin() + 4, data.end()) == "getservers 24 full empty");
     const std::string list = "getserversResponse\\C0A80105" "6D38\\0A000002" "6D39\\EOT";
     std::vector<uint8_t> answer(4, 0xff);

@@ -42,7 +42,9 @@ public:
     // client asks: no game name), the list they answer replacing the last.
     static constexpr uint16_t kMasterPort = 27953;
     void globalServers(const std::vector<net::Address>& masters, int protocol, const std::string& keywords);
-    int globalServerCount() const { return int(global_.size()); }
+    // -1 until a master has answered, as the original reports it (the
+    // menus wait while it is).
+    int globalServerCount() const { return globalWaiting_ ? -1 : int(global_.size()); }
     std::string globalServerAddress(int n) const;
     // The addresses in a master's getserversResponse (after its four 0xff
     // bytes): each a backslash and 12 hexadecimal characters, the IPv4
@@ -71,6 +73,7 @@ private:
     std::unique_ptr<net::UdpSocket> socket_;
     std::vector<net::Address> local_, global_;
     std::vector<net::Address> masters_; // asked last (their answers are taken)
+    bool globalWaiting_ = false;
     uint64_t scanStart_ = 0; // when the local network was last asked
     std::vector<uint32_t> broadcasts_;
     static constexpr uint64_t kScanMs = 5000;

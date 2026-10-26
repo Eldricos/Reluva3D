@@ -95,7 +95,7 @@ void NetServer::heartbeat(uint64_t now, bool force) {
     }
     for (const reluva::net::Address& m : masters_) {
         sendText(m, "\\heartbeat\\" + std::to_string(port()) + "\\gamename\\STEF1\\");
-        if (print && !force)
+        if (print)
             print("Heartbeat to the master at " + m.toString() + "\n");
     }
 }
@@ -214,6 +214,9 @@ std::string NetServer::infoString(const std::string& challenge) const {
         }
     std::string info;
     setInfoValue(info, "challenge", challenge);
+    // The game's name, as the GPL engine running Elite Force sends it (the
+    // community's masters list servers by it).
+    setInfoValue(info, "gamename", "EliteForce");
     setInfoValue(info, "protocol", "24");
     setInfoValue(info, "hostname", cvars_.string("sv_hostname"));
     setInfoValue(info, "mapname", cvars_.string("mapname"));
@@ -284,12 +287,14 @@ void NetServer::outOfBand(const reluva::net::Address& from, const std::string& t
     if (words.empty())
         return;
     const std::string& verb = words[0];
+    // A master checking on the server after a heartbeat (the community's
+    // ask with getinfo, Raven's with getstatus): it can reach it.
+    if ((verb == "getinfo" || verb == "getstatus") && print &&
+        std::any_of(masters_.begin(), masters_.end(), [&](const auto& m) { return m.ip == from.ip; }))
+        print("The master at " + from.toString() + " asked about this server, so it can reach it\n");
     if (verb == "getinfo") {
         sendText(from, "infoResponse \"" + infoString(words.size() > 1 ? words[1] : "") + "\"");
     } else if (verb == "getstatus") {
-        // A master checking on the server after a heartbeat: it can reach it.
-        if (print && std::find(masters_.begin(), masters_.end(), from) != masters_.end())
-            print("The master at " + from.toString() + " asked for the status (so it can reach this server)\n");
         std::string info = game_.configstrings().count(0) ? game_.configstrings().at(0) : std::string();
         setInfoValue(info, "challenge", words.size() > 1 ? words[1] : "");
         std::string reply = "statusResponse\n" + info + "\n";
