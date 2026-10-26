@@ -108,9 +108,16 @@ Error loadAnimation(const Gr2File& file, Animation& out, GrannyDll* dll = nullpt
 struct Pose {
     std::vector<Mat4> world, skinning;
 };
+// A turn added to a bone on top of its animation (a head turned to look
+// at someone): a quaternion (x, y, z, w) in the bone's own axes.
+struct BoneTurn {
+    int bone = -1;
+    float rotation[4] = {0, 0, 0, 1};
+};
 // The rest pose, or the animation at `time` (bones it has no track for
-// stay at rest).
-void computePose(const Model& model, const Animation* animation, float time, Pose& out);
+// stay at rest), with any `turns` added.
+void computePose(const Model& model, const Animation* animation, float time, Pose& out,
+                 const std::vector<BoneTurn>* turns = nullptr);
 // Skins a mesh's vertices for the pose: positions and normals.
 void skin(const ModelMesh& mesh, const Pose& pose, std::vector<std::array<float, 3>>& positions,
           std::vector<std::array<float, 3>>& normals);

@@ -345,7 +345,8 @@ Error loadAnimation(const Gr2File& file, Animation& out, GrannyDll* dll) {
     return Error::success();
 }
 
-void computePose(const Model& model, const Animation* animation, float time, Pose& out) {
+void computePose(const Model& model, const Animation* animation, float time, Pose& out,
+                 const std::vector<BoneTurn>* turns) {
     const size_t n = model.bones.size();
     out.world.assign(n, identityMatrix());
     out.skinning.assign(n, identityMatrix());
@@ -375,6 +376,19 @@ void computePose(const Model& model, const Animation* animation, float time, Pos
                 track.scaleShear.evaluate(time, 9, local[b].scaleShear);
         }
     }
+    if (turns)
+        for (const BoneTurn& t : *turns) {
+            if (t.bone < 0 || size_t(t.bone) >= n)
+                continue;
+            // q * turn: the turn in the bone's own axes.
+            float* q = local[size_t(t.bone)].orientation;
+            const float* r = t.rotation;
+            const float x = q[3] * r[0] + q[0] * r[3] + q[1] * r[2] - q[2] * r[1];
+            const float y = q[3] * r[1] - q[0] * r[2] + q[1] * r[3] + q[2] * r[0];
+            const float z = q[3] * r[2] + q[0] * r[1] - q[1] * r[0] + q[2] * r[3];
+            const float w = q[3] * r[3] - q[0] * r[0] - q[1] * r[1] - q[2] * r[2];
+            q[0] = x, q[1] = y, q[2] = z, q[3] = w;
+        }
     for (size_t i = 0; i < n; i++) {
         const Mat4 m = toMatrix(local[i]);
         const int parent = model.bones[i].parent;
