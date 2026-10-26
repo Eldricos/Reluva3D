@@ -7,6 +7,7 @@
 #include "engines/awe/ac2.h"
 #include "engines/awe/camera.h"
 #include "engines/awe/conditions.h"
+#include "engines/awe/dialogue.h"
 #include "engines/awe/game_text.h"
 #include "engines/awe/gr2.h"
 #include "engines/awe/model.h"
@@ -579,6 +580,30 @@ void testScript() {
     CHECK(state2.tags["nested"] == 1 && r2.idle());
 }
 
+void testDialogueBook() {
+    const char* table =
+        "Name\tAct\tConver.\tThread\tNest\tSpeaker\tTarget\tLine\tLine Translation\tCondition\tRepeat\tPrevent\t"
+        "Event\tPovent\tDuration\tOptional\tNotes\n"
+        "dia_observation\t02a\ta\t1\ta\tpoirot\t0\tOne must look.\t0\t0\t0\t0\t0\t0\t0\t0\t0\n"
+        "dia_observation\t02a\ta\ta\ta\tantoinette\tantoinette up\t\"Well, yes.\"\t0\thas ribbon\ta\t"
+        "scene restaurant_table.02\tanim no\tscene restaurant_table.07\t0\t1\t0\n"
+        "DIA_Other\t02a\tb\t3\tc\tmichel\t0\tOui.\t0\t0\t0\t0\t0\t0\t0\t0\t0\n";
+    DialogueBook book;
+    book.add(parseTable(table));
+    CHECK(book.conversationCount() == 2);
+    const auto& obs = book.conversation("Dia_Observation");
+    CHECK(obs.size() == 2);
+    if (obs.size() == 2) {
+        CHECK(obs[0].thread == "1" && obs[0].speaker == "poirot" && obs[0].target.empty() && obs[0].text == "One must look.");
+        CHECK(obs[0].voiceFile() == "sound/vo/dia_observation02aa1a.wav");
+        CHECK(obs[1].text == "Well, yes." && obs[1].target == "antoinette up" && obs[1].condition == "has ribbon");
+        CHECK(obs[1].before == "scene restaurant_table.02" && obs[1].event == "anim no" &&
+              obs[1].after == "scene restaurant_table.07" && obs[1].repeat == "a" && obs[1].optional == "1");
+        CHECK(obs[1].eventFile() == "text/dialogue/events/dia_observation_02a_aaa.txt");
+    }
+    CHECK(book.conversation("dia_other").size() == 1 && book.conversation("nothing").empty());
+}
+
 } // namespace
 
 int main() {
@@ -592,6 +617,7 @@ int main() {
     testSprite();
     testParticles();
     testScript();
+    testDialogueBook();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else
