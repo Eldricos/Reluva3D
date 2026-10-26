@@ -158,6 +158,9 @@ void SpPlayViewer::start(int index) {
     scene_->setHandles({&game_->models(), &game_->skins(), &game_->shaders()});
     if ((err = game_->startClientGame()))
         return stop("The client game couldn't start: " + err.message);
+    // The player's time from where the level is (it has settled for a few
+    // frames before they joined).
+    clientTime_ = game_->levelTime();
 }
 
 void SpPlayViewer::runBinding(const std::string& line, int32_t key, bool down) {

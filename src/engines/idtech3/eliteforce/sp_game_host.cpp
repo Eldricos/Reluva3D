@@ -207,6 +207,15 @@ Error SpGameHost::startLevel(const std::string& mapName, std::shared_ptr<const B
     if (Error e = callGame(Init, {text(mapName), uint32_t(checksum), text(map_->entities), uint32_t(levelTime_),
                                   uint32_t(randomSeed), now, 0}))
         return e;
+    // Frames to let the level settle before anyone joins, as the original's
+    // server runs them (three, then one more, 100 ms apart): the NPCs spawn
+    // in them, so they're there when the player's arrival starts the
+    // level's scripts, which find the entities they affect as they load.
+    for (int i = 0; i < 4; ++i) {
+        if (Error e = callGame(RunFrame, {uint32_t(levelTime_)}))
+            return e;
+        levelTime_ += kSettleFrameMs;
+    }
     // The server's and the system's settings, for the client game (as the
     // original's server sets them once the game is loaded).
     configstrings_[0] = infoString(CvarStore::ServerInfo);
