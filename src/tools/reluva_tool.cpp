@@ -132,6 +132,9 @@
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/shader.h"
 #endif
+#ifdef RELUVA_ENGINE_NFS
+#include "tools/nfs_commands.h"
+#endif
 
 #include <map>
 #include <memory>
@@ -5090,6 +5093,10 @@ int cmdPk3List(int argc, char** argv) {
 } // namespace
 
 int main(int argc, char** argv) {
+#ifdef RELUVA_ENGINE_NFS
+    if (int code = runNfsCommand(argc, argv); code >= 0)
+        return code;
+#endif
     if (argc >= 2 && std::strcmp(argv[1], "hexdump") == 0)
         return cmdHexdump(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "chunks") == 0)
@@ -5242,5 +5249,8 @@ int main(int argc, char** argv) {
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif
                  "");
+#ifdef RELUVA_ENGINE_NFS
+    std::fputs(kNfsUsage, stderr);
+#endif
     return 2;
 }

@@ -184,7 +184,10 @@ if(RELUVA_ENGINE_NFS)
     target_sources(reluva_engines PRIVATE
         src/engines/nfs/nfs.cpp
         src/engines/nfs/games.cpp
-        src/engines/nfs/folders.cpp)
+        src/engines/nfs/folders.cpp
+        src/engines/nfs/viv.cpp
+        src/engines/nfs/refpack.cpp
+        src/engines/nfs/fsh.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_NFS)
 endif()
 target_link_libraries(reluva_engines PUBLIC reluva_common PRIVATE reluva_warnings)
@@ -203,6 +206,9 @@ endif()
 
 # --- developer tools -----------------------------------------------------------
 add_executable(reluva-tool src/tools/reluva_tool.cpp src/backends/sockets/socket_net.cpp)
+if(RELUVA_ENGINE_NFS)
+    target_sources(reluva-tool PRIVATE src/tools/nfs_commands.cpp)
+endif()
 target_link_libraries(reluva-tool PRIVATE reluva_engines reluva_warnings)
 if(WIN32)
     target_link_libraries(reluva-tool PRIVATE ws2_32 iphlpapi)
