@@ -3751,7 +3751,7 @@ int cmdX86Run(int argc, char** argv) {
 int cmdSpRun(int argc, char** argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] "
-                             "[-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]...\n");
+                             "[-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -3759,6 +3759,7 @@ int cmdSpRun(int argc, char** argv) {
     int frames = 20;
     bool traceCalls = false, noClient = false, runCgame = false, watch = false;
     std::vector<std::string> finds; // -find text: entities with a text field containing it
+    bool icarusNames = false;       // -icarus: the script system's table of entity names
     std::string dllPath;
     std::vector<std::pair<std::string, std::string>> settings;
     for (int i = 4; i < argc; ++i) {
@@ -3776,6 +3777,8 @@ int cmdSpRun(int argc, char** argv) {
             watch = runCgame = true;
         else if (std::strcmp(argv[i], "-find") == 0 && i + 1 < argc)
             finds.push_back(reluva::fs::toLower(argv[++i]));
+        else if (std::strcmp(argv[i], "-icarus") == 0)
+            icarusNames = true;
         else if (std::strcmp(argv[i], "-set") == 0 && i + 2 < argc) {
             settings.emplace_back(argv[i + 1], argv[i + 2]);
             i += 2;
@@ -3990,11 +3993,37 @@ int cmdSpRun(int argc, char** argv) {
             }
             if (!match)
                 continue;
-            std::printf("entity %d (in use %d, linked %d):", n, game.entityInt(n, ef::SpEntityLayout{}.inUse),
-                        game.entityInt(n, ef::SpEntityLayout{}.linked));
+            std::printf("entity %d (in use %d, linked %d, sequencer %08x, task manager %08x):", n,
+                        game.entityInt(n, ef::SpEntityLayout{}.inUse), game.entityInt(n, ef::SpEntityLayout{}.linked),
+                        uint32_t(game.entityInt(n, 0x2b8)), uint32_t(game.entityInt(n, 0x2bc)));
             for (const auto& [off, t] : texts)
                 std::printf(" +0x%x=\"%s\"", off, t.c_str());
             std::printf("\n");
+        }
+    }
+    // The script system's names (efgamex86.dll 1.2: a VC6 std::map<string,
+    // int> at 0x2027d760, its head node at +4): each node's left, parent and
+    // right links, then the key (a VC6 string: its text pointer at +4, its
+    // length at +8) and the entity number.
+    if (icarusNames) {
+        reluva::x86::Cpu& cpu = game.cpu();
+        const uint32_t map = 0x2027d760 - uint32_t(game.module()->image.imageBase) + game.module()->base;
+        const uint32_t head = cpu.read32(map + 4);
+        std::set<uint32_t> seen{0, head};
+        std::vector<uint32_t> stack{cpu.read32(head + 4)};
+        int count = 0;
+        std::printf("script names (map at %08x, head %08x, size %u):\n", map, head, cpu.read32(map + 12));
+        while (!stack.empty() && count < 4000) {
+            const uint32_t node = stack.back();
+            stack.pop_back();
+            if (!cpu.valid(node, 36) || !seen.insert(node).second)
+                continue;
+            const uint32_t text = cpu.read32(node + 16), length = cpu.read32(node + 20);
+            if (cpu.valid(text, 1) && length < 256)
+                std::printf("  %s -> %d\n", cpu.string(text, length).c_str(), int32_t(cpu.read32(node + 28)));
+            ++count;
+            stack.push_back(cpu.read32(node));
+            stack.push_back(cpu.read32(node + 8));
         }
     }
     std::printf("configstrings:\n");
