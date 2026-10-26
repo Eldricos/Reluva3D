@@ -90,6 +90,15 @@ from the launcher, the engine now shows these pages (keys in
   - **Characters.** Their limbs are skins that follow bones; all 15 are
     whole, standing in the skeleton's rest pose.
   - **Billboards** face the camera.
+  - **Drawing state, as Direct3D's defaults:**
+    - back faces culled, since nothing in the files asks for two-sided
+      drawing and the stored normals agree with the triangles' winding;
+    - depth written unless an `NiZBufferProperty` says otherwise;
+    - shapes that blend drawn after the rest, the farthest first.
+
+    Before this, blended closed shapes showed their insides: the
+    skeletons' heads, whose skull texture blends, looked as if their
+    normals were wrong.
   - **Hidden objects** (effects the game shows on events) and the
     characters' far-away stand-ins are left out unless H shows them.
   - Not yet: animation (so no poses but the rest pose), morph shapes,

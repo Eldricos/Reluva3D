@@ -23,7 +23,7 @@ namespace {
 // The properties in effect for a shape: its own, or the nearest
 // ancestor's, by class.
 struct Inherited {
-    uint32_t texture = 0, multiTexture = 0, material = 0, alpha = 0, vertexColor = 0;
+    uint32_t texture = 0, multiTexture = 0, material = 0, alpha = 0, vertexColor = 0, zBuffer = 0;
 };
 
 // NetImmerse's blend factors (NiAlphaProperty), as the renderer's.
@@ -106,6 +106,9 @@ struct ModelPage::Item {
     bool billboard = false;
     gfx::Mat4 billboardAt = gfx::identity(), rel = gfx::identity();
     gfx::Blend src = gfx::Blend::One, dst = gfx::Blend::Zero;
+    // Depth test and write: on, unless an NiZBufferProperty turns them off.
+    bool depthTest = true, depthWrite = true;
+    gfx::Vec3 centre{}; // of its vertices in the world, for sorting what blends
 };
 
 ModelPage::ModelPage(ViewerContext& ctx) : Page(ctx) {
@@ -208,6 +211,8 @@ void ModelPage::show(int index) {
                 in.alpha = p;
             else if (type == "NiVertexColorProperty")
                 in.vertexColor = p;
+            else if (type == "NiZBufferProperty")
+                in.zBuffer = p;
         }
         return in;
     };
@@ -243,6 +248,10 @@ void ModelPage::show(int index) {
             item.src = blendOf(al->second.source);
             item.dst = blendOf(al->second.destination);
         }
+        if (auto z = model_.zBuffers.find(in.zBuffer); z != model_.zBuffers.end()) {
+            item.depthTest = z->second[0] != 0;
+            item.depthWrite = z->second[1] != 0;
+        }
         const std::vector<float>& pos = positions ? *positions : s.vertices;
         const std::vector<float>& nrm = normals ? *normals : s.normals;
         item.vertexColors = !s.colors.empty();
@@ -270,6 +279,8 @@ void ModelPage::show(int index) {
                 out.color[k] = s.colors.empty() ? 255
                                                 : uint8_t(std::clamp(s.colors[v * 4 + size_t(k)], 0.0f, 1.0f) * 255 + 0.5f);
             const gfx::Vec3 w = gfx::transformPoint(item.world, {out.pos[0], out.pos[1], out.pos[2]});
+            for (size_t k = 0; k < 3; ++k)
+                item.centre[k] += w[k] / float(nv);
             for (int k = 0; k < 3 && !backdrop; ++k) {
                 lo[size_t(k)] = std::min(lo[size_t(k)], w[size_t(k)]);
                 hi[size_t(k)] = std::max(hi[size_t(k)], w[size_t(k)]);
@@ -519,49 +530,66 @@ void ModelPage::update(uint64_t) {
                       gfx::lookAlong(eye, {-offset[0], -offset[1], -offset[2]}, {0, 0, 1}));
     renderer_->beginFrame(viewProj, eye, {60, 64, 74});
 
-    // Opaque shapes first, then those that blend, each with its lightmap
-    // multiplied over it.
-    for (int pass = 0; pass < 2; ++pass)
-        for (const Item& item : items_) {
-            if (item.blend != (pass == 1) || (item.backdrop && !showBackdrop_))
-                continue;
-            gfx::DrawCall call;
-            call.mesh = item.mesh;
-            call.indexCount = item.indexCount;
-            call.model = item.billboard ? gfx::multiply(facingCamera(item.billboardAt, eye), item.rel) : item.world;
-            call.texture = useTextures_ && !item.texture.empty() ? texture(item.texture) : 0;
-            call.color = item.color;
-            call.rgbSource = item.vertexColors ? gfx::ColorSource::Vertex
-                             : item.lit        ? gfx::ColorSource::Lighting
-                                               : gfx::ColorSource::Constant;
-            call.alphaSource = item.vertexColors ? gfx::ColorSource::Vertex : gfx::ColorSource::Constant;
-            // A light over the viewer's shoulder.
-            call.ambientLight = {0.45f, 0.45f, 0.45f};
-            call.directedLight = {0.6f, 0.6f, 0.6f};
-            call.lightDirection = {offset[0] * 0.6f - offset[1] * 0.5f, offset[1] * 0.6f + offset[0] * 0.5f, 0.7f};
-            call.state.cull = gfx::Cull::None; // two-sided, as the exporter's quads often are
-            if (item.blend) {
-                call.state.src = item.src;
-                call.state.dst = item.dst;
-                call.state.depthWrite = false;
-                call.state.alphaTest = gfx::AlphaTest::Gt0;
-            }
-            renderer_->draw(call);
-            if (useLightmaps_ && !item.lightmap.empty() && !item.blend) {
-                if (const gfx::TextureId lm = texture(item.lightmap)) {
-                    gfx::DrawCall light = call;
-                    light.texture = lm;
-                    light.texGen = gfx::TexGen::Uv2;
-                    light.color = {1, 1, 1, 1};
-                    light.rgbSource = light.alphaSource = gfx::ColorSource::Constant;
-                    light.state.src = gfx::Blend::DstColor;
-                    light.state.dst = gfx::Blend::Zero;
-                    light.state.depthEqual = true;
-                    light.state.depthWrite = false;
-                    renderer_->draw(light);
-                }
+    // Opaque shapes first, each with its lightmap multiplied over it; then
+    // those that blend, the farthest first.
+    std::vector<const Item*> order;
+    for (const Item& item : items_)
+        if (!item.blend && (showBackdrop_ || !item.backdrop))
+            order.push_back(&item);
+    const size_t opaque = order.size();
+    for (const Item& item : items_)
+        if (item.blend && (showBackdrop_ || !item.backdrop))
+            order.push_back(&item);
+    auto distance2 = [&](const Item* i) {
+        const gfx::Vec3 c = i->billboard ? gfx::Vec3{i->billboardAt[12], i->billboardAt[13], i->billboardAt[14]} : i->centre;
+        return (c[0] - eye[0]) * (c[0] - eye[0]) + (c[1] - eye[1]) * (c[1] - eye[1]) + (c[2] - eye[2]) * (c[2] - eye[2]);
+    };
+    std::stable_sort(order.begin() + std::ptrdiff_t(opaque), order.end(),
+                     [&](const Item* a, const Item* b) { return distance2(a) > distance2(b); });
+    for (const Item* drawn : order) {
+        const Item& item = *drawn;
+        gfx::DrawCall call;
+        call.mesh = item.mesh;
+        call.indexCount = item.indexCount;
+        call.model = item.billboard ? gfx::multiply(facingCamera(item.billboardAt, eye), item.rel) : item.world;
+        call.texture = useTextures_ && !item.texture.empty() ? texture(item.texture) : 0;
+        call.color = item.color;
+        call.rgbSource = item.vertexColors ? gfx::ColorSource::Vertex
+                         : item.lit        ? gfx::ColorSource::Lighting
+                                           : gfx::ColorSource::Constant;
+        call.alphaSource = item.vertexColors ? gfx::ColorSource::Vertex : gfx::ColorSource::Constant;
+        // A light over the viewer's shoulder.
+        call.ambientLight = {0.45f, 0.45f, 0.45f};
+        call.directedLight = {0.6f, 0.6f, 0.6f};
+        call.lightDirection = {offset[0] * 0.6f - offset[1] * 0.5f, offset[1] * 0.6f + offset[0] * 0.5f, 0.7f};
+        // Back faces culled, as Direct3D does by default and nothing in
+        // the files asks otherwise (closed shapes that blend, such as the
+        // skeletons' heads, would otherwise show their insides);
+        // billboards are seen from the front anyway.
+        call.state.cull = item.billboard ? gfx::Cull::None : gfx::Cull::Back;
+        call.state.depthTest = item.depthTest;
+        call.state.depthWrite = item.depthWrite;
+        if (item.blend) {
+            call.state.src = item.src;
+            call.state.dst = item.dst;
+            call.state.alphaTest = gfx::AlphaTest::Gt0;
+        }
+        renderer_->draw(call);
+        if (useLightmaps_ && !item.lightmap.empty() && !item.blend) {
+            if (const gfx::TextureId lm = texture(item.lightmap)) {
+                gfx::DrawCall light = call;
+                light.texture = lm;
+                light.texGen = gfx::TexGen::Uv2;
+                light.color = {1, 1, 1, 1};
+                light.rgbSource = light.alphaSource = gfx::ColorSource::Constant;
+                light.state.src = gfx::Blend::DstColor;
+                light.state.dst = gfx::Blend::Zero;
+                light.state.depthEqual = true;
+                light.state.depthWrite = false;
+                renderer_->draw(light);
             }
         }
+    }
 
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
     std::vector<std::string> lines;
