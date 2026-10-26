@@ -48,6 +48,8 @@ scenes, two Granny files, the text tables, two backgrounds):
   Reluva's matrices match granny2.dll's. Characters are drawn into the
   Scenes page through them, posed by their idle (or sitting) animation,
   between the background and the cutouts in front.
+- **The game's fonts** (`Text/fonts.txt`, `Interface/Fonts`) are drawn
+  with stb_truetype, and the movies' subtitles show under them.
 - **Bink movies: decoded.** Video and audio match FFmpeg's output
   exactly (see [../formats/bink.md](../formats/bink.md)) and play in the
   Movies page with their sound.
@@ -94,9 +96,10 @@ Next:
    so characters can move about.
 3. Read the script interpreter in `motoe.exe`: the full list of verbs and
    their arguments.
-4. The scenes' video loops (BINK objects) drawn in the Scenes page, and
-   subtitles (`Text/Movies`) under the movies.
-5. TrueType text for the game's own fonts.
+4. The scenes' video loops (BINK objects) drawn in the Scenes page.
+5. The ~30 animations whose curves are Granny's compressed kind
+   (`CurveData`), and the vector tracks (on the faces?) of about 80, that
+   `awe-check` reports.
 6. Native Oodle1 and Bink-texture decoding, checked against the DLL, to
    load models in a fraction of the time.
 

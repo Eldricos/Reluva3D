@@ -324,7 +324,8 @@ public:
         events.pop_front();
         return true;
     }
-    uint64_t getMillis() const override { return 0; }
+    uint64_t getMillis() const override { return now; }
+    uint64_t now = 0;
     void delayMillis(uint32_t) override {}
     reluva::Error startAudio(AudioCallback) override { return reluva::Error::fail("no audio"); }
     void stopAudio() override {}
@@ -336,7 +337,7 @@ public:
 int cmdAweShot(int argc, char** argv) {
     if (argc < 5) {
         std::fprintf(stderr, "usage: reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds|movies> <out.tga> "
-                             "[key...]\n  keys: left right up down pgup pgdn home end, or one character\n");
+                             "[key...]\n  keys: left right up down pgup pgdn home end, or one character; ms:N lets N milliseconds pass\n");
         return 2;
     }
     reluva::DirectoryArchive files;
@@ -347,7 +348,9 @@ int cmdAweShot(int argc, char** argv) {
     HeadlessSystem sys;
     reluva::Surface screen;
     screen.create(awe::kScreenW, awe::kScreenH, reluva::PixelFormat::RGBA32);
-    awe::ViewerContext ctx{sys, files, nullptr, nullptr, screen, {}};
+    awe::GameFonts fonts;
+    const bool haveFonts = !fonts.load(files);
+    awe::ViewerContext ctx{sys, files, nullptr, nullptr, screen, {}, haveFonts ? &fonts : nullptr};
     std::unique_ptr<awe::Page> page;
     const std::string which = argv[3];
     if (which == "scenes")
@@ -368,6 +371,15 @@ int cmdAweShot(int argc, char** argv) {
     page->activate();
     for (int i = 5; i < argc; i++) {
         const std::string k = argv[i];
+        if (k.rfind("ms:", 0) == 0) {
+            // Time passing, a frame each 10 ms.
+            const uint64_t until = sys.now + std::strtoull(k.c_str() + 3, nullptr, 10);
+            while (sys.now < until) {
+                sys.now += 10;
+                page->update(sys.now);
+            }
+            continue;
+        }
         reluva::Event ev;
         ev.type = reluva::EventType::KeyDown;
         namespace key = reluva::key;
@@ -376,7 +388,7 @@ int cmdAweShot(int argc, char** argv) {
                : k == "end" ? key::End : uint32_t(uint8_t(k[0]));
         page->handleEvent(ev);
     }
-    page->update(0);
+    page->update(sys.now);
     reluva::image::Image img;
     img.w = sys.last.w;
     img.h = sys.last.h;

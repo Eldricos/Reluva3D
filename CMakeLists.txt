@@ -79,6 +79,7 @@ add_library(reluva_common STATIC
     src/common/audio/wav.cpp
     src/common/font.cpp
     src/common/text.cpp
+    src/common/truetype.cpp
     src/common/video/bink_file.cpp
     src/common/video/bink_video.cpp
     src/common/video/bink_audio.cpp)
@@ -192,6 +193,7 @@ if(RELUVA_ENGINE_AWE)
         src/engines/awe/granny_dll.cpp
         src/engines/awe/model.cpp
         src/engines/awe/tables.cpp
+        src/engines/awe/game_text.cpp
         src/engines/awe/viewers.cpp
         src/engines/awe/model_viewer.cpp
         src/engines/awe/model_draw.cpp)

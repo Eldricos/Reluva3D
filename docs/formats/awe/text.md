@@ -30,7 +30,8 @@ cell's commands split out.
 | `uselist.txt` | Use this Item, On this character, Condition, Event |
 | `navigation.txt` | Tag, Text, Translation, Additional Text: exits' labels (`To Salon Car`) |
 | `interface.txt` | Tag, Text, Translation: interface strings (`quit2`: "Quit program?") |
-| `fonts.txt` | Font Name, Size, Desc, Effect, Uses; then rows of ARGB colours for text kinds |
+| `fonts.txt` | Font Name, Size, Desc, Effect, Uses; then rows of ARGB colours for text kinds. Calisto MT, Arial and Arial Narrow are in `Interface/Fonts`; Times New Roman and Courier New (for the newspaper clippings and the fingerprints) aren't shipped. Reluva takes sizes as Windows points at 96 DPI (12 points: an em of 16 pixels) and stands in Arial for the missing fonts |
+| `Movies/<movie>.txt` | subtitles, in the dialogue tables' columns (Name, Act, Conver., Thread, Nest, Speaker, Target, Line, Line Translation, Condition, Repeat, Prevent, Event, Povent, Duration, Optional, Notes). Duration is "start, length" in seconds from the movie's start |
 
 The "Translation" columns are all `0` in the English release.
 

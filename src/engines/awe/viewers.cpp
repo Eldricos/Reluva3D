@@ -654,6 +654,8 @@ void MoviePage::open() {
     file_.reset();
     video_.reset();
     soundtrack_.reset();
+    frame_ = image::Image();
+    subtitles_.clear();
     info_.clear();
     next_ = 0;
     paused_ = false;
@@ -661,6 +663,14 @@ void MoviePage::open() {
     if (names_.empty())
         return;
     const std::string& name = names_[size_t(index_)];
+    {
+        // Its subtitles, if it has some: Text/Movies/<its name>.txt.
+        std::string stem = name.substr(name.find_last_of('/') + 1);
+        stem = stem.substr(0, stem.rfind('.'));
+        std::vector<uint8_t> text;
+        if (!ctx_.files.read("text/movies/" + fs::toLower(stem) + ".txt", text))
+            subtitles_ = parseSubtitles(decodeText(text));
+    }
     std::vector<uint8_t> data;
     auto file = std::make_unique<video::BinkFile>();
     auto video = std::make_unique<video::BinkVideoDecoder>();
@@ -726,19 +736,37 @@ void MoviePage::update(uint64_t nowMs) {
             return;
         }
         if (drawn) {
-            video_->toRgba(rgba_);
-            clear(0, 0, 0);
-            image::Image img;
-            img.w = video_->width();
-            img.h = video_->height();
-            img.rgba = rgba_;
-            image::blit(ctx_.screen, img, (kScreenW - img.w) / 2, (kScreenH - img.h) / 2);
+            video_->toRgba(frame_.rgba);
+            frame_.w = video_->width();
+            frame_.h = video_->height();
+        }
+    }
+    clear(0, 0, 0);
+    if (frame_.w)
+        image::blit(ctx_.screen, frame_, (kScreenW - frame_.w) / 2, (kScreenH - frame_.h) / 2);
+    // The subtitles due at the frame shown, at the bottom in the game's
+    // dialogue style.
+    const TextStyle* style = ctx_.fonts ? ctx_.fonts->style("dialogue") : nullptr;
+    if (style && style->font && file_ && file_->fps() > 0) {
+        const double t = double(next_) / file_->fps();
+        std::vector<std::string> lines;
+        for (const Subtitle& sub : subtitles_)
+            if (t >= sub.start && t < sub.end)
+                for (const std::string& l : style->font->wrap(sub.line, style->pixels, kScreenW - 160))
+                    lines.push_back(l);
+        const int lh = style->font->lineHeight(style->pixels);
+        int y = kScreenH - 40 - int(lines.size()) * lh;
+        for (const std::string& l : lines) {
+            ctx_.fonts->draw(ctx_.screen, *style, (kScreenW - style->font->width(l, style->pixels)) / 2, y, l,
+                             {255, 255, 255});
+            y += lh;
         }
     }
     label(4, 2,
           (names_.empty() ? std::string("No movies") : names_[size_t(index_)]) + "  (" + std::to_string(index_ + 1) +
               "/" + std::to_string(names_.size()) + ")  " + info_ +
-              (file_ ? "  frame " + std::to_string(next_) + "/" + std::to_string(file_->frameCount()) : ""),
+              (file_ ? "  frame " + std::to_string(next_) + "/" + std::to_string(file_->frameCount()) : "") +
+              (subtitles_.empty() ? "" : ", " + std::to_string(subtitles_.size()) + " subtitles"),
           {255, 230, 150});
     help("Left/Right: movie  Space: pause  Enter: restart");
     Page::update(nowMs);

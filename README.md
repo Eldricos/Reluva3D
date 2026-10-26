@@ -11,13 +11,13 @@ included: you point Reluva at your own installed copy.
 ```
 src/common/        platform-independent core: System interface, events,
                    surfaces, config, case-insensitive file lookup, detection,
-                   text and a built-in font; archives (folders, .zip/.pk3) and
+                   text and a built-in font, TrueType fonts; archives (folders, .zip/.pk3) and
                    search sets; image decoding (TGA, JPEG, PNG, BMP); the 3D
                    rendering interface (gfx3d.h)
   audio/           sound decoders and the mixer, shared by every engine: WAV (PCM, IMA ADPCM), MP3
   video/           video decoders: Bink (container, video, audio; docs/formats/bink.md)
 third_party/       outside code Reluva builds in, each with its licence (minimp3, stb_image,
-                   FFmpeg's Bink tables)
+                   stb_truetype, FFmpeg's Bink tables)
 src/backends/sdl3/ the only code that touches SDL (window, rendering, input, audio),
                    including 3D on SDL's GPU API and its shaders
 src/launcher/      Dear ImGui game list: add / remove / start games

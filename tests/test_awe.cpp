@@ -6,6 +6,7 @@
 
 #include "engines/awe/ac2.h"
 #include "engines/awe/camera.h"
+#include "engines/awe/game_text.h"
 #include "engines/awe/gr2.h"
 #include "engines/awe/model.h"
 #include "engines/awe/tables.h"
@@ -91,6 +92,19 @@ void testText() {
     CHECK(c[2].words.size() == 3 && c[2].words[2] == "a+");
     CHECK(parseCommands("0").empty());
     CHECK(parseCommands("look left\r\nwait 1.6\r\n").size() == 2);
+
+    // A movie's subtitles: the dialogue tables' columns, Duration "start, length".
+    const std::vector<Subtitle> subs = parseSubtitles(decodeText(utf16File(
+        "Name\tAct\tSpeaker\tLine\tDuration\r\n"
+        "intro\t0\tMoinsieur Bouc \t\"I dined with him, Poirot!\"\t\"26.192, 11.016\"\r\n"
+        "intro\t0\tAntoinette\tMonsieur Poirot!\t\"65.387, 1.580\"\r\n"
+        "\t\t\t\t\r\n")));
+    CHECK(subs.size() == 2);
+    if (subs.size() == 2) {
+        CHECK(subs[0].speaker == "Moinsieur Bouc" && subs[0].line == "I dined with him, Poirot!");
+        CHECK(std::fabs(subs[0].start - 26.192) < 1e-9 && std::fabs(subs[0].end - 37.208) < 1e-9);
+        CHECK(subs[1].line == "Monsieur Poirot!");
+    }
 }
 
 void testAc2() {

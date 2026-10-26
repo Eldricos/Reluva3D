@@ -13,6 +13,7 @@
 #include "common/video/bink_file.h"
 #include "common/video/bink_video.h"
 #include "engines/awe/ac2.h"
+#include "engines/awe/game_text.h"
 #include "engines/awe/gr2.h"
 #include "engines/awe/granny_dll.h"
 #include "engines/awe/model.h"
@@ -40,6 +41,7 @@ struct ViewerContext {
     audio::Mixer* mixer;  // null without an audio device
     Surface& screen;      // kScreenW x kScreenH, RGBA32
     std::filesystem::path savePath; // where screenshots go (F12)
+    const GameFonts* fonts = nullptr;  // the game's fonts, if they loaded
 };
 
 class Page {
@@ -216,7 +218,8 @@ private:
     int index_ = 0;
     std::unique_ptr<video::BinkFile> file_;
     std::unique_ptr<video::BinkVideoDecoder> video_;
-    std::vector<uint8_t> rgba_;
+    image::Image frame_; // the frame shown
+    std::vector<Subtitle> subtitles_;
     std::string info_;
     size_t next_ = 0;      // the next frame to decode
     uint64_t startMs_ = 0; // when frame 0 was due

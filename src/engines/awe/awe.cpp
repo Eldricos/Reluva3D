@@ -69,7 +69,10 @@ public:
                     sys.stopAudio();
             }
         } audioStop{sys_, audioOut};
-        awe::ViewerContext ctx{sys_, files_, granny.get(), audioOut ? &mixer : nullptr, screen_, target_.savePath};
+        awe::GameFonts fonts;
+        const bool haveFonts = !fonts.load(files_);
+        awe::ViewerContext ctx{sys_,           files_, granny.get(), audioOut ? &mixer : nullptr, screen_,
+                               target_.savePath, haveFonts ? &fonts : nullptr};
         int shots = 0;
 
         std::vector<std::unique_ptr<awe::Page>> pages;
