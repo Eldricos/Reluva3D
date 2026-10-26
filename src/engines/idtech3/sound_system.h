@@ -52,6 +52,11 @@ public:
     void clearLoopingSounds();
     void addLoopingSound(int entity, const Vec3f& origin, const std::string& name);
     void updateEntityPosition(int entity, const Vec3f& origin);
+    // Ambient set sounds (AmbientSets): at a volume of their own (0 to 1)
+    // rather than faded by distance, though still panned to where they
+    // are. Loops play while added each frame (until endFrame()).
+    void addAmbientLoop(int entity, const Vec3f& origin, float volume, const std::string& name);
+    void startAmbientSound(int entity, const Vec3f& origin, float volume, const std::string& name);
     // Where the listener is (entity `entity`) and which way it faces:
     // forward, left, up.
     void respatialize(int entity, const Vec3f& origin, const std::array<Vec3f, 3>& axes);
@@ -88,12 +93,15 @@ private:
         bool local = false;
         std::string name;
         uint64_t startMs = 0;
+        std::optional<float> volume; // ambient: its own volume
     };
     // Whether `entity` may start `name` now (see kAutoChannel).
     bool allowed(int entity, bool local, const std::string& name, const std::optional<Vec3f>& origin) const;
     std::shared_ptr<const audio::Sound> find(const std::string& name);
     // Sets the sound's volume and pan for where it is; the volume.
-    float place(audio::SoundHandle handle, const std::optional<Vec3f>& origin, int entity);
+    // An ambient sound's own volume replaces the one for its distance.
+    float place(audio::SoundHandle handle, const std::optional<Vec3f>& origin, int entity,
+                std::optional<float> volume = std::nullopt);
 
     audio::Mixer& mixer_;
     SoundLibrary& sounds_;
@@ -102,6 +110,9 @@ private:
     // Looping sounds by (entity, name): playing, and added this frame.
     std::map<std::pair<int, std::string>, audio::SoundHandle> loops_;
     std::map<std::pair<int, std::string>, Vec3f> loopsAdded_;
+    // Ambient loops, the same way, with their volumes.
+    std::map<std::pair<int, std::string>, audio::SoundHandle> ambientLoops_;
+    std::map<std::pair<int, std::string>, std::pair<Vec3f, float>> ambientAdded_;
     void note(const std::string& name, int entity, std::string line);
     struct Start {
         uint64_t ms = 0;

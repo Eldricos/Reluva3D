@@ -145,6 +145,7 @@ if(RELUVA_ENGINE_IDTECH3)
         src/engines/idtech3/pure.cpp
         src/engines/idtech3/server_browser.cpp
         src/engines/idtech3/sound_system.cpp
+        src/engines/idtech3/ambient_sets.cpp
         src/engines/idtech3/entities.cpp
         src/engines/idtech3/shader.cpp
         src/engines/idtech3/bindings.cpp

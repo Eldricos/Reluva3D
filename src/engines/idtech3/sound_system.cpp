@@ -41,7 +41,8 @@ std::pair<float, float> SoundSystem::spatialize(const Vec3f& origin) const {
     return {volume, dist > 1e-4f ? pan : 0.0f};
 }
 
-float SoundSystem::place(audio::SoundHandle handle, const std::optional<Vec3f>& origin, int entity) {
+float SoundSystem::place(audio::SoundHandle handle, const std::optional<Vec3f>& origin, int entity,
+                         std::optional<float> ownVolume) {
     // The listener's own sounds are heard as they are.
     if (!origin && entity == listener_) {
         mixer_.setVolume(handle, audio::kMaxVolume);
@@ -56,7 +57,9 @@ float SoundSystem::place(audio::SoundHandle handle, const std::optional<Vec3f>& 
         at = *origin;
     else if (const auto it = entities_.find(entity); it != entities_.end())
         at = it->second;
-    const auto [volume, pan] = spatialize(at);
+    auto [volume, pan] = spatialize(at);
+    if (ownVolume)
+        volume = std::clamp(*ownVolume, 0.0f, 1.0f);
     mixer_.setVolume(handle, int(volume * float(audio::kMaxVolume)));
     mixer_.setPan(handle, int(pan * float(audio::kMaxPan)));
     return volume;
@@ -106,7 +109,7 @@ void SoundSystem::startSound(const std::optional<Vec3f>& origin, int entity, int
     std::snprintf(volume, sizeof volume, "played at volume %.2f (listener %d)", place(handle, origin, entity),
                   listener_);
     note(name, entity, what + volume);
-    playing_.push_back({handle, entity, channel, origin, false, name, nowMs_});
+    playing_.push_back({handle, entity, channel, origin, false, name, nowMs_, std::nullopt});
 }
 
 void SoundSystem::startLocalSound(const std::string& name, int channel) {
@@ -118,7 +121,7 @@ void SoundSystem::startLocalSound(const std::string& name, int channel) {
         return;
     const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::Effects);
     if (handle != audio::kNoSound)
-        playing_.push_back({handle, -1, channel, std::nullopt, true, name, nowMs_});
+        playing_.push_back({handle, -1, channel, std::nullopt, true, name, nowMs_, std::nullopt});
 }
 
 void SoundSystem::note(const std::string& name, int entity, std::string line) {
@@ -170,6 +173,22 @@ void SoundSystem::addLoopingSound(int entity, const Vec3f& origin, const std::st
 
 void SoundSystem::updateEntityPosition(int entity, const Vec3f& origin) { entities_[entity] = origin; }
 
+void SoundSystem::addAmbientLoop(int entity, const Vec3f& origin, float volume, const std::string& name) {
+    ambientAdded_[{entity, name}] = {origin, volume};
+}
+
+void SoundSystem::startAmbientSound(int entity, const Vec3f& origin, float volume, const std::string& name) {
+    const auto sound = find(name);
+    note(name, entity, name + " (ambient, entity " + std::to_string(entity) + "): " + (sound ? "played" : "not found"));
+    if (!sound)
+        return;
+    const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::Effects, 0);
+    if (handle == audio::kNoSound)
+        return;
+    place(handle, origin, entity, volume);
+    playing_.push_back({handle, entity, 0, origin, false, name, nowMs_, volume});
+}
+
 void SoundSystem::respatialize(int entity, const Vec3f& origin, const std::array<Vec3f, 3>& axes) {
     listener_ = entity;
     listenerOrigin_ = origin;
@@ -204,7 +223,7 @@ void SoundSystem::endFrame() {
                    playing_.end());
     for (const Playing& p : playing_)
         if (!p.local)
-            place(p.handle, p.origin, p.entity);
+            place(p.handle, p.origin, p.entity, p.volume);
 
     // Looping sounds: new ones start, those not added this frame stop.
     for (auto it = loops_.begin(); it != loops_.end();) {
@@ -228,6 +247,28 @@ void SoundSystem::endFrame() {
         }
         place(it->second, origin, key.first);
     }
+    for (auto it = ambientLoops_.begin(); it != ambientLoops_.end();) {
+        if (!ambientAdded_.count(it->first)) {
+            mixer_.stop(it->second);
+            it = ambientLoops_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    for (const auto& [key, at] : ambientAdded_) {
+        auto it = ambientLoops_.find(key);
+        if (it == ambientLoops_.end()) {
+            const auto sound = find(key.second);
+            if (!sound)
+                continue;
+            const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::Effects, 0, 0, true);
+            if (handle == audio::kNoSound)
+                continue;
+            it = ambientLoops_.emplace(key, handle).first;
+        }
+        place(it->second, at.first, key.first, at.second);
+    }
+    ambientAdded_.clear();
 
     // The music: the loop once the intro is over.
     if (musicIntro_ && music_ != audio::kNoSound && !mixer_.isPlaying(music_)) {
@@ -251,6 +292,10 @@ void SoundSystem::stopAll() {
         mixer_.stop(handle);
     loops_.clear();
     loopsAdded_.clear();
+    for (const auto& [key, handle] : ambientLoops_)
+        mixer_.stop(handle);
+    ambientLoops_.clear();
+    ambientAdded_.clear();
     stopBackgroundTrack();
 }
 

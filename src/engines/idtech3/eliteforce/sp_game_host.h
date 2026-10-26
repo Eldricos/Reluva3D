@@ -7,6 +7,7 @@
 #include "common/types.h"
 #include "common/x86/cpu.h"
 #include "common/x86/win32.h"
+#include "engines/idtech3/ambient_sets.h"
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
@@ -195,6 +196,7 @@ private:
     void addImports();
     // The client game's system calls (dllEntry's function): syscall(number, args...).
     uint32_t cgameCall(x86::Cpu& c);
+    void playAmbient(const std::vector<AmbientSets::Sound>& sounds);
     void writeVmCvar(uint32_t address, const CvarStore::Cvar& cv);
     uint32_t fsOpen(x86::Cpu& c, uint32_t path, uint32_t handleAddress, uint32_t mode);
     uint32_t fsRead(x86::Cpu& c, uint32_t buffer, uint32_t length, uint32_t handle);
@@ -225,6 +227,7 @@ private:
     const SearchSet& files_;
     CvarStore& cvars_;
     SoundLibrary soundLibrary_{files_};
+    AmbientSets ambient_;
     std::unique_ptr<x86::Cpu> cpu_;
     std::unique_ptr<x86::Win32Process> process_;
     const x86::Win32Process::Module* module_ = nullptr;

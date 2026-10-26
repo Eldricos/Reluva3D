@@ -365,3 +365,40 @@ The game uses it two ways:
 - Showing a subtitle stops the intro's scrolling text (`st "<text key>"`).
 - `CG_INIT` is passed the number of server commands the client has
   received so far, which the client game counts on from.
+
+## Ambient sound sets
+
+The engine keeps the ambient sets the way Jedi Knight's engine does: the
+same keywords, defaults and messages appear in `stvoy.exe` (0x41f6a0
+onwards). `src/engines/idtech3/ambient_sets.cpp` implements them.
+
+- **Loading.** The cgame names the sets the level uses with
+  `AS_AddPrecacheEntry` (68), then calls `AS_ParseSets` (67), which reads
+  `sound/sound.txt` and keeps only those sets.
+- **The file.** A header with `type ambientSet` (`amsdir`, `outdir` and
+  `basedir` are ignored). Then the sets, each starting with a
+  `generalSet <name>`, `localSet <name>` or `bmodelSet <name>` line,
+  followed by one keyword per line:
+  - `timeBetweenWaves <min> <max>`: seconds between occasional sounds.
+  - `subWaves <dir> <wave>...`: those sounds, `sound/<dir>/<wave>.wav`, at
+    most 8.
+  - `loopedWave <name>`: `sound/<name>.wav`.
+  - `volRange <min> <max>`: their volume, 0–255.
+  - `radius <units>`: local sets only.
+
+  A brush model set takes only `subWaves`. A set ends at the first line
+  that isn't one of its keywords.
+- **Defaults.** Radius 250, 10–25 s, volume 255–255.
+- **General set** (`S_UpdateAmbientSet(name, origin)`, 65). Called every
+  frame with configstring 5 (borg1: `borgchasm`) at the view origin. Its
+  loop plays at the set's volume. Whenever more time has passed than a
+  freshly drawn whole number of seconds in its range, one of its
+  `subWaves` plays at a volume drawn from its range. Changing the set
+  fades the new one in and the old one out over a second.
+- **Local set** (`S_AddLocalSet(name, listener, origin, entity, last
+  time)`, 66). Returns the new last time, which the cgame keeps in the
+  entity (gentity +0x340; the set name is at +0x33c). The volume is full
+  within half the set's radius, then falls off linearly to nothing at
+  the edge.
+- **Brush model set** (`AS_GetBModelSound(name, stage)`, 69). Returns the
+  stage's `subWaves` sound handle, or -1.

@@ -35,6 +35,7 @@
 #include "engines/idtech3/server_browser.h"
 #include "backends/sockets/socket_net.h"
 #include "engines/idtech3/shader.h"
+#include "engines/idtech3/ambient_sets.h"
 #include "engines/idtech3/sound_system.h"
 #include "engines/idtech3/sounds.h"
 #include "engines/idtech3/viewers.h"
@@ -901,6 +902,70 @@ static void testVmFileList() {
     HandleTable table;
     CHECK(table.add("gfx/a") == 1 && table.add("GFX\\A") == 1 && table.add("gfx/b") == 2 && table.add("") == 0);
     CHECK(table.name(2) == "gfx/b" && table.name(0).empty() && table.name(3).empty());
+}
+
+// Ambient sound sets: sound/sound.txt read for the sets asked for, then
+// the general set's loop and occasional sounds, cross-fading, and local
+// and brush model sets.
+static void testAmbientSets() {
+    const char* text = "amsdir ambience\r\n"
+                       "type ambientSet\r\n"
+                       "\r\n"
+                       "generalSet hum\r\n"
+                       "timeBetweenWaves 5 2\r\n"
+                       "subWaves borg clank1 clank2\r\n"
+                       "loopedWave ambience/borg/hum\r\n"
+                       "volRange 100 50\r\n"
+                       "; a comment ends a set\r\n"
+                       "generalSet quiet\r\n"
+                       "loopedWave ambience/quiet\r\n"
+                       "generalSet unused\r\n"
+                       "loopedWave ambience/unused\r\n"
+                       "localSet drip\r\n"
+                       "radius 200\r\n"
+                       "subWaves water drip1\r\n"
+                       "bogus 1\r\n"
+                       "bmodelSet door\r\n"
+                       "subWaves doors start move stop\r\n";
+    AmbientSets sets;
+    for (const char* name : {"hum", "Quiet", "drip", "door", "missing"})
+        sets.addPrecacheEntry(name);
+    std::vector<std::string> warnings;
+    CHECK(sets.parse(text, warnings));
+    CHECK(sets.size() == 4 && !sets.find("unused"));
+    CHECK(warnings.size() == 2); // "bogus", and "missing" not found
+    const auto* hum = sets.find("HUM");
+    CHECK(hum && hum->timeStart == 2 && hum->timeEnd == 5 && hum->volumeMin == 50 && hum->volumeMax == 100);
+    CHECK(hum->subWaves.size() == 2 && hum->subWaves[1] == "sound/borg/clank2.wav");
+    CHECK(hum->loopedWave == "sound/ambience/borg/hum.wav");
+    const auto* drip = sets.find("drip");
+    CHECK(drip && drip->kind == AmbientSets::Kind::Local && drip->radius == 200 && drip->timeStart == 10);
+    CHECK(sets.bmodelSound("door", 2) == "sound/doors/stop.wav" && sets.bmodelSound("door", 3).empty());
+
+    // The general set: its loop fades in over a second; a sound at once,
+    // then not again for at least 2 seconds.
+    const Vec3f at{1, 2, 3};
+    auto first = sets.updateGeneral("hum", at, 1000);
+    CHECK(first.size() == 2 && first[0].loop && first[0].volume == 0 && !first[1].loop);
+    auto half = sets.updateGeneral("hum", at, 1500);
+    CHECK(half.size() == 1 && half[0].loop && half[0].volume > 0.45f && half[0].volume < 0.55f);
+    CHECK(sets.updateGeneral("hum", at, 2900).size() == 1);
+    // Changing set: the new one fades in while the old fades out.
+    auto change = sets.updateGeneral("quiet", at, 10000);
+    CHECK(change.size() >= 2 && change[0].name == "sound/ambience/quiet.wav" && change[0].volume == 0);
+    CHECK(change[1].name == "sound/ambience/borg/hum.wav" && change[1].volume == 1);
+    auto after = sets.updateGeneral("quiet", at, 11500);
+    CHECK(after.size() == 1 && after[0].volume == 1);
+
+    // A local set: full within half its radius, silent beyond it.
+    int64_t last = 0;
+    auto near = sets.addLocal("drip", {0, 0, 0}, {50, 0, 0}, 7, last, 20000);
+    CHECK(near.size() == 1 && near[0].entity == 7 && near[0].volume == 1 && last == 20000);
+    last = 0;
+    auto far = sets.addLocal("drip", {0, 0, 0}, {300, 0, 0}, 7, last, 20000);
+    CHECK(far.size() == 1 && far[0].volume == 0);
+    last = 5;
+    CHECK(sets.addLocal("nothing", {}, {}, 7, last, 20000).empty() && last == 20000);
 }
 
 // Sounds by name: decoded once, missing and broken ones remembered.
@@ -2703,6 +2768,7 @@ int main() {
     testNetDeltas();
     testVmFileList();
     testSoundLibrary(tmp / "sounds");
+    testAmbientSets();
     testSoundSystem(tmp / "soundsystem");
     testCollision();
     testGameHost(tmp / "game");

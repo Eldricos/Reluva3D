@@ -706,6 +706,16 @@ void SpGameHost::writeVmCvar(uint32_t address, const CvarStore::Cvar& cv) {
     cpu_->writeString(address + 16, cv.value, 256);
 }
 
+void SpGameHost::playAmbient(const std::vector<AmbientSets::Sound>& sounds) {
+    if (!soundSystem)
+        return;
+    for (const AmbientSets::Sound& s : sounds)
+        if (s.loop)
+            soundSystem->addAmbientLoop(s.entity, s.origin, s.volume, s.name);
+        else
+            soundSystem->startAmbientSound(s.entity, s.origin, s.volume, s.name);
+}
+
 uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
     // syscall(number, args...): the arguments after the number.
     auto a = [&c](int n) { return c.arg(n + 1); };
@@ -940,7 +950,32 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
     }
     case 63: clientWeapon_ = uint8_t(a(0)); return 0; // SetUserCmdValue(weapon, sensitivity)
     case 64: return 16u << 20;                        // MemoryRemaining()
-    case 65: case 66: case 67: case 68: case 69: return 0; // ambient sound sets: not yet
+    // Ambient sound sets (AmbientSets).
+    case 65: // S_UpdateAmbientSet(name, origin): the level's general set, each frame
+        playAmbient(ambient_.updateGeneral(str(0, 256), readVec(a(1)), levelTime_));
+        return 0;
+    case 66: { // S_AddLocalSet(name, listener origin, origin, entity, last time) -> the new time
+        int64_t last = int32_t(a(4));
+        playAmbient(ambient_.addLocal(str(0, 256), readVec(a(1)), readVec(a(2)), int(a(3)), last, levelTime_));
+        return uint32_t(int32_t(last));
+    }
+    case 67: { // AS_ParseSets(): sound/sound.txt, for the sets precached
+        std::vector<uint8_t> data;
+        std::vector<std::string> warnings;
+        if (Error e = files_.read("sound/sound.txt", data))
+            warnings.push_back("couldn't load ambient sound sets from sound/sound.txt: " + e.message);
+        else
+            ambient_.parse(std::string_view(reinterpret_cast<const char*>(data.data()), data.size()), warnings);
+        if (print)
+            for (const std::string& w : warnings)
+                print("ambient sets: " + w + "\n");
+        return 0;
+    }
+    case 68: ambient_.addPrecacheEntry(str(0, 256)); return 0; // AS_AddPrecacheEntry(name)
+    case 69: { // AS_GetBModelSound(name, stage) -> sfx, or -1
+        const std::string name = ambient_.bmodelSound(str(0, 256), int32_t(a(1)));
+        return name.empty() ? 0xffffffffu : uint32_t(sounds_.add(name));
+    }
     case 70: { // S_GetSampleLength(sfx): whole milliseconds in EAX (the cgame's wrapper loads it with fild)
         const std::string& name = sounds_.name(int32_t(a(0)));
         if (!name.empty())
