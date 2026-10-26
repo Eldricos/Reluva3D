@@ -4,12 +4,14 @@
 // Tests for the Need for Speed engine's detection and folder finding,
 // against folders built here, so no game data is needed.
 
+#include "engines/nfs/col.h"
 #include "engines/nfs/fce.h"
 #include "engines/nfs/ffn.h"
 #include "engines/nfs/frd.h"
 #include "engines/nfs/folders.h"
 #include "engines/nfs/fsh.h"
 #include "engines/nfs/game_files.h"
+#include "engines/nfs/hrz.h"
 #include "engines/nfs/games.h"
 #include "engines/nfs/refpack.h"
 #include "engines/nfs/text_table.h"
@@ -753,6 +755,114 @@ void testTrack() {
     CHECK(parseTrack(disagree, t));
 }
 
+void testHorizon() {
+    // Comments (one inside a line, as the retail files have), one fog
+    // region, then the 48 values after the regions.
+    std::string text = "/*Fog Color (r,g,b) and Density (%)*/\n134,134,140,\t5,\t70,\n/*regions*/\n1,\n"
+                       "10,11,12, 5,\n20,21,22, 55,\n30,31,32, 70,\n150,\n175,\n200,\n";
+    const int after[48] = {1, 1, 0, 0, 500, -100, 250, 235, 208, 80, 10, 100, 0, 1, 1500, 0, 1,
+                           -1200, 1800, 1200, 1350, 1150, 117, 106, 15, 207, 153, 98, 120, 182, 239,
+                           223, 210, 151, 120, 171, 204, 0, 0, 0, 0, 0, 0, 0, 0, 100, 90, 80};
+    for (int i = 0; i < 48; ++i) {
+        text += std::to_string(after[i]) + ",";
+        if (i == 33)
+            text += "\t\t/* 255, 176, 61, at position of sun */\n";
+    }
+    Horizon h;
+    CHECK(!parseHorizon(text, h));
+    CHECK(h.fogColour == (Horizon::Rgb{134, 134, 140}) && h.fogDensity == 5 && h.fogOnPixmap == 70);
+    CHECK(h.fogRegions.size() == 1);
+    if (h.fogRegions.size() == 1)
+        CHECK(h.fogRegions[0].apex.colour[2] == 22 && h.fogRegions[0].end.density == 70 &&
+              h.fogRegions[0].afterSlice == 200);
+    CHECK(h.cloudType == 1 && h.visualHeight == 500 && h.cloudDomeOffset == (std::array<int, 2>{-100, 250}));
+    CHECK(h.mirror && !h.blackHorizon && h.radius == 1500 && h.hasPixmap);
+    CHECK(h.shadedBase == -1200 && h.shadedHeight == 1800 && h.pixmapBottom == 1150);
+    CHECK(h.skyBaseSun == (Horizon::Rgb{223, 210, 151}) && h.skyBaseOpposite == (Horizon::Rgb{120, 171, 204}));
+    CHECK(h.ambient == (Horizon::Rgb{100, 90, 80}));
+    CHECK(parseHorizon(text + "7,", h));                      // a number too many
+    CHECK(parseHorizon("1,2,3,4,5,99,", h));                  // regions that aren't there
+    CHECK(parseHorizon("/* only a comment */", h));
+}
+
+void testCollision() {
+    Bytes b = {'C', 'O', 'L', 'L'};
+    put32(b, 11);
+    put32(b, 0); // size, unchecked
+    put32(b, 4);
+    const size_t table = b.size();
+    b.resize(table + 16, 0);
+    auto block = [&](int i, uint16_t id, uint16_t count, const Bytes& body) {
+        putU32(b, table + 4 * i, uint32_t(b.size() - table));
+        put32(b, uint32_t(8 + body.size()));
+        put16(b, id);
+        put16(b, count);
+        b.insert(b.end(), body.begin(), body.end());
+    };
+    block(0, 2, 1, Bytes(8, 7));
+    Bytes structure;
+    put32(structure, 8 + 16 * 3 + 6);
+    put16(structure, 3);
+    put16(structure, 1);
+    for (int v = 0; v < 3; ++v) {
+        putF(structure, float(v));
+        putF(structure, 0);
+        putF(structure, 0);
+        put32(structure, 0);
+    }
+    put16(structure, 5);
+    structure.insert(structure.end(), {0, 1, 2, 2});
+    block(1, 8, 1, structure);
+    Bytes objects;
+    put16(objects, 8 + 20);
+    objects.push_back(3);
+    objects.push_back(0);
+    put16(objects, 1);
+    put16(objects, 25);
+    put32(objects, 874u << 16);
+    put32(objects, 52u << 16);
+    put32(objects, uint32_t(-(515 << 16)));
+    for (int q : {0, 0, 0, 16384})
+        put16(objects, unsigned(q));
+    block(2, 7, 1, objects);
+    Bytes road;
+    put32(road, uint32_t(829.5 * 65536));
+    put32(road, 13u << 16);
+    put32(road, uint32_t(136.25 * 65536));
+    put32(road, 0x550ff8);
+    road.insert(road.end(), {0, 127, 0, 34, 0x55, 0xff, 0xa3, 16, 0xa2, 0, 0xab, 16});
+    put32(road, uint32_t(23.5 * 65536));
+    put32(road, 28u << 16);
+    block(3, 15, 1, road);
+
+    TrackCollision c;
+    CHECK(!parseCollision(b, c));
+    CHECK(c.textures.size() == 1 && c.textures[0][7] == 7);
+    CHECK(c.structures.size() == 1 && c.structures[0].vertices.size() == 3 && c.structures[0].polygons.size() == 1);
+    if (!c.structures.empty() && !c.structures[0].polygons.empty())
+        CHECK(c.structures[0].polygons[0].texture == 5 && c.structures[0].polygons[0].vertices[3] == 2);
+    CHECK(c.objects.size() == 1);
+    if (!c.objects.empty())
+        CHECK(c.objects[0].type == 3 && c.objects[0].delay == 25 && c.objects[0].keys.size() == 1 &&
+              c.objects[0].keys[0].position[2] == -(515 << 16) && c.objects[0].keys[0].rotation[3] == 16384);
+    CHECK(c.road.size() == 1);
+    if (!c.road.empty()) {
+        const auto& r = c.road[0];
+        CHECK(r.position[0] == 829.5f && r.position[2] == 136.25f && r.normal[1] == 1.0f);
+        CHECK(r.forward[0] == 85 / 127.0f && r.forward[2] == -93 / 127.0f && r.right[0] == -94 / 127.0f);
+        CHECK(r.leftWall == 23.5f && r.rightWall == 28.0f && r.extra[0] == 34 && r.unknown == 0x550ff8);
+    }
+
+    Bytes badVertex = b;
+    const size_t poly = table + 16 + 16 + 8 + 8 + 16 * 3 + 2; // block 1's polygon's vertices
+    badVertex[poly] = 3;
+    CHECK(parseCollision(badVertex, c));
+    Bytes badStructure = b;
+    badStructure[table + 16 + 16 + 8 + 62 + 8 + 3] = 1; // the object's structure: 1 of 1
+    CHECK(parseCollision(badStructure, c));
+    CHECK(parseCollision(Bytes{'C', 'O', 'L', 'X'}, c));
+}
+
 void testGameFiles(const stdfs::path& tmp) {
     const stdfs::path install = tmp / "files/install", cd = tmp / "files/cd";
     touch(install / "FeData/text/text.eng", "eng");
@@ -810,6 +920,8 @@ int main() {
     testGameFiles(tmp);
     testModel();
     testTrack();
+    testHorizon();
+    testCollision();
     stdfs::remove_all(tmp);
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);

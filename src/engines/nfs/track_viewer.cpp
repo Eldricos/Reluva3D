@@ -15,10 +15,61 @@ namespace reluva::nfs {
 namespace {
 
 constexpr int kFrameW = 640, kFrameH = 480;
+constexpr float kPi = 3.14159265358979f;
 constexpr const char* kLaneSheet = "GameData/Render/pc/sfx.fsh";
 constexpr const char* kDetailNames[] = {"low", "medium", "high"};
+// The horizon files and sky pictures of each variant: day, night,
+// weather, night with weather.
+constexpr const char* kVariantNames[] = {"day", "night", "weather", "night, weather"};
+constexpr const char* kHorizonSuffix[] = {"", "n", "w", "nw"};
+constexpr const char* kHorizonPicture[] = {"CHRD", "CHRN", "CHRW", "CHNW"};
+constexpr const char* kSunPicture[] = {"SUND", "SUNN", "SUNW", "SUNW"};
+constexpr int kTicksPerSecond = 60; // assumed for the keys' delays (frd.md)
 
 std::string lower(const std::string& s) { return fs::toLower(s); }
+
+void setColour(gfx::Vertex& v, const Horizon::Rgb& c) {
+    for (int i = 0; i < 3; ++i)
+        v.color[i] = static_cast<uint8_t>(std::clamp(c[i], 0, 255));
+    v.color[3] = 255;
+}
+
+Horizon::Rgb mix(const Horizon::Rgb& a, const Horizon::Rgb& b, float t) {
+    Horizon::Rgb out;
+    for (int i = 0; i < 3; ++i)
+        out[i] = static_cast<int>(a[i] + (b[i] - a[i]) * t);
+    return out;
+}
+
+// The matrix placing a moving object at a key: the key's rotation (a
+// quaternion x, y, z, w in 2.14 fixed point) and position (16.16) in the
+// track's left-handed space, then z mirrored into the world's.
+gfx::Mat4 keyMatrix(const Track::ExtraObject::Key& a, const Track::ExtraObject::Key& b, float t) {
+    float q[4], p[3];
+    for (int i = 0; i < 4; ++i)
+        q[i] = (a.rotation[i] + (b.rotation[i] - a.rotation[i]) * t) / 16384.0f;
+    for (int i = 0; i < 3; ++i)
+        p[i] = (a.position[i] + (b.position[i] - a.position[i]) * t) / 65536.0f;
+    const float len = std::sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
+    if (len > 0)
+        for (float& c : q)
+            c /= len;
+    const float x = q[0], y = q[1], z = q[2], w = q[3];
+    gfx::Mat4 m = gfx::identity(); // column-major
+    m[0] = 1 - 2 * (y * y + z * z);
+    m[1] = 2 * (x * y + z * w);
+    m[2] = -(2 * (x * z - y * w));
+    m[4] = 2 * (x * y - z * w);
+    m[5] = 1 - 2 * (x * x + z * z);
+    m[6] = -(2 * (y * z + x * w));
+    m[8] = 2 * (x * z + y * w);
+    m[9] = 2 * (y * z - x * w);
+    m[10] = -(1 - 2 * (x * x + y * y));
+    m[12] = p[0];
+    m[13] = p[1];
+    m[14] = -p[2];
+    return m;
+}
 
 } // namespace
 
@@ -44,7 +95,16 @@ void TrackPage::deactivate() {
     held_.clear();
 }
 
+void TrackPage::releaseSky() {
+    if (renderer_ && skyMesh_)
+        renderer_->destroyMesh(skyMesh_);
+    skyMesh_ = 0;
+    horizonPicture_ = 0; // owned by textures_
+    domeIndices_ = bandIndices_ = 0;
+}
+
 void TrackPage::release() {
+    releaseSky();
     if (renderer_) {
         if (mesh_)
             renderer_->destroyMesh(mesh_);
@@ -55,6 +115,7 @@ void TrackPage::release() {
     textures_.clear();
     pictures_.clear();
     banks_.clear();
+    moving_.clear();
     for (auto& b : batches_)
         b.clear();
 }
@@ -101,41 +162,159 @@ gfx::TextureId TrackPage::picture(const std::string& sheet, int number, bool lan
     return id;
 }
 
+// A picture of the track's sky.fsh by name, and its text (the sun's).
+gfx::TextureId TrackPage::skyPicture(const std::string& name, std::string* text) {
+    const std::string sheet = "GameData/Tracks/" + tracks_[index_] + "/sky.fsh";
+    bool additive = false;
+    picture(sheet, -1, false, &additive); // loads the sheet
+    for (const Shape& s : banks_[sheet].shapes)
+        if (s.name == name) {
+            if (text && !s.texts.empty())
+                *text = s.texts.front();
+            image::Image img;
+            gfx::TextureId id = 0;
+            if (!decodeShape(s, img) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), {}, id))
+                textures_.push_back(id);
+            return id;
+        }
+    return 0;
+}
+
+// The sky of the variant shown: a dome shaded from the earth's colours
+// below the horizon to the sky's above, and the horizon picture in a band
+// around it, as the .hrz file lays them out (hrz.md); drawn around the
+// camera.
+void TrackPage::loadSky() {
+    releaseSky();
+    horizon_ = {};
+    skyError_.clear();
+    const std::string number = tracks_[index_].substr(4);
+    const std::string file = "GameData/Tracks/" + tracks_[index_] + "/3tr" + number + kHorizonSuffix[variant_] + ".hrz";
+    bool found = false;
+    for (const FileRef& f : files_.files())
+        if (lower(f.name) == lower(file)) {
+            found = true;
+            std::vector<uint8_t> data;
+            if (Error err = files_.read(f, data))
+                skyError_ = err.message;
+            else if (Error err2 = parseHorizon(std::string(data.begin(), data.end()), horizon_))
+                skyError_ = err2.message;
+            break;
+        }
+    if (!found)
+        skyError_ = "No " + file;
+    if (!skyError_.empty())
+        return;
+
+    // The sun's direction from its picture's text ("A200 B45 R25": A the
+    // angle round, in degrees; fsh.md), for which side of the sky gets
+    // the sun's colour.
+    std::string sunText;
+    skyPicture(kSunPicture[variant_], &sunText);
+    float sunAngle = 0;
+    if (const size_t a = sunText.find('A'); a != std::string::npos)
+        sunAngle = std::strtof(sunText.c_str() + a + 1, nullptr) * kPi / 180.0f;
+
+    const Horizon& h = horizon_;
+    const float radius = static_cast<float>(std::max(h.radius, 100));
+    const float base = static_cast<float>(h.shadedBase);
+    const float mid = base + static_cast<float>(h.shadedMidpoint);
+    const float top = base + static_cast<float>(h.shadedHeight);
+    constexpr int kSegments = 32;
+    std::vector<gfx::Vertex> vertices;
+    std::vector<uint32_t> indices;
+    // Rings: the earth's base, the horizon (earth's top and the sky's
+    // base), the sky's top, and a cap above.
+    auto ring = [&](float y, float r, const Horizon::Rgb& sunSide, const Horizon::Rgb& opposite, float v) {
+        for (int i = 0; i <= kSegments; ++i) {
+            const float a = 2 * kPi * i / kSegments;
+            gfx::Vertex out{};
+            out.pos[0] = r * std::sin(a);
+            out.pos[1] = y;
+            out.pos[2] = -r * std::cos(a);
+            const float toSun = 0.5f + 0.5f * std::cos(a - sunAngle);
+            setColour(out, mix(opposite, sunSide, toSun));
+            out.uv[0] = static_cast<float>(i) / kSegments * 4; // the picture four times round
+            out.uv[1] = v;
+            vertices.push_back(out);
+        }
+    };
+    auto strip = [&](uint32_t first) {
+        for (int i = 0; i < kSegments; ++i)
+            for (uint32_t k : {0u, 1u, uint32_t(kSegments + 2), 0u, uint32_t(kSegments + 2), uint32_t(kSegments + 1)})
+                indices.push_back(first + i + k);
+    };
+    ring(base, radius, h.earthBase, h.earthBase, 0);
+    ring(mid, radius, h.earthTop, h.earthTop, 0);
+    ring(mid, radius, h.skyBaseSun, h.skyBaseOpposite, 0);
+    ring(top, radius, h.skyTop, h.skyTop, 0);
+    ring(top + radius * 0.5f, 0, h.skyTop, h.skyTop, 0);
+    strip(0);
+    strip(2 * (kSegments + 1));
+    strip(3 * (kSegments + 1));
+    domeIndices_ = static_cast<uint32_t>(indices.size());
+
+    // The horizon picture between its bottom and top, slightly inside
+    // the dome. With the mirror flag, every other copy is flipped.
+    if (h.hasPixmap) {
+        const uint32_t first = static_cast<uint32_t>(vertices.size());
+        ring(base + static_cast<float>(h.pixmapBottom), radius * 0.98f, {255, 255, 255}, {255, 255, 255}, 1);
+        ring(base + static_cast<float>(h.pixmapTop), radius * 0.98f, {255, 255, 255}, {255, 255, 255}, 0);
+        if (h.mirror)
+            for (uint32_t i = first; i < vertices.size(); ++i) {
+                const float u = vertices[i].uv[0];
+                const float whole = std::floor(u);
+                vertices[i].uv[0] = static_cast<int>(whole) % 2 ? whole + 1 - (u - whole) : u;
+            }
+        strip(first);
+        bandIndices_ = static_cast<uint32_t>(indices.size()) - domeIndices_;
+        horizonPicture_ = skyPicture(kHorizonPicture[variant_], nullptr);
+    }
+    if (Error err = renderer_->createMesh(vertices, indices, skyMesh_))
+        skyError_ = err.message;
+}
+
 void TrackPage::load(int index) {
     release();
     index_ = index;
     track_ = {};
+    collision_ = {};
     error_.clear();
+    collisionError_.clear();
     const std::string folder = "GameData/Tracks/" + tracks_[index] + "/";
     const std::string number = tracks_[index].substr(4); // "trk003" -> "03"
+    auto read = [&](const std::string& name, std::vector<uint8_t>& data) -> Error {
+        for (const FileRef& f : files_.files())
+            if (lower(f.name) == lower(folder + name))
+                return files_.read(f, data);
+        return Error::fail("No " + folder + name);
+    };
     std::vector<uint8_t> data;
-    bool found = false;
-    for (const FileRef& f : files_.files())
-        if (lower(f.name) == lower(folder + "tr" + number + ".frd")) {
-            found = true;
-            if (Error err = files_.read(f, data))
-                error_ = err.message;
-            break;
-        }
-    if (!found)
-        error_ = "No " + folder + "tr" + number + ".frd";
-    if (error_.empty())
-        if (Error err = parseTrack(data, track_))
-            error_ = err.message;
+    if (Error err = read("tr" + number + ".frd", data))
+        error_ = err.message;
+    else if (Error err2 = parseTrack(data, track_))
+        error_ = err2.message;
     if (!error_.empty())
         return;
+    if (Error err = read("tr" + number + ".col", data))
+        collisionError_ = err.message;
+    else if (Error err2 = parseCollision(data, collision_))
+        collisionError_ = err2.message;
 
     // One vertex per polygon corner (each has its own texture
-    // coordinates); z negated into the right-handed world, as models are.
+    // coordinates); z negated into the right-handed world, as models are,
+    // except moving objects', which are placed each frame.
     const std::string sheet = folder + "tr" + number + std::to_string(textureSet_) + ".qfs";
     std::vector<gfx::Vertex> vertices;
     struct Group {
         std::vector<uint32_t> indices;
         bool additive = false;
     };
-    std::array<std::map<gfx::TextureId, Group>, kKinds> groups;
-    auto add = [&](Kind kind, const std::vector<Track::Vec3>& verts, const std::vector<uint32_t>& colours,
-                   const Track::Vec3& offset, const std::vector<Track::Polygon>& polygons) {
+    using Groups = std::map<gfx::TextureId, Group>;
+    std::array<Groups, kKinds> groups;
+    std::vector<Groups> movingGroups;
+    auto add = [&](Groups& into, const std::vector<Track::Vec3>& verts, const std::vector<uint32_t>& colours,
+                   const Track::Vec3& offset, float mirror, const std::vector<Track::Polygon>& polygons) {
         for (const Track::Polygon& p : polygons) {
             const Track::Texture& tex = track_.textures[p.texture];
             bool additive = false;
@@ -148,7 +327,7 @@ void TrackPage::load(int index) {
                 gfx::Vertex out{};
                 out.pos[0] = v[0] + offset[0];
                 out.pos[1] = v[1] + offset[1];
-                out.pos[2] = -(v[2] + offset[2]);
+                out.pos[2] = mirror * (v[2] + offset[2]);
                 out.uv[0] = tex.corners[2 * k];
                 out.uv[1] = tex.corners[2 * k + 1];
                 out.normal[1] = 1;
@@ -158,7 +337,7 @@ void TrackPage::load(int index) {
                 out.color[3] = 255;
                 vertices.push_back(out);
             }
-            Group& g = groups[kind][id];
+            Group& g = into[id];
             g.additive = additive;
             for (uint32_t i : {0u, 1u, 2u, 0u, 2u, 3u})
                 g.indices.push_back(first + i);
@@ -166,31 +345,70 @@ void TrackPage::load(int index) {
     };
     for (const Track::Block& b : track_.blocks) {
         for (int level = 0; level < 3; ++level) {
-            add(static_cast<Kind>(kRoadLow + level), b.vertices, b.colours, {}, b.polygons[2 * level]);
-            add(static_cast<Kind>(kRoadLow + level), b.vertices, b.colours, {}, b.polygons[2 * level + 1]);
+            add(groups[kRoadLow + level], b.vertices, b.colours, {}, -1, b.polygons[2 * level]);
+            add(groups[kRoadLow + level], b.vertices, b.colours, {}, -1, b.polygons[2 * level + 1]);
         }
-        add(kLanes, b.vertices, b.colours, {}, b.polygons[6]);
+        add(groups[kLanes], b.vertices, b.colours, {}, -1, b.polygons[6]);
         for (const auto& layer : b.objectLayers)
             for (const Track::BlockObject& o : layer)
-                add(kObjects, b.vertices, b.colours, {}, o.polygons);
+                add(groups[kObjects], b.vertices, b.colours, {}, -1, o.polygons);
     }
-    // Still objects at their reference point; moving ones aren't placed yet
-    // (their keys' units are still to be worked out, frd.md).
     for (const auto& group : track_.extraObjects)
-        for (const Track::ExtraObject& o : group)
-            if (o.type == 4)
-                add(kObjects, o.vertices, o.colours, o.reference, o.polygons);
+        for (const Track::ExtraObject& o : group) {
+            if (o.type == 4) {
+                add(groups[kObjects], o.vertices, o.colours, o.reference, -1, o.polygons);
+            } else if (!o.keys.empty()) {
+                moving_.push_back({o.keys, o.keyDelay, {}});
+                movingGroups.emplace_back();
+                add(movingGroups.back(), o.vertices, o.colours, {}, 1, o.polygons);
+            }
+        }
+
+    // The virtual road's walls: a barrier along each side, red on the left
+    // and green on the right, from each road point to the next (a guide
+    // for checking the .col data against the scenery).
+    const auto& road = collision_.road;
+    for (size_t i = 0; i + 1 < road.size(); ++i) {
+        const auto& a = road[i];
+        const auto& b = road[i + 1];
+        for (int side = 0; side < 2; ++side) {
+            const float sa = side ? a.rightWall : -a.leftWall, sb = side ? b.rightWall : -b.leftWall;
+            const uint32_t first = static_cast<uint32_t>(vertices.size());
+            for (int k = 0; k < 4; ++k) {
+                const auto& p = k < 2 ? a : b;
+                const float s = k < 2 ? sa : sb;
+                gfx::Vertex out{};
+                out.pos[0] = p.position[0] + p.right[0] * s;
+                out.pos[1] = p.position[1] + p.right[1] * s + (k == 1 || k == 2 ? 1.5f : 0);
+                out.pos[2] = -(p.position[2] + p.right[2] * s);
+                out.normal[1] = 1;
+                out.color[0] = side ? 40 : 255;
+                out.color[1] = side ? 255 : 40;
+                out.color[2] = 40;
+                out.color[3] = 255;
+                vertices.push_back(out);
+            }
+            for (uint32_t k : {0u, 1u, 2u, 0u, 2u, 3u})
+                groups[kWalls][0].indices.push_back(first + k);
+        }
+    }
 
     std::vector<uint32_t> indices;
-    for (int kind = 0; kind < kKinds; ++kind)
-        for (const auto& [texture, g] : groups[kind]) {
-            batches_[kind].push_back({texture, static_cast<uint32_t>(indices.size()),
-                                      static_cast<uint32_t>(g.indices.size()), g.additive});
+    auto flush = [&](const Groups& from, std::vector<Batch>& to) {
+        for (const auto& [texture, g] : from) {
+            to.push_back({texture, static_cast<uint32_t>(indices.size()), static_cast<uint32_t>(g.indices.size()),
+                          g.additive});
             indices.insert(indices.end(), g.indices.begin(), g.indices.end());
         }
+    };
+    for (int kind = 0; kind < kKinds; ++kind)
+        flush(groups[kind], batches_[kind]);
+    for (size_t i = 0; i < moving_.size(); ++i)
+        flush(movingGroups[i], moving_[i].batches);
     if (!vertices.empty())
         if (Error err = renderer_->createMesh(vertices, indices, mesh_))
             error_ = err.message;
+    loadSky();
     toBlock(0);
 }
 
@@ -212,28 +430,44 @@ void TrackPage::handleEvent(const Event& ev) {
     if (ev.type == EventType::KeyDown) {
         held_.insert(ev.key);
         switch (ev.key) {
-        case key::PageDown: index_ = (index_ + 1) % n; if (renderer_) load(index_); break;
-        case key::PageUp: index_ = (index_ + n - 1) % n; if (renderer_) load(index_); break;
+        case key::PageDown:
+            index_ = (index_ + 1) % n;
+            if (renderer_)
+                load(index_);
+            break;
+        case key::PageUp:
+            index_ = (index_ + n - 1) % n;
+            if (renderer_)
+                load(index_);
+            break;
         case 'n': toBlock(block_ + 1); break;
         case 'b': toBlock(block_ - 1); break;
         case 'r': toBlock(0); break;
         case '1': detail_ = 0; break;
         case '2': detail_ = 1; break;
         case '3': detail_ = 2; break;
+        case 'h':
+            variant_ = (variant_ + 1) % 4;
+            if (renderer_ && error_.empty())
+                loadSky();
+            break;
         case 't': textured_ = !textured_; break;
         case 'v': vertexLight_ = !vertexLight_; break;
         case 'l': lanes_ = !lanes_; break;
         case 'o': objects_ = !objects_; break;
+        case 'g': walls_ = !walls_; break;
         case 'f': cullBack_ = !cullBack_; break;
         case 'x':
             textureSet_ = 1 - textureSet_;
             if (renderer_) {
                 const auto eye = eye_;
                 const float yaw = yaw_, pitch = pitch_;
+                const int block = block_;
                 load(index_);
                 eye_ = eye;
                 yaw_ = yaw;
                 pitch_ = pitch;
+                block_ = block;
             }
             break;
         default: break;
@@ -300,13 +534,39 @@ void TrackPage::update(uint64_t nowMs) {
     const gfx::Mat4 viewProj =
         gfx::multiply(gfx::perspective(1.0f, float(kFrameW) / float(kFrameH), 0.5f, 6000.0f),
                       gfx::lookAlong(eye, forward, {0, 1, 0}));
-    renderer_->beginFrame(viewProj, eye, {110, 150, 200});
+    const Horizon::Rgb& fog = horizon_.fogColour;
+    renderer_->beginFrame(viewProj, eye,
+                          {static_cast<uint8_t>(fog[0]), static_cast<uint8_t>(fog[1]), static_cast<uint8_t>(fog[2])});
+
+    // The sky first, around the camera, behind everything.
+    if (skyMesh_) {
+        gfx::DrawCall sky;
+        sky.mesh = skyMesh_;
+        sky.followCamera = true;
+        sky.rgbSource = gfx::ColorSource::Vertex;
+        sky.state.cull = gfx::Cull::None;
+        sky.state.depthTest = sky.state.depthWrite = false;
+        sky.indexCount = domeIndices_;
+        renderer_->draw(sky);
+        if (bandIndices_ && horizonPicture_) {
+            sky.firstIndex = domeIndices_;
+            sky.indexCount = bandIndices_;
+            sky.texture = horizonPicture_;
+            sky.state.src = gfx::Blend::SrcAlpha;
+            sky.state.dst = gfx::Blend::OneMinusSrcAlpha;
+            renderer_->draw(sky);
+        }
+    }
 
     size_t drawn = 0;
     if (mesh_) {
         gfx::DrawCall call;
         call.mesh = mesh_;
         call.rgbSource = vertexLight_ ? gfx::ColorSource::Vertex : gfx::ColorSource::Constant;
+        // The horizon's ambient light (percent) over the baked lighting.
+        if (error_.empty() && skyError_.empty())
+            for (int i = 0; i < 3; ++i)
+                call.color[i] = static_cast<float>(horizon_.ambient[i]) / 100.0f;
         call.state.cull = cullBack_ ? gfx::Cull::Back : gfx::Cull::None;
         call.state.alphaTest = gfx::AlphaTest::Ge128;
         std::vector<const std::vector<Batch>*> solid = {&batches_[kRoadLow + detail_]};
@@ -317,48 +577,84 @@ void TrackPage::update(uint64_t nowMs) {
             lanes.push_back(&batches_[kLanes]);
         std::vector<const std::vector<Batch>*> all = solid;
         all.insert(all.end(), lanes.begin(), lanes.end());
-        auto pass = [&](const std::vector<const std::vector<Batch>*>& lists, bool additive) {
-            for (const auto* list : lists)
-                for (const Batch& b : *list) {
-                    if (b.additive != additive)
-                        continue;
-                    call.texture = textured_ ? b.texture : 0;
-                    call.firstIndex = b.firstIndex;
-                    call.indexCount = b.indexCount;
-                    renderer_->draw(call);
-                    drawn += b.indexCount / 6;
-                }
+        auto pass = [&](const std::vector<Batch>& list, bool additive) {
+            for (const Batch& b : list) {
+                if (b.additive != additive)
+                    continue;
+                call.texture = textured_ ? b.texture : 0;
+                call.firstIndex = b.firstIndex;
+                call.indexCount = b.indexCount;
+                renderer_->draw(call);
+                drawn += b.indexCount / 6;
+            }
+        };
+        // Moving objects at the key for now, between it and the next.
+        auto movingPass = [&](bool additive) {
+            if (!objects_)
+                return;
+            for (const Moving& m : moving_) {
+                const float perKey = std::max(1, m.keyDelay) / static_cast<float>(kTicksPerSecond);
+                const float t = static_cast<float>(nowMs) / 1000.0f / perKey;
+                const size_t k = static_cast<size_t>(t) % m.keys.size();
+                call.model = keyMatrix(m.keys[k], m.keys[(k + 1) % m.keys.size()], t - std::floor(t));
+                pass(m.batches, additive);
+            }
+            call.model = gfx::identity();
         };
         // Solid first, then the lane markings pulled onto the road, then
         // additive pictures (lights, glows) over everything.
-        pass(solid, false);
+        for (const auto* list : solid)
+            pass(*list, false);
+        movingPass(false);
         call.state.depthBias = true;
-        pass(lanes, false);
+        for (const auto* list : lanes)
+            pass(*list, false);
         call.state.depthBias = false;
+        if (walls_) {
+            // A guide drawn over everything, so the walls show through the
+            // ground and fences they follow.
+            gfx::DrawCall wall = call;
+            wall.rgbSource = gfx::ColorSource::Vertex;
+            wall.color = {1, 1, 1, 1};
+            wall.texture = 0;
+            wall.state.depthTest = wall.state.depthWrite = false;
+            for (const Batch& b : batches_[kWalls]) {
+                wall.firstIndex = b.firstIndex;
+                wall.indexCount = b.indexCount;
+                renderer_->draw(wall);
+            }
+        }
         call.state.src = call.state.dst = gfx::Blend::One;
         call.state.depthWrite = false;
         call.state.alphaTest = gfx::AlphaTest::None;
-        pass(all, true);
+        for (const auto* list : all)
+            pass(*list, true);
+        movingPass(true);
     }
 
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), uint8_t(0));
     std::vector<std::string> lines = {"Tracks  " + std::to_string(index_ + 1) + "/" + std::to_string(tracks_.size()) +
-                                      "  " + tracks_[index_]};
+                                      "  " + tracks_[index_] + "  " + kVariantNames[variant_]};
     if (!error_.empty()) {
         lines.push_back(error_);
     } else {
-        char where[160];
-        std::snprintf(where, sizeof where, "block %d/%zu  at %.0f %.0f %.0f  %s detail  set %d  %zu quads", block_,
-                      track_.blocks.size(), eye_[0], eye_[1], -eye_[2], kDetailNames[detail_], textureSet_, drawn);
+        char where[200];
+        std::snprintf(where, sizeof where, "block %d/%zu  at %.0f %.0f %.0f  %s detail  set %d  %zu quads  %zu moving",
+                      block_, track_.blocks.size(), eye_[0], eye_[1], -eye_[2], kDetailNames[detail_], textureSet_, drawn,
+                      moving_.size());
         lines.push_back(where);
+        if (!skyError_.empty())
+            lines.push_back(skyError_);
+        if (!collisionError_.empty())
+            lines.push_back(collisionError_);
     }
-    lines.push_back("PgUp/PgDn: track  WASD/arrows/drag: move, look  N/B: block  1-3: detail  T V L O X F: toggles");
+    lines.push_back("PgUp/PgDn: track  WASD/arrows/drag: move  N/B: block  1-3: detail  H: sky  T V L O G X F: toggles");
     for (size_t i = 0; i < lines.size(); ++i) {
         const int y = i + 1 == lines.size() ? kFrameH - font::kLineHeight - 4 : 4 + static_cast<int>(i) * font::kLineHeight;
         for (int yy = y - 2; yy < y + font::kLineHeight - 1; ++yy)
             for (int x = 0; x < kFrameW; ++x)
                 overlay_.row(yy)[x * 4 + 3] = 140;
-        font::drawText(overlay_, 6, y, lines[i], i == 1 && !error_.empty() ? Color{255, 120, 100} : Color{230, 230, 230});
+        font::drawText(overlay_, 6, y, lines[i], i >= 2 && i + 1 < lines.size() ? Color{255, 120, 100} : Color{230, 230, 230});
     }
     renderer_->endFrame(&overlay_);
 }

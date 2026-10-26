@@ -196,7 +196,7 @@ Error parseTrack(const std::vector<uint8_t>& data, Track& out) {
             } else if (o.type == 3) {
                 r.take(8 + 12 + 8);
                 const uint16_t keys = r.u16();
-                r.take(2);
+                o.keyDelay = static_cast<int16_t>(r.u16());
                 o.keys.resize(keys);
                 for (auto& k : o.keys) {
                     for (int32_t& p : k.position)

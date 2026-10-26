@@ -5,12 +5,14 @@
 
 #include "common/events.h"
 #include "common/image.h"
+#include "engines/nfs/col.h"
 #include "engines/nfs/fce.h"
 #include "engines/nfs/ffn.h"
 #include "engines/nfs/frd.h"
 #include "engines/nfs/folders.h"
 #include "engines/nfs/fsh.h"
 #include "engines/nfs/game_files.h"
+#include "engines/nfs/hrz.h"
 #include "engines/nfs/refpack.h"
 #include "engines/nfs/text_table.h"
 #include "engines/nfs/viewers.h"
@@ -299,7 +301,7 @@ int cmdNfsSurvey(int argc, char** argv) {
     struct Count {
         int ok = 0, failed = 0;
     };
-    Count vivs, banks, pictures, tables, fonts;
+    Count vivs, banks, pictures, tables, fonts, models, tracks, collisions, horizons;
     std::vector<std::string> unsupported; // in EA's other compression schemes
     auto lower = [](std::string s) {
         for (char& c : s)
@@ -335,6 +337,18 @@ int cmdNfsSurvey(int argc, char** argv) {
         } else if (ext == ".ffn") {
             reluva::nfs::Font font;
             report(fonts, what, reluva::nfs::parseFont(data, font));
+        } else if (ext == ".fce") {
+            reluva::nfs::Model model;
+            report(models, what, reluva::nfs::parseModel(data, model));
+        } else if (ext == ".frd") {
+            reluva::nfs::Track track;
+            report(tracks, what, reluva::nfs::parseTrack(data, track));
+        } else if (ext == ".col") {
+            reluva::nfs::TrackCollision collision;
+            report(collisions, what, reluva::nfs::parseCollision(data, collision));
+        } else if (ext == ".hrz") {
+            reluva::nfs::Horizon horizon;
+            report(horizons, what, reluva::nfs::parseHorizon(std::string(data.begin(), data.end()), horizon));
         } else if (stem == "text") {
             reluva::nfs::TextTable table;
             report(tables, what, reluva::nfs::parseTextTable(data, table));
@@ -358,7 +372,8 @@ int cmdNfsSurvey(int argc, char** argv) {
                 for (const auto& e : viv.entries())
                     if (!viv.read(e.name, data))
                         check(e.name, std::move(data), path.string() + ":" + e.name);
-            } else if (ext == ".fsh" || ext == ".qfs" || ext == ".ffn" || lower(path.stem().string()) == "text") {
+            } else if (ext == ".fsh" || ext == ".qfs" || ext == ".ffn" || ext == ".fce" || ext == ".frd" ||
+                       ext == ".col" || ext == ".hrz" || lower(path.stem().string()) == "text") {
                 std::vector<uint8_t> data;
                 if (!readFile(path, data)) {
                     report(banks, path.string(), Error::fail("can't read it"));
@@ -369,10 +384,11 @@ int cmdNfsSurvey(int argc, char** argv) {
         }
     }
 
-    const Count* all[] = {&vivs, &banks, &pictures, &tables, &fonts};
-    const char* names[] = {".viv archives", ".fsh/.qfs banks", "pictures", "text tables", "fonts"};
+    const Count* all[] = {&vivs, &banks, &pictures, &tables, &fonts, &models, &tracks, &collisions, &horizons};
+    const char* names[] = {".viv archives", ".fsh/.qfs banks", "pictures", "text tables", "fonts",
+                           ".fce models", ".frd tracks", ".col files", ".hrz files"};
     int failed = 0;
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 9; ++i) {
         std::printf("%-16s %6d read, %d failed\n", names[i], all[i]->ok, all[i]->failed);
         failed += all[i]->failed;
     }

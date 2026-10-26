@@ -9,7 +9,9 @@
 #include "common/system.h"
 #include "common/types.h"
 #include "engines/nfs/fce.h"
+#include "engines/nfs/col.h"
 #include "engines/nfs/frd.h"
+#include "engines/nfs/hrz.h"
 #include "engines/nfs/ffn.h"
 #include "engines/nfs/folders.h"
 #include "engines/nfs/fsh.h"
@@ -179,11 +181,12 @@ private:
     uint64_t lastMs_ = 0;
 };
 
-// The tracks in 3D, with their textures, objects and lane markings.
+// The tracks in 3D, with their textures, objects, lane markings and sky.
 //   PageUp/PageDown: track   W/S/A/D: move   arrows or drag: look
 //   Space/C: up/down   Shift: faster   N/B: next/previous block
-//   1/2/3: road detail   T: textures   V: vertex light   L: lanes
-//   O: objects   X: other texture set   F: back faces   R: start
+//   1/2/3: road detail   H: day, night, weather   T: textures
+//   V: vertex light   L: lanes   O: objects   G: the virtual road's walls
+//   X: other texture set   F: back faces   R: start
 class TrackPage : public Page {
 public:
     TrackPage(const GameFiles& files, const GameFolders& folders);
@@ -205,12 +208,22 @@ private:
         uint32_t firstIndex = 0, indexCount = 0;
         bool additive = false;
     };
-    enum Kind { kRoadLow, kRoadMedium, kRoadHigh, kObjects, kLanes, kKinds };
+    enum Kind { kRoadLow, kRoadMedium, kRoadHigh, kObjects, kLanes, kWalls, kKinds };
+    // An object moving along its keys; its vertices are stored as in the
+    // file (unmirrored, relative to the key) and placed each frame.
+    struct Moving {
+        std::vector<Track::ExtraObject::Key> keys;
+        int keyDelay = 0;
+        std::vector<Batch> batches;
+    };
 
     void load(int index);
+    void loadSky();
     void release();
+    void releaseSky();
     void toBlock(int block);
     gfx::TextureId picture(const std::string& sheet, int number, bool lane, bool* additive);
+    gfx::TextureId skyPicture(const std::string& name, std::string* text);
 
     const GameFiles& files_;
     GameFolders folders_;
@@ -226,8 +239,18 @@ private:
     std::map<std::string, ShapeBank> banks_; // loaded sheets, by file name
     std::map<std::string, std::pair<gfx::TextureId, bool>> pictures_; // "sheet/number" -> texture, additive
     std::array<std::vector<Batch>, kKinds> batches_;
+    std::vector<Moving> moving_;
+    TrackCollision collision_;
+    std::string collisionError_;
+    // The sky, for the variant shown (0 day, 1 night, 2 weather, 3 both).
+    Horizon horizon_;
+    std::string skyError_;
+    gfx::MeshId skyMesh_ = 0;
+    gfx::TextureId horizonPicture_ = 0;
+    uint32_t domeIndices_ = 0, bandIndices_ = 0;
+    int variant_ = 0;
     int detail_ = 2, textureSet_ = 0, block_ = 0;
-    bool textured_ = true, vertexLight_ = true, lanes_ = true, objects_ = true, cullBack_ = false;
+    bool textured_ = true, vertexLight_ = true, lanes_ = true, objects_ = true, cullBack_ = false, walls_ = false;
     std::set<uint32_t> held_;
     bool dragging_ = false;
     int lastX_ = 0, lastY_ = 0;

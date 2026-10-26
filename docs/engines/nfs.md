@@ -3,11 +3,12 @@
 Engine id `nfs`, to live in `src/engines/nfs/`. First game: Need for
 Speed III: Hot Pursuit (`nfs3`).
 
-Status: **Phase 1 done**:
+Status: **Phase 2 done**:
 
 - the engine detects the game and finds its folders;
 - it reads the archives, pictures, text and fonts;
-- it shows them as a data viewer.
+- it reads the car models, tracks, virtual roads and skies;
+- it shows them as a data viewer, the tracks and cars in 3D.
 
 This page records what
 the retail data holds, what was tried, and the order the work should go
@@ -244,7 +245,47 @@ What was planned:
 - Done when every `.viv`, `.qfs` and `.fsh` in the install and on the CD
   opens without error (a `survey` command reports it).
 
-### Phase 2: models and tracks in 3D
+### Phase 2: models and tracks in 3D (done)
+
+What was built, with each format written up in `docs/formats/nfs/`:
+
+- **Readers**, each checked on every retail file (`nfs-survey`):
+  - [fce.md](../formats/nfs/fce.md): car and object models;
+  - [frd.md](../formats/nfs/frd.md): track geometry;
+  - [col.md](../formats/nfs/col.md): the virtual road and moving
+    objects' paths;
+  - [hrz.md](../formats/nfs/hrz.md): sky settings.
+- **The Cars page** draws every model with its skin and detail levels.
+  The levels go by a part's place, as the names can't be trusted.
+- **The Tracks page** draws each track. It shows:
+  - the road at three details, roadside and placed objects, and lane
+    markings;
+  - the baked vertex lighting, scaled by the sky's ambient light;
+  - cut-outs and additive glows;
+  - the sky dome and horizon picture in four variants;
+  - the moving objects animated along their keys (Hometown's water
+    wheel turns at its mill);
+  - the virtual road's walls as a guide.
+- **Tools:** `reluva-tool fce-info`, `fce-obj`, `frd-check`, `frd-obj`.
+  `nfs-survey` now also reads models, tracks, `.col` and `.hrz` files.
+- **Unit tests** on hand-built data for each reader.
+
+Checked under Xvfb with Mesa's software Vulkan driver (llvmpipe), not on
+a GPU. Text on billboards and the front end's "NFS" logo reads the right
+way round, which confirms that the data is left-handed and mirrored as
+it should be.
+
+Not done yet:
+
+- comparing with screenshots from the original, which this phase's
+  "done" asked for. There's no original to run here, so the checks were
+  internal: consistency, text reading correctly, walls along fences;
+- fog, clouds and the sun;
+- the records in each track block (positions, lights, sounds);
+- the `Render/pc` models' `.art` textures;
+- the 8-bit texture sets.
+
+What was planned:
 
 - FCE reader (car parts, damage and dummies), shown on a **Cars** page.
   Cars get their `car00.tga` skin, and traffic and police get theirs.
@@ -324,6 +365,10 @@ Allowed under CONTRIBUTING.md:
   written from the format descriptions and the data (decided October 2026).
 
 ## Open questions
+
+- The units of the moving objects' key delays (60 ticks a second is
+  assumed), and their rotation sense.
+- How many times the horizon picture repeats round the sky.
 
 - The `32 FB` compression of the Summit's 8-bit texture sets, and
   whether anything Reluva runs will need those sets.

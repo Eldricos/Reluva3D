@@ -77,9 +77,16 @@ Attached blocks after the picture:
   shared `!pal` entry. The alpha bit in 16-bit palettes varies from
   colour to colour, so it carries transparency, as in 16-bit pictures.
 - **Text.** `<additive>` (sometimes `additive` or with a trailing CRLF)
-  marks textures drawn additively. Strings such as
-  `A0 B45 R24 ROTATE` or `A0 B45 R30 INFRONT NOADD` sit on what look like
-  light flares; their meaning is to be worked out.
+  marks textures drawn additively. Strings such as `A200 B45 R25 ROTATE`
+  or `A0 B45 R30 INFRONT NOADD` sit on the sun pictures of each track's
+  `sky.fsh` (`SUND`, `SUNN`, `SUNW`: day, night, weather) and on similar
+  sprites:
+  - `A` reads as the angle round the sky, in degrees;
+  - `B` reads as the height above the horizon;
+  - `R` reads as a size;
+  - the words are flags.
+  Reluva uses `A` to turn the sky's sun-side colour; the rest is to be
+  checked.
 
 Of the install's 16-bit 1:5:5:5 pictures, 2,897 are fully opaque, 636 mix opaque and
 clear pixels, and 24 are entirely clear.

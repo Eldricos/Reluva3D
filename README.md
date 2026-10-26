@@ -27,7 +27,8 @@ src/engines/       one directory per engine, plus registry.cpp listing them
                    Voyager - Elite Force: search path, shader scripts, BSP
                    maps; currently runs as a data viewer (docs/engines/idtech3.md)
   nfs/             Need for Speed III: Hot Pursuit: its archives, pictures,
-                   text and fonts; currently runs as a data viewer
+                   text, fonts, car models and tracks; currently runs as a
+                   data viewer, the tracks and cars in 3D
                    (docs/engines/nfs.md)
 src/tools/         reluva-tool, utilities for studying game data
 tests/             unit tests for common/ and the engines
@@ -60,8 +61,8 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
 - `reluva --hash <files...>` prints detection signatures for an engine's table.
 - `reluva-tool` has developer tools for studying game data: `hexdump`,
   `cat-probe`, `cat-list` and `cat-extract` (New Worlds archives); `viv-list`,
-  `viv-extract`, `fsh-info`, `fsh-dump`, `text-dump`, `ffn-render`, `nfs-survey` and
-  `nfs-page` (Need for Speed III).
+  `viv-extract`, `fsh-info`, `fsh-dump`, `text-dump`, `ffn-render`, `fce-info`, `fce-obj`,
+  `frd-check`, `frd-obj`, `nfs-survey` and `nfs-page` (Need for Speed III).
 - In game: **Ctrl+F5** returns to the launcher, **Alt+Enter** toggles fullscreen.
 - New Worlds currently opens as a data viewer. **Tab** switches between missions, models,
   textures, maps, sounds, strings and fonts, **Left/Right** step through them and **F** cycles filters.
@@ -111,7 +112,15 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   in a copy of the CD beside the install (a folder with `nfs3.exe` and
   `GameData/Audio/pc`), or wherever `cdpath=` in the game's section of `reluva.ini`
   says. It opens as a data viewer: **Tab** switches between what it found (the folders,
-  tracks and cars), textures, strings and fonts. For textures, **Up/Down** pick a file
+  tracks and cars), the tracks and cars in 3D, textures, strings and fonts. The 3D pages
+  need a GPU with Vulkan (Linux, Windows) or Metal (macOS). On tracks, **PageUp/PageDown**
+  pick one, **W/A/S/D** move, the arrows or a drag look, **Space/C** go up and down,
+  **Shift** goes faster, **N/B** jump to the next or previous piece of road, **1/2/3** pick
+  the road's detail, **H** cycles day, night, weather and night with weather, **G** shows
+  the walls the game keeps cars within, and **T/V/L/O/X/F** turn textures, vertex lighting,
+  lane markings, objects, the other texture set and back faces off and on. On cars,
+  **Left/Right** pick one, drag or **W/A/S/D** turn it, the wheel zooms, **L** changes the
+  detail, **T** the skin, **C** back faces and **Space** spins it. For textures, **Up/Down** pick a file
   (**PageUp/PageDown** by 10), **Left/Right** a picture in it (**Home/End** the first and
   last), **B** changes the background and **A** turns alpha off and on. For strings,
   **Left/Right** pick a language, **Up/Down**, **PageUp/PageDown** and **Home/End** scroll,

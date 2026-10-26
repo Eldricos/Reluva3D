@@ -122,7 +122,9 @@ Each group is a u32 count, then the objects. Each object starts with
   - 8 bytes holding a u16 at +24 (348 in the case studied), u16, u16,
     u8, u8;
   - at +32, a u16 number of keys;
-  - a u16;
+  - a u16: the key delay. At an assumed 60 ticks a second, Hometown's
+    17-key spinner (delay 6) turns about once in 1.7 s, and its 141-key
+    loop (delay 25) takes about a minute.
   - the keys, 20 bytes each: 3 × s32 position in 16.16 fixed point and
     4 × s16 rotation in 2.14 fixed point, a quaternion by its unit length
     (`0x4000` = 1).
@@ -130,15 +132,21 @@ Each group is a u32 count, then the objects. Each object starts with
 Then, for both types:
 
 - u32 number of vertices;
-- the vertices, relative to the reference point;
+- the vertices, relative to the reference point (type 4) or to the key
+  (type 3);
 - their colours;
 - u32 number of polygons;
 - the polygons.
 
-The moving objects' key positions don't fall near the track in its
-coordinates (Hometown's spinning object at x −563 when the track is near
-x 840). Their units are still to be worked out, and Reluva doesn't place
-them yet.
+The keys are world positions. Hometown spans x −758 to 911 and z −779
+to 661: its spinning object sits at (−563, 2, 442), and its other object
+flies a loop 52 m up. The same loop is in the `.col` file
+([col.md](col.md)).
+
+The Tracks page moves these objects along their keys. It assumes 60
+ticks a second, a quaternion order of x, y, z, w (the first key is
+`0, 0, 0, 0x4000`) and the game's rotation sense; all three are to be
+checked against the game.
 
 ### Textures (47 bytes)
 

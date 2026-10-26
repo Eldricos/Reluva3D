@@ -192,6 +192,8 @@ if(RELUVA_ENGINE_NFS)
         src/engines/nfs/ffn.cpp
         src/engines/nfs/fce.cpp
         src/engines/nfs/frd.cpp
+        src/engines/nfs/col.cpp
+        src/engines/nfs/hrz.cpp
         src/engines/nfs/car_viewer.cpp
         src/engines/nfs/track_viewer.cpp
         src/engines/nfs/game_files.cpp
