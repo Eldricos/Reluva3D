@@ -184,7 +184,11 @@ if(RELUVA_ENGINE_IDTECH3)
 endif()
 if(RELUVA_ENGINE_NETIMMERSE)
     target_sources(reluva_engines PRIVATE
+        src/engines/netimmerse/data.cpp
+        src/engines/netimmerse/fin.cpp
+        src/engines/netimmerse/model_page.cpp
         src/engines/netimmerse/netimmerse.cpp
+        src/engines/netimmerse/viewers.cpp
         src/engines/netimmerse/pac_archive.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_NETIMMERSE)
 endif()

@@ -26,8 +26,9 @@ src/engines/       one directory per engine, plus registry.cpp listing them
   idtech3/         games on the Quake III Arena engine, starting with Star Trek:
                    Voyager - Elite Force: search path, shader scripts, BSP
                    maps; currently runs as a data viewer (docs/engines/idtech3.md)
-  netimmerse/      games on NetImmerse, starting with LEGO Alpha Team: detection
-                   and its .pac archives (docs/engines/alphateam.md)
+  netimmerse/      games on NetImmerse, starting with LEGO Alpha Team: its .pac
+                   archives and .FIN models; currently runs as a data viewer
+                   (docs/engines/alphateam.md)
 src/tools/         reluva-tool, utilities for studying game data
 tests/             unit tests for common/ and the engines
 ```
@@ -59,7 +60,7 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
 - `reluva --hash <files...>` prints detection signatures for an engine's table.
 - `reluva-tool` has developer tools for studying game data: `hexdump`,
   `cat-probe`, `cat-list` and `cat-extract` (New Worlds archives), `pac-list`
-  and `pac-extract` (LEGO Alpha Team archives).
+  and `pac-extract` (LEGO Alpha Team archives) and `fin-check` (its models).
 - In game: **Ctrl+F5** returns to the launcher, **Alt+Enter** toggles fullscreen.
 - New Worlds currently opens as a data viewer. **Tab** switches between missions, models,
   textures, maps, sounds, strings and fonts, **Left/Right** step through them and **F** cycles filters.
@@ -89,6 +90,16 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   scroll, **+/-** change the text size and **F** switches to the game's fonts.
   For fonts, **Left/Right** picks one, **+/-** change the size and **B** outlines
   the glyphs' boxes.
+
+- LEGO Alpha Team (NetImmerse, off in the build by default) opens as a data viewer too.
+  **Tab** switches between the archives, models, textures, sounds and text. For models,
+  **Left/Right** step (**PageUp/PageDown** by 10), drag to turn, the wheel (or **+/-**)
+  zooms, **W/A/S/D/Q/E** move, **T**, **L** and **B** turn textures, lightmaps and a
+  level's sky on or off, **R** resets the view and **I** hides the info. For textures,
+  **Left/Right** step and **F** jumps to the next archive. For sounds, **Up/Down** step,
+  **Space** (or **Enter**) plays or stops, **A** plays each as it's selected and **F**
+  jumps to the next archive. For text, **Left/Right** pick a file and **Up/Down**,
+  **PageUp/PageDown**, **Home/End** scroll.
 
 - Elite Force (id Tech 3) also opens as a data viewer, starting on its maps in 3D.
   **Tab** switches between the 3D world, models, wireframe maps, textures and files. In the world,

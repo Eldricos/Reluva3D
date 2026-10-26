@@ -72,20 +72,36 @@ Each phase ends with something that runs and is committed.
 ### 2. Data viewer
 
 Like New Worlds and Elite Force before they ran, the engine first opens
-as a viewer; it checks each reader against all the retail files.
+as a viewer; it checks each reader against all the retail files. Started
+from the launcher, the engine now shows these pages (keys in
+`src/engines/netimmerse/viewers.h`; Tab moves between them):
 
-- **Textures**: TGA in `Map.pac`, `LMap.pac` and `Etc.pac`, which
-  `common/image` reads already; check all 1,609 decode.
-- **Models**: `.FIN` (NetImmerse streams), the block types this game's files use (nodes,
-  triangle shapes and their data, texturing and material properties,
-  keyframe controllers, skinning). A `reluva-tool nif-check` that reads
-  every NIF and lists any block type not handled, as `shader-check` did.
-- **Sounds**: `.DDS`, 16-bit PCM after a `WAVEFORMATEX`; only the header is
-  new.
-- **Text**: the strings in `Locale_en.pac`.
-- **Levels**: what `Map.pac`/`LMap.pac` hold, drawn in 3D.
+- Done: **Archives**: what each `.pac` holds.
+- Done: **Models**: every `.FIN` model, characters, parts and levels alike,
+  drawn with the GPU renderer as its scene graph places its shapes. It has
+  textures, lightmaps (a second pass multiplied over the first), vertex
+  colours, materials and alpha blending, and the nearest level of
+  level-of-detail nodes. The format is in
+  [../formats/netimmerse/fin.md](../formats/netimmerse/fin.md);
+  `reluva-tool fin-check` reads all 147 models. Every object of the 20
+  classes read ends exactly where the next begins, and every link and image
+  name resolves. Not yet: animation, skins and morphs, lights, glows
+  (`DDCorona`), billboards facing the camera, and flip-book textures (the
+  first frame shows).
+- Done: **Textures**: all 1,609 TGA images in `Map.pac`, `LMap.pac` and
+  `Etc.pac`. All decode with `common/image`, 479 of them with alpha.
+- Done: **Sounds**: all 498 `.DDS` sounds (`decodeDds`), played through the
+  mixer.
+- Done: **Text**: the language's text files and the puzzles.
+  `parseLocaleText` reads the `==key==` format for later use.
+- **Fonts**: the game's own (`.DDF` with their TGA pages), still to do.
 - **Intro movie** (`lmiintro.avi`, CD only): an AVI reader and whichever
   codec it uses. Not needed to play, so last.
+
+The viewer was checked in this container with a software stand-in for the
+renderer, since it has no GPU: frames of characters, parts and levels
+looked as expected. Sound playback wasn't heard, as the container has no
+audio device.
 
 ### 3. How the game will run: measured, B1 chosen
 

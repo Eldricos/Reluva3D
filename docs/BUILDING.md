@@ -78,8 +78,7 @@ Install it, delete `build/`, and configure again.
 `RELUVA_ENGINE_NEWWORLDS` (Star Trek: New Worlds, **off** by default for now,
 because two of its files hold string literals longer than Visual Studio
 accepts), and `RELUVA_ENGINE_NETIMMERSE` (LEGO Alpha Team, **off** by default
-until it runs the game; for now it detects the game and checks its
-archives). To build New Worlds with GCC or Clang:
+until it runs the game; for now it opens as a data viewer). To build New Worlds with GCC or Clang:
 `cmake -S . -B build -DRELUVA_ENGINE_NEWWORLDS=ON`. In Visual Studio the options
 are under *Project > CMake Settings*.
 

@@ -6,13 +6,14 @@
 // everything comes from the games' data, observing them run, or study of
 // owned executables; never from NetImmerse SDK source. See CONTRIBUTING.md.
 //
-// For now the engine detects the game and checks its data: it opens every
-// .pac archive in the game folder and shows what each holds. Esc goes back
-// to the launcher.
+// For now the engine is a data viewer (viewers.h): the archives, models,
+// textures, sounds and text. Tab moves between its pages, Esc goes back to
+// the launcher.
 
 #include "engines/engine.h"
 #include "engines/netimmerse/pac_archive.h"
-#include "common/font.h"
+#include "engines/netimmerse/viewers.h"
+#include "common/audio/mixer.h"
 #include "common/fs.h"
 
 #include <algorithm>
@@ -47,43 +48,71 @@ const std::vector<GameVariant> kFallback = {
      {{"LEGOATeam.exe", "", -1}, {"Bhvr.pac", "", -1}}},
 };
 
-constexpr int kScreenW = 640;
-constexpr int kScreenH = 480;
-
 class NetImmerseEngine : public Engine {
 public:
     NetImmerseEngine(System& system, GameTarget target) : sys_(system), target_(std::move(target)) {}
 
     Error run() override {
-        if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32))
-            return err;
-        sys_.setWindowTitle("Reluva - " + target_.description + " (Esc: back)");
-        screen_.create(kScreenW, kScreenH, PixelFormat::RGBA32);
-        drawSummary(checkArchives());
+        using namespace netimmerse;
+        std::vector<std::pair<std::string, std::string>> lines;
+        std::vector<std::string> errors;
+        openArchives(lines, errors);
+        if (archives_.empty())
+            errors.push_back("No .pac archives could be read in " + target_.path.string());
 
+        screen_.create(kScreenW, kScreenH, PixelFormat::RGBA32);
+        // One mixer for every page, for as long as the engine runs; without
+        // an audio device the pages show and don't play.
+        audio::Mixer mixer(sys_.audioRate());
+        const bool audioOut = !audio::startMixerOutput(sys_, mixer);
+        struct AudioStop {
+            System& sys;
+            bool on;
+            ~AudioStop() {
+                if (on)
+                    sys.stopAudio();
+            }
+        } audioStop{sys_, audioOut};
+
+        ViewerContext ctx{sys_, screen_, target_.description, {}, files_, audioOut ? &mixer : nullptr};
+        for (const auto& [name, pac] : archives_)
+            ctx.archives[name] = pac;
+        std::vector<std::unique_ptr<Page>> pages;
+        pages.push_back(std::make_unique<ArchivesPage>(ctx, std::move(lines), std::move(errors)));
+        pages.push_back(std::make_unique<ModelPage>(ctx));
+        pages.push_back(std::make_unique<TexturePage>(ctx));
+        pages.push_back(std::make_unique<SoundPage>(ctx));
+        pages.push_back(std::make_unique<TextPage>(ctx));
+
+        size_t page = 0;
+        pages[page]->activate();
         while (true) {
             Event ev;
             while (sys_.pollEvent(ev)) {
-                if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher)
+                if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher ||
+                    (ev.type == EventType::KeyDown && ev.key == key::Escape)) {
+                    pages[page]->deactivate();
                     return Error::success();
-                if (ev.type == EventType::KeyDown && ev.key == key::Escape)
-                    return Error::success();
+                }
+                if (ev.type == EventType::KeyDown && ev.key == key::Tab) {
+                    pages[page]->deactivate();
+                    do
+                        page = (page + 1) % pages.size();
+                    while (pages[page]->empty());
+                    pages[page]->activate();
+                    continue;
+                }
+                pages[page]->handleEvent(ev);
             }
-            sys_.updateScreen(screen_);
-            sys_.delayMillis(10);
+            pages[page]->update(sys_.getMillis());
+            sys_.delayMillis(5);
         }
     }
 
 private:
-    struct ArchiveLine {
-        std::string name;
-        std::string text; // what it holds, or why it couldn't be read
-        bool ok = false;
-    };
-
-    // Every .pac in the game folder, opened, with its files counted by
-    // extension.
-    std::vector<ArchiveLine> checkArchives() const {
+    // Every .pac in the game folder, opened and joined in one search set;
+    // with what each holds, counted by extension.
+    void openArchives(std::vector<std::pair<std::string, std::string>>& lines, std::vector<std::string>& errors) {
         std::vector<std::filesystem::path> paths;
         std::error_code ec;
         for (std::filesystem::directory_iterator it(target_.path, ec), end; !ec && it != end; it.increment(ec))
@@ -91,59 +120,34 @@ private:
                 paths.push_back(it->path());
         std::sort(paths.begin(), paths.end());
 
-        std::vector<ArchiveLine> lines;
         for (const auto& path : paths) {
-            ArchiveLine line;
-            line.name = path.filename().string();
-            PacArchive pac;
-            if (Error err = pac.open(path)) {
-                line.text = err.message;
-                lines.push_back(std::move(line));
+            auto pac = std::make_unique<PacArchive>();
+            if (Error err = pac->open(path)) {
+                errors.push_back(err.message);
                 continue;
             }
             std::map<std::string, size_t> byExtension;
-            for (const auto& e : pac.entries()) {
+            for (const auto& e : pac->entries()) {
                 if (e.size == 0)
                     continue; // the placeholders some archives list for themselves
                 const size_t dot = e.name.rfind('.');
                 ++byExtension[dot == std::string::npos ? std::string("(none)") : e.name.substr(dot + 1)];
             }
+            std::string holds;
             for (const auto& [ext, count] : byExtension)
-                line.text += (line.text.empty() ? "" : ", ") + std::to_string(count) + " " + ext;
-            line.ok = true;
-            lines.push_back(std::move(line));
+                holds += (holds.empty() ? "" : ", ") + std::to_string(count) + " " + ext;
+            const std::string name = path.filename().string();
+            lines.emplace_back(name, holds);
+            archives_[name] = pac.get();
+            files_.add(std::move(pac), 0);
         }
-        return lines;
-    }
-
-    void drawSummary(const std::vector<ArchiveLine>& lines) {
-        for (size_t i = 3; i < screen_.pixels.size(); i += 4)
-            screen_.pixels[i] = 255;
-        const Color white{255, 255, 255}, grey{170, 170, 170}, green{120, 220, 120}, red{240, 110, 110};
-        const int line = font::kLineHeight * 2;
-        int y = 24;
-        font::drawText(screen_, 24, y, target_.description, white, 2);
-        y += line + 8;
-        font::drawText(screen_, 24, y, "Not playable yet: this page checks the game's archives.", grey);
-        y += line;
-        if (lines.empty())
-            font::drawText(screen_, 24, y, "No .pac archives in " + target_.path.string(), red);
-        for (const ArchiveLine& l : lines) {
-            font::drawText(screen_, 24, y, l.name, l.ok ? green : red);
-            // Long error messages wrap onto the lines below.
-            const size_t perLine = size_t((kScreenW - 180) / font::kAdvance);
-            for (size_t at = 0; at < l.text.size(); at += perLine) {
-                font::drawText(screen_, 180, y, l.text.substr(at, perLine), white);
-                y += font::kLineHeight + 3;
-            }
-            y += 6;
-        }
-        font::drawText(screen_, 24, kScreenH - 32, "Esc: back to the launcher", grey);
     }
 
     System& sys_;
     GameTarget target_;
     Surface screen_;
+    SearchSet files_;
+    std::map<std::string, const PacArchive*> archives_; // owned by files_
 };
 
 class NetImmerseMetaEngine : public MetaEngine {

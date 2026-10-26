@@ -4,8 +4,11 @@
 // Tests for the NetImmerse engine's readers against files built here,
 // following docs/formats/alphateam/, so no game data is needed.
 
+#include "engines/netimmerse/data.h"
+#include "engines/netimmerse/fin.h"
 #include "engines/netimmerse/pac_archive.h"
 
+#include <array>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -204,6 +207,191 @@ void testRejectsDamage(const std::filesystem::path& tmp) {
     CHECK(fails(noZero));
 }
 
+void putFloat(std::vector<uint8_t>& b, float f) {
+    uint32_t u;
+    std::memcpy(&u, &f, 4);
+    put32(b, u);
+}
+
+void testDds() {
+    // 22,050 Hz stereo: a WAVEFORMATEX, then two frames.
+    std::vector<uint8_t> d = {1, 0, 2, 0};
+    put32(d, 22050);
+    put32(d, 22050 * 4);
+    d.insert(d.end(), {4, 0, 16, 0, 0, 0});
+    for (int16_t s : {int16_t(1), int16_t(-2), int16_t(300), int16_t(-32768)}) {
+        d.push_back(uint8_t(s));
+        d.push_back(uint8_t(uint16_t(s) >> 8));
+    }
+    audio::Sound sound;
+    CHECK(!decodeDds(d, sound));
+    CHECK(sound.rate == 22050 && sound.channels == 2 && sound.frames() == 2);
+    CHECK(sound.samples == std::vector<int16_t>({1, -2, 300, -32768}));
+
+    std::vector<uint8_t> bad = d;
+    bad[0] = 2; // not PCM
+    CHECK(decodeDds(bad, sound));
+    bad = d;
+    bad[14] = 8; // 8-bit
+    CHECK(decodeDds(bad, sound));
+    bad = d;
+    bad[8] = 0; // bytes per second disagrees
+    CHECK(decodeDds(bad, sound));
+    CHECK(decodeDds({1, 0, 1, 0}, sound)); // short
+}
+
+void testLocaleText() {
+    const auto e = parseLocaleText("####\r\n# Assorted UI Strings\r\n####\r\n\r\n==MenuExitButton==\r\nExit Game\r\n\r\n"
+                                   "==Brief==\r\n\r\nLine one\r\n\r\nLine two\r\n\r\n\r\n==Empty==\r\n==Last==\r\nend");
+    CHECK(e.size() == 4);
+    CHECK(e[0].first == "MenuExitButton" && e[0].second == "Exit Game");
+    CHECK(e[1].first == "Brief" && e[1].second == "Line one\n\nLine two");
+    CHECK(e[2].first == "Empty" && e[2].second.empty());
+    CHECK(e[3].first == "Last" && e[3].second == "end");
+}
+
+// A model written as docs/formats/netimmerse/fin.md describes: a LOD node
+// (roots) over a node with a collision box, holding a textured triangle.
+struct FinWriter {
+    std::vector<uint8_t> b;
+    void str(const std::string& s) {
+        put32(b, uint32_t(s.size()));
+        b.insert(b.end(), s.begin(), s.end());
+    }
+    void object(const std::string& type, uint32_t id) {
+        str(type);
+        put32(b, id);
+    }
+    void objectNet(const std::string& name) {
+        str(name);
+        put32(b, 0); // no extra data
+        b.push_back(0);
+    }
+    void avObject(const std::string& name, std::array<float, 3> t, std::vector<uint32_t> props, bool box) {
+        objectNet(name);
+        for (float f : t)
+            putFloat(b, f);
+        for (float f : {1.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 1.f, 2.f}) // rotation, scale 2
+            putFloat(b, f);
+        for (int i = 0; i < 3; ++i)
+            putFloat(b, 0); // velocity
+        put32(b, uint32_t(props.size()));
+        for (uint32_t p : props)
+            put32(b, p);
+        put32(b, 2);
+        put32(b, box ? 0x1000 : 0);
+        if (box) {
+            // A union of a box and a half-space.
+            put32(b, 4);
+            put32(b, 2);
+            put32(b, 1);
+            for (int i = 0; i < 15; ++i)
+                putFloat(b, 1);
+            b.push_back(0);
+            put32(b, 5);
+            for (int i = 0; i < 4; ++i)
+                putFloat(b, 0);
+        }
+    }
+    void nodeTail(std::vector<uint32_t> children) {
+        put32(b, 2);
+        put32(b, 0);
+        b.push_back(1);
+        put32(b, uint32_t(children.size()));
+        for (uint32_t c : children)
+            put32(b, c);
+        put32(b, 0); // effects
+    }
+};
+
+std::vector<uint8_t> buildFin() {
+    FinWriter w;
+    const std::string header = "Dweezil 23\n";
+    w.b.assign(header.begin(), header.end());
+    w.object("NiImage", 0x500);
+    w.objectNet("");
+    w.str("Brick.tga");
+    put32(w.b, 7);
+    w.object("NiTextureProperty", 0x400);
+    w.objectNet("");
+    put32(w.b, 0);
+    put32(w.b, 1);
+    put32(w.b, 0x500);
+    w.object("NiMaterialProperty", 0x300);
+    w.objectNet("");
+    for (int i = 0; i < 12; ++i)
+        putFloat(w.b, 0.5f);
+    putFloat(w.b, 0.25f);
+    putFloat(w.b, 0.75f);
+    w.object("NiTriShape", 0x200);
+    w.avObject("Tri", {0, 0, 0}, {0x300, 0x400}, false);
+    w.b.insert(w.b.end(), {3, 0}); // vertices
+    put32(w.b, 0xaaaa);
+    for (float f : {0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 1.f, 0.f})
+        putFloat(w.b, f);
+    put32(w.b, 0); // no normals
+    for (float f : {0.3f, 0.3f, 0.f, 0.8f})
+        putFloat(w.b, f);
+    w.b.insert(w.b.end(), {1, 0, 1, 0}); // a triangle, one uv set
+    put32(w.b, 0xbbbb);
+    for (float f : {0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 1.f, 0.f})
+        putFloat(w.b, f);
+    put32(w.b, 0); // no colours
+    put32(w.b, 0xcccc);
+    for (int i = 0; i < 4; ++i)
+        putFloat(w.b, 0);
+    w.b.insert(w.b.end(), {0, 0, 1, 0, 2, 0});
+    w.object("NiNode", 0x100);
+    w.avObject("Holder", {5, 0, 0}, {}, true);
+    w.nodeTail({0x200});
+    w.str("Top Level Object");
+    w.object("NiLODNode", 0x50);
+    w.avObject("Lod", {0, 0, 0}, {}, false);
+    w.nodeTail({0x100});
+    w.b.insert(w.b.end(), 5, 0);
+    put32(w.b, 1);
+    w.b.insert(w.b.end(), 20 + 1, 0);
+    w.str("End Of File");
+    return w.b;
+}
+
+void testFin() {
+    const std::vector<uint8_t> data = buildFin();
+    FinFile f;
+    CHECK(!f.parse(data));
+    CHECK(f.roots() == std::vector<uint32_t>({0x50}));
+    CHECK(f.objects().size() == 6);
+    for (const auto& o : f.objects())
+        CHECK(o.read && o.exact);
+    CHECK(f.nodes.size() == 2 && f.nodes[0x50].levelsOfDetail && f.nodes[0x50].children == std::vector<uint32_t>({0x100}));
+    CHECK(f.nodes[0x100].name == "Holder" && f.nodes[0x100].translation[0] == 5 && f.nodes[0x100].scale == 2);
+    const FinShape& s = f.shapes[0x200];
+    CHECK(s.vertexCount == 3 && s.vertices.size() == 9 && s.normals.empty() && s.uvSets == 1 && s.uvw.size() == 9);
+    CHECK(s.triangles == std::vector<uint16_t>({0, 1, 2}) && s.properties == std::vector<uint32_t>({0x300, 0x400}));
+    CHECK(f.materials[0x300].glossiness == 0.25f && f.materials[0x300].alpha == 0.75f);
+    CHECK(f.textures[0x400] == std::vector<uint32_t>({0x500}) && f.images[0x500] == "Brick.tga");
+    CHECK(f.typeOf(0x400) == "NiTextureProperty" && f.typeOf(0x999).empty());
+
+    // A wrong header, a missing end, a repeated id.
+    std::vector<uint8_t> bad = data;
+    bad[0] = 'X';
+    CHECK(f.parse(bad));
+    bad = data;
+    bad.resize(bad.size() - 3);
+    CHECK(f.parse(bad));
+    bad = data;
+    const std::string first = "NiImage", second = "NiTextureProperty";
+    const size_t id1 = std::string("Dweezil 23\n").size() + 4 + first.size();
+    const size_t id2 = std::string(data.begin(), data.end()).find(second) + second.size();
+    std::memcpy(&bad[id2], &bad[id1], 4);
+    CHECK(f.parse(bad));
+
+    // A triangle pointing past the vertices: the shape isn't exact.
+    bad = data;
+    bad[std::string(data.begin(), data.end()).find("NiNode") - 4 - 2] = 9;
+    CHECK(!f.parse(bad) && !f.objects()[3].exact);
+}
+
 } // namespace
 
 int main() {
@@ -214,6 +402,9 @@ int main() {
     testPlaceholder(tmp);
     testFlags(tmp);
     testRejectsDamage(tmp);
+    testDds();
+    testLocaleText();
+    testFin();
     std::filesystem::remove_all(tmp);
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);

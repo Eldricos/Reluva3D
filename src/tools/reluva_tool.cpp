@@ -11,6 +11,8 @@
 //   reluva-tool cat-extract <file> <dir> [filter]  extract files whose name contains filter
 //   reluva-tool pac-list <file.pac>                list a .pac archive's contents (LEGO Alpha Team)
 //   reluva-tool pac-extract <file> <dir> [filter]  extract files whose name contains filter
+//   reluva-tool fin-check <Fin.pac> [file.pac...]  read every model; count the objects read, and check
+//                                                  their links and (in the other archives) their images
 //   reluva-tool stb-dump <file.stb | file.cat>     print a string table, or list an archive's
 //   reluva-tool tex-survey <file.cat>...           group every texture by header layout
 //   reluva-tool tex-keys <file.cat>...             compare each colour key with the image corners
@@ -110,6 +112,7 @@
 #include "engines/newworlds/model_render.h"
 #endif
 #ifdef RELUVA_ENGINE_NETIMMERSE
+#include "engines/netimmerse/fin.h"
 #include "engines/netimmerse/pac_archive.h"
 #endif
 #include "common/font.h"
@@ -5160,6 +5163,106 @@ int cmdPacExtract(int argc, char** argv) {
     std::printf("extracted %u files to %s\n", written, outDir.string().c_str());
     return 0;
 }
+
+int cmdFinCheck(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool fin-check <Fin.pac> [file.pac...]\n");
+        return 2;
+    }
+    using reluva::netimmerse::FinFile;
+    using reluva::netimmerse::PacArchive;
+    PacArchive fin;
+    if (reluva::Error err = fin.open(argv[2])) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    // Where the images are looked for: the other archives given.
+    reluva::SearchSet images;
+    for (int i = 3; i < argc; ++i) {
+        auto pac = std::make_unique<PacArchive>();
+        if (reluva::Error err = pac->open(argv[i])) {
+            std::fprintf(stderr, "%s\n", err.message.c_str());
+            return 1;
+        }
+        images.add(std::move(pac), 0);
+    }
+
+    struct Count {
+        unsigned total = 0, read = 0, exact = 0;
+    };
+    std::map<std::string, Count> counts;
+    std::set<std::string> missingImages;
+    unsigned files = 0, failed = 0, badLinks = 0, shapes = 0, triangles = 0;
+    std::vector<uint8_t> data;
+    for (const auto& e : fin.entries()) {
+        if (e.size == 0)
+            continue;
+        ++files;
+        FinFile model;
+        reluva::Error err = fin.read(e, data);
+        if (!err)
+            err = model.parse(data);
+        if (err) {
+            std::printf("%s: %s\n", e.name.c_str(), err.message.c_str());
+            ++failed;
+            continue;
+        }
+        for (const auto& o : model.objects()) {
+            Count& c = counts[o.type];
+            ++c.total;
+            c.read += o.read;
+            c.exact += o.exact;
+        }
+        // Links: children are nodes or shapes, properties are properties,
+        // textures' frames are images.
+        auto expect = [&](uint32_t id, bool ok, const char* what) {
+            if (!ok) {
+                if (++badLinks <= 10)
+                    std::printf("%s: link %08x (%s) is not %s\n", e.name.c_str(), id, model.typeOf(id).c_str(), what);
+            }
+        };
+        for (const auto& [id, node] : model.nodes) {
+            for (uint32_t c : node.children)
+                expect(c, model.nodes.count(c) || model.shapes.count(c) || model.coronas.count(c) ||
+                              model.typeOf(c) == "NiLight" ||
+                              model.typeOf(c).rfind("Ni3ds", 0) == 0,
+                       "a node or shape");
+            for (uint32_t p : node.properties)
+                expect(p, model.typeOf(p).find("Property") != std::string::npos, "a property");
+        }
+        for (const auto& [id, shape] : model.shapes) {
+            ++shapes;
+            triangles += unsigned(shape.triangles.size() / 3);
+            for (uint32_t p : shape.properties)
+                expect(p, model.typeOf(p).find("Property") != std::string::npos, "a property");
+        }
+        for (const auto& [id, frames] : model.textures)
+            for (uint32_t f : frames)
+                expect(f, model.images.count(f) != 0, "an image");
+        for (const auto& [id, image] : model.multiTextures)
+            expect(image, model.images.count(image) != 0, "an image");
+        if (images.size())
+            for (const auto& [id, name] : model.images)
+                if (!images.has(name))
+                    missingImages.insert(name);
+    }
+
+    std::printf("%-24s %7s %7s %7s\n", "class", "objects", "read", "exact");
+    unsigned notExact = 0;
+    for (const auto& [type, c] : counts) {
+        std::printf("%-24s %7u %7u %7u\n", type.c_str(), c.total, c.read, c.exact);
+        notExact += c.read - c.exact;
+    }
+    std::printf("%u models, %u failed; %u shapes, %u triangles; %u read but not exactly; %u bad links\n", files,
+                failed, shapes, triangles, notExact, badLinks);
+    if (images.size()) {
+        std::printf("%zu images not found in the archives given", missingImages.size());
+        for (const std::string& m : missingImages)
+            std::printf(" %s", m.c_str());
+        std::printf("\n");
+    }
+    return failed || notExact || badLinks || !missingImages.empty() ? 1 : 0;
+}
 #endif // RELUVA_ENGINE_NETIMMERSE
 
 int main(int argc, char** argv) {
@@ -5222,6 +5325,8 @@ int main(int argc, char** argv) {
         return cmdPacList(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "pac-extract") == 0)
         return cmdPacExtract(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "fin-check") == 0)
+        return cmdFinCheck(argc, argv);
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
     if (argc >= 2 && std::strcmp(argv[1], "bsp-check") == 0)
@@ -5300,6 +5405,7 @@ int main(int argc, char** argv) {
 #ifdef RELUVA_ENGINE_NETIMMERSE
                  "  reluva-tool pac-list <file.pac>\n"
                  "  reluva-tool pac-extract <file.pac> <output dir> [name filter]\n"
+                 "  reluva-tool fin-check <Fin.pac> [file.pac...]\n"
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
                  "  reluva-tool bsp-check <game folder, e.g. .../BaseEF>\n"

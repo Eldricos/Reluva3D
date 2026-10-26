@@ -70,10 +70,10 @@ archive (offset, size, date, name), and `reluva-tool pac-extract <file.pac>
   22,050 Hz, and one mono at 44,100 Hz, all 16-bit. Their sizes are whole
   samples. That's 1.2 hours in all.
 - **`.FIN` files are NetImmerse model streams.** All 147 start with the line
-  `Dweezil 23` instead of NetImmerse's own header text. The blocks follow,
+  `Dweezil 23` instead of NetImmerse's own header text. The objects follow,
   each named by a length-prefixed class name (`NiTriShape`...). The DLLs
   call themselves "NetImmerse Version 7.0" and know the header "NetImmerse
-  File Format, Version 7.0". To be worked out in phase 2.
+  File Format, Version 7.0". See [../netimmerse/fin.md](../netimmerse/fin.md).
 - **`.TGA`**: uncompressed true colour (type 2), greyscale (type 3) and RLE
   true colour (type 10).
 - **Locale `.TXT`**: `==key==` lines, each followed by its text
