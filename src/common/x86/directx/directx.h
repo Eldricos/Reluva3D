@@ -47,6 +47,10 @@ public:
     // Video memory reported (bytes): what's free is this less the surfaces
     // made in it.
     uint32_t videoMemory = 32u << 20;
+    // How a draw's triangles are drawn: on this thread (One), or by rows on
+    // as many threads as there are processors when there's enough to draw
+    // (Auto) or always (Always, for tests). It's the same either way.
+    enum class DrawThreads { One, Auto, Always } drawThreads = DrawThreads::Auto;
 
     struct State;
 

@@ -94,8 +94,8 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
 
 - LEGO Alpha Team (NetImmerse) is played: add its install folder, the one holding
   `LEGOATeam.exe` and the `.pac` files. The game's own program runs in the x86
-  interpreter, drawing in software, so it's slow for now: loading takes a minute or so,
-  and the menus run at a few frames a second. The mouse is held by the window (the game
+  interpreter, drawing in software, so it's slow for now: loading takes half a minute or
+  so, and the menus run at 10 to 15 frames a second on four cores. The mouse is held by the window (the game
   draws its own pointer); **Ctrl+F5** goes back to the launcher. There's no sound yet.
   **F12** pauses the game and opens the data viewer; **Esc** there goes back to the game.
   In the viewer, **Tab** switches between the archives, models, textures, sounds and text. For models,

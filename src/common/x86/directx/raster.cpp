@@ -18,7 +18,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <condition_variable>
 #include <cstring>
+#include <functional>
+#include <mutex>
+#include <thread>
 
 namespace reluva::x86::dx {
 
@@ -389,6 +393,7 @@ void Device::draw(uint32_t primitive, uint32_t fvf, uint32_t vertices, uint32_t 
             order[i] = i;
     }
     const size_t n = order.size();
+    batching_ = primitive >= 4 && primitive <= 6; // triangles: gathered, then drawn on several threads
     switch (primitive) {
     case 1: // points
         for (size_t i = 0; i < n; ++i)
@@ -419,9 +424,113 @@ void Device::draw(uint32_t primitive, uint32_t fvf, uint32_t vertices, uint32_t 
         break;
     default: break;
     }
+    batching_ = false;
+    drawBatch();
     target->touched();
     if (depth)
         depth->touched();
+}
+
+namespace {
+
+// Threads that draw alongside the one drawing: as many as there are
+// processors, less that one, up to 7.
+class RowThreads {
+public:
+    static RowThreads& get() {
+        static RowThreads threads;
+        return threads;
+    }
+    int count() const { return int(workers_.size()) + 1; }
+    // job(i) for each i below count(), 0 on this thread, and waits for them.
+    void run(const std::function<void(int)>& job) {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            job_ = &job;
+            pending_ = int(workers_.size());
+            ++generation_;
+        }
+        start_.notify_all();
+        job(0);
+        std::unique_lock<std::mutex> lock(mutex_);
+        done_.wait(lock, [this] { return pending_ == 0; });
+        job_ = nullptr;
+    }
+    ~RowThreads() {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            quit_ = true;
+        }
+        start_.notify_all();
+        for (std::thread& t : workers_)
+            t.join();
+    }
+
+private:
+    RowThreads() {
+        const int n = std::clamp(int(std::thread::hardware_concurrency()), 1, 8);
+        for (int i = 1; i < n; ++i)
+            workers_.emplace_back([this, i] { work(i); });
+    }
+    void work(int index) {
+        uint64_t seen = 0;
+        for (;;) {
+            const std::function<void(int)>* job;
+            {
+                std::unique_lock<std::mutex> lock(mutex_);
+                start_.wait(lock, [&] { return quit_ || generation_ != seen; });
+                if (quit_)
+                    return;
+                seen = generation_;
+                job = job_;
+            }
+            (*job)(index);
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                --pending_;
+            }
+            done_.notify_one();
+        }
+    }
+    std::vector<std::thread> workers_;
+    std::mutex mutex_;
+    std::condition_variable start_, done_;
+    const std::function<void(int)>* job_ = nullptr;
+    uint64_t generation_ = 0;
+    int pending_ = 0;
+    bool quit_ = false;
+};
+
+} // namespace
+
+// The draw's triangles. With enough to draw, each thread takes its own rows
+// (groups of 8, dealt round) and draws every triangle there, in order: each
+// pixel is drawn by one thread, as it would be by one alone.
+void Device::drawBatch() {
+    if (batch_.empty())
+        return;
+    double area = 0; // roughly, by bounding boxes
+    for (const auto& t : batch_) {
+        const auto [x0, x1] = std::minmax({t[0].x, t[1].x, t[2].x});
+        const auto [y0, y1] = std::minmax({t[0].y, t[1].y, t[2].y});
+        area += double(x1 - x0) * double(y1 - y0);
+    }
+    const DirectX::DrawThreads mode = s->owner.drawThreads;
+    if (mode == DirectX::DrawThreads::One || (mode == DirectX::DrawThreads::Auto && area < 8192) ||
+        RowThreads::get().count() == 1) {
+        for (const auto& t : batch_)
+            rasterize(main_, t[0], t[1], t[2]);
+    } else {
+        RowThreads& threads = RowThreads::get();
+        std::vector<Raster> rasters(size_t(threads.count()));
+        threads.run([&](int i) {
+            Raster& r = rasters[size_t(i)];
+            r.band = i, r.bands = threads.count();
+            for (const auto& t : batch_)
+                rasterize(r, t[0], t[1], t[2]);
+        });
+    }
+    batch_.clear();
 }
 
 // Clips a triangle to the view volume, projects it, culls it by its
@@ -464,7 +573,10 @@ void Device::triangle(const ClipVertex& a, const ClipVertex& b, const ClipVertex
     if ((cull == 2 && area > 0) || (cull == 3 && area < 0) || area == 0)
         return;
     for (size_t i = 1; i + 1 < poly.size(); ++i)
-        rasterize(poly[0], poly[i], poly[i + 1]);
+        if (batching_)
+            batch_.push_back({poly[0], poly[i], poly[i + 1]});
+        else
+            rasterize(main_, poly[0], poly[i], poly[i + 1]);
 }
 
 void Device::line(const ClipVertex& a0, const ClipVertex& b0) {
@@ -483,7 +595,8 @@ void Device::line(const ClipVertex& a0, const ClipVertex& b0) {
             return;
         a = project(a), b = project(b);
     }
-    prepareSamplers();
+    std::fill(std::begin(main_.lod), std::end(main_.lod), 0.0f); // lines and points: the largest mip level
+    prepareSamplers(main_);
     const int steps = std::max(1, int(std::max(std::fabs(b.x - a.x), std::fabs(b.y - a.y))));
     float attr[kAttributes];
     for (int i = 0; i <= steps; ++i) {
@@ -492,7 +605,7 @@ void Device::line(const ClipVertex& a0, const ClipVertex& b0) {
         attr[4] = p.specular.r, attr[5] = p.specular.g, attr[6] = p.specular.b, attr[7] = p.specular.a;
         for (int st = 0; st < stages; ++st)
             attr[8 + 2 * st] = p.tex[st][0], attr[9 + 2 * st] = p.tex[st][1];
-        pixel(int(std::lround(p.x)), int(std::lround(p.y)), p.z, p.w > 0 ? 1 / p.w : 1, attr);
+        pixel(main_, int(std::lround(p.x)), int(std::lround(p.y)), p.z, p.w > 0 ? 1 / p.w : 1, attr);
     }
 }
 
@@ -504,18 +617,19 @@ void Device::point(const ClipVertex& a0) {
                 return;
         a = project(a);
     }
-    prepareSamplers();
+    std::fill(std::begin(main_.lod), std::end(main_.lod), 0.0f);
+    prepareSamplers(main_);
     float attr[kAttributes];
     attr[0] = a.diffuse.r, attr[1] = a.diffuse.g, attr[2] = a.diffuse.b, attr[3] = a.diffuse.a;
     attr[4] = a.specular.r, attr[5] = a.specular.g, attr[6] = a.specular.b, attr[7] = a.specular.a;
     for (int st = 0; st < stages; ++st)
         attr[8 + 2 * st] = a.tex[st][0], attr[9 + 2 * st] = a.tex[st][1];
-    pixel(int(std::lround(a.x)), int(std::lround(a.y)), a.z, a.w > 0 ? 1 / a.w : 1, attr);
+    pixel(main_, int(std::lround(a.x)), int(std::lround(a.y)), a.z, a.w > 0 ? 1 / a.w : 1, attr);
 }
 
 // Fills a projected triangle: every pixel whose centre (whole
 // coordinates) is inside, or on a top or left edge.
-void Device::rasterize(const ClipVertex& a, const ClipVertex& b, const ClipVertex& c) {
+void Device::rasterize(Raster& r, const ClipVertex& a, const ClipVertex& b, const ClipVertex& c) {
     const int left = std::max(viewport.x, 0), top = std::max(viewport.y, 0);
     const int right = std::min(viewport.x + viewport.width, target->d.width);
     const int bottom = std::min(viewport.y + viewport.height, target->d.height);
@@ -560,7 +674,7 @@ void Device::rasterize(const ClipVertex& a, const ClipVertex& b, const ClipVerte
     }
     // Each stage's mip level for the triangle: texels per pixel.
     for (int st = 0; st < stages; ++st) {
-        lod[st] = 0;
+        r.lod[st] = 0;
         const DecodedTexture* t = bound[st];
         if (!t || t->levels.empty())
             continue;
@@ -570,9 +684,9 @@ void Device::rasterize(const ClipVertex& a, const ClipVertex& b, const ClipVerte
         const double dv2 = (c.tex[st][1] - a.tex[st][1]) * t->levels[0].height;
         const double texels = std::fabs(du1 * dv2 - du2 * dv1);
         if (texels > 0)
-            lod[st] = float(0.5 * std::log2(texels / area));
+            r.lod[st] = float(0.5 * std::log2(texels / area));
     }
-    prepareSamplers();
+    prepareSamplers(r);
     // z, 1/w and the attributes (divided by w) are planes on the screen:
     // f = fx x + fy y + f0.
     const int n = 2 + count;
@@ -594,6 +708,8 @@ void Device::rasterize(const ClipVertex& a, const ClipVertex& b, const ClipVerte
         flatColors[k] = attr[0][k] / a.w; // the first vertex's colours
     float row[2 + kAttributes], here[kAttributes];
     for (int y = y0; y <= y1; ++y) {
+        if (r.bands > 1 && (y >> 3) % r.bands != r.band) // another thread's row
+            continue;
         // The row's span: where each edge is inside, then each pixel there
         // tested exactly.
         double from = x0, to = x1;
@@ -640,7 +756,7 @@ void Device::rasterize(const ClipVertex& a, const ClipVertex& b, const ClipVerte
                     here[k] = row[2 + k] * inv;
                 if (cfg_.flat)
                     std::copy(flatColors, flatColors + 8, here);
-                shade(x, y, row[0], inv, here, zAt, zNew);
+                shade(r, x, y, row[0], inv, here, zAt, zNew);
             }
             for (int k = 0; k < n; ++k)
                 row[k] += fx[k];
@@ -683,11 +799,12 @@ const DecodedTexture* Device::texture(int stage) {
         level.argb.resize(size_t(l->d.width) * size_t(l->d.height));
         level.keyed.assign(level.argb.size(), 0);
         const uint32_t* pal = l->paletteArgb() ? l->paletteArgb() : t->paletteArgb();
+        const ArgbConverter convert(l->d.format, pal);
         for (int y = 0; y < l->d.height; ++y)
             for (int x = 0; x < l->d.width; ++x) {
                 const uint32_t raw = l->pixel(x, y);
                 const size_t at = size_t(y) * size_t(l->d.width) + size_t(x);
-                level.argb[at] = l->d.format.toArgb(raw, pal);
+                level.argb[at] = convert(raw);
                 if (t->hasSrcKey && raw >= t->srcKeyLow && raw <= t->srcKeyHigh)
                     level.keyed[at] = 1;
             }
@@ -697,16 +814,16 @@ const DecodedTexture* Device::texture(int stage) {
     return &fill;
 }
 
-void Device::prepareSamplers() {
+void Device::prepareSamplers(Raster& r) {
     for (int st = 0; st < stages; ++st) {
-        Sampler& sm = samplers_[st];
+        Sampler& sm = r.samplers[st];
         const DecodedTexture* t = bound[st];
         if (!t || t->levels.empty()) {
             sm.argb = nullptr;
             continue;
         }
         const StageConfig& sc = cfg_.stage[st];
-        const float l = lod[st];
+        const float l = r.lod[st];
         size_t level = 0;
         if (sc.mipFilter >= 2 && l > 0)
             level = std::min(t->levels.size() - 1, size_t(sc.mipFilter == 3 ? std::lround(l) : int(l)));
@@ -723,8 +840,8 @@ void Device::prepareSamplers() {
     }
 }
 
-uint32_t Device::sample(int stage, float u, float v, bool* keyed) {
-    const Sampler& sm = samplers_[stage];
+uint32_t Device::sample(const Raster& r, int stage, float u, float v, bool* keyed) {
+    const Sampler& sm = r.samplers[stage];
     if (!sm.argb)
         return 0xffffffffu;
     auto address = [](int i, int size, uint32_t mode, bool& border) {
@@ -799,7 +916,13 @@ void Device::configure() {
     c.zTest = renderStates[kZEnable] && depth;
     c.zWrite = c.zTest && renderStates[kZWriteEnable];
     c.zFunc = renderStates[kZFunc];
+    uint8_t* mem = s->cpu.memory().data();
+    c.targetAt = mem + target->d.memory;
+    c.targetWidth = target->d.width, c.targetHeight = target->d.height, c.targetPitch = target->d.pitch;
+    c.targetBytes = target->d.format.bytes();
     if (depth) {
+        c.depthAt = mem + depth->d.memory;
+        c.depthWidth = depth->d.width, c.depthHeight = depth->d.height, c.depthPitch = depth->d.pitch;
         c.zMask = depth->d.format.g ? depth->d.format.g : 0xffff;
         c.zMax = double(c.zMask);
         c.zBytes = depth->d.format.bytes();
@@ -854,11 +977,11 @@ void Device::configure() {
                                                                                  : PixelConfig::Target::Generic;
 }
 
-void Device::pixel(int x, int y, float z, float eyeW, const float* attr) {
+void Device::pixel(Raster& r, int x, int y, float z, float eyeW, const float* attr) {
     uint8_t* zAt;
     uint32_t zNew;
     if (depthTest(x, y, z, zAt, zNew))
-        shade(x, y, z, eyeW, attr, zAt, zNew);
+        shade(r, x, y, z, eyeW, attr, zAt, zNew);
 }
 
 // Whether a pixel is on the target and passes the depth test; where its
@@ -866,12 +989,11 @@ void Device::pixel(int x, int y, float z, float eyeW, const float* attr) {
 bool Device::depthTest(int x, int y, float z, uint8_t*& zAt, uint32_t& zNew) {
     zAt = nullptr;
     zNew = 0;
-    if (x < 0 || y < 0 || x >= target->d.width || y >= target->d.height)
-        return false;
     const PixelConfig& cf = cfg_;
-    if (cf.zTest && x < depth->d.width && y < depth->d.height) {
-        uint8_t* mem = s->cpu.memory().data();
-        zAt = mem + depth->d.memory + uint32_t(y * depth->d.pitch) + uint32_t(x) * cf.zBytes;
+    if (x < 0 || y < 0 || x >= cf.targetWidth || y >= cf.targetHeight)
+        return false;
+    if (cf.zTest && x < cf.depthWidth && y < cf.depthHeight) {
+        zAt = cf.depthAt + uint32_t(y * cf.depthPitch) + uint32_t(x) * cf.zBytes;
         uint32_t raw = 0;
         if (cf.zBytes == 2)
             std::memcpy(&raw, zAt, 2);
@@ -887,7 +1009,8 @@ bool Device::depthTest(int x, int y, float z, uint8_t*& zAt, uint32_t& zNew) {
 }
 
 // A pixel past the depth test: texture stages, then the rest (finish).
-void Device::shade(int x, int y, float z, float eyeW, const float* attr, uint8_t* zAt, uint32_t zNew) {
+void Device::shade(const Raster& r, int x, int y, float z, float eyeW, const float* attr, uint8_t* zAt,
+                   uint32_t zNew) {
     const PixelConfig& cf = cfg_;
     // Texture stages.
     if (cf.simpleStages && !cf.colorKey) {
@@ -900,7 +1023,7 @@ void Device::shade(int x, int y, float z, float eyeW, const float* attr, uint8_t
         for (int st = 0; st < stages; ++st) {
             const StageConfig& sc = cf.stage[st];
             if (sc.usesTexture) {
-                const uint32_t t = sample(st, attr[8 + 2 * st], attr[9 + 2 * st], nullptr);
+                const uint32_t t = sample(r, st, attr[8 + 2 * st], attr[9 + 2 * st], nullptr);
                 const float* f = kFractions.of255;
                 src[2][0] = f[t >> 16 & 0xff], src[2][1] = f[t >> 8 & 0xff], src[2][2] = f[t & 0xff];
                 src[2][3] = f[t >> 24];
@@ -931,7 +1054,7 @@ void Device::shade(int x, int y, float z, float eyeW, const float* attr, uint8_t
     for (int st = 0; st < stages; ++st) {
         const StageConfig& sc = cf.stage[st];
         bool k = false;
-        const Color tex = unpack(sample(st, attr[8 + 2 * st], attr[9 + 2 * st], cf.colorKey ? &k : nullptr));
+        const Color tex = unpack(sample(r, st, attr[8 + 2 * st], attr[9 + 2 * st], cf.colorKey ? &k : nullptr));
         if (bound[st] && k)
             keyed = true;
         auto arg = [&](uint32_t a, float* v) {
@@ -996,7 +1119,6 @@ void Device::shade(int x, int y, float z, float eyeW, const float* attr, uint8_t
 void Device::finish(int x, int y, float z, float eyeW, const float* attr, Color current, uint8_t* zAt,
                     uint32_t zNew) {
     const PixelConfig& cf = cfg_;
-    uint8_t* mem = s->cpu.memory().data();
     const Color specular{attr[4], attr[5], attr[6], attr[7]};
     if (cf.specular)
         current = {std::min(1.0f, current.r + specular.r), std::min(1.0f, current.g + specular.g),
@@ -1022,8 +1144,8 @@ void Device::finish(int x, int y, float z, float eyeW, const float* attr, Color 
                    current.a};
     }
     // Blending with what's there, and the write in the target's format.
-    const uint32_t bytes = target->d.format.bytes();
-    uint8_t* at = mem + target->d.memory + uint32_t(y * target->d.pitch) + uint32_t(x) * bytes;
+    const uint32_t bytes = cf.targetBytes;
+    uint8_t* at = cf.targetAt + uint32_t(y * cf.targetPitch) + uint32_t(x) * bytes;
     auto readTarget = [&]() -> Color {
         uint32_t raw = 0;
         std::memcpy(&raw, at, bytes);

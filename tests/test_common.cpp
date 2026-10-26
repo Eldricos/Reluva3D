@@ -1247,6 +1247,32 @@ static void testDirectX() {
     CHECK(at(40, 5) == 0x0000ff); // the clear colour
     CHECK(at(31, 31) == 0x0000ff); // past the hypotenuse
     CHECK(at(45, 28) == 0xffffff && at(58, 28) == 0xff0000 && at(45, 44) == 0x00ff00 && at(58, 44) == 0x000000);
+    // Drawing by rows on several threads draws the same as on one:
+    // overlapping triangles, depth tested, bilinear, blended.
+    CHECK(call(device, 37, {0, 16, 2}) == 0); // MAGFILTER: linear
+    CHECK(call(device, 20, {27, 1}) == 0);    // ALPHABLENDENABLE
+    CHECK(call(device, 20, {19, 5}) == 0);    // SRCBLEND: SRCALPHA
+    CHECK(call(device, 20, {20, 6}) == 0);    // DESTBLEND: INVSRCALPHA
+    auto scene = [&](x86::DirectX::DrawThreads threads) {
+        dx.drawThreads = threads;
+        CHECK(call(device, 10, {0, 0, 3, 0xff202020u, bits(1.0f), 0}) == 0);
+        uint32_t seed = 7;
+        auto next = [&] { return (seed = seed * 1103515245u + 12345u) >> 8; };
+        for (int t = 0; t < 30; ++t) {
+            for (uint32_t i = 0; i < 3; ++i)
+                vertex(i, float(next() % 900) / 10 - 13, float(next() % 700) / 10 - 11, float(next() % 1000) / 1000,
+                       next() | 0x40000000u, float(next() % 300) / 100, float(next() % 300) / 100);
+            CHECK(call(device, 25, {4, fvf, verts, 3, 0}) == 0);
+        }
+        CHECK(call(back, 25, {0, desc, 1, 0}) == 0); // Lock
+        const uint32_t pixels = cpu.read32(desc + 36), rowBytes = cpu.read32(desc + 16);
+        std::vector<uint8_t> image(cpu.memory().begin() + pixels, cpu.memory().begin() + pixels + rowBytes * 48);
+        CHECK(call(back, 32, {0}) == 0);
+        return image;
+    };
+    const std::vector<uint8_t> one = scene(x86::DirectX::DrawThreads::One);
+    CHECK(scene(x86::DirectX::DrawThreads::Always) == one);
+    CHECK(std::adjacent_find(one.begin(), one.end(), std::not_equal_to<>()) != one.end()); // something was drawn
     // Release the device and the DirectDraw object's.
     CHECK(call(device, 2, {}) == 0);
 }

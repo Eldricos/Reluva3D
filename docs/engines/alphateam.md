@@ -353,18 +353,21 @@ Progress:
   - Quitting stops the program with `Cpu::requestStop`; an `exit` of its
     own is told from a failure by `Win32Process::exited`.
 - Speed, measured headless (frames given to the engine, a click past the
-  demo): the menu at headquarters runs at about 6 frames a second.
+  demo): the menu at headquarters runs at about 14 frames a second on 4
+  cores, after about 22 seconds of loading.
   - Inlining instruction execution (memory access, fetching, operands)
     and the rasterizer's per-draw set-up got it there from about half
     that.
   - The decoded-instruction cache (x86.md) cut the time to reach the menu
     from about 41 seconds to 28.
-  - At the menu, the time is now split between the interpreter and the
-    software rasterizer (`pixel`, texture sampling, colour conversion: a
-    third or so). That's where the next speed-up lies.
-  - With the clock driven by the instruction count, so runs repeat
-    exactly, 120 frames take 31 seconds with the cache and 49 without. The
-    frames come out identical.
+  - The rasterizer then took a third or so of the time at the menu. The
+    rasterizer section below has what was done; drawing 120 frames went
+    from 7.4 seconds to 2.0. The interpreter is now most of the time.
+  - Checking the speed-ups: with the clock driven by the instruction count
+    and the click at a set frame, runs repeat exactly. Frames saved by the
+    game's own frame number came out byte-identical before and after each
+    change. The engine's frame count doesn't do for this: which game frame
+    it shows depends on timing.
 - Not there yet:
   - **sound:** no A3D object, so `CoCreateInstance` fails and the game
     plays without sound;
@@ -404,6 +407,24 @@ headers' (`directx/interfaces.cpp`).
     BLENDCURRENTALPHA, mip levels and bilinear filtering;
   - colour keys, the alpha test, vertex and table fog, all the blend
     factors, and the depth test into any Z format.
+
+  How it's kept quick, each change giving the same pixels:
+  - A draw's triangles are drawn by rows on as many threads as there are
+    processors (`RowThreads`). Each thread takes groups of 8 rows, dealt
+    round, and draws every triangle there in order. Small draws stay on
+    one thread. `DirectX::drawThreads` can choose one thread, or threads
+    always, which the test uses to check both give the same image.
+  - Each row is filled from its first inside pixel to its last; the edge
+    tests are only made at the ends.
+  - The depth test comes before a pixel's attributes are worked out.
+  - Samplers are set up per triangle: the mip level, and power-of-two
+    wrapping by mask. Bilinear sampling indexes directly when all four
+    texels are inside.
+  - Stages that only select or modulate plain arguments (all of this
+    game's) are combined from sources picked once per draw. The general
+    path handles the rest.
+  - Targets, depth buffers and textures are read and converted through
+    tables (`ArgbConverter`), also for presenting a frame.
 
   Software first, rather than `gfx::Renderer3D`: the game locks and blits
   surfaces as well as drawing into them, and doing both in one place keeps
