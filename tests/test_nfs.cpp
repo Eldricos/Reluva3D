@@ -4,10 +4,12 @@
 // Tests for the Need for Speed engine's detection and folder finding,
 // against folders built here, so no game data is needed.
 
+#include "engines/nfs/ffn.h"
 #include "engines/nfs/folders.h"
 #include "engines/nfs/fsh.h"
 #include "engines/nfs/games.h"
 #include "engines/nfs/refpack.h"
+#include "engines/nfs/text_table.h"
 #include "engines/nfs/viv.h"
 
 #include <algorithm>
@@ -224,6 +226,11 @@ void testRefPack() {
     Bytes tooFar = {0x10, 0xfb, 0x00, 0x00, 0x05, 0xe0, 'a', 'b', 'c', 'd', 0x00, 0x09, 0xfc};
     CHECK(decompressRefPack(tooFar, out)); // copy from 10 back with 4 written
     CHECK(!isRefPack(Bytes{'S', 'H', 'P', 'I', 0}));
+    const Bytes huffman = {0x32, 0xfb, 0x07, 0xc4, 0x48, 0x71};
+    CHECK(!isRefPack(huffman) && isOtherEaCompression(huffman));
+    CHECK(!isOtherEaCompression(small));
+    Bytes copy = huffman;
+    CHECK(unpackIfRefPack(copy)); // fails rather than passing it on
 
     Bytes plain = {'S', 'H', 'P', 'I', 0};
     CHECK(!unpackIfRefPack(plain));
@@ -415,6 +422,85 @@ void testShapes() {
     CHECK(parseShapeBank(Bytes{'S', 'H', 'P', 'X'}, bank));
 }
 
+void testTextTable() {
+    // Three offsets, then the strings; the last without its 0.
+    Bytes b;
+    put32(b, 12);
+    put32(b, 13);
+    put32(b, 25);
+    b.push_back(0);
+    putText(b, "Skill Level", 12);
+    putText(b, "Abilit\xe0 \x85", 9);
+    TextTable table;
+    CHECK(!parseTextTable(b, table));
+    CHECK(table.strings.size() == 3);
+    if (table.strings.size() == 3) {
+        CHECK(table.strings[0].empty());
+        CHECK(table.strings[1] == "Skill Level");
+        CHECK(table.strings[2] == "Abilit\xe0 \x85");
+        CHECK(cp1252ToUtf8(table.strings[2]) == "Abilit\xc3\xa0 \xe2\x80\xa6"); // à, …
+    }
+    CHECK(cp1252ToUtf8("\x80\x81\x99") == "\xe2\x82\xac\xef\xbf\xbd\xe2\x84\xa2"); // €, unassigned, ™
+
+    Bytes outside = b;
+    outside[4] = 200;
+    CHECK(parseTextTable(outside, table));
+    Bytes odd = b;
+    odd[0] = 13;
+    CHECK(parseTextTable(odd, table));
+    CHECK(parseTextTable(Bytes{1, 0}, table));
+}
+
+void testFont() {
+    // Two glyphs over a 4x2 atlas of 4-bit pixels, high nibble first.
+    Bytes b = {'F', 'N', 'T', 'F'};
+    put32(b, 0);
+    put16(b, 100);
+    put16(b, 2); // glyphs
+    put16(b, 1); // flags
+    put16(b, 0);
+    put16(b, 0);
+    b.push_back(9); // line height
+    b.push_back(0);
+    put16(b, 32);
+    b.resize(28, 0);
+    const uint32_t atlas = 32 + 3 * 11; // a table with room for 3
+    put32(b, atlas);
+    // 'A': 2x2 at (0, 0), advance 3, offsets 1, -1. 'B': 1x1 at (3, 1).
+    b.insert(b.end(), {'A', 0, 2, 2, 0, 0, 0, 0, 3, 1, 0xff});
+    b.insert(b.end(), {'B', 0, 1, 1, 3, 0, 1, 0, 2, 0, 0});
+    b.insert(b.end(), {0xad, 0xad, 9, 9, 9, 9, 9, 9, 9, 9, 9}); // filler past the count
+    putShapeHeader(b, 0x7a, 0, 4, 2, 0, 0, 0, 0);
+    b.insert(b.end(), {0xf8, 0x00, 0x0f, 0x0f});
+
+    Font font;
+    CHECK(!parseFont(b, font));
+    CHECK(font.lineHeight == 9 && font.flags == 1);
+    CHECK(font.atlasWidth == 4 && font.atlasHeight == 2);
+    CHECK(font.coverage == (Bytes{255, 136, 0, 0, 0, 255, 0, 255}));
+    CHECK(font.has('A') && font.has('B') && !font.has('C') && !font.has(0xad));
+    CHECK(font.glyphs['A'].advance == 3 && font.glyphs['A'].offsetX == 1 && font.glyphs['A'].offsetY == -1);
+    CHECK(font.glyphs['B'].x == 3 && font.glyphs['B'].y == 1);
+    CHECK(font.measure("AB") == 5);
+
+    // Drawn: 'A' at (0 + 1, 2 - 1), 'B' at (3, 2).
+    Surface s;
+    s.create(6, 4, PixelFormat::RGBA32);
+    CHECK(font.draw(s, 0, 2, "AB", {200, 100, 50}) == 5);
+    CHECK(s.row(1)[4] == 200 && s.row(1)[5] == 100 && s.row(1)[6] == 50); // full coverage
+    CHECK(s.row(1)[8] == 200 * 136 / 255);                                 // partial
+    CHECK(s.row(2)[4 + 1] == 0 && s.row(2)[8] == 200);                     // (1, 2) clear, (2, 2) solid
+    CHECK(s.row(2)[3 * 4] == 200);                                         // 'B'
+
+    Bytes outside = b;
+    outside[32 + 4] = 3; // 'A' at x 3 runs off the atlas
+    CHECK(parseFont(outside, font));
+    Bytes wrongType = b;
+    wrongType[atlas] = 0x7b;
+    CHECK(parseFont(wrongType, font));
+    CHECK(parseFont(Bytes(b.begin(), b.end() - 1), font)); // atlas cut short
+}
+
 } // namespace
 
 int main() {
@@ -426,6 +512,8 @@ int main() {
     testRefPack();
     testViv();
     testShapes();
+    testTextTable();
+    testFont();
     stdfs::remove_all(tmp);
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);

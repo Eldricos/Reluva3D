@@ -3,10 +3,17 @@
 
 #include "engines/nfs/refpack.h"
 
+#include <cstdio>
+#include <string>
+
 namespace reluva::nfs {
 
 bool isRefPack(const std::vector<uint8_t>& data) {
     return data.size() >= 5 && (data[0] & 0x7e) == 0x10 && data[1] == 0xfb;
+}
+
+bool isOtherEaCompression(const std::vector<uint8_t>& data) {
+    return data.size() >= 2 && data[1] == 0xfb && !isRefPack(data);
 }
 
 Error decompressRefPack(const std::vector<uint8_t>& data, std::vector<uint8_t>& out) {
@@ -88,6 +95,11 @@ Error decompressRefPack(const std::vector<uint8_t>& data, std::vector<uint8_t>& 
 }
 
 Error unpackIfRefPack(std::vector<uint8_t>& data) {
+    if (isOtherEaCompression(data)) {
+        char header[8];
+        std::snprintf(header, sizeof header, "%02X FB", data[0]);
+        return Error::fail(std::string("compressed with an EA scheme Reluva doesn't read yet (") + header + ")");
+    }
     if (!isRefPack(data))
         return Error::success();
     std::vector<uint8_t> out;

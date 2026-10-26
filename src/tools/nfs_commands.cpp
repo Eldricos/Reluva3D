@@ -4,9 +4,13 @@
 #include "tools/nfs_commands.h"
 
 #include "common/image.h"
+#include "engines/nfs/ffn.h"
 #include "engines/nfs/fsh.h"
+#include "engines/nfs/refpack.h"
+#include "engines/nfs/text_table.h"
 #include "engines/nfs/viv.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <cstring>
@@ -27,7 +31,10 @@ const char* const kUsageLines =
     "  reluva-tool viv-list <file.viv>\n"
     "  reluva-tool viv-extract <file.viv> <output dir>\n"
     "  reluva-tool fsh-info <file.fsh | file.qfs | file.viv name>\n"
-    "  reluva-tool fsh-dump <file.fsh | file.qfs | file.viv name> <output dir>\n";
+    "  reluva-tool fsh-dump <file.fsh | file.qfs | file.viv name> <output dir>\n"
+    "  reluva-tool text-dump <text.eng>\n"
+    "  reluva-tool ffn-render <file.ffn> <out.tga> [text]\n"
+    "  reluva-tool nfs-survey <folder>... [-v]\n";
 
 int fail(const Error& err) {
     std::fprintf(stderr, "%s\n", err.message.c_str());
@@ -177,6 +184,181 @@ int cmdFshDump(int argc, char** argv) {
     return 0;
 }
 
+int cmdTextDump(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool text-dump <text.eng>\n");
+        return 2;
+    }
+    std::vector<uint8_t> data;
+    if (!readFile(argv[2], data)) {
+        std::fprintf(stderr, "Can't read %s\n", argv[2]);
+        return 1;
+    }
+    reluva::nfs::TextTable table;
+    if (Error err = reluva::nfs::parseTextTable(data, table))
+        return fail(err);
+    for (size_t i = 0; i < table.strings.size(); ++i)
+        std::printf("%5zu  %s\n", i, reluva::nfs::cp1252ToUtf8(table.strings[i]).c_str());
+    return 0;
+}
+
+// Draws the font's every character (or the text given) on a dark
+// background, for checking its glyphs and spacing.
+int cmdFfnRender(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool ffn-render <file.ffn> <out.tga> [text]\n");
+        return 2;
+    }
+    std::vector<uint8_t> data;
+    if (!readFile(argv[2], data)) {
+        std::fprintf(stderr, "Can't read %s\n", argv[2]);
+        return 1;
+    }
+    reluva::nfs::Font font;
+    if (Error err = reluva::nfs::parseFont(data, font))
+        return fail(err);
+    std::vector<std::string> lines;
+    if (argc > 4) {
+        lines.push_back(argv[4]); // as given: Windows-1252 bytes
+    } else {
+        for (int row = 32; row < 256; row += 32) {
+            std::string line;
+            for (int c = row; c < row + 32; ++c)
+                if (font.has(uint8_t(c)))
+                    line += char(c);
+            lines.push_back(line);
+        }
+    }
+    int width = 0;
+    for (const auto& l : lines)
+        width = std::max(width, font.measure(l));
+    reluva::Surface surface;
+    surface.create(width + 16, font.lineHeight * int(lines.size()) + 16, reluva::PixelFormat::RGBA32);
+    for (size_t i = 0; i < surface.pixels.size(); i += 4) {
+        surface.pixels[i] = surface.pixels[i + 1] = 40;
+        surface.pixels[i + 2] = 60;
+        surface.pixels[i + 3] = 255;
+    }
+    for (size_t i = 0; i < lines.size(); ++i)
+        font.draw(surface, 8, 8 + font.lineHeight * int(i), lines[i], {255, 255, 255});
+    reluva::image::Image img;
+    img.w = surface.w;
+    img.h = surface.h;
+    img.rgba = surface.pixels;
+    if (!writeFile(argv[3], reluva::image::encodeTga(img))) {
+        std::fprintf(stderr, "can't write %s\n", argv[3]);
+        return 1;
+    }
+    std::printf("line height %d, flags %d, atlas %dx%d\n", font.lineHeight, font.flags, font.atlasWidth,
+                font.atlasHeight);
+    return 0;
+}
+
+// Opens every file of the kinds Reluva reads under the folders given,
+// .viv archives' contents included, and reports any that fail.
+int cmdNfsSurvey(int argc, char** argv) {
+    std::vector<stdfs::path> roots;
+    bool verbose = false;
+    for (int i = 2; i < argc; ++i) {
+        if (std::strcmp(argv[i], "-v") == 0)
+            verbose = true;
+        else
+            roots.push_back(argv[i]);
+    }
+    if (roots.empty()) {
+        std::fprintf(stderr, "usage: reluva-tool nfs-survey <folder>... [-v]\n");
+        return 2;
+    }
+
+    struct Count {
+        int ok = 0, failed = 0;
+    };
+    Count vivs, banks, pictures, tables, fonts;
+    std::vector<std::string> unsupported; // in EA's other compression schemes
+    auto lower = [](std::string s) {
+        for (char& c : s)
+            c = char(std::tolower(static_cast<unsigned char>(c)));
+        return s;
+    };
+    auto report = [&](Count& count, const std::string& what, const Error& err) {
+        if (err) {
+            ++count.failed;
+            std::printf("FAILED %s: %s\n", what.c_str(), err.message.c_str());
+        } else {
+            ++count.ok;
+            if (verbose)
+                std::printf("ok %s\n", what.c_str());
+        }
+    };
+    // One file, by its extension; `what` names it in messages.
+    auto check = [&](const std::string& name, std::vector<uint8_t> data, const std::string& what) {
+        const std::string ext = lower(stdfs::path(name).extension().string());
+        const std::string stem = lower(stdfs::path(name).stem().string());
+        if (ext == ".fsh" || ext == ".qfs") {
+            if (reluva::nfs::isOtherEaCompression(data)) {
+                unsupported.push_back(what);
+                return;
+            }
+            ShapeBank bank;
+            const Error err = reluva::nfs::parseShapeBank(std::move(data), bank);
+            report(banks, what, err);
+            for (const auto& shape : bank.shapes) {
+                reluva::image::Image img;
+                report(pictures, what + ":" + shape.name, reluva::nfs::decodeShape(shape, img));
+            }
+        } else if (ext == ".ffn") {
+            reluva::nfs::Font font;
+            report(fonts, what, reluva::nfs::parseFont(data, font));
+        } else if (stem == "text") {
+            reluva::nfs::TextTable table;
+            report(tables, what, reluva::nfs::parseTextTable(data, table));
+        }
+    };
+
+    for (const auto& root : roots) {
+        std::error_code ec;
+        for (const auto& entry : stdfs::recursive_directory_iterator(root, ec)) {
+            if (!entry.is_regular_file(ec))
+                continue;
+            const stdfs::path& path = entry.path();
+            const std::string ext = lower(path.extension().string());
+            if (ext == ".viv") {
+                VivArchive viv;
+                const Error err = viv.open(path);
+                report(vivs, path.string(), err);
+                if (err)
+                    continue;
+                std::vector<uint8_t> data;
+                for (const auto& e : viv.entries())
+                    if (!viv.read(e.name, data))
+                        check(e.name, std::move(data), path.string() + ":" + e.name);
+            } else if (ext == ".fsh" || ext == ".qfs" || ext == ".ffn" || lower(path.stem().string()) == "text") {
+                std::vector<uint8_t> data;
+                if (!readFile(path, data)) {
+                    report(banks, path.string(), Error::fail("can't read it"));
+                    continue;
+                }
+                check(path.filename().string(), std::move(data), path.string());
+            }
+        }
+    }
+
+    const Count* all[] = {&vivs, &banks, &pictures, &tables, &fonts};
+    const char* names[] = {".viv archives", ".fsh/.qfs banks", "pictures", "text tables", "fonts"};
+    int failed = 0;
+    for (int i = 0; i < 5; ++i) {
+        std::printf("%-16s %6d read, %d failed\n", names[i], all[i]->ok, all[i]->failed);
+        failed += all[i]->failed;
+    }
+    // Known and documented (docs/formats/nfs/refpack.md), so not failures.
+    if (!unsupported.empty()) {
+        std::printf("%zu files in a compression scheme not read yet:\n", unsupported.size());
+        for (const auto& u : unsupported)
+            std::printf("  %s\n", u.c_str());
+    }
+    return failed ? 1 : 0;
+}
+
 } // namespace
 
 const char* const kNfsUsage = kUsageLines;
@@ -193,5 +375,11 @@ int runNfsCommand(int argc, char** argv) {
         return cmdFshInfo(argc, argv);
     if (std::strcmp(cmd, "fsh-dump") == 0)
         return cmdFshDump(argc, argv);
+    if (std::strcmp(cmd, "text-dump") == 0)
+        return cmdTextDump(argc, argv);
+    if (std::strcmp(cmd, "ffn-render") == 0)
+        return cmdFfnRender(argc, argv);
+    if (std::strcmp(cmd, "nfs-survey") == 0)
+        return cmdNfsSurvey(argc, argv);
     return -1;
 }

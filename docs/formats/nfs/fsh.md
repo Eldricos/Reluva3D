@@ -84,6 +84,19 @@ Attached blocks after the picture:
 Of the install's 16-bit 1:5:5:5 pictures, 2,897 are fully opaque, 636 mix opaque and
 clear pixels, and 24 are entirely clear.
 
+## Track texture sets
+
+Each track has two sets of each texture file:
+
+- `trNNN.qfs` holds 16-bit 1:5:5:5 textures (plus one 32-bit one).
+- `trNNN_8.qfs` holds the same textures, at the same sizes and in the
+  same order (checked on `tr000`), as 8-bit pictures, each with its own
+  palette.
+
+The 8-bit sets are probably for the software renderer, which is yet to
+be confirmed. The Summit's two 8-bit sets are compressed with a scheme
+Reluva doesn't read yet ([refpack.md](refpack.md)).
+
 ## Tools
 
 - `reluva-tool fsh-info <file> [name in .viv]` lists the shapes.

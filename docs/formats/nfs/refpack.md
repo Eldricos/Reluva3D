@@ -17,7 +17,23 @@ above.
 | 1 | 1 | `0xFB` |
 | 2 | 3 or 4 | (with flag `0x01`: the compressed size, then) the uncompressed size, big-endian |
 
-All 588 retail files start `10 FB`: 3-byte size, no compressed size.
+All 588 retail RefPack files start `10 FB`: 3-byte size, no compressed
+size.
+
+## EA's other schemes: not read yet
+
+Two files, in the install and again on the CD, start `32 FB` instead:
+`trk007/tr070_8.qfs` and `tr071_8.qfs`, the Summit's 8-bit texture sets.
+That header belongs to another of EA's compression schemes (the
+`30 FB`/`32 FB`/`34 FB` family, Huffman-based by the public descriptions),
+not RefPack.
+
+Reluva reports such data as "compressed with an EA scheme Reluva doesn't
+read yet", and `reluva-tool nfs-survey` lists them apart from failures.
+Summit's 16-bit sets (`tr070.qfs`, `tr071.qfs`) are RefPack and read
+fine. The 8-bit sets would matter only if the 8-bit textures are needed.
+That's to be decided once it's known what uses them (see
+[fsh.md](fsh.md)).
 
 ## Commands
 
