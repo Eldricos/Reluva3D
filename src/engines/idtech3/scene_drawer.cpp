@@ -29,7 +29,23 @@ gfx::Vec3 readVec(const std::vector<uint8_t>& bytes, size_t at) {
     return {readFloat(bytes, at), readFloat(bytes, at + 4), readFloat(bytes, at + 8)};
 }
 
+void SceneDrawer::setHandles(const Handles& handles) {
+    if (handles.shaders != handles_.shaders) {
+        Caches& mine = others_[handles_.shaders];
+        mine.modelIds = std::move(modelIds_);
+        mine.pictureMaterials = std::move(pictureMaterials_);
+        mine.effectMaterials = std::move(effectMaterials_);
+        Caches& theirs = others_[handles.shaders];
+        modelIds_ = std::move(theirs.modelIds);
+        pictureMaterials_ = std::move(theirs.pictureMaterials);
+        effectMaterials_ = std::move(theirs.effectMaterials);
+        theirs = Caches{};
+    }
+    handles_ = handles;
+}
+
 void SceneDrawer::reset() {
+    others_.clear();
     modelIds_.clear();
     pictureMaterials_.clear();
     effectMaterials_.clear();

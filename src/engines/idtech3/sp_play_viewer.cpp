@@ -228,6 +228,9 @@ void SpPlayViewer::runCommand(const std::string& line, bool fromGame) {
 void SpPlayViewer::deactivate() {
     if (renderer_)
         ctx_.sys.setRelativeMouse(false);
+    if (textInput_)
+        ctx_.sys.setTextInput(false);
+    textInput_ = false;
     game_.reset();
     ui_.reset();
     soundSystem_.reset();
@@ -246,6 +249,8 @@ void SpPlayViewer::stop(const std::string& why) {
 
 void SpPlayViewer::endGame() {
     game_.reset();
+    if (scene_)
+        scene_->reset(); // its handles are gone
     if (soundSystem_)
         soundSystem_->stopAll();
     buttons_.clear();
@@ -706,8 +711,16 @@ void SpPlayViewer::handleEvent(const Event& ev) {
         break;
     case EventType::MouseMove:
         if (menusHaveKeys()) {
-            if (Error err = ui_->mouseEvent(int32_t(ev.moveX), int32_t(ev.moveY)))
-                menusStopped(err);
+            // In the menus' 640 x 480, as the window's pixels are to the
+            // frame (the fractions kept for the next move).
+            menuMouseX_ += float(ev.moveX) * 640.0f / float(std::max(frameW_, 1));
+            menuMouseY_ += float(ev.moveY) * 480.0f / float(std::max(frameH_, 1));
+            const auto dx = int32_t(menuMouseX_), dy = int32_t(menuMouseY_);
+            menuMouseX_ -= float(dx);
+            menuMouseY_ -= float(dy);
+            if (dx || dy)
+                if (Error err = ui_->mouseEvent(dx, dy))
+                    menusStopped(err);
         } else {
             mouseX_ += ev.moveX;
             mouseY_ += ev.moveY;
@@ -739,8 +752,11 @@ void SpPlayViewer::runGame(uint64_t nowMs) {
 
     using Clock = std::chrono::steady_clock;
     auto ms = [](Clock::time_point from) { return std::chrono::duration<float, std::milli>(Clock::now() - from).count(); };
+    // timescale speeds the game's clock, as the original's: the game sets
+    // it to 100 to fast-forward a scene the player skips.
+    const float timescale = std::clamp(setting("timescale", 1), 0.0f, 100.0f);
     if (dt > 0)
-        clientTime_ += dt;
+        clientTime_ += int32_t(std::lround(float(dt) * timescale));
     // The server kept a frame ahead of the player's time, then the
     // player's command, then the client game's frame.
     const auto serverStart = Clock::now();
@@ -811,11 +827,20 @@ void SpPlayViewer::update(uint64_t nowMs) {
         pendingMenu_.clear();
     }
     // The game waits while a menu has the keys, as the original's single
-    // player pauses.
-    if (menusHaveKeys())
+    // player pauses (cl_paused, which the in-game menu sets, back to 0
+    // after); typed text goes to them meanwhile.
+    const bool paused = menusHaveKeys();
+    if (paused != textInput_) {
+        textInput_ = paused;
+        ctx_.sys.setTextInput(paused);
+    }
+    if (paused) {
         lastMs_ = nowMs;
-    else
+    } else {
+        if (cvars_.integer("cl_paused") != 0)
+            cvars_.set("cl_paused", "0");
         runGame(nowMs);
+    }
     runGameCommands();
     if (soundSystem_) {
         auto setting = [&](const char* name, float fallback) { return cvars_.find(name) ? cvars_.value(name) : fallback; };
@@ -922,6 +947,8 @@ void SpPlayViewer::drawOverlay() {
                       names_[size_t(index_)].c_str(), timing_.server, timing_.client, timing_.draw);
         bottom.push_back(buf);
     }
+    if (game_ && cvars_.integer("skippingCinematic") != 0)
+        bottom.push_back("Skipping the scene (the use button skips it, as in the original)");
     if (startMs_ && nowMs_ - startMs_ < 6000)
         bottom.push_back("Esc: the game's menu   Ctrl+Esc: leave   Ctrl+PgUp/PgDn: a map without the menus");
     for (size_t i = 0; i < bottom.size(); ++i)

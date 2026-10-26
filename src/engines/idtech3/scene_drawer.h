@@ -82,7 +82,9 @@ public:
         const HandleTable* skins = nullptr;
         const HandleTable* shaders = nullptr;
     };
-    void setHandles(const Handles& handles) { handles_ = handles; }
+    // Each program's handles have their own caches (the game's shader 5
+    // isn't the menus' shader 5): switching keeps the other's.
+    void setHandles(const Handles& handles);
     // Forgets what the handles were loaded as (a new program, or the
     // caches cleared).
     void reset();
@@ -130,6 +132,12 @@ private:
     Handles handles_;
     std::map<int32_t, int> modelIds_; // the program's model handle -> models_ id (-1: can't load)
     std::vector<int> pictureMaterials_, effectMaterials_; // by shader handle; -2 not made yet
+    // Those of the other programs drawn with, by their shader table.
+    struct Caches {
+        std::map<int32_t, int> modelIds;
+        std::vector<int> pictureMaterials, effectMaterials;
+    };
+    std::map<const HandleTable*, Caches> others_;
     // This view's model entities, ready to draw.
     struct Placed {
         int model = -1, frame = 0, oldFrame = 0;

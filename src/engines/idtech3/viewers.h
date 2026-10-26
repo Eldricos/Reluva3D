@@ -571,6 +571,8 @@ private:
     uint64_t lastMs_ = 0;
     int32_t clientTime_ = 0;
     float yaw_ = 0, pitch_ = 0, mouseX_ = 0, mouseY_ = 0;
+    float menuMouseX_ = 0, menuMouseY_ = 0;
+    bool textInput_ = false;
     std::map<std::string, std::set<int32_t>> buttons_;
     struct Timing {
         float server = 0, client = 0, draw = 0; // ms, the last frame's
