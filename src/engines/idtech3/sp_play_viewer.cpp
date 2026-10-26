@@ -88,6 +88,7 @@ void SpPlayViewer::deactivate() {
     if (renderer_)
         ctx_.sys.setRelativeMouse(false);
     game_.reset();
+    soundSystem_.reset();
     scene_.reset();
     models_.reset();
     world_.reset();
@@ -99,6 +100,7 @@ void SpPlayViewer::deactivate() {
 void SpPlayViewer::stop(const std::string& why) {
     error_ = why;
     game_.reset();
+    soundSystem_.reset();
 }
 
 void SpPlayViewer::start(int index) {
@@ -139,6 +141,11 @@ void SpPlayViewer::start(int index) {
     // then the client half.
     game_ = std::make_unique<eliteforce::SpGameHost>(ctx_.files, cvars_);
     game_->print = [](const std::string& text) { std::fputs(text.c_str(), stdout); };
+    soundSystem_.reset();
+    if (ctx_.mixer) {
+        soundSystem_ = std::make_unique<SoundSystem>(*ctx_.mixer, soundLibrary_);
+        game_->soundSystem = soundSystem_.get();
+    }
     if ((err = game_->load(dll_)))
         return stop("efgamex86.dll: " + err.message);
     if ((err = game_->startLevel(map, bsp, eliteforce::SpGameHost::mapChecksum(data), 0)))
@@ -235,7 +242,9 @@ void SpPlayViewer::handleEvent(const Event& ev) {
 void SpPlayViewer::runGame(uint64_t nowMs) {
     if (!game_ || !game_->clientGameRunning())
         return;
-    const int32_t dt = lastMs_ ? int32_t(std::min<uint64_t>(nowMs - lastMs_, 100)) : 0;
+    // At most 200 ms a frame, as the original's client takes, so a slow
+    // frame doesn't leave the game's clock behind for long.
+    const int32_t dt = lastMs_ ? int32_t(std::min<uint64_t>(nowMs - lastMs_, 200)) : 0;
     lastMs_ = nowMs;
     auto setting = [&](const char* name, float fallback) { return cvars_.find(name) ? cvars_.value(name) : fallback; };
     // Looking: the mouse and keys, as the Play page.
@@ -286,9 +295,16 @@ void SpPlayViewer::runGame(uint64_t nowMs) {
     }
     timing_.server = ms(serverStart);
     const auto clientStart = Clock::now();
+    if (soundSystem_)
+        soundSystem_->setTime(nowMs);
     if (Error err = game_->drawClientFrame(clientTime_))
         return stop("The client game stopped: " + err.message);
     timing_.client = ms(clientStart);
+    if (soundSystem_) {
+        // The original's volumes unless the menus set them.
+        soundSystem_->setVolumes(setting("s_volume", 0.8f), setting("s_musicvolume", 0.25f));
+        soundSystem_->endFrame();
+    }
 }
 
 void SpPlayViewer::update(uint64_t nowMs) {

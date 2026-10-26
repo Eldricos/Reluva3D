@@ -706,9 +706,38 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
     case 23: clientTrace(c, false); return 0; // CM_BoxTrace
     case 24: clientTrace(c, true); return 0;  // CM_TransformedBoxTrace
     case 25: return 0;                        // CM_MarkFragments: no wall marks yet
-    // Sound: registered; not played yet.
-    case 26: case 27: case 28: case 29: case 30: case 31: case 33: return 0;
+    // Sound, played if there's somewhere to play it.
+    case 26: // S_StartSound(origin or 0, entity, channel, sfx)
+        if (soundSystem)
+            soundSystem->startSound(a(0) ? std::optional<Vec3f>(readVec(a(0))) : std::nullopt, int(a(1)), int(a(2)),
+                                    sounds_.name(int32_t(a(3))));
+        return 0;
+    case 27: // S_StartLocalSound(sfx, channel)
+        if (soundSystem)
+            soundSystem->startLocalSound(sounds_.name(int32_t(a(0))), int(a(1)));
+        return 0;
+    case 28: // S_ClearLoopingSounds()
+        if (soundSystem)
+            soundSystem->clearLoopingSounds();
+        return 0;
+    case 29: // S_AddLoopingSound(entity, origin, velocity, sfx)
+        if (soundSystem)
+            soundSystem->addLoopingSound(int(a(0)), readVec(a(1)), sounds_.name(int32_t(a(3))));
+        return 0;
+    case 30: // S_UpdateEntityPosition(entity, origin)
+        if (soundSystem)
+            soundSystem->updateEntityPosition(int(a(0)), readVec(a(1)));
+        return 0;
+    case 31: // S_Respatialize(entity, origin, axis[3], inWater)
+        if (soundSystem)
+            soundSystem->respatialize(int(a(0)), readVec(a(1)),
+                                      {readVec(a(2)), readVec(a(2) + 12), readVec(a(2) + 24)});
+        return 0;
     case 32: return uint32_t(sounds_.add(str(0, 256))); // S_RegisterSound(name)
+    case 33: // S_StartBackgroundTrack(intro, loop)
+        if (soundSystem)
+            soundSystem->startBackgroundTrack(str(0, 256), str(1, 256));
+        return 0;
     case 34: case 35: case 36: case 37: return 0;       // force feedback: none
     // The renderer: what's registered and drawn is recorded.
     case 38: return 0; // R_LoadWorldMap(name)
@@ -817,7 +846,15 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
     case 63: clientWeapon_ = uint8_t(a(0)); return 0; // SetUserCmdValue(weapon, sensitivity)
     case 64: return 16u << 20;                        // MemoryRemaining()
     case 65: case 66: case 67: case 68: case 69: return 0; // ambient sound sets: not yet
-    case 70: c.fpuPush(0.0); return 0;                // S_GetSampleLength(sfx): a float, in ST(0)
+    case 70: { // S_GetSampleLength(sfx): milliseconds, a float in ST(0), as the original's
+        double ms = 0;
+        const std::string& name = sounds_.name(int32_t(a(0)));
+        if (!name.empty())
+            if (auto sound = soundLibrary_.get(name); sound && sound->rate > 0)
+                ms = double(sound->frames()) / double(sound->rate) * 1000.0;
+        c.fpuPush(ms);
+        return 0;
+    }
     default: ++cgameUnhandled_[number]; return 0;
     }
 }
@@ -1096,6 +1133,18 @@ Error SpGameHost::drawClientFrame(int32_t time) {
     scene_ = {};
     pictures_.clear();
     return e;
+}
+
+bool SpGameHost::cameraPosition(Vec3f& at) {
+    if (!cgameRunning_)
+        return false;
+    const uint32_t v = process_->memory().alloc(16);
+    uint32_t on = 0;
+    if (Error e = cpu_->call(cgameVmMain_, {CgCameraPos, v}, on))
+        on = 0;
+    at = readVec(v);
+    process_->memory().free(v);
+    return on != 0;
 }
 
 Error SpGameHost::clientConsoleCommand(const std::string& text) {

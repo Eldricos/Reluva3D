@@ -12,6 +12,8 @@
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/scene.h"
 #include "engines/idtech3/md3.h"
+#include "engines/idtech3/sound_system.h"
+#include "engines/idtech3/sounds.h"
 #include "engines/idtech3/vm_services.h"
 
 #include <array>
@@ -125,6 +127,9 @@ public:
     // game's if it knows it, else sent to the server game (ClientCommand),
     // as the original engine does.
     Error clientConsoleCommand(const std::string& text);
+    // Whether the client game's camera (a scripted sequence's) is running,
+    // and where it is (CG_CAMERA_POS).
+    bool cameraPosition(Vec3f& at);
     // The weapon the client game has chosen (SetUserCmdValue), for commands.
     uint8_t weaponSelect() const { return clientWeapon_; }
     bool clientGameRunning() const { return cgameRunning_; }
@@ -168,6 +173,11 @@ public:
     x86::Win32Process& process() { return *process_; }
     const x86::Win32Process::Module* module() const { return module_; }
 
+    // Where the client game's sounds play (none: silent; their lengths are
+    // still known, for the game's timing).
+    SoundSystem* soundSystem = nullptr;
+    SoundLibrary& soundLibrary() { return soundLibrary_; }
+
     // What the game prints (Printf).
     std::function<void(const std::string&)> print;
     // Each call the game makes to the engine: its slot and the address it
@@ -208,6 +218,7 @@ private:
 
     const SearchSet& files_;
     CvarStore& cvars_;
+    SoundLibrary soundLibrary_{files_};
     std::unique_ptr<x86::Cpu> cpu_;
     std::unique_ptr<x86::Win32Process> process_;
     const x86::Win32Process::Module* module_ = nullptr;

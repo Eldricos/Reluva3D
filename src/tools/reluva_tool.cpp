@@ -3751,13 +3751,13 @@ int cmdX86Run(int argc, char** argv) {
 int cmdSpRun(int argc, char** argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] "
-                             "[-set name value]... [-trace] [-noclient] [-cgame]\n");
+                             "[-set name value]... [-trace] [-noclient] [-cgame] [-watch]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
     int frames = 20;
-    bool traceCalls = false, noClient = false, runCgame = false;
+    bool traceCalls = false, noClient = false, runCgame = false, watch = false;
     std::string dllPath;
     std::vector<std::pair<std::string, std::string>> settings;
     for (int i = 4; i < argc; ++i) {
@@ -3771,6 +3771,8 @@ int cmdSpRun(int argc, char** argv) {
             noClient = true;
         else if (std::strcmp(argv[i], "-cgame") == 0)
             runCgame = true;
+        else if (std::strcmp(argv[i], "-watch") == 0)
+            watch = runCgame = true;
         else if (std::strcmp(argv[i], "-set") == 0 && i + 2 < argc) {
             settings.emplace_back(argv[i + 1], argv[i + 2]);
             i += 2;
@@ -3903,6 +3905,41 @@ int cmdSpRun(int argc, char** argv) {
                 return failed(("command " + std::to_string(f + 1)).c_str(), e);
             if (reluva::Error e = game.drawClientFrame(game.levelTime()))
                 return failed(("client frame " + std::to_string(f + 1)).c_str(), e);
+            // Once a second of the level: the camera, the view, the player.
+            if (watch && game.levelTime() % 1000 == 0) {
+                reluva::x86::Cpu& cpu = game.cpu();
+                auto f = [&cpu](uint32_t at) {
+                    const uint32_t u = cpu.read32(at);
+                    float v;
+                    std::memcpy(&v, &u, 4);
+                    return v;
+                };
+                auto bytesFloat = [](const std::vector<uint8_t>& b, size_t at) {
+                    float v = 0;
+                    if (at + 4 <= b.size())
+                        std::memcpy(&v, b.data() + at, 4);
+                    return v;
+                };
+                reluva::idtech3::Vec3f cam{};
+                const bool camera = game.cameraPosition(cam);
+                std::string view = "no view";
+                if (!game.scene().views.empty()) {
+                    const auto& r = game.scene().views[0].refdef;
+                    char b[96];
+                    std::snprintf(b, sizeof b, "view at %.0f %.0f %.0f", bytesFloat(r, 24), bytesFloat(r, 28),
+                                  bytesFloat(r, 32));
+                    view = b;
+                }
+                const uint32_t ps = uint32_t(game.entityInt(0, ef::SpEntityLayout{}.client));
+                std::printf("[%5d ms] camera %s (%.0f %.0f %.0f); %s; player at %.0f %.0f %.0f, pm_type %d; "
+                            "%zu scene entities, %zu pictures; cg_thirdPerson %s\n",
+                            game.levelTime(), camera ? "on" : "off", cam[0], cam[1], cam[2], view.c_str(), f(ps + 20),
+                            f(ps + 24), f(ps + 28), int(cpu.read32(ps + 4)), game.scene().entities.size(),
+                            game.pictures().size(), cvars.string("cg_thirdPerson").c_str());
+                static size_t commandsShown = 0;
+                for (; commandsShown < game.consoleCommands().size(); ++commandsShown)
+                    std::printf("           console command: %s", game.consoleCommands()[commandsShown].c_str());
+            }
         }
     }
     if (game.clientGameRunning()) {
@@ -4037,6 +4074,7 @@ int cmdGameRun(int argc, char** argv) {
             noClient = true;
         else if (std::strcmp(argv[i], "-cgame") == 0)
             runCgame = true;
+
         else if (std::strcmp(argv[i], "-fire") == 0)
             fireButtons |= 1;
         else if (std::strcmp(argv[i], "-altfire") == 0)

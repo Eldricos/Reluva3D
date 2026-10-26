@@ -533,6 +533,8 @@ private:
     int frameW_ = 960, frameH_ = 720;
     CvarStore& cvars_ = ctx_.cvars;
     std::unique_ptr<eliteforce::SpGameHost> game_;
+    SoundLibrary soundLibrary_{ctx_.files};
+    std::unique_ptr<SoundSystem> soundSystem_; // while a level runs, with audio output
     Surface overlay_;
     std::string error_;
     bool showInfo_ = true;
