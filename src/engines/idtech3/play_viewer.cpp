@@ -339,6 +339,7 @@ void PlayViewer::startHosting() {
     }
     server_ = std::make_unique<eliteforce::NetServer>(*game_, cvars_, std::move(socket));
     server_->print = [this](const std::string& text) { addPrint(text, false); };
+    server_->resolveHost = [this](const std::string& host, uint32_t& ip) { return ctx_.sys.resolveHost(host, ip); };
     server_->reserve(0);
     server_->levelStarted();
     addPrint("Open to other players on port " + std::to_string(server_->port()) + "\n", false);

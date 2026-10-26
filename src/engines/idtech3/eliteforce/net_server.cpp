@@ -6,6 +6,7 @@
 #include "engines/idtech3/bindings.h"
 #include "engines/idtech3/eliteforce/net_fields.h"
 #include "engines/idtech3/info_string.h"
+#include "engines/idtech3/server_browser.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -61,10 +62,34 @@ NetServer::NetServer(GameHost& game, CvarStore& cvars, std::unique_ptr<reluva::n
 
 NetServer::~NetServer() {
     // As the original when it shuts down: a last message to everyone,
-    // telling them it's gone.
+    // telling them it's gone; and two heartbeats, so the masters ask, get
+    // no answer and drop it.
     for (Client& c : clients_)
         if (c.state >= State::Connected)
             finalMessage(c, "Server shut down", lastNow_);
+    heartbeat(lastNow_, true);
+    heartbeat(lastNow_, true);
+}
+
+void NetServer::heartbeat(uint64_t now, bool force) {
+    // Only a public Internet server (dedicated 2) tells the masters it's
+    // there, as the original: every 5 minutes, in Elite Force's words.
+    if (cvars_.integer("dedicated") != 2 || !resolveHost || (!force && now < nextHeartbeat_))
+        return;
+    nextHeartbeat_ = now + 300000;
+    if (!mastersResolved_) {
+        mastersResolved_ = true;
+        for (const std::string& name : masterServerNames(cvars_)) {
+            const auto [host, port] = reluva::net::splitHostPort(name, ServerBrowser::kMasterPort);
+            uint32_t ip = 0;
+            if (resolveHost(host, ip))
+                masters_.push_back({ip, port});
+            else if (print)
+                print("Couldn't find the master server " + name + "\n");
+        }
+    }
+    for (const reluva::net::Address& m : masters_)
+        sendText(m, "\\heartbeat\\" + std::to_string(port()) + "\\gamename\\STEF1\\");
 }
 
 void NetServer::finalMessage(Client& c, const std::string& reason, uint64_t now) {
@@ -584,6 +609,18 @@ Error NetServer::frame(uint64_t now) {
             if (c.state == State::Primed)
                 c.state = State::Active;
         }
+    }
+    // The masters are told at once when the server empties, gets its first
+    // player or fills up, and every 5 minutes besides.
+    {
+        const int maxClients = std::clamp(cvars_.integer("sv_maxclients"), 1, 64);
+        int players = 0;
+        for (int32_t n = 0; n < maxClients; ++n)
+            players += !game_.clientSlotFree(n);
+        const bool changed = lastPlayerCount_ >= 0 && players != lastPlayerCount_ &&
+                             (players == 0 || lastPlayerCount_ == 0 || players == maxClients);
+        heartbeat(now, lastPlayerCount_ < 0 || changed);
+        lastPlayerCount_ = players;
     }
     const uint64_t timeoutMs = uint64_t(std::max(1, cvars_.integer("sv_timeout"))) * 1000;
     const int32_t levelTime = game_.levelTime();

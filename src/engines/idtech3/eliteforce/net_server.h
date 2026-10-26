@@ -63,6 +63,9 @@ public:
     // The players connected over the network: their slot and name.
     std::vector<std::pair<int32_t, std::string>> players() const;
     std::function<void(const std::string&)> print;
+    // Turns a master server's name into its address (for the heartbeats a
+    // public server, dedicated 2, sends them); unset: none are sent.
+    std::function<bool(const std::string& host, uint32_t& ip)> resolveHost;
 
     static constexpr int kPacketBackup = 32;
     static constexpr int kMaxReliable = 64;
@@ -115,6 +118,11 @@ private:
     void drop(Client& c, const std::string& reason, uint64_t now);
     void finalMessage(Client& c, const std::string& reason, uint64_t now);
     void noteServerId();
+    void heartbeat(uint64_t now, bool force);
+    std::vector<reluva::net::Address> masters_;
+    bool mastersResolved_ = false;
+    uint64_t nextHeartbeat_ = 0;
+    int lastPlayerCount_ = -1;
     void applyUserinfo(Client& c);
     Client* clientFor(const reluva::net::Address& from, uint16_t qport);
 

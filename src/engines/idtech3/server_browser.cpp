@@ -29,6 +29,56 @@ void ServerBrowser::localServers(uint64_t now) {
         }
 }
 
+void ServerBrowser::globalServers(const std::vector<net::Address>& masters, int protocol, const std::string& keywords) {
+    global_.clear();
+    masters_ = masters;
+    for (const net::Address& m : masters)
+        send(m, "getservers " + std::to_string(protocol) + (keywords.empty() ? "" : " " + keywords));
+}
+
+std::string ServerBrowser::globalServerAddress(int n) const {
+    return n >= 0 && n < int(global_.size()) ? global_[size_t(n)].toString() : std::string();
+}
+
+std::vector<net::Address> ServerBrowser::serversFromResponse(const std::vector<uint8_t>& d) {
+    static const char kWord[] = "getserversResponse";
+    const size_t wordLength = sizeof kWord - 1;
+    std::vector<net::Address> out;
+    if (d.size() < 4 + wordLength || std::memcmp(d.data(), "\xff\xff\xff\xff", 4) != 0 ||
+        std::memcmp(d.data() + 4, kWord, wordLength) != 0)
+        return out;
+    auto hex = [](uint8_t c) -> int {
+        if (c >= '0' && c <= '9')
+            return c - '0';
+        if (c >= 'a' && c <= 'f')
+            return c - 'a' + 10;
+        if (c >= 'A' && c <= 'F')
+            return c - 'A' + 10;
+        return -1;
+    };
+    size_t i = 4 + wordLength;
+    while (i < d.size() && d[i] != '\\')
+        ++i;
+    // Entries until one doesn't parse (the end, however the master marks it).
+    while (i + 13 <= d.size() && d[i] == '\\') {
+        uint8_t bytes[6];
+        bool ok = true;
+        for (int b = 0; b < 6 && ok; ++b) {
+            const int hi = hex(d[i + 1 + 2 * size_t(b)]), lo = hex(d[i + 2 + 2 * size_t(b)]);
+            ok = hi >= 0 && lo >= 0;
+            bytes[b] = uint8_t(hi << 4 | lo);
+        }
+        if (!ok)
+            break;
+        net::Address a{uint32_t(bytes[0]) << 24 | uint32_t(bytes[1]) << 16 | uint32_t(bytes[2]) << 8 | bytes[3],
+                       uint16_t(bytes[4] << 8 | bytes[5])};
+        if (a.ip && a.port)
+            out.push_back(a);
+        i += 13;
+    }
+    return out;
+}
+
 void ServerBrowser::ping(const net::Address& address, uint64_t now) {
     // A free slot, else one answered or given up on, else the oldest.
     Ping* slot = nullptr;
@@ -76,6 +126,12 @@ void ServerBrowser::update(uint64_t now) {
     net::Address from;
     std::vector<uint8_t> data;
     while (socket_->receive(from, data)) {
+        if (std::find(masters_.begin(), masters_.end(), from) != masters_.end()) {
+            for (const net::Address& a : serversFromResponse(data))
+                if (std::find(global_.begin(), global_.end(), a) == global_.end() && global_.size() < kMaxGlobalServers)
+                    global_.push_back(a);
+            continue;
+        }
         const std::string info = infoFromResponse(data);
         if (info.empty())
             continue;
@@ -119,6 +175,18 @@ void ServerBrowser::getPing(int n, uint64_t now, int maxPing, std::string& addre
 
 std::string ServerBrowser::pingInfo(int n) const {
     return n >= 0 && n < kMaxPings && pings_[n].used ? pings_[n].info : std::string();
+}
+
+std::vector<std::string> masterServerNames(CvarStore& cvars) {
+    cvars.create("sv_master1", "master.stef1.ravensoft.com", 0);
+    cvars.create("sv_master2", "efmaster.tjps.eu", CvarStore::Archive);
+    std::vector<std::string> out;
+    for (int i = 1; i <= 5; ++i) {
+        const std::string name = cvars.string("sv_master" + std::to_string(i));
+        if (!name.empty())
+            out.push_back(name);
+    }
+    return out;
 }
 
 } // namespace reluva::idtech3

@@ -1935,6 +1935,26 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
         got.clear();
         play(10);
         CHECK(!got.empty() && game.linked().count(4) && client.state() == ef::NetClient::State::Active);
+        // A public server (dedicated 2) tells the masters it's there.
+        auto master = network->open(27953);
+        cvars.set("sv_master1", "127.0.0.1");
+        cvars.set("sv_master2", "");
+        cvars.create("dedicated", "0", 0);
+        cvars.set("dedicated", "2");
+        server.resolveHost = [](const std::string& host, uint32_t& ip) {
+            net::Address a;
+            if (!net::parseAddress(host, 0, a))
+                return false;
+            ip = a.ip;
+            return true;
+        };
+        CHECK(!server.frame(now));
+        net::Address from;
+        std::vector<uint8_t> beat;
+        CHECK(master->receive(from, beat) &&
+              std::string(beat.begin() + 4, beat.end()) == "\\heartbeat\\27960\\gamename\\STEF1\\");
+        CHECK(!server.frame(now + 1000) && !master->receive(from, beat)); // not again for 5 minutes
+        cvars.set("dedicated", "0");
     }
     // Leaving.
     network->setDropFilter(nullptr);
@@ -2534,6 +2554,18 @@ static void testServerBrowser() {
     browser.ping({0x7f000001u, 27999}, 3000);
     browser.getPing(0, 3900, 800, address, time);
     CHECK(time == 900);
+    // The Internet list: a master asked, its answer (Elite Force's: each
+    // address in hexadecimal) taken.
+    auto master = network->open(27953);
+    browser.globalServers({{0x7f000001u, 27953}}, 24, "");
+    CHECK(master->receive(from, data) && std::string(data.begin() + 4, data.end()) == "getservers 24");
+    const std::string list = "getserversResponse\\C0A80105" "6D38\\0A000002" "6D39\\EOT";
+    std::vector<uint8_t> answer(4, 0xff);
+    answer.insert(answer.end(), list.begin(), list.end());
+    master->send(from, answer);
+    browser.update(5000);
+    CHECK(browser.globalServerCount() == 2 && browser.globalServerAddress(0) == "192.168.1.5:27960" &&
+          browser.globalServerAddress(1) == "10.0.0.2:27961");
     // Quake III's form, on the next line.
     std::vector<uint8_t> q3(4, 0xff);
     const std::string text = "infoResponse\n\\hostname\\Q3\n";

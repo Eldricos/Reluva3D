@@ -7,6 +7,7 @@
 
 #include "common/fs.h"
 
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <string>
@@ -99,6 +100,10 @@ Error UiHost::load() {
         return Error::fail("vm/ui.qvm: " + err.message);
     if (Error err = vm_.load(data))
         return Error::fail("vm/ui.qvm: " + err.message);
+    // The engine's settings the server list reads: its protocol, and the
+    // master servers.
+    cvars_.create("protocol", "24", CvarStore::ServerInfo | CvarStore::ReadOnly);
+    masterServerNames(cvars_);
     int32_t version = 0;
     if (Error err = call(GetApiVersion, {}, version))
         return err;
@@ -209,6 +214,28 @@ bool UiHost::browserCommand(const std::string& line) {
     const std::string verb = fs::toLower(words[0]);
     if (verb == "localservers") {
         browser->localServers(now);
+        return true;
+    }
+    if (verb == "globalservers") {
+        // globalservers <master> <protocol> [keywords]: Elite Force numbers
+        // the masters from 0 (sv_master1); Raven's being gone, 0 asks
+        // every master set (sv_master2 is the community's).
+        const int master = words.size() > 1 ? std::atoi(words[1].c_str()) : 0;
+        const int protocol = words.size() > 2 && std::atoi(words[2].c_str()) ? std::atoi(words[2].c_str()) : 24;
+        std::string keywords;
+        for (size_t i = 3; i < words.size(); ++i)
+            keywords += (keywords.empty() ? "" : " ") + words[i];
+        const std::vector<std::string> names = masterServerNames(cvars_);
+        std::vector<net::Address> masters;
+        for (size_t i = 0; i < names.size(); ++i) {
+            if (master > 0 && cvars_.string("sv_master" + std::to_string(master + 1)) != names[i])
+                continue;
+            const auto [host, port] = net::splitHostPort(names[i], ServerBrowser::kMasterPort);
+            uint32_t ip = 0;
+            if (resolveHost && resolveHost(host, ip))
+                masters.push_back({ip, port});
+        }
+        browser->globalServers(masters, protocol, keywords);
         return true;
     }
     if (verb == "ping" && words.size() >= 2) {
@@ -371,8 +398,10 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case LanGetLocalServerAddressString:
         vm.writeString(a[1], browser ? browser->localServerAddress(a[0]) : std::string(), a[2]);
         return 0;
-    case LanGetGlobalServerCount: return 0; // the master servers aren't asked yet
-    case LanGetGlobalServerAddressString: vm.writeString(a[1], "", a[2]); return 0;
+    case LanGetGlobalServerCount: return browser ? browser->globalServerCount() : 0;
+    case LanGetGlobalServerAddressString:
+        vm.writeString(a[1], browser ? browser->globalServerAddress(a[0]) : std::string(), a[2]);
+        return 0;
     case LanGetPingQueueCount: return browser ? browser->pingQueueCount() : 0;
     case LanClearPing:
         if (browser)

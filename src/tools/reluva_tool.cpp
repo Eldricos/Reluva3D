@@ -3320,7 +3320,7 @@ int cmdNetRun(int argc, char** argv) {
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool net-run <game folder> <map> [seconds] [-port N] [-addbot <name>]...\n"
+        std::fprintf(stderr, "usage: reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-addbot <name>]...\n"
                              "       reluva-tool net-run <game folder> -join <host[:port]> [seconds] [-name <name>]\n");
         return 1;
     }
@@ -3335,6 +3335,7 @@ int cmdNetRun(int argc, char** argv) {
     int seconds = 60, port = 27960;
     std::string name = "ReluvaTool";
     std::vector<std::string> bots;
+    bool publicServer = false; // dedicated 2: listed with the master servers
     for (int i = join ? 5 : 4; i < argc; ++i) {
         if (std::strcmp(argv[i], "-port") == 0 && i + 1 < argc)
             port = std::atoi(argv[++i]);
@@ -3342,6 +3343,8 @@ int cmdNetRun(int argc, char** argv) {
             name = argv[++i];
         else if (std::strcmp(argv[i], "-addbot") == 0 && i + 1 < argc)
             bots.emplace_back(argv[++i]);
+        else if (std::strcmp(argv[i], "-public") == 0)
+            publicServer = true;
         else if (argv[i][0] != '-')
             seconds = std::max(1, std::atoi(argv[i]));
         else
@@ -3428,6 +3431,8 @@ int cmdNetRun(int argc, char** argv) {
     }
     cvars.set("g_holoIntro", "0");
     cvars.create("dedicated", "1", 0);
+    if (publicServer)
+        cvars.set("dedicated", "2");
     ef::GameHost game(set, cvars);
     game.print = [](const std::string& text) {
         std::printf("game: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
@@ -3449,6 +3454,7 @@ int cmdNetRun(int argc, char** argv) {
     }
     ef::NetServer server(game, cvars, std::move(socket));
     server.print = [](const std::string& text) { std::printf("server: %s", text.c_str()); };
+    server.resolveHost = [](const std::string& host, uint32_t& ip) { return reluva::net::resolveSystemHost(host, ip); };
     server.levelStarted();
     std::printf("hosting %s on port %u for %d s\n", map.c_str(), server.port(), seconds);
     const int32_t startTime = game.levelTime();
@@ -4733,7 +4739,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -syscalls <first> <last> | -func <instruction> | -blockcopies | -fields <address>\n"
                  "  reluva-tool net-find [host[:port]]\n"
                  "  reluva-tool pk3-sums <game folder> [feed]\n"
-                 "  reluva-tool net-run <game folder> <map> [seconds] [-port N] [-addbot name]... | -join <host[:port]> [seconds] [-name name]\n"
+                 "  reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-addbot name]... | -join <host[:port]> [seconds] [-name name]\n"
                  "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n"
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif
