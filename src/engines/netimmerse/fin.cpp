@@ -106,8 +106,9 @@ struct Reader {
 };
 
 // NiObjectNET: the name, extra data written inline (each its class name
-// and fields), then a byte.
-std::string readObjectNet(Reader& r) {
+// and fields), then a byte of flags. Bit 0 hides an object (and what's
+// under it): it's set only on effects shown on events.
+std::string readObjectNet(Reader& r, uint8_t* flags = nullptr) {
     std::string name = r.string();
     const uint32_t extras = r.u32();
     for (uint32_t i = 0; i < extras && r.ok; ++i) {
@@ -119,7 +120,9 @@ std::string readObjectNet(Reader& r) {
         else
             r.ok = false;
     }
-    r.u8();
+    const uint8_t f = r.u8();
+    if (flags)
+        *flags = f;
     return name;
 }
 
@@ -149,7 +152,9 @@ void skipBoundingVolume(Reader& r, int depth = 0) {
 
 // NiAVObject's fields after NiObjectNET's.
 void readAvObject(Reader& r, FinAvObject& o) {
-    o.name = readObjectNet(r);
+    uint8_t flags = 0;
+    o.name = readObjectNet(r, &flags);
+    o.hidden = (flags & 1) != 0;
     r.floats(o.translation.data(), 3);
     r.floats(o.rotation.data(), 9);
     o.scale = r.f32();
@@ -210,6 +215,31 @@ void readShape(Reader& r, FinShape& s, bool corona = false) {
     }
     if (std::any_of(s.triangles.begin(), s.triangles.end(), [&](uint16_t i) { return i >= nv; }))
         r.ok = false;
+}
+
+// Ni3dsSkin: a shape, two bytes (1 and 1), then for each vertex the number
+// of its influences (16 bits) and each: weight, position in the bone's
+// space (3 floats), the bone's id.
+void readSkin(Reader& r, FinSkin& s) {
+    readShape(r, s);
+    r.skip(2);
+    s.firstInfluence.reserve(size_t(s.vertexCount) + 1);
+    for (uint16_t v = 0; v < s.vertexCount && r.ok; ++v) {
+        s.firstInfluence.push_back(uint32_t(s.influences.size()));
+        const uint16_t n = r.u16();
+        if (n > 16) {
+            r.ok = false;
+            break;
+        }
+        for (uint16_t i = 0; i < n; ++i) {
+            FinSkin::Influence in;
+            in.weight = r.f32();
+            r.floats(in.offset.data(), 3);
+            in.bone = r.u32();
+            s.influences.push_back(in);
+        }
+    }
+    s.firstInfluence.push_back(uint32_t(s.influences.size()));
 }
 
 uint32_t le32(const uint8_t* p) { return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24; }
@@ -297,6 +327,8 @@ Error FinFile::parse(const std::vector<uint8_t>& data) {
             readNode(r, nodes[info.id], extra->second);
         } else if (type == "NiTriShape" || type == "NiEnvMappedTriShape") {
             readShape(r, shapes[info.id]);
+        } else if (type == "Ni3dsSkin") {
+            readSkin(r, skins[info.id]);
         } else if (type == "DDCorona") {
             readShape(r, coronas[info.id], true);
         } else if (type == "NiMaterialProperty") {

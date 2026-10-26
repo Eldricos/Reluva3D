@@ -11,7 +11,9 @@
 // Models:   every .FIN model in 3D. Left/Right step, PageUp/PageDown jump
 //           10; drag to turn, wheel or +/- to zoom, W/A/S/D/Q/E to move
 //           the centre, T for textures, L for lightmaps, B for a level's
-//           sky, R to reset the view, I to show or hide the info.
+//           sky, H for the hidden effects (sparks, stars...) and the
+//           characters' far-away stand-ins, R to reset the view, I to
+//           show or hide the info.
 // Textures: every image. Left/Right step, PageUp/PageDown jump 10,
 //           Home/End; F picks the archive.
 // Sounds:   every sound. Left/Right (or Up/Down) step, PageUp/PageDown
@@ -118,6 +120,8 @@ private:
     gfx::Vec3 centre_{}, home_{};
     float radius_ = 1, yaw_ = 0.8f, pitch_ = 0.5f, distance_ = 1;
     bool dragging_ = false, showInfo_ = true, useTextures_ = true, useLightmaps_ = true, showBackdrop_ = true;
+    bool showHidden_ = false; // the effects the game shows on events
+    unsigned hiddenCount_ = 0;
     int lastX_ = 0, lastY_ = 0;
 };
 

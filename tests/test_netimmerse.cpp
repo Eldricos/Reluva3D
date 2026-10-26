@@ -262,13 +262,14 @@ struct FinWriter {
         str(type);
         put32(b, id);
     }
-    void objectNet(const std::string& name) {
+    void objectNet(const std::string& name, uint8_t flags = 0) {
         str(name);
         put32(b, 0); // no extra data
-        b.push_back(0);
+        b.push_back(flags);
     }
-    void avObject(const std::string& name, std::array<float, 3> t, std::vector<uint32_t> props, bool box) {
-        objectNet(name);
+    void avObject(const std::string& name, std::array<float, 3> t, std::vector<uint32_t> props, bool box,
+                  uint8_t flags = 0) {
+        objectNet(name, flags);
         for (float f : t)
             putFloat(b, f);
         for (float f : {1.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 1.f, 2.f}) // rotation, scale 2
@@ -341,9 +342,35 @@ std::vector<uint8_t> buildFin() {
     for (int i = 0; i < 4; ++i)
         putFloat(w.b, 0);
     w.b.insert(w.b.end(), {0, 0, 1, 0, 2, 0});
+    // A skin: a shape with two vertices on bone 0x100 and one with no
+    // influence (as no retail file has, but allowed), no triangles.
+    w.object("Ni3dsSkin", 0x600);
+    w.avObject("Skin", {0, 0, 0}, {}, false);
+    w.b.insert(w.b.end(), {3, 0});
+    put32(w.b, 0xdddd);
+    for (int i = 0; i < 9; ++i)
+        putFloat(w.b, 0);
+    put32(w.b, 0); // no normals
+    for (int i = 0; i < 4; ++i)
+        putFloat(w.b, 0);
+    w.b.insert(w.b.end(), {0, 0, 0, 0}); // no triangles, no uv sets
+    put32(w.b, 0);
+    put32(w.b, 0);
+    put32(w.b, 0);
+    w.b.insert(w.b.end(), {1, 1});
+    for (int v = 0; v < 3; ++v) {
+        const uint16_t n = v < 2 ? 1 : 0;
+        w.b.insert(w.b.end(), {uint8_t(n), 0});
+        if (n) {
+            putFloat(w.b, 1);
+            for (float f : {float(v), 2.f, 3.f})
+                putFloat(w.b, f);
+            put32(w.b, 0x100);
+        }
+    }
     w.object("NiNode", 0x100);
-    w.avObject("Holder", {5, 0, 0}, {}, true);
-    w.nodeTail({0x200});
+    w.avObject("Holder", {5, 0, 0}, {}, true, 1); // hidden
+    w.nodeTail({0x200, 0x600});
     w.str("Top Level Object");
     w.object("NiLODNode", 0x50);
     w.avObject("Lod", {0, 0, 0}, {}, false);
@@ -360,11 +387,16 @@ void testFin() {
     FinFile f;
     CHECK(!f.parse(data));
     CHECK(f.roots() == std::vector<uint32_t>({0x50}));
-    CHECK(f.objects().size() == 6);
+    CHECK(f.objects().size() == 7);
     for (const auto& o : f.objects())
         CHECK(o.read && o.exact);
     CHECK(f.nodes.size() == 2 && f.nodes[0x50].levelsOfDetail && f.nodes[0x50].children == std::vector<uint32_t>({0x100}));
     CHECK(f.nodes[0x100].name == "Holder" && f.nodes[0x100].translation[0] == 5 && f.nodes[0x100].scale == 2);
+    CHECK(f.nodes[0x100].hidden && !f.nodes[0x50].hidden && !f.shapes[0x200].hidden);
+    const FinSkin& skin = f.skins[0x600];
+    CHECK(skin.vertexCount == 3 && skin.firstInfluence == std::vector<uint32_t>({0, 1, 2, 2}));
+    CHECK(skin.influences.size() == 2 && skin.influences[1].bone == 0x100 && skin.influences[1].offset[0] == 1 &&
+          skin.influences[1].weight == 1);
     const FinShape& s = f.shapes[0x200];
     CHECK(s.vertexCount == 3 && s.vertices.size() == 9 && s.normals.empty() && s.uvSets == 1 && s.uvw.size() == 9);
     CHECK(s.triangles == std::vector<uint16_t>({0, 1, 2}) && s.properties == std::vector<uint32_t>({0x300, 0x400}));
@@ -388,7 +420,7 @@ void testFin() {
 
     // A triangle pointing past the vertices: the shape isn't exact.
     bad = data;
-    bad[std::string(data.begin(), data.end()).find("NiNode") - 4 - 2] = 9;
+    bad[std::string(data.begin(), data.end()).find("Ni3dsSkin") - 4 - 2] = 9;
     CHECK(!f.parse(bad) && !f.objects()[3].exact);
 }
 

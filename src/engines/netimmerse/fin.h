@@ -25,6 +25,9 @@ namespace reluva::netimmerse {
 // NiAVObject: anything placed in the scene.
 struct FinAvObject {
     std::string name;
+    // Not drawn until the game shows it: effects such as sparks,
+    // explosions and a stunned agent's stars.
+    bool hidden = false;
     std::array<float, 3> translation{};
     std::array<float, 9> rotation{1, 0, 0, 0, 1, 0, 0, 0, 1}; // row by row
     float scale = 1;
@@ -57,6 +60,20 @@ struct FinMaterial {
     float glossiness = 0, alpha = 1;
 };
 
+// Ni3dsSkin: a shape whose vertices follow bones. Each vertex has its
+// influences: a bone, a weight and the vertex's position in the bone's
+// space. (In the retail models every vertex has one, of weight 1.) The
+// shape's own vertices are where they were when modelled.
+struct FinSkin : FinShape {
+    struct Influence {
+        uint32_t bone = 0; // id of an Ni3dsBone
+        float weight = 1;
+        std::array<float, 3> offset{};
+    };
+    std::vector<uint32_t> firstInfluence; // per vertex, into influences; one more at the end
+    std::vector<Influence> influences;
+};
+
 // NiAlphaProperty. Blend factors as NetImmerse numbers them (6 source
 // alpha, 7 one minus source alpha...).
 struct FinAlpha {
@@ -84,6 +101,7 @@ public:
     std::map<uint32_t, FinNode> nodes;
     std::map<uint32_t, FinShape> shapes;
     std::map<uint32_t, FinShape> coronas; // DDCorona: glows, with vertices but no triangles
+    std::map<uint32_t, FinSkin> skins;
     std::map<uint32_t, FinMaterial> materials;
     std::map<uint32_t, FinAlpha> alphas;
     std::map<uint32_t, std::vector<uint32_t>> textures;  // NiTextureProperty: its images' ids (frames)

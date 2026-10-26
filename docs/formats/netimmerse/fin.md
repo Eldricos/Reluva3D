@@ -13,7 +13,7 @@ This is how the layout was worked out:
 - **The rule for the field before the collision volume.** It came from
   where 1 to 5 fields failed to fit.
 - **Testing each hypothesis.** Each one was tested by whether every object
-  of the class then ended exactly where the next began. All 20 classes that
+  of the class then ended exactly where the next began. All 21 classes that
   are read now do so for every object in every file. `reluva-tool fin-check`
   repeats the check, and also checks that every link points at an object of
   the right kind and that every image named is in the archives.
@@ -59,7 +59,11 @@ it follows.
     animator;
   - `TexturePropExtraData`, on textures: a number, a link to its
     `NiFlipTextures`, and a number;
-- a byte: 0, but 1 on `NiImage`.
+- a byte of flags. Bit 0 hides the object and everything under it. It's
+  set on 266 nodes, and the names of every one of them are effects shown
+  on events: "Effect group" sparks, explosions, coronas, "lights on", a
+  stunned agent's "stars". It's clear everywhere else. `NiImage` has 1
+  here, meaning something else for an image.
 
 **NiAVObject** (nodes and shapes), after those:
 
@@ -102,13 +106,20 @@ What each subclass adds after NiNode's fields:
 
 | Class | Count | Adds |
 |---|---|---|
-| `NiBillboardNode` | 909 | a number (1): the billboard mode |
+| `NiBillboardNode` | 909 | a number (1): the billboard mode. The viewer turns the node's +Z axis to the camera, which is how its quads lie: they're flat in X and Y |
 | `NiLODNode` | 64 | 5 bytes, the number of levels (one per child), 20 bytes for each level (its distances), a byte |
 | `Ni3dsAnimationNode`, `Ni3dsBone` | 860, 213 | 48 bytes of animation settings |
 | `DDUnit` | 93 | a link, *guess*: to the model's `DDActorSharedData` |
 | `DDEnv` | 54 | a link, as `DDUnit`'s; the root of every level |
 
 A level's sky is under a node named `Exterior` (holding `Backdrop`).
+
+The characters have, on each arm and leg bone, a node named `LOD_RArm1`,
+`LOD_LLeg2` and so on, over a billboard of one flat quad. Their textures
+are `LodBlack.tga`, `LodRed.tga` and the like: plain colours. *Guess*:
+stand-ins for a character far away, which the game switches to itself, as
+nothing in the file marks them. The viewer leaves them out with the hidden
+effects.
 
 ## Shapes
 
@@ -133,6 +144,23 @@ shapes have two coordinate sets: the first for the texture, which tiles,
 and the second, in 0..1, for the lightmap. Texture coordinates are used
 as they are: v runs down the image, as the TGA files are decoded (the
 minifigures' faces show the right way up).
+
+**Ni3dsSkin** (82, in the 15 character models): a shape whose vertices
+follow bones, under an "auto geom parent" node. A shape's fields, then:
+- two bytes (1 and 1 in every skin);
+- for each vertex, the number of its influences (16 bits), then each
+  influence:
+  - its weight (a float);
+  - the vertex's position in the bone's space (3 floats);
+  - the bone (a link to an `Ni3dsBone`).
+
+Every vertex of every skin has exactly one influence, of weight 1 (2,960
+vertices), so the skinning is rigid. A vertex goes where its bone's
+placement puts its offset. The shape's own vertices are in the modelled
+pose, with the arms out, while the bones are where the file puts them; the
+two only agree for a vertex near its bone. Drawn this way, all 15
+characters are whole. They stand in the skeleton's rest pose, the agents
+with their arms out, as the game's animation hasn't been applied.
 
 **DDCorona** (215): a glow. A shape's fields up to the vertex colours
 (5 vertices: a square and its centre), then a link and 9 floats of its own
@@ -167,7 +195,8 @@ are stored in the models. All 1,260 names are in `Map.pac`, `LMap.pac` or
 ## Not read yet
 
 `Ni3dsColorAnimator` (439), `Ni3dsAlphaAnimator` (393), `NiFlipTextures`
-(282), `Ni3dsMorphShape` (122), `NiLight` (110), `Ni3dsSkin` (82) and the
-game's `DDActorSharedData` (147, up to 658 KB; it doesn't start with
-NiObjectNET's fields). The reader finds them and skips them. Their links
+(282), `Ni3dsMorphShape` (122: in the E3xxx levels and four units), `NiLight`
+(110) and the game's `DDActorSharedData` (147, up to 658 KB; it doesn't
+start with NiObjectNET's fields). The animation keys are in some of these
+and in the 48 bytes the 3ds nodes add. The reader finds them and skips them. Their links
 are kept, so animation can be added later without changing the rest.

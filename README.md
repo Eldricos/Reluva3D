@@ -96,7 +96,8 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   **Tab** switches between the archives, models, textures, sounds and text. For models,
   **Left/Right** step (**PageUp/PageDown** by 10), drag to turn, the wheel (or **+/-**)
   zooms, **W/A/S/D/Q/E** move, **T**, **L** and **B** turn textures, lightmaps and a
-  level's sky on or off, **R** resets the view and **I** hides the info. For textures,
+  level's sky on or off, **H** shows the hidden effects (sparks, a stunned agent's stars)
+  and the characters' far-away stand-ins, **R** resets the view and **I** hides the info. For textures,
   **Left/Right** step and **F** jumps to the next archive. For sounds, **Up/Down** step,
   **Space** (or **Enter**) plays or stops, **A** plays each as it's selected and **F**
   jumps to the next archive. For text, **Left/Right** pick a file and **Up/Down**,

@@ -58,6 +58,38 @@ gfx::Mat4 localMatrix(const FinAvObject& o) {
 
 constexpr int kFrameW = 640, kFrameH = 480;
 
+// A billboard node's placement turned so its +Z axis points at the camera,
+// with +Y as near the world's up (+Z) as that allows; its position and
+// scale kept.
+gfx::Mat4 facingCamera(const gfx::Mat4& at, const gfx::Vec3& eye) {
+    const gfx::Vec3 origin{at[12], at[13], at[14]};
+    const float scale = std::sqrt(at[0] * at[0] + at[1] * at[1] + at[2] * at[2]);
+    gfx::Vec3 z{eye[0] - origin[0], eye[1] - origin[1], eye[2] - origin[2]};
+    float len = std::sqrt(z[0] * z[0] + z[1] * z[1] + z[2] * z[2]);
+    if (len < 1e-6f)
+        return at;
+    for (float& c : z)
+        c /= len;
+    // x = up x z, unless z is (nearly) straight up or down.
+    gfx::Vec3 x{-z[1], z[0], 0};
+    len = std::sqrt(x[0] * x[0] + x[1] * x[1]);
+    if (len < 1e-4f)
+        x = {1, 0, 0};
+    else
+        x = {x[0] / len, x[1] / len, 0};
+    const gfx::Vec3 y{z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0]};
+    gfx::Mat4 m = gfx::identity();
+    for (size_t r = 0; r < 3; ++r) {
+        m[0 + r] = x[r] * scale;
+        m[4 + r] = y[r] * scale;
+        m[8 + r] = z[r] * scale;
+    }
+    m[12] = origin[0];
+    m[13] = origin[1];
+    m[14] = origin[2];
+    return m;
+}
+
 } // namespace
 
 struct ModelPage::Item {
@@ -69,6 +101,10 @@ struct ModelPage::Item {
     bool vertexColors = false, lit = false;
     bool blend = false;
     bool backdrop = false; // under a level's "Exterior" node: its sky
+    // Under an NiBillboardNode: drawn at billboardAt turned to face the
+    // camera, then `rel` (the placement below the billboard node).
+    bool billboard = false;
+    gfx::Mat4 billboardAt = gfx::identity(), rel = gfx::identity();
     gfx::Blend src = gfx::Blend::One, dst = gfx::Blend::Zero;
 };
 
@@ -175,97 +211,203 @@ void ModelPage::show(int index) {
         }
         return in;
     };
+    // A shape as an item: its vertices placed by `world`, or (a skin's) by
+    // `positions` and `normals`, already in the world.
+    struct Billboard {
+        bool on = false;
+        gfx::Mat4 at = gfx::identity(), rel = gfx::identity();
+    };
+    auto addShape = [&](const FinShape& s, const gfx::Mat4& world, const Inherited& in, bool backdrop,
+                        const std::vector<float>* positions, const std::vector<float>* normals,
+                        const Billboard& billboard) {
+        Item item;
+        item.world = world;
+        item.backdrop = backdrop;
+        item.billboard = billboard.on;
+        item.billboardAt = billboard.at;
+        item.rel = billboard.rel;
+
+        // Images: the texture's first frame, the multi-texture's lightmap.
+        // The texture uses the first uv set, the lightmap the last.
+        if (auto t = model_.textures.find(in.texture); t != model_.textures.end() && !t->second.empty())
+            if (auto img = model_.images.find(t->second.front()); img != model_.images.end())
+                item.texture = img->second;
+        if (auto mt = model_.multiTextures.find(in.multiTexture); mt != model_.multiTextures.end())
+            if (auto img = model_.images.find(mt->second); img != model_.images.end())
+                item.lightmap = img->second;
+        if (auto mat = model_.materials.find(in.material); mat != model_.materials.end()) {
+            item.color = {mat->second.diffuse[0], mat->second.diffuse[1], mat->second.diffuse[2], mat->second.alpha};
+        }
+        if (auto al = model_.alphas.find(in.alpha); al != model_.alphas.end() && al->second.blend) {
+            item.blend = true;
+            item.src = blendOf(al->second.source);
+            item.dst = blendOf(al->second.destination);
+        }
+        const std::vector<float>& pos = positions ? *positions : s.vertices;
+        const std::vector<float>& nrm = normals ? *normals : s.normals;
+        item.vertexColors = !s.colors.empty();
+        item.lit = !item.vertexColors && !nrm.empty();
+        if (item.vertexColors)
+            item.color = {1, 1, 1, item.color[3]};
+
+        const size_t nv = s.vertexCount;
+        const size_t lightSet = s.uvSets ? s.uvSets - 1u : 0;
+        std::vector<gfx::Vertex> verts(nv);
+        for (size_t v = 0; v < nv; ++v) {
+            gfx::Vertex& out = verts[v];
+            for (int k = 0; k < 3; ++k)
+                out.pos[k] = pos[v * 3 + size_t(k)];
+            if (!nrm.empty())
+                for (int k = 0; k < 3; ++k)
+                    out.normal[k] = nrm[v * 3 + size_t(k)];
+            if (s.uvSets) {
+                out.uv[0] = s.uvw[v * 3];
+                out.uv[1] = s.uvw[v * 3 + 1];
+                out.uv2[0] = s.uvw[(lightSet * nv + v) * 3];
+                out.uv2[1] = s.uvw[(lightSet * nv + v) * 3 + 1];
+            }
+            for (int k = 0; k < 4; ++k)
+                out.color[k] = s.colors.empty() ? 255
+                                                : uint8_t(std::clamp(s.colors[v * 4 + size_t(k)], 0.0f, 1.0f) * 255 + 0.5f);
+            const gfx::Vec3 w = gfx::transformPoint(item.world, {out.pos[0], out.pos[1], out.pos[2]});
+            for (int k = 0; k < 3 && !backdrop; ++k) {
+                lo[size_t(k)] = std::min(lo[size_t(k)], w[size_t(k)]);
+                hi[size_t(k)] = std::max(hi[size_t(k)], w[size_t(k)]);
+            }
+        }
+        std::vector<uint32_t> indices(s.triangles.begin(), s.triangles.end());
+        if (renderer_->createMesh(verts, indices, item.mesh))
+            return;
+        meshes_.push_back(item.mesh);
+        item.indexCount = uint32_t(indices.size());
+        for (const std::string* img : {&item.texture, &item.lightmap})
+            if (!img->empty() && !texture(*img)) {
+                ++missing;
+                if (missingNames.size() < 3)
+                    missingNames.push_back(*img);
+            }
+        ++shapes;
+        triangles += uint32_t(indices.size() / 3);
+        items_.push_back(std::move(item));
+    };
+
+    // Every node's place in the world, for the skins' bones; and the skins,
+    // placed once all of them are known (they come before their bones).
+    std::map<uint32_t, gfx::Mat4> worlds;
+    struct PendingSkin {
+        const FinSkin* skin;
+        gfx::Mat4 parent;
+        Inherited in;
+        bool backdrop;
+    };
+    std::vector<PendingSkin> skins;
+    hiddenCount_ = 0;
+
     // The levels' sky is under a node named "Exterior": it's left out of
-    // the view's framing, so the camera starts on the level itself.
-    std::function<void(uint32_t, const gfx::Mat4&, const Inherited&, int, bool)> visit =
-        [&](uint32_t id, const gfx::Mat4& parent, const Inherited& inherited, int depth, bool backdrop) {
+    // the view's framing, so the camera starts on the level itself. Hidden
+    // objects (effects the game shows on events) are left out unless H
+    // shows them; so are the characters' far-away stand-ins: "LOD_..."
+    // nodes over a billboard of a flat limb (textures LodBlack.tga...),
+    // which the game must switch to itself, as nothing in the file says.
+    auto isStandIn = [&](const FinNode& n) {
+        return n.name.rfind("LOD_", 0) == 0 && n.children.size() == 1 &&
+               model_.typeOf(n.children.front()) == "NiBillboardNode";
+    };
+    std::function<void(uint32_t, const gfx::Mat4&, const Inherited&, int, bool, Billboard)> visit =
+        [&](uint32_t id, const gfx::Mat4& parent, const Inherited& inherited, int depth, bool backdrop,
+            Billboard billboard) {
             if (depth > 64)
                 return;
             if (auto node = model_.nodes.find(id); node != model_.nodes.end()) {
-                const gfx::Mat4 world = gfx::multiply(parent, localMatrix(node->second));
+                if (node->second.hidden || isStandIn(node->second)) {
+                    ++hiddenCount_;
+                    if (!showHidden_)
+                        return;
+                }
+                const gfx::Mat4 local = localMatrix(node->second);
+                const gfx::Mat4 world = gfx::multiply(parent, local);
+                worlds[id] = world;
+                if (billboard.on) {
+                    billboard.rel = gfx::multiply(billboard.rel, local);
+                } else if (model_.typeOf(id) == "NiBillboardNode") {
+                    billboard.on = true;
+                    billboard.at = world;
+                }
                 const Inherited in = applyProperties(node->second, inherited);
                 const bool sky = backdrop || node->second.name == "Exterior";
                 const auto& children = node->second.children;
                 const size_t count = node->second.levelsOfDetail ? std::min<size_t>(1, children.size()) : children.size();
                 for (size_t i = 0; i < count; ++i)
-                    visit(children[i], world, in, depth + 1, sky);
+                    visit(children[i], world, in, depth + 1, sky, billboard);
+                return;
+            }
+            if (auto skin = model_.skins.find(id); skin != model_.skins.end()) {
+                skins.push_back({&skin->second, parent, applyProperties(skin->second, inherited), backdrop});
                 return;
             }
             auto shapeIt = model_.shapes.find(id);
             if (shapeIt == model_.shapes.end())
                 return;
             const FinShape& s = shapeIt->second;
-            if (s.triangles.empty() || s.vertices.empty())
+            if (s.triangles.empty() || s.vertices.empty() || (s.hidden && !showHidden_))
                 return;
-            const Inherited in = applyProperties(s, inherited);
-            Item item;
-            item.world = gfx::multiply(parent, localMatrix(s));
-            item.backdrop = backdrop;
-
-            // Images: the texture's first frame, the multi-texture's
-            // lightmap. The texture uses the first uv set, the lightmap the
-            // last.
-            if (auto t = model_.textures.find(in.texture); t != model_.textures.end() && !t->second.empty())
-                if (auto img = model_.images.find(t->second.front()); img != model_.images.end())
-                    item.texture = img->second;
-            if (auto mt = model_.multiTextures.find(in.multiTexture); mt != model_.multiTextures.end())
-                if (auto img = model_.images.find(mt->second); img != model_.images.end())
-                    item.lightmap = img->second;
-            if (auto mat = model_.materials.find(in.material); mat != model_.materials.end()) {
-                item.color = {mat->second.diffuse[0], mat->second.diffuse[1], mat->second.diffuse[2], mat->second.alpha};
-            }
-            if (auto a = model_.alphas.find(in.alpha); a != model_.alphas.end() && a->second.blend) {
-                item.blend = true;
-                item.src = blendOf(a->second.source);
-                item.dst = blendOf(a->second.destination);
-            }
-            item.vertexColors = !s.colors.empty();
-            item.lit = !item.vertexColors && !s.normals.empty();
-            if (item.vertexColors)
-                item.color = {1, 1, 1, item.color[3]};
-
-            const size_t nv = s.vertexCount;
-            const size_t lightSet = s.uvSets ? s.uvSets - 1u : 0;
-            std::vector<gfx::Vertex> verts(nv);
-            for (size_t v = 0; v < nv; ++v) {
-                gfx::Vertex& out = verts[v];
-                for (int k = 0; k < 3; ++k)
-                    out.pos[k] = s.vertices[v * 3 + size_t(k)];
-                if (!s.normals.empty())
-                    for (int k = 0; k < 3; ++k)
-                        out.normal[k] = s.normals[v * 3 + size_t(k)];
-                if (s.uvSets) {
-                    out.uv[0] = s.uvw[v * 3];
-                    out.uv[1] = s.uvw[v * 3 + 1];
-                    out.uv2[0] = s.uvw[(lightSet * nv + v) * 3];
-                    out.uv2[1] = s.uvw[(lightSet * nv + v) * 3 + 1];
-                }
-                for (int k = 0; k < 4; ++k)
-                    out.color[k] = s.colors.empty() ? 255
-                                                    : uint8_t(std::clamp(s.colors[v * 4 + size_t(k)], 0.0f, 1.0f) * 255 + 0.5f);
-                const gfx::Vec3 w = gfx::transformPoint(item.world, {out.pos[0], out.pos[1], out.pos[2]});
-                for (int k = 0; k < 3 && !backdrop; ++k) {
-                    lo[size_t(k)] = std::min(lo[size_t(k)], w[size_t(k)]);
-                    hi[size_t(k)] = std::max(hi[size_t(k)], w[size_t(k)]);
-                }
-            }
-            std::vector<uint32_t> indices(s.triangles.begin(), s.triangles.end());
-            if (renderer_->createMesh(verts, indices, item.mesh))
-                return;
-            meshes_.push_back(item.mesh);
-            item.indexCount = uint32_t(indices.size());
-            for (const std::string* img : {&item.texture, &item.lightmap})
-                if (!img->empty() && !texture(*img)) {
-                    ++missing;
-                    if (missingNames.size() < 3)
-                        missingNames.push_back(*img);
-                }
-            ++shapes;
-            triangles += uint32_t(indices.size() / 3);
-            items_.push_back(std::move(item));
+            if (billboard.on)
+                billboard.rel = gfx::multiply(billboard.rel, localMatrix(s));
+            addShape(s, gfx::multiply(parent, localMatrix(s)), applyProperties(s, inherited), backdrop, nullptr, nullptr,
+                     billboard);
         };
     for (uint32_t root : model_.roots())
-        visit(root, gfx::identity(), Inherited{}, 0, false);
+        visit(root, gfx::identity(), Inherited{}, 0, false, Billboard{});
+
+    // Skins: each vertex where its bones put it (the weighted sum of each
+    // bone's world placement of the vertex's offset), and normals worked out
+    // again from the triangles, as the stored ones are for the modelled
+    // pose. A vertex whose bone wasn't reached stays as modelled.
+    for (const PendingSkin& p : skins) {
+        const FinSkin& s = *p.skin;
+        if (s.triangles.empty() || s.vertices.empty() || s.firstInfluence.size() != size_t(s.vertexCount) + 1)
+            continue;
+        const gfx::Mat4 own = gfx::multiply(p.parent, localMatrix(s));
+        std::vector<float> pos(s.vertices.size()), nrm(s.vertices.size(), 0.0f);
+        for (size_t v = 0; v < s.vertexCount; ++v) {
+            gfx::Vec3 sum{};
+            float total = 0;
+            for (uint32_t i = s.firstInfluence[v]; i < s.firstInfluence[v + 1]; ++i) {
+                const FinSkin::Influence& in = s.influences[i];
+                auto bone = worlds.find(in.bone);
+                if (bone == worlds.end())
+                    continue;
+                const gfx::Vec3 w = gfx::transformPoint(bone->second, in.offset);
+                for (size_t k = 0; k < 3; ++k)
+                    sum[k] += w[k] * in.weight;
+                total += in.weight;
+            }
+            if (total <= 0)
+                sum = gfx::transformPoint(own, {s.vertices[v * 3], s.vertices[v * 3 + 1], s.vertices[v * 3 + 2]});
+            else
+                for (float& c : sum)
+                    c /= total;
+            for (size_t k = 0; k < 3; ++k)
+                pos[v * 3 + k] = sum[k];
+        }
+        for (size_t t = 0; t + 2 < s.triangles.size(); t += 3) {
+            const float* a = &pos[size_t(s.triangles[t]) * 3];
+            const float* b = &pos[size_t(s.triangles[t + 1]) * 3];
+            const float* c = &pos[size_t(s.triangles[t + 2]) * 3];
+            const float e1[3] = {b[0] - a[0], b[1] - a[1], b[2] - a[2]}, e2[3] = {c[0] - a[0], c[1] - a[1], c[2] - a[2]};
+            const float n[3] = {e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]};
+            for (size_t j = 0; j < 3; ++j)
+                for (size_t k = 0; k < 3; ++k)
+                    nrm[size_t(s.triangles[t + j]) * 3 + k] += n[k];
+        }
+        for (size_t v = 0; v < s.vertexCount; ++v) {
+            float* n = &nrm[v * 3];
+            const float len = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+            if (len > 0)
+                n[0] /= len, n[1] /= len, n[2] /= len;
+        }
+        addShape(s, gfx::identity(), p.in, p.backdrop, &pos, &nrm, Billboard{});
+    }
 
     if (lo[0] > hi[0]) {
         centre_ = {0, 0, 0};
@@ -321,6 +463,10 @@ void ModelPage::handleEvent(const Event& ev) {
         case 't': useTextures_ = !useTextures_; break;
         case 'l': useLightmaps_ = !useLightmaps_; break;
         case 'b': showBackdrop_ = !showBackdrop_; break;
+        case 'h':
+            showHidden_ = !showHidden_;
+            show(index_);
+            break;
         case 'w':
         case 's':
         case 'a':
@@ -382,7 +528,7 @@ void ModelPage::update(uint64_t) {
             gfx::DrawCall call;
             call.mesh = item.mesh;
             call.indexCount = item.indexCount;
-            call.model = item.world;
+            call.model = item.billboard ? gfx::multiply(facingCamera(item.billboardAt, eye), item.rel) : item.world;
             call.texture = useTextures_ && !item.texture.empty() ? texture(item.texture) : 0;
             call.color = item.color;
             call.rgbSource = item.vertexColors ? gfx::ColorSource::Vertex
@@ -423,7 +569,9 @@ void ModelPage::update(uint64_t) {
         lines = info_;
         lines.push_back("Left/Right: model   drag: turn   wheel: zoom   W/A/S/D/Q/E: move   R: reset   I: info");
         lines.push_back(std::string("T: textures (") + (useTextures_ ? "on" : "off") + ")   L: lightmaps (" +
-                        (useLightmaps_ ? "on" : "off") + ")   B: sky (" + (showBackdrop_ ? "on" : "off") + ")");
+                        (useLightmaps_ ? "on" : "off") + ")   B: sky (" + (showBackdrop_ ? "on" : "off") +
+                        ")   H: hidden effects and stand-ins (" + std::to_string(hiddenCount_) + ", " +
+                        (showHidden_ ? "shown" : "not shown") + ")");
     }
     if (!error_.empty())
         lines.push_back(error_);

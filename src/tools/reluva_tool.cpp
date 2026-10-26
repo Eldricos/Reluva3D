@@ -5223,7 +5223,7 @@ int cmdFinCheck(int argc, char** argv) {
         };
         for (const auto& [id, node] : model.nodes) {
             for (uint32_t c : node.children)
-                expect(c, model.nodes.count(c) || model.shapes.count(c) || model.coronas.count(c) ||
+                expect(c, model.nodes.count(c) || model.shapes.count(c) || model.coronas.count(c) || model.skins.count(c) ||
                               model.typeOf(c) == "NiLight" ||
                               model.typeOf(c).rfind("Ni3ds", 0) == 0,
                        "a node or shape");
@@ -5236,6 +5236,9 @@ int cmdFinCheck(int argc, char** argv) {
             for (uint32_t p : shape.properties)
                 expect(p, model.typeOf(p).find("Property") != std::string::npos, "a property");
         }
+        for (const auto& [id, skin] : model.skins)
+            for (const auto& in : skin.influences)
+                expect(in.bone, model.typeOf(in.bone) == "Ni3dsBone", "a bone");
         for (const auto& [id, frames] : model.textures)
             for (uint32_t f : frames)
                 expect(f, model.images.count(f) != 0, "an image");

@@ -84,11 +84,17 @@ from the launcher, the engine now shows these pages (keys in
   colours, materials and alpha blending, and the nearest level of
   level-of-detail nodes. The format is in
   [../formats/netimmerse/fin.md](../formats/netimmerse/fin.md);
-  `reluva-tool fin-check` reads all 147 models. Every object of the 20
+  `reluva-tool fin-check` reads all 147 models. Every object of the 21
   classes read ends exactly where the next begins, and every link and image
-  name resolves. Not yet: animation, skins and morphs, lights, glows
-  (`DDCorona`), billboards facing the camera, and flip-book textures (the
-  first frame shows).
+  name resolves.
+  - **Characters.** Their limbs are skins that follow bones; all 15 are
+    whole, standing in the skeleton's rest pose.
+  - **Billboards** face the camera.
+  - **Hidden objects** (effects the game shows on events) and the
+    characters' far-away stand-ins are left out unless H shows them.
+  - Not yet: animation (so no poses but the rest pose), morph shapes,
+    lights, glows (`DDCorona`), and flip-book textures (the first frame
+    shows).
 - Done: **Textures**: all 1,609 TGA images in `Map.pac`, `LMap.pac` and
   `Etc.pac`. All decode with `common/image`, 479 of them with alpha.
 - Done: **Sounds**: all 498 `.DDS` sounds (`decodeDds`), played through the
