@@ -510,14 +510,9 @@ GameHost::Snapshot GameHost::snapshot(int32_t clientNum) {
     // eliteforce-syscalls.md).
     for (const int32_t at : {kPlayerStateServerOnly})
         std::memset(&snap.playerState[size_t(at)], 0, 4);
-    // Every linked entity but the player's own (the client game makes that
-    // one from the player state) and those flagged not to be sent
-    // (SVF_NOCLIENT, 1), as the original server does; no visibility
-    // culling yet. At most 256, the snapshot's room.
-    const int32_t svFlags = svFlagsOffset();
-    for (int32_t n : linked_) {
-        if (n == clientNum || (entityInt(n, svFlags) & 1))
-            continue;
+    // The entities the player can see, as the original's server picks them
+    // (visibleEntities()); at most 256, the snapshot's room.
+    for (const int32_t n : visibleEntities(clientNum)) {
         const int32_t a = entityAddress(n);
         if (a < 0 || snap.entities.size() >= 256)
             continue;
@@ -529,8 +524,7 @@ GameHost::Snapshot GameHost::snapshot(int32_t clientNum) {
     // standing view height), each not joined to its area hidden. Outside
     // any area, or with cm_noAreas, none.
     if (world_ && areaPortals_ && !(cvars_.find("cm_noAreas") && cvars_.integer("cm_noAreas"))) {
-        Vec3f eye = entityVec(clientNum, layout_.currentOrigin);
-        eye[2] += 26;
+        const Vec3f eye = eyeOf(clientNum);
         const int area = world_->leafArea(world_->leafAt(eye));
         if (area >= 0)
             for (int a = 0; a < std::min(world_->areaCount(), 256); ++a)
@@ -544,6 +538,7 @@ void GameHost::linkEntity(int32_t address) {
     const int32_t n = entityNumber(address);
     if (n < 0)
         return;
+    sight_.erase(n);
     linked_.insert(n);
     // Entities without the shared part (not Elite Force's layout): only
     // recorded.
@@ -590,6 +585,103 @@ void GameHost::linkEntity(int32_t address) {
         solid = (clampByte(maxs[2] + 32) << 16) | (clampByte(-mins[2]) << 8) | clampByte(maxs[0]);
     }
     vm_.writeInt(address + layout_.solid, solid);
+}
+
+Vec3f GameHost::eyeOf(int32_t clientNum) {
+    // The player's eye: with patch 1.2's layout, the player state's origin
+    // (20) raised by its view height (180), as the original's server takes
+    // it; otherwise the body's origin and the standing view height, 26.
+    const int32_t client = gameData_.clients + clientNum * gameData_.clientSize;
+    if (layout_.version == 12 && gameData_.clientSize >= layout_.playerStateSize &&
+        vm_.valid(client, layout_.playerStateSize)) {
+        Vec3f eye = readVec(client + 20);
+        eye[2] += float(vm_.readInt(client + 180));
+        return eye;
+    }
+    Vec3f eye = entityVec(clientNum, layout_.currentOrigin);
+    eye[2] += 26;
+    return eye;
+}
+
+const GameHost::EntitySight& GameHost::entitySight(int32_t n) {
+    // An entity's areas and clusters, from the leafs its box touches;
+    // worked out once a frame.
+    if (sightTime_ != levelTime_) {
+        sight_.clear();
+        sightTime_ = levelTime_;
+    }
+    auto it = sight_.find(n);
+    if (it != sight_.end())
+        return it->second;
+    EntitySight es;
+    es.areas = entityAreas(n);
+    if (world_ && map_) {
+        std::vector<int> leafs;
+        world_->boxLeafs(entityVec(n, layout_.absMin), entityVec(n, layout_.absMax), leafs);
+        for (const int leaf : leafs) {
+            const int cluster = leaf >= 0 && size_t(leaf) < map_->leafs.size() ? map_->leafs[size_t(leaf)].cluster : -1;
+            if (cluster >= 0 && std::find(es.clusters.begin(), es.clusters.end(), cluster) == es.clusters.end())
+                es.clusters.push_back(cluster);
+        }
+    }
+    return sight_.emplace(n, std::move(es)).first->second;
+}
+
+std::vector<int32_t> GameHost::visibleEntities(int32_t clientNum) {
+    // As the original's server builds a snapshot: never the player's own
+    // entity (the client game makes it from the player state), nor those
+    // flagged not to be sent (SVF_NOCLIENT 1), nor, with patch 1.2's
+    // layout, those for one other client (SVF_SINGLECLIENT 0x100), those for
+    // all but this one (SVF_NOTSINGLECLIENT 0x800) or not in a client mask
+    // that leaves it out (Elite Force's SVF_CLIENTMASK 4), each by
+    // singleClient. Those sent to all (SVF_BROADCAST 0x20) always; the rest
+    // only in an area the player's joins (behind no closed door) and in a
+    // cluster the player's can see. A portal's camera (SVF_PORTAL 0x40)
+    // adds what can be seen from its other end (origin2).
+    std::vector<int32_t> out;
+    const int32_t svFlags = svFlagsOffset();
+    const bool singleClient = layout_.version == 12;
+    const bool noAreas = cvars_.find("cm_noAreas") && cvars_.integer("cm_noAreas");
+    std::set<int32_t> added;
+    auto look = [&](const Vec3f& from, auto& self, int depth) -> void {
+        const int leaf = world_ ? world_->leafAt(from) : -1;
+        const int area = leaf >= 0 ? world_->leafArea(leaf) : -1;
+        const int cluster = leaf >= 0 && map_ && size_t(leaf) < map_->leafs.size() ? map_->leafs[size_t(leaf)].cluster : -1;
+        for (const int32_t n : linked_) {
+            if (n == clientNum || added.count(n))
+                continue;
+            const int32_t flags = entityInt(n, svFlags);
+            if (flags & 1)
+                continue;
+            if (singleClient) {
+                const int32_t single = entityInt(n, 216);
+                if (((flags & 0x100) && single != clientNum) || ((flags & 0x800) && single == clientNum) ||
+                    ((flags & 0x4) && (clientNum >= 32 || !(single & (1 << clientNum)))))
+                    continue;
+            }
+            if (!(flags & 0x20)) {
+                const EntitySight& es = entitySight(n);
+                if (!noAreas && area >= 0 && es.areas.first >= 0 && areaPortals_ &&
+                    !areaPortals_->connected(area, es.areas.first) &&
+                    (es.areas.second < 0 || !areaPortals_->connected(area, es.areas.second)))
+                    continue;
+                if (cluster >= 0 && map_ && !es.clusters.empty()) {
+                    bool seen = false;
+                    for (const int c : es.clusters)
+                        seen = seen || map_->clusterVisible(cluster, c);
+                    if (!seen)
+                        continue;
+                }
+            }
+            added.insert(n);
+            out.push_back(n);
+            if ((flags & 0x40) && depth < 2)
+                self(entityVec(n, 104), self, depth + 1); // s.origin2
+        }
+    };
+    look(eyeOf(clientNum), look, 0);
+    std::sort(out.begin(), out.end());
+    return out;
 }
 
 std::pair<int, int> GameHost::entityAreas(int32_t n) {

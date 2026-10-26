@@ -235,6 +235,17 @@ private:
     Error reloadGame();
     Error reconnectClients(const std::set<int32_t>& clients, bool beginHumans);
     std::vector<int32_t> botSnapshotEntities(int32_t clientNum);
+    // What a snapshot for a player holds (in entity order), and from where
+    // they look; an entity's areas and clusters, kept for a frame.
+    std::vector<int32_t> visibleEntities(int32_t clientNum);
+    Vec3f eyeOf(int32_t clientNum);
+    struct EntitySight {
+        std::pair<int, int> areas{-1, -1};
+        std::vector<int> clusters;
+    };
+    const EntitySight& entitySight(int32_t n);
+    std::map<int32_t, EntitySight> sight_;
+    int32_t sightTime_ = -1;
 
     const SearchSet& files_;
     CvarStore& cvars_;

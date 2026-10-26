@@ -8,9 +8,8 @@ retail Elite Force Holomatch (patch 1.2) over the network. Reluva's
 in memory with datagrams lost and over the system's sockets, and was
 played Reluva to Reluva on the retail data patched to 1.2 (October
 2026); not yet against the retail executable. Not done: a pure Reluva server (its
-client answers a pure server's check), downloads, rate
-limits, the master servers, and leaving out of snapshots what a player
-can't see. Where the sources disagree with what Reluva has measured in
+client answers a pure server's check), downloads, rate limits and the
+master servers. Where the sources disagree with what Reluva has measured in
 the game's own code, both are given.
 
 Sources: Lilium Voyager (a GPL ioquake3 fork that plays Elite Force

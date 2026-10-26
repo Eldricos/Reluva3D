@@ -414,10 +414,14 @@ second); through its current-snapshot pointer (733220) it reads 0, 8, 12,
 next-snapshot pointer (733224) 52736. The server copies the player state
 and entity states byte for byte from the game (the first 460 bytes of
 the player's client, the first 204 of each entity), so their insides
-needn't be known. It sends every linked entity but the player's own and
-those flagged not to be sent (SVF_NOCLIENT, bit 1 of svFlags, which is at
-208 or 212: Reluva takes whichever word has flags in the running game);
-no visibility culling yet.
+needn't be known. It sends the linked entities the player could see, as
+the original's server picks them: not the player's own, nor those flagged
+not to be sent (SVF_NOCLIENT, bit 1 of svFlags: at 212 with patch 1.2's
+layout; with 1.0's at 208 or 212, whichever word has flags in the running
+game); those for one client or all but one, or in a client mask, by
+singleClient (1.2's 216); those sent to all (0x20) always; the rest if in
+an area the player's eye's joins and a cluster its cluster can see (the
+vis data); and what a portal camera (0x40) sees from its origin2.
 
 The view (`refdef_t`, call 44) is Quake III's first 112 bytes, without
 its text: x, y, width, height 0-12, fov x 16, fov y 20, the eye 24, the

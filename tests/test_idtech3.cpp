@@ -1738,6 +1738,66 @@ static void testGameHost(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+// What a snapshot holds: the fake game's level on a map cut in two at
+// x = 0, each half its own cluster and area; the player on the +x side.
+static void testSnapshotCulling(const std::filesystem::path& tmp) {
+    namespace ef = eliteforce;
+    std::filesystem::remove_all(tmp);
+    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
+                    test::buildZip({{"vm/qagame.qvm",
+                                     std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}}}));
+    SearchSet set;
+    std::vector<std::string> warnings;
+    CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
+    CvarStore cvars;
+    ef::GameHost game(set, cvars);
+    CHECK(!game.load());
+    auto map = collisionMap();
+    BspPlane cut;
+    cut.normal = {1, 0, 0};
+    cut.dist = 0;
+    map->planes.push_back(cut);
+    map->nodes[0].plane = int(map->planes.size()) - 1; // front (+x) leaf 0, back leaf 1
+    map->leafs[1] = map->leafs[0];
+    map->leafs[0].cluster = 0;
+    map->leafs[0].area = 0;
+    map->leafs[1].cluster = 1;
+    map->leafs[1].area = 1;
+    map->visClusters = 2;
+    map->visClusterBytes = 1;
+    map->visData = {0x1, 0x2}; // each half sees only itself
+    map->entities = "{\n\"classname\" \"worldspawn\"\n}\n{\n\"classname\" \"func_door\"\n\"model\" \"*1\"\n"
+                    "\"origin\" \"200 0 0\"\n}\n{\n\"classname\" \"item_health\"\n\"origin\" \"-200 0 16\"\n}\n"
+                    "{\n\"classname\" \"info_player_deathmatch\"\n\"origin\" \"0 0 300\"\n}\n";
+    std::string refused;
+    if (game.startLevel("borg2", map) || game.connectClient(0, "\\name\\Reluva", refused) || game.beginClient(0)) {
+        CHECK(false);
+        return;
+    }
+    // The player's body moved to the +x half (the eye follows it).
+    const int32_t body = game.gameData().entities + 4 * game.gameData().entitySize;
+    game.vm().writeInt(body + 272, Qvm::fromFloat(300));
+    auto numbers = [&] {
+        std::set<int32_t> out;
+        for (const auto& e : game.snapshot(0).entities)
+            out.insert(int32_t(e[0]));
+        return out;
+    };
+    // The door (1) on its side, the spawn point (3) on the line, the
+    // body (4: the stand-in's player isn't entity 0); not the item (2) in
+    // the half it can't see.
+    CHECK((numbers() == std::set<int32_t>{1, 3, 4}));
+    // Seeing each other but in two areas no open portal joins: still not.
+    map->visData = {0x3, 0x3};
+    game.runFrame();
+    CHECK((numbers() == std::set<int32_t>{1, 3, 4}));
+    // With every area counted as joined (cm_noAreas), everything.
+    cvars.set("cm_noAreas", "1");
+    game.runFrame();
+    CHECK((numbers() == std::set<int32_t>{1, 2, 3, 4}));
+    std::filesystem::remove_all(tmp);
+}
+
 // A player joining over the network: the fake game's server, and a
 // client talking to it through sockets in memory (some datagrams lost).
 static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets) {
@@ -2517,6 +2577,7 @@ int main() {
     testSoundSystem(tmp / "soundsystem");
     testCollision();
     testGameHost(tmp / "game");
+    testSnapshotCulling(tmp / "culling");
     testNetworkPlay(tmp / "netplay", false);
     testNetworkPlay(tmp / "netplay-udp", true);
     testCgameHost(tmp / "cgame");
