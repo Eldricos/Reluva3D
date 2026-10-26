@@ -170,8 +170,12 @@ Error parsePe(const std::vector<uint8_t>& file, PeImage& out) {
             const uint32_t blockSize = r.u32(b + 4);
             if (blockSize < 8)
                 break;
-            for (size_t e = b + 8; e + 2 <= b + blockSize; e += 2)
-                out.relocationCount += (r.u16(e) >> 12) != 0;
+            for (size_t e = b + 8; e + 2 <= b + blockSize; e += 2) {
+                const uint16_t entry = r.u16(e);
+                out.relocationCount += (entry >> 12) != 0;
+                if (entry >> 12 == 3)
+                    out.relocations.push_back(r.u32(b) + (entry & 0xfff));
+            }
             b += blockSize;
         }
     }

@@ -149,7 +149,12 @@ one has to be checked before anything is written:
   - Probably only Holomatch uses the QVMs; single player has its DLLs. To
     confirm.
 - **Single player**: its logic ships as native x86 code
-  (`efgamex86.dll`, with the menus in `efuix86.dll`), which a portable
-  engine can't load. It would have to be reimplemented from
-  observed behaviour and the map data (entities, scripts), following
-  CONTRIBUTING.md.
+  (`efgamex86.dll`, with the menus in `efuix86.dll`), 32-bit Windows DLLs
+  built with Visual C++ 6. Reluva runs them the way it runs the QVMs: in
+  an interpreter, here of the x86 processor (`src/common/x86`, see
+  [x86.md](x86.md)), with the engine's functions and the few Windows ones
+  they call (KERNEL32's, for their C runtime) provided natively. The DLLs
+  stay in the user's copy. Their interface to the engine (the tables
+  `GetGameAPI` and `GetUIAPI` exchange) still has to be worked out; Jedi
+  Outcast's GPL source, from the same studio and engine generation, is a
+  guide to its shape.

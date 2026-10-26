@@ -8,6 +8,7 @@
 #include "common/audio/mp3.h"
 #include "common/audio/wav.h"
 #include "data/tone440_mp3.h"
+#include "data/x86_testdll.h"
 #include "common/archive.h"
 #include "common/config.h"
 #include "common/detection.h"
@@ -19,10 +20,14 @@
 #include "common/md5.h"
 #include "common/net.h"
 #include "common/text.h"
+#include "common/x86/cpu.h"
+#include "common/x86/win32.h"
 #include "common/zip.h"
 #include "zip_writer.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <cstdio>
 #include <memory>
 #include <fstream>
@@ -394,6 +399,103 @@ static void testGfxMath() {
     CHECK(same(transformPoint(both, {14, 0, 0}), transformPoint(proj, transformPoint(view, {14, 0, 0}))));
 }
 
+// Runs `code` (hand-encoded, ending in RET) as a function of no arguments.
+static uint32_t runX86(x86::Cpu& cpu, std::vector<uint8_t> code, bool* ok = nullptr) {
+    const uint32_t at = 0x2000;
+    std::copy(code.begin(), code.end(), cpu.memory().begin() + at);
+    uint32_t result = 0;
+    const Error e = cpu.call(at, {}, result);
+    if (ok)
+        *ok = !e;
+    else if (e)
+        std::fprintf(stderr, "x86: %s\n", e.message.c_str());
+    return result;
+}
+
+static void testX86Instructions() {
+    x86::Cpu cpu(16u << 20);
+    cpu.setStack(0x100000);
+    // mov eax, 5; add eax, 0xfffffffb; setz al; movzx eax, al; ret
+    CHECK(runX86(cpu, {0xb8, 5, 0, 0, 0, 0x83, 0xc0, 0xfb, 0x0f, 0x94, 0xc0, 0x0f, 0xb6, 0xc0, 0xc3}) == 1);
+    // mov ecx, 10; xor eax, eax; loop: add eax, ecx; dec ecx; jnz loop; ret  (55)
+    CHECK(runX86(cpu, {0xb9, 10, 0, 0, 0, 0x31, 0xc0, 0x01, 0xc8, 0x49, 0x75, 0xfb, 0xc3}) == 55);
+    // mov eax, -7; cdq; mov ecx, 2; idiv ecx; imul eax, edx, 100; ret  (edx = -1, eax = -100)
+    CHECK(runX86(cpu, {0xb8, 0xf9, 0xff, 0xff, 0xff, 0x99, 0xb9, 2, 0, 0, 0, 0xf7, 0xf9, 0x6b, 0xc2, 100, 0xc3}) ==
+          uint32_t(-100));
+    // mov eax, 0x80000000; sar eax, 31; shr eax, 28; ret  (0xf)
+    CHECK(runX86(cpu, {0xb8, 0, 0, 0, 0x80, 0xc1, 0xf8, 31, 0xc1, 0xe8, 28, 0xc3}) == 0xf);
+    // mov eax, 0x12345678; bswap eax; ret
+    CHECK(runX86(cpu, {0xb8, 0x78, 0x56, 0x34, 0x12, 0x0f, 0xc8, 0xc3}) == 0x78563412);
+    // rep stosb then repe cmpsb: mov edi, 0x3000; mov ecx, 8; mov al, 0x41; rep stosb;
+    // mov esi, 0x3000; mov edi, 0x3004; mov ecx, 4; repe cmpsb; mov eax, ecx; ret  (0: all equal)
+    CHECK(runX86(cpu, {0xbf, 0, 0x30, 0, 0, 0xb9, 8, 0, 0, 0, 0xb0, 0x41, 0xf3, 0xaa, 0xbe, 0, 0x30, 0, 0, 0xbf, 4, 0x30,
+                       0, 0, 0xb9, 4, 0, 0, 0, 0xf3, 0xa6, 0x89, 0xc8, 0xc3}) == 0);
+    CHECK(cpu.read32(0x3000) == 0x41414141);
+    // x87: fld1; fld1; faddp; fsqrt; fstp dword [0x3000]; mov eax, [0x3000]; ret  (sqrt 2 as a float)
+    runX86(cpu, {0xd9, 0xe8, 0xd9, 0xe8, 0xde, 0xc1, 0xd9, 0xfa, 0xd9, 0x1d, 0, 0x30, 0, 0, 0xa1, 0, 0x30, 0, 0, 0xc3});
+    float f;
+    const uint32_t bitsOfF = cpu.read32(0x3000);
+    std::memcpy(&f, &bitsOfF, 4);
+    CHECK(f == std::sqrt(2.0f));
+    // fs: mov eax, fs:[4]; ret
+    cpu.fsBase = 0x4000;
+    cpu.write32(0x4004, 0xabcd);
+    CHECK(runX86(cpu, {0x64, 0xa1, 4, 0, 0, 0, 0xc3}) == 0xabcd);
+    // Faults: a null read, and division by zero, fail the call.
+    bool ok = true;
+    runX86(cpu, {0xa1, 0, 0, 0, 0, 0xc3}, &ok);
+    CHECK(!ok);
+    runX86(cpu, {0x31, 0xc9, 0xf7, 0xf1, 0xc3}, &ok);
+    CHECK(!ok);
+    // A native function, stdcall with one argument: push 20; call [native]; ret
+    const uint32_t native = cpu.addNative("double", [](x86::Cpu& c) {
+        c.reg[x86::Cpu::EAX] = c.arg(0) * 2;
+        return 4u;
+    });
+    cpu.write32(0x3100, native);
+    CHECK(runX86(cpu, {0x6a, 20, 0xff, 0x15, 0, 0x31, 0, 0, 0xc3}) == 40);
+}
+
+static void testX86Dll() {
+    x86::Cpu cpu(64u << 20);
+    x86::Win32Process process(cpu);
+    const x86::Win32Process::Module* m = nullptr;
+    const std::vector<uint8_t> file(std::begin(kX86TestDll), std::end(kX86TestDll));
+    CHECK(!process.load("testdll.dll", file, m));
+    if (!m)
+        return;
+    CHECK(process.missingImports().empty());
+    CHECK(!process.attach(*m));
+    uint32_t r = 0;
+    CHECK(!cpu.call(m->exportAddress("testdll_attached"), {}, r) && r == 0x0a280105);
+    unsigned heapSum = 0;
+    for (unsigned i = 0; i < 100; ++i)
+        heapSum += uint8_t(i * 7);
+    CHECK(!cpu.call(m->exportAddress("testdll_heap"), {100}, r) && r == heapSum);
+    const uint32_t run = m->exportAddress("testdll_run");
+    CHECK(run != 0);
+    const int inputs = int(sizeof kX86TestInputs / sizeof kX86TestInputs[0]);
+    for (int t = 0; t < int(sizeof kX86TestExpected / sizeof kX86TestExpected[0]); ++t)
+        for (int i = 0; i < inputs; ++i) {
+            const Error e = cpu.call(run, {uint32_t(t), kX86TestInputs[i][0], kX86TestInputs[i][1]}, r);
+            if (e || r != kX86TestExpected[t][i]) {
+                std::fprintf(stderr, "x86 test %d, input %d: %s (0x%08x, expected 0x%08x)\n", t, i,
+                             e ? e.message.c_str() : "wrong result", r, kX86TestExpected[t][i]);
+                ++failures;
+            }
+        }
+    // Loaded again it goes elsewhere, relocated: its table of function
+    // pointers (test 13) must still work.
+    const x86::Win32Process::Module* again = nullptr;
+    CHECK(!process.load("testdll2.dll", file, again));
+    if (again) {
+        CHECK(again->base != m->base);
+        for (int i = 0; i < inputs; ++i)
+            CHECK(!cpu.call(again->exportAddress("testdll_run"), {13, kX86TestInputs[i][0], kX86TestInputs[i][1]}, r) &&
+                  r == kX86TestExpected[13][i]);
+    }
+}
+
 int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_tests";
     testMd5();
@@ -410,6 +512,8 @@ int main() {
     testNet();
     testMd4();
     testGfxMath();
+    testX86Instructions();
+    testX86Dll();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

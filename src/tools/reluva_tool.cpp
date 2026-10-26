@@ -110,6 +110,8 @@
 #include "common/font.h"
 #include "common/fs.h"
 #include "common/pe.h"
+#include "common/x86/cpu.h"
+#include "common/x86/win32.h"
 #include "common/zip.h"
 #ifdef RELUVA_ENGINE_IDTECH3
 #include "engines/idtech3/bsp.h"
@@ -3620,6 +3622,116 @@ int cmdNetMaster(int argc, char** argv) {
 // What a Windows executable or DLL holds and needs (for working out how
 // native game code such as Elite Force's single player DLLs could run):
 // its sections, exports, imports and relocations.
+// Loads a 32-bit Windows DLL into the x86 interpreter, runs its start-up
+// (DllMain, its C runtime's initialisation) and, if asked, one of its
+// exports: to see how far emulation gets with a game's DLL and what it
+// calls. "table" as an argument passes a table of functions that report
+// their calls (an engine's import table, as GetGameAPI takes).
+int cmdX86Run(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool x86-run <file.dll> [-call Export [arg|table]...] [-table slots]\n"
+                             "                           [-limit instructions] [-trace count] [-memory MB]\n");
+        return 2;
+    }
+    std::string exportName;
+    std::vector<std::string> callArgs;
+    int tableSlots = 128, traceCount = 16;
+    uint64_t limit = 2000000000ull;
+    uint32_t memoryMb = 512;
+    for (int a = 3; a < argc; ++a) {
+        const std::string arg = argv[a];
+        if (arg == "-call" && a + 1 < argc) {
+            exportName = argv[++a];
+            while (a + 1 < argc && argv[a + 1][0] != '-')
+                callArgs.push_back(argv[++a]);
+        } else if (arg == "-table" && a + 1 < argc)
+            tableSlots = std::atoi(argv[++a]);
+        else if (arg == "-limit" && a + 1 < argc)
+            limit = std::strtoull(argv[++a], nullptr, 0);
+        else if (arg == "-trace" && a + 1 < argc)
+            traceCount = std::atoi(argv[++a]);
+        else if (arg == "-memory" && a + 1 < argc)
+            memoryMb = uint32_t(std::atoi(argv[++a]));
+    }
+    Bytes file;
+    if (!readFile(argv[2], file))
+        return 1;
+    reluva::x86::Cpu cpu(std::min<uint32_t>(memoryMb, 3072) << 20);
+    cpu.setInstructionLimit(limit);
+    reluva::x86::Win32Process process(cpu);
+    process.output = [](const std::string& text) { std::printf("[program] %s\n", text.c_str()); };
+
+    // The last instructions run, to show where a failure happened.
+    std::vector<uint32_t> recent(size_t(std::max(traceCount, 1)));
+    size_t recentAt = 0;
+    cpu.trace = [&](reluva::x86::Cpu& c) { recent[recentAt++ % recent.size()] = c.eip; };
+    auto failed = [&](const reluva::Error& e) {
+        std::printf("failed: %s\nlast instructions:", e.message.c_str());
+        for (size_t i = recentAt > recent.size() ? recentAt - recent.size() : 0; i < recentAt; ++i)
+            std::printf(" %08x", recent[i % recent.size()]);
+        std::printf("\n");
+        return 1;
+    };
+
+    const std::string name = std::filesystem::path(argv[2]).filename().string();
+    const reluva::x86::Win32Process::Module* m = nullptr;
+    if (reluva::Error e = process.load(name, file, m)) {
+        std::fprintf(stderr, "%s\n", e.message.c_str());
+        return 1;
+    }
+    std::printf("%s loaded at 0x%08x (asked for 0x%08x), %u bytes\n", name.c_str(), m->base,
+                uint32_t(m->image.imageBase), m->size);
+    for (const std::string& missing : process.missingImports())
+        std::printf("  not stood in for: %s\n", missing.c_str());
+    uint64_t before = cpu.executed();
+    if (reluva::Error e = process.attach(*m))
+        return failed(e);
+    std::printf("start-up (DllMain) done: %llu instructions\n", (unsigned long long)(cpu.executed() - before));
+    if (exportName.empty())
+        return 0;
+
+    const uint32_t address = m->exportAddress(exportName);
+    if (!address) {
+        std::fprintf(stderr, "%s has no export %s\n", name.c_str(), exportName.c_str());
+        return 1;
+    }
+    // The table: each slot a function that prints its call.
+    int reported = 0;
+    const uint32_t table = process.memory().alloc(uint32_t(tableSlots) * 4);
+    for (int i = 0; i < tableSlots; ++i) {
+        const uint32_t fn = cpu.addNative("table[" + std::to_string(i) + "]", [i, &reported](reluva::x86::Cpu& c) {
+            if (reported++ < 500)
+                std::printf("  table[%d](0x%x, 0x%x, 0x%x, 0x%x) from 0x%08x\n", i, c.arg(0), c.arg(1), c.arg(2),
+                            c.arg(3), c.read32(c.reg[reluva::x86::Cpu::ESP]));
+            c.reg[reluva::x86::Cpu::EAX] = 0;
+            return 0u;
+        });
+        cpu.write32(table + 4 * uint32_t(i), fn);
+    }
+    std::vector<uint32_t> args;
+    for (const std::string& a : callArgs)
+        args.push_back(a == "table" ? table : uint32_t(std::strtoul(a.c_str(), nullptr, 0)));
+    uint32_t result = 0;
+    before = cpu.executed();
+    if (reluva::Error e = cpu.call(address, args, result))
+        return failed(e);
+    std::printf("%s returned 0x%08x after %llu instructions\n", exportName.c_str(), result,
+                (unsigned long long)(cpu.executed() - before));
+    // If it's a pointer, what it points at (a table of the DLL's functions?).
+    if (cpu.valid(result, 4)) {
+        for (uint32_t i = 0; i < 64 && cpu.valid(result + 4 * i, 4); ++i) {
+            const uint32_t v = cpu.read32(result + 4 * i);
+            const bool inModule = v >= m->base && v < m->base + m->size;
+            std::printf("  [%2u] 0x%08x%s\n", i, v, inModule ? (" (" + name + "+0x" + [&] {
+                char b[16];
+                std::snprintf(b, sizeof b, "%x", v - m->base);
+                return std::string(b);
+            }() + ")").c_str() : "");
+        }
+    }
+    return 0;
+}
+
 int cmdPeInfo(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool pe-info <file.dll|file.exe> [-all]\n");
@@ -4813,6 +4925,8 @@ int main(int argc, char** argv) {
         return cmdNetMaster(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "pe-info") == 0)
         return cmdPeInfo(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "x86-run") == 0)
+        return cmdX86Run(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "pk3-sums") == 0)
         return cmdPk3Sums(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "ui-run") == 0)
@@ -4864,6 +4978,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool net-find [host[:port]]\n"
                  "  reluva-tool net-master [master[:port]]...\n"
                  "  reluva-tool pe-info <file.dll|file.exe>\n"
+                 "  reluva-tool x86-run <file.dll> [-call Export [arg|table]...]\n"
                  "  reluva-tool pk3-sums <game folder> [feed]\n"
                  "  reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-addbot name]... | -join <host[:port]> [seconds] [-name name]\n"
                  "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n"

@@ -56,6 +56,7 @@ struct PeImage {
     std::vector<ImportedDll> imports;
 
     uint32_t relocationCount = 0; // base relocations (to load it at another address)
+    std::vector<uint32_t> relocations; // the RVAs of the 32-bit ones (HIGHLOW), which are all a PE32 has
     bool hasTls = false;          // thread-local storage callbacks
     std::vector<std::string> otherDirectories; // data directories present besides those above
 

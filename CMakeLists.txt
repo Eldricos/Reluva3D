@@ -67,6 +67,9 @@ add_library(reluva_common STATIC
     src/common/gfx3d.cpp
     src/common/net.cpp
     src/common/pe.cpp
+    src/common/x86/cpu.cpp
+    src/common/x86/fpu.cpp
+    src/common/x86/win32.cpp
     src/common/detection.cpp
     src/common/audio/decode.cpp
     src/common/audio/mixer.cpp
