@@ -20,6 +20,7 @@
 
 #include "common/font.h"
 #include "common/image.h"
+#include "common/zip.h"
 #include "common/fs.h"
 
 #include <algorithm>
@@ -29,6 +30,8 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <sstream>
+#include <set>
 #include <filesystem>
 #include <fstream>
 
@@ -300,6 +303,92 @@ bool PlayViewer::changeLevel(const std::string& map) {
     return false; // this frame's done
 }
 
+bool PlayViewer::startDownloads() {
+    // As the original's client: the paks the server lists as the level's
+    // (sv_referencedPaks, by checksum, and their names) that it has none
+    // of, but Raven's own, which are never downloaded; with
+    // cl_allowDownload, downloaded; without it, only named.
+    const auto& cs = client_->configstrings();
+    const std::string info = cs.count(1) ? cs.at(1) : std::string();
+    std::istringstream sums(infoValue(info, "sv_referencedPaks")), names(infoValue(info, "sv_referencedPakNames"));
+    std::set<int32_t> ours;
+    for (const Archive* a : ctx_.files.archives())
+        if (const auto* pak = dynamic_cast<const ZipArchive*>(a))
+            ours.insert(pakChecksum(*pak));
+    downloads_.clear();
+    std::string sum, name;
+    while (sums >> sum && names >> name) {
+        const auto checksum = int32_t(std::strtoll(sum.c_str(), nullptr, 10));
+        const std::string lower = fs::toLower(name);
+        const bool raven = lower.size() == 10 && lower.rfind("baseef/pak", 0) == 0 && lower[9] >= '0' && lower[9] <= '3';
+        if (ours.count(checksum) || raven)
+            continue;
+        downloads_.emplace_back(name + ".pk3", checksum);
+    }
+    if (downloads_.empty())
+        return false;
+    cvars_.create("cl_allowDownload", "0", CvarStore::Archive);
+    if (!cvars_.integer("cl_allowDownload")) {
+        std::string missing;
+        for (const auto& [file, checksum] : downloads_)
+            missing += " " + file;
+        addPrint("You're missing files the server uses:" + missing +
+                     "\nYou might not be able to play. Set cl_allowDownload 1 to download them.\n",
+                 true);
+        downloads_.clear();
+        return false;
+    }
+    addPrint("Downloading " + std::to_string(downloads_.size()) + " file(s) from the server\n", true);
+    client_->download(downloads_.front().first);
+    return true;
+}
+
+bool PlayViewer::finishDownload(const std::string& name, const std::vector<uint8_t>& data) {
+    // Kept in the save folder's game folder, as the original keeps them in
+    // its home folder: a name with no way out of it, checked against the
+    // checksum the server gave before it's used.
+    if (downloads_.empty() || downloads_.front().first != name)
+        return true;
+    const int32_t expected = downloads_.front().second;
+    downloads_.erase(downloads_.begin());
+    const std::filesystem::path relative(name);
+    const std::string folder = fs::toLower(relative.parent_path().string());
+    if (ctx_.savePath.empty() || relative.is_absolute() || name.find("..") != std::string::npos ||
+        folder != fs::toLower(ctx_.game.baseDir) || fs::toLower(relative.extension().string()) != ".pk3") {
+        stop("Won't keep the download " + name);
+        return false;
+    }
+    const std::filesystem::path path = ctx_.savePath / relative;
+    std::error_code ec;
+    std::filesystem::create_directories(path.parent_path(), ec);
+    {
+        std::ofstream out(path.string() + ".tmp", std::ios::binary);
+        out.write(reinterpret_cast<const char*>(data.data()), std::streamsize(data.size()));
+        if (!out) {
+            stop("Couldn't write " + path.string());
+            return false;
+        }
+    }
+    std::filesystem::rename(path.string() + ".tmp", path, ec);
+    ZipArchive check;
+    if (ec || check.open(path) || pakChecksum(check) != expected) {
+        std::filesystem::remove(path, ec);
+        stop("Incorrect checksum for file: " + name);
+        return false;
+    }
+    if (!ctx_.addPak || ctx_.addPak(path)) {
+        stop("Couldn't use " + name);
+        return false;
+    }
+    shaders_->clear(); // the shader scripts were read again
+    addPrint("Downloaded " + name + "\n", true);
+    if (!downloads_.empty())
+        client_->download(downloads_.front().first);
+    else
+        client_->addClientCommand("donedl"); // the game state again
+    return true;
+}
+
 std::string PlayViewer::userinfo() const {
     // The player's settings the menus keep (name, model...), as the
     // original sends them: every user-info setting.
@@ -341,6 +430,7 @@ void PlayViewer::startHosting() {
     server_->print = [this](const std::string& text) { addPrint(text, false); };
     server_->resolveHost = [this](const std::string& host, uint32_t& ip) { return ctx_.sys.resolveHost(host, ip); };
     server_->reserve(0);
+    server_->setFiles(&ctx_.files);
     server_->levelStarted();
     addPrint("Open to other players on port " + std::to_string(server_->port()) + "\n", false);
 }
@@ -395,7 +485,18 @@ void PlayViewer::runRemote(uint64_t nowMs, int32_t dt) {
         ctx_.requestPage = "Menu";
         return;
     }
+    // A pak finished downloading: kept, checked, and the next, or done.
+    {
+        std::string name;
+        std::vector<uint8_t> data;
+        if (client_->takeDownload(name, data) && !finishDownload(name, data))
+            return;
+    }
     if (client_->takeNewGamestate()) {
+        // Paks the server uses that this player hasn't: downloaded first
+        // (the level loads when the server sends its game state again).
+        if (startDownloads())
+            return;
         const auto& cs = client_->configstrings();
         const std::string map = cs.count(0) ? infoValue(cs.at(0), "mapname") : std::string();
         cgame_.reset();
@@ -1206,6 +1307,12 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
                                                   "Waiting for the level", "", "Loading the level", "Joining"};
             const auto st = size_t(client_->state());
             std::string status = (st < 9 ? kStates[st] : "") + std::string(" - ") + serverAddress_;
+            if (client_->downloading())
+                status = "Downloading " + client_->downloadName() + ": " +
+                         std::to_string(client_->downloadCount() / 1024) + " of " +
+                         (client_->downloadSize() < 0 ? std::string("?")
+                                                      : std::to_string(client_->downloadSize() / 1024)) +
+                         " KB";
             if (client_->state() <= eliteforce::NetClient::State::Challenging)
                 status += " (" + std::to_string(client_->connectPackets()) + ")";
             const int x = std::max(4, (frameW_ - int(font::length(status)) * font::kAdvance) / 2);

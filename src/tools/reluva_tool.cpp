@@ -3455,6 +3455,7 @@ int cmdNetRun(int argc, char** argv) {
     ef::NetServer server(game, cvars, std::move(socket));
     server.print = [](const std::string& text) { std::printf("server: %s", text.c_str()); };
     server.resolveHost = [](const std::string& host, uint32_t& ip) { return reluva::net::resolveSystemHost(host, ip); };
+    server.setFiles(&set);
     server.levelStarted();
     std::printf("hosting %s on port %u for %d s\n", map.c_str(), server.port(), seconds);
     const int32_t startTime = game.levelTime();

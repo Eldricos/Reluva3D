@@ -61,6 +61,18 @@ public:
             state_ = State::Active;
     }
 
+    // Downloading a pak the server has and this player hasn't (the
+    // name as the server lists it: "baseEF/name.pk3"): asked for, then
+    // its blocks taken and acknowledged one by one. Snapshots are ignored
+    // meanwhile.
+    void download(const std::string& remoteName);
+    bool downloading() const { return !downloadName_.empty(); }
+    const std::string& downloadName() const { return downloadName_; }
+    int32_t downloadSize() const { return downloadSize_; } // -1 until known
+    size_t downloadCount() const { return downloadData_.size(); }
+    // A download that has finished: its name and bytes (false if none).
+    bool takeDownload(std::string& name, std::vector<uint8_t>& data);
+
     State state() const { return state_; }
     const reluva::net::Address& server() const { return server_; }
     int connectPackets() const { return connectPackets_; }
@@ -96,6 +108,11 @@ private:
     void parseMessage(wire::MessageReader& r, uint64_t now);
     void parseGamestate(wire::MessageReader& r);
     void parseSnapshot(wire::MessageReader& r, uint64_t now);
+    void parseDownload(wire::MessageReader& r, uint64_t now);
+    std::string downloadName_, finishedName_;
+    std::vector<uint8_t> downloadData_, finishedData_;
+    int32_t downloadSize_ = -1, downloadBlock_ = 0;
+    bool finished_ = false;
     void serverCommand(int32_t sequence, const std::string& text);
     void sendPacket(uint64_t now);
     void adjustTime(int32_t snapshotTime, uint64_t now);

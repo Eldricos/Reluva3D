@@ -8,6 +8,7 @@
 #include "engines/idtech3/wire/message.h"
 #include "engines/idtech3/wire/netchan.h"
 
+#include "common/archive.h"
 #include "common/net.h"
 #include "common/types.h"
 
@@ -49,6 +50,9 @@ public:
     NetServer(const NetServer&) = delete;
     NetServer& operator=(const NetServer&) = delete;
 
+    // The game's files, for the paks the level uses (which players
+    // missing them may download, if sv_allowDownload is on).
+    void setFiles(const SearchSet* files) { files_ = files; }
     // Slots the network mustn't give out (the page's own player).
     void reserve(int32_t clientNum) { reserved_.insert(clientNum); }
     // The level has (re)started: baselines and configstrings taken anew,
@@ -108,6 +112,16 @@ private:
         size_t lastSentSize = 0;
         uint64_t lastSentMs = 0;
         std::deque<std::vector<uint8_t>> queued;
+        // A pak being downloaded: its name and bytes, the blocks the
+        // client has (clientBlock) and the next to send (xmitBlock).
+        struct Download {
+            std::string name;
+            bool opened = false;
+            std::vector<uint8_t> data;
+            int clientBlock = 0, xmitBlock = 0;
+            uint64_t sendTime = 0;
+        };
+        Download download;
         int ping = 0;
         std::array<Frame, kPacketBackup> frames;
     };
@@ -128,6 +142,11 @@ private:
     void drop(Client& c, const std::string& reason, uint64_t now);
     void finalMessage(Client& c, const std::string& reason, uint64_t now);
     void noteServerId();
+    void writeDummySnapshot(Client& c, wire::MessageWriter& w);
+    void sendDownload(Client& c, uint64_t now);
+    bool downloadAllowed(const std::string& name, std::string& why) const;
+    const SearchSet* files_ = nullptr;
+    std::vector<std::string> referencedNames_; // gamedir/name, without .pk3
     void heartbeat(uint64_t now, bool force);
     std::vector<reluva::net::Address> masters_;
     bool mastersResolved_ = false;

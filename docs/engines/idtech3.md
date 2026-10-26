@@ -97,7 +97,18 @@ every engine.
    the player could see, as the original's server picks it: not behind a
    closed door, in a cluster their eye's can see, unless sent to all;
    one-client and client-mask flags with 1.2's layout; through portal
-   cameras too. Still to do: downloads, rate limits and master servers.
+   cameras too. The menus' Internet list asks the master servers
+   (`sv_master1` to 5: Raven's, gone, then the community's
+   `efmaster.tjps.eu`; Elite Force's master 0 asks every one), and a
+   public server (`dedicated 2`, `reluva-tool net-run -public`) sends them
+   heartbeats. Rates as the original's: each player's `rate`, players on
+   the local network unlimited, snapshots skipped (and the next flagged)
+   when the last datagram hasn't had its time, messages in pieces sent a
+   piece at a time. Downloads: a server with `sv_allowDownload 1` sends
+   the paks its level uses (game code, map; never Raven's `pak0`-`pak3`)
+   to players missing them, and a player with `cl_allowDownload 1`
+   downloads them into the save folder's `baseEF` (mounted above the
+   install's at start), checked against the server's checksum.
 7. **Sound**: done in the Play page: sounds placed in the world, looping
    sounds and music, as the client game asks.
 8. **Game code**: see below.

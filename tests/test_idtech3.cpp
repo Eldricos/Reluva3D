@@ -53,6 +53,8 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <thread>
@@ -1738,6 +1740,91 @@ static void testGameHost(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+// Downloads: a pak the level uses (here the one with the game code, not
+// one of Raven's) sent to a player who asks, block by block, when
+// sv_allowDownload is on; refused when it's off.
+static void testDownloads(const std::filesystem::path& tmp) {
+    namespace ef = eliteforce;
+    std::filesystem::remove_all(tmp);
+    // Over 48 KB, so the window and its acknowledgements matter.
+    std::vector<uint8_t> filler(70000);
+    for (size_t i = 0; i < filler.size(); ++i)
+        filler[i] = uint8_t(i * 7 + i / 300);
+    test::writeFile(tmp / "BaseEF" / "zz_custom.pk3",
+                    test::buildZip({{"vm/qagame.qvm",
+                                     std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}},
+                                    {"filler.dat", filler, {}}}));
+    std::vector<uint8_t> pakBytes;
+    {
+        std::ifstream in(tmp / "BaseEF" / "zz_custom.pk3", std::ios::binary);
+        pakBytes.assign(std::istreambuf_iterator<char>(in), {});
+    }
+    SearchSet set;
+    std::vector<std::string> warnings;
+    CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
+    CvarStore cvars;
+    ef::GameHost game(set, cvars);
+    CHECK(!game.load());
+    auto map = collisionMap();
+    map->entities = "{\n\"classname\" \"worldspawn\"\n}\n{\n\"classname\" \"info_player_deathmatch\"\n"
+                    "\"origin\" \"0 0 300\"\n}\n";
+    if (game.startLevel("borg2", map, 5)) {
+        CHECK(false);
+        return;
+    }
+    auto network = net::LoopbackNetwork::create();
+    ef::NetServer server(game, cvars, network->open(27960));
+    server.setFiles(&set);
+    server.levelStarted();
+    CHECK(cvars.string("sv_referencedPakNames") == "BaseEF/zz_custom ");
+    uint64_t now = 1000;
+    auto tick = [&](ef::NetClient& client) {
+        client.frame(now);
+        CHECK(!server.receive(now));
+        CHECK(!game.runFrame());
+        CHECK(!server.frame(now));
+        now += 50;
+    };
+    // Refused while downloads are off.
+    {
+        ef::NetClient client(network->open(0), {0x7f000001u, 27960}, "\\name\\One", 81);
+        for (int i = 0; i < 40 && client.state() != ef::NetClient::State::Primed; ++i)
+            tick(client);
+        client.download("BaseEF/zz_custom.pk3");
+        for (int i = 0; i < 20 && client.state() != ef::NetClient::State::Disconnected; ++i)
+            tick(client);
+        CHECK(client.state() == ef::NetClient::State::Disconnected);
+        client.disconnect();
+        for (int i = 0; i < 4; ++i)
+            tick(client);
+    }
+    // Sent when they're on, and a Raven pak never.
+    cvars.set("sv_allowDownload", "1");
+    // (A port of its own: the first's is still the server's to send to.)
+    ef::NetClient client(network->open(30000), {0x7f000001u, 27960}, "\\name\\Two", 82);
+    for (int i = 0; i < 40 && client.state() != ef::NetClient::State::Primed; ++i)
+        tick(client);
+    CHECK(client.state() == ef::NetClient::State::Primed && client.takeNewGamestate());
+    client.download("BaseEF/zz_custom.pk3");
+    std::string name;
+    std::vector<uint8_t> data;
+    bool done = false;
+    for (int i = 0; i < 400 && !done; ++i) {
+        tick(client);
+        done = client.takeDownload(name, data);
+    }
+    CHECK(done && name == "BaseEF/zz_custom.pk3" && data == pakBytes);
+    // Done: the game state again.
+    client.addClientCommand("donedl");
+    bool again = false;
+    for (int i = 0; i < 40 && !again; ++i) { // the client sends a packet a second while loading
+        tick(client);
+        again = client.takeNewGamestate();
+    }
+    CHECK(again);
+    std::filesystem::remove_all(tmp);
+}
+
 // What a snapshot holds: the fake game's level on a map cut in two at
 // x = 0, each half its own cluster and area; the player on the +x side.
 static void testSnapshotCulling(const std::filesystem::path& tmp) {
@@ -2619,6 +2706,7 @@ int main() {
     testCollision();
     testGameHost(tmp / "game");
     testSnapshotCulling(tmp / "culling");
+    testDownloads(tmp / "downloads");
     testNetworkPlay(tmp / "netplay", false);
     testNetworkPlay(tmp / "netplay-udp", true);
     testNetworkPlay(tmp / "netplay-rate", false, true);

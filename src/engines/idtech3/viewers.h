@@ -69,6 +69,7 @@
 #include <deque>
 #include <map>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <random>
 #include <set>
@@ -96,6 +97,8 @@ struct ViewerContext {
     std::string requestPage, requestMap;
     // A server to join on the Play page (connect <address>).
     std::string requestConnect;
+    // Adds a pak (one just downloaded) to the game's files.
+    std::function<Error(const std::filesystem::path&)> addPak;
     // Commands for the level's server after it starts ("addbot munro 3"...).
     std::vector<std::string> requestCommands;
 };
@@ -378,6 +381,12 @@ private:
     void startHosting();
     // Joining a server on another machine instead of running one.
     void connect(const std::string& address);
+    // The paks the server's level uses that this player is missing:
+    // whether they're being downloaded; and one that has finished
+    // (false: stopped).
+    bool startDownloads();
+    bool finishDownload(const std::string& name, const std::vector<uint8_t>& data);
+    std::vector<std::pair<std::string, int32_t>> downloads_; // name, checksum
     void runGame(uint64_t nowMs);
     bool runLocal(uint64_t nowMs, int32_t dt);
     void runRemote(uint64_t nowMs, int32_t dt);

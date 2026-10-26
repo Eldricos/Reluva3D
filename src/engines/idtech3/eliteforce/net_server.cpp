@@ -6,11 +6,16 @@
 #include "engines/idtech3/bindings.h"
 #include "engines/idtech3/eliteforce/net_fields.h"
 #include "engines/idtech3/info_string.h"
+#include "engines/idtech3/pure.h"
 #include "engines/idtech3/server_browser.h"
 
+#include "common/fs.h"
+
 #include <algorithm>
+#include <filesystem>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 
 namespace reluva::idtech3::eliteforce {
 
@@ -116,7 +121,46 @@ uint32_t NetServer::nextRandom() {
     return random_ >> 1;
 }
 
+namespace {
+
+constexpr int kDownloadWindow = 48;   // blocks sent ahead of the client's acknowledgement
+constexpr size_t kDownloadBlock = 1024;
+
+// A pak's name as the original lists it: its folder and name, without .pk3.
+std::string pakName(const ZipArchive& pak) {
+    const std::filesystem::path p(pak.describe());
+    return p.parent_path().filename().string() + "/" + p.stem().string();
+}
+
+int downloadBlocks(size_t size) { return int(size / kDownloadBlock + (size % kDownloadBlock ? 1 : 0)) + 1; }
+
+} // namespace
+
 void NetServer::levelStarted() {
+    // The paks the level uses (its game code, its map and the bots'), as
+    // the original lists them in the system info for players to check
+    // theirs against: by checksum, and by folder and name.
+    if (files_) {
+        const std::string map = cvars_.string("mapname");
+        std::vector<const ZipArchive*> paks;
+        for (const std::string& file : {std::string("vm/qagame.qvm"), std::string("vm/cgame.qvm"),
+                                        std::string("vm/ui.qvm"), "maps/" + map + ".bsp", "maps/" + map + ".aas"})
+            if (const auto* pak = dynamic_cast<const ZipArchive*>(files_->find(file)))
+                if (std::find(paks.begin(), paks.end(), pak) == paks.end())
+                    paks.push_back(pak);
+        std::string sums, names;
+        referencedNames_.clear();
+        for (const ZipArchive* pak : paks) {
+            sums += std::to_string(pakChecksum(*pak)) + " ";
+            names += pakName(*pak) + " ";
+            referencedNames_.push_back(pakName(*pak));
+        }
+        cvars_.create("sv_referencedPaks", "", CvarStore::SystemInfo | CvarStore::ReadOnly);
+        cvars_.create("sv_referencedPakNames", "", CvarStore::SystemInfo | CvarStore::ReadOnly);
+        cvars_.set("sv_referencedPaks", sums, true);
+        cvars_.set("sv_referencedPakNames", names, true);
+    }
+    cvars_.create("sv_allowDownload", "0", CvarStore::ServerInfo);
     // The entities as the level settled are the baselines new players'
     // snapshots are made from, as the original takes them.
     baselines_.clear();
@@ -191,10 +235,18 @@ void NetServer::noteServerId() {
 Error NetServer::receive(uint64_t now) {
     lastNow_ = now;
     noteServerId();
-    // Pieces of messages that waited for the rate.
-    for (Client& c : clients_)
-        if (c.state != State::Free && !c.queued.empty())
+    // Pieces of messages that waited for the rate, then download blocks
+    // as the rate allows (on the local network, a few at a time).
+    for (Client& c : clients_) {
+        if (c.state == State::Free)
+            continue;
+        if (!c.queued.empty())
             sendQueued(c, now, false);
+        for (int i = 0; i < (c.unlimited ? 8 : 1) && !c.download.name.empty() && c.queued.empty() &&
+                        rateWait(c, now) == 0;
+             ++i)
+            sendDownload(c, now);
+    }
     reluva::net::Address from;
     std::vector<uint8_t> d;
     while (socket_->receive(from, d)) {
@@ -450,9 +502,43 @@ Error NetServer::clientCommand(Client& c, const std::string& text) {
         drop(c, "disconnected", 0);
         return Error::success();
     }
-    // The pure check (cp) and downloads: not done by this server.
-    if (verb == "cp" || verb == "vdr" || verb == "download" || verb == "nextdl" || verb == "stopdl" ||
-        verb == "donedl")
+    // Downloads, as the original's server: a pak asked for (sent from the
+    // next frame on), the client's acknowledgement of each block, stopping,
+    // and done (the game state again, with any players who joined meanwhile).
+    if (verb == "download") {
+        c.download = Client::Download{};
+        c.download.name = words.size() > 1 ? words[1] : std::string();
+        return Error::success();
+    }
+    if (verb == "nextdl") {
+        const int block = words.size() > 1 ? std::atoi(words[1].c_str()) : -1;
+        if (c.download.name.empty())
+            return Error::success();
+        if (block != c.download.clientBlock) {
+            drop(c, "broken download", lastNow_);
+            return Error::success();
+        }
+        if (block + 1 >= downloadBlocks(c.download.data.size())) {
+            if (print)
+                print(c.name + " downloaded " + c.download.name + "\n");
+            c.download = Client::Download{}; // the empty last block: done
+        } else {
+            ++c.download.clientBlock;
+            c.download.sendTime = lastNow_;
+        }
+        return Error::success();
+    }
+    if (verb == "stopdl") {
+        c.download = Client::Download{};
+        return Error::success();
+    }
+    if (verb == "donedl") {
+        if (c.state != State::Active)
+            sendGamestate(c, lastNow_);
+        return Error::success();
+    }
+    // The pure check (cp): this server isn't pure.
+    if (verb == "cp" || verb == "vdr")
         return Error::success();
     if (c.state != State::Active)
         return Error::success();
@@ -598,6 +684,106 @@ void NetServer::sendSnapshot(Client& c, uint64_t now) {
     transmit(c, w);
 }
 
+void NetServer::writeDummySnapshot(Client& c, wire::MessageWriter& w) {
+    // What goes before each download block (protocol 24): a snapshot with
+    // nothing in it, for the reliable acknowledgement.
+    w.byte(kSvcSnapshot);
+    w.longValue(c.lastClientCommand);
+    w.longValue(game_.levelTime());
+    w.byte(0); // not a change from an older one
+    w.byte((c.rateDelayed ? 1u : 0u) | (c.state != State::Active ? 2u : 0u) | (levelCount_ & 1 ? 4u : 0u));
+    w.byte(0); // no area mask
+    static const std::vector<uint8_t> none;
+    writePlayerDelta(w, none, none);
+    w.bits(uint32_t(kNoEntity), kEntityNumberBits);
+}
+
+bool NetServer::downloadAllowed(const std::string& name, std::string& why) const {
+    // As the original: only with sv_allowDownload, only paks the level
+    // uses, and never Raven's own (pak0 to pak3 in baseEF).
+    std::string base = name;
+    if (base.size() > 4 && fs::toLower(base.substr(base.size() - 4)) == ".pk3")
+        base.resize(base.size() - 4);
+    else
+        base.clear();
+    bool referenced = false;
+    for (const std::string& r : referencedNames_)
+        referenced = referenced || fs::toLower(r) == fs::toLower(base);
+    const std::string lower = fs::toLower(base);
+    const bool raven = lower.size() == 10 && lower.rfind("baseef/pak", 0) == 0 && lower[9] >= '0' && lower[9] <= '3';
+    if (!(cvars_.integer("sv_allowDownload") & 1))
+        why = "download disabled";
+    else if (!referenced)
+        why = "not referenced";
+    else if (raven)
+        why = "a Raven pak";
+    else
+        return true;
+    return false;
+}
+
+void NetServer::sendDownload(Client& c, uint64_t now) {
+    Client::Download& d = c.download;
+    if (!d.opened) {
+        d.opened = true;
+        std::string why;
+        Error err = Error::success();
+        bool ok = downloadAllowed(d.name, why);
+        if (ok) {
+            // The pak's file itself, from where the level's files are.
+            ok = false;
+            if (files_)
+                for (const Archive* a : files_->archives())
+                    if (const auto* pak = dynamic_cast<const ZipArchive*>(a))
+                        if (fs::toLower(pakName(*pak) + ".pk3") == fs::toLower(d.name)) {
+                            const std::filesystem::path path(pak->describe());
+                            std::error_code ec;
+                            const auto size = std::filesystem::file_size(path, ec);
+                            std::ifstream in(path, std::ios::binary);
+                            d.data.resize(size_t(ec ? 0 : size));
+                            ok = !ec && in.read(reinterpret_cast<char*>(d.data.data()), std::streamsize(d.data.size()));
+                        }
+            if (!ok)
+                why = "not found";
+        }
+        if (print)
+            print(c.name + (ok ? " downloading " : " can't download ") + d.name + (ok ? "" : " (" + why + ")") + "\n");
+        if (!ok) {
+            // Block 0 with the size -1: refused (protocol 24 gives no reason).
+            wire::MessageWriter w;
+            writeDummySnapshot(c, w);
+            w.byte(6);
+            w.shortValue(0);
+            w.longValue(-1);
+            transmit(c, w);
+            d = Client::Download{};
+            return;
+        }
+    }
+    const int total = downloadBlocks(d.data.size());
+    const int window = std::min(d.clientBlock + kDownloadWindow, total);
+    if (d.xmitBlock >= window) {
+        // The whole window is out: again from the client's, after a second.
+        if (now - d.sendTime <= 1000)
+            return;
+        d.xmitBlock = d.clientBlock;
+    }
+    const size_t at = size_t(d.xmitBlock) * kDownloadBlock;
+    const size_t length = at < d.data.size() ? std::min(kDownloadBlock, d.data.size() - at) : 0;
+    wire::MessageWriter w;
+    writeDummySnapshot(c, w);
+    w.byte(6);
+    w.shortValue(d.xmitBlock);
+    if (d.xmitBlock == 0)
+        w.longValue(int32_t(d.data.size()));
+    w.shortValue(int32_t(length));
+    if (length)
+        w.data(d.data.data() + at, length);
+    transmit(c, w);
+    ++d.xmitBlock;
+    d.sendTime = now;
+}
+
 void NetServer::drop(Client& c, const std::string& reason, uint64_t now) {
     if (c.state <= State::Zombie)
         return;
@@ -680,7 +866,7 @@ Error NetServer::frame(uint64_t now) {
         }
         // As the original: snapshots to those loading the level too
         // (flagged not active), whose clocks they set.
-        if (c.state >= State::Primed && levelTime >= c.nextSnapshotTime) {
+        if (c.state >= State::Primed && levelTime >= c.nextSnapshotTime && c.download.name.empty()) {
             // Not while a message's pieces still wait, or before the rate
             // allows: skipped, the next flagged as delayed.
             if (!c.queued.empty() || rateWait(c, now) > 0) {

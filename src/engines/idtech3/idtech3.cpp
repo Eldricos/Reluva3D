@@ -15,6 +15,8 @@
 // Ctrl+Tab and Ctrl+Esc, as the menus take Tab and Esc).
 
 #include "common/audio/mixer.h"
+#include "common/fs.h"
+#include "common/zip.h"
 #include "engines/engine.h"
 #include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/games.h"
@@ -41,6 +43,10 @@ public:
         std::vector<std::string> warnings;
         if (Error err = mountGameDir(files_, target_.path, game_.baseDir, 0, warnings))
             return err;
+        // Paks downloaded from servers, in the save folder's game folder:
+        // above the install's, as the original's home folder is.
+        if (!target_.savePath.empty() && fs::findDirectory(target_.savePath, game_.baseDir))
+            mountGameDir(files_, target_.savePath, game_.baseDir, 1, warnings);
         // Damaged archives or scripts don't stop the viewer; the Files
         // page lists what went wrong.
         shaders_.load(files_, &warnings);
@@ -58,7 +64,18 @@ public:
         } audioOff{sys_};
 
         ViewerContext ctx{sys_, screen_, files_, shaders_, game_, warnings, target_.savePath,
-                          audioOut ? &mixer : nullptr, {}, {}, {}, {}, {}, {}};
+                          audioOut ? &mixer : nullptr, {}, {}, {}, {}, {}, {}, {}};
+        // A pak just downloaded: in the search path at once, above the
+        // rest, and the shader scripts read again (it may bring its own).
+        int added = 0;
+        ctx.addPak = [this, &added](const std::filesystem::path& path) {
+            auto zip = std::make_unique<ZipArchive>();
+            if (Error err = zip->open(path))
+                return err;
+            files_.add(std::move(zip), 2 * kPrioritiesPerGameDir + ++added);
+            shaders_.load(files_, nullptr);
+            return Error::success();
+        };
         loadConfig(ctx);
         struct SaveConfig { // keeps settings changed while running, however it ends
             ViewerContext& ctx;

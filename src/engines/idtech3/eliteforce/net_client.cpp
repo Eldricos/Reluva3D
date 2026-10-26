@@ -16,7 +16,7 @@ namespace reluva::idtech3::eliteforce {
 namespace {
 
 constexpr int32_t kSvcNop = 1, kSvcGamestate = 2, kSvcConfigstring = 3, kSvcBaseline = 4, kSvcServerCommand = 5,
-                  kSvcSnapshot = 7;
+                  kSvcDownload = 6, kSvcSnapshot = 7;
 constexpr uint32_t kClcMove = 2, kClcMoveNoDelta = 3, kClcClientCommand = 4;
 constexpr uint64_t kResendMs = 3000;   // getchallenge and connect, until answered
 constexpr uint64_t kWaitingMs = 1000;  // a packet a second while waiting for the level
@@ -87,7 +87,9 @@ void NetClient::frame(uint64_t now) {
         if (serverTime_ >= newestSnapshotTime_ - 5)
             extrapolated_ = true;
     }
-    const uint64_t interval = state_ == State::Active ? 1000 / kMaxPackets : kWaitingMs;
+    // At cl_maxpackets while playing; 20 a second while downloading, as
+    // the original's client acknowledges blocks; otherwise one a second.
+    const uint64_t interval = state_ == State::Active ? 1000 / kMaxPackets : downloading() ? 50 : kWaitingMs;
     if (!lastPacket_ || now - lastPacket_ >= interval)
         sendPacket(now);
 }
@@ -128,12 +130,12 @@ void NetClient::parseMessage(wire::MessageReader& r, uint64_t now) {
             parseGamestate(r);
         } else if (op == kSvcSnapshot) {
             parseSnapshot(r, now);
+        } else if (op == kSvcDownload) {
+            parseDownload(r, now);
         } else if (op == kSvcNop) {
             continue;
         } else {
-            // The end (protocol 24 sends no end marker), or a download
-            // (kSvcDownload), which isn't asked for.
-            break;
+            break; // the end (protocol 24 sends no end marker)
         }
         if (r.overflowed())
             break;
@@ -252,8 +254,8 @@ void NetClient::parseSnapshot(wire::MessageReader& r, uint64_t now) {
     }
     for (; o != before.end(); ++o)
         snap.entities.insert(*o);
-    if (r.overflowed() || !snap.valid)
-        return;
+    if (r.overflowed() || !snap.valid || downloading())
+        return; // while downloading, they carry nothing (the acknowledgement)
     snaps_[size_t(snap.message & 31)] = snap;
     lastSnapMessage_ = snap.message;
     GameHost::Snapshot out;
@@ -266,6 +268,59 @@ void NetClient::parseSnapshot(wire::MessageReader& r, uint64_t now) {
     out.snapFlags = flags;
     newSnapshots_.push_back(std::move(out));
     adjustTime(snap.serverTime, now);
+}
+
+void NetClient::download(const std::string& remoteName) {
+    downloadName_ = remoteName;
+    downloadData_.clear();
+    downloadSize_ = -1;
+    downloadBlock_ = 0;
+    addClientCommand("download " + remoteName);
+}
+
+bool NetClient::takeDownload(std::string& name, std::vector<uint8_t>& data) {
+    if (!finished_)
+        return false;
+    finished_ = false;
+    name = std::move(finishedName_);
+    data = std::move(finishedData_);
+    return true;
+}
+
+void NetClient::parseDownload(wire::MessageReader& r, uint64_t now) {
+    // A block: its number, for block 0 the file's size (-1: refused), its
+    // length (0: the end) and its bytes; acknowledged in order (nextdl).
+    const auto block = int32_t(uint16_t(r.shortValue()));
+    if (block == 0 && downloadBlock_ == 0) {
+        downloadSize_ = r.longValue();
+        if (downloadSize_ < 0) {
+            state_ = State::Disconnected;
+            message_ = "Couldn't download " + downloadName_ + ": the server won't send it";
+            downloadName_.clear();
+            return;
+        }
+    }
+    const int32_t length = r.shortValue();
+    if (length < 0 || length > 16384)
+        return;
+    std::vector<uint8_t> data;
+    if (length > 0)
+        data = r.data(size_t(length));
+    if (downloadName_.empty() || block != (downloadBlock_ & 0xffff))
+        return; // not asked for, or out of order: sent again
+    downloadData_.insert(downloadData_.end(), data.begin(), data.end());
+    addClientCommand("nextdl " + std::to_string(downloadBlock_));
+    ++downloadBlock_;
+    if (length == 0) {
+        // The end: acknowledged at once, twice, so the server stops.
+        finishedName_ = std::move(downloadName_);
+        finishedData_ = std::move(downloadData_);
+        downloadName_.clear();
+        downloadData_.clear();
+        finished_ = true;
+        sendPacket(now);
+        sendPacket(now);
+    }
 }
 
 void NetClient::adjustTime(int32_t snapshotTime, uint64_t now) {
