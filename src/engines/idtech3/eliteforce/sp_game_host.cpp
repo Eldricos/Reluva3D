@@ -795,7 +795,7 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
     case 25: return 0;                        // CM_MarkFragments: no wall marks yet
     // Sound, played if there's somewhere to play it.
     case 26: // S_StartSound(origin or 0, entity, channel, sfx)
-        if (voiceLog && sounds_.name(int32_t(a(3))).find("/voice/") != std::string::npos)
+        if (voiceLog && (a(2) == 3 || a(2) == 4 || sounds_.name(int32_t(a(3))).find("voice") != std::string::npos))
             voiceLog("[" + std::to_string(levelTime_) + " ms] sound on entity " + std::to_string(int32_t(a(1))) +
                      ", channel " + std::to_string(int32_t(a(2))) + ": " + sounds_.name(int32_t(a(3))));
         if (a(2) == 3 || a(2) == 4)
@@ -805,6 +805,9 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
                                     sounds_.name(int32_t(a(3))));
         return 0;
     case 27: // S_StartLocalSound(sfx, channel)
+        if (voiceLog && (a(1) == 3 || a(1) == 4 || sounds_.name(int32_t(a(0))).find("voice") != std::string::npos))
+            voiceLog("[" + std::to_string(levelTime_) + " ms] local sound, channel " + std::to_string(int32_t(a(1))) +
+                     ": " + sounds_.name(int32_t(a(0))));
         if (soundSystem)
             soundSystem->startLocalSound(sounds_.name(int32_t(a(0))), int(a(1)));
         return 0;

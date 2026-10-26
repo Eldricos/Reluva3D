@@ -3825,6 +3825,7 @@ int cmdSpRun(int argc, char** argv) {
         std::printf("game: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
     };
     game.voiceLog = [](const std::string& text) { std::printf("voice: %s\n", text.c_str()); };
+    std::printf("(voices logged as they start and end)\n");
     // For a failure's report: the last engine calls, and (set up once the
     // DLL is loaded) the last instructions run.
     std::vector<std::pair<int, uint32_t>> recentCalls(16);
