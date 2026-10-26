@@ -109,6 +109,7 @@
 #endif
 #include "common/font.h"
 #include "common/fs.h"
+#include "common/pe.h"
 #include "common/zip.h"
 #ifdef RELUVA_ENGINE_IDTECH3
 #include "engines/idtech3/bsp.h"
@@ -3616,6 +3617,65 @@ int cmdNetMaster(int argc, char** argv) {
     return answers ? 0 : 1;
 }
 
+// What a Windows executable or DLL holds and needs (for working out how
+// native game code such as Elite Force's single player DLLs could run):
+// its sections, exports, imports and relocations.
+int cmdPeInfo(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool pe-info <file.dll|file.exe> [-all]\n");
+        return 2;
+    }
+    Bytes d;
+    if (!readFile(argv[2], d))
+        return 1;
+    const bool all = argc > 3 && std::strcmp(argv[3], "-all") == 0;
+    reluva::PeImage pe;
+    if (reluva::Error err = reluva::parsePe(d, pe)) {
+        std::fprintf(stderr, "%s: %s\n", argv[2], err.message.c_str());
+        return 1;
+    }
+    std::printf("machine 0x%x (%s), %s, characteristics 0x%x (%s), linker %s, built %u (unix time)\n", pe.machine,
+                pe.machine == 0x14c ? "x86" : pe.machine == 0x8664 ? "x86-64" : "other", pe.pe32Plus ? "PE32+" : "PE32",
+                pe.characteristics, (pe.characteristics & 0x2000) ? "DLL" : "executable", pe.linkerVersion.c_str(),
+                pe.timestamp);
+    std::printf("image base 0x%llx, size 0x%x, entry point RVA 0x%x, subsystem %u (2 GUI, 3 console)\n",
+                static_cast<unsigned long long>(pe.imageBase), pe.imageSize, pe.entryPoint, pe.subsystem);
+    std::printf("relocations: %u%s; TLS: %s", pe.relocationCount,
+                pe.relocationCount ? " (can load at another address)" : " (fixed address)", pe.hasTls ? "yes" : "no");
+    for (const std::string& o : pe.otherDirectories)
+        std::printf("; %s", o.c_str());
+    std::printf("\n\nsections:\n");
+    for (const auto& sec : pe.sections)
+        std::printf("  %-8s rva 0x%06x size 0x%06x file 0x%06x+0x%06x %s%s%s%s\n", sec.name.c_str(), sec.virtualAddress,
+                    sec.virtualSize, sec.rawOffset, sec.rawSize, (sec.characteristics & 0x20000000) ? "exec " : "",
+                    (sec.characteristics & 0x40000000) ? "read " : "", (sec.characteristics & 0x80000000) ? "write " : "",
+                    (sec.characteristics & 0x80) ? "(zero-filled)" : "");
+    std::printf("\nexports (%s): %zu\n", pe.exportName.c_str(), pe.exports.size());
+    for (const auto& x : pe.exports)
+        std::printf("  %4u %-40s rva 0x%06x%s%s\n", x.ordinal, x.name.empty() ? "(by ordinal)" : x.name.c_str(), x.rva,
+                    x.forwarder.empty() ? "" : " -> ", x.forwarder.c_str());
+    size_t total = 0;
+    for (const auto& dll : pe.imports)
+        total += dll.functions.size();
+    std::printf("\nimports: %zu functions from %zu DLLs\n", total, pe.imports.size());
+    for (const auto& dll : pe.imports) {
+        std::printf("  %s: %zu\n", dll.name.c_str(), dll.functions.size());
+        std::string line;
+        for (const auto& f : dll.functions) {
+            const std::string n = f.name.empty() ? "#" + std::to_string(f.ordinal) : f.name;
+            if (line.size() + n.size() > 100) {
+                std::printf("    %s\n", line.c_str());
+                line.clear();
+            }
+            line += (line.empty() ? "" : " ") + n;
+        }
+        if (!line.empty())
+            std::printf("    %s\n", line.c_str());
+    }
+    (void)all;
+    return 0;
+}
+
 int cmdGameRun(int argc, char** argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n");
@@ -4751,6 +4811,8 @@ int main(int argc, char** argv) {
         return cmdNetFind(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "net-master") == 0)
         return cmdNetMaster(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "pe-info") == 0)
+        return cmdPeInfo(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "pk3-sums") == 0)
         return cmdPk3Sums(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "ui-run") == 0)
@@ -4801,6 +4863,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -syscalls <first> <last> | -func <instruction> | -blockcopies | -fields <address>\n"
                  "  reluva-tool net-find [host[:port]]\n"
                  "  reluva-tool net-master [master[:port]]...\n"
+                 "  reluva-tool pe-info <file.dll|file.exe>\n"
                  "  reluva-tool pk3-sums <game folder> [feed]\n"
                  "  reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-addbot name]... | -join <host[:port]> [seconds] [-name name]\n"
                  "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n"
