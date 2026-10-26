@@ -3,8 +3,8 @@
 
 // How far sounds carry and how they're panned follows the GPL Quake III
 // Arena sound system's behaviour (full volume within 80 units, 0.0008 of
-// it lost a unit beyond, panned by the listener's right); this is new code
-// written from that description.
+// it lost a unit beyond, each ear given half plus or minus half of how far
+// to that side it is); this is new code written from that description.
 
 #include "engines/idtech3/sound_system.h"
 
@@ -17,6 +17,7 @@ namespace reluva::idtech3 {
 namespace {
 constexpr float kFullVolumeDistance = 80;
 constexpr float kAttenuation = 0.0008f;
+constexpr float kSeparation = 0.5f;
 } // namespace
 
 std::shared_ptr<const audio::Sound> SoundSystem::find(const std::string& name) {
@@ -60,8 +61,16 @@ float SoundSystem::place(audio::SoundHandle handle, const std::optional<Vec3f>& 
     auto [volume, pan] = spatialize(at);
     if (ownVolume)
         volume = std::clamp(*ownVolume, 0.0f, 1.0f);
-    mixer_.setVolume(handle, int(volume * float(audio::kMaxVolume)));
-    mixer_.setPan(handle, int(pan * float(audio::kMaxPan)));
+    // Each ear as the original's mixer has it (s_separation 0.5): half in
+    // each for a sound straight ahead or right here, all in one ear for one
+    // straight to that side. As the mixer's volume (the louder ear) and
+    // pan (how much the other is turned down).
+    const float right = volume * std::max(0.0f, kSeparation + (1 - kSeparation) * pan);
+    const float left = volume * std::max(0.0f, kSeparation - (1 - kSeparation) * pan);
+    const float loudest = std::max(left, right);
+    const float balance = loudest <= 0 ? 0 : right >= left ? 1 - left / right : -(1 - right / left);
+    mixer_.setVolume(handle, int(loudest * float(audio::kMaxVolume)));
+    mixer_.setPan(handle, int(balance * float(audio::kMaxPan)));
     return volume;
 }
 
