@@ -13,6 +13,7 @@
 
 #include <array>
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <map>
 #include <memory>
@@ -100,6 +101,13 @@ private:
         uint64_t gamestateMs = 0;
         GameHost::UserCommand lastCommand;
         bool begun = false; // put in the level (ClientBegin) since it last loaded
+        // The rate (bytes a second; `unlimited` on the local network), the
+        // last datagram sent, and those waiting for the rate.
+        int rate = 3000;
+        bool unlimited = false, rateDelayed = false;
+        size_t lastSentSize = 0;
+        uint64_t lastSentMs = 0;
+        std::deque<std::vector<uint8_t>> queued;
         int ping = 0;
         std::array<Frame, kPacketBackup> frames;
     };
@@ -115,6 +123,8 @@ private:
     void sendGamestate(Client& c, uint64_t now);
     void sendSnapshot(Client& c, uint64_t now);
     void transmit(Client& c, const wire::MessageWriter& w);
+    void sendQueued(Client& c, uint64_t now, bool first);
+    int rateWait(const Client& c, uint64_t now) const;
     void drop(Client& c, const std::string& reason, uint64_t now);
     void finalMessage(Client& c, const std::string& reason, uint64_t now);
     void noteServerId();

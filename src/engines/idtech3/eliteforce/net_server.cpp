@@ -191,6 +191,10 @@ void NetServer::noteServerId() {
 Error NetServer::receive(uint64_t now) {
     lastNow_ = now;
     noteServerId();
+    // Pieces of messages that waited for the rate.
+    for (Client& c : clients_)
+        if (c.state != State::Free && !c.queued.empty())
+            sendQueued(c, now, false);
     reluva::net::Address from;
     std::vector<uint8_t> d;
     while (socket_->receive(from, d)) {
@@ -334,6 +338,13 @@ void NetServer::connect(const reluva::net::Address& from, const std::string& use
 
 void NetServer::applyUserinfo(Client& c) {
     c.name = infoValue(c.userinfo, "name");
+    // The rate: players on the local network aren't held to one unless the
+    // server is a public one (dedicated 2) or sv_lanForceRate is 0; others
+    // to theirs, 1000 to 90000 bytes a second, 3000 if they give none.
+    cvars_.create("sv_lanForceRate", "1", CvarStore::Archive);
+    c.unlimited = c.address.isLan() && cvars_.integer("dedicated") != 2 && cvars_.integer("sv_lanForceRate") == 1;
+    const std::string rate = infoValue(c.userinfo, "rate");
+    c.rate = rate.empty() ? 3000 : std::clamp(std::atoi(rate.c_str()), 1000, 90000);
     const int fps = std::max(1, cvars_.integer("sv_fps") ? cvars_.integer("sv_fps") : 20);
     int snaps = std::atoi(infoValue(c.userinfo, "snaps").c_str());
     snaps = snaps <= 0 ? fps : std::clamp(snaps, 1, fps);
@@ -466,8 +477,38 @@ void NetServer::writeReliable(Client& c, wire::MessageWriter& w) {
 }
 
 void NetServer::transmit(Client& c, const wire::MessageWriter& w) {
-    for (const std::vector<uint8_t>& d : c.chan.transmit(w.bytes()))
-        socket_->send(c.address, d);
+    // The first datagram now unless others wait; a message in pieces sends
+    // the rest one at a time as the client's rate allows (sendQueued).
+    for (std::vector<uint8_t>& d : c.chan.transmit(w.bytes()))
+        c.queued.push_back(std::move(d));
+    sendQueued(c, lastNow_, true);
+}
+
+void NetServer::sendQueued(Client& c, uint64_t now, bool first) {
+    while (!c.queued.empty() && (first || rateWait(c, now) == 0)) {
+        socket_->send(c.address, c.queued.front());
+        c.lastSentSize = c.queued.front().size();
+        c.lastSentMs = now;
+        c.queued.pop_front();
+        first = false;
+        if (!c.unlimited)
+            break; // the next when the rate allows
+    }
+}
+
+int NetServer::rateWait(const Client& c, uint64_t now) const {
+    // As the original: the time the last datagram (and 28 bytes of UDP
+    // and IP) takes at the client's rate, less what has passed since.
+    if (c.unlimited)
+        return 0;
+    int rate = c.rate;
+    if (const int most = cvars_.integer("sv_maxRate"))
+        rate = std::min(rate, std::max(most, 1000));
+    if (const int least = cvars_.integer("sv_minRate"))
+        rate = std::max(rate, std::max(least, 1000));
+    const auto ms = int((c.lastSentSize + 28) * 1000 / size_t(std::max(rate, 1)));
+    const auto passed = int(now - c.lastSentMs);
+    return passed > ms ? 0 : ms - passed;
 }
 
 void NetServer::sendGamestate(Client& c, uint64_t now) {
@@ -526,8 +567,9 @@ void NetServer::sendSnapshot(Client& c, uint64_t now) {
     w.longValue(c.lastClientCommand);
     w.longValue(s.serverTime);
     w.byte(uint32_t(deltaNum));
-    // Snap flags: 2 not active (still loading); 4 changes with each level.
-    w.byte((c.state != State::Active ? 2u : 0u) | (levelCount_ & 1 ? 4u : 0u));
+    // Snap flags: 1 the last was held back by the rate; 2 not active (still
+    // loading); 4 changes with each level.
+    w.byte((c.rateDelayed ? 1u : 0u) | (c.state != State::Active ? 2u : 0u) | (levelCount_ & 1 ? 4u : 0u));
     const int maskBytes = std::min(32, (game_.areaCount() + 7) / 8);
     w.byte(uint32_t(maskBytes));
     w.data(s.areaMask.data(), size_t(maskBytes));
@@ -639,8 +681,15 @@ Error NetServer::frame(uint64_t now) {
         // As the original: snapshots to those loading the level too
         // (flagged not active), whose clocks they set.
         if (c.state >= State::Primed && levelTime >= c.nextSnapshotTime) {
-            c.nextSnapshotTime = levelTime + c.snapMs;
-            sendSnapshot(c, now);
+            // Not while a message's pieces still wait, or before the rate
+            // allows: skipped, the next flagged as delayed.
+            if (!c.queued.empty() || rateWait(c, now) > 0) {
+                c.rateDelayed = true;
+            } else {
+                c.nextSnapshotTime = levelTime + c.snapMs;
+                sendSnapshot(c, now);
+                c.rateDelayed = false;
+            }
         } else if (c.state == State::Connected && now - c.gamestateMs >= 1000) {
             // Something now and then while it loads (its commands, if
             // any), so a lost game state is noticed: its acknowledgement

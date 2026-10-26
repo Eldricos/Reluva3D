@@ -1800,7 +1800,7 @@ static void testSnapshotCulling(const std::filesystem::path& tmp) {
 
 // A player joining over the network: the fake game's server, and a
 // client talking to it through sockets in memory (some datagrams lost).
-static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets) {
+static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets, bool limitRate = false) {
     namespace ef = eliteforce;
     std::filesystem::remove_all(tmp);
     test::writeFile(tmp / "BaseEF" / "pak0.pk3",
@@ -1822,6 +1822,9 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
     }
     // In memory, or through the system's own sockets on this machine.
     auto network = net::LoopbackNetwork::create();
+    // Players on the same machine are held to a rate only if sv_lanForceRate is 0.
+    cvars.create("sv_lanForceRate", "1", 0);
+    cvars.set("sv_lanForceRate", limitRate ? "0" : "1");
     std::string socketError;
     std::unique_ptr<net::UdpSocket> serverSocket =
         systemSockets ? net::openSystemUdp(0, socketError) : network->open(27960);
@@ -1884,6 +1887,12 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
     CHECK(announced);
     // Snapshots while loading are flagged not active; in the game, not.
     CHECK(!got.empty() && (got.back().snapFlags & 2) == 0);
+    // At 3000 bytes a second (no rate given), some snapshots are held back
+    // and the next flagged so; unlimited, none.
+    bool delayed = false;
+    for (const auto& snap : got)
+        delayed = delayed || (snap.snapFlags & 1);
+    CHECK(delayed == limitRate);
     if (!systemSockets) {
         network->setDropFilter(nullptr);
         auto play = [&](int ticks) {
@@ -2612,6 +2621,7 @@ int main() {
     testSnapshotCulling(tmp / "culling");
     testNetworkPlay(tmp / "netplay", false);
     testNetworkPlay(tmp / "netplay-udp", true);
+    testNetworkPlay(tmp / "netplay-rate", false, true);
     testCgameHost(tmp / "cgame");
     testJumpTableGuard();
     testUiHost(tmp / "ui");
