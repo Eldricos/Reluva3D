@@ -1078,8 +1078,10 @@ void Cpu::runUntil(uint32_t returnAddress) {
 Error Cpu::call(uint32_t address, const std::vector<uint32_t>& args, uint32_t& result) {
     const uint32_t returnAddress = nativeBase_ - kNativeStride; // a HLT that's never run
     const uint32_t savedEsp = reg[ESP], savedEip = eip;
-    if (depth_ == 0)
+    if (depth_ == 0) {
         limitAt_ = executed_ + limit_;
+        faultEip = 0;
+    }
     ++depth_;
     try {
         for (auto it = args.rbegin(); it != args.rend(); ++it)
@@ -1088,6 +1090,10 @@ Error Cpu::call(uint32_t address, const std::vector<uint32_t>& args, uint32_t& r
         eip = address;
         runUntil(returnAddress);
     } catch (Fault& f) {
+        if (faultEip == 0 || depth_ == 1) {
+            faultReg = reg;
+            faultEip = instructionStart_;
+        }
         --depth_;
         reg[ESP] = savedEsp;
         eip = savedEip;

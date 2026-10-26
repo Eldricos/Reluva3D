@@ -108,6 +108,11 @@ public:
     // Called before each instruction, with its address; for tracing.
     std::function<void(Cpu& cpu)> trace;
 
+    // The registers as they were when the last call() failed (before they
+    // were put back), for reports.
+    std::array<uint32_t, 8> faultReg{};
+    uint32_t faultEip = 0;
+
     // The stack: the emulated code's, which call() uses; set before the
     // first call (it grows down from `top`).
     void setStack(uint32_t top) { reg[ESP] = top; }

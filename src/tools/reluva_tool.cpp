@@ -3814,17 +3814,62 @@ int cmdSpRun(int argc, char** argv) {
     game.print = [](const std::string& text) {
         std::printf("game: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
     };
-    if (traceCalls)
-        game.trace = [](int slot, uint32_t from) { std::printf("  engine[%d] from 0x%08x\n", slot, from); };
+    // For a failure's report: the last engine calls, and (set up once the
+    // DLL is loaded) the last instructions run.
+    std::vector<std::pair<int, uint32_t>> recentCalls(16);
+    size_t callsAt = 0;
+    game.trace = [&](int slot, uint32_t from) {
+        recentCalls[callsAt++ % recentCalls.size()] = {slot, from};
+        if (traceCalls)
+            std::printf("  engine[%d] from 0x%08x\n", slot, from);
+    };
+    std::vector<uint32_t> recent(64);
+    size_t recentAt = 0;
     auto failed = [&](const char* what, const reluva::Error& e) {
+        reluva::x86::Cpu& cpu = game.cpu();
         std::printf("%s failed: %s\n", what, e.message.c_str());
-        std::printf("instructions run: %llu\n", (unsigned long long)game.cpu().executed());
+        std::printf("instructions run: %llu\n", (unsigned long long)cpu.executed());
+        // Addresses as the DLL's own (at its preferred base), to look up.
+        const uint32_t base = game.module() ? game.module()->base : 0;
+        const uint32_t preferred = game.module() ? uint32_t(game.module()->image.imageBase) : 0;
+        const uint32_t size = game.module() ? game.module()->size : 0;
+        auto dll = [&](uint32_t a) {
+            char b[32];
+            if (a >= base && a < base + size)
+                std::snprintf(b, sizeof b, "%08x", a - base + preferred);
+            else
+                std::snprintf(b, sizeof b, "(%08x)", a);
+            return std::string(b);
+        };
+        std::printf("last instructions (at the DLL's own addresses):");
+        for (size_t i = recentAt > recent.size() ? recentAt - recent.size() : 0, k = 0; i < recentAt; ++i, ++k)
+            std::printf("%s%s", k % 8 ? " " : "\n  ", dll(recent[i % recent.size()]).c_str());
+        std::printf("\nlast engine calls:");
+        for (size_t i = callsAt > recentCalls.size() ? callsAt - recentCalls.size() : 0; i < callsAt; ++i)
+            std::printf(" %d@%s", recentCalls[i % recentCalls.size()].first,
+                        dll(recentCalls[i % recentCalls.size()].second).c_str());
+        std::printf("\nregisters: eax %08x ecx %08x edx %08x ebx %08x esp %08x ebp %08x esi %08x edi %08x\n",
+                    cpu.faultReg[0], cpu.faultReg[1], cpu.faultReg[2], cpu.faultReg[3], cpu.faultReg[4], cpu.faultReg[5],
+                    cpu.faultReg[6], cpu.faultReg[7]);
+        // Return addresses on the stack: words pointing into the DLL's code.
+        std::printf("stack (words pointing into the DLL):");
+        int shown = 0;
+        const uint32_t sp = cpu.faultReg[reluva::x86::Cpu::ESP];
+        for (uint32_t a = sp; shown < 24 && cpu.valid(a, 4) && a < sp + 0x4000; a += 4) {
+            const uint32_t v = cpu.read32(a);
+            if (v >= base && v < base + 0xbb000) { // .text
+                std::printf("%s%s", shown % 8 ? " " : "\n  ", dll(v).c_str());
+                ++shown;
+            }
+        }
+        std::printf("\n");
         return 1;
     };
     const auto started = std::chrono::steady_clock::now();
     if (reluva::Error e = game.load(dll))
         return failed("loading", e);
     std::printf("efgamex86.dll loaded at 0x%08x\n", game.module()->base);
+    game.cpu().trace = [&](reluva::x86::Cpu& c) { recent[recentAt++ % recent.size()] = c.eip; };
     if (reluva::Error e = game.startLevel(map, bsp, ef::SpGameHost::mapChecksum(data), 0))
         return failed("Init", e);
     std::printf("Init done: %d entities (%d bytes each), %zu linked, %zu configstrings\n", game.entityCount(),
