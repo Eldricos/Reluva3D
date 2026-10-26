@@ -6,9 +6,11 @@
 
 #include "engines/awe/ac2.h"
 #include "engines/awe/camera.h"
+#include "engines/awe/conditions.h"
 #include "engines/awe/game_text.h"
 #include "engines/awe/gr2.h"
 #include "engines/awe/model.h"
+#include "engines/awe/sprite.h"
 #include "engines/awe/tables.h"
 
 #include <cmath>
@@ -320,6 +322,55 @@ void testCamera() {
     CHECK(front[2] == 21);
 }
 
+void testConditions() {
+    GameState st;
+    st.values["moving"] = 1;
+    st.act = "06b";
+    st.tags = {"bardraweropen"};
+    st.items = {"icetongs"};
+    CHECK(testCondition("", st));
+    CHECK(!testCondition("0", st));
+    CHECK(testCondition("moving >0", st));
+    CHECK(!testCondition("weather >0", st));
+    CHECK(testCondition("!master", st));
+    CHECK(!testCondition("debug", st));
+    CHECK(testCondition("act 06a| act 06b| act 07a", st));
+    CHECK(testCondition("act 06a | act 06b | act 07a", st));
+    CHECK(!testCondition("act 07a", st));
+    CHECK(testCondition("!has icebucket, act >06a", st));
+    CHECK(!testCondition("!has icetongs", st));
+    CHECK(testCondition("tag BarDrawerOpen", st));
+    CHECK(!testCondition("!has sellotape, !tag bardraweropen", st));
+    CHECK(testCondition("moving 1, act <07a", st));
+    st.act.clear();
+    CHECK(!testCondition("act 06a", st));
+    CHECK(testCondition("!act 06a", st));
+}
+
+void testSprite() {
+    // Salon_01's left window: movingbg02.bik mirrored and turned -40
+    // degrees about its top-left corner.
+    SpriteTransform t;
+    t.x = 100, t.y = 54, t.scaleX = -1.5f, t.scaleY = 1.5f, t.roll = -0.698132f;
+    float x, y;
+    t.apply(0, 0, x, y);
+    CHECK(x == 100 && y == 54);
+    t.apply(256, 256, x, y);
+    CHECK(std::fabs(x - 53.1f) < 0.5f && std::fabs(y - 595.0f) < 0.5f);
+    // Drawn: a 2x2 picture scaled by 2 covers 4x4 pixels from (1, 1).
+    image::Image img;
+    img.w = img.h = 2;
+    img.rgba.assign(16, 255);
+    Surface dst;
+    dst.create(8, 8, PixelFormat::RGBA32);
+    std::fill(dst.pixels.begin(), dst.pixels.end(), 0);
+    SpriteTransform s2;
+    s2.x = 1, s2.y = 1, s2.scaleX = 2, s2.scaleY = 2;
+    drawSprite(dst, img, s2, true);
+    CHECK(dst.row(1)[1 * 4 + 3] == 255 && dst.row(4)[4 * 4] == 255);
+    CHECK(dst.row(0)[0 * 4 + 3] == 0 && dst.row(5)[5 * 4 + 3] == 0);
+}
+
 } // namespace
 
 int main() {
@@ -328,6 +379,8 @@ int main() {
     testGr2();
     testCurves();
     testCamera();
+    testConditions();
+    testSprite();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

@@ -48,6 +48,12 @@ scenes, two Granny files, the text tables, two backgrounds):
   Reluva's matrices match granny2.dll's. Characters are drawn into the
   Scenes page through them, posed by their idle (or sitting) animation,
   between the background and the cutouts in front.
+- **Scenes' video loops and conditions.** BINK objects play in the
+  Scenes page, placed as the game's Direct3D sprites are (scale, then a
+  turn about the top-left corner). Objects come and go with their
+  conditions (`moving >0`). M toggles the train moving (the countryside
+  streaking past the windows) or stopped (the snowscape), and W toggles
+  the weather. Salon_01 matches a walkthrough video of the game.
 - **The game's fonts** (`Text/fonts.txt`, `Interface/Fonts`) are drawn
   with stb_truetype, and the movies' subtitles show under them.
 - **Bink movies: decoded.** Video and audio match FFmpeg's output
@@ -82,8 +88,9 @@ Corrections to the plan below:
   the blizzard videos) shows through.
 - **`.ac2` is not text.** It's the game's objects written field by field.
   Saves use the same extension with different records.
-- **Granny animations need no curve decompression.** The 2.5 exporter
-  wrote plain B-spline curves.
+- **Most Granny animations need no curve decompression.** The 2.5
+  exporter wrote plain B-spline curves, except in about 30 files, whose
+  compressed curves granny2.dll expands.
 - **The model textures are inside the `.gr2` files**, Bink-compressed. The
   folders' few JPEGs are extras.
 
@@ -96,7 +103,7 @@ Next:
    so characters can move about.
 3. Read the script interpreter in `motoe.exe`: the full list of verbs and
    their arguments.
-4. The scenes' video loops (BINK objects) drawn in the Scenes page.
+4. Particles (`SNOW`, `RAIN`, `PART`: the weather outside the windows).
 5. Native decoding of the compressed curve formats (the DLL expands them
    for now).
 6. Native Oodle1 and Bink-texture decoding, checked against the DLL, to

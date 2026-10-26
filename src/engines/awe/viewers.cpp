@@ -9,6 +9,7 @@
 #include "common/text.h"
 #include "common/video/bink_audio.h"
 #include "engines/awe/camera.h"
+#include "engines/awe/sprite.h"
 #include "engines/awe/tables.h"
 
 #include <algorithm>
@@ -263,7 +264,10 @@ std::string folderOf(const std::string& name) {
 
 } // namespace
 
-ScenePage::ScenePage(ViewerContext& ctx) : Page(ctx) { names_ = listFiles(ctx.files, {"locations/"}, {".ac2"}); }
+ScenePage::ScenePage(ViewerContext& ctx) : Page(ctx) {
+    names_ = listFiles(ctx.files, {"locations/"}, {".ac2"});
+    state_.values["moving"] = 1;
+}
 
 ScenePage::~ScenePage() { releaseGpu(); }
 
@@ -301,6 +305,8 @@ void ScenePage::load() {
     base_.clear();
     scene_ = Ac2Scene();
     characters_.clear();
+    loops_.clear();
+    state_.act.clear();
     if (names_.empty())
         return draw();
     auto read = [&](const std::string& name, Ac2Scene& out) {
@@ -322,12 +328,65 @@ void ScenePage::load() {
         if (!scene_.records.empty() && scene_.records.back().tag == "DONE")
             scene_.records.pop_back();
         scene_.records.insert(scene_.records.end(), variant.records.begin(), variant.records.end());
+        // The act it's for: "salon_01_06a.ac2" is act 06a's.
+        state_.act = name.substr(name.rfind('_') + 1, 3);
     } else {
         scene_ = std::move(variant);
     }
     if (renderer_ && showCharacters_)
         loadCharacters();
+    loadLoops();
     draw();
+}
+
+void ScenePage::loadLoops() {
+    for (const Ac2Record* o : scene_.objects()) {
+        if (!hasExtension(o->text("file"), {".bik"}))
+            continue;
+        Loop loop;
+        loop.file = std::make_unique<video::BinkFile>();
+        loop.video = std::make_unique<video::BinkVideoDecoder>();
+        std::vector<uint8_t> data;
+        Error e = ctx_.files.read(o->text("file"), data);
+        if (!e)
+            e = loop.file->open(std::move(data));
+        if (!e)
+            e = loop.video->init(loop.file->width(), loop.file->height(), loop.file->revision(), loop.file->flags());
+        if (e) {
+            error_ = o->text("file") + ": " + e.message;
+            continue;
+        }
+        loops_.emplace(o, std::move(loop));
+    }
+    advanceLoops(0);
+}
+
+bool ScenePage::advanceLoops(float time) {
+    bool changed = false;
+    for (auto& [o, loop] : loops_) {
+        const size_t count = loop.file->frameCount();
+        if (count == 0 || loop.file->fps() <= 0)
+            continue;
+        const size_t want = size_t(double(time) * loop.file->fps()) % count;
+        if (want + 1 == loop.next && !loop.frame.rgba.empty())
+            continue;
+        // Frames build on the one before: from the start again when it
+        // has gone round.
+        if (want + 1 < loop.next || loop.next == 0) {
+            loop.video->init(loop.file->width(), loop.file->height(), loop.file->revision(), loop.file->flags());
+            loop.next = 0;
+        }
+        for (; loop.next <= want; loop.next++) {
+            video::BinkFile::Frame f;
+            if (loop.file->frame(loop.next, f) || loop.video->decode(f.video.data, f.video.size))
+                break;
+        }
+        loop.frame.w = loop.video->width();
+        loop.frame.h = loop.video->height();
+        loop.video->toRgba(loop.frame.rgba);
+        changed = true;
+    }
+    return changed;
 }
 
 void ScenePage::loadCharacters() {
@@ -406,13 +465,39 @@ void ScenePage::loadCharacters() {
 
 void ScenePage::draw() {
     const std::vector<const Ac2Record*> objects = scene_.objects();
-    // Pictures back to front, by depth: the background at -10000, what's
-    // behind its windows further still. A picture's d0, when set, is its
-    // depth instead of z (the view outside a window: d0 -11000, z 0).
+    // Pictures and video loops back to front, by depth: the background at
+    // -10000, what's behind its windows further still. A picture's d0,
+    // when set, is its depth instead of z (the view outside a window: d0
+    // -11000, z 0). Those whose condition doesn't hold now are left out
+    // (the countryside going by: "moving >0").
     std::vector<const Ac2Record*> pictures;
     for (const Ac2Record* o : objects)
-        if (hasExtension(o->text("file"), {".jpg", ".png", ".tga", ".bmp"}))
+        if ((hasExtension(o->text("file"), {".jpg", ".png", ".tga", ".bmp"}) || loops_.count(o)) &&
+            testCondition(o->text("condition"), state_))
             pictures.push_back(o);
+    auto imageOf = [&](const Ac2Record* o) -> const image::Image& {
+        const auto loop = loops_.find(o);
+        return loop != loops_.end() ? loop->second.frame : picture(o->text("file"));
+    };
+    // Placed as the game's sprites are: scaled, turned about the top-left
+    // corner, moved (docs/formats/awe/ac2.md).
+    auto place = [&](const Ac2Record* o, bool keepAlpha) {
+        const image::Image& img = imageOf(o);
+        if (img.w <= 0)
+            return;
+        SpriteTransform t;
+        t.x = o->f("x"), t.y = o->f("y");
+        if (o->field("spriteScaleX"))
+            t.scaleX = o->f("spriteScaleX"), t.scaleY = o->f("spriteScaleY");
+        if (const Ac2Record* p = o->part(o->tag == "BINK" ? "BNKX" : "SPRT"))
+            t.roll = p->f("roll");
+        if (!t.plain())
+            drawSprite(ctx_.screen, img, t, keepAlpha);
+        else if (keepAlpha)
+            blitOver(ctx_.screen, img, int(t.x), int(t.y));
+        else
+            image::blit(ctx_.screen, img, int(t.x), int(t.y));
+    };
     auto depth = [](const Ac2Record* o) { return o->f("d0") != 0 ? o->f("d0") : o->f("z"); };
     std::stable_sort(pictures.begin(), pictures.end(),
                      [&](const Ac2Record* a, const Ac2Record* b) { return depth(a) < depth(b); });
@@ -424,8 +509,7 @@ void ScenePage::draw() {
     if (layered) {
         for (const Ac2Record* o : pictures)
             if (depth(o) < 0)
-                if (const image::Image& img = picture(o->text("file")); img.w > 0)
-                    image::blit(ctx_.screen, img, int(o->f("x")), int(o->f("y")));
+                place(o, false);
         if (back_)
             renderer_->destroyTexture(back_);
         back_ = 0;
@@ -437,8 +521,7 @@ void ScenePage::draw() {
     }
     for (const Ac2Record* o : pictures)
         if (!layered || depth(o) >= 0)
-            if (const image::Image& img = picture(o->text("file")); img.w > 0)
-                blitOver(ctx_.screen, img, int(o->f("x")), int(o->f("y")));
+            place(o, layered);
     if (hotspots_)
         for (const Ac2Record* o : objects) {
             const int l = o->i("left"), t = o->i("top"), r = o->i("right"), b = o->i("bottom");
@@ -462,7 +545,7 @@ void ScenePage::draw() {
         }
     if (selected_ >= 0 && size_t(selected_) < objects.size()) {
         const Ac2Record* o = objects[size_t(selected_)];
-        const image::Image& img = picture(o->text("file"));
+        const image::Image& img = imageOf(o);
         if (img.w > 0)
             frame(int(o->f("x")), int(o->f("y")), img.w, img.h, {90, 255, 120});
         // Its fields, as the dump shows them.
@@ -506,6 +589,8 @@ void ScenePage::draw() {
         for (const auto& [t, n] : tags)
             counts += " " + std::to_string(n) + " " + t;
         lines.push_back(counts);
+        lines.push_back(std::string("train ") + (state_.values["moving"] ? "moving" : "stopped") + ", weather " +
+                        (state_.values["weather"] ? "on" : "off") + (state_.act.empty() ? "" : ", act " + state_.act));
         if (const Ac2Record* cam = scene_.camera()) {
             char buf[200];
             std::snprintf(buf, sizeof buf, "camera about (%g, %g, %g), turned (%g, %g, %g), back (%g, %g, %g), fov %.1f deg",
@@ -534,7 +619,7 @@ void ScenePage::draw() {
             y += font::kLineHeight;
         }
     }
-    help(std::string("Left/Right: scene  Up/Down: object  H: hotspots  I: info") +
+    help(std::string("Left/Right: scene  Up/Down: object  H: hotspots  I: info  M: moving  W: weather") +
          (renderer_ ? "  C: characters" : "  (no 3D: no characters)"));
     if (!renderer_)
         present();
@@ -542,11 +627,13 @@ void ScenePage::draw() {
 }
 
 void ScenePage::update(uint64_t nowMs) {
-    if (!renderer_)
-        return Page::update(nowMs);
     if (startMs_ == 0)
         startMs_ = nowMs;
     const float time = float(nowMs - startMs_) / 1000.0f;
+    if (advanceLoops(time))
+        draw();
+    if (!renderer_)
+        return Page::update(nowMs);
     for (gfx::MeshId m : frameMeshes_)
         renderer_->destroyMesh(m);
     frameMeshes_.clear();
@@ -616,6 +703,10 @@ void ScenePage::handleEvent(const Event& ev) {
         draw();
     } else if (ev.key == 'h') {
         hotspots_ = !hotspots_;
+        draw();
+    } else if (ev.key == 'm' || ev.key == 'w') {
+        int& v = state_.values[ev.key == 'm' ? "moving" : "weather"];
+        v = !v;
         draw();
     } else if (ev.key == 'i') {
         info_ = !info_;

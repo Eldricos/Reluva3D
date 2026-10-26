@@ -120,10 +120,10 @@ characters all four.
 | script | text | flag 8: the commands run when it's used (`yesno quit2 0`, `talk dia_debenham+`) |
 | listA | pair list | flag 8 |
 | listB | pair list | flag 8: conditional scripts, each a condition and what to run instead (`"act 04a, !tag micheladmonish": "doorlocked sp1 L 1, talk gen_locked 1"`) |
-| alpha | f32 | 1 |
+| spriteScaleX | f32 | 2D objects: scale across (1; negative mirrors), at 0xb48 |
 | `b58` | f32 | 2000 |
-| text | text | |
-| `b4c`, `b50` | f32 | 1 and 1 |
+| condition | text | when the object is there (`moving >0`, `weather >0`, `act 06a\| act 06b`); see [Conditions](#conditions) |
+| spriteScaleY, spriteScaleZ | f32 | 2D objects: scale down (1), and a third (1) |
 | `b54` | u32 | 1 |
 | flat | u32 | 1 for 2D objects (their constructor sets it too) |
 | `b68` | u32 | |
@@ -142,8 +142,35 @@ where nothing better is known yet. Reluva uses the same names (in
 
 ### `SPRT`: a picture's settings
 
-Counted: `da4` u16, layer f32 (1000), `db0` u16, `dc8` u16, then three
-f32s.
+Counted: `da4` u16, layer f32 (1000), `db0` u16, `dc8` u16, then yaw,
+pitch and roll (f32, radians; the object's rotation, at 4, 8 and 0xc).
+
+### How 2D objects are drawn
+
+The draw method (`0x437ac0`) uses Direct3D 8's `ID3DXSprite`: `Begin`,
+then `DrawTransform` for each 256-pixel tile of the picture, then `End`.
+The matrix comes from `D3DXMatrixTransformation` with:
+
+- scaling: spriteScaleX, spriteScaleY, spriteScaleZ (0xb48);
+- rotation: a quaternion from yaw, pitch and roll
+  (`D3DXQuaternionRotationYawPitchRoll`);
+- rotation centre: a vector at 0x40, which no loader sets (0);
+- translation: x, y (and z), the tile's offset added.
+
+So a picture's pixel (u, v) goes to (u·sx·cos r − v·sy·sin r + x,
+u·sx·sin r + v·sy·cos r + y): scaled, turned about its top-left corner
+(clockwise on the screen for a positive roll), then moved. The colour is
+red, green and blue (0x8c) times 255, with the alpha from `d7c`. The
+hit test (`0x437f70`) uses the same scale: the rectangle from (x, y)
+with the picture's size times spriteScaleX and spriteScaleY.
+
+Salon_01 shows it: the countryside going by is `movingbg02.bik` (256×256
+with alpha) twice, at z −10100, between the background (−10000) and the
+snowscape behind it (d0 −11000), shown while `moving >0`. The left one is
+at (100, 54), scaled (−1.5, 1.5) and turned −0.698 (−40°); the right one
+is at (1029, 145), scaled (1.5, 1.5) and turned 0.698. Each covers its
+window at a slant, and Reluva's Scenes page matches a video of the game
+there.
 
 ### `HOTS`: a hotspot
 
@@ -156,7 +183,8 @@ a u32, and a cursor (text, 32).
 
 - `2DSP`: counted, three f32s and four u16s (frames and timing,
   probably).
-- `BNKX`: counted, five f32s.
+- `BNKX`: counted, five f32s: `de4`, then yaw, pitch and roll again,
+  then `dd8`.
 - `ITEM`: counted, the item's name (text, 32: an `Text/itemlist.txt` key),
   a text, two u16s.
 
@@ -228,6 +256,30 @@ The grid is a 64 × 64 map of 0s and 1s, with 1s outlining the room's
 walls in the Salon. It differs between views of the same room, and how it
 maps to the world isn't known yet (`walk 31 0` in scripts may be cells
 of it).
+
+## Conditions
+
+Objects (condition), conditional scripts (listB), music (`MUSC`) and
+characters (`COND`) hold conditions in the game's own language:
+
+    moving >0
+    !has icebucket, act >06a
+    act 06a| act 06b| act 07a
+    moving 0, !act 06a
+
+Clauses are joined by `,` (all of them) and `|` (any of them); `!` turns
+one round. A clause is a word and maybe an argument. The evaluator
+(`0x407d00`..`0x408a00`) compares each word's name in turn: `act`,
+`chapter`, `debug`, `demo`, `has`, `available`, `lastscene`,
+`location`, `master`, `moving`, `rand`, `scene`, `tag`, `nouse`, `talk`,
+`test`, `time`, `timer`, `use`, `used`, `wearing`, `weather`, and
+`nogen`, `forcegen`, `nogreet` for characters. Number arguments starting
+with `<` or `>` compare that way; otherwise they must be equal. Acts
+("06a") compare as text. `0` alone never holds.
+
+How `,` and `|` combine when both appear is assumed (`|` splits first);
+no sample mixes them. Reluva's evaluator is `testCondition`
+(`src/engines/awe/conditions.cpp`).
 
 ## Still to find
 

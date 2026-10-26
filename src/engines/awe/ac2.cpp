@@ -186,7 +186,7 @@ void readObjectBase(Reader& r, Ac2Record& rec) {
         {"b10", F::F32}, {"left", F::U32}, {"top", F::U32}, {"right", F::U32}, {"bottom", F::U32}};
     static const FieldSpec kScriptFields[] = {{"script", F::Str}, {"listA", F::StrPairs}, {"listB", F::StrPairs}};
     static const FieldSpec kTail[] = {
-        {"alpha", F::F32}, {"b58", F::F32}, {"text", F::Str}, {"b4c", F::F32},       {"b50", F::F32},
+        {"spriteScaleX", F::F32}, {"b58", F::F32}, {"condition", F::Str}, {"spriteScaleY", F::F32}, {"spriteScaleZ", F::F32},
         {"b54", F::U32},   {"flat", F::U32}, {"b68", F::U32}, {"b78", F::Str},       {"d78", F::U32},
         {"d7c", F::U16},   {"d0", F::F32},  {"b1e", F::U16}, {"listC", F::StrPairs}, {"listD", F::U32Pairs},
         {"b70", F::U32}};
@@ -222,12 +222,12 @@ bool optionalPart(Reader& r, const char* tag, Ac2Record& rec) {
 }
 
 const FieldSpec kSprite[] = {{"da4", F::U16}, {"layer", F::F32},  {"db0", F::U16}, {"dc8", F::U16},
-                             {"4", F::F32},   {"8", F::F32},      {"c", F::F32}};
+                             {"yaw", F::F32}, {"pitch", F::F32},  {"roll", F::F32}};
 const FieldSpec kHotspot[] = {{"name", F::Str}, {"hoverSound", F::Str}, {"clickSound", F::Str}, {"1410", F::U32},
                               {"cursor", F::Str32}};
 const FieldSpec kAnimSprite[] = {{"dec", F::F32}, {"df0", F::F32}, {"df4", F::F32}, {"df8", F::U16},
                                  {"dfa", F::U16}, {"dfc", F::U16}, {"e02", F::U16}};
-const FieldSpec kBink[] = {{"de4", F::F32}, {"4", F::F32}, {"8", F::F32}, {"c", F::F32}, {"dd8", F::F32}};
+const FieldSpec kBink[] = {{"de4", F::F32}, {"yaw", F::F32}, {"pitch", F::F32}, {"roll", F::F32}, {"dd8", F::F32}};
 const FieldSpec kItem[] = {{"name", F::Str32}, {"e10", F::Str}, {"1610", F::U16}, {"1612", F::U16}};
 const FieldSpec kModel[] = {{"da0", F::U32},   {"list", F::StrPairs}, {"e30", F::U32}, {"e34", F::U32},
                             {"anim", F::Str32}, {"anim2", F::Str32},  {"e38", F::U32}, {"text", F::Str}};

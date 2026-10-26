@@ -13,6 +13,7 @@
 #include "common/video/bink_file.h"
 #include "common/video/bink_video.h"
 #include "engines/awe/ac2.h"
+#include "engines/awe/conditions.h"
 #include "engines/awe/game_text.h"
 #include "engines/awe/gr2.h"
 #include "engines/awe/granny_dll.h"
@@ -135,7 +136,18 @@ private:
         std::string animationName;
         gfx::Mat4 placement{};
     };
+    // A video loop the scene shows (the countryside going by a window),
+    // by the object that places it.
+    struct Loop {
+        std::unique_ptr<video::BinkFile> file;
+        std::unique_ptr<video::BinkVideoDecoder> video;
+        image::Image frame;
+        size_t next = 0; // the frame to decode next
+    };
     void load();
+    void loadLoops();
+    // Advances the loops to `time` seconds; whether any frame changed.
+    bool advanceLoops(float time);
     void loadCharacters();
     void draw();
     void releaseGpu();
@@ -148,6 +160,10 @@ private:
     std::string error_;
     int selected_ = -1; // object highlighted, -1 none
     bool hotspots_ = true, info_ = true, showCharacters_ = true;
+    // What the scene's conditions test: the train moving or not (M), the
+    // weather (W), the act of the scene's variant.
+    GameState state_;
+    std::map<const Ac2Record*, Loop> loops_;
     // With 3D: the pictures behind the characters as one texture, the
     // characters, and the models and animations loaded so far.
     gfx::Renderer3D* renderer_ = nullptr;
