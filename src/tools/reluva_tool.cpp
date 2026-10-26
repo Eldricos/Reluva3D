@@ -123,6 +123,7 @@
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
+#include "common/video/bink.h"
 #include "engines/idtech3/eliteforce/sp_savegame.h"
 #include "engines/idtech3/eliteforce/sp_ui_host.h"
 #include "engines/idtech3/eliteforce/net_client.h"
@@ -3747,6 +3748,71 @@ int cmdX86Run(int argc, char** argv) {
     return 0;
 }
 
+// Decodes a Bink movie: its frames as raw YUV 4:2:0 (each plane cropped
+// to the picture, as ffmpeg -pix_fmt yuv420p writes them) and its first
+// audio track as 16-bit PCM, for comparing with another decoder.
+int cmdBinkDecode(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool bink-decode <file.bik> [-frames N] [-yuv out.yuv] [-pcm out.pcm]\n");
+        return 2;
+    }
+    int frames = -1;
+    std::string yuvPath, pcmPath;
+    for (int i = 3; i < argc; ++i) {
+        if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
+            frames = std::atoi(argv[++i]);
+        else if (std::strcmp(argv[i], "-yuv") == 0 && i + 1 < argc)
+            yuvPath = argv[++i];
+        else if (std::strcmp(argv[i], "-pcm") == 0 && i + 1 < argc)
+            pcmPath = argv[++i];
+    }
+    Bytes data;
+    if (!readFile(argv[2], data))
+        return 1;
+    reluva::bink::Movie movie;
+    if (reluva::Error e = movie.open(std::move(data))) {
+        std::fprintf(stderr, "%s\n", e.message.c_str());
+        return 1;
+    }
+    std::printf("BIK%c %dx%d, %u frames at %u/%u, audio %d Hz x %d\n", movie.revision(), movie.width(),
+                movie.height(), movie.frameCount(), movie.rateNumerator(), movie.rateDenominator(),
+                movie.audioRate(), movie.audioChannels());
+    std::FILE* yuv = yuvPath.empty() ? nullptr : std::fopen(yuvPath.c_str(), "wb");
+    std::vector<int16_t> sound;
+    const auto started = std::chrono::steady_clock::now();
+    int n = 0;
+    for (; frames < 0 || n < frames; ++n) {
+        bool more = false;
+        if (reluva::Error e = movie.nextFrame(more, &sound)) {
+            std::fprintf(stderr, "frame %d: %s\n", n, e.message.c_str());
+            break;
+        }
+        if (!more)
+            break;
+        if (!yuv)
+            continue;
+        // The newest frame's planes (after the swap, the "old" ones).
+        reluva::bink::Movie& m = movie;
+        for (int p = 0; p < 3; ++p) {
+            const int w = p ? (m.width() + 1) / 2 : m.width(), h = p ? (m.height() + 1) / 2 : m.height();
+            std::vector<uint8_t> rgbaUnused;
+            const auto& plane = m.decodedPlane(p);
+            for (int y = 0; y < h; ++y)
+                std::fwrite(plane.data() + size_t(y) * size_t(m.pitch(p)), 1, size_t(w), yuv);
+        }
+    }
+    if (yuv)
+        std::fclose(yuv);
+    if (!pcmPath.empty())
+        if (std::FILE* f = std::fopen(pcmPath.c_str(), "wb")) {
+            std::fwrite(sound.data(), 2, sound.size(), f);
+            std::fclose(f);
+        }
+    std::printf("%d frames, %zu samples in %.2f s\n", n, sound.size(),
+                std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count());
+    return 0;
+}
+
 // Runs Elite Force's single-player menus (efuix86.dll, in the x86
 // interpreter): GetUIAPI, Init, the main menu, then frames, with keys
 // pressed along the way; reports what they drew and the commands they ran.
@@ -5579,6 +5645,8 @@ int main(int argc, char** argv) {
         return cmdX86Run(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "sp-run") == 0)
         return cmdSpRun(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "bink-decode") == 0)
+        return cmdBinkDecode(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "sp-menus") == 0)
         return cmdSpMenus(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "ibi-dump") == 0)

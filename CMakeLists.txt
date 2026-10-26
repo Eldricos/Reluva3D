@@ -63,6 +63,8 @@ add_library(reluva_common STATIC
     src/common/md4.cpp
     src/common/archive.cpp
     src/common/zip.cpp
+    src/common/video/bink.cpp
+    src/common/video/bink_tables.cpp
     src/common/image.cpp
     src/common/gfx3d.cpp
     src/common/net.cpp

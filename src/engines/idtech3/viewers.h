@@ -62,6 +62,7 @@
 
 #include "common/archive.h"
 #include "common/audio/mixer.h"
+#include "common/video/bink.h"
 #include "common/events.h"
 #include "common/image.h"
 #include "common/system.h"
@@ -525,6 +526,21 @@ private:
     bool readSave(const std::string& name, std::vector<uint8_t>& file) const;
     std::vector<uint8_t> levelShot(const std::string& map) const;
     void runGameCommands();
+    // Cinematics (video/<name>.bik): full screen, the game ended first
+    // ("cinematic", then the nextmap cvar's command) or paused under it
+    // ("ingamecinematic"). Any typed key or a click skips one.
+    void startCinematic(const std::string& name, bool inGame);
+    void endCinematic();
+    void runCinematic(uint64_t nowMs);
+    struct Cinematic {
+        bink::Movie movie;
+        std::vector<uint8_t> rgba;
+        uint64_t startMs = 0;
+        bool inGame = false;
+        audio::SoundHandle sound = audio::kNoSound;
+    };
+    std::unique_ptr<Cinematic> cinematic_;
+    bool introShown_ = false;
     void endGame();
     void runGame(uint64_t nowMs);
     void runBinding(const std::string& line, int32_t key, bool down);

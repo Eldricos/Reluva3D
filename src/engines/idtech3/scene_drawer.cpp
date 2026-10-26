@@ -44,6 +44,66 @@ void SceneDrawer::setHandles(const Handles& handles) {
     handles_ = handles;
 }
 
+SceneDrawer::~SceneDrawer() {
+    for (const auto& generation : images_)
+        for (gfx::TextureId t : generation)
+            r_.destroyTexture(t);
+}
+
+void SceneDrawer::newFrame() {
+    for (gfx::TextureId t : images_.back())
+        r_.destroyTexture(t);
+    for (size_t i = images_.size() - 1; i > 0; --i)
+        images_[i] = std::move(images_[i - 1]);
+    images_[0].clear();
+}
+
+void SceneDrawer::drawImage(const uint8_t* rgba, int cols, int rows, float x, float y, float w, float h,
+                            int screenW, int screenH) {
+    if (!rgba || cols <= 0 || rows <= 0)
+        return;
+    gfx::TextureParams params;
+    params.clamp = true;
+    params.mipmaps = false;
+    gfx::TextureId texture = 0;
+    if (r_.createTexture(cols, rows, rgba, params, texture) || !texture)
+        return;
+    images_[0].push_back(texture);
+    std::vector<gfx::Vertex> vertices(4);
+    const float xs[4] = {x, x + w, x + w, x}, ys[4] = {y, y, y + h, y + h};
+    const float us[4] = {0, 1, 1, 0}, vs[4] = {0, 0, 1, 1};
+    for (int i = 0; i < 4; ++i) {
+        vertices[size_t(i)].pos[0] = xs[i];
+        vertices[size_t(i)].pos[1] = ys[i];
+        vertices[size_t(i)].uv[0] = us[i];
+        vertices[size_t(i)].uv[1] = vs[i];
+        vertices[size_t(i)].normal[2] = 1;
+        std::memset(vertices[size_t(i)].color, 255, 4);
+    }
+    gfx::MeshId mesh = 0;
+    if (r_.createMesh(vertices, {0, 1, 2, 0, 2, 3}, mesh) || !mesh)
+        return;
+    gfx::Mat4 ortho{};
+    ortho[0] = 2.0f / float(screenW);
+    ortho[5] = -2.0f / float(screenH);
+    ortho[10] = 1;
+    ortho[12] = -1;
+    ortho[13] = 1;
+    ortho[15] = 1;
+    r_.setViewport(0, 0, 0, 0);
+    r_.setDepthRange(1);
+    r_.setView(ortho, {0, 0, 0});
+    gfx::DrawCall call;
+    call.mesh = mesh;
+    call.indexCount = 6;
+    call.texture = texture;
+    call.state.depthTest = false;
+    call.state.depthWrite = false;
+    call.state.cull = gfx::Cull::None;
+    r_.draw(call);
+    r_.destroyMesh(mesh);
+}
+
 void SceneDrawer::reset() {
     others_.clear();
     modelIds_.clear();

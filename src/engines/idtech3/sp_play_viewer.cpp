@@ -92,8 +92,93 @@ void SpPlayViewer::activate() {
     saveDir_ = ctx_.savePath.empty() ? std::filesystem::path() : ctx_.savePath / "saves";
     if (!uiDll_.empty())
         startMenus();
-    if (!ui_)
+    if (!ui_) {
         start(index_);
+    } else if (!introShown_) {
+        // The logo, as the original's engine plays at start-up.
+        introShown_ = true;
+        startCinematic("eflogo", false);
+    }
+}
+
+void SpPlayViewer::startCinematic(const std::string& name, bool inGame) {
+    if (inGame && !(game_ && game_->clientGameRunning()))
+        return;
+    std::string base = fs::toLower(name);
+    if (base.size() > 4 && (base.compare(base.size() - 4, 4, ".bik") == 0 || base.compare(base.size() - 4, 4, ".roq") == 0))
+        base.resize(base.size() - 4);
+    std::vector<uint8_t> data;
+    auto c = std::make_unique<Cinematic>();
+    Error err = ctx_.files.read("video/" + base + ".bik", data);
+    if (!err)
+        err = c->movie.open(std::move(data));
+    if (err) {
+        lastCommand_ = "Cinematic " + base + ": " + err.message;
+        lastCommandMs_ = nowMs_;
+        return;
+    }
+    c->inGame = inGame;
+    if (!inGame) {
+        // The game ends, the menus close.
+        endGame();
+        if (ui_) {
+            if (Error e = ui_->setActiveMenu(""))
+                menusStopped(e);
+            else
+                ui_->setCatcher(ui_->catcher() & ~eliteforce::SpUiHost::kCatchUi);
+        }
+    }
+    // Its sound whole, to play alongside.
+    std::vector<int16_t> sound;
+    if (!c->movie.decodeAllAudio(sound) && !sound.empty() && ctx_.mixer) {
+        auto s = std::make_shared<audio::Sound>();
+        s->rate = c->movie.audioRate();
+        s->channels = c->movie.audioChannels();
+        s->format = 1;
+        s->samples = std::move(sound);
+        c->sound = ctx_.mixer->play(s, audio::SoundType::Effects, audio::kMaxVolume);
+    }
+    cinematic_ = std::move(c);
+}
+
+void SpPlayViewer::endCinematic() {
+    if (!cinematic_)
+        return;
+    if (cinematic_->sound != audio::kNoSound && ctx_.mixer)
+        ctx_.mixer->stop(cinematic_->sound);
+    const bool inGame = cinematic_->inGame;
+    cinematic_.reset();
+    lastMs_ = 0;
+    // As the original's: then the nextmap cvar's command, once.
+    if (!inGame) {
+        const std::string next = cvars_.string("nextmap");
+        if (!next.empty()) {
+            cvars_.set("nextmap", "");
+            for (const std::string& line : splitCommands(next))
+                runCommand(line);
+        }
+    }
+}
+
+void SpPlayViewer::runCinematic(uint64_t nowMs) {
+    // The frame due now, at the movie's rate from when it started.
+    Cinematic& c = *cinematic_;
+    if (!c.startMs)
+        c.startMs = nowMs;
+    const int64_t due = int64_t((nowMs - c.startMs) * c.movie.rateNumerator() /
+                                (uint64_t(c.movie.rateDenominator()) * 1000));
+    bool decoded = false;
+    while (c.movie.frameNumber() < due) {
+        bool more = false;
+        if (Error err = c.movie.nextFrame(more) ; err || !more) {
+            if (err)
+                lastCommand_ = "Cinematic: " + err.message;
+            return endCinematic();
+        }
+        decoded = true;
+    }
+    if (decoded)
+        c.movie.toRgba(c.rgba);
 }
 
 void SpPlayViewer::startMenus() {
@@ -186,6 +271,9 @@ void SpPlayViewer::runCommand(const std::string& line, bool fromGame) {
     } else if (cmd == "quit") {
         endGame();
         ctx_.requestPage = "Menu";
+    } else if (cmd == "cinematic" || cmd == "ingamecinematic") {
+        if (w.size() >= 2)
+            startCinematic(w[1], cmd == "ingamecinematic");
     } else if (cmd == "music") {
         if (soundSystem_ && w.size() >= 2)
             soundSystem_->startBackgroundTrack(w[1], w.size() >= 3 ? w[2] : w[1]);
@@ -226,6 +314,9 @@ void SpPlayViewer::runCommand(const std::string& line, bool fromGame) {
 }
 
 void SpPlayViewer::deactivate() {
+    if (cinematic_ && cinematic_->sound != audio::kNoSound && ctx_.mixer)
+        ctx_.mixer->stop(cinematic_->sound);
+    cinematic_.reset();
     if (renderer_)
         ctx_.sys.setRelativeMouse(false);
     if (textInput_)
@@ -617,6 +708,18 @@ bool SpPlayViewer::takesKey(const Event& ev) const {
 void SpPlayViewer::handleEvent(const Event& ev) {
     if (!renderer_)
         return;
+    if (cinematic_) {
+        // A typed key (Esc too) or a click skips it, as the original's;
+        // nothing else gets through meanwhile.
+        if (ev.type == EventType::KeyDown && !ev.repeat && !(ev.mods & keymod::Ctrl)) {
+            const int32_t k = toQ3Key(ev.key);
+            if (k > 0 && k < 128)
+                endCinematic();
+        } else if (ev.type == EventType::MouseDown && toQ3Button(ev.button) == q3key::Mouse1) {
+            endCinematic();
+        }
+        return;
+    }
     switch (ev.type) {
     case EventType::KeyDown:
     case EventType::KeyUp: {
@@ -804,6 +907,21 @@ void SpPlayViewer::update(uint64_t nowMs) {
     nowMs_ = nowMs;
     if (!startMs_)
         startMs_ = nowMs;
+    scene_->newFrame();
+    if (cinematic_) {
+        // A cinematic has the screen (the game waits under one in game).
+        runCinematic(nowMs);
+        if (cinematic_) {
+            renderer_->setGamma(brightness(ctx_));
+            renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
+            if (!cinematic_->rgba.empty())
+                scene_->drawImage(cinematic_->rgba.data(), cinematic_->movie.width(), cinematic_->movie.height(), 0,
+                                  0, 640, 480, 640, 480);
+            std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
+            renderer_->endFrame(&overlay_);
+            return;
+        }
+    }
     if (capturing_) {
         // The last frame was kept: the save menu's picture, at 256 x 256,
         // then the menu the player asked for.
@@ -898,6 +1016,8 @@ void SpPlayViewer::update(uint64_t nowMs) {
             scene_->drawView(ui_->scene(), v, 640, 480, menuTime, false, nullptr, nullptr, true);
         }
         scene_->drawPictures(pictures, drawn, pictures.size(), 640, 480, menuTime);
+        for (const auto& img : ui_->rawImages())
+            scene_->drawImage(img.rgba.data(), img.cols, img.rows, img.x, img.y, img.w, img.h, 640, 480);
     }
     timing_.draw = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - drawStart).count();
     drawOverlay();

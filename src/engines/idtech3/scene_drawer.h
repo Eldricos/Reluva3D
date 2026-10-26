@@ -75,6 +75,9 @@ class SceneDrawer {
 public:
     SceneDrawer(gfx::Renderer3D& renderer, ShaderCache& shaders, ModelCache& models)
         : r_(renderer), shaders_(shaders), models_(models) {}
+    ~SceneDrawer();
+    SceneDrawer(const SceneDrawer&) = delete;
+    SceneDrawer& operator=(const SceneDrawer&) = delete;
 
     // The program's handles, by which it names models, skins and shaders.
     struct Handles {
@@ -93,6 +96,14 @@ public:
     // (screenW x screenH, scaled to the frame); `time` in seconds.
     void drawPictures(const std::vector<eliteforce::Picture>& pictures, size_t first, size_t last, int screenW,
                       int screenH, float time);
+
+    // An RGBA image (cols x rows, rows top first) over (x, y, w, h) of the
+    // program's screen: a movie's frame, a saved game's picture.
+    void drawImage(const uint8_t* rgba, int cols, int rows, float x, float y, float w, float h, int screenW,
+                   int screenH);
+    // Each frame, before drawing: images' textures from a few frames ago
+    // (the GPU done with them) are let go.
+    void newFrame();
 
     // `view` of `scene`, its rectangle (refdef_t's x, y, width, height in
     // the program's screen) scaled to the frame. With the level (`world`,
@@ -138,6 +149,7 @@ private:
         std::vector<int> pictureMaterials, effectMaterials;
     };
     std::map<const HandleTable*, Caches> others_;
+    std::array<std::vector<gfx::TextureId>, 3> images_; // this frame's, then older
     // This view's model entities, ready to draw.
     struct Placed {
         int model = -1, frame = 0, oldFrame = 0;

@@ -78,6 +78,14 @@ public:
     // The last refresh's drawing, and what it was drawn with.
     const std::vector<Picture>& pictures() const { return pictures_; }
     const Scene& scene() const { return scene_; }
+    // Raw images drawn (DrawStretchRaw: a saved game's picture): where in
+    // the 640 x 480 screen, their size and RGBA pixels.
+    struct RawImage {
+        float x = 0, y = 0, w = 0, h = 0;
+        int cols = 0, rows = 0;
+        std::vector<uint8_t> rgba;
+    };
+    const std::vector<RawImage>& rawImages() const { return raw_; }
     const HandleTable& shaders() const { return shaders_; }
     const HandleTable& models() const { return models_; }
     const HandleTable& skins() const { return skins_; }
@@ -133,6 +141,7 @@ private:
     int32_t time_ = 0;
     HandleTable shaders_, models_, skins_, sounds_;
     std::vector<Picture> pictures_;
+    std::vector<RawImage> raw_;
     Scene scene_;
     std::array<float, 4> color_{1, 1, 1, 1};
     std::map<int32_t, std::shared_ptr<Md3Model>> md3s_; // by model handle, for tags

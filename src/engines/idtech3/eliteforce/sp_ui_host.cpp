@@ -229,6 +229,7 @@ Error SpUiHost::mouseEvent(int32_t dx, int32_t dy) { return callUi(MouseEvent, {
 Error SpUiHost::refresh(int32_t time) {
     time_ = time;
     pictures_.clear();
+    raw_.clear();
     scene_ = Scene{};
     color_ = {1, 1, 1, 1};
     return callUi(Refresh, {uint32_t(time)});
@@ -516,7 +517,23 @@ void SpUiHost::addImports() {
     });
     import(RegisterSound, [this](x86::Cpu& c) { return uint32_t(sounds_.add(str(c, 0, 256))); });
     import(StartLocalLoopingSound, [](x86::Cpu&) { return 0u; });
-    import(DrawStretchRaw, [](x86::Cpu&) { return 0u; });
+    import(DrawStretchRaw, [this](x86::Cpu& c) {
+        // (x, y, w, h in screen pixels, cols, rows, RGBA data, dirty)
+        RawImage img;
+        img.x = float(int32_t(c.arg(0)));
+        img.y = float(int32_t(c.arg(1)));
+        img.w = float(int32_t(c.arg(2)));
+        img.h = float(int32_t(c.arg(3)));
+        img.cols = int(c.arg(4));
+        img.rows = int(c.arg(5));
+        const uint32_t bytes = uint32_t(std::max(img.cols, 0)) * uint32_t(std::max(img.rows, 0)) * 4;
+        if (img.cols > 0 && img.rows > 0 && img.cols <= 1024 && img.rows <= 1024 && c.valid(c.arg(6), bytes)) {
+            const uint8_t* p = c.memory().data() + c.arg(6);
+            img.rgba.assign(p, p + bytes);
+            raw_.push_back(std::move(img));
+        }
+        return 0u;
+    });
 
     // Saved games, by name (no folder or extension), as the load and save
     // menus ask: a picture, a comment, whether one can be read.
