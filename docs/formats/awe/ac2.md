@@ -109,7 +109,7 @@ characters all four.
 | Field | Type | Notes |
 |-------|------|-------|
 | file | text | the picture, model or texture (`locations\menu.main\backgrounds\menu.main_01.jpg`) |
-| name | text | |
+| name | text | hotspots: the exit's `Text/navigation.txt` key (`restaurantcar`, shown as "To Restaurant Car") |
 | `b08` | u32 | 1 on overlays and effects |
 | `b0c` | u32 | 1 in every object seen: shown? |
 | x, y, z | f32 | flag 1. Pictures: screen pixels (the top-left corner) and depth: backgrounds at z = −10000, hotspots at 5000. Characters: the floor, y up |
@@ -118,7 +118,8 @@ characters all four.
 | `b10` | f32 | |
 | left, top, right, bottom | u32 | a hotspot's rectangle in screen pixels; characters have one too |
 | script | text | flag 8: the commands run when it's used (`yesno quit2 0`, `talk dia_debenham+`) |
-| listA, listB | pair lists | flag 8 |
+| listA | pair list | flag 8 |
+| listB | pair list | flag 8: conditional scripts, each a condition and what to run instead (`"act 04a, !tag micheladmonish": "doorlocked sp1 L 1, talk gen_locked 1"`) |
 | alpha | f32 | 1 |
 | `b58` | f32 | 2000 |
 | text | text | |
@@ -129,10 +130,10 @@ characters all four.
 | `b78` | text | |
 | `d78` | u32 | |
 | `d7c` | u16 | |
-| `d0` | f32 | |
+| `d0` | f32 | pictures: their drawing depth when set, instead of z (the view outside a window: −11000, behind the background's −10000; a chair's cutout: 260) |
 | `b1e` | u16 | hotspots 1, characters 6: a cursor? |
 | listC | pair list | |
-| listD | number pair list | |
+| listD | number pair list | hotspots: the outline, as screen points (x:y), inside their rectangle |
 | `b70` | u32 | |
 
 A field's name in the table is the original's offset in its object
@@ -186,26 +187,50 @@ the main menu's snow: an emission rate of 15, a lifetime, a gravity of
 
 ## The camera (`CAMR`)
 
-A u16 count (23), then:
+The camera object holds a Granny camera (`granny_camera`) at offset 4,
+which it hands to `GrannyBuildCameraMatrices` once loaded (`0x406d5d`).
+The record's fields are the Granny camera's, as
+`GrannyInitializeDefaultCamera`'s defaults lay it out:
 
-| Field | Type | Menu |
-|-------|------|------|
-| 3 × f32 | f32 | 0.5 0.5 0.5 |
-| x, y, z | f32 | 0, −171, 469.8 |
-| pitch, yaw, roll | f32 | 0.349 (20°), 0, 0 |
-| 3 × f32 | f32 | 0, 200, 0 |
-| fov | f32 | 0.611 (35°) |
-| near, far | f32 | 100, 10000 |
-| 3 × u16 | u16 | 1024, 0, 50 |
-| grid | u16 size, then size × size bytes | 64 × 64. Only read when size ≤ 64 (else skipped) |
-| 3 × f32 | f32 | |
+| Field | Type | Granny camera | Salon_01 |
+|-------|------|---------------|----------|
+| 3 × f32 | f32 | (the object's own; ambient light?) | 0.39 0.35 0.31 |
+| x, y, z | f32 | `Position`: the point it turns about | −8.1, 121.8, 515.5 |
+| pitch, yaw, roll | f32 | `ElevAzimRoll`, radians | −0.232, −0.017, 0 |
+| 74, 78, 7c | f32 | `Offset`: from that point, along the camera's own axes | −10, 276, 990 |
+| fov | f32 | `FOVY`, vertical, radians | 0.646 (37°) |
+| near, far | f32 | clip planes | 10, 10000 |
+| 3 × u16 | u16 | (the object's own: 1024, then the grid's cell size?) | 1024, 0, 20 |
+| grid | u16 size, then size × size bytes | | 64 × 64 |
+| 3 × f32 | f32 | | |
 
-The grid is likely the floor's walkable area or its depth for placing
-characters. To be checked against a room scene.
+The view matrix is the inverse of
+`T(Position) · Ry(azimuth) · Rx(elevation) · Rz(roll) · T(Offset)`,
+looking down −Z with +Y up. The projection is an ordinary perspective
+from the vertical FOV and the 4:3 frame. This was found by calling the
+DLL's own functions (`GrannyInitializeDefaultCamera`,
+`GrannySetCameraAspectRatios`, `GrannyBuildCameraMatrices`,
+`GrannyWorldSpaceToWindowSpace`) in the x86 interpreter
+(`reluva-tool awe-camera`). Reluva's matrices match them to within 1e-7
+for every camera tried, and `awe-check` compares them for a whole
+install. Roll's place in the order is a guess, since no camera seen so far
+uses it.
+
+**Characters** are placed with the same axes: +Y up, the floor at y = 0.
+The game converts every model when it loads it
+(`GrannyComputeBasisConversion` at `0x426e08`: right +X, up +Y, back +Z,
+the file's own units), so a vertex (x, y, z) in 3D Studio MAX's axes
+becomes (x, z, −y). Then it's turned by rotY about Y and moved to the
+character's x, y, z. Characters drawn this way stand where the
+backgrounds expect them: at a door, on the floor, at the right size.
+
+The grid is a 64 × 64 map of 0s and 1s, with 1s outlining the room's
+walls in the Salon. It differs between views of the same room, and how it
+maps to the world isn't known yet (`walk 31 0` in scripts may be cells
+of it).
 
 ## Still to find
 
 - What the unnamed fields do: compare scenes, and watch the original.
-- The camera's exact projection, so characters can be placed on the
-  backgrounds. This needs a room scene with a background.
+- The camera grid, and the `walk` command's arguments.
 - The save format (`DESC`, `INFO`, `GLBT`...).

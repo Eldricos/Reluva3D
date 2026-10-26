@@ -31,6 +31,20 @@ public:
     Error binkTexture(int width, int height, uint32_t flags, const std::vector<uint8_t>& in,
                       std::vector<uint8_t>& rgba);
 
+    // A granny_camera as the game sets one up from a scene's CAMR record:
+    // vertical field of view (radians), near and far planes, the point it
+    // looks at, its elevation, azimuth and roll (radians), and its offset
+    // from that point. Gives its view and projection matrices (Granny's,
+    // column-major, as gfx::Mat4) for a width x height window, and
+    // optionally where `points` (x, y, z each) land in the window (x, y in
+    // pixels, z depth).
+    struct Camera {
+        float fovY = 0.785f, nearPlane = 4, farPlane = 1000;
+        float position[3] = {0, 0, 0}, elevAzimRoll[3] = {0, 0, 0}, offset[3] = {0, 0, 0};
+    };
+    Error camera(const Camera& in, int width, int height, float view[16], float projection[16],
+                 const std::vector<float>* points = nullptr, std::vector<float>* windowPoints = nullptr);
+
 private:
     std::unique_ptr<x86::Cpu> cpu_;
     std::unique_ptr<x86::Win32Process> process_;

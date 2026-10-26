@@ -3,6 +3,7 @@
 
 #include "common/font.h"
 #include "common/fs.h"
+#include "engines/awe/model_draw.h"
 #include "engines/awe/viewers.h"
 
 #include <algorithm>
@@ -49,15 +50,11 @@ ModelPage::ModelPage(ViewerContext& ctx) : Page(ctx) {
 ModelPage::~ModelPage() { releaseGpu(); }
 
 void ModelPage::releaseGpu() {
-    if (renderer_) {
+    if (renderer_)
         for (gfx::MeshId m : meshes_)
             renderer_->destroyMesh(m);
-        for (gfx::TextureId t : textures_)
-            if (t)
-                renderer_->destroyTexture(t);
-    }
     meshes_.clear();
-    textures_.clear();
+    gpu_.reset();
 }
 
 void ModelPage::deactivate() {
@@ -82,7 +79,6 @@ void ModelPage::activate() {
 
 void ModelPage::load() {
     releaseGpu();
-    model_ = Model();
     error_.clear();
     animation_ = 0;
     hasAnim_ = false;
@@ -101,33 +97,20 @@ void ModelPage::load() {
         error_ = "granny2.dll couldn't be loaded, and the models need it";
         return;
     }
-    std::vector<uint8_t> data;
     Gr2File file;
-    if (Error err = ctx_.files.read(e.model, data)) {
+    Model loaded;
+    Error err = openGr2(ctx_.files, e.model, *ctx_.granny, file);
+    if (!err)
+        err = loadModel(file, ctx_.granny, loaded);
+    if (err) {
         error_ = err.message;
         return;
     }
-    GrannyDll& dll = *ctx_.granny;
-    if (Error err = file.open(data, [&dll](uint32_t format, const std::vector<uint8_t>& in, uint32_t stop0,
-                                           uint32_t stop1, std::vector<uint8_t>& out) {
-            return dll.decompress(format, in, stop0, stop1, out);
-        })) {
-        error_ = err.message;
-        return;
-    }
-    if (Error err = loadModel(file, &dll, model_)) {
-        error_ = err.message;
-        return;
-    }
-    for (const ModelTexture& t : model_.textures) {
-        gfx::TextureId id = 0;
-        if (!t.rgba.empty())
-            renderer_->createTexture(t.width, t.height, t.rgba.data(), {}, id);
-        textures_.push_back(id);
-    }
+    gpu_ = std::make_unique<GpuModel>(*renderer_, std::move(loaded));
+    const Model& model = gpu_->model();
     // Look at the middle of the model at rest, from far enough to see it all.
     float lo[3] = {1e30f, 1e30f, 1e30f}, hi[3] = {-1e30f, -1e30f, -1e30f};
-    for (const ModelMesh& m : model_.meshes)
+    for (const ModelMesh& m : model.meshes)
         for (const ModelVertex& v : m.vertices)
             for (int k = 0; k < 3; k++)
                 lo[k] = std::min(lo[k], v.position[k]), hi[k] = std::max(hi[k], v.position[k]);
@@ -146,13 +129,8 @@ void ModelPage::loadAnimation() {
     if (animation_ == 0 || models_.empty() || !ctx_.granny)
         return;
     const std::string& name = models_[size_t(index_)].animations[size_t(animation_ - 1)];
-    std::vector<uint8_t> data;
     Gr2File file;
-    GrannyDll& dll = *ctx_.granny;
-    Error err = ctx_.files.read(name, data);
-    if (!err)
-        err = file.open(data, [&dll](uint32_t format, const std::vector<uint8_t>& in, uint32_t stop0, uint32_t stop1,
-                                     std::vector<uint8_t>& out) { return dll.decompress(format, in, stop0, stop1, out); });
+    Error err = openGr2(ctx_.files, name, *ctx_.granny, file);
     if (!err)
         err = awe::loadAnimation(file, anim_);
     if (err)
@@ -198,7 +176,7 @@ void ModelPage::handleEvent(const Event& ev) {
 
 void ModelPage::update(uint64_t nowMs) {
     if (!renderer_)
-        return;
+        return Page::update(nowMs);
     if (playing_ && lastMs_ != 0)
         time_ += float(std::min<uint64_t>(nowMs - lastMs_, 100)) / 1000.0f;
     lastMs_ = nowMs;
@@ -214,55 +192,13 @@ void ModelPage::update(uint64_t nowMs) {
                       gfx::lookAlong(eye, {-offset[0], -offset[1], -offset[2]}, {0, 0, 1}));
     renderer_->beginFrame(viewProj, eye, {48, 52, 60});
 
-    // Skinned on the CPU each frame into new meshes (characters have a few
-    // thousand vertices).
     for (gfx::MeshId m : meshes_)
         renderer_->destroyMesh(m);
     meshes_.clear();
-    Pose pose;
-    computePose(model_, hasAnim_ ? &anim_ : nullptr, t, pose);
-    std::vector<std::array<float, 3>> positions, normals;
     size_t triangles = 0;
-    for (const ModelMesh& mesh : model_.meshes) {
-        bool textured = false;
-        for (const auto& g : mesh.groups)
-            textured |= g.texture >= 0;
-        // Untextured meshes are helpers (the face's bones' boxes): hidden
-        // unless asked for.
-        if (!textured && !helpers_)
-            continue;
-        skin(mesh, pose, positions, normals);
-        std::vector<gfx::Vertex> verts(mesh.vertices.size());
-        for (size_t v = 0; v < verts.size(); v++) {
-            gfx::Vertex& out = verts[v];
-            for (int k = 0; k < 3; k++)
-                out.pos[k] = positions[v][size_t(k)], out.normal[k] = normals[v][size_t(k)];
-            out.uv[0] = mesh.vertices[v].uv[0];
-            out.uv[1] = mesh.vertices[v].uv[1];
-            out.uv2[0] = out.uv2[1] = 0;
-            out.color[0] = out.color[1] = out.color[2] = out.color[3] = 255;
-        }
-        gfx::MeshId id = 0;
-        if (renderer_->createMesh(verts, mesh.indices, id))
-            continue;
-        meshes_.push_back(id);
-        for (const auto& g : mesh.groups) {
-            gfx::DrawCall call;
-            call.mesh = id;
-            call.firstIndex = g.firstIndex;
-            call.indexCount = g.indexCount;
-            call.texture = g.texture >= 0 && size_t(g.texture) < textures_.size() ? textures_[size_t(g.texture)] : 0;
-            if (!call.texture)
-                call.color = {0.8f, 0.4f, 0.8f, 1};
-            call.rgbSource = gfx::ColorSource::Lighting;
-            call.ambientLight = {0.45f, 0.45f, 0.45f};
-            call.directedLight = {0.75f, 0.72f, 0.68f};
-            call.lightDirection = {0.4f, -0.6f, 0.7f};
-            call.state.cull = gfx::Cull::None;
-            renderer_->draw(call);
-            triangles += g.indexCount / 3;
-        }
-    }
+    if (gpu_)
+        triangles = gpu_->draw(poseAt(gpu_->model(), hasAnim_ ? &anim_ : nullptr, t), gfx::identity(), helpers_,
+                               meshes_);
 
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
     std::vector<std::string> lines;
@@ -270,8 +206,10 @@ void ModelPage::update(uint64_t nowMs) {
         const Entry& e = models_[size_t(index_)];
         lines.push_back(e.model + "  (" + std::to_string(index_ + 1) + "/" + std::to_string(models_.size()) + ")");
         char buf[200];
+        const Model empty;
+        const Model& model = gpu_ ? gpu_->model() : empty;
         std::snprintf(buf, sizeof buf, "%zu bones, %zu meshes, %zu triangles drawn, %zu textures",
-                      model_.bones.size(), model_.meshes.size(), triangles, model_.textures.size());
+                      model.bones.size(), model.meshes.size(), triangles, model.textures.size());
         lines.push_back(buf);
         if (animation_ == 0) {
             lines.push_back("rest pose (" + std::to_string(e.animations.size()) + " animations: Up/Down)");
@@ -293,7 +231,9 @@ void ModelPage::update(uint64_t nowMs) {
                 overlay_.row(yy)[x * 4 + 3] = 150;
         font::drawText(overlay_, 4, y, lines[i], lines[i] == error_ ? Color{255, 120, 120} : Color{230, 230, 230});
     }
+    prepareScreenshot(renderer_);
     renderer_->endFrame(&overlay_);
+    finishScreenshot(renderer_, &overlay_);
 }
 
 } // namespace reluva::awe

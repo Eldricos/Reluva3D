@@ -14,7 +14,9 @@
 #include "engines/awe/gr2.h"
 #include "engines/awe/granny_dll.h"
 #include "engines/awe/model.h"
+#include "engines/awe/model_draw.h"
 
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <string>
@@ -35,6 +37,7 @@ struct ViewerContext {
     GrannyDll* granny;    // null if granny2.dll couldn't be loaded
     audio::Mixer* mixer;  // null without an audio device
     Surface& screen;      // kScreenW x kScreenH, RGBA32
+    std::filesystem::path savePath; // where screenshots go (F12)
 };
 
 class Page {
@@ -51,10 +54,25 @@ public:
     virtual void update(uint64_t nowMs) {
         (void)nowMs;
         present();
+        finishScreenshot(nullptr, &ctx_.screen);
     }
+    // Saves the next frame shown, as a TGA file (the window title says
+    // where).
+    void requestScreenshot(std::filesystem::path file) { shotFile_ = std::move(file); }
 
 protected:
     ViewerContext& ctx_;
+    std::filesystem::path shotFile_;
+
+    // For pages that draw in 3D: before endFrame, asks the renderer to
+    // keep the frame if a screenshot is due.
+    void prepareScreenshot(gfx::Renderer3D* renderer) {
+        if (renderer && !shotFile_.empty())
+            renderer->captureNextFrame();
+    }
+    // After the frame: saves it (the 3D frame with `overlay` over it, or
+    // `overlay` alone without a renderer) if a screenshot is due.
+    void finishScreenshot(gfx::Renderer3D* renderer, const Surface* overlay);
 
     // 2D pages: the framebuffer, cleared, and the help line at the bottom.
     void begin2D();
@@ -96,20 +114,46 @@ private:
 class ScenePage : public Page {
 public:
     explicit ScenePage(ViewerContext& ctx);
+    ~ScenePage() override;
     const char* name() const override { return "Scenes"; }
     size_t count() const override { return names_.size(); }
     void activate() override;
+    void deactivate() override;
     void handleEvent(const Event& ev) override;
+    void update(uint64_t nowMs) override;
 
 private:
+    // A character placed in the scene, posed by its animation.
+    struct Character {
+        std::string name;
+        std::shared_ptr<GpuModel> model;
+        std::shared_ptr<Animation> animation;
+        std::string animationName;
+        gfx::Mat4 placement{};
+    };
     void load();
+    void loadCharacters();
     void draw();
+    void releaseGpu();
+    void line(int x0, int y0, int x1, int y1, Color c);
+
     std::vector<std::string> names_;
     int index_ = 0;
     Ac2Scene scene_;
+    std::string base_; // the base scene an act's variant is shown over
     std::string error_;
     int selected_ = -1; // object highlighted, -1 none
-    bool hotspots_ = true, info_ = true;
+    bool hotspots_ = true, info_ = true, showCharacters_ = true;
+    // With 3D: the pictures behind the characters as one texture, the
+    // characters, and the models and animations loaded so far.
+    gfx::Renderer3D* renderer_ = nullptr;
+    gfx::TextureId back_ = 0;
+    gfx::MeshId quad_ = 0;
+    std::vector<Character> characters_;
+    std::map<std::string, std::shared_ptr<GpuModel>> models_;
+    std::map<std::string, std::shared_ptr<Animation>> animations_;
+    std::vector<gfx::MeshId> frameMeshes_;
+    uint64_t startMs_ = 0;
 };
 
 // Characters and objects (Models/**/*_model.gr2), with their animations.
@@ -135,13 +179,12 @@ private:
 
     std::vector<Entry> models_;
     int index_ = 0, animation_ = 0; // 0: rest pose, else animations[animation_ - 1]
-    Model model_;
+    std::unique_ptr<GpuModel> gpu_;
     Animation anim_;
     bool hasAnim_ = false;
     std::string error_;
     gfx::Renderer3D* renderer_ = nullptr;
-    std::vector<gfx::TextureId> textures_;
-    std::vector<gfx::MeshId> meshes_;
+    std::vector<gfx::MeshId> meshes_; // this frame's
     Surface overlay_;
     float yaw_ = -1.5708f, pitch_ = 0.15f, distance_ = 400;
     float center_[3] = {0, 0, 0};

@@ -11,6 +11,7 @@
 #include "common/archive.h"
 #include "common/fs.h"
 #include "engines/awe/ac2.h"
+#include "engines/awe/camera.h"
 #include "engines/awe/gr2.h"
 #include "engines/awe/granny_dll.h"
 #include "engines/awe/model.h"
@@ -320,9 +321,32 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
     return failed ? 1 : 0;
 }
 
+// The scene's camera as Reluva builds it, against granny2.dll's: the
+// largest difference in their view matrices (translations / 100).
+float cameraDifference(const awe::Ac2Record& camr, awe::GrannyDll& dll, std::string& error) {
+    const awe::SceneCamera native = awe::SceneCamera::fromRecord(camr);
+    awe::GrannyDll::Camera c;
+    c.fovY = native.fovY, c.nearPlane = native.nearPlane, c.farPlane = native.farPlane;
+    for (int k = 0; k < 3; k++)
+        c.position[k] = native.position[k], c.elevAzimRoll[k] = native.elevAzimRoll[k], c.offset[k] = native.offset[k];
+    float view[16], projection[16];
+    if (reluva::Error e = dll.camera(c, 1024, 768, view, projection)) {
+        error = e.message;
+        return 0;
+    }
+    const reluva::gfx::Mat4 v = native.view();
+    float worst = 0;
+    for (int k = 0; k < 16; k++)
+        worst = std::max(worst, std::abs(v[size_t(k)] - view[k]) / (k >= 12 ? 100.0f : 1.0f));
+    return worst;
+}
+
 int checkScenes(const reluva::Archive& files, bool verbose) {
     const std::vector<std::string> names = filesEndingWith(files, ".ac2");
-    size_t failed = 0, scenes = 0, saves = 0;
+    size_t failed = 0, scenes = 0, saves = 0, cameras = 0, cameraMismatches = 0;
+    awe::GrannyDll dll;
+    std::vector<uint8_t> dllData;
+    const bool haveDll = !files.read("granny2.dll", dllData) && !dll.load(dllData);
     std::map<std::string, size_t> tags, parts;
     for (const std::string& n : names) {
         // Text/Scripts' slots are saves, with records of their own.
@@ -344,14 +368,26 @@ int checkScenes(const reluva::Archive& files, bool verbose) {
         } else if (verbose) {
             std::printf("ok   %s: %zu records\n", n.c_str(), scene.records.size());
         }
+        if (const awe::Ac2Record* camr = scene.camera(); camr && haveDll) {
+            cameras++;
+            std::string error;
+            const float d = cameraDifference(*camr, dll, error);
+            if (!error.empty() || d > 0.01f) {
+                cameraMismatches++;
+                std::printf("WARN %s: camera differs from granny2.dll's by %g%s%s\n", n.c_str(), d,
+                            error.empty() ? "" : ": ", error.c_str());
+            }
+        }
         for (const awe::Ac2Record& r : scene.records) {
             tags[r.tag]++;
             for (const awe::Ac2Record& p : r.parts)
                 parts[r.tag + "/" + p.tag]++;
         }
     }
-    std::printf("Scenes: %zu files, %zu failed (%zu saves in Text/Scripts not checked)\n  records:", scenes, failed,
-                saves);
+    std::printf("Scenes: %zu files, %zu failed (%zu saves in Text/Scripts not checked)\n", scenes, failed, saves);
+    if (haveDll)
+        std::printf("  cameras: %zu checked against granny2.dll, %zu differ\n", cameras, cameraMismatches);
+    std::printf("  records:");
     for (const auto& [t, n] : tags)
         std::printf(" %s %zu", t.c_str(), n);
     std::printf("\n  parts:");

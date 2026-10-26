@@ -5,6 +5,7 @@
 // data is ever committed).
 
 #include "engines/awe/ac2.h"
+#include "engines/awe/camera.h"
 #include "engines/awe/gr2.h"
 #include "engines/awe/model.h"
 #include "engines/awe/tables.h"
@@ -273,6 +274,38 @@ void testCurves() {
     CHECK(std::fabs(m[1] * 1 + m[13] - 1) < 1e-5f);
 }
 
+// Salon_01's camera, against what granny2.dll's GrannyBuildCameraMatrices
+// and GrannyWorldSpaceToWindowSpace give for it (reluva-tool awe-camera).
+void testCamera() {
+    SceneCamera c;
+    c.fovY = 0.645772f, c.nearPlane = 10, c.farPlane = 10000;
+    const float pos[3] = {-8.14098f, 121.795f, 515.485f}, ear[3] = {-0.232019f, -0.0174533f, 0},
+                off[3] = {-10, 276, 990};
+    for (int k = 0; k < 3; k++)
+        c.position[k] = pos[k], c.elevAzimRoll[k] = ear[k], c.offset[k] = off[k];
+    const float dllView[16] = {0.9998f, 0.0040f,   -0.0170f,   0, 0,       0.9732f, 0.2299f, 0,
+                               0.0175f, -0.2299f, 0.9731f,     0, 9.1433f, -275.9854f, -1519.7399f, 1};
+    const gfx::Mat4 v = c.view();
+    for (int k = 0; k < 16; k++)
+        CHECK(std::fabs(v[size_t(k)] - dllView[k]) < (k >= 12 ? 0.05f : 0.001f));
+    // The DLL's window y counts from the bottom; these are from the top.
+    const float points[3][5] = {{-51.637f, 0, -317.618f, 481.8f, 768 - 256.4f},
+                                {-51.637f, 170, -317.618f, 481.2f, 768 - 359.8f},
+                                {-325.8f, 0, 216.3f, 236.6f, 768 - 96.1f}};
+    for (const auto& p : points) {
+        float x = 0, y = 0;
+        CHECK(c.project(p, 1024, 768, x, y));
+        CHECK(std::fabs(x - p[3]) < 0.5f && std::fabs(y - p[4]) < 0.5f);
+    }
+    // A model's up (MAX's +Z) is the world's +Y; its front (MAX's -Y) faces
+    // +Z, turned by rotY.
+    const gfx::Mat4 m = characterMatrix(10, 0, 20, 0);
+    const gfx::Vec3 top = gfx::transformPoint(m, {0, 0, 100});
+    CHECK(top[0] == 10 && top[1] == 100 && top[2] == 20);
+    const gfx::Vec3 front = gfx::transformPoint(m, {0, -1, 0});
+    CHECK(front[2] == 21);
+}
+
 } // namespace
 
 int main() {
@@ -280,6 +313,7 @@ int main() {
     testAc2();
     testGr2();
     testCurves();
+    testCamera();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

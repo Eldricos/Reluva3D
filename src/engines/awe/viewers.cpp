@@ -7,11 +7,14 @@
 #include "common/font.h"
 #include "common/fs.h"
 #include "common/text.h"
+#include "engines/awe/camera.h"
 #include "engines/awe/tables.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
 
 namespace reluva::awe {
 
@@ -76,6 +79,7 @@ void Page::fill(int x, int y, int w, int h, Color c, uint8_t alpha) {
             p[0] = uint8_t((c.r * alpha + p[0] * (255 - alpha)) / 255);
             p[1] = uint8_t((c.g * alpha + p[1] * (255 - alpha)) / 255);
             p[2] = uint8_t((c.b * alpha + p[2] * (255 - alpha)) / 255);
+            p[3] = std::max(p[3], alpha); // for overlays, transparent where nothing is drawn
         }
 }
 
@@ -98,6 +102,33 @@ void Page::label(int x, int y, const std::string& s, Color c) {
 void Page::help(const std::string& keys) {
     fill(0, kScreenH - font::kLineHeight - 3, kScreenW, font::kLineHeight + 3, {0, 0, 0}, 200);
     text(4, kScreenH - font::kLineHeight - 1, keys + "   Tab: next page   Esc: launcher", {170, 190, 210});
+}
+
+void Page::finishScreenshot(gfx::Renderer3D* renderer, const Surface* overlay) {
+    if (shotFile_.empty())
+        return;
+    image::Image img;
+    img.w = kScreenW;
+    img.h = kScreenH;
+    if (renderer) {
+        if (!renderer->takeCapture(img.rgba))
+            return; // not kept yet: try the next frame
+        if (overlay && overlay->pixels.size() == img.rgba.size())
+            for (size_t i = 0; i < img.rgba.size(); i += 4) {
+                const int a = overlay->pixels[i + 3];
+                for (size_t c = 0; c < 3; c++)
+                    img.rgba[i + c] = uint8_t((overlay->pixels[i + c] * a + img.rgba[i + c] * (255 - a)) / 255);
+            }
+    } else if (overlay) {
+        img.rgba = overlay->pixels;
+    }
+    std::error_code ec;
+    std::filesystem::create_directories(shotFile_.parent_path(), ec);
+    const std::vector<uint8_t> tga = image::encodeTga(img);
+    std::ofstream out(shotFile_, std::ios::binary);
+    out.write(reinterpret_cast<const char*>(tga.data()), std::streamsize(tga.size()));
+    ctx_.sys.setWindowTitle((out ? "Saved " : "Couldn't save ") + shotFile_.string());
+    shotFile_.clear();
 }
 
 int Page::step(uint32_t key, int index, int count) {
@@ -191,52 +222,242 @@ void PicturePage::handleEvent(const Event& ev) {
 
 // --- Scenes ---------------------------------------------------------------------
 
+namespace {
+
+// Draws `img` over an overlay (transparent where nothing is), keeping
+// alpha so the overlay can go over the 3D frame.
+void blitOver(Surface& dst, const image::Image& img, int x, int y) {
+    for (int sy = std::max(0, -y); sy < img.h && y + sy < dst.h; sy++) {
+        uint8_t* row = dst.row(y + sy);
+        for (int sx = std::max(0, -x); sx < img.w && x + sx < dst.w; sx++) {
+            const uint8_t* s = img.pixel(sx, sy);
+            uint8_t* d = row + (x + sx) * 4;
+            const int a = s[3], da = d[3] * (255 - a) / 255, out = a + da;
+            if (out == 0)
+                continue;
+            for (int c = 0; c < 3; c++)
+                d[c] = uint8_t((s[c] * a + d[c] * da) / out);
+            d[3] = uint8_t(out);
+        }
+    }
+}
+
+// A scene's act variant ("Salon_01_06a.ac2" for act 6A): the base scene's
+// name, or "" if it isn't one.
+std::string baseSceneOf(const std::string& name) {
+    const size_t dot = name.rfind('.');
+    const size_t u = name.rfind('_');
+    if (dot == std::string::npos || u == std::string::npos || u + 4 != dot)
+        return "";
+    if (!std::isdigit(uint8_t(name[u + 1])) || !std::isdigit(uint8_t(name[u + 2])) ||
+        !std::isalpha(uint8_t(name[u + 3])))
+        return "";
+    return name.substr(0, u) + name.substr(dot);
+}
+
+std::string folderOf(const std::string& name) {
+    const size_t slash = name.find_last_of("/\\");
+    return slash == std::string::npos ? std::string() : name.substr(0, slash);
+}
+
+} // namespace
+
 ScenePage::ScenePage(ViewerContext& ctx) : Page(ctx) { names_ = listFiles(ctx.files, {"locations/"}, {".ac2"}); }
 
+ScenePage::~ScenePage() { releaseGpu(); }
+
 void ScenePage::activate() {
-    begin2D();
+    if (ctx_.sys.init3D(kScreenW, kScreenH, renderer_))
+        renderer_ = nullptr, begin2D();
     load();
+}
+
+void ScenePage::deactivate() {
+    releaseGpu();
+    renderer_ = nullptr;
+}
+
+void ScenePage::releaseGpu() {
+    characters_.clear();
+    models_.clear();
+    animations_.clear();
+    if (renderer_) {
+        for (gfx::MeshId m : frameMeshes_)
+            renderer_->destroyMesh(m);
+        if (back_)
+            renderer_->destroyTexture(back_);
+        if (quad_)
+            renderer_->destroyMesh(quad_);
+    }
+    frameMeshes_.clear();
+    back_ = 0;
+    quad_ = 0;
 }
 
 void ScenePage::load() {
     selected_ = -1;
     error_.clear();
+    base_.clear();
     scene_ = Ac2Scene();
+    characters_.clear();
     if (names_.empty())
         return draw();
-    std::vector<uint8_t> data;
-    if (Error e = ctx_.files.read(names_[size_t(index_)], data))
+    auto read = [&](const std::string& name, Ac2Scene& out) {
+        std::vector<uint8_t> data;
+        Error e = ctx_.files.read(name, data);
+        if (!e)
+            e = parseAc2(data, out);
+        return e;
+    };
+    const std::string& name = names_[size_t(index_)];
+    Ac2Scene variant;
+    if (Error e = read(name, variant))
         error_ = e.message;
-    else if (Error e2 = parseAc2(data, scene_))
-        error_ = e2.message;
+    // An act's variant changes its base scene: shown over it, as the base
+    // has the camera and the pictures.
+    const std::string base = baseSceneOf(name);
+    if (!variant.camera() && !base.empty() && ctx_.files.has(base) && !read(base, scene_)) {
+        base_ = base;
+        if (!scene_.records.empty() && scene_.records.back().tag == "DONE")
+            scene_.records.pop_back();
+        scene_.records.insert(scene_.records.end(), variant.records.begin(), variant.records.end());
+    } else {
+        scene_ = std::move(variant);
+    }
+    if (renderer_ && showCharacters_)
+        loadCharacters();
     draw();
 }
 
+void ScenePage::loadCharacters() {
+    const Ac2Record* camr = scene_.camera();
+    if (!renderer_ || !ctx_.granny || !camr)
+        return;
+    bool any = false;
+    for (const Ac2Record* o : scene_.objects())
+        any |= o->tag == "NPCX" || o->tag == "PCXX";
+    if (!any)
+        return;
+    // Loading them takes a few seconds each the first time (granny2.dll
+    // decodes their textures): say so.
+    std::fill(ctx_.screen.pixels.begin(), ctx_.screen.pixels.end(), 0);
+    font::drawText(ctx_.screen, 8, 8, "Loading the characters...", {255, 230, 150}, 2);
+    renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
+    renderer_->endFrame(&ctx_.screen);
+
+    for (const Ac2Record* o : scene_.objects()) {
+        if (o->tag != "NPCX" && o->tag != "PCXX")
+            continue;
+        const std::string file = normalizeArchiveName(o->text("file"));
+        Character c;
+        c.name = file;
+        auto found = models_.find(file);
+        if (found == models_.end()) {
+            Gr2File gr2;
+            Model model;
+            Error e = openGr2(ctx_.files, file, *ctx_.granny, gr2);
+            if (!e)
+                e = loadModel(gr2, ctx_.granny, model);
+            if (e) {
+                error_ = file + ": " + e.message;
+                found = models_.emplace(file, nullptr).first;
+            } else {
+                found = models_.emplace(file, std::make_shared<GpuModel>(*renderer_, std::move(model))).first;
+            }
+        }
+        c.model = found->second;
+        if (!c.model)
+            continue;
+        // Its animation: MODL's (sit), else standing idle, as files of the
+        // model's folder named <who>_<animation>.gr2.
+        const std::string folder = folderOf(file);
+        std::string who = file.substr(folder.size() + 1);
+        who = who.substr(0, who.find("_model"));
+        std::vector<std::string> tries;
+        if (const Ac2Record* m = o->part("MODL"); m && !m->text("anim").empty()) {
+            const std::string a = fs::toLower(m->text("anim"));
+            tries = {who + "_" + a, who + "_" + a + "idle1", who + "_" + a + "1"};
+        }
+        tries.insert(tries.end(), {who + "_idle1", who + "_idle"});
+        for (const std::string& t : tries) {
+            const std::string path = folder + "/" + t + ".gr2";
+            if (!ctx_.files.has(path))
+                continue;
+            auto a = animations_.find(path);
+            if (a == animations_.end()) {
+                Gr2File gr2;
+                auto anim = std::make_shared<Animation>();
+                Error e = openGr2(ctx_.files, path, *ctx_.granny, gr2);
+                if (!e)
+                    e = awe::loadAnimation(gr2, *anim);
+                a = animations_.emplace(path, e ? nullptr : anim).first;
+            }
+            if (a->second) {
+                c.animation = a->second;
+                c.animationName = t;
+                break;
+            }
+        }
+        c.placement = characterMatrix(o->f("x"), o->f("y"), o->f("z"), o->f("rotY"));
+        characters_.push_back(std::move(c));
+    }
+}
+
 void ScenePage::draw() {
-    clear(0, 0, 0);
     const std::vector<const Ac2Record*> objects = scene_.objects();
-    // Pictures back to front: the original sorts them by depth, the
-    // background furthest (-10000).
+    // Pictures back to front, by depth: the background at -10000, what's
+    // behind its windows further still. A picture's d0, when set, is its
+    // depth instead of z (the view outside a window: d0 -11000, z 0).
     std::vector<const Ac2Record*> pictures;
     for (const Ac2Record* o : objects)
         if (hasExtension(o->text("file"), {".jpg", ".png", ".tga", ".bmp"}))
             pictures.push_back(o);
+    auto depth = [](const Ac2Record* o) { return o->f("d0") != 0 ? o->f("d0") : o->f("z"); };
     std::stable_sort(pictures.begin(), pictures.end(),
-                     [](const Ac2Record* a, const Ac2Record* b) { return a->f("z") < b->f("z"); });
-    for (const Ac2Record* o : pictures) {
-        const image::Image& img = picture(o->text("file"));
-        if (img.w > 0)
-            image::blit(ctx_.screen, img, int(o->f("x")), int(o->f("y")));
+                     [&](const Ac2Record* a, const Ac2Record* b) { return depth(a) < depth(b); });
+    // With 3D, the characters go between the pictures behind them (depth
+    // below 0: the background and what's behind it) and those in front
+    // (cutouts and overlays), which go with the labels into the overlay.
+    const bool layered = renderer_ != nullptr;
+    clear(0, 0, 0);
+    if (layered) {
+        for (const Ac2Record* o : pictures)
+            if (depth(o) < 0)
+                if (const image::Image& img = picture(o->text("file")); img.w > 0)
+                    image::blit(ctx_.screen, img, int(o->f("x")), int(o->f("y")));
+        if (back_)
+            renderer_->destroyTexture(back_);
+        back_ = 0;
+        gfx::TextureParams params;
+        params.clamp = true;
+        params.mipmaps = false;
+        renderer_->createTexture(kScreenW, kScreenH, ctx_.screen.pixels.data(), params, back_);
+        std::fill(ctx_.screen.pixels.begin(), ctx_.screen.pixels.end(), 0);
     }
+    for (const Ac2Record* o : pictures)
+        if (!layered || depth(o) >= 0)
+            if (const image::Image& img = picture(o->text("file")); img.w > 0)
+                blitOver(ctx_.screen, img, int(o->f("x")), int(o->f("y")));
     if (hotspots_)
         for (const Ac2Record* o : objects) {
             const int l = o->i("left"), t = o->i("top"), r = o->i("right"), b = o->i("bottom");
             if (o->tag != "SPOT" || r <= l || b <= t)
                 continue;
-            frame(l, t, r - l, b - t, {255, 220, 60});
+            // Its outline where it has one (listD), else its rectangle.
+            const Ac2Value* outline = o->field("listD");
+            if (outline && outline->numbers.size() >= 3) {
+                const auto& pts = outline->numbers;
+                for (size_t i = 0; i < pts.size(); i++)
+                    line(int(pts[i].first), int(pts[i].second), int(pts[(i + 1) % pts.size()].first),
+                         int(pts[(i + 1) % pts.size()].second), {255, 220, 60});
+            } else {
+                frame(l, t, r - l, b - t, {255, 220, 60});
+            }
             const Ac2Record* hot = o->part("HOTS");
-            label(l + 2, t + 2, hot && !hot->text("name").empty() ? hot->text("name") : o->text("script"),
-                  {255, 220, 60});
+            std::string name = o->text("name");
+            if (name.empty() && hot)
+                name = hot->text("name");
+            label(l + 2, t + 2, name.empty() ? shorten(o->text("script"), 60) : name, {255, 220, 60});
         }
     if (selected_ >= 0 && size_t(selected_) < objects.size()) {
         const Ac2Record* o = objects[size_t(selected_)];
@@ -246,24 +467,24 @@ void ScenePage::draw() {
         // Its fields, as the dump shows them.
         int y = kScreenH - 2 * font::kLineHeight - 6;
         std::vector<std::string> lines;
-        std::string line;
+        std::string text;
         for (const auto& [name, v] : o->fields) {
             const std::string s = v.str();
             if (s == "0" || s == "\"\"" || s == "[]")
                 continue;
             const std::string item = name + "=" + shorten(s, 60) + "  ";
-            if (font::length(line + item) * font::kAdvance > size_t(kScreenW - 8))
-                lines.push_back(line), line.clear();
-            line += item;
+            if (font::length(text + item) * font::kAdvance > size_t(kScreenW - 8))
+                lines.push_back(text), text.clear();
+            text += item;
         }
         for (const Ac2Record& p : o->parts) {
-            line += p.tag + "{";
+            text += p.tag + "{";
             for (const auto& [name, v] : p.fields)
                 if (v.str() != "0" && v.str() != "\"\"" && v.str() != "[]")
-                    line += name + "=" + shorten(v.str(), 40) + " ";
-            line += "} ";
+                    text += name + "=" + shorten(v.str(), 40) + " ";
+            text += "} ";
         }
-        lines.push_back(line);
+        lines.push_back(text);
         y -= int(lines.size()) * font::kLineHeight;
         for (const std::string& l : lines) {
             label(4, y, l, {150, 255, 170});
@@ -273,7 +494,8 @@ void ScenePage::draw() {
     if (info_) {
         std::vector<std::string> lines;
         lines.push_back((names_.empty() ? std::string("No scenes") : names_[size_t(index_)]) + "  (" +
-                        std::to_string(index_ + 1) + "/" + std::to_string(names_.size()) + ")");
+                        std::to_string(index_ + 1) + "/" + std::to_string(names_.size()) + ")" +
+                        (base_.empty() ? "" : "  over " + base_));
         if (!error_.empty())
             lines.push_back(error_);
         std::map<std::string, int> tags;
@@ -284,10 +506,10 @@ void ScenePage::draw() {
             counts += " " + std::to_string(n) + " " + t;
         lines.push_back(counts);
         if (const Ac2Record* cam = scene_.camera()) {
-            char buf[160];
-            std::snprintf(buf, sizeof buf, "camera at (%g, %g, %g), turned (%g, %g, %g), fov %.1f deg", cam->f("x"),
-                          cam->f("y"), cam->f("z"), cam->f("pitch"), cam->f("yaw"), cam->f("roll"),
-                          cam->f("fov") * 57.29578f);
+            char buf[200];
+            std::snprintf(buf, sizeof buf, "camera about (%g, %g, %g), turned (%g, %g, %g), back (%g, %g, %g), fov %.1f deg",
+                          cam->f("x"), cam->f("y"), cam->f("z"), cam->f("pitch"), cam->f("yaw"), cam->f("roll"),
+                          cam->f("74"), cam->f("78"), cam->f("7c"), cam->f("fov") * 57.29578f);
             lines.push_back(buf);
         }
         for (const Ac2Record& r : scene_.records)
@@ -297,8 +519,12 @@ void ScenePage::draw() {
         for (const Ac2Record* o : objects)
             if (o->tag == "NPCX" || o->tag == "PCXX") {
                 char buf[200];
-                std::snprintf(buf, sizeof buf, "%s %s at (%g, %g, %g), facing %g", o->tag.c_str(),
-                              o->text("file").c_str(), o->f("x"), o->f("y"), o->f("z"), o->f("rotY"));
+                std::string anim;
+                for (const Character& c : characters_)
+                    if (c.name == normalizeArchiveName(o->text("file")) && !c.animationName.empty())
+                        anim = ", posed as " + c.animationName;
+                std::snprintf(buf, sizeof buf, "%s %s at (%g, %g, %g), facing %g%s", o->tag.c_str(),
+                              o->text("file").c_str(), o->f("x"), o->f("y"), o->f("z"), o->f("rotY"), anim.c_str());
                 lines.push_back(buf);
             }
         int y = 2;
@@ -307,9 +533,70 @@ void ScenePage::draw() {
             y += font::kLineHeight;
         }
     }
-    help("Left/Right: scene  Up/Down: object  H: hotspots  I: info");
-    present();
+    help(std::string("Left/Right: scene  Up/Down: object  H: hotspots  I: info") +
+         (renderer_ ? "  C: characters" : "  (no 3D: no characters)"));
+    if (!renderer_)
+        present();
     ctx_.sys.setWindowTitle("Scenes: " + (names_.empty() ? std::string() : names_[size_t(index_)]));
+}
+
+void ScenePage::update(uint64_t nowMs) {
+    if (!renderer_)
+        return Page::update(nowMs);
+    if (startMs_ == 0)
+        startMs_ = nowMs;
+    const float time = float(nowMs - startMs_) / 1000.0f;
+    for (gfx::MeshId m : frameMeshes_)
+        renderer_->destroyMesh(m);
+    frameMeshes_.clear();
+    // The pictures behind, as a quad over the whole frame.
+    renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
+    if (!quad_) {
+        std::vector<gfx::Vertex> v(4);
+        const float corners[4][4] = {{-1, 1, 0, 0}, {1, 1, 1, 0}, {1, -1, 1, 1}, {-1, -1, 0, 1}};
+        for (size_t i = 0; i < 4; i++) {
+            v[i] = {};
+            v[i].pos[0] = corners[i][0], v[i].pos[1] = corners[i][1], v[i].pos[2] = 0.5f;
+            v[i].uv[0] = corners[i][2], v[i].uv[1] = corners[i][3];
+            v[i].color[0] = v[i].color[1] = v[i].color[2] = v[i].color[3] = 255;
+        }
+        renderer_->createMesh(v, {0, 2, 1, 0, 3, 2}, quad_);
+    }
+    if (back_ && quad_) {
+        gfx::DrawCall call;
+        call.mesh = quad_;
+        call.indexCount = 6;
+        call.texture = back_;
+        call.state.depthTest = false;
+        call.state.depthWrite = false;
+        call.state.cull = gfx::Cull::None;
+        renderer_->draw(call);
+    }
+    // The characters, through the scene's camera.
+    if (const Ac2Record* camr = scene_.camera(); camr && showCharacters_) {
+        const SceneCamera cam = SceneCamera::fromRecord(*camr);
+        renderer_->setView(cam.viewProjection(), cam.eye());
+        renderer_->clearDepth();
+        for (const Character& c : characters_)
+            c.model->draw(poseAt(c.model->model(), c.animation.get(), time), c.placement, false, frameMeshes_);
+    }
+    prepareScreenshot(renderer_);
+    renderer_->endFrame(&ctx_.screen);
+    finishScreenshot(renderer_, &ctx_.screen);
+}
+
+void ScenePage::line(int x0, int y0, int x1, int y1, Color c) {
+    const int dx = std::abs(x1 - x0), dy = -std::abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    for (int err = dx + dy;;) {
+        fill(x0, y0, 1, 1, c);
+        if (x0 == x1 && y0 == y1)
+            break;
+        const int e2 = 2 * err;
+        if (e2 >= dy)
+            err += dy, x0 += sx;
+        if (e2 <= dx)
+            err += dx, y0 += sy;
+    }
 }
 
 void ScenePage::handleEvent(const Event& ev) {
@@ -331,6 +618,11 @@ void ScenePage::handleEvent(const Event& ev) {
         draw();
     } else if (ev.key == 'i') {
         info_ = !info_;
+        draw();
+    } else if (ev.key == 'c' && renderer_) {
+        showCharacters_ = !showCharacters_;
+        if (showCharacters_ && characters_.empty())
+            loadCharacters();
         draw();
     }
 }

@@ -7,6 +7,7 @@
 #include "tools/awe_tool.h"
 
 #include "engines/awe/ac2.h"
+#include "engines/awe/camera.h"
 #include "engines/awe/gr2.h"
 #include "engines/awe/granny_dll.h"
 #include "engines/awe/model.h"
@@ -16,6 +17,8 @@
 #include "common/image.h"
 #include "common/system.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -340,7 +343,7 @@ int cmdAweShot(int argc, char** argv) {
     HeadlessSystem sys;
     reluva::Surface screen;
     screen.create(awe::kScreenW, awe::kScreenH, reluva::PixelFormat::RGBA32);
-    awe::ViewerContext ctx{sys, files, nullptr, nullptr, screen};
+    awe::ViewerContext ctx{sys, files, nullptr, nullptr, screen, {}};
     std::unique_ptr<awe::Page> page;
     const std::string which = argv[3];
     if (which == "scenes")
@@ -377,11 +380,84 @@ int cmdAweShot(int argc, char** argv) {
     return 0;
 }
 
+// A scene's camera as granny2.dll builds it, and where the scene's
+// characters (and any points given) land on the screen.
+int cmdAweCamera(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool awe-camera <game folder> <scene.ac2> [x y z]...\n");
+        return 2;
+    }
+    std::vector<uint8_t> data;
+    awe::Ac2Scene scene;
+    if (!readFile(argv[3], data) || awe::parseAc2(data, scene).ok == false) {
+        std::fprintf(stderr, "can't read %s\n", argv[3]);
+        return 1;
+    }
+    const awe::Ac2Record* cam = scene.camera();
+    if (!cam) {
+        std::fprintf(stderr, "no camera in %s\n", argv[3]);
+        return 1;
+    }
+    awe::GrannyDll dll;
+    if (!loadGranny(std::filesystem::path(argv[2]) / "x", "", dll))
+        return 1;
+    awe::GrannyDll::Camera c;
+    c.fovY = cam->f("fov"), c.nearPlane = cam->f("near"), c.farPlane = cam->f("far");
+    const char* const pos[3] = {"x", "y", "z"};
+    const char* const ear[3] = {"pitch", "yaw", "roll"};
+    const char* const off[3] = {"74", "78", "7c"};
+    for (int k = 0; k < 3; k++)
+        c.position[k] = cam->f(pos[k]), c.elevAzimRoll[k] = cam->f(ear[k]), c.offset[k] = cam->f(off[k]);
+    std::vector<float> points;
+    std::vector<std::string> names;
+    for (const awe::Ac2Record* o : scene.objects())
+        if (o->tag == "NPCX" || o->tag == "PCXX")
+            for (float h : {0.0f, 170.0f}) {
+                points.insert(points.end(), {o->f("x"), o->f("y") + h, o->f("z")});
+                names.push_back(o->text("file") + (h > 0 ? " +170" : " feet"));
+            }
+    for (int i = 4; i + 2 < argc; i += 3) {
+        points.insert(points.end(), {std::strtof(argv[i], nullptr), std::strtof(argv[i + 1], nullptr),
+                                     std::strtof(argv[i + 2], nullptr)});
+        names.push_back("point");
+    }
+    float view[16], proj[16];
+    std::vector<float> window;
+    if (reluva::Error e = dll.camera(c, 1024, 768, view, proj, &points, &window)) {
+        std::fprintf(stderr, "%s\n", e.message.c_str());
+        return 1;
+    }
+    auto print = [](const char* name, const float* m) {
+        std::printf("%s (columns):\n", name);
+        for (int col = 0; col < 4; col++)
+            std::printf("  %10.4f %10.4f %10.4f %10.4f\n", m[col * 4], m[col * 4 + 1], m[col * 4 + 2], m[col * 4 + 3]);
+    };
+    print("view", view);
+    print("projection", proj);
+    // Reluva's own camera, to compare.
+    const awe::SceneCamera native = awe::SceneCamera::fromRecord(*cam);
+    const reluva::gfx::Mat4 nv = native.view();
+    float worst = 0;
+    for (int k = 0; k < 16; k++)
+        worst = std::max(worst, std::abs(nv[size_t(k)] - view[k]) / (k >= 12 ? 100.0f : 1.0f));
+    std::printf("Reluva's view matrix differs by at most %g (translations / 100)\n", worst);
+    std::printf("screen y from the top; DLL then Reluva:\n");
+    for (size_t i = 0; i < names.size(); i++) {
+        float x = 0, y = 0;
+        native.project(&points[i * 3], 1024, 768, x, y);
+        std::printf("%-50s (%7.1f %7.1f %7.1f) -> (%7.1f, %7.1f)  (%7.1f, %7.1f)\n", names[i].c_str(), points[i * 3],
+                    points[i * 3 + 1], points[i * 3 + 2], window[i * 3], 768 - window[i * 3 + 1], x, y);
+    }
+    return worst < 0.01f ? 0 : 1;
+}
+
 } // namespace
 
 int aweToolCommand(int argc, char** argv) {
     if (argc >= 2 && std::strcmp(argv[1], "gr2-info") == 0)
         return cmdGr2Info(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "awe-camera") == 0)
+        return cmdAweCamera(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "awe-check") == 0)
         return aweCheckCommand(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "awe-shot") == 0)
@@ -397,6 +473,7 @@ int aweToolCommand(int argc, char** argv) {
 
 const char* aweToolUsage() {
     return "  reluva-tool awe-check <game folder> [-gr2|-ac2|-text] [-only text] [-textures] [-j threads] [-v]\n"
+           "  reluva-tool awe-camera <game folder> <scene.ac2> [x y z]...\n"
            "  reluva-tool gr2-info <file.gr2> [-t] [-n elements] [-dll granny2.dll]\n"
            "  reluva-tool awe-table <file.txt>\n"
            "  reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds> <out.tga> [key...]\n"

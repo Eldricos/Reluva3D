@@ -44,6 +44,10 @@ scenes, two Granny files, the text tables, two backgrounds):
 - **Text tables and script commands: read.** UTF-16 tab-separated
   tables; commands split into verbs and arguments. See
   [../formats/awe/text.md](../formats/awe/text.md).
+- **Cameras: worked out.** Scenes' cameras are Granny cameras, and
+  Reluva's matrices match granny2.dll's. Characters are drawn into the
+  Scenes page through them, posed by their idle (or sitting) animation,
+  between the background and the cutouts in front.
 - **The engine is a data viewer** for now, like New Worlds and Elite Force
   were before they played. Its pages are Scenes, Models (textured,
   animated, with the mouse to turn and zoom), Pictures, Text and Sounds.
@@ -54,7 +58,10 @@ scenes, two Granny files, the text tables, two backgrounds):
   - `gr2-model` (a summary, posed by an animation, written as OBJ with
     its textures);
   - `awe-table` (a text table with its commands split);
-  - `awe-shot` (a viewer page drawn without a window, saved as TGA).
+  - `awe-shot` (a viewer page drawn without a window, saved as TGA);
+  - `awe-camera` (a scene's camera as granny2.dll and Reluva build it);
+  - `awe-check` (every Granny file, scene and text file of an install
+    read, with cameras compared against the DLL: the regression test).
 - **Tests:** `tests/test_awe.cpp`, on files built in the test.
 
 Corrections to the plan below:
@@ -76,9 +83,8 @@ Next:
 1. Run sweeps over a full install: `reluva-tool ac2-dump Locations/*/*.ac2`
    (every scene to its `DONE`) and `gr2-info` over `Models/`, to find
    records and member types the samples didn't have.
-2. Read the camera's projection, so characters stand where they belong on
-   the backgrounds. This needs a room scene with its background. Then draw
-   the characters in the scene page, with the 3D renderer.
+2. Work out the camera's grid (walkable areas?) and the `walk` command,
+   so characters can move about.
 3. Read the script interpreter in `motoe.exe`: the full list of verbs and
    their arguments.
 4. A native Bink video decoder (movies, and the scenes' video loops), from

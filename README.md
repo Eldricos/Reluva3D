@@ -64,7 +64,9 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
 - Murder on the Orient Express opens as a data viewer: **Tab** switches between
   scenes, models, pictures, text and sounds, and each page lists its keys at
   the bottom (scenes: **Left/Right** scene, **Up/Down** an object's fields,
-  **H** hotspots; models: **Up/Down** animation, drag and wheel to view). The
+  **H** hotspots, **C** characters; models: **Up/Down** animation, drag and
+  wheel to view). **F12** saves a screenshot in the game's folder of Reluva's
+  data directory. The
   models need the game's `granny2.dll`, which Reluva runs in its x86
   interpreter to decompress them.
 - In game: **Ctrl+F5** returns to the launcher, **Alt+Enter** toggles fullscreen.

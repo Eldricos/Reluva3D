@@ -19,6 +19,7 @@
 #include "common/fs.h"
 #include "engines/awe/viewers.h"
 
+#include <cstdio>
 #include <fstream>
 #include <iterator>
 
@@ -68,7 +69,8 @@ public:
                     sys.stopAudio();
             }
         } audioStop{sys_, audioOut};
-        awe::ViewerContext ctx{sys_, files_, granny.get(), audioOut ? &mixer : nullptr, screen_};
+        awe::ViewerContext ctx{sys_, files_, granny.get(), audioOut ? &mixer : nullptr, screen_, target_.savePath};
+        int shots = 0;
 
         std::vector<std::unique_ptr<awe::Page>> pages;
         pages.push_back(std::make_unique<awe::ScenePage>(ctx));
@@ -90,6 +92,13 @@ public:
                     (ev.type == EventType::KeyDown && ev.key == key::Escape)) {
                     pages[page]->deactivate();
                     return Error::success();
+                }
+                // F12: a screenshot, into the game's own folder.
+                if (ev.type == EventType::KeyDown && ev.key == key::F1 + 11) {
+                    char name[48];
+                    std::snprintf(name, sizeof name, "screenshots/%s_%03d.tga", pages[page]->name(), ++shots);
+                    pages[page]->requestScreenshot(target_.savePath / name);
+                    continue;
                 }
                 if (ev.type == EventType::KeyDown && ev.key == key::Tab) {
                     pages[page]->deactivate();

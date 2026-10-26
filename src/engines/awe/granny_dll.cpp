@@ -117,4 +117,77 @@ Error GrannyDll::binkTexture(int width, int height, uint32_t flags, const std::v
     return e;
 }
 
+Error GrannyDll::camera(const Camera& in, int width, int height, float view[16], float projection[16],
+                        const std::vector<float>* points, std::vector<float>* windowPoints) {
+    if (!module_)
+        return Error::fail("granny2.dll isn't loaded");
+    const uint32_t init = module_->exportAddress("_GrannyInitializeDefaultCamera@4");
+    const uint32_t aspect = module_->exportAddress("_GrannySetCameraAspectRatios@24");
+    const uint32_t build = module_->exportAddress("_GrannyBuildCameraMatrices@4");
+    const uint32_t toWindow = module_->exportAddress("_GrannyWorldSpaceToWindowSpace@20");
+    if (!init || !aspect || !build || !toWindow)
+        return Error::fail("granny2.dll has no camera functions");
+    x86::Arena& mem = process_->memory();
+    const uint32_t cam = mem.alloc(0x200), pt = mem.alloc(32);
+    auto putFloat = [&](uint32_t a, float f) {
+        uint32_t v;
+        std::memcpy(&v, &f, 4);
+        cpu_->write32(a, v);
+    };
+    auto getFloat = [&](uint32_t a) {
+        const uint32_t v = cpu_->read32(a);
+        float f;
+        std::memcpy(&f, &v, 4);
+        return f;
+    };
+    auto bits = [](float f) {
+        uint32_t v;
+        std::memcpy(&v, &f, 4);
+        return v;
+    };
+    uint32_t ignored = 0;
+    Error e = cpu_->call(init, {cam}, ignored);
+    // Its layout, from GrannyInitializeDefaultCamera: the field of view at
+    // 0x0c, near and far at 0x10 and 0x14, a flag at 0x20 (whether the
+    // orientation comes from the quaternion at 0x24), the 3x3 matrix at
+    // 0x34, then position (0x58), elevation/azimuth/roll (0x64) and offset
+    // (0x70); the matrices follow from 0x7c.
+    if (!e) {
+        putFloat(cam + 0x0c, in.fovY);
+        putFloat(cam + 0x10, in.nearPlane);
+        putFloat(cam + 0x14, in.farPlane);
+        for (uint32_t k = 0; k < 3; k++) {
+            putFloat(cam + 0x58 + 4 * k, in.position[k]);
+            putFloat(cam + 0x64 + 4 * k, in.elevAzimRoll[k]);
+            putFloat(cam + 0x70 + 4 * k, in.offset[k]);
+        }
+        // GrannySetCameraAspectRatios(Camera, PhysicalAspectRatio, ScreenWidth,
+        //                             ScreenHeight, WindowWidth, WindowHeight)
+        const float w = float(width), h = float(height);
+        e = cpu_->call(aspect, {cam, bits(w / h), bits(w), bits(h), bits(w), bits(h)}, ignored);
+    }
+    if (!e)
+        e = cpu_->call(build, {cam}, ignored);
+    if (!e) {
+        for (uint32_t k = 0; k < 16; k++) {
+            view[k] = getFloat(cam + 0x7c + 4 * k);
+            projection[k] = getFloat(cam + 0x7c + 128 + 4 * k);
+        }
+        if (points && windowPoints) {
+            windowPoints->clear();
+            for (size_t i = 0; i + 2 < points->size() && !e; i += 3) {
+                for (uint32_t k = 0; k < 3; k++)
+                    putFloat(pt + 4 * k, (*points)[i + k]);
+                // GrannyWorldSpaceToWindowSpace(Camera, Width, Height, WorldPoint, Result)
+                e = cpu_->call(toWindow, {cam, bits(float(width)), bits(float(height)), pt, pt + 16}, ignored);
+                for (uint32_t k = 0; k < 3; k++)
+                    windowPoints->push_back(getFloat(pt + 16 + 4 * k));
+            }
+        }
+    }
+    mem.free(cam);
+    mem.free(pt);
+    return e;
+}
+
 } // namespace reluva::awe
