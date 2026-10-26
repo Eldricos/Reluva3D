@@ -3,8 +3,13 @@
 Engine id `nfs`, to live in `src/engines/nfs/`. First game: Need for
 Speed III: Hot Pursuit (`nfs3`).
 
-Status: **Phase 0 done**: the engine detects the game, finds its folders
-and shows what it found. It reads no game data yet. This page records what
+Status: **Phase 1 done**:
+
+- the engine detects the game and finds its folders;
+- it reads the archives, pictures, text and fonts;
+- it shows them as a data viewer.
+
+This page records what
 the retail data holds, what was tried, and the order the work should go
 in. It becomes the engine's page as work lands, as `idtech3.md` is for id
 Tech 3.
@@ -197,7 +202,36 @@ What was planned:
 - Done when the launcher's *Add Game...* finds the install, and
   `reluva <target>` opens an empty NFS window.
 
-### Phase 1: archives, images, text
+### Phase 1: archives, images, text (done)
+
+What was built, with each format written up in `docs/formats/nfs/`:
+
+- **Readers** for each format, checked against every retail file:
+  - [viv.md](../formats/nfs/viv.md): archives, as an `Archive`;
+  - [refpack.md](../formats/nfs/refpack.md): `.qfs` compression;
+  - [fsh.md](../formats/nfs/fsh.md): pictures;
+  - [text.md](../formats/nfs/text.md): the front end's string tables;
+  - [ffn.md](../formats/nfs/ffn.md): fonts, drawn into RGBA surfaces.
+- **`game_files.cpp`** indexes the install, then the CD's files the
+  install lacks, and the contents of every `.viv`.
+- **Viewer pages** (`viewers.cpp`): Info, Textures, Strings (in the
+  game's own font) and Fonts.
+- **`reluva-tool` commands:**
+  - `viv-list`, `viv-extract`;
+  - `fsh-info`, `fsh-dump`;
+  - `text-dump`, `ffn-render`;
+  - `nfs-survey`, which reads everything under the folders given;
+  - `nfs-page`, which draws a viewer page to a TGA without a window.
+- **Unit tests** on hand-built data for every reader.
+
+`nfs-survey` on the install and the CD reads 115 archives, 694 picture
+banks (15,990 pictures), 16 text tables and 16 fonts, with no failures.
+The exception is the Summit's two 8-bit texture sets
+(`trk007/tr07?_8.qfs`). They're compressed with another EA scheme
+(`32 FB`), which isn't read yet. The 16-bit sets of the same textures
+read fine (see [refpack.md](../formats/nfs/refpack.md)).
+
+What was planned:
 
 - VIV reader as an `Archive`, so it joins a `SearchSet` like a pk3.
 - RefPack decompressor, SHPI/FSH decoder (palettes, the 8/16/32-bit
@@ -290,6 +324,13 @@ Allowed under CONTRIBUTING.md:
   written from the format descriptions and the data (decided October 2026).
 
 ## Open questions
+
+- The `32 FB` compression of the Summit's 8-bit texture sets, and
+  whether anything Reluva runs will need those sets.
+- The `0x7C` blocks on cockpit pictures (hot spots?), and the flare
+  parameters in `0x6F` text blocks (`A0 B45 R24 ROTATE`).
+- The font header's flags and the size field that's 11 bytes short in
+  two fonts.
 
 - Which track number is which track. Is `_8.qfs` the 8-bit (software
   renderer) texture set?

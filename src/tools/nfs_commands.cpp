@@ -3,11 +3,15 @@
 
 #include "tools/nfs_commands.h"
 
+#include "common/events.h"
 #include "common/image.h"
 #include "engines/nfs/ffn.h"
+#include "engines/nfs/folders.h"
 #include "engines/nfs/fsh.h"
+#include "engines/nfs/game_files.h"
 #include "engines/nfs/refpack.h"
 #include "engines/nfs/text_table.h"
+#include "engines/nfs/viewers.h"
 #include "engines/nfs/viv.h"
 
 #include <algorithm>
@@ -34,7 +38,14 @@ const char* const kUsageLines =
     "  reluva-tool fsh-dump <file.fsh | file.qfs | file.viv name> <output dir>\n"
     "  reluva-tool text-dump <text.eng>\n"
     "  reluva-tool ffn-render <file.ffn> <out.tga> [text]\n"
-    "  reluva-tool nfs-survey <folder>... [-v]\n";
+    "  reluva-tool nfs-survey <folder>... [-v]\n"
+    "  reluva-tool nfs-page <game folder> <out.tga> <page> [key...]\n";
+
+std::string lowerAscii(std::string s) {
+    for (char& c : s)
+        c = char(std::tolower(static_cast<unsigned char>(c)));
+    return s;
+}
 
 int fail(const Error& err) {
     std::fprintf(stderr, "%s\n", err.message.c_str());
@@ -359,6 +370,61 @@ int cmdNfsSurvey(int argc, char** argv) {
     return failed ? 1 : 0;
 }
 
+// Draws one of the engine's viewer pages after the keys given, as the
+// engine would, without a window: for checking pages and taking pictures
+// of them.
+int cmdNfsPage(int argc, char** argv) {
+    if (argc < 5) {
+        std::fprintf(stderr, "usage: reluva-tool nfs-page <game folder> <out.tga> <page> [key...]\n"
+                             "  keys: left right up down pgup pgdn home end, or a letter or symbol\n");
+        return 2;
+    }
+    const auto folders = reluva::nfs::findFolders(argv[2], {}, "nfs3.exe");
+    reluva::nfs::GameFiles files;
+    files.scan(folders);
+    auto pages = reluva::nfs::makePages("Need for Speed III: Hot Pursuit", folders, files);
+    reluva::nfs::Page* page = nullptr;
+    for (auto& p : pages)
+        if (lowerAscii(p->name()) == lowerAscii(argv[4]))
+            page = p.get();
+    if (!page) {
+        std::fprintf(stderr, "no page '%s'; there are:", argv[4]);
+        for (auto& p : pages)
+            std::fprintf(stderr, " %s", p->name());
+        std::fprintf(stderr, "\n");
+        return 1;
+    }
+    const std::pair<const char*, uint32_t> names[] = {
+        {"left", reluva::key::Left},  {"right", reluva::key::Right},   {"up", reluva::key::Up},
+        {"down", reluva::key::Down},  {"pgup", reluva::key::PageUp},   {"pgdn", reluva::key::PageDown},
+        {"home", reluva::key::Home},  {"end", reluva::key::End}};
+    for (int i = 5; i < argc; ++i) {
+        uint32_t key = 0;
+        for (const auto& [name, code] : names)
+            if (std::strcmp(argv[i], name) == 0)
+                key = code;
+        if (!key && std::strlen(argv[i]) == 1)
+            key = static_cast<unsigned char>(argv[i][0]);
+        if (!key) {
+            std::fprintf(stderr, "unknown key '%s'\n", argv[i]);
+            return 2;
+        }
+        page->handleKey(key, 0);
+    }
+    reluva::Surface screen;
+    screen.create(640, 480, reluva::PixelFormat::RGBA32);
+    page->draw(screen);
+    reluva::image::Image img;
+    img.w = screen.w;
+    img.h = screen.h;
+    img.rgba = screen.pixels;
+    if (!writeFile(argv[3], reluva::image::encodeTga(img))) {
+        std::fprintf(stderr, "can't write %s\n", argv[3]);
+        return 1;
+    }
+    return 0;
+}
+
 } // namespace
 
 const char* const kNfsUsage = kUsageLines;
@@ -381,5 +447,7 @@ int runNfsCommand(int argc, char** argv) {
         return cmdFfnRender(argc, argv);
     if (std::strcmp(cmd, "nfs-survey") == 0)
         return cmdNfsSurvey(argc, argv);
+    if (std::strcmp(cmd, "nfs-page") == 0)
+        return cmdNfsPage(argc, argv);
     return -1;
 }

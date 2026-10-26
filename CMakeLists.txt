@@ -189,7 +189,9 @@ if(RELUVA_ENGINE_NFS)
         src/engines/nfs/refpack.cpp
         src/engines/nfs/fsh.cpp
         src/engines/nfs/text_table.cpp
-        src/engines/nfs/ffn.cpp)
+        src/engines/nfs/ffn.cpp
+        src/engines/nfs/game_files.cpp
+        src/engines/nfs/viewers.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_NFS)
 endif()
 target_link_libraries(reluva_engines PUBLIC reluva_common PRIVATE reluva_warnings)

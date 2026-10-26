@@ -7,6 +7,7 @@
 #include "engines/nfs/ffn.h"
 #include "engines/nfs/folders.h"
 #include "engines/nfs/fsh.h"
+#include "engines/nfs/game_files.h"
 #include "engines/nfs/games.h"
 #include "engines/nfs/refpack.h"
 #include "engines/nfs/text_table.h"
@@ -501,6 +502,47 @@ void testFont() {
     CHECK(parseFont(Bytes(b.begin(), b.end() - 1), font)); // atlas cut short
 }
 
+void testGameFiles(const stdfs::path& tmp) {
+    const stdfs::path install = tmp / "files/install", cd = tmp / "files/cd";
+    touch(install / "FeData/text/text.eng", "eng");
+    touch(install / "FeData/art/title.qfs", "install's");
+    const Bytes viv = makeViv({{"carp.txt", "Serial"}, {"dash.qfs", "dash"}});
+    touch(install / "GameData/CarModel/Diab/car.viv", std::string(viv.begin(), viv.end()));
+    // The CD has the same title in its own spelling, and the music.
+    touch(cd / "fedata/art/TITLE.QFS", "cd's");
+    touch(cd / "gamedata/audio/pc/alpirock.mus", "music");
+    touch(cd / "broken.viv", "not an archive");
+
+    GameFolders folders;
+    folders.install = install;
+    folders.cd = cd;
+    GameFiles files;
+    files.scan(folders);
+
+    auto names = [](const std::vector<FileRef>& refs) {
+        std::vector<std::string> out;
+        for (const auto& r : refs)
+            out.push_back(r.name);
+        return out;
+    };
+    // The install's title, not the CD's; the .viv's contents after it.
+    CHECK(names(files.withExtensions({".qfs"})) ==
+          (std::vector<std::string>{"FeData/art/title.qfs", "GameData/CarModel/Diab/car.viv/dash.qfs"}));
+    CHECK(names(files.withExtensions({".mus", ".txt"})) ==
+          (std::vector<std::string>{"GameData/CarModel/Diab/car.viv/carp.txt", "gamedata/audio/pc/alpirock.mus"}));
+    CHECK(names(files.textTables()) == (std::vector<std::string>{"FeData/text/text.eng"}));
+    CHECK(names(files.withExtensions({".viv"})).size() == 2); // the broken one is listed, with nothing in it
+
+    Bytes data;
+    for (const auto& ref : files.withExtensions({".qfs", ".txt"})) {
+        CHECK(!files.read(ref, data));
+        const std::string s(data.begin(), data.end());
+        CHECK(s == "install's" || s == "dash" || s == "Serial");
+    }
+    FileRef missing{"x", install / "GameData/CarModel/Diab/car.viv", "nothing.bin"};
+    CHECK(files.read(missing, data));
+}
+
 } // namespace
 
 int main() {
@@ -514,6 +556,7 @@ int main() {
     testShapes();
     testTextTable();
     testFont();
+    testGameFiles(tmp);
     stdfs::remove_all(tmp);
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);

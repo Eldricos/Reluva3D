@@ -26,8 +26,9 @@ src/engines/       one directory per engine, plus registry.cpp listing them
   idtech3/         games on the Quake III Arena engine, starting with Star Trek:
                    Voyager - Elite Force: search path, shader scripts, BSP
                    maps; currently runs as a data viewer (docs/engines/idtech3.md)
-  nfs/             Need for Speed III: Hot Pursuit: detection and the game's
-                   folders so far (docs/engines/nfs.md)
+  nfs/             Need for Speed III: Hot Pursuit: its archives, pictures,
+                   text and fonts; currently runs as a data viewer
+                   (docs/engines/nfs.md)
 src/tools/         reluva-tool, utilities for studying game data
 tests/             unit tests for common/ and the engines
 ```
@@ -58,7 +59,9 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   runs the test pattern.
 - `reluva --hash <files...>` prints detection signatures for an engine's table.
 - `reluva-tool` has developer tools for studying game data: `hexdump`,
-  `cat-probe`, `cat-list` and `cat-extract` (New Worlds archives).
+  `cat-probe`, `cat-list` and `cat-extract` (New Worlds archives); `viv-list`,
+  `viv-extract`, `fsh-info`, `fsh-dump`, `text-dump`, `ffn-render`, `nfs-survey` and
+  `nfs-page` (Need for Speed III).
 - In game: **Ctrl+F5** returns to the launcher, **Alt+Enter** toggles fullscreen.
 - New Worlds currently opens as a data viewer. **Tab** switches between missions, models,
   textures, maps, sounds, strings and fonts, **Left/Right** step through them and **F** cycles filters.
@@ -107,7 +110,13 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   the music and movies from the CD's files: in the install if they were copied there,
   in a copy of the CD beside the install (a folder with `nfs3.exe` and
   `GameData/Audio/pc`), or wherever `cdpath=` in the game's section of `reluva.ini`
-  says. For now it only shows what it found (the folders, tracks and cars).
+  says. It opens as a data viewer: **Tab** switches between what it found (the folders,
+  tracks and cars), textures, strings and fonts. For textures, **Up/Down** pick a file
+  (**PageUp/PageDown** by 10), **Left/Right** a picture in it (**Home/End** the first and
+  last), **B** changes the background and **A** turns alpha off and on. For strings,
+  **Left/Right** pick a language, **Up/Down**, **PageUp/PageDown** and **Home/End** scroll,
+  and **F** switches between the game's font and Reluva's. For fonts, **Left/Right** pick
+  one and **+/-** change the size.
 
 The config is saved as `reluva.ini` in SDL's preferences folder
 (`~/.local/share/reluva/reluva/` on Linux, `%APPDATA%\reluva\reluva\` on Windows).
