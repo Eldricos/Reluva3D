@@ -13,6 +13,7 @@
 #include "engines/nfs/fsh.h"
 #include "engines/nfs/game_files.h"
 #include "engines/nfs/hrz.h"
+#include "engines/nfs/mad.h"
 #include "engines/nfs/mus.h"
 #include "engines/nfs/games.h"
 #include "engines/nfs/refpack.h"
@@ -1058,6 +1059,153 @@ void testGameFiles(const stdfs::path& tmp) {
     CHECK(files.read(missing, data));
 }
 
+// Bits as a MAD frame holds them: 16-bit little-endian words, each from its
+// top bit.
+struct MadBits {
+    std::vector<bool> bits;
+    void put(uint32_t v, int n) {
+        for (int i = n - 1; i >= 0; --i)
+            bits.push_back((v >> i) & 1);
+    }
+    void code(const char* s) {
+        for (; *s; ++s)
+            bits.push_back(*s == '1');
+    }
+    Bytes bytes() const {
+        Bytes out;
+        for (size_t w = 0; w * 16 < bits.size(); ++w) {
+            unsigned v = 0;
+            for (size_t i = w * 16; i < w * 16 + 16; ++i)
+                v = v << 1 | (i < bits.size() && bits[i]);
+            put16(out, v);
+        }
+        return out;
+    }
+};
+
+Bytes madFrame(char kind, const MadBits& bits, int qscale = 1) {
+    Bytes f = {'M', 'A', 'D', uint8_t(kind)};
+    const Bytes body = bits.bytes();
+    put32(f, uint32_t(24 + body.size()));
+    put32(f, 0);
+    put32(f, 4369067); // 66.67 ms, in 1/65536 ms
+    put16(f, 16);
+    put16(f, 16);
+    f.push_back(0);
+    f.push_back(uint8_t(qscale));
+    put16(f, 0);
+    f.insert(f.end(), body.begin(), body.end());
+    return f;
+}
+
+void testMovie() {
+    // A 16x16 intra frame: luma blocks of 138, 100 and 128, then one whose
+    // first horizontal coefficient is escaped (level 100); chroma 128.
+    MadBits k;
+    for (int dc : {10, -28, 0}) {
+        k.put(uint32_t(dc) & 0xff, 8);
+        k.code("10"); // end of block
+    }
+    k.put(0, 8);
+    k.code("000001"); // escape
+    k.put(100, 10);
+    k.put(0, 6); // run 0: the coefficient after the DC term
+    k.code("10");
+    for (int i = 0; i < 2; ++i) {
+        k.put(0, 8);
+        k.code("10");
+    }
+    const Bytes intra = madFrame('k', k);
+    MadDecoder d;
+    CHECK(!d.decode(intra.data(), intra.size()));
+    CHECK(d.width() == 16 && d.height() == 16);
+    auto y = [&](int x, int row) { return d.plane(0)[row * d.stride(0) + x]; };
+    CHECK(y(0, 0) == 138 && y(7, 7) == 138 && y(8, 0) == 100 && y(0, 8) == 128);
+    // Quantiser 2953 x 16 / 1024 = 46: (100 x 46 >> 4) - 1, made odd, is
+    // 287; the transform spreads it from +552 to -552 (16ths), across.
+    CHECK(y(8, 8) == (2052 + 552) >> 4 && y(15, 15) == (2052 - 552) >> 4);
+    CHECK(d.plane(1)[0] == 128 && d.plane(2)[d.stride(2) * 7 + 7] == 128);
+    Surface rgb;
+    d.toSurface(rgb);
+    CHECK(rgb.w == 16 && rgb.row(0)[0] == 138 && rgb.row(0)[1] == 138 && rgb.row(0)[3] == 255);
+
+    // An inter frame copying block 0 only ("01", map 000001), vector 0,0,
+    // 6 brighter (motion code +3, doubled); the rest intra: 128, and block 3
+    // as before.
+    MadBits m;
+    m.code("01");
+    m.put(1, 6);
+    m.code("00");     // vector x 0, y 0
+    m.code("100010"); // +3
+    for (int i = 1; i < 6; ++i) {
+        m.put(0, 8);
+        if (i == 3) {
+            m.code("000001");
+            m.put(100, 10);
+            m.put(0, 6);
+        }
+        m.code("10");
+    }
+    const Bytes inter = madFrame('m', m);
+    CHECK(!d.decode(inter.data(), inter.size()));
+    CHECK(y(0, 0) == 144 && y(8, 0) == 128 && y(8, 8) == 162 && y(15, 15) == 93);
+
+    // All blocks copied ("1"), one pixel left (x +1); the last luma block's
+    // source would read past the picture, so it stays.
+    MadBits all;
+    all.code("1");
+    all.code("1" "0" "0000"); // x +1
+    all.code("0");
+    for (int i = 0; i < 6; ++i)
+        all.code("0");
+    const Bytes shifted = madFrame('e', all);
+    CHECK(!d.decode(shifted.data(), shifted.size()));
+    CHECK(y(0, 0) == 144 && y(6, 0) == 144 && y(7, 0) == 128 && y(8, 8) == 162);
+    CHECK(y(0, 8) == 128 && y(7, 8) == 162); // block 2 takes block 3's first column
+    // An 'e' frame isn't kept: the next refers to the one before it.
+    CHECK(!d.decode(shifted.data(), shifted.size()));
+    CHECK(y(7, 0) == 128 && y(6, 0) == 144);
+
+    Bytes bad = intra;
+    bad.resize(30);
+    CHECK(d.decode(bad.data(), bad.size()));
+
+    // A movie: frames interleaved with stereo EA-XA audio.
+    auto chunk = [](Bytes& out, const char* tag, const Bytes& body) {
+        out.insert(out.end(), tag, tag + 4);
+        put32(out, uint32_t(8 + body.size()));
+        out.insert(out.end(), body.begin(), body.end());
+    };
+    Bytes mad = intra;
+    chunk(mad, "SCHl", ptHeader({{0x82, 2}, {0x83, 7}, {0x85, 28}}));
+    Bytes count;
+    put32(count, 1);
+    chunk(mad, "SCCl", count);
+    mad.insert(mad.end(), inter.begin(), inter.end());
+    Bytes xa;
+    put32(xa, 28);
+    xa.insert(xa.end(), 8, 0);
+    Bytes group(30, 0);
+    group[1] = 0xcc;
+    xa.insert(xa.end(), group.begin(), group.end());
+    chunk(mad, "SCDl", xa);
+    chunk(mad, "SCEl", {});
+    MadMovie movie;
+    CHECK(!movie.open(mad));
+    CHECK(movie.frames().size() == 2 && movie.frames()[0].kind == 'k' && movie.frames()[1].kind == 'm');
+    CHECK(movie.width() == 16 && movie.height() == 16 && movie.frameDuration() == 4369067);
+    CHECK(movie.hasAudio() && movie.audioHeader().samples == 28);
+    audio::Sound sound;
+    CHECK(!movie.decodeAudio(sound));
+    CHECK(sound.channels == 2 && sound.rate == 22050 && sound.samples.size() == 56);
+    MadDecoder fresh;
+    CHECK(!movie.decodeFrame(fresh, 0) && !movie.decodeFrame(fresh, 1));
+    CHECK(fresh.plane(0)[0] == 144);
+    CHECK(movie.decodeFrame(fresh, 2));
+    Bytes cut(mad.begin(), mad.end() - 3);
+    CHECK(movie.open(cut));
+}
+
 } // namespace
 
 int main() {
@@ -1078,6 +1226,7 @@ int main() {
     testCollision();
     testSoundBank();
     testMusic();
+    testMovie();
     stdfs::remove_all(tmp);
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);

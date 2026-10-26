@@ -14,6 +14,7 @@
 #include "engines/nfs/fsh.h"
 #include "engines/nfs/game_files.h"
 #include "engines/nfs/hrz.h"
+#include "engines/nfs/mad.h"
 #include "engines/nfs/mus.h"
 #include "engines/nfs/refpack.h"
 #include "engines/nfs/text_table.h"
@@ -54,6 +55,9 @@ const char* const kUsageLines =
     "  reluva-tool bnk-wav <file.bnk | file.viv name> <output dir>\n"
     "  reluva-tool mus-info <file.mus> [file.map | file.lin]\n"
     "  reluva-tool mus-wav <file.mus> <segment | all> <output dir>\n"
+    "  reluva-tool mad-info <file.mad>\n"
+    "  reluva-tool mad-frames <file.mad> <output dir> [first frame] [count]\n"
+    "  reluva-tool mad-wav <file.mad> <out.wav>\n"
     "  reluva-tool nfs-survey <folder>... [-v]\n"
     "  reluva-tool nfs-page <game folder> <out.tga> <page> [key...]\n";
 
@@ -308,7 +312,7 @@ int cmdNfsSurvey(int argc, char** argv) {
         int ok = 0, failed = 0;
     };
     Count vivs, banks, pictures, tables, fonts, models, tracks, collisions, horizons, soundBanks, sounds, streams,
-        segments, maps;
+        segments, maps, movies, frames, movieAudio;
     std::vector<std::string> unsupported; // in EA's other compression schemes
     auto lower = [](std::string s) {
         for (char& c : s)
@@ -385,6 +389,18 @@ int cmdNfsSurvey(int argc, char** argv) {
                     err = Error::fail("its offsets don't match " + musPath.string() + "'s segments");
             }
             report(maps, what, err);
+        } else if (ext == ".mad") {
+            // Every frame decoded, and the audio.
+            reluva::nfs::MadMovie movie;
+            const Error err = movie.open(std::move(data));
+            report(movies, what, err);
+            reluva::nfs::MadDecoder decoder;
+            for (size_t i = 0; !err && i < movie.frames().size(); ++i)
+                report(frames, what + ":" + std::to_string(i), movie.decodeFrame(decoder, i));
+            if (!err && movie.hasAudio()) {
+                reluva::audio::Sound sound;
+                report(movieAudio, what, movie.decodeAudio(sound));
+            }
         } else if (ext == ".hrz") {
             reluva::nfs::Horizon horizon;
             report(horizons, what, reluva::nfs::parseHorizon(std::string(data.begin(), data.end()), horizon));
@@ -413,7 +429,7 @@ int cmdNfsSurvey(int argc, char** argv) {
                         check(e.name, std::move(data), path.string() + ":" + e.name);
             } else if (ext == ".fsh" || ext == ".qfs" || ext == ".ffn" || ext == ".fce" || ext == ".frd" ||
                        ext == ".col" || ext == ".hrz" || ext == ".bnk" || ext == ".mus" || ext == ".map" ||
-                       ext == ".lin" || lower(path.stem().string()) == "text") {
+                       ext == ".lin" || ext == ".mad" || lower(path.stem().string()) == "text") {
                 std::vector<uint8_t> data;
                 if (!readFile(path, data)) {
                     report(banks, path.string(), Error::fail("can't read it"));
@@ -425,12 +441,14 @@ int cmdNfsSurvey(int argc, char** argv) {
     }
 
     const Count* all[] = {&vivs,       &banks,      &pictures, &tables,  &fonts,    &models, &tracks,
-                          &collisions, &horizons,   &soundBanks, &sounds, &streams, &segments, &maps};
+                          &collisions, &horizons,   &soundBanks, &sounds, &streams, &segments, &maps,
+                          &movies,     &frames,     &movieAudio};
     const char* names[] = {".viv archives", ".fsh/.qfs banks", "pictures",    "text tables", "fonts",
                            ".fce models",   ".frd tracks",     ".col files",  ".hrz files",  ".bnk banks",
-                           "sounds",        ".mus streams",    "music segments", ".map/.lin maps"};
+                           "sounds",        ".mus streams",    "music segments", ".map/.lin maps",
+                           ".mad movies",   "movie frames",    "movie audio"};
     int failed = 0;
-    for (int i = 0; i < 14; ++i) {
+    for (int i = 0; i < 17; ++i) {
         std::printf("%-16s %6d read, %d failed\n", names[i], all[i]->ok, all[i]->failed);
         failed += all[i]->failed;
     }
@@ -811,6 +829,107 @@ int cmdMusWav(int argc, char** argv) {
     return 0;
 }
 
+int cmdMadInfo(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool mad-info <file.mad>\n");
+        return 2;
+    }
+    std::vector<uint8_t> data;
+    if (!readFile(argv[2], data)) {
+        std::fprintf(stderr, "Can't read %s\n", argv[2]);
+        return 1;
+    }
+    reluva::nfs::MadMovie movie;
+    if (Error err = movie.open(std::move(data)))
+        return fail(err);
+    std::map<char, int> kinds;
+    for (const auto& f : movie.frames())
+        ++kinds[f.kind];
+    const double ms = movie.frameDuration() / 65536.0;
+    std::printf("%dx%d, %zu frames (%d intra, %d inter, %d unreferenced), %.3f ms each (%.3f fps), %.2f s\n",
+                movie.width(), movie.height(), movie.frames().size(), kinds['k'], kinds['m'], kinds['e'], ms,
+                ms > 0 ? 1000 / ms : 0.0, ms * movie.frames().size() / 1000);
+    if (movie.hasAudio()) {
+        const auto& h = movie.audioHeader();
+        std::printf("audio: %s, %d ch, %d Hz, %u samples (%.2f s)\n", compressionName(h.compression), h.channels,
+                    h.rate, h.samples, double(h.samples) / h.rate);
+    }
+    // Every frame decodes?
+    reluva::nfs::MadDecoder decoder;
+    for (size_t i = 0; i < movie.frames().size(); ++i)
+        if (Error err = movie.decodeFrame(decoder, i)) {
+            std::fprintf(stderr, "frame %zu: %s\n", i, err.message.c_str());
+            return 1;
+        }
+    std::printf("all frames decode\n");
+    return 0;
+}
+
+int cmdMadFrames(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool mad-frames <file.mad> <output dir> [first frame] [count]\n");
+        return 2;
+    }
+    std::vector<uint8_t> data;
+    if (!readFile(argv[2], data)) {
+        std::fprintf(stderr, "Can't read %s\n", argv[2]);
+        return 1;
+    }
+    reluva::nfs::MadMovie movie;
+    if (Error err = movie.open(std::move(data)))
+        return fail(err);
+    const size_t first = argc > 4 ? size_t(std::atoi(argv[4])) : 0;
+    const size_t count = argc > 5 ? size_t(std::atoi(argv[5])) : movie.frames().size();
+    // Frames refer to those before, so decoding starts at the beginning.
+    reluva::nfs::MadDecoder decoder;
+    int written = 0;
+    for (size_t i = 0; i < movie.frames().size() && i < first + count; ++i) {
+        if (Error err = movie.decodeFrame(decoder, i))
+            return fail(err);
+        if (i < first)
+            continue;
+        reluva::Surface s;
+        decoder.toSurface(s);
+        reluva::image::Image img;
+        img.w = s.w;
+        img.h = s.h;
+        img.rgba = std::move(s.pixels);
+        char name[32];
+        std::snprintf(name, sizeof name, "%05zu.tga", i);
+        if (!writeFile(stdfs::path(argv[3]) / name, reluva::image::encodeTga(img))) {
+            std::fprintf(stderr, "can't write into %s\n", argv[3]);
+            return 1;
+        }
+        ++written;
+    }
+    std::printf("%d frames written to %s\n", written, argv[3]);
+    return 0;
+}
+
+int cmdMadWav(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool mad-wav <file.mad> <out.wav>\n");
+        return 2;
+    }
+    std::vector<uint8_t> data;
+    if (!readFile(argv[2], data)) {
+        std::fprintf(stderr, "Can't read %s\n", argv[2]);
+        return 1;
+    }
+    reluva::nfs::MadMovie movie;
+    if (Error err = movie.open(std::move(data)))
+        return fail(err);
+    reluva::audio::Sound sound;
+    if (Error err = movie.decodeAudio(sound))
+        return fail(err);
+    if (!writeFile(argv[3], wavFile(sound))) {
+        std::fprintf(stderr, "can't write %s\n", argv[3]);
+        return 1;
+    }
+    std::printf("%zu frames of audio written to %s\n", sound.frames(), argv[3]);
+    return 0;
+}
+
 // Draws one of the engine's viewer pages after the keys given, as the
 // engine would, without a window: for checking pages and taking pictures
 // of them.
@@ -902,6 +1021,12 @@ int runNfsCommand(int argc, char** argv) {
         return cmdMusInfo(argc, argv);
     if (std::strcmp(cmd, "mus-wav") == 0)
         return cmdMusWav(argc, argv);
+    if (std::strcmp(cmd, "mad-info") == 0)
+        return cmdMadInfo(argc, argv);
+    if (std::strcmp(cmd, "mad-frames") == 0)
+        return cmdMadFrames(argc, argv);
+    if (std::strcmp(cmd, "mad-wav") == 0)
+        return cmdMadWav(argc, argv);
     if (std::strcmp(cmd, "nfs-survey") == 0)
         return cmdNfsSurvey(argc, argv);
     if (std::strcmp(cmd, "nfs-page") == 0)
