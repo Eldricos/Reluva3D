@@ -36,6 +36,7 @@
 #include <cstdio>
 #include <memory>
 #include <fstream>
+#include <random>
 #include <string>
 
 using namespace reluva;
@@ -417,8 +418,16 @@ static uint32_t runX86(x86::Cpu& cpu, std::vector<uint8_t> code, bool* ok = null
     return result;
 }
 
-static void testX86Instructions() {
+// Runs `code` with the registers and flags as they are, giving whether it
+// failed.
+static bool runX86Keeping(x86::Cpu& cpu, const std::vector<uint8_t>& code, uint32_t& result) {
+    std::copy(code.begin(), code.end(), cpu.memory().begin() + 0x2000);
+    return bool(cpu.call(0x2000, {}, result));
+}
+
+static void testX86Instructions(bool cached) {
     x86::Cpu cpu(16u << 20);
+    cpu.cacheOn = cached;
     cpu.setStack(0x100000);
     // mov eax, 5; add eax, 0xfffffffb; setz al; movzx eax, al; ret
     CHECK(runX86(cpu, {0xb8, 5, 0, 0, 0, 0x83, 0xc0, 0xfb, 0x0f, 0x94, 0xc0, 0x0f, 0xb6, 0xc0, 0xc3}) == 1);
@@ -459,10 +468,274 @@ static void testX86Instructions() {
     });
     cpu.write32(0x3100, native);
     CHECK(runX86(cpu, {0x6a, 20, 0xff, 0x15, 0, 0x31, 0, 0, 0xc3}) == 40);
+    // Code that changes is run as it now is: mov eax, imm; ret, run, then
+    // its immediate rewritten.
+    CHECK(runX86(cpu, {0xb8, 1, 0, 0, 0, 0xc3}) == 1);
+    cpu.write32(0x2001, 2);
+    CHECK(runX86(cpu, {0xb8, 2, 0, 0, 0, 0xc3}) == 2);
+    // ...and by the program itself, after it's been run: mov byte [0x2011], n;
+    // jmp 0x2010 (mov eax, 5; ret), with n 7 and then 9.
+    for (uint8_t n : {7, 9}) {
+        std::vector<uint8_t> code = {0xc6, 0x05, 0x11, 0x20, 0, 0, n, 0xe9, 4, 0, 0, 0};
+        code.resize(16, 0x90);
+        code.insert(code.end(), {0xb8, 5, 0, 0, 0, 0xc3});
+        CHECK(runX86(cpu, code) == n);
+    }
 }
 
-static void testX86Dll() {
+// The decoded-instruction cache against running from the bytes: random
+// runs of the instructions it has handlers for (and some it hasn't), with
+// operands in registers and memory, give the same registers, flags, x87
+// state and memory both ways.
+static void testX86CacheAgreement() {
+    std::mt19937 random(1234);
+    auto pick = [&](uint32_t n) { return uint32_t(random() % n); };
+    const uint32_t kData = 0x10000, kFs = 0x100;
+    // Registers written as 16 or 32 bits: not ESP or EBP (the stack and the data's base).
+    auto reg32 = [&] {
+        static const uint8_t kRegs[6] = {0, 1, 2, 3, 6, 7};
+        return kRegs[pick(6)];
+    };
+    auto instruction = [&](std::vector<uint8_t>& out) {
+        std::vector<uint8_t> b;
+        const bool o16 = pick(6) == 0;
+        // A ModRM operand: a register, [ebp+d8], [ebp+d32], [d32] (through a
+        // SIB), sometimes with FS.
+        auto modrm = [&](int reg, bool wordReg, bool memoryOnly = false) {
+            const int kind = memoryOnly ? 1 + int(pick(3)) : int(pick(4));
+            if (kind == 0) {
+                b.push_back(uint8_t(0xc0 | reg << 3 | (wordReg ? reg32() : pick(8))));
+            } else if (kind == 1) {
+                b.push_back(uint8_t(0x45 | reg << 3));
+                b.push_back(uint8_t(pick(0x78)));
+            } else if (kind == 2) {
+                b.push_back(uint8_t(0x85 | reg << 3));
+                const uint32_t d = pick(0x78);
+                b.insert(b.end(), {uint8_t(d), 0, 0, 0});
+            } else {
+                b.push_back(uint8_t(0x04 | reg << 3));
+                b.push_back(0x25);
+                const uint32_t d = kData + pick(0x78);
+                b.insert(b.end(), {uint8_t(d), uint8_t(d >> 8), uint8_t(d >> 16), 0});
+            }
+            if (kind != 0 && pick(4) == 0)
+                b.insert(b.begin(), 0x64);
+        };
+        auto imm = [&](int bytes) {
+            for (int i = 0; i < bytes; ++i)
+                b.push_back(uint8_t(random()));
+        };
+        const int wordSize = o16 ? 2 : 4;
+        switch (pick(24)) {
+        case 0:
+        case 1:
+        case 2: { // ALU r/m, r and r, r/m
+            const uint8_t op = uint8_t(pick(8) << 3 | pick(4));
+            b.push_back(op);
+            modrm((op & 2) ? ((op & 1) ? reg32() : int(pick(8))) : int(pick(8)), op & 1);
+            break;
+        }
+        case 3: // ALU AL/EAX, imm
+            b.push_back(uint8_t(pick(8) << 3 | 4 | pick(2)));
+            imm((b.back() & 1) ? wordSize : 1);
+            break;
+        case 4: { // ALU r/m, imm
+            const uint8_t op = std::array<uint8_t, 3>{0x80, 0x81, 0x83}[pick(3)];
+            b.push_back(op);
+            modrm(int(pick(8)), op != 0x80);
+            imm(op == 0x81 ? wordSize : 1);
+            break;
+        }
+        case 5: b.push_back(uint8_t(0x40 | pick(2) << 3 | reg32())); break; // INC, DEC
+        case 6: // TEST
+            b.push_back(uint8_t(0x84 | pick(2)));
+            modrm(int(pick(8)), b.back() & 1);
+            break;
+        case 7:
+        case 8: { // MOV
+            const uint8_t op = uint8_t(0x88 | pick(4));
+            b.push_back(op);
+            modrm((op & 2) && (op & 1) ? reg32() : int(pick(8)), op & 1);
+            break;
+        }
+        case 9: // MOV r, imm
+            b.push_back(pick(2) ? uint8_t(0xb0 | pick(8)) : uint8_t(0xb8 | reg32()));
+            imm(b.back() >= 0xb8 ? wordSize : 1);
+            break;
+        case 10: { // MOV r/m, imm
+            const uint8_t op = uint8_t(0xc6 | pick(2));
+            b.push_back(op);
+            modrm(0, op & 1);
+            imm((op & 1) ? wordSize : 1);
+            break;
+        }
+        case 11: // LEA
+            b.push_back(0x8d);
+            modrm(reg32(), true, true);
+            break;
+        case 12: { // shifts and rotates
+            const uint8_t op = std::array<uint8_t, 6>{0xc0, 0xc1, 0xd0, 0xd1, 0xd2, 0xd3}[pick(6)];
+            b.push_back(op);
+            modrm(int(pick(8)), op & 1);
+            if (op <= 0xc1)
+                imm(1);
+            break;
+        }
+        case 13: // SETcc, MOVZX/MOVSX, IMUL
+            switch (pick(3)) {
+            case 0: b.insert(b.end(), {0x0f, uint8_t(0x90 | pick(16))}); modrm(int(pick(8)), false); break;
+            case 1: {
+                const uint8_t op = std::array<uint8_t, 4>{0xb6, 0xb7, 0xbe, 0xbf}[pick(4)];
+                b.insert(b.end(), {0x0f, op});
+                modrm(reg32(), op & 1);
+                break;
+            }
+            default: b.insert(b.end(), {0x0f, 0xaf}); modrm(reg32(), true); break;
+            }
+            break;
+        case 14: { // IMUL r, r/m, imm
+            const uint8_t op = pick(2) ? 0x69 : 0x6b;
+            b.push_back(op);
+            modrm(reg32(), true);
+            imm(op == 0x69 ? wordSize : 1);
+            break;
+        }
+        case 15: { // TEST, NOT, NEG r/m (the last two run from their bytes)
+            const uint8_t op = uint8_t(0xf6 | pick(2));
+            const int r = int(pick(4));
+            b.push_back(op);
+            modrm(r, op & 1);
+            if (r <= 1)
+                imm((op & 1) ? wordSize : 1);
+            break;
+        }
+        case 16: // INC, DEC r/m
+            b.push_back(uint8_t(0xfe | pick(2)));
+            modrm(int(pick(2)), b.back() & 1);
+            break;
+        case 17: { // MOV with an absolute address
+            const uint32_t d = kData + pick(0x78);
+            b.push_back(uint8_t(0xa0 | pick(4)));
+            b.insert(b.end(), {uint8_t(d), uint8_t(d >> 8), uint8_t(d >> 16), 0});
+            break;
+        }
+        case 18: b.push_back(pick(2) ? 0x90 : 0x99); break;
+        case 19:
+        case 20: { // x87 on memory
+            static const uint8_t kOps[][2] = {{0xd8, 8}, {0xdc, 8}, {0xd9, 0}, {0xd9, 2}, {0xd9, 3},
+                                              {0xdd, 0}, {0xdd, 2}, {0xdd, 3}, {0xdb, 0}};
+            const auto& o = kOps[pick(9)];
+            b.push_back(o[0]);
+            modrm(o[1] == 8 ? int(pick(8)) : o[1], false, true);
+            break;
+        }
+        case 21: { // x87 on registers
+            static const uint8_t kOps[][2] = {{0xd8, 0xc0}, {0xd8, 0xc8}, {0xd8, 0xe0}, {0xd8, 0xf0}, {0xd8, 0xd0},
+                                              {0xdc, 0xc0}, {0xdc, 0xe8}, {0xde, 0xc0}, {0xde, 0xf8}, {0xd9, 0xc0},
+                                              {0xd9, 0xc8}, {0xdd, 0xd0}, {0xdd, 0xd8}, {0xdc, 0xd0}};
+            const auto& o = kOps[pick(14)];
+            b.insert(b.end(), {o[0], uint8_t(o[1] | pick(8))});
+            break;
+        }
+        case 22: { // x87 without operands
+            static const uint8_t kOps[][2] = {{0xd9, 0xe0}, {0xd9, 0xe1}, {0xd9, 0xe8}, {0xd9, 0xee}, {0xdf, 0xe0}};
+            const auto& o = kOps[pick(5)];
+            b.insert(b.end(), {o[0], o[1]});
+            break;
+        }
+        default: break; // a jump, below
+        }
+        if (b.empty())
+            return false;
+        // The operand-size prefix, on what it means something for.
+        if (o16) {
+            const size_t at = b[0] == 0x64 ? 1 : 0;
+            const uint8_t op = b[at];
+            if (!(op <= 0x4f || (op >= 0x80 && op <= 0x8b) || op == 0xa1 || op == 0xa3 || (op >= 0xb8 && op <= 0xbf) ||
+                  op == 0xc1 || op == 0xc7 || op == 0xd1 || op == 0xd3 || op == 0xf7 || op == 0xff || op == 0x69 ||
+                  op == 0x6b || (op == 0x0f && (b[at + 1] == 0xaf || b[at + 1] == 0xb6))))
+                return true; // left out: its immediate was made for 16 bits
+            b.insert(b.begin(), 0x66);
+        }
+        out.insert(out.end(), b.begin(), b.end());
+        return true;
+    };
+    for (int run = 0; run < 3000; ++run) {
+        std::vector<uint8_t> code;
+        for (int n = 0; n < 40; ++n) {
+            std::vector<uint8_t> one;
+            if (!instruction(one)) {
+                // A jump (Jcc or JMP, short or near) over the next instruction.
+                std::vector<uint8_t> next;
+                while (next.empty())
+                    instruction(next);
+                const uint8_t length = uint8_t(next.size());
+                switch (pick(4)) {
+                case 0: one = {uint8_t(0x70 | pick(16)), length}; break;
+                case 1: one = {0x0f, uint8_t(0x80 | pick(16)), length, 0, 0, 0}; break;
+                case 2: one = {0xeb, length}; break;
+                default: one = {0xe9, length, 0, 0, 0}; break;
+                }
+                one.insert(one.end(), next.begin(), next.end());
+            }
+            code.insert(code.end(), one.begin(), one.end());
+        }
+        code.push_back(0xc3);
+        std::vector<uint8_t> data(0x200);
+        for (uint8_t& d : data)
+            d = uint8_t(random());
+        std::array<uint32_t, 8> regs;
+        for (uint32_t& r : regs)
+            r = uint32_t(random());
+        const uint32_t flags = 0x202 | (uint32_t(random()) & 0x8d5);
+        std::array<double, 8> fpu;
+        for (double& f : fpu)
+            f = double(int32_t(random())) / 1024.0;
+        std::array<uint32_t, 8> after[2];
+        uint32_t flagsAfter[2], result[2];
+        std::array<double, 8> fpuAfter[2];
+        std::vector<uint8_t> dataAfter[2];
+        bool ok[2];
+        static x86::Cpu cpus[2] = {x86::Cpu(1u << 20), x86::Cpu(1u << 20)};
+        for (int k = 0; k < 2; ++k) {
+            x86::Cpu& cpu = cpus[k];
+            cpu.cacheOn = k == 0;
+            cpu.setInstructionLimit(10000);
+            cpu.reg = regs;
+            cpu.reg[x86::Cpu::EBP] = kData;
+            cpu.setStack(0x80000);
+            cpu.eflags = flags;
+            cpu.fsBase = kFs;
+            cpu.fpu.regs = fpu;
+            cpu.fpu.top = 0;
+            cpu.fpu.tags = 0;
+            cpu.fpu.status = 0;
+            std::copy(data.begin(), data.end(), cpu.memory().begin() + kData);
+            std::copy(data.begin(), data.end(), cpu.memory().begin() + kData + kFs);
+            ok[k] = !runX86Keeping(cpu, code, result[k]);
+            after[k] = cpu.reg;
+            flagsAfter[k] = cpu.eflags;
+            fpuAfter[k] = cpu.fpu.regs;
+            dataAfter[k].assign(cpu.memory().begin() + kData, cpu.memory().begin() + kData + 0x200 + kFs);
+        }
+        const bool same = ok[0] == ok[1] && after[0] == after[1] && flagsAfter[0] == flagsAfter[1] &&
+                          std::memcmp(fpuAfter[0].data(), fpuAfter[1].data(), sizeof fpuAfter[0]) == 0 &&
+                          dataAfter[0] == dataAfter[1] && cpus[0].fpu.top == cpus[1].fpu.top &&
+                          cpus[0].fpu.status == cpus[1].fpu.status;
+        if (!same) {
+            std::fprintf(stderr, "x86 cache disagrees on run %d:", run);
+            for (uint8_t c : code)
+                std::fprintf(stderr, " %02x", c);
+            std::fprintf(stderr, "\n");
+            ++failures;
+            break;
+        }
+    }
+}
+
+static void testX86Dll(bool cached) {
     x86::Cpu cpu(64u << 20);
+    cpu.cacheOn = cached;
     x86::Win32Process process(cpu);
     const x86::Win32Process::Module* m = nullptr;
     const std::vector<uint8_t> file(std::begin(kX86TestDll), std::end(kX86TestDll));
@@ -1139,8 +1412,11 @@ int main() {
     testNet();
     testMd4();
     testGfxMath();
-    testX86Instructions();
-    testX86Dll();
+    testX86Instructions(true);
+    testX86Instructions(false);
+    testX86Dll(true);
+    testX86Dll(false);
+    testX86CacheAgreement();
     testMsvcrtAndFiles(tmp / "msvcrt");
     testMsvcp60(tmp / "msvcp60");
     testWindowsAndRegistry();

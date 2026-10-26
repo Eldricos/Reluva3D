@@ -616,6 +616,11 @@ void Cpu::step() {
         fault("instruction limit reached");
     if (stop_.load(std::memory_order_relaxed))
         fault("stopped");
+    execute();
+}
+
+// One instruction at eip, decoded from its bytes.
+void Cpu::execute() {
     d_ = Decoded{};
     uint8_t op;
     while (true) {
@@ -966,9 +971,16 @@ void Cpu::callNative(uint32_t address) {
     reg[ESP] += popBytes;
 }
 
+// Runs instructions through the decoded-instruction cache (cpu_cache.cpp),
+// and native functions, until eip reaches `returnAddress`.
 void Cpu::runUntil(uint32_t returnAddress) {
-    while (eip != returnAddress)
-        step();
+    const uint32_t nativeStart = nativeBase_ - kNativeStride * kReturnSlots;
+    while (eip != returnAddress) {
+        if (eip >= nativeStart || !cacheOn || trace)
+            step();
+        else
+            runCached(returnAddress, nativeStart);
+    }
 }
 
 Error Cpu::call(uint32_t address, const std::vector<uint32_t>& args, uint32_t& result) {

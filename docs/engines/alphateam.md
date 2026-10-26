@@ -353,10 +353,18 @@ Progress:
   - Quitting stops the program with `Cpu::requestStop`; an `exit` of its
     own is told from a failure by `Win32Process::exited`.
 - Speed, measured headless (frames given to the engine, a click past the
-  demo): the menu at headquarters runs at about 6 frames a second, after
-  about 40 seconds of loading. Making running instructions inline (memory
-  access, fetching, operands) and the rasterizer's per-draw set-up got it
-  there from about half that.
+  demo): the menu at headquarters runs at about 6 frames a second.
+  - Inlining instruction execution (memory access, fetching, operands)
+    and the rasterizer's per-draw set-up got it there from about half
+    that.
+  - The decoded-instruction cache (x86.md) cut the time to reach the menu
+    from about 41 seconds to 28.
+  - At the menu, the time is now split between the interpreter and the
+    software rasterizer (`pixel`, texture sampling, colour conversion: a
+    third or so). That's where the next speed-up lies.
+  - With the clock driven by the instruction count, so runs repeat
+    exactly, 120 frames take 31 seconds with the cache and 49 without. The
+    frames come out identical.
 - Not there yet:
   - **sound:** no A3D object, so `CoCreateInstance` fails and the game
     plays without sound;

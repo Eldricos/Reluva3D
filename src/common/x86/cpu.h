@@ -101,6 +101,9 @@ public:
     // Asks a run on another thread to stop: it ends with an error ("stopped")
     // at the next instruction. Safe to call from any thread.
     void requestStop() { stop_.store(true, std::memory_order_relaxed); }
+    // Whether instructions run through the decoded-instruction cache (on by
+    // default; off runs each from its bytes, as a check).
+    bool cacheOn = true;
     // Stops a run with an error after this many more instructions (0: never).
     void setInstructionLimit(uint64_t limit) { limit_ = limit; }
     uint64_t executed() const { return executed_; }
@@ -130,7 +133,9 @@ private:
     [[noreturn]] void fault(const std::string& message);
     [[noreturn]] void memoryFault(uint32_t address, uint32_t size);
     void step();
+    void execute();
     void runUntil(uint32_t returnAddress);
+    void runCached(uint32_t returnAddress, uint32_t nativeStart);
     void callNative(uint32_t address);
 
     // Memory as the instructions see it (faulting).
@@ -184,6 +189,24 @@ private:
     uint32_t instructionStart_ = 0;
     uint64_t executed_ = 0, limit_ = 0, limitAt_ = 0;
     std::atomic<bool> stop_{false};
+    // The decoded-instruction cache (cpu_cache.cpp): direct-mapped by
+    // address.
+    friend struct CachedOps;
+    struct Cached {
+        using Handler = void (*)(Cpu&, const Cached&);
+        uint32_t tag = 0xffffffffu; // the instruction's address
+        Handler run = nullptr;
+        uint32_t disp = 0, imm = 0; // the memory operand's displacement; the immediate
+        uint8_t length = 0;         // its bytes' count (0: run from them each time)
+        uint64_t code[2]{}, mask[2]{}; // its bytes, which must still be there, and which of these 16 they are
+        uint8_t reg = 0, rm = 0, sub = 0; // ModRM's reg field, a register operand, the operation
+        int8_t base = -1, index = -1;     // the memory operand's registers (-1: none)
+        uint8_t scale = 0;
+        bool mem = false, fs = false; // a memory operand; FS's base added
+    };
+    static constexpr uint32_t kCacheEntries = 1u << 17;
+    std::vector<Cached> cache_;
+    void decode(Cached& e);
     int depth_ = 0;
     std::string abort_;
 };
