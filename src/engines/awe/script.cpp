@@ -16,6 +16,13 @@ const std::string& ScriptEvent::arg(size_t i) const {
     return i < words.size() ? words[i] : none;
 }
 
+void addTime(GameState& state, int seconds) {
+    // Timers stop at 32000 (0x4125c0).
+    for (auto& [name, value] : state.timers)
+        if (value < 32000)
+            value = std::min(32000, value + seconds);
+}
+
 std::string_view ScriptRunner::baseOfAsync(std::string_view verb) {
     // The handlers that compare both forms (0x409ce0): the "a" form reports
     // the event done as soon as it has started what it asks.
@@ -115,6 +122,8 @@ void ScriptRunner::finished(std::string_view verb) {
     waitingFor_.clear();
     waitLeft_ = -1;
     queue_.pop_front();
+    if (queue_.empty() && onEmpty)
+        onEmpty();
     // The next runs on the next update, except a fade, which runs at once
     // (0x409c2a).
     if (!queue_.empty() && queue_.front().verb() == "fade")
@@ -166,8 +175,25 @@ bool ScriptRunner::runOwn(const ScriptEvent& e) {
         state_.items.erase(fs::toLower(e.arg(1)));
     } else if (v == "clear") {
         state_.items.clear();
-    } else if (v == "act") {
-        state_.act = fs::toLower(e.arg(1));
+    } else if (v == "timer") {
+        // A new timer at 0 (0x410ac0), after any of the same name.
+        state_.timers.emplace_back(fs::toLower(e.arg(1)), 0);
+    } else if (v == "time") {
+        // Time passes (0x4125c0): every timer goes on by n seconds.
+        addTime(state_, number(e.arg(1)));
+    } else if (v == "reset") {
+        // A new game (0x411aa0): the story state and the inventory
+        // emptied, the act back to the first.
+        state_.tags.clear();
+        state_.texts.clear();
+        state_.timers.clear();
+        state_.items.clear();
+        state_.act = "01a";
+    } else if (v == "savescene") {
+        // savescene this|<scene> [wp] [flag] (0x40acd3): for "gotoscene".
+        const std::string scene = fs::toLower(e.arg(1));
+        state_.texts["savedscene"] = (scene == "this" ? fs::toLower(state_.scene) : scene + ".ac2") + " " +
+                                     (e.arg(2).empty() ? "-1" : e.arg(2)) + " " + (e.arg(3).empty() ? "0" : e.arg(3));
     } else if (v == "weather") {
         state_.values["weather"] = number(e.arg(1));
     } else if (v == "setchar") {

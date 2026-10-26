@@ -29,6 +29,9 @@ struct ScriptEvent {
 
 class ScriptRunner;
 
+// Adds `seconds` to every timer ("time <n>", and each second that passes).
+void addTime(GameState& state, int seconds);
+
 // What scripts do to the world, for the runner to call.
 class ScriptHost {
 public:
@@ -79,6 +82,9 @@ public:
     // The character the events act on (setchar), "" for the player's.
     const std::string& character() const { return character_; }
     void setCharacter(const std::string& who) { character_ = who; }
+    // When an event ends and leaves nothing queued (the main runner's
+    // acts check their completion then: 0x409a80).
+    std::function<void()> onEmpty;
     // Each event as it starts, for a log.
     std::function<void(const ScriptEvent& e)> onEvent;
 

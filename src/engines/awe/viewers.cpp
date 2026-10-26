@@ -277,6 +277,22 @@ ScenePage::ScenePage(ViewerContext& ctx) : Page(ctx) {
     runner_ = std::make_unique<ScriptRunner>(state_, *this);
     dialogue_ = std::make_unique<DialogueManager>(state_, *this, *this);
     dialogue_->onLog = [this](const std::string& l) { logScript("    " + shorten(l, 150)); };
+    story_ = std::make_unique<Story>(state_, *runner_);
+    {
+        std::vector<uint8_t> data;
+        if (!ctx.files.read("text/acts.txt", data))
+            story_->setActs(readActs(parseTable(decodeText(data))));
+    }
+    story_->onActTables = [this](const std::string&) { loadDialogue(); };
+    story_->onLoadLocation = [this](const std::string& location, bool flush) {
+        // Reluva reads scenes as they're shown: loading a location only
+        // forgets, for a new place, how the scenes were left.
+        logScript("  (location " + location + (flush ? ", a new place" : "") + ")");
+        if (flush) {
+            hiddenNames_.clear();
+            positions_.clear();
+        }
+    };
     runner_->onEvent = [this](const ScriptEvent& e) {
         std::string line;
         for (const std::string& w : e.words)
@@ -323,7 +339,8 @@ void ScenePage::load() {
     characters_.clear();
     loops_.clear();
     particles_.clear();
-    state_.act.clear();
+    if (!playing_)
+        state_.act.clear();
     grid_ = WalkGrid();
     path_.clear();
     hover_ = {};
@@ -350,7 +367,8 @@ void ScenePage::load() {
             scene_.records.pop_back();
         scene_.records.insert(scene_.records.end(), variant.records.begin(), variant.records.end());
         // The act it's for: "salon_01_06a.ac2" is act 06a's.
-        state_.act = name.substr(name.rfind('_') + 1, 3);
+        if (!playing_)
+            state_.act = name.substr(name.rfind('_') + 1, 3);
     } else {
         scene_ = std::move(variant);
     }
@@ -362,7 +380,83 @@ void ScenePage::load() {
     for (const Ac2Record* o : scene_.objects())
         if (o->tag == "PART" || o->tag == "RAIN" || o->tag == "SNOW")
             particles_.emplace(o, ParticleSystem(ParticleSettings::fromRecord(*o)));
+    state_.scene = fs::toLower(name.substr(name.find_last_of('/') + 1));
+    if (playing_)
+        enterScene();
     draw();
+}
+
+void ScenePage::enterScene() {
+    playMusic();
+    // The first event whose condition holds, queued (0x436a90).
+    for (const Ac2Record& r : scene_.records)
+        if (r.tag == "EVNT")
+            if (const Ac2Value* v = r.field("events"))
+                for (const auto& [condition, script] : v->pairs)
+                    if (testCondition(condition, state_)) {
+                        logScript("scene event: " + shorten(script, 120));
+                        runner_->run(script);
+                        goto queued;
+                    }
+queued:
+    // The visit, after the events: "!beenhere this" holds during the
+    // first visit's.
+    std::string& acts = state_.texts[state_.scene];
+    if ((" " + acts + " ").find(" " + state_.act + " ") == std::string::npos)
+        acts += (acts.empty() ? "" : " ") + state_.act;
+}
+
+void ScenePage::playMusic() {
+    // Every MUSC entry whose condition holds plays, looping; what played
+    // before and isn't among them stops (0x436900). Shared ambient loops
+    // go on from scene to scene.
+    std::set<std::string> want;
+    for (const Ac2Record& r : scene_.records)
+        if (r.tag == "MUSC")
+            if (const Ac2Value* v = r.field("music"))
+                for (const auto& [condition, file] : v->pairs)
+                    if (testCondition(condition, state_))
+                        want.insert(fs::toLower(file));
+    for (auto it = music_.begin(); it != music_.end();) {
+        if (!want.count(it->first)) {
+            if (ctx_.mixer)
+                ctx_.mixer->stop(it->second);
+            it = music_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    for (const std::string& file : want) {
+        if (music_.count(file))
+            continue;
+        std::vector<uint8_t> data;
+        auto sound = std::make_shared<audio::Sound>();
+        if (!ctx_.mixer || ctx_.files.read(file, data) || audio::decodeSound(data, *sound))
+            continue;
+        const bool isMusic = file.find("music") != std::string::npos;
+        music_[file] = ctx_.mixer->play(sound, isMusic ? audio::SoundType::Music : audio::SoundType::Effects,
+                                        audio::kMaxVolume, 0, true);
+    }
+}
+
+void ScenePage::newGame() {
+    // As the game starts (0x4026e9): the main menu, whose event is
+    // "reset"; its Play is "act", starting act 01A.
+    playing_ = true;
+    runner_->clear();
+    // The state afresh; the dialogue's test of parts told stays, its
+    // tables are read again.
+    auto partTold = std::move(state_.partTold);
+    state_ = GameState{};
+    state_.partTold = std::move(partTold);
+    state_.values["master"] = 1; // the debug switch, off ([0x48b084] = 1)
+    dialogueAct_ = "-";
+    hiddenNames_.clear();
+    positions_.clear();
+    scriptLog_.clear();
+    fade_ = fadeTarget_ = 0;
+    logScript("new game");
+    runner_->run("scene menu.main_01 1 0");
 }
 
 void ScenePage::drawParticles(const ParticleSystem& system, bool keepAlpha) {
@@ -534,12 +628,21 @@ void ScenePage::loadCharacters() {
         c.player = o->tag == "PCXX";
         c.who = who;
         c.record = o;
-        // Arriving by "scene <name> <n>": at its walk point n.
-        if (c.player && entryPoint_ >= 0)
-            if (const Ac2Record* w = o->part("WALK"))
+        // Arriving by "scene <name> <n>": at its walk point n, else its
+        // first; with -1 where they were when the scene was left
+        // (0x440690).
+        if (c.player && entryPoint_ >= 0) {
+            if (const Ac2Record* w = o->part("WALK"); w && !w->parts.empty()) {
+                const Ac2Record* at = &w->parts.front();
                 for (const Ac2Record& pt : w->parts)
                     if (pt.i("id") == entryPoint_)
-                        c.x = pt.f("x"), c.z = pt.f("z"), c.rotY = pt.f("rotY");
+                        at = &pt;
+                c.x = at->f("x"), c.z = at->f("z"), c.rotY = at->f("rotY");
+            }
+        } else if (c.player && playing_) {
+            if (const auto kept = positions_.find(state_.scene); kept != positions_.end())
+                c.x = kept->second[0], c.z = kept->second[1];
+        }
         placeCharacter(c, 0);
         characters_.push_back(std::move(c));
     }
@@ -762,8 +865,10 @@ void ScenePage::draw() {
             rows.push_back({a.y, a.h});
         dialogue_->setChoiceAreas(std::move(rows));
     }
+    if (fade_ > 0)
+        fill(0, 0, kScreenW, kScreenH, Color{0, 0, 0}, uint8_t(fade_ * 255));
     help(std::string("Left/Right: scene  Up/Down: object  H: hotspots  I: info  M: moving  W: weather  G: grid  "
-                     "click: walk") +
+                     "N: new game  click: walk") +
          (renderer_ ? "  C: characters" : "  (no 3D: no characters)"));
     if (!renderer_)
         present();
@@ -779,6 +884,17 @@ void ScenePage::update(uint64_t nowMs) {
     const float dt = lastMs_ ? std::min(0.1f, float(nowMs - lastMs_) / 1000.0f) : 0.0f;
     lastMs_ = nowMs;
     time_ = time;
+    if (playing_)
+        story_->update(dt);
+    if (fade_ != fadeTarget_) {
+        fade_ = fadeTarget_ > fade_ ? std::min(fadeTarget_, fade_ + dt * 2) : std::max(fadeTarget_, fade_ - dt * 2);
+        if (fade_ == fadeTarget_ && fadeRunner_) {
+            ScriptRunner* r = fadeRunner_;
+            fadeRunner_ = nullptr;
+            r->finished("fade");
+        }
+        draw();
+    }
     runner_->update(dt);
     if (dialogue_->active()) {
         dialogue_->update(dt);
@@ -1161,6 +1277,13 @@ bool ScenePage::changeScene(const std::string& name, int entry) {
         return false;
     }
     dialogue_->leaveScene(sceneName());
+    // Leaving (0x423390): where the player was is kept (the game keeps
+    // the scene itself), and the act's time, weather and moving apply.
+    for (const Character& c : characters_)
+        if (c.player)
+            positions_[state_.scene] = {c.x, c.z};
+    state_.lastScene = state_.scene;
+    story_->leavingScene();
     index_ = found;
     entryPoint_ = entry;
     load();
@@ -1359,9 +1482,35 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
             walkVerb_ = v, walkRunner_ = &runner;
         return wait;
     }
-    if (v == "scene") {
-        changeScene(e.arg(1), e.arg(2).empty() ? 1 : std::atoi(e.arg(2).c_str()));
+    if (v == "scene" || v == "gotoscene") {
+        // gotoscene: the scene "savescene" kept, its ".ac2" taken off.
+        std::vector<std::string> words = e.words;
+        if (v == "gotoscene") {
+            words = {"scene"};
+            for (const Command& c : parseCommands(state_.texts["savedscene"]))
+                words.insert(words.end(), c.words.begin(), c.words.end());
+            if (words.size() < 2)
+                return false;
+            if (words[1].size() > 4)
+                words[1].resize(words[1].size() - 4);
+        }
+        const ScriptEvent scene{words};
+        // The flag (default 1) has the player walk in: not done yet.
+        changeScene(scene.arg(1), scene.arg(2).empty() ? 1 : std::atoi(scene.arg(2).c_str()));
         return false;
+    }
+    if (v == "act") {
+        story_->startAct(lower(e.arg(1)));
+        return false;
+    }
+    if (v == "fade") {
+        // fade in|out [picture]: over half a second (a guess).
+        fadeTarget_ = lower(e.arg(1)) == "out" ? 1.0f : 0.0f;
+        if (fade_ == fadeTarget_)
+            return false;
+        if (wait)
+            fadeRunner_ = &runner;
+        return wait;
     }
     if (v == "sound") {
         playSound(e.arg(1));
@@ -1477,6 +1626,8 @@ void ScenePage::handleEvent(const Event& ev) {
     } else if (ev.key == 'h') {
         hotspots_ = !hotspots_;
         draw();
+    } else if (ev.key == 'n') {
+        newGame();
     } else if (ev.key == 'g') {
         showGrid_ = !showGrid_;
         draw();

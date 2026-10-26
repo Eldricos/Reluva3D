@@ -74,6 +74,12 @@ scenes, two Granny files, the text tables, two backgrounds):
   the opening, the choices, each line's commands, recording and text in
   the game's dialogue box, progress kept for the conditions, the
   characters' generic lines and goodbyes.
+- **Acts: a new game plays.** N in the Scenes page starts one: the main
+  menu, Play, act 01A's scripts and location, and on through the scenes'
+  own events, as `acts.txt` and the game's act code say (see
+  [../formats/awe/acts.md](../formats/awe/acts.md)). Scene music, timers,
+  completion conditions, `savescene`/`gotoscene` and fades work; movies
+  inside the game, loading screens and saved games don't yet.
 - **Particles** (`SNOW`, `RAIN`, `PART`) are simulated by the rules of
   the game's own update method and drawn as its point sprites are, among
   the scene's 2D layers by depth (snow outside the Salon's windows when
@@ -126,7 +132,7 @@ Next:
 2. A native port of the path-finder's lattice search (`0x42f1f0`),
    checked path for path against the game's (`awe-path`).
 3. The characters' verbs (`turn`, `rotate`, `look`, `anim`, the heads
-   and mouths in dialogue), `fade`, and the acts (`acts.txt`).
+   and mouths in dialogue), and movies inside a game.
 4. Native decoding of the compressed curve formats (the DLL expands them
    for now).
 5. Native Oodle1 and Bink-texture decoding, checked against the DLL, to

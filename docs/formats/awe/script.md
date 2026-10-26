@@ -97,13 +97,13 @@ scenes, menus).
 | `sounda` | 263 | sound | plays `Sound\<name>.wav` |
 | `anima` | 229 | animation | `anim` without waiting |
 | `take` | 219 | item, or `this` | adds the item and hides its object (`this`: the hotspot, its item named by its picture, `...\sce<item>.png`) |
-| `act` | 175 | act (`06a`) | the act changes (`0x422580`) |
+| `act` | 175 | act (`06a`) | the act changes (`0x422580`): [acts.md](acts.md) |
 | `terminate` | 174 | | ends the conversation (in dialogue event files) |
 | `update` | 149 | | the scene looks at its objects' conditions again (`0x436280`) |
 | `restore` | 130 | item | the inventory (`0x419fb0`); to read |
 | `dooropen` | 113 | point, side, sound | macro: above |
 | `stop` | 75 | sound | stops a looping sound |
-| `savescene` | 57 | `this`, walk point, flag | remembers a scene to come back to (`gotoscene`) |
+| `savescene` | 57 | `this`, walk point, flag | remembers a scene to come back to (`gotoscene`): [acts.md](acts.md) |
 | `movie` | 51 | movie, `inscene`/`silent` | plays `Movies\<name>.bik`; waits |
 | `pause`, `resume` | 48, 46 | character | stops and restarts a character's own behaviour |
 | `advance` | 46 | | (dialogue) |
@@ -143,13 +143,15 @@ common verbs are still to be read in detail.
 `ScriptRunner` (`src/engines/awe/script.cpp`) is the runner: the queue,
 done and waiting, the `a` forms, `wait`, the macros and script files. It
 does the state verbs itself (`tag`, `removetag`, `add`, `remove`,
-`clear`, `act`, `weather`, `setchar`) on a `GameState`, the one
+`clear`, `timer`, `time`, `reset`, `savescene`, `weather`, `setchar`) on
+a `GameState`, the one
 [conditions](ac2.md#conditions) test. The rest go to a `ScriptHost`.
 
 For now the Scenes page is that host. A click on a hotspot runs its
 script, or the first of its conditional scripts whose condition holds.
 It does `walk` and `run` (along the game's paths, to cells, walk points
 or characters), `talk` (with the dialogue manager: [dialogue.md](dialogue.md)),
-`scene`, `sound`/`sounda`, `hide`, `show`, `take` and `update`. It logs
-the rest in its info panel and ends them at once. Next: `turn`,
-`rotate`, `look` and `anim` on the characters, `fade`, and the acts.
+`act` and `scene`/`gotoscene` (with `Story`: [acts.md](acts.md)), `fade`,
+`sound`/`sounda`, `hide`, `show`, `take` and `update`. It logs the rest
+in its info panel and ends them at once. Next: `turn`, `rotate`, `look`
+and `anim` on the characters.

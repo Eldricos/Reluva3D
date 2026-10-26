@@ -13,6 +13,7 @@
 #include "engines/awe/model.h"
 #include "engines/awe/particles.h"
 #include "engines/awe/script.h"
+#include "engines/awe/story.h"
 #include "engines/awe/sprite.h"
 #include "engines/awe/tables.h"
 #include "engines/awe/walk_grid.h"
@@ -683,6 +684,88 @@ void testDialogue() {
 
 } // namespace
 
+void testStory() {
+    int major = 0, minor = 0;
+    CHECK(parseActName("06a", major, minor) && major == 6 && minor == 1 && actName(major, minor) == "06a");
+    CHECK(!parseActName("a", major, minor));
+    const Table t = parseTable("Act\tPreLoad\tLocation to Load\tPost Load\tTime of Day\tWeather\tTrain Moving\t"
+                               "Completion Conditions\tEvent\tMusic\tWhat to do\n"
+                               "01A\t\"fade out, movie intro\"\tsirkeci.market\t\"scene sirkeci.market_01 1 0, add ticket\"\t"
+                               "day\tsnow\tNo\t0\tact 01b\t0\t0\n"
+                               "05A\t0\tSalon\tscene salon_01\tnight\tBlizzard\tYes\ttag act05a\tact 05b\t0\t0\n"
+                               "05B\t0\tsalon\t0\tday\tnone\tyes\t0\t0\t0\t0\n");
+    const std::vector<ActRow> acts = readActs(t);
+    CHECK(acts.size() == 3 && acts[0].act == "01a" && acts[0].preLoad == "fade out, movie intro");
+    CHECK(acts[0].weather == 1 && acts[0].time == 0 && acts[0].moving == 0 && acts[1].location == "salon");
+    CHECK(acts[1].weather == 2 && acts[1].time == 1 && acts[1].moving == 1);
+
+    GameState state;
+    FakeHost host;
+    ScriptRunner main(state, host);
+    Story story(state, main);
+    story.setActs(acts);
+    std::vector<std::string> loaded;
+    story.onLoadLocation = [&](const std::string& l, bool flush) { loaded.push_back(l + (flush ? " flush" : "")); };
+    // reset, then a bare act: 01A.
+    main.run("tag x 1, timer clock, reset");
+    for (int i = 0; i < 4; i++)
+        main.update(0.01f);
+    CHECK(state.act == "01a" && state.tags.empty() && state.timers.empty());
+    CHECK(story.startAct("") && story.loading());
+    // PreLoad runs first: the fade waits.
+    story.update(0.01f);
+    CHECK(loaded.empty());
+    main.update(0.01f);
+    CHECK(host.started.back() == "fade out");
+    story.update(0.01f);
+    CHECK(loaded.empty());
+    main.finished("fade");
+    main.update(0.01f); // the movie (FakeHost: done at once)
+    story.update(0.01f);
+    CHECK(loaded.size() == 1 && loaded[0] == "sirkeci.market" && state.values["weather"] == 1);
+    for (int i = 0; i < 3; i++)
+        main.update(0.01f);
+    CHECK(host.started.back() == "scene sirkeci.market_01 1 0" && state.items.count("ticket") && main.idle());
+    // 05A: its Event once its conditions hold and the queue runs dry.
+    story.startAct("05a");
+    story.update(0.01f);
+    CHECK(loaded.back() == "salon" && state.values["moving"] == 1); // inside the train: kept
+    for (int i = 0; i < 3; i++)
+        main.update(0.01f);
+    host.started.clear();
+    main.run("tag act05a 1");
+    for (int i = 0; i < 3; i++)
+        main.update(0.01f);
+    CHECK(!host.started.empty() && host.started[0] == "act 05b");
+    // (The page's "act" starts 05B, whose row has no conditions.)
+    story.startAct("05b");
+    story.update(0.01f);
+    main.clear();
+    // An act without a row: only the act changes, the row stays.
+    CHECK(!story.startAct("05c") && state.act == "05c" && story.row() && story.row()->act == "05b");
+
+    // Timers: a second at a time, "time n", the condition.
+    main.run("timer ham, time 50");
+    for (int i = 0; i < 3; i++)
+        main.update(0.01f);
+    story.update(0.6f);
+    story.update(0.6f);
+    CHECK(testCondition("timer ham >50", state) && !testCondition("timer ham >51", state));
+    CHECK(testCondition("timer ham", state) && !testCondition("timer radio", state) && testCondition("timer radio <0", state));
+    // Visits and savescene.
+    state.scene = "salon_01_06a.ac2";
+    state.texts["salon_01_06a.ac2"] = "02a 05c";
+    CHECK(testCondition("beenhere this", state) && testCondition("beenthere this ever", state));
+    CHECK(testCondition("beenthere salon_01_06a 02a", state) && !testCondition("beenthere salon_02", state));
+    state.lastScene = "exterior.forest_11.ac2";
+    CHECK(testCondition("lastscene exterior.forest_11", state) && !testCondition("lastscene exterior.forest_13", state));
+    main.run("savescene this, savescene calais.hall_03 2 1");
+    main.update(0.01f);
+    CHECK(state.texts["savedscene"] == "salon_01_06a.ac2 -1 0");
+    main.update(0.01f);
+    CHECK(state.texts["savedscene"] == "calais.hall_03.ac2 2 1");
+}
+
 int main() {
     testText();
     testAc2();
@@ -696,6 +779,7 @@ int main() {
     testScript();
     testDialogueBook();
     testDialogue();
+    testStory();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

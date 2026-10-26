@@ -18,6 +18,7 @@
 #include "engines/awe/game_paths.h"
 #include "engines/awe/particles.h"
 #include "engines/awe/script.h"
+#include "engines/awe/story.h"
 #include "engines/awe/walk_grid.h"
 #include "engines/awe/game_text.h"
 #include "engines/awe/gr2.h"
@@ -25,6 +26,7 @@
 #include "engines/awe/model.h"
 #include "engines/awe/model_draw.h"
 
+#include <array>
 #include <deque>
 #include <filesystem>
 #include <map>
@@ -197,7 +199,14 @@ private:
     Character* scriptCharacter();
     // Walks a character to a cell along a path; false if there's none.
     bool walkCharacter(Character& c, WalkGrid::Cell goal, bool toPoint);
+    // "scene <name> [wp] [flag]": the act's variant of it, the player at
+    // walk point wp (-1: where they were when it was last left).
     bool changeScene(const std::string& name, int entry);
+    // A scene shown in a game (N): its visit noted, its music and its
+    // first event whose condition holds (0x4362b0).
+    void enterScene();
+    void playMusic();
+    void newGame();
     void playSound(const std::string& name);
     void logScript(const std::string& line);
     bool hidden(const Ac2Record& o) const;
@@ -232,6 +241,15 @@ private:
     std::string walkVerb_;            // "walk" or "run", while a script waits on one
     ScriptRunner* walkRunner_ = nullptr; // and which runner waits
     std::unique_ptr<DialogueManager> dialogue_;
+    // A game played (N): the acts, the music playing (by file), where the
+    // player was in each scene left, the screen's fade (0 clear, 1 black)
+    // and the runner waiting on it.
+    std::unique_ptr<Story> story_;
+    bool playing_ = false;
+    std::map<std::string, audio::SoundHandle> music_;
+    std::map<std::string, std::array<float, 2>> positions_;
+    float fade_ = 0, fadeTarget_ = 0;
+    ScriptRunner* fadeRunner_ = nullptr;
     std::string dialogueAct_ = "-";   // the act whose table is loaded
     audio::SoundHandle voice_ = audio::kNoSound;
     const Ac2Record* scriptObject_ = nullptr; // the hotspot a script is "this" of

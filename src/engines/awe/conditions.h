@@ -8,6 +8,8 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 // The conditions the game's scenes and tables test: when a scene's object
 // is shown ("moving >0"), which of an object's scripts runs ("act 04a,
@@ -23,7 +25,11 @@
 // <code>" asks a conversation's progress: three letters (part, thread,
 // line), whether the thread got past that line; two, whether it was heard
 // to its end; one, whether the part was (0x439f60). A number argument
-// may start with '<' or '>'; without either it must be equal.
+// may start with '<' or '>'; without either it must be equal. "timer
+// <name> [n]" compares a timer (-99 if there's none; without a number,
+// whether there is one). "beenhere"/"beenthere <scene|this> [act|ever]"
+// ask whether a scene was visited in this act (or that act, or ever);
+// "lastscene <name>" whether the scene left last was that one.
 
 namespace reluva::awe {
 
@@ -40,6 +46,16 @@ struct GameState {
     std::map<std::string, int> values; // moving, weather, master...
     std::map<std::string, int> tags; // story tags: numbers set by scripts ("tag name 1")
     std::set<std::string> items;     // what Poirot carries
+    // Timers (story state +0x1c): seconds since "timer <name>", plus what
+    // "time <n>" added. In order; a name may be there twice (the first
+    // counts).
+    std::vector<std::pair<std::string, int>> timers;
+    // Text tags: "savedscene" ("Calais.1-4_1-2.02.ac2 -1 0"), and a tag
+    // per scene visited, by its file name, holding the acts it was
+    // visited in ("02a 06b").
+    std::map<std::string, std::string> texts;
+    std::string scene;     // the scene shown, by its file name ("salon_01_06a.ac2")
+    std::string lastScene; // the one before ("lastscene")
     // Conversations' progress, by talkKey(). Only lettered parts.
     std::map<std::string, TalkProgress> talks;
     // "talk <name> <act> <part>": whether every line of the part not

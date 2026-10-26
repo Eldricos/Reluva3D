@@ -92,6 +92,39 @@ bool testClause(std::string_view clause, const GameState& state) {
                 }
             }
         }
+    } else if (word == "timer") {
+        // timer <name> [n] (0x408781): -99 for a missing one.
+        const size_t space2 = arg.find(' ');
+        const std::string name = fs::toLower(arg.substr(0, space2));
+        const std::string_view value = space2 == std::string_view::npos ? std::string_view() : trim(arg.substr(space2 + 1));
+        int t = -99;
+        bool found = false;
+        for (const auto& [n, v] : state.timers)
+            if (n == name) {
+                t = v, found = true;
+                break;
+            }
+        result = value.empty() ? found : compare<int>(t, value, 0, parseNumber);
+    } else if (word == "beenhere" || word == "beenthere") {
+        // beenhere <scene|this> [act|ever] (0x408a2f): the scene's visit
+        // tag holds the acts it was visited in.
+        const size_t space2 = arg.find(' ');
+        std::string scene = fs::toLower(arg.substr(0, space2));
+        const std::string when = space2 == std::string_view::npos ? std::string() : fs::toLower(trim(arg.substr(space2 + 1)));
+        if (scene == "this")
+            scene = fs::toLower(state.scene);
+        else if (scene.find(".ac2") == std::string::npos)
+            scene += ".ac2";
+        const auto it = state.texts.find(scene);
+        if (it == state.texts.end())
+            result = false;
+        else if (when == "ever")
+            result = !it->second.empty();
+        else
+            result = (" " + it->second + " ").find(" " + (when.empty() ? state.act : when) + " ") != std::string::npos;
+    } else if (word == "lastscene") {
+        // The scene left last: its path contains the name. [likely]
+        result = !arg.empty() && fs::toLower(state.lastScene).find(fs::toLower(arg)) != std::string::npos;
     } else if (word == "has")
         result = state.items.count(fs::toLower(arg)) != 0;
     else if (word == "act")
