@@ -3904,7 +3904,10 @@ int cmdSpRun(int argc, char** argv) {
     std::printf("engine calls:");
     for (const auto& [slot, count] : game.callCounts())
         std::printf(" %d:%d", slot, count);
-    std::printf("\n");
+    std::printf("\nclient game calls:");
+    for (const auto& [n, count] : game.cgameCallCounts())
+        std::printf(" %d:%d%s", n, count, game.cgameUnhandled().count(n) ? "?" : "");
+    std::printf("  (? not answered yet)\n");
     return 0;
 }
 

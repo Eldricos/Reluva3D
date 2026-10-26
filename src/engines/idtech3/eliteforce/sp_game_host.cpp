@@ -131,6 +131,17 @@ Error SpGameHost::load(const std::vector<uint8_t>& dll) {
     voiceVolume_ = process_->memory().alloc(4 * kMaxEntities);
     argvBuffer_ = process_->memory().alloc(kArgvSize);
     addImports();
+    // The client game's half: dllEntry hands it the system call function.
+    // The server game calls into it too, so it's set up from the start.
+    if (const uint32_t dllEntry = module_->exportAddress("dllEntry")) {
+        const uint32_t syscall = cpu_->addNative("cgame syscall", [this](x86::Cpu& c) {
+            c.reg[x86::Cpu::EAX] = cgameCall(c);
+            return 0u;
+        });
+        uint32_t ignored = 0;
+        if (Error e = cpu_->call(dllEntry, {syscall}, ignored))
+            return Error::fail("dllEntry: " + e.message);
+    }
     const uint32_t getGameApi = module_->exportAddress("GetGameAPI");
     if (!getGameApi)
         return Error::fail("efgamex86.dll has no GetGameAPI");
@@ -534,6 +545,75 @@ void SpGameHost::syncCvars() {
         const CvarStore::Cvar* cv = cvars_.find(key);
         if (cv && cv->modificationCount != m.modificationCount)
             cvarStructure(cv->name);
+    }
+}
+
+// --- The client game's system calls -------------------------------------------------
+
+void SpGameHost::writeVmCvar(uint32_t address, const CvarStore::Cvar& cv) {
+    // vmCvar_t: handle, modification count, value, integer, text (256).
+    if (!cpu_->valid(address, CvarStore::kVmCvarSize))
+        return;
+    cpu_->write32(address, uint32_t(cv.handle));
+    cpu_->write32(address + 4, uint32_t(cv.modificationCount));
+    cpu_->write32(address + 8, floatBits(std::strtof(cv.value.c_str(), nullptr)));
+    cpu_->write32(address + 12, uint32_t(std::strtol(cv.value.c_str(), nullptr, 10)));
+    cpu_->writeString(address + 16, cv.value, 256);
+}
+
+uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
+    // Arguments after the number.
+    auto a = [&c](int n) { return c.arg(n + 1); };
+    auto str = [&](int n, size_t max = 1024) { return c.string(a(n), max); };
+    const int number = int(c.arg(0));
+    ++cgameCallCounts_[number];
+    switch (number) {
+    case 0: // Print(text)
+        if (print)
+            print(str(0, 4096));
+        return 0;
+    case 1: // Error(text)
+        c.abort("efgamex86.dll (client game): " + str(0, 4096));
+        return 0;
+    case 2: return process_->milliseconds();
+    case 3: { // Cvar_Register(vmCvar, name, value, flags)
+        const CvarStore::Cvar& cv = cvars_.create(str(1, 256), str(2, 256), int32_t(a(3)));
+        if (a(0))
+            writeVmCvar(a(0), cv);
+        return 0;
+    }
+    case 4: // Cvar_Update(vmCvar)
+        if (const CvarStore::Cvar* cv = cvars_.byHandle(int32_t(c.read32(a(0))));
+            cv && int32_t(c.read32(a(0) + 4)) != cv->modificationCount)
+            writeVmCvar(a(0), *cv);
+        return 0;
+    case 5: { // Cvar_Set(name, value)
+        const std::string name = str(0, 256);
+        cvars_.set(name, str(1, 1024));
+        if (cvarMirrors_.count(lower(name)))
+            cvarStructure(name);
+        return 0;
+    }
+    case 6: return uint32_t(args_.size());                    // Argc()
+    case 7:                                                     // Argv(n, buffer, size)
+        c.writeString(a(1), a(0) < args_.size() ? args_[a(0)] : "", a(2));
+        return 0;
+    case 8: { // Args(buffer, size)
+        std::string all;
+        for (size_t i = 1; i < args_.size(); ++i)
+            all += (i > 1 ? " " : "") + args_[i];
+        c.writeString(a(0), all, a(1));
+        return 0;
+    }
+    case 13: // SendConsoleCommand(text)
+        consoleCommands_.push_back(str(0, 4096));
+        return 0;
+    case 34: case 35: case 36: case 37: return 0; // force feedback: none
+    case 64: return 16u << 20;                  // MemoryRemaining()
+    default:
+        // Not yet: the client game's drawing, sound and snapshots.
+        ++cgameUnhandled_[number];
+        return 0;
     }
 }
 

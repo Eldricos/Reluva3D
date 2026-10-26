@@ -99,6 +99,11 @@ public:
     const std::vector<std::pair<int32_t, std::string>>& serverCommands() const { return serverCommands_; }
     // How many times the game called each of the engine's functions.
     const std::map<int, int>& callCounts() const { return callCounts_; }
+    // The same for the client game's system calls (the server game calls
+    // into its client half too: they share the DLL), and those not yet
+    // answered.
+    const std::map<int, int>& cgameCallCounts() const { return cgameCallCounts_; }
+    const std::map<int, int>& cgameUnhandled() const { return cgameUnhandled_; }
 
     x86::Cpu& cpu() { return *cpu_; }
     x86::Win32Process& process() { return *process_; }
@@ -113,6 +118,9 @@ public:
 private:
     Error callGame(int exportIndex, const std::vector<uint32_t>& args, uint32_t* result = nullptr);
     void addImports();
+    // The client game's system calls (dllEntry's function): syscall(number, args...).
+    uint32_t cgameCall(x86::Cpu& c);
+    void writeVmCvar(uint32_t address, const CvarStore::Cvar& cv);
     void import(int slot, std::function<uint32_t(x86::Cpu&)> fn);
     // Text into emulated memory (freed when the level ends).
     uint32_t text(const std::string& s);
@@ -164,7 +172,7 @@ private:
     std::vector<std::string> consoleCommands_;
     std::vector<std::pair<int32_t, std::string>> serverCommands_;
     std::map<std::string, std::vector<uint8_t>> saveChunks_;
-    std::map<int, int> callCounts_;
+    std::map<int, int> callCounts_, cgameCallCounts_, cgameUnhandled_;
     int32_t levelTime_ = 0;
     uint64_t startMs_ = 0;
 };
