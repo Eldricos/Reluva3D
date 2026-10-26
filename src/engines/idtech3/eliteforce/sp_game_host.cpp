@@ -204,8 +204,14 @@ Error SpGameHost::startLevel(const std::string& mapName, std::shared_ptr<const B
                                   startMs_);
     // Init(mapname, checksum, entity text, level time, random seed, global
     // time, a saved game just loaded: no).
-    return callGame(Init, {text(mapName), uint32_t(checksum), text(map_->entities), uint32_t(levelTime_),
-                           uint32_t(randomSeed), now, 0});
+    if (Error e = callGame(Init, {text(mapName), uint32_t(checksum), text(map_->entities), uint32_t(levelTime_),
+                                  uint32_t(randomSeed), now, 0}))
+        return e;
+    // The server's and the system's settings, for the client game (as the
+    // original's server sets them once the game is loaded).
+    configstrings_[0] = infoString(CvarStore::ServerInfo);
+    configstrings_[1] = infoString(CvarStore::SystemInfo);
+    return Error::success();
 }
 
 Error SpGameHost::connectPlayer(const std::string& userinfo, std::string& refused) {
@@ -227,8 +233,22 @@ Error SpGameHost::connectPlayer(const std::string& userinfo, std::string& refuse
 }
 
 Error SpGameHost::runFrame() {
+    // The player's latest input first, as the server takes commands before
+    // running the frame.
+    if (cgameRunning_ && commandNumber_ > 0) {
+        const uint32_t cmd = process_->memory().alloc(kUserCmdSize);
+        writeUserCommand(cmd, commands_[size_t(commandNumber_ & 63)]);
+        const Error e = callGame(ClientThink, {0, cmd});
+        process_->memory().free(cmd);
+        if (e)
+            return e;
+    }
     levelTime_ += kFrameMs;
-    return callGame(RunFrame, {uint32_t(levelTime_)});
+    if (Error e = callGame(RunFrame, {uint32_t(levelTime_)}))
+        return e;
+    if (cgameRunning_)
+        makeSnapshot();
+    return Error::success();
 }
 
 Error SpGameHost::consoleCommand(const std::string& text, bool* handled) {
@@ -548,6 +568,54 @@ void SpGameHost::syncCvars() {
     }
 }
 
+// --- Files (for both halves of the DLL) ---------------------------------------------
+
+// FS_FOpenFile(path, &handle, mode): read from the game's search path; what
+// it writes is kept only until closed, for now.
+uint32_t SpGameHost::fsOpen(x86::Cpu& c, uint32_t pathAddress, uint32_t handleAddress, uint32_t mode) {
+    const std::string path = c.string(pathAddress, 256);
+    if (mode != 0) {
+        const uint32_t h = nextFile_++;
+        openFiles_[h] = OpenFile{{}, 0, true};
+        if (handleAddress)
+            c.write32(handleAddress, h);
+        return 0;
+    }
+    std::vector<uint8_t> data;
+    if (files_.read(path, data)) {
+        if (handleAddress)
+            c.write32(handleAddress, 0);
+        return 0xffffffffu;
+    }
+    const uint32_t length = uint32_t(data.size());
+    if (handleAddress) {
+        const uint32_t h = nextFile_++;
+        openFiles_[h] = OpenFile{std::move(data), 0, false};
+        c.write32(handleAddress, h);
+    }
+    return length;
+}
+
+uint32_t SpGameHost::fsRead(x86::Cpu& c, uint32_t buffer, uint32_t length, uint32_t handle) {
+    auto it = openFiles_.find(handle);
+    if (it == openFiles_.end() || !c.valid(buffer, length))
+        return 0;
+    OpenFile& f = it->second;
+    const size_t n = std::min<size_t>(length, f.data.size() - f.position);
+    std::memcpy(c.memory().data() + buffer, f.data.data() + f.position, n);
+    f.position += n;
+    return uint32_t(n);
+}
+
+uint32_t SpGameHost::fsWrite(x86::Cpu& c, uint32_t buffer, uint32_t length, uint32_t handle) {
+    auto it = openFiles_.find(handle);
+    if (it == openFiles_.end() || !c.valid(buffer, length))
+        return 0;
+    const uint8_t* p = c.memory().data() + buffer;
+    it->second.data.insert(it->second.data.end(), p, p + length);
+    return length;
+}
+
 // --- The client game's system calls -------------------------------------------------
 
 void SpGameHost::writeVmCvar(uint32_t address, const CvarStore::Cvar& cv) {
@@ -562,7 +630,7 @@ void SpGameHost::writeVmCvar(uint32_t address, const CvarStore::Cvar& cv) {
 }
 
 uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
-    // Arguments after the number.
+    // syscall(number, args...): the arguments after the number.
     auto a = [&c](int n) { return c.arg(n + 1); };
     auto str = [&](int n, size_t max = 1024) { return c.string(a(n), max); };
     const int number = int(c.arg(0));
@@ -594,8 +662,8 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
             cvarStructure(name);
         return 0;
     }
-    case 6: return uint32_t(args_.size());                    // Argc()
-    case 7:                                                     // Argv(n, buffer, size)
+    case 6: return uint32_t(args_.size()); // Argc()
+    case 7:                                 // Argv(n, buffer, size)
         c.writeString(a(1), a(0) < args_.size() ? args_[a(0)] : "", a(2));
         return 0;
     case 8: { // Args(buffer, size)
@@ -605,16 +673,374 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
         c.writeString(a(0), all, a(1));
         return 0;
     }
-    case 13: // SendConsoleCommand(text)
-        consoleCommands_.push_back(str(0, 4096));
-        return 0;
-    case 34: case 35: case 36: case 37: return 0; // force feedback: none
-    case 64: return 16u << 20;                  // MemoryRemaining()
-    default:
-        // Not yet: the client game's drawing, sound and snapshots.
-        ++cgameUnhandled_[number];
+    case 9: return fsOpen(c, a(0), a(1), a(2));
+    case 10: return fsRead(c, a(0), a(1), a(2));
+    case 11: return fsWrite(c, a(0), a(1), a(2));
+    case 12: openFiles_.erase(a(0)); return 0;
+    case 13: consoleCommands_.push_back(str(0, 4096)); return 0; // SendConsoleCommand
+    case 14: clientCommands_.push_back(str(0, 256)); return 0;    // AddCommand(name)
+    case 15: { // SendClientCommand(text): to the server game, as ClientCommand
+        tokenize(str(0, 4096));
+        uint32_t ignored = 0;
+        const uint32_t fn = c.read32(exports_ + 4 * ClientCommand);
+        if (Error e = c.call(fn, {0}, ignored))
+            c.abort(e.message);
         return 0;
     }
+    case 16: return 0; // UpdateScreen()
+    // Collision, for the client game's prediction: the same map.
+    case 17: return 0;                                                  // CM_LoadMap(name)
+    case 18: return world_ ? uint32_t(world_->modelCount()) : 0;        // CM_NumInlineModels()
+    case 19: return a(0);                                               // CM_InlineModel(n)
+    case 20:                                                            // CM_TempBoxModel(mins, maxs)
+        tempBoxes_.assign(1, {readVec(a(0)), readVec(a(1))});
+        return kTempBoxModel;
+    case 21:   // CM_PointContents(point, model)
+    case 22: { // CM_TransformedPointContents(point, model, origin, angles)
+        Vec3f p = readVec(a(0));
+        if (number == 22) {
+            const Vec3f origin = readVec(a(2));
+            for (int i = 0; i < 3; ++i)
+                p[size_t(i)] -= origin[size_t(i)];
+        }
+        if (a(1) == kTempBoxModel) {
+            if (tempBoxes_.empty())
+                return 0;
+            for (int i = 0; i < 3; ++i)
+                if (p[size_t(i)] < tempBoxes_[0].first[size_t(i)] || p[size_t(i)] > tempBoxes_[0].second[size_t(i)])
+                    return 0;
+            return 1;
+        }
+        return world_ ? uint32_t(world_->pointContents(p, int(a(1)))) : 0;
+    }
+    case 23: clientTrace(c, false); return 0; // CM_BoxTrace
+    case 24: clientTrace(c, true); return 0;  // CM_TransformedBoxTrace
+    case 25: return 0;                        // CM_MarkFragments: no wall marks yet
+    // Sound: registered; not played yet.
+    case 26: case 27: case 28: case 29: case 30: case 31: case 33: return 0;
+    case 32: return uint32_t(sounds_.add(str(0, 256))); // S_RegisterSound(name)
+    case 34: case 35: case 36: case 37: return 0;       // force feedback: none
+    // The renderer: what's registered and drawn is recorded.
+    case 38: return 0; // R_LoadWorldMap(name)
+    case 39: return uint32_t(models_.add(str(0, 256)));
+    case 40: return uint32_t(skins_.add(str(0, 256)));
+    case 41:
+    case 42: return uint32_t(shaders_.add(str(0, 256)));
+    case 43: frame_.entityModels.clear(); frame_.polys = frame_.lights = 0; return 0; // R_ClearScene
+    case 44: frame_.entityModels.push_back(int32_t(c.read32(a(0) + 8))); return 0; // R_AddRefEntityToScene
+    case 45: { // R_LightForPoint(point, ambient, directed, direction): a plain light for now
+        writeVec(a(1), {128, 128, 128});
+        writeVec(a(2), {128, 128, 128});
+        writeVec(a(3), {0, 0, 1});
+        return 1;
+    }
+    case 46: ++frame_.polys; return 0;
+    case 47: ++frame_.lights; return 0;
+    case 48: ++frame_.scenes; return 0; // R_RenderScene(refdef)
+    case 49: return 0;                  // R_SetColor
+    case 50: case 51: case 54: ++frame_.pictures; return 0;
+    case 52: // R_ModelBounds(model, mins, maxs)
+        writeVec(a(1), {});
+        writeVec(a(2), {});
+        return 0;
+    case 53: { // R_LerpTag(orientation, model, startFrame, endFrame, frac, tag): not found yet
+        const uint32_t o = a(0);
+        writeVec(o, {});
+        writeVec(o + 12, {1, 0, 0});
+        writeVec(o + 24, {0, 1, 0});
+        writeVec(o + 36, {0, 0, 1});
+        return 0;
+    }
+    case 55: return 0; // R_Scissor?
+    case 56: writeGlconfig(a(0)); return 0;
+    case 57: writeGameState(a(0)); return 0;
+    case 58: // GetCurrentSnapshotNumber(&number, &serverTime)
+        c.write32(a(0), uint32_t(snapshotNumber_));
+        c.write32(a(1), snapshots_.empty() ? 0u : uint32_t(snapshots_.back().serverTime));
+        return 0;
+    case 59: { // GetSnapshot(number, out) -> whether it's still there
+        const int32_t n = int32_t(a(0));
+        if (n > snapshotNumber_) {
+            c.abort("GetSnapshot: " + std::to_string(n) + " is ahead of the latest");
+            return 0;
+        }
+        for (const Snapshot& snap : snapshots_)
+            if (snap.number == n) {
+                writeSnapshot(a(1), snap);
+                return 1;
+            }
+        return 0;
+    }
+    case 60: { // GetServerCommand(sequence) -> whether it's there; its words for Argv
+        std::vector<std::string> mine;
+        for (const auto& [to, text] : serverCommands_)
+            if (to == 0 || to == -1)
+                mine.push_back(text);
+        const int32_t n = int32_t(a(0));
+        if (n < 1 || size_t(n) > mine.size())
+            return 0;
+        tokenize(mine[size_t(n - 1)]);
+        return 1;
+    }
+    case 61: return uint32_t(commandNumber_); // GetCurrentCmdNumber()
+    case 62: { // GetUserCmd(number, out) -> whether it's still kept
+        const int32_t n = int32_t(a(0));
+        if (n > commandNumber_ || n <= commandNumber_ - 64)
+            return 0;
+        writeUserCommand(a(1), commands_[size_t(n & 63)]);
+        return 1;
+    }
+    case 63: clientWeapon_ = uint8_t(a(0)); return 0; // SetUserCmdValue(weapon, sensitivity)
+    case 64: return 16u << 20;                        // MemoryRemaining()
+    case 65: case 66: case 67: case 68: case 69: return 0; // ambient sound sets: not yet
+    case 70: c.fpuPush(0.0); return 0;                // S_GetSampleLength(sfx): a float, in ST(0)
+    default: ++cgameUnhandled_[number]; return 0;
+    }
+}
+
+void SpGameHost::clientTrace(x86::Cpu& c, bool transformed) {
+    // (results, start, end, mins, maxs, model, brushmask[, origin, angles]):
+    // against one model only (the client game adds the entities itself).
+    auto a = [&c](int n) { return c.arg(n + 1); };
+    Vec3f start = readVec(a(1)), end = readVec(a(2));
+    const Vec3f mins = a(3) ? readVec(a(3)) : Vec3f{}, maxs = a(4) ? readVec(a(4)) : Vec3f{};
+    const uint32_t model = a(5);
+    const int32_t mask = int32_t(a(6));
+    Vec3f origin{};
+    if (transformed) {
+        origin = readVec(a(7));
+        for (int i = 0; i < 3; ++i) {
+            start[size_t(i)] -= origin[size_t(i)];
+            end[size_t(i)] -= origin[size_t(i)];
+        }
+    }
+    TraceResult t;
+    if (model == kTempBoxModel) {
+        if (!tempBoxes_.empty())
+            t = CollisionWorld::traceBox(start, end, mins, maxs, tempBoxes_[0].first, tempBoxes_[0].second, 1);
+    } else if (world_) {
+        t = world_->trace(start, end, mins, maxs, int(model), mask);
+    }
+    for (int i = 0; i < 3; ++i)
+        t.endPos[size_t(i)] = start[size_t(i)] + t.fraction * (end[size_t(i)] - start[size_t(i)]) + origin[size_t(i)];
+    writeTrace(a(0), t, t.fraction < 1 ? kEntityWorld : kEntityNone);
+}
+
+void SpGameHost::tokenize(const std::string& text) {
+    // Words split at spaces, with quoted runs kept whole.
+    args_.clear();
+    std::string word;
+    bool quoted = false, any = false;
+    for (char ch : text) {
+        if (ch == '"') {
+            quoted = !quoted;
+            any = true;
+        } else if ((ch == ' ' || ch == '\n') && !quoted) {
+            if (any || !word.empty())
+                args_.push_back(word);
+            word.clear();
+            any = false;
+        } else {
+            word += ch;
+        }
+    }
+    if (any || !word.empty())
+        args_.push_back(word);
+}
+
+void SpGameHost::writeGlconfig(uint32_t address) {
+    // glconfig_t as the original engine fills it (5196 bytes): the
+    // renderer's, vendor's and version text (1024 each) and the extensions
+    // (2048), then Quake III's numbers from 5120 with two more of Elite
+    // Force's before the screen size (at 5168 and 5172).
+    constexpr uint32_t kSize = 5196, kNumbers = 5120;
+    if (!cpu_->valid(address, kSize))
+        return;
+    std::memset(cpu_->memory().data() + address, 0, kSize);
+    cpu_->writeString(address, "Reluva", 1024);
+    cpu_->writeString(address + 1024, "Reluva", 1024);
+    cpu_->writeString(address + 2048, "1.0", 1024);
+    const uint32_t w = address + kNumbers;
+    cpu_->write32(w + 0, 2048); // maxTextureSize
+    cpu_->write32(w + 4, 2);    // texture units
+    cpu_->write32(w + 8, 32);   // colour bits
+    cpu_->write32(w + 12, 24);  // depth bits
+    cpu_->write32(w + 16, 8);   // stencil bits
+    cpu_->write32(w + 28, 1);   // deviceSupportsGamma
+    cpu_->write32(w + 36, 1);   // textureEnvAddAvailable
+    cpu_->write32(w + 48, 640); // vidWidth
+    cpu_->write32(w + 52, 480); // vidHeight
+    cpu_->write32(w + 56, floatBits(640.0f / 480.0f));
+    cpu_->write32(w + 60, 60); // displayFrequency
+}
+
+void SpGameHost::writeGameState(uint32_t address) {
+    // gameState_t (20100 bytes): each configstring's offset into the text
+    // (1024), the text (16000), how much of it is used. Offset 0 is an
+    // empty string.
+    constexpr uint32_t kStrings = 1024, kChars = 16000, kSize = 4 * kStrings + kChars + 4;
+    if (!cpu_->valid(address, kSize))
+        return;
+    std::memset(cpu_->memory().data() + address, 0, kSize);
+    uint32_t used = 1;
+    for (const auto& [index, value] : configstrings_) {
+        if (index < 0 || uint32_t(index) >= kStrings || value.empty() || used + value.size() + 1 > kChars)
+            continue;
+        cpu_->write32(address + 4 * uint32_t(index), used);
+        cpu_->writeString(address + 4 * kStrings + used, value, uint32_t(value.size()) + 1);
+        used += uint32_t(value.size()) + 1;
+    }
+    cpu_->write32(address + 4 * kStrings + kChars, used);
+}
+
+void SpGameHost::writeUserCommand(uint32_t address, const UserCommand& cmd) {
+    if (!cpu_->valid(address, kUserCmdSize))
+        return;
+    std::memset(cpu_->memory().data() + address, 0, kUserCmdSize);
+    cpu_->write32(address, uint32_t(cmd.serverTime));
+    cpu_->write32(address + 4, uint32_t(cmd.buttons));
+    cpu_->write8(address + 8, cmd.weapon);
+    for (int i = 0; i < 3; ++i)
+        cpu_->write32(address + 12 + 4 * uint32_t(i), uint32_t(cmd.angles[size_t(i)]));
+    cpu_->write8(address + 24, uint8_t(cmd.forward));
+    cpu_->write8(address + 25, uint8_t(cmd.right));
+    cpu_->write8(address + 26, uint8_t(cmd.up));
+}
+
+void SpGameHost::writeSnapshot(uint32_t address, const Snapshot& snap) {
+    // snapshot_t as the original engine fills it: flags 0, ping 4, server
+    // time 8, the area mask 12 (32 bytes), the command number 44, the
+    // player state 48 (544), the entity count 592, the entities 596 (256
+    // of 232 bytes), the server command sequence 60000.
+    constexpr uint32_t kSize = 0xea64;
+    if (!cpu_->valid(address, kSize))
+        return;
+    cpu_->write32(address, 0);
+    cpu_->write32(address + 4, 0);
+    cpu_->write32(address + 8, uint32_t(snap.serverTime));
+    std::memcpy(cpu_->memory().data() + address + 12, snap.areaMask.data(), 32);
+    cpu_->write32(address + 44, uint32_t(snap.commandNumber));
+    std::memcpy(cpu_->memory().data() + address + 48, snap.playerState.data(), kPlayerStateSize);
+    cpu_->write32(address + 0x250, uint32_t(snap.entities.size()));
+    for (size_t i = 0; i < snap.entities.size(); ++i)
+        std::memcpy(cpu_->memory().data() + address + 0x254 + kEntityStateSize * i, snap.entities[i].data(),
+                    kEntityStateSize);
+    cpu_->write32(address + 0xea60, uint32_t(snap.serverCommandSequence));
+}
+
+std::vector<int32_t> SpGameHost::visibleEntities(const Vec3f& eye) {
+    // As the original's server picks them: entities in use and linked, not
+    // flagged NOCLIENT (1); BROADCAST (0x20) ones always, the rest in an
+    // area joined to the viewer's and a cluster it can see; a PORTAL
+    // (0x40) adds what's seen from its other end (origin2, at 0x68).
+    std::vector<int32_t> out;
+    std::set<int32_t> added;
+    const bool noAreas = cvars_.find("cm_noAreas") && cvars_.integer("cm_noAreas");
+    const int32_t count = std::min(entityCount(), kMaxEntities);
+    auto look = [&](const Vec3f& from, auto& self, int depth) -> void {
+        const int leaf = world_ ? world_->leafAt(from) : -1;
+        const int area = leaf >= 0 ? world_->leafArea(leaf) : -1;
+        const int cluster = leaf >= 0 && size_t(leaf) < map_->leafs.size() ? map_->leafs[size_t(leaf)].cluster : -1;
+        for (int32_t n = 0; n < count; ++n) {
+            if (added.count(n) || !entityInt(n, kEntity.inUse) || !entityInt(n, kEntity.linked))
+                continue;
+            const int32_t flags = entityInt(n, kEntity.svFlags);
+            if (flags & 1)
+                continue;
+            if (!(flags & 0x20) && world_) {
+                const auto areas = entityAreas(n);
+                if (!noAreas && area >= 0 && areas.first >= 0 && !areasConnected(area, areas.first) &&
+                    (areas.second < 0 || !areasConnected(area, areas.second)))
+                    continue;
+                std::vector<int> leafs;
+                world_->boxLeafs(entityVec(n, kEntity.absMin), entityVec(n, kEntity.absMax), leafs);
+                bool seen = leafs.empty() || cluster < 0;
+                for (const int l : leafs) {
+                    const int c = map_->leafs[size_t(l)].cluster;
+                    seen = seen || (c >= 0 && map_->clusterVisible(cluster, c));
+                }
+                if (!seen)
+                    continue;
+            }
+            added.insert(n);
+            out.push_back(n);
+            if ((flags & 0x40) && depth < 2)
+                self(entityVec(n, 0x68), self, depth + 1);
+        }
+    };
+    look(eye, look, 0);
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+void SpGameHost::makeSnapshot() {
+    Snapshot snap;
+    snap.number = ++snapshotNumber_;
+    snap.serverTime = levelTime_;
+    snap.commandNumber = commandNumber_;
+    snap.playerState.assign(kPlayerStateSize, 0);
+    // The player's state: where the player's entity's client points.
+    const uint32_t ps = uint32_t(entityInt(0, kEntity.client));
+    if (ps && cpu_->valid(ps, kPlayerStateSize))
+        std::memcpy(snap.playerState.data(), cpu_->memory().data() + ps, kPlayerStateSize);
+    // From the client game's camera if one's running, else the player's
+    // eye: origin (20) raised by the view height (168).
+    Vec3f eye{};
+    const uint32_t camera = process_->memory().alloc(16);
+    uint32_t cameraOn = 0;
+    if (cgameRunning_ && camera) {
+        if (Error e = cpu_->call(cgameVmMain_, {CgCameraPos, camera}, cameraOn))
+            cameraOn = 0;
+    }
+    if (cameraOn) {
+        eye = readVec(camera);
+    } else if (ps) {
+        eye = readVec(ps + 20);
+        eye[2] += float(int32_t(cpu_->read32(ps + 168)));
+    }
+    process_->memory().free(camera);
+    for (const int32_t n : visibleEntities(eye)) {
+        if (snap.entities.size() >= 256)
+            break;
+        const uint32_t a = entityAddress(n);
+        snap.entities.emplace_back(cpu_->memory().data() + a, cpu_->memory().data() + a + kEntityStateSize);
+    }
+    for (const auto& [to, text] : serverCommands_)
+        snap.serverCommandSequence += to == 0 || to == -1;
+    if (world_ && areaPortals_ && !(cvars_.find("cm_noAreas") && cvars_.integer("cm_noAreas"))) {
+        const int area = world_->leafArea(world_->leafAt(eye));
+        if (area >= 0)
+            for (int a = 0; a < std::min(world_->areaCount(), 256); ++a)
+                if (!areaPortals_->connected(area, a))
+                    snap.areaMask[size_t(a >> 3)] |= uint8_t(1 << (a & 7));
+    }
+    snapshots_.push_back(std::move(snap));
+    if (snapshots_.size() > 32)
+        snapshots_.erase(snapshots_.begin());
+}
+
+Error SpGameHost::startClientGame() {
+    cgameVmMain_ = module_->exportAddress("vmMain");
+    if (!cgameVmMain_)
+        return Error::fail("efgamex86.dll has no vmMain");
+    cgameRunning_ = true;
+    makeSnapshot();
+    syncCvars();
+    uint32_t ignored = 0;
+    return cpu_->call(cgameVmMain_, {CgInit, uint32_t(snapshotNumber_)}, ignored);
+}
+
+Error SpGameHost::drawClientFrame(const UserCommand& input) {
+    UserCommand cmd = input;
+    cmd.serverTime = levelTime_;
+    cmd.weapon = clientWeapon_;
+    commands_[size_t(++commandNumber_ & 63)] = cmd;
+    frame_ = {};
+    syncCvars();
+    uint32_t ignored = 0;
+    const Error e = cpu_->call(cgameVmMain_, {CgDrawActiveFrame, uint32_t(levelTime_), 0}, ignored);
+    lastFrame_ = frame_;
+    return e;
 }
 
 // --- The engine's functions ---------------------------------------------------------
@@ -662,50 +1088,10 @@ void SpGameHost::addImports() {
 
     // Files: read from the game's search path; what it writes is kept
     // only until closed, for now.
-    import(FsFOpenFile, [this, str](x86::Cpu& c) -> uint32_t {
-        const std::string path = str(c, 0, 256);
-        const uint32_t handleAddress = c.arg(1), mode = c.arg(2);
-        if (mode != 0) {
-            const uint32_t h = nextFile_++;
-            openFiles_[h] = OpenFile{{}, 0, true};
-            if (handleAddress)
-                c.write32(handleAddress, h);
-            return 0;
-        }
-        std::vector<uint8_t> data;
-        if (files_.read(path, data)) {
-            if (handleAddress)
-                c.write32(handleAddress, 0);
-            return 0xffffffffu;
-        }
-        const uint32_t length = uint32_t(data.size());
-        if (handleAddress) {
-            const uint32_t h = nextFile_++;
-            openFiles_[h] = OpenFile{std::move(data), 0, false};
-            c.write32(handleAddress, h);
-        }
-        return length;
-    });
-    import(FsRead, [this](x86::Cpu& c) -> uint32_t {
-        auto it = openFiles_.find(c.arg(2));
-        const uint32_t buffer = c.arg(0), length = c.arg(1);
-        if (it == openFiles_.end() || !c.valid(buffer, length))
-            return 0;
-        OpenFile& f = it->second;
-        const size_t n = std::min<size_t>(length, f.data.size() - f.position);
-        std::memcpy(c.memory().data() + buffer, f.data.data() + f.position, n);
-        f.position += n;
-        return uint32_t(n);
-    });
-    import(FsWrite, [this](x86::Cpu& c) -> uint32_t {
-        auto it = openFiles_.find(c.arg(2));
-        const uint32_t buffer = c.arg(0), length = c.arg(1);
-        if (it == openFiles_.end() || !c.valid(buffer, length))
-            return 0;
-        const uint8_t* p = c.memory().data() + buffer;
-        it->second.data.insert(it->second.data.end(), p, p + length);
-        return length;
-    });
+    // Files.
+    import(FsFOpenFile, [this](x86::Cpu& c) { return fsOpen(c, c.arg(0), c.arg(1), c.arg(2)); });
+    import(FsRead, [this](x86::Cpu& c) { return fsRead(c, c.arg(0), c.arg(1), c.arg(2)); });
+    import(FsWrite, [this](x86::Cpu& c) { return fsWrite(c, c.arg(0), c.arg(1), c.arg(2)); });
     import(FsFCloseFile, [this](x86::Cpu& c) {
         openFiles_.erase(c.arg(0));
         return 0u;
@@ -766,7 +1152,13 @@ void SpGameHost::addImports() {
         return 0u;
     });
     import(SetConfigstring, [this, str](x86::Cpu& c) {
-        configstrings_[int32_t(c.arg(0))] = str(c, 1, 8192);
+        const int32_t index = int32_t(c.arg(0));
+        const std::string value = str(c, 1, 8192);
+        configstrings_[index] = value;
+        // Once the client game runs, it hears of changes as the original
+        // engine tells it.
+        if (cgameRunning_)
+            serverCommands_.emplace_back(0, "cs " + std::to_string(index) + " \"" + value + "\"");
         return 0u;
     });
     import(GetConfigstring, [this](x86::Cpu& c) {

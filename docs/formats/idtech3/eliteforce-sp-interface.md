@@ -241,3 +241,91 @@ The UI works differently from the game:
 | 56 | the connection state (an int: 7 is in the game) |
 | 57 | `GetConfigString(index, buffer, size)` → whether there is one |
 | 58 | `Milliseconds()` |
+
+## Structures
+
+As the original engine reads and fills them.
+
+- **Entities** (`gentity_t`, 1056 bytes): the shared part is laid out as in
+  JK2.
+
+  | Offset | Field |
+  |---|---|
+  | 0 | the entity state (232 bytes): number 0, `origin2` 0x68, model index 0xa0, `solid` 0xb4 |
+  | 0xe8 | `client`: a pointer to the player state |
+  | 0xec | `inuse` |
+  | 0xf0 | `linked` |
+  | 0xf4 | `svFlags` |
+  | 0xf8 | `bmodel` |
+  | 0xfc | `mins` |
+  | 0x108 | `maxs` |
+  | 0x114 | `contents` |
+  | 0x118 | `absmin` |
+  | 0x124 | `absmax` |
+  | 0x130 | `currentOrigin` |
+  | 0x13c | `currentAngles` |
+  | 0x148 | `owner`: a pointer, not a number |
+
+  `svFlags`: 1 never sent to the client, 0x20 always sent, 0x40 a portal (what's seen from its `origin2` is sent too).
+
+- **Player state**: 544 bytes. Origin at 0x14, view height (an int) at 0xa8.
+- **User command** (`usercmd_t`, 28 bytes):
+
+  | Offset | Field |
+  |---|---|
+  | 0 | server time |
+  | 4 | buttons |
+  | 8 | weapon (a byte) |
+  | 12 | angles: three ints, 65536 a turn |
+  | 24, 25, 26 | forward, right and up moves (signed bytes) |
+
+  The engine keeps 64.
+- **`trace_t`**: Quake III's 56 bytes. The entity number is at 52 (1022 the world, 1023 nothing).
+- **`snapshot_t`** (the client game's):
+
+  | Offset | Field |
+  |---|---|
+  | 0 | flags |
+  | 4 | ping |
+  | 8 | server time |
+  | 12 | area mask (32 bytes) |
+  | 44 | command number |
+  | 48 | player state |
+  | 0x250 | entity count |
+  | 0x254 | entity states (up to 256) |
+  | 0xea60 | server command sequence |
+
+  The engine keeps the last 32.
+- **`gameState_t`**: Quake III's 20100 bytes.
+- **`glconfig_t`** (5196 bytes):
+
+  | Offset | Field |
+  |---|---|
+  | 0 | renderer name (1024 bytes) |
+  | 1024 | vendor (1024 bytes) |
+  | 2048 | version (1024 bytes) |
+  | 3072 | extensions (2048 bytes) |
+  | 5120 | Quake III's numbers |
+  | 5168, 5172 | screen width and height: two words later than Quake III's |
+
+- **`cvar_t`**, the engine's own, which the server game holds pointers to:
+
+  | Offset | Field |
+  |---|---|
+  | 0 | name |
+  | 4 | text |
+  | 16 | flags |
+  | 20 | modified |
+  | 24 | modification count |
+  | 28 | value |
+  | 32 | integer |
+
+## How the halves meet
+
+- The server game calls into its client half through the function
+  `dllEntry` hands over, so the engine calls `dllEntry` before the level
+  starts. One example: the server game sets `cg_viewsize` through it as
+  the player's view is set up.
+- Configstring changes reach the client game as `cs <index> "<text>"`
+  server commands.
+- `S_GetSampleLength` returns its float in the x87's ST(0), not in EAX.

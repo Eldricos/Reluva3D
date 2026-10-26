@@ -3751,13 +3751,13 @@ int cmdX86Run(int argc, char** argv) {
 int cmdSpRun(int argc, char** argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] "
-                             "[-set name value]... [-trace] [-noclient]\n");
+                             "[-set name value]... [-trace] [-noclient] [-cgame]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
     int frames = 20;
-    bool traceCalls = false, noClient = false;
+    bool traceCalls = false, noClient = false, runCgame = false;
     std::string dllPath;
     std::vector<std::pair<std::string, std::string>> settings;
     for (int i = 4; i < argc; ++i) {
@@ -3769,6 +3769,8 @@ int cmdSpRun(int argc, char** argv) {
             traceCalls = true;
         else if (std::strcmp(argv[i], "-noclient") == 0)
             noClient = true;
+        else if (std::strcmp(argv[i], "-cgame") == 0)
+            runCgame = true;
         else if (std::strcmp(argv[i], "-set") == 0 && i + 2 < argc) {
             settings.emplace_back(argv[i + 1], argv[i + 2]);
             i += 2;
@@ -3883,9 +3885,31 @@ int cmdSpRun(int argc, char** argv) {
         else
             std::printf("player joined\n");
     }
-    for (int f = 0; f < frames; ++f)
+    if (runCgame && !noClient) {
+        const uint64_t before = game.cpu().executed();
+        if (reluva::Error e = game.startClientGame())
+            return failed("the client game's start-up", e);
+        std::printf("client game started: %llu instructions; %zu models, %zu shaders, %zu skins, %zu sounds registered\n",
+                    (unsigned long long)(game.cpu().executed() - before), game.models().size(), game.shaders().size(),
+                    game.skins().size(), game.sounds().size());
+    }
+    for (int f = 0; f < frames; ++f) {
         if (reluva::Error e = game.runFrame())
             return failed(("frame " + std::to_string(f + 1)).c_str(), e);
+        if (game.clientGameRunning())
+            if (reluva::Error e = game.drawClientFrame({}))
+                return failed(("client frame " + std::to_string(f + 1)).c_str(), e);
+    }
+    if (game.clientGameRunning()) {
+        const ef::SpGameHost::ClientFrame& cf = game.lastClientFrame();
+        std::printf("last client frame: %zu scene entities, %d polygons, %d lights, %d scenes rendered, %d pictures\n",
+                    cf.entityModels.size(), cf.polys, cf.lights, cf.scenes, cf.pictures);
+        std::map<std::string, int> byModel;
+        for (const int32_t m : cf.entityModels)
+            ++byModel[m ? game.models().name(m) : std::string("(no model)")];
+        for (const auto& [name, count] : byModel)
+            std::printf("  %3d x %s\n", count, name.c_str());
+    }
     const double seconds =
         std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
     std::printf("%d frames run (level time %d ms): %d entities, %zu linked; %llu instructions in %.2f s\n", frames,
