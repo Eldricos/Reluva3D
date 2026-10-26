@@ -122,6 +122,7 @@
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
+#include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/eliteforce/net_client.h"
 #include "engines/idtech3/eliteforce/net_server.h"
 #include "engines/idtech3/info_string.h"
@@ -3744,6 +3745,124 @@ int cmdX86Run(int argc, char** argv) {
     return 0;
 }
 
+// Runs Elite Force's single-player game logic (efgamex86.dll, in the x86
+// interpreter) on a map: GetGameAPI, Init with the map's entities, the
+// player joining, then frames; reports what the game did.
+int cmdSpRun(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] "
+                             "[-set name value]... [-trace] [-noclient]\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    namespace ef = reluva::idtech3::eliteforce;
+    int frames = 20;
+    bool traceCalls = false, noClient = false;
+    std::string dllPath;
+    std::vector<std::pair<std::string, std::string>> settings;
+    for (int i = 4; i < argc; ++i) {
+        if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
+            frames = std::atoi(argv[++i]);
+        else if (std::strcmp(argv[i], "-dll") == 0 && i + 1 < argc)
+            dllPath = argv[++i];
+        else if (std::strcmp(argv[i], "-trace") == 0)
+            traceCalls = true;
+        else if (std::strcmp(argv[i], "-noclient") == 0)
+            noClient = true;
+        else if (std::strcmp(argv[i], "-set") == 0 && i + 2 < argc) {
+            settings.emplace_back(argv[i + 1], argv[i + 2]);
+            i += 2;
+        } else
+            std::fprintf(stderr, "sp-run: ignoring %s\n", argv[i]);
+    }
+    // The DLL sits beside the game's folder (the install's), or in it.
+    if (dllPath.empty()) {
+        std::filesystem::path folder = std::filesystem::path(argv[2]).lexically_normal();
+        if (!folder.has_filename())
+            folder = folder.parent_path();
+        for (const std::filesystem::path& p : {folder.parent_path() / "efgamex86.dll", folder / "efgamex86.dll"})
+            if (std::filesystem::exists(p)) {
+                dllPath = p.string();
+                break;
+            }
+        if (dllPath.empty()) {
+            std::fprintf(stderr, "efgamex86.dll isn't beside %s; give it with -dll\n", argv[2]);
+            return 1;
+        }
+    }
+    Bytes dll;
+    if (!readFile(dllPath.c_str(), dll))
+        return 1;
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    std::string map = argv[3];
+    if (map.size() > 4 && map.compare(map.size() - 4, 4, ".bsp") == 0)
+        map.resize(map.size() - 4);
+    if (map.rfind("maps/", 0) == 0)
+        map = map.substr(5);
+    Bytes data;
+    auto bsp = std::make_shared<q3::Bsp>();
+    if (reluva::Error err = set.read("maps/" + map + ".bsp", data); err || (err = q3::parseBsp(data, *bsp))) {
+        std::fprintf(stderr, "maps/%s.bsp: %s\n", map.c_str(), err.message.c_str());
+        return 1;
+    }
+    q3::CvarStore cvars;
+    for (const auto& [name, value] : settings)
+        cvars.set(name, value);
+    ef::SpGameHost game(set, cvars);
+    game.print = [](const std::string& text) {
+        std::printf("game: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
+    };
+    if (traceCalls)
+        game.trace = [](int slot, uint32_t from) { std::printf("  engine[%d] from 0x%08x\n", slot, from); };
+    auto failed = [&](const char* what, const reluva::Error& e) {
+        std::printf("%s failed: %s\n", what, e.message.c_str());
+        std::printf("instructions run: %llu\n", (unsigned long long)game.cpu().executed());
+        return 1;
+    };
+    const auto started = std::chrono::steady_clock::now();
+    if (reluva::Error e = game.load(dll))
+        return failed("loading", e);
+    std::printf("efgamex86.dll loaded at 0x%08x\n", game.module()->base);
+    if (reluva::Error e = game.startLevel(map, bsp, ef::SpGameHost::mapChecksum(data), 0))
+        return failed("Init", e);
+    std::printf("Init done: %d entities (%d bytes each), %zu linked, %zu configstrings\n", game.entityCount(),
+                game.entitySize(), game.linked().size(), game.configstrings().size());
+    if (!noClient) {
+        std::string refused;
+        if (reluva::Error e = game.connectPlayer("\\name\\Munro\\model\\munro/main", refused))
+            return failed("the player joining", e);
+        if (!refused.empty())
+            std::printf("the game refused the player: %s\n", refused.c_str());
+        else
+            std::printf("player joined\n");
+    }
+    for (int f = 0; f < frames; ++f)
+        if (reluva::Error e = game.runFrame())
+            return failed(("frame " + std::to_string(f + 1)).c_str(), e);
+    const double seconds =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
+    std::printf("%d frames run (level time %d ms): %d entities, %zu linked; %llu instructions in %.2f s\n", frames,
+                game.levelTime(), game.entityCount(), game.linked().size(),
+                (unsigned long long)game.cpu().executed(), seconds);
+    std::printf("configstrings:\n");
+    int shown = 0;
+    for (const auto& [index, text] : game.configstrings())
+        if (shown++ < 40)
+            std::printf("  %4d %s\n", index, text.substr(0, 100).c_str());
+    for (const std::string& c : game.consoleCommands())
+        std::printf("console command: %s", c.c_str());
+    for (const auto& [client, text] : game.serverCommands())
+        if (shown++ < 80)
+            std::printf("to client %d: %s\n", client, text.substr(0, 100).c_str());
+    std::printf("engine calls:");
+    for (const auto& [slot, count] : game.callCounts())
+        std::printf(" %d:%d", slot, count);
+    std::printf("\n");
+    return 0;
+}
+
 int cmdPeInfo(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool pe-info <file.dll|file.exe> [-all]\n");
@@ -4939,6 +5058,8 @@ int main(int argc, char** argv) {
         return cmdPeInfo(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "x86-run") == 0)
         return cmdX86Run(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "sp-run") == 0)
+        return cmdSpRun(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "pk3-sums") == 0)
         return cmdPk3Sums(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "ui-run") == 0)
@@ -4991,6 +5112,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool net-master [master[:port]]...\n"
                  "  reluva-tool pe-info <file.dll|file.exe>\n"
                  "  reluva-tool x86-run <file.dll> [-call Export [arg|table]...]\n"
+                 "  reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] [-set name value]... [-trace]\n"
                  "  reluva-tool pk3-sums <game folder> [feed]\n"
                  "  reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-addbot name]... | -join <host[:port]> [seconds] [-name name]\n"
                  "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n"

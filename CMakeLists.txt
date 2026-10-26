@@ -70,6 +70,7 @@ add_library(reluva_common STATIC
     src/common/x86/cpu.cpp
     src/common/x86/fpu.cpp
     src/common/x86/win32.cpp
+    src/common/x86/format.cpp
     src/common/detection.cpp
     src/common/audio/decode.cpp
     src/common/audio/mixer.cpp
@@ -167,6 +168,7 @@ if(RELUVA_ENGINE_IDTECH3)
     src/engines/idtech3/vm_services.cpp
     src/engines/idtech3/eliteforce/ui_host.cpp
     src/engines/idtech3/eliteforce/game_host.cpp
+    src/engines/idtech3/eliteforce/sp_game_host.cpp
     src/engines/idtech3/eliteforce/game_bots.cpp
     src/engines/idtech3/eliteforce/cgame_host.cpp
     src/engines/idtech3/eliteforce/scene.cpp
