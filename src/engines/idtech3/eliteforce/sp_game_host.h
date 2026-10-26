@@ -94,6 +94,9 @@ public:
     Error connectPlayer(const std::string& userinfo, std::string& refused);
     // One server frame: the level time moves on and the game's RunFrame.
     Error runFrame();
+    // The game's GameAllowedToSaveHere(flag), which the menus ask through
+    // the engine before opening (0 if the call fails).
+    uint32_t allowedToSaveHere(uint32_t flag);
     // A console command the engine doesn't know, for the game
     // (ConsoleCommand); `handled` gets whether it knew it.
     Error consoleCommand(const std::string& text, bool* handled = nullptr);

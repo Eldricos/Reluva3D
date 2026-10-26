@@ -79,8 +79,9 @@ public:
     std::function<void(const std::string& sound, int channel)> startLocalSound;
     // Configstrings of the game running (GetConfigString): false if none.
     std::function<bool(int32_t index, std::string& out)> configString;
-    // Whether the game may be saved now (the game's own say).
-    std::function<bool()> allowedToSave;
+    // Engine function 42 (flag): the running game's GameAllowedToSaveHere
+    // with that flag; unset while there's no game (the flag comes back).
+    std::function<uint32_t(uint32_t flag)> askGame;
     // What keys do (the Controls menu); none: no bindings.
     KeyBindings* bindings = nullptr;
     // Keys held now (IsDown).

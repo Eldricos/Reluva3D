@@ -339,6 +339,13 @@ Error SpGameHost::runFrame() {
     return Error::success();
 }
 
+uint32_t SpGameHost::allowedToSaveHere(uint32_t flag) {
+    uint32_t result = 0;
+    if (callGame(GameAllowedToSaveHere, {flag}, &result))
+        return 0;
+    return result;
+}
+
 Error SpGameHost::consoleCommand(const std::string& text, bool* handled) {
     args_.clear();
     std::string word;

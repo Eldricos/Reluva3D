@@ -260,7 +260,7 @@ From `stvoy.exe` (its copy of the 12 functions is at 0x57f320):
 | 35–37 | `S_StartLocalSound(sfx, channel)`, `S_RegisterSound(name)`, `S_StartLocalLoopingSound(sfx)` |
 | 38 | renderer entry 19 (`DrawStretchRaw`) |
 | 39–41 | read saved games' chunks: their comments, pictures and so on (to identify one by one) |
-| 42 | whether the game may save here: asks the game's export 5 |
+| 42 | `(flag)`: with no game, returns `flag`; with one, the game's export 5 (`GameAllowedToSaveHere(flag)`). `SetActiveMenu` asks with 1 and opens nothing on 0 |
 | 43 | stores the comment (up to 128 characters) for the next save |
 | 44 | the 256×256 screen capture's pixels |
 | 45–53 | keys: `KeynumToStringBuf`, `GetBindingBuf`, `SetBinding`, `IsDown`, `GetOverstrikeMode`, `SetOverstrikeMode`, `ClearStates`, `GetCatcher`, `SetCatcher` |

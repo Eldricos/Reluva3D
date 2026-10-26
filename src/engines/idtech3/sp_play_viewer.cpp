@@ -111,6 +111,7 @@ void SpPlayViewer::startMenus() {
         out = it->second;
         return true;
     };
+    ui_->askGame = [this](uint32_t flag) { return game_ ? game_->allowedToSaveHere(flag) : flag; };
     if (Error err = ui_->load(uiDll_))
         return menusStopped(err);
     if (Error err = ui_->setActiveMenu("main"))

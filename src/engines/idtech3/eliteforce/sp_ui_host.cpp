@@ -489,7 +489,13 @@ void SpUiHost::addImports() {
     import(StartLocalLoopingSound, [](x86::Cpu&) { return 0u; });
     import(DrawStretchRaw, [](x86::Cpu&) { return 0u; });
 
-    import(AllowedToSave, [this](x86::Cpu&) -> uint32_t { return allowedToSave && allowedToSave() ? 1 : 0; });
+    import(AllowedToSave, [this](x86::Cpu& c) -> uint32_t {
+        // (flag): with no game, the flag itself (so SetActiveMenu, which
+        // asks with 1 before opening any menu, goes ahead); with one, the
+        // game's say (its GameAllowedToSaveHere), as the original's engine.
+        const uint32_t flag = c.arg(0);
+        return askGame ? askGame(flag) : flag;
+    });
 
     // Keys.
     import(KeynumToStringBuf, [](x86::Cpu& c) {
