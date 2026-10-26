@@ -11,3 +11,9 @@ int aweToolCommand(int argc, char** argv);
 int aweCheckCommand(int argc, char** argv);
 // Their usage lines.
 const char* aweToolUsage();
+
+namespace reluva::awe {
+// reluva-tool awe-path: the game's path between two cells beside Reluva's
+// (awe_path.cpp).
+int aweCommandPath(int argc, char** argv);
+} // namespace reluva::awe

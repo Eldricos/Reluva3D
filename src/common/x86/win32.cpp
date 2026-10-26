@@ -141,7 +141,12 @@ Win32Process::Win32Process(Cpu& cpu) : cpu_(cpu) {
     // The thread: its stack, and its information block (which FS points
     // at): the exception handler chain's head, the stack's bounds, its own
     // address and the process's block's.
+    // Not where programs (EXEs, which can't be relocated) ask to be loaded:
+    // 0x400000 and the few megabytes after it.
+    const bool reserved = arena_->claim(0x400000, 0xc00000);
     const uint32_t stack = arena_->alloc(kStackSize, 0x10000);
+    if (reserved)
+        arena_->free(0x400000);
     stackTop_ = stack + kStackSize;
     tib_ = arena_->alloc(Cpu::kPageSize, Cpu::kPageSize);
     peb_ = arena_->alloc(Cpu::kPageSize, Cpu::kPageSize);

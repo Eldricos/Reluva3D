@@ -347,9 +347,26 @@ outside a room are 0 too: the walls' 1s keep a search inside.
   of 48 steps (to the 8 neighbours, then 2 and 3 cells away in knight-like
   jumps; tables built at `0x42ea90`) in 8 headings, with turning costs
   precomputed (`0x42ec60`, `0x42ed90`), then smooths the result
-  (`0x430690`). Reluva doesn't follow it yet: its `WalkGrid::findPath` is
-  A* over the 8 neighbours, shortened to the turns it needs, with the
-  game's three tries and minimum distance.
+  (`0x430690`). It works in a 192 × 192 window around the start, each
+  cell in 8 headings, 16 bytes a node (the object is 0x4d4600 bytes).
+
+  Its results: the points from the goal back towards the start (the start
+  itself left out), each three doubles, cell a and b (a cell's centre is
+  n + 0.5) and a heading. 0x441089 truncates them to cells and walks
+  through their centres, from the last point to the first.
+
+  Until a native port matches it, Reluva runs this search itself from the
+  user's `motoe.exe`, in the x86 interpreter, as it does granny2.dll
+  (`src/engines/awe/game_paths.cpp`): the object made as the game makes it
+  (`0x4025a0`: constructed at `0x42e840`, tables built at `0x42e900`,
+  about a second), its grid written in, then `0x42ef40` called; operator
+  new and delete are pointed at the interpreter's memory, since the
+  game's C runtime isn't started. A search takes 5 to 35 ms. Without the
+  executable, `WalkGrid::findPath` plans instead: A* over the 8
+  neighbours, shortened to the turns it needs, with the game's three tries
+  and minimum distance. Its paths go the same way with fewer, sharper
+  turns. `reluva-tool awe-path` shows both for two cells, and `awe-check
+  -ac2` has the game's plan every `walk a b` in an install.
 
 Characters walk at their walk animation's own pace. The walk carries the
 body forward (Poirot's root, `Bip01`, moves 240 units in its 0.8 s
@@ -383,5 +400,5 @@ no sample mixes them. Reluva's evaluator is `testCondition`
 ## Still to find
 
 - What the unnamed fields do: compare scenes, and watch the original.
-- The path-finder's own lattice search, for paths that turn as the game's do.
+- The path-finder's lattice search in full, for a native port.
 - The save format (`DESC`, `INFO`, `GLBT`...).

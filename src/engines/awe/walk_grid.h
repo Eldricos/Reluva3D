@@ -36,6 +36,10 @@ public:
     bool empty() const { return size_ <= 0; }
     int cellSize() const { return size_; }
     uint8_t at(int a, int b) const { return inside(a, b) ? cells_[size_t(a * kSize + b)] : 1; }
+    void set(Cell c, uint8_t value) {
+        if (inside(c.a, c.b))
+            cells_[size_t(c.a * kSize + c.b)] = value;
+    }
     static bool inside(int a, int b) { return a >= 0 && b >= 0 && a < kSize && b < kSize; }
 
     void centre(Cell c, float& x, float& z) const;

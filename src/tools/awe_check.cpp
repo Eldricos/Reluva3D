@@ -19,6 +19,7 @@
 #include "engines/awe/granny_dll.h"
 #include "engines/awe/model.h"
 #include "engines/awe/tables.h"
+#include "engines/awe/game_paths.h"
 #include "engines/awe/walk_grid.h"
 
 #include <algorithm>
@@ -356,7 +357,11 @@ int checkScenes(const reluva::Archive& files, bool verbose) {
     };
     std::map<int, size_t> cellSizes, cellValues, gridSizes;
     Landing standing, points, walks;
-    size_t grids = 0, reachable = 0, unreachable = 0;
+    size_t grids = 0, reachable = 0, unreachable = 0, planned = 0, unplanned = 0;
+    // The game's own path-finder, from motoe.exe, if it's there.
+    awe::GamePathFinder game;
+    std::vector<uint8_t> exe;
+    const bool haveGame = !files.read("motoe.exe", exe) && !game.load(exe);
     for (const std::string& n : names) {
         // Text/Scripts' slots are saves, with records of their own.
         if (reluva::fs::toLower(n).rfind("text/scripts/", 0) == 0) {
@@ -471,6 +476,23 @@ int checkScenes(const reluva::Archive& files, bool verbose) {
                     land(walks, awe::WalkGrid::inside(cell.a, cell.b) ? cell : awe::WalkGrid::Cell(),
                          "walk " + c.words[1] + " " + c.words[2]);
                     if (!reach.empty() && awe::WalkGrid::inside(cell.a, cell.b)) {
+                        if (haveGame && reach[size_t(cell.a * 64 + cell.b)]) {
+                            const awe::WalkGrid::Cell from = [&] {
+                                for (const awe::Ac2Record* p : scene.objects())
+                                    if (p->tag == "PCXX")
+                                        return grid.cellAt(p->f("x"), p->f("z"));
+                                return awe::WalkGrid::Cell();
+                            }();
+                            const bool near = std::abs(from.a - cell.a) + std::abs(from.b - cell.b) < 3;
+                            if (near || !game.findPath(grid, from, cell, false).empty())
+                                planned++;
+                            else {
+                                unplanned++;
+                                if (verbose)
+                                    std::printf("WARN %s: the game's path-finder finds no way to walk %ld %ld\n", n.c_str(), a,
+                                                b);
+                            }
+                        }
                         if (reach[size_t(cell.a * 64 + cell.b)])
                             reachable++;
                         else {
@@ -509,6 +531,8 @@ int checkScenes(const reluva::Archive& files, bool verbose) {
     landing("\"walk a b\" commands", walks);
     std::printf("    of those in scenes with the player: %zu reachable from where the player stands, %zu not\n", reachable,
                 unreachable);
+    if (haveGame)
+        std::printf("    the game's path-finder (motoe.exe) plans %zu of the reachable ones, not %zu\n", planned, unplanned);
     std::printf("  records:");
     for (const auto& [t, n] : tags)
         std::printf(" %s %zu", t.c_str(), n);

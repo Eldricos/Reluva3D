@@ -197,6 +197,7 @@ if(RELUVA_ENGINE_AWE)
         src/engines/awe/sprite.cpp
         src/engines/awe/particles.cpp
         src/engines/awe/walk_grid.cpp
+        src/engines/awe/game_paths.cpp
         src/engines/awe/game_text.cpp
         src/engines/awe/viewers.cpp
         src/engines/awe/model_viewer.cpp
@@ -221,7 +222,7 @@ endif()
 add_executable(reluva-tool src/tools/reluva_tool.cpp src/backends/sockets/socket_net.cpp)
 target_link_libraries(reluva-tool PRIVATE reluva_engines reluva_warnings)
 if(RELUVA_ENGINE_AWE)
-    target_sources(reluva-tool PRIVATE src/tools/awe_tool.cpp src/tools/awe_check.cpp)
+    target_sources(reluva-tool PRIVATE src/tools/awe_tool.cpp src/tools/awe_check.cpp src/tools/awe_path.cpp)
 endif()
 if(WIN32)
     target_link_libraries(reluva-tool PRIVATE ws2_32 iphlpapi)

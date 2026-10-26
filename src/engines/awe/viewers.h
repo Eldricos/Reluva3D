@@ -14,6 +14,7 @@
 #include "common/video/bink_video.h"
 #include "engines/awe/ac2.h"
 #include "engines/awe/conditions.h"
+#include "engines/awe/game_paths.h"
 #include "engines/awe/particles.h"
 #include "engines/awe/walk_grid.h"
 #include "engines/awe/game_text.h"
@@ -192,6 +193,11 @@ private:
     bool showGrid_ = false;
     WalkGrid::Cell hover_;
     std::vector<WalkGrid::Cell> path_;
+    // The game's own path-finder, from motoe.exe (loaded on the first
+    // walk); Reluva's A* if it can't be.
+    std::unique_ptr<GamePathFinder> gamePaths_;
+    bool triedGamePaths_ = false;
+    std::string pathSource_;
     float time_ = 0;
     image::Image dot_; // stands in for a particle texture that's missing
     uint64_t lastMs_ = 0;

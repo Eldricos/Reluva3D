@@ -671,7 +671,7 @@ void ScenePage::draw() {
                 g += ", under the mouse (" + std::to_string(hover_.a) + ", " + std::to_string(hover_.b) +
                      ") = " + std::to_string(grid_.at(hover_.a, hover_.b));
             if (!path_.empty())
-                g += ", path of " + std::to_string(path_.size()) + " points";
+                g += ", path of " + std::to_string(path_.size()) + " points by " + pathSource_;
             lines.push_back(g);
         }
         lines.push_back(std::string("train ") + (state_.values["moving"] ? "moving" : "stopped") + ", weather " +
@@ -948,7 +948,20 @@ void ScenePage::walkTo(int sx, int sy) {
         for (const Ac2Record* o : scene_.objects())
             if (o->tag == "PCXX")
                 start = grid_.cellAt(o->f("x"), o->f("z"));
-    path_ = grid_.findPath(start, goal);
+    if (!triedGamePaths_) {
+        triedGamePaths_ = true;
+        std::vector<uint8_t> exe;
+        auto finder = std::make_unique<GamePathFinder>();
+        if (!ctx_.files.read("motoe.exe", exe) && !finder->load(exe))
+            gamePaths_ = std::move(finder);
+    }
+    if (gamePaths_) {
+        path_ = gamePaths_->findPath(grid_, start, goal, false);
+        pathSource_ = "the game's path-finder";
+    } else {
+        path_ = grid_.findPath(start, goal);
+        pathSource_ = "Reluva's A*";
+    }
     if (who && path_.size() > 1 && loadWalk(*who)) {
         who->path.clear();
         for (size_t i = 1; i < path_.size(); i++) {

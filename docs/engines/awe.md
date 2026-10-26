@@ -58,8 +58,9 @@ scenes, two Granny files, the text tables, two backgrounds):
   can walk is understood: how cells map to the floor, what the values
   mean, how clicks and `walk a b` pick cells, and the game's three tries
   at a path. G shows a scene's grid over its background, and clicking
-  the floor walks the player's character there along a path (A* for now,
-  not yet the game's own lattice search).
+  the floor walks the player's character there along a path planned by
+  the game's own path-finder (run from `motoe.exe` in the x86
+  interpreter, until a native port matches it; A* without it).
 - **Particles** (`SNOW`, `RAIN`, `PART`) are simulated by the rules of
   the game's own update method and drawn as its point sprites are, among
   the scene's 2D layers by depth (snow outside the Salon's windows when
@@ -109,8 +110,8 @@ Next:
 1. Run sweeps over a full install: `reluva-tool ac2-dump Locations/*/*.ac2`
    (every scene to its `DONE`) and `gr2-info` over `Models/`, to find
    records and member types the samples didn't have.
-2. The path-finder's own lattice search (`0x42f1f0`), so paths turn as
-   the game's do.
+2. A native port of the path-finder's lattice search (`0x42f1f0`),
+   checked path for path against the game's (`awe-path`).
 3. Read the script interpreter in `motoe.exe`: the full list of verbs and
    their arguments.
 4. Native decoding of the compressed curve formats (the DLL expands them
