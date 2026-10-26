@@ -7,6 +7,7 @@
 #include "common/font.h"
 #include "common/fs.h"
 #include "common/text.h"
+#include "common/video/bink_audio.h"
 #include "engines/awe/camera.h"
 #include "engines/awe/tables.h"
 
@@ -624,6 +625,148 @@ void ScenePage::handleEvent(const Event& ev) {
         if (showCharacters_ && characters_.empty())
             loadCharacters();
         draw();
+    }
+}
+
+// --- Movies ---------------------------------------------------------------------
+
+MoviePage::MoviePage(ViewerContext& ctx) : Page(ctx) {
+    names_ = listFiles(ctx.files, {"movies/", "elements/", "locations/"}, {".bik"});
+}
+
+MoviePage::~MoviePage() { stop(); }
+
+void MoviePage::activate() {
+    begin2D();
+    open();
+}
+
+void MoviePage::deactivate() { stop(); }
+
+void MoviePage::stop() {
+    if (ctx_.mixer && sound_ != audio::kNoSound)
+        ctx_.mixer->stop(sound_);
+    sound_ = audio::kNoSound;
+}
+
+void MoviePage::open() {
+    stop();
+    file_.reset();
+    video_.reset();
+    soundtrack_.reset();
+    info_.clear();
+    next_ = 0;
+    paused_ = false;
+    clear(0, 0, 0);
+    if (names_.empty())
+        return;
+    const std::string& name = names_[size_t(index_)];
+    std::vector<uint8_t> data;
+    auto file = std::make_unique<video::BinkFile>();
+    auto video = std::make_unique<video::BinkVideoDecoder>();
+    Error e = ctx_.files.read(name, data);
+    if (!e)
+        e = file->open(std::move(data));
+    if (!e)
+        e = video->init(file->width(), file->height(), file->revision(), file->flags());
+    if (e) {
+        info_ = e.message;
+        return;
+    }
+    char buf[160];
+    std::snprintf(buf, sizeof buf, "%dx%d, %zu frames at %.2f fps, revision %c", file->width(), file->height(),
+                  file->frameCount(), file->fps(), file->revision());
+    info_ = buf;
+    // The soundtrack, decoded whole and played alongside.
+    if (!file->audioTracks().empty()) {
+        const video::BinkAudioTrack& t = file->audioTracks()[0];
+        video::BinkAudioDecoder dec;
+        auto sound = std::make_shared<audio::Sound>();
+        if (Error ae = dec.init(t.sampleRate, t.channels, t.dct)) {
+            info_ += ", sound: " + ae.message;
+        } else {
+            for (size_t i = 0; i < file->frameCount(); i++) {
+                video::BinkFile::Frame f;
+                if (!file->frame(i, f) && !f.audio.empty() && f.audio[0].size)
+                    dec.decode(f.audio[0].data, f.audio[0].size, sound->samples);
+            }
+            sound->rate = t.sampleRate;
+            sound->channels = t.channels;
+            sound->format = 0;
+            info_ += ", sound " + std::to_string(t.sampleRate) + " Hz";
+            soundtrack_ = sound;
+            if (ctx_.mixer)
+                sound_ = ctx_.mixer->play(sound, audio::SoundType::Speech);
+        }
+    }
+    file_ = std::move(file);
+    video_ = std::move(video);
+    startMs_ = ctx_.sys.getMillis();
+    ctx_.sys.setWindowTitle("Movies: " + name);
+}
+
+void MoviePage::update(uint64_t nowMs) {
+    if (file_ && !paused_ && file_->frameCount() > 0 && file_->fps() > 0) {
+        // Decode up to the frame due now (skipping none: each builds on the last).
+        const size_t due = size_t(double(nowMs - startMs_) * file_->fps() / 1000.0);
+        bool drawn = false;
+        while (next_ <= due && next_ < file_->frameCount()) {
+            video::BinkFile::Frame f;
+            Error e = file_->frame(next_, f);
+            if (!e)
+                e = video_->decode(f.video.data, f.video.size);
+            if (e)
+                info_ = "frame " + std::to_string(next_) + ": " + e.message;
+            next_++;
+            drawn = true;
+        }
+        if (next_ >= file_->frameCount() && due >= file_->frameCount() && loop_ && !soundtrack_) {
+            // Video loops (no sound) start over.
+            open();
+            return;
+        }
+        if (drawn) {
+            video_->toRgba(rgba_);
+            clear(0, 0, 0);
+            image::Image img;
+            img.w = video_->width();
+            img.h = video_->height();
+            img.rgba = rgba_;
+            image::blit(ctx_.screen, img, (kScreenW - img.w) / 2, (kScreenH - img.h) / 2);
+        }
+    }
+    label(4, 2,
+          (names_.empty() ? std::string("No movies") : names_[size_t(index_)]) + "  (" + std::to_string(index_ + 1) +
+              "/" + std::to_string(names_.size()) + ")  " + info_ +
+              (file_ ? "  frame " + std::to_string(next_) + "/" + std::to_string(file_->frameCount()) : ""),
+          {255, 230, 150});
+    help("Left/Right: movie  Space: pause  Enter: restart");
+    Page::update(nowMs);
+}
+
+void MoviePage::handleEvent(const Event& ev) {
+    if (ev.type != EventType::KeyDown)
+        return;
+    if (const int d = step(ev.key, index_, int(names_.size()))) {
+        index_ += d;
+        open();
+    } else if (ev.key == key::Return) {
+        open();
+    } else if (ev.key == key::Space && file_) {
+        paused_ = !paused_;
+        if (paused_) {
+            stop();
+        } else {
+            // Carry on from the frame shown, the sound from the same time.
+            startMs_ = ctx_.sys.getMillis() - uint64_t(double(next_) * 1000.0 / file_->fps());
+            if (soundtrack_ && ctx_.mixer) {
+                auto rest = std::make_shared<audio::Sound>(*soundtrack_);
+                const size_t from = std::min(rest->samples.size(),
+                                             size_t(double(next_) / file_->fps() * rest->rate) * size_t(rest->channels));
+                rest->samples.erase(rest->samples.begin(), rest->samples.begin() + ptrdiff_t(from));
+                sound_ = ctx_.mixer->play(rest, audio::SoundType::Speech);
+            }
+        }
     }
 }
 

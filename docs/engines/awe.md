@@ -48,9 +48,13 @@ scenes, two Granny files, the text tables, two backgrounds):
   Reluva's matrices match granny2.dll's. Characters are drawn into the
   Scenes page through them, posed by their idle (or sitting) animation,
   between the background and the cutouts in front.
+- **Bink movies: decoded.** Video and audio match FFmpeg's output
+  exactly (see [../formats/bink.md](../formats/bink.md)) and play in the
+  Movies page with their sound.
 - **The engine is a data viewer** for now, like New Worlds and Elite Force
   were before they played. Its pages are Scenes, Models (textured,
-  animated, with the mouse to turn and zoom), Pictures, Text and Sounds.
+  animated, with the mouse to turn and zoom), Movies, Pictures, Text and
+  Sounds.
   Tab moves between them.
 - **reluva-tool:**
   - `ac2-dump` (one scene in full, or many checked to their ends);
@@ -61,7 +65,9 @@ scenes, two Granny files, the text tables, two backgrounds):
   - `awe-shot` (a viewer page drawn without a window, saved as TGA);
   - `awe-camera` (a scene's camera as granny2.dll and Reluva build it);
   - `awe-check` (every Granny file, scene and text file of an install
-    read, with cameras compared against the DLL: the regression test).
+    read, with cameras compared against the DLL: the regression test);
+  - `bink-info` (a movie's header and frames; `-yuv`, `-wav`, `-tga` to
+    decode it).
 - **Tests:** `tests/test_awe.cpp`, on files built in the test.
 
 Corrections to the plan below:
@@ -87,8 +93,8 @@ Next:
    so characters can move about.
 3. Read the script interpreter in `motoe.exe`: the full list of verbs and
    their arguments.
-4. A native Bink video decoder (movies, and the scenes' video loops), from
-   the MultimediaWiki description. No movie was in the samples.
+4. The scenes' video loops (BINK objects) drawn in the Scenes page, and
+   subtitles (`Text/Movies`) under the movies.
 5. TrueType text for the game's own fonts.
 6. Native Oodle1 and Bink-texture decoding, checked against the DLL, to
    load models in a fraction of the time.

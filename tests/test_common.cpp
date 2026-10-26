@@ -22,6 +22,8 @@
 #include "common/text.h"
 #include "common/x86/cpu.h"
 #include "common/x86/win32.h"
+#include "common/video/bink_audio.h"
+#include "common/video/bink_file.h"
 #include "common/zip.h"
 #include "zip_writer.h"
 
@@ -496,6 +498,79 @@ static void testX86Dll() {
     }
 }
 
+// A Bink file built here: its frames' audio and video packets split out.
+static void testBinkFile() {
+    std::vector<uint8_t> f;
+    auto u32 = [&](uint32_t v) {
+        for (int i = 0; i < 4; i++)
+            f.push_back(uint8_t(v >> (8 * i)));
+    };
+    auto u16 = [&](uint16_t v) { f.push_back(uint8_t(v)), f.push_back(uint8_t(v >> 8)); };
+    f = {'B', 'I', 'K', 'i'};
+    u32(0), u32(2), u32(100), u32(2), u32(64), u32(32), u32(25), u32(1), u32(0), u32(1);
+    u16(0), u16(2);                       // the track: two bytes, channels
+    u16(22050), u16(1u << 13 | 1u << 12); // rate, stereo DCT
+    u32(7);                               // its ID
+    const size_t index = f.size();
+    u32(0), u32(0), u32(0); // frame offsets, set below
+    const uint32_t frame0 = uint32_t(f.size());
+    // (Frames start at even offsets: bit 0 of an index entry marks keyframes.)
+    u32(4 + 4), u32(1234), f.insert(f.end(), {1, 2, 3, 4}); // audio: size, decoded bytes, data
+    f.insert(f.end(), {9, 9});                                // video
+    const uint32_t frame1 = uint32_t(f.size());
+    u32(0); // no audio
+    f.insert(f.end(), {8, 8, 8, 8});
+    const uint32_t end = uint32_t(f.size());
+    for (int i = 0; i < 4; i++) {
+        f[index + size_t(i)] = uint8_t((frame0 | 1) >> (8 * i));
+        f[index + 4 + size_t(i)] = uint8_t(frame1 >> (8 * i));
+        f[index + 8 + size_t(i)] = uint8_t(end >> (8 * i));
+    }
+    video::BinkFile bink;
+    CHECK(!bink.open(f));
+    CHECK(bink.revision() == 'i' && bink.width() == 64 && bink.height() == 32 && bink.fps() == 25);
+    CHECK(bink.audioTracks().size() == 1 && bink.audioTracks()[0].channels == 2 && bink.audioTracks()[0].dct &&
+          bink.audioTracks()[0].id == 7 && bink.audioTracks()[0].sampleRate == 22050);
+    CHECK(bink.frameCount() == 2);
+    video::BinkFile::Frame fr;
+    CHECK(!bink.frame(0, fr));
+    CHECK(fr.keyframe && fr.audio.size() == 1 && fr.audio[0].size == 4 && fr.audio[0].data[2] == 3);
+    CHECK(fr.audioBytes[0] == 1234 && fr.video.size == 2 && fr.video.data[0] == 9);
+    CHECK(!bink.frame(1, fr));
+    CHECK(!fr.keyframe && fr.audio[0].size == 0 && fr.video.size == 4);
+    CHECK(bink.frame(2, fr));
+}
+
+// A Bink audio block of nothing but zeros decodes to silence, of the
+// block's length (1024 less its overlap of 64 at 22050 Hz).
+static void testBinkAudio() {
+    std::vector<uint8_t> bytes;
+    size_t pos = 0;
+    auto put = [&](uint32_t v, int n) {
+        for (int i = 0; i < n; i++, pos++) {
+            if (pos / 8 >= bytes.size())
+                bytes.push_back(0);
+            bytes[pos / 8] |= uint8_t(((v >> i) & 1) << (pos % 8));
+        }
+    };
+    put(0, 2);         // (skipped)
+    put(0, 29 * 2);    // the first two coefficients: zero floats
+    put(0, 8 * 23);    // 23 bands' quantisers
+    for (int run = 0; run < 2; run++) {
+        put(1, 1), put(15, 4); // a run of 64 x 8
+        put(0, 4);             // of width 0: zeros
+    }
+    while (pos % 32)
+        put(0, 1);
+    video::BinkAudioDecoder dec;
+    CHECK(!dec.init(22050, 1, true));
+    std::vector<int16_t> out;
+    CHECK(!dec.decode(bytes.data(), bytes.size(), out));
+    CHECK(out.size() == 960);
+    CHECK(std::all_of(out.begin(), out.end(), [](int16_t s) { return s == 0; }));
+    CHECK(dec.init(22050, 1, false)); // the FFT form isn't supported
+}
+
 int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_tests";
     testMd5();
@@ -514,6 +589,8 @@ int main() {
     testGfxMath();
     testX86Instructions();
     testX86Dll();
+    testBinkFile();
+    testBinkAudio();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

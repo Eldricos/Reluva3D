@@ -10,6 +10,8 @@
 #include "common/image.h"
 #include "common/system.h"
 #include "common/types.h"
+#include "common/video/bink_file.h"
+#include "common/video/bink_video.h"
 #include "engines/awe/ac2.h"
 #include "engines/awe/gr2.h"
 #include "engines/awe/granny_dll.h"
@@ -192,6 +194,35 @@ private:
     int dragX_ = 0, dragY_ = 0;
     float time_ = 0;
     uint64_t lastMs_ = 0;
+};
+
+// Movies (Movies/*.bik) and the scenes' video loops (Elements/**/*.bik,
+// cutouts'), with their sound.
+class MoviePage : public Page {
+public:
+    explicit MoviePage(ViewerContext& ctx);
+    ~MoviePage() override;
+    const char* name() const override { return "Movies"; }
+    size_t count() const override { return names_.size(); }
+    void activate() override;
+    void deactivate() override;
+    void handleEvent(const Event& ev) override;
+    void update(uint64_t nowMs) override;
+
+private:
+    void open();
+    void stop();
+    std::vector<std::string> names_;
+    int index_ = 0;
+    std::unique_ptr<video::BinkFile> file_;
+    std::unique_ptr<video::BinkVideoDecoder> video_;
+    std::vector<uint8_t> rgba_;
+    std::string info_;
+    size_t next_ = 0;      // the next frame to decode
+    uint64_t startMs_ = 0; // when frame 0 was due
+    bool paused_ = false, loop_ = true;
+    std::shared_ptr<audio::Sound> soundtrack_;
+    audio::SoundHandle sound_ = audio::kNoSound;
 };
 
 // Text files: tables, dialogue, subtitles.

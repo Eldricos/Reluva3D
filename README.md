@@ -15,7 +15,9 @@ src/common/        platform-independent core: System interface, events,
                    search sets; image decoding (TGA, JPEG, PNG, BMP); the 3D
                    rendering interface (gfx3d.h)
   audio/           sound decoders and the mixer, shared by every engine: WAV (PCM, IMA ADPCM), MP3
-third_party/       outside code Reluva builds in, each with its licence (minimp3, stb_image)
+  video/           video decoders: Bink (container, video, audio; docs/formats/bink.md)
+third_party/       outside code Reluva builds in, each with its licence (minimp3, stb_image,
+                   FFmpeg's Bink tables)
 src/backends/sdl3/ the only code that touches SDL (window, rendering, input, audio),
                    including 3D on SDL's GPU API and its shaders
 src/launcher/      Dear ImGui game list: add / remove / start games
@@ -62,7 +64,7 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
 - `reluva-tool` has developer tools for studying game data: `hexdump`,
   `cat-probe`, `cat-list` and `cat-extract` (New Worlds archives).
 - Murder on the Orient Express opens as a data viewer: **Tab** switches between
-  scenes, models, pictures, text and sounds, and each page lists its keys at
+  scenes, models, movies, pictures, text and sounds, and each page lists its keys at
   the bottom (scenes: **Left/Right** scene, **Up/Down** an object's fields,
   **H** hotspots, **C** characters; models: **Up/Down** animation, drag and
   wheel to view). **F12** saves a screenshot in the game's folder of Reluva's

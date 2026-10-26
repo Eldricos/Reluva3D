@@ -17,6 +17,7 @@
 #include "common/image.h"
 #include "common/system.h"
 #include "common/video/bink_file.h"
+#include "common/video/bink_audio.h"
 #include "common/video/bink_video.h"
 
 #include <algorithm>
@@ -334,7 +335,7 @@ public:
 // it, and saves the screen as a TGA file.
 int cmdAweShot(int argc, char** argv) {
     if (argc < 5) {
-        std::fprintf(stderr, "usage: reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds> <out.tga> "
+        std::fprintf(stderr, "usage: reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds|movies> <out.tga> "
                              "[key...]\n  keys: left right up down pgup pgdn home end, or one character\n");
         return 2;
     }
@@ -357,6 +358,8 @@ int cmdAweShot(int argc, char** argv) {
         page = std::make_unique<awe::TextPage>(ctx);
     else if (which == "sounds")
         page = std::make_unique<awe::SoundPage>(ctx);
+    else if (which == "movies")
+        page = std::make_unique<awe::MoviePage>(ctx);
     else {
         std::fprintf(stderr, "unknown page %s\n", which.c_str());
         return 2;
@@ -457,7 +460,7 @@ int cmdAweCamera(int argc, char** argv) {
 // A Bink file's header, audio tracks and frames.
 int cmdBinkInfo(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool bink-info <file.bik> [-frames] [-yuv out.yuv [frames]] [-tga first]\n");
+        std::fprintf(stderr, "usage: reluva-tool bink-info <file.bik> [-frames] [-yuv out.yuv [frames]] [-tga first] [-wav out.wav]\n");
         return 2;
     }
     std::vector<uint8_t> data;
@@ -476,7 +479,7 @@ int cmdBinkInfo(int argc, char** argv) {
         std::printf("  audio track %u: %d Hz, %d channel%s, %s, flags 0x%04x\n", t.id, t.sampleRate, t.channels,
                     t.channels == 1 ? "" : "s", t.dct ? "DCT" : "FFT", t.flags);
     bool list = false;
-    std::string yuvFile, tgaPrefix;
+    std::string yuvFile, tgaPrefix, wavFile;
     size_t yuvFrames = bink.frameCount(), tgaFrame = 0;
     for (int i = 3; i < argc; i++) {
         if (std::strcmp(argv[i], "-frames") == 0)
@@ -485,10 +488,39 @@ int cmdBinkInfo(int argc, char** argv) {
             yuvFile = argv[++i];
             if (i + 1 < argc && argv[i + 1][0] != '-')
                 yuvFrames = std::strtoul(argv[++i], nullptr, 10);
+        } else if (std::strcmp(argv[i], "-wav") == 0 && i + 1 < argc) {
+            wavFile = argv[++i];
         } else if (std::strcmp(argv[i], "-tga") == 0 && i + 1 < argc) {
             tgaFrame = std::strtoul(argv[++i], nullptr, 10);
             tgaPrefix = std::string(argv[2]) + "_frame";
         }
+    }
+    if (!wavFile.empty() && !bink.audioTracks().empty()) {
+        // The first audio track, as a 16-bit WAV file.
+        const reluva::video::BinkAudioTrack& t = bink.audioTracks()[0];
+        reluva::video::BinkAudioDecoder dec;
+        if (reluva::Error e = dec.init(t.sampleRate, t.channels, t.dct)) {
+            std::fprintf(stderr, "%s\n", e.message.c_str());
+            return 1;
+        }
+        std::vector<int16_t> pcm;
+        for (size_t i = 0; i < bink.frameCount(); i++) {
+            reluva::video::BinkFile::Frame f;
+            bink.frame(i, f);
+            if (!f.audio.empty() && f.audio[0].size)
+                if (reluva::Error e = dec.decode(f.audio[0].data, f.audio[0].size, pcm))
+                    std::fprintf(stderr, "frame %zu: %s\n", i, e.message.c_str());
+        }
+        std::ofstream wav(wavFile, std::ios::binary);
+        auto u32 = [&](uint32_t v) { wav.write(reinterpret_cast<const char*>(&v), 4); };
+        auto u16 = [&](uint16_t v) { wav.write(reinterpret_cast<const char*>(&v), 2); };
+        const uint32_t bytes = uint32_t(pcm.size() * 2);
+        wav.write("RIFF", 4), u32(36 + bytes), wav.write("WAVEfmt ", 8), u32(16), u16(1), u16(uint16_t(t.channels));
+        u32(uint32_t(t.sampleRate)), u32(uint32_t(t.sampleRate * t.channels * 2)), u16(uint16_t(t.channels * 2)), u16(16);
+        wav.write("data", 4), u32(bytes);
+        wav.write(reinterpret_cast<const char*>(pcm.data()), std::streamsize(bytes));
+        std::printf("wrote %s: %zu samples a channel (%.2f s)\n", wavFile.c_str(), pcm.size() / size_t(t.channels),
+                    double(pcm.size()) / t.channels / t.sampleRate);
     }
     if (!yuvFile.empty() || !tgaPrefix.empty()) {
         // Decodes the video: as raw YUV 4:2:0 (as ffmpeg -pix_fmt yuv420p
@@ -576,7 +608,7 @@ const char* aweToolUsage() {
            "  reluva-tool bink-info <file.bik> [-frames]\n"
            "  reluva-tool gr2-info <file.gr2> [-t] [-n elements] [-dll granny2.dll]\n"
            "  reluva-tool awe-table <file.txt>\n"
-           "  reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds> <out.tga> [key...]\n"
+           "  reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds|movies> <out.tga> [key...]\n"
            "  reluva-tool ac2-dump <scene.ac2>...\n"
            "  reluva-tool gr2-model <model.gr2> [-anim <anim.gr2> <seconds>] [-obj out.obj]\n";
 }

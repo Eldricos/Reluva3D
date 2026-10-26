@@ -75,6 +75,7 @@ public:
         std::vector<std::unique_ptr<awe::Page>> pages;
         pages.push_back(std::make_unique<awe::ScenePage>(ctx));
         pages.push_back(std::make_unique<awe::ModelPage>(ctx));
+        pages.push_back(std::make_unique<awe::MoviePage>(ctx));
         pages.push_back(std::make_unique<awe::PicturePage>(ctx));
         pages.push_back(std::make_unique<awe::TextPage>(ctx));
         pages.push_back(std::make_unique<awe::SoundPage>(ctx));
