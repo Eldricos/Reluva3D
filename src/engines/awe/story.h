@@ -70,10 +70,13 @@ public:
 
     // The act's dialogue tables are to be loaded (on every act change).
     std::function<void(const std::string& act)> onActTables;
-    // The act's location is loaded (the scene left first: leavingScene()
-    // has been called); `flush` when the scenes kept so far are dropped
-    // (a new place: before act 04A and from 08A on).
+    // The act's location is to be loaded (the scene left first:
+    // leavingScene() has been called); `flush` when the scenes kept so far
+    // are dropped (a new place: before act 04A and from 08A on). Post Load
+    // runs once locationLoaded() is called (at once without a handler).
     std::function<void(const std::string& location, bool flush)> onLoadLocation;
+    void locationLoaded();
+    const std::string& location() const { return location_; }
 
 private:
     void runnerEmpty();
@@ -83,7 +86,7 @@ private:
     std::vector<ActRow> acts_;
     const ActRow* row_ = nullptr;
     std::string location_, previousLocation_;
-    bool loading_ = false;
+    bool loading_ = false, waitingLoad_ = false;
     float second_ = 0;
 };
 

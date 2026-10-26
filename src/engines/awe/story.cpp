@@ -95,6 +95,7 @@ bool Story::startAct(std::string_view arg) {
     previousLocation_ = location_;
     location_ = row_->location;
     loading_ = true;
+    waitingLoad_ = false;
     if (given(row_->preLoad))
         main_.run(row_->preLoad);
     return true;
@@ -106,9 +107,10 @@ void Story::update(float seconds) {
     for (; second_ >= 1; second_ -= 1)
         addTime(state_, 1);
     // The load state machine (0x422a90): once PreLoad (and whatever was
-    // queued before it) has run, the location; then Post Load.
-    if (loading_ && main_.idle()) {
-        loading_ = false;
+    // queued before it) has run, the location; then, once it's loaded,
+    // Post Load.
+    if (loading_ && !waitingLoad_ && main_.idle()) {
+        waitingLoad_ = true;
         leavingScene();
         // A new place before act 04A and from 08A on drops what was kept
         // (0x423430); inside the train only the on-demand scenes go.
@@ -116,9 +118,17 @@ void Story::update(float seconds) {
             !previousLocation_.empty() && previousLocation_ != location_ && (state_.act < "04a" || state_.act >= "08a");
         if (onLoadLocation)
             onLoadLocation(location_, flush);
-        if (row_ && given(row_->postLoad))
-            main_.run(row_->postLoad);
+        else
+            locationLoaded();
     }
+}
+
+void Story::locationLoaded() {
+    if (!loading_ || !waitingLoad_)
+        return;
+    loading_ = waitingLoad_ = false;
+    if (row_ && given(row_->postLoad))
+        main_.run(row_->postLoad);
 }
 
 void Story::leavingScene() {

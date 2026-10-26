@@ -287,6 +287,28 @@ private:
     // "movie": the one playing over everything, its subtitles, the runner
     // waiting on it; and whether a scene is shown (one not "inscene" is
     // left for the movie: black until the next scene).
+    // The game's load state machine (0x422a90) for a location: an act's,
+    // or a scene's in another place (after a fade out). Its scene files
+    // are read one an update behind the loading screen; then the act's
+    // Post Load runs, or the scene is shown and fades in.
+    struct LocationLoad {
+        int state = 0; // 0 none, 1 fading out, 2 loading, 3 fading the loading screen out, 4 fading the scene in
+        bool forAct = false;
+        std::string location;
+        std::vector<std::string> files;
+        size_t next = 0;
+        bool screen = false, fadedIn = false; // the loading screen shown; faded in (+0x10f0)
+        int wheel = 0;
+        std::string scene, verb; // a scene's: its name, and the verb waiting ("scene", "gotoscene")
+        int entry = 1;
+        ScriptRunner* runner = nullptr;
+    } load_;
+    std::string location_; // the current scene's folder ("sirkeci.market")
+    void beginLoad(const std::string& location, bool forAct);
+    void updateLoad();
+    // The location's scene files the game would load (0x423830): variants
+    // for the act in place of their base; LOAD 0 ones are read on demand.
+    std::vector<std::string> locationFiles(const std::string& location) const;
     std::unique_ptr<MoviePlayer> movie_;
     std::string movieName_;
     std::vector<Subtitle> movieSubtitles_;

@@ -321,6 +321,7 @@ ScenePage::ScenePage(ViewerContext& ctx) : Page(ctx) {
             hiddenNames_.clear();
             positions_.clear();
         }
+        beginLoad(location, true);
     };
     runner_->onEvent = [this](const ScriptEvent& e) {
         std::string line;
@@ -418,6 +419,12 @@ void ScenePage::load() {
         if (o->tag == "PART" || o->tag == "RAIN" || o->tag == "SNOW")
             particles_.emplace(o, ParticleSystem(ParticleSettings::fromRecord(*o)));
     state_.scene = fs::toLower(name.substr(name.find_last_of('/') + 1));
+    {
+        // Its folder is its location: locations/<location>/<scene>.ac2.
+        const std::string lower = fs::toLower(name);
+        const size_t from = lower.find('/') + 1;
+        location_ = lower.substr(from, lower.find('/', from) - from);
+    }
     if (playing_)
         enterScene();
     draw();
@@ -527,6 +534,121 @@ void ScenePage::endMovie() {
     draw();
 }
 
+std::vector<std::string> ScenePage::locationFiles(const std::string& location) const {
+    // A file's suffix (after its last '_', when it has two) applies if it's
+    // the act's, or night, snow or moving when those hold; a base with a
+    // variant that applies is loaded with it (0x43e3d0..0x43e520).
+    auto suffix = [](const std::string& stem) {
+        const size_t first = stem.find('_'), last = stem.rfind('_');
+        return first != last && last != std::string::npos ? stem.substr(last + 1) : std::string();
+    };
+    auto value = [&](const char* name) {
+        const auto it = state_.values.find(name);
+        return it == state_.values.end() ? 0 : it->second;
+    };
+    auto applies = [&](const std::string& sfx) {
+        return sfx == state_.act || (sfx == "night" && value("time")) || (sfx == "snow" && value("weather")) ||
+               (sfx == "moving" && value("moving"));
+    };
+    std::vector<std::string> stems, files;
+    const std::string folder = "locations/" + location + "/";
+    for (const std::string& n : names_) {
+        const std::string lower = fs::toLower(n);
+        if (lower.compare(0, folder.size(), folder) == 0 && lower.find('/', folder.size()) == std::string::npos)
+            stems.push_back(lower.substr(folder.size(), lower.size() - folder.size() - 4));
+    }
+    for (size_t i = 0; i < stems.size(); i++) {
+        const std::string sfx = suffix(stems[i]);
+        if (!sfx.empty()) {
+            if (applies(sfx))
+                files.push_back(folder + stems[i] + ".ac2");
+            continue;
+        }
+        bool variant = false;
+        for (const std::string& other : stems)
+            if (other.size() > stems[i].size() + 1 && other.compare(0, stems[i].size() + 1, stems[i] + "_") == 0 &&
+                applies(suffix(other)))
+                variant = true;
+        if (!variant)
+            files.push_back(folder + stems[i] + ".ac2");
+    }
+    return files;
+}
+
+void ScenePage::beginLoad(const std::string& location, bool forAct) {
+    // 0x422790: the loading screen when more than one file is to load,
+    // faded in if the screen was faded out.
+    const LocationLoad keep = load_;
+    load_ = LocationLoad();
+    if (!forAct)
+        load_.scene = keep.scene, load_.verb = keep.verb, load_.entry = keep.entry, load_.runner = keep.runner;
+    load_.forAct = forAct;
+    load_.location = location;
+    load_.files = locationFiles(location);
+    load_.state = 2;
+    if (load_.files.size() > 1) {
+        load_.screen = true;
+        if (fade_ >= 1) {
+            fadeTarget_ = 0;
+            load_.fadedIn = true;
+        }
+    }
+    draw();
+}
+
+void ScenePage::updateLoad() {
+    LocationLoad& l = load_;
+    if (l.state == 1) {
+        // A scene in another place: once faded out.
+        if (fade_ >= 1) {
+            if (playing_)
+                story_->leavingScene();
+            beginLoad(l.location, false);
+        }
+        return;
+    }
+    if (l.state == 2) {
+        // One file an update (0x423b30), the wheel turning.
+        if (l.next < l.files.size()) {
+            std::vector<uint8_t> data;
+            Ac2Scene scene;
+            if (!ctx_.files.read(l.files[l.next], data))
+                parseAc2(data, scene);
+            l.next++;
+            l.wheel++;
+            draw();
+            return;
+        }
+        l.state = 3;
+        if (l.fadedIn)
+            fadeTarget_ = 1;
+        return;
+    }
+    if (l.state == 3) {
+        if (fade_ != fadeTarget_)
+            return;
+        l.screen = false;
+        location_ = l.location; // its scenes are now the current location's
+        if (l.forAct) {
+            l.state = 0;
+            story_->locationLoaded();
+            return;
+        }
+        // The scene, faded in (states 6, 9).
+        changeScene(l.scene, l.entry);
+        fadeTarget_ = 0;
+        l.state = 4;
+        return;
+    }
+    if (l.state == 4 && fade_ == fadeTarget_) {
+        l.state = 0;
+        if (ScriptRunner* r = l.runner) {
+            l.runner = nullptr;
+            r->finished(l.verb);
+        }
+    }
+}
+
 void ScenePage::newGame() {
     // As the game starts (0x4026e9): the main menu, whose event is
     // "reset"; its Play is "act", starting act 01A.
@@ -546,6 +668,7 @@ void ScenePage::newGame() {
     movie_.reset();
     movieRunner_ = nullptr;
     sceneShown_ = true;
+    load_ = LocationLoad();
     logScript("new game");
     runner_->run("musica motoetheme, movie logos inscene, scene menu.main_01 1 0");
 }
@@ -987,7 +1110,28 @@ void ScenePage::draw() {
             rows.push_back({a.y, a.h});
         dialogue_->setChoiceAreas(std::move(rows));
     }
-    if (movie_ || !sceneShown_) {
+    if (load_.screen) {
+        // The location's picture, the wheel turning at its foot (0x422ff0).
+        const image::Image& back = picture("interface/loading/loading_" +
+                                           [&] {
+                                               const std::string& l = load_.location;
+                                               const size_t dot = l.find('.');
+                                               if (dot == std::string::npos)
+                                                   return l;
+                                               return l.find("exterior") != std::string::npos ||
+                                                              l.find("sirkeci") != std::string::npos
+                                                          ? l.substr(dot + 1)
+                                                          : l.substr(0, dot);
+                                           }() + ".jpg");
+        fill(0, 0, kScreenW, kScreenH, Color{0, 0, 0});
+        image::blit(ctx_.screen, back.w ? back : picture("interface/loading/loading_generic.jpg"), 0, 0);
+        char wheel[48];
+        std::snprintf(wheel, sizeof wheel, "interface/loading/wheels%02d.png", load_.wheel % 7 + 1);
+        const image::Image& w = picture(wheel);
+        image::blit(ctx_.screen, w, (kScreenW - w.w) / 2, 550);
+        if (fade_ > 0)
+            fill(0, 0, kScreenW, kScreenH, Color{0, 0, 0}, uint8_t(fade_ * 255));
+    } else if (movie_ || !sceneShown_) {
         // The movie over everything, else black: no scene is shown.
         fill(0, 0, kScreenW, kScreenH, Color{0, 0, 0});
         if (movie_ && movie_->frame().w) {
@@ -1022,6 +1166,8 @@ void ScenePage::update(uint64_t nowMs) {
         if (movie_->done(nowMs))
             endMovie();
     }
+    if (load_.state)
+        updateLoad();
     if (charactersDue_ && nowMs >= charactersAt_ + 400) {
         charactersDue_ = false;
         loadCharacters();
@@ -1133,7 +1279,7 @@ void ScenePage::update(uint64_t nowMs) {
         renderer_->draw(call);
     }
     // The characters, through the scene's camera.
-    if (const Ac2Record* camr = scene_.camera(); camr && showCharacters_ && !movie_ && sceneShown_) {
+    if (const Ac2Record* camr = scene_.camera(); camr && showCharacters_ && !movie_ && sceneShown_ && !load_.screen) {
         const SceneCamera cam = SceneCamera::fromRecord(*camr);
         renderer_->setView(cam.viewProjection(), cam.eye());
         renderer_->clearDepth();
@@ -1902,8 +2048,21 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
                 words[1].resize(words[1].size() - 4);
         }
         const ScriptEvent scene{words};
+        const std::string name = lower(scene.arg(1));
+        const int entry = scene.arg(2).empty() ? 1 : std::atoi(scene.arg(2).c_str());
+        // In another place (its name doesn't hold the current location's):
+        // a fade out, the location loaded, the scene shown and faded in;
+        // the event waits till then (0x423d40, 0x422640).
+        if (playing_ && wait && name.find(location_) == std::string::npos && name.find("global") == std::string::npos) {
+            load_ = LocationLoad();
+            load_.state = 1;
+            load_.location = name.substr(0, name.find('_'));
+            load_.scene = name, load_.verb = v, load_.entry = entry, load_.runner = &runner;
+            fadeTarget_ = 1;
+            return true;
+        }
         // The flag (default 1) has the player walk in: not done yet.
-        changeScene(scene.arg(1), scene.arg(2).empty() ? 1 : std::atoi(scene.arg(2).c_str()));
+        changeScene(name, entry);
         return false;
     }
     if (v == "act") {

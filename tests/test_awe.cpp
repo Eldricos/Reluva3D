@@ -707,7 +707,10 @@ void testStory() {
     Story story(state, main);
     story.setActs(acts);
     std::vector<std::string> loaded;
-    story.onLoadLocation = [&](const std::string& l, bool flush) { loaded.push_back(l + (flush ? " flush" : "")); };
+    story.onLoadLocation = [&](const std::string& l, bool flush) {
+        loaded.push_back(l + (flush ? " flush" : ""));
+        story.locationLoaded();
+    };
     // reset, then a bare act: 01A.
     main.run("tag x 1, timer clock, reset");
     for (int i = 0; i < 4; i++)

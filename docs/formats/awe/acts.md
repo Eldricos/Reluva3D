@@ -164,8 +164,15 @@ completion. It also ticks the timers. `ScriptRunner` does `timer`,
 In the Scenes page, **N** starts a new game: the main menu, then Play.
 The page then does the following:
 
-- Scenes are read when shown; loading a location only forgets how the
-  scenes of an earlier place were left.
+- Loading a location works as the game's load state machine does. The
+  location's scene files (the act's variants in place of their bases)
+  are read one per frame behind the loading screen: the location's
+  picture, with the wheel turning at its foot, faded in if the screen was
+  faded out and faded out at the end. An act's Post Load then runs. A
+  `scene` in another place fades out, loads, then shows the scene and
+  fades in, and the event waits until then. Scenes themselves are read
+  again when shown, so loading a new place only forgets how the scenes
+  of the earlier one were left.
 - Entering a scene plays its music and queues its event.
 - `scene` and `gotoscene` keep the player's place for walk point -1.
 - `fade` takes half a second. This is a guess.
@@ -174,7 +181,6 @@ The page then does the following:
 
 Not done yet:
 
-- the loading screen;
 - walking in through the scene flag;
 - `PUZZ` screens;
 - saved games.
