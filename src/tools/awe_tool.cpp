@@ -13,14 +13,13 @@
 #include "engines/awe/tables.h"
 #include "engines/awe/viewers.h"
 #include "common/archive.h"
-#include "common/system.h"
-
-#include <deque>
 #include "common/image.h"
+#include "common/system.h"
 
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -383,6 +382,8 @@ int cmdAweShot(int argc, char** argv) {
 int aweToolCommand(int argc, char** argv) {
     if (argc >= 2 && std::strcmp(argv[1], "gr2-info") == 0)
         return cmdGr2Info(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "awe-check") == 0)
+        return aweCheckCommand(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "awe-shot") == 0)
         return cmdAweShot(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "awe-table") == 0)
@@ -395,7 +396,8 @@ int aweToolCommand(int argc, char** argv) {
 }
 
 const char* aweToolUsage() {
-    return "  reluva-tool gr2-info <file.gr2> [-t] [-n elements] [-dll granny2.dll]\n"
+    return "  reluva-tool awe-check <game folder> [-gr2|-ac2|-text] [-only text] [-textures] [-j threads] [-v]\n"
+           "  reluva-tool gr2-info <file.gr2> [-t] [-n elements] [-dll granny2.dll]\n"
            "  reluva-tool awe-table <file.txt>\n"
            "  reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds> <out.tga> [key...]\n"
            "  reluva-tool ac2-dump <scene.ac2>...\n"

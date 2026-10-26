@@ -6,5 +6,8 @@
 // reluva-tool's AWE engine commands: the command's exit code, or -1 if
 // argv[1] isn't one of them.
 int aweToolCommand(int argc, char** argv);
+// reluva-tool awe-check: every Granny file, scene and text file of an
+// install read, failures reported (awe_check.cpp).
+int aweCheckCommand(int argc, char** argv);
 // Their usage lines.
 const char* aweToolUsage();
