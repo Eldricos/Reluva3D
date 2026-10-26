@@ -4077,6 +4077,68 @@ int cmdIbiDump(int argc, char** argv) {
     return 0;
 }
 
+// A map's entities: all, or those with any key or value containing one of
+// the texts given (ignoring case), each followed by the entities that
+// target it (what triggers it).
+int cmdBspEntities(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool bsp-entities <game folder> <map> [text]...\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    std::string map = argv[3];
+    if (map.size() > 4 && map.compare(map.size() - 4, 4, ".bsp") == 0)
+        map.resize(map.size() - 4);
+    if (map.rfind("maps/", 0) == 0)
+        map = map.substr(5);
+    Bytes data;
+    q3::Bsp bsp;
+    if (reluva::Error err = set.read("maps/" + map + ".bsp", data); err || (err = q3::parseBsp(data, bsp))) {
+        std::fprintf(stderr, "maps/%s.bsp: %s\n", map.c_str(), err.message.c_str());
+        return 1;
+    }
+    std::vector<q3::Entity> entities;
+    if (reluva::Error err = q3::parseEntities(bsp.entities, entities)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    std::vector<std::string> wanted;
+    for (int i = 4; i < argc; ++i)
+        wanted.push_back(reluva::fs::toLower(argv[i]));
+    auto print = [&](size_t n, const char* indent) {
+        std::printf("%s#%zu", indent, n);
+        for (const auto& [k, v] : entities[n].pairs)
+            std::printf(" %s=\"%s\"", k.c_str(), v.c_str());
+        std::printf("\n");
+    };
+    for (size_t n = 0; n < entities.size(); ++n) {
+        bool match = wanted.empty();
+        for (const auto& [k, v] : entities[n].pairs)
+            for (const std::string& w : wanted)
+                match = match || reluva::fs::toLower(k).find(w) != std::string::npos ||
+                        reluva::fs::toLower(v).find(w) != std::string::npos;
+        if (!match)
+            continue;
+        print(n, "");
+        if (wanted.empty())
+            continue;
+        const std::string name = entities[n].get("targetname");
+        if (name.empty())
+            continue;
+        for (size_t m = 0; m < entities.size(); ++m)
+            for (const auto& [k, v] : entities[m].pairs)
+                if ((k == "target" || k == "target2" || k == "target3" || k == "target4") &&
+                    reluva::fs::toLower(v) == reluva::fs::toLower(name)) {
+                    print(m, "    targeted by ");
+                    break;
+                }
+    }
+    return 0;
+}
+
 int cmdPeInfo(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool pe-info <file.dll|file.exe> [-all]\n");
@@ -5277,6 +5339,8 @@ int main(int argc, char** argv) {
         return cmdSpRun(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "ibi-dump") == 0)
         return cmdIbiDump(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "bsp-entities") == 0)
+        return cmdBspEntities(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "pk3-sums") == 0)
         return cmdPk3Sums(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "ui-run") == 0)
@@ -5330,6 +5394,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool pe-info <file.dll|file.exe>\n"
                  "  reluva-tool x86-run <file.dll> [-call Export [arg|table]...]\n"
                  "  reluva-tool ibi-dump <game folder> <script>\n"
+                 "  reluva-tool bsp-entities <game folder> <map> [text]...\n"
                  "  reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] [-set name value]... [-trace]\n"
                  "  reluva-tool pk3-sums <game folder> [feed]\n"
                  "  reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-addbot name]... | -join <host[:port]> [seconds] [-name name]\n"
