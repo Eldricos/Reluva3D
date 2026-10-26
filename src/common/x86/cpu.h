@@ -6,6 +6,7 @@
 #include "common/types.h"
 
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -96,6 +97,9 @@ public:
     // division by zero, an instruction not implemented...), naming where.
     // Native functions may call() back in.
     Error call(uint32_t address, const std::vector<uint32_t>& args, uint32_t& result);
+    // Asks a run on another thread to stop: it ends with an error ("stopped")
+    // at the next instruction. Safe to call from any thread.
+    void requestStop() { stop_.store(true, std::memory_order_relaxed); }
     // Stops a run with an error after this many more instructions (0: never).
     void setInstructionLimit(uint64_t limit) { limit_ = limit; }
     uint64_t executed() const { return executed_; }
@@ -177,6 +181,7 @@ private:
     static constexpr uint32_t kNativeStride = 16, kMaxNatives = 4096;
     uint32_t instructionStart_ = 0;
     uint64_t executed_ = 0, limit_ = 0, limitAt_ = 0;
+    std::atomic<bool> stop_{false};
     int depth_ = 0;
     std::string abort_;
 };

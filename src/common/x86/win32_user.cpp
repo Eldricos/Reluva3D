@@ -10,6 +10,8 @@
 
 #include "common/x86/win32.h"
 
+#include "common/events.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
@@ -73,6 +75,59 @@ std::optional<std::array<int, 4>> Win32Process::clientArea(uint32_t handle) cons
 }
 
 // --- Input
+
+bool windowsKey(uint32_t k, uint32_t& vk, uint32_t& scan) {
+    // Scan codes of the letters a to z, and of the digits 1 to 9 then 0, on
+    // a US keyboard.
+    static const uint8_t kLetters[26] = {0x1e, 0x30, 0x2e, 0x20, 0x12, 0x21, 0x22, 0x23, 0x17, 0x24, 0x25, 0x26, 0x32,
+                                         0x31, 0x18, 0x19, 0x10, 0x13, 0x1f, 0x14, 0x16, 0x2f, 0x11, 0x2d, 0x15, 0x2c};
+    static const uint8_t kKeypad[10] = {0x52, 0x4f, 0x50, 0x51, 0x4b, 0x4c, 0x4d, 0x47, 0x48, 0x49};
+    struct Entry {
+        uint32_t key, vk, scan;
+    };
+    static const Entry kOthers[] = {
+        {key::Return, 0x0d, 0x1c},    {key::Escape, 0x1b, 0x01},    {key::Backspace, 0x08, 0x0e},
+        {key::Tab, 0x09, 0x0f},       {key::Space, 0x20, 0x39},     {key::Delete, 0x2e, 0x153},
+        {key::Insert, 0x2d, 0x152},   {key::Home, 0x24, 0x147},     {key::End, 0x23, 0x14f},
+        {key::PageUp, 0x21, 0x149},   {key::PageDown, 0x22, 0x151}, {key::Up, 0x26, 0x148},
+        {key::Down, 0x28, 0x150},     {key::Left, 0x25, 0x14b},     {key::Right, 0x27, 0x14d},
+        {key::LShift, 0x10, 0x2a},    {key::RShift, 0x10, 0x36},    {key::LCtrl, 0x11, 0x1d},
+        {key::RCtrl, 0x11, 0x11d},    {key::LAlt, 0x12, 0x38},      {key::RAlt, 0x12, 0x138},
+        {key::KpPeriod, 0x6e, 0x53},  {key::KpEnter, 0x0d, 0x11c},  {'-', 0xbd, 0x0c},
+        {'=', 0xbb, 0x0d},            {'[', 0xdb, 0x1a},            {']', 0xdd, 0x1b},
+        {';', 0xba, 0x27},            {'\'', 0xde, 0x28},           {'`', 0xc0, 0x29},
+        {'\\', 0xdc, 0x2b},           {',', 0xbc, 0x33},            {'.', 0xbe, 0x34},
+        {'/', 0xbf, 0x35},
+    };
+    if (k >= 'a' && k <= 'z') {
+        vk = 'A' + (k - 'a');
+        scan = kLetters[k - 'a'];
+        return true;
+    }
+    if (k >= '0' && k <= '9') {
+        vk = k;
+        scan = k == '0' ? 0x0b : 0x02 + (k - '1');
+        return true;
+    }
+    if (k >= key::F1 && k < key::F1 + 12) {
+        const uint32_t n = k - key::F1;
+        vk = 0x70 + n;
+        scan = n < 10 ? 0x3b + n : 0x57 + (n - 10);
+        return true;
+    }
+    if (k >= key::Kp0 && k < key::Kp0 + 10) {
+        vk = 0x60 + (k - key::Kp0);
+        scan = kKeypad[k - key::Kp0];
+        return true;
+    }
+    for (const Entry& e : kOthers)
+        if (e.key == k) {
+            vk = e.vk;
+            scan = e.scan;
+            return true;
+        }
+    return false;
+}
 
 namespace {
 constexpr uint32_t kWmMouseMove = 0x200, kWmLButtonDown = 0x201, kWmLButtonDblClk = 0x203, kWmMouseWheel = 0x20a,

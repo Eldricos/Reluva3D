@@ -540,11 +540,13 @@ void Win32Process::addStandIns() {
     });
     stdcall(k, "UnhandledExceptionFilter", 1, [](Cpu&) { return 1u; }); // EXCEPTION_EXECUTE_HANDLER
     stdcall(k, "SetConsoleCtrlHandler", 2, [](Cpu&) { return 1u; });
-    stdcall(k, "ExitProcess", 1, [](Cpu& c) {
+    stdcall(k, "ExitProcess", 1, [this](Cpu& c) {
+        exited = c.arg(0);
         c.abort("the program ended the process (exit code " + std::to_string(c.arg(0)) + ")");
         return 0u;
     });
-    stdcall(k, "TerminateProcess", 2, [](Cpu& c) {
+    stdcall(k, "TerminateProcess", 2, [this](Cpu& c) {
+        exited = c.arg(1);
         c.abort("the program ended the process (exit code " + std::to_string(c.arg(1)) + ")");
         return 0u;
     });

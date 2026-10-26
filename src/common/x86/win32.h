@@ -39,6 +39,11 @@ private:
     void release(uint32_t start, uint32_t size);
 };
 
+// A key (events.h's codes) as Windows knows it: its virtual-key code and
+// its scan code (set 1, with 0x100 for the extended keys). False for keys
+// Windows has none of.
+bool windowsKey(uint32_t key, uint32_t& virtualKey, uint32_t& scanCode);
+
 // A Windows process for 32-bit DLLs built for Windows 95 to XP (the C
 // runtime of Visual C++ 6 and its kind) to run in: their images loaded
 // and relocated, their imports bound, the system's functions they call
@@ -143,6 +148,10 @@ public:
     uint32_t openFile(const std::string& windowsPath, const char* mode);
     OpenFile* file(uint32_t handle);
     bool closeFile(uint32_t handle);
+
+    // The exit code the program ended itself with (exit, ExitProcess), if it
+    // did; its run then ends with an error saying so.
+    std::optional<uint32_t> exited;
 
     // Threads the program started, which aren't run yet: their start
     // addresses and arguments.

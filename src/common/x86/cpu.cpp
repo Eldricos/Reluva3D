@@ -722,6 +722,8 @@ void Cpu::step() {
     ++executed_;
     if (limit_ && executed_ > limitAt_)
         fault("instruction limit reached");
+    if (stop_.load(std::memory_order_relaxed))
+        fault("stopped");
     d_ = Decoded{};
     uint8_t op;
     while (true) {

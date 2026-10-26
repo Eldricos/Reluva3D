@@ -316,7 +316,8 @@ void addMsvcrt(Win32Process& process) {
     cdecl("_onexit", [](Cpu& c) { return c.arg(0); });
     cdecl("atexit", [](Cpu&) { return 0u; });
     cdecl("__dllonexit", [](Cpu& c) { return c.arg(0); });
-    auto ending = [](Cpu& c) {
+    auto ending = [s](Cpu& c) {
+        s->p.exited = c.arg(0);
         c.abort("the program called exit(" + std::to_string(int32_t(c.arg(0))) + ")");
         return 0u;
     };

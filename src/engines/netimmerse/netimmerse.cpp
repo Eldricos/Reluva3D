@@ -6,17 +6,22 @@
 // everything comes from the games' data, observing them run, or study of
 // owned executables; never from NetImmerse SDK source. See CONTRIBUTING.md.
 //
-// For now the engine is a data viewer (viewers.h): the archives, models,
-// textures, sounds and text. Tab moves between its pages, Esc goes back to
-// the launcher.
+// LEGO Alpha Team is played by running its own program in the x86
+// interpreter (alphateam/player.h). F12 pauses it and opens the data viewer
+// (viewers.h): the archives, models, textures, sounds and text. Tab moves
+// between the viewer's pages; Esc goes back to the game. Without the
+// program, the engine is the viewer alone, and Esc goes back to the
+// launcher.
 
 #include "engines/engine.h"
+#include "engines/netimmerse/alphateam/player.h"
 #include "engines/netimmerse/pac_archive.h"
 #include "engines/netimmerse/viewers.h"
 #include "common/audio/mixer.h"
 #include "common/fs.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <map>
 #include <memory>
 #include <string>
@@ -53,15 +58,89 @@ public:
     NetImmerseEngine(System& system, GameTarget target) : sys_(system), target_(std::move(target)) {}
 
     Error run() override {
+        if (!fs::findFile(target_.path, "LEGOATeam.exe")) {
+            bool quit = false;
+            return viewer(quit);
+        }
+        return play();
+    }
+
+private:
+    // The game, until it ends or the player leaves. The mouse is held by
+    // the window (the game reads its movement and draws its own pointer).
+    Error play() {
+        netimmerse::alphateam::Player player(target_.path);
+        player.start();
+        int width = 640, height = 480;
+        auto screen = [&] {
+            sys_.initGraphics(width, height, PixelFormat::RGBA32);
+            screen_.create(width, height, PixelFormat::RGBA32);
+            sys_.setMouseCursorVisible(false);
+            sys_.setRelativeMouse(true);
+        };
+        screen();
+        sys_.updateScreen(screen_); // black while it loads
+        std::vector<uint32_t> pixels;
+        while (true) {
+            Event ev;
+            while (sys_.pollEvent(ev)) {
+                if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher)
+                    return Error::success();
+                if (ev.type == EventType::KeyDown && ev.key == key::F1 + 11 && !ev.repeat) { // F12: the viewer
+                    player.pause(true);
+                    sys_.setRelativeMouse(false);
+                    sys_.setMouseCursorVisible(true);
+                    bool quit = false;
+                    if (Error e = viewer(quit); e || quit)
+                        return e;
+                    screen();
+                    sys_.updateScreen(screen_);
+                    player.pause(false);
+                    continue;
+                }
+                player.input(ev);
+            }
+            int w = 0, h = 0;
+            if (player.frame(pixels, w, h)) {
+                if (w != width || h != height) {
+                    width = w, height = h;
+                    screen();
+                }
+                // 0xAARRGGBB to R, G, B, A in memory.
+                for (int y = 0; y < height; ++y) {
+                    uint8_t* row = screen_.row(y);
+                    for (int x = 0; x < width; ++x, row += 4) {
+                        const uint32_t v = pixels[size_t(y) * size_t(width) + size_t(x)];
+                        row[0] = uint8_t(v >> 16), row[1] = uint8_t(v >> 8), row[2] = uint8_t(v), row[3] = 255;
+                    }
+                }
+                sys_.updateScreen(screen_);
+            }
+            if (const std::string out = player.takeOutput(); !out.empty())
+                std::fputs(out.c_str(), stderr);
+            bool ended = false;
+            std::string error;
+            if (player.finished(ended, error))
+                return error.empty() ? Error::success() : Error::fail(target_.description + " stopped: " + error);
+            sys_.delayMillis(5);
+        }
+    }
+
+    // The data viewer's pages, until Esc (or the player quits: `quit`).
+    Error viewer(bool& quit) {
         using namespace netimmerse;
         std::vector<std::pair<std::string, std::string>> lines;
         std::vector<std::string> errors;
-        openArchives(lines, errors);
+        if (archives_.empty())
+            openArchives(lines, errors);
+        else
+            for (const auto& [name, pac] : archives_)
+                lines.emplace_back(name, std::to_string(pac->entries().size()) + " entries");
         if (archives_.empty())
             errors.push_back("No .pac archives could be read in " + target_.path.string());
 
         screen_.create(kScreenW, kScreenH, PixelFormat::RGBA32);
-        // One mixer for every page, for as long as the engine runs; without
+        // One mixer for every page, for as long as the viewer runs; without
         // an audio device the pages show and don't play.
         audio::Mixer mixer(sys_.audioRate());
         const bool audioOut = !audio::startMixerOutput(sys_, mixer);
@@ -90,7 +169,8 @@ public:
             Event ev;
             while (sys_.pollEvent(ev)) {
                 if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher ||
-                    (ev.type == EventType::KeyDown && ev.key == key::Escape)) {
+                    (ev.type == EventType::KeyDown && (ev.key == key::Escape || ev.key == key::F1 + 11))) {
+                    quit = ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher;
                     pages[page]->deactivate();
                     return Error::success();
                 }
@@ -109,7 +189,6 @@ public:
         }
     }
 
-private:
     // Every .pac in the game folder, opened and joined in one search set;
     // with what each holds, counted by extension.
     void openArchives(std::vector<std::pair<std::string, std::string>>& lines, std::vector<std::string>& errors) {

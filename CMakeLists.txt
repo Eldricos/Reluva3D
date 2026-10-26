@@ -198,6 +198,7 @@ endif()
 if(RELUVA_ENGINE_NETIMMERSE)
     target_sources(reluva_engines PRIVATE
         src/engines/netimmerse/alphateam/game_process.cpp
+        src/engines/netimmerse/alphateam/player.cpp
         src/engines/netimmerse/data.cpp
         src/engines/netimmerse/fin.cpp
         src/engines/netimmerse/model_page.cpp
