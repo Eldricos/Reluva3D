@@ -7,8 +7,8 @@ retail Elite Force Holomatch (patch 1.2) over the network. Reluva's
 `net_server.cpp`, `net_client.cpp`) is tested with Reluva at both ends,
 in memory with datagrams lost and over the system's sockets, and was
 played Reluva to Reluva on the retail data patched to 1.2 (October
-2026); not yet against the retail executable. Not done: the pure check (`cp`: Reluva's
-server is never pure and its client doesn't send one), downloads, rate
+2026); not yet against the retail executable. Not done: a pure Reluva server (its
+client answers a pure server's check), downloads, rate
 limits, the master servers, and leaving out of snapshots what a player
 can't see. Where the sources disagree with what Reluva has measured in
 the game's own code, both are given.
@@ -691,10 +691,11 @@ Commands the engine handles (others go to the server game):
 
 ### Pure servers
 
-The system info carries `sv_paks` (the pure checksums of the server's
-pk3s, as numbers separated by spaces), `sv_pakNames`, `sv_referencedPaks`
-and `sv_referencedPakNames`, as in Quake III. The client restricts itself
-to the listed pk3s and answers with `cp`. In protocol 24 the command is
+The system info carries `sv_paks` (the checksums of the server's pk3s,
+plain ones without the feed, as numbers separated by spaces),
+`sv_pakNames`, `sv_referencedPaks` and `sv_referencedPakNames`, as in
+Quake III. The client restricts itself to the listed pk3s and answers
+with `cp`. In protocol 24 the command is
 `cp <cgame pk3> <ui pk3> @ <referenced pk3>... <count code>` — **without**
 the server id Quake III 1.32 puts first. The numbers are pure checksums
 (see [pk3.md](pk3.md): the MD4-based checksum of the checksum feed then
@@ -708,6 +709,13 @@ has loaded; the last word matches.
 A LAN server can avoid all this with `sv_pure 0` (empty `sv_paks` and
 `sv_pakNames`); the client still sends `cp`, which is then ignored. A
 pure server must hold the same 1.2 pk3s as the client.
+
+Reluva's client (`src/engines/idtech3/pure.cpp`) sends `cp` with the
+game state's feed as soon as it has loaded the level, before its first
+move; for the paks it has read from it lists every pak of its own whose
+plain checksum is in the server's `sv_paks` (all of them if that's
+empty), which passes the server's checks whatever it read. Reluva's
+server isn't pure (`sv_pure 0`).
 
 ## Configstrings and info keys the engine uses
 

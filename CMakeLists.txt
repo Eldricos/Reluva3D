@@ -60,6 +60,7 @@ add_library(reluva_common STATIC
     src/common/config.cpp
     src/common/fs.cpp
     src/common/md5.cpp
+    src/common/md4.cpp
     src/common/archive.cpp
     src/common/zip.cpp
     src/common/image.cpp
@@ -136,6 +137,7 @@ if(RELUVA_ENGINE_IDTECH3)
         src/engines/idtech3/wire/message.cpp
         src/engines/idtech3/wire/netchan.cpp
         src/engines/idtech3/info_string.cpp
+        src/engines/idtech3/pure.cpp
         src/engines/idtech3/server_browser.cpp
         src/engines/idtech3/sound_system.cpp
         src/engines/idtech3/entities.cpp

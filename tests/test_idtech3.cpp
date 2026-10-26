@@ -30,6 +30,7 @@
 #include "engines/idtech3/wire/netchan.h"
 #include "engines/idtech3/patch.h"
 #include "engines/idtech3/player_animation.h"
+#include "engines/idtech3/pure.h"
 #include "engines/idtech3/qvm.h"
 #include "engines/idtech3/server_browser.h"
 #include "backends/sockets/socket_net.h"
@@ -38,6 +39,8 @@
 #include "engines/idtech3/sounds.h"
 #include "engines/idtech3/viewers.h"
 #include "common/audio/wav.h"
+#include "common/md4.h"
+#include "common/zip.h"
 #include "engines/registry.h"
 #include "data/qvm/fake_cgame_qvm.h"
 #include "data/qvm/fake_game_qvm.h"
@@ -2386,6 +2389,55 @@ static void testNetDeltas() {
     CHECK(r2.serverTime == 5016 && r2.forward == -127 && r2.right == -127);
 }
 
+static void testPureCheck(const std::filesystem::path& tmp) {
+    std::filesystem::remove_all(tmp);
+    // Two paks: the game code in one, a map in the other; an empty file
+    // doesn't count towards a checksum.
+    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
+                    test::buildZip({{"vm/cgame.qvm", {1, 2, 3}, {}}, {"vm/ui.qvm", {4, 5}, {}}, {"empty.txt", {}, {}}}));
+    test::writeFile(tmp / "BaseEF" / "pak1.pk3", test::buildZip({{"maps/x.bsp", {9, 9, 9, 9}, {}}}));
+    SearchSet set;
+    std::vector<std::string> warnings;
+    CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
+    std::vector<const ZipArchive*> paks;
+    for (const Archive* a : set.archives())
+        if (const auto* z = dynamic_cast<const ZipArchive*>(a))
+            paks.push_back(z);
+    CHECK(paks.size() == 2);
+    if (paks.size() != 2)
+        return;
+    const ZipArchive* code = paks[0]->has("vm/cgame.qvm") ? paks[0] : paks[1];
+    const ZipArchive* map = code == paks[0] ? paks[1] : paks[0];
+    // The checksum: MD4 of the CRCs, folded; the pure one with the feed first.
+    std::vector<uint8_t> words;
+    for (const auto& e : map->entries())
+        if (e.size > 0)
+            for (int i = 0; i < 4; ++i)
+                words.push_back(uint8_t(e.crc >> (8 * i)));
+    const auto d = md4(words.data(), words.size());
+    uint32_t folded = 0;
+    for (int w = 0; w < 4; ++w)
+        folded ^= uint32_t(d[size_t(4 * w)]) | uint32_t(d[size_t(4 * w + 1)]) << 8 |
+                  uint32_t(d[size_t(4 * w + 2)]) << 16 | uint32_t(d[size_t(4 * w + 3)]) << 24;
+    CHECK(uint32_t(pakChecksum(*map)) == folded);
+    CHECK(pakChecksum(*map) != pakChecksum(*map, 77) && pakChecksum(*code) != pakChecksum(*map));
+    // cp: the client game's and menus' pak, @, the paks, and the check.
+    const int32_t feed = 12345;
+    const std::string cp = pureCommand(set, feed, "");
+    const std::vector<std::string> w = splitCommand(cp);
+    CHECK(w.size() == 7 && w[0] == "cp" && w[3] == "@");
+    if (w.size() == 7) {
+        CHECK(std::atoi(w[1].c_str()) == pakChecksum(*code, feed) && w[1] == w[2]);
+        const int32_t a = std::atoi(w[4].c_str()), b = std::atoi(w[5].c_str());
+        CHECK(std::atoi(w[6].c_str()) == (feed ^ a ^ b ^ 2));
+    }
+    // Only the paks the server says it has.
+    const std::string only = pureCommand(set, feed, std::to_string(uint32_t(pakChecksum(*code))));
+    const std::vector<std::string> o = splitCommand(only);
+    CHECK(o.size() == 6 && std::atoi(o[5].c_str()) == (feed ^ pakChecksum(*code, feed) ^ 1));
+    std::filesystem::remove_all(tmp);
+}
+
 static void testServerBrowser() {
     using reluva::idtech3::ServerBrowser;
     auto network = net::LoopbackNetwork::create();
@@ -2457,6 +2509,7 @@ int main() {
     testVideoSettings();
     testAreaPortals();
     testServerBrowser();
+    testPureCheck(tmp / "pure");
     testNetMessages();
     testNetDeltas();
     testVmFileList();

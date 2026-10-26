@@ -15,6 +15,7 @@
 #include "common/fs.h"
 #include "common/gfx3d.h"
 #include "common/image.h"
+#include "common/md4.h"
 #include "common/md5.h"
 #include "common/net.h"
 #include "common/text.h"
@@ -287,6 +288,25 @@ static void testSearchSet(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+static void testMd4() {
+    // RFC 1320's test values.
+    auto hex = [](const std::string& text) {
+        const auto d = md4(text.data(), text.size());
+        std::string out;
+        char buf[3];
+        for (uint8_t b : d) {
+            std::snprintf(buf, sizeof buf, "%02x", b);
+            out += buf;
+        }
+        return out;
+    };
+    CHECK(hex("") == "31d6cfe0d16ae931b73c59d7e0c089c0");
+    CHECK(hex("abc") == "a448017aaf21d8525fc10ae87aa6729d");
+    CHECK(hex("message digest") == "d9130a8164549fe818874806e1c7014b");
+    CHECK(hex("12345678901234567890123456789012345678901234567890123456789012345678901234567890") ==
+          "e33b4ddc9c38f2199c3e7b164fcc0536");
+}
+
 static void testNet() {
     net::Address a;
     CHECK(net::parseAddress("192.168.1.20:27961", 27960, a) && a.ip == 0xc0a80114u && a.port == 27961);
@@ -388,6 +408,7 @@ int main() {
     testSearchSet(tmp / "search");
     testImage();
     testNet();
+    testMd4();
     testGfxMath();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);

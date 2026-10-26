@@ -73,6 +73,8 @@ public:
     const std::map<int32_t, std::string>& configstrings() const { return configstrings_; }
     int32_t gamestateCommandSequence() const { return gamestateSequence_; }
     int32_t gamestateMessage() const { return gamestateMessage_; }
+    // The number the server's pure check seeds pak checksums with.
+    int32_t checksumFeed() const { return checksumFeed_; }
     bool takeNewGamestate() {
         const bool got = newGamestate_;
         newGamestate_ = false;

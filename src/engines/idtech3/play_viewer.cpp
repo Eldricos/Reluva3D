@@ -14,6 +14,7 @@
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/entities.h"
 #include "engines/idtech3/info_string.h"
+#include "engines/idtech3/pure.h"
 #include "engines/idtech3/scene_drawer.h"
 #include "engines/idtech3/viewers.h"
 
@@ -411,6 +412,12 @@ void PlayViewer::runRemote(uint64_t nowMs, int32_t dt) {
             stop("The client game stopped: " + err.message);
             return;
         }
+        // The pure check, before the first move: which paks the client
+        // game, the menus and the rest come from (a server that isn't
+        // pure ignores it).
+        const std::string paks = cs.count(1) ? infoValue(cs.at(1), "sv_paks") : std::string();
+        if (const std::string cp = pureCommand(ctx_.files, client_->checksumFeed(), paks); !cp.empty())
+            client_->addClientCommand(cp);
         client_->setLoaded();
     }
     if (!cgame_)

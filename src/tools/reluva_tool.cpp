@@ -122,6 +122,7 @@
 #include "engines/idtech3/eliteforce/net_client.h"
 #include "engines/idtech3/eliteforce/net_server.h"
 #include "engines/idtech3/info_string.h"
+#include "engines/idtech3/pure.h"
 #include "backends/sockets/socket_net.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/shader.h"
@@ -3524,6 +3525,31 @@ int cmdNetFind(int argc, char** argv) {
     return answers ? 0 : 1;
 }
 
+// Each .pk3's checksum in a game folder, as id Tech 3 games tell them
+// apart (and the pure check's, with a feed if given).
+int cmdPk3Sums(int argc, char** argv) {
+    namespace q3 = reluva::idtech3;
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool pk3-sums <game folder> [feed]\n");
+        return 1;
+    }
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    const bool withFeed = argc >= 4;
+    const auto feed = int32_t(withFeed ? std::strtoll(argv[3], nullptr, 10) : 0);
+    for (const reluva::Archive* a : set.archives())
+        if (const auto* pak = dynamic_cast<const reluva::ZipArchive*>(a)) {
+            std::printf("%s: %u", pak->describe().c_str(), uint32_t(q3::pakChecksum(*pak)));
+            if (withFeed)
+                std::printf(" (pure %d)", q3::pakChecksum(*pak, feed));
+            std::printf("\n");
+        }
+    if (withFeed)
+        std::printf("%s\n", q3::pureCommand(set, feed, "").c_str());
+    return 0;
+}
+
 int cmdGameRun(int argc, char** argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n");
@@ -4657,6 +4683,8 @@ int main(int argc, char** argv) {
         return cmdNetRun(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "net-find") == 0)
         return cmdNetFind(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "pk3-sums") == 0)
+        return cmdPk3Sums(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "ui-run") == 0)
         return cmdUiRun(argc, argv);
 #endif
@@ -4704,6 +4732,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
                  "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -syscalls <first> <last> | -func <instruction> | -blockcopies | -fields <address>\n"
                  "  reluva-tool net-find [host[:port]]\n"
+                 "  reluva-tool pk3-sums <game folder> [feed]\n"
                  "  reluva-tool net-run <game folder> <map> [seconds] [-port N] [-addbot name]... | -join <host[:port]> [seconds] [-name name]\n"
                  "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n"
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
