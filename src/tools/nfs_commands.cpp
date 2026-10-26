@@ -5,6 +5,7 @@
 
 #include "common/events.h"
 #include "common/image.h"
+#include "engines/nfs/fce.h"
 #include "engines/nfs/ffn.h"
 #include "engines/nfs/folders.h"
 #include "engines/nfs/fsh.h"
@@ -21,6 +22,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -38,6 +40,8 @@ const char* const kUsageLines =
     "  reluva-tool fsh-dump <file.fsh | file.qfs | file.viv name> <output dir>\n"
     "  reluva-tool text-dump <text.eng>\n"
     "  reluva-tool ffn-render <file.ffn> <out.tga> [text]\n"
+    "  reluva-tool fce-info <file.fce | file.viv name>\n"
+    "  reluva-tool fce-obj <file.fce | file.viv name> <out.obj>\n"
     "  reluva-tool nfs-survey <folder>... [-v]\n"
     "  reluva-tool nfs-page <game folder> <out.tga> <page> [key...]\n";
 
@@ -45,6 +49,13 @@ std::string lowerAscii(std::string s) {
     for (char& c : s)
         c = char(std::tolower(static_cast<unsigned char>(c)));
     return s;
+}
+
+std::string safeObjName(const std::string& s) {
+    std::string out;
+    for (char c : s)
+        out += std::isalnum(static_cast<unsigned char>(c)) ? c : '_';
+    return out;
 }
 
 int fail(const Error& err) {
@@ -370,6 +381,94 @@ int cmdNfsSurvey(int argc, char** argv) {
     return failed ? 1 : 0;
 }
 
+int cmdFceInfo(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool fce-info <file.fce | file.viv name>\n");
+        return 2;
+    }
+    std::vector<uint8_t> data;
+    if (Error err = load(argv[2], argc > 3 ? argv[3] : nullptr, data))
+        return fail(err);
+    reluva::nfs::Model model;
+    if (Error err = reluva::nfs::parseModel(data, model))
+        return fail(err);
+    std::printf("%zu vertices, %zu triangles, half size %.3f %.3f %.3f\n", model.vertices.size(),
+                model.triangles.size(), model.halfSize[0], model.halfSize[1], model.halfSize[2]);
+    for (size_t i = 0; i < model.parts.size(); ++i) {
+        const auto& p = model.parts[i];
+        std::printf("  part %2zu %-26s at %6.2f %6.2f %6.2f  %4u vertices %4u triangles\n", i, p.name.c_str(),
+                    p.position[0], p.position[1], p.position[2], p.vertexCount, p.triangleCount);
+    }
+    for (const auto& dm : model.dummies)
+        std::printf("  dummy %-8s at %6.2f %6.2f %6.2f\n", dm.name.c_str(), dm.position[0], dm.position[1],
+                    dm.position[2]);
+    for (size_t i = 0; i < model.primaryColours.size(); ++i) {
+        const auto& a = model.primaryColours[i].hsbx;
+        std::printf("  colour %zu: %u %u %u %u", i, a[0], a[1], a[2], a[3]);
+        if (i < model.secondaryColours.size()) {
+            const auto& b = model.secondaryColours[i].hsbx;
+            std::printf(", second %u %u %u %u", b[0], b[1], b[2], b[3]);
+        }
+        std::printf("\n");
+    }
+    std::map<uint32_t, int> pages, flags;
+    for (const auto& t : model.triangles) {
+        ++pages[t.texturePage];
+        ++flags[t.flags];
+    }
+    std::printf("  triangles by texture page:");
+    for (const auto& [k, n] : pages)
+        std::printf(" %u:%d", k, n);
+    std::printf("\n  triangles by flags:");
+    for (const auto& [k, n] : flags)
+        std::printf(" 0x%x:%d", k, n);
+    std::printf("\n");
+    return 0;
+}
+
+// Writes a model as Wavefront OBJ, one group per part, placed and turned
+// right-handed (z mirrored) as Reluva draws it.
+int cmdFceObj(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool fce-obj <file.fce | file.viv name> <out.obj>\n");
+        return 2;
+    }
+    const bool inViv = argc > 4;
+    std::vector<uint8_t> data;
+    if (Error err = load(argv[2], inViv ? argv[3] : nullptr, data))
+        return fail(err);
+    reluva::nfs::Model model;
+    if (Error err = reluva::nfs::parseModel(data, model))
+        return fail(err);
+    std::ofstream out(argv[inViv ? 4 : 3]);
+    out << "# " << argv[2] << (inViv ? std::string(" ") + argv[3] : "") << "\n";
+    for (const auto& p : model.parts)
+        for (uint32_t i = p.firstVertex; i < p.firstVertex + p.vertexCount; ++i) {
+            const auto& v = model.vertices[i];
+            out << "v " << v[0] + p.position[0] << ' ' << v[1] + p.position[1] << ' ' << -(v[2] + p.position[2]) << "\n";
+        }
+    for (const auto& t : model.triangles)
+        for (int k = 0; k < 3; ++k)
+            out << "vt " << t.u[k] << ' ' << 1 - t.v[k] << "\n";
+    size_t uv = 1;
+    for (size_t i = 0; i < model.parts.size(); ++i) {
+        const auto& p = model.parts[i];
+        out << "g part" << i << (p.name.empty() ? "" : "_") << safeObjName(p.name) << "\n";
+        for (uint32_t t = p.firstTriangle; t < p.firstTriangle + p.triangleCount; ++t, uv += 3) {
+            const auto& tri = model.triangles[t];
+            out << "f";
+            for (int k = 0; k < 3; ++k)
+                out << ' ' << tri.vertices[k] + 1 << '/' << uv + k;
+            out << "\n";
+        }
+    }
+    if (!out) {
+        std::fprintf(stderr, "can't write %s\n", argv[inViv ? 4 : 3]);
+        return 1;
+    }
+    return 0;
+}
+
 // Draws one of the engine's viewer pages after the keys given, as the
 // engine would, without a window: for checking pages and taking pictures
 // of them.
@@ -445,6 +544,10 @@ int runNfsCommand(int argc, char** argv) {
         return cmdTextDump(argc, argv);
     if (std::strcmp(cmd, "ffn-render") == 0)
         return cmdFfnRender(argc, argv);
+    if (std::strcmp(cmd, "fce-info") == 0)
+        return cmdFceInfo(argc, argv);
+    if (std::strcmp(cmd, "fce-obj") == 0)
+        return cmdFceObj(argc, argv);
     if (std::strcmp(cmd, "nfs-survey") == 0)
         return cmdNfsSurvey(argc, argv);
     if (std::strcmp(cmd, "nfs-page") == 0)

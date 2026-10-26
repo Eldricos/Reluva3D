@@ -3,8 +3,12 @@
 
 #pragma once
 
+#include "common/events.h"
+#include "common/gfx3d.h"
 #include "common/image.h"
+#include "common/system.h"
 #include "common/types.h"
+#include "engines/nfs/fce.h"
 #include "engines/nfs/ffn.h"
 #include "engines/nfs/folders.h"
 #include "engines/nfs/fsh.h"
@@ -17,8 +21,9 @@
 #include <vector>
 
 // Data viewers used by the Need for Speed engine until the game itself
-// runs. Each draws into the engine's 640x480 RGBA32 screen when asked;
-// Tab switches between them (nfs.cpp).
+// runs. The 2D ones draw into the engine's 640x480 RGBA32 screen when
+// asked; the 3D ones take the GPU renderer while shown and draw a frame
+// each update. Tab switches between them (nfs.cpp).
 
 namespace reluva::nfs {
 
@@ -28,8 +33,22 @@ public:
     virtual const char* name() const = 0;
     // Whether there's anything to show; pages without are skipped.
     virtual bool empty() const { return false; }
-    virtual void handleKey(uint32_t key, uint16_t mods) = 0;
-    virtual void draw(Surface& screen) = 0;
+    // Called when the page is shown and before switching away. A 3D page
+    // takes the renderer in activate(); the engine puts the framebuffer
+    // back after it's left.
+    virtual void activate(System& /*sys*/) {}
+    virtual void deactivate() {}
+    // Whether the page is drawing with the GPU (else draw() is used).
+    virtual bool uses3D() const { return false; }
+    virtual void handleEvent(const Event& ev) {
+        if (ev.type == EventType::KeyDown)
+            handleKey(ev.key, ev.mods);
+    }
+    virtual void handleKey(uint32_t /*key*/, uint16_t /*mods*/) {}
+    // 2D pages: draws the page into the screen, after any event.
+    virtual void draw(Surface& /*screen*/) {}
+    // 3D pages: draws a frame.
+    virtual void update(uint64_t /*nowMs*/) {}
 };
 
 // What the engine found: the folders, the CD's files, tracks and cars.
@@ -115,6 +134,46 @@ private:
     Font loaded_;
     std::string error_;
     int scale_ = 1;
+};
+
+// Every model (cars, traffic, police, the front end's track models) in 3D,
+// with its skin.
+//   Left/Right: model   drag or A/D/W/S: turn   wheel or +/-: zoom
+//   L: detail level   T: textures   C: back faces   Space: spin   R: reset
+class CarPage : public Page {
+public:
+    explicit CarPage(const GameFiles& files);
+    ~CarPage() override;
+    const char* name() const override { return "Cars"; }
+    bool empty() const override { return models_.empty(); }
+    void activate(System& sys) override;
+    void deactivate() override;
+    bool uses3D() const override { return renderer_ != nullptr; }
+    void handleEvent(const Event& ev) override;
+    void draw(Surface& screen) override; // when 3D isn't available
+    void update(uint64_t nowMs) override;
+
+private:
+    void load(int index);
+    void release();
+    void resetView();
+
+    const GameFiles& files_;
+    std::vector<FileRef> models_;
+    int index_ = 0;
+    gfx::Renderer3D* renderer_ = nullptr;
+    std::string unavailable_; // why there's no 3D
+    Surface overlay_;
+    Model model_;
+    std::string error_, skinName_;
+    gfx::MeshId mesh_ = 0;
+    gfx::TextureId skin_ = 0;
+    std::vector<int> partLevels_; // 0 high, 1 medium, 2 small, 3 tiny
+    int level_ = 0;               // 0-3, or 4 for all
+    bool textures_ = true, cullBack_ = true, spin_ = false, dragging_ = false;
+    float yaw_ = 0, pitch_ = 0, distance_ = 5, radius_ = 2;
+    int lastX_ = 0, lastY_ = 0;
+    uint64_t lastMs_ = 0;
 };
 
 // Every page, in Tab order, those with nothing to show left out.

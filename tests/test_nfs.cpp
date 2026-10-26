@@ -4,6 +4,7 @@
 // Tests for the Need for Speed engine's detection and folder finding,
 // against folders built here, so no game data is needed.
 
+#include "engines/nfs/fce.h"
 #include "engines/nfs/ffn.h"
 #include "engines/nfs/folders.h"
 #include "engines/nfs/fsh.h"
@@ -502,6 +503,88 @@ void testFont() {
     CHECK(parseFont(Bytes(b.begin(), b.end() - 1), font)); // atlas cut short
 }
 
+void putFloat(Bytes& b, size_t at, float f) {
+    uint32_t v;
+    std::memcpy(&v, &f, 4);
+    for (int i = 0; i < 4; ++i)
+        b[at + i] = uint8_t(v >> (8 * i));
+}
+void putU32(Bytes& b, size_t at, uint32_t v) {
+    for (int i = 0; i < 4; ++i)
+        b[at + i] = uint8_t(v >> (8 * i));
+}
+
+void testModel() {
+    // Two parts: a triangle and a quad (two triangles), 7 vertices.
+    constexpr size_t kData = 0x1f04;
+    const uint32_t nV = 7, nT = 3;
+    Bytes b(kData + 24 * nV + 56 * nT + 32 * nV + 12 * nV + 12 * nV, 0);
+    putU32(b, 0x04, nT);
+    putU32(b, 0x08, nV);
+    putU32(b, 0x0c, 1);
+    putU32(b, 0x10, 0);
+    putU32(b, 0x14, 12 * nV);
+    putU32(b, 0x18, 24 * nV);
+    putFloat(b, 0x28, 1.0f);
+    putU32(b, 0x34, 1); // a dummy
+    putFloat(b, 0x38 + 8, 2.0f);
+    std::memcpy(&b[0xa04], "HFLO", 4);
+    putU32(b, 0xf8, 2);
+    putFloat(b, 0xfc + 12 + 0, -0.8f); // part 1's position
+    putU32(b, 0x3fc + 4, 3);           // first vertices 0, 3
+    putU32(b, 0x4fc, 3);
+    putU32(b, 0x4fc + 4, 4);
+    putU32(b, 0x5fc + 4, 1); // first triangles 0, 1
+    putU32(b, 0x6fc, 1);
+    putU32(b, 0x6fc + 4, 2);
+    putU32(b, 0x7fc, 1);
+    for (int k = 0; k < 4; ++k)
+        putU32(b, 0x800 + 4 * k, 10u + k);
+    std::memcpy(&b[0xe04], "high body", 9);
+    std::memcpy(&b[0xe44], "left front wheel", 16);
+    for (uint32_t i = 0; i < nV; ++i) {
+        putFloat(b, kData + 12 * i, float(i));
+        putFloat(b, kData + 12 * nV + 12 * i + 4, 1.0f); // normals up
+    }
+    // Triangles: page, three part-local indices, 12 bytes, flags, u[3], v[3].
+    const uint32_t tris[3][4] = {{0, 0, 1, 2}, {1, 0, 1, 2}, {1, 2, 3, 0}};
+    for (uint32_t t = 0; t < nT; ++t) {
+        const size_t at = kData + 24 * nV + 56 * t;
+        for (int k = 0; k < 4; ++k)
+            putU32(b, at + 4 * k, tris[t][k]);
+        putU32(b, at + 28, t == 2 ? 0x80 : 1);
+        putFloat(b, at + 32, 0.25f);
+        putFloat(b, at + 44 + 8, 0.75f);
+    }
+
+    Model m;
+    CHECK(!parseModel(b, m));
+    CHECK(m.vertices.size() == nV && m.triangles.size() == nT && m.parts.size() == 2);
+    if (m.parts.size() == 2 && m.triangles.size() == nT) {
+        CHECK(m.parts[0].name == "high body" && m.parts[1].name == "left front wheel");
+        CHECK(m.parts[1].position[0] == -0.8f);
+        CHECK(m.parts[1].firstVertex == 3 && m.parts[1].vertexCount == 4 && m.parts[1].triangleCount == 2);
+        // Part 1's triangles index the model's vertices: 3 + local.
+        CHECK(m.triangles[0].vertices == (std::array<uint32_t, 3>{0, 1, 2}));
+        CHECK(m.triangles[2].vertices == (std::array<uint32_t, 3>{5, 6, 3}));
+        CHECK(m.triangles[1].texturePage == 1 && m.triangles[2].flags == 0x80);
+        CHECK(m.triangles[1].u[0] == 0.25f && m.triangles[1].v[2] == 0.75f);
+        CHECK(m.vertices[4][0] == 4.0f && m.normals[4][1] == 1.0f);
+    }
+    CHECK(m.halfSize[0] == 1.0f);
+    CHECK(m.dummies.size() == 1 && m.dummies[0].name == "HFLO" && m.dummies[0].position[2] == 2.0f);
+    CHECK(m.primaryColours.size() == 1 && m.primaryColours[0].hsbx[3] == 13);
+    CHECK(m.secondaryColours.empty());
+
+    Bytes outside = b;
+    putU32(outside, kData + 24 * nV + 56 * 2 + 4, 4); // part 1 has 4 vertices: 0-3
+    CHECK(parseModel(outside, m));
+    Bytes tooMany = b;
+    putU32(tooMany, 0x4fc + 4, 5);
+    CHECK(parseModel(tooMany, m));
+    CHECK(parseModel(Bytes(100, 0), m));
+}
+
 void testGameFiles(const stdfs::path& tmp) {
     const stdfs::path install = tmp / "files/install", cd = tmp / "files/cd";
     touch(install / "FeData/text/text.eng", "eng");
@@ -557,6 +640,7 @@ int main() {
     testTextTable();
     testFont();
     testGameFiles(tmp);
+    testModel();
     stdfs::remove_all(tmp);
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);

@@ -52,23 +52,48 @@ public:
 
         size_t page = 0;
         bool dirty = true;
+        auto show = [&](size_t next) -> Error {
+            // Leaving a 3D page: its renderer goes, the framebuffer comes back.
+            const bool was3D = pages[page]->uses3D();
+            pages[page]->deactivate();
+            if (was3D)
+                if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32))
+                    return err;
+            page = next;
+            sys_.setWindowTitle(std::string("Reluva - ") + game_.name + " - " + pages[page]->name());
+            pages[page]->activate(sys_);
+            dirty = true;
+            return Error::success();
+        };
+        sys_.setWindowTitle(std::string("Reluva - ") + game_.name + " - " + pages[page]->name());
+        pages[page]->activate(sys_);
+
         while (true) {
             Event ev;
             while (sys_.pollEvent(ev)) {
-                if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher)
+                if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher) {
+                    pages[page]->deactivate();
                     return Error::success();
-                if (ev.type != EventType::KeyDown)
+                }
+                if (ev.type == EventType::KeyDown && ev.key == key::Escape) {
+                    pages[page]->deactivate();
+                    return Error::success();
+                }
+                if (ev.type == EventType::KeyDown && ev.key == key::Tab) {
+                    const size_t step = (ev.mods & keymod::Shift) ? pages.size() - 1 : 1;
+                    if (Error err = show((page + step) % pages.size()))
+                        return err;
                     continue;
-                if (ev.key == key::Escape)
-                    return Error::success();
-                if (ev.key == key::Tab)
-                    page = (page + ((ev.mods & keymod::Shift) ? pages.size() - 1 : 1)) % pages.size();
-                else
-                    pages[page]->handleKey(ev.key, ev.mods);
+                }
+                pages[page]->handleEvent(ev);
                 dirty = true;
             }
+            if (pages[page]->uses3D()) {
+                // Paced by presenting (vsync).
+                pages[page]->update(sys_.getMillis());
+                continue;
+            }
             if (dirty) {
-                sys_.setWindowTitle(std::string("Reluva - ") + game_.name + " - " + pages[page]->name());
                 pages[page]->draw(screen_);
                 dirty = false;
             }
