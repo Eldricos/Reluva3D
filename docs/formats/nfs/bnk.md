@@ -40,12 +40,12 @@ All values are little-endian unless noted.
 | Offset | Size | Meaning |
 |---|---|---|
 | 0 | 4 | `BNKl` |
-| 4 | u16 | version: 2 (838 banks) or 4 (212: the car engines, 3D sounds, track ambiences) |
+| 4 | u16 | version: 2 for most banks, 4 for the car engines, 3D sounds and track ambiences |
 | 6 | u16 | number of slots |
 | 8 | u32 | size of the headers' area (slots and PT headers); the audio follows |
 | 12 | 4 × n | each slot's offset to its PT header, counted from the slot itself |
 
-A slot of 0 or −1 is empty. A few slots (230 in the retail banks) point
+A slot of 0 or −1 is empty. A few slots (a couple of hundred) point
 into the audio data, at no header: leftovers by the look of them, and
 taken as empty.
 
