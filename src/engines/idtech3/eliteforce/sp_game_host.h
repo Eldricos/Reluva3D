@@ -179,6 +179,11 @@ public:
     SoundSystem* soundSystem = nullptr;
     SoundLibrary& soundLibrary() { return soundLibrary_; }
 
+    // Voices starting and ending, for following a scene's timing: a line
+    // of text for each ("+12 sound/... 3400 ms", "-12", or why one isn't
+    // counted).
+    std::function<void(const std::string&)> voiceLog;
+
     // What the game prints (Printf).
     std::function<void(const std::string&)> print;
     // Each call the game makes to the engine: its slot and the address it

@@ -242,11 +242,21 @@ Error SpGameHost::connectPlayer(const std::string& userinfo, std::string& refuse
 }
 
 void SpGameHost::startVoice(int32_t entity, const std::string& name) {
-    if (entity < 0 || entity >= kMaxEntities || name.empty())
+    auto log = [&](const std::string& text) {
+        if (voiceLog)
+            voiceLog("[" + std::to_string(levelTime_) + " ms] " + text);
+    };
+    if (entity < 0 || entity >= kMaxEntities || name.empty()) {
+        log("voice not counted: entity " + std::to_string(entity) + ", sound '" + name + "'");
         return;
+    }
     auto sound = soundLibrary_.get(name);
-    if (!sound || sound->rate <= 0 || sound->frames() == 0)
+    if (!sound || sound->rate <= 0 || sound->frames() == 0) {
+        log("voice not counted: " + name + " couldn't be read (entity " + std::to_string(entity) + ")");
         return;
+    }
+    log("+" + std::to_string(entity) + " " + name + " " +
+        std::to_string(int64_t(sound->frames()) * 1000 / sound->rate) + " ms");
     // Its overall level, as the mean square of its samples' high bytes
     // (the measure the original compares a moment of it against).
     double sum = 0;
@@ -282,6 +292,8 @@ void SpGameHost::updateVoiceVolumes() {
         const size_t frames = v.sound->frames();
         const size_t at = size_t(int64_t(levelTime_ - v.startMs) * v.sound->rate / 1000);
         if (at >= frames) {
+            if (voiceLog)
+                voiceLog("[" + std::to_string(levelTime_) + " ms] -" + std::to_string(it->first));
             it = voices_.erase(it);
             continue;
         }
@@ -783,6 +795,9 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
     case 25: return 0;                        // CM_MarkFragments: no wall marks yet
     // Sound, played if there's somewhere to play it.
     case 26: // S_StartSound(origin or 0, entity, channel, sfx)
+        if (voiceLog && sounds_.name(int32_t(a(3))).find("/voice/") != std::string::npos)
+            voiceLog("[" + std::to_string(levelTime_) + " ms] sound on entity " + std::to_string(int32_t(a(1))) +
+                     ", channel " + std::to_string(int32_t(a(2))) + ": " + sounds_.name(int32_t(a(3))));
         if (a(2) == 3 || a(2) == 4)
             startVoice(int32_t(a(1)), sounds_.name(int32_t(a(3))));
         if (soundSystem)
