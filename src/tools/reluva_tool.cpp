@@ -4009,21 +4009,53 @@ int cmdSpRun(int argc, char** argv) {
         reluva::x86::Cpu& cpu = game.cpu();
         const uint32_t map = 0x2027d760 - uint32_t(game.module()->image.imageBase) + game.module()->base;
         const uint32_t head = cpu.read32(map + 4);
-        std::set<uint32_t> seen{0, head};
-        std::vector<uint32_t> stack{cpu.read32(head + 4)};
-        int count = 0;
-        std::printf("script names (map at %08x, head %08x, size %u):\n", map, head, cpu.read32(map + 12));
-        while (!stack.empty() && count < 4000) {
-            const uint32_t node = stack.back();
-            stack.pop_back();
-            if (!cpu.valid(node, 36) || !seen.insert(node).second)
-                continue;
+        // A node's key, or none for the tree's sentinel (no valid text).
+        auto key = [&](uint32_t node, std::string& out) {
+            if (!cpu.valid(node, 36) || node == head)
+                return false;
             const uint32_t text = cpu.read32(node + 16), length = cpu.read32(node + 20);
-            if (cpu.valid(text, 1) && length < 256)
-                std::printf("  %s -> %d\n", cpu.string(text, length).c_str(), int32_t(cpu.read32(node + 28)));
-            ++count;
-            stack.push_back(cpu.read32(node));
-            stack.push_back(cpu.read32(node + 8));
+            if (!cpu.valid(text, 1) || length > 255)
+                return false;
+            out.assign(reinterpret_cast<const char*>(cpu.memory().data() + text), length);
+            return true;
+        };
+        // In order (left, node, right), checking each key is after the last.
+        std::vector<std::pair<std::string, int32_t>> inOrder;
+        std::set<uint32_t> visited;
+        auto walk = [&](uint32_t node, int depth, auto& self) -> void {
+            std::string k;
+            if (depth > 64 || !key(node, k) || !visited.insert(node).second)
+                return;
+            self(cpu.read32(node), depth + 1, self);
+            inOrder.emplace_back(k, int32_t(cpu.read32(node + 28)));
+            self(cpu.read32(node + 8), depth + 1, self);
+        };
+        const uint32_t root = cpu.read32(head + 4);
+        walk(root, 0, walk);
+        std::printf("script names (map at %08x, head %08x, root %08x, size %u, %zu found in order):\n", map, head,
+                    root, cpu.read32(map + 12), inOrder.size());
+        for (size_t i = 0; i < inOrder.size(); ++i)
+            std::printf("  %s -> %d%s\n", inOrder[i].first.c_str(), inOrder[i].second,
+                        i && !(inOrder[i - 1].first < inOrder[i].first) ? "   <-- OUT OF ORDER" : "");
+        // The search std::map::find makes, for each name asked for.
+        for (const std::string& f : finds) {
+            std::string want = f;
+            for (char& c : want)
+                c = char(std::toupper(static_cast<unsigned char>(c)));
+            uint32_t node = root, best = 0;
+            std::string k, path;
+            while (key(node, k)) {
+                path += " " + k;
+                if (k < want) {
+                    node = cpu.read32(node + 8);
+                } else {
+                    best = node;
+                    node = cpu.read32(node);
+                }
+            }
+            std::string bestKey;
+            const bool found = best && key(best, bestKey) && bestKey == want;
+            std::printf("  find %s: %s (path:%s)\n", want.c_str(), found ? "found" : "NOT FOUND", path.c_str());
         }
     }
     std::printf("configstrings:\n");
