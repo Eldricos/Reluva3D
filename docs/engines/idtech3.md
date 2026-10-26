@@ -91,8 +91,9 @@ every engine.
    count change making it a full change; `vstr`, `kick`, `clientkick` and
    `set` are the engine's as well. Played Reluva to Reluva, and solo, on the retail data
    patched to 1.2 (which also confirms 1.2's layouts), and against the
-   retail game both ways. Joining a pure retail server works (the `cp`
-   check, with pk3 checksums as the original's). Snapshots hold only what
+   retail game both ways (October 2026). Reluva answers a pure server's
+   check (`cp`, with pk3 checksums as the original's); not yet tried
+   against a pure retail server. Snapshots hold only what
    the player could see, as the original's server picks it: not behind a
    closed door, in a cluster their eye's can see, unless sent to all;
    one-client and client-mask flags with 1.2's layout; through portal
