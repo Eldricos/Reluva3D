@@ -3985,6 +3985,98 @@ int cmdSpRun(int argc, char** argv) {
     return 0;
 }
 
+// Prints a compiled ICARUS script (.IBI, Elite Force's single player
+// scripts): its blocks (commands) and their members, the block ids named as
+// the format's GPL release in Jedi Outcast numbers them.
+int cmdIbiDump(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool ibi-dump <game folder> <script, e.g. real_scripts/borg1/intro>\n");
+        return 2;
+    }
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    std::string name = argv[3];
+    if (name.size() < 4 || reluva::fs::toLower(name.substr(name.size() - 4)) != ".ibi")
+        name += ".IBI";
+    Bytes d;
+    if (reluva::Error err = set.read(name, d)) {
+        std::fprintf(stderr, "%s: %s\n", name.c_str(), err.message.c_str());
+        return 1;
+    }
+    if (d.size() < 8 || std::memcmp(d.data(), "IBI", 4) != 0) {
+        std::fprintf(stderr, "%s isn't an IBI script\n", name.c_str());
+        return 1;
+    }
+    auto i32 = [&](size_t at) {
+        int32_t v = 0;
+        if (at + 4 <= d.size())
+            std::memcpy(&v, d.data() + at, 4);
+        return v;
+    };
+    float version;
+    std::memcpy(&version, d.data() + 4, 4);
+    std::printf("%s: IBI version %.2f, %zu bytes\n", name.c_str(), version, d.size());
+    static const char* const kIds[] = {"affect", "sound", "move", "rotate", "wait", "{", "}", "set", "loop",
+                                       "loopend", "print", "use", "flush", "run", "kill", "remove", "camera",
+                                       "get", "random", "if", "else", "rem", "task", "do", "declare", "free",
+                                       "dowait", "signal", "waitsignal", "play", "tag", "eof"};
+    static const char* const kTokens[] = {"undefined", "comment", "eol", "char", "string", "int", "float",
+                                          "identifier", "{", "}", "<", ">", "(", ")", "vector", ">", "<", "=", "!"};
+    auto idName = [&](int32_t id) -> std::string {
+        if (id >= 19 && id < 19 + int32_t(sizeof kIds / sizeof kIds[0]))
+            return kIds[id - 19];
+        if (id >= 0 && id < int32_t(sizeof kTokens / sizeof kTokens[0]))
+            return kTokens[id];
+        return "#" + std::to_string(id);
+    };
+    size_t at = 8;
+    int depth = 0;
+    while (at + 9 <= d.size()) {
+        const int32_t id = i32(at), members = i32(at + 4);
+        const uint8_t flags = d[at + 8];
+        at += 9;
+        if (id == 25) // block end
+            depth = std::max(0, depth - 1);
+        std::string line(size_t(2 * depth), ' ');
+        line += idName(id) + "[" + std::to_string(id) + "]";
+        if (flags)
+            line += " flags " + std::to_string(flags);
+        line += " (";
+        for (int32_t m = 0; m < members && at + 8 <= d.size(); ++m) {
+            const int32_t mid = i32(at), size = i32(at + 4);
+            at += 8;
+            if (size < 0 || at + size_t(size) > d.size())
+                break;
+            std::string v;
+            if (mid == 4 || mid == 7 || mid == 3) {
+                v = "\"" + std::string(reinterpret_cast<const char*>(d.data() + at), strnlen(reinterpret_cast<const char*>(d.data() + at), size_t(size))) + "\"";
+            } else if (mid == 6 && size == 4) {
+                float f;
+                std::memcpy(&f, d.data() + at, 4);
+                char b[32];
+                std::snprintf(b, sizeof b, "%g", f);
+                v = b;
+            } else if (mid == 5 && size == 4) {
+                v = std::to_string(i32(at));
+            } else {
+                v = idName(mid);
+                if (size == 4)
+                    v += "=" + std::to_string(i32(at));
+                else if (size)
+                    v += "(" + std::to_string(size) + " bytes)";
+            }
+            line += (m ? ", " : "") + v;
+            at += size_t(size);
+        }
+        line += ")";
+        std::printf("%s\n", line.c_str());
+        if (id == 24) // block start
+            ++depth;
+    }
+    return 0;
+}
+
 int cmdPeInfo(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool pe-info <file.dll|file.exe> [-all]\n");
@@ -5183,6 +5275,8 @@ int main(int argc, char** argv) {
         return cmdX86Run(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "sp-run") == 0)
         return cmdSpRun(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "ibi-dump") == 0)
+        return cmdIbiDump(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "pk3-sums") == 0)
         return cmdPk3Sums(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "ui-run") == 0)
@@ -5235,6 +5329,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool net-master [master[:port]]...\n"
                  "  reluva-tool pe-info <file.dll|file.exe>\n"
                  "  reluva-tool x86-run <file.dll> [-call Export [arg|table]...]\n"
+                 "  reluva-tool ibi-dump <game folder> <script>\n"
                  "  reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] [-set name value]... [-trace]\n"
                  "  reluva-tool pk3-sums <game folder> [feed]\n"
                  "  reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-addbot name]... | -join <host[:port]> [seconds] [-name name]\n"
