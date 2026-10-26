@@ -1,0 +1,368 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#include "engines/awe/model.h"
+
+#include "engines/awe/granny_dll.h"
+
+#include <algorithm>
+#include <cmath>
+#include <map>
+
+namespace reluva::awe {
+
+namespace {
+
+Mat4 multiply(const Mat4& a, const Mat4& b) {
+    Mat4 r{};
+    for (int c = 0; c < 4; c++)
+        for (int row = 0; row < 4; row++) {
+            float s = 0;
+            for (int k = 0; k < 4; k++)
+                s += a[size_t(k * 4 + row)] * b[size_t(c * 4 + k)];
+            r[size_t(c * 4 + row)] = s;
+        }
+    return r;
+}
+
+Mat4 identityMatrix() { return {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}; }
+
+BoneTransform fromGr2(const Gr2Transform& t) {
+    BoneTransform b;
+    std::copy(std::begin(t.position), std::end(t.position), b.position);
+    std::copy(std::begin(t.orientation), std::end(t.orientation), b.orientation);
+    std::copy(std::begin(t.scaleShear), std::end(t.scaleShear), b.scaleShear);
+    return b;
+}
+
+Curve readCurve(const Gr2Object& o) {
+    Curve c;
+    if (!o.valid())
+        return c;
+    c.degree = int(o.number("Degree"));
+    const uint32_t knots = o.count("Knots"), controls = o.count("Controls");
+    c.knots.reserve(knots);
+    for (uint32_t i = 0; i < knots; i++)
+        c.knots.push_back(float(o.element("Knots", i).number("Real32")));
+    c.controls.reserve(controls);
+    for (uint32_t i = 0; i < controls; i++)
+        c.controls.push_back(float(o.element("Controls", i).number("Real32")));
+    return c;
+}
+
+// The texture a mesh's material draws with: its own, or its diffuse map's.
+Gr2Object materialTexture(const Gr2Object& material) {
+    if (!material.valid())
+        return {};
+    Gr2Object t = material.object("Texture");
+    if (t.valid())
+        return t;
+    for (uint32_t i = 0; i < material.count("Maps"); i++) {
+        const Gr2Object map = material.element("Maps", i);
+        t = materialTexture(map.object("Map"));
+        if (t.valid())
+            return t;
+    }
+    return {};
+}
+
+} // namespace
+
+Mat4 toMatrix(const BoneTransform& t) {
+    const float x = t.orientation[0], y = t.orientation[1], z = t.orientation[2], w = t.orientation[3];
+    // The rotation's rows.
+    const float r[9] = {1 - 2 * (y * y + z * z), 2 * (x * y - z * w),     2 * (x * z + y * w),
+                        2 * (x * y + z * w),     1 - 2 * (x * x + z * z), 2 * (y * z - x * w),
+                        2 * (x * z - y * w),     2 * (y * z + x * w),     1 - 2 * (x * x + y * y)};
+    // Rotation times scale/shear, then the translation.
+    Mat4 m = identityMatrix();
+    for (int row = 0; row < 3; row++)
+        for (int col = 0; col < 3; col++) {
+            float s = 0;
+            for (int k = 0; k < 3; k++)
+                s += r[row * 3 + k] * t.scaleShear[k * 3 + col];
+            m[size_t(col * 4 + row)] = s;
+        }
+    m[12] = t.position[0];
+    m[13] = t.position[1];
+    m[14] = t.position[2];
+    return m;
+}
+
+Error loadModel(const Gr2File& file, GrannyDll* dll, Model& out) {
+    out = Model();
+    const Gr2Object root = file.root();
+    if (const Gr2Object art = root.object("ArtToolInfo"); art.valid() && art.number("UnitsPerMeter") > 0)
+        out.unitsPerMeter = float(art.number("UnitsPerMeter"));
+    if (root.count("Models") == 0)
+        return Error::fail("The file has no model");
+    const Gr2Object model = root.element("Models", 0);
+    out.name = model.string("Name");
+    const Gr2Object skeleton = model.object("Skeleton");
+    std::map<std::string, int> boneByName;
+    for (uint32_t i = 0; i < skeleton.count("Bones"); i++) {
+        const Gr2Object b = skeleton.element("Bones", i);
+        Bone bone;
+        bone.name = b.string("Name");
+        bone.parent = int(b.number("ParentIndex"));
+        if (bone.parent >= int(i))
+            bone.parent = -1;
+        bone.rest = fromGr2(b.transform("Transform"));
+        for (uint32_t k = 0; k < 16; k++)
+            bone.inverseWorld[k] = float(b.number("InverseWorldTransform", k));
+        boneByName.emplace(bone.name, int(out.bones.size()));
+        out.bones.push_back(std::move(bone));
+    }
+
+    std::map<uint32_t, int> textureByAddress;
+    auto texture = [&](const Gr2Object& t) -> int {
+        if (!t.valid())
+            return -1;
+        if (auto it = textureByAddress.find(t.address()); it != textureByAddress.end())
+            return it->second;
+        ModelTexture tex;
+        tex.name = t.string("FromFileName");
+        if (const size_t slash = tex.name.find_last_of("\\/"); slash != std::string::npos)
+            tex.name = tex.name.substr(slash + 1);
+        tex.width = int(t.number("Width"));
+        tex.height = int(t.number("Height"));
+        const int encoding = int(t.number("Encoding"));
+        const Gr2Object image = t.element("Images", 0);
+        const Gr2Object mip = image.element("MIPLevels", 0);
+        const Gr2Object::Array pixels = mip.array("Pixels");
+        if (pixels.count && pixels.stride == 1) {
+            const std::vector<uint8_t> data(file.memory().begin() + pixels.address,
+                                            file.memory().begin() + pixels.address + pixels.count);
+            const Gr2Object layout = t.object("Layout");
+            const bool alpha = layout.number("BitsForComponent", 3) > 0;
+            if (encoding == 3 && dll) {
+                if (dll->binkTexture(tex.width, tex.height, uint32_t(t.number("SubFormat")) | (alpha ? 1u : 0u), data,
+                                     tex.rgba))
+                    tex.rgba.clear();
+            } else if (encoding == 1 && layout.number("BytesPerPixel") >= 3) {
+                // Raw: each pixel's components where the layout says.
+                const int bpp = int(layout.number("BytesPerPixel"));
+                if (data.size() >= size_t(tex.width) * size_t(tex.height) * size_t(bpp)) {
+                    tex.rgba.resize(size_t(tex.width) * size_t(tex.height) * 4);
+                    for (size_t p = 0; p < size_t(tex.width) * size_t(tex.height); p++) {
+                        uint32_t v = 0;
+                        for (int k = 0; k < bpp && k < 4; k++)
+                            v |= uint32_t(data[p * size_t(bpp) + size_t(k)]) << (8 * k);
+                        for (uint32_t c = 0; c < 4; c++) {
+                            const int bits = int(layout.number("BitsForComponent", c));
+                            const int shift = int(layout.number("ShiftForComponent", c));
+                            tex.rgba[p * 4 + c] =
+                                bits ? uint8_t(((v >> shift) & ((1u << bits) - 1)) * 255 / ((1u << bits) - 1)) : 255;
+                        }
+                    }
+                }
+            }
+        }
+        const int index = int(out.textures.size());
+        out.textures.push_back(std::move(tex));
+        textureByAddress.emplace(t.address(), index);
+        return index;
+    };
+
+    for (uint32_t m = 0; m < model.count("MeshBindings"); m++) {
+        const Gr2Object mesh = model.element("MeshBindings", m).object("Mesh");
+        if (!mesh.valid())
+            continue;
+        ModelMesh out_mesh;
+        out_mesh.name = mesh.string("Name");
+        // Vertices name their bones by index into the mesh's bindings.
+        std::vector<uint8_t> bindings;
+        for (uint32_t b = 0; b < mesh.count("BoneBindings"); b++) {
+            const auto it = boneByName.find(mesh.element("BoneBindings", b).string("BoneName"));
+            bindings.push_back(it == boneByName.end() ? 0 : uint8_t(it->second));
+        }
+        const Gr2Object vertexData = mesh.object("PrimaryVertexData");
+        const uint32_t vertexCount = vertexData.count("Vertices");
+        out_mesh.vertices.reserve(vertexCount);
+        for (uint32_t v = 0; v < vertexCount; v++) {
+            const Gr2Object src = vertexData.element("Vertices", v);
+            ModelVertex dst{};
+            for (uint32_t k = 0; k < 3; k++) {
+                dst.position[k] = float(src.number("Position", k));
+                dst.normal[k] = float(src.number("Normal", k));
+            }
+            dst.uv[0] = float(src.number("TextureCoordinates0", 0));
+            dst.uv[1] = float(src.number("TextureCoordinates0", 1));
+            const bool weighted = src.member("BoneWeights") != nullptr;
+            for (uint32_t k = 0; k < 4; k++) {
+                const uint32_t b = uint32_t(src.number("BoneIndices", k));
+                dst.bones[k] = b < bindings.size() ? bindings[b] : 0;
+                dst.weights[k] = weighted ? float(src.number("BoneWeights", k)) : (k == 0 ? 1.0f : 0.0f);
+            }
+            // A rigid mesh (no weights) follows its first binding.
+            if (!src.member("BoneIndices") && !bindings.empty())
+                dst.bones[0] = bindings[0];
+            out_mesh.vertices.push_back(dst);
+        }
+        const Gr2Object topology = mesh.object("PrimaryTopology");
+        const uint32_t n32 = topology.count("Indices"), n16 = topology.count("Indices16");
+        for (uint32_t i = 0; i < n32; i++)
+            out_mesh.indices.push_back(uint32_t(topology.element("Indices", i).number("Int32")));
+        for (uint32_t i = 0; i < n16; i++)
+            out_mesh.indices.push_back(uint32_t(topology.element("Indices16", i).number("UInt16")));
+        for (uint32_t& i : out_mesh.indices)
+            if (i >= vertexCount)
+                i = 0;
+        for (uint32_t g = 0; g < topology.count("Groups"); g++) {
+            const Gr2Object group = topology.element("Groups", g);
+            ModelMesh::Group dst;
+            const uint32_t material = uint32_t(group.number("MaterialIndex"));
+            if (material < mesh.count("MaterialBindings"))
+                dst.texture = texture(materialTexture(mesh.element("MaterialBindings", material).object("Material")));
+            dst.firstIndex = uint32_t(group.number("TriFirst")) * 3;
+            dst.indexCount = uint32_t(group.number("TriCount")) * 3;
+            if (dst.firstIndex > out_mesh.indices.size())
+                dst.firstIndex = uint32_t(out_mesh.indices.size());
+            dst.indexCount = std::min<uint32_t>(dst.indexCount, uint32_t(out_mesh.indices.size()) - dst.firstIndex);
+            out_mesh.groups.push_back(dst);
+        }
+        out.meshes.push_back(std::move(out_mesh));
+    }
+    return Error::success();
+}
+
+void Curve::evaluate(float t, int dimension, float* out) const {
+    const size_t n = knots.size();
+    if (n == 0 || controls.size() < n * size_t(dimension)) {
+        std::fill(out, out + dimension, 0.0f);
+        return;
+    }
+    auto control = [&](ptrdiff_t i, int d) {
+        i = std::clamp<ptrdiff_t>(i, 0, ptrdiff_t(n) - 1);
+        return controls[size_t(i) * size_t(dimension) + size_t(d)];
+    };
+    if (n == 1 || t <= knots[0]) {
+        for (int d = 0; d < dimension; d++)
+            out[d] = control(0, d);
+        return;
+    }
+    if (t >= knots[n - 1]) {
+        for (int d = 0; d < dimension; d++)
+            out[d] = control(ptrdiff_t(n) - 1, d);
+        return;
+    }
+    // The interval [knots[k - 1], knots[k]) holding t. Each knot ends its
+    // control's interval; de Boor's algorithm over controls k - p .. k,
+    // the knots beyond either end repeating the end ones.
+    const size_t k = size_t(std::upper_bound(knots.begin(), knots.end(), t) - knots.begin());
+    const int p = std::clamp(degree, 0, 3);
+    auto knot = [&](ptrdiff_t i) { return knots[size_t(std::clamp<ptrdiff_t>(i, 0, ptrdiff_t(n) - 1))]; };
+    float d[4][4];
+    for (int j = 0; j <= p; j++)
+        for (int c = 0; c < dimension && c < 4; c++)
+            d[j][c] = control(ptrdiff_t(k) - p + j, c);
+    for (int r = 1; r <= p; r++)
+        for (int j = p; j >= r; j--) {
+            const ptrdiff_t i = ptrdiff_t(k) - p + j;
+            const float lo = knot(i - 1), hi = knot(i + p - r);
+            const float a = hi > lo ? (t - lo) / (hi - lo) : 0.0f;
+            for (int c = 0; c < dimension && c < 4; c++)
+                d[j][c] = (1 - a) * d[j - 1][c] + a * d[j][c];
+        }
+    for (int c = 0; c < dimension; c++)
+        out[c] = c < 4 ? d[p][c] : 0.0f;
+}
+
+Error loadAnimation(const Gr2File& file, Animation& out) {
+    out = Animation();
+    const Gr2Object root = file.root();
+    if (root.count("Animations") == 0)
+        return Error::fail("The file has no animation");
+    const Gr2Object anim = root.element("Animations", 0);
+    out.name = anim.string("Name");
+    out.duration = float(anim.number("Duration"));
+    out.timeStep = float(anim.number("TimeStep"));
+    if (anim.count("TrackGroups") == 0)
+        return Error::fail("The animation has no tracks");
+    const Gr2Object group = anim.element("TrackGroups", 0);
+    for (uint32_t i = 0; i < group.count("TransformTracks"); i++) {
+        const Gr2Object t = group.element("TransformTracks", i);
+        AnimationTrack track;
+        track.bone = t.string("Name");
+        track.position = readCurve(t.object("PositionCurve"));
+        track.orientation = readCurve(t.object("OrientationCurve"));
+        track.scaleShear = readCurve(t.object("ScaleShearCurve"));
+        out.tracks.push_back(std::move(track));
+    }
+    return Error::success();
+}
+
+void computePose(const Model& model, const Animation* animation, float time, Pose& out) {
+    const size_t n = model.bones.size();
+    out.world.assign(n, identityMatrix());
+    out.skinning.assign(n, identityMatrix());
+    std::vector<BoneTransform> local(n);
+    for (size_t i = 0; i < n; i++)
+        local[i] = model.bones[i].rest;
+    if (animation) {
+        for (const AnimationTrack& track : animation->tracks) {
+            size_t b = 0;
+            while (b < n && model.bones[b].name != track.bone)
+                b++;
+            if (b == n)
+                continue;
+            if (!track.position.empty())
+                track.position.evaluate(time, 3, local[b].position);
+            if (!track.orientation.empty()) {
+                float* q = local[b].orientation;
+                track.orientation.evaluate(time, 4, q);
+                const float len = std::sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
+                if (len > 0)
+                    for (int c = 0; c < 4; c++)
+                        q[c] /= len;
+                else
+                    q[3] = 1;
+            }
+            if (!track.scaleShear.empty())
+                track.scaleShear.evaluate(time, 9, local[b].scaleShear);
+        }
+    }
+    for (size_t i = 0; i < n; i++) {
+        const Mat4 m = toMatrix(local[i]);
+        const int parent = model.bones[i].parent;
+        out.world[i] = parent >= 0 ? multiply(out.world[size_t(parent)], m) : m;
+        out.skinning[i] = multiply(out.world[i], model.bones[i].inverseWorld);
+    }
+}
+
+void skin(const ModelMesh& mesh, const Pose& pose, std::vector<std::array<float, 3>>& positions,
+          std::vector<std::array<float, 3>>& normals) {
+    positions.resize(mesh.vertices.size());
+    normals.resize(mesh.vertices.size());
+    for (size_t v = 0; v < mesh.vertices.size(); v++) {
+        const ModelVertex& src = mesh.vertices[v];
+        float p[3] = {0, 0, 0}, nrm[3] = {0, 0, 0}, total = 0;
+        for (int k = 0; k < 4; k++) {
+            const float w = src.weights[k];
+            if (w <= 0 || src.bones[k] >= pose.skinning.size())
+                continue;
+            const Mat4& m = pose.skinning[src.bones[k]];
+            for (int r = 0; r < 3; r++) {
+                p[r] += w * (m[size_t(r)] * src.position[0] + m[size_t(4 + r)] * src.position[1] +
+                             m[size_t(8 + r)] * src.position[2] + m[size_t(12 + r)]);
+                nrm[r] += w * (m[size_t(r)] * src.normal[0] + m[size_t(4 + r)] * src.normal[1] +
+                               m[size_t(8 + r)] * src.normal[2]);
+            }
+            total += w;
+        }
+        if (total <= 0) {
+            std::copy(src.position, src.position + 3, p);
+            std::copy(src.normal, src.normal + 3, nrm);
+        } else if (total != 1) {
+            for (int r = 0; r < 3; r++)
+                p[r] /= total;
+        }
+        const float len = std::sqrt(nrm[0] * nrm[0] + nrm[1] * nrm[1] + nrm[2] * nrm[2]);
+        for (int r = 0; r < 3; r++) {
+            positions[v][size_t(r)] = p[r];
+            normals[v][size_t(r)] = len > 0 ? nrm[r] / len : 0;
+        }
+    }
+}
+
+} // namespace reluva::awe

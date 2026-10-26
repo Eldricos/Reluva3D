@@ -12,6 +12,7 @@ option(RELUVA_BUILD_TESTS "Build unit tests" ON)
 # than Visual Studio accepts (error C2026).
 option(RELUVA_ENGINE_NEWWORLDS "Build the Star Trek: New Worlds engine" OFF)
 option(RELUVA_ENGINE_IDTECH3 "Build the id Tech 3 engine (Star Trek: Voyager - Elite Force)" ON)
+option(RELUVA_ENGINE_AWE "Build the AWE engine (Agatha Christie: Murder on the Orient Express)" ON)
 
 include(FetchContent)
 
@@ -179,6 +180,14 @@ if(RELUVA_ENGINE_IDTECH3)
         src/engines/idtech3/world_viewer.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_IDTECH3)
 endif()
+if(RELUVA_ENGINE_AWE)
+    target_sources(reluva_engines PRIVATE
+        src/engines/awe/awe.cpp
+        src/engines/awe/gr2.cpp
+        src/engines/awe/granny_dll.cpp
+        src/engines/awe/model.cpp)
+    target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_AWE)
+endif()
 target_link_libraries(reluva_engines PUBLIC reluva_common PRIVATE reluva_warnings)
 
 # --- executable: SDL3 backend + ImGui launcher --------------------------------
@@ -196,6 +205,9 @@ endif()
 # --- developer tools -----------------------------------------------------------
 add_executable(reluva-tool src/tools/reluva_tool.cpp src/backends/sockets/socket_net.cpp)
 target_link_libraries(reluva-tool PRIVATE reluva_engines reluva_warnings)
+if(RELUVA_ENGINE_AWE)
+    target_sources(reluva-tool PRIVATE src/tools/awe_tool.cpp)
+endif()
 if(WIN32)
     target_link_libraries(reluva-tool PRIVATE ws2_32 iphlpapi)
 endif()

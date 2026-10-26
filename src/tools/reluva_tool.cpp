@@ -107,6 +107,9 @@
 #include "engines/newworlds/model_textures.h"
 #include "engines/newworlds/model_render.h"
 #endif
+#ifdef RELUVA_ENGINE_AWE
+#include "tools/awe_tool.h"
+#endif
 #include "common/font.h"
 #include "common/fs.h"
 #include "common/pe.h"
@@ -5090,6 +5093,10 @@ int cmdPk3List(int argc, char** argv) {
 } // namespace
 
 int main(int argc, char** argv) {
+#ifdef RELUVA_ENGINE_AWE
+    if (const int r = aweToolCommand(argc, argv); r >= 0)
+        return r;
+#endif
     if (argc >= 2 && std::strcmp(argv[1], "hexdump") == 0)
         return cmdHexdump(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "chunks") == 0)
@@ -5242,5 +5249,8 @@ int main(int argc, char** argv) {
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif
                  "");
+#ifdef RELUVA_ENGINE_AWE
+    std::fputs(aweToolUsage(), stderr);
+#endif
     return 2;
 }
