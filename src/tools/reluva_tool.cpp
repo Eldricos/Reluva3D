@@ -3700,9 +3700,21 @@ int cmdX86Run(int argc, char** argv) {
     const uint32_t table = process.memory().alloc(uint32_t(tableSlots) * 4);
     for (int i = 0; i < tableSlots; ++i) {
         const uint32_t fn = cpu.addNative("table[" + std::to_string(i) + "]", [i, &reported](reluva::x86::Cpu& c) {
-            if (reported++ < 500)
-                std::printf("  table[%d](0x%x, 0x%x, 0x%x, 0x%x) from 0x%08x\n", i, c.arg(0), c.arg(1), c.arg(2),
-                            c.arg(3), c.read32(c.reg[reluva::x86::Cpu::ESP]));
+            if (reported++ < 500) {
+                // Arguments as numbers, or as text where they point at some.
+                std::string args;
+                for (int n = 0; n < 4; ++n) {
+                    const uint32_t v = c.arg(n);
+                    const std::string text = c.string(v, 80);
+                    const bool printable = text.size() >= 2 && std::all_of(text.begin(), text.end(), [](char ch) {
+                        return ch == '\n' || ch == '\t' || (uint8_t(ch) >= 32 && uint8_t(ch) < 127);
+                    });
+                    char buf[24];
+                    std::snprintf(buf, sizeof buf, "0x%x", v);
+                    args += (n ? ", " : "") + (printable ? std::string(buf) + " \"" + text + "\"" : std::string(buf));
+                }
+                std::printf("  table[%d](%s) from 0x%08x\n", i, args.c_str(), c.read32(c.reg[reluva::x86::Cpu::ESP]));
+            }
             c.reg[reluva::x86::Cpu::EAX] = 0;
             return 0u;
         });
