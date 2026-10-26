@@ -342,16 +342,28 @@ Progress:
   (Adventure, Single Missions, Options, Exit Game). Moving the game's
   pointer onto "Exit Game" and clicking brings up "Really Exit Game?".
   Everything the game imports is now stood in for.
-- **Where it stops now:** nowhere; it runs until the instruction limit.
-  Not there yet:
-  - **the engine's side:** passing a real mouse and keyboard to the
-    process, and showing the frames;
+- Done: the engine plays the game (`alphateam/player.{h,cpp}`).
+  - The program's main loop never returns, so it runs on a thread of its
+    own. The engine's thread queues the player's input and takes the
+    frames the program shows.
+  - The program's thread hands the input to the process at each frame,
+    and whenever the program looks for a message and finds none.
+  - The mouse is held by the window, and its movement is passed on.
+  - F12 pauses the game at its next frame and opens the data viewer.
+  - Quitting stops the program with `Cpu::requestStop`; an `exit` of its
+    own is told from a failure by `Win32Process::exited`.
+- Speed, measured headless (frames given to the engine, a click past the
+  demo): the menu at headquarters runs at about 6 frames a second, after
+  about 40 seconds of loading. Making running instructions inline (memory
+  access, fetching, operands) and the rasterizer's per-draw set-up got it
+  there from about half that.
+- Not there yet:
   - **sound:** no A3D object, so `CoCreateInstance` fails and the game
     plays without sound;
   - **the streaming-audio thread:** it calls `UpdateBuffers` every 50 ms.
     It's started but not run (`Win32Process::threadsNotRun`), as threads
     aren't scheduled yet;
-  - **speed:** under one frame a second.
+  - **more speed.**
 
 #### DirectDraw and Direct3D 7
 

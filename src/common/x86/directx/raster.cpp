@@ -348,6 +348,7 @@ void Device::draw(uint32_t primitive, uint32_t fvf, uint32_t vertices, uint32_t 
         ++stages;
     for (int st = 0; st < stages; ++st)
         bound[st] = texture(st);
+    configure();
     std::vector<ClipVertex> v;
     transformAndLight(layout, vertices, stride, vertexCount, v);
     if (v.empty())
@@ -536,7 +537,6 @@ void Device::rasterize(const ClipVertex& a, const ClipVertex& b, const ClipVerte
         for (int st = 0; st < stages; ++st)
             attr[i][8 + 2 * st] = p.tex[st][0] * rhw, attr[i][9 + 2 * st] = p.tex[st][1] * rhw;
     }
-    const bool flat = renderStates[kShadeMode] == 1;
     // Each stage's mip level for the triangle: texels per pixel.
     for (int st = 0; st < stages; ++st) {
         lod[st] = 0;
@@ -551,27 +551,63 @@ void Device::rasterize(const ClipVertex& a, const ClipVertex& b, const ClipVerte
         if (texels > 0)
             lod[st] = float(0.5 * std::log2(texels / area));
     }
-    float here[kAttributes];
+    // z, 1/w and the attributes (divided by w) are planes on the screen:
+    // f = fx x + fy y + f0.
+    const int n = 2 + count;
+    float values[3][2 + kAttributes];
+    for (int i = 0; i < 3; ++i) {
+        values[i][0] = v[i]->z;
+        values[i][1] = v[i]->w;
+        for (int k = 0; k < count; ++k)
+            values[i][2 + k] = attr[i][k];
+    }
+    float fx[2 + kAttributes], fy[2 + kAttributes], f0[2 + kAttributes];
+    for (int k = 0; k < n; ++k) {
+        fx[k] = float((e[0].a * values[0][k] + e[1].a * values[1][k] + e[2].a * values[2][k]) / area);
+        fy[k] = float((e[0].b * values[0][k] + e[1].b * values[1][k] + e[2].b * values[2][k]) / area);
+        f0[k] = float((e[0].c * values[0][k] + e[1].c * values[1][k] + e[2].c * values[2][k]) / area);
+    }
+    float flatColors[8];
+    for (int k = 0; k < 8; ++k)
+        flatColors[k] = attr[0][k] / a.w; // the first vertex's colours
+    float row[2 + kAttributes], here[kAttributes];
     for (int y = y0; y <= y1; ++y) {
-        for (int x = x0; x <= x1; ++x) {
-            double w[3];
+        // The row's span: where each edge is inside, then each pixel there
+        // tested exactly.
+        double from = x0, to = x1;
+        bool empty = false;
+        for (const Edge& ed : e) {
+            const double rest = ed.b * y + ed.c;
+            if (ed.a > 0)
+                from = std::max(from, std::floor(-rest / ed.a) - 1);
+            else if (ed.a < 0)
+                to = std::min(to, std::ceil(-rest / ed.a) + 1);
+            else if (rest < 0 || (rest == 0 && !ed.topLeft))
+                empty = true;
+        }
+        if (empty || from > to)
+            continue;
+        const int xs = int(from), xe = int(to);
+        for (int k = 0; k < n; ++k)
+            row[k] = f0[k] + fy[k] * float(y) + fx[k] * float(xs);
+        for (int x = xs; x <= xe; ++x, [&] {
+                 for (int k = 0; k < n; ++k)
+                     row[k] += fx[k];
+             }()) {
             bool inside = true;
             for (int i = 0; i < 3 && inside; ++i) {
-                w[i] = e[i].a * x + e[i].b * y + e[i].c;
-                inside = w[i] > 0 || (w[i] == 0 && e[i].topLeft);
+                const double w = e[i].a * x + e[i].b * y + e[i].c;
+                inside = w > 0 || (w == 0 && e[i].topLeft);
             }
             if (!inside)
                 continue;
-            const float l0 = float(w[0] / area), l1 = float(w[1] / area), l2 = float(w[2] / area);
-            const float z = l0 * a.z + l1 * b.z + l2 * c.z;
-            const float rhw = l0 * a.w + l1 * b.w + l2 * c.w;
+            const float rhw = row[1];
             const float inv = rhw != 0 ? 1 / rhw : 0;
             for (int k = 0; k < count; ++k)
-                here[k] = (l0 * attr[0][k] + l1 * attr[1][k] + l2 * attr[2][k]) * inv;
-            if (flat) // the first vertex's colours
-                for (int k = 0; k < 8; ++k)
-                    here[k] = attr[0][k] / a.w;
-            pixel(x, y, z, inv, here);
+                here[k] = row[2 + k] * inv;
+            if (cfg_.flat)
+                std::copy(flatColors, flatColors + 8, here);
+            pixel(x, y, row[0], inv, here);
         }
     }
 }
@@ -629,14 +665,16 @@ uint32_t Device::sample(int stage, float u, float v, bool& keyed) {
     const DecodedTexture* t = bound[stage];
     if (!t || t->levels.empty())
         return 0xffffffffu;
-    const auto& st = stageStates[size_t(stage)];
+    const StageConfig& st = cfg_.stage[stage];
     const float l = lod[stage];
     size_t level = 0;
-    if (st[kMipFilter] >= 2 && l > 0)
-        level = std::min(t->levels.size() - 1, size_t(st[kMipFilter] == 3 ? std::lround(l) : int(l)));
+    if (st.mipFilter >= 2 && l > 0)
+        level = std::min(t->levels.size() - 1, size_t(st.mipFilter == 3 ? std::lround(l) : int(l)));
     const DecodedTexture::Level& tex = t->levels[level];
-    const bool linear = (l > 0 ? st[kMinFilter] : st[kMagFilter]) >= 2;
-    auto address = [&](int i, int size, uint32_t mode, bool& border) {
+    const bool linear = (l > 0 ? st.minFilter : st.magFilter) >= 2;
+    auto address = [](int i, int size, uint32_t mode, bool& border) {
+        if (mode <= 1) // wrap: the common case first
+            return i >= 0 && i < size ? i : ((i % size) + size) % size;
         switch (mode) {
         case 2: { // mirror
             const int period = 2 * size;
@@ -644,19 +682,18 @@ uint32_t Device::sample(int stage, float u, float v, bool& keyed) {
             return m < size ? m : period - 1 - m;
         }
         case 3: return std::clamp(i, 0, size - 1); // clamp
-        case 4:                                     // border
+        default:                                    // border
             if (i < 0 || i >= size)
                 border = true;
             return std::clamp(i, 0, size - 1);
-        default: return ((i % size) + size) % size; // wrap
         }
     };
     auto texel = [&](int x, int y, bool& isKeyed) {
         bool border = false;
-        x = address(x, tex.width, st[kAddressU], border);
-        y = address(y, tex.height, st[kAddressV], border);
+        x = address(x, tex.width, st.addressU, border);
+        y = address(y, tex.height, st.addressV, border);
         if (border)
-            return st[kBorderColor];
+            return st.border;
         const size_t at = size_t(y) * size_t(tex.width) + size_t(x);
         isKeyed = isKeyed || tex.keyed[at];
         return tex.argb[at];
@@ -670,51 +707,89 @@ uint32_t Device::sample(int stage, float u, float v, bool& keyed) {
     }
     const float gx = fx - 0.5f, gy = fy - 0.5f;
     const int ix = int(std::floor(gx)), iy = int(std::floor(gy));
-    const float ax = gx - float(ix), ay = gy - float(iy);
+    const int ax = int((gx - float(ix)) * 256), ay = int((gy - float(iy)) * 256); // 8-bit weights
     bool k00 = false, k10 = false, k01 = false, k11 = false;
     const uint32_t t00 = texel(ix, iy, k00), t10 = texel(ix + 1, iy, k10);
     const uint32_t t01 = texel(ix, iy + 1, k01), t11 = texel(ix + 1, iy + 1, k11);
     // The colour key keys the nearest texel's colour.
-    keyed = ax < 0.5f ? (ay < 0.5f ? k00 : k01) : (ay < 0.5f ? k10 : k11);
-    uint32_t r = 0;
-    for (int shift = 0; shift < 32; shift += 8) {
-        const float c00 = float(t00 >> shift & 0xff), c10 = float(t10 >> shift & 0xff);
-        const float c01 = float(t01 >> shift & 0xff), c11 = float(t11 >> shift & 0xff);
-        const float top = c00 + (c10 - c00) * ax, bottom = c01 + (c11 - c01) * ax;
-        r |= uint32_t(std::clamp(top + (bottom - top) * ay + 0.5f, 0.0f, 255.0f)) << shift;
-    }
-    return r;
+    keyed = ax < 128 ? (ay < 128 ? k00 : k01) : (ay < 128 ? k10 : k11);
+    // Two channels at a time (0x00ff00ff masks), weights out of 256.
+    auto mix = [](uint32_t p, uint32_t q, int w) {
+        const uint32_t rb = ((p & 0xff00ff) * uint32_t(256 - w) + (q & 0xff00ff) * uint32_t(w)) >> 8 & 0xff00ff;
+        const uint32_t ag = ((p >> 8 & 0xff00ff) * uint32_t(256 - w) + (q >> 8 & 0xff00ff) * uint32_t(w)) & 0xff00ff00;
+        return rb | ag;
+    };
+    return mix(mix(t00, t10, ax), mix(t01, t11, ax), ay);
 }
 
 // --- Pixels
 
+void Device::configure() {
+    PixelConfig& c = cfg_;
+    c.zTest = renderStates[kZEnable] && depth;
+    c.zWrite = c.zTest && renderStates[kZWriteEnable];
+    c.zFunc = renderStates[kZFunc];
+    if (depth) {
+        c.zMask = depth->d.format.g ? depth->d.format.g : 0xffff;
+        c.zMax = double(c.zMask);
+        c.zBytes = depth->d.format.bytes();
+    }
+    c.alphaTest = renderStates[kAlphaTestEnable] != 0;
+    c.alphaFunc = renderStates[kAlphaFunc];
+    c.alphaRef = float(renderStates[kAlphaRef] & 0xff);
+    c.blend = renderStates[kAlphaBlendEnable] != 0;
+    c.srcBlend = renderStates[kSrcBlend], c.destBlend = renderStates[kDestBlend];
+    if (c.srcBlend == 12) // BOTHSRCALPHA
+        c.srcBlend = 5, c.destBlend = 6;
+    else if (c.srcBlend == 13) // BOTHINVSRCALPHA
+        c.srcBlend = 6, c.destBlend = 5;
+    c.fog = renderStates[kFogEnable] != 0;
+    c.fogTableMode = renderStates[kFogTableMode];
+    c.fogStart = asFloat(renderStates[kFogStart]);
+    c.fogEnd = asFloat(renderStates[kFogEnd]);
+    c.fogDensity = asFloat(renderStates[kFogDensity]);
+    c.fogColor = unpack(renderStates[kFogColor]);
+    c.fogByZ = projected || transforms[3][15] != 0; // W-fog with a perspective projection
+    c.colorKey = renderStates[kColorKeyEnable] != 0;
+    c.specular = renderStates[kSpecularEnable] != 0;
+    c.flat = renderStates[kShadeMode] == 1;
+    c.factor = unpack(renderStates[kTextureFactor]);
+    for (int i = 0; i < stages; ++i) {
+        const auto& st = stageStates[size_t(i)];
+        c.stage[i] = {st[kColorOp],  st[kColorArg1], st[kColorArg2], st[kAlphaOp],   st[kAlphaArg1],
+                      st[kAlphaArg2], st[kAddressU], st[kAddressV], st[kBorderColor], st[kMagFilter],
+                      st[kMinFilter], st[kMipFilter]};
+    }
+    const PixelFormat& f = target->d.format;
+    c.target = f.flags & (kPfPaletteIndexed8 | kPfAlphaPixels) ? PixelConfig::Target::Generic
+               : f.bits == 16 && f.r == 0xf800 && f.g == 0x07e0 && f.b == 0x001f ? PixelConfig::Target::Rgb565
+               : f.bits == 32 && f.r == 0xff0000 && f.g == 0xff00 && f.b == 0xff ? PixelConfig::Target::Rgb888
+                                                                                 : PixelConfig::Target::Generic;
+}
+
 void Device::pixel(int x, int y, float z, float eyeW, const float* attr) {
     if (x < 0 || y < 0 || x >= target->d.width || y >= target->d.height)
         return;
+    const PixelConfig& cf = cfg_;
     uint8_t* mem = s->cpu.memory().data();
     // Depth.
-    const bool zOn = renderStates[kZEnable] && depth && x < depth->d.width && y < depth->d.height;
     uint8_t* zAt = nullptr;
-    double zMax = 0, zStored = 0;
-    if (zOn) {
-        zAt = mem + depth->d.memory + uint32_t(y * depth->d.pitch) + uint32_t(x) * depth->d.format.bytes();
-        const uint32_t mask = depth->d.format.g ? depth->d.format.g : 0xffff;
-        zMax = double(mask);
+    uint32_t zNew = 0;
+    if (cf.zTest && x < depth->d.width && y < depth->d.height) {
+        zAt = mem + depth->d.memory + uint32_t(y * depth->d.pitch) + uint32_t(x) * cf.zBytes;
         uint32_t raw = 0;
-        std::memcpy(&raw, zAt, depth->d.format.bytes());
-        zStored = double(raw & mask);
-        const double zNew = double(std::clamp(z, 0.0f, 1.0f)) * zMax;
-        if (!compare(renderStates[kZFunc], float(std::floor(zNew + 0.5)), float(zStored)))
+        std::memcpy(&raw, zAt, cf.zBytes);
+        zNew = uint32_t(std::floor(double(std::clamp(z, 0.0f, 1.0f)) * cf.zMax + 0.5));
+        if (!compare(cf.zFunc, float(zNew), float(raw & cf.zMask)))
             return;
     }
     // Texture stages.
     const Color diffuse{attr[0], attr[1], attr[2], attr[3]};
     const Color specular{attr[4], attr[5], attr[6], attr[7]};
-    const Color factor = unpack(renderStates[kTextureFactor]);
     Color current = diffuse;
     bool keyed = false;
     for (int st = 0; st < stages; ++st) {
-        const auto& ss = stageStates[size_t(st)];
+        const StageConfig& sc = cf.stage[st];
         bool k = false;
         const Color tex = unpack(sample(st, attr[8 + 2 * st], attr[9 + 2 * st], k));
         if (bound[st] && k)
@@ -723,9 +798,8 @@ void Device::pixel(int x, int y, float z, float eyeW, const float* attr) {
             Color v;
             switch (a & 0xf) {
             case 0: v = diffuse; break;
-            case 1: v = current; break;
             case 2: v = tex; break;
-            case 3: v = factor; break;
+            case 3: v = cf.factor; break;
             case 4: v = specular; break;
             default: v = current; break;
             }
@@ -738,7 +812,6 @@ void Device::pixel(int x, int y, float z, float eyeW, const float* attr) {
         // One operation on three channels (colour) or one (alpha).
         auto apply = [&](uint32_t op, const Color& a1, const Color& a2, float* out, int from, int to) {
             const float x1[4] = {a1.r, a1.g, a1.b, a1.a}, x2[4] = {a2.r, a2.g, a2.b, a2.a};
-            const float cur[4] = {current.r, current.g, current.b, current.a};
             for (int i = from; i < to; ++i) {
                 float r;
                 switch (op) {
@@ -754,9 +827,9 @@ void Device::pixel(int x, int y, float z, float eyeW, const float* attr) {
                 case 11: r = x1[i] + x2[i] - x1[i] * x2[i]; break;
                 case 12: r = x1[i] * diffuse.a + x2[i] * (1 - diffuse.a); break;
                 case 13: r = x1[i] * tex.a + x2[i] * (1 - tex.a); break;
-                case 14: r = x1[i] * factor.a + x2[i] * (1 - factor.a); break;
+                case 14: r = x1[i] * cf.factor.a + x2[i] * (1 - cf.factor.a); break;
                 case 15: r = x1[i] + x2[i] * (1 - tex.a); break;
-                case 16: r = x1[i] * cur[3] + x2[i] * (1 - cur[3]); break;
+                case 16: r = x1[i] * current.a + x2[i] * (1 - current.a); break;
                 case 18: r = x1[i] + x1[3] * x2[i]; break;       // MODULATEALPHA_ADDCOLOR
                 case 19: r = i == 3 ? x1[3] * x2[3] : x1[i] + x2[i]; break;
                 case 20: r = x1[i] + (1 - x1[3]) * x2[i]; break; // MODULATEINVALPHA_ADDCOLOR
@@ -766,65 +839,68 @@ void Device::pixel(int x, int y, float z, float eyeW, const float* attr) {
             }
         };
         float result[4] = {current.r, current.g, current.b, current.a};
-        apply(ss[kColorOp], arg(ss[kColorArg1]), arg(ss[kColorArg2]), result, 0, 3);
-        if (ss[kAlphaOp] != 1)
-            apply(ss[kAlphaOp], arg(ss[kAlphaArg1]), arg(ss[kAlphaArg2]), result, 3, 4);
+        apply(sc.colorOp, arg(sc.colorArg1), arg(sc.colorArg2), result, 0, 3);
+        if (sc.alphaOp != 1)
+            apply(sc.alphaOp, arg(sc.alphaArg1), arg(sc.alphaArg2), result, 3, 4);
         current = {result[0], result[1], result[2], result[3]};
     }
-    if (renderStates[kColorKeyEnable] && keyed)
+    if (cf.colorKey && keyed)
         return;
-    if (renderStates[kSpecularEnable])
+    if (cf.specular)
         current = {std::min(1.0f, current.r + specular.r), std::min(1.0f, current.g + specular.g),
                    std::min(1.0f, current.b + specular.b), current.a};
     // Alpha test, against the reference in 0..255.
-    if (renderStates[kAlphaTestEnable] &&
-        !compare(renderStates[kAlphaFunc], std::floor(current.a * 255 + 0.5f), float(renderStates[kAlphaRef] & 0xff)))
+    if (cf.alphaTest && !compare(cf.alphaFunc, std::floor(current.a * 255 + 0.5f), cf.alphaRef))
         return;
     // Fog: by depth (table fog) or from the vertices.
-    if (renderStates[kFogEnable]) {
+    if (cf.fog) {
         float f = specular.a;
-        if (const uint32_t mode = renderStates[kFogTableMode]) {
-            const float d = projected || transforms[3][15] != 0 ? z : eyeW; // W-fog with a perspective projection
-            const float start = asFloat(renderStates[kFogStart]), end = asFloat(renderStates[kFogEnd]);
-            const float density = asFloat(renderStates[kFogDensity]);
-            if (mode == 3)
-                f = end != start ? (end - d) / (end - start) : 1;
-            else if (mode == 1)
-                f = std::exp(-density * d);
+        if (cf.fogTableMode) {
+            const float d = cf.fogByZ ? z : eyeW;
+            if (cf.fogTableMode == 3)
+                f = cf.fogEnd != cf.fogStart ? (cf.fogEnd - d) / (cf.fogEnd - cf.fogStart) : 1;
+            else if (cf.fogTableMode == 1)
+                f = std::exp(-cf.fogDensity * d);
             else
-                f = std::exp(-(density * d) * (density * d));
+                f = std::exp(-(cf.fogDensity * d) * (cf.fogDensity * d));
         }
         f = std::clamp(f, 0.0f, 1.0f);
-        const Color fog = unpack(renderStates[kFogColor]);
+        const Color& fog = cf.fogColor;
         current = {current.r * f + fog.r * (1 - f), current.g * f + fog.g * (1 - f), current.b * f + fog.b * (1 - f),
                    current.a};
     }
-    // Blending with what's there.
+    // Blending with what's there, and the write in the target's format.
     const uint32_t bytes = target->d.format.bytes();
     uint8_t* at = mem + target->d.memory + uint32_t(y * target->d.pitch) + uint32_t(x) * bytes;
-    uint32_t out;
-    if (renderStates[kAlphaBlendEnable]) {
+    auto readTarget = [&]() -> Color {
         uint32_t raw = 0;
         std::memcpy(&raw, at, bytes);
-        const Color dst = unpack(target->d.format.toArgb(raw, target->paletteArgb()));
-        uint32_t sf = renderStates[kSrcBlend], df = renderStates[kDestBlend];
-        if (sf == 12) // BOTHSRCALPHA
-            sf = 5, df = 6;
-        else if (sf == 13)
-            sf = 6, df = 5;
-        float c[4];
+        if (cf.target == PixelConfig::Target::Rgb565)
+            return {float(raw >> 11) / 31, float(raw >> 5 & 63) / 63, float(raw & 31) / 31, 1};
+        if (cf.target == PixelConfig::Target::Rgb888)
+            return {float(raw >> 16 & 0xff) / 255, float(raw >> 8 & 0xff) / 255, float(raw & 0xff) / 255, 1};
+        return unpack(target->d.format.toArgb(raw, target->paletteArgb()));
+    };
+    float out[4] = {current.r, current.g, current.b, current.a};
+    if (cf.blend) {
+        const Color dst = readTarget();
         const float sv[4] = {current.r, current.g, current.b, current.a}, dv[4] = {dst.r, dst.g, dst.b, dst.a};
         for (int i = 0; i < 4; ++i)
-            c[i] = sv[i] * blendFactor(sf, current, dst, i) + dv[i] * blendFactor(df, current, dst, i);
-        out = target->d.format.fromArgb(pack(c[0], c[1], c[2], c[3]));
+            out[i] = sv[i] * blendFactor(cf.srcBlend, current, dst, i) + dv[i] * blendFactor(cf.destBlend, current, dst, i);
+    }
+    auto channel = [](float v, float max) { return uint32_t(std::clamp(v, 0.0f, 1.0f) * max + 0.5f); };
+    if (cf.target == PixelConfig::Target::Rgb565) {
+        const uint16_t v = uint16_t(channel(out[0], 31) << 11 | channel(out[1], 63) << 5 | channel(out[2], 31));
+        std::memcpy(at, &v, 2);
+    } else if (cf.target == PixelConfig::Target::Rgb888) {
+        const uint32_t v = channel(out[0], 255) << 16 | channel(out[1], 255) << 8 | channel(out[2], 255);
+        std::memcpy(at, &v, 4);
     } else {
-        out = target->d.format.fromArgb(pack(current.r, current.g, current.b, current.a));
+        const uint32_t v = target->d.format.fromArgb(pack(out[0], out[1], out[2], out[3]));
+        std::memcpy(at, &v, bytes);
     }
-    std::memcpy(at, &out, bytes);
-    if (zOn && renderStates[kZWriteEnable]) {
-        const uint32_t raw = uint32_t(std::floor(double(std::clamp(z, 0.0f, 1.0f)) * zMax + 0.5));
-        std::memcpy(zAt, &raw, depth->d.format.bytes());
-    }
+    if (zAt && cf.zWrite)
+        std::memcpy(zAt, &zNew, cf.zBytes);
 }
 
 // Clear(count, D3DRECT*, flags, colour, z): the rectangles (or the

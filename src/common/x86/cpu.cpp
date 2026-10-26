@@ -87,120 +87,12 @@ const std::string* Cpu::nativeName(uint32_t address) const {
     return i < natives_.size() ? &natives_[i].name : nullptr;
 }
 
+void Cpu::memoryFault(uint32_t a, uint32_t size) {
+    fault("memory access at " + hex(a) + " (" + std::to_string(size) + " bytes) outside memory");
+}
+
 void Cpu::fault(const std::string& message) {
     throw Fault{message + " at " + hex(instructionStart_)};
-}
-
-uint8_t* Cpu::at(uint32_t a, uint32_t size) {
-    if (!valid(a, size))
-        fault("memory access at " + hex(a) + " (" + std::to_string(size) + " bytes) outside memory");
-    return &memory_[a];
-}
-
-uint32_t Cpu::load(uint32_t a, int size) {
-    const uint8_t* p = at(a, uint32_t(size));
-    if (size == 1)
-        return p[0];
-    if (size == 2)
-        return uint32_t(p[0] | p[1] << 8);
-    uint32_t v;
-    std::memcpy(&v, p, 4);
-    return v;
-}
-
-void Cpu::store(uint32_t a, uint32_t v, int size) {
-    uint8_t* p = at(a, uint32_t(size));
-    if (size == 1)
-        p[0] = uint8_t(v);
-    else if (size == 2) {
-        p[0] = uint8_t(v);
-        p[1] = uint8_t(v >> 8);
-    } else
-        std::memcpy(p, &v, 4);
-}
-
-void Cpu::push(uint32_t v) {
-    reg[ESP] -= 4;
-    store(reg[ESP], v, 4);
-}
-
-uint32_t Cpu::pop() {
-    const uint32_t v = load(reg[ESP], 4);
-    reg[ESP] += 4;
-    return v;
-}
-
-uint32_t Cpu::fetch8() { return load(eip++, 1); }
-uint32_t Cpu::fetch16() {
-    const uint32_t v = load(eip, 2);
-    eip += 2;
-    return v;
-}
-uint32_t Cpu::fetch32() {
-    const uint32_t v = load(eip, 4);
-    eip += 4;
-    return v;
-}
-
-uint32_t Cpu::readReg(int size, int r) const {
-    if (size == 4)
-        return reg[size_t(r)];
-    if (size == 2)
-        return reg[size_t(r)] & 0xffff;
-    return r < 4 ? reg[size_t(r)] & 0xff : (reg[size_t(r - 4)] >> 8) & 0xff;
-}
-
-void Cpu::writeReg(int size, int r, uint32_t v) {
-    if (size == 4)
-        reg[size_t(r)] = v;
-    else if (size == 2)
-        reg[size_t(r)] = (reg[size_t(r)] & 0xffff0000u) | (v & 0xffff);
-    else if (r < 4)
-        reg[size_t(r)] = (reg[size_t(r)] & 0xffffff00u) | (v & 0xff);
-    else
-        reg[size_t(r - 4)] = (reg[size_t(r - 4)] & 0xffff00ffu) | (v & 0xff) << 8;
-}
-
-void Cpu::decodeModrm() {
-    const uint32_t m = fetch8();
-    d_.hasModrm = true;
-    d_.mod = uint8_t(m >> 6);
-    d_.regField = uint8_t((m >> 3) & 7);
-    d_.rm = uint8_t(m & 7);
-    d_.memoryOperand = d_.mod != 3;
-    if (!d_.memoryOperand)
-        return;
-    uint32_t a = 0;
-    if (d_.rm == 4) {
-        const uint32_t sib = fetch8();
-        const uint32_t scale = sib >> 6, index = (sib >> 3) & 7, base = sib & 7;
-        if (index != 4)
-            a += reg[index] << scale;
-        if (base == 5 && d_.mod == 0)
-            a += fetch32();
-        else
-            a += reg[base];
-    } else if (d_.rm == 5 && d_.mod == 0) {
-        a = fetch32();
-    } else {
-        a = reg[d_.rm];
-    }
-    if (d_.mod == 1)
-        a += uint32_t(int32_t(int8_t(fetch8())));
-    else if (d_.mod == 2)
-        a += fetch32();
-    d_.address = a + d_.segment;
-}
-
-uint32_t Cpu::readRm(int size) {
-    return d_.memoryOperand ? load(d_.address, size) : readReg(size, d_.rm);
-}
-
-void Cpu::writeRm(int size, uint32_t v) {
-    if (d_.memoryOperand)
-        store(d_.address, v, size);
-    else
-        writeReg(size, d_.rm, v);
 }
 
 void Cpu::setLogicFlags(uint32_t r, int size) {

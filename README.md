@@ -26,8 +26,9 @@ src/engines/       one directory per engine, plus registry.cpp listing them
   idtech3/         games on the Quake III Arena engine, starting with Star Trek:
                    Voyager - Elite Force: search path, shader scripts, BSP
                    maps; currently runs as a data viewer (docs/engines/idtech3.md)
-  netimmerse/      games on NetImmerse, starting with LEGO Alpha Team: its .pac
-                   archives and .FIN models; currently runs as a data viewer
+  netimmerse/      games on NetImmerse, starting with LEGO Alpha Team, played by
+                   running its own program in the x86 interpreter; and a data
+                   viewer of its .pac archives and .FIN models
                    (docs/engines/alphateam.md)
 src/tools/         reluva-tool, utilities for studying game data
 tests/             unit tests for common/ and the engines
@@ -91,9 +92,13 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   For fonts, **Left/Right** picks one, **+/-** change the size and **B** outlines
   the glyphs' boxes.
 
-- LEGO Alpha Team (NetImmerse) opens as a data viewer too: add its install folder, the one
-  holding `LEGOATeam.exe` and the `.pac` files.
-  **Tab** switches between the archives, models, textures, sounds and text. For models,
+- LEGO Alpha Team (NetImmerse) is played: add its install folder, the one holding
+  `LEGOATeam.exe` and the `.pac` files. The game's own program runs in the x86
+  interpreter, drawing in software, so it's slow for now: loading takes a minute or so,
+  and the menus run at a few frames a second. The mouse is held by the window (the game
+  draws its own pointer); **Ctrl+F5** goes back to the launcher. There's no sound yet.
+  **F12** pauses the game and opens the data viewer; **Esc** there goes back to the game.
+  In the viewer, **Tab** switches between the archives, models, textures, sounds and text. For models,
   **Left/Right** step (**PageUp/PageDown** by 10), drag to turn, the wheel (or **+/-**)
   zooms, **W/A/S/D/Q/E** move, **T**, **L** and **B** turn textures, lightmaps and a
   level's sky on or off, **H** shows the hidden effects (sparks, a stunned agent's stars)

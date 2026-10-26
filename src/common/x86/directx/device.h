@@ -135,6 +135,26 @@ private:
     int stages = 0;         // texture stages in use
     float lod[8]{};         // the mip level each stage samples, for the triangle being drawn
     const DecodedTexture* bound[8]{};
+
+    // What the pixels of a draw go through, taken from the states once per
+    // draw.
+    struct StageConfig {
+        uint32_t colorOp, colorArg1, colorArg2, alphaOp, alphaArg1, alphaArg2;
+        uint32_t addressU, addressV, border, magFilter, minFilter, mipFilter;
+    };
+    struct PixelConfig {
+        bool zTest = false, zWrite = false, alphaTest = false, blend = false, fog = false, colorKey = false,
+             specular = false, flat = false;
+        uint32_t zFunc = 0, alphaFunc = 0, srcBlend = 0, destBlend = 0, fogTableMode = 0;
+        float alphaRef = 0, fogStart = 0, fogEnd = 0, fogDensity = 0;
+        bool fogByZ = false; // table fog by depth, not by the eye's distance
+        Color fogColor, factor;
+        StageConfig stage[8];
+        enum class Target { Generic, Rgb565, Rgb888 } target = Target::Generic;
+        double zMax = 0;
+        uint32_t zBytes = 0, zMask = 0;
+    } cfg_;
+    void configure();
 };
 
 // D3DFVF layout of one vertex.
