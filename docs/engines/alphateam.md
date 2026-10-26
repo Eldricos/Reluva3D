@@ -10,8 +10,9 @@ is meant to run. The install is described in
 
 - **It's a NetImmerse game.** `NiMain`, `NiAnimation`, `NiCollision`,
   `NiDirect3d` and `NiA3dSound` are NetImmerse's DLLs (Numerical Design
-  Ltd.; the engine later became Gamebryo). Models and scenes will be NIF
-  files of an early version (NetImmerse 3.x is the likely one for mid-2000).
+  Ltd.; the engine later became Gamebryo). The DLLs call themselves
+  "NetImmerse Version 7.0". The models (`Fin.pac`'s `.FIN` files) are its
+  streams under a header of the game's own (`Dweezil 23`).
   NIF is well documented in public by the NifTools project (`nif.xml`),
   which can be read as a format reference, as we used published specs for
   PE/COFF and x86.
@@ -53,32 +54,34 @@ Each phase ends with something that runs and is committed.
 
 ### 1. Detection and the archives
 
-- Hash the key files (`reluva --hash LEGOATeam.exe Locale_en.pac Bhvr.pac`)
-  and add the detection table; the launcher then finds the game.
-- Done: the `.pac` format, worked out from `Bhvr.pac` and `Etc.pac`
-  ([pac.md](../formats/alphateam/pac.md)). The other archives are still to
-  be checked against it.
+- Done: detection by `Locale_en.pac`'s hash, with a fallback by file names
+  for other releases. The launcher finds the game. Starting it opens every
+  archive and shows what each holds.
+- Done: the `.pac` format ([pac.md](../formats/alphateam/pac.md)), checked
+  against all eight retail archives.
 - Done: `PacArchive : Archive` (`src/engines/netimmerse/pac_archive.cpp`), so
   `.pac` files join a `SearchSet` like any other archive. It's tested in
   `tests/test_netimmerse.cpp`, on archives the tests build.
 - Done: `reluva-tool pac-list` and `pac-extract`, as for New Worlds' `.cat`.
-  On `Bhvr.pac` and `Etc.pac` they give the same 549 files, byte for byte,
-  as a separate script written from the format notes.
-- Write down what the archives hold: extensions and counts per archive.
-  That inventory decides phases 2 and 3.
+  On all eight archives they give the same 2,462 files, byte for byte, as
+  a separate script written from the format notes.
+- Done: what the archives hold ([pac.md](../formats/alphateam/pac.md)):
+  sounds as headerless PCM (`.DDS`), models (`.FIN`), TGA textures and
+  lightmaps, puzzles, fonts and text.
 
 ### 2. Data viewer
 
 Like New Worlds and Elite Force before they ran, the engine first opens
 as a viewer; it checks each reader against all the retail files.
 
-- **Textures**: whatever format the inventory shows (NIF-embedded pixel
-  data, or loose BMP/TGA, which `common/image` reads already).
-- **Models**: NIF, the block types this game's files use (nodes,
+- **Textures**: TGA in `Map.pac`, `LMap.pac` and `Etc.pac`, which
+  `common/image` reads already; check all 1,609 decode.
+- **Models**: `.FIN` (NetImmerse streams), the block types this game's files use (nodes,
   triangle shapes and their data, texturing and material properties,
   keyframe controllers, skinning). A `reluva-tool nif-check` that reads
   every NIF and lists any block type not handled, as `shader-check` did.
-- **Sounds**: likely WAV (PCM or IMA ADPCM, both decoded already).
+- **Sounds**: `.DDS`, 16-bit PCM after a `WAVEFORMATEX`; only the header is
+  new.
 - **Text**: the strings in `Locale_en.pac`.
 - **Levels**: what `Map.pac`/`LMap.pac` hold, drawn in 3D.
 - **Intro movie** (`lmiintro.avi`, CD only): an AVI reader and whichever
@@ -242,11 +245,8 @@ Whichever way phase 3 chose:
 
 ## What's needed from the game owner
 
-Game files can't go in the repository. The executables, the DLLs,
-`Bhvr.pac` and `Etc.pac` have been provided for study. Still needed: the
-other archives (`Locale_en.pac` for detection; `Map.pac`, `LMap.pac` and
-`Fin.pac` for the models and levels; `Audio.pac` and `Ambient.pac` for
-sound).
+Game files can't go in the repository. The whole install has been provided
+for study: the executables, the DLLs and all eight archives.
 
 Also useful: the CD's `readme.txt` and `Strings_en.txt` (the game's own
 description of its keys and options), and screenshots or a recording of

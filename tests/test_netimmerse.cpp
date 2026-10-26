@@ -128,6 +128,23 @@ void testSearchSet(const std::filesystem::path& tmp) {
     CHECK(!set.read("b.txt", data) && asString(data) == "only low");
 }
 
+void testPlaceholder(const std::filesystem::path& tmp) {
+    // An entry with offset and size 0, as Ambient.pac and LMap.pac list
+    // themselves: accepted, and read as empty.
+    std::vector<uint8_t> bytes = buildPac({{"SELF.PAC", "", 0, 0}, {"E0000.DDS", "sound", kFileTime, 0}});
+    set32(bytes, 20 + 9 + 4, 0);
+    PacArchive pac;
+    CHECK(!pac.open(writeFile(tmp / "self.pac", bytes)));
+    std::vector<uint8_t> data{1};
+    CHECK(!pac.read("self.pac", data) && data.empty());
+    CHECK(!pac.read("e0000.dds", data) && asString(data) == "sound");
+
+    // Offset 0 with data isn't a placeholder: it points into the header.
+    std::vector<uint8_t> bad = buildPac({{"A.TXT", "abc"}});
+    set32(bad, 20 + 6 + 4, 0);
+    CHECK(pac.open(writeFile(tmp / "bad0.pac", bad)));
+}
+
 void testFlags(const std::filesystem::path& tmp) {
     // Listed, but not read, since what the flags mean isn't known.
     PacArchive pac;
@@ -194,6 +211,7 @@ int main() {
     std::filesystem::create_directories(tmp);
     testRead(tmp);
     testSearchSet(tmp);
+    testPlaceholder(tmp);
     testFlags(tmp);
     testRejectsDamage(tmp);
     std::filesystem::remove_all(tmp);

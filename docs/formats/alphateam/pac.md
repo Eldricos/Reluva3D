@@ -1,10 +1,10 @@
 # LEGO Alpha Team: `.pac` archives
 
-Source: `Bhvr.pac` (74 files) and `Etc.pac` (475 files) from the English
-retail install, read by hand and then with a short script that walked the
-directory and checked it against the file (October 2026). Every entry in
-both archives lies inside the file, and the entries follow one another
-with no gaps. The other archives haven't been checked yet.
+Source: the eight archives of the English retail install (2,462 files in
+all), October 2026. The layout was worked out by hand on `Bhvr.pac` and
+`Etc.pac`. A short script then walked every archive's directory and checked
+it against the file. In all eight, every entry lies inside the file and the
+entries follow one another with no gaps, apart from the placeholders below.
 
 All numbers are little-endian.
 
@@ -31,8 +31,13 @@ data comes in.
 | 4 | the data's size |
 | 8 | a Windows FILETIME, the file's date (17 to 22 August 2000 in `Bhvr.pac`; `Etc.pac`'s go back to March 1999) |
 
-The directory ends 4 bytes before the header's data start in both
-archives. Those 4 bytes are zero.
+The directory ends 4 bytes before the header's data start in every
+archive. Those 4 bytes are zero.
+
+**Placeholders.** `Ambient.pac` and `LMap.pac` each list one entry named after
+the archive itself (`AMBIENT.PAC`, first; `LMAP.PAC`, last) with offset,
+size and date all 0. The packing tool probably listed its own output file
+while writing it. They're read as empty files.
 
 ## Reading them
 
@@ -46,6 +51,34 @@ archive (offset, size, date, name), and `reluva-tool pac-extract <file.pac>
 <dir> [filter]` writes its files out.
 
 ## Contents seen
+
+| Archive | Files | What they are |
+|---|---|---|
+| `Ambient.pac` | 27 `.DDS` (+1 placeholder) | stereo sound, one per area (`E0000`, `E1010`...): ambience or music |
+| `Audio.pac` | 169 `.DDS` | sound effects (`BEEP004`, `BIGDRILL`, `B0002_FIDGET`...) |
+| `Bhvr.pac` | 74 `.DLL` | the puzzle parts' code (below) |
+| `Etc.pac` | 349 `.TGA`, 12 `.DDF`, 111 `.PUZ`, 3 `.TXT` | the interface, fonts and puzzles (below) |
+| `Fin.pac` | 147 `.FIN` | 3D models, one per part (`B0001.FIN`...) |
+| `LMap.pac` | 582 `.TGA` (+1 placeholder) | lightmaps, by area (`E0000LM0036RC.TGA`) |
+| `Locale_en.pac` | 302 `.DDS`, 6 `.TXT` | English voice, and the text |
+| `Map.pac` | 678 `.TGA` | textures |
+
+- **`.DDS` is sound, not DirectDraw Surface images.** Each file is an 18-byte
+  Windows `WAVEFORMATEX` (format 1 = PCM, channels, rate, bytes per second,
+  block align, bits, then an extra size of 0) followed by the samples, with
+  no RIFF wrapper. All 498 follow it exactly: 425 mono and 72 stereo at
+  22,050 Hz, and one mono at 44,100 Hz, all 16-bit. Their sizes are whole
+  samples. That's 1.2 hours in all.
+- **`.FIN` files are NetImmerse model streams.** All 147 start with the line
+  `Dweezil 23` instead of NetImmerse's own header text. The blocks follow,
+  each named by a length-prefixed class name (`NiTriShape`...). The DLLs
+  call themselves "NetImmerse Version 7.0" and know the header "NetImmerse
+  File Format, Version 7.0". To be worked out in phase 2.
+- **`.TGA`**: uncompressed true colour (type 2), greyscale (type 3) and RLE
+  true colour (type 10).
+- **Locale `.TXT`**: `==key==` lines, each followed by its text
+  (`BRIEFING_EN`, `CREDITS_EN`, `SPACES_EN`, `UNITS_EN`), and `ETC_EN`, a
+  commented list of interface strings.
 
 - `Bhvr.pac`: 74 Windows DLLs (4.5 MB), one per kind of puzzle part,
   named by the part's code (`T0001.DLL`, `U0188.DLL`, `CU0003.DLL`...). Each

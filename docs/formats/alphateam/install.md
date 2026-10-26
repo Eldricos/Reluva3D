@@ -1,9 +1,9 @@
 # LEGO Alpha Team: install layout
 
 Source: directory listings of the English Windows retail CD (volume label
-`LEGOATEN`) and of a full install from it (October 2026). Nothing below has
-been read from inside the files yet; meanings marked *guess* come from the
-names alone and are to be confirmed.
+`LEGOATEN`) and of a full install from it (October 2026). The archives' contents come from
+reading them ([pac.md](pac.md)); meanings still marked *guess* come from
+the names alone and are to be confirmed.
 
 ## Identification
 
@@ -12,9 +12,17 @@ names alone and are to be confirmed.
 | `LEGOATeam.exe` | 61,440 | `f4e48a14ef43f73ded1536266e16b94b` |
 | `Bhvr.pac` | 4,532,456 | `6e2ed1e3cc81583995361fa0ff31bd77` |
 | `Etc.pac` | 11,794,154 | `4a1e77f9c0b6d1d912571666838c91c5` |
+| `Locale_en.pac` | 82,323,720 | `333f2476ec15acf658af87f09dcbca43` |
+| `Map.pac` | 19,654,043 | `9d61f551f7649d7e3456a57dcb266339` |
+| `LMap.pac` | 53,475,662 | `c78850aa53e5ff5230ff9818b6738df2` |
+| `Fin.pac` | 20,642,530 | `3044e816442cbf6965c128991ade421f` |
+| `Audio.pac` | 92,796,224 | `2881a2a26b94d9d2c8401f3450a19759` |
+| `Ambient.pac` | 126,598,304 | `5b5a637eff72489fe191e6ba575dd3af` |
 
-`Locale_en.pac` is still to be hashed. Detection will need it to tell
-the languages apart.
+Detection (`src/engines/netimmerse/netimmerse.cpp`) uses `Locale_en.pac`'s
+hash and requires `LEGOATeam.exe` to exist. An install with `LEGOATeam.exe`
+and `Bhvr.pac` but no known locale archive is still found, as "unknown
+release".
 
 ## Install folder (`C:\Program Files\LEGO Media\Games\LEGO Alpha Team`)
 
@@ -32,14 +40,14 @@ the languages apart.
 | `NiCollision.dll` | 188,416 | NetImmerse: collision |
 | `NiDirect3d.dll` | 225,280 | NetImmerse's Direct3D renderer |
 | `NiA3dSound.dll` | 69,632 | NetImmerse's sound, through Aureal A3D |
-| `Ambient.pac` | 126,598,304 | *guess*: ambient sound and music |
-| `Audio.pac` | 92,796,224 | *guess*: sound effects |
+| `Ambient.pac` | 126,598,304 | 27 long stereo sounds, one per area: ambience or music |
+| `Audio.pac` | 92,796,224 | 169 sound effects |
 | `Bhvr.pac` | 4,532,456 | 74 DLLs, the puzzle parts' code ([pac.md](pac.md)) |
 | `Etc.pac` | 11,794,154 | interface images, fonts, the 111 puzzles ([pac.md](pac.md)) |
-| `Fin.pac` | 20,642,530 | unknown (*guess*: the ending, or "final" assets) |
-| `LMap.pac` | 53,475,662 | *guess*: level maps, or lightmaps |
-| `Map.pac` | 19,654,043 | *guess*: maps |
-| `Locale_en.pac` | 82,323,720 | English text and voice; other languages presumably ship `Locale_<xx>.pac` |
+| `Fin.pac` | 20,642,530 | 147 NetImmerse models (`.FIN`) |
+| `LMap.pac` | 53,475,662 | 582 lightmaps (TGA) |
+| `Map.pac` | 19,654,043 | 678 textures (TGA) |
+| `Locale_en.pac` | 82,323,720 | 302 English voice clips and 6 text files; other languages presumably ship `Locale_<xx>.pac` |
 | `Config.txt` | 0 | empty |
 | `Game.txt` | 0 | the game's settings, which it writes when they're changed. The readme names its `Width`, `Height` and `BPP` lines |
 

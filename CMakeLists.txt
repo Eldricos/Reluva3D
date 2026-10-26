@@ -12,7 +12,8 @@ option(RELUVA_BUILD_TESTS "Build unit tests" ON)
 # than Visual Studio accepts (error C2026).
 option(RELUVA_ENGINE_NEWWORLDS "Build the Star Trek: New Worlds engine" OFF)
 option(RELUVA_ENGINE_IDTECH3 "Build the id Tech 3 engine (Star Trek: Voyager - Elite Force)" ON)
-# Off until it runs a game: so far it has only the .pac reader and its tools.
+# Off until it runs a game: so far it detects LEGO Alpha Team and checks its
+# .pac archives.
 option(RELUVA_ENGINE_NETIMMERSE "Build the NetImmerse engine (LEGO Alpha Team)" OFF)
 
 include(FetchContent)
@@ -183,6 +184,7 @@ if(RELUVA_ENGINE_IDTECH3)
 endif()
 if(RELUVA_ENGINE_NETIMMERSE)
     target_sources(reluva_engines PRIVATE
+        src/engines/netimmerse/netimmerse.cpp
         src/engines/netimmerse/pac_archive.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_NETIMMERSE)
 endif()

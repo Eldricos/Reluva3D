@@ -26,8 +26,8 @@ src/engines/       one directory per engine, plus registry.cpp listing them
   idtech3/         games on the Quake III Arena engine, starting with Star Trek:
                    Voyager - Elite Force: search path, shader scripts, BSP
                    maps; currently runs as a data viewer (docs/engines/idtech3.md)
-  netimmerse/      games on NetImmerse, starting with LEGO Alpha Team: so far its
-                   .pac archives (docs/engines/alphateam.md)
+  netimmerse/      games on NetImmerse, starting with LEGO Alpha Team: detection
+                   and its .pac archives (docs/engines/alphateam.md)
 src/tools/         reluva-tool, utilities for studying game data
 tests/             unit tests for common/ and the engines
 ```

@@ -81,7 +81,11 @@ Error PacArchive::open(const std::filesystem::path& path) {
         e.size = le32(f + 8);
         e.modified = le64(f + 12);
         pos = nameEnd + 1 + kEntryFields;
-        if (e.offset < dataStart || uint64_t(e.offset) + e.size > fileSize)
+        // Ambient.pac and LMap.pac list themselves (the packer must have
+        // seen its own output file) with offset, size and date all 0: an
+        // empty file, then.
+        const bool placeholder = e.offset == 0 && e.size == 0;
+        if (!placeholder && (e.offset < dataStart || uint64_t(e.offset) + e.size > fileSize))
             return Error::fail(which + " (" + e.name + ") lies outside the archive's data");
         // Names are unique in the archives seen; should one repeat, the
         // first is the one found by name.
