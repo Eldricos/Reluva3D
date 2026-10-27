@@ -531,10 +531,14 @@ struct DrawQueue {
         }
         wake_.notify_all();
     }
-    // Waits for every job pushed to be drawn.
+    // Waits for every job pushed to be drawn. Meanwhile what's waiting is
+    // drawn by rows on every thread, whatever its size: there's nothing
+    // else to do.
     void finish() {
         std::unique_lock<std::mutex> lock(mutex_);
+        ++waiting_;
         done_.wait(lock, [this] { return jobs_.empty() && !drawing_; });
+        --waiting_;
     }
     // Draws jobs in order, by rows on the row threads when there's enough
     // to draw (or always, with DrawThreads::Always).
@@ -571,8 +575,9 @@ private:
             std::vector<Job> jobs;
             jobs.swap(jobs_);
             drawing_ = true;
+            const bool hurry = waiting_ > 0 && mode_ == DirectX::DrawThreads::Auto;
             lock.unlock();
-            draw(jobs, mode_);
+            draw(jobs, hurry ? DirectX::DrawThreads::Always : mode_);
             jobs.clear(); // the draws' surfaces let go here, not under the lock
             lock.lock();
             drawing_ = false;
@@ -584,6 +589,7 @@ private:
     std::mutex mutex_;
     std::condition_variable wake_, done_;
     std::vector<Job> jobs_;
+    int waiting_ = 0; // threads waiting in finish()
     bool drawing_ = false, quit_ = false;
     std::thread thread_;
 };
@@ -744,6 +750,13 @@ void Draw::rasterize(Raster& r, const ClipVertex& a, const ClipVertex& b, const 
     const int y1 = std::min(bottom - 1, int(std::floor(std::max({a.y, b.y, c.y}))));
     if (x0 > x1 || y0 > y1)
         return;
+    if (r.bands > 1) { // none of this thread's rows: nothing to set up
+        bool mine = false;
+        for (int g = y0 >> 3; g <= y1 >> 3 && !mine; ++g)
+            mine = g % r.bands == r.band;
+        if (!mine)
+            return;
+    }
     // Edge functions, oriented so the inside is positive whatever the winding.
     double area = double(b.x - a.x) * (c.y - a.y) - double(c.x - a.x) * (b.y - a.y);
     if (area == 0)

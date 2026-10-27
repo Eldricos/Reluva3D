@@ -344,8 +344,8 @@ Progress:
   pointer onto "Exit Game" and clicking brings up "Really Exit Game?".
   Everything the game imports is now stood in for.
 - Into a mission, from the menus. The `at-run` options that help:
-  - `-fixed-clock`: the clock follows the instruction count, so runs repeat
-    exactly.
+  - `-fixed-clock`: the clock follows the instruction count (40,000 to a
+    millisecond) and the main thread's sleeps, so runs repeat exactly.
   - `-quit <frame>`; `-limit 0` for no instruction limit.
   - `-point <frame>@x,y`: puts the game's own pointer on the screen with
     `DDMouse::SetPosition`. Relative moves land unevenly, so this is the
@@ -357,12 +357,17 @@ Progress:
   - Tracing (`-log`, `-trace`) only when asked, so the instruction cache
     stays in use.
 
-  The route: click on frame 25 (past the demo), then Single Missions (frame
-  110), "Alpha Team Training Area" (225), and the check mark (240). The
-  mission loads (around frame 400) and is drawn correctly: the camera
-  flies over the board, and the goal text says to click to begin. A click
-  (420) starts the exercise: the text bar becomes the camera controls and
-  the go button.
+  The route (`-fixed-clock`): click on frame 25 (past the demo); the main
+  menu is up by frame 1500. Then Single Missions (`-point 1510@320,184
+  -click 1512`), "Alpha Team Training Area" (`-point 1560@321,128 -click
+  1562`) and the check mark (`-point 1600@134,315 -click 1602`), each
+  where `-buttons` puts it. The mission loads (by frame 1800) and is
+  drawn correctly: the camera flies over the board, and the goal text says
+  to click to begin. A click (1900) starts the exercise: the text bar
+  becomes the camera controls and the go button. (Frame numbers depend on
+  how many instructions frames take: before the cycle counter's stand-in,
+  below, the menu was up by frame 100 and the mission began at 420. The
+  frames quoted in the investigation that follows are from then.)
 
   Then it goes no further: Dash stands still and the go button does
   nothing. Traced (with `-watch`, `-calls` and `-dump`, below), the cause
@@ -453,9 +458,8 @@ Progress:
     found in PE0300 (`push $0xea..`), and its vtable says which state or
     transition it belongs to. PE0300 is mapped at `0x730000` in these
     runs, so its code can be watched by address.
-  - The route, as `at-run` options after the menu route
-    (`-click 25`, Single Missions, the Training Area, the check mark,
-    `-click 420`):
+  - The route, as `at-run` options after the menu route above (through
+    `-click 1900`):
 
     ```
     -step ea61+10@click:193,92  -step ea62@click:65,435  -step ea63+20@click:320,98
@@ -519,8 +523,31 @@ Progress:
     game's own frame number came out byte-identical before and after each
     change. The engine's frame count doesn't do for this: which game frame
     it shows depends on timing.
+  - Then, measured in the training mission (600 frames from the start, a
+    run that's two thirds loading and the menus): 42.0 seconds.
+    - Blocks in the instruction cache (x86.md): 29.6 seconds.
+    - Drawing on threads of their own, in order, while the program goes on
+      (the rasterizer section below): 25.5 seconds.
+  - Then, where the interpreter's time went while playing, sampled by
+    the program's own addresses: over a quarter of it was in
+    `DDCycleCounter::Start` and `Stop` (DDPackedDirFileLib). They time the
+    program's work with RDTSC around a great many of its functions, for a
+    profile only the interface behaviour reads (`Get`, `Zero`; PE0300
+    `0x10065940`, which shows it only when a flag at `+0x31` is set).
+    `GameProcess` makes them return at once (both cdecl, void); the profile
+    then reads zero. Mission frames went from 32 a second to 42 (780
+    frames, 24.3 seconds to 18.5).
+    - With fewer instructions to a frame, a fixed clock moves less in a
+      frame: the game's timed waits (the loading screen before
+      headquarters) take more frames, so the routes' frame numbers changed.
+      The fixed clock now also counts the main thread's `Sleep`s, as the
+      time that would have passed.
+  - Loading reads the archives a byte at a time through our MSVCP60's
+    `istream::get` (a quarter of the instructions while loading): a
+    buffered `filebuf` is next.
 - Not there yet:
-  - **more speed.**
+  - **more speed**: the interpreter is still most of the time while
+    playing (NetImmerse's scene graph, picking and its Direct3D renderer).
 
 #### DirectDraw and Direct3D 7
 

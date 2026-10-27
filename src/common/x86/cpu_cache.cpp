@@ -9,7 +9,8 @@
 // most (moves, the ALU operations, pushes and pops, jumps, calls and
 // returns, LEA, MOVZX/MOVSX, shifts, SETcc) have handlers of their own;
 // the rest, and those with prefixes other than FS, run from their bytes
-// as before (Cpu::execute). A block keeps its instructions' bytes and is
+// as before (Cpu::execute); those that can't go elsewhere (x87, NOT, NEG,
+// MUL, DIV, RDTSC, REP string operations) without ending their block. A block keeps its instructions' bytes and is
 // remade when they've changed, however they were written (a program's
 // loader copying code with a native memcpy, say).
 
@@ -515,8 +516,8 @@ void Cpu::build(Block& b, uint32_t at) {
         if (e.ends || b.count == kBlockOps || bytes + 16 > 8 * kBlockWords)
             break;
     }
-    // An instruction run from its bytes has length 0: the block's bytes are
-    // those before it.
+    // One that ends the block and is run from its bytes has length 0: the
+    // block's bytes are those before it.
     b.bytes = uint8_t(bytes);
     b.words = uint8_t(std::max<uint32_t>(1, (bytes + 7) / 8));
     const uint32_t tail = bytes - 8 * (b.words - 1u);
@@ -572,6 +573,18 @@ void Cpu::decode(Cached& e, uint32_t at) {
             break;
     }
     uint8_t op = p[i++];
+    // From its bytes, each time, but its block goes on after it: it doesn't
+    // go elsewhere, and its length is known.
+    auto straight = [&] {
+        e = Cached{};
+        e.run = &O::legacy;
+        e.length = uint8_t(i);
+    };
+    if ((op == 0xf3 || op == 0xf2) && p[i] >= 0xa4 && p[i] <= 0xaf) { // REP string operations
+        ++i;
+        straight();
+        return;
+    }
     switch (op) { // other prefixes: from the bytes
     case 0x26: case 0x2e: case 0x36: case 0x3e: case 0x64: case 0x65: case 0x66: case 0x67:
     case 0xf0: case 0xf2: case 0xf3:
@@ -641,6 +654,7 @@ void Cpu::decode(Cached& e, uint32_t at) {
         return o16 ? h2 : h4;
     };
     Handler run = nullptr;
+    bool plain = false; // with no handler of its own, still straight on (length i)
     if (twoByte) {
         if (op >= 0x80 && op <= 0x8f) { // Jcc rel32
             e.imm = imm32();
@@ -659,6 +673,8 @@ void Cpu::decode(Cached& e, uint32_t at) {
         } else if (op == 0xaf) {
             modrm();
             run = bySize(&O::imul<2, false>, &O::imul<4, false>);
+        } else if (op == 0x31) { // RDTSC
+            plain = true;
         }
     } else if (op < 0x40 && (op & 7) < 6) { // the ALU operations
         const int sub = op >> 3;
@@ -696,6 +712,7 @@ void Cpu::decode(Cached& e, uint32_t at) {
         run = bySize(&O::movRegImm<2>, &O::movRegImm<4>);
     } else if (op >= 0xd8 && op <= 0xdf) { // x87
         modrm();
+        plain = true; // none goes elsewhere
         const int r = e.reg;
         if (e.mem) {
             if (op == 0xd8 || op == 0xdc)
@@ -806,6 +823,8 @@ void Cpu::decode(Cached& e, uint32_t at) {
             if (e.reg <= 1) { // TEST r/m, imm
                 e.imm = op == 0xf6 ? imm8() : immOsz();
                 run = op == 0xf6 ? &O::testRmImm<1> : bySize(&O::testRmImm<2>, &O::testRmImm<4>);
+            } else {
+                plain = true; // NOT, NEG, MUL, IMUL, DIV, IDIV
             }
             break;
         case 0xfe:
@@ -828,7 +847,11 @@ void Cpu::decode(Cached& e, uint32_t at) {
         default: break;
         }
     }
-    if (!run || (o16 && !sized)) { // from its bytes, each time
+    if (!run && plain) {
+        straight();
+        return;
+    }
+    if (!run || (o16 && !sized)) { // from its bytes, each time, and the block ends with it
         e = Cached{};
         e.run = &O::legacy;
         e.ends = true;

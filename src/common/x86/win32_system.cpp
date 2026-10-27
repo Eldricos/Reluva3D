@@ -183,10 +183,12 @@ void Win32Process::addSystemStandIns() {
     // Sleep: a thread gives way for that long; the main thread lets the
     // threads that are due have their turn.
     stdcall(k, "Sleep", 1, [this](Cpu& c) {
-        if (inThread())
+        if (inThread()) {
             threadSleep(c.arg(0));
-        else
+        } else {
+            slept_ += c.arg(0);
             runThreads();
+        }
         return 0u;
     });
 

@@ -623,9 +623,9 @@ static void testX86CacheAgreement() {
             imm(op == 0x69 ? wordSize : 1);
             break;
         }
-        case 15: { // TEST, NOT, NEG r/m (the last two run from their bytes)
+        case 15: { // TEST, NOT, NEG, MUL, IMUL r/m (all but TEST run from their bytes)
             const uint8_t op = uint8_t(0xf6 | pick(2));
-            const int r = int(pick(4));
+            const int r = int(pick(6));
             b.push_back(op);
             modrm(r, op & 1);
             if (r <= 1)
@@ -645,9 +645,10 @@ static void testX86CacheAgreement() {
         case 18: b.push_back(pick(2) ? 0x90 : 0x99); break;
         case 19:
         case 20: { // x87 on memory
-            static const uint8_t kOps[][2] = {{0xd8, 8}, {0xdc, 8}, {0xd9, 0}, {0xd9, 2}, {0xd9, 3},
-                                              {0xdd, 0}, {0xdd, 2}, {0xdd, 3}, {0xdb, 0}};
-            const auto& o = kOps[pick(9)];
+            // (FISTP, FLDCW and FNSTCW run from their bytes.)
+            static const uint8_t kOps[][2] = {{0xd8, 8}, {0xdc, 8}, {0xd9, 0}, {0xd9, 2}, {0xd9, 3}, {0xdd, 0},
+                                              {0xdd, 2}, {0xdd, 3}, {0xdb, 0}, {0xdb, 3}, {0xd9, 5}, {0xd9, 7}};
+            const auto& o = kOps[pick(12)];
             b.push_back(o[0]);
             modrm(o[1] == 8 ? int(pick(8)) : o[1], false, true);
             break;
@@ -661,8 +662,10 @@ static void testX86CacheAgreement() {
             break;
         }
         case 22: { // x87 without operands
-            static const uint8_t kOps[][2] = {{0xd9, 0xe0}, {0xd9, 0xe1}, {0xd9, 0xe8}, {0xd9, 0xee}, {0xdf, 0xe0}};
-            const auto& o = kOps[pick(5)];
+            // (FCOMPP and FSQRT run from their bytes.)
+            static const uint8_t kOps[][2] = {{0xd9, 0xe0}, {0xd9, 0xe1}, {0xd9, 0xe8}, {0xd9, 0xee},
+                                              {0xdf, 0xe0}, {0xde, 0xd9}, {0xd9, 0xfa}};
+            const auto& o = kOps[pick(7)];
             b.insert(b.end(), {o[0], o[1]});
             break;
         }

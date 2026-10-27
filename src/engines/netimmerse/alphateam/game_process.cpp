@@ -123,7 +123,19 @@ Error GameProcess::load() {
         modules_.push_back(m);
         return Error::success();
     };
-    return place(fs::toLower(kProgram), 0);
+    if (Error e = place(fs::toLower(kProgram), 0))
+        return e;
+    // DDCycleCounter (DDPackedDirFileLib) times the program's work with
+    // RDTSC around a great many of its functions, for a profile it shows
+    // only when asked (the interface behaviour's, PE0300). Interpreted,
+    // its Start and Stop were over a quarter of the instructions run while
+    // playing. They're made to return at once (both cdecl, void); the
+    // profile then reads zero.
+    if (const auto* lib = process_->module("DDPackedDirFileLib.dll"))
+        for (const char* name : {"?Start@DDCycleCounter@@SAXH@Z", "?Stop@DDCycleCounter@@SAXXZ"})
+            if (const uint32_t at = lib->exportAddress(name))
+                cpu_->write8(at, 0xc3); // RET
+    return Error::success();
 }
 
 Error GameProcess::attach() {

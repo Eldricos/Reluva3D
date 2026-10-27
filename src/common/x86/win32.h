@@ -111,6 +111,11 @@ public:
     std::function<void(const std::string& text)> output;
     // Milliseconds for timeGetTime and GetTickCount (default: since start).
     std::function<uint32_t()> milliseconds;
+    // The milliseconds the main thread has asked to Sleep, in all. It
+    // doesn't wait (the other threads run meanwhile, and it goes on), so a
+    // clock that follows the instructions run can add them, as the time
+    // that would have passed.
+    uint64_t slept() const { return slept_; }
 
     // Events (CreateEventA). No thread can wait on one that another sets
     // (they take turns), so an event reads as set to a wait, unless it's
@@ -310,6 +315,7 @@ private:
     std::map<uint32_t, std::string> openKeys_;    // handle -> lower-case path
     uint32_t nextKey_ = 0x3000;
     uint32_t nextEvent_ = 0;
+    uint64_t slept_ = 0;
     struct Event {
         bool manualReset = false, set = false, tracked = false;
     };

@@ -5562,10 +5562,12 @@ int cmdAtRun(int argc, char** argv) {
     cpu.setInstructionLimit(limit);
     game.process().output = [](const std::string& text) { std::printf("[program] %s\n", text.c_str()); };
     // -fixed-clock: the clock follows the instructions run (40,000 to a
-    // millisecond), not the time, so a run with the same input repeats
-    // exactly.
+    // millisecond) and the main thread's sleeps, not the time, so a run
+    // with the same input repeats exactly.
     if (fixedClock)
-        game.process().milliseconds = [&cpu] { return uint32_t(cpu.executed() / 40000); };
+        game.process().milliseconds = [&cpu, &game] {
+            return uint32_t(cpu.executed() / 40000 + game.process().slept());
+        };
     // -shots: the first frame shown and every `every`th, as TGA files.
     uint64_t framesShown = 0;
     auto saveFrame = [&shots](const reluva::x86::DirectX::Frame& f) {
