@@ -515,6 +515,27 @@ Started. Done so far:
 - **The null device.** The Location screen opens `nul`, which now opens
   as an empty file (`win32_files.cpp`). Before, it ended the game.
 
+- **Movies.** The game plays them itself, with its own MAD ("Madcow")
+  player in the interpreter, drawn through DirectDraw. So the Play page
+  no longer passes `-nomovie`. Checked on `titleav.mad`, the EA logo,
+  Dolby trailer and title sequence, at 320x240 and 15 frames a second:
+  - frames shown match Reluva's own decode of the file;
+  - the game keeps pace, at about one shown frame to one movie frame
+    (it drops a few);
+  - the movie's sound, recorded with `-wav`, equals Reluva's decode of
+    its EA-XA track sample for sample, one second of it for each second
+    recorded.
+
+  Esc skips the intro, as on Windows.
+- **d3da (the Direct3D renderer)** isn't run, and needn't be. The game
+  picks it only with a "3D Device Description" in the registry, which it
+  gets from enumerating Direct3D devices. Otherwise it falls back to
+  softtria, as it does in Reluva (`nfs-host -renderer d3da.dll`).
+  Running d3da would mean standing in for Direct3D: devices, textures as
+  surfaces, a Z-buffer and DrawPrimitive. Drawing THRASH's calls on the
+  GPU directly, from the same calls the native rasterizer takes, gets the
+  same pictures with no Direct3D at all.
+
 Still to do:
 
 - THRASH on the GPU, and texture uploads natively (they run in softtria

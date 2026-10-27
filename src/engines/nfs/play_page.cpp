@@ -79,8 +79,9 @@ void PlayPage::start() {
     if (host_)
         return;
     GameHost::Options options;
-    // The movies aren't played yet.
-    options.commandLine = "nfs3.exe -nomovie";
+    // The game plays its movies itself (its Madcow player runs in the
+    // interpreter like the rest).
+    options.commandLine = "nfs3.exe";
     options.saveFolder = saveFolder_.empty() ? folders_.install / "reluva-save" : saveFolder_ / "game";
     options.nativeThrash = true;
     host_ = std::make_unique<GameHost>(folders_, options);

@@ -119,8 +119,8 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   fonts, sounds, music and movies. The **Play** page runs the retail `nfs3.exe` in the
   x86 interpreter, starting it when first shown. The keyboard and mouse go to the game,
   **Esc** included; **Ctrl+F5** goes back to the launcher. It writes its saves and
-  settings to Reluva's save folder for the game, never to the install. For now it runs
-  slower than real time, and the movies are skipped. The 3D pages
+  settings to Reluva's save folder for the game, never to the install. It plays its
+  own movies (Esc skips the intro), and races run at about real time. The 3D pages
   need a GPU with Vulkan (Linux, Windows) or Metal (macOS). On tracks, **PageUp/PageDown**
   pick one, **W/A/S/D** move, the arrows or a drag look, **Space/C** go up and down,
   **Shift** goes faster, **N/B** jump to the next or previous piece of road, **1/2/3** pick
