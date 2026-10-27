@@ -846,13 +846,16 @@ static void testMsvcrtAndFiles(const std::filesystem::path& tmp) {
     {
         std::ofstream(tmp / "Game" / "Data.txt", std::ios::binary) << "hello world";
         std::ofstream(tmp / "Game" / "Other.bin", std::ios::binary) << "x";
+        std::ofstream(tmp / "Game" / "Lines.dat", std::ios::binary) << "ab\r\ncd\r\n";
     }
     x86::Cpu cpu(64u << 20);
     x86::Win32Process process(cpu);
     process.setProgram("Prog.exe", "C:\\Game\\");
     process.mapPath = [&](const std::string& path, bool forWriting) -> std::optional<std::filesystem::path> {
-        if (forWriting || path.rfind("C:\\Game\\", 0) != 0)
+        if (path.rfind("C:\\Game\\", 0) != 0)
             return std::nullopt;
+        if (forWriting)
+            return path == "C:\\Game\\Out.dat" ? std::optional(tmp / "Game" / "Out.dat") : std::nullopt;
         if (path.size() == 8)
             return tmp / "Game";
         return fs::findFile(tmp / "Game", path.substr(8)).value_or(tmp / "Game" / "missing");
@@ -910,6 +913,26 @@ static void testMsvcrtAndFiles(const std::filesystem::path& tmp) {
     CHECK(std::string(reinterpret_cast<const char*>(cpu.memory().data() + vars), 11) == "hello world");
     CHECK(!cpu.call(fn("MSVCRT.dll", "fclose"), {file}, r) && r == 0);
     CHECK(!cpu.call(fn("MSVCRT.dll", "fopen"), {text("nothere.txt"), text("rb")}, r) && r == 0);
+    // Text mode: CR-LF read as LF (fgets, fgetc, fread) and written from LF;
+    // binary mode keeps both.
+    CHECK(!cpu.call(fn("MSVCRT.dll", "fopen"), {text("Lines.dat"), text("r")}, r) && r != 0);
+    const uint32_t lines = r;
+    CHECK(!cpu.call(fn("MSVCRT.dll", "fgets"), {vars, 32, lines}, r) && r == vars && cpu.string(vars) == "ab\n");
+    CHECK(!cpu.call(fn("MSVCRT.dll", "fgetc"), {lines}, r) && r == 'c');
+    CHECK(!cpu.call(fn("MSVCRT.dll", "fread"), {vars, 1, 32, lines}, r) && r == 2 && cpu.string(vars, 2) == "d\n");
+    CHECK(!cpu.call(fn("MSVCRT.dll", "fclose"), {lines}, r) && r == 0);
+    CHECK(!cpu.call(fn("MSVCRT.dll", "fopen"), {text("Lines.dat"), text("rb")}, r) && r != 0);
+    const uint32_t raw = r;
+    CHECK(!cpu.call(fn("MSVCRT.dll", "fread"), {vars, 1, 32, raw}, r) && r == 8);
+    CHECK(!cpu.call(fn("MSVCRT.dll", "fclose"), {raw}, r) && r == 0);
+    CHECK(!cpu.call(fn("MSVCRT.dll", "fopen"), {text("Out.dat"), text("w")}, r) && r != 0);
+    const uint32_t written = r;
+    CHECK(!cpu.call(fn("MSVCRT.dll", "fwrite"), {text("x\ny\n"), 1, 4, written}, r) && r == 4);
+    CHECK(!cpu.call(fn("MSVCRT.dll", "fclose"), {written}, r) && r == 0);
+    {
+        std::ifstream in(tmp / "Game" / "Out.dat", std::ios::binary);
+        CHECK(std::string(std::istreambuf_iterator<char>(in), {}) == "x\r\ny\r\n");
+    }
     // CreateFileA, a mapped view, a search, the CD's label.
     CHECK(!cpu.call(fn("KERNEL32.dll", "CreateFileA"), {text("C:\\Game\\DATA.TXT"), 0x80000000u, 1, 0, 3, 0, 0}, r) &&
           r != 0xffffffffu);

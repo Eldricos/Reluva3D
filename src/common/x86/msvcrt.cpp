@@ -10,7 +10,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <map>
 #include <memory>
+#include <set>
 
 namespace reluva::x86 {
 
@@ -28,6 +30,7 @@ struct State {
     uint32_t iob = 0;                      // stdin, stdout, stderr: three FILEs
     std::map<uint32_t, uint32_t> handles;  // FILE address -> the process's file handle
     std::map<uint32_t, int> ungot;         // FILE address -> a character ungetc put back
+    std::set<uint32_t> text;               // FILEs opened in text mode
     uint32_t holdrand = 1;                 // rand's seed, as Visual C++ keeps it
     uint32_t strtokNext = 0;
     uint32_t tm = 0, ctimeText = 0, fmode = 0, commode = 0, adjustFdiv = 0, acmdln = 0, errnoAt = 0;
@@ -876,8 +879,10 @@ void addMsvcrt(Win32Process& process) {
     // --- Files (FILE) -------------------------------------------------------------------------
     // A FILE is 32 bytes in the program's memory; the ones it opens are
     // backed by the process's file handles. stdout and stderr go to the
-    // process's output, stdin is empty.
-    auto output = [s](uint32_t file, const std::string& text) -> bool {
+    // process's output, stdin is empty. A file opened in text mode (no
+    // 'b') has CR-LF line ends, read as LF and written from LF, as on
+    // Windows; Ctrl-Z isn't taken as the end.
+    auto output = [s](uint32_t file, std::string text) -> bool {
         if (s->isStd(file)) {
             if (file != s->iob && s->p.output)
                 s->p.output(text);
@@ -887,6 +892,9 @@ void addMsvcrt(Win32Process& process) {
         if (it == s->handles.end())
             return false;
         Win32Process::OpenFile* f = s->p.file(it->second);
+        if (s->text.count(file))
+            for (size_t at = text.find('\n'); at != std::string::npos; at = text.find('\n', at + 2))
+                text.insert(at, 1, '\r');
         return f && std::fwrite(text.data(), 1, text.size(), f->file) == text.size();
     };
     auto hostFile = [s](uint32_t file) -> std::FILE* {
@@ -896,11 +904,30 @@ void addMsvcrt(Win32Process& process) {
         Win32Process::OpenFile* f = s->p.file(it->second);
         return f ? f->file : nullptr;
     };
+    // The next character of a file the program opened, with what ungetc
+    // put back and text mode's CR-LF read as LF; EOF at the end.
+    auto getChar = [s](uint32_t file, std::FILE* f) -> int {
+        if (auto u = s->ungot.find(file); u != s->ungot.end()) {
+            const int ch = u->second;
+            s->ungot.erase(u);
+            return ch;
+        }
+        int ch = std::fgetc(f);
+        if (ch == '\r' && s->text.count(file)) {
+            const int next = std::fgetc(f);
+            if (next == '\n')
+                ch = '\n';
+            else if (next != EOF)
+                std::ungetc(next, f);
+        }
+        return ch;
+    };
     cdecl("fopen", [s](Cpu& c) -> uint32_t {
         std::string mode = s->str(c.arg(1));
         mode.erase(std::remove_if(mode.begin(), mode.end(), [](char ch) { return ch == 't'; }), mode.end());
-        if (mode.find('b') == std::string::npos)
-            mode += 'b'; // text mode's CR-LF translation isn't done: these programs read binary
+        const bool text = mode.find('b') == std::string::npos;
+        if (text)
+            mode += 'b'; // the translation is ours
         const uint32_t handle = s->p.openFile(s->str(c.arg(0)), mode.c_str());
         if (!handle) {
             s->setErrno(kErrnoNoEntry);
@@ -909,6 +936,8 @@ void addMsvcrt(Win32Process& process) {
         const uint32_t file = s->alloc(kFileSize);
         c.write32(file + 16, handle); // _file
         s->handles[file] = handle;
+        if (text)
+            s->text.insert(file);
         return file;
     });
     cdecl("fclose", [s](Cpu& c) {
@@ -919,6 +948,7 @@ void addMsvcrt(Win32Process& process) {
         s->p.closeFile(it->second);
         s->handles.erase(it);
         s->ungot.erase(file);
+        s->text.erase(file);
         s->p.memory().free(file);
         return 0u;
     });
@@ -944,11 +974,17 @@ void addMsvcrt(Win32Process& process) {
             return 0u;
         return output(c.arg(3), std::string(s->ptr(c.arg(0)), bytes)) ? c.arg(2) : 0u;
     });
-    cdecl("fread", [s, hostFile](Cpu& c) {
+    cdecl("fread", [s, hostFile, getChar](Cpu& c) {
         std::FILE* f = hostFile(c.arg(3));
         const uint32_t size = c.arg(1), bytes = c.arg(1) * c.arg(2);
         if (!f || !size || !c.valid(c.arg(0), bytes))
             return 0u;
+        if (s->text.count(c.arg(3))) {
+            uint32_t n = 0;
+            for (int ch; n < bytes && (ch = getChar(c.arg(3), f)) != EOF; ++n)
+                c.write8(c.arg(0) + n, uint8_t(ch));
+            return n / size;
+        }
         uint32_t at = 0;
         if (auto u = s->ungot.find(c.arg(3)); u != s->ungot.end() && bytes) {
             c.write8(c.arg(0), uint8_t(u->second));
@@ -958,14 +994,9 @@ void addMsvcrt(Win32Process& process) {
         const size_t n = std::fread(s->ptr(c.arg(0)) + at, 1, bytes - at, f) + at;
         return uint32_t(n / size);
     });
-    cdecl("fgetc", [s, hostFile](Cpu& c) {
-        if (auto u = s->ungot.find(c.arg(0)); u != s->ungot.end()) {
-            const int ch = u->second;
-            s->ungot.erase(u);
-            return uint32_t(ch);
-        }
+    cdecl("fgetc", [hostFile, getChar](Cpu& c) {
         std::FILE* f = hostFile(c.arg(0));
-        return f ? uint32_t(std::fgetc(f)) : 0xffffffffu;
+        return f ? uint32_t(getChar(c.arg(0), f)) : 0xffffffffu;
     });
     cdecl("ungetc", [s](Cpu& c) {
         if (int32_t(c.arg(0)) == -1)
@@ -973,23 +1004,23 @@ void addMsvcrt(Win32Process& process) {
         s->ungot[c.arg(1)] = int(c.arg(0) & 0xff);
         return c.arg(0) & 0xff;
     });
-    cdecl("fgets", [s, hostFile](Cpu& c) -> uint32_t {
+    cdecl("fgets", [hostFile, getChar](Cpu& c) -> uint32_t {
         std::FILE* f = hostFile(c.arg(2));
         const int32_t n = int32_t(c.arg(1));
         if (!f || n <= 0 || !c.valid(c.arg(0), uint32_t(n)))
             return 0u;
         int32_t i = 0;
-        if (auto u = s->ungot.find(c.arg(2)); u != s->ungot.end() && n > 1) {
-            c.write8(c.arg(0), uint8_t(u->second));
-            s->ungot.erase(u);
-            i = 1;
-            if (c.read8(c.arg(0)) == '\n') {
-                c.write8(c.arg(0) + 1, 0);
-                return c.arg(0);
-            }
+        while (i < n - 1) {
+            const int ch = getChar(c.arg(2), f);
+            if (ch == EOF)
+                break;
+            c.write8(c.arg(0) + uint32_t(i++), uint8_t(ch));
+            if (ch == '\n')
+                break;
         }
-        if (!std::fgets(s->ptr(c.arg(0)) + i, n - i, f) && !i)
+        if (!i)
             return 0u;
+        c.write8(c.arg(0) + uint32_t(i), 0);
         return c.arg(0);
     });
     cdecl("fseek", [s, hostFile](Cpu& c) {
