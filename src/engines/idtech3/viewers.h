@@ -546,6 +546,8 @@ private:
     void runBinding(const std::string& line, int32_t key, bool down);
     bool held(const char* button) const;
     void drawOverlay();
+    void drawMenus(float time);
+    void showLoadingScreen(const std::string& map);
     // The game's menus (efuix86.dll), when it's there: started at the main
     // menu; Esc opens the in-game one. While a menu has the keys, the game
     // waits, as the original's single player.

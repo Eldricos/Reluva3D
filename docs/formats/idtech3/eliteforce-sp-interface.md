@@ -211,8 +211,8 @@ The UI works differently from the game:
 | 5 | `(0, &out)`. Asked before the screen is drawn; nonzero in `out` means the menus cover the whole screen. |
 | 6 | `SetActiveMenu(name)`. The names are strings: `"main"`, `"ingame"`, `"turbolift"`. |
 | 7 | `ConsoleCommand()` → handled |
-| 8 | `DrawConnectScreen(server, info)` while connecting |
-| 9 | the same, while loading |
+| 8 | `(server, info)`: the loading screen. It shows the screen capture (function 44) if there is one, else the menus' own picture, then the connect text. The engine fills the capture with a saved game's `SHOT` while loading one, and clears it on `map` |
+| 9 | `(server, info)`: the connect text alone |
 | 10 | `UpdateConnectionString(text)`: `"(n)"` with each connection attempt |
 | 11 | `UpdateConnectionMessageString(text)`: a server's `print` message |
 
@@ -243,6 +243,26 @@ From `stvoy.exe` (its copy of the 12 functions is at 0x57f320):
   `exec default.cfg`, `cvar_restart`, `snd_restart`, `in_restart`.
 - **Return values.** `Printf(format, ...)` and `Error(level, format, ...)`
   take printf arguments. `Cvar_VariableValue` returns its float in ST(0).
+
+### The player and the turbolift
+
+- **The player.** The userinfo the game is given is every cvar flagged 2
+  (USERINFO):
+  - `name` (Munro), `snaps` (20), `sex` (male), `handicap` (100);
+  - `headModel` (munro/default), and `torsoModel` and `legsModel`
+    (hazard/default).
+
+  Before each map (0x427160), the engine sets the three models from `sex`.
+  A value starting with `m` gives hazard/default and munro/default;
+  anything else gives hazardfemale/default and alexandria/default.
+- **The turbolift.** The game sends `turboliftmenu`, which opens
+  `SetActiveMenu("turbolift")`. That menu picks a deck with `map interface`
+  or `map bob/interface`. Console commands the engine doesn't know go to
+  the menus' `ConsoleCommand` (export 7) before the server: `ui_turbolift`,
+  `ui_cdkey`, `ui_closingcredits`.
+- **Screen captures** (functions 33 and 44, and a save's `SHOT`) are
+  256 × 256 RGBA, stored bottom row first. The menus draw them with a
+  negative height.
 
 ### The engine's functions for the menus
 

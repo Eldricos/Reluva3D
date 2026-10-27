@@ -26,6 +26,7 @@ enum Export : int {
     IsFullscreen = 5,
     SetActiveMenu = 6,
     ConsoleCommand = 7,
+    DrawLoadingScreen = 8, // (server, info)
     ExportCount = 12,
 };
 
@@ -181,6 +182,7 @@ Error SpUiHost::load(const std::vector<uint8_t>& dll) {
         return e;
     imports_ = process_->memory().alloc(4 * ImportCount);
     scratch_ = process_->memory().alloc(kScratch);
+    scratch2_ = process_->memory().alloc(kScratch);
     comment_ = process_->memory().alloc(kCommentSize);
     capture_ = process_->memory().alloc(kShotSize);
     addImports();
@@ -241,6 +243,15 @@ bool SpUiHost::fullscreen() {
     if (callUi(IsFullscreen, {0, scratch_}))
         return false;
     return cpu_->read32(scratch_) != 0;
+}
+
+Error SpUiHost::drawLoadingScreen(const std::string& server, const std::string& info) {
+    pictures_.clear();
+    raw_.clear();
+    scene_ = Scene{};
+    color_ = {1, 1, 1, 1};
+    cpu_->writeString(scratch2_, info, kScratch);
+    return callUi(DrawLoadingScreen, {text(server), scratch2_});
 }
 
 Error SpUiHost::setActiveMenu(const std::string& name) {

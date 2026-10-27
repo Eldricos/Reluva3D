@@ -90,6 +90,14 @@ void SpPlayViewer::activate() {
         soundSystem_ = std::make_unique<SoundSystem>(*ctx_.mixer, soundLibrary_);
     startMs_ = 0;
     saveDir_ = ctx_.savePath.empty() ? std::filesystem::path() : ctx_.savePath / "saves";
+    // The player's userinfo, as the original's client registers it.
+    cvars_.create("name", "Munro", CvarStore::Archive | CvarStore::UserInfo);
+    cvars_.create("snaps", "20", CvarStore::Archive | CvarStore::UserInfo);
+    cvars_.create("headModel", "munro/default", CvarStore::UserInfo);
+    cvars_.create("torsoModel", "hazard/default", CvarStore::UserInfo);
+    cvars_.create("legsModel", "hazard/default", CvarStore::UserInfo);
+    cvars_.create("sex", "male", CvarStore::Archive | CvarStore::UserInfo);
+    cvars_.create("handicap", "100", CvarStore::Archive | CvarStore::UserInfo);
     if (!uiDll_.empty())
         startMenus();
     if (!ui_) {
@@ -245,6 +253,8 @@ void SpPlayViewer::runCommand(const std::string& line, bool fromGame) {
             return;
         // A level change carries the player over (maptransition); a new
         // start doesn't, and forgets the last level's autosave.
+        if (ui_)
+            ui_->setCapture({}); // the loading screen shows the level's picture
         if (cmd == "maptransition" && game_) {
             game_->savePlayer();
         } else {
@@ -271,6 +281,10 @@ void SpPlayViewer::runCommand(const std::string& line, bool fromGame) {
     } else if (cmd == "quit") {
         endGame();
         ctx_.requestPage = "Menu";
+    } else if (cmd == "turboliftmenu") {
+        if (ui_ && game_)
+            if (Error err = ui_->setActiveMenu("turbolift"))
+                menusStopped(err);
     } else if (cmd == "cinematic" || cmd == "ingamecinematic") {
         if (w.size() >= 2)
             startCinematic(w[1], cmd == "ingamecinematic");
@@ -307,9 +321,15 @@ void SpPlayViewer::runCommand(const std::string& line, bool fromGame) {
     } else if (cmd == "cvar_restart" || cmd == "snd_restart" || cmd == "in_restart" || cmd == "vid_restart" ||
                cmd == "s_enable_a3d" || cmd == "s_disable_a3d") {
         // Nothing to restart here.
-    } else if (game_ && !fromGame) {
-        if (Error err = game_->clientConsoleCommand(line))
-            stop("The game stopped: " + err.message);
+    } else {
+        // The menus' own commands (ui_turbolift...), then the game's.
+        bool handled = false;
+        if (ui_)
+            if (Error err = ui_->consoleCommand(line, &handled))
+                menusStopped(err);
+        if (!handled && game_ && !fromGame)
+            if (Error err = game_->clientConsoleCommand(line))
+                stop("The game stopped: " + err.message);
     }
 }
 
@@ -369,6 +389,7 @@ void SpPlayViewer::start(int index, int32_t loadMode, eliteforce::SaveReader* sa
     lastMs_ = 0;
     const std::string& path = names_[size_t(index)];
     std::string map = path.substr(5, path.size() - 9);
+    showLoadingScreen(map);
     map_ = map;
     gameCommandsRun_ = 0;
     pendingMenu_.clear();
@@ -433,7 +454,17 @@ void SpPlayViewer::start(int index, int32_t loadMode, eliteforce::SaveReader* sa
     }
     game_->setSaveStream(nullptr, nullptr);
     std::string refused;
-    if ((err = game_->connectPlayer("\\name\\Munro\\model\\munro/main", refused, loadMode)))
+    // The player as the original's engine describes them: the userinfo
+    // cvars, with the models for the sex chosen.
+    const bool male = fs::toLower(cvars_.string("sex")).rfind('m', 0) == 0;
+    cvars_.set("legsmodel", male ? "hazard/default" : "hazardfemale/default");
+    cvars_.set("torsomodel", male ? "hazard/default" : "hazardfemale/default");
+    cvars_.set("headmodel", male ? "munro/default" : "alexandria/default");
+    std::string userinfo;
+    for (const CvarStore::Cvar& cv : cvars_.all())
+        if (cv.flags & CvarStore::UserInfo)
+            userinfo += "\\" + cv.name + "\\" + cv.value;
+    if ((err = game_->connectPlayer(userinfo, refused, loadMode)))
         return stop("The player couldn't join: " + err.message);
     if (!refused.empty())
         return stop("The game refused the player: " + refused);
@@ -462,7 +493,8 @@ bool SpPlayViewer::readSave(const std::string& name, std::vector<uint8_t>& file)
 }
 
 std::vector<uint8_t> SpPlayViewer::levelShot(const std::string& map) const {
-    // levelshots/<map>.tga at 256 x 256, as an autosave's picture.
+    // levelshots/<map>.tga at 256 x 256, as an autosave's picture (rows
+    // bottom first, as the original's captures).
     std::vector<uint8_t> out(eliteforce::SpUiHost::kShotSize, 0);
     std::vector<uint8_t> data;
     image::Image img;
@@ -470,7 +502,7 @@ std::vector<uint8_t> SpPlayViewer::levelShot(const std::string& map) const {
         return out;
     for (int y = 0; y < 256; ++y)
         for (int x = 0; x < 256; ++x)
-            std::memcpy(&out[size_t(y * 256 + x) * 4], img.pixel(x * img.w / 256, y * img.h / 256), 4);
+            std::memcpy(&out[size_t((255 - y) * 256 + x) * 4], img.pixel(x * img.w / 256, y * img.h / 256), 4);
     return out;
 }
 
@@ -618,7 +650,8 @@ void SpPlayViewer::loadGame(std::string name) {
     std::string map;
     int32_t count = 0, autosave = 0;
     Error err;
-    if (!(err = r.next(chunkId("COMM"), skip)) && !(err = r.next(chunkId("SHOT"), skip)) &&
+    std::vector<uint8_t> shot;
+    if (!(err = r.next(chunkId("COMM"), skip)) && !(err = r.next(chunkId("SHOT"), shot)) &&
         !(err = r.nextText(chunkId("MPCM"), map)) && !(err = r.nextInt(chunkId("CVCN"), count))) {
         for (int32_t i = 0; i < count && !err; ++i) {
             std::string cvar, value;
@@ -648,6 +681,8 @@ void SpPlayViewer::loadGame(std::string name) {
     }
     lastLoaded_ = name;
     lastCommand_ = "Loaded " + name;
+    if (ui_)
+        ui_->setCapture(shot); // the loading screen shows it
     start(int(it - names_.begin()), autosave ? 2 : 1, &r);
 }
 
@@ -932,7 +967,7 @@ void SpPlayViewer::update(uint64_t nowMs) {
             shot.resize(eliteforce::SpUiHost::kShotSize);
             for (int y = 0; y < 256; ++y)
                 for (int x = 0; x < 256; ++x)
-                    std::memcpy(&shot[size_t(y * 256 + x) * 4],
+                    std::memcpy(&shot[size_t((255 - y) * 256 + x) * 4],
                                 &rgba[(size_t(y * h / 256) * size_t(w) + size_t(x * w / 256)) * 4], 4);
         }
         if (ui_) {
@@ -1004,27 +1039,47 @@ void SpPlayViewer::update(uint64_t nowMs) {
         }
         scene_->drawPictures(pictures, drawn, pictures.size(), 640, 480, time);
     }
-    if (ui_) {
-        // The menus over it, with any models they show.
-        const float menuTime = float(nowMs - startMs_) / 1000.0f;
-        scene_->setHandles({&ui_->models(), &ui_->skins(), &ui_->shaders()});
-        const auto& pictures = ui_->pictures();
-        size_t drawn = 0;
-        for (const auto& v : ui_->scene().views) {
-            scene_->drawPictures(pictures, drawn, v.picturesBefore, 640, 480, menuTime);
-            drawn = std::max(drawn, v.picturesBefore);
-            scene_->drawView(ui_->scene(), v, 640, 480, menuTime, false, nullptr, nullptr, true);
-        }
-        scene_->drawPictures(pictures, drawn, pictures.size(), 640, 480, menuTime);
-        for (const auto& img : ui_->rawImages())
-            scene_->drawImage(img.rgba.data(), img.cols, img.rows, img.x, img.y, img.w, img.h, 640, 480);
-    }
+    if (ui_)
+        drawMenus(float(nowMs - startMs_) / 1000.0f);
     timing_.draw = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - drawStart).count();
     drawOverlay();
     if (!pendingMenu_.empty() && !capturing_) {
         renderer_->captureNextFrame();
         capturing_ = true;
     }
+    renderer_->endFrame(&overlay_);
+}
+
+void SpPlayViewer::drawMenus(float time) {
+    // The menus' last frame, with any models they show and raw pictures.
+    scene_->setHandles({&ui_->models(), &ui_->skins(), &ui_->shaders()});
+    const auto& pictures = ui_->pictures();
+    size_t drawn = 0;
+    for (const auto& v : ui_->scene().views) {
+        scene_->drawPictures(pictures, drawn, v.picturesBefore, 640, 480, time);
+        drawn = std::max(drawn, v.picturesBefore);
+        scene_->drawView(ui_->scene(), v, 640, 480, time, false, nullptr, nullptr, true);
+    }
+    scene_->drawPictures(pictures, drawn, pictures.size(), 640, 480, time);
+    for (const auto& img : ui_->rawImages())
+        scene_->drawImage(img.rgba.data(), img.cols, img.rows, img.x, img.y, img.w, img.h, 640, 480);
+}
+
+void SpPlayViewer::showLoadingScreen(const std::string& map) {
+    // As the original's engine while a level loads: the menus' loading
+    // screen (a saved game's picture, or theirs), shown at once.
+    if (!ui_ || !renderer_)
+        return;
+    ui_->connectionState = 5;
+    if (Error err = ui_->drawLoadingScreen(map, "")) {
+        menusStopped(err);
+        return;
+    }
+    scene_->newFrame();
+    renderer_->setGamma(brightness(ctx_));
+    renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
+    drawMenus(float(nowMs_ - startMs_) / 1000.0f);
+    std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
     renderer_->endFrame(&overlay_);
 }
 

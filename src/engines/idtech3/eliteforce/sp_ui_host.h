@@ -52,6 +52,10 @@ public:
     Error refresh(int32_t time);
     // Whether they cover the whole screen (the game isn't drawn under).
     bool fullscreen();
+    // The loading screen (export 8) as a level loads, into pictures(): the
+    // capture if there is one (a saved game's picture), else the menus'
+    // own, with `server` and `info` as the original's engine gives them.
+    Error drawLoadingScreen(const std::string& server, const std::string& info);
     // Opens a menu ("main", "ingame", "turbolift"), or closes them ("").
     Error setActiveMenu(const std::string& name);
     // A console command for them; `handled` gets whether they knew it.
@@ -66,8 +70,9 @@ public:
     std::filesystem::path saveDir;
     // The comment the save menu set for the next save (its description).
     std::string saveComment;
-    // The picture of the game for the next save (256 x 256 RGBA, rows top
-    // first), taken as the in-game menu opens; empty: none.
+    // The picture of the game for the next save, or of the saved game
+    // loading (256 x 256 RGBA, rows bottom first as the original's screen
+    // captures; the menus draw them upside down); empty: none.
     void setCapture(const std::vector<uint8_t>& rgba);
     std::vector<uint8_t> capture() const;
 
@@ -132,7 +137,7 @@ private:
     std::unique_ptr<x86::Cpu> cpu_;
     std::unique_ptr<x86::Win32Process> process_;
     const x86::Win32Process::Module* module_ = nullptr;
-    uint32_t imports_ = 0, exports_ = 0, scratch_ = 0, comment_ = 0, capture_ = 0;
+    uint32_t imports_ = 0, exports_ = 0, scratch_ = 0, scratch2_ = 0, comment_ = 0, capture_ = 0;
     bool captured_ = false;
     std::vector<std::string> args_;
     std::vector<std::string> commands_;
