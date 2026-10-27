@@ -285,6 +285,14 @@ private:
     // thumbnail), F2 quick save, F3 quick load. False if it isn't one.
     bool gameKey(uint32_t key);
     bool quickSave();
+    // The screen's message (0x4168c0): "Save Game" on the placard for 1.5
+    // s after F2, put away early by a click or a key; and the caret's
+    // blink, on and off every 0.33 s (0x414400).
+    std::string message_;
+    float messageTime_ = 0;
+    float caretTime_ = 0.33f;
+    bool caretOn_ = false;
+    void drawMessage();
     // The save and load screens (a scene's PUZZ save/load: 0x4347a0,
     // 0x424260).
     struct SlotMenu {
@@ -425,15 +433,17 @@ private:
     // has no such animation.
     bool startWalk(Character& c, bool run = false);
     void placeCharacter(Character& c) const;
-    // Shadows (docs/formats/awe/shadows.md): a mesh's screen coverage,
-    // flattened onto the floor from `light` if given; a mask drawn as a
-    // coloured quad; the shadows; the player's white-out in the snow.
-    void coverMesh(const SceneCamera& cam, const GpuModel& model, const Pose& pose, const gfx::Mat4& placement,
-                   const std::array<float, 3>* light, CoverageMask& mask) const;
+    // Shadows (docs/formats/awe/shadows.md): a model's meshes into the
+    // stencil, each its shadow (if it casts one) then its body (`ref`); a
+    // mask drawn as a coloured quad; the player's white-out in the snow.
+    void stencilModel(const gfx::Mat4& viewProjection, const GpuModel& model, const Pose& pose,
+                      const gfx::Mat4& placement, bool shadow, uint8_t ref, ShadowStencil& stencil) const;
     void drawMask(const CoverageMask& mask, Color colour, uint8_t alpha);
-    void drawShadows(const SceneCamera& cam, const std::vector<Pose>& poses,
-                     const std::vector<std::vector<Pose>>& propPoses);
-    void drawWhiteOut(const SceneCamera& cam, const std::vector<Pose>& poses);
+    void drawWhiteOut();
+    // Whether the characters are drawn now.
+    bool charactersShown() const {
+        return renderer_ && showCharacters_ && scene_.camera() && !movie_ && sceneShown_ && !load_.screen;
+    }
     // The character verbs (turn, look, rotate, anim...): true if the
     // script waits.
     bool startCharacterVerb(ScriptRunner& runner, Character& c, const ScriptEvent& e, bool wait, bool& handled);
@@ -552,7 +562,16 @@ private:
     // With 3D: the pictures behind the characters as one texture, the
     // characters, and the models and animations loaded so far.
     gfx::Renderer3D* renderer_ = nullptr;
-    gfx::TextureId back_ = 0;
+    // The pictures in layers between the characters, back to front:
+    // layer k comes after the k-th character in depth order, layer 0
+    // (opaque) before them all. Each is a texture, and where its pictures
+    // take the shadows off (a byte a pixel; none for layer 0).
+    struct PictureLayer {
+        gfx::TextureId texture = 0;
+        std::vector<uint8_t> resets;
+    };
+    std::vector<PictureLayer> layers_;
+    std::vector<size_t> characterOrder_; // characters_ in depth order, as draw() found it
     gfx::MeshId quad_ = 0;
     std::vector<Character> characters_;
     std::map<std::string, std::shared_ptr<GpuModel>> models_;
@@ -560,6 +579,7 @@ private:
     std::vector<gfx::MeshId> frameMeshes_;
     std::vector<gfx::TextureId> frameTextures_;
     std::unique_ptr<CoverageMask> shadowMask_;
+    std::unique_ptr<ShadowStencil> stencil_;
     uint64_t startMs_ = 0;
 };
 

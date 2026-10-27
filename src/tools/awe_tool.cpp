@@ -920,7 +920,7 @@ int aweToolCommand(int argc, char** argv) {
 }
 
 const char* aweToolUsage() {
-    return "  reluva-tool awe-check <game folder> [-gr2|-ac2|-text|-bik|-oodle] [-only text] [-textures] [-j threads] [-v]\n"
+    return "  reluva-tool awe-check <game folder> [-gr2|-ac2|-text|-bik|-oodle] [-only text] [-textures] [-curves] [-j threads] [-v]\n"
            "  reluva-tool awe-camera <game folder> <scene.ac2> [x y z]...\n"
            "  reluva-tool bink-info <file.bik> [-frames]\n"
            "  reluva-tool gr2-info <file.gr2> [-t] [-n elements]\n"

@@ -3,6 +3,7 @@
 
 #include "engines/awe/model.h"
 
+#include "common/fs.h"
 #include "engines/awe/bink_texture.h"
 #include "engines/awe/curves.h"
 #include "engines/awe/granny_dll.h"
@@ -225,8 +226,11 @@ Error loadModel(const Gr2File& file, Model& out) {
                 dst.weights[k] = weighted ? float(src.number("BoneWeights", k)) : (k == 0 ? 1.0f : 0.0f);
             }
             // A rigid mesh (no weights) follows its first binding.
-            if (!src.member("BoneIndices") && !bindings.empty())
-                dst.bones[0] = bindings[0];
+            if (!src.member("BoneIndices")) {
+                out_mesh.rigid = true;
+                if (!bindings.empty())
+                    dst.bones[0] = bindings[0];
+            }
             out_mesh.vertices.push_back(dst);
         }
         const Gr2Object topology = mesh.object("PrimaryTopology");
@@ -256,46 +260,89 @@ Error loadModel(const Gr2File& file, Model& out) {
     return Error::success();
 }
 
-void Curve::evaluate(float t, int dimension, float* out) const {
-    const size_t n = knots.size();
-    if (n == 0 || controls.size() < n * size_t(dimension)) {
+void Curve::evaluate(float t, int dimension, float* out, const CurveLoop& loop) const {
+    constexpr int kMaxDimension = 16;
+    const ptrdiff_t n = ptrdiff_t(knots.size());
+    if (n == 0 || dimension > kMaxDimension || controls.size() < size_t(n) * size_t(dimension)) {
         std::fill(out, out + dimension, 0.0f);
         return;
     }
-    auto control = [&](ptrdiff_t i, int d) {
-        i = std::clamp<ptrdiff_t>(i, 0, ptrdiff_t(n) - 1);
-        return controls[size_t(i) * size_t(dimension) + size_t(d)];
-    };
-    if (n == 1 || t <= knots[0]) {
-        for (int d = 0; d < dimension; d++)
-            out[d] = control(0, d);
+    auto copy = [&](ptrdiff_t i) { std::copy_n(controls.begin() + i * dimension, dimension, out); };
+    const bool looping = (loop.back || loop.forward) && loop.duration > 0;
+    // Played once it holds its end values (the animation's clock stays
+    // within it).
+    if (n == 1 || (!looping && t <= knots[0])) {
+        copy(0);
         return;
     }
-    if (t >= knots[n - 1]) {
-        for (int d = 0; d < dimension; d++)
-            out[d] = control(ptrdiff_t(n) - 1, d);
+    if (!looping && t >= knots[size_t(n) - 1]) {
+        copy(n - 1);
         return;
     }
-    // The interval [knots[k - 1], knots[k]) holding t. Each knot ends its
-    // control's interval; de Boor's algorithm over controls k - p .. k,
-    // the knots beyond either end repeating the end ones.
-    const size_t k = size_t(std::upper_bound(knots.begin(), knots.end(), t) - knots.begin());
+    // Granny's way (granny2.dll: GrannyEvaluateCurveAtT, 0x50017cd0; its
+    // window, 0x50017810): k is the first knot after t (at most the last).
+    // Each knot ends its control's interval; the B-spline at t is de
+    // Boor's algorithm over controls k - p .. k with knots k - p .. k + p - 1.
+    const ptrdiff_t k =
+        std::min<ptrdiff_t>(std::upper_bound(knots.begin(), knots.end(), t) - knots.begin(), n - 1);
     const int p = std::clamp(degree, 0, 3);
-    auto knot = [&](ptrdiff_t i) { return knots[size_t(std::clamp<ptrdiff_t>(i, 0, ptrdiff_t(n) - 1))]; };
-    float d[4][4];
-    for (int j = 0; j <= p; j++)
-        for (int c = 0; c < dimension && c < 4; c++)
-            d[j][c] = control(ptrdiff_t(k) - p + j, c);
+    if (p == 0) {
+        copy(k);
+        return;
+    }
+    // Past the ends the window is filled in. Played once, with the end
+    // knot and control repeated. Looping, with the curve again a loop
+    // before or after: the last knot (at the loop's end) stands for the
+    // first, so the knots before the start are the last but one, the one
+    // before... less the loop's length, and those after the end the first,
+    // the second... plus it (once more each time round).
+    const ptrdiff_t real = loop.forward && looping ? n - 1 : n; // knots used as they are
+    const ptrdiff_t period = std::max<ptrdiff_t>(1, n - 1);
+    bool filled = false;
+    double window[6], values[4][kMaxDimension];
+    for (ptrdiff_t j = k - p; j < k + p; j++) {
+        ptrdiff_t from = j;
+        float offset = 0;
+        if (j < 0 || j >= real) {
+            filled = true;
+            const bool back = j < 0;
+            if (back ? !(loop.back && looping) : !(loop.forward && looping)) {
+                from = back ? 0 : real - 1;
+            } else {
+                const ptrdiff_t q = back ? -j - 1 : j - real; // how far beyond, from 0
+                from = back ? period - 1 - q % period : q % period;
+                // The loop's length added as floats, as the DLL does.
+                for (ptrdiff_t times = 0; times <= q / period; times++)
+                    offset = back ? offset - loop.duration : offset + loop.duration;
+            }
+        }
+        window[j - (k - p)] = double(knots[size_t(from)] + offset);
+        if (j <= k)
+            for (int c = 0; c < dimension; c++)
+                values[j - (k - p)][c] = controls[size_t(from) * size_t(dimension) + size_t(c)];
+    }
+    // Where it filled in, each quaternion is put on the side of the one
+    // before (0x50030780).
+    if (filled && dimension == 4)
+        for (int j = 1; j <= p; j++) {
+            double dot = 0;
+            for (int c = 0; c < 4; c++)
+                dot += values[j][c] * values[j - 1][c];
+            if (dot < 0)
+                for (int c = 0; c < 4; c++)
+                    values[j][c] = -values[j][c];
+        }
+    // de Boor's algorithm, in doubles (the DLL's x87 maths keeps more than
+    // floats); window[i] is knot k - p + i.
     for (int r = 1; r <= p; r++)
         for (int j = p; j >= r; j--) {
-            const ptrdiff_t i = ptrdiff_t(k) - p + j;
-            const float lo = knot(i - 1), hi = knot(i + p - r);
-            const float a = hi > lo ? (t - lo) / (hi - lo) : 0.0f;
-            for (int c = 0; c < dimension && c < 4; c++)
-                d[j][c] = (1 - a) * d[j - 1][c] + a * d[j][c];
+            const double lo = window[j - 1], hi = window[j + p - r];
+            const double a = hi > lo ? (double(t) - lo) / (hi - lo) : 0.0;
+            for (int c = 0; c < dimension; c++)
+                values[j][c] = (1 - a) * values[j - 1][c] + a * values[j][c];
         }
     for (int c = 0; c < dimension; c++)
-        out[c] = c < 4 ? d[p][c] : 0.0f;
+        out[c] = float(values[p][c]);
 }
 
 namespace {
@@ -309,13 +356,14 @@ const std::vector<float> kIdentities[3] = {{0, 0, 0}, {0, 0, 0, 1}, {1, 0, 0, 0,
 Error loadAnimation(const Gr2File& file, Animation& out) {
     out = Animation();
     const Gr2Object root = file.root();
-    // Its mask: how much each bone follows it (0x429f50 reads it from the
-    // file's skeleton, "TrackMasktrackmask").
-    if (root.count("Skeletons") > 0) {
-        auto masks = readTrackMasks(root.element("Skeletons", 0));
-        if (!masks.empty())
-            out.mask = masks.count("trackmask") ? masks["trackmask"] : masks.begin()->second;
-    }
+    // Its mask: how much each bone follows it (0x4298e2 reads it from the
+    // file's skeleton as "TrackMaskTrackMask", whatever its case: the files
+    // have "TrackMasktrackmask" and "TrackMaskTrackMask"). Others
+    // ("TrackMasksitidle1") aren't read by the game.
+    if (root.count("Skeletons") > 0)
+        for (auto& [name, weights] : readTrackMasks(root.element("Skeletons", 0)))
+            if (fs::toLower(name) == "trackmask")
+                out.mask = std::move(weights);
     if (root.count("Animations") == 0)
         return Error::fail("The file has no animation");
     const Gr2Object anim = root.element("Animations", 0);
@@ -356,15 +404,45 @@ Error loadAnimation(const Gr2File& file, Animation& out) {
     return Error::success();
 }
 
+Error dllCurveAddresses(const Gr2File& file, GrannyDll& dll, uint32_t fileInfo,
+                        std::vector<std::array<uint32_t, 3>>& out) {
+    out.clear();
+    // The DLL's structures are its own types, which it converts the older
+    // files to: their members' offsets lead to the curves in its memory.
+    const uint32_t infoType = dll.type("GrannyFileInfoType"), animType = dll.type("GrannyAnimationType"),
+                   groupType = dll.type("GrannyTrackGroupType"), trackType = dll.type("GrannyTransformTrackType");
+    uint32_t animations = 0, groups = 0, tracks = 0, curves[3] = {0, 0, 0};
+    bool found = infoType && animType && groupType && trackType && dll.memberOffset(infoType, "Animations", animations) &&
+                 dll.memberOffset(animType, "TrackGroups", groups) &&
+                 dll.memberOffset(groupType, "TransformTracks", tracks);
+    for (int c = 0; c < 3; c++)
+        found = found && dll.memberOffset(trackType, kCurves[c], curves[c]);
+    if (!found)
+        return Error::fail("granny2.dll's types aren't as expected");
+    // file info -> Animations[0] -> TrackGroups[0] -> TransformTracks
+    const uint32_t animation = dll.read32(dll.read32(fileInfo + animations + 4));
+    const uint32_t trackGroup = dll.read32(dll.read32(animation + groups + 4));
+    const uint32_t first = dll.read32(trackGroup + tracks + 4), count = dll.read32(trackGroup + tracks);
+    const uint32_t stride = dll.typeSize(trackType);
+    const Gr2Object group = file.root().element("Animations", 0).element("TrackGroups", 0);
+    if (!animation || !trackGroup || !first || count != group.count("TransformTracks"))
+        return Error::fail("the DLL's file differs");
+    for (uint32_t i = 0; i < count; i++) {
+        const Gr2Object t = group.element("TransformTracks", i);
+        std::array<uint32_t, 3> a{};
+        for (int c = 0; c < 3; c++)
+            if (t.object(kCurves[c]).valid())
+                a[size_t(c)] = first + i * stride + curves[c];
+        out.push_back(a);
+    }
+    return Error::success();
+}
+
 Error expandCurvesWithDll(const Gr2File& file, GrannyDll& dll, Animation& out) {
-    const Gr2Object root = file.root();
-    const Gr2Object anim = root.element("Animations", 0);
-    const Gr2Object group = anim.element("TrackGroups", 0);
-    const Gr2Object::Array tracks = group.array("TransformTracks");
-    if (tracks.count != out.tracks.size())
+    const Gr2Object group = file.root().element("Animations", 0).element("TrackGroups", 0);
+    if (group.count("TransformTracks") != out.tracks.size())
         return Error::fail("the animation wasn't loaded from this file");
-    // The DLL loads the file. Its structures are the file's types, so the
-    // same members' offsets lead to the curves in its memory.
+    // The DLL loads the file.
     GrannyDll::LoadedFile loaded;
     if (Error e = dll.loadFile(file.bytes(), loaded))
         return Error::fail("expanding compressed curves: " + e.message);
@@ -373,17 +451,10 @@ Error expandCurvesWithDll(const Gr2File& file, GrannyDll& dll, Animation& out) {
         GrannyDll::LoadedFile& f;
         ~Free() { dll.freeFile(f); }
     } freeLater{dll, loaded};
-    auto offset = [](const Gr2Object& o, const char* name) {
-        const Gr2Member* m = o.member(name);
-        return m ? m->offset : 0u;
-    };
-    // file info -> Animations[0] -> TrackGroups[0] -> TransformTracks
-    const uint32_t animation = dll.read32(dll.read32(loaded.info + offset(root, "Animations") + 4));
-    const uint32_t trackGroup = dll.read32(dll.read32(animation + offset(anim, "TrackGroups") + 4));
-    const uint32_t first = dll.read32(trackGroup + offset(group, "TransformTracks") + 4);
-    if (!animation || !trackGroup || !first || dll.read32(trackGroup + offset(group, "TransformTracks")) != tracks.count)
-        return Error::fail("expanding compressed curves: the DLL's file differs");
-    for (uint32_t i = 0; i < tracks.count; i++) {
+    std::vector<std::array<uint32_t, 3>> addresses;
+    if (Error e = dllCurveAddresses(file, dll, loaded.info, addresses))
+        return Error::fail("expanding compressed curves: " + e.message);
+    for (uint32_t i = 0; i < addresses.size(); i++) {
         const Gr2Object t = group.element("TransformTracks", i);
         Curve* curves[3] = {&out.tracks[i].position, &out.tracks[i].orientation, &out.tracks[i].scaleShear};
         for (int c = 0; c < 3; c++) {
@@ -391,7 +462,7 @@ Error expandCurvesWithDll(const Gr2File& file, GrannyDll& dll, Animation& out) {
             if (!curve.valid() || curve.member("Knots"))
                 continue;
             GrannyDll::PlainCurve plain;
-            if (Error e = dll.expandCurve(first + i * tracks.stride + offset(t, kCurves[c]), kIdentities[c], plain))
+            if (Error e = dll.expandCurve(addresses[i][size_t(c)], kIdentities[c], plain))
                 return Error::fail("expanding " + out.tracks[i].bone + "'s " + kCurves[c] + ": " + e.message);
             if (plain.dimension != kDimensions[c])
                 return Error::fail(out.tracks[i].bone + "'s " + kCurves[c] + " has " + std::to_string(plain.dimension) +
@@ -404,7 +475,8 @@ Error expandCurvesWithDll(const Gr2File& file, GrannyDll& dll, Animation& out) {
     return Error::success();
 }
 
-void sampleLocal(const Model& model, const Animation* animation, float time, std::vector<BoneTransform>& local) {
+void sampleLocal(const Model& model, const Animation* animation, float time, std::vector<BoneTransform>& local,
+                 const CurveLoop& loop, bool loopRoot) {
     const size_t n = model.bones.size();
     local.resize(n);
     for (size_t i = 0; i < n; i++)
@@ -417,11 +489,12 @@ void sampleLocal(const Model& model, const Animation* animation, float time, std
             b++;
         if (b == n)
             continue;
+        const CurveLoop& l = loopRoot || model.bones[b].parent >= 0 ? loop : CurveLoop();
         if (!track.position.empty())
-            track.position.evaluate(time, 3, local[b].position);
+            track.position.evaluate(time, 3, local[b].position, l);
         if (!track.orientation.empty()) {
             float* q = local[b].orientation;
-            track.orientation.evaluate(time, 4, q);
+            track.orientation.evaluate(time, 4, q, l);
             const float len = std::sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
             if (len > 0)
                 for (int c = 0; c < 4; c++)
@@ -430,7 +503,7 @@ void sampleLocal(const Model& model, const Animation* animation, float time, std
                 q[3] = 1;
         }
         if (!track.scaleShear.empty())
-            track.scaleShear.evaluate(time, 9, local[b].scaleShear);
+            track.scaleShear.evaluate(time, 9, local[b].scaleShear, l);
     }
 }
 

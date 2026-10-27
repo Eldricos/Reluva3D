@@ -31,7 +31,19 @@ from 3D Studio MAX 8 by the "Granny Standard Exporter, SDK version
     layout has alpha. Its start-up asks for the Windows directory, which
     Reluva provides;
   - `GrannyCurveExtractKnotValues`, on files the DLL loads itself, by
-    `awe-check -gr2`.
+    `awe-check -gr2`;
+  - `GrannyEvaluateCurveAtT(Dimension, Normalize, BackwardsLoop, Curve,
+    ForwardsLoop, CurveDuration, t, Result, IdentityVector)`, by
+    `awe-check -gr2 -curves`. The order of its arguments was checked in
+    its code (0x50050740 passes them on to 0x50017cd0); see "Evaluating
+    curves" below.
+
+  A file the DLL loads is converted to its own structures, which differ
+  from older files' (the plain curves' tracks are laid out differently).
+  So the checks find the curves in its memory by the DLL's exported types
+  (`GrannyFileInfoType`, `GrannyAnimationType`, `GrannyTrackGroupType`,
+  `GrannyTransformTrackType`: pointers to member definitions laid out as
+  in the files).
 - The results were checked by eye. Poirot was rendered with his three
   textures, posed by the walk animation at 0.3 s
   (`reluva-tool gr2-model ... -anim ... -obj`).
@@ -282,9 +294,7 @@ prints the whole tree.
   exporter writes plain curves: `Degree` (2 here), `Knots` (times) and
   `Controls` (3 values per knot for position, 4 for orientation, 9 for
   scale/shear). A few animations have compressed curves instead (below).
-  Reluva evaluates them as B-splines with one knot per control, each knot
-  ending its control's interval (`Curve::evaluate`). This is checked by
-  eye only so far.
+  They are B-splines with one knot per control: see "Evaluating curves".
 
 ## Compressed curves
 
@@ -378,6 +388,120 @@ the DLL rounds twice, so `curves.cpp` is built without them.
   the engine expands the curves itself.
 - The expanded curves go to the same B-spline evaluation as the plain
   ones. `vendor01_walk` and `poirot_suprised` render posed as they should.
+
+## Evaluating curves
+
+Each curve, plain or expanded, is a B-spline with one knot per control.
+Reluva evaluates it as granny2.dll does (`Curve::evaluate`,
+`src/engines/awe/model.cpp`), and checks that against the DLL.
+
+### How this was worked out
+
+From the disassembly of `granny2.dll`, starting at the export
+`GrannyEvaluateCurveAtT` (0x50050740), and at the sampling of a control's
+tracks:
+
+| Address | What it does |
+|---------|--------------|
+| 0x50017cd0 | finds the knot for t (0x50003ef0), then evaluates there |
+| 0x50017d20 | an identity or constant curve gives its value; else builds the window, then samples |
+| 0x50017810 | the window: the knots and controls around the knot, filled in past the curve's ends |
+| 0x50030780 | puts quaternions on one side |
+| 0x500174d0 | samples by degree and dimension, through a table of functions (0x50061a88; those that normalise at 0x50061b28) |
+| 0x50044410 | a control's orientation track: the window, quaternions on one side, the sample, normalised |
+| 0x5001bbe0 | a control's loop state (`GrannyGetControlLoopState`) |
+
+### The B-spline
+
+With knots t_0 … t_(n-1), controls P_0 … P_(n-1) and degree p (the
+files use 0, 1 and 2):
+
+1. k is the first knot after t, but at most n - 1.
+2. Degree 0: the value is P_k.
+3. Otherwise the window is knots t_(k-p) … t_(k+p-1) and controls
+   P_(k-p) … P_k. De Boor's algorithm: for r from 1 to p, for i from k
+   down to k - p + r, with a = (t - t_(i-1)) / (t_(i+p-r) - t_(i-1)) (0 if
+   that is empty), P_i becomes (1 - a) P_(i-1) + a P_i. The value is P_k.
+
+Each knot ends its control's interval. An animation's clock stays within
+[0, its duration], and the knots run from 0 to it.
+
+### Past the ends
+
+Near either end, the window reaches past the curve. Granny fills in the
+missing knots and controls, in one of two ways:
+
+- **Not looping** that way: the end knot and control, repeated.
+- **Looping**: the curve as one loop of a periodic one, of the
+  animation's duration d. The last knot (at d) stands for the first,
+  one loop on. Going forward, it is itself replaced: after t_(n-2) come
+  t_0 + d, t_1 + d … t_(n-2) + d, then t_0 + 2d…, with their controls.
+  Going back, before t_0 come t_(n-2) - d, t_(n-3) - d … t_0 - d, then
+  t_(n-2) - 2d…. The DLL adds the d's up as floats.
+
+Where it filled the window in, it puts quaternions on one side: each
+control from the second on is negated if its dot product with the one
+before is negative. `GrannyEvaluateCurveAtT` does that only when asked
+to normalise; a control's orientation track always does.
+
+Which way a curve loops is the control's loop state (0x5001bbe0):
+
+- an animation looping for ever (loop count 0) loops both ways;
+- loop i of a count of n loops back if i > 0, and forward if
+  i < n - 1;
+- an animation played once does neither.
+
+(A flag set by `GrannySetControlForceClampedLooping` turns both off; the
+game doesn't use it.) So `idle1`, `walk` and `talk` wrap round at both
+ends, a gesture played once doesn't, and a blink played twice wraps
+forward in its first loop and back in its second.
+
+Orientations are then normalised. A control's track does it exactly
+(0x500444ff: one over the square root of the squared length).
+`GrannyEvaluateCurveAtT`'s own normalising is only close (a result
+seen was 3·10⁻⁵ short of unit length); its direction is the same.
+
+### In Reluva
+
+`Curve::evaluate` takes the loop state (`CurveLoop`), and the Animator
+gives each slot's (`Animator::Slot::loop`). It computes the B-spline in
+doubles, as the DLL's x87 code keeps more than floats. It rounds the
+filled-in knots to floats, as the DLL does.
+
+There is one deliberate difference. A base animation's root bone (the
+skeleton's first, with no parent) is evaluated without wrapping round.
+It carries the character along: a walk's root moves the whole loop's
+distance. The game takes that motion out of the pose: its base
+animations' track groups accumulate it, and `GrannyUpdateModelMatrix`
+moves the model. Reluva instead takes out the distance the root moves in
+one loop (`Actor::motion`). Wrapping round, the root would swing back
+toward its start over the loop's last piece.
+
+Before this, Reluva never wrapped round, and kept only a curve's first
+four values. On `poirot_walk`, looping, it was off by up to 239 units
+(the root, near the end) and 0.003 in an orientation. Scale/shear curves
+with more than one knot would have lost five of their nine values.
+
+### Verification
+
+`reluva-tool awe-check <game> -gr2 -curves` evaluates every curve of
+every animation both ways. The DLL loads the file itself, and
+`GrannyEvaluateCurveAtT` evaluates the curve in Reluva's x86 interpreter.
+Each curve is evaluated at 0, at the duration, at up to 32 of its knots
+and at 96 times between, in the four loop states. Orientations are
+normalised on both sides. The differences are measured in floats'
+epsilons of the curve's largest value (or of 1, if that is smaller).
+
+On the full install (1,803 files, 1,701 animations): 293,531 curves at
+122 million times, in 632 s on 4 threads. The largest differences:
+
+| Loop state | Position | Orientation | Scale/shear |
+|------------|----------|-------------|-------------|
+| once | 0.00098 (3.2 ε) | 3.0·10⁻⁷ (2.5 ε) | 0 |
+| looping, first loop, last loop | 0.00098 (1.0 ε) | 1.8·10⁻⁷ (1.5 ε) | 0 |
+
+That is float rounding: the largest position difference is a step of a
+float at a few hundred units. The check fails above 8 ε.
 
 ## Vector tracks
 
@@ -567,10 +691,3 @@ full install (1,803 files) there are 278 Bink textures, from 64×64 to
 1024×1024 (and 512×256, 1024×256): 251 with flags 4 and 27 with flags 5.
 None differs. Run alone, a 512×512 texture takes about 11 ms natively
 against 2.2 s in the interpreter, a 1024×1024 one 85 ms against 8.6 s.
-
-## Still to do
-
-- Check the curve evaluation against Granny's (`GrannyEvaluateCurveAtT`)
-  on more animations.
-- The face: how the game drives the face bones (the `_f*` animations,
-  `blink`, `eyeleft`...).

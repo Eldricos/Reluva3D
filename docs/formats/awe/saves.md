@@ -19,7 +19,12 @@ Reluva work with the game:
 - the writer `0x411230` and the reader `0x411c60`;
 - the save screen's and load screen's objects (`0x4347a0`, `0x424260`);
 - the keys (`0x4164e0`);
-- the load sequence (`0x422470`, `0x422da0`).
+- the load sequence (`0x422470`, `0x422da0`);
+- the quick save's message: F2 (`0x4168c0`), the screen's timers
+  (`0x414400`), its drawing (`0x415511`, in the screen's draw
+  `0x414e40`) and the clicks and keys that put it away (`0x416000`,
+  `0x416450`, `0x4164e0`);
+- the caret (`0x434c91`, in the save screen's draw `0x434b90`).
 
 `reluva-tool awe-save` reads the 15 developer saves to their last byte
 with the layout below, and writes each back to the same size.
@@ -97,6 +102,11 @@ screen opens on the newest save.
 - A–Z (as capitals), digits and space are accepted.
 - The name is limited to 31 characters and 125 pixels.
 - Backspace and Delete remove the last character.
+- The name is centred on its own width. A caret `|` follows it, in the
+  same font and colour, and blinks: it shows for 0.33 s and hides for
+  0.33 s. The blink is one timer on the game's screen object (+0xa4,
+  +0xa8): it runs all the time, from hidden at the start, and typing
+  doesn't restart it.
 
 **`action` words**
 
@@ -121,6 +131,24 @@ OK and Cancel.
   Escape resumes.
 - **F2** quick-saves to `quick.ac2`, outside the menus. **F3** loads the
   quick save: `fade out, preload quick, load, fade in`.
+
+**The quick save's message.** When F2's save succeeds, the screen shows
+"Save Game" (interface text `ingamemenu2`) for **1.5 s**:
+
+- The box is `Interface\placard.tga` (270 × 114), centred, its foot at
+  y = 766: at (377, 652).
+- The text is in the font for "location descriptions" (Calisto MT 14,
+  with its shadow) and the "navigation text" colour (230, 170, 75),
+  centred on x = 512, and vertically centred in the box 2 pixels down:
+  y = 652 + (114 − h)/2 + 2, where h is the text's height.
+- It is drawn at full opacity the whole time, with no fade, over the
+  scene and under the yes/no box: while that box is up, it isn't drawn.
+- A key or a mouse button (left or right) pressed while it shows only
+  puts it away: the game does nothing else with it. So F2 again doesn't
+  save again until the message has gone.
+
+The placard is the one the hover captions use; the message's text is
+looked up once and then kept.
 
 ## Restoring a save
 
@@ -156,9 +184,9 @@ Reluva's saves are in the format the game reads.
 **What works:**
 
 - the in-game, save and load menus with the game's scenes;
-- the slots, paging, typing a name, overwriting with confirmation, and
-  thumbnails;
-- F2 and F3;
+- the slots, paging, typing a name with its blinking caret, overwriting
+  with confirmation, and thumbnails;
+- F2 with its message, and F3;
 - the developers' `preload slotN`;
 - restoring a save as the game does.
 
@@ -172,8 +200,5 @@ memory as the game does:
 Inventory slots and pages are numbered in the order the items were
 gained.
 
-**Not done yet:**
-
-- the options screen;
-- the "Save Game" message after F2;
-- the caret's blink.
+While the message shows, a key or a click only puts it away, the Scenes
+page's own keys (Left, Right, H, I...) included.

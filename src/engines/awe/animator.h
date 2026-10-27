@@ -39,10 +39,15 @@ public:
         int state = Playing;
         std::vector<float> mask; // per model bone
         float maskWeight = 0;    // the weight it was played with
+        std::vector<float> poseMask; // the pose's mask it was played under (per model bone; empty: none)
         // Its weight now: eased in and out (Granny's smooth curve).
         float weight() const;
         // Seconds into the animation.
         float time() const;
+        // How its curves go on past their ends: wrapping round while it
+        // loops for ever, or into the loop before or after when there is
+        // one (granny2.dll's control loop state, 0x5001bbe0).
+        CurveLoop loop() const;
     };
 
     explicit Animator(const Model& model) : model_(&model) {}
@@ -55,6 +60,16 @@ public:
     // taken.
     bool play(std::string_view name, std::shared_ptr<const Animation> animation, int layer, bool base, int loops,
               float ease, float weight = 0);
+    // The pose's mask (0x429f50, rebuilt as each base animation plays): a
+    // weight by model bone that limits what plays over the base, so that a
+    // seated character's gestures leave its legs to the base (MODL's
+    // "TrackMasksit"). Empty: none.
+    void setPoseMask(std::vector<float> mask) { poseMask_ = std::move(mask); }
+    const std::vector<float>& poseMask() const { return poseMask_; }
+    // A model's track mask by name ("sit": its bones' "TrackMasksit"), each
+    // bone without a weight taking its parent's; empty if it has none.
+    static std::vector<float> modelMask(const Model& model, std::string_view name);
+
     // Eases out (over `seconds`, or each one's own ease if negative) and
     // stops the slots `which` picks; a stopped slot doesn't report its end.
     void stop(const std::function<bool(const Slot&)>& which, float seconds = -1);
@@ -77,7 +92,11 @@ public:
     std::function<void(const Slot&)> onEnding, onFinished;
 
 private:
-    std::vector<float> buildMask(const Model& model, const Animation* animation, float weight) const;
+    // The slot's mask on `model`: its animation's track mask (`weight`
+    // replacing its weights if not 0) times the pose's mask it was played
+    // under, by bone name if `model` isn't the character's.
+    std::vector<float> buildMask(const Model& model, const Animation* animation, float weight,
+                                 const std::vector<float>& poseMask) const;
     // Blends the layer's slots: each bone's transform weighed by the
     // slots' weights times their masks; bones that weigh nothing stay at
     // rest. The strongest slot is returned through `strongest`.
@@ -86,6 +105,7 @@ private:
 
     const Model* model_;
     std::vector<Slot> slots_;
+    std::vector<float> poseMask_;
 };
 
 } // namespace reluva::awe

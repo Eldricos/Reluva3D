@@ -259,8 +259,29 @@ bool ScenePage::quickSave() {
     const SaveGame s = captureSave("");
     if (!writeAll(savesFolder() / "quick.ac2", writeSaveGame(s)))
         return false;
-    logScript("  (" + interfaceText("ingamemenu2") + ": quick.ac2)");
+    // 0x4168c0: the message for 1.5 s; its text, once set, stays.
+    messageTime_ = 1.5f;
+    if (message_.empty())
+        message_ = interfaceText("ingamemenu2");
+    logScript("  (" + message_ + ": quick.ac2)");
+    draw();
     return true;
+}
+
+void ScenePage::drawMessage() {
+    // 0x415511: the placard centred, its foot at y 766, the text in the
+    // middle of it 2 pixels down, in the "location descriptions" font and
+    // the "navigation text" colour (font 0, colour 3).
+    const image::Image& placard = picture("interface/placard.tga");
+    const int top = 766 - placard.h;
+    if (placard.w)
+        image::blit(ctx_.screen, placard, (kScreenW - placard.w) / 2, top);
+    const TextStyle* style = ctx_.fonts ? ctx_.fonts->style("location descriptions") : nullptr;
+    if (!style || !style->font)
+        return;
+    const int w = style->font->width(message_, style->pixels), h = style->font->lineHeight(style->pixels);
+    ctx_.fonts->draw(ctx_.screen, *style, (kScreenW - w) / 2, (placard.h - h) / 2 + top + 2, message_,
+                     ctx_.fonts->colour("navigation text", {230, 170, 75}));
 }
 
 bool ScenePage::gameKey(uint32_t key) {
@@ -523,7 +544,7 @@ void ScenePage::drawSlots() {
         std::string main;
         Color colour = other;
         if (m.save && on) {
-            main = m.name + "|";
+            main = m.name;
             colour = picked;
         } else if (!row.exists) {
             main = interfaceText("empty");
@@ -533,6 +554,10 @@ void ScenePage::drawSlots() {
         }
         const int w = style->font->width(main, style->pixels);
         ctx_.fonts->draw(ctx_.screen, *style, 624 - w / 2, top + (kRowHeight - h) / 2, main, colour);
+        // The caret just after the name, while the blink has it on
+        // (0x434c91).
+        if (m.save && on && caretOn_)
+            ctx_.fonts->draw(ctx_.screen, *style, 624 + w - w / 2, top + (kRowHeight - h) / 2, "|", colour);
         if (row.exists) {
             ctx_.fonts->draw(ctx_.screen, *style, 708, top + kRowHeight - h, row.date, on ? picked : other);
             ctx_.fonts->draw(ctx_.screen, *style, 952 - style->font->width(row.time, style->pixels),
