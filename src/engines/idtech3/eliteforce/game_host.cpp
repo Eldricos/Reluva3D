@@ -259,12 +259,36 @@ Error GameHost::restartLevel() {
     return Error::success();
 }
 
+bool GameHost::applyMapCommand(CvarStore& cvars, std::string_view verb) {
+    cvars.create("g_gametype", "0", CvarStore::ServerInfo | CvarStore::Latch);
+    if (verb.substr(0, 2) == "sp") {
+        cvars.set("g_gametype", "2");
+        cvars.set("g_doWarmup", "0");
+        cvars.create("sv_maxclients", "8", CvarStore::ServerInfo | CvarStore::Latch | CvarStore::Archive);
+        cvars.set("sv_maxclients", "8");
+        return true;
+    }
+    if (cvars.integer("g_gametype") == 2)
+        cvars.set("g_gametype", "0");
+    return verb == "devmap";
+}
+
 Error GameHost::changeLevel(const std::string& mapName, std::shared_ptr<const Bsp> map, int32_t randomSeed,
                             std::vector<int32_t>& players) {
     // A new level, as the original's map command: the game code shut down
     // and started afresh on it, and everyone connected again; bots are put
-    // in the level, players (`players`) when they've loaded it.
-    const std::set<int32_t> clients = clientsInUse_;
+    // in the level, players (`players`) when they've loaded it. Unless the
+    // command said so, the bots too (a solo match's own are added by the
+    // game as it starts).
+    std::set<int32_t> clients = clientsInUse_;
+    if (std::exchange(killBots_, false)) {
+        for (const int32_t c : botClients_) {
+            clients.erase(c);
+            clientsInUse_.erase(c);
+            botSnapshots_.erase(c);
+        }
+        botClients_.clear();
+    }
     int32_t ignored = 0;
     if (Error err = call(Shutdown, {0}, ignored))
         return err;
@@ -309,8 +333,10 @@ bool GameHost::engineCommand(const std::vector<std::string>& w) {
         return true;
     }
     if (verb == "map" || verb == "devmap" || verb == "spmap" || verb == "spdevmap") {
-        if (w.size() > 1)
+        if (w.size() > 1) {
             requestedMap_ = w[1];
+            killBots_ = applyMapCommand(cvars_, verb);
+        }
         return true;
     }
     if (verb == "vstr") {

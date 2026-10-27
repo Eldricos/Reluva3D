@@ -77,6 +77,12 @@ public:
     int restarts() const { return restarts_; }
     // A level the game or a player asked for (map, devmap), for the page to
     // load and hand to changeLevel(); empty if none.
+    // What the original's map commands set before the level starts:
+    // spmap and spdevmap make it a solo match (g_gametype 2, no warmup,
+    // room for 8), and the bots already there leave; map and devmap end a
+    // solo match's game type (free for all), devmap's bots leaving too.
+    // Whether the bots leave.
+    static bool applyMapCommand(CvarStore& cvars, std::string_view verb);
     bool levelRequested() const { return !requestedMap_.empty(); }
     std::string takeRequestedMap() { return std::exchange(requestedMap_, std::string()); }
     // A new level: the game code started afresh on it and everyone
@@ -263,6 +269,7 @@ private:
     GameLayout layout_ = kLayout10;
     std::vector<uint8_t> qvmData_; // for restarting the game code
     std::string mapName_, requestedMap_;
+    bool killBots_ = false; // the map command asking for the next level drops the bots
     int32_t randomSeed_ = 0;
     int32_t restartTime_ = 0; // a delayed map_restart's level time (0: none)
     int restarts_ = 0;

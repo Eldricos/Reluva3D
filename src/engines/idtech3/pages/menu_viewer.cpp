@@ -7,6 +7,8 @@
 #include "engines/idtech3/client/scene_drawer.h"
 #include "engines/idtech3/pages/menu_viewer.h"
 
+#include "engines/idtech3/eliteforce/game_host.h"
+
 #include "common/font.h"
 #include "common/fs.h"
 
@@ -208,6 +210,9 @@ void MenuViewer::checkCommands() {
                 ctx_.requestMap.clear();
                 ctx_.requestCommands.clear();
             } else if ((verb == "map" || verb == "devmap" || verb == "spmap" || verb == "spdevmap") && words.size() >= 2) {
+                // A solo match (spmap) or not, as the original's map
+                // commands set it; the level starts afresh on the Play page.
+                eliteforce::GameHost::applyMapCommand(cvars_, verb);
                 ctx_.requestPage = "Play";
                 ctx_.requestMap = words[1];
                 ctx_.requestCommands.clear();
