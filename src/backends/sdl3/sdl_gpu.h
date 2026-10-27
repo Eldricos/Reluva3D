@@ -52,6 +52,7 @@ public:
     void setStencilMode(StencilMode mode) override;
     void setMirrored(bool mirrored) override { mirrored_ = mirrored; }
     void setGamma(float gamma) override { gamma_ = gamma > 0.05f ? gamma : 1.0f; }
+    int setMultisampling(int samples) override;
     void setView(const gfx::Mat4& viewProj, const gfx::Vec3& eye) override {
         viewProj_ = viewProj;
         eye_ = eye;
@@ -68,6 +69,12 @@ public:
 
 private:
     void capture(SDL_GPUTexture* frame);
+    // The multisampled targets for samples_ (none for 1), made again
+    // when it changes; the pipelines go with them.
+    bool makeMultisampleTargets();
+    // A pass over the frame: cleared (with `clear`) or kept, its depth
+    // cleared, its stencil cleared or kept.
+    SDL_GPURenderPass* beginPass(const SDL_FColor* clear, bool keepStencil);
     struct Texture {
         SDL_GPUTexture* texture = nullptr;
         int sampler = 0; // index into samplers_
@@ -94,6 +101,14 @@ private:
     bool mirrored_ = false;
     SDL_GPUTexture* color_ = nullptr; // the frame, wrapped by colorView_ for the renderer
     SDL_GPUTexture* depth_ = nullptr;
+    // Multisampling: the count wanted, the count the targets have, and
+    // those targets, resolved into color_ at the end of each pass. The
+    // passes over the frame use passSamples_ (1 for the brightness pass).
+    SDL_GPUSampleCount wantSamples_ = SDL_GPU_SAMPLECOUNT_1;
+    SDL_GPUSampleCount samples_ = SDL_GPU_SAMPLECOUNT_1;
+    SDL_GPUSampleCount passSamples_ = SDL_GPU_SAMPLECOUNT_1;
+    SDL_GPUTexture* msaaColor_ = nullptr;
+    SDL_GPUTexture* msaaDepth_ = nullptr;
     SDL_Texture* colorView_ = nullptr;
     SDL_Texture* overlay_ = nullptr;
     // The frame through the brightness curve, shown instead when it isn't
@@ -111,7 +126,7 @@ private:
     SDL_GPUShader* vertexShader_ = nullptr;
     SDL_GPUShader* fragmentShader_ = nullptr;
     SDL_GPUSampler* samplers_[32] = {}; // by clamp | mipmaps << 1 | nearest << 2 | mipNearest << 3 | anisotropic << 4
-    std::unordered_map<uint32_t, SDL_GPUGraphicsPipeline*> pipelines_; // by packed DrawState
+    std::unordered_map<uint32_t, SDL_GPUGraphicsPipeline*> pipelines_; // by packed DrawState and pass
     std::unordered_map<gfx::TextureId, Texture> textures_;
     std::unordered_map<gfx::MeshId, Mesh> meshes_;
     uint32_t nextId_ = 1;

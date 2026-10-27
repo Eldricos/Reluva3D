@@ -217,6 +217,13 @@ public:
     // The brightness the finished frame is shown with: each colour raised
     // to 1 / gamma (1: as drawn), as the original's brightness setting.
     virtual void setGamma(float gamma) = 0;
+    // Multisampling (anti-aliasing) for the frames that follow: up to
+    // `samples` samples a pixel, the most of 4, 2 and 1 at or below it
+    // that the device has. Returns the count used (1: none).
+    virtual int setMultisampling(int samples) {
+        (void)samples;
+        return 1;
+    }
     // Presents the frame, with `overlay` (RGBA32, the frame's size, blended
     // by its alpha) on top if given.
     virtual void endFrame(const Surface* overlay) = 0;

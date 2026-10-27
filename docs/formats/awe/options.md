@@ -91,5 +91,8 @@ kept in Reluva's folder for the game, as `options.ini` lines
 - **Particle Effects** stop the particles.
 - **3D Shadows** turns the characters' shadows on and off
   ([shadows.md](shadows.md)).
-- **Anti-Aliasing** is stored but changes nothing yet: Reluva has no
-  multisampling yet.
+- **Anti-Aliasing** draws the 3D with 4× multisampling, or 2× if the
+  device lacks 4×. It changes at once, from the options screen too: the
+  frame's targets are made again instead of the device being reset. The
+  pictures are 2D and aren't touched, and the shadows' edges stay hard
+  (their mask is made on the CPU, [shadows.md](shadows.md)).

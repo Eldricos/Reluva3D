@@ -347,6 +347,8 @@ private:
     void saveOptions() const;
     void applyVolumes(int music, int sound);
     void applyBrightness();
+    // Anti-Aliasing: the 3D drawn with 4x multisampling, else 2x, if on.
+    void applyAntiAliasing();
     int brightnessLevel() const;
     bool fogged(const Ac2Record& o) const;
     bool frozen(const Ac2Record& o) const;

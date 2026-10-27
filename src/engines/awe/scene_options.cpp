@@ -91,6 +91,13 @@ void ScenePage::applyBrightness() {
             ctx_.screen.pixels[i + c] = uint8_t(std::min(255, ctx_.screen.pixels[i + c] * slope / 257));
 }
 
+void ScenePage::applyAntiAliasing() {
+    // 0x490060: 4x if the device has it, else 2x, else none; the game
+    // resets its device to change it, Reluva makes its frame again.
+    if (renderer_)
+        renderer_->setMultisampling(options_.get(GameOptions::AntiAlias) ? 4 : 1);
+}
+
 bool ScenePage::fogged(const Ac2Record& o) const {
     // "Fog, Haze, and Clouds" off hides the fog and cloud pictures (those
     // with SPRT da4 set: 0x4372e0, 0x437ac0).
@@ -167,6 +174,7 @@ void ScenePage::optionsAction(const std::string& word) {
         applyVolumes(options_.get(GameOptions::Music), options_.get(GameOptions::Sound));
         for (int i = 0; i < 5; i++)
             options_.values[GameOptions::Shadows + i] = m.original[i];
+        applyAntiAliasing();
         saveOptions();
     } else if (word.find("options") != std::string::npos && !word.empty()) {
         // optionsN: its last character. Sliders start a drag; Captions
@@ -176,8 +184,10 @@ void ScenePage::optionsAction(const std::string& word) {
             m.dragging = n + 1;
         else if (n == 3)
             m.staged[3] ^= 1;
-        else if (n >= 4 && n <= 8)
+        else if (n >= 4 && n <= 8) {
             options_.values[GameOptions::Shadows + n - 4] ^= 1;
+            applyAntiAliasing();
+        }
     }
     draw();
 }

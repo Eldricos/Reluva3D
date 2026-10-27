@@ -350,11 +350,14 @@ ScenePage::~ScenePage() { releaseGpu(); }
 void ScenePage::activate() {
     if (ctx_.sys.init3D(kScreenW, kScreenH, renderer_))
         renderer_ = nullptr, begin2D();
+    applyAntiAliasing();
     load();
 }
 
 void ScenePage::deactivate() {
     releaseGpu();
+    if (renderer_)
+        renderer_->setMultisampling(1); // the other pages draw without
     renderer_ = nullptr;
 }
 

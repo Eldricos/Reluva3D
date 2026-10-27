@@ -99,6 +99,93 @@ SdlGpuRenderer::~SdlGpuRenderer() {
         SDL_ReleaseGPUTexture(device_, color_);
     if (depth_)
         SDL_ReleaseGPUTexture(device_, depth_);
+    if (msaaColor_)
+        SDL_ReleaseGPUTexture(device_, msaaColor_);
+    if (msaaDepth_)
+        SDL_ReleaseGPUTexture(device_, msaaDepth_);
+}
+
+int SdlGpuRenderer::setMultisampling(int samples) {
+    // The most the device has for both the frame's format and the depth's.
+    wantSamples_ = SDL_GPU_SAMPLECOUNT_1;
+    for (SDL_GPUSampleCount c : {SDL_GPU_SAMPLECOUNT_4, SDL_GPU_SAMPLECOUNT_2}) {
+        const int n = c == SDL_GPU_SAMPLECOUNT_4 ? 4 : 2;
+        if (n <= samples && SDL_GPUTextureSupportsSampleCount(device_, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM, c) &&
+            SDL_GPUTextureSupportsSampleCount(device_, depthFormat_, c)) {
+            wantSamples_ = c;
+            break;
+        }
+    }
+    return wantSamples_ == SDL_GPU_SAMPLECOUNT_4 ? 4 : wantSamples_ == SDL_GPU_SAMPLECOUNT_2 ? 2 : 1;
+}
+
+bool SdlGpuRenderer::makeMultisampleTargets() {
+    // Released once the GPU is done with them.
+    if (msaaColor_)
+        SDL_ReleaseGPUTexture(device_, msaaColor_);
+    if (msaaDepth_)
+        SDL_ReleaseGPUTexture(device_, msaaDepth_);
+    msaaColor_ = msaaDepth_ = nullptr;
+    for (auto& [key, p] : pipelines_)
+        if (p)
+            SDL_ReleaseGPUGraphicsPipeline(device_, p);
+    pipelines_.clear();
+    samples_ = wantSamples_;
+    if (samples_ == SDL_GPU_SAMPLECOUNT_1)
+        return true;
+    SDL_GPUTextureCreateInfo ci{};
+    ci.type = SDL_GPU_TEXTURETYPE_2D;
+    ci.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+    ci.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET;
+    ci.width = uint32_t(width_);
+    ci.height = uint32_t(height_);
+    ci.layer_count_or_depth = 1;
+    ci.num_levels = 1;
+    ci.sample_count = samples_;
+    msaaColor_ = SDL_CreateGPUTexture(device_, &ci);
+    ci.format = depthFormat_;
+    ci.usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET;
+    msaaDepth_ = SDL_CreateGPUTexture(device_, &ci);
+    if (msaaColor_ && msaaDepth_)
+        return true;
+    SDL_Log("Cannot create the multisampled frame: %s", SDL_GetError());
+    if (msaaColor_)
+        SDL_ReleaseGPUTexture(device_, msaaColor_);
+    if (msaaDepth_)
+        SDL_ReleaseGPUTexture(device_, msaaDepth_);
+    msaaColor_ = msaaDepth_ = nullptr;
+    samples_ = wantSamples_ = SDL_GPU_SAMPLECOUNT_1;
+    return false;
+}
+
+SDL_GPURenderPass* SdlGpuRenderer::beginPass(const SDL_FColor* clear, bool keepStencil) {
+    SDL_GPUColorTargetInfo color{};
+    color.load_op = clear ? SDL_GPU_LOADOP_CLEAR : SDL_GPU_LOADOP_LOAD;
+    if (clear)
+        color.clear_color = *clear;
+    SDL_GPUDepthStencilTargetInfo depth{};
+    if (msaaColor_) {
+        // Drawn multisampled and resolved into the frame; the samples are
+        // kept too, for a pass that goes on after clearDepth().
+        color.texture = msaaColor_;
+        color.resolve_texture = color_;
+        color.store_op = SDL_GPU_STOREOP_RESOLVE_AND_STORE;
+        depth.texture = msaaDepth_;
+    } else {
+        color.texture = color_;
+        color.store_op = SDL_GPU_STOREOP_STORE;
+        depth.texture = depth_;
+    }
+    depth.clear_depth = 1.0f;
+    depth.load_op = SDL_GPU_LOADOP_CLEAR;
+    depth.store_op = SDL_GPU_STOREOP_DONT_CARE;
+    depth.clear_stencil = 0;
+    depth.stencil_load_op = !hasStencil_   ? SDL_GPU_LOADOP_DONT_CARE
+                            : keepStencil ? SDL_GPU_LOADOP_LOAD
+                                          : SDL_GPU_LOADOP_CLEAR;
+    depth.stencil_store_op = hasStencil_ ? SDL_GPU_STOREOP_STORE : SDL_GPU_STOREOP_DONT_CARE;
+    passSamples_ = samples_;
+    return SDL_BeginGPURenderPass(cmd_, &color, 1, &depth);
 }
 
 Error SdlGpuRenderer::init(int width, int height) {
@@ -268,21 +355,10 @@ void SdlGpuRenderer::setDepthRange(float maxDepth) {
 void SdlGpuRenderer::clearDepth() {
     if (!pass_ || !cmd_)
         return;
-    // A new pass over the same frame: its colours kept, its depth cleared.
+    // A new pass over the same frame: its colours kept, its depth cleared,
+    // the marks kept.
     SDL_EndGPURenderPass(pass_);
-    SDL_GPUColorTargetInfo color{};
-    color.texture = color_;
-    color.load_op = SDL_GPU_LOADOP_LOAD;
-    color.store_op = SDL_GPU_STOREOP_STORE;
-    SDL_GPUDepthStencilTargetInfo depth{};
-    depth.texture = depth_;
-    depth.clear_depth = 1.0f;
-    depth.load_op = SDL_GPU_LOADOP_CLEAR;
-    depth.store_op = SDL_GPU_STOREOP_DONT_CARE;
-    // The marks kept.
-    depth.stencil_load_op = hasStencil_ ? SDL_GPU_LOADOP_LOAD : SDL_GPU_LOADOP_DONT_CARE;
-    depth.stencil_store_op = hasStencil_ ? SDL_GPU_STOREOP_STORE : SDL_GPU_STOREOP_DONT_CARE;
-    pass_ = SDL_BeginGPURenderPass(cmd_, &color, 1, &depth);
+    pass_ = beginPass(nullptr, true);
     boundPipeline_ = nullptr;
     boundMesh_ = 0;
     if (pass_ && viewport_.w > 0 && viewport_.h > 0)
@@ -497,7 +573,8 @@ void SdlGpuRenderer::destroyMesh(gfx::MeshId id) {
 }
 
 SDL_GPUGraphicsPipeline* SdlGpuRenderer::pipeline(const gfx::DrawState& state) {
-    const uint32_t key = packState(state) | uint32_t(stencilMode_) << 14 | uint32_t(mirrored_) << 16;
+    const uint32_t key = packState(state) | uint32_t(stencilMode_) << 14 | uint32_t(mirrored_) << 16 |
+                         uint32_t(passSamples_) << 17;
     if (auto it = pipelines_.find(key); it != pipelines_.end())
         return it->second;
 
@@ -559,6 +636,7 @@ SDL_GPUGraphicsPipeline* SdlGpuRenderer::pipeline(const gfx::DrawState& state) {
         info.depth_stencil_state.front_stencil_state = info.depth_stencil_state.back_stencil_state = op;
         info.depth_stencil_state.compare_mask = info.depth_stencil_state.write_mask = 0xff;
     }
+    info.multisample_state.sample_count = passSamples_;
     info.target_info.color_target_descriptions = &target;
     info.target_info.num_color_targets = 1;
     info.target_info.depth_stencil_format = depthFormat_;
@@ -580,23 +658,13 @@ void SdlGpuRenderer::beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3& eye,
     cmd_ = SDL_AcquireGPUCommandBuffer(device_);
     if (!cmd_)
         return;
-    SDL_GPUColorTargetInfo color{};
-    color.texture = color_;
-    color.clear_color = {clear.r / 255.0f, clear.g / 255.0f, clear.b / 255.0f, 1.0f};
-    color.load_op = SDL_GPU_LOADOP_CLEAR;
-    color.store_op = SDL_GPU_STOREOP_STORE;
-    SDL_GPUDepthStencilTargetInfo depth{};
-    depth.texture = depth_;
-    depth.clear_depth = 1.0f;
-    depth.load_op = SDL_GPU_LOADOP_CLEAR;
-    depth.store_op = SDL_GPU_STOREOP_DONT_CARE;
-    // No marks to start with.
-    depth.clear_stencil = 0;
-    depth.stencil_load_op = hasStencil_ ? SDL_GPU_LOADOP_CLEAR : SDL_GPU_LOADOP_DONT_CARE;
-    depth.stencil_store_op = hasStencil_ ? SDL_GPU_STOREOP_STORE : SDL_GPU_STOREOP_DONT_CARE;
+    if (wantSamples_ != samples_)
+        makeMultisampleTargets();
     stencilMode_ = StencilMode::None;
     mirrored_ = false;
-    pass_ = SDL_BeginGPURenderPass(cmd_, &color, 1, &depth);
+    // No marks to start with.
+    const SDL_FColor c = {clear.r / 255.0f, clear.g / 255.0f, clear.b / 255.0f, 1.0f};
+    pass_ = beginPass(&c, false);
     if (pass_)
         SDL_SetGPUStencilReference(pass_, 1);
 }
@@ -754,6 +822,7 @@ void SdlGpuRenderer::endFrame(const Surface* overlay) {
         depth.stencil_load_op = SDL_GPU_LOADOP_DONT_CARE;
         depth.stencil_store_op = SDL_GPU_STOREOP_DONT_CARE;
         pass_ = SDL_BeginGPURenderPass(cmd_, &color, 1, &depth);
+        passSamples_ = SDL_GPU_SAMPLECOUNT_1;
         boundPipeline_ = nullptr;
         boundMesh_ = 0;
         viewProj_ = gfx::identity();
