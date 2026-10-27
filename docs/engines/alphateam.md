@@ -718,7 +718,10 @@ reads, the vftables it builds for its own subclasses):
   mission (`P0Space`), all 54 (the three later training missions, M0020
   to M0040, and the Adventure's 50, M1010 to M4070) load and show their
   fly-over and goal, by frame 2300 of a fixed-clock run (about two
-  minutes each).
+  minutes each). Then each was run on past its fly-over with Go pressed
+  and nothing placed, to frame 3700: all ran without a failure, the crew
+  moving as the room has them, most ending in "Team Member Down! Try
+  Again / Return to HQ", as an unsolved room does.
 - Single Missions lists only the missions an Adventure has reached ("Select
   a Mission to Revisit").
 - Done: Mission One (M1010) played to the end, from a saved Adventure at
