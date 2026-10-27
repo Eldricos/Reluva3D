@@ -126,7 +126,12 @@ bool Win32Process::schedule(std::unique_lock<std::mutex>& lock) {
                 return false; // nothing left at all
             // Everyone waits: for time to pass.
             lock.unlock();
+            const auto from = std::chrono::steady_clock::now();
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            ++idleWaits;
+            idleMicros += uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(
+                                       std::chrono::steady_clock::now() - from)
+                                       .count());
             lock.lock();
         }
     }

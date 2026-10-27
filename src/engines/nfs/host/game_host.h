@@ -106,12 +106,15 @@ public:
         uint64_t rendererInstructions = 0; // inside THRASH's functions (the software renderer's drawing)
         int width = 0, height = 0, bits = 0;
         uint64_t lastFrameInstructions = 0, frameInstructionsTotal = 0;
-        // Each frame: when it was flipped (ms), the instructions it took, and
-        // how many of them were the renderer's.
+        // Each frame: when it was flipped (ms), the instructions it took, how
+        // many of them were the renderer's, and the processor's idle time
+        // since the frame before (every thread waiting: microseconds, times).
         struct Frame {
             uint64_t ms = 0, instructions = 0, renderer = 0;
+            uint64_t idleMicros = 0, idleWaits = 0;
         };
         std::vector<Frame> frameLog;
+        uint64_t lastIdleMicros = 0, lastIdleWaits = 0;
         std::map<std::string, uint64_t> calls;
         std::map<std::string, uint64_t> callInstructions; // run inside each function, in all
         std::map<int, uint64_t> textureFormats;           // talloc's format -> how many

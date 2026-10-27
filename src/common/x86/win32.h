@@ -192,6 +192,9 @@ public:
     void requestExit() { exiting_ = true; }
     // Instructions between thread changes.
     uint32_t slice = 20000;
+    // How often every thread waited at once, and for how long in all
+    // (microseconds): time the processor stood idle.
+    std::atomic<uint64_t> idleWaits{0}, idleMicros{0};
 
 private:
     void addFileStandIns();

@@ -1265,22 +1265,27 @@ int cmdNfsHost(int argc, char** argv) {
             writeFile(frameLogFile, std::vector<uint8_t>(csv.begin(), csv.end()));
         }
         // The frames in one-second steps: how many, and their instructions.
-        uint64_t second = 0, frames = 0, instructions = 0, renderer = 0;
+        // ... and the time no thread could run (all waiting), and how often.
+        uint64_t second = 0, frames = 0, instructions = 0, renderer = 0, idleMicros = 0, idleWaits = 0;
         auto flush = [&] {
             if (frames)
-                std::printf("  second %3llu: %3llu frames, %6.2f million instructions each, %6.2f of them the renderer's\n",
+                std::printf("  second %3llu: %3llu frames, %6.2f million instructions each, %6.2f of them the renderer's,"
+                            " idle %4llu ms (%llu waits)\n",
                             (unsigned long long)second, (unsigned long long)frames, instructions / double(frames) / 1e6,
-                            renderer / double(frames) / 1e6);
+                            renderer / double(frames) / 1e6, (unsigned long long)(idleMicros / 1000),
+                            (unsigned long long)idleWaits);
         };
         for (const auto& f : t.frameLog) {
             if (f.ms / 1000 != second) {
                 flush();
                 second = f.ms / 1000;
-                frames = instructions = renderer = 0;
+                frames = instructions = renderer = idleMicros = idleWaits = 0;
             }
             ++frames;
             instructions += f.instructions;
             renderer += f.renderer;
+            idleMicros += f.idleMicros;
+            idleWaits += f.idleWaits;
         }
         flush();
     }
