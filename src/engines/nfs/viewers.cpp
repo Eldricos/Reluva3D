@@ -5,6 +5,8 @@
 
 #include "engines/nfs/play_page.h"
 
+#include <cstdlib>
+
 #include "engines/nfs/page_draw.h"
 
 #include "common/events.h"
@@ -375,10 +377,17 @@ void FontPage::draw(Surface& s) {
 
 std::vector<std::unique_ptr<Page>> makePages(const char* gameName, const GameFolders& folders,
                                              const GameFiles& files, audio::Mixer* mixer,
-                                             const std::filesystem::path& saveFolder) {
+                                             const std::filesystem::path& saveFolder,
+                                             const std::map<std::string, std::string>& settings) {
     std::vector<std::unique_ptr<Page>> pages;
     pages.push_back(std::make_unique<InfoPage>(gameName, folders));
-    pages.push_back(std::make_unique<PlayPage>(folders, saveFolder, mixer));
+    auto setting = [&](const char* key) {
+        auto it = settings.find(key);
+        return it == settings.end() ? std::string() : it->second;
+    };
+    const std::string scale = setting("renderscale");
+    pages.push_back(std::make_unique<PlayPage>(folders, saveFolder, mixer, scale.empty() ? 2 : std::atoi(scale.c_str()),
+                                               setting("texturefilter") == "linear"));
     pages.push_back(std::make_unique<TrackPage>(files, folders));
     pages.push_back(std::make_unique<CarPage>(files));
     pages.push_back(std::make_unique<TexturePage>(files));

@@ -59,7 +59,8 @@ public:
             System& sys;
             ~AudioOff() { sys.stopAudio(); }
         } audioOff{sys_};
-        auto pages = nfs::makePages(game_.name, folders, files, audioOut ? &mixer : nullptr, target_.savePath);
+        auto pages = nfs::makePages(game_.name, folders, files, audioOut ? &mixer : nullptr, target_.savePath,
+                                    target_.settings);
 
         size_t page = 0;
         bool dirty = true;

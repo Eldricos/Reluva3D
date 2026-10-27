@@ -6,6 +6,7 @@
 #include "engines/nfs/host/game_host.h"
 #include "engines/nfs/page_draw.h"
 
+#include <algorithm>
 #include <cstring>
 
 namespace reluva::nfs {
@@ -51,8 +52,13 @@ std::string keyName(uint32_t k) {
 
 } // namespace
 
-PlayPage::PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer* mixer)
-    : folders_(std::move(folders)), saveFolder_(std::move(saveFolder)), mixer_(mixer) {}
+PlayPage::PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer* mixer, int renderScale,
+                   bool smoothTextures)
+    : folders_(std::move(folders)), saveFolder_(std::move(saveFolder)), mixer_(mixer),
+      renderScale_(std::clamp(renderScale, 1, 4)) {
+    gpuDraw_.scale = renderScale_;
+    gpuDraw_.nearest = !smoothTextures;
+}
 
 PlayPage::~PlayPage() {
     if (mixer_ && sound_ != audio::kNoSound)
@@ -70,10 +76,25 @@ void PlayPage::say(const std::string& line) {
         lines_.pop_front();
 }
 
-void PlayPage::activate(System&) {
-    if (!host_ && result_.empty()) // started once; a failed start stays reported
+void PlayPage::activate(System& sys) {
+    // The GPU if there is one: asked for each time the page is shown (the
+    // engine puts the framebuffer back when it's left). Whether the game
+    // draws for it is decided once, when it starts.
+    const bool starting = !host_ && result_.empty(); // started once; a failed start stays reported
+    if (starting || gpu_) {
+        gfx::Renderer3D* renderer = nullptr;
+        if (!sys.init3D(640 * renderScale_, 480 * renderScale_, renderer) && renderer) {
+            gpu_ = gpu_ || starting;
+            gpuDraw_.setRenderer(renderer);
+        } else {
+            gpuDraw_.setRenderer(nullptr);
+        }
+    }
+    if (starting)
         start();
 }
+
+void PlayPage::deactivate() { gpuDraw_.setRenderer(nullptr); }
 
 void PlayPage::start() {
     if (host_)
@@ -84,12 +105,26 @@ void PlayPage::start() {
     options.commandLine = "nfs3.exe";
     options.saveFolder = saveFolder_.empty() ? folders_.install / "reluva-save" : saveFolder_ / "game";
     options.nativeThrash = true;
+    options.gpuThrash = gpu_;
     host_ = std::make_unique<GameHost>(folders_, options);
     host_->log = [this](const std::string& line) { say(line); };
     host_->onFrame = [this](const Surface& frame) {
         std::lock_guard<std::mutex> lock(mutex_);
         frame_ = frame;
         newFrame_ = true;
+        thrashLatest_ = false;
+    };
+    host_->onThrashFrame = [this](ThrashFrame&& frame) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        // Texture changes add up until drawn; the frame itself replaces the last.
+        if (frame.resetTextures)
+            textureUpdates_ = ThrashFrame{};
+        textureUpdates_.resetTextures = textureUpdates_.resetTextures || frame.resetTextures;
+        for (ThrashFrame::Texture& t : frame.textures)
+            textureUpdates_.textures.push_back(std::move(t));
+        frame.textures.clear();
+        thrashFrame_ = std::make_shared<const ThrashFrame>(std::move(frame));
+        thrashLatest_ = true;
     };
     if (Error err = host_->load()) {
         result_ = "Couldn't start the game: " + err.message;
@@ -121,15 +156,19 @@ void PlayPage::handleEvent(const Event& ev) {
             host_->queueKey(name, ev.type == EventType::KeyDown);
         break;
     }
-    case EventType::MouseMove:
+    case EventType::MouseMove: {
         // DirectInput's mouse moves by how far it went; the window's
-        // pointer stands in for it.
+        // pointer stands in for it, in the game's pixels (the GPU's frame
+        // may be bigger).
+        const int scale = gpu_ ? renderScale_ : 1;
+        const int x = ev.mouseX / scale, y = ev.mouseY / scale;
         if (mouseKnown_)
-            host_->queueMouseMove(ev.mouseX - mouseX_, ev.mouseY - mouseY_);
-        mouseX_ = ev.mouseX;
-        mouseY_ = ev.mouseY;
+            host_->queueMouseMove(x - mouseX_, y - mouseY_);
+        mouseX_ = x;
+        mouseY_ = y;
         mouseKnown_ = true;
         break;
+    }
     case EventType::MouseDown:
     case EventType::MouseUp:
         if (ev.button == MouseButton::Left)
@@ -154,6 +193,10 @@ void PlayPage::draw(Surface& screen) {
             std::memcpy(screen.row(y), frame_.row(y), size_t(std::min(screen.w, frame_.w)) * 4);
         return;
     }
+    drawStatus(screen);
+}
+
+void PlayPage::drawStatus(Surface& screen) {
     clear(screen);
     text(screen, kMargin, 8, "Need for Speed III", kTitleColor);
     text(screen, kMargin, screen.h - font::kLineHeight - 4, "Keys and mouse go to the game   Tab: next page   Ctrl+F5: launcher",
@@ -170,6 +213,36 @@ void PlayPage::draw(Surface& screen) {
         text(screen, kMargin, y, line, kLabelColor);
         y += font::kLineHeight;
     }
+}
+
+void PlayPage::update(uint64_t) {
+    std::shared_ptr<const ThrashFrame> frame;
+    ThrashFrame updates;
+    Surface overlay;
+    bool thrash = false;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        frame = thrashFrame_;
+        updates = std::move(textureUpdates_);
+        textureUpdates_ = ThrashFrame{};
+        thrash = thrashLatest_ && frame && running_;
+        if (!thrash) {
+            // A DirectDraw frame (a movie's) or, before the first and after
+            // the game ends, how it's going: shown over an empty frame.
+            if (!frame_.pixels.empty() && running_) {
+                overlay = frame_;
+            } else {
+                overlay.create(640, 480, PixelFormat::RGBA32);
+                drawStatus(overlay);
+            }
+        }
+        newFrame_ = false;
+    }
+    gpuDraw_.updateTextures(updates);
+    if (thrash)
+        gpuDraw_.draw(*frame, nullptr);
+    else
+        gpuDraw_.draw(ThrashFrame{}, &overlay);
 }
 
 } // namespace reluva::nfs

@@ -380,9 +380,12 @@ private:
 
 // Every page, in Tab order, those with nothing to show left out. The
 // mixer plays the pages' sounds; null without audio output. The game
-// writes under `saveFolder`.
+// writes under `saveFolder`. `settings` are the game's section of
+// reluva.ini: renderscale (1-4, the Play page's frame against the game's
+// 640x480; 2 if not set) and texturefilter (linear: bilinear textures).
 std::vector<std::unique_ptr<Page>> makePages(const char* gameName, const GameFolders& folders,
                                              const GameFiles& files, audio::Mixer* mixer = nullptr,
-                                             const std::filesystem::path& saveFolder = {});
+                                             const std::filesystem::path& saveFolder = {},
+                                             const std::map<std::string, std::string>& settings = {});
 
 } // namespace reluva::nfs

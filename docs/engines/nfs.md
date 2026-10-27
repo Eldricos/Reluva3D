@@ -536,10 +536,24 @@ Started. Done so far:
   GPU directly, from the same calls the native rasterizer takes, gets the
   same pictures with no Direct3D at all.
 
+- **THRASH on the GPU** ([thrash.md](../formats/nfs/thrash.md), On the
+  GPU). With a GPU, the Play page draws the game's frames with it, by
+  default at twice 640x480. Checked in the app under Xvfb on software
+  Vulkan (lavapipe), driven by xdotool:
+  - the intro movie shows over an empty frame;
+  - the menus and a race are drawn on the GPU;
+  - holding Up drove the car to 31 mph, the race clock keeping about
+    real time;
+  - at scale 2 the picture is the same, with continuous power lines and
+    smoother edges.
+
+  This was also the first run of the Play page in a real window, with
+  the mouse. Mouse positions are taken in the game's pixels whatever
+  the frame's size.
+
 Still to do:
 
-- THRASH on the GPU, and texture uploads natively (they run in softtria
-  while a track loads).
+- Texture uploads natively (they run in softtria while a track loads).
 - iSND on the mixer (3D placement, rates, streaming).
 - DirectInput keyboard, mouse and joystick, as the bindings the game's
   own Controls screen sets.

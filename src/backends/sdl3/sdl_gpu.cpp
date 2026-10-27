@@ -427,6 +427,7 @@ Error SdlGpuRenderer::createMesh(const std::vector<gfx::Vertex>& vertices, const
         return err;
     }
     m.indexBytes = uint32_t(indices.size() * sizeof(uint32_t));
+    m.vertexBytes = uint32_t(vertices.size() * sizeof(gfx::Vertex));
     out = nextId_++;
     meshes_[out] = m;
     return Error::success();
@@ -459,6 +460,35 @@ Error SdlGpuRenderer::setMeshIndices(gfx::MeshId id, const std::vector<uint32_t>
     }
     if (boundMesh_ == id)
         boundMesh_ = 0; // bind the new indices on its next draw
+    return Error::success();
+}
+
+Error SdlGpuRenderer::setMeshVertices(gfx::MeshId id, const std::vector<gfx::Vertex>& vertices) {
+    auto it = meshes_.find(id);
+    if (it == meshes_.end() || it->second.sharedVertices || vertices.empty())
+        return Error::fail("No such mesh of its own, or no vertices");
+    // As setMeshIndices: into the buffer there is when they fit, cycled;
+    // else a bigger one.
+    const auto bytes = uint32_t(vertices.size() * sizeof(gfx::Vertex));
+    if (bytes <= it->second.vertexBytes) {
+        if (!upload(vertices.data(), bytes, it->second.vertices, true))
+            return sdlError("Cannot replace a mesh's vertices");
+    } else {
+        SDL_GPUBufferCreateInfo bi{};
+        bi.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
+        bi.size = bytes + bytes / 2;
+        SDL_GPUBuffer* buffer = SDL_CreateGPUBuffer(device_, &bi);
+        if (!buffer || !upload(vertices.data(), bytes, buffer)) {
+            if (buffer)
+                SDL_ReleaseGPUBuffer(device_, buffer);
+            return sdlError("Cannot replace a mesh's vertices");
+        }
+        SDL_ReleaseGPUBuffer(device_, it->second.vertices);
+        it->second.vertices = buffer;
+        it->second.vertexBytes = bi.size;
+    }
+    if (boundMesh_ == id)
+        boundMesh_ = 0;
     return Error::success();
 }
 

@@ -8,9 +8,39 @@
 #include <array>
 #include <cstdint>
 #include <map>
+#include <set>
 #include <vector>
 
 namespace reluva::nfs {
+
+// A frame of THRASH's drawing as a list, for drawing on the GPU: screen
+// space triangles in batches of one state, in the order drawn.
+struct ThrashFrame {
+    struct Vertex {
+        float x, y, z, rhw; // pixels, and 1/w for perspective-correct texturing
+        uint32_t diffuse;   // 0xAARRGGBB
+        float u, v;
+    };
+    struct Batch {
+        uint32_t texture = 0; // the renderer DLL's handle; 0 for none
+        bool wrap = true;
+        bool blend = false; // alpha blending on (state 0xa), as `blendMode` (state 0x68) says
+        int blendMode = 0;
+        int cull = 0;               // state 2
+        int clip[4] = {0, 0, 0, 0}; // x0, y0, x1, y1 (exclusive)
+        uint32_t first = 0, count = 0; // vertices, three a triangle
+    };
+    struct Texture {
+        uint32_t handle = 0;
+        int width = 0, height = 0;
+        std::vector<uint32_t> rgba; // 0xAARRGGBB
+    };
+    int width = 640, height = 480;
+    std::vector<Vertex> vertices;
+    std::vector<Batch> batches;
+    bool resetTextures = false;     // all textures before these gone (treset)
+    std::vector<Texture> textures; // made or changed since the last frame
+};
 
 // THRASH's drawing done natively (docs/formats/nfs/thrash.md): the
 // triangles, quads, lines and points the game sends, rasterized in C++
@@ -28,7 +58,17 @@ public:
     void talloc(uint32_t handle, int width, int height, int format);
     // `palette`: format 2's 256 colours (0x00RRGGBB), 0 to keep the last.
     void tupdate(uint32_t handle, uint32_t pixels, uint32_t palette);
-    void treset() { textures_.clear(); }
+    void treset() {
+        textures_.clear();
+        changed_.clear();
+        resetTextures_ = true;
+    }
+    // Draws into a list rather than into memory, from now on.
+    void setRecording(bool on) { recording_ = on; }
+    // A filled rectangle (a clear), into the list.
+    void fill(int x0, int y0, int x1, int y1, uint32_t argb);
+    // The list drawn since the last call, with the textures changed.
+    ThrashFrame takeFrame();
 
     void setState(uint32_t id, uint32_t value);
     void clip(int x0, int y0, int x1, int y1);
@@ -58,6 +98,9 @@ private:
     };
     Vertex vertex(uint32_t address) const;
     void rasterize(const Vertex& a, const Vertex& b, const Vertex& c);
+    void record(const Vertex& a, const Vertex& b, const Vertex& c);
+    // The batch to add to, a new one if the state changed.
+    ThrashFrame::Batch& batch();
     void plot(int x, int y, uint32_t argb);
     void put(uint8_t* pixel, uint32_t argb); // blends as the state says
 
@@ -72,6 +115,11 @@ private:
     bool gouraud_ = true; // state 6
     bool wrap_ = true;    // state 0xd: 1 wrap, 0 clamp
     int blend_ = 0;       // state 0x68: 0 alpha, 1 additive, 2 darken, 3 multiply
+    bool alphaBlend_ = false; // state 0xa
+    bool recording_ = false;
+    ThrashFrame frame_;
+    std::set<uint32_t> changed_; // textures made or updated since the last frame
+    bool resetTextures_ = false;
     uint64_t pixels_ = 0;
     std::map<int, int> unknownFormats_;
 };

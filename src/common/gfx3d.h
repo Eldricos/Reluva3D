@@ -172,6 +172,9 @@ public:
     // Replaces a mesh's indices (its vertices kept), as a level's visible
     // surfaces change.
     virtual Error setMeshIndices(MeshId id, const std::vector<uint32_t>& indices) = 0;
+    // Replaces a mesh's vertices (not one sharing another's), for geometry
+    // made anew each frame. Done before the frame that draws it begins.
+    virtual Error setMeshVertices(MeshId id, const std::vector<Vertex>& vertices) = 0;
     virtual void destroyMesh(MeshId id) = 0;
 
     // The size given to System::init3D: the frame's pixels.

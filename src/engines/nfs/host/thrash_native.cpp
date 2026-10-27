@@ -44,6 +44,7 @@ void NativeThrash::talloc(uint32_t handle, int width, int height, int format) {
     t.format = format;
     t.rgba.assign(size_t(t.width) * size_t(t.height), 0xffffffffu);
     textures_[handle] = std::move(t);
+    changed_.insert(handle);
     if (handle == textureHandle_)
         texture_ = &textures_[handle];
 }
@@ -54,6 +55,7 @@ void NativeThrash::tupdate(uint32_t handle, uint32_t pixels, uint32_t palette) {
         return;
     Texture& t = it->second;
     const size_t n = t.rgba.size();
+    changed_.insert(handle);
     if (t.format == 2) {
         // 8-bit indices into a palette of 256 0x00RRGGBB colours, either
         // given on its own; index 255 is left out.
@@ -115,6 +117,7 @@ void NativeThrash::setState(uint32_t id, uint32_t value) {
     case 0x6: gouraud_ = value != 0; break;
     case 0xd: wrap_ = value != 0; break;
     case 0x68: blend_ = int(value & 3); break;
+    case 0xa: alphaBlend_ = value != 0; break;
     default: break;
     }
 }
@@ -297,18 +300,111 @@ void NativeThrash::rasterize(const Vertex& a, const Vertex& b, const Vertex& c) 
     }
 }
 
-void NativeThrash::triangle(uint32_t a, uint32_t b, uint32_t c) { rasterize(vertex(a), vertex(b), vertex(c)); }
+ThrashFrame::Batch& NativeThrash::batch() {
+    ThrashFrame::Batch b;
+    b.texture = texture_ ? textureHandle_ : 0;
+    b.wrap = wrap_;
+    b.blend = alphaBlend_;
+    b.blendMode = blend_;
+    b.cull = cull_;
+    b.clip[0] = std::max(clipX0_, 0);
+    b.clip[1] = std::max(clipY0_, 0);
+    b.clip[2] = std::min(clipX1_, frame_.width);
+    b.clip[3] = std::min(clipY1_, frame_.height);
+    b.first = uint32_t(frame_.vertices.size());
+    if (!frame_.batches.empty()) {
+        const ThrashFrame::Batch& last = frame_.batches.back();
+        if (last.texture == b.texture && last.wrap == b.wrap && last.blend == b.blend &&
+            last.blendMode == b.blendMode && last.cull == b.cull && std::equal(b.clip, b.clip + 4, last.clip))
+            return frame_.batches.back();
+    }
+    frame_.batches.push_back(b);
+    return frame_.batches.back();
+}
+
+void NativeThrash::record(const Vertex& a, const Vertex& b, const Vertex& c) {
+    ThrashFrame::Batch& to = batch();
+    // Flat shading: the first vertex's colour throughout.
+    const uint32_t flat = a.diffuse;
+    for (const Vertex* v : {&a, &b, &c})
+        frame_.vertices.push_back({v->x, v->y, v->z, v->rhw, gouraud_ ? v->diffuse : flat, v->u, v->v});
+    to.count += 3;
+}
+
+void NativeThrash::fill(int x0, int y0, int x1, int y1, uint32_t argb) {
+    const Texture* texture = texture_;
+    const bool blend = alphaBlend_;
+    const int cull = cull_;
+    texture_ = nullptr;
+    alphaBlend_ = false;
+    cull_ = 0;
+    const auto corner = [&](int x, int y) { return Vertex{float(x), float(y), 0, 1, argb | 0xff000000u, 0, 0, 0}; };
+    record(corner(x0, y0), corner(x1, y0), corner(x1, y1));
+    record(corner(x0, y0), corner(x1, y1), corner(x0, y1));
+    texture_ = texture;
+    alphaBlend_ = blend;
+    cull_ = cull;
+}
+
+ThrashFrame NativeThrash::takeFrame() {
+    ThrashFrame out = std::move(frame_);
+    frame_ = ThrashFrame{};
+    frame_.width = out.width;
+    frame_.height = out.height;
+    out.resetTextures = resetTextures_;
+    resetTextures_ = false;
+    for (uint32_t handle : changed_)
+        if (auto it = textures_.find(handle); it != textures_.end())
+            out.textures.push_back({handle, it->second.width, it->second.height, it->second.rgba});
+    changed_.clear();
+    return out;
+}
+
+void NativeThrash::triangle(uint32_t a, uint32_t b, uint32_t c) {
+    if (recording_)
+        record(vertex(a), vertex(b), vertex(c));
+    else
+        rasterize(vertex(a), vertex(b), vertex(c));
+}
 
 void NativeThrash::quad(uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
     const Vertex va = vertex(a), vb = vertex(b), vc = vertex(c), vd = vertex(d);
+    if (recording_) {
+        record(va, vb, vc);
+        record(va, vc, vd);
+        return;
+    }
     rasterize(va, vb, vc);
     rasterize(va, vc, vd);
 }
 
 void NativeThrash::line(uint32_t a, uint32_t b) {
+    const Vertex va = vertex(a), vb = vertex(b);
+    if (recording_) {
+        // A quad a pixel wide, across the line, in its first vertex's colour.
+        const float dx = vb.x - va.x, dy = vb.y - va.y, length = std::sqrt(dx * dx + dy * dy);
+        if (length <= 0)
+            return;
+        const float nx = -dy / length * 0.5f, ny = dx / length * 0.5f;
+        const Texture* texture = texture_;
+        texture_ = nullptr;
+        auto at = [&](const Vertex& v, float s) {
+            Vertex o = v;
+            o.x += nx * s;
+            o.y += ny * s;
+            o.diffuse = va.diffuse | 0xff000000u;
+            return o;
+        };
+        const int cull = cull_;
+        cull_ = 0;
+        record(at(va, 1), at(vb, 1), at(vb, -1));
+        record(at(va, 1), at(vb, -1), at(va, -1));
+        cull_ = cull;
+        texture_ = texture;
+        return;
+    }
     if (!target_)
         return;
-    const Vertex va = vertex(a), vb = vertex(b);
     const float dx = vb.x - va.x, dy = vb.y - va.y;
     const int steps = int(std::max(std::fabs(dx), std::fabs(dy))) + 1;
     if (steps > 4096)
@@ -323,9 +419,14 @@ void NativeThrash::line(uint32_t a, uint32_t b) {
 }
 
 void NativeThrash::point(uint32_t a) {
+    const Vertex v = vertex(a);
+    if (recording_) {
+        const int x = int(v.x), y = int(v.y);
+        fill(x, y, x + 1, y + 1, v.diffuse);
+        return;
+    }
     if (!target_)
         return;
-    const Vertex v = vertex(a);
     const int x = int(v.x), y = int(v.y);
     if (x >= std::max(clipX0_, 0) && x < std::min(clipX1_, width_) && y >= std::max(clipY0_, 0) &&
         y < std::min(clipY1_, height_))

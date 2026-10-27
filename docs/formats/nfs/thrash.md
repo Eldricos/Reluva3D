@@ -172,6 +172,46 @@ functions:
 
 With any other renderer DLL, both are left to the DLL.
 
+## On the GPU
+
+With a GPU, the Play page draws THRASH's frames with it
+(`src/engines/nfs/thrash_gpu.cpp`). `GameHost` (with `gpuThrash`)
+records each frame's drawing as a list, and the page draws the latest
+list.
+
+- **Triangles.** Each triangle gets its three vertices of its own, so
+  flat shading is the first vertex's colour on all three. Quads are two
+  triangles. Lines are quads a pixel wide, and points one-pixel squares.
+- **Batches.** A new batch starts when the texture, wrapping, blending,
+  culling or clip rectangle changes. Clears are filled rectangles in the
+  list, in their place.
+- **Textures.** Those made or changed since the last frame go with the
+  list, decoded to RGBA as for the software rasterizer.
+- **Vertices** go to the GPU as (x / rhw, y / rhw, 1 / rhw). A matrix maps
+  that to clip space, with clip w equal to 1 / rhw, so texturing is
+  perspective-correct as in the software renderer.
+- **Clipping.** The batch's clip rectangle becomes the viewport, with the
+  matrix fitted to it.
+- **No depth test.** The game sorts back to front for the software
+  renderer.
+- **Blending.** Translucent texels and vertices blend over what's drawn,
+  with source alpha. State 0x68's other modes apply while blending is on
+  (state 0xa). Texels of alpha 0 are left out.
+- **Culling.** Cull 1 drops triangles turning counter-clockwise on the
+  screen, cull 2 clockwise ones.
+
+Checked first that nothing is lost by not drawing into softtria's
+buffers. With drawing turned off and clears made magenta, every frame
+from the menus into a race was magenta throughout, so the game draws
+only through THRASH.
+
+DirectDraw's frames (the movies) are shown over an empty frame. Frames
+are drawn at `renderscale` times 640x480 (2 unless set): the same
+picture, with sharper edges. Textures are point-sampled as in softtria,
+or bilinear with `texturefilter=linear`. Both settings are in the game's
+section of `reluva.ini`. Without a GPU, the software rasterizer draws
+as before.
+
 ## Cost
 
 Instructions a frame in the interpreter:

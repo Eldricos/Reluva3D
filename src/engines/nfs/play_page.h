@@ -4,6 +4,7 @@
 #pragma once
 
 #include "engines/nfs/folders.h"
+#include "engines/nfs/thrash_gpu.h"
 #include "engines/nfs/viewers.h"
 
 #include <atomic>
@@ -22,14 +23,23 @@ class GameHost;
 // (host/game_host.h), started when the page is first shown and running
 // on a thread of its own from then on. Its frames are shown here, its
 // sound goes to the mixer, and the keyboard and mouse go to it. Esc goes
-// to the game too: Ctrl+F5 goes back to the launcher.
+// to the game too: Ctrl+F5 goes back to the launcher. With a GPU, what the
+// game draws through THRASH is drawn with it (thrash_gpu.h); without, in
+// software into the frames shown.
 class PlayPage : public Page {
 public:
-    PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer* mixer);
+    // With a GPU, frames are drawn `renderScale` times the game's 640x480,
+    // with bilinear filtering if `smoothTextures` (else point-sampled, as
+    // the software renderer).
+    PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer* mixer, int renderScale = 2,
+             bool smoothTextures = false);
     ~PlayPage() override;
     const char* name() const override { return "Play"; }
     bool capturesEscape() const override { return true; }
     void activate(System& sys) override;
+    void deactivate() override;
+    bool uses3D() const override { return gpu_; }
+    void update(uint64_t nowMs) override;
     void handleEvent(const Event& ev) override;
     void draw(Surface& screen) override;
     bool tick(uint64_t nowMs) override;
@@ -38,6 +48,8 @@ public:
 
 private:
     void say(const std::string& line);
+    // The title, how the run is going and the log's last lines (mutex_ held).
+    void drawStatus(Surface& screen);
 
     GameFolders folders_;
     std::filesystem::path saveFolder_;
@@ -54,6 +66,12 @@ private:
     bool newFrame_ = false;
     std::deque<std::string> lines_; // the log's last lines, shown until the first frame
     std::atomic<bool> running_{false};
+    int renderScale_ = 2;
+    bool gpu_ = false; // drawing with the GPU: decided when the game starts
+    ThrashGpu gpuDraw_; // on the engine's thread
+    std::shared_ptr<const ThrashFrame> thrashFrame_; // the last THRASH frame, its textures taken out
+    ThrashFrame textureUpdates_;                     // textures it and those before brought, not applied yet
+    bool thrashLatest_ = false;                      // whether the last frame was THRASH's (else frame_)
     std::string result_; // how the run ended
 };
 

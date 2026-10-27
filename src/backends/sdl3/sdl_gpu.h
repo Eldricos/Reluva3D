@@ -35,6 +35,7 @@ public:
                      gfx::MeshId& out) override;
     void destroyMesh(gfx::MeshId id) override;
     Error setMeshIndices(gfx::MeshId id, const std::vector<uint32_t>& indices) override;
+    Error setMeshVertices(gfx::MeshId id, const std::vector<gfx::Vertex>& vertices) override;
     Error createIndexedMesh(gfx::MeshId vertices, const std::vector<uint32_t>& indices, gfx::MeshId& out) override;
     int width() const override { return width_; }
     int height() const override { return height_; }
@@ -76,6 +77,7 @@ private:
         SDL_GPUBuffer* vertices = nullptr;
         SDL_GPUBuffer* indices = nullptr;
         uint32_t indexBytes = 0; // the index buffer's size
+        uint32_t vertexBytes = 0; // the vertex buffer's
         bool sharedVertices = false; // another mesh's (createIndexedMesh)
     };
 

@@ -133,6 +133,13 @@ bool GameHost::nativeDraw(const std::string& name, const std::vector<uint32_t>& 
         const uint32_t buffer = softtria(0x6003e0fc), pitch = softtria(0x6003e0ec);
         const int x0 = int(softtria(0x6003e0b8)) & ~15, y0 = int(softtria(0x6003e0bc));
         const int width = (int(softtria(0x6003e0c0)) >> 4) * 16, height = int(softtria(0x6003e0c4));
+        if (name == "clearwindow" && options_.gpuThrash) {
+            const uint32_t v = softtria(0x6003e11c) & 0xffff; // 5:6:5
+            const uint32_t argb = 0xff000000u | ((v >> 11) & 31) * 255 / 31 << 16 | ((v >> 5) & 63) * 255 / 63 << 8 |
+                                  (v & 31) * 255 / 31;
+            native_->fill(x0, y0, x0 + width, y0 + height, argb);
+            return true;
+        }
         if (name == "clearwindow") {
             const uint32_t fill = softtria(0x6003e11c); // the clear colour, two pixels of it
             if (width > 0 && height > 0 && cpu_->valid(buffer + uint32_t(y0) * pitch, uint32_t(height) * pitch))
@@ -150,7 +157,13 @@ bool GameHost::nativeDraw(const std::string& name, const std::vector<uint32_t>& 
         if (hook)
             if (Error e = cpu_->call(hook, {1}, ignored))
                 cpu_->abort("THRASH_pageflip: " + e.message);
-        presentBuffer(buffer, int(pitch), x0, y0, width, height);
+        if (options_.gpuThrash) {
+            ThrashFrame frame = native_->takeFrame();
+            if (onThrashFrame)
+                onThrashFrame(std::move(frame));
+        } else {
+            presentBuffer(buffer, int(pitch), x0, y0, width, height);
+        }
         if (hook)
             if (Error e = cpu_->call(hook, {0}, ignored))
                 cpu_->abort("THRASH_pageflip: " + e.message);

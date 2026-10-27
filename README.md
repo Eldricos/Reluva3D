@@ -120,7 +120,10 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   x86 interpreter, starting it when first shown. The keyboard and mouse go to the game,
   **Esc** included; **Ctrl+F5** goes back to the launcher. It writes its saves and
   settings to Reluva's save folder for the game, never to the install. It plays its
-  own movies (Esc skips the intro), and races run at about real time. The 3D pages
+  own movies (Esc skips the intro), and races run at about real time. With a GPU
+  the game is drawn with it, at twice its 640x480 unless `renderscale=` (1 to 4) in
+  the game's section of `reluva.ini` says otherwise; `texturefilter=linear` smooths
+  its textures. The 3D pages
   need a GPU with Vulkan (Linux, Windows) or Metal (macOS). On tracks, **PageUp/PageDown**
   pick one, **W/A/S/D** move, the arrows or a drag look, **Space/C** go up and down,
   **Shift** goes faster, **N/B** jump to the next or previous piece of road, **1/2/3** pick

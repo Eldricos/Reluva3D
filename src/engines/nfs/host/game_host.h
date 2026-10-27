@@ -46,6 +46,9 @@ public:
         // Draw THRASH's triangles natively rather than in the software
         // renderer's own code (thrash_native.h).
         bool nativeThrash = false;
+        // With nativeThrash: THRASH's frames as lists for the GPU
+        // (onThrashFrame) rather than drawn into memory.
+        bool gpuThrash = false;
     };
     GameHost(GameFolders folders, Options options);
     ~GameHost();
@@ -93,6 +96,9 @@ public:
     const ThrashStats& thrash() const { return thrash_; }
     // Called after each page flip with the frame drawn so far, as RGBA.
     std::function<void(const Surface& frame)> onFrame;
+    // With gpuThrash, called after each page flip with what THRASH drew
+    // (DirectDraw's frames, the movies', still go to onFrame).
+    std::function<void(ThrashFrame&& frame)> onThrashFrame;
 
     // Input, from any thread: a key ("enter", "up", "a"...) pressed or let
     // go, applied once the game's clock reaches `atMs` (0: at once). False
