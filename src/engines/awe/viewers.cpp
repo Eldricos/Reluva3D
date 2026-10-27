@@ -359,12 +359,15 @@ void ScenePage::releaseGpu() {
     if (renderer_) {
         for (gfx::MeshId m : frameMeshes_)
             renderer_->destroyMesh(m);
+        for (gfx::TextureId t : frameTextures_)
+            renderer_->destroyTexture(t);
         if (back_)
             renderer_->destroyTexture(back_);
         if (quad_)
             renderer_->destroyMesh(quad_);
     }
     frameMeshes_.clear();
+    frameTextures_.clear();
     back_ = 0;
     quad_ = 0;
 }
@@ -895,6 +898,8 @@ void ScenePage::loadCharacters() {
                 c.x = p.position[0], c.y = p.position[1], c.z = p.position[2], c.rotY = p.rotation[1];
             }
         c.home = normalizeDegrees(c.rotY * 57.29578f);
+        if (const Ac2Record* m = o->part("MODL"); m && m->field("shadow"))
+            c.shadow = m->i("shadow") != 0;
         // Its animations: <who>_<name>.gr2 beside its model, loaded as
         // they're asked for.
         auto loader = [this, folder, who](const std::string& name) -> std::shared_ptr<const Animation> {
@@ -1405,24 +1410,41 @@ void ScenePage::update(uint64_t nowMs) {
         call.state.cull = gfx::Cull::None;
         renderer_->draw(call);
     }
+    for (gfx::TextureId t : frameTextures_)
+        renderer_->destroyTexture(t);
+    frameTextures_.clear();
     // The characters, through the scene's camera.
     if (const Ac2Record* camr = scene_.camera(); camr && showCharacters_ && !movie_ && sceneShown_ && !load_.screen) {
         const SceneCamera cam = SceneCamera::fromRecord(*camr);
+        // Their poses, and their props'.
+        std::vector<Pose> poses(characters_.size());
+        std::vector<std::vector<Pose>> propPoses(characters_.size());
+        for (size_t i = 0; i < characters_.size(); i++) {
+            const Character& c = characters_[i];
+            c.actor->animator().pose(poses[i]);
+            for (const auto& [name, prop] : c.props) {
+                propPoses[i].emplace_back();
+                c.actor->animator().poseFor(prop->model(), propPoses[i].back());
+            }
+        }
+        // Their shadows, on the floor behind them (docs/formats/awe/shadows.md).
+        if (options_.get(GameOptions::Shadows))
+            drawShadows(cam, poses, propPoses);
         renderer_->setView(cam.viewProjection(), cam.eye());
         renderer_->clearDepth();
         // Brightness: the game's gamma ramp is the whole screen's, the
         // characters' too (slope 32g + 97 over 257).
         const float bright = float(32 * brightnessLevel() + 97) / 257.0f;
-        for (const Character& c : characters_) {
-            Pose pose;
-            c.actor->animator().pose(pose);
-            c.model->draw(pose, c.placement, false, frameMeshes_, bright);
-            for (const auto& [name, prop] : c.props) {
-                Pose propPose;
-                c.actor->animator().poseFor(prop->model(), propPose);
-                prop->draw(propPose, c.placement, false, frameMeshes_, bright);
-            }
+        for (size_t i = 0; i < characters_.size(); i++) {
+            const Character& c = characters_[i];
+            c.model->draw(poses[i], c.placement, false, frameMeshes_, bright);
+            for (size_t k = 0; k < c.props.size(); k++)
+                c.props[k].second->draw(propPoses[i][k], c.placement, false, frameMeshes_, bright);
         }
+        // The player washed toward white with distance, in the snow (the
+        // camera's 1244 and 1248), when shadows are on (0x402e20).
+        if (options_.get(GameOptions::Shadows))
+            drawWhiteOut(cam, poses);
     }
     prepareScreenshot(renderer_);
     if (grabDue_)
@@ -1445,6 +1467,125 @@ void ScenePage::update(uint64_t nowMs) {
         }
     }
     finishScreenshot(renderer_, &ctx_.screen);
+}
+
+void ScenePage::coverMesh(const SceneCamera& cam, const GpuModel& model, const Pose& pose, const gfx::Mat4& placement,
+                          const std::array<float, 3>* light, CoverageMask& mask) const {
+    // Each textured mesh (0x428500 skips those without materials), in the
+    // world, flattened onto the floor if there's a light, on the screen.
+    std::vector<std::array<float, 3>> positions, normals;
+    std::vector<std::array<float, 2>> screen;
+    std::vector<uint8_t> ok;
+    for (const ModelMesh& mesh : model.model().meshes) {
+        bool textured = false;
+        for (const auto& g : mesh.groups)
+            textured |= g.texture >= 0;
+        if (!textured)
+            continue;
+        skin(mesh, pose, positions, normals);
+        screen.resize(positions.size());
+        ok.assign(positions.size(), 0);
+        for (size_t v = 0; v < positions.size(); v++) {
+            const gfx::Vec3 w = gfx::transformPoint(placement, {positions[v][0], positions[v][1], positions[v][2]});
+            float p[3] = {w[0], w[1], w[2]};
+            if (light) {
+                const std::array<float, 3> f = flattenOntoFloor(*light, p);
+                p[0] = f[0], p[1] = f[1], p[2] = f[2];
+            }
+            ok[v] = cam.project(p, kScreenW, kScreenH, screen[v][0], screen[v][1]) ? 1 : 0;
+        }
+        for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+            const uint32_t a = mesh.indices[i], b = mesh.indices[i + 1], c = mesh.indices[i + 2];
+            if (a < ok.size() && b < ok.size() && c < ok.size() && ok[a] && ok[b] && ok[c])
+                mask.fillTriangle(screen[a].data(), screen[b].data(), screen[c].data());
+        }
+    }
+}
+
+void ScenePage::drawMask(const CoverageMask& mask, Color colour, uint8_t alpha) {
+    // A quad over the mask's box, its texture the colour where covered.
+    if (mask.empty())
+        return;
+    const int x0 = mask.minX(), y0 = mask.minY(), w = mask.maxX() - x0 + 1, h = mask.maxY() - y0 + 1;
+    std::vector<uint8_t> rgba(size_t(w) * size_t(h) * 4, 0);
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++)
+            if (mask.at(x0 + x, y0 + y)) {
+                uint8_t* p = rgba.data() + (size_t(y) * size_t(w) + size_t(x)) * 4;
+                p[0] = colour.r, p[1] = colour.g, p[2] = colour.b, p[3] = alpha;
+            }
+    gfx::TextureId tex = 0;
+    gfx::TextureParams params;
+    params.clamp = true;
+    params.mipmaps = false;
+    params.nearest = true;
+    if (renderer_->createTexture(w, h, rgba.data(), params, tex))
+        return;
+    frameTextures_.push_back(tex);
+    const float l = 2.0f * float(x0) / kScreenW - 1, r = 2.0f * float(x0 + w) / kScreenW - 1;
+    const float t = 1 - 2.0f * float(y0) / kScreenH, b = 1 - 2.0f * float(y0 + h) / kScreenH;
+    std::vector<gfx::Vertex> v(4);
+    const float corners[4][4] = {{l, t, 0, 0}, {r, t, 1, 0}, {r, b, 1, 1}, {l, b, 0, 1}};
+    for (size_t i = 0; i < 4; i++) {
+        v[i] = {};
+        v[i].pos[0] = corners[i][0], v[i].pos[1] = corners[i][1], v[i].pos[2] = 0.5f;
+        v[i].uv[0] = corners[i][2], v[i].uv[1] = corners[i][3];
+        v[i].color[0] = v[i].color[1] = v[i].color[2] = v[i].color[3] = 255;
+    }
+    gfx::MeshId mesh = 0;
+    if (renderer_->createMesh(v, {0, 2, 1, 0, 3, 2}, mesh))
+        return;
+    frameMeshes_.push_back(mesh);
+    gfx::DrawCall call;
+    call.mesh = mesh;
+    call.indexCount = 6;
+    call.texture = tex;
+    call.state.src = gfx::Blend::SrcAlpha;
+    call.state.dst = gfx::Blend::OneMinusSrcAlpha;
+    call.state.depthTest = false;
+    call.state.depthWrite = false;
+    call.state.cull = gfx::Cull::None;
+    renderer_->draw(call);
+}
+
+void ScenePage::drawShadows(const SceneCamera& cam, const std::vector<Pose>& poses,
+                            const std::vector<std::vector<Pose>>& propPoses) {
+    // Every shadow's pixels once (overlaps no darker), darkened to 192/255
+    // under the characters, which are drawn over them (0x402ba0: black at
+    // alpha 63).
+    if (!shadowMask_)
+        shadowMask_ = std::make_unique<CoverageMask>(kScreenW, kScreenH);
+    shadowMask_->clear();
+    const std::array<float, 3> light = shadowLight(scene_);
+    for (size_t i = 0; i < characters_.size(); i++) {
+        const Character& c = characters_[i];
+        if (!c.shadow)
+            continue;
+        coverMesh(cam, *c.model, poses[i], c.placement, &light, *shadowMask_);
+        for (size_t k = 0; k < c.props.size(); k++)
+            coverMesh(cam, *c.props[k].second, propPoses[i][k], c.placement, &light, *shadowMask_);
+    }
+    drawMask(*shadowMask_, Color{0, 0, 0}, 63);
+}
+
+void ScenePage::drawWhiteOut(const SceneCamera& cam, const std::vector<Pose>& poses) {
+    const Ac2Record* camr = scene_.camera();
+    const float a = camr->f("1244"), b = camr->f("1248");
+    if (a == b)
+        return;
+    for (size_t i = 0; i < characters_.size(); i++) {
+        const Character& c = characters_[i];
+        if (!c.player || c.z >= a)
+            continue;
+        const int alpha = c.z < b ? 255 : int((a - c.z) / (a - b) * 255);
+        if (!shadowMask_)
+            shadowMask_ = std::make_unique<CoverageMask>(kScreenW, kScreenH);
+        shadowMask_->clear();
+        coverMesh(cam, *c.model, poses[i], c.placement, nullptr, *shadowMask_);
+        renderer_->setView(gfx::identity(), cam.eye());
+        drawMask(*shadowMask_, Color{255, 255, 255}, uint8_t(std::clamp(alpha, 0, 255)));
+        return;
+    }
 }
 
 void ScenePage::fillPolygon(const std::vector<std::pair<float, float>>& points, Color c, uint8_t alpha) {
@@ -1986,8 +2127,11 @@ bool ScenePage::startCharacterVerb(ScriptRunner& runner, Character& c, const Scr
             c.props.push_back({path, m});
         return false;
     }
-    if (v == "hideshadow" || v == "showshadow")
-        return false; // no shadows drawn yet
+    if (v == "hideshadow" || v == "showshadow") {
+        // The character's shadow flag (MODL shadow: 0x40a2e6, 0x40af33).
+        c.shadow = v == "showshadow";
+        return false;
+    }
     handled = false;
     return false;
 }

@@ -28,7 +28,7 @@ loaded.
 | `Sound` | Effects Volume | 7 | 0..10 | Volume of every other sound, speech included. Movies and scene videos use it too: Bink volume 3200·v + 767, or 1000 for 0. |
 | `Gamma` | Brightness | 5 | 0..10 | A linear gamma ramp of slope (32g + 97)/257, clipped. 5 leaves colours as they are. Full screen only. |
 | `Captions` | Text Captions | 1 | 0/1 | Off: the dialogue box and its spoken line aren't drawn, except while choosing and for the ham-radio scenes; movie subtitles aren't drawn either. |
-| `Shadows` | 3D Shadows | 1 | 0/1 | The characters' stencil shadows. |
+| `Shadows` | 3D Shadows | 1 | 0/1 | The characters' shadows ([shadows.md](shadows.md)). |
 | `Water` | Animated Effects | 1 | 0/1 | Off: scene videos flagged `BNKX de4` (water, flames...) stop advancing. |
 | `Fog` | Fog, Haze, and Clouds | 1 | 0/1 | Off: pictures from `elements\fog` or `skies\clouds` with `SPRT da4` set aren't drawn. |
 | `Rain` | Particle Effects | 1 | 0/1 | Off: particle systems neither move nor draw. |
@@ -89,5 +89,7 @@ kept in Reluva's folder for the game, as `options.ini` lines
 - **Animated Effects** freeze the flagged videos.
 - **Fog** hides the fog and cloud pictures.
 - **Particle Effects** stop the particles.
-- **3D Shadows** and **Anti-Aliasing** are stored but change nothing yet:
-  Reluva has no character shadows or multisampling yet.
+- **3D Shadows** turns the characters' shadows on and off
+  ([shadows.md](shadows.md)).
+- **Anti-Aliasing** is stored but changes nothing yet: Reluva has no
+  multisampling yet.

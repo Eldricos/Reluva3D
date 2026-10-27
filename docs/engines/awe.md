@@ -83,7 +83,8 @@ scenes, two Granny files, the text tables, two backgrounds):
   in the game's own format (the save and load screens, F2/F3, the
   developers' saves: see [../formats/awe/saves.md](../formats/awe/saves.md)),
   the options screen and its settings ([../formats/awe/options.md](../formats/awe/options.md)),
-  and walking into scenes, with followers, work.
+  walking into scenes, with followers, and the characters' shadows
+  ([../formats/awe/shadows.md](../formats/awe/shadows.md)) work.
 - **Characters: animated as the game animates them.** Up to ten
   animations each on body, head and eye layers, blended by the files'
   track masks; blinking, idle gestures and their routines; `anim`,
@@ -142,7 +143,8 @@ Next:
    records and member types the samples didn't have.
 2. A native port of the path-finder's lattice search (`0x42f1f0`),
    checked path for path against the game's (`awe-path`).
-3. The characters' shadows.
+3. Anti-aliasing, and the other puzzle screens (`tornletter`, `safe`,
+   `puzzlebox`).
 4. Native decoding of the compressed curve formats (the DLL expands them
    for now).
 5. Native Oodle1 and Bink-texture decoding, checked against the DLL, to

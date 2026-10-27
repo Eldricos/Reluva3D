@@ -15,6 +15,7 @@
 #include "engines/awe/script.h"
 #include "engines/awe/story.h"
 #include "engines/awe/savegame.h"
+#include "engines/awe/shadows.h"
 #include "common/image.h"
 #include "engines/awe/actor.h"
 #include "engines/awe/animator.h"
@@ -975,6 +976,47 @@ void testSaveGame() {
     CHECK(!image::decode(encodeBmp32(4, 4, rgba), img) && img.w == 4 && img.h == 4 && img.pixel(0, 0)[0] == 255);
 }
 
+void testShadows() {
+    // The light: the lights' mean, raised by 1500; only those marked e1c if
+    // any are.
+    Ac2Scene scene;
+    auto light = [](float x, float y, float z, uint32_t marked) {
+        Ac2Record r{"LITE", {}, {}};
+        auto f = [](float v) {
+            Ac2Value a;
+            a.type = Ac2Value::Type::F32;
+            std::memcpy(&a.raw, &v, 4);
+            return a;
+        };
+        r.fields = {{"dd0", f(x)}, {"dd4", f(y)}, {"dd8", f(z)}};
+        Ac2Value m;
+        m.raw = marked;
+        r.fields.push_back({"e1c", m});
+        return r;
+    };
+    scene.records = {light(5, 655, 450, 0), light(-19, 558, -330, 0)};
+    std::array<float, 3> l = shadowLight(scene);
+    CHECK(std::abs(l[0] + 7) < 1e-3f && std::abs(l[1] - 2106.5f) < 1e-3f && std::abs(l[2] - 60) < 1e-3f);
+    scene.records.push_back(light(100, 500, 0, 1));
+    l = shadowLight(scene);
+    CHECK(l[0] == 100 && l[1] == 2000 && l[2] == 0);
+    CHECK(shadowLight(Ac2Scene())[1] == 1500);
+    // Flattened onto the floor along the line from the light.
+    const float head[3] = {100, 1000, 0}, foot[3] = {30, 0, 40};
+    const std::array<float, 3> p = flattenOntoFloor({0, 2000, 0}, head);
+    CHECK(std::abs(p[0] - 200) < 1e-3f && p[1] == 0 && p[2] == 0);
+    const std::array<float, 3> q = flattenOntoFloor({0, 2000, 0}, foot);
+    CHECK(q[0] == 30 && q[2] == 40);
+    // The mask: pixel centres inside, either winding, its box kept.
+    CoverageMask m(16, 16);
+    const float a[2] = {0, 0}, b[2] = {8, 0}, c[2] = {0, 8};
+    m.fillTriangle(a, c, b);
+    CHECK(m.at(1, 1) && m.at(6, 0) && !m.at(7, 7) && !m.at(9, 1));
+    CHECK(m.minX() == 0 && m.minY() == 0 && m.maxX() <= 8 && !m.empty());
+    m.clear();
+    CHECK(m.empty() && !m.at(1, 1));
+}
+
 int main() {
     testText();
     testAc2();
@@ -992,6 +1034,7 @@ int main() {
     testAnimator();
     testActor();
     testSaveGame();
+    testShadows();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

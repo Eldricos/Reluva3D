@@ -28,6 +28,8 @@
 #include "engines/awe/model_draw.h"
 #include "engines/awe/movie_player.h"
 #include "engines/awe/savegame.h"
+#include "engines/awe/shadows.h"
+#include "engines/awe/camera.h"
 
 #include <array>
 #include <deque>
@@ -174,6 +176,7 @@ private:
         std::vector<std::pair<float, float>> path;
         float walkSpeed = 0; // world units a second, from the walk itself
         bool follower = false; // follows the player (FLLW, its COND holding)
+        bool shadow = true;    // casts a shadow (MODL shadow, hideshadow/showshadow)
         float walkIn = 0;      // walking in: the distance left
         // A script waiting on it (one at a time, as the game's +0xb5c):
         // for "walk", "run", "rotate" or "anim" (that animation, by the
@@ -325,6 +328,15 @@ private:
     // has no such animation.
     bool startWalk(Character& c, bool run = false);
     void placeCharacter(Character& c) const;
+    // Shadows (docs/formats/awe/shadows.md): a mesh's screen coverage,
+    // flattened onto the floor from `light` if given; a mask drawn as a
+    // coloured quad; the shadows; the player's white-out in the snow.
+    void coverMesh(const SceneCamera& cam, const GpuModel& model, const Pose& pose, const gfx::Mat4& placement,
+                   const std::array<float, 3>* light, CoverageMask& mask) const;
+    void drawMask(const CoverageMask& mask, Color colour, uint8_t alpha);
+    void drawShadows(const SceneCamera& cam, const std::vector<Pose>& poses,
+                     const std::vector<std::vector<Pose>>& propPoses);
+    void drawWhiteOut(const SceneCamera& cam, const std::vector<Pose>& poses);
     // The character verbs (turn, look, rotate, anim...): true if the
     // script waits.
     bool startCharacterVerb(ScriptRunner& runner, Character& c, const ScriptEvent& e, bool wait, bool& handled);
@@ -442,6 +454,8 @@ private:
     std::map<std::string, std::shared_ptr<GpuModel>> models_;
     std::map<std::string, std::shared_ptr<Animation>> animations_;
     std::vector<gfx::MeshId> frameMeshes_;
+    std::vector<gfx::TextureId> frameTextures_;
+    std::unique_ptr<CoverageMask> shadowMask_;
     uint64_t startMs_ = 0;
 };
 
