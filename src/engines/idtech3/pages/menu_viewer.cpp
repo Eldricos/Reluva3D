@@ -198,8 +198,11 @@ void MenuViewer::checkCommands() {
             const std::string verb = fs::toLower(words[0]);
             if (verb == "quit") {
                 // The menus' Quit: back to the start, as the original's
-                // program ended.
+                // program ended; they start afresh next time (left as they
+                // are, they'd come back still quitting).
                 ctx_.requestPage = "Start";
+                ui_.reset();
+                return;
             } else if (verb == "vid_restart") {
                 // The video settings changed: the page starts its drawing over.
                 restart_ = true;
