@@ -28,8 +28,8 @@ src/engines/       one directory per engine, plus registry.cpp listing them
                    maps; currently runs as a data viewer (docs/engines/idtech3.md)
   nfs/             Need for Speed III: Hot Pursuit: its archives, pictures,
                    text, fonts, car models, tracks, sounds, music and
-                   movies; currently runs as a data viewer, the tracks and
-                   cars in 3D
+                   movies; a data viewer, the tracks and cars in 3D, and
+                   the retail game itself run in the x86 interpreter
                    (docs/engines/nfs.md)
 src/tools/         reluva-tool, utilities for studying game data
 tests/             unit tests for common/ and the engines
@@ -115,8 +115,12 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   in a copy of the CD beside the install (a folder with `nfs3.exe` and
   `GameData/Audio/pc`), or wherever `cdpath=` in the game's section of `reluva.ini`
   says. It opens as a data viewer: **Tab** switches between what it found (the folders,
-  tracks and cars), the tracks and cars in 3D, textures, strings, fonts, sounds, music
-  and movies. The 3D pages
+  tracks and cars), the game itself, the tracks and cars in 3D, textures, strings,
+  fonts, sounds, music and movies. The **Play** page runs the retail `nfs3.exe` in the
+  x86 interpreter, starting it when first shown. The keyboard and mouse go to the game,
+  **Esc** included; **Ctrl+F5** goes back to the launcher. It writes its saves and
+  settings to Reluva's save folder for the game, never to the install. For now it runs
+  slower than real time, and the movies are skipped. The 3D pages
   need a GPU with Vulkan (Linux, Windows) or Metal (macOS). On tracks, **PageUp/PageDown**
   pick one, **W/A/S/D** move, the arrows or a drag look, **Space/C** go up and down,
   **Shift** goes faster, **N/B** jump to the next or previous piece of road, **1/2/3** pick

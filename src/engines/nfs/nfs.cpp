@@ -13,7 +13,7 @@
 // CD's files, tracks and cars), then the tracks and cars in 3D, the
 // game's pictures, strings and fonts, its sounds, music and movies (see
 // viewers.h for the keys). Tab switches between them; Esc goes
-// back to the launcher.
+// back to the launcher. The Play page runs the game itself (play_page.h).
 
 #include "common/audio/mixer.h"
 #include "engines/engine.h"
@@ -59,7 +59,7 @@ public:
             System& sys;
             ~AudioOff() { sys.stopAudio(); }
         } audioOff{sys_};
-        auto pages = nfs::makePages(game_.name, folders, files, audioOut ? &mixer : nullptr);
+        auto pages = nfs::makePages(game_.name, folders, files, audioOut ? &mixer : nullptr, target_.savePath);
 
         size_t page = 0;
         bool dirty = true;
@@ -86,7 +86,7 @@ public:
                     pages[page]->deactivate();
                     return Error::success();
                 }
-                if (ev.type == EventType::KeyDown && ev.key == key::Escape) {
+                if (ev.type == EventType::KeyDown && ev.key == key::Escape && !pages[page]->capturesEscape()) {
                     pages[page]->deactivate();
                     return Error::success();
                 }

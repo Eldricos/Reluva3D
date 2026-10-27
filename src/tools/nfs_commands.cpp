@@ -18,6 +18,7 @@
 #include "engines/nfs/hrz.h"
 #include "engines/nfs/mad.h"
 #include "engines/nfs/mus.h"
+#include "engines/nfs/play_page.h"
 #include "engines/nfs/refpack.h"
 #include "engines/nfs/text_table.h"
 #include "engines/nfs/viewers.h"
@@ -1165,13 +1166,15 @@ int cmdNfsHost(int argc, char** argv) {
 int cmdNfsPage(int argc, char** argv) {
     if (argc < 5) {
         std::fprintf(stderr, "usage: reluva-tool nfs-page <game folder> <out.tga> <page> [key...]\n"
-                             "  keys: left right up down pgup pgdn home end, or a letter or symbol\n");
+                             "  keys: left right up down pgup pgdn home end enter esc, or a letter or symbol;\n"
+                             "  also +key and -key (held, let go), wait<ms>, click and move<dx>/<dy>\n"
+                             "  (the Play page writes to nfs-page-save)\n");
         return 2;
     }
     const auto folders = reluva::nfs::findFolders(argv[2], {}, "nfs3.exe");
     reluva::nfs::GameFiles files;
     files.scan(folders);
-    auto pages = reluva::nfs::makePages("Need for Speed III: Hot Pursuit", folders, files);
+    auto pages = reluva::nfs::makePages("Need for Speed III: Hot Pursuit", folders, files, nullptr, "nfs-page-save");
     reluva::nfs::Page* page = nullptr;
     for (auto& p : pages)
         if (lowerAscii(p->name()) == lowerAscii(argv[4]))
@@ -1183,22 +1186,69 @@ int cmdNfsPage(int argc, char** argv) {
         std::fprintf(stderr, "\n");
         return 1;
     }
+    // The Play page's game starts at once, as it would when shown.
+    if (auto* play = dynamic_cast<reluva::nfs::PlayPage*>(page))
+        play->start();
     const std::pair<const char*, uint32_t> names[] = {
         {"left", reluva::key::Left},  {"right", reluva::key::Right},   {"up", reluva::key::Up},
         {"down", reluva::key::Down},  {"pgup", reluva::key::PageUp},   {"pgdn", reluva::key::PageDown},
-        {"home", reluva::key::Home},  {"end", reluva::key::End}};
+        {"home", reluva::key::Home},  {"end", reluva::key::End},       {"enter", reluva::key::Return},
+        {"esc", reluva::key::Escape}};
+    int mouseX = 320, mouseY = 240;
+    auto mouse = [&](reluva::EventType type) {
+        reluva::Event ev;
+        ev.type = type;
+        ev.mouseX = mouseX;
+        ev.mouseY = mouseY;
+        ev.button = reluva::MouseButton::Left;
+        page->handleEvent(ev);
+    };
+    mouse(reluva::EventType::MouseMove);
     for (int i = 5; i < argc; ++i) {
+        const std::string arg = argv[i];
+        if (arg.rfind("wait", 0) == 0 && arg.size() > 4) { // wait<ms>: the page ticking meanwhile
+            const auto until = std::chrono::steady_clock::now() + std::chrono::milliseconds(std::atoi(argv[i] + 4));
+            while (std::chrono::steady_clock::now() < until) {
+                page->tick(0);
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+            continue;
+        }
+        if (arg == "click") {
+            mouse(reluva::EventType::MouseDown);
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            mouse(reluva::EventType::MouseUp);
+            continue;
+        }
+        if (arg.rfind("move", 0) == 0 && arg.find('/') != std::string::npos) { // move<dx>/<dy>
+            mouseX += std::atoi(arg.c_str() + 4);
+            mouseY += std::atoi(arg.c_str() + arg.find('/') + 1);
+            mouse(reluva::EventType::MouseMove);
+            continue;
+        }
+        // +key and -key: pressed, let go; else both.
+        const bool press = arg[0] != '-', release = arg[0] != '+';
+        const std::string keyArg = arg.size() > 1 && (arg[0] == '+' || arg[0] == '-') ? arg.substr(1) : arg;
         uint32_t key = 0;
         for (const auto& [name, code] : names)
-            if (std::strcmp(argv[i], name) == 0)
+            if (keyArg == name)
                 key = code;
-        if (!key && std::strlen(argv[i]) == 1)
-            key = static_cast<unsigned char>(argv[i][0]);
+        if (!key && keyArg.size() == 1)
+            key = static_cast<unsigned char>(keyArg[0]);
         if (!key) {
             std::fprintf(stderr, "unknown key '%s'\n", argv[i]);
             return 2;
         }
-        page->handleKey(key, 0);
+        reluva::Event ev;
+        ev.key = key;
+        if (press) {
+            ev.type = reluva::EventType::KeyDown;
+            page->handleEvent(ev);
+        }
+        if (release) {
+            ev.type = reluva::EventType::KeyUp;
+            page->handleEvent(ev);
+        }
     }
     reluva::Surface screen;
     screen.create(640, 480, reluva::PixelFormat::RGBA32);

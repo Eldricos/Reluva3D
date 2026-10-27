@@ -3,6 +3,8 @@
 
 #include "engines/nfs/viewers.h"
 
+#include "engines/nfs/play_page.h"
+
 #include "engines/nfs/page_draw.h"
 
 #include "common/events.h"
@@ -372,9 +374,11 @@ void FontPage::draw(Surface& s) {
 // --- All pages ----------------------------------------------------------------
 
 std::vector<std::unique_ptr<Page>> makePages(const char* gameName, const GameFolders& folders,
-                                             const GameFiles& files, audio::Mixer* mixer) {
+                                             const GameFiles& files, audio::Mixer* mixer,
+                                             const std::filesystem::path& saveFolder) {
     std::vector<std::unique_ptr<Page>> pages;
     pages.push_back(std::make_unique<InfoPage>(gameName, folders));
+    pages.push_back(std::make_unique<PlayPage>(folders, saveFolder, mixer));
     pages.push_back(std::make_unique<TrackPage>(files, folders));
     pages.push_back(std::make_unique<CarPage>(files));
     pages.push_back(std::make_unique<TexturePage>(files));

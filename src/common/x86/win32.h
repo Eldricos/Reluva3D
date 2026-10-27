@@ -7,6 +7,7 @@
 #include "common/types.h"
 #include "common/x86/cpu.h"
 
+#include <atomic>
 #include <condition_variable>
 #include <deque>
 #include <filesystem>
@@ -184,6 +185,9 @@ public:
     // Whether the process is ending (or the running thread is being
     // terminated): native functions that waited should then abort().
     bool ending() const;
+    // From any thread: ends the process, as ExitProcess would; run() then
+    // returns once every thread has unwound.
+    void requestExit() { exiting_ = true; }
     // Instructions between thread changes.
     uint32_t slice = 20000;
 
@@ -207,7 +211,7 @@ private:
     Thread* running_ = nullptr;
     std::mutex mutex_;
     std::condition_variable turn_;
-    bool exiting_ = false;
+    std::atomic<bool> exiting_{false}; // set from other threads too (requestExit)
     uint32_t exitCode_ = 0;
     std::string failure_; // a thread's fault, which ends the process
     struct Timer {

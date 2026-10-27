@@ -208,7 +208,8 @@ if(RELUVA_ENGINE_NFS)
         src/engines/nfs/car_viewer.cpp
         src/engines/nfs/track_viewer.cpp
         src/engines/nfs/game_files.cpp
-        src/engines/nfs/viewers.cpp)
+        src/engines/nfs/viewers.cpp
+        src/engines/nfs/play_page.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_NFS)
 endif()
 target_link_libraries(reluva_engines PUBLIC reluva_common PRIVATE reluva_warnings)

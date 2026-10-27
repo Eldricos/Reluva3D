@@ -22,6 +22,7 @@
 #include "engines/nfs/game_files.h"
 #include "engines/nfs/text_table.h"
 
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <optional>
@@ -47,6 +48,8 @@ public:
     // back after it's left.
     virtual void activate(System& /*sys*/) {}
     virtual void deactivate() {}
+    // Whether Esc goes to the page rather than back to the launcher.
+    virtual bool capturesEscape() const { return false; }
     // Whether the page is drawing with the GPU (else draw() is used).
     virtual bool uses3D() const { return false; }
     virtual void handleEvent(const Event& ev) {
@@ -376,8 +379,10 @@ private:
 };
 
 // Every page, in Tab order, those with nothing to show left out. The
-// mixer plays the pages' sounds; null without audio output.
+// mixer plays the pages' sounds; null without audio output. The game
+// writes under `saveFolder`.
 std::vector<std::unique_ptr<Page>> makePages(const char* gameName, const GameFolders& folders,
-                                             const GameFiles& files, audio::Mixer* mixer = nullptr);
+                                             const GameFiles& files, audio::Mixer* mixer = nullptr,
+                                             const std::filesystem::path& saveFolder = {});
 
 } // namespace reluva::nfs

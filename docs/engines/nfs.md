@@ -473,6 +473,21 @@ Started. Done so far:
   sample for sample, to Reluva's own decode of the file. Each second
   recorded held exactly one second of the song: nothing skipped or
   repeated. The race's countdown beeps and engine are heard too.
+- **The Play page** (`play_page.cpp`). It runs the game on a thread of its
+  own, started when the page is first shown:
+  - frames are shown as the game flips them;
+  - its sound goes to the mixer;
+  - keys and the mouse go to it as DirectInput and window messages, Esc
+    included; Ctrl+F5 goes back to the launcher;
+  - saves and settings go to the game's save folder;
+  - leaving the engine ends the process (`Win32Process::requestExit`)
+    and waits for its threads.
+
+  `nfs-page <game> <out.tga> play ...` drives it headlessly (wait, click,
+  move, keys held). It reached a race (Hometown, a Corvette) from the
+  menus by mouse, and holding Up drove the car to 63 mph. The game still
+  runs slower than real time: the race clock showed 19 seconds after
+  about 50.
 
 Still to do:
 
