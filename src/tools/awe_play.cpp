@@ -14,6 +14,10 @@
 //   flip|<scene>|||<choices>|<item>       an item's back looked at
 //   travel|<scene>|<car>||<choices>       the bar's car (1 baggage .. 5 Athens)
 //
+// A seventh field, "<object>#<n>", clicks that object as soon as it can
+// be clicked while what the action started still runs (the game lets a
+// click in between a script's "unlock" and "lock").
+//
 // <choices> are the dialogue's choices taken while it ran ("2.1.1": the
 // second offered, then the first...); past them, the choice taken least
 // in that action. Each action is followed by the game running till it
@@ -50,6 +54,7 @@ struct Action {
     int n = 0;
     std::vector<int> choices;   // taken (or to take) at each choice
     std::vector<int> offered;   // how many there were at each (not written)
+    std::string then;           // clicked while it runs ("name#n")
 };
 
 std::vector<std::string> split(const std::string& s, char sep) {
@@ -75,8 +80,10 @@ std::string toLine(const Action& a) {
         choices += (choices.empty() ? "" : ".") + std::to_string(c + 1);
     std::string line = a.kind + "|" + a.scene + "|" + a.target + "|" + (a.target.empty() ? "" : std::to_string(a.n)) +
                        "|" + choices;
-    if (!a.item.empty())
+    if (!a.item.empty() || !a.then.empty())
         line += "|" + a.item;
+    if (!a.then.empty())
+        line += "|" + a.then;
     return line;
 }
 
@@ -97,6 +104,8 @@ bool fromLine(const std::string& line, Action& a) {
             a.choices.push_back(std::atoi(c.c_str()) - 1);
     if (f.size() > 5)
         a.item = f[5];
+    if (f.size() > 6)
+        a.then = f[6];
     return true;
 }
 
@@ -123,6 +132,9 @@ public:
     std::vector<std::string>& log() { return log_; }
     bool credits() const { return credits_; }
     std::string problem; // why the last action failed, if it did
+    // What could be clicked while the last action's scripts ran
+    // ("scene|name#n").
+    std::set<std::string> inBetween;
 
     // Runs the game till it settles: nothing running, nothing said, for 3
     // s. False if it sticks (an event that doesn't end) or runs past the
@@ -138,6 +150,21 @@ public:
             if (did.empty() && page_->status().puzzle)
                 return true;
             const ScenePage::GameStatus st = page_->status();
+            if (!st.idle && page_->clickable()) {
+                // Clicks are taken while this runs: what could be clicked
+                // is noted, and the click waited for made.
+                const std::vector<std::string> names = page_->clickables();
+                std::map<std::string, int> seen;
+                for (size_t i = 0; i < names.size(); i++) {
+                    const std::string id = names[i] + "#" + std::to_string(seen[names[i]]++);
+                    if (id == then_) {
+                        then_.clear();
+                        page_->click(i);
+                        break;
+                    }
+                    inBetween.insert(st.scene + "|" + id);
+                }
+            }
             if (st.event != lastEvent || st.idle)
                 lastEvent = st.event, eventSince = sys_.now;
             if (!st.idle && sys_.now - eventSince > 120000) {
@@ -209,6 +236,8 @@ public:
     bool act(Action& a) {
         problem.clear();
         forced_ = a.choices;
+        then_ = a.then;
+        inBetween.clear();
         taken_.clear();
         offered_.clear();
         counts_.clear();
@@ -251,6 +280,8 @@ public:
         }
         if (ok)
             ok = settle();
+        if (ok && !then_.empty())
+            ok = false, problem = then_ + " couldn't be clicked while it ran";
         a.choices = taken_;
         a.offered = offered_;
         return ok;
@@ -305,6 +336,7 @@ private:
     std::vector<std::string> log_;
     bool credits_ = false;
     std::vector<int> forced_, taken_, offered_;
+    std::string then_;
     std::map<std::string, int> counts_;
 };
 
@@ -477,12 +509,14 @@ int aweCommandSolve(int argc, char** argv) {
     };
     std::priority_queue<Node, std::vector<Node>, decltype(cmp)> frontier(cmp);
     std::set<std::string> seenKeys, seenFeatures;
+    Node best;
     auto reset = [&]() {
         frontier = decltype(frontier)(cmp);
         seenKeys.clear();
         seenFeatures.clear();
         steps.clear();
         Node root = rootNode();
+        best = root;
         seenKeys.insert(root.key);
         for (const std::string& f : player.features(true))
             seenFeatures.insert(f);
@@ -535,6 +569,15 @@ int aweCommandSolve(int argc, char** argv) {
                         v.choices.push_back(alt);
                         todo.push_back(v);
                     }
+            // And with a click while it ran, on each thing that could be
+            // clicked then.
+            if (todo[k].then.empty())
+                for (const std::string& id : player.inBetween) {
+                    Action v = todo[k];
+                    v.choices = a.choices;
+                    v.then = id.substr(id.find('|') + 1);
+                    todo.push_back(v);
+                }
             const ScenePage::GameStatus st = player.page().status();
             if (st.scene.rfind("menu.", 0) == 0 && !player.credits())
                 continue; // a menu: not the way on
@@ -575,6 +618,8 @@ int aweCommandSolve(int argc, char** argv) {
             n.key = key;
             n.progress = progressOf(f);
             n.depth = node.depth + 1;
+            if (n.progress > best.progress)
+                best = n;
             frontier.push(std::move(n));
         }
         if (expansions % 20 == 0) {
@@ -584,6 +629,17 @@ int aweCommandSolve(int argc, char** argv) {
                         frontier.size(), seenKeys.size(), secs);
             std::fflush(stdout);
         }
+    }
+    // Where it got furthest: the way there, and its state.
+    {
+        const std::vector<Action> way = best.path == SIZE_MAX ? std::vector<Action>() : pathOf(best.path);
+        std::printf("furthest (progress %d), after:\n", best.progress);
+        for (const Action& a : way)
+            std::printf("  %s\n", toLine(a).c_str());
+        std::printf("%s", best.key.c_str());
+        std::vector<Action> all = committed;
+        all.insert(all.end(), way.begin(), way.end());
+        writePlaythrough(solveTo + ".furthest", all);
     }
     std::printf("stopped: %s after %d expansions\n", frontier.empty() ? "nothing left to try" : "the budget spent",
                 expansions);
