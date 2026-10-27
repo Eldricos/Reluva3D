@@ -122,6 +122,7 @@ private:
         size_t models = 0, effects = 0, lights = 0;
         int other = 0; // entities not drawn (kinds not done yet)
         std::set<std::string> unloadable;
+        std::string effectShaders; // what the effects are drawn with
     };
     Shown shown_;
     struct Timing {

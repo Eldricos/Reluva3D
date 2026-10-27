@@ -675,6 +675,22 @@ void SceneDrawer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left
                         (readInt(e, layout_.flags) & refent::DepthHack) != 0});
 }
 
+std::string SceneDrawer::effectSummary() const {
+    std::map<std::string, int> counts;
+    for (const Effect& fx : effects_)
+        ++counts[name(handles_.shaders, fx.shader)];
+    std::vector<std::pair<int, std::string>> order;
+    for (const auto& [n, c] : counts)
+        order.emplace_back(-c, n.empty() ? "(none)" : n);
+    std::sort(order.begin(), order.end());
+    std::string out;
+    for (size_t i = 0; i < order.size() && i < 4; ++i)
+        out += (i ? ", " : "") + order[i].second + " x" + std::to_string(-order[i].first);
+    if (order.size() > 4)
+        out += ", ...";
+    return out;
+}
+
 void SceneDrawer::drawEffects(float time, float sortMin, float sortMax) {
     // This view's effects whose shaders sort in sortMin..sortMax, in the
     // order the program added them.
@@ -747,9 +763,12 @@ void SceneDrawer::placeEntities(const Scene& scene, const View& view, const Ligh
             continue;
         }
         if (readInt(e, layout_.type) != layout_.typeModel) {
-            addEffect(e, left, up, time);
+            if (showEffects)
+                addEffect(e, left, up, time);
             continue;
         }
+        if (!showModels)
+            continue;
         const int32_t flags = readInt(e, layout_.flags);
         // One of the level's own models (*1, *2...: doors, lifts), where the
         // game has moved it.

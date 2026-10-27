@@ -91,6 +91,12 @@ public:
     size_t effectCount() const { return effects_.size(); }
     size_t lightCount() const { return lights_.size(); }
     int otherEntities() const { return otherEntities_; }
+    // The last view's effects (sprites, beams, marks) by shader, the most
+    // first: "name x count, ...", the first few.
+    std::string effectSummary() const;
+    // What's drawn of the program's entities (the original's
+    // r_drawentities, and Reluva's own switch for effects alone).
+    bool showModels = true, showEffects = true;
     int portalViews() const { return portalViews_; }
     const std::set<std::string>& unloadable() const { return unloadable_; }
 

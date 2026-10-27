@@ -1066,6 +1066,10 @@ void PlayViewer::update(uint64_t nowMs) {
         const bool dynamicLights = !cvars_.find("r_dynamiclight") || cvars_.integer("r_dynamiclight") != 0;
         size_t drawn = 0;
         bool first = true;
+        // r_drawentities 0: the level alone; r_drawEffects 0 (Reluva's):
+        // without sprites, beams and marks.
+        scene_->showModels = !cvars_.find("r_drawentities") || cvars_.integer("r_drawentities") != 0;
+        scene_->showEffects = scene_->showModels && (!cvars_.find("r_drawEffects") || cvars_.integer("r_drawEffects") != 0);
         for (const auto& v : scene.views) {
             scene_->drawPictures(pictures, drawn, v.picturesBefore, 640, 480, time);
             drawn = std::max(drawn, v.picturesBefore);
@@ -1075,7 +1079,7 @@ void PlayViewer::update(uint64_t nowMs) {
                 haveView = true;
                 eye_ = scene_->eye();
                 shown_ = {scene_->placedCount(), scene_->effectCount(), scene_->lightCount(),
-                          scene_->otherEntities(), scene_->unloadable()};
+                          scene_->otherEntities(), scene_->unloadable(), scene_->effectSummary()};
             }
         }
         scene_->drawPictures(pictures, drawn, pictures.size(), 640, 480, time);
@@ -1253,6 +1257,8 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
                           haveView ? "" : " (no view yet)", shown_.models, shown_.effects, shown_.lights,
                           shown_.other);
             lines.push_back(line);
+            if (!shown_.effectShaders.empty())
+                lines.push_back("effects: " + shown_.effectShaders);
             // What the player's commands carry, to see that keys arrive.
             std::string held;
             for (const auto& [name, keys] : input_.buttons())
