@@ -30,7 +30,7 @@ constexpr size_t kWholeFrameVertices = 1000;
 std::string keyName(uint32_t k) {
     if (k >= 'a' && k <= 'z')
         return std::string(1, char(k));
-    if (k >= '0' && k <= '9')
+    if ((k >= '0' && k <= '9') || k == '.' || k == ',' || k == '-' || k == '/' || k == ';')
         return std::string(1, char(k));
     if (k >= key::F1 && k < key::F1 + 10)
         return "f" + std::to_string(k - key::F1 + 1);
@@ -63,9 +63,11 @@ std::string keyName(uint32_t k) {
 } // namespace
 
 PlayPage::PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer* mixer, int renderScale,
-                   bool smoothTextures, bool offerJoystick, bool forceFeedback, std::string wheelPedals)
+                   bool smoothTextures, bool offerJoystick, bool forceFeedback, std::string wheelPedals,
+                   bool network)
     : folders_(std::move(folders)), saveFolder_(std::move(saveFolder)), mixer_(mixer), offerJoystick_(offerJoystick),
-      forceFeedback_(forceFeedback), wheelPedals_(std::move(wheelPedals)), renderScale_(std::clamp(renderScale, 1, 4)) {
+      forceFeedback_(forceFeedback), network_(network), wheelPedals_(std::move(wheelPedals)),
+      renderScale_(std::clamp(renderScale, 1, 4)) {
     gpuDraw_.scale = renderScale_;
     gpuDraw_.nearest = !smoothTextures;
     // A debugging aid: the GPU's frames written beside the software
@@ -152,6 +154,8 @@ void PlayPage::start() {
     options.nativeThrash = true;
     options.gpuThrash = gpu_;
     options.gpuAndSoftware = gpu_ && !compareFolder_.empty();
+    if (network_ && sys_)
+        options.sockets = sys_->sockets();
     // A controller connected now is offered to the game as a joystick (it
     // looks for them once, as it starts).
     // A wheel as one (its pedals together on Y), and its forces if it can

@@ -138,7 +138,17 @@ constexpr KeyName kKeys[] = {
     {"f5", 0x74, 0x3f}, {"f6", 0x75, 0x40}, {"f7", 0x76, 0x41}, {"f8", 0x77, 0x42}, {"f9", 0x78, 0x43},
     {"f10", 0x79, 0x44}, {"home", 0x24, 0xc7}, {"end", 0x23, 0xcf}, {"pageup", 0x21, 0xc9},
     {"pagedown", 0x22, 0xd1}, {"insert", 0x2d, 0xd2}, {"delete", 0x2e, 0xd3},
+    // Punctuation (OEM keys, a US keyboard's), for typing addresses and names.
+    {".", 0xbe, 0x34}, {",", 0xbc, 0x33}, {"-", 0xbd, 0x0c}, {"/", 0xbf, 0x35}, {";", 0xba, 0x27},
 };
+
+// The character a key types, as TranslateMessage gives it (no shift): 0
+// for none.
+char keyChar(const KeyName& k) {
+    if (k.name[0] && !k.name[1] && k.name[0] >= 0x20 && k.name[0] < 0x7f)
+        return k.name[0];
+    return k.vk == 0x20 ? ' ' : k.vk == 0x0d ? '\r' : k.vk == 0x08 ? '\b' : 0;
+}
 
 } // namespace
 
@@ -146,7 +156,7 @@ bool GameHost::queueKey(const std::string& name, bool down, uint64_t atMs) {
     for (const KeyName& k : kKeys)
         if (lower(name) == k.name) {
             std::lock_guard<std::mutex> lock(inputMutex_);
-            pendingKeys_.push_back({k.vk, k.scan, down, atMs});
+            pendingKeys_.push_back({k.vk, k.scan, down, atMs, keyChar(k)});
             inputQueued_ = true;
             return true;
         }
@@ -229,9 +239,9 @@ void GameHost::applyInput() {
                                     (e.down ? 0u : 0xc0000000u);
             queues_[windows_.front().threadId].push_back(
                 {windows_.front().handle, e.down ? 0x100u : 0x101u, e.vk, lParam, uint32_t(process_->now())});
-            if (e.down && e.vk >= 0x20 && e.vk < 0x7f) // WM_CHAR, as TranslateMessage would make
+            if (e.down && e.ch) // WM_CHAR, as TranslateMessage would make
                 queues_[windows_.front().threadId].push_back(
-                    {windows_.front().handle, 0x102u, uint32_t(std::tolower(e.vk)), lParam, uint32_t(process_->now())});
+                    {windows_.front().handle, 0x102u, uint32_t(uint8_t(e.ch)), lParam, uint32_t(process_->now())});
         }
     }
 }
@@ -692,50 +702,6 @@ void GameHost::addSystem() {
     });
 }
 
-void GameHost::addNetwork() {
-    // WSOCK32, by ordinal (Windows Sockets 1.1's numbering): no network.
-    // WSAStartup fails, so the game offers no network play; the pure
-    // functions work.
-    const char* w = "WSOCK32.dll";
-    struct Fn {
-        int ordinal, args;
-        uint32_t result;
-    };
-    const uint32_t kError = 0xffffffffu;
-    const Fn failing[] = {{1, 3, kError},  {2, 3, kError},  {3, 1, kError},  {4, 3, kError},  {6, 3, kError},
-                          {12, 3, kError}, {13, 2, kError}, {16, 4, kError}, {17, 6, kError}, {18, 5, kError},
-                          {19, 4, kError}, {20, 6, kError}, {21, 5, kError}, {22, 2, kError}, {23, 3, kError},
-                          {52, 1, 0},      {57, 2, kError}, {151, 2, 0},     {116, 0, 0}};
-    for (const Fn& f : failing) {
-        const uint32_t result = f.result;
-        provide(w, ("#" + std::to_string(f.ordinal)).c_str(), f.args, [result](Cpu&) { return result; });
-    }
-    auto swap16 = [](uint32_t v) { return ((v & 0xff) << 8) | ((v >> 8) & 0xff); };
-    auto swap32 = [](uint32_t v) { return (v >> 24) | ((v >> 8) & 0xff00) | ((v << 8) & 0xff0000) | (v << 24); };
-    provide(w, "#9", 1, [swap16](Cpu& c) { return swap16(c.arg(0)); });  // htons
-    provide(w, "#15", 1, [swap16](Cpu& c) { return swap16(c.arg(0)); }); // ntohs
-    provide(w, "#8", 1, [swap32](Cpu& c) { return swap32(c.arg(0)); });  // htonl
-    provide(w, "#14", 1, [swap32](Cpu& c) { return swap32(c.arg(0)); }); // ntohl
-    provide(w, "#10", 1, [](Cpu& c) {                                     // inet_addr
-        unsigned a = 0, b = 0, d = 0, e = 0;
-        if (std::sscanf(c.string(c.arg(0), 32).c_str(), "%u.%u.%u.%u", &a, &b, &d, &e) != 4)
-            return 0xffffffffu;
-        return a | b << 8 | d << 16 | e << 24;
-    });
-    provide(w, "#11", 1, [this](Cpu& c) { // inet_ntoa: into a buffer of its own
-        static uint32_t buffer = 0;
-        if (!buffer)
-            buffer = process_->memory().alloc(16);
-        const uint32_t v = c.arg(0);
-        char text[16];
-        std::snprintf(text, sizeof text, "%u.%u.%u.%u", v & 0xff, (v >> 8) & 0xff, (v >> 16) & 0xff, v >> 24);
-        c.writeString(buffer, text, 16);
-        return buffer;
-    });
-    provide(w, "#111", 0, [](Cpu&) { return 10091u; }); // WSAGetLastError: WSASYSNOTREADY
-    provide(w, "#115", 2, [](Cpu&) { return 10091u; }); // WSAStartup: WSASYSNOTREADY
-}
-
 uint32_t GameHost::callWindow(const Window& w, uint32_t msg, uint32_t wParam, uint32_t lParam) {
     uint32_t result = 0;
     if (Error e = cpu_->call(w.wndProc, {w.handle, msg, wParam, lParam}, result))
@@ -927,7 +893,10 @@ void GameHost::addUser() {
     provide(u, "ShowCursor", 1, [this](Cpu& c) { return uint32_t(cursorCount_ += c.arg(0) ? 1 : -1); });
     provide(u, "SwapMouseButton", 1, [](Cpu&) { return 0u; });
     provide(u, "LoadIconA", 2, [](Cpu&) { return 0x30001u; });
-    provide(u, "GetSystemMetrics", 1, [](Cpu& c) -> uint32_t { return c.arg(0) == 0 ? 640 : c.arg(0) == 1 ? 480 : 0; });
+    // The screen's size; SM_NETWORK (63) when there's a network.
+    provide(u, "GetSystemMetrics", 1, [this](Cpu& c) -> uint32_t {
+        return c.arg(0) == 0 ? 640 : c.arg(0) == 1 ? 480 : c.arg(0) == 63 ? (options_.sockets ? 1 : 0) : 0;
+    });
     provide(u, "SystemParametersInfoA", 4, [](Cpu&) { return 1u; });
     provide(u, "SetWindowsHookExA", 4, [](Cpu&) { return 0x40001u; });
     provide(u, "UnhookWindowsHookEx", 1, [](Cpu&) { return 1u; });

@@ -127,7 +127,9 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   joystick (a racing wheel as a wheel), and the game's own Controllers screen binds it
   (`joystick=off` leaves it out). The game's force feedback goes to a wheel's motor or a
   pad's rumble (`forcefeedback=off` leaves it out); `wheelpedals=2,3` names a wheel's
-  accelerator and brake axes if they aren't found. The 3D pages
+  accelerator and brake axes if they aren't found. Its network play (Connect Players,
+Network (TCP)) uses the machine's network, other players joining on TCP port 1030
+(`network=off` leaves it out). The 3D pages
   need a GPU with Vulkan (Linux, Windows) or Metal (macOS). On tracks, **PageUp/PageDown**
   pick one, **W/A/S/D** move, the arrows or a drag look, **Space/C** go up and down,
   **Shift** goes faster, **N/B** jump to the next or previous piece of road, **1/2/3** pick

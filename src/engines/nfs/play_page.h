@@ -31,6 +31,8 @@ public:
     // With a GPU, frames are drawn `renderScale` times the game's 640x480,
     // with bilinear filtering if `smoothTextures` (else point-sampled, as
     // the software renderer).
+    // With `network`, the game's sockets are the machine's, for its
+    // network play over TCP.
     // A game controller connected at the start is offered to the game as a
     // joystick unless `offerJoystick` is false: a wheel as a wheel, with
     // the forces the game asks for (force feedback, or a pad's rumble)
@@ -38,7 +40,7 @@ public:
     // axis numbers) is for a wheel SDL has no layout for.
     PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer* mixer, int renderScale = 2,
              bool smoothTextures = false, bool offerJoystick = true, bool forceFeedback = true,
-             std::string wheelPedals = {});
+             std::string wheelPedals = {}, bool network = true);
     ~PlayPage() override;
     const char* name() const override { return "Play"; }
     bool capturesEscape() const override { return true; }
@@ -73,6 +75,7 @@ private:
     GamepadState pad_;       // as last passed on
     bool offerJoystick_ = true;
     bool forceFeedback_ = true;
+    bool network_ = true; // the game's sockets on the machine's (System::sockets)
     std::string wheelPedals_;
     GamepadForce force_;     // as last passed on
     bool forceShown_ = false;

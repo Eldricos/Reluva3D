@@ -383,4 +383,9 @@ bool SdlSystem::resolveHost(const std::string& host, uint32_t& ip) { return net:
 
 std::vector<uint32_t> SdlSystem::broadcastAddresses() { return net::systemBroadcastAddresses(); }
 
+std::shared_ptr<net::Sockets> SdlSystem::sockets() {
+    static const std::shared_ptr<net::Sockets> shared = net::systemSockets();
+    return shared;
+}
+
 } // namespace reluva

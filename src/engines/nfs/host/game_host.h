@@ -4,6 +4,7 @@
 #pragma once
 
 #include "common/audio/mixer.h"
+#include "common/net.h"
 #include "common/types.h"
 #include "common/x86/cpu.h"
 #include "common/x86/win32.h"
@@ -62,6 +63,15 @@ public:
         // gamepadForce()).
         bool joystickWheel = false;
         bool forceFeedback = false;
+        // The network the game's sockets (WSOCK32) use; none if null, and
+        // then it offers no network play.
+        std::shared_ptr<net::Sockets> sockets;
+        // The address the game's sockets are given wherever it asks for any
+        // (0: as asked), for copies on one machine to have one each
+        // (127.0.0.2, 127.0.0.3...); and where its broadcasts go instead of
+        // 255.255.255.255 (empty: there).
+        uint32_t netAddress = 0;
+        std::vector<uint32_t> broadcastTo;
     };
     GameHost(GameFolders folders, Options options);
     ~GameHost();
@@ -157,7 +167,7 @@ private:
     void provide(const char* dll, const char* name, int args, std::function<uint32_t(x86::Cpu&)> fn);
     void addSystem();   // KERNEL32 left over, GDI32, ADVAPI32, VERSION, SHELL32, ole32
     void addUser();     // USER32: windows and messages
-    void addNetwork();  // WSOCK32: there's no network
+    void addNetwork();  // WSOCK32, on Options::sockets (winsock.cpp)
     void addDirectX();  // DDRAW and DINPUT
     void addDirectSound();
     void addNativeRoutines(); // the C library's hottest routines in nfs3.exe, natively
@@ -195,6 +205,7 @@ private:
         uint8_t vk = 0, scan = 0;
         bool down = false;
         uint64_t atMs = 0;
+        char ch = 0; // the character it types (WM_CHAR), if any
     };
     std::mutex inputMutex_;
     std::atomic<bool> inputQueued_{false}; // something in the pending queues below
@@ -224,6 +235,18 @@ private:
     uint32_t forceGain_ = 10000;
     bool autoCentre_ = true, forcePaused_ = false, actuatorsOff_ = false;
     uint32_t effectVtable_ = 0;
+
+    // The game's sockets (winsock.cpp): Winsock's handle -> ours, and how
+    // the game has it.
+    struct WsSocket {
+        int socket = -1;
+        bool stream = false, nonBlocking = false, bound = false;
+    };
+    std::map<uint32_t, WsSocket> wsSockets_;
+    uint32_t nextWsSocket_ = 0x100;
+    std::map<uint32_t, uint32_t> wsLastError_; // by thread
+    bool wsStarted_ = false;
+    uint32_t wsBuffer_ = 0; // inet_ntoa's and gethostbyname's results
     int mouseDx_ = 0, mouseDy_ = 0;
     bool mouseButton_ = false;
     uint32_t keyboardEvent_ = 0, mouseEvent_ = 0; // SetEventNotification's handles

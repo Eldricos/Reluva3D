@@ -23,5 +23,7 @@ bool resolveSystemHost(const std::string& host, uint32_t& ip);
 // on 192.168.1.x/24...): 255.255.255.255 leaves by one of them only, so a
 // machine on several (a virtual machine's network as well) asks each.
 std::vector<uint32_t> systemBroadcastAddresses();
+// The operating system's sockets, as net::Sockets.
+std::shared_ptr<Sockets> systemSockets();
 
 } // namespace reluva::net

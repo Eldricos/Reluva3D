@@ -3,6 +3,7 @@
 
 #include "tools/nfs_commands.h"
 
+#include "backends/sockets/socket_net.h"
 #include "common/audio/wav.h"
 #include "common/events.h"
 #include "common/image.h"
@@ -72,6 +73,7 @@ const char* const kUsageLines =
     "                       [-timescale 0.1] [-thrashlog fromframe toframe] [-native] [-wav sound.wav]\n"
     "                       [-joystick name] (keys also joy:A=V...: axes 0-5 = V, button bB; +key/-key held)\n"
     "                       [-wheel] [-ff] (the joystick a wheel; with force feedback) [-forcelog forces.csv]\n"
+    "                       [-net] (the network) [-netaddr a.b.c.d] [-broadcast a.b.c.d,...]\n"
     "                       [-hotspots from to] (instructions counted by where they run, 16-byte blocks)\n"
     "                       [-gpulog] (THRASH recorded as for the GPU; each frame's list summed up)\n"
     "  reluva-tool nfs-survey <folder>... [-v]\n"
@@ -1005,7 +1007,22 @@ int cmdNfsHost(int argc, char** argv) {
             gpuLog = true;
         } else if (arg == "-joystick" && a + 1 < argc)
             options.joystick = argv[++a];
-        else if (arg == "-wheel")
+        else if (arg == "-net")
+            options.sockets = reluva::net::systemSockets();
+        else if ((arg == "-netaddr" || arg == "-broadcast") && a + 1 < argc) {
+            const std::string list = argv[++a];
+            for (size_t at = 0; at < list.size();) {
+                const size_t comma = std::min(list.find(',', at), list.size());
+                reluva::net::Address parsed;
+                if (!reluva::net::parseAddress(list.substr(at, comma - at), 0, parsed))
+                    return fail(reluva::Error::fail("not an address: " + list.substr(at, comma - at)));
+                if (arg == "-netaddr")
+                    options.netAddress = parsed.ip;
+                else
+                    options.broadcastTo.push_back(parsed.ip);
+                at = comma + 1;
+            }
+        } else if (arg == "-wheel")
             options.joystickWheel = true;
         else if (arg == "-ff")
             options.forceFeedback = true;

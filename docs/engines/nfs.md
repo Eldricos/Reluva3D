@@ -696,6 +696,57 @@ Started. Done so far:
   there, and in the race that followed, holding W drove the car to 50
   mph.
 
+- **Network play** (TCP). The game does its own networking through
+  Windows Sockets 1.1 (`WSOCK32`, 25 functions by ordinal), with no
+  DirectPlay.
+  - **The stand-in.** `host/winsock.cpp` does each call on real sockets
+    (`net::Sockets`, `common/net.h`, done for the system in the sockets
+    backend). It covers Winsock's structures in the game's memory
+    (`sockaddr_in`, `fd_set`, `hostent`, `WSADATA`), its error numbers,
+    and its blocking: a socket blocks unless the game makes it
+    non-blocking, and a blocked call (`accept`, `recv`, `select`) lets
+    the game's other threads run while it waits.
+    `GetSystemMetrics(SM_NETWORK)` says there's a network.
+  - **What the game does.** Found by logging its calls.
+    - **Probing.** Opening Connect Players, it asks for an IPX socket
+      (`AF_IPX`, refused here, so that entry stays dim) and a TCP one, to
+      see which it can offer.
+    - **Hosting.** Each player listens on TCP port 1030 (peer to peer),
+      having looked up its own address (`gethostname`,
+      `gethostbyname`) to show it.
+    - **Joining.** It asks for a domain name or IP address and connects
+      to that player's port 1030.
+    - **Messages.** Each one starts with its 16-bit length, itself
+      included: the receiver peeks at 2 bytes, then at that many, then
+      reads them.
+    - **In a race.** Each player sends a 35-byte message about 29 times
+      a second, about once a frame. Nothing used UDP.
+  - **Two copies on one machine.** `nfs-host -net` gives the game the
+    machine's sockets, and `-netaddr 127.0.0.2` gives a copy its own
+    loopback address wherever the game asks for any. So two copies can
+    both listen on port 1030, and what each sends comes from its own
+    address. `-broadcast` names where a UDP broadcast goes instead;
+    nothing used one yet.
+    - **The test.** Copy A (127.0.0.2) chose Network (TCP), Host Game,
+      Peer-to-Peer. Copy B (127.0.0.3) chose Join Game and typed
+      127.0.0.2.
+    - **Lobby.** Both reached the same multiplayer lobby, each listing
+      both players. B's chat line ("hi") showed in A's chat, and B's
+      Ready light in A's list.
+    - **Race.** A started the race, and both loaded the same race of
+      eight cars (two players and six of the game's). They ran it for
+      four minutes, their race clocks a second apart, with no drop-out.
+  - **Scripting the menus.** A test script clicks by sending the cursor
+    to the corner and then moving it to the point: the game's cursor is
+    the sum of the mouse's moves, clamped to the screen, without
+    acceleration. `.` `,` `-` `/` and `;` can be typed (each key now
+    gives its own character as `WM_CHAR`; before, the arrow keys gave
+    `%&'(`).
+  - **In the Play page,** the game gets the machine's sockets
+    (`System::sockets`); `network=off` in `reluva.ini` leaves them out.
+    Other players connect to TCP port 1030, so a router has to pass it
+    on to the host.
+
 - **Loading time.** Measured with `nfs-host -framelog` and
   `-hotspots from to`, which counts the instructions run in each
   16-byte block of code over a range of the run.
@@ -744,7 +795,14 @@ Still to do:
 - **Played by hand** on a real GPU with speakers, a pad and a wheel. So
   far it's been checked on software Vulkan and virtual controllers,
   driven by scripts.
-- **Later: network play** (WSOCK32) to other Reluva players.
+- **Network play, the rest.**
+  - Real machines over a LAN and the internet: so far only two copies
+    on one machine have played.
+  - How a race holds up over a slower link, or when a copy stalls for
+    loading longer than the original did.
+  - The messages written up as a format.
+  - IPX (which could be carried over UDP), modem and serial links
+    (a null-modem cable over TCP) aren't stood in for.
 - **Not planned:** d3da (see above) and the Glide renderers, which the
   native and GPU drawing make unneeded.
 

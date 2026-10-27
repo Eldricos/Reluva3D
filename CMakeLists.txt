@@ -200,6 +200,7 @@ if(RELUVA_ENGINE_NFS)
         src/engines/nfs/host/game_host.cpp
         src/engines/nfs/host/directx.cpp
         src/engines/nfs/host/force_effects.cpp
+        src/engines/nfs/host/winsock.cpp
         src/engines/nfs/host/thrash.cpp
         src/engines/nfs/host/thrash_native.cpp
         src/engines/nfs/fce.cpp
@@ -258,6 +259,14 @@ if(RELUVA_BUILD_TESTS)
         target_link_libraries(reluva_sdl_tests PRIVATE ws2_32 iphlpapi)
     endif()
     add_test(NAME sdl_controller COMMAND reluva_sdl_tests)
+
+    # The system's sockets (net::Sockets), on the loopback.
+    add_executable(reluva_socket_tests tests/test_sockets.cpp src/backends/sockets/socket_net.cpp)
+    target_link_libraries(reluva_socket_tests PRIVATE reluva_common reluva_warnings)
+    if(WIN32)
+        target_link_libraries(reluva_socket_tests PRIVATE ws2_32 iphlpapi)
+    endif()
+    add_test(NAME sockets COMMAND reluva_socket_tests)
 
     if(RELUVA_ENGINE_NEWWORLDS)
         add_executable(reluva_newworlds_tests tests/test_newworlds_cat.cpp)

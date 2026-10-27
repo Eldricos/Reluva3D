@@ -104,6 +104,9 @@ public:
     // The broadcast address of each network the machine is on (255.255.255.255
     // reaches only one of them when there are several).
     virtual std::vector<uint32_t> broadcastAddresses() { return {}; }
+    // The machine's sockets, TCP and UDP, for a game's own socket calls
+    // (net::Sockets); null when there's no network.
+    virtual std::shared_ptr<net::Sockets> sockets() { return nullptr; }
 };
 
 } // namespace reluva
