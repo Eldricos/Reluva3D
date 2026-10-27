@@ -31,6 +31,7 @@ struct VertexUniforms {
     float color[4];
     float mode[4];
     float mode2[4];
+    float fogPlane[4];
     float ambient[4], directed[4], lightDir[4];
     DeformUniforms deforms[2];
 };
@@ -666,6 +667,8 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     vu.mode[3] = call.fogDistance;
     vu.mode2[0] = call.followCamera ? 1.0f : 0.0f;
     vu.mode2[1] = call.backLerp;
+    vu.mode2[2] = call.fogDepth;
+    put(vu.fogPlane, call.fogPlane);
     for (size_t i = 0; i < call.deforms.size(); ++i) {
         const gfx::Deform& d = call.deforms[i];
         DeformUniforms& u = vu.deforms[i];
@@ -687,6 +690,7 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     SDL_PushGPUVertexUniformData(cmd_, 0, &vu, sizeof(vu));
     FragmentUniforms fu{};
     fu.params[0] = float(call.state.alphaTest);
+    fu.params[3] = call.fogDepth > 0 ? 1.0f : 0.0f;
     if (call.texture == frameTexture_) {
         fu.params[1] = 2; // the brightness pass
         fu.params[2] = 1.0f / gamma_;

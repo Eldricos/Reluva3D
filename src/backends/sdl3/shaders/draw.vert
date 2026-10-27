@@ -17,6 +17,7 @@ layout(location = 6) in vec3 inOldNormal;
 layout(location = 0) out vec2 outUv;
 layout(location = 1) out vec4 outColor;
 layout(location = 2) out vec3 outWorld; // the position in the world, for dynamic lights
+layout(location = 3) out vec2 outFog;   // fog volumes: view depth over the fog's, and the depth under its surface
 
 struct DeformData {
     vec4 a; // x: type (0 none, 1 wave, 2 bulge, 3 move), y: wave function, z: base, w: amplitude
@@ -38,7 +39,9 @@ layout(set = 1, binding = 0) uniform Draw {
     vec4 color;
     vec4 mode;     // x: texGen (0 uv, 1 uv2, 2 environment, 3 vector), y: rgb source, z: alpha source
                    // (0 constant, 1 vertex, 2 one minus vertex, 3 lighting), w: fog distance (0 off)
-    vec4 mode2;    // x: follow the camera, y: how far towards the old frame's positions
+    vec4 mode2;    // x: follow the camera, y: how far towards the old frame's positions,
+                   // z: a fog volume's depth for opaque (0: not a fog volume pass)
+    vec4 fogPlane; // xyz: normal out of the fog volume, w: its distance
     vec4 ambient;  // xyz: ambient light for the lighting colour source
     vec4 directed; // xyz: directed light
     vec4 lightDir; // xyz: towards the light, world space
@@ -128,4 +131,18 @@ void main() {
         outColor = vec4(color.rgb, clamp(distance(world, eye.xyz) / mode.w, 0.0, 1.0));
     outWorld = world;
     gl_Position = viewProj * vec4(world, 1.0);
+    outFog = vec2(0.0);
+    if (mode2.z > 0.0) {
+        // How deep under the fog's surface the vertex and the eye are;
+        // below that the eye's outside, the fog thins towards the surface.
+        outColor = vec4(color.rgb, 1.0);
+        float t = fogPlane.w - dot(world, fogPlane.xyz);
+        float eyeT = fogPlane.w - dot(eye.xyz, fogPlane.xyz);
+        float depthScale;
+        if (eyeT < 0.0)
+            depthScale = t < 1.0 ? 0.0 : t / (t - eyeT);
+        else
+            depthScale = t < 0.0 ? 0.0 : 1.0;
+        outFog = vec2(gl_Position.w / mode2.z, depthScale);
+    }
 }

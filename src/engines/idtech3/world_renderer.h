@@ -115,9 +115,11 @@ private:
     struct Fog {
         std::array<float, 3> color{};
         float distance = 0;
+        std::array<float, 4> plane{0, 0, 0, 1}; // its surface (see gfx::DrawCall::fogPlane)
     };
 
     void buildSky(const ShaderDef& sky);
+    void drawFog(int material, const gfx::DrawCall& base, int fog, float time) const;
 
     gfx::Renderer3D& r_;
     ShaderCache& shaders_;

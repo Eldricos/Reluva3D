@@ -10,6 +10,7 @@
 layout(location = 0) in vec2 inUv;
 layout(location = 1) in vec4 inColor;
 layout(location = 2) in vec3 inWorld;
+layout(location = 3) in vec2 inFog;
 
 layout(location = 0) out vec4 outColor;
 
@@ -17,7 +18,7 @@ layout(set = 2, binding = 0) uniform sampler2D tex;
 
 layout(set = 3, binding = 0) uniform Fragment {
     vec4 params; // x: alpha test (0 none, 1 > 0, 2 < 0.5, 3 >= 0.5), y: dynamic lights instead (1)
-                 // or the brightness pass (2, z: 1 / gamma)
+                 // or the brightness pass (2, z: 1 / gamma), w: a fog volume pass (1)
     vec4 lightCount; // x
     vec4 lightPos[16]; // xyz, w: radius
     vec4 lightColor[16];
@@ -37,6 +38,11 @@ void main() {
             sum += lightColor[i].rgb * clamp(1.0 - d / lightPos[i].w, 0.0, 1.0);
         }
         outColor = vec4(sum, 1.0);
+        return;
+    }
+    if (params.w > 0.5) {
+        // A fog volume: thickening with the square root of the depth.
+        outColor = vec4(inColor.rgb, sqrt(clamp(inFog.x * inFog.y, 0.0, 1.0)));
         return;
     }
     vec4 c = texture(tex, inUv) * inColor;

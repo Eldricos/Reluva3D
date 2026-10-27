@@ -145,6 +145,13 @@ struct DrawCall {
     // > 0: the fragment's alpha is instead clamp(distance from the camera
     // / fogDistance), for blending a fog colour over drawn geometry.
     float fogDistance = 0;
+    // > 0: the fragment's alpha is instead how fogged it is in a fog
+    // volume, as Quake 3 has it: by its distance along the view axis
+    // over fogDepth, scaled down by how far it is under the volume's
+    // surface, fogPlane (xyz: the normal out of the volume, w: its
+    // distance; a zero normal: no surface, inside everywhere).
+    float fogDepth = 0;
+    std::array<float, 4> fogPlane{0, 0, 0, 1};
     std::array<Deform, 2> deforms{};
     float time = 0;              // seconds, for the deforms
     bool followCamera = false;   // positions are relative to the camera (skies)

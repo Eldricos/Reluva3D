@@ -77,6 +77,11 @@ void WorldRenderer::clear() {
     triangles_ = 0;
 }
 
+void WorldRenderer::drawFog(int material, const gfx::DrawCall& base, int fog, float time) const {
+    const Fog& f = fogs_[size_t(fog)];
+    shaders_.drawFog(material, base, f.color, f.distance, f.plane, time);
+}
+
 void WorldRenderer::buildSky(const ShaderDef& sky) {
     // A box around the camera. Each side maps (s, t) in -1..1 to a direction
     // the way the original lays its sky box out; the far box's images go on
@@ -164,6 +169,14 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
         if (const ShaderDef* def = library.find(f.shader); def && def->fog) {
             fog.color = def->fogColor;
             fog.distance = def->fogDistance;
+        }
+        // The brush side the volume is seen through is its surface.
+        if (f.visibleSide >= 0 && f.brush >= 0 && size_t(f.brush) < bsp.brushes.size()) {
+            const size_t side = size_t(bsp.brushes[size_t(f.brush)].firstSide + f.visibleSide);
+            if (side < bsp.brushSides.size() && size_t(bsp.brushSides[side].plane) < bsp.planes.size()) {
+                const BspPlane& p = bsp.planes[size_t(bsp.brushSides[side].plane)];
+                fog.plane = {p.normal[0], p.normal[1], p.normal[2], p.dist};
+            }
         }
         fogs_.push_back(fog);
     }
@@ -455,7 +468,7 @@ void WorldRenderer::drawSurfaces(float time, float sortMin, float sortMax, bool 
         }
         shaders_.draw(b.material, base, b.lightmap >= 0 ? lightmaps_[size_t(b.lightmap)] : 0, time);
         if (b.fog >= 0)
-            shaders_.drawFog(b.material, base, fogs_[size_t(b.fog)].color, fogs_[size_t(b.fog)].distance, time);
+            drawFog(b.material, base, b.fog, time);
     }
     drawSprites(time, sortMin, sortMax);
 }
@@ -759,8 +772,7 @@ void WorldRenderer::drawSprites(float time, float sortMin, float sortMax) const 
         const int lm = p.sprite->lightmap;
         shaders_.draw(p.sprite->material, base, lm >= 0 ? lightmaps_[size_t(lm)] : 0, time);
         if (p.sprite->fog >= 0)
-            shaders_.drawFog(p.sprite->material, base, fogs_[size_t(p.sprite->fog)].color,
-                             fogs_[size_t(p.sprite->fog)].distance, time);
+            drawFog(p.sprite->material, base, p.sprite->fog, time);
     }
     r_.destroyMesh(mesh);
 }
@@ -794,7 +806,7 @@ void WorldRenderer::drawModel(int model, const gfx::Mat4& transform, float time,
         base.indexCount = b.indexCount;
         shaders_.draw(b.material, base, b.lightmap >= 0 ? lightmaps_[size_t(b.lightmap)] : 0, time);
         if (b.fog >= 0)
-            shaders_.drawFog(b.material, base, fogs_[size_t(b.fog)].color, fogs_[size_t(b.fog)].distance, time);
+            drawFog(b.material, base, b.fog, time);
     }
 }
 
