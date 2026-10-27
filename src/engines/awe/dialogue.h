@@ -50,6 +50,18 @@ int dialoguePartCode(std::string_view s);
 int dialogueThreadCode(std::string_view s);
 int dialogueNestCode(std::string_view s);
 
+// "talk <name> <code> [options]" (0x40ba25), and "cantalk" with the same
+// words (0x407f24): the code's letters are the part, thread and nest; a
+// number n the part n + 99, none part 100; a "+" at its end goes on to the
+// next part. Options: nogen, forcegen, nogreet, or an alternative's
+// number. `gen` is the default (a character was clicked; cantalk: on).
+struct TalkArgs {
+    std::string name;
+    int part = 100, thread = -1, nest = -1, number = -1;
+    bool gen = false, plus = false, greet = true;
+};
+TalkArgs parseTalkArgs(const std::vector<std::string>& words, bool gen);
+
 // A conversation's part (one Name and Conver.), its threads in order.
 struct DialoguePart {
     std::string name, act;
@@ -128,6 +140,10 @@ public:
     // then `runner` hears "talk" done when it's over.
     bool talk(ScriptRunner& runner, const std::string& name, int part, int thread, int nest, bool gen, int number,
               bool plus, bool greet);
+    // Whether that "talk" would start: the "cantalk" condition's dry run
+    // (0x407f24), nothing shown or said. False while a conversation is on.
+    bool canTalk(const std::string& name, int part, int thread, int nest, bool gen, int number, bool plus,
+                 bool greet);
     // The "nothing to say" line (0x43a550), for an NPC with nothing left.
     bool noTalk(ScriptRunner& runner);
     // Moves things on by `seconds`.
@@ -135,6 +151,9 @@ public:
     // A click: a choice, or the line cut short (after half a second).
     void click(int x, int y);
     void mouseMove(int x, int y);
+    // Without a mouse (tools): choice i taken, or the line cut short as a
+    // click would; false if neither can be done now.
+    bool choose(int i);
 
     // A tag every "met them here" tag of the scene is set to when it's
     // left (0x43aee0).
@@ -176,6 +195,7 @@ private:
     void addExit(DialoguePart& p);
     void addRegreet(DialoguePart& p, int visit);
     std::vector<std::pair<DialoguePart*, int>> extras();
+    bool take(int choice);
     void menu(bool first, bool keepBox);
     void play(DialoguePart* p, int thread, int line);
     void startLine();
@@ -200,6 +220,7 @@ private:
     bool active_ = false, choosing_ = false, playing_ = false;
     bool firstOffer_ = true, plus_ = false, goOn_ = false, gen_ = false, greet_ = true;
     int number_ = -1, lastAlternative_ = -1;
+    bool dry_ = false; // a dry run (cantalk)
     bool waitPrevent_ = false, voice_ = false, showWhilePovent_ = true;
     float textLeft_ = 0, lineTime_ = 0, pause_ = -1;
     int pending_ = 0; // after the Povent: 1 end the talk, 2 the next line, 3 the menu

@@ -59,7 +59,11 @@ std::vector<ActRow> readActs(const Table& table) {
         ActRow r;
         r.act = actName(major, minor);
         r.preLoad = cell(1);
+        // Trailing spaces ("calais.hall " in 06A) go, as Windows drops them
+        // from a folder's name.
         r.location = fs::toLower(cell(2));
+        while (!r.location.empty() && r.location.back() == ' ')
+            r.location.pop_back();
         r.postLoad = cell(3);
         r.time = contains(cell(4), "night") ? 1 : 0;
         r.weather = contains(cell(5), "blizzard") ? 2 : contains(cell(5), "snow") ? 1 : 0;

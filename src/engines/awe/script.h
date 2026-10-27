@@ -29,6 +29,10 @@ struct ScriptEvent {
 
 class ScriptRunner;
 
+// Gives Poirot an item in that state (2: in the bag, 1: just taken);
+// passports and fingerprint cards take their own (5, 6).
+void addItem(GameState& state, const std::string& item, int st);
+
 // Adds `seconds` to every timer ("time <n>", and each second that passes).
 void addTime(GameState& state, int seconds);
 
@@ -77,6 +81,13 @@ public:
     // it). Anything else is ignored, as the game ignores it.
     void finished(std::string_view verb);
     bool idle() const { return queue_.empty() && !running_; }
+    // The event at the front, its words joined; "" if none.
+    std::string current() const;
+    // Whether clicks are refused (the runner's +8): from an event's start
+    // (but a walk's, a run's or a turn's, or the one after an "unlock")
+    // until the queue is empty or an "unlock". A click taken while
+    // something runs replaces it (0x409760).
+    bool locked() const { return locked_; }
     // The event under way is dropped from being under way, kept at the
     // front: the next update starts it again ("pause" of a character's
     // routine: 0x4057f0).
@@ -115,6 +126,8 @@ private:
     float waitLeft_ = -1;       // a "wait"'s seconds left
     std::string character_;
     bool fromCharacter_ = false;
+    bool locked_ = false;
+    std::string lastDone_; // the verb of the event done last
 };
 
 } // namespace reluva::awe

@@ -657,7 +657,10 @@ ends. Exits exist only with gen (NPC clicks or `forcegen`).
   * `!talk ...` negates, as for any condition.
 * `cantalk <name> <code> ...` (0x407f24): a dry run of Start with +0x61c=1;
   true if it would start. Speaking is skipped but other side effects are not
-  fully suppressed (*likely*).
+  fully suppressed (*likely*). Its words are parsed as `talk`'s, with gen on unless
+  `nogen` (0x407f3a). Reluva's dry run (`DialogueManager::canTalk`) stops
+  where the conversation would show its box, and puts back what it
+  changed.
 * The next condition verb after `talk` in that chain is `test` (0x40869a), a
   separate verb that was not read here.
 
@@ -728,6 +731,6 @@ extras for characters clicked, and slides the box in and out. The
 Scenes page is its host: it plays the voices (`Sound/VO`), draws the box
 (`src/engines/awe/dialogue_box.cpp`), and passes on clicks. Not done
 yet: the speakers' heads and mouths (logged), the inventory's changes
-at a talk's start, `cantalk`, keyboard choices, picture choices (act 8),
+at a talk's start, keyboard choices, picture choices (act 8),
 movie subtitles through the manager, and subtitles being optional (the
 text always shows).

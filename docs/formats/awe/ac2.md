@@ -530,18 +530,59 @@ characters (`COND`) hold conditions in the game's own language:
     act 06a| act 06b| act 07a
     moving 0, !act 06a
 
-Clauses are joined by `,` (all of them) and `|` (any of them); `!` turns
-one round. A clause is a word and maybe an argument. The evaluator
-(`0x407d00`..`0x408a00`) compares each word's name in turn: `act`,
-`chapter`, `debug`, `demo`, `has`, `available`, `lastscene`,
-`location`, `master`, `moving`, `rand`, `scene`, `tag`, `nouse`, `talk`,
-`test`, `time`, `timer`, `use`, `used`, `wearing`, `weather`, and
-`nogen`, `forcegen`, `nogreet` for characters. Number arguments starting
-with `<` or `>` compare that way; otherwise they must be equal. Acts
-("06a") compare as text. `0` alone never holds.
+The evaluator is `0x407ae0`, a clause `0x407cb0`. It works like this:
 
-How `,` and `|` combine when both appear is assumed (`|` splits first);
-no sample mixes them. Reluva's evaluator is `testCondition`
+1. No condition, an empty one, or `1` holds.
+2. **Brackets.** If there's a `(`, what's between it and the next `)` is
+   worked out first (the same way), and the condition becomes what came
+   before the `(` followed by `1` or `0`. Whatever followed the `)` is
+   dropped. The install uses this to mix `,` and `|`: all 13 conditions
+   that have both are like `tag eavesdrop9, (use waterglass | tag
+   autoeavesdrop nouse)`.
+3. **`,` and `|`.** If a `|` is anywhere, the clauses (split at both) are
+   tried in turn and the first that holds makes the condition hold.
+   Otherwise every clause must hold.
+4. **A clause.** A `!` first (or after one space) turns it round. Then
+   its words, split at spaces: a word and up to four arguments.
+
+The words, in the order the evaluator compares them:
+
+| Word | Holds when |
+|------|------------|
+| `0` / `1` | never / always |
+| `act [<\|>]06a` | the act equals, is before, or is after that one (by number, then letter) |
+| `action <word>` | the save, load or options screen allows it (`up`, `open`...) |
+| `beenthere`, `beenhere <scene\|this> [<act>\|ever]` | [acts.md](acts.md#timers-and-conditions) |
+| `cantalk <name> <code> [options]` | that `talk` would start: the dialogue's dry run ([dialogue.md](dialogue.md)); `gen` is on unless `nogen` |
+| `chapter [<\|>]n` | the act's number compares |
+| `debug`, `demo` | never |
+| `has <item> [available]` | the item is in the inventory, in any state; with `available`, in the bag (states 1, 2) |
+| `has all passport` / `has all fingerprint` | every one of the 19 passports, or fingerprint cards, is (`0x419560`) |
+| `lastscene <name>` | the scene left last has the name in it (ignoring case) |
+| `location <name>` | the location loaded has the name in it |
+| `master` | the developers' switch (`[0x48b084]`) is set |
+| `moving`, `time`, `weather [<\|>]n` | the train's moving, the time of day, the weather compare (no number: equals 0) |
+| `rand n` | one time in n (`rand() % n == 0`) |
+| `scene <name>` | the scene shown has the name in it |
+| `tag <name> [[<\|>]n]` | the tag compares (-99 if it isn't set); no number: it's set |
+| `tag <name> nouse` | it's set and no item is in hand |
+| `talk <name> <act> <code>` | [dialogue.md](dialogue.md) |
+| `test <x>` | a leftover from the earlier games (an apple press, radios); never in this install |
+| `timer <name> [[<\|>]n]` | as `tag`, for timers |
+| `use [<item>]` | that item is in hand; with no item, always |
+| `used <item>` | the item is used up (state 4) |
+| `wearing <name>` | the player's model wears it (`0x426260`); never asked |
+| `weather` | above |
+
+A word it doesn't know never holds (so `!` makes it hold): `null`,
+`act=` and `key` appear in the install, by mistake it seems.
+
+Item states (the inventory's `+0x1620`): 1 just taken, 2 in the bag, 3
+in hand, 4 used up (kept for `restore`), 5 a passport, 6 a fingerprint
+card, 7 taken away by `remove all`.
+
+`reluva-tool awe-scripts` counts the words of the install's 2,175
+conditions. Reluva's evaluator is `testCondition`
 (`src/engines/awe/conditions.cpp`).
 
 ## Still to find

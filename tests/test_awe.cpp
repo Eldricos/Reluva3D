@@ -700,6 +700,39 @@ void testConditions() {
     st.act.clear();
     CHECK(!testCondition("act 06a", st));
     CHECK(testCondition("!act 06a", st));
+    st.act = "06b";
+
+    // As 0x407ae0 has it: a part in brackets first; a '|' anywhere makes
+    // any clause do; words it doesn't know don't hold.
+    const char* eavesdrop = "tag eavesdrop04a, (use waterglass | tag bardraweropen nouse)";
+    CHECK(testCondition(eavesdrop, st)); // nothing in hand
+    st.held = "waterglass";
+    CHECK(testCondition(eavesdrop, st));
+    st.held = "icetongs";
+    CHECK(!testCondition(eavesdrop, st));
+    CHECK(testCondition("use icetongs", st) && testCondition("use", st) && !testCondition("use waterglass", st));
+    st.held.clear();
+    CHECK(testCondition("act 07a, tag bardraweropen | has nothing", st));
+    CHECK(testCondition("1", st) && !testCondition("null", st) && testCondition("!null", st));
+    CHECK(testCondition("tag missing <5", st) && !testCondition("tag missing 0", st)); // -99
+    CHECK(!testCondition("act >06b", st) && testCondition("act >06a", st) && testCondition("act <07a", st));
+    // The inventory: has, available, used, has all.
+    st.itemStates["icetongs"] = 4;
+    CHECK(testCondition("has icetongs", st) && !testCondition("has icetongs available", st));
+    CHECK(testCondition("used icetongs", st));
+    st.itemStates.clear();
+    CHECK(testCondition("has icetongs available", st) && !testCondition("used icetongs", st));
+    CHECK(!testCondition("has all passport", st));
+    // Names in the scene, the scene left and the location.
+    st.scene = "calais.hall_02_04a.ac2";
+    st.lastScene = "Locations\\Calais.16\\Calais.16_02.ac2";
+    st.location = "calais.hall";
+    CHECK(testCondition("scene Calais.Hall_02", st) && testCondition("lastscene calais.16_02", st));
+    CHECK(testCondition("location calais.hall", st) && !testCondition("location athens", st));
+    // cantalk asks the dialogue.
+    CHECK(!testCondition("cantalk dia_test a+", st));
+    st.canTalk = [](const std::vector<std::string>& w) { return w.size() == 2 && w[0] == "dia_test"; };
+    CHECK(testCondition("cantalk dia_test a+", st) && testCondition("!cantalk dia_other a", st));
 }
 
 void testSprite() {
@@ -872,6 +905,48 @@ void testScript() {
         CHECK(files.started[6] == "turn home" && files.started[7] == "animate 2" && files.started[8] == "walk 40 26");
     }
     CHECK(state2.tags["nested"] == 1 && r2.idle());
+
+    // A condition in brackets decides whether what follows is added, when
+    // it's added (0x408c80).
+    GameState state3;
+    FakeHost host3;
+    ScriptRunner r3(state3, host3);
+    state3.tags["hardman06bend"] = 4;
+    r3.run("tag a, (tag hardman06bend >3, has printhardman), tag b, tag c, (tag hardman06bend 4) tag d, tag e");
+    r3.fastForward();
+    CHECK(state3.tags.count("a") && !state3.tags.count("b") && !state3.tags.count("c") && state3.tags.count("e"));
+    // The inventory's verbs.
+    r3.run("add waterglass, add passmasterman, add hammer, use waterglass");
+    r3.fastForward();
+    CHECK(state3.itemState("waterglass") == 4 && state3.itemState("passmasterman") == 5);
+    r3.run("restore waterglass, remove all");
+    r3.fastForward();
+    CHECK(state3.itemState("waterglass") == 7 && state3.itemState("hammer") == 7 && state3.itemState("passmasterman") == 5);
+    state3.tags["securityunlocked"] = 1;
+    r3.run("add keysmall, restore all, remove hammer");
+    r3.fastForward();
+    CHECK(state3.itemState("waterglass") == 2 && state3.itemState("hammer") == 0 && state3.itemState("keysmall") == 0);
+    CHECK(!state3.tags.count("securityunlocked"));
+    // Clicks are refused while it runs, but during a walk, or after
+    // "unlock".
+    host3.started.clear();
+    r3.run("walk 3 4, wait 1, unlock, wait 1, lock, wait 1");
+    r3.update(0.01f);
+    CHECK(!r3.locked());
+    r3.finished("walk");
+    r3.update(0.01f);
+    CHECK(r3.locked());
+    r3.update(1.0f);
+    r3.update(0.01f);
+    r3.update(0.01f);
+    CHECK(!r3.locked());
+    r3.update(1.0f);
+    r3.update(0.01f);
+    r3.update(0.01f);
+    CHECK(r3.locked());
+    for (int i = 0; i < 4; i++)
+        r3.update(1.0f);
+    CHECK(r3.idle() && !r3.locked());
 }
 
 void testDialogueBook() {
@@ -903,6 +978,13 @@ void testDialogueBook() {
         CHECK(locked->threads[0].lines[1].voiceFile() == "sound/vo/gen_locked01aa_1.wav");
     CHECK(dialoguePartCode("a") == 0 && dialoguePartCode("1") == 100 && dialogueThreadCode("z1") == 26 &&
           dialogueThreadCode("3") == 0x62 && dialogueNestCode("b") == 1);
+    // Read by position, whatever the headings (gen_characters.txt's first
+    // is a name), with no Optional column.
+    DialogueBook gen;
+    gen.add(parseTable("gen_globalhardman\tAct\tConver.\tThread\tNest\tSpeaker\tTarget\tLine\n"
+                       "gen_arbuthnot_exit\t0\t0\t3\ta\tantoinette\t0\tAu revoir.\t0\t0\t0\t0\t0\t0\t0\tadded\n"));
+    const DialoguePart* exit = gen.find("gen_arbuthnot_exit", 99);
+    CHECK(exit && exit->threads.size() == 1 && exit->threads[0].code == 0x62);
 }
 
 // A conversation played through: no voices, so each line lasts its

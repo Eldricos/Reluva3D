@@ -12,6 +12,7 @@
 #include "engines/awe/granny_dll.h"
 #include "engines/awe/model.h"
 #include "engines/awe/savegame.h"
+#include "engines/awe/story.h"
 #include "engines/awe/tables.h"
 #include "engines/awe/viewers.h"
 #include "common/archive.h"
@@ -31,6 +32,8 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -447,6 +450,195 @@ int cmdAweShot(int argc, char** argv) {
     return 0;
 }
 
+// Plays the acts without a player (the Scenes page's autoplay): each act
+// started as "act <x>" starts it, or each developer's save loaded, then
+// moved on till it settles (nothing running, nothing said) or sticks (an
+// event that doesn't end). With -hotspots, every hotspot and character of
+// the scene it settles in is then clicked, each from the act afresh; with
+// -explore n, n clicks follow, each the one tried least so far. What
+// the scripts ask that Reluva doesn't do, or can't find, is listed.
+int cmdAweActs(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool awe-acts <game folder> [act|slotN...] [-hotspots] [-explore n] [-t seconds] [-v]\n");
+        return 2;
+    }
+    reluva::DirectoryArchive files;
+    if (reluva::Error e = files.open(argv[2])) {
+        std::fprintf(stderr, "%s\n", e.message.c_str());
+        return 1;
+    }
+    std::vector<std::string> targets;
+    bool verbose = false, hotspots = false;
+    int explore = 0;
+    double limit = 900;
+    for (int i = 3; i < argc; i++) {
+        const std::string a = argv[i];
+        if (a == "-v")
+            verbose = true;
+        else if (a == "-hotspots")
+            hotspots = true;
+        else if (a == "-explore" && i + 1 < argc)
+            explore = std::atoi(argv[++i]);
+        else if (a == "-t" && i + 1 < argc)
+            limit = std::atof(argv[++i]);
+        else
+            targets.push_back(a);
+    }
+    if (targets.empty()) {
+        std::vector<uint8_t> data;
+        if (!files.read("text/acts.txt", data))
+            for (const awe::ActRow& r : awe::readActs(awe::parseTable(awe::decodeText(data))))
+                targets.push_back(r.act);
+        for (int i = 0; i < 15; i++)
+            targets.push_back("slot" + std::to_string(i));
+    }
+    HeadlessSystem sys;
+    reluva::Surface screen;
+    screen.create(awe::kScreenW, awe::kScreenH, reluva::PixelFormat::RGBA32);
+    awe::ViewerContext ctx{sys, files, nullptr, screen, std::filesystem::temp_directory_path() / "reluva-awe-acts",
+                           nullptr};
+    int problems = 0;
+    // Runs the game on till it settles; false if it sticks.
+    auto settle = [&](awe::ScenePage& page, std::vector<std::string>& log, const std::string& what) {
+        const uint64_t start = sys.now;
+        uint64_t quietSince = 0, eventSince = sys.now;
+        std::string lastEvent;
+        while (sys.now - start < uint64_t(limit * 1000)) {
+            sys.now += 40; // 25 frames a second
+            page.update(sys.now);
+            const std::string did = page.autoplay();
+            if (!did.empty())
+                log.push_back("  [player] " + did);
+            else if (page.status().puzzle)
+                return true; // a puzzle, a menu: for a player to do
+            const awe::ScenePage::GameStatus st = page.status();
+            if (st.event != lastEvent || st.idle)
+                lastEvent = st.event, eventSince = sys.now;
+            if (!st.idle && sys.now - eventSince > 120000) {
+                log.push_back("  STUCK: " + st.event + " (in " + st.scene + ")");
+                return false;
+            }
+            const bool quiet = st.idle && !st.talking && !st.movie && !st.loading && !st.fading;
+            if (!quiet)
+                quietSince = 0;
+            else if (!quietSince)
+                quietSince = sys.now;
+            else if (sys.now - quietSince > 3000)
+                return true;
+        }
+        log.push_back("  STUCK: still going after " + std::to_string(int(limit)) + " s (" + what + ")");
+        return false;
+    };
+    auto isProblem = [](const std::string& l) {
+        for (const char* p : {"not done yet", "(no scene", "(no saved game", "STUCK", "(no conversation", "(no event"})
+            if (l.find(p) != std::string::npos)
+                return true;
+        return false;
+    };
+    auto report = [&](const std::vector<std::string>& log, const awe::ScenePage::GameStatus& st,
+                      const std::string& what) {
+        int n = 0;
+        for (const std::string& l : log)
+            if (verbose || isProblem(l)) {
+                std::printf("%s\n", l.c_str());
+                n += isProblem(l);
+            }
+        std::printf("%s: act %s, scene %s%s, %d problem(s)\n", what.c_str(), st.act.c_str(), st.scene.c_str(),
+                    st.puzzle ? " (a puzzle or menu open)" : "", n);
+        problems += n;
+    };
+    for (const std::string& target : targets) {
+        awe::ScenePage page(ctx);
+        std::vector<std::string> log;
+        page.onLog = [&](const std::string& l) { log.push_back(l); };
+        page.setDrawing(false);
+        page.activate();
+        page.startAt(target);
+        settle(page, log, target);
+        report(log, page.status(), target);
+        if (explore > 0) {
+            // On from there: each time the click (or item used) tried
+            // least often so far in that scene, the first of those.
+            std::map<std::string, int> tried;
+            std::set<std::string> scenes{page.status().scene};
+            int steps = 0;
+            for (; steps < explore; steps++) {
+                const std::string scene = page.status().scene;
+                const std::vector<std::string> spots = page.clickables();
+                std::string best;
+                size_t bestI = 0;
+                std::string bestItem;
+                int bestN = 1 << 30;
+                for (size_t i = 0; i < spots.size(); i++) {
+                    std::vector<std::string> items = page.itemsFor(i);
+                    items.insert(items.begin(), "");
+                    for (const std::string& item : items) {
+                        const std::string key = scene + "|" + std::to_string(i) + spots[i] + "|" + item;
+                        if (tried[key] < bestN)
+                            bestN = tried[key], best = key, bestI = i, bestItem = item;
+                    }
+                }
+                if (best.empty()) {
+                    std::printf("  (nothing to click in %s)\n", scene.c_str());
+                    break;
+                }
+                tried[best]++;
+                log.clear();
+                log.push_back("  [player] " + (bestItem.empty() ? "click " : "use " + bestItem + " on ") + spots[bestI] +
+                              " in " + scene);
+                // (An item it can't take yet is Antoinette's "can't": on.)
+                if (bestItem.empty() ? !page.click(bestI) : (page.useOn(bestItem, bestI), false)) {
+                    std::printf("  (%s didn't run)\n", log.back().c_str());
+                    break;
+                }
+                const bool ok = settle(page, log, target);
+                const awe::ScenePage::GameStatus st = page.status();
+                scenes.insert(st.scene);
+                int n = 0;
+                for (const std::string& l : log)
+                    if (verbose || isProblem(l)) {
+                        std::printf("%s\n", l.c_str());
+                        n += isProblem(l);
+                    }
+                problems += n;
+                if (n || verbose)
+                    std::printf("    -> act %s, scene %s\n", st.act.c_str(), st.scene.c_str());
+                if (!ok)
+                    break;
+            }
+            std::printf("  %s explored: %d steps, %zu scenes, at act %s, scene %s\n", target.c_str(), steps,
+                        scenes.size(), page.status().act.c_str(), page.status().scene.c_str());
+        }
+        if (!hotspots)
+            continue;
+        // Each a click, or an item it asks for used on it ("" a click).
+        const std::vector<std::string> spots = page.clickables();
+        std::vector<std::pair<size_t, std::string>> tries;
+        for (size_t i = 0; i < spots.size(); i++) {
+            tries.emplace_back(i, "");
+            for (const std::string& item : page.itemsFor(i))
+                tries.emplace_back(i, item);
+        }
+        for (const auto& [i, item] : tries) {
+            awe::ScenePage again(ctx);
+            std::vector<std::string> log2;
+            again.onLog = [&](const std::string& l) { log2.push_back(l); };
+            again.setDrawing(false);
+            again.activate();
+            again.startAt(target);
+            settle(again, log2, target);
+            log2.clear();
+            if (item.empty() ? !again.click(i) : !again.useOn(item, i))
+                continue;
+            const std::string what = (item.empty() ? "click " : "use " + item + " on ") + spots[i];
+            settle(again, log2, target + " " + what);
+            report(log2, again.status(), "  " + target + " " + what);
+        }
+    }
+    std::printf("%d problem(s)\n", problems);
+    return problems ? 1 : 0;
+}
+
 // A scene's camera as granny2.dll builds it, and where the scene's
 // characters (and any points given) land on the screen.
 int cmdAweCamera(int argc, char** argv) {
@@ -712,6 +904,8 @@ int aweToolCommand(int argc, char** argv) {
         return aweCheckCommand(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "awe-shot") == 0)
         return cmdAweShot(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "awe-acts") == 0)
+        return cmdAweActs(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "awe-table") == 0)
         return cmdAweTable(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "ac2-dump") == 0)
@@ -732,6 +926,7 @@ const char* aweToolUsage() {
            "  reluva-tool gr2-info <file.gr2> [-t] [-n elements]\n"
            "  reluva-tool awe-table <file.txt>\n"
            "  reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds|movies> <out.tga> [key...]\n"
+           "  reluva-tool awe-acts <game folder> [act|slotN...] [-hotspots] [-explore n] [-t seconds] [-v]\n"
            "  reluva-tool ac2-dump <scene.ac2>...\n"
            "  reluva-tool awe-path <game folder> <scene.ac2> <a0> <b0> <a1> <b1> | -all [pairs]\n"
            "  reluva-tool awe-scripts <game folder> [-v]\n"

@@ -75,14 +75,12 @@ std::string DialogueLine::voiceFile() const {
 }
 
 void DialogueBook::add(const Table& t) {
-    const int name = t.column("Name"), act = t.column("Act"), part = t.column("Conver."), thread = t.column("Thread"),
-              nest = t.column("Nest"), speaker = t.column("Speaker"), target = t.column("Target"),
-              line = t.column("Line"), translation = t.column("Line Translation"), condition = t.column("Condition"),
-              repeat = t.column("Repeat"), before = t.column("Prevent"), event = t.column("Event"),
-              after = t.column("Povent"), duration = t.column("Duration"), optional = t.column("Optional"),
-              notes = t.column("Notes");
-    if (name < 0 || line < 0)
-        return;
+    // By position, as the game reads them (0x438f00), whatever the
+    // headings say: gen_characters.txt's first is "gen_globalhardman", not
+    // Name. gen_characters.txt and gen_antoinette.txt have no Optional
+    // column, so their Notes land there (and count as 0).
+    const int name = 0, act = 1, part = 2, thread = 3, nest = 4, speaker = 5, target = 6, line = 7, translation = 8,
+              condition = 9, repeat = 10, before = 11, event = 12, after = 13, duration = 14, optional = 15, notes = 16;
     DialoguePart* p = nullptr;
     for (size_t r = 0; r < t.rows.size(); r++) {
         DialogueLine l;
@@ -144,6 +142,37 @@ std::vector<const DialogueLine*> DialogueBook::conversation(std::string_view nam
                 for (const DialogueLine& l : t.lines)
                     out.push_back(&l);
     return out;
+}
+
+TalkArgs parseTalkArgs(const std::vector<std::string>& words, bool gen) {
+    TalkArgs t;
+    t.gen = gen;
+    auto word = [&](size_t i) { return i < words.size() ? fs::toLower(words[i]) : std::string(); };
+    t.name = words.empty() ? std::string() : words[0];
+    const std::string code = word(1);
+    if (!code.empty() && std::isalpha(uint8_t(code[0]))) {
+        t.part = std::toupper(uint8_t(code[0])) - 'A';
+        if (code.size() > 1 && code[1] != '+')
+            t.thread = std::toupper(uint8_t(code[1])) - 'A';
+        if (code.size() > 2 && code[2] != '+')
+            t.nest = std::toupper(uint8_t(code[2])) - 'A';
+    } else if (!code.empty()) {
+        t.part = std::atoi(code.c_str()) + 0x63;
+    }
+    t.plus = !code.empty() && code.back() == '+';
+    for (const std::string& opt : {word(2), word(3)}) {
+        if (opt.empty())
+            continue;
+        if (opt == "nogen")
+            t.gen = false;
+        else if (opt == "forcegen")
+            t.gen = true;
+        else if (opt == "nogreet")
+            t.greet = false;
+        else
+            t.number = std::atoi(opt.c_str());
+    }
+    return t;
 }
 
 // --- The manager -----------------------------------------------------------------
@@ -345,6 +374,27 @@ bool DialogueManager::talk(ScriptRunner& runner, const std::string& name, int pa
     return true;
 }
 
+bool DialogueManager::canTalk(const std::string& name, int part, int thread, int nest, bool gen, int number, bool plus,
+                              bool greet) {
+    // Start in a dry run (+0x61c), nothing shown or said, and what it
+    // changed put back (0x43a600).
+    if (active_)
+        return false;
+    const bool genBefore = gen_, plusBefore = plus_, greetBefore = greet_;
+    const int numberBefore = number_, alternativeBefore = lastAlternative_, height = boxHeight_, win = window_;
+    const std::string prefixBefore = prefix_;
+    dry_ = true;
+    gen_ = gen;
+    const bool would = start(name, part, thread, nest, number, plus, greet, false);
+    dry_ = false;
+    active_ = false;
+    part_ = nullptr;
+    gen_ = genBefore, plus_ = plusBefore, greet_ = greetBefore;
+    number_ = numberBefore, lastAlternative_ = alternativeBefore, boxHeight_ = height, window_ = win;
+    prefix_ = prefixBefore;
+    return would;
+}
+
 bool DialogueManager::noTalk(ScriptRunner& runner) {
     // gen_<npc>_notalk; with no NPC, Antoinette's own "nothing to say"
     // (the game's test makes that always gen_canttalkf).
@@ -358,7 +408,8 @@ bool DialogueManager::start(const std::string& name, int part, int thread, int n
     DialoguePart* p = book_.find(name, part);
     if (!p)
         return false;
-    log("talk " + name + " " + partText(part));
+    if (!dry_)
+        log("talk " + name + " " + partText(part));
     part_ = p;
     boxHeight_ = 160, window_ = 0;
     if (testCondition("act >07a", state_))
@@ -397,6 +448,8 @@ bool DialogueManager::start(const std::string& name, int part, int thread, int n
         if (!exhausted) {
             int li = nest >= 0 ? pickLine(t, nest, true) : t.current >= 0 ? t.current : pickLine(t, 0, true);
             if (li >= 0) {
+                if (dry_)
+                    return true;
                 showBox();
                 play(p, ti, li);
                 return true;
@@ -408,6 +461,8 @@ bool DialogueManager::start(const std::string& name, int part, int thread, int n
             if (t.code < 0x60 && available(t))
                 rows++;
         rows += int(extras().size());
+        if (rows > 0 && dry_)
+            return true;
         if (rows > 0) {
             if (gen_)
                 addExit(*p);
@@ -483,7 +538,16 @@ void DialogueManager::menu(bool first, bool keepBox) {
     const auto more = extras();
     count += int(more.size());
     auto nextPart = [&] {
-        return goOn_ && start(part_->name, part_->code + 1, -1, -1, -1, plus_, greet_, false);
+        // A next part with nothing to say leaves this one going (start()
+        // drops the part it fails on).
+        if (!goOn_)
+            return false;
+        DialoguePart* keep = part_;
+        if (start(part_->name, part_->code + 1, -1, -1, -1, plus_, greet_, false))
+            return true;
+        part_ = keep;
+        active_ = true;
+        return false;
     };
     if (count == 0) {
         if (!nextPart())
@@ -788,24 +852,44 @@ void DialogueManager::click(int x, int y) {
         return;
     if (choosing_) {
         mouseMove(x, y);
-        if (highlighted_ < 0 || size_t(highlighted_) >= choices_.size())
-            return;
-        const Choice c = choices_[size_t(highlighted_)];
-        Thread& t = c.part->threads[size_t(c.thread)];
-        if (c.part != part_) {
-            // A generic extra: borrowed into this conversation.
-            Thread copy = t;
-            copy.borrowed = true;
-            copy.fromName = c.part->name;
-            copy.fromCode = c.part->code;
-            part_->threads.push_back(std::move(copy));
-            Thread& added = part_->threads.back();
-            return play(part_, int(part_->threads.size()) - 1, added.current);
-        }
-        return play(part_, c.thread, t.current);
+        take(highlighted_);
+        return;
     }
     if (playing_ && lineTime_ >= kSkipAfter)
         lineEnd();
+}
+
+bool DialogueManager::choose(int i) {
+    if (slide_ != 0 || waitPrevent_ || pending_ || pause_ >= 0)
+        return false;
+    if (choosing_)
+        return take(i);
+    if (playing_ && lineTime_ >= kSkipAfter) {
+        lineEnd();
+        return true;
+    }
+    return false;
+}
+
+bool DialogueManager::take(int i) {
+    if (i < 0 || size_t(i) >= choices_.size())
+        return false;
+    highlighted_ = i;
+    const Choice c = choices_[size_t(i)];
+    Thread& t = c.part->threads[size_t(c.thread)];
+    if (c.part != part_) {
+        // A generic extra: borrowed into this conversation.
+        Thread copy = t;
+        copy.borrowed = true;
+        copy.fromName = c.part->name;
+        copy.fromCode = c.part->code;
+        part_->threads.push_back(std::move(copy));
+        Thread& added = part_->threads.back();
+        play(part_, int(part_->threads.size()) - 1, added.current);
+        return true;
+    }
+    play(part_, c.thread, t.current);
+    return true;
 }
 
 } // namespace reluva::awe

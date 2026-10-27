@@ -321,6 +321,11 @@ ScenePage::ScenePage(ViewerContext& ctx) : Page(ctx) {
             return puzzleCondition(w);
         return slotCondition(w);
     };
+    state_.canTalk = [this](const std::vector<std::string>& words) {
+        loadDialogue();
+        const TalkArgs t = parseTalkArgs(words, true);
+        return dialogue_->canTalk(t.name, t.part, t.thread, t.nest, t.gen, t.number, t.plus, t.greet);
+    };
     {
         std::vector<uint8_t> data;
         if (!ctx.files.read("text/acts.txt", data))
@@ -421,11 +426,31 @@ void ScenePage::load() {
     // An act's variant changes its base scene: shown over it, as the base
     // has the camera and the pictures.
     const std::string base = baseSceneOf(name);
-    if (!variant.camera() && !base.empty() && ctx_.files.has(base) && !read(base, scene_)) {
+    if (!base.empty() && ctx_.files.has(base) && !read(base, scene_)) {
+        // Merged as 0x435990's mode 2 does: the base's camera and settings
+        // stay (the variant's CAMR, SHOW, PUZZ... are read and dropped:
+        // Calais.14-15_14.02_06a and _06b have one); music and events are
+        // added; an object is added unless the base has it already (the
+        // same tag, file and place).
         base_ = base;
         if (!scene_.records.empty() && scene_.records.back().tag == "DONE")
             scene_.records.pop_back();
-        scene_.records.insert(scene_.records.end(), variant.records.begin(), variant.records.end());
+        auto same = [](const Ac2Record& a, const Ac2Record& b) {
+            // (the player, PCXX, by its file alone)
+            return a.tag == b.tag && fs::toLower(a.text("file")) == fs::toLower(b.text("file")) &&
+                   (a.tag == "PCXX" || (a.f("x") == b.f("x") && a.f("y") == b.f("y") && a.f("z") == b.f("z")));
+        };
+        const size_t baseCount = scene_.records.size();
+        for (const Ac2Record& r : variant.records) {
+            if (r.tag == "CAMR" || r.tag == "SHOW" || r.tag == "PUZZ" || r.tag == "FAKE" || r.tag == "OUTD" ||
+                r.tag == "NVNT" || r.tag == "FOOT" || r.tag == "SCEN")
+                continue;
+            if (isAc2Object(r.tag) && !r.text("file").empty() &&
+                std::any_of(scene_.records.begin(), scene_.records.begin() + long(baseCount),
+                            [&](const Ac2Record& b) { return same(r, b); }))
+                continue;
+            scene_.records.push_back(r);
+        }
         // The act it's for: "salon_01_06a.ac2" is act 06a's.
         if (!playing_)
             state_.act = name.substr(name.rfind('_') + 1, 3);
@@ -460,7 +485,7 @@ void ScenePage::load() {
         // Its folder is its location: locations/<location>/<scene>.ac2.
         const std::string lower = fs::toLower(name);
         const size_t from = lower.find('/') + 1;
-        location_ = lower.substr(from, lower.find('/', from) - from);
+        location_ = state_.location = lower.substr(from, lower.find('/', from) - from);
     }
     if (playing_) {
         enterScene();
@@ -568,7 +593,7 @@ bool ScenePage::startMovie(ScriptRunner& runner, const ScriptEvent& e, bool wait
         music_.clear();
     }
     auto player = std::make_unique<MoviePlayer>(ctx_.mixer);
-    if (Error err = player->open(std::move(data), lastMs_, !flag("silent"))) {
+    if (Error err = player->open(std::move(data), lastMs_, !flag("silent") && ctx_.mixer)) { // no sound to decode without a mixer
         logScript("    (" + name + ": " + err.message + ")");
         return false;
     }
@@ -642,7 +667,7 @@ void ScenePage::beginLoad(const std::string& location, bool forAct) {
     load_ = LocationLoad();
     load_.scene = keep.scene, load_.verb = keep.verb, load_.entry = keep.entry, load_.runner = keep.runner;
     load_.walkIn = keep.walkIn;
-    load_.restore = keep.restore;
+    load_.restore = keep.state != 0 && keep.restore; // a load under way's, not one over
     load_.forAct = forAct;
     load_.location = location;
     load_.files = locationFiles(location);
@@ -700,11 +725,12 @@ void ScenePage::updateLoad() {
         if (fade_ != fadeTarget_)
             return;
         l.screen = false;
-        location_ = l.location; // its scenes are now the current location's
+        location_ = state_.location = l.location; // its scenes are now the current location's
         if (l.forAct) {
             l.state = 0;
             story_->locationLoaded();
-            if (l.restore) {
+            if (l.restore && restoring_) {
+                l.restore = false; // done: a later act's load isn't one
                 finishRestore();
                 if (ScriptRunner* r = l.runner) {
                     l.runner = nullptr;
@@ -737,9 +763,11 @@ void ScenePage::newGame() {
     // "action" test stay, the tables are read again.
     auto partTold = std::move(state_.partTold);
     auto action = std::move(state_.action);
+    auto canTalk = std::move(state_.canTalk);
     state_ = GameState{};
     state_.partTold = std::move(partTold);
     state_.action = std::move(action);
+    state_.canTalk = std::move(canTalk);
     state_.values["master"] = 1; // the debug switch, off ([0x48b084] = 1)
     dialogueAct_ = "-";
     hiddenNames_.clear();
@@ -748,6 +776,9 @@ void ScenePage::newGame() {
     fade_ = fadeTarget_ = 0;
     movie_.reset();
     movieRunner_ = nullptr;
+    soundRunner_ = nullptr;
+    interfaceOff_ = false;
+    card_.clear();
     sceneShown_ = true;
     load_ = LocationLoad();
     restoring_.reset();
@@ -1008,6 +1039,8 @@ void ScenePage::loadCharacters() {
 }
 
 void ScenePage::draw() {
+    if (!drawing_)
+        return;
     const std::vector<const Ac2Record*> objects = scene_.objects();
     // Pictures and video loops back to front, by depth: the background at
     // -10000, what's behind its windows further still. A picture's d0,
@@ -1314,6 +1347,15 @@ void ScenePage::draw() {
             y += font::kLineHeight;
         }
     }
+    if (!card_.empty()) {
+        // A passport or a fingerprint card held up ("startpass"), on its
+        // card; in the middle of the screen, a guess.
+        for (const std::string& file : card_) {
+            const image::Image& img = picture(file);
+            if (img.w > 0)
+                blitOver(ctx_.screen, img, (kScreenW - img.w) / 2, (kScreenH - img.h) / 2 - 60);
+        }
+    }
     if (dialogue_->boxShown() && ctx_.fonts) {
         DialogueBoxPictures pics;
         pics.window = &picture(dialogue_->window() == 1 ? "interface/dialoguewin02.png" : "interface/dialoguewin01.png");
@@ -1457,6 +1499,11 @@ void ScenePage::update(uint64_t nowMs) {
         }
         draw();
     }
+    if (soundRunner_ && !(ctx_.mixer && ctx_.mixer->isPlaying(soundWaited_))) {
+        ScriptRunner* r = soundRunner_;
+        soundRunner_ = nullptr;
+        r->finished("sound");
+    }
     runner_->update(dt);
     // The clicked character's routine goes on once the main script is
     // over (0x409cab).
@@ -1470,7 +1517,7 @@ void ScenePage::update(uint64_t nowMs) {
         dialogue_->update(dt);
         draw(); // the box moves, lines change
     }
-    bool changed = advanceLoops(time);
+    bool changed = drawing_ && advanceLoops(time); // nothing to decode for a tool not drawing
     for (Character& c : characters_) {
         // Its routine, unless paused; its animations and any turn.
         if (c.routine && !c.paused)
@@ -2242,21 +2289,34 @@ bool ScenePage::changeScene(const std::string& name, int entry, bool walkIn) {
     return true;
 }
 
-void ScenePage::playSound(const std::string& name) {
+void ScenePage::playSound(const std::string& name) { startSound(name, false); }
+
+audio::SoundHandle ScenePage::startSound(const std::string& name, bool loop) {
+    // sound\<name>.wav: found by its file's name, wherever it is.
+    std::string key = fs::toLower(name);
+    if (const size_t slash = key.find_last_of("\\/"); slash != std::string::npos)
+        key = key.substr(slash + 1);
     if (soundFiles_.empty())
         for (const std::string& f : listFiles(ctx_.files, {"sound/"}, {".wav", ".mp3"})) {
             const std::string file = f.substr(f.find_last_of('/') + 1);
             soundFiles_.emplace(fs::toLower(file.substr(0, file.rfind('.'))), f);
         }
-    const auto it = soundFiles_.find(fs::toLower(name));
+    const auto it = soundFiles_.find(key);
     std::vector<uint8_t> data;
     auto sound = std::make_shared<audio::Sound>();
     if (!ctx_.mixer || it == soundFiles_.end() || ctx_.files.read(it->second, data) || audio::decodeSound(data, *sound))
-        return;
-    ctx_.mixer->play(sound, audio::SoundType::Effects);
+        return audio::kNoSound;
+    const audio::SoundHandle h = ctx_.mixer->play(sound, audio::SoundType::Effects, audio::kMaxVolume, 0, loop);
+    // Kept for "stop", those still playing.
+    for (auto s = sounds_.begin(); s != sounds_.end();)
+        s = ctx_.mixer->isPlaying(s->second) ? std::next(s) : sounds_.erase(s);
+    sounds_.emplace_back(key, h);
+    return h;
 }
 
 void ScenePage::logScript(const std::string& line) {
+    if (onLog)
+        onLog(line);
     scriptLog_.push_back(line);
     while (scriptLog_.size() > 8)
         scriptLog_.pop_front();
@@ -2447,38 +2507,10 @@ void ScenePage::loadDialogue() {
 
 bool ScenePage::startTalk(ScriptRunner& runner, const ScriptEvent& e) {
     loadDialogue();
-    // talk <name> <code> [options] (0x40ba25): the code's letters are the
-    // part, thread and nest; a number n the part n + 99; a "+" at its end
-    // goes on to the next part.
-    const std::string code = fs::toLower(e.arg(2));
-    int part = 100, thread = -1, nest = -1;
-    if (!code.empty() && std::isalpha(uint8_t(code[0]))) {
-        part = std::toupper(uint8_t(code[0])) - 'A';
-        if (code.size() > 1 && code[1] != '+')
-            thread = std::toupper(uint8_t(code[1])) - 'A';
-        if (code.size() > 2 && code[2] != '+')
-            nest = std::toupper(uint8_t(code[2])) - 'A';
-    } else if (!code.empty()) {
-        part = std::atoi(code.c_str()) + 0x63;
-    }
-    const bool plus = !code.empty() && code.back() == '+';
-    bool gen = runner.fromCharacter(), greet = true;
-    int number = -1;
-    for (const std::string& opt : {fs::toLower(e.arg(3)), fs::toLower(e.arg(4))}) {
-        if (opt.empty())
-            continue;
-        if (opt == "nogen")
-            gen = false;
-        else if (opt == "forcegen")
-            gen = true;
-        else if (opt == "nogreet")
-            greet = false;
-        else
-            number = std::atoi(opt.c_str());
-    }
-    if (dialogue_->talk(runner, e.arg(1), part, thread, nest, gen, number, plus, greet))
+    const TalkArgs t = parseTalkArgs({e.words.begin() + 1, e.words.end()}, runner.fromCharacter());
+    if (dialogue_->talk(runner, t.name, t.part, t.thread, t.nest, t.gen, t.number, t.plus, t.greet))
         return true;
-    return gen && dialogue_->noTalk(runner);
+    return t.gen && dialogue_->noTalk(runner);
 }
 
 bool ScenePage::playVoice(const std::string& file) {
@@ -2774,7 +2806,51 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
         return wait;
     }
     if (v == "sound") {
-        playSound(e.arg(1));
+        // sound\<name>.wav, looping with "loop"; "sound" waits till it's
+        // over (0x40bd45, 0x425400).
+        const audio::SoundHandle h = startSound(e.arg(1), lower(e.arg(2)) == "loop");
+        if (h == audio::kNoSound || !wait)
+            return false;
+        soundRunner_ = &runner, soundWaited_ = h;
+        return true;
+    }
+    if (v == "stop") {
+        // The first sound playing whose name has the word in it (0x4251c0).
+        const std::string name = lower(e.arg(1));
+        for (auto it = sounds_.begin(); it != sounds_.end(); ++it)
+            if (it->first.find(name) != std::string::npos && ctx_.mixer && ctx_.mixer->isPlaying(it->second)) {
+                ctx_.mixer->stop(it->second);
+                sounds_.erase(it);
+                break;
+            }
+        return false;
+    }
+    if (v == "startpass" || v == "startprint" || v == "endpass" || v == "endprint") {
+        // The passports' and fingerprint cards' screen (0x417ba0): the card
+        // (inventory\interface\card.png or print.png) with the passport
+        // on it slides in, then the event is done and passport.wav plays;
+        // "endpass" slides it out (0x418090). Shown at once here.
+        card_.clear();
+        if (v == "startpass") {
+            const std::string who = lower(e.arg(1));
+            card_ = {"inventory/interface/card.png", "inventory/items/pass" + who + "/exapass" + who + ".png"};
+            playSound("passport");
+        } else if (v == "startprint") {
+            card_ = {"inventory/interface/print.png"};
+            playSound("fingerprint");
+        }
+        draw();
+        return false;
+    }
+    if (v == "interface") {
+        // The interface (the menu bar, the cursor's verbs) off or on for a
+        // cutscene ([0x4986f4]); Reluva doesn't draw it yet.
+        interfaceOff_ = lower(e.arg(1)) == "off" ? true : lower(e.arg(1)) == "on" ? false : interfaceOff_;
+        return false;
+    }
+    if (v == "accumulation" || v == "test") {
+        // Snow gathering on the character set to (+0x14dc), and a
+        // leftover of the earlier games (0x40c650): nothing to see here.
         return false;
     }
     if (v == "hide" || v == "show") {
@@ -2801,7 +2877,7 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
             hiddenNames_.insert(item);
         }
         if (item != "this")
-            state_.items.insert(item);
+            addItem(state_, item, 1); // just taken (0x40b1de)
         draw();
         return false;
     }
@@ -2812,7 +2888,15 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
     }
     if (v == "talk")
         return startTalk(runner, e) && wait;
-    // The rest isn't done here yet (turn, anim...): logged, and over.
+    // A character's verb with no character to do it (none in the scene by
+    // that name, or characters not loaded: no 3D): over at once.
+    for (const char* verb : {"turn", "look", "rotate", "anim", "animate", "pause", "resume", "loop", "attach", "detach",
+                             "hideshadow", "showshadow"})
+        if (v == verb) {
+            logScript("    (" + v + ": no character)");
+            return false;
+        }
+    // The rest isn't done here yet: logged, and over.
     logScript("    (not done yet: " + v + ")");
     return false;
 }
@@ -2890,8 +2974,13 @@ void ScenePage::handleEvent(const Event& ev) {
         return;
     }
     if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
-        if (!runner_->idle())
-            return; // the game takes no clicks while a script runs
+        // The game takes no clicks while a script runs, but during its
+        // walks and turns and after an "unlock"; one taken drops what was
+        // running (0x409760).
+        if (runner_->locked())
+            return;
+        if (!runner_->idle() && !slots_ && !puzzleActive())
+            runner_->clear();
         if (slots_ && !hotspotAt(ev.mouseX, ev.mouseY) && slotClick(ev.mouseX, ev.mouseY))
             return;
         // A puzzle sees the click first, then the hotspot under it runs
@@ -2899,14 +2988,24 @@ void ScenePage::handleEvent(const Event& ev) {
         if (puzzleActive())
             puzzleClick(ev.mouseX, ev.mouseY);
         runner_->setFromCharacter(false);
+        // With an item in hand (U, for want of the inventory screen), it's
+        // used on what's clicked (0x41c050).
+        const std::string inHand = std::move(inHand_);
+        inHand_.clear();
         if (const Ac2Record* spot = hotspotAt(ev.mouseX, ev.mouseY)) {
-            runScript(*spot);
+            if (!inHand.empty())
+                useItem(inHand, *spot);
+            else
+                runScript(*spot);
         } else if (const Ac2Record* who = characterAt(ev.mouseX, ev.mouseY)) {
             // A character's own script: a talk then offers its generic
             // lines and goodbyes (0x4162a3).
             runner_->setFromCharacter(true);
             resumeAfter_ = who;
-            runScript(*who);
+            if (!inHand.empty())
+                useItem(inHand, *who);
+            else
+                runScript(*who);
         }
         else
             walkTo(ev.mouseX, ev.mouseY);
@@ -2926,6 +3025,17 @@ void ScenePage::handleEvent(const Event& ev) {
         if (n > 0)
             selected_ = ev.key == key::Down ? (selected_ + 1 >= n ? -1 : selected_ + 1)
                                             : (selected_ < 0 ? n - 1 : selected_ - 1);
+        draw();
+    } else if (ev.key == 'u' && playing_) {
+        // The next item Poirot has, in hand for the next click; none after
+        // the last.
+        std::vector<std::string> items;
+        for (const std::string& i : state_.items)
+            if (state_.itemAvailable(i))
+                items.push_back(i);
+        auto at = std::find(items.begin(), items.end(), inHand_);
+        inHand_ = at == items.end() ? (items.empty() ? "" : items.front()) : std::next(at) == items.end() ? "" : *std::next(at);
+        logScript(inHand_.empty() ? "(nothing in hand)" : "(in hand: " + inHand_ + ")");
         draw();
     } else if (ev.key == 'h') {
         hotspots_ = !hotspots_;

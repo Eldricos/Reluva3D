@@ -16,6 +16,22 @@ const std::string& ScriptEvent::arg(size_t i) const {
     return i < words.size() ? words[i] : none;
 }
 
+void addItem(GameState& state, const std::string& item, int st) {
+    // 0x41bc10: passports and fingerprint cards go to their own pages.
+    const std::string name = fs::toLower(item);
+    if (name.empty())
+        return;
+    if (name.rfind("pass", 0) == 0)
+        st = 5;
+    else if (name.rfind("print", 0) == 0)
+        st = 6;
+    state.items.insert(name);
+    if (st == 2)
+        state.itemStates.erase(name);
+    else
+        state.itemStates[name] = st;
+}
+
 void addTime(GameState& state, int seconds) {
     // Timers stop at 32000 (0x4125c0).
     for (auto& [name, value] : state.timers)
@@ -35,8 +51,33 @@ std::string_view ScriptRunner::baseOfAsync(std::string_view verb) {
 }
 
 void ScriptRunner::run(std::string_view commands) {
-    for (Command& c : parseCommands(commands))
-        add(std::move(c.words), 0);
+    // 0x408c80: a condition in brackets ("(tag x >3, has y)") decides,
+    // there and then, whether the commands after it are added, up to the
+    // next one.
+    bool doIt = true, open = false;
+    std::string condition;
+    for (Command& c : parseCommands(commands)) {
+        std::string text;
+        for (const std::string& w : c.words)
+            text += (text.empty() ? "" : " ") + w;
+        if (!open) {
+            const size_t at = text.find('(');
+            if (at == std::string::npos) {
+                if (doIt)
+                    add(std::move(c.words), 0);
+                continue;
+            }
+            condition = text.substr(at + 1);
+            open = true;
+        } else {
+            condition += ", " + text;
+        }
+        if (const size_t close = condition.find(')'); close != std::string::npos) {
+            condition.resize(close);
+            doIt = testCondition(condition, state_);
+            open = false;
+        }
+    }
 }
 
 void ScriptRunner::runNext(std::string_view commands) {
@@ -98,8 +139,17 @@ void ScriptRunner::add(std::vector<std::string> words, int depth) {
     queue_.push_back(ScriptEvent{std::move(words)});
 }
 
+std::string ScriptRunner::current() const {
+    std::string out;
+    if (!queue_.empty())
+        for (const std::string& w : queue_.front().words)
+            out += (out.empty() ? "" : " ") + w;
+    return out;
+}
+
 void ScriptRunner::clear() {
     queue_.clear();
+    locked_ = false;
     running_ = false;
     waitingFor_.clear();
     waitLeft_ = -1;
@@ -119,9 +169,12 @@ void ScriptRunner::finished(std::string_view verb) {
     if (!running_ || verb != waitingFor_)
         return;
     running_ = false;
+    lastDone_ = waitingFor_;
     waitingFor_.clear();
     waitLeft_ = -1;
     queue_.pop_front();
+    if (queue_.empty())
+        locked_ = false; // 0x409c4e
     if (queue_.empty() && onEmpty)
         onEmpty();
     // The next runs on the next update, except a fade, which runs at once
@@ -133,6 +186,11 @@ void ScriptRunner::finished(std::string_view verb) {
 void ScriptRunner::start() {
     running_ = true;
     const ScriptEvent e = queue_.front();
+    // Clicks are refused from here on, except during walks and turns, and
+    // the event right after an "unlock" (0x409d06; +0x10 is the verb last
+    // done).
+    if (e.verb() != "walk" && e.verb() != "run" && e.verb() != "rotate" && lastDone_ != "unlock")
+        locked_ = true;
     if (onEvent)
         onEvent(e);
     if (e.verb() == "wait") {
@@ -170,11 +228,50 @@ bool ScriptRunner::runOwn(const ScriptEvent& e) {
     } else if (v == "removetag") {
         state_.tags.erase(fs::toLower(e.arg(1)));
     } else if (v == "add") {
-        state_.items.insert(fs::toLower(e.arg(1)));
+        // In the bag (0x419ca0 with state 2).
+        addItem(state_, e.arg(1), 2);
     } else if (v == "remove") {
-        state_.items.erase(fs::toLower(e.arg(1)));
+        // Gone (0x41c260); "remove all": everything carried taken away, to
+        // come back with "restore all" (0x41c3e0).
+        const std::string item = fs::toLower(e.arg(1));
+        if (item == "all") {
+            state_.held.clear();
+            for (const std::string& i : state_.items)
+                if (state_.itemAvailable(i) || state_.itemState(i) == 3)
+                    state_.itemStates[i] = 7;
+        } else {
+            state_.items.erase(item);
+            state_.itemStates.erase(item);
+            if (state_.held == item)
+                state_.held.clear();
+        }
+    } else if (v == "restore") {
+        // Back in the bag: a used-up item (0x41c320); "restore all" what
+        // "remove all" took, the small key going and "securityunlocked"
+        // with it (0x41c430).
+        const std::string item = fs::toLower(e.arg(1));
+        if (item == "all") {
+            for (auto it = state_.itemStates.begin(); it != state_.itemStates.end();)
+                it = it->second == 7 ? state_.itemStates.erase(it) : std::next(it);
+            state_.items.erase("keysmall");
+            state_.itemStates.erase("keysmall");
+            state_.tags.erase("securityunlocked");
+        } else if (item != "this" && state_.itemState(item) == 4) {
+            state_.itemStates.erase(item);
+        }
+    } else if (v == "use") {
+        // Used up (0x41c160): kept, for "used" and "restore".
+        const std::string item = fs::toLower(e.arg(1));
+        const int st = state_.itemState(item);
+        if (st == 1 || st == 2 || st == 3) {
+            state_.itemStates[item] = 4;
+            if (state_.held == item)
+                state_.held.clear();
+        }
     } else if (v == "clear") {
         state_.items.clear();
+        state_.itemStates.clear();
+        state_.held.clear();
     } else if (v == "timer") {
         // A new timer at 0 (0x410ac0), after any of the same name.
         state_.timers.emplace_back(fs::toLower(e.arg(1)), 0);
@@ -188,6 +285,8 @@ bool ScriptRunner::runOwn(const ScriptEvent& e) {
         state_.texts.clear();
         state_.timers.clear();
         state_.items.clear();
+        state_.itemStates.clear();
+        state_.held.clear();
         state_.act = "01a";
     } else if (v == "savescene") {
         // savescene this|<scene> [wp] [flag] (0x40acd3): for "gotoscene".
@@ -196,6 +295,13 @@ bool ScriptRunner::runOwn(const ScriptEvent& e) {
                                      (e.arg(2).empty() ? "-1" : e.arg(2)) + " " + (e.arg(3).empty() ? "0" : e.arg(3));
     } else if (v == "weather") {
         state_.values["weather"] = number(e.arg(1));
+    } else if (v == "advance" || v == "terminate" || v == "juncture" || v == "leavebox" || v == "nobox") {
+        // The dialogue's words, read from a line's Povent where it's set
+        // (dialogue.cpp); as events they're over at once (0x409fa3,
+        // 0x40b28a, 0x40a3ae...).
+    } else if (v == "lock" || v == "unlock") {
+        // Clicks refused, or taken while what follows runs (0x40a5e4).
+        locked_ = v == "lock";
     } else if (v == "setchar") {
         character_ = fs::toLower(e.arg(1));
     } else {
