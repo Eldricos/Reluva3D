@@ -743,6 +743,8 @@ void ScenePage::newGame() {
     fade_ = fadeTarget_ = 0;
     movie_.reset();
     movieRunner_ = nullptr;
+    soundRunner_ = nullptr;
+    interfaceOff_ = false;
     sceneShown_ = true;
     load_ = LocationLoad();
     restoring_.reset();
@@ -1351,6 +1353,11 @@ void ScenePage::update(uint64_t nowMs) {
             r->finished("fade");
         }
         draw();
+    }
+    if (soundRunner_ && !(ctx_.mixer && ctx_.mixer->isPlaying(soundWaited_))) {
+        ScriptRunner* r = soundRunner_;
+        soundRunner_ = nullptr;
+        r->finished("sound");
     }
     runner_->update(dt);
     // The clicked character's routine goes on once the main script is
@@ -2024,21 +2031,34 @@ bool ScenePage::changeScene(const std::string& name, int entry, bool walkIn) {
     return true;
 }
 
-void ScenePage::playSound(const std::string& name) {
+void ScenePage::playSound(const std::string& name) { startSound(name, false); }
+
+audio::SoundHandle ScenePage::startSound(const std::string& name, bool loop) {
+    // sound\<name>.wav: found by its file's name, wherever it is.
+    std::string key = fs::toLower(name);
+    if (const size_t slash = key.find_last_of("\\/"); slash != std::string::npos)
+        key = key.substr(slash + 1);
     if (soundFiles_.empty())
         for (const std::string& f : listFiles(ctx_.files, {"sound/"}, {".wav", ".mp3"})) {
             const std::string file = f.substr(f.find_last_of('/') + 1);
             soundFiles_.emplace(fs::toLower(file.substr(0, file.rfind('.'))), f);
         }
-    const auto it = soundFiles_.find(fs::toLower(name));
+    const auto it = soundFiles_.find(key);
     std::vector<uint8_t> data;
     auto sound = std::make_shared<audio::Sound>();
     if (!ctx_.mixer || it == soundFiles_.end() || ctx_.files.read(it->second, data) || audio::decodeSound(data, *sound))
-        return;
-    ctx_.mixer->play(sound, audio::SoundType::Effects);
+        return audio::kNoSound;
+    const audio::SoundHandle h = ctx_.mixer->play(sound, audio::SoundType::Effects, audio::kMaxVolume, 0, loop);
+    // Kept for "stop", those still playing.
+    for (auto s = sounds_.begin(); s != sounds_.end();)
+        s = ctx_.mixer->isPlaying(s->second) ? std::next(s) : sounds_.erase(s);
+    sounds_.emplace_back(key, h);
+    return h;
 }
 
 void ScenePage::logScript(const std::string& line) {
+    if (onLog)
+        onLog(line);
     scriptLog_.push_back(line);
     while (scriptLog_.size() > 8)
         scriptLog_.pop_front();
@@ -2528,7 +2548,34 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
         return wait;
     }
     if (v == "sound") {
-        playSound(e.arg(1));
+        // sound\<name>.wav, looping with "loop"; "sound" waits till it's
+        // over (0x40bd45, 0x425400).
+        const audio::SoundHandle h = startSound(e.arg(1), lower(e.arg(2)) == "loop");
+        if (h == audio::kNoSound || !wait)
+            return false;
+        soundRunner_ = &runner, soundWaited_ = h;
+        return true;
+    }
+    if (v == "stop") {
+        // The first sound playing whose name has the word in it (0x4251c0).
+        const std::string name = lower(e.arg(1));
+        for (auto it = sounds_.begin(); it != sounds_.end(); ++it)
+            if (it->first.find(name) != std::string::npos && ctx_.mixer && ctx_.mixer->isPlaying(it->second)) {
+                ctx_.mixer->stop(it->second);
+                sounds_.erase(it);
+                break;
+            }
+        return false;
+    }
+    if (v == "interface") {
+        // The interface (the menu bar, the cursor's verbs) off or on for a
+        // cutscene ([0x4986f4]); Reluva doesn't draw it yet.
+        interfaceOff_ = lower(e.arg(1)) == "off" ? true : lower(e.arg(1)) == "on" ? false : interfaceOff_;
+        return false;
+    }
+    if (v == "accumulation" || v == "test") {
+        // Snow gathering on the character set to (+0x14dc), and a
+        // leftover of the earlier games (0x40c650): nothing to see here.
         return false;
     }
     if (v == "hide" || v == "show") {
@@ -2566,7 +2613,15 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
     }
     if (v == "talk")
         return startTalk(runner, e) && wait;
-    // The rest isn't done here yet (turn, anim...): logged, and over.
+    // A character's verb with no character to do it (none in the scene by
+    // that name, or characters not loaded: no 3D): over at once.
+    for (const char* verb : {"turn", "look", "rotate", "anim", "animate", "pause", "resume", "loop", "attach", "detach",
+                             "hideshadow", "showshadow"})
+        if (v == verb) {
+            logScript("    (" + v + ": no character)");
+            return false;
+        }
+    // The rest isn't done here yet: logged, and over.
     logScript("    (not done yet: " + v + ")");
     return false;
 }

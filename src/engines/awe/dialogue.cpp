@@ -845,24 +845,44 @@ void DialogueManager::click(int x, int y) {
         return;
     if (choosing_) {
         mouseMove(x, y);
-        if (highlighted_ < 0 || size_t(highlighted_) >= choices_.size())
-            return;
-        const Choice c = choices_[size_t(highlighted_)];
-        Thread& t = c.part->threads[size_t(c.thread)];
-        if (c.part != part_) {
-            // A generic extra: borrowed into this conversation.
-            Thread copy = t;
-            copy.borrowed = true;
-            copy.fromName = c.part->name;
-            copy.fromCode = c.part->code;
-            part_->threads.push_back(std::move(copy));
-            Thread& added = part_->threads.back();
-            return play(part_, int(part_->threads.size()) - 1, added.current);
-        }
-        return play(part_, c.thread, t.current);
+        take(highlighted_);
+        return;
     }
     if (playing_ && lineTime_ >= kSkipAfter)
         lineEnd();
+}
+
+bool DialogueManager::choose(int i) {
+    if (slide_ != 0 || waitPrevent_ || pending_ || pause_ >= 0)
+        return false;
+    if (choosing_)
+        return take(i);
+    if (playing_ && lineTime_ >= kSkipAfter) {
+        lineEnd();
+        return true;
+    }
+    return false;
+}
+
+bool DialogueManager::take(int i) {
+    if (i < 0 || size_t(i) >= choices_.size())
+        return false;
+    highlighted_ = i;
+    const Choice c = choices_[size_t(i)];
+    Thread& t = c.part->threads[size_t(c.thread)];
+    if (c.part != part_) {
+        // A generic extra: borrowed into this conversation.
+        Thread copy = t;
+        copy.borrowed = true;
+        copy.fromName = c.part->name;
+        copy.fromCode = c.part->code;
+        part_->threads.push_back(std::move(copy));
+        Thread& added = part_->threads.back();
+        play(part_, int(part_->threads.size()) - 1, added.current);
+        return true;
+    }
+    play(part_, c.thread, t.current);
+    return true;
 }
 
 } // namespace reluva::awe

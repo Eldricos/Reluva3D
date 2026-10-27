@@ -139,6 +139,14 @@ void ScriptRunner::add(std::vector<std::string> words, int depth) {
     queue_.push_back(ScriptEvent{std::move(words)});
 }
 
+std::string ScriptRunner::current() const {
+    std::string out;
+    if (!queue_.empty())
+        for (const std::string& w : queue_.front().words)
+            out += (out.empty() ? "" : " ") + w;
+    return out;
+}
+
 void ScriptRunner::clear() {
     queue_.clear();
     locked_ = false;
@@ -287,6 +295,10 @@ bool ScriptRunner::runOwn(const ScriptEvent& e) {
                                      (e.arg(2).empty() ? "-1" : e.arg(2)) + " " + (e.arg(3).empty() ? "0" : e.arg(3));
     } else if (v == "weather") {
         state_.values["weather"] = number(e.arg(1));
+    } else if (v == "advance" || v == "terminate" || v == "juncture" || v == "leavebox" || v == "nobox") {
+        // The dialogue's words, read from a line's Povent where it's set
+        // (dialogue.cpp); as events they're over at once (0x409fa3,
+        // 0x40b28a, 0x40a3ae...).
     } else if (v == "lock" || v == "unlock") {
         // Clicks refused, or taken while what follows runs (0x40a5e4).
         locked_ = v == "lock";

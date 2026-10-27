@@ -81,6 +81,8 @@ public:
     // it). Anything else is ignored, as the game ignores it.
     void finished(std::string_view verb);
     bool idle() const { return queue_.empty() && !running_; }
+    // The event at the front, its words joined; "" if none.
+    std::string current() const;
     // Whether clicks are refused (the runner's +8): from an event's start
     // (but a walk's, a run's or a turn's, or the one after an "unlock")
     // until the queue is empty or an "unlock". A click taken while

@@ -151,6 +151,9 @@ public:
     // A click: a choice, or the line cut short (after half a second).
     void click(int x, int y);
     void mouseMove(int x, int y);
+    // Without a mouse (tools): choice i taken, or the line cut short as a
+    // click would; false if neither can be done now.
+    bool choose(int i);
 
     // A tag every "met them here" tag of the scene is set to when it's
     // left (0x43aee0).
@@ -192,6 +195,7 @@ private:
     void addExit(DialoguePart& p);
     void addRegreet(DialoguePart& p, int visit);
     std::vector<std::pair<DialoguePart*, int>> extras();
+    bool take(int choice);
     void menu(bool first, bool keepBox);
     void play(DialoguePart* p, int thread, int line);
     void startLine();

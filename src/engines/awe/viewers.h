@@ -155,6 +155,24 @@ public:
     bool wantsEscape() const override { return movie_ != nullptr || playing_; }
     bool quitRequested() const override { return quit_; }
 
+    // For tools (reluva-tool awe-acts; scene_autoplay.cpp): a game started
+    // without the menus at an act ("04a": its PreLoad, location and Post
+    // Load) or from a developer's save ("slot7"); every line of the script
+    // log passed on; and a player who only waits: movies skipped, the
+    // first choice taken, lines cut short (what it did, "" if nothing).
+    void startAt(const std::string& where);
+    std::function<void(const std::string& line)> onLog;
+    std::string autoplay();
+    struct GameStatus {
+        std::string scene, act, event;
+        bool idle = true, talking = false, movie = false, loading = false, puzzle = false, fading = false;
+    };
+    GameStatus status() const;
+    // The hotspots and characters that could be clicked now, and a click
+    // on one (its script run, as a click runs it).
+    std::vector<std::string> clickables() const;
+    bool click(size_t i);
+
 private:
     // A character placed in the scene, animated as the game animates
     // them (Actor).
@@ -378,6 +396,12 @@ private:
     // "musica <name>": sound\music\<name>.mp3, looping.
     void playLooping(const std::string& file, bool music);
     void playSound(const std::string& name);
+    // A sound effect ("sound"), looping or not; kNoSound if there's none.
+    audio::SoundHandle startSound(const std::string& name, bool loop);
+    std::vector<std::pair<std::string, audio::SoundHandle>> sounds_; // by name, for "stop"
+    ScriptRunner* soundRunner_ = nullptr; // waiting on a "sound"
+    audio::SoundHandle soundWaited_ = audio::kNoSound;
+    bool interfaceOff_ = false;
     void logScript(const std::string& line);
     bool hidden(const Ac2Record& o) const;
     bool shown(const Ac2Record& o) const;
@@ -432,6 +456,7 @@ private:
     // The scripts' state: tags, items and the act are state_'s.
     std::unique_ptr<ScriptRunner> runner_;
     std::unique_ptr<DialogueManager> dialogue_;
+    std::map<std::string, int> autoChoices_; // how often the tool's player took each choice
     // A game played (N): the acts, the music playing (by file), where the
     // player was in each scene left, the screen's fade (0 clear, 1 black)
     // and the runner waiting on it.
