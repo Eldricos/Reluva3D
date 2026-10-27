@@ -72,8 +72,7 @@ scenes, two Granny files, the text tables, two backgrounds):
   changes, sounds, items, tags, dialogue and the characters' verbs work.
   `reluva-tool awe-scripts` lists every command an install's scripts
   use, and every word of its conditions; every one is handled. Items
-  are used on hotspots and characters (U picks one, for want of the
-  inventory screen).
+  are picked up in the inventory and used on hotspots and characters.
 - **Dialogue: plays.** Conversations run as the game's dialogue manager
   runs them (see [../formats/awe/dialogue.md](../formats/awe/dialogue.md)):
   the opening, the choices, each line's commands, recording and text in
@@ -90,9 +89,13 @@ scenes, two Granny files, the text tables, two backgrounds):
   the options screen and all its settings, anti-aliasing included
   ([../formats/awe/options.md](../formats/awe/options.md)),
   walking into scenes, with followers, and the characters' shadows
-  ([../formats/awe/shadows.md](../formats/awe/shadows.md)), and the
+  ([../formats/awe/shadows.md](../formats/awe/shadows.md)), the
   puzzle screens: the torn letter, the safe and the puzzle box
-  ([../formats/awe/puzzles.md](../formats/awe/puzzles.md)) work.
+  ([../formats/awe/puzzles.md](../formats/awe/puzzles.md)), and the
+  interface ([../formats/awe/interface.md](../formats/awe/interface.md)):
+  the bar along the top (travelling between the cars), the inventory
+  window with its items, examining, combining, the scrapbook, the
+  passports and the fingerprint cards, and the cards held up work.
 - **Characters: lit as the game lights them.** Direct3D 8's
   fixed-function lighting, per vertex: the scene's `LITE`s (directional,
   point and spot lights), the camera's ambient colour (a blue one at
@@ -170,13 +173,11 @@ Next:
    [../formats/awe/acts.md](../formats/awe/acts.md#playing-the-acts-headless):
    every act starts, runs its scripts and goes on to the next as far as
    `reluva-tool awe-acts` can take it, and the game ends from 07A).
-   Still to do: the inventory screen (items are used with U for now:
-   [../formats/awe/script.md](../formats/awe/script.md#items-in-hand)),
-   combining items from it, the scrapbook, where the passport and
-   fingerprint cards go and how they slide, the interface bar that
-   `interface off` hides, and a player's run from 01A to the end, which
-   the explorer can't do (01A's trades, 04A's eavesdropping, 04D's
-   kimono need a player who knows what to do).
+   Still to do: a player's run from 01A to the end, which the explorer
+   can't do (01A's trades, 04A's eavesdropping, 04D's kimono need a
+   player who knows what to do), and the cursors the interface sets
+   (the item in hand over what takes it:
+   [../formats/awe/interface.md](../formats/awe/interface.md#the-item-in-hand)).
 
 ## What the install holds
 

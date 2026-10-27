@@ -133,12 +133,13 @@ player is:
 
 **Opening and closing** (`0x4194d0`): the bag, I (when the interface is
 there and there's no dialogue box), or a right click when the player can
-act. A right click with an item in hand only puts the item back. Opening
-shows the items page; it fades in at 1000 alpha a second. Closing puts the
-item in hand back in the bag, ends the new item's blinking, and fades it
-out. A conversation that starts closes it, unless it was started from the
-inventory (combining, `gen_cantuse`...); one that isn't `gen_` or `com_`
-also puts the item in hand back. Opening a menu does both too.
+act. With the window closed and an item in hand, they only put the item
+back in the bag. Opening shows the items page; it fades in at 1000 alpha
+a second. Closing ends the new item's blinking and fades it out; the item
+in hand stays in hand, to be used. A conversation that starts closes it,
+unless it was started from the inventory (combining, `gen_cantuse`...);
+one that isn't `gen_` or `com_` also puts the item in hand back. Opening
+a menu does both too.
 
 **The frame**: `inventory\interface\windowblank.png` (608×608) at x
 (1024 − 608) / 2 = 208, y 10. Each page draws its own picture, the same
@@ -171,7 +172,8 @@ a new one takes the lowest free slot, and the window turns to its page.
 There's always one empty page after the last used one (2 to 10 pages).
 Items in the bag (state 2) show their `inv<item>.png` (or `.jpg`) at the
 box's corner plus 5; one just taken (state 1) blinks with the caret
-(every 0.33 s) for 5 seconds of the window being open, then stays.
+(every 0.33 s) for 5 seconds of the items page being shown, then stays;
+only one blinks at a time.
 
 - The mouse over an item shows its description (`itemlist.txt` column 2).
 - A click on an item picks it up: it's in hand (state 3), its sound plays
@@ -256,8 +258,8 @@ Description ("Matteo's print matches...") is in the bar.
 `Text\Scrapbook\*.txt`, read again on each change. Text is in font 4
 (journal text), colour 13 (journal), from (x + 50, y + 60), a row's
 height plus 5 apart, a new page when a row would end past y 525. A row is
-shown once its Condition has held (it stays shown); the instructions'
-tick is the same with their Checkmark Condition.
+shown if its Condition holds as the page is read (`0x41f030`); the
+instructions' tick is the same with their Checkmark Condition.
 
 - **Contents** (`contents.txt`): the shown Sub-Headings, one under
   another; a click opens that section (`select1.wav`): clippings,
@@ -318,3 +320,18 @@ fade:
 
 The darkening and the cards are drawn over the inventory and the bar,
 under the dialogue box and the cursor.
+
+## In Reluva
+
+`src/engines/awe/scene_interface.cpp` does all of the above in the Scenes
+page, in a game. The item states, slots and the page shown are the
+`GameState`'s (`itemSlots`, `itemPage`, `fresh`), set by `addItem` as the
+game's `0x41bc10` sets them, and saved with the game (each item's slot
+and page, as `0x41c730` writes them). The item in hand is drawn at the
+mouse; the cursors themselves aren't drawn yet. F9 shows Reluva's info
+panel in a game (I is the inventory's).
+
+`reluva-tool awe-shot` shows the screens without a window:
+`start:slot12` starts a game at a developers' save, `run:<script>` runs a
+script (`run:startpass michel`), `click:x,y` and `rclick:x,y` click.
+`reluva-tool awe-acts -explore` combines items too.

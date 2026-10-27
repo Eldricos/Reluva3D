@@ -142,9 +142,9 @@ scenes, menus).
 | `timer` | 32 | name | starts a timer; `timer name >60` in conditions |
 | `walka`, `rotatea` | 32, 30 | as `walk`, `rotate` | without waiting |
 | `gotoscene` | 24 | | goes back to the scene `savescene` kept |
-| `startprint`, `endprint` | 23 | | a fingerprint card held up: `inventory\interface\print.png` slides in, `fingerprint.wav` (`0x417ba0`); slides out (`0x418090`) |
+| `startprint`, `endprint` | 23 | | a fingerprint card held up: `card.png` with `inventory\interface\print.png` fades in over the darkened screen, `fingerprint.wav` (`0x417ba0`); fades out (`0x418090`); both wait ([interface.md](interface.md#the-cards-held-up)) |
 | `action` | 21 | `left`, `right`, `load`... | the menus' buttons |
-| `startpass`, `endpass` | 18 | character | a passport held up: `card.png` with `inventory\items\pass<who>\exapass<who>.png`, `passport.wav`; both wait for the slide |
+| `startpass`, `endpass` | 18 | character | a passport held up: `inventory\items\pass<who>\exapass<who>.png` fades in, `passport.wav`; both wait for the fade |
 | `attach`, `detach` | 17, 15 | object | puts `models\objects\<name>_model.gr2` in the character's hand |
 | `leavebox`, `nobox` | 16, 4 | | the dialogue box |
 | `load`, `preload`, `menu` | 14, 10, 6 | slot | saved games and the menus |
@@ -153,7 +153,7 @@ scenes, menus).
 | `run`, `runa` | 6, 1 | cell | as `walk`, running |
 | `previous` | 6 | | the scene before |
 | `yesno` | 2 | text, value | the yes/no box (`yesno quit2 0`) |
-| `interface` | 2 | `on`, `off` | the interface hidden for a cutscene (`[0x4986f4]`) |
+| `interface` | 2 | `on`, `off` | the interface (the bar, the inventory) hidden for a cutscene (`[0x4986f4]`: [interface.md](interface.md)) |
 | `accumulation` | 2 | `on`, `off` | snow gathering on the character (`+0x14dc`) |
 | `lock`, `unlock` | 1, 2 | | clicks refused, or taken while what follows runs (above) |
 | `advance`, `terminate`, `juncture`, `leavebox`, `nobox` | 46, 174 | | the dialogue's, read from a line's Povent ([dialogue.md](dialogue.md)); as events they end at once |
@@ -216,11 +216,16 @@ Clicking with an item in hand (state 3) on an object (`0x41c050`):
    model file, and whose Condition holds (`0x41c4b0`). Its Event runs and
    the item is used up.
 3. Otherwise Antoinette says she can't (`talk gen_cantuse 1`), and the
-   item stays in hand.
+   item stays in hand. So does a click on nothing.
+
+What matched runs as the inventory's scripts do (`0x419f20`): the player
+stops, what was running is dropped, and the script runs. How an item is
+picked up, and the cursor it makes, is in [interface.md](interface.md).
 
 Combining (`0x418cf0`): the row of `Text\combinelist.txt` whose parts are
 exactly the items put together, in any order. The parts are used up, the
-results given (just taken), and the Event runs.
+results given (just taken), and the Event runs. The combine page, and
+taking apart, are in [interface.md](interface.md#combine-windowcombinepng).
 
 ## In Reluva
 
@@ -239,12 +244,12 @@ or characters), `talk` (with the dialogue manager: [dialogue.md](dialogue.md)),
 `act` and `scene`/`gotoscene` (with `Story`: [acts.md](acts.md)), `fade`,
 `movie` and `musica` (above),
 `sound`/`sounda` and `stop`, `hide`, `show`, `take` and `update`,
-`startpass`/`startprint` (the card shown in the middle, at once: where
-and how fast it slides is still to see), and the
+`startpass`/`startprint` and their ends (the cards held up:
+[interface.md](interface.md#the-cards-held-up)), `interface`, and the
 characters' verbs (`anim`, `turn`, `look`, `rotate`, `animate`, `pause`,
 `resume`, `loop`, `attach`, `detach`: [characters.md](characters.md)).
 It logs the rest in its info panel and ends them at once.
 
-Items are used as above (`src/engines/awe/scene_inventory.cpp`). There's
-no inventory screen yet: U picks the next item Poirot has to hold, and
-the next click uses it.
+Items are used as above (`src/engines/awe/scene_inventory.cpp`), picked
+up from the inventory window (`scene_interface.cpp`, with the bar, the
+window's pages and the cards: [interface.md](interface.md#in-reluva)).

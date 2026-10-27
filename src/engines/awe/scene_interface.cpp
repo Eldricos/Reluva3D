@@ -702,9 +702,10 @@ bool ScenePage::interfaceEvent(const Event& ev) {
         return true;
     }
     // The bar (0x4177f0); select1.wav.
+    // Above the scene's part, nothing in the scene is clicked.
     const int section = on ? barSection(x, y) : -1;
     if (section < 0)
-        return false;
+        return on && !inScene;
     if (section == 0 || section == 6 || carOn(section)) {
         if (section >= 1 && section <= 5 && inCar(section))
             return false;

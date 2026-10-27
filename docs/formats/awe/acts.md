@@ -208,8 +208,11 @@ so a quiz's wrong answers are all tried), until nothing runs. It lists
 the commands Reluva doesn't do, scenes it can't find, and events that
 never end. `-hotspots` then clicks every hotspot and character of that
 scene (and uses on it the items it asks for), each from the start again;
-`-explore n` plays on for n clicks, each the one tried least in its
-scene. `-v` prints the whole script log.
+`-explore n` plays on for n clicks (or items used, or items combined in
+the inventory where `combinelist.txt` has a row for them), each the one
+tried least in its scene. `-v` prints the whole script log. A
+developers' save is loaded as the load screen loads one (`preload slotN,
+load, fade in`).
 
 With no arguments it plays every act and every developers' save; on the
 English install that takes seconds, and finds nothing Reluva doesn't do.
