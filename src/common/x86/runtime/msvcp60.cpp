@@ -1042,19 +1042,26 @@ THISCALL void* streambufDeleting(Streambuf* self, unsigned flags) {
 } // namespace
 
 // --- basic_filebuf ----------------------------------------------------------------------
-// 0x54 bytes: a streambuf, then ours up to +0x4c, a locale of its own
+// 0x54 bytes: a streambuf, then ours up to +0x44; a string of its own
+// (+0x44) and whether the FILE is closed when it's destroyed (+0x48), which
+// the games' inline destructors delete and read; a locale of its own
 // (+0x4c, which the games' inline constructors make) and the FILE (+0x50;
 // is_open() is inline). It reads and writes the FILE directly, keeping no
-// characters of its own, so its get and put areas stay empty.
+// characters of its own, so its get and put areas stay empty, and it never
+// makes the string.
 
 struct Filebuf {
     Streambuf base;
-    int closeFile; // +0x38: opened by open(), so closed when destroyed
-    int unused[4];
+    int unused[3];
+    String* string;      // +0x44: none
+    unsigned char close; // +0x48: opened by open(), so closed when destroyed
+    unsigned char unusedFlags[3];
     Locale locale; // +0x4c
     FILE* file;    // +0x50
 };
-static_assert(sizeof(Filebuf) == 0x54 && __builtin_offsetof(Filebuf, file) == 0x50, "filebuf layout");
+static_assert(sizeof(Filebuf) == 0x54 && __builtin_offsetof(Filebuf, string) == 0x44 &&
+                  __builtin_offsetof(Filebuf, close) == 0x48 && __builtin_offsetof(Filebuf, file) == 0x50,
+              "filebuf layout");
 
 namespace {
 enum { kNewFile, kOpenedFile, kClosedFile }; // filebuf::_Initfl
@@ -1064,7 +1071,8 @@ THISCALL void* filebufDeleting(Filebuf* self, unsigned flags);
 EXPORT int filebufStateInit = 0; // filebuf::_Init's _Stinit: the conversion state's start
 
 EXPORT THISCALL void filebufInit(Filebuf* self, FILE* file, int which) {
-    self->closeFile = which == kOpenedFile;
+    self->close = which == kOpenedFile;
+    self->string = 0;
     streambufInit(&self->base);
     self->file = file;
 }
@@ -1160,7 +1168,7 @@ EXPORT THISCALL Filebuf* filebufClose(Filebuf* self) {
 }
 EXPORT THISCALL void filebufDestroy(Filebuf* self) {
     self->base.vf = filebufVftable;
-    if (self->closeFile)
+    if (self->close)
         filebufClose(self);
     localeDestroy(&self->locale);
     streambufDestroy(&self->base);

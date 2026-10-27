@@ -6014,8 +6014,11 @@ int cmdAtRun(int argc, char** argv) {
             std::printf(" %s", calls[i % calls.size()].c_str());
         // The callers: words on the stack that are just after a call in
         // one of the modules (a guess, as frames aren't recorded).
-        std::printf("\nreturn addresses on the stack:");
         const uint32_t esp = cpu.reg[Cpu::ESP];
+        std::printf("\nesp %08x ebp %08x ecx %08x, stack:", esp, cpu.reg[Cpu::EBP], cpu.reg[Cpu::ECX]);
+        for (uint32_t i = 0; i < 16; ++i)
+            std::printf(" %08x", cpu.read32(esp + 4 * i));
+        std::printf("\nreturn addresses on the stack:");
         for (uint32_t at = esp, found = 0; at < esp + 4096 && found < 24; at += 4) {
             const uint32_t a = cpu.read32(at);
             if (a < 6 || where(a).find('+') == std::string::npos)

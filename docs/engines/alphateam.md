@@ -655,7 +655,7 @@ reads, the vftables it builds for its own subclasses):
 | `ios_base` | 0x28 | state +4, exceptions +8, flags +0xc, precision +0x10, width +0x14, the locale pointer +0x20, the standard-stream index +0x24 (set to 0 inline) |
 | `basic_ios` | 0x34 | stream buffer +0x28, tied stream +0x2c, fill +0x30 (set to `' '` inline) |
 | `basic_streambuf` | 0x38 | get/put starts +4/+8; pointers to where the starts, next characters (+0x14, +0x18) and counts (+0x24, +0x28) are kept (+0xc, +0x10, +0x1c, +0x20, +0x2c, +0x30); locale +0x34. The get count is from the next character |
-| `basic_filebuf` | 0x54 | its own locale +0x4c, the `FILE*` +0x50 |
+| `basic_filebuf` | 0x54 | a `string*` the inline destructor deletes +0x44, whether that destructor closes the file (a byte) +0x48, its own locale +0x4c, the `FILE*` +0x50 |
 | `strstreambuf` | 0x50 | built inline by NiMain, then `_Init(n, get, put, mode)` |
 | `istream`, `ostream` | 8, 4 + the ios | the vbtable pointer (the ios's offset is its second entry), the read count +4 |
 | `ifstream`, `ofstream`, `fstream` | ios at +0x5c, +0x58, +0x60 | filebuf at +8, +4, +0xc |
