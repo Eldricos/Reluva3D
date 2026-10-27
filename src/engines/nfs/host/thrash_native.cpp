@@ -364,7 +364,7 @@ ThrashFrame NativeThrash::takeFrame() {
 void NativeThrash::triangle(uint32_t a, uint32_t b, uint32_t c) {
     if (recording_)
         record(vertex(a), vertex(b), vertex(c));
-    else
+    if (!recording_ || alsoRasterize_)
         rasterize(vertex(a), vertex(b), vertex(c));
 }
 
@@ -373,7 +373,8 @@ void NativeThrash::quad(uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
     if (recording_) {
         record(va, vb, vc);
         record(va, vc, vd);
-        return;
+        if (!alsoRasterize_)
+            return;
     }
     rasterize(va, vb, vc);
     rasterize(va, vc, vd);
@@ -402,7 +403,8 @@ void NativeThrash::line(uint32_t a, uint32_t b) {
         record(at(va, 1), at(vb, -1), at(va, -1));
         cull_ = cull;
         texture_ = texture;
-        return;
+        if (!alsoRasterize_)
+            return;
     }
     if (!target_)
         return;
@@ -424,7 +426,8 @@ void NativeThrash::point(uint32_t a) {
     if (recording_) {
         const int x = int(v.x), y = int(v.y);
         fill(x, y, x + 1, y + 1, v.diffuse);
-        return;
+        if (!alsoRasterize_)
+            return;
     }
     if (!target_)
         return;

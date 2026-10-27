@@ -3,10 +3,13 @@
 
 #include "engines/nfs/play_page.h"
 
+#include "common/image.h"
 #include "engines/nfs/host/game_host.h"
 #include "engines/nfs/page_draw.h"
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 namespace reluva::nfs {
@@ -14,6 +17,13 @@ namespace reluva::nfs {
 using namespace page;
 
 namespace {
+
+// THRASH frames waiting to be drawn, at most, in vertices: two or three
+// of a race's. More are dropped, oldest first: drawing them all would take
+// longer each time, and most frames draw the whole screen anyway.
+constexpr size_t kMaxQueuedVertices = 150000;
+// A frame with this many vertices is taken to draw the whole screen.
+constexpr size_t kWholeFrameVertices = 1000;
 
 // Reluva's keys as GameHost names them; empty for those the game isn't
 // given.
@@ -58,6 +68,14 @@ PlayPage::PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio:
       renderScale_(std::clamp(renderScale, 1, 4)) {
     gpuDraw_.scale = renderScale_;
     gpuDraw_.nearest = !smoothTextures;
+    // A debugging aid: the GPU's frames written beside the software
+    // rasterizer's of the same page flip, at the game's size, every so often.
+    if (const char* folder = std::getenv("RELUVA_NFS_COMPARE")) {
+        compareFolder_ = folder;
+        renderScale_ = 1;
+        gpuDraw_.scale = 1;
+        gpuDraw_.nearest = true;
+    }
 }
 
 PlayPage::~PlayPage() {
@@ -107,6 +125,7 @@ void PlayPage::start() {
     options.saveFolder = saveFolder_.empty() ? folders_.install / "reluva-save" : saveFolder_ / "game";
     options.nativeThrash = true;
     options.gpuThrash = gpu_;
+    options.gpuAndSoftware = gpu_ && !compareFolder_.empty();
     // A controller connected now is offered to the game as a joystick (it
     // looks for them once, as it starts).
     if (offerJoystick_ && sys_ && sys_->readGamepad(pad_)) {
@@ -120,17 +139,47 @@ void PlayPage::start() {
         frame_ = frame;
         newFrame_ = true;
         thrashLatest_ = false;
+        if (gpu_ && compareFolder_.empty()) { // DirectDraw's picture (in GPU mode, the only frames here)
+            primary_ = frame;
+            primaryShown_ = true;
+        }
     };
     host_->onThrashFrame = [this](ThrashFrame&& frame) {
         std::lock_guard<std::mutex> lock(mutex_);
-        // Texture changes add up until drawn; the frame itself replaces the last.
-        if (frame.resetTextures)
-            textureUpdates_ = ThrashFrame{};
-        textureUpdates_.resetTextures = textureUpdates_.resetTextures || frame.resetTextures;
-        for (ThrashFrame::Texture& t : frame.textures)
-            textureUpdates_.textures.push_back(std::move(t));
-        frame.textures.clear();
-        thrashFrame_ = std::make_shared<const ThrashFrame>(std::move(frame));
+        // A flip copies its rectangle to the screen, leaving the rest: what
+        // DirectDraw drew stays outside it until a flip covers everything.
+        if (primaryShown_) {
+            const int x0 = std::max(frame.flip[0], 0), y0 = std::max(frame.flip[1], 0);
+            const int x1 = std::min(frame.flip[2], primary_.w), y1 = std::min(frame.flip[3], primary_.h);
+            if (x0 <= 0 && y0 <= 0 && x1 >= primary_.w && y1 >= primary_.h)
+                primaryShown_ = false;
+            else
+                for (int y = y0; y < y1; ++y)
+                    for (int x = x0; x < x1; ++x)
+                        primary_.row(y)[x * 4 + 3] = 0;
+        }
+        Pending p{std::move(frame), nullptr};
+        if (!compareFolder_.empty())
+            p.software = std::make_shared<const Surface>(frame_); // drawn at the same flip, just before
+        pending_.push_back(std::move(p));
+        // Too much waiting (the page not shown, say): the oldest dropped,
+        // its texture changes kept for the frame after. Counted in vertices,
+        // not frames: a loading screen sends dozens of small ones that each
+        // add to the last, and those are all wanted.
+        size_t queued = 0;
+        for (const Pending& q : pending_)
+            queued += q.frame.vertices.size();
+        while (pending_.size() > 1 && queued > kMaxQueuedVertices) {
+            queued -= pending_.front().frame.vertices.size();
+            Pending& next = pending_[1];
+            if (!next.frame.resetTextures) {
+                next.frame.resetTextures = pending_.front().frame.resetTextures;
+                auto& older = pending_.front().frame.textures;
+                next.frame.textures.insert(next.frame.textures.begin(), std::make_move_iterator(older.begin()),
+                                           std::make_move_iterator(older.end()));
+            }
+            pending_.pop_front();
+        }
         thrashLatest_ = true;
     };
     if (Error err = host_->load()) {
@@ -236,19 +285,18 @@ void PlayPage::drawStatus(Surface& screen) {
 
 void PlayPage::update(uint64_t) {
     pollGamepad();
-    std::shared_ptr<const ThrashFrame> frame;
-    ThrashFrame updates;
+    std::deque<Pending> frames;
     Surface overlay;
     bool thrash = false;
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        frame = thrashFrame_;
-        updates = std::move(textureUpdates_);
-        textureUpdates_ = ThrashFrame{};
-        thrash = thrashLatest_ && frame && running_;
+        frames.swap(pending_);
+        thrash = thrashLatest_ && running_;
+        if (thrash && primaryShown_)
+            overlay = primary_;
         if (!thrash) {
             // A DirectDraw frame (a movie's) or, before the first and after
-            // the game ends, how it's going: shown over an empty frame.
+            // the game ends, how it's going: shown over the last frame.
             if (!frame_.pixels.empty() && running_) {
                 overlay = frame_;
             } else {
@@ -258,11 +306,57 @@ void PlayPage::update(uint64_t) {
         }
         newFrame_ = false;
     }
-    gpuDraw_.updateTextures(updates);
-    if (thrash)
-        gpuDraw_.draw(*frame, nullptr);
-    else
-        gpuDraw_.draw(ThrashFrame{}, &overlay);
+    const Surface* over = overlay.pixels.empty() ? nullptr : &overlay;
+    // Nothing new: what was drawn shown again (drawing a frame twice would
+    // blend its translucent parts twice).
+    if (frames.empty() || !thrash) {
+        for (const Pending& p : frames)
+            gpuDraw_.updateTextures(p.frame);
+        gpuDraw_.draw(ThrashFrame{}, over);
+        return;
+    }
+    // A frame of many vertices draws the whole screen (a menu's, a race's):
+    // those before the last of them needn't be drawn, only their textures
+    // taken. The small ones after it may add to it (a loading screen's
+    // progress bar), so they are.
+    size_t from = 0;
+    for (size_t i = 0; i < frames.size(); ++i)
+        if (frames[i].frame.vertices.size() >= kWholeFrameVertices)
+            from = i;
+    for (size_t i = 0; i < from; ++i)
+        gpuDraw_.updateTextures(frames[i].frame);
+    frames.erase(frames.begin(), frames.begin() + std::ptrdiff_t(from));
+    std::vector<const ThrashFrame*> list;
+    bool compare = false;
+    for (const Pending& p : frames) {
+        list.push_back(&p.frame);
+        compare = compare || (!compareFolder_.empty() && p.software && ++newFrames_ % 60 == 0);
+    }
+    if (compare)
+        gpuDraw_.captureNext();
+    gpuDraw_.draw(list, over);
+    std::vector<uint8_t> rgba;
+    const Pending& last = frames.back();
+    if (compare && last.software && gpuDraw_.capture(rgba)) {
+        std::error_code ec;
+        std::filesystem::create_directories(compareFolder_, ec);
+        auto write = [](const std::filesystem::path& path, int w, int h, const std::vector<uint8_t>& pixels) {
+            image::Image img;
+            img.w = w;
+            img.h = h;
+            img.rgba = pixels;
+            const std::vector<uint8_t> tga = image::encodeTga(img);
+            if (std::FILE* f = std::fopen(path.string().c_str(), "wb")) {
+                std::fwrite(tga.data(), 1, tga.size(), f);
+                std::fclose(f);
+            }
+        };
+        char name[32];
+        std::snprintf(name, sizeof name, "%04d", compared_++);
+        write(compareFolder_ / (std::string("gpu") + name + ".tga"), last.frame.width, last.frame.height, rgba);
+        write(compareFolder_ / (std::string("cpu") + name + ".tga"), last.software->w, last.software->h,
+              last.software->pixels);
+    }
 }
 
 } // namespace reluva::nfs

@@ -610,12 +610,23 @@ Started. Done so far:
   more would take a faster interpreter core, translating whole blocks of
   code, rather than more routines run natively.
 
+- **The GPU's frames against the software rasterizer's**
+  ([thrash.md](../formats/nfs/thrash.md), Compared with the software
+  rasterizer). Frame by frame, from the menus through a loading screen
+  to a race, they now agree:
+  - the menus within 0.5 of 255 on average;
+  - the loading screen exactly;
+  - the race within 1.1 once rounded to the software path's 5:6:5.
+
+  The comparison found the GPU path dropping loading screens and the
+  countdown's digits (culling the wrong way round), and frames that add
+  to the last; both are fixed. The cockpit view has no rear-view mirror
+  to compare; the outside views agree as the cockpit does.
+
 Still to do:
 
 - **Wheels and force feedback.** A wheel shows as a pad; the force
   feedback the game asks of the wheels it knows isn't stood in for.
-- **The GPU's frames against the software rasterizer's**, in detail:
-  the rear-view mirror, translucency, lines.
 - **Sound.** What iSND mixes plays as mixed. Its 3D placement and Dolby
   Surround aren't checked, nor how it holds up when frames come slowly.
 - **Played by hand** on a real GPU with speakers. So far it's been

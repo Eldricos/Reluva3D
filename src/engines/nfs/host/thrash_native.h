@@ -40,6 +40,9 @@ struct ThrashFrame {
     std::vector<Batch> batches;
     bool resetTextures = false;     // all textures before these gone (treset)
     std::vector<Texture> textures; // made or changed since the last frame
+    // The rectangle a page flip shows of it (x0, y0, x1, y1): outside it,
+    // the screen keeps what was there.
+    int flip[4] = {0, 0, 640, 480};
 };
 
 // THRASH's drawing done natively (docs/formats/nfs/thrash.md): the
@@ -67,6 +70,8 @@ public:
     }
     // Draws into a list rather than into memory, from now on.
     void setRecording(bool on) { recording_ = on; }
+    // Draws into memory too while recording (to compare the two).
+    void setAlsoRasterize(bool on) { alsoRasterize_ = on; }
     // A filled rectangle (a clear), into the list.
     void fill(int x0, int y0, int x1, int y1, uint32_t argb);
     // The list drawn since the last call, with the textures changed.
@@ -119,6 +124,7 @@ private:
     int blend_ = 0;       // state 0x68: 0 alpha, 1 additive, 2 darken, 3 multiply
     bool alphaBlend_ = false; // state 0xa
     bool recording_ = false;
+    bool alsoRasterize_ = false;
     ThrashFrame frame_;
     std::set<uint32_t> changed_; // textures made or updated since the last frame
     bool resetTextures_ = false;

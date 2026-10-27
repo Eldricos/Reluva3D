@@ -183,6 +183,9 @@ public:
     // The GPU and driver doing the work, for diagnostics.
     virtual std::string deviceName() const = 0;
 
+    // Whether frames begin with what the last one left (true), as a
+    // software renderer's buffer does, rather than cleared (the default).
+    virtual void setKeepFrame(bool keep) = 0;
     // A frame: begin, any number of draws (in order), end. `viewProj` maps
     // world positions to clip space; `eye` is the camera's position.
     virtual void beginFrame(const Mat4& viewProj, const Vec3& eye, Color clear) = 0;

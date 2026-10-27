@@ -77,9 +77,23 @@ private:
     int renderScale_ = 2;
     bool gpu_ = false; // drawing with the GPU: decided when the game starts
     ThrashGpu gpuDraw_; // on the engine's thread
-    std::shared_ptr<const ThrashFrame> thrashFrame_; // the last THRASH frame, its textures taken out
-    ThrashFrame textureUpdates_;                     // textures it and those before brought, not applied yet
+    // THRASH's frames not drawn yet, in order: each is drawn (some add to
+    // what the one before left), with the textures it brought, then kept.
+    struct Pending {
+        ThrashFrame frame;
+        std::shared_ptr<const Surface> software; // comparing: the software rasterizer's of the same flip
+    };
+    std::deque<Pending> pending_;
     bool thrashLatest_ = false;                      // whether the last frame was THRASH's (else frame_)
+    // The screen as DirectDraw last left it (a loading screen's picture),
+    // shown over THRASH's frames until a page flip covers all of it: clear
+    // (alpha 0) where flips have shown THRASH's frame since.
+    Surface primary_;
+    bool primaryShown_ = false;
+    // Comparing the GPU's frames with the software rasterizer's (the
+    // folder in RELUVA_NFS_COMPARE): the software frame of the last list.
+    std::filesystem::path compareFolder_;
+    int compared_ = 0, newFrames_ = 0;
     std::string result_; // how the run ended
 };
 

@@ -21,8 +21,17 @@ public:
     void setRenderer(gfx::Renderer3D* renderer);
     // Textures made or changed, as a frame brings them.
     void updateTextures(const ThrashFrame& frame);
-    // Draws a frame and shows it, with `overlay` on top if given.
-    void draw(const ThrashFrame& frame, const Surface* overlay);
+    // Draws frames in order, each over what the one before left (with the
+    // textures each brought, applied as it's reached), and shows the
+    // result once, with `overlay` on top if given.
+    void draw(const std::vector<const ThrashFrame*>& frames, const Surface* overlay);
+    void draw(const ThrashFrame& frame, const Surface* overlay) { draw(std::vector<const ThrashFrame*>{&frame}, overlay); }
+    // The next frame drawn, kept for capture() (RGBA, the renderer's size).
+    void captureNext() {
+        if (renderer_)
+            renderer_->captureNextFrame();
+    }
+    bool capture(std::vector<uint8_t>& rgba) { return renderer_ && renderer_->takeCapture(rgba); }
     // Point-sampled textures, as the software renderer draws (else
     // bilinear).
     bool nearest = true;
@@ -40,6 +49,9 @@ private:
     Surface scaledOverlay_; // an overlay of the game's size, enlarged to the renderer's
     std::map<uint32_t, ThrashFrame::Texture> textures_;                 // by handle: what they hold
     std::map<std::pair<uint32_t, bool>, gfx::TextureId> gpuTextures_; // by handle and wrapping
+    // Textures replaced while a frame was being drawn (a draw already made
+    // may use them): destroyed once it's shown.
+    std::vector<gfx::TextureId> retired_;
 };
 
 } // namespace reluva::nfs

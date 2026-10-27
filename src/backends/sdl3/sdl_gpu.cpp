@@ -613,7 +613,7 @@ void SdlGpuRenderer::beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3& eye,
     SDL_GPUColorTargetInfo color{};
     color.texture = color_;
     color.clear_color = {clear.r / 255.0f, clear.g / 255.0f, clear.b / 255.0f, 1.0f};
-    color.load_op = SDL_GPU_LOADOP_CLEAR;
+    color.load_op = keepFrame_ ? SDL_GPU_LOADOP_LOAD : SDL_GPU_LOADOP_CLEAR;
     color.store_op = SDL_GPU_STOREOP_STORE;
     SDL_GPUDepthStencilTargetInfo depth{};
     depth.texture = depth_;

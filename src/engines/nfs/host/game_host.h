@@ -50,6 +50,9 @@ public:
         // With nativeThrash: THRASH's frames as lists for the GPU
         // (onThrashFrame) rather than drawn into memory.
         bool gpuThrash = false;
+        // With gpuThrash: drawn in memory too, each page flip giving both
+        // a frame (onFrame) and a list (onThrashFrame), to compare them.
+        bool gpuAndSoftware = false;
         // A joystick offered to the game by this name (DirectInput's
         // devices, as enumerated at start-up); none if empty.
         std::string joystick;

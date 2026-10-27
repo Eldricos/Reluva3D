@@ -28,23 +28,30 @@ gfx::Mat4 screenToClip(int x0, int y0, int w, int h) {
 
 void ThrashGpu::setRenderer(gfx::Renderer3D* renderer) {
     if (renderer_ && renderer_ != renderer) {
+        renderer_->setKeepFrame(false); // as the next user expects it
         for (const auto& [key, id] : gpuTextures_)
+            renderer_->destroyTexture(id);
+        for (gfx::TextureId id : retired_)
             renderer_->destroyTexture(id);
         if (mesh_)
             renderer_->destroyMesh(mesh_);
     }
     gpuTextures_.clear();
+    retired_.clear();
     mesh_ = 0;
     indexCapacity_ = 0;
     renderer_ = renderer;
+    // The game draws into a buffer kept from frame to frame, sometimes
+    // adding to what's there (a loading screen's progress bar).
+    if (renderer_)
+        renderer_->setKeepFrame(true);
 }
 
 void ThrashGpu::updateTextures(const ThrashFrame& frame) {
     auto drop = [this](uint32_t handle) {
         for (bool wrap : {false, true})
             if (auto it = gpuTextures_.find({handle, wrap}); it != gpuTextures_.end()) {
-                if (renderer_)
-                    renderer_->destroyTexture(it->second);
+                retired_.push_back(it->second);
                 gpuTextures_.erase(it);
             }
     };
@@ -84,27 +91,37 @@ gfx::TextureId ThrashGpu::texture(uint32_t handle, bool wrap) {
     return id;
 }
 
-void ThrashGpu::draw(const ThrashFrame& frame, const Surface* overlay) {
-    if (!renderer_)
+void ThrashGpu::draw(const std::vector<const ThrashFrame*>& frames, const Surface* overlay) {
+    if (!renderer_ || frames.empty())
         return;
-    vertices_.resize(frame.vertices.size());
-    for (size_t i = 0; i < frame.vertices.size(); ++i) {
-        const ThrashFrame::Vertex& v = frame.vertices[i];
-        const float w = v.rhw > 0 ? 1.0f / v.rhw : 1.0f;
-        gfx::Vertex& o = vertices_[i];
-        o = gfx::Vertex{};
-        o.pos[0] = v.x * w;
-        o.pos[1] = v.y * w;
-        o.pos[2] = w;
-        o.uv[0] = v.u;
-        o.uv[1] = v.v;
-        o.color[0] = uint8_t(v.diffuse >> 16);
-        o.color[1] = uint8_t(v.diffuse >> 8);
-        o.color[2] = uint8_t(v.diffuse);
-        o.color[3] = uint8_t(v.diffuse >> 24);
+    // All the frames' vertices in the one mesh, each frame's after the last's.
+    std::vector<uint32_t> base;
+    vertices_.clear();
+    for (const ThrashFrame* frame : frames) {
+        base.push_back(uint32_t(vertices_.size()));
+        for (size_t i = 0; i < frame->vertices.size(); ++i) {
+            const ThrashFrame::Vertex& v = frame->vertices[i];
+            // 1/w as given, for perspective; but a triangle whose three are
+            // the same is flat on the screen and needs none (2D pictures
+            // come with 1/65536, which would make w huge for nothing).
+            const ThrashFrame::Vertex* tri = &frame->vertices[i - i % 3];
+            const bool flat = i - i % 3 + 2 < frame->vertices.size() && tri[0].rhw == tri[1].rhw && tri[1].rhw == tri[2].rhw;
+            const float w = flat || v.rhw <= 0 ? 1.0f : 1.0f / v.rhw;
+            gfx::Vertex o{};
+            o.pos[0] = v.x * w;
+            o.pos[1] = v.y * w;
+            o.pos[2] = w;
+            o.uv[0] = v.u;
+            o.uv[1] = v.v;
+            o.color[0] = uint8_t(v.diffuse >> 16);
+            o.color[1] = uint8_t(v.diffuse >> 8);
+            o.color[2] = uint8_t(v.diffuse);
+            o.color[3] = uint8_t(v.diffuse >> 24);
+            vertices_.push_back(o);
+        }
     }
-    // One mesh holds the frame: its vertices replaced, its indices 0, 1, 2...
-    // (each triangle has vertices of its own), set again only to grow.
+    // Its indices are 0, 1, 2... (each triangle has vertices of its own),
+    // set again only to grow.
     bool ok = !vertices_.empty();
     if (ok && vertices_.size() > indexCapacity_) {
         std::vector<uint32_t> indices(vertices_.size() + vertices_.size() / 2);
@@ -120,8 +137,15 @@ void ThrashGpu::draw(const ThrashFrame& frame, const Surface* overlay) {
         ok = !renderer_->setMeshVertices(mesh_, vertices_);
     }
 
-    renderer_->beginFrame(screenToClip(0, 0, frame.width, frame.height), {0, 0, 0}, Color{0, 0, 0});
-    if (ok)
+    const ThrashFrame& first = *frames.front();
+    renderer_->beginFrame(screenToClip(0, 0, first.width, first.height), {0, 0, 0}, Color{0, 0, 0});
+    for (size_t f = 0; f < frames.size(); ++f) {
+        const ThrashFrame& frame = *frames[f];
+        // Textures as this frame has them: a draw already made keeps the
+        // texture it was given, even one replaced here.
+        updateTextures(frame);
+        if (!ok)
+            continue;
         for (const ThrashFrame::Batch& b : frame.batches) {
             const int w = b.clip[2] - b.clip[0], h = b.clip[3] - b.clip[1];
             if (!b.count || w <= 0 || h <= 0)
@@ -130,7 +154,7 @@ void ThrashGpu::draw(const ThrashFrame& frame, const Surface* overlay) {
             renderer_->setView(screenToClip(b.clip[0], b.clip[1], w, h), {0, 0, 0});
             gfx::DrawCall call;
             call.mesh = mesh_;
-            call.firstIndex = b.first;
+            call.firstIndex = base[f] + b.first;
             call.indexCount = b.count;
             call.texture = b.texture ? texture(b.texture, b.wrap) : 0;
             call.rgbSource = gfx::ColorSource::Vertex;
@@ -138,9 +162,9 @@ void ThrashGpu::draw(const ThrashFrame& frame, const Surface* overlay) {
             gfx::DrawState& s = call.state;
             s.depthTest = false;
             s.depthWrite = false;
-            // Cull 1 leaves out triangles turning counter-clockwise on the
-            // screen (y down), which turn clockwise in clip space (y up).
-            s.cull = b.cull == 1 ? gfx::Cull::Back : b.cull == 2 ? gfx::Cull::Front : gfx::Cull::None;
+            // Cull 1 leaves out triangles turning counter-clockwise as shown,
+            // which the renderer takes as front faces; cull 2 the others.
+            s.cull = b.cull == 1 ? gfx::Cull::Front : b.cull == 2 ? gfx::Cull::Back : gfx::Cull::None;
             // As the software renderer: what's translucent is blended over
             // what's drawn (opaque texels and vertices replace it); the other
             // modes when blending is on.
@@ -158,6 +182,7 @@ void ThrashGpu::draw(const ThrashFrame& frame, const Surface* overlay) {
             s.alphaTest = call.texture ? gfx::AlphaTest::Gt0 : gfx::AlphaTest::None;
             renderer_->draw(call);
         }
+    }
     // An overlay the game's size (a movie's frame), enlarged to the frame's.
     if (overlay && (overlay->w != renderer_->width() || overlay->h != renderer_->height()) && overlay->w > 0 &&
         overlay->h > 0) {
@@ -171,6 +196,9 @@ void ThrashGpu::draw(const ThrashFrame& frame, const Surface* overlay) {
         overlay = &scaledOverlay_;
     }
     renderer_->endFrame(overlay);
+    for (gfx::TextureId id : retired_)
+        renderer_->destroyTexture(id);
+    retired_.clear();
 }
 
 } // namespace reluva::nfs

@@ -192,8 +192,7 @@ waits are spent elsewhere.
 
 With a GPU, the Play page draws THRASH's frames with it
 (`src/engines/nfs/thrash_gpu.cpp`). `GameHost` (with `gpuThrash`)
-records each frame's drawing as a list, and the page draws the latest
-list.
+records each frame's drawing as a list, and the page draws the lists.
 
 - **Triangles.** Each triangle gets its three vertices of its own, so
   flat shading is the first vertex's colour on all three. Quads are two
@@ -205,7 +204,10 @@ list.
   list, decoded to RGBA as for the software rasterizer.
 - **Vertices** go to the GPU as (x / rhw, y / rhw, 1 / rhw). A matrix maps
   that to clip space, with clip w equal to 1 / rhw, so texturing is
-  perspective-correct as in the software renderer.
+  perspective-correct as in the software renderer. A triangle whose three
+  vertices share one rhw is flat on the screen, and goes with w = 1.
+  2D pictures come with rhw = 1/65536, which would make w huge for
+  nothing.
 - **Clipping.** The batch's clip rectangle becomes the viewport, with the
   matrix fitted to it.
 - **No depth test.** The game sorts back to front for the software
@@ -213,13 +215,51 @@ list.
 - **Blending.** Translucent texels and vertices blend over what's drawn,
   with source alpha. State 0x68's other modes apply while blending is on
   (state 0xa). Texels of alpha 0 are left out.
-- **Culling.** Cull 1 drops triangles turning counter-clockwise on the
-  screen, cull 2 clockwise ones.
+- **Culling.** Cull 1 (Direct3D's counter-clockwise culling, in d3da)
+  drops triangles turning counter-clockwise as shown on the screen. Cull
+  2 drops clockwise ones.
+- **Frames add to the last.** softtria's buffers keep their contents
+  from one frame to the next, and the game sometimes draws only what's
+  new: a loading screen draws its picture once, then a step of its
+  progress bar each frame. So the GPU's frame keeps its contents too
+  (`Renderer3D::setKeepFrame`), and lists are drawn in order, each with
+  the texture changes it brought. The page draws all the lists waiting
+  into one frame, shown once. A list of 1,000 vertices or more is taken
+  to draw the whole screen (menus have 2,000 to 3,000, races tens of
+  thousands), so those before the last such list are skipped, their
+  texture changes still applied. At most about 150,000 vertices wait.
+  With more, the oldest go, as when the page isn't shown.
+- **The flip's rectangle.** A page flip copies only softtria's clip
+  rectangle to the screen. DirectDraw's last picture stays outside it
+  until a flip covers the whole screen.
 
 Checked first that nothing is lost by not drawing into softtria's
 buffers. With drawing turned off and clears made magenta, every frame
-from the menus into a race was magenta throughout, so the game draws
-only through THRASH.
+from the menus, through the track's loading screen and into a race was
+magenta throughout. So the game draws only through THRASH.
+
+**Compared with the software rasterizer.** With `RELUVA_NFS_COMPARE` set
+to a folder, the Play page has the game drawn both ways, at 640x480 and
+point-sampled. Every 60th frame it writes the GPU's frame and the
+software one of the same page flip. In a run through the menus, a
+loading screen and a race in three camera views, under software Vulkan:
+
+| | Mean difference (of 255) | Pixels off by more than 24 |
+|---|---|---|
+| Menus | 0.25-0.46 | 120-150 |
+| Loading screen | 0.01-0.03 | 0 |
+| Race | about 3 | about 200 |
+
+The race's difference is mostly the software path's 5:6:5 colour.
+Rounded to it, the GPU's frame is within 1.1 on average; the rest is
+pixels along edges. The comparison found two bugs, both fixed:
+- **Culling.** The mapping had cull 1 and 2 the wrong way round, which
+  left the loading screens and the countdown's digits out.
+- **Skipped lists.** The page drew only the latest list, which lost
+  frames that add to the last.
+
+`nfs-host -gpulog` records as for the GPU, without one, and sums up
+each frame's list: batches, vertices, textures, the flip's rectangle.
 
 DirectDraw's frames (the movies) are shown over an empty frame. Frames
 are drawn at `renderscale` times 640x480 (2 unless set): the same

@@ -9,6 +9,7 @@
 
 #include "engines/nfs/host/game_host.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 
@@ -142,7 +143,8 @@ bool GameHost::nativeDraw(const std::string& name, const std::vector<uint32_t>& 
             const uint32_t argb = 0xff000000u | ((v >> 11) & 31) * 255 / 31 << 16 | ((v >> 5) & 63) * 255 / 63 << 8 |
                                   (v & 31) * 255 / 31;
             native_->fill(x0, y0, x0 + width, y0 + height, argb);
-            return true;
+            if (!options_.gpuAndSoftware)
+                return true;
         }
         if (name == "clearwindow") {
             const uint32_t fill = softtria(0x6003e11c); // the clear colour, two pixels of it
@@ -161,12 +163,18 @@ bool GameHost::nativeDraw(const std::string& name, const std::vector<uint32_t>& 
         if (hook)
             if (Error e = cpu_->call(hook, {1}, ignored))
                 cpu_->abort("THRASH_pageflip: " + e.message);
+        if (!options_.gpuThrash || options_.gpuAndSoftware)
+            presentBuffer(buffer, int(pitch), x0, y0, width, height);
         if (options_.gpuThrash) {
             ThrashFrame frame = native_->takeFrame();
+            // The rectangle the flip copies to the screen: elsewhere, what's
+            // there stays (a loading screen's picture, drawn with DirectDraw).
+            frame.flip[0] = x0;
+            frame.flip[1] = y0;
+            frame.flip[2] = x0 + width;
+            frame.flip[3] = y0 + height;
             if (onThrashFrame)
                 onThrashFrame(std::move(frame));
-        } else {
-            presentBuffer(buffer, int(pitch), x0, y0, width, height);
         }
         if (hook)
             if (Error e = cpu_->call(hook, {0}, ignored))

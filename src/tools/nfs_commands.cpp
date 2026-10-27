@@ -71,6 +71,7 @@ const char* const kUsageLines =
     "                       [-timescale 0.1] [-thrashlog fromframe toframe] [-native] [-wav sound.wav]\n"
     "                       [-joystick name] (keys also joy:A=V...: axes 0-5 = V, button bB; +key/-key held)\n"
     "                       [-hotspots from to] (instructions counted by where they run, 16-byte blocks)\n"
+    "                       [-gpulog] (THRASH recorded as for the GPU; each frame's list summed up)\n"
     "  reluva-tool nfs-survey <folder>... [-v]\n"
     "  reluva-tool nfs-page <game folder> <out.tga> <page> [key...]\n";
 
@@ -963,6 +964,7 @@ int cmdNfsHost(int argc, char** argv) {
     std::string frameLogFile;                // each frame's time and instructions, as CSV
     std::string wavFile;                     // what the game's sound buffers played
     uint64_t hotFrom = 0, hotTo = 0;         // instructions counted by where they run, over this range
+    bool gpuLog = false;
     std::string framesDir;
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
@@ -994,6 +996,10 @@ int cmdNfsHost(int argc, char** argv) {
         else if (arg == "-hotspots" && a + 2 < argc) {
             hotFrom = std::strtoull(argv[++a], nullptr, 10);
             hotTo = std::strtoull(argv[++a], nullptr, 10);
+        } else if (arg == "-gpulog") { // THRASH recorded as for the GPU, each frame's list summed up
+            options.nativeThrash = true;
+            options.gpuThrash = true;
+            gpuLog = true;
         } else if (arg == "-joystick" && a + 1 < argc)
             options.joystick = argv[++a];
         else if (arg == "-keys" && a + 1 < argc)
@@ -1029,6 +1035,16 @@ int cmdNfsHost(int argc, char** argv) {
     std::vector<uint32_t> recent(size_t(std::max(traceCount, 1)));
     size_t recentAt = 0;
     int watched = 0;
+    if (gpuLog)
+        host.onThrashFrame = [&](reluva::nfs::ThrashFrame&& f) {
+            size_t textured = 0;
+            for (const auto& b : f.batches)
+                textured += b.texture ? b.count : 0;
+            std::printf("  list at %llu ms: %zu batches, %zu vertices (%zu textured), %zu textures%s, flip %d,%d-%d,%d\n",
+                        (unsigned long long)host.process().now(), f.batches.size(), f.vertices.size(), textured,
+                        f.textures.size(), f.resetTextures ? " after a reset" : "", f.flip[0], f.flip[1], f.flip[2],
+                        f.flip[3]);
+        };
     // Where instructions run, by 16-byte block, over a range of the run.
     std::map<uint32_t, uint64_t> hot;
     if (hotTo > hotFrom)

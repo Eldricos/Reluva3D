@@ -40,6 +40,7 @@ public:
     int width() const override { return width_; }
     int height() const override { return height_; }
     std::string deviceName() const override;
+    void setKeepFrame(bool keep) override { keepFrame_ = keep; }
     void beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3& eye, Color clear) override;
     void draw(const gfx::DrawCall& call) override;
     void setDynamicLights(const std::vector<gfx::DynamicLight>& lights) override {
@@ -94,6 +95,7 @@ private:
     bool hasStencil_ = false;
     StencilMode stencilMode_ = StencilMode::None;
     bool mirrored_ = false;
+    bool keepFrame_ = false; // frames begin with the last one's contents
     SDL_GPUTexture* color_ = nullptr; // the frame, wrapped by colorView_ for the renderer
     SDL_GPUTexture* depth_ = nullptr;
     SDL_Texture* colorView_ = nullptr;

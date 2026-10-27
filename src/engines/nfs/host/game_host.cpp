@@ -109,6 +109,7 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
     if (options_.nativeThrash) {
         native_ = std::make_unique<NativeThrash>(*cpu_);
         native_->setRecording(options_.gpuThrash);
+        native_->setAlsoRasterize(options_.gpuThrash && options_.gpuAndSoftware);
     }
 }
 
