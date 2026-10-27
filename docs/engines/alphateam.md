@@ -272,11 +272,18 @@ Progress:
   `NiA3dSound`, `NiCollision`, `NiDirect3d`, `LoadComp`, then the program.
 - The process believes it's installed in
   `C:\Program Files\LEGO Media\Games\LEGO Alpha Team\`, which is the
-  game folder. Writing files isn't allowed yet.
+  game folder. What it writes there goes to the target's save folder
+  (`GameTarget::savePath`, `GameProcess::setSaveFolder`), and it reads its
+  files from the save folder first; it may write nowhere else (Playing,
+  below).
 - The CD-ROM drive (D:) has the retail CD's label, `LEGOATEN`.
 - `reluva-tool at-run <game folder> [-log]` runs all of it and reports how far it
   gets: the imports nothing stands in for, by DLL, and on a failure the
-  last instructions (as module+offset) and the last stand-ins called.
+  last instructions (as module+offset), the last stand-ins called, the
+  registers and the stack's first words, and the return addresses found on
+  the stack. `-files` prints each path the program asks for (and where it
+  was found) and each registry value it sets; `-save folder` is its save
+  folder (without one it may write nothing).
 - Done: MSVCRT (all 79 imports, `src/common/x86/msvcrt.cpp`) and KERNEL32's
   files.
 - Done: MSVCP60, as our own DLL (below), and the rest of KERNEL32's
@@ -684,11 +691,41 @@ reads, the vftables it builds for its own subclasses):
 
 ### 4. Playing
 
-Whichever way phase 3 chose:
+- Done: saving.
+  - Found with `at-run -files`: the game writes one file, `Game.txt` in
+    its install folder (the readme has players edit it). It's LoadComp's
+    `DDInfo` (`GameState`) saved as text: a header of comments, then a
+    key and a value a line. The interface behaviour (PE0300) reads and
+    sets `P<slot>Space`, the mission the Adventure in that slot has reached
+    (the `SPACES_EN.TXT` ids, `M1020`), and `P<slot>Time`, when it was last
+    played (`time()`), saving as it sets them; the Adventure cards show
+    both. The settings go there too (the readme's `Width`, `Height`, `BPP`).
+  - It's written on leaving through Exit Game (from the main menu, or
+    from a mission's menu), and as an Adventure moves on. Quitting
+    Reluva stops the game where it is, so it saves nothing then.
+  - Two things in our run-time had to be fixed for it. The `ofstream`
+    destructor that LoadComp inlines in `DDInfo::Save` reads `filebuf`'s
+    close flag at +0x48 and deletes a string pointer at +0x44, which ours
+    hadn't kept there (it deleted garbage and crashed). And the file is
+    opened in text mode, so on Windows it has CR-LF line ends: our
+    MSVCRT had made every file binary, so a saved `P0Space` kept its CR
+    and wasn't recognised. Text mode now reads CR-LF as LF and writes LF
+    as CR-LF.
+  - Checked: a `Game.txt` with `P0Space  M1020` (CR-LF) shows "On the
+    Right Path" on the first Adventure card, and choosing it starts that
+    mission.
+- Done: every mission loads and runs. With a saved Adventure at each
+  mission (`P0Space`), all 54 (the three later training missions, M0020
+  to M0040, and the Adventure's 50, M1010 to M4070) load and show their
+  fly-over and goal, by frame 2300 of a fixed-clock run (about two
+  minutes each).
+- Single Missions lists only the missions an Adventure has reached ("Select
+  a Mission to Revisit").
 
-- the front end (title, menus, mission select) and saving, in the
-  game's save folder (`GameTarget::savePath`);
-- a mission played start to finish, then every mission;
+Still to do, whichever way phase 3 chose:
+
+- a mission played start to finish, then every mission (solving each
+  puzzle);
 - sound placed in 3D as A3D placed it, and music;
 - the game's options (resolution, detail, volume) applied through
   `System`;
