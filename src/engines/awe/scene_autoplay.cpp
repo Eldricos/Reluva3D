@@ -75,17 +75,28 @@ ScenePage::GameStatus ScenePage::status() const {
     return s;
 }
 
-std::vector<std::string> ScenePage::clickables() const {
-    // The hotspots and characters a player could click now: their names
-    // (or pictures), in the scene's order.
-    std::vector<std::string> out;
+std::vector<const Ac2Record*> ScenePage::clickableObjects() const {
+    // The hotspots and characters a player could click now, in the scene's
+    // order.
+    std::vector<const Ac2Record*> out;
     for (const Ac2Record* o : scene_.objects()) {
         if ((o->tag != "SPOT" && o->tag != "NPCX") || hidden(*o) || !testCondition(o->text("condition"), state_))
             continue;
         if (o->text("script").empty() && !o->field("listB"))
             continue;
+        out.push_back(o);
+    }
+    return out;
+}
+
+std::vector<std::string> ScenePage::clickables() const {
+    // Their names, or their pictures' or models' files.
+    std::vector<std::string> out;
+    for (const Ac2Record* o : clickableObjects()) {
         const Ac2Record* hot = o->part("HOTS");
         std::string name = !o->text("name").empty() ? o->text("name") : hot ? hot->text("name") : "";
+        if (name.empty() && !o->text("file").empty())
+            name = fs::toLower(o->text("file").substr(o->text("file").find_last_of("\\/") + 1));
         if (name.empty())
             name = o->tag + "@" + std::to_string(o->i("left")) + "," + std::to_string(o->i("top"));
         out.push_back(name);
@@ -94,21 +105,14 @@ std::vector<std::string> ScenePage::clickables() const {
 }
 
 bool ScenePage::click(size_t i) {
-    size_t k = 0;
-    for (const Ac2Record* o : scene_.objects()) {
-        if ((o->tag != "SPOT" && o->tag != "NPCX") || hidden(*o) || !testCondition(o->text("condition"), state_))
-            continue;
-        if (o->text("script").empty() && !o->field("listB"))
-            continue;
-        if (k++ != i)
-            continue;
-        if (!runner_->idle())
-            runner_->clear();
-        runner_->setFromCharacter(o->tag == "NPCX");
-        runScript(*o);
-        return true;
-    }
-    return false;
+    const std::vector<const Ac2Record*> objects = clickableObjects();
+    if (i >= objects.size())
+        return false;
+    if (!runner_->idle())
+        runner_->clear();
+    runner_->setFromCharacter(objects[i]->tag == "NPCX");
+    runScript(*objects[i]);
+    return true;
 }
 
 } // namespace reluva::awe

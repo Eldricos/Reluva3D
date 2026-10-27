@@ -172,6 +172,15 @@ public:
     // on one (its script run, as a click runs it).
     std::vector<std::string> clickables() const;
     bool click(size_t i);
+    // The inventory (scene_inventory.cpp): an item used on an object, as
+    // the game does when one in hand is clicked on it (0x41c050: its
+    // conditional scripts asking for it, else uselist.txt for a
+    // character, else "can't"); items combined (combinelist.txt). The
+    // items the clickable i asks for, that Poirot has, and one used on it.
+    bool useItem(const std::string& item, const Ac2Record& target);
+    bool combineItems(const std::vector<std::string>& parts);
+    std::vector<std::string> itemsFor(size_t i) const;
+    bool useOn(const std::string& item, size_t i);
 
 private:
     // A character placed in the scene, animated as the game animates
@@ -402,6 +411,7 @@ private:
     ScriptRunner* soundRunner_ = nullptr; // waiting on a "sound"
     audio::SoundHandle soundWaited_ = audio::kNoSound;
     bool interfaceOff_ = false;
+    std::string inHand_; // the item picked with U, used on the next click
     void logScript(const std::string& line);
     bool hidden(const Ac2Record& o) const;
     bool shown(const Ac2Record& o) const;
@@ -464,6 +474,9 @@ private:
     std::unique_ptr<ScriptRunner> runner_;
     std::unique_ptr<DialogueManager> dialogue_;
     std::map<std::string, int> autoChoices_; // how often the tool's player took each choice
+    std::vector<const Ac2Record*> clickableObjects() const;
+    std::map<std::string, Table> itemTables_; // uselist.txt, combinelist.txt
+    const Table& itemTable(const char* file);
     // A game played (N): the acts, the music playing (by file), where the
     // player was in each scene left, the screen's fade (0 clear, 1 black)
     // and the runner waiting on it.

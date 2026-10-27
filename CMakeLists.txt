@@ -212,6 +212,7 @@ if(RELUVA_ENGINE_AWE)
         src/engines/awe/savegame.cpp
         src/engines/awe/scene_saves.cpp
         src/engines/awe/scene_autoplay.cpp
+        src/engines/awe/scene_inventory.cpp
         src/engines/awe/scene_options.cpp
         src/engines/awe/shadows.cpp
         src/engines/awe/lighting.cpp

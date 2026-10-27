@@ -645,7 +645,7 @@ void ScenePage::beginLoad(const std::string& location, bool forAct) {
     load_ = LocationLoad();
     load_.scene = keep.scene, load_.verb = keep.verb, load_.entry = keep.entry, load_.runner = keep.runner;
     load_.walkIn = keep.walkIn;
-    load_.restore = keep.restore;
+    load_.restore = keep.state != 0 && keep.restore; // a load under way's, not one over
     load_.forAct = forAct;
     load_.location = location;
     load_.files = locationFiles(location);
@@ -707,7 +707,8 @@ void ScenePage::updateLoad() {
         if (l.forAct) {
             l.state = 0;
             story_->locationLoaded();
-            if (l.restore) {
+            if (l.restore && restoring_) {
+                l.restore = false; // done: a later act's load isn't one
                 finishRestore();
                 if (ScriptRunner* r = l.runner) {
                     l.runner = nullptr;
@@ -2778,14 +2779,24 @@ void ScenePage::handleEvent(const Event& ev) {
         if (puzzleActive())
             puzzleClick(ev.mouseX, ev.mouseY);
         runner_->setFromCharacter(false);
+        // With an item in hand (U, for want of the inventory screen), it's
+        // used on what's clicked (0x41c050).
+        const std::string inHand = std::move(inHand_);
+        inHand_.clear();
         if (const Ac2Record* spot = hotspotAt(ev.mouseX, ev.mouseY)) {
-            runScript(*spot);
+            if (!inHand.empty())
+                useItem(inHand, *spot);
+            else
+                runScript(*spot);
         } else if (const Ac2Record* who = characterAt(ev.mouseX, ev.mouseY)) {
             // A character's own script: a talk then offers its generic
             // lines and goodbyes (0x4162a3).
             runner_->setFromCharacter(true);
             resumeAfter_ = who;
-            runScript(*who);
+            if (!inHand.empty())
+                useItem(inHand, *who);
+            else
+                runScript(*who);
         }
         else
             walkTo(ev.mouseX, ev.mouseY);
@@ -2805,6 +2816,17 @@ void ScenePage::handleEvent(const Event& ev) {
         if (n > 0)
             selected_ = ev.key == key::Down ? (selected_ + 1 >= n ? -1 : selected_ + 1)
                                             : (selected_ < 0 ? n - 1 : selected_ - 1);
+        draw();
+    } else if (ev.key == 'u' && playing_) {
+        // The next item Poirot has, in hand for the next click; none after
+        // the last.
+        std::vector<std::string> items;
+        for (const std::string& i : state_.items)
+            if (state_.itemAvailable(i))
+                items.push_back(i);
+        auto at = std::find(items.begin(), items.end(), inHand_);
+        inHand_ = at == items.end() ? (items.empty() ? "" : items.front()) : std::next(at) == items.end() ? "" : *std::next(at);
+        logScript(inHand_.empty() ? "(nothing in hand)" : "(in hand: " + inHand_ + ")");
         draw();
     } else if (ev.key == 'h') {
         hotspots_ = !hotspots_;

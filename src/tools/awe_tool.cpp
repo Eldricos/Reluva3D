@@ -503,6 +503,8 @@ int cmdAweActs(int argc, char** argv) {
             const std::string did = page.autoplay();
             if (!did.empty())
                 log.push_back("  [player] " + did);
+            else if (page.status().puzzle)
+                return true; // a puzzle, a menu: for a player to do
             const awe::ScenePage::GameStatus st = page.status();
             if (st.event != lastEvent || st.idle)
                 lastEvent = st.event, eventSince = sys.now;
@@ -549,8 +551,15 @@ int cmdAweActs(int argc, char** argv) {
         report(log, page.status(), target);
         if (!hotspots)
             continue;
+        // Each a click, or an item it asks for used on it ("" a click).
         const std::vector<std::string> spots = page.clickables();
+        std::vector<std::pair<size_t, std::string>> tries;
         for (size_t i = 0; i < spots.size(); i++) {
+            tries.emplace_back(i, "");
+            for (const std::string& item : page.itemsFor(i))
+                tries.emplace_back(i, item);
+        }
+        for (const auto& [i, item] : tries) {
             awe::ScenePage again(ctx);
             std::vector<std::string> log2;
             again.onLog = [&](const std::string& l) { log2.push_back(l); };
@@ -558,10 +567,11 @@ int cmdAweActs(int argc, char** argv) {
             again.startAt(target);
             settle(again, log2, target);
             log2.clear();
-            if (!again.click(i))
+            if (item.empty() ? !again.click(i) : !again.useOn(item, i))
                 continue;
-            settle(again, log2, target + " " + spots[i]);
-            report(log2, again.status(), "  " + target + " click " + spots[i]);
+            const std::string what = (item.empty() ? "click " : "use " + item + " on ") + spots[i];
+            settle(again, log2, target + " " + what);
+            report(log2, again.status(), "  " + target + " " + what);
         }
     }
     std::printf("%d problem(s)\n", problems);
