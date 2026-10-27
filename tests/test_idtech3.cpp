@@ -39,7 +39,7 @@
 #include "engines/idtech3/raven/ambient_sets.h"
 #include "engines/idtech3/sound_system.h"
 #include "engines/idtech3/sounds.h"
-#include "engines/idtech3/viewers.h"
+#include "engines/idtech3/pages/page.h"
 #include "common/audio/wav.h"
 #include "common/md4.h"
 #include "common/zip.h"
@@ -971,7 +971,7 @@ static void testAmbientSets() {
 
 // Saved games' chunks: written and read back in order, checked.
 static void testSaveChunks() {
-    using namespace reluva::idtech3::eliteforce;
+    using namespace reluva::idtech3::raven;
     CHECK(chunkId("COMM") == 0x434f4d4d && chunkName(chunkId("SHOT")) == "SHOT");
     SaveWriter w;
     w.addText(chunkId("COMM"), "borg1", 128);

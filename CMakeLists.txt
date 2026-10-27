@@ -152,19 +152,22 @@ if(RELUVA_ENGINE_IDTECH3)
         src/engines/idtech3/shader.cpp
         src/engines/idtech3/bindings.cpp
         src/engines/idtech3/bsp.cpp
-        src/engines/idtech3/viewers.cpp
-        src/engines/idtech3/map_viewer.cpp
+        src/engines/idtech3/pages/page.cpp
+        src/engines/idtech3/pages/file_viewer.cpp
+        src/engines/idtech3/pages/texture_viewer.cpp
+        src/engines/idtech3/pages/map_viewer.cpp
         src/engines/idtech3/patch.cpp
         src/engines/idtech3/world_renderer.cpp
     src/engines/idtech3/shader_cache.cpp
     src/engines/idtech3/md3.cpp
     src/engines/idtech3/light_grid.cpp
     src/engines/idtech3/model_cache.cpp
-    src/engines/idtech3/model_viewer.cpp
-    src/engines/idtech3/menu_viewer.cpp
-    src/engines/idtech3/play_viewer.cpp
-    src/engines/idtech3/sp_play_viewer.cpp
+    src/engines/idtech3/pages/model_viewer.cpp
+    src/engines/idtech3/pages/menu_viewer.cpp
+    src/engines/idtech3/pages/play_viewer.cpp
+    src/engines/idtech3/pages/sp_play_viewer.cpp
     src/engines/idtech3/client/scene_drawer.cpp
+    src/engines/idtech3/client/player_input.cpp
     src/engines/idtech3/qvm.cpp
     src/engines/idtech3/cvars.cpp
     src/engines/idtech3/sounds.cpp
@@ -182,7 +185,7 @@ if(RELUVA_ENGINE_IDTECH3)
     src/engines/idtech3/eliteforce/net_fields.cpp
     src/engines/idtech3/eliteforce/net_server.cpp
     src/engines/idtech3/eliteforce/net_client.cpp
-        src/engines/idtech3/world_viewer.cpp)
+        src/engines/idtech3/pages/world_viewer.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_IDTECH3)
 endif()
 target_link_libraries(reluva_engines PUBLIC reluva_common PRIVATE reluva_warnings)

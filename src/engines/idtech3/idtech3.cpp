@@ -9,7 +9,7 @@
 // released under the GPL (version 2 or later, so usable in this GPLv3
 // project). See CONTRIBUTING.md: never use leaked or unlicensed code.
 //
-// For now the engine is a data viewer (see viewers.h for the keys): it
+// For now the engine is a data viewer (see pages/page.h for the keys): it
 // mounts the game's search path and shows its files, textures and maps.
 // Ctrl+Tab switches pages (Tab itself belongs to the game: its scores, its
 // objectives); Esc goes back to the launcher (on the Menu page Ctrl+Esc,
@@ -22,7 +22,14 @@
 #include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/games.h"
 #include "engines/idtech3/shader.h"
-#include "engines/idtech3/viewers.h"
+#include "engines/idtech3/pages/file_viewer.h"
+#include "engines/idtech3/pages/map_viewer.h"
+#include "engines/idtech3/pages/menu_viewer.h"
+#include "engines/idtech3/pages/model_viewer.h"
+#include "engines/idtech3/pages/play_viewer.h"
+#include "engines/idtech3/pages/sp_play_viewer.h"
+#include "engines/idtech3/pages/texture_viewer.h"
+#include "engines/idtech3/pages/world_viewer.h"
 
 #include <memory>
 

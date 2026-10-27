@@ -3,7 +3,7 @@
 
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/entities.h"
-#include "engines/idtech3/viewers.h"
+#include "engines/idtech3/pages/sp_play_viewer.h"
 
 #include "common/font.h"
 #include "common/image.h"
@@ -24,19 +24,6 @@ namespace {
 constexpr float kServerBudgetMs = 40; // of the game's frames, each page frame
 
 bool badSaveName(const std::string& name); // below
-
-int32_t toShort(float degrees) { return int32_t(std::lround(degrees * 65536.0f / 360.0f)) & 0xffff; }
-
-bool isButton(const std::string& name) {
-    static const char* const kButtons[] = {"forward", "back", "moveleft", "moveright", "moveup", "movedown",
-                                           "left", "right", "lookup", "lookdown", "speed", "strafe",
-                                           "attack", "altattack", "mlook", "klook"};
-    for (const char* b : kButtons)
-        if (name == b)
-            return true;
-    return name.rfind("button", 0) == 0 && name.size() > 6 && name.size() <= 8 &&
-           std::isdigit(static_cast<unsigned char>(name[6]));
-}
 
 } // namespace
 
@@ -358,7 +345,7 @@ void SpPlayViewer::deactivate() {
     world_.reset();
     shaders_.reset();
     renderer_ = nullptr;
-    buttons_.clear();
+    input_.releaseAll();
 }
 
 void SpPlayViewer::stop(const std::string& why) {
@@ -376,7 +363,7 @@ void SpPlayViewer::endGame() {
         scene_->reset(); // its handles are gone
     if (soundSystem_)
         soundSystem_->stopAll();
-    buttons_.clear();
+    input_.releaseAll();
 }
 
 void SpPlayViewer::start(int index, int32_t loadMode, raven::SaveReader* save) {
@@ -396,7 +383,7 @@ void SpPlayViewer::start(int index, int32_t loadMode, raven::SaveReader* save) {
     models_->clear();
     world_->clear();
     shaders_->clear();
-    yaw_ = pitch_ = 0;
+    input_.yaw = input_.pitch = 0;
     clientTime_ = 0;
     lastMs_ = 0;
     const std::string& path = names_[size_t(index)];
@@ -651,36 +638,11 @@ void SpPlayViewer::runGameCommands() {
 }
 
 void SpPlayViewer::runBinding(const std::string& line, int32_t key, bool down) {
-    // "+name" is held while the key is (the engine's buttons) or runs the
-    // client game's +/- pair; other commands run on the press.
-    for (const std::string& command : splitCommands(line)) {
-        const std::vector<std::string> w = splitCommand(command);
-        if (w.empty())
-            continue;
-        if (w[0][0] == '+' || w[0][0] == '-') {
-            if (w[0][0] == '-')
-                continue;
-            const std::string name = fs::toLower(w[0].substr(1));
-            if (isButton(name)) {
-                if (down)
-                    buttons_[name].insert(key);
-                else
-                    buttons_[name].erase(key);
-            } else if (game_) {
-                if (Error err = game_->clientConsoleCommand((down ? "+" : "-") + name))
-                    stop("The game stopped: " + err.message);
-            }
-            continue;
-        }
-        if (down && game_)
-            if (Error err = game_->clientConsoleCommand(command))
+    input_.runBinding(line, key, down, [this](const std::string& text) {
+        if (game_)
+            if (Error err = game_->clientConsoleCommand(text))
                 stop("The game stopped: " + err.message);
-    }
-}
-
-bool SpPlayViewer::held(const char* button) const {
-    const auto it = buttons_.find(button);
-    return it != buttons_.end() && !it->second.empty();
+    });
 }
 
 bool SpPlayViewer::takesKey(const Event& ev) const {
@@ -807,8 +769,7 @@ void SpPlayViewer::handleEvent(const Event& ev) {
                 if (Error err = ui_->mouseEvent(dx, dy))
                     menusStopped(err);
         } else {
-            mouseX_ += ev.moveX;
-            mouseY_ += ev.moveY;
+            input_.addMouse(ev.moveX, ev.moveY);
         }
         break;
     default: break;
@@ -824,16 +785,7 @@ void SpPlayViewer::runGame(uint64_t nowMs) {
     lastMs_ = nowMs;
     auto setting = [&](const char* name, float fallback) { return cvars_.find(name) ? cvars_.value(name) : fallback; };
     // Looking: the mouse and keys, as the Play page.
-    const float sensitivity = setting("sensitivity", 5);
-    yaw_ -= mouseX_ * sensitivity * setting("m_yaw", 0.022f);
-    if (setting("cl_freelook", 1) != 0 || held("mlook"))
-        pitch_ += mouseY_ * sensitivity * setting("m_pitch", 0.022f);
-    mouseX_ = mouseY_ = 0;
-    const float keyScale = (held("speed") ? setting("cl_anglespeedkey", 1.5f) : 1.0f) * float(dt) / 1000.0f;
-    if (!held("strafe"))
-        yaw_ += float(held("left") - held("right")) * setting("cl_yawspeed", 140) * keyScale;
-    pitch_ += float(held("lookdown") - held("lookup")) * setting("cl_pitchspeed", 140) * keyScale;
-    pitch_ = std::remainder(pitch_, 360.0f);
+    input_.turn(cvars_, dt);
 
     using Clock = std::chrono::steady_clock;
     auto ms = [](Clock::time_point from) { return std::chrono::duration<float, std::milli>(Clock::now() - from).count(); };
@@ -859,24 +811,12 @@ void SpPlayViewer::runGame(uint64_t nowMs) {
     if (dt > 0) {
         eliteforce::SpGameHost::UserCommand cmd;
         cmd.serverTime = clientTime_;
-        cmd.angles = {toShort(pitch_), toShort(yaw_), 0};
-        for (const auto& [name, keys] : buttons_) {
-            if (keys.empty())
-                continue;
-            if (name == "attack")
-                cmd.buttons |= ctx_.game.buttonAttack;
-            else if (name == "altattack")
-                cmd.buttons |= ctx_.game.buttonAltAttack;
-            else if (name.rfind("button", 0) == 0)
-                cmd.buttons |= 1 << std::clamp(std::atoi(name.c_str() + 6), 0, 31);
-        }
-        const int speed = (cvars_.find("cl_run") ? cvars_.integer("cl_run") != 0 : true) != held("speed") ? 127 : 64;
-        int side = held("moveright") - held("moveleft");
-        if (held("strafe"))
-            side += held("right") - held("left");
-        cmd.forward = int8_t(std::clamp(speed * (held("forward") - held("back")), -127, 127));
-        cmd.right = int8_t(std::clamp(speed * side, -127, 127));
-        cmd.up = int8_t(std::clamp(speed * (held("moveup") - held("movedown")), -127, 127));
+        const PlayerInput::Command c = input_.command(cvars_, ctx_.game);
+        cmd.angles = c.angles;
+        cmd.buttons = c.buttons;
+        cmd.forward = c.forward;
+        cmd.right = c.right;
+        cmd.up = c.up;
         if (Error err = game_->clientThink(cmd))
             return stop("The game stopped: " + err.message);
         // (The weapon as the game was given it: the client game's choice.)

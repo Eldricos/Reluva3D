@@ -4,7 +4,7 @@
 // The data viewer's Models page: every .md3 and .mdr in the game drawn on the GPU
 // with its shaders, players put together from their three parts.
 
-#include "engines/idtech3/viewers.h"
+#include "engines/idtech3/pages/model_viewer.h"
 
 #include "common/font.h"
 #include "common/fs.h"

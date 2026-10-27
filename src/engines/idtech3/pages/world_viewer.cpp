@@ -5,7 +5,7 @@
 // with a fly camera starting where the player does.
 
 #include "engines/idtech3/entities.h"
-#include "engines/idtech3/viewers.h"
+#include "engines/idtech3/pages/world_viewer.h"
 
 #include "common/font.h"
 #include "common/fs.h"

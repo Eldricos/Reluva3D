@@ -5,7 +5,7 @@
 // interpreter, their pictures drawn by the GPU renderer.
 
 #include "engines/idtech3/client/scene_drawer.h"
-#include "engines/idtech3/viewers.h"
+#include "engines/idtech3/pages/menu_viewer.h"
 
 #include "common/font.h"
 #include "common/fs.h"
