@@ -101,7 +101,8 @@ private:
         while (true) {
             Event ev;
             while (sys_.pollEvent(ev)) {
-                if (ev.type == EventType::Quit && !confirmQuit())
+                if ((ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher) &&
+                    !confirmQuit(ev.type == EventType::ReturnToLauncher))
                     continue;
                 if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher)
                     return Error::success();
@@ -145,13 +146,16 @@ private:
         }
     }
 
-    // Whether to quit after the window was closed: while the game runs,
-    // the player is asked, as what it hasn't saved would be lost.
-    bool confirmQuit() {
+    // Whether to leave after the window was closed (or, `toLauncher`,
+    // Ctrl+F5 was pressed): while the game runs, the player is asked, as
+    // what it hasn't saved would be lost.
+    bool confirmQuit(bool toLauncher) {
         return !playing_ ||
                sys_.confirmQuit(target_.description +
-                                " is still running. Anything since the game last saved (it saves on finishing a "
-                                "mission, and on leaving through its Exit Game) will be lost.\n\nQuit anyway?");
+                                    " is still running. Anything since the game last saved (it saves on finishing a "
+                                    "mission, and on leaving through its Exit Game) will be lost.\n\n" +
+                                    (toLauncher ? "Return to the launcher anyway?" : "Quit anyway?"),
+                                toLauncher);
     }
 
     // The data viewer's pages, until Esc (or the player quits: `quit`).
@@ -183,7 +187,8 @@ private:
         while (true) {
             Event ev;
             while (sys_.pollEvent(ev)) {
-                if (ev.type == EventType::Quit && !confirmQuit())
+                if ((ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher) &&
+                    !confirmQuit(ev.type == EventType::ReturnToLauncher))
                     continue;
                 if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher ||
                     (ev.type == EventType::KeyDown && (ev.key == key::Escape || ev.key == key::F1 + 11))) {

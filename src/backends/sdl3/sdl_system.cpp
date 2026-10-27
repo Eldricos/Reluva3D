@@ -338,15 +338,16 @@ void SdlSystem::setRelativeMouse(bool on) {
 }
 
 // A message box of the window's: the mouse is let go while it shows.
-bool SdlSystem::confirmQuit(const std::string& text) {
+bool SdlSystem::confirmQuit(const std::string& text, bool toLauncher) {
     const bool held = relativeMouse_;
     if (window_ && held)
         SDL_SetWindowRelativeMouseMode(window_, false);
     const SDL_MessageBoxButtonData buttons[] = {
         {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT | SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "Keep playing"},
-        {0, 1, "Quit"},
+        {0, 1, toLauncher ? "Return to launcher" : "Quit"},
     };
-    const SDL_MessageBoxData box{SDL_MESSAGEBOX_WARNING, window_, "Quit Reluva?", text.c_str(),
+    const SDL_MessageBoxData box{SDL_MESSAGEBOX_WARNING, window_,
+                                 toLauncher ? "Return to the launcher?" : "Quit Reluva?", text.c_str(),
                                  SDL_arraysize(buttons), buttons, nullptr};
     int chosen = 0;
     if (!SDL_ShowMessageBox(&box, &chosen))
