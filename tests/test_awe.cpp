@@ -949,6 +949,31 @@ void testScript() {
     CHECK(r3.idle() && !r3.locked());
 }
 
+void testItemSlots() {
+    // Items take the lowest free slot of the inventory window (16 a page),
+    // keep it, and the window turns to its page; passports and fingerprint
+    // cards have their own pages; the item just taken blinks, one at a
+    // time (0x41bc10, 0x41bfb0, 0x41ba80).
+    GameState s;
+    addItem(s, "hammer", 2);
+    addItem(s, "pliers", 1);
+    addItem(s, "passmichel", 2);
+    addItem(s, "printmichel", 1);
+    CHECK(s.itemSlots["hammer"] == 0 && s.itemSlots["pliers"] == 1 && !s.itemSlots.count("passmichel"));
+    CHECK(s.itemState("passmichel") == 5 && s.itemState("printmichel") == 6 && s.fresh == "pliers");
+    addItem(s, "nails", 1);
+    CHECK(s.fresh == "nails" && s.itemState("pliers") == 2 && s.itemState("nails") == 1 && s.itemSlots["nails"] == 2);
+    s.itemStates["hammer"] = 4; // used up: its slot is free
+    addItem(s, "coal", 2);
+    CHECK(s.itemSlots["coal"] == 0);
+    addItem(s, "hammer", 2); // back: its slot taken, so the next free one
+    CHECK(s.itemSlots["hammer"] == 3 && s.itemPage == 0);
+    for (int i = 0; i < 13; i++)
+        addItem(s, "thing" + std::to_string(i), 2);
+    CHECK(s.itemSlots["thing12"] == 16 && s.itemPage == 1);
+    CHECK(s.itemOrder.size() == 19 && s.itemOrder[0] == "hammer" && s.itemOrder[2] == "passmichel");
+}
+
 void testDialogueBook() {
     const char* table =
         "Name\tAct\tConver.\tThread\tNest\tSpeaker\tTarget\tLine\tLine Translation\tCondition\tRepeat\tPrevent\t"
@@ -1515,6 +1540,7 @@ int main() {
     testSprite();
     testParticles();
     testScript();
+    testItemSlots();
     testDialogueBook();
     testDialogue();
     testStory();
