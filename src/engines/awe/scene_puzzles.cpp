@@ -739,37 +739,43 @@ bool ScenePage::puzzleStep() {
         return true;
     }
     if (torn_) {
-        // Each piece in turn: picked, turned upright, dragged to its cell.
+        // A piece not yet in its cell upright, one that shows (the one
+        // picked first): picked, turned upright, dragged to its cell.
         TornLetter& t = *torn_;
         if (t.solved || !runner_->idle())
             return false;
-        for (int i = 0; i < int(t.pieces.size()); i++) {
-            const Ac2Record* o = t.pieces[size_t(i)];
-            if (!o)
-                return false;
-            const PictureOverride p = overrides_[o];
-            const int tx = kSnapX[i % 4] + 1, ty = kSnapY[i / 4];
-            const bool placed = std::abs(int(p.x + p.cx) - tx) <= 5 && std::abs(int(p.y + p.cy) - ty) <= 5;
+        auto done = [&](int i) {
+            const PictureOverride& p = overrides_[t.pieces[size_t(i)]];
             int a = int(int16_t(int(p.roll * 57.2957764f))) % 360;
             if (a < 0)
                 a += 360;
-            const bool upright = a <= 15 || a >= 345;
-            if (placed && upright)
-                continue;
-            const bool found = find([&](int px, int py) { return tornPick(px, py) == o; }, x, y);
-            if (t.selected != i || !upright) {
-                if (t.selected != i) {
-                    if (!found)
-                        return false;
-                    mouse(EventType::MouseDown, x, y);
-                    mouse(EventType::MouseUp, x, y);
-                    return true;
-                }
-                return arrow("left");
-            }
-            if (!found)
+            return std::abs(int(p.x + p.cx) - (kSnapX[i % 4] + 1)) <= 5 && std::abs(int(p.y + p.cy) - kSnapY[i / 4]) <= 5 &&
+                   (a <= 15 || a >= 345);
+        };
+        std::vector<int> order;
+        if (t.selected >= 0)
+            order.push_back(t.selected);
+        for (int i = 0; i < int(t.pieces.size()); i++)
+            if (i != t.selected)
+                order.push_back(i);
+        for (const int i : order) {
+            const Ac2Record* o = t.pieces[size_t(i)];
+            if (!o)
                 return false;
-            const int dx = tx - int(p.x + p.cx), dy = ty - int(p.y + p.cy);
+            if (done(i) || !find([&](int px, int py) { return tornPick(px, py) == o; }, x, y))
+                continue;
+            const PictureOverride p = overrides_[o];
+            int a = int(int16_t(int(p.roll * 57.2957764f))) % 360;
+            if (a < 0)
+                a += 360;
+            if (t.selected != i) {
+                mouse(EventType::MouseDown, x, y);
+                mouse(EventType::MouseUp, x, y);
+                return true;
+            }
+            if (a > 15 && a < 345)
+                return arrow("left");
+            const int dx = kSnapX[i % 4] + 1 - int(p.x + p.cx), dy = kSnapY[i / 4] - int(p.y + p.cy);
             mouse(EventType::MouseDown, x, y);
             mouse(EventType::MouseMove, x + dx, y + dy);
             puzzleUpdate(0);

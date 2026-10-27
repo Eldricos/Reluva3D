@@ -14,6 +14,7 @@
 //   flip|<scene>|||<choices>|<item>       an item's back looked at
 //   travel|<scene>|<car>||<choices>       the bar's car (1 baggage .. 5 Athens)
 //   solve|<scene>|<puzzle>||<choices>     the puzzle screen's inputs that solve it
+//   run|<scene>|<script>||<choices>       a script run (not a player's: for looking into things)
 //
 // A seventh field, "<object>#<n>", clicks that object as soon as it can
 // be clicked while what the action started still runs (the game lets a
@@ -299,6 +300,10 @@ public:
             ok = p.flipItem(a.item);
             if (!ok)
                 problem = "can't look at the back of " + a.item;
+        } else if (a.kind == "run") {
+            // A script run as a scene's (for looking into things; not a
+            // player's).
+            p.runCommands(a.target);
         } else if (a.kind == "solve") {
             // The puzzle's inputs, each with the game run on till its
             // scripts are done.
@@ -402,22 +407,25 @@ bool storyTag(const std::string& feature) {
     return feature.rfind("tag ", 0) == 0 && std::count(feature.begin(), feature.end(), ' ') == 2;
 }
 
-// How far on a state is: the story tags and the items it has.
-int progressOf(const std::set<std::string>& f) {
-    int n = 0;
-    for (const std::string& s : f)
-        n += storyTag(s) || s.rfind("item ", 0) == 0;
-    return n;
-}
-
-// The state as far as the story goes: the act, the scene, the story tags,
-// the items (not the conversations' progress).
+// The story so far: its story tags and items (for the climb's dead ends).
 std::string outlineOf(const std::set<std::string>& f) {
     std::string out;
     for (const std::string& s : f)
-        if (storyTag(s) || s.rfind("item ", 0) == 0 || s.rfind("act ", 0) == 0 || s.rfind("scene ", 0) == 0)
+        if (storyTag(s) || s.rfind("item ", 0) == 0 || s.rfind("act ", 0) == 0)
             out += s + "\n";
     return out;
+}
+
+// How far on a state is: the story tags and items it has, then the
+// conversations heard.
+int progressOf(const std::set<std::string>& f) {
+    int n = 0;
+    for (const std::string& s : f)
+        if (storyTag(s) || s.rfind("item ", 0) == 0)
+            n += 2;
+        else if (s.rfind("talk ", 0) == 0 && s.find(" 1 ", 5) != std::string::npos)
+            n += 1;
+    return n;
 }
 
 int actRank(const std::string& act) {
@@ -448,16 +456,18 @@ void writePlaythrough(const std::string& file, const std::vector<Action>& path) 
 
 // Plays a playthrough from its start; false if an action can't be done
 // or the game sticks. `print` shows where each action leaves the game.
-bool replay(Player& player, std::vector<Action>& path, bool print, size_t& done) {
+bool replay(Player& player, std::vector<Action>& path, bool print, size_t& done, size_t logFrom = SIZE_MAX) {
     done = 0;
     for (Action& a : path) {
-        const size_t logFrom = player.log().size();
+        const size_t logAt = player.log().size();
         const bool ok = player.act(a);
         const ScenePage::GameStatus st = player.page().status();
         if (print)
             std::printf("%4zu %-60s -> act %s, %s\n", done + 1, toLine(a).substr(0, 60).c_str(), st.act.c_str(),
                         st.scene.c_str());
-        (void)logFrom;
+        if (done + 1 >= logFrom)
+            for (size_t i = logAt; i < player.log().size(); i++)
+                std::printf("      %s\n", player.log()[i].c_str());
         if (!ok) {
             std::printf("  failed: %s\n", player.problem.c_str());
             return false;
@@ -467,11 +477,13 @@ bool replay(Player& player, std::vector<Action>& path, bool print, size_t& done)
     return true;
 }
 
+bool gTiers = false; // order the search by tier first
+
 struct Node {
     std::vector<uint8_t> save;
     size_t path = 0; // into the search's paths: the actions that led here
     int progress = 0, depth = 0;
-    int tier = 0; // 1: its outline (outlineOf) had been seen already
+    int tier = 0; // 1: nothing in it is new to its scene (no novelty)
     std::string key;
 };
 
@@ -486,9 +498,12 @@ int aweCommandSolve(int argc, char** argv) {
         return 1;
     }
     std::string solveTo, playFile, fromFile, goal;
-    int budget = 4000;
+    int budget = 4000, levelBudget = 3000;
+    bool climb = true;
     double limit = 900;
     bool verbose = false, list = false, reload = false;
+    size_t logFrom = SIZE_MAX; // -log n: the script log from the n-th action on
+    gTiers = std::getenv("AWE_NOTIERS") == nullptr;
     for (int i = 3; i < argc; i++) {
         const std::string a = argv[i];
         if (a == "-solve" && i + 1 < argc)
@@ -501,10 +516,16 @@ int aweCommandSolve(int argc, char** argv) {
             goal = argv[++i];
         else if (a == "-budget" && i + 1 < argc)
             budget = std::atoi(argv[++i]);
+        else if (a == "-level" && i + 1 < argc)
+            levelBudget = std::atoi(argv[++i]);
+        else if (a == "-noclimb")
+            climb = false;
         else if (a == "-t" && i + 1 < argc)
             limit = std::atof(argv[++i]);
         else if (a == "-v")
             verbose = true;
+        else if (a == "-log" && i + 1 < argc)
+            logFrom = size_t(std::atoi(argv[++i]));
         else if (a == "-list")
             list = true;
         else if (a == "-reload")
@@ -519,7 +540,7 @@ int aweCommandSolve(int argc, char** argv) {
             return 1;
         }
         size_t done = 0;
-        const bool ok = replay(player, path, true, done);
+        const bool ok = replay(player, path, true, done, logFrom);
         const ScenePage::GameStatus st = player.page().status();
         std::printf("%zu of %zu actions; act %s, scene %s; %s\n", done, path.size(), st.act.c_str(), st.scene.c_str(),
                     player.credits() ? "the credits were reached" : "no credits");
@@ -601,7 +622,7 @@ int aweCommandSolve(int argc, char** argv) {
     // States new to the story first, then the furthest on, then the
     // nearest the start.
     auto cmp = [](const Node& a, const Node& b) {
-        if (a.tier != b.tier)
+        if (gTiers && a.tier != b.tier)
             return a.tier > b.tier;
         return a.progress != b.progress ? a.progress < b.progress : a.depth > b.depth;
     };
@@ -609,6 +630,20 @@ int aweCommandSolve(int argc, char** argv) {
     std::set<std::string> seenKeys, seenFeatures, triedOnce, seenOutlines;
     std::map<std::string, std::map<std::string, bool>> deadRuns; // by scene and action
     Node best;
+    // The climb: each state further on than the root (progress) becomes the
+    // root, the way there kept; the roots before are kept to go back to if
+    // a root leads nowhere (no state further on within the level's budget),
+    // and that one's story isn't climbed to again.
+    struct Level {
+        std::vector<Action> committed;
+        std::vector<uint8_t> save;
+        std::string outline;
+    };
+    std::vector<Level> levels;
+    std::set<std::string> deadEnds;
+    std::vector<uint8_t> rootSave;
+    std::string rootOutline;
+    int rootProgress = 0, levelExpansions = 0;
     auto reset = [&]() {
         frontier = decltype(frontier)(cmp);
         seenKeys.clear();
@@ -618,7 +653,12 @@ int aweCommandSolve(int argc, char** argv) {
         deadRuns.clear();
         steps.clear();
         Node root = rootNode();
-        seenOutlines.insert(outlineOf(player.features(false)));
+        rootSave = root.save;
+        rootProgress = root.progress;
+        rootOutline = outlineOf(player.features(false));
+        levelExpansions = 0;
+        for (const std::string& x : player.features(true))
+            seenOutlines.insert(player.page().status().scene + "|" + x);
         best = root;
         seenKeys.insert(root.key);
         for (const std::string& f : player.features(true))
@@ -626,18 +666,33 @@ int aweCommandSolve(int argc, char** argv) {
         frontier.push(root);
         writePlaythrough(solveTo, committed);
         const ScenePage::GameStatus st = player.page().status();
-        std::printf("== at act %s, scene %s, %zu actions so far\n", st.act.c_str(), st.scene.c_str(),
-                    committed.size());
+        std::printf("== at act %s, scene %s, %zu actions so far (progress %d, level %zu)\n", st.act.c_str(),
+                    st.scene.c_str(), committed.size(), rootProgress, levels.size());
         std::fflush(stdout);
     };
     reset();
     const auto began = std::chrono::steady_clock::now();
     int expansions = 0, runs = 0, skipped = 0, deadCount = 0;
     double restoreTime = 0, actTime = 0;
-    while (!frontier.empty() && expansions < budget) {
+    while (expansions < budget) {
+        if ((frontier.empty() || (climb && levelExpansions >= levelBudget)) && !levels.empty()) {
+            // A dead end: back to the root before.
+            std::printf("  (nothing further from here: back)\n");
+            deadEnds.insert(rootOutline);
+            Level l = std::move(levels.back());
+            levels.pop_back();
+            committed = std::move(l.committed);
+            player.page().loadFromMemory(l.save);
+            player.settle();
+            reset();
+            continue;
+        }
+        if (frontier.empty())
+            break;
         Node node = frontier.top();
         frontier.pop();
         expansions++;
+        levelExpansions++;
         player.page().loadFromMemory(node.save);
         player.settle();
         {
@@ -772,6 +827,16 @@ int aweCommandSolve(int argc, char** argv) {
                     std::printf("the credits, after %zu actions\n", committed.size());
                     return 0;
                 }
+                levels.clear();
+                reset();
+                advanced = true;
+                break;
+            }
+            if (climb && progressOf(f) > rootProgress && !deadEnds.count(outlineOf(f))) {
+                // Further on: the new root.
+                levels.push_back({committed, rootSave, rootOutline});
+                const std::vector<Action> more = pathOf(at);
+                committed.insert(committed.end(), more.begin(), more.end());
                 reset();
                 advanced = true;
                 break;
@@ -782,7 +847,14 @@ int aweCommandSolve(int argc, char** argv) {
             n.key = key;
             n.progress = progressOf(f);
             n.depth = node.depth + 1;
-            n.tier = seenOutlines.insert(outlineOf(f)).second ? 0 : 1;
+            // Its novelty: anything (a tag's value, an item, a
+            // conversation's progress, a scene seen) never had before in
+            // this scene; a state with none waits till the others are done.
+            int novelHere = 0;
+            for (const std::string& x : player.features(true))
+                if (x.rfind("scene ", 0) != 0)
+                    novelHere += seenOutlines.insert(st.scene + "|" + x).second;
+            n.tier = novelHere ? 0 : 1;
             if (n.progress > best.progress)
                 best = n;
             frontier.push(std::move(n));

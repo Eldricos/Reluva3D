@@ -165,6 +165,9 @@ public:
     // Without a mouse (tools): choice i taken, or the line cut short as a
     // click would; false if neither can be done now.
     bool choose(int i);
+    // Whether a choice or a click would be taken now (no box sliding, no
+    // Prevent or pause under way).
+    bool ready() const { return slide_ == 0 && !waitPrevent_ && !pending_ && pause_ < 0; }
 
     // A tag every "met them here" tag of the scene is set to when it's
     // left (0x43aee0).

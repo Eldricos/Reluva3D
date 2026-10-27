@@ -44,7 +44,7 @@ std::string ScenePage::autoplay() {
         return "movie " + name + " skipped";
     }
     if (dialogue_->active()) {
-        if (dialogue_->choosing()) {
+        if (dialogue_->choosing() && dialogue_->ready()) {
             // The tool's pick, else the first choice taken least often so
             // far: the first, unless it's offered again and again (a wrong
             // answer that can be tried once more), so every one is tried in

@@ -888,7 +888,7 @@ void DialogueManager::click(int x, int y) {
 }
 
 bool DialogueManager::choose(int i) {
-    if (slide_ != 0 || waitPrevent_ || pending_ || pause_ >= 0)
+    if (!ready())
         return false;
     if (choosing_)
         return take(i);
