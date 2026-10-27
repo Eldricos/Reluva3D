@@ -804,6 +804,12 @@ int aweCommandSolve(int argc, char** argv) {
                 if (!triedOnce.insert(std::to_string(std::hash<std::string>()(story)) + once).second)
                     continue;
             }
+            // The node's state again, after the action before.
+            auto t0 = std::chrono::steady_clock::now();
+            if (!fresh)
+                player.restore(node.save);
+            fresh = true;
+            restoreTime += std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
             // An action that changed nothing before, where every condition it
             // had tested comes out the same now, would change nothing again.
             const std::string memoKey = here + "|" + toLine(a);
@@ -816,17 +822,19 @@ int aweCommandSolve(int argc, char** argv) {
                     }
                 if (same) {
                     skipped++;
+                    if (verbose) {
+                        std::string why;
+                        for (const auto& [clause, held] : dead->second)
+                            why += " [" + clause + (held ? "]" : " no]");
+                        std::printf("  (skipped %s:%s)\n", toLine(a).c_str(), why.c_str());
+                    }
                     continue;
                 }
             }
-            auto t0 = std::chrono::steady_clock::now();
-            if (!fresh)
-                player.restore(node.save);
             fresh = false;
             auto t1 = std::chrono::steady_clock::now();
             runs++;
             const bool ok = player.act(a);
-            restoreTime += std::chrono::duration<double>(t1 - t0).count();
             actTime += std::chrono::duration<double>(std::chrono::steady_clock::now() - t1).count();
             if (!ok) {
                 if (verbose)
