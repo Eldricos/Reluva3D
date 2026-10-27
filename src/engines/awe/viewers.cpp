@@ -314,7 +314,13 @@ ScenePage::ScenePage(ViewerContext& ctx) : Page(ctx) {
     dialogue_->onLog = [this](const std::string& l) { logScript("    " + shorten(l, 150)); };
     story_ = std::make_unique<Story>(state_, *runner_);
     loadOptions();
-    state_.action = [this](const std::string& w) { return optionsMenu_ ? true : slotCondition(w); };
+    state_.action = [this](const std::string& w) {
+        if (optionsMenu_)
+            return true;
+        if (puzzleActive())
+            return puzzleCondition(w);
+        return slotCondition(w);
+    };
     {
         std::vector<uint8_t> data;
         if (!ctx.files.read("text/acts.txt", data))
@@ -391,6 +397,8 @@ void ScenePage::load() {
     leadGoal_ = {};
     slots_.reset();
     optionsMenu_.reset();
+    closePuzzle();
+    shownNames_.clear();
     if (names_.empty())
         return draw();
     auto read = [&](const std::string& name, Ac2Scene& out) {
@@ -439,8 +447,18 @@ void ScenePage::load() {
         const size_t from = lower.find('/') + 1;
         location_ = lower.substr(from, lower.find('/', from) - from);
     }
-    if (playing_)
+    if (playing_) {
         enterScene();
+    } else {
+        // Browsing: the scene's puzzle works too (its scripts' talk and
+        // tags as in a game).
+        for (const Ac2Record& r : scene_.records)
+            if (r.tag == "PUZZ") {
+                const std::string kind = fs::toLower(r.text("value"));
+                if (kind == "tornletter" || kind == "safe" || kind == "puzzlebox")
+                    openPuzzle(kind);
+            }
+    }
     draw();
 }
 
@@ -452,6 +470,8 @@ void ScenePage::enterScene() {
             openSlots(fs::toLower(r.text("value")) == "save");
         else if (r.tag == "PUZZ" && fs::toLower(r.text("value")) == "options")
             openOptions();
+        else if (r.tag == "PUZZ")
+            openPuzzle(fs::toLower(r.text("value")));
     // A saved game being restored runs no scene events (0x436331).
     if (restoring_)
         return;
@@ -802,7 +822,7 @@ bool ScenePage::advanceLoops(float time) {
         const size_t count = loop.file->frameCount();
         if (count == 0 || loop.file->fps() <= 0)
             continue;
-        const size_t want = size_t(double(time) * loop.file->fps()) % count;
+        const size_t want = size_t(double(std::max(0.0f, time - loop.start)) * loop.file->fps()) % count;
         if (want + 1 == loop.next && !loop.frame.rgba.empty())
             continue;
         // Frames build on the one before: from the start again when it
@@ -983,7 +1003,7 @@ void ScenePage::draw() {
             if (options_.get(GameOptions::Rain) && testCondition(ps->second.settings().condition, state_))
                 pictures.push_back(o);
         } else if ((hasExtension(o->text("file"), {".jpg", ".png", ".tga", ".bmp"}) || loops_.count(o)) &&
-                   testCondition(o->text("condition"), state_)) {
+                   (testCondition(o->text("condition"), state_) || shown(*o)) && !puzzleDraws(*o)) {
             pictures.push_back(o);
         }
     }
@@ -1001,6 +1021,22 @@ void ScenePage::draw() {
             return;
         SpriteTransform t;
         t.x = o->f("x"), t.y = o->f("y");
+        if (const auto ov = overrides_.find(o); ov != overrides_.end()) {
+            // Moved and turned by a puzzle: about its centre, tinted if
+            // picked.
+            const PictureOverride& p = ov->second;
+            const float c = std::cos(p.roll), sn = std::sin(p.roll);
+            t.roll = p.roll;
+            t.x = p.x + p.cx - (p.cx * c - p.cy * sn);
+            t.y = p.y + p.cy - (p.cx * sn + p.cy * c);
+            if (p.tint) {
+                image::Image tinted = img;
+                for (size_t i = 2; i < tinted.rgba.size(); i += 4)
+                    tinted.rgba[i] = uint8_t(tinted.rgba[i] * 3 / 4);
+                return drawSprite(ctx_.screen, tinted, t, keepAlpha);
+            }
+            return drawSprite(ctx_.screen, img, t, keepAlpha);
+        }
         if (optionsMenu_)
             // The options screen's slider thumbs, at their values.
             for (int i = 0; i < 3; i++)
@@ -1027,6 +1063,8 @@ void ScenePage::draw() {
     auto depth = [&](const Ac2Record* o) {
         if (const auto ps = particles_.find(o); ps != particles_.end())
             return ps->second.settings().depth;
+        if (const auto ov = overrides_.find(o); ov != overrides_.end())
+            return ov->second.depth;
         return o->f("d0") != 0 ? o->f("d0") : o->f("z");
     };
     std::stable_sort(pictures.begin(), pictures.end(),
@@ -1210,6 +1248,8 @@ void ScenePage::draw() {
         drawSlots();
     if (optionsMenu_ && !load_.screen && !movie_)
         drawOptions();
+    if (box_ && !load_.screen && !movie_)
+        drawPuzzleBox();
     if (yesNo_ && ctx_.fonts) {
         // The box: the question and Yes / No as the dialogue's choices.
         DialogueBoxPictures pics;
@@ -1284,6 +1324,8 @@ void ScenePage::update(uint64_t nowMs) {
         updateLoad();
     if (slots_)
         slots_->sinceClick += dt;
+    if (puzzleActive())
+        puzzleUpdate(dt);
     if (charactersDue_ && nowMs >= charactersAt_ + 400) {
         charactersDue_ = false;
         loadCharacters();
@@ -1779,15 +1821,56 @@ void ScenePage::walkTo(int sx, int sy) {
     draw();
 }
 
+std::vector<std::string> ScenePage::objectKeys(const Ac2Record& o) {
+    // What "hide" and "show" may call it: its name, its file, the file's
+    // name, with or without its extension ("hide sceorangejuice.jpg",
+    // "show handle").
+    std::vector<std::string> keys;
+    if (!o.text("name").empty())
+        keys.push_back(fs::toLower(o.text("name")));
+    const std::string file = fs::toLower(normalizeArchiveName(o.text("file")));
+    if (!file.empty()) {
+        keys.push_back(file);
+        const std::string name = file.substr(file.find_last_of('/') + 1);
+        keys.push_back(name);
+        keys.push_back(name.substr(0, name.rfind('.')));
+    }
+    return keys;
+}
+
 bool ScenePage::hidden(const Ac2Record& o) const {
     if (hiddenNames_.empty())
         return false;
-    for (const std::string& key : {o.text("name"), normalizeArchiveName(o.text("file"))})
-        if (!key.empty() && hiddenNames_.count(fs::toLower(key)))
+    for (const std::string& key : objectKeys(o))
+        if (hiddenNames_.count(key))
             return true;
-    // "hide sceorangejuice.jpg": by the file's name alone.
-    const std::string file = normalizeArchiveName(o.text("file"));
-    return !file.empty() && hiddenNames_.count(fs::toLower(file.substr(file.find_last_of('/') + 1)));
+    return false;
+}
+
+bool ScenePage::shown(const Ac2Record& o) const {
+    // "show" puts an object up whatever its condition (the puzzles' "0"
+    // pictures: show handle, fade in paperfull).
+    if (shownNames_.empty())
+        return false;
+    for (const std::string& key : objectKeys(o))
+        if (shownNames_.count(key))
+            return true;
+    return false;
+}
+
+void ScenePage::showObject(const std::string& name, bool show) {
+    if (show) {
+        hiddenNames_.erase(name);
+        shownNames_.insert(name);
+        // A video starts from its first frame.
+        for (auto& [o, loop] : loops_)
+            for (const std::string& key : objectKeys(*o))
+                if (key == name)
+                    loop.start = time_;
+    } else {
+        shownNames_.erase(name);
+        hiddenNames_.insert(name);
+    }
 }
 
 namespace {
@@ -2451,6 +2534,8 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
     if (v == "action") {
         if (optionsMenu_)
             optionsAction(lower(e.arg(1)));
+        else if (puzzleActive())
+            puzzleAction(lower(e.arg(1)));
         else if (slots_)
             slotAction(lower(e.arg(1)), lower(e.arg(2)));
         return false;
@@ -2471,8 +2556,14 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
         playLooping("sound\\music\\" + lower(e.arg(1)) + ".mp3", true);
         return false;
     }
+    if (v == "fade" && !e.arg(2).empty()) {
+        // fade in|out <object>: that object shown or hidden.
+        showObject(lower(e.arg(2)), lower(e.arg(1)) != "out");
+        draw();
+        return false;
+    }
     if (v == "fade") {
-        // fade in|out [picture]: over half a second (a guess).
+        // fade in|out: the screen, over half a second (a guess).
         fadeTarget_ = lower(e.arg(1)) == "out" ? 1.0f : 0.0f;
         if (fade_ == fadeTarget_)
             return false;
@@ -2489,10 +2580,7 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
         if (name == "this" && scriptObject_)
             name = lower(!scriptObject_->text("name").empty() ? scriptObject_->text("name")
                                                                : normalizeArchiveName(scriptObject_->text("file")));
-        if (v == "hide")
-            hiddenNames_.insert(name);
-        else
-            hiddenNames_.erase(name);
+        showObject(name, v == "show");
         draw();
         return false;
     }
@@ -2542,8 +2630,10 @@ void ScenePage::line(int x0, int y0, int x1, int y1, Color c) {
 }
 
 void ScenePage::handleEvent(const Event& ev) {
-    if (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown)
-        lastMouseX_ = ev.mouseX;
+    if (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown || ev.type == EventType::MouseUp)
+        lastMouseX_ = ev.mouseX, lastMouseY_ = ev.mouseY;
+    if (ev.type == EventType::MouseUp && ev.button == MouseButton::Left && puzzleActive())
+        puzzleRelease(ev.mouseX, ev.mouseY);
     if (optionsMenu_ && optionsMenu_->dragging) {
         if (ev.type == EventType::MouseMove)
             draw();
@@ -2593,6 +2683,10 @@ void ScenePage::handleEvent(const Event& ev) {
             return; // the game takes no clicks while a script runs
         if (slots_ && !hotspotAt(ev.mouseX, ev.mouseY) && slotClick(ev.mouseX, ev.mouseY))
             return;
+        // A puzzle sees the click first, then the hotspot under it runs
+        // (0x4161c1).
+        if (puzzleActive())
+            puzzleClick(ev.mouseX, ev.mouseY);
         runner_->setFromCharacter(false);
         if (const Ac2Record* spot = hotspotAt(ev.mouseX, ev.mouseY)) {
             runScript(*spot);

@@ -192,4 +192,3 @@ The page then does the following:
 
 Not done yet:
 
-- `PUZZ` screens other than saving and loading ([saves.md](saves.md));

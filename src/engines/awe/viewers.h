@@ -196,6 +196,7 @@ private:
         std::unique_ptr<video::BinkVideoDecoder> video;
         image::Image frame;
         size_t next = 0; // the frame to decode next
+        float start = 0; // when it started (shown), in the page's seconds
     };
     void load();
     void loadLoops();
@@ -284,7 +285,63 @@ private:
         int dragging = 0; // 1..3
     };
     std::unique_ptr<OptionsMenu> optionsMenu_;
-    int lastMouseX_ = 0;
+    // The puzzles (scene_puzzles.cpp; docs/formats/awe/puzzles.md): the
+    // torn letter, the baggage car's safe, the puzzle box. Pictures they
+    // move and turn are drawn by overrides.
+    struct PictureOverride {
+        float x = 0, y = 0, depth = 0, roll = 0, cx = 0, cy = 0;
+        bool tint = false; // picked: blue x 0.75
+    };
+    std::map<const Ac2Record*, PictureOverride> overrides_;
+    struct TornLetter {
+        std::vector<const Ac2Record*> pieces;
+        int selected = -1;
+        bool dragging = false, solved = false;
+        float topz = 0;
+        int dragX = 0, dragY = 0;
+    };
+    struct Safe {
+        const Ac2Record* dial = nullptr;
+        int spinning = 0; // 1 right, 2 left
+        float timer = 0, interval = 0.25f;
+        int number = 0, entered = 0, expected = 2;
+    };
+    struct PuzzleBox {
+        int step = 0, selected = 0, misses = 0;
+        int state[5] = {0, 0, 0, 0, 0}; // by piece: 1 upper end, 2 lower end, 3 side, 4 lid
+        bool solved = false;
+    };
+    std::unique_ptr<TornLetter> torn_;
+    std::unique_ptr<Safe> safe_;
+    std::unique_ptr<PuzzleBox> box_;
+    unsigned puzzleSeed_ = 1; // the game's rand()
+    bool puzzleActive() const { return torn_ || safe_ || box_; }
+    void openPuzzle(const std::string& kind);
+    void closePuzzle();
+    void puzzleClick(int x, int y);
+    void puzzleRelease(int x, int y);
+    void puzzleUpdate(float seconds);
+    void puzzleAction(const std::string& word);
+    bool puzzleCondition(const std::string& word) const;
+    bool puzzleDraws(const Ac2Record& o) const;
+    void drawPuzzleBox();
+    // Torn letter.
+    void saveTornPiece(int i);
+    void snapTornPiece(int i);
+    bool checkTornLetter();
+    // Safe.
+    void turnDial(int direction);
+    void writeSafeTags();
+    // Puzzle box.
+    const Ac2Record* puzzleObject(const std::string& file, int n = 0) const;
+    std::string boxEndPicture() const;
+    std::string boxSidePicture() const;
+    bool hitPicture(const Ac2Record* o, float x, float y, int px, int py) const;
+    int boxArrowAt(int x, int y) const;
+    bool boxMovePossible(int piece, int arrow) const;
+    bool boxMoveCorrect(int piece, int arrow) const;
+    void writeBoxTags();
+    int lastMouseX_ = 0, lastMouseY_ = 0;
     std::filesystem::path optionsFile() const;
     void loadOptions();
     void saveOptions() const;
@@ -324,6 +381,9 @@ private:
     void playSound(const std::string& name);
     void logScript(const std::string& line);
     bool hidden(const Ac2Record& o) const;
+    bool shown(const Ac2Record& o) const;
+    void showObject(const std::string& name, bool show);
+    static std::vector<std::string> objectKeys(const Ac2Record& o);
     // Starts the character's walk (or run) along its path: false if it
     // has no such animation.
     bool startWalk(Character& c, bool run = false);
@@ -438,6 +498,7 @@ private:
     bool entryWalk_ = false; // and whether they walk in
     WalkGrid::Cell leadGoal_; // where the player last set off for (followers follow)
     std::set<std::string> hiddenNames_; // objects hidden by scripts, by name or file
+    std::set<std::string> shownNames_;  // and shown, whatever their condition
     std::deque<std::string> scriptLog_;
     std::map<std::string, std::string> soundFiles_; // sound name -> file
     float time_ = 0;
