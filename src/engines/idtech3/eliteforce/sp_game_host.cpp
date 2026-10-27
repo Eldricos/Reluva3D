@@ -3,6 +3,8 @@
 
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 
+#include "engines/idtech3/eliteforce/game_info.h"
+
 #include "common/md4.h"
 #include "common/x86/format.h"
 #include "engines/idtech3/eliteforce/game_layout.h"
@@ -110,7 +112,7 @@ uint32_t SpGameHost::text(const std::string& s) {
 
 Error SpGameHost::load(const std::vector<uint8_t>& dll) {
     cpu_ = std::make_unique<x86::Cpu>(kMemory);
-    process_ = std::make_unique<x86::Win32Process>(*cpu_, "stvoy.exe");
+    process_ = std::make_unique<x86::Win32Process>(*cpu_, kExeName);
     process_->output = [this](const std::string& s) {
         if (print)
             print(s);
@@ -1693,6 +1695,50 @@ void SpGameHost::addImports() {
         process_->memory().free(c.arg(0));
         return 0u;
     });
+}
+
+void writeSaveHeader(SaveWriter& w, const CvarStore& cvars, const SaveHeader& header) {
+    w.addText(chunkId("COMM"), header.comment, 128);
+    w.add(chunkId("SHOT"), header.shot);
+    w.addText(chunkId("MPCM"), header.map, 1024);
+    std::vector<const CvarStore::Cvar*> kept;
+    for (const CvarStore::Cvar& cv : cvars.all())
+        if (cv.flags & 2)
+            kept.push_back(&cv);
+    w.addInt(chunkId("CVCN"), int32_t(kept.size()));
+    for (const CvarStore::Cvar* cv : kept) {
+        w.addText(chunkId("CVAR"), cv->name);
+        w.addText(chunkId("VALU"), cv->value);
+    }
+    w.addInt(chunkId("GAME"), header.autosave ? 1 : 0);
+    if (header.autosave) {
+        w.addText(chunkId("CVSV"), cvars.string("playersave"), 1024);
+        for (int i = 0; i < 4; ++i)
+            w.addText(chunkId("AMMO"), cvars.string("playerammo" + std::to_string(i)), 1024);
+        for (int i = 0; i < 32; ++i)
+            w.addText(chunkId("APTD"), cvars.string("borgadapt" + std::to_string(i)), 1024);
+    }
+}
+
+Error writeSaveLevel(SaveWriter& w, SpGameHost& game, bool autosave) {
+    if (!autosave) {
+        w.addInt(chunkId("TIME"), game.levelTime());
+        w.addInt(chunkId("TIMR"), 0);
+        w.add(chunkId("STRP"), nullptr, 0);
+        std::vector<std::pair<int32_t, const std::string*>> strings;
+        for (const auto& [index, text] : game.configstrings())
+            if (index != 1 && !text.empty())
+                strings.emplace_back(index, &text);
+        w.addInt(chunkId("CSCN"), int32_t(strings.size()));
+        for (const auto& [index, text] : strings) {
+            w.addInt(chunkId("CSIN"), index);
+            w.addText(chunkId("CSDA"), *text);
+        }
+    }
+    game.setSaveStream(&w, nullptr);
+    const Error err = game.writeLevel(autosave);
+    game.setSaveStream(nullptr, nullptr);
+    return err;
 }
 
 Error readSaveHeader(SaveReader& r, CvarStore& cvars, SaveHeader& out) {

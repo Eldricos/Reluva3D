@@ -3,11 +3,13 @@
 
 #include "engines/idtech3/games.h"
 
+#include "engines/idtech3/eliteforce/game_info.h"
+
 namespace reluva::idtech3 {
 
 const std::vector<GameInfo>& games() {
     static const std::vector<GameInfo> list = {
-        {"stvef", "Star Trek: Voyager - Elite Force", "baseEF"},
+        eliteforce::gameInfo(),
     };
     return list;
 }

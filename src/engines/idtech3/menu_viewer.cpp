@@ -25,7 +25,7 @@ constexpr uint64_t kHintMs = 6000;
 } // namespace
 
 MenuViewer::MenuViewer(ViewerContext& ctx) : Page(ctx) {
-    available_ = std::strcmp(ctx.game.gameId, "stvef") == 0 && ctx.files.has("vm/ui.qvm");
+    available_ = ctx.game.code == GameCode::EliteForce && ctx.files.has("vm/ui.qvm");
 }
 
 MenuViewer::~MenuViewer() { deactivate(); }
@@ -49,7 +49,7 @@ void MenuViewer::activate() {
     models_ = std::make_unique<ModelCache>(*renderer_, *shaders_, ctx_.files);
     // The settings reach the models the menus show (pictures keep theirs).
     applyVideoSettings(video, *shaders_, nullptr, models_.get());
-    scene_ = std::make_unique<SceneDrawer>(*renderer_, *shaders_, *models_, eliteforce::kRefEntityLayout);
+    scene_ = std::make_unique<SceneDrawer>(*renderer_, *shaders_, *models_, ctx_.game.refEntity);
     shownMs_ = 0;
     // The menus draw their own pointer, and have text fields.
     ctx_.sys.setMouseCursorVisible(false);

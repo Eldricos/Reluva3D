@@ -55,7 +55,6 @@
 #include "engines/idtech3/model_cache.h"
 #include "engines/idtech3/player_animation.h"
 #include "engines/idtech3/client/scene_drawer.h"
-#include "engines/idtech3/eliteforce/ref_entity.h"
 #include "engines/idtech3/shader_cache.h"
 #include "engines/idtech3/sound_system.h"
 #include "engines/idtech3/sounds.h"

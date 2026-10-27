@@ -357,13 +357,20 @@ private:
     uint64_t startMs_ = 0;
 };
 
-// Loading a saved game (docs/formats/idtech3/eliteforce-sp-interface.md,
-// "Saved games"), in the original engine's two steps.
+// Saving and loading a game (docs/formats/idtech3/eliteforce-sp-interface.md,
+// "Saved games"), in the original engine's two steps each.
 struct SaveHeader {
     std::string comment, map;
     std::vector<uint8_t> shot; // 256 x 256 RGBA, bottom row first
     bool autosave = false;
 };
+// The engine's chunks before the level, from `header` and the cvars kept
+// with a save (those flagged 2); for an autosave, the player carried over
+// from the level before (its cvars).
+void writeSaveHeader(SaveWriter& w, const CvarStore& cvars, const SaveHeader& header);
+// But for an autosave, the level's time and configstrings; then the game's
+// WriteLevel.
+Error writeSaveLevel(SaveWriter& w, SpGameHost& game, bool autosave);
 // The engine's chunks before the level: the comment, picture and map, the
 // cvars kept (set into `cvars`), then GAME and, for an autosave, the player
 // carried over (set too).

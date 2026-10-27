@@ -3,6 +3,8 @@
 
 #include "engines/idtech3/eliteforce/ui_host.h"
 
+#include "engines/idtech3/eliteforce/game_info.h"
+
 #include "engines/idtech3/md3.h"
 
 #include "common/fs.h"
@@ -103,7 +105,7 @@ Error UiHost::load() {
     // The engine's settings the server list reads: its protocol, and the
     // master servers.
     cvars_.create("protocol", "24", CvarStore::ServerInfo | CvarStore::ReadOnly);
-    masterServerNames(cvars_);
+    masterServerNames(cvars_, masterServers());
     int32_t version = 0;
     if (Error err = call(GetApiVersion, {}, version))
         return err;
@@ -225,7 +227,7 @@ bool UiHost::browserCommand(const std::string& line) {
         std::string keywords;
         for (size_t i = 3; i < words.size(); ++i)
             keywords += (keywords.empty() ? "" : " ") + words[i];
-        const std::vector<std::string> names = masterServerNames(cvars_);
+        const std::vector<std::string> names = masterServerNames(cvars_, masterServers());
         std::vector<net::Address> masters;
         for (size_t i = 0; i < names.size(); ++i) {
             if (master > 0 && cvars_.string("sv_master" + std::to_string(master + 1)) != names[i])

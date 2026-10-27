@@ -122,6 +122,7 @@
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
+#include "engines/idtech3/eliteforce/game_info.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "common/video/bink.h"
 #include "engines/idtech3/raven/savegame.h"
@@ -3574,7 +3575,7 @@ int cmdNetMaster(int argc, char** argv) {
         names.emplace_back(argv[i]);
     if (names.empty()) {
         q3::CvarStore cvars;
-        names = q3::masterServerNames(cvars);
+        names = q3::masterServerNames(cvars, q3::eliteforce::masterServers());
     }
     std::string err;
     auto socket = reluva::net::openSystemUdp(0, err);

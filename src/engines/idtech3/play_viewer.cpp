@@ -45,14 +45,13 @@ constexpr float kPi = 3.14159265358979f;
 // (Elite Force's own), found with reluva-tool game-run -buttons: holding
 // either changes the same player state words (weapon time, ammunition,
 // events). See eliteforce-syscalls.md.
-constexpr int32_t kButtonAttack = 1, kButtonAltAttack = 32;
 // An angle in degrees as usercmd_t carries it: 65536 to a full turn.
 int32_t toShort(float degrees) { return int32_t(std::lround(degrees * 65536.0f / 360.0f)) & 0xffff; }
 
 } // namespace
 
 PlayViewer::PlayViewer(ViewerContext& ctx) : Page(ctx) {
-    if (std::strcmp(ctx.game.gameId, "stvef") != 0 || !ctx.files.has("vm/qagame.qvm") || !ctx.files.has("vm/cgame.qvm"))
+    if (ctx.game.code != GameCode::EliteForce || !ctx.files.has("vm/qagame.qvm") || !ctx.files.has("vm/cgame.qvm"))
         return;
     for (const std::string& n : ctx.files.list()) {
         const std::string key = normalizeArchiveName(n);
@@ -89,7 +88,7 @@ void PlayViewer::activate() {
     world_ = std::make_unique<WorldRenderer>(*renderer_, *shaders_);
     models_ = std::make_unique<ModelCache>(*renderer_, *shaders_, ctx_.files);
     applyVideoSettings(video, *shaders_, world_.get(), models_.get());
-    scene_ = std::make_unique<SceneDrawer>(*renderer_, *shaders_, *models_, eliteforce::kRefEntityLayout);
+    scene_ = std::make_unique<SceneDrawer>(*renderer_, *shaders_, *models_, ctx_.game.refEntity);
     shownMs_ = 0;
     ctx_.sys.setRelativeMouse(true);
     // A server the menus asked to join.
@@ -401,7 +400,7 @@ std::string PlayViewer::userinfo() const {
             setInfoValue(info, key, value);
     };
     fallback("name", "Reluva");
-    fallback("model", "munro");
+    fallback("model", ctx_.game.playerModel.c_str());
     fallback("handicap", "100");
     fallback("snaps", "20");
     fallback("rate", "25000");
@@ -1061,9 +1060,9 @@ eliteforce::GameHost::UserCommand PlayViewer::buildCommand() {
         if (keys.empty())
             continue;
         if (name == "attack")
-            cmd.buttons |= kButtonAttack;
+            cmd.buttons |= ctx_.game.buttonAttack;
         else if (name == "altattack")
-            cmd.buttons |= kButtonAltAttack;
+            cmd.buttons |= ctx_.game.buttonAltAttack;
         else if (name.rfind("button", 0) == 0)
             cmd.buttons |= 1 << std::clamp(std::atoi(name.c_str() + 6), 0, 31);
     }

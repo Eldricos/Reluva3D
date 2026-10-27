@@ -21,7 +21,6 @@ namespace reluva::idtech3 {
 
 namespace {
 
-constexpr int32_t kButtonAttack = 1, kButtonAltAttack = 32;
 constexpr float kServerBudgetMs = 40; // of the game's frames, each page frame
 
 bool badSaveName(const std::string& name); // below
@@ -42,27 +41,29 @@ bool isButton(const std::string& name) {
 } // namespace
 
 SpPlayViewer::SpPlayViewer(ViewerContext& ctx) : Page(ctx) {
-    // Elite Force with its single-player game code beside the game folder.
-    if (std::strcmp(ctx.game.gameId, "stvef") != 0 || ctx.installPath.empty())
+    // A game with its single-player game code beside the game folder.
+    if (ctx.game.code != GameCode::EliteForce || ctx.game.spGameDll.empty() || ctx.installPath.empty())
         return;
-    const std::filesystem::path dll = ctx.installPath / "efgamex86.dll";
+    const std::filesystem::path dll = ctx.installPath / ctx.game.spGameDll;
     std::ifstream in(dll, std::ios::binary);
     if (!in)
         return;
     dll_.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
     // Its menus, if they're there too.
-    if (std::ifstream ui{ctx.installPath / "efuix86.dll", std::ios::binary})
+    if (std::ifstream ui{ctx.installPath / ctx.game.spUiDll, std::ios::binary}; !ctx.game.spUiDll.empty() && ui)
         uiDll_.assign(std::istreambuf_iterator<char>(ui), std::istreambuf_iterator<char>());
-    // Its maps: all but Holomatch's.
+    // Its maps: all but multiplayer's.
     for (const std::string& n : ctx.files.list()) {
         const std::string key = normalizeArchiveName(n);
-        if (key.rfind("maps/", 0) == 0 && key.size() > 4 && key.compare(key.size() - 4, 4, ".bsp") == 0 &&
-            key.rfind("maps/hm_", 0) != 0 && key.rfind("maps/ctf_", 0) != 0)
+        if (key.rfind("maps/", 0) != 0 || key.size() <= 4 || key.compare(key.size() - 4, 4, ".bsp") != 0)
+            continue;
+        if (std::none_of(ctx.game.multiplayerMapPrefixes.begin(), ctx.game.multiplayerMapPrefixes.end(),
+                         [&](const std::string& p) { return key.compare(5, p.size(), p) == 0; }))
             names_.push_back(key);
     }
     std::sort(names_.begin(), names_.end());
     for (size_t i = 0; i < names_.size(); ++i)
-        if (names_[i] == "maps/borg1.bsp")
+        if (names_[i] == "maps/" + ctx.game.firstMap + ".bsp")
             index_ = int(i);
 }
 
@@ -87,18 +88,18 @@ void SpPlayViewer::activate() {
     world_ = std::make_unique<WorldRenderer>(*renderer_, *shaders_);
     models_ = std::make_unique<ModelCache>(*renderer_, *shaders_, ctx_.files);
     applyVideoSettings(video, *shaders_, world_.get(), models_.get());
-    scene_ = std::make_unique<SceneDrawer>(*renderer_, *shaders_, *models_, eliteforce::kRefEntityLayout);
+    scene_ = std::make_unique<SceneDrawer>(*renderer_, *shaders_, *models_, ctx_.game.refEntity);
     ctx_.sys.setRelativeMouse(true);
     if (ctx_.mixer)
         soundSystem_ = std::make_unique<SoundSystem>(*ctx_.mixer, soundLibrary_);
     startMs_ = 0;
     saveDir_ = ctx_.savePath.empty() ? std::filesystem::path() : ctx_.savePath / "saves";
     // The player's userinfo, as the original's client registers it.
-    cvars_.create("name", "Munro", CvarStore::Archive | CvarStore::UserInfo);
+    cvars_.create("name", ctx_.game.spPlayerName, CvarStore::Archive | CvarStore::UserInfo);
     cvars_.create("snaps", "20", CvarStore::Archive | CvarStore::UserInfo);
-    cvars_.create("headModel", "munro/default", CvarStore::UserInfo);
-    cvars_.create("torsoModel", "hazard/default", CvarStore::UserInfo);
-    cvars_.create("legsModel", "hazard/default", CvarStore::UserInfo);
+    cvars_.create("headModel", ctx_.game.malePlayer.head, CvarStore::UserInfo);
+    cvars_.create("torsoModel", ctx_.game.malePlayer.torso, CvarStore::UserInfo);
+    cvars_.create("legsModel", ctx_.game.malePlayer.legs, CvarStore::UserInfo);
     cvars_.create("sex", "male", CvarStore::Archive | CvarStore::UserInfo);
     cvars_.create("handicap", "100", CvarStore::Archive | CvarStore::UserInfo);
     if (!uiDll_.empty())
@@ -116,11 +117,13 @@ void SpPlayViewer::startCinematic(const std::string& name, bool inGame) {
     if (inGame && !(game_ && game_->clientGameRunning()))
         return;
     std::string base = fs::toLower(name);
-    if (base.size() > 4 && (base.compare(base.size() - 4, 4, ".bik") == 0 || base.compare(base.size() - 4, 4, ".roq") == 0))
-        base.resize(base.size() - 4);
+    // (Asked for with or without a file type, which may be another's: the
+    // game's own is played.)
+    if (const size_t dot = base.rfind('.'); dot != std::string::npos && base.size() - dot == 4)
+        base.resize(dot);
     std::vector<uint8_t> data;
     auto c = std::make_unique<Cinematic>();
-    Error err = ctx_.files.read("video/" + base + ".bik", data);
+    Error err = ctx_.files.read("video/" + base + ctx_.game.cinematicExtension, data);
     if (!err)
         err = c->movie.open(std::move(data));
     if (err) {
@@ -222,7 +225,7 @@ void SpPlayViewer::startMenus() {
 
 void SpPlayViewer::menusStopped(const Error& err) {
     // The game goes on without them (Esc then leaves the page).
-    menuError_ = "efuix86.dll: " + err.message;
+    menuError_ = ctx_.game.spUiDll + ": " + err.message;
     ui_.reset();
 }
 
@@ -428,7 +431,7 @@ void SpPlayViewer::start(int index, int32_t loadMode, raven::SaveReader* save) {
     game_->print = [](const std::string& text) { std::fputs(text.c_str(), stdout); };
     game_->soundSystem = soundSystem_.get();
     if ((err = game_->load(dll_)))
-        return stop("efgamex86.dll: " + err.message);
+        return stop(ctx_.game.spGameDll + ": " + err.message);
     // A saved game's chunks are read on as the original's loader does:
     // the level started, then (but for an autosave) its time and
     // configstrings, then the game's own.
@@ -443,9 +446,10 @@ void SpPlayViewer::start(int index, int32_t loadMode, raven::SaveReader* save) {
     // The player as the original's engine describes them: the userinfo
     // cvars, with the models for the sex chosen.
     const bool male = fs::toLower(cvars_.string("sex")).rfind('m', 0) == 0;
-    cvars_.set("legsmodel", male ? "hazard/default" : "hazardfemale/default");
-    cvars_.set("torsomodel", male ? "hazard/default" : "hazardfemale/default");
-    cvars_.set("headmodel", male ? "munro/default" : "alexandria/default");
+    const PlayerModels& player = male ? ctx_.game.malePlayer : ctx_.game.femalePlayer;
+    cvars_.set("legsmodel", player.legs);
+    cvars_.set("torsomodel", player.torso);
+    cvars_.set("headmodel", player.head);
     std::string userinfo;
     for (const CvarStore::Cvar& cv : cvars_.all())
         if (cv.flags & CvarStore::UserInfo)
@@ -549,45 +553,13 @@ void SpPlayViewer::saveGame(const std::string& name, bool autosave) {
             std::strftime(when, sizeof when, "%m/%d/%y %H:%M", tm);
         comment = std::string(when) + "  " + map_;
     }
-    w.addText(chunkId("COMM"), comment, 128);
-    w.add(chunkId("SHOT"), autosave || !ui_ ? levelShot(map_) : ui_->capture());
-    w.addText(chunkId("MPCM"), map_, 1024);
-    // The cvars kept with a save (those flagged 2).
-    std::vector<const CvarStore::Cvar*> kept;
-    for (const CvarStore::Cvar& cv : cvars_.all())
-        if (cv.flags & 2)
-            kept.push_back(&cv);
-    w.addInt(chunkId("CVCN"), int32_t(kept.size()));
-    for (const CvarStore::Cvar* cv : kept) {
-        w.addText(chunkId("CVAR"), cv->name);
-        w.addText(chunkId("VALU"), cv->value);
-    }
-    w.addInt(chunkId("GAME"), autosave ? 1 : 0);
-    if (autosave) {
-        // The player carried over from the level before.
-        w.addText(chunkId("CVSV"), cvars_.string("playersave"), 1024);
-        for (int i = 0; i < 4; ++i)
-            w.addText(chunkId("AMMO"), cvars_.string("playerammo" + std::to_string(i)), 1024);
-        for (int i = 0; i < 32; ++i)
-            w.addText(chunkId("APTD"), cvars_.string("borgadapt" + std::to_string(i)), 1024);
-    } else {
-        w.addInt(chunkId("TIME"), game_->levelTime());
-        w.addInt(chunkId("TIMR"), 0);
-        w.add(chunkId("STRP"), nullptr, 0);
-        std::vector<std::pair<int32_t, const std::string*>> strings;
-        for (const auto& [index, text] : game_->configstrings())
-            if (index != 1 && !text.empty())
-                strings.emplace_back(index, &text);
-        w.addInt(chunkId("CSCN"), int32_t(strings.size()));
-        for (const auto& [index, text] : strings) {
-            w.addInt(chunkId("CSIN"), index);
-            w.addText(chunkId("CSDA"), *text);
-        }
-    }
-    game_->setSaveStream(&w, nullptr);
-    const Error err = game_->writeLevel(autosave);
-    game_->setSaveStream(nullptr, nullptr);
-    if (err)
+    eliteforce::SaveHeader header;
+    header.comment = comment;
+    header.map = map_;
+    header.shot = autosave || !ui_ ? levelShot(map_) : ui_->capture();
+    header.autosave = autosave;
+    eliteforce::writeSaveHeader(w, cvars_, header);
+    if (Error err = eliteforce::writeSaveLevel(w, *game_, autosave))
         return stop("The game couldn't save: " + err.message);
     // Written as "current", then renamed, as the original's.
     std::error_code ec;
@@ -892,9 +864,9 @@ void SpPlayViewer::runGame(uint64_t nowMs) {
             if (keys.empty())
                 continue;
             if (name == "attack")
-                cmd.buttons |= kButtonAttack;
+                cmd.buttons |= ctx_.game.buttonAttack;
             else if (name == "altattack")
-                cmd.buttons |= kButtonAltAttack;
+                cmd.buttons |= ctx_.game.buttonAltAttack;
             else if (name.rfind("button", 0) == 0)
                 cmd.buttons |= 1 << std::clamp(std::atoi(name.c_str() + 6), 0, 31);
         }

@@ -3,6 +3,8 @@
 
 #include "engines/idtech3/eliteforce/net_server.h"
 
+#include "engines/idtech3/eliteforce/game_info.h"
+
 #include "engines/idtech3/bindings.h"
 #include "engines/idtech3/eliteforce/net_fields.h"
 #include "engines/idtech3/info_string.h"
@@ -84,7 +86,7 @@ void NetServer::heartbeat(uint64_t now, bool force) {
     nextHeartbeat_ = now + 300000;
     if (!mastersResolved_) {
         mastersResolved_ = true;
-        for (const std::string& name : masterServerNames(cvars_)) {
+        for (const std::string& name : masterServerNames(cvars_, masterServers())) {
             const auto [host, port] = reluva::net::splitHostPort(name, ServerBrowser::kMasterPort);
             uint32_t ip = 0;
             if (resolveHost(host, ip))

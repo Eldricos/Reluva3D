@@ -3,8 +3,12 @@
 
 #pragma once
 
+#include "engines/idtech3/client/ref_entity.h"
+
 #include "common/detection.h"
 
+#include <cstdint>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -14,10 +18,38 @@ namespace reluva::idtech3 {
 // game-specific the engine does is keyed off this, so another id Tech 3
 // game (Quake III Arena, Jedi Outcast...) is added with a new entry here
 // and its own detection entries, not a new engine.
+//
+// Whose game code it is: which of Reluva's hosts can run the game's own
+// programs (its QVMs and DLLs, whose engine calls are numbered and laid
+// out per game). None: its files can be looked at, but not played.
+enum class GameCode { None, EliteForce };
+
+// A player model's three parts ("model/skin").
+struct PlayerModels {
+    std::string head, torso, legs;
+};
+
 struct GameInfo {
-    const char* gameId;  // stable id stored in the config, e.g. "stvef"
-    const char* name;    // shown to the user
-    const char* baseDir; // the folder holding the game's own .pk3 files
+    std::string gameId;  // stable id stored in the config, e.g. "stvef"
+    std::string name;    // shown to the user
+    std::string baseDir; // the folder holding the game's own .pk3 files
+    GameCode code = GameCode::None;
+    // How its client game lays out what it adds to the scene.
+    RefEntityLayout refEntity;
+    // The command's button bits for attacking (and the second attack,
+    // where the game has one; 0 if not).
+    int32_t buttonAttack = 1, buttonAltAttack = 0;
+    // Multiplayer's model for a player who hasn't chosen one.
+    std::string playerModel;
+    // Single player's: the player's name until one is set; its game code
+    // and menus (native DLLs beside the
+    // game's folder; empty if it has none), the first level, levels that
+    // aren't single player's (by name prefix), and the player as each sex.
+    std::string spPlayerName, spGameDll, spUiDll, firstMap;
+    std::vector<std::string> multiplayerMapPrefixes;
+    PlayerModels malePlayer, femalePlayer;
+    // Its movies: video/<name> and their file type.
+    std::string cinematicExtension;
 };
 
 // Every game the engine knows; nullptr if `gameId` isn't one.
