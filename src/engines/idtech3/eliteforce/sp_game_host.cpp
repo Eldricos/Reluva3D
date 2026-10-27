@@ -111,7 +111,7 @@ SpGameHost::~SpGameHost() = default;
 void SpGameHost::import(int slot, std::function<uint32_t(x86::Cpu&)> fn) {
     // cdecl: the caller pops the arguments.
     const uint32_t address = cpu_->addNative("engine[" + std::to_string(slot) + "]", [this, slot, fn](x86::Cpu& c) {
-        ++callCounts_[slot];
+        callCounts_.add(slot);
         if (trace)
             trace(slot, c.read32(c.reg[x86::Cpu::ESP]));
         c.reg[x86::Cpu::EAX] = fn(c);
@@ -345,13 +345,13 @@ void SpGameHost::updateVoiceVolumes() {
     }
 }
 
-Error SpGameHost::runFrame() {
+Error SpGameHost::runFrame(bool snapshot) {
     levelTime_ += kFrameMs;
     updateVoiceVolumes();
     if (Error e = callGame(RunFrame, {uint32_t(levelTime_)}))
         return e;
-    if (cgameRunning_)
-        makeSnapshot();
+    if (snapshot)
+        sendSnapshot();
     return Error::success();
 }
 
@@ -573,6 +573,10 @@ uint32_t SpGameHost::cvarStructure(const std::string& name) {
 }
 
 void SpGameHost::syncCvars() {
+    // (Done before every call into the game: only when something changed.)
+    if (cvars_.changes() == cvarChangesSynced_)
+        return;
+    cvarChangesSynced_ = cvars_.changes();
     for (auto& [key, m] : cvarMirrors_) {
         const CvarStore::Cvar* cv = cvars_.find(key);
         if (cv && cv->modificationCount != m.modificationCount)
@@ -656,7 +660,7 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
     auto a = [&c](int n) { return c.arg(n + 1); };
     auto str = [&](int n, size_t max = 1024) { return c.string(a(n), max); };
     const int number = int(c.arg(0));
-    ++cgameCallCounts_[number];
+    cgameCallCounts_.add(number);
     switch (number) {
     case 0: // Print(text)
         if (print)

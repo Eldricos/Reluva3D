@@ -12,6 +12,21 @@
 
 namespace reluva::idtech3 {
 
+int CallCounts::count(int number) const {
+    if (number >= 0 && number < kDirect)
+        return direct_[size_t(number)];
+    const auto it = others_.find(number);
+    return it == others_.end() ? 0 : it->second;
+}
+
+std::map<int, int> CallCounts::map() const {
+    std::map<int, int> out = others_;
+    for (int i = 0; i < kDirect; ++i)
+        if (direct_[size_t(i)])
+            out[i] = direct_[size_t(i)];
+    return out;
+}
+
 int32_t GameFiles::open(const std::string& path, int32_t mode, bool wantHandle, bool writable, uint32_t& handle) {
     handle = 0;
     OpenFile file;

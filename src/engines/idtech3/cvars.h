@@ -54,6 +54,9 @@ public:
     float value(std::string_view name) const;        // 0 if unset or not a number
     int32_t integer(std::string_view name) const;
     const std::vector<Cvar>& all() const { return cvars_; }
+    // Counts every variable made and every value changed: whether anything
+    // changed since it was last looked at.
+    uint64_t changes() const { return changes_; }
 
     // The game code's view of a variable, a vmCvar_t: handle,
     // modificationCount, value (float), integer, then the string, 256
@@ -66,8 +69,15 @@ public:
 private:
     Cvar* findMutable(std::string_view name);
 
+    // Names compared ignoring case, without making a lower-case copy to
+    // look one up (variables are looked up by name all the time).
+    struct NoCase {
+        using is_transparent = void;
+        bool operator()(std::string_view a, std::string_view b) const;
+    };
     std::vector<Cvar> cvars_;
-    std::map<std::string, size_t> byName_; // lower-case name -> index
+    std::map<std::string, size_t, NoCase> byName_; // name -> index
+    uint64_t changes_ = 0;
 };
 
 } // namespace reluva::idtech3

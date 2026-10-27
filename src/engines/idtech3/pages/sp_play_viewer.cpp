@@ -800,14 +800,19 @@ void SpPlayViewer::runGame(uint64_t nowMs) {
     // At most so much of the game's time a frame (the emulated game can't
     // run a skipped scene's timescale 100 as the original could): what
     // doesn't fit is let go rather than owed, so the page keeps up.
+    // One snapshot after the frames run, as the original's server sends.
+    bool ran = false;
     while (game_->levelTime() <= clientTime_) {
-        if (Error err = game_->runFrame())
+        if (Error err = game_->runFrame(false))
             return stop("The game stopped: " + err.message);
+        ran = true;
         if (ms(serverStart) > kServerBudgetMs && game_->levelTime() <= clientTime_) {
             clientTime_ = game_->levelTime() - 1;
             break;
         }
     }
+    if (ran)
+        game_->sendSnapshot();
     if (dt > 0) {
         eliteforce::SpGameHost::UserCommand cmd;
         cmd.serverTime = clientTime_;

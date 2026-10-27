@@ -4245,10 +4245,14 @@ int cmdSpRun(int argc, char** argv) {
             cmd.forward = int8_t(forward);
             cmd.right = int8_t(right);
             cmd.up = int8_t(up);
+            bool ran = false;
             while (game.levelTime() <= cmd.serverTime) {
-                if (reluva::Error e = game.runFrame())
+                if (reluva::Error e = game.runFrame(false))
                     return failed(("frame at " + std::to_string(game.levelTime())).c_str(), e);
+                ran = true;
             }
+            if (ran)
+                game.sendSnapshot(); // one for the frames run, as the Play page
             if (cmd.buttons != lastButtons && watch)
                 std::printf("[%5d ms] buttons %d\n", cmd.serverTime, cmd.buttons);
             lastButtons = cmd.buttons;
@@ -4950,9 +4954,10 @@ int cmdGameRun(int argc, char** argv) {
         }
         const auto& aas = game.botLibrary().aas();
         std::printf("aas: %s\n", aas.loaded() ? (std::to_string(aas.areaCount()) + " areas").c_str() : "not loaded");
+        const std::map<int, int> counts = game.callCounts();
         for (const auto& [number, samples] : game.botCallSamples()) {
-            const auto counted = game.callCounts().find(number);
-            std::printf("  bot call %d: %d calls", number, counted == game.callCounts().end() ? 0 : counted->second);
+            const auto counted = counts.find(number);
+            std::printf("  bot call %d: %d calls", number, counted == counts.end() ? 0 : counted->second);
             for (const auto& args : samples) {
                 std::printf(" (");
                 for (size_t i = 0; i < args.size(); ++i)

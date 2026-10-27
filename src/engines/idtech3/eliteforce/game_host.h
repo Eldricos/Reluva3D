@@ -188,7 +188,7 @@ public:
     int32_t svFlagsOffset();
     std::pair<int, int> svFlagsEvidence();
     // How many times each system call has been made since the start.
-    const std::map<int, int>& callCounts() const { return callCounts_; }
+    std::map<int, int> callCounts() const { return callCounts_.map(); }
     // Entity numbers linked into the world (LinkEntity), not unlinked since.
     const std::set<int32_t>& linked() const { return serverWorld_.linked(); }
     // The map's areas (cut by its doors' portals), and how many times
@@ -273,7 +273,7 @@ private:
     std::vector<std::pair<int32_t, std::string>> drops_;
     std::string log_;
     std::map<int, int> unhandled_;
-    std::map<int, int> callCounts_;
+    CallCounts callCounts_;
     int32_t levelTime_ = 0;
     uint64_t startMs_ = 0;
     // Bots.

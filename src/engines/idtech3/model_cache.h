@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <map>
 #include <string>
+#include <utility>
 #include <unordered_map>
 #include <vector>
 
@@ -89,9 +90,13 @@ private:
         gfx::MeshId mesh = 0;
         std::vector<Surface> surfaces;
         std::vector<int> lods; // the lower levels' ids, from level 1
+        // The materials chosen for each skin and shader drawn with, surface
+        // by surface (models are drawn many times a frame).
+        std::map<std::pair<const Skin*, std::string>, std::vector<int>> chosen;
     };
     // The material surface `i` of model `id` is drawn with.
     int surfaceMaterial(int id, size_t i, const Skin* skin, const std::string& shader);
+    int chooseMaterial(int id, size_t i, const Skin* skin, const std::string& shader);
     // One level of a model, from `data`; -1 with the reason in `error`.
     int add(const std::string& path, const std::vector<uint8_t>& data, int level, std::string* error);
 

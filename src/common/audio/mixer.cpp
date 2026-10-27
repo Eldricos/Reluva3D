@@ -109,6 +109,8 @@ void Mixer::mix(int16_t* out, int frames) {
         const int64_t gain = int64_t(c.volume) * typeVolume_[int(c.type)];
         const int64_t gainL = c.pan > 0 ? gain * (kMaxPan - c.pan) / kMaxPan : gain;
         const int64_t gainR = c.pan < 0 ? gain * (kMaxPan + c.pan) / kMaxPan : gain;
+        // (Scaling by 1/65536 first gives the same products: a power of two.)
+        const double scaleL = double(gainL) / 65536.0, scaleR = double(gainR) / 65536.0;
         auto sample = [&](size_t frame, size_t channel) { return double(s.samples[frame * ch + channel]); };
         for (int i = 0; i < frames; ++i) {
             if (c.position >= double(n)) {
@@ -125,8 +127,8 @@ void Mixer::mix(int16_t* out, int frames) {
             const double t = c.position - double(f);
             const double l = sample(f, 0) * (1 - t) + sample(g, 0) * t;
             const double r = ch > 1 ? sample(f, 1) * (1 - t) + sample(g, 1) * t : l;
-            accumulator_[size_t(i) * 2] += int32_t(std::lround(l * double(gainL) / 65536.0));
-            accumulator_[size_t(i) * 2 + 1] += int32_t(std::lround(r * double(gainR) / 65536.0));
+            accumulator_[size_t(i) * 2] += int32_t(std::lround(l * scaleL));
+            accumulator_[size_t(i) * 2 + 1] += int32_t(std::lround(r * scaleR));
             c.position += step;
         }
     }

@@ -103,8 +103,16 @@ public:
     // The player joining (ClientConnect, then ClientBegin); `refused` gets
     // the game's reason if it says no.
     Error connectPlayer(const std::string& userinfo, std::string& refused, int32_t loadMode = 0);
-    // One server frame: the level time moves on and the game's RunFrame.
-    Error runFrame();
+    // One server frame: the level time moves on and the game's RunFrame;
+    // then, if `snapshot`, what the player sees is sent (made into a
+    // snapshot for the client game). As the original's server, frames
+    // caught up on together send one snapshot, after the last
+    // (sendSnapshot()).
+    Error runFrame(bool snapshot = true);
+    void sendSnapshot() {
+        if (cgameRunning_)
+            makeSnapshot();
+    }
     // --- Saved games (raven/savegame.h) ---------------------------------------
     // Where the game's own chunks go (AppendToSaveGame) and come from
     // (ReadFromSaveGame); none: it can't save or load.
@@ -212,11 +220,11 @@ public:
     const std::vector<std::string>& consoleCommands() const { return consoleCommands_; }
     const std::vector<std::pair<int32_t, std::string>>& serverCommands() const { return serverCommands_; }
     // How many times the game called each of the engine's functions.
-    const std::map<int, int>& callCounts() const { return callCounts_; }
+    std::map<int, int> callCounts() const { return callCounts_.map(); }
     // The same for the client game's system calls (the server game calls
     // into its client half too: they share the DLL), and those not yet
     // answered.
-    const std::map<int, int>& cgameCallCounts() const { return cgameCallCounts_; }
+    std::map<int, int> cgameCallCounts() const { return cgameCallCounts_.map(); }
     const std::map<int, int>& cgameUnhandled() const { return cgameUnhandled_; }
 
     x86::Cpu& cpu() { return *cpu_; }
@@ -290,6 +298,7 @@ private:
         int32_t modificationCount = -1;
     };
     std::map<std::string, MirroredCvar> cvarMirrors_; // by lower-case name
+    uint64_t cvarChangesSynced_ = ~uint64_t(0);       // the store's changes() when last synced
     GameFiles openFiles_;
     std::vector<std::string> args_;
     std::map<int32_t, std::string> configstrings_, userinfo_;
@@ -299,7 +308,8 @@ private:
     void addServerCommand(int32_t to, std::string text);
     SaveWriter* saveWriter_ = nullptr;
     SaveReader* saveReader_ = nullptr;
-    std::map<int, int> callCounts_, cgameCallCounts_, cgameUnhandled_;
+    CallCounts callCounts_, cgameCallCounts_;
+    std::map<int, int> cgameUnhandled_;
     // Voices playing (sounds on CHAN_VOICE, 3, or CHAN_VOICE_ATTEN, 4), by
     // entity: what the game reads in VoiceVolume (import slot 37) to know
     // a line is still being spoken (its scripts wait for it) and to move

@@ -59,7 +59,7 @@ public:
         return leaf >= 0 && size_t(leaf) < bsp_.leafs.size() ? bsp_.leafs[size_t(leaf)].area : -1;
     }
     // How many areas the map is cut into (by its area portals).
-    int areaCount() const;
+    int areaCount() const { return areaCount_; }
     bool modelBounds(int model, Vec3f& mins, Vec3f& maxs) const;
     int modelCount() const { return int(bsp_.models.size()); }
     const Bsp& bsp() const { return bsp_; }
@@ -106,6 +106,7 @@ private:
     mutable std::vector<uint32_t> checked_;        // per brush: the trace that last tested it
     mutable std::vector<uint32_t> checkedPatches_; // per surface, likewise
     mutable uint32_t traceCount_ = 0;
+    int areaCount_ = 0; // the highest area a leaf is in, + 1
     std::vector<Facet> facets_;
     std::vector<int> patchOf_; // per surface: its PatchCollide, -1 none
     std::vector<PatchCollide> patches_;

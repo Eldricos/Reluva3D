@@ -37,6 +37,8 @@ struct CollisionWorld::Work {
 
 CollisionWorld::CollisionWorld(const Bsp& bsp)
     : bsp_(bsp), checked_(bsp.brushes.size(), 0), checkedPatches_(bsp.surfaces.size(), 0) {
+    for (const BspLeaf& l : bsp_.leafs)
+        areaCount_ = std::max(areaCount_, l.area + 1);
     buildPatches();
 }
 
@@ -369,26 +371,71 @@ TraceResult CollisionWorld::trace(const Vec3f& start, const Vec3f& end, const Ve
 
 TraceResult CollisionWorld::traceBox(const Vec3f& start, const Vec3f& end, const Vec3f& mins, const Vec3f& maxs,
                                      const Vec3f& boxMins, const Vec3f& boxMaxs, int32_t boxContents) {
-    // The box as a brush of six axial planes, in a world of its own.
-    Bsp bsp;
-    bsp.shaders.push_back({"box", 0, boxContents});
-    for (int axis = 0; axis < 3; ++axis) {
-        BspPlane hi, lo;
-        hi.normal[size_t(axis)] = 1;
-        hi.dist = boxMaxs[size_t(axis)];
-        lo.normal[size_t(axis)] = -1;
-        lo.dist = -boxMins[size_t(axis)];
-        bsp.planes.push_back(hi);
-        bsp.planes.push_back(lo);
+    // The box as a brush of six axial planes (+x, -x, +y, -y, +z, -z),
+    // clipped as traceBrush does, with nothing built: each plane's
+    // normal picks out one coordinate, and the moving box reaches its
+    // half size along it.
+    TraceResult r;
+    Vec3f from{}, to{}, extents{};
+    for (int i = 0; i < 3; ++i) {
+        const float centre = (mins[size_t(i)] + maxs[size_t(i)]) * 0.5f;
+        extents[size_t(i)] = (maxs[size_t(i)] - mins[size_t(i)]) * 0.5f;
+        from[size_t(i)] = start[size_t(i)] + centre;
+        to[size_t(i)] = end[size_t(i)] + centre;
     }
-    for (int i = 0; i < 6; ++i)
-        bsp.brushSides.push_back({i, 0});
-    bsp.brushes.push_back({0, 6, 0});
-    BspModel model;
-    model.numBrushes = 1;
-    bsp.models.push_back(model); // model 0, without nodes: its brushes directly
-    const CollisionWorld world(bsp);
-    return world.trace(start, end, mins, maxs, 0, boxContents ? boxContents : -1);
+    auto finish = [&] {
+        for (int i = 0; i < 3; ++i)
+            r.endPos[size_t(i)] = start[size_t(i)] + r.fraction * (end[size_t(i)] - start[size_t(i)]);
+        return r;
+    };
+    if (boxContents == 0) // nothing to hit
+        return finish();
+    float enter = -1, leave = 1;
+    int hitPlane = -1; // axis * 2, + 1 for the low side
+    bool startsOut = false, endsOut = false;
+    for (int plane = 0; plane < 6; ++plane) {
+        const int axis = plane / 2;
+        const bool low = plane & 1;
+        const float planeDist = low ? -boxMins[size_t(axis)] : boxMaxs[size_t(axis)];
+        const float dist = planeDist + extents[size_t(axis)];
+        const float d1 = (low ? -from[size_t(axis)] : from[size_t(axis)]) - dist;
+        const float d2 = (low ? -to[size_t(axis)] : to[size_t(axis)]) - dist;
+        startsOut |= d1 > 0;
+        endsOut |= d2 > 0;
+        if (d1 > 0 && (d2 >= kClipEpsilon || d2 >= d1))
+            return finish();
+        if (d1 <= 0 && d2 <= 0)
+            continue;
+        if (d1 > d2) {
+            const float f = (d1 - kClipEpsilon) / (d1 - d2);
+            if (f > enter) {
+                enter = f;
+                hitPlane = plane;
+            }
+        } else {
+            leave = std::min(leave, (d1 + kClipEpsilon) / (d1 - d2));
+        }
+    }
+    if (!startsOut) {
+        r.startSolid = true;
+        if (!endsOut) {
+            r.allSolid = true;
+            r.fraction = 0;
+            r.contents = boxContents;
+        }
+        return finish();
+    }
+    if (enter < leave && enter > -1 && enter < r.fraction && hitPlane >= 0) {
+        const int axis = hitPlane / 2;
+        const bool low = hitPlane & 1;
+        r.fraction = std::max(enter, 0.0f);
+        r.normal = Vec3f{};
+        r.normal[size_t(axis)] = low ? -1.0f : 1.0f;
+        r.dist = low ? -boxMins[size_t(axis)] : boxMaxs[size_t(axis)];
+        r.surfaceFlags = 0;
+        r.contents = boxContents;
+    }
+    return finish();
 }
 
 int CollisionWorld::leafAt(const Vec3f& point) const {
@@ -430,13 +477,6 @@ void CollisionWorld::boxLeafs(const Vec3f& mins, const Vec3f& maxs, std::vector<
         if (lo < 0)
             stack.push_back(n.children[1]);
     }
-}
-
-int CollisionWorld::areaCount() const {
-    int count = 0;
-    for (const BspLeaf& l : bsp_.leafs)
-        count = std::max(count, l.area + 1);
-    return count;
 }
 
 AreaPortals::AreaPortals(int areaCount)

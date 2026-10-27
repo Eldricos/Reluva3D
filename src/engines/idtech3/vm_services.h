@@ -5,6 +5,7 @@
 
 #include "common/archive.h"
 
+#include <array>
 #include <cstdint>
 #include <map>
 #include <string>
@@ -82,6 +83,24 @@ private:
 // memset, memcpy, strncpy, sin, cos, atan2, sqrt (100 to 106). Returns
 // false if `number` isn't one of them. Floats come and go as their bits.
 bool commonSystemCall(Qvm& vm, int number, const int32_t* args, int32_t& result);
+
+// How often each numbered call a game module made was made: counted
+// cheaply, as calls run in their hundreds of thousands a frame.
+class CallCounts {
+public:
+    void add(int number) {
+        if (number >= 0 && number < kDirect)
+            ++direct_[size_t(number)];
+        else
+            ++others_[number];
+    }
+    int count(int number) const;
+    std::map<int, int> map() const; // those made, by number
+private:
+    static constexpr int kDirect = 1024;
+    std::array<int, kDirect> direct_{};
+    std::map<int, int> others_;
+};
 
 // Names the game code registers (shaders, models, sounds, skins), each
 // given a handle from 1 up; the same name, ignoring case, gets the same

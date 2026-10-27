@@ -707,7 +707,7 @@ std::string GameHost::infoString(int32_t flag) const {
 int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     if (trace)
         trace(number, a);
-    ++callCounts_[number];
+    callCounts_.add(number);
     auto str = [&](int i, size_t max = 1024) { return vm.string(a[i], max); };
     int32_t result = 0;
     if (commonSystemCall(vm, number, a, result))

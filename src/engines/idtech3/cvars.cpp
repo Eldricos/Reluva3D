@@ -5,6 +5,7 @@
 
 #include "engines/idtech3/qvm.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdlib>
 
@@ -41,6 +42,7 @@ CvarStore::Cvar& CvarStore::create(std::string_view name, std::string_view defau
     cv.handle = int32_t(cvars_.size()) + 1;
     byName_[lower(name)] = cvars_.size();
     cvars_.push_back(std::move(cv));
+    ++changes_;
     return cvars_.back();
 }
 
@@ -56,15 +58,27 @@ void CvarStore::set(std::string_view name, std::string_view value, bool force) {
         return;
     cv->value = value;
     ++cv->modificationCount;
+    ++changes_;
+}
+
+bool CvarStore::NoCase::operator()(std::string_view a, std::string_view b) const {
+    const size_t n = std::min(a.size(), b.size());
+    for (size_t i = 0; i < n; ++i) {
+        const int ca = std::tolower(static_cast<unsigned char>(a[i]));
+        const int cb = std::tolower(static_cast<unsigned char>(b[i]));
+        if (ca != cb)
+            return ca < cb;
+    }
+    return a.size() < b.size();
 }
 
 const CvarStore::Cvar* CvarStore::find(std::string_view name) const {
-    const auto it = byName_.find(lower(name));
+    const auto it = byName_.find(name);
     return it == byName_.end() ? nullptr : &cvars_[it->second];
 }
 
 CvarStore::Cvar* CvarStore::findMutable(std::string_view name) {
-    const auto it = byName_.find(lower(name));
+    const auto it = byName_.find(name);
     return it == byName_.end() ? nullptr : &cvars_[it->second];
 }
 
