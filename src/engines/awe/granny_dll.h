@@ -46,8 +46,8 @@ public:
                  const std::vector<float>* points = nullptr, std::vector<float>* windowPoints = nullptr);
 
     // A file loaded by the DLL itself (GrannyReadEntireFileFromMemory),
-    // for what Reluva only reads through it: its curves in compressed
-    // formats. `info` is its granny_file_info in the DLL's memory, laid out
+    // to check Reluva's own expansion of its compressed curves against.
+    // `info` is its granny_file_info in the DLL's memory, laid out
     // as the file's own types describe.
     struct LoadedFile {
         uint32_t file = 0, info = 0, bytes = 0;

@@ -189,7 +189,7 @@ int cmdGr2Model(int argc, char** argv) {
     if (!animFile.empty()) {
         if (!openGr2(animFile, dll, animGr2))
             return 1;
-        if (reluva::Error e = awe::loadAnimation(animGr2, anim, &dll)) {
+        if (reluva::Error e = awe::loadAnimation(animGr2, anim)) {
             std::fprintf(stderr, "%s\n", e.message.c_str());
             return 1;
         }

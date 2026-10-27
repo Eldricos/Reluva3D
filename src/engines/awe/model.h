@@ -107,9 +107,13 @@ struct Animation {
 
 // Reads the file's first animation (its first track group). Curves in
 // Granny's compressed formats (CurveData: D4nK8uC7u and the like) are
-// expanded to plain ones by the DLL when one is given; without it, their
-// tracks keep the bones at rest.
-Error loadAnimation(const Gr2File& file, Animation& out, GrannyDll* dll = nullptr);
+// expanded to plain ones (curves.h).
+Error loadAnimation(const Gr2File& file, Animation& out);
+// Replaces the animation's compressed curves, as loadAnimation() expanded
+// them from `file`, with granny2.dll's expansion of them
+// (GrannyCurveExtractKnotValues): the reference the native one is checked
+// against (reluva-tool awe-check).
+Error expandCurvesWithDll(const Gr2File& file, GrannyDll& dll, Animation& out);
 
 // A skeleton's pose: each bone's world matrix and its skinning matrix
 // (world times inverse rest world).

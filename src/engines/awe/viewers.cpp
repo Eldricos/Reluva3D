@@ -933,7 +933,7 @@ void ScenePage::loadCharacters() {
                 if (ctx_.files.has(path)) {
                     Gr2File gr2;
                     anim = std::make_shared<Animation>();
-                    if (openGr2(ctx_.files, path, *ctx_.granny, gr2) || awe::loadAnimation(gr2, *anim, ctx_.granny))
+                    if (openGr2(ctx_.files, path, *ctx_.granny, gr2) || awe::loadAnimation(gr2, *anim))
                         anim.reset();
                 }
                 a = animations_.emplace(path, anim).first;
