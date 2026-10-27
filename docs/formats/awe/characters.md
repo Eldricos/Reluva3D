@@ -5,7 +5,8 @@ characters (`NPCX`, and `PCXX` for the player):
 
 - what the script verbs `anim`, `turn`, `look`, `rotate`, `animate`,
   `pause`, `resume`, `attach` and `detach` do;
-- the behaviour behind those verbs: blinking, idle gestures and talking.
+- the behaviour behind those verbs: blinking, idle gestures and talking;
+- what they leave outdoors: footprints in the snow, and their breath.
 
 ## How this was worked out
 
@@ -19,7 +20,12 @@ Reluva work with the game:
   one (0x429cc0, 0x429dd0). The Granny functions they call were named
   from `motoe.exe`'s imports;
 - the turns, `0x4411f0..0x4420b0`;
-- the runner's handlers for the verbs.
+- the runner's handlers for the verbs;
+- outdoors: the character's update (`0x43ffa0`) and walk (`0x4422c0`),
+  the footprints' laying and fading (`0x43fda0`, `0x43fd00`), the
+  `FOOT` class (`0x40dda0`), the model's update with its breath
+  (`0x425f50`), the `BRTH` class (`0x406840`), and how the model draws
+  with a diffuse alpha under 1 (`0x428b1f`).
 
 The findings were checked against the install's models, their animation
 files' track masks, and the scenes' and dialogue's scripts.
@@ -276,6 +282,74 @@ or by the code: `fidle` (Poirot's, Antoinette's), `ftalk` and
 `flookright` (Antoinette's). Some models also carry a `TrackMaskhead`,
 which nothing reads.
 
+## Outdoors: footprints and breath
+
+Two `MODL` fields ([ac2.md](ac2.md)) are for the snow. The player has
+them in the snowy exteriors.
+
+### Footprints
+
+A character with `footprints`, in a scene marked `OUTD`, leaves prints
+as it walks (or runs) along a path (`0x4422c0` calls `0x43fda0` with the
+frame's time):
+
+- It keeps a time into its stride (+0x14f4) and the foot next down
+  (+0x14f8), from 0 when it's made; they carry on from one walk to the
+  next. The right foot comes down 0.45 s into the stride, the left at
+  0.9 s, and at 1.16666 s the stride starts again (that time taken off,
+  no print).
+- A print is a new object in the scene: a `FOOT`, a model like a
+  character's but casting no shadow (`0x40dda0`), with the models'
+  defaults (diffuse 1, ambient 0.5, lit). Its model is
+  `models\footprint\snowprint_model.gr2` (a snowshoe's, 130 × 137 units)
+  once the story tag `snowshoeson` exists, else `footprint_model.gr2` (a
+  shoe's, 32 × 68). It stands where the foot's bone (`Bip01 R Foot`,
+  `Bip01 L Foot`) is, on the floor (y 0), turned as the character is.
+- Each lasts 5 s (`0x43ff73`). Its diffuse alpha (+0x98) fades it: twice
+  its age for the first half second, then (5 − age) × 2/9 (`0x43fd00`).
+  At 5 s it's taken out of the scene. The ages go on in the character's
+  update, while the scene is `OUTD` (`0x43ffbd`).
+- A model whose diffuse alpha is under 1 is drawn blended: source alpha,
+  one minus source alpha, its alpha the texture's times the diffuse's
+  (`0x428b1f`). The prints' textures are a flat colour whose alpha
+  draws the print, at most about 0.4, so they're faint.
+- Like every object, a print is drawn among the others by its depth
+  (its z), and the pick sees it (it has no rectangle or outline, so
+  nothing picks it).
+
+### Breath
+
+A character with `breath`, while it's shown, has a `BRTH` particle
+system of its own (+0xe3c), made the first time (`0x425fd0`) and
+deleted when `breath` is 0 or the character hidden (`0x4260e8`). Each
+frame (`0x425f50`) its emitter goes to the bone `Upper Lip_R`, and its
+velocity becomes (0, 0, 50) turned by the character's rotation
+(`D3DXMatrixRotationYawPitchRoll`, `D3DXVec3TransformCoord`): 50 units
+a second the way it faces. It's then updated as the scenes' particles
+are ([ac2.md](ac2.md), `SYST`), and drawn just after the character
+(`0x425e48`).
+
+`BRTH`'s constructor (`0x406840`) sets, over the particles' defaults:
+
+| Setting | Value |
+|---------|-------|
+| texture | `Elements\Particles\breath01.tga` |
+| blended by alpha | yes |
+| velocity | (50, 0, 50), then as above |
+| burst, interval | 1 every 0.3 s |
+| spread, copies | 1, 1 |
+| size | 100 |
+| life | 1.5 s, faded in and out over 0.75 s |
+| mode | 0 (thrown), no gravity, no bounce |
+| blink | on 2 s, off 2 s: a breath at a time |
+| sway, swaySpeed | 15, 0 |
+
+So a puff leaves the mouth every 0.3 s for two seconds in four, and
+drifts at up to 35 units a second, fading in and out over a second and
+a half. A thrown particle's speed on each axis is a random part (−0.71
+to 0.71) of the velocity's, so the puffs go along the line the
+character faces, forward or back, rather than straight ahead.
+
 ## In Reluva
 
 `Animator` (`src/engines/awe/animator.cpp`) handles the animations: the
@@ -290,6 +364,12 @@ after. A prop's bones take the weights of the character's bones of the
 same name. Each slot's curves are evaluated as Granny samples a control,
 wrapping round at the ends while it loops (see the Granny page,
 "Evaluating curves").
+
+Outdoors (`scene_outdoors.cpp`), each character keeps its footprints,
+its stride and its breath. The prints are drawn as models among the
+pictures by depth, as the characters are; the breath's particles are
+drawn on the 2D layer just after the character, with the scenes' other
+particles' code.
 
 There are two deliberate differences from the game:
 

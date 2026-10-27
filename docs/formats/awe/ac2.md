@@ -81,7 +81,7 @@ The scene loader reads a tag at a time until `DONE` (or the end):
 | Tag | Content |
 |-----|---------|
 | `SCEN` | text: the scene's own path (`Locations\Salon\Salon_01_06a.ac2`) |
-| `LOAD`, `FAKE`, `OUTD`, `NVNT`, `SHOW` | u16 each (meanings to be found for `FAKE` and `SHOW`). `OUTD` (scene +0x14f2): outdoors: lit for the night at time of day 1 ([lighting.md](lighting.md)), and characters with `MODL` footprints leave them only there (`0x43ffcd`). `NVNT` (+0x14f6): never lit for the night |
+| `LOAD`, `FAKE`, `OUTD`, `NVNT`, `SHOW` | u16 each (`FAKE`, +0x14f4, still to be found). `LOAD` (+0x1502, 1 by default). `OUTD` (scene +0x14f2): outdoors: lit for the night at time of day 1 ([lighting.md](lighting.md)), and characters with `MODL` footprints leave them only there (`0x43ffcd`). `NVNT` (+0x14f6): never lit for the night. `SHOW` (+0x14f0, 1 by default, `0x43548f`): the interface shows in the scene (`0x4143c0`), and with it the cursor ([The mouse](#the-mouse-picking-and-cursors)); 0 in the five menus and 15 close-ups and cutaways (`Sirkeci.Market_02.Closeup.01`, `Calais.Night_7-8.Hubbard`...) |
 | `FOOT` | text (32): the scene's footstep sounds |
 | `PUZZ` | text (32): the scene's puzzle, if any |
 | `MUSC` | pair list: music (the second of each pair is a file, `sound\music\motoetheme.mp3`) |
@@ -140,10 +140,10 @@ characters all four.
 | soundLoops | u32 | +0xd78: the sound loops (`AIL_quick_play`'s count 0). 0 in every scene |
 | soundFrame | u16 | +0xd7c: animated pictures: the frame at which the sound starts (`0x40379c`) |
 | depth | f32 | +0xd0. The drawing depth when set, instead of z (`0x4104b0`): the view outside a window −11000, behind the background's −10000; a chair's cutout 260 |
-| cursor | u16 | +0xb1e: the cursor shown over it, a number into `interface\cursor01.tga`, `cursor02`, `cursorlook`, `cursortake`, `cursoropen`, `cursorwalk`, `cursortalk`, `cursorlisten`, `cursorstairs`, `cursorkeyhole`, `cursorback`, `cursoroperate`, `cursorshadow`, `cursorup`, `cursordown`, `cursorempty` (0 to 15, loaded in that order at `0x413f78`). Defaults: hotspots 5 (walk), items 3 (take), characters 6 (talk); exits use 10 (back) |
+| cursor | u16 | +0xb1e: the cursor shown over it, a number into `interface\cursor01.tga`, `cursor02`, `cursorlook`, `cursortake`, `cursoropen`, `cursorwalk`, `cursortalk`, `cursorlisten`, `cursorstairs`, `cursorkeyhole`, `cursorback`, `cursoroperate`, `cursorshadow`, `cursorup`, `cursordown`, `cursorempty` (0 to 15, loaded in that order at `0x413f78`). The constructors' defaults, for records too short to have it: hotspots 5 (walk, `0x412f99`), items 3 (take, `0x4206c6`), characters 6 (talk, `0x43fafb`). In the files: exits 10 (back), the menus' buttons 1 (the bright arrow), and 0 (the arrow) where a field is 0 (the wolf of `Exterior.Forest_02`). See [The mouse](#the-mouse-picking-and-cursors) |
 | conditionalCursors | pair list | +0xaf0: a condition and a cursor number each; the first whose condition holds is used instead (`0x40e890`: `"tag hutwindowopen": "2"`) |
 | listD | number pair list | hotspots: the outline, as screen points (x:y), inside their rectangle |
-| pickFirst | u32 | +0xb70. In the scene's pick (`0x435eb0`), objects with it that have an outline or no rectangle are tested before all others, front to back |
+| pickFirst | u32 | +0xb70. In the scene's pick (`0x435eb0`), objects with it that have an outline or no rectangle are tested before all others, front to back. Set on three hotspots and two pictures |
 
 A field's name in the table is the original's offset in its object
 where its use isn't known (or the game never reads it). Reluva uses the
@@ -214,9 +214,16 @@ over and on click (texts, `sound\mouseover1.wav`, `sound\select1.wav`),
 hoverSoundLoops (u32, +0x1410: the mouse-over sound loops while the
 mouse stays, `0x413117`; 0 in every file), and key (text, 32, +0x13d0):
 a key that clicks it, `VK_ESCAPE` or `VK_RETURN` (`0x436110`; the
-options screen's `VK_ENTER` matches no key). On mouse over, the hotspot
-also shows the object whose file is its name, and hides it again after
-(`0x4130e9`).
+options screen's `VK_ENTER` matches no key).
+
+Every frame each hotspot looks for the mouse itself (its update,
+`0x413040`), unless the screen is fading: when the mouse comes over it
+(its own outline or rectangle) and it can be clicked (`0x40e570`, below),
+it shows the object its name names (`0x4130e9`: `exitover` is
+`exitover.png`, a picture whose condition is `0`), and plays its
+mouse-over sound; when the mouse leaves, it hides that object again and
+stops the sound. A click on it (`0x416251`), or its key, stops the
+mouse-over sound and plays the click sound (`0x4131a0`).
 
 ### `2DSP`, `BNKX`, `ITEM`
 
@@ -337,11 +344,14 @@ the moving countryside), shown while `weather >0`.
   one), a pair list (models attached at load:
   `models\poirot\hat_model.gr2`), breath (u32, +0xe30: a breath
   particle system, `BRTH`, `breath01.tga`, follows the bone `Upper
-  Lip_R`, blowing forward, `0x425fa9`; outdoor scenes in the cold set
-  it), footprints (u32, +0xe34: in an outdoor scene, `OUTD`, the
-  character leaves footprint models as it walks, `snowprint_model.gr2`
-  with the tag `snowshoeson`, else `footprint_model.gr2`, which fade,
-  `0x43fda0`, `0x43fd00`), two animation names (text, 32: `anim`, the
+  Lip_R`, blowing forward, `0x425fa9`; the player in the snowy
+  exteriors, and one other character, have it), footprints (u32,
+  +0xe34: in an outdoor scene, `OUTD`, the character leaves footprint
+  models as it walks, `snowprint_model.gr2` with the tag `snowshoeson`,
+  else `footprint_model.gr2`, which fade, `0x43fda0`, `0x43fd00`; set
+  on the player in 50 scenes). Both are in
+  [characters.md](characters.md#outdoors-footprints-and-breath). Then two
+  animation names (text, 32: `anim`, the
   skeleton's track mask `TrackMask<anim>` its animations are limited to,
   and `anim2`, a prefix tried on every animation's name: `sit` makes
   `idle1` `sitidle1`), clickToWalk (u32, +0xe38, 1 by default: when the
@@ -362,6 +372,103 @@ the moving countryside), shown while `weather >0`.
   they follow) and the next tag, `COND` (text: a condition) and the next
   tag. Then, whatever that tag is (`IDLE` in the files), a pair list of
   idle animations. The game doesn't check that last tag.
+
+## The mouse: picking and cursors
+
+How this was worked out: the interface object's frame update (`0x414400`)
+and drawing (`0x414e40`, the cursor at `0x415650`), its click
+(`0x416000`) and key (`0x4164e0`) handlers, the scene's pick
+(`0x435eb0`) and key lookup (`0x436110`), and the objects' virtual
+functions they call, found from the classes' vtables (`2DOB` `0x48300c`,
+`SPOT` `0x4826fc`, `NPCX` `0x482bd4`, `PCXX` `0x482dd8`, `FOOT`
+`0x482610`, `BRTH` `0x48256c`). The cursor numbers were checked against
+the 16 pictures; the mouse's position is kept in two floats,
+`0x48b08c` and `0x48b090` (400, 300 at the start).
+
+### The pick (`0x435eb0`)
+
+The objects the pick sees are those shown (+0xb00 and +0xb04 set: in
+Reluva's terms, not hidden and their condition holding, or shown by a
+script). Each has a **hit test** (`0x40ef70`): with an outline (`listD`,
+made a Windows region by `CreatePolygonRgn`, winding fill, `0x40ef10`),
+`PtInRegion`; else, with a rectangle that isn't empty, `PtInRect`; with
+neither, nothing hits it.
+
+A model's rectangle moves with it: at load the game keeps its offset from
+where the model's position lands on the screen (`0x40ea70`), and as the
+model moves it puts the rectangle back at that offset (`0x40eb60`, from
+`GrannyWorldSpaceToWindowSpace`).
+
+The objects are sorted by depth (`0x435e40`, a bubble sort on `d0`, else
+z: `0x4104b0`; a character's z is where it stands) and tried from the
+front, in three passes. A pass's first hit is the answer:
+
+1. Objects with `pickFirst` that have an outline (or no rectangle).
+2. The characters (`NPCX`, `PCXX`: virtual function +0x60, `0x4041f0`;
+   every other class's returns 0). One with a rectangle and no outline
+   is tried only if it can be clicked or an item is in hand, and then by
+   its bones (`0x426120`, `0x428c80`): the ray through the point
+   (`GrannyGetPickingRay`) against the box (`OBBMin`, `OBBMax`) of each
+   of its meshes' bone bindings whose bone's name has `Bip01` in it,
+   posed as now (`GrannyGetWorldPose4x4`, `GrannyRayIntersectsBox`). The
+   others go by their hit test.
+3. Everything, by its hit test.
+
+The mouse and clicks use it with the same arguments; the torn letter
+asks for a picture's opaque pixels instead (`0x43ed2a`, see
+[puzzles.md](puzzles.md)).
+
+An object **can be clicked** (`0x40e570`) when it has a script, or a
+conditional script (`listB`) whose condition holds. A click (`0x416000`)
+picks: an object that can be clicked runs its script (a hotspot first
+plays its click sound); otherwise the click walks the player to the
+floor point, as on nothing.
+
+### The cursor
+
+At load the interface makes the 16 cursor pictures (`0x413f00`), and
+`SetCursor(NULL)` hides Windows' own for good. Every frame (`0x414400`)
+the arrow is put at the mouse, and the object under it found with the
+pick, unless the screen is fading, a script runs that takes no clicks
+(`0x407a10`), a conversation goes on, the letterbox is up, or the mouse
+is over the interface bar (the top 60 pixels while it's down, else the
+top 5: `0x417580`).
+
+The cursor's number (`0x4154f5`) is the object's, if it can be clicked
+(`0x40e890`: the first of its `conditionalCursors` whose condition holds,
+else its `cursor`); else 0. Drawing it (`0x415650`):
+
+- **The arrow**, by its top-left corner at the mouse: `cursor02` (the
+  bright one) for number 1, else `cursor01`.
+- Then, kept 62 pixels in from the right and bottom edges (x at most
+  962, y at most 706), by its top-left corner at the same point:
+  - with an item in hand, `cursoroperate` if the object under the mouse
+    would take it (`0x419e90`: a conditional script asking for an item
+    that holds with it in hand, or, for a character, a row of
+    `uselist.txt`), else `cursorempty` with the item's own cursor
+    picture (`inventory\items\<item>\cur<item>.png`) 26 pixels in;
+  - else, for numbers 2 to 15, that picture: each is the arrow's ring
+    with its verb (look, take, open, walk, talk...), drawn over the
+    arrow.
+
+With nothing under the mouse a puzzle could give the number (its
+virtual function +0x28); all three return 0.
+
+The cursor shows (`0x4140b0`) while a scene is up and the interface
+isn't off (`interface off`, `[0x4986f4]`), and the letterbox isn't
+either, in scenes that show the interface (`SHOW`), in the menus (scenes
+loaded as menus, +0x14fc, and the main menu), and in conversations
+(unless the mouse wheel has been choosing a line and the mouse hasn't
+moved since: `0x43d7f0`).
+
+### Keys
+
+Escape and Enter, after the script runner has had them (`0x409860`),
+go to the scene (`0x436110`): the first hotspot whose `key` is
+`VK_ESCAPE` or `VK_RETURN`, shown or not, plays its click sound and
+runs its script. The menus have them: the in-game menu's Resume (Escape),
+the save and load screens' OK (Enter) and Cancel (Escape), the options
+screen's Cancel (Escape; its OK has `VK_ENTER`, which matches neither).
 
 ## The camera (`CAMR`)
 
@@ -590,10 +697,9 @@ conditions. Reluva's evaluator is `testCondition`
 - The fields the game loads but never reads keep their offsets: the
   common `b54`, `b58` and `b68`, `SPRT`'s `dc8`, the item's `1610` and
   `1612`, and the camera's `238`, `23a` and `1240`.
-- What Reluva doesn't do yet: the cursors (`cursor`,
-  `conditionalCursors`), the characters' breath and footprints, the
-  objects' own sounds (`sound`, `soundLoops`, `hoverSoundLoops`; empty or
-  0 in every scene), the hotspots' keys (Reluva's save and options
-  screens press them by name instead), `pickFirst` in its picking, and
-  the animated pictures (`2DAN`, `NING`: in no scene).
-- The scene records `LOAD`, `FAKE`, `NVNT` and `SHOW`.
+- What Reluva doesn't do yet: the objects' own sounds (`sound`,
+  `soundLoops`, `hoverSoundLoops`; empty or 0 in every scene), the
+  animated pictures (`2DAN`, `NING`: in no scene), and the interface
+  bar's part in the cursor (the top 60 pixels while the bar is down) and
+  the letterbox's.
+- What the scene record `FAKE` (+0x14f4) does.
