@@ -34,6 +34,7 @@
 #include "engines/awe/viewers.h"
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -647,6 +648,27 @@ int aweCommandSolve(int argc, char** argv) {
     auto storyFeature = [](const std::string& x) {
         return storyTag(x) || x.rfind("item ", 0) == 0 || x.rfind("talk ", 0) == 0;
     };
+    // The tags whose values the game compares ("tag alibis >9"), as the
+    // conditions tested so far show: of the others only whether they're
+    // there counts as new (a count of Poirot's reminders goes up for ever).
+    std::set<std::string> valued;
+    auto storyOf = [&](const std::string& x) {
+        if (!storyTag(x))
+            return x;
+        const size_t name = x.find(' ') + 1, value = x.find(' ', name);
+        return valued.count(x.substr(name, value - name)) ? x : x.substr(0, value);
+    };
+    auto noteTested = [&](const std::map<std::string, bool>& tested) {
+        for (const auto& [clause, held] : tested) {
+            std::string c = clause;
+            while (!c.empty() && (c[0] == '!' || c[0] == ' '))
+                c.erase(0, 1);
+            const std::vector<std::string> w = split(c, ' ');
+            if (w.size() >= 3 && w[0] == "tag" && !w[2].empty() &&
+                (std::isdigit(uint8_t(w[2][0])) || w[2][0] == '<' || w[2][0] == '>' || w[2][0] == '-'))
+                valued.insert(w[1]);
+        }
+    };
     std::vector<uint8_t> rootSave;
     std::string rootOutline;
     int rootProgress = 0, levelExpansions = 0;
@@ -665,7 +687,7 @@ int aweCommandSolve(int argc, char** argv) {
         levelExpansions = 0;
         for (const std::string& x : player.features(false))
             if (storyFeature(x))
-                actStory.insert(x);
+                actStory.insert(storyOf(x));
         for (const std::string& x : player.features(true))
             seenOutlines.insert(player.page().status().scene + "|" + x);
         best = root;
@@ -841,10 +863,11 @@ int aweCommandSolve(int argc, char** argv) {
                 advanced = true;
                 break;
             }
+            noteTested(player.tested);
             int newToAct = 0;
             for (const std::string& x : f)
                 if (storyFeature(x))
-                    newToAct += actStory.insert(x).second;
+                    newToAct += actStory.insert(storyOf(x)).second;
             if (climb && newToAct) {
                 // Further on: the new root.
                 levels.push_back({committed, rootSave, rootOutline});
