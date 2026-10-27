@@ -166,6 +166,7 @@ if(RELUVA_ENGINE_IDTECH3)
     src/engines/idtech3/pages/menu_viewer.cpp
     src/engines/idtech3/pages/play_viewer.cpp
     src/engines/idtech3/pages/sp_play_viewer.cpp
+    src/engines/idtech3/pages/start_page.cpp
     src/engines/idtech3/client/scene_drawer.cpp
     src/engines/idtech3/client/player_input.cpp
     src/engines/idtech3/server/server_world.cpp

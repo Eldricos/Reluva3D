@@ -28,6 +28,7 @@
 #include "engines/idtech3/pages/model_viewer.h"
 #include "engines/idtech3/pages/play_viewer.h"
 #include "engines/idtech3/pages/sp_play_viewer.h"
+#include "engines/idtech3/pages/start_page.h"
 #include "engines/idtech3/pages/texture_viewer.h"
 #include "engines/idtech3/pages/world_viewer.h"
 
@@ -89,20 +90,37 @@ public:
             ViewerContext& ctx;
             ~SaveConfig() { saveConfig(ctx); }
         } saveOnExit{ctx};
+        // The pages: the start (what to play), the game's own (single
+        // player, Holomatch's menus and play), and the developer tools,
+        // which Ctrl+Tab steps through once chosen.
         std::vector<std::unique_ptr<Page>> pages;
+        pages.push_back(nullptr); // the start, made once the rest are known
+        pages.push_back(std::make_unique<SpPlayViewer>(ctx));
         pages.push_back(std::make_unique<MenuViewer>(ctx));
         pages.push_back(std::make_unique<PlayViewer>(ctx));
-        pages.push_back(std::make_unique<SpPlayViewer>(ctx));
+        const size_t firstTool = pages.size();
         pages.push_back(std::make_unique<WorldViewer>(ctx));
         pages.push_back(std::make_unique<ModelViewer>(ctx));
         pages.push_back(std::make_unique<MapViewer>(ctx));
         pages.push_back(std::make_unique<TextureViewer>(ctx));
         pages.push_back(std::make_unique<FileViewer>(ctx));
-        size_t page = 0;
-        while (page < pages.size() && pages[page]->count() == 0)
-            ++page;
-        if (page == pages.size())
+        std::vector<StartPage::Choice> choices;
+        if (pages[1]->count() > 0)
+            choices.push_back({"Single Player", "The story, from the game's own menus", pages[1]->name()});
+        if (pages[2]->count() > 0)
+            choices.push_back({"Holomatch", "Multiplayer: bots, LAN and Internet servers", pages[2]->name()});
+        for (size_t i = firstTool; i < pages.size(); ++i)
+            if (pages[i]->count() > 0) {
+                choices.push_back({"Developer tools",
+                                   "The game's maps, models, textures and files (Ctrl+Tab between them)",
+                                   pages[i]->name()});
+                break;
+            }
+        if (choices.empty())
             return Error::fail("No files found in " + target_.path.string() + "/" + game_.baseDir);
+        pages[0] = std::make_unique<StartPage>(ctx, std::move(choices));
+        size_t page = 0;
+        bool tools = false; // the developer tools chosen: Ctrl+Tab steps through every page
         pages[page]->activate();
         // Leaving a 3D page: its renderer goes, the framebuffer comes back.
         auto switchTo = [&](size_t next) -> Error {
@@ -122,12 +140,19 @@ public:
                 if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher)
                     return Error::success();
                 const bool pageKey = pages[page]->takesKey(ev);
-                if (ev.type == EventType::KeyDown && ev.key == key::Escape && !pageKey)
-                    return Error::success();
-                if (ev.type == EventType::KeyDown && ev.key == key::Tab && (ev.mods & keymod::Ctrl)) {
+                if (ev.type == EventType::KeyDown && ev.key == key::Escape && !pageKey) {
+                    // Back to the start; from there, to the launcher.
+                    if (page == 0)
+                        return Error::success();
+                    tools = false;
+                    if (Error err = switchTo(0))
+                        return err;
+                    continue;
+                }
+                if (tools && ev.type == EventType::KeyDown && ev.key == key::Tab && (ev.mods & keymod::Ctrl)) {
                     size_t next = page;
                     do
-                        next = (next + 1) % pages.size();
+                        next = next + 1 < pages.size() ? next + 1 : 1;
                     while (pages[next]->count() == 0);
                     if (Error err = switchTo(next))
                         return err;
@@ -141,6 +166,8 @@ public:
                 ctx.requestPage.clear();
                 for (size_t i = 0; i < pages.size(); ++i)
                     if (wanted == pages[i]->name() && pages[i]->count() > 0 && i != page) {
+                        if (page == 0 || i == 0)
+                            tools = i >= firstTool; // chosen at the start, or back to it
                         if (Error err = switchTo(i))
                             return err;
                         break;

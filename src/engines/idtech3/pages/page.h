@@ -5,8 +5,12 @@
 
 
 // The id Tech 3 engine's pages (a header each, in this folder), showing
-// what a game's files hold and running its game code. Ctrl+Tab switches
-// pages (Tab is the game's), Esc returns to the launcher.
+// what a game's files hold and running its game code. A game starts on the
+// Start page, which chooses single player, Holomatch (the Menu page, and
+// Play from there) or the developer tools; Esc a page doesn't take (or the
+// game's own Quit) goes back to it, and Esc there to the launcher. With the
+// developer tools chosen, Ctrl+Tab steps through every page (Tab is the
+// game's).
 //
 // World:    the map drawn by the GPU renderer. Left/Right pick a map; drag
 //           to look, W/A/S/D to move, Space/C (or E/Q) up and down, Shift

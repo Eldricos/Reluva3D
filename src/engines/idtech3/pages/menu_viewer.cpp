@@ -183,7 +183,11 @@ void MenuViewer::checkCommands() {
             if (words.empty())
                 continue;
             const std::string verb = fs::toLower(words[0]);
-            if (verb == "vid_restart") {
+            if (verb == "quit") {
+                // The menus' Quit: back to the start, as the original's
+                // program ended.
+                ctx_.requestPage = "Start";
+            } else if (verb == "vid_restart") {
                 // The video settings changed: the page starts its drawing over.
                 restart_ = true;
             } else if (verb == "connect" && words.size() >= 2) {

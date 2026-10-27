@@ -295,7 +295,7 @@ void SpPlayViewer::runCommand(const std::string& line, bool fromGame) {
                 menusStopped(err);
     } else if (cmd == "quit") {
         endGame();
-        ctx_.requestPage = "Menu";
+        ctx_.requestPage = "Start";
     } else if (cmd == "turboliftmenu") {
         if (ui_ && game_)
             if (Error err = ui_->setActiveMenu("turbolift"))
@@ -734,7 +734,7 @@ void SpPlayViewer::handleEvent(const Event& ev) {
             // As the original's engine: to the menus if they have the
             // keys, else the in-game menu (the main one without a game).
             if (!ui_) {
-                ctx_.requestPage = "Menu";
+                ctx_.requestPage = "Start";
                 return;
             }
             if (menusHaveKeys())
