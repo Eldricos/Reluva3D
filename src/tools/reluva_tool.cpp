@@ -5278,7 +5278,8 @@ int cmdFinCheck(int argc, char** argv) {
 // DDTransition: 8 getToObj, 9 getNumTriggers, 11 getTrigger, 13 getType).
 // Each node and transition is printed with its vtable, which names its
 // generated class in the behaviour DLL.
-static void printGraph(reluva::x86::Cpu& cpu, const std::vector<uint32_t>& roots) {
+static void printGraph(reluva::x86::Cpu& cpu, const std::vector<uint32_t>& roots,
+                       const std::vector<std::pair<uint32_t, uint32_t>>& scans) {
     using reluva::x86::Cpu;
     auto vcall = [&](uint32_t object, int slot, std::vector<uint32_t> args = {}) -> uint32_t {
         if (!object || !cpu.valid(object, 4) || !cpu.valid(cpu.read32(object) + 4 * uint32_t(slot), 4))
@@ -5291,6 +5292,24 @@ static void printGraph(reluva::x86::Cpu& cpu, const std::vector<uint32_t>& roots
         return failed ? 0 : result;
     };
     std::vector<uint32_t> todo(roots.begin(), roots.end());
+    // A node of the family: its vtable's isPort and isHFSM (slots 3 and 5)
+    // are the same functions as the first root's (BehaviorComp's, which
+    // only ports and machines override; those are reached through
+    // transitions and parents instead).
+    if (!roots.empty() && cpu.valid(roots[0], 4)) {
+        const uint32_t known = cpu.read32(roots[0]);
+        for (const auto& [lo, hi] : scans)
+            for (uint32_t a = lo & ~3u; a + 4 <= hi; a += 4) {
+                const uint32_t vt = cpu.valid(a, 4) ? cpu.read32(a) : 0;
+                if (!vt || !cpu.valid(vt, 28) || vt == known)
+                    continue;
+                bool same = true;
+                for (int slot : {3, 5})
+                    same = same && cpu.read32(vt + 4 * uint32_t(slot)) == cpu.read32(known + 4 * uint32_t(slot));
+                if (same)
+                    todo.push_back(a);
+            }
+    }
     std::set<uint32_t> seen;
     while (!todo.empty()) {
         const uint32_t node = todo.back();
@@ -5313,13 +5332,13 @@ static void printGraph(reluva::x86::Cpu& cpu, const std::vector<uint32_t>& roots
         for (uint32_t t : transitions) {
             if (!t)
                 continue;
-            const uint32_t to = vcall(t, 8), target = vcall(to, 6), triggers = vcall(t, 9);
-            std::printf("  trans %08x vt %08x type %u to %08x (vt %08x) -> %08x, on", t, cpu.read32(t), vcall(t, 13), to,
-                        to && cpu.valid(to, 4) ? cpu.read32(to) : 0, target);
+            // The target (getToObj) is a node itself, in its parent's machine.
+            const uint32_t to = vcall(t, 8), triggers = vcall(t, 9);
+            std::printf("  trans %08x vt %08x type %u -> %08x, on", t, cpu.read32(t), vcall(t, 13), to);
             for (uint32_t i = 0; i < triggers && i < 32; ++i)
                 std::printf(" %x", vcall(t, 11, {i}));
             std::printf("\n");
-            todo.push_back(target);
+            todo.push_back(to);
         }
     }
 }
@@ -5354,6 +5373,7 @@ int cmdAtRun(int argc, char** argv) {
     // virtual functions when a frame is shown.
     uint64_t graphFrame = 0;
     std::vector<uint32_t> graphRoots;
+    std::vector<std::pair<uint32_t, uint32_t>> graphScan;
     uint64_t limit = 4000000000ull;
     uint32_t memoryMb = 1024;
     bool log = false;
@@ -5417,8 +5437,17 @@ int cmdAtRun(int argc, char** argv) {
         } else if (arg == "-graph" && a + 1 < argc) {
             const std::string v = argv[++a];
             graphFrame = std::strtoull(v.c_str(), nullptr, 0);
-            for (size_t at = v.find('@'); at != std::string::npos; at = v.find(',', at + 1))
-                graphRoots.push_back(uint32_t(std::strtoul(v.c_str() + at + 1, nullptr, 16)));
+            // Roots, or lo-hi: every object there whose vtable's first
+            // seven entries are the vtable at the first root's.
+            for (size_t at = v.find('@'); at != std::string::npos; at = v.find(',', at + 1)) {
+                char* end = nullptr;
+                const uint32_t lo = uint32_t(std::strtoul(v.c_str() + at + 1, &end, 16));
+                if (*end == '-') {
+                    graphScan.push_back({lo, uint32_t(std::strtoul(end + 1, nullptr, 16))});
+                } else {
+                    graphRoots.push_back(lo);
+                }
+            }
         } else if (arg == "-calls" && a + 1 < argc) {
             const std::string v = argv[++a];
             callsFrame = std::strtoull(v.c_str(), nullptr, 0);
@@ -5536,7 +5565,7 @@ int cmdAtRun(int argc, char** argv) {
                 std::printf("-point: couldn't set the pointer on frame %llu\n", (unsigned long long)f.number);
         }
         if (graphFrame && f.number == graphFrame)
-            printGraph(cpu, graphRoots);
+            printGraph(cpu, graphRoots, graphScan);
         for (const Dump& d : dumps) {
             if (f.number != d.frame)
                 continue;
