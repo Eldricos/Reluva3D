@@ -5270,6 +5270,40 @@ int cmdFinCheck(int argc, char** argv) {
     return failed || notExact || badLinks || !missingImages.empty() ? 1 : 0;
 }
 
+// LoadComp's interface buttons (DDUIManager::Buttons, an NiTArray of
+// DDUIButton pointers: its items at +4, its count at +0xc). A button's name
+// is at +8; its rectangle at +0x40 (x0, y0, x1, y1, 0..1 from the bottom
+// left); whether it's enabled and clickable at +0x50 and +0x51.
+static void printButtons(reluva::x86::Win32Process& p, int width, int height) {
+    reluva::x86::Cpu& cpu = p.cpu();
+    const auto* load = p.module("LoadComp.dll");
+    const uint32_t array =
+        load ? load->exportAddress("?Buttons@DDUIManager@@1V?$NiTArray@V?$NiPointer@VDDUIButton@@@@@@A") : 0;
+    if (!array || !cpu.valid(array, 16)) {
+        std::printf("-buttons: no DDUIManager::Buttons\n");
+        return;
+    }
+    const uint32_t items = cpu.read32(array + 4), count = cpu.read32(array + 0xc);
+    auto f32 = [&](uint32_t a) {
+        float v;
+        const uint32_t w = cpu.read32(a);
+        std::memcpy(&v, &w, 4);
+        return v;
+    };
+    for (uint32_t i = 0; i < count && i < 4096 && cpu.valid(items + 4 * i, 4); ++i) {
+        const uint32_t b = cpu.read32(items + 4 * i);
+        if (!b || !cpu.valid(b, 0x54))
+            continue;
+        const uint32_t name = cpu.read32(b + 8);
+        const float x0 = f32(b + 0x40), y0 = f32(b + 0x44), x1 = f32(b + 0x48), y1 = f32(b + 0x4c);
+        std::printf("button %08x %-28s %s%s at %d,%d (%d..%d x %d..%d)\n", b,
+                    name && cpu.valid(name, 1) ? cpu.string(name).c_str() : "?", cpu.read8(b + 0x50) ? "enabled" : "disabled",
+                    cpu.read8(b + 0x51) ? " clickable" : "", int((x0 + x1) / 2 * float(width)),
+                    int((1 - (y0 + y1) / 2) * float(height)), int(x0 * float(width)), int(x1 * float(width)),
+                    int((1 - y1) * float(height)), int((1 - y0) * float(height)));
+    }
+}
+
 // A behaviour state machine (BehaviorComp's DDParent family: states,
 // sub-machines, choice points, ports and transitions), walked from some of
 // its nodes by calling their virtual functions as the program does. The
@@ -5374,6 +5408,9 @@ int cmdAtRun(int argc, char** argv) {
     uint64_t graphFrame = 0;
     std::vector<uint32_t> graphRoots;
     std::vector<std::pair<uint32_t, uint32_t>> graphScan;
+    // -buttons: the interface's buttons (LoadComp's DDUIManager::Buttons)
+    // when a frame is shown, with where they are on the screen.
+    std::vector<uint64_t> buttonFrames;
     uint64_t limit = 4000000000ull;
     uint32_t memoryMb = 1024;
     bool log = false;
@@ -5434,6 +5471,8 @@ int cmdAtRun(int argc, char** argv) {
             if (const char* at = std::strchr(argv[a], '@'))
                 std::sscanf(at + 1, "%x,%x", &d.address, &d.bytes);
             dumps.push_back(d);
+        } else if (arg == "-buttons" && a + 1 < argc) {
+            buttonFrames.push_back(std::strtoull(argv[++a], nullptr, 0));
         } else if (arg == "-graph" && a + 1 < argc) {
             const std::string v = argv[++a];
             graphFrame = std::strtoull(v.c_str(), nullptr, 0);
@@ -5564,6 +5603,8 @@ int cmdAtRun(int argc, char** argv) {
             if (!setPosition || cpu.call(setPosition, {point}, ignored))
                 std::printf("-point: couldn't set the pointer on frame %llu\n", (unsigned long long)f.number);
         }
+        if (std::find(buttonFrames.begin(), buttonFrames.end(), f.number) != buttonFrames.end())
+            printButtons(game.process(), f.width, f.height);
         if (graphFrame && f.number == graphFrame)
             printGraph(cpu, graphRoots, graphScan);
         for (const Dump& d : dumps) {
