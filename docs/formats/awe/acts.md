@@ -310,13 +310,13 @@ What each act needed (actions in the playthrough found):
 |-----|---------|--------------|
 | 01A, 02A | 41 | The market's trades and quizzes, by trying each answer; Michel and Poirot in the hall. 02A plays on by itself. |
 | 03A | 32 | Belgrade's platform and the engineer. |
-| 04A | 106 | The water glasses from the restaurant, listening at five doors (`use waterglass`), Michel locking the baggage car. |
+| 04A | 106 | The water glasses from the Salon car's bar, listening at the doors (with the glass in hand once, then by itself: `tag autoeavesdrop nouse`), Michel locking the baggage car; the puzzle box on the way. |
 | 04B, 04C | 2 each | Back to bed. |
 | 04D | 24 | The kimono: the woman clicked between the scene's `unlock` and `lock`. |
 | 05A, 05B | 14 | The murder scene and Constantine. |
-| 05C | 74 | The hat frames, the curling tongs and the paper, the spirit lamp from the restaurant, the ashes puzzle; the puzzle box on the way. |
-| 06A | 203 | The forest: the snowshoes (from the baggage car's crate, with the engineer's hammer; put on Antoinette), the wolves, the hut and its stove pipe, the fireman's gloves. |
-| 06B | 427 | Every passport and fingerprint card, the prints compared, thirteen pairs of shoes compared in the closets, the safe, the torn letter, the suspects' timetables and alibis; then Poirot. |
+| 05C | 74 | The hat frames, the burnt paper held in the curling tongs, the spirit lamp from the restaurant lit with the matches, the ashes puzzle. |
+| 06A | 203 | The engineer's hammer (for his teeth), the snowshoes from the baggage car's crate, put on Antoinette in the forest, the wolves, the hut's padlock and its stove pipe, the fireman's gloves; the torn letter on the way. |
+| 06B | 427 | Every passport and fingerprint card, the prints compared, thirteen pairs of shoes compared in the closets, the safe, the suspects' timetables and alibis; then Poirot. |
 | 07A | 159 | Barnaby's radio: its battery built in the radio (the voltaic cell the inventory makes is no use there, and is taken apart again), the questions sent and, after `time 60`, the answers; the kidnapping; then Poirot. |
 | 08A | 1 | The three solutions, with the choice taken least, to the credits. |
 
