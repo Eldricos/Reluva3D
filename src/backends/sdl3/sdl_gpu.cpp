@@ -13,6 +13,8 @@ namespace reluva {
 
 namespace {
 
+constexpr uint8_t kStencilMarks = 3; // the stencil reference: a mirror's mark (1) and the sky's (2)
+
 Error sdlError(const char* what) { return Error::fail(std::string(what) + ": " + SDL_GetError()); }
 
 // The layouts of draw.vert's and draw.frag's uniform blocks (std140).
@@ -288,7 +290,7 @@ void SdlGpuRenderer::clearDepth() {
     if (pass_ && viewport_.w > 0 && viewport_.h > 0)
         SDL_SetGPUViewport(pass_, &viewport_);
     if (pass_)
-        SDL_SetGPUStencilReference(pass_, 1);
+        SDL_SetGPUStencilReference(pass_, kStencilMarks); // both kinds of mark
 }
 
 void SdlGpuRenderer::setStencilMode(StencilMode mode) {
@@ -497,7 +499,7 @@ void SdlGpuRenderer::destroyMesh(gfx::MeshId id) {
 }
 
 SDL_GPUGraphicsPipeline* SdlGpuRenderer::pipeline(const gfx::DrawState& state) {
-    const uint32_t key = packState(state) | uint32_t(stencilMode_) << 14 | uint32_t(mirrored_) << 16;
+    const uint32_t key = packState(state) | uint32_t(stencilMode_) << 14 | uint32_t(mirrored_) << 17;
     if (auto it = pipelines_.find(key); it != pipelines_.end())
         return it->second;
 
@@ -551,13 +553,17 @@ SDL_GPUGraphicsPipeline* SdlGpuRenderer::pipeline(const gfx::DrawState& state) {
     info.depth_stencil_state.compare_op = state.depthEqual ? SDL_GPU_COMPAREOP_EQUAL : SDL_GPU_COMPAREOP_LESS_OR_EQUAL;
     if (stencilMode_ != StencilMode::None) {
         // Mark: 1 wherever drawn; Inside: drawn only where it's 1.
+        // Mirrors' and portals' marks are the stencil's bit 1, the sky's
+        // bit 2: the reference has both, each mode masks its own.
+        const bool mark = stencilMode_ == StencilMode::Mark || stencilMode_ == StencilMode::SkyMark;
+        const bool sky = stencilMode_ == StencilMode::SkyMark || stencilMode_ == StencilMode::SkyInside;
         SDL_GPUStencilOpState op{};
         op.fail_op = op.depth_fail_op = SDL_GPU_STENCILOP_KEEP;
-        op.pass_op = stencilMode_ == StencilMode::Mark ? SDL_GPU_STENCILOP_REPLACE : SDL_GPU_STENCILOP_KEEP;
-        op.compare_op = stencilMode_ == StencilMode::Mark ? SDL_GPU_COMPAREOP_ALWAYS : SDL_GPU_COMPAREOP_EQUAL;
+        op.pass_op = mark ? SDL_GPU_STENCILOP_REPLACE : SDL_GPU_STENCILOP_KEEP;
+        op.compare_op = mark ? SDL_GPU_COMPAREOP_ALWAYS : SDL_GPU_COMPAREOP_EQUAL;
         info.depth_stencil_state.enable_stencil_test = true;
         info.depth_stencil_state.front_stencil_state = info.depth_stencil_state.back_stencil_state = op;
-        info.depth_stencil_state.compare_mask = info.depth_stencil_state.write_mask = 0xff;
+        info.depth_stencil_state.compare_mask = info.depth_stencil_state.write_mask = sky ? 2 : 1;
     }
     info.target_info.color_target_descriptions = &target;
     info.target_info.num_color_targets = 1;
@@ -598,7 +604,7 @@ void SdlGpuRenderer::beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3& eye,
     mirrored_ = false;
     pass_ = SDL_BeginGPURenderPass(cmd_, &color, 1, &depth);
     if (pass_)
-        SDL_SetGPUStencilReference(pass_, 1);
+        SDL_SetGPUStencilReference(pass_, kStencilMarks); // both kinds of mark
 }
 
 void SdlGpuRenderer::draw(const gfx::DrawCall& call) {

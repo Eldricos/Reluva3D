@@ -250,7 +250,10 @@ void SceneDrawer::drawView(const Scene& scene, const View& view, int screenW, in
             std::copy(refdef.begin() + 80, refdef.begin() + 112, areaMask.begin());
         world->setView(0, eye_, areaMask, viewProj);
         world->setCamera(readVec(refdef, 48), up, forward, false);
-        world->drawSky(time);
+        // The sky behind everything, unless it can be drawn only where its
+        // surfaces are seen (drawLayers).
+        if (!r_.hasStencil())
+            world->drawSky(time);
         // A mirror or portal in view: what's seen through it first, inside
         // its shape; then the rest over it, past its depth.
         if (r_.hasStencil())
@@ -293,6 +296,21 @@ void SceneDrawer::drawLayers(float time, WorldRenderer* world, bool throughPorta
     }
     drawModels(0, kLastOpaque);
     drawEffects(time, 0, kLastOpaque);
+    if (world && !throughPortal && r_.hasStencil()) {
+        // The sky, as the original draws it: only where the level's sky
+        // surfaces are seen past what's solid (marked), so a crack in the
+        // level shows nothing behind it rather than the sky.
+        gfx::DrawState mark;
+        mark.src = gfx::Blend::Zero;
+        mark.dst = gfx::Blend::One; // colours kept
+        mark.depthWrite = false;
+        mark.cull = gfx::Cull::None;
+        r_.setStencilMode(gfx::Renderer3D::StencilMode::SkyMark);
+        world->drawSkyShape(mark);
+        r_.setStencilMode(gfx::Renderer3D::StencilMode::SkyInside);
+        world->drawSky(time);
+        r_.setStencilMode(gfx::Renderer3D::StencilMode::None);
+    }
 
     // The translucent sorts this view has.
     std::vector<float> sorts;

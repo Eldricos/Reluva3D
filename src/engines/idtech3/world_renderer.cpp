@@ -22,6 +22,7 @@ namespace {
 // Shaders sorting up to "see through" (5) are opaque: the surfaces
 // dynamic lights reach.
 constexpr float kLastOpaqueSort = 5;
+constexpr float kSkySort = -1; // the sky surfaces' batches: never drawn as surfaces
 
 gfx::Vertex toGfx(const BspVertex& v) {
     gfx::Vertex g;
@@ -203,11 +204,18 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
             const int materialIndex = shaders_.material(bsp.shaders[size_t(s.shader)].name,
                                                         lightmapped ? Lighting::Lightmap : Lighting::Vertex);
             const ShaderCache::Material& mat = shaders_.get(materialIndex);
-            if (mat.skip)
-                continue;
+            // The sky's surfaces aren't drawn, but kept for where the sky
+            // shows (drawSkyShape), in batches of their own sort.
+            bool sky = false;
+            if (mat.skip) {
+                const ShaderDef* def = library.find(bsp.shaders[size_t(s.shader)].name);
+                if (!def || !def->sky || mi != 0)
+                    continue;
+                sky = true;
+            }
             // Quads that turn to face the camera: kept aside, rebuilt as
             // they're drawn (a quad each four vertices and six indices).
-            if (mat.autosprite && mi == 0 && s.type != SurfaceType::Patch && s.numVertices >= 4 &&
+            if (!sky && mat.autosprite && mi == 0 && s.type != SurfaceType::Patch && s.numVertices >= 4 &&
                 s.numVertices % 4 == 0 && s.numIndices == s.numVertices / 4 * 6) {
                 Sprite sp;
                 sp.surface = si;
@@ -224,7 +232,7 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
                 sprites_.push_back(std::move(sp));
                 continue;
             }
-            const GroupKey key{mat.sort, materialIndex, lightmapped ? s.lightmap : -1, s.fog, int(mi)};
+            const GroupKey key{sky ? kSkySort : mat.sort, materialIndex, lightmapped ? s.lightmap : -1, s.fog, int(mi)};
             std::vector<uint32_t>& out = groups[key];
             const auto offset = uint32_t(out.size());
             const uint32_t base = uint32_t(vertices.size());
@@ -259,7 +267,7 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
                     }
                 placed[size_t(si)] = p;
             }
-            if (mi == 0 && mat.sort <= kLastOpaqueSort && !deformed && out.size() > offset) {
+            if (mi == 0 && !sky && mat.sort <= kLastOpaqueSort && !deformed && out.size() > offset) {
                 Pending p{key, offset, uint32_t(out.size()) - offset, {1e9f, 1e9f, 1e9f}, {-1e9f, -1e9f, -1e9f}, si};
                 for (size_t vi = base; vi < vertices.size(); ++vi)
                     for (size_t k = 0; k < 3; ++k) {
@@ -335,7 +343,8 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
     if (indices.empty())
         return Error::fail("The map has nothing to draw");
     for (const Batch& b : batches_)
-        sorts_.push_back(b.sort);
+        if (b.sort != kSkySort)
+            sorts_.push_back(b.sort);
     for (const Sprite& sp : sprites_)
         sorts_.push_back(sp.sort);
     std::sort(sorts_.begin(), sorts_.end());
@@ -365,6 +374,27 @@ void WorldRenderer::drawSky(float time) const {
             clouds.indexCount = cloudCount_;
             shaders_.draw(skyMaterial_, clouds, 0, time, true);
         }
+    }
+}
+
+void WorldRenderer::drawSkyShape(const gfx::DrawState& state) const {
+    const ViewSlot* view = culled();
+    for (size_t i = 0; i < batches_.size(); ++i) {
+        const Batch& b = batches_[i];
+        if (b.sort != kSkySort)
+            continue;
+        gfx::DrawCall call;
+        call.mesh = drawMesh();
+        call.firstIndex = b.firstIndex;
+        call.indexCount = b.indexCount;
+        if (view) {
+            if (!view->batchRanges[i].second)
+                continue;
+            call.firstIndex = view->batchRanges[i].first;
+            call.indexCount = view->batchRanges[i].second;
+        }
+        call.state = state;
+        r_.draw(call);
     }
 }
 

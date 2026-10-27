@@ -206,8 +206,10 @@ public:
     // (whatever their depth); Inside draws only where marked; None (the
     // default, again each frame) neither. The marks are cleared each frame
     // and kept by clearDepth(). Without a stencil buffer, false and no
-    // marks.
-    enum class StencilMode : uint8_t { None, Mark, Inside };
+    // marks. SkyMark and SkyInside do the same with marks of their own (the
+    // sky, drawn only where the level's sky surfaces are seen), apart from
+    // the others.
+    enum class StencilMode : uint8_t { None, Mark, Inside, SkyMark, SkyInside };
     virtual bool hasStencil() const = 0;
     virtual void setStencilMode(StencilMode mode) = 0;
     // A mirrored view: the draws that follow have their faces' winding
