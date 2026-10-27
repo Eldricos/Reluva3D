@@ -5,6 +5,7 @@
 // data is ever committed).
 
 #include "engines/awe/ac2.h"
+#include "engines/awe/bink_texture.h"
 #include "engines/awe/camera.h"
 #include "engines/awe/conditions.h"
 #include "engines/awe/dialogue.h"
@@ -298,6 +299,58 @@ void testCurves() {
     // (1, 0, 0) -> (0, 1, 0) + (5, 0, 0)
     CHECK(std::fabs(m[0] * 1 + m[12] - 5) < 1e-5f);
     CHECK(std::fabs(m[1] * 1 + m[13] - 1) < 1e-5f);
+}
+
+// A Bink texture whose bands are all flat (the codec's shortcut for a
+// band of one value): the lowest band's value comes out scaled by the
+// transform (1000 -> 125 over a 64x64 texture's four levels), the details
+// stay zero.
+void testBinkTexture() {
+    // Each plane: the sizes of its range-coded part (4 zero bytes; the
+    // row flags it holds don't matter with no details) and of its raw
+    // bits, least significant first in 32-bit words.
+    auto plane = [](uint16_t lowest) {
+        std::vector<uint32_t> words;
+        int used = 32;
+        auto put = [&](uint32_t v, int n) {
+            for (int i = 0; i < n; i++, used++) {
+                if (used == 32) {
+                    words.push_back(0);
+                    used = 0;
+                }
+                words.back() |= ((v >> i) & 1) << used;
+            }
+        };
+        put(1, 1); // flat
+        put(lowest, 16);
+        for (int band = 0; band < 12; band++) {
+            put(1, 16); // quantizer
+            put(1, 1);  // flat
+            put(0, 16);
+        }
+        std::vector<uint8_t> out = {4, 0, 0, 0, uint8_t(words.size() * 4), 0, 0, 0, 0, 0, 0, 0};
+        for (uint32_t w : words)
+            for (int k = 0; k < 4; k++)
+                out.push_back(uint8_t(w >> (8 * k)));
+        return out;
+    };
+    std::vector<uint8_t> data = {0, 0, 0, 0};
+    for (uint16_t v : {1000, 1000, 0}) {
+        const std::vector<uint8_t> p = plane(v);
+        data.insert(data.end(), p.begin(), p.end());
+    }
+    std::vector<uint8_t> rgba;
+    CHECK(!decodeBinkTexture(64, 64, 4, data, rgba));
+    CHECK(rgba.size() == 64 * 64 * 4);
+    // Luma 125, the first difference 125: green 125 - 125 / 4 = 94, red
+    // 125 + 94, blue 0 + 94. No alpha plane: 0, as the DLL leaves it.
+    bool same = true;
+    for (size_t i = 0; i + 3 < rgba.size(); i += 4)
+        same = same && rgba[i] == 219 && rgba[i + 1] == 94 && rgba[i + 2] == 94 && rgba[i + 3] == 0;
+    CHECK(same);
+    // Other kinds aren't decoded.
+    CHECK(decodeBinkTexture(64, 64, 0, data, rgba));
+    CHECK(decodeBinkTexture(64, 64, 6, data, rgba));
 }
 
 // Salon_01's camera, against what granny2.dll's GrannyBuildCameraMatrices
@@ -1022,6 +1075,7 @@ int main() {
     testAc2();
     testGr2();
     testCurves();
+    testBinkTexture();
     testCamera();
     testWalkGrid();
     testConditions();

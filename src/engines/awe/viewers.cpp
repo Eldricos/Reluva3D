@@ -875,7 +875,7 @@ void ScenePage::loadCharacters() {
             Model model;
             Error e = openGr2(ctx_.files, file, *ctx_.granny, gr2);
             if (!e)
-                e = loadModel(gr2, ctx_.granny, model);
+                e = loadModel(gr2, model);
             if (e) {
                 error_ = file + ": " + e.message;
                 found = models_.emplace(file, nullptr).first;
@@ -2074,7 +2074,7 @@ std::shared_ptr<GpuModel> ScenePage::propModel(const std::string& file) {
         Gr2File gr2;
         Model m;
         std::shared_ptr<GpuModel> gpu;
-        if (ctx_.files.has(file) && !openGr2(ctx_.files, file, *ctx_.granny, gr2) && !loadModel(gr2, ctx_.granny, m))
+        if (ctx_.files.has(file) && !openGr2(ctx_.files, file, *ctx_.granny, gr2) && !loadModel(gr2, m))
             gpu = std::make_shared<GpuModel>(*renderer_, std::move(m));
         found = models_.emplace(file, gpu).first;
     }

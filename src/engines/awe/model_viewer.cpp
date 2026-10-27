@@ -101,7 +101,7 @@ void ModelPage::load() {
     Model loaded;
     Error err = openGr2(ctx_.files, e.model, *ctx_.granny, file);
     if (!err)
-        err = loadModel(file, ctx_.granny, loaded);
+        err = loadModel(file, loaded);
     if (err) {
         error_ = err.message;
         return;

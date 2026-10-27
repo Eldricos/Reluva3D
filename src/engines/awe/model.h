@@ -75,9 +75,14 @@ struct Model {
     // Model space: Z up (3D Studio MAX's), as the files say.
 };
 
-// Reads the first model in a file. Textures are decoded with the DLL
-// when one is given (they're Bink-compressed), else left empty.
-Error loadModel(const Gr2File& file, GrannyDll* dll, Model& out);
+// Reads the first model in a file, with its textures decoded.
+Error loadModel(const Gr2File& file, Model& out);
+
+// A texture's pixels as stored: its first image's first MIP level.
+std::vector<uint8_t> textureBytes(const Gr2File& file, const Gr2Object& texture);
+// The flags a Bink texture (Encoding 3) is decoded with: its SubFormat,
+// plus 1 if its layout has alpha.
+uint32_t binkTextureFlags(const Gr2Object& texture);
 
 // A curve: a B-spline of `degree`, one knot (time) per control point.
 struct Curve {

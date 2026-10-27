@@ -166,7 +166,7 @@ int cmdGr2Model(int argc, char** argv) {
     if (!openGr2(file, dll, gr2))
         return 1;
     awe::Model model;
-    if (reluva::Error e = awe::loadModel(gr2, &dll, model)) {
+    if (reluva::Error e = awe::loadModel(gr2, model)) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
