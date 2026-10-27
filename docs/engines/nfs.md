@@ -354,7 +354,8 @@ What was planned:
 ### Phase 4: hosted feasibility spike (done)
 
 **The gate passes: the retail game runs in Reluva, front end and race,
-and its own work fits the interpreter's speed. Continue with B.**
+and its own work is within reach of a decoded-instruction cache.
+Continue with B.**
 
 `reluva-tool nfs-host <game folder>` runs the retail `nfs3.exe` in the x86
 interpreter (`src/engines/nfs/host/`, on `common/x86`'s Windows process):
@@ -406,18 +407,36 @@ instructions a second):
 | Race, Hometown, 8 cars | 16 million | 14 million |
 
 At real speed that is 8 frames a second in the front end and about 2 in
-a race. The game then slows its race clock (about a fifth of real time),
-so the race figure includes its catching up. Outside THRASH, a race
-frame takes about 1.8 million instructions; a fit over frame times puts
-about 0.4 million of that per frame and the rest per unit of game time.
+a race.
+
+The race is slower than real time: the game slows its race clock when
+frames come slowly. Over 14.4 seconds on its race clock (74 seconds of
+real time):
+
+- 255 frames were drawn, 17.7 for each second of race time;
+- outside THRASH, about 36 million instructions ran for each second of
+  race time (2.0 million a frame).
+
+That includes the sound DLL mixing in software. A fit over frame times
+puts about 0.4 million instructions a frame on the frame itself, and the
+rest on the simulation.
+
+At 30 frames a second, the game's own work would therefore take roughly
+40 million instructions a second, about what the interpreter does now.
+
+A run measuring this directly didn't get there. It slowed the game's
+clock (`-timescale`), but the race wasn't reached: under the slowed
+clock, the second click doesn't take on the race-type dialog.
 
 So:
 
 - **The renderer.** The software renderer is most of the cost (77-89% of
   all instructions). THRASH has to be native: on the GPU, as the plan
   says, or at least a native software rasterizer.
-- **The game's own work** fits now. A decoded-instruction cache would
-  give room to spare.
+- **The game's own work** is about at the interpreter's speed for 30
+  frames a second. The decoded-instruction cache the plan lists (a few
+  times faster, typically) is what makes it comfortable; it comes right
+  after THRASH in 5B.
 
 Not done in the spike (Phase 5B's work):
 
