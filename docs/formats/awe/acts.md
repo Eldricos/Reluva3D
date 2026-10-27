@@ -237,3 +237,107 @@ Throughout: `gen_characters.txt`, every character's generic lines and
 goodbyes, had been skipped (its first heading is a name, and Reluva read
 the tables by their headings); and missing tags compared as missing
 rather than as -99.
+
+### A playthrough from a new game: `-solve` and `-play`
+
+The explorer above clicks at random, and gets stuck where the game wants
+a player who knows what to do: 01A's market, 04A's eavesdropping, 04D's
+kimono, and the evidence of 06B and 07A. `awe-acts <install> -solve
+<out.txt>` searches instead for a way from a new game (the main menu,
+Play) to the end credits, and `awe-acts <install> -play <out.txt>` plays
+one back from a new game. On the English install the search took about
+an hour (most of it in 06B and 07A) and found a way of 1,086 actions,
+which plays back in a minute and reaches the credits.
+
+**The playthrough** is a text file, an action a line: `new` (a new game),
+`click|<scene>|<object>|<n>|<choices>` (the n-th clickable of that name in
+that scene), `use` (the same, with an item in hand), `combine`,
+`decombine`, `flip` (an item's back looked at, its Examine Event),
+`compare` (two fingerprint cards under the magnifier), `travel` (a car of
+the bar), `solve` (a puzzle screen). `<choices>` are the dialogue's
+choices made while the action ran (`2.1.1`), and a last field
+`<object>#<n>` clicks that object as soon as the game takes a click
+while the action's script still runs. After each action the game runs on
+till it settles: nothing running and nothing said for 3 seconds of game
+time, movies skipped, lines cut short. The file names objects, items and
+scenes only (no game text); `-play -list` shows what could be done at
+its end, `-log n` the script log from the n-th action on.
+
+**What a player can do** in a state (`Player::actions`, the Scenes page's
+tool functions in `scene_autoplay.cpp`): click each hotspot, character
+or picture that has a script and whose condition holds; use on it each
+item the cursor would show it takes (`0x419e90`: a conditional script
+asking for it that holds with it in hand, or a `uselist.txt` row), on
+Antoinette too; combine the items of each `combinelist.txt` row that can
+be combined, take apart those that can be (`Can Decombine`); turn over
+each item with an Examine Event; compare each pair of fingerprint cards
+the magnifier would match (a thing's card whose Flipped Description names
+the person's); travel to each car the bar offers; solve the puzzle shown.
+The puzzles are solved as the mouse would solve them, worked out from the
+puzzle's own checks (`ScenePage::puzzleStep`): the box's next correct
+move (`boxMoveCorrect`) clicked on its piece and arrow; each piece of the
+torn letter picked, turned upright with the arrows and dragged to its
+cell; the safe's 6-6-6 entered a press and a release at a time, then its
+handle. Dialogue choices are a player's too: an action is first played
+with the choice taken least in it at each point (so a conversation's
+topics are all heard), then again with each other answer at each of its
+first eight choice points.
+
+**The search** branches by saving the game to memory in the game's own
+format and loading it again (`saveToMemory`, `loadFromMemory`), as the
+save and load screens do; the scene left last goes with it, as a saved
+game doesn't keep it and `lastscene` is tested (the closets show the shoes
+of the compartment come from). States are told apart by the act, the
+scene, the scene left last, the tags, the items' states and the
+conversations' progress. From the root, states are taken best first:
+those with something new to their scene (a story tag, an item, the scene
+come from: not the conversations' progress, nor the "met them here"
+tags) before those with nothing new, then those where an item can be
+used, then the furthest on. A state with something new to the act's story
+(a story tag, an item's state or a conversation's progress never had in
+the act; of a tag's value only if the game compares it, `tag alibis >9`,
+as the conditions tested so far show) becomes the new root: an enforced
+hill climb. A root that leads to nothing new within 5,000 states is a
+dead end, and the search goes back to the root before. A new act starts
+afresh. Two things keep it quick: an action that changed nothing before
+is skipped where every clause of the conditions it had tested
+(`GameState::onTest`) comes out the same, and the inventory's actions and
+travel are tried once a story state, not in every scene.
+
+What each act needed (actions in the playthrough found):
+
+| Act | Actions | What it took |
+|-----|---------|--------------|
+| 01A, 02A | 41 | The market's trades and quizzes, by trying each answer; Michel and Poirot in the hall. 02A plays on by itself. |
+| 03A | 32 | Belgrade's platform and the engineer. |
+| 04A | 106 | The water glasses from the restaurant, listening at five doors (`use waterglass`), Michel locking the baggage car. |
+| 04B, 04C | 2 each | Back to bed. |
+| 04D | 24 | The kimono: the woman clicked between the scene's `unlock` and `lock`. |
+| 05A, 05B | 14 | The murder scene and Constantine. |
+| 05C | 74 | The hat frames, the curling tongs and the paper, the spirit lamp from the restaurant, the ashes puzzle; the puzzle box on the way. |
+| 06A | 203 | The forest: the snowshoes (from the baggage car's crate, with the engineer's hammer; put on Antoinette), the wolves, the hut and its stove pipe, the fireman's gloves. |
+| 06B | 427 | Every passport and fingerprint card, the prints compared, thirteen pairs of shoes compared in the closets, the safe, the torn letter, the suspects' timetables and alibis; then Poirot. |
+| 07A | 159 | Barnaby's radio: its battery built in the radio (the voltaic cell the inventory makes is no use there, and is taken apart again), the questions sent and, after `time 60`, the answers; the kidnapping; then Poirot. |
+| 08A | 1 | The three solutions, with the choice taken least, to the credits. |
+
+Found in Reluva on the way, and fixed as the game does it:
+
+- **Items used on Antoinette.** The game looks `uselist.txt` up for the
+  player's character as for the others (`0x41c0bb` when an item is used,
+  `0x419ec7` for the cursor: `PCXX` or `NPCX`); Reluva only did it for the
+  others, so the snowshoes couldn't be put on.
+- **A conversation's extras and threads count only with a line to offer**
+  (`0x43a470`, `0x43a9d9`; see [dialogue.md](dialogue.md)). A character's
+  fingerprint offer whose first line's condition failed kept a heard part
+  going, so `talk dia_hubbard a+` never got to part b.
+- A new game closes any puzzle or options screen still open.
+- A Scenes page that doesn't draw (a tool's) no longer copies the screen
+  each frame, decodes video loops or moves particles, and the dialogue
+  tables are read once: the search is ten times faster for it.
+
+And in the tool: the dialogue's choices are asked for only when the game
+would take one (the box slid in), not every frame.
+
+No walkthrough of the game was consulted: where the search stuck, the
+scenes' scripts and the dialogue tables said what was missing, and the
+tool was made to find it.
