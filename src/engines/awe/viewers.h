@@ -618,6 +618,13 @@ private:
     int cursorUnder(int sx, int sy, const Ac2Record** under) const;
     void drawCursor();
     bool cursorMoved_ = false; // to draw again
+    // The hotspots the mouse is over (their pictures shown, their sounds
+    // played), in the scene shown.
+    void updateHotspots();
+    void hotspotPressed(const Ac2Record& o);
+    void stopSound(const std::string& name);
+    std::set<const Ac2Record*> over_;
+    std::string overScene_;
     bool systemCursor_ = true; // the system's cursor shown (the game hides it)
     // Footprints and breath (scene_outdoors.cpp): a character's, moved on
     // by dt seconds, `walking` or not; a footprint drawn.

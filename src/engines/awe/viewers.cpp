@@ -1616,6 +1616,7 @@ void ScenePage::update(uint64_t nowMs) {
             changed = true;
         }
     changed |= scrollPictures(dt);
+    updateHotspots();
     changed |= std::exchange(cursorMoved_, false);
     if (changed)
         draw();
@@ -3042,6 +3043,8 @@ void ScenePage::handleEvent(const Event& ev) {
         // The object the game's pick finds there (0x41613c); one with
         // nothing to run is walked to like the floor.
         const Ac2Record* picked = pickAllowed(ev.mouseY) ? pickAt(ev.mouseX, ev.mouseY) : nullptr;
+        if (picked)
+            hotspotPressed(*picked);
         if (picked && !inHand.empty()) {
             useItem(inHand, *picked);
         } else if (picked && clickable(*picked)) {

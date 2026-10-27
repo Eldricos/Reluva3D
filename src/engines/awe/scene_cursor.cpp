@@ -355,6 +355,72 @@ void ScenePage::drawCursor() {
         put(kCursors[cursor], x, y);
 }
 
+void ScenePage::updateHotspots() {
+    // 0x413040, each hotspot every frame: the mouse come over it (by its
+    // own outline or rectangle, if it can be clicked) shows the picture
+    // its name names ("exitover") and plays its mouse-over sound; gone,
+    // the picture is hidden and the sound stopped. Not while the screen
+    // fades.
+    if (fade_ != fadeTarget_ || !drawing_) // a tool not drawing has no mouse
+        return;
+    const std::string scene = scene_.path + "#" + std::to_string(index_);
+    if (scene != overScene_)
+        overScene_ = scene, over_.clear();
+    for (const Ac2Record* o : scene_.objects()) {
+        const Ac2Record* hot = o->tag == "SPOT" ? o->part("HOTS") : nullptr;
+        if (!hot)
+            continue;
+        const bool in = objectShown(*o) && hitObject(*o, lastMouseX_, lastMouseY_) && clickable(*o);
+        if (in == (over_.count(o) != 0))
+            continue;
+        const std::string name = fs::toLower(hot->text("name"));
+        std::string sound = fs::toLower(hot->text("hoverSound"));
+        sound = sound.substr(0, sound.rfind('.'));
+        if (in) {
+            over_.insert(o);
+            if (!name.empty())
+                showObject(name, true);
+            if (!sound.empty())
+                startSound(sound, hot->i("hoverSoundLoops") != 0);
+        } else {
+            over_.erase(o);
+            if (!name.empty())
+                showObject(name, false);
+            stopSound(sound);
+        }
+        cursorMoved_ = true;
+    }
+}
+
+void ScenePage::stopSound(const std::string& name) {
+    // 0x4251c0: the first sound playing with that name (its file's).
+    std::string key = fs::toLower(name);
+    if (const size_t slash = key.find_last_of("\\/"); slash != std::string::npos)
+        key = key.substr(slash + 1);
+    if (key.empty() || !ctx_.mixer)
+        return;
+    for (auto it = sounds_.begin(); it != sounds_.end(); ++it)
+        if (it->first.find(key) != std::string::npos && ctx_.mixer->isPlaying(it->second)) {
+            ctx_.mixer->stop(it->second);
+            sounds_.erase(it);
+            return;
+        }
+}
+
+void ScenePage::hotspotPressed(const Ac2Record& o) {
+    // 0x4131a0: a hotspot's mouse-over sound stopped, its click's played.
+    const Ac2Record* hot = o.tag == "SPOT" ? o.part("HOTS") : nullptr;
+    if (!hot)
+        return;
+    auto name = [](std::string s) {
+        s = fs::toLower(s);
+        return s.substr(0, s.rfind('.'));
+    };
+    stopSound(name(hot->text("hoverSound")));
+    if (!hot->text("clickSound").empty())
+        playSound(name(hot->text("clickSound")));
+}
+
 bool ScenePage::hotspotKey(uint32_t key) {
     // 0x436110: Escape and Enter press the first hotspot whose key is
     // VK_ESCAPE or VK_RETURN (shown or not), its script run.
@@ -365,6 +431,7 @@ bool ScenePage::hotspotKey(uint32_t key) {
         const Ac2Record* hot = o->tag == "SPOT" ? o->part("HOTS") : nullptr;
         if (!hot || fs::toLower(hot->text("key")) != name)
             continue;
+        hotspotPressed(*o);
         runScript(*o);
         return true;
     }
