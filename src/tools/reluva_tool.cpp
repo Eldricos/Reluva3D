@@ -3969,7 +3969,7 @@ int cmdSpRun(int argc, char** argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] "
                              "[-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus] [-saveload]\n"
-                             "       reluva-tool sp-run <game folder> -load <saved game> [options as above]\n");
+                             "       reluva-tool sp-run <game folder> -load <saved game> [-replay <name>.input] [options as above]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -3980,6 +3980,7 @@ int cmdSpRun(int argc, char** argv) {
     bool icarusNames = false;       // -icarus: the script system's table of entity names
     bool saveLoad = false;          // -saveload: save at the end, load into a fresh game
     std::string loadName;           // -load save: a saved game (its name in saves/, or a file)
+    std::string replayPath;         // -replay file: the player's commands, as the Play page records them
     std::string dllPath;
     std::vector<std::pair<std::string, std::string>> settings;
     for (int i = firstOption; i < argc; ++i) {
@@ -4003,6 +4004,8 @@ int cmdSpRun(int argc, char** argv) {
             saveLoad = true;
         else if (std::strcmp(argv[i], "-load") == 0 && i + 1 < argc)
             loadName = argv[++i];
+        else if (std::strcmp(argv[i], "-replay") == 0 && i + 1 < argc)
+            replayPath = argv[++i];
         else if (std::strcmp(argv[i], "-set") == 0 && i + 2 < argc) {
             settings.emplace_back(argv[i + 1], argv[i + 2]);
             i += 2;
@@ -4172,52 +4175,95 @@ int cmdSpRun(int argc, char** argv) {
                     (unsigned long long)(game.cpu().executed() - before), game.models().size(), game.shaders().size(),
                     game.skins().size(), game.sounds().size());
     }
-    for (int f = 0; f < frames; ++f) {
+    // The player's command for a moment, then the client game's frame: the
+    // Play page's order. Empty: none to report; else what failed.
+    auto clientStep = [&](const ef::SpGameHost::UserCommand& cmd, int f) -> int {
+        if (reluva::Error e = game.clientThink(cmd))
+            return failed(("command " + std::to_string(f + 1)).c_str(), e);
+        if (reluva::Error e = game.drawClientFrame(cmd.serverTime))
+            return failed(("client frame " + std::to_string(f + 1)).c_str(), e);
+        // Every five seconds of the level, or a quarter second while a
+        // scripted camera runs: the camera, the view, the player.
+        reluva::idtech3::Vec3f cam{};
+        const bool camera = watch && game.cameraPosition(cam);
+        if (watch && (game.levelTime() % 5000 == 0 || (camera && game.levelTime() % 250 == 0))) {
+            reluva::x86::Cpu& cpu = game.cpu();
+            auto f = [&cpu](uint32_t at) {
+                const uint32_t u = cpu.read32(at);
+                float v;
+                std::memcpy(&v, &u, 4);
+                return v;
+            };
+            auto bytesFloat = [](const std::vector<uint8_t>& b, size_t at) {
+                float v = 0;
+                if (at + 4 <= b.size())
+                    std::memcpy(&v, b.data() + at, 4);
+                return v;
+            };
+            std::string view = "no view";
+            if (!game.scene().views.empty()) {
+                const auto& r = game.scene().views[0].refdef;
+                char b[96];
+                std::snprintf(b, sizeof b, "view at %.0f %.0f %.0f", bytesFloat(r, 24), bytesFloat(r, 28),
+                              bytesFloat(r, 32));
+                view = b;
+            }
+            const uint32_t ps = uint32_t(game.entityInt(0, ef::SpEntityLayout{}.client));
+            std::printf("[%5d ms] camera %s (%.0f %.0f %.0f); %s; player at %.0f %.0f %.0f, pm_type %d; "
+                        "%zu scene entities, %zu pictures; cg_thirdPerson %s\n",
+                        game.levelTime(), camera ? "on" : "off", cam[0], cam[1], cam[2], view.c_str(), f(ps + 20),
+                        f(ps + 24), f(ps + 28), int(cpu.read32(ps + 4)), game.scene().entities.size(),
+                        game.pictures().size(), cvars.string("cg_thirdPerson").c_str());
+            static size_t commandsShown = 0;
+            for (; commandsShown < game.consoleCommands().size(); ++commandsShown)
+                std::printf("           console command: %s", game.consoleCommands()[commandsShown].c_str());
+        }
+        return 0;
+    };
+    if (!replayPath.empty()) {
+        // -replay: the recorded commands in order, the server's frames run
+        // up to each as the Play page ran them.
+        std::ifstream in(replayPath);
+        if (!in) {
+            std::fprintf(stderr, "can't read %s\n", replayPath.c_str());
+            return 1;
+        }
+        std::string line;
+        int f = 0, lastButtons = 0;
+        while (std::getline(in, line)) {
+            if (line.empty() || line[0] == '#')
+                continue;
+            ef::SpGameHost::UserCommand cmd;
+            int weapon = 0, forward = 0, right = 0, up = 0;
+            if (std::sscanf(line.c_str(), "%d %d %d %d %d %d %d %d %d", &cmd.serverTime, &cmd.buttons, &weapon,
+                            &cmd.angles[0], &cmd.angles[1], &cmd.angles[2], &forward, &right, &up) != 9)
+                continue;
+            cmd.weapon = uint8_t(weapon);
+            cmd.forward = int8_t(forward);
+            cmd.right = int8_t(right);
+            cmd.up = int8_t(up);
+            while (game.levelTime() <= cmd.serverTime) {
+                if (reluva::Error e = game.runFrame())
+                    return failed(("frame at " + std::to_string(game.levelTime())).c_str(), e);
+            }
+            if (cmd.buttons != lastButtons && watch)
+                std::printf("[%5d ms] buttons %d\n", cmd.serverTime, cmd.buttons);
+            lastButtons = cmd.buttons;
+            if (game.clientGameRunning())
+                if (int r = clientStep(cmd, f))
+                    return r;
+            ++f;
+        }
+        std::printf("replayed %d commands, to level time %d\n", f, game.levelTime());
+    }
+    for (int f = 0; replayPath.empty() && f < frames; ++f) {
         if (reluva::Error e = game.runFrame())
             return failed(("frame " + std::to_string(f + 1)).c_str(), e);
         if (game.clientGameRunning()) {
             ef::SpGameHost::UserCommand cmd;
             cmd.serverTime = game.levelTime();
-            if (reluva::Error e = game.clientThink(cmd))
-                return failed(("command " + std::to_string(f + 1)).c_str(), e);
-            if (reluva::Error e = game.drawClientFrame(game.levelTime()))
-                return failed(("client frame " + std::to_string(f + 1)).c_str(), e);
-            // Every five seconds of the level, or a quarter second while a
-            // scripted camera runs: the camera, the view, the player.
-            reluva::idtech3::Vec3f cam{};
-            const bool camera = watch && game.cameraPosition(cam);
-            if (watch && (game.levelTime() % 5000 == 0 || (camera && game.levelTime() % 250 == 0))) {
-                reluva::x86::Cpu& cpu = game.cpu();
-                auto f = [&cpu](uint32_t at) {
-                    const uint32_t u = cpu.read32(at);
-                    float v;
-                    std::memcpy(&v, &u, 4);
-                    return v;
-                };
-                auto bytesFloat = [](const std::vector<uint8_t>& b, size_t at) {
-                    float v = 0;
-                    if (at + 4 <= b.size())
-                        std::memcpy(&v, b.data() + at, 4);
-                    return v;
-                };
-                std::string view = "no view";
-                if (!game.scene().views.empty()) {
-                    const auto& r = game.scene().views[0].refdef;
-                    char b[96];
-                    std::snprintf(b, sizeof b, "view at %.0f %.0f %.0f", bytesFloat(r, 24), bytesFloat(r, 28),
-                                  bytesFloat(r, 32));
-                    view = b;
-                }
-                const uint32_t ps = uint32_t(game.entityInt(0, ef::SpEntityLayout{}.client));
-                std::printf("[%5d ms] camera %s (%.0f %.0f %.0f); %s; player at %.0f %.0f %.0f, pm_type %d; "
-                            "%zu scene entities, %zu pictures; cg_thirdPerson %s\n",
-                            game.levelTime(), camera ? "on" : "off", cam[0], cam[1], cam[2], view.c_str(), f(ps + 20),
-                            f(ps + 24), f(ps + 28), int(cpu.read32(ps + 4)), game.scene().entities.size(),
-                            game.pictures().size(), cvars.string("cg_thirdPerson").c_str());
-                static size_t commandsShown = 0;
-                for (; commandsShown < game.consoleCommands().size(); ++commandsShown)
-                    std::printf("           console command: %s", game.consoleCommands()[commandsShown].c_str());
-            }
+            if (int r = clientStep(cmd, f))
+                return r;
         }
     }
     if (game.clientGameRunning()) {

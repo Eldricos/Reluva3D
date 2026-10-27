@@ -361,6 +361,7 @@ void SpPlayViewer::stop(const std::string& why) {
 
 void SpPlayViewer::endGame() {
     game_.reset();
+    recording_.close();
     // As the original's disconnect: no scene left half skipped.
     cvars_.set("timescale", "1", true);
     cvars_.set("skippingCinematic", "0", true);
@@ -651,6 +652,10 @@ void SpPlayViewer::loadGame(std::string name) {
     if (ui_)
         ui_->setCapture(shot); // the loading screen shows it
     start(int(it - names_.begin()), autosave ? 2 : 1, &r);
+    if (game_ && !saveDir_.empty()) {
+        recording_.open(saveDir_ / (name + ".input"), std::ios::trunc);
+        recording_ << "# reluva input recording: serverTime buttons weapon pitch yaw roll forward right up\n";
+    }
 }
 
 void SpPlayViewer::runGameCommands() {
@@ -897,6 +902,10 @@ void SpPlayViewer::runGame(uint64_t nowMs) {
         cmd.forward = int8_t(std::clamp(speed * (held("forward") - held("back")), -127, 127));
         cmd.right = int8_t(std::clamp(speed * side, -127, 127));
         cmd.up = int8_t(std::clamp(speed * (held("moveup") - held("movedown")), -127, 127));
+        if (recording_.is_open())
+            recording_ << cmd.serverTime << ' ' << cmd.buttons << ' ' << int(cmd.weapon) << ' ' << cmd.angles[0] << ' '
+                       << cmd.angles[1] << ' ' << cmd.angles[2] << ' ' << int(cmd.forward) << ' ' << int(cmd.right)
+                       << ' ' << int(cmd.up) << std::endl; // flushed: kept if the program is closed
         if (Error err = game_->clientThink(cmd))
             return stop("The game stopped: " + err.message);
     }
