@@ -185,6 +185,8 @@ public:
     bool useItem(const std::string& item, const Ac2Record& target);
     bool combineItems(const std::vector<std::string>& parts);
     std::vector<std::string> itemsFor(size_t i);
+    // Of those, the ones the cursor shows would be taken (0x419e90).
+    std::vector<std::string> usableItems(size_t i);
     bool useOn(const std::string& item, size_t i);
     // The parts of each combinelist.txt row that could be combined now.
     std::vector<std::vector<std::string>> combinations();

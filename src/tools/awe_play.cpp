@@ -228,7 +228,9 @@ public:
             a.kind = "click";
             if (p.clickRuns(i))
                 out.push_back(a);
-            for (const std::string& item : p.itemsFor(i)) {
+            // (The items the cursor shows it would take: the others are
+            // only Antoinette's "can't".)
+            for (const std::string& item : p.usableItems(i)) {
                 Action u = a;
                 u.kind = "use";
                 u.item = item;
@@ -501,6 +503,7 @@ struct Node {
     size_t path = 0; // into the search's paths: the actions that led here
     int progress = 0, depth = 0;
     int tier = 0; // 1: nothing in it is new to its scene (no novelty)
+    bool promise = false; // an item can be used there (the cursor would show it)
     std::string key;
 };
 
@@ -641,6 +644,8 @@ int aweCommandSolve(int argc, char** argv) {
     auto cmp = [](const Node& a, const Node& b) {
         if (gTiers && a.tier != b.tier)
             return a.tier > b.tier;
+        if (a.promise != b.promise)
+            return b.promise;
         return a.progress != b.progress ? a.progress < b.progress : a.depth > b.depth;
     };
     std::priority_queue<Node, std::vector<Node>, decltype(cmp)> frontier(cmp);
@@ -905,6 +910,8 @@ int aweCommandSolve(int argc, char** argv) {
                 if (x.rfind("scene ", 0) != 0)
                     novelHere += seenOutlines.insert(st.scene + "|" + x).second;
             n.tier = novelHere ? 0 : 1;
+            for (const Action& next : player.actions())
+                n.promise |= next.kind == "use";
             if (n.progress > best.progress)
                 best = n;
             frontier.push(std::move(n));

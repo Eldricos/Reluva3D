@@ -153,6 +153,17 @@ std::vector<std::string> ScenePage::itemsFor(size_t i) {
     return out;
 }
 
+std::vector<std::string> ScenePage::usableItems(size_t i) {
+    std::vector<std::string> out;
+    const std::vector<const Ac2Record*> objects = clickableObjects();
+    if (i >= objects.size())
+        return out;
+    for (const std::string& item : itemsFor(i))
+        if (canUseOn(item, *objects[i]))
+            out.push_back(item);
+    return out;
+}
+
 bool ScenePage::useOn(const std::string& item, size_t i) {
     // The item picked up and clicked on the object.
     const std::vector<const Ac2Record*> objects = clickableObjects();
