@@ -381,6 +381,48 @@ void testCurves() {
         quadratic.evaluate(t, 1, &v);
         CHECK(std::fabs(v - 3) < 1e-5f);
     }
+    // Looping, the last knot stands for the first one loop on: toward the
+    // end the line heads for the first control, not the last.
+    Curve ramp = linear;
+    ramp.controls = {0, 10, 4};
+    CurveLoop loop;
+    loop.back = loop.forward = true;
+    loop.duration = 2;
+    ramp.evaluate(1.5f, 1, &v);
+    CHECK(std::fabs(v - 7) < 1e-5f);
+    ramp.evaluate(1.5f, 1, &v, loop);
+    CHECK(std::fabs(v - 5) < 1e-5f);
+    // A looping quadratic meets itself: its value at the end is its value
+    // at the start (played once, the end is the last control).
+    Curve periodic;
+    periodic.degree = 2;
+    periodic.knots = {0, 1, 2, 3, 4};
+    periodic.controls = {0, 5, 2, 7, 9};
+    loop.duration = 4;
+    float start = 0, end = 0;
+    periodic.evaluate(0, 1, &start, loop);
+    periodic.evaluate(4, 1, &end, loop);
+    CHECK(std::fabs(start - end) < 1e-5f && std::fabs(end - 9) > 1);
+    periodic.evaluate(4, 1, &end);
+    CHECK(end == 9);
+    // Wrapping round, a quaternion is put on the side of the one before:
+    // q and -q are one turn.
+    Curve turn;
+    turn.degree = 1;
+    turn.knots = {0, 1, 2};
+    turn.controls = {0, 0, 0, -1, 0, 0, 0.7071068f, 0.7071068f, 0, 0, 0, 1};
+    loop.duration = 2;
+    float q[4];
+    turn.evaluate(1.5f, 4, q, loop); // from the second to the first (as -1)
+    CHECK(std::fabs(q[3] - 0.5f * (0.7071068f + 1)) < 1e-5f && std::fabs(q[2] - 0.5f * 0.7071068f) < 1e-5f);
+    // All of a scale/shear's nine values.
+    Curve scale;
+    scale.degree = 1;
+    scale.knots = {0, 1};
+    scale.controls = {1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, 0, 0, 3, 0, 0, 0, 3};
+    float s[9];
+    scale.evaluate(0.5f, 9, s);
+    CHECK(s[0] == 2 && s[4] == 2 && s[8] == 2);
 
     // A bone turned a quarter round Z, moved along X.
     BoneTransform t;
@@ -1093,6 +1135,23 @@ void testAnimator() {
     // A weight replaces the mask's: a light gesture.
     CHECK(an.play("fanger", gesture, Animator::Body, false, 1, 0, 0.02f));
     CHECK(std::abs(an.find("fanger")->mask[1] - 0.02f) < 1e-6f);
+    // ... before the bones inherit: a base played at a weight leaves the
+    // jaw's master out, as its parent's is no longer 0.01.
+    CHECK(an.play("walk", testTurn(0, 1, {{"Bip01", 0.01f}}), Animator::Body, true, 0, 0.3f, 0.5f));
+    CHECK(an.find("walk")->mask[2] == 0.5f && an.find("walk")->mask[3] == 0);
+    // The pose's mask: the model's, inherited down; it multiplies what
+    // plays over the base, not the base.
+    Model seated = m;
+    seated.masks["sit"] = {{"Bip01 Spine", 1.0f}, {"Bip01 Head", 0.0f}};
+    const std::vector<float> sit = Animator::modelMask(seated, "SIT");
+    CHECK(sit.size() == 4 && sit[0] == 0 && sit[1] == 1 && sit[2] == 1 && sit[3] == 1);
+    CHECK(Animator::modelMask(seated, "head").empty());
+    Animator sitting(seated);
+    sitting.setPoseMask(sit);
+    CHECK(sitting.play("sitidle1", idle, Animator::Body, true, 0, 0));
+    CHECK(sitting.play("bow", testTurn(30, 1, {{"Bip01", 0.99f}}), Animator::Body, false, 1, 0));
+    CHECK(sitting.find("sitidle1")->mask[0] == 0.01f);
+    CHECK(sitting.find("bow")->mask[0] == 0 && std::abs(sitting.find("bow")->mask[1] - 0.99f) < 1e-6f);
     // The head's layer: pulled toward its pose by mask times ease.
     Animator head(m);
     head.play("idle1", testTurn(0, 2, {{"Bip01", 0.01f}}), Animator::Body, true, 0, 0);
@@ -1110,9 +1169,11 @@ void testAnimator() {
 void testActor() {
     CHECK(Actor::isBase("idle1") && Actor::isBase("sitidle1") && !Actor::isBase("talkidle1"));
     CHECK(Actor::isBase("walk") && Actor::isBase("rotatel90") && !Actor::isBase("agree") && !Actor::isBase("idle2"));
-    const Model m = testSkeleton();
+    Model m = testSkeleton();
+    m.masks["sit"] = {{"Bip01 Spine", 1.0f}};
     std::map<std::string, std::shared_ptr<Animation>> files = {
         {"idle1", testTurn(0, 2, {{"Bip01", 0.01f}})},
+        {"bow", testTurn(30, 1, {{"Bip01", 0.99f}})},
         {"sitidle1", testTurn(5, 2, {{"Bip01", 0.01f}})},
         {"worried1", testTurn(20, 1, {{"Bip01 Spine", 0.99f}})},
         {"headleft", testTurn(90, 1, {{"Bip01 Head", 0.99f}})},
@@ -1137,6 +1198,7 @@ void testActor() {
     sit.type = Ac2Value::Type::Text;
     sit.text = "sit";
     modl.fields.push_back({"anim2", sit});
+    modl.fields.push_back({"anim", sit});
     Ac2Value when;
     when.type = Ac2Value::Type::Text;
     when.text = "seated";
@@ -1148,7 +1210,12 @@ void testActor() {
     CHECK(a.play("idle1", 0, 0) == "idle1");
     seated = true;
     CHECK(a.play("idle1", 0, 0) == "sitidle1");
+    // Seated, what plays over the base leaves the legs (MODL's sit mask).
+    CHECK(a.play("bow", 1, 0) == "bow" && a.animator().find("bow")->mask[0] == 0);
     seated = false;
+    CHECK(a.play("idle1", 0, 0) == "idle1" && a.animator().poseMask().empty());
+    CHECK(a.play("bow", 1, 0) == "bow");
+    CHECK(std::abs(a.animator().slots().back().mask[0] - 0.99f) < 1e-6f);
     // anim: what it plays as, and its end.
     std::vector<std::string> done;
     a.onAnimDone = [&](const std::string& n) { done.push_back(n); };

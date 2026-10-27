@@ -84,15 +84,26 @@ std::vector<uint8_t> textureBytes(const Gr2File& file, const Gr2Object& texture)
 // plus 1 if its layout has alpha.
 uint32_t binkTextureFlags(const Gr2Object& texture);
 
+// How a curve continues past its ends, as Granny samples a control
+// (GrannyGetControlLoopState, 0x5001bbe0 in granny2.dll): an animation
+// looping for ever wraps round at both ends; the n-th of several loops
+// wraps at the start if it isn't the first and at the end if it isn't the
+// last; played once, it doesn't (it repeats its end values).
+struct CurveLoop {
+    bool back = false, forward = false;
+    float duration = 0; // of the animation: a loop's length
+};
+
 // A curve: a B-spline of `degree`, one knot (time) per control point.
 struct Curve {
     int degree = 0;
     std::vector<float> knots;
     std::vector<float> controls; // knots.size() * dimension values
     bool empty() const { return knots.empty(); }
-    // The value at time `t` (clamped to the curve's range) into `out`
-    // (`dimension` floats).
-    void evaluate(float t, int dimension, float* out) const;
+    // The value at time `t` (within the animation) into `out` (`dimension`
+    // floats). Quaternions (4 values) are kept on one side where the curve
+    // wraps or repeats its ends, as Granny's sampling does.
+    void evaluate(float t, int dimension, float* out, const CurveLoop& loop = {}) const;
 };
 
 struct AnimationTrack {
@@ -119,6 +130,11 @@ Error loadAnimation(const Gr2File& file, Animation& out);
 // (GrannyCurveExtractKnotValues): the reference the native one is checked
 // against (reluva-tool awe-check).
 Error expandCurvesWithDll(const Gr2File& file, GrannyDll& dll, Animation& out);
+// Where the first animation's tracks' curves (position, orientation,
+// scale/shear; 0 where a track has none) are in the DLL's copy of `file`,
+// whose file info is at `fileInfo` (GrannyDll::loadFile).
+Error dllCurveAddresses(const Gr2File& file, GrannyDll& dll, uint32_t fileInfo,
+                        std::vector<std::array<uint32_t, 3>>& out);
 
 // A skeleton's pose: each bone's world matrix and its skinning matrix
 // (world times inverse rest world).
@@ -136,8 +152,11 @@ struct BoneTurn {
 void computePose(const Model& model, const Animation* animation, float time, Pose& out,
                  const std::vector<BoneTurn>* turns = nullptr);
 // The same in two steps: each bone's transform relative to its parent
-// (rest where the animation has no track), and the pose those make.
-void sampleLocal(const Model& model, const Animation* animation, float time, std::vector<BoneTransform>& local);
+// (rest where the animation has no track; its curves going on past their
+// ends as `loop` says, but the root bones' only if `loopRoot`), and the
+// pose those make.
+void sampleLocal(const Model& model, const Animation* animation, float time, std::vector<BoneTransform>& local,
+                 const CurveLoop& loop = {}, bool loopRoot = true);
 void poseFromLocal(const Model& model, std::vector<BoneTransform> local, Pose& out,
                    const std::vector<BoneTurn>* turns = nullptr);
 // Skins a mesh's vertices for the pose: positions and normals.
