@@ -193,7 +193,7 @@ bool ScenePage::canUseOn(const std::string& item, const Ac2Record& o) {
                 break;
             }
     state_.held = was;
-    if (can || o.tag != "NPCX")
+    if (can || !isCharacter(o)) // NPCX or PCXX (0x419ec7)
         return can;
     auto unquoted = [](std::string s) {
         return s.size() >= 2 && s.front() == '"' && s.back() == '"' ? s.substr(1, s.size() - 2) : s;

@@ -176,6 +176,7 @@ public:
     // on one (its script run, as a click runs it).
     std::vector<std::string> clickables() const;
     bool click(size_t i);
+    bool clickRuns(size_t i) const; // whether it has a script (Antoinette may not)
     // The inventory (scene_inventory.cpp): an item used on an object, as
     // the game does when one in hand is clicked on it (0x41c050: its
     // conditional scripts asking for it, else uselist.txt for a
@@ -644,6 +645,7 @@ private:
     std::unique_ptr<DialogueManager> dialogue_;
     std::map<std::string, int> autoChoices_; // how often the tool's player took each choice
     std::vector<const Ac2Record*> clickableObjects() const;
+    static bool scripted(const Ac2Record& o); // a script or conditional ones
     mutable std::map<std::string, Table> itemTables_; // uselist.txt, combinelist.txt, itemlist.txt
     const Table& itemTable(const char* file) const;
     // A game played (N): the acts, the music playing (by file), where the

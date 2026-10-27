@@ -204,7 +204,8 @@ public:
             a.target = names[i];
             a.n = seen[names[i]]++;
             a.kind = "click";
-            out.push_back(a);
+            if (p.clickRuns(i))
+                out.push_back(a);
             for (const std::string& item : p.itemsFor(i)) {
                 Action u = a;
                 u.kind = "use";

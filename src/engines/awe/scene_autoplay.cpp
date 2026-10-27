@@ -94,14 +94,14 @@ ScenePage::GameStatus ScenePage::status() const {
 std::vector<const Ac2Record*> ScenePage::clickableObjects() const {
     // The hotspots, characters and pictures (items lying about) a player
     // could click now, in the scene's order: shown, with something to run,
-    // and an outline or a rectangle the pick can find.
+    // and an outline or a rectangle the pick can find; and Antoinette,
+    // whom items can be used on (uselist.txt).
     std::vector<const Ac2Record*> out;
     for (const Ac2Record* o : scene_.objects()) {
-        if ((o->tag != "SPOT" && o->tag != "NPCX" && o->tag != "2DOB") || hidden(*o) ||
+        if ((o->tag != "SPOT" && o->tag != "NPCX" && o->tag != "PCXX" && o->tag != "2DOB") || hidden(*o) ||
             !testCondition(o->text("condition"), state_))
             continue;
-        const Ac2Value* alternatives = o->field("listB");
-        if (o->text("script").empty() && (!alternatives || alternatives->pairs.empty()))
+        if (!scripted(*o) && o->tag != "PCXX")
             continue;
         const Ac2Value* outline = o->field("listD");
         int l, t, r, b;
@@ -125,6 +125,16 @@ std::vector<std::string> ScenePage::clickables() const {
         out.push_back(name);
     }
     return out;
+}
+
+bool ScenePage::scripted(const Ac2Record& o) {
+    const Ac2Value* alternatives = o.field("listB");
+    return !o.text("script").empty() || (alternatives && !alternatives->pairs.empty());
+}
+
+bool ScenePage::clickRuns(size_t i) const {
+    const std::vector<const Ac2Record*> objects = clickableObjects();
+    return i < objects.size() && scripted(*objects[i]);
 }
 
 bool ScenePage::click(size_t i) {

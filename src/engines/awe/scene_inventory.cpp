@@ -73,9 +73,10 @@ bool ScenePage::useItem(const std::string& item, const Ac2Record& target) {
                 runFromInventory(run, false);
                 return true;
             }
-    // A character: uselist's row for the item and its model ("antoinette"
-    // in ...\antoinette_model.gr2), if its condition holds (0x41c4b0).
-    if (target.tag == "NPCX") {
+    // A character, Antoinette among them (NPCX or PCXX, 0x41c0bb): uselist's
+    // row for the item and its model ("antoinette" in
+    // ...\antoinette_model.gr2), if its condition holds (0x41c4b0).
+    if (target.tag == "NPCX" || target.tag == "PCXX") {
         const Table& t = itemTable("uselist.txt");
         const std::string model = fs::toLower(target.text("file"));
         for (size_t r = 0; r < t.rows.size(); r++) {
@@ -139,7 +140,7 @@ std::vector<std::string> ScenePage::itemsFor(size_t i) {
                     out.push_back(item);
             }
         }
-    if (objects[i]->tag == "NPCX") {
+    if (objects[i]->tag == "NPCX" || objects[i]->tag == "PCXX") {
         const Table& t = itemTable("uselist.txt");
         const std::string model = fs::toLower(objects[i]->text("file"));
         for (size_t r = 0; r < t.rows.size(); r++) {
