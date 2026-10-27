@@ -1,13 +1,13 @@
 # Elite Force: the Holomatch network protocol
 
-Status: **implemented, not yet tried against the retail game**. This
+Status: **implemented, and played against the retail game both ways**. This
 page is a specification for a server and a client that talk to the
 retail Elite Force Holomatch (patch 1.2) over the network. Reluva's
 (`src/engines/idtech3/wire/`, `eliteforce/net_fields.cpp`,
 `net_server.cpp`, `net_client.cpp`) is tested with Reluva at both ends,
 in memory with datagrams lost and over the system's sockets, and was
-played Reluva to Reluva on the retail data patched to 1.2 (October
-2026); not yet against the retail executable. Not done: a pure Reluva server (its
+played Reluva to Reluva on the retail data patched to 1.2, and against
+the retail executable both ways (October 2026). Not done: a pure Reluva server (its
 client answers a pure server's check). Reluva's server lists as the
 level's paks (`sv_referencedPaks`) those holding its game code, map and
 bot map, where the original lists every pak it has read a file from.

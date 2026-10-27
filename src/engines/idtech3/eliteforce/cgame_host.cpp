@@ -79,6 +79,10 @@ enum CgameCall : int {
     SetUserCmdValue = 56,
     RRegisterShaderNoMip = 57,
     MemoryRemaining = 58,
+    // ("model", text): made once, for the local player only, with a name
+    // the client game put together in a buffer of its own; taken as
+    // setting that cvar, as it would the model the player now has.
+    SetLocalCvar = 60,
     Floor = 107, // (x) -> x rounded down, a float; Quake III's client game number too
 };
 
@@ -287,6 +291,16 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     }
     case CvarUpdate: cvars_.updateVmCvar(vm, a[0]); return 0;
     case CvarSet: cvars_.set(str(0, 256), str(1, 256)); return 0;
+    case SetLocalCvar: {
+        // Only text: the second argument's meaning is inferred.
+        const std::string name = str(0, 64), value = str(1, 256);
+        const bool text = !value.empty() && std::all_of(value.begin(), value.end(), [](char ch) {
+            return static_cast<unsigned char>(ch) >= 32 && static_cast<unsigned char>(ch) < 127;
+        });
+        if (name == "model" && text)
+            cvars_.set(name, value);
+        return 0;
+    }
     case CvarVariableStringBuffer: vm.writeString(a[1], cvars_.string(str(0, 256)), a[2]); return 0;
     case Argc: return int32_t(args_.size());
     case Argv: vm.writeString(a[1], a[0] >= 0 && size_t(a[0]) < args_.size() ? args_[size_t(a[0])] : "", a[2]); return 0;

@@ -383,7 +383,7 @@ numbering wherever it can be checked:
 | 56 | `SetUserCmdValue(weapon, sensitivityScale)` | seen | `(1, ...)` once a frame |
 | 57 | `R_RegisterShaderNoMip(name)` | seen | crosshairs, HUD pieces, fonts |
 | 58 | `MemoryRemaining()` | seen | answered 0, the client game prints "Memory is low.  Using deferred model." and skips loading player models |
-| 60 | unknown: `("model", value)` | seen | one call site (`qvm-dis -syscall 60`, instruction 42881), after checking the client is the local player; maybe setting the player's `model` setting. Not answered (0) until its second argument is known |
+| 60 | probably sets a cvar: `("model", text)` | seen | one call site (`qvm-dis -syscall 60`, instruction 42881), only for the local player (its client number compared with `cg.clientNum`'s) and when a value it keeps differs from another; the second argument points into the function's own stack frame (2096748, just under the top of the 2 MiB memory), a buffer it filled: the model name. Reluva sets `model` to that text when it's printable, and ignores any other name |
 | 100, 102 | `memset`, `strncpy` | seen | |
 | 107 | `floor(x)` | seen | one call site, the result converted to a whole number |
 
