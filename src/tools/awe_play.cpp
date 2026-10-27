@@ -584,6 +584,7 @@ int aweCommandSolve(int argc, char** argv) {
     reset();
     const auto began = std::chrono::steady_clock::now();
     int expansions = 0, runs = 0;
+    double restoreTime = 0, actTime = 0;
     while (!frontier.empty() && expansions < budget) {
         Node node = frontier.top();
         frontier.pop();
@@ -600,12 +601,16 @@ int aweCommandSolve(int argc, char** argv) {
         bool advanced = false;
         for (size_t k = 0; k < todo.size() && !advanced; k++) {
             Action a = todo[k];
+            auto t0 = std::chrono::steady_clock::now();
             if (k > 0) {
                 player.page().loadFromMemory(node.save);
                 player.settle();
             }
+            auto t1 = std::chrono::steady_clock::now();
             runs++;
             const bool ok = player.act(a);
+            restoreTime += std::chrono::duration<double>(t1 - t0).count();
+            actTime += std::chrono::duration<double>(std::chrono::steady_clock::now() - t1).count();
             if (!ok) {
                 if (verbose)
                     std::printf("  %s: %s\n", toLine(a).c_str(), player.problem.c_str());
@@ -688,8 +693,8 @@ int aweCommandSolve(int argc, char** argv) {
         if (expansions % 20 == 0) {
             const double secs =
                 std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
-            std::printf("  .. %d expanded, %d runs, %zu waiting, %zu states, %.0f s\n", expansions, runs,
-                        frontier.size(), seenKeys.size(), secs);
+            std::printf("  .. %d expanded, %d runs, %zu waiting, %zu states, %.0f s (%.0f loading, %.0f playing)\n",
+                        expansions, runs, frontier.size(), seenKeys.size(), secs, restoreTime, actTime);
             std::fflush(stdout);
         }
     }

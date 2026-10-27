@@ -710,9 +710,11 @@ void ScenePage::updateLoad() {
     if (l.state == 2) {
         // One file an update (0x423b30), the wheel turning.
         if (l.next < l.files.size()) {
+            // (Read for the time it takes: each is read again when shown,
+            // so a tool that doesn't draw skips it.)
             std::vector<uint8_t> data;
             Ac2Scene scene;
-            if (!ctx_.files.read(l.files[l.next], data))
+            if (drawing_ && !ctx_.files.read(l.files[l.next], data))
                 parseAc2(data, scene);
             l.next++;
             l.wheel++;
@@ -844,6 +846,8 @@ void ScenePage::drawParticles(const ParticleSystem& system, bool keepAlpha) {
 }
 
 void ScenePage::loadLoops() {
+    if (!drawing_)
+        return; // (only seen)
     for (const Ac2Record* o : scene_.objects()) {
         if (!hasExtension(o->text("file"), {".bik"}))
             continue;
@@ -1636,7 +1640,7 @@ void ScenePage::update(uint64_t nowMs) {
         placeCharacter(c);
     }
     for (auto& [o, system] : particles_)
-        if (options_.get(GameOptions::Rain) && testCondition(system.settings().condition, state_)) {
+        if (drawing_ && options_.get(GameOptions::Rain) && testCondition(system.settings().condition, state_)) {
             system.update(dt);
             changed = true;
         }
@@ -1645,8 +1649,11 @@ void ScenePage::update(uint64_t nowMs) {
     changed |= std::exchange(cursorMoved_, false);
     if (changed)
         draw();
-    if (!renderer_)
-        return Page::update(nowMs);
+    if (!renderer_) {
+        if (drawing_)
+            Page::update(nowMs);
+        return;
+    }
     for (gfx::MeshId m : frameMeshes_)
         renderer_->destroyMesh(m);
     frameMeshes_.clear();
