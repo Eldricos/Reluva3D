@@ -395,14 +395,29 @@ std::string joinFeatures(const std::set<std::string>& f) {
 }
 
 // How far on a state is: the tags, items and conversations it has.
+// The story tags: not the dialogue's "met them here" ones ("<scene>
+// <conversation>", a space in the name), which change whenever a scene is
+// left after a talk.
+bool storyTag(const std::string& feature) {
+    return feature.rfind("tag ", 0) == 0 && std::count(feature.begin(), feature.end(), ' ') == 2;
+}
+
+// How far on a state is: the story tags and the items it has.
 int progressOf(const std::set<std::string>& f) {
     int n = 0;
     for (const std::string& s : f)
-        if (s.rfind("tag ", 0) == 0 || s.rfind("item ", 0) == 0)
-            n += 2;
-        else if (s.rfind("talk ", 0) == 0 && s.find(" 1 ", 5) != std::string::npos)
-            n += 1;
+        n += storyTag(s) || s.rfind("item ", 0) == 0;
     return n;
+}
+
+// The state as far as the story goes: the act, the scene, the story tags,
+// the items (not the conversations' progress).
+std::string outlineOf(const std::set<std::string>& f) {
+    std::string out;
+    for (const std::string& s : f)
+        if (storyTag(s) || s.rfind("item ", 0) == 0 || s.rfind("act ", 0) == 0 || s.rfind("scene ", 0) == 0)
+            out += s + "\n";
+    return out;
 }
 
 int actRank(const std::string& act) {
@@ -456,6 +471,7 @@ struct Node {
     std::vector<uint8_t> save;
     size_t path = 0; // into the search's paths: the actions that led here
     int progress = 0, depth = 0;
+    int tier = 0; // 1: its outline (outlineOf) had been seen already
     std::string key;
 };
 
@@ -582,11 +598,15 @@ int aweCommandSolve(int argc, char** argv) {
         n.progress = progressOf(f);
         return n;
     };
+    // States new to the story first, then the furthest on, then the
+    // nearest the start.
     auto cmp = [](const Node& a, const Node& b) {
+        if (a.tier != b.tier)
+            return a.tier > b.tier;
         return a.progress != b.progress ? a.progress < b.progress : a.depth > b.depth;
     };
     std::priority_queue<Node, std::vector<Node>, decltype(cmp)> frontier(cmp);
-    std::set<std::string> seenKeys, seenFeatures, triedOnce;
+    std::set<std::string> seenKeys, seenFeatures, triedOnce, seenOutlines;
     std::map<std::string, std::map<std::string, bool>> deadRuns; // by scene and action
     Node best;
     auto reset = [&]() {
@@ -594,9 +614,11 @@ int aweCommandSolve(int argc, char** argv) {
         seenKeys.clear();
         seenFeatures.clear();
         triedOnce.clear();
+        seenOutlines.clear();
         deadRuns.clear();
         steps.clear();
         Node root = rootNode();
+        seenOutlines.insert(outlineOf(player.features(false)));
         best = root;
         seenKeys.insert(root.key);
         for (const std::string& f : player.features(true))
@@ -760,6 +782,7 @@ int aweCommandSolve(int argc, char** argv) {
             n.key = key;
             n.progress = progressOf(f);
             n.depth = node.depth + 1;
+            n.tier = seenOutlines.insert(outlineOf(f)).second ? 0 : 1;
             if (n.progress > best.progress)
                 best = n;
             frontier.push(std::move(n));
