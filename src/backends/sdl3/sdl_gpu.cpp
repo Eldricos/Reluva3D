@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstring>
 #include <string>
+#include <vector>
 
 namespace reluva {
 
@@ -339,8 +340,7 @@ Error SdlGpuRenderer::createTexture(int width, int height, const uint8_t* rgba, 
     SDL_GPUTextureCreateInfo ci{};
     ci.type = SDL_GPU_TEXTURETYPE_2D;
     ci.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
-    // Generating mipmaps renders into the texture.
-    ci.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | (levels > 1 ? SDL_GPU_TEXTUREUSAGE_COLOR_TARGET : 0);
+    ci.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
     ci.width = uint32_t(width);
     ci.height = uint32_t(height);
     ci.layer_count_or_depth = 1;
@@ -349,34 +349,65 @@ Error SdlGpuRenderer::createTexture(int width, int height, const uint8_t* rgba, 
     if (!tex)
         return sdlError("Cannot create a texture");
 
-    const uint32_t size = uint32_t(width) * uint32_t(height) * 4;
+    // Every level made here, each pixel the average of the 2x2 above it
+    // (a lone row or column halves along the other side only), and all
+    // uploaded: a level left to the GPU to fill may keep whatever the
+    // memory held before.
+    struct Level {
+        int w, h;
+        uint32_t offset;
+    };
+    std::vector<Level> chain;
+    uint32_t size = 0;
+    for (int l = 0, w = width, h = height; l < levels; ++l, w = std::max(w / 2, 1), h = std::max(h / 2, 1)) {
+        chain.push_back({w, h, size});
+        size += uint32_t(w) * uint32_t(h) * 4;
+    }
     SDL_GPUTransferBufferCreateInfo ti{};
     ti.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
     ti.size = size;
     SDL_GPUTransferBuffer* tb = SDL_CreateGPUTransferBuffer(device_, &ti);
-    void* mapped = tb ? SDL_MapGPUTransferBuffer(device_, tb, false) : nullptr;
+    auto* mapped = static_cast<uint8_t*>(tb ? SDL_MapGPUTransferBuffer(device_, tb, false) : nullptr);
     if (!mapped) {
         if (tb)
             SDL_ReleaseGPUTransferBuffer(device_, tb);
         SDL_ReleaseGPUTexture(device_, tex);
         return sdlError("Cannot upload a texture");
     }
-    std::memcpy(mapped, rgba, size);
+    std::memcpy(mapped, rgba, size_t(width) * size_t(height) * 4);
+    for (size_t l = 1; l < chain.size(); ++l) {
+        const Level& up = chain[l - 1];
+        const Level& lv = chain[l];
+        const uint8_t* in = mapped + up.offset;
+        uint8_t* px = mapped + lv.offset;
+        const int sx = up.w > 1 ? 2 : 1, sy = up.h > 1 ? 2 : 1, n = sx * sy;
+        for (int y = 0; y < lv.h; ++y)
+            for (int x = 0; x < lv.w; ++x)
+                for (int c = 0; c < 4; ++c) {
+                    int sum = 0;
+                    for (int dy = 0; dy < sy; ++dy)
+                        for (int dx = 0; dx < sx; ++dx)
+                            sum += in[((y * sy + dy) * up.w + x * sx + dx) * 4 + c];
+                    px[(y * lv.w + x) * 4 + c] = uint8_t((sum + n / 2) / n);
+                }
+    }
     SDL_UnmapGPUTransferBuffer(device_, tb);
 
     SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device_);
     SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
-    SDL_GPUTextureTransferInfo src{};
-    src.transfer_buffer = tb;
-    SDL_GPUTextureRegion dst{};
-    dst.texture = tex;
-    dst.w = uint32_t(width);
-    dst.h = uint32_t(height);
-    dst.d = 1;
-    SDL_UploadToGPUTexture(copy, &src, &dst, false);
+    for (size_t l = 0; l < chain.size(); ++l) {
+        SDL_GPUTextureTransferInfo src{};
+        src.transfer_buffer = tb;
+        src.offset = chain[l].offset;
+        SDL_GPUTextureRegion dst{};
+        dst.texture = tex;
+        dst.mip_level = uint32_t(l);
+        dst.w = uint32_t(chain[l].w);
+        dst.h = uint32_t(chain[l].h);
+        dst.d = 1;
+        SDL_UploadToGPUTexture(copy, &src, &dst, false);
+    }
     SDL_EndGPUCopyPass(copy);
-    if (levels > 1)
-        SDL_GenerateMipmapsForGPUTexture(cmd, tex);
     SDL_SubmitGPUCommandBuffer(cmd);
     SDL_ReleaseGPUTransferBuffer(device_, tb);
 

@@ -213,7 +213,8 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
                 continue;
             // Triangle soups are always lit by their vertices, as are
             // surfaces without a lightmap.
-            const bool lightmapped = s.lightmap >= 0 && s.type != SurfaceType::TriangleSoup && !vertexLight_;
+            const bool lightmapped = s.lightmap >= 0 && size_t(s.lightmap) < lightmaps_.size() &&
+                                     s.type != SurfaceType::TriangleSoup && !vertexLight_;
             const int materialIndex = shaders_.material(bsp.shaders[size_t(s.shader)].name,
                                                         lightmapped ? Lighting::Lightmap : Lighting::Vertex);
             const ShaderCache::Material& mat = shaders_.get(materialIndex);
