@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-namespace reluva::idtech3::eliteforce {
+namespace reluva::idtech3 {
 
 // What the client game and the menus draw, as they hand it over through
 // the renderer's calls they share (Quake III's: DrawStretchPic, then
@@ -105,4 +105,4 @@ bool lerpTag(const Md3Model* model, int32_t startFrame, int32_t endFrame, float 
 constexpr int32_t kRefdefSize = 112;    // the client game clears this much of cg.refdef
 constexpr int32_t kRefEntityKept = 256; // bytes kept of each refEntity_t
 
-} // namespace reluva::idtech3::eliteforce
+} // namespace reluva::idtech3

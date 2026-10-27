@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "engines/idtech3/scene_drawer.h"
+#include "engines/idtech3/client/scene_drawer.h"
 
 #include "common/fs.h"
 
@@ -133,7 +133,7 @@ int SceneDrawer::material(std::vector<int>& cache, int32_t handle, Lighting ligh
     return m;
 }
 
-void SceneDrawer::drawPictures(const std::vector<eliteforce::Picture>& pictures, size_t first, size_t last,
+void SceneDrawer::drawPictures(const std::vector<Picture>& pictures, size_t first, size_t last,
                                int screenW, int screenH, float time) {
     last = std::min(last, pictures.size());
     if (first >= last)
@@ -204,7 +204,7 @@ void SceneDrawer::drawPictures(const std::vector<eliteforce::Picture>& pictures,
     r_.destroyMesh(mesh);
 }
 
-void SceneDrawer::drawView(const eliteforce::Scene& scene, const eliteforce::View& view, int screenW, int screenH,
+void SceneDrawer::drawView(const Scene& scene, const View& view, int screenW, int screenH,
                            float time, bool firstView, WorldRenderer* world, const LightGrid* grid,
                            bool dynamicLights) {
     const std::vector<uint8_t>& refdef = view.refdef;
@@ -514,25 +514,25 @@ void SceneDrawer::drawPortalView(WorldRenderer& world, const std::array<uint8_t,
     ++portalViews_;
 }
 
-std::array<float, 4> SceneDrawer::entityColor(const std::vector<uint8_t>& e) {
+std::array<float, 4> SceneDrawer::entityColor(const std::vector<uint8_t>& e) const {
     // refEntity_t's colour: bytes r, g, b, a.
     std::array<float, 4> c{};
     for (size_t i = 0; i < 4; ++i)
-        c[i] = (refent::Rgba + i < e.size() ? e[refent::Rgba + i] : 255) / 255.0f;
+        c[i] = (layout_.rgba + i < e.size() ? e[layout_.rgba + i] : 255) / 255.0f;
     return c;
 }
 
-float SceneDrawer::shaderTime(const std::vector<uint8_t>& e, float time) {
+float SceneDrawer::shaderTime(const std::vector<uint8_t>& e, float time) const {
     // When the entity's shader animations start, in seconds (Quake III's
     // shaderTime): an explosion's from its first frame. Only a time that
     // has come is taken.
-    const float t = readFloat(e, refent::ShaderTime);
+    const float t = readFloat(e, layout_.shaderTime);
     return t > 0 && t <= time + 1 ? t : 0;
 }
 
 void SceneDrawer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left, const gfx::Vec3& up, float time) {
-    const int32_t type = readInt(e, refent::Type);
-    const int32_t shader = readInt(e, refent::CustomShader);
+    const int32_t type = readInt(e, layout_.type);
+    const int32_t shader = readInt(e, layout_.customShader);
     if (shader <= 0)
         return;
     using V = gfx::Vec3;
@@ -549,7 +549,7 @@ void SceneDrawer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left
         return v;
     };
     const auto first = uint32_t(effectIndices_.size());
-    const int32_t rgba = readInt(e, refent::Rgba);
+    const int32_t rgba = readInt(e, layout_.rgba);
     auto vertex = [&](const V& pos, float s, float t) {
         gfx::Vertex v{};
         for (size_t k = 0; k < 3; ++k)
@@ -582,14 +582,14 @@ void SceneDrawer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left
             prevB = b;
         }
     };
-    const V origin = readVec(e, refent::Origin);
-    if (type == refent::TypeSprite || type == refent::TypeQuad) {
-        const float r = readFloat(e, refent::Radius);
+    const V origin = readVec(e, layout_.origin);
+    if (type == layout_.typeSprite || type == layout_.typeQuad) {
+        const float r = readFloat(e, layout_.radius);
         V l = left, u = up;
-        if (type == refent::TypeQuad) {
-            l = readVec(e, refent::Axes + 12);
-            u = readVec(e, refent::Axes + 24);
-        } else if (const float deg = readFloat(e, refent::Rotation); deg != 0) {
+        if (type == layout_.typeQuad) {
+            l = readVec(e, layout_.axes + 12);
+            u = readVec(e, layout_.axes + 24);
+        } else if (const float deg = readFloat(e, layout_.rotation); deg != 0) {
             const float c = std::cos(deg * kPi / 180), sn = std::sin(deg * kPi / 180);
             for (size_t i = 0; i < 3; ++i) {
                 l[i] = left[i] * c + up[i] * sn;
@@ -598,16 +598,16 @@ void SceneDrawer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left
         }
         quad(vertex(add(add(origin, l, r), u, r), 0, 0), vertex(add(add(origin, l, -r), u, r), 1, 0),
              vertex(add(add(origin, l, -r), u, -r), 1, 1), vertex(add(add(origin, l, r), u, -r), 0, 1));
-    } else if (type == refent::TypeLine || type == refent::TypeTaperedLine) {
-        const float w0 = readFloat(e, refent::Width);
-        const float w1 = type == refent::TypeTaperedLine ? readFloat(e, refent::EndWidth) : w0;
-        const float repeat = readFloat(e, refent::Repeat) > 0 ? readFloat(e, refent::Repeat) : 1.0f;
-        ribbon({origin, readVec(e, refent::OldOrigin)}, {w0, w1}, repeat);
-    } else if (type == refent::TypeCurve) {
+    } else if (type == layout_.typeLine || type == layout_.typeTaperedLine) {
+        const float w0 = readFloat(e, layout_.width);
+        const float w1 = type == layout_.typeTaperedLine ? readFloat(e, layout_.endWidth) : w0;
+        const float repeat = readFloat(e, layout_.repeat) > 0 ? readFloat(e, layout_.repeat) : 1.0f;
+        ribbon({origin, readVec(e, layout_.oldOrigin)}, {w0, w1}, repeat);
+    } else if (type == layout_.typeCurve) {
         // A cubic Bezier curve from the origin through two control points
         // to the old origin.
-        const V p0 = origin, p1 = readVec(e, refent::Control1), p2 = readVec(e, refent::Control2),
-                p3 = readVec(e, refent::OldOrigin);
+        const V p0 = origin, p1 = readVec(e, layout_.control1), p2 = readVec(e, layout_.control2),
+                p3 = readVec(e, layout_.oldOrigin);
         std::vector<V> points;
         constexpr int kSteps = 16;
         for (int i = 0; i <= kSteps; ++i) {
@@ -617,11 +617,11 @@ void SceneDrawer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left
                 p[k] = m * m * m * p0[k] + 3 * m * m * t * p1[k] + 3 * m * t * t * p2[k] + t * t * t * p3[k];
             points.push_back(p);
         }
-        ribbon(points, std::vector<float>(points.size(), readFloat(e, refent::Width)), 1);
-    } else if (type == refent::TypeBolt) {
+        ribbon(points, std::vector<float>(points.size(), readFloat(e, layout_.width)), 1);
+    } else if (type == layout_.typeBolt) {
         // Electricity: a line broken into steps, each point pushed aside at
         // random by the jitter times the step's length; new each frame.
-        const V end = readVec(e, refent::OldOrigin);
+        const V end = readVec(e, layout_.oldOrigin);
         const V along = sub(end, origin);
         const float len = std::sqrt(along[0] * along[0] + along[1] * along[1] + along[2] * along[2]);
         const V dir = normalized(along);
@@ -630,7 +630,7 @@ void SceneDrawer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left
             side1 = V{1, 0, 0};
         const V side2 = cross(dir, side1);
         const int steps = std::clamp(int(len / 16), 2, 32);
-        const float jitter = readFloat(e, refent::Jitter) * len / float(steps);
+        const float jitter = readFloat(e, layout_.jitter) * len / float(steps);
         std::vector<V> points;
         for (int i = 0; i <= steps; ++i) {
             V p = add(origin, along, float(i) / float(steps));
@@ -641,18 +641,18 @@ void SceneDrawer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left
             }
             points.push_back(p);
         }
-        const float scale = readFloat(e, refent::Repeat);
-        ribbon(points, std::vector<float>(points.size(), readFloat(e, refent::Width)),
+        const float scale = readFloat(e, layout_.repeat);
+        ribbon(points, std::vector<float>(points.size(), readFloat(e, layout_.width)),
                scale > 0 ? len * scale / 16 : 1);
-    } else if (type == refent::TypeCylinder) {
+    } else if (type == layout_.typeCylinder) {
         // A ring or cone around the first axis: the radius at 132 at the
         // origin, the one at 136 a height (140) along the axis; the texture
         // round it (repeated as 144 says) and up it.
-        const V axis = normalized(readVec(e, refent::Axes));
-        const V a1 = normalized(readVec(e, refent::Axes + 12)), a2 = normalized(cross(axis, a1));
-        const float r0 = readFloat(e, refent::Width), r1 = readFloat(e, refent::EndWidth);
-        const float height = readFloat(e, refent::Repeat);
-        const float around = readFloat(e, refent::CylinderRepeat) > 0 ? readFloat(e, refent::CylinderRepeat) : 1.0f;
+        const V axis = normalized(readVec(e, layout_.axes));
+        const V a1 = normalized(readVec(e, layout_.axes + 12)), a2 = normalized(cross(axis, a1));
+        const float r0 = readFloat(e, layout_.width), r1 = readFloat(e, layout_.endWidth);
+        const float height = readFloat(e, layout_.repeat);
+        const float around = readFloat(e, layout_.cylinderRepeat) > 0 ? readFloat(e, layout_.cylinderRepeat) : 1.0f;
         const V top = add(origin, axis, height);
         constexpr int kSides = 24;
         uint32_t prevA = 0, prevB = 0;
@@ -672,7 +672,7 @@ void SceneDrawer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left
         return;
     }
     effects_.push_back({shader, first, uint32_t(effectIndices_.size()) - first, entityColor(e), shaderTime(e, time),
-                        (readInt(e, refent::Flags) & refent::DepthHack) != 0});
+                        (readInt(e, layout_.flags) & refent::DepthHack) != 0});
 }
 
 void SceneDrawer::drawEffects(float time, float sortMin, float sortMax) {
@@ -695,7 +695,7 @@ void SceneDrawer::drawEffects(float time, float sortMin, float sortMax) {
     r_.setDepthRange(1);
 }
 
-void SceneDrawer::placeEntities(const eliteforce::Scene& scene, const eliteforce::View& view, const LightGrid& grid,
+void SceneDrawer::placeEntities(const Scene& scene, const View& view, const LightGrid& grid,
                                 float time) {
     // The view's entities: models where the program put them, and effects
     // as quads facing the eye (refdef_t's axes: left at 48, up at 60).
@@ -734,53 +734,53 @@ void SceneDrawer::placeEntities(const eliteforce::Scene& scene, const eliteforce
     }
     for (size_t i = view.firstEntity; i < view.firstEntity + view.entityCount && i < scene.entities.size(); ++i) {
         const std::vector<uint8_t>& e = scene.entities[i].bytes;
-        if (readInt(e, refent::Type) == refent::TypePortal) {
+        if (readInt(e, layout_.type) == layout_.typePortal) {
             // A mirror's or portal's camera (Quake III's portal surface,
             // its type one on in Elite Force's numbering): where it is,
             // where it looks from (the same for a mirror), its axes, and
             // how it turns (frame, old frame, skin number).
-            portalEntities_.push_back({readVec(e, refent::Origin), readVec(e, refent::OldOrigin),
-                                       {readVec(e, refent::Axes), readVec(e, refent::Axes + 12),
-                                        readVec(e, refent::Axes + 24)},
-                                       readInt(e, refent::Frame), readInt(e, refent::OldFrame),
-                                       readInt(e, refent::SkinNum)});
+            portalEntities_.push_back({readVec(e, layout_.origin), readVec(e, layout_.oldOrigin),
+                                       {readVec(e, layout_.axes), readVec(e, layout_.axes + 12),
+                                        readVec(e, layout_.axes + 24)},
+                                       readInt(e, layout_.frame), readInt(e, layout_.oldFrame),
+                                       readInt(e, layout_.skinNum)});
             continue;
         }
-        if (readInt(e, refent::Type) != refent::TypeModel) {
+        if (readInt(e, layout_.type) != layout_.typeModel) {
             addEffect(e, left, up, time);
             continue;
         }
-        const int32_t flags = readInt(e, refent::Flags);
+        const int32_t flags = readInt(e, layout_.flags);
         // One of the level's own models (*1, *2...: doors, lifts), where the
         // game has moved it.
-        if (const std::string& n = name(handles_.models, readInt(e, refent::Model)); n.size() > 1 && n[0] == '*') {
-            std::array<gfx::Vec3, 3> axes{readVec(e, refent::Axes), readVec(e, refent::Axes + 12),
-                                          readVec(e, refent::Axes + 24)};
+        if (const std::string& n = name(handles_.models, readInt(e, layout_.model)); n.size() > 1 && n[0] == '*') {
+            std::array<gfx::Vec3, 3> axes{readVec(e, layout_.axes), readVec(e, layout_.axes + 12),
+                                          readVec(e, layout_.axes + 24)};
             if (axes[0] == gfx::Vec3{} && axes[1] == gfx::Vec3{} && axes[2] == gfx::Vec3{})
                 axes = {gfx::Vec3{1, 0, 0}, gfx::Vec3{0, 1, 0}, gfx::Vec3{0, 0, 1}}; // left cleared: unturned
-            brushes_.push_back({std::atoi(n.c_str() + 1), placement(readVec(e, refent::Origin), axes)});
+            brushes_.push_back({std::atoi(n.c_str() + 1), placement(readVec(e, layout_.origin), axes)});
             continue;
         }
-        const int model = modelId(readInt(e, refent::Model));
+        const int model = modelId(readInt(e, layout_.model));
         if (model < 0)
             continue;
         Placed p;
-        const gfx::Vec3 origin = readVec(e, refent::Origin);
-        p.model = models_.lod(model, lodLevel(model, readInt(e, refent::Frame), origin));
-        p.transform = placement(origin, {readVec(e, refent::Axes), readVec(e, refent::Axes + 12),
-                                         readVec(e, refent::Axes + 24)});
+        const gfx::Vec3 origin = readVec(e, layout_.origin);
+        p.model = models_.lod(model, lodLevel(model, readInt(e, layout_.frame), origin));
+        p.transform = placement(origin, {readVec(e, layout_.axes), readVec(e, layout_.axes + 12),
+                                         readVec(e, layout_.axes + 24)});
         // Between two frames, as far back towards the old one as it says.
-        p.frame = readInt(e, refent::Frame);
-        p.oldFrame = readInt(e, refent::OldFrame);
-        p.backLerp = readFloat(e, refent::BackLerp);
-        const gfx::Vec3 lightAt = flags & refent::UseLightingOrigin ? readVec(e, refent::LightingOrigin) : origin;
+        p.frame = readInt(e, layout_.frame);
+        p.oldFrame = readInt(e, layout_.oldFrame);
+        p.backLerp = readFloat(e, layout_.backLerp);
+        const gfx::Vec3 lightAt = flags & refent::UseLightingOrigin ? readVec(e, layout_.lightingOrigin) : origin;
         p.light = grid.sample(lightAt);
         addDynamicLights(p.light, lightAt);
-        if (const int32_t skin = readInt(e, refent::CustomSkin); skin > 0 && !name(handles_.skins, skin).empty())
+        if (const int32_t skin = readInt(e, layout_.customSkin); skin > 0 && !name(handles_.skins, skin).empty())
             p.skin = &models_.skin(name(handles_.skins, skin));
         // A shader in place of the model's own (explosions, shells), its
         // colour fading as the program says.
-        if (const int32_t shader = readInt(e, refent::CustomShader); shader > 0)
+        if (const int32_t shader = readInt(e, layout_.customShader); shader > 0)
             p.shader = name(handles_.shaders, shader);
         p.color = entityColor(e);
         p.shaderTime = shaderTime(e, time);

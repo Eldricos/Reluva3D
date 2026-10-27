@@ -15,7 +15,7 @@
 #include "engines/idtech3/entities.h"
 #include "engines/idtech3/info_string.h"
 #include "engines/idtech3/pure.h"
-#include "engines/idtech3/scene_drawer.h"
+#include "engines/idtech3/client/scene_drawer.h"
 #include "engines/idtech3/viewers.h"
 
 #include "common/font.h"
@@ -89,7 +89,7 @@ void PlayViewer::activate() {
     world_ = std::make_unique<WorldRenderer>(*renderer_, *shaders_);
     models_ = std::make_unique<ModelCache>(*renderer_, *shaders_, ctx_.files);
     applyVideoSettings(video, *shaders_, world_.get(), models_.get());
-    scene_ = std::make_unique<SceneDrawer>(*renderer_, *shaders_, *models_);
+    scene_ = std::make_unique<SceneDrawer>(*renderer_, *shaders_, *models_, eliteforce::kRefEntityLayout);
     shownMs_ = 0;
     ctx_.sys.setRelativeMouse(true);
     // A server the menus asked to join.

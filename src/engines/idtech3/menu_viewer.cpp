@@ -4,7 +4,7 @@
 // The Menu page: the game's own menus (vm/ui.qvm) run by the QVM
 // interpreter, their pictures drawn by the GPU renderer.
 
-#include "engines/idtech3/scene_drawer.h"
+#include "engines/idtech3/client/scene_drawer.h"
 #include "engines/idtech3/viewers.h"
 
 #include "common/font.h"
@@ -49,7 +49,7 @@ void MenuViewer::activate() {
     models_ = std::make_unique<ModelCache>(*renderer_, *shaders_, ctx_.files);
     // The settings reach the models the menus show (pictures keep theirs).
     applyVideoSettings(video, *shaders_, nullptr, models_.get());
-    scene_ = std::make_unique<SceneDrawer>(*renderer_, *shaders_, *models_);
+    scene_ = std::make_unique<SceneDrawer>(*renderer_, *shaders_, *models_, eliteforce::kRefEntityLayout);
     shownMs_ = 0;
     // The menus draw their own pointer, and have text fields.
     ctx_.sys.setMouseCursorVisible(false);

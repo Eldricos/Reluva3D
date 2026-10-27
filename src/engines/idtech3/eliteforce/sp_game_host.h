@@ -11,7 +11,7 @@
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
-#include "engines/idtech3/eliteforce/scene.h"
+#include "engines/idtech3/client/scene.h"
 #include "engines/idtech3/raven/savegame.h"
 #include "engines/idtech3/light_grid.h"
 #include "engines/idtech3/marks.h"

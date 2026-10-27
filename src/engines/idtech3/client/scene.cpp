@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "engines/idtech3/eliteforce/scene.h"
+#include "engines/idtech3/client/scene.h"
 
 #include <algorithm>
 #include <cmath>
 
-namespace reluva::idtech3::eliteforce {
+namespace reluva::idtech3 {
 
 void Scene::clear() {
     pending = entities.size();
@@ -108,4 +108,4 @@ bool lerpTag(const Md3Model* m, int32_t startFrame, int32_t endFrame, float frac
     return true;
 }
 
-} // namespace reluva::idtech3::eliteforce
+} // namespace reluva::idtech3

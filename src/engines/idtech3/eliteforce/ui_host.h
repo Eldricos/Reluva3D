@@ -7,7 +7,7 @@
 #include "common/types.h"
 #include "engines/idtech3/bindings.h"
 #include "engines/idtech3/cvars.h"
-#include "engines/idtech3/eliteforce/scene.h"
+#include "engines/idtech3/client/scene.h"
 #include "engines/idtech3/qvm.h"
 #include "engines/idtech3/server_browser.h"
 #include "engines/idtech3/vm_services.h"
@@ -47,7 +47,7 @@ public:
 
     // One picture: a part (s1,t1)-(s2,t2) of a shader stretched over a
     // screen rectangle, tinted by the colour set before it.
-    using Picture = eliteforce::Picture;
+    using Picture = idtech3::Picture;
 
     UiHost(const SearchSet& files, CvarStore& cvars);
 

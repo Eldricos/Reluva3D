@@ -4270,19 +4270,19 @@ int cmdSpRun(int argc, char** argv) {
         }
     }
     if (game.clientGameRunning()) {
-        const ef::Scene& scene = game.scene();
+        const q3::Scene& scene = game.scene();
         std::printf("last client frame: %zu scene entities, %zu polygons, %zu lights, %zu scenes rendered, %zu pictures\n",
                     scene.entities.size(), scene.polys.size(), scene.lights.size(), scene.views.size(),
                     game.pictures().size());
         std::map<std::string, int> byModel;
-        for (const ef::SceneEntity& e : scene.entities) {
+        for (const q3::SceneEntity& e : scene.entities) {
             const int32_t m = ef::SpGameHost::entityModel(e);
             ++byModel[m ? game.models().name(m) : std::string("(no model)")];
         }
         for (const auto& [name, count] : byModel)
             std::printf("  %3d x %s\n", count, name.c_str());
         std::map<std::string, int> byShader;
-        for (const ef::Picture& p : game.pictures())
+        for (const q3::Picture& p : game.pictures())
             ++byShader[game.shaders().name(p.shader)];
         for (const auto& [name, count] : byShader)
             std::printf("  picture %3d x %s\n", count, name.c_str());

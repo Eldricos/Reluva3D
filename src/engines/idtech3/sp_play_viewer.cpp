@@ -87,7 +87,7 @@ void SpPlayViewer::activate() {
     world_ = std::make_unique<WorldRenderer>(*renderer_, *shaders_);
     models_ = std::make_unique<ModelCache>(*renderer_, *shaders_, ctx_.files);
     applyVideoSettings(video, *shaders_, world_.get(), models_.get());
-    scene_ = std::make_unique<SceneDrawer>(*renderer_, *shaders_, *models_);
+    scene_ = std::make_unique<SceneDrawer>(*renderer_, *shaders_, *models_, eliteforce::kRefEntityLayout);
     ctx_.sys.setRelativeMouse(true);
     if (ctx_.mixer)
         soundSystem_ = std::make_unique<SoundSystem>(*ctx_.mixer, soundLibrary_);
@@ -1017,7 +1017,7 @@ void SpPlayViewer::update(uint64_t nowMs) {
         // Each scene over the pictures drawn before it, the rest (the HUD)
         // over them all, as the Play page draws.
         scene_->setHandles({&game_->models(), &game_->skins(), &game_->shaders()});
-        const eliteforce::Scene& scene = game_->scene();
+        const Scene& scene = game_->scene();
         const auto& pictures = game_->pictures();
         const bool dynamicLights = !cvars_.find("r_dynamiclight") || cvars_.integer("r_dynamiclight") != 0;
         size_t drawn = 0;

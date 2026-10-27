@@ -3,7 +3,8 @@
 
 #pragma once
 
-#include "engines/idtech3/eliteforce/scene.h"
+#include "engines/idtech3/client/ref_entity.h"
+#include "engines/idtech3/client/scene.h"
 #include "engines/idtech3/light_grid.h"
 #include "engines/idtech3/model_cache.h"
 #include "engines/idtech3/shader_cache.h"
@@ -27,41 +28,6 @@ namespace reluva::idtech3 {
 // menus' models).
 constexpr int32_t kNoWorldModel = 1;
 
-// refEntity_t: Quake III's 140 bytes, then 20 of Elite Force's own (see
-// eliteforce-syscalls.md). Its type (0: a model), render flags, model,
-// lighting origin, axes (forward, left, up), origin, frame, old frame
-// and how far back towards it, custom skin.
-namespace refent {
-constexpr size_t Type = 0, Flags = 4, Model = 8, LightingOrigin = 12, Axes = 28, Origin = 68, Frame = 80,
-                 OldFrame = 96, BackLerp = 100, SkinNum = 104, CustomSkin = 108;
-constexpr int32_t TypeModel = 0;
-// Elite Force's effect types, read from what its client game adds when
-// firing (see eliteforce-syscalls.md): a sprite facing the camera (1:
-// radius at 136, rotation in degrees at 132; its axes are left as they
-// were cleared), a quad in the entity's own axes (2: left and up, radius
-// at 136; the first axis faces out of what it lies on), a line from the
-// origin to the old origin (width at 132, the texture repeated along it as often as 140
-// says), and one tapering from the width at 132 to the one at 136.
-// More, from the other weapons: a cubic Bezier curve from the origin
-// through control points at 136 and 148 to the old origin (12), a ring
-// or cone round the first axis (13: radii at 132 and 136, height at 140,
-// 144 the texture's repeats round it), and electricity from the origin to
-// the old origin (14: width 132, jitter 136, texture scale 140).
-constexpr int32_t TypeSprite = 1, TypeQuad = 2, TypeLine = 9, TypeTaperedLine = 11, TypeCurve = 12,
-                  TypeCylinder = 13, TypeBolt = 14;
-// A mirror's or portal's camera (game-run -cgame on a map with a mirror:
-// origin and old origin the same, at the mirror; axes as cleared).
-constexpr int32_t TypePortal = 8;
-constexpr size_t OldOrigin = 84, CustomShader = 112, Rgba = 116, ShaderTime = 128, Rotation = 132, Radius = 136,
-                 Width = 132, EndWidth = 136, Repeat = 140, Control1 = 136, Control2 = 148, Jitter = 136,
-                 CylinderRepeat = 144;
-// Render flags (Quake III's): drawn only in mirrors and portals (the
-// player's own body); drawn in front of everything else, its depth kept
-// to the nearest 0.3 of the range (the player's weapon and its flash);
-// lit from the lighting origin.
-constexpr int32_t ThirdPerson = 2, FirstPerson = 4, DepthHack = 8, UseLightingOrigin = 0x80;
-constexpr float kDepthHackRange = 0.3f;
-} // namespace refent
 
 // Reading the structures the programs hand over, kept as bytes.
 int32_t readInt(const std::vector<uint8_t>& bytes, size_t at);
@@ -73,8 +39,9 @@ gfx::Vec3 readVec(const std::vector<uint8_t>& bytes, size_t at);
 // and lights, the level with it when the view has it.
 class SceneDrawer {
 public:
-    SceneDrawer(gfx::Renderer3D& renderer, ShaderCache& shaders, ModelCache& models)
-        : r_(renderer), shaders_(shaders), models_(models) {}
+    // `layout`: how the game lays out the entities it adds (kept).
+    SceneDrawer(gfx::Renderer3D& renderer, ShaderCache& shaders, ModelCache& models, const RefEntityLayout& layout)
+        : r_(renderer), shaders_(shaders), models_(models), layout_(layout) {}
     ~SceneDrawer();
     SceneDrawer(const SceneDrawer&) = delete;
     SceneDrawer& operator=(const SceneDrawer&) = delete;
@@ -94,7 +61,7 @@ public:
 
     // Pictures [first, last) over the frame, in the program's screen
     // (screenW x screenH, scaled to the frame); `time` in seconds.
-    void drawPictures(const std::vector<eliteforce::Picture>& pictures, size_t first, size_t last, int screenW,
+    void drawPictures(const std::vector<Picture>& pictures, size_t first, size_t last, int screenW,
                       int screenH, float time);
 
     // An RGBA image (cols x rows, rows top first) over (x, y, w, h) of the
@@ -115,7 +82,7 @@ public:
     // lights models without one. After beginFrame(); `firstView` says
     // whether depths are already clear. `time` in seconds is the shaders'
     // clock; dynamic lights only if `dynamicLights`.
-    void drawView(const eliteforce::Scene& scene, const eliteforce::View& view, int screenW, int screenH,
+    void drawView(const Scene& scene, const View& view, int screenW, int screenH,
                   float time, bool firstView, WorldRenderer* world, const LightGrid* grid, bool dynamicLights);
 
     // What the last view drew, for the info line.
@@ -128,12 +95,12 @@ public:
     const std::set<std::string>& unloadable() const { return unloadable_; }
 
 private:
-    void placeEntities(const eliteforce::Scene& scene, const eliteforce::View& view, const LightGrid& grid,
+    void placeEntities(const Scene& scene, const View& view, const LightGrid& grid,
                        float time);
     void addEffect(const std::vector<uint8_t>& entity, const gfx::Vec3& left, const gfx::Vec3& up, float time);
     void drawEffects(float time, float sortMin, float sortMax);
-    static std::array<float, 4> entityColor(const std::vector<uint8_t>& entity);
-    static float shaderTime(const std::vector<uint8_t>& entity, float time);
+    std::array<float, 4> entityColor(const std::vector<uint8_t>& entity) const;
+    float shaderTime(const std::vector<uint8_t>& entity, float time) const;
     int modelId(int32_t handle);
     // The level of detail to draw `model` at, where it is in the view.
     int lodLevel(int model, int frame, const gfx::Vec3& origin) const;
@@ -144,6 +111,7 @@ private:
     gfx::Renderer3D& r_;
     ShaderCache& shaders_;
     ModelCache& models_;
+    const RefEntityLayout& layout_;
     Handles handles_;
     std::map<int32_t, int> modelIds_; // the program's model handle -> models_ id (-1: can't load)
     std::vector<int> pictureMaterials_, effectMaterials_; // by shader handle; -2 not made yet

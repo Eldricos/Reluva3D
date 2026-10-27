@@ -10,7 +10,7 @@
 #include "engines/idtech3/bindings.h"
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
-#include "engines/idtech3/eliteforce/scene.h"
+#include "engines/idtech3/client/scene.h"
 #include "engines/idtech3/md3.h"
 #include "engines/idtech3/vm_services.h"
 

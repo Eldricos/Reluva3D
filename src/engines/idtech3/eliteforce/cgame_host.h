@@ -9,7 +9,7 @@
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/game_host.h"
-#include "engines/idtech3/eliteforce/scene.h"
+#include "engines/idtech3/client/scene.h"
 #include "engines/idtech3/marks.h"
 #include "engines/idtech3/md3.h"
 #include "engines/idtech3/qvm.h"
@@ -61,7 +61,7 @@ public:
     // GetServerCommand hands over, by sequence number from 1).
     void setServerCommands(std::vector<std::string> commands) { serverCommands_ = std::move(commands); }
     // Its 2D drawing since clearPictures() (the loading screen, the HUD).
-    using Picture = eliteforce::Picture;
+    using Picture = idtech3::Picture;
     const std::vector<Picture>& pictures() const { return pictures_; }
     void clearPictures() { pictures_.clear(); }
     // The weapon the client game last selected (SetUserCmdValue), which
@@ -75,9 +75,9 @@ public:
             userCommands_.erase(userCommands_.begin());
     }
     // A frame's 3D scene, as the client game hands it over (scene.h).
-    using SceneEntity = eliteforce::SceneEntity;
-    using View = eliteforce::View;
-    using Scene = eliteforce::Scene;
+    using SceneEntity = idtech3::SceneEntity;
+    using View = idtech3::View;
+    using Scene = idtech3::Scene;
     const Scene& scene() const { return scene_; }
     void clearScene() { scene_ = Scene{}; }
     // Where the client game asked for each snapshot (GetSnapshot's
