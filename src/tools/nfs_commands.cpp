@@ -25,6 +25,7 @@
 #include "engines/nfs/viv.h"
 
 #include <algorithm>
+#include <cmath>
 #include <atomic>
 #include <cctype>
 #include <chrono>
@@ -70,6 +71,7 @@ const char* const kUsageLines =
     "                       (keys: enter, up, a..., click, moveDX/DY) [-framelog frames.csv]\n"
     "                       [-timescale 0.1] [-thrashlog fromframe toframe] [-native] [-wav sound.wav]\n"
     "                       [-joystick name] (keys also joy:A=V...: axes 0-5 = V, button bB; +key/-key held)\n"
+    "                       [-wheel] [-ff] (the joystick a wheel; with force feedback) [-forcelog forces.csv]\n"
     "                       [-hotspots from to] (instructions counted by where they run, 16-byte blocks)\n"
     "                       [-gpulog] (THRASH recorded as for the GPU; each frame's list summed up)\n"
     "  reluva-tool nfs-survey <folder>... [-v]\n"
@@ -966,6 +968,7 @@ int cmdNfsHost(int argc, char** argv) {
     uint64_t hotFrom = 0, hotTo = 0;         // instructions counted by where they run, over this range
     bool gpuLog = false;
     std::string framesDir;
+    std::string forceLogFile; // the forces the game asks for, each time they change, as CSV
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
         if (arg == "-args" && a + 1 < argc)
@@ -1002,6 +1005,12 @@ int cmdNfsHost(int argc, char** argv) {
             gpuLog = true;
         } else if (arg == "-joystick" && a + 1 < argc)
             options.joystick = argv[++a];
+        else if (arg == "-wheel")
+            options.joystickWheel = true;
+        else if (arg == "-ff")
+            options.forceFeedback = true;
+        else if (arg == "-forcelog" && a + 1 < argc)
+            forceLogFile = argv[++a];
         else if (arg == "-keys" && a + 1 < argc)
             keyScript = argv[++a];
         else if (arg == "-slice" && a + 1 < argc)
@@ -1021,7 +1030,27 @@ int cmdNfsHost(int argc, char** argv) {
     host.log = [](const std::string& line) { std::printf("%s\n", line.c_str()); };
     // Frames shown: every so many written as pictures.
     int shown = 0;
+    // The forces, as each frame finds them: a row whenever they change.
+    std::string forceCsv = "ms,constant,spring,centre,saturation,damper,vibration,period,square,autocentre\n";
+    reluva::GamepadForce lastForce;
+    int forceChanges = 0;
+    float strongestPush = 0, strongestVibration = 0;
     host.onFrame = [&](const reluva::Surface& frame) {
+        if (options.forceFeedback) {
+            const reluva::GamepadForce f = host.gamepadForce();
+            if (!(f == lastForce) || forceChanges == 0) {
+                char row[200];
+                std::snprintf(row, sizeof row, "%llu,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%u,%d,%d\n",
+                              (unsigned long long)host.process().now(), f.constant, f.spring, f.springCentre,
+                              f.springSaturation, f.damper, f.vibration, f.vibrationPeriodMs, int(f.vibrationSquare),
+                              int(f.autoCentre));
+                forceCsv += row;
+                ++forceChanges;
+                lastForce = f;
+                strongestPush = std::max(strongestPush, std::fabs(f.constant));
+                strongestVibration = std::max(strongestVibration, f.vibration);
+            }
+        }
         if (framesDir.empty() || shown++ % every)
             return;
         reluva::image::Image img;
@@ -1065,6 +1094,8 @@ int cmdNfsHost(int argc, char** argv) {
     if (slice)
         host.process().slice = slice;
     reluva::GamepadState pad; // the joystick's state, as the script sets it
+    pad.wheel = options.joystickWheel;
+    pad.forceFeedback = options.forceFeedback;
     for (size_t at = 0; at < keyScript.size();) {
         const size_t comma = keyScript.find(',', at);
         const std::string item = keyScript.substr(at, comma == std::string::npos ? std::string::npos : comma - at);
@@ -1149,6 +1180,12 @@ int cmdNfsHost(int argc, char** argv) {
                 std::printf(" %llus:%d", (unsigned long long)second, n);
             std::printf("\n");
         }
+    }
+    if (options.forceFeedback) {
+        std::printf("forces: %d changes, the strongest push %.2f, the strongest vibration %.2f\n", forceChanges,
+                    strongestPush, strongestVibration);
+        if (!forceLogFile.empty())
+            writeFile(forceLogFile, std::vector<uint8_t>(forceCsv.begin(), forceCsv.end()));
     }
     const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
     if (err) {

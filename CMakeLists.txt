@@ -199,6 +199,7 @@ if(RELUVA_ENGINE_NFS)
         src/engines/nfs/media_viewer.cpp
         src/engines/nfs/host/game_host.cpp
         src/engines/nfs/host/directx.cpp
+        src/engines/nfs/host/force_effects.cpp
         src/engines/nfs/host/thrash.cpp
         src/engines/nfs/host/thrash_native.cpp
         src/engines/nfs/fce.cpp
@@ -219,6 +220,7 @@ target_link_libraries(reluva_engines PUBLIC reluva_common PRIVATE reluva_warning
 add_executable(reluva
     src/main.cpp
     src/backends/sdl3/sdl_system.cpp
+    src/backends/sdl3/sdl_controller.cpp
     src/backends/sdl3/sdl_gpu.cpp
     src/backends/sockets/socket_net.cpp
     src/launcher/launcher.cpp)
@@ -244,6 +246,18 @@ if(RELUVA_BUILD_TESTS)
     target_link_libraries(reluva_tests PRIVATE reluva_common reluva_warnings)
     target_include_directories(reluva_tests PRIVATE tests)
     add_test(NAME common COMMAND reluva_tests)
+
+    # The SDL backend's game controllers, on SDL's virtual joysticks.
+    add_executable(reluva_sdl_tests tests/test_sdl_controller.cpp
+        src/backends/sdl3/sdl_system.cpp
+        src/backends/sdl3/sdl_controller.cpp
+        src/backends/sdl3/sdl_gpu.cpp
+        src/backends/sockets/socket_net.cpp)
+    target_link_libraries(reluva_sdl_tests PRIVATE reluva_common SDL3::SDL3 reluva_warnings)
+    if(WIN32)
+        target_link_libraries(reluva_sdl_tests PRIVATE ws2_32 iphlpapi)
+    endif()
+    add_test(NAME sdl_controller COMMAND reluva_sdl_tests)
 
     if(RELUVA_ENGINE_NEWWORLDS)
         add_executable(reluva_newworlds_tests tests/test_newworlds_cat.cpp)

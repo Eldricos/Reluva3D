@@ -76,7 +76,9 @@ struct Event {
 };
 
 // A game controller's state, as System::readGamepad gives it: SDL's
-// gamepad layout (an Xbox-style pad).
+// gamepad layout (an Xbox-style pad). A racing wheel comes the same way:
+// the wheel as the left stick's X, the brake and accelerator as the
+// triggers, its buttons as the pad's.
 struct GamepadState {
     // Sticks -1..1 (left X, left Y, right X, right Y; +Y down), then the
     // triggers 0..1 (left, right).
@@ -84,6 +86,25 @@ struct GamepadState {
     // A bit for each GamepadButton held.
     uint32_t buttons = 0;
     std::string name;
+    bool wheel = false;         // a racing wheel
+    bool forceFeedback = false; // it can be given forces (a wheel's motor) or rumble (System::setGamepadForce)
+};
+
+// The forces a game controller is to give (System::setGamepadForce), as
+// DirectInput and SDL's haptics describe them, along X (a wheel's turn, a
+// stick's left and right). A force's sign is the side it comes from: +1
+// from the right, pushing to the left. Gains are applied already.
+struct GamepadForce {
+    float constant = 0;        // -1..1: a steady push
+    float spring = 0;          // 0..1: how hard it's pulled to springCentre
+    float springCentre = 0;    // -1..1
+    float springSaturation = 1; // 0..1: the most the spring pulls with
+    float damper = 0;          // 0..1: resisting being moved, by how fast
+    float vibration = 0;       // 0..1: a periodic push, back and forth
+    uint32_t vibrationPeriodMs = 0;
+    bool vibrationSquare = false; // a square wave, else a sine
+    bool autoCentre = false;      // the device's own centring spring (DirectInput's DIPROP_AUTOCENTER)
+    bool operator==(const GamepadForce&) const = default;
 };
 enum GamepadButton {
     PadSouth, PadEast, PadWest, PadNorth, PadBack, PadGuide, PadStart, PadLeftStick, PadRightStick,

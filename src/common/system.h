@@ -57,10 +57,19 @@ public:
     virtual void setRelativeMouse(bool on) { (void)on; }
     // The first game controller connected, if any: false when there's none.
     // From the engine's thread.
+    // A racing wheel counts too, when no pad is connected (see GamepadState).
     virtual bool readGamepad(GamepadState& out) {
         (void)out;
         return false;
     }
+    // The forces the controller readGamepad gives is to give, until called
+    // again: a wheel's motor, or a pad's rumble (roughly: its pushes and
+    // vibration). A GamepadForce{} stops them.
+    virtual void setGamepadForce(const GamepadForce& force) { (void)force; }
+    // A wheel SDL has no layout for: which of its axes are the accelerator
+    // and brake (-1 for either: the first two, after the wheel, that rest at
+    // an end of their travel).
+    virtual void setWheelPedals(int accelerator, int brake) { (void)accelerator, (void)brake; }
     // The window for a game's video mode: the whole screen, or a window of
     // width x height (when it fits on the screen; the frame is letterboxed
     // in whatever size the window is).

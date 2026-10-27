@@ -588,10 +588,11 @@ Started. Done so far:
   hardly changes.
 
 - **Joysticks.** A game controller connected when the game starts is
-  offered to it as a DirectInput joystick, under the pad's own name
-  (`System::readGamepad`, SDL's gamepads). The game sets DirectInput's
-  standard joystick format (`c_dfDIJoystick`, read from its own data),
-  then asks for each object by its offset. It is offered:
+  offered to it as a DirectInput joystick, under the controller's own name
+  (`System::readGamepad`: SDL's gamepads, or else a racing wheel). The
+  game sets DirectInput's standard joystick format (`c_dfDIJoystick`, read
+  from its own data), then asks for each object by its offset. It is
+  offered:
   - X and Y, the left stick;
   - Z, the triggers (left one way, right the other, centred at rest);
   - Rx and Ry, the right stick;
@@ -599,15 +600,98 @@ Started. Done so far:
   - twelve buttons.
 
   Axis ranges are as the game sets them (`DIPROP_RANGE`), with a 10%
-  dead zone. With a joystick there, the game binds its controls to it
-  (steering on X, accelerate and brake on Y, the rest on buttons). It
-  then reads the keyboard only for what's bound to it, as on Windows
-  with a joystick plugged in. `joystick=off` in the game's section of
-  `reluva.ini` leaves the pad out.
+  dead zone. The game then reads the keyboard only for what's bound to
+  the joystick, as on Windows with one plugged in. `joystick=off` in the
+  game's section of `reluva.ini` leaves the controller out.
+
+  The game sorts a joystick into a kind by its DirectInput subtype (the
+  `EnumDevices` callback at 0x436980, `dwDevType`'s second byte): a
+  gamepad (4) is kind 4, a wheel (6) kind 2, any other joystick kind 1.
+  Force feedback (`DIDC_FORCEFEEDBACK` from `GetCapabilities`) adds 8. Its
+  default bindings come from the kind (0x4904f0), unless the name is one
+  of the seven it knows (0x490640: SideWinder pads and wheel, WingMan
+  Force, CH stick and wheel, Gravis GrIP), which have tables of their own:
+  - a gamepad: steering on X, accelerate and brake on the first two
+    buttons, the rest on buttons (0x490cb0);
+  - a wheel or a joystick: steering on X, accelerate and brake on Y,
+    accelerate forward (0x490e30, 0x490fa0).
+
+  Those layouts apply when the bindings are reset; until then they're
+  the ones saved in `config.dat`, which in the install are already
+  steering on X and the pedals on Y. A gamepad's axes are read as on
+  or off whatever they're bound to (0x43c000 makes any axis binding of
+  a kind-4 device digital): with one offered as a gamepad, the stick
+  pushed forward didn't move the car. So a pad is offered as a plain
+  joystick (`DIDEVTYPEJOYSTICK_TRADITIONAL`), its sticks and triggers
+  analog. Pushing the stick forward drove the car to 48 mph, and the
+  game's Controllers screen can bind the triggers' Z axis instead.
+  (The stand-in used to report a rudder, subtype 5, by mistake, which
+  the game took the same way.)
 
   `nfs-host -joystick name` offers one, and its key scripts set its
-  state (`ms:joy:1=-1`). With the stick pushed forward, the car drove off
-  at 49 mph. No real pad was tried; the container has none.
+  state (`ms:joy:1=-1` for an axis, `ms:joy:b0=1` for a button).
+- **Wheels.** A wheel is offered as one (`DIDEVTYPEJOYSTICK_WHEEL`). Its
+  pedals go together on Y, as wheels gave them then and as the game's
+  wheel bindings expect: the accelerator pushes Y up (forward), the brake
+  down. SDL reports some wheels as gamepads, with the pedals as the
+  triggers. Others are only joysticks of SDL's wheel type; for those, the
+  backend (`sdl_controller.cpp`) reads:
+  - the wheel from the first axis;
+  - the pedals from the first two axes after it found resting at an end
+    of their travel (pressed, a pedal moves to the other end);
+  - its buttons in order, and its hat as the d-pad.
+
+  `wheelpedals=2,3` in the game's section of `reluva.ini` names the
+  accelerator's and brake's axes instead, for a wheel whose clutch would
+  be taken for one. `nfs-host -wheel` offers the joystick as a wheel:
+  with the accelerator down (`joy:5=1`) the car drove to 67 mph.
+- **Force feedback.** With a controller that can give forces (SDL
+  haptics, or a pad's rumble), the joystick reports force feedback.
+  - **What the game does.** Found by offering it and logging the calls.
+    It resets the device (`SendForceFeedbackCommand`), sets the gain
+    (`DIPROP_FFGAIN`), then creates four effects:
+    - a constant force: jolts in collisions, up to 0.75, from either side;
+    - a square wave: rumble at impacts and off the road, up to 0.38,
+      with periods of 76 to 166 ms;
+    - a sine: the engine, at 0.06, its period following the revs (83 ms
+      at idle, down to 40 ms);
+    - a spring: the wheel's centring, 0.71 at a standstill and 0.56 when
+      moving.
+
+    It changes them as the race goes (`SetParameters` with
+    `DIEP_TYPESPECIFICPARAMS`). To a joystick rather than a wheel (a
+    pad, as offered), it plays only the pushes and the spring: no
+    vibrations, so a pad's rumble gives the collisions alone. Its Force Feedback screen has settings
+    for stick volume, road effects, collisions, engine, body roll and
+    road grip; they weren't tried.
+  - **The stand-in.** It does DirectInput's side: `IDirectInputEffect`
+    objects for the constant, ramp, periodic and condition effects. Each
+    reads `DIEFFECT` and its type-specific parameters
+    (`host/force_effects.h`: duration, gain, start delay, axes, direction
+    in cartesian, polar or spherical form, envelope). `EnumEffects`,
+    `GetEffectInfo`, `GetForceFeedbackState`, the device commands and
+    `DIPROP_AUTOCENTER` are done too.
+  - **What reaches the controller.** At any moment, what the playing
+    effects add up to along X (`sumForces`) is one `GamepadForce`: a
+    push, a spring, a damper and a vibration, in DirectInput's units and
+    sign convention (the side a force comes from), which SDL's haptics
+    share. The Play page passes it to the system when it changes
+    (`System::setGamepadForce`).
+    - On a wheel with haptics, the backend keeps an SDL effect of each
+      kind running for ever and updates it: constant, spring, damper,
+      sine or square, and auto-centring.
+    - On a pad, the push goes to the heavy motor; the vibration goes to
+      the light motor if its period is under 50 ms, else to the heavy
+      one.
+
+    `forcefeedback=off` in `reluva.ini` leaves it out.
+
+  Checked with `nfs-host -ff -forcelog forces.csv`, which records the
+  forces at each frame, on a race into a fence: the figures above are
+  from it. The backend was checked on SDL's virtual joysticks
+  (`tests/test_sdl_controller.cpp`): a wheel's axes, pedals and buttons,
+  and a pad's rumble. No real wheel or pad was tried (the container has
+  none), so how the forces feel is untested.
 - **The game's Controllers screen.** Accelerate was rebound to W
   there, and in the race that followed, holding W drove the car to 50
   mph.
@@ -657,10 +741,9 @@ Started. Done so far:
 
 Still to do:
 
-- **Wheels and force feedback.** A wheel shows as a pad; the force
-  feedback the game asks of the wheels it knows isn't stood in for.
-- **Played by hand** on a real GPU with speakers. So far it's been
-  checked on software Vulkan, driven by scripts.
+- **Played by hand** on a real GPU with speakers, a pad and a wheel. So
+  far it's been checked on software Vulkan and virtual controllers,
+  driven by scripts.
 - **Later: network play** (WSOCK32) to other Reluva players.
 - **Not planned:** d3da (see above) and the Glide renderers, which the
   native and GPU drawing make unneeded.

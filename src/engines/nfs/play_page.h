@@ -32,9 +32,13 @@ public:
     // with bilinear filtering if `smoothTextures` (else point-sampled, as
     // the software renderer).
     // A game controller connected at the start is offered to the game as a
-    // joystick unless `offerJoystick` is false.
+    // joystick unless `offerJoystick` is false: a wheel as a wheel, with
+    // the forces the game asks for (force feedback, or a pad's rumble)
+    // unless `forceFeedback` is false. `wheelPedals` ("accelerator,brake",
+    // axis numbers) is for a wheel SDL has no layout for.
     PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer* mixer, int renderScale = 2,
-             bool smoothTextures = false, bool offerJoystick = true);
+             bool smoothTextures = false, bool offerJoystick = true, bool forceFeedback = true,
+             std::string wheelPedals = {});
     ~PlayPage() override;
     const char* name() const override { return "Play"; }
     bool capturesEscape() const override { return true; }
@@ -52,6 +56,10 @@ private:
     void say(const std::string& line);
     // The game controller's state passed on to the game, when it changes.
     void pollGamepad();
+    // The forces the game's effects add up to, passed on when they change;
+    // stopped when the page is left or the game ends.
+    void passForces();
+    void stopForces();
     // The title, how the run is going and the log's last lines (mutex_ held).
     void drawStatus(Surface& screen);
 
@@ -64,6 +72,10 @@ private:
     System* sys_ = nullptr;
     GamepadState pad_;       // as last passed on
     bool offerJoystick_ = true;
+    bool forceFeedback_ = true;
+    std::string wheelPedals_;
+    GamepadForce force_;     // as last passed on
+    bool forceShown_ = false;
     bool padOffered_ = false; // a joystick offered to the game at its start
     bool mouseKnown_ = false;
     int mouseX_ = 0, mouseY_ = 0;

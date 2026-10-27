@@ -63,9 +63,9 @@ std::string keyName(uint32_t k) {
 } // namespace
 
 PlayPage::PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer* mixer, int renderScale,
-                   bool smoothTextures, bool offerJoystick)
+                   bool smoothTextures, bool offerJoystick, bool forceFeedback, std::string wheelPedals)
     : folders_(std::move(folders)), saveFolder_(std::move(saveFolder)), mixer_(mixer), offerJoystick_(offerJoystick),
-      renderScale_(std::clamp(renderScale, 1, 4)) {
+      forceFeedback_(forceFeedback), wheelPedals_(std::move(wheelPedals)), renderScale_(std::clamp(renderScale, 1, 4)) {
     gpuDraw_.scale = renderScale_;
     gpuDraw_.nearest = !smoothTextures;
     // A debugging aid: the GPU's frames written beside the software
@@ -79,6 +79,7 @@ PlayPage::PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio:
 }
 
 PlayPage::~PlayPage() {
+    stopForces();
     if (mixer_ && sound_ != audio::kNoSound)
         mixer_->stop(sound_); // the stream reads the host's memory
     if (host_)
@@ -113,7 +114,32 @@ void PlayPage::activate(System& sys) {
         start();
 }
 
-void PlayPage::deactivate() { gpuDraw_.setRenderer(nullptr); }
+void PlayPage::deactivate() {
+    gpuDraw_.setRenderer(nullptr);
+    stopForces();
+}
+
+void PlayPage::stopForces() {
+    if (sys_ && forceShown_)
+        sys_->setGamepadForce({});
+    force_ = {};
+    forceShown_ = false;
+}
+
+void PlayPage::passForces() {
+    if (!padOffered_ || !pad_.forceFeedback || !forceFeedback_ || !sys_ || !host_)
+        return;
+    if (!running_) {
+        stopForces();
+        return;
+    }
+    const GamepadForce f = host_->gamepadForce();
+    if (forceShown_ && f == force_)
+        return;
+    sys_->setGamepadForce(f);
+    force_ = f;
+    forceShown_ = true;
+}
 
 void PlayPage::start() {
     if (host_)
@@ -128,9 +154,18 @@ void PlayPage::start() {
     options.gpuAndSoftware = gpu_ && !compareFolder_.empty();
     // A controller connected now is offered to the game as a joystick (it
     // looks for them once, as it starts).
-    if (offerJoystick_ && sys_ && sys_->readGamepad(pad_)) {
-        options.joystick = pad_.name.empty() ? "Gamepad" : pad_.name;
-        padOffered_ = true;
+    // A wheel as one (its pedals together on Y), and its forces if it can
+    // give them (force feedback, or a pad's rumble).
+    if (offerJoystick_ && sys_) {
+        int accelerator = -1, brake = -1;
+        if (std::sscanf(wheelPedals_.c_str(), "%d,%d", &accelerator, &brake) == 2)
+            sys_->setWheelPedals(accelerator, brake);
+        if (sys_->readGamepad(pad_)) {
+            options.joystick = pad_.name.empty() ? (pad_.wheel ? "Wheel" : "Gamepad") : pad_.name;
+            options.joystickWheel = pad_.wheel;
+            options.forceFeedback = pad_.forceFeedback && forceFeedback_;
+            padOffered_ = true;
+        }
     }
     host_ = std::make_unique<GameHost>(folders_, options);
     host_->log = [this](const std::string& line) { say(line); };
@@ -285,6 +320,7 @@ void PlayPage::drawStatus(Surface& screen) {
 
 void PlayPage::update(uint64_t) {
     pollGamepad();
+    passForces();
     std::deque<Pending> frames;
     Surface overlay;
     bool thrash = false;

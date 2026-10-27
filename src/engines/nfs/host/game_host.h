@@ -8,6 +8,7 @@
 #include "common/x86/cpu.h"
 #include "common/x86/win32.h"
 #include "engines/nfs/folders.h"
+#include "engines/nfs/host/force_effects.h"
 #include "engines/nfs/host/thrash_native.h"
 
 #include <cstdint>
@@ -56,6 +57,11 @@ public:
         // A joystick offered to the game by this name (DirectInput's
         // devices, as enumerated at start-up); none if empty.
         std::string joystick;
+        // It's a racing wheel (DirectInput's wheel, its pedals together on
+        // Y); it can give forces (DirectInput's force feedback effects,
+        // gamepadForce()).
+        bool joystickWheel = false;
+        bool forceFeedback = false;
     };
     GameHost(GameFolders folders, Options options);
     ~GameHost();
@@ -117,6 +123,9 @@ public:
     // The joystick's state (Options::joystick), from any thread, applied
     // once the game's clock reaches `atMs` (0: at once).
     void setJoystick(const GamepadState& state, uint64_t atMs = 0);
+    // What the force feedback effects the game plays add up to now
+    // (Options::forceFeedback), from any thread.
+    GamepadForce gamepadForce();
 
     // What the game's sound buffers play, as a stream for the mixer
     // (thread-safe; the host must outlive it while it plays).
@@ -203,6 +212,18 @@ private:
     // Each axis's range (DIPROP_RANGE), by its offset in DIJOYSTATE / 4.
     std::array<std::pair<int32_t, int32_t>, 8> axisRange_{};
     void joystickState(x86::Cpu& c, uint32_t to, uint32_t size);
+    uint32_t joystickType() const; // DIDEVTYPE
+    // Fills a DIEFFECTINFOA for the effect with that GUID; its DIEFT type.
+    uint32_t effectInfo(x86::Cpu& c, uint32_t at, uint32_t guidData1);
+    void addForceEffects(const std::function<std::vector<Method>(const std::string&, std::function<bool(uint32_t)>)>& unknown);
+    // Force feedback: the effects by object, the device's gain
+    // (DIPROP_FFGAIN), auto-centring (DIPROP_AUTOCENTER), and whether
+    // SendForceFeedbackCommand has paused them or turned the motors off.
+    std::mutex forceMutex_;
+    std::map<uint32_t, DiEffect> effects_;
+    uint32_t forceGain_ = 10000;
+    bool autoCentre_ = true, forcePaused_ = false, actuatorsOff_ = false;
+    uint32_t effectVtable_ = 0;
     int mouseDx_ = 0, mouseDy_ = 0;
     bool mouseButton_ = false;
     uint32_t keyboardEvent_ = 0, mouseEvent_ = 0; // SetEventNotification's handles

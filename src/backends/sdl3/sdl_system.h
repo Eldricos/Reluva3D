@@ -43,6 +43,8 @@ public:
     void setVideoMode(int width, int height, bool fullscreen) override;
     void setRelativeMouse(bool on) override;
     bool readGamepad(GamepadState& out) override;
+    void setGamepadForce(const GamepadForce& force) override;
+    void setWheelPedals(int accelerator, int brake) override;
     uint64_t getMillis() const override;
     void delayMillis(uint32_t ms) override;
     Error startAudio(AudioCallback callback) override;
@@ -58,7 +60,11 @@ private:
     void release3D();
 
     SDL_Window* window_ = nullptr;
-    SDL_Gamepad* gamepad_ = nullptr; // the first connected, opened when asked for
+    // The controller (sdl_controller.cpp): the first pad connected, or else
+    // the first wheel, opened when asked for; its forces.
+    struct Controller;
+    std::unique_ptr<Controller> controller_;
+    void closeController();
     bool relativeMouse_ = false; // held by setRelativeMouse, held again when the window changes
     SDL_Renderer* renderer_ = nullptr;
     SDL_GPUDevice* gpu_ = nullptr; // set when renderer_ runs on SDL's GPU API, which 3D needs

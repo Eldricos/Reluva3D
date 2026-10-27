@@ -13,6 +13,7 @@
 #include "engines/nfs/fsh.h"
 #include "engines/nfs/game_files.h"
 #include "engines/nfs/hrz.h"
+#include "engines/nfs/host/force_effects.h"
 #include "engines/nfs/mad.h"
 #include "engines/nfs/mus.h"
 #include "engines/nfs/games.h"
@@ -21,6 +22,8 @@
 #include "engines/nfs/viv.h"
 
 #include <algorithm>
+#include <cmath>
+#include <map>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -1208,6 +1211,113 @@ void testMovie() {
 
 } // namespace
 
+// DirectInput effects as the game would set them, in a little memory of
+// their own: DIEFFECT read, and what playing effects add up to.
+void testForceEffects() {
+    std::map<uint32_t, uint32_t> memory;
+    auto read32 = [&](uint32_t a) { return memory.count(a) ? memory[a] : 0u; };
+    // A DIEFFECT at 0x100 (56 bytes): object offsets, cartesian, half a
+    // second, gain 8000, on X alone, coming from -X; its DICONSTANTFORCE at
+    // 0x200 and an envelope at 0x300.
+    auto effect = [&](uint32_t flags, uint32_t axes, uint32_t typeBytes) {
+        memory[0x100] = 56;
+        memory[0x104] = flags;
+        memory[0x108] = 500000;
+        memory[0x110] = 8000;
+        memory[0x11c] = axes;
+        memory[0x120] = 0x180; // rgdwAxes
+        memory[0x124] = 0x190; // rglDirection
+        memory[0x128] = 0;
+        memory[0x12c] = typeBytes;
+        memory[0x130] = 0x200;
+        memory[0x134] = 0;
+    };
+    effect(0x2 | 0x10, 1, 4);
+    memory[0x180] = 0;                  // X, by offset
+    memory[0x190] = uint32_t(-1);       // from -X
+    memory[0x200] = 5000;               // magnitude
+    DiEffect push;
+    CHECK(DiEffect::kindOf(0x13541c20, push.kind) && push.kind == DiEffect::Constant);
+    CHECK(!DiEffect::kindOf(0x6f1d2b60, push.kind));
+    push.set(read32, 0x100, 0x3ff);
+    CHECK(push.durationUs == 500000 && push.gain == 8000 && push.xAxis == 0 && push.magnitude == 5000);
+    CHECK(push.alongX() == -1.0f);
+    // Not playing: nothing. Playing, with the device at half gain:
+    // 5000/10000 x 0.8 x 0.5, from -X.
+    CHECK(sumForces({&push}, 10000, 1000).constant == 0);
+    push.playing = true;
+    push.startedMs = 1000;
+    GamepadForce f = sumForces({&push}, 5000, 1200);
+    CHECK(std::fabs(f.constant + 0.2f) < 1e-4f);
+    // Done after its half second (one iteration); for ever with infinite.
+    CHECK(sumForces({&push}, 10000, 1500).constant == 0);
+    push.iterations = DiEffect::kInfinite;
+    CHECK(sumForces({&push}, 10000, 9000).constant != 0);
+    push.iterations = 1;
+
+    // An envelope: attack from 0 over 0.1 s, so halfway through it half.
+    memory[0x128] = 0x300;
+    memory[0x300] = 20;
+    memory[0x304] = 0;
+    memory[0x308] = 100000;
+    push.set(read32, 0x100, 0x80); // DIEP_ENVELOPE alone
+    CHECK(push.envelope && push.attackUs == 100000);
+    f = sumForces({&push}, 10000, 1050);
+    CHECK(std::fabs(f.constant + 0.2f) < 1e-3f); // -(5000/2)/10000 x 0.8
+
+    // Two axes, polar, from the east (90 degrees): all of it along +X.
+    effect(0x2 | 0x20, 2, 4);
+    memory[0x180] = 0;
+    memory[0x184] = 4;
+    memory[0x190] = 9000;
+    DiEffect polar;
+    polar.set(read32, 0x100, 0x3ff);
+    CHECK(polar.axisCount == 2 && std::fabs(polar.alongX() - 1.0f) < 1e-4f);
+    // On Y alone: none of it along X.
+    effect(0x2 | 0x10, 1, 4);
+    memory[0x180] = 4;
+    DiEffect onY;
+    onY.set(read32, 0x100, 0x3ff);
+    CHECK(onY.xAxis == -1 && onY.alongX() == 0);
+
+    // A sine (DIPERIODIC: magnitude, offset, phase, period in us) and a
+    // spring (DICONDITION), as the game makes them for the engine and the
+    // wheel's centring.
+    effect(0x2 | 0x10, 1, 16);
+    memory[0x180] = 0;
+    memory[0x190] = 1;
+    memory[0x200] = 3000;
+    memory[0x204] = 0;
+    memory[0x20c] = 83000;
+    DiEffect sine;
+    sine.kind = DiEffect::Sine;
+    sine.set(read32, 0x100, 0x3ff);
+    sine.playing = true;
+    sine.durationUs = DiEffect::kInfinite;
+    effect(0x2 | 0x10, 1, 24);
+    memory[0x200] = 1000;   // offset
+    memory[0x204] = 7000;   // + coefficient
+    memory[0x208] = 7000;   // - coefficient
+    memory[0x20c] = 9500;   // + saturation
+    memory[0x210] = 9500;
+    DiEffect spring;
+    spring.kind = DiEffect::Spring;
+    spring.set(read32, 0x100, 0x3ff);
+    spring.playing = true;
+    spring.durationUs = DiEffect::kInfinite;
+    f = sumForces({&sine, &spring}, 10000, 5000);
+    CHECK(std::fabs(f.vibration - 0.24f) < 1e-4f && f.vibrationPeriodMs == 83 && !f.vibrationSquare);
+    CHECK(std::fabs(f.spring - 0.56f) < 1e-4f && std::fabs(f.springCentre - 0.1f) < 1e-4f &&
+          std::fabs(f.springSaturation - 0.95f) < 1e-4f);
+    CHECK(f.constant == 0 && f.damper == 0);
+    // SetParameters with only the type-specific part keeps the rest.
+    memory[0x204] = 2000;
+    memory[0x208] = 2000;
+    memory[0x108] = 1;
+    spring.set(read32, 0x100, 0x100);
+    CHECK(spring.durationUs == DiEffect::kInfinite && spring.positiveCoefficient == 2000);
+}
+
 int main() {
     const stdfs::path tmp = stdfs::temp_directory_path() / "reluva_nfs_tests";
     stdfs::remove_all(tmp);
@@ -1227,6 +1337,7 @@ int main() {
     testSoundBank();
     testMusic();
     testMovie();
+    testForceEffects();
     stdfs::remove_all(tmp);
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);

@@ -8,7 +8,8 @@
 // - DirectDraw: the display, and surfaces in emulated memory that the
 //   renderer DLL locks and draws into; a flip of the primary surface shows
 //   a frame (onFrame).
-// - DirectInput: the keyboard and mouse.
+// - DirectInput: the keyboard, the mouse and a joystick, with force
+//   feedback effects (force_effects.h) when the controller can give them.
 // - DirectSound: buffers the sound DLL fills, played in time (their
 //   positions move as they would) but not heard yet.
 
@@ -65,7 +66,7 @@ void writeDesc(Cpu& c, uint32_t p, int w, int h, int bits, int pitch, uint32_t m
 // describes a pad's objects in DIJOYSTATE (c_dfDIJoystick, the data format
 // the game sets): five axes (X and Y the left stick, Z the triggers, Rx
 // and Ry the right stick), a hat (the d-pad) and twelve buttons.
-constexpr uint32_t kJoystickInstance = 0x52e1a000, kJoystickProduct = 0x52e1a001; // Reluva's own
+constexpr uint32_t kJoystickInstance = 0x52e1a000, kJoystickProduct = 0x52e1a001, kJoystickFFDriver = 0x52e1a002; // Reluva's own
 constexpr int kJoystickAxes = 5, kJoystickButtons = 12;
 constexpr uint32_t kPovOffset = 32, kButtonsOffset = 48, kJoyStateSize = 80;
 // DirectInput's GUID_XAxis... (all A36D02xx-C9F3-11CF-BFC7-444553540000).
@@ -554,16 +555,25 @@ void GameHost::addDirectX() {
         std::vector<Method> m = unknown("IDirectInputDevice(" + kind + ")");
         auto add = [&](const char* n, int args, std::function<uint32_t(Cpu&)> fn = {}) { m.push_back({n, args, fn}); };
         // DIDEVCAPS: attached, a gamepad, its axes, buttons and hats.
-        add("GetCapabilities", 2, [kind](Cpu& c) {
+        // With force feedback (DIDC_FORCEFEEDBACK), its timings in
+        // microseconds: samples every millisecond.
+        add("GetCapabilities", 2, [this, kind](Cpu& c) {
             const uint32_t p = c.arg(1), size = c.read32(p);
             for (uint32_t o = 4; o + 4 <= size && o < 44; o += 4)
                 c.write32(p + o, 0);
             c.write32(p + 4, 1); // DIDC_ATTACHED
             if (kind == "joystick") {
-                c.write32(p + 8, 4 | 5 << 8); // DIDEVTYPE_JOYSTICK, a gamepad
+                c.write32(p + 8, joystickType());
                 c.write32(p + 12, kJoystickAxes);
                 c.write32(p + 16, kJoystickButtons);
                 c.write32(p + 20, 1);
+                if (options_.forceFeedback) {
+                    c.write32(p + 4, 1 | 0x100);
+                    if (size >= 32) {
+                        c.write32(p + 24, 1000);
+                        c.write32(p + 28, 1000);
+                    }
+                }
             }
             return kOk;
         });
@@ -588,10 +598,20 @@ void GameHost::addDirectX() {
             }
             return kOk;
         });
+        // ... and the force feedback gain (DIPROP_FFGAIN, 7) and
+        // auto-centring (DIPROP_AUTOCENTER, 9), DIPROPDWORDs.
         add("SetProperty", 3, [this, kind, axes](Cpu& c) {
             if (kind == "joystick" && c.arg(1) == 4)
                 for (size_t a : axes(c))
                     axisRange_[a] = {int32_t(c.read32(c.arg(2) + 16)), int32_t(c.read32(c.arg(2) + 20))};
+            if (kind == "joystick" && (c.arg(1) == 7 || c.arg(1) == 9)) {
+                std::lock_guard<std::mutex> lock(forceMutex_);
+                const uint32_t value = c.read32(c.arg(2) + 16);
+                if (c.arg(1) == 7)
+                    forceGain_ = std::min<uint32_t>(value, 10000);
+                else
+                    autoCentre_ = value != 0;
+            }
             return kOk;
         });
         add("Acquire", 1, ok);
@@ -658,7 +678,9 @@ void GameHost::addDirectX() {
         add("SetCooperativeLevel", 3, ok);
         // GetObjectInfo(this, DIDEVICEOBJECTINSTANCEA*, object, how): the
         // joystick's objects by their offset (how 1) in DIJOYSTATE.
-        add("GetObjectInfo", 4, [kind](Cpu& c) {
+        // With force feedback, X is the axis forces act on (DIDFT_FFACTUATOR,
+        // DIDOI_FFACTUATOR), as a wheel's is.
+        add("GetObjectInfo", 4, [this, kind](Cpu& c) {
             uint32_t guid = 0, type = 0;
             std::string name;
             if (kind != "joystick" || c.arg(3) != 1 || !joystickObject(c.arg(2), guid, type, name))
@@ -666,21 +688,98 @@ void GameHost::addDirectX() {
             const uint32_t p = c.arg(1), size = c.read32(p);
             for (uint32_t o = 4; o + 4 <= size; o += 4)
                 c.write32(p + o, 0);
+            const bool actuator = options_.forceFeedback && c.arg(2) == 0;
             writeGuid(c, p + 4, guid);
             c.write32(p + 20, c.arg(2));
-            c.write32(p + 24, type);
-            c.write32(p + 28, (type & 2) ? 0x100 : 0); // DIDOI_ASPECTPOSITION
+            c.write32(p + 24, type | (actuator ? 0x01000000u : 0));
+            c.write32(p + 28, ((type & 2) ? 0x100 : 0) | (actuator ? 1 : 0)); // DIDOI_ASPECTPOSITION
             c.writeString(p + 32, name, 260);
+            if (actuator && size >= 300) {
+                c.write32(p + 292, 10000); // dwFFMaxForce
+                c.write32(p + 296, 1);     // dwFFForceResolution
+            }
             return kOk;
         });
         add("GetDeviceInfo", 2);
         add("RunControlPanel", 3);
         add("Initialize", 4, ok);
-        add("CreateEffect", 5);
-        add("EnumEffects", 4, ok);
-        add("GetEffectInfo", 3);
-        add("GetForceFeedbackState", 2);
-        add("SendForceFeedbackCommand", 2);
+        // Force feedback (IDirectInputDevice2), when it's offered.
+        // CreateEffect(this, guid, DIEFFECT*, effect**, outer).
+        add("CreateEffect", 5, [this, kind](Cpu& c) {
+            DiEffect e;
+            if (kind != "joystick" || !options_.forceFeedback)
+                return 0x80040154u; // DIERR_DEVICENOTREG
+            if (!DiEffect::kindOf(c.read32(c.arg(1)), e.kind) || e.kind == DiEffect::Custom)
+                return 0x80040154u;
+            if (c.arg(2))
+                e.set([&c](uint32_t a) { return c.read32(a); }, c.arg(2), 0x3ff);
+            const uint32_t object = newObject(effectVtable_);
+            {
+                std::lock_guard<std::mutex> lock(forceMutex_);
+                effects_[object] = e;
+            }
+            c.write32(c.arg(3), object);
+            return kOk;
+        });
+        // EnumEffects(this, callback, ref, type): the kinds stood in for,
+        // as DIEFFECTINFOA, all (DIEFT_ALL, 0) or one type's.
+        add("EnumEffects", 4, [this, kind](Cpu& c) {
+            if (kind != "joystick" || !options_.forceFeedback)
+                return kOk;
+            const uint32_t info = process_->memory().alloc(292);
+            for (uint32_t k = 0; k < DiEffect::Custom; ++k) {
+                const uint32_t type = effectInfo(c, info, 0x13541c20 + k);
+                if (c.arg(3) & 0xff && (c.arg(3) & 0xff) != (type & 0xff))
+                    continue;
+                uint32_t more = 0;
+                if (Error e = c.call(c.arg(1), {info, c.arg(2)}, more))
+                    c.abort(e.message);
+                if (!more) // DIENUM_STOP
+                    break;
+            }
+            process_->memory().free(info);
+            return kOk;
+        });
+        // GetEffectInfo(this, DIEFFECTINFOA*, guid).
+        add("GetEffectInfo", 3, [this](Cpu& c) {
+            DiEffect::Kind k;
+            if (!options_.forceFeedback || !DiEffect::kindOf(c.read32(c.arg(2)), k) || k == DiEffect::Custom)
+                return 0x80040154u;
+            effectInfo(c, c.arg(1), c.read32(c.arg(2)));
+            return kOk;
+        });
+        // GetForceFeedbackState: DIGFFS_ flags (stopped, paused, actuators
+        // on or off, powered).
+        add("GetForceFeedbackState", 2, [this](Cpu& c) {
+            std::lock_guard<std::mutex> lock(forceMutex_);
+            bool playing = false;
+            for (const auto& [object, e] : effects_)
+                playing = playing || e.active(process_->now());
+            c.write32(c.arg(1), (effects_.empty() ? 0x1 : 0) | (playing ? 0 : 0x2) | (forcePaused_ ? 0x4 : 0) |
+                                    (actuatorsOff_ ? 0x20 : 0x10) | 0x40);
+            return kOk;
+        });
+        // SendForceFeedbackCommand(this, DISFFC_): reset (1, every effect
+        // stopped), stop all (2), pause (4) and go on (8), the motors on
+        // (0x10) or off (0x20).
+        add("SendForceFeedbackCommand", 2, [this](Cpu& c) {
+            std::lock_guard<std::mutex> lock(forceMutex_);
+            const uint32_t command = c.arg(1);
+            if (command & 0x3)
+                for (auto& [object, e] : effects_)
+                    e.playing = false;
+            if (command & 0x1)
+                forcePaused_ = actuatorsOff_ = false;
+            if (command & 0x4)
+                forcePaused_ = true;
+            if (command & 0x8)
+                forcePaused_ = false;
+            if (command & 0x10)
+                actuatorsOff_ = false;
+            if (command & 0x20)
+                actuatorsOff_ = true;
+            return kOk;
+        });
         add("EnumCreatedEffectObjects", 4, ok);
         add("Escape", 2);
         add("Poll", 1, ok);
@@ -688,6 +787,7 @@ void GameHost::addDirectX() {
         return makeObject("IDirectInputDevice(" + kind + ")", m);
     };
     const uint32_t keyboard = makeDevice("keyboard"), mouse = makeDevice("mouse"), joystick = makeDevice("joystick");
+    addForceEffects(unknown);
     axisRange_.fill({0, 65535});
     std::vector<Method> di = unknown("IDirectInput");
     di.push_back({"CreateDevice", 4, [this, keyboard, mouse, joystick](Cpu& c) {
@@ -706,7 +806,8 @@ void GameHost::addDirectX() {
     // EnumDevices(this, type, callback, ref, flags): the joystick, if one is
     // offered, for all devices (0) or joysticks (4), as a DIDEVICEINSTANCEA.
     di.push_back({"EnumDevices", 5, [this](Cpu& c) {
-                      if (options_.joystick.empty() || (c.arg(1) != 0 && c.arg(1) != 4))
+                      if (options_.joystick.empty() || (c.arg(1) != 0 && c.arg(1) != 4) ||
+                          (c.arg(4) & 0x100 && !options_.forceFeedback)) // DIEDFL_FORCEFEEDBACK
                           return kOk;
                       const uint32_t d = process_->memory().alloc(0x244);
                       for (uint32_t i = 0; i < 0x244; i += 4)
@@ -714,9 +815,11 @@ void GameHost::addDirectX() {
                       c.write32(d, 0x244);
                       writeGuid(c, d + 4, kJoystickInstance);
                       writeGuid(c, d + 20, kJoystickProduct);
-                      c.write32(d + 36, 4 | 5 << 8); // DIDEVTYPE_JOYSTICK, a gamepad
+                      c.write32(d + 36, joystickType());
                       c.writeString(d + 40, options_.joystick, 260);
                       c.writeString(d + 300, options_.joystick, 260);
+                      if (options_.forceFeedback)
+                          writeGuid(c, d + 560, kJoystickFFDriver);
                       uint32_t more = 0;
                       if (Error e = c.call(c.arg(2), {d, c.arg(3)}, more))
                           c.abort(e.message);
@@ -734,6 +837,148 @@ void GameHost::addDirectX() {
 }
 
 
+uint32_t GameHost::joystickType() const {
+    // DIDEVTYPE_JOYSTICK, and a wheel (DIDEVTYPEJOYSTICK_WHEEL, 6) or a
+    // plain joystick (DIDEVTYPEJOYSTICK_TRADITIONAL, 2). Not a gamepad (4),
+    // even for one: the game reads a gamepad's axes as on or off
+    // (0x43c000), and a pad's sticks and triggers are better analog.
+    return 4 | (options_.joystickWheel ? 6 : 2) << 8;
+}
+
+uint32_t GameHost::effectInfo(Cpu& c, uint32_t at, uint32_t guidData1) {
+    static const char* const names[] = {"Constant Force", "Ramp Force", "Square", "Sine", "Triangle", "Sawtooth Up",
+                                        "Sawtooth Down", "Spring", "Damper", "Inertia", "Friction"};
+    DiEffect::Kind k = DiEffect::Constant;
+    DiEffect::kindOf(guidData1, k);
+    // DIEFT_CONSTANTFORCE 1, RAMPFORCE 2, PERIODIC 3, CONDITION 4; with
+    // envelopes (DIEFT_FFATTACK, FFFADE) or both coefficients and
+    // saturations (DIEFT_POSNEGCOEFFICIENTS, POSNEGSATURATION, SATURATION),
+    // and a start delay (DIEFT_STARTDELAY).
+    const uint32_t type = k == DiEffect::Constant ? 1 | 0x600
+                          : k == DiEffect::Ramp   ? 2 | 0x600
+                          : k < DiEffect::Spring  ? 3 | 0x600
+                                                  : 4 | 0x3800;
+    for (uint32_t o = 0; o < 292; o += 4)
+        c.write32(at + o, 0);
+    c.write32(at, 292);
+    c.write32(at + 4, guidData1);
+    c.write16(at + 8, 0x8e33);
+    c.write16(at + 10, 0x11d0);
+    const uint8_t rest[8] = {0x9a, 0xd0, 0x00, 0xa0, 0xc9, 0xa0, 0x6e, 0x35};
+    for (uint32_t i = 0; i < 8; ++i)
+        c.write8(at + 12 + i, rest[i]);
+    c.write32(at + 20, type | 0x8000);
+    c.write32(at + 24, 0x3ff); // DIEP_ALLPARAMS, set when made...
+    c.write32(at + 28, 0x3ff); // ... and while it plays
+    c.writeString(at + 32, names[k], 260);
+    return type;
+}
+
+void GameHost::addForceEffects(const std::function<std::vector<Method>(const std::string&, std::function<bool(uint32_t)>)>& unknown) {
+    // IDirectInputEffect: each effect's parameters (DIEFFECT, force_effects.h)
+    // and whether it plays. Release ends it.
+    std::vector<Method> m = unknown("IDirectInputEffect", {});
+    m[2] = {"Release", 1, [this](Cpu& c) {
+                std::lock_guard<std::mutex> lock(forceMutex_);
+                effects_.erase(c.arg(0));
+                return 0u;
+            }};
+    auto ok = [](Cpu&) { return kOk; };
+    auto withEffect = [this](Cpu& c, const std::function<uint32_t(DiEffect&)>& fn) {
+        std::lock_guard<std::mutex> lock(forceMutex_);
+        auto it = effects_.find(c.arg(0));
+        return it == effects_.end() ? 0x80070057u : fn(it->second); // E_INVALIDARG
+    };
+    auto start = [this](DiEffect& e, uint32_t iterations, uint32_t flags) {
+        if (flags & 1) // DIES_SOLO: the others stop
+            for (auto& [object, other] : effects_)
+                other.playing = false;
+        e.playing = true;
+        e.startedMs = process_->now();
+        e.iterations = iterations;
+    };
+    m.push_back({"Initialize", 4, ok});
+    m.push_back({"GetEffectGuid", 2, [withEffect](Cpu& c) {
+                     return withEffect(c, [&c](DiEffect& e) {
+                         c.write32(c.arg(1), 0x13541c20 + uint32_t(e.kind));
+                         c.write16(c.arg(1) + 4, 0x8e33);
+                         c.write16(c.arg(1) + 6, 0x11d0);
+                         const uint8_t rest[8] = {0x9a, 0xd0, 0x00, 0xa0, 0xc9, 0xa0, 0x6e, 0x35};
+                         for (uint32_t i = 0; i < 8; ++i)
+                             c.write8(c.arg(1) + 8 + i, rest[i]);
+                         return kOk;
+                     });
+                 }});
+    // GetParameters(this, DIEFFECT*, DIEP_ flags): its duration, gain and
+    // start delay; the rest left as given.
+    m.push_back({"GetParameters", 3, [withEffect](Cpu& c) {
+                     return withEffect(c, [&c](DiEffect& e) {
+                         const uint32_t p = c.arg(1), which = c.arg(2);
+                         if (which & 0x1)
+                             c.write32(p + 8, e.durationUs);
+                         if (which & 0x4)
+                             c.write32(p + 16, e.gain);
+                         if (which & 0x200 && c.read32(p) >= 56)
+                             c.write32(p + 52, e.startDelayUs);
+                         return kOk;
+                     });
+                 }});
+    // SetParameters(this, DIEFFECT*, DIEP_ flags): DIEP_START (0x20000000)
+    // starts it over as well.
+    m.push_back({"SetParameters", 3, [withEffect, start](Cpu& c) {
+                     return withEffect(c, [&](DiEffect& e) {
+                         e.set([&c](uint32_t a) { return c.read32(a); }, c.arg(1), c.arg(2));
+                         if (c.arg(2) & 0x20000000)
+                             start(e, 1, 0);
+                         return kOk;
+                     });
+                 }});
+    // Start(this, iterations, DIES_ flags), Stop(this).
+    m.push_back({"Start", 3, [withEffect, start](Cpu& c) {
+                     return withEffect(c, [&](DiEffect& e) {
+                         start(e, c.arg(1), c.arg(2));
+                         return kOk;
+                     });
+                 }});
+    m.push_back({"Stop", 1, [withEffect](Cpu& c) {
+                     return withEffect(c, [](DiEffect& e) {
+                         e.playing = false;
+                         return kOk;
+                     });
+                 }});
+    // GetEffectStatus: DIEGES_PLAYING (1) while it plays.
+    m.push_back({"GetEffectStatus", 2, [this, withEffect](Cpu& c) {
+                     return withEffect(c, [&](DiEffect& e) {
+                         c.write32(c.arg(1), e.active(process_->now()) ? 1 : 0);
+                         return kOk;
+                     });
+                 }});
+    m.push_back({"Download", 1, ok});
+    m.push_back({"Unload", 1, [withEffect](Cpu& c) {
+                     return withEffect(c, [](DiEffect& e) {
+                         e.playing = false;
+                         return kOk;
+                     });
+                 }});
+    m.push_back({"Escape", 2, {}});
+    effectVtable_ = makeVtable("IDirectInputEffect", m);
+}
+
+GamepadForce GameHost::gamepadForce() {
+    std::lock_guard<std::mutex> lock(forceMutex_);
+    GamepadForce f;
+    if (!options_.forceFeedback || !process_ || actuatorsOff_)
+        return f;
+    if (!forcePaused_) {
+        std::vector<const DiEffect*> playing;
+        for (const auto& [object, e] : effects_)
+            playing.push_back(&e);
+        f = sumForces(playing, forceGain_, process_->now());
+    }
+    f.autoCentre = autoCentre_;
+    return f;
+}
+
 void GameHost::joystickState(Cpu& c, uint32_t to, uint32_t size) {
     for (uint32_t i = 0; i < size; ++i)
         c.write8(to + i, 0);
@@ -741,7 +986,10 @@ void GameHost::joystickState(Cpu& c, uint32_t to, uint32_t size) {
         return;
     const GamepadState& j = joystick_;
     // Axes: -1..1, a dead zone round the middle, over the range the game set.
-    const float values[kJoystickAxes] = {j.axes[0], j.axes[1], j.axes[4] - j.axes[5], j.axes[2], j.axes[3]};
+    // A wheel's pedals are on Y as well, together as a wheel's were then:
+    // the accelerator up (forward, as a stick's), the brake down.
+    const float y = j.wheel ? j.axes[4] - j.axes[5] : j.axes[1];
+    const float values[kJoystickAxes] = {j.axes[0], y, j.axes[4] - j.axes[5], j.axes[2], j.axes[3]};
     for (int a = 0; a < kJoystickAxes; ++a) {
         float v = std::clamp(values[a], -1.0f, 1.0f);
         const float dead = 0.1f;

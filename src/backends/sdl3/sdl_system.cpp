@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 #include "backends/sdl3/sdl_system.h"
+#include "backends/sdl3/sdl_controller.h"
 #include "backends/sdl3/sdl_gpu.h"
 #include "backends/sockets/socket_net.h"
 
@@ -79,8 +80,7 @@ MouseButton translateButton(uint8_t b) {
 SdlSystem::SdlSystem() = default;
 
 SdlSystem::~SdlSystem() {
-    if (gamepad_)
-        SDL_CloseGamepad(gamepad_);
+    closeController();
     stopAudio();
     release3D();
     if (gameTexture_)
@@ -332,39 +332,6 @@ void SdlSystem::setVideoMode(int width, int height, bool fullscreen) {
     SDL_SyncWindow(window_);
     if (relativeMouse_)
         SDL_SetWindowRelativeMouseMode(window_, true);
-}
-
-bool SdlSystem::readGamepad(GamepadState& out) {
-    out = GamepadState{};
-    if (gamepad_ && !SDL_GamepadConnected(gamepad_)) {
-        SDL_CloseGamepad(gamepad_);
-        gamepad_ = nullptr;
-    }
-    if (!gamepad_) {
-        int count = 0;
-        SDL_JoystickID* ids = SDL_GetGamepads(&count);
-        if (ids && count > 0)
-            gamepad_ = SDL_OpenGamepad(ids[0]);
-        SDL_free(ids);
-        if (!gamepad_)
-            return false;
-    }
-    const SDL_GamepadAxis axes[6] = {SDL_GAMEPAD_AXIS_LEFTX,  SDL_GAMEPAD_AXIS_LEFTY,        SDL_GAMEPAD_AXIS_RIGHTX,
-                                     SDL_GAMEPAD_AXIS_RIGHTY, SDL_GAMEPAD_AXIS_LEFT_TRIGGER, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER};
-    for (int i = 0; i < 6; ++i)
-        out.axes[i] = std::max(-1.0f, float(SDL_GetGamepadAxis(gamepad_, axes[i])) / 32767.0f);
-    const SDL_GamepadButton buttons[kPadButtons] = {
-        SDL_GAMEPAD_BUTTON_SOUTH,        SDL_GAMEPAD_BUTTON_EAST,          SDL_GAMEPAD_BUTTON_WEST,
-        SDL_GAMEPAD_BUTTON_NORTH,        SDL_GAMEPAD_BUTTON_BACK,          SDL_GAMEPAD_BUTTON_GUIDE,
-        SDL_GAMEPAD_BUTTON_START,        SDL_GAMEPAD_BUTTON_LEFT_STICK,    SDL_GAMEPAD_BUTTON_RIGHT_STICK,
-        SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, SDL_GAMEPAD_BUTTON_DPAD_UP,
-        SDL_GAMEPAD_BUTTON_DPAD_DOWN,    SDL_GAMEPAD_BUTTON_DPAD_LEFT,     SDL_GAMEPAD_BUTTON_DPAD_RIGHT};
-    for (int i = 0; i < kPadButtons; ++i)
-        if (SDL_GetGamepadButton(gamepad_, buttons[i]))
-            out.buttons |= 1u << i;
-    if (const char* name = SDL_GetGamepadName(gamepad_))
-        out.name = name;
-    return true;
 }
 
 void SdlSystem::setRelativeMouse(bool on) {
