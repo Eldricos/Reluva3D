@@ -481,7 +481,8 @@ void GameHost::addDirectX() {
     add("EnumDisplayModes", 5, [this](Cpu& c) {
         const uint32_t desc = process_->memory().alloc(108);
         for (int bits : {8, 16})
-            for (auto [w, h] : {std::pair{320, 200}, {512, 384}, {640, 480}, {800, 600}, {1024, 768}}) {
+            for (const std::pair<int, int>& size : {std::pair{320, 200}, {512, 384}, {640, 480}, {800, 600}, {1024, 768}}) {
+                const int w = size.first, h = size.second;
                 writeDesc(c, desc, w, h, bits, w * bits / 8, 0, 0);
                 uint32_t more = 0;
                 if (Error e = c.call(c.arg(4), {desc, c.arg(3)}, more)) {
@@ -753,8 +754,8 @@ void GameHost::addDirectX() {
         add("GetForceFeedbackState", 2, [this](Cpu& c) {
             std::lock_guard<std::mutex> lock(forceMutex_);
             bool playing = false;
-            for (const auto& [object, e] : effects_)
-                playing = playing || e.active(process_->now());
+            for (const auto& entry : effects_) // (not a structured binding: Visual Studio wants it captured)
+                playing = playing || entry.second.active(process_->now());
             c.write32(c.arg(1), (effects_.empty() ? 0x1 : 0) | (playing ? 0 : 0x2) | (forcePaused_ ? 0x4 : 0) |
                                     (actuatorsOff_ ? 0x20 : 0x10) | 0x40);
             return kOk;
@@ -766,8 +767,8 @@ void GameHost::addDirectX() {
             std::lock_guard<std::mutex> lock(forceMutex_);
             const uint32_t command = c.arg(1);
             if (command & 0x3)
-                for (auto& [object, e] : effects_)
-                    e.playing = false;
+                for (auto& entry : effects_)
+                    entry.second.playing = false;
             if (command & 0x1)
                 forcePaused_ = actuatorsOff_ = false;
             if (command & 0x4)
@@ -891,8 +892,8 @@ void GameHost::addForceEffects(const std::function<std::vector<Method>(const std
     };
     auto start = [this](DiEffect& e, uint32_t iterations, uint32_t flags) {
         if (flags & 1) // DIES_SOLO: the others stop
-            for (auto& [object, other] : effects_)
-                other.playing = false;
+            for (auto& entry : effects_)
+                entry.second.playing = false;
         e.playing = true;
         e.startedMs = process_->now();
         e.iterations = iterations;

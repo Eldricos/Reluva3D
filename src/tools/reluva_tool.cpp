@@ -4463,9 +4463,9 @@ int cmdGameRun(int argc, char** argv) {
                             return false;
                         }
                         std::vector<std::string> commands;
-                        for (const auto& [to, text] : game.serverCommands())
-                            if (to == 0 || to == -1)
-                                commands.push_back(text);
+                        for (const auto& command : game.serverCommands()) // (no structured binding: Visual Studio)
+                            if (command.first == 0 || command.first == -1)
+                                commands.push_back(command.second);
                         cgame.setServerCommands(commands);
                         cgame.setConfigstrings(game.configstrings());
                         cgame.newSnapshot(game.snapshot(0));

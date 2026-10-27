@@ -146,8 +146,8 @@ void GameHost::addNetwork() {
         return 0u;
     });
     provide(w, "#116", 0, [this, net](Cpu&) { // WSACleanup: the sockets left closed
-        for (const auto& [handle, s] : wsSockets_)
-            net->close(s.socket);
+        for (const auto& entry : wsSockets_) // (not a structured binding: Visual Studio wants it captured)
+            net->close(entry.second.socket);
         wsSockets_.clear();
         wsStarted_ = false;
         return 0u;
