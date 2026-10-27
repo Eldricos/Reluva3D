@@ -125,9 +125,17 @@ stdfs::path resolve(const stdfs::path& base, const std::vector<std::string>& nam
 
 // A FILETIME (100 ns units since 1601) for a host file's time.
 uint64_t fileTime(stdfs::file_time_type t) {
+#if defined(_MSVC_STL_VERSION)
+    // Microsoft's file_clock counts FILETIME's units from its epoch already
+    // (and has no to_sys, which the standard leaves optional).
+    return uint64_t(std::chrono::duration_cast<std::chrono::duration<int64_t, std::ratio<1, 10000000>>>(
+                        t.time_since_epoch())
+                        .count());
+#else
     const auto sys = std::chrono::file_clock::to_sys(t);
     const int64_t unix100ns = std::chrono::duration_cast<std::chrono::nanoseconds>(sys.time_since_epoch()).count() / 100;
     return uint64_t(unix100ns + 116444736000000000ll);
+#endif
 }
 
 } // namespace
