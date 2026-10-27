@@ -708,7 +708,8 @@ int aweCommandSolve(int argc, char** argv) {
             if (storyFeature(x))
                 actStory.insert(storyOf(x));
         for (const std::string& x : player.features(true))
-            seenOutlines.insert(player.page().status().scene + "|" + x);
+            if (x.rfind("talk ", 0) != 0)
+                seenOutlines.insert(player.page().status().scene + "|" + storyOf(x));
         best = root;
         seenKeys.insert(root.key);
         for (const std::string& f : player.features(true))
@@ -902,13 +903,15 @@ int aweCommandSolve(int argc, char** argv) {
             n.key = key;
             n.progress = progressOf(f);
             n.depth = node.depth + 1;
-            // Its novelty: anything (a tag's value, an item, a
-            // conversation's progress, a scene seen) never had before in
-            // this scene; a state with none waits till the others are done.
+            // Its novelty: anything (a tag's value, an item, a scene seen,
+            // the scene come from) never had before in this scene; a state
+            // with none waits till the others are done.
+            // (Not the conversations' progress: hearing a choice otherwise
+            // isn't a reason to look round the whole train again.)
             int novelHere = 0;
             for (const std::string& x : player.features(true))
-                if (x.rfind("scene ", 0) != 0)
-                    novelHere += seenOutlines.insert(st.scene + "|" + x).second;
+                if (x.rfind("scene ", 0) != 0 && x.rfind("talk ", 0) != 0 && (x.rfind("tag ", 0) != 0 || storyTag(x)))
+                    novelHere += seenOutlines.insert(st.scene + "|" + storyOf(x)).second;
             n.tier = novelHere ? 0 : 1;
             for (const Action& next : player.actions())
                 n.promise |= next.kind == "use";
