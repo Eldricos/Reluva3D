@@ -145,6 +145,11 @@ void ParticleSystem::emit() {
     particles_.push_back(p);
 }
 
+void ParticleSystem::setEmitter(const float position[3], const float velocity[3]) {
+    std::copy(position, position + 3, s_.position);
+    std::copy(velocity, velocity + 3, s_.velocity);
+}
+
 void ParticleSystem::update(float dt) {
     time_ += dt;
     for (Particle& p : particles_) {

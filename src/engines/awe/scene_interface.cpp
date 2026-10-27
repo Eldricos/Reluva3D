@@ -687,9 +687,8 @@ bool ScenePage::interfaceEvent(const Event& ev) {
     const bool inScene = (!ui_.barShown && ui_.barAlpha == 0) ? y >= 5 : y >= 60;
     // An item in hand: used on what's under it (0x419f10).
     if (!state_.held.empty()) {
-        const Ac2Record* target = inScene ? hotspotAt(x, y) : nullptr;
-        if (!target && inScene)
-            target = characterAt(x, y);
+        // What the game's pick finds there (0x41613c).
+        const Ac2Record* target = inScene && pickAllowed(y) ? pickAt(x, y) : nullptr;
         if (target) {
             runner_->setFromCharacter(target->tag == "NPCX");
             if (target->tag == "NPCX")
@@ -1264,16 +1263,6 @@ void ScenePage::drawCards() {
         if (ui_.cardKind == 2)
             show("inventory/interface/print.png", ui_.printAlpha);
     }
-}
-
-void ScenePage::drawHeld() {
-    // 0x415650: the item's cur picture 26 below and right of the cursor
-    // (kept on the screen).
-    if (state_.held.empty() || !interfaceOn())
-        return;
-    const int x = lastMouseX_ + 62 > kScreenW ? kScreenW - 62 : lastMouseX_;
-    const int y = lastMouseY_ + 62 > kScreenH ? kScreenH - 62 : lastMouseY_;
-    blend(ctx_.screen, picture(itemPicture(state_.held, "cur")), x + 26, y + 26, 255);
 }
 
 // --- The scrapbook ----------------------------------------------------------------

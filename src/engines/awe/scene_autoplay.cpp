@@ -76,14 +76,20 @@ ScenePage::GameStatus ScenePage::status() const {
 }
 
 std::vector<const Ac2Record*> ScenePage::clickableObjects() const {
-    // The hotspots and characters a player could click now, in the scene's
-    // order.
+    // The hotspots, characters and pictures (items lying about) a player
+    // could click now, in the scene's order: shown, with something to run,
+    // and an outline or a rectangle the pick can find.
     std::vector<const Ac2Record*> out;
     for (const Ac2Record* o : scene_.objects()) {
-        if ((o->tag != "SPOT" && o->tag != "NPCX") || hidden(*o) || !testCondition(o->text("condition"), state_))
+        if ((o->tag != "SPOT" && o->tag != "NPCX" && o->tag != "2DOB") || hidden(*o) ||
+            !testCondition(o->text("condition"), state_))
             continue;
         const Ac2Value* alternatives = o->field("listB");
         if (o->text("script").empty() && (!alternatives || alternatives->pairs.empty()))
+            continue;
+        const Ac2Value* outline = o->field("listD");
+        int l, t, r, b;
+        if (o->tag == "2DOB" && !(outline && outline->numbers.size() >= 3) && !objectRect(*o, l, t, r, b))
             continue;
         out.push_back(o);
     }

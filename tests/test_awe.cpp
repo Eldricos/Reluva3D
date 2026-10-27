@@ -15,6 +15,7 @@
 #include "engines/awe/model.h"
 #include "engines/awe/oodle1.h"
 #include "engines/awe/particles.h"
+#include "engines/awe/picking.h"
 #include "engines/awe/script.h"
 #include "engines/awe/story.h"
 #include "engines/awe/savegame.h"
@@ -823,6 +824,84 @@ void testParticles() {
     CHECK(pts[0].rgba[3] > 120 && pts[0].rgba[3] < 135); // half faded in
     up.update(2.5f);
     CHECK(up.count() == 0); // landed with no bounces left
+
+    // A breath: the emitter moved and its velocity changed as it goes.
+    ParticleSettings b;
+    b.mode = 0, b.velocity[1] = 0, b.gravity = 0, b.burst = 1, b.interval = 100, b.spread = 1, b.sway = 0;
+    ParticleSystem breath(b);
+    const float mouth[3] = {100, 160, -50}, ahead[3] = {0, 0, 50};
+    breath.setEmitter(mouth, ahead);
+    breath.update(0.001f);
+    breath.update(1);
+    pts.clear();
+    breath.points(pts);
+    CHECK(pts.size() == 1 && pts[0].position[1] == 160 && std::fabs(pts[0].position[0] - 100) <= 1);
+    CHECK(std::fabs(pts[0].position[2] + 50) <= 1 + 50 * 0.7072f);
+}
+
+void testPicking() {
+    // Front to back by depth; the later of equal ones first.
+    std::vector<PickCandidate> c(3);
+    c[0].depth = -10000; // the background: no outline, no rectangle
+    c[1].depth = 5000, c[1].rect = true, c[1].clickable = true, c[1].hit = true; // a hotspot
+    c[2].depth = 5000, c[2].rect = true, c[2].hit = true;                        // another, after it
+    CHECK(pick(c, false) == 2);
+    c[2].depth = 260;
+    CHECK(pick(c, false) == 1);
+    c[1].hit = c[2].hit = false;
+    CHECK(pick(c, false) == -1);
+    // A character in front of nothing but behind a hotspot: the characters
+    // come first, those with only a rectangle by their bones' boxes, if
+    // they can be clicked.
+    PickCandidate npc;
+    npc.depth = 400, npc.character = true, npc.rect = true, npc.hit = true, npc.clickable = true;
+    c[1].hit = true;
+    c.push_back(npc);
+    CHECK(pick(c, false) == 1); // bones missed: it's behind the hotspot's rectangle
+    c[3].boneHit = true;
+    CHECK(pick(c, false) == 3);
+    c[3].clickable = false;
+    CHECK(pick(c, false) == 1);
+    CHECK(pick(c, true) == 3); // an item in hand: tried all the same
+    // A character with an outline goes by it.
+    c[3].outline = true, c[3].boneHit = false;
+    CHECK(pick(c, false) == 3);
+    // pickFirst objects with an outline come before even the characters.
+    PickCandidate first;
+    first.depth = -100, first.outline = true, first.rect = true, first.pickFirst = true, first.hit = true;
+    c.push_back(first);
+    CHECK(pick(c, false) == 4);
+    c[4].outline = false; // a rectangle alone: no longer first
+    CHECK(pick(c, false) == 3);
+
+    // Outlines: the pixel's centre against the polygon, by winding.
+    const std::vector<std::pair<uint32_t, uint32_t>> square = {{10, 10}, {20, 10}, {20, 20}, {10, 20}};
+    CHECK(inPolygon(square, 10, 10) && inPolygon(square, 19, 19) && !inPolygon(square, 20, 15));
+    CHECK(!inPolygon(square, 9, 15) && !inPolygon({{0, 0}, {5, 5}}, 1, 1));
+    // A star drawn in one stroke: its middle is in, by winding.
+    const std::vector<std::pair<uint32_t, uint32_t>> star = {{50, 0}, {79, 90}, {2, 35}, {98, 35}, {21, 90}};
+    CHECK(inPolygon(star, 50, 50) && inPolygon(star, 50, 10) && !inPolygon(star, 5, 80));
+
+    // A ray against a box turned and moved: a bone's.
+    gfx::Mat4 m = gfx::identity();
+    m[0] = 0, m[1] = 1, m[4] = -1, m[5] = 0; // 90 degrees about z
+    m[12] = 100, m[13] = 0, m[14] = 0;
+    const float lo[3] = {0, -5, -5}, hi[3] = {50, 5, 5}; // along the bone's x: the world's +y
+    CHECK(rayHitsBox(m, lo, hi, {100, 25, -100}, {0, 0, 1}));
+    CHECK(!rayHitsBox(m, lo, hi, {100, 60, -100}, {0, 0, 1}));
+    CHECK(!rayHitsBox(m, lo, hi, {100, 25, -100}, {0, 0, -1})); // behind the ray's start
+    CHECK(!rayHitsBox(m, lo, hi, {120, 25, -100}, {0, 0, 1}));
+
+    // The camera's ray through a pixel comes down where floorAt says.
+    SceneCamera cam;
+    cam.fovY = 0.645772f, cam.nearPlane = 10, cam.farPlane = 10000;
+    cam.position[1] = 120, cam.elevAzimRoll[0] = -0.23f, cam.offset[1] = 276, cam.offset[2] = 990;
+    gfx::Vec3 from, dir;
+    cam.ray(400, 600, 1024, 768, from, dir);
+    float x = 0, z = 0;
+    CHECK(cam.floorAt(400, 600, 1024, 768, x, z));
+    const float k = -from[1] / dir[1];
+    CHECK(std::fabs(from[0] + k * dir[0] - x) < 0.01f && std::fabs(from[2] + k * dir[2] - z) < 0.01f);
 }
 
 // A world for scripts: walks and fades take until told; the rest is
@@ -1539,6 +1618,7 @@ int main() {
     testConditions();
     testSprite();
     testParticles();
+    testPicking();
     testScript();
     testItemSlots();
     testDialogueBook();

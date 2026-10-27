@@ -73,6 +73,15 @@ scenes, two Granny files, the text tables, two backgrounds):
   `reluva-tool awe-scripts` lists every command an install's scripts
   use, and every word of its conditions; every one is handled. Items
   are picked up in the inventory and used on hotspots and characters.
+- **The mouse: as the game's.** The object under it is found by the
+  game's pick (`pickFirst` objects, then the characters by their bones'
+  boxes, then everything by outline or rectangle, front to back), and
+  clicks use it, pictures with scripts among them. The game's cursor is
+  drawn in place of the system's: the arrow and the verb the object
+  under it asks for (its `cursor`, or the first of its
+  `conditionalCursors` that holds), or the item in hand. Hotspots light
+  up and sound under it, and Escape and Enter press the hotspots whose
+  key they are (see [../formats/awe/ac2.md](../formats/awe/ac2.md#the-mouse-picking-and-cursors)).
 - **Dialogue: plays.** Conversations run as the game's dialogue manager
   runs them (see [../formats/awe/dialogue.md](../formats/awe/dialogue.md)):
   the opening, the choices, each line's commands, recording and text in
@@ -111,7 +120,9 @@ scenes, two Granny files, the text tables, two backgrounds):
 - **Particles** (`SNOW`, `RAIN`, `PART`) are simulated by the rules of
   the game's own update method and drawn as its point sprites are, among
   the scene's 2D layers by depth (snow outside the Salon's windows when
-  the weather is on and the train stopped).
+  the weather is on and the train stopped). In the snowy exteriors the
+  player breathes, and leaves footprints that fade (see
+  [../formats/awe/characters.md](../formats/awe/characters.md#outdoors-footprints-and-breath)).
 - **The game's fonts** (`Text/fonts.txt`, `Interface/Fonts`) are drawn
   with stb_truetype, and the movies' subtitles show under them.
 - **Bink movies: decoded.** Video and audio match FFmpeg's output
@@ -164,11 +175,13 @@ or member types beyond those Reluva reads.
 
 Next:
 
-1. Do what the newly named scene fields drive
-   ([ac2.md](../formats/awe/ac2.md), "Still to find"): the cursors over
-   hotspots and characters, the characters' breath and footprints
-   outdoors, and `pickFirst` in picking. The fields still known only by
-   their offset are ones the game never reads.
+1. The cursor's last pieces, with the interface bar
+   ([ac2.md](../formats/awe/ac2.md#the-cursor)): no pick over the bar
+   while it's down (the top 60 pixels), the cursor hidden under the
+   letterbox, and the item in hand handed over by the inventory screen
+   (`ScenePage::itemInHand`, U for now). The fields still known only by
+   their offset are ones the game never reads, but for the scene's
+   `FAKE`.
 2. The rest of playing the acts through (see
    [../formats/awe/acts.md](../formats/awe/acts.md#playing-the-acts-headless):
    every act starts, runs its scripts and goes on to the next as far as

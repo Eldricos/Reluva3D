@@ -53,6 +53,9 @@ public:
     const ParticleSettings& settings() const { return s_; }
     // Moves the particles on by `dt` seconds, emitting new ones.
     void update(float dt);
+    // Moves the emitter, and sets the velocity the particles emitted from
+    // now on get (a character's breath follows its mouth: 0x426046).
+    void setEmitter(const float position[3], const float velocity[3]);
 
     struct Point {
         float position[3];

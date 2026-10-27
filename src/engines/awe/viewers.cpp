@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <utility>
 
 namespace reluva::awe {
 
@@ -360,6 +361,8 @@ void ScenePage::activate() {
 }
 
 void ScenePage::deactivate() {
+    if (!systemCursor_)
+        ctx_.sys.setMouseCursorVisible(systemCursor_ = true);
     releaseGpu();
     if (renderer_)
         renderer_->setMultisampling(1); // the other pages draw without
@@ -1144,21 +1147,34 @@ void ScenePage::draw() {
             const auto it = std::find(objects.begin(), objects.end(), r);
             return size_t(it - objects.begin());
         };
+        // Footprints are objects too, added after the scene's own.
         characterOrder_.clear();
         if (charactersShown())
-            for (size_t i = 0; i < characters_.size(); i++)
-                characterOrder_.push_back(i);
-        std::stable_sort(characterOrder_.begin(), characterOrder_.end(), [&](size_t a, size_t b) {
-            const Character &ca = characters_[a], &cb = characters_[b];
-            return ca.z != cb.z ? ca.z < cb.z : objectIndex(ca.record) < objectIndex(cb.record);
+            for (size_t i = 0; i < characters_.size(); i++) {
+                characterOrder_.push_back({i, -1});
+                for (size_t k = 0; k < characters_[i].footprints.size(); k++)
+                    characterOrder_.push_back({i, int(k)});
+            }
+        auto slotZ = [&](const ModelSlot& s) {
+            const Character& c = characters_[s.character];
+            return s.footprint < 0 ? c.z : c.footprints[size_t(s.footprint)].z;
+        };
+        auto slotIndex = [&](const ModelSlot& s) {
+            const Character& c = characters_[s.character];
+            return s.footprint < 0 ? objectIndex(c.record)
+                                   : objects.size() + c.footprints[size_t(s.footprint)].serial;
+        };
+        std::stable_sort(characterOrder_.begin(), characterOrder_.end(), [&](const ModelSlot& a, const ModelSlot& b) {
+            const float za = slotZ(a), zb = slotZ(b);
+            return za != zb ? za < zb : slotIndex(a) < slotIndex(b);
         });
         auto layerOf = [&](const Ac2Record* o) {
             const float d = depth(o);
             const size_t at = objectIndex(o);
             size_t n = 0;
-            for (size_t i : characterOrder_) {
-                const Character& c = characters_[i];
-                n += c.z < d || (c.z == d && objectIndex(c.record) < at);
+            for (const ModelSlot& s : characterOrder_) {
+                const float z = slotZ(s);
+                n += z < d || (z == d && slotIndex(s) < at);
             }
             return n;
         };
@@ -1189,6 +1205,13 @@ void ScenePage::draw() {
             for (size_t p = 0; p < pictures.size(); p++)
                 if (layerOfPicture[p] == k)
                     any = true, allReset &= resetsShadows(pictures[p]);
+            // A character's breath, drawn just after it (0x425e48); none
+            // with "Particle Effects" off.
+            const ParticleSystem* breath = nullptr;
+            if (k > 0 && characterOrder_[k - 1].footprint < 0 && options_.get(GameOptions::Rain))
+                breath = characters_[characterOrder_[k - 1].character].breath.get();
+            any |= breath != nullptr;
+            allReset &= breath == nullptr; // particles take no shadows off
             if (!any && k > 0)
                 continue;
             auto takeResets = [&] {
@@ -1210,6 +1233,8 @@ void ScenePage::draw() {
                 clear(0, 0, 0);
             else
                 std::fill(ctx_.screen.pixels.begin(), ctx_.screen.pixels.end(), 0);
+            if (breath)
+                drawParticles(*breath, true);
             for (size_t p = 0; p < pictures.size(); p++)
                 if (layerOfPicture[p] == k)
                     place(pictures[p], k > 0);
@@ -1404,8 +1429,6 @@ void ScenePage::draw() {
         for (const auto& a : areas)
             yesNo_->rows.push_back({a.y, a.h});
     }
-    if (drawing_ && !load_.screen && !movie_)
-        drawHeld();
     if (load_.screen) {
         // The location's picture, the wheel turning at its foot (0x422ff0).
         const image::Image& back = picture("interface/loading/loading_" +
@@ -1442,6 +1465,11 @@ void ScenePage::draw() {
     help(std::string("Left/Right: scene  Up/Down: object  H: hotspots  I (F9 in a game): info  M: moving  W: weather  "
                      "T: night  G: grid  N: new game  click: walk") +
          (renderer_ ? "  C: characters" : "  (no 3D: no characters)"));
+    // The game's cursor over everything; the system's hidden in a game
+    // (0x413f1f), and while the game's shows.
+    drawCursor();
+    if (const bool system = !playing_ && !cursorShown(); system != systemCursor_)
+        ctx_.sys.setMouseCursorVisible(systemCursor_ = system);
     if (!renderer_)
         present();
     ctx_.sys.setWindowTitle("Scenes: " + (names_.empty() ? std::string() : names_[size_t(index_)]));
@@ -1529,6 +1557,7 @@ void ScenePage::update(uint64_t nowMs) {
         c.actor->update(dt, heading);
         if (turning)
             c.rotY = heading / 57.29578f;
+        updateOutdoors(c, dt, !c.path.empty() || c.walkIn > 0);
         changed = true;
         if (c.walkIn > 0 && c.path.empty()) {
             // Straight ahead along its heading; any overshoot backed off,
@@ -1586,6 +1615,8 @@ void ScenePage::update(uint64_t nowMs) {
             changed = true;
         }
     changed |= scrollPictures(dt);
+    updateHotspots();
+    changed |= std::exchange(cursorMoved_, false);
     if (changed)
         draw();
     if (!renderer_)
@@ -1656,18 +1687,29 @@ void ScenePage::update(uint64_t nowMs) {
         // Brightness: the game's gamma ramp is the whole screen's, the
         // characters' too (slope 32g + 97 over 257).
         const float bright = float(32 * brightnessLevel() + 97) / 257.0f;
-        std::vector<size_t> order = characterOrder_;
-        if (order.size() != characters_.size()) {
+        std::vector<ModelSlot> order = characterOrder_;
+        size_t shownCharacters = 0;
+        bool stale = false;
+        for (const ModelSlot& s : order) {
+            stale |= s.character >= characters_.size() ||
+                     (s.footprint >= 0 && size_t(s.footprint) >= characters_[s.character].footprints.size());
+            shownCharacters += s.footprint < 0;
+        }
+        if (stale || shownCharacters != characters_.size()) {
             order.clear();
             for (size_t i = 0; i < characters_.size(); i++)
-                order.push_back(i);
+                order.push_back({i, -1});
         }
         // Lit by the scene's lights, each with its own material, which its
         // props share (docs/formats/awe/lighting.md).
         const SceneLighting lighting = sceneLighting(scene_, state_);
-        for (size_t i : order) {
+        for (const ModelSlot& slot : order) {
+            const size_t i = slot.character;
             const Character& c = characters_[i];
-            if (shadows) {
+            if (slot.footprint >= 0) {
+                renderer_->setView(viewProjection, cam.eye());
+                drawFootprint(c.footprints[size_t(slot.footprint)], lighting, bright);
+            } else if (shadows) {
                 // 0x428836: its pixels' stencil 2 for the player, 0 for the
                 // others.
                 const uint8_t ref = c.player ? 2 : 0;
@@ -1676,12 +1718,14 @@ void ScenePage::update(uint64_t nowMs) {
                     stencilModel(viewProjection, *c.props[k].second, propPoses[i][k], c.placement, c.shadow, ref,
                                  *stencil_);
             }
-            renderer_->setView(viewProjection, cam.eye());
-            const Material material = c.record ? materialOf(*c.record) : Material();
-            c.model->draw(poses[i], c.placement, false, frameMeshes_, bright, &lighting, material);
-            for (size_t k = 0; k < c.props.size(); k++)
-                c.props[k].second->draw(propPoses[i][k], c.placement, false, frameMeshes_, bright, &lighting,
-                                        material);
+            if (slot.footprint < 0) {
+                renderer_->setView(viewProjection, cam.eye());
+                const Material material = c.record ? materialOf(*c.record) : Material();
+                c.model->draw(poses[i], c.placement, false, frameMeshes_, bright, &lighting, material);
+                for (size_t k = 0; k < c.props.size(); k++)
+                    c.props[k].second->draw(propPoses[i][k], c.placement, false, frameMeshes_, bright, &lighting,
+                                            material);
+            }
             // The pictures after it.
             if (layer < layers_.size()) {
                 drawLayer(layer);
@@ -2906,8 +2950,10 @@ void ScenePage::line(int x0, int y0, int x1, int y1, Color c) {
 }
 
 void ScenePage::handleEvent(const Event& ev) {
-    if (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown || ev.type == EventType::MouseUp)
+    if (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown || ev.type == EventType::MouseUp) {
         lastMouseX_ = ev.mouseX, lastMouseY_ = ev.mouseY;
+        cursorMoved_ |= cursorShown();
+    }
     if (ev.type == EventType::MouseUp && ev.button == MouseButton::Left && puzzleActive())
         puzzleRelease(ev.mouseX, ev.mouseY);
     if (optionsMenu_ && optionsMenu_->dragging) {
@@ -2982,17 +3028,23 @@ void ScenePage::handleEvent(const Event& ev) {
         if (puzzleActive())
             puzzleClick(ev.mouseX, ev.mouseY);
         runner_->setFromCharacter(false);
-        if (const Ac2Record* spot = hotspotAt(ev.mouseX, ev.mouseY)) {
-            runScript(*spot);
-        } else if (const Ac2Record* who = characterAt(ev.mouseX, ev.mouseY)) {
-            // A character's own script: a talk then offers its generic
-            // lines and goodbyes (0x4162a3).
-            runner_->setFromCharacter(true);
-            resumeAfter_ = who;
-            runScript(*who);
-        }
-        else
+        // The object the game's pick finds there (0x41613c); one with
+        // nothing to run is walked to like the floor. An item in hand was
+        // used by the interface (interfaceEvent) before this.
+        const Ac2Record* picked = pickAllowed(ev.mouseY) ? pickAt(ev.mouseX, ev.mouseY) : nullptr;
+        if (picked)
+            hotspotPressed(*picked);
+        if (picked && clickable(*picked)) {
+            if (picked->tag == "NPCX") {
+                // A character's own script: a talk then offers its generic
+                // lines and goodbyes (0x4162a3).
+                runner_->setFromCharacter(true);
+                resumeAfter_ = picked;
+            }
+            runScript(*picked);
+        } else {
             walkTo(ev.mouseX, ev.mouseY);
+        }
         return;
     }
     if (ev.type != EventType::KeyDown)
