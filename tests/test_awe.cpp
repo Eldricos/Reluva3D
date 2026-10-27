@@ -1174,6 +1174,21 @@ void testDialogue() {
     CHECK(!d.active());
     run(0.2f);
     CHECK(state.tags["after"] == 1 && runner.idle());
+
+    // A generic extra with no line to offer (its first line's condition
+    // fails, though a later one has none) doesn't count (0x43a470): part a,
+    // heard, is exhausted, and "+" goes on to part b.
+    d.book().add(parseTable(
+        "Name\tAct\tConver.\tThread\tNest\tSpeaker\tTarget\tLine\tLine Translation\tCondition\tRepeat\tPrevent\t"
+        "Event\tPovent\tDuration\tOptional\tNotes\n"
+        "dia_hub\t06b\ta\ta\ta\thub\t0\tPassport.\t0\t0\t0\t0\t0\t0\t0\t0\t0\n"
+        "dia_hub\t06b\tb\ta\ta\tantoinette\t0\tWas it a woman?\t0\t0\t0\t0\t0\t0\t0\t0\t0\n"
+        "gen_hub_print\t0\ta\ta\ta\tantoinette\t0\tPrints?\t0\ttag never\t0\t0\t0\t0\t0\t0\t0\n"
+        "gen_hub_print\t0\ta\ta\tb\thub\t0\tA ribbon?\t0\t0\t0\t0\t0\t0\t0\t0\t0\n"));
+    state.talks[talkKey("dia_hub", "06b", 0, 0)] = TalkProgress{1, -1};
+    CHECK(d.talk(runner, "dia_hub", 0, -1, -1, true, -1, true, true));
+    run(1.0f);
+    CHECK(d.line() && d.line()->text == "Was it a woman?");
 }
 
 } // namespace

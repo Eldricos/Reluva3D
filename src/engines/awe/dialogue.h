@@ -203,6 +203,9 @@ private:
                bool retry);
     int pickLine(Thread& t, int nest, bool forward);
     bool available(Thread& t);
+    // Whether it has a line to offer as a choice: its current line, else
+    // its first nest's (set as its current line); 0x43a9d9, 0x43a4d3.
+    bool offered(Thread& t);
     void loadProgress(DialoguePart& p);
     void saveProgress(const DialoguePart& p, const Thread& t);
     std::string genPrefix(const DialoguePart& p) const;

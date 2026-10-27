@@ -269,6 +269,12 @@ bool DialogueManager::available(Thread& t) {
     return pickLine(t, 0, true) >= 0;
 }
 
+bool DialogueManager::offered(Thread& t) {
+    if (t.current < 0)
+        t.current = pickLine(t, 0, false);
+    return t.current >= 0;
+}
+
 void DialogueManager::loadProgress(DialoguePart& p) {
     for (Thread& t : p.threads) {
         t.status = 0;
@@ -357,10 +363,12 @@ std::vector<std::pair<DialoguePart*, int>> DialogueManager::extras() {
     std::vector<std::pair<DialoguePart*, int>> out;
     if (!gen_ || prefix_.empty() || !part_ || part_->code >= 100)
         return out;
+    // Each available one with a line to offer now (0x43a470: its current
+    // line, else its first one whose condition holds; none, it's left out).
     for (DialoguePart& q : book_.parts())
         if (&q != part_ && q.code < 99 && contains(q.name, prefix_))
             for (size_t i = 0; i < q.threads.size(); i++)
-                if (q.threads[i].code < 0x60 && available(q.threads[i]))
+                if (Thread& t = q.threads[i]; t.code < 0x60 && available(t) && offered(t))
                     out.push_back({&q, int(i)});
     return out;
 }
@@ -456,9 +464,11 @@ bool DialogueManager::start(const std::string& name, int part, int thread, int n
             }
         }
     } else {
+        // The rows the choices would take (0x43a9ae): the available
+        // lettered threads with a line to offer.
         int rows = 0;
         for (Thread& t : p->threads)
-            if (t.code < 0x60 && available(t))
+            if (t.code < 0x60 && available(t) && offered(t))
                 rows++;
         rows += int(extras().size());
         if (rows > 0 && dry_)
