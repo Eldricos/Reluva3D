@@ -93,6 +93,8 @@ This is JK2's list without `FlushCamFile`, `FS_GetFileList`, `totalMapContents`,
 
 The fields are 4 bytes each, so offset n is at byte 4n.
 
+The engine starts a level's clock at 1000 ms: `Init` is handed 1000, then three `RunFrame`s run 100 ms apart before anyone joins. The game relies on the clock not starting at 0. A `ref_tag` with a target schedules its link-up for `level.time + 0.1`, truncated to an integer. That link-up is what adds the tag that camera moves and pans aim at. From 0 it would be due at 0, which means never thinking.
+
 `Init`'s arguments are, in order:
 
 - the `mapname` cvar's text;

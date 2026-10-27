@@ -202,7 +202,11 @@ Error SpGameHost::startLevel(const std::string& mapName, std::shared_ptr<const B
     cvars_.create("sv_maxclients", "1", CvarStore::ServerInfo | CvarStore::Latch);
     cvars_.create("g_gametype", "0", CvarStore::ServerInfo | CvarStore::Latch);
     cvars_.create("sv_cheats", "1", CvarStore::ServerInfo | CvarStore::ReadOnly);
-    levelTime_ = 0;
+    // The original's server starts a level's clock at 1000 ms, not 0: what
+    // the game schedules for "now plus a fraction" at spawn (a ref_tag
+    // linking itself into the camera's tags) would otherwise be due at 0,
+    // which is never.
+    levelTime_ = kStartTimeMs;
     const uint32_t now = uint32_t(std::chrono::duration_cast<std::chrono::milliseconds>(
                                       std::chrono::steady_clock::now().time_since_epoch())
                                       .count() -
