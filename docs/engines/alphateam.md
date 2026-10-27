@@ -721,6 +721,31 @@ reads, the vftables it builds for its own subclasses):
   minutes each).
 - Single Missions lists only the missions an Adventure has reached ("Select
   a Mission to Revisit").
+- Done: Mission One (M1010) played to the end, from a saved Adventure at
+  it. The view at each mission's start is a camera behind Dash; NextCam
+  (412,428) five times shows the room from above. Dash runs from the far
+  platform into a fenced pen, where a Direction Tile turns him right; the
+  second tile, by the robot, is turned once clockwise (click it: a menu of
+  rotate left, rotate right and two hints, "Hints left: 2"; rotate right
+  is 16 left of the tile and 75 above it), so he leaves by the gap in the
+  near wall and reaches the Plunger Lock. As `at-run` options after the
+  Adventure route (the first slot chosen, with `P0Space  M1010` saved):
+
+    ```
+    -click 2400 -click 2500 -point 3046@412,428 -click 3050 -click 3100
+    -click 3150 -click 3200 -click 3250 -point 3296@450,262 -click 3300
+    -point 3336@434,187 -click 3340 -point 3376@150,470 -click 3380
+    -point 3416@572,434 -click 3420
+    ```
+
+  - "We did it!" offers Next Mission, Instant Replay! and Return to HQ, and
+    the game saves on its own: `HighSpace  M1010` (the furthest mission
+    any Adventure has finished, which Single Missions now offers) and
+    `P0Space  M1020`, with CR-LF line ends.
+  - In a mission, a click given with a position (`-click frame@x,y`) moves
+    the pointer by relative motion, which the game doesn't follow all the
+    way; `-point` first puts it where it's meant to be. A menu that's open
+    takes the next click to close it.
 
 Still to do, whichever way phase 3 chose:
 
