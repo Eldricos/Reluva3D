@@ -271,6 +271,13 @@ bool ScenePage::gameKey(uint32_t key) {
                 }
         return false;
     };
+    if (optionsMenu_) {
+        // Escape is Cancel; OK's key (VK_ENTER) matches nothing, so Enter
+        // does nothing here (0x436139).
+        if (key == key::Escape)
+            runSpot("cancelover");
+        return true;
+    }
     if (slots_) {
         if (key == key::Return)
             return runSpot("okover");
@@ -335,7 +342,6 @@ void ScenePage::openSlots(bool save) {
     const int at = save ? m.count : std::max(0, m.count - 1);
     m.page = at - at % 3;
     m.row = at % 3;
-    state_.action = [this](const std::string& w) { return slotCondition(w); };
     refreshSlots();
 }
 

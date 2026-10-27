@@ -122,9 +122,20 @@ location is loaded first, behind a fade.
 
 ### Entering a scene
 
-1. Characters are placed at their walk point with the scene's number, or
-   failing that at their first walk point. With -1, a kept scene leaves
-   them where they were. A non-zero flag has the player walk in.
+1. The player and a following character are placed at their walk point
+   with the scene's number, or failing that at their first walk point.
+   With -1, a kept scene leaves them where they were.
+
+   **Walking in.** With a non-zero flag (the default), they then walk in
+   (`0x440808`):
+   - they play `walk` and go straight ahead along the walk point's
+     heading, 100 units for the player and 50 for a follower;
+   - there is no path-finder, and they move at the walk's own pace;
+   - they end in `idle1`, eased in over 0.5 s.
+
+   Nothing waits for them: the scene's events run meanwhile. No script
+   writes the flag as 1; `scene <name> <n> 0` turns walking in off, and
+   `previous`, `gotoscene` and loading a save enter with −1 and 0.
 2. Music: every `MUSC` entry whose condition holds plays, looping. Sounds
    that were playing stay on if the new scene also names them; the others
    stop.
@@ -181,5 +192,4 @@ The page then does the following:
 
 Not done yet:
 
-- walking in through the scene flag;
 - `PUZZ` screens other than saving and loading ([saves.md](saves.md));

@@ -134,6 +134,15 @@ private:
 
 // Scenes (Locations/**/*.ac2): their pictures where the scene places
 // them, hotspots, and what else the scene holds.
+// The game's settings, as its options screen sets them (0x490048..):
+// volumes and brightness 0..10, the rest on (1) or off.
+struct GameOptions {
+    enum { Music, Sound, Gamma, Captions, Shadows, Water, Fog, Rain, AntiAlias, kCount };
+    int values[kCount];
+    GameOptions();
+    int get(int i) const { return values[i]; }
+};
+
 class ScenePage : public Page, public ScriptHost, public DialogueHost {
 public:
     explicit ScenePage(ViewerContext& ctx);
@@ -164,6 +173,8 @@ private:
         const Ac2Record* record = nullptr; // its object in the scene
         std::vector<std::pair<float, float>> path;
         float walkSpeed = 0; // world units a second, from the walk itself
+        bool follower = false; // follows the player (FLLW, its COND holding)
+        float walkIn = 0;      // walking in: the distance left
         // A script waiting on it (one at a time, as the game's +0xb5c):
         // for "walk", "run", "rotate" or "anim" (that animation, by the
         // name asked and the name played).
@@ -220,7 +231,9 @@ private:
     bool walkCharacter(Character& c, WalkGrid::Cell goal, bool toPoint, bool run = false);
     // "scene <name> [wp] [flag]": the act's variant of it, the player at
     // walk point wp (-1: where they were when it was last left).
-    bool changeScene(const std::string& name, int entry);
+    bool changeScene(const std::string& name, int entry, bool walkIn = false);
+    // A follower goes after the player (0x4400a0).
+    void follow(Character& f);
     // A scene shown in a game (N): its visit noted, its music and its
     // first event whose condition holds (0x4362b0).
     void enterScene();
@@ -258,6 +271,29 @@ private:
         float sinceClick = 10;
     };
     std::unique_ptr<SlotMenu> slots_;
+    // The options (scene_options.cpp): kept in Reluva's folder for the
+    // game; the screen's staged values (music, sound, brightness,
+    // captions) and the toggles as they were (Cancel), the slider dragged.
+    GameOptions options_;
+    struct OptionsMenu {
+        int staged[4] = {0, 0, 0, 0};
+        int original[5] = {0, 0, 0, 0, 0};
+        int dragging = 0; // 1..3
+    };
+    std::unique_ptr<OptionsMenu> optionsMenu_;
+    int lastMouseX_ = 0;
+    std::filesystem::path optionsFile() const;
+    void loadOptions();
+    void saveOptions() const;
+    void applyVolumes(int music, int sound);
+    void applyBrightness();
+    bool fogged(const Ac2Record& o) const;
+    bool frozen(const Ac2Record& o) const;
+    void openOptions();
+    int thumbX(int slider) const;
+    void optionsAction(const std::string& word);
+    void optionsRelease();
+    void drawOptions();
     void openSlots(bool save);
     void refreshSlots();
     void slotAction(const std::string& word, const std::string& second);
@@ -356,6 +392,7 @@ private:
         int entry = 1;
         ScriptRunner* runner = nullptr;
         bool restore = false; // a saved game's
+        bool walkIn = true;   // a scene's: its flag
     } load_;
     std::string location_; // the current scene's folder ("sirkeci.market")
     void beginLoad(const std::string& location, bool forAct);
@@ -385,6 +422,8 @@ private:
     const Ac2Record* scriptObject_ = nullptr; // the hotspot a script is "this" of
     const Ac2Record* resumeAfter_ = nullptr;  // the character clicked, its routine resumed after
     int entryPoint_ = -1; // the walk point the player arrives at, after "scene"
+    bool entryWalk_ = false; // and whether they walk in
+    WalkGrid::Cell leadGoal_; // where the player last set off for (followers follow)
     std::set<std::string> hiddenNames_; // objects hidden by scripts, by name or file
     std::deque<std::string> scriptLog_;
     std::map<std::string, std::string> soundFiles_; // sound name -> file

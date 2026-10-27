@@ -372,7 +372,7 @@ int cmdAweShot(int argc, char** argv) {
         std::fprintf(stderr, "usage: reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds|movies> <out.tga> "
                              "[key...]\n  keys: left right up down pgup pgdn home end esc enter f2 f3, or one character;\n"
                              "  savedir:<folder> for the game\'s saves; ms:N lets N milliseconds pass;\n"
-                             "  move:x,y and click:x,y move and click the mouse\n");
+                             "  move:x,y, click:x,y and release:x,y move, click and let go of the mouse\n");
         return 2;
     }
     reluva::DirectoryArchive files;
@@ -423,15 +423,17 @@ int cmdAweShot(int argc, char** argv) {
         if (k.rfind("savedir:", 0) == 0)
             continue;
         reluva::Event ev;
-        if (k.rfind("click:", 0) == 0 || k.rfind("move:", 0) == 0) {
-            // The mouse moved to, or clicked at, x,y on the screen.
-            const bool click = k[0] == 'c';
-            const char* at = k.c_str() + (click ? 6 : 5);
+        if (k.rfind("click:", 0) == 0 || k.rfind("move:", 0) == 0 || k.rfind("release:", 0) == 0) {
+            // The mouse moved to, clicked at, or let go at x,y on the screen.
+            const bool click = k[0] == 'c', release = k[0] == 'r';
+            const char* at = k.c_str() + (click ? 6 : release ? 8 : 5);
             char* end = nullptr;
             ev.mouseX = int(std::strtol(at, &end, 10));
             ev.mouseY = end && *end == ',' ? int(std::strtol(end + 1, nullptr, 10)) : 0;
-            ev.type = click ? reluva::EventType::MouseDown : reluva::EventType::MouseMove;
-            ev.button = click ? reluva::MouseButton::Left : reluva::MouseButton::None;
+            ev.type = click     ? reluva::EventType::MouseDown
+                      : release ? reluva::EventType::MouseUp
+                                : reluva::EventType::MouseMove;
+            ev.button = click || release ? reluva::MouseButton::Left : reluva::MouseButton::None;
             ev.clicks = click ? 1 : 0;
             page->handleEvent(ev);
             continue;

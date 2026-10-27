@@ -181,6 +181,19 @@ anim think, wait 2, anim upset01, turn -40, wait 2, turn home, wait 3, loop
 The main script resumes the routine of a character it was started from
 (clicked) once it's over.
 
+### Followers
+
+A character whose `FLLW` is non-zero follows the player while its `COND`
+holds. In the data that is Michel at Belgrade and Greta Ohlsson at
+Sirkeci. A follower behaves like this (`0x4400a0`):
+
+- **Arriving.** It is placed by the scene's walk point and walks in,
+  like the player.
+- **Following.** While the player walks somewhere, a follower that is
+  idle, 250 units or more away and further from the goal than the player
+  walks there by the path-finder. It stops 125 units short (`0x442780`),
+  and runs when the player runs.
+
 ### Talking
 
 Over the course of a line in a conversation:
@@ -215,5 +228,4 @@ To check:
 - the exact angle of `headleft` at full weight;
 - Granny's own ease curve (here a smoothstep);
 - the sit mask (`TrackMask<anim>`), which isn't applied yet;
-- walking in through a scene's flag;
 - the shadows.

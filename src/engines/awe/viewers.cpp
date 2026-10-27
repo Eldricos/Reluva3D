@@ -313,6 +313,8 @@ ScenePage::ScenePage(ViewerContext& ctx) : Page(ctx) {
     dialogue_ = std::make_unique<DialogueManager>(state_, *this, *this);
     dialogue_->onLog = [this](const std::string& l) { logScript("    " + shorten(l, 150)); };
     story_ = std::make_unique<Story>(state_, *runner_);
+    loadOptions();
+    state_.action = [this](const std::string& w) { return optionsMenu_ ? true : slotCondition(w); };
     {
         std::vector<uint8_t> data;
         if (!ctx.files.read("text/acts.txt", data))
@@ -383,7 +385,9 @@ void ScenePage::load() {
     scriptObject_ = nullptr;
     resumeAfter_ = nullptr;
     sceneShown_ = true;
+    leadGoal_ = {};
     slots_.reset();
+    optionsMenu_.reset();
     if (names_.empty())
         return draw();
     auto read = [&](const std::string& name, Ac2Scene& out) {
@@ -443,6 +447,8 @@ void ScenePage::enterScene() {
     for (const Ac2Record& r : scene_.records)
         if (r.tag == "PUZZ" && (fs::toLower(r.text("value")) == "save" || fs::toLower(r.text("value")) == "load"))
             openSlots(fs::toLower(r.text("value")) == "save");
+        else if (r.tag == "PUZZ" && fs::toLower(r.text("value")) == "options")
+            openOptions();
     // A saved game being restored runs no scene events (0x436331).
     if (restoring_)
         return;
@@ -597,6 +603,7 @@ void ScenePage::beginLoad(const std::string& location, bool forAct) {
     const LocationLoad keep = load_;
     load_ = LocationLoad();
     load_.scene = keep.scene, load_.verb = keep.verb, load_.entry = keep.entry, load_.runner = keep.runner;
+    load_.walkIn = keep.walkIn;
     load_.restore = keep.restore;
     load_.forAct = forAct;
     load_.location = location;
@@ -669,7 +676,7 @@ void ScenePage::updateLoad() {
             return;
         }
         // The scene, faded in (states 6, 9).
-        changeScene(l.scene, l.entry);
+        changeScene(l.scene, l.entry, l.walkIn);
         fadeTarget_ = 0;
         l.state = 4;
         return;
@@ -688,11 +695,13 @@ void ScenePage::newGame() {
     // "reset"; its Play is "act", starting act 01A.
     playing_ = true;
     runner_->clear();
-    // The state afresh; the dialogue's test of parts told stays, its
-    // tables are read again.
+    // The state afresh; the dialogue's test of parts told and the screens'
+    // "action" test stay, the tables are read again.
     auto partTold = std::move(state_.partTold);
+    auto action = std::move(state_.action);
     state_ = GameState{};
     state_.partTold = std::move(partTold);
+    state_.action = std::move(action);
     state_.values["master"] = 1; // the debug switch, off ([0x48b084] = 1)
     dialogueAct_ = "-";
     hiddenNames_.clear();
@@ -784,6 +793,9 @@ void ScenePage::loadLoops() {
 bool ScenePage::advanceLoops(float time) {
     bool changed = false;
     for (auto& [o, loop] : loops_) {
+        // "Animated Effects" off: the flagged videos stay on their frame.
+        if (frozen(*o) && !loop.frame.rgba.empty())
+            continue;
         const size_t count = loop.file->frameCount();
         if (count == 0 || loop.file->fps() <= 0)
             continue;
@@ -855,10 +867,16 @@ void ScenePage::loadCharacters() {
         c.player = o->tag == "PCXX";
         c.who = fs::toLower(who);
         c.record = o;
+        // A character following the player (FLLW, on its COND) arrives as
+        // the player does (0x440070).
+        const Ac2Record* fllw = o->part("FLLW");
+        const Ac2Record* cond = o->part("COND");
+        c.follower = !c.player && fllw && fllw->i("follow") != 0 &&
+                     testCondition(cond ? cond->text("condition") : std::string(), state_);
         // Arriving by "scene <name> <n>": at its walk point n, else its
         // first; with -1 where they were when the scene was left
         // (0x440690).
-        if (c.player && entryPoint_ >= 0) {
+        if ((c.player || c.follower) && entryPoint_ >= 0) {
             if (const Ac2Record* w = o->part("WALK"); w && !w->parts.empty()) {
                 const Ac2Record* at = &w->parts.front();
                 for (const Ac2Record& pt : w->parts)
@@ -916,6 +934,13 @@ void ScenePage::loadCharacters() {
                 }
         };
         actor->activate();
+        // Walking in (0x440808): the player (and a follower) straight ahead
+        // from the walk point, 100 units (a follower 50), unless the scene
+        // was entered with its flag 0.
+        if ((c.player || c.follower) && entryPoint_ >= 0 && entryWalk_ && startWalk(c)) {
+            c.walkIn = c.follower ? 50.0f : 100.0f;
+            logScript("    (" + c.who + " walks in)");
+        }
         // Models MODL attaches at load, on their conditions (Poirot's hat,
         // Antoinette's coat; her snowshoes with "tag snowshoeson").
         if (const Ac2Record* m = o->part("MODL"))
@@ -946,10 +971,11 @@ void ScenePage::draw() {
     // (the countryside going by: "moving >0").
     std::vector<const Ac2Record*> pictures;
     for (const Ac2Record* o : objects) {
-        if (hidden(*o))
+        if (hidden(*o) || fogged(*o))
             continue;
         if (const auto ps = particles_.find(o); ps != particles_.end()) {
-            if (testCondition(ps->second.settings().condition, state_))
+            // "Particle Effects" off: none drawn (0x42d4be).
+            if (options_.get(GameOptions::Rain) && testCondition(ps->second.settings().condition, state_))
                 pictures.push_back(o);
         } else if ((hasExtension(o->text("file"), {".jpg", ".png", ".tga", ".bmp"}) || loops_.count(o)) &&
                    testCondition(o->text("condition"), state_)) {
@@ -970,6 +996,18 @@ void ScenePage::draw() {
             return;
         SpriteTransform t;
         t.x = o->f("x"), t.y = o->f("y");
+        if (optionsMenu_)
+            // The options screen's slider thumbs, at their values.
+            for (int i = 0; i < 3; i++)
+                if (const Ac2Record* thumb = [&]() -> const Ac2Record* {
+                        int n = i;
+                        for (const Ac2Record* x : objects)
+                            if (fs::toLower(fileNameOf(x->text("file"))) == "slider.jpg" && n-- == 0)
+                                return x;
+                        return nullptr;
+                    }();
+                    thumb == o)
+                    t.x = float(thumbX(i));
         if (o->field("spriteScaleX"))
             t.scaleX = o->f("spriteScaleX"), t.scaleY = o->f("spriteScaleY");
         if (const Ac2Record* p = o->part(o->tag == "BINK" ? "BNKX" : "SPRT"))
@@ -997,6 +1035,7 @@ void ScenePage::draw() {
         for (const Ac2Record* o : pictures)
             if (depth(o) < 0)
                 place(o, false);
+        applyBrightness();
         if (back_)
             renderer_->destroyTexture(back_);
         back_ = 0;
@@ -1009,6 +1048,7 @@ void ScenePage::draw() {
     for (const Ac2Record* o : pictures)
         if (!layered || depth(o) >= 0)
             place(o, layered);
+    applyBrightness();
     if (showGrid_)
         drawGrid();
     if (hotspots_)
@@ -1147,6 +1187,11 @@ void ScenePage::draw() {
         for (const auto& ch : dialogue_->choices())
             choices.push_back(ch.text);
         const DialogueLine* said = dialogue_->line();
+        // "Text Captions" off: no box or line unless choosing, or the radio
+        // (0x43cf90).
+        const bool radio = said && (said->name == "dia_barnabyham" || said->name == "hamradio");
+        if (!options_.get(GameOptions::Captions) && !dialogue_->choosing() && !radio)
+            said = nullptr;
         const auto areas = drawDialogueBox(ctx_.screen, *ctx_.fonts, pics, dialogue_->boxTop(),
                                            said ? said->text : std::string(), ctx_.fonts->colour(kColours[c]),
                                            dialogue_->choosing() ? choices : std::vector<std::string>(),
@@ -1158,6 +1203,8 @@ void ScenePage::draw() {
     }
     if (slots_ && !load_.screen && !movie_)
         drawSlots();
+    if (optionsMenu_ && !load_.screen && !movie_)
+        drawOptions();
     if (yesNo_ && ctx_.fonts) {
         // The box: the question and Yes / No as the dialogue's choices.
         DialogueBoxPictures pics;
@@ -1198,7 +1245,8 @@ void ScenePage::draw() {
         if (movie_ && movie_->frame().w) {
             const image::Image& f = movie_->frame();
             image::blit(ctx_.screen, f, (kScreenW - f.w) / 2, (kScreenH - f.h) / 2);
-            drawSubtitles(movieSubtitles_, movie_->seconds());
+            if (options_.get(GameOptions::Captions))
+                drawSubtitles(movieSubtitles_, movie_->seconds());
         }
     } else if (fade_ > 0) {
         fill(0, 0, kScreenW, kScreenH, Color{0, 0, 0}, uint8_t(fade_ * 255));
@@ -1272,6 +1320,22 @@ void ScenePage::update(uint64_t nowMs) {
         if (turning)
             c.rotY = heading / 57.29578f;
         changed = true;
+        if (c.walkIn > 0 && c.path.empty()) {
+            // Straight ahead along its heading; any overshoot backed off,
+            // then idle1 eased in over half a second (0x4422c0, 0x442690).
+            const float step = std::min(c.walkIn, c.walkSpeed * dt);
+            c.x += std::sin(c.rotY) * step, c.z += std::cos(c.rotY) * step;
+            c.walkIn -= step;
+            if (c.walkIn <= 0) {
+                c.walkIn = 0;
+                c.actor->play("idle1", 0, 0.5f);
+                char at[96];
+                std::snprintf(at, sizeof at, "    (%s in, at %.0f, %.0f)", c.who.c_str(), c.x, c.z);
+                logScript(at);
+            }
+        }
+        if (c.follower && c.path.empty() && c.walkIn <= 0)
+            follow(c);
         if (c.path.empty()) {
             placeCharacter(c);
             continue;
@@ -1307,7 +1371,7 @@ void ScenePage::update(uint64_t nowMs) {
         placeCharacter(c);
     }
     for (auto& [o, system] : particles_)
-        if (testCondition(system.settings().condition, state_)) {
+        if (options_.get(GameOptions::Rain) && testCondition(system.settings().condition, state_)) {
             system.update(dt);
             changed = true;
         }
@@ -1471,6 +1535,40 @@ bool ScenePage::startWalk(Character& c, bool run) {
     return true;
 }
 
+void ScenePage::follow(Character& f) {
+    // 0x4400a0: while the player walks somewhere, a follower 250 units or
+    // more away, and further from the goal than the player, walks there by
+    // the path-finder, stopping 125 units short (0x442780).
+    const Character* p = nullptr;
+    for (const Character& c : characters_)
+        if (c.player)
+            p = &c;
+    if (!p || p->path.empty() || !leadGoal_.valid())
+        return;
+    float gx, gz;
+    grid_.centre(leadGoal_, gx, gz);
+    auto dist = [](float ax, float az, float bx, float bz) { return std::hypot(ax - bx, az - bz); };
+    if (dist(p->x, p->z, f.x, f.z) < 250 || dist(p->x, p->z, gx, gz) >= dist(f.x, f.z, gx, gz))
+        return;
+    const std::vector<WalkGrid::Cell> keep = path_;
+    if (walkCharacter(f, leadGoal_, false) && grid_.at(leadGoal_.a, leadGoal_.b) != 2) {
+        // The last leg shortened; under 10 units it isn't walked.
+        const float fx = f.path.size() > 1 ? f.path[f.path.size() - 2].first : f.x;
+        const float fz = f.path.size() > 1 ? f.path[f.path.size() - 2].second : f.z;
+        auto& last = f.path.back();
+        const float leg = dist(fx, fz, last.first, last.second);
+        if (leg - 125 < 10) {
+            f.path.pop_back();
+        } else {
+            last.first = fx + (last.first - fx) * (leg - 125) / leg;
+            last.second = fz + (last.second - fz) * (leg - 125) / leg;
+        }
+        if (f.path.empty())
+            f.actor->play("idle1", 0, 0);
+    }
+    path_ = keep; // the overlay shows the player's
+}
+
 void ScenePage::placeCharacter(Character& c) const {
     c.placement = characterMatrix(c.x, c.y, c.z, c.rotY);
     const Animator::Slot* s = c.actor ? c.actor->animator().base() : nullptr;
@@ -1524,6 +1622,8 @@ void ScenePage::walkTo(int sx, int sy) {
         path_ = grid_.findPath(start, goal);
         pathSource_ = "Reluva's A*";
     }
+    if (who && who->player && path_.size() > 1)
+        leadGoal_ = goal;
     if (who && path_.size() > 1 && startWalk(*who)) {
         who->path.clear();
         for (size_t i = 1; i < path_.size(); i++) {
@@ -1650,6 +1750,7 @@ void ScenePage::queueRoutine(Character& c) {
 }
 
 bool ScenePage::walkCharacter(Character& c, WalkGrid::Cell goal, bool toPoint, bool run) {
+    c.walkIn = 0; // a walk replaces walking in
     const WalkGrid::Cell start = grid_.cellAt(c.x, c.z);
     if (!triedGamePaths_) {
         triedGamePaths_ = true;
@@ -1676,7 +1777,7 @@ bool ScenePage::walkCharacter(Character& c, WalkGrid::Cell goal, bool toPoint, b
     return true;
 }
 
-bool ScenePage::changeScene(const std::string& name, int entry) {
+bool ScenePage::changeScene(const std::string& name, int entry, bool walkIn) {
     // The scene's file by its name, the act's variant if there is one.
     const std::string want = fs::toLower(name) + ".ac2";
     const std::string variant = state_.act.empty() ? "" : fs::toLower(name) + "_" + state_.act + ".ac2";
@@ -1705,8 +1806,10 @@ bool ScenePage::changeScene(const std::string& name, int entry) {
     story_->leavingScene();
     index_ = found;
     entryPoint_ = entry;
+    entryWalk_ = walkIn;
     load();
     entryPoint_ = -1;
+    entryWalk_ = false;
     return true;
 }
 
@@ -2117,6 +2220,8 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
         }
         if (!walkCharacter(*c, goal, toPoint, v == "run"))
             return false;
+        if (c->player)
+            leadGoal_ = goal;
         if (wait)
             c->waiting = &runner, c->waitVerb = v;
         return wait;
@@ -2136,6 +2241,8 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
         const ScriptEvent scene{words};
         const std::string name = lower(scene.arg(1));
         const int entry = scene.arg(2).empty() ? 1 : std::atoi(scene.arg(2).c_str());
+        // The flag (default 1) has the player walk in.
+        const bool walkIn = scene.arg(3).empty() ? true : std::atoi(scene.arg(3).c_str()) != 0;
         // In another place (its name doesn't hold the current location's):
         // a fade out, the location loaded, the scene shown and faded in;
         // the event waits till then (0x423d40, 0x422640).
@@ -2144,11 +2251,11 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
             load_.state = 1;
             load_.location = name.substr(0, name.find('_'));
             load_.scene = name, load_.verb = v, load_.entry = entry, load_.runner = &runner;
+            load_.walkIn = walkIn;
             fadeTarget_ = 1;
             return true;
         }
-        // The flag (default 1) has the player walk in: not done yet.
-        changeScene(name, entry);
+        changeScene(name, entry, walkIn);
         return false;
     }
     if (v == "act") {
@@ -2195,7 +2302,9 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
         return false;
     }
     if (v == "action") {
-        if (slots_)
+        if (optionsMenu_)
+            optionsAction(lower(e.arg(1)));
+        else if (slots_)
             slotAction(lower(e.arg(1)), lower(e.arg(2)));
         return false;
     }
@@ -2286,6 +2395,14 @@ void ScenePage::line(int x0, int y0, int x1, int y1, Color c) {
 }
 
 void ScenePage::handleEvent(const Event& ev) {
+    if (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown)
+        lastMouseX_ = ev.mouseX;
+    if (optionsMenu_ && optionsMenu_->dragging) {
+        if (ev.type == EventType::MouseMove)
+            draw();
+        else if (ev.type == EventType::MouseUp)
+            optionsRelease();
+    }
     if (yesNo_) {
         // The yes/no box takes every click and key while it's up.
         if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {

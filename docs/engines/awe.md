@@ -81,8 +81,9 @@ scenes, two Granny files, the text tables, two backgrounds):
   completion conditions, `savescene`/`gotoscene`, fades and movies (with
   their subtitles; Escape skips them), loading screens, and saved games
   in the game's own format (the save and load screens, F2/F3, the
-  developers' saves: see [../formats/awe/saves.md](../formats/awe/saves.md))
-  work.
+  developers' saves: see [../formats/awe/saves.md](../formats/awe/saves.md)),
+  the options screen and its settings ([../formats/awe/options.md](../formats/awe/options.md)),
+  and walking into scenes, with followers, work.
 - **Characters: animated as the game animates them.** Up to ten
   animations each on body, head and eye layers, blended by the files'
   track masks; blinking, idle gestures and their routines; `anim`,
@@ -141,7 +142,7 @@ Next:
    records and member types the samples didn't have.
 2. A native port of the path-finder's lattice search (`0x42f1f0`),
    checked path for path against the game's (`awe-path`).
-3. The options screen; walking in, and the characters' shadows.
+3. The characters' shadows, and brightness on the 3D characters.
 4. Native decoding of the compressed curve formats (the DLL expands them
    for now).
 5. Native Oodle1 and Bink-texture decoding, checked against the DLL, to
