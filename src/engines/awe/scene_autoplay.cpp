@@ -16,13 +16,13 @@ namespace reluva::awe {
 
 void ScenePage::startAt(const std::string& where) {
     // As a new game, but straight to the act ("act 04a" as 03A's Event
-    // has it) or the save ("preload slot7, load" as the load screen does).
+    // has it) or the save ("preload slot7, load, fade in" as the load screen does).
     newGame();
     runner_->clear();
     autoChoices_.clear();
     const std::string w = fs::toLower(where);
     if (w.rfind("slot", 0) == 0)
-        runner_->run("preload " + w + ", load");
+        runner_->run("preload " + w + ", load, fade in");
     else
         runner_->run("act " + w);
 }

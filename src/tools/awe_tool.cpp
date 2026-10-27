@@ -364,9 +364,11 @@ public:
 int cmdAweShot(int argc, char** argv) {
     if (argc < 5) {
         std::fprintf(stderr, "usage: reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds|movies> <out.tga> "
-                             "[key...]\n  keys: left right up down pgup pgdn home end esc enter f2 f3, or one character;\n"
+                             "[key...]\n  keys: left right up down pgup pgdn home end esc enter f1..f12, or one character;\n"
                              "  savedir:<folder> for the game\'s saves; ms:N lets N milliseconds pass;\n"
-                             "  move:x,y, click:x,y and release:x,y move, click and let go of the mouse\n");
+                             "  move:x,y, click:x,y and release:x,y move, click and let go of the mouse, rclick:x,y\n"
+                             "  right-clicks; start:<act|slotN> starts a game there, run:<script> runs a script\n"
+                             "  (the scenes page)\n");
         return 2;
     }
     reluva::DirectoryArchive files;
@@ -416,18 +418,44 @@ int cmdAweShot(int argc, char** argv) {
         }
         if (k.rfind("savedir:", 0) == 0)
             continue;
+        if (k.rfind("run:", 0) == 0) {
+            // A script run, as a scene's.
+            if (auto* scenes = dynamic_cast<awe::ScenePage*>(page.get()))
+                scenes->runCommands(k.substr(4));
+            continue;
+        }
+        if (k.rfind("start:", 0) == 0) {
+            // A game started at an act or a developer's save, played on
+            // till it settles (as awe-acts does).
+            if (auto* scenes = dynamic_cast<awe::ScenePage*>(page.get())) {
+                scenes->startAt(k.substr(6));
+                for (int quiet = 0, n = 0; n < 60000 && quiet < 300; n++) {
+                    sys.now += 10;
+                    scenes->update(sys.now);
+                    scenes->autoplay();
+                    const awe::ScenePage::GameStatus st = scenes->status();
+                    quiet = st.idle && !st.talking && !st.movie && !st.loading && !st.fading ? quiet + 1 : 0;
+                }
+            }
+            continue;
+        }
         reluva::Event ev;
-        if (k.rfind("click:", 0) == 0 || k.rfind("move:", 0) == 0 || k.rfind("release:", 0) == 0) {
-            // The mouse moved to, clicked at, or let go at x,y on the screen.
-            const bool click = k[0] == 'c', release = k[0] == 'r';
-            const char* at = k.c_str() + (click ? 6 : release ? 8 : 5);
+        if (k.rfind("click:", 0) == 0 || k.rfind("move:", 0) == 0 || k.rfind("release:", 0) == 0 ||
+            k.rfind("rclick:", 0) == 0) {
+            // The mouse moved to, clicked at (left or right), or let go at
+            // x,y on the screen.
+            const bool right = k.rfind("rclick:", 0) == 0, click = k[0] == 'c' || right,
+                       release = k.rfind("release:", 0) == 0;
+            const char* at = k.c_str() + (right ? 7 : click ? 6 : release ? 8 : 5);
             char* end = nullptr;
             ev.mouseX = int(std::strtol(at, &end, 10));
             ev.mouseY = end && *end == ',' ? int(std::strtol(end + 1, nullptr, 10)) : 0;
             ev.type = click     ? reluva::EventType::MouseDown
                       : release ? reluva::EventType::MouseUp
                                 : reluva::EventType::MouseMove;
-            ev.button = click || release ? reluva::MouseButton::Left : reluva::MouseButton::None;
+            ev.button = right ? reluva::MouseButton::Right
+                        : click || release ? reluva::MouseButton::Left
+                                           : reluva::MouseButton::None;
             ev.clicks = click ? 1 : 0;
             page->handleEvent(ev);
             continue;
@@ -437,7 +465,8 @@ int cmdAweShot(int argc, char** argv) {
         ev.key = k == "left" ? key::Left : k == "right" ? key::Right : k == "up" ? key::Up : k == "down" ? key::Down
                : k == "pgup" ? key::PageUp : k == "pgdn" ? key::PageDown : k == "home" ? key::Home
                : k == "end" ? key::End : k == "esc" ? key::Escape : k == "enter" ? key::Return
-               : k == "f2" ? key::F1 + 1 : k == "f3" ? key::F1 + 2 : uint32_t(uint8_t(k[0]));
+               : k.size() > 1 && k[0] == 'f' ? key::F1 + uint32_t(std::atoi(k.c_str() + 1) - 1)
+                                             : uint32_t(uint8_t(k[0]));
         page->handleEvent(ev);
     }
     page->update(sys.now);
@@ -557,8 +586,9 @@ int cmdAweActs(int argc, char** argv) {
         settle(page, log, target);
         report(log, page.status(), target);
         if (explore > 0) {
-            // On from there: each time the click (or item used) tried
-            // least often so far in that scene, the first of those.
+            // On from there: each time the click (or item used, or items
+            // combined in the inventory) tried least often so far in that
+            // scene, the first of those.
             std::map<std::string, int> tried;
             std::set<std::string> scenes{page.status().scene};
             int steps = 0;
@@ -578,16 +608,32 @@ int cmdAweActs(int argc, char** argv) {
                             bestN = tried[key], best = key, bestI = i, bestItem = item;
                     }
                 }
+                const std::vector<std::vector<std::string>> combos = page.combinations();
+                std::vector<std::string> bestCombo;
+                for (const std::vector<std::string>& c : combos) {
+                    std::string key = scene + "|combine";
+                    for (const std::string& p : c)
+                        key += " " + p;
+                    if (tried[key] < bestN)
+                        bestN = tried[key], best = key, bestCombo = c;
+                }
                 if (best.empty()) {
                     std::printf("  (nothing to click in %s)\n", scene.c_str());
                     break;
                 }
                 tried[best]++;
                 log.clear();
-                log.push_back("  [player] " + (bestItem.empty() ? "click " : "use " + bestItem + " on ") + spots[bestI] +
-                              " in " + scene);
+                if (!bestCombo.empty()) {
+                    std::string what;
+                    for (const std::string& p : bestCombo)
+                        what += (what.empty() ? "" : " + ") + p;
+                    log.push_back("  [player] combine " + what + " in " + scene);
+                    page.combineItems(bestCombo);
+                } else
+                    log.push_back("  [player] " + (bestItem.empty() ? "click " : "use " + bestItem + " on ") +
+                                  spots[bestI] + " in " + scene);
                 // (An item it can't take yet is Antoinette's "can't": on.)
-                if (bestItem.empty() ? !page.click(bestI) : (page.useOn(bestItem, bestI), false)) {
+                if (bestCombo.empty() && (bestItem.empty() ? !page.click(bestI) : (page.useOn(bestItem, bestI), false))) {
                     std::printf("  (%s didn't run)\n", log.back().c_str());
                     break;
                 }

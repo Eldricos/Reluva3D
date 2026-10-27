@@ -161,6 +161,8 @@ public:
     // log passed on; and a player who only waits: movies skipped, the
     // first choice taken, lines cut short (what it did, "" if nothing).
     void startAt(const std::string& where);
+    // A script run as the scenes' are (a tool's: "startpass michel").
+    void runCommands(const std::string& script) { runner_->run(script); }
     std::function<void(const std::string& line)> onLog;
     std::string autoplay();
     // Nothing drawn (a tool that only follows the scripts).

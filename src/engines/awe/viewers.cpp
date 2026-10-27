@@ -1439,8 +1439,8 @@ void ScenePage::draw() {
     } else if (fade_ > 0) {
         fill(0, 0, kScreenW, kScreenH, Color{0, 0, 0}, uint8_t(fade_ * 255));
     }
-    help(std::string("Left/Right: scene  Up/Down: object  H: hotspots  I: info  M: moving  W: weather  T: night  "
-                     "G: grid  N: new game  click: walk") +
+    help(std::string("Left/Right: scene  Up/Down: object  H: hotspots  I (F9 in a game): info  M: moving  W: weather  "
+                     "T: night  G: grid  N: new game  click: walk") +
          (renderer_ ? "  C: characters" : "  (no 3D: no characters)"));
     if (!renderer_)
         present();
@@ -3022,7 +3022,8 @@ void ScenePage::handleEvent(const Event& ev) {
         int& v = state_.values[ev.key == 'm' ? "moving" : ev.key == 'w' ? "weather" : "time"];
         v = !v;
         draw();
-    } else if (ev.key == 'i') {
+    } else if (ev.key == 'i' || ev.key == key::F1 + 8) {
+        // (In a game I is the inventory's: F9.)
         info_ = !info_;
         draw();
     } else if (ev.key == 'c' && renderer_) {
