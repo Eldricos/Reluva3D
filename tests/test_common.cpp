@@ -465,6 +465,17 @@ static void testX86Instructions() {
                  0xdf, 0x3d, 0x20, 0x30, 0, 0, 0xc3});
     CHECK(cpu.read32(0x3018) == 0x6009fb10 && cpu.read32(0x301c) == 0x4853e428);
     CHECK(cpu.read32(0x3020) == 0x89abcdef && cpu.read32(0x3024) == 0xf1234567);
+    // Decoded operands are cached by address, but code written over runs as
+    // written: mov eax, [0x3000]; ret, then its displacement changed to
+    // 0x3004 from outside; then by the program itself, under an entry
+    // cached the run before: mov byte [0x2009], n; mov eax, [0x3000]; ret.
+    cpu.write32(0x3000, 111);
+    cpu.write32(0x3004, 222);
+    cpu.write32(0x3008, 333);
+    CHECK(runX86(cpu, {0x8b, 0x05, 0, 0x30, 0, 0, 0xc3}) == 111);
+    CHECK(runX86(cpu, {0x8b, 0x05, 0x04, 0x30, 0, 0, 0xc3}) == 222);
+    CHECK(runX86(cpu, {0xc6, 0x05, 0x09, 0x20, 0, 0, 0x00, 0x8b, 0x05, 0, 0x30, 0, 0, 0xc3}) == 111);
+    CHECK(runX86(cpu, {0xc6, 0x05, 0x09, 0x20, 0, 0, 0x08, 0x8b, 0x05, 0, 0x30, 0, 0, 0xc3}) == 333);
     // Segment registers in a flat model: push es; pop es; mov eax, 0; mov ax, ds; ret
     CHECK(runX86(cpu, {0x06, 0x07, 0xb8, 0, 0, 0, 0, 0x66, 0x8c, 0xd8, 0xc3}) == 0x23);
     // fs: mov eax, fs:[4]; ret

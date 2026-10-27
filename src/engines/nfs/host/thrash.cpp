@@ -10,6 +10,7 @@
 #include "engines/nfs/host/game_host.h"
 
 #include <cstdlib>
+#include <cstring>
 
 namespace reluva::nfs {
 
@@ -99,7 +100,62 @@ uint32_t GameHost::wrapThrash(const std::string& name, uint32_t address) {
     });
 }
 
+uint32_t GameHost::softtria(uint32_t address) const { return cpu_->read32(address - 0x60000000 + thrashBase_); }
+
+void GameHost::presentBuffer(uint32_t buffer, int pitch, int x0, int y0, int width, int height) {
+    if (frame_.w != modeWidth_ || frame_.h != modeHeight_)
+        frame_.create(modeWidth_, modeHeight_, PixelFormat::RGBA32);
+    x0 = std::max(x0, 0);
+    y0 = std::max(y0, 0);
+    width = std::min(width, frame_.w - x0);
+    height = std::min(height, frame_.h - y0);
+    if (width <= 0 || height <= 0 || !cpu_->valid(buffer + uint32_t(y0 * pitch), uint32_t(height * pitch)))
+        return;
+    for (int y = y0; y < y0 + height; ++y) {
+        const uint8_t* src = cpu_->memory().data() + buffer + size_t(y) * size_t(pitch) + size_t(x0) * 2;
+        uint8_t* dst = frame_.row(y) + size_t(x0) * 4;
+        for (int x = 0; x < width; ++x, dst += 4) {
+            const uint16_t v = uint16_t(src[2 * x] | src[2 * x + 1] << 8);
+            dst[0] = uint8_t(((v >> 11) & 31) * 255 / 31);
+            dst[1] = uint8_t(((v >> 5) & 63) * 255 / 63);
+            dst[2] = uint8_t((v & 31) * 255 / 31);
+            dst[3] = 255;
+        }
+    }
+    if (onFrame)
+        onFrame(frame_);
+}
+
 bool GameHost::nativeDraw(const std::string& name, const std::vector<uint32_t>& args) {
+    // softtria's page flip and clear work on its current window's buffer,
+    // over the clip rectangle as it keeps it (whole 16-pixel columns).
+    if (softtriaKnown_ && (name == "pageflip" || name == "clearwindow")) {
+        const uint32_t buffer = softtria(0x6003e0fc), pitch = softtria(0x6003e0ec);
+        const int x0 = int(softtria(0x6003e0b8)) & ~15, y0 = int(softtria(0x6003e0bc));
+        const int width = (int(softtria(0x6003e0c0)) >> 4) * 16, height = int(softtria(0x6003e0c4));
+        if (name == "clearwindow") {
+            const uint32_t fill = softtria(0x6003e11c); // the clear colour, two pixels of it
+            if (width > 0 && height > 0 && cpu_->valid(buffer + uint32_t(y0) * pitch, uint32_t(height) * pitch))
+                for (int y = y0; y < y0 + height; ++y) {
+                    uint8_t* row = cpu_->memory().data() + buffer + size_t(y) * pitch + size_t(x0) * 2;
+                    for (int x = 0; x < width; x += 2)
+                        std::memcpy(row + 2 * x, &fill, 4);
+                }
+            return true;
+        }
+        // A function the game gave it, called with 1 before the frame is
+        // copied to the screen and 0 after.
+        const uint32_t hook = softtria(0x600400b4);
+        uint32_t ignored = 0;
+        if (hook)
+            if (Error e = cpu_->call(hook, {1}, ignored))
+                cpu_->abort("THRASH_pageflip: " + e.message);
+        presentBuffer(buffer, int(pitch), x0, y0, width, height);
+        if (hook)
+            if (Error e = cpu_->call(hook, {0}, ignored))
+                cpu_->abort("THRASH_pageflip: " + e.message);
+        return true;
+    }
     if (name.rfind("draw", 0) != 0)
         return false;
     // The buffer the software renderer would draw into: the current

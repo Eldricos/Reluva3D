@@ -59,6 +59,7 @@ private:
     Vertex vertex(uint32_t address) const;
     void rasterize(const Vertex& a, const Vertex& b, const Vertex& c);
     void plot(int x, int y, uint32_t argb);
+    void put(uint8_t* pixel, uint32_t argb); // blends as the state says
 
     x86::Cpu& cpu_;
     uint32_t target_ = 0;

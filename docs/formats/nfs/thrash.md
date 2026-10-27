@@ -146,15 +146,40 @@ Direct3D:
   its buffer to the DirectDraw surface.
 - `about()` returns a pointer to a structure describing the renderer.
 
+## Page flips and clears, natively
+
+With the retail `softtria.dll` (timestamp 0x35e4344f, image base
+0x60000000), `nfs-host -native` does `pageflip` and `clearwindow` itself.
+Both work on softtria's current window over its clip rectangle, which it
+keeps in globals. Their addresses come from disassembling the two
+functions:
+
+| Global | Meaning |
+|---|---|
+| `0x6003e0fc` | the current window's buffer |
+| `0x6003e0ec` | its pitch, in bytes |
+| `0x6003e0b8`, `0x6003e0bc` | the clip rectangle's left (rounded down to 16 pixels) and top |
+| `0x6003e0c0`, `0x6003e0c4` | its width (in whole 16-pixel columns) and height |
+| `0x6003e11c` | the clear colour, as two 5:6:5 pixels |
+| `0x600400b4` | a function of the game's, called with 1 before a page flip's copy and 0 after |
+
+- `clearwindow` fills the rectangle with the clear colour.
+- `pageflip` locks the primary DirectDraw surface and copies the
+  rectangle into it, eight bytes at a time through FILD/FISTP. Then it
+  unlocks the surface. It doesn't swap windows. Done natively, the
+  rectangle goes straight to the frame shown, between the two calls to
+  the game's function.
+
+With any other renderer DLL, both are left to the DLL.
+
 ## Cost
 
 Instructions a frame in the interpreter:
 
-| | softtria | native drawing |
-|---|---|---|
-| Front end menu | 5.1 million | 0.5 million |
-| Race, Hometown, 8 cars | 16 million | 2.5 million, 0.6 million of them still in the DLL |
+| | softtria | native drawing | and native flips and clears |
+|---|---|---|---|
+| Front end menu | 5.1 million | 0.5 million | |
+| Race, Hometown, 8 cars | 16 million | 2.5 million, 0.6 million of them still in the DLL | 1.1 million, 0.03 million in the DLL |
 
-What the DLL still runs is mostly `pageflip` (0.3 million a frame:
-copying 640x480 pixels) and texture uploads. Both can be taken over
-next.
+A race now runs at 25 to 28 frames a second, and its clock keeps about
+real time.

@@ -952,7 +952,7 @@ int cmdNfsHost(int argc, char** argv) {
     }
     reluva::nfs::GameHost::Options options;
     options.saveFolder = stdfs::temp_directory_path() / "reluva_nfs3_save";
-    int traceCount = 32, every = 50;
+    int traceCount = 0, every = 50; // traceCount: the last instructions kept, for a failure (0: none)
     std::vector<uint32_t> watch; // addresses at which to print the registers
     std::string dumpFile;        // the emulated memory, written at the end
     uint32_t slice = 0;          // instructions between thread changes (0: the default)
@@ -1021,14 +1021,16 @@ int cmdNfsHost(int argc, char** argv) {
     std::vector<uint32_t> recent(size_t(std::max(traceCount, 1)));
     size_t recentAt = 0;
     int watched = 0;
-    host.cpu().trace = [&](reluva::x86::Cpu& c) {
-        recent[recentAt++ % recent.size()] = c.eip;
-        if (!watch.empty() && watched < 50 && std::find(watch.begin(), watch.end(), c.eip) != watch.end()) {
-            ++watched;
-            std::printf("  at %08x: eax %08x ecx %08x edx %08x ebx %08x esp %08x ebp %08x esi %08x edi %08x\n", c.eip,
-                        c.reg[0], c.reg[1], c.reg[2], c.reg[3], c.reg[4], c.reg[5], c.reg[6], c.reg[7]);
-        }
-    };
+    // Tracing every instruction costs: only when asked for.
+    if (traceCount > 0 || !watch.empty())
+        host.cpu().trace = [&](reluva::x86::Cpu& c) {
+            recent[recentAt++ % recent.size()] = c.eip;
+            if (!watch.empty() && watched < 50 && std::find(watch.begin(), watch.end(), c.eip) != watch.end()) {
+                ++watched;
+                std::printf("  at %08x: eax %08x ecx %08x edx %08x ebx %08x esp %08x ebp %08x esi %08x edi %08x\n", c.eip,
+                            c.reg[0], c.reg[1], c.reg[2], c.reg[3], c.reg[4], c.reg[5], c.reg[6], c.reg[7]);
+            }
+        };
     if (slice)
         host.process().slice = slice;
     for (size_t at = 0; at < keyScript.size();) {

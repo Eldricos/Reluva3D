@@ -33,7 +33,7 @@ constexpr uint32_t kReturnSlots = 1;
 
 } // namespace
 
-Cpu::Cpu(uint32_t memorySize) : memory_(memorySize, 0) {
+Cpu::Cpu(uint32_t memorySize) : modrmCache_(kModrmCacheSize), memory_(memorySize, 0), memoryLimit_(memorySize - kPageSize) {
     nativeBase_ = memorySize - kMaxNatives * kNativeStride;
     std::memset(&memory_[nativeBase_ - kNativeStride * kReturnSlots], 0xf4, kMaxNatives * kNativeStride + kNativeStride);
 }
@@ -91,47 +91,14 @@ void Cpu::fault(const std::string& message) {
     throw Fault{message + " at " + hex(instructionStart_)};
 }
 
-uint8_t* Cpu::at(uint32_t a, uint32_t size) {
-    if (!valid(a, size))
-        fault("memory access at " + hex(a) + " (" + std::to_string(size) + " bytes) outside memory");
-    return &memory_[a];
+void Cpu::outside(uint32_t a, uint32_t size) {
+    fault("memory access at " + hex(a) + " (" + std::to_string(size) + " bytes) outside memory");
 }
 
-uint32_t Cpu::load(uint32_t a, int size) {
+uint32_t Cpu::loadOutside(uint32_t a, int size) {
     if (readableFirstPage && a < kPageSize && a + uint32_t(size) <= kPageSize)
         return 0;
-    const uint8_t* p = at(a, uint32_t(size));
-    if (size == 1)
-        return p[0];
-    if (size == 2)
-        return uint32_t(p[0] | p[1] << 8);
-    uint32_t v;
-    std::memcpy(&v, p, 4);
-    return v;
-}
-
-void Cpu::store(uint32_t a, uint32_t v, int size) {
-    uint8_t* p = at(a, uint32_t(size));
-    if (a < watchEnd && a + uint32_t(size) > watchStart && onWatchedStore)
-        onWatchedStore(*this, a, v, size);
-    if (size == 1)
-        p[0] = uint8_t(v);
-    else if (size == 2) {
-        p[0] = uint8_t(v);
-        p[1] = uint8_t(v >> 8);
-    } else
-        std::memcpy(p, &v, 4);
-}
-
-void Cpu::push(uint32_t v) {
-    reg[ESP] -= 4;
-    store(reg[ESP], v, 4);
-}
-
-uint32_t Cpu::pop() {
-    const uint32_t v = load(reg[ESP], 4);
-    reg[ESP] += 4;
-    return v;
+    outside(a, uint32_t(size));
 }
 
 void Cpu::pushSegment(int s) {
@@ -152,17 +119,6 @@ void Cpu::popSegment(int s) {
     }
 }
 
-uint32_t Cpu::fetch8() { return load(eip++, 1); }
-uint32_t Cpu::fetch16() {
-    const uint32_t v = load(eip, 2);
-    eip += 2;
-    return v;
-}
-uint32_t Cpu::fetch32() {
-    const uint32_t v = load(eip, 4);
-    eip += 4;
-    return v;
-}
 
 uint32_t Cpu::readReg(int size, int r) const {
     if (size == 4)
@@ -183,35 +139,63 @@ void Cpu::writeReg(int size, int r, uint32_t v) {
         reg[size_t(r - 4)] = (reg[size_t(r - 4)] & 0xffff00ffu) | (v & 0xff) << 8;
 }
 
-void Cpu::decodeModrm() {
+void Cpu::decodeModrmSlow(ModrmEntry& e) {
+    const uint32_t start = eip;
     const uint32_t m = fetch8();
+    e = ModrmEntry{};
+    e.mod = uint8_t(m >> 6);
+    e.regField = uint8_t((m >> 3) & 7);
+    e.rm = uint8_t(m & 7);
+    if (e.mod != 3) {
+        if (e.rm == 4) {
+            const uint32_t sib = fetch8();
+            const uint32_t index = (sib >> 3) & 7, base = sib & 7;
+            e.scale = uint8_t(sib >> 6);
+            if (index != 4)
+                e.index = uint8_t(index);
+            if (base == 5 && e.mod == 0)
+                e.displacement = fetch32();
+            else
+                e.base = uint8_t(base);
+        } else if (e.rm == 5 && e.mod == 0) {
+            e.displacement = fetch32();
+        } else {
+            e.base = e.rm;
+        }
+        if (e.mod == 1)
+            e.displacement += uint32_t(int32_t(int8_t(fetch8())));
+        else if (e.mod == 2)
+            e.displacement += fetch32();
+    }
+    e.length = uint8_t(eip - start);
+    if (valid(start, 8)) {
+        std::memcpy(&e.bytes, memory_.data() + start, 8);
+        e.bytes &= ~0ull >> (64 - 8 * e.length);
+        e.address = start;
+    }
+}
+
+void Cpu::decodeModrm() {
+    ModrmEntry& e = modrmCache_[eip & (kModrmCacheSize - 1)];
+    uint64_t bytes = 0;
+    if (e.address != eip || !validSmall(eip, 8) ||
+        (std::memcpy(&bytes, memory_.data() + eip, 8), (bytes & (~0ull >> (64 - 8 * e.length))) != e.bytes))
+        decodeModrmSlow(e);
+    else
+        eip += e.length;
     d_.hasModrm = true;
-    d_.mod = uint8_t(m >> 6);
-    d_.regField = uint8_t((m >> 3) & 7);
-    d_.rm = uint8_t(m & 7);
-    d_.memoryOperand = d_.mod != 3;
+    d_.mod = e.mod;
+    d_.regField = e.regField;
+    d_.rm = e.rm;
+    d_.memoryOperand = e.mod != 3;
     if (!d_.memoryOperand)
         return;
-    uint32_t a = 0;
-    if (d_.rm == 4) {
-        const uint32_t sib = fetch8();
-        const uint32_t scale = sib >> 6, index = (sib >> 3) & 7, base = sib & 7;
-        if (index != 4)
-            a += reg[index] << scale;
-        if (base == 5 && d_.mod == 0)
-            a += fetch32();
-        else
-            a += reg[base];
-    } else if (d_.rm == 5 && d_.mod == 0) {
-        a = fetch32();
-    } else {
-        a = reg[d_.rm];
-    }
-    if (d_.mod == 1)
-        a += uint32_t(int32_t(int8_t(fetch8())));
-    else if (d_.mod == 2)
-        a += fetch32();
-    d_.address = a + d_.segment;
+    uint32_t a = e.displacement + d_.segment;
+    if (e.base < 8)
+        a += reg[e.base];
+    if (e.index < 8)
+        a += reg[e.index] << e.scale;
+    d_.address = a;
 }
 
 uint32_t Cpu::readRm(int size) {
@@ -735,23 +719,29 @@ void Cpu::twoByte() {
     }
 }
 
-void Cpu::step() {
+void Cpu::events() {
+    if (sliceLength_ && executed_ >= nextSlice_) {
+        nextSlice_ = executed_ + sliceLength_;
+        if (!slice_(*this))
+            fault(stopMessage);
+        instructionStart_ = eip;
+    }
+    // Another thread may have run meanwhile, with a limit of its own.
+    updateNextEvent();
+    if (limit_ && executed_ > limitAt_)
+        fault("instruction limit reached");
+}
+
+[[gnu::always_inline]] inline void Cpu::step() {
     instructionStart_ = eip;
     if (eip >= nativeBase_ - kNativeStride * kReturnSlots) {
         callNative(eip);
         return;
     }
-    if (sliceLength_ && ++sliceCount_ >= sliceLength_) {
-        sliceCount_ = 0;
-        if (!slice_(*this))
-            fault(stopMessage);
-        instructionStart_ = eip;
-    }
-    if (trace)
+    if (++executed_ >= nextEvent_) [[unlikely]]
+        events();
+    if (trace) [[unlikely]]
         trace(*this);
-    ++executed_;
-    if (limit_ && executed_ > limitAt_)
-        fault("instruction limit reached");
     d_ = Decoded{};
     uint8_t op;
     while (true) {
@@ -1153,6 +1143,7 @@ void Cpu::loadContext(const Context& c) {
     limitAt_ = c.limitAt;
     instructionStart_ = c.instructionStart;
     abort_ = c.abort;
+    updateNextEvent();
 }
 
 void Cpu::runUntil(uint32_t returnAddress) {
@@ -1165,6 +1156,7 @@ Error Cpu::call(uint32_t address, const std::vector<uint32_t>& args, uint32_t& r
     const uint32_t savedEsp = reg[ESP], savedEip = eip;
     if (depth_ == 0) {
         limitAt_ = executed_ + limit_;
+        updateNextEvent();
         faultEip = 0;
     }
     ++depth_;

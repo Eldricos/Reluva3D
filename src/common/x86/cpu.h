@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <string>
 #include <string_view>
@@ -36,7 +37,7 @@ public:
     explicit Cpu(uint32_t memorySize);
 
     // --- Memory --------------------------------------------------------------
-    std::vector<uint8_t>& memory() { return memory_; }
+    std::vector<uint8_t>& memory() { return memory_; } // not to be resized
     uint32_t memorySize() const { return uint32_t(memory_.size()); }
     bool valid(uint32_t address, uint32_t size) const {
         return address >= kPageSize && size <= memory_.size() && address <= memory_.size() - size;
@@ -107,7 +108,10 @@ public:
     // Native functions may call() back in.
     Error call(uint32_t address, const std::vector<uint32_t>& args, uint32_t& result);
     // Stops a run with an error after this many more instructions (0: never).
-    void setInstructionLimit(uint64_t limit) { limit_ = limit; }
+    void setInstructionLimit(uint64_t limit) {
+        limit_ = limit;
+        updateNextEvent();
+    }
     uint64_t executed() const { return executed_; }
     // Ends the current run with an error once the native function running
     // returns (a fatal error of the program's, say).
@@ -156,8 +160,9 @@ public:
     // threads; returning false ends the run with `stopMessage`.
     void setSlice(uint32_t length, std::function<bool(Cpu& cpu)> fn) {
         sliceLength_ = length;
-        sliceCount_ = 0;
+        nextSlice_ = executed_ + length;
         slice_ = std::move(fn);
+        updateNextEvent();
     }
     std::string stopMessage = "the run was stopped";
 
@@ -166,21 +171,80 @@ private:
         std::string message;
     };
     [[noreturn]] void fault(const std::string& message);
-    void step();
+    // One instruction; inlined into runUntil, its one caller, so that its
+    // frame is set up once a run rather than once an instruction.
+    inline void step();
+    // What's due at nextEvent_ instructions: a slice, the limit.
+    void events();
+    void updateNextEvent() {
+        nextEvent_ = UINT64_MAX;
+        if (sliceLength_)
+            nextEvent_ = nextSlice_;
+        if (limit_ && limitAt_ + 1 < nextEvent_)
+            nextEvent_ = limitAt_ + 1;
+    }
     void runUntil(uint32_t returnAddress);
     void callNative(uint32_t address);
 
-    // Memory as the instructions see it (faulting).
-    uint8_t* at(uint32_t a, uint32_t size);
-    uint32_t load(uint32_t a, int size);
-    void store(uint32_t a, uint32_t v, int size);
-    void push(uint32_t v);
-    uint32_t pop();
+    // Memory as the instructions see it (faulting). Inline: every
+    // instruction comes this way several times.
+    // valid() for the few bytes an instruction touches (at most 16): one
+    // comparison.
+    bool validSmall(uint32_t a, uint32_t size) const { return a - kPageSize <= memoryLimit_ - size; }
+    uint8_t* at(uint32_t a, uint32_t size) {
+        if (!validSmall(a, size)) [[unlikely]]
+            outside(a, size);
+        return memory_.data() + a;
+    }
+    uint32_t load(uint32_t a, int size) {
+        if (!validSmall(a, uint32_t(size))) [[unlikely]]
+            return loadOutside(a, size);
+        const uint8_t* p = memory_.data() + a;
+        if (size == 1)
+            return p[0];
+        if (size == 2)
+            return uint32_t(p[0] | p[1] << 8);
+        uint32_t v;
+        std::memcpy(&v, p, 4);
+        return v;
+    }
+    void store(uint32_t a, uint32_t v, int size) {
+        uint8_t* p = at(a, uint32_t(size));
+        if (a < watchEnd && a + uint32_t(size) > watchStart && onWatchedStore) [[unlikely]]
+            onWatchedStore(*this, a, v, size);
+        if (size == 1)
+            p[0] = uint8_t(v);
+        else if (size == 2) {
+            p[0] = uint8_t(v);
+            p[1] = uint8_t(v >> 8);
+        } else
+            std::memcpy(p, &v, 4);
+    }
+    // The rare cases, out of line: low memory read as 0, or a fault.
+    [[noreturn]] void outside(uint32_t a, uint32_t size);
+    uint32_t loadOutside(uint32_t a, int size);
+    void push(uint32_t v) {
+        reg[ESP] -= 4;
+        store(reg[ESP], v, 4);
+    }
+    uint32_t pop() {
+        const uint32_t v = load(reg[ESP], 4);
+        reg[ESP] += 4;
+        return v;
+    }
     void pushSegment(int s);
     void popSegment(int s);
-    uint32_t fetch8();
-    uint32_t fetch16();
-    uint32_t fetch32();
+    uint32_t fetch8() { return load(eip++, 1); }
+    uint32_t fetch16() {
+        const uint32_t v = load(eip, 2);
+        eip += 2;
+        return v;
+    }
+    uint32_t fetch32() {
+        const uint32_t v = load(eip, 4);
+        eip += 4;
+        return v;
+    }
 
     // The instruction being run: prefixes, and its ModRM operand.
     struct Decoded {
@@ -192,6 +256,22 @@ private:
         bool memoryOperand = false;
     } d_;
     void decodeModrm();
+    // ModRM operands decoded before, by the ModRM byte's address: what an
+    // operand's bytes say (registers, scale, displacement) is worked out
+    // once, its address each time. An entry is used only while the bytes
+    // it was made from are still there, so code written over (by the
+    // program or by native code) is never run stale.
+    struct ModrmEntry {
+        uint32_t address = 0; // of the ModRM byte; 0 for none
+        uint8_t length = 0;   // ModRM, SIB and displacement bytes
+        uint8_t mod = 0, regField = 0, rm = 0;
+        uint8_t base = 8, index = 8, scale = 0; // 8: no register
+        uint32_t displacement = 0;
+        uint64_t bytes = 0; // the bytes decoded, the rest of the 8 zero
+    };
+    static constexpr uint32_t kModrmCacheSize = 1u << 16;
+    std::vector<ModrmEntry> modrmCache_;
+    void decodeModrmSlow(ModrmEntry& e);
     uint32_t readRm(int size);
     void writeRm(int size, uint32_t v);
     uint32_t readReg(int size, int r) const;
@@ -215,6 +295,7 @@ private:
     double fpuRound(double v) const;
 
     std::vector<uint8_t> memory_;
+    uint32_t memoryLimit_ = 0; // its size less the first page
     struct NativeEntry {
         std::string name;
         Native fn;
@@ -226,7 +307,9 @@ private:
     uint64_t executed_ = 0, limit_ = 0, limitAt_ = 0;
     int depth_ = 0;
     std::string abort_;
-    uint32_t sliceLength_ = 0, sliceCount_ = 0;
+    uint32_t sliceLength_ = 0;
+    uint64_t nextSlice_ = 0;      // when the next slice is due (in instructions run)
+    uint64_t nextEvent_ = UINT64_MAX; // the first of that and the limit
     std::function<bool(Cpu& cpu)> slice_;
 };
 

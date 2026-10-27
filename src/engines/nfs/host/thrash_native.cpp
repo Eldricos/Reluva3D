@@ -134,7 +134,10 @@ NativeThrash::Vertex NativeThrash::vertex(uint32_t address) const {
 }
 
 void NativeThrash::plot(int x, int y, uint32_t argb) {
-    uint8_t* p = cpu_.memory().data() + target_ + size_t(y) * size_t(pitch_) + size_t(x) * 2;
+    put(cpu_.memory().data() + target_ + size_t(y) * size_t(pitch_) + size_t(x) * 2, argb);
+}
+
+void NativeThrash::put(uint8_t* p, uint32_t argb) {
     uint32_t r = (argb >> 16) & 255, g = (argb >> 8) & 255, b = argb & 255;
     const uint32_t a = argb >> 24;
     if (a < 255) {
@@ -185,60 +188,111 @@ void NativeThrash::rasterize(const Vertex& a, const Vertex& b, const Vertex& c) 
     const int y1 = std::min({int(std::ceil(std::max({a.y, b.y, c.y}))), clipY1_, height_});
     if (x0 >= x1 || y0 >= y1)
         return;
+    if (!cpu_.valid(target_ + uint32_t(y0) * uint32_t(pitch_), uint32_t((y1 - y0) * pitch_)))
+        return;
     const float inv = 1.0f / area;
+    // Barycentric weights l0 (a's), l1 (b's), l2 = 1 - l0 - l1, and how
+    // they change a pixel across and down.
+    const float l0dx = (b.y - c.y) * inv, l0dy = (c.x - b.x) * inv;
+    const float l1dx = (c.y - a.y) * inv, l1dy = (a.x - c.x) * inv;
+    // Values interpolated across the triangle (linear on screen): 1/w, u/w,
+    // v/w, then the colour's channels.
+    enum { W, U, V, R, G, B, A, kValues };
+    float at0[kValues], at1[kValues], at2[kValues];
+    auto load = [](float* to, const Vertex& v) {
+        to[W] = v.rhw;
+        to[U] = v.u * v.rhw;
+        to[V] = v.v * v.rhw;
+        to[R] = float((v.diffuse >> 16) & 255);
+        to[G] = float((v.diffuse >> 8) & 255);
+        to[B] = float(v.diffuse & 255);
+        to[A] = float(v.diffuse >> 24);
+    };
+    load(at0, a);
+    load(at1, b);
+    load(at2, c);
+    if (!gouraud_) // flat: the first vertex's colour throughout
+        for (int i = R; i < kValues; ++i)
+            at1[i] = at2[i] = at0[i];
+    float dx[kValues], dy[kValues], base[kValues];
+    const float px0 = float(x0) + 0.5f, py0 = float(y0) + 0.5f;
+    const float l0 = ((b.x - px0) * (c.y - py0) - (c.x - px0) * (b.y - py0)) * inv;
+    const float l1 = ((c.x - px0) * (a.y - py0) - (a.x - px0) * (c.y - py0)) * inv;
+    for (int i = 0; i < kValues; ++i) {
+        const float d0 = at0[i] - at2[i], d1 = at1[i] - at2[i];
+        dx[i] = l0dx * d0 + l1dx * d1;
+        dy[i] = l0dy * d0 + l1dy * d1;
+        base[i] = at2[i] + l0 * d0 + l1 * d1;
+    }
     const Texture* tex = texture_;
-    // Per-vertex values interpolated across: 1/w, u/w, v/w, and colour.
-    auto channel = [](uint32_t c, int shift) { return float((c >> shift) & 255); };
-    const float wa = a.rhw, wb = b.rhw, wc = c.rhw;
+    const int tw = tex ? tex->width : 1, th = tex ? tex->height : 1;
+    const bool pow2 = (tw & (tw - 1)) == 0 && (th & (th - 1)) == 0;
+    const float ftw = float(tw), fth = float(th);
+    const float l2dx = -l0dx - l1dx;
+    uint8_t* const memory = cpu_.memory().data();
     for (int y = y0; y < y1; ++y) {
-        const float py = float(y) + 0.5f;
-        for (int x = x0; x < x1; ++x) {
-            const float px = float(x) + 0.5f;
-            // Barycentric weights; pixels on an edge go to one side only.
-            float l0 = ((b.x - px) * (c.y - py) - (c.x - px) * (b.y - py)) * inv;
-            float l1 = ((c.x - px) * (a.y - py) - (a.x - px) * (c.y - py)) * inv;
-            float l2 = 1.0f - l0 - l1;
-            if (l0 < 0 || l1 < 0 || l2 < 0)
-                continue;
-            uint32_t colour;
-            const uint32_t d0 = a.diffuse;
-            float r, g, bl, al;
-            if (gouraud_) {
-                r = l0 * channel(a.diffuse, 16) + l1 * channel(b.diffuse, 16) + l2 * channel(c.diffuse, 16);
-                g = l0 * channel(a.diffuse, 8) + l1 * channel(b.diffuse, 8) + l2 * channel(c.diffuse, 8);
-                bl = l0 * channel(a.diffuse, 0) + l1 * channel(b.diffuse, 0) + l2 * channel(c.diffuse, 0);
-                al = l0 * channel(a.diffuse, 24) + l1 * channel(b.diffuse, 24) + l2 * channel(c.diffuse, 24);
-            } else {
-                r = channel(d0, 16);
-                g = channel(d0, 8);
-                bl = channel(d0, 0);
-                al = channel(d0, 24);
-            }
+        const float rowOff = float(y - y0);
+        const float r0 = l0 + l0dy * rowOff, r1 = l1 + l1dy * rowOff, r2 = 1.0f - r0 - r1;
+        // The span where all three weights are at least 0: each weight is
+        // linear along the row.
+        float kmin = 0, kmax = float(x1 - x0 - 1);
+        bool empty = false;
+        auto bound = [&](float v, float slope) {
+            if (slope > 0)
+                kmin = std::max(kmin, std::ceil(-v / slope - 1e-4f));
+            else if (slope < 0)
+                kmax = std::min(kmax, std::floor(v / -slope + 1e-4f));
+            else if (v < 0)
+                empty = true;
+        };
+        bound(r0, l0dx);
+        bound(r1, l1dx);
+        bound(r2, l2dx);
+        if (empty || kmin > kmax)
+            continue;
+        const int xs = x0 + int(kmin), xe = x0 + int(kmax);
+        float v[kValues];
+        const float colOff = float(xs - x0);
+        for (int i = 0; i < kValues; ++i)
+            v[i] = base[i] + dy[i] * rowOff + dx[i] * colOff;
+        uint8_t* p = memory + target_ + size_t(y) * size_t(pitch_) + size_t(xs) * 2;
+        for (int x = xs; x <= xe; ++x, p += 2) {
+            float r = v[R], g = v[G], bl = v[B], al = v[A];
+            bool draw = true;
             if (tex) {
-                const float w = l0 * wa + l1 * wb + l2 * wc;
-                float u = (l0 * a.u * wa + l1 * b.u * wb + l2 * c.u * wc) / w;
-                float v = (l0 * a.v * wa + l1 * b.v * wb + l2 * c.v * wc) / w;
-                int tx = int(std::floor(u * float(tex->width)));
-                int ty = int(std::floor(v * float(tex->height)));
+                const float w = 1.0f / v[W];
+                const float fu = v[U] * w * ftw, fv = v[V] * w * fth;
+                int tx = int(fu), ty = int(fv);
+                tx -= fu < float(tx); // floor
+                ty -= fv < float(ty);
                 if (wrap_) {
-                    tx = ((tx % tex->width) + tex->width) % tex->width;
-                    ty = ((ty % tex->height) + tex->height) % tex->height;
+                    if (pow2) {
+                        tx &= tw - 1;
+                        ty &= th - 1;
+                    } else {
+                        tx = ((tx % tw) + tw) % tw;
+                        ty = ((ty % th) + th) % th;
+                    }
                 } else {
-                    tx = std::clamp(tx, 0, tex->width - 1);
-                    ty = std::clamp(ty, 0, tex->height - 1);
+                    tx = std::clamp(tx, 0, tw - 1);
+                    ty = std::clamp(ty, 0, th - 1);
                 }
-                const uint32_t t = tex->rgba[size_t(ty) * size_t(tex->width) + size_t(tx)];
+                const uint32_t t = tex->rgba[size_t(ty) * size_t(tw) + size_t(tx)];
                 const uint32_t ta = t >> 24;
                 if (ta == 0)
-                    continue; // left out, as the colour key / alpha test does
-                r = r * channel(t, 16) / 255;
-                g = g * channel(t, 8) / 255;
-                bl = bl * channel(t, 0) / 255;
-                al = al * float(ta) / 255;
+                    draw = false; // left out, as the colour key / alpha test does
+                else {
+                    r = r * float((t >> 16) & 255) * (1.0f / 255);
+                    g = g * float((t >> 8) & 255) * (1.0f / 255);
+                    bl = bl * float(t & 255) * (1.0f / 255);
+                    al = al * float(ta) * (1.0f / 255);
+                }
             }
-            colour = uint32_t(std::clamp(al, 0.0f, 255.0f)) << 24 | uint32_t(std::clamp(r, 0.0f, 255.0f)) << 16 |
-                     uint32_t(std::clamp(g, 0.0f, 255.0f)) << 8 | uint32_t(std::clamp(bl, 0.0f, 255.0f));
-            plot(x, y, colour);
+            if (draw)
+                put(p, uint32_t(std::clamp(al, 0.0f, 255.0f)) << 24 | uint32_t(std::clamp(r, 0.0f, 255.0f)) << 16 |
+                           uint32_t(std::clamp(g, 0.0f, 255.0f)) << 8 | uint32_t(std::clamp(bl, 0.0f, 255.0f)));
+            for (int i = 0; i < kValues; ++i)
+                v[i] += dx[i];
         }
     }
 }

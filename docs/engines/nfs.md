@@ -489,10 +489,24 @@ Started. Done so far:
   runs slower than real time: the race clock showed 19 seconds after
   about 50.
 
+- **Speed.**
+  - **The interpreter** is 2.2 times faster ([x86.md](x86.md), Speed):
+    memory accesses inline, one per-instruction test, and decoded ModRM
+    operands cached.
+  - **The native rasterizer** walks each row's span and steps its values
+    along it. Before, it tested every pixel of a triangle's box.
+  - **Page flips and clears** with the retail softtria are done natively
+    ([thrash.md](../formats/nfs/thrash.md)).
+
+  A race frame now takes 1.1 million instructions, against 2.5 million
+  with native drawing alone. A race runs at 25 to 28 frames a second,
+  its clock keeping about real time: it was 13 frames a second, and
+  about 2 with softtria.
+
 Still to do:
 
-- Finish THRASH: page flips and texture uploads still run in softtria
-  (0.6 million instructions a race frame); then a GPU path.
+- THRASH on the GPU, and texture uploads natively (they run in softtria
+  while a track loads).
 - iSND on the mixer (3D placement, rates, streaming).
 - DirectInput keyboard, mouse and joystick, as the bindings the game's
   own Controls screen sets.

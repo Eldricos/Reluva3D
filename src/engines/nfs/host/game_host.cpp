@@ -302,6 +302,9 @@ void GameHost::addSystem() {
                 if (name.find("eacsnd") == std::string::npos) {
                     thrash_.dll = name;
                     thrashBase_ = m->base;
+                    // The retail softtria.dll (June 1998), whose globals thrash.md describes.
+                    softtriaKnown_ = name == "softtria.dll" && m->image.timestamp == 0x35e4344f &&
+                                     m->image.imageBase == 0x60000000;
                 }
                 say("  " + name + " loaded at " + hex(m->base));
                 if (Error e = process_->attach(*m)) {

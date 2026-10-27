@@ -194,6 +194,13 @@ private:
     // width, height (the renderer draws there; a page flip shows it).
     std::map<uint32_t, std::array<uint32_t, 4>> windowBuffers_;
     bool nativeDraw(const std::string& name, const std::vector<uint32_t>& args);
+    // The retail softtria.dll, known well enough that its page flips and
+    // clears are done natively too (thrash.md): where it was loaded, less
+    // where it asks to be; unset for any other renderer.
+    bool softtriaKnown_ = false;
+    uint32_t softtria(uint32_t address) const; // one of its globals, by its own address
+    // A frame shown straight from a 16-bit 5:6:5 buffer's rectangle.
+    void presentBuffer(uint32_t buffer, int pitch, int x0, int y0, int width, int height);
 
     // DirectDraw's surfaces and palettes (directx.cpp), by object address.
     struct DdSurface {
