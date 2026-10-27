@@ -488,7 +488,8 @@ Started. Done so far:
     loaded whole at 0x6fbb40, so the game's `audiomode` setting at
     0x6fbbec is that byte. Going by the order of its option names, 1 is
     mono and 3 is D3D/EAX, which would ask for DirectSound's 3D
-    interfaces; the stand-in has none, so it isn't offered. Set to
+    interfaces. The stand-in has none, and that mode hasn't been tried.
+    Set to
     2 in a copy of the install, the race's mix has short spans where
     left and right are in opposite phase (a 50 ms correlation as low as
     -0.49; the stereo race's lowest is +0.16). That is how Pro Logic
