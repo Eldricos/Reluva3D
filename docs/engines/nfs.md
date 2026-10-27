@@ -717,6 +717,47 @@ Started. Done so far:
   there, and in the race that followed, holding W drove the car to 50
   mph.
 
+- **Native sound mixer** (`host/native_sound.cpp`).
+  - **Why.** A race's frame rate is the interpreter's speed: in a race
+    some thread can always run, so the processor never idles
+    (`nfs-host` now reports idle time each second; it's 0). The hot spots
+    of a race (`nfs-host -hotspots`) put about 27% of its instructions in
+    the game's software sound mixer (iSND, linked into nfs3.exe):
+    hand-written x87 loops.
+  - **What it does.** Worked out from its code:
+    - **Two resamplers** (0x527330 stereo, 0x5273c0 mono). They step a
+      16.16 position through float samples, each result a*(1-t) + b*t, t
+      the fraction's top 16 bits times 1/65536. The code takes those bits
+      with FILD from a scratch copy of the fraction (0x56b138, 0x56b148),
+      two bytes in, so the word after it is read too. The stereo one
+      always makes at least one frame.
+    - **Twelve mixers** (0x520aee to 0x521133). Six are for mono sources
+      and six for stereo ones, one for each pair of levels: off, full or
+      between. The game picks one as a voice's levels change (0x520a5e,
+      0x520e1e). Each adds the source into a stereo float mix, each side
+      scaled by its gain (level times 1/127), or as it is at full, or not
+      at all.
+    - **The mix to 16 bits** (0x521d00). It adds 1.5 * 2^23 to each float
+      and stores the sum back over it, so the low mantissa bits are the
+      sample rounded to the nearest; past 16 bits it clips to 32767 or
+      -32768.
+  - **Native.** Each is replaced with a native function, only where the
+    routine's bytes hash to the retail code's
+    (`GameHost::replaceRoutine`). They compute as the interpreter does
+    the x87's (doubles, rounded to float where the code stores one), in
+    the same order.
+  - **Checked.** `reluva-tool nfs-native-check <game>` loads the game
+    twice, once without native routines (`Options::nativeRoutines`), and
+    runs each original and its native version on the same random inputs.
+    The inputs cover counts from -3 to 40, fractions, steps, gains, and
+    samples past the 16-bit range. Every byte written and every register
+    came out the same in 300 trials each. With the gains swapped on
+    purpose, it reported every mixer that uses them.
+  - **The result.** On a race into a fence, the frames took 1.20 million
+    instructions instead of 1.49 million, and the frame rate rose from
+    18.2 to 20.4 a second here. The hot spots are now flat (the hottest
+    block 1.1%), so what's left to gain is in the interpreter itself.
+
 - **Network play** (TCP). The game does its own networking through
   Windows Sockets 1.1 (`WSOCK32`, 25 functions by ordinal), with no
   DirectPlay.

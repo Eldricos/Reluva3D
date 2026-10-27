@@ -280,8 +280,23 @@ Error GameHost::load() {
     say("nfs3.exe loaded at " + hex(exe_->base));
     for (const std::string& m : process_->missingImports())
         say("  not stood in for: " + m);
-    addNativeRoutines();
+    if (options_.nativeRoutines) {
+        addNativeRoutines();
+        addNativeSound();
+    }
     return Error::success();
+}
+
+bool GameHost::replaceRoutine(uint32_t address, uint32_t size, uint64_t hash, const char* name, Cpu::Native fn) {
+    uint64_t h = 0xcbf29ce484222325ull;
+    for (uint32_t i = 0; i < size; ++i)
+        h = (h ^ cpu_->read8(address + i)) * 0x100000001b3ull;
+    if (h != hash || size < 5)
+        return false;
+    const uint32_t native = cpu_->addNative(name, std::move(fn));
+    cpu_->write8(address, 0xe9); // JMP rel32
+    cpu_->write32(address + 1, native - (address + 5));
+    return true;
 }
 
 void GameHost::addNativeRoutines() {

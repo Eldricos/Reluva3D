@@ -49,6 +49,10 @@ public:
         // Draw THRASH's triangles natively rather than in the software
         // renderer's own code (thrash_native.h).
         bool nativeThrash = false;
+        // Run the retail nfs3.exe's hottest routines natively (its C
+        // library's strcmp and __CHP, its sound mixer's loops), where their
+        // code is as expected; false runs them all in the interpreter.
+        bool nativeRoutines = true;
         // With nativeThrash: THRASH's frames as lists for the GPU
         // (onThrashFrame) rather than drawn into memory.
         bool gpuThrash = false;
@@ -174,6 +178,11 @@ private:
     void addDirectX();  // DDRAW and DINPUT
     void addDirectSound();
     void addNativeRoutines(); // the C library's hottest routines in nfs3.exe, natively
+    void addNativeSound();    // its sound mixer's loops (native_sound.cpp)
+    // Replaces the routine at `address` with a native function (a jump to
+    // it over its first bytes), if its `size` bytes hash to `hash` (FNV-1a,
+    // 64 bits): the retail code, as worked out. False if they don't.
+    bool replaceRoutine(uint32_t address, uint32_t size, uint64_t hash, const char* name, x86::Cpu::Native fn);
     // A COM object whose methods (stdcall, `this` first) are native
     // functions: names and argument counts (this included), in vtable order.
     struct Method {

@@ -26,6 +26,7 @@
 #include "engines/nfs/viv.h"
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <atomic>
 #include <cctype>
@@ -76,6 +77,7 @@ const char* const kUsageLines =
     "                       [-net] (the network) [-netaddr a.b.c.d] [-broadcast a.b.c.d,...]\n"
     "                       [-hotspots from to] (instructions counted by where they run, 16-byte blocks)\n"
     "                       [-gpulog] (THRASH recorded as for the GPU; each frame's list summed up)\n"
+    "  reluva-tool nfs-native-check <game folder> [trials]\n"
     "  reluva-tool nfs-survey <folder>... [-v]\n"
     "  reluva-tool nfs-page <game folder> <out.tga> <page> [key...]\n";
 
@@ -1292,6 +1294,145 @@ int cmdNfsHost(int argc, char** argv) {
     return err ? 1 : 0;
 }
 
+// Runs each of nfs3.exe's routines done natively (GameHost::Options::
+// nativeRoutines) against its original in the interpreter, on the same
+// random inputs, in two copies of the game loaded side by side; every byte
+// they write, and the registers, must come out the same.
+int cmdNfsNativeCheck(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool nfs-native-check <game folder> [trials]\n");
+        return 2;
+    }
+    const int trials = argc > 3 ? std::max(1, std::atoi(argv[3])) : 300;
+    const auto folders = reluva::nfs::findFolders(argv[2], {}, "nfs3.exe");
+    reluva::nfs::GameHost::Options interpreted, native;
+    interpreted.nativeRoutines = false;
+    interpreted.saveFolder = native.saveFolder = stdfs::temp_directory_path() / "reluva-native-check";
+    reluva::nfs::GameHost a(folders, interpreted), b(folders, native);
+    if (reluva::Error e = a.load())
+        return fail(e);
+    if (reluva::Error e = b.load())
+        return fail(e);
+    // The same memory in each: a stack, and room for a routine's buffers.
+    reluva::nfs::GameHost* hosts[2] = {&a, &b};
+    uint32_t stack = 0, area = 0;
+    for (auto* h : hosts) {
+        stack = h->process().memory().alloc(1 << 16);
+        area = h->process().memory().alloc(1 << 16);
+    }
+    for (auto* h : hosts)
+        if (h->process().memory().alloc(16) == 0)
+            return fail(reluva::Error::fail("no memory"));
+    uint64_t seed = 0x9e3779b97f4a7c15ull;
+    auto random = [&seed] {
+        seed ^= seed << 13, seed ^= seed >> 7, seed ^= seed << 17;
+        return seed;
+    };
+    auto randomFloat = [&](double range) { return float((double(random() % 2000001) / 1000000.0 - 1.0) * range); };
+    struct Routine {
+        const char* name;
+        uint32_t address;
+        int kind; // 0 resample stereo, 1 resample mono, 2 mix, 3 to 16 bits
+        uint32_t scratch;
+        bool stereoSource;
+    };
+    const Routine routines[] = {
+        {"resample stereo", 0x527330, 0, 0x56b138, false}, {"resample mono", 0x5273c0, 1, 0x56b148, false},
+        {"mix mono", 0x520aee, 2, 0, false},               {"mix mono full", 0x520b7e, 2, 0, false},
+        {"mix mono left", 0x520bed, 2, 0, false},          {"mix mono right", 0x520c69, 2, 0, false},
+        {"mix mono, right full", 0x520ce6, 2, 0, false},   {"mix mono, left full", 0x520d6b, 2, 0, false},
+        {"mix stereo", 0x520eae, 2, 0, true},              {"mix stereo full", 0x520f40, 2, 0, true},
+        {"mix stereo left", 0x520fb1, 2, 0, true},         {"mix stereo right", 0x52102d, 2, 0, true},
+        {"mix stereo, right full", 0x5210ac, 2, 0, true},  {"mix stereo, left full", 0x521133, 2, 0, true},
+        {"mix to 16 bits", 0x521d00, 3, 0, false},
+    };
+    // Where things go in the area: the source, the destination, then the
+    // routine's position, fraction and gains.
+    const uint32_t src = area, dst = area + 0x4000, posAt = area + 0x8000, fracAt = posAt + 4, gains = posAt + 8;
+    int failed = 0;
+    for (const Routine& r : routines) {
+        if (!b.cpu().nativeName(b.cpu().read32(r.address + 1) + r.address + 5) || b.cpu().read8(r.address) != 0xe9) {
+            std::printf("%-24s not replaced (its code isn't the retail one)\n", r.name);
+            ++failed;
+            continue;
+        }
+        int mismatches = 0;
+        for (int t = 0; t < trials && mismatches < 3; ++t) {
+            // The inputs, the same in both.
+            std::vector<uint32_t> source(0x1000), dest(0x1000);
+            const double range = r.kind == 3 ? 40000.0 : t % 3 == 0 ? 1.0 : 32768.0;
+            for (auto& v : source)
+                v = std::bit_cast<uint32_t>(randomFloat(range));
+            for (auto& v : dest)
+                v = std::bit_cast<uint32_t>(randomFloat(32768.0));
+            const int32_t count = int32_t(random() % 44) - 3;
+            const uint32_t pos = uint32_t(random() % 100), frac = uint32_t(random()), stepInt = uint32_t(random() % 3),
+                           stepFrac = uint32_t(random());
+            const uint32_t high = t % 4 == 0 ? uint32_t(random() & 0xffff) : 0;
+            const float gainLeft = randomFloat(1.5f), gainRight = randomFloat(1.5f);
+            uint32_t regs[8];
+            for (auto& v : regs)
+                v = uint32_t(random());
+            std::vector<uint32_t> args;
+            switch (r.kind) {
+            case 0:
+            case 1: args = {uint32_t(count), src, dst, posAt, fracAt, stepInt, stepFrac}; break;
+            case 2: args = {gains, uint32_t(count), src, dst}; break;
+            default: args = {uint32_t(std::max(count, 0)), src, dst}; break;
+            }
+            std::vector<uint8_t> after[2];
+            uint32_t regsAfter[2][8];
+            std::string error[2];
+            for (int i = 0; i < 2; ++i) {
+                auto& c = hosts[i]->cpu();
+                for (size_t k = 0; k < source.size(); ++k) {
+                    c.write32(src + 4 * uint32_t(k), source[k]);
+                    c.write32(dst + 4 * uint32_t(k), dest[k]);
+                }
+                c.write32(posAt, pos);
+                c.write32(fracAt, frac);
+                c.write32(gains, std::bit_cast<uint32_t>(gainLeft));
+                c.write32(gains + 4, std::bit_cast<uint32_t>(gainRight));
+                if (r.scratch)
+                    c.write16(r.scratch + 4, uint16_t(high));
+                for (int k = 0; k < 8; ++k)
+                    c.reg[k] = regs[k];
+                c.reg[reluva::x86::Cpu::ESP] = stack + (1 << 16) - 64;
+                uint32_t result = 0;
+                if (reluva::Error e = c.call(r.address, args, result))
+                    error[i] = e.message;
+                for (int k = 0; k < 8; ++k)
+                    regsAfter[i][k] = c.reg[k];
+                // Everything it may have written: the buffers, the state, its scratch.
+                for (uint32_t o = 0; o < 0x8010; ++o)
+                    after[i].push_back(c.read8(area + o));
+                if (r.scratch)
+                    for (uint32_t o = 0; o < 8; ++o)
+                        after[i].push_back(c.read8(r.scratch + o));
+            }
+            std::string why;
+            if (error[0] != error[1])
+                why = "failed differently: '" + error[0] + "' and '" + error[1] + "'";
+            else if (after[0] != after[1]) {
+                size_t k = 0;
+                while (after[0][k] == after[1][k])
+                    ++k;
+                why = "memory differs first at +" + std::to_string(k);
+            } else
+                for (int k = 0; k < 8 && why.empty(); ++k)
+                    if (k != reluva::x86::Cpu::ESP && regsAfter[0][k] != regsAfter[1][k])
+                        why = "register " + std::to_string(k) + " differs";
+            if (!why.empty()) {
+                ++mismatches;
+                std::printf("%-24s trial %d (count %d): %s\n", r.name, t, count, why.c_str());
+            }
+        }
+        std::printf("%-24s %s\n", r.name, mismatches ? "DIFFERS" : ("the same in " + std::to_string(trials) + " trials").c_str());
+        failed += mismatches ? 1 : 0;
+    }
+    return failed ? 1 : 0;
+}
+
 // Draws one of the engine's viewer pages after the keys given, as the
 // engine would, without a window: for checking pages and taking pictures
 // of them.
@@ -1434,6 +1575,8 @@ int runNfsCommand(int argc, char** argv) {
         return cmdMusWav(argc, argv);
     if (std::strcmp(cmd, "nfs-host") == 0)
         return cmdNfsHost(argc, argv);
+    if (std::strcmp(cmd, "nfs-native-check") == 0)
+        return cmdNfsNativeCheck(argc, argv);
     if (std::strcmp(cmd, "mad-info") == 0)
         return cmdMadInfo(argc, argv);
     if (std::strcmp(cmd, "mad-frames") == 0)
