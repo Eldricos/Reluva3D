@@ -745,6 +745,15 @@ reads, the vftables it builds for its own subclasses):
     -point 3416@572,434 -click 3420
     ```
 
+  - On reaching the lock, the camera moves past the plunger to a close-up
+    of the skull door (frames 3545 to 3780 of that run), then cuts to the
+    room, the skull's eyes lit and its mouth open. The close-up is nearly
+    all grey: the skull's own texture, magnified, with the dark nose
+    hole. It looked like the camera passing through a wall, but it isn't:
+    every draw comes already transformed (XYZRHW) and clipped by
+    NetImmerse, with clockwise culling on, so the triangles shown are
+    the ones the game sends, front faces only; the textures drawn in such
+    a frame (dumped while checking) are the skull's and the room's.
   - "We did it!" offers Next Mission, Instant Replay! and Return to HQ, and
     the game saves on its own: `HighSpace  M1010` (the furthest mission
     any Adventure has finished, which Single Missions now offers) and
