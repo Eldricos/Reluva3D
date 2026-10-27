@@ -121,6 +121,27 @@ std::vector<std::vector<std::string>> ScenePage::combinations() {
     return out;
 }
 
+std::vector<std::string> ScenePage::decombinable() {
+    // Each row's Result, in the bag, with Can Decombine and its condition
+    // holding (0x418be0).
+    std::vector<std::string> out;
+    const Table& t = itemTable("combinelist.txt");
+    for (size_t r = 0; r < t.rows.size(); r++) {
+        const std::string result = fs::toLower(unquoted(t.cell(r, 1)));
+        if (std::atoi(unquoted(t.cell(r, 2)).c_str()) != 0 && state_.itemAvailable(result) &&
+            testCondition(unquoted(t.cell(r, 4)), state_) && std::find(out.begin(), out.end(), result) == out.end())
+            out.push_back(result);
+    }
+    return out;
+}
+
+bool ScenePage::decombineItem(const std::string& item) {
+    for (std::string& box : ui_.boxes)
+        box.clear();
+    ui_.boxes[4] = fs::toLower(item);
+    return combine();
+}
+
 std::vector<std::string> ScenePage::itemsFor(size_t i) {
     // The items its conditional scripts ask to be used on it ("use
     // waterglass"), or uselist.txt has for it, that Poirot has.

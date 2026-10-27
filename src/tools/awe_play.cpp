@@ -12,6 +12,7 @@
 //   use|<scene>|<object>|<n>|<choices>|<item>
 //   combine|<scene>|||<choices>|<item>+<item>...
 //   flip|<scene>|||<choices>|<item>       an item's back looked at
+//   decombine|<scene>|||<choices>|<item>  an item taken apart
 //   travel|<scene>|<car>||<choices>       the bar's car (1 baggage .. 5 Athens)
 //   compare|<scene>|||<choices>|<card>+<card>  two fingerprint cards under the magnifier
 //   solve|<scene>|<puzzle>||<choices>     the puzzle screen's inputs that solve it
@@ -269,6 +270,13 @@ public:
                 a.item += (a.item.empty() ? "" : "+") + part;
             out.push_back(a);
         }
+        for (const std::string& item : p.decombinable()) {
+            Action a;
+            a.kind = "decombine";
+            a.scene = scene;
+            a.item = item;
+            out.push_back(a);
+        }
         for (const std::string& item : p.flippableItems()) {
             Action a;
             a.kind = "flip";
@@ -331,6 +339,10 @@ public:
             ok = p.combineItems(split(a.item, '+'));
             if (!ok)
                 problem = "can't combine " + a.item;
+        } else if (a.kind == "decombine") {
+            ok = p.decombineItem(a.item);
+            if (!ok)
+                problem = "can't take " + a.item + " apart";
         } else if (a.kind == "flip") {
             ok = p.flipItem(a.item);
             if (!ok)
@@ -788,7 +800,8 @@ int aweCommandSolve(int argc, char** argv) {
         bool fresh = true, advanced = false;
         for (size_t k = 0; k < todo.size() && !advanced; k++) {
             Action a = todo[k];
-            if (a.kind == "flip" || a.kind == "combine" || a.kind == "compare" || a.kind == "travel") {
+            if (a.kind == "flip" || a.kind == "combine" || a.kind == "decombine" || a.kind == "compare" ||
+                a.kind == "travel") {
                 std::string once = a.kind + "|" + a.target + "|" + a.item;
                 for (int c : a.choices)
                     once += "." + std::to_string(c);

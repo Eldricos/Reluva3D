@@ -190,6 +190,10 @@ public:
     bool useOn(const std::string& item, size_t i);
     // The parts of each combinelist.txt row that could be combined now.
     std::vector<std::vector<std::string>> combinations();
+    // The items a combinelist.txt row lets be taken apart now, and one
+    // taken apart (the combine page's right-hand box, then the gears).
+    std::vector<std::string> decombinable();
+    bool decombineItem(const std::string& item);
     // For a player that searches (reluva-tool awe-acts -solve): the story
     // state; the game saved to memory and loaded from it as the save and
     // load screens do; who picks the dialogue's choices (the index, or -1
