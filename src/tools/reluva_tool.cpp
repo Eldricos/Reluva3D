@@ -6012,6 +6012,22 @@ int cmdAtRun(int argc, char** argv) {
         std::printf("\nlast calls to stand-ins:");
         for (size_t i = callsAt > calls.size() ? callsAt - calls.size() : 0; i < callsAt; ++i)
             std::printf(" %s", calls[i % calls.size()].c_str());
+        // The callers: words on the stack that are just after a call in
+        // one of the modules (a guess, as frames aren't recorded).
+        std::printf("\nreturn addresses on the stack:");
+        const uint32_t esp = cpu.reg[Cpu::ESP];
+        for (uint32_t at = esp, found = 0; at < esp + 4096 && found < 24; at += 4) {
+            const uint32_t a = cpu.read32(at);
+            if (a < 6 || where(a).find('+') == std::string::npos)
+                continue;
+            const bool afterCall = cpu.read8(a - 5) == 0xe8 || (cpu.read8(a - 6) == 0xff && cpu.read8(a - 5) == 0x15) ||
+                                   (cpu.read8(a - 2) == 0xff && (cpu.read8(a - 1) & 0x38) == 0x10) ||
+                                   (cpu.read8(a - 3) == 0xff && (cpu.read8(a - 2) & 0x38) == 0x10);
+            if (!afterCall)
+                continue;
+            std::printf(" %s", symbol(a).c_str());
+            ++found;
+        }
         std::printf("\n");
         return 1;
     };
