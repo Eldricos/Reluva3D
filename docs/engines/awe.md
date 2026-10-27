@@ -178,8 +178,8 @@ or member types beyond those Reluva reads.
 Next:
 
 1. The game plays from a new game to the end credits without a window:
-   `reluva-tool awe-acts <install> -solve` found a way of 1,086 actions
-   and `-play` plays it back (see
+   `reluva-tool awe-acts <install> -solve` finds a way of 1,098 actions
+   in seven minutes, and `-play` plays it back (see
    [../formats/awe/acts.md](../formats/awe/acts.md#a-playthrough-from-a-new-game--solve-and--play)).
    Still to do there: the headless player clicks objects, not points on
    the screen, so whether the game's pick would find each one (and not

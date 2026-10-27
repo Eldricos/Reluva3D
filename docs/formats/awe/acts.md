@@ -245,9 +245,9 @@ a player who knows what to do: 01A's market, 04A's eavesdropping, 04D's
 kimono, and the evidence of 06B and 07A. `awe-acts <install> -solve
 <out.txt>` searches instead for a way from a new game (the main menu,
 Play) to the end credits, and `awe-acts <install> -play <out.txt>` plays
-one back from a new game. On the English install the search took about
-an hour (most of it in 06B and 07A) and found a way of 1,086 actions,
-which plays back in a minute and reaches the credits.
+one back from a new game. On the English install the search, from a new
+game, takes seven minutes and finds a way of 1,098 actions, which plays
+back in a minute and reaches the credits.
 
 **The playthrough** is a text file, an action a line: `new` (a new game),
 `click|<scene>|<object>|<n>|<choices>` (the n-th clickable of that name in
@@ -298,8 +298,10 @@ used, then the furthest on. A state with something new to the act's story
 the act; of a tag's value only if the game compares it, `tag alibis >9`,
 as the conditions tested so far show) becomes the new root: an enforced
 hill climb. A root that leads to nothing new within 5,000 states is a
-dead end, and the search goes back to the root before. A new act starts
-afresh. Two things keep it quick: an action that changed nothing before
+dead end, and the search goes back to the root before, where what was
+new is new again but the dead end's tags and items aren't climbed to
+again. A tag's value counts as new only up to the highest number the game
+compares it with. A new act starts afresh. Two things keep it quick: an action that changed nothing before
 is skipped where every clause of the conditions it had tested
 (`GameState::onTest`) comes out the same, and the inventory's actions and
 travel are tried once a story state, not in every scene.
@@ -309,15 +311,15 @@ What each act needed (actions in the playthrough found):
 | Act | Actions | What it took |
 |-----|---------|--------------|
 | 01A, 02A | 41 | The market's trades and quizzes, by trying each answer; Michel and Poirot in the hall. 02A plays on by itself. |
-| 03A | 32 | Belgrade's platform and the engineer. |
-| 04A | 106 | The water glasses from the Salon car's bar, listening at the doors (with the glass in hand once, then by itself: `tag autoeavesdrop nouse`), Michel locking the baggage car; the puzzle box on the way. |
+| 03A | 28 | Belgrade's platform and the engineer. |
+| 04A | 105 | The water glasses from the Salon car's bar, listening at the doors (with the glass in hand once, then by itself: `tag autoeavesdrop nouse`), Michel locking the baggage car; the puzzle box on the way. |
 | 04B, 04C | 2 each | Back to bed. |
 | 04D | 24 | The kimono: the woman clicked between the scene's `unlock` and `lock`. |
 | 05A, 05B | 14 | The murder scene and Constantine. |
-| 05C | 74 | The hat frames, the burnt paper held in the curling tongs, the spirit lamp from the restaurant lit with the matches, the ashes puzzle. |
-| 06A | 203 | The engineer's hammer (for his teeth), the snowshoes from the baggage car's crate, put on Antoinette in the forest, the wolves, the hut's padlock and its stove pipe, the fireman's gloves; the torn letter on the way. |
-| 06B | 427 | Every passport and fingerprint card, the prints compared, thirteen pairs of shoes compared in the closets, the safe, the suspects' timetables and alibis; then Poirot. |
-| 07A | 159 | Barnaby's radio: its battery built in the radio (the voltaic cell the inventory makes is no use there, and is taken apart again), the questions sent and, after `time 60`, the answers; the kidnapping; then Poirot. |
+| 05C | 62 | The hat frames, the burnt paper held in the curling tongs, the spirit lamp from the restaurant lit with the matches, the ashes puzzle. |
+| 06A | 229 | The engineer's hammer (for his teeth, then the sap), the snowshoes from the baggage car's crate, put on Antoinette in the forest, the wolves, the hut's padlock and its stove pipe, the fireman's gloves; the torn letter on the way. |
+| 06B | 447 | Every passport and fingerprint card, the prints compared, the shoes compared in the closets (thirteen times; one pair counts each time it's compared, as its script tests `shoesa1415515b` and sets `shoesa141515b`), the safe, the suspects' timetables and alibis; then Poirot. |
+| 07A | 142 | Barnaby's radio: its battery built in the radio (the voltaic cell the inventory can make of the same things is no use there; an earlier search made it and took it apart again), the questions sent and, after `time 60`, the answers; the kidnapping; then Poirot. |
 | 08A | 1 | The three solutions, with the choice taken least, to the credits. |
 
 Found in Reluva on the way, and fixed as the game does it:
