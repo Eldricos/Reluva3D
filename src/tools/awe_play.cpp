@@ -425,7 +425,7 @@ int aweCommandSolve(int argc, char** argv) {
     std::string solveTo, playFile, fromFile;
     int budget = 4000;
     double limit = 900;
-    bool verbose = false;
+    bool verbose = false, list = false, reload = false;
     for (int i = 3; i < argc; i++) {
         const std::string a = argv[i];
         if (a == "-solve" && i + 1 < argc)
@@ -440,6 +440,10 @@ int aweCommandSolve(int argc, char** argv) {
             limit = std::atof(argv[++i]);
         else if (a == "-v")
             verbose = true;
+        else if (a == "-list")
+            list = true;
+        else if (a == "-reload")
+            reload = true;
     }
     Player player(files, limit);
 
@@ -457,6 +461,31 @@ int aweCommandSolve(int argc, char** argv) {
         if (verbose)
             for (const std::string& l : player.log())
                 std::printf("%s\n", l.c_str());
+        if (reload) {
+            // Saved and loaded again, as the search does.
+            const std::set<std::string> before = player.features(true);
+            const std::vector<uint8_t> save = player.page().saveToMemory();
+            const size_t from = player.log().size();
+            player.page().loadFromMemory(save);
+            player.settle();
+            const std::set<std::string> after = player.features(true);
+            for (const std::string& f : before)
+                if (!after.count(f))
+                    std::printf("  lost on loading: %s\n", f.c_str());
+            for (const std::string& f : after)
+                if (!before.count(f))
+                    std::printf("  new on loading: %s\n", f.c_str());
+            if (verbose)
+                for (size_t i = from; i < player.log().size(); i++)
+                    std::printf("%s\n", player.log()[i].c_str());
+        }
+        if (list) {
+            // What could be done next, and the story state.
+            for (const Action& a : player.actions())
+                std::printf("  can: %s\n", toLine(a).c_str());
+            for (const std::string& f : player.features(true))
+                std::printf("  %s\n", f.c_str());
+        }
         return ok && player.credits() ? 0 : 1;
     }
 

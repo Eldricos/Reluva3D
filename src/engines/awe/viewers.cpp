@@ -791,6 +791,8 @@ void ScenePage::newGame() {
     previousMenu_.clear();
     yesNo_.reset();
     slots_.reset();
+    optionsMenu_.reset();
+    closePuzzle();
     logScript("new game");
     runner_->run("musica motoetheme, movie logos inscene, scene menu.main_01 1 0");
 }
