@@ -329,8 +329,9 @@ under the dialogue box and the cursor.
 page, in a game. The item states, slots and the page shown are the
 `GameState`'s (`itemSlots`, `itemPage`, `fresh`), set by `addItem` as the
 game's `0x41bc10` sets them, and saved with the game (each item's slot
-and page, as `0x41c730` writes them). The item in hand is drawn at the
-mouse; the cursors themselves aren't drawn yet. F9 shows Reluva's info
+and page, as `0x41c730` writes them). The item in hand is what the cursor
+shows and what a click uses, on what the game's pick finds there
+([ac2.md](ac2.md#the-mouse-picking-and-cursors)). F9 shows Reluva's info
 panel in a game (I is the inventory's).
 
 `reluva-tool awe-shot` shows the screens without a window:

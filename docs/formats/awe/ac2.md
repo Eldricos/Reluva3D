@@ -699,7 +699,6 @@ conditions. Reluva's evaluator is `testCondition`
   `1612`, and the camera's `238`, `23a` and `1240`.
 - What Reluva doesn't do yet: the objects' own sounds (`sound`,
   `soundLoops`, `hoverSoundLoops`; empty or 0 in every scene), the
-  animated pictures (`2DAN`, `NING`: in no scene), and the interface
-  bar's part in the cursor (the top 60 pixels while the bar is down) and
-  the letterbox's.
+  animated pictures (`2DAN`, `NING`: in no scene), and the letterbox,
+  which hides the cursor.
 - What the scene record `FAKE` (+0x14f4) does.

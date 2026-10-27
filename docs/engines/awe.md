@@ -175,22 +175,16 @@ or member types beyond those Reluva reads.
 
 Next:
 
-1. The cursor's last pieces, with the interface bar
-   ([ac2.md](../formats/awe/ac2.md#the-cursor)): no pick over the bar
-   while it's down (the top 60 pixels), the cursor hidden under the
-   letterbox, and the item in hand handed over by the inventory screen
-   (`ScenePage::itemInHand`, U for now). The fields still known only by
-   their offset are ones the game never reads, but for the scene's
-   `FAKE`.
+1. The letterbox (which hides the cursor) and the mouse wheel's part in
+   conversations. The fields still known only by their offset are ones
+   the game never reads, but for the scene's `FAKE`.
 2. The rest of playing the acts through (see
    [../formats/awe/acts.md](../formats/awe/acts.md#playing-the-acts-headless):
    every act starts, runs its scripts and goes on to the next as far as
    `reluva-tool awe-acts` can take it, and the game ends from 07A).
    Still to do: a player's run from 01A to the end, which the explorer
    can't do (01A's trades, 04A's eavesdropping, 04D's kimono need a
-   player who knows what to do), and the cursors the interface sets
-   (the item in hand over what takes it:
-   [../formats/awe/interface.md](../formats/awe/interface.md#the-item-in-hand)).
+   player who knows what to do).
 
 ## What the install holds
 
