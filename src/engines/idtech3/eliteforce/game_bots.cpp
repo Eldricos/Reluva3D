@@ -344,7 +344,7 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
     case BotAllocateClient: { // -> a free client number for a bot, -1 if none
         const int32_t max = std::max(1, cvars_.integer("sv_maxclients"));
         for (int32_t c = 0; c < max; ++c)
-            if (!clientsInUse_.count(c)) {
+            if (!clientsInUse_.count(c) && !reserved_.count(c)) {
                 clientsInUse_.insert(c);
                 botClients_.insert(c);
                 botMessagesRead_[c] = serverCommands_.size();

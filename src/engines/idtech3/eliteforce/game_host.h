@@ -91,6 +91,10 @@ public:
     Error disconnectClient(int32_t clientNum);
     // Whether no player or bot has slot `clientNum`.
     bool clientSlotFree(int32_t clientNum) const { return !clientsInUse_.count(clientNum); }
+    // Keeps a client number from bots (BotAllocateClient): the local
+    // player's, who joins after the level has started and the game has
+    // added a solo match's bots.
+    void reserveClient(int32_t clientNum) { reserved_.insert(clientNum); }
     bool isBot(int32_t clientNum) const { return botClients_.count(clientNum) != 0; }
     // A player's input for one moment, as Elite Force's usercmd_t (24
     // bytes, see eliteforce-syscalls.md): Quake III's fields with the
@@ -278,7 +282,7 @@ private:
     uint64_t startMs_ = 0;
     // Bots.
     botlib::BotLibrary bots_;
-    std::set<int32_t> clientsInUse_, botClients_;
+    std::set<int32_t> clientsInUse_, botClients_, reserved_;
     std::map<int32_t, size_t> botMessagesRead_;           // per bot, server commands read so far
     std::map<int32_t, std::vector<int32_t>> botSnapshots_; // per bot, the entities it sees this frame
     std::vector<Entity> bspEntities_;

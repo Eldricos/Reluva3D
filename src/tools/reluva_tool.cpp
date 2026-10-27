@@ -4755,6 +4755,7 @@ int cmdGameRun(int argc, char** argv) {
         std::printf("load: %s\n", err.message.c_str());
         return 1;
     }
+    game.reserveClient(0); // the player's, as the Play page keeps it
     reluva::Error started = game.startLevel(map, bspOwned);
     std::printf("start level (Init and 3 frames): %s\n", started ? started.message.c_str() : "ok");
     bool ok = !started;
@@ -4934,6 +4935,14 @@ int cmdGameRun(int argc, char** argv) {
     const auto& gd = game.gameData();
     std::printf("level time %d ms; entity array at %d: %d in use, %d bytes each; clients at %d, %d bytes each\n",
                 game.levelTime(), gd.entities, gd.count, gd.entitySize, gd.clients, gd.clientSize);
+    {
+        // The bots in the game (a solo match's are added by the game itself).
+        std::string botList;
+        for (const int32_t c : game.botClients())
+            botList += " " + std::to_string(c);
+        std::printf("bots: %zu%s%s; g_gametype %s\n", game.botClients().size(), botList.empty() ? "" : " (clients",
+                    botList.empty() ? "" : (botList + ")").c_str(), cvars.string("g_gametype").c_str());
+    }
     std::printf("%zu entities linked into the world, %zu configstrings set, %zu cvars\n", game.linked().size(),
                 game.configstrings().size(), cvars.all().size());
     for (const auto& [index, text] : game.configstrings()) {

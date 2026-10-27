@@ -213,6 +213,7 @@ void PlayViewer::start(int index) {
     printPartial_[0].clear();
     closeTyping();
     Error err = game_->load();
+    game_->reserveClient(0); // the player's, though bots may be added first
     if (!err)
         err = game_->startLevel(map, bsp, int32_t(ctx_.sys.getMillis()));
     std::string refused;

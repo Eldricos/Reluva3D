@@ -64,6 +64,17 @@ void MenuViewer::activate() {
 }
 
 void MenuViewer::start() {
+    // The player's settings, as the original's client makes them at start
+    // (CL_Init), so the menus find them on a first run, before any config
+    // has them: the Player settings menu shows the model from the start.
+    const int32_t player = CvarStore::UserInfo | CvarStore::Archive;
+    cvars_.create("name", "Reluva", player);
+    cvars_.create("model", ctx_.game.playerModel, player);
+    cvars_.create("handicap", "100", player);
+    cvars_.create("snaps", "20", player);
+    cvars_.create("rate", "25000", player);
+    cvars_.create("sex", "male", player);
+    cvars_.create("color", "4", player);
     ui_ = std::make_unique<eliteforce::UiHost>(ctx_.files, cvars_);
     if (scene_)
         scene_->reset(); // new handles
