@@ -175,9 +175,7 @@ or member types beyond those Reluva reads.
 
 Next:
 
-1. What the scene's `FAKE` does: the fields still known only by their
-   offset are ones the game never reads, but for it.
-2. The rest of playing the acts through (see
+1. The rest of playing the acts through (see
    [../formats/awe/acts.md](../formats/awe/acts.md#playing-the-acts-headless):
    every act starts, runs its scripts and goes on to the next as far as
    `reluva-tool awe-acts` can take it, and the game ends from 07A).

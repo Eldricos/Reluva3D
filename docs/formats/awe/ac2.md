@@ -81,7 +81,7 @@ The scene loader reads a tag at a time until `DONE` (or the end):
 | Tag | Content |
 |-----|---------|
 | `SCEN` | text: the scene's own path (`Locations\Salon\Salon_01_06a.ac2`) |
-| `LOAD`, `FAKE`, `OUTD`, `NVNT`, `SHOW` | u16 each (`FAKE`, +0x14f4, still to be found). `LOAD` (+0x1502, 1 by default). `OUTD` (scene +0x14f2): outdoors: lit for the night at time of day 1 ([lighting.md](lighting.md)), and characters with `MODL` footprints leave them only there (`0x43ffcd`). `NVNT` (+0x14f6): never lit for the night. `SHOW` (+0x14f0, 1 by default, `0x43548f`): the interface shows in the scene (`0x4143c0`), and with it the cursor ([The mouse](#the-mouse-picking-and-cursors)); 0 in the five menus and 15 close-ups and cutaways (`Sirkeci.Market_02.Closeup.01`, `Calais.Night_7-8.Hubbard`...) |
+| `LOAD`, `FAKE`, `OUTD`, `NVNT`, `SHOW` | u16 each. `FAKE` (+0x14f4) does nothing: the scene's constructor sets it to 0 (`0x4354a9`) and its loader reads it (`0x435b5b`; an act's variant, loaded on top with mode 2 by `0x423ab2`, leaves the base's), and no code reads it after; it's 0 in all 394 scenes. `LOAD` (+0x1502, 1 by default). `OUTD` (scene +0x14f2): outdoors: lit for the night at time of day 1 ([lighting.md](lighting.md)), and characters with `MODL` footprints leave them only there (`0x43ffcd`). `NVNT` (+0x14f6): never lit for the night. `SHOW` (+0x14f0, 1 by default, `0x43548f`): the interface shows in the scene (`0x4143c0`), and with it the cursor ([The mouse](#the-mouse-picking-and-cursors)); 0 in the five menus and 15 close-ups and cutaways (`Sirkeci.Market_02.Closeup.01`, `Calais.Night_7-8.Hubbard`...) |
 | `FOOT` | text (32): the scene's footstep sounds |
 | `PUZZ` | text (32): the scene's puzzle, if any |
 | `MUSC` | pair list: music (the second of each pair is a file, `sound\music\motoetheme.mp3`) |
@@ -700,4 +700,3 @@ conditions. Reluva's evaluator is `testCondition`
 - What Reluva doesn't do yet: the objects' own sounds (`sound`,
   `soundLoops`, `hoverSoundLoops`; empty or 0 in every scene), the
   animated pictures (`2DAN`, `NING`: in no scene).
-- What the scene record `FAKE` (+0x14f4) does.
