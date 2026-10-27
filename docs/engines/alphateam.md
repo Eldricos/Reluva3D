@@ -412,6 +412,11 @@ Progress:
   - F12 pauses the game at its next frame and opens the data viewer.
   - Quitting stops the program with `Cpu::requestStop`; an `exit` of its
     own is told from a failure by `Win32Process::exited`.
+- Done: sound, through the A3D stand-in (`src/common/x86/a3d.cpp`,
+  docs/engines/x86.md). `NiA3dSoundSystem::Startup` now succeeds, and
+  `DDStreamingAudioManager::AddSource` returns sources. The streaming
+  thread fills them as their play positions move, and the engine hears
+  them through its mixer.
 - Speed, measured headless (frames given to the engine, a click past the
   demo): the menu at headquarters runs at about 14 frames a second on 4
   cores, after about 22 seconds of loading.
@@ -429,8 +434,6 @@ Progress:
     change. The engine's frame count doesn't do for this: which game frame
     it shows depends on timing.
 - Not there yet:
-  - **sound:** no A3D object, so `CoCreateInstance` fails and the game
-    plays without sound;
   - **the training mission's simulation:** see "Into a mission" below;
   - **more speed.**
 
