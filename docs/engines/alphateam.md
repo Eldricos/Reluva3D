@@ -702,7 +702,10 @@ reads, the vftables it builds for its own subclasses):
     both. The settings go there too (the readme's `Width`, `Height`, `BPP`).
   - It's written on leaving through Exit Game (from the main menu, or
     from a mission's menu), and as an Adventure moves on. Quitting
-    Reluva stops the game where it is, so it saves nothing then.
+    Reluva stops the game where it is, so it saves nothing then: closing
+    the window while the game runs (or while its data viewer is open over
+    it) asks first, "Keep playing" or "Quit" (`System::confirmQuit`, a
+    message box in the SDL backend).
   - Two things in our run-time had to be fixed for it. The `ofstream`
     destructor that LoadComp inlines in `DDInfo::Save` reads `filebuf`'s
     close flag at +0x48 and deletes a string pointer at +0x44, which ours

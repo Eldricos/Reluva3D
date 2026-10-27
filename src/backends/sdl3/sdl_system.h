@@ -42,6 +42,7 @@ public:
     void setMouseCursorVisible(bool visible) override;
     void setVideoMode(int width, int height, bool fullscreen) override;
     void setRelativeMouse(bool on) override;
+    bool confirmQuit(const std::string& text) override;
     uint64_t getMillis() const override;
     void delayMillis(uint32_t ms) override;
     Error startAudio(AudioCallback callback) override;

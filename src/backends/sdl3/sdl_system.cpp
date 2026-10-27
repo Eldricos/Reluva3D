@@ -337,6 +337,29 @@ void SdlSystem::setRelativeMouse(bool on) {
         SDL_SetWindowRelativeMouseMode(window_, on);
 }
 
+// A message box of the window's: the mouse is let go while it shows.
+bool SdlSystem::confirmQuit(const std::string& text) {
+    const bool held = relativeMouse_;
+    if (window_ && held)
+        SDL_SetWindowRelativeMouseMode(window_, false);
+    const SDL_MessageBoxButtonData buttons[] = {
+        {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT | SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "Keep playing"},
+        {0, 1, "Quit"},
+    };
+    const SDL_MessageBoxData box{SDL_MESSAGEBOX_WARNING, window_, "Quit Reluva?", text.c_str(),
+                                 SDL_arraysize(buttons), buttons, nullptr};
+    int chosen = 0;
+    if (!SDL_ShowMessageBox(&box, &chosen))
+        chosen = 1; // no box to show: quit, as without asking
+    const bool quit = chosen == 1;
+    if (!quit) {
+        quitRequested_ = false;
+        if (window_ && held)
+            SDL_SetWindowRelativeMouseMode(window_, true);
+    }
+    return quit;
+}
+
 uint64_t SdlSystem::getMillis() const { return SDL_GetTicks(); }
 
 void SdlSystem::delayMillis(uint32_t ms) { SDL_Delay(ms); }

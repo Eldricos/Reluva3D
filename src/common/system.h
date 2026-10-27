@@ -59,6 +59,13 @@ public:
     // width x height (when it fits on the screen; the frame is letterboxed
     // in whatever size the window is).
     virtual void setVideoMode(int width, int height, bool fullscreen) { (void)width, (void)height, (void)fullscreen; }
+    // After a Quit event: asks the player whether to quit after all,
+    // showing `text`. True to quit; false keeps the game going and the Quit
+    // is forgotten. Without a way to ask, quits.
+    virtual bool confirmQuit(const std::string& text) {
+        (void)text;
+        return true;
+    }
 
     // --- Time ---------------------------------------------------------------
     virtual uint64_t getMillis() const = 0;

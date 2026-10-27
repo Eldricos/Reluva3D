@@ -83,6 +83,11 @@ private:
     Error play() {
         netimmerse::alphateam::Player player(target_.path, target_.savePath, audioOut_ ? mixer_.get() : nullptr);
         player.start();
+        playing_ = true;
+        struct Stopped {
+            bool& playing;
+            ~Stopped() { playing = false; }
+        } stopped{playing_};
         int width = 640, height = 480;
         auto screen = [&] {
             sys_.initGraphics(width, height, PixelFormat::RGBA32);
@@ -96,6 +101,8 @@ private:
         while (true) {
             Event ev;
             while (sys_.pollEvent(ev)) {
+                if (ev.type == EventType::Quit && !confirmQuit())
+                    continue;
                 if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher)
                     return Error::success();
                 if (ev.type == EventType::KeyDown && ev.key == key::F1 + 11 && !ev.repeat) { // F12: the viewer
@@ -138,6 +145,15 @@ private:
         }
     }
 
+    // Whether to quit after the window was closed: while the game runs,
+    // the player is asked, as what it hasn't saved would be lost.
+    bool confirmQuit() {
+        return !playing_ ||
+               sys_.confirmQuit(target_.description +
+                                " is still running. Anything since the game last saved (it saves on finishing a "
+                                "mission, and on leaving through its Exit Game) will be lost.\n\nQuit anyway?");
+    }
+
     // The data viewer's pages, until Esc (or the player quits: `quit`).
     Error viewer(bool& quit) {
         using namespace netimmerse;
@@ -167,6 +183,8 @@ private:
         while (true) {
             Event ev;
             while (sys_.pollEvent(ev)) {
+                if (ev.type == EventType::Quit && !confirmQuit())
+                    continue;
                 if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher ||
                     (ev.type == EventType::KeyDown && (ev.key == key::Escape || ev.key == key::F1 + 11))) {
                     quit = ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher;
@@ -223,6 +241,7 @@ private:
 
     System& sys_;
     GameTarget target_;
+    bool playing_ = false; // the game is running (play())
     Surface screen_;
     SearchSet files_;
     std::unique_ptr<audio::Mixer> mixer_;
