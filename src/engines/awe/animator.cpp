@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <map>
 
 namespace reluva::awe {
 
@@ -35,31 +36,80 @@ float Animator::Slot::time() const {
     return std::fmod(clock, d);
 }
 
-std::vector<float> Animator::buildMask(const Model& model, const Animation* animation, float weight) const {
-    // The file's TrackMask weights by bone; a bone with none takes its
-    // parent's, except the jaw's and eyes' masters, unless the parent's is
-    // the 0.01 of the full-body animations (0x429f50): a gesture's
-    // shoulders don't move the face.
+CurveLoop Animator::Slot::loop() const {
+    CurveLoop l;
+    l.duration = animation ? animation->duration : 0;
+    if (loops == 0) {
+        l.back = l.forward = true;
+    } else if (loops > 1 && l.duration > 0) {
+        const int index = std::min(loops - 1, int(clock / l.duration));
+        l.back = index > 0;
+        l.forward = index < loops - 1;
+    }
+    return l;
+}
+
+std::vector<float> Animator::buildMask(const Model& model, const Animation* animation, float weight,
+                                      const std::vector<float>& poseMask) const {
+    // The file's TrackMask weights by bone (0x42a2d4), a bone at a time
+    // from the root: a weight given replaces the file's; a bone without
+    // one takes its parent's, except the jaw's and eyes' masters, unless
+    // the parent's is the 0.01 of the full-body animations: a gesture's
+    // shoulders don't move the face. A file without a mask plays in full.
     const std::vector<Bone>& bones = model.bones;
     std::vector<float> mask(bones.size(), 1.0f);
-    if (!animation || animation->mask.empty())
-        return mask;
-    for (size_t b = 0; b < bones.size(); b++) {
-        const auto it = animation->mask.find(bones[b].name);
-        float w = it == animation->mask.end() ? 0.0f : it->second;
-        if (w == 0 && bones[b].parent >= 0) {
-            const float parent = mask[size_t(bones[b].parent)];
-            const std::string name = fs::toLower(bones[b].name);
-            const bool master = name == "jaw_bones_master" || name == "eye_bones_master";
-            if (!master || std::abs(parent - 0.01f) < 1e-6f)
-                w = parent;
+    if (animation && !animation->mask.empty()) {
+        for (size_t b = 0; b < bones.size(); b++) {
+            const auto it = animation->mask.find(bones[b].name);
+            float w = it == animation->mask.end() ? 0.0f : it->second;
+            if (w != 0) {
+                if (weight != 0)
+                    w = weight;
+            } else if (bones[b].parent >= 0) {
+                const float parent = mask[size_t(bones[b].parent)];
+                const std::string name = fs::toLower(bones[b].name);
+                const bool master = name == "jaw_bones_master" || name == "eye_bones_master";
+                if (parent > 0 && (!master || parent == 0.01f))
+                    w = parent;
+            }
+            mask[b] = w;
         }
+    }
+    // Times the pose's mask, bone by bone (0x42a3da, 0x42a88a).
+    if (!poseMask.empty())
+        for (size_t b = 0; b < bones.size(); b++) {
+            size_t i = b;
+            if (&model != model_) {
+                i = 0;
+                while (i < model_->bones.size() && model_->bones[i].name != bones[b].name)
+                    i++;
+            }
+            mask[b] *= i < poseMask.size() ? poseMask[i] : 0.0f;
+        }
+    return mask;
+}
+
+std::vector<float> Animator::modelMask(const Model& model, std::string_view name) {
+    // Granny's ExtractTrackMask on the model's skeleton, then each bone
+    // without a weight takes its parent's (0x42a08c). The member's name is
+    // matched whatever its case: the animation files spell the game's
+    // "TrackMaskTrackMask" both "TrackMasktrackmask" and
+    // "TrackMaskTrackMask".
+    const std::string n = fs::toLower(name);
+    const std::map<std::string, float>* weights = nullptr;
+    for (const auto& [k, v] : model.masks)
+        if (fs::toLower(k) == n)
+            weights = &v;
+    if (!weights)
+        return {};
+    std::vector<float> mask(model.bones.size(), 0.0f);
+    for (size_t b = 0; b < model.bones.size(); b++) {
+        const auto it = weights->find(model.bones[b].name);
+        float w = it == weights->end() ? 0.0f : it->second;
+        if (w == 0 && model.bones[b].parent >= 0)
+            w = std::max(0.0f, mask[size_t(model.bones[b].parent)]);
         mask[b] = w;
     }
-    if (weight != 0)
-        for (float& w : mask)
-            if (w != 0)
-                w = weight;
     return mask;
 }
 
@@ -82,7 +132,9 @@ bool Animator::play(std::string_view name, std::shared_ptr<const Animation> anim
     s.base = base;
     s.loops = std::max(0, loops);
     s.ease = ease;
-    s.mask = buildMask(*model_, animation.get(), weight);
+    if (!base)
+        s.poseMask = poseMask_;
+    s.mask = buildMask(*model_, animation.get(), weight, s.poseMask);
     s.maskWeight = weight;
     s.animation = std::move(animation);
     slots_.push_back(std::move(s));
@@ -180,8 +232,13 @@ void Animator::blend(const Model& model, int layer, std::vector<BoneTransform>& 
             continue;
         if (w > best && strongest)
             best = w, *strongest = &s;
-        sampleLocal(model, s.animation.get(), s.time(), local);
-        const std::vector<float> other = &model == model_ ? std::vector<float>() : buildMask(model, s.animation.get(), s.maskWeight);
+        // A base animation's root carries the character along (a walk's
+        // whole loop's distance): the game takes that motion out (its
+        // track groups accumulate it, and GrannyUpdateModelMatrix moves
+        // the model), Reluva by the drift it measures on the root played
+        // once (Actor::motion). So the root doesn't wrap round.
+        sampleLocal(model, s.animation.get(), s.time(), local, s.loop(), !s.base);
+        const std::vector<float> other = &model == model_ ? std::vector<float>() : buildMask(model, s.animation.get(), s.maskWeight, s.poseMask);
         const std::vector<float>& mask = &model == model_ ? s.mask : other;
         for (size_t b = 0; b < n; b++) {
             const float bw = w * mask[b];

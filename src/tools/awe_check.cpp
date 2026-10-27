@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cfloat>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -66,6 +67,18 @@ struct Gr2Result {
     std::map<uint32_t, size_t> binkTextures;
     size_t binkMismatches = 0;
     double nativeSeconds = 0, dllSeconds = 0;
+    // With -curves: every curve evaluated by Curve::evaluate and by
+    // granny2.dll (GrannyEvaluateCurveAtT) at many times, in each way a
+    // control loops; the largest difference by kind (position,
+    // orientation, scale/shear) and where it was.
+    struct CurveDifference {
+        double most = 0;     // absolute
+        double epsilons = 0; // in floats' epsilons of the curve's largest value (or of 1)
+        std::string where;   // of the largest in epsilons
+    };
+    static constexpr int kLoopModes = 4; // once, looping, the first and the last of several
+    CurveDifference curveDifferences[kLoopModes][3];
+    size_t curvesEvaluated = 0, curveSamples = 0;
 };
 
 std::string layoutOf(const awe::Gr2Object& vertexData) {
@@ -148,7 +161,98 @@ void checkCompressedCurves(const awe::Gr2File& file, awe::GrannyDll& dll, const 
     }
 }
 
-Gr2Result checkGr2(const reluva::Archive& files, const std::string& name, awe::GrannyDll& dll, bool textures) {
+// Every curve of the animation evaluated natively (Curve::evaluate) and by
+// granny2.dll (GrannyEvaluateCurveAtT, on its own copy of the file), at
+// its knots and between them, in the four ways a control can loop.
+// Orientations are normalised both ways, as Granny's sampling does, and
+// differences are taken relative to the curve's largest value.
+void checkCurveEvaluation(const awe::Gr2File& file, awe::GrannyDll& dll, const awe::Animation& anim,
+                          Gr2Result& r) {
+    static const std::vector<float> kIdentities[3] = {{0, 0, 0}, {0, 0, 0, 1}, {1, 0, 0, 0, 1, 0, 0, 0, 1}};
+    static const char* const kKinds[3] = {"position", "orientation", "scale/shear"};
+    awe::GrannyDll::LoadedFile loaded;
+    if (reluva::Error e = dll.loadFile(file.bytes(), loaded)) {
+        r.warnings.push_back("granny2.dll: " + e.message);
+        return;
+    }
+    std::vector<std::array<uint32_t, 3>> addresses;
+    if (reluva::Error e = awe::dllCurveAddresses(file, dll, loaded.info, addresses)) {
+        r.warnings.push_back("granny2.dll: " + e.message);
+        dll.freeFile(loaded);
+        return;
+    }
+    const float d = anim.duration;
+    std::vector<float> theirs, mine(16);
+    for (size_t t = 0; t < addresses.size() && t < anim.tracks.size(); t++) {
+        const awe::AnimationTrack& track = anim.tracks[t];
+        const awe::Curve* curves[3] = {&track.position, &track.orientation, &track.scaleShear};
+        for (int c = 0; c < 3; c++) {
+            const awe::Curve& curve = *curves[c];
+            if (!addresses[t][size_t(c)] || curve.empty())
+                continue;
+            r.curvesEvaluated++;
+            // The knots (up to 32 of them), the ends, and 96 times spread
+            // over the animation (the clock stays within it).
+            std::vector<float> times = {0, d};
+            double scale = 1;
+            for (float v : curve.controls)
+                scale = std::max(scale, double(std::abs(v)));
+            const size_t n = curve.knots.size(), step = std::max<size_t>(1, n / 32);
+            for (size_t k = 0; k < n; k += step)
+                if (curve.knots[k] >= 0 && curve.knots[k] <= d)
+                    times.push_back(curve.knots[k]);
+            for (int k = 0; k < 96; k++)
+                times.push_back(d * (float(k) + 0.37f) / 96);
+            for (int mode = 0; mode < Gr2Result::kLoopModes; mode++) {
+                awe::CurveLoop loop;
+                loop.back = mode == 1 || mode == 3;
+                loop.forward = mode == 1 || mode == 2;
+                loop.duration = d;
+                for (float at : times) {
+                    if (reluva::Error e = dll.evaluateCurve(addresses[t][size_t(c)], kIdentities[c], c == 1,
+                                                            loop.back, loop.forward, d, at, theirs)) {
+                        r.warnings.push_back(track.bone + " " + kKinds[c] + ": granny2.dll: " + e.message);
+                        dll.freeFile(loaded);
+                        return;
+                    }
+                    const int dim = int(theirs.size());
+                    curve.evaluate(at, dim, mine.data(), loop);
+                    // Orientations: the direction. The DLL's Normalize is only
+                    // nearly unit length; the track sampler the game's
+                    // controls use normalises exactly (0x500444ff).
+                    if (c == 1)
+                        for (std::vector<float>* q : {&mine, &theirs}) {
+                            float* v = q->data();
+                            const float len = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2] + v[3] * v[3]);
+                            for (int k = 0; k < 4 && len > 0; k++)
+                                v[k] /= len;
+                        }
+                    r.curveSamples++;
+                    double most = 0, epsilons = 0;
+                    for (int k = 0; k < dim; k++) {
+                        const double a = mine[size_t(k)], b = theirs[size_t(k)], diff = std::abs(a - b);
+                        most = std::max(most, diff);
+                        epsilons = std::max(epsilons, diff / (FLT_EPSILON * scale));
+                        if (!std::isfinite(diff))
+                            most = epsilons = INFINITY;
+                    }
+                    Gr2Result::CurveDifference& worst = r.curveDifferences[mode][c];
+                    worst.most = std::max(worst.most, most);
+                    if (epsilons > worst.epsilons) {
+                        worst.epsilons = epsilons;
+                        worst.where = track.bone + " at " + std::to_string(at) + " s (" + std::to_string(n) +
+                                      " knots, degree " + std::to_string(curve.degree) + ")";
+                    }
+                }
+            }
+        }
+    }
+    dll.freeFile(loaded);
+}
+
+
+Gr2Result checkGr2(const reluva::Archive& files, const std::string& name, awe::GrannyDll& dll, bool textures,
+                   bool curveValues) {
     Gr2Result r;
     std::vector<uint8_t> data;
     if (reluva::Error e = files.read(name, data)) {
@@ -283,6 +387,8 @@ Gr2Result checkGr2(const reluva::Archive& files, const std::string& name, awe::G
         for (uint32_t g = 0; g < a.count("TrackGroups"); g++)
             r.vectorTracks += a.element("TrackGroups", g).count("VectorTracks");
         checkCompressedCurves(file, dll, anim, r);
+        if (curveValues)
+            checkCurveEvaluation(file, dll, anim, r);
         for (const awe::AnimationTrack& t : anim.tracks) {
             checkCurve(t.position, "PositionCurve", 3, r, t.bone);
             checkCurve(t.orientation, "OrientationCurve", 4, r, t.bone);
@@ -317,7 +423,7 @@ std::vector<std::string> gr2Files(const reluva::Archive& files, const std::strin
 }
 
 int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& folder, const std::string& filter,
-                  bool textures, unsigned jobs, bool verbose) {
+                  bool textures, bool curveValues, unsigned jobs, bool verbose) {
     const std::vector<std::string> names = gr2Files(files, filter);
     std::printf("== %zu Granny files\n", names.size());
     if (names.empty())
@@ -342,7 +448,7 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
             return;
         }
         for (size_t i; (i = next++) < names.size();) {
-            results[i] = checkGr2(files, names[i], dll, textures);
+            results[i] = checkGr2(files, names[i], dll, textures, curveValues);
             const size_t d = ++done;
             if (d % 100 == 0) {
                 std::lock_guard<std::mutex> lock(mutex);
@@ -367,8 +473,23 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
     std::map<uint32_t, size_t> binkTextures;
     std::map<std::string, size_t> layouts, compressions, curveFormats;
     std::map<int, size_t> degrees;
+    size_t curvesEvaluated = 0, curveSamples = 0;
+    Gr2Result::CurveDifference curveDifferences[Gr2Result::kLoopModes][3];
     for (size_t i = 0; i < names.size(); i++) {
         const Gr2Result& r = results[i];
+        curvesEvaluated += r.curvesEvaluated;
+        curveSamples += r.curveSamples;
+        for (int loop = 0; loop < Gr2Result::kLoopModes; loop++)
+            for (int c = 0; c < 3; c++)
+{
+                    const Gr2Result::CurveDifference& f = r.curveDifferences[loop][c];
+                    Gr2Result::CurveDifference& all = curveDifferences[loop][c];
+                    all.most = std::max(all.most, f.most);
+                    if (f.epsilons > all.epsilons) {
+                        all.epsilons = f.epsilons;
+                        all.where = names[i] + " " + f.where;
+                    }
+                }
         if (!r.error.empty()) {
             failed++;
             std::printf("FAIL %s: %s\n", names[i].c_str(), r.error.c_str());
@@ -435,7 +556,25 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
     std::printf("\n  vertex layouts:\n");
     for (const auto& [l, n] : layouts)
         std::printf("    %5zu  %s\n", n, l.c_str());
-    return failed || curvesDiffering || binkMismatches ? 1 : 0;
+    // Beyond float rounding: more than a few floats' epsilons of the values.
+    bool curvesOff = false;
+    if (curveValues) {
+        static const char* const kKinds[3] = {"position", "orientation", "scale/shear"};
+        static const char* const kModes[Gr2Result::kLoopModes] = {"once", "looping", "first loop", "last loop"};
+        constexpr double kTolerance = 8;
+        std::printf("  curve values: %zu curves at %zu times, against GrannyEvaluateCurveAtT; largest differences "
+                    "(absolute, and in floats' epsilons of the curve's values):\n",
+                    curvesEvaluated, curveSamples);
+        for (int loop = 0; loop < Gr2Result::kLoopModes; loop++)
+            for (int c = 0; c < 3; c++) {
+                const Gr2Result::CurveDifference& d = curveDifferences[loop][c];
+                const bool off = !(d.epsilons <= kTolerance);
+                curvesOff |= off;
+                std::printf("    %-10s %-11s %.3g, %.2f%s%s%s\n", kModes[loop], kKinds[c], d.most, d.epsilons,
+                            off ? " (TOO LARGE)" : "", d.where.empty() ? "" : ": ", d.where.c_str());
+            }
+    }
+    return failed || curvesDiffering || binkMismatches || curvesOff ? 1 : 0;
 }
 
 // Decompresses every compressed section of every Granny file both
@@ -845,6 +984,7 @@ int checkBink(const reluva::Archive& files, unsigned jobs, bool verbose) {
 int aweCheckCommand(int argc, char** argv) {
     std::string folder, filter;
     bool gr2 = true, scenes = true, text = true, bink = true, oodle = false, textures = false, verbose = false;
+    bool curveValues = false;
     unsigned jobs = std::max(1u, std::thread::hardware_concurrency());
     for (int i = 2; i < argc; i++) {
         const std::string a = argv[i];
@@ -852,6 +992,8 @@ int aweCheckCommand(int argc, char** argv) {
             gr2 = a == "-gr2", scenes = a == "-ac2", text = a == "-text", bink = a == "-bik", oodle = a == "-oodle";
         } else if (a == "-textures") {
             textures = true;
+        } else if (a == "-curves") {
+            curveValues = true;
         } else if (a == "-v") {
             verbose = true;
         } else if (a == "-j" && i + 1 < argc) {
@@ -864,7 +1006,7 @@ int aweCheckCommand(int argc, char** argv) {
     }
     if (folder.empty()) {
         std::fprintf(stderr, "usage: reluva-tool awe-check <game folder> [-gr2|-ac2|-text|-bik|-oodle] [-only text] "
-                             "[-textures] [-j threads] [-v]\n");
+                             "[-textures] [-curves] [-j threads] [-v]\n");
         return 2;
     }
     reluva::DirectoryArchive files;
@@ -878,7 +1020,7 @@ int aweCheckCommand(int argc, char** argv) {
     if (scenes)
         result |= checkScenes(files, verbose);
     if (gr2)
-        result |= checkGr2Files(files, folder, filter, textures, jobs, verbose);
+        result |= checkGr2Files(files, folder, filter, textures, curveValues, jobs, verbose);
     if (bink)
         result |= checkBink(files, jobs, verbose);
     // Only when asked: granny2.dll is slow in the interpreter.

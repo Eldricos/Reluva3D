@@ -13,12 +13,16 @@ This comes from `motoe.exe` (English 1.0), read in a disassembler to make
 Reluva work with the game:
 
 - the character's animated model, `0x403e10..0x405940`;
-- the model instance's Granny controls, `0x4275d0..0x42a650`;
+- the model instance's Granny controls, `0x4275d0..0x42aad7`: loading an
+  animation and its mask (0x4297d0), playing one on the body (0x429f50,
+  with the pose's mask) or on the head or eye layer (0x42a650), stopping
+  one (0x429cc0, 0x429dd0). The Granny functions they call were named
+  from `motoe.exe`'s imports;
 - the turns, `0x4411f0..0x4420b0`;
 - the runner's handlers for the verbs.
 
 The findings were checked against the install's models, their animation
-files' track masks, and the scenes' scripts.
+files' track masks, and the scenes' and dialogue's scripts.
 
 ## Animations on Granny controls
 
@@ -53,14 +57,47 @@ a weight:
 | `blink` | the eyelids at 0.99 |
 | `talk` | `Jaw_Bones_Master` at 0.99 |
 
-A bone without a weight of its own takes its parent's, except the jaw's
-and eyes' masters. Those two inherit only from a parent weighted 0.01, so
-a gesture's 0.99 on the spine leaves the face free.
+The mask is built a bone at a time from the root (0x42a2d4):
+
+1. A bone with a weight in the file keeps it, or takes the script's
+   weight if it gives one (`anim fanger .02`).
+2. A bone without one takes its parent's, if that is above 0. The jaw's
+   and eyes' masters (`jaw_bones_master`, `eye_bones_master`, in any case)
+   are the exception: they inherit only a parent's weight of exactly 0.01.
+   So a gesture's 0.99 on the spine leaves the face free.
 
 A gesture's 0.99 against a base animation's 0.01 means the gesture moves
-the bones it weighs, and the base animation moves the rest. When a script
-gives a weight (`anim fanger .02`), it replaces the mask's weights. At
-0.02 against 0.01, the result is about two thirds the gesture.
+the bones it weighs, and the base animation moves the rest. At 0.02
+against 0.01, the result is about two thirds the gesture.
+
+The game asks for the mask `TrackMaskTrackMask`. The files spell it
+`TrackMasktrackmask` or `TrackMaskTrackMask`, so Granny matches the name
+whatever its case. An animation without a mask (57 files) plays on every
+bone in full (0x4298f0 logs "No track mask data", and the control gets no
+mask). Other masks some animation files carry (`TrackMasksitidle1`) are
+never asked for.
+
+### The pose's mask: sitting
+
+MODL's `anim` names a mask of the character's **model** file, and MODL's
+condition says when it applies. In the data `anim` is always `sit`, on
+the seated characters. Their models carry `TrackMasksit`: `Bip01 Spine`
+at 1, so the upper body.
+
+1. **Built with each base animation** (0x429f96). When a base animation
+   plays, the last pose mask is freed. If `anim` isn't empty and MODL's
+   condition holds, `TrackMask` + `anim` is read from the model's
+   skeleton: each bone without a weight takes its parent's, if above 0
+   (0x42a08c). If the model has no such mask, there is none.
+2. **Applied to everything else.** Every animation that isn't a base one
+   then has its mask multiplied by it, bone by bone: gestures (0x42a3da),
+   and the head and eyes (0x42a88a). The base animation itself is left as
+   it is.
+
+So whatever plays over a seated character's base moves at most its spine
+and what hangs from it; the hips and legs stay in the seated pose. Most
+gestures weigh only the spine anyway, but an animation weighted on
+`Bip01`, or one without a mask, would otherwise move the whole body.
 
 ### Base animations and overlays
 
@@ -208,6 +245,37 @@ Over the course of a line in a conversation:
 The line's Target turns the speaker's head as `turn` would. When the box
 slides away, the heads turn home.
 
+### The face
+
+The face's bones hang from two masters, `Eye_Bones_Master` (eyes, lids,
+brows) and `Jaw_Bones_Master` (jaw, lips). The game has no code of its
+own for them: they move only by animations on Granny controls, like the
+body's, each weighing its bones through its track mask. The only face
+animations `motoe.exe` names are `blink`, `talk` and `eye...`
+(`head...` turns the head). Four things play them:
+
+| What | Animation | Mask | Played by |
+|------|-----------|------|-----------|
+| blinking | `blink`, once or twice, eased in over 0.01 s | the eyelids at 0.99 | the character's own timer (0x404210, 0x404670) |
+| talking | `talk`, for ever | `Jaw_Bones_Master` at 0.99 | the dialogue's lip sync (0x4046c0, 0x4046f0) |
+| the eyes | `eyeleft`, `eyeright`, on the eye layer | the eyes at 0.99 | `look` |
+| expressions | `f<name>`: `fanger`, `famused`, `fhappiness`, `fshock`... | mostly `Eye_Bones_Master` at 0.99 | scripts' `anim` |
+
+`blink` and `talk` go through the same steps as a script's `anim`
+(0x404b00): a renamed file or the MODL prefix would apply, though the
+data has neither for them.
+
+The expressions are ordinary finite overlays. About 400 `anim f...`
+commands ask for them, nearly all in the dialogue's event files (`anim
+fanger`, sometimes lightened: `anim fanger .02`). Like any `anim`, one
+fades the finite gestures playing (and a blink) first, eases in over a
+third of its length, and ends. Of the 204 expression files, 196 weigh
+`Eye_Bones_Master` (the eyes, lids and brows); the others weigh the face's
+bones as a whole or the jaw. Three kinds are never asked for, by a script
+or by the code: `fidle` (Poirot's, Antoinette's), `ftalk` and
+`flookright` (Antoinette's). Some models also carry a `TrackMaskhead`,
+which nothing reads.
+
 ## In Reluva
 
 `Animator` (`src/engines/awe/animator.cpp`) handles the animations: the
@@ -215,6 +283,13 @@ ten slots, the three layers, the masks, eases and ends. `Actor`
 (`actor.cpp`) holds a character's behaviour and verbs. The Scenes page
 gives each character an Actor, runs its routine, and passes the verbs and
 the dialogue's talking to it.
+
+The Actor sets the pose's mask (`Animator::setPoseMask`) as each base
+animation plays; the Animator multiplies it into the masks of what plays
+after. A prop's bones take the weights of the character's bones of the
+same name. Each slot's curves are evaluated as Granny samples a control,
+wrapping round at the ends while it loops (see the Granny page,
+"Evaluating curves").
 
 There are two deliberate differences from the game:
 
@@ -227,5 +302,4 @@ To check:
 
 - the exact angle of `headleft` at full weight;
 - Granny's own ease curve (here a smoothstep);
-- the sit mask (`TrackMask<anim>`), which isn't applied yet;
 - the shadows.

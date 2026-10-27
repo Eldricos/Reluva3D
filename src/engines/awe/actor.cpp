@@ -117,6 +117,16 @@ std::string Actor::play(std::string_view name, int loops, float ease, float weig
     // their length, at most 2 seconds (0x429f50).
     if (ease == 0)
         ease = base ? 2 * talkEase_ : std::min(2.0f, animation->duration / 3);
+    // A base animation sets the pose's mask that what plays over it is
+    // limited to: the model's "TrackMask" + MODL's anim ("sit") while
+    // MODL's condition holds, else none (0x429f96).
+    if (base) {
+        std::vector<float> mask;
+        if (const Ac2Record* m = record_ ? record_->part("MODL") : nullptr; m && !m->text("anim").empty())
+            if (!test_ || test_(m->text("condition")))
+                mask = Animator::modelMask(animator_.model(), m->text("anim"));
+        animator_.setPoseMask(std::move(mask));
+    }
     if (!animator_.play(resolved, animation, Animator::Body, base, loops, ease, weight))
         return {};
     return resolved;
@@ -251,8 +261,7 @@ void Actor::lineStart() {
 void Actor::mouth(bool on) {
     if (on) {
         if (!animator_.find("talk"))
-            if (const auto animation = load("talk"))
-                animator_.play("talk", animation, Animator::Body, false, 0, talkEase_);
+            play("talk", 0, talkEase_);
     } else {
         animator_.stop([](const Animator::Slot& s) { return s.name == "talk"; }, talkEase_);
     }
@@ -309,8 +318,8 @@ void Actor::update(float seconds, float& heading) {
     // Blinks: every 5 to 7 seconds, once or twice (0x404210).
     if ((blinkLeft_ -= seconds) <= 0) {
         blinkLeft_ = blinkMin_ + float(rand() % std::max(1, int(blinkMax_ - blinkMin_)));
-        if (const auto animation = load("blink"))
-            animator_.play("blink", animation, Animator::Body, false, (rand() & 1) + 1, 0.01f);
+        // Played as any other (0x404670): renamed or prefixed if so.
+        play("blink", (rand() & 1) + 1, 0.01f);
     }
     if ((idles_ > 1 || talkIdles_ > 1) && (idleLeft_ -= seconds) <= 0) {
         resetIdleTimer();

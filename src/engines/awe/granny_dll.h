@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string_view>
 #include <vector>
 
 namespace reluva::awe {
@@ -58,6 +59,13 @@ public:
     Error loadFile(const std::vector<uint8_t>& gr2, LoadedFile& out);
     void freeFile(LoadedFile& file);
     uint32_t read32(uint32_t address) const { return cpu_ ? cpu_->read32(address) : 0; }
+    // A loaded file's structures are the DLL's own types (it converts the
+    // older exporters' files): `type` is one it exports
+    // ("GrannyFileInfoType": a pointer to its member definitions), 0 if
+    // none. memberOffset() finds a member in it, typeSize() its size.
+    uint32_t type(const char* name) const;
+    uint32_t typeSize(uint32_t type) const;
+    bool memberOffset(uint32_t type, std::string_view name, uint32_t& offset) const;
 
     // Expands the curve (a granny_curve2) at `address` in a loaded file to
     // its knots and controls (knots x dimension values), with
@@ -68,12 +76,21 @@ public:
         std::vector<float> knots, controls;
     };
     Error expandCurve(uint32_t address, const std::vector<float>& identity, PlainCurve& out);
+    // Evaluates the curve at `address` in a loaded file at time `t`
+    // (GrannyEvaluateCurveAtT) into `out` (`identity.size()` values): with
+    // `loopBack` or `loopForward`, as a looping animation `duration` long,
+    // wrapping round at its start or its end; `normalize` makes a
+    // quaternion unit length. The reference Curve::evaluate is checked
+    // against (reluva-tool awe-check -curves).
+    Error evaluateCurve(uint32_t address, const std::vector<float>& identity, bool normalize, bool loopBack,
+                        bool loopForward, float duration, float t, std::vector<float>& out);
 
 private:
     std::unique_ptr<x86::Cpu> cpu_;
     std::unique_ptr<x86::Win32Process> process_;
     const x86::Win32Process::Module* module_ = nullptr;
     uint32_t decompressData_ = 0, binkDecompressTexture_ = 0;
+    uint32_t curveScratch_ = 0; // evaluateCurve's identity and result
 };
 
 } // namespace reluva::awe

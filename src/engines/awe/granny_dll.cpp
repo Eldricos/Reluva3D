@@ -3,6 +3,8 @@
 
 #include "engines/awe/granny_dll.h"
 
+#include "engines/awe/gr2.h"
+
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -297,6 +299,78 @@ Error GrannyDll::expandCurve(uint32_t address, const std::vector<float>& identit
     mem.free(controlOut);
     mem.free(ident);
     return e;
+}
+
+uint32_t GrannyDll::type(const char* name) const {
+    const uint32_t variable = module_ ? module_->exportAddress(name) : 0;
+    return variable ? read32(variable) : 0;
+}
+
+// A member definition is 32 bytes, as in the files: its type, name,
+// referenced type and array width first.
+uint32_t GrannyDll::typeSize(uint32_t type) const {
+    uint32_t size = 0;
+    for (uint32_t m = type; m && read32(m) != 0; m += 32) {
+        const Gr2Type t = Gr2Type(read32(m));
+        const uint32_t one = t == Gr2Type::Inline ? typeSize(read32(m + 8)) : gr2ValueSize(t);
+        size += one * std::max<uint32_t>(1, read32(m + 12));
+    }
+    return size;
+}
+
+bool GrannyDll::memberOffset(uint32_t type, std::string_view name, uint32_t& offset) const {
+    offset = 0;
+    for (uint32_t m = type; m && read32(m) != 0; m += 32) {
+        std::string member;
+        for (uint32_t a = read32(m + 4); a && member.size() < 256; a++) {
+            const char c = char(cpu_->memory()[a]);
+            if (!c)
+                break;
+            member += c;
+        }
+        if (member == name)
+            return true;
+        const Gr2Type t = Gr2Type(read32(m));
+        const uint32_t one = t == Gr2Type::Inline ? typeSize(read32(m + 8)) : gr2ValueSize(t);
+        offset += one * std::max<uint32_t>(1, read32(m + 12));
+    }
+    return false;
+}
+
+Error GrannyDll::evaluateCurve(uint32_t address, const std::vector<float>& identity, bool normalize, bool loopBack,
+                               bool loopForward, float duration, float t, std::vector<float>& out) {
+    if (!module_)
+        return Error::fail("granny2.dll isn't loaded");
+    const uint32_t evaluate = module_->exportAddress("_GrannyEvaluateCurveAtT@36");
+    if (!evaluate || identity.empty() || identity.size() > 16)
+        return Error::fail("granny2.dll has no GrannyEvaluateCurveAtT");
+    if (!curveScratch_ && !(curveScratch_ = process_->memory().alloc(4 * 32)))
+        return Error::fail("Out of emulated memory");
+    auto bits = [](float f) {
+        uint32_t v;
+        std::memcpy(&v, &f, 4);
+        return v;
+    };
+    const uint32_t ident = curveScratch_, result = curveScratch_ + 4 * 16;
+    for (size_t i = 0; i < identity.size(); i++) {
+        cpu_->write32(ident + 4 * uint32_t(i), bits(identity[i]));
+        cpu_->write32(result + 4 * uint32_t(i), 0);
+    }
+    // GrannyEvaluateCurveAtT(Dimension, Normalize, BackwardsLoop, Curve,
+    //                        ForwardsLoop, CurveDuration, t, Result,
+    //                        IdentityVector)
+    uint32_t ignored = 0;
+    if (Error e = cpu_->call(evaluate,
+                             {uint32_t(identity.size()), normalize ? 1u : 0u, loopBack ? 1u : 0u, address, loopForward ? 1u : 0u,
+                              bits(duration), bits(t), result, ident},
+                             ignored))
+        return e;
+    out.resize(identity.size());
+    for (size_t i = 0; i < identity.size(); i++) {
+        const uint32_t v = cpu_->read32(result + 4 * uint32_t(i));
+        std::memcpy(&out[i], &v, 4);
+    }
+    return Error::success();
 }
 
 } // namespace reluva::awe
