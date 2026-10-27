@@ -5270,6 +5270,60 @@ int cmdFinCheck(int argc, char** argv) {
     return failed || notExact || badLinks || !missingImages.empty() ? 1 : 0;
 }
 
+// A behaviour state machine (BehaviorComp's DDParent family: states,
+// sub-machines, choice points, ports and transitions), walked from some of
+// its nodes by calling their virtual functions as the program does. The
+// slots are BehaviorComp's base vtables' (DDParent: 0 getNumTrans,
+// 1 getTrans, 3 isPort, 4 isState, 5 isHFSM, 6 getParent; DDPort: 8 getTrans;
+// DDTransition: 8 getToObj, 9 getNumTriggers, 11 getTrigger, 13 getType).
+// Each node and transition is printed with its vtable, which names its
+// generated class in the behaviour DLL.
+static void printGraph(reluva::x86::Cpu& cpu, const std::vector<uint32_t>& roots) {
+    using reluva::x86::Cpu;
+    auto vcall = [&](uint32_t object, int slot, std::vector<uint32_t> args = {}) -> uint32_t {
+        if (!object || !cpu.valid(object, 4) || !cpu.valid(cpu.read32(object) + 4 * uint32_t(slot), 4))
+            return 0;
+        const auto saved = cpu.reg;
+        cpu.reg[Cpu::ECX] = object;
+        uint32_t result = 0;
+        const bool failed = bool(cpu.call(cpu.read32(cpu.read32(object) + 4 * uint32_t(slot)), args, result));
+        cpu.reg = saved;
+        return failed ? 0 : result;
+    };
+    std::vector<uint32_t> todo(roots.begin(), roots.end());
+    std::set<uint32_t> seen;
+    while (!todo.empty()) {
+        const uint32_t node = todo.back();
+        todo.pop_back();
+        if (!node || !seen.insert(node).second || !cpu.valid(node, 4))
+            continue;
+        const bool port = vcall(node, 3) & 0xff, state = vcall(node, 4) & 0xff, machine = vcall(node, 5) & 0xff;
+        const uint32_t parent = vcall(node, 6);
+        std::printf("node %08x vt %08x %s parent %08x\n", node, cpu.read32(node),
+                    machine ? "machine" : state ? "state" : port ? "port" : "other", parent);
+        todo.push_back(parent);
+        std::vector<uint32_t> transitions;
+        if (port) {
+            transitions.push_back(vcall(node, 8));
+        } else {
+            const uint32_t n = vcall(node, 0);
+            for (uint32_t i = 0; i < n && i < 64; ++i)
+                transitions.push_back(vcall(node, 1, {i}));
+        }
+        for (uint32_t t : transitions) {
+            if (!t)
+                continue;
+            const uint32_t to = vcall(t, 8), target = vcall(to, 6), triggers = vcall(t, 9);
+            std::printf("  trans %08x vt %08x type %u to %08x (vt %08x) -> %08x, on", t, cpu.read32(t), vcall(t, 13), to,
+                        to && cpu.valid(to, 4) ? cpu.read32(to) : 0, target);
+            for (uint32_t i = 0; i < triggers && i < 32; ++i)
+                std::printf(" %x", vcall(t, 11, {i}));
+            std::printf("\n");
+            todo.push_back(target);
+        }
+    }
+}
+
 int cmdAtRun(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool at-run <game folder> [-v] [-limit instructions] [-trace count] "
@@ -5295,6 +5349,11 @@ int cmdAtRun(int argc, char** argv) {
         uint32_t address, bytes;
     };
     std::vector<Dump> dumps;
+    // -graph: the behaviour state machines reachable from some of their
+    // nodes (BehaviorComp's DDParent objects), walked through their
+    // virtual functions when a frame is shown.
+    uint64_t graphFrame = 0;
+    std::vector<uint32_t> graphRoots;
     uint64_t limit = 4000000000ull;
     uint32_t memoryMb = 1024;
     bool log = false;
@@ -5355,6 +5414,11 @@ int cmdAtRun(int argc, char** argv) {
             if (const char* at = std::strchr(argv[a], '@'))
                 std::sscanf(at + 1, "%x,%x", &d.address, &d.bytes);
             dumps.push_back(d);
+        } else if (arg == "-graph" && a + 1 < argc) {
+            const std::string v = argv[++a];
+            graphFrame = std::strtoull(v.c_str(), nullptr, 0);
+            for (size_t at = v.find('@'); at != std::string::npos; at = v.find(',', at + 1))
+                graphRoots.push_back(uint32_t(std::strtoul(v.c_str() + at + 1, nullptr, 16)));
         } else if (arg == "-calls" && a + 1 < argc) {
             const std::string v = argv[++a];
             callsFrame = std::strtoull(v.c_str(), nullptr, 0);
@@ -5471,6 +5535,8 @@ int cmdAtRun(int argc, char** argv) {
             if (!setPosition || cpu.call(setPosition, {point}, ignored))
                 std::printf("-point: couldn't set the pointer on frame %llu\n", (unsigned long long)f.number);
         }
+        if (graphFrame && f.number == graphFrame)
+            printGraph(cpu, graphRoots);
         for (const Dump& d : dumps) {
             if (f.number != d.frame)
                 continue;
