@@ -252,6 +252,8 @@ bool testCondition(std::string_view condition, const GameState& state) {
         const std::string_view clause = trim(std::string_view(s).substr(start, at == std::string::npos ? at : at - start));
         if (!clause.empty()) {
             const bool holds = testClause(clause, state);
+            if (state.onTest)
+                state.onTest(clause, holds);
             if (any && holds)
                 return true;
             if (!any && !holds)

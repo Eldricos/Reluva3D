@@ -769,10 +769,12 @@ void ScenePage::newGame() {
     auto partTold = std::move(state_.partTold);
     auto action = std::move(state_.action);
     auto canTalk = std::move(state_.canTalk);
+    auto onTest = std::move(state_.onTest);
     state_ = GameState{};
     state_.partTold = std::move(partTold);
     state_.action = std::move(action);
     state_.canTalk = std::move(canTalk);
+    state_.onTest = std::move(onTest);
     state_.values["master"] = 1; // the debug switch, off ([0x48b084] = 1)
     dialogueAct_ = "-";
     hiddenNames_.clear();

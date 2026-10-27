@@ -123,10 +123,21 @@ public:
             log_.push_back(l);
             if (l.find("movie credits") != std::string::npos)
                 credits_ = true;
+            // A script's own "unlock" (till its "lock"): clicks taken in
+            // between are a player's way in.
+            const size_t at = l.find_first_not_of(' ');
+            if (at != std::string::npos && (l.compare(at, std::string::npos, "unlock") == 0))
+                unlocked_ = true;
+            else if (at != std::string::npos && l.compare(at, std::string::npos, "lock") == 0)
+                unlocked_ = false;
         };
         page_->setDrawing(false);
         page_->activate();
         page_->chooser = [this](const std::vector<std::string>& choices) { return choose(choices); };
+        page_->watchConditions([this](std::string_view clause, bool holds) {
+            if (watching_)
+                tested.emplace(std::string(clause), holds);
+        });
     }
 
     ScenePage& page() { return *page_; }
@@ -136,6 +147,9 @@ public:
     // What could be clicked while the last action's scripts ran
     // ("scene|name#n").
     std::set<std::string> inBetween;
+    // The clauses of conditions the last action had tested, and what each
+    // was the first time.
+    std::map<std::string, bool> tested;
 
     // Runs the game till it settles: nothing running, nothing said, for 3
     // s. False if it sticks (an event that doesn't end) or runs past the
@@ -149,9 +163,13 @@ public:
             page_->update(sys_.now);
             page_->autoplay();
             const ScenePage::GameStatus st = page_->status();
-            if (!st.idle && page_->clickable()) {
-                // Clicks are taken while this runs: what could be clicked
-                // is noted, and the click waited for made.
+            if (st.idle)
+                unlocked_ = false;
+            if (!st.idle && unlocked_ && page_->clickable()) {
+                // Clicks are taken while this runs, after its "unlock" (a
+                // walk's or a turn's clicks are the same as clicks once
+                // it's done): what could be clicked is noted, and the
+                // click waited for made.
                 const std::vector<std::string> names = page_->clickables();
                 std::map<std::string, int> seen;
                 for (size_t i = 0; i < names.size(); i++) {
@@ -162,6 +180,7 @@ public:
                         break;
                     }
                     inBetween.insert(st.scene + "|" + id);
+
                 }
             }
             if (st.event != lastEvent || st.idle)
@@ -245,6 +264,8 @@ public:
         forced_ = a.choices;
         then_ = a.then;
         inBetween.clear();
+        tested.clear();
+        watching_ = true;
         taken_.clear();
         offered_.clear();
         counts_.clear();
@@ -304,6 +325,7 @@ public:
         }
         if (ok)
             ok = settle();
+        watching_ = false;
         if (ok && !then_.empty())
             ok = false, problem = then_ + " couldn't be clicked while it ran";
         a.choices = taken_;
@@ -361,6 +383,7 @@ private:
     bool credits_ = false;
     std::vector<int> forced_, taken_, offered_;
     std::string then_;
+    bool watching_ = false, unlocked_ = false;
     std::map<std::string, int> counts_;
 };
 
@@ -564,12 +587,14 @@ int aweCommandSolve(int argc, char** argv) {
     };
     std::priority_queue<Node, std::vector<Node>, decltype(cmp)> frontier(cmp);
     std::set<std::string> seenKeys, seenFeatures, triedOnce;
+    std::map<std::string, std::map<std::string, bool>> deadRuns; // by scene and action
     Node best;
     auto reset = [&]() {
         frontier = decltype(frontier)(cmp);
         seenKeys.clear();
         seenFeatures.clear();
         triedOnce.clear();
+        deadRuns.clear();
         steps.clear();
         Node root = rootNode();
         best = root;
@@ -585,7 +610,7 @@ int aweCommandSolve(int argc, char** argv) {
     };
     reset();
     const auto began = std::chrono::steady_clock::now();
-    int expansions = 0, runs = 0;
+    int expansions = 0, runs = 0, skipped = 0, deadCount = 0;
     double restoreTime = 0, actTime = 0;
     while (!frontier.empty() && expansions < budget) {
         Node node = frontier.top();
@@ -620,6 +645,21 @@ int aweCommandSolve(int argc, char** argv) {
                     once += "|" + car;
                 if (!triedOnce.insert(std::to_string(std::hash<std::string>()(story)) + once).second)
                     continue;
+            }
+            // An action that changed nothing before, where every condition it
+            // had tested comes out the same now, would change nothing again.
+            const std::string memoKey = here + "|" + toLine(a);
+            if (const auto dead = deadRuns.find(memoKey); dead != deadRuns.end()) {
+                bool same = true;
+                for (const auto& [clause, held] : dead->second)
+                    if (player.page().holds(clause) != held) {
+                        same = false;
+                        break;
+                    }
+                if (same) {
+                    skipped++;
+                    continue;
+                }
             }
             auto t0 = std::chrono::steady_clock::now();
             if (!fresh) {
@@ -663,6 +703,19 @@ int aweCommandSolve(int argc, char** argv) {
                 continue; // a menu: not the way on
             const std::set<std::string> f = player.features(false);
             const std::string key = joinFeatures(f);
+            if (std::getenv("AWE_DIFF") && key != node.key) {
+                const std::vector<std::string> before = split(node.key, '\n'), after = split(key, '\n');
+                std::string d;
+                for (const std::string& x : before)
+                    if (std::find(after.begin(), after.end(), x) == after.end())
+                        d += " -[" + x + "]";
+                for (const std::string& x : after)
+                    if (std::find(before.begin(), before.end(), x) == before.end())
+                        d += " +[" + x + "]";
+                std::printf("    diff %s:%s\n", toLine(a).c_str(), d.c_str());
+            }
+            if (key == node.key && a.then.empty())
+                deadRuns[memoKey] = player.tested, deadCount++;
             int novel = 0;
             for (const std::string& s : player.features(true))
                 if (seenFeatures.insert(s).second)
@@ -714,8 +767,9 @@ int aweCommandSolve(int argc, char** argv) {
         if (expansions % 20 == 0) {
             const double secs =
                 std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
-            std::printf("  .. %d expanded, %d runs, %zu waiting, %zu states, %.0f s (%.0f loading, %.0f playing)\n",
-                        expansions, runs, frontier.size(), seenKeys.size(), secs, restoreTime, actTime);
+            std::printf("  .. %d expanded, %d runs (%d dead, %d skipped), %zu waiting, %zu states, %.0f s (%.0f loading, %.0f "
+                        "playing)\n",
+                        expansions, runs, deadCount, skipped, frontier.size(), seenKeys.size(), secs, restoreTime, actTime);
             std::fflush(stdout);
         }
     }

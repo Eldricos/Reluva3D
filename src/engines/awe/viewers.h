@@ -196,6 +196,16 @@ public:
     // be travelled to now and the travel; whether clicks are taken now
     // (nothing runs, or the runner is unlocked).
     const GameState& gameState() const { return state_; }
+    // Every clause of a condition the game tests is told (GameState::onTest);
+    // and whether a condition holds now, untold.
+    void watchConditions(std::function<void(std::string_view, bool)> f) { state_.onTest = std::move(f); }
+    bool holds(const std::string& condition) {
+        auto watch = std::move(state_.onTest);
+        state_.onTest = nullptr;
+        const bool h = testCondition(condition, state_);
+        state_.onTest = std::move(watch);
+        return h;
+    }
     std::vector<uint8_t> saveToMemory() const;
     bool loadFromMemory(const std::vector<uint8_t>& data);
     std::function<int(const std::vector<std::string>& choices)> chooser;
