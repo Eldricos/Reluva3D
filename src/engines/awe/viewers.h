@@ -396,6 +396,7 @@ private:
         int spinning = 0; // 1 right, 2 left
         float timer = 0, interval = 0.25f;
         int number = 0, entered = 0, expected = 2;
+        bool opening = false; // a tool's step has pulled the handle
     };
     struct PuzzleBox {
         int step = 0, selected = 0, misses = 0;

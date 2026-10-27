@@ -668,7 +668,7 @@ std::string ScenePage::puzzleOpen() const {
 }
 
 bool ScenePage::puzzleSolved() const {
-    return (torn_ && torn_->solved) || (safe_ && safe_->entered == 3) || (box_ && box_->solved);
+    return (torn_ && torn_->solved) || (safe_ && state_.tags.count("safe_solved")) || (box_ && box_->solved);
 }
 
 bool ScenePage::puzzleStep() {
@@ -788,8 +788,23 @@ bool ScenePage::puzzleStep() {
         // 6 left, a turn right back to 6, a turn left back to 6: a press
         // and a let go a number.
         Safe& s = *safe_;
-        if (s.entered == 3 || !runner_->idle())
+        if (!runner_->idle() || state_.tags.count("safe_solved"))
             return false;
+        if (s.entered == 3) {
+            // Then the handle: the hotspot that "action open" lets open.
+            if (s.opening)
+                return false;
+            for (const Ac2Record* o : scene_.objects())
+                if (const Ac2Value* alternatives = o->field("listB"); o->tag == "SPOT" && alternatives && !hidden(*o))
+                    for (const auto& [condition, run] : alternatives->pairs)
+                        if (fs::toLower(condition).find("action open") != std::string::npos &&
+                            testCondition(condition, state_)) {
+                            s.opening = true;
+                            runScript(*o);
+                            return true;
+                        }
+            return false;
+        }
         if (!arrow(s.expected == 2 ? "left" : "right"))
             return false;
         mouse(EventType::MouseUp, lastMouseX_, lastMouseY_);

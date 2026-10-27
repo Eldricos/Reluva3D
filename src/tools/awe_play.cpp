@@ -349,7 +349,9 @@ public:
         for (const auto& [name, v] : s.tags)
             out.insert("tag " + name + " " + std::to_string(v));
         for (const std::string& item : s.items)
-            out.insert("item " + item + " " + std::to_string(s.itemState(item) == 1 ? 2 : s.itemState(item)));
+            // (Just taken or in hand: in the bag.)
+            out.insert("item " + item + " " +
+                       std::to_string(s.itemState(item) == 1 || s.itemState(item) == 3 ? 2 : s.itemState(item)));
         for (const auto& [key, t] : s.talks)
             out.insert("talk " + key + " " + std::to_string(t.status) + " " + std::to_string(t.nest));
         for (const auto& [name, v] : s.texts)
