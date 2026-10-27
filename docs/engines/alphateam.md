@@ -398,33 +398,77 @@ Progress:
     middle (`DDStreamingAudioManager::UpdateBuffers`, `InitStreamData`).
     With every event read as set, it raced through the file, and the
     first line ended after about 3 seconds.
-  - From there the training is a guided tour. Each step plays a line,
-    then waits for the player to do one thing. The interface's behaviour
-    (PE0300, behaviour `3c3140`) enters a state for each step, and its
-    `DDState::registerEvts` names the events the step waits for. Each event in
-    the range `0xea60`..`0xea7d` is sent only in training: the level's
-    `Training` option is set, read by `DDSpace::GetOptionValue`. Each one
-    comes from the code for one player action. The steps so far, all
-    checked with the fixed clock:
-    1. The begin click (frame 420) plays `M0010_010`, then `M0010_020A`.
-    2. Click the trainer TV (`T0001`, "teevee", a unit): `0xea61`.
-       Clicked again later, it repeats the current step's line.
-    3. Open the menu with the stop button. `0xea62` is sent once the
-       menu group is fully open (the object at PE0300 `0x1009f054`
-       holds the open group at `+0x78`, and its animation flags at
-       `+0x9c`/`+0x9d` are clear).
-    4. Choose Keep Playing; the next step plays by itself.
-    5. Turn the camera with the right arrow ("NextCam", event `0xc38f`,
-       which becomes `0xea64`; the left arrow, `0xc38e`, would be
-       `0xea65`). The step after it asks for the same again.
-  - The go button unlocks at `0xea7d`. That's sent by the entry code of
-    one state (PE0300 `0x10052310`, the eighth entry of its vtable at
-    `0x1007d960`) once the tour reaches it. In Mission One that state is
-    entered as the level loads, which is why go works there.
-  - Reading a step: watch `registerEvent` (the events a step's state
-    waits for) and `??0DDEvent@@QAE@H@Z` (the events raised), then find
-    the sender of the event in PE0300 (`push $0xea..`). PE0300 is mapped
-    at `0x730000` in these runs, so its code can be watched by address.
+  - From there the training is a guided tour, and it now plays to the
+    end. Each step plays a line, then waits for the player to do one
+    thing. Played with the fixed clock and the route below, Dash runs on
+    frame 3050, reaches the top of the tower, and the game returns to
+    headquarters on frame 3200.
+  - The tour is the interface behaviour's training machine (PE0300,
+    behaviour `3c3140`, machine `3c3580`). A choice point picks one of
+    four tour composites; M0010's is a chain of about 50 states. A step's
+    state waits (`DDState::registerEvts`) for one event in
+    `0xea60`..`0xea7d`, each sent only in training (the level's `Training`
+    option, read by `DDSpace::GetOptionValue`) by the code for one player
+    action. Interface buttons raise their own events first: a table in
+    PE0300 gives each button's (`Menu` `c358`, `NextCam` `c38f`, `GoStop`
+    `c350`, `RotateCW` `c35b`, ...), and the in-game interface machine
+    (`3c3c40`, in state `3c3f08` while playing) turns them into the
+    tour's. The steps, in order:
+
+    | Step | Event | What the player does |
+    |---|---|---|
+    | 1 | `ea61` | click the trainer TV (`T0001`, "teevee", a unit); later it repeats the current line |
+    | 2 | `ea62` | open the menu (stop button); sent once the menu is fully open |
+    | 3 | `ea63` | Keep Playing |
+    | 4, 5 | `ea64` | next camera (right arrow) |
+    | 6 | `ea65` | previous camera (left arrow) |
+    | 7 | `ea66` | Nav_Pivot |
+    | 8, 9 | `ea67` | Nav_InOut |
+    | 10–13 | `ea68`, `ea69`, `ea6a`, `ea6b` | scroll by holding the pointer at the left, right, top and bottom edges (not over a button) |
+    | 14 | `ea6c` | go |
+    | 15 | `ea6d` | a team member's button |
+    | 16 | `ea6e` | ICam |
+    | 17 | `ea6f` | SmartCam |
+    | 18 | `ea70` | stop |
+    | 19 | `ea71` | drag the highlighted direction tile onto the blue square |
+    | 20 | `ea72` | select it (click it) |
+    | 21, 22 | `ea73` | rotate it clockwise; the second step waits until it faces 90 degrees |
+    | 23 | `ea74` | Info |
+    | 24 | `ea72` | select it again |
+    | 25 | `ea75` | close its panel (a click beside it) |
+    | 26 | `ea6c` | go: Dash runs |
+    | 27 | `5a` | Dash's run ends; the tour is over |
+
+    Some steps are entered only after a long line (one of about 400
+    frames, before step 14).
+  - The go button unlocks at `0xea7d`. The in-game interface machine
+    sends it when it enters state `3c3ee8` in training (its entry code,
+    PE0300 `0x10052310`). The training machine leaves the tour on it. In
+    Mission One that state is entered as the level loads, which is why go
+    works there.
+  - Reading a step: `-graph` dumps the machines (states, their
+    transitions, the events each waits for, the targets); `-watch` on
+    `registerEvent` shows the steps as they're entered and on
+    `??0DDEvent@@QAE@H@Z` the events raised. The sender of an event is
+    found in PE0300 (`push $0xea..`), and its vtable says which state or
+    transition it belongs to. PE0300 is mapped at `0x730000` in these
+    runs, so its code can be watched by address.
+  - The route, as `at-run` options after the menu route
+    (`-click 25`, Single Missions, the Training Area, the check mark,
+    `-click 420`):
+
+    ```
+    -step ea61+10@click:193,92  -step ea62@click:65,435  -step ea63+20@click:320,98
+    -step ea64@click:412,428  -step ea64@click:412,428  -step ea65@click:214,428
+    -step ea66@click:348,428  -step ea67@click:282,425  -step ea67@click:282,425
+    -step ea68@point:4,240  -step ea69@point:636,240  -step ea6a@point:320,3
+    -step ea6b@point:320,477  -step ea6c@click:572,434  -step ea6d+10@click:419,428
+    -step ea6e+10@click:470,428  -step ea6f+10@click:534,433  -step ea70+10@click:572,434
+    -step ea71+10@drag:488,262,405,215  -step ea72+10@click:405,215
+    -step ea73+10@click:389,140  -step ea73+10@click:389,140*4
+    -step ea74+10@click:428,140  -step ea72+10@click:405,215
+    -step ea75+10@click:432,182  -step ea6c+10@click:572,434
+    ```
 
   The tracing options:
   - `-watch` takes `dll!export` or a raw `0x` address (for code in the
@@ -435,6 +479,15 @@ Progress:
     Functions are named as module!nearest-export+offset; for DLLs the
     program mapped itself, from their headers in memory.
   - `-dump <frame>@<address>,<bytes>` prints memory as words and floats.
+  - `-graph <frame>@<node>[,<node>...][,<lo>-<hi>]` walks behaviour
+    state machines through BehaviorComp's virtual functions, from the
+    nodes given and every node found between `lo` and `hi`.
+  - `-buttons <frame>` lists LoadComp's interface buttons: name, whether
+    enabled and clickable, and where on the screen.
+  - `-step <event>[+<delay>]@<action>` acts when a state starts waiting
+    for the event (`DDBehavior::registerEvent`): `click:x,y` (with `*n`,
+    clicked again every 40 frames until the training moves on),
+    `point:x,y`, `key:vk`, `drag:x,y,x2,y2`, or `buttons`.
 - Done: the engine plays the game (`alphateam/player.{h,cpp}`).
   - The program's main loop never returns, so it runs on a thread of its
     own. The engine's thread queues the player's input and takes the
@@ -467,7 +520,6 @@ Progress:
     change. The engine's frame count doesn't do for this: which game frame
     it shows depends on timing.
 - Not there yet:
-  - **the training mission's simulation:** see "Into a mission" below;
   - **more speed.**
 
 #### DirectDraw and Direct3D 7
