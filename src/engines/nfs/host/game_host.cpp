@@ -52,6 +52,14 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
     cpu_->setInstructionLimit(options_.instructionLimit);
     process_ = std::make_unique<x86::Win32Process>(*cpu_);
     process_->output = [this](const std::string& s) { say("[program] " + s); };
+    if (options_.timeScale != 1.0) {
+        const auto start = std::chrono::steady_clock::now();
+        const double scale = options_.timeScale;
+        process_->milliseconds = [start, scale] {
+            const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+            return uint32_t(ms * scale);
+        };
+    }
     process_->fileOpened = [this](const std::string& path, bool found) {
         if (options_.callLog)
             say(std::string(found ? "  file " : "  no file ") + path);
@@ -75,6 +83,7 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
     process_->setCurrentDirectory("C:\\");
     process_->setProgram("C:\\nfs3.exe", options_.commandLine);
     cpu_->nativeTrace = [this](Cpu& cpu, const std::string& name) {
+        applyInput();
         ++callCounts[name];
         const bool routine = name.find("CriticalSection") != std::string::npos || name.find("Tls") != std::string::npos ||
                              name.ends_with("GetTickCount") || name.ends_with("timeGetTime");
@@ -95,6 +104,101 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
 }
 
 GameHost::~GameHost() = default;
+
+namespace {
+
+// Keys by name: Windows' virtual-key code and the keyboard's scan code (as
+// DirectInput numbers them).
+struct KeyName {
+    const char* name;
+    uint8_t vk, scan;
+};
+constexpr KeyName kKeys[] = {
+    {"enter", 0x0d, 0x1c}, {"esc", 0x1b, 0x01},   {"space", 0x20, 0x39}, {"tab", 0x09, 0x0f},
+    {"up", 0x26, 0xc8},    {"down", 0x28, 0xd0},  {"left", 0x25, 0xcb},  {"right", 0x27, 0xcd},
+    {"backspace", 0x08, 0x0e}, {"shift", 0x10, 0x2a}, {"ctrl", 0x11, 0x1d}, {"alt", 0x12, 0x38},
+    {"f1", 0x70, 0x3b},    {"f2", 0x71, 0x3c},    {"f3", 0x72, 0x3d},    {"f4", 0x73, 0x3e},
+    {"a", 'A', 0x1e}, {"b", 'B', 0x30}, {"c", 'C', 0x2e}, {"d", 'D', 0x20}, {"e", 'E', 0x12}, {"f", 'F', 0x21},
+    {"g", 'G', 0x22}, {"h", 'H', 0x23}, {"i", 'I', 0x17}, {"j", 'J', 0x24}, {"k", 'K', 0x25}, {"l", 'L', 0x26},
+    {"m", 'M', 0x32}, {"n", 'N', 0x31}, {"o", 'O', 0x18}, {"p", 'P', 0x19}, {"q", 'Q', 0x10}, {"r", 'R', 0x13},
+    {"s", 'S', 0x1f}, {"t", 'T', 0x14}, {"u", 'U', 0x16}, {"v", 'V', 0x2f}, {"w", 'W', 0x11}, {"x", 'X', 0x2d},
+    {"y", 'Y', 0x15}, {"z", 'Z', 0x2c},
+};
+
+} // namespace
+
+bool GameHost::queueKey(const std::string& name, bool down, uint64_t atMs) {
+    for (const KeyName& k : kKeys)
+        if (lower(name) == k.name) {
+            std::lock_guard<std::mutex> lock(inputMutex_);
+            pendingKeys_.push_back({k.vk, k.scan, down, atMs});
+            return true;
+        }
+    return false;
+}
+
+void GameHost::queueMouseMove(int dx, int dy, uint64_t atMs) {
+    std::lock_guard<std::mutex> lock(inputMutex_);
+    if (dx)
+        pendingMouse_.push_back({0, uint32_t(dx), atMs});
+    if (dy)
+        pendingMouse_.push_back({4, uint32_t(dy), atMs});
+}
+
+void GameHost::queueMouseButton(bool down, uint64_t atMs) {
+    std::lock_guard<std::mutex> lock(inputMutex_);
+    pendingMouse_.push_back({12, down ? 0x80u : 0u, atMs});
+}
+
+void GameHost::applyInput() {
+    std::vector<KeyEvent> due;
+    std::vector<MouseEvent> mouse;
+    {
+        std::lock_guard<std::mutex> lock(inputMutex_);
+        const uint64_t t = process_->now();
+        while (!pendingKeys_.empty() && pendingKeys_.front().atMs <= t) {
+            due.push_back(pendingKeys_.front());
+            pendingKeys_.pop_front();
+        }
+        while (!pendingMouse_.empty() && pendingMouse_.front().atMs <= t) {
+            mouse.push_back(pendingMouse_.front());
+            pendingMouse_.pop_front();
+        }
+    }
+    for (const MouseEvent& m : mouse) {
+        if (m.offset == 0)
+            mouseDx_ += int32_t(m.data);
+        else if (m.offset == 4)
+            mouseDy_ += int32_t(m.data);
+        else
+            mouseButton_ = m.data != 0;
+        bufferedMouse_.push_back(m);
+        if (bufferedMouse_.size() > 64)
+            bufferedMouse_.pop_front();
+    }
+    if (!mouse.empty() && mouseEvent_)
+        process_->setEvent(mouseEvent_);
+    if (!due.empty() && keyboardEvent_)
+        process_->setEvent(keyboardEvent_);
+    for (const KeyEvent& e : due) {
+        keys_[e.scan] = e.down ? 0x80 : 0;
+        vkDown_[e.vk] = e.down;
+        bufferedKeys_.push_back(e);
+        if (bufferedKeys_.size() > 64)
+            bufferedKeys_.pop_front();
+        // WM_KEYDOWN / WM_KEYUP to the game's window: the scan code in
+        // bits 16-23, the previous state and transition bits for a release.
+        if (!windows_.empty()) {
+            const uint32_t lParam = 1u | uint32_t(e.scan & 0x7f) << 16 | (e.scan & 0x80 ? 1u << 24 : 0u) |
+                                    (e.down ? 0u : 0xc0000000u);
+            queues_[windows_.front().threadId].push_back(
+                {windows_.front().handle, e.down ? 0x100u : 0x101u, e.vk, lParam, uint32_t(process_->now())});
+            if (e.down && e.vk >= 0x20 && e.vk < 0x7f) // WM_CHAR, as TranslateMessage would make
+                queues_[windows_.front().threadId].push_back(
+                    {windows_.front().handle, 0x102u, uint32_t(std::tolower(e.vk)), lParam, uint32_t(process_->now())});
+        }
+    }
+}
 
 void GameHost::provide(const char* dll, const char* name, int args, std::function<uint32_t(Cpu&)> fn) {
     const uint32_t pop = uint32_t(args) * 4;
@@ -729,8 +833,8 @@ void GameHost::addUser() {
     });
 
     // Input: keys from Reluva's events (none yet), the cursor.
-    provide(u, "GetAsyncKeyState", 1, [this](Cpu& c) { return keys_[c.arg(0) & 0xff] ? 0x8000u : 0u; });
-    provide(u, "GetKeyState", 1, [this](Cpu& c) { return keys_[c.arg(0) & 0xff] ? 0xff80u : 0u; });
+    provide(u, "GetAsyncKeyState", 1, [this](Cpu& c) { return vkDown_[c.arg(0) & 0xff] ? 0x8000u : 0u; });
+    provide(u, "GetKeyState", 1, [this](Cpu& c) { return vkDown_[c.arg(0) & 0xff] ? 0xff80u : 0u; });
     provide(u, "GetKeyboardType", 1, [](Cpu& c) -> uint32_t { return c.arg(0) == 0 ? 4 : c.arg(0) == 2 ? 12 : 0; });
     provide(u, "keybd_event", 4, [](Cpu&) { return 0u; });
     provide(u, "SetCursor", 1, [](Cpu&) { return 0u; });

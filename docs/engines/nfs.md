@@ -351,24 +351,81 @@ What was planned:
 - Pages: **Sounds** (banks, speech, engine samples), **Music**,
   **Movies**.
 
-### Phase 4: hosted feasibility spike (time-boxed, about 2 weeks)
+### Phase 4: hosted feasibility spike (done)
 
-1. **The interpreter.**
-   - Segment pushes and pops as no-ops.
-   - Whatever else the Watcom runtime needs; its start-up is the first
-     test.
-   - Stand-ins for the KERNEL32 and USER32 calls start-up makes: files on
-     the game's folders, the registry from config, and
-     `GetVolumeInformationA` answering for the configured CD folder.
-2. **THRASH as native functions.** `nfs3.exe` loads a "DLL" whose exports
-   Reluva provides, logging every call and drawing triangles to the GPU.
-3. **Threads and the multimedia timer** in the emulated process:
-   cooperative switching at native calls.
-4. **Measure.** Instructions per frame in the front end and in a race.
+**The gate passes: the retail game runs in Reluva, front end and race,
+and its own work fits the interpreter's speed. Continue with B.**
 
-Gate: if the front end draws and a race starts at playable speed (or is
-within reach of a decoded-instruction cache), continue with B; if not, go
-native (A).
+`reluva-tool nfs-host <game folder>` runs the retail `nfs3.exe` in the x86
+interpreter (`src/engines/nfs/host/`, on `common/x86`'s Windows process):
+
+- C: is the install folder; what the game writes goes to a folder of its
+  own. D: is the CD.
+- The registry holds the key the installer writes, naming the renderer.
+- The game presents itself as running on Windows 98: it reads low memory
+  to tell, as that allows.
+
+What runs:
+
+- **The game's own DLLs.** THRASH (`softtria.dll`, the software renderer)
+  and iSND (`eacsnd.dll`) are EA's own code, run in the interpreter. They
+  only use DirectDraw and DirectSound, which Microsoft documents, so
+  those are what Reluva stands in for (`directx.cpp`). Nothing of EA's
+  interfaces had to be guessed, which changes the plan's step 2:
+  - DirectDraw surfaces in emulated memory; a flip shows the frame.
+  - DirectSound buffers that play in time, though nothing is heard yet.
+  - DirectInput's keyboard and mouse.
+  - THRASH's calls are counted on their way through (`thrash.cpp`).
+- **Threads and the multimedia timer.** Seven threads and one timer,
+  scheduled as Windows would (x86.md). The game relies on its threads'
+  priorities.
+- **What happens.** Clicks from a script (`-keys`) choose *One Player*,
+  *Single Race* and *Race*. The game then:
+  - draws its front end;
+  - loads Hometown with the Corvette;
+  - counts down;
+  - races, with the opponents driving off and the biplane flying over.
+
+  Left alone at the menu, it plays its attract movie.
+
+Fixed on the way, each found by the game going wrong:
+
+- The interpreter: segment register instructions; zero-filled sections
+  (Watcom's linker gives them a raw size); 64-bit FILD/FISTP kept exact
+  (the game's `memcpy` copies 8 bytes at a time through the FPU, which
+  broke every compressed file).
+- The Windows process: executables, files, threads, the registry and
+  version resources.
+
+**Measurements** (Release build; the interpreter runs about 40 million
+instructions a second):
+
+| | Instructions a frame | Of them THRASH's (software drawing) |
+|---|---|---|
+| Front end menu | 5.1 million | 4.9 million |
+| Race, Hometown, 8 cars | 16 million | 14 million |
+
+At real speed that is 8 frames a second in the front end and about 2 in
+a race. The game then slows its race clock (about a fifth of real time),
+so the race figure includes its catching up. Outside THRASH, a race
+frame takes about 1.8 million instructions; a fit over frame times puts
+about 0.4 million of that per frame and the rest per unit of game time.
+
+So:
+
+- **The renderer.** The software renderer is most of the cost (77-89% of
+  all instructions). THRASH has to be native: on the GPU, as the plan
+  says, or at least a native software rasterizer.
+- **The game's own work** fits now. A decoded-instruction cache would
+  give room to spare.
+
+Not done in the spike (Phase 5B's work):
+
+- THRASH native;
+- the sound heard (iSND's buffers to the mixer);
+- live input and a page in the engine;
+- the game's movies and the d3da (Direct3D) renderer;
+- saving.
 
 ### Phase 5B: hosted game (if the gate passes)
 

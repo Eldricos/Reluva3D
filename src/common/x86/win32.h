@@ -115,6 +115,9 @@ public:
         return it == handles_.end() ? nullptr : std::dynamic_pointer_cast<T>(it->second);
     }
     bool closeHandle(uint32_t handle);
+    // Signals an event (as SetEvent), from the program's side; false if
+    // the handle isn't one.
+    bool setEvent(uint32_t handle);
     uint32_t lastError() const { return lastError_; }
     void setLastError(uint32_t e) { lastError_ = e; }
 

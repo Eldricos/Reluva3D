@@ -508,18 +508,61 @@ void GameHost::addDirectX() {
         add("SetProperty", 3, ok);
         add("Acquire", 1, ok);
         add("Unacquire", 1, ok);
+        // GetDeviceState: the keys' states, or the mouse's movement since
+        // last asked and its buttons (DIMOUSESTATE).
         add("GetDeviceState", 3, [this, kind](Cpu& c) {
             for (uint32_t i = 0; i < c.arg(1); ++i)
                 c.write8(c.arg(2) + i, kind == "keyboard" && i < 256 ? keys_[i] : 0);
+            if (kind == "mouse" && c.arg(1) >= 16) {
+                c.write32(c.arg(2), uint32_t(mouseDx_));
+                c.write32(c.arg(2) + 4, uint32_t(mouseDy_));
+                c.write8(c.arg(2) + 12, mouseButton_ ? 0x80 : 0);
+                mouseDx_ = mouseDy_ = 0;
+            }
             return kOk;
         });
-        add("GetDeviceData", 5, [](Cpu& c) {
+        // GetDeviceData(this, objectSize, data*, count*, flags): the keyboard's
+        // presses and releases since last asked (DIDEVICEOBJECTDATA: scan
+        // code, 0x80 or 0, time, sequence); DIGDD_PEEK (1) leaves them.
+        add("GetDeviceData", 5, [this, kind](Cpu& c) {
+            const uint32_t room = c.arg(3) ? c.read32(c.arg(3)) : 0, size = std::max(c.arg(1), 16u);
+            uint32_t n = 0;
+            if (kind == "mouse") {
+                for (; n < room && n < bufferedMouse_.size(); ++n) {
+                    const MouseEvent& e = bufferedMouse_[n];
+                    if (c.arg(2)) {
+                        const uint32_t p = c.arg(2) + n * size;
+                        c.write32(p, e.offset);
+                        c.write32(p + 4, e.data);
+                        c.write32(p + 8, uint32_t(e.atMs));
+                        c.write32(p + 12, ++inputSequence_);
+                    }
+                }
+                if (!(c.arg(4) & 1))
+                    bufferedMouse_.erase(bufferedMouse_.begin(), bufferedMouse_.begin() + n);
+            } else if (kind == "keyboard") {
+                for (; n < room && n < bufferedKeys_.size(); ++n) {
+                    const KeyEvent& e = bufferedKeys_[n];
+                    if (c.arg(2)) {
+                        const uint32_t p = c.arg(2) + n * size;
+                        c.write32(p, e.scan);
+                        c.write32(p + 4, e.down ? 0x80 : 0);
+                        c.write32(p + 8, uint32_t(e.atMs));
+                        c.write32(p + 12, ++inputSequence_);
+                    }
+                }
+                if (!(c.arg(4) & 1))
+                    bufferedKeys_.erase(bufferedKeys_.begin(), bufferedKeys_.begin() + n);
+            }
             if (c.arg(3))
-                c.write32(c.arg(3), 0);
+                c.write32(c.arg(3), n);
             return kOk;
         });
         add("SetDataFormat", 2, ok);
-        add("SetEventNotification", 2, ok);
+        add("SetEventNotification", 2, [this, kind](Cpu& c) {
+            (kind == "mouse" ? mouseEvent_ : keyboardEvent_) = c.arg(1);
+            return kOk;
+        });
         add("SetCooperativeLevel", 3, ok);
         add("GetObjectInfo", 4);
         add("GetDeviceInfo", 2);

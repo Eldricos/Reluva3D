@@ -26,13 +26,7 @@ uint32_t GameHost::wrapThrash(const std::string& name, uint32_t address) {
         std::vector<uint32_t> args;
         for (int i = 0; i < argBytes / 4; ++i)
             args.push_back(c.arg(i));
-        if (shortName == "drawtri")
-            ++thrash_.triangles;
-        else if (shortName == "drawtrimesh" || shortName == "drawtristrip" || shortName == "drawtrifan")
-            thrash_.triangles += args.size() > 1 ? args[1] : 0;
-        else if (shortName == "drawquad")
-            ++thrash_.quads;
-        else if (shortName == "talloc")
+        if (shortName == "talloc")
             ++thrash_.textures;
         else if (shortName == "setvideomode") {
             say("  THRASH_setvideomode(" + std::to_string(args[0]) + ", " + std::to_string(args[1]) + ", " +
@@ -41,11 +35,18 @@ uint32_t GameHost::wrapThrash(const std::string& name, uint32_t address) {
             ++thrash_.frames;
             thrash_.lastFrameInstructions = c.executed() - lastFlip_;
             thrash_.frameInstructionsTotal += thrash_.lastFrameInstructions;
+            thrash_.frameLog.push_back({process_->now(), thrash_.lastFrameInstructions,
+                                        thrash_.rendererInstructions - lastFlipRenderer_});
             lastFlip_ = c.executed();
+            lastFlipRenderer_ = thrash_.rendererInstructions;
         }
+        // The instructions run inside count as the renderer's (the other
+        // threads may take turns meanwhile; those are few).
+        const uint64_t before = c.executed();
         uint32_t result = 0;
         if (Error e = c.call(address, args, result))
             c.abort("THRASH_" + shortName + ": " + e.message);
+        thrash_.rendererInstructions += c.executed() - before;
         c.reg[Cpu::EAX] = result;
         return uint32_t(argBytes);
     });

@@ -62,7 +62,9 @@ const char* const kUsageLines =
     "  reluva-tool mad-wav <file.mad> <out.wav>\n"
     "  reluva-tool nfs-host <game folder> [-args \"nfs3.exe\"] [-renderer softtria.dll] [-limit N] [-log N] [-save dir]\n"
     "                       [-frames dir] [-every N] [-watch address]... [-watchmem address size]\n"
-    "                       [-slice instructions] [-dump memory.bin]\n"
+    "                       [-slice instructions] [-dump memory.bin] [-keys ms:key,...]\n"
+    "                       (keys: enter, up, a..., click, moveDX/DY) [-framelog frames.csv]\n"
+    "                       [-timescale 0.1]\n"
     "  reluva-tool nfs-survey <folder>... [-v]\n"
     "  reluva-tool nfs-page <game folder> <out.tga> <page> [key...]\n";
 
@@ -951,6 +953,8 @@ int cmdNfsHost(int argc, char** argv) {
     std::string dumpFile;        // the emulated memory, written at the end
     uint32_t slice = 0;          // instructions between thread changes (0: the default)
     uint32_t watchMem = 0, watchMemSize = 0; // memory whose stores are printed
+    std::string keyScript;                   // "ms:key,ms:key...": each pressed for 100 ms
+    std::string frameLogFile;                // each frame's time and instructions, as CSV
     std::string framesDir;
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
@@ -968,6 +972,12 @@ int cmdNfsHost(int argc, char** argv) {
             framesDir = argv[++a];
         else if (arg == "-watch" && a + 1 < argc)
             watch.push_back(uint32_t(std::strtoul(argv[++a], nullptr, 0)));
+        else if (arg == "-timescale" && a + 1 < argc)
+            options.timeScale = std::atof(argv[++a]);
+        else if (arg == "-framelog" && a + 1 < argc)
+            frameLogFile = argv[++a];
+        else if (arg == "-keys" && a + 1 < argc)
+            keyScript = argv[++a];
         else if (arg == "-slice" && a + 1 < argc)
             slice = uint32_t(std::strtoul(argv[++a], nullptr, 0));
         else if (arg == "-watchmem" && a + 2 < argc) {
@@ -1009,6 +1019,25 @@ int cmdNfsHost(int argc, char** argv) {
     };
     if (slice)
         host.process().slice = slice;
+    for (size_t at = 0; at < keyScript.size();) {
+        const size_t comma = keyScript.find(',', at);
+        const std::string item = keyScript.substr(at, comma == std::string::npos ? std::string::npos : comma - at);
+        at = comma == std::string::npos ? keyScript.size() : comma + 1;
+        const size_t colon = item.find(':');
+        if (colon == std::string::npos)
+            continue;
+        const uint64_t ms = std::strtoull(item.c_str(), nullptr, 10);
+        const std::string key = item.substr(colon + 1);
+        int dx = 0, dy = 0;
+        if (key == "click") {
+            host.queueMouseButton(true, ms);
+            host.queueMouseButton(false, ms + 100);
+        } else if (std::sscanf(key.c_str(), "move%d/%d", &dx, &dy) == 2) {
+            host.queueMouseMove(dx, dy, ms);
+        } else if (!host.queueKey(key, true, ms) || !host.queueKey(key, false, ms + 100)) {
+            std::fprintf(stderr, "unknown key '%s'\n", key.c_str());
+        }
+    }
     if (watchMemSize) {
         host.cpu().watchStart = watchMem;
         host.cpu().watchEnd = watchMem + watchMemSize;
@@ -1044,17 +1073,42 @@ int cmdNfsHost(int argc, char** argv) {
         counts.push_back({count, name});
     std::sort(counts.rbegin(), counts.rend());
     std::printf("system calls (%zu kinds):", counts.size());
-    for (size_t i = 0; i < counts.size() && i < 40; ++i)
+    for (size_t i = 0; i < counts.size() && i < 400; ++i)
         std::printf("%s %s %llu", i ? "," : "", counts[i].second.c_str(), (unsigned long long)counts[i].first);
     std::printf("\n");
     const auto& t = host.thrash();
     if (!t.dll.empty() || !t.calls.empty()) {
-        std::printf("THRASH (%s): %llu frames, %llu triangles, %llu quads, %llu textures\n  calls:", t.dll.c_str(),
-                    (unsigned long long)t.frames, (unsigned long long)t.triangles, (unsigned long long)t.quads,
-                    (unsigned long long)t.textures);
+        std::printf("THRASH (%s): %llu frames, %llu textures; %.0f%% of all instructions in its functions\n  calls:",
+                    t.dll.c_str(), (unsigned long long)t.frames, (unsigned long long)t.textures,
+                    100.0 * double(t.rendererInstructions) / double(std::max<uint64_t>(host.cpu().executed(), 1)));
         for (const auto& [name, count] : t.calls)
             std::printf(" %s %llu", name.c_str(), (unsigned long long)count);
         std::printf("\n");
+        if (!frameLogFile.empty()) {
+            std::string csv = "ms,instructions,renderer\n";
+            for (const auto& f : t.frameLog)
+                csv += std::to_string(f.ms) + "," + std::to_string(f.instructions) + "," + std::to_string(f.renderer) + "\n";
+            writeFile(frameLogFile, std::vector<uint8_t>(csv.begin(), csv.end()));
+        }
+        // The frames in one-second steps: how many, and their instructions.
+        uint64_t second = 0, frames = 0, instructions = 0, renderer = 0;
+        auto flush = [&] {
+            if (frames)
+                std::printf("  second %3llu: %3llu frames, %6.2f million instructions each, %6.2f of them the renderer's\n",
+                            (unsigned long long)second, (unsigned long long)frames, instructions / double(frames) / 1e6,
+                            renderer / double(frames) / 1e6);
+        };
+        for (const auto& f : t.frameLog) {
+            if (f.ms / 1000 != second) {
+                flush();
+                second = f.ms / 1000;
+                frames = instructions = renderer = 0;
+            }
+            ++frames;
+            instructions += f.instructions;
+            renderer += f.renderer;
+        }
+        flush();
     }
     return err ? 1 : 0;
 }

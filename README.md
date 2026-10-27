@@ -64,7 +64,8 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   `cat-probe`, `cat-list` and `cat-extract` (New Worlds archives); `viv-list`,
   `viv-extract`, `fsh-info`, `fsh-dump`, `text-dump`, `ffn-render`, `fce-info`, `fce-obj`,
   `frd-check`, `frd-obj`, `bnk-info`, `bnk-wav`, `mus-info`, `mus-wav`, `mad-info`,
-  `mad-frames`, `mad-wav`, `nfs-survey` and `nfs-page` (Need for Speed III).
+  `mad-frames`, `mad-wav`, `nfs-survey`, `nfs-page` and `nfs-host` (Need for Speed III;
+  `nfs-host` runs the retail `nfs3.exe` in the x86 interpreter and reports how it goes).
 - In game: **Ctrl+F5** returns to the launcher, **Alt+Enter** toggles fullscreen.
 - New Worlds currently opens as a data viewer. **Tab** switches between missions, models,
   textures, maps, sounds, strings and fonts, **Left/Right** step through them and **F** cycles filters.

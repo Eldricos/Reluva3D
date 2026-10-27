@@ -35,6 +35,14 @@ struct MutexObject : KernelObject {
 
 uint64_t Win32Process::now() const { return milliseconds(); }
 
+bool Win32Process::setEvent(uint32_t handle) {
+    auto e = object<EventObject>(handle);
+    if (!e)
+        return false;
+    e->signaled = true;
+    return true;
+}
+
 std::shared_ptr<Win32Process::Thread> Win32Process::createThread(std::function<uint32_t()> body, bool suspended,
                                                                  std::string name) {
     // Threads that have ended give back their host thread and memory.

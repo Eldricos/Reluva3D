@@ -35,6 +35,9 @@ public:
         uint32_t memoryMb = 256;
         uint64_t instructionLimit = 0; // 0: none
         int callLog = 0;               // how many system calls to log with their arguments
+        // The game's clock against the real one: 0.1 has it see a tenth of
+        // the time pass, for measuring what full speed would take.
+        double timeScale = 1.0;
     };
     GameHost(GameFolders folders, Options options);
     ~GameHost();
@@ -65,14 +68,29 @@ public:
     // THRASH's state, for reports.
     struct ThrashStats {
         std::string dll;
-        uint64_t frames = 0, triangles = 0, quads = 0, textures = 0;
+        uint64_t frames = 0, textures = 0;
+        uint64_t rendererInstructions = 0; // inside THRASH's functions (the software renderer's drawing)
         int width = 0, height = 0, bits = 0;
         uint64_t lastFrameInstructions = 0, frameInstructionsTotal = 0;
+        // Each frame: when it was flipped (ms), the instructions it took, and
+        // how many of them were the renderer's.
+        struct Frame {
+            uint64_t ms = 0, instructions = 0, renderer = 0;
+        };
+        std::vector<Frame> frameLog;
         std::map<std::string, uint64_t> calls;
     };
     const ThrashStats& thrash() const { return thrash_; }
     // Called after each page flip with the frame drawn so far, as RGBA.
     std::function<void(const Surface& frame)> onFrame;
+
+    // Input, from any thread: a key ("enter", "up", "a"...) pressed or let
+    // go, applied once the game's clock reaches `atMs` (0: at once). False
+    // for a name not known.
+    bool queueKey(const std::string& name, bool down, uint64_t atMs = 0);
+    // The mouse moved by (dx, dy), or its first button pressed or let go.
+    void queueMouseMove(int dx, int dy, uint64_t atMs = 0);
+    void queueMouseButton(bool down, uint64_t atMs = 0);
 
 private:
     struct Message {
@@ -117,7 +135,28 @@ private:
     std::map<uint32_t, std::deque<Message>> queues_; // by thread id
     uint32_t nextWindow_ = 0x10020;
     int cursorCount_ = 0;
-    uint8_t keys_[256] = {};
+    uint8_t keys_[256] = {};   // DirectInput's state, by scan code (0x80 down)
+    uint8_t vkDown_[256] = {}; // by virtual-key code
+    struct KeyEvent {
+        uint8_t vk = 0, scan = 0;
+        bool down = false;
+        uint64_t atMs = 0;
+    };
+    std::mutex inputMutex_;
+    std::deque<KeyEvent> pendingKeys_;
+    std::deque<KeyEvent> bufferedKeys_; // for DirectInput's GetDeviceData
+    // The mouse, as DirectInput reports it: buffered moves and buttons
+    // (DIDEVICEOBJECTDATA's offset: 0 x, 4 y, 12 the first button).
+    struct MouseEvent {
+        uint32_t offset = 0, data = 0;
+        uint64_t atMs = 0;
+    };
+    std::deque<MouseEvent> pendingMouse_, bufferedMouse_;
+    int mouseDx_ = 0, mouseDy_ = 0;
+    bool mouseButton_ = false;
+    uint32_t keyboardEvent_ = 0, mouseEvent_ = 0; // SetEventNotification's handles
+    uint32_t inputSequence_ = 0;
+    void applyInput();
 
     // Native modules for LoadLibraryA: lower-case name -> handle, and each
     // handle's exports.
@@ -127,7 +166,7 @@ private:
     void addExport(uint32_t module, const std::string& name, int argBytes, std::function<uint32_t(x86::Cpu&)> fn);
 
     ThrashStats thrash_;
-    uint64_t lastFlip_ = 0; // instructions run at the last page flip
+    uint64_t lastFlip_ = 0, lastFlipRenderer_ = 0; // instructions run at the last page flip
     // The game's own DLLs, loaded on LoadLibraryA: lower-case name -> module.
     std::map<std::string, const x86::Win32Process::Module*> gameDlls_;
     uint32_t thrashBase_ = 0;
