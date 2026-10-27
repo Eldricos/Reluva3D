@@ -1647,6 +1647,68 @@ static void testBotChat() {
     CHECK(chat.nextConsoleMessage(cs)->text == "second");
 }
 
+static void testPatchGrids() {
+    // A flat 3x3 patch: its middle column and row are straight, so left
+    // out: four corners.
+    BspVertex control[9];
+    for (int i = 0; i < 9; ++i) {
+        control[i].pos = {float(i % 3) * 64, float(i / 3) * 64, 0};
+        control[i].normal = {0, 0, 1};
+    }
+    PatchGrid flat = subdividePatch(control, 3, 3, 4);
+    CHECK(flat.width == 2 && flat.height == 2 && flat.points.size() == 4);
+    CHECK(flat.points[3].pos[0] == 128 && flat.points[3].pos[1] == 128);
+
+    // Bulging up in the middle. Across first: the middle row strays 32
+    // units, halved twice (8, then 2 off); that flattens the control
+    // points, so down the columns it's halved once (16, then about 4):
+    // 9 x 5, as the original's. Every point on the curve, normals from
+    // the shape.
+    control[4].pos[2] = 64;
+    PatchGrid bulge = subdividePatch(control, 3, 3, 4);
+    CHECK(bulge.width == 9 && bulge.height == 5);
+    const BspVertex& mid = bulge.points[2 * 9 + 4];
+    CHECK(std::fabs(mid.pos[0] - 64) < 1e-4f && std::fabs(mid.pos[2] - 16) < 1e-4f);
+    CHECK(std::fabs(mid.normal[2] - 1) < 1e-4f);
+    // A quarter of the way across the middle row: 64 * (2 * 0.25 * 0.75) *
+    // (2 * 0.5 * 0.5) = 12.
+    CHECK(std::fabs(bulge.points[2 * 9 + 2].pos[2] - 12) < 1e-4f);
+    std::vector<BspVertex> verts;
+    std::vector<uint32_t> idx;
+    triangulateGrid(bulge, verts, idx);
+    CHECK(verts.size() == 45 && idx.size() == 8 * 4 * 6);
+    // Finer for a smaller error.
+    CHECK(subdividePatch(control, 3, 3, 0.5f).width > 9);
+
+    // Two patches side by side sharing the edge x = 128 (straight). The
+    // left one bends along y, so it's cut into rows; the right one is flat,
+    // two rows. Stitched, the right one gets the left one's points on the
+    // shared edge.
+    BspVertex left[9], right[9];
+    for (int i = 0; i < 9; ++i) {
+        left[i].pos = {float(i % 3) * 64, float(i / 3) * 64, 0};
+        right[i].pos = {128 + float(i % 3) * 64, float(i / 3) * 64, 0};
+        left[i].normal = right[i].normal = {0, 0, 1};
+    }
+    left[3].pos[2] = 64; // the left edge's middle raised: rows needed
+    std::vector<PatchGrid> grids{subdividePatch(left, 3, 3, 4), subdividePatch(right, 3, 3, 4)};
+    CHECK(grids[0].height > 2 && grids[1].height == 2);
+    CHECK(stitchPatches(grids) > 0);
+    CHECK(grids[1].height == grids[0].height);
+    bool matched = true;
+    for (int y = 0; y < grids[0].height; ++y) {
+        const auto& a = grids[0].points[size_t(y * grids[0].width + grids[0].width - 1)].pos;
+        const auto& b = grids[1].points[size_t(y * grids[1].width)].pos;
+        matched = matched && std::fabs(a[0] - b[0]) < 0.1f && std::fabs(a[1] - b[1]) < 0.1f &&
+                  std::fabs(a[2] - b[2]) < 0.1f;
+    }
+    CHECK(matched);
+    // Not in the same group: left alone.
+    std::vector<PatchGrid> apart{subdividePatch(left, 3, 3, 4), subdividePatch(right, 3, 3, 4)};
+    apart[1].groupRadius = 1;
+    CHECK(stitchPatches(apart) == 0 && apart[1].height == 2);
+}
+
 static void testPatchCollision() {
     using namespace reluva::idtech3;
     // One patch, 3x3 control points over x and y from -64 to 64: flat at
@@ -2905,6 +2967,7 @@ int main() {
     testBotCharacter();
     testBotAi();
     testBotChat();
+    testPatchGrids();
     testPatchCollision();
     testVideoSettings();
     testAreaPortals();

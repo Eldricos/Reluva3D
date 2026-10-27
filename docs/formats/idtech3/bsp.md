@@ -60,7 +60,44 @@ single precision.
 
 Patches are grids of quadratic Bézier patches: width × height control
 points (both odd), each 3×3 block one patch, sharing edges. The engine
-tessellates them; the file holds only the control points.
+tessellates them; the file holds only the control points. For a patch,
+the bounds in the lightmap vectors are those of its *group*: the patches
+q3map wants cut alike so they meet. Patches with the same group bounds
+are stitched together (below).
+
+### Cutting patches for drawing
+
+As the original's renderer, and Reluva's (`patch.cpp`, `subdividePatch`):
+
+1. **Across.** For each run of three control points across the grid
+   (columns 0-2, 2-4...), the curve's midpoint, (a + 2b + c) / 4, is
+   measured against the line from a to c, on every row; the worst
+   decides. Under 0.1 units, the run is straight. Over `r_subdivisions`
+   (4 by default), every row's run is halved at the middle (a, b, c
+   become a, (a+b)/2, middle, (b+c)/2, c) and both halves are looked at
+   again. Never more than 65 points across.
+2. **Down.** The same for the columns, on the grid step 1 made.
+3. **Onto the curve.** Each point between two others (odd positions)
+   becomes half itself plus a quarter of each neighbour, down the
+   columns first, then along the rows.
+4. **Straight runs** found in steps 1 and 2 lose their middle column or
+   row.
+5. **Normals** come from the grid's shape: at each point, the directions
+   to its eight neighbours (the next one that isn't on top of it, up to
+   three away; across the seam of a grid whose first and last columns or
+   rows meet), the cross products of each two neighbouring directions
+   averaged.
+6. **Stitching.** Where a patch's edge has a point that the matching
+   edge of another patch in its group lacks (both ends of that edge's
+   piece the same within 0.1 units), the other gets a column or row
+   through it: halfway between its neighbours on every row, at the point
+   on the edge. Without this, the two edges wouldn't meet: a hairline
+   crack.
+
+The original also drops columns and rows by distance as it draws (the
+farther the patch, the more; `r_lodCurveError`), keeping the groups'
+shared points alike. Reluva always draws every point, which is the
+original at close range.
 
 ## The light grid
 

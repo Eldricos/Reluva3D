@@ -205,6 +205,9 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
     std::vector<std::optional<Placed>> placed(bsp.surfaces.size());
     std::vector<BspVertex> patchVerts;
     std::vector<uint32_t> patchIndices;
+    // Curves cut as the original's: finely enough to stray from round by
+    // at most r_subdivisions units, neighbours stitched.
+    const std::vector<PatchGrid> grids = buildPatchGrids(bsp, subdivisions_);
     for (size_t mi = 0; mi < bsp.models.size(); ++mi) {
         const BspModel& model = bsp.models[mi];
         for (int si = model.firstSurface; si < model.firstSurface + model.numSurfaces; ++si) {
@@ -254,10 +257,7 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
             if (s.type == SurfaceType::Patch) {
                 patchVerts.clear();
                 patchIndices.clear();
-                // Curves cut finely enough to stray from round by at most
-                // r_subdivisions units, as the original's.
-                tessellatePatch(v, s.patchWidth, s.patchHeight,
-                                patchLevel(v, s.patchWidth, s.patchHeight, subdivisions_), patchVerts, patchIndices);
+                triangulateGrid(grids[size_t(si)], patchVerts, patchIndices);
                 for (const BspVertex& pv : patchVerts)
                     vertices.push_back(toGfx(pv));
                 for (uint32_t i : patchIndices)
