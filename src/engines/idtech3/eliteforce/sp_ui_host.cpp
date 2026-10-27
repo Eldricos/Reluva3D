@@ -27,6 +27,7 @@ enum Export : int {
     SetActiveMenu = 6,
     ConsoleCommand = 7,
     DrawLoadingScreen = 8, // (server, info)
+    DrawConnectText = 9,   // (server, info)
     ExportCount = 12,
 };
 
@@ -252,6 +253,15 @@ Error SpUiHost::drawLoadingScreen(const std::string& server, const std::string& 
     color_ = {1, 1, 1, 1};
     cpu_->writeString(scratch2_, info, kScratch);
     return callUi(DrawLoadingScreen, {text(server), scratch2_});
+}
+
+Error SpUiHost::drawConnectText(const std::string& server, const std::string& info) {
+    pictures_.clear();
+    raw_.clear();
+    scene_ = Scene{};
+    color_ = {1, 1, 1, 1};
+    cpu_->writeString(scratch2_, info, kScratch);
+    return callUi(DrawConnectText, {text(server), scratch2_});
 }
 
 Error SpUiHost::setActiveMenu(const std::string& name) {

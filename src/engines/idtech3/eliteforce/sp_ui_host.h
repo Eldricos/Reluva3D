@@ -56,6 +56,9 @@ public:
     // capture if there is one (a saved game's picture), else the menus'
     // own, with `server` and `info` as the original's engine gives them.
     Error drawLoadingScreen(const std::string& server, const std::string& info);
+    // The connect text alone (export 9), over the client game's loading
+    // screen as it loads; into pictures().
+    Error drawConnectText(const std::string& server, const std::string& info);
     // Opens a menu ("main", "ingame", "turbolift"), or closes them ("").
     Error setActiveMenu(const std::string& name);
     // A console command for them; `handled` gets whether they knew it.

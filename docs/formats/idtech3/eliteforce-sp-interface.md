@@ -549,3 +549,29 @@ loaded if it is of the same map, else `auto`.
 
 Engine function 33 captures the screen only in a game with no menu open,
 so calls to it from the menus do nothing.
+
+## Faces and loading screens
+
+- **Faces.** The renderer's `RegisterSkin("…/head_x.skin")` also loads
+  `head_x-1.skin` to `head_x-8.skin`, if they exist, into the following
+  handles, and then returns the first handle negated. The client game
+  draws a head with `customSkin` (refEntity +0x6c) set to that handle plus
+  an offset: the speaker's `VoiceVolume` (5 to 8) while talking, and 3
+  otherwise.
+- **`VoiceVolume`.** The engine's mixer (0x424560) works out each
+  speaker's value from the voice sound:
+  1. It takes up to 10 samples, 100 apart from the play position, each
+     as its high byte, and averages their squares.
+  2. It compares that average with `s_threshold1`–`4` (0.5, 4, 7, 8), each
+     multiplied by the sound's peak (its largest absolute high byte,
+     measured when the sound loads).
+  3. Below the first gives −1; the bands above give 5, 6, 7 and 8.
+- **Loading.** While the client game starts it calls `UpdateScreen` (cgame
+  syscall 16) over a hundred times. Each call makes the engine redraw the
+  screen:
+  - it calls the client game's `CG_DRAW_ACTIVE_FRAME`, a nested call into
+    the DLL; not yet started, the client game draws its loading screen;
+  - then the menus' export 9 draws the connect text over it.
+- **Skipping scenes.** The use button (bit 4) in a camera scene sets
+  `skippingCinematic` 1 and `timescale` 100, so the scene runs a hundred
+  times faster; the game resets both when the camera ends.

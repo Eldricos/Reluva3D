@@ -161,6 +161,12 @@ public:
     // game's if it knows it, else sent to the server game (ClientCommand),
     // as the original engine does.
     Error clientConsoleCommand(const std::string& text);
+    // The client game's loading screen into scene() and pictures(), from
+    // inside its start (updateScreen).
+    Error drawLoadingFrame();
+    // Called when the client game asks for the screen to be shown
+    // (UpdateScreen, as it loads); none: nothing is shown.
+    std::function<void()> updateScreen;
     // Whether the client game's camera (a scripted sequence's) is running,
     // and where it is (CG_CAMERA_POS).
     bool cameraPosition(Vec3f& at);
@@ -297,7 +303,7 @@ private:
     struct Voice {
         std::shared_ptr<const audio::Sound> sound;
         int32_t startMs = 0;
-        float average = 0; // the sound's mean square level, its thresholds' scale
+        float average = 0; // the sound's peak (its largest sample's high byte), its thresholds' scale
     };
     std::map<int32_t, Voice> voices_;
     void startVoice(int32_t entity, const std::string& name);
@@ -318,6 +324,7 @@ private:
     void tokenize(const std::string& text);
     void clientTrace(x86::Cpu& c, bool transformed);
     bool cgameRunning_ = false;
+    bool inUpdateScreen_ = false;
     uint32_t cgameVmMain_ = 0;
     std::vector<Snapshot> snapshots_; // the last 32, by number
     int32_t snapshotNumber_ = 0;
@@ -326,6 +333,8 @@ private:
     uint8_t clientWeapon_ = 0;
     std::vector<std::string> clientCommands_; // AddCommand's names
     HandleTable models_, shaders_, skins_, sounds_;
+    int32_t registerSkin(const std::string& name);
+    std::map<int32_t, int> skinFaces_; // by skin handle: the -1 to -8 skins after it
     Scene scene_, lastScene_;
     std::vector<Picture> pictures_, lastPictures_;
     std::array<float, 4> color_{1, 1, 1, 1};

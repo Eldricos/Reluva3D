@@ -22,6 +22,7 @@ namespace reluva::idtech3 {
 namespace {
 
 constexpr int32_t kButtonAttack = 1, kButtonAltAttack = 32;
+constexpr float kServerBudgetMs = 40; // of the game's frames, each page frame
 
 int32_t toShort(float degrees) { return int32_t(std::lround(degrees * 65536.0f / 360.0f)) & 0xffff; }
 
@@ -469,7 +470,13 @@ void SpPlayViewer::start(int index, int32_t loadMode, eliteforce::SaveReader* sa
     if (!refused.empty())
         return stop("The game refused the player: " + refused);
     scene_->setHandles({&game_->models(), &game_->skins(), &game_->shaders()});
-    if ((err = game_->startClientGame()))
+    // As it loads, the client game asks for the screen: its loading screen
+    // (the level's picture, what's loading) under the menus' text.
+    game_->updateScreen = [this] { showClientLoading(); };
+    err = game_->startClientGame();
+    if (game_)
+        game_->updateScreen = nullptr;
+    if (err)
         return stop("The client game couldn't start: " + err.message);
     // The player's time from where the level is (it has settled for a few
     // frames before they joined).
@@ -898,9 +905,17 @@ void SpPlayViewer::runGame(uint64_t nowMs) {
     // The server kept a frame ahead of the player's time, then the
     // player's command, then the client game's frame.
     const auto serverStart = Clock::now();
-    while (game_->levelTime() <= clientTime_)
+    // At most so much of the game's time a frame (the emulated game can't
+    // run a skipped scene's timescale 100 as the original could): what
+    // doesn't fit is let go rather than owed, so the page keeps up.
+    while (game_->levelTime() <= clientTime_) {
         if (Error err = game_->runFrame())
             return stop("The game stopped: " + err.message);
+        if (ms(serverStart) > kServerBudgetMs && game_->levelTime() <= clientTime_) {
+            clientTime_ = game_->levelTime() - 1;
+            break;
+        }
+    }
     if (dt > 0) {
         eliteforce::SpGameHost::UserCommand cmd;
         cmd.serverTime = clientTime_;
@@ -997,7 +1012,10 @@ void SpPlayViewer::update(uint64_t nowMs) {
     runGameCommands();
     if (soundSystem_) {
         auto setting = [&](const char* name, float fallback) { return cvars_.find(name) ? cvars_.value(name) : fallback; };
-        soundSystem_->setVolumes(setting("s_volume", 0.8f), setting("s_musicvolume", 0.25f));
+        // Effects silent while a scene is skipped (fast-forwarded, its
+        // lines would pile up).
+        const bool skipping = game_ && cvars_.integer("skippingCinematic") != 0;
+        soundSystem_->setVolumes(skipping ? 0.0f : setting("s_volume", 0.8f), setting("s_musicvolume", 0.25f));
     }
 
     // The menus: the main one whenever there's no game and none is open,
@@ -1079,6 +1097,35 @@ void SpPlayViewer::showLoadingScreen(const std::string& map) {
     renderer_->setGamma(brightness(ctx_));
     renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
     drawMenus(float(nowMs_ - startMs_) / 1000.0f);
+    std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
+    renderer_->endFrame(&overlay_);
+}
+
+void SpPlayViewer::showClientLoading() {
+    using Clock = std::chrono::steady_clock;
+    const auto now = Clock::now();
+    if (now - lastLoadingFrame_ < std::chrono::milliseconds(30))
+        return;
+    lastLoadingFrame_ = now;
+    if (!game_ || game_->drawLoadingFrame())
+        return;
+    if (ui_)
+        if (Error err = ui_->drawConnectText("localhost", ""))
+            menusStopped(err); // the loading screen goes on without their text
+    scene_->newFrame();
+    renderer_->setGamma(brightness(ctx_));
+    renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
+    scene_->setHandles({&game_->models(), &game_->skins(), &game_->shaders()});
+    const auto& pictures = game_->pictures();
+    size_t drawn = 0;
+    for (const auto& v : game_->scene().views) {
+        scene_->drawPictures(pictures, drawn, v.picturesBefore, 640, 480, 0);
+        drawn = std::max(drawn, v.picturesBefore);
+        scene_->drawView(game_->scene(), v, 640, 480, 0, true, nullptr, nullptr, false);
+    }
+    scene_->drawPictures(pictures, drawn, pictures.size(), 640, 480, 0);
+    if (ui_)
+        drawMenus(0);
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
     renderer_->endFrame(&overlay_);
 }

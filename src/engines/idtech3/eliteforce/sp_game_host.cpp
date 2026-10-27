@@ -262,16 +262,12 @@ void SpGameHost::startVoice(int32_t entity, const std::string& name) {
     }
     log("+" + std::to_string(entity) + " " + name + " " +
         std::to_string(int64_t(sound->frames()) * 1000 / sound->rate) + " ms");
-    // Its overall level, as the mean square of its samples' high bytes
-    // (the measure the original compares a moment of it against).
-    double sum = 0;
-    const size_t frames = sound->frames(), step = std::max<size_t>(1, frames / 4096);
-    size_t n = 0;
-    for (size_t i = 0; i < frames; i += step, ++n) {
-        const int v = sound->samples[i * size_t(sound->channels)] >> 8;
-        sum += double(v * v);
-    }
-    voices_[entity] = {sound, levelTime_, float(n ? sum / double(n) : 0)};
+    // Its peak, as the original's sound loading measures it: the largest
+    // sample's high byte, the scale its thresholds are taken against.
+    int peak = 0;
+    for (int16_t v : sound->samples)
+        peak = std::max(peak, std::abs(v >> 8));
+    voices_[entity] = {sound, levelTime_, float(peak)};
     // Speaking from now, as the original marks it on starting (-1: started,
     // silent so far), so the game sees it in the same frame.
     if (voiceVolume_)
@@ -281,8 +277,10 @@ void SpGameHost::startVoice(int32_t entity, const std::string& name) {
 void SpGameHost::updateVoiceVolumes() {
     // As the original's mixer does each pass: every entity 0, then each one
     // speaking given how loud its voice is where it has got to (the mean
-    // square of ten samples a hundred apart) against s_threshold1-4 times
-    // the sound's own level: -1 quiet, then 5 to 8. A line that has ended
+    // square of ten samples a hundred apart, their high bytes) against
+    // s_threshold1-4 times the sound's peak: -1 quiet, then 5 to 8 (the
+    // client game shows the head skin that many after its first, the
+    // mouth's shapes). A line that has ended
     // leaves 0, which ends the scripts' wait for it.
     if (!voiceVolume_)
         return;
@@ -302,11 +300,10 @@ void SpGameHost::updateVoiceVolumes() {
             it = voices_.erase(it);
             continue;
         }
-        double sum = 0;
-        int n = 0;
+        int sum = 0, n = 0;
         for (size_t i = at; i < frames && n < 10; i += 100, ++n) {
             const int s = v.sound->samples[i * size_t(v.sound->channels)] >> 8;
-            sum += double(s * s);
+            sum += s * s;
         }
         const float level = float(sum / std::max(n, 1));
         int32_t value = 8;
@@ -771,6 +768,30 @@ void SpGameHost::playAmbient(const std::vector<AmbientSets::Sound>& sounds) {
             soundSystem->startAmbientSound(s.entity, s.origin, s.volume, s.name);
 }
 
+int32_t SpGameHost::registerSkin(const std::string& name) {
+    // As Elite Force's renderer: name.skin, then name-1.skin to name-8.skin
+    // (a head's faces: blinking, the mouth's shapes) in the handles after
+    // it; the handle negated when there are any. The client game shows a
+    // face by adding to the first's handle.
+    const int32_t handle = skins_.add(name);
+    if (handle <= 0)
+        return handle;
+    auto [it, added] = skinFaces_.try_emplace(handle, 0);
+    const std::string lowerName = lower(name);
+    if (added && lowerName.size() > 5 && lowerName.compare(lowerName.size() - 5, 5, ".skin") == 0) {
+        const std::string base = name.substr(0, name.size() - 5);
+        for (int i = 1; i <= 8; ++i) {
+            const std::string face = base + "-" + std::to_string(i) + ".skin";
+            if (!files_.find(face))
+                break;
+            if (skins_.add(face) != handle + i)
+                break; // not next to it (registered before): can't be shown by number
+            ++it->second;
+        }
+    }
+    return it->second ? -handle : handle;
+}
+
 uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
     // syscall(number, args...): the arguments after the number.
     auto a = [&c](int n) { return c.arg(n + 1); };
@@ -829,7 +850,13 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
             c.abort(e.message);
         return 0;
     }
-    case 16: return 0; // UpdateScreen()
+    case 16: // UpdateScreen(): while loading, the client game's loading screen shown
+        if (updateScreen && !inUpdateScreen_) {
+            inUpdateScreen_ = true;
+            updateScreen();
+            inUpdateScreen_ = false;
+        }
+        return 0;
     // Collision, for the client game's prediction: the same map.
     case 17: return 0;                                                  // CM_LoadMap(name)
     case 18: return world_ ? uint32_t(world_->modelCount()) : 0;        // CM_NumInlineModels()
@@ -926,7 +953,7 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
     // The renderer: what's registered and drawn is recorded.
     case 38: return 0; // R_LoadWorldMap(name)
     case 39: return uint32_t(models_.add(str(0, 256)));
-    case 40: return uint32_t(skins_.add(str(0, 256)));
+    case 40: return uint32_t(registerSkin(str(0, 256))); // R_RegisterSkin(name)
     case 41:
     case 42: return uint32_t(shaders_.add(str(0, 256)));
     case 43: scene_.clear(); return 0; // R_ClearScene
@@ -1350,6 +1377,26 @@ Error SpGameHost::drawClientFrame(int32_t time) {
     lastPictures_ = std::move(pictures_);
     scene_ = {};
     pictures_.clear();
+    return e;
+}
+
+Error SpGameHost::drawLoadingFrame() {
+    // CG_DRAW_ACTIVE_FRAME from inside the client game's start (as the
+    // original's screen update does): not ready yet, it draws its loading
+    // screen. What it was drawing meanwhile is kept aside.
+    Scene sceneBefore = std::move(scene_);
+    std::vector<Picture> picturesBefore = std::move(pictures_);
+    const std::array<float, 4> colorBefore = color_;
+    scene_ = {};
+    pictures_.clear();
+    color_ = {1, 1, 1, 1};
+    uint32_t ignored = 0;
+    const Error e = cpu_->call(cgameVmMain_, {CgDrawActiveFrame, uint32_t(levelTime_), 0}, ignored);
+    lastScene_ = std::move(scene_);
+    lastPictures_ = std::move(pictures_);
+    scene_ = std::move(sceneBefore);
+    pictures_ = std::move(picturesBefore);
+    color_ = colorBefore;
     return e;
 }
 
