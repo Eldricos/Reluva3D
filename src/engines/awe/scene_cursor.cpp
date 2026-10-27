@@ -9,6 +9,7 @@
 #include "engines/awe/viewers.h"
 
 #include "common/fs.h"
+#include "engines/awe/picking.h"
 #include "engines/awe/sprite.h"
 #include "engines/awe/tables.h"
 
@@ -38,64 +39,6 @@ bool isCharacter(const Ac2Record& o) { return o.tag == "NPCX" || o.tag == "PCXX"
 bool hasOutline(const Ac2Record& o) {
     const Ac2Value* outline = o.field("listD");
     return outline && outline->numbers.size() >= 3;
-}
-
-// PtInRegion over the outline's polygon, filled by winding.
-bool inRegion(const Ac2Record& o, int sx, int sy) {
-    const auto& pts = o.field("listD")->numbers;
-    const float px = float(sx) + 0.5f, py = float(sy) + 0.5f;
-    int winding = 0;
-    for (size_t i = 0, j = pts.size() - 1; i < pts.size(); j = i++) {
-        const float x0 = float(int32_t(pts[j].first)), y0 = float(int32_t(pts[j].second));
-        const float x1 = float(int32_t(pts[i].first)), y1 = float(int32_t(pts[i].second));
-        const float side = (x1 - x0) * (py - y0) - (px - x0) * (y1 - y0);
-        if (y0 <= py) {
-            if (y1 > py && side > 0)
-                winding++;
-        } else if (y1 <= py && side < 0) {
-            winding--;
-        }
-    }
-    return winding != 0;
-}
-
-// Whether a ray (from, dir) meets a box (lo..hi) in the axes the affine
-// `m` puts in the world (GrannyRayIntersectsBox).
-bool rayHitsBox(const gfx::Mat4& m, const float lo[3], const float hi[3], const gfx::Vec3& from,
-                const gfx::Vec3& dir) {
-    // The ray in the box's axes: through the inverse of m's 3x3 part, by
-    // its cofactors.
-    auto a = [&](int r, int c) { return m[size_t(c * 4 + r)]; };
-    float inv[3][3];
-    for (int r = 0; r < 3; r++)
-        for (int c = 0; c < 3; c++) {
-            const int r0 = (c + 1) % 3, r1 = (c + 2) % 3, c0 = (r + 1) % 3, c1 = (r + 2) % 3;
-            inv[r][c] = a(r0, c0) * a(r1, c1) - a(r0, c1) * a(r1, c0);
-        }
-    const float det = a(0, 0) * inv[0][0] + a(0, 1) * inv[1][0] + a(0, 2) * inv[2][0];
-    if (std::abs(det) < 1e-20f)
-        return false;
-    float o[3], d[3];
-    const float rel[3] = {from[0] - a(0, 3), from[1] - a(1, 3), from[2] - a(2, 3)};
-    for (int r = 0; r < 3; r++) {
-        o[r] = (inv[r][0] * rel[0] + inv[r][1] * rel[1] + inv[r][2] * rel[2]) / det;
-        d[r] = (inv[r][0] * dir[0] + inv[r][1] * dir[1] + inv[r][2] * dir[2]) / det;
-    }
-    float t0 = 0, t1 = 1e30f;
-    for (size_t k = 0; k < 3; k++) {
-        if (std::abs(d[k]) < 1e-12f) {
-            if (o[k] < lo[k] || o[k] > hi[k])
-                return false;
-            continue;
-        }
-        float a = (lo[k] - o[k]) / d[k], b = (hi[k] - o[k]) / d[k];
-        if (a > b)
-            std::swap(a, b);
-        t0 = std::max(t0, a), t1 = std::min(t1, b);
-        if (t0 > t1)
-            return false;
-    }
-    return true;
 }
 
 } // namespace
@@ -159,7 +102,7 @@ bool ScenePage::objectRect(const Ac2Record& o, int& left, int& top, int& right, 
 bool ScenePage::hitObject(const Ac2Record& o, int sx, int sy) const {
     // 0x40ef70: in its outline if it has one, else in its rectangle.
     if (hasOutline(o))
-        return inRegion(o, sx, sy);
+        return inPolygon(o.field("listD")->numbers, sx, sy);
     int l, t, r, b;
     return objectRect(o, l, t, r, b) && sx >= l && sx < r && sy >= t && sy < b;
 }
@@ -203,49 +146,31 @@ bool ScenePage::hitBones(const Ac2Record& o, int sx, int sy) const {
 }
 
 const Ac2Record* ScenePage::pickAt(int sx, int sy) const {
-    // 0x435eb0 as the mouse and clicks use it: the objects shown, ordered
-    // by depth (d0, else z: a character's is where it stands) and tried
-    // front to back, in three passes. A pass's first hit is the answer.
+    // 0x435eb0 as the mouse and clicks use it, over the objects shown.
     std::vector<const Ac2Record*> list;
-    for (const Ac2Record* o : scene_.objects())
-        if (objectShown(*o))
-            list.push_back(o);
-    auto depth = [&](const Ac2Record* o) {
-        if (o->f("depth") != 0)
-            return o->f("depth");
-        for (const Character& c : characters_)
-            if (c.record == o)
-                return c.z;
-        return o->f("z");
-    };
-    std::stable_sort(list.begin(), list.end(),
-                     [&](const Ac2Record* a, const Ac2Record* b) { return depth(a) < depth(b); });
-    const bool inHand = !itemInHand().empty();
-    auto hasRect = [&](const Ac2Record& o) {
+    std::vector<PickCandidate> candidates;
+    for (const Ac2Record* o : scene_.objects()) {
+        if (!objectShown(*o))
+            continue;
+        PickCandidate c;
+        c.depth = o->f("depth") != 0 ? o->f("depth") : o->f("z");
+        c.character = isCharacter(*o);
+        if (c.character)
+            for (const Character& ch : characters_)
+                if (ch.record == o && o->f("depth") == 0)
+                    c.depth = ch.z;
+        c.pickFirst = o->i("pickFirst") != 0;
+        c.outline = hasOutline(*o);
         int l, t, r, b;
-        return objectRect(o, l, t, r, b);
-    };
-    // 1: pickFirst objects with an outline (or no rectangle).
-    for (auto it = list.rbegin(); it != list.rend(); ++it)
-        if ((!hasRect(**it) || hasOutline(**it)) && (*it)->i("pickFirst") && hitObject(**it, sx, sy))
-            return *it;
-    // 2: the characters, those with only a rectangle by their bones' boxes
-    // if they can be clicked (or an item is in hand).
-    for (auto it = list.rbegin(); it != list.rend(); ++it) {
-        const Ac2Record& o = **it;
-        if (!isCharacter(o))
-            continue;
-        const bool byBones = hasRect(o) && !hasOutline(o);
-        if (byBones && !inHand && !clickable(o))
-            continue;
-        if (byBones ? hitBones(o, sx, sy) : hitObject(o, sx, sy))
-            return &o;
+        c.rect = objectRect(*o, l, t, r, b);
+        c.clickable = clickable(*o);
+        c.hit = hitObject(*o, sx, sy);
+        c.boneHit = c.character && c.rect && !c.outline && hitBones(*o, sx, sy);
+        list.push_back(o);
+        candidates.push_back(c);
     }
-    // 3: everything, by outline or rectangle.
-    for (auto it = list.rbegin(); it != list.rend(); ++it)
-        if (hitObject(**it, sx, sy))
-            return *it;
-    return nullptr;
+    const int i = pick(candidates, !itemInHand().empty());
+    return i < 0 ? nullptr : list[size_t(i)];
 }
 
 const std::string& ScenePage::itemInHand() const {

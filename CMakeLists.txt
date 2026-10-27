@@ -211,6 +211,7 @@ if(RELUVA_ENGINE_AWE)
         src/engines/awe/movie_player.cpp
         src/engines/awe/savegame.cpp
         src/engines/awe/scene_saves.cpp
+        src/engines/awe/picking.cpp
         src/engines/awe/scene_autoplay.cpp
         src/engines/awe/scene_cursor.cpp
         src/engines/awe/scene_inventory.cpp
