@@ -75,14 +75,12 @@ std::string DialogueLine::voiceFile() const {
 }
 
 void DialogueBook::add(const Table& t) {
-    const int name = t.column("Name"), act = t.column("Act"), part = t.column("Conver."), thread = t.column("Thread"),
-              nest = t.column("Nest"), speaker = t.column("Speaker"), target = t.column("Target"),
-              line = t.column("Line"), translation = t.column("Line Translation"), condition = t.column("Condition"),
-              repeat = t.column("Repeat"), before = t.column("Prevent"), event = t.column("Event"),
-              after = t.column("Povent"), duration = t.column("Duration"), optional = t.column("Optional"),
-              notes = t.column("Notes");
-    if (name < 0 || line < 0)
-        return;
+    // By position, as the game reads them (0x438f00), whatever the
+    // headings say: gen_characters.txt's first is "gen_globalhardman", not
+    // Name. gen_characters.txt and gen_antoinette.txt have no Optional
+    // column, so their Notes land there (and count as 0).
+    const int name = 0, act = 1, part = 2, thread = 3, nest = 4, speaker = 5, target = 6, line = 7, translation = 8,
+              condition = 9, repeat = 10, before = 11, event = 12, after = 13, duration = 14, optional = 15, notes = 16;
     DialoguePart* p = nullptr;
     for (size_t r = 0; r < t.rows.size(); r++) {
         DialogueLine l;
@@ -540,7 +538,16 @@ void DialogueManager::menu(bool first, bool keepBox) {
     const auto more = extras();
     count += int(more.size());
     auto nextPart = [&] {
-        return goOn_ && start(part_->name, part_->code + 1, -1, -1, -1, plus_, greet_, false);
+        // A next part with nothing to say leaves this one going (start()
+        // drops the part it fails on).
+        if (!goOn_)
+            return false;
+        DialoguePart* keep = part_;
+        if (start(part_->name, part_->code + 1, -1, -1, -1, plus_, greet_, false))
+            return true;
+        part_ = keep;
+        active_ = true;
+        return false;
     };
     if (count == 0) {
         if (!nextPart())

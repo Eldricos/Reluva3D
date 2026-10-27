@@ -163,6 +163,8 @@ public:
     void startAt(const std::string& where);
     std::function<void(const std::string& line)> onLog;
     std::string autoplay();
+    // Nothing drawn (a tool that only follows the scripts).
+    void setDrawing(bool on) { drawing_ = on; }
     struct GameStatus {
         std::string scene, act, event;
         bool idle = true, talking = false, movie = false, loading = false, puzzle = false, fading = false;
@@ -179,7 +181,7 @@ public:
     // items the clickable i asks for, that Poirot has, and one used on it.
     bool useItem(const std::string& item, const Ac2Record& target);
     bool combineItems(const std::vector<std::string>& parts);
-    std::vector<std::string> itemsFor(size_t i) const;
+    std::vector<std::string> itemsFor(size_t i);
     bool useOn(const std::string& item, size_t i);
 
 private:
@@ -411,7 +413,9 @@ private:
     ScriptRunner* soundRunner_ = nullptr; // waiting on a "sound"
     audio::SoundHandle soundWaited_ = audio::kNoSound;
     bool interfaceOff_ = false;
+    bool drawing_ = true;
     std::string inHand_; // the item picked with U, used on the next click
+    std::vector<std::string> card_; // a passport's or fingerprint card's pictures, held up
     void logScript(const std::string& line);
     bool hidden(const Ac2Record& o) const;
     bool shown(const Ac2Record& o) const;

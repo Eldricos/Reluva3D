@@ -424,11 +424,31 @@ void ScenePage::load() {
     // An act's variant changes its base scene: shown over it, as the base
     // has the camera and the pictures.
     const std::string base = baseSceneOf(name);
-    if (!variant.camera() && !base.empty() && ctx_.files.has(base) && !read(base, scene_)) {
+    if (!base.empty() && ctx_.files.has(base) && !read(base, scene_)) {
+        // Merged as 0x435990's mode 2 does: the base's camera and settings
+        // stay (the variant's CAMR, SHOW, PUZZ... are read and dropped:
+        // Calais.14-15_14.02_06a and _06b have one); music and events are
+        // added; an object is added unless the base has it already (the
+        // same tag, file and place).
         base_ = base;
         if (!scene_.records.empty() && scene_.records.back().tag == "DONE")
             scene_.records.pop_back();
-        scene_.records.insert(scene_.records.end(), variant.records.begin(), variant.records.end());
+        auto same = [](const Ac2Record& a, const Ac2Record& b) {
+            // (the player, PCXX, by its file alone)
+            return a.tag == b.tag && fs::toLower(a.text("file")) == fs::toLower(b.text("file")) &&
+                   (a.tag == "PCXX" || (a.f("x") == b.f("x") && a.f("y") == b.f("y") && a.f("z") == b.f("z")));
+        };
+        const size_t baseCount = scene_.records.size();
+        for (const Ac2Record& r : variant.records) {
+            if (r.tag == "CAMR" || r.tag == "SHOW" || r.tag == "PUZZ" || r.tag == "FAKE" || r.tag == "OUTD" ||
+                r.tag == "NVNT" || r.tag == "FOOT" || r.tag == "SCEN")
+                continue;
+            if (isAc2Object(r.tag) && !r.text("file").empty() &&
+                std::any_of(scene_.records.begin(), scene_.records.begin() + long(baseCount),
+                            [&](const Ac2Record& b) { return same(r, b); }))
+                continue;
+            scene_.records.push_back(r);
+        }
         // The act it's for: "salon_01_06a.ac2" is act 06a's.
         if (!playing_)
             state_.act = name.substr(name.rfind('_') + 1, 3);
@@ -571,7 +591,7 @@ bool ScenePage::startMovie(ScriptRunner& runner, const ScriptEvent& e, bool wait
         music_.clear();
     }
     auto player = std::make_unique<MoviePlayer>(ctx_.mixer);
-    if (Error err = player->open(std::move(data), lastMs_, !flag("silent"))) {
+    if (Error err = player->open(std::move(data), lastMs_, !flag("silent") && ctx_.mixer)) { // no sound to decode without a mixer
         logScript("    (" + name + ": " + err.message + ")");
         return false;
     }
@@ -756,6 +776,7 @@ void ScenePage::newGame() {
     movieRunner_ = nullptr;
     soundRunner_ = nullptr;
     interfaceOff_ = false;
+    card_.clear();
     sceneShown_ = true;
     load_ = LocationLoad();
     restoring_.reset();
@@ -1016,6 +1037,8 @@ void ScenePage::loadCharacters() {
 }
 
 void ScenePage::draw() {
+    if (!drawing_)
+        return;
     const std::vector<const Ac2Record*> objects = scene_.objects();
     // Pictures and video loops back to front, by depth: the background at
     // -10000, what's behind its windows further still. A picture's d0,
@@ -1253,6 +1276,15 @@ void ScenePage::draw() {
             y += font::kLineHeight;
         }
     }
+    if (!card_.empty()) {
+        // A passport or a fingerprint card held up ("startpass"), on its
+        // card; in the middle of the screen, a guess.
+        for (const std::string& file : card_) {
+            const image::Image& img = picture(file);
+            if (img.w > 0)
+                blitOver(ctx_.screen, img, (kScreenW - img.w) / 2, (kScreenH - img.h) / 2 - 60);
+        }
+    }
     if (dialogue_->boxShown() && ctx_.fonts) {
         DialogueBoxPictures pics;
         pics.window = &picture(dialogue_->window() == 1 ? "interface/dialoguewin02.png" : "interface/dialoguewin01.png");
@@ -1399,7 +1431,7 @@ void ScenePage::update(uint64_t nowMs) {
         dialogue_->update(dt);
         draw(); // the box moves, lines change
     }
-    bool changed = advanceLoops(time);
+    bool changed = drawing_ && advanceLoops(time); // nothing to decode for a tool not drawing
     for (Character& c : characters_) {
         // Its routine, unless paused; its animations and any turn.
         if (c.routine && !c.paused)
@@ -2640,6 +2672,23 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
                 sounds_.erase(it);
                 break;
             }
+        return false;
+    }
+    if (v == "startpass" || v == "startprint" || v == "endpass" || v == "endprint") {
+        // The passports' and fingerprint cards' screen (0x417ba0): the card
+        // (inventory\interface\card.png or print.png) with the passport
+        // on it slides in, then the event is done and passport.wav plays;
+        // "endpass" slides it out (0x418090). Shown at once here.
+        card_.clear();
+        if (v == "startpass") {
+            const std::string who = lower(e.arg(1));
+            card_ = {"inventory/interface/card.png", "inventory/items/pass" + who + "/exapass" + who + ".png"};
+            playSound("passport");
+        } else if (v == "startprint") {
+            card_ = {"inventory/interface/print.png"};
+            playSound("fingerprint");
+        }
+        draw();
         return false;
     }
     if (v == "interface") {

@@ -82,7 +82,8 @@ std::vector<const Ac2Record*> ScenePage::clickableObjects() const {
     for (const Ac2Record* o : scene_.objects()) {
         if ((o->tag != "SPOT" && o->tag != "NPCX") || hidden(*o) || !testCondition(o->text("condition"), state_))
             continue;
-        if (o->text("script").empty() && !o->field("listB"))
+        const Ac2Value* alternatives = o->field("listB");
+        if (o->text("script").empty() && (!alternatives || alternatives->pairs.empty()))
             continue;
         out.push_back(o);
     }

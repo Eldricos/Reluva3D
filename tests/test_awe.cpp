@@ -936,6 +936,13 @@ void testDialogueBook() {
         CHECK(locked->threads[0].lines[1].voiceFile() == "sound/vo/gen_locked01aa_1.wav");
     CHECK(dialoguePartCode("a") == 0 && dialoguePartCode("1") == 100 && dialogueThreadCode("z1") == 26 &&
           dialogueThreadCode("3") == 0x62 && dialogueNestCode("b") == 1);
+    // Read by position, whatever the headings (gen_characters.txt's first
+    // is a name), with no Optional column.
+    DialogueBook gen;
+    gen.add(parseTable("gen_globalhardman\tAct\tConver.\tThread\tNest\tSpeaker\tTarget\tLine\n"
+                       "gen_arbuthnot_exit\t0\t0\t3\ta\tantoinette\t0\tAu revoir.\t0\t0\t0\t0\t0\t0\t0\tadded\n"));
+    const DialoguePart* exit = gen.find("gen_arbuthnot_exit", 99);
+    CHECK(exit && exit->threads.size() == 1 && exit->threads[0].code == 0x62);
 }
 
 // A conversation played through: no voices, so each line lasts its

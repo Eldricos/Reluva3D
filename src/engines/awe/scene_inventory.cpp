@@ -122,9 +122,9 @@ bool ScenePage::combineItems(const std::vector<std::string>& parts) {
     return false;
 }
 
-std::vector<std::string> ScenePage::itemsFor(size_t i) const {
+std::vector<std::string> ScenePage::itemsFor(size_t i) {
     // The items its conditional scripts ask to be used on it ("use
-    // waterglass"), that Poirot has.
+    // waterglass"), or uselist.txt has for it, that Poirot has.
     std::vector<std::string> out;
     const std::vector<const Ac2Record*> objects = clickableObjects();
     if (i >= objects.size())
@@ -141,6 +141,16 @@ std::vector<std::string> ScenePage::itemsFor(size_t i) const {
                     out.push_back(item);
             }
         }
+    if (objects[i]->tag == "NPCX") {
+        const Table& t = itemTable("uselist.txt");
+        const std::string model = fs::toLower(objects[i]->text("file"));
+        for (size_t r = 0; r < t.rows.size(); r++) {
+            const std::string item = fs::toLower(unquoted(t.cell(r, 0)));
+            if (model.find(fs::toLower(unquoted(t.cell(r, 1))) + "_model") != std::string::npos &&
+                state_.itemAvailable(item) && std::find(out.begin(), out.end(), item) == out.end())
+                out.push_back(item);
+        }
+    }
     return out;
 }
 
