@@ -438,6 +438,19 @@ static void testX86Instructions() {
     const uint32_t bitsOfF = cpu.read32(0x3000);
     std::memcpy(&f, &bitsOfF, 4);
     CHECK(f == std::sqrt(2.0f));
+    // FILD/FISTP of 64-bit integers copy them exactly (a memcpy trick):
+    // fild qword [0x3000]; fild qword [0x3010]; fxch st1; fistp qword [0x3018];
+    // fistp qword [0x3020]; ret. Both values need more than a double's 53 bits.
+    cpu.write32(0x3000, 0x6009fb10);
+    cpu.write32(0x3004, 0x4853e428);
+    cpu.write32(0x3010, 0x89abcdef);
+    cpu.write32(0x3014, 0xf1234567);
+    runX86(cpu, {0xdf, 0x2d, 0, 0x30, 0, 0, 0xdf, 0x2d, 0x10, 0x30, 0, 0, 0xd9, 0xc9, 0xdf, 0x3d, 0x18, 0x30, 0, 0,
+                 0xdf, 0x3d, 0x20, 0x30, 0, 0, 0xc3});
+    CHECK(cpu.read32(0x3018) == 0x6009fb10 && cpu.read32(0x301c) == 0x4853e428);
+    CHECK(cpu.read32(0x3020) == 0x89abcdef && cpu.read32(0x3024) == 0xf1234567);
+    // Segment registers in a flat model: push es; pop es; mov eax, 0; mov ax, ds; ret
+    CHECK(runX86(cpu, {0x06, 0x07, 0xb8, 0, 0, 0, 0, 0x66, 0x8c, 0xd8, 0xc3}) == 0x23);
     // fs: mov eax, fs:[4]; ret
     cpu.fsBase = 0x4000;
     cpu.write32(0x4004, 0xabcd);
@@ -455,6 +468,29 @@ static void testX86Instructions() {
     });
     cpu.write32(0x3100, native);
     CHECK(runX86(cpu, {0x6a, 20, 0xff, 0x15, 0, 0x31, 0, 0, 0xc3}) == 40);
+}
+
+static void testWin32Files() {
+    // Drives on folders: names matched ignoring case, writes kept apart.
+    namespace stdfs = std::filesystem;
+    const stdfs::path root = stdfs::temp_directory_path() / "reluva_win32_files";
+    stdfs::remove_all(root);
+    stdfs::create_directories(root / "game" / "GameData");
+    std::ofstream(root / "game" / "GameData" / "Config.TXT") << "x";
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    x86::Win32Process::Drive c;
+    c.root = root / "game";
+    c.writable = root / "save";
+    process.addDrive(c);
+    process.setCurrentDirectory("C:\\GameData");
+    CHECK(process.fullPath("..\\x\\.\\y") == "C:\\x\\y");
+    CHECK(process.fullPath("a/b") == "C:\\GameData\\a\\b");
+    CHECK(process.fullPath("\\top") == "C:\\top");
+    CHECK(process.hostPath("config.txt", false) == root / "game" / "GameData" / "Config.TXT");
+    CHECK(process.hostPath("C:\\GAMEDATA\\CONFIG.TXT", true) == root / "save" / "GameData" / "Config.TXT");
+    CHECK(process.hostPath("D:\\x", false).empty());
+    stdfs::remove_all(root);
 }
 
 static void testX86Dll() {
@@ -578,6 +614,7 @@ int main() {
     testGfxMath();
     testX86Instructions();
     testX86Dll();
+    testWin32Files();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

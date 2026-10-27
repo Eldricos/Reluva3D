@@ -98,6 +98,8 @@ uint8_t* Cpu::at(uint32_t a, uint32_t size) {
 }
 
 uint32_t Cpu::load(uint32_t a, int size) {
+    if (readableFirstPage && a < kPageSize && a + uint32_t(size) <= kPageSize)
+        return 0;
     const uint8_t* p = at(a, uint32_t(size));
     if (size == 1)
         return p[0];
@@ -110,6 +112,8 @@ uint32_t Cpu::load(uint32_t a, int size) {
 
 void Cpu::store(uint32_t a, uint32_t v, int size) {
     uint8_t* p = at(a, uint32_t(size));
+    if (a < watchEnd && a + uint32_t(size) > watchStart && onWatchedStore)
+        onWatchedStore(*this, a, v, size);
     if (size == 1)
         p[0] = uint8_t(v);
     else if (size == 2) {
@@ -128,6 +132,24 @@ uint32_t Cpu::pop() {
     const uint32_t v = load(reg[ESP], 4);
     reg[ESP] += 4;
     return v;
+}
+
+void Cpu::pushSegment(int s) {
+    if (d_.opSize16) {
+        reg[ESP] -= 2;
+        store(reg[ESP], sreg[size_t(s)], 2);
+    } else {
+        push(sreg[size_t(s)]);
+    }
+}
+
+void Cpu::popSegment(int s) {
+    if (d_.opSize16) {
+        sreg[size_t(s)] = uint16_t(load(reg[ESP], 2));
+        reg[ESP] += 2;
+    } else {
+        sreg[size_t(s)] = uint16_t(pop());
+    }
 }
 
 uint32_t Cpu::fetch8() { return load(eip++, 1); }
@@ -563,6 +585,10 @@ void Cpu::twoByte() {
     }
     switch (op) {
     case 0x1f: decodeModrm(); return; // NOP r/m
+    case 0xa0: pushSegment(4); return; // PUSH FS
+    case 0xa1: popSegment(4); return;  // POP FS
+    case 0xa8: pushSegment(5); return; // PUSH GS
+    case 0xa9: popSegment(5); return;  // POP GS
     case 0x31: // RDTSC
         reg[EAX] = uint32_t(executed_);
         reg[EDX] = uint32_t(executed_ >> 32);
@@ -715,6 +741,12 @@ void Cpu::step() {
         callNative(eip);
         return;
     }
+    if (sliceLength_ && ++sliceCount_ >= sliceLength_) {
+        sliceCount_ = 0;
+        if (!slice_(*this))
+            fault(stopMessage);
+        instructionStart_ = eip;
+    }
     if (trace)
         trace(*this);
     ++executed_;
@@ -817,6 +849,29 @@ void Cpu::step() {
 
     switch (op) {
     case 0x0f: twoByte(); return;
+    // Segment registers: pushed and popped as selectors (the model is flat).
+    case 0x06: pushSegment(0); return; // PUSH ES
+    case 0x07: popSegment(0); return;  // POP ES
+    case 0x0e: pushSegment(1); return; // PUSH CS
+    case 0x16: pushSegment(2); return; // PUSH SS
+    case 0x17: popSegment(2); return;  // POP SS
+    case 0x1e: pushSegment(3); return; // PUSH DS
+    case 0x1f: popSegment(3); return;  // POP DS
+    case 0x8c: // MOV r/m16, Sreg
+        decodeModrm();
+        if (d_.regField > 5)
+            fault("MOV from segment register " + std::to_string(d_.regField));
+        if (d_.memoryOperand)
+            store(d_.address, sreg[d_.regField], 2);
+        else
+            writeReg(osz, d_.rm, sreg[d_.regField]);
+        return;
+    case 0x8e: // MOV Sreg, r/m16
+        decodeModrm();
+        if (d_.regField > 5 || d_.regField == 1)
+            fault("MOV to segment register " + std::to_string(d_.regField));
+        sreg[d_.regField] = uint16_t(readRm(2));
+        return;
     case 0x27: { // DAA
         const uint32_t al = reg[EAX] & 0xff, cf = eflags & CF;
         uint32_t r = al;
@@ -1060,6 +1115,8 @@ void Cpu::callNative(uint32_t address) {
     const uint32_t i = (address - nativeBase_) / kNativeStride;
     if (i >= natives_.size())
         fault("call to an unused native slot");
+    if (nativeTrace)
+        nativeTrace(*this, natives_[i].name);
     const uint32_t popBytes = natives_[i].fn(*this);
     if (!abort_.empty()) {
         std::string message = std::move(abort_);
@@ -1068,6 +1125,34 @@ void Cpu::callNative(uint32_t address) {
     }
     eip = pop();
     reg[ESP] += popBytes;
+}
+
+Cpu::Context Cpu::saveContext() const {
+    Context c;
+    c.reg = reg;
+    c.eip = eip;
+    c.eflags = eflags;
+    c.fsBase = fsBase;
+    c.sreg = sreg;
+    c.fpu = fpu;
+    c.depth = depth_;
+    c.limitAt = limitAt_;
+    c.instructionStart = instructionStart_;
+    c.abort = abort_;
+    return c;
+}
+
+void Cpu::loadContext(const Context& c) {
+    reg = c.reg;
+    eip = c.eip;
+    eflags = c.eflags;
+    fsBase = c.fsBase;
+    sreg = c.sreg;
+    fpu = c.fpu;
+    depth_ = c.depth;
+    limitAt_ = c.limitAt;
+    instructionStart_ = c.instructionStart;
+    abort_ = c.abort;
 }
 
 void Cpu::runUntil(uint32_t returnAddress) {

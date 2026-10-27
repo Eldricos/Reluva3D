@@ -71,6 +71,8 @@ add_library(reluva_common STATIC
     src/common/x86/cpu.cpp
     src/common/x86/fpu.cpp
     src/common/x86/win32.cpp
+    src/common/x86/win32_files.cpp
+    src/common/x86/win32_threads.cpp
     src/common/x86/format.cpp
     src/common/detection.cpp
     src/common/audio/decode.cpp
@@ -195,6 +197,9 @@ if(RELUVA_ENGINE_NFS)
         src/engines/nfs/mus.cpp
         src/engines/nfs/mad.cpp
         src/engines/nfs/media_viewer.cpp
+        src/engines/nfs/host/game_host.cpp
+        src/engines/nfs/host/directx.cpp
+        src/engines/nfs/host/thrash.cpp
         src/engines/nfs/fce.cpp
         src/engines/nfs/frd.cpp
         src/engines/nfs/col.cpp

@@ -62,6 +62,10 @@ public:
     uint32_t eip = 0;
     uint32_t eflags = 0x202;
     uint32_t fsBase = 0; // the FS segment's base (Windows' thread information block)
+    // The segment registers' selectors, as Windows sets them, in the
+    // instruction set's order: ES, CS, SS, DS, FS, GS. The model is flat, so
+    // loading one changes nothing but the selector held (FS keeps its base).
+    std::array<uint16_t, 6> sreg{0x23, 0x1b, 0x23, 0x23, 0x3b, 0};
     // The x87 unit: its eight registers as a stack (st(i) is regs[(top + i) & 7]),
     // kept as doubles: Windows programs run it at 53-bit precision.
     struct Fpu {
@@ -69,6 +73,12 @@ public:
         uint8_t top = 0;
         uint8_t tags = 0xff; // a bit set for each empty register
         uint16_t control = 0x027f, status = 0;
+        // A 64-bit integer loaded with FILD, kept exactly alongside its
+        // double (which can't hold every one), so that FISTP stores it back
+        // unchanged: programs copy memory 8 bytes at a time that way. A
+        // bit set in exactValid for each register holding one.
+        std::array<int64_t, 8> exact{};
+        uint8_t exactValid = 0;
     } fpu;
 
     // --- Native code ---------------------------------------------------------
@@ -105,8 +115,17 @@ public:
         if (abort_.empty())
             abort_ = std::move(message);
     }
+    // Reads in the first page give 0 rather than faulting, as Windows 95
+    // and 98 let programs read low memory (writes still fault).
+    bool readableFirstPage = false;
     // Called before each instruction, with its address; for tracing.
     std::function<void(Cpu& cpu)> trace;
+    // Called when an instruction stores into [watchStart, watchEnd); for
+    // finding what changes memory (a debugging aid).
+    uint32_t watchStart = 0, watchEnd = 0;
+    std::function<void(Cpu& cpu, uint32_t address, uint32_t value, int size)> onWatchedStore;
+    // Called before each native function runs, with its name; for logs.
+    std::function<void(Cpu& cpu, const std::string& name)> nativeTrace;
 
     // The registers as they were when the last call() failed (before they
     // were put back), for reports.
@@ -116,6 +135,31 @@ public:
     // The stack: the emulated code's, which call() uses; set before the
     // first call (it grows down from `top`).
     void setStack(uint32_t top) { reg[ESP] = top; }
+
+    // --- Threads -------------------------------------------------------------
+    // Everything a thread of the program has of its own, for running
+    // several on the one processor: each on a host thread of its own, one
+    // at a time, the context swapped when they change over (Win32Process).
+    struct Context {
+        std::array<uint32_t, 8> reg{};
+        uint32_t eip = 0, eflags = 0x202, fsBase = 0;
+        std::array<uint16_t, 6> sreg{};
+        Fpu fpu;
+        int depth = 0;
+        uint64_t limitAt = 0;
+        uint32_t instructionStart = 0;
+        std::string abort;
+    };
+    Context saveContext() const;
+    void loadContext(const Context& c);
+    // Called every `length` instructions (between two), for switching
+    // threads; returning false ends the run with `stopMessage`.
+    void setSlice(uint32_t length, std::function<bool(Cpu& cpu)> fn) {
+        sliceLength_ = length;
+        sliceCount_ = 0;
+        slice_ = std::move(fn);
+    }
+    std::string stopMessage = "the run was stopped";
 
 private:
     struct Fault {
@@ -132,6 +176,8 @@ private:
     void store(uint32_t a, uint32_t v, int size);
     void push(uint32_t v);
     uint32_t pop();
+    void pushSegment(int s);
+    void popSegment(int s);
     uint32_t fetch8();
     uint32_t fetch16();
     uint32_t fetch32();
@@ -163,6 +209,8 @@ private:
 
     // x87 helpers.
     double& st(int i) { return fpu.regs[size_t((fpu.top + i) & 7)]; }
+    // Copies st(from)'s exact integer, if it has one, to st(to).
+    void copyExact(int to, int from);
     void fpuCompare(double a, double b, bool setEflags, bool unordered);
     double fpuRound(double v) const;
 
@@ -178,6 +226,8 @@ private:
     uint64_t executed_ = 0, limit_ = 0, limitAt_ = 0;
     int depth_ = 0;
     std::string abort_;
+    uint32_t sliceLength_ = 0, sliceCount_ = 0;
+    std::function<bool(Cpu& cpu)> slice_;
 };
 
 } // namespace reluva::x86

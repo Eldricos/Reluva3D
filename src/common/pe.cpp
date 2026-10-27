@@ -180,10 +180,46 @@ Error parsePe(const std::vector<uint8_t>& file, PeImage& out) {
         }
     }
     out.hasTls = dir(9).first != 0;
+    out.resourceRva = dir(2).first;
+    out.resourceSize = dir(2).second;
     for (int i = 0; i < int(dirCount); ++i)
         if (dir(i).first && i != 0 && i != 1 && i != 5 && i != 9)
             out.otherDirectories.emplace_back(kDirectories[i]);
     return Error::success();
+}
+
+std::vector<uint8_t> findResource(const PeImage& pe, const std::vector<uint8_t>& file, uint32_t type) {
+    // Three levels of directories: type, name, language. Each directory:
+    // 16 bytes, then 8-byte entries (named ones first); an entry's high bit
+    // marks a subdirectory. Offsets count from the resource section's start.
+    const Reader r{file};
+    const int64_t base = pe.resourceRva ? pe.fileOffset(pe.resourceRva) : -1;
+    if (base < 0)
+        return {};
+    auto entries = [&](uint32_t dirOffset, bool matchType) -> int64_t {
+        const size_t at = size_t(base) + dirOffset;
+        const uint32_t count = uint32_t(r.u16(at + 12)) + r.u16(at + 14);
+        for (uint32_t i = 0; i < count && i < 4096; ++i) {
+            const uint32_t id = r.u32(at + 16 + 8 * i), target = r.u32(at + 20 + 8 * i);
+            if (!matchType || (!(id & 0x80000000u) && id == type))
+                return target;
+        }
+        return -1;
+    };
+    int64_t e = entries(0, true);
+    for (int level = 0; level < 2 && e >= 0; ++level) {
+        if (!(e & 0x80000000u))
+            return {};
+        e = entries(uint32_t(e) & 0x7fffffffu, false);
+    }
+    if (e < 0 || (e & 0x80000000u))
+        return {};
+    const size_t data = size_t(base) + size_t(e);
+    const int64_t at = pe.fileOffset(r.u32(data));
+    const uint32_t size = r.u32(data + 4);
+    if (at < 0 || !r.ok(size_t(at), size))
+        return {};
+    return std::vector<uint8_t>(file.begin() + at, file.begin() + at + size);
 }
 
 } // namespace reluva

@@ -13,6 +13,7 @@
 #include "engines/nfs/folders.h"
 #include "engines/nfs/fsh.h"
 #include "engines/nfs/game_files.h"
+#include "engines/nfs/host/game_host.h"
 #include "engines/nfs/hrz.h"
 #include "engines/nfs/mad.h"
 #include "engines/nfs/mus.h"
@@ -23,6 +24,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
@@ -58,6 +60,9 @@ const char* const kUsageLines =
     "  reluva-tool mad-info <file.mad>\n"
     "  reluva-tool mad-frames <file.mad> <output dir> [first frame] [count]\n"
     "  reluva-tool mad-wav <file.mad> <out.wav>\n"
+    "  reluva-tool nfs-host <game folder> [-args \"nfs3.exe\"] [-renderer softtria.dll] [-limit N] [-log N] [-save dir]\n"
+    "                       [-frames dir] [-every N] [-watch address]... [-watchmem address size]\n"
+    "                       [-slice instructions] [-dump memory.bin]\n"
     "  reluva-tool nfs-survey <folder>... [-v]\n"
     "  reluva-tool nfs-page <game folder> <out.tga> <page> [key...]\n";
 
@@ -930,6 +935,130 @@ int cmdMadWav(int argc, char** argv) {
     return 0;
 }
 
+// Runs the retail nfs3.exe in the x86 interpreter (Phase 4's spike) and
+// reports how far it gets: the system calls it makes, the files it opens,
+// what it asks of THRASH, and where it stops.
+int cmdNfsHost(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool nfs-host <game folder> [-args \"nfs3.exe -d3d\"] [-limit N] [-log N] "
+                             "[-save dir] [-trace N]\n");
+        return 2;
+    }
+    reluva::nfs::GameHost::Options options;
+    options.saveFolder = stdfs::temp_directory_path() / "reluva_nfs3_save";
+    int traceCount = 32, every = 50;
+    std::vector<uint32_t> watch; // addresses at which to print the registers
+    std::string dumpFile;        // the emulated memory, written at the end
+    uint32_t slice = 0;          // instructions between thread changes (0: the default)
+    uint32_t watchMem = 0, watchMemSize = 0; // memory whose stores are printed
+    std::string framesDir;
+    for (int a = 3; a < argc; ++a) {
+        const std::string arg = argv[a];
+        if (arg == "-args" && a + 1 < argc)
+            options.commandLine = argv[++a];
+        else if (arg == "-limit" && a + 1 < argc)
+            options.instructionLimit = std::strtoull(argv[++a], nullptr, 0);
+        else if (arg == "-log" && a + 1 < argc)
+            options.callLog = std::atoi(argv[++a]);
+        else if (arg == "-save" && a + 1 < argc)
+            options.saveFolder = argv[++a];
+        else if (arg == "-trace" && a + 1 < argc)
+            traceCount = std::atoi(argv[++a]);
+        else if (arg == "-frames" && a + 1 < argc)
+            framesDir = argv[++a];
+        else if (arg == "-watch" && a + 1 < argc)
+            watch.push_back(uint32_t(std::strtoul(argv[++a], nullptr, 0)));
+        else if (arg == "-slice" && a + 1 < argc)
+            slice = uint32_t(std::strtoul(argv[++a], nullptr, 0));
+        else if (arg == "-watchmem" && a + 2 < argc) {
+            watchMem = uint32_t(std::strtoul(argv[++a], nullptr, 0));
+            watchMemSize = uint32_t(std::strtoul(argv[++a], nullptr, 0));
+        } else if (arg == "-dump" && a + 1 < argc)
+            dumpFile = argv[++a];
+        else if (arg == "-every" && a + 1 < argc)
+            every = std::max(1, std::atoi(argv[++a]));
+    }
+    const auto folders = reluva::nfs::findFolders(argv[2], {}, "nfs3.exe");
+    std::printf("install %s, CD %s, writes to %s\n", folders.install.string().c_str(),
+                folders.cd.empty() ? "(none)" : folders.cd.string().c_str(), options.saveFolder.string().c_str());
+    reluva::nfs::GameHost host(folders, options);
+    host.log = [](const std::string& line) { std::printf("%s\n", line.c_str()); };
+    // Frames shown: every so many written as pictures.
+    int shown = 0;
+    host.onFrame = [&](const reluva::Surface& frame) {
+        if (framesDir.empty() || shown++ % every)
+            return;
+        reluva::image::Image img;
+        img.w = frame.w;
+        img.h = frame.h;
+        img.rgba = frame.pixels;
+        char name[32];
+        std::snprintf(name, sizeof name, "frame%05d.tga", shown - 1);
+        writeFile(stdfs::path(framesDir) / name, reluva::image::encodeTga(img));
+    };
+    std::vector<uint32_t> recent(size_t(std::max(traceCount, 1)));
+    size_t recentAt = 0;
+    int watched = 0;
+    host.cpu().trace = [&](reluva::x86::Cpu& c) {
+        recent[recentAt++ % recent.size()] = c.eip;
+        if (!watch.empty() && watched < 50 && std::find(watch.begin(), watch.end(), c.eip) != watch.end()) {
+            ++watched;
+            std::printf("  at %08x: eax %08x ecx %08x edx %08x ebx %08x esp %08x ebp %08x esi %08x edi %08x\n", c.eip,
+                        c.reg[0], c.reg[1], c.reg[2], c.reg[3], c.reg[4], c.reg[5], c.reg[6], c.reg[7]);
+        }
+    };
+    if (slice)
+        host.process().slice = slice;
+    if (watchMemSize) {
+        host.cpu().watchStart = watchMem;
+        host.cpu().watchEnd = watchMem + watchMemSize;
+        host.cpu().onWatchedStore = [&host](reluva::x86::Cpu& c, uint32_t address, uint32_t value, int size) {
+            const auto* t = host.process().currentThread();
+            std::printf("  store %08x <- %08x (%d bytes) at %08x [thread %u] esp %08x\n", address, value, size, c.eip,
+                        t ? t->id : 0, c.reg[reluva::x86::Cpu::ESP]);
+        };
+    }
+    if (Error err = host.load())
+        return fail(err);
+    uint32_t exitCode = 0;
+    const auto start = std::chrono::steady_clock::now();
+    const Error err = host.run(exitCode);
+    const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    if (err) {
+        std::printf("stopped: %s\nlast instructions:", err.message.c_str());
+        for (size_t i = recentAt > recent.size() ? recentAt - recent.size() : 0; i < recentAt; ++i)
+            std::printf(" %08x", recent[i % recent.size()]);
+        const auto& r = host.cpu().faultReg;
+        std::printf("\nregisters: eax %08x ecx %08x edx %08x ebx %08x esp %08x ebp %08x esi %08x edi %08x\n", r[0],
+                    r[1], r[2], r[3], r[4], r[5], r[6], r[7]);
+    } else {
+        std::printf("the game ended the process, exit code %u\n", exitCode);
+    }
+    if (!dumpFile.empty())
+        writeFile(dumpFile, host.cpu().memory());
+    const uint64_t n = host.cpu().executed();
+    std::printf("%llu instructions in %.1f s (%.1f million a second)\n", (unsigned long long)n, seconds,
+                seconds > 0 ? n / seconds / 1e6 : 0.0);
+    std::vector<std::pair<uint64_t, std::string>> counts;
+    for (const auto& [name, count] : host.callCounts)
+        counts.push_back({count, name});
+    std::sort(counts.rbegin(), counts.rend());
+    std::printf("system calls (%zu kinds):", counts.size());
+    for (size_t i = 0; i < counts.size() && i < 40; ++i)
+        std::printf("%s %s %llu", i ? "," : "", counts[i].second.c_str(), (unsigned long long)counts[i].first);
+    std::printf("\n");
+    const auto& t = host.thrash();
+    if (!t.dll.empty() || !t.calls.empty()) {
+        std::printf("THRASH (%s): %llu frames, %llu triangles, %llu quads, %llu textures\n  calls:", t.dll.c_str(),
+                    (unsigned long long)t.frames, (unsigned long long)t.triangles, (unsigned long long)t.quads,
+                    (unsigned long long)t.textures);
+        for (const auto& [name, count] : t.calls)
+            std::printf(" %s %llu", name.c_str(), (unsigned long long)count);
+        std::printf("\n");
+    }
+    return err ? 1 : 0;
+}
+
 // Draws one of the engine's viewer pages after the keys given, as the
 // engine would, without a window: for checking pages and taking pictures
 // of them.
@@ -1021,6 +1150,8 @@ int runNfsCommand(int argc, char** argv) {
         return cmdMusInfo(argc, argv);
     if (std::strcmp(cmd, "mus-wav") == 0)
         return cmdMusWav(argc, argv);
+    if (std::strcmp(cmd, "nfs-host") == 0)
+        return cmdNfsHost(argc, argv);
     if (std::strcmp(cmd, "mad-info") == 0)
         return cmdMadInfo(argc, argv);
     if (std::strcmp(cmd, "mad-frames") == 0)

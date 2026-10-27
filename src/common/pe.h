@@ -58,6 +58,7 @@ struct PeImage {
     uint32_t relocationCount = 0; // base relocations (to load it at another address)
     std::vector<uint32_t> relocations; // the RVAs of the 32-bit ones (HIGHLOW), which are all a PE32 has
     bool hasTls = false;          // thread-local storage callbacks
+    uint32_t resourceRva = 0, resourceSize = 0; // the resource directory
     std::vector<std::string> otherDirectories; // data directories present besides those above
 
     // The file offset of an RVA, or -1 if it's in no section's file data.
@@ -65,5 +66,9 @@ struct PeImage {
 };
 
 Error parsePe(const std::vector<uint8_t>& file, PeImage& out);
+
+// The data of the first resource of a type (16: the version information),
+// whatever its name and language; empty if there's none.
+std::vector<uint8_t> findResource(const PeImage& pe, const std::vector<uint8_t>& file, uint32_t type);
 
 } // namespace reluva

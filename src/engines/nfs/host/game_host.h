@@ -1,0 +1,164 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#pragma once
+
+#include "common/types.h"
+#include "common/x86/cpu.h"
+#include "common/x86/win32.h"
+#include "engines/nfs/folders.h"
+
+#include <cstdint>
+#include <array>
+#include <deque>
+#include <filesystem>
+#include <functional>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <vector>
+
+namespace reluva::nfs {
+
+// The retail nfs3.exe run in the x86 interpreter (docs/engines/nfs.md,
+// Phase 4): a Windows process whose C: is the install folder and D: the
+// CD, with the system's functions it calls stood in for. Its own renderer
+// (THRASH) and sound (iSND) DLLs run too, on DirectDraw and DirectSound
+// stood in for.
+class GameHost {
+public:
+    struct Options {
+        std::string commandLine = "nfs3.exe";
+        std::string renderer = "softtria.dll"; // the THRASH DLL, as the registry names it
+        std::filesystem::path saveFolder; // what the game writes; the install folder stays as it is
+        uint32_t memoryMb = 256;
+        uint64_t instructionLimit = 0; // 0: none
+        int callLog = 0;               // how many system calls to log with their arguments
+    };
+    GameHost(GameFolders folders, Options options);
+    ~GameHost();
+
+    // Loads nfs3.exe and binds its imports.
+    Error load();
+    // Runs it until it ends the process or fails.
+    Error run(uint32_t& exitCode);
+
+    x86::Cpu& cpu() { return *cpu_; }
+    x86::Win32Process& process() { return *process_; }
+    const x86::Win32Process::Module* exe() const { return exe_; }
+
+    // Lines for the report: the calls logged, files opened, messages.
+    std::function<void(const std::string& line)> log;
+    // How many times each native function was called.
+    std::map<std::string, uint64_t> callCounts;
+
+    // The window, as the game made it.
+    struct Window {
+        uint32_t handle = 0, wndProc = 0, style = 0, userData = 0;
+        std::string className, title;
+        uint32_t threadId = 0;
+        int width = 640, height = 480;
+    };
+    const std::vector<Window>& windows() const { return windows_; }
+
+    // THRASH's state, for reports.
+    struct ThrashStats {
+        std::string dll;
+        uint64_t frames = 0, triangles = 0, quads = 0, textures = 0;
+        int width = 0, height = 0, bits = 0;
+        uint64_t lastFrameInstructions = 0, frameInstructionsTotal = 0;
+        std::map<std::string, uint64_t> calls;
+    };
+    const ThrashStats& thrash() const { return thrash_; }
+    // Called after each page flip with the frame drawn so far, as RGBA.
+    std::function<void(const Surface& frame)> onFrame;
+
+private:
+    struct Message {
+        uint32_t hwnd = 0, message = 0, wParam = 0, lParam = 0, time = 0;
+    };
+    void say(const std::string& line) {
+        if (log)
+            log(line);
+    }
+    // A stdcall stand-in of `args` arguments.
+    void provide(const char* dll, const char* name, int args, std::function<uint32_t(x86::Cpu&)> fn);
+    void addSystem();   // KERNEL32 left over, GDI32, ADVAPI32, VERSION, SHELL32, ole32
+    void addUser();     // USER32: windows and messages
+    void addNetwork();  // WSOCK32: there's no network
+    void addDirectX();  // DDRAW and DINPUT
+    void addDirectSound();
+    // A COM object whose methods (stdcall, `this` first) are native
+    // functions: names and argument counts (this included), in vtable order.
+    struct Method {
+        const char* name;
+        int args;
+        std::function<uint32_t(x86::Cpu&)> fn; // empty: logs and returns E_NOTIMPL
+    };
+    uint32_t makeVtable(const std::string& interface, const std::vector<Method>& methods);
+    uint32_t newObject(uint32_t vtable);
+    uint32_t makeObject(const std::string& interface, const std::vector<Method>& methods) {
+        return newObject(makeVtable(interface, methods));
+    }
+    uint32_t callWindow(const Window& w, uint32_t msg, uint32_t wParam, uint32_t lParam);
+    Window* window(uint32_t handle);
+    void post(uint32_t threadId, const Message& m);
+
+    GameFolders folders_;
+    Options options_;
+    std::unique_ptr<x86::Cpu> cpu_;
+    std::unique_ptr<x86::Win32Process> process_;
+    const x86::Win32Process::Module* exe_ = nullptr;
+    int logged_ = 0;
+
+    std::map<std::string, uint32_t> classes_; // class name (lower case) -> window procedure
+    std::vector<Window> windows_;
+    std::map<uint32_t, std::deque<Message>> queues_; // by thread id
+    uint32_t nextWindow_ = 0x10020;
+    int cursorCount_ = 0;
+    uint8_t keys_[256] = {};
+
+    // Native modules for LoadLibraryA: lower-case name -> handle, and each
+    // handle's exports.
+    std::map<std::string, uint32_t> nativeModules_;
+    std::map<uint32_t, std::map<std::string, uint32_t>> nativeExports_;
+    void addNativeModule(const std::string& name, uint32_t handle);
+    void addExport(uint32_t module, const std::string& name, int argBytes, std::function<uint32_t(x86::Cpu&)> fn);
+
+    ThrashStats thrash_;
+    uint64_t lastFlip_ = 0; // instructions run at the last page flip
+    // The game's own DLLs, loaded on LoadLibraryA: lower-case name -> module.
+    std::map<std::string, const x86::Win32Process::Module*> gameDlls_;
+    uint32_t thrashBase_ = 0;
+    uint32_t wrapThrash(const std::string& name, uint32_t address);
+
+    // DirectDraw's surfaces and palettes (directx.cpp), by object address.
+    struct DdSurface {
+        int width = 0, height = 0, bits = 16, pitch = 0;
+        uint32_t memory = 0, back = 0, caps = 0, palette = 0, colorKey = 0;
+        bool primary = false, hasColorKey = false;
+    };
+    std::map<uint32_t, DdSurface> surfaces_;
+    std::map<uint32_t, std::array<uint32_t, 256>> palettes_; // RGBA entries
+    uint32_t surfaceVtable_ = 0, paletteVtable_ = 0, clipperVtable_ = 0;
+    int modeWidth_ = 640, modeHeight_ = 480, modeBits_ = 16;
+    uint32_t newSurface(int width, int height, int bits, uint32_t caps);
+    void present(const DdSurface& s);
+    Surface frame_;
+
+    // DirectSound's buffers: played in time, not heard yet.
+    struct DsBuffer {
+        uint32_t memory = 0, size = 0;
+        int rate = 22050, blockAlign = 4, channels = 2, bits = 16;
+        bool primary = false, playing = false, looping = false;
+        uint64_t startMs = 0;
+        uint32_t startPosition = 0;
+        int32_t volume = 0, pan = 0;
+        uint32_t position(uint64_t nowMs);
+    };
+    std::map<uint32_t, DsBuffer> soundBuffers_;
+    uint32_t soundBufferVtable_ = 0;
+};
+
+} // namespace reluva::nfs
