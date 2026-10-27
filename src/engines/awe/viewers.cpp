@@ -1186,7 +1186,8 @@ void ScenePage::draw() {
                 lines.push_back(l);
         }
         lines.push_back(std::string("train ") + (state_.values["moving"] ? "moving" : "stopped") + ", weather " +
-                        (state_.values["weather"] ? "on" : "off") + (state_.act.empty() ? "" : ", act " + state_.act));
+                        (state_.values["weather"] ? "on" : "off") + (state_.values["time"] ? ", night" : "") +
+                        (state_.act.empty() ? "" : ", act " + state_.act));
         if (const Ac2Record* cam = scene_.camera()) {
             char buf[200];
             std::snprintf(buf, sizeof buf, "camera about (%g, %g, %g), turned (%g, %g, %g), back (%g, %g, %g), fov %.1f deg",
@@ -1299,8 +1300,8 @@ void ScenePage::draw() {
     } else if (fade_ > 0) {
         fill(0, 0, kScreenW, kScreenH, Color{0, 0, 0}, uint8_t(fade_ * 255));
     }
-    help(std::string("Left/Right: scene  Up/Down: object  H: hotspots  I: info  M: moving  W: weather  G: grid  "
-                     "N: new game  click: walk") +
+    help(std::string("Left/Right: scene  Up/Down: object  H: hotspots  I: info  M: moving  W: weather  T: night  "
+                     "G: grid  N: new game  click: walk") +
          (renderer_ ? "  C: characters" : "  (no 3D: no characters)"));
     if (!renderer_)
         present();
@@ -1480,11 +1481,16 @@ void ScenePage::update(uint64_t nowMs) {
         // Brightness: the game's gamma ramp is the whole screen's, the
         // characters' too (slope 32g + 97 over 257).
         const float bright = float(32 * brightnessLevel() + 97) / 257.0f;
+        // Lit by the scene's lights, each with its own material, which its
+        // props share (docs/formats/awe/lighting.md).
+        const SceneLighting lighting = sceneLighting(scene_, state_);
         for (size_t i = 0; i < characters_.size(); i++) {
             const Character& c = characters_[i];
-            c.model->draw(poses[i], c.placement, false, frameMeshes_, bright);
+            const Material material = c.record ? materialOf(*c.record) : Material();
+            c.model->draw(poses[i], c.placement, false, frameMeshes_, bright, &lighting, material);
             for (size_t k = 0; k < c.props.size(); k++)
-                c.props[k].second->draw(propPoses[i][k], c.placement, false, frameMeshes_, bright);
+                c.props[k].second->draw(propPoses[i][k], c.placement, false, frameMeshes_, bright, &lighting,
+                                        material);
         }
         // The player washed toward white with distance, in the snow (the
         // camera's 1244 and 1248), when shadows are on (0x402e20).
@@ -2701,8 +2707,8 @@ void ScenePage::handleEvent(const Event& ev) {
     } else if (ev.key == 'g') {
         showGrid_ = !showGrid_;
         draw();
-    } else if (ev.key == 'm' || ev.key == 'w') {
-        int& v = state_.values[ev.key == 'm' ? "moving" : "weather"];
+    } else if (ev.key == 'm' || ev.key == 'w' || ev.key == 't') {
+        int& v = state_.values[ev.key == 'm' ? "moving" : ev.key == 'w' ? "weather" : "time"];
         v = !v;
         draw();
     } else if (ev.key == 'i') {

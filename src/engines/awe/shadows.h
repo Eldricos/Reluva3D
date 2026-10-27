@@ -18,7 +18,7 @@
 namespace reluva::awe {
 
 // The shadows' light: the mean position of the scene's LITEs (only those
-// marked to cast shadows, e1c, if any are), raised by 1500; (0, 1500, 0)
+// marked shadowOnly, if any are), raised by 1500; (0, 1500, 0)
 // with none.
 std::array<float, 3> shadowLight(const Ac2Scene& scene);
 

@@ -91,6 +91,12 @@ scenes, two Granny files, the text tables, two backgrounds):
   ([../formats/awe/shadows.md](../formats/awe/shadows.md)), and the
   puzzle screens: the torn letter, the safe and the puzzle box
   ([../formats/awe/puzzles.md](../formats/awe/puzzles.md)) work.
+- **Characters: lit as the game lights them.** Direct3D 8's
+  fixed-function lighting, per vertex: the scene's `LITE`s (directional,
+  point and spot lights), the camera's ambient colour (a blue one at
+  night outdoors, with the lights off), and each character's material
+  (see [../formats/awe/lighting.md](../formats/awe/lighting.md)). T in
+  the Scenes page toggles night.
 - **Characters: animated as the game animates them.** Up to ten
   animations each on body, head and eye layers, blended by the files'
   track masks; blinking, idle gestures and their routines; `anim`,
@@ -151,12 +157,9 @@ or member types beyond those Reluva reads.
 
 Next:
 
-1. Light the characters as the game does. They are lit by a fixed guess
-   for now (`model_draw.cpp`); the scenes have 426 `LITE` records, and
-   the cameras' fields `180`..`188` look like an ambient colour.
-2. Name the fields still known only by their offset, by comparing scenes
+1. Name the fields still known only by their offset, by comparing scenes
    and watching the original.
-3. Play the later acts through, to find what the scenes after the
+2. Play the later acts through, to find what the scenes after the
    opening need.
 
 ## What the install holds
