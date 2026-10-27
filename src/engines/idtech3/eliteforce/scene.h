@@ -26,6 +26,9 @@ struct Picture {
     float s1, t1, s2, t2;
     int32_t shader; // in the program's shaders
     std::array<float, 4> color;
+    // Degrees turned about the top-right corner (x + w, y), as the
+    // original's DrawRotatePic: clockwise on the screen, y being down.
+    float angle = 0;
 };
 
 // An entity added to the scene: its refEntity_t, kept as the 256 bytes

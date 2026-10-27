@@ -998,7 +998,12 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
         pictures_.push_back({f(0), f(1), f(2), f(3), f(4), f(5), f(6), f(7), int32_t(a(8)), color_});
         return 0;
     }
-    case 51: case 54: return 0; // the saved game's picture; rotated pictures: not yet
+    case 51: return 0; // the saved game's picture: not yet
+    case 54: { // R_DrawRotatePic(x, y, w, h, s1, t1, s2, t2, angle, shader)
+        auto f = [&](int n) { return readFloat(c.reg[x86::Cpu::ESP] + 8 + 4 * uint32_t(n)); };
+        pictures_.push_back({f(0), f(1), f(2), f(3), f(4), f(5), f(6), f(7), int32_t(a(9)), color_, f(8)});
+        return 0;
+    }
     case 52: { // R_ModelBounds(model, mins, maxs)
         Vec3f mins{}, maxs{};
         const std::string& name = models_.name(int32_t(a(0)));

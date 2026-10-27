@@ -148,8 +148,19 @@ void SceneDrawer::drawPictures(const std::vector<eliteforce::Picture>& pictures,
         uint8_t rgba[4];
         for (int i = 0; i < 4; ++i)
             rgba[i] = uint8_t(std::clamp(p.color[size_t(i)], 0.0f, 1.0f) * 255.0f + 0.5f);
-        const float xs[4] = {p.x, p.x + p.w, p.x + p.w, p.x};
-        const float ys[4] = {p.y, p.y, p.y + p.h, p.y + p.h};
+        float xs[4] = {p.x, p.x + p.w, p.x + p.w, p.x};
+        float ys[4] = {p.y, p.y, p.y + p.h, p.y + p.h};
+        if (p.angle != 0) {
+            // Turned about the top-right corner: the corners' offsets from
+            // it, rotated.
+            const float a = p.angle * 3.14159265358979f / 180.0f, c = std::cos(a), s = std::sin(a);
+            const float px = p.x + p.w, py = p.y;
+            for (int i = 0; i < 4; ++i) {
+                const float dx = xs[i] - px, dy = ys[i] - py;
+                xs[i] = px + c * dx - s * dy;
+                ys[i] = py + s * dx + c * dy;
+            }
+        }
         const float ss[4] = {p.s1, p.s2, p.s2, p.s1};
         const float ts[4] = {p.t1, p.t1, p.t2, p.t2};
         for (int i = 0; i < 4; ++i) {

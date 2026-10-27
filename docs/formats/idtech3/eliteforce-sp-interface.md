@@ -148,7 +148,7 @@ This is Quake III's native-DLL convention:
 | 49, 50 | `R_SetColor(rgba)`, `R_DrawStretchPic` (9) |
 | 51 | `R_DrawScreenShot(x, y, w, h)`: the saved-game screenshot, through the renderer's raw-image drawing |
 | 52, 53 | `R_ModelBounds(model, mins, maxs)`, `R_LerpTag` (6) |
-| 54 | `R_DrawRotatePic` (10 arguments) |
+| 54 | `R_DrawRotatePic(x, y, w, h, s1, t1, s2, t2, angle, shader)`: the original renderer's render command 4. Its backend translates to the top-right corner `(x + w, y)`, rotates by `angle` degrees about the screen's z axis (clockwise on screen, since y points down), and draws the quad from `(-w, 0)` to `(0, h)` with `s1 t1` at `(-w, 0)`. The client game's one caller (`0x2001a790`) passes texture coordinates 0, 0, 1, 1 after scaling `x, y, w, h` from 640×480. |
 | 55 | renderer entry 18 (4 arguments); JK2 suggests `R_Scissor(x, y, w, h)` |
 | 56, 57 | `GetGlconfig(out)` (5196 bytes), `GetGameState(out)` (20100 bytes, Quake III's `gameState_t`) |
 | 58–62 | `GetCurrentSnapshotNumber(&n, &time)`, `GetSnapshot(n, out)`, `GetServerCommand(n)`, `GetCurrentCmdNumber()`, `GetUserCmd(n, out)` |
