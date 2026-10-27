@@ -542,9 +542,25 @@ Progress:
       headquarters) take more frames, so the routes' frame numbers changed.
       The fixed clock now also counts the main thread's `Sleep`s, as the
       time that would have passed.
-  - Loading reads the archives a byte at a time through our MSVCP60's
-    `istream::get` (a quarter of the instructions while loading): a
-    buffered `filebuf` is next.
+  - Then loading. Over a third of what loading ran was in our MSVCP60's
+    `istream::read`, by our own DLL's link map. The archives aren't read a
+    byte at a time, though: `DDMappedFileBuf` (DDPackedDirFileLib) maps
+    the whole file and makes it the stream's get area, leaving `xsgetn` to
+    `streambuf`'s. The cost was in the number of reads: NetImmerse reads
+    its files a field at a time, about 2.5 million `read`s of a few bytes
+    before the first frame. Each went through the sentry, the virtual
+    `xsgetn` and its loop.
+    - `read` now copies straight from the get area when the stream is good,
+      not tied, the get area holds all `n` bytes, and the buffer keeps our
+      `xsgetn`. The archive DLL's vftable doesn't hold our function's
+      address but its own `jmp [import]` stub for it, so the check follows
+      that.
+    - Start-up to the first frames went from 377 to 278 million
+      instructions and from 1.80 to 1.53 seconds. Loading the training
+      mission went from 252 to 175 million instructions.
+    - Copying 4-byte reads in our own code instead of calling MSVCRT's
+      `memcpy` was no faster: a call to a stand-in is one instruction to the
+      interpreter and runs natively.
 - Not there yet:
   - **more speed**: the interpreter is still most of the time while
     playing (NetImmerse's scene graph, picking and its Direct3D renderer).

@@ -84,6 +84,15 @@ F slot(const void* object, int index) {
     return (F)(*(const void* const* const*)object)[index];
 }
 
+// Whether the function at `code` is `ours`: itself, or the stub another
+// module's vftable holds for it (jmp [its import address]).
+inline bool isOurs(const void* code, const void* ours) {
+    const unsigned char* c = (const unsigned char*)code;
+    if (c[0] == 0xff && c[1] == 0x25)
+        code = **(const void* const* const*)(c + 2);
+    return code == ours;
+}
+
 } // namespace
 
 // --- Locales ------------------------------------------------------------------------
@@ -1609,6 +1618,17 @@ EXPORT THISCALL Istream* istreamGetline(Istream* self, char* s, int n, unsigned 
     return self;
 }
 EXPORT THISCALL Istream* istreamRead(Istream* self, char* s, int n) {
+    // Most reads are a few bytes from a buffer holding the whole file (the
+    // archives' DDMappedFileBuf, which keeps streambuf's xsgetn): those are
+    // copied straight from it, doing what prefix() and xsgetn would.
+    Ios* ios = iosOf(self);
+    Streambuf* b = ios->buffer;
+    if (good(ios) && !ios->tie && n > 0 && n <= gavail(b) && isOurs(slot<const void*>(b, kXsgetn), (const void*)streambufXsgetn)) {
+        memcpy(s, gptr(b), size_t(n));
+        gbump(b, n);
+        self->count = n;
+        return self;
+    }
     self->count = 0;
     if (prefix(self, true)) {
         Ios* ios = iosOf(self);
