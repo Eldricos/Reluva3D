@@ -5434,8 +5434,9 @@ int cmdAtRun(int argc, char** argv) {
     std::vector<Click> points;
     // -step: input given when a behaviour's state starts waiting for an
     // event (BehaviorComp's DDBehavior::registerEvent): `event[+delay]@
-    // click:x,y | point:x,y | key:vk | drag:x,y,x2,y2 | buttons` (the last
-    // lists them). Each time the event is waited for,
+    // click:x,y[*n] | point:x,y | key:vk | drag:x,y,x2,y2 | buttons` (the
+    // last lists them; *n clicks again, up to n times in all, until a state
+    // starts waiting for something new). Each time the event is waited for,
     // the next action given for it is taken, `delay` frames on (3 if none);
     // a listing of the buttons is given each time.
     struct StepAction {
@@ -5443,7 +5444,17 @@ int cmdAtRun(int argc, char** argv) {
         int delay = 3;
         char kind; // 'c'lick, 'p'oint, 'k'ey, 'd'rag, 'b'uttons (list them)
         int x = -1, y = -1, x2 = -1, y2 = -1;
+        int repeat = 1; // click:x,y*n
     };
+    // A click repeated (every 40 frames, up to `left` more times) until a
+    // state starts waiting for a new training step's event (0xea60..0xea7d,
+    // LEGO Alpha Team's).
+    struct Retry {
+        uint64_t next, since;
+        int left, x, y;
+    };
+    std::vector<Retry> retries;
+    uint64_t lastRegistered = 0; // the frame a training step's event was last waited for
     struct Hold {
         uint64_t frame;
         uint64_t frames;
@@ -5500,6 +5511,8 @@ int cmdAtRun(int argc, char** argv) {
             const std::string action = at == std::string::npos ? "" : v.substr(at + 1);
             st.kind = action.empty() ? 0 : action[0];
             const size_t colon = action.find(':');
+            if (const size_t star = action.find('*'); star != std::string::npos)
+                st.repeat = std::max(1, std::atoi(action.c_str() + star + 1));
             if (colon != std::string::npos && st.kind == 'd')
                 std::sscanf(action.c_str() + colon + 1, "%d,%d,%d,%d", &st.x, &st.y, &st.x2, &st.y2);
             else if (colon != std::string::npos && st.kind == 'k')
@@ -5622,6 +5635,19 @@ int cmdAtRun(int argc, char** argv) {
         for (const Click& k : moves)
             if (f.number == k.frame)
                 p.mouseMoveTo(p.cursorX + k.x, p.cursorY + k.y);
+        for (Retry& r : retries) { // stopped by any state since
+            if (r.left <= 0 || f.number != r.next)
+                continue;
+            if (lastRegistered > r.since) {
+                r.left = 0;
+                continue;
+            }
+            std::printf("step: clicking %d,%d again on frame %llu\n", r.x, r.y, (unsigned long long)f.number);
+            points.push_back({f.number, r.x, r.y});
+            clicks.push_back({f.number + 2, -1, -1});
+            --r.left;
+            r.next = f.number + 40;
+        }
         for (const Hold& h : holds) { // a drag: the button held from frame to frame + frames
             if (f.number == h.frame)
                 p.mouseButton(0, true);
@@ -5837,6 +5863,8 @@ int cmdAtRun(int argc, char** argv) {
             // -step: registerEvent(machine, event, transition), thiscall.
             if (registerEvent && c.eip == registerEvent) {
                 const uint32_t event = c.read32(c.reg[Cpu::ESP] + 8);
+                if (event >= 0xea60 && event <= 0xea7d) // LEGO Alpha Team's training steps
+                    lastRegistered = framesShown;
                 for (auto it = stepActions.begin(); it != stepActions.end(); ++it) {
                     if (it->event != event)
                         continue;
@@ -5868,6 +5896,8 @@ int cmdAtRun(int argc, char** argv) {
                         points.push_back({at, it->x, it->y});
                         if (it->kind == 'c')
                             clicks.push_back({at + 2, -1, -1});
+                        if (it->kind == 'c' && it->repeat > 1)
+                            retries.push_back({at + 40, framesShown, it->repeat - 1, it->x, it->y});
                     }
                     stepActions.erase(it);
                     break;
