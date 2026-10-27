@@ -5850,9 +5850,17 @@ int cmdAtRun(int argc, char** argv) {
                     if (it->kind == 'd') { // press, move there over 20 frames, release
                         constexpr int kSteps = 20;
                         points.push_back({at, it->x, it->y});
-                        for (int i = 1; i <= kSteps; ++i)
-                            points.push_back({at + 2 + uint64_t(i), it->x + (it->x2 - it->x) * i / kSteps,
-                                              it->y + (it->y2 - it->y) * i / kSteps});
+                        // Each step both moves the mouse (so the program sees it
+                        // moving with the button down) and puts the pointer
+                        // where it should be by then.
+                        for (int i = 1; i <= kSteps; ++i) {
+                            const int x = it->x + (it->x2 - it->x) * i / kSteps,
+                                      y = it->y + (it->y2 - it->y) * i / kSteps;
+                            const int px = it->x + (it->x2 - it->x) * (i - 1) / kSteps,
+                                      py = it->y + (it->y2 - it->y) * (i - 1) / kSteps;
+                            moves.push_back({at + 2 + uint64_t(i), x - px, y - py});
+                            points.push_back({at + 2 + uint64_t(i), x, y});
+                        }
                         holds.push_back({at + 2, kSteps + 4});
                     } else if (it->kind == 'k') {
                         keys.push_back({at, it->x, 0});
