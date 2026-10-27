@@ -36,18 +36,35 @@ GameProcess::GameProcess(std::filesystem::path gameDir, uint32_t memoryMb) : dir
     process_ = std::make_unique<x86::Win32Process>(*cpu_);
     process_->setProgram(kProgram, kInstallFolder);
     // Its files: the install folder is the game folder; the CD's label is
-    // the retail CD's, so its check passes. Writing isn't allowed yet.
+    // the retail CD's, so its check passes. What the program writes there
+    // (Game.txt: its settings and progress) goes to the save folder, and
+    // is read back from there first. Nothing else may be written.
     process_->mapPath = [this](const std::string& windowsPath, bool forWriting) -> std::optional<std::filesystem::path> {
         const std::string folder = fs::toLower(kInstallFolder);
         const std::string path = fs::toLower(windowsPath);
-        if (forWriting || path.rfind(folder, 0) != 0)
+        if (path.rfind(folder, 0) != 0)
             return std::nullopt;
         std::string rest = windowsPath.substr(folder.size());
         std::replace(rest.begin(), rest.end(), '\\', '/');
         while (!rest.empty() && rest.back() == '/')
             rest.pop_back();
+        if (forWriting) {
+            if (saveDir_.empty() || rest.empty())
+                return std::nullopt;
+            if (auto file = fs::findFile(saveDir_, rest))
+                return file;
+            std::error_code ec;
+            const std::filesystem::path to = saveDir_ / rest;
+            std::filesystem::create_directories(to.parent_path(), ec);
+            if (ec)
+                return std::nullopt;
+            return to;
+        }
         if (rest.empty())
             return dir_;
+        if (!saveDir_.empty())
+            if (auto file = fs::findFile(saveDir_, rest))
+                return file;
         if (auto file = fs::findFile(dir_, rest))
             return file;
         return fs::findDirectory(dir_, rest);

@@ -28,8 +28,9 @@ class GameProcess;
 // engine's thread.
 class Player {
 public:
-    // Its sound goes to `mixer`, if there's one.
-    explicit Player(std::filesystem::path gameDir, audio::Mixer* mixer = nullptr);
+    // What it writes (its settings and progress) goes to `saveDir`; its
+    // sound goes to `mixer`, if there's one.
+    Player(std::filesystem::path gameDir, std::filesystem::path saveDir, audio::Mixer* mixer = nullptr);
     ~Player(); // stops the game and waits for it
 
     void start();
@@ -52,6 +53,7 @@ private:
     void drain(); // on the game's thread: applies the queued input
 
     std::filesystem::path dir_;
+    std::filesystem::path saveDir_;
     audio::Mixer* mixer_;
     GameProcess* game_ = nullptr; // the game thread's, while it runs
     std::thread thread_;

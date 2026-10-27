@@ -81,7 +81,7 @@ private:
     // The game, until it ends or the player leaves. The mouse is held by
     // the window (the game reads its movement and draws its own pointer).
     Error play() {
-        netimmerse::alphateam::Player player(target_.path, audioOut_ ? mixer_.get() : nullptr);
+        netimmerse::alphateam::Player player(target_.path, target_.savePath, audioOut_ ? mixer_.get() : nullptr);
         player.start();
         int width = 640, height = 480;
         auto screen = [&] {

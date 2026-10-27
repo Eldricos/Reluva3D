@@ -5380,7 +5380,7 @@ static void printGraph(reluva::x86::Cpu& cpu, const std::vector<uint32_t>& roots
 int cmdAtRun(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool at-run <game folder> [-v] [-limit instructions] [-trace count] "
-                             "[-memory MB] [-log] [-shots folder] [-every frames] [-click frame[@x,y]]... [-move frame@dx,dy]... "
+                             "[-memory MB] [-log] [-files] [-save folder] [-shots folder] [-every frames] [-click frame[@x,y]]... [-move frame@dx,dy]... "
                              "[-key frame@vk]... [-quit frame] [-fixed-clock] [-watch dll!export]... [-point frame@x,y]... "
                              "[-calls frame@dll!export] [-dump frame@address,bytes]...\n");
         return 2;
@@ -5389,6 +5389,8 @@ int cmdAtRun(int argc, char** argv) {
     int traceCount = 0; // instructions kept for a failure (0: none, which keeps the instruction cache in use)
     uint64_t quitAt = 0;
     bool fixedClock = false;
+    bool files = false; // -files: each path the program asks for, and where it was found
+    std::string saveDir; // -save: where what the program writes goes (else it may write nothing)
     // -watch: calls to a function of the program's (an export), with what
     // they return, summed up per frame.
     std::vector<std::string> watches;
@@ -5467,6 +5469,10 @@ int cmdAtRun(int argc, char** argv) {
             verbose = true;
         else if (arg == "-log")
             log = true;
+        else if (arg == "-files")
+            files = true;
+        else if (arg == "-save" && a + 1 < argc)
+            saveDir = argv[++a];
         else if (arg == "-shots" && a + 1 < argc)
             shots = argv[++a];
         else if (arg == "-click" && a + 1 < argc) {
@@ -5559,8 +5565,30 @@ int cmdAtRun(int argc, char** argv) {
     using reluva::x86::Cpu;
     GameProcess game(argv[2], std::min<uint32_t>(memoryMb, 3072));
     Cpu& cpu = game.cpu();
+    if (!saveDir.empty())
+        game.setSaveFolder(saveDir);
     cpu.setInstructionLimit(limit);
     game.process().output = [](const std::string& text) { std::printf("[program] %s\n", text.c_str()); };
+    if (files)
+        game.process().mapPath = [map = game.process().mapPath](const std::string& path, bool writing) {
+            const auto host = map(path, writing);
+            std::printf("file %s %s -> %s\n", writing ? "write" : "read", path.c_str(),
+                        host ? host->string().c_str() : "(none)");
+            return host;
+        };
+    if (files)
+        game.process().registryWritten = [&game](const std::string& key, const std::string& name) {
+            uint32_t type = 0;
+            const auto value = game.process().registryValue(key, name, &type);
+            std::string shown;
+            for (size_t i = 0; value && i < value->size() && i < 64; ++i) {
+                char hex[4];
+                std::snprintf(hex, sizeof hex, "%02x", (*value)[i]);
+                shown += hex;
+            }
+            std::printf("registry write %s\\%s (type %u, %zu bytes) %s\n", key.c_str(), name.c_str(), type,
+                        value ? value->size() : 0, shown.c_str());
+        };
     // -fixed-clock: the clock follows the instructions run (40,000 to a
     // millisecond) and the main thread's sleeps, not the time, so a run
     // with the same input repeats exactly.
@@ -6159,7 +6187,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool pac-list <file.pac>\n"
                  "  reluva-tool pac-extract <file.pac> <output dir> [name filter]\n"
                  "  reluva-tool fin-check <Fin.pac> [file.pac...]\n"
-                 "  reluva-tool at-run <game folder> [-v] [-limit instructions] [-trace count] [-memory MB]\n"
+                 "  reluva-tool at-run <game folder> [-v] [-limit instructions] [-trace count] [-memory MB] [-files] [-save folder]\n"
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
                  "  reluva-tool bsp-check <game folder, e.g. .../BaseEF>\n"

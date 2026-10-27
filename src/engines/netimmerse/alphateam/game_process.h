@@ -32,6 +32,11 @@ public:
     // `memoryMb` of memory for the program (the archives are mapped into it).
     GameProcess(std::filesystem::path gameDir, uint32_t memoryMb = 1024);
 
+    // Where what the program writes in its install folder goes, and is
+    // read back from first (GameTarget::savePath). Without one, writing
+    // isn't allowed.
+    void setSaveFolder(std::filesystem::path dir) { saveDir_ = std::move(dir); }
+
     // Reads and loads LEGOATeam.exe and every DLL it needs from the game
     // folder, in an order where each comes after those it imports from.
     Error load();
@@ -49,6 +54,7 @@ public:
 
 private:
     std::filesystem::path dir_;
+    std::filesystem::path saveDir_;
     std::unique_ptr<x86::Cpu> cpu_;
     std::unique_ptr<x86::Win32Process> process_;
     std::unique_ptr<x86::DirectX> directX_;
