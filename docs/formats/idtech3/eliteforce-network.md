@@ -7,10 +7,9 @@ retail Elite Force Holomatch (patch 1.2) over the network. Reluva's
 `net_server.cpp`, `net_client.cpp`) is tested with Reluva at both ends,
 in memory with datagrams lost and over the system's sockets, and was
 played Reluva to Reluva on the retail data patched to 1.2, and against
-the retail executable both ways (October 2026). Not done: a pure Reluva server (its
-client answers a pure server's check). Reluva's server lists as the
-level's paks (`sv_referencedPaks`) those holding its game code, map and
-bot map, where the original lists every pak it has read a file from.
+the retail executable both ways (October 2026). Reluva's server can be
+pure (`sv_pure 1`), and lists the level's paks as the original does
+(below), plus those holding the client game and menus.
 With Raven's master gone, Reluva's client asks every master set when the
 menus ask for master 0. Where the sources disagree with what Reluva has measured in
 the game's own code, both are given.
@@ -716,8 +715,28 @@ Reluva's client (`src/engines/idtech3/pure.cpp`) sends `cp` with the
 game state's feed as soon as it has loaded the level, before its first
 move; for the paks it has read from it lists every pak of its own whose
 plain checksum is in the server's `sv_paks` (all of them if that's
-empty), which passes the server's checks whatever it read. Reluva's
-server isn't pure (`sv_pure 0`).
+empty), which passes the server's checks whatever it read.
+
+Reluva's server (`net_server.cpp`) is pure when `sv_pure` is 1 as a
+level starts (0 unless set: the menus' Pure Server line sets it). It
+then puts every pak it has in `sv_paks` and `sv_pakNames`, checks each
+player's `cp` against this level's feed as above (taking a level id
+first too, as Quake III's later clients send), drops a player whose
+answer is wrong, and holds a player's moves until it has answered: one
+already in the level is sent the game state again. Each level's answers
+are new (the feed changes). It isn't pure, with a note, when its own
+client game or menus aren't in a pak.
+
+**The level's paks** (`sv_referencedPaks`, `sv_referencedPakNames`,
+pure or not), as the original lists them for players to check and
+download: every pak the server's side has read a file from since the
+level started (the map; the game code's and bots' files: the bots' map
+and characters...) except for files read from every pak (`.shader`,
+`.txt`, `.cfg`, `.config`, `.bot`, `.arena`, `.menu`, anything under
+`levelshots`) and the server's own `vm/qagame.qvm`; and every pak
+outside the game's own folder (a mod's). Reluva's also lists those
+holding `vm/cgame.qvm` and `vm/ui.qvm`, which the original does only
+when pure. All in search order.
 
 ## Configstrings and info keys the engine uses
 

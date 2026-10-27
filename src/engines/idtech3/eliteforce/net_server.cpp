@@ -142,28 +142,73 @@ int downloadBlocks(size_t size) { return int(size / kDownloadBlock + (size % kDo
 } // namespace
 
 void NetServer::levelStarted() {
-    // The paks the level uses (its game code, its map and the bots'), as
-    // the original lists them in the system info for players to check
-    // theirs against: by checksum, and by folder and name.
+    checksumFeed_ = int32_t(nextRandom());
+    // The paks the level uses, as the original lists them in the system
+    // info for players to check theirs against (and download what they
+    // lack), by checksum and by folder and name: those the server's side
+    // read from since the level started (the map, its bots' map and
+    // files, the game code's reads; not files read from every pak,
+    // eliteforce-network.md), any outside the game's own folder (a mod's),
+    // and, Reluva's addition, the client game's and menus'.
+    pure_ = false;
+    purePaks_.clear();
     if (files_) {
+        std::set<const Archive*> used;
+        auto note = [&](const std::string& name) {
+            if (const Archive* a = files_->find(name))
+                used.insert(a);
+        };
         const std::string map = cvars_.string("mapname");
-        std::vector<const ZipArchive*> paks;
-        for (const std::string& file : {std::string("vm/qagame.qvm"), std::string("vm/cgame.qvm"),
-                                        std::string("vm/ui.qvm"), "maps/" + map + ".bsp", "maps/" + map + ".aas"})
-            if (const auto* pak = dynamic_cast<const ZipArchive*>(files_->find(file)))
-                if (std::find(paks.begin(), paks.end(), pak) == paks.end())
-                    paks.push_back(pak);
-        std::string sums, names;
+        note("maps/" + map + ".bsp");
+        note("vm/cgame.qvm");
+        note("vm/ui.qvm");
+        for (const std::string& name : game_.filesRead())
+            if (referencesPak(name))
+                note(name);
+        std::string sums, names, allSums, allNames;
         referencedNames_.clear();
-        for (const ZipArchive* pak : paks) {
+        for (const Archive* a : files_->archives()) {
+            const auto* pak = dynamic_cast<const ZipArchive*>(a);
+            if (!pak)
+                continue;
+            const std::string name = pakName(*pak);
+            allSums += std::to_string(pakChecksum(*pak)) + " ";
+            allNames += name + " ";
+            std::string folder = name.substr(0, name.find('/'));
+            for (char& ch : folder)
+                ch = char(std::tolower(static_cast<unsigned char>(ch)));
+            if (!used.count(pak) && folder == "baseef")
+                continue;
             sums += std::to_string(pakChecksum(*pak)) + " ";
-            names += pakName(*pak) + " ";
-            referencedNames_.push_back(pakName(*pak));
+            names += name + " ";
+            referencedNames_.push_back(name);
         }
         cvars_.create("sv_referencedPaks", "", CvarStore::SystemInfo | CvarStore::ReadOnly);
         cvars_.create("sv_referencedPakNames", "", CvarStore::SystemInfo | CvarStore::ReadOnly);
         cvars_.set("sv_referencedPaks", sums, true);
         cvars_.set("sv_referencedPakNames", names, true);
+
+        // Pure (sv_pure 1): every pak the server has, which players may
+        // read only from, and the checksums their answers must give. The
+        // client game and menus must come from paks for that.
+        const auto* cgame = dynamic_cast<const ZipArchive*>(files_->find("vm/cgame.qvm"));
+        const auto* ui = dynamic_cast<const ZipArchive*>(files_->find("vm/ui.qvm"));
+        if (cvars_.integer("sv_pure") != 0) {
+            if (cgame && ui) {
+                pure_ = true;
+                pureCgame_ = pakChecksum(*cgame, checksumFeed_);
+                pureUi_ = pakChecksum(*ui, checksumFeed_);
+                for (const Archive* a : files_->archives())
+                    if (const auto* pak = dynamic_cast<const ZipArchive*>(a))
+                        purePaks_.insert(pakChecksum(*pak, checksumFeed_));
+            } else if (print) {
+                print("sv_pure is set, but the client game or menus aren't in a pak: not pure\n");
+            }
+        }
+        cvars_.create("sv_paks", "", CvarStore::SystemInfo | CvarStore::ReadOnly);
+        cvars_.create("sv_pakNames", "", CvarStore::SystemInfo | CvarStore::ReadOnly);
+        cvars_.set("sv_paks", pure_ ? allSums : "", true);
+        cvars_.set("sv_pakNames", pure_ ? allNames : "", true);
     }
     cvars_.create("sv_allowDownload", "0", CvarStore::ServerInfo);
     // The entities as the level settled are the baselines new players'
@@ -175,7 +220,6 @@ void NetServer::levelStarted() {
     configstrings_ = game_.configstrings();
     serverCommandsSeen_ = game_.serverCommands().size();
     dropsSeen_ = game_.drops().size();
-    checksumFeed_ = int32_t(nextRandom());
     ++levelCount_;
     restartsSeen_ = game_.restarts();
     restartedIds_.clear();
@@ -187,6 +231,7 @@ void NetServer::levelStarted() {
             c.deltaMessage = -1;
             c.nextSnapshotTime = 0;
             c.begun = false;
+            c.pureAnswered = c.pureValid = false; // answered again for this level's feed
         }
 }
 
@@ -226,7 +271,7 @@ std::string NetServer::infoString(const std::string& challenge) const {
     setInfoValue(info, "g_humanplayers", std::to_string(humans));
     setInfoValue(info, "sv_maxclients", std::to_string(maxClients));
     setInfoValue(info, "gametype", std::to_string(cvars_.integer("g_gametype")));
-    setInfoValue(info, "pure", "0");
+    setInfoValue(info, "pure", pure_ ? "1" : "0");
     return info;
 }
 
@@ -470,6 +515,13 @@ Error NetServer::packet(Client& c, const std::vector<uint8_t>& datagram, uint64_
             if (r.overflowed())
                 break;
             c.deltaMessage = op == kClcMove ? c.messageAcknowledge : -1;
+            // Pure: no moves before the player's paks are checked; one
+            // already in the level gets the game state again (and answers).
+            if (pure_ && !c.pureAnswered) {
+                if (c.state == State::Active)
+                    sendGamestate(c, now);
+                break;
+            }
             if (c.state == State::Primed) {
                 // Its first move puts the player in the level.
                 c.state = State::Active;
@@ -479,6 +531,10 @@ Error NetServer::packet(Client& c, const std::vector<uint8_t>& datagram, uint64_
                     if (Error err = game_.beginClient(c.number))
                         return err;
                 c.begun = true;
+            }
+            if (pure_ && !c.pureValid) {
+                drop(c, "Cannot validate pure client!", now);
+                return Error::success();
             }
             if (c.state != State::Active)
                 break;
@@ -550,9 +606,22 @@ Error NetServer::clientCommand(Client& c, const std::string& text) {
             sendGamestate(c, lastNow_);
         return Error::success();
     }
-    // The pure check (cp): this server isn't pure.
-    if (verb == "cp" || verb == "vdr")
+    // The pure check (cp): on a pure server, a wrong answer drops the
+    // player (moves wait for one). vdr: the player's paks changed (its
+    // video restarted); it answers again.
+    if (verb == "cp") {
+        if (!pure_)
+            return Error::success();
+        c.pureAnswered = true;
+        c.pureValid = pureAnswerValid(words, pureCgame_, pureUi_, purePaks_, checksumFeed_);
+        if (!c.pureValid)
+            drop(c, "Unpure client detected. Invalid .PK3 files referenced!", lastNow_);
         return Error::success();
+    }
+    if (verb == "vdr") {
+        c.pureAnswered = c.pureValid = false;
+        return Error::success();
+    }
     if (c.state != State::Active)
         return Error::success();
     return game_.clientCommand(c.number, text);

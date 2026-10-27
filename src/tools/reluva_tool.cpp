@@ -3329,7 +3329,7 @@ int cmdNetRun(int argc, char** argv) {
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-addbot <name>]...\n"
+        std::fprintf(stderr, "usage: reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-pure] [-addbot <name>]...\n"
                              "       reluva-tool net-run <game folder> -join <host[:port]> [seconds] [-name <name>]\n");
         return 1;
     }
@@ -3345,6 +3345,7 @@ int cmdNetRun(int argc, char** argv) {
     std::string name = "ReluvaTool";
     std::vector<std::string> bots;
     bool publicServer = false; // dedicated 2: listed with the master servers
+    bool pure = false;         // sv_pure 1: players' paks checked
     for (int i = join ? 5 : 4; i < argc; ++i) {
         if (std::strcmp(argv[i], "-port") == 0 && i + 1 < argc)
             port = std::atoi(argv[++i]);
@@ -3354,6 +3355,8 @@ int cmdNetRun(int argc, char** argv) {
             bots.emplace_back(argv[++i]);
         else if (std::strcmp(argv[i], "-public") == 0)
             publicServer = true;
+        else if (std::strcmp(argv[i], "-pure") == 0)
+            pure = true;
         else if (argv[i][0] != '-')
             seconds = std::max(1, std::atoi(argv[i]));
         else
@@ -3465,8 +3468,12 @@ int cmdNetRun(int argc, char** argv) {
     server.print = [](const std::string& text) { std::printf("server: %s", text.c_str()); };
     server.resolveHost = [](const std::string& host, uint32_t& ip) { return reluva::net::resolveSystemHost(host, ip); };
     server.setFiles(&set);
+    if (pure)
+        cvars.set("sv_pure", "1");
     server.levelStarted();
-    std::printf("hosting %s on port %u for %d s\n", map.c_str(), server.port(), seconds);
+    std::printf("hosting %s on port %u for %d s%s\n", map.c_str(), server.port(), seconds,
+                server.pure() ? ", pure" : "");
+    std::printf("the level's paks: %s\n", cvars.string("sv_referencedPakNames").c_str());
     const int32_t startTime = game.levelTime();
     while (nowMs() < uint64_t(seconds) * 1000) {
         const uint64_t now = nowMs();
@@ -5890,7 +5897,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool sp-menus <game folder> [-dll efuix86.dll] [-frames N] [-menu name] [-key frame key]...\n"
                  "  reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] [-set name value]... [-trace]\n"
                  "  reluva-tool pk3-sums <game folder> [feed]\n"
-                 "  reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-addbot name]... | -join <host[:port]> [seconds] [-name name]\n"
+                 "  reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-pure] [-addbot name]... | -join <host[:port]> [seconds] [-name name]\n"
                  "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n"
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif

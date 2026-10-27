@@ -2013,9 +2013,10 @@ static void testGameHost(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
-// Downloads: a pak the level uses (here the one with the game code, not
-// one of Raven's) sent to a player who asks, block by block, when
-// sv_allowDownload is on; refused when it's off.
+// Downloads: a pak the level uses (here the one with its map, not one of
+// Raven's) sent to a player who asks, block by block, when
+// sv_allowDownload is on; refused when it's off. A pak holding only the
+// server's game code isn't one the level uses, as the original counts.
 static void testDownloads(const std::filesystem::path& tmp) {
     namespace ef = eliteforce;
     std::filesystem::remove_all(tmp);
@@ -2026,7 +2027,9 @@ static void testDownloads(const std::filesystem::path& tmp) {
     test::writeFile(tmp / "BaseEF" / "zz_custom.pk3",
                     test::buildZip({{"vm/qagame.qvm",
                                      std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}},
+                                    {"maps/borg2.bsp", {1, 2, 3, 4}, {}},
                                     {"filler.dat", filler, {}}}));
+    test::writeFile(tmp / "BaseEF" / "zz_code.pk3", test::buildZip({{"vm/qagame.qvm", {5, 6, 7}, {}}}));
     std::vector<uint8_t> pakBytes;
     {
         std::ifstream in(tmp / "BaseEF" / "zz_custom.pk3", std::ios::binary);
@@ -2095,6 +2098,89 @@ static void testDownloads(const std::filesystem::path& tmp) {
         again = client.takeNewGamestate();
     }
     CHECK(again);
+    std::filesystem::remove_all(tmp);
+}
+
+// A pure server (sv_pure 1): it lists its paks, holds a player's moves
+// until its paks are checked (cp), lets in one that answers rightly and
+// drops one that doesn't.
+static void testPureServer(const std::filesystem::path& tmp) {
+    namespace ef = eliteforce;
+    std::filesystem::remove_all(tmp);
+    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
+                    test::buildZip({{"vm/qagame.qvm",
+                                     std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}},
+                                    {"vm/cgame.qvm", {1, 2, 3}, {}},
+                                    {"vm/ui.qvm", {4, 5, 6}, {}}}));
+    test::writeFile(tmp / "BaseEF" / "pak1.pk3", test::buildZip({{"maps/borg2.bsp", {7, 8, 9}, {}}}));
+    SearchSet set;
+    std::vector<std::string> warnings;
+    CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
+    CvarStore cvars;
+    ef::GameHost game(set, cvars);
+    CHECK(!game.load());
+    auto map = collisionMap();
+    map->entities = "{\n\"classname\" \"worldspawn\"\n}\n{\n\"classname\" \"info_player_deathmatch\"\n"
+                    "\"origin\" \"0 0 300\"\n}\n";
+    if (game.startLevel("borg2", map, 9)) {
+        CHECK(false);
+        return;
+    }
+    cvars.set("sv_pure", "1");
+    auto network = net::LoopbackNetwork::create();
+    ef::NetServer server(game, cvars, network->open(27960));
+    server.setFiles(&set);
+    server.levelStarted();
+    CHECK(!game.runFrame()); // the system info again, with the pak lists
+    const std::string sysInfo = game.configstrings().at(1);
+    std::istringstream listed(infoValue(sysInfo, "sv_paks"));
+    int paks = 0;
+    for (std::string w; listed >> w;)
+        ++paks;
+    CHECK(paks == 2 && infoValue(sysInfo, "sv_pakNames").find("BaseEF/pak1") != std::string::npos);
+    uint64_t now = 1000;
+    auto tick = [&](ef::NetClient& client) {
+        client.frame(now);
+        CHECK(!server.receive(now));
+        CHECK(!game.runFrame());
+        CHECK(!server.frame(now));
+        now += 50;
+    };
+    auto play = [&](ef::NetClient& client, int frames) {
+        for (int i = 0; i < frames; ++i) {
+            ef::GameHost::UserCommand cmd;
+            cmd.serverTime = game.levelTime();
+            client.addCommand(cmd);
+            tick(client);
+            client.takeSnapshots();
+        }
+    };
+    // In the level: the fake game links the player's body when the
+    // server begins it.
+    const size_t linkedAtStart = game.linked().size();
+    auto inLevel = [&] { return game.linked().size() > linkedAtStart; };
+    ef::NetClient good(network->open(0), {0x7f000001u, 27960}, "\\name\\Good", 71);
+    for (int i = 0; i < 40 && good.state() != ef::NetClient::State::Primed; ++i)
+        tick(good);
+    CHECK(good.state() == ef::NetClient::State::Primed);
+    good.setLoaded();
+    play(good, 20);
+    CHECK(!inLevel()); // no answer, not in the level
+    const std::string paksSent = infoValue(good.configstrings().at(1), "sv_paks");
+    good.addClientCommand(pureCommand(set, good.checksumFeed(), paksSent));
+    for (int i = 0; i < 40 && !inLevel(); ++i)
+        play(good, 1);
+    CHECK(inLevel());
+
+    ef::NetClient bad(network->open(30001), {0x7f000001u, 27960}, "\\name\\Bad", 72);
+    for (int i = 0; i < 40 && bad.state() != ef::NetClient::State::Primed; ++i)
+        tick(bad);
+    bad.addClientCommand("cp 1 2 @ 3 4");
+    bad.setLoaded();
+    for (int i = 0; i < 40 && bad.state() != ef::NetClient::State::Disconnected; ++i)
+        play(bad, 1);
+    CHECK(bad.state() == ef::NetClient::State::Disconnected);
+    CHECK(server.pure());
     std::filesystem::remove_all(tmp);
 }
 
@@ -2884,6 +2970,39 @@ static void testPureCheck(const std::filesystem::path& tmp) {
     const std::string only = pureCommand(set, feed, std::to_string(uint32_t(pakChecksum(*code))));
     const std::vector<std::string> o = splitCommand(only);
     CHECK(o.size() == 6 && std::atoi(o[5].c_str()) == (feed ^ pakChecksum(*code, feed) ^ 1));
+
+    // A pure server takes that answer: the right client game and menus,
+    // paks it has, the right check; with a level id first too.
+    const int32_t cg = pakChecksum(*code, feed);
+    const std::set<int32_t> serverPaks{pakChecksum(*code, feed), pakChecksum(*map, feed)};
+    CHECK(pureAnswerValid(w, cg, cg, serverPaks, feed));
+    CHECK(pureAnswerValid(o, cg, cg, serverPaks, feed));
+    std::vector<std::string> withId = w;
+    withId.insert(withId.begin() + 1, "42");
+    CHECK(pureAnswerValid(withId, cg, cg, serverPaks, feed));
+    // Not: another feed, another client game, a pak it lacks, one twice,
+    // a wrong check, too short.
+    CHECK(!pureAnswerValid(w, cg, cg, serverPaks, feed + 1));
+    CHECK(!pureAnswerValid(w, cg + 1, cg, serverPaks, feed));
+    CHECK(!pureAnswerValid(w, cg, cg, {pakChecksum(*code, feed)}, feed));
+    if (w.size() == 7) {
+        std::vector<std::string> twice = w;
+        twice[5] = twice[4];
+        twice[6] = std::to_string(feed ^ 2);
+        CHECK(!pureAnswerValid(twice, cg, cg, serverPaks, feed));
+        std::vector<std::string> wrong = w;
+        wrong[6] = std::to_string(std::atoi(w[6].c_str()) ^ 1);
+        CHECK(!pureAnswerValid(wrong, cg, cg, serverPaks, feed));
+    }
+    CHECK(!pureAnswerValid({"cp", "1", "2", "@"}, 1, 2, serverPaks, feed));
+
+    // What counts as using a pak: not the files read from every pak, nor
+    // the server's game code.
+    CHECK(referencesPak("maps/hm_borg1.bsp") && referencesPak("botfiles/chars.h") &&
+          referencesPak("vm/cgame.qvm"));
+    CHECK(!referencesPak("scripts/borg.shader") && !referencesPak("scripts/arenas.txt") &&
+          !referencesPak("botfiles/bots/munro.bot") && !referencesPak("Scripts/X.ARENA") &&
+          !referencesPak("vm/qagame.qvm") && !referencesPak("levelshots/hm_borg1.jpg"));
     std::filesystem::remove_all(tmp);
 }
 
@@ -2985,6 +3104,7 @@ int main() {
     testGameHost(tmp / "game");
     testSnapshotCulling(tmp / "culling");
     testDownloads(tmp / "downloads");
+    testPureServer(tmp / "pure");
     testNetworkPlay(tmp / "netplay", false);
     testNetworkPlay(tmp / "netplay-udp", true);
     testNetworkPlay(tmp / "netplay-rate", false, true);

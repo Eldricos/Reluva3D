@@ -35,6 +35,8 @@ int32_t GameFiles::open(const std::string& path, int32_t mode, bool wantHandle, 
             return -1;
     } else if (path.empty() || files_.read(path, file.data)) {
         return -1;
+    } else if (onRead) {
+        onRead(path);
     }
     const auto length = int32_t(file.data.size());
     if (wantHandle) {

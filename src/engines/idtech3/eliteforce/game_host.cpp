@@ -71,6 +71,7 @@ GameHost::GameHost(const SearchSet& files, CvarStore& cvars)
     : files_(files), cvars_(cvars), vmFiles_(files),
       serverWorld_([this](int32_t n, EntityShape& out) { return entityShape(n, out); }) {
     vm_.setSystemCall([this](Qvm& vm, int number, const int32_t* args) { return systemCall(vm, number, args); });
+    vmFiles_.setOnRead([this](const std::string& name) { filesRead_.insert(name); });
 }
 
 bool GameHost::entityShape(int32_t n, EntityShape& out) {
@@ -107,6 +108,7 @@ Error GameHost::call(int32_t command, const std::vector<int32_t>& args, int32_t&
 Error GameHost::startLevel(const std::string& mapName, std::shared_ptr<const Bsp> map, int32_t randomSeed) {
     if (!map)
         return Error::fail("No map");
+    filesRead_.clear();
     map_ = std::move(map);
     world_ = std::make_unique<CollisionWorld>(*map_);
     areaPortals_ = std::make_unique<AreaPortals>(world_->areaCount());
@@ -125,13 +127,13 @@ Error GameHost::startLevel(const std::string& mapName, std::shared_ptr<const Bsp
     // (eliteforce-network.md): its protocol and name in the server info,
     // and in the system info the level's id (changing with every level,
     // so commands from before it can be told apart), whether it's pure
-    // (Reluva's isn't: it doesn't check clients' paks) and its frame rate.
+    // (checked by the network server, which also lists the paks) and its
+    // frame rate.
     cvars_.create("protocol", "24", CvarStore::ServerInfo | CvarStore::ReadOnly);
     cvars_.create("sv_hostname", "Reluva", CvarStore::ServerInfo | CvarStore::Archive);
     cvars_.create("sv_serverid", "0", CvarStore::SystemInfo | CvarStore::ReadOnly);
     cvars_.set("sv_serverid", std::to_string(randomSeed & 0x7fffffff), true);
     cvars_.create("sv_pure", "0", CvarStore::SystemInfo);
-    cvars_.set("sv_pure", "0", true);
     cvars_.create("sv_fps", "20", CvarStore::SystemInfo);
     // The engine's bot settings (the game reads bot_enable when starting).
     cvars_.create("bot_enable", "1", 0);

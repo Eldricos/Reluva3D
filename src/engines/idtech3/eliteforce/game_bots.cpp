@@ -358,7 +358,12 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
         botSnapshots_.erase(a[0]);
         return 0;
     case LibSetup:
-        b.readFile = [this](const std::string& path, std::vector<uint8_t>& data) { return !files_.read(path, data); };
+        b.readFile = [this](const std::string& path, std::vector<uint8_t>& data) {
+            if (files_.read(path, data))
+                return false;
+            filesRead_.insert(path);
+            return true;
+        };
         b.clientCommand = [this](int client, const std::string& text) { clientCommand(client, text); };
         b.print = [this](const std::string& text) {
             if (print)

@@ -201,6 +201,9 @@ public:
     std::map<int, int> callCounts() const { return callCounts_.map(); }
     // Entity numbers linked into the world (LinkEntity), not unlinked since.
     const std::set<int32_t>& linked() const { return serverWorld_.linked(); }
+    // The files the game code and its bots have read since the level
+    // started (the map is handed over, not read), by name.
+    const std::set<std::string>& filesRead() const { return filesRead_; }
     // The map's areas (cut by its doors' portals), and how many times
     // InPvs said no only because a closed door stood between.
     int areaCount() const { return world_ ? world_->areaCount() : 0; }
@@ -257,6 +260,7 @@ private:
     CvarStore& cvars_;
     Qvm vm_;
     VmFiles vmFiles_;
+    std::set<std::string> filesRead_;
     std::shared_ptr<const Bsp> map_;
     std::unique_ptr<CollisionWorld> world_;
     std::unique_ptr<AreaPortals> areaPortals_; // which areas join up through open doors

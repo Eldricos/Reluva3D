@@ -111,7 +111,9 @@ every engine.
    patched to 1.2 (which also confirms 1.2's layouts), and against the
    retail game both ways (October 2026). Reluva answers a pure server's
    check (`cp`, with pk3 checksums as the original's), tried against a
-   pure retail server. Snapshots hold only what
+   pure retail server, and hosts pure levels itself (`sv_pure 1`, set by
+   the menus' Pure Server line or `net-run -pure`), checking players'
+   paks; the level's paks are listed as the original lists them. Snapshots hold only what
    the player could see, as the original's server picks it: not behind a
    closed door, in a cluster their eye's can see, unless sent to all;
    one-client and client-mask flags with 1.2's layout; through portal

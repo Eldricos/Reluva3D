@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <string>
 #include <string_view>
@@ -39,6 +40,9 @@ public:
     // How many bytes a read of `length` would give now.
     size_t readable(uint32_t handle, size_t length) const;
     size_t openCount() const { return open_.size(); }
+
+    // Told each file opened for reading, by its name.
+    std::function<void(const std::string&)> onRead;
 
 private:
     struct OpenFile {
@@ -73,6 +77,7 @@ public:
                                               std::string_view extension);
 
     size_t openCount() const { return open_.openCount(); }
+    void setOnRead(std::function<void(const std::string&)> f) { open_.onRead = std::move(f); }
 
 private:
     const SearchSet& files_;
