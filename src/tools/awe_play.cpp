@@ -347,6 +347,7 @@ public:
         const GameState& s = page_->gameState();
         out.insert("act " + s.act);
         out.insert("scene " + s.scene);
+        out.insert("last " + s.lastScene); // "lastscene" is tested (where the shoes are compared)
         for (const auto& [name, v] : s.tags)
             out.insert("tag " + name + " " + std::to_string(v));
         for (const std::string& item : s.items)
@@ -737,7 +738,7 @@ int aweCommandSolve(int argc, char** argv) {
         // (but the car the bar's travel is from).
         std::string story;
         for (const std::string& f : split(node.key, '\n'))
-            if (f.rfind("scene ", 0) != 0)
+            if (f.rfind("scene ", 0) != 0 && f.rfind("last ", 0) != 0)
                 story += f + "\n";
         const std::string here = player.page().status().scene;
         const std::string car = here.substr(0, here.find_first_of("_."));
