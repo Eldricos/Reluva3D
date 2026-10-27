@@ -88,12 +88,12 @@ pictures: lit if it's the bag or the hat with the mouse on it, or a car
 that can be travelled to, or the car the player is in. Under the car the
 mouse is on, lit, its name (`map1`..`map5` in `Text\interface.txt`:
 Baggage Car, Restaurant Car...) in font 6 and colour 11, centred in the
-section's width between y 45 and 60. Over the car the player is in, "You
-Are Here" (`map6`) in colour 12, centred in the section between y 10 and
-50.
+section's width between y 45 and 60; and if it's the car the player is
+in, "You Are Here" (`map6`) in colour 12, centred in the section between
+y 10 and 50.
 
 **The mouse on it** (`0x4175c0`): only when it's fully shown, above the
-picture's foot (64), and on an opaque pixel of `topmenubar01.png`; the
+picture's foot (y 71), and on an opaque pixel of `topmenubar01.png`; the
 section is the first whose bound is past x. The bag and the hat are
 always on; a car only when travelling is allowed at all (not before act
 04A, not in 08A, not outdoors (`location exterior.forest | location
@@ -113,8 +113,10 @@ The player is in a car when the location's name has `baggage`,
 
 **A click** (`0x4177f0`; then `select1.wav`): the bag opens the inventory;
 the hat is the in-game menu (as P: `fade out, menu ingame, fade in`); a
-car other than the player's drops what's running and runs, by where the
-player is:
+car that's off does nothing but the sound; the player's own car isn't
+the bar's (the click goes on to the scene); another car drops what's
+running and runs, by where the player is (with an item in hand, a click
+on the bar is a use on nothing, below):
 
 | Car | From | Script |
 |-----|------|--------|
