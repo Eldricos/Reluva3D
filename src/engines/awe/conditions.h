@@ -15,21 +15,34 @@
 // is shown ("moving >0"), which of an object's scripts runs ("act 04a,
 // !tag micheladmonish"), which music plays. See docs/formats/awe/ac2.md.
 //
-//   condition := alternative ('|' alternative)*
-//   alternative := clause (',' clause)*
-//   clause := ['!'] word [argument]
+// The game's evaluator (motoe.exe 0x407ae0, a clause 0x407cb0):
 //
-// Words the game's evaluator knows (motoe.exe 0x407d00..0x408a00) include
-// act, chapter, debug, has, location, master, moving, rand, scene, tag,
-// talk, time, timer, use, used, wearing and weather. "talk <name> <act>
-// <code>" asks a conversation's progress: three letters (part, thread,
-// line), whether the thread got past that line; two, whether it was heard
-// to its end; one, whether the part was (0x439f60). A number argument
-// may start with '<' or '>'; without either it must be equal. "timer
-// <name> [n]" compares a timer (-99 if there's none; without a number,
-// whether there is one). "beenhere"/"beenthere <scene|this> [act|ever]"
-// ask whether a scene was visited in this act (or that act, or ever);
-// "lastscene <name>" whether the scene left last was that one.
+//   condition := [prefix '(' condition ')'] clauses
+//   clauses := clause ((',' | '|') clause)*
+//   clause := ['!'] word [argument...]
+//
+// A part in brackets is worked out first and stands as "1" or "0" (what
+// follows its ')' is dropped). Then, if a '|' is anywhere, any clause
+// holding will do; else they must all hold.
+//
+// Words: act, action, beenhere/beenthere, cantalk, chapter, has, lastscene,
+// location, master, moving, rand, scene, tag, talk, time, timer, use, used,
+// wearing, weather; "1" holds; "0", debug, demo and words it doesn't know
+// don't. "talk <name> <act> <code>" asks a conversation's progress: three
+// letters (part, thread, line), whether the thread got past that line;
+// two, whether it was heard to its end; one, whether the part was
+// (0x439f60). A number argument may start with '<' or '>'; without either
+// it must be equal. "tag <name> [n]" and "timer <name> [n]" compare a tag
+// or timer (-99 if there's none; without a number, whether there is one);
+// "tag <name> nouse" holds if it's there and no item is in hand.
+// "beenhere"/"beenthere <scene|this> [act|ever]" ask whether a scene was
+// visited in this act (or that act, or ever); "lastscene", "scene" and
+// "location <name>" whether the scene left last, the scene or the
+// location has the name in it. "has <item> [available]" whether the item
+// is in the inventory (and not used up or given away: state 1 or 2);
+// "has all passport|fingerprint" whether every passport or fingerprint
+// card is; "used <item>" whether it's used up (state 4); "use <item>"
+// whether it's the item in hand.
 
 namespace reluva::awe {
 
@@ -45,7 +58,13 @@ struct GameState {
     std::string act;                 // "06a"; empty before the first
     std::map<std::string, int> values; // moving, weather, master...
     std::map<std::string, int> tags; // story tags: numbers set by scripts ("tag name 1")
-    std::set<std::string> items;     // what Poirot carries
+    // The inventory (0x49881c): every item Poirot has, whatever its state,
+    // and the states other than 2 (in the bag): 1 just taken, 3 in hand, 4
+    // used up (kept for "restore"), 5 a passport, 6 a fingerprint card, 7
+    // taken away by "remove all". `held` is the item in hand (the cursor).
+    std::set<std::string> items;
+    std::map<std::string, int> itemStates;
+    std::string held;
     // Timers (story state +0x1c): seconds since "timer <name>", plus what
     // "time <n>" added. In order; a name may be there twice (the first
     // counts).
@@ -63,14 +82,22 @@ struct GameState {
     std::function<bool(const std::string& name, const std::string& act, int part)> partTold;
     // "action <word>": what the save or load screen allows (up, down...).
     std::function<bool(const std::string& word)> action;
+    // "cantalk <name> <code> [options]": whether that "talk" would start
+    // (the dialogue's dry run, 0x407f24).
+    std::function<bool(const std::vector<std::string>& words)> canTalk;
+    std::string location; // the location's folder ("calais.hall"), for "location"
+
+    // An item's state: 0 if it isn't there.
+    int itemState(const std::string& item) const;
+    // Whether it's in the bag or just taken (1, 2), for "has <x> available".
+    bool itemAvailable(const std::string& item) const;
 };
 
 std::string talkKey(std::string_view name, std::string_view act, int part, int thread);
 
-// Whether `condition` holds. An empty one does; "0" never does. Words not
-// known here count as 0 (or as false, for those taking a name). "tag name"
-// holds if the tag exists (whatever its value); with a number, by its
-// value (0x408557).
+// Whether `condition` holds. An empty one does, and "1"; "0" never does.
+// "tag name" holds if the tag exists (whatever its value); with a number,
+// by its value (0x408557).
 bool testCondition(std::string_view condition, const GameState& state);
 
 } // namespace reluva::awe

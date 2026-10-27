@@ -146,6 +146,37 @@ std::vector<const DialogueLine*> DialogueBook::conversation(std::string_view nam
     return out;
 }
 
+TalkArgs parseTalkArgs(const std::vector<std::string>& words, bool gen) {
+    TalkArgs t;
+    t.gen = gen;
+    auto word = [&](size_t i) { return i < words.size() ? fs::toLower(words[i]) : std::string(); };
+    t.name = words.empty() ? std::string() : words[0];
+    const std::string code = word(1);
+    if (!code.empty() && std::isalpha(uint8_t(code[0]))) {
+        t.part = std::toupper(uint8_t(code[0])) - 'A';
+        if (code.size() > 1 && code[1] != '+')
+            t.thread = std::toupper(uint8_t(code[1])) - 'A';
+        if (code.size() > 2 && code[2] != '+')
+            t.nest = std::toupper(uint8_t(code[2])) - 'A';
+    } else if (!code.empty()) {
+        t.part = std::atoi(code.c_str()) + 0x63;
+    }
+    t.plus = !code.empty() && code.back() == '+';
+    for (const std::string& opt : {word(2), word(3)}) {
+        if (opt.empty())
+            continue;
+        if (opt == "nogen")
+            t.gen = false;
+        else if (opt == "forcegen")
+            t.gen = true;
+        else if (opt == "nogreet")
+            t.greet = false;
+        else
+            t.number = std::atoi(opt.c_str());
+    }
+    return t;
+}
+
 // --- The manager -----------------------------------------------------------------
 
 DialogueManager::DialogueManager(GameState& state, ScriptHost& scripts, DialogueHost& host)
@@ -345,6 +376,27 @@ bool DialogueManager::talk(ScriptRunner& runner, const std::string& name, int pa
     return true;
 }
 
+bool DialogueManager::canTalk(const std::string& name, int part, int thread, int nest, bool gen, int number, bool plus,
+                              bool greet) {
+    // Start in a dry run (+0x61c), nothing shown or said, and what it
+    // changed put back (0x43a600).
+    if (active_)
+        return false;
+    const bool genBefore = gen_, plusBefore = plus_, greetBefore = greet_;
+    const int numberBefore = number_, alternativeBefore = lastAlternative_, height = boxHeight_, win = window_;
+    const std::string prefixBefore = prefix_;
+    dry_ = true;
+    gen_ = gen;
+    const bool would = start(name, part, thread, nest, number, plus, greet, false);
+    dry_ = false;
+    active_ = false;
+    part_ = nullptr;
+    gen_ = genBefore, plus_ = plusBefore, greet_ = greetBefore;
+    number_ = numberBefore, lastAlternative_ = alternativeBefore, boxHeight_ = height, window_ = win;
+    prefix_ = prefixBefore;
+    return would;
+}
+
 bool DialogueManager::noTalk(ScriptRunner& runner) {
     // gen_<npc>_notalk; with no NPC, Antoinette's own "nothing to say"
     // (the game's test makes that always gen_canttalkf).
@@ -358,7 +410,8 @@ bool DialogueManager::start(const std::string& name, int part, int thread, int n
     DialoguePart* p = book_.find(name, part);
     if (!p)
         return false;
-    log("talk " + name + " " + partText(part));
+    if (!dry_)
+        log("talk " + name + " " + partText(part));
     part_ = p;
     boxHeight_ = 160, window_ = 0;
     if (testCondition("act >07a", state_))
@@ -397,6 +450,8 @@ bool DialogueManager::start(const std::string& name, int part, int thread, int n
         if (!exhausted) {
             int li = nest >= 0 ? pickLine(t, nest, true) : t.current >= 0 ? t.current : pickLine(t, 0, true);
             if (li >= 0) {
+                if (dry_)
+                    return true;
                 showBox();
                 play(p, ti, li);
                 return true;
@@ -408,6 +463,8 @@ bool DialogueManager::start(const std::string& name, int part, int thread, int n
             if (t.code < 0x60 && available(t))
                 rows++;
         rows += int(extras().size());
+        if (rows > 0 && dry_)
+            return true;
         if (rows > 0) {
             if (gen_)
                 addExit(*p);

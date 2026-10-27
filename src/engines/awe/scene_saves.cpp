@@ -154,7 +154,7 @@ SaveGame ScenePage::captureSave(const std::string& description) const {
     }
     int slot = 0;
     for (const std::string& item : state_.items) {
-        s.items.push_back({item, 2, slot, slot / 16});
+        s.items.push_back({item, state_.itemState(item), slot, slot / 16});
         slot++;
     }
     return s;
@@ -189,9 +189,15 @@ bool ScenePage::preload(const std::filesystem::path& file, bool fromGame) {
         state_.texts[fs::toLower(name)] = v;
     for (const SaveGame::Talk& k : save->talks)
         state_.talks[talkKey(k.name, k.act, k.part, k.thread)] = TalkProgress{k.status, k.nest};
-    for (const SaveGame::Item& i : save->items)
-        if (i.state != 4) // 4: taken away, kept for "restore"
-            state_.items.insert(fs::toLower(i.name));
+    state_.itemStates.clear();
+    state_.held.clear();
+    for (const SaveGame::Item& i : save->items) {
+        // An item saved twice (used up, and again in the bag) counts as in
+        // the bag.
+        const std::string name = fs::toLower(i.name);
+        if (!state_.itemAvailable(name))
+            addItem(state_, name, i.state == 3 ? 2 : i.state);
+    }
     for (const SaveGame::Position& p : save->positions)
         npcPositions_[fs::toLower(p.scene) + "|" + fs::toLower(p.character)] = p.at;
     restoring_ = std::move(save);

@@ -321,6 +321,11 @@ ScenePage::ScenePage(ViewerContext& ctx) : Page(ctx) {
             return puzzleCondition(w);
         return slotCondition(w);
     };
+    state_.canTalk = [this](const std::vector<std::string>& words) {
+        loadDialogue();
+        const TalkArgs t = parseTalkArgs(words, true);
+        return dialogue_->canTalk(t.name, t.part, t.thread, t.nest, t.gen, t.number, t.plus, t.greet);
+    };
     {
         std::vector<uint8_t> data;
         if (!ctx.files.read("text/acts.txt", data))
@@ -448,7 +453,7 @@ void ScenePage::load() {
         // Its folder is its location: locations/<location>/<scene>.ac2.
         const std::string lower = fs::toLower(name);
         const size_t from = lower.find('/') + 1;
-        location_ = lower.substr(from, lower.find('/', from) - from);
+        location_ = state_.location = lower.substr(from, lower.find('/', from) - from);
     }
     if (playing_) {
         enterScene();
@@ -688,7 +693,7 @@ void ScenePage::updateLoad() {
         if (fade_ != fadeTarget_)
             return;
         l.screen = false;
-        location_ = l.location; // its scenes are now the current location's
+        location_ = state_.location = l.location; // its scenes are now the current location's
         if (l.forAct) {
             l.state = 0;
             story_->locationLoaded();
@@ -725,9 +730,11 @@ void ScenePage::newGame() {
     // "action" test stay, the tables are read again.
     auto partTold = std::move(state_.partTold);
     auto action = std::move(state_.action);
+    auto canTalk = std::move(state_.canTalk);
     state_ = GameState{};
     state_.partTold = std::move(partTold);
     state_.action = std::move(action);
+    state_.canTalk = std::move(canTalk);
     state_.values["master"] = 1; // the debug switch, off ([0x48b084] = 1)
     dialogueAct_ = "-";
     hiddenNames_.clear();
@@ -2222,38 +2229,10 @@ void ScenePage::loadDialogue() {
 
 bool ScenePage::startTalk(ScriptRunner& runner, const ScriptEvent& e) {
     loadDialogue();
-    // talk <name> <code> [options] (0x40ba25): the code's letters are the
-    // part, thread and nest; a number n the part n + 99; a "+" at its end
-    // goes on to the next part.
-    const std::string code = fs::toLower(e.arg(2));
-    int part = 100, thread = -1, nest = -1;
-    if (!code.empty() && std::isalpha(uint8_t(code[0]))) {
-        part = std::toupper(uint8_t(code[0])) - 'A';
-        if (code.size() > 1 && code[1] != '+')
-            thread = std::toupper(uint8_t(code[1])) - 'A';
-        if (code.size() > 2 && code[2] != '+')
-            nest = std::toupper(uint8_t(code[2])) - 'A';
-    } else if (!code.empty()) {
-        part = std::atoi(code.c_str()) + 0x63;
-    }
-    const bool plus = !code.empty() && code.back() == '+';
-    bool gen = runner.fromCharacter(), greet = true;
-    int number = -1;
-    for (const std::string& opt : {fs::toLower(e.arg(3)), fs::toLower(e.arg(4))}) {
-        if (opt.empty())
-            continue;
-        if (opt == "nogen")
-            gen = false;
-        else if (opt == "forcegen")
-            gen = true;
-        else if (opt == "nogreet")
-            greet = false;
-        else
-            number = std::atoi(opt.c_str());
-    }
-    if (dialogue_->talk(runner, e.arg(1), part, thread, nest, gen, number, plus, greet))
+    const TalkArgs t = parseTalkArgs({e.words.begin() + 1, e.words.end()}, runner.fromCharacter());
+    if (dialogue_->talk(runner, t.name, t.part, t.thread, t.nest, t.gen, t.number, t.plus, t.greet))
         return true;
-    return gen && dialogue_->noTalk(runner);
+    return t.gen && dialogue_->noTalk(runner);
 }
 
 bool ScenePage::playVoice(const std::string& file) {
@@ -2576,7 +2555,7 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
             hiddenNames_.insert(item);
         }
         if (item != "this")
-            state_.items.insert(item);
+            addItem(state_, item, 1); // just taken (0x40b1de)
         draw();
         return false;
     }
@@ -2656,8 +2635,13 @@ void ScenePage::handleEvent(const Event& ev) {
         return;
     }
     if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
-        if (!runner_->idle())
-            return; // the game takes no clicks while a script runs
+        // The game takes no clicks while a script runs, but during its
+        // walks and turns and after an "unlock"; one taken drops what was
+        // running (0x409760).
+        if (runner_->locked())
+            return;
+        if (!runner_->idle() && !slots_ && !puzzleActive())
+            runner_->clear();
         if (slots_ && !hotspotAt(ev.mouseX, ev.mouseY) && slotClick(ev.mouseX, ev.mouseY))
             return;
         // A puzzle sees the click first, then the hotspot under it runs
