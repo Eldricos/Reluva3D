@@ -5274,7 +5274,8 @@ int cmdAtRun(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool at-run <game folder> [-v] [-limit instructions] [-trace count] "
                              "[-memory MB] [-log] [-shots folder] [-every frames] [-click frame[@x,y]]... [-move frame@dx,dy]... "
-                             "[-key frame@vk]... [-quit frame] [-fixed-clock] [-watch dll!export]... [-point frame@x,y]...\n");
+                             "[-key frame@vk]... [-quit frame] [-fixed-clock] [-watch dll!export]... [-point frame@x,y]... "
+                             "[-calls frame@dll!export] [-dump frame@address,bytes]...\n");
         return 2;
     }
     bool verbose = false;
@@ -5284,6 +5285,16 @@ int cmdAtRun(int argc, char** argv) {
     // -watch: calls to a function of the program's (an export), with what
     // they return, summed up per frame.
     std::vector<std::string> watches;
+    // -calls: from a frame on, the next call of a function of the
+    // program's, as a tree of the calls it makes.
+    uint64_t callsFrame = 0;
+    std::string callsOf;
+    // -dump: memory as words (and as floats) when a frame is shown.
+    struct Dump {
+        uint64_t frame;
+        uint32_t address, bytes;
+    };
+    std::vector<Dump> dumps;
     uint64_t limit = 4000000000ull;
     uint32_t memoryMb = 1024;
     bool log = false;
@@ -5339,6 +5350,16 @@ int cmdAtRun(int argc, char** argv) {
             fixedClock = true;
         else if (arg == "-watch" && a + 1 < argc)
             watches.push_back(argv[++a]);
+        else if (arg == "-dump" && a + 1 < argc) {
+            Dump d{std::strtoull(argv[++a], nullptr, 0), 0, 64};
+            if (const char* at = std::strchr(argv[a], '@'))
+                std::sscanf(at + 1, "%x,%x", &d.address, &d.bytes);
+            dumps.push_back(d);
+        } else if (arg == "-calls" && a + 1 < argc) {
+            const std::string v = argv[++a];
+            callsFrame = std::strtoull(v.c_str(), nullptr, 0);
+            callsOf = v.substr(v.find('@') + 1);
+        }
         else if (arg == "-every" && a + 1 < argc)
             every = std::max<uint64_t>(1, std::strtoull(argv[++a], nullptr, 0));
         else if (arg == "-limit" && a + 1 < argc)
@@ -5382,9 +5403,28 @@ int cmdAtRun(int argc, char** argv) {
         uint32_t address = 0;
         std::map<uint32_t, unsigned> results; // this frame's
         std::vector<std::pair<uint32_t, uint32_t>> pending; // return address, esp
-        std::vector<std::array<uint32_t, 4>> args;           // this frame's first calls' (on the stack)
+        std::vector<std::array<uint32_t, 6>> args;           // this frame's first calls': ecx, the stack's, the caller
+        std::vector<double> st0;                              // this frame's first returns' x87 top of stack
+    };
+    // An argument, as text if it points to some.
+    auto argText = [&cpu](uint32_t v) {
+        std::string t;
+        for (uint32_t a = v; cpu.valid(a, 1) && t.size() < 48; ++a) {
+            const uint8_t ch = cpu.read8(a);
+            if (!ch)
+                break;
+            if (ch < 32 || ch > 126) {
+                t.clear();
+                break;
+            }
+            t += char(ch);
+        }
+        char b[16];
+        std::snprintf(b, sizeof b, "%x", v);
+        return t.size() >= 3 ? std::string(b) + "\"" + t + "\"" : std::string(b);
     };
     std::vector<Watch> watched;
+    std::function<std::string(uint32_t)> symbolOf; // `symbol` below
     game.directX().presented = [&](const reluva::x86::DirectX::Frame& f) {
         ++framesShown;
         for (Watch& w : watched) {
@@ -5395,7 +5435,12 @@ int cmdAtRun(int argc, char** argv) {
                 std::printf(" 0x%x (x%u)", value, count);
             std::printf(", given");
             for (const auto& a : w.args)
-                std::printf(" (%x %x %x %x)", a[0], a[1], a[2], a[3]);
+                std::printf(" (this %x: %s %s %s %s; from %s)", a[0], argText(a[1]).c_str(), argText(a[2]).c_str(),
+                            argText(a[3]).c_str(), argText(a[4]).c_str(), symbolOf(a[5]).c_str());
+            std::printf(", st(0)");
+            for (double v : w.st0)
+                std::printf(" %g", v);
+            w.st0.clear();
             std::printf("\n");
             w.results.clear();
             w.args.clear();
@@ -5425,6 +5470,23 @@ int cmdAtRun(int argc, char** argv) {
             uint32_t ignored = 0;
             if (!setPosition || cpu.call(setPosition, {point}, ignored))
                 std::printf("-point: couldn't set the pointer on frame %llu\n", (unsigned long long)f.number);
+        }
+        for (const Dump& d : dumps) {
+            if (f.number != d.frame)
+                continue;
+            for (uint32_t at = d.address; at < d.address + d.bytes; at += 16) {
+                std::printf("%08x:", at);
+                for (uint32_t i = 0; i < 16; i += 4)
+                    std::printf(" %08x", cpu.valid(at + i, 4) ? cpu.read32(at + i) : 0);
+                std::printf("  ");
+                for (uint32_t i = 0; i < 16; i += 4) {
+                    const uint32_t v = cpu.valid(at + i, 4) ? cpu.read32(at + i) : 0;
+                    float fl;
+                    std::memcpy(&fl, &v, 4);
+                    std::printf(" %g", double(fl));
+                }
+                std::printf("\n");
+            }
         }
         for (const Click& k : keys)
             if (f.number == k.frame || f.number == k.frame + 1)
@@ -5467,27 +5529,161 @@ int cmdAtRun(int argc, char** argv) {
             std::printf("  (x%u)\n", repeats);
         repeats = 0;
     };
+    // An address as module!export+offset (the nearest export at or below it).
+    std::map<std::string, std::vector<std::pair<uint32_t, std::string>>> exportsOf;
+    auto symbol = [&](uint32_t a) {
+        if (const std::string* n = cpu.nativeName(a))
+            return "[" + *n + "]";
+        for (const auto* m : game.process().modules()) {
+            if (a < m->base || a >= m->base + m->size)
+                continue;
+            auto& list = exportsOf[m->name];
+            if (list.empty()) {
+                for (const auto& e : m->image.exports)
+                    if (!e.name.empty() && e.forwarder.empty())
+                        list.push_back({m->base + e.rva, e.name});
+                std::sort(list.begin(), list.end());
+                list.push_back({0xffffffffu, ""}); // never empty again
+            }
+            auto it = std::upper_bound(list.begin(), list.end(), std::make_pair(a, std::string("\xff")));
+            char b[64];
+            if (it != list.begin() && std::prev(it)->first <= a && !std::prev(it)->second.empty()) {
+                --it;
+                std::snprintf(b, sizeof b, "+%x", a - it->first);
+                return m->name + "!" + it->second + (a == it->first ? "" : b);
+            }
+            std::snprintf(b, sizeof b, "+%x", a - m->base);
+            return m->name + b;
+        }
+        // A DLL the program mapped itself (DDPackedDirFileLib's loader does,
+        // for behaviours): its image is in memory, headers and all.
+        for (uint32_t base = a & ~0xfffu; base + 0x400000 > a && base >= 0x1000; base -= 0x1000) {
+            if (!cpu.valid(base, 0x400) || cpu.read16(base) != 0x5a4d)
+                continue;
+            const uint32_t pe = base + cpu.read32(base + 0x3c);
+            if (!cpu.valid(pe, 0x100) || cpu.read32(pe) != 0x4550)
+                continue;
+            const uint32_t size = cpu.read32(pe + 0x50), exportRva = cpu.read32(pe + 0x78);
+            if (a >= base + size)
+                break;
+            std::string name = "image@" + std::to_string(base);
+            auto& list = exportsOf[name];
+            if (list.empty() && exportRva && cpu.valid(base + exportRva, 40)) {
+                const uint32_t dir = base + exportRva;
+                char n[64] = {};
+                for (int i = 0; i < 63 && cpu.valid(base + cpu.read32(dir + 12) + uint32_t(i), 1); ++i)
+                    if (!(n[i] = char(cpu.read8(base + cpu.read32(dir + 12) + uint32_t(i)))))
+                        break;
+                list.push_back({0, n}); // the DLL's own name first
+                const uint32_t count = cpu.read32(dir + 24), functions = base + cpu.read32(dir + 28);
+                const uint32_t names = base + cpu.read32(dir + 32), ordinals = base + cpu.read32(dir + 36);
+                for (uint32_t i = 0; i < count && i < 4096; ++i) {
+                    std::string e;
+                    for (uint32_t at = base + cpu.read32(names + 4 * i); cpu.valid(at, 1) && cpu.read8(at); ++at)
+                        e += char(cpu.read8(at));
+                    list.push_back({base + cpu.read32(functions + 4 * cpu.read16(ordinals + 2 * i)), e});
+                }
+                std::sort(list.begin() + 1, list.end());
+            }
+            const std::string dll = list.empty() ? name : list[0].second;
+            char b[64];
+            const std::pair<uint32_t, std::string>* best = nullptr;
+            for (size_t i = 1; i < list.size(); ++i)
+                if (list[i].first <= a)
+                    best = &list[i];
+            if (best) {
+                std::snprintf(b, sizeof b, "+%x", a - best->first);
+                return dll + "!" + best->second + (a == best->first ? "" : b);
+            }
+            std::snprintf(b, sizeof b, "+%x", a - base);
+            return dll + b;
+        }
+        char b[16];
+        std::snprintf(b, sizeof b, "%08x", a);
+        return std::string(b);
+    };
+    symbolOf = symbol;
+    uint32_t callsAddress = 0;
+    if (!callsOf.empty()) {
+        const size_t bang = callsOf.find('!');
+        const auto* m = bang == std::string::npos ? nullptr : game.process().module(callsOf.substr(0, bang));
+        callsAddress = m ? m->exportAddress(callsOf.substr(bang + 1)) : 0;
+        if (!callsAddress)
+            std::printf("-calls: no %s\n", callsOf.c_str());
+    }
+    // The tree being recorded: the calls open, each as the stack pointer
+    // holding its return address (it's over when the stack is above that).
+    std::vector<uint32_t> openCalls;
+    bool treeDone = false;
+    uint32_t lastEip = 0, lastEsp = 0;
+    std::string lastLine;
+    unsigned lineRepeats = 0, linesPrinted = 0;
+    auto treeLine = [&](const std::string& line) {
+        if (line == lastLine) {
+            ++lineRepeats;
+            return;
+        }
+        if (lineRepeats)
+            std::printf("%*s(x%u)\n", int(2 * openCalls.size()), "", lineRepeats + 1);
+        lineRepeats = 0;
+        lastLine = line;
+        if (++linesPrinted <= 20000)
+            std::printf("%s\n", line.c_str());
+    };
     for (const std::string& name : watches) {
         const size_t bang = name.find('!');
         const auto* m = bang == std::string::npos ? nullptr : game.process().module(name.substr(0, bang));
-        const uint32_t address = m ? m->exportAddress(name.substr(bang + 1)) : 0;
+        // dll!export, or an address (0x...) for code the program loaded itself.
+        const uint32_t address = name.rfind("0x", 0) == 0 ? uint32_t(std::strtoul(name.c_str(), nullptr, 16))
+                                 : m                       ? m->exportAddress(name.substr(bang + 1))
+                                                           : 0;
         if (!address)
             std::printf("-watch: no %s\n", name.c_str());
         else
-            watched.push_back({name, address, {}, {}, {}});
+            watched.push_back({name, address, {}, {}, {}, {}});
     }
-    if (traceCount > 0 || log || !watched.empty())
+    if (traceCount > 0 || log || !watched.empty() || callsAddress)
         cpu.trace = [&](Cpu& c) {
+            // -calls: a call is esp down by 4 with the address after the
+            // last instruction on top and a jump; a return is reaching an
+            // open call's return address.
+            if (callsAddress && !treeDone) {
+                const uint32_t sp = c.reg[Cpu::ESP];
+                if (openCalls.empty()) {
+                    if (c.eip == callsAddress && framesShown + 1 >= callsFrame) {
+                        std::printf("calls of %s on frame %llu:\n", callsOf.c_str(),
+                                    (unsigned long long)(framesShown + 1));
+                        openCalls.push_back(sp);
+                    }
+                } else {
+                    while (!openCalls.empty() && sp > openCalls.back())
+                        openCalls.pop_back();
+                    if (openCalls.empty()) {
+                        treeLine("");
+                        std::printf("returned 0x%x\n", c.reg[Cpu::EAX]);
+                        treeDone = true;
+                    } else if (sp == lastEsp - 4 && c.read32(sp) > lastEip && c.read32(sp) <= lastEip + 7 &&
+                               c.eip != c.read32(sp)) {
+                        treeLine(std::string(2 * openCalls.size(), ' ') + symbol(c.eip));
+                        openCalls.push_back(sp);
+                    }
+                }
+                lastEip = c.eip;
+                lastEsp = sp;
+            }
             for (Watch& w : watched) { // a call, or a return from one
                 if (c.eip == w.address) {
                     const uint32_t sp = c.reg[Cpu::ESP];
                     w.pending.push_back({c.read32(sp), sp + 4});
-                    if (w.args.size() < 4)
-                        w.args.push_back({c.read32(sp + 4), c.read32(sp + 8), c.read32(sp + 12), c.read32(sp + 16)});
+                    if (w.args.size() < 256)
+                        w.args.push_back({c.reg[Cpu::ECX], c.read32(sp + 4), c.read32(sp + 8), c.read32(sp + 12),
+                                          c.read32(sp + 16), c.read32(sp)});
                 }
                 else if (!w.pending.empty() && c.eip == w.pending.back().first &&
                          c.reg[Cpu::ESP] >= w.pending.back().second) {
                     ++w.results[c.reg[Cpu::EAX]];
+                    if (w.st0.size() < 8)
+                        w.st0.push_back(c.fpu.regs[c.fpu.top & 7]);
                     w.pending.pop_back();
                 }
             }

@@ -364,18 +364,44 @@ Progress:
   (420) starts the exercise: the text bar becomes the camera controls and
   the go button.
 
-  Then it goes no further. Dash stands still, and clicks have no effect,
-  even placed exactly on the go button, a camera arrow or a tile. The
-  scene keeps animating. What's known:
-  - Clicks reach the game as on the menus: through
-    `DDMouse::ProcessMouseClick` to the one button route the UI manager
-    set, as `SendEvent` 7 and 8.
-  - It isn't waiting on sound: `Sound_IsPlaying` and `GetStatus` say
-    nothing is playing, and the streaming-audio thread now runs.
-  - Timers and scripted camera waits (`DDTimer::NewTimer`,
-    `DDDirector::CameraMoveDone`, `FadeDone`) aren't used here.
-  - Next: follow what the UI manager's click handler does with a click
-    during the mission, and what keeps the simulation from starting.
+  Then it goes no further: Dash stands still and the go button does
+  nothing. Traced (with `-watch`, `-calls` and `-dump`, below), the cause
+  is sound:
+  - Input works. The stop button (bottom left) opens the in-game menu
+    (Keep Playing, Start Over, Skip Training Mission...).
+  - The go button (`GoStop`) is locked on purpose. Clicks reach
+    `DDUIManager::ProcessMouseClick`, which only hits buttons in its 4x4
+    grid of screen cells (`ScreenButtons`). A button is added there only
+    once it's clickable (`DDUIButton::SetClickable`: enabled at `+0x50`,
+    clickable at `+0x51`, rectangle at `+0x40..+0x4c`, 0..1 from the
+    bottom left).
+  - The begin click enters a sub-machine of the interface's behaviour (in
+    `PE0300.DLL`) whose entry code makes go unclickable. Its exit code
+    makes go clickable again. The transition out is triggered by event
+    `0xea7d`, which a state's entry code sends.
+  - In the Adventure, "Skip Training Mission" leads to Mission One. There
+    that state is entered when the mission loads, go unlocks, and the
+    mission plays: go starts Dash running, and the others move. So
+    simulation, input and interface are fine.
+  - The Training Area (M0010) is driven by voice lines: `Locale_en.pac`
+    has `M0010_010`, `M0010_020A`/`B`, ... up to `110`. Each step waits for
+    its line. But every `DDStreamingAudioManager::AddSource` returns null
+    (no A3D, so `NiA3dSoundSystem::Startup` fails), including the two the
+    begin click starts. So the first line never "finishes", and nothing
+    ever ends the lock.
+  - So the fix is the A3D stand-in (step 5): streaming sources that exist,
+    play and end. Until then, the Adventure's "Skip Training Mission"
+    reaches Mission One, which plays.
+
+  The tracing options:
+  - `-watch` takes `dll!export` or a raw `0x` address (for code in the
+    behaviour DLLs, which `DDPackedDirFileLib` maps itself). For each
+    frame it shows the calls, `this` (ECX), the first arguments (as text
+    where they point to some), the caller, EAX and the x87 top of stack.
+  - `-calls <frame>@<function>` prints the tree of calls one call makes.
+    Functions are named as module!nearest-export+offset; for DLLs the
+    program mapped itself, from their headers in memory.
+  - `-dump <frame>@<address>,<bytes>` prints memory as words and floats.
 - Done: the engine plays the game (`alphateam/player.{h,cpp}`).
   - The program's main loop never returns, so it runs on a thread of its
     own. The engine's thread queues the player's input and takes the

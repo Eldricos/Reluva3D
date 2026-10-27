@@ -71,6 +71,13 @@ public:
     // and the stand-ins first, the exports of modules already loaded next;
     // others are bound to a function that fails the run, naming them.
     Error load(const std::string& name, const std::vector<uint8_t>& file, const Module*& out);
+    // The modules loaded, in order.
+    std::vector<const Module*> modules() const {
+        std::vector<const Module*> all;
+        for (const auto& m : modules_)
+            all.push_back(m.get());
+        return all;
+    }
     // Calls its DllMain for DLL_PROCESS_ATTACH: false (with why) if it
     // faulted or said no.
     Error attach(const Module& module);
