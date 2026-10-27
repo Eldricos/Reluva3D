@@ -222,7 +222,7 @@ std::vector<int32_t> GameHost::botSnapshotEntities(int32_t clientNum) {
     const Vec3f eye{origin[0], origin[1], origin[2] + 26};
     const int32_t svFlags = svFlagsOffset();
     const int eyeLeaf = world_ ? world_->leafAt(eye) : -1;
-    for (const int32_t n : linked_) {
+    for (const int32_t n : serverWorld_.linked()) {
         if (n == clientNum || (entityInt(n, svFlags) & 1))
             continue;
         if (eyeLeaf >= 0 && !entityInt(n, layout_.bmodel)) {
@@ -395,7 +395,7 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
         b.moverOrigin = [this](int model, Vec3f& origin) {
             // The linked brush entity with that model, as the original's
             // bot library finds a lift.
-            for (const int32_t n : linked_)
+            for (const int32_t n : serverWorld_.linked())
                 if (entityInt(n, layout_.bmodel) && entityInt(n, layout_.modelIndex) == model) {
                     origin = entityVec(n, layout_.currentOrigin);
                     return true;

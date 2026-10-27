@@ -124,7 +124,7 @@ std::string numberText(float v) {
 
 } // namespace
 
-SpUiHost::SpUiHost(const SearchSet& files, CvarStore& cvars) : files_(files), cvars_(cvars) {}
+SpUiHost::SpUiHost(const SearchSet& files, CvarStore& cvars) : files_(files), cvars_(cvars), openFiles_(files) {}
 
 SpUiHost::~SpUiHost() = default;
 
@@ -408,48 +408,26 @@ void SpUiHost::addImports() {
     // Files: read from the game's; writes kept only while open.
     import(FsFOpenFile, [this](x86::Cpu& c) -> uint32_t {
         // (path, &handle, mode: 0 read, 1 write, 2 append) -> length
-        const std::string path = str(c, 0, 256);
-        const uint32_t handleAt = c.arg(1), mode = c.arg(2);
-        OpenFile f;
-        if (mode == 0) {
-            if (files_.read(path, f.data)) {
-                if (handleAt)
-                    c.write32(handleAt, 0);
-                return 0xffffffffu;
-            }
-            if (!handleAt)
-                return uint32_t(f.data.size());
-        } else {
-            f.writing = true;
-        }
-        const uint32_t h = nextFile_++;
-        const uint32_t length = uint32_t(f.data.size());
-        openFiles_[h] = std::move(f);
+        const uint32_t handleAt = c.arg(1);
+        uint32_t handle = 0;
+        const int32_t length = openFiles_.open(str(c, 0, 256), int32_t(c.arg(2)), handleAt != 0, true, handle);
         if (handleAt)
-            c.write32(handleAt, h);
-        return length;
+            c.write32(handleAt, handle);
+        return uint32_t(length);
     });
     import(FsRead, [this](x86::Cpu& c) -> uint32_t {
         // (buffer, length, handle) -> bytes read
-        auto it = openFiles_.find(c.arg(2));
-        if (it == openFiles_.end() || !c.valid(c.arg(0), c.arg(1)))
+        if (!c.valid(c.arg(0), c.arg(1)))
             return 0;
-        OpenFile& f = it->second;
-        const size_t n = std::min<size_t>(c.arg(1), f.data.size() - std::min(f.position, f.data.size()));
-        std::memcpy(c.memory().data() + c.arg(0), f.data.data() + f.position, n);
-        f.position += n;
-        return uint32_t(n);
+        return uint32_t(openFiles_.read(c.arg(2), c.memory().data() + c.arg(0), c.arg(1)));
     });
     import(FsWrite, [this](x86::Cpu& c) -> uint32_t {
-        auto it = openFiles_.find(c.arg(2));
-        if (it == openFiles_.end() || !c.valid(c.arg(0), c.arg(1)))
+        if (!c.valid(c.arg(0), c.arg(1)))
             return 0;
-        const uint8_t* p = c.memory().data() + c.arg(0);
-        it->second.data.insert(it->second.data.end(), p, p + c.arg(1));
-        return c.arg(1);
+        return uint32_t(openFiles_.write(c.arg(2), c.memory().data() + c.arg(0), c.arg(1)));
     });
     import(FsFCloseFile, [this](x86::Cpu& c) {
-        openFiles_.erase(c.arg(0));
+        openFiles_.close(c.arg(0));
         return 0u;
     });
     import(FsGetFileList, [this](x86::Cpu& c) -> uint32_t {

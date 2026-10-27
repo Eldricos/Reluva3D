@@ -67,8 +67,26 @@ constexpr int32_t kTraceSize = 56; // Quake III's trace_t, as Elite Force's code
 
 } // namespace
 
-GameHost::GameHost(const SearchSet& files, CvarStore& cvars) : files_(files), cvars_(cvars), vmFiles_(files) {
+GameHost::GameHost(const SearchSet& files, CvarStore& cvars)
+    : files_(files), cvars_(cvars), vmFiles_(files),
+      serverWorld_([this](int32_t n, EntityShape& out) { return entityShape(n, out); }) {
     vm_.setSystemCall([this](Qvm& vm, int number, const int32_t* args) { return systemCall(vm, number, args); });
+}
+
+bool GameHost::entityShape(int32_t n, EntityShape& out) {
+    // Entities without the shared part (not Elite Force's layout) have none.
+    const int32_t a = entityAddress(n);
+    if (a < 0 || gameData_.entitySize < layout_.sharedEnd || !vm_.valid(a, layout_.sharedEnd))
+        return false;
+    out.origin = readVec(a + layout_.currentOrigin);
+    out.angles = readVec(a + layout_.currentAngles);
+    out.mins = readVec(a + layout_.mins);
+    out.maxs = readVec(a + layout_.maxs);
+    out.contents = vm_.readInt(a + layout_.contents);
+    out.owner = vm_.readInt(a + layout_.ownerNum);
+    out.bmodel = vm_.readInt(a + layout_.bmodel) != 0;
+    out.modelIndex = vm_.readInt(a + layout_.modelIndex);
+    return true;
 }
 
 Error GameHost::load() {
@@ -94,7 +112,8 @@ Error GameHost::startLevel(const std::string& mapName, std::shared_ptr<const Bsp
     areaPortals_ = std::make_unique<AreaPortals>(world_->areaCount());
     closedDoorBlocks_ = 0;
     cvars_.create("cm_noAreas", "0", 0); // 1: every area joined, as the original's
-    linked_.clear();
+    serverWorld_.setLevel(map_.get(), world_.get(), areaPortals_.get(),
+                          [this] { return cvars_.find("cm_noAreas") && cvars_.integer("cm_noAreas"); });
     // What the original server sets before starting the game code.
     cvars_.create("mapname", "", CvarStore::ServerInfo | CvarStore::ReadOnly);
     cvars_.set("mapname", mapName, true);
@@ -177,11 +196,13 @@ Error GameHost::reloadGame() {
     // the engine knew of its entities forgotten.
     if (Error err = vm_.load(qvmData_))
         return Error::fail("vm/qagame.qvm: " + err.message);
-    linked_.clear();
+    serverWorld_.clear();
     gameData_ = GameData{};
     restartTime_ = 0;
-    if (world_)
+    if (world_) {
         areaPortals_ = std::make_unique<AreaPortals>(world_->areaCount());
+        serverWorld_.setPortals(areaPortals_.get());
+    }
     return Error::success();
 }
 
@@ -478,7 +499,7 @@ std::pair<int, int> GameHost::svFlagsEvidence() {
     // triggers and other entities the client never sees); the other word
     // (linkcount or singleClient, never written by Reluva) stays 0.
     int at208 = 0, at212 = 0;
-    for (int32_t n : linked_) {
+    for (int32_t n : serverWorld_.linked()) {
         const int32_t v208 = entityInt(n, 208), v212 = entityInt(n, 212);
         at208 += v208 > 0 && v208 < 0x10000;
         at212 += v212 > 0 && v212 < 0x10000;
@@ -538,53 +559,17 @@ void GameHost::linkEntity(int32_t address) {
     const int32_t n = entityNumber(address);
     if (n < 0)
         return;
-    sight_.erase(n);
-    linked_.insert(n);
-    // Entities without the shared part (not Elite Force's layout): only
-    // recorded.
-    if (gameData_.entitySize < layout_.sharedEnd || !vm_.checkWrite(address, layout_.sharedEnd))
+    EntityShape shape;
+    if (!entityShape(n, shape) || !vm_.checkWrite(address, layout_.sharedEnd)) {
+        serverWorld_.linkUnplaced(n); // only recorded
         return;
-    // The box it fills in the world, a unit larger all round (moves stop
-    // just short of edges); a turned brush model by its farthest corner.
-    const Vec3f origin = readVec(address + layout_.currentOrigin), angles = readVec(address + layout_.currentAngles);
-    const Vec3f mins = readVec(address + layout_.mins), maxs = readVec(address + layout_.maxs);
+    }
     Vec3f absMin{}, absMax{};
-    if (vm_.readInt(address + layout_.bmodel) && (angles[0] || angles[1] || angles[2])) {
-        float radius = 0;
-        for (int i = 0; i < 3; ++i) {
-            const float m = std::max(std::abs(mins[size_t(i)]), std::abs(maxs[size_t(i)]));
-            radius += m * m;
-        }
-        radius = std::sqrt(radius);
-        for (int i = 0; i < 3; ++i) {
-            absMin[size_t(i)] = origin[size_t(i)] - radius;
-            absMax[size_t(i)] = origin[size_t(i)] + radius;
-        }
-    } else {
-        for (int i = 0; i < 3; ++i) {
-            absMin[size_t(i)] = origin[size_t(i)] + mins[size_t(i)];
-            absMax[size_t(i)] = origin[size_t(i)] + maxs[size_t(i)];
-        }
-    }
-    for (int i = 0; i < 3; ++i) {
-        absMin[size_t(i)] -= 1;
-        absMax[size_t(i)] += 1;
-    }
+    serverWorld_.link(n, shape, absMin, absMax);
     writeVec(address + layout_.absMin, absMin);
     writeVec(address + layout_.absMax, absMax);
     vm_.writeInt(address + layout_.linked, 1);
-    // Its size for the client game, as the original's server encodes it:
-    // a brush model's marker, or a solid box's half width, depth below
-    // and height above (+32), a byte each; 0 for what isn't solid.
-    int32_t solid = 0;
-    constexpr int32_t kSolidOrBody = 1 | 0x2000000;
-    if (vm_.readInt(address + layout_.bmodel)) {
-        solid = kSolidBrushModel;
-    } else if (vm_.readInt(address + layout_.contents) & kSolidOrBody) {
-        const auto clampByte = [](float v) { return std::clamp(int32_t(v), 1, 255); };
-        solid = (clampByte(maxs[2] + 32) << 16) | (clampByte(-mins[2]) << 8) | clampByte(maxs[0]);
-    }
-    vm_.writeInt(address + layout_.solid, solid);
+    vm_.writeInt(address + layout_.solid, ServerWorld::packedSolid(shape, kSolidBrushModel));
 }
 
 Vec3f GameHost::eyeOf(int32_t clientNum) {
@@ -601,30 +586,6 @@ Vec3f GameHost::eyeOf(int32_t clientNum) {
     Vec3f eye = entityVec(clientNum, layout_.currentOrigin);
     eye[2] += 26;
     return eye;
-}
-
-const GameHost::EntitySight& GameHost::entitySight(int32_t n) {
-    // An entity's areas and clusters, from the leafs its box touches;
-    // worked out once a frame.
-    if (sightTime_ != levelTime_) {
-        sight_.clear();
-        sightTime_ = levelTime_;
-    }
-    auto it = sight_.find(n);
-    if (it != sight_.end())
-        return it->second;
-    EntitySight es;
-    es.areas = entityAreas(n);
-    if (world_ && map_) {
-        std::vector<int> leafs;
-        world_->boxLeafs(entityVec(n, layout_.absMin), entityVec(n, layout_.absMax), leafs);
-        for (const int leaf : leafs) {
-            const int cluster = leaf >= 0 && size_t(leaf) < map_->leafs.size() ? map_->leafs[size_t(leaf)].cluster : -1;
-            if (cluster >= 0 && std::find(es.clusters.begin(), es.clusters.end(), cluster) == es.clusters.end())
-                es.clusters.push_back(cluster);
-        }
-    }
-    return sight_.emplace(n, std::move(es)).first->second;
 }
 
 std::vector<int32_t> GameHost::visibleEntities(int32_t clientNum) {
@@ -647,7 +608,7 @@ std::vector<int32_t> GameHost::visibleEntities(int32_t clientNum) {
         const int leaf = world_ ? world_->leafAt(from) : -1;
         const int area = leaf >= 0 ? world_->leafArea(leaf) : -1;
         const int cluster = leaf >= 0 && map_ && size_t(leaf) < map_->leafs.size() ? map_->leafs[size_t(leaf)].cluster : -1;
-        for (const int32_t n : linked_) {
+        for (const int32_t n : serverWorld_.linked()) {
             if (n == clientNum || added.count(n))
                 continue;
             const int32_t flags = entityInt(n, svFlags);
@@ -660,7 +621,10 @@ std::vector<int32_t> GameHost::visibleEntities(int32_t clientNum) {
                     continue;
             }
             if (!(flags & 0x20)) {
-                const EntitySight& es = entitySight(n);
+                const ServerWorld::Placement* place = serverWorld_.placement(n);
+                if (!place)
+                    continue;
+                const ServerWorld::Placement& es = *place;
                 if (!noAreas && area >= 0 && es.areas.first >= 0 && areaPortals_ &&
                     !areaPortals_->connected(area, es.areas.first) &&
                     (es.areas.second < 0 || !areaPortals_->connected(area, es.areas.second)))
@@ -685,98 +649,16 @@ std::vector<int32_t> GameHost::visibleEntities(int32_t clientNum) {
 }
 
 std::pair<int, int> GameHost::entityAreas(int32_t n) {
-    // The areas its box (as last linked) touches, as the original's
-    // server keeps them: the first, and a second if it stands between two
-    // (a door in its portal).
-    std::pair<int, int> areas{-1, -1};
-    if (!world_)
-        return areas;
-    std::vector<int> leafs;
-    world_->boxLeafs(entityVec(n, layout_.absMin), entityVec(n, layout_.absMax), leafs);
-    for (int leaf : leafs) {
-        const int area = world_->leafArea(leaf);
-        if (area < 0)
-            continue;
-        if (areas.first != -1 && areas.first != area)
-            areas.second = area;
-        else
-            areas.first = area;
-    }
-    return areas;
+    // The areas its box (as last linked) touches.
+    const ServerWorld::Placement* p = serverWorld_.placement(n);
+    return p ? p->areas : std::pair<int, int>{-1, -1};
 }
 
-bool GameHost::areasConnected(int area1, int area2) const {
-    // The original's cm_noAreas: every area counted as joined.
-    if (cvars_.find("cm_noAreas") && cvars_.integer("cm_noAreas"))
-        return true;
-    return areaPortals_ && areaPortals_->connected(area1, area2);
-}
+bool GameHost::areasConnected(int area1, int area2) const { return serverWorld_.areasConnected(area1, area2); }
 
 TraceResult GameHost::traceMove(const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
                                 int32_t passEntity, int32_t mask, int32_t& hit, bool entities) {
-    TraceResult best;
-    hit = kEntityNone;
-    if (world_) {
-        best = world_->trace(start, end, mins, maxs, 0, mask);
-        hit = best.fraction < 1 ? kEntityWorld : kEntityNone;
-    }
-    // The bounds of the whole move, for skipping entities nowhere near.
-    Vec3f moveMin{}, moveMax{};
-    for (int i = 0; i < 3; ++i) {
-        moveMin[size_t(i)] = std::min(start[size_t(i)], end[size_t(i)]) + mins[size_t(i)] - 1;
-        moveMax[size_t(i)] = std::max(start[size_t(i)], end[size_t(i)]) + maxs[size_t(i)] + 1;
-    }
-    const int32_t passOwner = passEntity >= 0 ? entityInt(passEntity, layout_.ownerNum) : -1;
-    for (int32_t n : linked_) {
-        if (best.allSolid || !entities)
-            break;
-        // Not the mover itself, nor what it owns or what owns it.
-        if (n == passEntity || (passEntity >= 0 && (entityInt(n, layout_.ownerNum) == passEntity || n == passOwner)))
-            continue;
-        const int32_t contents = entityInt(n, layout_.contents);
-        if (!(contents & mask))
-            continue;
-        const Vec3f absMin = entityVec(n, layout_.absMin), absMax = entityVec(n, layout_.absMax);
-        bool apart = false;
-        for (int i = 0; i < 3; ++i)
-            apart |= absMin[size_t(i)] > moveMax[size_t(i)] || absMax[size_t(i)] < moveMin[size_t(i)];
-        if (apart)
-            continue;
-        const Vec3f origin = entityVec(n, layout_.currentOrigin);
-        TraceResult t;
-        if (entityInt(n, layout_.bmodel) && world_) {
-            // Its brushes, where it stands now (turning not yet followed).
-            Vec3f s = start, e = end;
-            for (int i = 0; i < 3; ++i) {
-                s[size_t(i)] -= origin[size_t(i)];
-                e[size_t(i)] -= origin[size_t(i)];
-            }
-            t = world_->trace(s, e, mins, maxs, entityInt(n, layout_.modelIndex), mask);
-            for (int i = 0; i < 3; ++i)
-                t.endPos[size_t(i)] += origin[size_t(i)];
-        } else {
-            Vec3f boxMin = entityVec(n, layout_.mins), boxMax = entityVec(n, layout_.maxs);
-            for (int i = 0; i < 3; ++i) {
-                boxMin[size_t(i)] += origin[size_t(i)];
-                boxMax[size_t(i)] += origin[size_t(i)];
-            }
-            t = CollisionWorld::traceBox(start, end, mins, maxs, boxMin, boxMax, contents);
-        }
-        if (t.allSolid || t.startSolid) {
-            best.allSolid |= t.allSolid;
-            best.startSolid = true;
-            hit = n;
-        }
-        if (t.fraction < best.fraction) {
-            const bool startSolid = best.startSolid;
-            best = t;
-            best.startSolid |= startSolid;
-            hit = n;
-        }
-    }
-    for (int i = 0; i < 3; ++i)
-        best.endPos[size_t(i)] = start[size_t(i)] + best.fraction * (end[size_t(i)] - start[size_t(i)]);
-    return best;
+    return serverWorld_.trace(start, mins, maxs, end, passEntity, mask, hit, entities);
 }
 
 void GameHost::clipMove(int32_t results, const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
@@ -811,26 +693,7 @@ void GameHost::clipMove(int32_t results, const Vec3f& start, const Vec3f& mins, 
 }
 
 int32_t GameHost::pointContents(const Vec3f& point, int32_t passEntity) {
-    int32_t result = world_ ? world_->pointContents(point, 0) : 0;
-    for (int32_t n : linked_) {
-        if (n == passEntity)
-            continue;
-        const Vec3f origin = entityVec(n, layout_.currentOrigin);
-        if (entityInt(n, layout_.bmodel) && world_) {
-            const Vec3f local{point[0] - origin[0], point[1] - origin[1], point[2] - origin[2]};
-            if (world_->pointContents(local, entityInt(n, layout_.modelIndex)))
-                result |= entityInt(n, layout_.contents);
-        } else {
-            const Vec3f mins = entityVec(n, layout_.mins), maxs = entityVec(n, layout_.maxs);
-            bool inside = true;
-            for (int i = 0; i < 3; ++i)
-                inside &= point[size_t(i)] >= origin[size_t(i)] + mins[size_t(i)] &&
-                          point[size_t(i)] <= origin[size_t(i)] + maxs[size_t(i)];
-            if (inside)
-                result |= entityInt(n, layout_.contents);
-        }
-    }
-    return result;
+    return serverWorld_.pointContents(point, passEntity);
 }
 
 std::string GameHost::infoString(int32_t flag) const {
@@ -912,7 +775,7 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case LinkEntity: linkEntity(a[0]); return 0;
     case UnlinkEntity:
         if (const int32_t n = entityNumber(a[0]); n >= 0) {
-            linked_.erase(n);
+            serverWorld_.unlink(n);
             if (gameData_.entitySize >= layout_.sharedEnd)
                 vm.writeInt(a[0] + layout_.linked, 0);
         }
@@ -971,16 +834,13 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case AreasConnected: return areasConnected(a[0], a[1]);
     case EntitiesInBox: { // (mins, maxs, list, max) -> how many
         const Vec3f mins = readVec(a[0]), maxs = readVec(a[1]);
+        std::vector<int32_t> found;
+        serverWorld_.entitiesInBox(mins, maxs, found);
         int32_t count = 0;
-        for (int32_t n : linked_) {
+        for (const int32_t n : found) {
             if (count >= a[3])
                 break;
-            const Vec3f absMin = entityVec(n, layout_.absMin), absMax = entityVec(n, layout_.absMax);
-            bool apart = false;
-            for (int i = 0; i < 3; ++i)
-                apart |= absMin[size_t(i)] > maxs[size_t(i)] || absMax[size_t(i)] < mins[size_t(i)];
-            if (!apart)
-                vm.writeInt(a[2] + 4 * count++, n);
+            vm.writeInt(a[2] + 4 * count++, n);
         }
         return count;
     }

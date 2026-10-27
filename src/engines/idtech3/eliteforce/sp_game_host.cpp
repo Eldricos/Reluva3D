@@ -86,7 +86,25 @@ std::string lower(std::string s) {
 
 } // namespace
 
-SpGameHost::SpGameHost(const SearchSet& files, CvarStore& cvars) : files_(files), cvars_(cvars) {}
+SpGameHost::SpGameHost(const SearchSet& files, CvarStore& cvars)
+    : files_(files), cvars_(cvars), serverWorld_([this](int32_t n, EntityShape& out) { return entityShape(n, out); }),
+      openFiles_(files) {}
+
+bool SpGameHost::entityShape(int32_t n, EntityShape& out) const {
+    const uint32_t a = entityAddress(n);
+    if (!a || !cpu_->valid(a, uint32_t(kEntity.owner + 4)))
+        return false;
+    out.origin = readVec(a + kEntity.currentOrigin);
+    out.angles = readVec(a + kEntity.currentAngles);
+    out.mins = readVec(a + kEntity.mins);
+    out.maxs = readVec(a + kEntity.maxs);
+    out.contents = int32_t(cpu_->read32(a + kEntity.contents));
+    const uint32_t owner = cpu_->read32(a + kEntity.owner);
+    out.owner = owner ? entityNumber(owner) : -1;
+    out.bmodel = cpu_->read32(a + kEntity.bmodel) != 0;
+    out.modelIndex = int32_t(cpu_->read32(a + kEntity.modelIndex));
+    return true;
+}
 
 SpGameHost::~SpGameHost() = default;
 
@@ -193,7 +211,8 @@ Error SpGameHost::startLevel(const std::string& mapName, std::shared_ptr<const B
     }
     marks_.reset();
     areaPortals_ = std::make_unique<AreaPortals>(world_->areaCount());
-    linked_.clear();
+    serverWorld_.setLevel(map_.get(), world_.get(), areaPortals_.get(),
+                          [this] { return cvars_.find("cm_noAreas") && cvars_.integer("cm_noAreas"); });
     for (uint32_t a : levelText_)
         process_->memory().free(a);
     levelText_.clear();
@@ -463,150 +482,31 @@ Vec3f SpGameHost::entityVec(int32_t number, int32_t offset) const {
 
 void SpGameHost::linkEntity(uint32_t address) {
     const int32_t n = entityNumber(address);
-    if (n < 0 || !cpu_->valid(address, uint32_t(kEntity.owner + 4)))
+    EntityShape shape;
+    if (n < 0 || !entityShape(n, shape))
         return;
-    linked_.insert(n);
-    // Its box in the world, a unit larger all round; a turned brush model
-    // by its farthest corner.
-    const Vec3f origin = readVec(address + kEntity.currentOrigin), angles = readVec(address + kEntity.currentAngles);
-    const Vec3f mins = readVec(address + kEntity.mins), maxs = readVec(address + kEntity.maxs);
-    const bool bmodel = cpu_->read32(address + kEntity.bmodel) != 0;
     Vec3f absMin{}, absMax{};
-    if (bmodel && (angles[0] || angles[1] || angles[2])) {
-        float radius = 0;
-        for (int i = 0; i < 3; ++i) {
-            const float m = std::max(std::abs(mins[size_t(i)]), std::abs(maxs[size_t(i)]));
-            radius += m * m;
-        }
-        radius = std::sqrt(radius);
-        for (int i = 0; i < 3; ++i) {
-            absMin[size_t(i)] = origin[size_t(i)] - radius;
-            absMax[size_t(i)] = origin[size_t(i)] + radius;
-        }
-    } else {
-        for (int i = 0; i < 3; ++i) {
-            absMin[size_t(i)] = origin[size_t(i)] + mins[size_t(i)];
-            absMax[size_t(i)] = origin[size_t(i)] + maxs[size_t(i)];
-        }
-    }
-    for (int i = 0; i < 3; ++i) {
-        absMin[size_t(i)] -= 1;
-        absMax[size_t(i)] += 1;
-    }
+    serverWorld_.link(n, shape, absMin, absMax);
     writeVec(address + kEntity.absMin, absMin);
     writeVec(address + kEntity.absMax, absMax);
     cpu_->write32(address + kEntity.linked, 1);
-    // Its size for the client game: a brush model's marker, or a solid
-    // box's half width, depth and height (+32), a byte each.
-    int32_t solid = 0;
-    if (bmodel) {
-        solid = kSolidBrushModel;
-    } else if (cpu_->read32(address + kEntity.contents) & (1 | 0x2000000)) {
-        const auto clampByte = [](float v) { return std::clamp(int32_t(v), 1, 255); };
-        solid = (clampByte(maxs[2] + 32) << 16) | (clampByte(-mins[2]) << 8) | clampByte(maxs[0]);
-    }
-    cpu_->write32(address + kEntity.solid, uint32_t(solid));
+    cpu_->write32(address + kEntity.solid, uint32_t(ServerWorld::packedSolid(shape, kSolidBrushModel)));
 }
 
 void SpGameHost::unlinkEntity(uint32_t address) {
     const int32_t n = entityNumber(address);
     if (n < 0)
         return;
-    linked_.erase(n);
+    serverWorld_.unlink(n);
     cpu_->write32(address + kEntity.linked, 0);
 }
 
-std::pair<int, int> SpGameHost::entityAreas(int32_t n) const {
-    std::pair<int, int> areas{-1, -1};
-    if (!world_)
-        return areas;
-    std::vector<int> leafs;
-    world_->boxLeafs(entityVec(n, kEntity.absMin), entityVec(n, kEntity.absMax), leafs);
-    for (int leaf : leafs) {
-        const int area = world_->leafArea(leaf);
-        if (area < 0)
-            continue;
-        if (areas.first != -1 && areas.first != area)
-            areas.second = area;
-        else
-            areas.first = area;
-    }
-    return areas;
-}
-
-bool SpGameHost::areasConnected(int area1, int area2) const {
-    if (cvars_.find("cm_noAreas") && cvars_.integer("cm_noAreas"))
-        return true;
-    return areaPortals_ && areaPortals_->connected(area1, area2);
-}
-
-TraceResult SpGameHost::traceMove(const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
-                                  int32_t passEntity, int32_t mask, int32_t& hit) {
-    TraceResult best;
-    hit = kEntityNone;
-    if (world_) {
-        best = world_->trace(start, end, mins, maxs, 0, mask);
-        hit = best.fraction < 1 ? kEntityWorld : kEntityNone;
-    }
-    Vec3f moveMin{}, moveMax{};
-    for (int i = 0; i < 3; ++i) {
-        moveMin[size_t(i)] = std::min(start[size_t(i)], end[size_t(i)]) + mins[size_t(i)] - 1;
-        moveMax[size_t(i)] = std::max(start[size_t(i)], end[size_t(i)]) + maxs[size_t(i)] + 1;
-    }
-    auto ownerOf = [&](int32_t n) {
-        const uint32_t owner = uint32_t(entityInt(n, kEntity.owner));
-        return owner ? entityNumber(owner) : -1;
-    };
-    const int32_t passOwner = passEntity >= 0 && passEntity < kMaxEntities ? ownerOf(passEntity) : -1;
-    for (int32_t n : linked_) {
-        if (best.allSolid)
-            break;
-        // Not the mover, nor what it owns or what owns it.
-        if (n == passEntity || (passEntity >= 0 && (ownerOf(n) == passEntity || n == passOwner)))
-            continue;
-        const int32_t contents = entityInt(n, kEntity.contents);
-        if (!(contents & mask))
-            continue;
-        const Vec3f absMin = entityVec(n, kEntity.absMin), absMax = entityVec(n, kEntity.absMax);
-        bool apart = false;
-        for (int i = 0; i < 3; ++i)
-            apart |= absMin[size_t(i)] > moveMax[size_t(i)] || absMax[size_t(i)] < moveMin[size_t(i)];
-        if (apart)
-            continue;
-        const Vec3f origin = entityVec(n, kEntity.currentOrigin);
-        TraceResult t;
-        if (entityInt(n, kEntity.bmodel) && world_) {
-            Vec3f s = start, e = end;
-            for (int i = 0; i < 3; ++i) {
-                s[size_t(i)] -= origin[size_t(i)];
-                e[size_t(i)] -= origin[size_t(i)];
-            }
-            t = world_->trace(s, e, mins, maxs, entityInt(n, kEntity.modelIndex), mask);
-            for (int i = 0; i < 3; ++i)
-                t.endPos[size_t(i)] += origin[size_t(i)];
-        } else {
-            Vec3f boxMin = entityVec(n, kEntity.mins), boxMax = entityVec(n, kEntity.maxs);
-            for (int i = 0; i < 3; ++i) {
-                boxMin[size_t(i)] += origin[size_t(i)];
-                boxMax[size_t(i)] += origin[size_t(i)];
-            }
-            t = CollisionWorld::traceBox(start, end, mins, maxs, boxMin, boxMax, contents);
-        }
-        if (t.allSolid || t.startSolid) {
-            best.allSolid |= t.allSolid;
-            best.startSolid = true;
-            hit = n;
-        }
-        if (t.fraction < best.fraction) {
-            const bool startSolid = best.startSolid;
-            best = t;
-            best.startSolid |= startSolid;
-            hit = n;
-        }
-    }
-    for (int i = 0; i < 3; ++i)
-        best.endPos[size_t(i)] = start[size_t(i)] + best.fraction * (end[size_t(i)] - start[size_t(i)]);
-    return best;
+ServerWorld::Placement SpGameHost::entityPlacement(int32_t n) const {
+    // As linked; or, for one marked linked in a saved game but not linked
+    // since, where its box says.
+    if (const ServerWorld::Placement* p = serverWorld_.placement(n))
+        return *p;
+    return serverWorld_.place(entityVec(n, kEntity.absMin), entityVec(n, kEntity.absMax));
 }
 
 void SpGameHost::writeTrace(uint32_t r, const TraceResult& t, int32_t hit) {
@@ -630,29 +530,6 @@ void SpGameHost::writeTrace(uint32_t r, const TraceResult& t, int32_t hit) {
     cpu_->write32(r + 44, uint32_t(t.surfaceFlags));
     cpu_->write32(r + 48, uint32_t(t.contents));
     cpu_->write32(r + 52, uint32_t(hit));
-}
-
-int32_t SpGameHost::pointContents(const Vec3f& point, int32_t passEntity) {
-    int32_t result = world_ ? world_->pointContents(point, 0) : 0;
-    for (int32_t n : linked_) {
-        if (n == passEntity)
-            continue;
-        const Vec3f origin = entityVec(n, kEntity.currentOrigin);
-        if (entityInt(n, kEntity.bmodel) && world_) {
-            const Vec3f local{point[0] - origin[0], point[1] - origin[1], point[2] - origin[2]};
-            if (world_->pointContents(local, entityInt(n, kEntity.modelIndex)))
-                result |= entityInt(n, kEntity.contents);
-        } else {
-            const Vec3f mins = entityVec(n, kEntity.mins), maxs = entityVec(n, kEntity.maxs);
-            bool inside = true;
-            for (int i = 0; i < 3; ++i)
-                inside &= point[size_t(i)] >= origin[size_t(i)] + mins[size_t(i)] &&
-                          point[size_t(i)] <= origin[size_t(i)] + maxs[size_t(i)];
-            if (inside)
-                result |= entityInt(n, kEntity.contents);
-        }
-    }
-    return result;
 }
 
 std::string SpGameHost::infoString(int32_t flag) const {
@@ -708,47 +585,23 @@ void SpGameHost::syncCvars() {
 // FS_FOpenFile(path, &handle, mode): read from the game's search path; what
 // it writes is kept only until closed, for now.
 uint32_t SpGameHost::fsOpen(x86::Cpu& c, uint32_t pathAddress, uint32_t handleAddress, uint32_t mode) {
-    const std::string path = c.string(pathAddress, 256);
-    if (mode != 0) {
-        const uint32_t h = nextFile_++;
-        openFiles_[h] = OpenFile{{}, 0, true};
-        if (handleAddress)
-            c.write32(handleAddress, h);
-        return 0;
-    }
-    std::vector<uint8_t> data;
-    if (files_.read(path, data)) {
-        if (handleAddress)
-            c.write32(handleAddress, 0);
-        return 0xffffffffu;
-    }
-    const uint32_t length = uint32_t(data.size());
-    if (handleAddress) {
-        const uint32_t h = nextFile_++;
-        openFiles_[h] = OpenFile{std::move(data), 0, false};
-        c.write32(handleAddress, h);
-    }
-    return length;
+    uint32_t handle = 0;
+    const int32_t length = openFiles_.open(c.string(pathAddress, 256), int32_t(mode), handleAddress != 0, true, handle);
+    if (handleAddress)
+        c.write32(handleAddress, handle);
+    return uint32_t(length);
 }
 
 uint32_t SpGameHost::fsRead(x86::Cpu& c, uint32_t buffer, uint32_t length, uint32_t handle) {
-    auto it = openFiles_.find(handle);
-    if (it == openFiles_.end() || !c.valid(buffer, length))
+    if (!c.valid(buffer, length))
         return 0;
-    OpenFile& f = it->second;
-    const size_t n = std::min<size_t>(length, f.data.size() - f.position);
-    std::memcpy(c.memory().data() + buffer, f.data.data() + f.position, n);
-    f.position += n;
-    return uint32_t(n);
+    return uint32_t(openFiles_.read(handle, c.memory().data() + buffer, length));
 }
 
 uint32_t SpGameHost::fsWrite(x86::Cpu& c, uint32_t buffer, uint32_t length, uint32_t handle) {
-    auto it = openFiles_.find(handle);
-    if (it == openFiles_.end() || !c.valid(buffer, length))
+    if (!c.valid(buffer, length))
         return 0;
-    const uint8_t* p = c.memory().data() + buffer;
-    it->second.data.insert(it->second.data.end(), p, p + length);
-    return length;
+    return uint32_t(openFiles_.write(handle, c.memory().data() + buffer, length));
 }
 
 // --- The client game's system calls -------------------------------------------------
@@ -845,7 +698,7 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
     case 9: return fsOpen(c, a(0), a(1), a(2));
     case 10: return fsRead(c, a(0), a(1), a(2));
     case 11: return fsWrite(c, a(0), a(1), a(2));
-    case 12: openFiles_.erase(a(0)); return 0;
+    case 12: openFiles_.close(a(0)); return 0;
     case 13: consoleCommands_.push_back(str(0, 4096)); return 0; // SendConsoleCommand
     case 14: clientCommands_.push_back(str(0, 256)); return 0;    // AddCommand(name)
     case 15: { // SendClientCommand(text): to the server game, as ClientCommand
@@ -1275,17 +1128,14 @@ std::vector<int32_t> SpGameHost::visibleEntities(const Vec3f& eye) {
             if (flags & 1)
                 continue;
             if (!(flags & 0x20) && world_) {
-                const auto areas = entityAreas(n);
-                if (!noAreas && area >= 0 && areas.first >= 0 && !areasConnected(area, areas.first) &&
-                    (areas.second < 0 || !areasConnected(area, areas.second)))
+                const ServerWorld::Placement place = entityPlacement(n);
+                const auto& areas = place.areas;
+                if (!noAreas && area >= 0 && areas.first >= 0 && !serverWorld_.areasConnected(area, areas.first) &&
+                    (areas.second < 0 || !serverWorld_.areasConnected(area, areas.second)))
                     continue;
-                std::vector<int> leafs;
-                world_->boxLeafs(entityVec(n, kEntity.absMin), entityVec(n, kEntity.absMax), leafs);
-                bool seen = leafs.empty() || cluster < 0;
-                for (const int l : leafs) {
-                    const int c = map_->leafs[size_t(l)].cluster;
-                    seen = seen || (c >= 0 && map_->clusterVisible(cluster, c));
-                }
+                bool seen = place.leafCount == 0 || cluster < 0;
+                for (const int c : place.clusters)
+                    seen = seen || map_->clusterVisible(cluster, c);
                 if (!seen)
                     continue;
             }
@@ -1489,7 +1339,7 @@ void SpGameHost::addImports() {
     import(FsRead, [this](x86::Cpu& c) { return fsRead(c, c.arg(0), c.arg(1), c.arg(2)); });
     import(FsWrite, [this](x86::Cpu& c) { return fsWrite(c, c.arg(0), c.arg(1), c.arg(2)); });
     import(FsFCloseFile, [this](x86::Cpu& c) {
-        openFiles_.erase(c.arg(0));
+        openFiles_.close(c.arg(0));
         return 0u;
     });
     import(FsReadFile, [this, str](x86::Cpu& c) -> uint32_t {
@@ -1607,13 +1457,15 @@ void SpGameHost::addImports() {
     import(Trace, [this](x86::Cpu& c) {
         const Vec3f zero{};
         int32_t hit = kEntityNone;
-        const TraceResult t = traceMove(readVec(c.arg(1)), c.arg(2) ? readVec(c.arg(2)) : zero,
-                                        c.arg(3) ? readVec(c.arg(3)) : zero, readVec(c.arg(4)), int32_t(c.arg(5)),
-                                        int32_t(c.arg(6)), hit);
+        const TraceResult t = serverWorld_.trace(readVec(c.arg(1)), c.arg(2) ? readVec(c.arg(2)) : zero,
+                                                 c.arg(3) ? readVec(c.arg(3)) : zero, readVec(c.arg(4)),
+                                                 int32_t(c.arg(5)), int32_t(c.arg(6)), hit);
         writeTrace(c.arg(0), t, hit);
         return 0u;
     });
-    import(PointContents, [this](x86::Cpu& c) { return uint32_t(pointContents(readVec(c.arg(0)), int32_t(c.arg(1)))); });
+    import(PointContents, [this](x86::Cpu& c) {
+        return uint32_t(serverWorld_.pointContents(readVec(c.arg(0)), int32_t(c.arg(1))));
+    });
     auto inPvs = [this](x86::Cpu& c, bool ignorePortals) -> uint32_t {
         if (!world_)
             return 1;
@@ -1622,19 +1474,21 @@ void SpGameHost::addImports() {
             return 0;
         if (!map_->clusterVisible(map_->leafs[size_t(l1)].cluster, map_->leafs[size_t(l2)].cluster))
             return 0;
-        return ignorePortals || areasConnected(world_->leafArea(l1), world_->leafArea(l2)) ? 1 : 0;
+        return ignorePortals || serverWorld_.areasConnected(world_->leafArea(l1), world_->leafArea(l2)) ? 1 : 0;
     };
     import(InPvs, [inPvs](x86::Cpu& c) { return inPvs(c, false); });
     import(InPvsIgnorePortals, [inPvs](x86::Cpu& c) { return inPvs(c, true); });
     import(AdjustAreaPortalState, [this](x86::Cpu& c) {
         if (const int32_t n = entityNumber(c.arg(0)); n >= 0 && areaPortals_) {
-            const auto [area1, area2] = entityAreas(n);
+            const auto [area1, area2] = entityPlacement(n).areas;
             if (area2 != -1)
                 areaPortals_->adjust(area1, area2, c.arg(1) != 0);
         }
         return 0u;
     });
-    import(AreasConnected, [this](x86::Cpu& c) { return areasConnected(int(c.arg(0)), int(c.arg(1))) ? 1u : 0u; });
+    import(AreasConnected, [this](x86::Cpu& c) {
+        return serverWorld_.areasConnected(int(c.arg(0)), int(c.arg(1))) ? 1u : 0u;
+    });
     import(LinkEntity, [this](x86::Cpu& c) {
         linkEntity(c.arg(0));
         return 0u;
@@ -1646,16 +1500,13 @@ void SpGameHost::addImports() {
     import(EntitiesInBox, [this](x86::Cpu& c) {
         // (mins, maxs, list of entity pointers, max) -> how many
         const Vec3f mins = readVec(c.arg(0)), maxs = readVec(c.arg(1));
+        std::vector<int32_t> found;
+        serverWorld_.entitiesInBox(mins, maxs, found);
         uint32_t count = 0;
-        for (int32_t n : linked_) {
+        for (const int32_t n : found) {
             if (count >= c.arg(3))
                 break;
-            const Vec3f absMin = entityVec(n, kEntity.absMin), absMax = entityVec(n, kEntity.absMax);
-            bool apart = false;
-            for (int i = 0; i < 3; ++i)
-                apart |= absMin[size_t(i)] > maxs[size_t(i)] || absMax[size_t(i)] < mins[size_t(i)];
-            if (!apart)
-                c.write32(c.arg(2) + 4 * count++, entityAddress(n));
+            c.write32(c.arg(2) + 4 * count++, entityAddress(n));
         }
         return count;
     });

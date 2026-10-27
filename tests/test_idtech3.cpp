@@ -15,6 +15,7 @@
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/net_client.h"
 #include "engines/idtech3/raven/savegame.h"
+#include "engines/idtech3/server/server_world.h"
 #include "engines/idtech3/eliteforce/net_fields.h"
 #include "engines/idtech3/eliteforce/net_server.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
@@ -58,6 +59,7 @@
 #include <fstream>
 #include <iterator>
 #include <map>
+#include <random>
 #include <memory>
 #include <thread>
 #include <chrono>
@@ -967,6 +969,118 @@ static void testAmbientSets() {
     CHECK(far.size() == 1 && far[0].volume == 0);
     last = 5;
     CHECK(sets.addLocal("nothing", {}, {}, 7, last, 20000).empty() && last == 20000);
+}
+
+// The server's world: what its tree finds is what looking at every linked
+// entity finds, boxes and moves alike, in the same order.
+static void testServerWorld() {
+    using namespace reluva::idtech3;
+    std::map<int32_t, EntityShape> shapes;
+    ServerWorld world([&](int32_t n, EntityShape& out) {
+        const auto it = shapes.find(n);
+        if (it == shapes.end())
+            return false;
+        out = it->second;
+        return true;
+    });
+    Bsp map; // no brushes: only its bounds, for the tree
+    map.models.push_back({});
+    map.models[0].mins = {-1024, -1024, -256};
+    map.models[0].maxs = {1024, 1024, 256};
+    world.setLevel(&map, nullptr, nullptr);
+    std::mt19937 rng(7);
+    auto r = [&](float lo, float hi) { return std::uniform_real_distribution<float>(lo, hi)(rng); };
+    for (int32_t n = 0; n < 200; ++n) {
+        EntityShape s;
+        s.origin = {r(-1000, 1000), r(-1000, 1000), r(-200, 200)};
+        const float size = r(4, n % 10 == 0 ? 600 : 40);
+        s.mins = {-size, -size, -24};
+        s.maxs = {size, size, 32};
+        s.contents = n % 3 ? 1 : 0x2000000;
+        s.owner = n % 7 == 0 ? n - 1 : -1;
+        shapes[n] = s;
+        Vec3f lo{}, hi{};
+        world.link(n, s, lo, hi);
+        CHECK(lo[0] == s.origin[0] + s.mins[0] - 1 && hi[2] == s.origin[2] + s.maxs[2] + 1);
+    }
+    for (int32_t n = 0; n < 200; n += 9) {
+        world.unlink(n);
+        shapes.erase(n);
+    }
+    auto touches = [&](int32_t n, const Vec3f& lo, const Vec3f& hi) {
+        const ServerWorld::Placement* p = world.placement(n);
+        for (int i = 0; i < 3; ++i)
+            if (p->absMin[size_t(i)] > hi[size_t(i)] || p->absMax[size_t(i)] < lo[size_t(i)])
+                return false;
+        return true;
+    };
+    bool boxesAgree = true, movesAgree = true, pointsAgree = true;
+    for (int k = 0; k < 300; ++k) {
+        const Vec3f lo{r(-1100, 1000), r(-1100, 1000), r(-300, 200)};
+        const Vec3f hi{lo[0] + r(0, 300), lo[1] + r(0, 300), lo[2] + r(0, 100)};
+        std::vector<int32_t> found, expected;
+        world.entitiesInBox(lo, hi, found);
+        for (const int32_t n : world.linked())
+            if (touches(n, lo, hi))
+                expected.push_back(n);
+        boxesAgree &= found == expected;
+        // A move: the nearest entity it meets, as by trying every one.
+        const Vec3f a{r(-1000, 1000), r(-1000, 1000), 0}, b{r(-1000, 1000), r(-1000, 1000), 0};
+        const Vec3f mins{-16, -16, -24}, maxs{16, 16, 32};
+        const int32_t pass = int32_t(rng() % 200);
+        int32_t hit = 0;
+        const TraceResult t = world.trace(a, mins, maxs, b, pass, 1, hit);
+        float bestFraction = 1;
+        int32_t bestHit = ServerWorld::kNone;
+        for (const int32_t n : world.linked()) {
+            const EntityShape& s = shapes[n];
+            if (n == pass || s.owner == pass || (shapes.count(pass) && shapes[pass].owner == n) || !(s.contents & 1))
+                continue;
+            Vec3f boxMin = s.mins, boxMax = s.maxs;
+            for (int i = 0; i < 3; ++i) {
+                boxMin[size_t(i)] += s.origin[size_t(i)];
+                boxMax[size_t(i)] += s.origin[size_t(i)];
+            }
+            const TraceResult e = CollisionWorld::traceBox(a, b, mins, maxs, boxMin, boxMax, s.contents);
+            if (e.startSolid || e.allSolid) {
+                bestHit = n;
+                if (e.allSolid)
+                    break;
+            }
+            if (e.fraction < bestFraction) {
+                bestFraction = e.fraction;
+                bestHit = n;
+            }
+        }
+        movesAgree &= t.fraction == bestFraction && hit == bestHit;
+        int32_t contents = 0;
+        for (const int32_t n : world.linked()) {
+            const EntityShape& s = shapes[n];
+            bool inside = true;
+            for (int i = 0; i < 3; ++i)
+                inside &= a[size_t(i)] >= s.origin[size_t(i)] + s.mins[size_t(i)] &&
+                          a[size_t(i)] <= s.origin[size_t(i)] + s.maxs[size_t(i)];
+            if (inside && n != pass)
+                contents |= s.contents;
+        }
+        pointsAgree &= world.pointContents(a, pass) == contents;
+    }
+    CHECK(boxesAgree);
+    CHECK(movesAgree);
+    CHECK(pointsAgree);
+    // The size the client game is told: height above (+32), depth below
+    // and half width, a byte each; a brush model's marker; nothing for
+    // what isn't solid.
+    EntityShape box;
+    box.mins = {-15, -15, -24};
+    box.maxs = {15, 15, 32};
+    box.contents = 1;
+    CHECK(ServerWorld::packedSolid(box, 0xffffff) == (64 << 16 | 24 << 8 | 15));
+    box.bmodel = true;
+    CHECK(ServerWorld::packedSolid(box, 0xffffff) == 0xffffff);
+    box.bmodel = false;
+    box.contents = 0x40000000;
+    CHECK(ServerWorld::packedSolid(box, 0xffffff) == 0);
 }
 
 // Saved games' chunks: written and read back in order, checked.
@@ -2801,6 +2915,7 @@ int main() {
     testVmFileList();
     testSoundLibrary(tmp / "sounds");
     testAmbientSets();
+    testServerWorld();
     testSaveChunks();
     testSoundSystem(tmp / "soundsystem");
     testCollision();

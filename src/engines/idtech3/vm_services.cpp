@@ -12,36 +12,67 @@
 
 namespace reluva::idtech3 {
 
-int32_t VmFiles::open(Qvm& vm, int32_t pathAddress, int32_t handleAddress, int32_t mode) {
-    if (handleAddress)
-        vm.writeInt(handleAddress, 0);
-    const std::string path = vm.string(pathAddress, 256);
-    if (mode != 0 || path.empty())
-        return -1;
+int32_t GameFiles::open(const std::string& path, int32_t mode, bool wantHandle, bool writable, uint32_t& handle) {
+    handle = 0;
     OpenFile file;
-    if (files_.read(path, file.data))
+    if (mode != 0) {
+        if (!writable || path.empty())
+            return -1;
+    } else if (path.empty() || files_.read(path, file.data)) {
         return -1;
+    }
     const auto length = int32_t(file.data.size());
-    if (handleAddress && vm.valid(handleAddress, 4)) {
-        const int32_t handle = next_++;
+    if (wantHandle) {
+        handle = next_++;
         open_[handle] = std::move(file);
-        vm.writeInt(handleAddress, handle);
     }
     return length;
 }
 
-int32_t VmFiles::read(Qvm& vm, int32_t buffer, int32_t length, int32_t handle) {
+size_t GameFiles::readable(uint32_t handle, size_t length) const {
     const auto it = open_.find(handle);
-    if (it == open_.end() || length <= 0)
+    if (it == open_.end())
         return 0;
-    OpenFile& f = it->second;
-    const size_t n = std::min(size_t(length), f.data.size() - f.position);
+    const OpenFile& f = it->second;
+    return std::min(length, f.data.size() - std::min(f.position, f.data.size()));
+}
+
+size_t GameFiles::read(uint32_t handle, uint8_t* out, size_t length) {
+    const size_t n = readable(handle, length);
+    if (n) {
+        OpenFile& f = open_.at(handle);
+        std::memcpy(out, f.data.data() + f.position, n);
+        f.position += n;
+    }
+    return n;
+}
+
+size_t GameFiles::write(uint32_t handle, const uint8_t* in, size_t length) {
+    const auto it = open_.find(handle);
+    if (it == open_.end())
+        return 0;
+    it->second.data.insert(it->second.data.end(), in, in + length);
+    return length;
+}
+
+int32_t VmFiles::open(Qvm& vm, int32_t pathAddress, int32_t handleAddress, int32_t mode) {
+    if (handleAddress)
+        vm.writeInt(handleAddress, 0);
+    uint32_t handle = 0;
+    const int32_t length = open_.open(vm.string(pathAddress, 256), mode,
+                                      handleAddress && vm.valid(handleAddress, 4), false, handle);
+    if (handle)
+        vm.writeInt(handleAddress, int32_t(handle));
+    return length;
+}
+
+int32_t VmFiles::read(Qvm& vm, int32_t buffer, int32_t length, int32_t handle) {
+    if (length <= 0)
+        return 0;
+    const size_t n = open_.readable(uint32_t(handle), size_t(length));
     if (!vm.checkWrite(buffer, int64_t(n)))
         return 0;
-    if (n)
-        std::memcpy(&vm.memory()[size_t(buffer)], &f.data[f.position], n);
-    f.position += n;
-    return int32_t(n);
+    return int32_t(open_.read(uint32_t(handle), n ? &vm.memory()[size_t(buffer)] : nullptr, n));
 }
 
 std::vector<std::string> VmFiles::listNames(const SearchSet& files, std::string_view folder,

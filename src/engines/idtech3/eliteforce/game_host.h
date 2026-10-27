@@ -10,6 +10,7 @@
 #include "engines/idtech3/botlib/bot_library.h"
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/collision.h"
+#include "engines/idtech3/server/server_world.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/entities.h"
 #include "engines/idtech3/qvm.h"
@@ -189,7 +190,7 @@ public:
     // How many times each system call has been made since the start.
     const std::map<int, int>& callCounts() const { return callCounts_; }
     // Entity numbers linked into the world (LinkEntity), not unlinked since.
-    const std::set<int32_t>& linked() const { return linked_; }
+    const std::set<int32_t>& linked() const { return serverWorld_.linked(); }
     // The map's areas (cut by its doors' portals), and how many times
     // InPvs said no only because a closed door stood between.
     int areaCount() const { return world_ ? world_->areaCount() : 0; }
@@ -236,16 +237,11 @@ private:
     Error reconnectClients(const std::set<int32_t>& clients, bool beginHumans);
     std::vector<int32_t> botSnapshotEntities(int32_t clientNum);
     // What a snapshot for a player holds (in entity order), and from where
-    // they look; an entity's areas and clusters, kept for a frame.
+    // they look.
     std::vector<int32_t> visibleEntities(int32_t clientNum);
     Vec3f eyeOf(int32_t clientNum);
-    struct EntitySight {
-        std::pair<int, int> areas{-1, -1};
-        std::vector<int> clusters;
-    };
-    const EntitySight& entitySight(int32_t n);
-    std::map<int32_t, EntitySight> sight_;
-    int32_t sightTime_ = -1;
+    // Entity `n` as the server's world sees it.
+    bool entityShape(int32_t n, EntityShape& out);
 
     const SearchSet& files_;
     CvarStore& cvars_;
@@ -254,6 +250,7 @@ private:
     std::shared_ptr<const Bsp> map_;
     std::unique_ptr<CollisionWorld> world_;
     std::unique_ptr<AreaPortals> areaPortals_; // which areas join up through open doors
+    ServerWorld serverWorld_; // the entities linked, and moves against them
     int closedDoorBlocks_ = 0; // InPvs answers a closed door made "no"
     std::string entityText_;
     std::vector<std::string> args_; // the command being handled
@@ -267,7 +264,6 @@ private:
     int restarts_ = 0;
     std::string levelGametype_, levelMaxClients_; // as the level started
     int snapshotsMade_ = 0;
-    std::set<int32_t> linked_;
     std::map<int32_t, std::string> configstrings_;
     std::vector<std::string> consoleCommands_;
     std::map<int32_t, std::string> userinfo_;

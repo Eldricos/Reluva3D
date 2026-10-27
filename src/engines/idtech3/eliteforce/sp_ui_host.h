@@ -153,13 +153,7 @@ private:
     Scene scene_;
     std::array<float, 4> color_{1, 1, 1, 1};
     std::map<int32_t, std::shared_ptr<Md3Model>> md3s_; // by model handle, for tags
-    struct OpenFile {
-        std::vector<uint8_t> data;
-        size_t position = 0;
-        bool writing = false;
-    };
-    std::map<uint32_t, OpenFile> openFiles_;
-    uint32_t nextFile_ = 1;
+    GameFiles openFiles_;
     std::map<int, int> unhandled_;
 };
 

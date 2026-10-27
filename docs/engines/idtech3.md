@@ -10,8 +10,26 @@ for every game built on the Quake III Arena engine (Elite Force, Quake III
 Arena, Return to Castle Wolfenstein, Jedi Outcast and Jedi Academy,
 Soldier of Fortune II...). What they share (pk3 search paths, shader
 scripts, BSP maps, MD3 models) is written once here. What differs is keyed
-off a `GameInfo` entry in `games.cpp`. Game-specific code will go in
-subfolders (`src/engines/idtech3/eliteforce/`) when there is some.
+off a game's `GameInfo` (`games.h`: whose game code it has, its refEntity
+layout, buttons, default player, single-player DLLs, cinematics), and
+game-specific code goes in a folder of its own.
+
+Where things are:
+
+| Folder | What |
+|---|---|
+| `idtech3/` | The base: formats (pk3 search paths, BSP, MD3/MDR, shaders), collision, light grid, the QVM, cvars, bindings, sound, the GPU world renderer, the bot library |
+| `idtech3/client/` | What a client game hands the engine (`scene.h`: Scene, View, Picture), drawing it (`scene_drawer`, through a per-game `RefEntityLayout`), and the player's input (`player_input`) |
+| `idtech3/server/` | The server's world (`server_world`): linked entities in a tree, traces, point contents, boxes, areas, as Quake III's server keeps them; each game's host only says how to read an entity's shape |
+| `idtech3/pages/` | The pages, a header each, with the shared context and settings in `page.h` |
+| `idtech3/raven/` | What Raven's games share and Quake III doesn't: single-player save chunks, ambient sound sets |
+| `idtech3/eliteforce/` | Elite Force's own: its `GameInfo` (`game_info.cpp`), refEntity layout, entity and network field layouts, and the hosts that run its QVMs and DLLs with their call numbers |
+| `idtech3/wire/` | Network messages and channels (Elite Force's protocol 24 for now) |
+
+A later game in the family (Jedi Outcast in `jk2/`, say) adds its own folder
+with its hosts and a `GameInfo`, using the base, `client/`, `server/` and,
+for Raven's, `raven/`. Elite Force II runs on Ritual's engine, not this one,
+and would be an engine of its own.
 
 Code that isn't specific to id Tech 3 goes in `src/common/` so any engine
 can use it: zip archives, the `Archive`/`SearchSet` file system, image

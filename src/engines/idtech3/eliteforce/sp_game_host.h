@@ -13,6 +13,7 @@
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/client/scene.h"
 #include "engines/idtech3/raven/savegame.h"
+#include "engines/idtech3/server/server_world.h"
 #include "engines/idtech3/light_grid.h"
 #include "engines/idtech3/marks.h"
 #include "engines/idtech3/md3.h"
@@ -206,7 +207,7 @@ public:
     int32_t entityCount() const;
     int32_t entityInt(int32_t number, int32_t offset) const;
     Vec3f entityVec(int32_t number, int32_t offset) const;
-    const std::set<int32_t>& linked() const { return linked_; }
+    const std::set<int32_t>& linked() const { return serverWorld_.linked(); }
     const std::map<int32_t, std::string>& configstrings() const { return configstrings_; }
     const std::vector<std::string>& consoleCommands() const { return consoleCommands_; }
     const std::vector<std::pair<int32_t, std::string>>& serverCommands() const { return serverCommands_; }
@@ -263,12 +264,10 @@ private:
     float readFloat(uint32_t address) const;
     void linkEntity(uint32_t address);
     void unlinkEntity(uint32_t address);
-    TraceResult traceMove(const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
-                          int32_t passEntity, int32_t mask, int32_t& hit);
     void writeTrace(uint32_t results, const TraceResult& t, int32_t hit);
-    int32_t pointContents(const Vec3f& point, int32_t passEntity);
-    bool areasConnected(int area1, int area2) const;
-    std::pair<int, int> entityAreas(int32_t n) const;
+    // Entity `n` as the server's world sees it (its shape, its place).
+    bool entityShape(int32_t n, EntityShape& out) const;
+    ServerWorld::Placement entityPlacement(int32_t n) const;
     std::string infoString(int32_t flag) const;
 
     const SearchSet& files_;
@@ -284,21 +283,15 @@ private:
     std::unique_ptr<MarkSurfaces> marks_; // made on the first mark
     std::unique_ptr<CollisionWorld> world_;
     std::unique_ptr<AreaPortals> areaPortals_;
+    ServerWorld serverWorld_; // the entities linked, and moves against them
     std::vector<uint32_t> levelText_;
     struct MirroredCvar {
         uint32_t address = 0, text = 0;
         int32_t modificationCount = -1;
     };
     std::map<std::string, MirroredCvar> cvarMirrors_; // by lower-case name
-    struct OpenFile {
-        std::vector<uint8_t> data;
-        size_t position = 0;
-        bool writing = false;
-    };
-    std::map<uint32_t, OpenFile> openFiles_;
-    uint32_t nextFile_ = 1;
+    GameFiles openFiles_;
     std::vector<std::string> args_;
-    std::set<int32_t> linked_;
     std::map<int32_t, std::string> configstrings_, userinfo_;
     std::vector<std::string> consoleCommands_;
     std::vector<std::pair<int32_t, std::string>> serverCommands_;
