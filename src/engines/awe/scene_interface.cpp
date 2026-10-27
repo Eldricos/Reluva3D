@@ -708,40 +708,16 @@ bool ScenePage::interfaceEvent(const Event& ev) {
     if (section == 0 || section == 6 || carOn(section)) {
         if (section >= 1 && section <= 5 && inCar(section))
             return false;
-        std::string go;
-        auto test = [&](const char* c) { return testCondition(c, state_); };
-        const bool fromFront = inCar(1) || inCar(2) || inCar(3);
-        switch (section) {
-        case 0:
+        if (section == 0) {
             toggleInventory();
-            break;
-        case 1:
-            go = "baggage_01 1";
-            break;
-        case 2:
-            go = inCar(1) ? "restaurant_01 1" : "restaurant_06 2";
-            break;
-        case 3:
-            go = inCar(1) || inCar(2) ? "salon_01 1" : "salon_06 2";
-            break;
-        case 4:
-            go = inCar(5) && !test("tag athensunlocked") ? "calais.10-11_10.02 4"
-                 : fromFront                             ? "calais.hall_01 1"
-                                                         : "calais.hall_06 2";
-            break;
-        case 5:
-            go = fromFront || inCar(4) ? "athens.hall_01 1" : "athens.hall_06 2";
-            break;
-        default:
+        } else if (section == 6) {
             // The hat: the in-game menu, as P (0x417080).
             releaseHeld();
             endFresh();
             gameKey('p');
-            break;
-        }
-        if (!go.empty()) {
+        } else {
             runner_->clear();
-            runner_->run("fade out, scene " + go + " 0, fade in");
+            runner_->run("fade out, scene " + carScene(section) + " 0, fade in");
         }
     }
     playSound("select1");
@@ -784,6 +760,26 @@ bool ScenePage::carOn(int car) {
         return test("act >05c, act <08a, tag athensunlocked");
     }
     return true;
+}
+
+std::string ScenePage::carScene(int car) const {
+    // Where the bar's car goes (0x4177f0): its first scene from the front
+    // or its last from the back, with the walk point.
+    const bool fromFront = inCar(1) || inCar(2) || inCar(3);
+    switch (car) {
+    case 1:
+        return "baggage_01 1";
+    case 2:
+        return inCar(1) ? "restaurant_01 1" : "restaurant_06 2";
+    case 3:
+        return inCar(1) || inCar(2) ? "salon_01 1" : "salon_06 2";
+    case 4:
+        return inCar(5) && !testCondition("tag athensunlocked", state_) ? "calais.10-11_10.02 4"
+               : fromFront                                             ? "calais.hall_01 1"
+                                                                       : "calais.hall_06 2";
+    default:
+        return fromFront || inCar(4) ? "athens.hall_01 1" : "athens.hall_06 2";
+    }
 }
 
 bool ScenePage::inCar(int car) const {

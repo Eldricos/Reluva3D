@@ -187,6 +187,22 @@ public:
     bool useOn(const std::string& item, size_t i);
     // The parts of each combinelist.txt row that could be combined now.
     std::vector<std::vector<std::string>> combinations();
+    // For a player that searches (reluva-tool awe-acts -solve): the story
+    // state; the game saved to memory and loaded from it as the save and
+    // load screens do; who picks the dialogue's choices (the index, or -1
+    // for the tool's own: the one taken least); the items whose back has
+    // an Examine Event and that back looked at; the bar's cars that can
+    // be travelled to now and the travel; whether clicks are taken now
+    // (nothing runs, or the runner is unlocked).
+    const GameState& gameState() const { return state_; }
+    std::vector<uint8_t> saveToMemory() const;
+    bool loadFromMemory(const std::vector<uint8_t>& data);
+    std::function<int(const std::vector<std::string>& choices)> chooser;
+    std::vector<std::string> flippableItems();
+    bool flipItem(const std::string& item);
+    std::vector<int> travelCars();
+    bool travel(int car);
+    bool clickable() const { return !runner_->locked() && !dialogue_->active() && !movie_; }
 
 private:
     // A character placed in the scene, animated as the game animates
@@ -299,6 +315,7 @@ private:
     SaveGame captureSave(const std::string& description) const;
     // "preload": the story state from a save; "load" then goes there.
     bool preload(const std::filesystem::path& file, bool fromGame);
+    bool preloadData(const std::vector<uint8_t>& data, const std::string& what);
     void finishRestore();
     // "menu <name>", "previous [scene]": the menus and back.
     void openMenu(const std::string& name);
@@ -506,6 +523,7 @@ private:
     int barSection(int x, int y);
     bool carOn(int car);
     bool inCar(int car) const;
+    std::string carScene(int car) const; // "salon_01 1": where the car's section goes
     void drawCards();
     void toggleInventory();
     void closeInventory();

@@ -10,17 +10,23 @@
 #include "engines/awe/viewers.h"
 
 #include "common/fs.h"
+#include "engines/awe/savegame.h"
 #include "engines/awe/story.h"
+
+#include <algorithm>
 
 namespace reluva::awe {
 
 void ScenePage::startAt(const std::string& where) {
     // As a new game, but straight to the act ("act 04a" as 03A's Event
     // has it) or the save ("preload slot7, load, fade in" as the load screen does).
+    // "new": a new game as the program starts one, at the main menu.
     newGame();
-    runner_->clear();
     autoChoices_.clear();
     const std::string w = fs::toLower(where);
+    if (w == "new")
+        return;
+    runner_->clear();
     if (w.rfind("slot", 0) == 0)
         runner_->run("preload " + w + ", load, fade in");
     else
@@ -39,12 +45,22 @@ std::string ScenePage::autoplay() {
     }
     if (dialogue_->active()) {
         if (dialogue_->choosing()) {
-            // The first choice taken least often so far: the first, unless
-            // it's offered again and again (a wrong answer that can be
-            // tried once more), so every one is tried in turn.
+            // The tool's pick, else the first choice taken least often so
+            // far: the first, unless it's offered again and again (a wrong
+            // answer that can be tried once more), so every one is tried in
+            // turn.
             const int n = int(dialogue_->choices().size());
             int pick = -1;
-            for (int i = 0; i < n; i++)
+            if (chooser) {
+                std::vector<std::string> texts;
+                for (const DialogueManager::Choice& c : dialogue_->choices())
+                    texts.push_back(c.text);
+                pick = chooser(texts);
+                if (pick >= n)
+                    pick = -1;
+            }
+            const bool picked = pick >= 0;
+            for (int i = 0; i < n && !picked; i++)
                 if (pick < 0 || autoChoices_[dialogue_->choices()[size_t(i)].text] <
                                     autoChoices_[dialogue_->choices()[size_t(pick)].text])
                     pick = i;
@@ -120,6 +136,68 @@ bool ScenePage::click(size_t i) {
     releaseHeld(); // a click with nothing in hand
     runner_->setFromCharacter(objects[i]->tag == "NPCX");
     runScript(*objects[i]);
+    return true;
+}
+
+std::vector<uint8_t> ScenePage::saveToMemory() const {
+    return writeSaveGame(captureSave("search"));
+}
+
+bool ScenePage::loadFromMemory(const std::vector<uint8_t>& data) {
+    // As the load screen loads a save: "preload", then "load, fade in".
+    newGame();
+    runner_->clear();
+    autoChoices_.clear();
+    if (!preloadData(data, "the save in memory"))
+        return false;
+    runner_->run("load, fade in");
+    return true;
+}
+
+std::vector<std::string> ScenePage::flippableItems() {
+    // The examine page's eye (0x41a860): an item with a back to look at
+    // and an Examine Event for it.
+    std::vector<std::string> out;
+    for (const std::string& item : bagItems())
+        if (itemInfo(item).event.size() > 1 && !itemPicture(item, "ex2").empty())
+            out.push_back(item);
+    return out;
+}
+
+bool ScenePage::flipItem(const std::string& item) {
+    const std::vector<std::string> items = flippableItems();
+    if (std::find(items.begin(), items.end(), item) == items.end())
+        return false;
+    if (!runner_->idle())
+        runner_->clear();
+    releaseHeld();
+    ui_.examined = item;
+    ui_.back = true;
+    playSound("discovery");
+    runFromInventory(itemInfo(item).event, true);
+    return true;
+}
+
+std::vector<int> ScenePage::travelCars() {
+    // The bar's cars (0x4177f0) a click would go to now: allowed, and not
+    // the one Poirot is in.
+    std::vector<int> out;
+    if (!interfaceOn())
+        return out;
+    for (int car = 1; car <= 5; car++)
+        if (carOn(car) && !inCar(car))
+            out.push_back(car);
+    return out;
+}
+
+bool ScenePage::travel(int car) {
+    const std::vector<int> cars = travelCars();
+    if (std::find(cars.begin(), cars.end(), car) == cars.end())
+        return false;
+    if (!runner_->idle())
+        runner_->clear();
+    releaseHeld();
+    runner_->run("fade out, scene " + carScene(car) + " 0, fade in");
     return true;
 }
 

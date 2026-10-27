@@ -173,9 +173,13 @@ bool ScenePage::preload(const std::filesystem::path& file, bool fromGame) {
         logScript("    (no saved game " + file.generic_string() + ")");
         return false;
     }
+    return preloadData(data, file.generic_string());
+}
+
+bool ScenePage::preloadData(const std::vector<uint8_t>& data, const std::string& what) {
     auto save = std::make_unique<SaveGame>();
     if (Error e = readSaveGame(data, *save)) {
-        logScript("    (" + file.generic_string() + ": " + e.message + ")");
+        logScript("    (" + what + ": " + e.message + ")");
         return false;
     }
     // The story state afresh (as "reset"), then the save's lists.

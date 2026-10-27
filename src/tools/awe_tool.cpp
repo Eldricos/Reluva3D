@@ -40,6 +40,7 @@
 namespace {
 
 namespace awe = reluva::awe;
+using reluva::awe::HeadlessSystem;
 
 bool readFile(const std::filesystem::path& path, std::vector<uint8_t>& out) {
     std::ifstream in(path, std::ios::binary);
@@ -334,31 +335,6 @@ int cmdAweTable(int argc, char** argv) {
     return 0;
 }
 
-// A System with no window: the last frame shown is kept, events come from
-// a queue.
-class HeadlessSystem : public reluva::System {
-public:
-    reluva::Surface last;
-    std::deque<reluva::Event> events;
-    reluva::Error initGraphics(int, int, reluva::PixelFormat) override { return reluva::Error::success(); }
-    void setPalette(const reluva::Color*, int, int) override {}
-    void updateScreen(const reluva::Surface& s) override { last = s; }
-    void setWindowTitle(const std::string&) override {}
-    bool pollEvent(reluva::Event& ev) override {
-        if (events.empty())
-            return false;
-        ev = events.front();
-        events.pop_front();
-        return true;
-    }
-    uint64_t getMillis() const override { return now; }
-    uint64_t now = 0;
-    void delayMillis(uint32_t) override {}
-    reluva::Error startAudio(AudioCallback) override { return reluva::Error::fail("no audio"); }
-    void stopAudio() override {}
-    int audioRate() const override { return 44100; }
-};
-
 // Shows a page of the engine's viewer without a window, presses keys on
 // it, and saves the screen as a TGA file.
 int cmdAweShot(int argc, char** argv) {
@@ -491,6 +467,9 @@ int cmdAweActs(int argc, char** argv) {
         std::fprintf(stderr, "usage: reluva-tool awe-acts <game folder> [act|slotN...] [-hotspots] [-explore n] [-t seconds] [-v]\n");
         return 2;
     }
+    for (int i = 3; i < argc; i++)
+        if (std::strcmp(argv[i], "-solve") == 0 || std::strcmp(argv[i], "-play") == 0)
+            return awe::aweCommandSolve(argc, argv);
     reluva::DirectoryArchive files;
     if (reluva::Error e = files.open(argv[2])) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
@@ -973,6 +952,8 @@ const char* aweToolUsage() {
            "  reluva-tool awe-table <file.txt>\n"
            "  reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds|movies> <out.tga> [key...]\n"
            "  reluva-tool awe-acts <game folder> [act|slotN...] [-hotspots] [-explore n] [-t seconds] [-v]\n"
+           "  reluva-tool awe-acts <game folder> -solve <out.txt> [-from <playthrough>] [-budget n] [-v]\n"
+           "  reluva-tool awe-acts <game folder> -play <playthrough> [-v]\n"
            "  reluva-tool ac2-dump <scene.ac2>...\n"
            "  reluva-tool awe-path <game folder> <scene.ac2> <a0> <b0> <a1> <b1> | -all [pairs]\n"
            "  reluva-tool awe-scripts <game folder> [-v]\n"
