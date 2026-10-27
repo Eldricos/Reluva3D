@@ -81,6 +81,8 @@ public:
     const Module* module(const std::string& name) const;
     // The module loaded at `base`, if any.
     const Module* moduleAt(uint32_t base) const;
+    // The module an address is in, if any.
+    const Module* moduleContaining(uint32_t address) const;
 
     // Supplies an import (WINMM.dll's timeGetTime, say), or replaces a
     // stand-in. `dll` is matched ignoring case. Returns its address.

@@ -7,6 +7,7 @@
 #include "common/x86/format.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cctype>
 #include <chrono>
 #include <cstring>
@@ -82,12 +83,16 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
     }
     process_->setCurrentDirectory("C:\\");
     process_->setProgram("C:\\nfs3.exe", options_.commandLine);
+    // Before each native function: input that's due, and the log. Kept
+    // cheap: the game makes millions of these calls.
     cpu_->nativeTrace = [this](Cpu& cpu, const std::string& name) {
-        applyInput();
-        ++callCounts[name];
+        if (inputQueued_.load(std::memory_order_relaxed))
+            applyInput();
+        if (logged_ >= options_.callLog)
+            return;
         const bool routine = name.find("CriticalSection") != std::string::npos || name.find("Tls") != std::string::npos ||
                              name.ends_with("GetTickCount") || name.ends_with("timeGetTime");
-        if (logged_ < options_.callLog && !routine) {
+        if (!routine) {
             ++logged_;
             std::string line = "  " + name + "(";
             for (int i = 0; i < 4; ++i)
@@ -141,6 +146,7 @@ bool GameHost::queueKey(const std::string& name, bool down, uint64_t atMs) {
         if (lower(name) == k.name) {
             std::lock_guard<std::mutex> lock(inputMutex_);
             pendingKeys_.push_back({k.vk, k.scan, down, atMs});
+            inputQueued_ = true;
             return true;
         }
     return false;
@@ -152,16 +158,26 @@ void GameHost::queueMouseMove(int dx, int dy, uint64_t atMs) {
         pendingMouse_.push_back({0, uint32_t(dx), atMs});
     if (dy)
         pendingMouse_.push_back({4, uint32_t(dy), atMs});
+    inputQueued_ = true;
 }
 
 void GameHost::setJoystick(const GamepadState& state, uint64_t atMs) {
     std::lock_guard<std::mutex> lock(inputMutex_);
     pendingJoystick_.emplace_back(atMs, state);
+    inputQueued_ = true;
 }
 
 void GameHost::queueMouseButton(bool down, uint64_t atMs) {
     std::lock_guard<std::mutex> lock(inputMutex_);
     pendingMouse_.push_back({12, down ? 0x80u : 0u, atMs});
+    inputQueued_ = true;
+}
+
+std::map<std::string, uint64_t> GameHost::callCounts() const {
+    std::map<std::string, uint64_t> out;
+    for (auto& [name, count] : cpu_->nativeCallCounts())
+        out[name] += count;
+    return out;
 }
 
 void GameHost::applyInput() {
@@ -182,6 +198,7 @@ void GameHost::applyInput() {
             mouse.push_back(pendingMouse_.front());
             pendingMouse_.pop_front();
         }
+        inputQueued_ = !pendingKeys_.empty() || !pendingJoystick_.empty() || !pendingMouse_.empty();
     }
     for (const MouseEvent& m : mouse) {
         if (m.offset == 0)
@@ -252,7 +269,53 @@ Error GameHost::load() {
     say("nfs3.exe loaded at " + hex(exe_->base));
     for (const std::string& m : process_->missingImports())
         say("  not stood in for: " + m);
+    addNativeRoutines();
     return Error::success();
+}
+
+void GameHost::addNativeRoutines() {
+    // Routines of the retail nfs3.exe's C library run natively, where its
+    // code is as expected (docs/engines/nfs.md, Loading time): a jump to
+    // the native function over the routine's first bytes. Each uses
+    // Watcom's register convention (arguments in EAX, EDX...; the result
+    // in EAX) and returns as the routine would.
+    auto replace = [this](uint32_t address, std::vector<uint8_t> expected, const char* name, Cpu::Native fn) {
+        for (size_t i = 0; i < expected.size(); ++i)
+            if (cpu_->read8(address + uint32_t(i)) != expected[i])
+                return;
+        const uint32_t native = cpu_->addNative(name, std::move(fn));
+        cpu_->write8(address, 0xe9); // JMP rel32
+        cpu_->write32(address + 1, native - (address + 5));
+    };
+    // strcmp(EAX, EDX): -1, 0 or 1, the bytes compared unsigned.
+    replace(0x4ee310, {0x53, 0x51, 0x89, 0xc3, 0x39, 0xd0, 0x74, 0x6c}, "nfs3.exe strcmp", [](Cpu& c) {
+        uint32_t a = c.reg[Cpu::EAX], b = c.reg[Cpu::EDX];
+        int result = 0;
+        for (;; ++a, ++b) {
+            const uint8_t x = c.read8(a), y = c.read8(b);
+            if (x != y) {
+                result = x < y ? -1 : 1;
+                break;
+            }
+            if (!x)
+                break;
+        }
+        c.reg[Cpu::EAX] = uint32_t(result);
+        return 0u;
+    });
+    // __CHP: ST0 rounded towards zero (frndint with the control word set to
+    // chop, then put back), everything else as it was. Images are scaled
+    // with it a pixel at a time as a track loads.
+    replace(0x4dfd56, {0x50, 0x9b, 0xd9, 0x3c, 0x24, 0x9b, 0xff, 0x34, 0x24, 0xc6, 0x44, 0x24, 0x01, 0x1f},
+            "nfs3.exe __CHP", [](Cpu& c) {
+                double& top = c.fpu.regs[c.fpu.top];
+                const double chopped = std::trunc(top);
+                if (chopped != top || std::signbit(chopped) != std::signbit(top)) {
+                    top = chopped;
+                    c.fpu.exactValid &= uint8_t(~(1u << c.fpu.top)); // its exact integer, if any, no longer it
+                }
+                return 0u;
+            });
 }
 
 Error GameHost::run(uint32_t& exitCode) {

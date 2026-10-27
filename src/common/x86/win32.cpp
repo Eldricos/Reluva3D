@@ -205,6 +205,13 @@ const Win32Process::Module* Win32Process::moduleAt(uint32_t base) const {
     return nullptr;
 }
 
+const Win32Process::Module* Win32Process::moduleContaining(uint32_t address) const {
+    for (const auto& m : modules_)
+        if (address >= m->base && address - m->base < m->size)
+            return m.get();
+    return nullptr;
+}
+
 uint32_t Win32Process::exeBase() const {
     for (const auto& m : modules_)
         if (!(m->image.characteristics & 0x2000)) // IMAGE_FILE_DLL

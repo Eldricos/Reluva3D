@@ -1099,12 +1099,21 @@ void Cpu::events() {
     }
 }
 
+std::vector<std::pair<std::string, uint64_t>> Cpu::nativeCallCounts() const {
+    std::vector<std::pair<std::string, uint64_t>> out;
+    for (const NativeEntry& n : natives_)
+        if (n.calls)
+            out.push_back({n.name, n.calls});
+    return out;
+}
+
 void Cpu::callNative(uint32_t address) {
     if (address < nativeBase_ || (address - nativeBase_) % kNativeStride)
         fault("jump into the middle of native code");
     const uint32_t i = (address - nativeBase_) / kNativeStride;
     if (i >= natives_.size())
         fault("call to an unused native slot");
+    ++natives_[i].calls;
     if (nativeTrace)
         nativeTrace(*this, natives_[i].name);
     const uint32_t popBytes = natives_[i].fn(*this);

@@ -69,7 +69,8 @@ const char* const kUsageLines =
     "                       [-slice instructions] [-dump memory.bin] [-keys ms:key,...]\n"
     "                       (keys: enter, up, a..., click, moveDX/DY) [-framelog frames.csv]\n"
     "                       [-timescale 0.1] [-thrashlog fromframe toframe] [-native] [-wav sound.wav]\n"
-    "                       [-joystick name] (keys also joy:A=V...: axes 0-5 = V, button bB)\n"
+    "                       [-joystick name] (keys also joy:A=V...: axes 0-5 = V, button bB; +key/-key held)\n"
+    "                       [-hotspots from to] (instructions counted by where they run, 16-byte blocks)\n"
     "  reluva-tool nfs-survey <folder>... [-v]\n"
     "  reluva-tool nfs-page <game folder> <out.tga> <page> [key...]\n";
 
@@ -961,6 +962,7 @@ int cmdNfsHost(int argc, char** argv) {
     std::string keyScript;                   // "ms:key,ms:key...": each pressed for 100 ms
     std::string frameLogFile;                // each frame's time and instructions, as CSV
     std::string wavFile;                     // what the game's sound buffers played
+    uint64_t hotFrom = 0, hotTo = 0;         // instructions counted by where they run, over this range
     std::string framesDir;
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
@@ -989,7 +991,10 @@ int cmdNfsHost(int argc, char** argv) {
             frameLogFile = argv[++a];
         else if (arg == "-wav" && a + 1 < argc)
             wavFile = argv[++a];
-        else if (arg == "-joystick" && a + 1 < argc)
+        else if (arg == "-hotspots" && a + 2 < argc) {
+            hotFrom = std::strtoull(argv[++a], nullptr, 10);
+            hotTo = std::strtoull(argv[++a], nullptr, 10);
+        } else if (arg == "-joystick" && a + 1 < argc)
             options.joystick = argv[++a];
         else if (arg == "-keys" && a + 1 < argc)
             keyScript = argv[++a];
@@ -1024,6 +1029,13 @@ int cmdNfsHost(int argc, char** argv) {
     std::vector<uint32_t> recent(size_t(std::max(traceCount, 1)));
     size_t recentAt = 0;
     int watched = 0;
+    // Where instructions run, by 16-byte block, over a range of the run.
+    std::map<uint32_t, uint64_t> hot;
+    if (hotTo > hotFrom)
+        host.cpu().trace = [&](reluva::x86::Cpu& c) {
+            if (c.executed() >= hotFrom && c.executed() < hotTo)
+                ++hot[c.eip & ~0xfu];
+        };
     // Tracing every instruction costs: only when asked for.
     if (traceCount > 0 || !watch.empty())
         host.cpu().trace = [&](reluva::x86::Cpu& c) {
@@ -1125,13 +1137,28 @@ int cmdNfsHost(int argc, char** argv) {
     std::printf("%llu instructions in %.1f s (%.1f million a second)\n", (unsigned long long)n, seconds,
                 seconds > 0 ? n / seconds / 1e6 : 0.0);
     std::vector<std::pair<uint64_t, std::string>> counts;
-    for (const auto& [name, count] : host.callCounts)
+    for (const auto& [name, count] : host.callCounts())
         counts.push_back({count, name});
     std::sort(counts.rbegin(), counts.rend());
     std::printf("system calls (%zu kinds):", counts.size());
     for (size_t i = 0; i < counts.size() && i < 400; ++i)
         std::printf("%s %s %llu", i ? "," : "", counts[i].second.c_str(), (unsigned long long)counts[i].first);
     std::printf("\n");
+    if (!hot.empty()) {
+        std::vector<std::pair<uint64_t, uint32_t>> ranked;
+        uint64_t total = 0;
+        for (const auto& [block, n] : hot) {
+            ranked.push_back({n, block});
+            total += n;
+        }
+        std::sort(ranked.rbegin(), ranked.rend());
+        std::printf("hot spots (%llu instructions):\n", (unsigned long long)total);
+        for (size_t i = 0; i < ranked.size() && i < 40; ++i) {
+            const auto* m = host.process().moduleContaining(ranked[i].second);
+            std::printf("  %08x %5.1f%%  %s\n", ranked[i].second, 100.0 * double(ranked[i].first) / double(total),
+                        m ? m->name.c_str() : "");
+        }
+    }
     const auto& t = host.thrash();
     if (!t.dll.empty() || !t.calls.empty()) {
         std::printf("THRASH (%s): %llu frames, %llu textures; %.0f%% of all instructions in its functions\n  calls:",

@@ -91,6 +91,8 @@ public:
     // The address a native function is called at (in a reserved range at
     // the top of memory, which holds HLT instructions).
     uint32_t addNative(std::string name, Native fn);
+    // How many times each native function has been called, by name.
+    std::vector<std::pair<std::string, uint64_t>> nativeCallCounts() const;
     // The name of the native function at `address`, if it is one.
     const std::string* nativeName(uint32_t address) const;
     // Where the reserved range begins: memory below it is the program's.
@@ -299,6 +301,7 @@ private:
     struct NativeEntry {
         std::string name;
         Native fn;
+        uint64_t calls = 0;
     };
     std::vector<NativeEntry> natives_;
     uint32_t nativeBase_ = 0; // natives are at nativeBase_ + 16 * index

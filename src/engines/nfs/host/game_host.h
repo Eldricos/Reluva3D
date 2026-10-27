@@ -12,6 +12,7 @@
 
 #include <cstdint>
 #include <array>
+#include <atomic>
 #include <deque>
 #include <filesystem>
 #include <functional>
@@ -68,7 +69,7 @@ public:
     // Lines for the report: the calls logged, files opened, messages.
     std::function<void(const std::string& line)> log;
     // How many times each native function was called.
-    std::map<std::string, uint64_t> callCounts;
+    std::map<std::string, uint64_t> callCounts() const;
 
     // The window, as the game made it.
     struct Window {
@@ -136,6 +137,7 @@ private:
     void addNetwork();  // WSOCK32: there's no network
     void addDirectX();  // DDRAW and DINPUT
     void addDirectSound();
+    void addNativeRoutines(); // the C library's hottest routines in nfs3.exe, natively
     // A COM object whose methods (stdcall, `this` first) are native
     // functions: names and argument counts (this included), in vtable order.
     struct Method {
@@ -172,6 +174,7 @@ private:
         uint64_t atMs = 0;
     };
     std::mutex inputMutex_;
+    std::atomic<bool> inputQueued_{false}; // something in the pending queues below
     std::deque<KeyEvent> pendingKeys_;
     std::deque<KeyEvent> bufferedKeys_; // for DirectInput's GetDeviceData
     // The mouse, as DirectInput reports it: buffered moves and buttons

@@ -580,12 +580,40 @@ Started. Done so far:
   there, and in the race that followed, holding W drove the car to 50
   mph.
 
+- **Loading time.** Measured with `nfs-host -framelog` and
+  `-hotspots from to`, which counts the instructions run in each
+  16-byte block of code over a range of the run.
+  - **Start-up.** After its first frame (about 2 seconds in), the game
+    takes about 5 seconds to its next. It isn't waiting: those are about
+    330 million instructions of its own loading code, interpreted. A key
+    press doesn't cut it short. The time is spread out:
+    - its C library's `strcmp`, about 8%, called 1.5 million times;
+    - a 16-bit image-rectangle copy, about 7%;
+    - the sound mixer's float-to-16-bit loop, about 4%;
+    - Watcom's `__CHP` rounding helper, about 3.5%;
+    - and a long tail.
+  - **A track.** About 1.35 seconds and 85 million instructions. A
+    quarter of them are `__CHP`, called a pixel at a time by the game's
+    image scaling; another third are that scaling.
+
+  Done about it:
+  - `strcmp` and `__CHP` run natively. `GameHost::addNativeRoutines`
+    patches a jump to a native function over each routine, where its
+    bytes are as expected.
+  - Native calls are cheaper to make: they're counted per slot, input
+    is looked at only when some is queued, and the log's checks run only
+    while logging.
+
+  Start-up now takes about 300 million instructions to its second frame
+  (4.9 seconds), and a track 72 million (16% fewer). The track's wait
+  stays about 1.3 seconds, though, so part of it is spent elsewhere. Much
+  more would take a faster interpreter core, translating whole blocks of
+  code, rather than more routines run natively.
+
 Still to do:
 
 - **Wheels and force feedback.** A wheel shows as a pad; the force
   feedback the game asks of the wheels it knows isn't stood in for.
-- **Loading time.** Start-up waits about 5 seconds and a track about
-  1.4 before their first frames. Where that goes isn't known yet.
 - **The GPU's frames against the software rasterizer's**, in detail:
   the rear-view mirror, translucency, lines.
 - **Sound.** What iSND mixes plays as mixed. Its 3D placement and Dolby
