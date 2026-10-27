@@ -581,6 +581,28 @@ private:
     std::unique_ptr<CoverageMask> shadowMask_;
     std::unique_ptr<ShadowStencil> stencil_;
     uint64_t startMs_ = 0;
+
+    // The mouse (scene_cursor.cpp): the game's pick of the object under a
+    // point (0x435eb0), and the cursor drawn there (0x415650).
+    bool objectShown(const Ac2Record& o) const;
+    bool clickable(const Ac2Record& o) const;
+    int cursorOf(const Ac2Record& o) const;
+    // Its rectangle on the screen now; false if it has none.
+    bool objectRect(const Ac2Record& o, int& left, int& top, int& right, int& bottom) const;
+    bool hitObject(const Ac2Record& o, int sx, int sy) const;
+    bool hitBones(const Ac2Record& o, int sx, int sy) const;
+    const Ac2Record* pickAt(int sx, int sy) const;
+    const std::string& itemInHand() const;
+    bool canUseOn(const std::string& item, const Ac2Record& o);
+    bool interfaceShown() const;
+    bool cursorShown() const;
+    bool pickAllowed(int sy) const;
+    int cursorUnder(int sx, int sy, const Ac2Record** under) const;
+    void drawCursor();
+    bool cursorMoved_ = false; // to draw again
+    bool systemCursor_ = true; // the system's cursor shown (the game hides it)
+    // Escape or Enter: the hotspot with that key pressed; false if none.
+    bool hotspotKey(uint32_t key);
 };
 
 // Characters and objects (Models/**/*_model.gr2), with their animations.

@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <utility>
 
 namespace reluva::awe {
 
@@ -360,6 +361,8 @@ void ScenePage::activate() {
 }
 
 void ScenePage::deactivate() {
+    if (!systemCursor_)
+        ctx_.sys.setMouseCursorVisible(systemCursor_ = true);
     releaseGpu();
     if (renderer_)
         renderer_->setMultisampling(1); // the other pages draw without
@@ -1443,6 +1446,11 @@ void ScenePage::draw() {
     help(std::string("Left/Right: scene  Up/Down: object  H: hotspots  I: info  M: moving  W: weather  T: night  "
                      "G: grid  N: new game  click: walk") +
          (renderer_ ? "  C: characters" : "  (no 3D: no characters)"));
+    // The game's cursor over everything; the system's hidden in a game
+    // (0x413f1f), and while the game's shows.
+    drawCursor();
+    if (const bool system = !playing_ && !cursorShown(); system != systemCursor_)
+        ctx_.sys.setMouseCursorVisible(systemCursor_ = system);
     if (!renderer_)
         present();
     ctx_.sys.setWindowTitle("Scenes: " + (names_.empty() ? std::string() : names_[size_t(index_)]));
@@ -1585,6 +1593,7 @@ void ScenePage::update(uint64_t nowMs) {
             changed = true;
         }
     changed |= scrollPictures(dt);
+    changed |= std::exchange(cursorMoved_, false);
     if (changed)
         draw();
     if (!renderer_)
@@ -2916,8 +2925,10 @@ void ScenePage::line(int x0, int y0, int x1, int y1, Color c) {
 }
 
 void ScenePage::handleEvent(const Event& ev) {
-    if (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown || ev.type == EventType::MouseUp)
+    if (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown || ev.type == EventType::MouseUp) {
         lastMouseX_ = ev.mouseX, lastMouseY_ = ev.mouseY;
+        cursorMoved_ |= cursorShown();
+    }
     if (ev.type == EventType::MouseUp && ev.button == MouseButton::Left && puzzleActive())
         puzzleRelease(ev.mouseX, ev.mouseY);
     if (optionsMenu_ && optionsMenu_->dragging) {
@@ -2992,23 +3003,22 @@ void ScenePage::handleEvent(const Event& ev) {
         // used on what's clicked (0x41c050).
         const std::string inHand = std::move(inHand_);
         inHand_.clear();
-        if (const Ac2Record* spot = hotspotAt(ev.mouseX, ev.mouseY)) {
-            if (!inHand.empty())
-                useItem(inHand, *spot);
-            else
-                runScript(*spot);
-        } else if (const Ac2Record* who = characterAt(ev.mouseX, ev.mouseY)) {
-            // A character's own script: a talk then offers its generic
-            // lines and goodbyes (0x4162a3).
-            runner_->setFromCharacter(true);
-            resumeAfter_ = who;
-            if (!inHand.empty())
-                useItem(inHand, *who);
-            else
-                runScript(*who);
-        }
-        else
+        // The object the game's pick finds there (0x41613c); one with
+        // nothing to run is walked to like the floor.
+        const Ac2Record* picked = pickAllowed(ev.mouseY) ? pickAt(ev.mouseX, ev.mouseY) : nullptr;
+        if (picked && !inHand.empty()) {
+            useItem(inHand, *picked);
+        } else if (picked && clickable(*picked)) {
+            if (picked->tag == "NPCX") {
+                // A character's own script: a talk then offers its generic
+                // lines and goodbyes (0x4162a3).
+                runner_->setFromCharacter(true);
+                resumeAfter_ = picked;
+            }
+            runScript(*picked);
+        } else {
             walkTo(ev.mouseX, ev.mouseY);
+        }
         return;
     }
     if (ev.type != EventType::KeyDown)

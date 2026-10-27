@@ -204,8 +204,16 @@ Error loadModel(const Gr2File& file, Model& out) {
         // Vertices name their bones by index into the mesh's bindings.
         std::vector<uint8_t> bindings;
         for (uint32_t b = 0; b < mesh.count("BoneBindings"); b++) {
-            const auto it = boneByName.find(mesh.element("BoneBindings", b).string("BoneName"));
+            const Gr2Object binding = mesh.element("BoneBindings", b);
+            const auto it = boneByName.find(binding.string("BoneName"));
             bindings.push_back(it == boneByName.end() ? 0 : uint8_t(it->second));
+            ModelMesh::BoneBox box;
+            box.bone = bindings.back();
+            for (uint32_t k = 0; k < 3; k++) {
+                box.min[k] = float(binding.number("OBBMin", k));
+                box.max[k] = float(binding.number("OBBMax", k));
+            }
+            out_mesh.boxes.push_back(box);
         }
         const Gr2Object vertexData = mesh.object("PrimaryVertexData");
         const uint32_t vertexCount = vertexData.count("Vertices");

@@ -65,6 +65,13 @@ struct ModelMesh {
     // first binding (Granny's rigid mesh; the game asks GrannyMeshIsRigid,
     // 0x427ff5).
     bool rigid = false;
+    // Its bindings' boxes (OBBMin, OBBMax), each in its bone's own axes:
+    // the game picks a character by them (0x428c80).
+    struct BoneBox {
+        int bone = 0;
+        float min[3] = {0, 0, 0}, max[3] = {0, 0, 0};
+    };
+    std::vector<BoneBox> boxes;
 };
 
 struct Model {

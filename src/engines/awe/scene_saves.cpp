@@ -285,31 +285,17 @@ void ScenePage::drawMessage() {
 }
 
 bool ScenePage::gameKey(uint32_t key) {
-    // 0x4164e0. In the save or load screen: Enter is OK, Escape Cancel,
-    // the rest the typed name.
+    // 0x4164e0. Escape and Enter first press the hotspot that has them
+    // for its key (0x436110): the menus' Resume, OK and Cancel (the
+    // options screen's OK has VK_ENTER, which matches nothing, so Enter
+    // does nothing there). In the save or load screen the rest are the
+    // typed name.
     const bool inMenu = state_.scene.rfind("menu.", 0) == 0;
-    auto runSpot = [&](const char* name) {
-        for (const Ac2Record* o : scene_.objects())
-            if (o->tag == "SPOT")
-                if (const Ac2Record* h = o->part("HOTS"); h && fs::toLower(h->text("name")) == name) {
-                    if (runner_->idle())
-                        runScript(*o);
-                    return true;
-                }
-        return false;
-    };
-    if (optionsMenu_) {
-        // Escape is Cancel; OK's key (VK_ENTER) matches nothing, so Enter
-        // does nothing here (0x436139).
-        if (key == key::Escape)
-            runSpot("cancelover");
+    if (hotspotKey(key))
         return true;
-    }
+    if (optionsMenu_)
+        return true;
     if (slots_) {
-        if (key == key::Return)
-            return runSpot("okover");
-        if (key == key::Escape)
-            return runSpot("cancelover");
         slotKey(key);
         draw();
         return true;
@@ -318,9 +304,8 @@ bool ScenePage::gameKey(uint32_t key) {
         if (location_ == "menu.main") {
             runner_->run("yesno quit2 0");
         } else if (inMenu) {
-            // The in-game menu's Resume.
-            if (!runSpot("resumeover"))
-                runner_->run("fade out, previous scene, fade in");
+            // A menu without a hotspot for it: back to the game.
+            runner_->run("fade out, previous scene, fade in");
         } else {
             key = 'p';
         }
