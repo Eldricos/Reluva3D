@@ -778,7 +778,7 @@ void ScenePage::newGame() {
     movieRunner_ = nullptr;
     soundRunner_ = nullptr;
     interfaceOff_ = false;
-    card_.clear();
+    ui_ = Interface();
     sceneShown_ = true;
     load_ = LocationLoad();
     restoring_.reset();
@@ -1347,14 +1347,11 @@ void ScenePage::draw() {
             y += font::kLineHeight;
         }
     }
-    if (!card_.empty()) {
-        // A passport or a fingerprint card held up ("startpass"), on its
-        // card; in the middle of the screen, a guess.
-        for (const std::string& file : card_) {
-            const image::Image& img = picture(file);
-            if (img.w > 0)
-                blitOver(ctx_.screen, img, (kScreenW - img.w) / 2, (kScreenH - img.h) / 2 - 60);
-        }
+    // The bar and the inventory window, then a card held up (0x415227,
+    // 0x418040): under the dialogue box.
+    if (drawing_ && !load_.screen && !movie_) {
+        drawInterface();
+        drawCards();
     }
     if (dialogue_->boxShown() && ctx_.fonts) {
         DialogueBoxPictures pics;
@@ -1407,6 +1404,8 @@ void ScenePage::draw() {
         for (const auto& a : areas)
             yesNo_->rows.push_back({a.y, a.h});
     }
+    if (drawing_ && !load_.screen && !movie_)
+        drawHeld();
     if (load_.screen) {
         // The location's picture, the wheel turning at its foot (0x422ff0).
         const image::Image& back = picture("interface/loading/loading_" +
@@ -1504,6 +1503,8 @@ void ScenePage::update(uint64_t nowMs) {
         soundRunner_ = nullptr;
         r->finished("sound");
     }
+    if (interfaceUpdate(dt) || (ui_.open && ui_.page == 0 && !state_.fresh.empty() && caretTime_ == 0.33f))
+        draw();
     runner_->update(dt);
     // The clicked character's routine goes on once the main script is
     // over (0x409cab).
@@ -2508,6 +2509,7 @@ void ScenePage::loadDialogue() {
 bool ScenePage::startTalk(ScriptRunner& runner, const ScriptEvent& e) {
     loadDialogue();
     const TalkArgs t = parseTalkArgs({e.words.begin() + 1, e.words.end()}, runner.fromCharacter());
+    interfaceTalk(t.name);
     if (dialogue_->talk(runner, t.name, t.part, t.thread, t.nest, t.gen, t.number, t.plus, t.greet))
         return true;
     return t.gen && dialogue_->noTalk(runner);
@@ -2826,25 +2828,13 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
         return false;
     }
     if (v == "startpass" || v == "startprint" || v == "endpass" || v == "endprint") {
-        // The passports' and fingerprint cards' screen (0x417ba0): the card
-        // (inventory\interface\card.png or print.png) with the passport
-        // on it slides in, then the event is done and passport.wav plays;
-        // "endpass" slides it out (0x418090). Shown at once here.
-        card_.clear();
-        if (v == "startpass") {
-            const std::string who = lower(e.arg(1));
-            card_ = {"inventory/interface/card.png", "inventory/items/pass" + who + "/exapass" + who + ".png"};
-            playSound("passport");
-        } else if (v == "startprint") {
-            card_ = {"inventory/interface/print.png"};
-            playSound("fingerprint");
-        }
-        draw();
-        return false;
+        // A passport or fingerprint card held up, and put away
+        // (scene_interface.cpp: 0x417ba0, 0x418090).
+        return startCard(runner, e);
     }
     if (v == "interface") {
-        // The interface (the menu bar, the cursor's verbs) off or on for a
-        // cutscene ([0x4986f4]); Reluva doesn't draw it yet.
+        // The interface (the bar along the top, the inventory) off or on
+        // for a cutscene ([0x4986f4]).
         interfaceOff_ = lower(e.arg(1)) == "off" ? true : lower(e.arg(1)) == "on" ? false : interfaceOff_;
         return false;
     }
@@ -2961,6 +2951,10 @@ void ScenePage::handleEvent(const Event& ev) {
         draw();
         return;
     }
+    // The interface: the bar, the inventory, the item in hand
+    // (scene_interface.cpp).
+    if (interfaceEvent(ev))
+        return;
     if (ev.type == EventType::MouseMove && showGrid_) {
         float x, z;
         WalkGrid::Cell cell;
@@ -2988,24 +2982,14 @@ void ScenePage::handleEvent(const Event& ev) {
         if (puzzleActive())
             puzzleClick(ev.mouseX, ev.mouseY);
         runner_->setFromCharacter(false);
-        // With an item in hand (U, for want of the inventory screen), it's
-        // used on what's clicked (0x41c050).
-        const std::string inHand = std::move(inHand_);
-        inHand_.clear();
         if (const Ac2Record* spot = hotspotAt(ev.mouseX, ev.mouseY)) {
-            if (!inHand.empty())
-                useItem(inHand, *spot);
-            else
-                runScript(*spot);
+            runScript(*spot);
         } else if (const Ac2Record* who = characterAt(ev.mouseX, ev.mouseY)) {
             // A character's own script: a talk then offers its generic
             // lines and goodbyes (0x4162a3).
             runner_->setFromCharacter(true);
             resumeAfter_ = who;
-            if (!inHand.empty())
-                useItem(inHand, *who);
-            else
-                runScript(*who);
+            runScript(*who);
         }
         else
             walkTo(ev.mouseX, ev.mouseY);
@@ -3025,17 +3009,6 @@ void ScenePage::handleEvent(const Event& ev) {
         if (n > 0)
             selected_ = ev.key == key::Down ? (selected_ + 1 >= n ? -1 : selected_ + 1)
                                             : (selected_ < 0 ? n - 1 : selected_ - 1);
-        draw();
-    } else if (ev.key == 'u' && playing_) {
-        // The next item Poirot has, in hand for the next click; none after
-        // the last.
-        std::vector<std::string> items;
-        for (const std::string& i : state_.items)
-            if (state_.itemAvailable(i))
-                items.push_back(i);
-        auto at = std::find(items.begin(), items.end(), inHand_);
-        inHand_ = at == items.end() ? (items.empty() ? "" : items.front()) : std::next(at) == items.end() ? "" : *std::next(at);
-        logScript(inHand_.empty() ? "(nothing in hand)" : "(in hand: " + inHand_ + ")");
         draw();
     } else if (ev.key == 'h') {
         hotspots_ = !hotspots_;

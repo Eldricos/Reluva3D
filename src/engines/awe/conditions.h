@@ -65,6 +65,13 @@ struct GameState {
     std::set<std::string> items;
     std::map<std::string, int> itemStates;
     std::string held;
+    // Where the items are kept in the inventory window (0x41bc10): each
+    // item's slot (16 to a page), the page shown, and the item just taken
+    // that blinks there (one at a time).
+    std::map<std::string, int> itemSlots;
+    std::vector<std::string> itemOrder; // in the order they came
+    int itemPage = 0;
+    std::string fresh;
     // Timers (story state +0x1c): seconds since "timer <name>", plus what
     // "time <n>" added. In order; a name may be there twice (the first
     // counts).

@@ -183,6 +183,8 @@ public:
     bool combineItems(const std::vector<std::string>& parts);
     std::vector<std::string> itemsFor(size_t i);
     bool useOn(const std::string& item, size_t i);
+    // The parts of each combinelist.txt row that could be combined now.
+    std::vector<std::vector<std::string>> combinations();
 
 private:
     // A character placed in the scene, animated as the game animates
@@ -422,8 +424,107 @@ private:
     audio::SoundHandle soundWaited_ = audio::kNoSound;
     bool interfaceOff_ = false;
     bool drawing_ = true;
-    std::string inHand_; // the item picked with U, used on the next click
-    std::vector<std::string> card_; // a passport's or fingerprint card's pictures, held up
+    // The interface (scene_interface.cpp; docs/formats/awe/interface.md):
+    // the bar along the top, the inventory window and its pages, the item
+    // in hand, the passport or fingerprint card held up.
+    struct Interface {
+        // The bar: its alpha (0..255) and whether it's fully shown.
+        float barAlpha = 0;
+        bool barShown = false;
+        // The window: open; its page (0 items, 1 examine, 2 combine, 3 the
+        // scrapbook, 4 passports, 5 fingerprint cards) and the page it's
+        // fading from; the fade (0 none, 1 in, 2 out, 3 page to page) and
+        // its alpha; the button under the mouse (-1 none).
+        bool open = false;
+        int page = 0, fromPage = 0, fade = 0, hover = -1;
+        float alpha = 0;
+        bool fromInventory = false; // a script it started runs (its talks leave it open)
+        std::string freshItem;      // the item just taken, which blinks for 5 s of the window open
+        float freshTime = 0;
+        int dragging = 0;           // the blip dragged: 1 the top line's, 2 the second's
+        std::string hovered;        // the item under the mouse
+        // Examine: the item, its back shown.
+        std::string examined;
+        bool back = false;
+        // Combine: the four boxes and the result's, the message.
+        std::string boxes[5];
+        std::string message;
+        // Passports: the page, how many, the one shown (by its place).
+        int passPage = 0, passPages = 1, passAt = 0;
+        // Fingerprint cards: the card shown in each row.
+        int printAt[2] = {0, 0};
+        // The scrapbook: the section (0 the contents), the level (0 the
+        // contents, 1 a section's list, 2 an entry), each level's pages and
+        // the page shown, the entry, the picture shown full screen.
+        int section = 0, level = 0, pages[3] = {1, 1, 1}, at[3] = {0, 0, 0};
+        std::string entry, zoom;
+        // A card held up: the step (0 none, 1 the screen darkening, 2 the
+        // card fading in, 3 shown, 4 fading out, 5 the screen brightening),
+        // passport (1) or fingerprint card (2), whose; the darkness (0..128)
+        // and the pictures' alphas, their clocks; the runner waiting.
+        int card = 0, cardKind = 0;
+        std::string cardWho;
+        int cardRaise = 0; // 160 with the dialogue box up: the card 80 higher
+        float dim = 0, cardAlpha = 0, printAlpha = 0, dimClock = 0, cardClock = 0, printClock = 0;
+        int cardFade = 0, printFade = 0; // 1 out, 2 in
+        ScriptRunner* cardRunner = nullptr;
+        std::string cardVerb;
+    } ui_;
+    bool interfaceOn() const;
+    bool canAct() const;
+    bool interfaceEvent(const Event& ev);
+    bool interfaceUpdate(float dt);
+    void drawInterface();
+    int barSection(int x, int y);
+    bool carOn(int car);
+    bool inCar(int car) const;
+    void drawCards();
+    void drawHeld();
+    void toggleInventory();
+    void closeInventory();
+    void showPage(int page);
+    // The screen's text (0x414720): font and colour by their place in
+    // fonts.txt, broken at spaces to the rectangle's width, placed by
+    // flags (1 centred, 2 right, 4 centred down, 8 at the foot, 0x1000
+    // struck through); returns its height.
+    int uiText(int font, int colour, int l, int t, int r, int b, int flags, const std::string& text, int alpha);
+    int textHeight(int font, int width, const std::string& text, int* lines = nullptr);
+    // Items: their itemlist.txt row's columns, pictures and places.
+    struct ItemInfo {
+        std::string description, event, examine, flipped;
+    };
+    ItemInfo itemInfo(const std::string& item) const;
+    std::string itemPicture(const std::string& item, const char* kind) const;
+    int printRow(const std::string& item) const;
+    std::vector<std::string> bagItems(); // in the bag, just taken or in hand, in slot order
+    std::string itemInSlot(int slot);
+    int itemPages();
+    void holdItem(const std::string& item);
+    void releaseHeld();
+    void endFresh();
+    void playItemSound(const std::string& item);
+    void runFromInventory(const std::string& script, bool fromInventory);
+    // The pages' clicks and drawing.
+    bool pageClick(int x, int y);
+    int pageButton(int x, int y, int* bx = nullptr, int* by = nullptr);
+    void drawPage(int page, int alpha);
+    void drawBlip(int row, int count, int at, int alpha);
+    bool blipClick(int x, int y, int row, int count, int& at);
+    bool combine();
+    void comparePrints();
+    // The scrapbook (its texts read on each change).
+    struct ScrapRow {
+        std::string heading, condition, tick, entry, entry2;
+    };
+    std::vector<ScrapRow> scrapRows();
+    int drawScrapbook(int alpha, bool drawIt, int clickX = -1, int clickY = -1, std::string* clicked = nullptr);
+    void scrapbookBack();
+    // A card held up ("startpass", "startprint", their "end"s): false if
+    // the event is over at once.
+    bool startCard(ScriptRunner& runner, const ScriptEvent& e);
+    // A conversation starting (0x43a649): the window closed unless it
+    // started it, the item in hand put back unless it's a gen_ or com_.
+    void interfaceTalk(const std::string& name);
     void logScript(const std::string& line);
     bool hidden(const Ac2Record& o) const;
     bool shown(const Ac2Record& o) const;
@@ -489,8 +590,8 @@ private:
     std::unique_ptr<DialogueManager> dialogue_;
     std::map<std::string, int> autoChoices_; // how often the tool's player took each choice
     std::vector<const Ac2Record*> clickableObjects() const;
-    std::map<std::string, Table> itemTables_; // uselist.txt, combinelist.txt
-    const Table& itemTable(const char* file);
+    mutable std::map<std::string, Table> itemTables_; // uselist.txt, combinelist.txt, itemlist.txt
+    const Table& itemTable(const char* file) const;
     // A game played (N): the acts, the music playing (by file), where the
     // player was in each scene left, the screen's fade (0 clear, 1 black)
     // and the runner waiting on it.

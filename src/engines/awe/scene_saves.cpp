@@ -152,10 +152,16 @@ SaveGame ScenePage::captureSave(const std::string& description) const {
         k.nest = progress.nest;
         s.talks.push_back(std::move(k));
     }
-    int slot = 0;
+    // Each item with its slot and page (0x41c730): passports at 0, 0,
+    // fingerprint cards on page 0 in their row's slot.
+    s.itemPage = state_.itemPage;
     for (const std::string& item : state_.items) {
-        s.items.push_back({item, state_.itemState(item), slot, slot / 16});
-        slot++;
+        const int st = state_.itemState(item);
+        const auto at = state_.itemSlots.find(item);
+        int slot = at == state_.itemSlots.end() ? 0 : at->second;
+        if (st == 5 || st == 6)
+            slot = st == 6 ? printRow(item) : 0;
+        s.items.push_back({item, st, slot, st == 5 || st == 6 ? 0 : slot / 16});
     }
     return s;
 }
@@ -191,13 +197,20 @@ bool ScenePage::preload(const std::filesystem::path& file, bool fromGame) {
         state_.talks[talkKey(k.name, k.act, k.part, k.thread)] = TalkProgress{k.status, k.nest};
     state_.itemStates.clear();
     state_.held.clear();
+    state_.itemSlots.clear();
+    state_.itemOrder.clear();
     for (const SaveGame::Item& i : save->items) {
         // An item saved twice (used up, and again in the bag) counts as in
         // the bag.
         const std::string name = fs::toLower(i.name);
-        if (!state_.itemAvailable(name))
+        if (!state_.itemAvailable(name)) {
+            if (i.slot >= 0 && i.state != 5 && i.state != 6)
+                state_.itemSlots[name] = i.slot;
             addItem(state_, name, i.state == 3 ? 2 : i.state);
+        }
     }
+    state_.itemPage = std::max(0, save->itemPage);
+    state_.fresh.clear();
     for (const SaveGame::Position& p : save->positions)
         npcPositions_[fs::toLower(p.scene) + "|" + fs::toLower(p.character)] = p.at;
     restoring_ = std::move(save);
@@ -326,7 +339,10 @@ bool ScenePage::gameKey(uint32_t key) {
         }
     }
     if ((key == 'p' || key == 's' || key == 'l') && !inMenu && location_.find("menu") == std::string::npos) {
-        // 0x417080: the view kept for a thumbnail, then the menu.
+        // 0x417080: the item in hand put back, the view kept for a
+        // thumbnail, then the menu.
+        releaseHeld();
+        endFresh();
         if (renderer_)
             grabDue_ = true;
         else

@@ -111,6 +111,7 @@ bool ScenePage::click(size_t i) {
         return false;
     if (!runner_->idle())
         runner_->clear();
+    releaseHeld(); // a click with nothing in hand
     runner_->setFromCharacter(objects[i]->tag == "NPCX");
     runScript(*objects[i]);
     return true;

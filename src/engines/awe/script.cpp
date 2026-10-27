@@ -25,11 +25,40 @@ void addItem(GameState& state, const std::string& item, int st) {
         st = 5;
     else if (name.rfind("print", 0) == 0)
         st = 6;
-    state.items.insert(name);
+    if (state.items.insert(name).second) {
+        state.itemOrder.erase(std::remove(state.itemOrder.begin(), state.itemOrder.end(), name), state.itemOrder.end());
+        state.itemOrder.push_back(name);
+    }
     if (st == 2)
         state.itemStates.erase(name);
     else
         state.itemStates[name] = st;
+    if (st != 1 && st != 2)
+        return;
+    // Its slot: the one it had if that's free, else the lowest free one
+    // (0x41bfb0); the window turns to its page.
+    auto taken = [&](int slot) {
+        for (const auto& [other, s] : state.itemSlots) {
+            const int os = state.itemState(other);
+            if (other != name && s == slot && os >= 1 && os <= 3)
+                return true;
+        }
+        return false;
+    };
+    auto at = state.itemSlots.find(name);
+    if (at == state.itemSlots.end() || taken(at->second)) {
+        int slot = 0;
+        while (taken(slot))
+            slot++;
+        state.itemSlots[name] = slot;
+    }
+    state.itemPage = state.itemSlots[name] / 16;
+    // Just taken: the one before stops blinking (0x41ba80).
+    if (st == 1) {
+        if (!state.fresh.empty() && state.fresh != name && state.itemState(state.fresh) == 1)
+            state.itemStates.erase(state.fresh);
+        state.fresh = name;
+    }
 }
 
 void addTime(GameState& state, int seconds) {
@@ -272,6 +301,10 @@ bool ScriptRunner::runOwn(const ScriptEvent& e) {
         state_.items.clear();
         state_.itemStates.clear();
         state_.held.clear();
+        state_.itemSlots.clear();
+        state_.itemOrder.clear();
+        state_.itemPage = 0;
+        state_.fresh.clear();
     } else if (v == "timer") {
         // A new timer at 0 (0x410ac0), after any of the same name.
         state_.timers.emplace_back(fs::toLower(e.arg(1)), 0);
@@ -287,6 +320,10 @@ bool ScriptRunner::runOwn(const ScriptEvent& e) {
         state_.items.clear();
         state_.itemStates.clear();
         state_.held.clear();
+        state_.itemSlots.clear();
+        state_.itemOrder.clear();
+        state_.itemPage = 0;
+        state_.fresh.clear();
         state_.act = "01a";
     } else if (v == "savescene") {
         // savescene this|<scene> [wp] [flag] (0x40acd3): for "gotoscene".

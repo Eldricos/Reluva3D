@@ -35,7 +35,7 @@ std::vector<std::string> names(const std::string& list) {
 
 } // namespace
 
-const Table& ScenePage::itemTable(const char* file) {
+const Table& ScenePage::itemTable(const char* file) const {
     Table& t = itemTables_[file];
     if (t.headings.empty()) {
         std::vector<uint8_t> data;
@@ -46,12 +46,14 @@ const Table& ScenePage::itemTable(const char* file) {
 }
 
 bool ScenePage::useItem(const std::string& item, const Ac2Record& target) {
-    // In hand (state 3) while the target's scripts are looked at.
+    // In hand (state 3) while the target's scripts are looked at; what
+    // matches runs as the inventory's scripts do (0x419f20).
     const std::string name = fs::toLower(item);
-    if (!state_.itemAvailable(name))
-        return false;
-    state_.held = name;
-    state_.itemStates[name] = 3;
+    if (state_.held != name) {
+        if (!state_.itemAvailable(name))
+            return false;
+        holdItem(name);
+    }
     auto release = [&](int to) {
         state_.held.clear();
         if (to == 2)
@@ -66,9 +68,9 @@ bool ScenePage::useItem(const std::string& item, const Ac2Record& target) {
         for (const auto& [condition, run] : alternatives->pairs)
             if (fs::toLower(condition).find("use") != std::string::npos && testCondition(condition, state_)) {
                 release(fs::toLower(run).find("restore this") != std::string::npos ? 2 : 4);
-                scriptObject_ = &target;
                 logScript("use " + name + ": " + run);
-                runner_->run(run);
+                scriptObject_ = &target;
+                runFromInventory(run, false);
                 return true;
             }
     // A character: uselist's row for the item and its model ("antoinette"
@@ -83,43 +85,39 @@ bool ScenePage::useItem(const std::string& item, const Ac2Record& target) {
                 continue;
             release(4);
             logScript("use " + name + ": " + unquoted(t.cell(r, 3)));
-            runner_->run(unquoted(t.cell(r, 3)));
+            runFromInventory(unquoted(t.cell(r, 3)), false);
             return true;
         }
     }
-    // Nothing for it: Antoinette says so, and the item stays in hand
-    // (back in the bag here).
-    release(2);
+    // Nothing for it: Antoinette says so, and the item stays in hand.
     logScript("use " + name + ": (can't)");
-    runner_->run("talk gen_cantuse 1");
+    runFromInventory("talk gen_cantuse 1", true);
     return false;
 }
 
 bool ScenePage::combineItems(const std::vector<std::string>& parts) {
-    // The row whose parts are exactly those (in any order), that can be
-    // combined, whose condition holds: the parts used up, the results
-    // given (just taken), its event run.
-    std::vector<std::string> have;
-    for (const std::string& p : parts)
-        have.push_back(fs::toLower(p));
-    std::sort(have.begin(), have.end());
+    // As the combine page does with the parts in its boxes (0x418a50).
+    for (std::string& box : ui_.boxes)
+        box.clear();
+    for (size_t i = 0; i < parts.size() && i < 4; i++)
+        ui_.boxes[i] = fs::toLower(parts[i]);
+    return combine();
+}
+
+std::vector<std::vector<std::string>> ScenePage::combinations() {
+    // Each row of combinelist.txt that can be combined now: its parts all
+    // in the bag, its condition holding.
+    std::vector<std::vector<std::string>> out;
     const Table& t = itemTable("combinelist.txt");
     for (size_t r = 0; r < t.rows.size(); r++) {
-        std::vector<std::string> want = names(t.cell(r, 0));
-        std::sort(want.begin(), want.end());
-        if (want != have || std::atoi(unquoted(t.cell(r, 3)).c_str()) == 0 ||
+        const std::vector<std::string> want = names(t.cell(r, 0));
+        if (want.size() < 2 || want.size() > 4 || std::atoi(unquoted(t.cell(r, 3)).c_str()) == 0 ||
             !testCondition(unquoted(t.cell(r, 4)), state_))
             continue;
-        for (const std::string& p : have)
-            state_.itemStates[p] = 4;
-        for (const std::string& result : names(t.cell(r, 1)))
-            addItem(state_, result, 1);
-        const std::string event = unquoted(t.cell(r, 5));
-        logScript("combine: " + event);
-        runner_->run(event);
-        return true;
+        if (std::all_of(want.begin(), want.end(), [&](const std::string& p) { return state_.itemAvailable(p); }))
+            out.push_back(want);
     }
-    return false;
+    return out;
 }
 
 std::vector<std::string> ScenePage::itemsFor(size_t i) {
@@ -155,11 +153,14 @@ std::vector<std::string> ScenePage::itemsFor(size_t i) {
 }
 
 bool ScenePage::useOn(const std::string& item, size_t i) {
+    // The item picked up and clicked on the object.
     const std::vector<const Ac2Record*> objects = clickableObjects();
     if (i >= objects.size())
         return false;
     if (!runner_->idle())
         runner_->clear();
+    releaseHeld();
+    runner_->setFromCharacter(objects[i]->tag == "NPCX");
     return useItem(item, *objects[i]);
 }
 

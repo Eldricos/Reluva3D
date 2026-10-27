@@ -88,15 +88,20 @@ Color GameFonts::colour(std::string_view use, Color fallback) const {
     return fallback;
 }
 
-int GameFonts::draw(Surface& dst, const TextStyle& style, int x, int y, std::string_view utf8, Color colour) const {
+Color GameFonts::colourAt(size_t index, Color fallback) const {
+    return index < colours_.size() ? colours_[index].second : fallback;
+}
+
+int GameFonts::draw(Surface& dst, const TextStyle& style, int x, int y, std::string_view utf8, Color colour,
+                    uint8_t alpha) const {
     if (!style.font)
         return x;
     if (style.shadow)
-        style.font->draw(dst, x + 1, y + 1, utf8, style.pixels, shadow_);
+        style.font->draw(dst, x + 1, y + 1, utf8, style.pixels, shadow_, alpha);
     // No bold font is shipped: drawn twice, a pixel apart.
     if (style.bold)
-        style.font->draw(dst, x + 1, y, utf8, style.pixels, colour);
-    return style.font->draw(dst, x, y, utf8, style.pixels, colour);
+        style.font->draw(dst, x + 1, y, utf8, style.pixels, colour, alpha);
+    return style.font->draw(dst, x, y, utf8, style.pixels, colour, alpha);
 }
 
 std::vector<Subtitle> parseSubtitles(std::string_view text) {

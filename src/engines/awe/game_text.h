@@ -39,11 +39,14 @@ public:
     const TextStyle* style(std::string_view use) const;
     // A colour by its use ("dialogue for main character"), or `fallback`.
     Color colour(std::string_view use, Color fallback = {255, 255, 255}) const;
+    // A colour by its place in the list (the game's colour numbers).
+    Color colourAt(size_t index, Color fallback = {255, 255, 255}) const;
     const std::vector<TextStyle>& styles() const { return styles_; }
 
     // Draws text in a style: its shadow (one pixel down and right, the
     // shadow colour) first if it has one.
-    int draw(Surface& dst, const TextStyle& style, int x, int y, std::string_view utf8, Color colour) const;
+    int draw(Surface& dst, const TextStyle& style, int x, int y, std::string_view utf8, Color colour,
+             uint8_t alpha = 255) const;
 
 private:
     std::map<std::string, std::unique_ptr<ttf::Font>> fonts_; // by file name
