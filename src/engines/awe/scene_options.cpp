@@ -73,10 +73,16 @@ void ScenePage::applyVolumes(int music, int sound) {
         ctx_.mixer->setTypeVolume(t, std::clamp(sound, 0, 10) * audio::kMaxVolume / 10);
 }
 
+int ScenePage::brightnessLevel() const {
+    // On the options screen, the brightness being tried.
+    return optionsMenu_ ? optionsMenu_->staged[2] : options_.get(GameOptions::Gamma);
+}
+
 void ScenePage::applyBrightness() {
     // Gamma g: a linear ramp of slope 32g + 97 over 257 (5 leaves colours
-    // as they are), clipped (0x402040). On the 2D only: the pictures.
-    const int g = optionsMenu_ ? optionsMenu_->staged[2] : options_.get(GameOptions::Gamma);
+    // as they are), clipped (0x402040): the pictures here, the characters
+    // as they're drawn.
+    const int g = brightnessLevel();
     if (g == 5)
         return;
     const int slope = 32 * g + 97;

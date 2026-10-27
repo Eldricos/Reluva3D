@@ -83,8 +83,8 @@ kept in Reluva's folder for the game, as `options.ini` lines
 **What each setting does in Reluva:**
 
 - **Volumes** set the mixer's music, effects and speech volumes.
-- **Brightness** applies to the scenes' pictures, but not yet to the 3D
-  characters.
+- **Brightness** applies to the scenes' pictures, and scales the 3D
+  characters' colours by the same factor, clipped.
 - **Captions** hide the dialogue's lines and the movie subtitles.
 - **Animated Effects** freeze the flagged videos.
 - **Fog** hides the fog and cloud pictures.

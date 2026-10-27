@@ -31,7 +31,7 @@ GpuModel::~GpuModel() {
 }
 
 size_t GpuModel::draw(const Pose& pose, const gfx::Mat4& placement, bool helpers,
-                      std::vector<gfx::MeshId>& frameMeshes) {
+                      std::vector<gfx::MeshId>& frameMeshes, float brightness) {
     std::vector<std::array<float, 3>> positions, normals;
     size_t triangles = 0;
     for (const ModelMesh& mesh : model_.meshes) {
@@ -67,6 +67,8 @@ size_t GpuModel::draw(const Pose& pose, const gfx::Mat4& placement, bool helpers
             call.texture = g.texture >= 0 && size_t(g.texture) < textures_.size() ? textures_[size_t(g.texture)] : 0;
             if (!call.texture)
                 call.color = {0.8f, 0.4f, 0.8f, 1};
+            for (int k = 0; k < 3; k++)
+                call.color[size_t(k)] *= brightness;
             call.rgbSource = gfx::ColorSource::Lighting;
             call.ambientLight = {0.45f, 0.45f, 0.45f};
             call.directedLight = {0.75f, 0.72f, 0.68f};

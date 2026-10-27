@@ -1410,14 +1410,17 @@ void ScenePage::update(uint64_t nowMs) {
         const SceneCamera cam = SceneCamera::fromRecord(*camr);
         renderer_->setView(cam.viewProjection(), cam.eye());
         renderer_->clearDepth();
+        // Brightness: the game's gamma ramp is the whole screen's, the
+        // characters' too (slope 32g + 97 over 257).
+        const float bright = float(32 * brightnessLevel() + 97) / 257.0f;
         for (const Character& c : characters_) {
             Pose pose;
             c.actor->animator().pose(pose);
-            c.model->draw(pose, c.placement, false, frameMeshes_);
+            c.model->draw(pose, c.placement, false, frameMeshes_, bright);
             for (const auto& [name, prop] : c.props) {
                 Pose propPose;
                 c.actor->animator().poseFor(prop->model(), propPose);
-                prop->draw(propPose, c.placement, false, frameMeshes_);
+                prop->draw(propPose, c.placement, false, frameMeshes_, bright);
             }
         }
     }

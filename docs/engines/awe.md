@@ -142,7 +142,7 @@ Next:
    records and member types the samples didn't have.
 2. A native port of the path-finder's lattice search (`0x42f1f0`),
    checked path for path against the game's (`awe-path`).
-3. The characters' shadows, and brightness on the 3D characters.
+3. The characters' shadows.
 4. Native decoding of the compressed curve formats (the DLL expands them
    for now).
 5. Native Oodle1 and Bink-texture decoding, checked against the DLL, to

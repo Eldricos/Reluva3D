@@ -287,6 +287,7 @@ private:
     void saveOptions() const;
     void applyVolumes(int music, int sound);
     void applyBrightness();
+    int brightnessLevel() const;
     bool fogged(const Ac2Record& o) const;
     bool frozen(const Ac2Record& o) const;
     void openOptions();

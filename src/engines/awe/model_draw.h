@@ -32,7 +32,10 @@ public:
     // (meshes made for the frame go into `frameMeshes`, for the caller to
     // destroy after the frame). Untextured meshes (the face's bone boxes)
     // only if `helpers`. Returns the triangles drawn.
-    size_t draw(const Pose& pose, const gfx::Mat4& placement, bool helpers, std::vector<gfx::MeshId>& frameMeshes);
+    // `brightness` scales the colours (the game's gamma ramp: 1 leaves
+    // them as they are; the results are clipped).
+    size_t draw(const Pose& pose, const gfx::Mat4& placement, bool helpers, std::vector<gfx::MeshId>& frameMeshes,
+                float brightness = 1);
 
 private:
     gfx::Renderer3D& renderer_;
