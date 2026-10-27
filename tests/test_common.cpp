@@ -1549,8 +1549,22 @@ static void testA3d() {
     mixed.assign(2 * 22050, 0);
     mixer.mix(mixed.data(), 22050);
     CHECK(*std::max_element(mixed.begin(), mixed.end()) == 0x4000);
+    // A wave event at the middle: not set until play passes it, then set
+    // once (auto-reset).
+    uint32_t event = 0;
+    const auto wait = process.provided("KERNEL32.dll", "WaitForSingleObject");
+    CHECK(!cpu.call(process.provided("KERNEL32.dll", "CreateEventA"), {0, 0, 0, 0}, event) && event);
+    CHECK(!cpu.call(wait, {event, 0}, r) && r == 0); // untracked: reads as set
+    CHECK(call(source, 59, {500, event}) == 0);    // SetWaveEvent
+    CHECK(!cpu.call(wait, {event, 0}, r) && r == 0x102);
     // Looped: it wraps round, and stops where it's stopped.
     CHECK(call(source, 13, {1}) == 0);
+    clock = 2000;
+    CHECK(call(source, 56, {out}) == 0 && !cpu.call(wait, {event, 0}, r) && r == 0x102);
+    clock = 2600;
+    CHECK(call(source, 56, {out}) == 0 && !cpu.call(wait, {event, 0}, r) && r == 0);
+    CHECK(!cpu.call(wait, {event, 0}, r) && r == 0x102);
+    CHECK(call(source, 60, {}) == 0); // ClearWaveEvents
     clock = 3750;
     CHECK(call(source, 19, {out}) == 0 && cpu.read32(out) == 250);
     CHECK(call(source, 56, {out}) == 0 && cpu.read32(out) == (0x1 | 0x4));

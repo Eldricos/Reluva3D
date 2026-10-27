@@ -198,10 +198,31 @@ void Win32Process::addSystemStandIns() {
     });
     for (const char* name : {"EnterCriticalSection", "LeaveCriticalSection", "DeleteCriticalSection"})
         stdcall(k, name, 1, [](Cpu&) { return 0u; });
-    stdcall(k, "CreateEventA", 4, [this](Cpu&) { return kEventHandles + nextEvent_++; });
-    stdcall(k, "SetEvent", 1, [](Cpu&) { return 1u; });
-    stdcall(k, "ResetEvent", 1, [](Cpu&) { return 1u; });
-    stdcall(k, "WaitForSingleObject", 2, [](Cpu&) { return 0u; }); // WAIT_OBJECT_0
+    // CreateEventA(attributes, manual reset, initially set, name).
+    stdcall(k, "CreateEventA", 4, [this](Cpu& c) {
+        const uint32_t handle = kEventHandles + nextEvent_++;
+        events_[handle] = {c.arg(1) != 0, c.arg(2) != 0, false};
+        return handle;
+    });
+    stdcall(k, "SetEvent", 1, [this](Cpu& c) {
+        setEvent(c.arg(0));
+        return 1u;
+    });
+    stdcall(k, "ResetEvent", 1, [this](Cpu& c) {
+        if (auto it = events_.find(c.arg(0)); it != events_.end())
+            it->second.set = false;
+        return 1u;
+    });
+    stdcall(k, "WaitForSingleObject", 2, [this](Cpu& c) {
+        auto it = events_.find(c.arg(0));
+        if (it == events_.end() || !it->second.tracked)
+            return 0u; // WAIT_OBJECT_0
+        if (!it->second.set)
+            return 0x102u; // WAIT_TIMEOUT
+        if (!it->second.manualReset)
+            it->second.set = false;
+        return 0u;
+    });
 
     // GetDateFormatA and GetTimeFormatA (locale, flags, time or 0 for now,
     // picture or 0 for the default, buffer, its size): the characters
@@ -240,6 +261,16 @@ void Win32Process::addSystemStandIns() {
         }
         return formatted(c, formatPicture(picture, t));
     });
+}
+
+void Win32Process::trackEvent(uint32_t handle) {
+    if (auto it = events_.find(handle); it != events_.end())
+        it->second.tracked = true;
+}
+
+void Win32Process::setEvent(uint32_t handle) {
+    if (auto it = events_.find(handle); it != events_.end())
+        it->second.set = true;
 }
 
 } // namespace reluva::x86

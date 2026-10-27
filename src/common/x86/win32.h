@@ -112,6 +112,15 @@ public:
     // Milliseconds for timeGetTime and GetTickCount (default: since start).
     std::function<uint32_t()> milliseconds;
 
+    // Events (CreateEventA). No thread can wait on one that another sets
+    // (they take turns), so an event reads as set to a wait, unless it's
+    // tracked: then its state is kept, set by SetEvent or setEvent and
+    // cleared by ResetEvent or, for an auto-reset event, by a wait that
+    // finds it set. A tracked event that isn't set times out at once.
+    // Tracked are those something here sets (A3D's wave events).
+    void trackEvent(uint32_t handle);
+    void setEvent(uint32_t handle);
+
     // The thread's stack and information block (FS).
     uint32_t stackTop() const { return stackTop_; }
 
@@ -301,6 +310,10 @@ private:
     std::map<uint32_t, std::string> openKeys_;    // handle -> lower-case path
     uint32_t nextKey_ = 0x3000;
     uint32_t nextEvent_ = 0;
+    struct Event {
+        bool manualReset = false, set = false, tracked = false;
+    };
+    std::map<uint32_t, Event> events_;
     std::string currentFolder_ = "C:\\";
     std::map<uint32_t, OpenFile> files_;
     uint32_t nextFile_ = 0x2000;

@@ -306,8 +306,9 @@ public:
         if (to == fed)
             return;
         auto span = [&](uint32_t from, uint32_t end) {
-            // Wave events would be set here; the process's events are
-            // always set (WaitForSingleObject returns at once).
+            for (const auto& [offset, event] : events)
+                if (offset >= from && (offset < end || (end == size && offset >= size)))
+                    s->process.setEvent(event); // one at or past the end is passed at the end
             if (stream && end > from)
                 push(from, end);
         };
@@ -528,8 +529,9 @@ public:
             out(1, playing ? kStatusPlaying | (looped ? kStatusLooping : 0) : 0);
             return kSOk;
         }
-        if (m == "SetWaveEvent") { // (offset, event)
+        if (m == "SetWaveEvent") { // (offset, event): set as play passes it
             events.push_back({c.arg(1), c.arg(2)});
+            s->process.trackEvent(c.arg(2));
             return kSOk;
         }
         if (m == "ClearWaveEvents") {
