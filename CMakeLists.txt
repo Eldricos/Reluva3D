@@ -93,6 +93,13 @@ target_link_libraries(reluva_common PRIVATE reluva_warnings)
 add_library(reluva_engines STATIC
     src/engines/registry.cpp
     src/engines/testbed/testbed.cpp)
+# The AWE path-finder matches the game's arithmetic only without fused
+# multiply-adds.
+if(MSVC)
+    set_source_files_properties(src/engines/awe/walk_grid.cpp PROPERTIES COMPILE_OPTIONS "/fp:precise")
+else()
+    set_source_files_properties(src/engines/awe/walk_grid.cpp PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+endif()
 if(RELUVA_ENGINE_NEWWORLDS)
     target_sources(reluva_engines PRIVATE
         src/engines/newworlds/newworlds.cpp

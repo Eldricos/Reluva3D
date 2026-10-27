@@ -351,30 +351,80 @@ outside a room are 0 too: the walls' 1s keep a search inside.
   with the start and goal cells cleared too, under 32. Its points are
   cells, walked to through their centres.
 
-  The search (`0x42f1f0`) isn't a plain grid search: it moves on a lattice
-  of 48 steps (to the 8 neighbours, then 2 and 3 cells away in knight-like
-  jumps; tables built at `0x42ea90`) in 8 headings, with turning costs
-  precomputed (`0x42ec60`, `0x42ed90`), then smooths the result
-  (`0x430690`). It works in a 192 × 192 window around the start, each
-  cell in 8 headings, 16 bytes a node (the object is 0x4d4600 bytes).
+  **The path-finder.** This was worked out from `motoe.exe`'s code,
+  `0x42e840` to `0x432250`, and checked point for point against that
+  code run in the x86 interpreter (below). The object is built for a
+  search on a lattice: 48 moves (to the 8 neighbours, then 2 and 3 cells
+  away), 8 headings, and tables of turning costs (`0x42ea90`, `0x42ec60`,
+  `0x42ed90`). But the game builds it with headings off (`0x42e900` sets
+  the flags at +0x1010..+0x1014 to 1, 0, 0, 0, 1 and +0x1028 to 8), so
+  most of that is never used. What runs (`0x42ef40`):
 
-  Its results: the points from the goal back towards the start (the start
-  itself left out), each three doubles, cell a and b (a cell's centre is
-  n + 0.5) and a heading. 0x441089 truncates them to cells and walks
-  through their centres, from the last point to the first.
+  1. **Ends.** If the goal or the start cell is blocked, there's no path.
+  2. **A\*** (`0x42f1f0`), in a window of 192 × 192 cells that holds both
+     ends: the goal and start more than 128 cells apart in a or b give
+     no path. Each window cell is a node.
+     - **Moves**, tried in this order:
+       - (0, −1), (1, 0), (0, 1), (−1, 0), each costing 128;
+       - (1, −1), (1, 1), (−1, 1), (−1, −1), each costing 181.
+     - **Estimate:** the straight distance to the goal times 128,
+       truncated (`0x42ea40`'s table).
+     - **Open list:** a linked list. New nodes join at the end. The node
+       taken next is the first one with the least cost plus estimate.
+     - **Moving on:** a move is skipped if it leaves the window, its cell
+       is blocked, or it goes back to the start. A node reached more
+       cheaply than before is updated, and joins the list again if it had
+       left it.
+     - **Stopping:** the search stops when the goal is taken from the
+       list, or the list runs out (no path).
+  3. **Points** (`0x430420`): the cells from the goal back to the start,
+     at their centres (n + 0.5). The start itself is left out, and a path
+     longer than 127 points gives none.
+  4. **Smoothing** (`0x430690`). It goes along the points from the start,
+     keeping the last point kept, which starts as the start cell itself.
+     - **The turn** (`0x430df0`, `0x431790`): from the point kept, facing
+       its heading, along a circle of radius 0.1 cell, then straight. Of
+       the two ways round, the shorter is taken. The start faces heading
+       0.
+     - **The test** (`0x430b60`): a turn is clear if, at every 0.2 along
+       it, the cell under the point is open, as are the cells under the
+       corners of a square 0.1 wide round it. Leaving the grid fails the
+       test.
+     - **Dropping points:** while the turn from the point kept to the
+       point after the current one is clear, the current one is dropped.
+       Otherwise the current one is kept.
+     - **Headings:** each point gets the heading the turn into it ends
+       with.
 
-  Until a native port matches it, Reluva runs this search itself from the
-  user's `motoe.exe`, in the x86 interpreter, as it does granny2.dll
-  (`src/engines/awe/game_paths.cpp`): the object made as the game makes it
-  (`0x4025a0`: constructed at `0x42e840`, tables built at `0x42e900`,
-  about a second), its grid written in, then `0x42ef40` called; operator
-  new and delete are pointed at the interpreter's memory, since the
-  game's C runtime isn't started. A search takes 5 to 35 ms. Without the
-  executable, `WalkGrid::findPath` plans instead: A* over the 8
-  neighbours, shortened to the turns it needs, with the game's three tries
-  and minimum distance. Its paths go the same way with fewer, sharper
-  turns. `reluva-tool awe-path` shows both for two cells, and `awe-check
-  -ac2` has the game's plan every `walk a b` in an install.
+     The headings come out as angles in [0, 2π), each sum snapped into
+     that range and to 0 within 1e-8 of either end. `acos` is the C
+     runtime's, as atan2(√((1 + x)(1 − x)), x).
+
+  Its results are the points left, from the goal back towards the start,
+  each three doubles: cell a and b, and a heading. 0x441089 truncates them
+  to cells and walks through their centres, from the last point to the
+  first.
+
+  Reluva's port is `WalkGrid::search` and `WalkGrid::findPath`
+  (`src/engines/awe/walk_grid.cpp`), with the game's three tries.
+  - **Arithmetic:** the game does its sums on the x87 at 53 bits. The
+    port does the same sums in doubles, in the same order, so its results
+    are the same to the bit. The file is built without fused
+    multiply-adds, which would round differently.
+  - **The check:** `reluva-tool awe-path <game folder> -all [pairs]`
+    plans paths between random open cells of every scene, four ways each
+    (3s open or not, 2s allowed or not). It plans each both with the
+    port and with the game's own code from the user's `motoe.exe`, run in
+    the x86 interpreter (`src/engines/awe/game_paths.cpp`), and compares
+    every point and heading.
+  - **Result:** on the English 1.0 install, 20 pairs in each of the
+    281 scenes with a walk grid gave 22,480 searches (19,024 with a
+    path), with 0 differences.
+  - **Speed:** a search takes about 0.2 ms, against 5 to 35 ms for the
+    game's code in the interpreter (31 ms on average over that run).
+  - **Assumption:** the interpreter keeps the x87 at 53 bits, which is
+    Windows' default for a program; it is assumed that the game leaves it
+    there.
 
 Characters walk at their walk animation's own pace. The walk carries the
 body forward (Poirot's root, `Bip01`, moves 240 units in its 0.8 s
@@ -408,5 +458,4 @@ no sample mixes them. Reluva's evaluator is `testCondition`
 ## Still to find
 
 - What the unnamed fields do: compare scenes, and watch the original.
-- The path-finder's lattice search in full, for a native port.
 - The save format (`DESC`, `INFO`, `GLBT`...).

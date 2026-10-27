@@ -16,7 +16,6 @@
 #include "engines/awe/actor.h"
 #include "engines/awe/conditions.h"
 #include "engines/awe/dialogue.h"
-#include "engines/awe/game_paths.h"
 #include "engines/awe/particles.h"
 #include "engines/awe/script.h"
 #include "engines/awe/story.h"
@@ -432,11 +431,6 @@ private:
     bool showGrid_ = false;
     WalkGrid::Cell hover_;
     std::vector<WalkGrid::Cell> path_;
-    // The game's own path-finder, from motoe.exe (loaded on the first
-    // walk); Reluva's A* if it can't be.
-    std::unique_ptr<GamePathFinder> gamePaths_;
-    bool triedGamePaths_ = false;
-    std::string pathSource_;
     // The scripts' state: tags, items and the act are state_'s.
     std::unique_ptr<ScriptRunner> runner_;
     std::unique_ptr<DialogueManager> dialogue_;

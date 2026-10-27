@@ -1170,7 +1170,7 @@ void ScenePage::draw() {
                 g += ", under the mouse (" + std::to_string(hover_.a) + ", " + std::to_string(hover_.b) +
                      ") = " + std::to_string(grid_.at(hover_.a, hover_.b));
             if (!path_.empty())
-                g += ", path of " + std::to_string(path_.size()) + " points by " + pathSource_;
+                g += ", path of " + std::to_string(path_.size()) + " points";
             lines.push_back(g);
         }
         if (!scriptLog_.empty()) {
@@ -1797,20 +1797,7 @@ void ScenePage::walkTo(int sx, int sy) {
         for (const Ac2Record* o : scene_.objects())
             if (o->tag == "PCXX")
                 start = grid_.cellAt(o->f("x"), o->f("z"));
-    if (!triedGamePaths_) {
-        triedGamePaths_ = true;
-        std::vector<uint8_t> exe;
-        auto finder = std::make_unique<GamePathFinder>();
-        if (!ctx_.files.read("motoe.exe", exe) && !finder->load(exe))
-            gamePaths_ = std::move(finder);
-    }
-    if (gamePaths_) {
-        path_ = gamePaths_->findPath(grid_, start, goal, false);
-        pathSource_ = "the game's path-finder";
-    } else {
-        path_ = grid_.findPath(start, goal);
-        pathSource_ = "Reluva's A*";
-    }
+    path_ = grid_.findPath(start, goal);
     if (who && who->player && path_.size() > 1)
         leadGoal_ = goal;
     if (who && path_.size() > 1 && startWalk(*who)) {
@@ -1982,20 +1969,7 @@ void ScenePage::queueRoutine(Character& c) {
 bool ScenePage::walkCharacter(Character& c, WalkGrid::Cell goal, bool toPoint, bool run) {
     c.walkIn = 0; // a walk replaces walking in
     const WalkGrid::Cell start = grid_.cellAt(c.x, c.z);
-    if (!triedGamePaths_) {
-        triedGamePaths_ = true;
-        std::vector<uint8_t> exe;
-        auto finder = std::make_unique<GamePathFinder>();
-        if (!ctx_.files.read("motoe.exe", exe) && !finder->load(exe))
-            gamePaths_ = std::move(finder);
-    }
-    if (gamePaths_) {
-        path_ = gamePaths_->findPath(grid_, start, goal, toPoint);
-        pathSource_ = "the game's path-finder";
-    } else {
-        path_ = grid_.findPath(start, goal);
-        pathSource_ = "Reluva's A*";
-    }
+    path_ = grid_.findPath(start, goal, toPoint);
     if (path_.size() < 2 || !startWalk(c, run))
         return false;
     c.path.clear();

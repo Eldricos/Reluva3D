@@ -742,7 +742,7 @@ const char* aweToolUsage() {
            "  reluva-tool awe-table <file.txt>\n"
            "  reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds|movies> <out.tga> [key...]\n"
            "  reluva-tool ac2-dump <scene.ac2>...\n"
-           "  reluva-tool awe-path <game folder> <scene.ac2> <a0> <b0> <a1> <b1>\n"
+           "  reluva-tool awe-path <game folder> <scene.ac2> <a0> <b0> <a1> <b1> | -all [pairs]\n"
            "  reluva-tool awe-scripts <game folder> [-v]\n"
            "  reluva-tool awe-save <slot.ac2>... [-v]\n"
            "  reluva-tool gr2-model <model.gr2> [-anim <anim.gr2> <seconds>] [-obj out.obj] [-track bone]\n";

@@ -58,9 +58,9 @@ scenes, two Granny files, the text tables, two backgrounds):
   can walk is understood: how cells map to the floor, what the values
   mean, how clicks and `walk a b` pick cells, and the game's three tries
   at a path. G shows a scene's grid over its background, and clicking
-  the floor walks the player's character there along a path planned by
-  the game's own path-finder (run from `motoe.exe` in the x86
-  interpreter, until a native port matches it; A* without it).
+  the floor walks the player's character there along a path planned as
+  the game's own path-finder plans it: a native port, checked point for
+  point against `motoe.exe`'s code (`awe-path -all`).
 - **Scripts: the runner works.** Commands run as the game's runner runs
   them: queued as events, each finishing at once or when what it started
   is over, the `a` forms not waiting, the door macros and script files

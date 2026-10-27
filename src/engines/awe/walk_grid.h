@@ -50,20 +50,26 @@ public:
     // `openThrees`, 2 unless `openTwos`.
     bool blocked(Cell c, bool openThrees, bool openTwos = false) const;
 
-    // A path from one cell to another as the points to walk through, start
-    // and goal included; empty if there is none. The game tries three
-    // times, each less strict (0x440ce0): as the grid is, then with 3s
-    // open, then also with the start and goal cells open. It doesn't walk
-    // to a cell less than 3 steps away (in a plus b), and neither does this.
-    //
-    // The game's own search moves on a lattice of 48 steps and 8 headings
-    // (0x42f1f0), so its paths turn more smoothly; this one is A* over the
-    // 8 neighbours, then shortened to the turns it needs.
-    std::vector<Cell> findPath(Cell from, Cell to) const;
+    // A walk's path as the game plans one (motoe.exe 0x440ce0): cells from
+    // the start to the goal; empty if there is none. It tries three
+    // times, each less strict: as the grid is, then with 3s open, then
+    // also with the start and goal cells open; and doesn't walk to a cell
+    // less than 3 steps away (in a plus b). `allowTwos` when walking to a
+    // walk point.
+    std::vector<Cell> findPath(Cell from, Cell to, bool allowTwos = false) const;
+
+    // One search as the game's path-finder makes it (0x42ef40): A* over
+    // the cells, then the points dropped that a turn and a straight line
+    // can go past (see docs/formats/awe/ac2.md). `out` gets the points
+    // left, the goal first and the start left out: cell centres, and the
+    // heading of the turn into each. Returns how many, or 0 or less if
+    // there's no path.
+    struct Point {
+        double a = 0, b = 0, heading = 0;
+    };
+    int search(Cell from, Cell to, bool openThrees, bool allowTwos, std::vector<Point>& out) const;
 
 private:
-    std::vector<Cell> search(Cell from, Cell to, bool openThrees, bool openEnds) const;
-    bool clearLine(Cell from, Cell to, bool openThrees, Cell s, Cell g, bool openEnds) const;
     int size_ = 0;
     std::array<uint8_t, kSize * kSize> cells_{};
 };

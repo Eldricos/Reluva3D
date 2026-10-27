@@ -18,9 +18,8 @@ class Win32Process;
 namespace reluva::awe {
 
 // motoe.exe's path-finder (0x42e840), run in the x86 interpreter, as
-// granny2.dll is: until a native port of its search (0x42f1f0) matches it,
-// it plans the characters' walks when the game's executable is there.
-// See docs/formats/awe/ac2.md.
+// granny2.dll is: kept to check Reluva's port of it (WalkGrid::search)
+// against, with reluva-tool awe-path. See docs/formats/awe/ac2.md.
 class GamePathFinder {
 public:
     GamePathFinder();

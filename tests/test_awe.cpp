@@ -382,8 +382,17 @@ void testWalkGrid() {
         CHECK(!g.blocked(p, false));
     CHECK(g.findPath({20, 20}, {21, 21}).empty()); // too near to walk
     // Open ground: straight there.
-    path = g.findPath({0, 0}, {20, 30});
+    path = g.findPath({40, 0}, {60, 30});
     CHECK(path.size() == 2);
+    // Round the 3 the first try avoids: the search's cells are dropped
+    // in order while a turn from the last one kept clears the next, so
+    // the one beside it stays.
+    path = g.findPath({0, 0}, {20, 30});
+    CHECK(path.size() == 3 && path[1] == (WalkGrid::Cell{9, 10}));
+    std::vector<WalkGrid::Point> points;
+    CHECK(g.search({0, 0}, {20, 30}, false, false, points) == 2 && points[0].a == 20.5 && points[0].b == 30.5);
+    CHECK(g.search({0, 0}, {20, 30}, true, false, points) == 1); // with 3s open, straight there
+    CHECK(g.search({0, 0}, {32, 5}, false, false, points) == 0); // the goal blocked
 }
 
 void testConditions() {
