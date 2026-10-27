@@ -40,7 +40,7 @@ struct Ac2Value {
 struct Ac2Record {
     std::string tag;
     // Fields in file order, named where their use is known, else by
-    // where the original keeps them ("b08": offset 0xb08 in its object).
+    // where the original keeps them ("b54": offset 0xb54 in its object).
     std::vector<std::pair<std::string, Ac2Value>> fields;
     // Sub-records that follow an object's own fields (SPRT, MODL, ANIM...).
     std::vector<Ac2Record> parts;

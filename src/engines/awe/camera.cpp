@@ -43,7 +43,7 @@ SceneCamera SceneCamera::fromRecord(const Ac2Record& r) {
     c.farPlane = r.f("far");
     const char* const pos[3] = {"x", "y", "z"};
     const char* const ear[3] = {"pitch", "yaw", "roll"};
-    const char* const off[3] = {"74", "78", "7c"};
+    const char* const off[3] = {"offsetX", "offsetY", "offsetZ"};
     for (int k = 0; k < 3; k++) {
         c.position[k] = r.f(pos[k]);
         c.elevAzimRoll[k] = r.f(ear[k]);

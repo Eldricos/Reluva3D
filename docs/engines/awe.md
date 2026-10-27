@@ -154,8 +154,11 @@ Next:
 1. Light the characters as the game does. They are lit by a fixed guess
    for now (`model_draw.cpp`); the scenes have 426 `LITE` records, and
    the cameras' fields `180`..`188` look like an ambient colour.
-2. Name the fields still known only by their offset, by comparing scenes
-   and watching the original.
+2. Do what the newly named scene fields drive
+   ([ac2.md](../formats/awe/ac2.md), "Still to find"): the cursors over
+   hotspots and characters, the characters' breath and footprints
+   outdoors, and `pickFirst` in picking. The fields still known only by
+   their offset are ones the game never reads, and the lighting's.
 3. Play the later acts through, to find what the scenes after the
    opening need.
 

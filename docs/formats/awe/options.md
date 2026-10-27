@@ -29,8 +29,8 @@ loaded.
 | `Gamma` | Brightness | 5 | 0..10 | A linear gamma ramp of slope (32g + 97)/257, clipped. 5 leaves colours as they are. Full screen only. |
 | `Captions` | Text Captions | 1 | 0/1 | Off: the dialogue box and its spoken line aren't drawn, except while choosing and for the ham-radio scenes; movie subtitles aren't drawn either. |
 | `Shadows` | 3D Shadows | 1 | 0/1 | The characters' shadows ([shadows.md](shadows.md)). |
-| `Water` | Animated Effects | 1 | 0/1 | Off: scene videos flagged `BNKX de4` (water, flames...) stop advancing. |
-| `Fog` | Fog, Haze, and Clouds | 1 | 0/1 | Off: pictures from `elements\fog` or `skies\clouds` with `SPRT da4` set aren't drawn. |
+| `Water` | Animated Effects | 1 | 0/1 | Off: scene videos flagged `BNKX effect` (water, flames...) stop advancing. |
+| `Fog` | Fog, Haze, and Clouds | 1 | 0/1 | Off: pictures from `elements\fog` or `skies\clouds` with `SPRT scroll` set aren't drawn. |
 | `Rain` | Particle Effects | 1 | 0/1 | Off: particle systems neither move nor draw. |
 | `AntiAlias` | Anti-Aliasing | 0 | 0/1 | 4× multisampling if the card has it, else 2×. Changing it resets the device. |
 | `Slot` | — | 0 | | The last save slot used. Nothing reads it back. |
