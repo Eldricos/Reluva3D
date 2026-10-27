@@ -262,6 +262,12 @@ void writeDesc(Cpu& c, uint32_t p, const Surface& s, uint32_t surfaceAddress) {
 
 std::optional<uint32_t> Surface::invoke(const ComInterface& iface, int index, Cpu& c) {
     const std::string_view m = iface.methods[size_t(index)].name;
+    // What reads or writes pixels (or what they're made of) waits for the
+    // draws still drawing.
+    if (m == "Lock" || m == "Unlock" || m == "Blt" || m == "BltFast" || m == "BltBatch" || m == "Flip" ||
+        m == "GetDC" || m == "ReleaseDC" || m == "Restore" || m == "SetPalette" || m == "SetColorKey" ||
+        m == "UpdateOverlay" || m == "AddAttachedSurface" || m == "DeleteAttachedSurface")
+        s->finishDraws();
     ComHost& com = s->com;
     // The interface this surface's own pointers are handed out as.
     auto pointerTo = [&](const std::shared_ptr<Surface>& other) { return com.pointer(other, iface); };
@@ -561,6 +567,8 @@ const ComInterface* Palette::query(const std::string& iid) {
 
 std::optional<uint32_t> Palette::invoke(const ComInterface& iface, int index, Cpu& c) {
     const std::string_view m = iface.methods[size_t(index)].name;
+    if (m == "SetEntries")
+        s->finishDraws();
     if (m == "GetCaps") {
         c.write32(c.arg(1), caps);
         return kDDOk;
@@ -640,6 +648,7 @@ std::shared_ptr<dx::Surface> DirectX::State::makeSurface(int w, int h, const dx:
 // The frame is the primary surface; with a window (not fullscreen), the
 // window's client area of it.
 void DirectX::State::present() {
+    finishDraws();
     auto p = primary.lock();
     if (!p)
         return;

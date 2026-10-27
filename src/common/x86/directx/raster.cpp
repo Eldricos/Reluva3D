@@ -503,9 +503,116 @@ private:
 
 } // namespace
 
-// The draw's triangles. With enough to draw, each thread takes its own rows
-// (groups of 8, dealt round) and draws every triangle there, in order: each
-// pixel is drawn by one thread, as it would be by one alone.
+// The draws given and not yet drawn, drawn in order on a thread of their
+// own while the program goes on. It takes every draw waiting at once, and
+// with enough to draw, draws them by rows with the row threads: each takes
+// its own rows (groups of 8, dealt round) and draws every triangle there,
+// draw after draw, so each pixel is drawn by one thread, in the order it
+// would be by one alone.
+struct DrawQueue {
+    struct Job {
+        Draw draw;
+        std::vector<std::array<ClipVertex, 3>> triangles;
+        double area; // roughly, by the triangles' bounding boxes
+    };
+    explicit DrawQueue(DirectX::DrawThreads mode) : mode_(mode), thread_([this] { work(); }) {}
+    ~DrawQueue() {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            quit_ = true;
+        }
+        wake_.notify_all();
+        thread_.join();
+    }
+    void push(Job job) {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            jobs_.push_back(std::move(job));
+        }
+        wake_.notify_all();
+    }
+    // Waits for every job pushed to be drawn.
+    void finish() {
+        std::unique_lock<std::mutex> lock(mutex_);
+        done_.wait(lock, [this] { return jobs_.empty() && !drawing_; });
+    }
+    // Draws jobs in order, by rows on the row threads when there's enough
+    // to draw (or always, with DrawThreads::Always).
+    static void draw(const std::vector<Job>& jobs, DirectX::DrawThreads mode) {
+        double area = 0;
+        for (const Job& j : jobs)
+            area += j.area;
+        RowThreads& threads = RowThreads::get();
+        if (mode == DirectX::DrawThreads::One || threads.count() == 1 ||
+            (mode == DirectX::DrawThreads::Auto && area < 8192)) {
+            Draw::Raster r;
+            for (const Job& j : jobs)
+                for (const auto& t : j.triangles)
+                    j.draw.rasterize(r, t[0], t[1], t[2]);
+            return;
+        }
+        std::vector<Draw::Raster> rasters(size_t(threads.count()));
+        threads.run([&](int i) {
+            Draw::Raster& r = rasters[size_t(i)];
+            r.band = i, r.bands = threads.count();
+            for (const Job& j : jobs)
+                for (const auto& t : j.triangles)
+                    j.draw.rasterize(r, t[0], t[1], t[2]);
+        });
+    }
+
+private:
+    void work() {
+        std::unique_lock<std::mutex> lock(mutex_);
+        for (;;) {
+            wake_.wait(lock, [this] { return quit_ || !jobs_.empty(); });
+            if (jobs_.empty())
+                return; // quitting, with nothing left
+            std::vector<Job> jobs;
+            jobs.swap(jobs_);
+            drawing_ = true;
+            lock.unlock();
+            draw(jobs, mode_);
+            jobs.clear(); // the draws' surfaces let go here, not under the lock
+            lock.lock();
+            drawing_ = false;
+            if (jobs_.empty())
+                done_.notify_all();
+        }
+    }
+    const DirectX::DrawThreads mode_;
+    std::mutex mutex_;
+    std::condition_variable wake_, done_;
+    std::vector<Job> jobs_;
+    bool drawing_ = false, quit_ = false;
+    std::thread thread_;
+};
+
+Device::~Device() {
+    finishDraws();
+    if (s)
+        s->devices.erase(this);
+}
+
+void Device::finishDraws() {
+    if (queue_)
+        queue_->finish();
+}
+
+Draw Device::current() const {
+    Draw d;
+    d.cfg_ = cfg_;
+    d.stages = stages;
+    std::copy(std::begin(bound), std::end(bound), d.bound);
+    d.viewport = viewport;
+    d.target = target;
+    d.depth = depth;
+    return d;
+}
+
+// The draw's triangles: drawn on a thread of their own (DrawQueue), in
+// turn with the draws before them, while the program goes on; with
+// DirectX::DrawThreads::One, here and now.
 void Device::drawBatch() {
     if (batch_.empty())
         return;
@@ -516,21 +623,16 @@ void Device::drawBatch() {
         area += double(x1 - x0) * double(y1 - y0);
     }
     const DirectX::DrawThreads mode = s->owner.drawThreads;
-    if (mode == DirectX::DrawThreads::One || (mode == DirectX::DrawThreads::Auto && area < 8192) ||
-        RowThreads::get().count() == 1) {
-        for (const auto& t : batch_)
-            rasterize(main_, t[0], t[1], t[2]);
-    } else {
-        RowThreads& threads = RowThreads::get();
-        std::vector<Raster> rasters(size_t(threads.count()));
-        threads.run([&](int i) {
-            Raster& r = rasters[size_t(i)];
-            r.band = i, r.bands = threads.count();
-            for (const auto& t : batch_)
-                rasterize(r, t[0], t[1], t[2]);
-        });
-    }
+    std::vector<DrawQueue::Job> job;
+    job.push_back({current(), std::move(batch_), area});
     batch_.clear();
+    if (mode == DirectX::DrawThreads::One) {
+        DrawQueue::draw(job, mode);
+        return;
+    }
+    if (!queue_)
+        queue_ = std::make_shared<DrawQueue>(mode);
+    queue_->push(std::move(job.front()));
 }
 
 // Clips a triangle to the view volume, projects it, culls it by its
@@ -573,10 +675,9 @@ void Device::triangle(const ClipVertex& a, const ClipVertex& b, const ClipVertex
     if ((cull == 2 && area > 0) || (cull == 3 && area < 0) || area == 0)
         return;
     for (size_t i = 1; i + 1 < poly.size(); ++i)
-        if (batching_)
-            batch_.push_back({poly[0], poly[i], poly[i + 1]});
-        else
-            rasterize(main_, poly[0], poly[i], poly[i + 1]);
+        batch_.push_back({poly[0], poly[i], poly[i + 1]});
+    if (!batching_)
+        drawBatch();
 }
 
 void Device::line(const ClipVertex& a0, const ClipVertex& b0) {
@@ -595,8 +696,10 @@ void Device::line(const ClipVertex& a0, const ClipVertex& b0) {
             return;
         a = project(a), b = project(b);
     }
-    std::fill(std::begin(main_.lod), std::end(main_.lod), 0.0f); // lines and points: the largest mip level
-    prepareSamplers(main_);
+    finishDraws(); // drawn here and now: after the draws before
+    const Draw d = current();
+    Draw::Raster r; // lines and points: the largest mip level
+    d.prepareSamplers(r);
     const int steps = std::max(1, int(std::max(std::fabs(b.x - a.x), std::fabs(b.y - a.y))));
     float attr[kAttributes];
     for (int i = 0; i <= steps; ++i) {
@@ -605,7 +708,7 @@ void Device::line(const ClipVertex& a0, const ClipVertex& b0) {
         attr[4] = p.specular.r, attr[5] = p.specular.g, attr[6] = p.specular.b, attr[7] = p.specular.a;
         for (int st = 0; st < stages; ++st)
             attr[8 + 2 * st] = p.tex[st][0], attr[9 + 2 * st] = p.tex[st][1];
-        pixel(main_, int(std::lround(p.x)), int(std::lround(p.y)), p.z, p.w > 0 ? 1 / p.w : 1, attr);
+        d.pixel(r, int(std::lround(p.x)), int(std::lround(p.y)), p.z, p.w > 0 ? 1 / p.w : 1, attr);
     }
 }
 
@@ -617,19 +720,21 @@ void Device::point(const ClipVertex& a0) {
                 return;
         a = project(a);
     }
-    std::fill(std::begin(main_.lod), std::end(main_.lod), 0.0f);
-    prepareSamplers(main_);
+    finishDraws();
+    const Draw d = current();
+    Draw::Raster r;
+    d.prepareSamplers(r);
     float attr[kAttributes];
     attr[0] = a.diffuse.r, attr[1] = a.diffuse.g, attr[2] = a.diffuse.b, attr[3] = a.diffuse.a;
     attr[4] = a.specular.r, attr[5] = a.specular.g, attr[6] = a.specular.b, attr[7] = a.specular.a;
     for (int st = 0; st < stages; ++st)
         attr[8 + 2 * st] = a.tex[st][0], attr[9 + 2 * st] = a.tex[st][1];
-    pixel(main_, int(std::lround(a.x)), int(std::lround(a.y)), a.z, a.w > 0 ? 1 / a.w : 1, attr);
+    d.pixel(r, int(std::lround(a.x)), int(std::lround(a.y)), a.z, a.w > 0 ? 1 / a.w : 1, attr);
 }
 
 // Fills a projected triangle: every pixel whose centre (whole
 // coordinates) is inside, or on a top or left edge.
-void Device::rasterize(Raster& r, const ClipVertex& a, const ClipVertex& b, const ClipVertex& c) {
+void Draw::rasterize(Raster& r, const ClipVertex& a, const ClipVertex& b, const ClipVertex& c) const {
     const int left = std::max(viewport.x, 0), top = std::max(viewport.y, 0);
     const int right = std::min(viewport.x + viewport.width, target->d.width);
     const int bottom = std::min(viewport.y + viewport.height, target->d.height);
@@ -787,6 +892,7 @@ const DecodedTexture* Device::texture(int stage) {
         fresh = d.versions[i] == levels[i]->d.version;
     if (fresh)
         return &d;
+    finishDraws(); // a draw waiting may use the texture as it was decoded
     if (decoded.size() > 4096) // forget textures since freed
         for (auto it = decoded.begin(); it != decoded.end();)
             it = it->second.owner.expired() ? decoded.erase(it) : std::next(it);
@@ -814,7 +920,7 @@ const DecodedTexture* Device::texture(int stage) {
     return &fill;
 }
 
-void Device::prepareSamplers(Raster& r) {
+void Draw::prepareSamplers(Raster& r) const {
     for (int st = 0; st < stages; ++st) {
         Sampler& sm = r.samplers[st];
         const DecodedTexture* t = bound[st];
@@ -840,7 +946,7 @@ void Device::prepareSamplers(Raster& r) {
     }
 }
 
-uint32_t Device::sample(const Raster& r, int stage, float u, float v, bool* keyed) {
+uint32_t Draw::sample(const Raster& r, int stage, float u, float v, bool* keyed) const {
     const Sampler& sm = r.samplers[stage];
     if (!sm.argb)
         return 0xffffffffu;
@@ -977,7 +1083,7 @@ void Device::configure() {
                                                                                  : PixelConfig::Target::Generic;
 }
 
-void Device::pixel(Raster& r, int x, int y, float z, float eyeW, const float* attr) {
+void Draw::pixel(Raster& r, int x, int y, float z, float eyeW, const float* attr) const {
     uint8_t* zAt;
     uint32_t zNew;
     if (depthTest(x, y, z, zAt, zNew))
@@ -986,7 +1092,7 @@ void Device::pixel(Raster& r, int x, int y, float z, float eyeW, const float* at
 
 // Whether a pixel is on the target and passes the depth test; where its
 // depth is, and the depth it would write.
-bool Device::depthTest(int x, int y, float z, uint8_t*& zAt, uint32_t& zNew) {
+bool Draw::depthTest(int x, int y, float z, uint8_t*& zAt, uint32_t& zNew) const {
     zAt = nullptr;
     zNew = 0;
     const PixelConfig& cf = cfg_;
@@ -1009,8 +1115,8 @@ bool Device::depthTest(int x, int y, float z, uint8_t*& zAt, uint32_t& zNew) {
 }
 
 // A pixel past the depth test: texture stages, then the rest (finish).
-void Device::shade(const Raster& r, int x, int y, float z, float eyeW, const float* attr, uint8_t* zAt,
-                   uint32_t zNew) {
+void Draw::shade(const Raster& r, int x, int y, float z, float eyeW, const float* attr, uint8_t* zAt,
+                 uint32_t zNew) const {
     const PixelConfig& cf = cfg_;
     // Texture stages.
     if (cf.simpleStages && !cf.colorKey) {
@@ -1116,8 +1222,8 @@ void Device::shade(const Raster& r, int x, int y, float z, float eyeW, const flo
 
 // The rest of a pixel's way, from its colour after the texture stages:
 // specular, alpha test, fog, blending, the write.
-void Device::finish(int x, int y, float z, float eyeW, const float* attr, Color current, uint8_t* zAt,
-                    uint32_t zNew) {
+void Draw::finish(int x, int y, float z, float eyeW, const float* attr, Color current, uint8_t* zAt,
+                  uint32_t zNew) const {
     const PixelConfig& cf = cfg_;
     const Color specular{attr[4], attr[5], attr[6], attr[7]};
     if (cf.specular)
@@ -1193,6 +1299,7 @@ void Device::finish(int x, int y, float z, float eyeW, const float* attr, Color 
 // viewport) of the target (flag 1) and the Z buffer (flag 2), within the
 // viewport.
 void Device::clear(uint32_t count, uint32_t rects, uint32_t flags, uint32_t color, float z) {
+    finishDraws();
     Cpu& c = s->cpu;
     const Rect vp{viewport.x, viewport.y, viewport.x + viewport.width, viewport.y + viewport.height};
     std::vector<Rect> areas;

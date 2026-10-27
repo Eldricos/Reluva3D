@@ -189,6 +189,7 @@ uint32_t DirectDraw::createSurface(Cpu& c, const ComInterface& iface) {
 std::optional<uint32_t> DirectDraw::invoke(const ComInterface& iface, int index, Cpu& c) {
     if (&iface == &s->interfaces.direct3d7)
         return invoke3d(iface, index, c);
+    s->finishDraws(); // seldom called, and some change the surfaces (the mode, restoring them)
     const std::string_view m = iface.methods[size_t(index)].name;
     if (m == "CreateSurface")
         return createSurface(c, iface);

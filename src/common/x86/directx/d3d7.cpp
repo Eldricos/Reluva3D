@@ -262,6 +262,7 @@ std::optional<uint32_t> VertexBuffer::invoke(const ComInterface& iface, int inde
 
 Device::Device(DirectX::State* state, std::shared_ptr<Surface> renderTarget) : target(std::move(renderTarget)) {
     s = state;
+    s->devices.insert(this);
     for (const auto& a : target->attached)
         if (a->d.caps[0] & kCapsZBuffer)
             depth = a;
@@ -624,3 +625,12 @@ std::optional<uint32_t> Device::invoke(const ComInterface& iface, int index, Cpu
 }
 
 } // namespace reluva::x86::dx
+
+namespace reluva::x86 {
+
+void DirectX::State::finishDraws() {
+    for (dx::Device* d : devices)
+        d->finishDraws();
+}
+
+} // namespace reluva::x86

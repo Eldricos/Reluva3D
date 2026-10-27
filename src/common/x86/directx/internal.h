@@ -12,6 +12,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -223,6 +224,11 @@ struct DirectX::State {
     DirectX& owner;
     Win32Process& process;
     Cpu& cpu;
+    // The Direct3D devices, whose draws may still be drawing on threads of
+    // their own: finishDraws waits for them, before anything else touches
+    // surfaces' pixels. (Before com, which holds the devices, so it's there
+    // while they go.)
+    std::set<dx::Device*> devices;
     ComHost com;
     dx::Interfaces interfaces;
     DirectX::Frame frame;
@@ -236,6 +242,7 @@ struct DirectX::State {
     std::shared_ptr<dx::DirectDraw> directDraw;
 
     State(DirectX& o, Win32Process& p) : owner(o), process(p), cpu(p.cpu()), com(p) {}
+    void finishDraws();
     // Copies the primary surface to the frame and tells the engine.
     void present();
     // Makes a surface's memory; 0 if there's no room.
