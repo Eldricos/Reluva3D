@@ -69,6 +69,7 @@ const char* const kUsageLines =
     "                       [-slice instructions] [-dump memory.bin] [-keys ms:key,...]\n"
     "                       (keys: enter, up, a..., click, moveDX/DY) [-framelog frames.csv]\n"
     "                       [-timescale 0.1] [-thrashlog fromframe toframe] [-native] [-wav sound.wav]\n"
+    "                       [-joystick name] (keys also joy:A=V...: axes 0-5 = V, button bB)\n"
     "  reluva-tool nfs-survey <folder>... [-v]\n"
     "  reluva-tool nfs-page <game folder> <out.tga> <page> [key...]\n";
 
@@ -988,6 +989,8 @@ int cmdNfsHost(int argc, char** argv) {
             frameLogFile = argv[++a];
         else if (arg == "-wav" && a + 1 < argc)
             wavFile = argv[++a];
+        else if (arg == "-joystick" && a + 1 < argc)
+            options.joystick = argv[++a];
         else if (arg == "-keys" && a + 1 < argc)
             keyScript = argv[++a];
         else if (arg == "-slice" && a + 1 < argc)
@@ -1033,6 +1036,7 @@ int cmdNfsHost(int argc, char** argv) {
         };
     if (slice)
         host.process().slice = slice;
+    reluva::GamepadState pad; // the joystick's state, as the script sets it
     for (size_t at = 0; at < keyScript.size();) {
         const size_t comma = keyScript.find(',', at);
         const std::string item = keyScript.substr(at, comma == std::string::npos ? std::string::npos : comma - at);
@@ -1042,12 +1046,22 @@ int cmdNfsHost(int argc, char** argv) {
             continue;
         const uint64_t ms = std::strtoull(item.c_str(), nullptr, 10);
         const std::string key = item.substr(colon + 1);
-        int dx = 0, dy = 0;
-        if (key == "click") {
+        int dx = 0, dy = 0, index = 0;
+        float value = 0;
+        if (key.rfind("joy:", 0) == 0) { // joy:A=V (axis A 0-5) or joy:bB=V (button B), the pad's state so far
+            if (std::sscanf(key.c_str(), "joy:b%d=%f", &index, &value) == 2 && index >= 0 && index < 32)
+                pad.buttons = value != 0 ? pad.buttons | 1u << index : pad.buttons & ~(1u << index);
+            else if (std::sscanf(key.c_str(), "joy:%d=%f", &index, &value) == 2 && index >= 0 && index < 6)
+                pad.axes[index] = value;
+            host.setJoystick(pad, ms);
+        } else if (key == "click") {
             host.queueMouseButton(true, ms);
             host.queueMouseButton(false, ms + 100);
         } else if (std::sscanf(key.c_str(), "move%d/%d", &dx, &dy) == 2) {
             host.queueMouseMove(dx, dy, ms);
+        } else if ((key[0] == '+' || key[0] == '-') && key.size() > 1) { // held, let go
+            if (!host.queueKey(key.substr(1), key[0] == '+', ms))
+                std::fprintf(stderr, "unknown key '%s'\n", key.c_str());
         } else if (!host.queueKey(key, true, ms) || !host.queueKey(key, false, ms + 100)) {
             std::fprintf(stderr, "unknown key '%s'\n", key.c_str());
         }

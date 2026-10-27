@@ -60,6 +60,56 @@ void writeDesc(Cpu& c, uint32_t p, int w, int h, int bits, int pitch, uint32_t m
     c.write32(p + 104, caps);
 }
 
+
+// The joystick offered (GameHost::Options::joystick), as DirectInput
+// describes a pad's objects in DIJOYSTATE (c_dfDIJoystick, the data format
+// the game sets): five axes (X and Y the left stick, Z the triggers, Rx
+// and Ry the right stick), a hat (the d-pad) and twelve buttons.
+constexpr uint32_t kJoystickInstance = 0x52e1a000, kJoystickProduct = 0x52e1a001; // Reluva's own
+constexpr int kJoystickAxes = 5, kJoystickButtons = 12;
+constexpr uint32_t kPovOffset = 32, kButtonsOffset = 48, kJoyStateSize = 80;
+// DirectInput's GUID_XAxis... (all A36D02xx-C9F3-11CF-BFC7-444553540000).
+constexpr uint32_t kAxisGuids[kJoystickAxes] = {0xa36d02e0, 0xa36d02e1, 0xa36d02e2, 0xa36d02f4, 0xa36d02f5};
+constexpr uint32_t kButtonGuid = 0xa36d02f0, kPovGuid = 0xa36d02f2;
+// DI buttons from SDL's pad: A B X Y, the shoulders, Back, Start, the sticks, Guide.
+constexpr GamepadButton kButtonOrder[kJoystickButtons - 1] = {PadSouth,         PadEast, PadWest,  PadNorth,
+                                                               PadLeftShoulder, PadRightShoulder, PadBack, PadStart,
+                                                               PadLeftStick,    PadRightStick,    PadGuide};
+
+void writeGuid(Cpu& c, uint32_t at, uint32_t data1) {
+    c.write32(at, data1);
+    c.write16(at + 4, 0xc9f3);
+    c.write16(at + 6, 0x11cf);
+    const uint8_t rest[8] = {0xbf, 0xc7, 0x44, 0x45, 0x53, 0x54, 0x00, 0x00};
+    for (uint32_t i = 0; i < 8; ++i)
+        c.write8(at + 8 + i, rest[i]);
+}
+
+// The object at a DIJOYSTATE offset: its GUID, DIDFT type and name; false
+// if the pad has none there.
+bool joystickObject(uint32_t offset, uint32_t& guid, uint32_t& type, std::string& name) {
+    static const char* const axisNames[kJoystickAxes] = {"X Axis", "Y Axis", "Z Axis", "X Rotation", "Y Rotation"};
+    if (offset < 4 * kJoystickAxes && offset % 4 == 0) {
+        guid = kAxisGuids[offset / 4];
+        type = 0x2 | (offset / 4) << 8; // DIDFT_ABSAXIS
+        name = axisNames[offset / 4];
+        return true;
+    }
+    if (offset == kPovOffset) {
+        guid = kPovGuid;
+        type = 0x10; // DIDFT_POV, instance 0
+        name = "Hat Switch";
+        return true;
+    }
+    if (offset >= kButtonsOffset && offset < kButtonsOffset + kJoystickButtons) {
+        guid = kButtonGuid;
+        type = 0x4 | (offset - kButtonsOffset) << 8; // DIDFT_PSHBUTTON
+        name = "Button " + std::to_string(offset - kButtonsOffset + 1);
+        return true;
+    }
+    return false;
+}
+
 } // namespace
 
 uint32_t GameHost::newSurface(int width, int height, int bits, uint32_t caps) {
@@ -503,15 +553,56 @@ void GameHost::addDirectX() {
     auto makeDevice = [this, unknown, ok](const std::string& kind) {
         std::vector<Method> m = unknown("IDirectInputDevice(" + kind + ")");
         auto add = [&](const char* n, int args, std::function<uint32_t(Cpu&)> fn = {}) { m.push_back({n, args, fn}); };
-        add("GetCapabilities", 2);
+        // DIDEVCAPS: attached, a gamepad, its axes, buttons and hats.
+        add("GetCapabilities", 2, [kind](Cpu& c) {
+            const uint32_t p = c.arg(1), size = c.read32(p);
+            for (uint32_t o = 4; o + 4 <= size && o < 44; o += 4)
+                c.write32(p + o, 0);
+            c.write32(p + 4, 1); // DIDC_ATTACHED
+            if (kind == "joystick") {
+                c.write32(p + 8, 4 | 5 << 8); // DIDEVTYPE_JOYSTICK, a gamepad
+                c.write32(p + 12, kJoystickAxes);
+                c.write32(p + 16, kJoystickButtons);
+                c.write32(p + 20, 1);
+            }
+            return kOk;
+        });
         add("EnumObjects", 4, ok);
-        add("GetProperty", 3);
-        add("SetProperty", 3, ok);
+        // Properties (DIPROPHEADER: size, header size, object, how): an
+        // axis's range (DIPROP_RANGE, 4), by offset (how 1) or for all
+        // (how 0); the rest taken and ignored.
+        auto axes = [](Cpu& c) {
+            const uint32_t header = c.arg(2), object = c.read32(header + 8), how = c.read32(header + 12);
+            std::vector<size_t> out;
+            for (uint32_t a = 0; a < kJoystickAxes; ++a)
+                if (how == 0 || (how == 1 && object == 4 * a) || (how == 2 && (object & 0xff00) >> 8 == a && (object & 3)))
+                    out.push_back(a);
+            return out;
+        };
+        add("GetProperty", 3, [this, kind, axes](Cpu& c) {
+            if (kind != "joystick" || c.arg(1) != 4)
+                return 0x80004001u; // E_NOTIMPL
+            for (size_t a : axes(c)) {
+                c.write32(c.arg(2) + 16, uint32_t(axisRange_[a].first));
+                c.write32(c.arg(2) + 20, uint32_t(axisRange_[a].second));
+            }
+            return kOk;
+        });
+        add("SetProperty", 3, [this, kind, axes](Cpu& c) {
+            if (kind == "joystick" && c.arg(1) == 4)
+                for (size_t a : axes(c))
+                    axisRange_[a] = {int32_t(c.read32(c.arg(2) + 16)), int32_t(c.read32(c.arg(2) + 20))};
+            return kOk;
+        });
         add("Acquire", 1, ok);
         add("Unacquire", 1, ok);
         // GetDeviceState: the keys' states, or the mouse's movement since
         // last asked and its buttons (DIMOUSESTATE).
         add("GetDeviceState", 3, [this, kind](Cpu& c) {
+            if (kind == "joystick") {
+                joystickState(c, c.arg(2), c.arg(1));
+                return kOk;
+            }
             for (uint32_t i = 0; i < c.arg(1); ++i)
                 c.write8(c.arg(2) + i, kind == "keyboard" && i < 256 ? keys_[i] : 0);
             if (kind == "mouse" && c.arg(1) >= 16) {
@@ -565,7 +656,23 @@ void GameHost::addDirectX() {
             return kOk;
         });
         add("SetCooperativeLevel", 3, ok);
-        add("GetObjectInfo", 4);
+        // GetObjectInfo(this, DIDEVICEOBJECTINSTANCEA*, object, how): the
+        // joystick's objects by their offset (how 1) in DIJOYSTATE.
+        add("GetObjectInfo", 4, [kind](Cpu& c) {
+            uint32_t guid = 0, type = 0;
+            std::string name;
+            if (kind != "joystick" || c.arg(3) != 1 || !joystickObject(c.arg(2), guid, type, name))
+                return 0x80070002u; // DIERR_OBJECTNOTFOUND
+            const uint32_t p = c.arg(1), size = c.read32(p);
+            for (uint32_t o = 4; o + 4 <= size; o += 4)
+                c.write32(p + o, 0);
+            writeGuid(c, p + 4, guid);
+            c.write32(p + 20, c.arg(2));
+            c.write32(p + 24, type);
+            c.write32(p + 28, (type & 2) ? 0x100 : 0); // DIDOI_ASPECTPOSITION
+            c.writeString(p + 32, name, 260);
+            return kOk;
+        });
         add("GetDeviceInfo", 2);
         add("RunControlPanel", 3);
         add("Initialize", 4, ok);
@@ -580,10 +687,15 @@ void GameHost::addDirectX() {
         add("SendDeviceData", 5);
         return makeObject("IDirectInputDevice(" + kind + ")", m);
     };
-    const uint32_t keyboard = makeDevice("keyboard"), mouse = makeDevice("mouse");
+    const uint32_t keyboard = makeDevice("keyboard"), mouse = makeDevice("mouse"), joystick = makeDevice("joystick");
+    axisRange_.fill({0, 65535});
     std::vector<Method> di = unknown("IDirectInput");
-    di.push_back({"CreateDevice", 4, [this, keyboard, mouse](Cpu& c) {
+    di.push_back({"CreateDevice", 4, [this, keyboard, mouse, joystick](Cpu& c) {
                       const uint32_t id = c.read32(c.arg(1));
+                      if (id == kJoystickInstance && !options_.joystick.empty()) {
+                          c.write32(c.arg(2), joystick);
+                          return kOk;
+                      }
                       if (id != 0x6f1d2b61 && id != 0x6f1d2b60) {
                           say("  DirectInput: no device " + guid(c, c.arg(1)));
                           return 0x80040154u; // REGDB_E_CLASSNOTREG
@@ -591,7 +703,26 @@ void GameHost::addDirectX() {
                       c.write32(c.arg(2), id == 0x6f1d2b61 ? keyboard : mouse);
                       return kOk;
                   }});
-    di.push_back({"EnumDevices", 5, ok}); // no controllers
+    // EnumDevices(this, type, callback, ref, flags): the joystick, if one is
+    // offered, for all devices (0) or joysticks (4), as a DIDEVICEINSTANCEA.
+    di.push_back({"EnumDevices", 5, [this](Cpu& c) {
+                      if (options_.joystick.empty() || (c.arg(1) != 0 && c.arg(1) != 4))
+                          return kOk;
+                      const uint32_t d = process_->memory().alloc(0x244);
+                      for (uint32_t i = 0; i < 0x244; i += 4)
+                          c.write32(d + i, 0);
+                      c.write32(d, 0x244);
+                      writeGuid(c, d + 4, kJoystickInstance);
+                      writeGuid(c, d + 20, kJoystickProduct);
+                      c.write32(d + 36, 4 | 5 << 8); // DIDEVTYPE_JOYSTICK, a gamepad
+                      c.writeString(d + 40, options_.joystick, 260);
+                      c.writeString(d + 300, options_.joystick, 260);
+                      uint32_t more = 0;
+                      if (Error e = c.call(c.arg(2), {d, c.arg(3)}, more))
+                          c.abort(e.message);
+                      process_->memory().free(d);
+                      return kOk;
+                  }});
     di.push_back({"GetDeviceStatus", 2, [](Cpu&) { return 1u; }}); // DI_NOTATTACHED
     di.push_back({"RunControlPanel", 3, {}});
     di.push_back({"Initialize", 3, ok});
@@ -600,6 +731,36 @@ void GameHost::addDirectX() {
         c.write32(c.arg(2), input);
         return kOk;
     });
+}
+
+
+void GameHost::joystickState(Cpu& c, uint32_t to, uint32_t size) {
+    for (uint32_t i = 0; i < size; ++i)
+        c.write8(to + i, 0);
+    if (size < kJoyStateSize)
+        return;
+    const GamepadState& j = joystick_;
+    // Axes: -1..1, a dead zone round the middle, over the range the game set.
+    const float values[kJoystickAxes] = {j.axes[0], j.axes[1], j.axes[4] - j.axes[5], j.axes[2], j.axes[3]};
+    for (int a = 0; a < kJoystickAxes; ++a) {
+        float v = std::clamp(values[a], -1.0f, 1.0f);
+        const float dead = 0.1f;
+        v = std::fabs(v) < dead ? 0 : (v - std::copysign(dead, v)) / (1 - dead);
+        const auto [low, high] = axisRange_[size_t(a)];
+        c.write32(to + 4 * uint32_t(a), uint32_t(int32_t(std::lround(low + (v + 1) / 2 * double(high - low)))));
+    }
+    // The hat: hundredths of a degree clockwise from up, or centred.
+    const bool up = j.buttons & 1u << PadUp, down = j.buttons & 1u << PadDown;
+    const bool left = j.buttons & 1u << PadLeft, right = j.buttons & 1u << PadRight;
+    uint32_t pov = 0xffffffffu;
+    if (up || down || left || right) {
+        const int dx = int(right) - int(left), dy = int(down) - int(up);
+        pov = uint32_t(std::lround(std::fmod(std::atan2(double(dx), double(-dy)) * 18000 / 3.14159265358979 + 36000, 36000)));
+    }
+    for (uint32_t i = 0; i < 4; ++i)
+        c.write32(to + kPovOffset + 4 * i, i == 0 ? pov : 0xffffffffu);
+    for (int b = 0; b < kJoystickButtons - 1; ++b)
+        c.write8(to + kButtonsOffset + uint32_t(b), (j.buttons & 1u << kButtonOrder[b]) ? 0x80 : 0);
 }
 
 uint32_t GameHost::DsBuffer::position(uint64_t nowMs) {

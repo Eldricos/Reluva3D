@@ -382,7 +382,8 @@ private:
 // mixer plays the pages' sounds; null without audio output. The game
 // writes under `saveFolder`. `settings` are the game's section of
 // reluva.ini: renderscale (1-4, the Play page's frame against the game's
-// 640x480; 2 if not set) and texturefilter (linear: bilinear textures).
+// 640x480; 2 if not set), texturefilter (linear: bilinear textures) and
+// joystick (off: a game controller isn't offered to the game).
 std::vector<std::unique_ptr<Page>> makePages(const char* gameName, const GameFolders& folders,
                                              const GameFiles& files, audio::Mixer* mixer = nullptr,
                                              const std::filesystem::path& saveFolder = {},

@@ -55,6 +55,12 @@ public:
     // Whether the mouse is held by the window, hidden, for looking around:
     // MouseMove events then carry only how far it moved (moveX, moveY).
     virtual void setRelativeMouse(bool on) { (void)on; }
+    // The first game controller connected, if any: false when there's none.
+    // From the engine's thread.
+    virtual bool readGamepad(GamepadState& out) {
+        (void)out;
+        return false;
+    }
     // The window for a game's video mode: the whole screen, or a window of
     // width x height (when it fits on the screen; the frame is letterboxed
     // in whatever size the window is).

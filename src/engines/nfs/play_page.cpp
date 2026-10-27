@@ -53,8 +53,8 @@ std::string keyName(uint32_t k) {
 } // namespace
 
 PlayPage::PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer* mixer, int renderScale,
-                   bool smoothTextures)
-    : folders_(std::move(folders)), saveFolder_(std::move(saveFolder)), mixer_(mixer),
+                   bool smoothTextures, bool offerJoystick)
+    : folders_(std::move(folders)), saveFolder_(std::move(saveFolder)), mixer_(mixer), offerJoystick_(offerJoystick),
       renderScale_(std::clamp(renderScale, 1, 4)) {
     gpuDraw_.scale = renderScale_;
     gpuDraw_.nearest = !smoothTextures;
@@ -77,6 +77,7 @@ void PlayPage::say(const std::string& line) {
 }
 
 void PlayPage::activate(System& sys) {
+    sys_ = &sys;
     // The GPU if there is one: asked for each time the page is shown (the
     // engine puts the framebuffer back when it's left). Whether the game
     // draws for it is decided once, when it starts.
@@ -106,6 +107,12 @@ void PlayPage::start() {
     options.saveFolder = saveFolder_.empty() ? folders_.install / "reluva-save" : saveFolder_ / "game";
     options.nativeThrash = true;
     options.gpuThrash = gpu_;
+    // A controller connected now is offered to the game as a joystick (it
+    // looks for them once, as it starts).
+    if (offerJoystick_ && sys_ && sys_->readGamepad(pad_)) {
+        options.joystick = pad_.name.empty() ? "Gamepad" : pad_.name;
+        padOffered_ = true;
+    }
     host_ = std::make_unique<GameHost>(folders_, options);
     host_->log = [this](const std::string& line) { say(line); };
     host_->onFrame = [this](const Surface& frame) {
@@ -178,7 +185,19 @@ void PlayPage::handleEvent(const Event& ev) {
     }
 }
 
+void PlayPage::pollGamepad() {
+    if (!padOffered_ || !sys_ || !host_ || !running_)
+        return;
+    GamepadState state;
+    sys_->readGamepad(state); // disconnected: all at rest
+    if (state.buttons == pad_.buttons && std::equal(state.axes, state.axes + 6, pad_.axes))
+        return;
+    pad_ = state;
+    host_->setJoystick(state);
+}
+
 bool PlayPage::tick(uint64_t) {
+    pollGamepad();
     std::lock_guard<std::mutex> lock(mutex_);
     // Until the first frame, the log shows how start-up is going.
     return newFrame_ || frame_.pixels.empty() || !running_;
@@ -216,6 +235,7 @@ void PlayPage::drawStatus(Surface& screen) {
 }
 
 void PlayPage::update(uint64_t) {
+    pollGamepad();
     std::shared_ptr<const ThrashFrame> frame;
     ThrashFrame updates;
     Surface overlay;

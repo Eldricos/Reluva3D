@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 namespace reluva {
 
@@ -72,6 +73,21 @@ struct Event {
     int clicks = 0;              // MouseDown/MouseUp: 1, or 2 for a double click, ...
     int wheelY = 0;
     char text[32] = {};          // TextInput: UTF-8, NUL-terminated
+};
+
+// A game controller's state, as System::readGamepad gives it: SDL's
+// gamepad layout (an Xbox-style pad).
+struct GamepadState {
+    // Sticks -1..1 (left X, left Y, right X, right Y; +Y down), then the
+    // triggers 0..1 (left, right).
+    float axes[6] = {};
+    // A bit for each GamepadButton held.
+    uint32_t buttons = 0;
+    std::string name;
+};
+enum GamepadButton {
+    PadSouth, PadEast, PadWest, PadNorth, PadBack, PadGuide, PadStart, PadLeftStick, PadRightStick,
+    PadLeftShoulder, PadRightShoulder, PadUp, PadDown, PadLeft, PadRight, kPadButtons
 };
 
 } // namespace reluva

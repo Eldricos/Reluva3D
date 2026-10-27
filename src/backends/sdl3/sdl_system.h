@@ -42,6 +42,7 @@ public:
     void setMouseCursorVisible(bool visible) override;
     void setVideoMode(int width, int height, bool fullscreen) override;
     void setRelativeMouse(bool on) override;
+    bool readGamepad(GamepadState& out) override;
     uint64_t getMillis() const override;
     void delayMillis(uint32_t ms) override;
     Error startAudio(AudioCallback callback) override;
@@ -57,6 +58,7 @@ private:
     void release3D();
 
     SDL_Window* window_ = nullptr;
+    SDL_Gamepad* gamepad_ = nullptr; // the first connected, opened when asked for
     bool relativeMouse_ = false; // held by setRelativeMouse, held again when the window changes
     SDL_Renderer* renderer_ = nullptr;
     SDL_GPUDevice* gpu_ = nullptr; // set when renderer_ runs on SDL's GPU API, which 3D needs

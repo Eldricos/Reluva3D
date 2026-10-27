@@ -123,7 +123,9 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   own movies (Esc skips the intro), and races run at about real time. With a GPU
   the game is drawn with it, at twice its 640x480 unless `renderscale=` (1 to 4) in
   the game's section of `reluva.ini` says otherwise; `texturefilter=linear` smooths
-  its textures. The 3D pages
+  its textures. A game controller connected when the game starts is offered to it as a
+  joystick, and the game's own Controllers screen binds it (`joystick=off` leaves it
+  out). The 3D pages
   need a GPU with Vulkan (Linux, Windows) or Metal (macOS). On tracks, **PageUp/PageDown**
   pick one, **W/A/S/D** move, the arrows or a drag look, **Space/C** go up and down,
   **Shift** goes faster, **N/B** jump to the next or previous piece of road, **1/2/3** pick

@@ -31,8 +31,10 @@ public:
     // With a GPU, frames are drawn `renderScale` times the game's 640x480,
     // with bilinear filtering if `smoothTextures` (else point-sampled, as
     // the software renderer).
+    // A game controller connected at the start is offered to the game as a
+    // joystick unless `offerJoystick` is false.
     PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer* mixer, int renderScale = 2,
-             bool smoothTextures = false);
+             bool smoothTextures = false, bool offerJoystick = true);
     ~PlayPage() override;
     const char* name() const override { return "Play"; }
     bool capturesEscape() const override { return true; }
@@ -48,6 +50,8 @@ public:
 
 private:
     void say(const std::string& line);
+    // The game controller's state passed on to the game, when it changes.
+    void pollGamepad();
     // The title, how the run is going and the log's last lines (mutex_ held).
     void drawStatus(Surface& screen);
 
@@ -57,6 +61,10 @@ private:
     std::unique_ptr<GameHost> host_;
     std::thread thread_;
     audio::SoundHandle sound_ = audio::kNoSound;
+    System* sys_ = nullptr;
+    GamepadState pad_;       // as last passed on
+    bool offerJoystick_ = true;
+    bool padOffered_ = false; // a joystick offered to the game at its start
     bool mouseKnown_ = false;
     int mouseX_ = 0, mouseY_ = 0;
 

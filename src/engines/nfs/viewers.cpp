@@ -387,7 +387,7 @@ std::vector<std::unique_ptr<Page>> makePages(const char* gameName, const GameFol
     };
     const std::string scale = setting("renderscale");
     pages.push_back(std::make_unique<PlayPage>(folders, saveFolder, mixer, scale.empty() ? 2 : std::atoi(scale.c_str()),
-                                               setting("texturefilter") == "linear"));
+                                               setting("texturefilter") == "linear", setting("joystick") != "off"));
     pages.push_back(std::make_unique<TrackPage>(files, folders));
     pages.push_back(std::make_unique<CarPage>(files));
     pages.push_back(std::make_unique<TexturePage>(files));

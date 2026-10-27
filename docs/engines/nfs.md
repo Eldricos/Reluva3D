@@ -555,12 +555,35 @@ Started. Done so far:
   168 million instructions fewer in a run into a race; the time to load
   hardly changes.
 
+- **Joysticks.** A game controller connected when the game starts is
+  offered to it as a DirectInput joystick, under the pad's own name
+  (`System::readGamepad`, SDL's gamepads). The game sets DirectInput's
+  standard joystick format (`c_dfDIJoystick`, read from its own data),
+  then asks for each object by its offset. It is offered:
+  - X and Y, the left stick;
+  - Z, the triggers (left one way, right the other, centred at rest);
+  - Rx and Ry, the right stick;
+  - a hat, the d-pad;
+  - twelve buttons.
+
+  Axis ranges are as the game sets them (`DIPROP_RANGE`), with a 10%
+  dead zone. With a joystick there, the game binds its controls to it
+  (steering on X, accelerate and brake on Y, the rest on buttons). It
+  then reads the keyboard only for what's bound to it, as on Windows
+  with a joystick plugged in. `joystick=off` in the game's section of
+  `reluva.ini` leaves the pad out.
+
+  `nfs-host -joystick name` offers one, and its key scripts set its
+  state (`ms:joy:1=-1`). With the stick pushed forward, the car drove off
+  at 49 mph. No real pad was tried; the container has none.
+- **The game's Controllers screen.** Accelerate was rebound to W
+  there, and in the race that followed, holding W drove the car to 50
+  mph.
+
 Still to do:
 
-- **Joysticks and wheels.** DirectInput's keyboard and mouse are stood
-  in for; no joystick is offered to the game yet.
-- **The game's Controls screen.** Keys bound there should work in a
-  race; not checked yet.
+- **Wheels and force feedback.** A wheel shows as a pad; the force
+  feedback the game asks of the wheels it knows isn't stood in for.
 - **Loading time.** Start-up waits about 5 seconds and a track about
   1.4 before their first frames. Where that goes isn't known yet.
 - **The GPU's frames against the software rasterizer's**, in detail:

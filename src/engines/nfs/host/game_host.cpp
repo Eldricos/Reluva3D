@@ -154,6 +154,11 @@ void GameHost::queueMouseMove(int dx, int dy, uint64_t atMs) {
         pendingMouse_.push_back({4, uint32_t(dy), atMs});
 }
 
+void GameHost::setJoystick(const GamepadState& state, uint64_t atMs) {
+    std::lock_guard<std::mutex> lock(inputMutex_);
+    pendingJoystick_.emplace_back(atMs, state);
+}
+
 void GameHost::queueMouseButton(bool down, uint64_t atMs) {
     std::lock_guard<std::mutex> lock(inputMutex_);
     pendingMouse_.push_back({12, down ? 0x80u : 0u, atMs});
@@ -168,6 +173,10 @@ void GameHost::applyInput() {
         while (!pendingKeys_.empty() && pendingKeys_.front().atMs <= t) {
             due.push_back(pendingKeys_.front());
             pendingKeys_.pop_front();
+        }
+        while (!pendingJoystick_.empty() && pendingJoystick_.front().first <= t) {
+            joystick_ = pendingJoystick_.front().second;
+            pendingJoystick_.pop_front();
         }
         while (!pendingMouse_.empty() && pendingMouse_.front().atMs <= t) {
             mouse.push_back(pendingMouse_.front());

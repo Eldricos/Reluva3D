@@ -49,6 +49,9 @@ public:
         // With nativeThrash: THRASH's frames as lists for the GPU
         // (onThrashFrame) rather than drawn into memory.
         bool gpuThrash = false;
+        // A joystick offered to the game by this name (DirectInput's
+        // devices, as enumerated at start-up); none if empty.
+        std::string joystick;
     };
     GameHost(GameFolders folders, Options options);
     ~GameHost();
@@ -107,6 +110,9 @@ public:
     // The mouse moved by (dx, dy), or its first button pressed or let go.
     void queueMouseMove(int dx, int dy, uint64_t atMs = 0);
     void queueMouseButton(bool down, uint64_t atMs = 0);
+    // The joystick's state (Options::joystick), from any thread, applied
+    // once the game's clock reaches `atMs` (0: at once).
+    void setJoystick(const GamepadState& state, uint64_t atMs = 0);
 
     // What the game's sound buffers play, as a stream for the mixer
     // (thread-safe; the host must outlive it while it plays).
@@ -175,6 +181,11 @@ private:
         uint64_t atMs = 0;
     };
     std::deque<MouseEvent> pendingMouse_, bufferedMouse_;
+    std::deque<std::pair<uint64_t, GamepadState>> pendingJoystick_;
+    GamepadState joystick_; // as applied
+    // Each axis's range (DIPROP_RANGE), by its offset in DIJOYSTATE / 4.
+    std::array<std::pair<int32_t, int32_t>, 8> axisRange_{};
+    void joystickState(x86::Cpu& c, uint32_t to, uint32_t size);
     int mouseDx_ = 0, mouseDy_ = 0;
     bool mouseButton_ = false;
     uint32_t keyboardEvent_ = 0, mouseEvent_ = 0; // SetEventNotification's handles
