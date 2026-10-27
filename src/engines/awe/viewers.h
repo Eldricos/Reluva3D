@@ -423,6 +423,13 @@ private:
     GameState state_;
     std::map<const Ac2Record*, Loop> loops_;
     std::map<const Ac2Record*, ParticleSystem> particles_;
+    // Scrolling pictures (SPRT scroll): where each is now, and the part
+    // of a pixel it has gone beyond that.
+    struct Scroll {
+        float x = 0, y = 0, part = 0;
+    };
+    std::map<const Ac2Record*, Scroll> scrolls_;
+    bool scrollPictures(float dt); // whether any moved
     // The camera's walk grid (G shows it), the cell under the mouse and
     // the last path found.
     WalkGrid grid_;

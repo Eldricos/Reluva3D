@@ -13,12 +13,12 @@ bool WalkGrid::load(const Ac2Record& camr) {
     size_ = 0;
     cells_.fill(0);
     const Ac2Value* grid = camr.field("grid");
-    if (!grid || camr.i("23c") <= 0)
+    if (!grid || camr.i("cellSize") <= 0)
         return false;
     // The game reads size x size bytes into its 64-wide array as they come.
     const size_t n = std::min(grid->bytes.size(), cells_.size());
     std::copy(grid->bytes.begin(), grid->bytes.begin() + std::ptrdiff_t(n), cells_.begin());
-    size_ = camr.i("23c");
+    size_ = camr.i("cellSize");
     return true;
 }
 

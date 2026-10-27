@@ -172,10 +172,10 @@ void testAc2() {
     CHECK(objects.size() == 2);
     if (objects.size() == 2) {
         CHECK(objects[0]->text("file") == "locations\\test\\backgrounds\\test_01.jpg");
-        CHECK(objects[0]->i("b0c") == 1);
+        CHECK(objects[0]->i("lighting") == 1);
         CHECK(objects[0]->field("x") == nullptr); // past its count
         const Ac2Record* sprite = objects[0]->part("SPRT");
-        CHECK(sprite && sprite->f("layer") == 1000);
+        CHECK(sprite && sprite->f("scrollSpeed") == 1000);
         CHECK(objects[1]->f("y") == 639);
         CHECK(objects[1]->i("right") == 322);
         CHECK(objects[1]->text("script") == "yesno quit2 0");
@@ -593,7 +593,7 @@ void testWalkGrid() {
         if (b != 50)
             grid.bytes[size_t(32 * 64 + b)] = 1;
     grid.bytes[size_t(10 * 64 + 10)] = 3;
-    camr.fields = {{"23c", size}, {"grid", grid}};
+    camr.fields = {{"cellSize", size}, {"grid", grid}};
     WalkGrid g;
     CHECK(g.load(camr) && g.cellSize() == 20);
     // The game's conversions: x = (a - 32) * 20 + 10, z = (32 - b) * 20 - 10.
@@ -694,10 +694,10 @@ void testParticles() {
     // A SNOW record with a few fields: the rest are the class's defaults.
     Ac2Record snow;
     snow.tag = "SNOW";
-    snow.fields = {{"x", realValue(-730)}, {"y", realValue(300)}, {"z", realValue(-330)}, {"d0", realValue(-10500)}};
+    snow.fields = {{"x", realValue(-730)}, {"y", realValue(300)}, {"z", realValue(-330)}, {"depth", realValue(-10500)}};
     Ac2Record syst;
     syst.tag = "SYST";
-    syst.fields = {{"dcc", realValue(-300)}};
+    syst.fields = {{"velocityY", realValue(-300)}};
     snow.parts.push_back(syst);
     ParticleSettings s = ParticleSettings::fromRecord(snow);
     CHECK(s.mode == 2 && s.alphaBlend && s.condition == "weather >0");

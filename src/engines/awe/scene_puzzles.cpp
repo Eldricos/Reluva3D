@@ -153,7 +153,7 @@ void ScenePage::openPuzzle(const std::string& kind) {
             PictureOverride p;
             const image::Image& img = picture(safe_->dial->text("file"));
             p.x = safe_->dial->f("x"), p.y = safe_->dial->f("y");
-            p.depth = safe_->dial->f("d0") != 0 ? safe_->dial->f("d0") : safe_->dial->f("z");
+            p.depth = safe_->dial->f("depth") != 0 ? safe_->dial->f("depth") : safe_->dial->f("z");
             p.cx = float(img.w / 2), p.cy = float(img.h / 2);
             overrides_[safe_->dial] = p;
         }
@@ -458,7 +458,7 @@ void ScenePage::puzzleClick(int x, int y) {
                 d = ov->second.depth, ox = ov->second.x, oy = ov->second.y;
                 roll = ov->second.roll, cx = ov->second.cx, cy = ov->second.cy;
             } else {
-                d = o->f("d0") != 0 ? o->f("d0") : o->f("z");
+                d = o->f("depth") != 0 ? o->f("depth") : o->f("z");
             }
             if (d <= bestDepth)
                 continue;
@@ -466,7 +466,7 @@ void ScenePage::puzzleClick(int x, int y) {
             const float px = float(x), py = float(y);
             if (px < ox || py < oy || px >= ox + float(img.w) || py >= oy + float(img.h))
                 continue;
-            if (o->i("b08") != 0) {
+            if (o->i("alpha") != 0) {
                 const float dx = px - (ox + cx), dy = py - (oy + cy);
                 const float c = std::cos(roll), s = std::sin(roll);
                 const int u = int(std::floor(dx * c + dy * s + cx)), v = int(std::floor(-dx * s + dy * c + cy));

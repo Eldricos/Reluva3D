@@ -56,7 +56,7 @@ The stencil is cleared in two places, so these pixels aren't darkened:
 - **Bodies:** each character's body pixels reset the stencil (to 2 for
   the player, 0 for others), so a character isn't darkened by shadows
   drawn before it.
-- **Pictures:** each 2D picture drawn later in depth order (SPRT `da4`
+- **Pictures:** each 2D picture drawn later in depth order (SPRT `scroll`
   0, depth below 10000) resets the stencil where its alpha isn't 0. A
   cutout in front therefore hides the shadows behind it.
 
@@ -67,8 +67,8 @@ Everything is switched by the **3D Shadows** option
 
 While shadows are on, the player's own pixels (stencil 2) are washed
 toward white as they walk away from the camera. The amount comes from
-the `CAMR` record's trailing fields `1244` (A) and `1248` (B), with z the
-player's position:
+the `CAMR` record's trailing fields `whiteoutStart` (A, at +0x1244) and
+`whiteoutEnd` (B, +0x1248), with z the player's position:
 
 - nothing while z ≥ A;
 - alpha (A − z)/(A − B) between A and B;

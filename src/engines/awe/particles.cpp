@@ -53,40 +53,40 @@ ParticleSettings ParticleSettings::fromRecord(const Ac2Record& o) {
     real(o, "rotX", s.rotation[0]);
     real(o, "rotY", s.rotation[1]);
     real(o, "rotZ", s.rotation[2]);
-    flag(o, "b08", s.alphaBlend);
-    // Drawn with the 2D layers at d0 if it has one, else at z.
-    if (o.field("d0") && o.f("d0") != 0)
-        s.depth = o.f("d0");
+    flag(o, "alpha", s.alphaBlend);
+    // Drawn with the 2D layers at its depth if it has one, else at z.
+    if (o.field("depth") && o.f("depth") != 0)
+        s.depth = o.f("depth");
     else if (o.field("z"))
         s.depth = o.f("z");
     if (const Ac2Record* p = o.part("SYST")) {
-        real(*p, "df0", s.colour[0]);
-        real(*p, "df4", s.colour[1]);
-        real(*p, "df8", s.colour[2]);
-        real(*p, "dc8", s.velocity[0]);
-        real(*p, "dcc", s.velocity[1]);
-        real(*p, "dd0", s.velocity[2]);
-        integer(*p, "dc4", s.burst);
-        real(*p, "dd4", s.interval);
-        integer(*p, "dec", s.copies);
-        integer(*p, "dea", s.spread);
-        real(*p, "de4", s.bounce);
-        integer(*p, "de8", s.bounces);
-        real(*p, "ddc", s.size);
-        real(*p, "e00", s.life);
-        integer(*p, "e04", s.mode);
-        flag(*p, "e14", s.blink);
-        real(*p, "e18", s.onTime);
-        real(*p, "e1c", s.offTime);
-        flag(*p, "e28", s.screenSpace);
-        real(*p, "e0c", s.sway);
-        real(*p, "e10", s.swaySpeed);
-        real(*p, "e08", s.gravity);
-        real(*p, "e40", s.fadeIn);
-        real(*p, "e44", s.fadeOut);
-        integer(*p, "e38", s.signX);
-        integer(*p, "e3a", s.signY);
-        integer(*p, "e3c", s.signZ);
+        real(*p, "red", s.colour[0]);
+        real(*p, "green", s.colour[1]);
+        real(*p, "blue", s.colour[2]);
+        real(*p, "velocityX", s.velocity[0]);
+        real(*p, "velocityY", s.velocity[1]);
+        real(*p, "velocityZ", s.velocity[2]);
+        integer(*p, "burst", s.burst);
+        real(*p, "interval", s.interval);
+        integer(*p, "copies", s.copies);
+        integer(*p, "spread", s.spread);
+        real(*p, "bounce", s.bounce);
+        integer(*p, "bounces", s.bounces);
+        real(*p, "size", s.size);
+        real(*p, "life", s.life);
+        integer(*p, "mode", s.mode);
+        flag(*p, "blink", s.blink);
+        real(*p, "onTime", s.onTime);
+        real(*p, "offTime", s.offTime);
+        flag(*p, "screenSpace", s.screenSpace);
+        real(*p, "sway", s.sway);
+        real(*p, "swaySpeed", s.swaySpeed);
+        real(*p, "gravity", s.gravity);
+        real(*p, "fadeIn", s.fadeIn);
+        real(*p, "fadeOut", s.fadeOut);
+        integer(*p, "signX", s.signX);
+        integer(*p, "signY", s.signY);
+        integer(*p, "signZ", s.signZ);
     }
     return s;
 }
