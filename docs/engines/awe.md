@@ -148,7 +148,9 @@ scenes, two Granny files, the text tables, two backgrounds):
     compared; `-all` over every scene);
   - `awe-acts` (every act, or developers' save, played without a window
     or a player, as far as it goes: what the scripts ask that Reluva
-    doesn't do; `-hotspots`, `-explore n` to click on);
+    doesn't do; `-hotspots`, `-explore n` to click on; `-solve` to
+    search for a way from a new game to the credits, `-play` to play one
+    back);
   - `bink-info` (a movie's header and frames; `-yuv`, `-wav`, `-tga` to
     decode it);
   - `awe-save` (a saved game's records, read and written back).
@@ -175,13 +177,15 @@ or member types beyond those Reluva reads.
 
 Next:
 
-1. The rest of playing the acts through (see
-   [../formats/awe/acts.md](../formats/awe/acts.md#playing-the-acts-headless):
-   every act starts, runs its scripts and goes on to the next as far as
-   `reluva-tool awe-acts` can take it, and the game ends from 07A).
-   Still to do: a player's run from 01A to the end, which the explorer
-   can't do (01A's trades, 04A's eavesdropping, 04D's kimono need a
-   player who knows what to do).
+1. The game plays from a new game to the end credits without a window:
+   `reluva-tool awe-acts <install> -solve` found a way of 1,086 actions
+   and `-play` plays it back (see
+   [../formats/awe/acts.md](../formats/awe/acts.md#a-playthrough-from-a-new-game--solve-and--play)).
+   Still to do there: the headless player clicks objects, not points on
+   the screen, so whether the game's pick would find each one (and not
+   something in front of it) isn't checked; the same playthrough played
+   in a window (the mouse moved to each object) would check that, and the
+   drawing along the way.
 
 ## What the install holds
 
