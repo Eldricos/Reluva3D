@@ -632,17 +632,21 @@ int aweCommandSolve(int argc, char** argv) {
     std::set<std::string> seenKeys, seenFeatures, triedOnce, seenOutlines;
     std::map<std::string, std::map<std::string, bool>> deadRuns; // by scene and action
     Node best;
-    // The climb: each state further on than the root (progress) becomes the
-    // root, the way there kept; the roots before are kept to go back to if
-    // a root leads nowhere (no state further on within the level's budget),
-    // and that one's story isn't climbed to again.
+    // The climb: each state with something new to the act's story (a story
+    // tag's value, an item's state, a conversation's progress never had
+    // before in the act, whichever way it was reached) becomes the root,
+    // the way there kept; the roots before are kept to go back to if a
+    // root leads to nothing new within the level's budget.
     struct Level {
         std::vector<Action> committed;
         std::vector<uint8_t> save;
         std::string outline;
     };
     std::vector<Level> levels;
-    std::set<std::string> deadEnds;
+    std::set<std::string> actStory; // the story features had in the act
+    auto storyFeature = [](const std::string& x) {
+        return storyTag(x) || x.rfind("item ", 0) == 0 || x.rfind("talk ", 0) == 0;
+    };
     std::vector<uint8_t> rootSave;
     std::string rootOutline;
     int rootProgress = 0, levelExpansions = 0;
@@ -659,6 +663,9 @@ int aweCommandSolve(int argc, char** argv) {
         rootProgress = root.progress;
         rootOutline = outlineOf(player.features(false));
         levelExpansions = 0;
+        for (const std::string& x : player.features(false))
+            if (storyFeature(x))
+                actStory.insert(x);
         for (const std::string& x : player.features(true))
             seenOutlines.insert(player.page().status().scene + "|" + x);
         best = root;
@@ -680,7 +687,6 @@ int aweCommandSolve(int argc, char** argv) {
         if ((frontier.empty() || (climb && levelExpansions >= levelBudget)) && !levels.empty()) {
             // A dead end: back to the root before.
             std::printf("  (nothing further from here: back)\n");
-            deadEnds.insert(rootOutline);
             Level l = std::move(levels.back());
             levels.pop_back();
             committed = std::move(l.committed);
@@ -830,11 +836,16 @@ int aweCommandSolve(int argc, char** argv) {
                     return 0;
                 }
                 levels.clear();
+                actStory.clear();
                 reset();
                 advanced = true;
                 break;
             }
-            if (climb && progressOf(f) > rootProgress && !deadEnds.count(outlineOf(f))) {
+            int newToAct = 0;
+            for (const std::string& x : f)
+                if (storyFeature(x))
+                    newToAct += actStory.insert(x).second;
+            if (climb && newToAct) {
                 // Further on: the new root.
                 levels.push_back({committed, rootSave, rootOutline});
                 const std::vector<Action> more = pathOf(at);
