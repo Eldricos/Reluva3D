@@ -157,7 +157,7 @@ int cmdGr2Model(int argc, char** argv) {
     if (!openGr2(file, dll, gr2))
         return 1;
     awe::Model model;
-    if (reluva::Error e = awe::loadModel(gr2, &dll, model)) {
+    if (reluva::Error e = awe::loadModel(gr2, model)) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
@@ -381,7 +381,7 @@ int cmdAweShot(int argc, char** argv) {
     for (int i = 5; i < argc; i++)
         if (std::strncmp(argv[i], "savedir:", 8) == 0)
             saves = argv[i] + 8;
-    awe::ViewerContext ctx{sys, files, nullptr, nullptr, screen, saves, haveFonts ? &fonts : nullptr};
+    awe::ViewerContext ctx{sys, files, nullptr, screen, saves, haveFonts ? &fonts : nullptr};
     std::unique_ptr<awe::Page> page;
     const std::string which = argv[3];
     if (which == "scenes")

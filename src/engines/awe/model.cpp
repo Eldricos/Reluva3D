@@ -3,6 +3,7 @@
 
 #include "engines/awe/model.h"
 
+#include "engines/awe/bink_texture.h"
 #include "engines/awe/curves.h"
 #include "engines/awe/granny_dll.h"
 
@@ -110,7 +111,20 @@ std::map<std::string, std::map<std::string, float>> readTrackMasks(const Gr2Obje
 
 } // namespace
 
-Error loadModel(const Gr2File& file, GrannyDll* dll, Model& out) {
+std::vector<uint8_t> textureBytes(const Gr2File& file, const Gr2Object& texture) {
+    const Gr2Object::Array pixels = texture.element("Images", 0).element("MIPLevels", 0).array("Pixels");
+    if (!pixels.count || pixels.stride != 1 || pixels.address + uint64_t(pixels.count) > file.memory().size())
+        return {};
+    return std::vector<uint8_t>(file.memory().begin() + pixels.address,
+                                file.memory().begin() + pixels.address + pixels.count);
+}
+
+uint32_t binkTextureFlags(const Gr2Object& texture) {
+    const bool alpha = texture.object("Layout").number("BitsForComponent", 3) > 0;
+    return uint32_t(texture.number("SubFormat")) | (alpha ? 1u : 0u);
+}
+
+Error loadModel(const Gr2File& file, Model& out) {
     out = Model();
     const Gr2Object root = file.root();
     if (const Gr2Object art = root.object("ArtToolInfo"); art.valid() && art.number("UnitsPerMeter") > 0)
@@ -149,17 +163,11 @@ Error loadModel(const Gr2File& file, GrannyDll* dll, Model& out) {
         tex.width = int(t.number("Width"));
         tex.height = int(t.number("Height"));
         const int encoding = int(t.number("Encoding"));
-        const Gr2Object image = t.element("Images", 0);
-        const Gr2Object mip = image.element("MIPLevels", 0);
-        const Gr2Object::Array pixels = mip.array("Pixels");
-        if (pixels.count && pixels.stride == 1) {
-            const std::vector<uint8_t> data(file.memory().begin() + pixels.address,
-                                            file.memory().begin() + pixels.address + pixels.count);
+        const std::vector<uint8_t> data = textureBytes(file, t);
+        if (!data.empty()) {
             const Gr2Object layout = t.object("Layout");
-            const bool alpha = layout.number("BitsForComponent", 3) > 0;
-            if (encoding == 3 && dll) {
-                if (dll->binkTexture(tex.width, tex.height, uint32_t(t.number("SubFormat")) | (alpha ? 1u : 0u), data,
-                                     tex.rgba))
+            if (encoding == 3) {
+                if (decodeBinkTexture(tex.width, tex.height, binkTextureFlags(t), data, tex.rgba))
                     tex.rgba.clear();
             } else if (encoding == 1 && layout.number("BytesPerPixel") >= 3) {
                 // Raw: each pixel's components where the layout says.

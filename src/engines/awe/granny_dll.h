@@ -29,7 +29,8 @@ public:
                      std::vector<uint8_t>& out);
     // Decodes a texture stored with Bink encoding (Encoding 3) into RGBA
     // pixels, rows top to bottom. `flags` is the texture's SubFormat, plus
-    // 1 if its layout has alpha.
+    // 1 if its layout has alpha. Reluva decodes these natively
+    // (bink_texture.h); this is kept to check that against.
     Error binkTexture(int width, int height, uint32_t flags, const std::vector<uint8_t>& in,
                       std::vector<uint8_t>& rgba);
 

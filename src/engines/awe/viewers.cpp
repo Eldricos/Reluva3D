@@ -849,7 +849,7 @@ bool ScenePage::advanceLoops(float time) {
 
 void ScenePage::loadCharacters() {
     const Ac2Record* camr = scene_.camera();
-    if (!renderer_ || !ctx_.granny || !camr)
+    if (!renderer_ || !camr)
         return;
     bool any = false;
     for (const Ac2Record* o : scene_.objects())
@@ -875,7 +875,7 @@ void ScenePage::loadCharacters() {
             Model model;
             Error e = openGr2(ctx_.files, file, gr2);
             if (!e)
-                e = loadModel(gr2, ctx_.granny, model);
+                e = loadModel(gr2, model);
             if (e) {
                 error_ = file + ": " + e.message;
                 found = models_.emplace(file, nullptr).first;
@@ -2041,14 +2041,14 @@ void ScenePage::logScript(const std::string& line) {
 
 std::shared_ptr<GpuModel> ScenePage::propModel(const std::string& file) {
     // Kept with the characters' models: loading one decodes its textures.
-    if (file.empty() || !renderer_ || !ctx_.granny)
+    if (file.empty() || !renderer_)
         return nullptr;
     auto found = models_.find(file);
     if (found == models_.end()) {
         Gr2File gr2;
         Model m;
         std::shared_ptr<GpuModel> gpu;
-        if (ctx_.files.has(file) && !openGr2(ctx_.files, file, gr2) && !loadModel(gr2, ctx_.granny, m))
+        if (ctx_.files.has(file) && !openGr2(ctx_.files, file, gr2) && !loadModel(gr2, m))
             gpu = std::make_shared<GpuModel>(*renderer_, std::move(m));
         found = models_.emplace(file, gpu).first;
     }

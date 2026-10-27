@@ -16,12 +16,9 @@
 
 #include "common/archive.h"
 #include "common/audio/mixer.h"
-#include "common/fs.h"
 #include "engines/awe/viewers.h"
 
 #include <cstdio>
-#include <fstream>
-#include <iterator>
 
 namespace reluva {
 
@@ -48,16 +45,6 @@ public:
     Error run() override {
         if (Error err = files_.open(target_.path))
             return err;
-        // The models need the game's granny2.dll (for their textures and
-        // compressed curves); without it the other pages still work.
-        std::unique_ptr<awe::GrannyDll> granny;
-        if (const auto dll = fs::findFile(target_.path, "granny2.dll")) {
-            std::ifstream in(*dll, std::ios::binary);
-            const std::vector<uint8_t> data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-            granny = std::make_unique<awe::GrannyDll>();
-            if (granny->load(data))
-                granny.reset();
-        }
         screen_.create(awe::kScreenW, awe::kScreenH, PixelFormat::RGBA32);
         audio::Mixer mixer(sys_.audioRate());
         const bool audioOut = !audio::startMixerOutput(sys_, mixer);
@@ -71,8 +58,8 @@ public:
         } audioStop{sys_, audioOut};
         awe::GameFonts fonts;
         const bool haveFonts = !fonts.load(files_);
-        awe::ViewerContext ctx{sys_,           files_, granny.get(), audioOut ? &mixer : nullptr, screen_,
-                               target_.savePath, haveFonts ? &fonts : nullptr};
+        awe::ViewerContext ctx{sys_, files_, audioOut ? &mixer : nullptr, screen_, target_.savePath,
+                               haveFonts ? &fonts : nullptr};
         int shots = 0;
 
         std::vector<std::unique_ptr<awe::Page>> pages;

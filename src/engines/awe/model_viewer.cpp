@@ -93,15 +93,11 @@ void ModelPage::load() {
     renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {30, 32, 38});
     renderer_->endFrame(&overlay_);
 
-    if (!ctx_.granny) {
-        error_ = "granny2.dll couldn't be loaded, and the models need it";
-        return;
-    }
     Gr2File file;
     Model loaded;
     Error err = openGr2(ctx_.files, e.model, file);
     if (!err)
-        err = loadModel(file, ctx_.granny, loaded);
+        err = loadModel(file, loaded);
     if (err) {
         error_ = err.message;
         return;
@@ -126,7 +122,7 @@ void ModelPage::loadAnimation() {
     hasAnim_ = false;
     time_ = 0;
     error_.clear();
-    if (animation_ == 0 || models_.empty() || !ctx_.granny)
+    if (animation_ == 0 || models_.empty())
         return;
     const std::string& name = models_[size_t(index_)].animations[size_t(animation_ - 1)];
     Gr2File file;

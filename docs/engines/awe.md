@@ -36,10 +36,13 @@ scenes, two Granny files, the text tables, two backgrounds):
   points), particles, lights, videos, the camera, music and events. Many
   fields are named only by their offset in the original's objects so far.
 - **Granny models and animations (`.gr2`): read and drawn.** Sections are
-  Oodle1-compressed and textures Bink-compressed. Both are decoded by the
-  game's own `granny2.dll` in the x86 interpreter, so the data never
-  leaves the user's copy. Skeletons, skinned meshes, textures and the
-  animation curves all work. Poirot renders textured and walking. See
+  Oodle1-compressed, textures Bink-compressed, and some animation curves
+  in Granny's compressed formats. All three are decoded natively, worked
+  out from the game's `granny2.dll` and checked against it byte for byte
+  (bit for bit for the curves) on every file of the install. The engine
+  no longer needs the DLL; the tools still run it in the x86 interpreter
+  to compare. Skeletons, skinned meshes, textures and the animation
+  curves all work. Poirot renders textured and walking. See
   [../formats/awe/gr2.md](../formats/awe/gr2.md).
 - **Text tables and script commands: read.** UTF-16 tab-separated
   tables; commands split into verbs and arguments. See
@@ -117,8 +120,11 @@ scenes, two Granny files, the text tables, two backgrounds):
   - `awe-shot` (a viewer page drawn without a window, saved as TGA);
   - `awe-camera` (a scene's camera as granny2.dll and Reluva build it);
   - `awe-check` (every Granny file, scene, text file and movie of an
-    install read, with cameras compared against the DLL: the regression
-    test);
+    install read, with cameras and compressed curves compared against the
+    DLL, and with `-textures` and `-oodle` the textures and sections too:
+    the regression test);
+  - `awe-path` (paths planned by Reluva's port and by `motoe.exe`'s code,
+    compared; `-all` over every scene);
   - `bink-info` (a movie's header and frames; `-yuv`, `-wav`, `-tga` to
     decode it);
   - `awe-save` (a saved game's records, read and written back).
@@ -134,22 +140,24 @@ Corrections to the plan below:
 - **`.ac2` is not text.** It's the game's objects written field by field.
   Saves use the same extension with different records.
 - **Most Granny animations need no curve decompression.** The 2.5
-  exporter wrote plain B-spline curves, except in about 30 files, whose
-  compressed curves granny2.dll expands.
+  exporter wrote plain B-spline curves, except in 36 of the 1,701
+  animations, which use eight of Granny's compressed formats.
 - **The model textures are inside the `.gr2` files**, Bink-compressed. The
   folders' few JPEGs are extras.
 
+Sweeps over the full English install (`ac2-dump` over all 394 scenes,
+`awe-check -gr2` over all 1,803 Granny files) found no records, fields
+or member types beyond those Reluva reads.
+
 Next:
 
-1. Run sweeps over a full install: `reluva-tool ac2-dump Locations/*/*.ac2`
-   (every scene to its `DONE`) and `gr2-info` over `Models/`, to find
-   records and member types the samples didn't have.
-2. A native port of the path-finder's lattice search (`0x42f1f0`),
-   checked path for path against the game's (`awe-path`).
-3. Native decoding of the compressed curve formats (the DLL expands them
-   for now).
-4. Native Oodle1 and Bink-texture decoding, checked against the DLL, to
-   load models in a fraction of the time.
+1. Light the characters as the game does. They are lit by a fixed guess
+   for now (`model_draw.cpp`); the scenes have 426 `LITE` records, and
+   the cameras' fields `180`..`188` look like an ambient colour.
+2. Name the fields still known only by their offset, by comparing scenes
+   and watching the original.
+3. Play the later acts through, to find what the scenes after the
+   opening need.
 
 ## What the install holds
 

@@ -22,7 +22,6 @@
 #include "engines/awe/walk_grid.h"
 #include "engines/awe/game_text.h"
 #include "engines/awe/gr2.h"
-#include "engines/awe/granny_dll.h"
 #include "engines/awe/model.h"
 #include "engines/awe/model_draw.h"
 #include "engines/awe/movie_player.h"
@@ -51,7 +50,6 @@ constexpr int kScreenH = 768;
 struct ViewerContext {
     System& sys;
     const Archive& files;
-    GrannyDll* granny;    // null if granny2.dll couldn't be loaded
     audio::Mixer* mixer;  // null without an audio device
     Surface& screen;      // kScreenW x kScreenH, RGBA32
     std::filesystem::path savePath; // where screenshots go (F12)

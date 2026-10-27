@@ -14,6 +14,7 @@
 #include "common/video/bink_file.h"
 #include "common/video/bink_video.h"
 #include "engines/awe/ac2.h"
+#include "engines/awe/bink_texture.h"
 #include "engines/awe/camera.h"
 #include "engines/awe/curves.h"
 #include "engines/awe/gr2.h"
@@ -60,6 +61,11 @@ struct Gr2Result {
     // by granny2.dll, and those that differ.
     std::map<std::string, size_t> curveFormats;
     size_t curves = 0, curvesDiffering = 0;
+    // Bink textures by flags (SubFormat, +1 for alpha); with -textures,
+    // how many differ from granny2.dll's, and the time each way took.
+    std::map<uint32_t, size_t> binkTextures;
+    size_t binkMismatches = 0;
+    double nativeSeconds = 0, dllSeconds = 0;
 };
 
 std::string layoutOf(const awe::Gr2Object& vertexData) {
@@ -167,7 +173,7 @@ Gr2Result checkGr2(const reluva::Archive& files, const std::string& name, awe::G
 
     if (root.count("Models") > 0) {
         awe::Model model;
-        if (reluva::Error e = awe::loadModel(file, textures ? &dll : nullptr, model)) {
+        if (reluva::Error e = awe::loadModel(file, model)) {
             r.error = "model: " + e.message;
             return r;
         }
@@ -197,7 +203,7 @@ Gr2Result checkGr2(const reluva::Archive& files, const std::string& name, awe::G
             }
         }
         for (const awe::ModelTexture& t : model.textures)
-            if (textures && t.rgba.empty())
+            if (t.rgba.empty())
                 r.warnings.push_back("texture " + t.name + " not decoded");
         // The raw data, for what loadModel might have glossed over.
         const awe::Gr2Object first = root.element("Models", 0);
@@ -221,6 +227,41 @@ Gr2Result checkGr2(const reluva::Archive& files, const std::string& name, awe::G
             if (mesh.count("MorphTargets") > 0)
                 r.warnings.push_back("mesh " + mesh.string("Name") + ": " + std::to_string(mesh.count("MorphTargets")) +
                                      " morph targets (not drawn)");
+        }
+    }
+
+    // Every Bink texture, decoded natively; with -textures also by the DLL,
+    // which must give the same pixels.
+    for (uint32_t i = 0; i < root.count("Textures"); i++) {
+        const awe::Gr2Object t = root.element("Textures", i);
+        if (t.number("Encoding") != 3)
+            continue;
+        const int w = int(t.number("Width")), h = int(t.number("Height"));
+        const uint32_t flags = awe::binkTextureFlags(t);
+        const std::vector<uint8_t> bytes = awe::textureBytes(file, t);
+        r.binkTextures[flags]++;
+        std::vector<uint8_t> native, theirs;
+        const auto t0 = std::chrono::steady_clock::now();
+        const reluva::Error e = awe::decodeBinkTexture(w, h, flags, bytes, native);
+        const auto t1 = std::chrono::steady_clock::now();
+        r.nativeSeconds += std::chrono::duration<double>(t1 - t0).count();
+        const std::string what = "texture " + std::to_string(i) + " (" + t.string("FromFileName") + ")";
+        if (e) {
+            r.warnings.push_back(what + ": " + e.message);
+            continue;
+        }
+        if (!textures)
+            continue;
+        const reluva::Error dllError = dll.binkTexture(w, h, flags, bytes, theirs);
+        r.dllSeconds += std::chrono::duration<double>(std::chrono::steady_clock::now() - t1).count();
+        if (dllError) {
+            r.warnings.push_back(what + ": granny2.dll: " + dllError.message);
+        } else if (theirs != native) {
+            size_t differ = 0;
+            for (size_t k = 0; k < std::min(theirs.size(), native.size()); k++)
+                differ += theirs[k] != native[k];
+            r.binkMismatches++;
+            r.warnings.push_back(what + ": " + std::to_string(differ) + " bytes differ from granny2.dll's");
         }
     }
 
@@ -321,6 +362,9 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
 
     size_t failed = 0, warned = 0, models = 0, animations = 0, compressed = 0, withVectors = 0;
     size_t curves = 0, curvesDiffering = 0;
+    size_t binkMismatches = 0;
+    double nativeSeconds = 0, dllSeconds = 0;
+    std::map<uint32_t, size_t> binkTextures;
     std::map<std::string, size_t> layouts, compressions, curveFormats;
     std::map<int, size_t> degrees;
     for (size_t i = 0; i < names.size(); i++) {
@@ -338,6 +382,11 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
         for (const auto& [f, n] : r.curveFormats)
             curveFormats[f] += n;
         withVectors += r.vectorTracks > 0;
+        for (const auto& [flags, n] : r.binkTextures)
+            binkTextures[flags] += n;
+        binkMismatches += r.binkMismatches;
+        nativeSeconds += r.nativeSeconds;
+        dllSeconds += r.dllSeconds;
         if (!r.vertexLayout.empty())
             layouts[r.vertexLayout]++;
         for (int d : r.degrees)
@@ -374,10 +423,19 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
     std::printf("\n  curve degrees:");
     for (const auto& [d, n] : degrees)
         std::printf(" %d in %zu files", d, n);
+    size_t bink = 0;
+    std::printf("\n  Bink textures:");
+    for (const auto& [flags, n] : binkTextures) {
+        std::printf(" %zu with flags %u", n, flags);
+        bink += n;
+    }
+    std::printf("; decoded in %.2f s", nativeSeconds);
+    if (textures)
+        std::printf(", by granny2.dll in %.1f s: %zu of %zu differ", dllSeconds, binkMismatches, bink);
     std::printf("\n  vertex layouts:\n");
     for (const auto& [l, n] : layouts)
         std::printf("    %5zu  %s\n", n, l.c_str());
-    return failed || curvesDiffering ? 1 : 0;
+    return failed || curvesDiffering || binkMismatches ? 1 : 0;
 }
 
 // Decompresses every compressed section of every Granny file both
