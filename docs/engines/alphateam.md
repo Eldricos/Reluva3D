@@ -389,9 +389,15 @@ Progress:
     (no A3D, so `NiA3dSoundSystem::Startup` fails), including the two the
     begin click starts. So the first line never "finishes", and nothing
     ever ends the lock.
-  - So the fix is the A3D stand-in (step 5): streaming sources that exist,
-    play and end. Until then, the Adventure's "Skip Training Mission"
-    reaches Mission One, which plays.
+  - So the fix was the A3D stand-in (step 5): streaming sources that
+    exist, play and end. With it, the begin click plays `M0010_010`
+    (10.3 seconds) and then `M0010_020A` (1 second), each for its full
+    length. The training then highlights a tile on the board and waits
+    for the player. That needed real wave events: the streaming manager
+    refills a source's buffer each time play passes the event at its
+    middle (`DDStreamingAudioManager::UpdateBuffers`, `InitStreamData`).
+    With every event read as set, it raced through the file, and the
+    first line ended after about 3 seconds.
 
   The tracing options:
   - `-watch` takes `dll!export` or a raw `0x` address (for code in the
