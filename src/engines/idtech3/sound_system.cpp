@@ -293,6 +293,11 @@ void SoundSystem::setVolumes(float effects, float music) {
 }
 
 void SoundSystem::stopAll() {
+    stopSounds();
+    stopBackgroundTrack();
+}
+
+void SoundSystem::stopSounds() {
     for (const Playing& p : playing_)
         if (p.handle != audio::kNoSound)
             mixer_.stop(p.handle);
@@ -305,7 +310,6 @@ void SoundSystem::stopAll() {
         mixer_.stop(handle);
     ambientLoops_.clear();
     ambientAdded_.clear();
-    stopBackgroundTrack();
 }
 
 } // namespace reluva::idtech3

@@ -25,6 +25,19 @@ constexpr float kServerBudgetMs = 40; // of the game's frames, each page frame
 
 bool badSaveName(const std::string& name); // below
 
+// Whether a shader the game registers can be drawn: a script of that name,
+// or an image (its own file type, or .tga or .jpg in its place).
+bool shaderFound(const ShaderLibrary& shaders, const SearchSet& files, const std::string& name) {
+    if (name.empty())
+        return false;
+    if (shaders.find(name) || files.has(name))
+        return true;
+    std::string base = name;
+    if (const size_t dot = base.rfind('.'); dot != std::string::npos && base.find('/', dot) == std::string::npos)
+        base.resize(dot);
+    return files.has(base + ".tga") || files.has(base + ".jpg");
+}
+
 } // namespace
 
 SpPlayViewer::SpPlayViewer(ViewerContext& ctx) : Page(ctx) {
@@ -186,6 +199,7 @@ void SpPlayViewer::startMenus() {
     menuError_.clear();
     ui_ = std::make_unique<eliteforce::SpUiHost>(ctx_.files, cvars_);
     ui_->print = [](const std::string& text) { std::fputs(text.c_str(), stdout); };
+    ui_->shaderExists = [this](const std::string& name) { return shaderFound(ctx_.shaders, ctx_.files, name); };
     ui_->bindings = &ctx_.bindings;
     ui_->startLocalSound = [this](const std::string& sound, int channel) {
         if (soundSystem_)
@@ -244,10 +258,18 @@ void SpPlayViewer::runCommand(const std::string& line, bool fromGame) {
     if (cmd == "map" || cmd == "devmap" || cmd == "spmap" || cmd == "maptransition") {
         if (w.size() < 2)
             return;
+        if (cmd == "maptransition" && game_ && !runningTransition_) {
+            // The level's last frame first, for the next one's loading
+            // screen (taken as this frame is drawn; see update()).
+            pendingTransition_ = line;
+            return;
+        }
         // A level change carries the player over (maptransition); a new
         // start doesn't, and forgets the last level's autosave.
         if (ui_)
             ui_->setCapture({}); // the loading screen shows the level's picture
+        if (cmd != "maptransition")
+            nextScreenShot_.clear(); // and the client game's, nothing in its place
         if (cmd == "maptransition" && game_) {
             game_->savePlayer();
         } else {
@@ -417,6 +439,11 @@ void SpPlayViewer::start(int index, int32_t loadMode, raven::SaveReader* save) {
     game_ = std::make_unique<eliteforce::SpGameHost>(ctx_.files, cvars_);
     game_->print = [](const std::string& text) { std::fputs(text.c_str(), stdout); };
     game_->soundSystem = soundSystem_.get();
+    game_->shaderExists = [this](const std::string& name) { return shaderFound(ctx_.shaders, ctx_.files, name); };
+    // What the client game shows where the level has no picture of its
+    // own: the saved game's, the last level's last frame, or nothing.
+    game_->screenShot = std::move(nextScreenShot_);
+    nextScreenShot_.clear();
     if ((err = game_->load(dll_)))
         return stop(ctx_.game.spGameDll + ": " + err.message);
     // A saved game's chunks are read on as the original's loader does:
@@ -613,11 +640,20 @@ void SpPlayViewer::loadGame(std::string name) {
     lastCommand_ = "Loaded " + name;
     if (ui_)
         ui_->setCapture(shot); // the loading screen shows it
+    nextScreenShot_ = shot;   // and so does the client game's
     start(int(it - names_.begin()), autosave ? 2 : 1, &r);
     if (game_ && !saveDir_.empty()) {
         recording_.open(saveDir_ / (name + ".input"), std::ios::trunc);
         recording_ << "# reluva input recording: serverTime buttons weapon pitch yaw roll forward right up\n";
     }
+}
+
+void SpPlayViewer::runPendingTransition() {
+    const std::string line = std::move(pendingTransition_);
+    pendingTransition_.clear();
+    runningTransition_ = true;
+    runCommand(line, true);
+    runningTransition_ = false;
 }
 
 void SpPlayViewer::runGameCommands() {
@@ -864,7 +900,8 @@ void SpPlayViewer::update(uint64_t nowMs) {
     }
     if (capturing_) {
         // The last frame was kept: the save menu's picture, at 256 x 256,
-        // then the menu the player asked for.
+        // then the menu the player asked for; or the next level's loading
+        // screen's, then the level change.
         capturing_ = false;
         std::vector<uint8_t> rgba, shot;
         const int w = renderer_->width(), h = renderer_->height();
@@ -875,7 +912,11 @@ void SpPlayViewer::update(uint64_t nowMs) {
                     std::memcpy(&shot[size_t((255 - y) * 256 + x) * 4],
                                 &rgba[(size_t(y * h / 256) * size_t(w) + size_t(x * w / 256)) * 4], 4);
         }
-        if (ui_) {
+        if (!pendingTransition_.empty()) {
+            nextScreenShot_ = shot;
+            runPendingTransition();
+        }
+        if (ui_ && !pendingMenu_.empty()) {
             ui_->setCapture(shot);
             if (Error err = ui_->setActiveMenu(pendingMenu_))
                 menusStopped(err);
@@ -883,6 +924,8 @@ void SpPlayViewer::update(uint64_t nowMs) {
                 runMenuCommands();
         }
         pendingMenu_.clear();
+    } else if (!pendingTransition_.empty()) {
+        runPendingTransition(); // no frame was drawn to take it from
     }
     // The game waits while a menu has the keys, as the original's single
     // player pauses (cl_paused, which the in-game menu sets, back to 0
@@ -903,8 +946,13 @@ void SpPlayViewer::update(uint64_t nowMs) {
     if (soundSystem_) {
         auto setting = [&](const char* name, float fallback) { return cvars_.find(name) ? cvars_.value(name) : fallback; };
         // Effects silent while a scene is skipped (fast-forwarded, its
-        // lines would pile up).
+        // lines would pile up); those playing when the skip starts are
+        // stopped, as the original's client does (S_StopSounds), so they
+        // don't carry on after it.
         const bool skipping = game_ && cvars_.integer("skippingCinematic") != 0;
+        if (skipping && !wasSkipping_)
+            soundSystem_->stopSounds();
+        wasSkipping_ = skipping;
         soundSystem_->setVolumes(skipping ? 0.0f : setting("s_volume", 0.8f), setting("s_musicvolume", 0.25f));
     }
 
@@ -937,21 +985,20 @@ void SpPlayViewer::update(uint64_t nowMs) {
         const Scene& scene = game_->scene();
         const auto& pictures = game_->pictures();
         const bool dynamicLights = !cvars_.find("r_dynamiclight") || cvars_.integer("r_dynamiclight") != 0;
-        size_t drawn = 0;
+        size_t drawn = 0, shots = 0;
         bool first = true;
         for (const auto& v : scene.views) {
-            scene_->drawPictures(pictures, drawn, v.picturesBefore, 640, 480, time);
-            drawn = std::max(drawn, v.picturesBefore);
+            drawGamePictures(drawn, shots, v.picturesBefore, time);
             scene_->drawView(scene, v, 640, 480, time, first, world_.get(), &grid_, dynamicLights);
             first = false;
         }
-        scene_->drawPictures(pictures, drawn, pictures.size(), 640, 480, time);
+        drawGamePictures(drawn, shots, pictures.size(), time);
     }
     if (ui_)
         drawMenus(float(nowMs - startMs_) / 1000.0f);
     timing_.draw = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - drawStart).count();
     drawOverlay();
-    if (!pendingMenu_.empty() && !capturing_) {
+    if ((!pendingMenu_.empty() || !pendingTransition_.empty()) && !capturing_) {
         renderer_->captureNextFrame();
         capturing_ = true;
     }
@@ -1008,18 +1055,32 @@ void SpPlayViewer::showClientLoading() {
     renderer_->setGamma(brightness(ctx_));
     renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
     scene_->setHandles({&game_->models(), &game_->skins(), &game_->shaders()});
-    const auto& pictures = game_->pictures();
-    size_t drawn = 0;
+    size_t drawn = 0, shots = 0;
     for (const auto& v : game_->scene().views) {
-        scene_->drawPictures(pictures, drawn, v.picturesBefore, 640, 480, 0);
-        drawn = std::max(drawn, v.picturesBefore);
+        drawGamePictures(drawn, shots, v.picturesBefore, 0);
         scene_->drawView(game_->scene(), v, 640, 480, 0, true, nullptr, nullptr, false);
     }
-    scene_->drawPictures(pictures, drawn, pictures.size(), 640, 480, 0);
+    drawGamePictures(drawn, shots, game_->pictures().size(), 0);
     if (ui_)
         drawMenus(0);
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
     renderer_->endFrame(&overlay_);
+}
+
+void SpPlayViewer::drawGamePictures(size_t& drawn, size_t& shotsDrawn, size_t to, float time) {
+    // The client game's pictures up to `to`, with the screen capture where
+    // it drew that between them.
+    const auto& pictures = game_->pictures();
+    const auto& shots = game_->screenShotDraws();
+    for (; shotsDrawn < shots.size() && shots[shotsDrawn].picturesBefore <= to; ++shotsDrawn) {
+        const auto& s = shots[shotsDrawn];
+        scene_->drawPictures(pictures, drawn, s.picturesBefore, 640, 480, time);
+        drawn = std::max(drawn, s.picturesBefore);
+        if (game_->screenShot.size() == eliteforce::SpUiHost::kShotSize)
+            scene_->drawImage(game_->screenShot.data(), 256, 256, s.x, s.y, s.w, s.h, 640, 480);
+    }
+    scene_->drawPictures(pictures, drawn, to, 640, 480, time);
+    drawn = std::max(drawn, to);
 }
 
 void SpPlayViewer::drawOverlay() {

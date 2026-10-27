@@ -461,8 +461,13 @@ void SpUiHost::addImports() {
     // The renderer: what's registered and drawn is recorded.
     import(RegisterModel, [this](x86::Cpu& c) { return uint32_t(models_.add(str(c, 0, 256))); });
     import(RegisterSkin, [this](x86::Cpu& c) { return uint32_t(skins_.add(str(c, 0, 256))); });
-    import(RegisterShader, [this](x86::Cpu& c) { return uint32_t(shaders_.add(str(c, 0, 256))); });
-    import(RegisterShaderNoMip, [this](x86::Cpu& c) { return uint32_t(shaders_.add(str(c, 0, 256))); });
+    // 0 for a shader that can't be found, as the original's renderer.
+    auto registerShader = [this](x86::Cpu& c) {
+        const std::string name = str(c, 0, 256);
+        return shaderExists && !shaderExists(name) ? 0u : uint32_t(shaders_.add(name));
+    };
+    import(RegisterShader, registerShader);
+    import(RegisterShaderNoMip, registerShader);
     import(ClearScene, [this](x86::Cpu&) {
         scene_.clear();
         return 0u;

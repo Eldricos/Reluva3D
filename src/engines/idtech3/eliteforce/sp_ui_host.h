@@ -115,6 +115,9 @@ public:
     std::function<uint32_t(uint32_t flag)> askGame;
     // What keys do (the Controls menu); none: no bindings.
     KeyBindings* bindings = nullptr;
+    // Whether a shader or picture can be found (RegisterShader gives 0 for
+    // one that can't); unset: all can.
+    std::function<bool(const std::string& name)> shaderExists;
     // Keys held now (IsDown).
     std::set<int32_t> keysDown;
     // The connection state they're told (1: no game, 7: in one).

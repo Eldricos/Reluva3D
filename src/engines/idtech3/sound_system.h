@@ -70,6 +70,8 @@ public:
     // The effects' and music's volumes, 0 to 1.
     void setVolumes(float effects, float music);
     void stopAll();
+    // Every sound but the music (S_StopSounds).
+    void stopSounds();
     size_t playingCount() const { return playing_.size(); }
     // Sounds asked for that couldn't be found or read.
     const std::set<std::string>& missing() const { return missing_; }

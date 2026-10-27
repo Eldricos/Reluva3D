@@ -201,6 +201,21 @@ public:
     // Holomatch client game's, for the same drawer.
     const Scene& scene() const { return lastScene_; }
     const std::vector<Picture>& pictures() const { return lastPictures_; }
+    // The screen capture the client game draws (R_DrawScreenShot) where
+    // the level has no picture of its own, or while a saved game loads:
+    // 256 x 256 RGBA, bottom row first, set by the page (the saved game's,
+    // or the last frame before a level change); empty: none. And where the
+    // last frame drew it: its rectangle (a negative height draws it the
+    // right way up) after so many pictures.
+    std::vector<uint8_t> screenShot;
+    struct ScreenShotDraw {
+        float x = 0, y = 0, w = 0, h = 0;
+        size_t picturesBefore = 0;
+    };
+    const std::vector<ScreenShotDraw>& screenShotDraws() const { return lastShots_; }
+    // Whether a shader or picture can be found (R_RegisterShader gives 0
+    // for one that can't, as the original's renderer); unset: all can.
+    std::function<bool(const std::string& name)> shaderExists;
     // A scene entity's model handle (refEntity_t's at 8).
     static int32_t entityModel(const SceneEntity& e);
     // The snapshots made so far (one each server frame once the client
@@ -351,6 +366,7 @@ private:
     std::map<int32_t, int> skinFaces_; // by skin handle: the -1 to -8 skins after it
     Scene scene_, lastScene_;
     std::vector<Picture> pictures_, lastPictures_;
+    std::vector<ScreenShotDraw> shots_, lastShots_;
     std::array<float, 4> color_{1, 1, 1, 1};
     std::map<int32_t, std::shared_ptr<Md3Model>> md3s_; // by model handle, loaded for tags and bounds
     const Md3Model* md3(int32_t handle);

@@ -72,6 +72,10 @@ private:
     void runGame(uint64_t nowMs);
     void runBinding(const std::string& line, int32_t key, bool down);
     void drawOverlay();
+    void runPendingTransition();
+    // The client game's pictures from `drawn` up to `to` (both moved on),
+    // its screen captures among them.
+    void drawGamePictures(size_t& drawn, size_t& shotsDrawn, size_t to, float time);
     void drawMenus(float time);
     void showLoadingScreen(const std::string& map);
     void showClientLoading();
@@ -120,6 +124,13 @@ private:
     uint64_t lastMs_ = 0;
     int32_t clientTime_ = 0;
     PlayerInput input_;
+    bool wasSkipping_ = false; // a scene was being skipped last frame
+    // The screen capture for the next level's loading screen (see
+    // SpGameHost::screenShot), and a level change waiting for the frame
+    // it's taken from.
+    std::vector<uint8_t> nextScreenShot_;
+    std::string pendingTransition_;
+    bool runningTransition_ = false;
     float menuMouseX_ = 0, menuMouseY_ = 0;
     bool textInput_ = false;
     struct Timing {
