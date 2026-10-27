@@ -394,6 +394,7 @@ void ScenePage::load() {
     characters_.clear();
     loops_.clear();
     particles_.clear();
+    scrolls_.clear();
     if (!playing_)
         state_.act.clear();
     grid_ = WalkGrid();
@@ -446,8 +447,17 @@ void ScenePage::load() {
     charactersAt_ = lastMs_;
     loadLoops();
     for (const Ac2Record* o : scene_.objects())
-        if (o->tag == "PART" || o->tag == "RAIN" || o->tag == "SNOW")
-            particles_.emplace(o, ParticleSystem(ParticleSettings::fromRecord(*o)));
+        if (o->tag == "PART" || o->tag == "RAIN" || o->tag == "SNOW") {
+            ParticleSystem& system =
+                particles_.emplace(o, ParticleSystem(ParticleSettings::fromRecord(*o))).first->second;
+            // SYST warmUp: run for 4.5 s in steps of 0.01 at load, so the
+            // snow is already falling (0x42e68b, 0x42cbb0).
+            if (const Ac2Record* syst = o->part("SYST"); syst && syst->i("warmUp") != 0)
+                for (float t = 0; t < 4.5f; t += 0.01f)
+                    system.update(0.01f);
+        } else if (const Ac2Record* sprt = o->part("SPRT"); sprt && sprt->i("scroll") != 0) {
+            scrolls_[o] = Scroll{o->f("x"), o->f("y"), 0};
+        }
     state_.scene = fs::toLower(name.substr(name.find_last_of('/') + 1));
     {
         // Its folder is its location: locations/<location>/<scene>.ac2.
@@ -834,7 +844,12 @@ bool ScenePage::advanceLoops(float time) {
         const size_t count = loop.file->frameCount();
         if (count == 0 || loop.file->fps() <= 0)
             continue;
-        const size_t want = size_t(double(std::max(0.0f, time - loop.start)) * loop.file->fps()) % count;
+        const size_t played = size_t(double(std::max(0.0f, time - loop.start)) * loop.file->fps());
+        // BNKX loop 0 (its default is 1): played once, then held on its
+        // last frame (0x4061d8).
+        const Ac2Record* bnkx = o->part("BNKX");
+        const bool once = bnkx && bnkx->field("loop") && bnkx->i("loop") == 0;
+        const size_t want = once ? std::min(played, count - 1) : played % count;
         if (want + 1 == loop.next && !loop.frame.rgba.empty())
             continue;
         // Frames build on the one before: from the start again when it
@@ -1065,6 +1080,16 @@ void ScenePage::draw() {
             t.scaleX = o->f("spriteScaleX"), t.scaleY = o->f("spriteScaleY");
         if (const Ac2Record* p = o->part(o->tag == "BINK" ? "BNKX" : "SPRT"))
             t.roll = p->f("roll");
+        if (const auto sc = scrolls_.find(o); sc != scrolls_.end()) {
+            // Scrolling: where it has got to, and again a width or height
+            // behind, so the two cover the way (0x437db6).
+            t.x = sc->second.x, t.y = sc->second.y;
+            drawSprite(ctx_.screen, img, t, keepAlpha);
+            const int way = o->part("SPRT")->i("scroll");
+            t.x += way == 1 ? float(img.w) : way == 2 ? -float(img.w) : 0.0f;
+            t.y += way == 3 ? float(img.h) : way == 4 ? -float(img.h) : 0.0f;
+            return drawSprite(ctx_.screen, img, t, keepAlpha);
+        }
         if (!t.plain())
             drawSprite(ctx_.screen, img, t, keepAlpha);
         else if (keepAlpha)
@@ -1077,7 +1102,7 @@ void ScenePage::draw() {
             return ps->second.settings().depth;
         if (const auto ov = overrides_.find(o); ov != overrides_.end())
             return ov->second.depth;
-        return o->f("d0") != 0 ? o->f("d0") : o->f("z");
+        return o->f("depth") != 0 ? o->f("depth") : o->f("z");
     };
     std::stable_sort(pictures.begin(), pictures.end(),
                      [&](const Ac2Record* a, const Ac2Record* b) { return depth(a) < depth(b); });
@@ -1195,12 +1220,13 @@ void ScenePage::draw() {
                 lines.push_back(l);
         }
         lines.push_back(std::string("train ") + (state_.values["moving"] ? "moving" : "stopped") + ", weather " +
-                        (state_.values["weather"] ? "on" : "off") + (state_.act.empty() ? "" : ", act " + state_.act));
+                        (state_.values["weather"] ? "on" : "off") + (state_.values["time"] ? ", night" : "") +
+                        (state_.act.empty() ? "" : ", act " + state_.act));
         if (const Ac2Record* cam = scene_.camera()) {
             char buf[200];
             std::snprintf(buf, sizeof buf, "camera about (%g, %g, %g), turned (%g, %g, %g), back (%g, %g, %g), fov %.1f deg",
                           cam->f("x"), cam->f("y"), cam->f("z"), cam->f("pitch"), cam->f("yaw"), cam->f("roll"),
-                          cam->f("74"), cam->f("78"), cam->f("7c"), cam->f("fov") * 57.29578f);
+                          cam->f("offsetX"), cam->f("offsetY"), cam->f("offsetZ"), cam->f("fov") * 57.29578f);
             lines.push_back(buf);
         }
         for (const Ac2Record& r : scene_.records)
@@ -1308,8 +1334,8 @@ void ScenePage::draw() {
     } else if (fade_ > 0) {
         fill(0, 0, kScreenW, kScreenH, Color{0, 0, 0}, uint8_t(fade_ * 255));
     }
-    help(std::string("Left/Right: scene  Up/Down: object  H: hotspots  I: info  M: moving  W: weather  G: grid  "
-                     "N: new game  click: walk") +
+    help(std::string("Left/Right: scene  Up/Down: object  H: hotspots  I: info  M: moving  W: weather  T: night  "
+                     "G: grid  N: new game  click: walk") +
          (renderer_ ? "  C: characters" : "  (no 3D: no characters)"));
     if (!renderer_)
         present();
@@ -1439,6 +1465,7 @@ void ScenePage::update(uint64_t nowMs) {
             system.update(dt);
             changed = true;
         }
+    changed |= scrollPictures(dt);
     if (changed)
         draw();
     if (!renderer_)
@@ -1494,11 +1521,16 @@ void ScenePage::update(uint64_t nowMs) {
         // Brightness: the game's gamma ramp is the whole screen's, the
         // characters' too (slope 32g + 97 over 257).
         const float bright = float(32 * brightnessLevel() + 97) / 257.0f;
+        // Lit by the scene's lights, each with its own material, which its
+        // props share (docs/formats/awe/lighting.md).
+        const SceneLighting lighting = sceneLighting(scene_, state_);
         for (size_t i = 0; i < characters_.size(); i++) {
             const Character& c = characters_[i];
-            c.model->draw(poses[i], c.placement, false, frameMeshes_, bright);
+            const Material material = c.record ? materialOf(*c.record) : Material();
+            c.model->draw(poses[i], c.placement, false, frameMeshes_, bright, &lighting, material);
             for (size_t k = 0; k < c.props.size(); k++)
-                c.props[k].second->draw(propPoses[i][k], c.placement, false, frameMeshes_, bright);
+                c.props[k].second->draw(propPoses[i][k], c.placement, false, frameMeshes_, bright, &lighting,
+                                        material);
         }
         // The player washed toward white with distance, in the snow (the
         // camera's 1244 and 1248), when shadows are on (0x402e20).
@@ -1629,7 +1661,7 @@ void ScenePage::drawShadows(const SceneCamera& cam, const std::vector<Pose>& pos
 
 void ScenePage::drawWhiteOut(const SceneCamera& cam, const std::vector<Pose>& poses) {
     const Ac2Record* camr = scene_.camera();
-    const float a = camr->f("1244"), b = camr->f("1248");
+    const float a = camr->f("whiteoutStart"), b = camr->f("whiteoutEnd");
     if (a == b)
         return;
     for (size_t i = 0; i < characters_.size(); i++) {
@@ -1791,6 +1823,43 @@ void ScenePage::placeCharacter(Character& c) const {
     c.placement = gfx::multiply(c.placement, back);
 }
 
+bool ScenePage::scrollPictures(float dt) {
+    // 0x4378b0: scrollSpeed / 20 pixels a second, in whole pixels; past
+    // its own width or height (or the screen's edge) a picture goes back
+    // by that much. 1 scrolls left, 2 right, 3 up, 4 down.
+    bool moved = false;
+    for (auto& [o, s] : scrolls_) {
+        const image::Image& img = picture(o->text("file"));
+        const int way = o->part("SPRT")->i("scroll");
+        const float sum = s.part + dt * o->part("SPRT")->f("scrollSpeed") * 0.05f;
+        s.part = sum;
+        const int n = int(sum);
+        if (n <= 0 || img.w <= 0 || img.h <= 0)
+            continue;
+        const float w = float(img.w), h = float(img.h);
+        if (way == 1) {
+            s.x -= float(n);
+            while (s.x <= -w)
+                s.x += w;
+        } else if (way == 2) {
+            s.x += float(n);
+            while (s.x >= 1024.0f)
+                s.x -= w;
+        } else if (way == 3) {
+            s.y -= float(n);
+            while (s.y <= -h)
+                s.y += h;
+        } else if (way == 4) {
+            s.y += float(n);
+            while (s.y >= 768.0f)
+                s.y -= h;
+        }
+        s.part = sum - float(n);
+        moved = true;
+    }
+    return moved;
+}
+
 void ScenePage::walkTo(int sx, int sy) {
     const Ac2Record* camr = scene_.camera();
     float x, z;
@@ -1804,6 +1873,11 @@ void ScenePage::walkTo(int sx, int sy) {
     for (Character& c : characters_)
         if (c.player || !who)
             who = &c;
+    // A player whose MODL clickToWalk is 0 stays put (0x416343).
+    if (who && who->player && who->record)
+        if (const Ac2Record* modl = who->record->part("MODL"); modl && modl->field("clickToWalk") &&
+                                                              modl->i("clickToWalk") == 0)
+            return;
     WalkGrid::Cell start{32, 32};
     if (who)
         start = grid_.cellAt(who->x, who->z);
@@ -2740,8 +2814,8 @@ void ScenePage::handleEvent(const Event& ev) {
     } else if (ev.key == 'g') {
         showGrid_ = !showGrid_;
         draw();
-    } else if (ev.key == 'm' || ev.key == 'w') {
-        int& v = state_.values[ev.key == 'm' ? "moving" : "weather"];
+    } else if (ev.key == 'm' || ev.key == 'w' || ev.key == 't') {
+        int& v = state_.values[ev.key == 'm' ? "moving" : ev.key == 'w' ? "weather" : "time"];
         v = !v;
         draw();
     } else if (ev.key == 'i') {

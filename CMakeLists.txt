@@ -214,6 +214,7 @@ if(RELUVA_ENGINE_AWE)
         src/engines/awe/scene_autoplay.cpp
         src/engines/awe/scene_options.cpp
         src/engines/awe/shadows.cpp
+        src/engines/awe/lighting.cpp
         src/engines/awe/scene_puzzles.cpp
         src/engines/awe/dialogue.cpp
         src/engines/awe/dialogue_box.cpp

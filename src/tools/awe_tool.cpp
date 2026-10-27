@@ -593,7 +593,7 @@ int cmdAweCamera(int argc, char** argv) {
     c.fovY = cam->f("fov"), c.nearPlane = cam->f("near"), c.farPlane = cam->f("far");
     const char* const pos[3] = {"x", "y", "z"};
     const char* const ear[3] = {"pitch", "yaw", "roll"};
-    const char* const off[3] = {"74", "78", "7c"};
+    const char* const off[3] = {"offsetX", "offsetY", "offsetZ"};
     for (int k = 0; k < 3; k++)
         c.position[k] = cam->f(pos[k]), c.elevAzimRoll[k] = cam->f(ear[k]), c.offset[k] = cam->f(off[k]);
     std::vector<float> points;

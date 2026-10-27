@@ -69,9 +69,9 @@ scenes, two Granny files, the text tables, two backgrounds):
   is over, the `a` forms not waiting, the door macros and script files
   expanded (see [../formats/awe/script.md](../formats/awe/script.md)).
   Clicking a hotspot in the Scenes page runs its script: walks, scene
-  changes, sounds, items and tags work; dialogue and the characters'
-  animations are next. `reluva-tool awe-scripts` lists every command an
-  install's scripts use.
+  changes, sounds, items, tags, dialogue and the characters' verbs work.
+  `reluva-tool awe-scripts` lists every command an install's scripts
+  use.
 - **Dialogue: plays.** Conversations run as the game's dialogue manager
   runs them (see [../formats/awe/dialogue.md](../formats/awe/dialogue.md)):
   the opening, the choices, each line's commands, recording and text in
@@ -91,6 +91,12 @@ scenes, two Granny files, the text tables, two backgrounds):
   ([../formats/awe/shadows.md](../formats/awe/shadows.md)), and the
   puzzle screens: the torn letter, the safe and the puzzle box
   ([../formats/awe/puzzles.md](../formats/awe/puzzles.md)) work.
+- **Characters: lit as the game lights them.** Direct3D 8's
+  fixed-function lighting, per vertex: the scene's `LITE`s (directional,
+  point and spot lights), the camera's ambient colour (a blue one at
+  night outdoors, with the lights off), and each character's material
+  (see [../formats/awe/lighting.md](../formats/awe/lighting.md)). T in
+  the Scenes page toggles night.
 - **Characters: animated as the game animates them.** Up to ten
   animations each on body, head and eye layers, blended by the files'
   track masks; blinking, idle gestures and their routines; `anim`,
@@ -106,10 +112,9 @@ scenes, two Granny files, the text tables, two backgrounds):
 - **Bink movies: decoded.** Video and audio match FFmpeg's output
   exactly (see [../formats/bink.md](../formats/bink.md)) and play in the
   Movies page with their sound.
-- **The engine is a data viewer** for now, like New Worlds and Elite Force
-  were before they played. Its pages are Scenes, Models (textured,
-  animated, with the mouse to turn and zoom), Movies, Pictures, Text and
-  Sounds.
+- **Pages.** A game is played from the Scenes page (N starts one). The
+  other pages are data viewers: Models (textured, animated, with the
+  mouse to turn and zoom), Movies, Pictures, Text and Sounds.
   Tab moves between them.
 - **reluva-tool:**
   - `ac2-dump` (one scene in full, or many checked to their ends);
@@ -151,12 +156,12 @@ or member types beyond those Reluva reads.
 
 Next:
 
-1. Light the characters as the game does. They are lit by a fixed guess
-   for now (`model_draw.cpp`); the scenes have 426 `LITE` records, and
-   the cameras' fields `180`..`188` look like an ambient colour.
-2. Name the fields still known only by their offset, by comparing scenes
-   and watching the original.
-3. Play the later acts through, to find what the scenes after the
+1. Do what the newly named scene fields drive
+   ([ac2.md](../formats/awe/ac2.md), "Still to find"): the cursors over
+   hotspots and characters, the characters' breath and footprints
+   outdoors, and `pickFirst` in picking. The fields still known only by
+   their offset are ones the game never reads.
+2. Play the later acts through, to find what the scenes after the
    opening need.
 
 ## What the install holds

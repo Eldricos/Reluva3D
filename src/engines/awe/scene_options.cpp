@@ -105,7 +105,7 @@ bool ScenePage::fogged(const Ac2Record& o) const {
         return false;
     const std::string file = fs::toLower(o.text("file"));
     const Ac2Record* sprt = o.part("SPRT");
-    return sprt && sprt->i("da4") != 0 &&
+    return sprt && sprt->i("scroll") != 0 &&
            (file.find("elements\\fog") != std::string::npos || file.find("skies\\clouds") != std::string::npos);
 }
 
@@ -114,7 +114,7 @@ bool ScenePage::frozen(const Ac2Record& o) const {
     if (options_.get(GameOptions::Water))
         return false;
     const Ac2Record* bnkx = o.part("BNKX");
-    return bnkx && bnkx->f("de4") != 0;
+    return bnkx && bnkx->i("effect") != 0;
 }
 
 // --- The options screen -----------------------------------------------------------

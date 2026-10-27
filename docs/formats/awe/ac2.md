@@ -8,7 +8,7 @@ changes in act 6A.
 
 The `.ac2` extension is also used for saves (`Text/Scripts/slot*.ac2`
 start with `DESC`). Those are a different set of records, read by
-another loader, and aren't covered here yet.
+another loader: see [saves.md](saves.md).
 
 ## How this was worked out
 
@@ -43,6 +43,15 @@ another loader, and aren't covered here yet.
   (object `+0xaf8`) and the field-group flags (object `+0xb74`).
 - Every record in the three files was then checked to end exactly where
   the next tag begins (`reluva-tool ac2-dump` reads them to `DONE`).
+- **The fields' meanings** came from the same reading. Each field was
+  followed from where its load function stores it (the offset in the
+  object) to every instruction that touches that offset: the class's
+  constructor (its default), its copy and save functions, and the
+  methods that use it (drawing, updating, picking, sounds). Their
+  values over all 394 scenes (`ac2-dump` of each) were then checked
+  against that reading: the cursor numbers against the cursor pictures'
+  order, the scroll speeds against the fog and cloud pictures, and so
+  on. The addresses are given with each field.
 
 ## Basics
 
@@ -72,7 +81,7 @@ The scene loader reads a tag at a time until `DONE` (or the end):
 | Tag | Content |
 |-----|---------|
 | `SCEN` | text: the scene's own path (`Locations\Salon\Salon_01_06a.ac2`) |
-| `LOAD`, `FAKE`, `OUTD`, `NVNT`, `SHOW` | u16 each (meanings to be found; `OUTD` likely "outdoors") |
+| `LOAD`, `FAKE`, `OUTD`, `NVNT`, `SHOW` | u16 each (meanings to be found for `FAKE` and `SHOW`). `OUTD` (scene +0x14f2): outdoors: lit for the night at time of day 1 ([lighting.md](lighting.md)), and characters with `MODL` footprints leave them only there (`0x43ffcd`). `NVNT` (+0x14f6): never lit for the night |
 | `FOOT` | text (32): the scene's footstep sounds |
 | `PUZZ` | text (32): the scene's puzzle, if any |
 | `MUSC` | pair list: music (the second of each pair is a file, `sound\music\motoetheme.mp3`) |
@@ -110,40 +119,52 @@ characters all four.
 |-------|------|-------|
 | file | text | the picture, model or texture (`locations\menu.main\backgrounds\menu.main_01.jpg`) |
 | name | text | hotspots: the exit's `Text/navigation.txt` key (`restaurantcar`, shown as "To Restaurant Car") |
-| `b08` | u32 | 1 on overlays and effects |
-| `b0c` | u32 | 1 in every object seen: shown? |
+| alpha | u32 | +0xb08. Pictures: the picture has alpha. The loader sets it too when the picture isn't whole 256-pixel tiles or is A8R8G8B8 (`0x437402`), and the hit test then goes by the pixel's alpha (`0x438090`). Particles: blended by alpha, else added |
+| lighting | u32 | +0xb0c. Models: Direct3D lighting on while drawn (`D3DRS_LIGHTING`, `0x427332`). 1 in every object |
 | x, y, z | f32 | flag 1. Pictures: screen pixels (the top-left corner) and depth: backgrounds at z = −10000, hotspots at 5000. Characters: the floor, y up |
 | rotX, rotY, rotZ | f32 | flag 2. Radians |
-| 13 × f32 | f32 | flag 4: scale (3), colour (3: characters 0.498, about half), then 7 more (1 1 1 0 0 0 5 on characters) |
-| `b10` | f32 | |
+| diffuseR..B, ambientR..B, specularR..B, emissiveR..B, power | f32 | flag 4, at +0x8c: a `D3DMATERIAL8` without its alphas, which models hand to `SetMaterial` (`0x4271ac`, in `0x427160`). Characters: diffuse 1, ambient 0.498, specular 1, emissive 0 (a few up to 0.2), power 5; see [lighting.md](lighting.md). Pictures are tinted by the diffuse colour (`0x437ce8`) |
+| player | u32 | +0xb10. 1 for the player's character (`PCXX`'s constructor sets it, `0x4331e8`); the game's "player" is the first character with it (`0x4365d0`) |
 | left, top, right, bottom | u32 | a hotspot's rectangle in screen pixels; characters have one too |
 | script | text | flag 8: the commands run when it's used (`yesno quit2 0`, `talk dia_debenham+`) |
 | listA | pair list | flag 8 |
 | listB | pair list | flag 8: conditional scripts, each a condition and what to run instead (`"act 04a, !tag micheladmonish": "doorlocked sp1 L 1, talk gen_locked 1"`) |
-| spriteScaleX | f32 | 2D objects: scale across (1; negative mirrors), at 0xb48 |
-| `b58` | f32 | 2000 |
+| spriteScaleX | f32 | the object's scale across (1; negative mirrors), at 0xb48. Models use it too (`D3DRS_NORMALIZENORMALS` unless all three are 1, `0x42736b`) |
+| `b58` | f32 | 2000. Loaded and saved, never read |
 | condition | text | when the object is there (`moving >0`, `weather >0`, `act 06a\| act 06b`); see [Conditions](#conditions) |
-| spriteScaleY, spriteScaleZ | f32 | 2D objects: scale down (1), and a third (1) |
-| `b54` | u32 | 1 |
+| spriteScaleY, spriteScaleZ | f32 | scale down (1), and a third (1) |
+| `b54` | u32 | 1. Loaded and saved, never read |
 | flat | u32 | 1 for 2D objects (their constructor sets it too) |
-| `b68` | u32 | |
-| `b78` | text | |
-| `d78` | u32 | |
-| `d7c` | u16 | |
-| `d0` | f32 | pictures: their drawing depth when set, instead of z (the view outside a window: −11000, behind the background's −10000; a chair's cutout: 260) |
-| `b1e` | u16 | hotspots 1, characters 6: a cursor? |
-| listC | pair list | |
+| `b68` | u32 | Loaded and saved, never read |
+| sound | text | +0xb78: a sound the object plays. While it's shown, a looping one plays (`0x40ec70`; hidden, it stops, `0x40ec30`); an animated picture plays it at a frame (below); particles with their blinking. Characters keep their animation's sound here at run time. Empty in every scene |
+| soundLoops | u32 | +0xd78: the sound loops (`AIL_quick_play`'s count 0). 0 in every scene |
+| soundFrame | u16 | +0xd7c: animated pictures: the frame at which the sound starts (`0x40379c`) |
+| depth | f32 | +0xd0. The drawing depth when set, instead of z (`0x4104b0`): the view outside a window −11000, behind the background's −10000; a chair's cutout 260 |
+| cursor | u16 | +0xb1e: the cursor shown over it, a number into `interface\cursor01.tga`, `cursor02`, `cursorlook`, `cursortake`, `cursoropen`, `cursorwalk`, `cursortalk`, `cursorlisten`, `cursorstairs`, `cursorkeyhole`, `cursorback`, `cursoroperate`, `cursorshadow`, `cursorup`, `cursordown`, `cursorempty` (0 to 15, loaded in that order at `0x413f78`). Defaults: hotspots 5 (walk), items 3 (take), characters 6 (talk); exits use 10 (back) |
+| conditionalCursors | pair list | +0xaf0: a condition and a cursor number each; the first whose condition holds is used instead (`0x40e890`: `"tag hutwindowopen": "2"`) |
 | listD | number pair list | hotspots: the outline, as screen points (x:y), inside their rectangle |
-| `b70` | u32 | |
+| pickFirst | u32 | +0xb70. In the scene's pick (`0x435eb0`), objects with it that have an outline or no rectangle are tested before all others, front to back |
 
 A field's name in the table is the original's offset in its object
-where nothing better is known yet. Reluva uses the same names (in
-`src/engines/awe/ac2.cpp`), so they line up with the executable.
+where its use isn't known (or the game never reads it). Reluva uses the
+same names (in `src/engines/awe/ac2.cpp`), so they line up with the
+executable.
 
 ### `SPRT`: a picture's settings
 
-Counted: `da4` u16, layer f32 (1000), `db0` u16, `dc8` u16, then yaw,
-pitch and roll (f32, radians; the object's rotation, at 4, 8 and 0xc).
+Counted:
+
+| Field | Type | What |
+|-------|------|------|
+| scroll | u16 | +0xda4: 0, or the picture scrolls: 1 left, 2 right, 3 up, 4 down (fog, clouds and skies; below) |
+| scrollSpeed | f32 | +0xda8: its speed, a twentieth of it in pixels a second (`0x4378d3`: 1000 by default; 250 to 800 on the scrolling ones) |
+| filter | u16 | +0xdb0: the texture filter it's drawn with: 0 none, 1 point, 2 linear (`0x437bb7`). 1 in every file |
+| `dc8` | u16 | Loaded and saved, never read |
+| yaw, pitch, roll | f32 | radians; the object's rotation, at 4, 8 and 0xc |
+
+The loader also marks pictures from `elements\fog` and `skies\clouds`
+(+0xdc0, `0x4372e0`): those that scroll aren't drawn while the "Fog,
+Haze, and Clouds" option is off ([options.md](options.md)).
 
 ### How 2D objects are drawn
 
@@ -160,13 +181,26 @@ The matrix comes from `D3DXMatrixTransformation` with:
 So a picture's pixel (u, v) goes to (u·sx·cos r − v·sy·sin r + x,
 u·sx·sin r + v·sy·cos r + y): scaled, turned about its top-left corner
 (clockwise on the screen for a positive roll), then moved. The colour is
-red, green and blue (0x8c) times 255, with the alpha from `d7c`. The
-hit test (`0x437f70`) uses the same scale: the rectangle from (x, y)
-with the picture's size times spriteScaleX and spriteScaleY.
+diffuseR, diffuseG and diffuseB (0x8c) times 255, with the alpha from
++0xd7e (not in the file: 255 unless faded). The hit test (`0x437f70`)
+uses the same scale: the rectangle from (x, y) with the picture's size
+times spriteScaleX and spriteScaleY.
+
+**Scrolling** (`SPRT` scroll, the update at `0x4378b0`): the picture
+keeps a position of its own, at first its x, y, z. Each frame it moves
+on by the frame's seconds × scrollSpeed × 0.05, in whole pixels (the
+rest is kept for the next frame): left (x down), right (x up), up or
+down. Past its own width to the left (x ≤ −width) it goes back by its
+width; past the screen's right edge (x ≥ 1024) it comes back by its
+width; up and down the same with its height and 768. It's drawn there
+and again one width (or height) behind: to the right of it when it
+scrolls left, to its left when it scrolls right, below it when it
+scrolls up, above it when down (`0x437db6`). So a strip of sky goes by
+without a break. Reluva does the same (`ScenePage::scrollPictures`).
 
 Salon_01 shows it: the countryside going by is `movingbg02.bik` (256×256
 with alpha) twice, at z −10100, between the background (−10000) and the
-snowscape behind it (d0 −11000), shown while `moving >0`. The left one is
+snowscape behind it (depth −11000), shown while `moving >0`. The left one is
 at (100, 54), scaled (−1.5, 1.5) and turned −0.698 (−40°); the right one
 is at (1029, 145), scaled (1.5, 1.5) and turned 0.698. Each covers its
 window at a slant, and Reluva's Scenes page matches a video of the game
@@ -177,21 +211,65 @@ there.
 Counted: its name (text, `exitover`: also the picture shown on mouse
 over, `Locations/Menu.Main/Cutouts/exitover.png`), the sounds on mouse
 over and on click (texts, `sound\mouseover1.wav`, `sound\select1.wav`),
-a u32, and a cursor (text, 32).
+hoverSoundLoops (u32, +0x1410: the mouse-over sound loops while the
+mouse stays, `0x413117`; 0 in every file), and key (text, 32, +0x13d0):
+a key that clicks it, `VK_ESCAPE` or `VK_RETURN` (`0x436110`; the
+options screen's `VK_ENTER` matches no key). On mouse over, the hotspot
+also shows the object whose file is its name, and hides it again after
+(`0x4130e9`).
 
 ### `2DSP`, `BNKX`, `ITEM`
 
-- `2DSP`: counted, three f32s and four u16s (frames and timing,
-  probably).
-- `BNKX`: counted, five f32s: `de4`, then yaw, pitch and roll again,
-  then `dd8`.
-- `ITEM`: counted, the item's name (text, 32: an `Text/itemlist.txt` key),
-  a text, two u16s.
+No scene uses `2DAN`, `NING` or `ITEM`; what's below is from the code.
+
+- `2DSP` (`0x403cd0`), counted:
+
+  | Field | Type | What |
+  |-------|------|------|
+  | flags | u32 | +0xdec, bits (`0x403350`..`0x403a31`): 2 loops; 4 waits `delay` before starting; 8 stops after `frames` frames; 0x20 stops after `loops` loops; 0x40 goes back and forth; 0x100 hides it at the end; 0x200 holds the last frame. 1, 0x10 and 0x80 change what starting and stopping do |
+  | fps | f32 | +0xdf0: frames a second (10 by default) |
+  | delay | f32 | +0xdf4: seconds before it starts |
+  | loops | u16 | +0xdf8 |
+  | frames | u16 | +0xdfa |
+  | startFrame | u16 | +0xdfc |
+  | soundDirection | u16 | +0xe02: the sound (soundFrame) plays going forwards (1), backwards (2), or either (0) |
+
+- `BNKX` (`0x406710`), counted: effect (u32, +0xde4: stops when the
+  "Animated Effects" option is off, `0x406251`), yaw, pitch and roll
+  again, then loop (u32, +0xdd8, 1 by default: 0 plays the video once
+  and holds its last frame, `0x4061da`). Only the scarlet kimono
+  (`Calais.Night_7-8.Kimono`) has loop 0; Reluva plays it once.
+- `ITEM` (`0x420980`), counted: the item's name (text, 32: an
+  `Text/itemlist.txt` key), its description (text, +0xe10; the loader
+  replaces it with the list's), and two u16s (+0x1610, +0x1612) that are
+  loaded and saved but never read. The list also gives the examine
+  event (+0x1410) and description (+0x1010).
 
 ### `LITE`
 
-No common fields: a u16 count, then a u16, 23 f32s, a u32, a u16, two
-texts and a u32.
+No common fields: a u16 count, then the fields below (`0x421ab0`). The
+first 22 fill a Direct3D 8 `D3DLIGHT8` at +0xd9c, which `0x420ee0`
+hands to `SetLight`; how they light the characters is in
+[lighting.md](lighting.md). Defaults are the constructor's (`0x420cb0`).
+
+| Field | Type | At | What | Default |
+|-------|------|----|------|---------|
+| type | u16 | 0xd9c | 1 point, 2 spot, 3 directional (218, 27 and 181 in the install) | 1 |
+| x, y, z | f32 | 0xdd0 | position, in the world (y up); also the shadows' light ([shadows.md](shadows.md)) | 0 |
+| dirX, dirY, dirZ | f32 | 0xddc | the way the light goes (any length) | −1, −1, −100 |
+| diffuseR..B | f32 | 0xda0 | diffuse colour | 0.3125 |
+| ambientR..B | f32 | 0xdc0 | ambient colour (0 in every file) | 0 |
+| specularR..B | f32 | 0xdb0 | specular colour (up to about 0.13) | 0 |
+| range | f32 | 0xde8 | point and spot: no light past it (mostly 10000) | 10000 |
+| att0, att1, att2 | f32 | 0xdf0 | attenuation 1 / (att0 + att1·d + att2·d²); all 0 becomes att1 0.0001 | 0.1, 0.001, 0 |
+| theta, phi | f32 | 0xdfc | spot: inner and outer cone, radians (falloff, +0xdec, is always 1) | 0.5, 1 |
+| on | u32 | 0xe0c | 0: the light stays off | 1 |
+| flicker | f32 | 0xe10 | if above 0, the light toggles every so many seconds (`0x421400`; 0 in every file) | 0 |
+| `b6c` | u32 | 0xb6c | (0 in every file) | |
+| index | u16 | 0xe1a | its light index when the editor saved it; the loader picks the lowest free one instead (`0x436460`) | |
+| name | text | 0x4d4 | for the `light <name> on\|off` command (which no script uses) | |
+| condition | text | 0x8d4 | when it's on (one light: `tag hutwindowopen`) | |
+| shadowOnly | u32 | 0xe1c | only places the shadows: never switched on | 0 |
 
 ### `SYST`: particles
 
@@ -201,65 +279,76 @@ Counted, 28 fields of f32 and u16 (the full order is in `ac2.cpp`).
 defaults (`0x42c5b0`, then `0x434290` for rain and `0x436f40` for snow).
 What the fields do, from those methods:
 
-| Field | Default (PART / RAIN / SNOW) | What |
-|-------|------------------------------|------|
-| `b08` (common) | 0 / 1 / 1 | 1: blended by alpha; 0: added (`ONE`, `ONE`) |
+| Field (offset) | Default (PART / RAIN / SNOW) | What |
+|----------------|------------------------------|------|
+| alpha (common) | 0 / 1 / 1 | 1: blended by alpha; 0: added (`ONE`, `ONE`) |
 | x, y, z (common) | 0 / (0, 1500, 0) / (0, 1500, 0) | the emitter, in the world (y up, as characters) |
 | rotX, rotY, rotZ (common) | 0 | pitch, yaw, roll: turn mode 0's motion (`D3DXMatrixRotationYawPitchRoll`) |
-| `d0` (common) | — / 500 / 500 | drawing depth among the 2D layers |
+| depth (common) | — / 500 / 500 | drawing depth among the 2D layers |
 | condition (common) | — / `weather >0` / `weather >0` | |
-| `df0`, `df4`, `df8` | 1, 1, 1 | colour, times 255 into the vertex colour |
-| `dc8`, `dcc`, `dd0` | 10, 50, 10 / −500, −1000, 0 / 0, −400, 0 | velocity: mode 2's, or mode 0's speeds per axis |
-| `dc4` | 5 / 50 / 5 | particles per burst |
-| `dd4` | 0.1 / 0.05 / 0.08 | seconds between bursts |
-| `dec` | 1 | times each particle is drawn |
-| `dea` | 1 / 2000 / 2000 | emitted within ±this of the emitter in x and z (whole numbers, `rand() % (2n) − n`) |
-| `de4` | 0.25 | mode 0: speed kept at each bounce |
-| `de8` | 3 | mode 0: bounces |
-| `ddc` | 4 / 30 / 30 | point size, in world units |
-| `e00` | 99 / 0.2 / 5 | lifetime, seconds |
-| `e04` | 0 / 2 / 2 | motion: 0 thrown, 1 still, 2 falling |
-| `e14`, `e18`, `e1c` | 0, 3, 5 | if set: on for `e18` s, off for `e1c` s (with the sound `b78`) |
-| `e28` | 0 | drawn in screen space (an orthographic 1024×768 view) |
-| `e0c`, `e10` | 0, 0 / 0, 0 / 20, 5 | sway: x plus `e0c`·sin(angle), the angle growing by `e10` a second |
-| `e08` | 9.8 | mode 0's gravity |
-| `e40`, `e44` | 0 | fade in over the first, out over the last so many seconds |
-| `e38`, `e3a`, `e3c` | 0, 1, 0 | mode 0: each axis's direction: 1 made positive, 2 negative, 0 as it comes (y: 0 is a coin toss) |
+| red, green, blue (`df0`, `df4`, `df8`) | 1, 1, 1 | colour, times 255 into the vertex colour |
+| velocityX, Y, Z (`dc8`, `dcc`, `dd0`) | 10, 50, 10 / −500, −1000, 0 / 0, −400, 0 | velocity: mode 2's, or mode 0's speeds per axis |
+| burst (`dc4`) | 5 / 50 / 5 | particles per burst |
+| interval (`dd4`) | 0.1 / 0.05 / 0.08 | seconds between bursts |
+| copies (`dec`) | 1 | times each particle is drawn |
+| spread (`dea`) | 1 / 2000 / 2000 | emitted within ±this of the emitter in x and z (whole numbers, `rand() % (2n) − n`) |
+| bounce (`de4`) | 0.25 | mode 0: speed kept at each bounce |
+| bounces (`de8`) | 3 | mode 0: bounces |
+| size (`ddc`) | 4 / 30 / 30 | point size, in world units |
+| life (`e00`) | 99 / 0.2 / 5 | lifetime, seconds |
+| mode (`e04`) | 0 / 2 / 2 | motion: 0 thrown, 1 still, 2 falling |
+| blink, onTime, offTime (`e14`, `e18`, `e1c`) | 0, 3, 5 | if blink is set: on for onTime s, off for offTime s (with the object's sound) |
+| screenSpace (`e28`) | 0 | drawn in screen space (an orthographic 1024×768 view) |
+| warmUp (`e34`) | 0 | at load, run for 4.5 s in steps of 0.01 s, so it's already going when the scene appears (`0x42e68b`, `0x42cbb0`). Every particle system in the scenes has it, and Reluva does the same |
+| sway, swaySpeed (`e0c`, `e10`) | 0, 0 / 0, 0 / 20, 5 | sway: x plus sway·sin(angle), the angle growing by swaySpeed a second |
+| gravity (`e08`) | 9.8 | mode 0's gravity |
+| fadeIn, fadeOut (`e40`, `e44`) | 0 | fade in over the first, out over the last so many seconds |
+| signX, signY, signZ (`e38`, `e3a`, `e3c`) | 0, 1, 0 | mode 0: each axis's direction: 1 made positive, 2 negative, 0 as it comes (y: 0 is a coin toss) |
 
 Each frame, each particle moves by its mode:
 
-- **1, still:** stays where it was emitted (within ±`dea` on all three
+- **1, still:** stays where it was emitted (within ±spread on all three
   axes); gone after its lifetime.
 - **2, falling:** the system's velocity times the frame's time; gone below
-  y = 0. Emitted within ±`dea` in x and z, at the emitter's height.
+  y = 0. Emitted within ±spread in x and z, at the emitter's height.
 - **0, thrown:** emitted with a random direction: around by a in [0, 2π),
-  out from straight up by b in [0, π/4], speeds (cos a·sin b·`dc8`,
-  r·cos b·`dcc`, sin a·sin b·`dd0`), r in [0.5, 1). Its position is its
-  start plus that velocity times its age, turned by the object's rotation,
-  with y lowered by ½·`e08`·age². Below y = 0, or past its lifetime, it
-  starts again from where it is with its velocity times `de4`, until it
-  has bounced `de8` times.
+  out from straight up by b in [0, π/4], speeds (cos a·sin b·velocityX,
+  r·cos b·velocityY, sin a·sin b·velocityZ), r in [0.5, 1). Its position
+  is its start plus that velocity times its age, turned by the object's
+  rotation, with y lowered by ½·gravity·age². Below y = 0, or past its
+  lifetime, it starts again from where it is with its velocity times
+  bounce, as many times as bounces.
 
-New particles come `dc4` at a time every `dd4` seconds, at most 4,096.
+New particles come burst at a time every interval seconds, at most 4,096.
 They are drawn as Direct3D point sprites (`POINTSPRITEENABLE`,
-`POINTSCALEENABLE`, `POINTSIZE` = `ddc`, `POINTSCALE_A` = `B` = 0,
-`C` = 1, `POINTSIZE_MAX` = 64): a square of `ddc` × the screen's height ÷
+`POINTSCALEENABLE`, `POINTSIZE` = size, `POINTSCALE_A` = `B` = 0,
+`C` = 1, `POINTSIZE_MAX` = 64): a square of size × the screen's height ÷
 the distance from the eye pixels, at most 64. The texture (the object's
 file) is multiplied by the vertex colour, with depth tested but not
 written.
 
 In Salon_01, snow falls past each window (x −730 and 580, from y 300,
-falling at 300 a second, at d0 −10500: in front of the snowscape, behind
+falling at 300 a second, at depth −10500: in front of the snowscape, behind
 the moving countryside), shown while `weather >0`.
 
 ### `MODL`, `ANIM`, `WALK`: models and characters
 
-- `MODL`, counted: a u32 (`shadow`: the character casts one), a pair
-  list (models attached at load: `models\poirot\hat_model.gr2`), two
-  u32s, two animation names (text, 32: `anim`, the skeleton's track mask
-  `TrackMask<anim>` its animations are limited to, and `anim2`, a prefix
-  tried on every animation's name: `sit` makes `idle1` `sitidle1`), a
-  u32, and the condition (text) on which those two apply.
+- `MODL` (`0x426310`), counted: a u32 (`shadow`: the character casts
+  one), a pair list (models attached at load:
+  `models\poirot\hat_model.gr2`), breath (u32, +0xe30: a breath
+  particle system, `BRTH`, `breath01.tga`, follows the bone `Upper
+  Lip_R`, blowing forward, `0x425fa9`; outdoor scenes in the cold set
+  it), footprints (u32, +0xe34: in an outdoor scene, `OUTD`, the
+  character leaves footprint models as it walks, `snowprint_model.gr2`
+  with the tag `snowshoeson`, else `footprint_model.gr2`, which fade,
+  `0x43fda0`, `0x43fd00`), two animation names (text, 32: `anim`, the
+  skeleton's track mask `TrackMask<anim>` its animations are limited to,
+  and `anim2`, a prefix tried on every animation's name: `sit` makes
+  `idle1` `sitidle1`), clickToWalk (u32, +0xe38, 1 by default: when the
+  player's character has it, a click on the floor walks it there,
+  `0x416343`; 72 of the 146 `PCXX` have 0, and Reluva leaves them where
+  they are), and the condition (text) on which `anim` and `anim2`
+  apply.
 - `ANIM`, counted: five f32s and three u16s (0.15, 5, 8, 8, 12, 50, 30,
   20 on Debenham): the talk ease (twice it for full-body animations),
   the blink interval and the idle variations' interval (each a least
@@ -283,15 +372,15 @@ The record's fields are the Granny camera's, as
 
 | Field | Type | Granny camera | Salon_01 |
 |-------|------|---------------|----------|
-| 3 × f32 | f32 | (the object's own; ambient light?) | 0.39 0.35 0.31 |
+| ambientR, ambientG, ambientB | f32 | (the object's own, +0x180) the scene's ambient light, `D3DRS_AMBIENT` by day ([lighting.md](lighting.md)) | 0.39 0.35 0.31 |
 | x, y, z | f32 | `Position`: the point it turns about | −8.1, 121.8, 515.5 |
 | pitch, yaw, roll | f32 | `ElevAzimRoll`, radians | −0.232, −0.017, 0 |
-| 74, 78, 7c | f32 | `Offset`: from that point, along the camera's own axes | −10, 276, 990 |
+| offsetX, offsetY, offsetZ | f32 | `Offset` (+0x74): from that point, along the camera's own axes | −10, 276, 990 |
 | fov | f32 | `FOVY`, vertical, radians | 0.646 (37°) |
 | near, far | f32 | clip planes | 10, 10000 |
-| 3 × u16 | u16 | (the object's own: 1024, 0, then the walk grid's cell size, at +0x23c) | 1024, 0, 20 |
+| `238`, `23a`, cellSize | u16 | (the object's own: 1024 and 0, loaded and never read; then the walk grid's cell size, at +0x23c) | 1024, 0, 20 |
 | grid | u16 size, then size × size bytes (at +0x23e) | the walk grid | 64 × 64 |
-| 3 × f32 | f32 | | |
+| `1240`, whiteoutStart, whiteoutEnd | u32, f32, f32 | (the object's own: a u32 never read; then where the player starts to turn white and is all white, in z: [shadows.md](shadows.md), `0x402e20`) | |
 
 The view matrix is the inverse of
 `T(Position) · Ry(azimuth) · Rx(elevation) · Rz(roll) · T(Offset)`,
@@ -317,7 +406,7 @@ backgrounds expect them: at a door, on the floor, at the right size.
 
 Each camera has its own map of where characters can walk: 64 × 64 cells
 over the floor (y = 0), centred on the world's origin, each `cell` units
-square (the u16 at +0x23c: 20, 25, 35 or 50 in the Salon's views). Cell
+square (cellSize, the u16 at +0x23c: 20, 25, 35 or 50 in the Salon's views). Cell
 (a, b) is byte a × 64 + b of the grid, and
 
     x = (a − 32) · cell + cell / 2
@@ -457,5 +546,13 @@ no sample mixes them. Reluva's evaluator is `testCondition`
 
 ## Still to find
 
-- What the unnamed fields do: compare scenes, and watch the original.
-- The save format (`DESC`, `INFO`, `GLBT`...).
+- The fields the game loads but never reads keep their offsets: the
+  common `b54`, `b58` and `b68`, `SPRT`'s `dc8`, the item's `1610` and
+  `1612`, and the camera's `238`, `23a` and `1240`.
+- What Reluva doesn't do yet: the cursors (`cursor`,
+  `conditionalCursors`), the characters' breath and footprints, the
+  objects' own sounds (`sound`, `soundLoops`, `hoverSoundLoops`; empty or
+  0 in every scene), the hotspots' keys (Reluva's save and options
+  screens press them by name instead), `pickFirst` in its picking, and
+  the animated pictures (`2DAN`, `NING`: in no scene).
+- The scene records `LOAD`, `FAKE`, `NVNT` and `SHOW`.
