@@ -9,22 +9,22 @@
 namespace reluva::awe {
 
 std::array<float, 3> shadowLight(const Ac2Scene& scene) {
-    // 0x428250: D3DLIGHT8.Position (dd0, dd4, dd8) of each light; only
-    // those with e1c set if any are. Type, direction and colour don't
+    // 0x428250: D3DLIGHT8.Position (x, y, z) of each light; only those
+    // with shadowOnly set if any are. Type, direction and colour don't
     // count.
     std::vector<const Ac2Record*> lights, marked;
     for (const Ac2Record* o : scene.objects())
         if (o->tag == "LITE") {
             lights.push_back(o);
-            if (o->i("e1c") != 0)
+            if (o->i("shadowOnly") != 0)
                 marked.push_back(o);
         }
     const std::vector<const Ac2Record*>& use = marked.empty() ? lights : marked;
     std::array<float, 3> sum{0, 0, 0};
     for (const Ac2Record* l : use) {
-        sum[0] += l->f("dd0");
-        sum[1] += l->f("dd4");
-        sum[2] += l->f("dd8");
+        sum[0] += l->f("x");
+        sum[1] += l->f("y");
+        sum[2] += l->f("z");
     }
     const float n = use.empty() ? 1.0f : float(use.size());
     return {sum[0] / n, sum[1] / n + 1500.0f, sum[2] / n};

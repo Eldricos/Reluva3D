@@ -28,7 +28,8 @@ from a **point light** onto the plane **y = 0**:
 
 - the light is at the mean position of the scene's `LITE` records,
   raised by **1500** units;
-- if any `LITE` has its last field (`e1c`) set, only those count;
+- if any `LITE` has its last field (`shadowOnly`, +0xe1c) set, only
+  those count (such lights light nothing: see [Lighting](lighting.md));
 - with no lights, the light is at (0, 1500, 0);
 - the lights' types, directions and colours aren't used, and neither are
   night, `OUTD` or the act.

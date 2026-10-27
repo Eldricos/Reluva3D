@@ -81,7 +81,7 @@ The scene loader reads a tag at a time until `DONE` (or the end):
 | Tag | Content |
 |-----|---------|
 | `SCEN` | text: the scene's own path (`Locations\Salon\Salon_01_06a.ac2`) |
-| `LOAD`, `FAKE`, `OUTD`, `NVNT`, `SHOW` | u16 each (meanings mostly to be found; `OUTD`, at the scene's +0x14f2, is "outdoors": characters with `MODL` footprints leave them only there, `0x43ffcd`) |
+| `LOAD`, `FAKE`, `OUTD`, `NVNT`, `SHOW` | u16 each (meanings to be found for `FAKE` and `SHOW`). `OUTD` (scene +0x14f2): outdoors: lit for the night at time of day 1 ([lighting.md](lighting.md)), and characters with `MODL` footprints leave them only there (`0x43ffcd`). `NVNT` (+0x14f6): never lit for the night |
 | `FOOT` | text (32): the scene's footstep sounds |
 | `PUZZ` | text (32): the scene's puzzle, if any |
 | `MUSC` | pair list: music (the second of each pair is a file, `sound\music\motoetheme.mp3`) |
@@ -123,7 +123,7 @@ characters all four.
 | lighting | u32 | +0xb0c. Models: Direct3D lighting on while drawn (`D3DRS_LIGHTING`, `0x427332`). 1 in every object |
 | x, y, z | f32 | flag 1. Pictures: screen pixels (the top-left corner) and depth: backgrounds at z = −10000, hotspots at 5000. Characters: the floor, y up |
 | rotX, rotY, rotZ | f32 | flag 2. Radians |
-| 13 × f32 | f32 | flag 4, at +0x8c: a `D3DMATERIAL8` without its alphas, which models hand to `SetMaterial` (`0x4271ac`): diffuse (red, green, blue), ambient (3: characters 0.498, about half), specular (3: 1 on characters), emissive (3) and power (characters 5). Pictures are tinted by the diffuse colour (`0x437ce8`) |
+| diffuseR..B, ambientR..B, specularR..B, emissiveR..B, power | f32 | flag 4, at +0x8c: a `D3DMATERIAL8` without its alphas, which models hand to `SetMaterial` (`0x4271ac`, in `0x427160`). Characters: diffuse 1, ambient 0.498, specular 1, emissive 0 (a few up to 0.2), power 5; see [lighting.md](lighting.md). Pictures are tinted by the diffuse colour (`0x437ce8`) |
 | player | u32 | +0xb10. 1 for the player's character (`PCXX`'s constructor sets it, `0x4331e8`); the game's "player" is the first character with it (`0x4365d0`) |
 | left, top, right, bottom | u32 | a hotspot's rectangle in screen pixels; characters have one too |
 | script | text | flag 8: the commands run when it's used (`yesno quit2 0`, `talk dia_debenham+`) |
@@ -181,7 +181,7 @@ The matrix comes from `D3DXMatrixTransformation` with:
 So a picture's pixel (u, v) goes to (u·sx·cos r − v·sy·sin r + x,
 u·sx·sin r + v·sy·cos r + y): scaled, turned about its top-left corner
 (clockwise on the screen for a positive roll), then moved. The colour is
-the diffuse red, green and blue (0x8c) times 255, with the alpha from
+diffuseR, diffuseG and diffuseB (0x8c) times 255, with the alpha from
 +0xd7e (not in the file: 255 unless faded). The hit test (`0x437f70`)
 uses the same scale: the rectangle from (x, y) with the picture's size
 times spriteScaleX and spriteScaleY.
@@ -247,8 +247,29 @@ No scene uses `2DAN`, `NING` or `ITEM`; what's below is from the code.
 
 ### `LITE`
 
-No common fields: a u16 count, then a u16, 23 f32s, a u32, a u16, two
-texts and a u32.
+No common fields: a u16 count, then the fields below (`0x421ab0`). The
+first 22 fill a Direct3D 8 `D3DLIGHT8` at +0xd9c, which `0x420ee0`
+hands to `SetLight`; how they light the characters is in
+[lighting.md](lighting.md). Defaults are the constructor's (`0x420cb0`).
+
+| Field | Type | At | What | Default |
+|-------|------|----|------|---------|
+| type | u16 | 0xd9c | 1 point, 2 spot, 3 directional (218, 27 and 181 in the install) | 1 |
+| x, y, z | f32 | 0xdd0 | position, in the world (y up); also the shadows' light ([shadows.md](shadows.md)) | 0 |
+| dirX, dirY, dirZ | f32 | 0xddc | the way the light goes (any length) | −1, −1, −100 |
+| diffuseR..B | f32 | 0xda0 | diffuse colour | 0.3125 |
+| ambientR..B | f32 | 0xdc0 | ambient colour (0 in every file) | 0 |
+| specularR..B | f32 | 0xdb0 | specular colour (up to about 0.13) | 0 |
+| range | f32 | 0xde8 | point and spot: no light past it (mostly 10000) | 10000 |
+| att0, att1, att2 | f32 | 0xdf0 | attenuation 1 / (att0 + att1·d + att2·d²); all 0 becomes att1 0.0001 | 0.1, 0.001, 0 |
+| theta, phi | f32 | 0xdfc | spot: inner and outer cone, radians (falloff, +0xdec, is always 1) | 0.5, 1 |
+| on | u32 | 0xe0c | 0: the light stays off | 1 |
+| flicker | f32 | 0xe10 | if above 0, the light toggles every so many seconds (`0x421400`; 0 in every file) | 0 |
+| `b6c` | u32 | 0xb6c | (0 in every file) | |
+| index | u16 | 0xe1a | its light index when the editor saved it; the loader picks the lowest free one instead (`0x436460`) | |
+| name | text | 0x4d4 | for the `light <name> on\|off` command (which no script uses) | |
+| condition | text | 0x8d4 | when it's on (one light: `tag hutwindowopen`) | |
+| shadowOnly | u32 | 0xe1c | only places the shadows: never switched on | 0 |
 
 ### `SYST`: particles
 
@@ -351,7 +372,7 @@ The record's fields are the Granny camera's, as
 
 | Field | Type | Granny camera | Salon_01 |
 |-------|------|---------------|----------|
-| 3 × f32 | f32 | (the object's own; ambient light?) | 0.39 0.35 0.31 |
+| ambientR, ambientG, ambientB | f32 | (the object's own, +0x180) the scene's ambient light, `D3DRS_AMBIENT` by day ([lighting.md](lighting.md)) | 0.39 0.35 0.31 |
 | x, y, z | f32 | `Position`: the point it turns about | −8.1, 121.8, 515.5 |
 | pitch, yaw, roll | f32 | `ElevAzimRoll`, radians | −0.232, −0.017, 0 |
 | offsetX, offsetY, offsetZ | f32 | `Offset` (+0x74): from that point, along the camera's own axes | −10, 276, 990 |
@@ -528,9 +549,6 @@ no sample mixes them. Reluva's evaluator is `testCondition`
 - The fields the game loads but never reads keep their offsets: the
   common `b54`, `b58` and `b68`, `SPRT`'s `dc8`, the item's `1610` and
   `1612`, and the camera's `238`, `23a` and `1240`.
-- The light's fields (`LITE`), the camera's first three (`180`, `184`,
-  `188`) and the material's emissive colour and power (`bc`, `c0`, `c4`,
-  `cc`) are being named with the characters' lighting.
 - What Reluva doesn't do yet: the cursors (`cursor`,
   `conditionalCursors`), the characters' breath and footprints, the
   objects' own sounds (`sound`, `soundLoops`, `hoverSoundLoops`; empty or

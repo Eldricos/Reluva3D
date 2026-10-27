@@ -178,11 +178,13 @@ void readObjectBase(Reader& r, Ac2Record& rec) {
     static const FieldSpec kHead[] = {{"file", F::Str}, {"name", F::Str}, {"alpha", F::U32}, {"lighting", F::U32}};
     static const FieldSpec kPositionFields[] = {{"x", F::F32}, {"y", F::F32}, {"z", F::F32}};
     static const FieldSpec kRotationFields[] = {{"rotX", F::F32}, {"rotY", F::F32}, {"rotZ", F::F32}};
+    // The object's Direct3D material (D3DMATERIAL8 at 0x8c): its diffuse,
+    // ambient, specular and emissive colours, then the specular power.
     static const FieldSpec kAppearanceFields[] = {
-        {"diffuseRed", F::F32}, {"diffuseGreen", F::F32}, {"diffuseBlue", F::F32}, {"ambientRed", F::F32},
-        {"ambientGreen", F::F32}, {"ambientBlue", F::F32}, {"specularRed", F::F32}, {"specularGreen", F::F32},
-        {"specularBlue", F::F32}, {"bc", F::F32},
-        {"c0", F::F32},     {"c4", F::F32},     {"cc", F::F32}};
+        {"diffuseR", F::F32},  {"diffuseG", F::F32},  {"diffuseB", F::F32},  {"ambientR", F::F32},
+        {"ambientG", F::F32},  {"ambientB", F::F32},  {"specularR", F::F32}, {"specularG", F::F32},
+        {"specularB", F::F32}, {"emissiveR", F::F32}, {"emissiveG", F::F32}, {"emissiveB", F::F32},
+        {"power", F::F32}};
     static const FieldSpec kMiddle[] = {
         {"player", F::U32}, {"left", F::U32}, {"top", F::U32}, {"right", F::U32}, {"bottom", F::U32}};
     static const FieldSpec kScriptFields[] = {{"script", F::Str}, {"listA", F::StrPairs}, {"listB", F::StrPairs}};
@@ -252,14 +254,23 @@ const FieldSpec kSystem[] = {
     {"onTime", F::F32},    {"offTime", F::F32},   {"screenSpace", F::F32}, {"warmUp", F::U32},
     {"sway", F::F32},      {"swaySpeed", F::F32}, {"gravity", F::F32},  {"fadeIn", F::F32},
     {"fadeOut", F::F32},   {"signX", F::U16},     {"signY", F::U16},    {"signZ", F::U16}};
+// LITE (0x421ab0): a Direct3D light (D3DLIGHT8 at 0xd9c): its type,
+// position, direction, diffuse, ambient and specular colours, range,
+// attenuation and spot cone. Then whether it's on, a flicker interval
+// (seconds), its light index when saved, its name, the condition it's on
+// under, and whether it only places the shadows.
 const FieldSpec kLight[] = {
-    {"d9c", F::U16}, {"dd0", F::F32}, {"dd4", F::F32}, {"dd8", F::F32}, {"ddc", F::F32}, {"de0", F::F32},
-    {"de4", F::F32}, {"da0", F::F32}, {"da4", F::F32}, {"da8", F::F32}, {"dc0", F::F32}, {"dc4", F::F32},
-    {"dc8", F::F32}, {"db0", F::F32}, {"db4", F::F32}, {"db8", F::F32}, {"de8", F::F32}, {"df0", F::F32},
-    {"df4", F::F32}, {"df8", F::F32}, {"dfc", F::F32}, {"e00", F::F32}, {"e0c", F::F32}, {"e10", F::F32},
-    {"b6c", F::U32}, {"e1a", F::U16}, {"name", F::Str}, {"text", F::Str}, {"e1c", F::U32}};
+    {"type", F::U16},      {"x", F::F32},         {"y", F::F32},         {"z", F::F32},
+    {"dirX", F::F32},      {"dirY", F::F32},      {"dirZ", F::F32},      {"diffuseR", F::F32},
+    {"diffuseG", F::F32},  {"diffuseB", F::F32},  {"ambientR", F::F32},  {"ambientG", F::F32},
+    {"ambientB", F::F32},  {"specularR", F::F32}, {"specularG", F::F32}, {"specularB", F::F32},
+    {"range", F::F32},     {"att0", F::F32},      {"att1", F::F32},      {"att2", F::F32},
+    {"theta", F::F32},     {"phi", F::F32},       {"on", F::U32},        {"flicker", F::F32},
+    {"b6c", F::U32},       {"index", F::U16},     {"name", F::Str},      {"condition", F::Str},
+    {"shadowOnly", F::U32}};
+// CAMR: the scene's ambient light (0x180), then the Granny camera's fields.
 const FieldSpec kCamera[] = {
-    {"180", F::F32},  {"184", F::F32},  {"188", F::F32}, {"x", F::F32},    {"y", F::F32},    {"z", F::F32},
+    {"ambientR", F::F32}, {"ambientG", F::F32}, {"ambientB", F::F32}, {"x", F::F32},    {"y", F::F32},    {"z", F::F32},
     {"pitch", F::F32}, {"yaw", F::F32},  {"roll", F::F32},
     {"offsetX", F::F32}, {"offsetY", F::F32}, {"offsetZ", F::F32},
     {"fov", F::F32},  {"near", F::F32}, {"far", F::F32},  {"238", F::U16}, {"23a", F::U16},  {"cellSize", F::U16}};
