@@ -557,15 +557,21 @@ Started. Done so far:
 
 Still to do:
 
-- Find where loading time goes: the 5-second start-up and the 1.4
-  seconds a track takes to load.
-- iSND on the mixer (3D placement, rates, streaming).
-- DirectInput keyboard, mouse and joystick, as the bindings the game's
-  own Controls screen sets.
-- Saves, records and config in the save folder.
-- Later: network play (WSOCK32) to other Reluva players.
-- Interpreter speed: decoded-instruction caching (listed under the x86
-  interpreter's known limits).
+- **Joysticks and wheels.** DirectInput's keyboard and mouse are stood
+  in for; no joystick is offered to the game yet.
+- **The game's Controls screen.** Keys bound there should work in a
+  race; not checked yet.
+- **Loading time.** Start-up waits about 5 seconds and a track about
+  1.4 before their first frames. Where that goes isn't known yet.
+- **The GPU's frames against the software rasterizer's**, in detail:
+  the rear-view mirror, translucency, lines.
+- **Sound.** What iSND mixes plays as mixed. Its 3D placement and Dolby
+  Surround aren't checked, nor how it holds up when frames come slowly.
+- **Played by hand** on a real GPU with speakers. So far it's been
+  checked on software Vulkan, driven by scripts.
+- **Later: network play** (WSOCK32) to other Reluva players.
+- **Not planned:** d3da (see above) and the Glide renderers, which the
+  native and GPU drawing make unneeded.
 
 ### Phase 5A: native game (if not)
 
