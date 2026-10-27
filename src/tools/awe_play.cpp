@@ -13,6 +13,7 @@
 //   combine|<scene>|||<choices>|<item>+<item>...
 //   flip|<scene>|||<choices>|<item>       an item's back looked at
 //   travel|<scene>|<car>||<choices>       the bar's car (1 baggage .. 5 Athens)
+//   compare|<scene>|||<choices>|<card>+<card>  two fingerprint cards under the magnifier
 //   solve|<scene>|<puzzle>||<choices>     the puzzle screen's inputs that solve it
 //   run|<scene>|<script>||<choices>       a script run (not a player's: for looking into things)
 //
@@ -249,6 +250,13 @@ public:
             a.item = item;
             out.push_back(a);
         }
+        for (const auto& [person, thing] : p.matchingPrints()) {
+            Action a;
+            a.kind = "compare";
+            a.scene = scene;
+            a.item = person + "+" + thing;
+            out.push_back(a);
+        }
         for (int car : p.travelCars()) {
             Action a;
             a.kind = "travel";
@@ -322,6 +330,11 @@ public:
             }
             if (!ok)
                 problem = "can't solve the " + a.target;
+        } else if (a.kind == "compare") {
+            const std::vector<std::string> cards = split(a.item, '+');
+            ok = cards.size() == 2 && p.comparePrintCards(cards[0], cards[1]);
+            if (!ok)
+                problem = "can't compare " + a.item;
         } else if (a.kind == "travel") {
             ok = p.travel(std::atoi(a.target.c_str()));
             if (!ok)
@@ -745,7 +758,7 @@ int aweCommandSolve(int argc, char** argv) {
         bool fresh = true, advanced = false;
         for (size_t k = 0; k < todo.size() && !advanced; k++) {
             Action a = todo[k];
-            if (a.kind == "flip" || a.kind == "combine" || a.kind == "travel") {
+            if (a.kind == "flip" || a.kind == "combine" || a.kind == "compare" || a.kind == "travel") {
                 std::string once = a.kind + "|" + a.target + "|" + a.item;
                 for (int c : a.choices)
                     once += "." + std::to_string(c);

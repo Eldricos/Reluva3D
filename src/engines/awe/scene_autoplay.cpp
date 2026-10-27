@@ -211,4 +211,35 @@ bool ScenePage::travel(int car) {
     return true;
 }
 
+std::vector<std::pair<std::string, std::string>> ScenePage::matchingPrints() {
+    std::vector<std::pair<std::string, std::string>> out;
+    for (const std::string& b : state_.itemOrder)
+        if (state_.itemState(b) == 6 && printRow(b) == 1) {
+            const std::string a = fs::toLower(itemInfo(b).flipped);
+            if (state_.itemState(a) == 6 && printRow(a) == 0 && !state_.tags.count(a + "=" + b))
+                out.emplace_back(a, b);
+        }
+    return out;
+}
+
+bool ScenePage::comparePrintCards(const std::string& person, const std::string& thing) {
+    // Each row's card shown (0x41e2e0 compares the two shown), then the
+    // magnifier.
+    std::vector<std::string> rows[2];
+    for (const std::string& i : state_.itemOrder)
+        if (state_.itemState(i) == 6)
+            rows[printRow(i)].push_back(i);
+    const auto a = std::find(rows[0].begin(), rows[0].end(), person);
+    const auto b = std::find(rows[1].begin(), rows[1].end(), thing);
+    if (a == rows[0].end() || b == rows[1].end())
+        return false;
+    if (!runner_->idle())
+        runner_->clear();
+    releaseHeld();
+    ui_.printAt[0] = int(a - rows[0].begin());
+    ui_.printAt[1] = int(b - rows[1].begin());
+    comparePrints();
+    return true;
+}
+
 } // namespace reluva::awe

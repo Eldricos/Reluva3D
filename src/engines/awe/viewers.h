@@ -213,6 +213,11 @@ public:
     bool flipItem(const std::string& item);
     std::vector<int> travelCars();
     bool travel(int car);
+    // The fingerprint cards the magnifier would match (a person's print
+    // and a thing's whose Flipped Description names it), not compared yet;
+    // a pair compared, as the cards page does with them shown.
+    std::vector<std::pair<std::string, std::string>> matchingPrints();
+    bool comparePrintCards(const std::string& person, const std::string& thing);
     bool clickable() const { return !runner_->locked() && !dialogue_->active() && !movie_; }
     // The puzzle screen open ("tornletter", "safe", "puzzlebox"; "" none),
     // whether it's solved, and the next of a player's inputs that solve it,
