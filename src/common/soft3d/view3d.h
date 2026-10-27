@@ -3,15 +3,15 @@
 
 #pragma once
 
-#include "engines/newworlds/rasterizer.h"
+#include "common/soft3d/rasterizer.h"
 
 #include <cmath>
 #include <vector>
 
-// Small 3D helpers shared by the viewers: vectors, an orbiting camera, and
+// Small 3D helpers for software-drawn views: vectors, an orbiting camera, and
 // near-plane clipping. World space is right-handed with z up.
 
-namespace reluva::newworlds {
+namespace reluva::soft3d {
 
 struct Vec {
     float x, y, z;
@@ -74,4 +74,4 @@ inline std::vector<ViewVertex> clipNear(const std::vector<ViewVertex>& in, float
     return out;
 }
 
-} // namespace reluva::newworlds
+} // namespace reluva::soft3d

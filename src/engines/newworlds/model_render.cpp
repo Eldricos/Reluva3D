@@ -3,7 +3,7 @@
 
 #include "engines/newworlds/model_render.h"
 
-#include "engines/newworlds/view3d.h"
+#include "engines/newworlds/soft3d.h"
 
 #include <algorithm>
 #include <cmath>

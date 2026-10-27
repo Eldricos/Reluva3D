@@ -10,7 +10,7 @@
 #include <type_traits>
 #include <vector>
 
-namespace reluva::newworlds {
+namespace reluva::soft3d {
 
 // A vertex after projection to the screen.
 struct ScreenVertex {
@@ -102,4 +102,4 @@ private:
     std::vector<float> depth_;
 };
 
-} // namespace reluva::newworlds
+} // namespace reluva::soft3d

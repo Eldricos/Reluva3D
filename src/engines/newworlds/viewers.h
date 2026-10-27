@@ -24,7 +24,7 @@
 #include "engines/newworlds/mdl.h"
 #include "engines/newworlds/mission_script.h"
 #include "engines/newworlds/model_textures.h"
-#include "engines/newworlds/rasterizer.h"
+#include "engines/newworlds/soft3d.h"
 #include "engines/newworlds/string_table.h"
 #include "engines/newworlds/texture.h"
 
