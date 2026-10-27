@@ -144,6 +144,30 @@ public:
     }
 
     ScenePage& page() { return *page_; }
+
+    // The game saved to memory as the save screen saves it, with the scene
+    // left last (which a saved game doesn't keep, and "lastscene" tests)
+    // after it; and loaded again.
+    std::vector<uint8_t> snapshot() const {
+        std::vector<uint8_t> out = page_->saveToMemory();
+        const std::string& last = page_->gameState().lastScene;
+        out.insert(out.end(), last.begin(), last.end());
+        out.push_back(uint8_t(last.size()));
+        return out;
+    }
+    bool restore(const std::vector<uint8_t>& data) {
+        if (data.empty())
+            return false;
+        const size_t n = data.back();
+        if (n + 1 > data.size())
+            return false;
+        const std::vector<uint8_t> save(data.begin(), data.end() - long(n + 1));
+        if (!page_->loadFromMemory(save))
+            return false;
+        const bool ok = settle();
+        page_->setLastScene(std::string(data.end() - long(n + 1), data.end() - 1));
+        return ok;
+    }
     std::vector<std::string>& log() { return log_; }
     bool credits() const { return credits_; }
     std::string problem; // why the last action failed, if it did
@@ -570,10 +594,9 @@ int aweCommandSolve(int argc, char** argv) {
         if (reload) {
             // Saved and loaded again, as the search does.
             const std::set<std::string> before = player.features(true);
-            const std::vector<uint8_t> save = player.page().saveToMemory();
+            const std::vector<uint8_t> save = player.snapshot();
             const size_t from = player.log().size();
-            player.page().loadFromMemory(save);
-            player.settle();
+            player.restore(save);
             const std::set<std::string> after = player.features(true);
             for (const std::string& f : before)
                 if (!after.count(f))
@@ -632,7 +655,7 @@ int aweCommandSolve(int argc, char** argv) {
     std::vector<Action> committed = start; // up to the root
     auto rootNode = [&]() {
         Node n;
-        n.save = player.page().saveToMemory();
+        n.save = player.snapshot();
         n.path = SIZE_MAX;
         const std::set<std::string> f = player.features(false);
         n.key = joinFeatures(f);
@@ -732,8 +755,7 @@ int aweCommandSolve(int argc, char** argv) {
             Level l = std::move(levels.back());
             levels.pop_back();
             committed = std::move(l.committed);
-            player.page().loadFromMemory(l.save);
-            player.settle();
+            player.restore(l.save);
             reset();
             continue;
         }
@@ -743,14 +765,16 @@ int aweCommandSolve(int argc, char** argv) {
         frontier.pop();
         expansions++;
         levelExpansions++;
-        player.page().loadFromMemory(node.save);
-        player.settle();
+        player.restore(node.save);
         {
             const std::string key = joinFeatures(player.features(false));
             if (key != node.key && verbose)
                 std::printf("  (restored state differs from the one saved)\n");
         }
         std::vector<Action> todo = player.actions();
+        if (std::getenv("AWE_EXP"))
+            std::printf("    expand %s tier %d promise %d progress %d depth %d last %s\n", player.page().status().scene.c_str(), node.tier,
+                        int(node.promise), node.progress, node.depth, player.page().gameState().lastScene.c_str());
         const std::string fromAct = player.page().status().act;
         // The story without the scene: what the inventory's actions and
         // the bar's travel do doesn't depend on the scene they're done in
@@ -790,8 +814,7 @@ int aweCommandSolve(int argc, char** argv) {
             }
             auto t0 = std::chrono::steady_clock::now();
             if (!fresh) {
-                player.page().loadFromMemory(node.save);
-                player.settle();
+                player.restore(node.save);
             }
             fresh = false;
             auto t1 = std::chrono::steady_clock::now();
@@ -898,7 +921,7 @@ int aweCommandSolve(int argc, char** argv) {
                 break;
             }
             Node n;
-            n.save = player.page().saveToMemory();
+            n.save = player.snapshot();
             n.path = at;
             n.key = key;
             n.progress = progressOf(f);

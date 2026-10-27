@@ -210,6 +210,7 @@ public:
     }
     std::vector<uint8_t> saveToMemory() const;
     bool loadFromMemory(const std::vector<uint8_t>& data);
+    void setLastScene(const std::string& scene) { state_.lastScene = scene; }
     std::function<int(const std::vector<std::string>& choices)> chooser;
     std::vector<std::string> flippableItems();
     bool flipItem(const std::string& item);
