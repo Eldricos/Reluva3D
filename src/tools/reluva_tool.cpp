@@ -3964,9 +3964,12 @@ int cmdSpMenus(int argc, char** argv) {
 // interpreter) on a map: GetGameAPI, Init with the map's entities, the
 // player joining, then frames; reports what the game did.
 int cmdSpRun(int argc, char** argv) {
+    // The map can be left out with -load (the saved game's).
+    const int firstOption = argc >= 4 && argv[3][0] != '-' ? 4 : 3;
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] "
-                             "[-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus] [-saveload]\n");
+                             "[-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus] [-saveload]\n"
+                             "       reluva-tool sp-run <game folder> -load <saved game> [options as above]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -3976,9 +3979,10 @@ int cmdSpRun(int argc, char** argv) {
     std::vector<std::string> finds; // -find text: entities with a text field containing it
     bool icarusNames = false;       // -icarus: the script system's table of entity names
     bool saveLoad = false;          // -saveload: save at the end, load into a fresh game
+    std::string loadName;           // -load save: a saved game (its name in saves/, or a file)
     std::string dllPath;
     std::vector<std::pair<std::string, std::string>> settings;
-    for (int i = 4; i < argc; ++i) {
+    for (int i = firstOption; i < argc; ++i) {
         if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
             frames = std::atoi(argv[++i]);
         else if (std::strcmp(argv[i], "-dll") == 0 && i + 1 < argc)
@@ -3997,6 +4001,8 @@ int cmdSpRun(int argc, char** argv) {
             icarusNames = true;
         else if (std::strcmp(argv[i], "-saveload") == 0)
             saveLoad = true;
+        else if (std::strcmp(argv[i], "-load") == 0 && i + 1 < argc)
+            loadName = argv[++i];
         else if (std::strcmp(argv[i], "-set") == 0 && i + 2 < argc) {
             settings.emplace_back(argv[i + 1], argv[i + 2]);
             i += 2;
@@ -4024,7 +4030,41 @@ int cmdSpRun(int argc, char** argv) {
     reluva::SearchSet set;
     if (!mountIdTech3(argv[2], set))
         return 1;
-    std::string map = argv[3];
+    q3::CvarStore cvars;
+    for (const auto& [name, value] : settings)
+        cvars.set(name, value);
+    // -load: the saved game's header read first (it names the map and sets
+    // the cvars it kept); the rest as the level starts.
+    std::unique_ptr<ef::SaveReader> save;
+    ef::SaveHeader saveHeader;
+    if (!loadName.empty()) {
+        Bytes file;
+        bool found = false;
+        if (std::filesystem::exists(loadName))
+            found = readFile(loadName.c_str(), file);
+        else
+            found = !set.read("saves/" + loadName + ".sav", file);
+        if (!found) {
+            std::fprintf(stderr, "no saved game %s (a file, or saves/%s.sav in the game's files)\n",
+                         loadName.c_str(), loadName.c_str());
+            return 1;
+        }
+        save = std::make_unique<ef::SaveReader>(std::move(file));
+        if (reluva::Error err = ef::readSaveHeader(*save, cvars, saveHeader)) {
+            std::fprintf(stderr, "%s: %s\n", loadName.c_str(), err.message.c_str());
+            return 1;
+        }
+        // The command line's settings win over the saved game's.
+        for (const auto& [name, value] : settings)
+            cvars.set(name, value);
+        std::printf("saved game \"%s\": map %s%s\n", saveHeader.comment.c_str(), saveHeader.map.c_str(),
+                    saveHeader.autosave ? " (autosave)" : "");
+    } else if (firstOption == 3) {
+        std::fprintf(stderr, "sp-run: give a map, or a saved game with -load\n");
+        return 2;
+    }
+    const int32_t loadMode = save ? (saveHeader.autosave ? 2 : 1) : 0;
+    std::string map = save ? saveHeader.map : argv[3];
     if (map.size() > 4 && map.compare(map.size() - 4, 4, ".bsp") == 0)
         map.resize(map.size() - 4);
     if (map.rfind("maps/", 0) == 0)
@@ -4035,9 +4075,6 @@ int cmdSpRun(int argc, char** argv) {
         std::fprintf(stderr, "maps/%s.bsp: %s\n", map.c_str(), err.message.c_str());
         return 1;
     }
-    q3::CvarStore cvars;
-    for (const auto& [name, value] : settings)
-        cvars.set(name, value);
     ef::SpGameHost game(set, cvars);
     game.print = [](const std::string& text) {
         std::printf("game: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
@@ -4100,13 +4137,27 @@ int cmdSpRun(int argc, char** argv) {
         return failed("loading", e);
     std::printf("efgamex86.dll loaded at 0x%08x\n", game.module()->base);
     game.cpu().trace = [&](reluva::x86::Cpu& c) { recent[recentAt++ % recent.size()] = c.eip; };
-    if (reluva::Error e = game.startLevel(map, bsp, ef::SpGameHost::mapChecksum(data), 0))
+    game.setSaveStream(nullptr, save.get());
+    if (reluva::Error e = game.startLevel(map, bsp, ef::SpGameHost::mapChecksum(data), 0, loadMode))
         return failed("Init", e);
+    if (save) {
+        if (reluva::Error e = ef::readSaveLevel(*save, game, saveHeader.autosave))
+            return failed("reading the saved game", e);
+        std::printf("saved game read: level time %d\n", game.levelTime());
+    }
+    game.setSaveStream(nullptr, nullptr);
     std::printf("Init done: %d entities (%d bytes each), %zu linked, %zu configstrings\n", game.entityCount(),
                 game.entitySize(), game.linked().size(), game.configstrings().size());
     if (!noClient) {
         std::string refused;
-        if (reluva::Error e = game.connectPlayer("\\name\\Munro\\model\\munro/main", refused))
+        // The player as the Play page describes them (the sex's models).
+        const bool male = reluva::fs::toLower(cvars.string("sex")).rfind('f', 0) != 0;
+        const std::string userinfo = std::string("\\name\\Munro\\snaps\\20\\sex\\") + (male ? "male" : "female") +
+                                     "\\headModel\\" + (male ? "munro/default" : "alexandria/default") +
+                                     "\\torsoModel\\" + (male ? "hazard/default" : "hazardfemale/default") +
+                                     "\\legsModel\\" + (male ? "hazard/default" : "hazardfemale/default") +
+                                     "\\handicap\\100";
+        if (reluva::Error e = game.connectPlayer(userinfo, refused, loadMode))
             return failed("the player joining", e);
         if (!refused.empty())
             std::printf("the game refused the player: %s\n", refused.c_str());
@@ -4131,8 +4182,11 @@ int cmdSpRun(int argc, char** argv) {
                 return failed(("command " + std::to_string(f + 1)).c_str(), e);
             if (reluva::Error e = game.drawClientFrame(game.levelTime()))
                 return failed(("client frame " + std::to_string(f + 1)).c_str(), e);
-            // Every five seconds of the level: the camera, the view, the player.
-            if (watch && game.levelTime() % 5000 == 0) {
+            // Every five seconds of the level, or a quarter second while a
+            // scripted camera runs: the camera, the view, the player.
+            reluva::idtech3::Vec3f cam{};
+            const bool camera = watch && game.cameraPosition(cam);
+            if (watch && (game.levelTime() % 5000 == 0 || (camera && game.levelTime() % 250 == 0))) {
                 reluva::x86::Cpu& cpu = game.cpu();
                 auto f = [&cpu](uint32_t at) {
                     const uint32_t u = cpu.read32(at);
@@ -4146,8 +4200,6 @@ int cmdSpRun(int argc, char** argv) {
                         std::memcpy(&v, b.data() + at, 4);
                     return v;
                 };
-                reluva::idtech3::Vec3f cam{};
-                const bool camera = game.cameraPosition(cam);
                 std::string view = "no view";
                 if (!game.scene().views.empty()) {
                     const auto& r = game.scene().views[0].refdef;

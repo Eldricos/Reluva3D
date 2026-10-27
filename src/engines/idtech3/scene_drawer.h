@@ -101,6 +101,10 @@ public:
     // program's screen: a movie's frame, a saved game's picture.
     void drawImage(const uint8_t* rgba, int cols, int rows, float x, float y, float w, float h, int screenW,
                    int screenH);
+    // Loads the models and skins the program has registered so far, ahead
+    // of drawing them (as its loading screen updates, so the loading takes
+    // place there, stage by stage, as the original's).
+    void preload();
     // Each frame, before drawing: images' textures from a few frames ago
     // (the GPU done with them) are let go.
     void newFrame();

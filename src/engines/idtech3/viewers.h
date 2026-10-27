@@ -550,7 +550,6 @@ private:
     void drawMenus(float time);
     void showLoadingScreen(const std::string& map);
     void showClientLoading();
-    std::chrono::steady_clock::time_point lastLoadingFrame_{};
     // The game's menus (efuix86.dll), when it's there: started at the main
     // menu; Esc opens the in-game one. While a menu has the keys, the game
     // waits, as the original's single player.

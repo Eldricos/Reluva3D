@@ -346,7 +346,7 @@ void SpUiHost::addImports() {
 
     // Cvars.
     import(CvarSet, [this](x86::Cpu& c) {
-        cvars_.set(str(c, 0, 256), str(c, 1, 4096));
+        cvars_.set(str(c, 0, 256), str(c, 1, 4096), true); // as the original's: read-only ones too
         return 0u;
     });
     import(CvarVariableValue, [this](x86::Cpu& c) {
@@ -358,13 +358,13 @@ void SpUiHost::addImports() {
         return 0u;
     });
     import(CvarSetValue, [this](x86::Cpu& c) {
-        cvars_.set(str(c, 0, 256), numberText(argFloat(c, 1)));
+        cvars_.set(str(c, 0, 256), numberText(argFloat(c, 1)), true);
         return 0u;
     });
     import(CvarReset, [this](x86::Cpu& c) {
         const std::string name = str(c, 0, 256);
         if (const CvarStore::Cvar* cv = cvars_.find(name))
-            cvars_.set(name, std::string(cv->defaultValue));
+            cvars_.set(name, std::string(cv->defaultValue), true);
         return 0u;
     });
     import(CvarCreate, [this](x86::Cpu& c) {

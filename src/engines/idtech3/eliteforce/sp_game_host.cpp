@@ -820,7 +820,7 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
         return 0;
     case 5: { // Cvar_Set(name, value)
         const std::string name = str(0, 256);
-        cvars_.set(name, str(1, 1024));
+        cvars_.set(name, str(1, 1024), true); // as the original's: read-only ones too
         if (cvarMirrors_.count(lower(name)))
             cvarStructure(name);
         return 0;
@@ -1453,8 +1453,10 @@ void SpGameHost::addImports() {
         return cvarStructure(name);
     });
     import(CvarSet, [this, str](x86::Cpu& c) {
+        // As the original engine's, forced: the game sets its read-only
+        // ones (skippingCinematic) this way.
         const std::string name = str(c, 0, 256);
-        cvars_.set(name, str(c, 1, 1024));
+        cvars_.set(name, str(c, 1, 1024), true);
         if (cvarMirrors_.count(lower(name)))
             cvarStructure(name);
         return 0u;
@@ -1684,6 +1686,74 @@ void SpGameHost::addImports() {
         process_->memory().free(c.arg(0));
         return 0u;
     });
+}
+
+Error readSaveHeader(SaveReader& r, CvarStore& cvars, SaveHeader& out) {
+    int32_t count = 0, autosave = 0;
+    if (Error e = r.nextText(chunkId("COMM"), out.comment))
+        return e;
+    if (Error e = r.next(chunkId("SHOT"), out.shot))
+        return e;
+    if (Error e = r.nextText(chunkId("MPCM"), out.map))
+        return e;
+    if (Error e = r.nextInt(chunkId("CVCN"), count))
+        return e;
+    for (int32_t i = 0; i < count; ++i) {
+        std::string cvar, value;
+        if (Error e = r.nextText(chunkId("CVAR"), cvar))
+            return e;
+        if (Error e = r.nextText(chunkId("VALU"), value))
+            return e;
+        cvars.set(cvar, value, true);
+    }
+    if (Error e = r.nextInt(chunkId("GAME"), autosave))
+        return e;
+    out.autosave = autosave != 0;
+    if (out.autosave) {
+        std::string text;
+        if (Error e = r.nextText(chunkId("CVSV"), text))
+            return e;
+        cvars.set("playersave", text);
+        for (int i = 0; i < 4; ++i) {
+            if (Error e = r.nextText(chunkId("AMMO"), text))
+                return e;
+            cvars.set("playerammo" + std::to_string(i), text);
+        }
+        for (int i = 0; i < 32; ++i) {
+            if (Error e = r.nextText(chunkId("APTD"), text))
+                return e;
+            cvars.set("borgadapt" + std::to_string(i), text);
+        }
+    }
+    return Error::success();
+}
+
+Error readSaveLevel(SaveReader& r, SpGameHost& game, bool autosave) {
+    if (!autosave) {
+        int32_t time = 0, residual = 0, count = 0;
+        std::vector<uint8_t> ignored;
+        if (Error e = r.nextInt(chunkId("TIME"), time))
+            return e;
+        if (Error e = r.nextInt(chunkId("TIMR"), residual))
+            return e;
+        if (Error e = r.next(chunkId("STRP"), ignored))
+            return e;
+        if (Error e = r.nextInt(chunkId("CSCN"), count))
+            return e;
+        std::map<int32_t, std::string> strings;
+        for (int32_t i = 0; i < count; ++i) {
+            int32_t at = 0;
+            std::string text;
+            if (Error e = r.nextInt(chunkId("CSIN"), at))
+                return e;
+            if (Error e = r.nextText(chunkId("CSDA"), text))
+                return e;
+            strings[at] = text;
+        }
+        game.setLevelTime(time);
+        game.replaceConfigstrings(strings);
+    }
+    return game.readLevel(autosave);
 }
 
 } // namespace reluva::idtech3::eliteforce

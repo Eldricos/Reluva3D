@@ -833,6 +833,15 @@ int SceneDrawer::lodLevel(int model, int frame, const gfx::Vec3& origin) const {
     return std::clamp(level + models_.lodBias(), 0, count - 1);
 }
 
+void SceneDrawer::preload() {
+    if (handles_.models)
+        for (int32_t h = 1; h <= int32_t(handles_.models->size()); ++h)
+            modelId(h);
+    if (handles_.skins)
+        for (int32_t h = 1; h <= int32_t(handles_.skins->size()); ++h)
+            models_.skin(handles_.skins->name(h));
+}
+
 int SceneDrawer::modelId(int32_t handle) {
     // The program's model handle to a loaded model, loaded on first use;
     // -1 if it can't be.

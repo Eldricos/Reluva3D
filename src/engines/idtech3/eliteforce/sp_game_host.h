@@ -346,4 +346,20 @@ private:
     uint64_t startMs_ = 0;
 };
 
+// Loading a saved game (docs/formats/idtech3/eliteforce-sp-interface.md,
+// "Saved games"), in the original engine's two steps.
+struct SaveHeader {
+    std::string comment, map;
+    std::vector<uint8_t> shot; // 256 x 256 RGBA, bottom row first
+    bool autosave = false;
+};
+// The engine's chunks before the level: the comment, picture and map, the
+// cvars kept (set into `cvars`), then GAME and, for an autosave, the player
+// carried over (set too).
+Error readSaveHeader(SaveReader& r, CvarStore& cvars, SaveHeader& out);
+// Once the level has started (load mode 1, or 2 for an autosave) with
+// `r` as its save stream: but for an autosave, the time and configstrings;
+// then the game's ReadLevel.
+Error readSaveLevel(SaveReader& r, SpGameHost& game, bool autosave);
+
 } // namespace reluva::idtech3::eliteforce

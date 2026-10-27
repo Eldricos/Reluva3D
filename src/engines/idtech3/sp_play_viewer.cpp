@@ -361,6 +361,9 @@ void SpPlayViewer::stop(const std::string& why) {
 
 void SpPlayViewer::endGame() {
     game_.reset();
+    // As the original's disconnect: no scene left half skipped.
+    cvars_.set("timescale", "1", true);
+    cvars_.set("skippingCinematic", "0", true);
     if (scene_)
         scene_->reset(); // its handles are gone
     if (soundSystem_)
@@ -427,32 +430,9 @@ void SpPlayViewer::start(int index, int32_t loadMode, eliteforce::SaveReader* sa
     game_->setSaveStream(nullptr, save);
     if ((err = game_->startLevel(map, bsp, eliteforce::SpGameHost::mapChecksum(data), 0, loadMode)))
         return stop("The game couldn't start the level: " + err.message);
-    if (save) {
-        using eliteforce::chunkId;
-        const bool autosave = loadMode == 2;
-        if (!autosave) {
-            int32_t time = 0, residual = 0, count = 0;
-            std::vector<uint8_t> ignored;
-            if (!(err = save->nextInt(chunkId("TIME"), time)) && !(err = save->nextInt(chunkId("TIMR"), residual)) &&
-                !(err = save->next(chunkId("STRP"), ignored)) && !(err = save->nextInt(chunkId("CSCN"), count))) {
-                game_->setLevelTime(time);
-                std::map<int32_t, std::string> strings;
-                for (int32_t i = 0; i < count && !err; ++i) {
-                    int32_t at = 0;
-                    std::string text;
-                    if (!(err = save->nextInt(chunkId("CSIN"), at)))
-                        err = save->nextText(chunkId("CSDA"), text);
-                    strings[at] = text;
-                }
-                if (!err)
-                    game_->replaceConfigstrings(strings);
-            }
-            if (err)
-                return stop("The saved game couldn't be read: " + err.message);
-        }
-        if ((err = game_->readLevel(autosave)))
-            return stop("The game couldn't read the saved game: " + err.message);
-    }
+    if (save)
+        if ((err = eliteforce::readSaveLevel(*save, *game_, loadMode == 2)))
+            return stop("The saved game couldn't be read: " + err.message);
     game_->setSaveStream(nullptr, nullptr);
     std::string refused;
     // The player as the original's engine describes them: the userinfo
@@ -653,34 +633,14 @@ void SpPlayViewer::loadGame(std::string name) {
         return;
     }
     eliteforce::SaveReader r(std::move(file));
-    std::vector<uint8_t> skip;
-    std::string map;
-    int32_t count = 0, autosave = 0;
-    Error err;
-    std::vector<uint8_t> shot;
-    if (!(err = r.next(chunkId("COMM"), skip)) && !(err = r.next(chunkId("SHOT"), shot)) &&
-        !(err = r.nextText(chunkId("MPCM"), map)) && !(err = r.nextInt(chunkId("CVCN"), count))) {
-        for (int32_t i = 0; i < count && !err; ++i) {
-            std::string cvar, value;
-            if (!(err = r.nextText(chunkId("CVAR"), cvar)) && !(err = r.nextText(chunkId("VALU"), value)))
-                cvars_.set(cvar, value);
-        }
-    }
-    if (!err && !(err = r.nextInt(chunkId("GAME"), autosave)) && autosave) {
-        std::string text;
-        if (!(err = r.nextText(chunkId("CVSV"), text)))
-            cvars_.set("playersave", text);
-        for (int i = 0; i < 4 && !err; ++i)
-            if (!(err = r.nextText(chunkId("AMMO"), text)))
-                cvars_.set("playerammo" + std::to_string(i), text);
-        for (int i = 0; i < 32 && !err; ++i)
-            if (!(err = r.nextText(chunkId("APTD"), text)))
-                cvars_.set("borgadapt" + std::to_string(i), text);
-    }
-    if (err) {
+    eliteforce::SaveHeader header;
+    if (Error err = eliteforce::readSaveHeader(r, cvars_, header)) {
         lastCommand_ = "Couldn't read " + name + ": " + err.message;
         return;
     }
+    const std::string& map = header.map;
+    const bool autosave = header.autosave;
+    std::vector<uint8_t>& shot = header.shot;
     const auto it = std::find(names_.begin(), names_.end(), "maps/" + fs::toLower(map) + ".bsp");
     if (it == names_.end()) {
         lastCommand_ = name + " is of a map that isn't here: " + map;
@@ -1102,12 +1062,14 @@ void SpPlayViewer::showLoadingScreen(const std::string& map) {
 }
 
 void SpPlayViewer::showClientLoading() {
-    using Clock = std::chrono::steady_clock;
-    const auto now = Clock::now();
-    if (now - lastLoadingFrame_ < std::chrono::milliseconds(30))
+    // What the client game has registered so far is loaded now, as the
+    // original's renderer loads it as it's registered: the loading
+    // screen's stages then take as long as the loading does.
+    if (!game_)
         return;
-    lastLoadingFrame_ = now;
-    if (!game_ || game_->drawLoadingFrame())
+    scene_->setHandles({&game_->models(), &game_->skins(), &game_->shaders()});
+    scene_->preload();
+    if (game_->drawLoadingFrame())
         return;
     if (ui_)
         if (Error err = ui_->drawConnectText("localhost", ""))
