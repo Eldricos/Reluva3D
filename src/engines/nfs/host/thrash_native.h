@@ -57,7 +57,9 @@ public:
     // Textures, by the renderer DLL's handle for them.
     void talloc(uint32_t handle, int width, int height, int format);
     // `palette`: format 2's 256 colours (0x00RRGGBB), 0 to keep the last.
-    void tupdate(uint32_t handle, uint32_t pixels, uint32_t palette);
+    // Returns what softtria's does: the handle, or 0 for formats 3 and 4
+    // given no pixels.
+    uint32_t tupdate(uint32_t handle, uint32_t pixels, uint32_t palette);
     void treset() {
         textures_.clear();
         changed_.clear();

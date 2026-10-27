@@ -45,7 +45,7 @@ uint32_t GameHost::wrapThrash(const std::string& name, uint32_t address) {
         }
         // Drawing done natively, if asked: the DLL isn't called.
         uint32_t result = 1;
-        if (!(native_ && nativeDraw(shortName, args))) {
+        if (!(native_ && nativeDraw(shortName, args, result))) {
             // The instructions run inside count as the renderer's (the
             // other threads may take turns meanwhile; those are few).
             const uint64_t before = c.executed();
@@ -57,8 +57,6 @@ uint32_t GameHost::wrapThrash(const std::string& name, uint32_t address) {
             if (native_) {
                 if (shortName == "talloc" && result)
                     native_->talloc(result, int(args[0]), int(args[1]), int(args[2]));
-                else if (shortName == "tupdate")
-                    native_->tupdate(args[0], args[1], args.size() > 2 ? args[2] : 0);
                 else if (shortName == "treset")
                     native_->treset();
                 else if (shortName == "setstate")
@@ -126,7 +124,13 @@ void GameHost::presentBuffer(uint32_t buffer, int pitch, int x0, int y0, int wid
         onFrame(frame_);
 }
 
-bool GameHost::nativeDraw(const std::string& name, const std::vector<uint32_t>& args) {
+bool GameHost::nativeDraw(const std::string& name, const std::vector<uint32_t>& args, uint32_t& result) {
+    // Texture uploads: only the native copy is kept, as the DLL's drawing
+    // (the one user of its own) isn't called.
+    if (name == "tupdate" && args.size() >= 2) {
+        result = native_->tupdate(args[0], args[1], args.size() > 2 ? args[2] : 0);
+        return true;
+    }
     // softtria's page flip and clear work on its current window's buffer,
     // over the clip rectangle as it keeps it (whole 16-pixel columns).
     if (softtriaKnown_ && (name == "pageflip" || name == "clearwindow")) {

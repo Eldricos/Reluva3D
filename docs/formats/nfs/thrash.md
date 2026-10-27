@@ -172,6 +172,22 @@ functions:
 
 With any other renderer DLL, both are left to the DLL.
 
+## Texture uploads, natively
+
+With native drawing, `tupdate` doesn't call the DLL either (with any
+renderer DLL). Its drawing is the only thing that reads its copy of the
+textures, and it isn't called. The native copy, decoded to RGBA, is the
+only one kept. The result is what softtria's `tupdate` returns: the
+handle, or 0 for formats 3 and 4 given no pixels. `talloc` and `treset`
+still go to the DLL, so the handles stay its own; they cost about a
+million instructions in a run.
+
+In a run into a race this takes 168 million instructions out of the
+DLL, about 3% of the run. Loading hardly changes, though. The longest
+waits between frames, at start-up and while the track loads, were 5.3
+and 1.4 seconds, against 5.4 and 1.3 with the DLL's uploads. Those
+waits are spent elsewhere.
+
 ## On the GPU
 
 With a GPU, the Play page draws THRASH's frames with it

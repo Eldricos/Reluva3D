@@ -551,9 +551,14 @@ Started. Done so far:
   the mouse. Mouse positions are taken in the game's pixels whatever
   the frame's size.
 
+- **Texture uploads natively** ([thrash.md](../formats/nfs/thrash.md)).
+  168 million instructions fewer in a run into a race; the time to load
+  hardly changes.
+
 Still to do:
 
-- Texture uploads natively (they run in softtria while a track loads).
+- Find where loading time goes: the 5-second start-up and the 1.4
+  seconds a track takes to load.
 - iSND on the mixer (3D placement, rates, streaming).
 - DirectInput keyboard, mouse and joystick, as the bindings the game's
   own Controls screen sets.

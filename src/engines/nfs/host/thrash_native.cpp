@@ -49,10 +49,10 @@ void NativeThrash::talloc(uint32_t handle, int width, int height, int format) {
         texture_ = &textures_[handle];
 }
 
-void NativeThrash::tupdate(uint32_t handle, uint32_t pixels, uint32_t palette) {
+uint32_t NativeThrash::tupdate(uint32_t handle, uint32_t pixels, uint32_t palette) {
     auto it = textures_.find(handle);
     if (it == textures_.end())
-        return;
+        return handle;
     Texture& t = it->second;
     const size_t n = t.rgba.size();
     changed_.insert(handle);
@@ -69,21 +69,21 @@ void NativeThrash::tupdate(uint32_t handle, uint32_t pixels, uint32_t palette) {
                 t.palette[size_t(i)] = 0xff000000u | uint32_t(p[4 * i] | p[4 * i + 1] << 8 | p[4 * i + 2] << 16);
         }
         if (t.indices.size() != n)
-            return;
+            return handle;
         t.transparent = false;
         for (size_t i = 0; i < n; ++i) {
             const uint8_t index = t.indices[i];
             t.rgba[i] = index == 255 ? 0u : t.palette[index];
             t.transparent |= index == 255;
         }
-        return;
+        return handle;
     }
     if (!pixels)
-        return;
+        return t.format == 3 || t.format == 4 ? 0 : handle;
     // The other formats, all 16 bits a texel: 3 1:5:5:5 (the top bit set
     // where opaque), 4 5:6:5 (opaque), 7 4:4:4:4.
     if (!cpu_.valid(pixels, uint32_t(n * 2)))
-        return;
+        return handle;
     const uint8_t* p = cpu_.memory().data() + pixels;
     t.transparent = false;
     for (size_t i = 0; i < n; ++i) {
@@ -103,6 +103,7 @@ void NativeThrash::tupdate(uint32_t handle, uint32_t pixels, uint32_t palette) {
             t.transparent = true;
         t.rgba[i] = c;
     }
+    return handle;
 }
 
 void NativeThrash::setState(uint32_t id, uint32_t value) {

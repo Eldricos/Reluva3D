@@ -199,7 +199,8 @@ private:
     // Each window's buffer, as THRASH_lockwindow reports it: address, pitch,
     // width, height (the renderer draws there; a page flip shows it).
     std::map<uint32_t, std::array<uint32_t, 4>> windowBuffers_;
-    bool nativeDraw(const std::string& name, const std::vector<uint32_t>& args);
+    // Does a THRASH call natively if it can (`result`: what it returns).
+    bool nativeDraw(const std::string& name, const std::vector<uint32_t>& args, uint32_t& result);
     // The retail softtria.dll, known well enough that its page flips and
     // clears are done natively too (thrash.md): where it was loaded, less
     // where it asks to be; unset for any other renderer.
