@@ -456,6 +456,16 @@ bool storyTag(const std::string& feature) {
     return feature.rfind("tag ", 0) == 0 && std::count(feature.begin(), feature.end(), ' ') == 2;
 }
 
+// The story as far as tags and items go (a dead end's, not climbed to
+// again).
+std::string outlineOf(const std::set<std::string>& f) {
+    std::string out;
+    for (const std::string& s : f)
+        if (storyTag(s) || s.rfind("item ", 0) == 0 || s.rfind("act ", 0) == 0)
+            out += s + "\n";
+    return out;
+}
+
 // How far on a state is: the story tags and items it has, then the
 // conversations heard.
 int progressOf(const std::set<std::string>& f) {
@@ -674,13 +684,17 @@ int aweCommandSolve(int argc, char** argv) {
     // tag's value, an item's state, a conversation's progress never had
     // before in the act, whichever way it was reached) becomes the root,
     // the way there kept; the roots before are kept to go back to if a
-    // root leads to nothing new within the level's budget.
+    // root leads to nothing new within the level's budget. Going back, what
+    // was new is new again, but the dead end's story (its tags and items)
+    // isn't climbed to again.
     struct Level {
         std::vector<Action> committed;
         std::vector<uint8_t> save;
+        std::set<std::string> actStory;
     };
     std::vector<Level> levels;
     std::set<std::string> actStory; // the story features had in the act
+    std::set<std::string> deadEnds;
     auto storyFeature = [](const std::string& x) {
         return storyTag(x) || x.rfind("item ", 0) == 0 || x.rfind("talk ", 0) == 0;
     };
@@ -744,9 +758,12 @@ int aweCommandSolve(int argc, char** argv) {
         if ((frontier.empty() || (climb && levelExpansions >= levelBudget)) && !levels.empty()) {
             // A dead end: back to the root before.
             std::printf("  (nothing further from here: back)\n");
+            deadEnds.insert(outlineOf(player.features(false)));
+            writePlaythrough(solveTo + ".deadend", committed);
             Level l = std::move(levels.back());
             levels.pop_back();
             committed = std::move(l.committed);
+            actStory = std::move(l.actStory);
             player.restore(l.save);
             reset();
             continue;
@@ -892,18 +909,22 @@ int aweCommandSolve(int argc, char** argv) {
                 }
                 levels.clear();
                 actStory.clear();
+                deadEnds.clear();
                 reset();
                 advanced = true;
                 break;
             }
             noteTested(player.tested);
-            int newToAct = 0;
+            std::vector<std::string> newToAct;
             for (const std::string& x : f)
-                if (storyFeature(x))
-                    newToAct += actStory.insert(storyOf(x)).second;
-            if (climb && newToAct) {
+                if (storyFeature(x) && !actStory.count(storyOf(x)))
+                    newToAct.push_back(storyOf(x));
+            const bool further = climb && !newToAct.empty() && !deadEnds.count(outlineOf(f));
+            if (further)
+                levels.push_back({committed, rootSave, actStory});
+            actStory.insert(newToAct.begin(), newToAct.end());
+            if (further) {
                 // Further on: the new root.
-                levels.push_back({committed, rootSave});
                 const std::vector<Action> more = pathOf(at);
                 committed.insert(committed.end(), more.begin(), more.end());
                 reset();
