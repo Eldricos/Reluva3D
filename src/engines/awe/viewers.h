@@ -203,6 +203,13 @@ public:
     std::vector<int> travelCars();
     bool travel(int car);
     bool clickable() const { return !runner_->locked() && !dialogue_->active() && !movie_; }
+    // The puzzle screen open ("tornletter", "safe", "puzzlebox"; "" none),
+    // whether it's solved, and the next of a player's inputs that solve it,
+    // worked out from the puzzle's own checks and made as the mouse makes
+    // them (false if there's none to make now).
+    std::string puzzleOpen() const;
+    bool puzzleSolved() const;
+    bool puzzleStep();
 
 private:
     // A character placed in the scene, animated as the game animates
@@ -413,6 +420,8 @@ private:
     int boxArrowAt(int x, int y) const;
     bool boxMovePossible(int piece, int arrow) const;
     bool boxMoveCorrect(int piece, int arrow) const;
+    int boxPieceAt(int x, int y) const; // 1 the end's upper half, 2 its lower, 3 the side, 4 the lid; 0 none
+    const Ac2Record* tornPick(int x, int y) const; // the letter's front-most picture there
     void writeBoxTags();
     int lastMouseX_ = 0, lastMouseY_ = 0;
     std::filesystem::path optionsFile() const;

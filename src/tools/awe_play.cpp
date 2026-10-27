@@ -13,6 +13,7 @@
 //   combine|<scene>|||<choices>|<item>+<item>...
 //   flip|<scene>|||<choices>|<item>       an item's back looked at
 //   travel|<scene>|<car>||<choices>       the bar's car (1 baggage .. 5 Athens)
+//   solve|<scene>|<puzzle>||<choices>     the puzzle screen's inputs that solve it
 //
 // A seventh field, "<object>#<n>", clicks that object as soon as it can
 // be clicked while what the action started still runs (the game lets a
@@ -146,9 +147,7 @@ public:
         while (sys_.now - start < uint64_t(limit_ * 1000)) {
             sys_.now += 40;
             page_->update(sys_.now);
-            const std::string did = page_->autoplay();
-            if (did.empty() && page_->status().puzzle)
-                return true;
+            page_->autoplay();
             const ScenePage::GameStatus st = page_->status();
             if (!st.idle && page_->clickable()) {
                 // Clicks are taken while this runs: what could be clicked
@@ -188,8 +187,15 @@ public:
         std::vector<Action> out;
         ScenePage& p = *page_;
         const std::string scene = p.status().scene;
-        if (scene.rfind("menu.", 0) == 0 || p.status().puzzle)
+        if (scene.rfind("menu.", 0) == 0)
             return out;
+        if (!p.puzzleOpen().empty() && !p.puzzleSolved()) {
+            Action a;
+            a.kind = "solve";
+            a.scene = scene;
+            a.target = p.puzzleOpen();
+            out.push_back(a);
+        }
         const std::vector<std::string> names = p.clickables();
         std::map<std::string, int> seen;
         for (size_t i = 0; i < names.size(); i++) {
@@ -271,6 +277,23 @@ public:
             ok = p.flipItem(a.item);
             if (!ok)
                 problem = "can't look at the back of " + a.item;
+        } else if (a.kind == "solve") {
+            // The puzzle's inputs, each with the game run on till its
+            // scripts are done.
+            ok = p.puzzleOpen() == a.target;
+            for (int n = 0; ok && n < 1000 && !p.puzzleSolved(); n++) {
+                if (!p.puzzleStep()) {
+                    ok = false;
+                    break;
+                }
+                for (int k = 0; k < 2 || (!p.status().idle && k < 3000); k++) {
+                    sys_.now += 40;
+                    p.update(sys_.now);
+                    p.autoplay();
+                }
+            }
+            if (!ok)
+                problem = "can't solve the " + a.target;
         } else if (a.kind == "travel") {
             ok = p.travel(std::atoi(a.target.c_str()));
             if (!ok)
@@ -636,10 +659,6 @@ int aweCommandSolve(int argc, char** argv) {
                 reset();
                 advanced = true;
                 break;
-            }
-            if (st.puzzle) {
-                std::printf("  (a puzzle: %s)\n", st.scene.c_str());
-                continue;
             }
             Node n;
             n.save = player.page().saveToMemory();

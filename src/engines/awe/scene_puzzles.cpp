@@ -15,6 +15,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <functional>
 
 namespace reluva::awe {
 
@@ -444,37 +445,7 @@ void ScenePage::puzzleClick(int x, int y) {
         TornLetter& t = *torn_;
         if (hotspotAt(x, y))
             return;
-        const Ac2Record* best = nullptr;
-        float bestDepth = -1e9f;
-        for (const Ac2Record* o : scene_.objects()) {
-            if (hidden(*o) || !(testCondition(o->text("condition"), state_) || shown(*o)) ||
-                !isPicture(o->text("file")))
-                continue;
-            const image::Image& img = picture(o->text("file"));
-            if (img.w <= 0)
-                continue;
-            float d, ox = o->f("x"), oy = o->f("y"), roll = 0, cx = 0, cy = 0;
-            if (const auto ov = overrides_.find(o); ov != overrides_.end()) {
-                d = ov->second.depth, ox = ov->second.x, oy = ov->second.y;
-                roll = ov->second.roll, cx = ov->second.cx, cy = ov->second.cy;
-            } else {
-                d = o->f("depth") != 0 ? o->f("depth") : o->f("z");
-            }
-            if (d <= bestDepth)
-                continue;
-            // The unrotated box, then the pixel turned back about the centre.
-            const float px = float(x), py = float(y);
-            if (px < ox || py < oy || px >= ox + float(img.w) || py >= oy + float(img.h))
-                continue;
-            if (o->i("alpha") != 0) {
-                const float dx = px - (ox + cx), dy = py - (oy + cy);
-                const float c = std::cos(roll), s = std::sin(roll);
-                const int u = int(std::floor(dx * c + dy * s + cx)), v = int(std::floor(-dx * s + dy * c + cy));
-                if (u < 0 || v < 0 || u >= img.w || v >= img.h || img.pixel(u, v)[3] == 0)
-                    continue;
-            }
-            best = o, bestDepth = d;
-        }
+        const Ac2Record* best = tornPick(x, y);
         if (!best || fs::toLower(best->text("file")).find("paper") == std::string::npos)
             return;
         const auto it = std::find(t.pieces.begin(), t.pieces.end(), best);
@@ -497,20 +468,7 @@ void ScenePage::puzzleClick(int x, int y) {
         // 0x4337b0.
         PuzzleBox& b = *box_;
         if (b.selected == 0) {
-            // A piece: the end (its upper half inside the "endtop" outline),
-            // the side, the lid.
-            if (hitPicture(puzzleObject(boxEndPicture()), float(x), float(y), kBoxX, kBoxY)) {
-                b.selected = 2;
-                for (const Ac2Record* o : scene_.objects())
-                    if (o->tag == "SPOT" && fs::toLower(o->text("name")) == "endtop")
-                        if (const Ac2Value* poly = o->field("listD");
-                            poly && poly->numbers.size() >= 3 && insidePolygon(poly->numbers, float(x), float(y)))
-                            b.selected = 1;
-            } else if (hitPicture(puzzleObject(boxSidePicture()), float(x), float(y), kBoxX, kBoxY)) {
-                b.selected = 3;
-            } else if (hitPicture(puzzleObject("top.png"), float(x), float(y), kBoxX, kBoxY)) {
-                b.selected = 4;
-            }
+            b.selected = boxPieceAt(x, y);
             writeBoxTags();
             draw();
             return;
@@ -556,6 +514,60 @@ void ScenePage::puzzleClick(int x, int y) {
         writeBoxTags();
         draw();
     }
+}
+
+const Ac2Record* ScenePage::tornPick(int x, int y) const {
+    // 0x43ed00: the front-most picture with something under the point.
+    const Ac2Record* best = nullptr;
+    float bestDepth = -1e9f;
+    for (const Ac2Record* o : scene_.objects()) {
+        if (hidden(*o) || !(testCondition(o->text("condition"), state_) || shown(*o)) ||
+            !isPicture(o->text("file")))
+            continue;
+        const image::Image& img = const_cast<ScenePage*>(this)->picture(o->text("file"));
+        if (img.w <= 0)
+            continue;
+        float d, ox = o->f("x"), oy = o->f("y"), roll = 0, cx = 0, cy = 0;
+        if (const auto ov = overrides_.find(o); ov != overrides_.end()) {
+            d = ov->second.depth, ox = ov->second.x, oy = ov->second.y;
+            roll = ov->second.roll, cx = ov->second.cx, cy = ov->second.cy;
+        } else {
+            d = o->f("depth") != 0 ? o->f("depth") : o->f("z");
+        }
+        if (d <= bestDepth)
+            continue;
+        // The unrotated box, then the pixel turned back about the centre.
+        const float px = float(x), py = float(y);
+        if (px < ox || py < oy || px >= ox + float(img.w) || py >= oy + float(img.h))
+            continue;
+        if (o->i("alpha") != 0) {
+            const float dx = px - (ox + cx), dy = py - (oy + cy);
+            const float c = std::cos(roll), s = std::sin(roll);
+            const int u = int(std::floor(dx * c + dy * s + cx)), v = int(std::floor(-dx * s + dy * c + cy));
+            if (u < 0 || v < 0 || u >= img.w || v >= img.h || img.pixel(u, v)[3] == 0)
+                continue;
+        }
+        best = o, bestDepth = d;
+    }
+    return best;
+}
+
+int ScenePage::boxPieceAt(int x, int y) const {
+    // A piece of the box (0x4337b0): the end (its upper half inside the
+    // "endtop" outline), the side, the lid; 0 none.
+    if (hitPicture(puzzleObject(boxEndPicture()), float(x), float(y), kBoxX, kBoxY)) {
+        for (const Ac2Record* o : scene_.objects())
+            if (o->tag == "SPOT" && fs::toLower(o->text("name")) == "endtop")
+                if (const Ac2Value* poly = o->field("listD");
+                    poly && poly->numbers.size() >= 3 && insidePolygon(poly->numbers, float(x), float(y)))
+                    return 1;
+        return 2;
+    }
+    if (hitPicture(puzzleObject(boxSidePicture()), float(x), float(y), kBoxX, kBoxY))
+        return 3;
+    if (hitPicture(puzzleObject("top.png"), float(x), float(y), kBoxX, kBoxY))
+        return 4;
+    return 0;
 }
 
 void ScenePage::puzzleRelease(int x, int y) {
@@ -647,6 +659,137 @@ void ScenePage::puzzleAction(const std::string& word) {
         writeSafeTags();
         draw();
     }
+}
+
+// --- For tools: the puzzle solved as a player would ------------------------------------
+
+std::string ScenePage::puzzleOpen() const {
+    return torn_ ? "tornletter" : safe_ ? "safe" : box_ ? "puzzlebox" : "";
+}
+
+bool ScenePage::puzzleSolved() const {
+    return (torn_ && torn_->solved) || (safe_ && safe_->entered == 3) || (box_ && box_->solved);
+}
+
+bool ScenePage::puzzleStep() {
+    // The mouse pressed and let go where the puzzle's own checks say: a
+    // point on what's to be picked, with no hotspot over it.
+    auto mouse = [&](EventType type, int x, int y) {
+        Event ev;
+        ev.type = type;
+        ev.mouseX = x, ev.mouseY = y;
+        ev.button = type == EventType::MouseMove ? MouseButton::None : MouseButton::Left;
+        ev.clicks = type == EventType::MouseDown ? 1 : 0;
+        handleEvent(ev);
+    };
+    auto free = [&](int x, int y) {
+        const Ac2Record* o = pickAllowed(y) ? pickAt(x, y) : nullptr;
+        return !hotspotAt(x, y) && !(o && clickable(*o));
+    };
+    // The first point (every 3 pixels) that passes `test`.
+    auto find = [&](const std::function<bool(int, int)>& test, int& fx, int& fy) {
+        for (int y = 1; y < kScreenH; y += 3)
+            for (int x = 1; x < kScreenW; x += 3)
+                if (test(x, y) && free(x, y)) {
+                    fx = x, fy = y;
+                    return true;
+                }
+        return false;
+    };
+    // A hotspot's script run, as its click runs it (the letter's and the
+    // safe's arrows: "action left").
+    auto arrow = [&](const std::string& word) {
+        for (const Ac2Record* o : scene_.objects()) {
+            if (o->tag != "SPOT" || hidden(*o))
+                continue;
+            bool match = fs::toLower(o->text("script")) == "action " + word;
+            if (const Ac2Value* alternatives = o->field("listB"))
+                for (const auto& [condition, run] : alternatives->pairs)
+                    match |= fs::toLower(run) == "action " + word;
+            if (match) {
+                runScript(*o);
+                runner_->update(0);
+                return true;
+            }
+        }
+        return false;
+    };
+    int x = 0, y = 0;
+    if (box_) {
+        // The move the solution asks for next.
+        PuzzleBox& b = *box_;
+        if (b.solved || !runner_->idle())
+            return false;
+        int piece = 0, dir = 0;
+        for (int p = 1; p <= 4 && !piece; p++)
+            for (int a = 1; a <= 4 && !piece; a++)
+                if (boxMovePossible(p, a) && boxMoveCorrect(p, a))
+                    piece = p, dir = a;
+        if (!piece)
+            return false;
+        if (b.selected != piece) {
+            // Picked (another one dropped first, by a click off its arrows).
+            if (!find([&](int px, int py) { return boxPieceAt(px, py) == piece && boxArrowAt(px, py) == 0; }, x, y))
+                return false;
+        } else if (!find([&](int px, int py) { return boxArrowAt(px, py) == dir; }, x, y)) {
+            return false;
+        }
+        mouse(EventType::MouseDown, x, y);
+        mouse(EventType::MouseUp, x, y);
+        return true;
+    }
+    if (torn_) {
+        // Each piece in turn: picked, turned upright, dragged to its cell.
+        TornLetter& t = *torn_;
+        if (t.solved || !runner_->idle())
+            return false;
+        for (int i = 0; i < int(t.pieces.size()); i++) {
+            const Ac2Record* o = t.pieces[size_t(i)];
+            if (!o)
+                return false;
+            const PictureOverride p = overrides_[o];
+            const int tx = kSnapX[i % 4] + 1, ty = kSnapY[i / 4];
+            const bool placed = std::abs(int(p.x + p.cx) - tx) <= 5 && std::abs(int(p.y + p.cy) - ty) <= 5;
+            int a = int(int16_t(int(p.roll * 57.2957764f))) % 360;
+            if (a < 0)
+                a += 360;
+            const bool upright = a <= 15 || a >= 345;
+            if (placed && upright)
+                continue;
+            const bool found = find([&](int px, int py) { return tornPick(px, py) == o; }, x, y);
+            if (t.selected != i || !upright) {
+                if (t.selected != i) {
+                    if (!found)
+                        return false;
+                    mouse(EventType::MouseDown, x, y);
+                    mouse(EventType::MouseUp, x, y);
+                    return true;
+                }
+                return arrow("left");
+            }
+            if (!found)
+                return false;
+            const int dx = tx - int(p.x + p.cx), dy = ty - int(p.y + p.cy);
+            mouse(EventType::MouseDown, x, y);
+            mouse(EventType::MouseMove, x + dx, y + dy);
+            puzzleUpdate(0);
+            mouse(EventType::MouseUp, x + dx, y + dy);
+            return true;
+        }
+        return false;
+    }
+    if (safe_) {
+        // 6 left, a turn right back to 6, a turn left back to 6: a press
+        // and a let go a number.
+        Safe& s = *safe_;
+        if (s.entered == 3 || !runner_->idle())
+            return false;
+        if (!arrow(s.expected == 2 ? "left" : "right"))
+            return false;
+        mouse(EventType::MouseUp, lastMouseX_, lastMouseY_);
+        return true;
+    }
+    return false;
 }
 
 } // namespace reluva::awe
