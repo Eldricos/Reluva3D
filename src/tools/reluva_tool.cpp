@@ -5434,15 +5434,21 @@ int cmdAtRun(int argc, char** argv) {
     std::vector<Click> points;
     // -step: input given when a behaviour's state starts waiting for an
     // event (BehaviorComp's DDBehavior::registerEvent): `event[+delay]@
-    // click:x,y | point:x,y | key:vk | buttons` (the last lists them). Each time the event is waited for,
+    // click:x,y | point:x,y | key:vk | drag:x,y,x2,y2 | buttons` (the last
+    // lists them). Each time the event is waited for,
     // the next action given for it is taken, `delay` frames on (3 if none);
     // a listing of the buttons is given each time.
     struct StepAction {
         uint32_t event;
         int delay = 3;
-        char kind; // 'c'lick, 'p'oint, 'k'ey, 'b'uttons (list them)
-        int x = -1, y = -1;
+        char kind; // 'c'lick, 'p'oint, 'k'ey, 'd'rag, 'b'uttons (list them)
+        int x = -1, y = -1, x2 = -1, y2 = -1;
     };
+    struct Hold {
+        uint64_t frame;
+        uint64_t frames;
+    };
+    std::vector<Hold> holds;
     std::vector<StepAction> stepActions;
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
@@ -5494,12 +5500,15 @@ int cmdAtRun(int argc, char** argv) {
             const std::string action = at == std::string::npos ? "" : v.substr(at + 1);
             st.kind = action.empty() ? 0 : action[0];
             const size_t colon = action.find(':');
-            if (colon != std::string::npos && st.kind == 'k')
+            if (colon != std::string::npos && st.kind == 'd')
+                std::sscanf(action.c_str() + colon + 1, "%d,%d,%d,%d", &st.x, &st.y, &st.x2, &st.y2);
+            else if (colon != std::string::npos && st.kind == 'k')
                 st.x = int(std::strtol(action.c_str() + colon + 1, nullptr, 0));
             else if (colon != std::string::npos)
                 std::sscanf(action.c_str() + colon + 1, "%d,%d", &st.x, &st.y);
-            if (st.kind != 'c' && st.kind != 'p' && st.kind != 'k' && st.kind != 'b') {
-                std::fprintf(stderr, "-step: event[+delay]@click:x,y|point:x,y|key:vk|buttons, not %s\n", v.c_str());
+            if (st.kind != 'c' && st.kind != 'p' && st.kind != 'k' && st.kind != 'd' && st.kind != 'b') {
+                std::fprintf(stderr, "-step: event[+delay]@click:x,y|point:x,y|key:vk|drag:x,y,x2,y2|buttons, not %s\n",
+                             v.c_str());
                 return 2;
             }
             stepActions.push_back(st);
@@ -5613,6 +5622,12 @@ int cmdAtRun(int argc, char** argv) {
         for (const Click& k : moves)
             if (f.number == k.frame)
                 p.mouseMoveTo(p.cursorX + k.x, p.cursorY + k.y);
+        for (const Hold& h : holds) { // a drag: the button held from frame to frame + frames
+            if (f.number == h.frame)
+                p.mouseButton(0, true);
+            else if (f.number == h.frame + h.frames)
+                p.mouseButton(0, false);
+        }
         for (const Click& k : clicks) {
             if (f.number == k.frame) {
                 if (k.x >= 0 && k.y >= 0)
@@ -5832,7 +5847,14 @@ int cmdAtRun(int argc, char** argv) {
                     const uint64_t at = framesShown + uint64_t(it->delay);
                     std::printf("step %x waited for on frame %llu: %c %d,%d on frame %llu\n", event,
                                 (unsigned long long)framesShown, it->kind, it->x, it->y, (unsigned long long)at);
-                    if (it->kind == 'k') {
+                    if (it->kind == 'd') { // press, move there over 20 frames, release
+                        constexpr int kSteps = 20;
+                        points.push_back({at, it->x, it->y});
+                        for (int i = 1; i <= kSteps; ++i)
+                            points.push_back({at + 2 + uint64_t(i), it->x + (it->x2 - it->x) * i / kSteps,
+                                              it->y + (it->y2 - it->y) * i / kSteps});
+                        holds.push_back({at + 2, kSteps + 4});
+                    } else if (it->kind == 'k') {
                         keys.push_back({at, it->x, 0});
                     } else {
                         points.push_back({at, it->x, it->y});
