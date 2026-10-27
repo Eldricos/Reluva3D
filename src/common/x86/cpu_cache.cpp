@@ -4,17 +4,20 @@
 // The decoded-instruction cache. Each instruction's address has an entry,
 // direct-mapped, made the first time it runs: its operands decoded once
 // (the ModRM operand as base, index, scale and displacement; the
-// immediate), and a handler that runs it. The instructions programs run
+// immediate), and a handler that runs it, in blocks that run straight
+// through. The instructions programs run
 // most (moves, the ALU operations, pushes and pops, jumps, calls and
 // returns, LEA, MOVZX/MOVSX, shifts, SETcc) have handlers of their own;
 // the rest, and those with prefixes other than FS, run from their bytes
-// as before (Cpu::execute). An entry keeps its instruction's bytes and is
+// as before (Cpu::execute). A block keeps its instructions' bytes and is
 // remade when they've changed, however they were written (a program's
 // loader copying code with a native memcpy, say).
 
 #include "common/x86/cpu.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <utility>
 
 namespace reluva::x86 {
@@ -453,31 +456,81 @@ struct CachedOps {
 };
 
 // Runs instructions from the cache until one returns to `returnAddress` or
-// goes to a native.
+// goes to a native. A block's instructions run one after another: only its
+// last can go elsewhere.
 void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
-    if (cache_.empty())
-        cache_.resize(kCacheEntries);
+    if (blocks_.empty())
+        blocks_.resize(kBlockEntries);
     const uint64_t end = limit_ ? limitAt_ : ~uint64_t(0);
-    Cached* const cache = cache_.data();
+    Block* const blocks = blocks_.data();
     const uint8_t* const memory = memory_.data();
     do {
-        instructionStart_ = eip;
-        if (++executed_ > end)
-            fault("instruction limit reached");
-        if (stop_.load(std::memory_order_relaxed))
+        if (stop_.load(std::memory_order_relaxed)) { // counted, as one instruction at a time did
+            instructionStart_ = eip;
+            if (++executed_ > end)
+                fault("instruction limit reached");
             fault("stopped");
-        Cached& e = cache[(eip ^ (eip >> 17)) & (kCacheEntries - 1)];
-        uint64_t now[2];
-        std::memcpy(now, memory + eip, 16);
-        if (e.tag != eip || ((now[0] ^ e.code[0]) & e.mask[0]) | ((now[1] ^ e.code[1]) & e.mask[1]))
-            decode(e);
-        e.run(*this, e);
+        }
+        Block& b = blocks[(eip ^ (eip >> 15)) & (kBlockEntries - 1)];
+        bool fresh = b.start == eip;
+        if (fresh) {
+            uint64_t differ = 0;
+            const int last = b.words - 1;
+            for (int w = 0; w < last; ++w) {
+                uint64_t now;
+                std::memcpy(&now, memory + eip + 8 * uint32_t(w), 8);
+                differ |= now ^ b.code[w];
+            }
+            uint64_t now;
+            std::memcpy(&now, memory + eip + 8 * uint32_t(last), 8);
+            differ |= (now ^ b.code[last]) & b.lastMask;
+            fresh = differ == 0;
+        }
+        if (!fresh)
+            build(b, eip);
+        const Cached* e = b.ops;
+        const Cached* const last = e + b.count - 1;
+        for (;; ++e) {
+            instructionStart_ = eip;
+            if (++executed_ > end)
+                fault("instruction limit reached");
+            e->run(*this, *e);
+            if (e == last)
+                break;
+        }
     } while (eip != returnAddress && eip < nativeStart);
 }
 
-// Makes the entry for the instruction at eip: a handler of its own if it's
+// Makes the block that starts at `at`: its instructions up to the first
+// that may go elsewhere (or runs from its bytes), at most kBlockOps of
+// them and 8 * kBlockWords bytes.
+void Cpu::build(Block& b, uint32_t at) {
+    b.start = at;
+    b.count = 0;
+    uint32_t bytes = 0;
+    for (;;) {
+        Cached& e = b.ops[b.count++];
+        decode(e, at + bytes);
+        bytes += e.length;
+        if (e.ends || b.count == kBlockOps || bytes + 16 > 8 * kBlockWords)
+            break;
+    }
+    // An instruction run from its bytes has length 0: the block's bytes are
+    // those before it.
+    b.bytes = uint8_t(bytes);
+    b.words = uint8_t(std::max<uint32_t>(1, (bytes + 7) / 8));
+    const uint32_t tail = bytes - 8 * (b.words - 1u);
+    b.lastMask = tail >= 8 ? ~uint64_t(0) : (uint64_t(1) << (8 * tail)) - 1;
+    if (!valid(at, 8u * b.words)) { // never checked again: rebuilt each time
+        b.start = 0xffffffffu;
+        return;
+    }
+    std::memcpy(b.code, memory_.data() + at, 8u * b.words);
+}
+
+// Makes the entry for the instruction at `at`: a handler of its own if it's
 // one of those that have one, else one that runs it from its bytes.
-void Cpu::decode(Cached& e) {
+void Cpu::decode(Cached& e, uint32_t at) {
     using O = CachedOps;
     using Handler = Cached::Handler;
     // Handlers by operand size (1, 2, 4 bytes), operation and condition.
@@ -503,11 +556,11 @@ void Cpu::decode(Cached& e) {
 #undef RELUVA_BY_R
 
     e = Cached{};
-    e.tag = eip;
     e.run = &O::legacy;
-    if (!valid(eip, 16))
+    e.ends = true;
+    if (!valid(at, 16))
         return;
-    const uint8_t* p = memory_.data() + eip;
+    const uint8_t* p = memory_.data() + at;
     size_t i = 0;
     bool o16 = false; // an operand-size prefix
     for (;; ++i) {
@@ -776,20 +829,16 @@ void Cpu::decode(Cached& e) {
         }
     }
     if (!run || (o16 && !sized)) { // from its bytes, each time
-        const uint32_t tag = e.tag;
         e = Cached{};
-        e.tag = tag;
         e.run = &O::legacy;
+        e.ends = true;
         return;
     }
     e.run = run;
     e.length = uint8_t(i);
-    uint8_t mask[16]{};
-    std::memset(mask, 0xff, i);
-    std::memcpy(e.code, p, 16);
-    std::memcpy(e.mask, mask, 16);
-    e.code[0] &= e.mask[0];
-    e.code[1] &= e.mask[1];
+    e.ends = run == &O::call || run == &O::callRm || run == &O::jmp || run == &O::jmpRm || run == &O::ret;
+    for (Handler j : kJcc)
+        e.ends = e.ends || run == j;
 }
 
 } // namespace reluva::x86

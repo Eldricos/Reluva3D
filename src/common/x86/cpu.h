@@ -204,24 +204,35 @@ private:
     uint32_t instructionStart_ = 0;
     uint64_t executed_ = 0, limit_ = 0, limitAt_ = 0;
     std::atomic<bool> stop_{false};
-    // The decoded-instruction cache (cpu_cache.cpp): direct-mapped by
-    // address.
+    // The decoded-instruction cache (cpu_cache.cpp): blocks of
+    // instructions, direct-mapped by their first's address.
     friend struct CachedOps;
     struct Cached {
         using Handler = void (*)(Cpu&, const Cached&);
-        uint32_t tag = 0xffffffffu; // the instruction's address
         Handler run = nullptr;
         uint32_t disp = 0, imm = 0; // the memory operand's displacement; the immediate
         uint8_t length = 0;         // its bytes' count (0: run from them each time)
-        uint64_t code[2]{}, mask[2]{}; // its bytes, which must still be there, and which of these 16 they are
         uint8_t reg = 0, rm = 0, sub = 0; // ModRM's reg field, a register operand, the operation
         int8_t base = -1, index = -1;     // the memory operand's registers (-1: none)
         uint8_t scale = 0;
         bool mem = false, fs = false; // a memory operand; FS's base added
+        bool ends = false;            // it may go elsewhere (or runs from its bytes): its block's last
     };
-    static constexpr uint32_t kCacheEntries = 1u << 17;
-    std::vector<Cached> cache_;
-    void decode(Cached& e);
+    // Instructions run one after another: those up to the first that may go
+    // elsewhere. Valid while its bytes are still there (code, the first
+    // `words` 8-byte words from start, the last masked to `bytes`).
+    static constexpr int kBlockOps = 16, kBlockWords = 8;
+    struct Block {
+        uint32_t start = 0xffffffffu;
+        uint8_t count = 0, bytes = 0, words = 0;
+        uint64_t lastMask = 0;
+        uint64_t code[kBlockWords]{};
+        Cached ops[kBlockOps];
+    };
+    static constexpr uint32_t kBlockEntries = 1u << 15;
+    std::vector<Block> blocks_;
+    void decode(Cached& e, uint32_t at);
+    void build(Block& b, uint32_t at);
     int depth_ = 0;
     std::string abort_;
     bool yield_ = false;
