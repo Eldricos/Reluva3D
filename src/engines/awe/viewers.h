@@ -443,6 +443,14 @@ private:
     ScriptRunner* soundRunner_ = nullptr; // waiting on a "sound"
     audio::SoundHandle soundWaited_ = audio::kNoSound;
     bool interfaceOff_ = false;
+    // The letterbox (0x416ef0): black bars along the top and the bottom,
+    // `height` pixels each; mode 0 off, 1 on, 2 sliding in, 3 sliding out
+    // (the runner waiting for those).
+    struct Letterbox {
+        int mode = 0;
+        float height = 0;
+        ScriptRunner* runner = nullptr;
+    } letterbox_;
     bool drawing_ = true;
     // The interface (scene_interface.cpp; docs/formats/awe/interface.md):
     // the bar along the top, the inventory window and its pages, the item

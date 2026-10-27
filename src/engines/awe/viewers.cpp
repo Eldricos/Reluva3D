@@ -781,6 +781,7 @@ void ScenePage::newGame() {
     movieRunner_ = nullptr;
     soundRunner_ = nullptr;
     interfaceOff_ = false;
+    letterbox_ = Letterbox();
     ui_ = Interface();
     sceneShown_ = true;
     load_ = LocationLoad();
@@ -1376,6 +1377,14 @@ void ScenePage::draw() {
     // 0x418040): under the dialogue box.
     if (drawing_ && !load_.screen && !movie_) {
         drawInterface();
+        // The letterbox over the bar, under a card (0x416ff0, at
+        // 0x4155ef): black, from just above the top and up from the
+        // bottom.
+        if (letterbox_.mode != 0) {
+            const int h = int(letterbox_.height);
+            fill(0, 0, kScreenW, h, Color{0, 0, 0}, 255);
+            fill(0, kScreenH - h, kScreenW, h, Color{0, 0, 0}, 255);
+        }
         drawCards();
     }
     if (dialogue_->boxShown() && ctx_.fonts) {
@@ -1517,6 +1526,21 @@ void ScenePage::update(uint64_t nowMs) {
     }
     if (playing_)
         story_->update(dt);
+    if (letterbox_.mode >= 2) {
+        // 250 pixels a second, to 70 or to nothing (0x416f40).
+        Letterbox& l = letterbox_;
+        const bool in = l.mode == 2;
+        l.height = in ? l.height + dt * 250 : l.height - dt * 250;
+        if (in ? l.height >= 70 : l.height <= 0) {
+            l.height = in ? 70.0f : 0.0f;
+            l.mode = in ? 1 : 0;
+            if (ScriptRunner* r = l.runner) {
+                l.runner = nullptr;
+                r->finished("letterbox");
+            }
+        }
+        draw();
+    }
     if (fade_ != fadeTarget_) {
         fade_ = fadeTarget_ > fade_ ? std::min(fadeTarget_, fade_ + dt * 2) : std::max(fadeTarget_, fade_ - dt * 2);
         if (fade_ == fadeTarget_ && fadeRunner_) {
@@ -2882,6 +2906,27 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
         interfaceOff_ = lower(e.arg(1)) == "off" ? true : lower(e.arg(1)) == "on" ? false : interfaceOff_;
         return false;
     }
+    if (v == "letterbox") {
+        // 0x40a3db, 0x416ef0: "on" and "off" at once; "start" and "end"
+        // slide the bars in from nothing or out to it, and wait till
+        // they're there. (Nothing in the install uses it.)
+        const std::string how = lower(e.arg(1));
+        letterbox_.runner = nullptr;
+        if (how == "on")
+            letterbox_.mode = 1, letterbox_.height = 70;
+        else if (how == "off")
+            letterbox_.mode = 0;
+        else if (how == "start" || how == "end") {
+            letterbox_.mode = how == "start" ? 2 : 3;
+            if (how == "start")
+                letterbox_.height = 0;
+            letterbox_.runner = &runner;
+            draw();
+            return true;
+        }
+        draw();
+        return false;
+    }
     if (v == "accumulation" || v == "test") {
         // Snow gathering on the character set to (+0x14dc), and a
         // leftover of the earlier games (0x40c650): nothing to see here.
@@ -2989,9 +3034,14 @@ void ScenePage::handleEvent(const Event& ev) {
         draw();
         return;
     }
-    if (dialogue_->active() && (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown)) {
+    if (dialogue_->active() &&
+        (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown || ev.type == EventType::MouseWheel)) {
         if (ev.type == EventType::MouseMove)
             dialogue_->mouseMove(ev.mouseX, ev.mouseY);
+        else if (ev.type == EventType::MouseWheel)
+            dialogue_->wheel(ev.wheelY, lastMouseX_, lastMouseY_); // a notch is 120 (0x401431)
+        else if (ev.button == MouseButton::Middle)
+            dialogue_->middleClick(); // WM_MBUTTONDOWN (0x401557, 0x4163c0)
         else if (ev.button == MouseButton::Left)
             dialogue_->click(ev.mouseX, ev.mouseY);
         draw();
@@ -3042,7 +3092,8 @@ void ScenePage::handleEvent(const Event& ev) {
                 resumeAfter_ = picked;
             }
             runScript(*picked);
-        } else {
+        } else if (pickAllowed(ev.mouseY)) {
+            // The floor only where the pick could be (0x416300).
             walkTo(ev.mouseX, ev.mouseY);
         }
         return;

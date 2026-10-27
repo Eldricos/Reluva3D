@@ -1143,6 +1143,21 @@ void testDialogue() {
     if (d.choices().size() == 2) {
         CHECK(d.choices()[0].text == "The ladies?" && d.choices()[1].text == "The man?");
         d.setChoiceAreas({{640, 20}, {664, 20}});
+        // The wheel: towards the user to the next, round through nothing
+        // (no goodbye); away to the one before. Its choice stays, the
+        // cursor hidden, till the mouse moves.
+        d.wheel(-1, 100, 300);
+        CHECK(d.highlighted() == 0 && d.wheelChoosing());
+        d.wheel(-2, 100, 300);
+        CHECK(d.highlighted() == -1);
+        d.wheel(1, 100, 300);
+        CHECK(d.highlighted() == 1);
+        d.mouseMove(100, 300);
+        CHECK(d.highlighted() == 1 && d.wheelChoosing());
+        d.mouseMove(101, 300);
+        CHECK(d.highlighted() == -1 && !d.wheelChoosing());
+        d.middleClick(); // nothing highlighted: nothing taken
+        CHECK(d.choosing());
         d.click(100, 645);
     }
     CHECK(d.line() && d.line()->text == "The ladies?");

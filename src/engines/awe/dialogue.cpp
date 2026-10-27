@@ -597,6 +597,7 @@ void DialogueManager::menu(bool first, bool keepBox) {
     choosing_ = true;
     colour_ = 6;
     highlighted_ = -1;
+    wheelX_ = wheelY_ = -1;
     showBox();
 }
 
@@ -743,6 +744,7 @@ void DialogueManager::lineEnd() {
 
 // 0x43b8f0.
 void DialogueManager::end(bool keepBox) {
+    wheelX_ = wheelY_ = -1;
     choosing_ = false;
     choices_.clear();
     if (active_ && !keepBox && slide_ != 2 && boxY_ < 768) {
@@ -838,13 +840,39 @@ void DialogueManager::update(float dt) {
 }
 
 void DialogueManager::mouseMove(int x, int y) {
-    (void)x;
+    // After the wheel, its choice stays until the mouse moves (0x43d767).
+    if (wheelChoosing()) {
+        if (x == wheelX_ && y == wheelY_)
+            return;
+        wheelX_ = wheelY_ = -1;
+    }
     highlighted_ = -1;
     if (!choosing_)
         return;
     for (size_t i = 0; i < choiceRows_.size(); i++)
         if (y >= choiceRows_[i].first && y < choiceRows_[i].first + choiceRows_[i].second)
             highlighted_ = int(i);
+}
+
+void DialogueManager::wheel(int steps, int x, int y) {
+    // The choices in turn, the goodbye last (0x43cb70 on, 0x43cc30 back):
+    // round from the goodbye to the first; without one, nothing is
+    // highlighted between the last and the first.
+    const int n = int(choices_.size());
+    if (!choosing_ || n == 0 || steps == 0)
+        return;
+    const Choice& last = choices_.back();
+    const bool goodbye = last.part == part_ && part_->threads[size_t(last.thread)].code == kExit;
+    wheelX_ = x, wheelY_ = y;
+    for (; steps > 0; steps--)
+        highlighted_ = highlighted_ < 0 ? n - 1 : highlighted_ > 0 ? highlighted_ - 1 : goodbye ? n - 1 : -1;
+    for (; steps < 0; steps++)
+        highlighted_ = highlighted_ < 0 ? 0 : highlighted_ + 1 < n ? highlighted_ + 1 : goodbye ? 0 : -1;
+}
+
+void DialogueManager::middleClick() {
+    if (choosing_ && highlighted_ >= 0)
+        take(highlighted_);
 }
 
 void DialogueManager::click(int x, int y) {

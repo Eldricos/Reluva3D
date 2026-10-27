@@ -175,9 +175,8 @@ or member types beyond those Reluva reads.
 
 Next:
 
-1. The letterbox (which hides the cursor) and the mouse wheel's part in
-   conversations. The fields still known only by their offset are ones
-   the game never reads, but for the scene's `FAKE`.
+1. What the scene's `FAKE` does: the fields still known only by their
+   offset are ones the game never reads, but for it.
 2. The rest of playing the acts through (see
    [../formats/awe/acts.md](../formats/awe/acts.md#playing-the-acts-headless):
    every act starts, runs its scripts and goes on to the next as far as

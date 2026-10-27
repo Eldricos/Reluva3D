@@ -151,6 +151,17 @@ public:
     // A click: a choice, or the line cut short (after half a second).
     void click(int x, int y);
     void mouseMove(int x, int y);
+    // The mouse wheel while choosing (0x43d810, 0x43d850): `steps`
+    // notches, away from the user (> 0) to the choice before, towards
+    // (< 0) to the one after. Its choice stays until the mouse leaves
+    // (x, y).
+    void wheel(int steps, int x, int y);
+    // Whether the wheel chose last and the mouse hasn't moved since: the
+    // cursor is hidden then (0x43d7f0).
+    bool wheelChoosing() const { return wheelX_ != -1 && wheelY_ != -1; }
+    // The middle button (the wheel pressed): the highlighted choice taken
+    // (0x43d890).
+    void middleClick();
     // Without a mouse (tools): choice i taken, or the line cut short as a
     // click would; false if neither can be done now.
     bool choose(int i);
@@ -237,6 +248,7 @@ private:
     std::vector<Choice> choices_;
     std::vector<std::pair<int, int>> choiceRows_; // y, height
     int highlighted_ = -1;
+    int wheelX_ = -1, wheelY_ = -1; // where the mouse was when the wheel chose
     unsigned random_ = 1;
     int rand();
 };

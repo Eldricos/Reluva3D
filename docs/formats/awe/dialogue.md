@@ -384,11 +384,30 @@ Choices shown, in order (drawing 0x43cf90, hit test 0x43c810/0x43cce0):
    the thread +0x18 = 1.
 4. The exit thread `3`, if y < 745.
 
-Highlight: each frame in choice mode, +0x1c = the line under the mouse (unless
-keyboard navigation is in use, which saves the mouse position in
-+0x556/+0x558 until the mouse moves). Keyboard up/down: 0x43d810/0x43d850
-(0x43cc30/0x43cb70 step through the choices; which is up is not settled).
-Enter: 0x43d890. Click: 0x43d8c0 (3.6).
+Highlight: each frame in choice mode, +0x1c = the line under the mouse
+(0x43c810), unless the mouse wheel chose last (below). Click: 0x43d8c0 (3.6).
+
+The mouse wheel (`WM_MOUSEWHEEL`, 0x40142d: the delta over 120, a step a
+notch). Away from the user, 0x416380 → 0x43d810 → 0x43cc30, a choice back;
+towards, 0x4163a0 → 0x43d850 → 0x43cb70, a choice on. Each step keeps the
+mouse position in +0x556/+0x558, and the update (0x43d767) goes back to the
+line under the mouse once the mouse leaves it; while it's kept, the cursor
+is hidden (0x43d7f0, from 0x414156). The steps go through the available
+lettered threads with a line, in order, then the exit thread (`3`), and
+round:
+
+- on (0x43cb70): none highlighted → the first; the last → the exit, or
+  none without one; the exit → the first;
+- back (0x43cc30): none → the exit, or the last without one; the first →
+  the exit, or none without one; the exit → the last.
+
+The middle button (`WM_MBUTTONDOWN`, 0x401557 → 0x4163c0 → 0x43d890) takes
+the highlighted choice. The fields are reset to −1 when a menu is offered
+and when the conversation ends (0x4388ab, 0x438dfb, 0x43ba50).
+
+In Reluva (`DialogueManager::wheel`, `middleClick`) the wheel steps
+through the choices as shown, the gen extras among them; that the game's
+steps leave the extras out is possible but not checked.
 
 Choosing (0x43ba50): +0x24=0, DM+0x14 = the thread, DM+0x18 = its current
 line, play it. The choice text is therefore also the first spoken line

@@ -170,6 +170,15 @@ The runner also knows verbs that nothing in the install uses: `animate`
 Their arguments are as the install uses them; the handlers of the less
 common verbs are still to be read in detail.
 
+`letterbox on|off|start|end` (0x40a3db → the screen's 0x416ef0) puts
+black bars along the top and the bottom, 70 pixels each: `on` and `off`
+at once; `start` slides them in from nothing and `end` out to nothing, at
+250 pixels a second (0x416f40), the event lasting till they're there.
+They're drawn over the interface bar and under a card held up (0x416ff0,
+from 0x4155ef), from y −1 down and up from the bottom; while they're up
+(any mode but off) the cursor is hidden and nothing is picked or walked
+to (0x4140b0, 0x415fa0). Reluva does the same.
+
 ## Movies
 
 `movie <name> [inscene] [silent]` (`0x40a725`) plays a cutscene. The

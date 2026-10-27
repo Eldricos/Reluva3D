@@ -220,17 +220,21 @@ bool ScenePage::interfaceShown() const {
 bool ScenePage::cursorShown() const {
     // 0x4140b0: none while the interface is off, a movie or the loading
     // screen shows; else where the interface shows, in the menus, and in
-    // conversations.
+    // conversations; but not while the letterbox is up, or in a
+    // conversation while the wheel has chosen and the mouse not moved.
     if (!sceneShown_ || movie_ || load_.screen || interfaceOff_)
         return false;
-    return interfaceShown() || location_.rfind("menu.", 0) == 0 || dialogue_->active();
+    if (!interfaceShown() && location_.rfind("menu.", 0) != 0 && !dialogue_->active())
+        return false;
+    return letterbox_.mode == 0 && !(dialogue_->active() && dialogue_->wheelChoosing());
 }
 
 bool ScenePage::pickAllowed(int sy) const {
     // 0x414400, 0x415fa0: not while the screen fades, a locked script
-    // runs or a conversation goes on; not over the interface bar (the top
-    // 60 pixels while it's down, else 5: 0x417580).
-    if (!sceneShown_ || movie_ || load_.screen || fade_ != fadeTarget_ || runner_->locked() || dialogue_->active())
+    // runs, a conversation goes on or the letterbox is up; not over the
+    // interface bar (the top 60 pixels while it's down, else 5: 0x417580).
+    if (!sceneShown_ || movie_ || load_.screen || fade_ != fadeTarget_ || runner_->locked() || dialogue_->active() ||
+        letterbox_.mode != 0)
         return false;
     return sy >= (!ui_.barShown && ui_.barAlpha == 0 ? 5 : 60);
 }
