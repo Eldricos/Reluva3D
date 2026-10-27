@@ -8,7 +8,7 @@ changes in act 6A.
 
 The `.ac2` extension is also used for saves (`Text/Scripts/slot*.ac2`
 start with `DESC`). Those are a different set of records, read by
-another loader, and aren't covered here yet.
+another loader: see [saves.md](saves.md).
 
 ## How this was worked out
 
@@ -458,4 +458,3 @@ no sample mixes them. Reluva's evaluator is `testCondition`
 ## Still to find
 
 - What the unnamed fields do: compare scenes, and watch the original.
-- The save format (`DESC`, `INFO`, `GLBT`...).

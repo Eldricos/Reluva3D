@@ -69,9 +69,9 @@ scenes, two Granny files, the text tables, two backgrounds):
   is over, the `a` forms not waiting, the door macros and script files
   expanded (see [../formats/awe/script.md](../formats/awe/script.md)).
   Clicking a hotspot in the Scenes page runs its script: walks, scene
-  changes, sounds, items and tags work; dialogue and the characters'
-  animations are next. `reluva-tool awe-scripts` lists every command an
-  install's scripts use.
+  changes, sounds, items, tags, dialogue and the characters' verbs work.
+  `reluva-tool awe-scripts` lists every command an install's scripts
+  use.
 - **Dialogue: plays.** Conversations run as the game's dialogue manager
   runs them (see [../formats/awe/dialogue.md](../formats/awe/dialogue.md)):
   the opening, the choices, each line's commands, recording and text in
@@ -106,10 +106,9 @@ scenes, two Granny files, the text tables, two backgrounds):
 - **Bink movies: decoded.** Video and audio match FFmpeg's output
   exactly (see [../formats/bink.md](../formats/bink.md)) and play in the
   Movies page with their sound.
-- **The engine is a data viewer** for now, like New Worlds and Elite Force
-  were before they played. Its pages are Scenes, Models (textured,
-  animated, with the mouse to turn and zoom), Movies, Pictures, Text and
-  Sounds.
+- **Pages.** A game is played from the Scenes page (N starts one). The
+  other pages are data viewers: Models (textured, animated, with the
+  mouse to turn and zoom), Movies, Pictures, Text and Sounds.
   Tab moves between them.
 - **reluva-tool:**
   - `ac2-dump` (one scene in full, or many checked to their ends);
