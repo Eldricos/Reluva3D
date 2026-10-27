@@ -459,6 +459,20 @@ Started. Done so far:
   - A race frame costs 2.5 million, not 16 million.
   - Menu frames match softtria's to a mean of 1.7 of 255.
   - A race draws the same scene as softtria.
+- **Sound to the mixer.** The game's sound DLL (iSND) mixes in software
+  into one looping DirectSound buffer: 0.4 seconds of 22050 Hz 16-bit
+  stereo. `GameHost::soundStream()` gives that buffer to Reluva's mixer
+  as a stream (`audio::Stream`, new in `common/audio/mixer.h`):
+  - the stream reads the buffer at its play cursor, with DirectSound's
+    volume and pan;
+  - it keeps its own steady pace, resyncing only if it drifts more than
+    a tenth of a second from the cursor the game sees.
+
+  Checked with `nfs-host -wav`, which pulls the stream every 10 ms as an
+  audio device would. The front end's music (`show2.mus`) came out equal,
+  sample for sample, to Reluva's own decode of the file. Each second
+  recorded held exactly one second of the song: nothing skipped or
+  repeated. The race's countdown beeps and engine are heard too.
 
 Still to do:
 

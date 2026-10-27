@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "common/audio/mixer.h"
 #include "common/types.h"
 #include "common/x86/cpu.h"
 #include "common/x86/win32.h"
@@ -100,6 +101,13 @@ public:
     // The mouse moved by (dx, dy), or its first button pressed or let go.
     void queueMouseMove(int dx, int dy, uint64_t atMs = 0);
     void queueMouseButton(bool down, uint64_t atMs = 0);
+
+    // What the game's sound buffers play, as a stream for the mixer
+    // (thread-safe; the host must outlive it while it plays).
+    std::shared_ptr<audio::Stream> soundStream();
+    // Fills `frames` stereo frames at `rate` with what the playing buffers
+    // hold at their play cursors, from any thread.
+    void mixSound(int16_t* out, int frames, int rate);
 
 private:
     struct Message {
@@ -208,9 +216,15 @@ private:
         bool primary = false, playing = false, looping = false;
         uint64_t startMs = 0;
         uint32_t startPosition = 0;
-        int32_t volume = 0, pan = 0;
+        int32_t volume = 0, pan = 0; // hundredths of a decibel
+        // Where mixSound has got to, in frames; resynced to the play cursor
+        // when it drifts.
+        double outCursor = 0;
+        bool outSynced = false;
         uint32_t position(uint64_t nowMs);
     };
+    std::mutex soundMutex_; // soundBuffers_, between the game and the audio thread
+    std::vector<int32_t> soundMix_;
     std::map<uint32_t, DsBuffer> soundBuffers_;
     uint32_t soundBufferVtable_ = 0;
 };

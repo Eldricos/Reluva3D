@@ -31,8 +31,20 @@ SoundHandle Mixer::play(std::shared_ptr<const Sound> sound, SoundType type, int 
     const SoundHandle handle = nextHandle_++;
     if (nextHandle_ == kNoSound)
         nextHandle_ = 1;
-    channels_.push_back({handle, std::move(sound), type, std::clamp(volume, 0, kMaxVolume),
+    channels_.push_back({handle, std::move(sound), nullptr, type, std::clamp(volume, 0, kMaxVolume),
                          std::clamp(pan, -kMaxPan, kMaxPan), loop});
+    return handle;
+}
+
+SoundHandle Mixer::playStream(std::shared_ptr<Stream> stream, SoundType type, int volume) {
+    if (!stream)
+        return kNoSound;
+    std::lock_guard<std::mutex> lock(mutex_);
+    const SoundHandle handle = nextHandle_++;
+    if (nextHandle_ == kNoSound)
+        nextHandle_ = 1;
+    Channel c{handle, nullptr, std::move(stream), type, std::clamp(volume, 0, kMaxVolume), 0, true};
+    channels_.push_back(std::move(c));
     return handle;
 }
 
@@ -101,6 +113,19 @@ void Mixer::mix(int16_t* out, int frames) {
     for (Channel& c : channels_) {
         if (c.done)
             continue;
+        if (c.stream) {
+            streamBuffer_.assign(size_t(frames) * 2, 0);
+            c.stream->read(streamBuffer_.data(), frames, outputRate_);
+            const int64_t gain = int64_t(c.volume) * typeVolume_[int(c.type)];
+            const int64_t gainL = c.pan > 0 ? gain * (kMaxPan - c.pan) / kMaxPan : gain;
+            const int64_t gainR = c.pan < 0 ? gain * (kMaxPan + c.pan) / kMaxPan : gain;
+            for (int i = 0; i < frames; ++i) {
+                accumulator_[size_t(i) * 2] += int32_t(int64_t(streamBuffer_[size_t(i) * 2]) * gainL / 65536);
+                accumulator_[size_t(i) * 2 + 1] += int32_t(int64_t(streamBuffer_[size_t(i) * 2 + 1]) * gainR / 65536);
+            }
+            c.position += double(frames);
+            continue;
+        }
         const Sound& s = *c.sound;
         const size_t n = s.frames(), ch = size_t(s.channels);
         const double step = double(s.rate) / double(outputRate_);

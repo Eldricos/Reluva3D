@@ -3,6 +3,7 @@
 
 #include "tools/nfs_commands.h"
 
+#include "common/audio/wav.h"
 #include "common/events.h"
 #include "common/image.h"
 #include "engines/nfs/bnk.h"
@@ -23,6 +24,7 @@
 #include "engines/nfs/viv.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <chrono>
 #include <cstdlib>
@@ -33,6 +35,7 @@
 #include <iterator>
 #include <map>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -64,7 +67,7 @@ const char* const kUsageLines =
     "                       [-frames dir] [-every N] [-watch address]... [-watchmem address size]\n"
     "                       [-slice instructions] [-dump memory.bin] [-keys ms:key,...]\n"
     "                       (keys: enter, up, a..., click, moveDX/DY) [-framelog frames.csv]\n"
-    "                       [-timescale 0.1] [-thrashlog fromframe toframe] [-native]\n"
+    "                       [-timescale 0.1] [-thrashlog fromframe toframe] [-native] [-wav sound.wav]\n"
     "  reluva-tool nfs-survey <folder>... [-v]\n"
     "  reluva-tool nfs-page <game folder> <out.tga> <page> [key...]\n";
 
@@ -955,6 +958,7 @@ int cmdNfsHost(int argc, char** argv) {
     uint32_t watchMem = 0, watchMemSize = 0; // memory whose stores are printed
     std::string keyScript;                   // "ms:key,ms:key...": each pressed for 100 ms
     std::string frameLogFile;                // each frame's time and instructions, as CSV
+    std::string wavFile;                     // what the game's sound buffers played
     std::string framesDir;
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
@@ -981,6 +985,8 @@ int cmdNfsHost(int argc, char** argv) {
             options.timeScale = std::atof(argv[++a]);
         else if (arg == "-framelog" && a + 1 < argc)
             frameLogFile = argv[++a];
+        else if (arg == "-wav" && a + 1 < argc)
+            wavFile = argv[++a];
         else if (arg == "-keys" && a + 1 < argc)
             keyScript = argv[++a];
         else if (arg == "-slice" && a + 1 < argc)
@@ -1055,8 +1061,36 @@ int cmdNfsHost(int argc, char** argv) {
     if (Error err = host.load())
         return fail(err);
     uint32_t exitCode = 0;
+    // The sound, pulled as an audio device would: every 10 ms, what has
+    // played since.
+    reluva::audio::Sound sound;
+    sound.rate = 22050;
+    sound.channels = 2;
+    std::atomic<bool> running{true};
+    std::thread soundThread;
+    if (!wavFile.empty())
+        soundThread = std::thread([&] {
+            auto stream = host.soundStream();
+            const auto t0 = std::chrono::steady_clock::now();
+            size_t pulled = 0;
+            while (running) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                const double s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+                const size_t due = size_t(s * sound.rate);
+                if (due <= pulled)
+                    continue;
+                sound.samples.resize(due * 2);
+                stream->read(sound.samples.data() + pulled * 2, int(due - pulled), sound.rate);
+                pulled = due;
+            }
+        });
     const auto start = std::chrono::steady_clock::now();
     const Error err = host.run(exitCode);
+    running = false;
+    if (soundThread.joinable()) {
+        soundThread.join();
+        writeFile(wavFile, reluva::audio::encodePcmWav(sound));
+    }
     const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
     if (err) {
         std::printf("stopped: %s\nlast instructions:", err.message.c_str());

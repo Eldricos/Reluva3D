@@ -223,6 +223,22 @@ static void testMixer() {
     CHECK(!m.isPlaying(l) && out[0] == 0);
     // Nothing to play.
     CHECK(m.play(nullptr, SoundType::Effects) == kNoSound && m.play(make(22050, 1, {}), SoundType::Effects) == kNoSound);
+    // A stream is asked for frames at the output rate, and scaled by its volumes.
+    struct Ramp : Stream {
+        int16_t next = 0, rate = 0;
+        void read(int16_t* o, int frames, int r) override {
+            rate = int16_t(r);
+            for (int i = 0; i < frames; ++i, next += 100)
+                o[2 * i] = o[2 * i + 1] = next;
+        }
+    };
+    auto ramp = std::make_shared<Ramp>();
+    const SoundHandle st = m.playStream(ramp, SoundType::Effects, kMaxVolume / 2);
+    m.mix(out.data(), 3);
+    CHECK(ramp->rate == 22050 && out[0] == 0 && out[2] == 50 && out[5] == 100 && m.isPlaying(st));
+    m.stop(st);
+    m.mix(out.data(), 1);
+    CHECK(!m.isPlaying(st) && out[0] == 0 && m.playStream(nullptr, SoundType::Effects) == kNoSound);
 }
 
 static void testZip(const std::filesystem::path& tmp) {

@@ -15,6 +15,7 @@
 #include "engines/nfs/host/game_host.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 
 namespace reluva::nfs {
@@ -614,6 +615,75 @@ uint32_t GameHost::DsBuffer::position(uint64_t nowMs) {
     return uint32_t(at % size) / uint32_t(blockAlign) * uint32_t(blockAlign);
 }
 
+namespace {
+
+class SoundStream : public audio::Stream {
+public:
+    explicit SoundStream(GameHost& host) : host_(host) {}
+    void read(int16_t* out, int frames, int rate) override { host_.mixSound(out, frames, rate); }
+
+private:
+    GameHost& host_;
+};
+
+// DirectSound's attenuation, in hundredths of a decibel (0 down to
+// -10000), as a gain.
+double decibels(int32_t hundredths) { return std::pow(10.0, std::min(hundredths, 0) / 2000.0); }
+
+} // namespace
+
+std::shared_ptr<audio::Stream> GameHost::soundStream() { return std::make_shared<SoundStream>(*this); }
+
+void GameHost::mixSound(int16_t* out, int frames, int rate) {
+    if (frames <= 0)
+        return;
+    std::lock_guard<std::mutex> lock(soundMutex_);
+    soundMix_.assign(size_t(frames) * 2, 0);
+    const uint64_t now = process_->now();
+    const uint8_t* memory = cpu_->memory().data();
+    for (auto& [object, b] : soundBuffers_) {
+        if (b.primary || !b.size || b.blockAlign <= 0 || rate <= 0)
+            continue;
+        const uint32_t at = b.position(now);
+        if (!b.playing)
+            continue;
+        const int bytes = b.bits == 8 ? 1 : 2;
+        const uint32_t count = b.size / uint32_t(b.blockAlign);
+        if (!count || b.channels < 1 || !cpu_->valid(b.memory, b.size))
+            continue;
+        // Follow the play cursor the game sees; within a tenth of a second,
+        // keep to our own steady pace instead.
+        const double target = double(at / uint32_t(b.blockAlign));
+        double drift = std::fmod(target - b.outCursor + 1.5 * count, double(count)) - 0.5 * count;
+        if (!b.outSynced || std::fabs(drift) > b.rate / 10.0) {
+            b.outCursor = target;
+            b.outSynced = true;
+        }
+        const double gain = decibels(b.volume);
+        const double left = gain * (b.pan > 0 ? decibels(-b.pan) : 1.0);
+        const double right = gain * (b.pan < 0 ? decibels(b.pan) : 1.0);
+        const double step = double(b.rate) / double(rate);
+        auto sample = [&](uint32_t frame, int channel) {
+            const uint8_t* p = memory + b.memory + frame * uint32_t(b.blockAlign) + uint32_t(channel * bytes);
+            return bytes == 1 ? (int(p[0]) - 128) << 8 : int(int16_t(p[0] | p[1] << 8));
+        };
+        for (int i = 0; i < frames; ++i) {
+            if (b.outCursor >= double(count)) {
+                if (!b.looping)
+                    break;
+                b.outCursor = std::fmod(b.outCursor, double(count));
+            }
+            const uint32_t f = uint32_t(b.outCursor);
+            const int l = sample(f, 0), r = b.channels > 1 ? sample(f, 1) : l;
+            soundMix_[size_t(i) * 2] += int32_t(l * left);
+            soundMix_[size_t(i) * 2 + 1] += int32_t(r * right);
+            b.outCursor += step;
+        }
+    }
+    for (size_t i = 0; i < soundMix_.size(); ++i)
+        out[i] = int16_t(std::clamp<int32_t>(soundMix_[i], -32768, 32767));
+}
+
 void GameHost::addDirectSound() {
     auto ok = [](Cpu&) { return kOk; };
     auto buffer = [this](Cpu& c) -> DsBuffer* {
@@ -727,6 +797,7 @@ void GameHost::addDirectSound() {
                  b->startPosition = b->position(process_->now());
                  b->startMs = process_->now();
                  b->playing = true;
+                 b->outSynced = false;
                  b->looping = c.arg(3) & 1; // DSBPLAY_LOOPING
              }
              return kOk;
@@ -735,12 +806,16 @@ void GameHost::addDirectSound() {
              if (DsBuffer* b = buffer(c)) {
                  b->startPosition = b->size ? c.arg(1) % b->size : 0;
                  b->startMs = process_->now();
+                 b->outSynced = false;
              }
              return kOk;
          }},
-        {"SetFormat", 2, [readFormat, buffer](Cpu& c) {
-             if (DsBuffer* b = buffer(c))
+        {"SetFormat", 2, [this, readFormat, buffer](Cpu& c) {
+             if (DsBuffer* b = buffer(c)) {
                  readFormat(c, c.arg(1), *b);
+                 say("  SetFormat: " + std::to_string(b->rate) + " Hz, " + std::to_string(b->channels) + " channels, " +
+                     std::to_string(b->bits) + " bits" + (b->primary ? " (primary)" : ""));
+             }
              return kOk;
          }},
         {"SetVolume", 2, [buffer](Cpu& c) {
@@ -772,6 +847,13 @@ void GameHost::addDirectSound() {
         {"Unlock", 5, ok},
         {"Restore", 1, ok},
     };
+    // The audio thread reads the buffers too (mixSound).
+    for (Method& method : m)
+        if (method.fn)
+            method.fn = [this, fn = std::move(method.fn)](Cpu& c) {
+                std::lock_guard<std::mutex> lock(soundMutex_);
+                return fn(c);
+            };
     soundBufferVtable_ = makeVtable("IDirectSoundBuffer", m);
 
     std::vector<Method> ds = {
@@ -786,10 +868,14 @@ void GameHost::addDirectSound() {
              b.primary = c.read32(desc + 4) & 1;
              b.size = b.primary ? 22050 * 4 / 4 : c.read32(desc + 8);
              readFormat(c, c.read32(desc + 16), b);
+             say("  CreateSoundBuffer: " + std::string(b.primary ? "primary" : "secondary") + ", " +
+                 std::to_string(b.size) + " bytes, " + std::to_string(b.rate) + " Hz, " + std::to_string(b.channels) +
+                 " channels, " + std::to_string(b.bits) + " bits, flags " + std::to_string(c.read32(desc + 4)));
              b.memory = process_->memory().alloc(std::max(b.size, 16u));
              if (!b.memory)
                  return 0x8007000eu; // E_OUTOFMEMORY
              const uint32_t object = newObject(soundBufferVtable_);
+             std::lock_guard<std::mutex> lock(soundMutex_);
              soundBuffers_[object] = b;
              c.write32(c.arg(2), object);
              return kOk;
