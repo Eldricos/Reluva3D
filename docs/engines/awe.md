@@ -71,7 +71,9 @@ scenes, two Granny files, the text tables, two backgrounds):
   Clicking a hotspot in the Scenes page runs its script: walks, scene
   changes, sounds, items, tags, dialogue and the characters' verbs work.
   `reluva-tool awe-scripts` lists every command an install's scripts
-  use.
+  use, and every word of its conditions; every one is handled. Items
+  are used on hotspots and characters (U picks one, for want of the
+  inventory screen).
 - **Dialogue: plays.** Conversations run as the game's dialogue manager
   runs them (see [../formats/awe/dialogue.md](../formats/awe/dialogue.md)):
   the opening, the choices, each line's commands, recording and text in
@@ -130,6 +132,9 @@ scenes, two Granny files, the text tables, two backgrounds):
     the regression test);
   - `awe-path` (paths planned by Reluva's port and by `motoe.exe`'s code,
     compared; `-all` over every scene);
+  - `awe-acts` (every act, or developers' save, played without a window
+    or a player, as far as it goes: what the scripts ask that Reluva
+    doesn't do; `-hotspots`, `-explore n` to click on);
   - `bink-info` (a movie's header and frames; `-yuv`, `-wav`, `-tga` to
     decode it);
   - `awe-save` (a saved game's records, read and written back).
@@ -161,8 +166,17 @@ Next:
    hotspots and characters, the characters' breath and footprints
    outdoors, and `pickFirst` in picking. The fields still known only by
    their offset are ones the game never reads.
-2. Play the later acts through, to find what the scenes after the
-   opening need.
+2. The rest of playing the acts through (see
+   [../formats/awe/acts.md](../formats/awe/acts.md#playing-the-acts-headless):
+   every act starts, runs its scripts and goes on to the next as far as
+   `reluva-tool awe-acts` can take it, and the game ends from 07A).
+   Still to do: the inventory screen (items are used with U for now:
+   [../formats/awe/script.md](../formats/awe/script.md#items-in-hand)),
+   combining items from it, the scrapbook, where the passport and
+   fingerprint cards go and how they slide, the interface bar that
+   `interface off` hides, and a player's run from 01A to the end, which
+   the explorer can't do (01A's trades, 04A's eavesdropping, 04D's
+   kimono need a player who knows what to do).
 
 ## What the install holds
 

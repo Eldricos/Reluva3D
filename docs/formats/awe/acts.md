@@ -27,7 +27,7 @@ The table is tab separated, with a header row. Its columns are:
 |--------|---------|
 | Act | `01A`. A name splits into a number (everything but the last character) and a letter (A = 1). |
 | PreLoad | A script, run when the act starts (`fade out, movie teaser, movie intro`). |
-| Location to Load | A folder of `Locations` (`sirkeci.market`). |
+| Location to Load | A folder of `Locations` (`sirkeci.market`). 06A, 06B and 07A have `calais.hall ` with a space after it, which Windows drops from a folder's name. |
 | Post Load | A script, run once the location has loaded. It normally shows the first scene (`scene sirkeci.market_01 1 0, fade in, add ticket`). |
 | Time of Day | Night (1) if the cell contains `night`, otherwise day (0). |
 | Weather | 2 if it contains `blizzard`, 1 if it contains `snow`, otherwise 0. |
@@ -111,8 +111,12 @@ The walk point defaults to 1, and so does the flag.
 
 The game looks for the act's variant of the scene, `<name>_<act>.ac2`
 (`salon_01_06a`), and falls back to `<name>.ac2`. A variant is loaded on
-top of its base scene. If the scene isn't in the current location, the
-location is loaded first, behind a fade.
+top of its base scene (`0x435990`, mode 2): the base's camera and
+settings stay, even where the variant has its own (`Calais.14-15_14.02`
+in 06A and 06B); the variant's music and events are added; its objects
+are added unless the base has the same one (the same tag, file and
+place; the player by its file alone). If the scene isn't in the current
+location, the location is loaded first, behind a fade.
 
 ### Leaving a scene
 
@@ -189,3 +193,44 @@ The page then does the following:
 - `fade` takes half a second. This is a guess.
 - Movies play full screen with their subtitles, and Escape skips them
   (see [script.md](script.md#movies)).
+- `act` and every cell of `acts.txt` are handled. The Event of 08A,
+  `act09a`, isn't a command (no space), but 08A has no conditions, so it
+  never runs; 09A is a developers' test act (its "What to do" says so).
+
+## Playing the acts headless
+
+`reluva-tool awe-acts <install> [act|slotN...]` plays without a window
+and without a player. Each act is started as `act <x>` starts it (its
+PreLoad, its location, its Post Load), or each developers' save is loaded
+(`preload slotN, load`). Then the game runs on, with movies skipped,
+lines cut short and choices taken (each time the one taken least so far,
+so a quiz's wrong answers are all tried), until nothing runs. It lists
+the commands Reluva doesn't do, scenes it can't find, and events that
+never end. `-hotspots` then clicks every hotspot and character of that
+scene (and uses on it the items it asks for), each from the start again;
+`-explore n` plays on for n clicks, each the one tried least in its
+scene. `-v` prints the whole script log.
+
+With no arguments it plays every act and every developers' save; on the
+English install that takes seconds, and finds nothing Reluva doesn't do.
+What each act needed, and where the explorer got to in 600 clicks:
+
+| Act | What it does | Found and fixed |
+|-----|--------------|-----------------|
+| 01A | Sirkeci market: the opening, then trading for the tile, the bowl and the parasol | The explorer stays in the market (the trades and quizzes need answers it doesn't find). From the save in Sirkeci's hall (slot 1) it plays on through 02A and 03A into 04A. |
+| 02A | Dinner, a conversation of six parts, then `act 03a` | Plays through. |
+| 03A | Belgrade station | Reaches 04A. |
+| 04A | The Calais coach at night: the water glass, listening at doors; ends when `tag act04a >1, tag eavesdrop04a >4` | Listening at doors needs `(use waterglass \| tag autoeavesdrop nouse)`: brackets and `use` in conditions. |
+| 04B, 04C | Peeping out of the door | Each goes on to 04D. The dialogue's `terminate` and the like had been logged as not done. |
+| 04D | The scarlet kimono | The woman is clickable only during `unlock, wait 6.25, lock`: the runner's lock. |
+| 05A | The challenge; ends on `tag act05a` | Reaches 05B. |
+| 05B, 05C | The murder scene; the ashes puzzle | The fingerprint cards and passports (`startprint`, `startpass`). |
+| 06A, 06B | Restoring the heat; evidence | Dragomiroff's room in 06A and 06B was a dead end: its variant has a camera, so its base's door was lost. `cantalk` decides between conversations. |
+| 07A | Poirot thinks; Barnaby's radio (`timer`, `time 60`) | From the developers' last save (slot 14) it plays on through 08A's three solutions, the coda and the credits to the main menu. |
+| 08A | The three solutions, as quizzes | `(!tag failsuspects), tag winsuspects`: a condition in brackets in a script. |
+| 09A | A test act in the forest | Runs. |
+
+Throughout: `gen_characters.txt`, every character's generic lines and
+goodbyes, had been skipped (its first heading is a name, and Reluva read
+the tables by their headings); and missing tags compared as missing
+rather than as -99.

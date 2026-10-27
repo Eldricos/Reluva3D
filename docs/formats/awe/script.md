@@ -52,6 +52,33 @@ not.)
 `setchar <name>` chooses the character that later events
 (`walk`, `turn`, `anim`, `look`...) act on.
 
+## Conditions in scripts
+
+`0x408c80`, which every script goes through (a click's, a scene's event,
+an act's cells), lets a condition in brackets stand among the commands:
+
+    dooropen sp1 L 2, scene athens.hall_03 5 0, fade in, (tag hardman06bend >3, has printhardman), tag hardmanhide
+
+The condition (which may hold commas: the commands are joined back until
+the `)`) is tested there and then, as the script is added, not when the
+commands run. Until the next condition in brackets, the commands after it
+are added only if it held. `(!tag failsuspects), tag winsuspects, tag
+challengescore +1` in the third solution's table works the same way.
+
+## Clicks while a script runs
+
+The runner keeps a lock (`+8`). When an event starts it's set, unless
+the verb is `walk`, `run` or `rotate`, or the event done last was an
+`unlock` (`0x409d06`; `+0x10` holds the verb done last). It's cleared
+when the queue runs dry (`0x409c4e`), and `lock` and `unlock` set and
+clear it.
+
+A click is refused while the lock is set. One taken while a script runs
+(during the walk that starts most hotspots' scripts, or after `unlock`)
+drops what was queued (`0x409760`) and runs its own. The kimono scene
+uses this: `wait 6.25, unlock, wait 6.25, lock`, the woman clickable only
+in between.
+
 ## As events are added
 
 `0x409024` treats three verbs specially:
@@ -101,32 +128,36 @@ scenes, menus).
 | `act` | 175 | act (`06a`) | the act changes (`0x422580`): [acts.md](acts.md) |
 | `terminate` | 174 | | ends the conversation (in dialogue event files) |
 | `update` | 149 | | the scene looks at its objects' conditions again (`0x436280`) |
-| `restore` | 130 | item | the inventory (`0x419fb0`); to read |
+| `restore` | 130 | item, `all` | an item used up back in the bag (`0x41c320`); `all`: what `remove all` took, the small key gone and the tag `securityunlocked` removed (`0x41c430`) |
 | `dooropen` | 113 | point, side, sound | macro: above |
-| `stop` | 75 | sound | stops a looping sound |
+| `stop` | 75 | sound | stops the first sound playing whose file has the name in it (`0x4251c0`) |
 | `savescene` | 57 | `this`, walk point, flag | remembers a scene to come back to (`gotoscene`): [acts.md](acts.md) |
 | `movie` | 51 | movie, `inscene`/`silent` | plays `Movies\<name>.bik`; waits |
 | `pause`, `resume` | 48, 46 | character | stops and restarts a character's own behaviour |
 | `advance` | 46 | | (dialogue) |
-| `sound` | 39 | sound | plays a sound; waits |
+| `sound` | 39 | sound, `loop` | plays `sound\<name>.wav`, looping with `loop`; waits till it's over (`0x40bd45`, `0x425400`) |
 | `hide`, `show` | 39, 5 | object, `this`, a picture's file | hides or shows a scene object |
 | `removetag` | 36 | tag | removes a tag: `tag x` no longer holds |
 | `doorlocked` | 34 | point, side, sound | macro: above |
 | `timer` | 32 | name | starts a timer; `timer name >60` in conditions |
 | `walka`, `rotatea` | 32, 30 | as `walk`, `rotate` | without waiting |
 | `gotoscene` | 24 | | goes back to the scene `savescene` kept |
-| `startprint`, `endprint` | 23 | | the fingerprint puzzle's screens |
+| `startprint`, `endprint` | 23 | | a fingerprint card held up: `inventory\interface\print.png` slides in, `fingerprint.wav` (`0x417ba0`); slides out (`0x418090`) |
 | `action` | 21 | `left`, `right`, `load`... | the menus' buttons |
-| `startpass`, `endpass` | 18 | character | the passports' screen |
+| `startpass`, `endpass` | 18 | character | a passport held up: `card.png` with `inventory\items\pass<who>\exapass<who>.png`, `passport.wav`; both wait for the slide |
 | `attach`, `detach` | 17, 15 | object | puts `models\objects\<name>_model.gr2` in the character's hand |
 | `leavebox`, `nobox` | 16, 4 | | the dialogue box |
 | `load`, `preload`, `menu` | 14, 10, 6 | slot | saved games and the menus |
-| `use` | 12 | item | uses an item |
-| `remove`, `add` | 7, 3 | item | takes an item away, gives one (`remove all`) |
+| `use` | 12 | item | the item used up (state 4), if it's in the bag or in hand (`0x41c160`) |
+| `remove`, `add` | 7, 3 | item | takes an item away (`0x41c260`); `remove all` takes everything carried away, to state 7 (`0x41c3e0`); `add` gives one, in the bag (`0x419ca0`); `take` gives it as just taken (1). Passports and fingerprint cards (names starting `pass`, `print`) go to states 5 and 6 |
 | `run`, `runa` | 6, 1 | cell | as `walk`, running |
 | `previous` | 6 | | the scene before |
 | `yesno` | 2 | text, value | the yes/no box (`yesno quit2 0`) |
-| `interface`, `accumulation`, `unlock`, `lock`, `reset`, `time`, `test` | 1-2 | | |
+| `interface` | 2 | `on`, `off` | the interface hidden for a cutscene (`[0x4986f4]`) |
+| `accumulation` | 2 | `on`, `off` | snow gathering on the character (`+0x14dc`) |
+| `lock`, `unlock` | 1, 2 | | clicks refused, or taken while what follows runs (above) |
+| `advance`, `terminate`, `juncture`, `leavebox`, `nobox` | 46, 174 | | the dialogue's, read from a line's Povent ([dialogue.md](dialogue.md)); as events they end at once |
+| `reset`, `time`, `test` | 1-2 | | `test` is a leftover of the earlier games (`0x40c650`: an apple press, radios) |
 
 The runner also knows verbs that nothing in the install uses: `animate`
 (only in the `dooropen` macro), `clear`, `globalhide`, `globalshow`,
@@ -171,13 +202,34 @@ game's movie object is `0x42ac00..0x42af10`.
 When the program starts, it queues `musica motoetheme, movie logos
 inscene` before the main menu (see [acts.md](acts.md)).
 
+## Items in hand
+
+Clicking with an item in hand (state 3) on an object (`0x41c050`):
+
+1. The object's conditional scripts are looked at in use mode
+   (`0x40e7e0`): only those whose condition has `use` in it (so `tag x
+   nouse` too). The first that holds runs; the item is used up (state 4),
+   or back in the bag if the script has `restore this`. Most scripts
+   `restore` the item themselves.
+2. Otherwise, on a character: the first row of `Text\uselist.txt` for
+   the item, whose character's name with `_model` is in the character's
+   model file, and whose Condition holds (`0x41c4b0`). Its Event runs and
+   the item is used up.
+3. Otherwise Antoinette says she can't (`talk gen_cantuse 1`), and the
+   item stays in hand.
+
+Combining (`0x418cf0`): the row of `Text\combinelist.txt` whose parts are
+exactly the items put together, in any order. The parts are used up, the
+results given (just taken), and the Event runs.
+
 ## In Reluva
 
 `ScriptRunner` (`src/engines/awe/script.cpp`) is the runner: the queue,
 done and waiting, the `a` forms, `wait`, the macros and script files. It
 does the state verbs itself (`tag`, `removetag`, `add`, `remove`,
-`clear`, `timer`, `time`, `reset`, `savescene`, `weather`, `setchar`) on
-a `GameState`, the one
+`restore`, `use`, `clear`, `timer`, `time`, `reset`, `savescene`,
+`weather`, `setchar`, `lock`, `unlock`, and the dialogue's) on a
+`GameState`, the one
 [conditions](ac2.md#conditions) test. The rest go to a `ScriptHost`.
 
 For now the Scenes page is that host. A click on a hotspot runs its
@@ -186,7 +238,13 @@ It does `walk` and `run` (along the game's paths, to cells, walk points
 or characters), `talk` (with the dialogue manager: [dialogue.md](dialogue.md)),
 `act` and `scene`/`gotoscene` (with `Story`: [acts.md](acts.md)), `fade`,
 `movie` and `musica` (above),
-`sound`/`sounda`, `hide`, `show`, `take` and `update`, and the
+`sound`/`sounda` and `stop`, `hide`, `show`, `take` and `update`,
+`startpass`/`startprint` (the card shown in the middle, at once: where
+and how fast it slides is still to see), and the
 characters' verbs (`anim`, `turn`, `look`, `rotate`, `animate`, `pause`,
 `resume`, `loop`, `attach`, `detach`: [characters.md](characters.md)).
 It logs the rest in its info panel and ends them at once.
+
+Items are used as above (`src/engines/awe/scene_inventory.cpp`). There's
+no inventory screen yet: U picks the next item Poirot has to hold, and
+the next click uses it.
