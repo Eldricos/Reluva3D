@@ -48,8 +48,8 @@ public:
     Error run() override {
         if (Error err = files_.open(target_.path))
             return err;
-        // The models need the game's granny2.dll (for decompressing them);
-        // without it the other pages still work.
+        // The models need the game's granny2.dll (for their textures and
+        // compressed curves); without it the other pages still work.
         std::unique_ptr<awe::GrannyDll> granny;
         if (const auto dll = fs::findFile(target_.path, "granny2.dll")) {
             std::ifstream in(*dll, std::ios::binary);

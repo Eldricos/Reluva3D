@@ -16,8 +16,8 @@
 
 namespace reluva::awe {
 
-// Reads a .gr2 file from the game's files, decompressed by the DLL.
-Error openGr2(const Archive& files, const std::string& name, GrannyDll& dll, Gr2File& out);
+// Reads a .gr2 file from the game's files.
+Error openGr2(const Archive& files, const std::string& name, Gr2File& out);
 
 // A model with its textures on the GPU.
 class GpuModel {

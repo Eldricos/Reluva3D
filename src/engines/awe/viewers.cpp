@@ -873,7 +873,7 @@ void ScenePage::loadCharacters() {
         if (found == models_.end()) {
             Gr2File gr2;
             Model model;
-            Error e = openGr2(ctx_.files, file, *ctx_.granny, gr2);
+            Error e = openGr2(ctx_.files, file, gr2);
             if (!e)
                 e = loadModel(gr2, ctx_.granny, model);
             if (e) {
@@ -933,7 +933,7 @@ void ScenePage::loadCharacters() {
                 if (ctx_.files.has(path)) {
                     Gr2File gr2;
                     anim = std::make_shared<Animation>();
-                    if (openGr2(ctx_.files, path, *ctx_.granny, gr2) || awe::loadAnimation(gr2, *anim, ctx_.granny))
+                    if (openGr2(ctx_.files, path, gr2) || awe::loadAnimation(gr2, *anim, ctx_.granny))
                         anim.reset();
                 }
                 a = animations_.emplace(path, anim).first;
@@ -2048,7 +2048,7 @@ std::shared_ptr<GpuModel> ScenePage::propModel(const std::string& file) {
         Gr2File gr2;
         Model m;
         std::shared_ptr<GpuModel> gpu;
-        if (ctx_.files.has(file) && !openGr2(ctx_.files, file, *ctx_.granny, gr2) && !loadModel(gr2, ctx_.granny, m))
+        if (ctx_.files.has(file) && !openGr2(ctx_.files, file, gr2) && !loadModel(gr2, ctx_.granny, m))
             gpu = std::make_shared<GpuModel>(*renderer_, std::move(m));
         found = models_.emplace(file, gpu).first;
     }

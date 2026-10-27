@@ -77,13 +77,11 @@ bool loadGranny(const std::filesystem::path& near, const std::string& given, awe
 }
 
 int cmdGr2Info(int argc, char** argv) {
-    std::string file, dllPath;
+    std::string file;
     unsigned maxElements = 4;
     bool tree = false;
     for (int i = 2; i < argc; i++) {
-        if (std::strcmp(argv[i], "-dll") == 0 && i + 1 < argc)
-            dllPath = argv[++i];
-        else if (std::strcmp(argv[i], "-t") == 0)
+        if (std::strcmp(argv[i], "-t") == 0)
             tree = true;
         else if (std::strcmp(argv[i], "-n") == 0 && i + 1 < argc)
             maxElements = unsigned(std::strtoul(argv[++i], nullptr, 10)), tree = true;
@@ -91,19 +89,14 @@ int cmdGr2Info(int argc, char** argv) {
             file = argv[i];
     }
     if (file.empty()) {
-        std::fprintf(stderr, "usage: reluva-tool gr2-info <file.gr2> [-t] [-n elements] [-dll granny2.dll]\n");
+        std::fprintf(stderr, "usage: reluva-tool gr2-info <file.gr2> [-t] [-n elements]\n");
         return 2;
     }
     std::vector<uint8_t> data;
     if (!readFile(file, data))
         return 1;
-    awe::GrannyDll dll;
-    awe::Gr2Decompressor decompress;
-    if (loadGranny(file, dllPath, dll))
-        decompress = [&dll](uint32_t format, const std::vector<uint8_t>& in, uint32_t stop0, uint32_t stop1,
-                            std::vector<uint8_t>& out) { return dll.decompress(format, in, stop0, stop1, out); };
     awe::Gr2File gr2;
-    const reluva::Error err = gr2.open(data, decompress);
+    const reluva::Error err = gr2.open(data);
     std::printf("format %u, type tag 0x%08x, %zu sections\n", gr2.version(), gr2.typeTag(), gr2.sections().size());
     static const char* const kCompression[] = {"none", "Oodle0", "Oodle1"};
     for (size_t i = 0; i < gr2.sections().size(); i++) {
@@ -121,17 +114,15 @@ int cmdGr2Info(int argc, char** argv) {
     return 0;
 }
 
-// Opens a .gr2 file, decompressing it with the granny2.dll found near it.
+// Opens a .gr2 file, and loads the granny2.dll found near it (for its
+// textures and compressed curves).
 bool openGr2(const std::string& file, awe::GrannyDll& dll, awe::Gr2File& gr2) {
     std::vector<uint8_t> data;
     if (!readFile(file, data))
         return false;
     if (!dll.loaded() && !loadGranny(file, "", dll))
         return false;
-    const reluva::Error err = gr2.open(data, [&dll](uint32_t format, const std::vector<uint8_t>& in, uint32_t stop0,
-                                                    uint32_t stop1, std::vector<uint8_t>& out) {
-        return dll.decompress(format, in, stop0, stop1, out);
-    });
+    const reluva::Error err = gr2.open(data);
     if (err) {
         std::fprintf(stderr, "%s: %s\n", file.c_str(), err.message.c_str());
         return false;
@@ -735,10 +726,10 @@ int aweToolCommand(int argc, char** argv) {
 }
 
 const char* aweToolUsage() {
-    return "  reluva-tool awe-check <game folder> [-gr2|-ac2|-text|-bik] [-only text] [-textures] [-j threads] [-v]\n"
+    return "  reluva-tool awe-check <game folder> [-gr2|-ac2|-text|-bik|-oodle] [-only text] [-textures] [-j threads] [-v]\n"
            "  reluva-tool awe-camera <game folder> <scene.ac2> [x y z]...\n"
            "  reluva-tool bink-info <file.bik> [-frames]\n"
-           "  reluva-tool gr2-info <file.gr2> [-t] [-n elements] [-dll granny2.dll]\n"
+           "  reluva-tool gr2-info <file.gr2> [-t] [-n elements]\n"
            "  reluva-tool awe-table <file.txt>\n"
            "  reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds|movies> <out.tga> [key...]\n"
            "  reluva-tool ac2-dump <scene.ac2>...\n"

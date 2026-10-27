@@ -7,12 +7,11 @@
 
 namespace reluva::awe {
 
-Error openGr2(const Archive& files, const std::string& name, GrannyDll& dll, Gr2File& out) {
+Error openGr2(const Archive& files, const std::string& name, Gr2File& out) {
     std::vector<uint8_t> data;
     if (Error err = files.read(name, data))
         return err;
-    return out.open(data, [&dll](uint32_t format, const std::vector<uint8_t>& in, uint32_t stop0, uint32_t stop1,
-                                 std::vector<uint8_t>& o) { return dll.decompress(format, in, stop0, stop1, o); });
+    return out.open(data);
 }
 
 GpuModel::GpuModel(gfx::Renderer3D& renderer, Model model) : renderer_(renderer), model_(std::move(model)) {
