@@ -226,8 +226,11 @@ Error loadModel(const Gr2File& file, Model& out) {
                 dst.weights[k] = weighted ? float(src.number("BoneWeights", k)) : (k == 0 ? 1.0f : 0.0f);
             }
             // A rigid mesh (no weights) follows its first binding.
-            if (!src.member("BoneIndices") && !bindings.empty())
-                dst.bones[0] = bindings[0];
+            if (!src.member("BoneIndices")) {
+                out_mesh.rigid = true;
+                if (!bindings.empty())
+                    dst.bones[0] = bindings[0];
+            }
             out_mesh.vertices.push_back(dst);
         }
         const Gr2Object topology = mesh.object("PrimaryTopology");

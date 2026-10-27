@@ -61,6 +61,10 @@ struct ModelMesh {
         uint32_t firstIndex = 0, indexCount = 0;
     };
     std::vector<Group> groups;
+    // Its vertices have no bones of their own: the whole mesh follows its
+    // first binding (Granny's rigid mesh; the game asks GrannyMeshIsRigid,
+    // 0x427ff5).
+    bool rigid = false;
 };
 
 struct Model {
