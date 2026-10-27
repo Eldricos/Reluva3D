@@ -398,6 +398,33 @@ Progress:
     middle (`DDStreamingAudioManager::UpdateBuffers`, `InitStreamData`).
     With every event read as set, it raced through the file, and the
     first line ended after about 3 seconds.
+  - From there the training is a guided tour. Each step plays a line,
+    then waits for the player to do one thing. The interface's behaviour
+    (PE0300, behaviour `3c3140`) enters a state for each step, and its
+    `DDState::registerEvts` names the events the step waits for. Each event in
+    the range `0xea60`..`0xea7d` is sent only in training: the level's
+    `Training` option is set, read by `DDSpace::GetOptionValue`. Each one
+    comes from the code for one player action. The steps so far, all
+    checked with the fixed clock:
+    1. The begin click (frame 420) plays `M0010_010`, then `M0010_020A`.
+    2. Click the trainer TV (`T0001`, "teevee", a unit): `0xea61`.
+       Clicked again later, it repeats the current step's line.
+    3. Open the menu with the stop button. `0xea62` is sent once the
+       menu group is fully open (the object at PE0300 `0x1009f054`
+       holds the open group at `+0x78`, and its animation flags at
+       `+0x9c`/`+0x9d` are clear).
+    4. Choose Keep Playing; the next step plays by itself.
+    5. Turn the camera with the right arrow ("NextCam", event `0xc38f`,
+       which becomes `0xea64`; the left arrow, `0xc38e`, would be
+       `0xea65`). The step after it asks for the same again.
+  - The go button unlocks at `0xea7d`. That's sent by the entry code of
+    one state (PE0300 `0x10052310`, the eighth entry of its vtable at
+    `0x1007d960`) once the tour reaches it. In Mission One that state is
+    entered as the level loads, which is why go works there.
+  - Reading a step: watch `registerEvent` (the events a step's state
+    waits for) and `??0DDEvent@@QAE@H@Z` (the events raised), then find
+    the sender of the event in PE0300 (`push $0xea..`). PE0300 is mapped
+    at `0x730000` in these runs, so its code can be watched by address.
 
   The tracing options:
   - `-watch` takes `dll!export` or a raw `0x` address (for code in the
