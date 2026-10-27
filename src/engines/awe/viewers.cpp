@@ -2577,9 +2577,17 @@ void ScenePage::loadDialogue() {
         for (const std::string& f : listFiles(ctx_.files, {"text/dialogue/act"}, {".txt"}))
             files.push_back(f);
     for (const std::string& f : files) {
-        std::vector<uint8_t> data;
-        if (!ctx_.files.read(f, data))
-            book.add(parseTable(decodeText(data)));
+        // Each read once (they're read again with every act and saved game).
+        auto it = dialogueTables_.find(f);
+        if (it == dialogueTables_.end()) {
+            std::vector<uint8_t> data;
+            Table table;
+            if (!ctx_.files.read(f, data))
+                table = parseTable(decodeText(data));
+            it = dialogueTables_.emplace(f, std::move(table)).first;
+        }
+        if (!it->second.headings.empty())
+            book.add(it->second);
     }
 }
 

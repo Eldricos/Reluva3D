@@ -563,12 +563,13 @@ int aweCommandSolve(int argc, char** argv) {
         return a.progress != b.progress ? a.progress < b.progress : a.depth > b.depth;
     };
     std::priority_queue<Node, std::vector<Node>, decltype(cmp)> frontier(cmp);
-    std::set<std::string> seenKeys, seenFeatures;
+    std::set<std::string> seenKeys, seenFeatures, triedOnce;
     Node best;
     auto reset = [&]() {
         frontier = decltype(frontier)(cmp);
         seenKeys.clear();
         seenFeatures.clear();
+        triedOnce.clear();
         steps.clear();
         Node root = rootNode();
         best = root;
@@ -599,14 +600,33 @@ int aweCommandSolve(int argc, char** argv) {
         }
         std::vector<Action> todo = player.actions();
         const std::string fromAct = player.page().status().act;
-        bool advanced = false;
+        // The story without the scene: what the inventory's actions and
+        // the bar's travel do doesn't depend on the scene they're done in
+        // (but the car the bar's travel is from).
+        std::string story;
+        for (const std::string& f : split(node.key, '\n'))
+            if (f.rfind("scene ", 0) != 0)
+                story += f + "\n";
+        const std::string here = player.page().status().scene;
+        const std::string car = here.substr(0, here.find_first_of("_."));
+        bool fresh = true, advanced = false;
         for (size_t k = 0; k < todo.size() && !advanced; k++) {
             Action a = todo[k];
+            if (a.kind == "flip" || a.kind == "combine" || a.kind == "travel") {
+                std::string once = a.kind + "|" + a.target + "|" + a.item;
+                for (int c : a.choices)
+                    once += "." + std::to_string(c);
+                if (a.kind == "travel")
+                    once += "|" + car;
+                if (!triedOnce.insert(std::to_string(std::hash<std::string>()(story)) + once).second)
+                    continue;
+            }
             auto t0 = std::chrono::steady_clock::now();
-            if (k > 0) {
+            if (!fresh) {
                 player.page().loadFromMemory(node.save);
                 player.settle();
             }
+            fresh = false;
             auto t1 = std::chrono::steady_clock::now();
             runs++;
             const bool ok = player.act(a);

@@ -700,6 +700,7 @@ private:
     std::map<std::string, std::string> interfaceTexts_;
     ScriptRunner* fadeRunner_ = nullptr;
     std::string dialogueAct_ = "-";   // the act whose table is loaded
+    std::map<std::string, Table> dialogueTables_; // by file, as read
     audio::SoundHandle voice_ = audio::kNoSound;
     std::shared_ptr<audio::Sound> voiceSound_; // for its level: the lips move
     const Ac2Record* scriptObject_ = nullptr; // the hotspot a script is "this" of
