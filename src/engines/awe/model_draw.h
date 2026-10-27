@@ -6,6 +6,7 @@
 #include "common/archive.h"
 #include "common/gfx3d.h"
 #include "engines/awe/granny_dll.h"
+#include "engines/awe/lighting.h"
 #include "engines/awe/model.h"
 
 #include <memory>
@@ -33,9 +34,11 @@ public:
     // destroy after the frame). Untextured meshes (the face's bone boxes)
     // only if `helpers`. Returns the triangles drawn.
     // `brightness` scales the colours (the game's gamma ramp: 1 leaves
-    // them as they are; the results are clipped).
+    // them as they are; the results are clipped). Lit by `lighting` with
+    // `material` as the game lights it, per vertex; without, by a fixed
+    // light from the model's front.
     size_t draw(const Pose& pose, const gfx::Mat4& placement, bool helpers, std::vector<gfx::MeshId>& frameMeshes,
-                float brightness = 1);
+                float brightness = 1, const SceneLighting* lighting = nullptr, const Material& material = {});
 
 private:
     gfx::Renderer3D& renderer_;

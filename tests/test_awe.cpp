@@ -19,6 +19,7 @@
 #include "engines/awe/story.h"
 #include "engines/awe/savegame.h"
 #include "engines/awe/shadows.h"
+#include "engines/awe/lighting.h"
 #include "common/image.h"
 #include "engines/awe/actor.h"
 #include "engines/awe/animator.h"
@@ -172,10 +173,10 @@ void testAc2() {
     CHECK(objects.size() == 2);
     if (objects.size() == 2) {
         CHECK(objects[0]->text("file") == "locations\\test\\backgrounds\\test_01.jpg");
-        CHECK(objects[0]->i("b0c") == 1);
+        CHECK(objects[0]->i("lighting") == 1);
         CHECK(objects[0]->field("x") == nullptr); // past its count
         const Ac2Record* sprite = objects[0]->part("SPRT");
-        CHECK(sprite && sprite->f("layer") == 1000);
+        CHECK(sprite && sprite->f("scrollSpeed") == 1000);
         CHECK(objects[1]->f("y") == 639);
         CHECK(objects[1]->i("right") == 322);
         CHECK(objects[1]->text("script") == "yesno quit2 0");
@@ -635,7 +636,7 @@ void testWalkGrid() {
         if (b != 50)
             grid.bytes[size_t(32 * 64 + b)] = 1;
     grid.bytes[size_t(10 * 64 + 10)] = 3;
-    camr.fields = {{"23c", size}, {"grid", grid}};
+    camr.fields = {{"cellSize", size}, {"grid", grid}};
     WalkGrid g;
     CHECK(g.load(camr) && g.cellSize() == 20);
     // The game's conversions: x = (a - 32) * 20 + 10, z = (32 - b) * 20 - 10.
@@ -736,10 +737,10 @@ void testParticles() {
     // A SNOW record with a few fields: the rest are the class's defaults.
     Ac2Record snow;
     snow.tag = "SNOW";
-    snow.fields = {{"x", realValue(-730)}, {"y", realValue(300)}, {"z", realValue(-330)}, {"d0", realValue(-10500)}};
+    snow.fields = {{"x", realValue(-730)}, {"y", realValue(300)}, {"z", realValue(-330)}, {"depth", realValue(-10500)}};
     Ac2Record syst;
     syst.tag = "SYST";
-    syst.fields = {{"dcc", realValue(-300)}};
+    syst.fields = {{"velocityY", realValue(-300)}};
     snow.parts.push_back(syst);
     ParticleSettings s = ParticleSettings::fromRecord(snow);
     CHECK(s.mode == 2 && s.alphaBlend && s.condition == "weather >0");
@@ -1289,8 +1290,8 @@ void testSaveGame() {
 }
 
 void testShadows() {
-    // The light: the lights' mean, raised by 1500; only those marked e1c if
-    // any are.
+    // The light: the lights' mean, raised by 1500; only those marked
+    // shadowOnly if any are.
     Ac2Scene scene;
     auto light = [](float x, float y, float z, uint32_t marked) {
         Ac2Record r{"LITE", {}, {}};
@@ -1300,10 +1301,10 @@ void testShadows() {
             std::memcpy(&a.raw, &v, 4);
             return a;
         };
-        r.fields = {{"dd0", f(x)}, {"dd4", f(y)}, {"dd8", f(z)}};
+        r.fields = {{"x", f(x)}, {"y", f(y)}, {"z", f(z)}};
         Ac2Value m;
         m.raw = marked;
-        r.fields.push_back({"e1c", m});
+        r.fields.push_back({"shadowOnly", m});
         return r;
     };
     scene.records = {light(5, 655, 450, 0), light(-19, 558, -330, 0)};
@@ -1329,6 +1330,62 @@ void testShadows() {
     CHECK(m.empty() && !m.at(1, 1));
 }
 
+void testLighting() {
+    auto num = [](float v) {
+        Ac2Value a;
+        a.type = Ac2Value::Type::F32;
+        std::memcpy(&a.raw, &v, 4);
+        return a;
+    };
+    auto whole = [](uint32_t v) {
+        Ac2Value a;
+        a.raw = v;
+        return a;
+    };
+    Ac2Scene scene;
+    scene.records.push_back(
+        {"CAMR", {{"ambientR", num(0.309804f)}, {"ambientG", num(0.5f)}, {"ambientB", num(1)}}, {}});
+    // A directional light straight down, a point light out of range, and
+    // two that don't light: off, and only for the shadows.
+    auto light = [&](uint32_t type, float y, float diffuse) {
+        return Ac2Record{"LITE",
+                         {{"type", whole(type)}, {"y", num(y)}, {"dirX", num(0)}, {"dirY", num(-2)}, {"dirZ", num(0)},
+                          {"diffuseR", num(diffuse)}, {"diffuseG", num(diffuse)}, {"diffuseB", num(diffuse)},
+                          {"range", num(50)}, {"att0", num(1)}, {"att1", num(0)}, {"att2", num(0)}},
+                         {}};
+    };
+    scene.records.push_back(light(3, 0, 0.5f));
+    scene.records.push_back(light(1, 100, 1));
+    scene.records.push_back(light(3, 0, 1));
+    scene.records.back().fields.push_back({"on", whole(0)});
+    scene.records.push_back(light(3, 0, 1));
+    scene.records.back().fields.push_back({"shadowOnly", whole(1)});
+    GameState state;
+    SceneLighting lit = sceneLighting(scene, state);
+    CHECK(lit.lights.size() == 2 && std::abs(lit.ambient[0] - 79 / 255.0f) < 1e-6f && lit.ambient[1] == 127 / 255.0f);
+    Material material;
+    material.ambient = {0.5f, 0.5f, 0.5f};
+    const float origin[3] = {0, 0, 0}, up[3] = {0, 1, 0}, down[3] = {0, -1, 0};
+    Rgb c = lightVertex(lit, material, origin, up);
+    CHECK(std::abs(c[0] - (79 / 510.0f + 0.5f)) < 1e-5f && c[2] == 1);
+    c = lightVertex(lit, material, origin, down);
+    CHECK(std::abs(c[0] - 79 / 510.0f) < 1e-5f);
+    // The point light in range: 1 / att0 of it.
+    const float near[3] = {0, 60, 0};
+    c = lightVertex(lit, material, near, up);
+    CHECK(std::abs(c[0] - (79 / 510.0f + 0.5f + 1)) < 1e-5f || c[0] == 1);
+    // At night outdoors: no lights, a blue ambient.
+    scene.records.push_back({"OUTD", {{"value", whole(1)}}, {}});
+    state.values["time"] = 1;
+    lit = sceneLighting(scene, state);
+    CHECK(lit.lights.empty() && lit.ambient[0] == 69 / 255.0f && lit.ambient[2] == 139 / 255.0f);
+    CHECK(!nightLighting(scene, 0));
+    // The material from a character's fields.
+    const Ac2Record npc{"NPCX", {{"ambientR", num(0.498039f)}, {"emissiveB", num(0.2f)}}, {}};
+    material = materialOf(npc);
+    CHECK(material.ambient[0] == 0.498039f && material.diffuse[1] == 1 && material.emissive[2] == 0.2f && material.lit);
+}
+
 int main() {
     testText();
     testAc2();
@@ -1350,6 +1407,7 @@ int main() {
     testActor();
     testSaveGame();
     testShadows();
+    testLighting();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

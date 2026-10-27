@@ -189,6 +189,3 @@ The page then does the following:
 - `fade` takes half a second. This is a guess.
 - Movies play full screen with their subtitles, and Escape skips them
   (see [script.md](script.md#movies)).
-
-Not done yet:
-

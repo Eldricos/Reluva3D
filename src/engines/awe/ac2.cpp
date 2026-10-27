@@ -175,21 +175,24 @@ template <size_t N> void counted(Reader& r, Ac2Record& rec, const FieldSpec (&sp
 // Every object's common fields (motoe.exe 0x40fa20), the optional groups
 // as the class has them; one count for all.
 void readObjectBase(Reader& r, Ac2Record& rec) {
-    static const FieldSpec kHead[] = {{"file", F::Str}, {"name", F::Str}, {"b08", F::U32}, {"b0c", F::U32}};
+    static const FieldSpec kHead[] = {{"file", F::Str}, {"name", F::Str}, {"alpha", F::U32}, {"lighting", F::U32}};
     static const FieldSpec kPositionFields[] = {{"x", F::F32}, {"y", F::F32}, {"z", F::F32}};
     static const FieldSpec kRotationFields[] = {{"rotX", F::F32}, {"rotY", F::F32}, {"rotZ", F::F32}};
+    // The object's Direct3D material (D3DMATERIAL8 at 0x8c): its diffuse,
+    // ambient, specular and emissive colours, then the specular power.
     static const FieldSpec kAppearanceFields[] = {
-        {"scaleX", F::F32}, {"scaleY", F::F32}, {"scaleZ", F::F32}, {"red", F::F32}, {"green", F::F32},
-        {"blue", F::F32},   {"ac", F::F32},     {"b0", F::F32},     {"b4", F::F32},  {"bc", F::F32},
-        {"c0", F::F32},     {"c4", F::F32},     {"cc", F::F32}};
+        {"diffuseR", F::F32},  {"diffuseG", F::F32},  {"diffuseB", F::F32},  {"ambientR", F::F32},
+        {"ambientG", F::F32},  {"ambientB", F::F32},  {"specularR", F::F32}, {"specularG", F::F32},
+        {"specularB", F::F32}, {"emissiveR", F::F32}, {"emissiveG", F::F32}, {"emissiveB", F::F32},
+        {"power", F::F32}};
     static const FieldSpec kMiddle[] = {
-        {"b10", F::F32}, {"left", F::U32}, {"top", F::U32}, {"right", F::U32}, {"bottom", F::U32}};
+        {"player", F::U32}, {"left", F::U32}, {"top", F::U32}, {"right", F::U32}, {"bottom", F::U32}};
     static const FieldSpec kScriptFields[] = {{"script", F::Str}, {"listA", F::StrPairs}, {"listB", F::StrPairs}};
     static const FieldSpec kTail[] = {
         {"spriteScaleX", F::F32}, {"b58", F::F32}, {"condition", F::Str}, {"spriteScaleY", F::F32}, {"spriteScaleZ", F::F32},
-        {"b54", F::U32},   {"flat", F::U32}, {"b68", F::U32}, {"b78", F::Str},       {"d78", F::U32},
-        {"d7c", F::U16},   {"d0", F::F32},  {"b1e", F::U16}, {"listC", F::StrPairs}, {"listD", F::U32Pairs},
-        {"b70", F::U32}};
+        {"b54", F::U32},   {"flat", F::U32}, {"b68", F::U32}, {"sound", F::Str},     {"soundLoops", F::U32},
+        {"soundFrame", F::U16}, {"depth", F::F32}, {"cursor", F::U16}, {"conditionalCursors", F::StrPairs},
+        {"listD", F::U32Pairs}, {"pickFirst", F::U32}};
     const uint32_t flags = classFlags(rec.tag);
     std::vector<FieldSpec> spec;
     auto add = [&spec](const auto& fields) {
@@ -221,20 +224,22 @@ bool optionalPart(Reader& r, const char* tag, Ac2Record& rec) {
     return false;
 }
 
-const FieldSpec kSprite[] = {{"da4", F::U16}, {"layer", F::F32},  {"db0", F::U16}, {"dc8", F::U16},
-                             {"yaw", F::F32}, {"pitch", F::F32},  {"roll", F::F32}};
-const FieldSpec kHotspot[] = {{"name", F::Str}, {"hoverSound", F::Str}, {"clickSound", F::Str}, {"1410", F::U32},
-                              {"cursor", F::Str32}};
-const FieldSpec kAnimSprite[] = {{"dec", F::F32}, {"df0", F::F32}, {"df4", F::F32}, {"df8", F::U16},
-                                 {"dfa", F::U16}, {"dfc", F::U16}, {"e02", F::U16}};
-const FieldSpec kBink[] = {{"de4", F::F32}, {"yaw", F::F32}, {"pitch", F::F32}, {"roll", F::F32}, {"dd8", F::F32}};
-const FieldSpec kItem[] = {{"name", F::Str32}, {"e10", F::Str}, {"1610", F::U16}, {"1612", F::U16}};
-// MODL: the shadow flag (+0xda0), models attached at load, the track mask
-// of a pose (+0xe40, "sit": TrackMasksit) and the prefix tried on every
-// animation's name (+0xe80, "sit": sitidle1), and when those two apply
-// (+0xec0).
-const FieldSpec kModel[] = {{"shadow", F::U32}, {"list", F::StrPairs}, {"e30", F::U32}, {"e34", F::U32},
-                            {"anim", F::Str32},  {"anim2", F::Str32},  {"e38", F::U32}, {"condition", F::Str}};
+const FieldSpec kSprite[] = {{"scroll", F::U16}, {"scrollSpeed", F::F32}, {"filter", F::U16}, {"dc8", F::U16},
+                             {"yaw", F::F32},    {"pitch", F::F32},       {"roll", F::F32}};
+const FieldSpec kHotspot[] = {{"name", F::Str}, {"hoverSound", F::Str}, {"clickSound", F::Str},
+                              {"hoverSoundLoops", F::U32}, {"key", F::Str32}};
+const FieldSpec kAnimSprite[] = {{"flags", F::U32}, {"fps", F::F32},        {"delay", F::F32},
+                                 {"loops", F::U16}, {"frames", F::U16},     {"startFrame", F::U16},
+                                 {"soundDirection", F::U16}};
+const FieldSpec kBink[] = {{"effect", F::U32}, {"yaw", F::F32}, {"pitch", F::F32}, {"roll", F::F32}, {"loop", F::U32}};
+const FieldSpec kItem[] = {{"name", F::Str32}, {"description", F::Str}, {"1610", F::U16}, {"1612", F::U16}};
+// MODL: the shadow flag (+0xda0), models attached at load, breath
+// (+0xe30) and footprints outdoors (+0xe34), the track mask of a pose
+// (+0xe40, "sit": TrackMasksit) and the prefix tried on every animation's
+// name (+0xe80, "sit": sitidle1), whether a click on the floor walks the
+// player there (+0xe38), and when the pose and prefix apply (+0xec0).
+const FieldSpec kModel[] = {{"shadow", F::U32}, {"list", F::StrPairs}, {"breath", F::U32}, {"footprints", F::U32},
+                            {"anim", F::Str32},  {"anim2", F::Str32},  {"clickToWalk", F::U32}, {"condition", F::Str}};
 // ANIM: the talk ease (the base ease is twice it), the blink interval
 // (min, max), the idle variations' interval (min, max) and the chances
 // of variations 2, 3 and 4 on (percent).
@@ -242,22 +247,34 @@ const FieldSpec kAnimation[] = {{"talkEase", F::F32},  {"blinkMin", F::F32}, {"b
                                 {"idleMin", F::F32},   {"idleMax", F::F32},  {"idle2", F::U16},
                                 {"idle3", F::U16},     {"idle4", F::U16}};
 const FieldSpec kSystem[] = {
-    {"df0", F::F32}, {"df4", F::F32}, {"df8", F::F32}, {"dc8", F::F32}, {"dcc", F::F32}, {"dd0", F::F32},
-    {"dc4", F::U16}, {"dd4", F::F32}, {"dec", F::U16}, {"dea", F::U16}, {"de4", F::F32}, {"de8", F::U16},
-    {"ddc", F::F32}, {"e00", F::F32}, {"e04", F::U16}, {"e14", F::F32}, {"e18", F::F32}, {"e1c", F::F32},
-    {"e28", F::F32}, {"e34", F::U32}, {"e0c", F::F32}, {"e10", F::F32}, {"e08", F::F32}, {"e40", F::F32},
-    {"e44", F::F32}, {"e38", F::U16}, {"e3a", F::U16}, {"e3c", F::U16}};
+    {"red", F::F32},       {"green", F::F32},     {"blue", F::F32},     {"velocityX", F::F32},
+    {"velocityY", F::F32}, {"velocityZ", F::F32}, {"burst", F::U16},    {"interval", F::F32},
+    {"copies", F::U16},    {"spread", F::U16},    {"bounce", F::F32},   {"bounces", F::U16},
+    {"size", F::F32},      {"life", F::F32},      {"mode", F::U16},     {"blink", F::F32},
+    {"onTime", F::F32},    {"offTime", F::F32},   {"screenSpace", F::F32}, {"warmUp", F::U32},
+    {"sway", F::F32},      {"swaySpeed", F::F32}, {"gravity", F::F32},  {"fadeIn", F::F32},
+    {"fadeOut", F::F32},   {"signX", F::U16},     {"signY", F::U16},    {"signZ", F::U16}};
+// LITE (0x421ab0): a Direct3D light (D3DLIGHT8 at 0xd9c): its type,
+// position, direction, diffuse, ambient and specular colours, range,
+// attenuation and spot cone. Then whether it's on, a flicker interval
+// (seconds), its light index when saved, its name, the condition it's on
+// under, and whether it only places the shadows.
 const FieldSpec kLight[] = {
-    {"d9c", F::U16}, {"dd0", F::F32}, {"dd4", F::F32}, {"dd8", F::F32}, {"ddc", F::F32}, {"de0", F::F32},
-    {"de4", F::F32}, {"da0", F::F32}, {"da4", F::F32}, {"da8", F::F32}, {"dc0", F::F32}, {"dc4", F::F32},
-    {"dc8", F::F32}, {"db0", F::F32}, {"db4", F::F32}, {"db8", F::F32}, {"de8", F::F32}, {"df0", F::F32},
-    {"df4", F::F32}, {"df8", F::F32}, {"dfc", F::F32}, {"e00", F::F32}, {"e0c", F::F32}, {"e10", F::F32},
-    {"b6c", F::U32}, {"e1a", F::U16}, {"name", F::Str}, {"text", F::Str}, {"e1c", F::U32}};
+    {"type", F::U16},      {"x", F::F32},         {"y", F::F32},         {"z", F::F32},
+    {"dirX", F::F32},      {"dirY", F::F32},      {"dirZ", F::F32},      {"diffuseR", F::F32},
+    {"diffuseG", F::F32},  {"diffuseB", F::F32},  {"ambientR", F::F32},  {"ambientG", F::F32},
+    {"ambientB", F::F32},  {"specularR", F::F32}, {"specularG", F::F32}, {"specularB", F::F32},
+    {"range", F::F32},     {"att0", F::F32},      {"att1", F::F32},      {"att2", F::F32},
+    {"theta", F::F32},     {"phi", F::F32},       {"on", F::U32},        {"flicker", F::F32},
+    {"b6c", F::U32},       {"index", F::U16},     {"name", F::Str},      {"condition", F::Str},
+    {"shadowOnly", F::U32}};
+// CAMR: the scene's ambient light (0x180), then the Granny camera's fields.
 const FieldSpec kCamera[] = {
-    {"180", F::F32},  {"184", F::F32},  {"188", F::F32}, {"x", F::F32},    {"y", F::F32},    {"z", F::F32},
-    {"pitch", F::F32}, {"yaw", F::F32},  {"roll", F::F32}, {"74", F::F32},  {"78", F::F32},   {"7c", F::F32},
-    {"fov", F::F32},  {"near", F::F32}, {"far", F::F32},  {"238", F::U16}, {"23a", F::U16},  {"23c", F::U16}};
-const FieldSpec kCameraEnd[] = {{"1240", F::F32}, {"1244", F::F32}, {"1248", F::F32}};
+    {"ambientR", F::F32}, {"ambientG", F::F32}, {"ambientB", F::F32}, {"x", F::F32},    {"y", F::F32},    {"z", F::F32},
+    {"pitch", F::F32}, {"yaw", F::F32},  {"roll", F::F32},
+    {"offsetX", F::F32}, {"offsetY", F::F32}, {"offsetZ", F::F32},
+    {"fov", F::F32},  {"near", F::F32}, {"far", F::F32},  {"238", F::U16}, {"23a", F::U16},  {"cellSize", F::U16}};
+const FieldSpec kCameraEnd[] = {{"1240", F::U32}, {"whiteoutStart", F::F32}, {"whiteoutEnd", F::F32}};
 
 // A 2D object (2DOB and the classes built on it): the common fields, then
 // its sprite settings.
