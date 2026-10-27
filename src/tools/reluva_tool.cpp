@@ -5199,6 +5199,14 @@ int cmdGameRun(int argc, char** argv) {
                 cgame.addUserCommand(idle);
                 cgame.clearScene();
                 auto snap = game.snapshot(0);
+                std::string sentBots; // the bots it carries (entityState_t starts with the number)
+                for (const auto& es : snap.entities)
+                    if (es.size() >= 4) {
+                        int32_t number;
+                        std::memcpy(&number, es.data(), 4);
+                        if (game.botClients().count(number))
+                            sentBots += " " + std::to_string(number);
+                    }
                 if (verbose)
                     std::printf("snapshot at %d: %zu entities, %d server commands\n", snap.serverTime,
                                 snap.entities.size(), snap.serverCommandSequence);
@@ -5211,6 +5219,19 @@ int cmdGameRun(int argc, char** argv) {
                             frame ? frame.message.c_str() : "ok",
                             static_cast<unsigned long long>(cgame.vm().executed()), cgame.pictures().size());
                 if (!watchModel.empty()) {
+                    // Which bots the snapshot carries, and how many entities
+                    // with the watched model the client game added (a bot
+                    // that's sent but not drawn shows here).
+                    const std::string& sent = sentBots;
+                    int added = 0;
+                    for (const auto& e : cgame.scene().entities)
+                        if (e.bytes.size() >= 12 && e.bytes[0] == 0) {
+                            int32_t model;
+                            std::memcpy(&model, &e.bytes[8], 4);
+                            added += cgame.models().name(model).find(watchModel) != std::string::npos;
+                        }
+                    std::printf("time %d: bots in the snapshot:%s; %d entities with %s added\n", game.levelTime(),
+                                sent.empty() ? " none" : sent.c_str(), added, watchModel.c_str());
                     // Entities with the watched model: colour, scale (axis
                     // lengths), frames and where.
                     for (const auto& e : cgame.scene().entities) {
@@ -5231,11 +5252,13 @@ int cmdGameRun(int argc, char** argv) {
                                                real(32 + 12 * size_t(a)) * real(32 + 12 * size_t(a)) +
                                                real(36 + 12 * size_t(a)) * real(36 + 12 * size_t(a)));
                         std::printf("  time %d: %s colour %u %u %u %u, axes %.2f %.2f %.2f%s, frame %d (old %d, "
-                                    "back %.2f), shader %d, shader time %.3f, flags 0x%x, at %.0f %.0f %.0f\n",
+                                    "back %.2f), shader %d%s, shader time %.3f, flags 0x%x, at %.0f %.0f %.0f\n",
                                     game.levelTime(), name.c_str(), e.bytes[116], e.bytes[117], e.bytes[118],
                                     e.bytes[119],
                                     len[0], len[1], len[2], word(64) ? " (not normalized)" : "", word(80), word(96),
-                                    real(100), word(112), real(128), unsigned(word(4)), real(68), real(72), real(76));
+                                    real(100), word(112),
+                                    word(112) ? (" (" + cgame.shaders().name(word(112)) + ")").c_str() : "",
+                                    real(128), unsigned(word(4)), real(68), real(72), real(76));
                     }
                 }
                 {
