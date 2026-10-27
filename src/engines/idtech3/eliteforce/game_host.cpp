@@ -563,6 +563,12 @@ GameHost::Snapshot GameHost::snapshot(int32_t clientNum) {
         const int32_t a = entityAddress(n);
         if (a < 0 || snap.entities.size() >= 256)
             continue;
+        // As the original's server: an entity whose number isn't its own
+        // (the game copied another's state into it, as for some weapons'
+        // effects) gets it put right, or the client game would take it for
+        // that other one and stop drawing it.
+        if (vm_.readInt(a + layout_.number) != n)
+            vm_.writeInt(a + layout_.number, n);
         snap.entities.emplace_back(&vm_.memory()[size_t(a)], &vm_.memory()[size_t(a)] + kEntityStateSize);
     }
     for (const auto& [to, text] : serverCommands_)

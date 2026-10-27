@@ -1191,6 +1191,10 @@ void SpGameHost::makeSnapshot() {
         if (snap.entities.size() >= 256)
             break;
         const uint32_t a = entityAddress(n);
+        // An entity whose number isn't its own put right, as the original's
+        // server does (see GameHost::snapshot).
+        if (cpu_->read32(a + uint32_t(kEntity.number)) != uint32_t(n))
+            cpu_->write32(a + uint32_t(kEntity.number), uint32_t(n));
         snap.entities.emplace_back(cpu_->memory().data() + a, cpu_->memory().data() + a + kEntityStateSize);
     }
     snap.serverCommandSequence = int32_t(toClient_.size());
