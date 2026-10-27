@@ -389,7 +389,7 @@ std::vector<std::unique_ptr<Page>> makePages(const char* gameName, const GameFol
     pages.push_back(std::make_unique<PlayPage>(folders, saveFolder, mixer, scale.empty() ? 2 : std::atoi(scale.c_str()),
                                                setting("texturefilter") == "linear", setting("joystick") != "off",
                                                setting("forcefeedback") != "off", setting("wheelpedals"),
-                                               setting("network") != "off"));
+                                               setting("network") != "off", setting("movielines") != "keep"));
     pages.push_back(std::make_unique<TrackPage>(files, folders));
     pages.push_back(std::make_unique<CarPage>(files));
     pages.push_back(std::make_unique<TexturePage>(files));

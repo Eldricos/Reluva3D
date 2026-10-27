@@ -100,6 +100,10 @@ public:
                 pages[page]->handleEvent(ev);
                 dirty = true;
             }
+            if (pages[page]->finished()) {
+                pages[page]->deactivate();
+                return Error::success();
+            }
             if (pages[page]->uses3D()) {
                 // Paced by presenting (vsync).
                 pages[page]->update(sys_.getMillis());

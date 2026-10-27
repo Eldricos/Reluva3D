@@ -511,9 +511,30 @@ Started. Done so far:
   - its sound goes to the mixer;
   - keys and the mouse go to it as DirectInput and window messages, Esc
     included; Ctrl+F5 goes back to the launcher;
+  - the window holds the mouse while the page is shown
+    (`System::setRelativeMouse`). The game draws its own pointer and
+    moves it by the mouse's moves, one game pixel to each of the
+    mouse's. Before, the window's pointer was turned into moves, which
+    drifted from the game's once the window was resized;
   - saves and settings go to the game's save folder;
+  - when the game ends itself (Exit Game, Yes), the page is finished
+    (`Page::finished`) and the engine goes back to the launcher; if it
+    stops with an error, the page stays to show it;
   - leaving the engine ends the process (`Win32Process::requestExit`)
     and waits for its threads.
+
+  Ending, the game drains the keyboard as a console program would
+  (`kbhit`, `PeekConsoleInputA`). The stand-in left the count of
+  waiting events unwritten, so the game took it as a key waiting for
+  ever and never ended. It now says there are none.
+
+  The game plays its movies (320x240) in its 640x480 mode on every other
+  line, leaving the lines between them black: every odd line of each
+  movie frame is black. That's the game's own drawing (it only ever
+  sets 640x480), so it looked that way on Windows too. The page fills
+  them with the line above, for any DirectDraw frame whose odd lines are
+  all black and whose even lines aren't. `movielines=keep` in
+  `reluva.ini` keeps the original look.
 
   `nfs-page <game> <out.tga> play ...` drives it headlessly (wait, click,
   move, keys held). It reached a race (Hometown, a Corvette) from the

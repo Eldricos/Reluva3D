@@ -32,7 +32,8 @@ public:
     // with bilinear filtering if `smoothTextures` (else point-sampled, as
     // the software renderer).
     // With `network`, the game's sockets are the machine's, for its
-    // network play over TCP.
+    // network play over TCP. With `fillMovies`, the black lines the game
+    // leaves between a movie's are filled in.
     // A game controller connected at the start is offered to the game as a
     // joystick unless `offerJoystick` is false: a wheel as a wheel, with
     // the forces the game asks for (force feedback, or a pad's rumble)
@@ -40,10 +41,11 @@ public:
     // axis numbers) is for a wheel SDL has no layout for.
     PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer* mixer, int renderScale = 2,
              bool smoothTextures = false, bool offerJoystick = true, bool forceFeedback = true,
-             std::string wheelPedals = {}, bool network = true);
+             std::string wheelPedals = {}, bool network = true, bool fillMovies = true);
     ~PlayPage() override;
     const char* name() const override { return "Play"; }
     bool capturesEscape() const override { return true; }
+    bool finished() const override { return exited_; }
     void activate(System& sys) override;
     void deactivate() override;
     bool uses3D() const override { return gpu_; }
@@ -76,12 +78,12 @@ private:
     bool offerJoystick_ = true;
     bool forceFeedback_ = true;
     bool network_ = true; // the game's sockets on the machine's (System::sockets)
+    bool fillMovies_ = true; // the black lines between a movie's filled in
     std::string wheelPedals_;
     GamepadForce force_;     // as last passed on
     bool forceShown_ = false;
     bool padOffered_ = false; // a joystick offered to the game at its start
-    bool mouseKnown_ = false;
-    int mouseX_ = 0, mouseY_ = 0;
+    float mouseLeftX_ = 0, mouseLeftY_ = 0; // the mouse's moves not yet passed on (fractions)
 
     // Shared with the game's thread.
     std::mutex mutex_;
@@ -89,6 +91,7 @@ private:
     bool newFrame_ = false;
     std::deque<std::string> lines_; // the log's last lines, shown until the first frame
     std::atomic<bool> running_{false};
+    std::atomic<bool> exited_{false}; // the game ended itself (not failed)
     int renderScale_ = 2;
     bool gpu_ = false; // drawing with the GPU: decided when the game starts
     ThrashGpu gpuDraw_; // on the engine's thread

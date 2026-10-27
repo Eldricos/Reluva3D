@@ -50,6 +50,9 @@ public:
     virtual void deactivate() {}
     // Whether Esc goes to the page rather than back to the launcher.
     virtual bool capturesEscape() const { return false; }
+    // Whether the page is done (the game it ran has ended): back to the
+    // launcher.
+    virtual bool finished() const { return false; }
     // Whether the page is drawing with the GPU (else draw() is used).
     virtual bool uses3D() const { return false; }
     virtual void handleEvent(const Event& ev) {

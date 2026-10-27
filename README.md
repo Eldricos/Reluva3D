@@ -125,7 +125,9 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   the game's section of `reluva.ini` says otherwise; `texturefilter=linear` smooths
   its textures. A game controller connected when the game starts is offered to it as a
   joystick (a racing wheel as a wheel), and the game's own Controllers screen binds it
-  (`joystick=off` leaves it out). The game's force feedback goes to a wheel's motor or a
+  (`joystick=off` leaves it out). The window holds the mouse while the game is shown,
+  the game drawing its own pointer. The black lines the game leaves between a movie's
+  are filled in (`movielines=keep` keeps them). Exit Game goes back to the launcher. The game's force feedback goes to a wheel's motor or a
   pad's rumble (`forcefeedback=off` leaves it out); `wheelpedals=2,3` names a wheel's
   accelerator and brake axes if they aren't found. Its network play (Connect Players,
 Network (TCP)) uses the machine's network, other players joining on TCP port 1030

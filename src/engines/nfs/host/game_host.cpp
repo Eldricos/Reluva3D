@@ -518,8 +518,17 @@ void GameHost::addSystem() {
     // No console: the game is a window.
     for (const char* name : {"GetConsoleMode", "SetConsoleMode"})
         provide(k, name, 2, [](Cpu&) { return 0u; });
-    provide(k, "PeekConsoleInputA", 4, [](Cpu&) { return 0u; });
-    provide(k, "ReadConsoleInputA", 4, [](Cpu&) { return 0u; });
+    // The console's keyboard: never anything waiting, and saying so (the C
+    // library's kbhit, as the game drains the keyboard when it ends, reads
+    // the count of events; left unwritten it was taken as a key waiting
+    // for ever).
+    auto noInput = [](Cpu& c) {
+        if (c.arg(3))
+            c.write32(c.arg(3), 0);
+        return 1u;
+    };
+    provide(k, "PeekConsoleInputA", 4, noInput);
+    provide(k, "ReadConsoleInputA", 4, noInput);
     provide(k, "WriteConsoleA", 5, [this](Cpu& c) {
         say("[console] " + std::string(reinterpret_cast<const char*>(c.memory().data() + c.arg(1)),
                                        std::min<uint32_t>(c.arg(2), 4096)));

@@ -60,13 +60,37 @@ std::string keyName(uint32_t k) {
     }
 }
 
+// The game plays its movies (320x240) in its 640x480 mode on every other
+// line, leaving the lines between black: as it looked then. Those lines
+// filled with the one above, if every odd line is black and some even one
+// isn't; false for any other frame (a menu's picture, the game's 3D).
+bool fillMovieLines(Surface& frame) {
+    if (frame.h < 2 || frame.w <= 0)
+        return false;
+    bool picture = false;
+    for (int y = 0; y < frame.h; ++y) {
+        const uint8_t* row = frame.row(y);
+        bool black = true;
+        for (int x = 0; x < frame.w && black; ++x)
+            black = !(row[4 * x] | row[4 * x + 1] | row[4 * x + 2]);
+        if (y % 2 && !black)
+            return false;
+        picture = picture || (y % 2 == 0 && !black);
+    }
+    if (!picture)
+        return false;
+    for (int y = 1; y < frame.h; y += 2)
+        std::memcpy(frame.row(y), frame.row(y - 1), size_t(frame.w) * 4);
+    return true;
+}
+
 } // namespace
 
 PlayPage::PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer* mixer, int renderScale,
                    bool smoothTextures, bool offerJoystick, bool forceFeedback, std::string wheelPedals,
-                   bool network)
+                   bool network, bool fillMovies)
     : folders_(std::move(folders)), saveFolder_(std::move(saveFolder)), mixer_(mixer), offerJoystick_(offerJoystick),
-      forceFeedback_(forceFeedback), network_(network), wheelPedals_(std::move(wheelPedals)),
+      forceFeedback_(forceFeedback), network_(network), fillMovies_(fillMovies), wheelPedals_(std::move(wheelPedals)),
       renderScale_(std::clamp(renderScale, 1, 4)) {
     gpuDraw_.scale = renderScale_;
     gpuDraw_.nearest = !smoothTextures;
@@ -114,11 +138,17 @@ void PlayPage::activate(System& sys) {
     }
     if (starting)
         start();
+    // The game draws its own pointer, moved by the mouse's moves: the
+    // window holds the mouse while the page is shown.
+    sys.setRelativeMouse(true);
 }
 
 void PlayPage::deactivate() {
     gpuDraw_.setRenderer(nullptr);
     stopForces();
+    if (sys_)
+        sys_->setRelativeMouse(false);
+    mouseLeftX_ = mouseLeftY_ = 0;
 }
 
 void PlayPage::stopForces() {
@@ -176,10 +206,12 @@ void PlayPage::start() {
     host_->onFrame = [this](const Surface& frame) {
         std::lock_guard<std::mutex> lock(mutex_);
         frame_ = frame;
+        if (fillMovies_)
+            fillMovieLines(frame_);
         newFrame_ = true;
         thrashLatest_ = false;
         if (gpu_ && compareFolder_.empty()) { // DirectDraw's picture (in GPU mode, the only frames here)
-            primary_ = frame;
+            primary_ = frame_;
             primaryShown_ = true;
         }
     };
@@ -234,6 +266,7 @@ void PlayPage::start() {
         const Error err = host_->run(exitCode);
         std::lock_guard<std::mutex> lock(mutex_);
         result_ = err ? "The game stopped: " + err.message : "The game ended (exit code " + std::to_string(exitCode) + ")";
+        exited_ = !err; // the player left it: back to the launcher
         running_ = false;
     });
 }
@@ -252,16 +285,16 @@ void PlayPage::handleEvent(const Event& ev) {
         break;
     }
     case EventType::MouseMove: {
-        // DirectInput's mouse moves by how far it went; the window's
-        // pointer stands in for it, in the game's pixels (the GPU's frame
-        // may be bigger).
-        const int scale = gpu_ ? renderScale_ : 1;
-        const int x = ev.mouseX / scale, y = ev.mouseY / scale;
-        if (mouseKnown_)
-            host_->queueMouseMove(x - mouseX_, y - mouseY_);
-        mouseX_ = x;
-        mouseY_ = y;
-        mouseKnown_ = true;
+        // DirectInput's mouse moves by how far it went, as the mouse does
+        // here: the window holds it (System::setRelativeMouse), the game
+        // drawing its own pointer. Fractions are kept for the next move.
+        mouseLeftX_ += ev.moveX;
+        mouseLeftY_ += ev.moveY;
+        const int dx = int(mouseLeftX_), dy = int(mouseLeftY_);
+        mouseLeftX_ -= float(dx);
+        mouseLeftY_ -= float(dy);
+        if (dx || dy)
+            host_->queueMouseMove(dx, dy);
         break;
     }
     case EventType::MouseDown:
