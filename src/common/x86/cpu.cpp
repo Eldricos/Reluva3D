@@ -15,13 +15,18 @@ uint32_t signBit(int size) { return size == 4 ? 0x80000000u : size == 2 ? 0x8000
 int32_t signExtend(uint32_t v, int size) {
     return size == 4 ? int32_t(v) : size == 2 ? int32_t(int16_t(v)) : int32_t(int8_t(v));
 }
-bool parity(uint32_t v) {
-    v &= 0xff;
-    v ^= v >> 4;
-    v ^= v >> 2;
-    v ^= v >> 1;
-    return !(v & 1);
-}
+// Whether the low byte has an even number of bits set (the parity flag).
+constexpr std::array<bool, 256> kEvenParity = [] {
+    std::array<bool, 256> t{};
+    for (int v = 0; v < 256; ++v) {
+        int bits = 0;
+        for (int b = 0; b < 8; ++b)
+            bits += (v >> b) & 1;
+        t[size_t(v)] = bits % 2 == 0;
+    }
+    return t;
+}();
+bool parity(uint32_t v) { return kEvenParity[v & 0xff]; }
 std::string hex(uint32_t v) {
     char buf[16];
     std::snprintf(buf, sizeof buf, "0x%08x", v);
@@ -31,9 +36,19 @@ std::string hex(uint32_t v) {
 // Calls end by returning here: a HLT just below the native functions.
 constexpr uint32_t kReturnSlots = 1;
 
+// The prefix bytes: operand size, REP/REPNE, the segments, LOCK, address size.
+constexpr std::array<bool, 256> kPrefix = [] {
+    std::array<bool, 256> t{};
+    for (const int b : {0x66, 0xf3, 0xf2, 0x64, 0x26, 0x2e, 0x36, 0x3e, 0x65, 0xf0, 0x67})
+        t[size_t(b)] = true;
+    return t;
+}();
+
 } // namespace
 
 Cpu::Cpu(uint32_t memorySize) : memory_(memorySize, 0) {
+    data_ = memory_.data();
+    size_ = memory_.size();
     nativeBase_ = memorySize - kMaxNatives * kNativeStride;
     std::memset(&memory_[nativeBase_ - kNativeStride * kReturnSlots], 0xf4, kMaxNatives * kNativeStride + kNativeStride);
 }
@@ -128,17 +143,7 @@ uint32_t Cpu::pop() {
     return v;
 }
 
-uint32_t Cpu::fetch8() { return load(eip++, 1); }
-uint32_t Cpu::fetch16() {
-    const uint32_t v = load(eip, 2);
-    eip += 2;
-    return v;
-}
-uint32_t Cpu::fetch32() {
-    const uint32_t v = load(eip, 4);
-    eip += 4;
-    return v;
-}
+
 
 uint32_t Cpu::readReg(int size, int r) const {
     if (size == 4)
@@ -202,61 +207,66 @@ void Cpu::writeRm(int size, uint32_t v) {
 }
 
 void Cpu::setLogicFlags(uint32_t r, int size) {
-    r &= mask(size);
-    eflags &= ~(CF | OF | AF | ZF | SF | PF);
-    if (!r)
-        eflags |= ZF;
-    if (r & signBit(size))
-        eflags |= SF;
-    if (parity(r))
-        eflags |= PF;
+    lazy_ = {LazyLogic, uint8_t(size), 0, 0, r & mask(size), 0};
+}
+
+void Cpu::settle() {
+    const Lazy l = lazy_;
+    lazy_.kind = LazyNone;
+    const uint32_t m = mask(l.size), sign = signBit(l.size);
+    uint32_t f = eflags_ & ~(CF | OF | AF | ZF | SF | PF);
+    switch (l.kind) {
+    case LazyAdd:
+        if (uint64_t(l.a) + l.b + l.carry > m)
+            f |= CF;
+        if ((l.a ^ l.r) & (l.b ^ l.r) & sign)
+            f |= OF;
+        if ((l.a ^ l.b ^ l.r) & 0x10)
+            f |= AF;
+        break;
+    case LazySub:
+        if (uint64_t(l.a) < uint64_t(l.b) + l.carry)
+            f |= CF;
+        if ((l.a ^ l.b) & (l.a ^ l.r) & sign)
+            f |= OF;
+        if ((l.a ^ l.b ^ l.r) & 0x10)
+            f |= AF;
+        break;
+    default: break;
+    }
+    if (!l.r)
+        f |= ZF;
+    if (l.r & sign)
+        f |= SF;
+    if (parity(l.r))
+        f |= PF;
+    eflags_ = f;
 }
 
 uint32_t Cpu::alu(int op, uint32_t a, uint32_t b, int size) {
-    const uint32_t m = mask(size), sign = signBit(size);
+    const uint32_t m = mask(size);
     a &= m;
     b &= m;
-    uint32_t r = 0;
-    uint32_t flags = eflags & ~(CF | OF | AF | ZF | SF | PF);
-    const uint32_t carryIn = (eflags & CF) ? 1 : 0;
     switch (op) {
     case 0: // ADD
     case 2: { // ADC
-        const uint64_t wide = uint64_t(a) + b + (op == 2 ? carryIn : 0);
-        r = uint32_t(wide) & m;
-        if (wide > m)
-            flags |= CF;
-        if ((a ^ r) & (b ^ r) & sign)
-            flags |= OF;
-        if ((a ^ b ^ r) & 0x10)
-            flags |= AF;
-        break;
+        const uint32_t carry = op == 2 && (flagsRef() & CF) ? 1 : 0;
+        const uint32_t r = (a + b + carry) & m;
+        lazy_ = {LazyAdd, uint8_t(size), a, b, r, carry};
+        return r;
     }
     case 3: // SBB
     case 5: // SUB
     case 7: { // CMP
-        const uint64_t subtrahend = uint64_t(b) + (op == 3 ? carryIn : 0);
-        r = uint32_t(uint64_t(a) - subtrahend) & m;
-        if (uint64_t(a) < subtrahend)
-            flags |= CF;
-        if ((a ^ b) & (a ^ r) & sign)
-            flags |= OF;
-        if ((a ^ b ^ r) & 0x10)
-            flags |= AF;
-        break;
+        const uint32_t carry = op == 3 && (flagsRef() & CF) ? 1 : 0;
+        const uint32_t r = (a - b - carry) & m;
+        lazy_ = {LazySub, uint8_t(size), a, b, r, carry};
+        return r;
     }
-    case 1: r = a | b; break;
-    case 4: r = a & b; break;
-    case 6: r = a ^ b; break;
+    case 1: setLogicFlags(a | b, size); return a | b;
+    case 4: setLogicFlags(a & b, size); return a & b;
+    default: setLogicFlags(a ^ b, size); return a ^ b; // 6: XOR
     }
-    if (!r)
-        flags |= ZF;
-    if (r & sign)
-        flags |= SF;
-    if (parity(r))
-        flags |= PF;
-    eflags = flags;
-    return r;
 }
 
 uint32_t Cpu::shift(int op, uint32_t v, uint32_t count, int size) {
@@ -267,24 +277,24 @@ uint32_t Cpu::shift(int op, uint32_t v, uint32_t count, int size) {
     if (!count)
         return v;
     uint32_t r = v;
-    bool cf = (eflags & CF) != 0;
+    bool cf = (flagsRef() & CF) != 0;
     switch (op) {
     case 0: { // ROL
         const uint32_t n = count % uint32_t(bits);
         r = n ? ((v << n) | (v >> (uint32_t(bits) - n))) & m : v;
         cf = r & 1;
-        eflags = (eflags & ~(CF | OF)) | (cf ? CF : 0);
+        flagsRef() = (flagsRef() & ~(CF | OF)) | (cf ? CF : 0);
         if (((r & sign) != 0) != cf)
-            eflags |= OF;
+            flagsRef() |= OF;
         return r;
     }
     case 1: { // ROR
         const uint32_t n = count % uint32_t(bits);
         r = n ? ((v >> n) | (v << (uint32_t(bits) - n))) & m : v;
         cf = (r & sign) != 0;
-        eflags = (eflags & ~(CF | OF)) | (cf ? CF : 0);
+        flagsRef() = (flagsRef() & ~(CF | OF)) | (cf ? CF : 0);
         if (((r & sign) != 0) != ((r & (sign >> 1)) != 0))
-            eflags |= OF;
+            flagsRef() |= OF;
         return r;
     }
     case 2: // RCL
@@ -301,9 +311,9 @@ uint32_t Cpu::shift(int op, uint32_t v, uint32_t count, int size) {
                 cf = out;
             }
         }
-        eflags = (eflags & ~(CF | OF)) | (cf ? CF : 0);
+        flagsRef() = (flagsRef() & ~(CF | OF)) | (cf ? CF : 0);
         if (op == 2 ? (((r & sign) != 0) != cf) : (((r & sign) != 0) != ((r & (sign >> 1)) != 0)))
-            eflags |= OF;
+            flagsRef() |= OF;
         return r;
     }
     case 4: // SHL
@@ -312,18 +322,18 @@ uint32_t Cpu::shift(int op, uint32_t v, uint32_t count, int size) {
         r = count < 32 ? (v << count) & m : 0;
         setLogicFlags(r, size);
         if (cf)
-            eflags |= CF;
+            flagsRef() |= CF;
         if (((r & sign) != 0) != cf)
-            eflags |= OF;
+            flagsRef() |= OF;
         return r;
     case 5: // SHR
         cf = count <= uint32_t(bits) ? ((v >> (count - 1)) & 1) != 0 : false;
         r = count < 32 ? v >> count : 0;
         setLogicFlags(r, size);
         if (cf)
-            eflags |= CF;
+            flagsRef() |= CF;
         if (v & sign)
-            eflags |= OF;
+            flagsRef() |= OF;
         return r;
     case 7: { // SAR
         const int32_t s = signExtend(v, size);
@@ -334,15 +344,37 @@ uint32_t Cpu::shift(int op, uint32_t v, uint32_t count, int size) {
         r = uint32_t(s >> (count >= uint32_t(bits) ? bits - 1 : int(count))) & m;
         setLogicFlags(r, size);
         if (cf)
-            eflags |= CF;
+            flagsRef() |= CF;
         return r;
     }
     }
     return r;
 }
 
-bool Cpu::condition(int cc) const {
-    const bool cf = eflags & CF, zf = eflags & ZF, sf = eflags & SF, of = eflags & OF, pf = eflags & PF;
+bool Cpu::condition(int cc) {
+    // After a compare or subtraction (no borrow in) or a logic operation,
+    // straight from its operands; otherwise from the flags.
+    const Lazy& l = lazy_;
+    if ((l.kind == LazySub && !l.carry) || l.kind == LazyLogic) {
+        const uint32_t sign = signBit(l.size);
+        const bool logic = l.kind == LazyLogic;
+        bool r = false;
+        switch (cc >> 1) {
+        case 0: r = !logic && ((l.a ^ l.b) & (l.a ^ l.r) & sign); break;            // O
+        case 1: r = !logic && l.a < l.b; break;                                       // B
+        case 2: r = l.r == 0; break;                                                  // Z
+        case 3: r = logic ? l.r == 0 : l.a <= l.b; break;                             // BE
+        case 4: r = (l.r & sign) != 0; break;                                         // S
+        case 5: r = parity(l.r); break;                                               // P
+        case 6: r = logic ? (l.r & sign) != 0 : signExtend(l.a, l.size) < signExtend(l.b, l.size); break; // L
+        case 7: // LE
+            r = logic ? l.r == 0 || (l.r & sign) != 0 : signExtend(l.a, l.size) <= signExtend(l.b, l.size);
+            break;
+        }
+        return (cc & 1) ? !r : r;
+    }
+    const uint32_t f = flagsRef();
+    const bool cf = f & CF, zf = f & ZF, sf = f & SF, of = f & OF, pf = f & PF;
     bool r = false;
     switch (cc >> 1) {
     case 0: r = of; break;
@@ -371,9 +403,9 @@ void Cpu::group3(int size) {
     case 3: { // NEG
         const uint32_t r = alu(5, 0, v, size);
         if (v & m)
-            eflags |= CF;
+            flagsRef() |= CF;
         else
-            eflags &= ~CF;
+            flagsRef() &= ~CF;
         writeRm(size, r);
         break;
     }
@@ -398,9 +430,9 @@ void Cpu::group3(int size) {
             reg[EAX] = uint32_t(product);
             reg[EDX] = uint32_t(product >> 32);
         }
-        eflags &= ~(CF | OF);
+        flagsRef() &= ~(CF | OF);
         if (overflow)
-            eflags |= CF | OF;
+            flagsRef() |= CF | OF;
         break;
     }
     case 6: // DIV
@@ -463,11 +495,11 @@ void Cpu::group3(int size) {
 
 void Cpu::stringOp(uint8_t op) {
     const int size = (op & 1) ? (d_.opSize16 ? 2 : 4) : 1;
-    const uint32_t step = (eflags & DF) ? uint32_t(-size) : uint32_t(size);
+    const uint32_t step = (flagsRef() & DF) ? uint32_t(-size) : uint32_t(size);
     const bool repeat = d_.rep || d_.repne;
     const bool compare = op == 0xa6 || op == 0xa7 || op == 0xae || op == 0xaf;
     // rep movs and rep stos forward, a run at a time.
-    if (repeat && !(eflags & DF) && (op == 0xa4 || op == 0xa5) && reg[ECX]) {
+    if (repeat && !(flagsRef() & DF) && (op == 0xa4 || op == 0xa5) && reg[ECX]) {
         const uint64_t bytes = uint64_t(reg[ECX]) * uint32_t(size);
         const uint32_t src = reg[ESI] + d_.segment, dst = reg[EDI];
         if (bytes <= 0xffffffffu && (uint64_t(dst) + bytes <= src || dst < src)) {
@@ -480,7 +512,7 @@ void Cpu::stringOp(uint8_t op) {
             return;
         }
     }
-    if (repeat && !(eflags & DF) && (op == 0xaa || op == 0xab) && reg[ECX]) {
+    if (repeat && !(flagsRef() & DF) && (op == 0xaa || op == 0xab) && reg[ECX]) {
         const uint64_t bytes = uint64_t(reg[ECX]) * uint32_t(size);
         if (bytes <= 0xffffffffu) {
             uint8_t* to = at(reg[EDI], uint32_t(bytes));
@@ -528,7 +560,7 @@ void Cpu::stringOp(uint8_t op) {
         if (!repeat)
             break;
         --reg[ECX];
-        if (compare && (d_.rep ? !(eflags & ZF) : (eflags & ZF) != 0))
+        if (compare && (d_.rep ? !(flagsRef() & ZF) : (flagsRef() & ZF) != 0))
             break;
     }
 }
@@ -603,7 +635,7 @@ void Cpu::twoByte() {
             }
         }
         const uint32_t v = readRm(osz);
-        eflags = (v >> bit) & 1 ? eflags | CF : eflags & ~CF;
+        flagsRef() = (v >> bit) & 1 ? flagsRef() | CF : flagsRef() & ~CF;
         if (kind == 1)
             writeRm(osz, v | (1u << bit));
         else if (kind == 2)
@@ -636,9 +668,9 @@ void Cpu::twoByte() {
         const uint32_t result = uint32_t(r) & mask(osz);
         setLogicFlags(result, osz);
         if (cf)
-            eflags |= CF;
+            flagsRef() |= CF;
         if (((result ^ dst) & signBit(osz)) != 0)
-            eflags |= OF;
+            flagsRef() |= OF;
         writeRm(osz, result);
         return;
     }
@@ -646,9 +678,9 @@ void Cpu::twoByte() {
         decodeModrm();
         const int64_t p = int64_t(signExtend(readReg(osz, d_.regField), osz)) * signExtend(readRm(osz), osz);
         writeReg(osz, d_.regField, uint32_t(p));
-        eflags &= ~(CF | OF);
+        flagsRef() &= ~(CF | OF);
         if (p != int64_t(signExtend(uint32_t(p), osz)))
-            eflags |= CF | OF;
+            flagsRef() |= CF | OF;
         return;
     }
     case 0xb0: // CMPXCHG r/m8, r8
@@ -657,7 +689,7 @@ void Cpu::twoByte() {
         decodeModrm();
         const uint32_t dst = readRm(size), acc = readReg(size, EAX);
         alu(7, acc, dst, size);
-        if (eflags & ZF)
+        if (flagsRef() & ZF)
             writeRm(size, readReg(size, d_.regField));
         else
             writeReg(size, EAX, dst);
@@ -678,10 +710,10 @@ void Cpu::twoByte() {
         decodeModrm();
         const uint32_t v = readRm(osz) & mask(osz);
         if (!v) {
-            eflags |= ZF;
+            flagsRef() |= ZF;
             return;
         }
-        eflags &= ~ZF;
+        flagsRef() &= ~ZF;
         uint32_t i = 0;
         if (op == 0xbc)
             while (!((v >> i) & 1))
@@ -707,6 +739,13 @@ void Cpu::twoByte() {
     }
 }
 
+// Inlined into runUntil(): its registers saved once a run, not once an
+// instruction.
+#if defined(_MSC_VER)
+__forceinline
+#elif defined(__GNUC__)
+[[gnu::always_inline]] inline
+#endif
 void Cpu::step() {
     instructionStart_ = eip;
     if (eip >= nativeBase_ - kNativeStride * kReturnSlots) {
@@ -719,9 +758,12 @@ void Cpu::step() {
     if (limit_ && executed_ > limitAt_)
         fault("instruction limit reached");
     d_ = Decoded{};
+    fetchChecked_ = valid(eip, 16);
     uint8_t op;
     while (true) {
         op = uint8_t(fetch8());
+        if (!kPrefix[op]) [[likely]]
+            break;
         if (op == 0x66)
             d_.opSize16 = true;
         else if (op == 0xf3)
@@ -739,8 +781,14 @@ void Cpu::step() {
     }
     const int osz = d_.opSize16 ? 2 : 4;
 
+    switch (op) {
     // The eight ALU operations, in their six forms each.
-    if (op < 0x40 && (op & 7) < 6) {
+    case 0x00: case 0x01: case 0x02: case 0x03: case 0x04: case 0x05: case 0x08: case 0x09: case 0x0a:
+    case 0x0b: case 0x0c: case 0x0d: case 0x10: case 0x11: case 0x12: case 0x13: case 0x14: case 0x15:
+    case 0x18: case 0x19: case 0x1a: case 0x1b: case 0x1c: case 0x1d: case 0x20: case 0x21: case 0x22:
+    case 0x23: case 0x24: case 0x25: case 0x28: case 0x29: case 0x2a: case 0x2b: case 0x2c: case 0x2d:
+    case 0x30: case 0x31: case 0x32: case 0x33: case 0x34: case 0x35: case 0x38: case 0x39: case 0x3a:
+    case 0x3b: case 0x3c: case 0x3d: {
         const int aluOp = op >> 3;
         int size = (op & 1) ? osz : 1;
         uint32_t a, b;
@@ -773,57 +821,57 @@ void Cpu::step() {
             writeReg(size, EAX, r);
         return;
     }
-    if (op >= 0x40 && op <= 0x4f) { // INC/DEC r
+    case 0x40: case 0x41: case 0x42: case 0x43: case 0x44: case 0x45: case 0x46: case 0x47: case 0x48:
+    case 0x49: case 0x4a: case 0x4b: case 0x4c: case 0x4d: case 0x4e: case 0x4f: { // INC/DEC r
         const int r = op & 7;
-        const uint32_t cf = eflags & CF;
+        const uint32_t cf = flagsRef() & CF;
         writeReg(osz, r, alu(op < 0x48 ? 0 : 5, readReg(osz, r), 1, osz));
-        eflags = (eflags & ~CF) | cf;
+        flagsRef() = (flagsRef() & ~CF) | cf;
         return;
     }
-    if (op >= 0x50 && op <= 0x57) {
+    case 0x50: case 0x51: case 0x52: case 0x53: case 0x54: case 0x55: case 0x56: case 0x57: {
         push(reg[op & 7]);
         return;
     }
-    if (op >= 0x58 && op <= 0x5f) {
+    case 0x58: case 0x59: case 0x5a: case 0x5b: case 0x5c: case 0x5d: case 0x5e: case 0x5f: {
         reg[op & 7] = pop();
         return;
     }
-    if (op >= 0x70 && op <= 0x7f) { // Jcc rel8
+    case 0x70: case 0x71: case 0x72: case 0x73: case 0x74: case 0x75: case 0x76: case 0x77: case 0x78:
+    case 0x79: case 0x7a: case 0x7b: case 0x7c: case 0x7d: case 0x7e: case 0x7f: { // Jcc rel8
         const uint32_t rel = uint32_t(int32_t(int8_t(fetch8())));
         if (condition(op & 15))
             eip += rel;
         return;
     }
-    if (op >= 0x91 && op <= 0x97) { // XCHG eAX, r
+    case 0x91: case 0x92: case 0x93: case 0x94: case 0x95: case 0x96: case 0x97: { // XCHG eAX, r
         const uint32_t t = readReg(osz, EAX);
         writeReg(osz, EAX, readReg(osz, op & 7));
         writeReg(osz, op & 7, t);
         return;
     }
-    if (op >= 0xb0 && op <= 0xb7) { // MOV r8, imm8
+    case 0xb0: case 0xb1: case 0xb2: case 0xb3: case 0xb4: case 0xb5: case 0xb6: case 0xb7: { // MOV r8, imm8
         writeReg(1, op & 7, fetch8());
         return;
     }
-    if (op >= 0xb8 && op <= 0xbf) { // MOV r, imm
+    case 0xb8: case 0xb9: case 0xba: case 0xbb: case 0xbc: case 0xbd: case 0xbe: case 0xbf: { // MOV r, imm
         writeReg(osz, op & 7, osz == 2 ? fetch16() : fetch32());
         return;
     }
-    if (op >= 0xd8 && op <= 0xdf) {
+    case 0xd8: case 0xd9: case 0xda: case 0xdb: case 0xdc: case 0xdd: case 0xde: case 0xdf: {
         x87(op);
         return;
     }
-
-    switch (op) {
     case 0x0f: twoByte(); return;
     case 0x27: { // DAA
-        const uint32_t al = reg[EAX] & 0xff, cf = eflags & CF;
+        const uint32_t al = reg[EAX] & 0xff, cf = flagsRef() & CF;
         uint32_t r = al;
         bool newCf = false;
-        if ((al & 0xf) > 9 || (eflags & AF)) {
+        if ((al & 0xf) > 9 || (flagsRef() & AF)) {
             r += 6;
-            eflags |= AF;
+            flagsRef() |= AF;
         } else {
-            eflags &= ~AF;
+            flagsRef() &= ~AF;
         }
         if (al > 0x99 || cf) {
             r += 0x60;
@@ -831,7 +879,7 @@ void Cpu::step() {
         }
         setLogicFlags(r & 0xff, 1);
         if (newCf)
-            eflags |= CF;
+            flagsRef() |= CF;
         writeReg(1, EAX, r);
         return;
     }
@@ -856,9 +904,9 @@ void Cpu::step() {
         const int32_t imm = op == 0x6b ? int8_t(fetch8()) : signExtend(osz == 2 ? fetch16() : fetch32(), osz);
         const int64_t p = int64_t(signExtend(readRm(osz), osz)) * imm;
         writeReg(osz, d_.regField, uint32_t(p));
-        eflags &= ~(CF | OF);
+        flagsRef() &= ~(CF | OF);
         if (p != int64_t(signExtend(uint32_t(p), osz)))
-            eflags |= CF | OF;
+            flagsRef() |= CF | OF;
         return;
     }
     case 0x80:
@@ -920,13 +968,13 @@ void Cpu::step() {
             reg[EDX] = (reg[EAX] & 0x80000000u) ? 0xffffffffu : 0;
         return;
     case 0x9b: return; // FWAIT
-    case 0x9c: push(eflags); return; // PUSHFD
+    case 0x9c: push(flagsRef()); return; // PUSHFD
     case 0x9d: // POPFD: the flags a program may change (ID and AC too, which
                // tell it the processor has CPUID)
-        eflags = (pop() & 0x00240fd5u) | 0x2;
+        flagsRef() = (pop() & 0x00240fd5u) | 0x2;
         return;
-    case 0x9e: eflags = (eflags & ~0xd5u) | (((reg[EAX] >> 8) & 0xd5u)); return; // SAHF
-    case 0x9f: writeReg(1, 4, (eflags & 0xd5u) | 0x2); return;                  // LAHF
+    case 0x9e: flagsRef() = (flagsRef() & ~0xd5u) | (((reg[EAX] >> 8) & 0xd5u)); return; // SAHF
+    case 0x9f: writeReg(1, 4, (flagsRef() & 0xd5u) | 0x2); return;                  // LAHF
     case 0xa0: writeReg(1, EAX, load(fetch32() + d_.segment, 1)); return;
     case 0xa1: writeReg(osz, EAX, load(fetch32() + d_.segment, osz)); return;
     case 0xa2: store(fetch32() + d_.segment, readReg(1, EAX), 1); return;
@@ -985,7 +1033,7 @@ void Cpu::step() {
     case 0xe2: { // LOOPNE, LOOPE, LOOP
         const uint32_t rel = uint32_t(int32_t(int8_t(fetch8())));
         --reg[ECX];
-        const bool zf = (eflags & ZF) != 0;
+        const bool zf = (flagsRef() & ZF) != 0;
         if (reg[ECX] && (op == 0xe2 || (op == 0xe1 ? zf : !zf)))
             eip += rel;
         return;
@@ -1005,22 +1053,22 @@ void Cpu::step() {
     case 0xe9: eip += fetch32(); return;
     case 0xeb: eip += uint32_t(int32_t(int8_t(fetch8()))); return;
     case 0xf4: fault("HLT");
-    case 0xf5: eflags ^= CF; return;
+    case 0xf5: flagsRef() ^= CF; return;
     case 0xf6: decodeModrm(); group3(1); return;
     case 0xf7: decodeModrm(); group3(osz); return;
-    case 0xf8: eflags &= ~CF; return;
-    case 0xf9: eflags |= CF; return;
+    case 0xf8: flagsRef() &= ~CF; return;
+    case 0xf9: flagsRef() |= CF; return;
     case 0xfa:
     case 0xfb: return; // CLI, STI: nothing to do
-    case 0xfc: eflags &= ~DF; return;
-    case 0xfd: eflags |= DF; return;
+    case 0xfc: flagsRef() &= ~DF; return;
+    case 0xfd: flagsRef() |= DF; return;
     case 0xfe: { // INC/DEC r/m8
         decodeModrm();
         if (d_.regField > 1)
             fault("undefined instruction fe /" + std::to_string(d_.regField));
-        const uint32_t cf = eflags & CF;
+        const uint32_t cf = flagsRef() & CF;
         writeRm(1, alu(d_.regField ? 5 : 0, readRm(1), 1, 1));
-        eflags = (eflags & ~CF) | cf;
+        flagsRef() = (flagsRef() & ~CF) | cf;
         return;
     }
     case 0xff: {
@@ -1028,9 +1076,9 @@ void Cpu::step() {
         switch (d_.regField) {
         case 0:
         case 1: { // INC/DEC r/m
-            const uint32_t cf = eflags & CF;
+            const uint32_t cf = flagsRef() & CF;
             writeRm(osz, alu(d_.regField ? 5 : 0, readRm(osz), 1, osz));
-            eflags = (eflags & ~CF) | cf;
+            flagsRef() = (flagsRef() & ~CF) | cf;
             return;
         }
         case 2: { // CALL r/m

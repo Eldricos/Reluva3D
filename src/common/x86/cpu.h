@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <string>
 #include <string_view>
@@ -39,7 +40,7 @@ public:
     std::vector<uint8_t>& memory() { return memory_; }
     uint32_t memorySize() const { return uint32_t(memory_.size()); }
     bool valid(uint32_t address, uint32_t size) const {
-        return address >= kPageSize && size <= memory_.size() && address <= memory_.size() - size;
+        return address >= kPageSize && uint64_t(address) + size <= size_;
     }
     // Reads and writes for native code (no fault: out of range reads 0,
     // writes are dropped; check valid() first where it matters).
@@ -60,7 +61,12 @@ public:
     // --- State ---------------------------------------------------------------
     std::array<uint32_t, 8> reg{};
     uint32_t eip = 0;
-    uint32_t eflags = 0x202;
+    // EFLAGS. The arithmetic flags are worked out only when looked at:
+    // an ALU operation keeps its operands and result, and a conditional
+    // jump after a compare reads them directly (flags(), setFlags() for
+    // the whole register).
+    uint32_t flags() { return flagsRef(); }
+    void setFlags(uint32_t v) { flagsRef() = v; }
     uint32_t fsBase = 0; // the FS segment's base (Windows' thread information block)
     // The x87 unit: its eight registers as a stack (st(i) is regs[(top + i) & 7]),
     // kept as doubles: Windows programs run it at 53-bit precision.
@@ -132,16 +138,35 @@ private:
     uint8_t* at(uint32_t a, uint32_t size) {
         if (!valid(a, size)) [[unlikely]]
             outside(a, size);
-        return memory_.data() + a;
+        return data_ + a;
     }
     [[noreturn]] void outside(uint32_t a, uint32_t size);
     uint32_t load(uint32_t a, int size);
     void store(uint32_t a, uint32_t v, int size);
     void push(uint32_t v);
     uint32_t pop();
-    uint32_t fetch8();
-    uint32_t fetch16();
-    uint32_t fetch32();
+    // The instruction's bytes: checked once for its longest (15 bytes) when
+    // it starts, each byte checked only where that can't be done (near
+    // the end of memory).
+    uint32_t fetch8() {
+        if (fetchChecked_) [[likely]]
+            return data_[eip++];
+        return load(eip++, 1);
+    }
+    uint32_t fetch16() {
+        const uint32_t v = fetchChecked_ ? uint32_t(data_[eip] | data_[eip + 1] << 8) : load(eip, 2);
+        eip += 2;
+        return v;
+    }
+    uint32_t fetch32() {
+        uint32_t v;
+        if (fetchChecked_)
+            std::memcpy(&v, data_ + eip, 4);
+        else
+            v = load(eip, 4);
+        eip += 4;
+        return v;
+    }
 
     // The instruction being run: prefixes, and its ModRM operand.
     struct Decoded {
@@ -162,7 +187,21 @@ private:
     uint32_t alu(int op, uint32_t a, uint32_t b, int size);
     uint32_t shift(int op, uint32_t v, uint32_t count, int size);
     void setLogicFlags(uint32_t result, int size);
-    bool condition(int cc) const;
+    bool condition(int cc);
+    // The flags register, the pending ALU operation's flags in it.
+    uint32_t& flagsRef() {
+        if (lazy_.kind != LazyNone)
+            settle();
+        return eflags_;
+    }
+    void settle();
+    enum LazyKind : uint8_t { LazyNone, LazyAdd, LazySub, LazyLogic };
+    struct Lazy {
+        LazyKind kind = LazyNone;
+        uint8_t size = 4;
+        uint32_t a = 0, b = 0, r = 0, carry = 0; // r and the operands masked to the size
+    } lazy_;
+    uint32_t eflags_ = 0x202;
     void group3(int size);
     void stringOp(uint8_t op);
     void twoByte();
@@ -174,6 +213,9 @@ private:
     double fpuRound(double v) const;
 
     std::vector<uint8_t> memory_;
+    uint8_t* data_ = nullptr; // memory_'s, which is never resized
+    uint64_t size_ = 0;
+    bool fetchChecked_ = false; // the running instruction's bytes are all in memory
     struct NativeEntry {
         std::string name;
         Native fn;
