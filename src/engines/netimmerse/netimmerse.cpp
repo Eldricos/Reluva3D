@@ -58,6 +58,18 @@ public:
     NetImmerseEngine(System& system, GameTarget target) : sys_(system), target_(std::move(target)) {}
 
     Error run() override {
+        // One mixer for the game and the viewer's pages, for as long as the
+        // engine runs; without an audio device nothing plays.
+        mixer_ = std::make_unique<audio::Mixer>(sys_.audioRate());
+        audioOut_ = !audio::startMixerOutput(sys_, *mixer_);
+        struct AudioStop {
+            System& sys;
+            bool on;
+            ~AudioStop() {
+                if (on)
+                    sys.stopAudio();
+            }
+        } audioStop{sys_, audioOut_};
         if (!fs::findFile(target_.path, "LEGOATeam.exe")) {
             bool quit = false;
             return viewer(quit);
@@ -69,7 +81,7 @@ private:
     // The game, until it ends or the player leaves. The mouse is held by
     // the window (the game reads its movement and draws its own pointer).
     Error play() {
-        netimmerse::alphateam::Player player(target_.path);
+        netimmerse::alphateam::Player player(target_.path, audioOut_ ? mixer_.get() : nullptr);
         player.start();
         int width = 640, height = 480;
         auto screen = [&] {
@@ -140,20 +152,7 @@ private:
             errors.push_back("No .pac archives could be read in " + target_.path.string());
 
         screen_.create(kScreenW, kScreenH, PixelFormat::RGBA32);
-        // One mixer for every page, for as long as the viewer runs; without
-        // an audio device the pages show and don't play.
-        audio::Mixer mixer(sys_.audioRate());
-        const bool audioOut = !audio::startMixerOutput(sys_, mixer);
-        struct AudioStop {
-            System& sys;
-            bool on;
-            ~AudioStop() {
-                if (on)
-                    sys.stopAudio();
-            }
-        } audioStop{sys_, audioOut};
-
-        ViewerContext ctx{sys_, screen_, target_.description, {}, files_, audioOut ? &mixer : nullptr};
+        ViewerContext ctx{sys_, screen_, target_.description, {}, files_, audioOut_ ? mixer_.get() : nullptr};
         for (const auto& [name, pac] : archives_)
             ctx.archives[name] = pac;
         std::vector<std::unique_ptr<Page>> pages;
@@ -226,6 +225,8 @@ private:
     GameTarget target_;
     Surface screen_;
     SearchSet files_;
+    std::unique_ptr<audio::Mixer> mixer_;
+    bool audioOut_ = false;
     std::map<std::string, const PacArchive*> archives_; // owned by files_
 };
 

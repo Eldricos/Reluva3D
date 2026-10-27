@@ -20,6 +20,7 @@
 #include "common/md5.h"
 #include "common/net.h"
 #include "common/text.h"
+#include "common/x86/a3d.h"
 #include "common/x86/com.h"
 #include "common/x86/cpu.h"
 #include "common/x86/directx/dinput.h"
@@ -228,6 +229,28 @@ static void testMixer() {
     CHECK(!m.isPlaying(l) && out[0] == 0);
     // Nothing to play.
     CHECK(m.play(nullptr, SoundType::Effects) == kNoSound && m.play(make(22050, 1, {}), SoundType::Effects) == kNoSound);
+}
+
+// A stream: it waits for what's pushed, plays it as it comes, and ends.
+static void testMixerStream() {
+    using namespace reluva::audio;
+    std::vector<int16_t> out(40);
+    Mixer m(22050);
+    auto stream = std::make_shared<SoundStream>(22050, 1);
+    const SoundHandle a = m.playStream(stream, SoundType::Effects, kMaxVolume, 0, 0);
+    CHECK(a != kNoSound && m.isPlaying(a));
+    m.mix(out.data(), 4);
+    CHECK(out[0] == 0 && m.isPlaying(a)); // nothing yet: it waits
+    const std::vector<int16_t> ten(10, 500);
+    stream->push(ten.data(), ten.size());
+    m.mix(out.data(), 12);
+    // All but the last frame, which waits to be blended with what comes next.
+    CHECK(out[0] == 500 && out[17] == 500 && out[18] == 0 && m.isPlaying(a));
+    stream->push(ten.data(), ten.size());
+    stream->end();
+    m.mix(out.data(), 20);
+    CHECK(out[0] == 500 && out[21] == 500 && out[22] == 0 && !m.isPlaying(a));
+    CHECK(m.playStream(nullptr, SoundType::Effects) == kNoSound);
 }
 
 static void testZip(const std::filesystem::path& tmp) {
@@ -1462,6 +1485,82 @@ static void testInput() {
     CHECK(call(keyboard, 9, {256, state}) == 0 && cpu.read8(state + 0x1e) == 0);
 }
 
+// A3D created as a program creates it, a source made, filled through Lock,
+// played once and looped, as the clock moves.
+static void testA3d() {
+    x86::Cpu cpu(32u << 20);
+    x86::Win32Process process(cpu);
+    uint32_t clock = 0;
+    process.milliseconds = [&] { return clock; };
+    x86::A3d a3d(process);
+    audio::Mixer mixer(22050);
+    a3d.mixer = &mixer;
+    uint32_t r = 0;
+    auto mem = [&](uint32_t size) { return process.memory().alloc(size); };
+    auto guid = [&](const char* g) {
+        const uint32_t a = mem(16);
+        x86::ComHost::writeGuid(cpu, a, g);
+        return a;
+    };
+    auto call = [&](uint32_t self, int index, std::vector<uint32_t> args) {
+        args.insert(args.begin(), self);
+        CHECK(!cpu.call(cpu.read32(cpu.read32(self) + 4 * uint32_t(index)), args, r));
+        return r;
+    };
+    const uint32_t out = mem(4), out2 = mem(4), out3 = mem(4), out4 = mem(4);
+    CHECK(!cpu.call(process.provided("ole32.dll", "CoCreateInstance"),
+                    {guid("{92fa2c24-253c-11d2-90fb-006008a1f441}"), 0, 1, guid("{9ae07221-8ac4-11d3-b6aa-00600879f3ee}"),
+                     out},
+                    r) && r == 0);
+    const uint32_t api = cpu.read32(out);
+    CHECK(call(api, 15, {0, 0, 0}) == 0); // Init
+    CHECK(call(api, 0, {guid("{4730c6c2-b797-11d3-a33d-00104b67d10e}"), out}) == 0 && cpu.read32(out)); // the geometry
+    CHECK(call(api, 0, {guid("{c398e564-d90b-11d1-90fb-006008a1f441}"), out}) == 0);                   // the listener
+    CHECK(call(api, 17, {0x1, out}) == 0); // NewSource, native (not positioned)
+    const uint32_t source = cpu.read32(out);
+    CHECK(a3d.sourcesMade() == 1);
+    // A second of 1000 Hz mono 8-bit: 1000 bytes.
+    const uint32_t format = mem(18);
+    std::memset(cpu.memory().data() + format, 0, 18);
+    cpu.write16(format, 1);
+    cpu.write16(format + 2, 1);
+    cpu.write32(format + 4, 1000);
+    cpu.write32(format + 8, 1000);
+    cpu.write16(format + 12, 1);
+    cpu.write16(format + 14, 8);
+    CHECK(call(source, 7, {format}) == 0);         // SetWaveFormat
+    CHECK(call(source, 5, {1000}) == 0);           // AllocateWaveData
+    CHECK(call(source, 9, {}) == 1000);            // GetWaveSize
+    CHECK(call(source, 11, {900, 200, out, out2, out3, out4, 0}) == 0); // Lock, wrapping round
+    CHECK(cpu.read32(out2) == 100 && cpu.read32(out4) == 100 && cpu.read32(out3) + 900 == cpu.read32(out));
+    for (uint32_t i = 0; i < 100; ++i)
+        cpu.write8(cpu.read32(out) + i, 0xc0), cpu.write8(cpu.read32(out3) + i, 0xc0);
+    CHECK(call(source, 12, {cpu.read32(out), 100, cpu.read32(out3), 100}) == 0); // Unlock
+    // Played once: it moves with the clock, and stops at its end.
+    CHECK(call(source, 13, {0}) == 0 && a3d.sourcesPlaying() == 1);
+    clock = 250;
+    CHECK(call(source, 19, {out}) == 0 && cpu.read32(out) == 250); // GetWavePosition
+    CHECK(call(source, 56, {out}) == 0 && cpu.read32(out) == 0x1); // GetStatus: playing
+    std::vector<int16_t> mixed(2 * 300);
+    mixer.mix(mixed.data(), 300); // 250 bytes at 1000 Hz: about 5500 frames, past its prebuffer
+    clock = 1500;
+    CHECK(call(source, 56, {out}) == 0 && cpu.read32(out) == 0 && a3d.sourcesPlaying() == 0);
+    // The first 100 bytes, heard: 0xc0 is +0x40 << 8.
+    mixed.assign(2 * 22050, 0);
+    mixer.mix(mixed.data(), 22050);
+    CHECK(*std::max_element(mixed.begin(), mixed.end()) == 0x4000);
+    // Looped: it wraps round, and stops where it's stopped.
+    CHECK(call(source, 13, {1}) == 0);
+    clock = 3750;
+    CHECK(call(source, 19, {out}) == 0 && cpu.read32(out) == 250);
+    CHECK(call(source, 56, {out}) == 0 && cpu.read32(out) == (0x1 | 0x4));
+    CHECK(call(source, 14, {}) == 0);
+    clock = 5000;
+    CHECK(call(source, 19, {out}) == 0 && cpu.read32(out) == 250 && a3d.sourcesPlaying() == 0);
+    // A method not stood in for ends the run, naming it.
+    CHECK(call(source, 2, {}) == 0); // Release
+}
+
 int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_tests";
     testMd5();
@@ -1470,6 +1569,7 @@ int main() {
     testWav();
     testMp3();
     testMixer();
+    testMixerStream();
     testFsAndDetection(tmp / "fs");
     testConfig(tmp / "cfg");
     testZip(tmp / "zip");
@@ -1489,6 +1589,7 @@ int main() {
     testWindowsAndRegistry();
     testDirectX();
     testInput();
+    testA3d();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

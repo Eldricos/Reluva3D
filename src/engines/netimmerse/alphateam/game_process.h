@@ -4,6 +4,7 @@
 #pragma once
 
 #include "common/types.h"
+#include "common/x86/a3d.h"
 #include "common/x86/cpu.h"
 #include "common/x86/directx/dinput.h"
 #include "common/x86/directx/directx.h"
@@ -42,6 +43,7 @@ public:
     x86::Cpu& cpu() { return *cpu_; }
     x86::Win32Process& process() { return *process_; }
     x86::DirectX& directX() { return *directX_; }
+    x86::A3d& a3d() { return *a3d_; }
     // Module names in the order they were loaded (the program last).
     const std::vector<std::string>& loadOrder() const { return order_; }
 
@@ -51,6 +53,7 @@ private:
     std::unique_ptr<x86::Win32Process> process_;
     std::unique_ptr<x86::DirectX> directX_;
     std::unique_ptr<x86::DirectInput> directInput_;
+    std::unique_ptr<x86::A3d> a3d_;
     std::vector<std::string> order_;
     std::vector<const x86::Win32Process::Module*> modules_;
 };

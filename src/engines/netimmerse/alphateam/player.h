@@ -14,6 +14,10 @@
 #include <thread>
 #include <vector>
 
+namespace reluva::audio {
+class Mixer;
+}
+
 namespace reluva::netimmerse::alphateam {
 
 class GameProcess;
@@ -24,7 +28,8 @@ class GameProcess;
 // engine's thread.
 class Player {
 public:
-    explicit Player(std::filesystem::path gameDir);
+    // Its sound goes to `mixer`, if there's one.
+    explicit Player(std::filesystem::path gameDir, audio::Mixer* mixer = nullptr);
     ~Player(); // stops the game and waits for it
 
     void start();
@@ -47,6 +52,7 @@ private:
     void drain(); // on the game's thread: applies the queued input
 
     std::filesystem::path dir_;
+    audio::Mixer* mixer_;
     GameProcess* game_ = nullptr; // the game thread's, while it runs
     std::thread thread_;
     std::mutex mutex_;

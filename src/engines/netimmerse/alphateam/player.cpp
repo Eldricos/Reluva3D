@@ -9,7 +9,7 @@
 
 namespace reluva::netimmerse::alphateam {
 
-Player::Player(std::filesystem::path gameDir) : dir_(std::move(gameDir)) {}
+Player::Player(std::filesystem::path gameDir, audio::Mixer* mixer) : dir_(std::move(gameDir)), mixer_(mixer) {}
 
 Player::~Player() {
     {
@@ -64,6 +64,7 @@ std::string Player::takeOutput() {
 
 void Player::work() {
     GameProcess game(dir_);
+    game.a3d().mixer = mixer_;
     x86::Win32Process& process = game.process();
     process.output = [this](const std::string& text) {
         std::lock_guard<std::mutex> lock(mutex_);

@@ -56,6 +56,7 @@ GameProcess::GameProcess(std::filesystem::path gameDir, uint32_t memoryMb) : dir
     x86::addMsvcrt(*process_);
     directX_ = std::make_unique<x86::DirectX>(*process_);
     directInput_ = std::make_unique<x86::DirectInput>(*process_);
+    a3d_ = std::make_unique<x86::A3d>(*process_);
 }
 
 Error GameProcess::load() {
