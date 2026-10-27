@@ -5432,6 +5432,18 @@ int cmdAtRun(int argc, char** argv) {
     // -point: the game's own pointer put at a place on the screen when a
     // frame is shown (DDMouse's position, 0..1 from the bottom left).
     std::vector<Click> points;
+    // -step: input given when a behaviour's state starts waiting for an
+    // event (BehaviorComp's DDBehavior::registerEvent): `event[+delay]@
+    // click:x,y | point:x,y | key:vk | buttons` (the last lists them). Each time the event is waited for,
+    // the next action given for it is taken, `delay` frames on (3 if none);
+    // a listing of the buttons is given each time.
+    struct StepAction {
+        uint32_t event;
+        int delay = 3;
+        char kind; // 'c'lick, 'p'oint, 'k'ey, 'b'uttons (list them)
+        int x = -1, y = -1;
+    };
+    std::vector<StepAction> stepActions;
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
         if (arg == "-v")
@@ -5471,6 +5483,26 @@ int cmdAtRun(int argc, char** argv) {
             if (const char* at = std::strchr(argv[a], '@'))
                 std::sscanf(at + 1, "%x,%x", &d.address, &d.bytes);
             dumps.push_back(d);
+        } else if (arg == "-step" && a + 1 < argc) {
+            const std::string v = argv[++a];
+            StepAction st{};
+            st.event = uint32_t(std::strtoul(v.c_str(), nullptr, 16));
+            st.delay = 3;
+            if (const size_t plus = v.find('+'); plus != std::string::npos && plus < v.find('@'))
+                st.delay = std::atoi(v.c_str() + plus + 1);
+            const size_t at = v.find('@');
+            const std::string action = at == std::string::npos ? "" : v.substr(at + 1);
+            st.kind = action.empty() ? 0 : action[0];
+            const size_t colon = action.find(':');
+            if (colon != std::string::npos && st.kind == 'k')
+                st.x = int(std::strtol(action.c_str() + colon + 1, nullptr, 0));
+            else if (colon != std::string::npos)
+                std::sscanf(action.c_str() + colon + 1, "%d,%d", &st.x, &st.y);
+            if (st.kind != 'c' && st.kind != 'p' && st.kind != 'k' && st.kind != 'b') {
+                std::fprintf(stderr, "-step: event[+delay]@click:x,y|point:x,y|key:vk|buttons, not %s\n", v.c_str());
+                return 2;
+            }
+            stepActions.push_back(st);
         } else if (arg == "-buttons" && a + 1 < argc) {
             buttonFrames.push_back(std::strtoull(argv[++a], nullptr, 0));
         } else if (arg == "-graph" && a + 1 < argc) {
@@ -5778,8 +5810,39 @@ int cmdAtRun(int argc, char** argv) {
         else
             watched.push_back({name, address, {}, {}, {}, {}});
     }
-    if (traceCount > 0 || log || !watched.empty() || callsAddress)
+    const auto* behaviorComp = game.process().module("BehaviorComp.dll");
+    const uint32_t registerEvent =
+        stepActions.empty() || !behaviorComp
+            ? 0
+            : behaviorComp->exportAddress("?registerEvent@DDBehavior@@QAEXPAVDDHFSM@@HPAVDDTransition@@@Z");
+    if (!stepActions.empty() && !registerEvent)
+        std::printf("-step: no DDBehavior::registerEvent\n");
+    if (traceCount > 0 || log || !watched.empty() || callsAddress || registerEvent)
         cpu.trace = [&](Cpu& c) {
+            // -step: registerEvent(machine, event, transition), thiscall.
+            if (registerEvent && c.eip == registerEvent) {
+                const uint32_t event = c.read32(c.reg[Cpu::ESP] + 8);
+                for (auto it = stepActions.begin(); it != stepActions.end(); ++it) {
+                    if (it->event != event)
+                        continue;
+                    if (it->kind == 'b') { // every time, alongside the event's next action
+                        buttonFrames.push_back(framesShown + uint64_t(it->delay));
+                        continue;
+                    }
+                    const uint64_t at = framesShown + uint64_t(it->delay);
+                    std::printf("step %x waited for on frame %llu: %c %d,%d on frame %llu\n", event,
+                                (unsigned long long)framesShown, it->kind, it->x, it->y, (unsigned long long)at);
+                    if (it->kind == 'k') {
+                        keys.push_back({at, it->x, 0});
+                    } else {
+                        points.push_back({at, it->x, it->y});
+                        if (it->kind == 'c')
+                            clicks.push_back({at + 2, -1, -1});
+                    }
+                    stepActions.erase(it);
+                    break;
+                }
+            }
             // -calls: a call is esp down by 4 with the address after the
             // last instruction on top and a jump; a return is reaching an
             // open call's return address.
