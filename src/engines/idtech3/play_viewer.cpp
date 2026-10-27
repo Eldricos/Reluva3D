@@ -1065,7 +1065,7 @@ eliteforce::GameHost::UserCommand PlayViewer::buildCommand() {
         else if (name == "altattack")
             cmd.buttons |= kButtonAltAttack;
         else if (name.rfind("button", 0) == 0)
-            cmd.buttons |= 1 << std::atoi(name.c_str() + 6);
+            cmd.buttons |= 1 << std::clamp(std::atoi(name.c_str() + 6), 0, 31);
     }
     cmd.weapon = uint8_t(cgame_ ? cgame_->weaponSelect() : 0);
     // Running unless +speed is held (cl_run 1, the default), or the reverse.

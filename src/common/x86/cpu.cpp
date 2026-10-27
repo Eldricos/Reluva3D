@@ -91,10 +91,8 @@ void Cpu::fault(const std::string& message) {
     throw Fault{message + " at " + hex(instructionStart_)};
 }
 
-uint8_t* Cpu::at(uint32_t a, uint32_t size) {
-    if (!valid(a, size))
-        fault("memory access at " + hex(a) + " (" + std::to_string(size) + " bytes) outside memory");
-    return &memory_[a];
+void Cpu::outside(uint32_t a, uint32_t size) {
+    fault("memory access at " + hex(a) + " (" + std::to_string(size) + " bytes) outside memory");
 }
 
 uint32_t Cpu::load(uint32_t a, int size) {

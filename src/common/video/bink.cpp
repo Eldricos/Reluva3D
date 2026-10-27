@@ -107,7 +107,8 @@ void inverseFft(std::vector<std::complex<double>>& a) {
 void dct3(float* x, int n) {
     std::vector<std::complex<double>> z(size_t(2 * n));
     for (int k = 0; k < n; ++k)
-        z[size_t(k)] = std::polar(double(k == 0 ? x[0] * 0.5f : x[k]), kPi * k / (2.0 * n));
+        // (Not std::polar: its magnitude must not be negative.)
+        z[size_t(k)] = double(k == 0 ? x[0] * 0.5f : x[k]) * std::exp(std::complex<double>(0, kPi * k / (2.0 * n)));
     inverseFft(z);
     for (int m = 0; m < n; ++m)
         x[m] = float(z[size_t(m)].real());
@@ -229,8 +230,10 @@ Error Movie::open(std::vector<uint8_t> file) {
     chromaPitch_ = ((width_ + 15) >> 4) * 8;
     chromaRows_ = ((height_ + 15) >> 4) * 8;
     for (int i = 0; i < 4; ++i) {
-        const size_t size = i == 0 || i == 3 ? size_t(lumaPitch_) * size_t(lumaRows_)
-                                             : size_t(chromaPitch_) * size_t(chromaRows_);
+        const size_t pitch = size_t(i == 0 || i == 3 ? lumaPitch_ : chromaPitch_);
+        // Room past the end for a scaled (16 x 16) block in the last row or
+        // column of 8 x 8 ones, which reaches up to 8 rows and 8 bytes on.
+        const size_t size = pitch * size_t(i == 0 || i == 3 ? lumaRows_ : chromaRows_) + 8 * pitch + 8;
         cur_[size_t(i)].assign(size, i == 3 ? 255 : 0);
         old_[size_t(i)].assign(size, i == 3 ? 255 : 0);
     }
@@ -361,7 +364,7 @@ void Movie::readTree(Bits& b, Tree& t) {
         }
         int n = length;
         for (int i = 0; i < 16; ++i)
-            if (!listed[i])
+            if (!listed[i] && n < 15) // a damaged list can repeat symbols
                 t.symbols[size_t(++n)] = uint8_t(i);
         return;
     }

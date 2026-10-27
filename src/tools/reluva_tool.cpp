@@ -4004,8 +4004,10 @@ int cmdSpRun(int argc, char** argv) {
             saveLoad = true;
         else if (std::strcmp(argv[i], "-load") == 0 && i + 1 < argc)
             loadName = argv[++i];
-        else if (std::strcmp(argv[i], "-replay") == 0 && i + 1 < argc)
+        else if (std::strcmp(argv[i], "-replay") == 0 && i + 1 < argc) {
             replayPath = argv[++i];
+            runCgame = true; // the commands go through the client game, as recorded
+        }
         else if (std::strcmp(argv[i], "-set") == 0 && i + 2 < argc) {
             settings.emplace_back(argv[i + 1], argv[i + 2]);
             i += 2;
@@ -4249,6 +4251,7 @@ int cmdSpRun(int argc, char** argv) {
             if (cmd.buttons != lastButtons && watch)
                 std::printf("[%5d ms] buttons %d\n", cmd.serverTime, cmd.buttons);
             lastButtons = cmd.buttons;
+            game.setWeaponSelect(cmd.weapon);
             if (game.clientGameRunning())
                 if (int r = clientStep(cmd, f))
                     return r;

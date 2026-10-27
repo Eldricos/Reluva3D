@@ -173,6 +173,8 @@ public:
     bool cameraPosition(Vec3f& at);
     // The weapon the client game has chosen (SetUserCmdValue), for commands.
     uint8_t weaponSelect() const { return clientWeapon_; }
+    // As the client game sets it (SetUserCmdValue): for a replay.
+    void setWeaponSelect(uint8_t weapon) { clientWeapon_ = weapon; }
     bool clientGameRunning() const { return cgameRunning_; }
     // What the client game registered, by kind.
     const HandleTable& models() const { return models_; }
@@ -294,6 +296,8 @@ private:
     std::map<int32_t, std::string> configstrings_, userinfo_;
     std::vector<std::string> consoleCommands_;
     std::vector<std::pair<int32_t, std::string>> serverCommands_;
+    std::vector<size_t> toClient_; // those for the player (0, or -1: everyone), in order
+    void addServerCommand(int32_t to, std::string text);
     SaveWriter* saveWriter_ = nullptr;
     SaveReader* saveReader_ = nullptr;
     std::map<int, int> callCounts_, cgameCallCounts_, cgameUnhandled_;

@@ -301,9 +301,13 @@ uint32_t SpUiHost::fileList(const std::string& folder, const std::string& extens
     }
     if (dir == "saves" && !saveDir.empty()) {
         // Saved games written here too, besides those in the game's folder.
+        // (Iterated without exceptions, and the names as UTF-8: a name the
+        // system's code page can't hold would throw from string().)
         std::error_code ec;
-        for (const auto& entry : std::filesystem::directory_iterator(saveDir, ec)) {
-            const std::string n = lower(entry.path().filename().string());
+        for (std::filesystem::directory_iterator it(saveDir, ec), end; !ec && it != end; it.increment(ec)) {
+            const auto& entry = *it;
+            const std::u8string u8 = entry.path().filename().u8string();
+            const std::string n = lower(std::string(u8.begin(), u8.end()));
             if (entry.is_regular_file(ec) &&
                 (ext.empty() || (n.size() >= ext.size() && n.compare(n.size() - ext.size(), ext.size(), ext) == 0)))
                 names.push_back(n);

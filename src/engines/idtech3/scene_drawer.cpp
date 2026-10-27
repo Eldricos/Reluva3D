@@ -122,7 +122,8 @@ const std::string& SceneDrawer::name(const HandleTable* table, int32_t handle) {
 }
 
 int SceneDrawer::material(std::vector<int>& cache, int32_t handle, Lighting lighting) {
-    if (handle <= 0)
+    // (A handle from the program: none past those registered.)
+    if (handle <= 0 || !handles_.shaders || size_t(handle) > handles_.shaders->size() + 1)
         return -1;
     if (size_t(handle) >= cache.size())
         cache.resize(size_t(handle) + 1, -2);

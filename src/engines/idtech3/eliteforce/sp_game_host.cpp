@@ -1048,14 +1048,10 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
         return 0;
     }
     case 60: { // GetServerCommand(sequence) -> whether it's there; its words for Argv
-        std::vector<std::string> mine;
-        for (const auto& [to, text] : serverCommands_)
-            if (to == 0 || to == -1)
-                mine.push_back(text);
         const int32_t n = int32_t(a(0));
-        if (n < 1 || size_t(n) > mine.size())
+        if (n < 1 || size_t(n) > toClient_.size())
             return 0;
-        tokenize(mine[size_t(n - 1)]);
+        tokenize(serverCommands_[toClient_[size_t(n - 1)]].second);
         return 1;
     }
     case 61: return uint32_t(commandNumber_); // GetCurrentCmdNumber()
@@ -1334,8 +1330,7 @@ void SpGameHost::makeSnapshot() {
         const uint32_t a = entityAddress(n);
         snap.entities.emplace_back(cpu_->memory().data() + a, cpu_->memory().data() + a + kEntityStateSize);
     }
-    for (const auto& [to, text] : serverCommands_)
-        snap.serverCommandSequence += to == 0 || to == -1;
+    snap.serverCommandSequence = int32_t(toClient_.size());
     if (world_ && areaPortals_ && !(cvars_.find("cm_noAreas") && cvars_.integer("cm_noAreas"))) {
         const int area = world_->leafArea(world_->leafAt(eye));
         if (area >= 0)
@@ -1359,10 +1354,13 @@ Error SpGameHost::startClientGame() {
     // CG_INIT's argument is the server commands received so far (the
     // original engine passes its client's command sequence), which the
     // client game counts on from.
-    int32_t received = 0;
-    for (const auto& [to, text] : serverCommands_)
-        received += to == 0 || to == -1;
-    return cpu_->call(cgameVmMain_, {CgInit, uint32_t(received)}, ignored);
+    return cpu_->call(cgameVmMain_, {CgInit, uint32_t(toClient_.size())}, ignored);
+}
+
+void SpGameHost::addServerCommand(int32_t to, std::string text) {
+    if (to == 0 || to == -1)
+        toClient_.push_back(serverCommands_.size());
+    serverCommands_.emplace_back(to, std::move(text));
 }
 
 Error SpGameHost::clientThink(const UserCommand& input) {
@@ -1550,7 +1548,7 @@ void SpGameHost::addImports() {
         return 0u;
     });
     import(SendServerCommand, [this](x86::Cpu& c) {
-        serverCommands_.emplace_back(int32_t(c.arg(0)), x86::formatPrintf(c, c.arg(1), c.reg[x86::Cpu::ESP] + 12));
+        addServerCommand(int32_t(c.arg(0)), x86::formatPrintf(c, c.arg(1), c.reg[x86::Cpu::ESP] + 12));
         return 0u;
     });
     import(SetConfigstring, [this, str](x86::Cpu& c) {
@@ -1560,7 +1558,7 @@ void SpGameHost::addImports() {
         // Once the client game runs, it hears of changes as the original
         // engine tells it.
         if (cgameRunning_)
-            serverCommands_.emplace_back(0, "cs " + std::to_string(index) + " \"" + value + "\"");
+            addServerCommand(0, "cs " + std::to_string(index) + " \"" + value + "\"");
         return 0u;
     });
     import(GetConfigstring, [this](x86::Cpu& c) {

@@ -24,6 +24,8 @@ namespace {
 constexpr int32_t kButtonAttack = 1, kButtonAltAttack = 32;
 constexpr float kServerBudgetMs = 40; // of the game's frames, each page frame
 
+bool badSaveName(const std::string& name); // below
+
 int32_t toShort(float degrees) { return int32_t(std::lround(degrees * 65536.0f / 360.0f)) & 0xffff; }
 
 bool isButton(const std::string& name) {
@@ -315,6 +317,8 @@ void SpPlayViewer::runCommand(const std::string& line, bool fromGame) {
         const std::string name = w.size() == 2 ? fs::toLower(w[1]) : std::string();
         if (name.empty() || name == "auto" || name == "exitholodeck" || saveDir_.empty()) {
             lastCommand_ = "Can't wipe 'auto' or 'exitholodeck'";
+        } else if (badSaveName(w[1])) {
+            lastCommand_ = "Bad savegame name.";
         } else {
             std::error_code ec;
             std::filesystem::remove(saveDir_ / (w[1] + ".sav"), ec);
@@ -597,8 +601,7 @@ void SpPlayViewer::saveGame(const std::string& name, bool autosave) {
             return;
         }
     }
-    std::filesystem::remove(file, ec);
-    std::filesystem::rename(temp, file, ec);
+    std::filesystem::rename(temp, file, ec); // replaces the old one, which is kept if this fails
     if (ec) {
         lastCommand_ = "Couldn't write " + file.string() + ": " + ec.message();
         return;
@@ -893,7 +896,7 @@ void SpPlayViewer::runGame(uint64_t nowMs) {
             else if (name == "altattack")
                 cmd.buttons |= kButtonAltAttack;
             else if (name.rfind("button", 0) == 0)
-                cmd.buttons |= 1 << std::atoi(name.c_str() + 6);
+                cmd.buttons |= 1 << std::clamp(std::atoi(name.c_str() + 6), 0, 31);
         }
         const int speed = (cvars_.find("cl_run") ? cvars_.integer("cl_run") != 0 : true) != held("speed") ? 127 : 64;
         int side = held("moveright") - held("moveleft");
@@ -902,12 +905,13 @@ void SpPlayViewer::runGame(uint64_t nowMs) {
         cmd.forward = int8_t(std::clamp(speed * (held("forward") - held("back")), -127, 127));
         cmd.right = int8_t(std::clamp(speed * side, -127, 127));
         cmd.up = int8_t(std::clamp(speed * (held("moveup") - held("movedown")), -127, 127));
-        if (recording_.is_open())
-            recording_ << cmd.serverTime << ' ' << cmd.buttons << ' ' << int(cmd.weapon) << ' ' << cmd.angles[0] << ' '
-                       << cmd.angles[1] << ' ' << cmd.angles[2] << ' ' << int(cmd.forward) << ' ' << int(cmd.right)
-                       << ' ' << int(cmd.up) << std::endl; // flushed: kept if the program is closed
         if (Error err = game_->clientThink(cmd))
             return stop("The game stopped: " + err.message);
+        // (The weapon as the game was given it: the client game's choice.)
+        if (recording_.is_open())
+            recording_ << cmd.serverTime << ' ' << cmd.buttons << ' ' << int(game_->weaponSelect()) << ' '
+                       << cmd.angles[0] << ' ' << cmd.angles[1] << ' ' << cmd.angles[2] << ' ' << int(cmd.forward)
+                       << ' ' << int(cmd.right) << ' ' << int(cmd.up) << std::endl; // flushed: kept if closed
     }
     timing_.server = ms(serverStart);
     const auto clientStart = Clock::now();

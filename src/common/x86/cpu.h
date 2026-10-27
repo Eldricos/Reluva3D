@@ -127,7 +127,14 @@ private:
     void callNative(uint32_t address);
 
     // Memory as the instructions see it (faulting).
-    uint8_t* at(uint32_t a, uint32_t size);
+    // Every operand and instruction byte comes through here: the check
+    // inline, the fault out of the way.
+    uint8_t* at(uint32_t a, uint32_t size) {
+        if (!valid(a, size)) [[unlikely]]
+            outside(a, size);
+        return memory_.data() + a;
+    }
+    [[noreturn]] void outside(uint32_t a, uint32_t size);
     uint32_t load(uint32_t a, int size);
     void store(uint32_t a, uint32_t v, int size);
     void push(uint32_t v);
