@@ -228,6 +228,24 @@ void Win32Process::addFileStandIns() {
     // CreateFileA(name, access, share, security, disposition, flags, template)
     auto open = [this, writable, writableCopy](const std::string& name, bool write, uint32_t disposition) -> uint32_t {
         const std::string full = fullPath(name);
+        // NUL, in any folder and with any extension, is the null device:
+        // an empty file nothing written to lasts in.
+        {
+            std::string base = full.substr(full.find_last_of('\\') + 1);
+            base = base.substr(0, base.find('.'));
+            std::transform(base.begin(), base.end(), base.begin(), [](unsigned char ch) { return char(std::tolower(ch)); });
+            if (base == "nul") {
+                auto f = std::make_shared<FileObject>();
+                f->path = full;
+                f->file = std::tmpfile();
+                if (!f->file) {
+                    lastError_ = kAccessDenied;
+                    return kInvalidHandle;
+                }
+                lastError_ = 0;
+                return addHandle(f);
+            }
+        }
         const stdfs::path existing = hostPath(name, false);
         std::error_code ec;
         const bool exists = !existing.empty() && stdfs::is_regular_file(existing, ec);

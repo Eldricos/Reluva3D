@@ -503,6 +503,18 @@ Started. Done so far:
   its clock keeping about real time: it was 13 frames a second, and
   about 2 with softtria.
 
+- **Saves.** The game writes its settings (`FeData/config/config.dat`),
+  records (`FeData/stats/records.dat`) and the race's music copied off
+  the CD (`GameData/temp.mus`) to the save folder. A second session reads
+  them back from there. Checked through the Play page: Direction was set
+  to Backward on the Location screen and a race started, which is when
+  the game saves its settings. A new session's Location screen then
+  showed Backward. Settings changed in the menus and not yet saved, by a
+  race or by Exit Game, are lost if the page is left with Ctrl+F5, as
+  they would be if the real game were killed.
+- **The null device.** The Location screen opens `nul`, which now opens
+  as an empty file (`win32_files.cpp`). Before, it ended the game.
+
 Still to do:
 
 - THRASH on the GPU, and texture uploads natively (they run in softtria
