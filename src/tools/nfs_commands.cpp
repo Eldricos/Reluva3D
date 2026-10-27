@@ -1135,6 +1135,20 @@ int cmdNfsHost(int argc, char** argv) {
     if (soundThread.joinable()) {
         soundThread.join();
         writeFile(wavFile, reluva::audio::encodePcmWav(sound));
+        const auto stats = host.soundStats();
+        std::printf("sound: %llu blocks of 256 bytes played, %llu of them again without being written since "
+                    "(%llu not silent; those of a streamed buffer played as silence)\n",
+                    (unsigned long long)stats.blocks, (unsigned long long)stats.stale,
+                    (unsigned long long)stats.staleAudible);
+        std::map<uint64_t, int> bySecond;
+        for (uint64_t ms : stats.staleAudibleMs)
+            ++bySecond[ms / 1000];
+        if (!bySecond.empty()) {
+            std::printf("  not silent, by second of the game's clock:");
+            for (const auto& [second, n] : bySecond)
+                std::printf(" %llus:%d", (unsigned long long)second, n);
+            std::printf("\n");
+        }
     }
     const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
     if (err) {

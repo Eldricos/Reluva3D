@@ -835,6 +835,33 @@ void GameHost::mixSound(int16_t* out, int frames, int rate) {
                 b.outCursor = std::fmod(b.outCursor, double(count));
             }
             const uint32_t f = uint32_t(b.outCursor);
+            const uint32_t block = f * uint32_t(b.blockAlign) / 256;
+            // A streamed buffer's block the game didn't write again in time
+            // (it stalled): silence, rather than what it held a loop ago,
+            // which DirectSound would play (a stutter).
+            const bool streamed = b.bytesWritten > b.size;
+            if (block != b.lastBlock && b.written && block < b.fresh.size()) {
+                b.lastBlock = block;
+                ++soundStats_.blocks;
+                if (!b.fresh[block]) {
+                    ++soundStats_.stale;
+                    const uint8_t* p = memory + b.memory + block * 256;
+                    const uint32_t n = std::min(256u, b.size - block * 256) / uint32_t(bytes);
+                    for (uint32_t k = 0; k < n; ++k)
+                        if (std::abs(bytes == 1 ? (int(p[k]) - 128) << 8 : int(int16_t(p[2 * k] | p[2 * k + 1] << 8))) > 64) {
+                            ++soundStats_.staleAudible;
+                            if (soundStats_.staleAudibleMs.size() < 1000)
+                                soundStats_.staleAudibleMs.push_back(now);
+                            break;
+                        }
+                }
+                b.staleBlock = streamed && !b.fresh[block];
+                b.fresh[block] = 0;
+            }
+            if (b.staleBlock) {
+                b.outCursor += step;
+                continue;
+            }
             const int l = sample(f, 0), r = b.channels > 1 ? sample(f, 1) : l;
             soundMix_[size_t(i) * 2] += int32_t(l * left);
             soundMix_[size_t(i) * 2 + 1] += int32_t(r * right);
@@ -1005,7 +1032,25 @@ void GameHost::addDirectSound() {
              }
              return kOk;
          }},
-        {"Unlock", 5, ok},
+        // Unlock(this, part1, size1, part2, size2): what was written, marked
+        // as new.
+        {"Unlock", 5, [buffer](Cpu& c) {
+             DsBuffer* b = buffer(c);
+             if (!b || !b->size)
+                 return kOk;
+             b->fresh.resize((b->size + 255) / 256);
+             for (int part = 0; part < 2; ++part) {
+                 const uint32_t at = c.arg(1 + 2 * part), bytes = c.arg(2 + 2 * part);
+                 if (!at || !bytes || at < b->memory || at - b->memory >= b->size)
+                     continue;
+                 const uint32_t from = at - b->memory, to = std::min(from + bytes, b->size);
+                 for (uint32_t block = from / 256; block < (to + 255) / 256; ++block)
+                     b->fresh[block] = 1;
+                 b->written = true;
+                 b->bytesWritten += to - from;
+             }
+             return kOk;
+         }},
         {"Restore", 1, ok},
     };
     // The audio thread reads the buffers too (mixSound).

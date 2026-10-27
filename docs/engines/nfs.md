@@ -473,6 +473,37 @@ Started. Done so far:
   sample for sample, to Reluva's own decode of the file. Each second
   recorded held exactly one second of the song: nothing skipped or
   repeated. The race's countdown beeps and engine are heard too.
+
+  Placement, surround and slow frames were checked on 200-second runs
+  into a race (`nfs-host -native -wav`):
+  - **Placement.** iSND pans and places sounds itself, inside the mix it
+    writes, and nothing on the way to the speakers mixes the two channels
+    together: the mixer gives both the same gain unless the stream is
+    panned. Measured in the stereo race, the side channel (left minus
+    right) is 10 to 14 dB below the middle; and for the last 90 seconds,
+    driving straight on, the right channel runs about 2 dB louder than
+    the left.
+  - **Dolby Surround.** The audio mode is one byte at 0xac of
+    `FeData/config/config.dat`: 0 is stereo and 2 is Dolby. The file is
+    loaded whole at 0x6fbb40, so the game's `audiomode` setting at
+    0x6fbbec is that byte. Going by the order of its option names, 1 is
+    mono and 3 is D3D/EAX, which would ask for DirectSound's 3D
+    interfaces; the stand-in has none, so it isn't offered. Set to
+    2 in a copy of the install, the race's mix has short spans where
+    left and right are in opposite phase (a 50 ms correlation as low as
+    -0.49; the stereo race's lowest is +0.16). That is how Pro Logic
+    carries the rear channel, and it reaches the output unchanged.
+  - **Slow frames.** `nfs-host -wav` counts the 256-byte blocks of the
+    buffer that come round to be played again without the game having
+    written them since. That happens only when the game stalls for longer
+    than the 0.4-second buffer, as at a loading pause. DirectSound would
+    play what the block held a loop before, which comes out as a
+    stutter; the stand-in plays silence instead, for blocks of a
+    streamed buffer (one written past its size; one written only once is
+    left alone). Over a race: 69,529 blocks played and 9 stale, all at
+    stalls; before the change, a half-second stall replayed 128 blocks
+    as a stutter. Loading screens stall too, but the blocks there held
+    silence already.
 - **The Play page** (`play_page.cpp`). It runs the game on a thread of its
   own, started when the page is first shown:
   - frames are shown as the game flips them;
@@ -627,8 +658,6 @@ Still to do:
 
 - **Wheels and force feedback.** A wheel shows as a pad; the force
   feedback the game asks of the wheels it knows isn't stood in for.
-- **Sound.** What iSND mixes plays as mixed. Its 3D placement and Dolby
-  Surround aren't checked, nor how it holds up when frames come slowly.
 - **Played by hand** on a real GPU with speakers. So far it's been
   checked on software Vulkan, driven by scripts.
 - **Later: network play** (WSOCK32) to other Reluva players.

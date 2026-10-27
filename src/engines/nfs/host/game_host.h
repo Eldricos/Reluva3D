@@ -121,6 +121,17 @@ public:
     // What the game's sound buffers play, as a stream for the mixer
     // (thread-safe; the host must outlive it while it plays).
     std::shared_ptr<audio::Stream> soundStream();
+    // The sound buffers' blocks played, and of them those the game hadn't
+    // written again since they last played (it fell behind).
+    struct SoundStats {
+        uint64_t blocks = 0, stale = 0;
+        uint64_t staleAudible = 0; // of those, the ones not silent: played as silence, if streamed
+        std::vector<uint64_t> staleAudibleMs; // when (the game's clock), the first thousand
+    };
+    SoundStats soundStats() {
+        std::lock_guard<std::mutex> lock(soundMutex_);
+        return soundStats_;
+    }
     // Fills `frames` stereo frames at `rate` with what the playing buffers
     // hold at their play cursors, from any thread.
     void mixSound(int16_t* out, int frames, int rate);
@@ -252,10 +263,18 @@ private:
         // when it drifts.
         double outCursor = 0;
         bool outSynced = false;
+        // Whether each 256-byte block was written since it was last played,
+        // for counting the times the game didn't keep up.
+        std::vector<uint8_t> fresh;
+        bool written = false;
+        uint64_t bytesWritten = 0; // more than its size: it's streamed, rewritten as it plays
+        uint32_t lastBlock = 0xffffffffu;
+        bool staleBlock = false; // the block playing is stale, so silent
         uint32_t position(uint64_t nowMs);
     };
     std::mutex soundMutex_; // soundBuffers_, between the game and the audio thread
     std::vector<int32_t> soundMix_;
+    SoundStats soundStats_;
     std::map<uint32_t, DsBuffer> soundBuffers_;
     uint32_t soundBufferVtable_ = 0;
 };
