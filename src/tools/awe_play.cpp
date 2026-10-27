@@ -445,7 +445,7 @@ int aweCommandSolve(int argc, char** argv) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
-    std::string solveTo, playFile, fromFile;
+    std::string solveTo, playFile, fromFile, goal;
     int budget = 4000;
     double limit = 900;
     bool verbose = false, list = false, reload = false;
@@ -457,6 +457,8 @@ int aweCommandSolve(int argc, char** argv) {
             playFile = argv[++i];
         else if (a == "-from" && i + 1 < argc)
             fromFile = argv[++i];
+        else if (a == "-goal" && i + 1 < argc)
+            goal = argv[++i];
         else if (a == "-budget" && i + 1 < argc)
             budget = std::atoi(argv[++i]);
         else if (a == "-t" && i + 1 < argc)
@@ -646,6 +648,19 @@ int aweCommandSolve(int argc, char** argv) {
             if (verbose || novel)
                 std::printf("  [%d] %s -> %s%s (+%d new)\n", expansions, toLine(a).c_str(), st.scene.c_str(),
                             st.act != fromAct ? (" ACT " + st.act).c_str() : "", novel);
+            bool reached = false;
+            if (!goal.empty())
+                for (const std::string& s : player.features(true))
+                    reached |= s.find(goal) != std::string::npos;
+            if (reached) {
+                // The state asked for (-goal): the way there, and stop.
+                std::vector<Action> all = committed;
+                const std::vector<Action> more = pathOf(at);
+                all.insert(all.end(), more.begin(), more.end());
+                writePlaythrough(solveTo, all);
+                std::printf("reached %s after %zu actions\n", goal.c_str(), all.size());
+                return 0;
+            }
             if (player.credits() || actRank(st.act) > actRank(fromAct)) {
                 // On to the next act (or the end): the way here kept, the
                 // search begun again from here.
