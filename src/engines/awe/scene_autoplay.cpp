@@ -137,6 +137,26 @@ bool ScenePage::clickRuns(size_t i) const {
     return i < objects.size() && scripted(*objects[i]);
 }
 
+bool ScenePage::pointFor(size_t i, int& x, int& y) const {
+    const std::vector<const Ac2Record*> objects = clickableObjects();
+    if (i >= objects.size())
+        return false;
+    const Ac2Record* target = objects[i];
+    auto scan = [&](int left, int top, int right, int bottom, int step) {
+        for (int sy = std::max(top, 0); sy < std::min(bottom, kScreenH); sy += step)
+            for (int sx = std::max(left, 0); sx < std::min(right, kScreenW); sx += step)
+                if (pickAllowed(sy) && pickAt(sx, sy) == target) {
+                    x = sx, y = sy;
+                    return true;
+                }
+        return false;
+    };
+    int l, t, r, b;
+    if (objectRect(*target, l, t, r, b) && scan(l, t, r + 1, b + 1, 2))
+        return true;
+    return scan(0, 0, kScreenW, kScreenH, 4);
+}
+
 bool ScenePage::click(size_t i) {
     const std::vector<const Ac2Record*> objects = clickableObjects();
     if (i >= objects.size())

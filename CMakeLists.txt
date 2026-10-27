@@ -258,6 +258,10 @@ target_link_libraries(reluva-tool PRIVATE reluva_engines reluva_warnings)
 if(RELUVA_ENGINE_AWE)
     target_sources(reluva-tool PRIVATE src/tools/awe_tool.cpp src/tools/awe_check.cpp src/tools/awe_path.cpp src/tools/awe_scripts.cpp
         src/tools/awe_play.cpp)
+    # The playthrough's -3d: the SDL backend's renderer, so the characters
+    # load and are picked by their bones.
+    target_sources(reluva-tool PRIVATE src/backends/sdl3/sdl_system.cpp src/backends/sdl3/sdl_gpu.cpp)
+    target_link_libraries(reluva-tool PRIVATE SDL3::SDL3)
 endif()
 if(WIN32)
     target_link_libraries(reluva-tool PRIVATE ws2_32 iphlpapi)

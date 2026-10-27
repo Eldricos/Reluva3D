@@ -176,6 +176,12 @@ public:
     // on one (its script run, as a click runs it).
     std::vector<std::string> clickables() const;
     bool click(size_t i);
+    // Where a player's mouse would click the clickable i: a point where
+    // the game's pick finds it (0x435eb0) and clicks are taken, its
+    // rectangle tried first; false if there's none on the screen.
+    bool pointFor(size_t i, int& x, int& y) const;
+    // An item taken up into the hand, as the inventory's click takes it.
+    void takeUp(const std::string& item) { holdItem(item); }
     bool clickRuns(size_t i) const; // whether it has a script (Antoinette may not)
     // The inventory (scene_inventory.cpp): an item used on an object, as
     // the game does when one in hand is clicked on it (0x41c050: its

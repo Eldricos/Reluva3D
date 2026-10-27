@@ -42,6 +42,15 @@ public:
     Error startAudio(AudioCallback) override { return Error::fail("no audio"); }
     void stopAudio() override {}
     int audioRate() const override { return 44100; }
+    // 3D from another System (a window's), if given.
+    System* threeD = nullptr;
+    Error init3D(int width, int height, gfx::Renderer3D*& out) override {
+        if (!threeD) {
+            out = nullptr;
+            return Error::fail("no 3D");
+        }
+        return threeD->init3D(width, height, out);
+    }
 };
 
 // reluva-tool awe-path: the game's path between two cells beside Reluva's

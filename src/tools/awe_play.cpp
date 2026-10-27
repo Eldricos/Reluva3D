@@ -30,6 +30,7 @@
 
 #include "tools/awe_tool.h"
 
+#include "backends/sdl3/sdl_system.h"
 #include "common/archive.h"
 #include "engines/awe/story.h"
 #include "engines/awe/viewers.h"
@@ -41,6 +42,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <map>
+#include <memory>
 #include <queue>
 #include <set>
 #include <string>
@@ -114,7 +116,8 @@ bool fromLine(const std::string& line, Action& a) {
 // game to settle, and looks at the story state.
 class Player {
 public:
-    Player(DirectoryArchive& files, double limit) : limit_(limit) {
+    Player(DirectoryArchive& files, double limit, System* threeD = nullptr) : limit_(limit) {
+        sys_.threeD = threeD;
         screen_.create(kScreenW, kScreenH, PixelFormat::RGBA32);
         ctx_ = std::make_unique<ViewerContext>(ViewerContext{
             sys_, files, nullptr, screen_, std::filesystem::temp_directory_path() / "reluva-awe-solve", nullptr});
@@ -324,12 +327,32 @@ public:
                     index = i;
                     break;
                 }
-            if (index < 0)
+            int x = 0, y = 0;
+            if (index < 0) {
                 ok = false, problem = "no " + a.target + " to click in " + p.status().scene;
-            else if (a.kind == "click")
-                ok = p.click(size_t(index));
-            else
-                p.useOn(a.item, size_t(index));
+            } else if (mouse && p.pointFor(size_t(index), x, y)) {
+                // As a player's mouse: the item taken up, the mouse moved
+                // there and clicked; the game's pick finds what it does.
+                if (a.kind == "use")
+                    p.takeUp(a.item);
+                Event ev;
+                ev.mouseX = x, ev.mouseY = y;
+                ev.type = EventType::MouseMove;
+                p.handleEvent(ev);
+                ev.type = EventType::MouseDown, ev.button = MouseButton::Left, ev.clicks = 1;
+                p.handleEvent(ev);
+                ev.type = EventType::MouseUp;
+                p.handleEvent(ev);
+                clicked++;
+                points.push_back(toLine(a) + " at " + std::to_string(x) + "," + std::to_string(y));
+            } else {
+                if (mouse)
+                    missed.push_back(toLine(a) + " (" + p.status().scene + ")");
+                if (a.kind == "click")
+                    ok = p.click(size_t(index));
+                else
+                    p.useOn(a.item, size_t(index));
+            }
         } else if (a.kind == "combine") {
             ok = p.combineItems(split(a.item, '+'));
             if (!ok)
@@ -431,6 +454,17 @@ private:
 
     double limit_;
     HeadlessSystem sys_;
+
+public:
+    // -mouse: clicks and uses done as a player's mouse does them, at a
+    // point the game's pick finds the object; those with no such point
+    // are done as before, and listed.
+    bool mouse = false;
+    size_t clicked = 0;
+    std::vector<std::string> missed;
+    std::vector<std::string> points; // each mouse click's point (-v)
+
+private:
     Surface screen_;
     std::unique_ptr<ViewerContext> ctx_;
     std::unique_ptr<ScenePage> page_;
@@ -541,7 +575,7 @@ struct Node {
 int aweCommandSolve(int argc, char** argv) {
     // reluva-tool awe-acts <game> -solve <out> [-from <file>] [-budget n] [-level n] [-noclimb]
     //     [-goal text] [-t s] [-v]
-    // reluva-tool awe-acts <game> -play <file> [-list] [-reload] [-log n] [-v]
+    // reluva-tool awe-acts <game> -play <file> [-list] [-reload] [-log n] [-mouse] [-3d] [-v]
     DirectoryArchive files;
     if (Error e = files.open(argv[2])) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
@@ -551,7 +585,7 @@ int aweCommandSolve(int argc, char** argv) {
     int budget = 1000000, levelBudget = 5000;
     bool climb = true;
     double limit = 900;
-    bool verbose = false, list = false, reload = false;
+    bool verbose = false, list = false, reload = false, mouse = false, threeD = false;
     size_t logFrom = SIZE_MAX; // -log n: the script log from the n-th action on
     for (int i = 3; i < argc; i++) {
         const std::string a = argv[i];
@@ -579,8 +613,23 @@ int aweCommandSolve(int argc, char** argv) {
             list = true;
         else if (a == "-reload")
             reload = true;
+        else if (a == "-mouse")
+            mouse = true;
+        else if (a == "-3d")
+            threeD = true;
     }
-    Player player(files, limit);
+    // -3d: a window's renderer (under a display, real or virtual), so the
+    // characters load and are picked by their bones.
+    std::unique_ptr<SdlSystem> window;
+    if (threeD) {
+        window = std::make_unique<SdlSystem>();
+        if (Error e = window->init()) {
+            std::fprintf(stderr, "-3d: %s\n", e.message.c_str());
+            return 1;
+        }
+    }
+    Player player(files, limit, window.get());
+    player.mouse = mouse;
 
     if (!playFile.empty()) {
         std::vector<Action> path;
@@ -593,6 +642,15 @@ int aweCommandSolve(int argc, char** argv) {
         const ScenePage::GameStatus st = player.page().status();
         std::printf("%zu of %zu actions; act %s, scene %s; %s\n", done, path.size(), st.act.c_str(), st.scene.c_str(),
                     player.credits() ? "the credits were reached" : "no credits");
+        if (mouse) {
+            std::printf("%zu clicks and uses by the mouse; %zu with no point the game's pick finds them at:\n",
+                        player.clicked, player.missed.size());
+            for (const std::string& m : player.missed)
+                std::printf("  %s\n", m.c_str());
+            if (verbose)
+                for (const std::string& m : player.points)
+                    std::printf("  clicked %s\n", m.c_str());
+        }
         if (verbose)
             for (const std::string& l : player.log())
                 std::printf("%s\n", l.c_str());
