@@ -10,7 +10,7 @@
 #include <string_view>
 #include <vector>
 
-namespace reluva::idtech3::eliteforce {
+namespace reluva::idtech3::raven {
 
 // Elite Force single player's saved games (saves/<name>.sav), as its
 // engine writes them (docs/formats/idtech3/eliteforce-sp-interface.md,
@@ -62,4 +62,4 @@ private:
     size_t position_ = 0;
 };
 
-} // namespace reluva::idtech3::eliteforce
+} // namespace reluva::idtech3::raven

@@ -13,7 +13,7 @@
 #include <string_view>
 #include <vector>
 
-namespace reluva::idtech3 {
+namespace reluva::idtech3::raven {
 
 // Ambient sound sets, as Elite Force's and Jedi Knight's engines keep them
 // (sound/sound.txt; see docs/formats/idtech3/eliteforce-sp-interface.md):
@@ -98,4 +98,4 @@ private:
     std::mt19937 random_;
 };
 
-} // namespace reluva::idtech3
+} // namespace reluva::idtech3::raven

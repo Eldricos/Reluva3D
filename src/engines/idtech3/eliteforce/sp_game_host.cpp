@@ -6,7 +6,7 @@
 #include "common/md4.h"
 #include "common/x86/format.h"
 #include "engines/idtech3/eliteforce/game_layout.h"
-#include "engines/idtech3/eliteforce/sp_savegame.h"
+#include "engines/idtech3/raven/savegame.h"
 #include "engines/idtech3/entities.h"
 
 #include <algorithm>
@@ -110,7 +110,7 @@ uint32_t SpGameHost::text(const std::string& s) {
 
 Error SpGameHost::load(const std::vector<uint8_t>& dll) {
     cpu_ = std::make_unique<x86::Cpu>(kMemory);
-    process_ = std::make_unique<x86::Win32Process>(*cpu_);
+    process_ = std::make_unique<x86::Win32Process>(*cpu_, "stvoy.exe");
     process_->output = [this](const std::string& s) {
         if (print)
             print(s);
@@ -762,10 +762,10 @@ void SpGameHost::writeVmCvar(uint32_t address, const CvarStore::Cvar& cv) {
     cpu_->writeString(address + 16, cv.value, 256);
 }
 
-void SpGameHost::playAmbient(const std::vector<AmbientSets::Sound>& sounds) {
+void SpGameHost::playAmbient(const std::vector<raven::AmbientSets::Sound>& sounds) {
     if (!soundSystem)
         return;
-    for (const AmbientSets::Sound& s : sounds)
+    for (const raven::AmbientSets::Sound& s : sounds)
         if (s.loop)
             soundSystem->addAmbientLoop(s.entity, s.origin, s.volume, s.name);
         else

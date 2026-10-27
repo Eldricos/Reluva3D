@@ -5,7 +5,7 @@
 
 #include "common/x86/format.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
-#include "engines/idtech3/eliteforce/sp_savegame.h"
+#include "engines/idtech3/raven/savegame.h"
 
 #include <algorithm>
 #include <cmath>
@@ -172,7 +172,7 @@ const Md3Model* SpUiHost::md3(int32_t handle) {
 
 Error SpUiHost::load(const std::vector<uint8_t>& dll) {
     cpu_ = std::make_unique<x86::Cpu>(kMemory);
-    process_ = std::make_unique<x86::Win32Process>(*cpu_);
+    process_ = std::make_unique<x86::Win32Process>(*cpu_, "stvoy.exe");
     process_->output = [this](const std::string& s) {
         if (print)
             print(s);

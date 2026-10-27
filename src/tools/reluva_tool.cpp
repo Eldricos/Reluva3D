@@ -124,7 +124,7 @@
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "common/video/bink.h"
-#include "engines/idtech3/eliteforce/sp_savegame.h"
+#include "engines/idtech3/raven/savegame.h"
 #include "engines/idtech3/eliteforce/sp_ui_host.h"
 #include "engines/idtech3/eliteforce/net_client.h"
 #include "engines/idtech3/eliteforce/net_server.h"

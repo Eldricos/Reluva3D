@@ -6,7 +6,7 @@
 // keywords, defaults and messages); this is new code written from that
 // description.
 
-#include "engines/idtech3/ambient_sets.h"
+#include "engines/idtech3/raven/ambient_sets.h"
 
 #include <algorithm>
 #include <cctype>
@@ -14,7 +14,7 @@
 #include <cstdlib>
 #include <limits>
 
-namespace reluva::idtech3 {
+namespace reluva::idtech3::raven {
 
 namespace {
 
@@ -278,4 +278,4 @@ std::string AmbientSets::bmodelSound(std::string_view name, int stage) const {
     return set->subWaves[size_t(stage)];
 }
 
-} // namespace reluva::idtech3
+} // namespace reluva::idtech3::raven

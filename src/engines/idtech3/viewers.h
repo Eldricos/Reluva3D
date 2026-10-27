@@ -519,7 +519,7 @@ public:
 private:
     // A level: new (loadMode 0), or a saved game's (1, or 2 for an
     // autosave) read on from `save` after its header.
-    void start(int index, int32_t loadMode = 0, eliteforce::SaveReader* save = nullptr);
+    void start(int index, int32_t loadMode = 0, raven::SaveReader* save = nullptr);
     void stop(const std::string& why);
     // Saved games (saves/<name>.sav), as the original's save, load and
     // wipe commands; an autosave ("auto") as each new level starts.

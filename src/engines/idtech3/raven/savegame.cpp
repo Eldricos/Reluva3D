@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "engines/idtech3/eliteforce/sp_savegame.h"
+#include "engines/idtech3/raven/savegame.h"
 
 #include "common/md4.h"
 
 #include <algorithm>
 #include <cstring>
 
-namespace reluva::idtech3::eliteforce {
+namespace reluva::idtech3::raven {
 
 namespace {
 
@@ -100,4 +100,4 @@ Error SaveReader::nextText(uint32_t id, std::string& out, size_t length) {
     return Error::success();
 }
 
-} // namespace reluva::idtech3::eliteforce
+} // namespace reluva::idtech3::raven

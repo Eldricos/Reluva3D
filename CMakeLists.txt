@@ -147,7 +147,7 @@ if(RELUVA_ENGINE_IDTECH3)
         src/engines/idtech3/pure.cpp
         src/engines/idtech3/server_browser.cpp
         src/engines/idtech3/sound_system.cpp
-        src/engines/idtech3/ambient_sets.cpp
+        src/engines/idtech3/raven/ambient_sets.cpp
         src/engines/idtech3/entities.cpp
         src/engines/idtech3/shader.cpp
         src/engines/idtech3/bindings.cpp
@@ -174,7 +174,7 @@ if(RELUVA_ENGINE_IDTECH3)
     src/engines/idtech3/eliteforce/game_host.cpp
     src/engines/idtech3/eliteforce/sp_game_host.cpp
     src/engines/idtech3/eliteforce/sp_ui_host.cpp
-    src/engines/idtech3/eliteforce/sp_savegame.cpp
+    src/engines/idtech3/raven/savegame.cpp
     src/engines/idtech3/eliteforce/game_bots.cpp
     src/engines/idtech3/eliteforce/cgame_host.cpp
     src/engines/idtech3/eliteforce/scene.cpp

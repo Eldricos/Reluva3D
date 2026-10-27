@@ -376,7 +376,7 @@ void SpPlayViewer::endGame() {
     buttons_.clear();
 }
 
-void SpPlayViewer::start(int index, int32_t loadMode, eliteforce::SaveReader* save) {
+void SpPlayViewer::start(int index, int32_t loadMode, raven::SaveReader* save) {
     if (names_.empty() || !renderer_)
         return;
     index_ = index;
@@ -510,7 +510,7 @@ bool badSaveName(const std::string& name) {
 void SpPlayViewer::saveGame(const std::string& name, bool autosave) {
     // As the original's save command: the engine's chunks, then the
     // game's (WriteLevel), to saves/<name>.sav.
-    using eliteforce::chunkId;
+    using raven::chunkId;
     if (!game_ || !game_->clientGameRunning()) {
         lastCommand_ = "You must be in a game to save.";
         return;
@@ -535,7 +535,7 @@ void SpPlayViewer::saveGame(const std::string& name, bool autosave) {
     }
     if (autosave)
         game_->savePlayer();
-    eliteforce::SaveWriter w;
+    raven::SaveWriter w;
     // Its description: the save menu's, else when and where.
     std::string comment;
     if (autosave) {
@@ -613,14 +613,14 @@ void SpPlayViewer::saveGame(const std::string& name, bool autosave) {
 void SpPlayViewer::loadGame(std::string name) {
     // As the original's load command: the engine's chunks, then the level
     // started for them and the game's own (start()).
-    using eliteforce::chunkId;
+    using raven::chunkId;
     if (name == "*respawn") {
         // After dying: the saved game last loaded, if it's of this level;
         // else the level's start.
         std::string loadedMap;
         std::vector<uint8_t> file;
         if (!lastLoaded_.empty() && readSave(lastLoaded_, file)) {
-            eliteforce::SaveReader r(std::move(file));
+            raven::SaveReader r(std::move(file));
             std::vector<uint8_t> skip;
             if (!r.next(chunkId("COMM"), skip) && !r.next(chunkId("SHOT"), skip))
                 r.nextText(chunkId("MPCM"), loadedMap);
@@ -636,7 +636,7 @@ void SpPlayViewer::loadGame(std::string name) {
         lastCommand_ = "Failed to open savegame " + name;
         return;
     }
-    eliteforce::SaveReader r(std::move(file));
+    raven::SaveReader r(std::move(file));
     eliteforce::SaveHeader header;
     if (Error err = eliteforce::readSaveHeader(r, cvars_, header)) {
         lastCommand_ = "Couldn't read " + name + ": " + err.message;

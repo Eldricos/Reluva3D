@@ -420,7 +420,7 @@ The game uses it two ways:
 
 The engine keeps the ambient sets the way Jedi Knight's engine does: the
 same keywords, defaults and messages appear in `stvoy.exe` (0x41f6a0
-onwards). `src/engines/idtech3/ambient_sets.cpp` implements them.
+onwards). `src/engines/idtech3/raven/ambient_sets.cpp` implements them.
 
 - **Loading.** The cgame names the sets the level uses with
   `AS_AddPrecacheEntry` (68), then calls `AS_ParseSets` (67), which reads
@@ -457,7 +457,7 @@ onwards). `src/engines/idtech3/ambient_sets.cpp` implements them.
 
 The engine's save, load and wipe commands are in `stvoy.exe` (0x429990
 onwards). Reluva writes and reads the same files
-(`src/engines/idtech3/eliteforce/sp_savegame.cpp`, and the Single player
+(`src/engines/idtech3/raven/savegame.cpp`, and the Single player
 page for the order).
 
 ### The file

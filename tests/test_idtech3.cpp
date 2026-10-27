@@ -14,7 +14,7 @@
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/net_client.h"
-#include "engines/idtech3/eliteforce/sp_savegame.h"
+#include "engines/idtech3/raven/savegame.h"
 #include "engines/idtech3/eliteforce/net_fields.h"
 #include "engines/idtech3/eliteforce/net_server.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
@@ -36,7 +36,7 @@
 #include "engines/idtech3/server_browser.h"
 #include "backends/sockets/socket_net.h"
 #include "engines/idtech3/shader.h"
-#include "engines/idtech3/ambient_sets.h"
+#include "engines/idtech3/raven/ambient_sets.h"
 #include "engines/idtech3/sound_system.h"
 #include "engines/idtech3/sounds.h"
 #include "engines/idtech3/viewers.h"
@@ -928,7 +928,7 @@ static void testAmbientSets() {
                        "bogus 1\r\n"
                        "bmodelSet door\r\n"
                        "subWaves doors start move stop\r\n";
-    AmbientSets sets;
+    raven::AmbientSets sets;
     for (const char* name : {"hum", "Quiet", "drip", "door", "missing"})
         sets.addPrecacheEntry(name);
     std::vector<std::string> warnings;
@@ -940,7 +940,7 @@ static void testAmbientSets() {
     CHECK(hum->subWaves.size() == 2 && hum->subWaves[1] == "sound/borg/clank2.wav");
     CHECK(hum->loopedWave == "sound/ambience/borg/hum.wav");
     const auto* drip = sets.find("drip");
-    CHECK(drip && drip->kind == AmbientSets::Kind::Local && drip->radius == 200 && drip->timeStart == 10);
+    CHECK(drip && drip->kind == raven::AmbientSets::Kind::Local && drip->radius == 200 && drip->timeStart == 10);
     CHECK(sets.bmodelSound("door", 2) == "sound/doors/stop.wav" && sets.bmodelSound("door", 3).empty());
 
     // The general set: its loop fades in over a second; a sound at once,

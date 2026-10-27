@@ -7,12 +7,12 @@
 #include "common/types.h"
 #include "common/x86/cpu.h"
 #include "common/x86/win32.h"
-#include "engines/idtech3/ambient_sets.h"
+#include "engines/idtech3/raven/ambient_sets.h"
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/scene.h"
-#include "engines/idtech3/eliteforce/sp_savegame.h"
+#include "engines/idtech3/raven/savegame.h"
 #include "engines/idtech3/light_grid.h"
 #include "engines/idtech3/marks.h"
 #include "engines/idtech3/md3.h"
@@ -30,6 +30,12 @@
 #include <vector>
 
 namespace reluva::idtech3::eliteforce {
+
+// The save chunks are Raven's (Jedi Knight's single player has them too).
+using raven::chunkId;
+using raven::chunkName;
+using raven::SaveReader;
+using raven::SaveWriter;
 
 // The parts of an entity the engine and the game share (the rest is
 // the game's own), as the original's server reads them: the entity
@@ -98,7 +104,7 @@ public:
     Error connectPlayer(const std::string& userinfo, std::string& refused, int32_t loadMode = 0);
     // One server frame: the level time moves on and the game's RunFrame.
     Error runFrame();
-    // --- Saved games (sp_savegame.h) ---------------------------------------
+    // --- Saved games (raven/savegame.h) ---------------------------------------
     // Where the game's own chunks go (AppendToSaveGame) and come from
     // (ReadFromSaveGame); none: it can't save or load.
     void setSaveStream(SaveWriter* writer, SaveReader* reader) {
@@ -237,7 +243,7 @@ private:
     void addImports();
     // The client game's system calls (dllEntry's function): syscall(number, args...).
     uint32_t cgameCall(x86::Cpu& c);
-    void playAmbient(const std::vector<AmbientSets::Sound>& sounds);
+    void playAmbient(const std::vector<raven::AmbientSets::Sound>& sounds);
     void writeVmCvar(uint32_t address, const CvarStore::Cvar& cv);
     uint32_t fsOpen(x86::Cpu& c, uint32_t path, uint32_t handleAddress, uint32_t mode);
     uint32_t fsRead(x86::Cpu& c, uint32_t buffer, uint32_t length, uint32_t handle);
@@ -268,7 +274,7 @@ private:
     const SearchSet& files_;
     CvarStore& cvars_;
     SoundLibrary soundLibrary_{files_};
-    AmbientSets ambient_;
+    raven::AmbientSets ambient_;
     std::unique_ptr<x86::Cpu> cpu_;
     std::unique_ptr<x86::Win32Process> process_;
     const x86::Win32Process::Module* module_ = nullptr;
