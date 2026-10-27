@@ -215,6 +215,7 @@ if(RELUVA_ENGINE_AWE)
         src/engines/awe/scene_cursor.cpp
         src/engines/awe/scene_inventory.cpp
         src/engines/awe/scene_options.cpp
+        src/engines/awe/scene_outdoors.cpp
         src/engines/awe/shadows.cpp
         src/engines/awe/lighting.cpp
         src/engines/awe/scene_puzzles.cpp

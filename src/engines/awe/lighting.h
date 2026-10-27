@@ -41,6 +41,10 @@ struct SceneLighting {
 struct Material {
     Rgb diffuse{1, 1, 1}, ambient{1, 1, 1}, emissive{};
     bool lit = true; // b0c (D3DRS_LIGHTING); unlit draws are white
+    // The diffuse colour's alpha (+0x98), and whether the model is blended
+    // by it times the texture's (footprints fading: 0x428b1f).
+    float alpha = 1;
+    bool blend = false;
 };
 
 // Whether the scene is lit for the night (0x4027b0): unless it's marked

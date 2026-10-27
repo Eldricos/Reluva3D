@@ -3,6 +3,7 @@
 
 #include "engines/awe/model_draw.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace reluva::awe {
@@ -97,6 +98,11 @@ size_t GpuModel::draw(const Pose& pose, const gfx::Mat4& placement, bool helpers
                 call.lightDirection = len > 0 ? gfx::Vec3{dir[0] / len, dir[1] / len, dir[2] / len} : dir;
             }
             call.state.cull = gfx::Cull::None;
+            if (material.blend) {
+                call.color[3] = std::clamp(material.alpha, 0.0f, 1.0f);
+                call.state.src = gfx::Blend::SrcAlpha;
+                call.state.dst = gfx::Blend::OneMinusSrcAlpha;
+            }
             renderer_.draw(call);
             triangles += g.indexCount / 3;
         }

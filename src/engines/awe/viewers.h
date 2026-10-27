@@ -214,6 +214,24 @@ private:
         bool paused = false;
         // Props attached ("attach clipboard"), posed by its animations.
         std::vector<std::pair<std::string, std::shared_ptr<GpuModel>>> props;
+        // Outdoors (scene_outdoors.cpp): the footprints it has left, the
+        // time into its stride (+0x14f4) and the foot next down (+0x14f8),
+        // and its breath in the cold.
+        struct Footprint {
+            std::shared_ptr<GpuModel> model;
+            float x = 0, z = 0, rotY = 0, age = 0;
+            size_t serial = 0; // its place after the scene's objects
+        };
+        std::vector<Footprint> footprints;
+        float stride = 0;
+        int foot = 0;
+        std::unique_ptr<ParticleSystem> breath;
+    };
+    // What's drawn in 3D among the pictures, by depth: a character, or one
+    // of its footprints.
+    struct ModelSlot {
+        size_t character = 0;
+        int footprint = -1;
     };
     // A video loop the scene shows (the countryside going by a window),
     // by the object that places it.
@@ -571,7 +589,7 @@ private:
         std::vector<uint8_t> resets;
     };
     std::vector<PictureLayer> layers_;
-    std::vector<size_t> characterOrder_; // characters_ in depth order, as draw() found it
+    std::vector<ModelSlot> characterOrder_; // characters_ and footprints in depth order, as draw() found it
     gfx::MeshId quad_ = 0;
     std::vector<Character> characters_;
     std::map<std::string, std::shared_ptr<GpuModel>> models_;
@@ -601,6 +619,11 @@ private:
     void drawCursor();
     bool cursorMoved_ = false; // to draw again
     bool systemCursor_ = true; // the system's cursor shown (the game hides it)
+    // Footprints and breath (scene_outdoors.cpp): a character's, moved on
+    // by dt seconds, `walking` or not; a footprint drawn.
+    void updateOutdoors(Character& c, float dt, bool walking);
+    void drawFootprint(const Character::Footprint& f, const SceneLighting& lighting, float brightness);
+    size_t footprintSerial_ = 0;
     // Escape or Enter: the hotspot with that key pressed; false if none.
     bool hotspotKey(uint32_t key);
 };
