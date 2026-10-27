@@ -370,14 +370,16 @@ void ScenePage::releaseGpu() {
             renderer_->destroyMesh(m);
         for (gfx::TextureId t : frameTextures_)
             renderer_->destroyTexture(t);
-        if (back_)
-            renderer_->destroyTexture(back_);
+        for (PictureLayer& l : layers_)
+            if (l.texture)
+                renderer_->destroyTexture(l.texture);
         if (quad_)
             renderer_->destroyMesh(quad_);
     }
     frameMeshes_.clear();
     frameTextures_.clear();
-    back_ = 0;
+    layers_.clear();
+    characterOrder_.clear();
     quad_ = 0;
 }
 
@@ -1097,29 +1099,98 @@ void ScenePage::draw() {
     };
     std::stable_sort(pictures.begin(), pictures.end(),
                      [&](const Ac2Record* a, const Ac2Record* b) { return depth(a) < depth(b); });
-    // With 3D, the characters go between the pictures behind them (depth
-    // below 0: the background and what's behind it) and those in front
-    // (cutouts and overlays), which go with the labels into the overlay.
+    // With 3D, the pictures go in layers between the characters: the game
+    // draws its objects back to front by depth, a character's being its z
+    // (0x435d90, 0x4104b0), the object list's order where they're equal.
+    // Layer k is drawn after the k-th character in that order (0: the
+    // background, behind them all); the labels go into the overlay.
     const bool layered = renderer_ != nullptr;
     clear(0, 0, 0);
     if (layered) {
+        auto objectIndex = [&](const Ac2Record* r) {
+            const auto it = std::find(objects.begin(), objects.end(), r);
+            return size_t(it - objects.begin());
+        };
+        characterOrder_.clear();
+        if (charactersShown())
+            for (size_t i = 0; i < characters_.size(); i++)
+                characterOrder_.push_back(i);
+        std::stable_sort(characterOrder_.begin(), characterOrder_.end(), [&](size_t a, size_t b) {
+            const Character &ca = characters_[a], &cb = characters_[b];
+            return ca.z != cb.z ? ca.z < cb.z : objectIndex(ca.record) < objectIndex(cb.record);
+        });
+        auto layerOf = [&](const Ac2Record* o) {
+            const float d = depth(o);
+            const size_t at = objectIndex(o);
+            size_t n = 0;
+            for (size_t i : characterOrder_) {
+                const Character& c = characters_[i];
+                n += c.z < d || (c.z == d && objectIndex(c.record) < at);
+            }
+            return n;
+        };
+        // A picture drawn after a character takes the shadows off under
+        // it, where its alpha isn't 0 (0x437b00): unless it's a fog or
+        // cloud layer (SPRT scroll set) or at depth 10000 or more. Particles
+        // don't (0x42d470).
+        auto resetsShadows = [&](const Ac2Record* o) {
+            if (particles_.count(o) || depth(o) >= 10000)
+                return false;
+            const Ac2Record* sprite = o->part("SPRT");
+            return !sprite || sprite->i("scroll") == 0;
+        };
+        const bool shadows = options_.get(GameOptions::Shadows);
+        for (PictureLayer& l : layers_)
+            if (l.texture)
+                renderer_->destroyTexture(l.texture);
+        layers_.assign(characterOrder_.size() + 1, PictureLayer());
+        std::vector<size_t> layerOfPicture;
         for (const Ac2Record* o : pictures)
-            if (depth(o) < 0)
-                place(o, false);
-        applyBrightness();
-        if (back_)
-            renderer_->destroyTexture(back_);
-        back_ = 0;
+            layerOfPicture.push_back(layerOf(o));
         gfx::TextureParams params;
         params.clamp = true;
         params.mipmaps = false;
-        renderer_->createTexture(kScreenW, kScreenH, ctx_.screen.pixels.data(), params, back_);
+        for (size_t k = 0; k < layers_.size(); k++) {
+            PictureLayer& layer = layers_[k];
+            bool any = false, allReset = true;
+            for (size_t p = 0; p < pictures.size(); p++)
+                if (layerOfPicture[p] == k)
+                    any = true, allReset &= resetsShadows(pictures[p]);
+            if (!any && k > 0)
+                continue;
+            auto takeResets = [&] {
+                layer.resets.assign(size_t(kScreenW) * kScreenH, 0);
+                for (size_t i = 0; i < layer.resets.size(); i++)
+                    layer.resets[i] = ctx_.screen.pixels[i * 4 + 3] != 0;
+            };
+            const bool resets = shadows && k > 0;
+            if (resets && !allReset) {
+                // Those pictures alone first, for where they reset.
+                std::fill(ctx_.screen.pixels.begin(), ctx_.screen.pixels.end(), 0);
+                for (size_t p = 0; p < pictures.size(); p++)
+                    if (layerOfPicture[p] == k && resetsShadows(pictures[p]))
+                        place(pictures[p], true);
+                takeResets();
+            }
+            // The background's layer opaque, the others over what's behind.
+            if (k == 0)
+                clear(0, 0, 0);
+            else
+                std::fill(ctx_.screen.pixels.begin(), ctx_.screen.pixels.end(), 0);
+            for (size_t p = 0; p < pictures.size(); p++)
+                if (layerOfPicture[p] == k)
+                    place(pictures[p], k > 0);
+            if (resets && allReset)
+                takeResets();
+            applyBrightness();
+            renderer_->createTexture(kScreenW, kScreenH, ctx_.screen.pixels.data(), params, layer.texture);
+        }
         std::fill(ctx_.screen.pixels.begin(), ctx_.screen.pixels.end(), 0);
+    } else {
+        for (const Ac2Record* o : pictures)
+            place(o, false);
+        applyBrightness();
     }
-    for (const Ac2Record* o : pictures)
-        if (!layered || depth(o) >= 0)
-            place(o, layered);
-    applyBrightness();
     if (showGrid_)
         drawGrid();
     if (hotspots_)
@@ -1279,6 +1350,8 @@ void ScenePage::draw() {
         drawOptions();
     if (box_ && !load_.screen && !movie_)
         drawPuzzleBox();
+    if (messageTime_ > 0 && !yesNo_ && !load_.screen && !movie_)
+        drawMessage();
     if (yesNo_ && ctx_.fonts) {
         // The box: the question and Yes / No as the dialogue's choices.
         DialogueBoxPictures pics;
@@ -1353,6 +1426,19 @@ void ScenePage::update(uint64_t nowMs) {
         updateLoad();
     if (slots_)
         slots_->sinceClick += dt;
+    // The message's time and the caret's blink go on in every scene
+    // (0x414400).
+    if (messageTime_ > 0) {
+        messageTime_ = std::max(0.0f, messageTime_ - dt);
+        if (messageTime_ == 0)
+            draw();
+    }
+    if ((caretTime_ -= dt) <= 0) {
+        caretTime_ = 0.33f;
+        caretOn_ = !caretOn_;
+        if (slots_ && slots_->save)
+            draw();
+    }
     if (puzzleActive())
         puzzleUpdate(dt);
     if (charactersDue_ && nowMs >= charactersAt_ + 400) {
@@ -1459,7 +1545,8 @@ void ScenePage::update(uint64_t nowMs) {
     for (gfx::MeshId m : frameMeshes_)
         renderer_->destroyMesh(m);
     frameMeshes_.clear();
-    // The pictures behind, as a quad over the whole frame.
+    // The pictures in their layers, each a quad over the whole frame,
+    // between the characters (draw()).
     renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
     if (!quad_) {
         std::vector<gfx::Vertex> v(4);
@@ -1472,21 +1559,30 @@ void ScenePage::update(uint64_t nowMs) {
         }
         renderer_->createMesh(v, {0, 2, 1, 0, 3, 2}, quad_);
     }
-    if (back_ && quad_) {
+    auto drawLayer = [&](size_t k) {
+        if (k >= layers_.size() || !layers_[k].texture || !quad_)
+            return;
+        renderer_->setView(gfx::identity(), {0, 0, 0});
         gfx::DrawCall call;
         call.mesh = quad_;
         call.indexCount = 6;
-        call.texture = back_;
+        call.texture = layers_[k].texture;
+        if (k > 0) {
+            call.state.src = gfx::Blend::SrcAlpha;
+            call.state.dst = gfx::Blend::OneMinusSrcAlpha;
+        }
         call.state.depthTest = false;
         call.state.depthWrite = false;
         call.state.cull = gfx::Cull::None;
         renderer_->draw(call);
-    }
+    };
+    drawLayer(0);
     for (gfx::TextureId t : frameTextures_)
         renderer_->destroyTexture(t);
     frameTextures_.clear();
-    // The characters, through the scene's camera.
-    if (const Ac2Record* camr = scene_.camera(); camr && showCharacters_ && !movie_ && sceneShown_ && !load_.screen) {
+    size_t layer = 1;
+    // The characters, through the scene's camera, in depth order.
+    if (const Ac2Record* camr = scene_.camera(); camr && charactersShown()) {
         const SceneCamera cam = SceneCamera::fromRecord(*camr);
         // Their poses, and their props'.
         std::vector<Pose> poses(characters_.size());
@@ -1499,30 +1595,67 @@ void ScenePage::update(uint64_t nowMs) {
                 c.actor->animator().poseFor(prop->model(), propPoses[i].back());
             }
         }
-        // Their shadows, on the floor behind them (docs/formats/awe/shadows.md).
-        if (options_.get(GameOptions::Shadows))
-            drawShadows(cam, poses, propPoses);
-        renderer_->setView(cam.viewProjection(), cam.eye());
+        // The shadows (docs/formats/awe/shadows.md): the game's stencil,
+        // made on the CPU as the frame is drawn.
+        const bool shadows = options_.get(GameOptions::Shadows);
+        if (shadows) {
+            if (!stencil_)
+                stencil_ = std::make_unique<ShadowStencil>(kScreenW, kScreenH);
+            stencil_->clear();
+        }
+        const gfx::Mat4 viewProjection = cam.viewProjection();
         renderer_->clearDepth();
         // Brightness: the game's gamma ramp is the whole screen's, the
         // characters' too (slope 32g + 97 over 257).
         const float bright = float(32 * brightnessLevel() + 97) / 257.0f;
+        std::vector<size_t> order = characterOrder_;
+        if (order.size() != characters_.size()) {
+            order.clear();
+            for (size_t i = 0; i < characters_.size(); i++)
+                order.push_back(i);
+        }
         // Lit by the scene's lights, each with its own material, which its
         // props share (docs/formats/awe/lighting.md).
         const SceneLighting lighting = sceneLighting(scene_, state_);
-        for (size_t i = 0; i < characters_.size(); i++) {
+        for (size_t i : order) {
             const Character& c = characters_[i];
+            if (shadows) {
+                // 0x428836: its pixels' stencil 2 for the player, 0 for the
+                // others.
+                const uint8_t ref = c.player ? 2 : 0;
+                stencilModel(viewProjection, *c.model, poses[i], c.placement, c.shadow, ref, *stencil_);
+                for (size_t k = 0; k < c.props.size(); k++)
+                    stencilModel(viewProjection, *c.props[k].second, propPoses[i][k], c.placement, c.shadow, ref,
+                                 *stencil_);
+            }
+            renderer_->setView(viewProjection, cam.eye());
             const Material material = c.record ? materialOf(*c.record) : Material();
             c.model->draw(poses[i], c.placement, false, frameMeshes_, bright, &lighting, material);
             for (size_t k = 0; k < c.props.size(); k++)
                 c.props[k].second->draw(propPoses[i][k], c.placement, false, frameMeshes_, bright, &lighting,
                                         material);
+            // The pictures after it.
+            if (layer < layers_.size()) {
+                drawLayer(layer);
+                if (shadows)
+                    stencil_->reset(layers_[layer].resets);
+                layer++;
+            }
         }
-        // The player washed toward white with distance, in the snow (the
-        // camera's 1244 and 1248), when shadows are on (0x402e20).
-        if (options_.get(GameOptions::Shadows))
-            drawWhiteOut(cam, poses);
+        if (shadows) {
+            // Where the stencil is 1, darkened (0x402ba0: black at alpha
+            // 63); then the player washed toward white with distance, in
+            // the snow (the camera's whiteoutStart and whiteoutEnd, 0x402e20).
+            if (!shadowMask_)
+                shadowMask_ = std::make_unique<CoverageMask>(kScreenW, kScreenH);
+            stencil_->select(1, *shadowMask_);
+            renderer_->setView(gfx::identity(), cam.eye());
+            drawMask(*shadowMask_, Color{0, 0, 0}, 63);
+            drawWhiteOut();
+        }
     }
+    for (; layer < layers_.size(); layer++)
+        drawLayer(layer);
     prepareScreenshot(renderer_);
     if (grabDue_)
         renderer_->captureNextFrame();
@@ -1546,13 +1679,33 @@ void ScenePage::update(uint64_t nowMs) {
     finishScreenshot(renderer_, &ctx_.screen);
 }
 
-void ScenePage::coverMesh(const SceneCamera& cam, const GpuModel& model, const Pose& pose, const gfx::Mat4& placement,
-                          const std::array<float, 3>* light, CoverageMask& mask) const {
-    // Each textured mesh (0x428500 skips those without materials), in the
-    // world, flattened onto the floor if there's a light, on the screen.
-    std::vector<std::array<float, 3>> positions, normals;
-    std::vector<std::array<float, 2>> screen;
+void ScenePage::stencilModel(const gfx::Mat4& viewProjection, const GpuModel& model, const Pose& pose,
+                             const gfx::Mat4& placement, bool shadow, uint8_t ref, ShadowStencil& stencil) const {
+    // 0x428500: each mesh with materials (those without are skipped,
+    // shadow and all), its shadow first if the character casts one, then
+    // its body. A shadow sets the stencil to 1 where it passes the depth
+    // test, writing no depth; a body sets it to `ref`, and its depth.
+    std::vector<std::array<float, 3>> positions, normals, screen;
     std::vector<uint8_t> ok;
+    auto toScreen = [&](const float p[3], std::array<float, 3>& out) {
+        const gfx::Mat4& m = viewProjection;
+        float clip[4];
+        for (size_t row = 0; row < 4; row++)
+            clip[row] = m[row] * p[0] + m[4 + row] * p[1] + m[8 + row] * p[2] + m[12 + row];
+        if (clip[3] <= 0)
+            return uint8_t(0);
+        out = {(clip[0] / clip[3] + 1) * 0.5f * float(kScreenW), (1 - clip[1] / clip[3]) * 0.5f * float(kScreenH),
+               clip[2] / clip[3]};
+        return uint8_t(1);
+    };
+    auto fill = [&](const ModelMesh& mesh, uint8_t value, bool writeDepth) {
+        for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+            const uint32_t a = mesh.indices[i], b = mesh.indices[i + 1], c = mesh.indices[i + 2];
+            if (a < ok.size() && b < ok.size() && c < ok.size() && ok[a] && ok[b] && ok[c])
+                stencil.fillTriangle(screen[a].data(), screen[b].data(), screen[c].data(), value, writeDepth);
+        }
+    };
+    const std::array<float, 3> light = shadowLight(scene_);
     for (const ModelMesh& mesh : model.model().meshes) {
         bool textured = false;
         for (const auto& g : mesh.groups)
@@ -1562,20 +1715,40 @@ void ScenePage::coverMesh(const SceneCamera& cam, const GpuModel& model, const P
         skin(mesh, pose, positions, normals);
         screen.resize(positions.size());
         ok.assign(positions.size(), 0);
+        if (shadow && mesh.rigid && !mesh.vertices.empty()) {
+            // A rigid mesh (the cleaver's, the luggage's) is drawn with its
+            // bone's matrix as the world, which the shadow replaces
+            // (0x4285f0, 0x428250): its own vertices (turned to the game's
+            // axes) are flattened, onto the plane at the bone's height,
+            // from a light moved by the bone's position. So its shadow
+            // lies about the world's origin, not under the prop.
+            const size_t bone = mesh.vertices[0].bones[0];
+            const gfx::Mat4 world =
+                bone < pose.skinning.size() ? gfx::multiply(placement, pose.skinning[bone]) : placement;
+            const float origin[3] = {world[12], world[13], world[14]};
+            const std::array<float, 3> moved = shadowLight(scene_, origin);
+            for (size_t v = 0; v < mesh.vertices.size(); v++) {
+                const float* q = mesh.vertices[v].position;
+                const float p[3] = {q[0], q[2], -q[1]};
+                ok[v] = toScreen(flattenOntoPlane(moved, origin[1], p).data(), screen[v]);
+            }
+            fill(mesh, 1, false);
+        } else if (shadow) {
+            // A skinned mesh is already in the world: flattened onto the
+            // floor.
+            for (size_t v = 0; v < positions.size(); v++) {
+                const gfx::Vec3 w = gfx::transformPoint(placement, {positions[v][0], positions[v][1], positions[v][2]});
+                const float p[3] = {w[0], w[1], w[2]};
+                ok[v] = toScreen(flattenOntoFloor(light, p).data(), screen[v]);
+            }
+            fill(mesh, 1, false);
+        }
         for (size_t v = 0; v < positions.size(); v++) {
             const gfx::Vec3 w = gfx::transformPoint(placement, {positions[v][0], positions[v][1], positions[v][2]});
-            float p[3] = {w[0], w[1], w[2]};
-            if (light) {
-                const std::array<float, 3> f = flattenOntoFloor(*light, p);
-                p[0] = f[0], p[1] = f[1], p[2] = f[2];
-            }
-            ok[v] = cam.project(p, kScreenW, kScreenH, screen[v][0], screen[v][1]) ? 1 : 0;
+            const float p[3] = {w[0], w[1], w[2]};
+            ok[v] = toScreen(p, screen[v]);
         }
-        for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-            const uint32_t a = mesh.indices[i], b = mesh.indices[i + 1], c = mesh.indices[i + 2];
-            if (a < ok.size() && b < ok.size() && c < ok.size() && ok[a] && ok[b] && ok[c])
-                mask.fillTriangle(screen[a].data(), screen[b].data(), screen[c].data());
-        }
+        fill(mesh, ref, true);
     }
 }
 
@@ -1625,41 +1798,19 @@ void ScenePage::drawMask(const CoverageMask& mask, Color colour, uint8_t alpha) 
     renderer_->draw(call);
 }
 
-void ScenePage::drawShadows(const SceneCamera& cam, const std::vector<Pose>& poses,
-                            const std::vector<std::vector<Pose>>& propPoses) {
-    // Every shadow's pixels once (overlaps no darker), darkened to 192/255
-    // under the characters, which are drawn over them (0x402ba0: black at
-    // alpha 63).
-    if (!shadowMask_)
-        shadowMask_ = std::make_unique<CoverageMask>(kScreenW, kScreenH);
-    shadowMask_->clear();
-    const std::array<float, 3> light = shadowLight(scene_);
-    for (size_t i = 0; i < characters_.size(); i++) {
-        const Character& c = characters_[i];
-        if (!c.shadow)
-            continue;
-        coverMesh(cam, *c.model, poses[i], c.placement, &light, *shadowMask_);
-        for (size_t k = 0; k < c.props.size(); k++)
-            coverMesh(cam, *c.props[k].second, propPoses[i][k], c.placement, &light, *shadowMask_);
-    }
-    drawMask(*shadowMask_, Color{0, 0, 0}, 63);
-}
-
-void ScenePage::drawWhiteOut(const SceneCamera& cam, const std::vector<Pose>& poses) {
+void ScenePage::drawWhiteOut() {
+    // 0x402e20: a white quad where the stencil is 2 (the player's pixels
+    // still showing), more opaque the further it has walked past A, fully
+    // at B.
     const Ac2Record* camr = scene_.camera();
     const float a = camr->f("whiteoutStart"), b = camr->f("whiteoutEnd");
     if (a == b)
         return;
-    for (size_t i = 0; i < characters_.size(); i++) {
-        const Character& c = characters_[i];
+    for (const Character& c : characters_) {
         if (!c.player || c.z >= a)
             continue;
         const int alpha = c.z < b ? 255 : int((a - c.z) / (a - b) * 255);
-        if (!shadowMask_)
-            shadowMask_ = std::make_unique<CoverageMask>(kScreenW, kScreenH);
-        shadowMask_->clear();
-        coverMesh(cam, *c.model, poses[i], c.placement, nullptr, *shadowMask_);
-        renderer_->setView(gfx::identity(), cam.eye());
+        stencil_->select(2, *shadowMask_);
         drawMask(*shadowMask_, Color{255, 255, 255}, uint8_t(std::clamp(alpha, 0, 255)));
         return;
     }
@@ -2707,6 +2858,15 @@ void ScenePage::handleEvent(const Event& ev) {
         // don't.
         if (ev.type == EventType::KeyDown && ev.key == key::Escape && movieName_.find("legal") == std::string::npos)
             endMovie();
+        return;
+    }
+    if (messageTime_ > 0 && (ev.type == EventType::KeyDown ||
+                             (ev.type == EventType::MouseDown &&
+                              (ev.button == MouseButton::Left || ev.button == MouseButton::Right)))) {
+        // A key or a click (left or right) while the message shows only
+        // puts it away (0x4164e0, 0x416000, 0x416450).
+        messageTime_ = 0;
+        draw();
         return;
     }
     if (dialogue_->active() && (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown)) {

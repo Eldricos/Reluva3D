@@ -1261,6 +1261,39 @@ void testShadows() {
     CHECK(m.minX() == 0 && m.minY() == 0 && m.maxX() <= 8 && !m.empty());
     m.clear();
     CHECK(m.empty() && !m.at(1, 1));
+    // A rigid mesh's: the light moved by its translation (added to the
+    // sum, not the count), flattened onto the plane at its height.
+    scene.records.pop_back();
+    const float origin[3] = {10, 100, 20};
+    l = shadowLight(scene, origin);
+    CHECK(std::abs(l[0] + 2) < 1e-3f && std::abs(l[1] - 2156.5f) < 1e-3f && std::abs(l[2] - 70) < 1e-3f);
+    const std::array<float, 3> r = flattenOntoPlane({0, 2000, 0}, 100, head);
+    CHECK(std::abs(r[0] - 190) < 1e-3f && r[1] == 100 && r[2] == 0);
+    // The stencil: depth-tested, shadows writing no depth, bodies their
+    // own value and depth, pictures taking it back to 0.
+    ShadowStencil st(8, 8);
+    auto rect = [&](float x0, float x1, float z, uint8_t ref, bool depth) {
+        const float a0[3] = {x0, 0, z}, a1[3] = {x1, 0, z}, a2[3] = {x1, 8, z}, a3[3] = {x0, 8, z};
+        st.fillTriangle(a0, a1, a2, ref, depth);
+        st.fillTriangle(a0, a2, a3, ref, depth);
+    };
+    rect(0, 4, 0.2f, 0, true);  // an earlier character's body, on the left
+    rect(0, 8, 0.5f, 1, false); // a later shadow, further away
+    CHECK(st.at(1, 1) == 0 && st.at(6, 1) == 1);
+    rect(0, 8, 0.1f, 1, false); // nearer: on that body
+    CHECK(st.at(1, 1) == 1);
+    rect(6, 8, 0.3f, 2, true); // the player's body
+    CHECK(st.at(7, 1) == 2 && st.at(5, 1) == 1);
+    std::vector<uint8_t> cover(64, 0);
+    for (int i = 0; i < 32; i++)
+        cover[size_t(i)] = 1; // a picture over the top half
+    st.reset(cover);
+    CHECK(st.at(5, 1) == 0 && st.at(5, 6) == 1 && st.at(7, 6) == 2);
+    CoverageMask shadows(8, 8);
+    st.select(1, shadows);
+    CHECK(shadows.at(5, 6) && shadows.at(1, 6) && !shadows.at(7, 6) && !shadows.at(5, 1));
+    st.clear();
+    CHECK(st.at(5, 6) == 0);
 }
 
 void testLighting() {
