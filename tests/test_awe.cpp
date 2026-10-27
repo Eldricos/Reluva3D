@@ -11,6 +11,7 @@
 #include "engines/awe/game_text.h"
 #include "engines/awe/gr2.h"
 #include "engines/awe/model.h"
+#include "engines/awe/oodle1.h"
 #include "engines/awe/particles.h"
 #include "engines/awe/script.h"
 #include "engines/awe/story.h"
@@ -267,6 +268,96 @@ void testGr2() {
     std::vector<uint8_t> bad = makeGr2();
     bad[0] ^= 1;
     CHECK(file.open(bad).message.find("Granny") != std::string::npos);
+}
+
+// A range encoder for Oodle1's decoder, for values that are equally
+// likely. The code is kept as its top 7 bits, then a byte for each time
+// the range is scaled up.
+struct RangeEncoder {
+    std::vector<uint8_t> digits{0};
+    uint32_t range = 0x80;
+
+    void uniform(uint32_t value, uint32_t n) {
+        normalize();
+        encode(value, range / n, n);
+    }
+    void bit(uint32_t value) {
+        normalize();
+        encode(value, range >> 1, 2);
+    }
+    std::vector<uint8_t> bytes() const {
+        std::vector<uint8_t> out((7 + 8 * (digits.size() - 1) + 7) / 8 + 1, 0);
+        size_t at = 0;
+        for (size_t i = 0; i < digits.size(); i++)
+            for (int b = i ? 7 : 6; b >= 0; b--, at++)
+                out[at / 8] |= uint8_t(((digits[i] >> b) & 1) << (7 - at % 8));
+        return out;
+    }
+
+private:
+    void normalize() {
+        for (; range <= 0x800000; range <<= 8)
+            digits.push_back(0);
+    }
+    void encode(uint32_t value, uint32_t step, uint32_t n) {
+        uint32_t carry = value * step;
+        for (size_t i = digits.size(); i-- > 0 && carry; carry >>= 8) {
+            carry += digits[i];
+            digits[i] = uint8_t(carry);
+        }
+        range = value + 1 < n ? step : range - value * step;
+    }
+};
+
+void testOodle1() {
+    // Every model starts with only its escape, which takes the whole range:
+    // the first symbol a model gives is a new one, read as a plain value;
+    // the second is a bit (1: one already met) and then which one (or the
+    // new value). Each part starts its models afresh, so these are all
+    // that is needed for a literal or two and a match per part.
+    Bytes in;
+    for (int part = 0; part < 3; part++) {
+        in.u32(256 | 0x8000 << 9); // 256 literal values, a window of 0x8000
+        in.u32(256);               // 256 literals in each model; 1 offset model
+        in.u32(0x40404040);        // 64 lengths in each model
+    }
+    RangeEncoder rc;
+    // Part 0: "ab". A length of 0 is a literal; the second time the length
+    // model gives the 0 already met.
+    rc.uniform(0, 65), rc.uniform('a', 256);
+    rc.bit(1), rc.uniform(0, 1), rc.uniform('b', 256);
+    // Part 1: "c", then length 3 (4 bytes) from 1 back: "ccccc".
+    rc.uniform(0, 65), rc.uniform('c', 256);
+    rc.bit(0), rc.uniform(3, 65);
+    rc.uniform(0, 4), rc.uniform(0, 1), rc.uniform(0, 1);
+    // Part 2: "d", then length 61 (128 bytes) from 1 back.
+    rc.uniform(0, 65), rc.uniform('d', 256);
+    rc.bit(0), rc.uniform(61, 65);
+    rc.uniform(0, 4), rc.uniform(0, 1), rc.uniform(0, 1);
+    for (uint8_t b : rc.bytes())
+        in.d.push_back(b);
+
+    std::vector<uint8_t> out(2 + 5 + 129);
+    CHECK(!oodle1Decompress(in.d, 2, 7, out));
+    const std::string expected = "ab" + std::string(5, 'c') + std::string(129, 'd');
+    CHECK(std::string(out.begin(), out.end()) == expected);
+
+    // Through Gr2File's default decompressor, and errors.
+    std::vector<uint8_t> copy(out.size());
+    CHECK(!gr2Decompress(2, in.d, 2, 7, copy) && copy == out);
+    CHECK(gr2Decompress(1, in.d, 2, 7, copy));
+    CHECK(oodle1Decompress(std::vector<uint8_t>(20), 0, 0, copy));
+    // A match from further back than the start.
+    RangeEncoder far;
+    far.uniform(0, 65), far.uniform('a', 256);
+    far.bit(0), far.uniform(1, 65);
+    far.uniform(1, 4), far.uniform(0, 1), far.uniform(0, 1);
+    Bytes bad;
+    bad.d.assign(in.d.begin(), in.d.begin() + 36);
+    for (uint8_t b : far.bytes())
+        bad.d.push_back(b);
+    std::vector<uint8_t> small(3);
+    CHECK(oodle1Decompress(bad.d, 3, 3, small).message.find("corrupt") != std::string::npos);
 }
 
 void testCurves() {
@@ -1021,6 +1112,7 @@ int main() {
     testText();
     testAc2();
     testGr2();
+    testOodle1();
     testCurves();
     testCamera();
     testWalkGrid();

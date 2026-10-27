@@ -18,6 +18,7 @@
 #include "engines/awe/gr2.h"
 #include "engines/awe/granny_dll.h"
 #include "engines/awe/model.h"
+#include "engines/awe/oodle1.h"
 #include "engines/awe/tables.h"
 #include "engines/awe/game_paths.h"
 #include "engines/awe/walk_grid.h"
@@ -102,10 +103,7 @@ Gr2Result checkGr2(const reluva::Archive& files, const std::string& name, awe::G
         return r;
     }
     awe::Gr2File file;
-    if (reluva::Error e = file.open(data, [&dll](uint32_t format, const std::vector<uint8_t>& in, uint32_t stop0,
-                                                 uint32_t stop1, std::vector<uint8_t>& out) {
-            return dll.decompress(format, in, stop0, stop1, out);
-        })) {
+    if (reluva::Error e = file.open(data)) {
         r.error = e.message;
         return r;
     }
@@ -220,8 +218,8 @@ std::vector<std::string> filesEndingWith(const reluva::Archive& files, const cha
     return out;
 }
 
-int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& folder, const std::string& filter,
-                  bool textures, unsigned jobs, bool verbose) {
+// The .gr2 files whose names contain `filter` (any case).
+std::vector<std::string> gr2Files(const reluva::Archive& files, const std::string& filter) {
     std::vector<std::string> names = filesEndingWith(files, ".gr2");
     if (!filter.empty())
         names.erase(std::remove_if(names.begin(), names.end(),
@@ -230,6 +228,12 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
                                               std::string::npos;
                                    }),
                     names.end());
+    return names;
+}
+
+int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& folder, const std::string& filter,
+                  bool textures, unsigned jobs, bool verbose) {
+    const std::vector<std::string> names = gr2Files(files, filter);
     std::printf("== %zu Granny files\n", names.size());
     if (names.empty())
         return 0;
@@ -321,6 +325,101 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
     for (const auto& [l, n] : layouts)
         std::printf("    %5zu  %s\n", n, l.c_str());
     return failed ? 1 : 0;
+}
+
+// Decompresses every compressed section of every Granny file both
+// natively and with granny2.dll, and compares them byte for byte.
+int checkOodle(const reluva::Archive& files, const std::string& filter, unsigned jobs, bool verbose) {
+    const std::vector<std::string> names = gr2Files(files, filter);
+    std::printf("== %zu Granny files, decompressed natively and by granny2.dll\n", names.size());
+    if (names.empty())
+        return 0;
+    std::vector<uint8_t> dllData;
+    if (files.read("granny2.dll", dllData)) {
+        std::printf("FAIL granny2.dll not found\n");
+        return 1;
+    }
+    struct Result {
+        std::vector<std::string> failures;
+        size_t sections = 0, bytes = 0;
+    };
+    std::vector<Result> results(names.size());
+    std::atomic<size_t> next{0};
+    std::atomic<int64_t> nativeTime{0}, dllTime{0}; // nanoseconds, summed over the threads
+    std::mutex mutex;
+    std::string startError;
+    auto worker = [&] {
+        awe::GrannyDll dll;
+        if (reluva::Error e = dll.load(dllData)) {
+            std::lock_guard<std::mutex> lock(mutex);
+            startError = e.message;
+            return;
+        }
+        auto timed = [](std::atomic<int64_t>& total, auto&& f) {
+            const auto start = std::chrono::steady_clock::now();
+            reluva::Error e = f();
+            total += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start)
+                         .count();
+            return e;
+        };
+        for (size_t i; (i = next++) < names.size();) {
+            Result& r = results[i];
+            std::vector<uint8_t> data;
+            if (reluva::Error e = files.read(names[i], data)) {
+                r.failures.push_back(e.message);
+                continue;
+            }
+            awe::Gr2File file;
+            const reluva::Error e = file.open(data, [&](uint32_t format, const std::vector<uint8_t>& in,
+                                                        uint32_t stop0, uint32_t stop1, std::vector<uint8_t>& out) {
+                std::vector<uint8_t> theirs(out.size());
+                const std::string section = "section " + std::to_string(r.sections++) + ": ";
+                const reluva::Error de =
+                    timed(dllTime, [&] { return dll.decompress(format, in, stop0, stop1, theirs); });
+                if (de)
+                    return reluva::Error::fail("granny2.dll: " + de.message);
+                const reluva::Error ne =
+                    timed(nativeTime, [&] { return awe::gr2Decompress(format, in, stop0, stop1, out); });
+                if (ne)
+                    r.failures.push_back(section + ne.message);
+                else if (out != theirs)
+                    r.failures.push_back(section + "differs from granny2.dll's from byte " +
+                                         std::to_string(std::mismatch(out.begin(), out.end(), theirs.begin()).first -
+                                                        out.begin()));
+                r.bytes += out.size();
+                out = std::move(theirs);
+                return reluva::Error::success();
+            });
+            if (e)
+                r.failures.push_back(e.message);
+        }
+    };
+    std::vector<std::thread> threads;
+    for (unsigned j = 0; j < std::max(1u, jobs); j++)
+        threads.emplace_back(worker);
+    for (std::thread& t : threads)
+        t.join();
+    if (!startError.empty()) {
+        std::printf("FAIL granny2.dll: %s\n", startError.c_str());
+        return 1;
+    }
+    size_t sections = 0, bytes = 0, failures = 0;
+    for (size_t i = 0; i < names.size(); i++) {
+        const Result& r = results[i];
+        sections += r.sections;
+        bytes += r.bytes;
+        failures += r.failures.size();
+        for (const std::string& f : r.failures)
+            std::printf("FAIL %s: %s\n", names[i].c_str(), f.c_str());
+        if (verbose && r.failures.empty())
+            std::printf("ok   %s: %zu sections\n", names[i].c_str(), r.sections);
+    }
+    const double dllSeconds = double(dllTime) / 1e9, nativeSeconds = double(nativeTime) / 1e9;
+    std::printf("Oodle1: %zu files, %zu compressed sections (%.1f MB), %zu failures; granny2.dll %.2f s, native "
+                "%.2f s (%.0f times faster)\n",
+                names.size(), sections, double(bytes) / 1e6, failures, dllSeconds, nativeSeconds,
+                nativeSeconds > 0 ? dllSeconds / nativeSeconds : 0.0);
+    return failures ? 1 : 0;
 }
 
 // The scene's camera as Reluva builds it, against granny2.dll's: the
@@ -639,12 +738,12 @@ int checkBink(const reluva::Archive& files, unsigned jobs, bool verbose) {
 
 int aweCheckCommand(int argc, char** argv) {
     std::string folder, filter;
-    bool gr2 = true, scenes = true, text = true, bink = true, textures = false, verbose = false;
+    bool gr2 = true, scenes = true, text = true, bink = true, oodle = false, textures = false, verbose = false;
     unsigned jobs = std::max(1u, std::thread::hardware_concurrency());
     for (int i = 2; i < argc; i++) {
         const std::string a = argv[i];
-        if (a == "-gr2" || a == "-ac2" || a == "-text" || a == "-bik") {
-            gr2 = a == "-gr2", scenes = a == "-ac2", text = a == "-text", bink = a == "-bik";
+        if (a == "-gr2" || a == "-ac2" || a == "-text" || a == "-bik" || a == "-oodle") {
+            gr2 = a == "-gr2", scenes = a == "-ac2", text = a == "-text", bink = a == "-bik", oodle = a == "-oodle";
         } else if (a == "-textures") {
             textures = true;
         } else if (a == "-v") {
@@ -658,8 +757,8 @@ int aweCheckCommand(int argc, char** argv) {
         }
     }
     if (folder.empty()) {
-        std::fprintf(stderr, "usage: reluva-tool awe-check <game folder> [-gr2|-ac2|-text|-bik] [-only text] [-textures] "
-                             "[-j threads] [-v]\n");
+        std::fprintf(stderr, "usage: reluva-tool awe-check <game folder> [-gr2|-ac2|-text|-bik|-oodle] [-only text] "
+                             "[-textures] [-j threads] [-v]\n");
         return 2;
     }
     reluva::DirectoryArchive files;
@@ -676,6 +775,9 @@ int aweCheckCommand(int argc, char** argv) {
         result |= checkGr2Files(files, folder, filter, textures, jobs, verbose);
     if (bink)
         result |= checkBink(files, jobs, verbose);
+    // Only when asked: granny2.dll is slow in the interpreter.
+    if (oodle)
+        result |= checkOodle(files, filter, jobs, verbose);
     std::printf(result ? "Some files failed.\n" : "Everything read.\n");
     return result;
 }

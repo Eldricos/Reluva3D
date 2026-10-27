@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 #include "engines/awe/gr2.h"
+#include "engines/awe/oodle1.h"
 
 #include <algorithm>
 #include <cmath>
@@ -129,12 +130,10 @@ Error Gr2File::open(const std::vector<uint8_t>& file, const Gr2Decompressor& dec
             std::memcpy(dst, file.data() + s.dataOffset, s.size);
             continue;
         }
-        if (!decompress)
-            return Error::fail("Granny section " + std::to_string(i) + " is compressed (format " +
-                               std::to_string(s.compression) + ") and no decompressor was given");
         const std::vector<uint8_t> in(file.begin() + s.dataOffset, file.begin() + s.dataOffset + s.compressedSize);
         std::vector<uint8_t> out(s.size);
-        if (Error e = decompress(s.compression, in, s.stop0, s.stop1, out))
+        if (Error e = decompress ? decompress(s.compression, in, s.stop0, s.stop1, out)
+                                 : gr2Decompress(s.compression, in, s.stop0, s.stop1, out))
             return Error::fail("Granny section " + std::to_string(i) + ": " + e.message);
         std::memcpy(dst, out.data(), s.size);
     }

@@ -124,8 +124,8 @@ private:
 
 class Gr2File {
 public:
-    // Reads, decompresses and fixes up every section. Uncompressed files
-    // need no decompressor.
+    // Reads, decompresses and fixes up every section. Without a
+    // decompressor, sections are decompressed natively (gr2Decompress).
     Error open(const std::vector<uint8_t>& file, const Gr2Decompressor& decompress = {});
 
     uint32_t version() const { return version_; }

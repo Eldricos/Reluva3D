@@ -190,6 +190,7 @@ if(RELUVA_ENGINE_AWE)
         src/engines/awe/ac2.cpp
         src/engines/awe/camera.cpp
         src/engines/awe/gr2.cpp
+        src/engines/awe/oodle1.cpp
         src/engines/awe/granny_dll.cpp
         src/engines/awe/model.cpp
         src/engines/awe/tables.cpp

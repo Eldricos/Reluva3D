@@ -14,15 +14,17 @@
 namespace reluva::awe {
 
 // The game's own granny2.dll, run in the x86 interpreter, for what its
-// files need that Reluva doesn't do natively yet: decompressing their
-// sections (Oodle1) and their Bink-compressed textures. Only two of its
-// exports are called, with the arguments its public header documents.
+// files need that Reluva doesn't do natively yet: their Bink-compressed
+// textures and compressed curves. Its section decompression is kept to
+// check Reluva's own (oodle1.h). Only a few of its exports are called,
+// with the arguments its public header documents.
 class GrannyDll {
 public:
     Error load(const std::vector<uint8_t>& dll);
     bool loaded() const { return module_ != nullptr; }
 
-    // Decompresses `in` into `out` (sized to the decompressed size).
+    // Decompresses `in` into `out` (sized to the decompressed size), to
+    // check the native decoder.
     Error decompress(uint32_t format, const std::vector<uint8_t>& in, uint32_t stop0, uint32_t stop1,
                      std::vector<uint8_t>& out);
     // Decodes a texture stored with Bink encoding (Encoding 3) into RGBA

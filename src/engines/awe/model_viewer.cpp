@@ -99,7 +99,7 @@ void ModelPage::load() {
     }
     Gr2File file;
     Model loaded;
-    Error err = openGr2(ctx_.files, e.model, *ctx_.granny, file);
+    Error err = openGr2(ctx_.files, e.model, file);
     if (!err)
         err = loadModel(file, ctx_.granny, loaded);
     if (err) {
@@ -130,7 +130,7 @@ void ModelPage::loadAnimation() {
         return;
     const std::string& name = models_[size_t(index_)].animations[size_t(animation_ - 1)];
     Gr2File file;
-    Error err = openGr2(ctx_.files, name, *ctx_.granny, file);
+    Error err = openGr2(ctx_.files, name, file);
     if (!err)
         err = awe::loadAnimation(file, anim_, ctx_.granny);
     if (err)
