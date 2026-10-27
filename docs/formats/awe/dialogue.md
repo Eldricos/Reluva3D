@@ -233,14 +233,19 @@ requested part exists, so it may be left over from the previous conversation.
    for every lettered part (code < 99) of every conversation whose name
    contains +0x624 (gen_<npc>_print...). If gen: n = `0x43a470` (the summed row
    count of the available extra threads); if n>0, +0x620 = 1 (extras shown).
+   A thread's rows are its current line's (+0x1110); one with no current line
+   gets `pickLine(t, a, fwd=0)` as its current line (0x43a4da), and if that
+   finds none (its first nest's conditions all fail) it adds nothing, though
+   it is "available" (3.3 looks further on).
 9. Choosing what to play:
    * **Explicit thread, or a part with exactly one thread and no extras**:
      t = thread (or `a`, code 0, if thread = -1). DM+0x14 = t; none → return 0
      (note: +0x20 is left at 1). If t.status≠0, t.current=0 and +0x624 is set,
      or if t is not available (3.3) → **exhausted** (see below). Else play t
      from `nest` (or from t.current, or from its first line) and return 1.
-   * **Otherwise** (thread = -1 and several threads or extras): n = the summed
-     rows of the available lettered threads (`1`, `2` and `3` do not count).
+   * **Otherwise** (thread = -1 and several threads or extras): n = the
+     extras' rows from step 8 plus the rows of the available lettered threads
+     (`1`, `2` and `3` do not count), counted as in step 8 (0x43a9ae).
      n=0 → **exhausted**. Else:
      * if gen: delete the part's own thread `3`, if any (0x43b380), and build a
        new exit thread `3` (0x43af20, 2.4) appended to c.
@@ -753,3 +758,9 @@ yet: the speakers' heads and mouths (logged), the inventory's changes
 at a talk's start, keyboard choices, picture choices (act 8),
 movie subtitles through the manager, and subtitles being optional (the
 text always shows).
+
+Found by the playthrough search (acts.md): Reluva had counted every
+available extra and thread at a part's start and in the menu, also those
+with no line to offer (step 8). A character's fingerprint offer, whose
+first line wants the ribbon and the menu cards, so kept a part that had
+been heard going, and `talk dia_hubbard a+` never went on to part b.
