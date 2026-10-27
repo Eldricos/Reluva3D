@@ -448,8 +448,22 @@ Not done in the spike (Phase 5B's work):
 
 ### Phase 5B: hosted game (if the gate passes)
 
-- Finish THRASH: texture formats, states, 2D rectangles, page flips at
-  the window's size.
+Started. Done so far:
+
+- **THRASH's drawing, native** ([thrash.md](../formats/nfs/thrash.md)).
+  `nfs-host -native` rasterizes the game's triangles, quads, lines and
+  points in C++. It handles all four texture formats the game uses,
+  culling, Gouraud shading, perspective-correct texturing, wrapping and
+  the blend modes.
+  - A front-end frame costs 0.5 million instructions, not 5.1 million.
+  - A race frame costs 2.5 million, not 16 million.
+  - Menu frames match softtria's to a mean of 1.7 of 255.
+  - A race draws the same scene as softtria.
+
+Still to do:
+
+- Finish THRASH: page flips and texture uploads still run in softtria
+  (0.6 million instructions a race frame); then a GPU path.
 - iSND on the mixer (3D placement, rates, streaming).
 - DirectInput keyboard, mouse and joystick, as the bindings the game's
   own Controls screen sets.

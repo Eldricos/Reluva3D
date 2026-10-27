@@ -101,6 +101,8 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
     addNetwork();
     addDirectX();
     addDirectSound();
+    if (options_.nativeThrash)
+        native_ = std::make_unique<NativeThrash>(*cpu_);
 }
 
 GameHost::~GameHost() = default;

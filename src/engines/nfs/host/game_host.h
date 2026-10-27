@@ -7,6 +7,7 @@
 #include "common/x86/cpu.h"
 #include "common/x86/win32.h"
 #include "engines/nfs/folders.h"
+#include "engines/nfs/host/thrash_native.h"
 
 #include <cstdint>
 #include <array>
@@ -38,6 +39,12 @@ public:
         // The game's clock against the real one: 0.1 has it see a tenth of
         // the time pass, for measuring what full speed would take.
         double timeScale = 1.0;
+        // Frames whose THRASH calls are logged in full (arguments, results,
+        // the memory pointer arguments point at): from, to (inclusive).
+        uint64_t thrashLogFrom = 0, thrashLogTo = 0;
+        // Draw THRASH's triangles natively rather than in the software
+        // renderer's own code (thrash_native.h).
+        bool nativeThrash = false;
     };
     GameHost(GameFolders folders, Options options);
     ~GameHost();
@@ -79,6 +86,8 @@ public:
         };
         std::vector<Frame> frameLog;
         std::map<std::string, uint64_t> calls;
+        std::map<std::string, uint64_t> callInstructions; // run inside each function, in all
+        std::map<int, uint64_t> textureFormats;           // talloc's format -> how many
     };
     const ThrashStats& thrash() const { return thrash_; }
     // Called after each page flip with the frame drawn so far, as RGBA.
@@ -171,6 +180,12 @@ private:
     std::map<std::string, const x86::Win32Process::Module*> gameDlls_;
     uint32_t thrashBase_ = 0;
     uint32_t wrapThrash(const std::string& name, uint32_t address);
+    std::unique_ptr<NativeThrash> native_;
+    uint32_t thrashWindow_ = 2; // THRASH_window's choice: 1 the front buffer, 2 the back
+    // Each window's buffer, as THRASH_lockwindow reports it: address, pitch,
+    // width, height (the renderer draws there; a page flip shows it).
+    std::map<uint32_t, std::array<uint32_t, 4>> windowBuffers_;
+    bool nativeDraw(const std::string& name, const std::vector<uint32_t>& args);
 
     // DirectDraw's surfaces and palettes (directx.cpp), by object address.
     struct DdSurface {

@@ -64,7 +64,7 @@ const char* const kUsageLines =
     "                       [-frames dir] [-every N] [-watch address]... [-watchmem address size]\n"
     "                       [-slice instructions] [-dump memory.bin] [-keys ms:key,...]\n"
     "                       (keys: enter, up, a..., click, moveDX/DY) [-framelog frames.csv]\n"
-    "                       [-timescale 0.1]\n"
+    "                       [-timescale 0.1] [-thrashlog fromframe toframe] [-native]\n"
     "  reluva-tool nfs-survey <folder>... [-v]\n"
     "  reluva-tool nfs-page <game folder> <out.tga> <page> [key...]\n";
 
@@ -972,7 +972,12 @@ int cmdNfsHost(int argc, char** argv) {
             framesDir = argv[++a];
         else if (arg == "-watch" && a + 1 < argc)
             watch.push_back(uint32_t(std::strtoul(argv[++a], nullptr, 0)));
-        else if (arg == "-timescale" && a + 1 < argc)
+        else if (arg == "-thrashlog" && a + 2 < argc) {
+            options.thrashLogFrom = std::strtoull(argv[++a], nullptr, 0);
+            options.thrashLogTo = std::strtoull(argv[++a], nullptr, 0);
+        } else if (arg == "-native") {
+            options.nativeThrash = true;
+        } else if (arg == "-timescale" && a + 1 < argc)
             options.timeScale = std::atof(argv[++a]);
         else if (arg == "-framelog" && a + 1 < argc)
             frameLogFile = argv[++a];
@@ -1081,8 +1086,15 @@ int cmdNfsHost(int argc, char** argv) {
         std::printf("THRASH (%s): %llu frames, %llu textures; %.0f%% of all instructions in its functions\n  calls:",
                     t.dll.c_str(), (unsigned long long)t.frames, (unsigned long long)t.textures,
                     100.0 * double(t.rendererInstructions) / double(std::max<uint64_t>(host.cpu().executed(), 1)));
-        for (const auto& [name, count] : t.calls)
+        for (const auto& [name, count] : t.calls) {
+            auto it = t.callInstructions.find(name);
             std::printf(" %s %llu", name.c_str(), (unsigned long long)count);
+            if (it != t.callInstructions.end() && it->second > 1000000)
+                std::printf(" (%.0fM)", it->second / 1e6);
+        }
+        std::printf("\n  texture formats:");
+        for (const auto& [format, count] : t.textureFormats)
+            std::printf(" %d: %llu", format, (unsigned long long)count);
         std::printf("\n");
         if (!frameLogFile.empty()) {
             std::string csv = "ms,instructions,renderer\n";

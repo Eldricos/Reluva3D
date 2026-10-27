@@ -200,6 +200,7 @@ if(RELUVA_ENGINE_NFS)
         src/engines/nfs/host/game_host.cpp
         src/engines/nfs/host/directx.cpp
         src/engines/nfs/host/thrash.cpp
+        src/engines/nfs/host/thrash_native.cpp
         src/engines/nfs/fce.cpp
         src/engines/nfs/frd.cpp
         src/engines/nfs/col.cpp
