@@ -699,14 +699,20 @@ int aweCommandSolve(int argc, char** argv) {
         return storyTag(x) || x.rfind("item ", 0) == 0 || x.rfind("talk ", 0) == 0;
     };
     // The tags whose values the game compares ("tag alibis >9"), as the
-    // conditions tested so far show: of the others only whether they're
-    // there counts as new (a count of Poirot's reminders goes up for ever).
-    std::set<std::string> valued;
+    // conditions tested so far show, and the highest number each is
+    // compared with: of the others only whether they're there counts as new
+    // (a count of Poirot's reminders goes up for ever), and of these no
+    // value past that number (a pair of shoes compared again and again
+    // counts each time, the data testing one tag and setting another).
+    std::map<std::string, int> valued;
     auto storyOf = [&](const std::string& x) {
         if (!storyTag(x))
             return x;
         const size_t name = x.find(' ') + 1, value = x.find(' ', name);
-        return valued.count(x.substr(name, value - name)) ? x : x.substr(0, value);
+        const auto it = valued.find(x.substr(name, value - name));
+        if (it == valued.end())
+            return x.substr(0, value);
+        return x.substr(0, value + 1) + std::to_string(std::min(std::atoi(x.c_str() + value + 1), it->second + 1));
     };
     auto noteTested = [&](const std::map<std::string, bool>& tested) {
         for (const auto& [clause, held] : tested) {
@@ -715,8 +721,11 @@ int aweCommandSolve(int argc, char** argv) {
                 c.erase(0, 1);
             const std::vector<std::string> w = split(c, ' ');
             if (w.size() >= 3 && w[0] == "tag" && !w[2].empty() &&
-                (std::isdigit(uint8_t(w[2][0])) || w[2][0] == '<' || w[2][0] == '>' || w[2][0] == '-'))
-                valued.insert(w[1]);
+                (std::isdigit(uint8_t(w[2][0])) || w[2][0] == '<' || w[2][0] == '>' || w[2][0] == '-')) {
+                const int n = std::atoi(w[2].c_str() + (w[2][0] == '<' || w[2][0] == '>'));
+                const auto it = valued.find(w[1]);
+                valued[w[1]] = it == valued.end() ? n : std::max(it->second, n);
+            }
         }
     };
     std::vector<uint8_t> rootSave;
