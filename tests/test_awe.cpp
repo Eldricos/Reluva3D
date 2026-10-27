@@ -7,6 +7,7 @@
 #include "engines/awe/ac2.h"
 #include "engines/awe/camera.h"
 #include "engines/awe/conditions.h"
+#include "engines/awe/curves.h"
 #include "engines/awe/dialogue.h"
 #include "engines/awe/game_text.h"
 #include "engines/awe/gr2.h"
@@ -389,6 +390,97 @@ void testCurves() {
     // (1, 0, 0) -> (0, 1, 0) + (5, 0, 0)
     CHECK(std::fabs(m[0] * 1 + m[12] - 5) < 1e-5f);
     CHECK(std::fabs(m[1] * 1 + m[13] - 1) < 1e-5f);
+}
+
+// Granny's compressed curve formats, on hand-made data with values that
+// come out exact.
+void testCompressedCurves() {
+    const std::vector<float> identity = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+    auto expand = [&](const CurveData& d) {
+        Curve c;
+        CHECK(!expandCurve(d, identity, c));
+        return c;
+    };
+    auto near = [](float a, float b) { return std::fabs(a - b) < 1e-6f; };
+
+    CurveData d;
+    d.format = uint8_t(CurveFormat::DaIdentity);
+    d.dimension = 9;
+    Curve c = expand(d);
+    CHECK(c.knots == std::vector<float>{0} && c.controls == identity);
+
+    d = CurveData();
+    d.format = uint8_t(CurveFormat::DaConstant32f);
+    d.controls = {0.5f, 0.25f, -1, 2};
+    c = expand(d);
+    CHECK(c.knots == std::vector<float>{0} && c.controls == d.controls);
+
+    d.format = uint8_t(CurveFormat::D3Constant32f);
+    d.controls = {1.5f, -33, 246};
+    c = expand(d);
+    CHECK(c.knots == std::vector<float>{0} && c.controls == d.controls);
+
+    d = CurveData();
+    d.format = uint8_t(CurveFormat::DaK32fC32f);
+    d.degree = 2;
+    d.knots = {0, 0.5f};
+    d.controls = {1, 2, 3, 4, 5, 6, 7}; // the 7th isn't a whole set
+    c = expand(d);
+    CHECK(c.degree == 2 && c.knots == d.knots && c.controls == (std::vector<float>{1, 2, 3, 4, 5, 6}));
+
+    // D3K8uC8u and D3K16uC16u: 1/32 a step for the knots (32.0f is
+    // 0x42000000), each control value * scale + offset.
+    for (CurveFormat f : {CurveFormat::D3K8uC8u, CurveFormat::D3K16uC16u}) {
+        d = CurveData();
+        d.format = uint8_t(f);
+        d.degree = 1;
+        d.packed = 0x4200;
+        const float scales[3] = {0.5f, 1, 2}, offsets[3] = {-1, 0, 10};
+        std::copy(scales, scales + 3, d.controlScales);
+        std::copy(offsets, offsets + 3, d.controlOffsets);
+        const uint16_t big = f == CurveFormat::D3K16uC16u ? 1000 : 200;
+        d.knotsControls = {0, 16, 2, 3, 4, big, 0, 1};
+        c = expand(d);
+        CHECK(c.degree == 1);
+        CHECK(c.knots == (std::vector<float>{0, 0.5f}));
+        CHECK(c.controls == (std::vector<float>{0, 3, 18, big * 0.5f - 1, 0, 12}));
+    }
+
+    // D4nK8uC7u and D4nK16uC15u: unit quaternions, three components
+    // stored and the fourth rebuilt. Table entry 7 (√½/4 a step from 0)
+    // for x, y and w, entry 0 (2√½ over the steps, from -√½) for z.
+    for (CurveFormat f : {CurveFormat::D4nK8uC7u, CurveFormat::D4nK16uC15u}) {
+        const bool wide = f == CurveFormat::D4nK16uC15u;
+        const uint16_t top = wide ? 0x8000 : 0x80, most = wide ? 0x7fff : 0x7f;
+        d = CurveData();
+        d.format = uint8_t(f);
+        d.degree = 2;
+        d.packed = 0x7077;
+        d.oneOverKnotScale = 4; // 1/4 a step
+        d.knotsControls = {0, 4, 6,
+                           // z left out (2: the second value's top bit),
+                           // stored w x y, all 0: z is 1
+                           0, top, 0,
+                           // the same, the sign (the first's top bit) set
+                           top, top, 0,
+                           // y left out (1: the third's top bit), stored
+                           // z (the most), w, x
+                           most, 0, top};
+        c = expand(d);
+        CHECK(c.degree == 2);
+        CHECK(c.knots == (std::vector<float>{0, 1, 1.5f}));
+        CHECK(c.controls.size() == 12);
+        if (c.controls.size() == 12) {
+            CHECK(c.controls[0] == 0 && c.controls[1] == 0 && c.controls[2] == 1 && c.controls[3] == 0);
+            CHECK(c.controls[4] == 0 && c.controls[5] == 0 && c.controls[6] == -1 && c.controls[7] == 0);
+            CHECK(c.controls[8] == 0 && c.controls[11] == 0);
+            CHECK(near(c.controls[9], std::sqrt(0.5f)) && near(c.controls[10], std::sqrt(0.5f)));
+        }
+    }
+
+    d = CurveData();
+    d.format = uint8_t(CurveFormat::D9I3K8uC8u);
+    CHECK(expandCurve(d, identity, c).message.find("D9I3K8uC8u") != std::string::npos);
 }
 
 // Salon_01's camera, against what granny2.dll's GrannyBuildCameraMatrices
@@ -1123,6 +1215,7 @@ int main() {
     testGr2();
     testOodle1();
     testCurves();
+    testCompressedCurves();
     testCamera();
     testWalkGrid();
     testConditions();

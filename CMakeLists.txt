@@ -196,6 +196,7 @@ if(RELUVA_ENGINE_AWE)
         src/engines/awe/awe.cpp
         src/engines/awe/ac2.cpp
         src/engines/awe/camera.cpp
+        src/engines/awe/curves.cpp
         src/engines/awe/gr2.cpp
         src/engines/awe/oodle1.cpp
         src/engines/awe/granny_dll.cpp
@@ -223,6 +224,11 @@ if(RELUVA_ENGINE_AWE)
         src/engines/awe/model_viewer.cpp
         src/engines/awe/model_draw.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_AWE)
+    # Compressed curves are expanded bit for bit as granny2.dll does: no
+    # fused multiply-adds, which round once where it rounds twice.
+    if(NOT MSVC)
+        set_source_files_properties(src/engines/awe/curves.cpp PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
+    endif()
 endif()
 target_link_libraries(reluva_engines PUBLIC reluva_common PRIVATE reluva_warnings)
 

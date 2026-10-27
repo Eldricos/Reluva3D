@@ -15,6 +15,7 @@
 #include "common/video/bink_video.h"
 #include "engines/awe/ac2.h"
 #include "engines/awe/camera.h"
+#include "engines/awe/curves.h"
 #include "engines/awe/gr2.h"
 #include "engines/awe/granny_dll.h"
 #include "engines/awe/model.h"
@@ -55,7 +56,10 @@ struct Gr2Result {
     std::set<int> degrees;       // curve degrees used
     std::set<std::string> compressions;
     uint32_t vectorTracks = 0;
-    bool compressedCurves = false; // expanded by the DLL
+    // Curves in compressed formats, by format; each expanded natively and
+    // by granny2.dll, and those that differ.
+    std::map<std::string, size_t> curveFormats;
+    size_t curves = 0, curvesDiffering = 0;
 };
 
 std::string layoutOf(const awe::Gr2Object& vertexData) {
@@ -70,8 +74,8 @@ std::string layoutOf(const awe::Gr2Object& vertexData) {
     return s;
 }
 
-// Checks one curve as loaded (plain, or expanded by the DLL from a
-// compressed format), as Curve::evaluate will read it.
+// Checks one curve as loaded (plain, or expanded from a compressed
+// format), as Curve::evaluate will read it.
 void checkCurve(const awe::Curve& c, const char* name, int dimension, Gr2Result& r, const std::string& trackName) {
     if (c.knots.empty())
         return;
@@ -92,6 +96,50 @@ void checkCurve(const awe::Curve& c, const char* name, int dimension, Gr2Result&
             r.warnings.push_back(trackName + " " + name + ": a control isn't a number");
             break;
         }
+}
+
+// Same bits.
+bool sameFloats(const std::vector<float>& a, const std::vector<float>& b) {
+    return a.size() == b.size() && (a.empty() || std::memcmp(a.data(), b.data(), a.size() * sizeof(float)) == 0);
+}
+
+// The animation's compressed curves, as loadAnimation() expanded them,
+// against granny2.dll's expansion: the same knots and controls, bit for
+// bit.
+void checkCompressedCurves(const awe::Gr2File& file, awe::GrannyDll& dll, const awe::Animation& anim, Gr2Result& r) {
+    static const char* const kCurves[3] = {"PositionCurve", "OrientationCurve", "ScaleShearCurve"};
+    const awe::Gr2Object group = file.root().element("Animations", 0).element("TrackGroups", 0);
+    std::vector<std::pair<size_t, int>> compressed; // track, curve
+    for (uint32_t t = 0; t < group.count("TransformTracks") && t < anim.tracks.size(); t++)
+        for (int c = 0; c < 3; c++) {
+            const awe::Gr2Object curve = group.element("TransformTracks", t).object(kCurves[c]);
+            awe::CurveData data;
+            if (!curve.valid() || curve.member("Knots") || awe::readCurveData(file, curve, data))
+                continue;
+            r.curveFormats[awe::curveFormatName(data.format)]++;
+            compressed.emplace_back(t, c);
+        }
+    if (compressed.empty())
+        return;
+    awe::Animation reference = anim;
+    if (reluva::Error e = awe::expandCurvesWithDll(file, dll, reference)) {
+        r.warnings.push_back("granny2.dll's curves: " + e.message);
+        r.curvesDiffering += compressed.size();
+        return;
+    }
+    for (const auto& [t, c] : compressed) {
+        const awe::AnimationTrack &mine = anim.tracks[t], &dlls = reference.tracks[t];
+        const awe::Curve* a[3] = {&mine.position, &mine.orientation, &mine.scaleShear};
+        const awe::Curve* b[3] = {&dlls.position, &dlls.orientation, &dlls.scaleShear};
+        r.curves++;
+        if (a[c]->degree != b[c]->degree || !sameFloats(a[c]->knots, b[c]->knots) ||
+            !sameFloats(a[c]->controls, b[c]->controls)) {
+            r.curvesDiffering++;
+            r.warnings.push_back(mine.bone + " " + kCurves[c] + ": differs from granny2.dll's (" +
+                                 std::to_string(a[c]->knots.size()) + " knots, the DLL " +
+                                 std::to_string(b[c]->knots.size()) + ")");
+        }
+    }
 }
 
 Gr2Result checkGr2(const reluva::Archive& files, const std::string& name, awe::GrannyDll& dll, bool textures) {
@@ -178,7 +226,7 @@ Gr2Result checkGr2(const reluva::Archive& files, const std::string& name, awe::G
 
     if (root.count("Animations") > 0) {
         awe::Animation anim;
-        if (reluva::Error e = awe::loadAnimation(file, anim, &dll)) {
+        if (reluva::Error e = awe::loadAnimation(file, anim)) {
             r.error = "animation: " + e.message;
             return r;
         }
@@ -193,10 +241,7 @@ Gr2Result checkGr2(const reluva::Archive& files, const std::string& name, awe::G
         const awe::Gr2Object a = root.element("Animations", 0);
         for (uint32_t g = 0; g < a.count("TrackGroups"); g++)
             r.vectorTracks += a.element("TrackGroups", g).count("VectorTracks");
-        for (const awe::Gr2Object& track : {a.element("TrackGroups", 0)})
-            for (uint32_t t = 0; t < track.count("TransformTracks"); t++)
-                if (!track.element("TransformTracks", t).object("PositionCurve").member("Knots"))
-                    r.compressedCurves = true;
+        checkCompressedCurves(file, dll, anim, r);
         for (const awe::AnimationTrack& t : anim.tracks) {
             checkCurve(t.position, "PositionCurve", 3, r, t.bone);
             checkCurve(t.orientation, "OrientationCurve", 4, r, t.bone);
@@ -275,7 +320,8 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
     }
 
     size_t failed = 0, warned = 0, models = 0, animations = 0, compressed = 0, withVectors = 0;
-    std::map<std::string, size_t> layouts, compressions;
+    size_t curves = 0, curvesDiffering = 0;
+    std::map<std::string, size_t> layouts, compressions, curveFormats;
     std::map<int, size_t> degrees;
     for (size_t i = 0; i < names.size(); i++) {
         const Gr2Result& r = results[i];
@@ -286,7 +332,11 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
         }
         models += r.model;
         animations += r.animation;
-        compressed += r.compressedCurves;
+        compressed += r.curves > 0;
+        curves += r.curves;
+        curvesDiffering += r.curvesDiffering;
+        for (const auto& [f, n] : r.curveFormats)
+            curveFormats[f] += n;
         withVectors += r.vectorTracks > 0;
         if (!r.vertexLayout.empty())
             layouts[r.vertexLayout]++;
@@ -312,9 +362,13 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
         std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
     std::printf("Granny: %zu files, %zu failed, %zu with warnings; %zu models, %zu animations (%.1f s)\n",
                 names.size(), failed, warned, models, animations, seconds);
-    std::printf("  %zu animations with compressed curves (expanded by granny2.dll), %zu with vector tracks (not used)\n",
-                compressed, withVectors);
-    std::printf("  section compression:");
+    std::printf("  %zu animations with compressed curves, %zu with vector tracks (not used)\n", compressed,
+                withVectors);
+    std::printf("  compressed curves: %zu, %zu differing from granny2.dll's expansion; by format:", curves,
+                curvesDiffering);
+    for (const auto& [f, n] : curveFormats)
+        std::printf(" %s %zu", f.c_str(), n);
+    std::printf("\n  section compression:");
     for (const auto& [c, n] : compressions)
         std::printf(" %s in %zu files", c.c_str(), n);
     std::printf("\n  curve degrees:");
@@ -323,7 +377,7 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
     std::printf("\n  vertex layouts:\n");
     for (const auto& [l, n] : layouts)
         std::printf("    %5zu  %s\n", n, l.c_str());
-    return failed ? 1 : 0;
+    return failed || curvesDiffering ? 1 : 0;
 }
 
 // Decompresses every compressed section of every Granny file both
