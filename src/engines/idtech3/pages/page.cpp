@@ -162,7 +162,7 @@ void saveConfig(ViewerContext& ctx) {
     text += ctx.bindings.write();
     for (const CvarStore::Cvar& cv : ctx.cvars.all())
         if (cv.flags & CvarStore::Archive)
-            text += "seta " + cv.name + " \"" + cv.value + "\"\n";
+            text += "seta " + cv.name + " \"" + (cv.hasLatched ? cv.latched : cv.value) + "\"\n";
     std::error_code ec;
     std::filesystem::create_directories(ctx.savePath, ec);
     std::ofstream out(ctx.savePath / kConfigName, std::ios::binary);

@@ -109,6 +109,9 @@ Error GameHost::startLevel(const std::string& mapName, std::shared_ptr<const Bsp
     if (!map)
         return Error::fail("No map");
     filesRead_.clear();
+    // Variables waiting for a new level (the game type, the Holomatch
+    // modes...) take their values, as the original's server does first.
+    cvars_.applyLatched();
     map_ = std::move(map);
     world_ = std::make_unique<CollisionWorld>(*map_);
     areaPortals_ = std::make_unique<AreaPortals>(world_->areaCount());
@@ -236,7 +239,7 @@ Error GameHost::restartLevel() {
     // to the same map; otherwise the game code restarts in place, a few
     // frames settle it, and every player and bot is back in the game.
     restartTime_ = 0;
-    if (cvars_.string("g_gametype") != levelGametype_ || cvars_.string("sv_maxclients") != levelMaxClients_) {
+    if (cvars_.pending("g_gametype") != levelGametype_ || cvars_.pending("sv_maxclients") != levelMaxClients_) {
         requestedMap_ = mapName_;
         return Error::success();
     }
@@ -262,6 +265,7 @@ Error GameHost::restartLevel() {
 }
 
 bool GameHost::applyMapCommand(CvarStore& cvars, std::string_view verb) {
+    // (Set as the next level's: it starts next, taking them.)
     cvars.create("g_gametype", "0", CvarStore::ServerInfo | CvarStore::Latch);
     if (verb.substr(0, 2) == "sp") {
         cvars.set("g_gametype", "2");
@@ -270,7 +274,7 @@ bool GameHost::applyMapCommand(CvarStore& cvars, std::string_view verb) {
         cvars.set("sv_maxclients", "8");
         return true;
     }
-    if (cvars.integer("g_gametype") == 2)
+    if (std::atoi(cvars.pending("g_gametype").c_str()) == 2)
         cvars.set("g_gametype", "0");
     return verb == "devmap";
 }

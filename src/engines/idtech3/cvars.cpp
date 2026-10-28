@@ -54,11 +54,34 @@ void CvarStore::set(std::string_view name, std::string_view value, bool force) {
     }
     if (!force && (cv->flags & (ReadOnly | Init)))
         return;
+    if (!force && (cv->flags & Latch)) {
+        cv->hasLatched = cv->value != value;
+        cv->latched = cv->hasLatched ? std::string(value) : std::string();
+        return;
+    }
+    cv->hasLatched = false;
+    cv->latched.clear();
     if (cv->value == value)
         return;
     cv->value = value;
     ++cv->modificationCount;
     ++changes_;
+}
+
+void CvarStore::applyLatched() {
+    for (Cvar& cv : cvars_)
+        if (cv.hasLatched)
+            set(cv.name, std::string(cv.latched), true);
+}
+
+bool CvarStore::hasLatched(std::string_view name) const {
+    const Cvar* cv = find(name);
+    return cv && cv->hasLatched;
+}
+
+std::string CvarStore::pending(std::string_view name) const {
+    const Cvar* cv = find(name);
+    return !cv ? std::string() : cv->hasLatched ? cv->latched : cv->value;
 }
 
 bool CvarStore::NoCase::operator()(std::string_view a, std::string_view b) const {

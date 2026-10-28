@@ -86,6 +86,8 @@ private:
     // Loading the level the game asked for (false: this frame is over).
     bool changeLevel(const std::string& map);
     void consoleCommand(const std::string& text);
+    void setFromConsole(const std::string& name, const std::string& value);
+    int execDepth_ = 0;
     // The game's menus over the match (the original's in-game menu): Esc
     // opens them; they close themselves.
     void openMenu();

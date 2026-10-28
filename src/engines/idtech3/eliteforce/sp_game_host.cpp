@@ -194,6 +194,7 @@ int32_t SpGameHost::mapChecksum(const std::vector<uint8_t>& file) {
 
 Error SpGameHost::startLevel(const std::string& mapName, std::shared_ptr<const Bsp> map, int32_t checksum,
                              int32_t randomSeed, int32_t loadMode) {
+    cvars_.applyLatched(); // as the original's server, before the level starts
     if (!map)
         return Error::fail("No map");
     if (!exports_)

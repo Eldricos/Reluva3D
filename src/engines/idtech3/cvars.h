@@ -39,14 +39,25 @@ public:
         int32_t flags = 0;
         int32_t modificationCount = 0;
         int32_t handle = 0; // index + 1 in registration order, for the game's vmCvar_t
+        // A Latch variable's value set since the level started, which it
+        // takes when the next starts (applyLatched).
+        bool hasLatched = false;
+        std::string latched;
     };
 
     // Creates the variable with `defaultValue` if it doesn't exist; an
     // existing one keeps its value and gains the flags.
     Cvar& create(std::string_view name, std::string_view defaultValue, int32_t flags);
     // Sets (creating it, flagged UserCreated, if needed). A ReadOnly or
-    // Init variable is only changed with `force`.
+    // Init variable is only changed with `force`; a Latch one keeps its
+    // value until the next level starts, unless forced (Quake III's).
     void set(std::string_view name, std::string_view value, bool force = false);
+    // The values Latch variables were set to, taken: as a level starts.
+    void applyLatched();
+    // Whether `name` waits for a new level to take a value set, and the
+    // value it will have then (its value if none waits).
+    bool hasLatched(std::string_view name) const;
+    std::string pending(std::string_view name) const;
 
     const Cvar* find(std::string_view name) const;
     const Cvar* byHandle(int32_t handle) const;

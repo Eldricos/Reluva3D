@@ -874,6 +874,21 @@ static void testCvars() {
     CHECK(cvars.string("version") == "1.0");
     cvars.set("version", "2.0", true);
     CHECK(cvars.string("version") == "2.0");
+    // A Latch variable (g_gametype, the Holomatch modes) keeps its value
+    // until a level starts; forcing sets it at once; setting it back
+    // forgets the wait.
+    CvarStore latch;
+    latch.create("g_pModAssimilation", "0", CvarStore::ServerInfo | CvarStore::Latch);
+    latch.set("g_pModAssimilation", "1");
+    CHECK(latch.integer("g_pModAssimilation") == 0 && latch.hasLatched("g_pModAssimilation") &&
+          latch.pending("g_pModAssimilation") == "1");
+    latch.applyLatched();
+    CHECK(latch.integer("g_pModAssimilation") == 1 && !latch.hasLatched("g_pModAssimilation"));
+    latch.set("g_pModAssimilation", "0");
+    latch.set("g_pModAssimilation", "1");
+    CHECK(!latch.hasLatched("g_pModAssimilation"));
+    latch.set("g_pModAssimilation", "0", true);
+    CHECK(latch.integer("g_pModAssimilation") == 0 && !latch.hasLatched("g_pModAssimilation"));
     cvars.set("made_up", "x"); // created by the user, then claimed by the code with its default
     CHECK(cvars.find("made_up")->flags == CvarStore::UserCreated);
     cvars.create("made_up", "y", 0);
@@ -2417,7 +2432,7 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
         cvars.set("sv_master1", "127.0.0.1");
         cvars.set("sv_master2", "");
         cvars.create("dedicated", "0", 0);
-        cvars.set("dedicated", "2");
+        cvars.set("dedicated", "2", true); // (latched: forced, as at a new level)
         server.resolveHost = [](const std::string& host, uint32_t& ip) {
             net::Address a;
             if (!net::parseAddress(host, 0, a))

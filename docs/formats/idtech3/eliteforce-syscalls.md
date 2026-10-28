@@ -329,6 +329,36 @@ player's box from every spawn point (raised 9 units, as Quake III's game
 spawns players) as a check of the collision model on its own.
 | 111 | `ceil` | order | Quake III's game numbers `floor` 110 and `ceil` 111 |
 
+### Holomatch modes (patch 1.2)
+
+Patch 1.2's game code (pak2.pk3) carries the Expansion Pack's five
+modes, each a cvar the server game registers like `g_gametype`: default
+"0", flags 36 (server info and latch), read from its cvar table:
+`g_pModAssimilation` (killed players join the enemy team; the configs
+set `g_gametype 3`, team deathmatch; "Kill the Borg Queen!"),
+`g_pModElimination` (last one standing), `g_pModSpecialties` (players
+choose a class), `g_pModActionHero` (one player gets every weapon and
+armour) and `g_pModDisintegration` (one direct hit kills; the game
+registers 2 items instead of the usual 13 to 18). pak2.pk3 has a config
+for each (`assimilation.cfg`... setting the mode and turning off those
+it can't go with), run with `exec`.
+
+The 1.2 menus have them too: `mp_buttontext.dat` names the buttons
+(ASSIMILATION, SPECIALTIES, DISINTEGRATION, ACTION HERO, ELIMINATION,
+and NO JOIN TIME OUT for the first and last), a server menu reads the
+five (`Cvar_VariableValue`, ui.qvm instruction 74034), another clears
+those the chosen game type can't have (74695), and one setting up a
+match sets all five to 0 first (73994).
+
+Latched variables (flag 32) keep their value until a level starts, as
+Quake III's: setting one says "<name> will be changed upon restarting."
+in the console, and the server takes the waiting values before the level
+loads. Reluva's cvar store does the same (`CvarStore::applyLatched`,
+called as the Holomatch and single player servers start a level);
+map_restart with a new game type or player count waiting changes level
+instead of restarting in place. `reluva-tool game-run <game> <map> -set
+g_gametype 3 -set g_pModAssimilation 1 -addbot ...` runs one headless.
+
 ## Client game (`vm/cgame.qvm`)
 
 124,371 instructions in 583 functions; it uses 0–60 and 100–107.

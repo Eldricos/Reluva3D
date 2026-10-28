@@ -740,6 +740,43 @@ void PlayViewer::consoleCommand(const std::string& text) {
         runBinding(cvars_.string(w[1]), 0, true);
         return;
     }
+    if (verb == "exec") {
+        // A config file's commands, each as typed (the Holomatch modes'
+        // assimilation.cfg...): the player's own in the save folder
+        // first, then the game's; .cfg added when no extension is given.
+        if (w.size() < 2) {
+            addPrint("exec <filename> : execute a script file\n", false);
+            return;
+        }
+        std::string name = w[1];
+        if (name.find('.') == std::string::npos)
+            name += ".cfg";
+        std::string text;
+        std::vector<uint8_t> data;
+        if (std::ifstream in(ctx_.savePath / name, std::ios::binary); !ctx_.savePath.empty() && in)
+            text.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+        else if (!ctx_.files.read(name, data))
+            text.assign(data.begin(), data.end());
+        else {
+            addPrint("couldn't exec " + name + "\n", false);
+            return;
+        }
+        if (execDepth_ >= 8)
+            return; // a file running itself
+        addPrint("execing " + name + "\n", false);
+        ++execDepth_;
+        for (const std::string& command : splitCommands(text)) {
+            consoleCommand(command);
+            if (!cgame_)
+                break; // the match stopped
+        }
+        --execDepth_;
+        return;
+    }
+    if (verb == "bind" || verb == "unbind" || verb == "unbindall") {
+        ctx_.bindings.execute(text, cvars_);
+        return;
+    }
     if (verb == "togglemenu") {
         openMenu();
         return;
@@ -839,14 +876,14 @@ void PlayViewer::consoleCommand(const std::string& text) {
                               : verb == "setu" ? CvarStore::UserInfo
                                                : 0;
         cvars_.create(w[1], w[2], flags);
-        cvars_.set(w[1], w[2]);
+        setFromConsole(w[1], w[2]);
         return;
     }
     if (const CvarStore::Cvar* cv = cvars_.find(w[0])) {
         if (w.size() == 1)
             addPrint("\"" + cv->name + "\" is \"" + cv->value + "\"\n", false);
         else
-            cvars_.set(w[0], w[1]);
+            setFromConsole(w[0], w[1]);
         return;
     }
     // On someone else's server, the rest goes to it as the player's.
@@ -866,6 +903,14 @@ void PlayViewer::consoleCommand(const std::string& text) {
         return;
     if (Error err = game_->clientCommand(0, text))
         stop("The server game stopped: " + err.message);
+}
+
+void PlayViewer::setFromConsole(const std::string& name, const std::string& value) {
+    // As the original's console: a variable that only changes with a new
+    // level (the game type, the Holomatch modes) says so.
+    cvars_.set(name, value);
+    if (cvars_.hasLatched(name))
+        addPrint(name + " will be changed upon restarting.\n", false);
 }
 
 void PlayViewer::openMenu() {
