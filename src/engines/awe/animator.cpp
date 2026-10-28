@@ -117,9 +117,11 @@ bool Animator::play(std::string_view name, std::shared_ptr<const Animation> anim
                     int loops, float ease, float weight) {
     if (!animation)
         return false;
+    // A new base stops the one playing; one already ending (a finite
+    // base handing over to idle1) ends as it was, and is told as done.
     if (base)
         for (Slot& s : slots_)
-            if (s.base && s.state != Stopped) {
+            if (s.base && s.state == Playing) {
                 s.state = Stopped;
                 s.outStart = s.clock;
                 s.outLength = s.ease;

@@ -1360,6 +1360,20 @@ void testAnimator() {
     CHECK(!an.find("idle1") && an.base() && an.base()->name == "walk");
     an.update(1.0f);
     CHECK(an.slots().size() == 1 && finished.size() == 1);
+    // A finite base handing over to idle1 as it ends ends as it was, and
+    // is told as done ("anim standup" waits on it).
+    Animator standing(m);
+    std::vector<std::string> done;
+    standing.onEnding = [&](const Animator::Slot& s) {
+        if (s.base)
+            standing.play("idle1", idle, Animator::Body, true, 0, 0);
+    };
+    standing.onFinished = [&](const Animator::Slot& s) { done.push_back(s.name); };
+    CHECK(standing.play("standup", testTurn(0, 1, {{"Bip01", 0.01f}}), Animator::Body, true, 1, 0.3f));
+    standing.update(0.8f);
+    CHECK(standing.find("idle1") && done.empty());
+    standing.update(0.3f);
+    CHECK(done.size() == 1 && done[0] == "standup" && standing.base() && standing.base()->name == "idle1");
     // A weight replaces the mask's: a light gesture.
     CHECK(an.play("fanger", gesture, Animator::Body, false, 1, 0, 0.02f));
     CHECK(std::abs(an.find("fanger")->mask[1] - 0.02f) < 1e-6f);
