@@ -269,7 +269,22 @@ its end, `-log n` the script log from the n-th action on. With `-v`
 the log numbers each choice taken (`choice 1104c12: 1 of [...]`, the
 12th choice of action 1104), and `-shot <n> <out.tga>` saves the screen
 just before action n, `-shot <n>c<k> <out.tga>` just before that choice
-is taken (drawn: with `-3d`, the 3D under the 2D).
+is taken (drawn: with `-3d`, the 3D under the 2D); `-shots <dir>` saves
+one before every action.
+
+`-hand` plays the route as a player's hand does, by the mouse and keys
+alone, each input made through the page's own event handling and
+decided from the screen as it is (`ScenePage::handStep`): an item is
+taken up from the inventory window's items page (its page turned to
+first) and the window put away before it's used; a car is gone to by
+bringing the bar down with the mouse at the top and clicking it; parts
+go in the combine page's boxes (what else is there taken out by its X)
+and the gears are turned; the examine and fingerprint pages are worked
+by their arrows and buttons. While the game runs, `handWhileRunning`
+clicks the dialogue's choice in its row, clicks lines through, answers
+the yes/no box and skips movies with Escape. On the English install the
+route plays so to the credits with 4,788 inputs and nothing done the
+tools' way.
 
 **What a player can do** in a state (`Player::actions`, the Scenes page's
 tool functions in `scene_autoplay.cpp`): click each hotspot, character

@@ -258,7 +258,7 @@ public:
     // away before it's used; a car is gone to by the bar, shown by the
     // mouse at the top; combining puts the parts in the combine page's
     // boxes and turns the gears; and so on. So a route can be played by
-    // the mouse and keys alone (awe-acts -hand, Reluva's --autoplay).
+    // the mouse and keys alone (awe-acts -hand).
     struct HandGoal {
         enum class Kind { Click, Use, Travel, Combine, Flip, Compare } kind = Kind::Click;
         size_t target = 0;              // Click, Use: the clickable
