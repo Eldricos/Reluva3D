@@ -13,7 +13,7 @@ bool isRefPack(const std::vector<uint8_t>& data) {
 }
 
 bool isOtherEaCompression(const std::vector<uint8_t>& data) {
-    return data.size() >= 2 && data[1] == 0xfb && !isRefPack(data);
+    return data.size() >= 2 && data[1] == 0xfb && !isRefPack(data) && !isEaHuffman(data);
 }
 
 Error decompressRefPack(const std::vector<uint8_t>& data, std::vector<uint8_t>& out) {
@@ -94,7 +94,147 @@ Error decompressRefPack(const std::vector<uint8_t>& data, std::vector<uint8_t>& 
     return Error::success();
 }
 
+bool isEaHuffman(const std::vector<uint8_t>& data) {
+    return data.size() >= 5 && data[1] == 0xfb && (data[0] == 0x30 || data[0] == 0x32 || data[0] == 0x34 ||
+                                                   data[0] == 0x31 || data[0] == 0x33 || data[0] == 0x35);
+}
+
+// Worked out from nfs3.exe's own routine (0x50ed50) and checked against it
+// on every file so compressed (reluva-tool nfs-huff-check): refpack.md.
+Error decompressEaHuffman(const std::vector<uint8_t>& data, std::vector<uint8_t>& out) {
+    out.clear();
+    auto damaged = [](const char* why) { return Error::fail(std::string("EA Huffman data is damaged: ") + why); };
+    // Bits most significant first, past the end reading as 0.
+    size_t bit = 0;
+    const size_t bits = data.size() * 8;
+    auto read = [&](int n) {
+        uint32_t v = 0;
+        for (int i = 0; i < n; ++i, ++bit)
+            v = v << 1 | (bit < bits ? (data[bit >> 3] >> (7 - (bit & 7))) & 1u : 0u);
+        return v;
+    };
+    // A number: z zero bits, a one, then z + 2 bits v; v + 2^(z+2) - 4.
+    auto number = [&]() -> uint32_t {
+        int zeros = 0;
+        while (bit < bits && !read(1))
+            ++zeros;
+        if (zeros > 28)
+            return 0;
+        const int length = zeros + 2;
+        return read(length) + (1u << length) - 4;
+    };
+
+    const uint32_t type = read(16);
+    const uint32_t size = read(24);
+    if (type & 0x100)
+        read(24); // a field the game skips
+    const uint32_t escape = read(8);
+
+    // The code: how many codes of each length, from 1 bit up, until the
+    // code space is full.
+    std::vector<uint32_t> count(1), firstCode(1), firstIndex(1);
+    uint32_t code = 0, total = 0;
+    for (int length = 1;; ++length) {
+        if (length > 24)
+            return damaged("a code longer than 24 bits");
+        code <<= 1;
+        firstCode.push_back(code);
+        firstIndex.push_back(total);
+        const uint32_t n = number();
+        count.push_back(n);
+        code += n;
+        total += n;
+        if (n && ((code << (16 - std::min(length, 16))) & 0xffff) == 0 && length <= 16)
+            break;
+        if (n && length > 16 && code == (1u << length))
+            break;
+    }
+    const int maxLength = static_cast<int>(count.size()) - 1;
+    if (total == 0 || total > 256)
+        return damaged("a code of no symbols, or more than 256");
+
+    // The symbols, in code order: each n + 1 unused byte values after the
+    // one before, round from 255 to 0.
+    std::vector<uint8_t> symbols;
+    bool used[256] = {};
+    uint8_t symbol = 0xff;
+    for (uint32_t i = 0; i < total; ++i) {
+        uint32_t steps = number() + 1;
+        int guard = 0;
+        while (steps) {
+            ++symbol;
+            if (!used[symbol])
+                --steps;
+            if (++guard > 256 * 2)
+                return damaged("too few symbols left");
+        }
+        used[symbol] = true;
+        symbols.push_back(symbol);
+    }
+
+    // The data: codes (canonical, by length), the escape symbol bringing
+    // a count: n > 0 repeats the last byte n times; 0 then a bit 1 ends,
+    // a bit 0 gives the next 8 bits as a byte.
+    out.reserve(size);
+    while (true) {
+        if (bit >= bits + 64)
+            return damaged("no end");
+        uint32_t c = 0, s = 0;
+        int length = 0;
+        bool found = false;
+        while (length < maxLength) {
+            c = c << 1 | read(1);
+            ++length;
+            if (c - firstCode[size_t(length)] < count[size_t(length)]) {
+                s = symbols[firstIndex[size_t(length)] + (c - firstCode[size_t(length)])];
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            return damaged("a code that isn't in the table");
+        if (s != escape) {
+            out.push_back(static_cast<uint8_t>(s));
+            continue;
+        }
+        const uint32_t n = number();
+        if (n) {
+            if (out.empty())
+                return damaged("a repeat before any byte");
+            out.insert(out.end(), n, out.back());
+            continue;
+        }
+        if (read(1))
+            break;
+        out.push_back(static_cast<uint8_t>(read(8)));
+    }
+    if (out.size() != size)
+        return damaged("not the size its header gives");
+    // Stored as differences: once (32 FB) or twice (34 FB).
+    const uint32_t kind = type >> 8 & 0xfe;
+    if (kind == 0x32 || kind == 0x34) {
+        uint8_t sum = 0, sum2 = 0;
+        for (uint8_t& b : out) {
+            sum = static_cast<uint8_t>(sum + b);
+            if (kind == 0x34) {
+                sum2 = static_cast<uint8_t>(sum2 + sum);
+                b = sum2;
+            } else {
+                b = sum;
+            }
+        }
+    }
+    return Error::success();
+}
+
 Error unpackIfRefPack(std::vector<uint8_t>& data) {
+    if (isEaHuffman(data)) {
+        std::vector<uint8_t> out;
+        if (Error err = decompressEaHuffman(data, out))
+            return err;
+        data = std::move(out);
+        return Error::success();
+    }
     if (isOtherEaCompression(data)) {
         char header[8];
         std::snprintf(header, sizeof header, "%02X FB", data[0]);

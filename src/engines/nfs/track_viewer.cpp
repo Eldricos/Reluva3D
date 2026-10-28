@@ -423,7 +423,9 @@ void TrackPage::load(int index) {
     // One vertex per polygon corner (each has its own texture
     // coordinates); z negated into the right-handed world, as models are,
     // except moving objects', which are placed each frame.
-    const std::string sheet = folder + "tr" + number + std::to_string(textureSet_) + ".qfs";
+    // Sets 0 and 1, then the same in 8 bits (for the software renderer).
+    const std::string sheet =
+        folder + "tr" + number + std::to_string(textureSet_ % 2) + (textureSet_ >= 2 ? "_8" : "") + ".qfs";
     std::vector<gfx::Vertex> vertices;
     struct Group {
         std::vector<uint32_t> indices;
@@ -760,7 +762,7 @@ void TrackPage::handleEvent(const Event& ev) {
                 stopSounds();
             break;
         case 'x':
-            textureSet_ = 1 - textureSet_;
+            textureSet_ = (textureSet_ + 1) % 4;
             if (renderer_) {
                 const auto eye = eye_;
                 const float yaw = yaw_, pitch = pitch_;
@@ -1021,8 +1023,8 @@ void TrackPage::update(uint64_t nowMs) {
         lines.push_back(error_);
     } else {
         char where[200];
-        std::snprintf(where, sizeof where, "block %d/%zu  at %.0f %.0f %.0f  %s detail  set %d  %zu quads  %zu moving",
-                      here, track_.blocks.size(), eye_[0], eye_[1], -eye_[2], kDetailNames[detail_], textureSet_, drawn,
+        std::snprintf(where, sizeof where, "block %d/%zu  at %.0f %.0f %.0f  %s detail  set %d%s  %zu quads  %zu moving",
+                      here, track_.blocks.size(), eye_[0], eye_[1], -eye_[2], kDetailNames[detail_], textureSet_ % 2, textureSet_ >= 2 ? " (8-bit)" : "", drawn,
                       moving_.size());
         std::string line = where;
         // The nearest light or sound within 40 units.

@@ -79,6 +79,7 @@ const char* const kUsageLines =
     "                       [-hotspots from to] (instructions counted by where they run, 16-byte blocks)\n"
     "                       [-gpulog] (THRASH recorded as for the GPU; each frame's list summed up)\n"
     "  reluva-tool nfs-native-check <game folder> [trials]\n"
+    "  reluva-tool nfs-huff-check <game folder> [out dir]\n"
     "  reluva-tool nfs-survey <folder>... [-v]\n"
     "  reluva-tool nfs-page <game folder> <out.tga> <page> [key...]\n";
 
@@ -1317,6 +1318,74 @@ int cmdNfsHost(int argc, char** argv) {
 // nativeRoutines) against its original in the interpreter, on the same
 // random inputs, in two copies of the game loaded side by side; every byte
 // they write, and the registers, must come out the same.
+// EA's Huffman schemes (30 FB, 32 FB, 34 FB; refpack.md): every file so
+// compressed in the game's folders, decompressed by the game's own routine
+// (0x50ed50, run in the interpreter) and by Reluva's, which must agree; the
+// game's results written to `out dir` if given.
+int cmdNfsHuffCheck(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool nfs-huff-check <game folder> [out dir]\n");
+        return 2;
+    }
+    const auto folders = reluva::nfs::findFolders(argv[2], {}, "nfs3.exe");
+    reluva::nfs::GameFiles files;
+    files.scan(folders);
+    reluva::nfs::GameHost::Options options;
+    options.saveFolder = stdfs::temp_directory_path() / "reluva-huff-check";
+    reluva::nfs::GameHost host(folders, options);
+    if (reluva::Error e = host.load())
+        return fail(e);
+    auto& c = host.cpu();
+    const uint32_t stack = host.process().memory().alloc(1 << 16);
+    int checked = 0, mismatches = 0;
+    for (const reluva::nfs::FileRef& f : files.files()) {
+        std::vector<uint8_t> data;
+        if (files.read(f, data) || !reluva::nfs::isEaHuffman(data))
+            continue;
+        const uint32_t size = uint32_t(data[2]) << 16 | uint32_t(data[3]) << 8 | data[4];
+        const uint32_t in = host.process().memory().alloc(uint32_t(data.size()) + 16);
+        const uint32_t out = host.process().memory().alloc(size + 4096);
+        if (!in || !out)
+            return fail(reluva::Error::fail("no memory"));
+        for (size_t i = 0; i < data.size(); ++i)
+            c.write8(in + uint32_t(i), data[i]);
+        c.reg[reluva::x86::Cpu::EAX] = in;
+        c.reg[reluva::x86::Cpu::EDX] = out;
+        c.reg[reluva::x86::Cpu::EBX] = 1;
+        c.reg[reluva::x86::Cpu::ESP] = stack + (1 << 16) - 64;
+        uint32_t result = 0;
+        if (reluva::Error e = c.call(0x50ed50, {}, result)) {
+            std::printf("%s: the game's routine failed: %s\n", f.name.c_str(), e.message.c_str());
+            continue;
+        }
+        std::vector<uint8_t> game(result);
+        for (uint32_t i = 0; i < result; ++i)
+            game[i] = c.read8(out + i);
+        std::vector<uint8_t> ours;
+        const reluva::Error err = reluva::nfs::decompressEaHuffman(data, ours);
+        size_t differ = 0;
+        for (size_t i = 0; i < std::min(ours.size(), game.size()); ++i)
+            differ += ours[i] != game[i];
+        const bool same = !err && ours == game;
+        std::printf("%s: %02x fb, %zu bytes to %u: %s\n", f.name.c_str(), data[0], data.size(), result,
+                    same ? "the same as the game's"
+                         : (err ? err.message.c_str()
+                                : ("DIFFERENT (" + std::to_string(ours.size()) + " bytes, " + std::to_string(differ) +
+                                   " differ)").c_str()));
+        mismatches += !same;
+        if (argc > 3) {
+            std::string name = f.name;
+            for (char& ch : name)
+                if (ch == '/' || ch == '\\')
+                    ch = '_';
+            writeFile(stdfs::path(argv[3]) / (name + ".out"), game);
+        }
+        ++checked;
+    }
+    std::printf("%d files, %d not the same\n", checked, mismatches);
+    return mismatches ? 1 : 0;
+}
+
 int cmdNfsNativeCheck(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool nfs-native-check <game folder> [trials]\n");
@@ -1596,6 +1665,8 @@ int runNfsCommand(int argc, char** argv) {
         return cmdNfsHost(argc, argv);
     if (std::strcmp(cmd, "nfs-native-check") == 0)
         return cmdNfsNativeCheck(argc, argv);
+    if (std::strcmp(cmd, "nfs-huff-check") == 0)
+        return cmdNfsHuffCheck(argc, argv);
     if (std::strcmp(cmd, "mad-info") == 0)
         return cmdMadInfo(argc, argv);
     if (std::strcmp(cmd, "mad-frames") == 0)

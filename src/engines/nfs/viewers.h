@@ -203,7 +203,7 @@ private:
 //   Space/C: up/down   Shift: faster   N/B: next/previous block
 //   1/2/3: road detail   H: day, night, weather   T: textures
 //   V: vertex light   L: lanes   O: objects   G: the virtual road's walls
-//   X: other texture set   F: back faces   R: start
+//   X: next texture set (two, then their 8-bit versions)   F: back faces   R: start
 class TrackPage : public Page {
 public:
     TrackPage(const GameFiles& files, const GameFolders& folders, audio::Mixer* mixer = nullptr);

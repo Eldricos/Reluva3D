@@ -229,10 +229,10 @@ What was built, with each format written up in `docs/formats/nfs/`:
 
 `nfs-survey` on the install and the CD reads 115 archives, 694 picture
 banks (15,990 pictures), 16 text tables and 16 fonts, with no failures.
-The exception is the Summit's two 8-bit texture sets
-(`trk007/tr07?_8.qfs`). They're compressed with another EA scheme
-(`32 FB`), which isn't read yet. The 16-bit sets of the same textures
-read fine (see [refpack.md](../formats/nfs/refpack.md)).
+The Summit's two 8-bit texture sets (`trk007/tr07?_8.qfs`), compressed
+with another EA scheme (`32 FB`, Huffman), were the exception until
+October 2026; they're read now, checked against the game's own routine
+(see [refpack.md](../formats/nfs/refpack.md)).
 
 What was planned:
 
@@ -284,7 +284,6 @@ Not done yet:
   internal: consistency, text reading correctly, walls along fences;
 - fog, clouds and the sun;
 - the records in each track block (positions, lights, sounds);
-- the 8-bit texture sets.
 
 What was planned:
 
@@ -926,8 +925,6 @@ Allowed under CONTRIBUTING.md:
   assumed), and their rotation sense.
 - How many times the horizon picture repeats round the sky.
 
-- The `32 FB` compression of the Summit's 8-bit texture sets, and
-  whether anything Reluva runs will need those sets.
 - The `0x7C` blocks on cockpit pictures (hot spots?), and the flare
   parameters in `0x6F` text blocks (`A0 B45 R24 ROTATE`).
 - The font header's flags and the size field that's 11 bytes short in

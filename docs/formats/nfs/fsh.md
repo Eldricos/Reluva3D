@@ -100,9 +100,11 @@ Each track has two sets of each texture file:
   same order (checked on `tr000`), as 8-bit pictures, each with its own
   palette.
 
-The 8-bit sets are probably for the software renderer, which is yet to
-be confirmed. The Summit's two 8-bit sets are compressed with a scheme
-Reluva doesn't read yet ([refpack.md](refpack.md)).
+The 8-bit sets are the software renderer's: with `softtria.dll` the game
+loads `trNNN_8.qfs` (the renderer's number decides, `0x7a3a58`; see
+[hrz.md](hrz.md)). The Summit's two 8-bit sets are compressed with EA's
+Huffman scheme ([refpack.md](refpack.md)). The Tracks page shows them
+with `X`, after the two 16-bit sets.
 
 ## Tools
 
