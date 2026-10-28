@@ -126,13 +126,16 @@ the folder directly. CLion and Qt Creator also open `CMakeLists.txt` directly.
    (`CMakePresets.json`): **x64 Debug**, **x64 Release (fast)** and **x64
    Release, Clang (fastest)**. Choose a Release one to play: Debug runs the
    games' code several times slower.
-   - **Clang** (clang-cl) is worth trying for the x86 interpreter (Need
-     for Speed III, Elite Force): on Linux it ran it about 5% faster than
-     GCC, and in one Visual Studio build the interpreter ran at about half
-     the speed it does with GCC or Clang. It needs
+   - **Clang** (clang-cl) is the one to play with: it builds the x86
+     interpreter (Need for Speed III, Elite Force) to much faster code. On
+     a Core i7-6700K, a race ran at 55-63 million instructions a second
+     with Clang, against 41-47 with Visual Studio's compiler. It needs
      **C++ Clang Compiler for Windows** and **MSBuild support for LLVM
      (clang-cl) toolset**, ticked under **Individual components** in the
      installer.
+   - To profile (**Debug > Performance Profiler**), start it with no
+     debugging session running: the Diagnostic Tools a debugging session
+     opens count as a profiler already.
    - If the dropdown still shows Visual Studio's own **x64-Debug** and
      **x64-Release**, turn on **Tools > Options > CMake > General > Use
      CMakePresets.json** and reopen the folder.
