@@ -3,6 +3,9 @@
 
 #include "engines/age/race.h"
 
+#include "engines/age/aimap.h"
+#include "engines/age/lang.h"
+
 #include <cmath>
 #include <cstdlib>
 
@@ -52,10 +55,22 @@ std::string iniValue(const std::string& text, const std::string& key) {
 // The files' stem for each kind (checkpoint races are "race"), and the
 // .cinfo keys.
 const char* fileStem(RaceKind k) {
-    return k == RaceKind::Blitz ? "blitz" : k == RaceKind::Circuit ? "circuit" : "race";
+    switch (k) {
+    case RaceKind::Blitz: return "blitz";
+    case RaceKind::Circuit: return "circuit";
+    case RaceKind::Checkpoint: return "race";
+    case RaceKind::CrashCourse: return "crash";
+    }
+    return "race";
 }
 const char* infoKey(RaceKind k) {
-    return k == RaceKind::Blitz ? "Blitz" : k == RaceKind::Circuit ? "Circuit" : "Checkpoint";
+    switch (k) {
+    case RaceKind::Blitz: return "Blitz";
+    case RaceKind::Circuit: return "Circuit";
+    case RaceKind::Checkpoint: return "Checkpoint";
+    case RaceKind::CrashCourse: return "Crash Course";
+    }
+    return "Checkpoint";
 }
 
 std::string textOf(const std::vector<uint8_t>& data) { return std::string(data.begin(), data.end()); }
@@ -70,8 +85,31 @@ std::string raceAiMapName(const std::string& city, RaceKind kind, int index, boo
     return "race/" + city + "/" + fileStem(kind) + std::to_string(index) + (professional ? ".aimap_p" : ".aimap");
 }
 
+RaceUnlocking raceUnlocking(const SearchSet& files, const std::string& city) {
+    RaceUnlocking out;
+    std::vector<uint8_t> data;
+    if (files.read("tune/" + city + ".cinfo", data))
+        return out;
+    const std::string text = textOf(data);
+    if (const std::string v = iniValue(text, "MustPlace"); !v.empty())
+        out.mustPlace = std::atoi(v.c_str());
+    if (const std::string v = iniValue(text, "UnlockGroup"); !v.empty())
+        out.group = std::atoi(v.c_str());
+    return out;
+}
+
 std::vector<std::string> raceNames(const SearchSet& files, const std::string& city, RaceKind kind) {
     std::vector<uint8_t> data;
+    if (kind == RaceKind::CrashCourse) {
+        // As many as there are crash<n>data.csv; named in mmlang.dll.
+        GameStrings strings;
+        strings.load(files);
+        std::vector<std::string> names;
+        const uint32_t first = city == "london" ? strings::kLondonLessons : strings::kSfLessons;
+        for (uint32_t i = 0; files.has("race/" + city + "/crash" + std::to_string(i) + "data.csv"); ++i)
+            names.push_back(strings.get(i < strings::kLessonCount ? first + i : 0, "Lesson " + std::to_string(i + 1)));
+        return names;
+    }
     if (files.read("tune/" + city + ".cinfo", data))
         return {};
     const std::string text = textOf(data);
@@ -112,13 +150,13 @@ Error parseRaceSettings(const std::string& csv, int index, std::array<RaceSettin
     return Error::success();
 }
 
-Error parseWaypoints(const std::string& csv, std::vector<Waypoint>& out) {
+Error parseWaypoints(const std::string& csv, std::vector<Waypoint>& out, bool alwaysRadius) {
     // x, y, z, a (heading), then the radius in blitzes and checkpoint
     // races (a "poly count" in circuits, not a radius), and columns that
     // are 0 throughout.
     out.clear();
     const auto rows = lines(csv);
-    const bool radius = !rows.empty() && rows[0].find("radius") != std::string::npos;
+    const bool radius = alwaysRadius || (!rows.empty() && rows[0].find("radius") != std::string::npos);
     for (size_t i = 1; i < rows.size(); ++i) {
         if (rows[i].empty())
             continue;
@@ -167,6 +205,28 @@ Error parseOpponentPath(const std::string& csv, RaceDefinition::Opponent& out) {
     return Error::success();
 }
 
+Error parseLessonSettings(const std::string& csv, LessonSettings& out) {
+    // A heading, then one row: Filename, Event, Checkpoints, TimeLimit,
+    // AmbDensity, then five "extra" columns.
+    out = LessonSettings{};
+    const auto rows = lines(csv);
+    if (rows.size() < 2 || rows[1].empty())
+        return Error::fail("no lesson row");
+    const auto f = split(rows[1], ',');
+    out.file = f[0];
+    while (!out.file.empty() && out.file.back() == ' ')
+        out.file.pop_back();
+    if (out.file.empty())
+        return Error::fail("no lesson file");
+    out.event = LessonEvent(int(number(f, 1)));
+    out.checkpoints = int(number(f, 2));
+    out.timeLimit = number(f, 3);
+    out.ambient = number(f, 4);
+    for (size_t i = 0; i < out.extra.size(); ++i)
+        out.extra[i] = number(f, 5 + i);
+    return Error::success();
+}
+
 Error loadRace(const SearchSet& files, const std::string& city, RaceKind kind, int index, RaceDefinition& out) {
     out = RaceDefinition{};
     out.kind = kind;
@@ -181,6 +241,30 @@ Error loadRace(const SearchSet& files, const std::string& city, RaceKind kind, i
     if (Error err = parseRaceSettings(textOf(data), index, out.settings))
         return Error::fail(table + ": " + err.message);
     const std::string stem = dir + fileStem(kind) + std::to_string(index);
+    if (kind == RaceKind::CrashCourse) {
+        // The lesson's own row names its checkpoints' file; its aimap its
+        // opponents' paths (the car to follow...), the same at both levels.
+        if (Error err = files.read(stem + "data.csv", data))
+            return err;
+        if (Error err = parseLessonSettings(textOf(data), out.lesson))
+            return Error::fail(stem + "data.csv: " + err.message);
+        const std::string checkpoints = dir + out.lesson.file + ".csv";
+        if (Error err = files.read(checkpoints, data))
+            return err;
+        if (Error err = parseWaypoints(textOf(data), out.waypoints, true))
+            return Error::fail(checkpoints + ": " + err.message);
+        AiMapSettings ai;
+        if (!files.read(stem + ".aimap", data))
+            parseAiMap(textOf(data), ai);
+        for (const AiMapSettings::Opponent& opponent : ai.opponents) {
+            RaceDefinition::Opponent o;
+            if (files.read(dir + opponent.path, data) || parseOpponentPath(textOf(data), o))
+                continue;
+            out.opponents[0].push_back(o);
+            out.opponents[1].push_back(std::move(o));
+        }
+        return Error::success();
+    }
     if (Error err = files.read(stem + "waypoints.csv", data))
         return err;
     if (Error err = parseWaypoints(textOf(data), out.waypoints))

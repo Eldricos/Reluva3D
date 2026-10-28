@@ -58,6 +58,8 @@ public:
     bool busted() const { return busted_; }
     // The player put back somewhere else: the chases end.
     void forgive();
+    // Every car after the player at once (Crash Course's cop chases).
+    void chaseAll();
     int chasing() const;
     int patrolling() const;
     size_t count() const { return cops_.size(); }

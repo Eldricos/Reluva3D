@@ -72,7 +72,9 @@ A rigid body stepped 120 times a second.
   (0); none is enough to hold a car below its top gear's redline, so
   every car's top speed is High.
 - **Body collisions**: spheres of 0.2 m inside the hull's corners (moved
-  in so they touch its box's faces) are pushed out of the city's
+  in so they touch its box's faces), and at the middles of the box's
+  front, back and sides (low and halfway up, so that a bollard or a cone
+  doesn't pass between the corners), are pushed out of the city's
   triangles, with an impulse using the lesser of **BoundElasticity** and
   the surface's elasticity, and friction from **BoundFriction** times the
   surface's. A contact pushing up more than sideways (its normal over

@@ -21,8 +21,12 @@ MustPlace=3
 UnlockGroup=3
 ```
 
-Names are separated by `|`. MustPlace and UnlockGroup aren't used yet
-(unlocking, presumably).
+Names are separated by `|`. MustPlace and UnlockGroup are read as
+unlocking's: races open UnlockGroup at a time, each group once those
+before it are placed at MustPlace or better
+([age-racing.md](../../engines/age-racing.md)). The Crash Course's
+lessons have no names here; they're in `mmlang.dll`
+([mmlang.md](mmlang.md)).
 
 ## Settings: mmblitzdata.csv, mmcircuitdata.csv, mmracedata.csv
 
@@ -43,8 +47,9 @@ columns twice, amateur then professional:
 | TimeLimit | seconds | a Blitz's time limit |
 | Difficulty | | not used |
 
-`mmcrashdata.csv` (Crash Course, 13 rows: `lesson1`...) has the same
-columns; its races aren't played yet.
+`mmcrashdata.csv` (Crash Course, 13 rows: `lesson1`, `lesson2`,
+`lesson3`, `midtrm1`, ... `final13`) has the same columns; Reluva takes
+each lesson's time of day and weather from it.
 
 ## Checkpoints: <blitz|circuit|race><n>waypoints.csv
 
@@ -89,8 +94,37 @@ Blitz, a few for other modes), London 324.
 Which car each opponent drives, and its skill, are in the race's
 aimap ([aimap.md](aimap.md)).
 
+## Crash Course: crash<n>data.csv
+
+Each lesson (`crash0`-`crash12` in each city) has a row of its own:
+
+```
+Filename,Event,Checkpoints,TimeLimit,AmbDensity,extra,extra,extra,extra,etra,
+copchase,3,1,180,0.2,0,0,0,0,0,0
+```
+
+- **Filename**: its checkpoints, `race/<city>/<Filename>.csv`
+  (`longjump.csv`, `copchase.csv`, `exam1_1.csv`,
+  `corner0waypoints.csv`...), as the races' waypoint files: the first
+  line the start. Their fifth column, headed "poly count" as in the
+  circuits, varies from gate to gate (4-16) and Reluva reads it as the
+  gate's radius; the jump lessons' files head it "radius".
+- **Event**: what the lesson asks (0, 2, 3, 4, 5, 7, 8, 9), read from
+  `mmlang.dll`'s messages ([age-racing.md](../../engines/age-racing.md)).
+- **Checkpoints**: 1 throughout. **TimeLimit** in seconds (0: none).
+  **AmbDensity**: its traffic.
+- The extra columns: the first is the minimum speed in mph of the event
+  4 lessons (50 in San Francisco, 40 in London); the second is 1 for
+  Brake Dancing and The Knowledge, the third 1 for Bonnie & Collide,
+  Midterm 2 and the follow lessons, the fourth 1 for San Francisco's
+  "Straight, With Chaser": not known.
+
+The lesson's `crash<n>.aimap` names its opponents' paths
+(`vpbullet Follow-1.opp`, `vpford race0-a-6.opp`...): the car to follow,
+or to drive among. Its `copchase` aimap lists 14 police and
+`CopChaseDistance` 150.
+
 ## Not read yet
 
-`.pathset` (paths for the ferry, the bridge, sailboats and the like, it
-seems), `crash*data.csv` (Crash Course), `copchase.csv`, the `exam*`
-files and the other modes' files.
+The other modes' files (Cops & Robbers' `multicop`, the `accel0`
+"Stunt Mode" waypoints, which no lesson names).

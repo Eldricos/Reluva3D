@@ -3,6 +3,8 @@
 
 #include "common/pe.h"
 
+#include "common/text.h"
+
 #include <algorithm>
 #include <cstdio>
 
@@ -180,9 +182,65 @@ Error parsePe(const std::vector<uint8_t>& file, PeImage& out) {
         }
     }
     out.hasTls = dir(9).first != 0;
+    out.resourceRva = dir(2).first;
+    out.resourceSize = dir(2).second;
     for (int i = 0; i < int(dirCount); ++i)
         if (dir(i).first && i != 0 && i != 1 && i != 5 && i != 9)
             out.otherDirectories.emplace_back(kDirectories[i]);
+    return Error::success();
+}
+
+Error readPeStrings(const std::vector<uint8_t>& file, const PeImage& image, std::map<uint32_t, std::string>& out) {
+    out.clear();
+    const Reader r{file};
+    const int64_t base = image.fileOffset(image.resourceRva);
+    if (!image.resourceRva || base < 0)
+        return Error::fail("No resources");
+    // A directory: 16 bytes of header (the named and id entries' counts at
+    // 12 and 14), then 8-byte entries: a name or id, and an offset (from
+    // the resources' start) with the top bit set for a subdirectory.
+    struct Entry {
+        uint32_t id, offset;
+    };
+    auto entries = [&](uint32_t at) {
+        std::vector<Entry> list;
+        const size_t d = size_t(base) + at;
+        const uint32_t count = uint32_t(r.u16(d + 12)) + r.u16(d + 14);
+        for (uint32_t i = 0; i < count && i < 4096 && r.ok(d + 16 + i * 8, 8); ++i)
+            list.push_back({r.u32(d + 16 + i * 8), r.u32(d + 20 + i * 8)});
+        return list;
+    };
+    for (const Entry& type : entries(0)) {
+        if (type.id != 6 || !(type.offset & 0x80000000))
+            continue;
+        for (const Entry& block : entries(type.offset & 0x7fffffff)) {
+            if (!(block.offset & 0x80000000) || block.id & 0x80000000)
+                continue;
+            const auto languages = entries(block.offset & 0x7fffffff);
+            if (languages.empty() || languages[0].offset & 0x80000000)
+                continue;
+            // The data entry: the strings' RVA and size.
+            const size_t e = size_t(base) + languages[0].offset;
+            const int64_t at = image.fileOffset(r.u32(e));
+            const uint32_t size = r.u32(e + 4);
+            if (at < 0 || !r.ok(size_t(at), size))
+                continue;
+            // Sixteen strings, each a u16 length and that many UTF-16 units.
+            size_t p = size_t(at);
+            for (uint32_t k = 0; k < 16 && p + 2 <= size_t(at) + size; ++k) {
+                const uint16_t n = r.u16(p);
+                p += 2;
+                if (!r.ok(p, size_t(n) * 2))
+                    break;
+                std::vector<uint16_t> units(n);
+                for (uint16_t u = 0; u < n; ++u)
+                    units[u] = r.u16(p + size_t(u) * 2);
+                p += size_t(n) * 2;
+                if (n)
+                    out[(block.id - 1) * 16 + k] = text::utf16leToUtf8(units.data(), units.size());
+            }
+        }
+    }
     return Error::success();
 }
 

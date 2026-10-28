@@ -141,6 +141,31 @@ junction starts at its own point in the cycle. The glows are the model's
 `NIGHT`; its pedestrian signal shows `WALK` while the road has red and
 `NOWALK` otherwise. The timing is Reluva's.
 
+## Props, and knocking things down
+
+The props of `city/<city>/props.pathset` ([pathset.md](../formats/age/pathset.md))
+stand where it puts them, and they and the traffic lights can be knocked
+down (`props.cpp`):
+
+- Each is collided with: its bound (`bound/<model>_BOUND.bnd`), else its
+  model's box; a traffic light its pole (0.4 m square, the model's
+  height).
+- `tune/banger/<model>.dgBangerData` gives its **Mass** and
+  **ImpulseLimit2**. ImpulseLimit2 is the mass times one of a few
+  numbers (31.25, 500, 800, 2,500, 10,000; 10^30 for trees and the
+  like, which never come down); Reluva reads it as the square of the
+  impulse that breaks the prop loose: a lamp of 836 kg, 818 kg m/s; a
+  cone (10.6 kg), 92; a parked car (10,000 x 800 kg), 2,830.
+- A car's knock over that (CarSim's hull against the prop's triangles)
+  breaks it loose: the car isn't stopped as by a wall, but loses what an
+  inelastic knock with a body of the prop's mass would take. The prop is
+  then out of the way (out of the collision world), falls over about its
+  foot the way it was pushed if it's taller than 1.2 m, and slides to a
+  stop (6 m/s/s). Cars, opponents and police knock things down alike.
+- Its `BREAK01`-`BREAK04` parts (a lamp's head, a sign's board) and
+  their own banger data aren't used: the prop falls whole. Nor are
+  Elasticity, Friction, CG, the glows and the particles (BirthRule).
+
 ## Lamps and flares
 
 The driven cars (the player's, the opponents', the police's) show their

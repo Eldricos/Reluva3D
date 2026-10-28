@@ -188,7 +188,8 @@ if(RELUVA_ENGINE_AGE)
         src/engines/age/filesystem.cpp
         src/engines/age/texture.cpp
         src/engines/age/pkg.cpp
-        src/engines/age/psdl.cpp
+        src/engines/age/props.cpp
+    src/engines/age/psdl.cpp
         src/engines/age/city_mesh.cpp
         src/engines/age/instances.cpp
         src/engines/age/tune.cpp
@@ -214,14 +215,18 @@ if(RELUVA_ENGINE_AGE)
         src/engines/age/city_life.cpp
         src/engines/age/damage.cpp
     src/engines/age/dashboard.cpp
+    src/engines/age/front_end.cpp
     src/engines/age/hud_map.cpp
     src/engines/age/hud_pictures.cpp
+    src/engines/age/lang.cpp
+    src/engines/age/lesson.cpp
         src/engines/age/materials.cpp
         src/engines/age/pathset.cpp
         src/engines/age/pvs.cpp
         src/engines/age/gizmos.cpp
         src/engines/age/drive_viewer.cpp
         src/engines/age/race_viewer.cpp
+    src/engines/age/record.cpp
         src/engines/age/world_viewer.cpp
         src/engines/age/texture_viewer.cpp
         src/engines/age/model_viewer.cpp)
