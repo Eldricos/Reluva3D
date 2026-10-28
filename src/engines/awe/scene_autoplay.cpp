@@ -152,9 +152,31 @@ bool ScenePage::pointFor(size_t i, int& x, int& y) const {
                 }
         return false;
     };
+    // Only its own rectangle or outline can be hit (0x40ef70); a
+    // character without either by its bones, about where it stands.
+    // (The outline when it has one: 0x40efa9.)
     int l, t, r, b;
-    if (objectRect(*target, l, t, r, b) && scan(l, t, r + 1, b + 1, 2))
-        return true;
+    if (const Ac2Value* outline = target->field("listD"); outline && outline->numbers.size() >= 3) {
+        l = kScreenW, t = kScreenH, r = 0, b = 0;
+        for (const auto& [ux, uy] : outline->numbers) {
+            const int px = int32_t(ux), py = int32_t(uy);
+            l = std::min(l, px), r = std::max(r, px), t = std::min(t, py), b = std::max(b, py);
+        }
+        return scan(l, t, r + 1, b + 1, 2);
+    }
+    if (objectRect(*target, l, t, r, b))
+        return scan(l, t, r + 1, b + 1, 2);
+    if (target->tag != "NPCX" && target->tag != "PCXX")
+        return false;
+    for (const Character& c : characters_)
+        if (c.record == target)
+            if (const Ac2Record* camr = scene_.camera()) {
+                const float feet[3] = {c.x, c.y, c.z};
+                float fx, fy;
+                if (SceneCamera::fromRecord(*camr).project(feet, kScreenW, kScreenH, fx, fy) &&
+                    scan(int(fx) - 200, int(fy) - 500, int(fx) + 200, int(fy) + 20, 2))
+                    return true;
+            }
     return scan(0, 0, kScreenW, kScreenH, 4);
 }
 
