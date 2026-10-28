@@ -20,6 +20,7 @@ struct CityMesh {
         std::vector<uint32_t> indices; // every three a triangle
         std::vector<uint16_t> blocks;  // each triangle's PSDL block
         bool water = false;            // the .water planes: drawn, not collided with
+        bool decal = false;            // road markings over the road (decals.pathset): likewise
         // 0: always drawn; 1: near (a road whose texture has a low-detail
         // version), 2: that road far off in its low-detail texture (not
         // collided with).
@@ -30,6 +31,15 @@ struct CityMesh {
 };
 
 void buildCityMesh(const Psdl& psdl, CityMesh& out);
+
+// city/<map>/decals.pathset: road markings (crossings, zigzags, cable
+// car rails), each a path named for its texture whose points go in pairs,
+// the two edges of a strip; drawn a little over the road. Unnamed paths
+// ("PATH44") are left out. Each point is put on the city's surface under
+// it in its block (its first word), whatever height the file gives it.
+// See docs/formats/age/pathset.md.
+struct PathsetPath;
+void addCityDecals(const std::vector<PathsetPath>& paths, CityMesh& out);
 
 // city/<map>.water: the water's height, then blocks of the city (empty
 // ones, under its bridges) where it's drawn. See psdl.md.

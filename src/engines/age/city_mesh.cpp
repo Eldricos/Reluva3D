@@ -7,6 +7,8 @@
 
 #include "engines/age/city_mesh.h"
 
+#include "engines/age/pathset.h"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -89,7 +91,7 @@ private:
         auto it = batchOf_.find(key);
         if (it == batchOf_.end()) {
             it = batchOf_.emplace(key, out_.batches.size()).first;
-            out_.batches.push_back({name, {}, {}, water_, detail_});
+            out_.batches.push_back({name, {}, {}, water_, false, detail_});
         }
         return it->second;
     }
@@ -449,6 +451,99 @@ Error parseCityWater(const std::string& text, CityWater& out) {
     if (first)
         return Error::fail("water: empty");
     return Error::success();
+}
+
+void addCityDecals(const std::vector<PathsetPath>& paths, CityMesh& out) {
+    constexpr float kLift = 0.03f; // over the road, so as not to flicker into it
+    // The highest of the city's surfaces facing up under a point, and its
+    // block. (The paths' point words aren't reliably blocks.)
+    struct Triangle {
+        uint32_t v[3];
+        uint16_t block;
+    };
+    std::vector<Triangle> triangles;
+    for (const CityMesh::Batch& b : out.batches) {
+        if (b.water || b.decal || b.detail == 2)
+            continue;
+        for (size_t t = 0; t < b.blocks.size() && 3 * t + 2 < b.indices.size(); ++t)
+            triangles.push_back({{b.indices[3 * t], b.indices[3 * t + 1], b.indices[3 * t + 2]}, b.blocks[t]});
+    }
+    auto ground = [&](const Vec3& at, uint16_t* block) {
+        float best = -1e30f;
+        for (const Triangle& tri : triangles) {
+            const auto& A = out.vertices[tri.v[0]].pos;
+            const auto& B = out.vertices[tri.v[1]].pos;
+            const auto& C = out.vertices[tri.v[2]].pos;
+            if (at[0] < std::min({A[0], B[0], C[0]}) - 0.1f || at[0] > std::max({A[0], B[0], C[0]}) + 0.1f ||
+                at[2] < std::min({A[2], B[2], C[2]}) - 0.1f || at[2] > std::max({A[2], B[2], C[2]}) + 0.1f)
+                continue;
+            // Barycentric in X and Z.
+            const float d = (B[2] - C[2]) * (A[0] - C[0]) + (C[0] - B[0]) * (A[2] - C[2]);
+            if (std::fabs(d) < 1e-6f)
+                continue;
+            const float u = ((B[2] - C[2]) * (at[0] - C[0]) + (C[0] - B[0]) * (at[2] - C[2])) / d;
+            const float v = ((C[2] - A[2]) * (at[0] - C[0]) + (A[0] - C[0]) * (at[2] - C[2])) / d;
+            if (u < -0.01f || v < -0.01f || u + v > 1.01f)
+                continue;
+            const float y = u * A[1] + v * B[1] + (1 - u - v) * C[1];
+            if (y < at[1] + 3 && y > best) { // not a roof over it
+                best = y;
+                if (block)
+                    *block = tri.block;
+            }
+        }
+        return best > -1e29f ? best : at[1];
+    };
+    for (const PathsetPath& p : paths) {
+        if (p.model.empty() || p.model.rfind("PATH", 0) == 0 || p.points.size() < 4)
+            continue;
+        CityMesh::Batch batch;
+        batch.texture = p.model;
+        batch.decal = true;
+        // The texture once across, and along as often as it's as long as
+        // it's wide.
+        float along = 0;
+        const uint32_t first = uint32_t(out.vertices.size());
+        for (size_t k = 0; k + 1 < p.points.size(); k += 2) {
+            const Vec3 a = p.points[k], b = p.points[k + 1];
+            if (k >= 2) {
+                const Vec3 mid = (a + b) * 0.5f, prev = (p.points[k - 2] + p.points[k - 1]) * 0.5f;
+                const float width = std::max(0.1f, length(b - a));
+                along += length(mid - prev) / width;
+            }
+            for (int side = 0; side < 2; ++side) {
+                gfx::Vertex v{};
+                const Vec3& at = side ? b : a;
+                v.pos[0] = at[0];
+                v.pos[1] = ground(at, nullptr) + kLift;
+                v.pos[2] = at[2];
+                v.normal[1] = 1;
+                v.uv[0] = float(side);
+                v.uv[1] = along;
+                v.color[0] = v.color[1] = v.color[2] = v.color[3] = 255;
+                out.vertices.push_back(v);
+            }
+        }
+        const uint32_t pairs = (uint32_t(out.vertices.size()) - first) / 2;
+        for (uint32_t k = 0; k + 1 < pairs; ++k) {
+            const uint32_t i = first + 2 * k;
+            // Its block, for what's seen from where: the one under its
+            // middle (0, always drawn, if none).
+            Vec3 middle{};
+            for (uint32_t c = 0; c < 4; ++c)
+                for (size_t q = 0; q < 3; ++q)
+                    middle[q] += out.vertices[i + c].pos[q] / 4;
+            uint16_t block = 0;
+            ground(middle, &block);
+            // Both ways round: the pairs aren't all in the same order.
+            for (uint32_t t : {i, i + 2, i + 1, i + 1, i + 2, i + 3, i, i + 1, i + 2, i + 1, i + 3, i + 2})
+                batch.indices.push_back(t);
+            for (int t = 0; t < 4; ++t)
+                batch.blocks.push_back(block);
+        }
+        if (!batch.indices.empty())
+            out.batches.push_back(std::move(batch));
+    }
 }
 
 void addCityWater(const Psdl& psdl, const CityWater& water, uint32_t texture, CityMesh& out) {

@@ -5,6 +5,7 @@
 // following docs/formats/age/, so no game data is needed.
 
 #include "engines/age/aimap.h"
+#include "engines/age/ambient.h"
 #include "engines/age/ar_archive.h"
 #include "engines/age/bai.h"
 #include "engines/age/bound.h"
@@ -603,6 +604,36 @@ void testCityExtras() {
     pvs.v[8 + 8] = 9; // the last row ends past the file
     CHECK(readCpvs(pvs.v, v));
     CHECK(readCpvs(toBytes("PVS1"), v));
+
+    // Decals: a strip over a square at height 2 in block 5, taking its
+    // height and block (the points' own words are no help); an unnamed
+    // path places nothing.
+    CityMesh ground;
+    for (const auto& [x, z] : std::vector<std::pair<float, float>>{{-10, -10}, {10, -10}, {10, 10}, {-10, 10}}) {
+        gfx::Vertex gv{};
+        gv.pos[0] = x;
+        gv.pos[1] = 2;
+        gv.pos[2] = z;
+        ground.vertices.push_back(gv);
+    }
+    ground.batches.push_back({"r2_f", {0, 1, 2, 0, 2, 3}, {5, 5}, false, false, 0});
+    std::vector<PathsetPath> decals(2);
+    decals[0].model = "decal_x_inter_l";
+    decals[0].points = {{-2, 0, -4}, {2, 0, -4}, {-2, 0, 4}, {2, 0, 4}};
+    decals[0].ids = {20978, 20978, 20978, 20978};
+    decals[1].model = "PATH44";
+    decals[1].points = decals[0].points;
+    addCityDecals(decals, ground);
+    CHECK(ground.batches.size() == 2 && ground.vertices.size() == 8);
+    if (ground.batches.size() == 2) {
+        const CityMesh::Batch& d = ground.batches[1];
+        CHECK(d.decal && d.texture == "decal_x_inter_l" && d.indices.size() == 12 &&
+              d.blocks == (std::vector<uint16_t>{5, 5, 5, 5}));
+        for (uint32_t i : d.indices)
+            CHECK(std::fabs(ground.vertices[i].pos[1] - 2.03f) < 1e-4f);
+        // Across once, along twice (8 m long, 4 wide).
+        CHECK(ground.vertices[7].uv[0] == 1 && std::fabs(ground.vertices[7].uv[1] - 2) < 1e-4f);
+    }
 }
 
 void testInstances() {
@@ -1664,6 +1695,44 @@ void testPathset() {
     CHECK(readPathset(toBytes("PTH0"), paths));
 }
 
+void testAmbient(const std::filesystem::path& tmp) {
+    const std::string text = "Min distance,Max distance,3D priority,Audible area,,,,,\r\n"
+                             "5,75,12,2,,,,,\r\n"
+                             "sample name,sample volume,sample type,oneshot time limit low,oneshot time limit high,"
+                             "active,min speed,max speed,Doppler\r\n"
+                             "buoybell,0.95,2,5,10,1,0,999999,0\r\n"
+                             "streetcable,0.82,0,0,0,1,0,999999,0\r\n"
+                             "VECTORPOINTS,,,,,,,,\r\nx,y,z,,,,,,\r\n"
+                             "-146.180206,-0.000192,-662.411499,,,,,,\r\n"
+                             "-6.795126,-0.000042,-603.490356\r\n";
+    Ambience a;
+    CHECK(!parseAmbience(text, a));
+    CHECK(a.minDistance == 5 && a.maxDistance == 75 && a.priority == 12 && a.area == 2 && a.samples.size() == 2 &&
+          a.points.size() == 2);
+    if (a.samples.size() == 2 && a.points.size() == 2) {
+        CHECK(a.samples[0].name == "buoybell" && std::fabs(a.samples[0].volume - 0.95f) < 1e-5f &&
+              a.samples[0].type == 2 && a.samples[0].low == 5 && a.samples[0].high == 10 && a.samples[0].active);
+        CHECK(a.samples[1].type == 0 && std::fabs(a.points[1][2] + 603.490356f) < 1e-3f);
+    }
+    CHECK(ambientGain(a, 3) == 1 && std::fabs(ambientGain(a, 40) - 0.5f) < 1e-5f && ambientGain(a, 80) == 0);
+    CHECK(parseAmbience("sample name\n", a));
+    CHECK(parseAmbientContainer("file names\r\nbirdies\r\nbuoyseals\r\n") ==
+          (std::vector<std::string>{"birdies", "buoyseals"}));
+
+    std::filesystem::remove_all(tmp);
+    test::writeFile(tmp / "aud" / "ambient" / "testambientcontainer.csv", toBytes("file names\nbuoys\nmissing\n"));
+    test::writeFile(tmp / "aud" / "ambient" / "buoys.csv", toBytes(text));
+    SearchSet files;
+    auto loose = std::make_unique<DirectoryArchive>();
+    CHECK(!loose->open(tmp));
+    files.add(std::move(loose), 1);
+    AmbientSounds sounds;
+    CHECK(!sounds.load(files, "test", nullptr) && sounds.ambiences().size() == 1);
+    sounds.update(1, {0, 0, 0});
+    CHECK(sounds.playing() == 0); // nothing to play them on
+    CHECK(sounds.load(files, "elsewhere", nullptr));
+}
+
 void testGizmos(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
     // Models whose level-H mesh runs 0-2 m across: leaves 1 m either side.
@@ -1881,8 +1950,13 @@ void testProps(const std::filesystem::path& tmp) {
     paths[2].model = "sp_barricadewood_f";
     paths[2].end = 20 << 8 | 2;
     paths[2].points = {{0, 0, 10}, {5, 0, 10}};
-    const auto placed = placeProps(paths);
+    auto placed = placeProps(paths);
     CHECK(placed.size() == 2 + 1 + 3);
+    // An unnamed path (a race's ramp line) places nothing.
+    paths.push_back({});
+    paths.back().model = "PATH01";
+    paths.back().points = {{0, 0, 0}};
+    CHECK(placeProps(paths).size() == placed.size());
     if (placed.size() == 6) {
         CHECK(placed[2].model == "sp_dumpstr_f" && std::fabs(placed[2].along[2] - 1) < 1e-4f);
         CHECK(placed[3].at == (Vec3{0, 0, 10}) && placed[5].at == (Vec3{4, 0, 10}) && placed[4].along[0] == 1);
@@ -1909,11 +1983,16 @@ void testProps(const std::filesystem::path& tmp) {
                     toBytes("type: a\ndgBangerData {\n  Size 0.3 0.6 0.3\n  CG 0 0.5 0\n  Mass 6\n}\n"));
     test::writeFile(tmp / "tune" / "banger" / "sp_tree_s.dgBangerData",
                     toBytes("type: a\ndgBangerData {\n  Mass 50000\n  ImpulseLimit2 1e+30\n}\n"));
+    // A race's own (race/<map>/<race>.pathset) besides the city's.
+    test::writeFile(tmp / "race" / "test" / "circuit0.pathset",
+                    buildPathset({{"sp_barricadeconcl_f", {{0, 0, 50}, {4, 0, 50}}, 20 << 8 | 2}}));
     SearchSet files;
     auto loose = std::make_unique<DirectoryArchive>();
     CHECK(!loose->open(tmp));
     files.add(std::move(loose), 1);
     Props props;
+    props.load(files, "test", "circuit0");
+    CHECK(props.count() == 2 + 3);
     props.load(files, "test");
     CHECK(props.count() == 2);
     props.prepare(files, [](const std::string& model, Vec3& lo, Vec3& hi) {
@@ -2003,6 +2082,7 @@ int main() {
     testCityExtras();
     testTrains(tmp / "trains");
     testProps(tmp / "props");
+    testAmbient(tmp / "ambient");
     std::filesystem::remove_all(tmp);
     if (failures) {
         std::fprintf(stderr, "%d check(s) failed\n", failures);
