@@ -1,10 +1,9 @@
-# .bnd collision bounds
+# .bnd collision bounds (and .bbnd, .ter)
 
 Models' collision shapes, `bound/<model>_BOUND.bnd` in `mm2core.ar` (525
 files: every car, props, landmarks; building fronts have none). Read by
-`src/engines/age/bound.cpp`. The `.bbnd` files (324) look like binary
-forms of the same and `.ter` (184) like terrain grids for them; neither
-is read yet.
+`src/engines/age/bound.cpp`. `.bbnd` (324) is the same in binary, read
+where there's no `.bnd`; `.ter` (184) is a grid over a bound, not read.
 
 ## How this was worked out
 
@@ -44,3 +43,39 @@ tri 4 5 6 0
 
 Reluva checks every polygon's vertices exist. 17,515 vertices, 8,259
 quads and 4,958 triangles in all.
+
+## `.bbnd`
+
+The binary form, little-endian. Each of the 324 has a `.bnd` beside it,
+and read both ways all 324 are the same: vertices, materials (names,
+elasticity, friction, effect and sound) and polygons.
+
+| Bytes | Contents |
+|---|---|
+| 1 | version, 1 |
+| 4 × 3 | counts: vertices, materials, polygons |
+| 12 × vertices | x, y, z (floats) |
+| 104 × materials | name (32, zero-padded), elasticity, friction (floats), effect (32), sound (32) |
+| 10 × polygons | four vertex numbers (u16), then the material's (u16); a fourth vertex of 0 makes it a triangle |
+
+There's no edge count; the `.bnd`s' edges are all 0 anyway.
+`loadBound` takes `bound/<model>_BOUND.bnd`, else the `.bbnd`.
+
+## `.ter`
+
+Beside 184 of the bounds, for the larger models (landmarks, the cities'
+bridges and ramps). Not read; what's known:
+
+| Bytes | Contents |
+|---|---|
+| 4 | a float, 1.1 |
+| 4 | the bound's polygon count (it matches every time) |
+| 4 | a second count |
+| 1 | 0 |
+| 4 × 3 | the bound's size along x, y and z |
+| 4 × 5 | a grid: cells across x (the size / 10, rounded up), 1, cells across z (likewise), the cells, and a count of references |
+
+then data for each polygon (an infinity, 1.0, a value, its bounds' lowest
+and highest corner, then edge data) and the cells' lists. It looks like a
+lookup grid for colliding with the polygons, which Reluva's own 8 m grid
+does without.

@@ -33,6 +33,13 @@ Error CarActor::load(gfx::Renderer3D& renderer, TextureCache& textures, const Se
     auto isWheel = [](const std::string& part) { return part.rfind("WHL", 0) == 0; };
     buildModelMesh(renderer, textures, files, file, pkg, "H", paintJob, false, body_,
                    [&](const std::string& part) { return !isWheel(part); });
+    clean_.clear();
+    damaged_.clear();
+    for (const ModelDraw& d : body_.draws) {
+        bool translucent;
+        clean_.push_back(d.texture);
+        damaged_.push_back(d.textureName.empty() ? 0 : textures.get(d.textureName + "_dmg", translucent, true));
+    }
     for (int i = 0; i < 4; ++i) {
         const std::string name = "WHL" + std::to_string(i);
         buildModelMesh(renderer, textures, files, file, pkg, "H", paintJob, false, wheels_[size_t(i)],
@@ -109,6 +116,17 @@ void CarActor::draw(const SceneLight& light) const {
         if (lamps.reverse)
             drawModelMesh(*renderer_, reverse_, carMatrix, light, translucent);
     }
+}
+
+void CarActor::dent(const Vec3& at, float radius) {
+    for (size_t i = 0; i < body_.draws.size() && i < damaged_.size(); ++i)
+        if (damaged_[i] && length(body_.draws[i].center - at) <= radius)
+            body_.draws[i].texture = damaged_[i];
+}
+
+void CarActor::mend() {
+    for (size_t i = 0; i < body_.draws.size() && i < clean_.size(); ++i)
+        body_.draws[i].texture = clean_[i];
 }
 
 void CarActor::drawFlares(const FlareDrawer& flares, const Vec3& eye) const {

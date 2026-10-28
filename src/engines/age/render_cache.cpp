@@ -47,7 +47,7 @@ gfx::TextureId TextureCache::create(const Tex& tex, bool& translucent) {
     return id;
 }
 
-gfx::TextureId TextureCache::get(const std::string& name, bool& translucent) {
+gfx::TextureId TextureCache::get(const std::string& name, bool& translucent, bool optional) {
     const std::string key = fs::toLower(name);
     auto it = textures_.find(key);
     if (it == textures_.end()) {
@@ -85,9 +85,10 @@ gfx::TextureId TextureCache::get(const std::string& name, bool& translucent) {
             }
         }
         if (!e.id) {
-            if (loadTexture(files_, name, tex))
-                missing_.push_back(name);
-            else
+            if (loadTexture(files_, name, tex)) {
+                if (!optional)
+                    missing_.push_back(name);
+            } else
                 e.id = create(tex, e.translucent);
         }
         it = textures_.emplace(key, e).first;
@@ -160,6 +161,7 @@ Error buildModelMesh(gfx::Renderer3D& renderer, TextureCache& textures, const Se
             d.indexCount = uint32_t(g.indices.size());
             if (const PkgShader* s = pkg.shader(paintJob, g.shader)) {
                 d.color = s->diffuse;
+                d.textureName = s->texture;
                 if (!s->texture.empty())
                     d.texture = textures.get(s->texture, d.translucent);
                 // A glow: no diffuse colour, only emissive, added.
@@ -171,6 +173,7 @@ Error buildModelMesh(gfx::Renderer3D& renderer, TextureCache& textures, const Se
             d.translucent = d.glow || d.translucent || d.color[3] < 1;
             d.lit = lit && !d.glow;
             const uint32_t first = uint32_t(vertices.size());
+            Vec3 groupLo{1e30f, 1e30f, 1e30f}, groupHi{-1e30f, -1e30f, -1e30f};
             for (const PkgVertex& v : g.vertices) {
                 gfx::Vertex o{};
                 for (size_t k = 0; k < 3; ++k) {
@@ -178,6 +181,8 @@ Error buildModelMesh(gfx::Renderer3D& renderer, TextureCache& textures, const Se
                     o.normal[k] = v.normal[k];
                     lo[k] = std::min(lo[k], o.pos[k]);
                     hi[k] = std::max(hi[k], o.pos[k]);
+                    groupLo[k] = std::min(groupLo[k], o.pos[k]);
+                    groupHi[k] = std::max(groupHi[k], o.pos[k]);
                 }
                 o.uv[0] = v.uv[0];
                 o.uv[1] = v.uv[1];
@@ -186,6 +191,8 @@ Error buildModelMesh(gfx::Renderer3D& renderer, TextureCache& textures, const Se
             }
             for (uint16_t i : g.indices)
                 indices.push_back(first + i);
+            if (!g.vertices.empty())
+                d.center = (groupLo + groupHi) * 0.5f;
             out.draws.push_back(d);
             out.vertices += g.vertices.size();
             out.triangles += g.indices.size() / 3;
@@ -291,9 +298,13 @@ const ModelMesh& ModelCache::part(const std::string& name, const std::string& pa
     const std::string file = "geometry/" + name + ".pkg";
     std::vector<uint8_t> data;
     Pkg pkg;
-    if (!files_.read(file, data) && !readPkg(data, pkg))
-        buildModelMesh(renderer_, textures_, files_, file, pkg, "", paintJob % std::max(1u, pkg.paintJobs), true,
-                       *mesh, [&](const std::string& p) { return p == part; });
+    if (!files_.read(file, data) && !readPkg(data, pkg)) {
+        // Its finest level (a dashboard's parts); lit parts at whatever level.
+        const auto levels = modelLevels(pkg);
+        buildModelMesh(renderer_, textures_, files_, file, pkg, levels.empty() ? "" : levels.front(),
+                       paintJob % std::max(1u, pkg.paintJobs), true, *mesh,
+                       [&](const std::string& p) { return p == part; });
+    }
     return *parts_.emplace(key, std::move(mesh)).first->second;
 }
 

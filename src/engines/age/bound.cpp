@@ -4,6 +4,7 @@
 #include "engines/age/bound.h"
 
 #include <cstdlib>
+#include <cstring>
 #include <sstream>
 
 namespace reluva::age {
@@ -60,6 +61,60 @@ Error readBound(std::string_view text, Bound& out) {
                 return Error::fail("a polygon names vertex " + std::to_string(p.vertices[i]) + " of " +
                                    std::to_string(out.vertices.size()));
     return Error::success();
+}
+
+Error readBinaryBound(const std::vector<uint8_t>& data, Bound& out) {
+    out = Bound{};
+    auto u32 = [&](size_t at) {
+        return uint32_t(data[at]) | uint32_t(data[at + 1]) << 8 | uint32_t(data[at + 2]) << 16 |
+               uint32_t(data[at + 3]) << 24;
+    };
+    auto f32 = [&](size_t at) {
+        const uint32_t v = u32(at);
+        float f;
+        std::memcpy(&f, &v, 4);
+        return f;
+    };
+    if (data.size() < 13 || data[0] != 1)
+        return Error::fail("not a binary bound (version 1)");
+    const uint64_t vertices = u32(1), materials = u32(5), polygons = u32(9);
+    if (13 + vertices * 12 + materials * 104 + polygons * 10 != data.size())
+        return Error::fail("binary bound's size doesn't match its counts");
+    size_t at = 13;
+    for (uint64_t i = 0; i < vertices; ++i, at += 12)
+        out.vertices.push_back({f32(at), f32(at + 4), f32(at + 8)});
+    for (uint64_t i = 0; i < materials; ++i, at += 104) {
+        BoundMaterial m;
+        m.name.assign(reinterpret_cast<const char*>(data.data() + at),
+                      strnlen(reinterpret_cast<const char*>(data.data() + at), 32));
+        m.elasticity = f32(at + 32);
+        m.friction = f32(at + 36);
+        out.materials.push_back(m);
+    }
+    for (uint64_t i = 0; i < polygons; ++i, at += 10) {
+        BoundPolygon p;
+        for (size_t k = 0; k < 4; ++k)
+            p.vertices[k] = uint32_t(data[at + 2 * k]) | uint32_t(data[at + 2 * k + 1]) << 8;
+        // No quad of the 8,259 in the .bnd files ends at vertex 0.
+        p.count = p.vertices[3] == 0 ? 3 : 4;
+        p.material = uint32_t(data[at + 8]) | uint32_t(data[at + 9]) << 8;
+        out.polygons.push_back(p);
+    }
+    for (const BoundPolygon& p : out.polygons)
+        for (uint32_t i = 0; i < p.count; ++i)
+            if (p.vertices[i] >= out.vertices.size())
+                return Error::fail("a polygon names vertex " + std::to_string(p.vertices[i]) + " of " +
+                                   std::to_string(out.vertices.size()));
+    return Error::success();
+}
+
+Error loadBound(const SearchSet& files, const std::string& model, Bound& out) {
+    std::vector<uint8_t> data;
+    if (!files.read("bound/" + model + "_BOUND.bnd", data))
+        return readBound(std::string_view(reinterpret_cast<const char*>(data.data()), data.size()), out);
+    if (!files.read("bound/" + model + "_BOUND.bbnd", data))
+        return readBinaryBound(data, out);
+    return Error::fail("no bound for " + model);
 }
 
 } // namespace reluva::age

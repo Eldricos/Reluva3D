@@ -33,7 +33,8 @@ public:
     // any of its pixels aren't opaque.
     // Animated ones (water: tune/<name>.movie, frames <name>-0001...)
     // have all their frames loaded; get() gives the one named, or the first.
-    gfx::TextureId get(const std::string& name, bool& translucent);
+    // A texture not found is 0, and listed as missing unless `optional`.
+    gfx::TextureId get(const std::string& name, bool& translucent, bool optional = false);
     void clear();
     const std::vector<std::string>& missing() const { return missing_; }
 
@@ -71,6 +72,8 @@ struct ModelDraw {
     bool translucent = false;
     bool lit = true;   // by the light (the mesh has normals), else as coloured
     bool glow = false; // added to what's behind (a light's halo)
+    std::string textureName; // its shader's
+    Vec3 center{};           // of its vertices' bounds
 };
 
 struct ModelMesh {

@@ -10,11 +10,15 @@
 #include "engines/age/bound.h"
 #include "engines/age/car.h"
 #include "engines/age/city_mesh.h"
+#include "engines/age/damage.h"
+#include "engines/age/dashboard.h"
 #include "engines/age/engine_sound.h"
 #include "engines/age/filesystem.h"
 #include "engines/age/games.h"
 #include "engines/age/gizmos.h"
+#include "engines/age/hud_map.h"
 #include "engines/age/instances.h"
+#include "engines/age/materials.h"
 #include "engines/age/opponent.h"
 #include "engines/age/pathset.h"
 #include "engines/age/ped_model.h"
@@ -642,6 +646,33 @@ void testBound() {
           b.polygons[1].vertices[1] == 2);
     CHECK(readBound("v 0 0 0\nquad 0 1 2 3 0\n", b)); // vertices that aren't there
     CHECK(readBound("mtl a {\nfriction: 1\n", b));     // not closed
+
+    // The same square in binary (.bbnd): a quad and a triangle (its fourth
+    // vertex 0).
+    Bytes bin;
+    bin.u8(1).u32(4).u32(1).u32(2);
+    for (const Vec3& v : {Vec3{0, 0, 0}, Vec3{1, 0, 0}, Vec3{1, 1, 0}, Vec3{0, 1, 0}})
+        bin.f32(v[0]).f32(v[1]).f32(v[2]);
+    auto padded = [&](const std::string& t) {
+        std::string out = t;
+        out.resize(32, '\0');
+        bin.str(out);
+    };
+    padded("grass");
+    bin.f32(0.25f).f32(0.75f);
+    padded("none");
+    padded("0");
+    bin.u16(0).u16(1).u16(2).u16(3).u16(0);
+    bin.u16(1).u16(2).u16(3).u16(0).u16(0);
+    Bound binary;
+    CHECK(!readBinaryBound(bin.v, binary));
+    CHECK(binary.vertices.size() == 4 && binary.vertices[2] == (Vec3{1, 1, 0}));
+    CHECK(binary.materials.size() == 1 && binary.materials[0].name == "grass" &&
+          binary.materials[0].elasticity == 0.25f && binary.materials[0].friction == 0.75f);
+    CHECK(binary.polygons.size() == 2 && binary.polygons[0].count == 4 && binary.polygons[1].count == 3 &&
+          binary.polygons[1].vertices[2] == 3);
+    std::vector<uint8_t> cut(bin.v.begin(), bin.v.end() - 4);
+    CHECK(readBinaryBound(cut, binary)); // cut short
 }
 
 void testCollision() {
@@ -704,8 +735,9 @@ void testCarSim() {
     CHECK(car.forwardSpeed() > 15 && car.position[2] < -50 && std::fabs(car.position[0]) < 2 && car.gear > 1);
     for (int i = 0; i < 300; ++i) // 30 s more, not quite to the plane's edge
         car.step(go, flat, 0.1f);
-    // Topped out near the top gear's speed.
-    CHECK(car.forwardSpeed() > setup.highSpeed * 0.75f && car.forwardSpeed() < setup.highSpeed * 1.1f);
+    // Topped out at the top gear's speed (at the redline).
+    CHECK(car.gear == setup.gears && car.forwardSpeed() > setup.highSpeed * 0.95f &&
+          car.forwardSpeed() < setup.highSpeed * 1.05f);
 
     // Steering right at speed turns it right (towards +X when facing -Z).
     car.reset(setup, {0, 0, 0}, 0);
@@ -725,6 +757,126 @@ void testCarSim() {
     for (int i = 0; i < 100; ++i)
         car.step(stop, flat, 0.1f);
     CHECK(car.gear == -1 && car.forwardSpeed() < -1);
+
+    // Manual gears: no change by itself; up and down as asked; reverse from
+    // first only when stopped, the throttle then backing up.
+    car.reset(setup, {0, 0, 0}, 0);
+    car.manual = true;
+    for (int i = 0; i < 60; ++i)
+        car.step(go, flat, 0.1f);
+    CHECK(car.gear == 1 && car.rpm > setup.maxRpm * 0.9f);
+    CarControls up = go;
+    up.shift = 1;
+    car.step(up, flat, 0.1f);
+    car.step(go, flat, 0.1f);
+    CHECK(car.gear == 2);
+    CarControls down;
+    down.shift = -1;
+    car.step(down, flat, 0.1f);
+    car.step(down, flat, 0.1f); // first, but moving: not reverse
+    CHECK(car.gear == 1);
+    for (int i = 0; i < 100; ++i)
+        car.step(stop, flat, 0.1f);
+    car.step(down, flat, 0.1f);
+    CHECK(car.gear == -1);
+    for (int i = 0; i < 20; ++i)
+        car.step(go, flat, 0.1f);
+    CHECK(car.forwardSpeed() < -1);
+
+    // On its roof and stuck: set upright, the way it faced, after
+    // stuckTime.
+    car.reset(setup, {0, 2, 0}, 0.5f);
+    car.manual = false;
+    car.orientation = Mat3::rotation({0, 0, 1}, 3.0f) * car.orientation;
+    for (int i = 0; i < 10; ++i)
+        car.step(none, flat, 0.1f);
+    CHECK(car.orientation.y[1] < 0);
+    for (int i = 0; i < 40; ++i)
+        car.step(none, flat, 0.1f);
+    CHECK(car.orientation.y[1] > 0.95f);
+}
+
+void testCarFiles() {
+    // city/materials.mtl and .csv.
+    PhysicsMaterials m;
+    CHECK(!m.parse("mtl deepwater {\n\telasticity: 0.5\n\tfriction: 0.65\n\tdrag: 0.5\n\tdepth: 100.0\n}\n"
+                   "mtl _default {\n\tfriction: 0.9\n\tsound: 0\n}\n"
+                   "mtl grass {\n\tfriction: 0.45\n\tsound: 2\n\tptxindex: 4 -1\n}\n",
+                   "texture,physics\r\nS_THAMES,deepwater\r\nlawn,grass\r\nroad,none\r\n"));
+    CHECK(m.forTexture("s_thames-0009").name == "deepwater" && m.forTexture("s_thames").depth == 100);
+    CHECK(m.forTexture("LAWN").name == "grass" && m.forTexture("road").name == "_default");
+    CHECK(m.byName("nothing").name == "_default");
+    const CollisionSurface grass = m.surface(m.byName("grass"));
+    CHECK(std::fabs(grass.friction - CollisionSurface{}.friction * 0.5f) < 1e-4f && grass.sound == 2);
+    CHECK(m.surface(m.byName("deepwater")).drag == 0.5f);
+    CHECK(m.parse("mtl open {\nfriction: 1\n", ""));
+
+    // The tyres' and knocks' sound tables.
+    SurfaceSounds surfaces;
+    CHECK(!readSurfaceSounds("Tunnel sound index,,,\r\n3,,,\r\n"
+                             "surface wave,max speed,min surface volume,max surface volume,min surface pitch,max "
+                             "surface pitch,min skid volume,max skid volume,num skid samples\r\n"
+                             "NOSOUND,125,0,0,0,0,0.5,0.88,2\r\n"
+                             "skid wave,min slippage,max slippage\r\n"
+                             "tireskid1,0.55,0.65\r\ntireskid2,0.65,1\r\n"
+                             "surface wave,max speed\r\nGRAVEL,40,0.2,0.9,0.8,1.2,0.4,0.8,0\r\n",
+                             surfaces));
+    CHECK(surfaces.tunnel == 3 && surfaces.surfaces.size() == 2);
+    if (surfaces.surfaces.size() == 2) {
+        CHECK(surfaces.surfaces[0].wave == "NOSOUND" && surfaces.surfaces[0].skids.size() == 2 &&
+              surfaces.surfaces[0].skids[1].wave == "tireskid2" && surfaces.surfaces[0].skids[1].maxSlip == 1);
+        CHECK(surfaces.surfaces[1].wave == "GRAVEL" && surfaces.surfaces[1].maxSpeed == 40 &&
+              surfaces.surfaces[1].skids.empty());
+    }
+    std::vector<ImpactSounds> impacts;
+    CHECK(!readImpactSounds("***\r\nBanger name,Num samples,ID\r\nWALL,2,0\r\n"
+                            "sample name,min volume,max volume,min force,max force,frequency\r\n"
+                            "soft,0.9,0.93,1000,8000,1\r\nhard,0.94,1,8000,999999,1\r\n"
+                            "***\r\nBanger name,Num samples,ID\r\nENDOFDATA\r\n",
+                            impacts));
+    CHECK(impacts.size() == 1 && impacts[0].name == "WALL" && impacts[0].samples.size() == 2 &&
+          impacts[0].samples[1].minForce == 8000 && impacts[0].samples[0].maxVolume == 0.93f);
+
+    // .vehCarDamage: knocks over the threshold count what they're over it.
+    DamageSetup d;
+    CHECK(!parseDamageSetup("type: a\nvehCarDamage {\n  MaxDamage 10000\n  MedDamage 4000\n  ImpactThreshold 1500\n"
+                            "  RegenerateRate 100\n  SmokeOffset -0.13 0.6 -1.65\n  Gravity 15\n"
+                            "  TexFrameStart 2\n  Color -167772161\n}\n",
+                            d));
+    CHECK(d.maxDamage == 10000 && d.smokeOffset[2] == -1.65f && d.smokeOffset2[2] == -1.65f && d.smoke.frame == 2);
+    CHECK(std::fabs(d.smoke.color[3] - 0xf5 / 255.0f) < 1e-4f && d.smoke.color[0] == 1);
+    CarDamage damage;
+    CHECK(damage.knock(d, 1400) == 0 && damage.knock(d, 3500) == 2000 && !damage.smoking(d));
+    damage.knock(d, 4000);
+    CHECK(damage.smoking(d) && !damage.wrecked(d));
+    damage.update(d, 1);
+    CHECK(damage.damage() == 4400);
+    damage.knock(d, 50000);
+    CHECK(damage.wrecked(d) && damage.fraction(d) == 1);
+
+    // tune/<city>.mmHudMap: two-word names come with their second word.
+    HudMapSetup h;
+    CHECK(!parseHudMapSetup("type: a\nmmHudMap {\n  Size 0.21 0.25\n  Pos 0.78 0.75\n  ZoomIn 0\n"
+                            "  Approach Rate 1.2\n  ZoomInDist 577\n  ZoomOutDistFS 1581\n"
+                            "  Ocean Color 0.084  0.7 0.94\n}\n",
+                            h));
+    CHECK(h.width == 0.21f && h.top == 0.75f && !h.zoomIn && h.approachRate == 1.2f && h.zoomInDist == 577 &&
+          h.zoomOutDistFS == 1581 && h.ocean[0] == 0.084f && h.ocean[2] == 0.94f);
+}
+
+void testDashboardFiles(const std::filesystem::path& tmp) {
+    std::filesystem::remove_all(tmp);
+    // The Beetle's is .asNode, others' .asnode.
+    test::writeFile(tmp / "tune" / "vpbug_dash.asNode",
+                    toBytes("type: a\nasNode {\n  DashPos 0 -0.3 -0.9\n  WheelFact 0.75\n  SpeedRotMax 3.614\n}\n"));
+    SearchSet files;
+    auto loose = std::make_unique<DirectoryArchive>();
+    CHECK(!loose->open(tmp));
+    files.add(std::move(loose), 1);
+    DashSetup dash;
+    CHECK(!loadDashSetup(files, "vpbug", dash));
+    CHECK(dash.dashPos[1] == -0.3f && dash.wheelFact == 0.75f && dash.speedRotMax == 3.614f && dash.rpmRotMax == 3);
+    CHECK(loadDashSetup(files, "vpnone", dash));
 }
 
 void testEngineSound() {
@@ -736,6 +888,7 @@ void testEngineSound() {
                            "VWHIGH,0.55,0.91,3000,8000,15000,15000,0.65,2.25,3000,12000\r\n",
                            e));
     CHECK(e.horn == "VWHORN" && e.samples.size() == 2 && e.samples[1].wave == "VWHIGH");
+    CHECK(e.hornVolume == 0.95f && e.clutch == "REVERSE" && e.clutchVolume == 0.93f);
     CHECK(e.samples[0].fadeOutStart == 2500 && e.samples[1].pitchEnd == 12000);
     float volume, pitch;
     // Idle: faded in by 800 RPM, out from 2500 to 7000; pitched 0.85 to 2 over 1-7000.
@@ -1562,6 +1715,8 @@ int main() {
     testCollision();
     testCarSim();
     testEngineSound();
+    testCarFiles();
+    testDashboardFiles(tmp / "dash");
     testSidewalkMarkers();
     testRaceFiles();
     testPathDriver();

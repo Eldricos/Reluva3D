@@ -146,9 +146,8 @@ recording how each format was worked out (CONTRIBUTING.md).
   with their colours, buildings and props.
 - Left for later phases: the texture flags (probably repeat or clamp,
   checked when the city is drawn), animating water, drawing a model's
-  placed models (xrefs), what the `offset` section is for, and how the
-  game uses the damage textures (`_dmg`), which are among a car body's
-  own shaders.
+  placed models (xrefs) and what the `offset` section is for. (The
+  damage textures, `_dmg`, are used since phase 4.)
 
 ### 3. The city (done)
 
@@ -171,21 +170,28 @@ recording how each format was worked out (CONTRIBUTING.md).
   cars are lit (one light still), and whether the game uses the
   low-detail roads as Reluva does. For watching the game run.
 
-### 4. Driving (first version done)
+### 4. Driving (done)
 
-- Collision against the city (PSDL geometry, facade bounds, `.bnd`).
+- Collision against the city (PSDL geometry, facade bounds, `.bnd` and
+  `.bbnd`), with what each surface is made of (`city/materials.mtl` and
+  `.csv`): its grip, its sound, water's drag, deep water sinking a car.
 - The car simulation from `.vehCarSim`: suspension, tyres, engine,
-  automatic gearbox, drag; Reluva's model of the numbers, to be checked
-  against recordings of the original (acceleration, top speeds, the
-  `.info` figures) and tuned.
-- Cameras from `tune/camera`, a HUD (speed, gear, revs), engine sounds
-  through `common/audio` (with a new pitch control).
+  automatic and manual gearbox, aero drag and down force; Reluva's model
+  of the numbers. Every car tops out at its Trans High; the `.info`
+  figures are the menus' bars. A car turned over is set upright
+  (`.vehStuck`).
+- Cameras from `tune/camera`, with the dashboard (`<car>_dash.pkg`,
+  `.asnode`) in the car; damage from `.vehCarDamage` (smoke, damaged
+  textures, wrecked).
+- The HUD: the game's speedometer, damage meter and clock pictures, and
+  its map (`hudmap_<city>.pkg`, `.mmHudMap`).
+- Sounds: the engine, horn, clutch, tyres rolling and skidding by
+  surface, knocks and the suspension.
 - Drive page: any car round either city.
-- Left for later: comparing the handling with the game; damage; the
-  dashboard models and in-car dashboard camera; the HUD's map
-  (`.mmHudMap`) and the game's own HUD pictures; the horn and clutch
-  sounds, tyre and collision sounds; the `.bbnd`/`.ter` bounds; manual
-  gears.
+- Still not known: Aero's angular damping, `.vehGyro`, the tyres'
+  finer terms, where the game lays out its HUD, which particle texture
+  the smoke uses, `.ter` ([bnd.md](../formats/age/bnd.md)). For
+  watching the game run ([age-driving.md](age-driving.md)).
 
 ### 5. The game (races and city life done; the rest next)
 
@@ -197,7 +203,7 @@ recording how each format was worked out (CONTRIBUTING.md).
   Cops column), on the Drive and Race pages.
 - Next: Crash Course (`crash*`), unlocking; the menus redrawn from
   `tune/widget.csv`'s layout, the `jpg/` backgrounds and `mmlang.dll`'s
-  strings; the game's HUD pictures. Done since: traffic lights, lane
+  strings. Done since: traffic lights, lane
   changes, the cars' lamps, police patrols and sirens (the game has no
   police radio recordings); the ferries, boats and drawbridges from the
   `.pathset` files, and their parked cars and Underground trains. Left

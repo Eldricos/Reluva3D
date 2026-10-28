@@ -55,6 +55,10 @@
 #include "engines/age/car_actor.h"
 #include "engines/age/city_life.h"
 #include "engines/age/city_scene.h"
+#include "engines/age/damage.h"
+#include "engines/age/dashboard.h"
+#include "engines/age/hud_map.h"
+#include "engines/age/hud_pictures.h"
 #include "engines/age/engine_sound.h"
 #include "engines/age/opponent.h"
 #include "engines/age/race.h"
@@ -119,12 +123,22 @@ std::vector<CarInfo> findCars(const SearchSet& files);
 
 // The driving keys held, as the Drive and Race pages read them: Up/W
 // throttle, Down/S brake, Left/A and Right/D steer, Space handbrake.
-enum DriveKeys : uint32_t { kDriveThrottle = 1, kDriveBrake = 2, kDriveLeft = 4, kDriveRight = 8, kDriveHandbrake = 16 };
+enum DriveKeys : uint32_t {
+    kDriveThrottle = 1,
+    kDriveBrake = 2,
+    kDriveLeft = 4,
+    kDriveRight = 8,
+    kDriveHandbrake = 16,
+    kDriveHorn = 32
+};
 uint32_t driveKeyOf(uint32_t key);
 CarControls controlsOf(uint32_t keys);
 
 // The speed, gear and revs, bottom right of an RGBA overlay.
-void drawSpeedometer(Surface& overlay, const CarSim& sim);
+// The speed, gear, revs and (`damage` 0..1) damage: with the game's
+// pictures, if loaded, along the bottom left of the map (which starts at
+// x = `right`); else as text, bottom right, ending there.
+void drawSpeedometer(Surface& overlay, const CarSim& sim, int right, float damage, const HudPictures& pictures);
 
 // The first part of a name's file name, for jumping between kinds:
 // "geometry/vpbug.pkg" -> "vpbug", "texture/sw_stc_tan.tex" -> "sw".
@@ -281,6 +295,7 @@ private:
     void loadCity(int index);
     void loadCar(int index);
     void resetCar();
+    void startSounds(); // the horn, clutch, tyres and knocks: wet roads in the rain
     void startLife();
     void cutBridgeGaps();
     void drawHud();
@@ -298,6 +313,12 @@ private:
 
     CarActor car_;
     EngineSound engine_;
+    CarSounds sounds_;
+    Dashboard dash_; // for the in-car camera
+    HudMap hudMap_;
+    HudPictures pictures_;
+    int shift_ = 0;       // a gear change asked for (manual gears)
+    bool manual_ = false; // manual gears (M)
     std::vector<CarCamera> cameras_;
     int camera_ = 0;
     Vec3 cameraPos_{};
@@ -307,6 +328,8 @@ private:
 
     CityLife life_;
     std::unique_ptr<FlareDrawer> flares_; // with the scene's textures
+    std::unique_ptr<SmokePuffs> smoke_;   // a damaged car's
+    CarWear wear_;                        // the player's car's damage
     RoadGraph roads_;
     int trafficLevel_ = 2; // none, light, normal, heavy
     bool cops_ = true;
@@ -315,6 +338,7 @@ private:
     bool sirenOn_ = false;
     float clock_ = 0;
     float busted_ = 0;     // seconds the "busted" message has left
+    float wrecked_ = 0;    // seconds the "wrecked" message has left
     uint32_t keys_ = 0; // driving keys held: DriveKeys
     uint64_t lastMs_ = 0;
 };
@@ -352,6 +376,7 @@ private:
     float progressOf(const Racer& r) const;
     void drawCheckpoints();
     void drawArrow();
+    void drawMap(float dt);
     void drawMenu();
     void drawRaceHud();
     const Waypoint& targetPoint(size_t k) const { return race_.waypoints[targets_[k]]; }
@@ -364,6 +389,8 @@ private:
     RoadGraph roads_;
     CityLife life_;
     std::unique_ptr<FlareDrawer> flares_; // with the scene's textures
+    std::unique_ptr<SmokePuffs> smoke_;   // a damaged car's
+    CarWear wear_;                        // the player's car's damage
     bool fill_ = false;
     Surface overlay_;
     std::string error_;
@@ -380,6 +407,12 @@ private:
     float clock_ = 0;             // seconds since the start (negative counting down)
     std::string outcome_;
     EngineSound engine_;
+    CarSounds sounds_;
+    Dashboard dash_; // for the in-car camera
+    HudMap hudMap_;
+    HudPictures pictures_;
+    int shift_ = 0;
+    bool manual_ = false;
     std::vector<CarCamera> cameras_;
     int camera_ = 0;
     Vec3 cameraPos_{};
