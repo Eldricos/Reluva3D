@@ -4,8 +4,10 @@
 // Small self-contained tests for common/. No framework, to keep deps at zero.
 
 #include "common/audio/decode.h"
+#include "common/audio/dls.h"
 #include "common/audio/mixer.h"
 #include "common/audio/mp3.h"
+#include "common/audio/synth.h"
 #include "common/audio/wav.h"
 #include "data/tone440_mp3.h"
 #include "data/x86_testdll.h"
@@ -20,6 +22,7 @@
 #include "common/md5.h"
 #include "common/net.h"
 #include "common/pe.h"
+#include "common/riff.h"
 #include "common/text.h"
 #include "common/x86/cpu.h"
 #include "common/x86/win32.h"
@@ -577,6 +580,108 @@ static void testPeStrings() {
     CHECK(readPeStrings(dll, pe, strings));
 }
 
+// A RIFF chunk: id, little-endian size, bytes, padded to even.
+std::vector<uint8_t> riffChunk(const std::string& id, const std::vector<uint8_t>& body) {
+    std::vector<uint8_t> out(id.begin(), id.end());
+    for (int i = 0; i < 4; ++i)
+        out.push_back(uint8_t(body.size() >> (8 * i)));
+    out.insert(out.end(), body.begin(), body.end());
+    if (body.size() & 1)
+        out.push_back(0);
+    return out;
+}
+std::vector<uint8_t> riffList(const std::string& id, const std::string& type,
+                              const std::vector<std::vector<uint8_t>>& children) {
+    std::vector<uint8_t> body(type.begin(), type.end());
+    for (const auto& c : children)
+        body.insert(body.end(), c.begin(), c.end());
+    return riffChunk(id, body);
+}
+std::vector<uint8_t> le(std::initializer_list<uint32_t> words, int width = 4) {
+    std::vector<uint8_t> out;
+    for (uint32_t w : words)
+        for (int i = 0; i < width; ++i)
+            out.push_back(uint8_t(w >> (8 * i)));
+    return out;
+}
+std::vector<uint8_t> cat(std::initializer_list<std::vector<uint8_t>> parts) {
+    std::vector<uint8_t> out;
+    for (const auto& p : parts)
+        out.insert(out.end(), p.begin(), p.end());
+    return out;
+}
+
+void testDls() {
+    using namespace reluva::audio;
+    // RIFF: nested lists and a chunk of odd size.
+    RiffChunk top;
+    CHECK(!readRiff(
+        riffList("RIFF", "TEST", {riffChunk("abc ", {1, 2, 3}), riffList("LIST", "kids", {riffChunk("x   ", {7})})}),
+        top));
+    CHECK(top.type == "TEST" && top.children.size() == 2 && top.find("abc ")->size == 3 &&
+          top.find("abc ")->u8(2) == 3);
+    CHECK(top.findList("kids") && top.findList("kids")->find("x   ")->u8(0) == 7);
+    CHECK(readRiff({'R', 'I', 'F', 'F', 20, 0, 0, 0, 'T', 'E', 'S', 'T', 'a', 'b', 'c', ' ', 99, 0, 0, 0}, top));
+
+    // A DLS collection: one instrument (bank 1, program 5) whose one region
+    // (keys 40-80) plays a looped 100 Hz square wave recorded at key 57,
+    // with a 0.5 s release.
+    std::vector<uint8_t> samples;
+    for (int i = 0; i < 4410; ++i) {
+        const int16_t v = (i / 110) % 2 ? 8000 : -8000;
+        samples.push_back(uint8_t(v));
+        samples.push_back(uint8_t(uint16_t(v) >> 8));
+    }
+    const std::vector<uint8_t> wsmp = cat({le({20}), le({57, 0}, 2), le({0, 0, 1}), le({16, 0, 0, 4400})});
+    const std::vector<uint8_t> wave =
+        riffList("LIST", "wave",
+                 {riffChunk("fmt ", cat({le({1, 1}, 2), le({22050, 44100}), le({2, 16}, 2)})), riffChunk("wsmp", wsmp),
+                  riffChunk("data", samples)});
+    const std::vector<uint8_t> region =
+        riffList("LIST", "rgn ",
+                 {riffChunk("rgnh", le({40, 80, 0, 0, 0, 0}, 2)), riffChunk("wlnk", cat({le({0, 0}, 2), le({1, 0})}))});
+    const std::vector<uint8_t> art = riffList(
+        "LIST", "lart", {riffChunk("art1", cat({le({8, 1}), le({0, 0, 0x209, 0}, 2), le({uint32_t(-1200 * 65536)})}))});
+    const std::vector<uint8_t> ins =
+        riffList("LIST", "ins ", {riffChunk("insh", le({1, 1, 5})), riffList("LIST", "lrgn", {region}), art});
+    const std::vector<uint8_t> dls = riffList("RIFF", "DLS ",
+                                              {riffChunk("colh", le({1})), riffList("LIST", "lins", {ins}),
+                                               riffChunk("ptbl", le({8, 1, 0})), riffList("LIST", "wvpl", {wave})});
+    DlsCollection c;
+    CHECK(!readDls(dls, c));
+    CHECK(c.instruments.size() == 1 && c.waves.size() == 1 && c.find(1, 5) && !c.find(0, 5));
+    if (c.instruments.size() != 1 || c.waves.size() != 1)
+        return;
+    const DlsRegion& r = c.instruments[0].regions.at(0);
+    CHECK(r.keyLow == 40 && r.keyHigh == 80 && r.wave == 0 && c.waves[0].samples.size() == 4410);
+    CHECK(c.waves[0].info.unityNote == 57 && c.waves[0].info.looped && c.waves[0].info.loopLength == 4400);
+    CHECK(c.instruments[0].articulation.size() == 1 && c.instruments[0].articulation[0].destination == 0x209);
+    DlsCollection notDls;
+    CHECK(readDls(riffList("RIFF", "WAVE", {}), notDls));
+
+    // Played an octave up (key 69): 200 Hz, its sign changing every 2.5 ms;
+    // it keeps going while held, and dies away once let go.
+    DlsSynth synth(44100);
+    synth.setInstrument(0, &c, &c.instruments[0]);
+    synth.noteOn(0, 30, 100); // out of the region
+    CHECK(synth.voices() == 0);
+    synth.noteOn(0, 69, 127);
+    CHECK(synth.voices() == 1);
+    std::vector<float> out(2 * 44100, 0.0f);
+    synth.render(out.data(), 44100);
+    int changes = 0;
+    float peak = 0;
+    for (size_t i = 22050; i + 1 < 44100; ++i) {
+        changes += (out[2 * i] > 0) != (out[2 * i + 2] > 0);
+        peak = std::max(peak, std::fabs(out[2 * i]));
+    }
+    CHECK(changes >= 195 && changes <= 205 && peak > 0.05f);
+    synth.noteOff(0, 69);
+    std::fill(out.begin(), out.end(), 0.0f);
+    synth.render(out.data(), 44100);
+    CHECK(synth.voices() == 0 && std::fabs(out[2 * 40000]) < 1e-4f);
+}
+
 int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_tests";
     testMd5();
@@ -596,6 +701,7 @@ int main() {
     testX86Instructions();
     testX86Dll();
     testPeStrings();
+    testDls();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

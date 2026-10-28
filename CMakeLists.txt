@@ -73,7 +73,10 @@ add_library(reluva_common STATIC
     src/common/x86/win32.cpp
     src/common/x86/format.cpp
     src/common/detection.cpp
+    src/common/riff.cpp
     src/common/audio/decode.cpp
+    src/common/audio/dls.cpp
+    src/common/audio/synth.cpp
     src/common/audio/mixer.cpp
     src/common/audio/mp3.cpp
     src/common/audio/wav.cpp

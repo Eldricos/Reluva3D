@@ -94,6 +94,20 @@ void Mixer::setTypeVolume(SoundType type, int volume) {
     typeVolume_[int(type)] = std::clamp(volume, 0, kMaxVolume);
 }
 
+void Mixer::addStream(std::shared_ptr<Stream> stream, SoundType type) {
+    if (!stream)
+        return;
+    std::lock_guard<std::mutex> lock(mutex_);
+    streams_.push_back({std::move(stream), type});
+}
+
+void Mixer::removeStream(const Stream* stream) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    streams_.erase(
+        std::remove_if(streams_.begin(), streams_.end(), [stream](const auto& s) { return s.first.get() == stream; }),
+        streams_.end());
+}
+
 int Mixer::typeVolume(SoundType type) const {
     std::lock_guard<std::mutex> lock(mutex_);
     return typeVolume_[int(type)];
@@ -135,6 +149,13 @@ void Mixer::mix(int16_t* out, int frames) {
             accumulator_[size_t(i) * 2 + 1] += int32_t(std::lround(r * double(gainR) / 65536.0));
             c.position += step;
         }
+    }
+    for (const auto& [stream, type] : streams_) {
+        streamBuffer_.assign(size_t(frames) * 2, 0.0f);
+        stream->read(streamBuffer_.data(), frames);
+        const double gain = 32767.0 * typeVolume_[int(type)] / kMaxVolume;
+        for (size_t i = 0; i < accumulator_.size(); ++i)
+            accumulator_[i] += int32_t(std::lround(double(streamBuffer_[i]) * gain));
     }
     for (size_t i = 0; i < accumulator_.size(); ++i)
         out[i] = int16_t(std::clamp<int32_t>(accumulator_[i], -32768, 32767));
