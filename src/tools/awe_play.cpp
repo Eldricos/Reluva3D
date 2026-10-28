@@ -251,6 +251,11 @@ public:
             a.target = names[i];
             a.n = seen[names[i]]++;
             a.kind = "click";
+            // With -mouse, only what the game's pick finds somewhere: an
+            // act's door over its base's hides the base's.
+            int x, y;
+            if (mouse && !p.pointFor(i, x, y))
+                continue;
             if (p.clickRuns(i))
                 out.push_back(a);
             // (The items the cursor shows it would take: the others are

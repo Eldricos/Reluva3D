@@ -433,24 +433,33 @@ void ScenePage::load() {
         // Merged as 0x435990's mode 2 does: the base's camera and settings
         // stay (the variant's CAMR, SHOW, PUZZ... are read and dropped:
         // Calais.14-15_14.02_06a and _06b have one); music and events are
-        // added; an object is added unless the base has it already (the
-        // same tag, file and place).
+        // added; an object is added unless the scene has it already.
         base_ = base;
         if (!scene_.records.empty() && scene_.records.back().tag == "DONE")
             scene_.records.pop_back();
         auto same = [](const Ac2Record& a, const Ac2Record& b) {
-            // (the player, PCXX, by its file alone)
-            return a.tag == b.tag && fs::toLower(a.text("file")) == fs::toLower(b.text("file")) &&
-                   (a.tag == "PCXX" || (a.f("x") == b.f("x") && a.f("y") == b.f("y") && a.f("z") == b.f("z")));
+            // 0x42b680: the same tag, and with a file the same file and
+            // place (the player by its file alone); without, a hotspot at
+            // the same place with the same rectangle, a light of the same
+            // type at the same place, anything else whatever it is.
+            if (a.tag != b.tag)
+                return false;
+            const bool at = a.f("x") == b.f("x") && a.f("y") == b.f("y") && a.f("z") == b.f("z");
+            if (!a.text("file").empty())
+                return fs::toLower(a.text("file")) == fs::toLower(b.text("file")) && (at || a.tag == "PCXX");
+            if (a.tag == "SPOT")
+                return at && a.i("left") == b.i("left") && a.i("top") == b.i("top") &&
+                       a.i("right") == b.i("right") && a.i("bottom") == b.i("bottom");
+            if (a.tag == "LITE")
+                return a.i("type") == b.i("type") && at;
+            return true;
         };
-        const size_t baseCount = scene_.records.size();
         for (const Ac2Record& r : variant.records) {
             if (r.tag == "CAMR" || r.tag == "SHOW" || r.tag == "PUZZ" || r.tag == "FAKE" || r.tag == "OUTD" ||
                 r.tag == "NVNT" || r.tag == "FOOT" || r.tag == "SCEN")
                 continue;
-            if (isAc2Object(r.tag) && !r.text("file").empty() &&
-                std::any_of(scene_.records.begin(), scene_.records.begin() + long(baseCount),
-                            [&](const Ac2Record& b) { return same(r, b); }))
+            if (isAc2Object(r.tag) && std::any_of(scene_.records.begin(), scene_.records.end(),
+                                                  [&](const Ac2Record& b) { return same(r, b); }))
                 continue;
             scene_.records.push_back(r);
         }
