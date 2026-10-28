@@ -68,7 +68,7 @@
 //                                                  in short (calls, arguments, nearby texts);
 //                                                  -func N: the function holding instruction N and
 //                                                  the functions it calls
-//   reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]
+//   reluva-tool ui-run <game folder> [-frames N] [-menu M] [-ingame gametype] [-size WxH] [-glwords N] [-trace] [-v]
 //                                                  run Elite Force's menus (vm/ui.qvm) with the engine's
 //                                                  system calls: Init, SetActiveMenu, Refresh; report
 //                                                  what they print, register and draw
@@ -3235,13 +3235,14 @@ int cmdQvmDis(int argc, char** argv) {
 
 int cmdUiRun(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n");
+        std::fprintf(stderr, "usage: reluva-tool ui-run <game folder> [-frames N] [-menu M] [-ingame gametype] [-size WxH] [-glwords N] [-trace] [-v]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
     int frames = 1, menu = 1, width = 640, height = 480, glwords = 5124;
     bool traceCalls = false, verbose = false;
+    int ingameType = -1; // -ingame: the in-game menu, over a match of this game type
     for (int i = 3; i < argc; ++i) {
         if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
             frames = std::atoi(argv[++i]);
@@ -3262,12 +3263,25 @@ int cmdUiRun(int argc, char** argv) {
             traceCalls = true;
         else if (std::strcmp(argv[i], "-v") == 0)
             verbose = true;
+        else if (std::strcmp(argv[i], "-ingame") == 0 && i + 1 < argc)
+            ingameType = std::atoi(argv[++i]);
     }
     reluva::SearchSet set;
     if (!mountIdTech3(argv[2], set))
         return 1;
     q3::CvarStore cvars;
     ef::UiHost ui(set, cvars);
+    if (ingameType >= 0) {
+        // As the Play page's in-game menu: connected to a match of that
+        // game type, its server info the menus' configstring 0.
+        ui.clientState.connState = 8;
+        ui.clientState.serverName = "localhost";
+        const std::string serverInfo = "\\g_gametype\\" + std::to_string(ingameType) +
+                                       "\\mapname\\hm_borg1\\sv_hostname\\Reluva\\sv_maxclients\\8";
+        ui.configstring = [serverInfo](int32_t index) { return index == 0 ? serverInfo : std::string(); };
+        if (menu == 1)
+            menu = 2;
+    }
     ui.setScreenSize(width, height);
     ui.setGlconfigWords(glwords);
     ui.print = [](const std::string& text) { std::printf("ui: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : ""); };
@@ -3285,6 +3299,7 @@ int cmdUiRun(int argc, char** argv) {
     bool ok = step("Init", ui.call(ef::UiHost::Init));
     if (ok)
         ok = step("SetActiveMenu", ui.call(ef::UiHost::SetActiveMenu, {menu}));
+    std::printf("menu %d; key catcher %d (2: the menus take the keys)\n", menu, ui.catcher());
     for (int f = 0; ok && f < frames; ++f) {
         ui.clearPictures();
         const int32_t time = 1000 + f * 16;
@@ -6089,7 +6104,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool pk3-sums <game folder> [feed]\n"
                  "  reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-pure] [-addbot name]... | -join <host[:port]> [seconds] [-name name]\n"
                  "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n"
-                 "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
+                 "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-ingame gametype] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif
                  "");
     return 2;

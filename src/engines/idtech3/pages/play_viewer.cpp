@@ -87,6 +87,8 @@ void PlayViewer::activate() {
     models_ = std::make_unique<ModelCache>(*renderer_, *shaders_, ctx_.files);
     applyVideoSettings(video, *shaders_, world_.get(), models_.get());
     scene_ = std::make_unique<SceneDrawer>(*renderer_, *shaders_, *models_, ctx_.game.refEntity);
+    menus_.attach(renderer_, frameW_, frameH_);
+    menuOpen_ = false;
     shownMs_ = 0;
     ctx_.sys.setRelativeMouse(true);
     // A server the menus asked to join.
@@ -109,6 +111,11 @@ void PlayViewer::activate() {
 
 void PlayViewer::deactivate() {
     closeTyping();
+    if (menuOpen_)
+        closeMenu();
+    // The in-game menu goes with the match (started afresh on the next).
+    menus_.detach();
+    menus_.reset();
     if (renderer_)
         ctx_.sys.setRelativeMouse(false);
     // The level stops with the page; it starts again when shown.
@@ -527,8 +534,13 @@ void PlayViewer::runRemote(uint64_t nowMs, int32_t dt) {
     if (!cgame_)
         return;
     cgame_->setServerCommands(client_->serverCommands());
-    for (eliteforce::GameHost::Snapshot& snap : client_->takeSnapshots())
+    for (eliteforce::GameHost::Snapshot& snap : client_->takeSnapshots()) {
+        // The player's number (playerState_t's clientNum, byte 156), for
+        // the in-game menu.
+        if (snap.playerState.size() >= 160)
+            std::memcpy(&playerNumber_, snap.playerState.data() + 156, 4);
         cgame_->newSnapshot(std::move(snap));
+    }
     // Commands go out as soon as the level is loaded, as the original's
     // client sends them: the first puts the player in the game.
     if (client_->hasSnapshot())
@@ -622,7 +634,7 @@ void PlayViewer::consoleCommand(const std::string& text) {
     // game's, and anything else goes to the server, whose game answers
     // (an unknown command it prints as such).
     const std::vector<std::string> w = splitCommand(text);
-    if (w.empty() || !cgame_ || !game_)
+    if (w.empty() || !cgame_)
         return;
     const std::string verb = fs::toLower(w[0]);
     if (verb == "centerview") {
@@ -634,7 +646,27 @@ void PlayViewer::consoleCommand(const std::string& text) {
         return;
     }
     if (verb == "togglemenu") {
-        ctx_.requestPage = "Menu";
+        openMenu();
+        return;
+    }
+    if (verb == "quit") {
+        ctx_.requestPage = "Start";
+        return;
+    }
+    if (verb == "cmd") {
+        // The rest for the server as the player's own (the in-game
+        // menu's "cmd team red").
+        const size_t at = text.find_first_not_of(' ', text.find_first_of(' ') == std::string::npos
+                                                          ? text.size()
+                                                          : text.find_first_of(' '));
+        const std::string rest = at == std::string::npos ? std::string() : text.substr(at);
+        if (rest.empty())
+            return;
+        if (client_)
+            client_->addClientCommand(rest);
+        else if (game_)
+            if (Error err = game_->clientCommand(0, rest))
+                stop("The server game stopped: " + err.message);
         return;
     }
     if (verb == "toggleconsole") {
@@ -733,6 +765,70 @@ void PlayViewer::consoleCommand(const std::string& text) {
         stop("The server game stopped: " + err.message);
 }
 
+void PlayViewer::openMenu() {
+    // Outside a match, the menus' own page.
+    if (!cgame_ || !renderer_) {
+        ctx_.requestPage = "Menu";
+        return;
+    }
+    closeTyping();
+    // The menus see a connected player and the match's configstrings
+    // (its game type decides what they offer).
+    menus_.configure = [this](eliteforce::UiHost& ui) {
+        ui.clientState.connState = 8; // CA_ACTIVE
+        ui.clientState.clientNum = client_ ? playerNumber_ : 0;
+        ui.clientState.serverName = client_ ? serverAddress_ : "localhost";
+        ui.configstring = [this](int32_t index) { return matchConfigstring(index); };
+    };
+    if (menus_.running())
+        menus_.show(MenuLayer::kInGameMenu);
+    else if (!menus_.start(MenuLayer::kInGameMenu)) {
+        addPrint(menus_.error() + "\n", false);
+        return;
+    }
+    menuOpen_ = true;
+    menuCaught_ = menus_.open(); // they take the keys as they show the menu
+    input_.releaseAll();
+    ctx_.sys.setRelativeMouse(false);
+    ctx_.sys.setMouseCursorVisible(false);
+    ctx_.sys.setTextInput(true);
+}
+
+void PlayViewer::closeMenu() {
+    menuOpen_ = false;
+    menuCaught_ = false;
+    input_.releaseAll();
+    ctx_.sys.setTextInput(false);
+    ctx_.sys.setRelativeMouse(true);
+    if (!menus_.error().empty()) {
+        addPrint(menus_.error() + "\n", false);
+        menus_.clearError();
+    }
+}
+
+void PlayViewer::runMenuCommands() {
+    // What the in-game menu runs goes to the console, as the original's
+    // menus' commands do ("cmd team red", "callvote ...", "disconnect").
+    for (const std::string& line : menus_.takeCommands())
+        for (const std::string& command : splitCommands(line)) {
+            const std::vector<std::string> words = splitCommand(command);
+            if (words.empty())
+                continue;
+            const std::string verb = fs::toLower(words[0]);
+            if (verb == "wait" || verb == "vid_restart")
+                continue; // the video settings apply on the next level
+            consoleCommand(command);
+            if (!ctx_.requestPage.empty())
+                return;
+        }
+}
+
+std::string PlayViewer::matchConfigstring(int32_t index) const {
+    const std::map<int32_t, std::string>& all = client_ ? client_->configstrings() : localConfigstrings_;
+    const auto it = all.find(index);
+    return it == all.end() ? std::string() : it->second;
+}
+
 void PlayViewer::runBinding(const std::string& line, int32_t key, bool down) {
     input_.runBinding(line, key, down, [this](const std::string& text) { consoleCommand(text); });
 }
@@ -742,7 +838,8 @@ bool PlayViewer::takesKey(const Event& ev) const {
     // While typing, every key is the typing's (Tab, Esc too), but Ctrl+Esc.
     if (ev.type == EventType::KeyDown && ev.key == key::Escape && (ev.mods & keymod::Ctrl))
         return false;
-    return typing_ != Typing::None || (ev.type == EventType::KeyDown && ev.key == key::Escape);
+    // The in-game menu takes them all too.
+    return menuOpen_ || typing_ != Typing::None || (ev.type == EventType::KeyDown && ev.key == key::Escape);
 }
 
 void PlayViewer::openTyping(Typing t, int32_t client, uint32_t key) {
@@ -872,8 +969,19 @@ void PlayViewer::handleEvent(const Event& ev) {
         }
         return;
     }
+    if (menuOpen_) {
+        // Menus that never took the keys (their key catcher) can't close
+        // themselves: Esc does.
+        if (ev.type == EventType::KeyDown && ev.key == key::Escape && !menuCaught_) {
+            closeMenu();
+            return;
+        }
+        menus_.handleEvent(ev);
+        runMenuCommands();
+        return;
+    }
     if (ev.type == EventType::KeyDown && ev.key == key::Escape) {
-        ctx_.requestPage = "Menu";
+        openMenu();
         return;
     }
     if (!renderer_ || names_.empty())
@@ -1089,6 +1197,18 @@ void PlayViewer::update(uint64_t nowMs) {
         scene_->drawPictures(pictures, drawn, pictures.size(), 640, 480, time);
     }
     timing_.draw = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - drawStart).count();
+
+    // The in-game menu over it all, until it closes itself.
+    if (menuOpen_) {
+        menus_.frame(nowMs);
+        runMenuCommands();
+        if (menuOpen_) {
+            const bool caught = menus_.open();
+            menuCaught_ |= caught;
+            if (!menus_.running() || (menuCaught_ && !caught))
+                closeMenu();
+        }
+    }
 
     drawOverlay(nowMs, haveView);
     renderer_->endFrame(&overlay_);

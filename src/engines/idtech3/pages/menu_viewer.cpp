@@ -4,7 +4,6 @@
 // The Menu page: the game's own menus (vm/ui.qvm) run by the QVM
 // interpreter, their pictures drawn by the GPU renderer.
 
-#include "engines/idtech3/client/scene_drawer.h"
 #include "engines/idtech3/pages/menu_viewer.h"
 
 #include "engines/idtech3/eliteforce/game_host.h"
@@ -47,46 +46,17 @@ void MenuViewer::activate() {
         return;
     }
     overlay_.create(frameW_, frameH_, PixelFormat::RGBA32);
-    shaders_ = std::make_unique<ShaderCache>(*renderer_, ctx_.files, ctx_.shaders);
-    models_ = std::make_unique<ModelCache>(*renderer_, *shaders_, ctx_.files);
-    // The settings reach the models the menus show (pictures keep theirs).
-    applyVideoSettings(video, *shaders_, nullptr, models_.get());
-    scene_ = std::make_unique<SceneDrawer>(*renderer_, *shaders_, *models_, ctx_.game.refEntity);
+    menus_.attach(renderer_, frameW_, frameH_);
     shownMs_ = 0;
     // The menus draw their own pointer, and have text fields.
     ctx_.sys.setMouseCursorVisible(false);
     ctx_.sys.setTextInput(true);
-    if (!ui_ && error_.empty())
+    if (!menus_.running() && menus_.error().empty())
         start();
-    else if (ui_) {
-        ui_->setScreenSize(frameW_, frameH_);
-        pinCursor();
-    }
-    setTitle(error_.empty() ? "Elite Force's own menus (vm/ui.qvm)" : "stopped");
+    setTitle(menus_.error().empty() ? "Elite Force's own menus (vm/ui.qvm)" : "stopped");
 }
 
 void MenuViewer::start() {
-    // The player's settings, as the original's client makes them at start
-    // (CL_Init), so the menus find them on a first run, before any config
-    // has them: the Player settings menu shows the model from the start.
-    const int32_t player = CvarStore::UserInfo | CvarStore::Archive;
-    cvars_.create("name", "Reluva", player);
-    cvars_.create("model", ctx_.game.playerModel, player);
-    cvars_.create("handicap", "100", player);
-    cvars_.create("snaps", "20", player);
-    cvars_.create("rate", "25000", player);
-    cvars_.create("sex", "male", player);
-    cvars_.create("color", "4", player);
-    ui_ = std::make_unique<eliteforce::UiHost>(ctx_.files, cvars_);
-    if (scene_)
-        scene_->reset(); // new handles
-    ui_->bindings = &ctx_.bindings;
-    commandsSeen_ = 0;
-    ui_->setScreenSize(frameW_, frameH_);
-    if (!ctx_.savePath.empty())
-        ui_->setKeyFile(ctx_.savePath / "cdkey.txt");
-    if (ctx_.mixer)
-        ui_->startLocalSound = [this](const std::string& name, int channel) { playSound(name, channel); };
     // The server list: on a socket of its own, if the system has a network.
     if (!browser_) {
         std::unique_ptr<net::UdpSocket> socket;
@@ -95,95 +65,15 @@ void MenuViewer::start() {
             browser_->setBroadcasts(ctx_.sys.broadcastAddresses());
         }
     }
-    ui_->browser = browser_.get();
-    ui_->resolveHost = [this](const std::string& host, uint32_t& ip) { return ctx_.sys.resolveHost(host, ip); };
-    Error err = ui_->load();
-    if (!err)
-        err = ui_->call(eliteforce::UiHost::Init);
-    if (!err)
-        err = ui_->call(eliteforce::UiHost::SetActiveMenu, {1}); // the main menu
-    if (err)
-        stop(err);
-    else
-        pinCursor();
-}
-
-void MenuViewer::pinCursor() {
-    // The menus keep their own pointer, moved by steps and kept on the
-    // screen: a big step up and left puts it in the corner, where its
-    // picture shows how it's drawn relative to the point it stands for.
-    if (Error err = ui_->call(eliteforce::UiHost::MouseEvent, {-100000, -100000}))
-        stop(err);
-    calibrate_ = true;
-    haveCursor_ = false;
-    pendingX_ = pendingY_ = 0;
-}
-
-void MenuViewer::syncCursor() {
-    // Step the menus' pointer to where the mouse is, from where its
-    // picture was last drawn and the steps sent since.
-    if (!ui_ || !haveCursor_ || !haveMouse_)
-        return;
-    // Whole steps only, towards the mouse: the pointer moves in steps of
-    // 1.5 pixels here, so rounding would overshoot and come back every
-    // frame, jiggling it (and the highlight of whatever it's on). The
-    // steps are scaled by how far one moved the picture before (gain_),
-    // in case the menus scale movement themselves.
-    const float unitX = gainX_ * float(frameW_) / 640.0f, unitY = gainY_ * float(frameH_) / 480.0f;
-    const auto dx = int32_t((float(mouseX_) - cursorX_) / unitX);
-    const auto dy = int32_t((float(mouseY_) - cursorY_) / unitY);
-    if (!dx && !dy)
-        return;
-    cursorX_ += float(dx) * unitX;
-    cursorY_ += float(dy) * unitY;
-    pendingX_ += float(dx) * unitX;
-    pendingY_ += float(dy) * unitY;
-    if (Error err = ui_->call(eliteforce::UiHost::MouseEvent, {dx, dy}))
-        stop(err);
-}
-
-void MenuViewer::findCursor() {
-    // The pointer is the last picture drawn with the cursor shader.
-    const auto& pictures = ui_->pictures();
-    for (auto it = pictures.rbegin(); it != pictures.rend(); ++it) {
-        if (normalizeArchiveName(ui_->shaders().name(it->shader)).rfind("menu/common/cursor", 0) != 0)
-            continue;
-        if (calibrate_) {
-            // In the corner: the picture's offset from the point.
-            calibrate_ = false;
-            cursorOffsetX_ = std::abs(it->x) < 100 ? it->x : 0;
-            cursorOffsetY_ = std::abs(it->y) < 100 ? it->y : 0;
-        }
-        const float x = it->x - cursorOffsetX_, y = it->y - cursorOffsetY_;
-        // How far the steps since the last frame moved it, against what
-        // was expected; not at the screen's edges, where it stops.
-        auto learn = [](float& gain, float moved, float expected, float pos, float size) {
-            if (std::abs(expected) < 3 || pos < 2 || pos > size - 2)
-                return;
-            const float ratio = moved / expected * gain;
-            if (ratio > 0.25f && ratio < 4)
-                gain = 0.5f * gain + 0.5f * ratio;
-        };
-        if (haveCursor_) {
-            learn(gainX_, x - measuredX_, pendingX_, x, float(frameW_));
-            learn(gainY_, y - measuredY_, pendingY_, y, float(frameH_));
-        }
-        pendingX_ = pendingY_ = 0;
-        cursorX_ = measuredX_ = x;
-        cursorY_ = measuredY_ = y;
-        haveCursor_ = true;
-        return;
-    }
-    haveCursor_ = false;
+    menus_.browser = browser_.get();
+    menus_.start(MenuLayer::kMainMenu);
 }
 
 void MenuViewer::checkCommands() {
     // The commands the menus have run since the last look: one that
     // starts a level (Engage runs "map <name>", after setting the game's
     // cvars) shows it on the Play page.
-    const auto& commands = ui_->commands();
-    for (; commandsSeen_ < commands.size(); ++commandsSeen_) {
-        std::string line = commands[commandsSeen_];
+    for (const std::string& line : menus_.takeCommands()) {
         lastCommand_ = line;
         while (!lastCommand_.empty() && (lastCommand_.back() == '\n' || lastCommand_.back() == ' '))
             lastCommand_.pop_back();
@@ -201,7 +91,7 @@ void MenuViewer::checkCommands() {
                 // program ended; they start afresh next time (left as they
                 // are, they'd come back still quitting).
                 ctx_.requestPage = "Start";
-                ui_.reset();
+                menus_.reset();
                 return;
             } else if (verb == "vid_restart") {
                 // The video settings changed: the page starts its drawing over.
@@ -226,134 +116,36 @@ void MenuViewer::checkCommands() {
     }
 }
 
-void MenuViewer::stop(const Error& err) {
-    error_ = "The menus stopped: " + err.message;
-    if (ui_ && !ui_->log().empty()) {
-        // The last line they printed, which often says why.
-        std::string log = ui_->log();
-        while (!log.empty() && log.back() == '\n')
-            log.pop_back();
-        error_ += " (last printed: " + log.substr(log.rfind('\n') == std::string::npos ? 0 : log.rfind('\n') + 1) + ")";
-    }
-    // The details, for a report: the last calls they made.
-    if (ui_ && !ctx_.savePath.empty()) {
-        std::error_code ec;
-        std::filesystem::create_directories(ctx_.savePath, ec);
-        const std::filesystem::path report = ctx_.savePath / "menus-stopped.txt";
-        std::ofstream out(report);
-        out << error_ << "\n\nThe last system calls, oldest first:\n";
-        for (const std::string& line : ui_->recentCalls())
-            out << "  " << line << "\n";
-        out << "\nWhat the menus printed:\n" << ui_->log();
-        if (out)
-            reportPath_ = report.string();
-    }
-    ui_.reset();
-}
-
-void MenuViewer::playSound(const std::string& name, int channel) {
-    const auto sound = sounds_.get(name);
-    if (!sound)
-        return;
-    // A channel other than 0 holds one sound at a time, as in the original.
-    if (channel != 0) {
-        if (const auto it = channels_.find(channel); it != channels_.end())
-            ctx_.mixer->stop(it->second);
-    }
-    // At s_volume, as the original (0.8 unless set).
-    const CvarStore::Cvar* volume = cvars_.find("s_volume");
-    const float scale = volume ? std::clamp(std::strtof(volume->value.c_str(), nullptr), 0.0f, 1.0f) : 0.8f;
-    const audio::SoundHandle handle =
-        ctx_.mixer->play(sound, audio::SoundType::Effects, int(scale * float(audio::kMaxVolume)));
-    if (channel != 0)
-        channels_[channel] = handle;
-}
-
 void MenuViewer::deactivate() {
     // Settings and bindings changed in the menus, kept.
     saveConfig(ctx_);
-    if (ctx_.mixer)
-        for (const auto& [channel, handle] : channels_)
-            ctx_.mixer->stop(handle);
-    channels_.clear();
     if (renderer_) {
         ctx_.sys.setMouseCursorVisible(true);
         ctx_.sys.setTextInput(false);
     }
-    scene_.reset();
-    models_.reset();
-    shaders_.reset();
+    menus_.detach();
     renderer_ = nullptr;
 }
 
 bool MenuViewer::takesKey(const Event& ev) const {
     // Esc belongs to the menus; with Ctrl it leaves, as elsewhere.
-    return ui_ && !(ev.mods & keymod::Ctrl);
+    return menus_.running() && !(ev.mods & keymod::Ctrl);
 }
 
 void MenuViewer::handleEvent(const Event& ev) {
     if (ev.type == EventType::KeyDown && ev.key == 'r' && (ev.mods & keymod::Ctrl)) {
         // Ctrl+R: start the menus again, stopped or not.
-        ui_.reset();
-        error_.clear();
-        reportPath_.clear();
+        menus_.reset();
         start();
         return;
     }
-    if (!ui_)
-        return;
-    Error err;
-    switch (ev.type) {
-    // Only presses: Elite Force's menus act on a release as on a press
-    // (a click counted twice), so the original's engine can't have sent
-    // them releases.
-    case EventType::KeyDown:
-        if (const int32_t k = toQ3Key(ev.key))
-            err = ui_->call(eliteforce::UiHost::KeyEvent, {k, 1});
-        break;
-    case EventType::TextInput:
-        // Characters for text fields, each as a key press with the
-        // character flag (the original's menus go by Latin-1).
-        for (uint32_t cp : decodeUtf8(ev.text))
-            if (cp >= 32 && cp < 256 && cp != 127 && !err)
-                err = ui_->call(eliteforce::UiHost::KeyEvent, {int32_t(cp) | q3key::CharFlag, 1});
-        break;
-    case EventType::MouseDown:
-        // Clicks land where the mouse is.
-        mouseX_ = ev.mouseX;
-        mouseY_ = ev.mouseY;
-        haveMouse_ = true;
-        syncCursor();
-        if (!ui_)
-            return;
-        if (const int32_t k = toQ3Button(ev.button))
-            err = ui_->call(eliteforce::UiHost::KeyEvent, {k, 1});
-        break;
-    case EventType::MouseWheel:
-        if (ev.wheelY) {
-            const int32_t k = ev.wheelY > 0 ? q3key::WheelUp : q3key::WheelDown;
-            err = ui_->call(eliteforce::UiHost::KeyEvent, {k, 1});
-        }
-        break;
-    case EventType::MouseMove:
-        // Followed in update(), once per frame.
-        mouseX_ = ev.mouseX;
-        mouseY_ = ev.mouseY;
-        haveMouse_ = true;
-        break;
-    default: break;
-    }
-    if (err)
-        stop(err);
-    else if (ui_)
-        checkCommands();
+    menus_.handleEvent(ev);
+    checkCommands();
 }
 
 void MenuViewer::update(uint64_t nowMs) {
     if (!renderer_)
         return;
-    if (!startMs_)
-        startMs_ = nowMs;
     if (!shownMs_)
         shownMs_ = nowMs;
     if (restart_) {
@@ -361,7 +153,7 @@ void MenuViewer::update(uint64_t nowMs) {
         // main menu), so they lay themselves out for the new size.
         restart_ = false;
         deactivate();
-        ui_.reset();
+        menus_.reset();
         activate();
         if (!renderer_)
             return;
@@ -371,57 +163,27 @@ void MenuViewer::update(uint64_t nowMs) {
                        (videoSettings(ctx_.cvars).fullscreen ? ", full screen" : ", in a window");
         lastCommandMs_ = nowMs;
     }
-    const auto time = int32_t(nowMs - startMs_);
+    if (browser_)
+        browser_->update(nowMs);
 
-    std::vector<eliteforce::UiHost::Picture> pictures;
-    syncCursor();
-    if (ui_) {
-        ui_->clearPictures();
-        if (browser_)
-            browser_->update(nowMs);
-        ui_->now = nowMs;
-        if (Error err = ui_->refresh(time)) {
-            stop(err);
-        } else {
-            pictures = ui_->pictures();
-            findCursor();
-            checkCommands();
-        }
-    }
-
-    // The pictures, in screen pixels as the menus count, with each 3D
-    // scene (the player model in Player settings...) over the pictures
-    // drawn before it.
     renderer_->setGamma(brightness(ctx_));
     renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
-    if (ui_) {
-        const float seconds = float(time) / 1000.0f;
-        const auto& scene = ui_->scene();
-        scene_->setHandles({&ui_->models(), &ui_->skins(), &ui_->shaders()});
-        size_t drawn = 0;
-        bool first = true;
-        for (const auto& v : scene.views) {
-            scene_->drawPictures(pictures, drawn, v.picturesBefore, frameW_, frameH_, seconds);
-            drawn = std::max(drawn, v.picturesBefore);
-            scene_->drawView(scene, v, frameW_, frameH_, seconds, first, nullptr, nullptr, true);
-            first = false;
-        }
-        scene_->drawPictures(pictures, drawn, pictures.size(), frameW_, frameH_, seconds);
-    }
+    menus_.frame(nowMs);
+    checkCommands();
 
     // Errors, and for a while how to leave.
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
     std::vector<std::string> lines;
-    if (!error_.empty()) {
-        lines.push_back(error_);
-        if (!reportPath_.empty())
-            lines.push_back("Details: " + reportPath_);
+    if (!menus_.error().empty()) {
+        lines.push_back(menus_.error());
+        if (!menus_.reportPath().empty())
+            lines.push_back("Details: " + menus_.reportPath());
         lines.push_back("Ctrl+R: start them again.");
     }
-    if (ui_ && !ui_->unhandled().empty()) {
+    if (menus_.running() && !menus_.ui()->unhandled().empty()) {
         // Calls the menus made that Reluva answers with 0 for now.
         std::string calls = "System calls not implemented yet:";
-        for (const auto& [number, count] : ui_->unhandled())
+        for (const auto& [number, count] : menus_.ui()->unhandled())
             calls += " " + std::to_string(number) + " (x" + std::to_string(count) + ")";
         lines.push_back(calls);
     }
@@ -438,7 +200,8 @@ void MenuViewer::update(uint64_t nowMs) {
             for (int x = 0; x < w; ++x)
                 p[x * 4 + 3] = 170;
         }
-        font::drawText(overlay_, 4, y, lines[i], i == 0 && !error_.empty() ? Color{255, 120, 120} : Color{230, 230, 230});
+        font::drawText(overlay_, 4, y, lines[i],
+                       i == 0 && !menus_.error().empty() ? Color{255, 120, 120} : Color{230, 230, 230});
     }
     renderer_->endFrame(&overlay_);
 }

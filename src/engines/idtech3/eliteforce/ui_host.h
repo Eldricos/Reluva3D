@@ -132,6 +132,11 @@ public:
         std::string serverName, updateInfo, message;
     };
     ClientState clientState;
+    // The configstrings GetConfigString reads (a match's, for the in-game
+    // menu); none if unset.
+    std::function<std::string(int32_t index)> configstring;
+    // Their key catcher (KEYCATCH_UI, 2, while they take the keys).
+    int32_t catcher() const { return catcher_; }
 
 private:
     int32_t systemCall(Qvm& vm, int number, const int32_t* args);

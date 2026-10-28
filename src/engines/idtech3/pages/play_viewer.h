@@ -4,6 +4,7 @@
 #pragma once
 
 #include "engines/idtech3/pages/page.h"
+#include "engines/idtech3/pages/menu_layer.h"
 #include "engines/idtech3/client/player_input.h"
 #include "engines/idtech3/client/scene_drawer.h"
 #include "engines/idtech3/eliteforce/cgame_host.h"
@@ -81,6 +82,12 @@ private:
     // Loading the level the game asked for (false: this frame is over).
     bool changeLevel(const std::string& map);
     void consoleCommand(const std::string& text);
+    // The game's menus over the match (the original's in-game menu): Esc
+    // opens them; they close themselves.
+    void openMenu();
+    void closeMenu();
+    void runMenuCommands();
+    std::string matchConfigstring(int32_t index) const;
     void runBinding(const std::string& line, int32_t key, bool down);
     void stopSounds();
     void drawOverlay(uint64_t nowMs, bool haveView);
@@ -140,6 +147,10 @@ private:
     SoundLibrary soundLibrary_{ctx_.files};
     std::unique_ptr<SoundSystem> soundSystem_; // while a level runs, with audio output
     CvarStore& cvars_ = ctx_.cvars;
+    MenuLayer menus_{ctx_, ctx_.cvars}; // the in-game menu, kept for the page's life
+    bool menuOpen_ = false;
+    bool menuCaught_ = false;   // they've taken the keys (and will let go to close)
+    int32_t playerNumber_ = 0;  // the player's client number in the match
     std::unique_ptr<eliteforce::GameHost> game_;
     std::unique_ptr<eliteforce::NetServer> server_; // others joining the level run here
     std::unique_ptr<eliteforce::NetClient> client_; // or: playing on another machine's server

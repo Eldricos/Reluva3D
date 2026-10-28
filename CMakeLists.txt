@@ -163,6 +163,7 @@ if(RELUVA_ENGINE_IDTECH3)
     src/engines/idtech3/light_grid.cpp
     src/engines/idtech3/model_cache.cpp
     src/engines/idtech3/pages/model_viewer.cpp
+    src/engines/idtech3/pages/menu_layer.cpp
     src/engines/idtech3/pages/menu_viewer.cpp
     src/engines/idtech3/pages/play_viewer.cpp
     src/engines/idtech3/pages/sp_play_viewer.cpp

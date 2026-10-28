@@ -70,7 +70,7 @@ screen stays black.
 | 42 | `GetClipboardData(buffer, size)` | order | |
 | 43 | `GetGlconfig(&glconfig)` | seen | one pointer, during init, just before the fonts' shaders are registered |
 | 44 | `GetClientState(&state)` | order | |
-| 45 | `GetConfigString(index, buffer, size)` | order | |
+| 45 | `GetConfigString(index, buffer, size)` → whether there is one | order | answered with the match's configstrings while the in-game menu shows over one (its game type, in the server info at 0, decides what it offers); nothing otherwise |
 | 46–53 | server list and pings | implemented | from the GPL engine that runs Elite Force (eliteforce-network.md): 46 the local server count, 47 `(n, buffer, size)` its address, 48 and 49 the same for the Internet (master servers) list, 50 the ping queue's count, 51 `ClearPing(n)`, 52 `GetPing(n, buffer, size, &time)`, 53 `GetPingInfo(n, buffer, size)`; the menus run `localservers` and `ping <address>` to fill them |
 | 54 | `Cvar_Register(&vmCvar, name, default, flags)` | seen | 65 calls in init: `(…, "ui_ffa_fraglimit", "20", 1)`; the structures are 272 bytes apart, a `vmCvar_t` |
 | 55 | `Cvar_Update(&vmCvar)` | order | |

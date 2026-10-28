@@ -421,7 +421,11 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         return 0;
     }
     case LanGetPingInfo: vm.writeString(a[1], browser ? browser->pingInfo(a[0]) : std::string(), a[2]); return 0;
-    case GetConfigString: vm.writeString(a[1], "", a[2]); return 0;
+    case GetConfigString: { // (index, buffer, size) -> whether there's one
+        const std::string text = configstring ? configstring(a[0]) : std::string();
+        vm.writeString(a[1], text, a[2]);
+        return configstring ? 1 : 0;
+    }
     case CvarRegister: {
         const CvarStore::Cvar& cv = cvars_.create(str(1, 256), str(2, 256), a[3]);
         if (a[0])
