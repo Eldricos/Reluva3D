@@ -745,15 +745,21 @@ reads, the vftables it builds for its own subclasses):
     -point 3416@572,434 -click 3420
     ```
 
-  - On reaching the lock, the camera moves past the plunger to a close-up
-    of the skull door (frames 3545 to 3780 of that run), then cuts to the
-    room, the skull's eyes lit and its mouth open. The close-up is nearly
-    all grey: the skull's own texture, magnified, with the dark nose
-    hole. It looked like the camera passing through a wall, but it isn't:
-    every draw comes already transformed (XYZRHW) and clipped by
-    NetImmerse, with clockwise culling on, so the triangles shown are
-    the ones the game sends, front faces only; the textures drawn in such
-    a frame (dumped while checking) are the skull's and the room's.
+  - Not yet right: the camera once Dash reaches the lock. In a recording of
+    the original (below), the camera follows Dash along the walkway, then
+    stands low in front of him at the plunger, which is behind him, while
+    he turns and presses it, for about eight seconds, and "We did it!"
+    comes up over that. Ours cuts to a high view by the plunger with Dash
+    still on the walkway (frame 3520 of that run), then for the same eight
+    seconds or so (frames 3545 to 3780) shows the inside of the skull door
+    in close-up (its own texture, magnified; the dark wedge is its nose),
+    then the room with the skull's eyes lit, then Dash. As if the camera
+    were put in front of Dash by the way he faces before he has turned
+    round. Not the renderer: every draw comes transformed (XYZRHW) and
+    clipped by NetImmerse, with clockwise culling, which ours does as
+    Direct3D does, so the triangles are those the game sends; the x87's
+    FPATAN and FSINCOS and MSVCRT's `_CIatan2` give what Intel and Visual
+    C++ do. Next: where the camera's place is worked out.
   - "We did it!" offers Next Mission, Instant Replay! and Return to HQ, and
     the game saves on its own: `HighSpace  M1010` (the furthest mission
     any Adventure has finished, which Single Missions now offers) and
@@ -762,6 +768,24 @@ reads, the vftables it builds for its own subclasses):
     the pointer by relative motion, which the game doesn't follow all the
     way; `-point` first puts it where it's meant to be. A menu that's open
     takes the next click to close it.
+
+- Recordings of the original: a playthrough (the tutorial and all 51
+  Adventure missions, 960x720, about eight hours), given by the game
+  owner, kept outside the repository. Compared with ours:
+  - Each mission's opening (its fly-over, the goal text and the panel)
+    looks the same as ours: the rooms, textures, lighting and text.
+  - The Adventure brings in the later training missions as it goes:
+    Electric Cords and Sockets (M0020) before Hectic Electric (M2100),
+    Belts and Belt Wheels (M0030) before Trouble Sub Docking Bay (M3010),
+    and Ropes and Rope Loops (M0040) before Tug Team (M3060). Each
+    compound starts with a text of its own on black ("All aboard!..."
+    before M2010, another before M4010), as M1010's does.
+  - In the training mission, the mission menu has Skip Training Mission
+    too (Keep Playing, Start Over, Skip Training Mission, Options, Return
+    to HQ, Exit Game).
+  - Mission One's end differs (above).
+  - Each recording shows that mission solved, which is what playing them
+    through needs.
 
 Still to do, whichever way phase 3 chose:
 
