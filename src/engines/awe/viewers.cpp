@@ -579,8 +579,12 @@ void ScenePage::playLooping(const std::string& file, bool music) {
         return;
     std::vector<uint8_t> data;
     auto sound = std::make_shared<audio::Sound>();
-    if (!ctx_.mixer || ctx_.files.read(file, data) || audio::decodeSound(data, *sound))
+    if (!ctx_.mixer || file.empty())
         return;
+    if (ctx_.files.read(file, data) || audio::decodeSound(data, *sound)) {
+        logScript("    (no sound " + file + ")");
+        return;
+    }
     music_[file] = ctx_.mixer->play(sound, music ? audio::SoundType::Music : audio::SoundType::Effects,
                                     audio::kMaxVolume, 0, true);
 }
@@ -2407,8 +2411,12 @@ audio::SoundHandle ScenePage::startSound(const std::string& name, bool loop) {
     const auto it = soundFiles_.find(key);
     std::vector<uint8_t> data;
     auto sound = std::make_shared<audio::Sound>();
-    if (!ctx_.mixer || it == soundFiles_.end() || ctx_.files.read(it->second, data) || audio::decodeSound(data, *sound))
+    if (!ctx_.mixer)
         return audio::kNoSound;
+    if (it == soundFiles_.end() || ctx_.files.read(it->second, data) || audio::decodeSound(data, *sound)) {
+        logScript("    (no sound " + key + ")");
+        return audio::kNoSound;
+    }
     const audio::SoundHandle h = ctx_.mixer->play(sound, audio::SoundType::Effects, audio::kMaxVolume, 0, loop);
     // Kept for "stop", those still playing.
     for (auto s = sounds_.begin(); s != sounds_.end();)

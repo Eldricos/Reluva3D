@@ -195,6 +195,7 @@ public:
         const uint64_t start = sys_.now;
         uint64_t quietSince = 0, eventSince = sys_.now;
         std::string lastEvent;
+        size_t lastLog = log_.size();
         while (sys_.now - start < uint64_t(limit_ * 1000)) {
             step();
             page_->autoplay();
@@ -218,8 +219,10 @@ public:
                     inBetween.insert(st.scene + "|" + id);
                 }
             }
-            if (st.event != lastEvent || st.idle)
-                lastEvent = st.event, eventSince = sys_.now;
+            // (An event that goes on doing things, a conversation's lines
+            // played out, isn't stuck.)
+            if (st.event != lastEvent || st.idle || log_.size() != lastLog)
+                lastEvent = st.event, eventSince = sys_.now, lastLog = log_.size();
             if (!st.idle && sys_.now - eventSince > 120000) {
                 problem = "stuck: " + st.event + " (in " + st.scene + ")";
                 return false;
