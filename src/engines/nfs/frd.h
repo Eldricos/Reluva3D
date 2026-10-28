@@ -51,9 +51,24 @@ struct Track {
         // few tracks); 6 the lane markings.
         std::array<std::vector<Polygon>, 7> polygons;
         std::array<std::vector<BlockObject>, 4> objectLayers;
-        // Counts of the records not decoded yet, kept as stored.
+        // The records after the polygons' counts, as stored (frd.md); the
+        // lights and sounds are also decoded below.
         uint32_t startPosition = 0;
         std::vector<uint8_t> positions, polygonRoad, virtualRoad, objectRefs, polygonObjects, sounds, lights;
+        // A light: where (16.16 fixed point in the file) and its type,
+        // which picks how it looks (not worked out yet).
+        struct Light {
+            Vec3 position{};
+            uint32_t type = 0;
+        };
+        // A sound placed on the track: where, the slot of the track's
+        // tr3dNN.bnk it plays, and a flag (0 or 1, not worked out yet).
+        struct PlacedSound {
+            Vec3 position{};
+            uint16_t slot = 0, flag = 0;
+        };
+        std::vector<Light> lightList;
+        std::vector<PlacedSound> soundList;
     };
 
     // An object placed anywhere on the track: still (type 4, at

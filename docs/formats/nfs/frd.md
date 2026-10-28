@@ -74,9 +74,35 @@ The vertices come in order:
 2. the road's (the high-res count);
 3. the rest, which only the lane list uses.
 
-The records after the counts aren't decoded yet; Reluva keeps them as
-stored. They're expected to matter for driving: positions and the
-virtual road (see `.col`), lights and sounds.
+The records after the counts are kept as stored. Lights and sounds are
+also decoded (October 2026, from a survey of all nine tracks):
+
+- **Lights** (16 bytes): a position, 3 × s32 in 16.16 fixed point, then
+  a u32 type. The positions are on the tracks where lights would be:
+  Hometown's type 1 lights sit on the town centre's street lamps. The
+  types run 0 to 15 and differ by track (Hometown 1 and 7, Atlantica 13,
+  the Summit 3 and 13...). What each type looks like (glow picture,
+  colour, size) is in the game's code, which builds glows from
+  `glw0`-`glw4` of `Render/pc/sfx.fsh` through function pointers; not
+  worked out yet.
+- **Sounds** (16 bytes): a position as above, a u16 slot of the track's
+  placed-sound bank (`Audio/SFX/tr3dNN.bnk`, or `...n`, `...w`, `...nw`
+  by sky variant) and a u16 flag, 0 or 1 (not worked out). The slots fit
+  the banks: Hometown's go up to 7 of 32 slots, the Rocky Pass's to 20 of
+  21. The Empire City uses slot 12 of a 12-slot bank, so not every one
+  can be heard.
+
+The rest (positions, the road polygons' records, the virtual road,
+object references and polygon objects) is still kept as stored. Object
+references begin with a 16.16 position near their block. The positions
+look like runs of the road's polygons (a u16 first polygon, a u8 count,
+a u8, then −1).
+
+The Tracks page shows each light as a white glow (`glw0`) facing the
+camera, and each sound as a cyan diamond. Within 120 units of a sound, it
+plays that slot of the variant's bank, louder the nearer and panned by
+side: slots that loop play on, the rest once each time the camera comes
+near. The overlay names the nearest light or sound; `M` hides them all.
 
 ### Polygons
 

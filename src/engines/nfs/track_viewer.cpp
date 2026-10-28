@@ -77,7 +77,8 @@ gfx::Mat4 keyMatrix(const Track::ExtraObject::Key& a, const Track::ExtraObject::
 
 } // namespace
 
-TrackPage::TrackPage(const GameFiles& files, const GameFolders& folders) : files_(files), folders_(folders) {
+TrackPage::TrackPage(const GameFiles& files, const GameFolders& folders, audio::Mixer* mixer)
+    : files_(files), folders_(folders), mixer_(mixer) {
     tracks_ = trackFolders(folders.install);
 }
 
@@ -109,6 +110,15 @@ void TrackPage::releaseSky() {
 
 void TrackPage::release() {
     releaseSky();
+    stopSounds();
+    soundData_.clear();
+    soundBank_ = {};
+    soundSlots_.clear();
+    marks_.clear();
+    glowPicture_ = 0; // owned by textures_
+    if (renderer_ && markMesh_)
+        renderer_->destroyMesh(markMesh_);
+    markMesh_ = 0;
     if (renderer_) {
         if (mesh_)
             renderer_->destroyMesh(mesh_);
@@ -518,7 +528,182 @@ void TrackPage::load(int index) {
         if (Error err = renderer_->createMesh(vertices, indices, mesh_))
             error_ = err.message;
     loadSky();
+    loadMarks();
     toBlock(0);
+}
+
+int TrackPage::nearestBlock() const {
+    int best = block_;
+    float bestDistance = 1e30f;
+    for (size_t i = 0; i < track_.blocks.size(); ++i) {
+        const Track::Vec3& c = track_.blocks[i].centre;
+        const float dx = c[0] - eye_[0], dy = c[1] - eye_[1], dz = -c[2] - eye_[2];
+        const float d = dx * dx + dy * dy + dz * dz;
+        if (d < bestDistance) {
+            bestDistance = d;
+            best = static_cast<int>(i);
+        }
+    }
+    return best;
+}
+
+// The blocks' lights and sounds (frd.md), and the glow picture.
+void TrackPage::loadMarks() {
+    marks_.clear();
+    for (const Track::Block& b : track_.blocks) {
+        for (const Track::Block::Light& l : b.lightList)
+            marks_.push_back({{l.position[0], l.position[1], -l.position[2]}, true, static_cast<int>(l.type), 0});
+        for (const Track::Block::PlacedSound& snd : b.soundList)
+            marks_.push_back({{snd.position[0], snd.position[1], -snd.position[2]}, false, snd.slot, snd.flag});
+    }
+    bool additive = false;
+    picture(kLaneSheet, -1, false, &additive); // loads the sheet
+    for (const Shape& shape : banks_[kLaneSheet].shapes)
+        if (shape.name == "glw0") {
+            image::Image img;
+            if (!decodeShape(shape, img) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), {}, glowPicture_))
+                textures_.push_back(glowPicture_);
+        }
+    if (marks_.empty())
+        return;
+    std::vector<gfx::Vertex> vertices(marks_.size() * 4);
+    std::vector<uint32_t> indices;
+    for (uint32_t i = 0; i < marks_.size(); ++i)
+        for (uint32_t k : {0u, 1u, 2u, 0u, 2u, 3u})
+            indices.push_back(4 * i + k);
+    if (Error err = renderer_->createMesh(vertices, indices, markMesh_))
+        markMesh_ = 0;
+    loadSounds();
+}
+
+// Each mark as a quad facing the camera: a white glow for a light (3
+// units across), a small cyan diamond for a sound.
+void TrackPage::drawMarks(const gfx::Vec3& eye, const gfx::Vec3& right, const gfx::Vec3& up) {
+    if (!markMesh_ || !marksShown_)
+        return;
+    (void)eye;
+    std::vector<gfx::Vertex> vertices;
+    vertices.reserve(marks_.size() * 4);
+    for (const Mark& m : marks_) {
+        const float half = m.light ? 1.5f : 0.6f;
+        for (int corner = 0; corner < 4; ++corner) {
+            const float x = corner == 1 || corner == 2 ? 1.0f : -1.0f, y = corner >= 2 ? 1.0f : -1.0f;
+            gfx::Vertex v{};
+            for (int i = 0; i < 3; ++i)
+                v.pos[i] = m.at[size_t(i)] + (right[size_t(i)] * x + up[size_t(i)] * y) * half;
+            v.uv[0] = (x + 1) / 2;
+            v.uv[1] = (1 - y) / 2;
+            if (m.light) {
+                v.color[0] = v.color[1] = v.color[2] = v.color[3] = 255;
+            } else {
+                // The diamond: the quad's corners pulled in to its edges' middles.
+                for (int i = 0; i < 3; ++i)
+                    v.pos[i] = m.at[size_t(i)] + (corner % 2 ? right[size_t(i)] * x : up[size_t(i)] * y) * half;
+                v.color[0] = 60;
+                v.color[1] = v.color[2] = v.color[3] = 255;
+            }
+            vertices.push_back(v);
+        }
+    }
+    renderer_->setMeshVertices(markMesh_, vertices);
+    gfx::DrawCall call;
+    call.mesh = markMesh_;
+    call.rgbSource = call.alphaSource = gfx::ColorSource::Vertex;
+    call.state.cull = gfx::Cull::None;
+    call.state.depthWrite = false;
+    // The glows added, over everything drawn but not through it.
+    std::vector<std::pair<uint32_t, uint32_t>> lights, sounds; // ranges of marks
+    for (size_t i = 0; i < marks_.size(); ++i) {
+        auto& list = marks_[i].light ? lights : sounds;
+        if (!list.empty() && list.back().second == i)
+            ++list.back().second;
+        else
+            list.push_back({uint32_t(i), uint32_t(i + 1)});
+    }
+    call.texture = glowPicture_;
+    call.state.src = gfx::Blend::SrcAlpha;
+    call.state.dst = gfx::Blend::One;
+    for (const auto& [from, to] : lights) {
+        call.firstIndex = 6 * from;
+        call.indexCount = 6 * (to - from);
+        renderer_->draw(call);
+    }
+    call.texture = 0;
+    call.state.dst = gfx::Blend::Zero;
+    call.state.src = gfx::Blend::One;
+    for (const auto& [from, to] : sounds) {
+        call.firstIndex = 6 * from;
+        call.indexCount = 6 * (to - from);
+        renderer_->draw(call);
+    }
+}
+
+// The variant's bank of placed sounds: tr3dNN.bnk, ...n, ...w, ...nw.
+void TrackPage::loadSounds() {
+    stopSounds();
+    soundData_.clear();
+    soundBank_ = {};
+    soundSlots_.clear();
+    if (!mixer_)
+        return;
+    const std::string file =
+        "GameData/Audio/SFX/tr3d" + tracks_[index_].substr(4) + kHorizonSuffix[variant_] + ".bnk";
+    for (const FileRef& f : files_.files())
+        if (lower(f.name) == lower(file)) {
+            if (files_.read(f, soundData_) || parseSoundBank(soundData_, soundBank_)) {
+                soundData_.clear();
+                soundBank_ = {};
+            }
+            return;
+        }
+}
+
+void TrackPage::stopSounds() {
+    if (mixer_)
+        for (const auto& [mark, handle] : soundsPlaying_)
+            mixer_->stop(handle);
+    soundsPlaying_.clear();
+}
+
+// A sound plays while the camera is within 120 units of it, louder the
+// nearer, panned by which side it's on. Sounds the bank loops play on;
+// the rest once each time the camera comes near.
+void TrackPage::updateSounds(const gfx::Vec3& eye, const gfx::Vec3& right) {
+    if (!mixer_ || soundData_.empty())
+        return;
+    constexpr float kRange = 120;
+    for (size_t i = 0; i < marks_.size(); ++i) {
+        const Mark& m = marks_[i];
+        if (m.light)
+            continue;
+        const float dx = m.at[0] - eye[0], dy = m.at[1] - eye[1], dz = m.at[2] - eye[2];
+        const float d = std::sqrt(dx * dx + dy * dy + dz * dz);
+        auto playing = soundsPlaying_.find(i);
+        if (d > kRange) {
+            if (playing != soundsPlaying_.end()) {
+                mixer_->stop(playing->second);
+                soundsPlaying_.erase(playing);
+            }
+            continue;
+        }
+        const int volume = static_cast<int>(audio::kMaxVolume * (1 - d / kRange));
+        const int pan = d > 0 ? static_cast<int>(audio::kMaxPan * (dx * right[0] + dz * right[2]) / d) : 0;
+        if (playing != soundsPlaying_.end()) {
+            mixer_->setVolume(playing->second, volume);
+            mixer_->setPan(playing->second, pan);
+            continue;
+        }
+        if (m.value < 0 || m.value >= static_cast<int>(soundBank_.slots.size()) || !soundBank_.slots[size_t(m.value)])
+            continue;
+        const SoundHeader& header = *soundBank_.slots[size_t(m.value)];
+        auto& decoded = soundSlots_[m.value];
+        if (!decoded) {
+            decoded = std::make_shared<audio::Sound>();
+            if (decodeBankSound(soundData_, header, *decoded))
+                continue;
+        }
+        soundsPlaying_[i] = mixer_->play(decoded, audio::SoundType::Effects, volume, pan, header.loopLength > 0);
+    }
 }
 
 // Puts the camera above a block's centre, looking along the road.
@@ -557,8 +742,10 @@ void TrackPage::handleEvent(const Event& ev) {
         case '3': detail_ = 2; break;
         case 'h':
             variant_ = (variant_ + 1) % 4;
-            if (renderer_ && error_.empty())
+            if (renderer_ && error_.empty()) {
                 loadSky();
+                loadSounds();
+            }
             break;
         case 't': textured_ = !textured_; break;
         case 'v': vertexLight_ = !vertexLight_; break;
@@ -567,6 +754,11 @@ void TrackPage::handleEvent(const Event& ev) {
         case 'g': walls_ = !walls_; break;
         case 'f': cullBack_ = !cullBack_; break;
         case 'y': fog_ = !fog_; break;
+        case 'm':
+            marksShown_ = !marksShown_;
+            if (!marksShown_)
+                stopSounds();
+            break;
         case 'x':
             textureSet_ = 1 - textureSet_;
             if (renderer_) {
@@ -646,7 +838,8 @@ void TrackPage::update(uint64_t nowMs) {
                       gfx::lookAlong(eye, forward, {0, 1, 0}));
     Horizon::Rgb fog;
     float fogDensity = 0;
-    fogAt(block_, fog, fogDensity);
+    const int here = nearestBlock();
+    fogAt(here, fog, fogDensity);
     if (!fog_)
         fogDensity = 0;
     // Lightning: a chance each second (out of 256) of a flash, a fifth of
@@ -814,6 +1007,13 @@ void TrackPage::update(uint64_t nowMs) {
         movingPass(true);
     }
 
+    {
+        const gfx::Vec3 up{-std::sin(pitch_) * std::sin(yaw_), std::cos(pitch_), std::sin(pitch_) * std::cos(yaw_)};
+        drawMarks(eye, right, up);
+        if (marksShown_)
+            updateSounds(eye, right);
+    }
+
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), uint8_t(0));
     std::vector<std::string> lines = {"Tracks  " + std::to_string(index_ + 1) + "/" + std::to_string(tracks_.size()) +
                                       "  " + tracks_[index_] + "  " + kVariantNames[variant_]};
@@ -822,15 +1022,35 @@ void TrackPage::update(uint64_t nowMs) {
     } else {
         char where[200];
         std::snprintf(where, sizeof where, "block %d/%zu  at %.0f %.0f %.0f  %s detail  set %d  %zu quads  %zu moving",
-                      block_, track_.blocks.size(), eye_[0], eye_[1], -eye_[2], kDetailNames[detail_], textureSet_, drawn,
+                      here, track_.blocks.size(), eye_[0], eye_[1], -eye_[2], kDetailNames[detail_], textureSet_, drawn,
                       moving_.size());
-        lines.push_back(where);
+        std::string line = where;
+        // The nearest light or sound within 40 units.
+        const Mark* nearest = nullptr;
+        float nearestDistance = 40 * 40;
+        for (const Mark& m : marks_) {
+            const float dx = m.at[0] - eye_[0], dy = m.at[1] - eye_[1], dz = m.at[2] - eye_[2];
+            if (dx * dx + dy * dy + dz * dz < nearestDistance) {
+                nearestDistance = dx * dx + dy * dy + dz * dz;
+                nearest = &m;
+            }
+        }
+        if (nearest && marksShown_) {
+            char what[120];
+            if (nearest->light)
+                std::snprintf(what, sizeof what, "light, type %d", nearest->value);
+            else
+                std::snprintf(what, sizeof what, "sound, slot %d of tr3d%s%s.bnk, flag %d", nearest->value,
+                              tracks_[index_].substr(4).c_str(), kHorizonSuffix[variant_], nearest->flag);
+            line += std::string("  near: ") + what;
+        }
+        lines.push_back(line);
         if (!skyError_.empty())
             lines.push_back(skyError_);
         if (!collisionError_.empty())
             lines.push_back(collisionError_);
     }
-    lines.push_back("PgUp/PgDn: track  WASD/arrows/drag: move  N/B: block  1-3: detail  H: sky  T V L O G X F Y: toggles");
+    lines.push_back("PgUp/PgDn: track  WASD/arrows/drag: move  N/B: block  1-3: detail  H: sky  T V L O G X F Y M: toggles");
     for (size_t i = 0; i < lines.size(); ++i) {
         const int y = i + 1 == lines.size() ? kFrameH - font::kLineHeight - 4 : 4 + static_cast<int>(i) * font::kLineHeight;
         for (int yy = y - 2; yy < y + font::kLineHeight - 1; ++yy)

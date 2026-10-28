@@ -202,7 +202,7 @@ private:
 //   X: other texture set   F: back faces   R: start
 class TrackPage : public Page {
 public:
-    TrackPage(const GameFiles& files, const GameFolders& folders);
+    TrackPage(const GameFiles& files, const GameFolders& folders, audio::Mixer* mixer = nullptr);
     ~TrackPage() override;
     const char* name() const override { return "Tracks"; }
     bool empty() const override { return tracks_.empty(); }
@@ -277,6 +277,32 @@ private:
     // The fog where the camera is: the base fog, or a dynamic region's
     // (hrz.md), its colour and density (percent).
     void fogAt(int block, Horizon::Rgb& colour, float& density) const;
+    int nearestBlock() const; // to the camera, by the blocks' centres
+
+    // The blocks' lights (glows) and sounds (markers), in the world: a
+    // quad each, turned to face the camera every frame.
+    struct Mark {
+        std::array<float, 3> at{};
+        bool light = false;
+        int value = 0; // the light's type, or the sound's slot
+        uint16_t flag = 0;
+    };
+    std::vector<Mark> marks_;
+    gfx::MeshId markMesh_ = 0;
+    gfx::TextureId glowPicture_ = 0;
+    bool marksShown_ = true;
+    void loadMarks();
+    void drawMarks(const gfx::Vec3& eye, const gfx::Vec3& right, const gfx::Vec3& up);
+    // The track's placed sounds (tr3dNN.bnk of the variant), each playing
+    // while the camera is near it.
+    audio::Mixer* mixer_ = nullptr;
+    std::vector<uint8_t> soundData_;
+    SoundBank soundBank_;
+    std::map<int, std::shared_ptr<audio::Sound>> soundSlots_;
+    std::map<size_t, audio::SoundHandle> soundsPlaying_; // by mark
+    void loadSounds();
+    void stopSounds();
+    void updateSounds(const gfx::Vec3& eye, const gfx::Vec3& right);
     int variant_ = 0;
     int detail_ = 2, textureSet_ = 0, block_ = 0;
     bool textured_ = true, vertexLight_ = true, lanes_ = true, objects_ = true, cullBack_ = false, walls_ = false;

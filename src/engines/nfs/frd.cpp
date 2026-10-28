@@ -139,6 +139,30 @@ Error parseTrack(const std::vector<uint8_t>& data, Track& out) {
         b.lights = r.bytes(16ull * lights);
         if (!r.ok())
             return bad("a block runs past the end");
+        // Lights and sounds: a position (3 x s32, 16.16), then the type, or
+        // the slot and a flag.
+        auto position = [](const std::vector<uint8_t>& bytes, size_t at) {
+            Track::Vec3 v;
+            for (int i = 0; i < 3; ++i) {
+                int32_t fixed;
+                std::memcpy(&fixed, bytes.data() + at + 4 * size_t(i), 4);
+                v[size_t(i)] = static_cast<float>(fixed) / 65536.0f;
+            }
+            return v;
+        };
+        for (size_t at = 0; at + 16 <= b.lights.size(); at += 16) {
+            Track::Block::Light l;
+            l.position = position(b.lights, at);
+            std::memcpy(&l.type, b.lights.data() + at + 12, 4);
+            b.lightList.push_back(l);
+        }
+        for (size_t at = 0; at + 16 <= b.sounds.size(); at += 16) {
+            Track::Block::PlacedSound snd;
+            snd.position = position(b.sounds, at);
+            std::memcpy(&snd.slot, b.sounds.data() + at + 12, 2);
+            std::memcpy(&snd.flag, b.sounds.data() + at + 14, 2);
+            b.soundList.push_back(snd);
+        }
     }
 
     // Each block's polygons: seven lists, each a count, then (if not 0)
