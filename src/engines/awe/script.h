@@ -100,7 +100,10 @@ public:
 
     // The character the events act on (setchar), "" for the player's.
     const std::string& character() const { return character_; }
-    void setCharacter(const std::string& who) { character_ = who; }
+    // Whose runner this is (a routine's character, a line's speaker): the
+    // character each script given to it starts with (0x40598f), "" for
+    // the player's.
+    void setCharacter(const std::string& who) { owner_ = character_ = who; }
     // When an event ends and leaves nothing queued (the main runner's
     // acts check their completion then: 0x409a80).
     std::function<void()> onEmpty;
@@ -124,7 +127,7 @@ private:
     bool running_ = false;      // the front event is under way
     std::string waitingFor_;    // the verb it waits on
     float waitLeft_ = -1;       // a "wait"'s seconds left
-    std::string character_;
+    std::string character_, owner_;
     bool fromCharacter_ = false;
     bool locked_ = false;
     std::string lastDone_; // the verb of the event done last

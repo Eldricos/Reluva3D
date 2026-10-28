@@ -82,8 +82,9 @@ std::string_view ScriptRunner::baseOfAsync(std::string_view verb) {
 void ScriptRunner::run(std::string_view commands) {
     // 0x408c80: every script given to the runner makes the player the
     // character its events act on again (0x408cd8), whatever an earlier
-    // one's "setchar" chose.
-    character_.clear();
+    // one's "setchar" chose; a character's own runner, that character
+    // (0x40598f).
+    character_ = owner_;
     // A condition in brackets ("(tag x >3, has y)") decides, there and
     // then, whether the commands after it are added, up to the next one.
     bool doIt = true, open = false;

@@ -964,6 +964,14 @@ void testScript() {
     // The next script given acts on the player again (0x408cd8).
     r.run("tag after 1");
     CHECK(r.character().empty());
+    // A character's own runner goes back to that character (0x40598f).
+    r.setCharacter("klaus");
+    r.run("setchar antoinette");
+    for (int i = 0; i < 3; i++)
+        r.update(0.01f);
+    CHECK(r.character() == "antoinette");
+    r.run("tag after 2");
+    CHECK(r.character() == "klaus");
 
     // The door macros, and a script file.
     struct FileHost : FakeHost {
