@@ -130,7 +130,10 @@ Error UiHost::refresh(int32_t time) {
     int32_t fullscreen = 0;
     if (Error err = call(IsFullscreen, {}, fullscreen))
         return err;
-    if (!fullscreen && !mainMenuNotFullscreen_) {
+    // Disconnected, the menus always show something covering the screen:
+    // the main menu, if nothing else, as the original's engine reopens it
+    // (only then: over a match, the in-game menu doesn't cover it).
+    if (!fullscreen && clientState.connState <= 1 && !mainMenuNotFullscreen_) {
         if (Error err = call(SetActiveMenu, {1})) // the main menu
             return err;
         // It should cover the screen now; if it doesn't, opening it every
