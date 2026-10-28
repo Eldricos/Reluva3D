@@ -185,8 +185,9 @@ Next:
    finds, and the characters' routines run; `-3d` draws in a window.
    Played that way, the first playthrough went wrong where Reluva
    differed from the game (fixed), and where it relied on what a player
-   can't do: a door hidden by another, a routine that hadn't run. The
-   search is being run again as a mouse player with the characters (see
+   can't do: a door hidden by another, a routine that hadn't run. Run
+   again as a mouse player with the characters, the search finds a way of
+   1,105 actions whose every click the game's pick makes (see
    [../formats/awe/acts.md](../formats/awe/acts.md#as-a-player-plays-it--mouse--characters--3d)).
 
 ## What the install holds

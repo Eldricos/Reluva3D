@@ -392,7 +392,26 @@ wrong, each time where Reluva differed from the game:
   rooms 12, 14 and 16 are the act's (to eavesdrop) over the base's (to go
   in). Both stay when the scenes are merged, as the game keeps both
   (`0x42b680` drops only the same object again), and the pick finds the
-  act's.
+  act's. 06B's kitchen door is the same: the act's needs `klausbaggage`,
+  the olive oil and vinegar brought to Klaus.
+- **The pick's characters.** Reluva tried a character's bones when it had
+  a rectangle; the game does when it has none (`0x435fd1`). Antoinette in
+  the forest has none, and the snowshoes are put on her there, as a
+  recording of the game shows.
+- **Two of an item.** The game's `take` adds an item every time
+  (`0x41bc10`), so the Salon car's five water glasses are five, and both
+  spouts can be carried. Reluva kept one to a name, so the second glass
+  and spout were lost, and 06B's olive oil could never be poured (see
+  [interface.md](interface.md#in-reluva)).
+
+The search, run again as a mouse player with the characters
+(`-solve <out> -mouse -characters`), finds a way of 1,105 actions from a
+new game to the credits. It was found in parts, each resumed from the
+last (`-from`), as the fixes above came; with the pick sped up (an
+object's point looked for only within its outline or rectangle, and a
+character's bones posed once per frame) the last part, from 06B to the
+end, took ten minutes. Played back the same way, all 966 of its clicks
+and uses are made through the game's pick.
 
 A sample was also played in a real window (Xvfb, with clicks from
 xdotool), from the main menu through the opening, Klaus's cleavers and on
