@@ -248,6 +248,15 @@ private:
         std::shared_ptr<GpuModel> model;
         std::unique_ptr<Actor> actor;
         gfx::Mat4 placement{};
+        // Its Bip01 bones' boxes as posed at pickFrame (the pick's, made
+        // again once the page has moved on).
+        struct PickBox {
+            gfx::Mat4 m;
+            const float* lo;
+            const float* hi;
+        };
+        mutable std::vector<PickBox> pickBoxes;
+        mutable uint64_t pickFrame = UINT64_MAX;
         // Where it stands and faces; while walking, the points still to
         // reach (world x, z).
         float x = 0, y = 0, z = 0, rotY = 0;
@@ -778,6 +787,8 @@ private:
     bool objectRect(const Ac2Record& o, int& left, int& top, int& right, int& bottom) const;
     bool hitObject(const Ac2Record& o, int sx, int sy) const;
     bool hitBones(const Ac2Record& o, int sx, int sy) const;
+    // Counts updates and events, after which characters may have moved.
+    uint64_t frame_ = 0;
     const Ac2Record* pickAt(int sx, int sy) const;
     const std::string& itemInHand() const;
     bool canUseOn(const std::string& item, const Ac2Record& o);

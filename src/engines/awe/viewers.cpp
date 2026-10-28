@@ -392,6 +392,7 @@ void ScenePage::releaseGpu() {
 }
 
 void ScenePage::load() {
+    frame_++;
     selected_ = -1;
     error_.clear();
     base_.clear();
@@ -1508,6 +1509,7 @@ void ScenePage::draw() {
 }
 
 void ScenePage::update(uint64_t nowMs) {
+    frame_++;
     if (startMs_ == 0)
         startMs_ = nowMs;
     const float time = float(nowMs - startMs_) / 1000.0f;
@@ -3035,6 +3037,7 @@ void ScenePage::line(int x0, int y0, int x1, int y1, Color c) {
 }
 
 void ScenePage::handleEvent(const Event& ev) {
+    frame_++;
     if (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown || ev.type == EventType::MouseUp) {
         lastMouseX_ = ev.mouseX, lastMouseY_ = ev.mouseY;
         cursorMoved_ |= cursorShown();

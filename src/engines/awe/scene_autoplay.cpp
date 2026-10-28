@@ -158,6 +158,7 @@ bool ScenePage::pointFor(size_t i, int& x, int& y) const {
 }
 
 bool ScenePage::click(size_t i) {
+    frame_++;
     const std::vector<const Ac2Record*> objects = clickableObjects();
     if (i >= objects.size())
         return false;

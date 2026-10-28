@@ -116,30 +116,32 @@ bool ScenePage::hitBones(const Ac2Record& o, int sx, int sy) const {
     for (const Character& c : characters_) {
         if (c.record != &o || !c.model || !c.actor)
             continue;
+        if (c.pickFrame != frame_) {
+            // Posed once for all the points picked till the page moves on.
+            c.pickBoxes.clear();
+            auto add = [&](const Model& model, const Pose& pose) {
+                for (const ModelMesh& mesh : model.meshes)
+                    for (const ModelMesh::BoneBox& box : mesh.boxes)
+                        if (size_t(box.bone) < model.bones.size() && size_t(box.bone) < pose.world.size() &&
+                            fs::toLower(model.bones[size_t(box.bone)].name).find("bip01") != std::string::npos)
+                            c.pickBoxes.push_back(
+                                {gfx::multiply(c.placement, pose.world[size_t(box.bone)]), box.min, box.max});
+            };
+            Pose pose;
+            c.actor->animator().pose(pose);
+            add(c.model->model(), pose);
+            for (const auto& [name, prop] : c.props) {
+                Pose propPose;
+                c.actor->animator().poseFor(prop->model(), propPose);
+                add(prop->model(), propPose);
+            }
+            c.pickFrame = frame_;
+        }
         gfx::Vec3 from, dir;
         SceneCamera::fromRecord(*camr).ray(float(sx), float(sy), kScreenW, kScreenH, from, dir);
-        auto hits = [&](const Model& model, const Pose& pose) {
-            for (const ModelMesh& mesh : model.meshes)
-                for (const ModelMesh::BoneBox& box : mesh.boxes) {
-                    if (size_t(box.bone) >= model.bones.size() || size_t(box.bone) >= pose.world.size() ||
-                        fs::toLower(model.bones[size_t(box.bone)].name).find("bip01") == std::string::npos)
-                        continue;
-                    if (rayHitsBox(gfx::multiply(c.placement, pose.world[size_t(box.bone)]), box.min, box.max, from,
-                                   dir))
-                        return true;
-                }
-            return false;
-        };
-        Pose pose;
-        c.actor->animator().pose(pose);
-        if (hits(c.model->model(), pose))
-            return true;
-        for (const auto& [name, prop] : c.props) {
-            Pose propPose;
-            c.actor->animator().poseFor(prop->model(), propPose);
-            if (hits(prop->model(), propPose))
+        for (const Character::PickBox& b : c.pickBoxes)
+            if (rayHitsBox(b.m, b.lo, b.hi, from, dir))
                 return true;
-        }
         return false;
     }
     return false;
