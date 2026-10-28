@@ -748,12 +748,15 @@ reads, the vftables it builds for its own subclasses):
     -point 3416@572,434 -click 3420
     ```
 
-  - The camera once Dash reaches the lock differs from the original's
-    recording (below), traced to a setting, not to us. Ours, for about
-    five seconds, looks at the skull door opening from the camera base
-    beside it (so close that the skull's own texture fills the screen),
-    then turns to Dash for "We did it!"; the original goes to Dash at
-    once. Traced (`at-run -watch` from frame 3400 with `-from`):
+  - The camera as Dash reaches the lock differs from the original's
+    recording (below), and the cause isn't found yet. Ours, about half a
+    second before Dash reaches the lock, moves to the camera base beside
+    the skull door, films the lock and then the door opening from there
+    (so close that the skull's own texture fills the screen), then turns
+    to Dash for "We did it!". The original stays on the walkway base
+    behind Dash the whole time: from about 77.5 s to "We did it!" at
+    89 s it shows Dash in front of the lock and never the door. Traced
+    (`at-run -watch` from frame 3400 with `-from`):
     - DDIcam (LoadComp) films the action of the highest priority: Dash's
       (30, `t0011.dll`), then the plunger lock's (220, `og0019b.dll`),
       then the door's (230, `og0019a.dll`, as it starts to open), each
@@ -768,17 +771,46 @@ reads, the vftables it builds for its own subclasses):
       `GoalAnimTime` (and `RewardAnimTime`) come from the space's
       options, else from `Config.txt` (LoadComp's `ConfigState`), else
       5 (and 3) seconds.
-    - With `GoalAnimTime  0.5` in `Config.txt`, ours plays as the
-      recording does: the camera follows Dash, looks at the plunger, and
-      goes to the close-up and "We did it!". So the original's install
-      has a `Config.txt` that sets it; ours is an empty file (the program
-      won't start without one), so every value takes its default. The
-      keys the program reads from it: ActorBaseDir, AllVideoModes,
-      AudioDir, AutoLoadPuzzle, CategoryImageFile, CategoryUnitFile,
-      ClickAndRelease, DiscPath, GoalAnimTime, Hints, MusicBuffer,
-      MusicSupport, Nav_InOut_Yaw, PortalExitDelay, PuzzleEditor,
-      RewardAnimTime, TextureDir, ToolBoxLayout, UIFile, UseEnvLights.
-      Wanted: the `Config.txt` an install makes.
+    - Not a setting. The keys the program reads from `Config.txt`:
+      ActorBaseDir, AllVideoModes, AudioDir, AutoLoadPuzzle,
+      CategoryImageFile, CategoryUnitFile, ClickAndRelease, DiscPath,
+      GoalAnimTime, Hints, MusicBuffer, MusicSupport, Nav_InOut_Yaw,
+      PortalExitDelay, PuzzleEditor, RewardAnimTime, TextureDir,
+      ToolBoxLayout, UIFile, UseEnvLights. An install's `Config.txt`,
+      after the game has run once, has only `DiscPath`,
+      `DisplayDescription` and `DisplayGUID`, and its `Game.txt` only a
+      header, so `GoalAnimTime` is 5 there too. The recording's 11 s
+      from the lock to "We did it!" fits 5 + 2 seconds and the music.
+      (With `GoalAnimTime  0.5` ours goes to Dash before the door's shot
+      shows, which only hides the difference.)
+    - Where ours turns: `FindNewBase` (LoadComp) first tests the
+      space's main base (`DDIcam` 0xab3f0, here the one beside the
+      skull at (-602.7, -50.4, 295.4)), then every base whose
+      `Intelligent` attribute isn't `fixed_pan`. A base's line of sight
+      to the actions (`IsObscured`, segments of radius 2 from the base)
+      must be clear. Then it scores each base and takes the highest.
+      Within 1.4 s of a change (0xab720 against 0xab558) it keeps the
+      current base (0xab4a0). As Dash walks up to the lock, the
+      score of the walkway base at (-123.9, -86.0, 182.6) falls from 0.23 to
+      0.053 and the main base's rises to 0.055. They cross at
+      `DDIcam` time 6.57 s, so ours turns there, before the lock's
+      action (220) or the door's (230) is added.
+    - Checked and ruled out: the frame rate (with `-clock-rate` at 3x,
+      5x and 10x the frames a second, ours turns at the same 6.57 s);
+      the door's bound (the merged spheres of OG0019A's shapes give
+      about 200, as ours does); and the collision volumes.
+      `DDSpace::CollectBoundingVolumes` adds every actor with a
+      collision volume to the space's map (11 in M1010: the room, the
+      door, the lock, Dash and others), and `CollideSegment` tests
+      each one. The test is a capsule against the actor's bound
+      sphere, then its volumes. The door's volume (on DOOR: a box cut
+      by two half-spaces) is in world space at (-665.2, -50.5, 255.4),
+      half-sizes 36 by 130.7 by 138. It lies just behind the main base,
+      on the far side from Dash, so the segment rightly misses it.
+    - So ours runs the game's own camera code to a consistent result.
+      Still open: an input ours gives that code differently (Dash's exact
+      path or speed near the lock, the camera's orientation, which the
+      score uses), or a different build in the recording (ours is 1.0).
   - Found on the way: `DDCaps::CalcProcSpeed` (LoadComp) times the
     processor with RDTSC across `Sleep(500)`, and recommends shadows,
     environment animation and other detail (`MakeRecs`) above 250 and
@@ -809,7 +841,8 @@ reads, the vftables it builds for its own subclasses):
   - In the training mission, the mission menu has Skip Training Mission
     too (Keep Playing, Start Over, Skip Training Mission, Options, Return
     to HQ, Exit Game).
-  - Mission One's end differs (above): a `Config.txt` setting.
+  - Mission One's end differs (above): the camera base chosen as Dash
+    reaches the lock; not yet explained.
   - Each recording shows that mission solved, which is what playing them
     through needs.
 
