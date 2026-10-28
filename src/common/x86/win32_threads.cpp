@@ -80,7 +80,7 @@ void Win32Process::resumeThread(Thread& t) {
 
 void Win32Process::runThread(std::shared_ptr<Thread> t) {
     std::unique_lock<std::mutex> lock(mutex_);
-    turn_.wait(lock, [&] { return running_ == t.get(); });
+    t->turn.wait(lock, [&] { return running_ == t.get(); });
     cpu_.loadContext(t->context);
     t->started = true;
     uint32_t code = 0;
@@ -145,10 +145,10 @@ bool Win32Process::schedule(std::unique_lock<std::mutex>& lock) {
     self->instructions += cpu_.executed() - turnStart_;
     turnStart_ = cpu_.executed();
     running_ = next;
-    turn_.notify_all();
+    next->turn.notify_one();
     if (self->finished)
         return false;
-    turn_.wait(lock, [&] { return running_ == self; });
+    self->turn.wait(lock, [&] { return running_ == self; });
     cpu_.loadContext(self->context);
     return true;
 }
@@ -208,8 +208,8 @@ void Win32Process::exitAll(std::unique_lock<std::mutex>& lock) {
         Thread* self = running_;
         self->context = cpu_.saveContext();
         running_ = t.get();
-        turn_.notify_all();
-        turn_.wait(lock, [&] { return running_ == self; });
+        t->turn.notify_one();
+        self->turn.wait(lock, [&] { return running_ == self; });
         cpu_.loadContext(self->context);
     }
 }

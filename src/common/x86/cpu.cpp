@@ -28,6 +28,14 @@ std::string hex(uint32_t v) {
     return buf;
 }
 
+// step() is inlined into runUntil, so that its frame is set up once a run;
+// Visual Studio doesn't know the GNU attribute.
+#if defined(_MSC_VER)
+#define RELUVA_FORCE_INLINE __forceinline
+#else
+#define RELUVA_FORCE_INLINE [[gnu::always_inline]] inline
+#endif
+
 // Calls end by returning here: a HLT just below the native functions.
 constexpr uint32_t kReturnSlots = 1;
 
@@ -732,7 +740,7 @@ void Cpu::events() {
         fault("instruction limit reached");
 }
 
-[[gnu::always_inline]] inline void Cpu::step() {
+RELUVA_FORCE_INLINE void Cpu::step() {
     instructionStart_ = eip;
     if (eip >= nativeBase_ - kNativeStride * kReturnSlots) {
         callNative(eip);

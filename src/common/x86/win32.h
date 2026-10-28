@@ -171,6 +171,9 @@ public:
         uint64_t waitUntil = 0;
         std::string name;
         uint64_t instructions = 0; // run on it, up to its last turn's end
+        // Notified when its turn comes (one each, so a change of thread
+        // wakes only the host thread whose turn it is).
+        std::condition_variable turn;
     };
     // A thread running `body` (which calls into the emulated code), with a
     // stack and information block of its own; suspended if asked.
@@ -226,7 +229,6 @@ private:
     std::vector<std::shared_ptr<Thread>> threads_;
     Thread* running_ = nullptr;
     std::mutex mutex_;
-    std::condition_variable turn_;
     std::atomic<bool> exiting_{false}; // set from other threads too (requestExit)
     uint32_t exitCode_ = 0;
     std::string failure_; // a thread's fault, which ends the process
