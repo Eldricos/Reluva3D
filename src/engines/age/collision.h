@@ -5,6 +5,7 @@
 
 #include "engines/age/vecmath.h"
 
+#include <array>
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
@@ -31,6 +32,16 @@ public:
     // Files the triangles into the grid; call after adding them all.
     void build(float cellSize = 8);
     size_t size() const { return triangles_.size(); }
+    // A few more triangles, replaced as they move (a drawbridge's leaves),
+    // checked along with those in the grid.
+    void setMoving(const std::vector<std::array<Vec3, 3>>& triangles, Surface surface = {});
+    // Takes out the triangles `drop` says to (after build(); the grid is
+    // built again).
+    template <typename F>
+    void removeIf(F&& drop) {
+        std::erase_if(triangles_, [&](const Triangle& t) { return drop(t.a, t.b, t.c); });
+        build(cellSize_);
+    }
 
     struct RayHit {
         float distance = 0;
@@ -57,6 +68,7 @@ private:
     void forEachNear(float x0, float z0, float x1, float z1, F&& f) const;
 
     std::vector<Triangle> triangles_;
+    std::vector<Triangle> moving_;
     std::unordered_map<Cell, std::vector<uint32_t>> grid_;
     float cellSize_ = 8;
     mutable std::vector<uint32_t> seen_; // per triangle, the query that last saw it

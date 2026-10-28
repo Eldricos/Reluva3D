@@ -214,3 +214,36 @@ it), and their lines about the police car itself
 files' form) is the way for a Crash Course lesson (San Francisco's
 lesson 5, London's lesson 10, whose `crash<n>data.csv` names it), not a
 patrol.
+
+## Boats and drawbridges
+
+`Gizmos` (`gizmos.cpp`) moves the things on the cities' path sets
+([pathset.md](../formats/age/pathset.md)): 17 boats in San Francisco (a
+car ferry, sailboards, sailboats, ducks) and 22 in London (car ferries,
+tugs, water taxis, ducks), and London's four drawbridges and San
+Francisco's Chinatown gate, which stands still.
+
+- **Boats** go round their paths or back and forth, at the path's speed
+  as Reluva reads it, facing the way the path goes over a stretch either
+  side (40 m for a ferry, 12 for tugs and taxis, 3 for others, half a
+  metre for ducks, so long boats turn as a whole), bobbing 8 cm (2 for
+  ducks). They don't collide.
+- **Drawbridges**: each leaf turns up about its hinge, the end at the
+  bank. The cycle is Reluva's: 50 seconds down, 8 rising, 20 up (to half
+  a radian, about 29°), 8 falling, each bridge 29 seconds behind the one
+  before; a race's `open:` bridge starts up. A leaf is as wide as half
+  its model, which is modelled about the middle of its length with its
+  road at its origin's height, and is drawn hinged at the path's height.
+- **Driving over them**: a leaf's road is two triangles that move with
+  it, checked with the city's. The city's own road reaches across the
+  gap (untextured triangles under Tower Bridge, at the bridge's height);
+  those whose middle is under a leaf, within 1.5 m of its height, are
+  taken out of the drawing and the collisions, so a raised bridge leaves
+  a gap. Down, a car crosses level (7.9-8.1 m on Tower Bridge); up, it
+  jumps the gap or drops into the river.
+- **Traffic** stops at a bridge that isn't down: a line of road users
+  across each hinge, every 2 m, that cars held up 10 seconds don't drive
+  through as they do through others.
+
+Whether the game raises its bridges on a timer, when ships come or only
+in some races isn't known.

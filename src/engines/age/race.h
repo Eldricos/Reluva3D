@@ -66,6 +66,8 @@ Error loadRace(const SearchSet& files, const std::string& city, RaceKind kind, i
 // race/<city>/<file><n>.aimap, or .aimap_p for a professional run (see
 // aimap.h).
 std::string raceAiMapName(const std::string& city, RaceKind kind, int index, bool professional);
+// The race's own name in its files: "blitz3", "circuit0", "race5".
+std::string raceStem(RaceKind kind, int index);
 
 // Parsers for the files, for tests.
 Error parseRaceSettings(const std::string& csv, int index, std::array<RaceSettings, 2>& out);

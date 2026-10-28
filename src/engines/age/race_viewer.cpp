@@ -180,9 +180,16 @@ void RaceViewer::startRace() {
     life.cops = std::max(0, set.cops);
     life.rain = set.weather == 3;
     life.seed = uint32_t(raceIndex_ * 7 + level_ + 1);
-    if (life_.loaded())
+    life.variant = raceStem(race_.kind, raceIndex_); // its own bridges and ferries where it has them
+    if (life_.loaded()) {
         if (Error err = life_.start(*renderer_, scene_->textures(), ctx_.files, ai, life, ctx_.mixer))
             error_ = err.message;
+        // What the city has across the drawbridges' gaps goes: the leaves
+        // are the road there.
+        auto inGap = [&](const Vec3& a, const Vec3& b, const Vec3& c) { return life_.gizmos().inGap(a, b, c); };
+        scene_->hide(inGap);
+        world_.removeIf(inGap);
+    }
     fill_ = true;
 
     engine_.stop();

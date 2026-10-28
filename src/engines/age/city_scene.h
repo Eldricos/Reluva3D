@@ -10,6 +10,7 @@
 #include "engines/age/psdl.h"
 #include "engines/age/render_cache.h"
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -54,6 +55,9 @@ public:
     // Brightens the city's opaque surfaces drawn by draw() with `lights`
     // (the nearest gfx::kMaxDynamicLights to `eye`): headlights on the road.
     void drawDynamicLights(std::vector<gfx::DynamicLight> lights, const gfx::Vec3& eye);
+    // Stops drawing the city's triangles `drop` says to (what lies across
+    // a drawbridge's gap); for good, until the next load().
+    void hide(const std::function<bool(const Vec3& a, const Vec3& b, const Vec3& c)>& drop);
 
     // What was loaded, for the pages' info and the collision world.
     const std::vector<std::string>& notes() const { return notes_; }

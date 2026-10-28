@@ -6,6 +6,7 @@
 #include "common/audio/mixer.h"
 #include "engines/age/aimap.h"
 #include "engines/age/bai.h"
+#include "engines/age/gizmos.h"
 #include "engines/age/pedestrians.h"
 #include "engines/age/police.h"
 #include "engines/age/road_graph.h"
@@ -32,6 +33,7 @@ public:
         bool rain = false;            // the pedestrians dressed for it
         bool laneChanges = false;     // traffic changes lanes (else as the settings say)
         bool patrols = false;         // the police patrol the lanes rather than wait
+        std::string variant;          // a race's own path sets ("circuit0"...), over the city's
         uint32_t seed = 1;
     };
     // Starts afresh with `settings` (the city's, or a race's read over
@@ -47,8 +49,9 @@ public:
 
     // Moves everyone round the player; `others` are the other driven cars
     // (opponents). `fill` places the traffic and pedestrians anywhere
-    // round the player rather than out of sight (just started).
-    void update(float dt, CarSim& player, const std::vector<CarSim*>& others, const CollisionWorld& world,
+    // round the player rather than out of sight (just started). The
+    // drawbridges' leaves go into `world` as they move.
+    void update(float dt, CarSim& player, const std::vector<CarSim*>& others, CollisionWorld& world,
                 const RoadGraph& roads, bool fill = false);
     void draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight& light, const gfx::Mat4& viewProj,
               const Vec3& eye, const FlareDrawer* flares = nullptr);
@@ -59,6 +62,7 @@ public:
     Pedestrians& pedestrians() { return peds_; }
     Police& police() { return police_; }
     const TrafficLights& lights() const { return lights_; }
+    const Gizmos& gizmos() const { return gizmos_; }
 
 private:
     AiRoadMap roads_;
@@ -68,6 +72,7 @@ private:
     Pedestrians peds_;
     Police police_;
     TrafficLights lights_;
+    Gizmos gizmos_;
     bool lampsLit_ = false, night_ = false;
 };
 

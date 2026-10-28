@@ -282,6 +282,7 @@ private:
     void loadCar(int index);
     void resetCar();
     void startLife();
+    void cutBridgeGaps();
     void drawHud();
 
     std::vector<CityInfo> cities_;
