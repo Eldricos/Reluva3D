@@ -823,9 +823,42 @@ reads, the vftables it builds for its own subclasses):
       the walkway and shows the door, from a further base. So the
       precision isn't the cause either.
     - So ours runs the game's own camera code to a consistent result.
-      There was only ever one release, so something ours gives that
-      code still differs. Not yet found; the candidates are Dash's exact
-      path or speed near the lock, and the camera's orientation.
+      There was only ever one release, so the difference has to be in
+      what that code is given.
+    - Compared from Go (69.6 s in the recording; Go is when the button
+      turns from green to red), the two differ from the first second,
+      not just at the lock:
+      - The camera held right after Go is the view the player had
+        chosen. A new base is held at least 1.4 s, and the main base
+        2.5 s. Our route's five NextCam presses leave a high base at
+        (-470.9, -59.5, 514.2), so ours shows the room from there for
+        2.5 s. Half a second after Go the original is already low
+        behind Dash.
+      - The original player's view before Go is none of our eight
+        NextCam views, so they used the rotate buttons too. With view 4
+        (seven more presses after the tile clicks, Go at frame 3680) or
+        view 7 (two more, Go at 3480), ours keeps to the walkway base
+        and never turns to the skull-side base. The pre-Go camera does
+        steer the rest. It still cuts to the door when it opens, and
+        then to `REWARD_CAM`. With every view, Dash still wins.
+      - From 72 to 75 s the original's view changes about every half
+        second and stays close to Dash. That is quicker than the 1.4 s
+        any base is held, so either the player was moving the camera
+        or it was following Dash. Ours only uses fixed bases
+        (`FIXED_PAN`) the whole time.
+    - At the lock, ours does what the original does apart from the
+      camera. The lock plays `plunger_in` and `plunger_out`; Dash's
+      behaviour (T0011) calls `AssignZoomActor(Dash, "T0011")` (the
+      actor `REWARD_CAM` films, kept only if none is set yet) and starts
+      `victory`; the door starts `opening`. The original films that
+      `victory` from the front, close, until "We did it!" (77.5 to
+      89 s). Its view changes a little at about 85 s, where the chain's
+      5 + 2 seconds and the music would bring `REWARD_CAM`. Ours films
+      the door opening first.
+    - Not settled: the original player's camera input during the run,
+      which ours can't replay. The recording alone doesn't show
+      whether the original's door shot lost to that input or to
+      something ours still does differently.
   - Found on the way: Direct3D 7 puts the FPU in single precision
     (24 bits) when it makes a device, and on its calls, unless the
     program passed `DDSCL_FPUPRESERVE`. LEGO Alpha Team passes
