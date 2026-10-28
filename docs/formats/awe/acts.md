@@ -265,7 +265,11 @@ while the action's script still runs. After each action the game runs on
 till it settles: nothing running and nothing said for 3 seconds of game
 time, movies skipped, lines cut short. The file names objects, items and
 scenes only (no game text); `-play -list` shows what could be done at
-its end, `-log n` the script log from the n-th action on.
+its end, `-log n` the script log from the n-th action on. With `-v`
+the log numbers each choice taken (`choice 1104c12: 1 of [...]`, the
+12th choice of action 1104), and `-shot <n> <out.tga>` saves the screen
+just before action n, `-shot <n>c<k> <out.tga>` just before that choice
+is taken (drawn: with `-3d`, the 3D under the 2D).
 
 **What a player can do** in a state (`Player::actions`, the Scenes page's
 tool functions in `scene_autoplay.cpp`): click each hotspot, character

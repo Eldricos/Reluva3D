@@ -40,6 +40,7 @@
 #include <cctype>
 #include <chrono>
 #include <cstdio>
+#include <cstring>
 #include <cstdlib>
 #include <fstream>
 #include <map>
@@ -127,9 +128,11 @@ public:
         // and waited-for sounds take their own time, and lines play out.
         if (sound)
             mixer_ = std::make_unique<audio::Mixer>(kMixRate);
+        // The fonts, for -shot's boxes and captions.
+        const bool haveFonts = !fonts_.load(files);
         ctx_ = std::make_unique<ViewerContext>(ViewerContext{sys_, files, mixer_.get(), screen_,
                                                              std::filesystem::temp_directory_path() / "reluva-awe-solve",
-                                                             nullptr});
+                                                             haveFonts ? &fonts_ : nullptr});
         page_ = std::make_unique<ScenePage>(*ctx_);
         page_->cutLines = !sound;
         page_->onLog = [this](const std::string& l) {
@@ -154,6 +157,24 @@ public:
     }
 
     ScenePage& page() { return *page_; }
+
+    // -shot <n>c<k>: before the k-th choice of action n is taken, a shot
+    // of the box.
+    std::map<std::pair<size_t, size_t>, std::string> choiceShots;
+    size_t action = 0; // the playthrough's action being done, from 1
+
+    // -shot: the screen as it is now, drawn (the 3D under the 2D with a
+    // window), saved to `file` as a TGA.
+    bool shot(const std::filesystem::path& file) {
+        page_->setDrawing(true);
+        page_->requestScreenshot(file);
+        std::error_code ec;
+        std::filesystem::remove(file, ec);
+        for (int i = 0; i < 10 && !std::filesystem::exists(file); i++)
+            step();
+        page_->setDrawing(false);
+        return std::filesystem::exists(file);
+    }
 
     // The game saved to memory as the save screen saves it, with the scene
     // left last (which a saved game doesn't keep, and "lastscene" tests)
@@ -455,6 +476,8 @@ private:
     int choose(const std::vector<std::string>& choices) {
         int pick = -1;
         const size_t at = taken_.size();
+        if (const auto s = choiceShots.find({action, at + 1}); s != choiceShots.end())
+            std::printf("  shot at choice %zu: %s %s\n", at + 1, s->second.c_str(), shot(s->second) ? "saved" : "not saved");
         if (at < forced_.size() && forced_[at] >= 0 && forced_[at] < int(choices.size()))
             pick = forced_[at];
         for (int i = 0; i < int(choices.size()) && pick < 0; i++) {
@@ -467,6 +490,11 @@ private:
         if (pick < 0)
             return -1;
         counts_[choices[size_t(pick)]]++;
+        // In the log, numbered for -shot c<k>.
+        std::string offered;
+        for (const std::string& c : choices)
+            offered += (offered.empty() ? "" : " | ") + c.substr(0, 40);
+        log_.push_back("  choice " + std::to_string(action) + "c" + std::to_string(at + 1) + ": " + std::to_string(pick + 1) + " of [" + offered + "]");
         taken_.push_back(pick);
         offered_.push_back(int(choices.size()));
         return pick;
@@ -506,6 +534,7 @@ public:
     std::vector<std::string> points; // each mouse click's point (-v)
 
 private:
+    GameFonts fonts_;
     Surface screen_;
     std::unique_ptr<ViewerContext> ctx_;
     std::unique_ptr<ScenePage> page_;
@@ -581,10 +610,15 @@ void writePlaythrough(const std::string& file, const std::vector<Action>& path) 
 
 // Plays a playthrough from its start; false if an action can't be done
 // or the game sticks. `print` shows where each action leaves the game.
-bool replay(Player& player, std::vector<Action>& path, bool print, size_t& done, size_t logFrom = SIZE_MAX) {
+bool replay(Player& player, std::vector<Action>& path, bool print, size_t& done, size_t logFrom = SIZE_MAX,
+            const std::map<size_t, std::string>& shots = {}) {
     done = 0;
     for (Action& a : path) {
+        if (const auto s = shots.find(done + 1); s != shots.end())
+            std::printf("  shot before %zu: %s %s\n", done + 1, s->second.c_str(),
+                        player.shot(s->second) ? "saved" : "not saved");
         const size_t logAt = player.log().size();
+        player.action = done + 1;
         const bool ok = player.act(a);
         const ScenePage::GameStatus st = player.page().status();
         if (print)
@@ -616,7 +650,8 @@ struct Node {
 int aweCommandSolve(int argc, char** argv) {
     // reluva-tool awe-acts <game> -solve <out> [-from <file>] [-budget n] [-level n] [-noclimb]
     //     [-goal text] [-t s] [-v]
-    // reluva-tool awe-acts <game> -play <file> [-list] [-reload] [-log n] [-mouse] [-3d | -characters] [-sound] [-wav file] [-v]
+    // reluva-tool awe-acts <game> -play <file> [-list] [-reload] [-log n] [-mouse] [-3d | -characters] [-sound] [-wav file]
+    //     [-shot n|<n>c<k> out.tga]... [-v]
     DirectoryArchive files;
     if (Error e = files.open(argv[2])) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
@@ -629,6 +664,8 @@ int aweCommandSolve(int argc, char** argv) {
     bool verbose = false, list = false, reload = false, mouse = false, threeD = false, characters = false;
     bool sound = false;
     std::string wavFile;
+    std::map<size_t, std::string> shots;
+    std::map<std::pair<size_t, size_t>, std::string> choiceShots; // -shot: before which action or choice, to which file
     size_t logFrom = SIZE_MAX; // -log n: the script log from the n-th action on
     for (int i = 3; i < argc; i++) {
         const std::string a = argv[i];
@@ -666,6 +703,12 @@ int aweCommandSolve(int argc, char** argv) {
             sound = true;
         else if (a == "-wav" && i + 1 < argc)
             sound = true, wavFile = argv[++i];
+        else if (a == "-shot" && i + 2 < argc && std::strchr(argv[i + 1], 'c'))
+            choiceShots[{size_t(std::atoi(argv[i + 1])), size_t(std::atoi(std::strchr(argv[i + 1], 'c') + 1))}] =
+                argv[i + 2],
+                i += 2;
+        else if (a == "-shot" && i + 2 < argc)
+            shots[size_t(std::atoi(argv[i + 1]))] = argv[i + 2], i += 2;
     }
     // -3d: a window's renderer (under a display, real or virtual), so the
     // characters load and are picked by their bones.
@@ -684,6 +727,7 @@ int aweCommandSolve(int argc, char** argv) {
     Player player(files, limit, window.get(), characters, sound);
     player.recording = !wavFile.empty();
     player.mouse = mouse;
+    player.choiceShots = choiceShots;
 
     if (!playFile.empty()) {
         std::vector<Action> path;
@@ -692,7 +736,7 @@ int aweCommandSolve(int argc, char** argv) {
             return 1;
         }
         size_t done = 0;
-        const bool ok = replay(player, path, true, done, logFrom);
+        const bool ok = replay(player, path, true, done, logFrom, shots);
         if (!wavFile.empty()) {
             // 16-bit stereo PCM.
             std::ofstream out(wavFile, std::ios::binary);

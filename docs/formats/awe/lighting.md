@@ -134,5 +134,10 @@ by. The specular goes into a second vertex colour, drawn as a pass that
 adds it over the textured model (depth equal, no depth write). Which
 lights are on is decided from the conditions as they stood on entering
 the scene; night is tested each frame. The brightness option still
-scales it. Not done: the flicker, and the `light` command (neither is
+scales it. The specular was checked in a frame of act 8 (Solutions_02,
+Antoinette seated, `awe-acts -3d -shot 1104c12`) against the same
+moment of the recording (Walkthrough Part 10, 16:12): it adds up to
+22/255 on her, warm as the light, and brings the lit dress and skin
+nearer the recording's colours; nothing else in the frame changes. Not
+done: the flicker, and the `light` command (neither is
 used by the install).

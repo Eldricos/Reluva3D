@@ -659,7 +659,9 @@ ends. Exits exist only with gen (NPC clicks or `forcegen`).
   42 pixels down the box (`[0x483098]` = 42.0); each is hit from 8 pixels
   before it to 8 after its 96 (0x43cdc3), tested before the text rows
   (0x43c810, then 0x43cce0 for the thread). The text rows are drawn as
-  well. Checked against the recording (Part 10, 16:12 and 18:30).
+  well. Checked against the recording (Part 10, 16:12 and 18:30): Reluva's
+  box for the same choices (`awe-acts -3d -shot 1104c12`, `1104c17`)
+  has its rows, bullets and pictures in the same places.
 * Movie mode (0x43a610): the movie player starts the conversation named
   after the movie from `Text\Movies\<movie>.txt` (0x42ae7d) and then sets
   +0x6f0 and the box height 64. The window isn't drawn (0x43cffc skips it
