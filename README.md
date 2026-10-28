@@ -136,8 +136,11 @@ Network (TCP)) uses the machine's network, other players joining on TCP port 103
   pick one, **W/A/S/D** move, the arrows or a drag look, **Space/C** go up and down,
   **Shift** goes faster, **N/B** jump to the next or previous piece of road, **1/2/3** pick
   the road's detail, **H** cycles day, night, weather and night with weather, **G** shows
-  the walls the game keeps cars within, and **T/V/L/O/X/F** turn textures, vertex lighting,
-  lane markings, objects, the other texture set and back faces off and on. On cars,
+  the walls the game keeps cars within, **X** steps through the texture sets (the two
+  16-bit ones, then their 8-bit versions), and **T/V/L/O/F/Y/M** turn textures, vertex
+  lighting, lane markings, objects, back faces, fog, and the lights and placed sounds off
+  and on. The sky has its clouds, sun or moon, fog and lightning; the lights glow and the
+  placed sounds play as the camera nears them. On cars,
   **Left/Right** pick one, drag or **W/A/S/D** turn it, the wheel zooms, **L** changes the
   detail, **T** the skin, **C** back faces and **Space** spins it. For textures, **Up/Down** pick a file
   (**PageUp/PageDown** by 10), **Left/Right** a picture in it (**Home/End** the first and
@@ -146,8 +149,10 @@ Network (TCP)) uses the machine's network, other players joining on TCP port 103
   and **F** switches between the game's font and Reluva's. For fonts, **Left/Right** pick
   one and **+/-** change the size. For sounds, **PageUp/PageDown** pick a bank, **Up/Down**
   a sound in it (played as it's picked; **P** turns that off), **Space** plays it and **S**
-  stops it. For music, **Up/Down** pick a stream and **Space** plays it from its first
-  section, each section leading to the next as its map says for the intensity, which
+  stops it; sounds with a loop (engines) loop until stopped, and **Left/Right** move the
+  pitch a semitone. For music, **Up/Down** pick a stream and **Space** plays it from its
+  start section (a race's intro), each section leading straight into the next as its map
+  says for the intensity, which
   **Left/Right** change; **N** moves on at once and **L** switches between the map and the
   linear order. For movies, **Up/Down** pick one, **Space** pauses, **Left/Right** jump 5
   seconds and **PageUp/PageDown** step a frame.
