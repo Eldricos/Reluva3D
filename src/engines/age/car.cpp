@@ -27,8 +27,10 @@ constexpr float kMetresPerSecondPerMph = 0.44704f;
 // The tuning's friction (3 for most tyres) over this is a friction
 // coefficient: 1 on dry road, as a car's tyres have.
 constexpr float kFrictionScale = 3;
-constexpr float kHullRadius = 0.2f; // spheres round the hull's corners
-constexpr float kSteerRate = 3;     // full lock and back, per second
+constexpr float kHullRadius = 0.2f;     // spheres round the hull's corners
+constexpr float kSteerRate = 3;         // full lock and back, per second
+constexpr float kRolling = 0.015f;      // of a wheel's load
+constexpr float kEngineBraking = 0.04f; // likewise
 
 std::string textOf(const std::vector<uint8_t>& data) { return std::string(data.begin(), data.end()); }
 
@@ -91,8 +93,10 @@ Error loadCarSetup(const SearchSet& files, const std::string& car, CarSetup& out
     out.boundFriction = sim->number("BoundFriction", 0, out.boundFriction);
     out.boundElasticity = sim->number("BoundElasticity", 0, out.boundElasticity);
     out.drivetrain = int(sim->number("DrivetrainType", 0, 0));
-    if (const TuneNode* aero = sim->child("Aero"))
+    if (const TuneNode* aero = sim->child("Aero")) {
         out.drag = aero->number("Drag", 0, out.drag);
+        out.down = aero->number("Down");
+    }
     if (const TuneNode* e = sim->child("Engine")) {
         out.maxHorsePower = e->number("MaxHorsePower", 0, out.maxHorsePower);
         out.idleRpm = e->number("IdleRPM", 0, out.idleRpm);
@@ -108,6 +112,13 @@ Error loadCarSetup(const SearchSet& files, const std::string& car, CarSetup& out
     }
     readAxle(sim->child("WheelFront"), out.front);
     readAxle(sim->child("WheelBack"), out.back);
+    TuneNode stuck;
+    if (!files.read("tune/vehicle/" + car + ".vehStuck", data) && !parseTune(textOf(data), stuck))
+        if (const TuneNode* s = stuck.child("vehStuck")) {
+            out.stuckTime = s->number("TimeThresh", 0, out.stuckTime);
+            out.stuckDistance = s->number("PosThresh", 0, out.stuckDistance);
+            out.stuckSpeed = s->number("MoveThresh", 0, out.stuckSpeed);
+        }
 
     // The wheels where their placements put them, their radius from their
     // bounds' height.
@@ -119,7 +130,7 @@ Error loadCarSetup(const SearchSet& files, const std::string& car, CarSetup& out
         out.wheelRadius[size_t(i)] = std::max(0.1f, (mtx.max[1] - mtx.min[1]) / 2);
     }
     Bound bound;
-    if (!files.read("bound/" + car + "_BOUND.bnd", data) && !readBound(textOf(data), bound))
+    if (!loadBound(files, car, bound))
         out.hull = bound.vertices;
     if (out.hull.empty()) // a box between the wheels
         for (float x : {-0.9f, 0.9f})
@@ -138,7 +149,7 @@ void CarSim::reset(const CarSetup& setup, const Vec3& at, float yaw) {
     rpm = setup.idleRpm;
     gear = 1;
     wheels = {};
-    leftover_ = shiftTimer_ = steerAngle_ = 0;
+    leftover_ = shiftTimer_ = steerAngle_ = stuckFor_ = 0;
 }
 
 Vec3 CarSim::wheelCenter(int i) const {
@@ -157,10 +168,45 @@ Vec3 CarSim::inverseInertiaTimes(const Vec3& torque) const {
 }
 
 void CarSim::step(const CarControls& controls, const CollisionWorld& world, float dt) {
+    // A manual change, once.
+    if (manual && controls.shift > 0 && gear < setup_.gears) {
+        gear = gear < 0 ? 1 : gear + 1;
+        shiftTimer_ = setup_.gearChangeTime / 2;
+    } else if (manual && controls.shift < 0) {
+        if (gear > 1) {
+            --gear;
+            shiftTimer_ = setup_.gearChangeTime / 4;
+        } else if (gear == 1 && std::fabs(forwardSpeed()) < 1) {
+            gear = -1;
+        }
+    }
+    CarControls held = controls;
+    held.shift = 0;
     leftover_ += std::min(dt, 0.1f);
     while (leftover_ >= kStep) {
-        substep(controls, world, kStep);
+        substep(held, world, kStep);
         leftover_ -= kStep;
+    }
+
+    // Turned over and stuck: set upright, facing the same way, a little
+    // above where it lay.
+    const bool over = orientation.y[1] < 0.5f; // tilted past 60 degrees
+    if (!over || length(velocity) > setup_.stuckSpeed) {
+        stuckFor_ = 0;
+        return;
+    }
+    if (stuckFor_ == 0)
+        stuckAt_ = position;
+    stuckFor_ += dt;
+    if (stuckFor_ >= setup_.stuckTime) {
+        if (length(position - stuckAt_) <= setup_.stuckDistance) {
+            const Vec3 nose = -orientation.z;
+            const float yaw = std::atan2(-nose[0], -nose[2]);
+            orientation = Mat3::rotationY(yaw);
+            position[1] += 1;
+            velocity = angularVelocity = {0, 0, 0};
+        }
+        stuckFor_ = 0;
     }
 }
 
@@ -181,19 +227,20 @@ void CarSim::substep(const CarControls& controls, const CollisionWorld& world, f
 
     // The gearbox: holding the brake when stopped backs up, the throttle
     // then brakes; the throttle when stopped in reverse goes forward again.
-    if (gear > 0 && controls.brake > 0.1f && controls.throttle < 0.1f && speed < 0.5f)
+    if (!manual && gear > 0 && controls.brake > 0.1f && controls.throttle < 0.1f && speed < 0.5f)
         gear = -1;
-    else if (gear < 0 && controls.throttle > 0.1f && controls.brake < 0.1f && speed > -0.5f)
+    else if (!manual && gear < 0 && controls.throttle > 0.1f && controls.brake < 0.1f && speed > -0.5f)
         gear = 1;
-    const float drive = gear > 0 ? controls.throttle : controls.brake;
-    const float braking = gear > 0 ? controls.brake : controls.throttle;
+    const bool backwards = gear < 0 && !manual; // the pedals swap
+    const float drive = backwards ? controls.brake : controls.throttle;
+    const float braking = backwards ? controls.throttle : controls.brake;
 
     // The engine turns with the wheels.
     const float wheelRpm = std::fabs(speed) / setup_.gearTopSpeed(gear) * setup_.maxRpm;
     const float targetRpm = std::max(setup_.idleRpm, wheelRpm);
     rpm += (targetRpm - rpm) * std::min(1.0f, 10 * h);
     shiftTimer_ = std::max(0.0f, shiftTimer_ - h);
-    if (gear > 0 && shiftTimer_ <= 0) {
+    if (!manual && gear > 0 && shiftTimer_ <= 0) {
         if (rpm > setup_.maxRpm * 0.93f && gear < setup_.gears) {
             ++gear;
             shiftTimer_ = setup_.gearChangeTime / 2;
@@ -206,9 +253,11 @@ void CarSim::substep(const CarControls& controls, const CollisionWorld& world, f
     if (shiftTimer_ <= 0 && rpm < setup_.maxRpm)
         driveForce = drive * setup_.power(rpm) / std::max(std::fabs(speed), 3.0f) * (gear < 0 ? -1.0f : 1.0f);
 
-    // Drag that tops the car out at its top gear's speed at full power.
-    const float dragCoef = setup_.power(setup_.optRpm) / std::pow(setup_.highSpeed, 3.0f);
-    force -= velocity * (length(velocity) * dragCoef);
+    // Aero: drag against the motion, down force pressing it to the road.
+    // Its top speed is top gear's, at the redline.
+    const float airSpeed = length(velocity);
+    force -= velocity * (airSpeed * setup_.drag);
+    force -= orientation.y * (setup_.down * airSpeed * airSpeed);
 
     // The wheels.
     const int driven = setup_.drivetrain == 2 ? 4 : 2;
@@ -226,11 +275,14 @@ void CarSim::substep(const CarControls& controls, const CollisionWorld& world, f
         if (!world.raycast(top, down, travel + radius, hit)) {
             w.contact = false;
             w.compression = 0;
+            w.slip = w.bump = 0;
             continue;
         }
         w.contact = true;
         w.groundNormal = hit.normal;
+        w.surface = hit.surface;
         w.compression = std::clamp(travel + radius - hit.distance, 0.0f, travel);
+        w.bump = (w.compression - before) / h;
 
         // A spring that holds a quarter of the car at mid travel, damped.
         const float k = m * kGravity / 4 / axle.suspensionExtent * std::max(0.2f, axle.suspensionFactor);
@@ -250,9 +302,14 @@ void CarSim::substep(const CarControls& controls, const CollisionWorld& world, f
         const float share = m / 4;
         w.spin += along / radius * h;
 
-        float grip = axle.staticFriction / kFrictionScale;
+        // The surface's grip relative to a road's (city/materials.mtl).
+        const float surfaceGrip = hit.surface.friction / CollisionSurface{}.friction;
+        float grip = axle.staticFriction / kFrictionScale * surfaceGrip;
         float lateral = -across * share / h * 0.5f;
-        float longitudinal = -along * share * 0.02f; // rolling
+        // Rolling resistance (1.5% of the load, a road tyre's), and the
+        // engine holding the car back off the throttle in gear.
+        const float rolling = kRolling + (drive == 0 && gear != 0 ? kEngineBraking : 0.0f);
+        float longitudinal = -std::clamp(along, -1.0f, 1.0f) * rolling * load;
         const bool drives = setup_.drivetrain == 2 || (setup_.drivetrain == 1) == frontWheel;
         if (drives)
             longitudinal += driveForce / float(driven);
@@ -268,14 +325,33 @@ void CarSim::substep(const CarControls& controls, const CollisionWorld& world, f
             const float most = brake * share * kGravity * 1.5f;
             longitudinal += std::clamp(-along * share / h * 0.5f, -most, most);
         }
+        // The engine pushes no harder than the grip left beside the
+        // cornering: past it the wheel spins up, held near its best slip
+        // (heard as a skid), rather than sliding as a locked or sideways
+        // tyre does.
+        float limit = grip * load;
+        float spin = 0;
+        if (drives && driveForce != 0 && brake <= 0) {
+            const float room = std::sqrt(std::max(0.0f, limit * limit - lateral * lateral));
+            if (std::fabs(longitudinal) > room) {
+                spin = std::fabs(longitudinal) / std::max(room, 1.0f) - 1;
+                longitudinal = std::copysign(room, longitudinal);
+            }
+        }
         // Within the friction circle; past it the tyre slides, with less grip.
         const float total = std::sqrt(lateral * lateral + longitudinal * longitudinal);
-        float limit = grip * load;
-        if (total > limit) {
-            limit = axle.slidingFriction / kFrictionScale * load * (controls.handbrake && !frontWheel ? 0.45f : 1);
+        w.slip = std::clamp(spin / 4, 0.0f, 1.0f);
+        if (total > limit * 1.0001f) {
+            limit = axle.slidingFriction / kFrictionScale * load * surfaceGrip *
+                    (controls.handbrake && !frontWheel ? 0.45f : 1);
             lateral *= limit / total;
             longitudinal *= limit / total;
+            // Sliding: sideways, and along too when braking past the grip.
+            const float sliding = std::sqrt(across * across + (brake > 0 ? along * along : 0.0f));
+            w.slip = std::max(w.slip, std::clamp(sliding / 10, 0.0f, 1.0f));
         }
+        // A surface's drag (water, mud) slows the wheel.
+        longitudinal -= along * share * hit.surface.drag;
         applyAt(heading * longitudinal + side * lateral, hit.point);
     }
 
@@ -293,7 +369,19 @@ void CarSim::substep(const CarControls& controls, const CollisionWorld& world, f
 
 void CarSim::collideBody(const CollisionWorld& world) {
     const float m = setup_.mass;
-    for (const Vec3& corner : setup_.hull) {
+    // The spheres inside the hull's box, touching its faces, so the body is
+    // as big as its bound (and a low car's clear of the road).
+    Vec3 lo{1e30f, 1e30f, 1e30f}, hi{-1e30f, -1e30f, -1e30f};
+    for (const Vec3& v : setup_.hull)
+        for (size_t k = 0; k < 3; ++k) {
+            lo[k] = std::min(lo[k], v[k]);
+            hi[k] = std::max(hi[k], v[k]);
+        }
+    for (const Vec3& original : setup_.hull) {
+        Vec3 corner = original;
+        for (size_t k = 0; k < 3; ++k)
+            corner[k] = std::clamp(corner[k], std::min(lo[k] + kHullRadius, (lo[k] + hi[k]) / 2),
+                                   std::max(hi[k] - kHullRadius, (lo[k] + hi[k]) / 2));
         const Vec3 p = position + orientation * corner;
         CollisionWorld::Contact c;
         if (!world.sphereContact(p, kHullRadius, c))
@@ -316,6 +404,7 @@ void CarSim::collideBody(const CollisionWorld& world) {
         const float denom = 1 / m + dot(cross(inverseInertiaTimes(cross(r, c.normal)), r), c.normal);
         const float e = std::min(setup_.boundElasticity, c.surface.elasticity);
         const float j = -(1 + e) * vn / denom;
+        knock(j, p);
         velocity += c.normal * (j / m);
         angularVelocity += inverseInertiaTimes(cross(r, c.normal * j));
         // Friction along the surface.
@@ -361,6 +450,9 @@ void collideCars(CarSim& a, CarSim& b) {
             const float closing = dot(b.velocity - a.velocity, n);
             if (closing < 0) {
                 const float j = -1.3f * closing / (1 / ma + 1 / mb); // a little bounce
+                const Vec3 at = (pa + pb) * 0.5f;
+                a.knock(j, at);
+                b.knock(j, at);
                 a.velocity -= n * (j / ma);
                 b.velocity += n * (j / mb);
             }

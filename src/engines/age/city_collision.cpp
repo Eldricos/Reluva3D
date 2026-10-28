@@ -4,6 +4,7 @@
 #include "engines/age/city_collision.h"
 
 #include "engines/age/bound.h"
+#include "engines/age/materials.h"
 
 #include <algorithm>
 #include <map>
@@ -11,18 +12,30 @@
 
 namespace reluva::age {
 
+namespace {
+
+constexpr float kSinkDepth = 10; // metres of water a car sinks in (deep water's are 100)
+
+} // namespace
+
 size_t buildCityCollision(const SearchSet& files, const Psdl& psdl, const CityMesh& mesh,
                           const std::vector<Instance>& instances, CollisionWorld& out) {
     out = CollisionWorld{};
+    PhysicsMaterials materials;
+    materials.load(files); // without them, every surface is the default
     for (const CityMesh::Batch& b : mesh.batches) {
         if (b.water || b.detail == 2)
             continue; // what's under the water is driven on; far-off roads are there near too
+        const PhysicsMaterial& m = materials.forTexture(b.texture);
+        if (m.depth >= kSinkDepth)
+            continue; // deep water (the bay, the Thames): a car sinks
+        const CollisionSurface surface = materials.surface(m);
         for (size_t i = 0; i + 2 < b.indices.size(); i += 3) {
             auto at = [&](size_t k) {
                 const gfx::Vertex& v = mesh.vertices[b.indices[i + k]];
                 return Vec3{v.pos[0], v.pos[1], v.pos[2]};
             };
-            out.add(at(0), at(1), at(2));
+            out.add(at(0), at(1), at(2), surface);
         }
     }
 
@@ -48,10 +61,8 @@ size_t buildCityCollision(const SearchSet& files, const Psdl& psdl, const CityMe
         auto it = bounds.find(inst.model);
         if (it == bounds.end()) {
             std::unique_ptr<Bound> b;
-            std::vector<uint8_t> data;
             auto loaded = std::make_unique<Bound>();
-            if (!files.read("bound/" + inst.model + "_BOUND.bnd", data) &&
-                !readBound(std::string(data.begin(), data.end()), *loaded))
+            if (!loadBound(files, inst.model, *loaded))
                 b = std::move(loaded);
             it = bounds.emplace(inst.model, std::move(b)).first;
         }
@@ -66,8 +77,16 @@ size_t buildCityCollision(const SearchSet& files, const Psdl& psdl, const CityMe
         };
         for (const BoundPolygon& p : b.polygons) {
             CollisionSurface surface;
-            if (p.material < b.materials.size())
-                surface = {b.materials[p.material].friction, b.materials[p.material].elasticity};
+            if (p.material < b.materials.size()) {
+                // Its own friction and elasticity; the city material of the
+                // same name's sound, drag and depth (grass, water...).
+                const BoundMaterial& bm = b.materials[p.material];
+                surface = materials.surface(materials.byName(bm.name));
+                surface.friction = bm.friction;
+                surface.elasticity = bm.elasticity;
+                if (surface.depth >= kSinkDepth)
+                    continue;
+            }
             const Vec3 v0 = place(b.vertices[p.vertices[0]]), v1 = place(b.vertices[p.vertices[1]]),
                        v2 = place(b.vertices[p.vertices[2]]);
             out.add(v0, v1, v2, surface);

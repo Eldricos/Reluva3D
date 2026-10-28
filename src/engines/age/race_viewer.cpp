@@ -51,8 +51,11 @@ RaceViewer::~RaceViewer() { deactivate(); }
 void RaceViewer::deactivate() {
     life_.stop();
     engine_.stop();
+    sounds_.stop();
     racers_.clear();
     flares_.reset();
+    smoke_.reset();
+    hudMap_.unload();
     scene_.reset();
     loadedCity_ = -1;
     renderer_ = nullptr;
@@ -82,9 +85,13 @@ void RaceViewer::loadCity() {
         return;
     racers_.clear();
     flares_.reset();
+    smoke_.reset();
     const std::string& map = cities_[size_t(city_)].map;
     error_ = scene_->load(map).message;
     flares_ = std::make_unique<FlareDrawer>(*renderer_, scene_->textures());
+    smoke_ = std::make_unique<SmokePuffs>(*renderer_, scene_->textures());
+    hudMap_.load(*renderer_, ctx_.files, scene_->models(), map);
+    pictures_.load(ctx_.files);
     buildCityCollision(ctx_.files, scene_->psdl(), scene_->mesh(), scene_->instances(), world_);
     roads_.build(scene_->psdl());
     if (Error err = life_.load(ctx_.files, map); err && error_.empty())
@@ -134,6 +141,9 @@ void RaceViewer::startRace() {
         error_ = err.message;
     const Waypoint& start = race_.waypoints[0];
     player.car->sim.reset(player.car->setup, start.position + Vec3{0, 0.5f, 0}, headingToYaw(start.heading));
+    wear_.load(ctx_.files, cars_[size_t(car_)].base, *player.car);
+    if (smoke_)
+        smoke_->clear();
     racers_.push_back(std::move(player));
 
     // The race's aimap, read over the city's: the opponents' cars and
@@ -193,10 +203,14 @@ void RaceViewer::startRace() {
     fill_ = true;
 
     engine_.stop();
-    if (ctx_.mixer)
+    sounds_.stop();
+    if (ctx_.mixer) {
         engine_.start(*ctx_.mixer, ctx_.files, cars_[size_t(car_)].base);
+        sounds_.start(*ctx_.mixer, ctx_.files, cars_[size_t(car_)].base, set.weather == 3);
+    }
     cameras_ = loadCarCameras(ctx_.files, cars_[size_t(car_)].base);
     camera_ = std::min(camera_, int(cameras_.size()) - 1);
+    dash_.load(ctx_.files, scene_->models(), scene_->textures(), cars_[size_t(car_)].base);
     cameraReset_ = true;
     clock_ = -kCountdown;
     outcome_.clear();
@@ -228,9 +242,14 @@ void RaceViewer::stepRace(float dt) {
         CarSim& sim = r.car->sim;
         CarControls c;
         if (started) {
-            if (r.player)
+            if (r.player) {
                 c = r.next < targets_.size() ? controlsOf(keys_) : CarControls{0, 1, 0, false};
-            else
+                if (wear_.wrecked())
+                    c.throttle = 0; // the engine's dead
+                c.shift = shift_;
+                shift_ = 0;
+                sim.manual = manual_;
+            } else
                 c = r.driver.drive(sim, dt);
         } else {
             c.brake = 0; // waiting on the line
@@ -242,7 +261,10 @@ void RaceViewer::stepRace(float dt) {
             r.driver.resetDone();
         }
         if (r.player) {
-            engine_.update(sim.rpm, sim.gear > 0 ? c.throttle : c.brake);
+            engine_.update(sim.rpm, sim.gear > 0 || sim.manual ? c.throttle : c.brake);
+            sounds_.update(dt, sim, started && (keys_ & kDriveHorn));
+            wear_.update(dt, *r.car, smoke_.get());
+            sim.impact = 0;
             if (sim.position[1] < scene_->psdl().min[1] - 50) // fallen out: back to the last checkpoint
                 sim.reset(r.car->setup,
                           (r.next > 0 ? targetPoint(r.next - 1) : race_.waypoints[0]).position + Vec3{0, 0.5f, 0},
@@ -261,6 +283,8 @@ void RaceViewer::stepRace(float dt) {
     for (size_t i = 0; i < racers_.size(); ++i)
         for (size_t j = i + 1; j < racers_.size(); ++j)
             collideCars(racers_[i].car->sim, racers_[j].car->sim);
+    if (smoke_)
+        smoke_->update(dt);
     std::vector<CarSim*> others;
     for (size_t i = 1; i < racers_.size(); ++i)
         others.push_back(&racers_[i].car->sim);
@@ -290,6 +314,9 @@ void RaceViewer::stepRace(float dt) {
         state_ = State::Finished;
     } else if (life_.police().busted()) {
         outcome_ = "Busted";
+        state_ = State::Finished;
+    } else if (wear_.wrecked()) {
+        outcome_ = "Wrecked";
         state_ = State::Finished;
     }
 }
@@ -343,6 +370,14 @@ void RaceViewer::handleEvent(const Event& ev) {
     } else if (ev.key == 'c') {
         camera_ = (camera_ + 1) % int(cameras_.size());
         cameraReset_ = true;
+    } else if (ev.key == 'z') {
+        hudMap_.toggleZoom();
+    } else if (ev.key == 'f') {
+        hudMap_.toggleFullScreen();
+    } else if (ev.key == 'm') {
+        manual_ = !manual_;
+    } else if (ev.key == 'e' || ev.key == 'q') {
+        shift_ = ev.key == 'e' ? 1 : -1;
     }
 }
 
@@ -395,6 +430,29 @@ void RaceViewer::drawArrow() {
     }
 }
 
+void RaceViewer::drawMap(float dt) {
+    // The checkpoints still to reach (the next green, the finish its own),
+    // the opponents, the police and the player.
+    hudMap_.update(dt);
+    const Racer& player = racers_.front();
+    std::vector<HudMapIcon> icons;
+    for (size_t i = player.next; i < targets_.size(); ++i)
+        icons.push_back({targetPoint(i).position,
+                         {0, 0, -1},
+                         i + 1 == targets_.size() ? hudcolor::kFinish
+                         : i == player.next       ? hudcolor::kNext
+                                                  : hudcolor::kCheckpoint,
+                         true});
+    for (CarSim* c : life_.police().cars())
+        icons.push_back({c->position, -c->orientation.z, hudcolor::kPolice, false});
+    for (const Racer& r : racers_)
+        if (!r.player)
+            icons.push_back({r.car->sim.position, -r.car->sim.orientation.z, hudcolor::kOpponent, false});
+    const CarSim& sim = player.car->sim;
+    icons.push_back({sim.position, -sim.orientation.z, hudcolor::kPlayer, false});
+    hudMap_.draw(*renderer_, scene_->models(), sim.position, -sim.orientation.z, icons, kFrameW, kFrameH);
+}
+
 void RaceViewer::drawMenu() {
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
     const int lh = font::kLineHeight * 2;
@@ -437,6 +495,7 @@ void RaceViewer::drawRaceHud() {
     const float shown = blitz ? set.timeLimit - std::max(0.0f, clock_) : std::max(0.0f, clock_);
     font::drawText(overlay_, 4, 18, (blitz ? "LEFT " : "TIME ") + clockText(shown),
                    blitz && shown < 10 ? Color{255, 90, 90} : Color{255, 255, 255}, 2);
+    pictures_.clock(overlay_, shown, kFrameW - 8, 8); // and in the game's digits, top right
     // Checkpoints, laps, position.
     const size_t perLap = race_.waypoints.size() - (race_.kind == RaceKind::Circuit ? 0 : 1);
     char buf[80];
@@ -483,8 +542,10 @@ void RaceViewer::drawRaceHud() {
         font::drawText(overlay_, 60, y + 10, "Enter: back to the menu", {150, 200, 255});
     }
     if (life_.police().chasing() > 0 && state_ != State::Finished)
-        font::drawText(overlay_, 4, kFrameH - 24, "POLICE CHASING", {255, 90, 90}, 2);
-    drawSpeedometer(overlay_, player.car->sim);
+        font::drawText(overlay_, 4, kFrameH - 150, "POLICE CHASING", {255, 90, 90}, 2); // above the speedometer
+    drawSpeedometer(overlay_, player.car->sim,
+                    hudMap_.loaded() ? int(hudMap_.setup().left * float(kFrameW)) - 8 : kFrameW - 8, wear_.fraction(),
+                    pictures_);
 }
 
 void RaceViewer::update(uint64_t nowMs) {
@@ -537,7 +598,13 @@ void RaceViewer::update(uint64_t nowMs) {
                 r.car->drawFlares(*flares_, eye);
             }
         drawCheckpoints();
+        if (smoke_)
+            smoke_->draw(eye);
+        if (inside && dash_.loaded())
+            dash_.draw(*renderer_, scene_->models(), racers_.front().car->sim, wear_.fraction(), eye,
+                       normalized(target - eye), up, float(kFrameW) / float(kFrameH), scene_->light());
         drawArrow();
+        drawMap(dt);
         drawRaceHud();
     }
     renderer_->endFrame(&overlay_);

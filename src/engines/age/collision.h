@@ -15,6 +15,10 @@ namespace reluva::age {
 // What a collision triangle is made of.
 struct CollisionSurface {
     float friction = 0.5f, elasticity = 0.1f;
+    // From the city's physics materials (materials.h): which surface the
+    // car sounds play, how much a wheel on it is slowed, how deep it is.
+    uint8_t sound = 0;
+    float drag = 0, depth = 0;
 };
 
 // Triangles to collide with, in a grid over X and Z for finding those

@@ -47,10 +47,16 @@ public:
     void drawFlares(const FlareDrawer& flares, const Vec3& eye) const;
     // Where its headlights light the road ahead, when they're on.
     bool headlightPool(gfx::DynamicLight& out) const;
+    // Damage: the body's parts within `radius` of a point (in the car's
+    // frame) take their damaged textures (<texture>_dmg), where they have
+    // them; mend() puts them back.
+    void dent(const Vec3& at, float radius);
+    void mend();
 
 private:
     gfx::Renderer3D* renderer_ = nullptr;
     ModelMesh body_;
+    std::vector<gfx::TextureId> clean_, damaged_; // each body draw's textures (damaged_ 0: none)
     std::array<ModelMesh, 4> wheels_;
     std::array<ModelMesh, 2> sirens_; // SIREN0, SIREN1
     ModelMesh head_, tail_, brake_, reverse_;

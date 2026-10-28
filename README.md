@@ -121,10 +121,14 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   sidewalks (**Y** steps through none, light, normal and heavy); cars' headlights come on
   in the evening, at night and in fog and rain; and police, who patrol the streets, chase
   a car speeding past them and bust it once it's stopped (**O** turns them off and on).
-  In the police car, **H** sounds its siren. Cars are parked by the curbs and in car
-  parks, ferries and boats go round the water, London's drawbridges rise and fall and its
-  Underground trains run through the tunnels. The handling, the traffic and the police are
-  Reluva's own, not yet compared with the game.
+  **H** sounds the horn (in the police car, its siren); **M** changes to manual gears
+  (**E/Q** change up and down) and back. In the car the camera shows its dashboard; the
+  map in the corner zooms with **Z**, and **F** shows it full screen. Knocks damage the
+  car: it smokes, shows its damage and, wrecked, stops. Cars are parked by the curbs and
+  in car parks, ferries and boats go round the water, London's drawbridges rise and fall
+  and its Underground trains run through the tunnels. The handling (every car tops out at
+  its own top speed), the traffic and the police are Reluva's own, not yet compared with
+  the game run.
   **Tab** switches between racing, driving, the world, models, textures and files. In the world, **Left/Right** picks London or San
   Francisco, drag to look, **W/A/S/D** move, **Space/C** (or **E/Q**) go up and down,
   **Shift** goes faster, **T** steps through the 16 times of day and weathers, **M**

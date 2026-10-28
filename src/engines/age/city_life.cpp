@@ -3,6 +3,8 @@
 
 #include "engines/age/city_life.h"
 
+#include <algorithm>
+
 namespace reluva::age {
 
 Error CityLife::load(const SearchSet& files, const std::string& map) {
@@ -78,8 +80,19 @@ void CityLife::update(float dt, CarSim& player, const std::vector<CarSim*>& othe
     // Every driven car bumps the traffic and the trains; the police bump
     // the opponents; the trains shove the traffic aside.
     std::vector<CarSim*> cops = police_.cars();
-    traffic_.collide(player);
-    gizmos_.collide(player);
+    // The player's knocks against the traffic and the trains, as an
+    // impulse for its sounds.
+    // The knock is on the side it was pushed away from.
+    auto knocked = [&](float change, const Vec3& before) {
+        Vec3 push = player.velocity - before;
+        push[1] = 0;
+        if (change > 0 && length(push) > 1e-4f)
+            player.knock(change * player.setup().mass, player.position - normalized(push) * 2);
+    };
+    Vec3 before = player.velocity;
+    knocked(traffic_.collide(player), before);
+    before = player.velocity;
+    knocked(gizmos_.collide(player), before);
     for (CarSim* c : others) {
         traffic_.collide(*c);
         gizmos_.collide(*c);

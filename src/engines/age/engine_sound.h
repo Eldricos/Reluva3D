@@ -5,6 +5,7 @@
 
 #include "common/archive.h"
 #include "common/audio/mixer.h"
+#include "engines/age/car.h"
 
 #include <memory>
 #include <string>
@@ -25,7 +26,8 @@ struct EngineSample {
 };
 
 struct EngineSoundSetup {
-    std::string horn;
+    std::string horn, clutch; // the clutch's: played on changing gear
+    float hornVolume = 1, clutchVolume = 1;
     std::vector<EngineSample> samples;
 };
 
@@ -79,6 +81,79 @@ private:
     int current_ = -1;
     float left_ = 0;   // seconds before the next sample
     size_t turns_ = 0; // which of a sample's ways on to take, in turn
+};
+
+// The tyres' sounds on each kind of surface (aud/cardata/player/
+// default_surfacedry.csv, _surfacewet.csv): a rolling sound louder and
+// higher with speed, and skids by how much the tyres slide. A surface's
+// number is its physics material's sound (materials.h).
+struct SkidSample {
+    std::string wave;
+    float minSlip = 0, maxSlip = 1;
+};
+struct SurfaceSound {
+    std::string wave; // NOSOUND for none
+    float maxSpeed = 125;
+    float minVolume = 0, maxVolume = 0, minPitch = 1, maxPitch = 1;
+    float minSkidVolume = 0.5f, maxSkidVolume = 0.9f;
+    std::vector<SkidSample> skids;
+};
+struct SurfaceSounds {
+    int tunnel = 0; // the surface used in tunnels (not used yet)
+    std::vector<SurfaceSound> surfaces;
+};
+Error readSurfaceSounds(std::string_view csv, SurfaceSounds& out);
+
+// Knocks (aud/cardata/player/default_impacts.csv): for each kind of thing
+// hit (WALL, LIGHT, SIGN...), samples by how hard.
+struct ImpactSample {
+    std::string wave;
+    float minVolume = 1, maxVolume = 1, minForce = 0, maxForce = 1e9f, pitch = 1;
+};
+struct ImpactSounds {
+    std::string name; // "WALL"
+    int id = 0;
+    std::vector<ImpactSample> samples;
+};
+Error readImpactSounds(std::string_view csv, std::vector<ImpactSounds>& out);
+
+// The rest of a driven car's sounds: its horn, its clutch on changing
+// gear, its tyres on what they're on and skidding, its knocks (as the
+// WALL sounds) and its suspension bumping (aud/cardata/player/
+// suspensionaudio.csv). See docs/engines/age-driving.md.
+class CarSounds {
+public:
+    ~CarSounds() { stop(); }
+    // The car's table and the shared ones; `wet` takes the wet roads'.
+    Error start(audio::Mixer& mixer, const SearchSet& files, const std::string& car, bool wet);
+    // Follows the car (its gear, wheels and impact); `horn` held sounds it.
+    void update(float dt, const CarSim& car, bool horn);
+    void stop();
+
+private:
+    using SoundPtr = std::shared_ptr<audio::Sound>;
+    SoundPtr load(const std::string& wave) const;
+    void loop(audio::SoundHandle& handle, const SoundPtr& sound, float volume, float pitch);
+
+    audio::Mixer* mixer_ = nullptr;
+    const SearchSet* files_ = nullptr;
+    EngineSoundSetup car_;
+    SoundPtr horn_, clutch_;
+    audio::SoundHandle hornPlaying_ = audio::kNoSound;
+    int lastGear_ = 1;
+
+    SurfaceSounds surfaces_;
+    std::vector<SoundPtr> rolling_;               // per surface
+    std::vector<std::vector<SoundPtr>> skidding_; // per surface, per skid
+    audio::SoundHandle rollPlaying_ = audio::kNoSound, skidPlaying_ = audio::kNoSound;
+    int rollSurface_ = -1, skidSurface_ = -1, skidSample_ = -1;
+
+    ImpactSounds wall_;
+    std::vector<SoundPtr> wallSounds_;
+    float impactWait_ = 0; // seconds before another knock is heard
+
+    SoundPtr suspension_;
+    float bumpMin_ = 2, bumpMax_ = 3, bumpMinVolume = 0.85f, bumpMaxVolume = 0.9f, bumpWait_ = 0;
 };
 
 } // namespace reluva::age

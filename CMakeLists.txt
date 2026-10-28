@@ -212,6 +212,11 @@ if(RELUVA_ENGINE_AGE)
         src/engines/age/pedestrians.cpp
         src/engines/age/police.cpp
         src/engines/age/city_life.cpp
+        src/engines/age/damage.cpp
+    src/engines/age/dashboard.cpp
+    src/engines/age/hud_map.cpp
+    src/engines/age/hud_pictures.cpp
+        src/engines/age/materials.cpp
         src/engines/age/pathset.cpp
         src/engines/age/pvs.cpp
         src/engines/age/gizmos.cpp

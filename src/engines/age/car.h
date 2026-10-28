@@ -38,7 +38,8 @@ struct CarSetup {
     Vec3 centerOfGravity{};
     float boundFriction = 0.5f, boundElasticity = 0.5f;
     int drivetrain = 0; // 0: rear wheels driven, 1: front, 2: all four
-    float drag = 0.5f;
+    // Aero: drag and down force, newtons per (metre a second) squared.
+    float drag = 0.5f, down = 0;
 
     float maxHorsePower = 250, idleRpm = 750, optRpm = 5800, maxRpm = 8500;
     int gears = 6;
@@ -46,6 +47,10 @@ struct CarSetup {
     // reverse: Trans's Low, High and Reverse, read as miles an hour.
     float lowSpeed = 9, highSpeed = 40, reverseSpeed = 13;
     float gearChangeTime = 0.8f;
+    // tune/vehicle/<car>.vehStuck: turned over (tilted past 60 degrees) and
+    // moving slower than stuckSpeed (metres a second), no further than
+    // stuckDistance (metres) in stuckTime seconds, the car is set upright.
+    float stuckTime = 2, stuckDistance = 1.25f, stuckSpeed = 1.75f;
 
     AxleSetup front, back;
     // Front left, front right, back left, back right: each wheel's centre
@@ -69,6 +74,7 @@ struct CarControls {
     float brake = 0;    // 0..1; held when stopped, reverses
     float steer = 0;    // -1 (left) .. 1 (right)
     bool handbrake = false;
+    int shift = 0;      // manual gears: +1 up a gear, -1 down (from first, when stopped, to reverse)
 };
 
 class CarSim {
@@ -79,6 +85,9 @@ public:
         float steer = 0;       // radians, to the left positive
         float spin = 0;        // radians turned, for drawing
         Vec3 groundNormal{0, 1, 0};
+        CollisionSurface surface; // what it's on
+        float slip = 0;           // 0 gripping .. 1 sliding at 10 m/s or more, or spinning (for the skid sounds)
+        float bump = 0;           // how fast its suspension last moved, m/s (for the suspension's sound)
     };
 
     void reset(const CarSetup& setup, const Vec3& position, float yaw);
@@ -91,7 +100,22 @@ public:
     Vec3 velocity{}, angularVelocity{};
     float rpm = 0;
     int gear = 1; // -1 reverse, 1.. forward
+    // Manual gears: the controls' shift changes gear, and the throttle
+    // drives (backwards in reverse); else the gearbox changes by itself and
+    // holding the brake when stopped backs up.
+    bool manual = false;
     std::array<Wheel, 4> wheels{};
+    // The hardest knock (impulse, kg m/s) since it was last cleared: against
+    // the city, or another car (collideCars); and where, in the car's frame.
+    float impact = 0;
+    Vec3 impactAt{};
+    // Records a knock at a point in the world, if it's the hardest.
+    void knock(float impulse, const Vec3& at) {
+        if (impulse > impact) {
+            impact = impulse;
+            impactAt = orientation.inverseTimes(at - position);
+        }
+    }
 
     // Along the car's nose, metres a second (negative backing up).
     float forwardSpeed() const { return -dot(velocity, orientation.z); }
@@ -110,6 +134,8 @@ private:
     float leftover_ = 0;     // time not stepped yet
     float shiftTimer_ = 0;   // no drive while changing gear
     float steerAngle_ = 0;   // eased towards the controls
+    float stuckFor_ = 0;     // seconds turned over
+    Vec3 stuckAt_{};         // where it was when it turned over
 };
 
 // Two cars bumping: each is three spheres along its length; where they
