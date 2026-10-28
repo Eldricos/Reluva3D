@@ -88,8 +88,8 @@ then read where it parses PT headers:
   `siren3d`); the rest have 1.
 - The loop: with `0x87` as a length, 416 loops would run past their
   sound's end; as the last sample, all fit but 48, which give the count.
-- `iSNDresolvetaggedpatch` (`0x501e40`-`0x5020f0`) reads the tags below
-  `0x26` into a table of 38 parameters. `FD` and `FE` mark the patch's
+- The routine at `0x501de8` reads the tags below `0x26` into a table of
+  38 parameters (the "patch"; iSND's messages speak of tagged patches). `FD` and `FE` mark the patch's
   alternatives. An alternative is used when two values (the call's) fall
   within the ranges held in parameters 1-2 and 3-4. Parameter `0x24` is
   resolved as a sample (`0x5224e0`).
