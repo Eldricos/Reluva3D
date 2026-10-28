@@ -32,6 +32,7 @@
 
 #include "backends/sdl3/sdl_system.h"
 #include "common/archive.h"
+#include "common/audio/mixer.h"
 #include "engines/awe/story.h"
 #include "engines/awe/viewers.h"
 
@@ -116,14 +117,21 @@ bool fromLine(const std::string& line, Action& a) {
 // game to settle, and looks at the story state.
 class Player {
 public:
-    Player(DirectoryArchive& files, double limit, System* threeD = nullptr, bool characters = false)
+    Player(DirectoryArchive& files, double limit, System* threeD = nullptr, bool characters = false,
+           bool sound = false)
         : limit_(limit) {
         sys_.threeD = threeD;
         sys_.characters = characters;
         screen_.create(kScreenW, kScreenH, PixelFormat::RGBA32);
-        ctx_ = std::make_unique<ViewerContext>(ViewerContext{
-            sys_, files, nullptr, screen_, std::filesystem::temp_directory_path() / "reluva-awe-solve", nullptr});
+        // With sound, a mixer the game's clock drives (no device): voices
+        // and waited-for sounds take their own time, and lines play out.
+        if (sound)
+            mixer_ = std::make_unique<audio::Mixer>(kMixRate);
+        ctx_ = std::make_unique<ViewerContext>(ViewerContext{sys_, files, mixer_.get(), screen_,
+                                                             std::filesystem::temp_directory_path() / "reluva-awe-solve",
+                                                             nullptr});
         page_ = std::make_unique<ScenePage>(*ctx_);
+        page_->cutLines = !sound;
         page_->onLog = [this](const std::string& l) {
             log_.push_back(l);
             if (l.find("movie credits") != std::string::npos)
@@ -188,8 +196,7 @@ public:
         uint64_t quietSince = 0, eventSince = sys_.now;
         std::string lastEvent;
         while (sys_.now - start < uint64_t(limit_ * 1000)) {
-            sys_.now += 40;
-            page_->update(sys_.now);
+            step();
             page_->autoplay();
             const ScenePage::GameStatus st = page_->status();
             if (st.idle)
@@ -387,8 +394,7 @@ public:
                     break;
                 }
                 for (int k = 0; k < 2 || (!p.status().idle && k < 3000); k++) {
-                    sys_.now += 40;
-                    p.update(sys_.now);
+                    step();
                     p.autoplay();
                 }
             }
@@ -463,6 +469,27 @@ private:
         return pick;
     }
 
+    // 40 ms of the game: its clock, the page, and the mixer's sounds (kept
+    // for -wav).
+    void step() {
+        sys_.now += 40;
+        page_->update(sys_.now);
+        if (!mixer_)
+            return;
+        int16_t frames[kMixRate / 25 * 2];
+        mixer_->mix(frames, kMixRate / 25);
+        if (recording)
+            mixed.insert(mixed.end(), frames, frames + kMixRate / 25 * 2);
+    }
+
+public:
+    // -wav: everything mixed, stereo at kMixRate.
+    static constexpr int kMixRate = 22050;
+    bool recording = false;
+    std::vector<int16_t> mixed;
+
+private:
+    std::unique_ptr<audio::Mixer> mixer_;
     double limit_;
     HeadlessSystem sys_;
 
@@ -586,7 +613,7 @@ struct Node {
 int aweCommandSolve(int argc, char** argv) {
     // reluva-tool awe-acts <game> -solve <out> [-from <file>] [-budget n] [-level n] [-noclimb]
     //     [-goal text] [-t s] [-v]
-    // reluva-tool awe-acts <game> -play <file> [-list] [-reload] [-log n] [-mouse] [-3d | -characters] [-v]
+    // reluva-tool awe-acts <game> -play <file> [-list] [-reload] [-log n] [-mouse] [-3d | -characters] [-sound] [-wav file] [-v]
     DirectoryArchive files;
     if (Error e = files.open(argv[2])) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
@@ -597,6 +624,8 @@ int aweCommandSolve(int argc, char** argv) {
     bool climb = true;
     double limit = 900;
     bool verbose = false, list = false, reload = false, mouse = false, threeD = false, characters = false;
+    bool sound = false;
+    std::string wavFile;
     size_t logFrom = SIZE_MAX; // -log n: the script log from the n-th action on
     for (int i = 3; i < argc; i++) {
         const std::string a = argv[i];
@@ -630,6 +659,10 @@ int aweCommandSolve(int argc, char** argv) {
             threeD = true;
         else if (a == "-characters")
             characters = true;
+        else if (a == "-sound")
+            sound = true;
+        else if (a == "-wav" && i + 1 < argc)
+            sound = true, wavFile = argv[++i];
     }
     // -3d: a window's renderer (under a display, real or virtual), so the
     // characters load and are picked by their bones.
@@ -643,7 +676,10 @@ int aweCommandSolve(int argc, char** argv) {
     }
     // -characters: the characters loaded without a window (drawn
     // nowhere), so their routines run and the pick finds them.
-    Player player(files, limit, window.get(), characters);
+    // -sound: the voices and sounds played, by a mixer the game's clock
+    // drives, and lines left to play out; -wav <file> keeps what's mixed.
+    Player player(files, limit, window.get(), characters, sound);
+    player.recording = !wavFile.empty();
     player.mouse = mouse;
 
     if (!playFile.empty()) {
@@ -654,6 +690,16 @@ int aweCommandSolve(int argc, char** argv) {
         }
         size_t done = 0;
         const bool ok = replay(player, path, true, done, logFrom);
+        if (!wavFile.empty()) {
+            // 16-bit stereo PCM.
+            std::ofstream out(wavFile, std::ios::binary);
+            auto u32 = [&](uint32_t v) { out.write(reinterpret_cast<const char*>(&v), 4); };
+            auto u16 = [&](uint16_t v) { out.write(reinterpret_cast<const char*>(&v), 2); };
+            const uint32_t bytes = uint32_t(player.mixed.size() * 2);
+            out.write("RIFF", 4), u32(36 + bytes), out.write("WAVEfmt ", 8), u32(16), u16(1), u16(2);
+            u32(Player::kMixRate), u32(Player::kMixRate * 4), u16(4), u16(16), out.write("data", 4), u32(bytes);
+            out.write(reinterpret_cast<const char*>(player.mixed.data()), std::streamsize(bytes));
+        }
         const ScenePage::GameStatus st = player.page().status();
         std::printf("%zu of %zu actions; act %s, scene %s; %s\n", done, path.size(), st.act.c_str(), st.scene.c_str(),
                     player.credits() ? "the credits were reached" : "no credits");

@@ -165,6 +165,9 @@ public:
     void runCommands(const std::string& script) { runner_->run(script); }
     std::function<void(const std::string& line)> onLog;
     std::string autoplay();
+    // Whether autoplay cuts each line short (a tool in a hurry), or lets it
+    // play out, its voice too.
+    bool cutLines = true;
     // Nothing drawn (a tool that only follows the scripts).
     void setDrawing(bool on) { drawing_ = on; }
     struct GameStatus {

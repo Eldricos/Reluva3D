@@ -73,7 +73,8 @@ std::string ScenePage::autoplay() {
             autoChoices_[text]++;
             return "choice " + std::to_string(pick + 1) + " of " + std::to_string(n) + ": " + text;
         }
-        dialogue_->choose(-1); // the line cut short, once it can be
+        if (cutLines)
+            dialogue_->choose(-1); // the line cut short, once it can be
     }
     return {};
 }

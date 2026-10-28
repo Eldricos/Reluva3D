@@ -9,6 +9,7 @@
 #include "tools/awe_tool.h"
 
 #include "common/archive.h"
+#include "common/audio/decode.h"
 #include "common/fs.h"
 #include "common/video/bink_audio.h"
 #include "common/video/bink_file.h"
@@ -979,17 +980,72 @@ int checkBink(const reluva::Archive& files, unsigned jobs, bool verbose) {
     return failed ? 1 : 0;
 }
 
+int checkSound(const reluva::Archive& files, unsigned jobs, bool verbose) {
+    // Every sound (Sound\..., the voices, music and effects), decoded as
+    // the mixer decodes it; by format, rate and channels.
+    std::vector<std::string> names = filesEndingWith(files, ".wav");
+    for (const std::string& n : filesEndingWith(files, ".mp3"))
+        names.push_back(n);
+    std::vector<std::string> results(names.size());
+    std::vector<std::string> kinds(names.size());
+    std::vector<double> seconds(names.size());
+    std::atomic<size_t> next{0};
+    auto worker = [&] {
+        for (size_t i; (i = next++) < names.size();) {
+            std::vector<uint8_t> data;
+            reluva::audio::Sound sound;
+            reluva::Error e = files.read(names[i], data);
+            if (!e)
+                e = reluva::audio::decodeSound(data, sound);
+            if (!e && sound.frames() == 0)
+                e = reluva::Error::fail("no samples");
+            if (e) {
+                results[i] = e.message;
+                continue;
+            }
+            kinds[i] = std::string(reluva::audio::formatName(sound.format)) + " " + std::to_string(sound.rate) + " Hz " +
+                       (sound.channels == 1 ? "mono" : "stereo");
+            seconds[i] = double(sound.frames()) / sound.rate;
+        }
+    };
+    std::vector<std::thread> threads;
+    for (unsigned t = 0; t < jobs; t++)
+        threads.emplace_back(worker);
+    for (std::thread& t : threads)
+        t.join();
+    size_t failed = 0;
+    double total = 0;
+    std::map<std::string, size_t> byKind;
+    for (size_t i = 0; i < names.size(); i++) {
+        if (!results[i].empty()) {
+            failed++;
+            std::printf("SOUND FAIL %s: %s\n", names[i].c_str(), results[i].c_str());
+            continue;
+        }
+        byKind[kinds[i]]++;
+        total += seconds[i];
+        if (verbose)
+            std::printf("  %s: %s, %.2f s\n", names[i].c_str(), kinds[i].c_str(), seconds[i]);
+    }
+    for (const auto& [kind, n] : byKind)
+        std::printf("  %zu %s\n", n, kind.c_str());
+    std::printf("Sound: %zu files, %zu failed, %.0f minutes in all\n", names.size(), failed, total / 60);
+    return failed ? 1 : 0;
+}
+
 } // namespace
 
 int aweCheckCommand(int argc, char** argv) {
     std::string folder, filter;
-    bool gr2 = true, scenes = true, text = true, bink = true, oodle = false, textures = false, verbose = false;
+    bool gr2 = true, scenes = true, text = true, bink = true, sound = true, oodle = false, textures = false,
+         verbose = false;
     bool curveValues = false;
     unsigned jobs = std::max(1u, std::thread::hardware_concurrency());
     for (int i = 2; i < argc; i++) {
         const std::string a = argv[i];
-        if (a == "-gr2" || a == "-ac2" || a == "-text" || a == "-bik" || a == "-oodle") {
-            gr2 = a == "-gr2", scenes = a == "-ac2", text = a == "-text", bink = a == "-bik", oodle = a == "-oodle";
+        if (a == "-gr2" || a == "-ac2" || a == "-text" || a == "-bik" || a == "-sound" || a == "-oodle") {
+            gr2 = a == "-gr2", scenes = a == "-ac2", text = a == "-text", bink = a == "-bik", sound = a == "-sound";
+            oodle = a == "-oodle";
         } else if (a == "-textures") {
             textures = true;
         } else if (a == "-curves") {
@@ -1005,8 +1061,8 @@ int aweCheckCommand(int argc, char** argv) {
         }
     }
     if (folder.empty()) {
-        std::fprintf(stderr, "usage: reluva-tool awe-check <game folder> [-gr2|-ac2|-text|-bik|-oodle] [-only text] "
-                             "[-textures] [-curves] [-j threads] [-v]\n");
+        std::fprintf(stderr, "usage: reluva-tool awe-check <game folder> [-gr2|-ac2|-text|-bik|-sound|-oodle] "
+                             "[-only text] [-textures] [-curves] [-j threads] [-v]\n");
         return 2;
     }
     reluva::DirectoryArchive files;
@@ -1023,6 +1079,8 @@ int aweCheckCommand(int argc, char** argv) {
         result |= checkGr2Files(files, folder, filter, textures, curveValues, jobs, verbose);
     if (bink)
         result |= checkBink(files, jobs, verbose);
+    if (sound)
+        result |= checkSound(files, jobs, verbose);
     // Only when asked: granny2.dll is slow in the interpreter.
     if (oodle)
         result |= checkOodle(files, filter, jobs, verbose);

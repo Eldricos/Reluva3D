@@ -2629,8 +2629,12 @@ bool ScenePage::playVoice(const std::string& file) {
     stopVoice();
     std::vector<uint8_t> data;
     auto sound = std::make_shared<audio::Sound>();
-    if (!ctx_.mixer || ctx_.files.read(file, data) || audio::decodeSound(data, *sound))
+    if (!ctx_.mixer)
         return false;
+    if (ctx_.files.read(file, data) || audio::decodeSound(data, *sound)) {
+        logScript("    (no voice " + file + ")");
+        return false;
+    }
     voice_ = ctx_.mixer->play(sound, audio::SoundType::Speech);
     voiceSound_ = sound;
     return voice_ != audio::kNoSound;

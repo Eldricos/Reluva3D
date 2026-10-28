@@ -945,7 +945,7 @@ int aweToolCommand(int argc, char** argv) {
 }
 
 const char* aweToolUsage() {
-    return "  reluva-tool awe-check <game folder> [-gr2|-ac2|-text|-bik|-oodle] [-only text] [-textures] [-curves] [-j threads] [-v]\n"
+    return "  reluva-tool awe-check <game folder> [-gr2|-ac2|-text|-bik|-sound|-oodle] [-only text] [-textures] [-curves] [-j threads] [-v]\n"
            "  reluva-tool awe-camera <game folder> <scene.ac2> [x y z]...\n"
            "  reluva-tool bink-info <file.bik> [-frames]\n"
            "  reluva-tool gr2-info <file.gr2> [-t] [-n elements]\n"
@@ -953,7 +953,7 @@ const char* aweToolUsage() {
            "  reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds|movies> <out.tga> [key...]\n"
            "  reluva-tool awe-acts <game folder> [act|slotN...] [-hotspots] [-explore n] [-t seconds] [-v]\n"
            "  reluva-tool awe-acts <game folder> -solve <out.txt> [-from <playthrough>] [-budget n] [-level n] [-noclimb] [-goal text] [-characters] [-v]\n"
-           "  reluva-tool awe-acts <game folder> -play <playthrough> [-list] [-reload] [-log n] [-mouse] [-3d | -characters] [-v]\n"
+           "  reluva-tool awe-acts <game folder> -play <playthrough> [-list] [-reload] [-log n] [-mouse] [-3d | -characters] [-sound] [-wav file] [-v]\n"
            "  reluva-tool ac2-dump <scene.ac2>...\n"
            "  reluva-tool awe-path <game folder> <scene.ac2> <a0> <b0> <a1> <b1> | -all [pairs]\n"
            "  reluva-tool awe-scripts <game folder> [-v]\n"
