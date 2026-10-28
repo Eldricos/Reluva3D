@@ -212,11 +212,21 @@ Actor::Motion Actor::motion(const Animation& animation) {
         for (int k = 0; k < 3; k++)
             m.drift[k] = b[size_t(12 + k)] - a[size_t(12 + k)];
         // The turn about the model's up (Z): where the root's most level
-        // axis points, before and after.
+        // axis points, followed through the loop, as the game adds up the
+        // root's turn frame by frame (0x441f70). (A turn of a whole circle
+        // in a loop, as the vendors' rotatel, ends where it began.)
         const int axis = std::abs(a[2]) < std::abs(a[6]) ? 0 : 4;
-        const float ya = std::atan2(a[size_t(axis + 1)], a[size_t(axis)]);
-        const float yb = std::atan2(b[size_t(axis + 1)], b[size_t(axis)]);
-        m.turn = std::remainder(yb - ya, 6.2831853f) * kDegrees;
+        auto yaw = [&](const Mat4& w) { return std::atan2(w[size_t(axis + 1)], w[size_t(axis)]); };
+        constexpr int kSteps = 32;
+        float total = 0, last = yaw(a);
+        for (int k = 1; k <= kSteps; k++) {
+            Pose p;
+            computePose(model, &animation, animation.duration * float(k) / kSteps, p);
+            const float y = k == kSteps ? yaw(b) : yaw(p.world[size_t(root)]);
+            total += std::remainder(y - last, 6.2831853f);
+            last = y;
+        }
+        m.turn = total * kDegrees;
     }
     motions_.emplace(&animation, m);
     return m;
