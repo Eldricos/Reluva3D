@@ -49,6 +49,7 @@ RaceViewer::RaceViewer(ViewerContext& ctx) : Page(ctx), cities_(findCities(ctx.f
 RaceViewer::~RaceViewer() { deactivate(); }
 
 void RaceViewer::deactivate() {
+    life_.stop();
     engine_.stop();
     racers_.clear();
     scene_.reset();
@@ -83,6 +84,8 @@ void RaceViewer::loadCity() {
     error_ = scene_->load(map).message;
     buildCityCollision(ctx_.files, scene_->psdl(), scene_->mesh(), scene_->instances(), world_);
     roads_.build(scene_->psdl());
+    if (Error err = life_.load(ctx_.files, map); err && error_.empty())
+        error_ = err.message;
     loadedCity_ = city_;
     raceNames_ = raceNames(ctx_.files, map, kKinds[kind_]);
     raceIndex_ = std::min(raceIndex_, std::max(0, int(raceNames_.size()) - 1));
@@ -130,24 +133,54 @@ void RaceViewer::startRace() {
     player.car->sim.reset(player.car->setup, start.position + Vec3{0, 0.5f, 0}, headingToYaw(start.heading));
     racers_.push_back(std::move(player));
 
-    // Opponents: as many as the race has paths for, in other cars.
+    // The race's aimap, read over the city's: the opponents' cars and
+    // skill, the roads left without traffic, the police.
+    AiMapSettings ai = life_.citySettings();
+    std::vector<uint8_t> data;
+    if (!ctx_.files.read(raceAiMapName(map, race_.kind, raceIndex_, level_ == 1), data) ||
+        !ctx_.files.read(raceAiMapName(map, race_.kind, raceIndex_, false), data))
+        parseAiMap(std::string(data.begin(), data.end()), ai);
+
+    // Opponents: as many as the race has paths for, in the cars its aimap
+    // gives them (else others of the player's list).
     const auto& paths = race_.opponents[size_t(level_)];
     const size_t count = std::min(paths.size(), size_t(std::max(0, set.opponents)));
     for (size_t i = 0; i < count; ++i) {
-        const CarInfo& info = cars_[(size_t(car_) + 1 + i * 3) % cars_.size()];
+        std::string base = cars_[(size_t(car_) + 1 + i * 3) % cars_.size()].base;
+        float skill = kSkill[level_];
+        const std::string opp = "-" + std::to_string(i) + ".opp";
+        for (const auto& o : ai.opponents)
+            if (o.path.size() > opp.size() && o.path.compare(o.path.size() - opp.size(), opp.size(), opp) == 0) {
+                base = o.model;
+                skill = std::clamp(o.skill, 0.6f, 1.0f);
+            }
         Racer r;
         r.car = std::make_unique<CarActor>();
-        r.name = info.description;
-        if (r.car->load(*renderer_, scene_->textures(), ctx_.files, info.base, uint32_t(i)))
+        r.name = base;
+        for (const CarInfo& info : cars_)
+            if (info.base == base)
+                r.name = info.description;
+        if (r.car->load(*renderer_, scene_->textures(), ctx_.files, base, uint32_t(i)))
             continue;
         const auto& o = paths[i];
         r.car->sim.reset(r.car->setup, o.start + Vec3{0, 0.5f, 0}, o.startYaw);
         size_t loopFrom = 0;
         const bool circuit = race_.kind == RaceKind::Circuit;
-        r.driver.start(routePath(roads_, o.start, o.path, circuit, loopFrom), circuit ? laps : 0, kSkill[level_],
-                       loopFrom);
+        r.driver.start(routePath(roads_, o.start, o.path, circuit, loopFrom), circuit ? laps : 0, skill, loopFrom);
         racers_.push_back(std::move(r));
     }
+
+    // Traffic, pedestrians and police as the race's settings say.
+    CityLife::Options life;
+    life.traffic = set.ambient;
+    life.peds = set.peds;
+    life.cops = std::max(0, set.cops);
+    life.rain = set.weather == 3;
+    life.seed = uint32_t(raceIndex_ * 7 + level_ + 1);
+    if (life_.loaded())
+        if (Error err = life_.start(*renderer_, scene_->textures(), ctx_.files, ai, life, ctx_.mixer))
+            error_ = err.message;
+    fill_ = true;
 
     engine_.stop();
     if (ctx_.mixer)
@@ -163,6 +196,7 @@ void RaceViewer::startRace() {
 }
 
 void RaceViewer::endRace() {
+    life_.stop();
     engine_.stop();
     racers_.clear();
     state_ = State::Menu;
@@ -216,6 +250,11 @@ void RaceViewer::stepRace(float dt) {
     for (size_t i = 0; i < racers_.size(); ++i)
         for (size_t j = i + 1; j < racers_.size(); ++j)
             collideCars(racers_[i].car->sim, racers_[j].car->sim);
+    std::vector<CarSim*> others;
+    for (size_t i = 1; i < racers_.size(); ++i)
+        others.push_back(&racers_[i].car->sim);
+    life_.update(dt, racers_.front().car->sim, others, world_, roads_, fill_);
+    fill_ = false;
 
     if (state_ == State::Countdown && started)
         state_ = State::Racing;
@@ -236,6 +275,9 @@ void RaceViewer::stepRace(float dt) {
         state_ = State::Finished;
     } else if (race_.kind == RaceKind::Blitz && set.timeLimit > 0 && clock_ > set.timeLimit) {
         outcome_ = "Time's up";
+        state_ = State::Finished;
+    } else if (life_.police().busted()) {
+        outcome_ = "Busted";
         state_ = State::Finished;
     }
 }
@@ -363,6 +405,10 @@ void RaceViewer::drawMenu() {
                       race_.waypoints.size() - 1, s.opponents, race_.kind == RaceKind::Circuit ? s.laps : 1,
                       s.timeLimit);
         font::drawText(overlay_, 40, y + 10, buf, {180, 180, 180});
+        y += font::kLineHeight + 4;
+        std::snprintf(buf, sizeof buf, "traffic %.0f%%, pedestrians %.0f%%, police %d", s.ambient * 100,
+                      s.peds * 100, s.cops);
+        font::drawText(overlay_, 40, y + 10, buf, {180, 180, 180});
     }
     font::drawText(overlay_, 40, kFrameH - 40, "Up/Down: choose  Left/Right: change  Enter: race", {150, 200, 255});
     if (!error_.empty())
@@ -424,6 +470,8 @@ void RaceViewer::drawRaceHud() {
         }
         font::drawText(overlay_, 60, y + 10, "Enter: back to the menu", {150, 200, 255});
     }
+    if (life_.police().chasing() > 0 && state_ != State::Finished)
+        font::drawText(overlay_, 4, kFrameH - 24, "POLICE CHASING", {255, 90, 90}, 2);
     drawSpeedometer(overlay_, player.car->sim);
 }
 
@@ -461,6 +509,7 @@ void RaceViewer::update(uint64_t nowMs) {
         drawMenu();
     } else {
         const bool inside = cameras_[size_t(camera_)].inside;
+        life_.draw(*renderer_, scene_->models(), scene_->light(), viewProj, eye);
         for (const Racer& r : racers_)
             if (!(r.player && inside))
                 r.car->draw(scene_->light());

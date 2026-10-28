@@ -28,7 +28,8 @@ src/engines/       one directory per engine, plus registry.cpp listing them
                    maps; currently runs as a data viewer (docs/engines/idtech3.md)
   age/             games on Angel Studios' Angel Game Engine, starting with
                    Midtown Madness 2: its archives, textures, models and
-                   cities, its races and a cruise mode (docs/engines/age.md)
+                   cities, its races, traffic, pedestrians and police, and a
+                   cruise mode (docs/engines/age.md)
 src/tools/         reluva-tool, utilities for studying game data
 tests/             unit tests for common/ and the engines
 ```
@@ -108,14 +109,18 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
 
 - Midtown Madness 2 (Angel Game Engine) opens on its races: a menu (**Up/Down** pick a
   line, **Left/Right** change the city, event, race, level or car, **Enter** starts), then
-  the Blitz, Circuit or Checkpoint race against its opponents, driven as on the drive page
-  (**C** camera, **Esc** leaves, **Enter** after the results goes back to the menu). Next
+  the Blitz, Circuit or Checkpoint race against its opponents, among the race's traffic,
+  pedestrians and police, driven as on the drive page (**C** camera, **Esc** leaves,
+  **Enter** after the results goes back to the menu). Next
   page, a cruise mode, driving a car round a city in 3D (it needs a GPU with Vulkan or Metal, as Elite Force's). **Up/Down** (or
   **W/S**) accelerate and brake (held when stopped, it backs up), **Left/Right** (or
   **A/D**) steer, **Space** is the handbrake, **C** changes the camera (near, far, in the
   car), **PageUp/PageDown** the car, **P** its colour, **Home/End** the city, **T** the time
-  and weather, **R** puts the car back at the start and **I** hides the info. The handling
-  is Reluva's own model of the game's tuning, not yet compared with the game.
+  and weather, **R** puts the car back at the start and **I** hides the info. The city has
+  traffic and people on its sidewalks (**Y** steps through none, light, normal and heavy)
+  and police, who chase a car speeding past them and bust it once it's stopped (**O** turns
+  them off and on). The handling, the traffic and the police are Reluva's own, not yet
+  compared with the game.
   **Tab** switches between racing, driving, the world, models, textures and files. In the world, **Left/Right** picks London or San
   Francisco, drag to look, **W/A/S/D** move, **Space/C** (or **E/Q**) go up and down,
   **Shift** goes faster, **T** steps through the 16 times of day and weathers, **M**

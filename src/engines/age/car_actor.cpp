@@ -38,6 +38,11 @@ Error CarActor::load(gfx::Renderer3D& renderer, TextureCache& textures, const Se
         buildModelMesh(renderer, textures, files, file, pkg, "H", paintJob, false, wheels_[size_t(i)],
                        [&](const std::string& part) { return part == name; }, false);
     }
+    for (int i = 0; i < 2; ++i)
+        buildModelMesh(renderer, textures, files, file, pkg, "H", paintJob, true, sirens_[size_t(i)],
+                       [&](const std::string& part) {
+                           return part == "SRN" + std::to_string(i) || part == "SRN" + std::to_string(i + 2);
+                       });
     return Error::success();
 }
 
@@ -47,6 +52,8 @@ void CarActor::unload() {
     destroyModelMesh(*renderer_, body_);
     for (ModelMesh& w : wheels_)
         destroyModelMesh(*renderer_, w);
+    for (ModelMesh& m : sirens_)
+        destroyModelMesh(*renderer_, m);
     renderer_ = nullptr;
 }
 
@@ -65,6 +72,8 @@ void CarActor::draw(const SceneLight& light) const {
             drawModelMesh(*renderer_, wheels_[size_t(i)], gfx::multiply(carMatrix, matrixOf(turn, at)), light,
                           translucent);
         }
+        if (siren > 0)
+            drawModelMesh(*renderer_, sirens_[size_t(siren - 1) % 2], carMatrix, light, translucent);
     }
 }
 

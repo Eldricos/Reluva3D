@@ -90,8 +90,19 @@ struct SceneLight {
 void drawModelMesh(gfx::Renderer3D& renderer, const ModelMesh& mesh, const gfx::Mat4& model, const SceneLight& light,
                    bool translucent);
 
+// The planes of a view (left, right, bottom, top, near), to leave out
+// what's outside it.
+class ViewFrustum {
+public:
+    explicit ViewFrustum(const gfx::Mat4& viewProj);
+    bool visible(const gfx::Vec3& center, float radius) const;
+
+private:
+    std::array<std::array<float, 4>, 5> planes_{};
+};
+
 // Models by name for a city, every level uploaded the first time it's
-// asked for, with the first paint job and no lit parts.
+// asked for (for each paint job asked for), with no lit parts.
 class ModelCache {
 public:
     struct Model {
@@ -99,6 +110,7 @@ public:
         std::vector<ModelMesh> levels; // finest first
         float radius = 0;              // the finest level's
         Vec3 center{};
+        uint32_t paintJobs = 1;
     };
 
     ModelCache(gfx::Renderer3D& renderer, TextureCache& textures, const SearchSet& files)
@@ -108,7 +120,7 @@ public:
     ModelCache& operator=(const ModelCache&) = delete;
 
     // geometry/<name>.pkg
-    const Model& get(const std::string& name);
+    const Model& get(const std::string& name, uint32_t paintJob = 0);
     void clear();
 
 private:

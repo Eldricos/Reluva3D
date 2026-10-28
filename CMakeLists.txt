@@ -204,6 +204,13 @@ if(RELUVA_ENGINE_AGE)
         src/engines/age/race.cpp
         src/engines/age/opponent.cpp
         src/engines/age/road_graph.cpp
+        src/engines/age/bai.cpp
+        src/engines/age/aimap.cpp
+        src/engines/age/traffic.cpp
+        src/engines/age/ped_model.cpp
+        src/engines/age/pedestrians.cpp
+        src/engines/age/police.cpp
+        src/engines/age/city_life.cpp
         src/engines/age/drive_viewer.cpp
         src/engines/age/race_viewer.cpp
         src/engines/age/world_viewer.cpp

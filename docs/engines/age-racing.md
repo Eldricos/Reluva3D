@@ -28,18 +28,23 @@ weather set the lighting. A three-second countdown, then:
   checkpoint.
 - The results list the racers by where they got to, with their times.
 
+- **Traffic, pedestrians and police** are as the race's settings say
+  (its Ambient, Peds and Cops columns, and its aimap's exceptions and
+  police): see [age-traffic.md](age-traffic.md). Busted by the police,
+  the race is over.
+
 The game's menus and HUD pictures (`tune/widget.csv` lays out the menus'
 widgets, `texture/*.tga` has their pictures, `mmlang.dll` their text)
 aren't redrawn yet; nor are unlocking, Crash Course or the other modes.
-Cops, traffic and pedestrians (the Cops, Ambient and Peds columns) come
-next.
 
 ## Opponents
 
-Each opponent drives its `.opp` path in a car Reluva chooses (the files
-don't say which; every third car in the list after the player's, each a
-different colour), at 85% (Amateur) or 95% (Professional) of the car's
-top-gear speed:
+Each opponent drives its `.opp` path in the car the race's aimap gives it
+([aimap.md](../formats/age/aimap.md)), aiming for its skill there as a
+share of the car's top-gear speed (0.70-0.75 at Amateur and 0.93-1.00 at
+Professional in San Francisco's first race; at least 0.6). Where the
+aimap doesn't say, it's every third car in the list after the player's,
+at 85% (Amateur) or 95% (Professional):
 
 - The path's points are joined along the roads by the **road graph**:
   points along the middle of every road strip and divided road, joined in
@@ -62,10 +67,11 @@ top-gear speed:
   bounced.
 
 Measured over every circuit and checkpoint race of both cities at
-Professional (scratch runs of 900 seconds each, not part of the
-repository), 254 of the 289 opponents finish: all of every checkpoint
+Professional with every opponent at 95% in one car (scratch runs of 900
+seconds each, not part of the repository, before the aimaps were read),
+254 of the 289 opponents finish: all of every checkpoint
 race's, and all but those of six circuits (San Francisco's "Floor It!",
 London's "Parks But No Parking", "London Run", "Gimme Some Royalties",
 "Soho Mojo" and "Zany Zigzag"), whose opponents get round, but slowly,
-with many resets. The game's own maps for its drivers (`.aimap`, `.bai`)
-aren't read yet and would likely do better.
+with many resets. The game's road map for its traffic (`.bai`, read for
+the traffic now) has lanes, and would likely route them better.

@@ -36,9 +36,9 @@ columns twice, amateur then professional:
 | TimeofDay | 0-3 | with Weather, picks the lighting: TimeofDay x 4 + Weather (morning, noon, evening, night; clear, cloudy, foggy, rainy) |
 | Weather | 0-3 | |
 | Opponents | how many | that many of the race's opponent paths |
-| Cops | | not used yet |
-| Ambient | traffic density | not used yet |
-| Peds | pedestrian density | not used yet |
+| Cops | | how many of the race's aimap police take part ([aimap.md](aimap.md)) |
+| Ambient | traffic density | times 60 cars ([age-traffic.md](../../engines/age-traffic.md)) |
+| Peds | pedestrian density | times 300 people, at most 60 |
 | NumLaps | | a circuit's laps |
 | TimeLimit | seconds | a Blitz's time limit |
 | Difficulty | | not used |
@@ -86,8 +86,11 @@ x,y,z,brake,forward offset,side offset,target speed,speed start,side start
 San Francisco has 288 such files (156 checkpoint race, 119 circuit, 9
 Blitz, a few for other modes), London 324.
 
+Which car each opponent drives, and its skill, are in the race's
+aimap ([aimap.md](aimap.md)).
+
 ## Not read yet
 
-`.aimap`, `.aimap_p` and `.pathset` (the AI's road maps and paths, it
+`.pathset` (paths for the ferry, the bridge, sailboats and the like, it
 seems), `crash*data.csv` (Crash Course), `copchase.csv`, the `exam*`
 files and the other modes' files.
