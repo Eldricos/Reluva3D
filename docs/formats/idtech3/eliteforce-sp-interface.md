@@ -149,7 +149,7 @@ This is Quake III's native-DLL convention:
 | 51 | `R_DrawScreenShot(x, y, w, h)` (floats): the engine's screen capture, through the renderer's raw-image drawing, rows bottom first (the loading screen passes `0, 480, 640, -480`). The client game's loading screen (`0x200275d0`) draws `levelshots/<mapname>.tga` when `R_RegisterShaderNoMip` finds it and the game wasn't started from a saved game (`Init`'s load mode, kept at `0x2027dbf0`, not 1); otherwise it draws this: the saved game's picture, or the screen as the last level ended. For the fallback to happen, registering a shader that can't be found must give 0, as Quake III's renderer does |
 | 52, 53 | `R_ModelBounds(model, mins, maxs)`, `R_LerpTag` (6) |
 | 54 | `R_DrawRotatePic(x, y, w, h, s1, t1, s2, t2, angle, shader)`: the original renderer's render command 4. Its backend translates to the top-right corner `(x + w, y)`, rotates by `angle` degrees about the screen's z axis (clockwise on screen, since y points down), and draws the quad from `(-w, 0)` to `(0, h)` with `s1 t1` at `(-w, 0)`. The client game's one caller (`0x2001a790`) passes texture coordinates 0, 0, 1, 1 after scaling `x, y, w, h` from 640×480. |
-| 55 | renderer entry 18 (4 arguments); JK2 suggests `R_Scissor(x, y, w, h)` |
+| 55 | `R_Scissor(x, y, w, h)` (renderer entry 18). The client game's one caller (`0x2001a700`) scales the four from 640×480 first, as for its pictures; nothing in the DLL calls it, so Reluva ignores it |
 | 56, 57 | `GetGlconfig(out)` (5196 bytes), `GetGameState(out)` (20100 bytes, Quake III's `gameState_t`) |
 | 58–62 | `GetCurrentSnapshotNumber(&n, &time)`, `GetSnapshot(n, out)`, `GetServerCommand(n)`, `GetCurrentCmdNumber()`, `GetUserCmd(n, out)` |
 | 63 | `SetUserCmdValue(weapon, sensitivity)` |
@@ -182,16 +182,26 @@ engine's renderer table (API version 9):
 | 15 | `SetColor` |
 | 16 | `DrawStretchPic` |
 | 17 | `DrawRotatePic` |
-| 18 | `Scissor`? |
+| 18 | `Scissor(x, y, w, h)`: render command 3, four floats in screen pixels. The backend (`0x455635`) clips 2D drawing to `glScissor(x, height - y - h, w, h)` (y flipped: GL counts from the bottom), or to the whole screen when x is below 0 |
 | 19 | `DrawStretchRaw` |
 | 20 | `BeginFrame(stereo)` |
 | 21 | `EndFrame(&frontEndMs, &backEndMs)` |
 | 22 | captures the screen into a buffer at a given size (256×256 for saved games) |
-| 23, 24 | not yet known (5 arguments; one forwarded straight through) |
+| 23 | `LoadImageAt(name, &width, &height, buffer, flip)` (`0x453ba0`) → pixels, or 0: loads an image file (keeping it, after freeing the one kept before). With `buffer` and a size other than the image's, each pixel of `buffer` at `*width × *height` becomes the average of the image's pixels it covers (alpha 255), and that is returned; otherwise `*width` and `*height` get the image's own size and its pixels are returned. With `flip`, the rows are then reversed in place |
+| 24 | frees the image entry 23 keeps (`0x453e60`; no arguments) |
 | 25 | `MarkFragments` |
 | 26 | `LerpTag` |
 | 27 | `ModelBounds` |
-| 28 | not yet known |
+| 28 | not the renderer's: engine code (`0x41de60`) put in the table, beside the Aureal A3D sound code (the engine registers `a3d.dll`'s COM objects; its "RenderLeaf" code feeds the world to 3D sound). It keeps its four arguments, the fourth pointing at a mode (1, 2), and when the loaded world changes empties that code's caches. Nothing in the executable or the DLLs calls it |
+
+Entries 23 and 24 have one caller: the engine's saved-game writer
+(`0x42a7f0`), called as `save(name, autosave)`. An autosave (`auto`, made
+on loading a level whose name doesn't start with `_`) gets the level's
+own picture as its `SHOT`: `levelshots/<map>.tga` through entry 23 at
+256 × 256, flipped (rows bottom first); if there's none, the engine's held
+screen capture (`0x40aab0`, captured then if none is held). A save the
+player makes gets the screen capture. Reluva's
+(`sp_play_viewer.cpp`, `levelShot`) does the same.
 
 ## The menus (`efuix86.dll`)
 

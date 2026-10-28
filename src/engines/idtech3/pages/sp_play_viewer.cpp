@@ -503,16 +503,35 @@ bool SpPlayViewer::readSave(const std::string& name, std::vector<uint8_t>& file)
 }
 
 std::vector<uint8_t> SpPlayViewer::levelShot(const std::string& map) const {
-    // levelshots/<map>.tga at 256 x 256, as an autosave's picture (rows
-    // bottom first, as the original's captures).
-    std::vector<uint8_t> out(eliteforce::SpUiHost::kShotSize, 0);
+    // levelshots/<map>.tga at 256 x 256, as the original's engine makes an
+    // autosave's picture (renderer entry 23, eliteforce-sp-interface.md):
+    // as it is if it's that size, otherwise each pixel the average of the
+    // ones it covers, opaque; rows bottom first. Empty if there's none.
     std::vector<uint8_t> data;
     image::Image img;
     if (ctx_.files.read("levelshots/" + map + ".tga", data) || image::decode(data, img) || img.w <= 0 || img.h <= 0)
-        return out;
+        return {};
+    std::vector<uint8_t> out(eliteforce::SpUiHost::kShotSize, 0);
+    const bool same = img.w == 256 && img.h == 256;
     for (int y = 0; y < 256; ++y)
-        for (int x = 0; x < 256; ++x)
-            std::memcpy(&out[size_t((255 - y) * 256 + x) * 4], img.pixel(x * img.w / 256, y * img.h / 256), 4);
+        for (int x = 0; x < 256; ++x) {
+            uint8_t* px = &out[size_t((255 - y) * 256 + x) * 4];
+            if (same) {
+                std::memcpy(px, img.pixel(x, y), 4);
+                continue;
+            }
+            const int x0 = x * img.w / 256, x1 = std::max(x0 + 1, (x + 1) * img.w / 256);
+            const int y0 = y * img.h / 256, y1 = std::max(y0 + 1, (y + 1) * img.h / 256);
+            int sum[3] = {};
+            for (int sy = y0; sy < y1; ++sy)
+                for (int sx = x0; sx < x1; ++sx)
+                    for (int c = 0; c < 3; ++c)
+                        sum[c] += img.pixel(sx, sy)[c];
+            const int n = (x1 - x0) * (y1 - y0);
+            for (int c = 0; c < 3; ++c)
+                px[c] = uint8_t(sum[c] / n);
+            px[3] = 255;
+        }
     return out;
 }
 
@@ -570,7 +589,13 @@ void SpPlayViewer::saveGame(const std::string& name, bool autosave) {
     eliteforce::SaveHeader header;
     header.comment = comment;
     header.map = map_;
-    header.shot = autosave || !ui_ ? levelShot(map_) : ui_->capture();
+    // An autosave's picture is the level's own, as the original's (the
+    // screen as captured if it has none); a save the player makes, the
+    // screen.
+    if (autosave || !ui_)
+        header.shot = levelShot(map_);
+    if (header.shot.empty())
+        header.shot = ui_ ? ui_->capture() : std::vector<uint8_t>(eliteforce::SpUiHost::kShotSize, 0);
     header.autosave = autosave;
     eliteforce::writeSaveHeader(w, cvars_, header);
     if (Error err = eliteforce::writeSaveLevel(w, *game_, autosave))
