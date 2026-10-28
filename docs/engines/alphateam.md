@@ -833,7 +833,8 @@ reads, the vftables it builds for its own subclasses):
     machine its sums run in single precision. Ours left the FPU at 53
     bits; now `CreateDevice` and `BeginScene` set it as Direct3D does.
     It changes the run's details (which base the camera takes for the
-    door); Mission One still plays through to "We did it!" and saves.
+    door); Mission One still plays through to "We did it!" and saves,
+    and all 54 missions still load and run past Go to frame 3700.
   - Found on the way: `DDCaps::CalcProcSpeed` (LoadComp) times the
     processor with RDTSC across `Sleep(500)`, and recommends shadows,
     environment animation and other detail (`MakeRecs`) above 250 and
