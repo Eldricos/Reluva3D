@@ -203,6 +203,34 @@ screen capture (`0x40aab0`, captured then if none is held). A save the
 player makes gets the screen capture. Reluva's
 (`sp_play_viewer.cpp`, `levelShot`) does the same.
 
+## Scene entities
+
+Single player's `refEntity_t` isn't Holomatch's (whose renderer, in the
+patched Holomatch executable, numbers its effects its own way up to 14;
+[eliteforce-syscalls.md](eliteforce-syscalls.md)). It's 152 bytes:
+Quake III's fields up to the shader's time (128), 12 bytes of Elite
+Force's, then a sprite's **radius at 144** and **rotation at 148**. The
+renderer (`stvoy.exe`) takes Quake III's kinds only:
+
+- `RE_AddRefEntityToScene` (`0x45c4d0`) refuses a type below 0 or from 8
+  up ("bad reType");
+- the front end (`0x447082`) adds a model (0), the camera-facing entity
+  surfaces 2 to 6, and skips a portal (7); 1 is refused;
+- the back end (`0x4653c0`) draws 2 as a sprite (rotation read first,
+  then radius, as Quake III's), 3 as Quake III's beam (`0x463d40`: a
+  plain triangle strip from the origin to the old origin, drawn with a
+  fixed colour, debug-like), 4 and 5 as the rail core and rings, 6 as
+  lightning.
+
+What the client game adds (its 43 calls to `R_AddRefEntityToScene`):
+models; sprites (type 2, radius at 144, e.g. 10 or 14; at `0x2001ed8c`,
+`0x200280e2`, `0x2002cdd6`, `0x20034a74`); a portal's or mirror's camera
+(type 7, `0x2001f450`, as Quake III's `CG_Portal`); a beam (type 3,
+`0x2001d810`) for beam entities only. No rail or lightning was found.
+Reluva draws sprites and portals with this layout
+(`eliteforce/ref_entity.h`, `kSpRefEntityLayout`); the beam isn't drawn
+(the info line counts it among the entities not drawn).
+
 ## The menus (`efuix86.dll`)
 
 The UI works differently from the game:

@@ -34,8 +34,9 @@ struct GameInfo {
     std::string name;    // shown to the user
     std::string baseDir; // the folder holding the game's own .pk3 files
     GameCode code = GameCode::None;
-    // How its client game lays out what it adds to the scene.
-    RefEntityLayout refEntity;
+    // How its client game lays out what it adds to the scene; single
+    // player's, where it differs.
+    RefEntityLayout refEntity, spRefEntity;
     // The command's button bits for attacking (and the second attack,
     // where the game has one; 0 if not).
     int32_t buttonAttack = 1, buttonAltAttack = 0;

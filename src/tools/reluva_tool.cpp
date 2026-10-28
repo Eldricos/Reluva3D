@@ -5872,14 +5872,19 @@ int cmdShaderCheck(int argc, char** argv) {
     for (const q3::ShaderDef& d : shaders.all()) {
         for (const std::string& u : d.unknown)
             add("unknown directive: " + u, d);
-        for (const q3::ShaderDeform& df : d.deforms)
-            if (df.type != q3::ShaderDeform::Type::Wave && df.type != q3::ShaderDeform::Type::Bulge &&
-                df.type != q3::ShaderDeform::Type::Move && df.type != q3::ShaderDeform::Type::Normal)
+        for (const q3::ShaderDeform& df : d.deforms) {
+            using T = q3::ShaderDeform::Type;
+            if (df.type == T::Autosprite || df.type == T::Autosprite2)
+                add(std::string("drawn on the level only, not on models: deformVertexes ") +
+                        deformNames[size_t(df.type)],
+                    d);
+            else if (df.type == T::Normal)
+                add("not drawn: deformVertexes normal (it only bends the normals for lighting)", d);
+            else if (df.type != T::Wave && df.type != T::Bulge && df.type != T::Move)
                 add(std::string("not drawn: deformVertexes ") + deformNames[size_t(df.type)], d);
+        }
         if (d.deforms.size() > 2)
             add("not drawn: more than two deformVertexes", d);
-        if (d.portal)
-            add("not drawn: portal (shown as a plain surface)", d);
         for (const q3::ShaderStage& st : d.stages)
             if (st.blendSrc == "gl_src_alpha_saturate")
                 add("not drawn: blendFunc GL_SRC_ALPHA_SATURATE", d);

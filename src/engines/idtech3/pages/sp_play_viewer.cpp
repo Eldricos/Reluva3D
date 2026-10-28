@@ -88,7 +88,7 @@ void SpPlayViewer::activate() {
     world_ = std::make_unique<WorldRenderer>(*renderer_, *shaders_);
     models_ = std::make_unique<ModelCache>(*renderer_, *shaders_, ctx_.files);
     applyVideoSettings(video, *shaders_, world_.get(), models_.get());
-    scene_ = std::make_unique<SceneDrawer>(*renderer_, *shaders_, *models_, ctx_.game.refEntity);
+    scene_ = std::make_unique<SceneDrawer>(*renderer_, *shaders_, *models_, ctx_.game.spRefEntity);
     ctx_.sys.setRelativeMouse(true);
     if (ctx_.mixer)
         soundSystem_ = std::make_unique<SoundSystem>(*ctx_.mixer, soundLibrary_);

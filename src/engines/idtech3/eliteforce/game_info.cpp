@@ -14,6 +14,7 @@ GameInfo gameInfo() {
     g.baseDir = "baseEF";
     g.code = GameCode::EliteForce;
     g.refEntity = kRefEntityLayout;
+    g.spRefEntity = kSpRefEntityLayout;
     g.buttonAttack = 1;
     g.buttonAltAttack = 32;
     g.playerModel = "munro";

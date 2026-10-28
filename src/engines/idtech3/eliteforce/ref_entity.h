@@ -45,4 +45,22 @@ constexpr RefEntityLayout kRefEntityLayout = [] {
     return l;
 }();
 
+// Single player's (stvoy.exe and efgamex86.dll) is another: 152 bytes,
+// Quake III's up to the shader's time, then 12 of its own, then the
+// sprite's radius (144) and rotation (148); and Quake III's numbering of
+// the kinds, the only ones its renderer takes (RE_AddRefEntityToScene
+// refuses 8 and up): a sprite facing the camera (2), Quake III's beam,
+// rail core, rail rings and lightning (3 to 6), a mirror's or portal's
+// camera (7). Its client game adds sprites, portals and, for beam
+// entities, beams (eliteforce-sp-interface.md).
+constexpr RefEntityLayout kSpRefEntityLayout = [] {
+    RefEntityLayout l;
+    l.size = 152;
+    l.radius = 144;
+    l.rotation = 148;
+    l.typeSprite = 2;
+    l.typePortal = 7;
+    return l;
+}();
+
 } // namespace reluva::idtech3::eliteforce
