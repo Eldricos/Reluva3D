@@ -236,7 +236,7 @@ void ScenePage::drawOptions() {
             continue;
         const bool on = i == 3 ? m.staged[3] != 0 : options_.values[GameOptions::Shadows + i - 4] != 0;
         if (on && check)
-            image::blit(ctx_.screen, picture(check->text("file")), int(box->f("x")) - 2, int(box->f("y")) - 2);
+            image::blitOver(ctx_.screen, picture(check->text("file")), int(box->f("x")) - 2, int(box->f("y")) - 2);
         if (style && style->font) {
             const int bh = picture(box->text("file")).h;
             ctx_.fonts->draw(ctx_.screen, *style, int(box->f("x")) - w - 10, int(box->f("y")) + (bh - h) / 2, label,

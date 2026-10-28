@@ -380,7 +380,7 @@ void ScenePage::drawPuzzleBox() {
     const PuzzleBox& b = *box_;
     auto at = [&](const std::string& file, int x, int y) {
         if (const Ac2Record* o = puzzleObject(file))
-            image::blit(ctx_.screen, picture(o->text("file")), x, y);
+            image::blitOver(ctx_.screen, picture(o->text("file")), x, y);
     };
     auto arrows = [&](int piece, const char* const* names) {
         if (b.selected != piece)
@@ -394,7 +394,7 @@ void ScenePage::drawPuzzleBox() {
             if (!o)
                 continue;
             const int x = int(o->f("x")), y = int(o->f("y")) + dy;
-            image::blit(ctx_.screen, picture(o->text("file")), x, y);
+            image::blitOver(ctx_.screen, picture(o->text("file")), x, y);
             if (over == a + 1 && boxMovePossible(piece, a + 1))
                 at(std::string(names[a]) + "o.png", x, y);
         }
@@ -416,7 +416,7 @@ void ScenePage::drawPuzzleBox() {
         if (file.find("topopen") == std::string::npos || !shown(*o) || hidden(*o))
             continue;
         if (const auto loop = loops_.find(o); loop != loops_.end() && loop->second.frame.w)
-            image::blit(ctx_.screen, loop->second.frame, int(o->f("x")), int(o->f("y")));
+            image::blitOver(ctx_.screen, loop->second.frame, int(o->f("x")), int(o->f("y")));
         if (const Ac2Record* side = puzzleObject(boxSidePicture())) {
             const image::Image& img = picture(side->text("file"));
             image::Image clip;
@@ -428,12 +428,12 @@ void ScenePage::drawPuzzleBox() {
                     if (u >= 0 && v >= 0 && u < img.w && v < img.h)
                         std::copy_n(img.pixel(u, v), 4, clip.pixel(x, y));
                 }
-            image::blit(ctx_.screen, clip, 440, 0);
+            image::blitOver(ctx_.screen, clip, 440, 0);
         }
     }
     for (const Ac2Record* o : scene_.objects())
         if (fs::toLower(o->text("file")).find("exalocket") != std::string::npos && shown(*o) && !hidden(*o))
-            image::blit(ctx_.screen, picture(o->text("file")), int(o->f("x")), int(o->f("y")));
+            image::blitOver(ctx_.screen, picture(o->text("file")), int(o->f("x")), int(o->f("y")));
 }
 
 // --- Input -------------------------------------------------------------------------------

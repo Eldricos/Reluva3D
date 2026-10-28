@@ -277,23 +277,6 @@ void PicturePage::handleEvent(const Event& ev) {
 
 namespace {
 
-// Draws `img` over an overlay (transparent where nothing is), keeping
-// alpha so the overlay can go over the 3D frame.
-void blitOver(Surface& dst, const image::Image& img, int x, int y) {
-    for (int sy = std::max(0, -y); sy < img.h && y + sy < dst.h; sy++) {
-        uint8_t* row = dst.row(y + sy);
-        for (int sx = std::max(0, -x); sx < img.w && x + sx < dst.w; sx++) {
-            const uint8_t* s = img.pixel(sx, sy);
-            uint8_t* d = row + (x + sx) * 4;
-            const int a = s[3], da = d[3] * (255 - a) / 255, out = a + da;
-            if (out == 0)
-                continue;
-            for (int c = 0; c < 3; c++)
-                d[c] = uint8_t((s[c] * a + d[c] * da) / out);
-            d[3] = uint8_t(out);
-        }
-    }
-}
 
 // A scene's act variant ("Salon_01_06a.ac2" for act 6A): the base scene's
 // name, or "" if it isn't one.
@@ -1187,7 +1170,7 @@ void ScenePage::draw() {
         if (!t.plain())
             drawSprite(ctx_.screen, img, t, keepAlpha);
         else if (keepAlpha)
-            blitOver(ctx_.screen, img, int(t.x), int(t.y));
+            image::blitOver(ctx_.screen, img, int(t.x), int(t.y));
         else
             image::blit(ctx_.screen, img, int(t.x), int(t.y));
     };

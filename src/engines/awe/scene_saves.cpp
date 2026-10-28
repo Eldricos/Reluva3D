@@ -278,7 +278,7 @@ void ScenePage::drawMessage() {
     const image::Image& placard = picture("interface/placard.tga");
     const int top = 766 - placard.h;
     if (placard.w)
-        image::blit(ctx_.screen, placard, (kScreenW - placard.w) / 2, top);
+        image::blitOver(ctx_.screen, placard, (kScreenW - placard.w) / 2, top);
     const TextStyle* style = ctx_.fonts ? ctx_.fonts->style("location descriptions") : nullptr;
     if (!style || !style->font)
         return;
@@ -516,7 +516,7 @@ void ScenePage::drawSlots() {
         const image::Image& glow = picture(m.save ? "locations/menu.save/cutouts/glow.tga"
                                                   : "locations/menu.load/cutouts/glow.tga");
         if (glow.w)
-            image::blit(ctx_.screen, glow, kRowLeft, kRowTop[m.row]);
+            image::blitOver(ctx_.screen, glow, kRowLeft, kRowTop[m.row]);
     }
     for (int r = 0; r < 3; r++) {
         const SlotMenu::Row& row = m.rows[r];
@@ -527,7 +527,7 @@ void ScenePage::drawSlots() {
             if (!on)
                 for (size_t i = 3; i < t.rgba.size(); i += 4)
                     t.rgba[i] = 92;
-            image::blit(ctx_.screen, t, 704, top + 1);
+            image::blitOver(ctx_.screen, t, 704, top + 1);
         }
         if (!style || !style->font)
             continue;

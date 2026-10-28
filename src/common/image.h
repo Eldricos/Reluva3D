@@ -32,5 +32,9 @@ std::vector<uint8_t> encodeTga(const Image& img);
 // Copy the image into an RGBA32 surface with its top-left corner at (x, y),
 // clipped to it, blending by alpha over what's there.
 void blit(Surface& dst, const Image& img, int x, int y);
+// The same over a surface that may be transparent (an overlay): blended
+// by both alphas, the result's kept, so it can go over something else.
+// Over an opaque surface it comes to blit's.
+void blitOver(Surface& dst, const Image& img, int x, int y);
 
 } // namespace reluva::image
