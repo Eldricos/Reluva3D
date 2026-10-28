@@ -49,8 +49,21 @@ goes on while the walk (or sound...) does. Only `walka`, `rotatea`,
 not.)
 
 `wait <seconds>` is the runner's own: it counts down, then ends.
-`setchar <name>` chooses the character that later events
-(`walk`, `turn`, `anim`, `look`...) act on.
+`setchar <name> [n]` chooses the character that later events
+(`walk`, `turn`, `anim`, `look`...) act on (0x40ae94). It is found as
+`0x4367b0` finds anyone by name: the n-th object (the first by default)
+whose model's file has `<name>_model` in it, any case; for `poirot`,
+failing that, `poirotbed_model`, so `setchar poirot` in his compartment
+acts on Poirot in his bed. Without a `setchar` a script acts on the
+player (0x408cd3): the first `PCXX` or `NPCX` whose `player` field
+(+0xb10) is set. A `PCXX` has it from its constructor (0x4331e8), an
+`NPCX` doesn't, and none in the install sets it, so the table close-ups,
+where Antoinette is an `NPCX`, have no player: a click's `turn hardman
+down` there turns no one, in the game as in Reluva. A line's Event and
+Prevent act on its speaker (0x43c247, 0x43c577: `0x43bb60`, which looks
+in the place's other scenes too, so the game may animate a speaker off
+screen; Reluva, holding only the scene shown, skips those), its Povent
+on the player.
 
 ## Conditions in scripts
 

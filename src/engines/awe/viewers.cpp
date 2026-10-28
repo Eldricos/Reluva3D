@@ -2334,20 +2334,35 @@ void ScenePage::runScript(const Ac2Record& object) {
 }
 
 ScenePage::Character* ScenePage::scriptCharacter(const ScriptRunner& runner) {
-    // setchar's, else the player's (0x4365d0).
+    // setchar's (0x40ae94: by name, as 0x4367b0 finds it), else the
+    // player's: the first character marked the player (0x4365d0). A scene
+    // whose Antoinette isn't (an NPCX close-up) has none, and the verbs
+    // are over at once, as in the game.
     const std::string who = fs::toLower(runner.character());
-    Character* player = nullptr;
-    for (Character& c : characters_) {
-        if (!who.empty() && c.who == who)
-            return &c;
+    if (!who.empty())
+        return characterNamed(who);
+    for (Character& c : characters_)
         if (c.player)
-            player = &c;
-    }
-    return who.empty() || who == "antoinette" ? player : nullptr;
+            return &c;
+    return nullptr;
 }
 
 ScenePage::Character* ScenePage::characterNamed(const std::string& who) {
+    // 0x4367b0: the first whose model's file has "<name>_model" in it
+    // (any case); for "poirot", failing that, "poirotbed_model" (Poirot in
+    // his bed, in his compartment from 5C on).
     const std::string w = fs::toLower(who);
+    auto byModel = [&](const std::string& model) -> Character* {
+        for (Character& c : characters_)
+            if (c.record && fs::toLower(c.record->text("file")).find(model) != std::string::npos)
+                return &c;
+        return nullptr;
+    };
+    if (Character* c = byModel(w + "_model"))
+        return c;
+    if (w == "poirot")
+        if (Character* c = byModel("poirotbed_model"))
+            return c;
     for (Character& c : characters_)
         if (c.who == w || fs::toLower(c.record ? c.record->text("name") : "") == w)
             return &c;
@@ -2356,11 +2371,10 @@ ScenePage::Character* ScenePage::characterNamed(const std::string& who) {
 
 bool ScenePage::objectAt(const std::string& name, float& x, float& z) const {
     const std::string n = fs::toLower(name);
-    for (const Character& c : characters_)
-        if (c.who == n) {
-            x = c.x, z = c.z;
-            return true;
-        }
+    if (const Character* c = const_cast<ScenePage*>(this)->characterNamed(n)) {
+        x = c->x, z = c->z;
+        return true;
+    }
     for (const Ac2Record* o : scene_.objects())
         if (fs::toLower(o->text("name")) == n) {
             x = o->f("x"), z = o->f("z");
@@ -3058,12 +3072,17 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
     }
     if (v == "talk")
         return startTalk(runner, e) && wait;
-    // A character's verb with no character to do it (none in the scene by
-    // that name, or characters not loaded: no 3D): over at once.
+    // A character's verb with no character to do it: over at once. As in
+    // the game when the scene has no player (Antoinette as an NPCX in the
+    // table close-ups, 0x4365d0) or no one of that name (0x4367b0). A
+    // line's speaker in another scene of the place (0x43bb60 looks there
+    // too) isn't loaded here, so what the game would do to them off screen
+    // is lost.
     for (const char* verb : {"turn", "look", "rotate", "anim", "animate", "pause", "resume", "loop", "attach", "detach",
                              "hideshadow", "showshadow"})
         if (v == verb) {
-            logScript("    (" + v + ": no character)");
+            const std::string& who = runner.character();
+            logScript("    (" + v + ": no " + (who.empty() ? std::string("player") : who) + " here)");
             return false;
         }
     // The rest isn't done here yet: logged, and over.
