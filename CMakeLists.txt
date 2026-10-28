@@ -12,6 +12,7 @@ option(RELUVA_BUILD_TESTS "Build unit tests" ON)
 # than Visual Studio accepts (error C2026).
 option(RELUVA_ENGINE_NEWWORLDS "Build the Star Trek: New Worlds engine" OFF)
 option(RELUVA_ENGINE_IDTECH3 "Build the id Tech 3 engine (Star Trek: Voyager - Elite Force)" ON)
+option(RELUVA_ENGINE_AGE "Build the Angel Game Engine (Midtown Madness 2)" ON)
 
 include(FetchContent)
 
@@ -179,6 +180,15 @@ if(RELUVA_ENGINE_IDTECH3)
         src/engines/idtech3/world_viewer.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_IDTECH3)
 endif()
+if(RELUVA_ENGINE_AGE)
+    target_sources(reluva_engines PRIVATE
+        src/engines/age/age.cpp
+        src/engines/age/games.cpp
+        src/engines/age/ar_archive.cpp
+        src/engines/age/filesystem.cpp
+        src/engines/age/viewers.cpp)
+    target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_AGE)
+endif()
 target_link_libraries(reluva_engines PUBLIC reluva_common PRIVATE reluva_warnings)
 
 # --- executable: SDL3 backend + ImGui launcher --------------------------------
@@ -222,5 +232,12 @@ if(RELUVA_BUILD_TESTS)
         endif()
         target_include_directories(reluva_idtech3_tests PRIVATE tests)
         add_test(NAME idtech3 COMMAND reluva_idtech3_tests)
+    endif()
+
+    if(RELUVA_ENGINE_AGE)
+        add_executable(reluva_age_tests tests/test_age.cpp)
+        target_link_libraries(reluva_age_tests PRIVATE reluva_engines reluva_warnings)
+        target_include_directories(reluva_age_tests PRIVATE tests)
+        add_test(NAME age COMMAND reluva_age_tests)
     endif()
 endif()

@@ -74,7 +74,8 @@ At the end of the configure step, CMake prints a summary of SDL's features.
 Install it, delete `build/`, and configure again.
 
 **Engines** can be left out of the build with CMake options:
-`RELUVA_ENGINE_IDTECH3` (Elite Force, on by default) and
+`RELUVA_ENGINE_IDTECH3` (Elite Force, on by default),
+`RELUVA_ENGINE_AGE` (Midtown Madness 2, on by default) and
 `RELUVA_ENGINE_NEWWORLDS` (Star Trek: New Worlds, **off** by default for now,
 because two of its files hold string literals longer than Visual Studio
 accepts). To build New Worlds with GCC or Clang:
