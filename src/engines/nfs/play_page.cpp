@@ -211,6 +211,8 @@ void PlayPage::start() {
         if (!gpu_) {
             ++statGameFrames_;
             statInstructions_ = host_->cpu().executed();
+            statOwn_ = host_->thrash().lastOwn;
+            statTimer_ = host_->thrash().lastTimer;
         }
         newFrame_ = true;
         thrashLatest_ = false;
@@ -235,6 +237,8 @@ void PlayPage::start() {
         }
         ++statGameFrames_;
         statInstructions_ = host_->cpu().executed();
+        statOwn_ = host_->thrash().lastOwn;
+        statTimer_ = host_->thrash().lastTimer;
         Pending p{std::move(frame), nullptr};
         if (!compareFolder_.empty())
             p.software = std::make_shared<const Surface>(frame_); // drawn at the same flip, just before
@@ -374,15 +378,24 @@ void PlayPage::reportSpeed(uint64_t nowMs) {
     if (nowMs - statFrom_ < 5000 || !running_)
         return;
     const double seconds = double(nowMs - statFrom_) / 1000.0;
-    const uint64_t instructions = statInstructions_;
-    std::printf("Play: the game made %.1f frames a second at %.1f million instructions a second; %s drew %.1f a "
-                "second (%.1f not needed, %.1f dropped), shown %.1f times a second\n",
-                double(statGameFrames_) / seconds, double(instructions - statLastInstructions_) / seconds / 1e6,
+    const uint64_t instructions = statInstructions_, own = statOwn_, timer = statTimer_;
+    const uint64_t frames = statGameFrames_, run = instructions - statLastInstructions_;
+    // Where the instructions went: the game's main thread, its timer
+    // thread, and the rest (its other threads).
+    const uint64_t ownRun = own - std::min(own, statLastOwn_), timerRun = timer - std::min(timer, statLastTimer_);
+    auto share = [run](uint64_t n) { return run ? 100.0 * double(n) / double(run) : 0.0; };
+    std::printf("Play: the game made %.1f frames a second at %.1f million instructions a second (%.2f million a "
+                "frame: main thread %.0f%%, timer %.0f%%, others %.0f%%); %s drew %.1f a second (%.1f not needed, "
+                "%.1f dropped), shown %.1f times a second\n",
+                double(frames) / seconds, double(run) / seconds / 1e6, frames ? double(run) / double(frames) / 1e6 : 0.0,
+                share(ownRun), share(timerRun), share(run - std::min(run, ownRun + timerRun)),
                 gpu_ ? "the GPU" : "software", double(statDrawn_) / seconds, double(statSkipped_) / seconds,
                 double(statDropped_) / seconds, double(statShown_) / seconds);
     std::fflush(stdout);
     statFrom_ = nowMs;
     statLastInstructions_ = instructions;
+    statLastOwn_ = own;
+    statLastTimer_ = timer;
     statGameFrames_ = statDropped_ = 0;
     statDrawn_ = statSkipped_ = statShown_ = 0;
 }

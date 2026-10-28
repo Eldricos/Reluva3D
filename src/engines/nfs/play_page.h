@@ -118,6 +118,10 @@ private:
     // (a later one covered them), dropped (too many waiting) and shown.
     void reportSpeed(uint64_t nowMs);
     std::atomic<uint64_t> statGameFrames_{0}, statDropped_{0}, statInstructions_{0};
+    // Of the instructions, those on the game's main thread and on its timer
+    // thread, as of the last frame.
+    std::atomic<uint64_t> statOwn_{0}, statTimer_{0};
+    uint64_t statLastOwn_ = 0, statLastTimer_ = 0;
     uint64_t statFrom_ = 0, statLastInstructions_ = 0, statDrawn_ = 0, statSkipped_ = 0, statShown_ = 0;
 };
 

@@ -769,7 +769,9 @@ Started. Done so far:
     at least on a machine like this one.
 - **How fast it goes, in the app.** Every 5 seconds the Play page writes
   a line to the console. It gives the frames the game made and the
-  instructions a second, whether the GPU or software draws them, and how
+  instructions a second and a frame, with the shares of the game's main
+  thread, its timer thread and its other threads; whether the GPU or
+  software draws them, and how
   many were drawn, not needed (a later one covered them), dropped (too
   many waiting) and shown. That tells a slow interpreter from frames lost
   on the way to the screen.
