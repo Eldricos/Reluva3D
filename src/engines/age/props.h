@@ -5,6 +5,7 @@
 
 #include "common/archive.h"
 #include "common/gfx3d.h"
+#include "engines/age/bai.h"
 #include "engines/age/car.h"
 #include "engines/age/collision.h"
 #include "engines/age/pathset.h"
@@ -12,6 +13,7 @@
 #include "engines/age/traffic_lights.h"
 
 #include <functional>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -30,6 +32,29 @@ struct PropPlacement {
 // every (end word's second byte / 10) metres, along it. See
 // docs/formats/age/pathset.md.
 std::vector<PropPlacement> placeProps(const std::vector<PathsetPath>& paths);
+
+// The street furniture along the roads' sidewalks: city/<city>/propdefs.csv
+// names the kinds (a street light, a meter...), proprules.csv which kinds
+// line each side of a road under rules n01left... and each road block's
+// second byte (PsdlBlock::extra) is its rule's number. See
+// docs/formats/age/pathset.md.
+struct StreetPropKind {
+    float start = 0;   // metres along the side to the first
+    float spacing = 0; // and between them
+    int most = 0;      // maxUse: at most this many on a side
+    float minLerp = 0; // across the sidewalk from its curb (0) to its outer edge (1)
+    float maxLerp = 0;
+    std::vector<std::string> models; // one picked for each
+};
+std::map<std::string, StreetPropKind> parsePropDefs(const std::string& text);
+std::map<std::string, std::vector<std::string>> parsePropRules(const std::string& text);
+// Each road's sides by its blocks' rule (`blockRules[block]`, 0 none):
+// side 0 (on the left from its first point) by rule n<NN>left, side 1 by
+// n<NN>right.
+std::vector<PropPlacement> placeStreetProps(const AiRoadMap& roads, const std::vector<uint8_t>& blockRules,
+                                            const std::map<std::string, StreetPropKind>& kinds,
+                                            const std::map<std::string, std::vector<std::string>>& rules,
+                                            uint32_t seed = 1);
 
 // tune/banger/<model>.dgBangerData: what Reluva takes from it.
 struct BangerData {
@@ -50,6 +75,10 @@ public:
     // city/<map>/props.pathset's props, and a race's own
     // (race/<map>/<variant>.pathset: "circuit0"...).
     void load(const SearchSet& files, const std::string& map, const std::string& variant = "");
+    // The street furniture (placeStreetProps from city/<map>/propdefs.csv
+    // and proprules.csv).
+    void addStreetProps(const SearchSet& files, const std::string& map, const AiRoadMap& roads,
+                        const std::vector<uint8_t>& blockRules);
     // The traffic lights, as poles.
     void addLights(const TrafficLights& lights);
     // Their shapes and banger data, once the models are at hand

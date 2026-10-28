@@ -145,7 +145,9 @@ junction starts at its own point in the cycle. The glows are the model's
 
 The props of `city/<city>/props.pathset` ([pathset.md](../formats/age/pathset.md)),
 and in a race its own (`race/<city>/circuit0.pathset`...: the circuits'
-barricades, a lesson's parked cars and ramps), stand where they put them, and they and the traffic lights can be knocked
+barricades, a lesson's parked cars and ramps), and the street furniture
+the cities' rules line the sidewalks with (street lights, meters, bins,
+phone boxes...), stand where they put them, and they and the traffic lights can be knocked
 down (`props.cpp`):
 
 - Each is collided with: its bound (`bound/<model>_BOUND.bnd`), else its

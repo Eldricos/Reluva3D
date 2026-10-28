@@ -50,7 +50,7 @@ Little-endian throughout.
 | u32 | the first road block (402 in San Francisco, 367 in London): the blocks before it have no roads |
 | | the blocks |
 | u8 each | a byte of flags for each block, block 0 included (see below) |
-| u8 each | a second byte for each block: 205 for block 0, 1-20 for 801 road blocks and 9 junctions, 0 for the rest |
+| u8 each | a second byte for each block: 205 for block 0, 1-20 for 801 road blocks and 9 junctions, 0 for the rest: the street furniture rule (below) |
 | 6 floats | the city's bounds, minimum then maximum |
 | 4 floats | its centre and radius |
 | | the roads (below), to the end of the file |
@@ -239,9 +239,18 @@ that texture when the block is more than 150 m from the eye (worked out
 again when the eye moves 60 m or into another block). Whether the game
 does is still to be seen; divided roads keep their own.
 
+## Street furniture rules
+
+A road block's second byte is which of `city/<city>/proprules.csv`'s
+rules line its road's sidewalks: 1-20 in San Francisco, which has rules
+`n01left`... `n20right`, and 1-16 in London, which has `n01`-`n16`. Every
+`.bai` road whose blocks have one has the same in all of them (332 of San
+Francisco's 379 roads, 407 of London's 540; the rest, ramps and the
+like, none). See [pathset.md](pathset.md).
+
 ## Not known yet
 
-The second byte of the road blocks; block flags 0x20-0x80; the divided
+Block flags 0x20-0x80; the divided
 road's two words; the tunnel attribute's other words and flags; facade
 bounds' first value; the roads' flags, ends and vertices. The program's
 own handling of these is encrypted (see ../../engines/age.md), so they're

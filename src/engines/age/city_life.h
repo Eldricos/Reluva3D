@@ -77,6 +77,7 @@ public:
 
 private:
     AiRoadMap roads_;
+    std::vector<uint8_t> blockRules_; // each PSDL block's street furniture rule (0 none)
     std::string map_;
     AiMapSettings city_, current_;
     Traffic traffic_;
