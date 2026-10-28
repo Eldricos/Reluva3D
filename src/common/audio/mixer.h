@@ -26,6 +26,15 @@ constexpr SoundHandle kNoSound = 0;
 constexpr int kMaxVolume = 256; // volumes run 0 (silent) .. 256 (as recorded)
 constexpr int kMaxPan = 127;    // pan runs -127 (left) .. 127 (right)
 
+// A sound made as it plays (music from a synthesizer): asked on the audio
+// thread for `frames` stereo frames at the mixer's rate, added into `out`
+// (interleaved, full scale +-1).
+class Stream {
+public:
+    virtual ~Stream() = default;
+    virtual void read(float* out, int frames) = 0;
+};
+
 // Mixes any number of decoded sounds into the System's stereo output:
 // each resampled (linearly) to the output rate, scaled by its own volume and
 // pan and its type's volume, summed and clamped to 16 bits. Shared by every
@@ -53,6 +62,11 @@ public:
     // Plays a sound faster (higher) or slower (lower) than recorded:
     // 1 as recorded, 2 an octave up. Clamped to 0.05..8.
     void setPitch(SoundHandle handle, float pitch);
+    // A stream plays, at its type's volume, until removed (which waits for
+    // a mix() under way to finish, so the stream may then be destroyed).
+    void addStream(std::shared_ptr<Stream> stream, SoundType type);
+    void removeStream(const Stream* stream);
+
     void setTypeVolume(SoundType type, int volume);
     int typeVolume(SoundType type) const;
 
@@ -82,6 +96,8 @@ private:
     SoundHandle nextHandle_ = 1;
     int typeVolume_[kSoundTypes] = {kMaxVolume, kMaxVolume, kMaxVolume};
     std::vector<int32_t> accumulator_; // mix()'s working buffer, stereo
+    std::vector<std::pair<std::shared_ptr<Stream>, SoundType>> streams_;
+    std::vector<float> streamBuffer_;
 };
 
 // Starts the System's audio output with the mixer as its source. The mixer
