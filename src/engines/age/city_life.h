@@ -31,6 +31,7 @@ public:
         int cops = -1;                // how many of the settings' police (-1: all)
         bool rain = false;            // the pedestrians dressed for it
         bool laneChanges = false;     // traffic changes lanes (else as the settings say)
+        bool patrols = false;         // the police patrol the lanes rather than wait
         uint32_t seed = 1;
     };
     // Starts afresh with `settings` (the city's, or a race's read over
@@ -61,6 +62,7 @@ public:
 
 private:
     AiRoadMap roads_;
+    std::string map_;
     AiMapSettings city_, current_;
     Traffic traffic_;
     Pedestrians peds_;

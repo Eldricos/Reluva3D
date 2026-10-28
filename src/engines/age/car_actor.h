@@ -41,6 +41,7 @@ public:
     struct Lamps {
         bool head = false, brake = false, reverse = false;
     } lamps;
+    bool hasSiren() const { return sirens_[0].mesh || !sirenLamps_.empty(); }
     // Flares at its headlights (its HEADLIGHT squares) when they're on, and
     // at its sirens, seen from `eye`.
     void drawFlares(const FlareDrawer& flares, const Vec3& eye) const;

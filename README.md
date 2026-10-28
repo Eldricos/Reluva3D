@@ -119,9 +119,10 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   and weather, **R** puts the car back at the start and **I** hides the info. The city has
   traffic, which stops at its traffic lights and changes lanes, and people on its
   sidewalks (**Y** steps through none, light, normal and heavy); cars' headlights come on
-  in the evening, at night and in fog and rain; and police, who chase a car speeding past them and bust it once it's stopped (**O** turns
-  them off and on). The handling, the traffic and the police are Reluva's own, not yet
-  compared with the game.
+  in the evening, at night and in fog and rain; and police, who patrol the streets, chase
+  a car speeding past them and bust it once it's stopped (**O** turns them off and on).
+  In the police car, **H** sounds its siren. The handling, the traffic and the police are
+  Reluva's own, not yet compared with the game.
   **Tab** switches between racing, driving, the world, models, textures and files. In the world, **Left/Right** picks London or San
   Francisco, drag to look, **W/A/S/D** move, **Space/C** (or **E/Q**) go up and down,
   **Shift** goes faster, **T** steps through the 16 times of day and weathers, **M**

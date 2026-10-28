@@ -22,10 +22,13 @@ public:
     // top speed.
     void start(std::vector<Vec3> path, int laps, float skill, size_t loopFrom = 0);
     CarControls drive(const CarSim& car, float dt);
+    // At most this fast (metres a second), as a patrolling police car.
+    void setSpeedLimit(float limit) { limit_ = limit; }
 
     bool finished() const { return finished_; }
     int lap() const { return lap_; }
     size_t next() const { return index_; }
+    const std::vector<Vec3>& path() const { return path_; }
     // Stuck for long, or 8 s without getting nearer the next point: the
     // caller puts the car back at `resetPoint` facing `resetYaw`, and
     // calls resetDone(). After two at the same point the third puts it on
@@ -40,6 +43,7 @@ private:
     int laps_ = 0, lap_ = 0;
     size_t index_ = 0, loopFrom_ = 0;
     float skill_ = 1;
+    float limit_ = 1e9f;
     bool finished_ = false;
     float stuckTime_ = 0, reverseTime_ = 0;
     // Circling without getting nearer the target: the nearest it's been,

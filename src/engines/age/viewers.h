@@ -19,8 +19,9 @@
 // weather, R puts the car back at the start, I shows or hides the info.
 // The city has traffic and people on its sidewalks (Y steps through none,
 // light, normal and heavy), traffic lights, and police, who chase a car
-// speeding past them (O turns them off and on). In the evening, at night
-// and in fog and rain the cars' headlights are on.
+// speeding past them (O turns them off and on); while not chasing they
+// patrol. In the evening, at night and in fog and rain the cars'
+// headlights are on. In a police car H turns its siren on and off.
 //
 // World (3D): a city (London, San Francisco) flown through. Left/Right
 // pick the city, drag to look, W/A/S/D move, Space/C (or E/Q) go up and
@@ -309,6 +310,9 @@ private:
     int trafficLevel_ = 2; // none, light, normal, heavy
     bool cops_ = true;
     bool fill_ = true;     // place the traffic anywhere round the car next update
+    SirenSound siren_;     // the player's, in a police car
+    bool sirenOn_ = false;
+    float clock_ = 0;
     float busted_ = 0;     // seconds the "busted" message has left
     uint32_t keys_ = 0; // driving keys held: DriveKeys
     uint64_t lastMs_ = 0;

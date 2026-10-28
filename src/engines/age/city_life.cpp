@@ -9,6 +9,7 @@ Error CityLife::load(const SearchSet& files, const std::string& map) {
     stop();
     roads_ = AiRoadMap{};
     city_ = AiMapSettings{};
+    map_ = map;
     std::vector<uint8_t> data;
     if (Error err = files.read("city/" + map + ".bai", data))
         return err;
@@ -30,8 +31,14 @@ Error CityLife::start(gfx::Renderer3D& renderer, TextureCache& textures, const S
     traffic_.setLaneChanges(options.laneChanges || settings.laneChanges);
     Error first = peds_.setup(renderer, files, roads_, settings, options.rain, options.seed + 1);
     peds_.setDensity(options.peds);
-    if (Error err = police_.setup(renderer, textures, files, settings, options.cops, mixer); err && !first)
+    // San Francisco's police sound as the game's computer-driven ones do;
+    // London's with its own two-tone siren (the player's table for there:
+    // the opponents' has only the American ones).
+    const std::string siren = map_ == "london" ? "aud/cardata/player/londonpolicesiren.csv"
+                                               : "aud/cardata/opponent/policesiren.csv";
+    if (Error err = police_.setup(renderer, textures, files, settings, options.cops, mixer, siren); err && !first)
         first = err;
+    police_.setPatrols(options.patrols ? &traffic_.network() : nullptr, &lights_);
     return first;
 }
 
@@ -50,7 +57,14 @@ void CityLife::setLamps(bool lit, bool night) {
 void CityLife::update(float dt, CarSim& player, const std::vector<CarSim*>& others, const CollisionWorld& world,
                       const RoadGraph& roads, bool fill) {
     lights_.update(dt);
-    police_.update(dt, player, world, roads, current_.speedLimit);
+    // The police keep behind what's ahead on patrol: the traffic and the
+    // other cars.
+    std::vector<RoadUser> ahead{{player.position, player.velocity}};
+    for (CarSim* c : others)
+        ahead.push_back({c->position, c->velocity});
+    traffic_.users(ahead);
+    police_.users(ahead); // each other (a car never counts itself: it's not ahead of itself)
+    police_.update(dt, player, world, roads, current_.speedLimit, ahead);
     // Every driven car bumps the traffic; the police bump the opponents.
     std::vector<CarSim*> cops = police_.cars();
     traffic_.collide(player);
