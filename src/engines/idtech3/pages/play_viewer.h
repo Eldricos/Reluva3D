@@ -151,6 +151,8 @@ private:
     bool menuOpen_ = false;
     bool menuCaught_ = false;   // they've taken the keys (and will let go to close)
     int32_t playerNumber_ = 0;  // the player's client number in the match
+    std::string lastMenuCommand_; // what the in-game menu last ran, shown a while
+    uint64_t lastMenuCommandMs_ = 0;
     std::unique_ptr<eliteforce::GameHost> game_;
     std::unique_ptr<eliteforce::NetServer> server_; // others joining the level run here
     std::unique_ptr<eliteforce::NetClient> client_; // or: playing on another machine's server

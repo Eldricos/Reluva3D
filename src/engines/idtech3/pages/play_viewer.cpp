@@ -774,6 +774,10 @@ void PlayViewer::openMenu() {
     closeTyping();
     // The menus see a connected player and the match's configstrings
     // (its game type decides what they offer).
+    // Whether this machine runs the match's server: the in-game menu
+    // offers the server's items (adding bots, restarting) by it.
+    cvars_.create("sv_running", "0", CvarStore::ReadOnly);
+    cvars_.set("sv_running", game_ && !client_ ? "1" : "0", true);
     menus_.configure = [this](eliteforce::UiHost& ui) {
         ui.clientState.connState = 8; // CA_ACTIVE
         ui.clientState.clientNum = client_ ? playerNumber_ : 0;
@@ -817,6 +821,8 @@ void PlayViewer::runMenuCommands() {
             const std::string verb = fs::toLower(words[0]);
             if (verb == "wait" || verb == "vid_restart")
                 continue; // the video settings apply on the next level
+            lastMenuCommand_ = command;
+            lastMenuCommandMs_ = ctx_.sys.getMillis();
             consoleCommand(command);
             if (!ctx_.requestPage.empty())
                 return;
@@ -972,6 +978,9 @@ void PlayViewer::handleEvent(const Event& ev) {
     if (menuOpen_) {
         // Menus that never took the keys (their key catcher) can't close
         // themselves: Esc does.
+        // A held Esc's repeats don't close what its press opened.
+        if (ev.type == EventType::KeyDown && ev.key == key::Escape && ev.repeat)
+            return;
         if (ev.type == EventType::KeyDown && ev.key == key::Escape && (!menuCaught_ || (ev.mods & keymod::Shift))) {
             // (Shift+Esc always: back to the match, whatever they show.)
             closeMenu();
@@ -982,7 +991,8 @@ void PlayViewer::handleEvent(const Event& ev) {
         return;
     }
     if (ev.type == EventType::KeyDown && ev.key == key::Escape) {
-        openMenu();
+        if (!ev.repeat)
+            openMenu();
         return;
     }
     if (!renderer_ || names_.empty())
@@ -1493,6 +1503,12 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
         if (!notice_.empty())
             lines.push_back(notice_);
     }
+    if (menuOpen_)
+        lines.push_back(std::string("The game's in-game menu (menu ") + std::to_string(MenuLayer::kInGameMenu) + "): " +
+                        (menuCaught_ ? "it has the keys" : "it hasn't taken the keys") +
+                        ". Shift+Esc: back to the match.");
+    if (!lastMenuCommand_.empty() && nowMs - lastMenuCommandMs_ < kHintMs)
+        lines.push_back("The in-game menu ran: " + lastMenuCommand_);
     if (nowMs - shownMs_ < kHintMs) {
         lines.push_back("Keys do what they're bound to (set in the menus' Controls). The mouse looks. ~: the console.");
         lines.push_back("Ctrl+PageUp/PageDown: another map, Ctrl+I: info, Ctrl+R: restart, Esc: the menus, Ctrl+Esc: launcher.");
