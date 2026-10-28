@@ -121,6 +121,8 @@ private:
     Handles handles_;
     std::map<int32_t, int> modelIds_; // the program's model handle -> models_ id (-1: can't load)
     std::vector<int> pictureMaterials_, effectMaterials_; // by shader handle; -2 not made yet
+    int beamMaterial_ = -2;                                // Quake III's beam's (-2 not made yet)
+    int beamMaterial();
     // Those of the other programs drawn with, by their shader table.
     struct Caches {
         std::map<int32_t, int> modelIds;
@@ -165,6 +167,7 @@ private:
         float shaderTime = 0;
         bool depthHack = false;
         int material = -1; // set when drawn (-1: not drawn)
+        bool beam = false; // drawn with beamMaterial()
         float sort = 0;    // its material's
     };
     std::vector<Effect> effects_;

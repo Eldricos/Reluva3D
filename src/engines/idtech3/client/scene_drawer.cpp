@@ -109,11 +109,26 @@ void SceneDrawer::reset() {
     modelIds_.clear();
     pictureMaterials_.clear();
     effectMaterials_.clear();
+    beamMaterial_ = -2;
     placed_.clear();
     effects_.clear();
     lights_.clear();
     unloadable_.clear();
     otherEntities_ = 0;
+}
+
+int SceneDrawer::beamMaterial() {
+    // Quake III's beam has no shader: the renderer's white image added to
+    // what's behind it, in red.
+    if (beamMaterial_ == -2) {
+        std::vector<ShaderDef> defs;
+        beamMaterial_ = -1;
+        if (!parseShaderFile("beam\n{\ncull none\n{\nmap $whiteimage\nblendFunc GL_ONE GL_ONE\nrgbGen entity\n}\n}\n",
+                             "beam", defs) &&
+            !defs.empty())
+            beamMaterial_ = shaders_.material(defs[0], Lighting::Effect);
+    }
+    return beamMaterial_;
 }
 
 const std::string& SceneDrawer::name(const HandleTable* table, int32_t handle) {
@@ -273,7 +288,7 @@ void SceneDrawer::drawLayers(float time, WorldRenderer* world, bool throughPorta
     constexpr float kLastOpaque = 5;
     auto shown = [&](const Placed& p) { return throughPortal ? !p.firstPerson : !p.thirdPerson; };
     for (Effect& fx : effects_) {
-        fx.material = material(effectMaterials_, fx.shader, Lighting::Effect);
+        fx.material = fx.beam ? beamMaterial() : material(effectMaterials_, fx.shader, Lighting::Effect);
         if (fx.material >= 0 && shaders_.get(fx.material).skip)
             fx.material = -1;
         fx.sort = fx.material >= 0 ? shaders_.get(fx.material).sort : 0;
@@ -551,7 +566,8 @@ float SceneDrawer::shaderTime(const std::vector<uint8_t>& e, float time) const {
 void SceneDrawer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left, const gfx::Vec3& up, float time) {
     const int32_t type = readInt(e, layout_.type);
     const int32_t shader = readInt(e, layout_.customShader);
-    if (shader <= 0)
+    const bool beam = type == layout_.typeBeam;
+    if (shader <= 0 && !beam)
         return;
     using V = gfx::Vec3;
     auto add = [](const V& a, const V& b, float s) { return V{a[0] + b[0] * s, a[1] + b[1] * s, a[2] + b[2] * s}; };
@@ -583,14 +599,15 @@ void SceneDrawer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left
         for (uint32_t i : {a, b, c, a, c, d})
             effectIndices_.push_back(i);
     };
-    // A ribbon through `points`, facing the eye, as wide as `widths`
-    // says at each; the texture across it in s and along it in t, to
-    // `repeat` at the end.
-    auto ribbon = [&](const std::vector<V>& points, const std::vector<float>& widths, float repeat) {
+    // A ribbon through `points`, facing the eye (or lying across
+    // `across`), as wide as `widths` says at each; the texture across it
+    // in s and along it in t, to `repeat` at the end.
+    auto ribbon = [&](const std::vector<V>& points, const std::vector<float>& widths, float repeat,
+                      const V* across = nullptr) {
         uint32_t prevA = 0, prevB = 0;
         for (size_t i = 0; i < points.size(); ++i) {
             const V along = sub(points[std::min(i + 1, points.size() - 1)], points[i ? i - 1 : 0]);
-            const V side = normalized(cross(along, sub(eye_, points[i])));
+            const V side = across ? *across : normalized(cross(along, sub(eye_, points[i])));
             const float t = repeat * float(i) / float(points.size() - 1);
             const uint32_t a = vertex(add(points[i], side, widths[i] / 2), 0, t);
             const uint32_t b = vertex(add(points[i], side, -widths[i] / 2), 1, t);
@@ -616,11 +633,34 @@ void SceneDrawer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left
         }
         quad(vertex(add(add(origin, l, r), u, r), 0, 0), vertex(add(add(origin, l, -r), u, r), 1, 0),
              vertex(add(add(origin, l, -r), u, -r), 1, 1), vertex(add(add(origin, l, r), u, -r), 0, 1));
-    } else if (type == layout_.typeLine || type == layout_.typeTaperedLine) {
+    } else if (type == layout_.typeLine || type == layout_.typeOrientedLine || type == layout_.typeTaperedLine) {
         const float w0 = readFloat(e, layout_.width);
         const float w1 = type == layout_.typeTaperedLine ? readFloat(e, layout_.endWidth) : w0;
         const float repeat = readFloat(e, layout_.repeat) > 0 ? readFloat(e, layout_.repeat) : 1.0f;
-        ribbon({origin, readVec(e, layout_.oldOrigin)}, {w0, w1}, repeat);
+        const V across = normalized(readVec(e, layout_.axes + 12));
+        ribbon({origin, readVec(e, layout_.oldOrigin)}, {w0, w1}, repeat,
+               type == layout_.typeOrientedLine ? &across : nullptr);
+    } else if (beam) {
+        // Quake III's: a tube of six sides, radius 4, from the origin to
+        // the old origin.
+        const V end = readVec(e, layout_.oldOrigin);
+        const V dir = normalized(sub(end, origin));
+        if (std::fabs(dir[0]) + std::fabs(dir[1]) + std::fabs(dir[2]) < 1e-6f)
+            return;
+        V perp = normalized(cross(dir, std::fabs(dir[2]) < 0.9f ? V{0, 0, 1} : V{1, 0, 0}));
+        const V perp2 = cross(dir, perp);
+        constexpr int kSides = 6;
+        uint32_t prevA = 0, prevB = 0;
+        for (int i = 0; i <= kSides; ++i) {
+            const float ang = 2 * kPi * float(i % kSides) / kSides;
+            const V radial = add(V{perp[0] * std::cos(ang), perp[1] * std::cos(ang), perp[2] * std::cos(ang)}, perp2,
+                                 std::sin(ang));
+            const uint32_t a = vertex(add(origin, radial, 4), 0, 0), b = vertex(add(end, radial, 4), 0, 0);
+            if (i)
+                quad(prevA, a, b, prevB);
+            prevA = a;
+            prevB = b;
+        }
     } else if (type == layout_.typeCurve) {
         // A cubic Bezier curve from the origin through two control points
         // to the old origin.
@@ -689,8 +729,13 @@ void SceneDrawer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left
         ++otherEntities_;
         return;
     }
-    effects_.push_back({shader, first, uint32_t(effectIndices_.size()) - first, entityColor(e), shaderTime(e, time),
-                        (readInt(e, layout_.flags) & refent::DepthHack) != 0});
+    Effect fx{shader, first, uint32_t(effectIndices_.size()) - first, entityColor(e), shaderTime(e, time),
+              (readInt(e, layout_.flags) & refent::DepthHack) != 0};
+    if (beam) {
+        fx.beam = true;
+        fx.color = {1, 0, 0, 1};
+    }
+    effects_.push_back(fx);
 }
 
 std::string SceneDrawer::effectSummary() const {

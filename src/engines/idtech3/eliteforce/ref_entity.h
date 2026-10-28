@@ -14,12 +14,16 @@ namespace reluva::idtech3::eliteforce {
 // quad in the entity's own axes (2: left and up, radius at 136; the first
 // axis faces out of what it lies on), a line from the origin to the old
 // origin (9: width at 132, the texture repeated along it as often as 140
-// says), and one tapering from the width at 132 to the one at 136 (11).
+// says), the same line lying across the second axis rather than facing
+// the eye (10), and one tapering from the width at 132 to the one at 136
+// (11).
 // More, from the other weapons: a cubic Bezier curve from the origin
 // through control points at 136 and 148 to the old origin (12), a ring or
 // cone round the first axis (13: radii at 132 and 136, height at 140, 144
 // the texture's repeats round it), and electricity from the origin to the
-// old origin (14: width 132, jitter 136, texture scale 140). A mirror's or
+// old origin (14: width 132, jitter 136, texture scale 140). Quake III's
+// beam is 4 (Holomatch's renderer draws it as Quake III's: a red tube of
+// radius 4; the client game adds one for a target_laser). A mirror's or
 // portal's camera is 8 (game-run -cgame on a map with a mirror: origin and
 // old origin the same, at the mirror; axes as cleared).
 constexpr RefEntityLayout kRefEntityLayout = [] {
@@ -37,10 +41,12 @@ constexpr RefEntityLayout kRefEntityLayout = [] {
     l.typeSprite = 1;
     l.typeQuad = 2;
     l.typeLine = 9;
+    l.typeOrientedLine = 10;
     l.typeTaperedLine = 11;
     l.typeCurve = 12;
     l.typeCylinder = 13;
     l.typeBolt = 14;
+    l.typeBeam = 4;
     l.typePortal = 8;
     return l;
 }();

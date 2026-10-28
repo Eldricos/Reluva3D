@@ -478,6 +478,22 @@ entities the client game added):
 | 13 | rings and blasts (`gfx/effects/prifle_altblast`, `gfx/misc/red_ring2`) | taken to be a ring or cone round the first axis (28): radii 132 and 136 (both growing as the colour fades: 20 and 14, then 160 and 107), height 140 (1, 6), 144 taken as the texture's repeats round it; 148 (15, 1.5) and 152 (1) not known |
 | 8 | a mirror's or portal's camera (Quake III's portal surface entity, its type one on) | origin 68 and old origin 84 (the same for a mirror: seen as 2392 -936 52 twice), axes 28 (as the game set them), frame 80, old frame 96, skin number 104 (how a portal's camera turns) |
 | 14 | the Dreadnought's electricity (`gfx/misc/dnBolt`) | taken to be a jagged line from the origin to the old origin: width 132 (0.5 to 15), jitter 136 (0.1 to 0.5), texture scale 140 (0.2) |
+| 10 | not seen; one of the 1.2 client game's effect drawers (instruction 39480 in its cgame.qvm) adds it | from Holomatch's renderer: a line from the origin to the old origin as type 9 (the same drawing function), but lying across the second axis (40, normalised) rather than facing the eye; width 132 |
+| 4 | not seen; the 1.2 client game adds one for each entity of type 6 (the server game's `target_laser`; no retail map has one) | Quake III's beam, drawn by Holomatch's renderer as Quake III's: no shader, the white image added (one, one) in red, a tube of six sides, radius 4, from the origin to the old origin; render flags 64 |
+
+Holomatch's renderer (`stvoyHM.exe`) settles the rest of the numbering:
+RE_AddRefEntityToScene refuses types past 14; when the scene is built,
+0 is a model, 8 a portal's camera (not drawn itself) and every other
+type an effect surface, whose drawing function (0x476c30) switches on
+types 1 to 14, each to its own drawer: 1 and 2 sprites, 3 a polygon of
+the entity's own (not used by the client game), 4 to 7 Quake III's
+beam, rail core, rail rings and lightning (only 4 used), 9 to 14 as
+above.
+
+The type 1 to 14 numbers were checked against the 1.2 client game: of
+the values it stores into the type of an entity it then adds (`qvm-dis`
+of pak2.pk3's cgame.qvm), 0, 1, 2, 4, 8, 9, 10, 11, 12, 13 and 14
+appear; 3, 5, 6 and 7 never do.
 
 These came from `game-run ... -cgame -give -fire -weapon all` (and
 `-altfire`), which gives the player every weapon (the game's `give all`,

@@ -26,9 +26,10 @@ struct RefEntityLayout {
     // electricity's jitter; a cylinder's repeats round it.
     size_t radius = 132, rotation = 136, width = 0, endWidth = 0, repeat = 0, control1 = 0, control2 = 0, jitter = 0,
            cylinderRepeat = 0;
-    // The kinds of entity: -1 where the game has none.
-    int32_t typeModel = 0, typeSprite = 2, typeQuad = -1, typeLine = -1, typeTaperedLine = -1, typeCurve = -1,
-            typeCylinder = -1, typeBolt = -1, typePortal = 7;
+    // The kinds of entity: -1 where the game has none. A beam is Quake
+    // III's: a thin red tube from the origin to the old origin, no shader.
+    int32_t typeModel = 0, typeSprite = 2, typeQuad = -1, typeLine = -1, typeOrientedLine = -1, typeTaperedLine = -1,
+            typeCurve = -1, typeCylinder = -1, typeBolt = -1, typeBeam = 3, typePortal = 7;
 };
 
 // Render flags (Quake III's, the same in the games after it): drawn only
