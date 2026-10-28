@@ -191,11 +191,21 @@ public:
         std::string text;
         DialoguePart* part;
         int thread;
+        // A picture shown for it too (its line's Notes, an image's path:
+        // act 8's evidence), else empty.
+        std::string picture;
     };
     const std::vector<Choice>& choices() const { return choices_; }
     int highlighted() const { return highlighted_; }
-    // Where each choice is, from the box's drawing: for clicks.
-    void setChoiceAreas(std::vector<std::pair<int, int>> rows) { choiceRows_ = std::move(rows); }
+    // Where each choice is, from the box's drawing, for the mouse: its
+    // text row, and its picture if it has one; a picture is tried before
+    // the rows (0x43c810).
+    struct ChoiceArea {
+        int x = 0, y = 0, w = 0, h = 0;
+        int choice = -1;
+        bool picture = false;
+    };
+    void setChoiceAreas(std::vector<ChoiceArea> areas) { choiceAreas_ = std::move(areas); }
 
     // For a log.
     std::function<void(const std::string& line)> onLog;
@@ -255,7 +265,7 @@ private:
     int boxHeight_ = 160, window_ = 0, slide_ = 0; // slide: 1 in, 2 out
     // Choices.
     std::vector<Choice> choices_;
-    std::vector<std::pair<int, int>> choiceRows_; // y, height
+    std::vector<ChoiceArea> choiceAreas_;
     int highlighted_ = -1;
     int wheelX_ = -1, wheelY_ = -1; // where the mouse was when the wheel chose
     unsigned random_ = 1;

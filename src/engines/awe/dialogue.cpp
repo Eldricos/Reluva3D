@@ -593,19 +593,26 @@ void DialogueManager::menu(bool first, bool keepBox) {
             exitIndex = int(i);
             continue;
         }
-        if (t.code < 0x60 && t.current >= 0 && available(t))
-            choices_.push_back({t.lines[size_t(t.current)].text, part_, int(i)});
+        if (t.code < 0x60 && t.current >= 0 && available(t)) {
+            // A line whose Notes name a picture shows it too (0x4398d5:
+            // ".jpg", ".png" or ".tga" in them).
+            const DialogueLine& l = t.lines[size_t(t.current)];
+            const std::string n = fs::toLower(l.notes);
+            const bool picture = n.find(".jpg") != std::string::npos || n.find(".png") != std::string::npos ||
+                                 n.find(".tga") != std::string::npos;
+            choices_.push_back({l.text, part_, int(i), picture ? l.notes : std::string()});
+        }
     }
     for (const auto& [q, ti] : more) {
         Thread& t = q->threads[size_t(ti)];
         if (t.current < 0)
             t.current = pickLine(t, 0, false);
         if (t.current >= 0)
-            choices_.push_back({t.lines[size_t(t.current)].text, q, ti});
+            choices_.push_back({t.lines[size_t(t.current)].text, q, ti, {}});
     }
     if (exitIndex >= 0 && part_->threads[size_t(exitIndex)].current >= 0)
         choices_.push_back({part_->threads[size_t(exitIndex)].lines[size_t(part_->threads[size_t(exitIndex)].current)].text,
-                            part_, exitIndex});
+                            part_, exitIndex, {}});
     choosing_ = true;
     colour_ = 6;
     highlighted_ = -1;
@@ -861,9 +868,11 @@ void DialogueManager::mouseMove(int x, int y) {
     highlighted_ = -1;
     if (!choosing_)
         return;
-    for (size_t i = 0; i < choiceRows_.size(); i++)
-        if (y >= choiceRows_[i].first && y < choiceRows_[i].first + choiceRows_[i].second)
-            highlighted_ = int(i);
+    // The pictures first, then the rows (0x43c810).
+    for (bool pictures : {true, false})
+        for (const ChoiceArea& a : choiceAreas_)
+            if (a.picture == pictures && highlighted_ < 0 && x >= a.x && x < a.x + a.w && y >= a.y && y < a.y + a.h)
+                highlighted_ = a.choice;
 }
 
 void DialogueManager::wheel(int steps, int x, int y) {

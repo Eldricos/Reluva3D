@@ -1428,8 +1428,11 @@ void ScenePage::draw() {
                                                "dialogue text for third character in conversation"};
         const int c = std::clamp(dialogue_->colour() - 6, 0, 4);
         std::vector<std::string> choices;
-        for (const auto& ch : dialogue_->choices())
+        std::vector<const image::Image*> choicePictures;
+        for (const auto& ch : dialogue_->choices()) {
             choices.push_back(ch.text);
+            choicePictures.push_back(ch.picture.empty() ? nullptr : &picture(normalizeArchiveName(ch.picture)));
+        }
         const DialogueLine* said = dialogue_->line();
         // "Text Captions" off: no box or line unless choosing, or the radio
         // (0x43cf90).
@@ -1439,10 +1442,10 @@ void ScenePage::draw() {
         const auto areas = drawDialogueBox(ctx_.screen, *ctx_.fonts, pics, dialogue_->boxTop(),
                                            said ? said->text : std::string(), ctx_.fonts->colour(kColours[c]),
                                            dialogue_->choosing() ? choices : std::vector<std::string>(),
-                                           dialogue_->highlighted());
-        std::vector<std::pair<int, int>> rows;
+                                           dialogue_->highlighted(), choicePictures);
+        std::vector<DialogueManager::ChoiceArea> rows;
         for (const auto& a : areas)
-            rows.push_back({a.y, a.h});
+            rows.push_back({a.x, a.y, a.w, a.h, a.choice, a.picture});
         dialogue_->setChoiceAreas(std::move(rows));
     }
     if (slots_ && !load_.screen && !movie_)

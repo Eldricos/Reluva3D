@@ -1151,7 +1151,7 @@ void testDialogue() {
         "dia_obs\t02a\ta\t1\ta\tpoirot\t0\tLook.\t0\t0\t0\t0\t0\t0\t0\t0\t0\n"
         "dia_obs\t02a\ta\ta\ta\tantoinette\t0\tThe ladies?\t0\t0\t0\t0\ttag sawladies 1\t0\t0\t0\t0\n"
         "dia_obs\t02a\ta\ta\tb\tpoirot\t0\tYes.\t0\t0\t0\t0\t0\t0\t0\t0\t0\n"
-        "dia_obs\t02a\ta\tb\ta\tantoinette\t0\tThe man?\t0\t0\t0\t0\t0\t0\t0\t0\t0\n"
+        "dia_obs\t02a\ta\tb\ta\tantoinette\t0\tThe man?\t0\t0\t0\t0\t0\t0\t0\t0\tinventory\\items\\gun\\invgun.png\n"
         "dia_obs\t02a\ta\tc\ta\tantoinette\t0\tSecret.\t0\ttag never\t0\t0\t0\t0\t0\t0\t0\n"
         "dia_obs\t02a\tb\t1\ta\tpoirot\t0\tGood.\t0\t0\t0\t0\t0\t0\t0\t0\t0\n";
     GameState state;
@@ -1187,7 +1187,16 @@ void testDialogue() {
     CHECK(d.choosing() && d.choices().size() == 2);
     if (d.choices().size() == 2) {
         CHECK(d.choices()[0].text == "The ladies?" && d.choices()[1].text == "The man?");
-        d.setChoiceAreas({{640, 20}, {664, 20}});
+        // A line whose Notes name a picture shows it too; the pictures are
+        // tried before the rows (0x43c810).
+        CHECK(d.choices()[0].picture.empty() && d.choices()[1].picture == "inventory\\items\\gun\\invgun.png");
+        d.setChoiceAreas({{0, 640, 1024, 20, 0, false}, {600, 630, 112, 96, 1, true}});
+        d.mouseMove(650, 645);
+        CHECK(d.highlighted() == 1);
+        d.mouseMove(100, 645);
+        CHECK(d.highlighted() == 0);
+        d.setChoiceAreas({{0, 640, 1024, 20, 0, false}, {0, 664, 1024, 20, 1, false}});
+        d.mouseMove(100, 300);
         // The wheel: towards the user to the next, round through nothing
         // (no goodbye); away to the one before. Its choice stays, the
         // cursor hidden, till the mouse moves.
