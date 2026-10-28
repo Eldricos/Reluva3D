@@ -23,6 +23,7 @@ namespace reluva::age {
 // player, opponents, police.
 struct RoadUser {
     Vec3 position{}, velocity{};
+    bool solid = false; // never driven through, even after a long wait (an open bridge)
 };
 
 // A lane of the road map in the direction it's driven: side 1's lanes run

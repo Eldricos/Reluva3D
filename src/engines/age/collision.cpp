@@ -48,6 +48,15 @@ void CollisionWorld::add(const Vec3& a, const Vec3& b, const Vec3& c, Surface su
     triangles_.push_back({a, b, c, n, surface});
 }
 
+void CollisionWorld::setMoving(const std::vector<std::array<Vec3, 3>>& triangles, Surface surface) {
+    moving_.clear();
+    for (const auto& t : triangles) {
+        const Vec3 n = normalized(cross(t[1] - t[0], t[2] - t[0]));
+        if (length(n) >= 0.5f)
+            moving_.push_back({t[0], t[1], t[2], n, surface});
+    }
+}
+
 void CollisionWorld::build(float cellSize) {
     cellSize_ = cellSize;
     grid_.clear();
@@ -84,6 +93,10 @@ void CollisionWorld::forEachNear(float x0, float z0, float x1, float z1, F&& f) 
                     f(triangles_[i]);
                 }
         }
+    for (const Triangle& t : moving_)
+        if (std::max({t.a[0], t.b[0], t.c[0]}) >= x0 && std::min({t.a[0], t.b[0], t.c[0]}) <= x1 &&
+            std::max({t.a[2], t.b[2], t.c[2]}) >= z0 && std::min({t.a[2], t.b[2], t.c[2]}) <= z1)
+            f(t);
 }
 
 bool CollisionWorld::raycast(const Vec3& origin, const Vec3& direction, float maxDistance, RayHit& hit) const {

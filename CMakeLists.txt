@@ -212,6 +212,8 @@ if(RELUVA_ENGINE_AGE)
         src/engines/age/pedestrians.cpp
         src/engines/age/police.cpp
         src/engines/age/city_life.cpp
+        src/engines/age/pathset.cpp
+        src/engines/age/gizmos.cpp
         src/engines/age/drive_viewer.cpp
         src/engines/age/race_viewer.cpp
         src/engines/age/world_viewer.cpp

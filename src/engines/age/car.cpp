@@ -298,6 +298,14 @@ void CarSim::collideBody(const CollisionWorld& world) {
         CollisionWorld::Contact c;
         if (!world.sphereContact(p, kHullRadius, c))
             continue;
+        // A contact facing mostly up (the edge of a kerb or a step the
+        // body's corner has reached) is taken as ground: lifted out
+        // straight up, it stops only the motion down into it, rather than
+        // throwing the car up off the edge.
+        if (c.normal[1] > 0.5f) {
+            c.depth *= c.normal[1];
+            c.normal = {0, 1, 0};
+        }
         position += c.normal * c.depth;
         const Vec3 com = position + orientation * setup_.centerOfGravity;
         const Vec3 r = p - com;

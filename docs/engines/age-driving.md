@@ -59,7 +59,10 @@ A rigid body stepped 120 times a second.
 - **Body collisions**: spheres of 0.2 m round the hull's corners are
   pushed out of the city's triangles, with an impulse using the lesser of
   **BoundElasticity** and the surface's elasticity, and friction from
-  **BoundFriction** times the surface's.
+  **BoundFriction** times the surface's. A contact pushing up more than
+  sideways (its normal over 0.5 up) is taken as ground: straight up, by
+  the depth it would have lifted the sphere. Kerbs and the 15 cm steps
+  at bridge ends then lift a car instead of throwing it back.
 - Left alone and nearly stopped, a car holds still.
 
 Not used yet: Aero's damping and down force, the engine's and

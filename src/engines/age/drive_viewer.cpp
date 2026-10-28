@@ -169,6 +169,14 @@ void DriveViewer::loadCity(int index) {
     startLife();
 }
 
+void DriveViewer::cutBridgeGaps() {
+    // What the city has across the drawbridges' gaps goes: the leaves are
+    // the road there.
+    auto inGap = [&](const Vec3& a, const Vec3& b, const Vec3& c) { return life_.gizmos().inGap(a, b, c); };
+    scene_->hide(inGap);
+    world_.removeIf(inGap);
+}
+
 void DriveViewer::startLife() {
     // The city's settings and cruising's (race/<city>/roam.aimap: the
     // police).
@@ -188,6 +196,7 @@ void DriveViewer::startLife() {
     if (Error err = life_.start(*renderer_, scene_->textures(), ctx_.files, settings, o, ctx_.mixer);
         err && error_.empty())
         error_ = err.message;
+    cutBridgeGaps();
     fill_ = true;
 }
 

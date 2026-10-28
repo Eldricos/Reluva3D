@@ -310,4 +310,28 @@ void CityScene::drawDynamicLights(std::vector<gfx::DynamicLight> lights, const g
     }
 }
 
+void CityScene::hide(const std::function<bool(const Vec3& a, const Vec3& b, const Vec3& c)>& drop) {
+    if (!cityMesh_)
+        return;
+    std::vector<uint32_t> indices;
+    batches_.clear();
+    for (CityMesh::Batch& b : mesh_.batches) {
+        std::vector<uint32_t> kept;
+        for (size_t i = 0; i + 2 < b.indices.size(); i += 3) {
+            const auto& p0 = mesh_.vertices[b.indices[i]].pos;
+            const auto& p1 = mesh_.vertices[b.indices[i + 1]].pos;
+            const auto& p2 = mesh_.vertices[b.indices[i + 2]].pos;
+            if (!drop({p0[0], p0[1], p0[2]}, {p1[0], p1[1], p1[2]}, {p2[0], p2[1], p2[2]}))
+                kept.insert(kept.end(), {b.indices[i], b.indices[i + 1], b.indices[i + 2]});
+        }
+        b.indices = std::move(kept);
+        Batch out{uint32_t(indices.size()), uint32_t(b.indices.size()), 0, false};
+        if (!b.texture.empty())
+            out.texture = textures_->get(b.texture, out.translucent);
+        indices.insert(indices.end(), b.indices.begin(), b.indices.end());
+        batches_.push_back(out);
+    }
+    renderer_.setMeshIndices(cityMesh_, indices);
+}
+
 } // namespace reluva::age

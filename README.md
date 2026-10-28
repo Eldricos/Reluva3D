@@ -121,7 +121,8 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   sidewalks (**Y** steps through none, light, normal and heavy); cars' headlights come on
   in the evening, at night and in fog and rain; and police, who patrol the streets, chase
   a car speeding past them and bust it once it's stopped (**O** turns them off and on).
-  In the police car, **H** sounds its siren. The handling, the traffic and the police are
+  In the police car, **H** sounds its siren. Ferries and boats go round the water, and
+  London's drawbridges rise and fall. The handling, the traffic and the police are
   Reluva's own, not yet compared with the game.
   **Tab** switches between racing, driving, the world, models, textures and files. In the world, **Left/Right** picks London or San
   Francisco, drag to look, **W/A/S/D** move, **Space/C** (or **E/Q**) go up and down,

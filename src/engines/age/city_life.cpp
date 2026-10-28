@@ -39,10 +39,12 @@ Error CityLife::start(gfx::Renderer3D& renderer, TextureCache& textures, const S
     if (Error err = police_.setup(renderer, textures, files, settings, options.cops, mixer, siren); err && !first)
         first = err;
     police_.setPatrols(options.patrols ? &traffic_.network() : nullptr, &lights_);
+    gizmos_.load(files, map_, options.variant);
     return first;
 }
 
 void CityLife::stop() {
+    gizmos_.clear();
     traffic_.clear();
     peds_.unload();
     police_.clear();
@@ -54,9 +56,10 @@ void CityLife::setLamps(bool lit, bool night) {
     police_.setLampsLit(lit);
 }
 
-void CityLife::update(float dt, CarSim& player, const std::vector<CarSim*>& others, const CollisionWorld& world,
+void CityLife::update(float dt, CarSim& player, const std::vector<CarSim*>& others, CollisionWorld& world,
                       const RoadGraph& roads, bool fill) {
     lights_.update(dt);
+    gizmos_.update(dt, world);
     // The police keep behind what's ahead on patrol: the traffic and the
     // other cars.
     std::vector<RoadUser> ahead{{player.position, player.velocity}};
@@ -79,6 +82,7 @@ void CityLife::update(float dt, CarSim& player, const std::vector<CarSim*>& othe
     for (CarSim* c : others)
         users.push_back({c->position, c->velocity});
     police_.users(users);
+    gizmos_.users(users); // open bridges
     traffic_.update(dt, player.position, users, world, fill);
     traffic_.users(users);
     peds_.update(dt, player.position, users, world, fill);
@@ -87,6 +91,7 @@ void CityLife::update(float dt, CarSim& player, const std::vector<CarSim*>& othe
 void CityLife::draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight& light, const gfx::Mat4& viewProj,
                     const Vec3& eye, const FlareDrawer* flares) {
     lights_.draw(renderer, models, light, viewProj, eye, night_);
+    gizmos_.draw(renderer, models, light, viewProj, eye);
     traffic_.draw(renderer, models, light, viewProj, eye, lampsLit_, flares);
     peds_.draw(viewProj, eye, light);
     police_.draw(light);

@@ -375,9 +375,12 @@ void Traffic::update(float dt, const Vec3& focus, const std::vector<RoadUser>& o
         // ahead, and whether the junction ahead is its to cross.
         float target = c.maxSpeed;
         float nearest = kLook, nearestSpeed = 0;
-        if (c.ghost > 0) {
-            c.ghost -= dt;
-        } else {
+        {
+            // Held up for long, it goes on through what's in its way, but
+            // for what's solid.
+            const bool ghosting = c.ghost > 0;
+            if (ghosting)
+                c.ghost -= dt;
             auto consider = [&](const Vec3& p, float speed) {
                 const Vec3 rel = p - c.position;
                 const float ahead = rel[0] * c.heading[0] + rel[2] * c.heading[2];
@@ -390,10 +393,11 @@ void Traffic::update(float dt, const Vec3& focus, const std::vector<RoadUser>& o
                 }
             };
             for (const Car& o : cars_)
-                if (&o != &c)
+                if (&o != &c && !ghosting)
                     consider(o.position, o.loose ? 0 : o.speed);
             for (const RoadUser& u : others)
-                consider(u.position, flat(u.velocity));
+                if (!ghosting || u.solid)
+                    consider(u.position, flat(u.velocity));
             if (nearest < kLook) {
                 const float room = std::max(0.0f, nearest - 5 - kGap);
                 target = std::min(target, std::sqrt(2 * kBrake * room));

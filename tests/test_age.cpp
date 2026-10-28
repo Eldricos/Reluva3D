@@ -13,8 +13,10 @@
 #include "engines/age/engine_sound.h"
 #include "engines/age/filesystem.h"
 #include "engines/age/games.h"
+#include "engines/age/gizmos.h"
 #include "engines/age/instances.h"
 #include "engines/age/opponent.h"
+#include "engines/age/pathset.h"
 #include "engines/age/ped_model.h"
 #include "engines/age/pkg.h"
 #include "engines/age/psdl.h"
@@ -1175,6 +1177,102 @@ void testSpeedLimit() {
 
 } // namespace
 
+// A path set of the given paths: name, points and end word.
+struct TestPath {
+    std::string name;
+    std::vector<Vec3> points;
+    uint32_t end;
+};
+std::vector<uint8_t> buildPathset(const std::vector<TestPath>& paths) {
+    Bytes b;
+    b.str("PTH1").u32(uint32_t(paths.size())).u32(0);
+    for (const TestPath& p : paths) {
+        std::string name = p.name;
+        name.resize(32, '\0');
+        b.str(name).u32(uint32_t(p.points.size())).u32(0);
+        for (const Vec3& v : p.points)
+            b.u32(7).f32(v[0]).f32(v[1]).f32(v[2]);
+        b.u32(p.end);
+    }
+    return b.v;
+}
+
+void testPathset() {
+    const std::vector<uint8_t> data = buildPathset(
+        {{"giz_ferry_f", {{0, 0, 0}, {10, 0, 0}}, 0x6402}, {"open:giz_bridge01_l", {{0, 8, 0}, {30, 8, 0}}, 0x0801},
+         {"INACTIVE:giz_chinagate_f", {{5, 1, 5}, {5, 1, 9}}, 0x0801}});
+    std::vector<PathsetPath> paths;
+    CHECK(!readPathset(data, paths) && paths.size() == 3);
+    if (paths.size() == 3) {
+        CHECK(paths[0].model == "giz_ferry_f" && !paths[0].open && !paths[0].backAndForth());
+        CHECK(std::fabs(paths[0].speed() - 10) < 1e-4f && paths[0].ids == (std::vector<uint32_t>{7, 7}));
+        CHECK(paths[1].model == "giz_bridge01_l" && paths[1].open && paths[1].backAndForth());
+        CHECK(paths[1].points[1][0] == 30 && paths[1].points[1][1] == 8);
+        CHECK(paths[2].model == "giz_chinagate_f" && paths[2].inactive && !paths[2].open);
+    }
+    // Cut short in the last path: the whole ones are kept.
+    const std::vector<uint8_t> cut(data.begin(), data.end() - 6);
+    CHECK(!readPathset(cut, paths) && paths.size() == 2);
+    CHECK(readPathset(toBytes("PTH0"), paths));
+}
+
+void testGizmos(const std::filesystem::path& tmp) {
+    std::filesystem::remove_all(tmp);
+    // Models whose level-H mesh runs 0-2 m across: leaves 1 m either side.
+    Bytes pkg;
+    pkg.str("PKG3");
+    fileSection(pkg, "H", meshSection(0x102, 0, {0, 1, 2}));
+    for (const char* m : {"giz_bridge01_l", "giz_tug_l"})
+        test::writeFile(tmp / "geometry" / (std::string(m) + ".pkg"), pkg.v);
+    test::writeFile(tmp / "race" / "london" / "london_bridge.pathset",
+                    buildPathset({{"giz_bridge01_l", {{0, 8, 0}, {30, 8, 0}, {60, 8, 0}}, 0x0801}}));
+    test::writeFile(tmp / "race" / "london" / "london_ferry.pathset",
+                    buildPathset({{"giz_tug_l", {{0, 0, 100}, {20, 0, 100}}, 0x0a01}, // back and forth at 1 m/s
+                                  {"giz_nothere_l", {{0, 0, 0}, {9, 0, 0}}, 0x0a02}}));
+    // A race's bridge, starting raised, over the city's (its first point
+    // within 5 m).
+    test::writeFile(tmp / "race" / "london" / "london_bridge_race0.pathset",
+                    buildPathset({{"open:giz_bridge01_l", {{1, 8, 0}, {30, 8, 0}, {60, 8, 0}}, 0x0801}}));
+    SearchSet files;
+    auto loose = std::make_unique<DirectoryArchive>();
+    CHECK(!loose->open(tmp));
+    files.add(std::move(loose), 1);
+
+    Gizmos g;
+    CHECK(!g.load(files, "london"));
+    CHECK(g.boats() == 1 && g.bridges() == 1); // no model for the second boat
+    CHECK(g.raised(0) == 0);
+    // Two leaves meeting in the middle: the city's road under them is
+    // taken out, not that beyond the hinges, well above or to the side.
+    CHECK(g.inGap({10, 8, -0.5f}, {12, 8, 0.5f}, {14, 8, 0}) && g.inGap({48, 8, 0}, {50, 8, 0.5f}, {49, 8, -0.5f}));
+    CHECK(!g.inGap({-4, 8, 0}, {-3, 8, 0}, {-3, 8, 0.5f}) && !g.inGap({10, 20, 0}, {12, 20, 0}, {11, 20, 1}));
+    CHECK(!g.inGap({10, 8, 3}, {12, 8, 3}, {11, 8, 4}));
+    std::vector<RoadUser> u;
+    g.users(u);
+    CHECK(u.empty());
+    CollisionWorld world;
+    world.build();
+    g.update(0, world);
+    CollisionWorld::RayHit hit;
+    const Vec3 down{0, -1, 0};
+    CHECK(world.raycast({15, 20, 0}, down, 30, hit) && std::fabs(hit.point[1] - 8) < 1e-3f);
+    // Down 50 s, then rising: the leaves tip up from the hinges, and the
+    // traffic stops there.
+    for (int i = 0; i < 62 * 4; ++i)
+        g.update(0.25f, world);
+    CHECK(g.raised(0) == 1);
+    g.users(u);
+    CHECK(!u.empty() && u[0].solid);
+    for (const RoadUser& r : u)
+        CHECK(std::fabs(r.position[0]) < 1e-3f || std::fabs(r.position[0] - 60) < 1e-3f);
+    CHECK(!world.raycast({29, 20, 0}, down, 30, hit) || hit.point[1] > 15);
+    CHECK(world.raycast({2, 20, 0}, down, 30, hit) &&
+          std::fabs(hit.point[1] - (8 + 2 * std::tan(Gizmos::kRaised))) < 0.05f);
+
+    // The race's bridge is up from the start.
+    CHECK(!g.load(files, "london", "race0") && g.bridges() == 1 && g.raised(0) == 1);
+}
+
 int main() {
     const auto tmp = std::filesystem::temp_directory_path() / "reluva_age_tests";
     testArchive(tmp / "archive");
@@ -1203,6 +1301,8 @@ int main() {
     testTrafficRules(tmp / "rules");
     testSirenTable();
     testSpeedLimit();
+    testPathset();
+    testGizmos(tmp / "gizmos");
     std::filesystem::remove_all(tmp);
     if (failures) {
         std::fprintf(stderr, "%d check(s) failed\n", failures);
