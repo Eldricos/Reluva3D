@@ -1556,7 +1556,11 @@ void ScenePage::update(uint64_t nowMs) {
         draw();
     }
     if (fade_ != fadeTarget_) {
-        fade_ = fadeTarget_ > fade_ ? std::min(fadeTarget_, fade_ + dt * 2) : std::max(fadeTarget_, fade_ - dt * 2);
+        // 8 of 255 every 0.01 s (0x40c33b, 0x4158e0): about a third of a
+        // second. The game takes at most a step a frame, so it's slower
+        // where frames are: 0.27 to 0.47 s in a recording of it.
+        const float step = dt * 8 / 255 / 0.01f;
+        fade_ = fadeTarget_ > fade_ ? std::min(fadeTarget_, fade_ + step) : std::max(fadeTarget_, fade_ - step);
         if (fade_ == fadeTarget_ && fadeRunner_) {
             ScriptRunner* r = fadeRunner_;
             fadeRunner_ = nullptr;
@@ -2892,7 +2896,7 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
         return false;
     }
     if (v == "fade") {
-        // fade in|out: the screen, over half a second (a guess).
+        // fade in|out: the screen, over about a third of a second.
         fadeTarget_ = lower(e.arg(1)) == "out" ? 1.0f : 0.0f;
         if (fade_ == fadeTarget_)
             return false;

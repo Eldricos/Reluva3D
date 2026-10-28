@@ -190,7 +190,11 @@ The page then does the following:
   of the earlier one were left.
 - Entering a scene plays its music and queues its event.
 - `scene` and `gotoscene` keep the player's place for walk point -1.
-- `fade` takes half a second. This is a guess.
+- `fade` steps the screen's darkness by 8 of 255 every 0.01 s
+  (`0x40c33b` calls `0x415850` with 8 and 0.01; `0x4158e0` steps it), so
+  it takes about a third of a second. The game takes at most one step a
+  frame, so it's slower when frames are. In a recording of the game,
+  fades to black took 0.27 to 0.47 s, as straight ramps.
 - Movies play full screen with their subtitles, and Escape skips them
   (see [script.md](script.md#movies)).
 - `act` and every cell of `acts.txt` are handled. The Event of 08A,
