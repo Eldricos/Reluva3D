@@ -22,6 +22,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace reluva::idtech3::eliteforce {
@@ -97,6 +98,11 @@ public:
     const HandleTable& sounds() const { return sounds_; }
     // The console commands it added (AddCommand).
     const std::vector<std::string>& commands() const { return commands_; }
+    // What it asked to send the server as the player's (SendClientCommand:
+    // "score" while the scores are shown...) and to run at the console
+    // (SendConsoleCommand), since last taken, in order.
+    std::vector<std::string> takeClientCommands() { return std::exchange(clientCommands_, {}); }
+    std::vector<std::string> takeConsoleCommands() { return std::exchange(consoleCommands_, {}); }
     // The map it asked for, for collision (CM_LoadMap) and drawing
     // (R_LoadWorldMap), and the music (S_StartBackgroundTrack: intro, loop).
     const std::string& collisionMap() const { return collisionMap_; }
@@ -137,6 +143,7 @@ private:
     std::shared_ptr<const Bsp> map_;
     std::string log_;
     std::map<int, int> unhandled_;
+    std::vector<std::string> clientCommands_, consoleCommands_;
     std::map<int, std::array<int32_t, 6>> firstUnhandled_;
     int32_t time_ = 0;
     int32_t snapshotNumber_ = 0, snapshotTime_ = 0;

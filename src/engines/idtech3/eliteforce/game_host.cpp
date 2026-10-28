@@ -112,6 +112,12 @@ Error GameHost::startLevel(const std::string& mapName, std::shared_ptr<const Bsp
     // Variables waiting for a new level (the game type, the Holomatch
     // modes...) take their values, as the original's server does first.
     cvars_.applyLatched();
+    // The level after this one: the same again unless the game or a
+    // command says otherwise, as the original's server sets it on
+    // spawning a level (for a level change, when the map command ran:
+    // a map cycle's "map x ; set nextmap vstr d2" sets its own after).
+    if (!changingLevel_)
+        cvars_.set("nextmap", "map_restart 0", true);
     map_ = std::move(map);
     world_ = std::make_unique<CollisionWorld>(*map_);
     areaPortals_ = std::make_unique<AreaPortals>(world_->areaCount());
@@ -301,8 +307,11 @@ Error GameHost::changeLevel(const std::string& mapName, std::shared_ptr<const Bs
         return err;
     configstrings_.clear();
     requestedMap_.clear();
-    if (Error err = startLevel(mapName, std::move(map), randomSeed))
-        return err;
+    changingLevel_ = true;
+    Error started = startLevel(mapName, std::move(map), randomSeed);
+    changingLevel_ = false;
+    if (started)
+        return started;
     if (Error err = reconnectClients(clients, false))
         return err;
     players.clear();
@@ -341,6 +350,7 @@ bool GameHost::engineCommand(const std::vector<std::string>& w) {
         if (w.size() > 1) {
             requestedMap_ = w[1];
             killBots_ = applyMapCommand(cvars_, verb);
+            cvars_.set("nextmap", "map_restart 0", true);
         }
         return true;
     }

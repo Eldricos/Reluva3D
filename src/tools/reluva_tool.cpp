@@ -5020,6 +5020,7 @@ int cmdGameRun(int argc, char** argv) {
     std::vector<std::pair<std::string, std::string>> settings; // -set name value
     std::vector<std::string> addBots;                           // -addbot "name [skill]"
     bool eventsTest = false; // -events: with -cgame, the player's events against the sounds they bring
+    int tapEvery = 0;        // -tap N: fire pressed for a frame every N
     std::string walkDirection = "forward";
     for (int i = 4; i < argc; ++i) {
         if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
@@ -5031,6 +5032,8 @@ int cmdGameRun(int argc, char** argv) {
         else if (std::strcmp(argv[i], "-cgame") == 0)
             runCgame = true;
 
+        else if (std::strcmp(argv[i], "-tap") == 0 && i + 1 < argc)
+            tapEvery = std::atoi(argv[++i]);
         else if (std::strcmp(argv[i], "-fire") == 0)
             fireButtons |= 1;
         else if (std::strcmp(argv[i], "-altfire") == 0)
@@ -5148,6 +5151,7 @@ int cmdGameRun(int argc, char** argv) {
         botStart[c] = game.entityVec(c, game.layout().currentOrigin);
     const bool player = ok && !noClient && game.linked().count(0);
     const auto startPos = player ? game.entityVec(0, game.layout().currentOrigin) : q3::Vec3f{};
+    int restartsSeen = game.restarts();
     for (int f = 0; ok && f < frames; ++f) {
         if (player) {
             // The player does nothing, as a server would see from an idle
@@ -5165,6 +5169,10 @@ int cmdGameRun(int argc, char** argv) {
                 else
                     cmd.forward = 127;
             }
+            // -tap N: fire pressed for a frame every N (the end of a match
+            // waits for a press).
+            if (tapEvery > 0 && f % tapEvery == 0)
+                cmd.buttons = 1;
             if (reluva::Error err = game.clientThink(0, cmd)) {
                 step("ClientThink", err);
                 ok = false;
@@ -5172,6 +5180,17 @@ int cmdGameRun(int argc, char** argv) {
             }
         }
         ok = step("RunFrame", game.runFrame());
+        // A level the game asked for (the end of a match: vstr nextmap),
+        // reported once.
+        if (ok && game.restarts() != restartsSeen) {
+            restartsSeen = game.restarts();
+            std::printf("frame %d (level time %d): the level restarted (map_restart)\n", f, game.levelTime());
+        }
+        if (ok && game.levelRequested()) {
+            std::printf("frame %d (level time %d): the game asked for level \"%s\"\n", f, game.levelTime(),
+                        game.takeRequestedMap().c_str());
+            break;
+        }
         if (player) {
             // The entity's position, and the player state as Quake III lays
             // it out (commandTime 0, origin 20, velocity 32, groundEntityNum

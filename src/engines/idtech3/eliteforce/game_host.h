@@ -231,6 +231,7 @@ public:
     std::function<void(int number, const int32_t* args)> trace;
 
 private:
+    bool changingLevel_ = false; // startLevel called by changeLevel
     int32_t systemCall(Qvm& vm, int number, const int32_t* args);
     // The next token of the entity text, the way the original parses it:
     // a quoted string, or anything up to white space. Empty at the end.

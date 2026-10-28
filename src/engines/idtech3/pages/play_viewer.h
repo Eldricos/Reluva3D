@@ -87,6 +87,7 @@ private:
     bool changeLevel(const std::string& map);
     void consoleCommand(const std::string& text);
     void setFromConsole(const std::string& name, const std::string& value);
+    void runClientGameCommands();
     int execDepth_ = 0;
     // The game's menus over the match (the original's in-game menu): Esc
     // opens them; they close themselves.

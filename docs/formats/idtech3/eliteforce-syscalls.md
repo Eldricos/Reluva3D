@@ -370,7 +370,16 @@ restarting.", and the server takes the waiting values before the level
 loads. Reluva's cvar store does the same (`CvarStore::applyLatched`,
 called as the Holomatch and single player servers start a level);
 map_restart with a new game type or player count waiting changes level
-instead of restarting in place. `reluva-tool game-run <game> <map> -set
+instead of restarting in place.
+
+A match ends with the server game running `vstr nextmap` (ExitLevel,
+1.2's qagame instruction 3400) once every human player has pressed fire
+or use in the intermission. The engine sets `nextmap` to `map_restart 0`
+as it spawns a level (`stvoyHM.exe` 0x433935), before the commands after
+the map command run (a map cycle's `set nextmap vstr d2`); empty, the
+match never moved on. `reluva-tool game-run <game> hm_borg1 -set
+timelimit 1 -addbot 'munro 2' -tap 20` reaches the end and restarts the
+level 7 s later; without -tap it waits. `reluva-tool game-run <game> <map> -set
 g_gametype 3 -set g_pModAssimilation 1 -addbot ...` runs one headless.
 
 ## Client game (`vm/cgame.qvm`)
@@ -388,7 +397,9 @@ numbering wherever it can be checked:
 | 3 | `Cvar_Register(&vmCvar, name, default, flags)` | seen | `cg_fov` "80", `cg_drawGun`...; 272 bytes apart |
 | 6 | `Cvar_VariableStringBuffer(name, buffer, size)` | seen | `g_language`, `sv_running` |
 | 10 | `FS_FOpenFile(path, &handle, mode)` | seen | `ext_data/mp_ingametext.dat`, `ext_data/fonts.dat` |
+| 14 | `SendConsoleCommand(text)` | order | run at the console after the frame |
 | 15 | `AddCommand(name)` | seen | `+zoom`, `weapnext`, `say`, `kill`... |
+| 16 | `SendClientCommand(text)` | seen | `"score"` while the scoreboard is held open (`+scores`), which the server game answers with a `scores` command; unanswered, the scoreboard stayed empty. Sent to the server as the player's after the frame |
 | 17 | `UpdateScreen()` | seen | after each loading caption copied to a buffer: "collision map", "sounds", "game media"... |
 | 18 | `CM_LoadMap(name)` | seen | `"maps/<mapname>.bsp"` |
 | 19 | `CM_NumInlineModels()` | seen | where the brush models would be registered |

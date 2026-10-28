@@ -1238,6 +1238,9 @@ void PlayViewer::runGame(uint64_t nowMs) {
         return;
     }
     timing_.client = ms(clientStart);
+    runClientGameCommands();
+    if (!cgame_)
+        return;
     if (soundSystem_) {
         // At the original's settings: effects (s_volume) 0.8 and music
         // (s_musicvolume) 0.25 unless the menus set them.
@@ -1247,6 +1250,30 @@ void PlayViewer::runGame(uint64_t nowMs) {
         soundSystem_->setVolumes(setting("s_volume", 0.8f), setting("s_musicvolume", 0.25f));
         soundSystem_->endFrame();
     }
+}
+
+void PlayViewer::runClientGameCommands() {
+    // What the client game asked for this frame (and in the console
+    // commands it handled since): its commands for the server as the
+    // player's ("score", asking for the scoreboard), sent as the
+    // original's client sends them; and console commands, run as typed.
+    for (const std::string& command : cgame_->takeClientCommands()) {
+        if (client_) {
+            if (!client_->playingDemo())
+                client_->addClientCommand(command);
+        } else if (game_) {
+            if (Error err = game_->clientCommand(0, command)) {
+                stop("The server game stopped: " + err.message);
+                return;
+            }
+        }
+    }
+    for (const std::string& line : cgame_->takeConsoleCommands())
+        for (const std::string& command : splitCommands(line)) {
+            consoleCommand(command);
+            if (!cgame_)
+                return;
+        }
 }
 
 eliteforce::GameHost::UserCommand PlayViewer::buildCommand() {
