@@ -67,7 +67,7 @@ PlayViewer::PlayViewer(ViewerContext& ctx) : Page(ctx) {
 
 PlayViewer::~PlayViewer() { deactivate(); }
 
-void PlayViewer::activate() {
+bool PlayViewer::setUpGraphics() {
     const VideoSettings video = videoSettings(ctx_.cvars);
     frameW_ = video.width;
     frameH_ = video.height;
@@ -79,7 +79,7 @@ void PlayViewer::activate() {
         text(4, 4, "The Play page needs 3D rendering, which isn't available:", {255, 120, 120});
         text(4, 4 + font::kLineHeight, err.message);
         setTitle("3D rendering not available");
-        return;
+        return false;
     }
     overlay_.create(frameW_, frameH_, PixelFormat::RGBA32);
     shaders_ = std::make_unique<ShaderCache>(*renderer_, ctx_.files, ctx_.shaders);
@@ -88,7 +88,58 @@ void PlayViewer::activate() {
     applyVideoSettings(video, *shaders_, world_.get(), models_.get());
     scene_ = std::make_unique<SceneDrawer>(*renderer_, *shaders_, *models_, ctx_.game.refEntity);
     menus_.attach(renderer_, frameW_, frameH_);
+    return true;
+}
+
+void PlayViewer::restartVideo() {
+    videoRestart_ = false;
+    if (!renderer_ || !cgame_)
+        return;
+    if (menuOpen_)
+        closeMenu();
+    // What draws through the renderer goes first, then the renderer
+    // starts again; the menus too, as the original's (closed).
+    menus_.detach();
+    menus_.reset();
+    cgame_.reset();
+    stopSounds();
+    scene_.reset();
+    models_.reset();
+    world_.reset();
+    shaders_.reset();
+    if (!setUpGraphics())
+        return;
+    ctx_.sys.setRelativeMouse(true);
+    // The level's graphics and the client game, where the match is now:
+    // the server's latest configstrings, and for a server elsewhere the
+    // commands it has sent so far as done.
+    const std::string map = infoValue(matchConfigstring(0), "mapname");
+    std::shared_ptr<Bsp> bsp;
+    if (!loadLevel(normalizeArchiveName("maps/" + map + ".bsp"), bsp))
+        return;
+    if (client_) {
+        if (Error err = startClientGame(client_->configstrings(), 0, int32_t(client_->serverCommands().size())))
+            stop("The client game stopped: " + err.message);
+        return;
+    }
+    if (!game_)
+        return;
+    localConfigstrings_ = game_->configstrings();
+    localCommands_.clear();
+    localCommandsSeen_ = game_->serverCommands().size();
+    if (Error err = startClientGame(game_->configstrings(), 0, 0)) {
+        stop("The client game stopped: " + err.message);
+        return;
+    }
+    clientTime_ = game_->levelTime();
+    cgame_->newSnapshot(localSnapshot());
+}
+
+void PlayViewer::activate() {
+    if (!setUpGraphics())
+        return;
     menuOpen_ = false;
+    videoRestart_ = false;
     shownMs_ = 0;
     ctx_.sys.setRelativeMouse(true);
     // A server the menus asked to join.
@@ -111,6 +162,8 @@ void PlayViewer::activate() {
 
 void PlayViewer::deactivate() {
     closeTyping();
+    if (cgame_ || client_ || game_)
+        ctx_.matchEnded = true;
     if (menuOpen_)
         closeMenu();
     // The in-game menu goes with the match (started afresh on the next).
@@ -653,6 +706,10 @@ void PlayViewer::consoleCommand(const std::string& text) {
         ctx_.requestPage = "Start";
         return;
     }
+    if (verb == "vid_restart") {
+        videoRestart_ = true; // before the next frame, not in the middle of this one
+        return;
+    }
     if (verb == "cmd") {
         // The rest for the server as the player's own (the in-game
         // menu's "cmd team red").
@@ -819,8 +876,8 @@ void PlayViewer::runMenuCommands() {
             if (words.empty())
                 continue;
             const std::string verb = fs::toLower(words[0]);
-            if (verb == "wait" || verb == "vid_restart")
-                continue; // the video settings apply on the next level
+            if (verb == "wait")
+                continue;
             lastMenuCommand_ = command;
             lastMenuCommandMs_ = ctx_.sys.getMillis();
             consoleCommand(command);
@@ -1169,6 +1226,8 @@ bool PlayViewer::runLocal(uint64_t nowMs, int32_t dt) {
 }
 
 void PlayViewer::update(uint64_t nowMs) {
+    if (videoRestart_)
+        restartVideo();
     if (!renderer_)
         return;
     if (!shownMs_)

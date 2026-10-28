@@ -53,6 +53,9 @@ void MenuViewer::activate() {
     ctx_.sys.setTextInput(true);
     if (!menus_.running() && menus_.error().empty())
         start();
+    else if (ctx_.matchEnded && menus_.running())
+        menus_.show(MenuLayer::kMainMenu); // back from a match: the main menu
+    ctx_.matchEnded = false;
     setTitle(menus_.error().empty() ? "Elite Force's own menus (vm/ui.qvm)" : "stopped");
 }
 

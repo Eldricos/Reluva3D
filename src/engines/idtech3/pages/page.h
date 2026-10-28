@@ -92,6 +92,9 @@ struct ViewerContext {
     // The game's install folder (the one holding BaseEF), where native
     // game code (efgamex86.dll) sits.
     std::filesystem::path installPath;
+    // A match ended (the Play page left): the menus go back to their main
+    // menu, as the original's do on disconnecting.
+    bool matchEnded = false;
 };
 
 // The settings: the game's default.cfg, then the player's own (Reluva's

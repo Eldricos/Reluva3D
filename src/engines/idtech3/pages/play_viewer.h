@@ -85,6 +85,13 @@ private:
     // The game's menus over the match (the original's in-game menu): Esc
     // opens them; they close themselves.
     void openMenu();
+    // Sets up the renderer and what draws through it at the video
+    // settings; false (shown) if there's no 3D rendering.
+    bool setUpGraphics();
+    // As the original's vid_restart during a match: the renderer started
+    // again at the new settings, the level's graphics and the client game
+    // loaded again; the server game and the connection go on.
+    void restartVideo();
     void closeMenu();
     void runMenuCommands();
     std::string matchConfigstring(int32_t index) const;
@@ -149,6 +156,7 @@ private:
     CvarStore& cvars_ = ctx_.cvars;
     MenuLayer menus_{ctx_, ctx_.cvars}; // the in-game menu, kept for the page's life
     bool menuOpen_ = false;
+    bool videoRestart_ = false; // vid_restart asked for: done before the next frame
     bool menuCaught_ = false;   // they've taken the keys (and will let go to close)
     int32_t playerNumber_ = 0;  // the player's client number in the match
     std::string lastMenuCommand_; // what the in-game menu last ran, shown a while
