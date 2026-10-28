@@ -462,6 +462,15 @@ void ScenePage::load() {
     }
     if (const Ac2Record* cam = scene_.camera())
         grid_.load(*cam);
+    // This scene's name before its characters load: where they were kept
+    // is looked up by it.
+    state_.scene = fs::toLower(name.substr(name.find_last_of('/') + 1));
+    {
+        // Its folder is its location: locations/<location>/<scene>.ac2.
+        const std::string lower = fs::toLower(name);
+        const size_t from = lower.find('/') + 1;
+        location_ = state_.location = lower.substr(from, lower.find('/', from) - from);
+    }
     // In a game at once; when browsing, once the page stays on the scene
     // (they take seconds to load).
     charactersDue_ = renderer_ && showCharacters_;
@@ -483,13 +492,6 @@ void ScenePage::load() {
         } else if (const Ac2Record* sprt = o->part("SPRT"); sprt && sprt->i("scroll") != 0) {
             scrolls_[o] = Scroll{o->f("x"), o->f("y"), 0};
         }
-    state_.scene = fs::toLower(name.substr(name.find_last_of('/') + 1));
-    {
-        // Its folder is its location: locations/<location>/<scene>.ac2.
-        const std::string lower = fs::toLower(name);
-        const size_t from = lower.find('/') + 1;
-        location_ = state_.location = lower.substr(from, lower.find('/', from) - from);
-    }
     if (playing_) {
         enterScene();
     } else {
@@ -1366,13 +1368,17 @@ void ScenePage::draw() {
             if (o->tag == "NPCX" || o->tag == "PCXX") {
                 char buf[200];
                 std::string anim;
+                // Where it is now, else where the scene puts it.
+                float x = o->f("x"), y = o->f("y"), z = o->f("z"), rotY = o->f("rotY");
                 for (const Character& c : characters_)
-                    if (c.record == o && c.actor)
+                    if (c.record == o && c.actor) {
+                        x = c.x, y = c.y, z = c.z, rotY = c.rotY;
                         for (const Animator::Slot& sl : c.actor->animator().slots())
                             if (sl.state != Animator::Stopped)
                                 anim += (anim.empty() ? ", playing " : " ") + sl.name;
+                    }
                 std::snprintf(buf, sizeof buf, "%s %s at (%g, %g, %g), facing %g%s", o->tag.c_str(),
-                              o->text("file").c_str(), o->f("x"), o->f("y"), o->f("z"), o->f("rotY"), anim.c_str());
+                              o->text("file").c_str(), x, y, z, rotY, anim.c_str());
                 lines.push_back(buf);
             }
         int y = 2;
