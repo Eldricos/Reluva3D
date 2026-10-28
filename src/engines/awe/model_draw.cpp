@@ -44,7 +44,10 @@ size_t GpuModel::draw(const Pose& pose, const gfx::Mat4& placement, bool helpers
         // Skinned on the CPU into a new mesh each frame (characters have a
         // few thousand vertices).
         skin(mesh, pose, positions, normals);
-        std::vector<gfx::Vertex> verts(mesh.vertices.size());
+        std::vector<gfx::Vertex> verts(mesh.vertices.size()), shine;
+        bool shiny = false;
+        if (lighting)
+            shine.resize(verts.size());
         for (size_t v = 0; v < verts.size(); v++) {
             gfx::Vertex& out = verts[v];
             for (int k = 0; k < 3; k++)
@@ -63,15 +66,25 @@ size_t GpuModel::draw(const Pose& pose, const gfx::Mat4& placement, bool helpers
                 const float len = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
                 if (len > 0)
                     n[0] /= len, n[1] /= len, n[2] /= len;
-                const Rgb c = lightVertex(*lighting, material, p.data(), n);
-                for (size_t k = 0; k < 3; k++)
+                Rgb spec{};
+                const Rgb c = lightVertex(*lighting, material, p.data(), n, &spec);
+                shine[v] = out;
+                for (size_t k = 0; k < 3; k++) {
                     out.color[k] = uint8_t(std::lround(c[k] * 255.0f));
+                    shine[v].color[k] = uint8_t(std::lround(spec[k] * 255.0f));
+                    shiny |= shine[v].color[k] != 0;
+                }
             }
         }
         gfx::MeshId id = 0;
         if (renderer_.createMesh(verts, mesh.indices, id))
             continue;
         frameMeshes.push_back(id);
+        // The specular, which Direct3D adds after the texture
+        // (D3DRS_SPECULARENABLE, 0x427160): a pass adding it over the model.
+        gfx::MeshId shineId = 0;
+        if (shiny && !renderer_.createMesh(shine, mesh.indices, shineId))
+            frameMeshes.push_back(shineId);
         for (const auto& g : mesh.groups) {
             gfx::DrawCall call;
             call.mesh = id;
@@ -105,6 +118,17 @@ size_t GpuModel::draw(const Pose& pose, const gfx::Mat4& placement, bool helpers
             }
             renderer_.draw(call);
             triangles += g.indexCount / 3;
+            if (shineId) {
+                gfx::DrawCall add = call;
+                add.mesh = shineId;
+                add.texture = 0;
+                add.color = {brightness, brightness, brightness, call.color[3]};
+                add.state.src = material.blend ? gfx::Blend::SrcAlpha : gfx::Blend::One;
+                add.state.dst = gfx::Blend::One;
+                add.state.depthEqual = true;
+                add.state.depthWrite = false;
+                renderer_.draw(add);
+            }
         }
     }
     return triangles;

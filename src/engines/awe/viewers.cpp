@@ -421,6 +421,7 @@ void ScenePage::load() {
     error_.clear();
     base_.clear();
     scene_ = Ac2Scene();
+    lightConditions_.clear();
     characters_.clear();
     loops_.clear();
     particles_.clear();
@@ -542,6 +543,8 @@ void ScenePage::load() {
 }
 
 void ScenePage::enterScene() {
+    // Its lights on or off by their conditions now (0x4362b0, 0x420ee0).
+    lightConditions_ = lightConditions(scene_, state_);
     playMusic();
     // The save and load screens (PUZZ save, load).
     for (const Ac2Record& r : scene_.records)
@@ -1795,7 +1798,11 @@ void ScenePage::update(uint64_t nowMs) {
         }
         // Lit by the scene's lights, each with its own material, which its
         // props share (docs/formats/awe/lighting.md).
-        const SceneLighting lighting = sceneLighting(scene_, state_);
+        SceneLighting lighting = sceneLighting(scene_, state_, lightConditions_);
+        {
+            const gfx::Vec3 e = cam.eye();
+            lighting.eye = {e[0], e[1], e[2]};
+        }
         for (const ModelSlot& slot : order) {
             const size_t i = slot.character;
             const Character& c = characters_[i];

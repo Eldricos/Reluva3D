@@ -12,10 +12,16 @@ Reluva work with the game. The Direct3D 8 device calls were found by
 their vtable offsets (`SetMaterial` +0xa8, `SetLight` +0xb0,
 `LightEnable` +0xb8, `SetRenderState` +0xc8). The code read:
 
-- the `LITE` class: its constructor (`0x420cb0`), reader (`0x421ab0`),
-  scene-entry method (`0x420ee0`, which calls `SetLight` and
-  `LightEnable`), the night check it uses (`0x420eb0`), the flicker
-  (`0x421400`) and the light-index picker (`0x436460`);
+- the `LITE` class: its constructor (`0x420cb0`), destructor
+  (`0x420dc0`), reader (`0x421ab0`), scene entry and exit method
+  (`0x420ee0`, vtable +0x48, which calls `SetLight` and `LightEnable`),
+  the re-apply after a change of time (`0x420fe0`), the switches
+  (`0x420e50`, `0x420e80`), the night check it uses (`0x420eb0`), the
+  flicker (`0x421400`) and the light-index picker (`0x436460`);
+- the scene's loops over its objects: on entering (`0x4362b0`), on
+  leaving (`0x436410`), re-testing conditions (`0x436280`, from the
+  `update` command at `0x40b4be`) and re-applying the lights
+  (`0x4364b0`); and the objects' common condition test (`0x40e900`);
 - the model draw's setup (`0x427160`): `SetMaterial`, `D3DRS_AMBIENT`,
   `D3DRS_LIGHTING`, `D3DRS_SPECULARENABLE`, `D3DRS_NORMALIZENORMALS`;
 - the night test (`0x4027b0`) and the two night colours' initialisers
@@ -39,6 +45,15 @@ light in the scene uses. On entering a scene, every light is set
 - it isn't `shadowOnly` (38 lights are: they only place the
   [shadows](shadows.md)),
 - and the scene isn't lit for the night.
+
+The light decides whether it's on only then (it keeps the answer, at
++0xe18). The `update` command re-tests every object's condition
+(`0x436280`), but for a light that only changes its shown flag, not
+whether it's on; a change of time re-applies the lights (`0x4364b0`) with
+the night test made again but the same on or off. On leaving the scene
+every light is switched off (the same method, called with 0), and a
+light's destructor switches it off too, so no light of a scene visited
+before stays on.
 
 A point or spot light with all three attenuation factors 0 gets
 `att1` = 0.0001. Scenes have up to five lights, at most four of them on.
@@ -104,21 +119,20 @@ clamped to 0..1, where strength is:
   direction, 0 beyond phi/2, linear between (falloff 1).
 
 Specular is added after the texture: Σ strength · M.specular ·
-specular · (N·H)^power, H halfway between L and the direction to the
-eye.
+Ls · (N·H)^power, Ls the light's specular colour, H halfway between L
+and the direction to the eye (the camera, `D3DRS_LOCALVIEWER` being on
+by default), counted only where N·L and N·H are above 0, clamped to
+0..1. A light's specular is 0 unless its record sets it (the
+constructor clears the `D3DLIGHT8`).
 
 ## In Reluva
 
 `src/engines/awe/lighting.cpp` builds the scene's lights and ambient
 light, and lights each vertex of the CPU-skinned characters with the
 formula above; the result is the vertex colour the texture is multiplied
-by. The brightness option still scales it. Not done:
-
-- the specular term (the lights' specular colours are small, up to about
-  0.13, so it is a faint sheen at most);
-- conditions are tested every frame, not only when the scene is entered;
-- only the current scene's lights count. Whether the game leaves a
-  light of a scene visited before on (one whose index the current
-  scene's lights don't reuse) wasn't checked;
-- the flicker, and the `light` command (neither is used by the
-  install).
+by. The specular goes into a second vertex colour, drawn as a pass that
+adds it over the textured model (depth equal, no depth write). Which
+lights are on is decided from the conditions as they stood on entering
+the scene; night is tested each frame. The brightness option still
+scales it. Not done: the flicker, and the `light` command (neither is
+used by the install).

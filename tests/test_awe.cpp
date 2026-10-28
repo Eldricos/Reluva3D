@@ -1691,6 +1691,27 @@ void testLighting() {
     const float near[3] = {0, 60, 0};
     c = lightVertex(lit, material, near, up);
     CHECK(std::abs(c[0] - (79 / 510.0f + 0.5f + 1)) < 1e-5f || c[0] == 1);
+    // The specular: the light overhead seen from above, so H is the normal;
+    // none on the side away from the light.
+    lit.eye = {0, 1000, 0};
+    lit.lights[0].specular = {0.1f, 0.1f, 0.1f};
+    material.specular = {1, 1, 1};
+    material.power = 5;
+    Rgb spec{};
+    lightVertex(lit, material, origin, up, &spec);
+    CHECK(std::abs(spec[0] - 0.1f) < 1e-5f);
+    lightVertex(lit, material, origin, down, &spec);
+    CHECK(spec[0] == 0);
+    // Conditions as they were on entering: a light whose condition didn't
+    // hold then stays off.
+    std::vector<bool> entered = lightConditions(scene, state);
+    const std::vector<const Ac2Record*> objects = scene.objects();
+    for (size_t i = 0; i < objects.size(); i++)
+        if (objects[i]->tag == "LITE") {
+            entered[i] = false;
+            break;
+        }
+    CHECK(sceneLighting(scene, state, entered).lights.size() == 1);
     // At night outdoors: no lights, a blue ambient.
     scene.records.push_back({"OUTD", {{"value", whole(1)}}, {}});
     state.values["time"] = 1;
@@ -1701,6 +1722,7 @@ void testLighting() {
     const Ac2Record npc{"NPCX", {{"ambientR", num(0.498039f)}, {"emissiveB", num(0.2f)}}, {}};
     material = materialOf(npc);
     CHECK(material.ambient[0] == 0.498039f && material.diffuse[1] == 1 && material.emissive[2] == 0.2f && material.lit);
+    CHECK(materialOf(Ac2Record{"NPCX", {{"specularG", num(1)}, {"power", num(5)}}, {}}).power == 5);
 }
 
 int main() {

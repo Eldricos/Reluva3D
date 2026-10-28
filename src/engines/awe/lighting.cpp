@@ -45,7 +45,14 @@ bool nightLighting(const Ac2Scene& scene, int timeOfDay) {
     return timeOfDay == 2 || (timeOfDay == 1 && sceneFlag(scene, "OUTD"));
 }
 
-SceneLighting sceneLighting(const Ac2Scene& scene, const GameState& state) {
+std::vector<bool> lightConditions(const Ac2Scene& scene, const GameState& state) {
+    std::vector<bool> out;
+    for (const Ac2Record* o : scene.objects())
+        out.push_back(testCondition(o->text("condition"), state));
+    return out;
+}
+
+SceneLighting sceneLighting(const Ac2Scene& scene, const GameState& state, const std::vector<bool>& conditions) {
     const auto time = state.values.find("time");
     const bool night = nightLighting(scene, time == state.values.end() ? 0 : time->second);
     SceneLighting out;
@@ -66,10 +73,12 @@ SceneLighting sceneLighting(const Ac2Scene& scene, const GameState& state) {
     // fields keep the LITE constructor's values (0x420cb0).
     if (night)
         return out;
-    for (const Ac2Record* o : scene.objects()) {
+    const std::vector<const Ac2Record*> objects = scene.objects();
+    for (size_t i = 0; i < objects.size(); i++) {
+        const Ac2Record* o = objects[i];
         const Ac2Value* on = o->field("on");
         if (o->tag != "LITE" || (on && on->i() == 0) || o->i("shadowOnly") != 0 ||
-            !testCondition(o->text("condition"), state))
+            !(i < conditions.size() ? conditions[i] : testCondition(o->text("condition"), state)))
             continue;
         const Ac2Value* type = o->field("type");
         const int t = type ? type->i() : 1;
@@ -79,6 +88,7 @@ SceneLighting sceneLighting(const Ac2Scene& scene, const GameState& state) {
         l.type = SceneLight::Type(t);
         l.diffuse = rgb(*o, "diffuseR", "diffuseG", "diffuseB", fallback);
         l.ambient = rgb(*o, "ambientR", "ambientG", "ambientB", {});
+        l.specular = rgb(*o, "specularR", "specularG", "specularB", {});
         l.position = {num(*o, "x", 0), num(*o, "y", 0), num(*o, "z", 0)};
         l.direction = {num(*o, "dirX", -1), num(*o, "dirY", -1), num(*o, "dirZ", -100)};
         l.range = num(*o, "range", 10000);
@@ -99,14 +109,27 @@ Material materialOf(const Ac2Record& object) {
     m.diffuse = rgb(object, "diffuseR", "diffuseG", "diffuseB", m.diffuse);
     m.ambient = rgb(object, "ambientR", "ambientG", "ambientB", m.ambient);
     m.emissive = rgb(object, "emissiveR", "emissiveG", "emissiveB", m.emissive);
+    m.specular = rgb(object, "specularR", "specularG", "specularB", m.specular);
+    m.power = num(object, "power", m.power);
     m.lit = num(object, "b0c", 1) != 0;
     return m;
 }
 
 Rgb lightVertex(const SceneLighting& lighting, const Material& material, const float position[3],
-                const float normal[3]) {
+                const float normal[3], Rgb* specular) {
+    Rgb shine{};
+    if (specular)
+        *specular = shine;
     if (!material.lit)
         return {1, 1, 1};
+    // The direction to the eye, for the specular's halfway vector.
+    float eye[3];
+    for (size_t k = 0; k < 3; k++)
+        eye[k] = lighting.eye[k] - position[k];
+    const float eyeLen = std::sqrt(eye[0] * eye[0] + eye[1] * eye[1] + eye[2] * eye[2]);
+    if (eyeLen > 0)
+        for (float& v : eye)
+            v /= eyeLen;
     Rgb c;
     for (size_t k = 0; k < 3; k++)
         c[k] = material.emissive[k] + lighting.ambient[k] * material.ambient[k];
@@ -146,9 +169,24 @@ Rgb lightVertex(const SceneLighting& lighting, const Material& material, const f
         const float facing = std::max(0.0f, normal[0] * to[0] + normal[1] * to[1] + normal[2] * to[2]);
         for (size_t k = 0; k < 3; k++)
             c[k] += strength * (material.ambient[k] * l.ambient[k] + material.diffuse[k] * l.diffuse[k] * facing);
+        // The specular, on the side facing the light: (N.H)^power with H
+        // halfway between the light and the eye.
+        if (specular && facing > 0 && eyeLen > 0) {
+            float h[3] = {to[0] + eye[0], to[1] + eye[1], to[2] + eye[2]};
+            const float hl = std::sqrt(h[0] * h[0] + h[1] * h[1] + h[2] * h[2]);
+            const float nh = hl > 0 ? (normal[0] * h[0] + normal[1] * h[1] + normal[2] * h[2]) / hl : 0;
+            if (nh > 0) {
+                const float f = strength * std::pow(nh, material.power);
+                for (size_t k = 0; k < 3; k++)
+                    shine[k] += f * material.specular[k] * l.specular[k];
+            }
+        }
     }
     for (float& v : c)
         v = std::clamp(v, 0.0f, 1.0f);
+    if (specular)
+        for (size_t k = 0; k < 3; k++)
+            (*specular)[k] = std::clamp(shine[k], 0.0f, 1.0f);
     return c;
 }
 

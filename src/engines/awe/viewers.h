@@ -661,6 +661,7 @@ private:
     std::vector<std::string> names_;
     int index_ = 0;
     Ac2Scene scene_;
+    std::vector<bool> lightConditions_; // the objects' conditions on entering (lighting.h)
     std::string base_; // the base scene an act's variant is shown over
     std::string error_;
     int selected_ = -1; // object highlighted, -1 none
