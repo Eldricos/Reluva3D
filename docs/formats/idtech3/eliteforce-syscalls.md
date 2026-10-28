@@ -383,7 +383,7 @@ numbering wherever it can be checked:
 | 56 | `SetUserCmdValue(weapon, sensitivityScale)` | seen | `(1, ...)` once a frame |
 | 57 | `R_RegisterShaderNoMip(name)` | seen | crosshairs, HUD pieces, fonts |
 | 58 | `MemoryRemaining()` | seen | answered 0, the client game prints "Memory is low.  Using deferred model." and skips loading player models |
-| 60 | probably sets a cvar: `("model", text)` | seen | one call site (`qvm-dis -syscall 60`, instruction 42881), only for the local player (its client number compared with `cg.clientNum`'s) and when a value it keeps differs from another; the second argument points into the function's own stack frame (2096748, just under the top of the 2 MiB memory), a buffer it filled: the model name. Reluva sets `model` to that text when it's printable, and ignores any other name |
+| 60 | `Cvar_SetLocal(name, value)`: sets a cvar forced, without marking user info changed | confirmed | one call site (`qvm-dis -syscall 60`, instruction 42881), for the local player, with `"model"` and a model name it built. Holomatch's engine (`stvoyHM.exe`) settles it: its client game dispatcher (0x402ed0) sends 60 to 0x402faf, which calls 0x41cf50(name, value). That finds the cvar, clears its user-info flag (2), calls the engine's Cvar_Set2(name, value, force = 1) (0x41cca0) and puts the flag back: any cvar, set even if read-only, without the change being sent to the server. Call 5 (Cvar_Set) goes to 0x41cf30 instead. Reluva does the same; it sends user info only on connecting anyway |
 | 100, 102 | `memset`, `strncpy` | seen | |
 | 107 | `floor(x)` | seen | one call site, the result converted to a whole number |
 

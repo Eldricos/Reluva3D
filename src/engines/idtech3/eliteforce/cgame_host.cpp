@@ -291,16 +291,12 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     }
     case CvarUpdate: cvars_.updateVmCvar(vm, a[0]); return 0;
     case CvarSet: cvars_.set(str(0, 256), str(1, 256)); return 0;
-    case SetLocalCvar: {
-        // Only text: the second argument's meaning is inferred.
-        const std::string name = str(0, 64), value = str(1, 256);
-        const bool text = !value.empty() && std::all_of(value.begin(), value.end(), [](char ch) {
-            return static_cast<unsigned char>(ch) >= 32 && static_cast<unsigned char>(ch) < 127;
-        });
-        if (name == "model" && text)
-            cvars_.set(name, value);
+    case SetLocalCvar:
+        // Holomatch's engine sets the cvar forced (read-only ones too),
+        // without counting it as a change of the player's settings to send.
+        // Reluva sends them only on connecting, so a forced set is enough.
+        cvars_.set(str(0, 256), str(1, 256), true);
         return 0;
-    }
     case CvarVariableStringBuffer: vm.writeString(a[1], cvars_.string(str(0, 256)), a[2]); return 0;
     case Argc: return int32_t(args_.size());
     case Argv: vm.writeString(a[1], a[0] >= 0 && size_t(a[0]) < args_.size() ? args_[size_t(a[0])] : "", a[2]); return 0;
