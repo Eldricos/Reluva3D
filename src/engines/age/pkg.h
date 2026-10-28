@@ -79,6 +79,10 @@ Error readPkg(const std::vector<uint8_t>& data, Pkg& out);
 // crossing's signs (WALK_NIGHT...).
 bool isLightPart(const std::string& part);
 
+// The box round a model's body at its finest level: its unnamed meshes (or
+// BODY's) at H if it has them, else M, else L. False if it has none.
+bool bodyBounds(const Pkg& pkg, Vec3& low, Vec3& high);
+
 // A part's placement (.mtx, next to the model: <model>_<part>.mtx).
 struct Mtx {
     Vec3 min{}, max{}; // the part's bounds as modelled

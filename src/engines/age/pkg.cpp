@@ -8,6 +8,8 @@
 
 #include "engines/age/pkg.h"
 
+#include <algorithm>
+
 #include <cstring>
 
 namespace reluva::age {
@@ -207,6 +209,26 @@ bool isLightPart(const std::string& part) {
         if (p == name)
             return true;
     return p.find("GLOW") != std::string::npos || p.rfind("WALK_", 0) == 0 || p.rfind("NOWALK_", 0) == 0;
+}
+
+bool bodyBounds(const Pkg& pkg, Vec3& low, Vec3& high) {
+    for (const char* level : {"H", "M", "L"}) {
+        bool any = false;
+        for (const PkgMesh& m : pkg.meshes) {
+            if (m.level() != level || (!m.part().empty() && m.part() != "BODY"))
+                continue;
+            for (const PkgGroup& g : m.groups)
+                for (const PkgVertex& v : g.vertices)
+                    for (size_t k = 0; k < 3; ++k) {
+                        low[k] = any ? std::min(low[k], v.pos[k]) : v.pos[k];
+                        high[k] = any ? std::max(high[k], v.pos[k]) : v.pos[k];
+                        any = true;
+                    }
+        }
+        if (any)
+            return true;
+    }
+    return false;
 }
 
 const PkgMesh* Pkg::mesh(std::string_view name) const {
