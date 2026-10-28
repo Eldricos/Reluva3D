@@ -50,6 +50,9 @@ public:
 
     void setVolume(SoundHandle handle, int volume);
     void setPan(SoundHandle handle, int pan);
+    // Plays a sound faster (higher) or slower (lower) than recorded:
+    // 1 as recorded, 2 an octave up. Clamped to 0.05..8.
+    void setPitch(SoundHandle handle, float pitch);
     void setTypeVolume(SoundType type, int volume);
     int typeVolume(SoundType type) const;
 
@@ -66,6 +69,7 @@ private:
         SoundType type;
         int volume, pan;
         bool loop;
+        double pitch = 1;
         double position = 0; // in the sound's frames
         bool done = false;
     };

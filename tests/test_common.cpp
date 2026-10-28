@@ -212,6 +212,12 @@ static void testMixer() {
     m.mix(out.data(), 4);
     CHECK(out[0] == 0 && out[2] == 50 && out[4] == 100 && out[6] == 150 && m.position(r) == 2.0);
     m.stopAll();
+    // Pitch: twice as high plays every other frame.
+    const SoundHandle p = m.play(make(22050, 1, {0, 100, 200, 300, 400}), SoundType::Effects);
+    m.setPitch(p, 2);
+    m.mix(out.data(), 2);
+    CHECK(out[0] == 0 && out[2] == 200 && m.position(p) == 4.0);
+    m.stopAll();
     // Stereo keeps its channels; a loop repeats until stopped.
     const SoundHandle l = m.play(make(22050, 2, {10, -10, 20, -20}), SoundType::Music, kMaxVolume, 0, true);
     m.mix(out.data(), 5);

@@ -119,6 +119,13 @@ absolute (a roof at 52.3 over ground at 36).
   has its double yellow no-parking lines at the bottom. So each half of a
   road is drawn from its curb (v = 1) to the middle (v = 0), with u along
   the road. A divided road's halves run from each curb to the divider.
+- **Sidewalk strips' markers**: 188 strips of two pairs (72 in San
+  Francisco, 116 in London) start with a pair of equal values, (0, 0) or
+  (1, 1). A sidewalk can't have one vertex for both edges, so these
+  aren't vertices; read as vertices they make triangles across the city
+  (to the origin and to a hill in San Francisco), which the car on the
+  Drive page drove onto. Reluva skips such pairs, so these strips draw
+  nothing. What they mean isn't known.
 - **Sidewalks** are 0.15 m above the road: the curb vertices are at the
   road's height and the outer edges at the sidewalk's. Reluva draws the
   sidewalk at its outer height and a curb face down to the road.

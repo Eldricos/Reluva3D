@@ -13,7 +13,8 @@ stands, like [idtech3.md](idtech3.md).
 | Textures | done: `.tex` in its four formats ([tex.md](../formats/age/tex.md)); all 3,665 retail textures decode; the flags' meanings still to work out; `reluva-tool tex-info` |
 | Models | done: `.pkg` meshes, shaders with their paint jobs, placed models, and `.mtx` part placements ([pkg.md](../formats/age/pkg.md)); 1,034 of 1,040 retail models load (the 6 that don't are unused); `reluva-tool pkg-info` |
 | Cities | done: `.psdl` streets and buildings, generated from every attribute but tunnels ([psdl.md](../formats/age/psdl.md)); `.inst` placed models ([inst.md](../formats/age/inst.md)); the sky dome and the 16 lightings ([tune.md](../formats/age/tune.md)); both retail cities read whole, every texture and model they name found; `reluva-tool psdl-info` |
-| Viewer | World page (3D): London and San Francisco flown through, from the road nearest the middle, at each time and weather; Models page (3D, on the GPU renderer): every model with its parts placed, by level of detail and paint job, the lit parts (lamps, glows) on request; Textures page; Files page: every file with its size and archive, by folder; text files shown as text, the rest as hex dumps |
+| Driving | a first cruise mode, Reluva's model of the game's tuning ([age-driving.md](age-driving.md)): every car the menus offer, in either city; its simulation (suspension, tyres, engine, automatic gearbox, drag) from its `.vehCarSim`; collisions with the city's generated geometry, facade bounds and placed models' `.bnd` bounds ([bnd.md](../formats/age/bnd.md)); the near, far and in-car cameras from its camera files; its engine sound from its sound table; a HUD (speed, gear, revs). Not compared with the game yet |
+| Viewer | Drive page (3D); World page (3D): London and San Francisco flown through, from the road nearest the middle, at each time and weather; Models page (3D, on the GPU renderer): every model with its parts placed, by level of detail and paint job, the lit parts (lamps, glows) on request; Textures page; Files page: every file with its size and archive, by folder; text files shown as text, the rest as hex dumps |
 
 Decided: Midtown Madness 1 comes after Midtown Madness 2 runs; the
 DirectMusic player comes after the game runs.
@@ -161,16 +162,21 @@ recording how each format was worked out (CONTRIBUTING.md).
   approximation is too bright at night), low-detail road textures far
   away, animated water, and the PSDL's tail after the bounds.
 
-### 4. Driving
+### 4. Driving (first version done)
 
-- Collision against the city (`.bnd`/`.bbnd`, PSDL ground).
-- The car simulation from `.vehcarsim`: engine and gearbox, tyres,
-  suspension, aerodynamics, damage. The tuning names and values give its
-  structure; behaviour is checked against recordings of the original
-  (acceleration times, top speeds, the `.info` figures).
-- Cameras from `tune/camera`, the HUD (speedometer, map from
-  `.mmHudMap`), engine and tyre sounds through `common/audio`.
-- Cruise mode: drive any car around either city.
+- Collision against the city (PSDL geometry, facade bounds, `.bnd`).
+- The car simulation from `.vehCarSim`: suspension, tyres, engine,
+  automatic gearbox, drag; Reluva's model of the numbers, to be checked
+  against recordings of the original (acceleration, top speeds, the
+  `.info` figures) and tuned.
+- Cameras from `tune/camera`, a HUD (speed, gear, revs), engine sounds
+  through `common/audio` (with a new pitch control).
+- Drive page: any car round either city.
+- Left for later: comparing the handling with the game; damage; the
+  dashboard models and in-car dashboard camera; the HUD's map
+  (`.mmHudMap`) and the game's own HUD pictures; the horn and clutch
+  sounds, tyre and collision sounds; tunnels (London's Underground
+  cutting is open); the `.bbnd`/`.ter` bounds; manual gears.
 
 ### 5. The game
 

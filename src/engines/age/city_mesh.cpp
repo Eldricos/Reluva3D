@@ -180,8 +180,13 @@ private:
             break;
         }
         case psdlattr::SidewalkStrip: {
+            // A pair of equal values isn't a section: 188 two-pair strips
+            // of the two cities start (0, 0) or (1, 1), what for isn't
+            // known. Read as vertices, they'd stretch across the city.
             std::vector<Vec3> inner, outer;
             for (size_t i = 0; i + 1 < w.size(); i += 2) {
+                if (w[i] == w[i + 1])
+                    continue;
                 inner.push_back(vertex(w[i]));
                 outer.push_back(vertex(w[i + 1]));
             }

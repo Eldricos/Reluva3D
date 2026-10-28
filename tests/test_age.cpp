@@ -5,7 +5,10 @@
 // following docs/formats/age/, so no game data is needed.
 
 #include "engines/age/ar_archive.h"
+#include "engines/age/bound.h"
+#include "engines/age/car.h"
 #include "engines/age/city_mesh.h"
+#include "engines/age/engine_sound.h"
 #include "engines/age/filesystem.h"
 #include "engines/age/games.h"
 #include "engines/age/instances.h"
@@ -18,6 +21,7 @@
 
 #include <cstdio>
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <filesystem>
 #include <string>
@@ -487,6 +491,138 @@ void testTune() {
     CHECK(parseTune("}\n", root));
 }
 
+void testBound() {
+    Bound b;
+    CHECK(!readBound("version: 1.01\r\nverts: 4\r\nmaterials: 1\r\nedges: 0\r\npolys: 2\r\n\r\n"
+                     "v\t0 0 0\r\nv 1 0 0\r\nv 1 1 0\r\nv 0 1 0\r\n\r\n"
+                     "mtl default {\r\n\telasticity: 0.25\r\n\tfriction: 0.75\r\n\teffect: none\r\n\tsound: 0\r\n}\r\n"
+                     "quad 0 1 2 3 0\r\ntri 0 2 3 0\r\n",
+                     b));
+    CHECK(b.vertices.size() == 4 && b.vertices[2] == (Vec3{1, 1, 0}));
+    CHECK(b.materials.size() == 1 && b.materials[0].name == "default" && b.materials[0].elasticity == 0.25f &&
+          b.materials[0].friction == 0.75f);
+    CHECK(b.polygons.size() == 2 && b.polygons[0].count == 4 && b.polygons[1].count == 3 &&
+          b.polygons[1].vertices[1] == 2);
+    CHECK(readBound("v 0 0 0\nquad 0 1 2 3 0\n", b)); // vertices that aren't there
+    CHECK(readBound("mtl a {\nfriction: 1\n", b));     // not closed
+}
+
+void testCollision() {
+    CollisionWorld w;
+    // A floor at y 0 over -100..100 and a wall at x 10.
+    w.add({-100, 0, -100}, {-100, 0, 100}, {100, 0, 100});
+    w.add({-100, 0, -100}, {100, 0, 100}, {100, 0, -100});
+    w.add({10, 0, -5}, {10, 5, -5}, {10, 5, 5});
+    w.add({10, 0, -5}, {10, 5, 5}, {10, 0, 5});
+    w.build();
+    CollisionWorld::RayHit hit;
+    CHECK(w.raycast({3, 2, 4}, {0, -1, 0}, 5, hit) && std::fabs(hit.distance - 2) < 1e-4f && hit.normal[1] == 1);
+    CHECK(!w.raycast({3, 2, 4}, {0, -1, 0}, 1.5f, hit));
+    CHECK(w.raycast({0, 1, 0}, {1, 0, 0}, 20, hit) && std::fabs(hit.distance - 10) < 1e-4f && hit.normal[0] == -1);
+    CollisionWorld::Contact c;
+    CHECK(w.sphereContact({9.8f, 1, 0}, 0.5f, c) && c.normal[0] < -0.99f && std::fabs(c.depth - 0.3f) < 1e-4f);
+    CHECK(w.sphereContact({0, 0.1f, 0}, 0.25f, c) && c.normal[1] > 0.99f);
+    CHECK(!w.sphereContact({0, 2, 0}, 0.5f, c));
+}
+
+CarSetup testCar() {
+    CarSetup s;
+    s.name = "test";
+    s.wheels = {Vec3{-0.75f, 0.31f, -1.2f}, Vec3{0.75f, 0.31f, -1.2f}, Vec3{-0.75f, 0.31f, 1.4f},
+                Vec3{0.75f, 0.31f, 1.4f}};
+    s.wheelRadius = {0.33f, 0.33f, 0.33f, 0.33f};
+    for (float x : {-0.9f, 0.9f})
+        for (float z : {-1.9f, 2.0f})
+            for (float y : {0.3f, 1.4f})
+                s.hull.push_back({x, y, z});
+    return s;
+}
+
+void testCarSim() {
+    CollisionWorld flat;
+    flat.add({-3000, 0, -3000}, {-3000, 0, 3000}, {3000, 0, 3000});
+    flat.add({-3000, 0, -3000}, {3000, 0, 3000}, {3000, 0, -3000});
+    flat.build(64);
+    const CarSetup setup = testCar();
+    CHECK(setup.gearTopSpeed(1) == setup.lowSpeed && std::fabs(setup.gearTopSpeed(setup.gears) - setup.highSpeed) < 1e-3f);
+    CHECK(setup.power(setup.optRpm) > setup.power(setup.idleRpm) && setup.power(setup.maxRpm + 1) == 0);
+
+    CarSim car;
+    car.reset(setup, {0, 0, 0}, 0);
+    CarControls none;
+    car.step(none, flat, 0.1f);
+    for (int i = 0; i < 30; ++i)
+        car.step(none, flat, 0.1f);
+    // Settled on its wheels.
+    CHECK(length(car.velocity) < 0.05f);
+    for (const auto& w : car.wheels)
+        CHECK(w.contact && w.compression > 0.02f && w.compression < 0.29f);
+    CHECK(car.orientation.y[1] > 0.999f);
+
+    // Full throttle: off along -Z, up through the gears.
+    CarControls go;
+    go.throttle = 1;
+    for (int i = 0; i < 100; ++i)
+        car.step(go, flat, 0.1f);
+    CHECK(car.forwardSpeed() > 15 && car.position[2] < -50 && std::fabs(car.position[0]) < 2 && car.gear > 1);
+    for (int i = 0; i < 300; ++i) // 30 s more, not quite to the plane's edge
+        car.step(go, flat, 0.1f);
+    // Topped out near the top gear's speed.
+    CHECK(car.forwardSpeed() > setup.highSpeed * 0.75f && car.forwardSpeed() < setup.highSpeed * 1.1f);
+
+    // Steering right at speed turns it right (towards +X when facing -Z).
+    car.reset(setup, {0, 0, 0}, 0);
+    for (int i = 0; i < 50; ++i)
+        car.step(go, flat, 0.1f);
+    CarControls right = go;
+    right.throttle = 0.3f;
+    right.steer = 1;
+    const float x0 = car.position[0];
+    for (int i = 0; i < 20; ++i)
+        car.step(right, flat, 0.1f);
+    CHECK(car.position[0] > x0 + 5 && car.orientation.y[1] > 0.95f);
+
+    // Braking stops it; holding the brake then backs up.
+    CarControls stop;
+    stop.brake = 1;
+    for (int i = 0; i < 100; ++i)
+        car.step(stop, flat, 0.1f);
+    CHECK(car.gear == -1 && car.forwardSpeed() < -1);
+}
+
+void testEngineSound() {
+    EngineSoundSetup e;
+    CHECK(!readEngineSound("Horn wave name,Horn volume,flags,Num Engine Samples,clutch wave name,clutch volume,,,,,\r\n"
+                           "VWHORN,0.95,0,2,REVERSE,0.93,,,,,\r\n"
+                           "Engine wave name,Min Volume,Max Volume,...\r\n"
+                           "VWIDLE,0.55,0.835,1,800,2500,7000,0.85,2,1,7000\r\n"
+                           "VWHIGH,0.55,0.91,3000,8000,15000,15000,0.65,2.25,3000,12000\r\n",
+                           e));
+    CHECK(e.horn == "VWHORN" && e.samples.size() == 2 && e.samples[1].wave == "VWHIGH");
+    CHECK(e.samples[0].fadeOutStart == 2500 && e.samples[1].pitchEnd == 12000);
+    float volume, pitch;
+    // Idle: faded in by 800 RPM, out from 2500 to 7000; pitched 0.85 to 2 over 1-7000.
+    engineSampleMix(e.samples[0], 800, 0, volume, pitch);
+    CHECK(std::fabs(volume - 0.55f) < 1e-4f && pitch > 0.85f && pitch < 1.0f);
+    engineSampleMix(e.samples[0], 800, 1, volume, pitch);
+    CHECK(std::fabs(volume - 0.835f) < 1e-4f);
+    engineSampleMix(e.samples[0], 7000, 1, volume, pitch);
+    CHECK(volume == 0 && std::fabs(pitch - 2) < 1e-4f);
+    engineSampleMix(e.samples[1], 2000, 1, volume, pitch); // not faded in yet
+    CHECK(volume == 0);
+    CHECK(readEngineSound("a\nb\n", e));
+}
+
+void testSidewalkMarkers() {
+    // A two-pair sidewalk strip starting (0, 0), as 188 in the cities do:
+    // nothing is drawn for it, rather than a strip from vertex 0.
+    Psdl psdl;
+    CHECK(!readPsdl(buildPsdl({10 << 3, 1, 0x80 | 1 << 3 | 2, 0, 0, 2, 3}), psdl));
+    CityMesh mesh;
+    buildCityMesh(psdl, mesh);
+    CHECK(mesh.vertices.empty());
+}
+
 } // namespace
 
 int main() {
@@ -501,6 +637,11 @@ int main() {
     testPsdl();
     testInstances();
     testTune();
+    testBound();
+    testCollision();
+    testCarSim();
+    testEngineSound();
+    testSidewalkMarkers();
     std::filesystem::remove_all(tmp);
     if (failures) {
         std::fprintf(stderr, "%d check(s) failed\n", failures);
