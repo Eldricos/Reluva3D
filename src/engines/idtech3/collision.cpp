@@ -524,6 +524,71 @@ void AreaPortals::flood() {
     }
 }
 
+std::array<Vec3f, 3> CollisionWorld::turnAxes(const Vec3f& angles) {
+    constexpr float kRad = 3.14159265358979f / 180;
+    const float sp = std::sin(angles[0] * kRad), cp = std::cos(angles[0] * kRad);
+    const float sy = std::sin(angles[1] * kRad), cy = std::cos(angles[1] * kRad);
+    const float sr = std::sin(angles[2] * kRad), cr = std::cos(angles[2] * kRad);
+    const Vec3f forward{cp * cy, cp * sy, -sp};
+    const Vec3f left{sr * sp * cy - cr * sy, sr * sp * sy + cr * cy, sr * cp};
+    const Vec3f up{cr * sp * cy + sr * sy, cr * sp * sy - sr * cy, cr * cp};
+    return {forward, left, up};
+}
+
+namespace {
+
+bool turned(const Vec3f& angles) { return angles[0] != 0 || angles[1] != 0 || angles[2] != 0; }
+
+Vec3f intoAxes(const std::array<Vec3f, 3>& axes, const Vec3f& v) {
+    Vec3f out{};
+    for (size_t r = 0; r < 3; ++r)
+        out[r] = axes[r][0] * v[0] + axes[r][1] * v[1] + axes[r][2] * v[2];
+    return out;
+}
+
+Vec3f outOfAxes(const std::array<Vec3f, 3>& axes, const Vec3f& v) {
+    Vec3f out{};
+    for (size_t k = 0; k < 3; ++k)
+        out[k] = axes[0][k] * v[0] + axes[1][k] * v[1] + axes[2][k] * v[2];
+    return out;
+}
+
+} // namespace
+
+TraceResult CollisionWorld::transformedTrace(const Vec3f& start, const Vec3f& end, const Vec3f& mins,
+                                             const Vec3f& maxs, int model, int32_t mask, const Vec3f& origin,
+                                             const Vec3f& angles) const {
+    Vec3f half{}, a{}, b{};
+    for (size_t k = 0; k < 3; ++k) {
+        const float middle = (mins[k] + maxs[k]) * 0.5f;
+        half[k] = maxs[k] - middle;
+        a[k] = start[k] + middle - origin[k];
+        b[k] = end[k] + middle - origin[k];
+    }
+    const bool turn = model != 0 && turned(angles);
+    std::array<Vec3f, 3> axes{};
+    if (turn) {
+        axes = turnAxes(angles);
+        a = intoAxes(axes, a);
+        b = intoAxes(axes, b);
+    }
+    const Vec3f negHalf{-half[0], -half[1], -half[2]};
+    TraceResult t = trace(a, b, negHalf, half, model, mask);
+    if (turn && t.fraction < 1)
+        t.normal = outOfAxes(axes, t.normal);
+    for (size_t k = 0; k < 3; ++k)
+        t.endPos[k] = start[k] + t.fraction * (end[k] - start[k]);
+    return t;
+}
+
+int32_t CollisionWorld::transformedPointContents(const Vec3f& point, int model, const Vec3f& origin,
+                                                 const Vec3f& angles) const {
+    Vec3f p{point[0] - origin[0], point[1] - origin[1], point[2] - origin[2]};
+    if (model != 0 && turned(angles))
+        p = intoAxes(turnAxes(angles), p);
+    return pointContents(p, model);
+}
+
 int32_t CollisionWorld::pointContents(const Vec3f& point, int model) const {
     auto inside = [&](int brush) {
         const BspBrush& b = bsp_.brushes[size_t(brush)];

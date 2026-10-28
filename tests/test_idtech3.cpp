@@ -1890,6 +1890,28 @@ static void testCollision() {
     CHECK(world.pointContents({0, 0, 64}, 1) == contents::Solid);
     Vec3f mins, maxs;
     CHECK(world.modelBounds(1, mins, maxs) && maxs[2] == 128 && !world.modelBounds(2, mins, maxs));
+    // The door standing at x = 200 turned a quarter (yaw 90): it now lies
+    // across x (136 to 264) and is thin along y (-8 to 8). A move along y
+    // at x = 240 hits it, the plane turned back to the world's; one along
+    // x at y = 40 misses, where the unturned door would have stopped it.
+    const Vec3f at{200, 0, 0}, quarter{0, 90, 0};
+    t = world.transformedTrace({240, -100, 64}, {240, 100, 64}, zero, zero, 1, contents::Solid, at, quarter);
+    CHECK(t.fraction < 1 && near(t.endPos[1], -8.125f) && near(t.endPos[0], 240) && near(t.normal[1], -1) &&
+          near(t.normal[0], 0));
+    t = world.transformedTrace({100, 40, 64}, {300, 40, 64}, zero, zero, 1, contents::Solid, at, quarter);
+    CHECK(t.fraction == 1 && near(t.endPos[0], 300));
+    t = world.transformedTrace({100, 40, 64}, {300, 40, 64}, zero, zero, 1, contents::Solid, at, zero);
+    CHECK(t.fraction < 1 && near(t.endPos[0], 191.875f)); // unturned, for comparison
+    // An uneven box (4 either side, 0 to 8 up) is moved by its middle.
+    t = world.transformedTrace({240, -100, 60}, {240, 100, 60}, {-4, -4, 0}, {4, 4, 8}, 1, contents::Solid, at,
+                               quarter);
+    CHECK(near(t.endPos[1], -12.125f));
+    CHECK(world.transformedPointContents({240, 0, 64}, 1, at, quarter) == contents::Solid);
+    CHECK(world.transformedPointContents({200, 40, 64}, 1, at, quarter) == 0);
+    CHECK(world.transformedPointContents({200, 40, 64}, 1, at, zero) == contents::Solid);
+    // Quake III's axes: yaw 90 turns forward to +y, left to -x.
+    const auto axes = CollisionWorld::turnAxes(quarter);
+    CHECK(near(axes[0][1], 1) && near(axes[1][0], -1) && near(axes[2][2], 1));
     // A box entity.
     t = CollisionWorld::traceBox({0, 0, 100}, {0, 0, -100}, zero, zero, {-16, -16, 0}, {16, 16, 32}, contents::Body);
     CHECK(near(t.endPos[2], 32.125f) && t.contents == contents::Body);

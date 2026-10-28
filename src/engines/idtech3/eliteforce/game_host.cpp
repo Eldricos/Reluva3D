@@ -885,8 +885,12 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
             return 0;
         const Vec3f origin = entityVec(n, layout_.currentOrigin);
         if (entityInt(n, layout_.bmodel) && world_) {
-            const Vec3f at{-origin[0], -origin[1], -origin[2]};
-            return world_->trace(at, at, mins, maxs, entityInt(n, layout_.modelIndex), -1).startSolid;
+            // The box against the model where it stands, turned as it is.
+            const Vec3f zero{};
+            return world_
+                ->transformedTrace(zero, zero, mins, maxs, entityInt(n, layout_.modelIndex), -1, origin,
+                                   entityVec(n, layout_.currentAngles))
+                .startSolid;
         }
         const Vec3f absMin = entityVec(n, layout_.absMin), absMax = entityVec(n, layout_.absMax);
         for (int i = 0; i < 3; ++i)

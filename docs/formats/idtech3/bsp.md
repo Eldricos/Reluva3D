@@ -140,6 +140,26 @@ inside too. Brush models (`*1`, `*2`... for doors and lifts) have no tree
 of their own: their brushes are tested directly, in the model's own
 coordinates.
 
+A brush model that stands somewhere else and is turned (an entity's
+origin and angles: pitch, yaw, roll) is traced as the original's
+`CM_TransformedBoxTrace` does (`CollisionWorld::transformedTrace`):
+
+1. The moving box is made even about its middle, and the move shifted by
+   that middle, then by the model's origin.
+2. If the model is turned, the move's two ends are turned into the
+   model's own axes: each the dot products with its forward, left and up
+   (Quake III's angle vectors, right negated). The box itself isn't
+   turned, as the original's (turning it would spoil the brushes'
+   bevels), so a turned model's collision with a box is approximate,
+   exactly as in the original.
+3. A hit plane's normal is turned back by the same axes, and the end is
+   worked out again along the move in the world.
+
+Points are tested the same way (`CM_TransformedPointContents`): moved by
+the origin, then turned into the model's axes. The temporary box model
+is never turned. Both games' servers, their client games and the game's
+entity-contact test all go through these.
+
 Curved surfaces (patches) collide too, when their shader's contents
 share a bit with the mask. They are found through the leaves' surface
 lists, or a brush model's surfaces. Each patch is cut into triangles

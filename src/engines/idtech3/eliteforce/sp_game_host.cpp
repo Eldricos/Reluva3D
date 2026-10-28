@@ -729,12 +729,11 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
         return kTempBoxModel;
     case 21:   // CM_PointContents(point, model)
     case 22: { // CM_TransformedPointContents(point, model, origin, angles)
-        Vec3f p = readVec(a(0));
-        if (number == 22) {
-            const Vec3f origin = readVec(a(2));
-            for (int i = 0; i < 3; ++i)
-                p[size_t(i)] -= origin[size_t(i)];
-        }
+        const Vec3f point = readVec(a(0));
+        const Vec3f origin = number == 22 ? readVec(a(2)) : Vec3f{}, angles = number == 22 ? readVec(a(3)) : Vec3f{};
+        Vec3f p = point;
+        for (int i = 0; i < 3; ++i)
+            p[size_t(i)] -= origin[size_t(i)];
         if (a(1) == kTempBoxModel) {
             if (tempBoxes_.empty())
                 return 0;
@@ -743,7 +742,7 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
                     return 0;
             return 1;
         }
-        return world_ ? uint32_t(world_->pointContents(p, int(a(1)))) : 0;
+        return world_ ? uint32_t(world_->transformedPointContents(point, int(a(1)), origin, angles)) : 0;
     }
     case 23: clientTrace(c, false); return 0; // CM_BoxTrace
     case 24: clientTrace(c, true); return 0;  // CM_TransformedBoxTrace
@@ -995,23 +994,22 @@ void SpGameHost::clientTrace(x86::Cpu& c, bool transformed) {
     const Vec3f mins = a(3) ? readVec(a(3)) : Vec3f{}, maxs = a(4) ? readVec(a(4)) : Vec3f{};
     const uint32_t model = a(5);
     const int32_t mask = int32_t(a(6));
-    Vec3f origin{};
-    if (transformed) {
-        origin = readVec(a(7));
-        for (int i = 0; i < 3; ++i) {
-            start[size_t(i)] -= origin[size_t(i)];
-            end[size_t(i)] -= origin[size_t(i)];
-        }
-    }
+    const Vec3f origin = transformed ? readVec(a(7)) : Vec3f{}, angles = transformed ? readVec(a(8)) : Vec3f{};
     TraceResult t;
     if (model == kTempBoxModel) {
+        // A box isn't turned, as the original's.
+        Vec3f s = start, e = end;
+        for (int i = 0; i < 3; ++i) {
+            s[size_t(i)] -= origin[size_t(i)];
+            e[size_t(i)] -= origin[size_t(i)];
+        }
         if (!tempBoxes_.empty())
-            t = CollisionWorld::traceBox(start, end, mins, maxs, tempBoxes_[0].first, tempBoxes_[0].second, 1);
+            t = CollisionWorld::traceBox(s, e, mins, maxs, tempBoxes_[0].first, tempBoxes_[0].second, 1);
     } else if (world_) {
-        t = world_->trace(start, end, mins, maxs, int(model), mask);
+        t = world_->transformedTrace(start, end, mins, maxs, int(model), mask, origin, angles);
     }
     for (int i = 0; i < 3; ++i)
-        t.endPos[size_t(i)] = start[size_t(i)] + t.fraction * (end[size_t(i)] - start[size_t(i)]) + origin[size_t(i)];
+        t.endPos[size_t(i)] = start[size_t(i)] + t.fraction * (end[size_t(i)] - start[size_t(i)]);
     writeTrace(a(0), t, t.fraction < 1 ? kEntityWorld : kEntityNone);
 }
 
@@ -1539,16 +1537,14 @@ void SpGameHost::addImports() {
             return 0;
         const Vec3f origin = entityVec(n, kEntity.currentOrigin);
         if (entityInt(n, kEntity.bmodel) && world_) {
-            // The box moved into the model's own space.
-            Vec3f lo = mins, hi = maxs;
-            for (int i = 0; i < 3; ++i) {
-                lo[size_t(i)] -= origin[size_t(i)];
-                hi[size_t(i)] -= origin[size_t(i)];
-            }
-            const Vec3f centre{(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2};
-            const Vec3f half{(hi[0] - lo[0]) / 2, (hi[1] - lo[1]) / 2, (hi[2] - lo[2]) / 2};
-            const Vec3f negHalf{-half[0], -half[1], -half[2]};
-            return world_->trace(centre, centre, negHalf, half, entityInt(n, kEntity.modelIndex), -1).startSolid ? 1 : 0;
+            // The box against the model where it stands, turned as it is.
+            const Vec3f zero{};
+            return world_
+                           ->transformedTrace(zero, zero, mins, maxs, entityInt(n, kEntity.modelIndex), -1, origin,
+                                              entityVec(n, kEntity.currentAngles))
+                           .startSolid
+                       ? 1
+                       : 0;
         }
         const Vec3f absMin = entityVec(n, kEntity.absMin), absMax = entityVec(n, kEntity.absMax);
         for (int i = 0; i < 3; ++i)

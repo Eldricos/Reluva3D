@@ -229,15 +229,8 @@ TraceResult ServerWorld::trace(const Vec3f& start, const Vec3f& mins, const Vec3
             continue;
         TraceResult t;
         if (s.bmodel && world_) {
-            // Its brushes, where it stands now (turning not yet followed).
-            Vec3f a = start, b = end;
-            for (int i = 0; i < 3; ++i) {
-                a[size_t(i)] -= s.origin[size_t(i)];
-                b[size_t(i)] -= s.origin[size_t(i)];
-            }
-            t = world_->trace(a, b, mins, maxs, s.modelIndex, mask);
-            for (int i = 0; i < 3; ++i)
-                t.endPos[size_t(i)] += s.origin[size_t(i)];
+            // Its brushes, where it stands now and turned as it is.
+            t = world_->transformedTrace(start, end, mins, maxs, s.modelIndex, mask, s.origin, s.angles);
         } else {
             Vec3f boxMin = s.mins, boxMax = s.maxs;
             for (int i = 0; i < 3; ++i) {
@@ -272,8 +265,7 @@ int32_t ServerWorld::pointContents(const Vec3f& point, int32_t pass) const {
         if (n == pass || !shape_(n, s))
             continue;
         if (s.bmodel && world_) {
-            const Vec3f local{point[0] - s.origin[0], point[1] - s.origin[1], point[2] - s.origin[2]};
-            if (world_->pointContents(local, s.modelIndex))
+            if (world_->transformedPointContents(point, s.modelIndex, s.origin, s.angles))
                 result |= s.contents;
         } else {
             bool inside = true;

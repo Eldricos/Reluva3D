@@ -419,27 +419,7 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         }
         return kTempBoxModel;
     case CmPointContents: // (point, model)
-    case CmTransformedPointContents: { // (point, model, origin, angles): turning not yet followed
-        Vec3f p{};
-        for (int i = 0; i < 3; ++i) {
-            p[size_t(i)] = Qvm::asFloat(vm.readInt(a[0] + 4 * i));
-            if (number == CmTransformedPointContents && a[2])
-                p[size_t(i)] -= Qvm::asFloat(vm.readInt(a[2] + 4 * i));
-        }
-        if (a[1] == kTempBoxModel) {
-            for (int i = 0; i < 3; ++i)
-                if (p[size_t(i)] < tempBoxMins_[size_t(i)] || p[size_t(i)] > tempBoxMaxs_[size_t(i)])
-                    return 0;
-            return contents::Body;
-        }
-        if (!map_)
-            return 0;
-        if (!world_)
-            world_ = std::make_unique<CollisionWorld>(*map_);
-        return world_->pointContents(p, a[1]);
-    }
-    case CmBoxTrace: // (results, start, end, mins, maxs, model, brushmask)
-    case CmTransformedBoxTrace: { // ... origin, angles: turning not yet followed
+    case CmTransformedPointContents: { // (point, model, origin, angles)
         auto vec = [&](int32_t addr) {
             Vec3f v{};
             if (addr)
@@ -447,22 +427,51 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
                     v[size_t(i)] = Qvm::asFloat(vm.readInt(addr + 4 * i));
             return v;
         };
-        Vec3f start = vec(a[1]), end = vec(a[2]);
-        const Vec3f mins = vec(a[3]), maxs = vec(a[4]), origin = number == CmTransformedBoxTrace ? vec(a[7]) : Vec3f{};
-        for (int i = 0; i < 3; ++i) {
-            start[size_t(i)] -= origin[size_t(i)];
-            end[size_t(i)] -= origin[size_t(i)];
+        const bool transformed = number == CmTransformedPointContents;
+        const Vec3f point = vec(a[0]), origin = transformed ? vec(a[2]) : Vec3f{},
+                    angles = transformed ? vec(a[3]) : Vec3f{};
+        if (a[1] == kTempBoxModel) {
+            for (int i = 0; i < 3; ++i) {
+                const float p = point[size_t(i)] - origin[size_t(i)];
+                if (p < tempBoxMins_[size_t(i)] || p > tempBoxMaxs_[size_t(i)])
+                    return 0;
+            }
+            return contents::Body;
         }
+        if (!map_)
+            return 0;
+        if (!world_)
+            world_ = std::make_unique<CollisionWorld>(*map_);
+        return world_->transformedPointContents(point, a[1], origin, angles);
+    }
+    case CmBoxTrace: // (results, start, end, mins, maxs, model, brushmask)
+    case CmTransformedBoxTrace: { // ... origin, angles
+        auto vec = [&](int32_t addr) {
+            Vec3f v{};
+            if (addr)
+                for (int i = 0; i < 3; ++i)
+                    v[size_t(i)] = Qvm::asFloat(vm.readInt(addr + 4 * i));
+            return v;
+        };
+        const bool transformed = number == CmTransformedBoxTrace;
+        const Vec3f start = vec(a[1]), end = vec(a[2]), mins = vec(a[3]), maxs = vec(a[4]);
+        const Vec3f origin = transformed ? vec(a[7]) : Vec3f{}, angles = transformed ? vec(a[8]) : Vec3f{};
         TraceResult t;
-        if (a[5] == kTempBoxModel)
-            t = CollisionWorld::traceBox(start, end, mins, maxs, tempBoxMins_, tempBoxMaxs_, contents::Body);
-        else if (map_) {
+        if (a[5] == kTempBoxModel) {
+            // A box isn't turned, as the original's.
+            Vec3f s = start, e = end;
+            for (int i = 0; i < 3; ++i) {
+                s[size_t(i)] -= origin[size_t(i)];
+                e[size_t(i)] -= origin[size_t(i)];
+            }
+            t = CollisionWorld::traceBox(s, e, mins, maxs, tempBoxMins_, tempBoxMaxs_, contents::Body);
+            for (int i = 0; i < 3; ++i)
+                t.endPos[size_t(i)] += origin[size_t(i)];
+        } else if (map_) {
             if (!world_)
                 world_ = std::make_unique<CollisionWorld>(*map_);
-            t = world_->trace(start, end, mins, maxs, a[5], a[6]);
+            t = world_->transformedTrace(start, end, mins, maxs, a[5], a[6], origin, angles);
         }
-        for (int i = 0; i < 3; ++i)
-            t.endPos[size_t(i)] += origin[size_t(i)];
         writeTrace(vm, a[0], t, t.fraction < 1 ? 1022 : 1023);
         return 0;
     }
