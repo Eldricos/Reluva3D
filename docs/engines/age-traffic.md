@@ -162,9 +162,18 @@ down (`props.cpp`):
   then out of the way (out of the collision world), falls over about its
   foot the way it was pushed if it's taller than 1.2 m, and slides to a
   stop (6 m/s/s). Cars, opponents and police knock things down alike.
-- Its `BREAK01`-`BREAK04` parts (a lamp's head, a sign's board) and
-  their own banger data aren't used: the prop falls whole. Nor are
-  Elasticity, Friction, CG, the glows and the particles (BirthRule).
+- A prop with pieces comes apart instead: its banger's **NumParts**
+  names `<model>_BREAK01.dgBangerData`... and its model's `BREAK01`...
+  meshes (a lamp's post and arm, a barricade's posts and boards, a
+  sign's post and board). Each piece's mesh is modelled about its own
+  middle, and its banger's **CG** puts that middle where it is from the
+  prop's foot (the lamp's arm, CG x -1.14 and 2.79 wide, spans the whole
+  model's -2.5..0.3), so that's where each starts. They fly off the way
+  the car went (at half to 80% of its speed, up 1.5-2.5 m/s, turning),
+  fall, bounce a little on the ground under them, and come to rest.
+  Standing, a model's pieces aren't drawn with it (they'd be at its
+  foot). Elasticity, Friction, the glows and the particles (BirthRule)
+  aren't used.
 
 ## Lamps and flares
 
