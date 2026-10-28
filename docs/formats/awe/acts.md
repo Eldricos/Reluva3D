@@ -347,3 +347,54 @@ would take one (the box slid in), not every frame.
 No walkthrough of the game was consulted: where the search stuck, the
 scenes' scripts and the dialogue tables said what was missing, and the
 tool was made to find it.
+
+### As a player plays it: `-mouse`, `-characters`, `-3d`
+
+The search above clicks objects, not points on the screen, and loads no
+characters. Three options bring the player closer to one at a mouse:
+
+- **`-mouse`.** Each click and use is made at a point the game's pick
+  (`ScenePage::pickAt`) finds the object at (`ScenePage::pointFor`: first
+  in the object's rectangle, then anywhere on the screen), as mouse-move,
+  button-down and button-up events, with the item taken up first for a
+  use. An object the pick finds nowhere is reported. With `-solve`, the
+  search offers only objects the pick can find.
+- **`-characters`.** The scenes' characters load with a renderer that
+  keeps and draws nothing (`NullRenderer`), so their routines run and the
+  pick finds them by their bones, with no display needed.
+- **`-3d`.** The same with a window's real renderer (under a display, as
+  Xvfb's), for the drawing.
+
+A page that isn't drawing makes no 3D frame, so 30 actions with the
+characters take 8 seconds.
+
+Played back this way, the playthrough found without characters went
+wrong, each time where Reluva differed from the game:
+
+- **A turn's pace.** It was taken from the root's turn from start to
+  end, which is about 0 for a full turn (the vendors' `rotatel`). It is
+  now the turn summed along the animation.
+- **`setchar`.** It carried over from one script to the next. Each
+  script given to a runner starts with the runner's own character
+  (`0x408c80`): the main runner's is the player's (`0x408cd8`), and a
+  routine's or a line's runner keeps its character's (`0x40598f`).
+- **Kept places.** A scene's characters were put where they had been
+  kept in the scene before, as the scene was named only after they
+  loaded.
+- **Finite base animations.** One such as `standup` handing over to
+  `idle1` as it ended was never told as done, so `anim standup` waited
+  for ever.
+- **Routines.** Michel's routine in 04A's restaurant sets
+  `seenmichel04a` as Antoinette comes in, which takes away the shadow the
+  playthrough went through to the baggage car. Without characters the
+  routine never ran.
+- **Doors the mouse can't reach.** In 04A the Calais hall's doors to
+  rooms 12, 14 and 16 are the act's (to eavesdrop) over the base's (to go
+  in). Both stay when the scenes are merged, as the game keeps both
+  (`0x42b680` drops only the same object again), and the pick finds the
+  act's.
+
+A sample was also played in a real window (Xvfb, with clicks from
+xdotool), from the main menu through the opening, Klaus's cleavers and on
+to the market's third scene. It matched a recording of the game, once
+the characters stood where they had been kept.

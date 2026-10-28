@@ -181,11 +181,13 @@ Next:
    `reluva-tool awe-acts <install> -solve` finds a way of 1,098 actions
    in seven minutes, and `-play` plays it back (see
    [../formats/awe/acts.md](../formats/awe/acts.md#a-playthrough-from-a-new-game--solve-and--play)).
-   Still to do there: the headless player clicks objects, not points on
-   the screen, so whether the game's pick would find each one (and not
-   something in front of it) isn't checked; the same playthrough played
-   in a window (the mouse moved to each object) would check that, and the
-   drawing along the way.
+   With `-mouse -characters` the player clicks points the game's pick
+   finds, and the characters' routines run; `-3d` draws in a window.
+   Played that way, the first playthrough went wrong where Reluva
+   differed from the game (fixed), and where it relied on what a player
+   can't do: a door hidden by another, a routine that hadn't run. The
+   search is being run again as a mouse player with the characters (see
+   [../formats/awe/acts.md](../formats/awe/acts.md#as-a-player-plays-it--mouse--characters--3d)).
 
 ## What the install holds
 
