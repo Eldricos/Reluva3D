@@ -298,7 +298,7 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         return 0;
     }
     case CvarUpdate: cvars_.updateVmCvar(vm, a[0]); return 0;
-    case CvarSet: cvars_.set(str(0, 256), str(1, 256)); return 0;
+    case CvarSet: cvars_.set(str(0, 256), str(1, 256), true); return 0; // forced, as the original's Cvar_Set
     case SetLocalCvar:
         // Holomatch's engine sets the cvar forced (read-only ones too),
         // without counting it as a change of the player's settings to send.

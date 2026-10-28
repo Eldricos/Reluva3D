@@ -343,16 +343,30 @@ registers 2 items instead of the usual 13 to 18). pak2.pk3 has a config
 for each (`assimilation.cfg`... setting the mode and turning off those
 it can't go with), run with `exec`.
 
-The 1.2 menus have them too: `mp_buttontext.dat` names the buttons
-(ASSIMILATION, SPECIALTIES, DISINTEGRATION, ACTION HERO, ELIMINATION,
-and NO JOIN TIME OUT for the first and last), a server menu reads the
-five (`Cvar_VariableValue`, ui.qvm instruction 74034), another clears
-those the chosen game type can't have (74695), and one setting up a
-match sets all five to 0 first (73994).
+The 1.2 menus have them too, as the Expansion Pack's: five buttons on
+the right of the Start Server screen (ui.qvm's menu at instruction
+77497; `mp_buttontext.dat` names them ASSIMILATION, SPECIALTIES,
+DISINTEGRATION, ACTION HERO, ELIMINATION), shown by game type
+(Assimilation only for team deathmatch), and more settings in the
+advanced server menu (NO JOIN TIME OUT, `g_classChangeDebounceTime`...).
+The menus add them only when `ui_cdkeychecked2` is 1 (its `vmCvar_t`'s
+integer at 51576). The engine sets that (`stvoyHM.exe` 0x41be5d): it
+creates it "0", read-only, then reads `baseEF/efq3.key` and
+`baseEF/expefq3.key` and sets it to "1" when the Expansion Pack's key is
+there and differs from the game's. So without the Expansion Pack the
+original's menus don't offer the modes; its console (`exec
+assimilation`...) does. Reluva sets it as the engine does, and to 1
+regardless unless `reluva_modeButtons` is 0. Checked with `reluva-tool
+ui-run <game> -vmcall 77497 -click 516 129 -cvar g_pModSpecialties`:
+the four rows for free-for-all (y 129, 159, 189, 219) turn on
+Specialties, Disintegration, Elimination and Action Hero.
 
 Latched variables (flag 32) keep their value until a level starts, as
-Quake III's: setting one says "<name> will be changed upon restarting."
-in the console, and the server takes the waiting values before the level
+Quake III's, but only when set from the console: the engine's Cvar_Set,
+which the game code's calls reach (call 5 in the client game's
+numbering, 0x41cf30), is `Cvar_Set2(name, value, force = 1)`, setting at
+once. Setting one at the console says "<name> will be changed upon
+restarting.", and the server takes the waiting values before the level
 loads. Reluva's cvar store does the same (`CvarStore::applyLatched`,
 called as the Holomatch and single player servers start a level);
 map_restart with a new game type or player count waiting changes level

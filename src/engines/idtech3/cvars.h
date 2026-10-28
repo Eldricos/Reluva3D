@@ -50,7 +50,8 @@ public:
     Cvar& create(std::string_view name, std::string_view defaultValue, int32_t flags);
     // Sets (creating it, flagged UserCreated, if needed). A ReadOnly or
     // Init variable is only changed with `force`; a Latch one keeps its
-    // value until the next level starts, unless forced (Quake III's).
+    // value until the next level starts, unless forced (Quake III's: the
+    // console's sets wait, the game code's are forced).
     void set(std::string_view name, std::string_view value, bool force = false);
     // The values Latch variables were set to, taken: as a level starts.
     void applyLatched();

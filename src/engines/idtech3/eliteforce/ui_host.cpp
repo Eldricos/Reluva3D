@@ -102,6 +102,20 @@ Error UiHost::load() {
         return Error::fail("vm/ui.qvm: " + err.message);
     if (Error err = vm_.load(data))
         return Error::fail("vm/ui.qvm: " + err.message);
+    // The Expansion Pack's menus: patch 1.2's show the Holomatch modes'
+    // buttons and the settings that go with them when ui_cdkeychecked2 is
+    // 1, which the original's engine sets when baseEF/expefq3.key (the
+    // Expansion Pack's CD key) is there and isn't the game's own
+    // (efq3.key). Reluva shows them anyway unless reluva_modeButtons is 0:
+    // the modes are in the 1.2 game code, which is all they need.
+    {
+        std::vector<uint8_t> expansion, base;
+        const bool hasExpansionKey = !files_.read("expefq3.key", expansion) && !expansion.empty() &&
+                                     (files_.read("efq3.key", base) || base != expansion);
+        cvars_.create("reluva_modeButtons", "1", CvarStore::Archive);
+        cvars_.create("ui_cdkeychecked2", "0", CvarStore::ReadOnly);
+        cvars_.set("ui_cdkeychecked2", hasExpansionKey || cvars_.integer("reluva_modeButtons") ? "1" : "0", true);
+    }
     // The engine's settings the server list reads: its protocol, and the
     // master servers.
     cvars_.create("protocol", "24", CvarStore::ServerInfo | CvarStore::ReadOnly);
@@ -307,14 +321,16 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         return 0;
     }
     case Milliseconds: return time_;
-    case CvarSet: cvars_.set(str(0, 256), str(1, 256)); return 0;
+    // Set at once, as the original engine's Cvar_Set (forced: a latched
+    // variable too; only what's typed at the console waits for a level).
+    case CvarSet: cvars_.set(str(0, 256), str(1, 256), true); return 0;
     case CvarVariableValue: return Qvm::fromFloat(cvars_.value(str(0, 256)));
     case CvarVariableStringBuffer: vm.writeString(a[1], cvars_.string(str(0, 256)), a[2]); return 0;
     case CvarSetValue: {
         // Quake III writes whole numbers without a decimal point.
         const float v = f(1);
         const std::string text = v == float(int32_t(v)) ? std::to_string(int32_t(v)) : std::to_string(v);
-        cvars_.set(str(0, 256), text);
+        cvars_.set(str(0, 256), text, true);
         return 0;
     }
     case CvarReset:

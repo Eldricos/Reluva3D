@@ -68,7 +68,7 @@
 //                                                  in short (calls, arguments, nearby texts);
 //                                                  -func N: the function holding instruction N and
 //                                                  the functions it calls
-//   reluva-tool ui-run <game folder> [-frames N] [-menu M] [-ingame gametype] [-size WxH] [-glwords N] [-trace] [-v]
+//   reluva-tool ui-run <game folder> [-frames N] [-menu M] [-click x y]... [-vmcall instruction]... [-peek address]... [-ingame gametype] [-size WxH] [-glwords N] [-trace] [-v]
 //                                                  run Elite Force's menus (vm/ui.qvm) with the engine's
 //                                                  system calls: Init, SetActiveMenu, Refresh; report
 //                                                  what they print, register and draw
@@ -3241,6 +3241,9 @@ int cmdUiRun(int argc, char** argv) {
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
     int frames = 1, menu = 1, width = 640, height = 480, glwords = 5124;
+    std::vector<std::pair<int, int>> clicks; // -click x y: in the menus' 640 x 480, one every 20 frames
+    std::vector<int32_t> vmCalls, peeks;    // -vmcall instruction: a function run; -peek address: a word shown
+    std::vector<std::string> shownCvars, latched; // -cvar name: shown at the end; -latch name: made a Latch variable first
     bool traceCalls = false, verbose = false;
     int ingameType = -1; // -ingame: the in-game menu, over a match of this game type
     for (int i = 3; i < argc; ++i) {
@@ -3263,13 +3266,28 @@ int cmdUiRun(int argc, char** argv) {
             traceCalls = true;
         else if (std::strcmp(argv[i], "-v") == 0)
             verbose = true;
-        else if (std::strcmp(argv[i], "-ingame") == 0 && i + 1 < argc)
+        else if (std::strcmp(argv[i], "-vmcall") == 0 && i + 1 < argc)
+            vmCalls.push_back(std::atoi(argv[++i]));
+        else if (std::strcmp(argv[i], "-cvar") == 0 && i + 1 < argc)
+            shownCvars.emplace_back(argv[++i]);
+        else if (std::strcmp(argv[i], "-latch") == 0 && i + 1 < argc)
+            latched.emplace_back(argv[++i]);
+        else if (std::strcmp(argv[i], "-peek") == 0 && i + 1 < argc)
+            peeks.push_back(std::atoi(argv[++i]));
+        else if (std::strcmp(argv[i], "-click") == 0 && i + 2 < argc) {
+            clicks.emplace_back(std::atoi(argv[i + 1]), std::atoi(argv[i + 2]));
+            i += 2;
+        } else if (std::strcmp(argv[i], "-ingame") == 0 && i + 1 < argc)
             ingameType = std::atoi(argv[++i]);
     }
     reluva::SearchSet set;
     if (!mountIdTech3(argv[2], set))
         return 1;
     q3::CvarStore cvars;
+    // As after a match: the server game registered these as Latch
+    // variables (g_gametype, the Holomatch modes...).
+    for (const std::string& name : latched)
+        cvars.create(name, "0", q3::CvarStore::ServerInfo | q3::CvarStore::Latch);
     ef::UiHost ui(set, cvars);
     if (ingameType >= 0) {
         // As the Play page's in-game menu: connected to a match of that
@@ -3300,10 +3318,28 @@ int cmdUiRun(int argc, char** argv) {
     if (ok)
         ok = step("SetActiveMenu", ui.call(ef::UiHost::SetActiveMenu, {menu}));
     std::printf("menu %d; key catcher %d (2: the menus take the keys)\n", menu, ui.catcher());
-    for (int f = 0; ok && f < frames; ++f) {
-        ui.clearPictures();
-        const int32_t time = 1000 + f * 16;
-        ok = step("Refresh", ui.refresh(time));
+    for (const int32_t at : vmCalls) {
+        int32_t result = 0;
+        ok = ok && step("function", ui.vm().callAt(at, {}, result));
+    }
+    // The clicks: the pointer to the corner, then to the point (the
+    // menus move it by the steps given, kept on the screen), and the left
+    // button; each after 20 frames, the last followed by `frames` more.
+    for (size_t c = 0; ok && c <= clicks.size(); ++c) {
+        const int count = c < clicks.size() ? 20 : frames;
+        for (int f = 0; ok && f < count; ++f) {
+            ui.clearPictures();
+            static int32_t time = 1000;
+            time += 16;
+            ok = step("Refresh", ui.refresh(time));
+        }
+        if (c < clicks.size() && ok) {
+            ok = step("MouseEvent", ui.call(ef::UiHost::MouseEvent, {-100000, -100000})) &&
+                 step("MouseEvent", ui.call(ef::UiHost::MouseEvent, {clicks[c].first * width / 640,
+                                                                      clicks[c].second * height / 480})) &&
+                 step("KeyEvent", ui.call(ef::UiHost::KeyEvent, {178, 1})); // K_MOUSE1
+            std::printf("clicked %d %d\n", clicks[c].first, clicks[c].second);
+        }
     }
 
     // What was registered, and whether the engine can find it.
@@ -3332,6 +3368,11 @@ int cmdUiRun(int argc, char** argv) {
     }
     for (const std::string& c : ui.commands())
         std::printf("command: %s\n", c.c_str());
+    for (const std::string& name : shownCvars)
+        std::printf("cvar %s: \"%s\"%s\n", name.c_str(), cvars.string(name).c_str(),
+                    cvars.hasLatched(name) ? (" (\"" + cvars.pending(name) + "\" at the next level)").c_str() : "");
+    for (const int32_t at : peeks)
+        std::printf("word at %d: %d (0x%x)\n", at, ui.vm().readInt(at), unsigned(ui.vm().readInt(at)));
     for (const auto& [number, count] : ui.unhandled())
         std::printf("not implemented: system call %d (%d calls)\n", number, count);
     return ok ? 0 : 1;

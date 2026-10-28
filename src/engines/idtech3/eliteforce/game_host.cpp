@@ -265,17 +265,16 @@ Error GameHost::restartLevel() {
 }
 
 bool GameHost::applyMapCommand(CvarStore& cvars, std::string_view verb) {
-    // (Set as the next level's: it starts next, taking them.)
     cvars.create("g_gametype", "0", CvarStore::ServerInfo | CvarStore::Latch);
     if (verb.substr(0, 2) == "sp") {
-        cvars.set("g_gametype", "2");
-        cvars.set("g_doWarmup", "0");
+        cvars.set("g_gametype", "2", true);
+        cvars.set("g_doWarmup", "0", true);
         cvars.create("sv_maxclients", "8", CvarStore::ServerInfo | CvarStore::Latch | CvarStore::Archive);
-        cvars.set("sv_maxclients", "8");
+        cvars.set("sv_maxclients", "8", true);
         return true;
     }
     if (std::atoi(cvars.pending("g_gametype").c_str()) == 2)
-        cvars.set("g_gametype", "0");
+        cvars.set("g_gametype", "0", true);
     return verb == "devmap";
 }
 
@@ -771,7 +770,7 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         return 0;
     }
     case CvarUpdate: cvars_.updateVmCvar(vm, a[0]); return 0;
-    case CvarSet: cvars_.set(str(0, 256), str(1, 256)); return 0;
+    case CvarSet: cvars_.set(str(0, 256), str(1, 256), true); return 0; // forced, as the original's Cvar_Set
     case CvarVariableIntegerValue: return cvars_.integer(str(0, 256));
     case CvarVariableStringBuffer: vm.writeString(a[1], cvars_.string(str(0, 256)), a[2]); return 0;
     case Argc: return int32_t(args_.size());
