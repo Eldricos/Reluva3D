@@ -61,6 +61,7 @@ struct ModelMesh {
     size_t vertices = 0, triangles = 0;
     Vec3 center{}; // of the bounds
     float radius = 0;
+    Vec3 low{}, high{}; // the bounds
 };
 
 // The levels of detail a model has, finest first ("H", "M", "L", "VL").
@@ -121,6 +122,12 @@ public:
 
     // geometry/<name>.pkg
     const Model& get(const std::string& name, uint32_t paintJob = 0);
+    // One of its lit parts (a traffic light's REDGLOWDAY_H, a car's
+    // HLIGHT_L...), placed by its .mtx; empty if it hasn't one.
+    const ModelMesh& part(const std::string& name, const std::string& part, uint32_t paintJob = 0);
+    // A part's .mtx origin (where a car's HEADLIGHT0 square is); false
+    // if it hasn't one.
+    bool partOrigin(const std::string& name, const std::string& part, Vec3& out);
     void clear();
 
 private:
@@ -128,6 +135,25 @@ private:
     TextureCache& textures_;
     const SearchSet& files_;
     std::map<std::string, std::unique_ptr<Model>> models_;
+    std::map<std::string, std::unique_ptr<ModelMesh>> parts_;
+    std::map<std::string, std::pair<bool, Vec3>> origins_;
+};
+
+// Glows drawn as soft discs facing the camera (texture/lt_glow.tga), as
+// the game's lamps shine: headlights, sirens.
+class FlareDrawer {
+public:
+    explicit FlareDrawer(gfx::Renderer3D& renderer, TextureCache& textures);
+    ~FlareDrawer();
+    FlareDrawer(const FlareDrawer&) = delete;
+    FlareDrawer& operator=(const FlareDrawer&) = delete;
+    // `size` metres across, `color` 1 = full, added to what's behind.
+    void draw(const Vec3& at, float size, const std::array<float, 3>& color, const Vec3& eye) const;
+
+private:
+    gfx::Renderer3D& renderer_;
+    gfx::MeshId quad_ = 0;
+    gfx::TextureId texture_ = 0;
 };
 
 } // namespace reluva::age

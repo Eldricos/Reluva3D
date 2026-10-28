@@ -10,6 +10,7 @@
 #include "engines/age/car.h"
 #include "engines/age/collision.h"
 #include "engines/age/render_cache.h"
+#include "engines/age/traffic_lights.h"
 
 #include <cstdint>
 #include <random>
@@ -34,6 +35,9 @@ struct TrafficLane {
     std::vector<float> at; // distance along it to each point
     uint32_t from = 0, to = 0; // junctions
     uint32_t toSlot = 0;       // the road's place in the list of junction `to`
+    int toEnd = 0;             // the road's end it arrives at (0 its last point, 1 its first)
+    uint16_t control = 3;      // that end's: 1 lights, 0 give way, 3 none (as read: see bai.md)
+    int left = -1, right = -1; // the lanes beside it going the same way
     float speed = 15;          // m/s
     bool spawns = true;        // traffic starts on it (a race's exceptions leave some out)
     float length() const { return at.empty() ? 0 : at.back(); }
@@ -58,8 +62,10 @@ private:
 Vec3 pointAlong(const std::vector<Vec3>& points, const std::vector<float>& at, float s, Vec3* heading = nullptr);
 
 // The game's ambient cars (va_*): picked by the aimap's shares, driven
-// along the lanes through the junctions, taking turns at each, slowing for
-// what's ahead. Knocked by a driven car they slide to a stop and stay.
+// along the lanes through the junctions, stopping for red lights and giving
+// way, taking turns at each, slowing for what's ahead and changing lanes
+// round it. Knocked by a driven car they slide to a stop and stay. Their
+// lamps show: brake lights, indicators, and headlights at night.
 // Reluva's own driving (the game's is in its encrypted program); see
 // docs/engines/age-traffic.md.
 class Traffic {
@@ -70,6 +76,9 @@ public:
     // 0..1: how many cars there are about the focus (1 = kCarsAtFull).
     void setDensity(float density) { density_ = density; }
     float density() const { return density_; }
+    // The lights they stop for (none: every junction is taken in turns).
+    void setLights(const TrafficLights* lights) { lights_ = lights; }
+    void setLaneChanges(bool on) { laneChanges_ = on; }
 
     // Moves the cars, starting new ones about `focus` (the player) and
     // leaving out those far from it. `fill` starts them anywhere round it
@@ -79,8 +88,13 @@ public:
     // A driven car bumping into the traffic. Returns the hardest knock
     // (change of speed, m/s), 0 if none.
     float collide(CarSim& car);
+    // `night`: their headlights and tail lights on, and flares at the
+    // headlights (with `flares`).
     void draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight& light, const gfx::Mat4& viewProj,
-              const Vec3& eye);
+              const Vec3& eye, bool night = false, const FlareDrawer* flares = nullptr);
+    // Where their headlights light the road ahead, for those within
+    // `distance` of `eye`.
+    void headlightPools(std::vector<gfx::DynamicLight>& out, const Vec3& eye, float distance = 120) const;
 
     size_t count() const { return cars_.size(); }
     void users(std::vector<RoadUser>& out) const; // for others to keep clear of
@@ -104,9 +118,19 @@ private:
         std::vector<Vec3> path;
         std::vector<float> at;
         float s = 0, speed = 0, maxSpeed = 15;
+        float pace = 1;     // its share of the speed limit (lorries and buses slower)
         int holding = -1;   // the junction it may cross (or is crossing)
         float waited = 0;   // seconds held up
         float ghost = 0;    // seconds left ignoring what's ahead (after a long wait)
+        bool gaveWay = false; // stopped at a give-way end
+        int turn = 0;       // which way it turns at the junction ahead: -1 left, 1 right
+        // Changing lanes: where it was, moved onto the new lane over the
+        // time left; and which side it's indicating, for how long.
+        Vec3 shift{};
+        float shiftLeft = 0, laneWait = 0;
+        int indicate = 0;
+        float indicateTime = 0;
+        bool braking = false;
         // Its place: from the path while driven, its own once knocked.
         Vec3 position{}, heading{0, 0, -1};
         float yaw = 0;
@@ -121,6 +145,8 @@ private:
     void enterJunction(Car& c);
     void place(Car& c);
     bool tryHold(Car& c, uint32_t junction);
+    bool mayEnter(Car& c, bool canStop);
+    void changeLane(Car& c, const std::vector<RoadUser>& others);
     void release(Car& c);
 
     TrafficNetwork network_;
@@ -129,6 +155,9 @@ private:
     std::vector<std::vector<size_t>> holders_; // per junction: lanes the cars crossing it came from
     std::mt19937 rng_;
     float density_ = 0;
+    const TrafficLights* lights_ = nullptr;
+    bool laneChanges_ = false;
+    float clock_ = 0;
 };
 
 } // namespace reluva::age

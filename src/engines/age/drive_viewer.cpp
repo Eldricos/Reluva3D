@@ -131,6 +131,7 @@ void DriveViewer::deactivate() {
     life_.stop();
     engine_.stop();
     car_.unload();
+    flares_.reset();
     scene_.reset();
     renderer_ = nullptr;
 }
@@ -155,7 +156,9 @@ void DriveViewer::activate() {
 void DriveViewer::loadCity(int index) {
     city_ = index;
     car_.unload();
+    flares_.reset();
     error_ = scene_->load(cities_[size_t(city_)].map).message;
+    flares_ = std::make_unique<FlareDrawer>(*renderer_, scene_->textures());
     scene_->setLighting(lighting_);
     boundsUsed_ = buildCityCollision(ctx_.files, scene_->psdl(), scene_->mesh(), scene_->instances(), world_);
     roads_.build(scene_->psdl());
@@ -179,6 +182,7 @@ void DriveViewer::startLife() {
     o.peds = o.traffic * kPedsPerTraffic;
     o.cops = cops_ ? -1 : 0;
     o.rain = lighting_ % 4 == 3;
+    o.laneChanges = true; // as San Francisco's cruising says
     if (Error err = life_.start(*renderer_, scene_->textures(), ctx_.files, settings, o, ctx_.mixer);
         err && error_.empty())
         error_ = err.message;
@@ -303,6 +307,8 @@ void DriveViewer::update(uint64_t nowMs) {
     if (car_.sim.position[1] < scene_->psdl().min[1] - 50)
         resetCar();
     engine_.update(car_.sim.rpm, car_.sim.gear > 0 ? controls.throttle : controls.brake);
+    car_.lamps = {scene_->lampsLit(), controls.brake > 0 && car_.sim.forwardSpeed() > 0.5f, car_.sim.gear < 0};
+    life_.setLamps(scene_->lampsLit(), scene_->night());
     life_.update(dt, car_.sim, {}, world_, roads_, fill_);
     fill_ = false;
     // Busted: a moment to see it, then back to the start.
@@ -324,9 +330,19 @@ void DriveViewer::update(uint64_t nowMs) {
                       gfx::lookAlong(view.eye, normalized(view.target - view.eye), view.up));
     renderer_->beginFrame(viewProj, view.eye, {150, 170, 200});
     scene_->draw(viewProj, view.eye, true);
-    life_.draw(*renderer_, scene_->models(), scene_->light(), viewProj, view.eye);
-    if (!cam.inside)
+    if (scene_->lampsLit()) {
+        std::vector<gfx::DynamicLight> pools;
+        gfx::DynamicLight mine;
+        if (car_.headlightPool(mine))
+            pools.push_back(mine);
+        life_.headlightPools(pools, view.eye);
+        scene_->drawDynamicLights(pools, view.eye);
+    }
+    life_.draw(*renderer_, scene_->models(), scene_->light(), viewProj, view.eye, flares_.get());
+    if (!cam.inside) {
         car_.draw(scene_->light());
+        car_.drawFlares(*flares_, view.eye);
+    }
     drawHud();
     renderer_->endFrame(&overlay_);
 }

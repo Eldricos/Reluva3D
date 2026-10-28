@@ -18,8 +18,9 @@
 // PageUp/PageDown the car, P its colour, Home/End the city, T the time and
 // weather, R puts the car back at the start, I shows or hides the info.
 // The city has traffic and people on its sidewalks (Y steps through none,
-// light, normal and heavy) and police, who chase a car speeding past them
-// (O turns them off and on).
+// light, normal and heavy), traffic lights, and police, who chase a car
+// speeding past them (O turns them off and on). In the evening, at night
+// and in fog and rain the cars' headlights are on.
 //
 // World (3D): a city (London, San Francisco) flown through. Left/Right
 // pick the city, drag to look, W/A/S/D move, Space/C (or E/Q) go up and
@@ -303,6 +304,7 @@ private:
     bool showInfo_ = true;
 
     CityLife life_;
+    std::unique_ptr<FlareDrawer> flares_; // with the scene's textures
     RoadGraph roads_;
     int trafficLevel_ = 2; // none, light, normal, heavy
     bool cops_ = true;
@@ -356,6 +358,7 @@ private:
     CollisionWorld world_;
     RoadGraph roads_;
     CityLife life_;
+    std::unique_ptr<FlareDrawer> flares_; // with the scene's textures
     bool fill_ = false;
     Surface overlay_;
     std::string error_;

@@ -156,6 +156,7 @@ void Police::update(float dt, CarSim& player, const CollisionWorld& world, const
             }
         }
         sim.step(c, world, dt);
+        cop.car->lamps = {lampsLit_, c.brake > 0 && sim.forwardSpeed() > 0.5f, sim.gear < 0};
         if (cop.chasing) {
             cop.behind = d > kGiveUp ? cop.behind + dt : 0;
             if (cop.behind > 8)
@@ -189,6 +190,18 @@ void Police::update(float dt, CarSim& player, const CollisionWorld& world, const
 void Police::draw(const SceneLight& light) const {
     for (const Cop& c : cops_)
         c.car->draw(light);
+}
+
+void Police::drawFlares(const FlareDrawer& flares, const Vec3& eye) const {
+    for (const Cop& c : cops_)
+        c.car->drawFlares(flares, eye);
+}
+
+void Police::headlightPools(std::vector<gfx::DynamicLight>& out) const {
+    gfx::DynamicLight l;
+    for (const Cop& c : cops_)
+        if (c.car->headlightPool(l))
+            out.push_back(l);
 }
 
 void Police::users(std::vector<RoadUser>& out) const {

@@ -38,11 +38,33 @@ Error CarActor::load(gfx::Renderer3D& renderer, TextureCache& textures, const Se
         buildModelMesh(renderer, textures, files, file, pkg, "H", paintJob, false, wheels_[size_t(i)],
                        [&](const std::string& part) { return part == name; }, false);
     }
+    auto lamp = [&](const char* part, ModelMesh& out) {
+        buildModelMesh(renderer, textures, files, file, pkg, "", paintJob, true, out,
+                       [&](const std::string& p) { return p == part; });
+    };
+    lamp("HLIGHT", head_);
+    lamp("TLIGHT", tail_);
+    lamp("BLIGHT", brake_);
+    lamp("RLIGHT", reverse_);
+    headlights_.clear();
+    sirenLamps_.clear();
+    for (const PkgMesh& m : pkg.meshes) {
+        const std::string part = m.part();
+        std::vector<uint8_t> placement;
+        Mtx mtx;
+        if ((part.rfind("HEADLIGHT", 0) != 0 && part.rfind("SRN", 0) != 0) ||
+            files.read("geometry/" + car + "_" + part + ".mtx", placement) || readMtx(placement, mtx))
+            continue;
+        if (part[0] == 'H') {
+            headlights_.push_back(mtx.origin);
+        } else if (!m.groups.empty()) {
+            const PkgShader* sh = pkg.shader(paintJob, m.groups.front().shader);
+            sirenLamps_.push_back({mtx.origin, sh ? std::array<float, 3>{sh->diffuse[0], sh->diffuse[1], sh->diffuse[2]}
+                                                  : std::array<float, 3>{1, 1, 1}});
+        }
+    }
     for (int i = 0; i < 2; ++i)
-        buildModelMesh(renderer, textures, files, file, pkg, "H", paintJob, true, sirens_[size_t(i)],
-                       [&](const std::string& part) {
-                           return part == "SRN" + std::to_string(i) || part == "SRN" + std::to_string(i + 2);
-                       });
+        lamp(i == 0 ? "SIREN0" : "SIREN1", sirens_[size_t(i)]);
     return Error::success();
 }
 
@@ -54,6 +76,8 @@ void CarActor::unload() {
         destroyModelMesh(*renderer_, w);
     for (ModelMesh& m : sirens_)
         destroyModelMesh(*renderer_, m);
+    for (ModelMesh* m : {&head_, &tail_, &brake_, &reverse_})
+        destroyModelMesh(*renderer_, *m);
     renderer_ = nullptr;
 }
 
@@ -74,7 +98,41 @@ void CarActor::draw(const SceneLight& light) const {
         }
         if (siren > 0)
             drawModelMesh(*renderer_, sirens_[size_t(siren - 1) % 2], carMatrix, light, translucent);
+        if (lamps.head) {
+            drawModelMesh(*renderer_, head_, carMatrix, light, translucent);
+            drawModelMesh(*renderer_, tail_, carMatrix, light, translucent);
+        }
+        if (lamps.brake) {
+            drawModelMesh(*renderer_, brake_, carMatrix, light, translucent);
+            drawModelMesh(*renderer_, tail_, carMatrix, light, translucent);
+        }
+        if (lamps.reverse)
+            drawModelMesh(*renderer_, reverse_, carMatrix, light, translucent);
     }
+}
+
+void CarActor::drawFlares(const FlareDrawer& flares, const Vec3& eye) const {
+    if (!renderer_)
+        return;
+    const Vec3 toEye = normalized(eye - sim.position);
+    // Headlights seen from in front of the car.
+    const float facing = dot(-sim.orientation.z, toEye);
+    if (lamps.head && facing > 0)
+        for (const Vec3& h : headlights_)
+            flares.draw(sim.position + sim.orientation * h, 1.6f, {facing, facing * 0.95f, facing * 0.8f}, eye);
+    // The sirens lit (the first half, then the second: blue, then red),
+    // from all round.
+    if (siren > 0)
+        for (size_t i = 0; i < sirenLamps_.size(); ++i)
+            if ((i < sirenLamps_.size() / 2) == (siren == 1))
+                flares.draw(sim.position + sim.orientation * sirenLamps_[i].first, 2.0f, sirenLamps_[i].second, eye);
+}
+
+bool CarActor::headlightPool(gfx::DynamicLight& out) const {
+    if (!renderer_ || !lamps.head)
+        return false;
+    out = {sim.position - sim.orientation.z * 10.0f + sim.orientation.y * 1.0f, 13, {0.6f, 0.55f, 0.45f}};
+    return true;
 }
 
 std::vector<CarCamera> loadCarCameras(const SearchSet& files, const std::string& car) {

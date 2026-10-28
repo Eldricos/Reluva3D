@@ -52,6 +52,7 @@ void RaceViewer::deactivate() {
     life_.stop();
     engine_.stop();
     racers_.clear();
+    flares_.reset();
     scene_.reset();
     loadedCity_ = -1;
     renderer_ = nullptr;
@@ -80,8 +81,10 @@ void RaceViewer::loadCity() {
     if (loadedCity_ == city_)
         return;
     racers_.clear();
+    flares_.reset();
     const std::string& map = cities_[size_t(city_)].map;
     error_ = scene_->load(map).message;
+    flares_ = std::make_unique<FlareDrawer>(*renderer_, scene_->textures());
     buildCityCollision(ctx_.files, scene_->psdl(), scene_->mesh(), scene_->instances(), world_);
     roads_.build(scene_->psdl());
     if (Error err = life_.load(ctx_.files, map); err && error_.empty())
@@ -226,6 +229,7 @@ void RaceViewer::stepRace(float dt) {
             c.brake = 0; // waiting on the line
         }
         sim.step(c, world_, dt);
+        r.car->lamps = {scene_->lampsLit(), c.brake > 0 && sim.forwardSpeed() > 0.5f, sim.gear < 0};
         if (!r.player && (r.driver.wantsReset() || sim.position[1] < scene_->psdl().min[1] - 50)) {
             sim.reset(r.car->setup, r.driver.resetPoint() + Vec3{0, 0.5f, 0}, r.driver.resetYaw());
             r.driver.resetDone();
@@ -253,6 +257,7 @@ void RaceViewer::stepRace(float dt) {
     std::vector<CarSim*> others;
     for (size_t i = 1; i < racers_.size(); ++i)
         others.push_back(&racers_[i].car->sim);
+    life_.setLamps(scene_->lampsLit(), scene_->night());
     life_.update(dt, racers_.front().car->sim, others, world_, roads_, fill_);
     fill_ = false;
 
@@ -509,10 +514,21 @@ void RaceViewer::update(uint64_t nowMs) {
         drawMenu();
     } else {
         const bool inside = cameras_[size_t(camera_)].inside;
-        life_.draw(*renderer_, scene_->models(), scene_->light(), viewProj, eye);
+        if (scene_->lampsLit()) {
+            std::vector<gfx::DynamicLight> pools;
+            gfx::DynamicLight pool;
+            for (const Racer& r : racers_)
+                if (r.car->headlightPool(pool))
+                    pools.push_back(pool);
+            life_.headlightPools(pools, eye);
+            scene_->drawDynamicLights(pools, eye);
+        }
+        life_.draw(*renderer_, scene_->models(), scene_->light(), viewProj, eye, flares_.get());
         for (const Racer& r : racers_)
-            if (!(r.player && inside))
+            if (!(r.player && inside)) {
                 r.car->draw(scene_->light());
+                r.car->drawFlares(*flares_, eye);
+            }
         drawCheckpoints();
         drawArrow();
         drawRaceHud();

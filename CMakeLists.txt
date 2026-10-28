@@ -207,6 +207,7 @@ if(RELUVA_ENGINE_AGE)
         src/engines/age/bai.cpp
         src/engines/age/aimap.cpp
         src/engines/age/traffic.cpp
+        src/engines/age/traffic_lights.cpp
         src/engines/age/ped_model.cpp
         src/engines/age/pedestrians.cpp
         src/engines/age/police.cpp
