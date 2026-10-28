@@ -151,6 +151,9 @@ scenes. Supporting changes:
   whatever its condition. A video shown starts from its first frame.
   `hide` and `fade out <object>` take it down again.
 
-To check against the game: whether `left` turns a torn-letter piece
-clockwise on screen. The game adds 90° to the D3DX roll, and Reluva draws
-that as clockwise.
+Which way the arrows turn a torn-letter piece was checked against a
+recording of the game (Walkthrough Part 3, about 31:01–31:05). There,
+two clicks on the right-hand arrow (`action right`) turn an upside-down
+piece a quarter anticlockwise each time, to upright. The game adds 90° to
+the D3DX roll for `left` and takes 90° off for `right`. Reluva draws +90°
+as clockwise, so `right` turns anticlockwise, as in the recording.

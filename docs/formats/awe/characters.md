@@ -378,8 +378,22 @@ There are two deliberate differences from the game:
 - An `anim` finishes whether its animation played under the asked name or
   a renamed one.
 
-To check:
+Settled since:
 
-- the exact angle of `headleft` at full weight;
-- Granny's own ease curve (here a smoothstep);
-- the shadows.
+- **`headleft` and `headright` at full weight.** In every character's
+  files they turn the head 90° either way, so 180° apart. The head's
+  weight for a turn is therefore its angle ÷ 90.
+- **Granny's ease curve.** The game always calls
+  `GrannyEaseControlIn(control, seconds, 0)` (0x42a523 and three
+  others), so the ease never starts from the current weight.
+  - granny2.dll keeps the curve as four bytes, each ÷ 255. For an
+    ease-in from weight m these are (m, m, 1, 1).
+  - It evaluates the curve as a cubic Bernstein polynomial, with t
+    clamped to [0, 1]. From 0, that is exactly smoothstep, 3t² − 2t³,
+    which is what Reluva uses.
+  - An ease-out goes from the weight m it starts at, as m·(1 − smoothstep).
+    Reluva multiplies the ease-in's weight by the ease-out's (1 − smoothstep)
+    instead. The two differ only when an ease-out begins before the
+    ease-in has finished.
+
+To check: the shadows.
