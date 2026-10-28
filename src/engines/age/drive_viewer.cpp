@@ -128,6 +128,7 @@ DriveViewer::DriveViewer(ViewerContext& ctx) : Page(ctx), cities_(findCities(ctx
 DriveViewer::~DriveViewer() { deactivate(); }
 
 void DriveViewer::deactivate() {
+    siren_.stop();
     life_.stop();
     engine_.stop();
     car_.unload();
@@ -183,6 +184,7 @@ void DriveViewer::startLife() {
     o.cops = cops_ ? -1 : 0;
     o.rain = lighting_ % 4 == 3;
     o.laneChanges = true; // as San Francisco's cruising says
+    o.patrols = true;
     if (Error err = life_.start(*renderer_, scene_->textures(), ctx_.files, settings, o, ctx_.mixer);
         err && error_.empty())
         error_ = err.message;
@@ -200,6 +202,13 @@ void DriveViewer::loadCar(int index) {
     if (ctx_.mixer)
         if (Error err = engine_.start(*ctx_.mixer, ctx_.files, car.base))
             error_ = err.message;
+    // A police car's siren: the player's table for the city.
+    siren_.stop();
+    sirenOn_ = false;
+    if (ctx_.mixer && car_.hasSiren())
+        siren_.load(*ctx_.mixer, ctx_.files,
+                    "aud/cardata/player/" + std::string(cities_[size_t(city_)].map == "london" ? "london" : "sf") +
+                        "policesiren.csv");
     cameras_ = loadCarCameras(ctx_.files, car.base);
     camera_ = std::min(camera_, int(cameras_.size()) - 1);
     resetCar();
@@ -242,6 +251,8 @@ void DriveViewer::handleEvent(const Event& ev) {
             trafficLevel_ = (trafficLevel_ + 1) % 4;
             life_.setTrafficDensity(kTrafficLevels[trafficLevel_]);
             life_.setPedDensity(kTrafficLevels[trafficLevel_] * kPedsPerTraffic);
+        } else if (ev.key == 'h' && car_.hasSiren()) {
+            sirenOn_ = !sirenOn_;
         } else if (ev.key == 'o') {
             cops_ = !cops_;
             startLife();
@@ -277,8 +288,9 @@ void DriveViewer::drawHud() {
                  " (C); Up/Down, Left/Right, Space; PageUp/Down car, Home/End city, T time, R reset",
              {230, 230, 230});
         char life[160];
-        std::snprintf(life, sizeof life, "%s (Y): %zu cars, %zu people; %zu police (O)", kTrafficNames[trafficLevel_],
-                      life_.traffic().count(), life_.pedestrians().count(), life_.police().count());
+        std::snprintf(life, sizeof life, "%s (Y): %zu cars, %zu people; %zu police (O), %d on patrol%s",
+                      kTrafficNames[trafficLevel_], life_.traffic().count(), life_.pedestrians().count(),
+                      life_.police().count(), life_.police().patrolling(), car_.hasSiren() ? "; H siren" : "");
         line(life, {230, 230, 230});
         char buf[160];
         const Vec3& p = car_.sim.position;
@@ -308,6 +320,9 @@ void DriveViewer::update(uint64_t nowMs) {
         resetCar();
     engine_.update(car_.sim.rpm, car_.sim.gear > 0 ? controls.throttle : controls.brake);
     car_.lamps = {scene_->lampsLit(), controls.brake > 0 && car_.sim.forwardSpeed() > 0.5f, car_.sim.gear < 0};
+    clock_ += dt;
+    car_.siren = sirenOn_ ? 1 + int(clock_ * 4) % 2 : 0;
+    siren_.update(dt, sirenOn_ ? 0.9f : 0.0f);
     life_.setLamps(scene_->lampsLit(), scene_->night());
     life_.update(dt, car_.sim, {}, world_, roads_, fill_);
     fill_ = false;

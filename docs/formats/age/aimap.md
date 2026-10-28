@@ -37,7 +37,7 @@ leaves out keep the city's values.
 | `Ambient Types/Density` | model, cumulative share, 0 | the traffic's models: a random 0-1 picks the first whose share is above it |
 | `GoodWeatherPedName / BadWeatherPedName` | pairs of models | the pedestrians, the second of each pair when it rains |
 | `Exceptions` | road, density, speed limit (`# Rd Id, Density, Speed Limit`) | no traffic starts on those roads with density 0; a speed limit above 0 replaces the default |
-| `Police` | model, x, y, z, heading, then four values (`0 15 0.5 50`) | where the police wait; the heading in degrees as the race files' (0 faces -Z); the comment names the fields "Geo File, StartLink, Start Dist, Start Mode, Start Lane, Patrol Route", but the lines don't follow it |
+| `Police` | model, x, y, z, heading, then four values (`0 15 0.5 50` in 129 of 227 lines; `0 15 0 50`, `0 15 1 100`, `0 15 0 70`, `0 15 0.5 70` in the rest) | where the police start; the heading in degrees as the race files' (0 faces -Z); the comment names the fields "Geo File, StartLink, Start Dist, Start Mode, Start Lane, Patrol Route", but the lines don't follow it, and what the four values mean isn't known |
 | `Opponent` | model, `.opp` file, skill (0.70-1.00), then nine values | each opponent's car, and its skill as the share of its top speed Reluva's driver aims for |
 | `Density` | a share (cruising: London 0.1) | read, not used: the Drive page has its own levels |
 | `CopChaseDistance` | metres (Crash Course 150) | how near the police notice the player |

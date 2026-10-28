@@ -52,4 +52,33 @@ private:
     std::vector<audio::SoundHandle> playing_; // one per sample, kNoSound if missing
 };
 
+// A police siren (aud/cardata/opponent/policesiren.csv, or the player's
+// aud/cardata/player/sfpolicesiren.csv and londonpolicesiren.csv): looped
+// recordings, each played for a while before handing over to another, as
+// the table's "play time, next index" lines say.
+struct SirenSample {
+    std::string wave;
+    float volume = 1;
+    std::vector<std::pair<float, int>> next; // seconds to play, then the sample to go on to
+};
+Error readSirenTable(std::string_view csv, std::vector<SirenSample>& out);
+
+class SirenSound {
+public:
+    ~SirenSound() { stop(); }
+    Error load(audio::Mixer& mixer, const SearchSet& files, const std::string& table);
+    // Plays at `volume` (0..1); 0 stops it, and it starts afresh next time.
+    void update(float dt, float volume);
+    void stop();
+
+private:
+    audio::Mixer* mixer_ = nullptr;
+    std::vector<SirenSample> samples_;
+    std::vector<std::shared_ptr<audio::Sound>> sounds_;
+    audio::SoundHandle playing_ = audio::kNoSound;
+    int current_ = -1;
+    float left_ = 0;   // seconds before the next sample
+    size_t turns_ = 0; // which of a sample's ways on to take, in turn
+};
+
 } // namespace reluva::age

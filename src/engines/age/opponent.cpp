@@ -141,7 +141,7 @@ CarControls PathDriver::drive(const CarSim& car, float dt) {
 
     // Speed: the car's top speed, less for the corner ahead in time to
     // brake for it, and less while pointing well off the target.
-    const float top = car.setup().highSpeed * skill_;
+    const float top = std::min(car.setup().highSpeed * skill_, limit_);
     const float cornerSpeed = std::clamp(12 + (1 - corner / (kPi / 2)) * 30, 8.0f, top);
     const float speed = car.forwardSpeed();
     float wanted = top;

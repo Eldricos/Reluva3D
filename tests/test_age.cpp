@@ -1136,6 +1136,43 @@ void testTrafficRules(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+void testSirenTable() {
+    // The computer-driven police's: samples, each with ways on.
+    std::vector<SirenSample> s;
+    CHECK(!readSirenTable("Sample name,\r\npolice1fastsirenloop,\r\nplay time,next index\r\n4.45,1\r\n"
+                          "play time,next index\r\n2.65,2\r\nSample name,\r\npolice2hilowloop,\r\n"
+                          "play time,next index\r\n2.31,2\r\nSample name,\r\npolice1whailerloop,\r\n"
+                          "play time,next index\r\n1.11,1\r\n",
+                          s));
+    CHECK(s.size() == 3 && s[0].wave == "police1fastsirenloop" && s[0].volume == 1 && s[0].next.size() == 2);
+    CHECK(std::fabs(s[0].next[1].first - 2.65f) < 1e-5f && s[0].next[1].second == 2 && s[2].next[0].second == 1);
+    // The player's: an explosion first, volumes given.
+    CHECK(!readSirenTable("Explosion sample,volume\nexplosion,0.95\nSample name,\nsiren_london,0.95\n"
+                          "play time,next index\n15,1\nSample name,\nsiren_london2,0.95\nplay time,next index\n15,0\n",
+                          s));
+    CHECK(s.size() == 2 && s[1].wave == "siren_london2" && std::fabs(s[1].volume - 0.95f) < 1e-5f &&
+          s[1].next[0] == (std::pair<float, int>{15, 0}));
+    CHECK(readSirenTable("Explosion sample,volume\nexplosion,0.95\n", s));
+}
+
+void testSpeedLimit() {
+    CollisionWorld flat;
+    flat.add({-3000, 0, -3000}, {-3000, 0, 3000}, {3000, 0, 3000});
+    flat.add({-3000, 0, -3000}, {3000, 0, 3000}, {3000, 0, -3000});
+    flat.build(64);
+    CarSim car;
+    car.reset(testCar(), {0, 0, 0}, 0);
+    PathDriver driver;
+    driver.start({{0, 0, -500}, {0, 0, -1000}}, 0, 1.0f);
+    driver.setSpeedLimit(15);
+    float fastest = 0;
+    for (float t = 0; t < 40 && !driver.finished(); t += 0.05f) {
+        car.step(driver.drive(car, 0.05f), flat, 0.05f);
+        fastest = std::max(fastest, car.forwardSpeed());
+    }
+    CHECK(fastest > 13 && fastest < 17.5f);
+}
+
 } // namespace
 
 int main() {
@@ -1164,6 +1201,8 @@ int main() {
     testPedFiles();
     testTrafficLights();
     testTrafficRules(tmp / "rules");
+    testSirenTable();
+    testSpeedLimit();
     std::filesystem::remove_all(tmp);
     if (failures) {
         std::fprintf(stderr, "%d check(s) failed\n", failures);
