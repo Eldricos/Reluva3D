@@ -1,8 +1,19 @@
-# The Angel Game Engine (plan)
+# The Angel Game Engine
 
-Engine id `age`, to live in `src/engines/age/`. First game: Midtown
-Madness 2 (`mm2`). This page is the plan for adding it; it becomes the
-engine's status page (like [idtech3.md](idtech3.md)) as the work lands.
+Engine id `age`, in `src/engines/age/`. First game: Midtown Madness 2
+(`mm2`). This page is the plan for the engine and records where it
+stands, like [idtech3.md](idtech3.md).
+
+## Where it stands
+
+| Part | State |
+|---|---|
+| Detection | Midtown Madness 2: the English Windows release by `mm2core.ar`'s hash (install folder or the CD's `GAME` folder); other releases by file names, shown as "unknown release" |
+| Archives | done: `.ar` ([ar.md](../formats/age/ar.md)); all 13,288 retail files read. Every `.ar` in the game folder is mounted, loose files over them (`filesystem.cpp`); `reluva-tool ar-list` and `ar-extract` |
+| Viewer | Files page: every file with its size and archive, by folder; text files shown as text, the rest as hex dumps |
+
+Decided: Midtown Madness 1 comes after Midtown Madness 2 runs; the
+DirectMusic player comes after the game runs.
 
 ## Why an engine family
 
@@ -110,7 +121,7 @@ Each phase ends with something visible in Reluva, tests for what can be
 tested without game data, and a format page under `docs/formats/age/`
 recording how each format was worked out (CONTRIBUTING.md).
 
-### 1. Engine skeleton, detection and the archives
+### 1. Engine skeleton, detection and the archives (done)
 
 - `src/engines/age/` with `MetaEngine`, `games.cpp` (detection table
   above), registered in `registry.cpp`; CMake option
@@ -165,8 +176,8 @@ recording how each format was worked out (CONTRIBUTING.md).
   `jpg/` backgrounds and `mmlang.dll`'s strings), so they're redrawn from
   screenshots of the original.
 - Music: DirectMusic segments and styles on DLS instruments needs a
-  DirectMusic player in `common/audio`; until then, no music (or the
-  `.wav` stingers).
+  DirectMusic player in `common/audio`. Decided: it comes after the game
+  runs; until then, no music.
 - Opening logos: an Indeo 5 decoder, or skipped (as the original's
   "No Movie" shortcut does).
 
@@ -174,10 +185,3 @@ recording how each format was worked out (CONTRIBUTING.md).
 
 The original uses DirectPlay. Playing against the original isn't
 practical; Reluva-to-Reluva play over `System::openUdp` is.
-
-## Open questions
-
-- Whether to also support Midtown Madness 1 now (shares the formats) or
-  after MM2 drives.
-- Whether to start a DirectMusic player early, since music matters to the
-  game's feel and nothing else in Reluva needs one yet.

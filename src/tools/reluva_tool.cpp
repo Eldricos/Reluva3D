@@ -10,6 +10,9 @@
 //   reluva-tool cat-list <file>                    list a .cat file's contents
 //   reluva-tool cat-extract <file> <dir> [filter]  extract files whose name contains filter
 //   reluva-tool stb-dump <file.stb | file.cat>     print a string table, or list an archive's
+//   reluva-tool ar-list <file.ar> [filter]         list an Angel Game Engine archive's files (size,
+//                                                  stored size, offset), every one read to check it
+//   reluva-tool ar-extract <file.ar> <dir> [filter]  extract files whose name contains filter
 //   reluva-tool tex-survey <file.cat>...           group every texture by header layout
 //   reluva-tool tex-keys <file.cat>...             compare each colour key with the image corners
 //   reluva-tool chunks <file>                      try to read any file as a (u16 tag, u32 size) chunk tree
@@ -106,6 +109,9 @@
 #include "engines/newworlds/mdl.h"
 #include "engines/newworlds/model_textures.h"
 #include "engines/newworlds/model_render.h"
+#endif
+#ifdef RELUVA_ENGINE_AGE
+#include "engines/age/ar_archive.h"
 #endif
 #include "common/font.h"
 #include "common/fs.h"
@@ -5089,6 +5095,86 @@ int cmdPk3List(int argc, char** argv) {
 
 } // namespace
 
+#ifdef RELUVA_ENGINE_AGE
+int cmdArList(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool ar-list <file.ar> [name filter]\n");
+        return 2;
+    }
+    reluva::age::ArArchive ar;
+    if (reluva::Error err = ar.open(argv[2])) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    const std::string filter = argc > 3 ? argv[3] : "";
+    std::vector<uint8_t> data;
+    unsigned listed = 0, deflated = 0, failed = 0;
+    uint64_t total = 0;
+    for (const auto& e : ar.entries()) {
+        if (e.name.find(filter) == std::string::npos)
+            continue;
+        // Reading each one checks it: deflated data must come to its size.
+        if (reluva::Error err = ar.read(e, data)) {
+            std::fprintf(stderr, "%s\n", err.message.c_str());
+            ++failed;
+        }
+        std::printf("%10u %10u %10u%s %s\n", e.size, e.storedSize, e.offset, e.deflated() ? " d" : "  ",
+                    e.name.c_str());
+        ++listed;
+        deflated += e.deflated();
+        total += e.size;
+    }
+    std::printf("%u files (%u deflated), %llu bytes; %u failed to read\n", listed, deflated,
+                static_cast<unsigned long long>(total), failed);
+    return failed ? 1 : 0;
+}
+
+int cmdArExtract(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool ar-extract <file.ar> <output dir> [name filter]\n");
+        return 2;
+    }
+    reluva::age::ArArchive ar;
+    if (reluva::Error err = ar.open(argv[2])) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    const std::filesystem::path outDir = argv[3];
+    const std::string filter = argc > 4 ? argv[4] : "";
+    std::vector<uint8_t> data;
+    unsigned written = 0;
+    for (const auto& e : ar.entries()) {
+        if (e.name.find(filter) == std::string::npos)
+            continue;
+        // Names come from the archive: refuse anything that could escape outDir.
+        const std::filesystem::path rel(e.name);
+        bool safe = !rel.is_absolute() && !rel.has_root_name();
+        for (const auto& part : rel)
+            safe &= part != "..";
+        if (!safe) {
+            std::fprintf(stderr, "skipping unsafe name %s\n", e.name.c_str());
+            continue;
+        }
+        if (reluva::Error err = ar.read(e, data)) {
+            std::fprintf(stderr, "%s\n", err.message.c_str());
+            return 1;
+        }
+        const std::filesystem::path out = outDir / rel;
+        std::error_code ec;
+        std::filesystem::create_directories(out.parent_path(), ec);
+        std::ofstream f(out, std::ios::binary);
+        f.write(reinterpret_cast<const char*>(data.data()), std::streamsize(data.size()));
+        if (!f) {
+            std::fprintf(stderr, "cannot write %s\n", out.string().c_str());
+            return 1;
+        }
+        ++written;
+    }
+    std::printf("%u files written to %s\n", written, outDir.string().c_str());
+    return 0;
+}
+#endif // RELUVA_ENGINE_AGE
+
 int main(int argc, char** argv) {
     if (argc >= 2 && std::strcmp(argv[1], "hexdump") == 0)
         return cmdHexdump(argc, argv);
@@ -5143,6 +5229,12 @@ int main(int argc, char** argv) {
         return cmdGeoSheet(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "geo-faces") == 0)
         return cmdGeoFaces(argc, argv);
+#endif
+#ifdef RELUVA_ENGINE_AGE
+    if (argc >= 2 && std::strcmp(argv[1], "ar-list") == 0)
+        return cmdArList(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "ar-extract") == 0)
+        return cmdArExtract(argc, argv);
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
     if (argc >= 2 && std::strcmp(argv[1], "bsp-check") == 0)
@@ -5217,6 +5309,10 @@ int main(int argc, char** argv) {
                  "  reluva-tool gmf-info <file.gmf> [record number]\n"
                  "  reluva-tool geo-faces <file.geo>\n"
                  "  reluva-tool lbp-info <file> [output prefix]\n"
+#endif
+#ifdef RELUVA_ENGINE_AGE
+                 "  reluva-tool ar-list <file.ar> [name filter]\n"
+                 "  reluva-tool ar-extract <file.ar> <output dir> [name filter]\n"
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
                  "  reluva-tool bsp-check <game folder, e.g. .../BaseEF>\n"
