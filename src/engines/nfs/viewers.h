@@ -322,6 +322,7 @@ private:
 // effects. Without audio output the sounds are only listed.
 //   Up/Down: sound   PageUp/PageDown: bank   Home/End: first/last sound
 //   Space/Enter: play   S: stop   P: play as selected on/off
+//   Left/Right: pitch down/up a semitone (sounds with a loop loop until stopped)
 class SoundPage : public Page {
 public:
     SoundPage(const GameFiles& files, audio::Mixer* mixer);
@@ -349,6 +350,7 @@ private:
     std::shared_ptr<audio::Sound> decoded_;
     audio::SoundHandle playing_ = audio::kNoSound;
     bool autoPlay_ = true;
+    int semitones_ = 0; // the pitch, up or down
 };
 
 // The music streams (.mus), played as their Pathfinder map (.map) leads

@@ -720,8 +720,8 @@ int cmdBnkInfo(int argc, char** argv) {
         const auto& h = *bank.slots[i];
         std::printf("  %3zu %-9s %d ch %5d Hz %8u samples (%.2f s) at %u", i, compressionName(h.compression),
                     h.channels, h.rate, h.samples, double(h.samples) / h.rate, h.dataOffset);
-        if (h.loopLength)
-            std::printf(" loop %u+%u", h.loopStart, h.loopLength);
+        if (h.loopEnd)
+            std::printf(" loop %u-%u", h.loopStart, h.loopEnd);
         std::printf("  tags");
         for (const auto& [tag, value] : h.tags)
             if (tag < 0x82 || tag > 0x88)

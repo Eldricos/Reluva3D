@@ -933,7 +933,7 @@ void testSoundBank() {
     CHECK(p.compression == SoundHeader::kPcm16 && p.channels == 1 && p.rate == 16000 && p.samples == 3);
     const SoundHeader& x = *bank.slots[2];
     CHECK(x.compression == SoundHeader::kEaXa && x.rate == 22050 && x.samples == 30 && x.dataOffset == 134);
-    CHECK(x.loopStart == 2 && x.loopLength == 20 && x.tags.at(0x92) == 1 && x.tags.at(0x06) == 25);
+    CHECK(x.loopStart == 2 && x.loopEnd == 20 && x.tags.at(0x92) == 1 && x.tags.at(0x06) == 25);
 
     audio::Sound sound;
     CHECK(!decodeBankSound(b, p, sound));

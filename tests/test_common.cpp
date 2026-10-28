@@ -236,6 +236,21 @@ static void testMixer() {
     m.mix(out.data(), 1);
     CHECK(out[0] == 250 && out[1] == 250 && m.typeVolume(SoundType::Music) == 128);
     m.setTypeVolume(SoundType::Music, kMaxVolume);
+    // A loop: frames 1 and 2 over and over, after the first.
+    {
+        auto looped = std::make_shared<Sound>();
+        looped->rate = 22050, looped->channels = 1, looped->samples = {10, 20, 30, 40};
+        looped->loopStart = 1, looped->loopEnd = 3;
+        const SoundHandle l = m.play(looped, SoundType::Effects, kMaxVolume, 0, true);
+        m.mix(out.data(), 6);
+        CHECK(out[0] == 10 && out[2] == 20 && out[4] == 30 && out[6] == 20 && out[8] == 30 && out[10] == 20);
+        m.stop(l);
+        // Twice the rate: every other frame.
+        const SoundHandle r = m.play(make(22050, 1, {0, 10, 20, 30, 40, 50}), SoundType::Effects);
+        m.setRate(r, 2.0);
+        m.mix(out.data(), 4);
+        CHECK(out[0] == 0 && out[2] == 20 && out[4] == 40 && out[6] == 0 && !m.isPlaying(r));
+    }
     // Pan: full right silences the left.
     m.play(make(22050, 1, {1000}), SoundType::Speech, kMaxVolume, kMaxPan);
     m.mix(out.data(), 1);

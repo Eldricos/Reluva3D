@@ -89,6 +89,12 @@ void Mixer::setVolume(SoundHandle handle, int volume) {
         c->volume = std::clamp(volume, 0, kMaxVolume);
 }
 
+void Mixer::setRate(SoundHandle handle, double factor) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (Channel* c = find(handle))
+        c->rate = std::clamp(factor, 0.05, 20.0);
+}
+
 void Mixer::setPan(SoundHandle handle, int pan) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (Channel* c = find(handle))
@@ -128,7 +134,11 @@ void Mixer::mix(int16_t* out, int frames) {
         }
         const Sound& s = *c.sound;
         const size_t n = s.frames(), ch = size_t(s.channels);
-        const double step = double(s.rate) / double(outputRate_);
+        const double step = double(s.rate) * c.rate / double(outputRate_);
+        // Looping: the sound's loop, or all of it.
+        const size_t loopEnd = s.loopEnd && s.loopEnd < n ? s.loopEnd : n;
+        const size_t loopStart = s.loopStart < loopEnd ? s.loopStart : 0;
+        const size_t end = c.loop ? loopEnd : n;
         // Gains in 1/65536ths: volume x type volume, and a linear pan that
         // keeps the louder side at full level.
         const int64_t gain = int64_t(c.volume) * typeVolume_[int(c.type)];
@@ -136,17 +146,17 @@ void Mixer::mix(int16_t* out, int frames) {
         const int64_t gainR = c.pan < 0 ? gain * (kMaxPan + c.pan) / kMaxPan : gain;
         auto sample = [&](size_t frame, size_t channel) { return double(s.samples[frame * ch + channel]); };
         for (int i = 0; i < frames; ++i) {
-            if (c.position >= double(n)) {
+            if (c.position >= double(end)) {
                 if (!c.loop) {
                     c.done = true;
                     break;
                 }
-                c.position = std::fmod(c.position, double(n));
+                c.position = double(loopStart) + std::fmod(c.position - double(loopStart), double(end - loopStart));
             }
-            // Linear interpolation towards the next frame (the first, when
-            // looping past the end; else the last holds).
+            // Linear interpolation towards the next frame (the loop's
+            // first, when looping past its end; else the last holds).
             const size_t f = size_t(c.position);
-            const size_t g = f + 1 < n ? f + 1 : (c.loop ? 0 : f);
+            const size_t g = f + 1 < end ? f + 1 : (c.loop ? loopStart : f);
             const double t = c.position - double(f);
             const double l = sample(f, 0) * (1 - t) + sample(g, 0) * t;
             const double r = ch > 1 ? sample(f, 1) * (1 - t) + sample(g, 1) * t : l;

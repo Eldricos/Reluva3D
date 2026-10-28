@@ -704,7 +704,7 @@ void TrackPage::updateSounds(const gfx::Vec3& eye, const gfx::Vec3& right) {
             if (decodeBankSound(soundData_, header, *decoded))
                 continue;
         }
-        soundsPlaying_[i] = mixer_->play(decoded, audio::SoundType::Effects, volume, pan, header.loopLength > 0);
+        soundsPlaying_[i] = mixer_->play(decoded, audio::SoundType::Effects, volume, pan, header.loopEnd > 0);
     }
 }
 

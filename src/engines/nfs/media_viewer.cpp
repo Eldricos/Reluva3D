@@ -108,10 +108,14 @@ void SoundPage::select(int sound) {
         play();
 }
 
+// A sound with a loop (engines, ambiences) plays it over and over until
+// stopped, at the pitch chosen.
 void SoundPage::play() {
     deactivate();
-    if (mixer_ && decoded_)
-        playing_ = mixer_->play(decoded_, audio::SoundType::Effects);
+    if (mixer_ && decoded_) {
+        playing_ = mixer_->play(decoded_, audio::SoundType::Effects, audio::kMaxVolume, 0, decoded_->loopEnd != 0);
+        mixer_->setRate(playing_, std::pow(2.0, semitones_ / 12.0));
+    }
 }
 
 void SoundPage::handleKey(uint32_t k, uint16_t) {
@@ -129,6 +133,13 @@ void SoundPage::handleKey(uint32_t k, uint16_t) {
     case key::Return: play(); break;
     case 's': deactivate(); break;
     case 'p': autoPlay_ = !autoPlay_; break;
+    case key::Left:
+    case key::Right:
+        // The pitch, a semitone at a time: an engine at other revs.
+        semitones_ = std::clamp(semitones_ + (k == key::Right ? 1 : -1), -24, 24);
+        if (mixer_ && playing_ != audio::kNoSound)
+            mixer_->setRate(playing_, std::pow(2.0, semitones_ / 12.0));
+        break;
     default: break;
     }
 }
@@ -146,7 +157,7 @@ void SoundPage::draw(Surface& s) {
     if (bank_ < 0)
         load(0);
     frame(s, "Sounds  " + std::to_string(bank_ + 1) + "/" + std::to_string(banks_.size()) + "  " + banks_[bank_].name,
-          "Up/Down: sound  PgUp/PgDn: bank  Space: play  S: stop  P: autoplay");
+          "Up/Down: sound  PgUp/PgDn: bank  Space: play  S: stop  P: autoplay  Left/Right: pitch");
     int y = 8 + font::kLineHeight * 2;
     if (!error_.empty()) {
         text(s, kMargin, y, error_, kWarnColor);
@@ -154,7 +165,10 @@ void SoundPage::draw(Surface& s) {
     }
     text(s, kMargin, y,
          "Version " + std::to_string(loaded_.version) + ", " + std::to_string(loaded_.slots.size()) + " slots, " +
-             std::to_string(sounds_.size()) + " sounds" + (autoPlay_ ? "   (plays when selected)" : ""),
+             std::to_string(sounds_.size()) + " sounds" + (autoPlay_ ? "   (plays when selected)" : "") +
+             (semitones_ ? "   pitch " + std::string(semitones_ > 0 ? "+" : "") + std::to_string(semitones_) +
+                               " semitones"
+                         : ""),
          kLabelColor);
     y += font::kLineHeight;
     if (!mixer_) {
@@ -174,7 +188,7 @@ void SoundPage::draw(Surface& s) {
         char line[160];
         std::snprintf(line, sizeof line, "%4d  %-9s  %2d  %5d  %8u  %7s  %s", sounds_[i], compressionName(h.compression),
                       h.channels, h.rate, h.samples, seconds(double(h.samples) / h.rate).c_str(),
-                      h.loopLength ? (std::to_string(h.loopStart) + "+" + std::to_string(h.loopLength)).c_str() : "");
+                      h.loopEnd ? (std::to_string(h.loopStart) + "-" + std::to_string(h.loopEnd)).c_str() : "");
         const bool selected = i == sound_;
         if (selected)
             fill(s, kMargin - 4, y - 1, s.w - 2 * kMargin + 8, font::kLineHeight, kBarColor);
@@ -203,6 +217,11 @@ void SoundPage::draw(Surface& s) {
         const int top = waveY + kWaveH / 2 - hi * (kWaveH / 2) / 32768;
         const int bottom = waveY + kWaveH / 2 - lo * (kWaveH / 2) / 32768;
         fill(s, kMargin + x, top, 1, std::max(1, bottom - top), kWaveColor);
+    }
+    if (snd.loopEnd) { // the loop's ends
+        const size_t end = std::min(snd.loopEnd, frames);
+        fill(s, kMargin + static_cast<int>(waveW * snd.loopStart / frames), waveY, 1, kWaveH, kLabelColor);
+        fill(s, kMargin + static_cast<int>(waveW * (end - 1) / frames), waveY, 1, kWaveH, kLabelColor);
     }
     if (mixer_ && playing_ != audio::kNoSound) {
         const int at = static_cast<int>(waveW * std::min(1.0, mixer_->position(playing_) / double(frames)));

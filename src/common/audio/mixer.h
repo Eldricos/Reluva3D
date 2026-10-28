@@ -87,6 +87,8 @@ public:
 
     void setVolume(SoundHandle handle, int volume);
     void setPan(SoundHandle handle, int pan);
+    // Plays a sound faster or slower (and higher or lower) by `factor`.
+    void setRate(SoundHandle handle, double factor);
     void setTypeVolume(SoundType type, int volume);
     int typeVolume(SoundType type) const;
 
@@ -104,6 +106,7 @@ private:
         SoundType type;
         int volume, pan;
         bool loop;
+        double rate = 1;     // a factor on the sound's own rate
         double position = 0; // in the sound's frames
         bool done = false;
     };

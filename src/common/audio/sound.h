@@ -16,6 +16,9 @@ struct Sound {
     int channels = 0; // 1 or 2
     int format = 0;   // the source's format: a WAV format tag (1 PCM, 0x11 IMA ADPCM), or a kFormat* below
     std::vector<int16_t> samples;
+    // The part played over and over when it loops, in frames: from
+    // loopStart up to (not including) loopEnd; loopEnd 0 for the whole.
+    size_t loopStart = 0, loopEnd = 0;
     size_t frames() const { return channels ? samples.size() / size_t(channels) : 0; }
 };
 

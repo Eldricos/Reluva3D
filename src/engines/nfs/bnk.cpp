@@ -22,7 +22,7 @@ uint32_t le32(const uint8_t* p) {
 
 // The tags known (bnk.md).
 constexpr int kChannels = 0x82, kCompression = 0x83, kRate = 0x84, kSamples = 0x85, kLoopStart = 0x86,
-              kLoopLength = 0x87, kDataOffset = 0x88;
+              kLoopEnd = 0x87, kDataOffset = 0x88;
 // Bytes that open a section of tags rather than being one.
 bool isSection(uint8_t b) { return b == 0xfc || b == 0xfd || b == 0xfe; }
 
@@ -62,7 +62,7 @@ Error parseSoundHeader(const uint8_t* data, size_t size, size_t at, SoundHeader&
     get(kRate, out.rate);
     get(kSamples, out.samples);
     get(kLoopStart, out.loopStart);
-    get(kLoopLength, out.loopLength);
+    get(kLoopEnd, out.loopEnd);
     get(kDataOffset, out.dataOffset);
     if (out.channels < 1 || out.channels > 2)
         return Error::fail("a sound with " + std::to_string(out.channels) + " channels");
@@ -103,6 +103,12 @@ Error decodeBankSound(const std::vector<uint8_t>& data, const SoundHeader& h, au
     out = {};
     out.rate = h.rate;
     out.channels = h.channels;
+    // The loop, its end as a frame past the last (the mixer clamps it to
+    // the sound's length).
+    if (h.loopEnd > h.loopStart) {
+        out.loopStart = h.loopStart;
+        out.loopEnd = size_t(h.loopEnd) + 1;
+    }
     if (h.dataOffset > data.size())
         return Error::fail("the sound's data starts past the end of its bank");
     const uint8_t* p = data.data() + h.dataOffset;

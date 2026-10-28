@@ -64,11 +64,56 @@ taken as empty.
 | `0x83` | compression: 7 EA-XA, 9 MicroTalk; absent, 16-bit PCM | PCM |
 | `0x84` | sample rate (11025, 16000, 44100 in the retail banks) | 22050 |
 | `0x85` | number of samples | |
-| `0x86`, `0x87` | loop start and length, in samples (the engine sounds loop) | |
+| `0x81` | bits per sample (8 or 16; none of the retail banks has it) | 16 |
+| `0x86`, `0x87` | the loop: its first sample and its end, the last sample (in 48 sounds the count instead, one past the last) | |
 | `0x88` | the data's offset from the bank's start | |
 | `0x8A` | 0 in all | |
-| `0x92` | 1 or 2; not bytes per sample (PCM sounds take 2 either way) | |
-| `0x06`, `0x07`, `0x0A`-`0x23`, `0x91`, `0x93` | unknown (0x06 is 25 on most sounds) | |
+| `0x92` | the 3D method: 1 software (iSND mixes it), 2 DirectSound 3D | 1 |
+| `0x93` | room for the DirectSound 3D buffer's pointer, 0 in the files | |
+| `0x00`-`0x25` | the patch's parameters, below | |
+| `0x91` | 50 in all that have it; read with the stream's tags, unknown | |
+
+**How these were worked out** (October 2026). Each tag was surveyed over
+all 408 banks. The game's sound code (iSND, linked into `nfs3.exe`) was
+then read where it parses PT headers:
+
+- `iSNDplatformresolve` (`0x522a80`) takes the sound's format:
+  - `0x81` (8 or 16), `0x82`-`0x88`, `0x8A`;
+  - `0x92` and `0x93`. With `0x92` = 2, it makes a DirectSound 3D buffer
+    for the sound (its message: "3D METHOD SET TO DIRECTSOUND, BUT NO 3D
+    HARDWARE POINTER PRESENT"), keeps the pointer in `0x93`'s four
+    bytes, and rewrites `0x92` as 3, resolved.
+
+  `0x92` = 2 is in the positioned sounds' banks (`tr3dNN`, `gen3d`,
+  `siren3d`); the rest have 1.
+- The loop: with `0x87` as a length, 416 loops would run past their
+  sound's end; as the last sample, all fit but 48, which give the count.
+- `iSNDresolvetaggedpatch` (`0x501e40`-`0x5020f0`) reads the tags below
+  `0x26` into a table of 38 parameters. `FD` and `FE` mark the patch's
+  alternatives. An alternative is used when two values (the call's) fall
+  within the ranges held in parameters 1-2 and 3-4. Parameter `0x24` is
+  resolved as a sample (`0x5224e0`).
+- The routine that starts a voice (`0x501978`) uses them. For example:
+  - parameters `0x0C` and `0x0D` are clamped to 127, so they look like
+    volumes;
+  - `0x10`, less 7, plus `0x11` and the caller's value, gives a word of
+    the voice that behaves as its pitch.
+
+  The parameters' meanings are still to be named.
+
+The values, over all the banks (most common first):
+
+| Tag | Values | In |
+|---|---|---|
+| `0x06` | 25 (5,450), 50, 80, 20, 100 | nearly every sound |
+| `0x07` | 59, 68, 38, 45, 50... | ambiences and positioned sounds |
+| `0x0A` | 4 (4,047), 6, 5, 12 | nearly every sound |
+| `0x0C` | 40, 65, 73, 88, 7 | ambiences, positioned |
+| `0x0E` | 100, 51, 90, 30, 115 | ambiences, positioned |
+| `0x0F` | 10, 50, 30 | ambiences, positioned |
+| `0x11` | 200, 300, 100, 150 | ambiences, positioned, rain |
+| `0x13` | 127, 100, 110 | ambiences, positioned, sirens |
+| `0x19`-`0x23` | 0 to 1,826 | a few ambiences |
 
 Which sounds use which coding:
 
@@ -130,3 +175,11 @@ Reluva's decoder keeps them:
 - `reluva-tool bnk-info <file.bnk | file.viv name>` lists the sounds and
   their tags.
 - `reluva-tool bnk-wav ... <dir>` writes each sound as a WAV file.
+
+## On the Sounds page
+
+A sound with a loop (the engines, ambiences) plays it over and over until
+stopped, the loop's ends marked on its waveform. Left and Right move the
+pitch a semitone at a time, to hear an engine at other revs; how the game
+sets an engine's pitch from its revs is the game's (`carp.txt` and its
+code), not worked out.

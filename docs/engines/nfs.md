@@ -335,8 +335,9 @@ Not done yet:
 
 - what the maps' events and sections' first bytes mean to the game
   (the start section is known: [mus.md](../formats/nfs/mus.md));
-- the banks' unknown header tags;
-- the engine sounds' looping and pitch, which belong with the game.
+- the meanings of the sound patches' parameters (bnk.md: their
+  structure is known, and what the sound format's tags are);
+- how the game sets an engine's pitch from its revs.
 
 What was planned:
 
