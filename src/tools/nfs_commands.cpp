@@ -75,6 +75,7 @@ const char* const kUsageLines =
     "                       [-joystick name] (keys also joy:A=V...: axes 0-5 = V, button bB; +key/-key held)\n"
     "                       [-wheel] [-ff] (the joystick a wheel; with force feedback) [-forcelog forces.csv]\n"
     "                       [-net] (the network) [-netaddr a.b.c.d] [-broadcast a.b.c.d,...]\n"
+    "                       [-deterministic instructionsPerMs] (a clock of instructions; the end state hashed)\n"
     "                       [-hotspots from to] (instructions counted by where they run, 16-byte blocks)\n"
     "                       [-gpulog] (THRASH recorded as for the GPU; each frame's list summed up)\n"
     "  reluva-tool nfs-native-check <game folder> [trials]\n"
@@ -994,6 +995,8 @@ int cmdNfsHost(int argc, char** argv) {
             options.thrashLogTo = std::strtoull(argv[++a], nullptr, 0);
         } else if (arg == "-native") {
             options.nativeThrash = true;
+        } else if (arg == "-deterministic" && a + 1 < argc) {
+            options.instructionsPerMs = uint32_t(std::strtoul(argv[++a], nullptr, 0));
         } else if (arg == "-timescale" && a + 1 < argc)
             options.timeScale = std::atof(argv[++a]);
         else if (arg == "-framelog" && a + 1 < argc)
@@ -1200,6 +1203,17 @@ int cmdNfsHost(int argc, char** argv) {
             std::printf("\n");
         }
     }
+    if (options.instructionsPerMs) {
+        // The state the run ended in, for comparing builds: memory and
+        // registers hashed (FNV-1a).
+        uint64_t h = 0xcbf29ce484222325ull;
+        for (uint8_t byte : host.cpu().memory())
+            h = (h ^ byte) * 0x100000001b3ull;
+        for (uint32_t r : host.cpu().reg)
+            h = (h ^ r) * 0x100000001b3ull;
+        std::printf("state: %016llx after %llu instructions, eip %08x\n", (unsigned long long)h,
+                    (unsigned long long)host.cpu().executed(), host.cpu().eip);
+    }
     if (options.forceFeedback) {
         std::printf("forces: %d changes, the strongest push %.2f, the strongest vibration %.2f\n", forceChanges,
                     strongestPush, strongestVibration);
@@ -1268,26 +1282,31 @@ int cmdNfsHost(int argc, char** argv) {
         }
         // The frames in one-second steps: how many, and their instructions.
         // ... and the time no thread could run (all waiting), and how often.
-        uint64_t second = 0, frames = 0, instructions = 0, renderer = 0, idleMicros = 0, idleWaits = 0;
+        // ... and the shares of the game's own thread and the timer's.
+        uint64_t second = 0, frames = 0, instructions = 0, renderer = 0, idleMicros = 0, idleWaits = 0, own = 0,
+                 timer = 0;
         auto flush = [&] {
             if (frames)
                 std::printf("  second %3llu: %3llu frames, %6.2f million instructions each, %6.2f of them the renderer's,"
-                            " idle %4llu ms (%llu waits)\n",
+                            " idle %4llu ms (%llu waits); game thread %2.0f%%, timer %2.0f%%\n",
                             (unsigned long long)second, (unsigned long long)frames, instructions / double(frames) / 1e6,
                             renderer / double(frames) / 1e6, (unsigned long long)(idleMicros / 1000),
-                            (unsigned long long)idleWaits);
+                            (unsigned long long)idleWaits, 100.0 * double(own) / double(std::max<uint64_t>(instructions, 1)),
+                            100.0 * double(timer) / double(std::max<uint64_t>(instructions, 1)));
         };
         for (const auto& f : t.frameLog) {
             if (f.ms / 1000 != second) {
                 flush();
                 second = f.ms / 1000;
-                frames = instructions = renderer = idleMicros = idleWaits = 0;
+                frames = instructions = renderer = idleMicros = idleWaits = own = timer = 0;
             }
             ++frames;
             instructions += f.instructions;
             renderer += f.renderer;
             idleMicros += f.idleMicros;
             idleWaits += f.idleWaits;
+            own += f.ownThread;
+            timer += f.timerThread;
         }
         flush();
     }

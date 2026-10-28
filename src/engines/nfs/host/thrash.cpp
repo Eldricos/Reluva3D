@@ -40,9 +40,14 @@ uint32_t GameHost::wrapThrash(const std::string& name, uint32_t address) {
             thrash_.lastFrameInstructions = c.executed() - lastFlip_;
             thrash_.frameInstructionsTotal += thrash_.lastFrameInstructions;
             const uint64_t idleMicros = process_->idleMicros, idleWaits = process_->idleWaits;
+            const uint64_t own = process_->instructionsOn(process_->currentThread()),
+                           timer = process_->timerInstructions();
             thrash_.frameLog.push_back({process_->now(), thrash_.lastFrameInstructions,
                                         thrash_.rendererInstructions - lastFlipRenderer_,
-                                        idleMicros - thrash_.lastIdleMicros, idleWaits - thrash_.lastIdleWaits});
+                                        idleMicros - thrash_.lastIdleMicros, idleWaits - thrash_.lastIdleWaits,
+                                        own - std::min(own, thrash_.lastOwn), timer - std::min(timer, thrash_.lastTimer)});
+            thrash_.lastOwn = own;
+            thrash_.lastTimer = timer;
             thrash_.lastIdleMicros = idleMicros;
             thrash_.lastIdleWaits = idleWaits;
             lastFlip_ = c.executed();

@@ -43,6 +43,11 @@ public:
         // The game's clock against the real one: 0.1 has it see a tenth of
         // the time pass, for measuring what full speed would take.
         double timeScale = 1.0;
+        // A clock of instructions rather than real time: this many to the
+        // millisecond, a millisecond more each time every thread waits
+        // (0: real time). Runs are then the same each time, for comparing
+        // builds of the interpreter.
+        uint32_t instructionsPerMs = 0;
         // Frames whose THRASH calls are logged in full (arguments, results,
         // the memory pointer arguments point at): from, to (inclusive).
         uint64_t thrashLogFrom = 0, thrashLogTo = 0;
@@ -116,9 +121,12 @@ public:
         struct Frame {
             uint64_t ms = 0, instructions = 0, renderer = 0;
             uint64_t idleMicros = 0, idleWaits = 0;
+            // Of the instructions, those run on the thread that flipped (the
+            // game's own loop) and on the multimedia timer's thread.
+            uint64_t ownThread = 0, timerThread = 0;
         };
         std::vector<Frame> frameLog;
-        uint64_t lastIdleMicros = 0, lastIdleWaits = 0;
+        uint64_t lastIdleMicros = 0, lastIdleWaits = 0, lastOwn = 0, lastTimer = 0;
         std::map<std::string, uint64_t> calls;
         std::map<std::string, uint64_t> callInstructions; // run inside each function, in all
         std::map<int, uint64_t> textureFormats;           // talloc's format -> how many
@@ -203,6 +211,7 @@ private:
     Options options_;
     std::unique_ptr<x86::Cpu> cpu_;
     std::unique_ptr<x86::Win32Process> process_;
+    std::atomic<uint64_t> idleMs_{0}; // Options::instructionsPerMs: the milliseconds every thread waited
     const x86::Win32Process::Module* exe_ = nullptr;
     int logged_ = 0;
 

@@ -773,6 +773,14 @@ Started. Done so far:
   many were drawn, not needed (a later one covered them), dropped (too
   many waiting) and shown. That tells a slow interpreter from frames lost
   on the way to the screen.
+- **The same run twice** (`nfs-host -deterministic N`). The clock
+  becomes a count of instructions (N a millisecond), plus a millisecond
+  each time every thread waits, so a run with the same keys goes the same
+  way each time, whatever the host's speed. At the end the tool prints a
+  hash of memory and registers. Two builds of the interpreter that agree
+  on it ran the game the same; that is how each speed-up below was
+  checked. The per-second line also says how much of the work was the
+  game's main thread and how much the timer's.
 
 - **Network play** (TCP). The game does its own networking through
   Windows Sockets 1.1 (`WSOCK32`, 25 functions by ordinal), with no

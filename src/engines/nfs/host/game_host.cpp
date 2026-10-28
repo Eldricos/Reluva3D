@@ -53,7 +53,11 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
     cpu_->setInstructionLimit(options_.instructionLimit);
     process_ = std::make_unique<x86::Win32Process>(*cpu_);
     process_->output = [this](const std::string& s) { say("[program] " + s); };
-    if (options_.timeScale != 1.0) {
+    if (options_.instructionsPerMs) {
+        const uint64_t perMs = options_.instructionsPerMs;
+        process_->milliseconds = [this, perMs] { return uint32_t(cpu_->executed() / perMs + idleMs_); };
+        process_->idleTick = [this] { ++idleMs_; };
+    } else if (options_.timeScale != 1.0) {
         const auto start = std::chrono::steady_clock::now();
         const double scale = options_.timeScale;
         process_->milliseconds = [start, scale] {

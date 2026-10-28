@@ -96,6 +96,9 @@ public:
     std::function<void(const std::string& text)> output;
     // Milliseconds for timeGetTime and GetTickCount (default: since start).
     std::function<uint32_t()> milliseconds;
+    // Called when every thread waits, instead of sleeping a millisecond: for
+    // a clock that isn't the real one (it should move that clock on).
+    std::function<void()> idleTick;
 
     // The thread's stack and information block (FS).
     uint32_t stackTop() const { return stackTop_; }
@@ -167,6 +170,7 @@ public:
         std::function<bool()> waitFor;
         uint64_t waitUntil = 0;
         std::string name;
+        uint64_t instructions = 0; // run on it, up to its last turn's end
     };
     // A thread running `body` (which calls into the emulated code), with a
     // stack and information block of its own; suspended if asked.
@@ -195,6 +199,13 @@ public:
     // How often every thread waited at once, and for how long in all
     // (microseconds): time the processor stood idle.
     std::atomic<uint64_t> idleWaits{0}, idleMicros{0};
+    // From the running thread: the instructions run on `t` so far (its
+    // turn now included), and on the multimedia timer's thread (0 if
+    // there's none).
+    uint64_t instructionsOn(const Thread* t) const {
+        return t ? t->instructions + (t == running_ ? cpu_.executed() - turnStart_ : 0) : 0;
+    }
+    uint64_t timerInstructions() const { return instructionsOn(timerThread_.get()); }
 
 private:
     void addFileStandIns();
@@ -227,6 +238,7 @@ private:
     std::map<uint32_t, Timer> timers_; // by timeSetEvent's id
     uint32_t nextTimer_ = 1;
     std::shared_ptr<Thread> timerThread_;
+    uint64_t turnStart_ = 0; // instructions run when the running thread's turn began
     uint32_t runTimers();
     uint32_t nextThreadId_ = 0x104;
     std::vector<bool> tlsUsed_ = std::vector<bool>(64);
