@@ -237,10 +237,26 @@ void testRefPack() {
     Bytes tooFar = {0x10, 0xfb, 0x00, 0x00, 0x05, 0xe0, 'a', 'b', 'c', 'd', 0x00, 0x09, 0xfc};
     CHECK(decompressRefPack(tooFar, out)); // copy from 10 back with 4 written
     CHECK(!isRefPack(Bytes{'S', 'H', 'P', 'I', 0}));
-    const Bytes huffman = {0x32, 0xfb, 0x07, 0xc4, 0x48, 0x71};
-    CHECK(!isRefPack(huffman) && isOtherEaCompression(huffman));
+    // EA Huffman (refpack.md), built by hand: A coded 0, B 10, the escape
+    // (C) 11; A, B, then the escape repeating B twice, then the end.
+    const Bytes huffman = {0x30, 0xfb, 0x00, 0x00, 0x04, 0x43, 0xb8, 0x22, 0xc8, 0xbd, 0xc8};
+    CHECK(isEaHuffman(huffman) && !isRefPack(huffman) && !isOtherEaCompression(huffman));
+    CHECK(!decompressEaHuffman(huffman, out));
+    CHECK(out == (Bytes{'A', 'B', 'B', 'B'}));
+    // As differences (32 FB): each byte the sum of those so far.
+    Bytes summed = huffman;
+    summed[0] = 0x32;
+    CHECK(!decompressEaHuffman(summed, out));
+    CHECK(out == (Bytes{'A', 0x83, 0xc5, 0x07}));
+    Bytes wrong = huffman;
+    wrong[4] = 0x05;
+    CHECK(decompressEaHuffman(wrong, out)); // not the size it says
+    Bytes cutShort(huffman.begin(), huffman.end() - 2);
+    CHECK(decompressEaHuffman(cutShort, out));
+    const Bytes other = {0x46, 0xfb, 0x00, 0x00, 0x04, 0x00};
+    CHECK(isOtherEaCompression(other));
     CHECK(!isOtherEaCompression(small));
-    Bytes copy = huffman;
+    Bytes copy = other;
     CHECK(unpackIfRefPack(copy)); // fails rather than passing it on
 
     Bytes plain = {'S', 'H', 'P', 'I', 0};
