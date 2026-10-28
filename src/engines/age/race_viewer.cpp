@@ -281,6 +281,9 @@ void RaceViewer::startRace() {
     cameraReset_ = true;
     clock_ = -kCountdown;
     outcome_.clear();
+    beatenAll_.clear();
+    finalLapFor_ = 0;
+    lastLap_ = 0;
     if (lesson())
         judge_.start(race_.lesson);
     keys_ = 0;
@@ -372,6 +375,16 @@ void RaceViewer::stepRace(float dt) {
 
     if (state_ == State::Countdown && started)
         state_ = State::Racing;
+    // Into a circuit's last lap: "Final lap!" for a moment.
+    finalLapFor_ = std::max(0.0f, finalLapFor_ - dt);
+    if (race_.kind == RaceKind::Circuit && !racers_.empty()) {
+        const size_t perLap = race_.waypoints.size();
+        const int laps = std::max(1, race_.settings[size_t(level_)].laps);
+        const int lap = perLap ? int(racers_.front().next / perLap) : 0;
+        if (lap != lastLap_ && lap == laps - 1 && laps > 1)
+            finalLapFor_ = 3;
+        lastLap_ = lap;
+    }
     if (lesson()) {
         judgeLesson(dt, checkpoint, impact);
         recordResult();
@@ -387,22 +400,55 @@ void RaceViewer::stepRace(float dt) {
         for (const Racer& r : racers_)
             if (!r.player && r.finishTime >= 0 && r.finishTime < player.finishTime)
                 ++place;
-        outcome_ = race_.kind == RaceKind::Blitz ? "Finished in " + clockText(player.finishTime)
-                                                 : "Finished " + std::to_string(place) + " of " +
-                                                       std::to_string(racers_.size()) + " in " +
-                                                       clockText(player.finishTime);
+        // The game's words: "You Won!", "You finished 2nd", "You are a loaf"
+        // past eighth.
+        static const char* const kPlaces[] = {"1st!", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"};
+        if (race_.kind == RaceKind::Blitz)
+            outcome_ = raceMessage(6, "You Won!") + "  " + clockText(player.finishTime);
+        else if (place <= 8)
+            outcome_ = raceMessage(3 + place, std::string("You finished ") + kPlaces[place - 1]) + "  " +
+                       clockText(player.finishTime);
+        else
+            outcome_ = raceMessage(12, "You are a loaf");
         state_ = State::Finished;
     } else if (race_.kind == RaceKind::Blitz && set.timeLimit > 0 && clock_ > set.timeLimit) {
-        outcome_ = "Time's up";
+        outcome_ = raceMessage(3, "Time's up!");
         state_ = State::Finished;
     } else if (life_.police().busted()) {
-        outcome_ = "Busted";
+        // Blitz and Checkpoint groups have their "Game over!"; Circuit's none.
+        const int over = race_.kind == RaceKind::Blitz ? 4 : race_.kind == RaceKind::Checkpoint ? 3 : -1;
+        outcome_ = "Busted! " + (over >= 0 ? raceMessage(over, "Game over!") : std::string("Game over!"));
         state_ = State::Finished;
     } else if (wear_.wrecked()) {
-        outcome_ = "Wrecked";
+        outcome_ = "Wrecked! Game over!";
         state_ = State::Finished;
     }
+    const bool justFinished = state_ == State::Finished && !recorded_;
     recordResult();
+    // Every race of the kind won (at this level): the game's word for it.
+    if (justFinished && race_.kind != RaceKind::Checkpoint) {
+        const std::string& map = cities_[size_t(city_)].map;
+        bool all = !raceNames_.empty();
+        for (int i = 0; i < int(raceNames_.size()) && all; ++i)
+            all = record_.bestPlace(map, race_.kind, i, level_ == 1) == 1;
+        if (all)
+            beatenAll_ = raceMessage(race_.kind == RaceKind::Blitz ? 5 : 13, "");
+    }
+}
+
+std::string RaceViewer::raceMessage(int offset, const std::string& fallback) const {
+    // Each event's group (mmlang.dll): Blitz from 158 (Ready, Set, Go,
+    // Time's up, Game over, all beaten, You Won!), Circuit from 165
+    // (Ready, Set, Go, a penalty, finished 1st-8th, a loaf, all beaten),
+    // Checkpoint from 179 (Ready, Set, Go, Game over, finished 1st-8th, a
+    // loaf).
+    const int base = race_.kind == RaceKind::Blitz ? 158 : race_.kind == RaceKind::Circuit ? 165 : 179;
+    return strings_.get(uint32_t(base + offset), fallback);
+}
+
+void RaceViewer::drawCentred(const std::string& text, int y, Color color, int scale) {
+    const int w = int(text.size()) * font::kAdvance * scale;
+    font::drawText(overlay_, (kFrameW - w) / 2, y, text, color, scale);
 }
 
 void RaceViewer::judgeLesson(float dt, bool checkpoint, float impact) {
@@ -766,12 +812,19 @@ void RaceViewer::drawRaceHud() {
         std::snprintf(buf, sizeof buf, "POS %d/%zu", place, racers_.size());
         font::drawText(overlay_, 4, 62, buf, {255, 210, 80}, 2);
     }
-    if (clock_ < 0) {
-        const std::string count = std::to_string(int(std::ceil(-clock_)));
-        font::drawText(overlay_, kFrameW / 2 - 20, kFrameH / 2 - 40, count, {255, 255, 255}, 8);
-    } else if (clock_ < 1) {
-        font::drawText(overlay_, kFrameW / 2 - 50, kFrameH / 2 - 40, "GO!", {120, 255, 120}, 8);
+    // The countdown, as the game words it: Ready... Set... Go!
+    if (!lesson()) {
+        if (clock_ < -kCountdown / 2)
+            drawCentred(raceMessage(0, "Ready..."), kFrameH / 2 - 40, {255, 255, 255}, 5);
+        else if (clock_ < 0)
+            drawCentred(raceMessage(1, "Set..."), kFrameH / 2 - 40, {255, 230, 120}, 5);
+        else if (clock_ < 1)
+            drawCentred(raceMessage(2, "Go!"), kFrameH / 2 - 40, {120, 255, 120}, 6);
+    } else if (clock_ < 0) {
+        drawCentred(std::to_string(int(std::ceil(-clock_))), kFrameH / 2 - 40, {255, 255, 255}, 8);
     }
+    if (finalLapFor_ > 0)
+        drawCentred(strings_.get(62, "Final lap!"), kFrameH / 2 - 80, {255, 120, 90}, 4);
     if (state_ == State::Finished && lesson()) {
         font::drawText(overlay_, 60, 170, outcome_, {255, 255, 120}, 3);
         const bool passed = judge_.result() == LessonJudge::Result::Passed;
@@ -782,6 +835,8 @@ void RaceViewer::drawRaceHud() {
                        {150, 200, 255});
     } else if (state_ == State::Finished) {
         font::drawText(overlay_, 60, 120, outcome_, {255, 255, 120}, 3);
+        if (!beatenAll_.empty())
+            font::drawText(overlay_, 60, 150, beatenAll_, {120, 255, 120}, 2);
         // The order the racers finished in, those still racing after.
         std::vector<const Racer*> order;
         for (const Racer& r : racers_)
