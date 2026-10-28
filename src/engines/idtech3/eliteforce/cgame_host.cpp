@@ -181,7 +181,13 @@ std::vector<std::string> tokenize(const std::string& line) {
 } // namespace
 
 void CgameHost::newSnapshot(GameHost::Snapshot snapshot) {
-    ++snapshotNumber_;
+    // Numbered as the original's client numbers them, by the message they
+    // came in: Init's serverMessageNum is the game state's, and the client
+    // game takes only snapshots numbered after it.
+    if (snapshot.messageNum > snapshotNumber_)
+        snapshotNumber_ = snapshot.messageNum;
+    else
+        ++snapshotNumber_;
     snapshotTime_ = snapshot.serverTime;
     snapshots_[snapshotNumber_] = std::move(snapshot);
     while (snapshots_.size() > 32)

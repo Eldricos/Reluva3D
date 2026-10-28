@@ -315,6 +315,7 @@ void NetClient::parseSnapshot(wire::MessageReader& r, uint64_t now) {
     for (const auto& [number, state] : snap.entities)
         out.entities.push_back(state);
     out.serverCommandSequence = serverCommandSequence_;
+    out.messageNum = snap.message;
     out.areaMask = snap.areaMask;
     out.snapFlags = flags;
     newSnapshots_.push_back(std::move(out));

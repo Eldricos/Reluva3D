@@ -177,6 +177,10 @@ public:
         std::vector<uint8_t> playerState;
         std::vector<std::vector<uint8_t>> entities; // entity states, in entity order
         int32_t serverCommandSequence = 0;
+        // The server message it came in (from a server elsewhere or a
+        // demo), which the client game numbers it by; 0 for one of our
+        // own server's, numbered as they come.
+        int32_t messageNum = 0;
         // A bit set for each area the player's isn't joined to (behind a
         // closed door), as the original's server works it out; the client
         // game hands it to the renderer.

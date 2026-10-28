@@ -3573,8 +3573,8 @@ int cmdDemoRun(int argc, char** argv) {
                 int32_t clientNum = -1;
                 if (snap.playerState.size() >= 160)
                     std::memcpy(&clientNum, snap.playerState.data() + 156, 4);
-                std::printf("snapshot %zu: server time %d, %zu entities, player %d\n", snapshots, snap.serverTime,
-                            snap.entities.size(), clientNum);
+                std::printf("snapshot %zu: server time %d, %zu entities, player %d, flags %d\n", snapshots, snap.serverTime,
+                            snap.entities.size(), clientNum, snap.snapFlags);
             }
             if (cgame)
                 cgame->newSnapshot(std::move(snap));
@@ -3591,6 +3591,12 @@ int cmdDemoRun(int argc, char** argv) {
                 std::fprintf(stderr, "cgame DrawActiveFrame(%d): %s\n", client.serverTime(), e.message.c_str());
                 return 1;
             }
+            // Whether it drew the match (a 3D view) or only its waiting
+            // screen ("Awaiting snapshot...").
+            if (frames % 500 == 0)
+                std::printf("frame %llu at %d: %zu views, %zu pictures, %zu entities\n",
+                            static_cast<unsigned long long>(frames), client.serverTime(), cgame->scene().views.size(),
+                            cgame->pictures().size(), cgame->scene().entities.size());
         }
         if (frames > 2000000)
             break;
