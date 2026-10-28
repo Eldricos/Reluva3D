@@ -14,6 +14,7 @@
 #include "engines/nfs/game_files.h"
 #include "engines/nfs/hrz.h"
 #include "engines/nfs/host/force_effects.h"
+#include "engines/nfs/host/thrash_native.h"
 #include "engines/nfs/mad.h"
 #include "engines/nfs/mus.h"
 #include "engines/nfs/games.h"
@@ -1225,6 +1226,54 @@ void testMovie() {
     CHECK(movie.open(cut));
 }
 
+// THRASH's fog as voodoo2a.dll has Glide draw it (thrash.md, Fog).
+void testThrashFog() {
+    CHECK(glideFog(0, 5) == 0);
+    CHECK(std::fabs(glideFog(52428.8f, 5) - 1) < 1e-4f);
+    CHECK(std::fabs(glideFog(1, 5) - (1 - std::exp(-0.2f))) < 1e-4f);
+    CHECK(glideFog(100, 500) < glideFog(1000, 500));
+    CHECK(glideFog(1000, 0) == 0);
+
+    // Triangles over pixel (10, 10), black, at the w given; red fog of 5.
+    x86::Cpu cpu(1u << 21);
+    const uint32_t target = 0x10000, verts = 0x1000;
+    NativeThrash t(cpu);
+    t.setTarget(target, 640 * 2, 640, 480);
+    auto put = [&](int i, float x, float y, float w) {
+        const float f[4] = {x, y, 0.5f, 1 / w};
+        std::memcpy(cpu.memory().data() + verts + 32 * i, f, 16);
+        const uint32_t black = 0xff000000u;
+        std::memcpy(cpu.memory().data() + verts + 32 * i + 16, &black, 4);
+    };
+    auto draw = [&](float w) {
+        put(0, 0, 0, w);
+        put(1, 40, 0, w);
+        put(2, 0, 40, w);
+        t.triangle(verts, verts + 32, verts + 64);
+        uint16_t p;
+        std::memcpy(&p, cpu.memory().data() + target + 10 * 1280 + 10 * 2, 2);
+        return p;
+    };
+    t.setState(0xf, 0xffff0000u);
+    t.setState(0xe, 5);
+    CHECK(draw(50000) == 0xf800); // all fog
+    const uint16_t near = draw(1);   // 18% of it, by entry 0 of the table
+    CHECK((near >> 11) >= 4 && (near >> 11) <= 6 && (near & 0x7ff) == 0);
+    t.setState(0x15, 0);
+    CHECK(draw(50000) == 0); // off
+    t.setState(0x15, 4);
+    CHECK(draw(50000) == 0xf800); // on again, with the table it had
+    t.setState(0xe, 0);
+    CHECK(draw(50000) == 0);
+
+    // Recorded for the GPU, a batch carries its fog.
+    t.setState(0xe, 250);
+    t.setRecording(true);
+    draw(100);
+    const ThrashFrame frame = t.takeFrame();
+    CHECK(frame.batches.size() == 1 && frame.batches[0].fog == 250 && frame.batches[0].fogColour == 0xff0000);
+}
+
 } // namespace
 
 // DirectInput effects as the game would set them, in a little memory of
@@ -1354,6 +1403,7 @@ int main() {
     testMusic();
     testMovie();
     testForceEffects();
+    testThrashFog();
     stdfs::remove_all(tmp);
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);

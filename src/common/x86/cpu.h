@@ -124,6 +124,9 @@ public:
     // Reads in the first page give 0 rather than faulting, as Windows 95
     // and 98 let programs read low memory (writes still fault).
     bool readableFirstPage = false;
+    // What RDTSC reads, if set (else the instructions run so far): a host
+    // can report a processor of the speed a program expects.
+    std::function<uint64_t()> timestampCounter;
     // Called before each instruction, with its address; for tracing.
     std::function<void(Cpu& cpu)> trace;
     // Called when an instruction stores into [watchStart, watchEnd); for

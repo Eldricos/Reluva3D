@@ -182,6 +182,9 @@ void PlayPage::start() {
     options.commandLine = "nfs3.exe";
     options.saveFolder = saveFolder_.empty() ? folders_.install / "reluva-save" : saveFolder_ / "game";
     options.nativeThrash = true;
+    // Told it has a Voodoo 2, the game draws its sky and fog (it fogs only
+    // for 3dfx cards); the drawing is still Reluva's.
+    options.presentedRenderer = "voodoo2a.dll";
     options.gpuThrash = gpu_;
     options.gpuAndSoftware = gpu_ && !compareFolder_.empty();
     if (network_ && sys_)

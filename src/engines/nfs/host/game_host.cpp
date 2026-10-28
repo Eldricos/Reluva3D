@@ -65,6 +65,14 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
             return uint32_t(ms * scale);
         };
     }
+    // The time stamp counter of a 300 MHz processor, by the game's clock.
+    // The game times it to set its detail levels on a first run (by MHz:
+    // above 266 is the highest); counting instructions it found 60 MHz and
+    // turned the horizon off (docs/engines/nfs.md, Sky and fog).
+    cpu_->timestampCounter = [this, last = uint64_t(0)]() mutable {
+        last = std::max(last + 1, uint64_t(process_->now()) * 300000);
+        return last;
+    };
     process_->fileOpened = [this](const std::string& path, bool found) {
         if (options_.callLog)
             say(std::string(found ? "  file " : "  no file ") + path);
@@ -394,7 +402,11 @@ void GameHost::addSystem() {
             return it->second->base;
         if (name.find("kernel32") == std::string::npos && name.find("user32") == std::string::npos &&
             !nativeModules_.count(name)) {
-            std::ifstream in(process_->hostPath("C:\\" + name, false), std::ios::binary);
+            // Told of another renderer, the game asks for it: renderer it is.
+            const std::string dllFile = !options_.presentedRenderer.empty() && name == options_.presentedRenderer
+                                            ? options_.renderer
+                                            : name;
+            std::ifstream in(process_->hostPath("C:\\" + dllFile, false), std::ios::binary);
             if (in) {
                 const std::vector<uint8_t> file((std::istreambuf_iterator<char>(in)), {});
                 const x86::Win32Process::Module* m = nullptr;
@@ -407,7 +419,7 @@ void GameHost::addSystem() {
                     thrash_.dll = name;
                     thrashBase_ = m->base;
                     // The retail softtria.dll (June 1998), whose globals thrash.md describes.
-                    softtriaKnown_ = name == "softtria.dll" && m->image.timestamp == 0x35e4344f &&
+                    softtriaKnown_ = dllFile == "softtria.dll" && m->image.timestamp == 0x35e4344f &&
                                      m->image.imageBase == 0x60000000;
                 }
                 say("  " + name + " loaded at " + hex(m->base));
@@ -583,7 +595,7 @@ void GameHost::addSystem() {
     };
     auto registry = std::make_shared<std::map<std::string, std::map<std::string, Value>>>();
     (*registry)["software\\electronic arts\\need for speed iii"] = {
-        {"thrash driver", {1, options_.renderer}},
+        {"thrash driver", {1, options_.presentedRenderer.empty() ? options_.renderer : options_.presentedRenderer}},
         {"d3d device", {4, "", 0}},
     };
     auto keys = std::make_shared<std::map<uint32_t, std::string>>();

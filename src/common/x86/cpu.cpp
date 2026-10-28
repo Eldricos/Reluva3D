@@ -640,10 +640,12 @@ void Cpu::twoByte() {
     case 0xa1: popSegment(4); return;  // POP FS
     case 0xa8: pushSegment(5); return; // PUSH GS
     case 0xa9: popSegment(5); return;  // POP GS
-    case 0x31: // RDTSC
-        reg[EAX] = uint32_t(executed_);
-        reg[EDX] = uint32_t(executed_ >> 32);
+    case 0x31: { // RDTSC: the host's counter, or the instructions run
+        const uint64_t t = timestampCounter ? timestampCounter() : executed_;
+        reg[EAX] = uint32_t(t);
+        reg[EDX] = uint32_t(t >> 32);
         return;
+    }
     case 0xa2: { // CPUID: a Pentium with an FPU, a time stamp counter and CMPXCHG8B
         const uint32_t leaf = reg[EAX];
         if (leaf == 0) {

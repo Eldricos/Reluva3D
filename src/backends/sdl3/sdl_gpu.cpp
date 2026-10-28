@@ -34,6 +34,7 @@ struct VertexUniforms {
 };
 struct FragmentUniforms {
     float params[4];
+    float fog[4]; // rgb, and DrawCall::tableFog
     float lightCount[4];
     float lightPos[gfx::kMaxDynamicLights][4]; // xyz, radius
     float lightColor[gfx::kMaxDynamicLights][4];
@@ -711,6 +712,8 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     SDL_PushGPUVertexUniformData(cmd_, 0, &vu, sizeof(vu));
     FragmentUniforms fu{};
     fu.params[0] = float(call.state.alphaTest);
+    std::copy(call.tableFogColor.begin(), call.tableFogColor.end(), fu.fog);
+    fu.fog[3] = call.tableFog;
     if (call.texture == frameTexture_) {
         fu.params[1] = 2; // the brightness pass
         fu.params[2] = 1.0f / gamma_;

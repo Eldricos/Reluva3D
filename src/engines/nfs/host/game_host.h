@@ -36,6 +36,11 @@ public:
     struct Options {
         std::string commandLine = "nfs3.exe";
         std::string renderer = "softtria.dll"; // the THRASH DLL, as the registry names it
+        // The THRASH DLL the game is told it has, if not renderer: say a 3D
+        // card's ("voodoo2a.dll") and it draws as for that card (the sky, fog,
+        // 16-bit textures), while renderer is loaded in its place and the
+        // drawing is Reluva's (thrash.md).
+        std::string presentedRenderer;
         std::filesystem::path saveFolder; // what the game writes; the install folder stays as it is
         uint32_t memoryMb = 256;
         uint64_t instructionLimit = 0; // 0: none

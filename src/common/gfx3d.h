@@ -145,6 +145,12 @@ struct DrawCall {
     // > 0: the fragment's alpha is instead clamp(distance from the camera
     // / fogDistance), for blending a fog colour over drawn geometry.
     float fogDistance = 0;
+    // > 0: the fragment's colour is blended towards tableFogColor by a 3D
+    // card's table fog, (1 - e^(-w / tableFog)) / (1 - e^(-52428.8 /
+    // tableFog)) clamped to 0..1, w from the vertices' uv2[0] (their
+    // distance along the view), as THRASH's renderers fog.
+    float tableFog = 0;
+    std::array<float, 3> tableFogColor{};
     std::array<Deform, 2> deforms{};
     float time = 0;              // seconds, for the deforms
     bool followCamera = false;   // positions are relative to the camera (skies)

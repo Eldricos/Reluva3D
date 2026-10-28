@@ -119,8 +119,56 @@ void NativeThrash::setState(uint32_t id, uint32_t value) {
     case 0xd: wrap_ = value != 0; break;
     case 0x68: blend_ = int(value & 3); break;
     case 0xa: alphaBlend_ = value != 0; break;
+    // Fog, as voodoo2a.dll has Glide do it: 0xe builds the table from its
+    // value and turns table fog on, or (0) off; 0x15 turns it on (modes
+    // 1, 2, 4 and 8, all the same) or off (0) with the table it has.
+    case 0xe:
+        fogOn_ = value != 0;
+        if (fogOn_) {
+            fogValue_ = float(value);
+            for (int i = 0; i < 64; ++i) {
+                const float w = std::pow(2.0f, 3.0f + float(i >> 2)) / float(8 - (i & 3));
+                fogTable_[size_t(i)] = std::round(glideFog(w, fogValue_) * 255) / 255;
+            }
+        }
+        break;
+    case 0xf: fogColour_ = value & 0xffffff; break;
+    case 0x15:
+        if (value == 0)
+            fogOn_ = false;
+        else if (value == 1 || value == 2 || value == 4 || value == 8)
+            fogOn_ = fogValue_ != 0;
+        break;
     default: break;
     }
+}
+
+float glideFog(float w, float value) {
+    if (value <= 0)
+        return 0;
+    // Density 1 / value; the table's last entry is for w = 2^18 / 5, and
+    // the curve is scaled to reach 1 there.
+    const float d = 1.0f / value;
+    const float f = (1 - std::exp(-d * w)) / (1 - std::exp(-d * 52428.8f));
+    return std::clamp(f, 0.0f, 1.0f);
+}
+
+// Glide picks the entries either side of w, w's exponent giving four (at
+// 2^k times 1, 8/7, 8/6 and 8/5) and its mantissa where between, and
+// interpolates; below entry 0's w (1) it's entry 0, past the last the last.
+float NativeThrash::fogAt(float w) const {
+    if (!(w > 1))
+        return fogTable_[0];
+    int e = 0;
+    const float s = std::frexp(w, &e) * 2; // w = s * 2^(e - 1), s in [1, 2)
+    const int k = e - 1;
+    if (k >= 16)
+        return fogTable_[63];
+    static constexpr float at[5] = {1.0f, 8.0f / 7, 8.0f / 6, 8.0f / 5, 2.0f};
+    const int j = s < at[1] ? 0 : s < at[2] ? 1 : s < at[3] ? 2 : 3;
+    const int i = 4 * k + j;
+    const float lo = fogTable_[size_t(i)], hi = fogTable_[size_t(std::min(i + 1, 63))];
+    return lo + (hi - lo) * (s - at[j]) / (at[j + 1] - at[j]);
 }
 
 void NativeThrash::clip(int x0, int y0, int x1, int y1) {
@@ -292,6 +340,12 @@ void NativeThrash::rasterize(const Vertex& a, const Vertex& b, const Vertex& c) 
                     al = al * float(ta) * (1.0f / 255);
                 }
             }
+            if (draw && fogOn_) {
+                const float f = fogAt(1.0f / v[W]);
+                r += (float((fogColour_ >> 16) & 255) - r) * f;
+                g += (float((fogColour_ >> 8) & 255) - g) * f;
+                bl += (float(fogColour_ & 255) - bl) * f;
+            }
             if (draw)
                 put(p, uint32_t(std::clamp(al, 0.0f, 255.0f)) << 24 | uint32_t(std::clamp(r, 0.0f, 255.0f)) << 16 |
                            uint32_t(std::clamp(g, 0.0f, 255.0f)) << 8 | uint32_t(std::clamp(bl, 0.0f, 255.0f)));
@@ -308,6 +362,8 @@ ThrashFrame::Batch& NativeThrash::batch() {
     b.blend = alphaBlend_;
     b.blendMode = blend_;
     b.cull = cull_;
+    b.fog = fogOn_ ? fogValue_ : 0;
+    b.fogColour = fogOn_ ? fogColour_ : 0;
     b.clip[0] = std::max(clipX0_, 0);
     b.clip[1] = std::max(clipY0_, 0);
     b.clip[2] = std::min(clipX1_, frame_.width);
@@ -316,7 +372,8 @@ ThrashFrame::Batch& NativeThrash::batch() {
     if (!frame_.batches.empty()) {
         const ThrashFrame::Batch& last = frame_.batches.back();
         if (last.texture == b.texture && last.wrap == b.wrap && last.blend == b.blend &&
-            last.blendMode == b.blendMode && last.cull == b.cull && std::equal(b.clip, b.clip + 4, last.clip))
+            last.blendMode == b.blendMode && last.cull == b.cull && last.fog == b.fog &&
+            last.fogColour == b.fogColour && std::equal(b.clip, b.clip + 4, last.clip))
             return frame_.batches.back();
     }
     frame_.batches.push_back(b);
@@ -336,15 +393,18 @@ void NativeThrash::fill(int x0, int y0, int x1, int y1, uint32_t argb) {
     const Texture* texture = texture_;
     const bool blend = alphaBlend_;
     const int cull = cull_;
+    const bool fog = fogOn_;
     texture_ = nullptr;
     alphaBlend_ = false;
     cull_ = 0;
+    fogOn_ = false;
     const auto corner = [&](int x, int y) { return Vertex{float(x), float(y), 0, 1, argb | 0xff000000u, 0, 0, 0}; };
     record(corner(x0, y0), corner(x1, y0), corner(x1, y1));
     record(corner(x0, y0), corner(x1, y1), corner(x0, y1));
     texture_ = texture;
     alphaBlend_ = blend;
     cull_ = cull;
+    fogOn_ = fog;
 }
 
 ThrashFrame NativeThrash::takeFrame() {

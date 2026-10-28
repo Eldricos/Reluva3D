@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Fragment shader for gfx::Renderer3D draw calls: texture times colour,
-// with an optional alpha test; or (params.y) the light the dynamic lights
+// with an optional alpha test and table fog; or (params.y) the light the dynamic lights
 // cast on the pixel, fading linearly to nothing at each one's radius. Resource sets follow SDL_gpu.h: a fragment
 // shader's textures are set 2, its uniform buffers set 3.
 #version 450
@@ -10,6 +10,7 @@
 layout(location = 0) in vec2 inUv;
 layout(location = 1) in vec4 inColor;
 layout(location = 2) in vec3 inWorld;
+layout(location = 3) in float inFogW;
 
 layout(location = 0) out vec4 outColor;
 
@@ -18,6 +19,7 @@ layout(set = 2, binding = 0) uniform sampler2D tex;
 layout(set = 3, binding = 0) uniform Fragment {
     vec4 params; // x: alpha test (0 none, 1 > 0, 2 < 0.5, 3 >= 0.5), y: dynamic lights instead (1)
                  // or the brightness pass (2, z: 1 / gamma)
+    vec4 fog;    // rgb: table fog's colour, w: its value (0 none; DrawCall::tableFog)
     vec4 lightCount; // x
     vec4 lightPos[16]; // xyz, w: radius
     vec4 lightColor[16];
@@ -43,5 +45,10 @@ void main() {
     int test = int(params.x + 0.5);
     if ((test == 1 && c.a <= 0.0) || (test == 2 && c.a >= 0.5) || (test == 3 && c.a < 0.5))
         discard;
+    if (fog.w > 0.0) {
+        float d = 1.0 / fog.w;
+        float f = clamp((1.0 - exp(-d * inFogW)) / (1.0 - exp(-d * 52428.8)), 0.0, 1.0);
+        c.rgb = mix(c.rgb, fog.rgb, f);
+    }
     outColor = c;
 }

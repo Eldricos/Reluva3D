@@ -27,6 +27,10 @@ struct ThrashFrame {
         bool blend = false; // alpha blending on (state 0xa), as `blendMode` (state 0x68) says
         int blendMode = 0;
         int cull = 0;               // state 2
+        // Fog (states 0xe, 0xf, 0x15): what 0xe gave, 0 for none, and the
+        // colour (0x00RRGGBB). See glideFog().
+        float fog = 0;
+        uint32_t fogColour = 0;
         int clip[4] = {0, 0, 0, 0}; // x0, y0, x1, y1 (exclusive)
         uint32_t first = 0, count = 0; // vertices, three a triangle
     };
@@ -44,6 +48,11 @@ struct ThrashFrame {
     // the screen keeps what was there.
     int flip[4] = {0, 0, 640, 480};
 };
+
+// How much fog covers what's at w (a vertex's 1/rhw), 0 to 1, for the
+// value setstate(0xe) gave: the curve voodoo2a.dll builds Glide's fog
+// table from (docs/formats/nfs/thrash.md, Fog). 0 gives none.
+float glideFog(float w, float value);
 
 // THRASH's drawing done natively (docs/formats/nfs/thrash.md): the
 // triangles, quads, lines and points the game sends, rasterized in C++
@@ -123,6 +132,13 @@ private:
     bool wrap_ = true;    // state 0xd: 1 wrap, 0 clamp
     int blend_ = 0;       // state 0x68: 0 alpha, 1 additive, 2 darken, 3 multiply
     bool alphaBlend_ = false; // state 0xa
+    // Fog: on or off as the last of states 0xe and 0x15 said, with the
+    // last nonzero 0xe's table (Glide's 64 entries, of 255) and 0xf's colour.
+    bool fogOn_ = false;
+    float fogValue_ = 0;
+    std::array<float, 64> fogTable_{};
+    uint32_t fogColour_ = 0;
+    float fogAt(float w) const; // fogTable_ read as Glide reads it, 0 to 1
     bool recording_ = false;
     bool alsoRasterize_ = false;
     ThrashFrame frame_;

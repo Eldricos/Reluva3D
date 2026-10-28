@@ -78,6 +78,7 @@ const char* const kUsageLines =
     "                       [-deterministic instructionsPerMs] (a clock of instructions; the end state hashed)\n"
     "                       [-hotspots from to] (instructions counted by where they run, 16-byte blocks)\n"
     "                       [-gpulog] (THRASH recorded as for the GPU; each frame's list summed up)\n"
+    "                       [-present voodoo2a.dll] (the renderer the game is told of; -renderer's loaded)\n"
     "  reluva-tool nfs-native-check <game folder> [trials]\n"
     "  reluva-tool nfs-huff-check <game folder> [out dir]\n"
     "  reluva-tool nfs-survey <folder>... [-v]\n"
@@ -994,6 +995,8 @@ int cmdNfsHost(int argc, char** argv) {
         else if (arg == "-thrashlog" && a + 2 < argc) {
             options.thrashLogFrom = std::strtoull(argv[++a], nullptr, 0);
             options.thrashLogTo = std::strtoull(argv[++a], nullptr, 0);
+        } else if (arg == "-present" && a + 1 < argc) {
+            options.presentedRenderer = argv[++a];
         } else if (arg == "-native") {
             options.nativeThrash = true;
         } else if (arg == "-deterministic" && a + 1 < argc) {

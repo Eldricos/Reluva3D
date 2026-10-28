@@ -113,6 +113,7 @@ void ThrashGpu::draw(const std::vector<const ThrashFrame*>& frames, const Surfac
             o.pos[2] = w;
             o.uv[0] = v.u;
             o.uv[1] = v.v;
+            o.uv2[0] = v.rhw > 0 ? 1.0f / v.rhw : 0.0f; // w, for fog
             o.color[0] = uint8_t(v.diffuse >> 16);
             o.color[1] = uint8_t(v.diffuse >> 8);
             o.color[2] = uint8_t(v.diffuse);
@@ -159,6 +160,11 @@ void ThrashGpu::draw(const std::vector<const ThrashFrame*>& frames, const Surfac
             call.texture = b.texture ? texture(b.texture, b.wrap) : 0;
             call.rgbSource = gfx::ColorSource::Vertex;
             call.alphaSource = gfx::ColorSource::Vertex;
+            if (b.fog > 0) {
+                call.tableFog = b.fog;
+                call.tableFogColor = {float((b.fogColour >> 16) & 255) / 255, float((b.fogColour >> 8) & 255) / 255,
+                                      float(b.fogColour & 255) / 255};
+            }
             gfx::DrawState& s = call.state;
             s.depthTest = false;
             s.depthWrite = false;

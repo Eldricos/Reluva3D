@@ -605,6 +605,37 @@ Started. Done so far:
   168 million instructions fewer in a run into a race; the time to load
   hardly changes.
 
+- **Sky and fog.** The game drew neither: no horizon and no clouds
+  behind the scenery, and no haze in the distance. Two causes, found in
+  `nfs3.exe` and fixed in the host:
+  - **The detail levels.** On a first run (no `config.dat`) the game
+    times the processor and sets its detail levels by its speed
+    (0x472d77): above 266 MHz the highest, then 233, 200 and 166 MHz;
+    halved for a software renderer. One of them turns the horizon on
+    (0x6fbc20, 0x6fbc24). It times RDTSC against its clock, and RDTSC
+    counted instructions, so it found a 60 MHz processor and turned the
+    horizon off. RDTSC now reads as a 300 MHz processor's would by the
+    game's clock (`Cpu::timestampCounter`). The game then picks the
+    highest levels and draws its sky dome, horizon picture and clouds.
+    The levels are in the game's Options; a saved config can still have
+    the horizon off.
+  - **Fog is for 3dfx cards only.** The game sends its fog states only
+    with `voodooa.dll` or `voodoo2a.dll`; d3da and softtria get none
+    ([thrash.md](../formats/nfs/thrash.md), Fog). So the Play page tells
+    the game it has a Voodoo 2: the registry names `voodoo2a.dll`, and
+    when the game loads it, softtria is loaded in its place (it keeps
+    THRASH's books; the drawing is Reluva's). Told of a 3D card, the
+    game also uses its 16-bit texture sets rather than `_8.qfs`. Fog is
+    drawn as `voodoo2a.dll` has Glide draw it, natively and on the GPU.
+    `nfs-host -present voodoo2a.dll` does the same; without it the tool
+    runs softtria as before.
+
+  Checked with a copy of the game whose `.hrz` files give red fog
+  (density 100, then 60 on every track): the far road and scenery turn
+  red while the dashboard and HUD don't, natively and on the GPU (Play
+  page under Xvfb on software Vulkan). With the real files, Hometown
+  has its sky and clouds and a light haze in the distance.
+
 - **Joysticks.** A game controller connected when the game starts is
   offered to it as a DirectInput joystick, under the controller's own name
   (`System::readGamepad`: SDL's gamepads, or else a racing wheel). The
@@ -889,7 +920,8 @@ Still to do:
   - IPX (which could be carried over UDP), modem and serial links
     (a null-modem cable over TCP) aren't stood in for.
 - **Not planned:** d3da (see above) and the Glide renderers, which the
-  native and GPU drawing make unneeded.
+  native and GPU drawing make unneeded. The game is told it has a Voodoo
+  2 only to draw as for one (see Sky and fog).
 
 ### Phase 5A: native game (if not)
 

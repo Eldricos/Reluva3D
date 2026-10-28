@@ -10,7 +10,8 @@ THRASH is the interface between `nfs3.exe` and its renderer DLLs:
 
 - `softtria.dll` is the software renderer;
 - `d3da.dll` runs on Direct3D;
-- `3dfx.dll` runs on Glide.
+- `voodooa.dll` and `voodoo2a.dll` run on Glide (`glide2x.dll`, loaded
+  by name), for 3dfx's Voodoo cards.
 
 The game loads the one the registry names ("Thrash Driver") and finds
 its functions by name with GetProcAddress. Each export is
@@ -38,6 +39,12 @@ interoperability.
   - which bits it reads;
   - how it scales them;
   - which values it treats as transparent.
+- **Fog.** `voodoo2a.dll`'s `setstate` was disassembled, with the
+  game's code that sends the fog states and picks the fog mode. The
+  meaning of each step is Glide's, whose functions it finds by name.
+  Checked with a copy of the game whose `.hrz` files were edited to red
+  fog: the game sends the states as worked out, and the frames fog red
+  with distance (see Fog).
 - **Window buffers.** softtria draws into buffers of its own, not into
   the DirectDraw surface; `pageflip` copies them across. `lockwindow`
   returns where they are.
@@ -116,16 +123,59 @@ Direct3D:
 | 0x9 | antialiasing |
 | 0xa | alpha blending: 0 off, 2 on |
 | 0xd | texture addressing: 1 wrap, 0 clamp |
-| 0xe | stored as 1/value |
-| 0xf | fog colour |
+| 0xe | fog: 5 × (100 − density), 0 for none (see Fog) |
+| 0xf | fog colour, 0xAARRGGBB |
 | 0x13 | eight dwords, copied |
-| 0x15 | fog mode |
-| 0x16-0x18 | fog values |
+| 0x15 | fog mode: 0 off; 1, 2, 4 and 8 on (the game sends 4) |
+| 0x16-0x18 | fog values; voodoo2a ignores 0x16 and 0x17 |
 | 0x24 | alpha test, greater than 0 (the colour key) |
 | 0x68 | blend: 0 source alpha / inverse source alpha, 1 source alpha / one, 2 zero / inverse source alpha, 3 destination colour / zero |
 | 0x6a | z write |
 | 0x190-0x195 | assorted; 0x193 returns capabilities, 0x194 and 0x195 set source and destination blend from tables |
 | 0x2bd, 0x2bf, 0x2c2 | softtria's own; d3da ignores them and returns 0 |
+
+## Fog
+
+The game fogs only with a 3dfx renderer. Its set-up for each renderer
+(0x4b59c0, a jump table by renderer number) sets the fog mode it sends
+in state 0x15 (0x7a3a64): 4 for `voodooa` and `voodoo2a`, 0 for the
+rest. With 0 it never sends state 0xe or 0xf either (0x470aa0,
+0x470ad0). So d3da draws no fog, and softtria gets none to draw.
+
+What the game sends (0x470ad0): state 0xe =
+5 × (100 − density) for the track's fog density in percent (its `.hrz`
+file and fog regions, [hrz.md](hrz.md)), clamped to 5..500, or 0 for
+none. State 0xf is the fog colour.
+
+What `voodoo2a.dll` does with them (its `setstate`, disassembled):
+
+- **0xe, value v.** 0 turns fog off (`grFogMode(0)`). Otherwise it turns
+  on table fog (`grFogMode(2)`) and gives Glide a table of 64 entries
+  (`grFogTable`). Entry i is for the distance
+  w(i) = 2^(3 + i / 4) / (8 − i mod 4) (i / 4 rounded down), Glide's own
+  spacing: 1, 8/7, 8/6 and 8/5 times each power of 2, up to w(63) =
+  52428.8. The entry is
+
+  f(w) = (1 − e^(−w / v)) / (1 − e^(−w(63) / v)),
+
+  clamped to 0..1, times 255 and rounded.
+- **0x15, mode m.** 0 turns fog off; 1, 2, 4 and 8 turn table fog on
+  with the table it has.
+- **0xf.** The colour, to `grFogColorValue`.
+
+Glide fogs each pixel by its w, from the vertex's 1/w (rhw), reading the
+table between the two entries either side. It mixes the pixel's colour
+towards the fog colour by the entry over 255, before blending.
+
+Reluva draws the same from the same states, with any renderer DLL
+loaded:
+- **Natively** (`NativeThrash`): the same 64 entries, read as Glide
+  reads them, for each pixel's w.
+- **On the GPU**: the curve f(w) itself, worked out in the fragment
+  shader for each pixel's w (`DrawCall::tableFog`).
+
+Clears aren't fogged. Each batch on the GPU carries the fog it was
+drawn with.
 
 ## Windows and frames
 
@@ -198,7 +248,7 @@ records each frame's drawing as a list, and the page draws the lists.
   flat shading is the first vertex's colour on all three. Quads are two
   triangles. Lines are quads a pixel wide, and points one-pixel squares.
 - **Batches.** A new batch starts when the texture, wrapping, blending,
-  culling or clip rectangle changes. Clears are filled rectangles in the
+  culling, fog or clip rectangle changes. Clears are filled rectangles in the
   list, in their place.
 - **Textures.** Those made or changed since the last frame go with the
   list, decoded to RGBA as for the software rasterizer.
