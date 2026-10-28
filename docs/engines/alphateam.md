@@ -840,7 +840,7 @@ reads, the vftables it builds for its own subclasses):
         view 7 (two more, Go at 3480), ours keeps to the walkway base
         and never turns to the skull-side base. The pre-Go camera does
         steer the rest. It still cuts to the door when it opens, and
-        then to `REWARD_CAM`. With every view, Dash still wins.
+        then to `REWARD_CAM`. The mission is won with each of these views.
       - From 72 to 75 s the original's view changes about every half
         second and stays close to Dash. That is quicker than the 1.4 s
         any base is held, so either the player was moving the camera
