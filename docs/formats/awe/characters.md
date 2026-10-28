@@ -396,4 +396,6 @@ Settled since:
     instead. The two differ only when an ease-out begins before the
     ease-in has finished.
 
-To check: the shadows.
+- **The shadows.** Checked against a recording of the game: the
+  darkening, and the shadow's direction and length, as Reluva draws
+  them (see [shadows.md](shadows.md)).

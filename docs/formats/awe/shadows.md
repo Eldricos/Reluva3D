@@ -19,6 +19,19 @@ Reluva work with the game:
   particles' draw, which has none (`0x42d470`);
 - the player white-out (`0x402e20`).
 
+It was then checked against a recording of the game with 3D Shadows on:
+Antoinette walking about Sirkeci market 02. The shadow was found by
+dividing each frame by the median of the clip's frames: its pixels are
+those darkened by the same factor in all three colours.
+
+- **The darkening:** 0.755 to 0.761 in every frame (192/255 is 0.753;
+  the video's compression adds a little). Reluva's measures 0.757.
+- **The shape:** from the feet away from the light, toward the lower
+  right of the screen. Reluva's, with Antoinette moved to where she
+  stood in the recording (her position in a copy of the scene's file),
+  falls the same way and is as long, about 130 pixels across where the
+  game's is about 125. The outlines differ only with her pose.
+
 ## What casts a shadow
 
 Every mesh of a character that has a material (its textured meshes, not
