@@ -997,6 +997,15 @@ void ScenePage::loadCharacters() {
         std::string who = file.substr(folder.size() + 1);
         who = who.substr(0, who.find("_model"));
         c.x = o->f("x"), c.y = o->f("y"), c.z = o->f("z"), c.rotY = o->f("rotY");
+        c.rotX = o->f("rotX"), c.rotZ = o->f("rotZ");
+        // Its scale (1 unset); -1 down or across is the first's (0x410389).
+        auto scaled = [&](const char* name, float otherwise) {
+            const float v = o->field(name) ? o->f(name) : otherwise;
+            return v == -1 ? c.scale[0] : v;
+        };
+        c.scale[0] = o->field("spriteScaleX") ? o->f("spriteScaleX") : 1;
+        c.scale[1] = scaled("spriteScaleY", 1);
+        c.scale[2] = scaled("spriteScaleZ", 1);
         c.player = o->tag == "PCXX";
         c.who = fs::toLower(who);
         c.record = o;
@@ -2134,7 +2143,7 @@ void ScenePage::follow(Character& f) {
 }
 
 void ScenePage::placeCharacter(Character& c) const {
-    c.placement = characterMatrix(c.x, c.y, c.z, c.rotY);
+    c.placement = characterMatrix(c.x, c.y, c.z, c.rotX, c.rotY, c.rotZ, c.scale);
     const Animator::Slot* s = c.actor ? c.actor->animator().base() : nullptr;
     if (!s || s->animation->duration <= 0 ||
         !(s->name.find("walk") != std::string::npos || s->name.find("run") != std::string::npos ||

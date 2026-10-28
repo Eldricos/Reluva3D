@@ -177,6 +177,15 @@ std::vector<std::string> ScenePage::bagItems() {
     return out;
 }
 
+int ScenePage::examinedAt(const std::vector<std::string>& items) const {
+    // The examined item's place among them: the game keeps the item itself
+    // and steps to the one before or after it (0x41b920), so of several of
+    // a name (the water glasses) each is reached in turn.
+    if (ui_.examinedAt >= 0 && ui_.examinedAt < int(items.size()) && items[size_t(ui_.examinedAt)] == ui_.examined)
+        return ui_.examinedAt;
+    return int(std::find(items.begin(), items.end(), ui_.examined) - items.begin());
+}
+
 std::string ScenePage::itemInSlot(int slot) {
     // The item in the bag (or just taken) in that slot (0x41b790).
     for (const GameState::Item& i : state_.items)
@@ -602,8 +611,9 @@ bool ScenePage::interfaceEvent(const Event& ev) {
             else if (ui_.page == 1) {
                 const std::vector<std::string> items = bagItems();
                 const int i = nearest(int(items.size()));
-                if (i < int(items.size()) && items[size_t(i)] != ui_.examined) {
+                if (i < int(items.size()) && i != examinedAt(items)) {
                     ui_.examined = items[size_t(i)];
+                    ui_.examinedAt = i;
                     ui_.back = false;
                     if (!state_.held.empty())
                         holdItem(ui_.examined);
@@ -847,11 +857,12 @@ bool ScenePage::pageClick(int x, int y) {
     case 1: {
         // Examine (0x41a860).
         const std::vector<std::string> items = bagItems();
-        int at = int(std::find(items.begin(), items.end(), ui_.examined) - items.begin());
+        int at = examinedAt(items);
         if (at < int(items.size()) && blipClick(x, y, 1, int(items.size()), at)) {
             if (ui_.dragging)
                 return true;
             ui_.examined = items[size_t(at)];
+            ui_.examinedAt = at;
             ui_.back = false;
             if (!state_.held.empty())
                 holdItem(ui_.examined);
@@ -1152,7 +1163,7 @@ void ScenePage::drawPage(int page, int alpha) {
         if (ui_.examined.empty())
             break;
         const std::vector<std::string> items = bagItems();
-        const int at = int(std::find(items.begin(), items.end(), ui_.examined) - items.begin());
+        const int at = examinedAt(items);
         drawBlip(1, int(items.size()), at, alpha);
         std::string pic = itemPicture(ui_.examined, ui_.back ? "ex2" : "exa");
         if (pic.empty())
@@ -1503,6 +1514,269 @@ int ScenePage::drawScrapbook(int alpha, bool drawIt, int clickX, int clickY, std
     if (clicked)
         *clicked = done;
     return pages;
+}
+
+// --- A player's hand ---------------------------------------------------------------
+// The inputs a player makes, one at a time, each decided from the screen as
+// it is (the window's fades and the bar's let the next wait). The places
+// are the ones the clicks above test.
+
+ScenePage::HandInput ScenePage::handStep(HandGoal& goal) {
+    using In = HandInput;
+    auto click = [](int x, int y) { return In{In::Kind::Click, x, y, 0}; };
+    auto rightClick = [](int x, int y) { return In{In::Kind::RightClick, x, y, 0}; };
+    auto none = [] { return In{}; };
+    if (goal.done || goal.failed || !canAct())
+        return none();
+    const int wx = (kScreenW - picture("inventory/interface/windowblank.png").w) / 2;
+    const bool windowSettled = ui_.open && ui_.fade == 0 && ui_.alpha >= 255;
+    if (ui_.fade != 0)
+        return none(); // the window fading in or out
+    auto tab = [&](int i) { return click(wx + 544, kTop + 43 + 78 * i + 30); };
+    auto arrowOn = [&](int row) { return click(wx + (kArrowOn[0] + kArrowOn[2]) / 2, kTop + (row == 2 ? 449 : 0) + (kArrowOn[1] + kArrowOn[3]) / 2); };
+    // The window open, with nothing in hand (a right-click: an item in hand
+    // is put back first, 0x416450).
+    auto openWindow = [&]() -> In {
+        if (!state_.held.empty() && !ui_.open)
+            return rightClick(lastMouseX_, lastMouseY_);
+        return rightClick(lastMouseX_, lastMouseY_);
+    };
+    // An item taken up from the items page: its page turned to, its box
+    // clicked.
+    auto takeUpFromPage = [&](const std::string& item) -> In {
+        if (ui_.page != 0)
+            return tab(0);
+        int slot = -1;
+        for (const GameState::Item& i : state_.items)
+            if (i.name == item && (i.state == 1 || i.state == 2)) {
+                slot = i.slot;
+                break;
+            }
+        if (slot < 0) {
+            goal.failed = true;
+            return none();
+        }
+        if (state_.itemPage != slot / 16)
+            return arrowOn(1);
+        const int box = slot % 16;
+        return click(wx + 38 + 112 * (box % 4) + 48, kTop + 54 + 112 * (box / 4) + 48);
+    };
+    switch (goal.kind) {
+    case HandGoal::Kind::Click: {
+        // Nothing in hand and the window away, then the click where the
+        // game's pick finds it.
+        if (ui_.open || !state_.held.empty())
+            return rightClick(lastMouseX_, lastMouseY_);
+        int x, y;
+        if (!pointFor(goal.target, x, y)) {
+            goal.failed = true;
+            return none();
+        }
+        goal.done = true;
+        return click(x, y);
+    }
+    case HandGoal::Kind::Use: {
+        const std::string& item = goal.items.at(0);
+        if (state_.held != item) {
+            if (!ui_.open)
+                return openWindow();
+            if (!windowSettled)
+                return none();
+            if (!state_.held.empty())
+                return takeUpFromPage(state_.held); // put back in its own box
+            return takeUpFromPage(item);
+        }
+        if (ui_.open)
+            return rightClick(lastMouseX_, lastMouseY_); // put away, the item kept in hand
+        int x, y;
+        if (!pointFor(goal.target, x, y, item)) {
+            goal.failed = true;
+            return none();
+        }
+        goal.done = true;
+        return click(x, y);
+    }
+    case HandGoal::Kind::Travel: {
+        if (ui_.open || !state_.held.empty())
+            return rightClick(lastMouseX_, lastMouseY_);
+        const int x = (kBarEnds[goal.car - 1] + kBarEnds[goal.car]) / 2;
+        if (!ui_.barShown || ui_.barAlpha < 255)
+            return lastMouseY_ < 5 ? none() : In{In::Kind::Move, x, 2, 0}; // the bar comes down
+        // A point on the bar's picture there (its clicks need one).
+        const image::Image& bar = picture("interface/topmenubar01.png");
+        for (int y = 30; y < bar.h; y++)
+            if (bar.pixel(x, y)[3] != 0) {
+                goal.done = true;
+                return click(x, y);
+            }
+        goal.failed = true;
+        return none();
+    }
+    case HandGoal::Kind::Combine: {
+        if (!ui_.open)
+            return openWindow();
+        if (!windowSettled)
+            return none();
+        // The parts in the four boxes, in any of them; anything else there,
+        // and the last result's box, emptied by their Xs (the gears won't
+        // turn with the result's box full: 0x418af0).
+        std::vector<std::string> missing = goal.items;
+        int stray = -1, empty = -1;
+        for (int i = 0; i < 4; i++) {
+            const auto it = std::find(missing.begin(), missing.end(), ui_.boxes[i]);
+            if (ui_.boxes[i].empty())
+                empty = empty < 0 ? i : empty;
+            else if (it != missing.end())
+                missing.erase(it);
+            else if (stray < 0)
+                stray = i;
+        }
+        auto xOf = [&](int i) {
+            return i < 4 ? click(wx + 151 - 10, kTop + 56 + 112 * i + 10) : click(wx + 454 - 10, kTop + 224 + 10);
+        };
+        if (stray >= 0 || !ui_.boxes[4].empty()) {
+            if (ui_.page != 2)
+                return state_.held.empty() ? tab(2) : takeUpFromPage(state_.held);
+            return xOf(stray >= 0 ? stray : 4);
+        }
+        if (!missing.empty()) {
+            const std::string& want = missing.front();
+            if (state_.held != want) {
+                if (!state_.held.empty())
+                    return ui_.page == 0 ? takeUpFromPage(state_.held) : tab(0); // put back in its box
+                return takeUpFromPage(want);
+            }
+            if (ui_.page != 2)
+                return tab(2);
+            if (empty < 0) {
+                goal.failed = true;
+                return none();
+            }
+            return click(wx + (56 + 151) / 2, kTop + 56 + 112 * empty + 47);
+        }
+        if (!state_.held.empty())
+            return ui_.page == 0 ? takeUpFromPage(state_.held) : tab(0);
+        if (ui_.page != 2)
+            return tab(2);
+        goal.done = true;
+        return click(wx + 256, kTop + 271); // the gears
+    }
+    case HandGoal::Kind::Flip: {
+        const std::string& item = goal.items.at(0);
+        if (!state_.held.empty() && !ui_.open)
+            return rightClick(lastMouseX_, lastMouseY_);
+        if (!ui_.open)
+            return openWindow();
+        if (!windowSettled)
+            return none();
+        if (ui_.page != 1)
+            return tab(1);
+        if (ui_.examined != item) {
+            const std::vector<std::string> items = bagItems();
+            if (std::find(items.begin(), items.end(), item) == items.end()) {
+                goal.failed = true;
+                return none();
+            }
+            return arrowOn(1);
+        }
+        if (ui_.back) {
+            goal.done = true; // already turned over
+            return none();
+        }
+        goal.done = true;
+        return click(wx + 256, kTop + 443); // the eye
+    }
+    case HandGoal::Kind::Compare: {
+        if (!ui_.open)
+            return openWindow();
+        if (!windowSettled)
+            return none();
+        if (ui_.page != 5)
+            return tab(5);
+        std::vector<std::string> rows[2];
+        for (const GameState::Item& i : state_.items)
+            if (i.state == 6)
+                rows[printRow(i.name)].push_back(i.name);
+        for (int r = 0; r < 2; r++) {
+            const auto at = std::find(rows[r].begin(), rows[r].end(), goal.items.at(size_t(r)));
+            if (at == rows[r].end()) {
+                goal.failed = true;
+                return none();
+            }
+            if (ui_.printAt[r] != int(at - rows[r].begin()))
+                return arrowOn(r + 1);
+        }
+        goal.done = true;
+        return click(wx + 254, kTop + 258); // the magnifier
+    }
+    }
+    return none();
+}
+
+std::string ScenePage::handState() const {
+    std::string boxes;
+    for (const std::string& b : ui_.boxes)
+        boxes += (boxes.empty() ? "" : ",") + b;
+    std::string items;
+    for (const GameState::Item& i : state_.items)
+        if (i.state == 1 || i.state == 2 || i.state == 3)
+            items += (items.empty() ? "" : " ") + i.name + ":" + std::to_string(i.state) + "@" + std::to_string(i.slot);
+    return std::string("window ") + (ui_.open ? "open" : "shut") + " page " + std::to_string(ui_.page) + " fade " +
+           std::to_string(ui_.fade) + " itempage " + std::to_string(state_.itemPage) + " held [" + state_.held +
+           "] examined [" + ui_.examined + "] boxes [" + boxes + "] canact " + (canAct() ? "1" : "0") +
+           " bag {" + items + "}";
+}
+
+ScenePage::HandInput ScenePage::handWhileRunning() {
+    using In = HandInput;
+    auto drawNow = [&] {
+        // The places a click needs (the box's rows) are worked out as it's
+        // drawn.
+        const bool was = std::exchange(drawing_, true);
+        draw();
+        drawing_ = was;
+    };
+    if (movie_)
+        return movieName_.find("legal") == std::string::npos ? In{In::Kind::Key, 0, 0, key::Escape} : In{};
+    if (yesNo_) {
+        if (yesNo_->rows.empty())
+            drawNow();
+        if (yesNo_->rows.empty())
+            return In{};
+        return In{In::Kind::Click, 512, yesNo_->rows[0].first + yesNo_->rows[0].second / 2, 0};
+    }
+    if (!dialogue_->active() || !dialogue_->ready())
+        return In{};
+    if (dialogue_->choosing()) {
+        // The pick as autoplay's, then its row clicked.
+        const int n = int(dialogue_->choices().size());
+        int pick = -1;
+        if (chooser) {
+            std::vector<std::string> texts;
+            for (const DialogueManager::Choice& c : dialogue_->choices())
+                texts.push_back(c.text);
+            pick = chooser(texts);
+            if (pick >= n)
+                pick = -1;
+        }
+        const bool picked = pick >= 0;
+        for (int i = 0; i < n && !picked; i++)
+            if (pick < 0 || autoChoices_[dialogue_->choices()[size_t(i)].text] <
+                                autoChoices_[dialogue_->choices()[size_t(pick)].text])
+                pick = i;
+        if (pick < 0)
+            return In{};
+        drawNow();
+        for (const DialogueManager::ChoiceArea& a : dialogue_->choiceAreas())
+            if (a.choice == pick && !a.picture) {
+                autoChoices_[dialogue_->choices()[size_t(pick)].text]++;
+                return In{In::Kind::Click, 200, a.y + a.h / 2, 0};
+            }
+        return In{};
+    }
+    if (cutLines && dialogue_->lineSkippable())
+        return In{In::Kind::Click, 512, 700, 0};
+    return In{};
 }
 
 } // namespace reluva::awe

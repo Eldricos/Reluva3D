@@ -171,6 +171,8 @@ public:
     // Whether a choice or a click would be taken now (no box sliding, no
     // Prevent or pause under way).
     bool ready() const { return slide_ == 0 && !waitPrevent_ && !pending_ && pause_ < 0; }
+    // Whether a click now would end the line being said (click()).
+    bool lineSkippable() const;
 
     // A tag every "met them here" tag of the scene is set to when it's
     // left (0x43aee0).
@@ -206,6 +208,7 @@ public:
         bool picture = false;
     };
     void setChoiceAreas(std::vector<ChoiceArea> areas) { choiceAreas_ = std::move(areas); }
+    const std::vector<ChoiceArea>& choiceAreas() const { return choiceAreas_; }
 
     // For a log.
     std::function<void(const std::string& line)> onLog;

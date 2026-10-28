@@ -157,6 +157,8 @@ public:
     }
 
     ScenePage& page() { return *page_; }
+    // The game's clock, in milliseconds since it started.
+    uint64_t gameMs() const { return sys_.now; }
 
     // -shot <n>c<k>: before the k-th choice of action n is taken, a shot
     // of the box.
@@ -219,7 +221,10 @@ public:
         size_t lastLog = log_.size();
         while (sys_.now - start < uint64_t(limit_ * 1000)) {
             step();
-            page_->autoplay();
+            if (hand)
+                deliver(page_->handWhileRunning());
+            else
+                page_->autoplay();
             const ScenePage::GameStatus st = page_->status();
             if (st.idle)
                 unlocked_ = false;
@@ -234,7 +239,11 @@ public:
                     const std::string id = names[i] + "#" + std::to_string(seen[names[i]]++);
                     if (id == then_) {
                         then_.clear();
-                        page_->click(i);
+                        int x, y;
+                        if (hand && page_->pointFor(i, x, y))
+                            deliver({ScenePage::HandInput::Kind::Click, x, y, 0});
+                        else
+                            page_->click(i);
                         break;
                     }
                     inBetween.insert(st.scene + "|" + id);
@@ -358,6 +367,8 @@ public:
         } else if (a.kind == "start") {
             p.startAt(a.target);
             credits_ = false;
+        } else if (hand && handDoes(a, ok)) {
+            // Done by the mouse and keys alone (ok: whether it could be).
         } else if (a.kind == "click" || a.kind == "use") {
             const std::vector<std::string> names = p.clickables();
             int index = -1;
@@ -500,6 +511,89 @@ private:
         return pick;
     }
 
+    // -hand: every action and every choice by the mouse and keys, as a
+    // player makes them (ScenePage::handStep), the inputs made through the
+    // page's own event handling.
+public:
+    bool hand = false;
+    size_t handInputs = 0;
+    std::vector<std::string> handMissed; // done the tools' way: no way to by the mouse
+
+private:
+    void deliver(const ScenePage::HandInput& in) {
+        using K = ScenePage::HandInput::Kind;
+        if (in.kind == K::None)
+            return;
+        handInputs++;
+        Event ev;
+        ev.mouseX = in.x, ev.mouseY = in.y;
+        if (in.kind == K::Key) {
+            ev.type = EventType::KeyDown, ev.key = in.key;
+            page_->handleEvent(ev);
+            ev.type = EventType::KeyUp;
+            page_->handleEvent(ev);
+            return;
+        }
+        ev.type = EventType::MouseMove;
+        page_->handleEvent(ev);
+        if (in.kind == K::Move)
+            return;
+        ev.button = in.kind == K::RightClick ? MouseButton::Right : MouseButton::Left;
+        ev.clicks = 1;
+        ev.type = EventType::MouseDown;
+        page_->handleEvent(ev);
+        ev.type = EventType::MouseUp;
+        page_->handleEvent(ev);
+    }
+
+    // An action as a goal for the hand, its inputs made a game frame
+    // apart till it's done. False if it isn't one the hand does, or the
+    // hand can't do it from here (then done the tools' way, and listed).
+    bool handDoes(const Action& a, bool& ok) {
+        ScenePage& p = *page_;
+        ScenePage::HandGoal g;
+        if (a.kind == "click" || a.kind == "use") {
+            const std::vector<std::string> names = p.clickables();
+            int index = -1;
+            for (int i = 0, k = 0; i < int(names.size()); i++)
+                if (names[size_t(i)] == a.target && k++ == a.n) {
+                    index = i;
+                    break;
+                }
+            if (index < 0)
+                return false;
+            g.kind = a.kind == "use" ? ScenePage::HandGoal::Kind::Use : ScenePage::HandGoal::Kind::Click;
+            g.target = size_t(index);
+            if (a.kind == "use")
+                g.items = {a.item};
+        } else if (a.kind == "travel") {
+            g.kind = ScenePage::HandGoal::Kind::Travel;
+            g.car = std::atoi(a.target.c_str());
+        } else if (a.kind == "combine") {
+            g.kind = ScenePage::HandGoal::Kind::Combine;
+            g.items = split(a.item, '+');
+        } else if (a.kind == "flip") {
+            g.kind = ScenePage::HandGoal::Kind::Flip;
+            g.items = {a.item};
+        } else if (a.kind == "compare") {
+            g.kind = ScenePage::HandGoal::Kind::Compare;
+            g.items = split(a.item, '+');
+        } else {
+            return false;
+        }
+        for (int frames = 0; frames < 750 && !g.done && !g.failed; frames++) {
+            deliver(p.handStep(g));
+            step();
+            deliver(p.handWhileRunning()); // a talk it started, say
+        }
+        if (g.done) {
+            ok = true;
+            return true;
+        }
+        handMissed.push_back(toLine(a) + " (" + p.status().scene + "; " + p.handState() + ")");
+        return false;
+    }
+
     // 40 ms of the game: its clock, the page, and the mixer's sounds (kept
     // for -wav).
     void step() {
@@ -611,9 +705,17 @@ void writePlaythrough(const std::string& file, const std::vector<Action>& path) 
 // Plays a playthrough from its start; false if an action can't be done
 // or the game sticks. `print` shows where each action leaves the game.
 bool replay(Player& player, std::vector<Action>& path, bool print, size_t& done, size_t logFrom = SIZE_MAX,
-            const std::map<size_t, std::string>& shots = {}) {
+            const std::map<size_t, std::string>& shots = {}, const std::string& shotsDir = {}) {
     done = 0;
     for (Action& a : path) {
+        if (!shotsDir.empty()) {
+            // -shots: the screen before every action, named by its number
+            // and scene.
+            char name[32];
+            std::snprintf(name, sizeof name, "%04zu_", done + 1);
+            if (!player.shot(shotsDir + "/" + name + player.page().status().scene + ".tga"))
+                std::printf("  no shot before %zu\n", done + 1);
+        }
         if (const auto s = shots.find(done + 1); s != shots.end())
             std::printf("  shot before %zu: %s %s\n", done + 1, s->second.c_str(),
                         player.shot(s->second) ? "saved" : "not saved");
@@ -651,7 +753,7 @@ int aweCommandSolve(int argc, char** argv) {
     // reluva-tool awe-acts <game> -solve <out> [-from <file>] [-budget n] [-level n] [-noclimb]
     //     [-goal text] [-t s] [-v]
     // reluva-tool awe-acts <game> -play <file> [-list] [-reload] [-log n] [-mouse] [-3d | -characters] [-sound] [-wav file]
-    //     [-shot n|<n>c<k> out.tga]... [-v]
+    //     [-shot n|<n>c<k> out.tga]... [-shots dir] [-v]
     DirectoryArchive files;
     if (Error e = files.open(argv[2])) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
@@ -661,10 +763,11 @@ int aweCommandSolve(int argc, char** argv) {
     int budget = 1000000, levelBudget = 5000;
     bool climb = true;
     double limit = 900;
-    bool verbose = false, list = false, reload = false, mouse = false, threeD = false, characters = false;
+    bool verbose = false, list = false, reload = false, mouse = false, hand = false, threeD = false, characters = false;
     bool sound = false;
     std::string wavFile;
     std::map<size_t, std::string> shots;
+    std::string shotsDir; // -shots: a frame before every action
     std::map<std::pair<size_t, size_t>, std::string> choiceShots; // -shot: before which action or choice, to which file
     size_t logFrom = SIZE_MAX; // -log n: the script log from the n-th action on
     for (int i = 3; i < argc; i++) {
@@ -695,6 +798,8 @@ int aweCommandSolve(int argc, char** argv) {
             reload = true;
         else if (a == "-mouse")
             mouse = true;
+        else if (a == "-hand")
+            mouse = hand = true;
         else if (a == "-3d")
             threeD = true;
         else if (a == "-characters")
@@ -703,6 +808,8 @@ int aweCommandSolve(int argc, char** argv) {
             sound = true;
         else if (a == "-wav" && i + 1 < argc)
             sound = true, wavFile = argv[++i];
+        else if (a == "-shots" && i + 1 < argc)
+            shotsDir = argv[++i];
         else if (a == "-shot" && i + 2 < argc && std::strchr(argv[i + 1], 'c'))
             choiceShots[{size_t(std::atoi(argv[i + 1])), size_t(std::atoi(std::strchr(argv[i + 1], 'c') + 1))}] =
                 argv[i + 2],
@@ -727,6 +834,7 @@ int aweCommandSolve(int argc, char** argv) {
     Player player(files, limit, window.get(), characters, sound);
     player.recording = !wavFile.empty();
     player.mouse = mouse;
+    player.hand = hand;
     player.choiceShots = choiceShots;
 
     if (!playFile.empty()) {
@@ -736,7 +844,7 @@ int aweCommandSolve(int argc, char** argv) {
             return 1;
         }
         size_t done = 0;
-        const bool ok = replay(player, path, true, done, logFrom, shots);
+        const bool ok = replay(player, path, true, done, logFrom, shots, shotsDir);
         if (!wavFile.empty()) {
             // 16-bit stereo PCM.
             std::ofstream out(wavFile, std::ios::binary);
@@ -748,8 +856,15 @@ int aweCommandSolve(int argc, char** argv) {
             out.write(reinterpret_cast<const char*>(player.mixed.data()), std::streamsize(bytes));
         }
         const ScenePage::GameStatus st = player.page().status();
-        std::printf("%zu of %zu actions; act %s, scene %s; %s\n", done, path.size(), st.act.c_str(), st.scene.c_str(),
-                    player.credits() ? "the credits were reached" : "no credits");
+        std::printf("%zu of %zu actions; act %s, scene %s; %s; %.1f minutes of game time\n", done, path.size(),
+                    st.act.c_str(), st.scene.c_str(), player.credits() ? "the credits were reached" : "no credits",
+                    player.gameMs() / 60000.0);
+        if (hand) {
+            std::printf("%zu inputs by the hand; %zu actions it couldn't do:\n", player.handInputs,
+                        player.handMissed.size());
+            for (const std::string& m : player.handMissed)
+                std::printf("  %s\n", m.c_str());
+        }
         if (mouse) {
             std::printf("%zu clicks and uses by the mouse; %zu with no point the game's pick finds them at:\n",
                         player.clicked, player.missed.size());

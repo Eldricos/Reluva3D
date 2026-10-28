@@ -36,6 +36,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 // Data viewers used by the AWE engine until the game itself runs. Each is
@@ -168,8 +169,14 @@ public:
     // Whether autoplay cuts each line short (a tool in a hurry), or lets it
     // play out, its voice too.
     bool cutLines = true;
-    // Nothing drawn (a tool that only follows the scripts).
-    void setDrawing(bool on) { drawing_ = on; }
+    // Nothing drawn (a tool that only follows the scripts). Drawing again,
+    // the page is drawn at once, as it is now (the scene may have changed
+    // meanwhile).
+    void setDrawing(bool on) {
+        const bool was = std::exchange(drawing_, on);
+        if (on && !was)
+            draw();
+    }
     struct GameStatus {
         std::string scene, act, event;
         bool idle = true, talking = false, movie = false, loading = false, puzzle = false, fading = false;
@@ -245,6 +252,35 @@ public:
     bool puzzleSolved() const;
     bool puzzleStep();
 
+    // A player's hand (scene_interface.cpp): what the mouse or a key does
+    // next towards a goal, decided from what's on the screen now. An item
+    // is taken up from the inventory window's page and the window put
+    // away before it's used; a car is gone to by the bar, shown by the
+    // mouse at the top; combining puts the parts in the combine page's
+    // boxes and turns the gears; and so on. So a route can be played by
+    // the mouse and keys alone (awe-acts -hand, Reluva's --autoplay).
+    struct HandGoal {
+        enum class Kind { Click, Use, Travel, Combine, Flip, Compare } kind = Kind::Click;
+        size_t target = 0;              // Click, Use: the clickable
+        std::vector<std::string> items; // Use, Flip: the item; Combine: the parts; Compare: person, thing
+        int car = 0;                    // Travel
+        bool done = false;              // the last input made
+        bool failed = false;            // no way to do it from here
+    };
+    struct HandInput {
+        enum class Kind { None, Move, Click, RightClick, Key } kind = Kind::None;
+        int x = 0, y = 0;
+        uint32_t key = 0;
+    };
+    HandInput handStep(HandGoal& goal);
+    // The window and hand as words (for a tool's report).
+    std::string handState() const;
+    // What the game asks of a player while it runs: a movie skipped
+    // (Escape), the yes/no box's Yes, the choice `chooser` picks (else the
+    // one taken least) clicked in the box, and, when cutLines, each line
+    // clicked through once a click ends it.
+    HandInput handWhileRunning();
+
 private:
     // A character placed in the scene, animated as the game animates
     // them (Actor).
@@ -265,6 +301,8 @@ private:
         // Where it stands and faces; while walking, the points still to
         // reach (world x, z).
         float x = 0, y = 0, z = 0, rotY = 0;
+        // Its pitch, roll and scale (0x425e60): the dead lying, the taller.
+        float rotX = 0, rotZ = 0, scale[3] = {1, 1, 1};
         float home = 0; // its heading when placed, in degrees ("rotate home")
         bool player = false;
         std::string who;                  // "antoinette": the model's folder
@@ -543,6 +581,7 @@ private:
         std::string hovered;        // the item under the mouse
         // Examine: the item, its back shown.
         std::string examined;
+        int examinedAt = -1; // its place in the bag's list (bagItems)
         bool back = false;
         // Combine: the four boxes and the result's, the message.
         std::string boxes[5];
@@ -569,6 +608,7 @@ private:
         std::string cardVerb;
     } ui_;
     bool interfaceOn() const;
+    int examinedAt(const std::vector<std::string>& items) const;
     bool canAct() const;
     bool interfaceEvent(const Event& ev);
     bool interfaceUpdate(float dt);

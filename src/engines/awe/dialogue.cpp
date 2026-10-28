@@ -921,6 +921,10 @@ void DialogueManager::click(int x, int y) {
         lineEnd();
 }
 
+bool DialogueManager::lineSkippable() const {
+    return ready() && !choosing_ && playing_ && lineTime_ >= kSkipAfter;
+}
+
 bool DialogueManager::choose(int i) {
     if (!ready())
         return false;

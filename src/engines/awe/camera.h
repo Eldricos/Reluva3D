@@ -50,5 +50,10 @@ struct SceneCamera {
 // units), from 3D Studio MAX's (up +Z, back -Y): (x, y, z) -> (x, z, -y).
 // Then a character stands at its position, turned by rotY about Y.
 gfx::Mat4 characterMatrix(float x, float y, float z, float rotY);
+// The same with the object's pitch (rotX), roll (rotZ) and scale, as the
+// game places a model (0x425e60): the basis conversion, then
+// D3DXMatrixTransformation's scaling, the rotation (yaw rotY, pitch rotX,
+// roll rotZ) and the position.
+gfx::Mat4 characterMatrix(float x, float y, float z, float rotX, float rotY, float rotZ, const float scale[3]);
 
 } // namespace reluva::awe

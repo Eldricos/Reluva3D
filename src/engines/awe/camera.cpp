@@ -113,12 +113,22 @@ bool SceneCamera::project(const float world[3], int width, int height, float& x,
 }
 
 Mat4 characterMatrix(float x, float y, float z, float rotY) {
+    const float one[3] = {1, 1, 1};
+    return characterMatrix(x, y, z, 0, rotY, 0, one);
+}
+
+Mat4 characterMatrix(float x, float y, float z, float rotX, float rotY, float rotZ, const float scale[3]) {
     Mat4 basis{};
     basis[0] = 1;  // MAX x -> x
     basis[6] = -1; // MAX y -> -z
     basis[9] = 1;  // MAX z -> y
     basis[15] = 1;
-    return gfx::multiply(gfx::multiply(translation(x, y, z), rotationY(rotY)), basis);
+    Mat4 s = gfx::identity();
+    s[0] = scale[0], s[5] = scale[1], s[10] = scale[2];
+    // D3DX's yaw-pitch-roll, roll first: Rz, then Rx, then Ry (row
+    // vectors); as these act on columns, Ry Rx Rz.
+    const Mat4 rotation = gfx::multiply(gfx::multiply(rotationY(rotY), rotationX(rotX)), rotationZ(rotZ));
+    return gfx::multiply(gfx::multiply(gfx::multiply(translation(x, y, z), rotation), s), basis);
 }
 
 } // namespace reluva::awe
