@@ -137,6 +137,20 @@ Win32Process::Win32Process(Cpu& cpu) : cpu_(cpu) {
     arena_ = std::make_unique<Arena>(cpu, 0x10000, cpu.nativeBase() & ~0xfffu);
     startMs_ = steadyMs();
     milliseconds = [this] { return uint32_t(steadyMs() - startMs_); };
+    // The time stamp counter of a 1 GHz processor, going by the process's
+    // clock: programs measure the processor's speed with it across a Sleep
+    // (LEGO Alpha Team's DDCaps::CalcProcSpeed), which counting
+    // instructions would make nearly nothing. Within a millisecond it moves
+    // on by the instructions run, up to the next millisecond's reading.
+    cpu.timeStamp = [this] {
+        const uint64_t at = uint64_t(milliseconds()) * 1000000;
+        if (at > timeStampAt_)
+            timeStampAt_ = at;
+        else
+            timeStampAt_ = std::min(timeStampAt_ + 1 + (cpu_.executed() - timeStampExecuted_), at + 999999);
+        timeStampExecuted_ = cpu_.executed();
+        return timeStampAt_;
+    };
 
     // The thread: its stack, and its information block (which FS points
     // at): the exception handler chain's head, the stack's bounds, its own

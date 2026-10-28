@@ -5380,8 +5380,8 @@ static void printGraph(reluva::x86::Cpu& cpu, const std::vector<uint32_t>& roots
 int cmdAtRun(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool at-run <game folder> [-v] [-limit instructions] [-trace count] "
-                             "[-memory MB] [-log] [-files] [-save folder] [-shots folder] [-every frames] [-click frame[@x,y]]... [-move frame@dx,dy]... "
-                             "[-key frame@vk]... [-quit frame] [-fixed-clock] [-watch dll!export]... [-point frame@x,y]... "
+                             "[-memory MB] [-log] [-files] [-save folder] [-from frame] [-shots folder] [-every frames] [-click frame[@x,y]]... [-move frame@dx,dy]... "
+                             "[-key frame@vk]... [-quit frame] [-fixed-clock] [-clock-rate frame@n] [-watch dll!export]... [-point frame@x,y]... "
                              "[-calls frame@dll!export] [-dump frame@address,bytes]...\n");
         return 2;
     }
@@ -5389,8 +5389,15 @@ int cmdAtRun(int argc, char** argv) {
     int traceCount = 0; // instructions kept for a failure (0: none, which keeps the instruction cache in use)
     uint64_t quitAt = 0;
     bool fixedClock = false;
+    // -clock-rate frame@n: from that frame on, the fixed clock counts n
+    // instructions a millisecond instead of 40,000 (the time it has
+    // reached carries on).
+    uint64_t clockFrom = 0, clockRate = 40000;
     bool files = false; // -files: each path the program asks for, and where it was found
     std::string saveDir; // -save: where what the program writes goes (else it may write nothing)
+    // -from: -watch, -calls, -log and -step look from this frame on (the
+    // instructions are traced only from then, which is much slower).
+    uint64_t traceFrom = 0;
     // -watch: calls to a function of the program's (an export), with what
     // they return, summed up per frame.
     std::vector<std::string> watches;
@@ -5473,6 +5480,8 @@ int cmdAtRun(int argc, char** argv) {
             files = true;
         else if (arg == "-save" && a + 1 < argc)
             saveDir = argv[++a];
+        else if (arg == "-from" && a + 1 < argc)
+            traceFrom = std::strtoull(argv[++a], nullptr, 0);
         else if (arg == "-shots" && a + 1 < argc)
             shots = argv[++a];
         else if (arg == "-click" && a + 1 < argc) {
@@ -5499,6 +5508,11 @@ int cmdAtRun(int argc, char** argv) {
             quitAt = std::strtoull(argv[++a], nullptr, 0);
         else if (arg == "-fixed-clock")
             fixedClock = true;
+        else if (arg == "-clock-rate" && a + 1 < argc) {
+            const std::string v = argv[++a];
+            clockFrom = std::strtoull(v.c_str(), nullptr, 0);
+            clockRate = std::max<uint64_t>(1, std::strtoull(v.c_str() + v.find('@') + 1, nullptr, 0));
+        }
         else if (arg == "-watch" && a + 1 < argc)
             watches.push_back(argv[++a]);
         else if (arg == "-dump" && a + 1 < argc) {
@@ -5590,11 +5604,13 @@ int cmdAtRun(int argc, char** argv) {
                         value ? value->size() : 0, shown.c_str());
         };
     // -fixed-clock: the clock follows the instructions run (40,000 to a
-    // millisecond) and the main thread's sleeps, not the time, so a run
-    // with the same input repeats exactly.
+    // millisecond, or -clock-rate's) and the main thread's sleeps, not the
+    // time, so a run with the same input repeats exactly.
+    uint64_t clockBaseInstructions = 0, clockBaseMs = 0, clockPerMs = 40000;
     if (fixedClock)
-        game.process().milliseconds = [&cpu, &game] {
-            return uint32_t(cpu.executed() / 40000 + game.process().slept());
+        game.process().milliseconds = [&cpu, &game, &clockBaseInstructions, &clockBaseMs, &clockPerMs] {
+            return uint32_t(clockBaseMs + (cpu.executed() - clockBaseInstructions) / clockPerMs +
+                            game.process().slept());
         };
     // -shots: the first frame shown and every `every`th, as TGA files.
     uint64_t framesShown = 0;
@@ -5641,8 +5657,16 @@ int cmdAtRun(int argc, char** argv) {
     };
     std::vector<Watch> watched;
     std::function<std::string(uint32_t)> symbolOf; // `symbol` below
+    std::function<void(Cpu&)> traceFn;             // installed from frame `traceFrom`
     game.directX().presented = [&](const reluva::x86::DirectX::Frame& f) {
         ++framesShown;
+        if (traceFrom && framesShown == traceFrom && traceFn)
+            cpu.trace = traceFn;
+        if (fixedClock && clockFrom && framesShown == clockFrom) {
+            clockBaseMs += (cpu.executed() - clockBaseInstructions) / clockPerMs;
+            clockBaseInstructions = cpu.executed();
+            clockPerMs = clockRate;
+        }
         for (Watch& w : watched) {
             if (w.results.empty())
                 continue;
@@ -5889,7 +5913,7 @@ int cmdAtRun(int argc, char** argv) {
     if (!stepActions.empty() && !registerEvent)
         std::printf("-step: no DDBehavior::registerEvent\n");
     if (traceCount > 0 || log || !watched.empty() || callsAddress || registerEvent)
-        cpu.trace = [&](Cpu& c) {
+        traceFn = [&](Cpu& c) {
             // -step: registerEvent(machine, event, transition), thiscall.
             if (registerEvent && c.eip == registerEvent) {
                 const uint32_t event = c.read32(c.reg[Cpu::ESP] + 8);
@@ -5991,6 +6015,8 @@ int cmdAtRun(int argc, char** argv) {
                 }
             }
         };
+    if (traceFn && !traceFrom)
+        cpu.trace = traceFn;
     auto where = [&](uint32_t a) {
         for (const std::string& name : game.loadOrder()) {
             const auto* m = game.process().module(name);

@@ -316,6 +316,7 @@ private:
     uint32_t nextKey_ = 0x3000;
     uint32_t nextEvent_ = 0;
     uint64_t slept_ = 0;
+    uint64_t timeStampAt_ = 0, timeStampExecuted_ = 0; // RDTSC's last reading, and the instructions then
     struct Event {
         bool manualReset = false, set = false, tracked = false;
     };

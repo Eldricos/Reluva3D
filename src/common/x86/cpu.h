@@ -131,6 +131,8 @@ public:
     // Called before each instruction, and before each native function is
     // entered (eip is then its address); for tracing.
     std::function<void(Cpu& cpu)> trace;
+    // What RDTSC reads; without it, the instructions run so far.
+    std::function<uint64_t()> timeStamp;
 
     // The registers as they were when the last call() failed (before they
     // were put back), for reports.

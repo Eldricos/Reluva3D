@@ -283,7 +283,10 @@ Progress:
   registers and the stack's first words, and the return addresses found on
   the stack. `-files` prints each path the program asks for (and where it
   was found) and each registry value it sets; `-save folder` is its save
-  folder (without one it may write nothing).
+  folder (without one it may write nothing). `-from frame` turns the
+  tracing that `-watch`, `-calls`, `-log` and `-step` need on only from
+  that frame (it's much slower), and `-clock-rate frame@n` makes the fixed
+  clock count n instructions a millisecond from that frame on.
 - Done: MSVCRT (all 79 imports, `src/common/x86/msvcrt.cpp`) and KERNEL32's
   files.
 - Done: MSVCP60, as our own DLL (below), and the rest of KERNEL32's
@@ -745,21 +748,44 @@ reads, the vftables it builds for its own subclasses):
     -point 3416@572,434 -click 3420
     ```
 
-  - Not yet right: the camera once Dash reaches the lock. In a recording of
-    the original (below), the camera follows Dash along the walkway, then
-    stands low in front of him at the plunger, which is behind him, while
-    he turns and presses it, for about eight seconds, and "We did it!"
-    comes up over that. Ours cuts to a high view by the plunger with Dash
-    still on the walkway (frame 3520 of that run), then for the same eight
-    seconds or so (frames 3545 to 3780) shows the inside of the skull door
-    in close-up (its own texture, magnified; the dark wedge is its nose),
-    then the room with the skull's eyes lit, then Dash. As if the camera
-    were put in front of Dash by the way he faces before he has turned
-    round. Not the renderer: every draw comes transformed (XYZRHW) and
-    clipped by NetImmerse, with clockwise culling, which ours does as
-    Direct3D does, so the triangles are those the game sends; the x87's
-    FPATAN and FSINCOS and MSVCRT's `_CIatan2` give what Intel and Visual
-    C++ do. Next: where the camera's place is worked out.
+  - The camera once Dash reaches the lock differs from the original's
+    recording (below), traced to a setting, not to us. Ours, for about
+    five seconds, looks at the skull door opening from the camera base
+    beside it (so close that the skull's own texture fills the screen),
+    then turns to Dash for "We did it!"; the original goes to Dash at
+    once. Traced (`at-run -watch` from frame 3400 with `-from`):
+    - DDIcam (LoadComp) films the action of the highest priority: Dash's
+      (30, `t0011.dll`), then the plunger lock's (220, `og0019b.dll`),
+      then the door's (230, `og0019a.dll`, as it starts to open), each
+      from the camera base FindNewBase chooses; `IsObscured` tests a
+      segment to the actor with `DDSpace::CollideSegment`, the actor
+      left out, so a base beside the door isn't obscured.
+    - The interface behaviour (PE0300) then waits `GoalAnimTime`
+      seconds, plays `OgelRant` if the space has the option, waits two
+      more, and while the music source still plays
+      (`Sound_IsPlaying`), and only then turns the camera to
+      `REWARD_CAM` (`DDIcam::ChangeManeuver(7)`), the close-up of Dash.
+      `GoalAnimTime` (and `RewardAnimTime`) come from the space's
+      options, else from `Config.txt` (LoadComp's `ConfigState`), else
+      5 (and 3) seconds.
+    - With `GoalAnimTime  0.5` in `Config.txt`, ours plays as the
+      recording does: the camera follows Dash, looks at the plunger, and
+      goes to the close-up and "We did it!". So the original's install
+      has a `Config.txt` that sets it; ours is an empty file (the program
+      won't start without one), so every value takes its default. The
+      keys the program reads from it: ActorBaseDir, AllVideoModes,
+      AudioDir, AutoLoadPuzzle, CategoryImageFile, CategoryUnitFile,
+      ClickAndRelease, DiscPath, GoalAnimTime, Hints, MusicBuffer,
+      MusicSupport, Nav_InOut_Yaw, PortalExitDelay, PuzzleEditor,
+      RewardAnimTime, TextureDir, ToolBoxLayout, UIFile, UseEnvLights.
+      Wanted: the `Config.txt` an install makes.
+  - Found on the way: `DDCaps::CalcProcSpeed` (LoadComp) times the
+    processor with RDTSC across `Sleep(500)`, and recommends shadows,
+    environment animation and other detail (`MakeRecs`) above 250 and
+    350 million cycles a second. Our RDTSC counted instructions, which
+    don't move during a Sleep, so it found nearly nothing. RDTSC now
+    reads a 1 GHz counter going by the process's clock
+    (`Cpu::timeStamp`).
   - "We did it!" offers Next Mission, Instant Replay! and Return to HQ, and
     the game saves on its own: `HighSpace  M1010` (the furthest mission
     any Adventure has finished, which Single Missions now offers) and
@@ -783,7 +809,7 @@ reads, the vftables it builds for its own subclasses):
   - In the training mission, the mission menu has Skip Training Mission
     too (Keep Playing, Start Over, Skip Training Mission, Options, Return
     to HQ, Exit Game).
-  - Mission One's end differs (above).
+  - Mission One's end differs (above): a `Config.txt` setting.
   - Each recording shows that mission solved, which is what playing them
     through needs.
 

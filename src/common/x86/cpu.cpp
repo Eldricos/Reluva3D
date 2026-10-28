@@ -455,10 +455,12 @@ void Cpu::twoByte() {
     }
     switch (op) {
     case 0x1f: decodeModrm(); return; // NOP r/m
-    case 0x31: // RDTSC
-        reg[EAX] = uint32_t(executed_);
-        reg[EDX] = uint32_t(executed_ >> 32);
+    case 0x31: { // RDTSC
+        const uint64_t t = timeStamp ? timeStamp() : executed_;
+        reg[EAX] = uint32_t(t);
+        reg[EDX] = uint32_t(t >> 32);
         return;
+    }
     case 0xa2: { // CPUID: a Pentium with an FPU, a time stamp counter and CMPXCHG8B
         const uint32_t leaf = reg[EAX];
         if (leaf == 0) {
