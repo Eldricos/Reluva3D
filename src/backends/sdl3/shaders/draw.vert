@@ -20,7 +20,7 @@ layout(location = 2) out vec3 outWorld; // the position in the world, for dynami
 layout(location = 3) out vec2 outFog;   // fog volumes: view depth over the fog's, and the depth under its surface
 
 struct DeformData {
-    vec4 a; // x: type (0 none, 1 wave, 2 bulge, 3 move), y: wave function, z: base, w: amplitude
+    vec4 a; // x: type (0 none, 1 wave, 2 bulge, 3 move, 4 normal), y: wave function, z: base, w: amplitude
     vec4 b; // x: phase, y: frequency, z: spread, w: unused
     vec4 c; // move: the vector; bulge: x width, y height, z speed
 };
@@ -78,6 +78,36 @@ float wave(float func, float base, float amp, float phase, float freq, float t) 
     return base + amp * v;
 }
 
+// A random value from -1 to 1 for each whole-numbered point in four
+// dimensions, the same every time.
+float latticeValue(ivec4 p) {
+    uint h = uint(p.x) * 0x8da6b343u ^ uint(p.y) * 0xd8163841u ^ uint(p.z) * 0xcb1ab31fu ^ uint(p.w) * 0x165667b1u;
+    h ^= h >> 15;
+    h *= 0x2c1b3c6du;
+    h ^= h >> 12;
+    h *= 0x297a2d39u;
+    h ^= h >> 15;
+    return float(h & 0xffffu) / 32767.5 - 1.0;
+}
+
+// Value noise in four dimensions, as the original's renderer has it: the
+// lattice's values blended in straight lines between its points.
+float noise4(vec4 p) {
+    ivec4 i = ivec4(floor(p));
+    vec4 f = p - floor(p);
+    float across[2];
+    for (int w = 0; w < 2; ++w) {
+        float zs[2];
+        for (int z = 0; z < 2; ++z) {
+            float y0 = mix(latticeValue(i + ivec4(0, 0, z, w)), latticeValue(i + ivec4(1, 0, z, w)), f.x);
+            float y1 = mix(latticeValue(i + ivec4(0, 1, z, w)), latticeValue(i + ivec4(1, 1, z, w)), f.x);
+            zs[z] = mix(y0, y1, f.y);
+        }
+        across[w] = mix(zs[0], zs[1], f.z);
+    }
+    return mix(across[0], across[1], f.w);
+}
+
 vec4 source(float which, vec4 vertexColor, vec3 normal) {
     int w = int(which + 0.5);
     if (w == 3)
@@ -98,6 +128,14 @@ void main() {
             pos += baseNormal * deforms[i].c.y * sin(inUv.x * deforms[i].c.x + t * deforms[i].c.z);
         } else if (type == 3) {
             pos += deforms[i].c.xyz * wave(deforms[i].a.y, deforms[i].a.z, deforms[i].a.w, deforms[i].b.x, deforms[i].b.y, t);
+        } else if (type == 4) {
+            // The original's: noise at the position (scaled by 0.98, offset
+            // per axis) and the time times the frequency.
+            vec3 p = pos * 0.98;
+            float when = t * deforms[i].b.y;
+            baseNormal = normalize(baseNormal + deforms[i].a.w * vec3(noise4(vec4(p, when)),
+                                                                      noise4(vec4(p.x + 100.0, p.yz, when)),
+                                                                      noise4(vec4(p.x + 200.0, p.yz, when))));
         }
     }
     vec3 world = mode2.x > 0.5 ? pos + eye.xyz : (model * vec4(pos, 1.0)).xyz;

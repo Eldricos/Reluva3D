@@ -95,9 +95,13 @@ enum class ColorSource : uint8_t { Constant, Vertex, OneMinusVertex, Lighting };
 
 // Moves vertices on the GPU each frame.
 struct Deform {
-    enum class Type : uint8_t { None, Wave, Bulge, Move } type = Type::None;
+    enum class Type : uint8_t { None, Wave, Bulge, Move, Normal } type = Type::None;
     // Wave: along the normal by the wave's value, its phase offset by
     // (x + y + z) * spread. Move: by `vector` times the wave's value.
+    // Normal: the positions stay; each normal is pushed along x, y and z
+    // by the wave's amplitude times a noise of the position (and time
+    // times the wave's frequency), then made unit length again, for
+    // lighting that shimmers.
     Wave wave;
     float spread = 0;
     Vec3 vector{};

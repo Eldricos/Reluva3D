@@ -4,11 +4,12 @@ Status: **every Quake III directive parsed and drawn** except those listed
 at the end (`src/engines/idtech3/shader.cpp`, `world_renderer.cpp`).
 Checked on generated test maps and on the retail Elite Force maps, which
 look as in the original. `reluva-tool shader-check` on Elite Force
-(October 2026): 1872 shaders, **no directive outside Quake III's set**;
-not drawn yet are `deformVertexes autosprite2` (2 shaders,
-`textures/scavenger/fire1` and `fire2`), `deformVertexes projectionShadow`
-(1, for models' shadows) and portals/mirrors (10, e.g.
-`textures/common/mirror1`, `textures/common/portal`).
+(October 2026): 1891 shaders, **no directive outside Quake III's set**.
+All are drawn but `deformVertexes projectionShadow` (1, the original's
+shader for r_shadows 3's projected shadows); autosprites (2,
+`textures/scavenger/fire1` and `fire2`) on the level's surfaces, not on
+models (none uses them there); `deformVertexes normal` (2, the CTF
+flags) as below.
 
 Sources: the Quake III Arena shader manual id Software published for map
 makers, and the GPL Quake III Arena source (`code/renderer/tr_shader.c`)
@@ -91,6 +92,7 @@ Read from the GPL Quake III Arena renderer (`tr_shader.c`,
 | shader | `deformVertexes wave <div> <func> <base> <amp> <phase> <freq>` | along the normals, phase offset by (x + y + z) / div |
 | shader | `deformVertexes bulge <width> <height> <speed>` | along the normals by height * sin(s * width + time * speed) |
 | shader | `deformVertexes move <x> <y> <z> <func> ...` | the whole surface by the vector times the wave |
+| shader | `deformVertexes normal <amplitude> <frequency>` | the positions stay; each normal gets amplitude × noise added on each axis, the noise a 4D value noise (random values from −1 to 1 at whole-numbered points, blended in straight lines) of the position × 0.98 (x offset by 0, 100, 200 for the three axes) and the shader's time × frequency; then made unit length. It changes only lighting and environment mapping: a shimmer |
 | shader | `sort`, `polygonOffset`, `nomipmaps`, `nopicmip`, `portal` | see above |
 | stage | `map <image>` / `clampMap <image>` | the stage's texture; `$lightmap` is special, and `$whiteimage` and `*white` both name a plain white image |
 | stage | `animMap <fps> <image>...` | frames played at `fps` |

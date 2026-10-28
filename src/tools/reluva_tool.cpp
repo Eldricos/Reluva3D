@@ -5878,9 +5878,7 @@ int cmdShaderCheck(int argc, char** argv) {
                 add(std::string("drawn on the level only, not on models: deformVertexes ") +
                         deformNames[size_t(df.type)],
                     d);
-            else if (df.type == T::Normal)
-                add("not drawn: deformVertexes normal (it only bends the normals for lighting)", d);
-            else if (df.type != T::Wave && df.type != T::Bulge && df.type != T::Move)
+            else if (df.type != T::Wave && df.type != T::Bulge && df.type != T::Move && df.type != T::Normal)
                 add(std::string("not drawn: deformVertexes ") + deformNames[size_t(df.type)], d);
         }
         if (d.deforms.size() > 2)
