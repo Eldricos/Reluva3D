@@ -223,13 +223,17 @@ void PlayViewer::start(int index) {
         err = Error::fail("the game refused the player: " + refused);
     if (!err)
         err = game_->beginClient(0);
-    // What the menus asked the server to run once the level started
-    // (adding bots...), as typed at its console.
+    // What the menus asked to run once the level started, as the
+    // original's console runs it: the server game's console commands
+    // (adding bots...), and the rest sent to the server as the player's
+    // own (the team chosen for a team game: "team red").
     for (const std::string& command : ctx_.requestCommands) {
         if (err)
             break;
         bool handled = false;
         err = game_->serverCommand(command, &handled);
+        if (!err && !handled)
+            err = game_->clientCommand(0, command);
     }
     ctx_.requestCommands.clear();
     if (err) {
