@@ -3512,6 +3512,101 @@ int cmdNetRun(int argc, char** argv) {
     return 0;
 }
 
+// Playing a recorded match (demos/<name>.efdemo) as the Play page does,
+// on a clock stepped 16 ms a frame: the client game run on its messages,
+// reporting the game state, snapshots and how the client game fared.
+int cmdDemoRun(int argc, char** argv) {
+    namespace q3 = reluva::idtech3;
+    namespace ef = reluva::idtech3::eliteforce;
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool demo-run <game folder> <demo> [-nocgame]\n");
+        return 1;
+    }
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    const bool runCgame = !(argc >= 5 && std::strcmp(argv[4], "-nocgame") == 0);
+    std::string path = reluva::normalizeArchiveName(std::string("demos/") + argv[3]);
+    if (path.size() < 7 || path.compare(path.size() - 7, 7, ".efdemo") != 0)
+        path += ".efdemo";
+    Bytes data;
+    if (reluva::Error e = set.read(path, data)) {
+        std::fprintf(stderr, "%s: %s\n", path.c_str(), e.message.c_str());
+        return 1;
+    }
+    q3::CvarStore cvars;
+    ef::NetClient client(std::move(data));
+    std::unique_ptr<ef::CgameHost> cgame;
+    size_t snapshots = 0, commandsSeen = 0;
+    int32_t firstTime = 0, lastTime = 0;
+    uint64_t frames = 0;
+    for (uint64_t now = 1000; !client.demoFinished(); now += 16, ++frames) {
+        client.frame(now);
+        if (client.takeNewGamestate()) {
+            const auto& cs = client.configstrings();
+            std::printf("game state at message %d: %zu configstrings, map %s, commands from %d\n",
+                        client.gamestateMessage(), cs.size(),
+                        cs.count(0) ? q3::infoValue(cs.at(0), "mapname").c_str() : "?", client.gamestateCommandSequence());
+            if (runCgame) {
+                cgame = std::make_unique<ef::CgameHost>(set, cvars);
+                cgame->print = [](const std::string& text) {
+                    std::printf("cgame: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
+                };
+                reluva::Error err = cgame->load();
+                if (!err) {
+                    cgame->setConfigstrings(cs);
+                    cgame->setServerCommands(client.serverCommands());
+                    err = cgame->init(0, client.gamestateMessage(), client.gamestateCommandSequence());
+                }
+                if (err) {
+                    std::fprintf(stderr, "cgame Init: %s\n", err.message.c_str());
+                    return 1;
+                }
+            }
+            client.setLoaded();
+        }
+        for (auto& snap : client.takeSnapshots()) {
+            if (!snapshots++)
+                firstTime = snap.serverTime;
+            lastTime = snap.serverTime;
+            if (snapshots == 1 || snapshots % 200 == 0) {
+                int32_t clientNum = -1;
+                if (snap.playerState.size() >= 160)
+                    std::memcpy(&clientNum, snap.playerState.data() + 156, 4);
+                std::printf("snapshot %zu: server time %d, %zu entities, player %d\n", snapshots, snap.serverTime,
+                            snap.entities.size(), clientNum);
+            }
+            if (cgame)
+                cgame->newSnapshot(std::move(snap));
+        }
+        for (; commandsSeen < client.serverCommands().size(); ++commandsSeen)
+            if (commandsSeen < 3 && !client.serverCommands()[commandsSeen].empty())
+                std::printf("server command %zu: %s\n", commandsSeen + 1, client.serverCommands()[commandsSeen].c_str());
+        if (cgame && client.hasSnapshot()) {
+            cgame->setServerCommands(client.serverCommands());
+            cgame->clearScene();
+            cgame->clearPictures();
+            int32_t ignored = 0;
+            if (reluva::Error e = cgame->call(ef::CgameHost::DrawActiveFrame, {client.serverTime(), 0, 1}, ignored)) {
+                std::fprintf(stderr, "cgame DrawActiveFrame(%d): %s\n", client.serverTime(), e.message.c_str());
+                return 1;
+            }
+        }
+        if (frames > 2000000)
+            break;
+    }
+    std::printf("%zu snapshots, server time %d to %d (%.1f s), played in %.1f s of frames; %zu server commands\n",
+                snapshots, firstTime, lastTime, double(lastTime - firstTime) / 1000, double(frames) * 0.016,
+                client.serverCommands().size());
+    if (cgame) {
+        std::printf("client game calls not answered:");
+        for (const auto& [number, count] : cgame->unhandled())
+            std::printf(" %d x%d", number, count);
+        std::printf("\n");
+    }
+    return snapshots ? 0 : 1;
+}
+
 // Looking for servers as the menus' list does (getinfo, broadcast on the
 // four server ports), or asking one (getinfo and getstatus), printing
 // every answer as it comes, for when the list stays empty.
@@ -6023,6 +6118,8 @@ int main(int argc, char** argv) {
         return cmdQvmDis(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "game-run") == 0)
         return cmdGameRun(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "demo-run") == 0)
+        return cmdDemoRun(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "net-run") == 0)
         return cmdNetRun(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "net-find") == 0)
@@ -6104,6 +6201,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool sp-menus <game folder> [-dll efuix86.dll] [-frames N] [-menu name] [-key frame key]...\n"
                  "  reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] [-set name value]... [-trace]\n"
                  "  reluva-tool pk3-sums <game folder> [feed]\n"
+                 "  reluva-tool demo-run <game folder> <demo> [-nocgame]\n"
                  "  reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-pure] [-addbot name]... | -join <host[:port]> [seconds] [-name name]\n"
                  "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n"
                  "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-ingame gametype] [-size WxH] [-glwords N] [-trace] [-v]\n"

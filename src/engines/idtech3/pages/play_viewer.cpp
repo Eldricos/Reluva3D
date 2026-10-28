@@ -142,6 +142,13 @@ void PlayViewer::activate() {
     videoRestart_ = false;
     shownMs_ = 0;
     ctx_.sys.setRelativeMouse(true);
+    // A demo the menus asked to play.
+    if (!ctx_.requestDemo.empty()) {
+        const std::string name = ctx_.requestDemo;
+        ctx_.requestDemo.clear();
+        playDemo(name);
+        return;
+    }
     // A server the menus asked to join.
     if (!ctx_.requestConnect.empty()) {
         const std::string address = ctx_.requestConnect;
@@ -521,13 +528,40 @@ void PlayViewer::connect(const std::string& address) {
     lastMs_ = 0;
 }
 
+void PlayViewer::playDemo(const std::string& name) {
+    reset();
+    std::string path = normalizeArchiveName("demos/" + name);
+    if (path.size() < 7 || path.compare(path.size() - 7, 7, ".efdemo") != 0)
+        path += ".efdemo";
+    std::vector<uint8_t> data;
+    if (Error err = ctx_.files.read(path, data)) {
+        stop("Couldn't open " + path);
+        return;
+    }
+    setTitle("Demo " + name);
+    serverAddress_.clear();
+    joinStartMs_ = ctx_.sys.getMillis();
+    joinState_ = eliteforce::NetClient::State::Disconnected;
+    client_ = std::make_unique<eliteforce::NetClient>(std::move(data));
+    lastMs_ = 0;
+}
+
+bool PlayViewer::playingDemo() const { return client_ && client_->playingDemo(); }
+
+void PlayViewer::endDemo() {
+    // No error to show; the menus go back to their main menu.
+    stop("");
+    error_.clear();
+    ctx_.matchEnded = true;
+}
+
 void PlayViewer::runRemote(uint64_t nowMs, int32_t dt) {
     // Playing on someone else's server: what it sends, a level loaded
     // when a game state comes, its snapshots for the client game, and the
     // player's commands back.
     client_->frame(nowMs);
     // How long each step of joining took, for the console.
-    if (client_->state() != joinState_) {
+    if (client_->state() != joinState_ && !client_->playingDemo()) {
         joinState_ = client_->state();
         static const char* const kSteps[] = {"", "disconnected", "", "asking for a challenge", "connecting",
                                              "waiting for the level", "", "loading the level", "level loaded, joining the game"};
@@ -536,6 +570,12 @@ void PlayViewer::runRemote(uint64_t nowMs, int32_t dt) {
         std::snprintf(line, sizeof line, "%.2f s: %s\n", double(nowMs - joinStartMs_) / 1000,
                       st < 9 ? kSteps[st] : "?");
         addPrint(line, true); // on screen for a few seconds too
+    }
+    if (client_->demoFinished()) {
+        // The end of a demo: back to the menus, as the original.
+        endDemo();
+        ctx_.requestPage = "Menu";
+        return;
     }
     if (client_->state() == eliteforce::NetClient::State::Disconnected) {
         // Back to the menus, which show why, as the original.
@@ -557,7 +597,7 @@ void PlayViewer::runRemote(uint64_t nowMs, int32_t dt) {
     if (client_->takeNewGamestate()) {
         // Paks the server uses that this player hasn't: downloaded first
         // (the level loads when the server sends its game state again).
-        if (startDownloads())
+        if (!client_->playingDemo() && startDownloads())
             return;
         const auto& cs = client_->configstrings();
         const std::string map = cs.count(0) ? infoValue(cs.at(0), "mapname") : std::string();
@@ -568,7 +608,8 @@ void PlayViewer::runRemote(uint64_t nowMs, int32_t dt) {
         models_->clear();
         world_->clear();
         shaders_->clear();
-        setTitle(map + " on " + serverAddress_);
+        if (!client_->playingDemo())
+            setTitle(map + " on " + serverAddress_);
         std::shared_ptr<Bsp> bsp;
         if (!loadLevel(normalizeArchiveName("maps/" + map + ".bsp"), bsp))
             return;
@@ -580,7 +621,8 @@ void PlayViewer::runRemote(uint64_t nowMs, int32_t dt) {
         // game, the menus and the rest come from (a server that isn't
         // pure ignores it).
         const std::string paks = cs.count(1) ? infoValue(cs.at(1), "sv_paks") : std::string();
-        if (const std::string cp = pureCommand(ctx_.files, client_->checksumFeed(), paks); !cp.empty())
+        if (const std::string cp = pureCommand(ctx_.files, client_->checksumFeed(), paks);
+            !cp.empty() && !client_->playingDemo())
             client_->addClientCommand(cp);
         client_->setLoaded();
     }
@@ -598,7 +640,7 @@ void PlayViewer::runRemote(uint64_t nowMs, int32_t dt) {
     // client sends them: the first puts the player in the game.
     if (client_->hasSnapshot())
         clientTime_ = client_->serverTime();
-    if (dt > 0) {
+    if (dt > 0 && !client_->playingDemo()) {
         eliteforce::GameHost::UserCommand cmd = buildCommand();
         cmd.serverTime = client_->hasSnapshot() ? clientTime_ : 0;
         client_->addCommand(cmd);
@@ -753,6 +795,10 @@ void PlayViewer::consoleCommand(const std::string& text) {
         connect(w[1]);
         return;
     }
+    if (verb == "demo" && w.size() >= 2) {
+        playDemo(w[1]);
+        return;
+    }
     if (verb == "reconnect" && !serverAddress_.empty()) {
         connect(serverAddress_);
         return;
@@ -823,8 +869,11 @@ void PlayViewer::consoleCommand(const std::string& text) {
 }
 
 void PlayViewer::openMenu() {
-    // Outside a match, the menus' own page.
-    if (!cgame_ || !renderer_) {
+    // Outside a match, the menus' own page; a demo ends, as the
+    // original's does on Esc.
+    if (!cgame_ || !renderer_ || playingDemo()) {
+        if (playingDemo())
+            endDemo();
         ctx_.requestPage = "Menu";
         return;
     }
@@ -1136,7 +1185,10 @@ void PlayViewer::runGame(uint64_t nowMs) {
         soundSystem_->setTime(nowMs);
     int32_t ignored = 0;
     const auto clientStart = Clock::now();
-    if (Error err = cgame_->call(eliteforce::CgameHost::DrawActiveFrame, {clientTime_, 0, 0}, ignored)) {
+    // (Its third argument says a demo is playing: no prediction from the
+    // player's commands, which there aren't.)
+    if (Error err = cgame_->call(eliteforce::CgameHost::DrawActiveFrame, {clientTime_, 0, playingDemo() ? 1 : 0},
+                                 ignored)) {
         stop("The client game stopped: " + err.message);
         return;
     }

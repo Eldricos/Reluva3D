@@ -73,7 +73,7 @@ public:
         } audioOff{sys_};
 
         ViewerContext ctx{sys_, screen_, files_, shaders_, game_, warnings, target_.savePath,
-                          audioOut ? &mixer : nullptr, {}, {}, {}, {}, {}, {}, {}, target_.path};
+                          audioOut ? &mixer : nullptr, {}, {}, {}, {}, {}, {}, {}, target_.path, false, {}};
         // A pak just downloaded: in the search path at once, above the
         // rest, and the shader scripts read again (it may bring its own).
         int added = 0;

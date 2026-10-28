@@ -95,6 +95,9 @@ struct ViewerContext {
     // A match ended (the Play page left): the menus go back to their main
     // menu, as the original's do on disconnecting.
     bool matchEnded = false;
+    // A recorded match to play on the Play page (demo <name>: the file
+    // under demos/).
+    std::string requestDemo;
 };
 
 // The settings: the game's default.cfg, then the player's own (Reluva's

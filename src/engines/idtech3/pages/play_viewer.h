@@ -58,6 +58,10 @@ private:
     void startHosting();
     // Joining a server on another machine instead of running one.
     void connect(const std::string& address);
+    // Plays demos/<name> (.efdemo added if not given).
+    void playDemo(const std::string& name);
+    bool playingDemo() const;
+    void endDemo();
     // The paks the server's level uses that this player is missing:
     // whether they're being downloaded; and one that has finished
     // (false: stopped).

@@ -758,6 +758,31 @@ when pure. All in search order.
 The **checksum feed** is a random 32-bit number the server picks at each
 map load; it seeds the pure checksums of both sides.
 
+## Demos (.efdemo)
+
+A recorded match is the server's messages to the recording player, as
+they came: for each, the message's sequence number (32 bits, little
+endian), its length in bytes (32 bits), then the message itself as
+"Server to client messages" describes it, after the netchan's header and
+unscrambled. Two -1 words end the file. Checked on the three demos in
+patch 1.2's pak2.pk3 (`demos/demo0000.efdemo`, CTF_VOY2, 22086 messages;
+`demo0001.efdemo`, hm_borg3; `extreme.efdemo`, hm_noon): the first
+message is the game state (opcode 2), the rest snapshots and server
+commands, and every one parses to its end. The sequence numbers are what
+the snapshots' delta numbers count back from.
+
+The menus' Demos screen lists `FS_GetFileList("demos", ".efdemo")` and
+runs `demo <name>.efdemo`. Reluva plays one as Quake III's client does:
+the messages up to the game state at once, then (the level loaded) one a
+frame until the first snapshot; the clock is set from that snapshot and
+never adjusted after, and the next message is read whenever the time
+shown reaches the newest snapshot. The client game gets 1 as
+`DrawActiveFrame`'s third argument (a demo: nothing predicted from the
+player's commands). Esc ends it, as does the end of the file, and the
+menus return to their main menu. `reluva-tool demo-run <game> <demo>`
+plays one headless through the client game: all three play in real time
+(590.1 s of match in 590.2 s of frames for demo0000).
+
 ## Master server
 
 Done in Reluva (`server_browser.cpp`, `net_server.cpp`), and seen working

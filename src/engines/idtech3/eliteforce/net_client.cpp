@@ -31,13 +31,22 @@ NetClient::NetClient(std::unique_ptr<reluva::net::UdpSocket> socket, const reluv
     : socket_(std::move(socket)), server_(server), userinfo_(std::move(userinfo)), qport_(qport),
       chan_(true, qport) {}
 
+NetClient::NetClient(std::vector<uint8_t> demo)
+    : qport_(0), state_(State::Connected), chan_(true, 0), demo_(true), demoData_(std::move(demo)) {}
+
 void NetClient::sendText(const std::string& text) {
+    if (!socket_)
+        return;
     std::vector<uint8_t> d(4, 0xff);
     d.insert(d.end(), text.begin(), text.end());
     socket_->send(server_, d);
 }
 
 void NetClient::frame(uint64_t now) {
+    if (demo_) {
+        readDemo(now);
+        return;
+    }
     reluva::net::Address from;
     std::vector<uint8_t> d;
     while (socket_->receive(from, d)) {
@@ -51,6 +60,7 @@ void NetClient::frame(uint64_t now) {
         if (state_ < State::Connected || !chan_.process(std::move(d), message))
             continue;
         lastReceived_ = now;
+        incoming_ = chan_.incomingSequence();
         wire::MessageReader r(std::move(message));
         parseMessage(r, now);
     }
@@ -92,6 +102,47 @@ void NetClient::frame(uint64_t now) {
     const uint64_t interval = state_ == State::Active ? 1000 / kMaxPackets : downloading() ? 50 : kWaitingMs;
     if (!lastPacket_ || now - lastPacket_ >= interval)
         sendPacket(now);
+}
+
+void NetClient::readDemo(uint64_t now) {
+    // As the original's client plays one: the messages up to the game
+    // state at once; then, once the level is loaded, one a frame until
+    // the first snapshot, and after that the next whenever the time shown
+    // reaches the newest snapshot.
+    while (state_ == State::Connected)
+        if (!readDemoMessage(now))
+            return;
+    if (state_ != State::Active)
+        return;
+    if (!haveSnapshot_) {
+        readDemoMessage(now);
+        return;
+    }
+    serverTime_ = std::max(serverTime_, int32_t(int64_t(now) + timeDelta_));
+    while (state_ == State::Active && serverTime_ >= newestSnapshotTime_)
+        if (!readDemoMessage(now))
+            return;
+}
+
+bool NetClient::readDemoMessage(uint64_t now) {
+    auto word = [&](size_t at) {
+        int32_t v;
+        std::memcpy(&v, demoData_.data() + at, 4);
+        return v;
+    };
+    // The end: -1 for both, or the file running out.
+    if (demoAt_ + 8 > demoData_.size() || word(demoAt_ + 4) < 0 ||
+        size_t(word(demoAt_ + 4)) > demoData_.size() - demoAt_ - 8 || word(demoAt_ + 4) > int32_t(wire::Netchan::kMaxMessage)) {
+        state_ = State::Disconnected;
+        return false;
+    }
+    incoming_ = word(demoAt_);
+    const auto length = size_t(word(demoAt_ + 4));
+    wire::MessageReader r(std::vector<uint8_t>(demoData_.begin() + long(demoAt_ + 8),
+                                               demoData_.begin() + long(demoAt_ + 8 + length)));
+    demoAt_ += 8 + length;
+    parseMessage(r, now);
+    return true;
 }
 
 void NetClient::outOfBand(const std::string& text, uint64_t now) {
@@ -195,7 +246,7 @@ void NetClient::parseGamestate(wire::MessageReader& r) {
             break;
     }
     checksumFeed_ = r.longValue();
-    gamestateMessage_ = chan_.incomingSequence();
+    gamestateMessage_ = incoming_;
     newGamestate_ = true;
     state_ = State::Primed;
     snaps_ = {};
@@ -210,7 +261,7 @@ void NetClient::parseSnapshot(wire::MessageReader& r, uint64_t now) {
     if (acknowledged <= reliableSequence_ && acknowledged > reliableAcknowledge_)
         reliableAcknowledge_ = acknowledged;
     Snap snap;
-    snap.message = chan_.incomingSequence();
+    snap.message = incoming_;
     snap.serverTime = r.longValue();
     const int32_t deltaNum = r.byte();
     const int32_t flags = r.byte();
@@ -337,6 +388,8 @@ void NetClient::adjustTime(int32_t snapshotTime, uint64_t now) {
         serverTime_ = snapshotTime;
         return;
     }
+    if (demo_)
+        return; // a demo's clock keeps the first setting, as the original's
     const int64_t off = newDelta > timeDelta_ ? newDelta - timeDelta_ : timeDelta_ - newDelta;
     if (off > 500) {
         timeDelta_ = newDelta;
@@ -386,6 +439,8 @@ void NetClient::disconnect() {
 
 void NetClient::sendPacket(uint64_t now) {
     lastPacket_ = now;
+    if (!socket_)
+        return;
     wire::MessageWriter w;
     const auto it = configstrings_.find(1);
     w.longValue(it != configstrings_.end() ? std::atoi(infoValue(it->second, "sv_serverid").c_str()) : 0);

@@ -105,6 +105,13 @@ void MenuViewer::checkCommands() {
                 ctx_.requestConnect = words[1];
                 ctx_.requestMap.clear();
                 ctx_.requestCommands.clear();
+            } else if (verb == "demo" && words.size() >= 2) {
+                // A recorded match (the Demos menu's).
+                ctx_.requestPage = "Play";
+                ctx_.requestDemo = words[1];
+                ctx_.requestConnect.clear();
+                ctx_.requestMap.clear();
+                ctx_.requestCommands.clear();
             } else if ((verb == "map" || verb == "devmap" || verb == "spmap" || verb == "spdevmap") && words.size() >= 2) {
                 // A solo match (spmap) or not, as the original's map
                 // commands set it; the level starts afresh on the Play page.

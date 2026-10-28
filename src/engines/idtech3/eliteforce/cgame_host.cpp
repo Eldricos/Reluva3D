@@ -4,6 +4,7 @@
 #include "engines/idtech3/eliteforce/cgame_host.h"
 
 #include "engines/idtech3/md3.h"
+#include "engines/idtech3/shader.h"
 
 #include <array>
 #include <cstdlib>
@@ -78,6 +79,7 @@ enum CgameCall : int {
     GetUserCmd = 55,
     SetUserCmdValue = 56,
     RRegisterShaderNoMip = 57,
+    RRegisterShader3D = 59, // (name) -> handle, 0 if there's no such picture
     MemoryRemaining = 58,
     // ("model", text): made once, for the local player only, with a name
     // the client game put together in a buffer of its own; taken as
@@ -340,6 +342,12 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case RRegisterSkin: return skins_.add(str(0, 256));
     case RRegisterShader:
     case RRegisterShaderNoMip: return shaders_.add(str(0, 256));
+    case RRegisterShader3D: {
+        // The CTF flags' team pictures (models/flags/<team>_red): 0 for a
+        // team without one, and the client game takes the default.
+        const std::string name = str(0, 256);
+        return findImage(files_, name).empty() ? 0 : shaders_.add(name);
+    }
     case RClearScene: scene_.clear(); return 0;
     case RSetColor: // (rgba or 0 for white)
         if (!a[0])
