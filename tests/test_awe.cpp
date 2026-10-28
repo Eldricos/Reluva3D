@@ -961,6 +961,9 @@ void testScript() {
     for (int i = 0; i < 3; i++)
         r.update(0.01f);
     CHECK(!state.tags.count("act04a") && r.character() == "debenham" && !state.items.count("ticket"));
+    // The next script given acts on the player again (0x408cd8).
+    r.run("tag after 1");
+    CHECK(r.character().empty());
 
     // The door macros, and a script file.
     struct FileHost : FakeHost {
