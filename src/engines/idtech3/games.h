@@ -8,6 +8,7 @@
 #include "common/detection.h"
 
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -62,5 +63,18 @@ const std::vector<GameVariant>& detectionTable();
 // The same games by file names only, for releases not in detectionTable()
 // yet; consulted only when nothing there matches.
 const std::vector<GameVariant>& fallbackTable();
+
+// What a folder holding a game (its install folder: the game folder, and
+// the single-player code beside it) has of it, from the files' signatures:
+// the patch level ("1.0", "1.1", "1.2"), whether single player can run and
+// which release its code is from (empty if unknown), and a description
+// to show ("1.2", "1.2, no single player").
+struct Release {
+    std::string patch;
+    bool singlePlayer = false;
+    std::string singlePlayerPatch;
+    std::string summary;
+};
+Release describeRelease(const std::filesystem::path& dir, const GameInfo& game);
 
 } // namespace reluva::idtech3

@@ -44,4 +44,13 @@ std::vector<DetectedGame> detectGames(const std::filesystem::path& dir) {
     return all;
 }
 
+std::vector<ImportPlan> planImports(const std::filesystem::path& source) {
+    std::vector<ImportPlan> all;
+    for (const MetaEngine* e : allEngines()) {
+        auto found = e->planImport(source);
+        all.insert(all.end(), found.begin(), found.end());
+    }
+    return all;
+}
+
 } // namespace reluva

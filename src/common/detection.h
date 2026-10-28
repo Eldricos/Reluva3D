@@ -3,8 +3,11 @@
 
 #pragma once
 
+#include "common/types.h"
+
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -37,6 +40,35 @@ struct DetectedGame {
     std::string language;
     std::string platform;
 };
+
+// A game found somewhere it isn't to be run from (its CD, an install made
+// by its own setup program, a copy of either), and the files Reluva needs
+// of it: each copied from `from` to `to` (a relative path, '/' between
+// folders) in the folder it will run from. `notes` say what was found
+// and what's missing, for the person importing it.
+struct ImportPlan {
+    DetectedGame game;
+    struct File {
+        std::filesystem::path from;
+        std::string to;
+        uint64_t size = 0;
+    };
+    std::vector<File> files;
+    std::vector<std::string> notes;
+    uint64_t totalBytes() const {
+        uint64_t n = 0;
+        for (const File& f : files)
+            n += f.size;
+        return n;
+    }
+};
+
+// Copies a plan's files into `dest` (made if needed), each first to a
+// ".part" file renamed when whole. `progress` is told the bytes copied so
+// far and the total, often; returning false stops the import (what was
+// copied stays). Fails on the first file that can't be read or written.
+Error runImport(const ImportPlan& plan, const std::filesystem::path& dest,
+                const std::function<bool(uint64_t done, uint64_t total)>& progress);
 
 // Return every variant in `table` whose files all match inside `dir`.
 std::vector<DetectedGame> detectFromTable(const std::string& engineId,

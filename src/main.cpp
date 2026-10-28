@@ -76,6 +76,7 @@ int main(int argc, char** argv) {
     }
 
     Launcher launcher(system, config);
+    launcher.setLibraryDir(dataDir() / "library");
     while (auto target = direct ? direct : launcher.run()) {
         const MetaEngine* meta = findEngine(target->engineId);
         if (!meta) {

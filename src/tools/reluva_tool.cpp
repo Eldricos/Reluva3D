@@ -93,6 +93,7 @@
 //   reluva-tool portal-check <game folder>         each map's portal and mirror surfaces and portal entities
 //                                                  or draw yet, with example shaders
 
+#include "engines/registry.h"
 #include "common/audio/decode.h"
 #include "common/audio/wav.h"
 #ifdef RELUVA_ENGINE_NEWWORLDS
@@ -3378,6 +3379,59 @@ int cmdUiRun(int argc, char** argv) {
     return ok ? 0 : 1;
 }
 
+// What the launcher finds in a folder (Add Game), and what it would
+// import from one (Import Game), done here without the launcher: with a
+// destination, the files are copied there.
+int cmdDetect(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool detect <folder>\n");
+        return 1;
+    }
+    const auto found = reluva::detectGames(argv[2]);
+    for (const reluva::DetectedGame& g : found)
+        std::printf("%s/%s: %s (%s, %s)\n", g.engineId.c_str(), g.gameId.c_str(), g.description.c_str(),
+                    g.language.c_str(), g.platform.c_str());
+    if (found.empty())
+        std::printf("no game found\n");
+    return found.empty() ? 1 : 0;
+}
+
+int cmdImport(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool import <source folder> [destination folder]\n");
+        return 1;
+    }
+    const auto plans = reluva::planImports(argv[2]);
+    if (plans.empty()) {
+        std::printf("nothing to import found in %s\n", argv[2]);
+        return 1;
+    }
+    for (const reluva::ImportPlan& plan : plans) {
+        std::printf("%s: %zu files, %.1f MB\n", plan.game.description.c_str(), plan.files.size(),
+                    double(plan.totalBytes()) / (1024 * 1024));
+        for (const std::string& note : plan.notes)
+            std::printf("  %s\n", note.c_str());
+        for (const reluva::ImportPlan::File& f : plan.files)
+            std::printf("  %-28s <- %s\n", f.to.c_str(), f.from.string().c_str());
+    }
+    if (argc < 4)
+        return 0;
+    int lastPercent = -1;
+    if (reluva::Error err = reluva::runImport(plans.front(), argv[3], [&](uint64_t done, uint64_t total) {
+            const int percent = total ? int(done * 100 / total) : 100;
+            if (percent / 10 != lastPercent / 10)
+                std::printf("  %d%%\n", percent);
+            lastPercent = percent;
+            return true;
+        })) {
+        std::fprintf(stderr, "import: %s\n", err.message.c_str());
+        return 1;
+    }
+    std::printf("imported to %s; found there:\n", argv[3]);
+    char* detectArgs[] = {argv[0], argv[1], argv[3]};
+    return cmdDetect(3, detectArgs);
+}
+
 // Network play from a terminal (protocol 24, eliteforce-network.md):
 // hosting a level as a server with no player of its own, for others to
 // join for `seconds`; or, with -join, joining a server and reporting
@@ -6184,6 +6238,10 @@ int main(int argc, char** argv) {
         return cmdQvmDis(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "game-run") == 0)
         return cmdGameRun(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "detect") == 0)
+        return cmdDetect(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "import") == 0)
+        return cmdImport(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "demo-run") == 0)
         return cmdDemoRun(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "net-run") == 0)
@@ -6267,6 +6325,8 @@ int main(int argc, char** argv) {
                  "  reluva-tool sp-menus <game folder> [-dll efuix86.dll] [-frames N] [-menu name] [-key frame key]...\n"
                  "  reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] [-set name value]... [-trace]\n"
                  "  reluva-tool pk3-sums <game folder> [feed]\n"
+                 "  reluva-tool detect <folder>\n"
+                 "  reluva-tool import <source folder> [destination folder]\n"
                  "  reluva-tool demo-run <game folder> <demo> [-nocgame]\n"
                  "  reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-pure] [-addbot name]... | -join <host[:port]> [seconds] [-name name]\n"
                  "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n"

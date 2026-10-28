@@ -45,6 +45,9 @@ public:
     virtual const char* name() const = 0;
 
     virtual std::vector<DetectedGame> detect(const std::filesystem::path& dir) const = 0;
+    // The games in `source` that can be imported (copied into a folder of
+    // their own to run from): none unless the engine knows how.
+    virtual std::vector<ImportPlan> planImport(const std::filesystem::path& /*source*/) const { return {}; }
     virtual std::unique_ptr<Engine> create(System& system, const GameTarget& target) const = 0;
 };
 

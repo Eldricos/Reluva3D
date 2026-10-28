@@ -4,6 +4,7 @@
 #include "common/detection.h"
 #include "common/fs.h"
 
+#include <fstream>
 #include <map>
 #include <optional>
 
@@ -56,6 +57,53 @@ std::vector<DetectedGame> detectFromTable(const std::string& engineId,
                                variant.platform});
     }
     return results;
+}
+
+Error runImport(const ImportPlan& plan, const std::filesystem::path& dest,
+                const std::function<bool(uint64_t done, uint64_t total)>& progress) {
+    const uint64_t total = plan.totalBytes();
+    uint64_t done = 0;
+    std::vector<char> buffer(1 << 20);
+    for (const ImportPlan::File& f : plan.files) {
+        const std::filesystem::path to = dest / std::filesystem::path(f.to);
+        std::error_code ec;
+        std::filesystem::create_directories(to.parent_path(), ec);
+        if (ec)
+            return Error::fail("Couldn't make " + to.parent_path().string() + ": " + ec.message());
+        std::filesystem::path part = to;
+        part += ".part";
+        {
+            std::ifstream in(f.from, std::ios::binary);
+            if (!in)
+                return Error::fail("Couldn't read " + f.from.string());
+            std::ofstream out(part, std::ios::binary | std::ios::trunc);
+            if (!out)
+                return Error::fail("Couldn't write " + part.string());
+            while (in) {
+                in.read(buffer.data(), std::streamsize(buffer.size()));
+                const std::streamsize n = in.gcount();
+                if (n <= 0)
+                    break;
+                out.write(buffer.data(), n);
+                if (!out)
+                    return Error::fail("Couldn't write " + part.string() + " (is the disk full?)");
+                done += uint64_t(n);
+                if (progress && !progress(done, total)) {
+                    out.close();
+                    std::filesystem::remove(part, ec);
+                    return Error::fail("Import cancelled");
+                }
+            }
+            if (in.bad())
+                return Error::fail("Couldn't read all of " + f.from.string());
+        }
+        std::filesystem::rename(part, to, ec);
+        if (ec)
+            return Error::fail("Couldn't write " + to.string() + ": " + ec.message());
+    }
+    if (progress)
+        progress(total, total);
+    return Error::success();
 }
 
 } // namespace reluva

@@ -197,7 +197,87 @@ public:
 
     std::vector<DetectedGame> detect(const std::filesystem::path& dir) const override {
         auto found = detectFromTable(id(), detectionTable(), dir);
-        return found.empty() ? detectFromTable(id(), fallbackTable(), dir) : found;
+        if (found.empty())
+            found = detectFromTable(id(), fallbackTable(), dir);
+        // With the patch level and what's missing: "... (1.2)".
+        for (DetectedGame& g : found)
+            if (const GameInfo* game = findGame(g.gameId))
+                g.description += " (" + describeRelease(dir, *game).summary + ")";
+        return found;
+    }
+
+    std::vector<ImportPlan> planImport(const std::filesystem::path& source) const override {
+        // The game's folder (baseEF) under the folder picked: an install
+        // (its folder), the CD (SETUP/BaseEF), or the game folder itself;
+        // the first that holds the game. What Reluva needs of it: the
+        // game folder's paks, the players' saved games and recordings,
+        // the CD key files; beside it, single player's game code.
+        for (const GameInfo& game : games()) {
+            std::vector<std::filesystem::path> roots{source};
+            if (const auto setup = fs::findDirectory(source, "SETUP"))
+                roots.push_back(*setup);
+            if (fs::toLower(source.filename().string()) == fs::toLower(game.baseDir))
+                roots.push_back(source.parent_path());
+            for (const std::filesystem::path& root : roots) {
+                const auto found = detect(root);
+                const auto base = fs::findDirectory(root, game.baseDir);
+                if (!base)
+                    continue;
+                for (const DetectedGame& g : found) {
+                    if (g.gameId != game.gameId)
+                        continue;
+                    ImportPlan plan;
+                    plan.game = g;
+                    auto add = [&](const std::filesystem::path& from, const std::string& to) {
+                        std::error_code ec;
+                        const auto size = std::filesystem::file_size(from, ec);
+                        if (!ec)
+                            plan.files.push_back({from, to, size});
+                    };
+                    // Files in a folder with one of `extensions` (lower case).
+                    auto addAll = [&](const std::filesystem::path& dir, const std::string& to,
+                                      std::initializer_list<const char*> extensions) {
+                        std::error_code ec;
+                        for (std::filesystem::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
+                            if (!it->is_regular_file(ec))
+                                continue;
+                            const std::string ext = fs::toLower(it->path().extension().string());
+                            for (const char* e : extensions)
+                                if (ext == e)
+                                    add(it->path(), to + it->path().filename().string());
+                        }
+                    };
+                    const std::string baseTo = game.baseDir + "/";
+                    addAll(*base, baseTo, {".pk3", ".key"});
+                    if (const auto saves = fs::findDirectory(*base, "saves"))
+                        addAll(*saves, baseTo + "saves/", {".sav"});
+                    if (const auto demos = fs::findDirectory(*base, "demos"))
+                        addAll(*demos, baseTo + "demos/", {".efdemo", ".dm_24"});
+                    const Release release = describeRelease(root, game);
+                    for (const std::string& dll : {game.spGameDll, game.spUiDll})
+                        if (!dll.empty())
+                            if (const auto path = fs::findFile(root, dll))
+                                add(*path, fs::toLower(dll));
+                    plan.notes.push_back("Patch level " + release.patch +
+                                         (release.patch == "1.0" ? " (as on the CD; online play needs 1.2)" : ""));
+                    if (!release.singlePlayer)
+                        plan.notes.push_back("No single player: " + game.spGameDll + " and " + game.spUiDll +
+                                             " weren't found beside " + base->filename().string());
+                    else if (!release.singlePlayerPatch.empty())
+                        plan.notes.push_back("Single player " + release.singlePlayerPatch);
+                    size_t paks = 0, saves = 0;
+                    for (const ImportPlan::File& f : plan.files) {
+                        paks += fs::toLower(f.to).size() > 4 && fs::toLower(f.to).substr(f.to.size() - 4) == ".pk3";
+                        saves += f.to.find("/saves/") != std::string::npos;
+                    }
+                    plan.notes.push_back(std::to_string(paks) + " pak file" + (paks == 1 ? "" : "s") +
+                                         (saves ? ", " + std::to_string(saves) + " saved game" + (saves == 1 ? "" : "s")
+                                                : std::string()));
+                    return {plan};
+                }
+            }
+        }
+        return {};
     }
 
     std::unique_ptr<Engine> create(System& system, const GameTarget& target) const override {

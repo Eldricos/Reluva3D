@@ -16,5 +16,7 @@ const MetaEngine* findEngine(std::string_view id);
 
 // Ask every engine whether it recognises the game in `dir`.
 std::vector<DetectedGame> detectGames(const std::filesystem::path& dir);
+// Ask every engine what it could import from `source`.
+std::vector<ImportPlan> planImports(const std::filesystem::path& source);
 
 } // namespace reluva

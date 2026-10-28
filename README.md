@@ -51,7 +51,12 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
 
 ## Usage
 
-- `reluva` opens the launcher. *Add Game...* scans a folder for supported games.
+- `reluva` opens the launcher. *Add Game...* scans a folder for supported games
+  and plays them from there. *Import Game...* copies a game from its CD (or a
+  disc image, or an install made by its own setup) into a folder of Reluva's,
+  only the files Reluva needs, so nothing needs installing, on any system.
+- `reluva-tool detect <folder>` and `reluva-tool import <source> [destination]`
+  do the same from a terminal.
 - `reluva <target>` starts a configured game directly. `reluva testbed`
   runs the test pattern.
 - `reluva --hash <files...>` prints detection signatures for an engine's table.

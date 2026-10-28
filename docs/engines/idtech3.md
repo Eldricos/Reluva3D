@@ -40,7 +40,8 @@ every engine.
 
 | Part | State |
 |---|---|
-| Detection | Elite Force: one Windows release by pak0.pk3's hash; other releases by file names, shown as "unknown release" |
+| Detection | Elite Force: the Windows CD's pak0.pk3 by its hash (no Windows program needed); other releases by file names, shown as "unknown release". The description gives the patch level (pak1.pk3: 1.1, pak2.pk3: 1.2, by their hashes) and says when single player's DLLs are missing, and is brought up to date when the game is started |
+| Import | From the English Windows CD (`SETUP/BaseEF/pak0.pk3` and the DLLs beside it are plain files on it), an install, or a copy of either: the game folder's `.pk3` files, CD key files (`efq3.key`, `expefq3.key`), saved games and demos, and `efgamex86.dll`/`efuix86.dll`, into a folder of Reluva's (`<data>/library/stvef`). From the CD alone that's 1.0; the patches' paks come from a patched install |
 | File system | done: `baseEF` loose files over its paks, later paks first (`filesystem.cpp`, [pk3.md](../formats/idtech3/pk3.md)) |
 | Text files | done: tokenizer ([text.md](../formats/idtech3/text.md)) and entity lump |
 | Shader scripts | every Quake III directive parsed into typed fields, unknown ones listed (`reluva-tool shader-check`) ([shader.md](../formats/idtech3/shader.md)) |

@@ -846,14 +846,39 @@ static void testFilesystemAndDetection(const std::filesystem::path& tmp) {
     CHECK(findImage(images, "v1.5/c") == "v1.5/c.tga"); // a dot in a folder isn't an extension
     CHECK(findImage(images, "textures/none.tga").empty());
 
-    // Not Elite Force until the executable is there too.
+    // Elite Force by its pak0.pk3 alone (no Windows program needed). The
+    // test's isn't a known release: found by name, and only once, with
+    // the patch level and what's missing.
     const MetaEngine* meta = findEngine("idtech3");
-    CHECK(meta && meta->detect(tmp).empty());
-    test::writeFile(tmp / "STVOY.EXE", toBytes("MZ"));
-    // The test's pak0.pk3 isn't a known release: found by name, and only once.
     auto found = meta ? meta->detect(tmp) : std::vector<DetectedGame>{};
     CHECK(found.size() == 1 && found[0].gameId == "stvef" && findGame(found[0].gameId));
-    CHECK(found.size() == 1 && found[0].description.find("unknown release") != std::string::npos);
+    CHECK(found.size() == 1 && found[0].description.find("unknown release") != std::string::npos &&
+          found[0].description.find("(1.0, no single player)") != std::string::npos);
+    // Imported from a CD's layout (SETUP/BaseEF, the DLLs beside it in
+    // capitals): its paks, key file and saves, the DLLs named as Reluva
+    // looks for them; the folder made is found as the game.
+    {
+        const auto cd = tmp / "cd";
+        test::writeFile(cd / "SETUP" / "BaseEF" / "pak0.pk3", toBytes("pak"));
+        test::writeFile(cd / "SETUP" / "BaseEF" / "efq3.key", toBytes("key"));
+        test::writeFile(cd / "SETUP" / "BaseEF" / "efconfig.cfg", toBytes("cfg"));
+        test::writeFile(cd / "SETUP" / "BaseEF" / "saves" / "s1.sav", toBytes("sav"));
+        test::writeFile(cd / "SETUP" / "EFGAMEX86.DLL", toBytes("MZ"));
+        test::writeFile(cd / "SETUP" / "efuix86.dll", toBytes("MZ"));
+        const auto plans = meta ? meta->planImport(cd) : std::vector<ImportPlan>{};
+        CHECK(plans.size() == 1 && plans[0].files.size() == 5 && plans[0].totalBytes() == 13);
+        std::set<std::string> to;
+        for (const ImportPlan::File& f : plans.empty() ? std::vector<ImportPlan::File>{} : plans[0].files)
+            to.insert(f.to);
+        const std::set<std::string> expected{"baseEF/pak0.pk3", "baseEF/efq3.key", "baseEF/saves/s1.sav",
+                                             "efgamex86.dll", "efuix86.dll"};
+        CHECK(to == expected);
+        const auto dest = tmp / "imported";
+        CHECK(!plans.empty() && !runImport(plans[0], dest, nullptr));
+        found = meta ? meta->detect(dest) : std::vector<DetectedGame>{};
+        CHECK(found.size() == 1 && found[0].description.find("(1.0)") != std::string::npos);
+        CHECK(meta && meta->planImport(tmp / "nothing").empty());
+    }
     // Every known release names pak0.pk3's size and hash.
     for (const GameVariant& v : detectionTable())
         CHECK(!v.files.empty() && !v.files[0].md5.empty() && v.files[0].size > 0);

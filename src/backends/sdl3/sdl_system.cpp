@@ -224,6 +224,16 @@ void SdlSystem::updateScreen(const Surface& surface) {
 void SdlSystem::setWindowTitle(const std::string& title) { SDL_SetWindowTitle(window_, title.c_str()); }
 
 bool SdlSystem::pollEvent(Event& out) {
+    // The first joystick connected, opened when there's none: the launcher
+    // takes SDL's events itself, connection notices included.
+    if (!joystick_ && SDL_HasJoystick()) {
+        int count = 0;
+        if (SDL_JoystickID* ids = SDL_GetJoysticks(&count)) {
+            if (count > 0 && (joystick_ = SDL_OpenJoystick(ids[0])))
+                joystickId_ = ids[0];
+            SDL_free(ids);
+        }
+    }
     SDL_Event ev;
     while (SDL_PollEvent(&ev)) {
         SDL_ConvertEventToRenderCoordinates(renderer_, &ev);
