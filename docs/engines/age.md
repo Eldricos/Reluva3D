@@ -216,7 +216,7 @@ recording how each format was worked out (CONTRIBUTING.md).
   description to write a decoder from; skipped, as the original's "No
   Movie" shortcut does, with the game's splash picture shown instead.
 - Not done: the street furniture laid by `proprules.csv` (which rule a
-  road takes isn't known), props' `BREAK` parts, the other menus and
+  road takes isn't known), the other menus and
   modes (Cops & Robbers, replays, options).
 - Music: DirectMusic segments and styles on DLS instruments needs a
   DirectMusic player in `common/audio`. Decided: it comes after the game

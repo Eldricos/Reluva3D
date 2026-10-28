@@ -35,6 +35,8 @@ std::vector<PropPlacement> placeProps(const std::vector<PathsetPath>& paths);
 struct BangerData {
     float mass = 100;
     float impulseLimit2 = 0; // ImpulseLimit2: the square of the impulse that breaks it loose
+    Vec3 size{}, cg{};       // its box's size, and its middle from the prop's foot
+    int parts = 0;           // NumParts: its break pieces (<model>_BREAK01... in its .pkg)
 };
 Error parseBangerData(const std::string& text, BangerData& out);
 
@@ -65,6 +67,9 @@ public:
 
     size_t count() const { return props_.size(); }
     size_t loose() const;
+    // Pieces of props come apart, and those come to rest; the lowest
+    // height any of them is at (for tests).
+    size_t pieces(size_t* resting = nullptr, float* lowest = nullptr) const;
 
 private:
     struct Prop {
@@ -81,6 +86,17 @@ private:
         Vec3 axis{1, 0, 0}, slide{};
         float angle = 0, spin = 0, fallTo = 0;
         Vec3 moved{};
+        // Its break pieces (BREAK01...), each on its own once it comes
+        // apart: a body falling and tumbling to rest on the ground.
+        struct Piece {
+            std::string part;
+            Vec3 cg{}, size{}; // from the banger data
+            Vec3 position{}, velocity{}, spin{};
+            Mat3 orientation;
+            bool resting = false;
+        };
+        std::vector<Piece> pieces;
+        bool apart = false;
     };
     std::vector<Prop> props_;
     bool prepared_ = false;

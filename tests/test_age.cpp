@@ -1888,8 +1888,11 @@ void testProps(const std::filesystem::path& tmp) {
         CHECK(placed[3].at == (Vec3{0, 0, 10}) && placed[5].at == (Vec3{4, 0, 10}) && placed[4].along[0] == 1);
     }
     BangerData b;
-    CHECK(!parseBangerData("type: a\ndgBangerData {\n  Mass 9.3\n  ImpulseLimit2 4657.7\n}\n", b));
-    CHECK(std::fabs(b.mass - 9.3f) < 1e-4f && std::fabs(b.impulseLimit2 - 4657.7f) < 0.01f);
+    CHECK(!parseBangerData("type: a\ndgBangerData {\n  Size 0.2 10.3 0.2\n  CG 0.18 5.15 0\n  Mass 9.3\n"
+                           "  ImpulseLimit2 4657.7\n  NumParts 2\n}\n",
+                           b));
+    CHECK(std::fabs(b.mass - 9.3f) < 1e-4f && std::fabs(b.impulseLimit2 - 4657.7f) < 0.01f && b.parts == 2 &&
+          b.cg[1] == 5.15f && b.size[1] == 10.3f);
     CHECK(parseBangerData("type: a\nother {\n}\n", b));
 
     // A cone (breaks at sqrt(2500) = 50 kg m/s) and a tree (never) in the
@@ -1897,8 +1900,13 @@ void testProps(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
     test::writeFile(tmp / "city" / "test" / "props.pathset",
                     buildPathset({{"sp_cone_f", {{0, 0, -30}}, 0}, {"sp_tree_s", {{6, 0, -30}}, 0}}));
+    // The cone has two pieces: a base (its middle 0.1 up) and a top.
     test::writeFile(tmp / "tune" / "banger" / "sp_cone_f.dgBangerData",
-                    toBytes("type: a\ndgBangerData {\n  Mass 10\n  ImpulseLimit2 2500\n}\n"));
+                    toBytes("type: a\ndgBangerData {\n  Mass 10\n  ImpulseLimit2 2500\n  NumParts 2\n}\n"));
+    test::writeFile(tmp / "tune" / "banger" / "sp_cone_f_BREAK01.dgBangerData",
+                    toBytes("type: a\ndgBangerData {\n  Size 0.6 0.2 0.6\n  CG 0 0.1 0\n  Mass 4\n}\n"));
+    test::writeFile(tmp / "tune" / "banger" / "sp_cone_f_BREAK02.dgBangerData",
+                    toBytes("type: a\ndgBangerData {\n  Size 0.3 0.6 0.3\n  CG 0 0.5 0\n  Mass 6\n}\n"));
     test::writeFile(tmp / "tune" / "banger" / "sp_tree_s.dgBangerData",
                     toBytes("type: a\ndgBangerData {\n  Mass 50000\n  ImpulseLimit2 1e+30\n}\n"));
     SearchSet files;
@@ -1940,6 +1948,12 @@ void testProps(const std::filesystem::path& tmp) {
     }
     CHECK(props.loose() == 1 && car.position[2] < -35 && car.forwardSpeed() > speedBefore * 0.8f);
     CHECK(!flat.raycast({0, 5, -30}, {0, -1, 0}, 10, hit) || hit.surface.prop < 0);
+    // It came apart: both pieces fly off and come to rest on the ground.
+    for (int i = 0; i < 100; ++i)
+        props.update(0.05f, {}, flat, lights);
+    size_t resting = 0;
+    float lowest = 0;
+    CHECK(props.pieces(&resting, &lowest) == 2 && resting == 2 && lowest > 0.05f && lowest < 0.5f);
     // The tree stops a car.
     car.reset(testCar(), {6, 0, 0}, 0);
     for (int i = 0; i < 80; ++i) {

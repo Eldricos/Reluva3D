@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <map>
 
 namespace reluva::age {
@@ -70,6 +71,11 @@ Error parseBangerData(const std::string& text, BangerData& out) {
         return Error::fail("no dgBangerData block");
     out.mass = std::max(0.1f, n->number("Mass", 0, out.mass));
     out.impulseLimit2 = n->number("ImpulseLimit2");
+    for (size_t k = 0; k < 3; ++k) {
+        out.size[k] = n->number("Size", k);
+        out.cg[k] = n->number("CG", k);
+    }
+    out.parts = int(n->number("NumParts"));
     return Error::success();
 }
 
@@ -132,6 +138,22 @@ void Props::prepare(const SearchSet& files, const ModelBox& box) {
             it = banger.emplace(p.model, std::make_pair(b, has)).first;
         }
         const auto& [b, has] = it->second;
+        // Its pieces: <model>_BREAK01... each with its own banger data.
+        p.pieces.clear();
+        for (int k = 1; has && k <= std::min(b.parts, 9); ++k) {
+            char name[16];
+            std::snprintf(name, sizeof name, "BREAK%02d", k);
+            std::vector<uint8_t> data;
+            BangerData pb;
+            if (files.read("tune/banger/" + p.model + "_" + name + ".dgBangerData", data) ||
+                parseBangerData(std::string(data.begin(), data.end()), pb))
+                continue;
+            Prop::Piece piece;
+            piece.part = name;
+            piece.cg = pb.cg;
+            piece.size = pb.size;
+            p.pieces.push_back(piece);
+        }
         p.surface = CollisionSurface{};
         p.surface.prop = int32_t(i);
         p.surface.propMass = b.mass;
@@ -190,6 +212,23 @@ void Props::update(float dt, const std::vector<CarSim*>& cars, CollisionWorld& w
             changed = true;
             if (p.light >= 0)
                 lights.knockDown(size_t(p.light));
+            // Come apart, where it has pieces: each from where it was, off
+            // the way it was pushed, turning, a little up.
+            if (!p.pieces.empty()) {
+                p.apart = true;
+                const Vec3 push = flat(car->velocity);
+                const float speed = length(car->velocity);
+                const Vec3 axis = normalized(cross(Vec3{0, 1, 0}, push));
+                for (size_t k = 0; k < p.pieces.size(); ++k) {
+                    Prop::Piece& piece = p.pieces[k];
+                    piece.position = p.at + p.axes * piece.cg;
+                    piece.orientation = p.axes;
+                    const float share = 0.5f + 0.3f * float(k % 3) / 2; // not all alike
+                    piece.velocity = push * (speed * share) + Vec3{0, 1.5f + float(k % 2), 0};
+                    piece.spin = axis * (2 + float(k)) + Vec3{0, 0.5f * float(k % 2 ? 1 : -1), 0};
+                    piece.resting = false;
+                }
+            }
             // Pushed the way the car goes: tall ones fall over that way
             // (about their foot), and all slide.
             const Vec3 push = flat(car->velocity);
@@ -207,6 +246,34 @@ void Props::update(float dt, const std::vector<CarSim*>& cars, CollisionWorld& w
         });
     for (Prop& p : props_) {
         if (!p.loose)
+            continue;
+        for (Prop::Piece& piece : p.pieces) {
+            if (!p.apart || piece.resting)
+                continue;
+            // Falling and turning; on the ground (its half height above
+            // it), it bounces a little and slows, and rests once slow.
+            piece.velocity[1] -= kGravity * dt;
+            piece.position += piece.velocity * dt;
+            const float turn = length(piece.spin) * dt;
+            if (turn > 1e-6f) {
+                piece.orientation = Mat3::rotation(normalized(piece.spin), turn) * piece.orientation;
+                piece.orientation.orthonormalize();
+            }
+            const float half = std::max(0.05f, std::min({piece.size[0], piece.size[1], piece.size[2]}) / 2);
+            CollisionWorld::RayHit ground;
+            if (world.raycast(piece.position + Vec3{0, 2, 0}, {0, -1, 0}, 6, ground) &&
+                piece.position[1] - half < piece.position[1] + 2 - ground.distance) {
+                piece.position[1] = piece.position[1] + 2 - ground.distance + half;
+                if (piece.velocity[1] < 0)
+                    piece.velocity[1] *= -0.3f;
+                piece.velocity[0] *= 1 - std::min(1.0f, 4 * dt);
+                piece.velocity[2] *= 1 - std::min(1.0f, 4 * dt);
+                piece.spin = piece.spin * (1 - std::min(1.0f, 5 * dt));
+                if (length(piece.velocity) < 0.3f && length(piece.spin) < 0.3f)
+                    piece.resting = true;
+            }
+        }
+        if (p.apart)
             continue;
         if (p.angle < p.fallTo) {
             // A rod falling about its foot.
@@ -231,6 +298,12 @@ void Props::draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight
             const Vec3 at = p.at + p.moved;
             if (length(at - eye) > kDrawDistance || !frustum.visible(at + Vec3{0, p.height / 2, 0}, p.height + 2))
                 continue;
+            if (p.apart) {
+                for (const Prop::Piece& piece : p.pieces)
+                    drawModelMesh(renderer, models.part(p.model, piece.part),
+                                  matrixOf(piece.orientation, piece.position), light, translucent);
+                continue;
+            }
             const ModelCache::Model& m = models.get(p.model);
             if (!m.ok)
                 continue;
@@ -238,6 +311,23 @@ void Props::draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight
             drawModelMesh(renderer, m.levels.front(), matrixOf(turn * p.axes, at + turn * Vec3{0, p.lift, 0}), light,
                           translucent);
         }
+}
+
+size_t Props::pieces(size_t* resting, float* lowest) const {
+    size_t n = 0, still = 0;
+    float low = 1e30f;
+    for (const Prop& p : props_)
+        if (p.apart)
+            for (const Prop::Piece& piece : p.pieces) {
+                ++n;
+                still += piece.resting;
+                low = std::min(low, piece.position[1]);
+            }
+    if (resting)
+        *resting = still;
+    if (lowest)
+        *lowest = low;
+    return n;
 }
 
 size_t Props::loose() const {

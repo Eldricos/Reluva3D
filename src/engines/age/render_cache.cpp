@@ -146,6 +146,10 @@ Error buildModelMesh(gfx::Renderer3D& renderer, TextureCache& textures, const Se
             continue;
         if (includePart && !includePart(m.part()))
             continue;
+        // A prop's break pieces (BREAK01...) are drawn on their own once it
+        // comes apart (props.h), not with the whole.
+        if (!includePart && m.part().rfind("BREAK", 0) == 0)
+            continue;
         // A part with a placement (wheels, lights, breakable pieces) is
         // modelled about its own centre and moved to its origin.
         Vec3 at{};
