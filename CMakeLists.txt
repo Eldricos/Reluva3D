@@ -52,6 +52,12 @@ target_link_libraries(imgui PUBLIC SDL3::SDL3)
 add_library(reluva_warnings INTERFACE)
 if(MSVC)
     target_compile_options(reluva_warnings INTERFACE /W4 /permissive-)
+    # Inlining as GCC and Clang do. Visual Studio's own "x64-Release" is
+    # RelWithDebInfo, whose /Ob1 inlines only functions marked inline: the
+    # x86 interpreter's helpers were then a call each, every instruction.
+    if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        add_compile_options($<$<NOT:$<CONFIG:Debug>>:/Ob3>)
+    endif()
 else()
     target_compile_options(reluva_warnings INTERFACE -Wall -Wextra -Wpedantic)
 endif()

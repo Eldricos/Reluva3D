@@ -122,8 +122,20 @@ the folder directly. CLion and Qt Creator also open `CMakeLists.txt` directly.
 
 ### 3. Build and run
 
-1. In the toolbar, the configuration dropdown shows **x64-Debug** by default.
-   Choose **x64-Release** when you want a fast build.
+1. In the toolbar, the configuration dropdown lists the project's presets
+   (`CMakePresets.json`): **x64 Debug**, **x64 Release (fast)** and **x64
+   Release, Clang (fastest)**. Choose a Release one to play: Debug runs the
+   games' code several times slower.
+   - **Clang** (clang-cl) is worth trying for the x86 interpreter (Need
+     for Speed III, Elite Force): on Linux it ran it about 5% faster than
+     GCC, and in one Visual Studio build the interpreter ran at about half
+     the speed it does with GCC or Clang. It needs
+     **C++ Clang Compiler for Windows** and **MSBuild support for LLVM
+     (clang-cl) toolset**, ticked under **Individual components** in the
+     installer.
+   - If the dropdown still shows Visual Studio's own **x64-Debug** and
+     **x64-Release**, turn on **Tools > Options > CMake > General > Use
+     CMakePresets.json** and reopen the folder.
 2. In the **Select Startup Item** dropdown (next to the green ▶ button), choose
    **reluva.exe**.
 3. Press **F5** to build and run under the debugger, or **Ctrl+F5** to run
