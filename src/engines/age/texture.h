@@ -23,10 +23,15 @@ constexpr uint16_t Rgba = 18;         // 32-bit: R, G, B, A
 } // namespace texformat
 
 // A .tex file's header and its first (largest) level, decoded to RGBA.
+// A texture's flags, as far as they're known (tex.md).
+namespace texflag {
+constexpr uint32_t Clamp = 0x1; // its coordinates kept within it, not repeated
+}
+
 struct Tex {
     uint16_t format = 0;
     uint16_t levels = 0;  // mipmap levels stored, each half the last
-    uint32_t flags = 0;   // meaning still unknown (tex.md)
+    uint32_t flags = 0;   // see texflag; the other bits' meanings aren't known
     image::Image image;
 };
 

@@ -8,8 +8,11 @@
 #include "engines/age/city_mesh.h"
 #include "engines/age/instances.h"
 #include "engines/age/psdl.h"
+#include "engines/age/pvs.h"
 #include "engines/age/render_cache.h"
 
+#include <array>
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <string>
@@ -50,7 +53,9 @@ public:
 
     // Draws the sky round `eye`, the city, then (if `models`) the placed
     // models in view; returns how many models were drawn. Between
-    // Renderer3D::beginFrame and endFrame.
+    // Renderer3D::beginFrame and endFrame. With visibility on, only the
+    // blocks the city's .cpvs says can be seen from the eye's block (and
+    // the models in them) are drawn.
     size_t draw(const gfx::Mat4& viewProj, const gfx::Vec3& eye, bool models);
     // Brightens the city's opaque surfaces drawn by draw() with `lights`
     // (the nearest gfx::kMaxDynamicLights to `eye`): headlights on the road.
@@ -58,6 +63,18 @@ public:
     // Stops drawing the city's triangles `drop` says to (what lies across
     // a drawbridge's gap); for good, until the next load().
     void hide(const std::function<bool(const Vec3& a, const Vec3& b, const Vec3& c)>& drop);
+
+    // Culling by the city's visibility file (on by default, where there is
+    // one).
+    void setVisibility(bool on) { visibilityOn_ = on; }
+    bool visibility() const { return visibilityOn_ && !pvs_.empty(); }
+    // The block the eye was last in (0: none, or visibility off), and how
+    // many blocks were drawn from it.
+    size_t viewBlock() const { return viewBlock_; }
+    size_t blocksDrawn() const { return blocksDrawn_; }
+    // The block `p` stands in (on or over its ground, up to 30 m above its
+    // highest point), or 0.
+    size_t blockAt(const Vec3& p) const;
 
     // What was loaded, for the pages' info and the collision world.
     const std::vector<std::string>& notes() const { return notes_; }
@@ -84,9 +101,29 @@ private:
         gfx::Mat4 matrix;
         gfx::Vec3 center; // of its bounds, in the world
         float radius;
+        uint16_t block;
+    };
+    struct BlockBounds {
+        float minX, minZ, maxX, maxZ, minY, maxY;
+        std::vector<std::pair<float, float>> outline; // x, z
+    };
+
+    struct CityLights { // as SceneLight's defaults until a .lt is read
+        gfx::Vec3 ambient{0.55f, 0.55f, 0.55f};
+        std::array<gfx::Vec3, 3> direction{gfx::Vec3{-0.4f, 0.8f, -0.45f}}; // the key light, then the two fills
+        std::array<gfx::Vec3, 3> color{gfx::Vec3{0.6f, 0.6f, 0.6f}};
+    };
+    struct Fog {
+        gfx::Vec3 color;
+        float start, end;
     };
 
     void unload();
+    // The city's vertex colours for the lighting, and its mesh again.
+    void relightCity();
+    // The index buffer again: the triangles of the blocks seen from
+    // viewBlock_ (all of them for 0).
+    void rebuildIndices();
 
     gfx::Renderer3D& renderer_;
     const SearchSet& files_;
@@ -100,6 +137,14 @@ private:
     gfx::MeshId cityMesh_ = 0;
     std::vector<Batch> batches_;
     std::vector<Placed> placed_;
+    Pvs pvs_;
+    std::vector<BlockBounds> blockBounds_;
+    bool visibilityOn_ = true;
+    size_t viewBlock_ = 0, blocksDrawn_ = 0;
+    Vec3 detailFrom_{1e9f, 0, 0}; // where the roads' detail was last chosen from
+    std::chrono::steady_clock::time_point loadedAt_; // the animations' clock starts
+    CityLights cityLights_;
+    std::vector<Fog> fogs_;
     std::string sky_;
     ModelMesh skyMesh_;
     int lighting_ = 4;

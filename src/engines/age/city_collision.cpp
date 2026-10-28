@@ -14,7 +14,9 @@ namespace reluva::age {
 size_t buildCityCollision(const SearchSet& files, const Psdl& psdl, const CityMesh& mesh,
                           const std::vector<Instance>& instances, CollisionWorld& out) {
     out = CollisionWorld{};
-    for (const CityMesh::Batch& b : mesh.batches)
+    for (const CityMesh::Batch& b : mesh.batches) {
+        if (b.water || b.detail == 2)
+            continue; // what's under the water is driven on; far-off roads are there near too
         for (size_t i = 0; i + 2 < b.indices.size(); i += 3) {
             auto at = [&](size_t k) {
                 const gfx::Vertex& v = mesh.vertices[b.indices[i + k]];
@@ -22,6 +24,7 @@ size_t buildCityCollision(const SearchSet& files, const Psdl& psdl, const CityMe
             };
             out.add(at(0), at(1), at(2));
         }
+    }
 
     // Facade bounds: a value, a height, the left and right vertices.
     const size_t lastVertex = psdl.vertices.empty() ? 0 : psdl.vertices.size() - 1;

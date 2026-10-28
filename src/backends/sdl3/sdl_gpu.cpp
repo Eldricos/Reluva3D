@@ -37,6 +37,7 @@ struct FragmentUniforms {
     float lightCount[4];
     float lightPos[gfx::kMaxDynamicLights][4]; // xyz, radius
     float lightColor[gfx::kMaxDynamicLights][4];
+    float fogColor[4];
 };
 
 SDL_GPUBlendFactor blendFactor(gfx::Blend b) {
@@ -660,6 +661,8 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     vu.mode[3] = call.fogDistance;
     vu.mode2[0] = call.followCamera ? 1.0f : 0.0f;
     vu.mode2[1] = call.backLerp;
+    vu.mode2[2] = call.fogNear;
+    vu.mode2[3] = call.fogFar;
     for (size_t i = 0; i < call.deforms.size(); ++i) {
         const gfx::Deform& d = call.deforms[i];
         DeformUniforms& u = vu.deforms[i];
@@ -681,6 +684,7 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     SDL_PushGPUVertexUniformData(cmd_, 0, &vu, sizeof(vu));
     FragmentUniforms fu{};
     fu.params[0] = float(call.state.alphaTest);
+    std::copy(call.fogColor.begin(), call.fogColor.end(), fu.fogColor);
     if (call.texture == frameTexture_) {
         fu.params[1] = 2; // the brightness pass
         fu.params[2] = 1.0f / gamma_;

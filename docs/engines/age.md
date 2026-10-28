@@ -12,7 +12,7 @@ stands, like [idtech3.md](idtech3.md).
 | Archives | done: `.ar` ([ar.md](../formats/age/ar.md)); all 13,288 retail files read. Every `.ar` in the game folder is mounted, loose files over them (`filesystem.cpp`); `reluva-tool ar-list` and `ar-extract` |
 | Textures | done: `.tex` in its four formats ([tex.md](../formats/age/tex.md)); all 3,665 retail textures decode; the flags' meanings still to work out; `reluva-tool tex-info` |
 | Models | done: `.pkg` meshes, shaders with their paint jobs, placed models, and `.mtx` part placements ([pkg.md](../formats/age/pkg.md)); 1,034 of 1,040 retail models load (the 6 that don't are unused); `reluva-tool pkg-info` |
-| Cities | done: `.psdl` streets and buildings, generated from every attribute but tunnels ([psdl.md](../formats/age/psdl.md)); `.inst` placed models ([inst.md](../formats/age/inst.md)); the sky dome and the 16 lightings ([tune.md](../formats/age/tune.md)); both retail cities read whole, every texture and model they name found; `reluva-tool psdl-info` |
+| Cities | done: `.psdl` streets and buildings, generated from every attribute, with tunnels, walls and railings, and the roads after the bounds read ([psdl.md](../formats/age/psdl.md)); `.cpvs` visibility ([pvs.md](../formats/age/pvs.md)); the water under the bridges, animated water textures, the texture flag that clamps ([tex.md](../formats/age/tex.md)); the city lit by its three lights, and its fog; `.inst` placed models ([inst.md](../formats/age/inst.md)); the sky dome and the 16 lightings ([tune.md](../formats/age/tune.md)); both retail cities read whole, every texture and model they name found; `reluva-tool psdl-info` |
 | Driving | a first cruise mode, Reluva's model of the game's tuning ([age-driving.md](age-driving.md)): every car the menus offer, in either city; its simulation (suspension, tyres, engine, automatic gearbox, drag) from its `.vehCarSim`; collisions with the city's generated geometry, facade bounds and placed models' `.bnd` bounds ([bnd.md](../formats/age/bnd.md)); the near, far and in-car cameras from its camera files; its engine sound from its sound table; a HUD (speed, gear, revs). Not compared with the game yet |
 | Races | a first version ([age-racing.md](age-racing.md), [race.md](../formats/age/race.md)): every Blitz, Circuit and Checkpoint race of both cities from the game's race files, at Amateur or Professional, against opponents in the cars and at the skills the race's aimap gives them, driving their recorded paths along a road graph Reluva builds from the city (88% of them finish; every checkpoint race's all do); checkpoints, laps, a Blitz's time limit, positions, results; the game's checkpoint stands and HUD arrow; the race's traffic, pedestrians and police. Not yet: Crash Course, the game's menus and HUD pictures, unlocking |
 | City life | a first version ([age-traffic.md](age-traffic.md)): the road maps ([bai.md](../formats/age/bai.md)) and AI settings ([aimap.md](../formats/age/aimap.md)) of both cities read whole; traffic in the game's ambient models along the lanes, through the junctions, knocked aside by the player; pedestrians, the game's skinned models and animations ([ped.md](../formats/age/ped.md)), walking the sidewalks and diving out of the way; police that chase a speeding player along the roads and bust a stopped one. traffic lights at the road ends the road maps mark, which the traffic stops for; lane changes; the cars' lamps (brake lights, indicators, headlights with flares and pools of light at night, sirens). police patrolling the lanes when not chasing, with the game's siren tables and arrest sound, and the player's own siren in the police car. Ferries, boats and ducks on their paths, drawbridges that rise and fall, parked cars, and London's Underground trains ([pathset.md](../formats/age/pathset.md)). Not yet: knocking lights and signs down (the game has no police radio to play) |
@@ -157,12 +157,19 @@ recording how each format was worked out (CONTRIBUTING.md).
 - `.inst` placed models, `.sky`, `.lt00`-`.lt15` lighting.
 - World page: fly through London and San Francisco on the
   `gfx::Renderer3D` the id Tech 3 engine already uses.
-- Left for later: tunnels (their attributes aren't worked out), the
-  texture flags (repeat or clamp), `.cpvs`/`.pvs` visibility (the World
-  page culls by the view and distance instead), `.water`, `.lmap` and
-  the ambient maps, how the original lights the city (Reluva's
-  approximation is too bright at night), low-detail road textures far
-  away, animated water, and the PSDL's tail after the bounds.
+- Done since: tunnels, walls and railings (the PSDL's tunnel attribute);
+  the block flags, the header's count (the first road block) and the
+  roads after the bounds; `.cpvs` visibility (the World page's **V**);
+  the texture flag that clamps; `.water` (the water under the bridges);
+  animated water; the city lit by the `.lt` files' three lights as
+  Direct3D would, and the `_fog.csv` fog; low-detail road textures far
+  off. `.lmap` holds nothing to go on, and the ambient maps' pictures
+  aren't shipped ([tune.md](../formats/age/tune.md)).
+- Still not known: some flags and words of the tunnel attribute, the
+  roads' flags, ends and vertices, block flags 0x20-0x80 and the road
+  blocks' second byte, the other texture flags; how placed models and
+  cars are lit (one light still), and whether the game uses the
+  low-detail roads as Reluva does. For watching the game run.
 
 ### 4. Driving (first version done)
 
@@ -177,8 +184,8 @@ recording how each format was worked out (CONTRIBUTING.md).
 - Left for later: comparing the handling with the game; damage; the
   dashboard models and in-car dashboard camera; the HUD's map
   (`.mmHudMap`) and the game's own HUD pictures; the horn and clutch
-  sounds, tyre and collision sounds; tunnels (London's Underground
-  cutting is open); the `.bbnd`/`.ter` bounds; manual gears.
+  sounds, tyre and collision sounds; the `.bbnd`/`.ter` bounds; manual
+  gears.
 
 ### 5. The game (races and city life done; the rest next)
 

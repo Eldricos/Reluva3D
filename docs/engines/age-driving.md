@@ -88,8 +88,10 @@ backs up.
 - the bounds of the placed models that have one (`bound/<model>_BOUND.bnd`:
   207 of San Francisco's 3,763, 1,263 of London's 1,997).
 
-In a grid of 8 m cells. Tunnels aren't there yet, so London's
-Underground cutting is an open trench.
+In a grid of 8 m cells. The tunnels' walls and ceilings and the
+bridges' railings are among the city's surfaces ([psdl.md](../formats/age/psdl.md)),
+so they're collided with; the water under the bridges and the roads'
+far-off low-detail copies aren't.
 
 ## Cameras
 

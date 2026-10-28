@@ -10,7 +10,9 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdlib>
 #include <map>
+#include <optional>
 
 namespace reluva::age {
 
@@ -18,6 +20,14 @@ namespace {
 
 constexpr float kGroundTile = 10;  // metres a ground texture covers, for fans and roofs
 constexpr float kRoadRepeat = 1;   // a texture's length along a strip, per strip width
+constexpr int kArchSteps = 8;      // pieces across a curved tunnel ceiling
+
+// A tunnel attribute's flags (psdl.md): which sides have walls, the
+// ceiling, and which ends of a curved ceiling are closed.
+namespace tunnelflag {
+constexpr uint16_t Left = 0x1, Right = 0x2, FlatCeiling = 0x8, ClosedStartLeft = 0x10, ClosedEndLeft = 0x20,
+                   ClosedStartRight = 0x40, ClosedEndRight = 0x80, CurvedCeiling = 0x100;
+}
 
 float length(const Vec3& a, const Vec3& b) {
     const float dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
@@ -26,32 +36,64 @@ float length(const Vec3& a, const Vec3& b) {
 
 class Builder {
 public:
-    Builder(const Psdl& psdl, CityMesh& out) : psdl_(psdl), out_(out) {}
+    Builder(const Psdl& psdl, CityMesh& out) : psdl_(psdl), out_(out) {
+        for (size_t i = 0; i < out_.batches.size(); ++i)
+            batchOf_.emplace(keyOf(out_.batches[i].texture, out_.batches[i].water, out_.batches[i].detail), i);
+    }
 
-    void block(const PsdlBlock& b) {
+    void block(const PsdlBlock& b, uint16_t index) {
+        block_ = index;
         uint32_t texture = 0;
+        tunnel_.reset();
         for (const PsdlAttribute& a : b.attributes) {
             if (a.type == psdlattr::Texture) {
                 texture = uint32_t(a.subtype) * 256 + a.words[0];
+                continue;
+            }
+            if (a.type == psdlattr::Tunnel && a.words.size() >= 3) {
+                const Tunnel t{a.words[0], float(a.words[1]) / 256, float(a.words[2]) / 256, texture};
+                if (a.words.size() >= 6)
+                    junction(b, t, uint32_t(a.words[4]) | uint32_t(a.words[5]) << 16);
+                else
+                    tunnel_ = t; // for the strip that follows
                 continue;
             }
             attribute(a, texture);
         }
     }
 
+    // A flat fan over a block's outline at `height` (water).
+    void plane(const PsdlBlock& b, uint16_t index, float height, uint32_t texture) {
+        block_ = index;
+        water_ = true;
+        std::vector<Vec3> p;
+        for (const auto& [v, beyond] : b.perimeter) {
+            Vec3 q = vertex(v);
+            q[1] = height;
+            p.push_back(q);
+        }
+        if (p.size() >= 3)
+            fan(texture, p);
+    }
+
 private:
     Vec3 vertex(uint16_t i) const { return i < psdl_.vertices.size() ? psdl_.vertices[i] : Vec3{}; }
     float height(uint16_t i) const { return i < psdl_.heights.size() ? psdl_.heights[i] : 0; }
 
-    std::vector<uint32_t>& batch(uint32_t texture) {
-        const std::string name = psdl_.texture(texture);
-        auto it = batchOf_.find(name);
-        if (it == batchOf_.end()) {
-            it = batchOf_.emplace(name, out_.batches.size()).first;
-            out_.batches.push_back({name, {}});
-        }
-        return out_.batches[it->second].indices;
+    static std::string keyOf(const std::string& texture, bool water, uint8_t detail) {
+        return std::string(water ? "~" : "") + char('0' + detail) + texture;
     }
+    size_t batchIndex(uint32_t texture) {
+        const std::string name = psdl_.texture(texture);
+        const std::string key = keyOf(name, water_, detail_);
+        auto it = batchOf_.find(key);
+        if (it == batchOf_.end()) {
+            it = batchOf_.emplace(key, out_.batches.size()).first;
+            out_.batches.push_back({name, {}, {}, water_, detail_});
+        }
+        return it->second;
+    }
+    std::vector<uint32_t>& batch(uint32_t texture) { return out_.batches[batchIndex(texture)].indices; }
 
     // A triangle with its face's normal; `ground` turns it to face up.
     void triangle(uint32_t texture, const Vec3 (&p)[3], const float (&uv)[3][2], bool ground) {
@@ -66,6 +108,7 @@ private:
         if (ground && n[1] < 0)
             for (float& c : n)
                 c = -c;
+        out_.batches[batchIndex(texture)].blocks.push_back(block_);
         std::vector<uint32_t>& idx = batch(texture);
         for (int k = 0; k < 3; ++k) {
             gfx::Vertex v{};
@@ -116,13 +159,24 @@ private:
     // A road between two curbs: its textures are half a road, the centre
     // line at v = 0 and the curb at v = 1, so each half is drawn from its
     // curb to the middle.
+    // Where the third texture of the road's is a low-detail version of it
+    // (r2_f, swalk_f, r2_lo_f), the road is made twice: with its own for
+    // near, with that one for far off.
     void road(uint32_t texture, const std::vector<Vec3>& left, const std::vector<Vec3>& right) {
         std::vector<Vec3> middle(left.size());
         for (size_t i = 0; i < left.size(); ++i)
             for (size_t k = 0; k < 3; ++k)
                 middle[i][k] = (left[i][k] + right[i][k]) / 2;
+        const bool far = psdl_.texture(texture + 2).find("_lo") != std::string::npos;
+        detail_ = far ? 1 : 0;
         strip(texture, left, middle, 1, 0);
         strip(texture, middle, right, 0, 1);
+        if (far) {
+            detail_ = 2;
+            strip(texture + 2, left, middle, 1, 0);
+            strip(texture + 2, middle, right, 0, 1);
+        }
+        detail_ = 0;
     }
 
     // A sidewalk along a road: its inner edge (at the road) lifted to the
@@ -146,6 +200,104 @@ private:
         quad(texture, a, b, c, d, {{0, v}, {u, v}, {u, 0}, {0, 0}}, false);
     }
 
+    // A tunnel's (or a railing's) two heights and flags. Walls stand
+    // along a strip's two sides from the ground up; a flat ceiling is at
+    // the first height; a curved one springs from the lower of the two and
+    // reaches the higher at its crown (London's Underground: walls 5.5 m, a
+    // crown at 7; San Francisco's road tunnels: 7 and 9 or 10), its ends
+    // closed above the first height where the flags say (where it meets a
+    // junction's flat ceiling).
+    struct Tunnel {
+        uint16_t flags = 0;
+        float first = 0, second = 0;
+        uint32_t texture = 0;
+        bool curved() const { return flags & tunnelflag::CurvedCeiling; }
+        float wall() const { return curved() ? std::min(first, second) : first; }
+        float crown() const { return curved() ? std::max(first, second) : first; }
+    };
+
+    // A wall `height` high along `edge`, standing on the ground there, its
+    // texture once up it and repeated along it by length over height.
+    void sideWall(uint32_t texture, const std::vector<Vec3>& edge, float height) {
+        float u = 0;
+        for (size_t i = 0; i + 1 < edge.size(); ++i) {
+            const float u2 = u + length(edge[i], edge[i + 1]) / std::max(0.5f, height);
+            const Vec3 top0{edge[i][0], edge[i][1] + height, edge[i][2]};
+            const Vec3 top1{edge[i + 1][0], edge[i + 1][1] + height, edge[i + 1][2]};
+            quad(texture, edge[i], edge[i + 1], top1, top0, {{u, 1}, {u2, 1}, {u2, 0}, {u, 0}}, false);
+            u = u2;
+        }
+    }
+
+    void tunnel(const Tunnel& t, const std::vector<Vec3>& left, const std::vector<Vec3>& right) {
+        if (left.size() < 2 || left.size() != right.size())
+            return;
+        if (t.flags & tunnelflag::Left)
+            sideWall(t.texture, left, t.wall());
+        if (t.flags & tunnelflag::Right)
+            sideWall(t.texture, right, t.wall());
+        const bool curved = t.curved();
+        if (!curved && !(t.flags & tunnelflag::FlatCeiling))
+            return;
+        // The ceiling's cross-sections, left to right, at each section.
+        const int steps = curved ? kArchSteps : 1;
+        auto across = [&](size_t i, int k) {
+            const float f = float(k) / float(steps);
+            Vec3 p;
+            for (size_t c = 0; c < 3; ++c)
+                p[c] = left[i][c] + (right[i][c] - left[i][c]) * f;
+            p[1] += t.wall() + (t.crown() - t.wall()) * std::sin(f * 3.14159265f);
+            return p;
+        };
+        for (size_t i = 0; i + 1 < left.size(); ++i)
+            for (int k = 0; k < steps; ++k) {
+                const float u0 = float(k) / float(steps), u1 = float(k + 1) / float(steps);
+                quad(t.texture, across(i, k), across(i, k + 1), across(i + 1, k + 1), across(i + 1, k),
+                     {{u0, 0}, {u1, 0}, {u1, 1}, {u0, 1}}, false);
+            }
+        if (!curved || t.first > t.wall())
+            return;
+        // Closed ends: the arch's end above the walls' height, each half.
+        auto close = [&](size_t i, bool leftHalf) {
+            const Vec3 l = across(i, 0), r = across(i, steps);
+            const Vec3 middle{(l[0] + r[0]) / 2, (l[1] + r[1]) / 2, (l[2] + r[2]) / 2};
+            const int from = leftHalf ? 0 : steps / 2, to = leftHalf ? steps / 2 : steps;
+            for (int k = from; k < to; ++k)
+                triangle(t.texture, {middle, across(i, k), across(i, k + 1)}, {{0.5f, 1}, {0, 0}, {1, 0}}, false);
+        };
+        const size_t last = left.size() - 1;
+        if (t.flags & tunnelflag::ClosedStartLeft)
+            close(0, true);
+        if (t.flags & tunnelflag::ClosedStartRight)
+            close(0, false);
+        if (t.flags & tunnelflag::ClosedEndLeft)
+            close(last, true);
+        if (t.flags & tunnelflag::ClosedEndRight)
+            close(last, false);
+    }
+
+    // A junction's tunnel: walls along the block's outline where `edges`
+    // has a bit (bit i: the edge ending at outline vertex i; those with no
+    // block beyond them), and its flat ceiling over the whole block.
+    void junction(const PsdlBlock& b, const Tunnel& t, uint32_t edges) {
+        const size_t n = b.perimeter.size();
+        if (n < 3)
+            return;
+        for (size_t i = 0; i < n && i < 32; ++i)
+            if (edges >> i & 1)
+                sideWall(t.texture, {vertex(b.perimeter[(i + n - 1) % n].first), vertex(b.perimeter[i].first)},
+                         t.first);
+        if (t.flags & (tunnelflag::FlatCeiling | tunnelflag::CurvedCeiling)) {
+            std::vector<Vec3> p;
+            for (const auto& [v, beyond] : b.perimeter) {
+                Vec3 q = vertex(v);
+                q[1] += t.first;
+                p.push_back(q);
+            }
+            fan(t.texture, p);
+        }
+    }
+
     void attribute(const PsdlAttribute& a, uint32_t texture) {
         const auto& w = a.words;
         switch (a.type) {
@@ -161,6 +313,9 @@ private:
             road(texture, il, ir);
             sidewalk(texture + 1, il, ol);
             sidewalk(texture + 1, ir, orr);
+            if (tunnel_)
+                tunnel(*tunnel_, ol, orr);
+            tunnel_.reset();
             break;
         }
         case psdlattr::DividedRoad: {
@@ -177,6 +332,9 @@ private:
             strip(texture + 1, s[2], s[3]);
             sidewalk(texture + 1, s[1], s[0]);
             sidewalk(texture + 1, s[4], s[5]);
+            if (tunnel_)
+                tunnel(*tunnel_, s[0], s[5]);
+            tunnel_.reset();
             break;
         }
         case psdlattr::SidewalkStrip: {
@@ -200,6 +358,9 @@ private:
                 right.push_back(vertex(w[i + 1]));
             }
             strip(texture, left, right);
+            if (tunnel_)
+                tunnel(*tunnel_, left, right);
+            tunnel_.reset();
             break;
         }
         case psdlattr::Crosswalk:
@@ -239,7 +400,6 @@ private:
             wall(texture, l, r, l[1], r[1], top, u, 1);
             break;
         }
-        case psdlattr::Tunnel: ++out_.skipped; break;
         default: break; // facade bounds aren't drawn
         }
     }
@@ -247,6 +407,10 @@ private:
     const Psdl& psdl_;
     CityMesh& out_;
     std::map<std::string, size_t> batchOf_;
+    std::optional<Tunnel> tunnel_; // waiting for the strip it walls
+    uint16_t block_ = 0;
+    bool water_ = false; // making the water's planes
+    uint8_t detail_ = 0; // making a road's near or far version
 };
 
 } // namespace
@@ -254,8 +418,44 @@ private:
 void buildCityMesh(const Psdl& psdl, CityMesh& out) {
     out = CityMesh{};
     Builder b(psdl, out);
-    for (const PsdlBlock& block : psdl.blocks)
-        b.block(block);
+    for (size_t i = 0; i < psdl.blocks.size(); ++i)
+        b.block(psdl.blocks[i], uint16_t(i));
+}
+
+Error parseCityWater(const std::string& text, CityWater& out) {
+    out = CityWater{};
+    size_t at = 0;
+    bool first = true;
+    while (at < text.size()) {
+        const size_t start = text.find_first_not_of(" \t\r\n", at);
+        if (start == std::string::npos)
+            break;
+        const size_t end = text.find_first_of(" \t\r\n", start);
+        const std::string word = text.substr(start, end == std::string::npos ? std::string::npos : end - start);
+        at = end == std::string::npos ? text.size() : end;
+        char* rest = nullptr;
+        if (first) {
+            out.height = std::strtof(word.c_str(), &rest);
+            first = false;
+        } else {
+            const unsigned long block = std::strtoul(word.c_str(), &rest, 10);
+            if (block > 0xffff)
+                return Error::fail("water: block " + word + " out of range");
+            out.blocks.push_back(uint16_t(block));
+        }
+        if (!rest || *rest != '\0')
+            return Error::fail("water: \"" + word + "\" isn't a number");
+    }
+    if (first)
+        return Error::fail("water: empty");
+    return Error::success();
+}
+
+void addCityWater(const Psdl& psdl, const CityWater& water, uint32_t texture, CityMesh& out) {
+    Builder b(psdl, out);
+    for (uint16_t i : water.blocks)
+        if (i < psdl.blocks.size())
+            b.plane(psdl.blocks[i], i, water.height, texture);
 }
 
 } // namespace reluva::age

@@ -20,6 +20,7 @@
 #include "engines/age/ped_model.h"
 #include "engines/age/pkg.h"
 #include "engines/age/psdl.h"
+#include "engines/age/pvs.h"
 #include "engines/age/race.h"
 #include "engines/age/road_graph.h"
 #include "engines/age/texture.h"
@@ -404,24 +405,32 @@ void testNames() {
 }
 
 // A small city: 6 vertices, heights 10, 20 and 1, two textures, one block.
-std::vector<uint8_t> buildPsdl(const std::vector<uint16_t>& attributes, uint32_t version = 2) {
+// A city of one block (by default with two perimeter edges), then `tail`
+// (its roads) after the bounds.
+std::vector<uint8_t> buildPsdl(const std::vector<uint16_t>& attributes, uint32_t version = 2,
+                               const std::vector<std::pair<uint16_t, uint16_t>>& perimeter = {{0, 0}, {1, 5}},
+                               const std::vector<std::string>& textures = {"r2_f", "swalk_f"},
+                               const std::vector<uint8_t>& tail = {}) {
     Bytes b;
     b.str("PSD0").u32(version).u32(6);
     const float v[6][3] = {{0, 0, 0}, {10, 0, 0}, {10, 0, 10}, {0, 0, 10}, {0, 0.15f, -2}, {10, 0.15f, -2}};
     for (const auto& p : v)
         b.f32(p[0]).f32(p[1]).f32(p[2]);
     b.u32(3).f32(10).f32(20).f32(1);
-    b.u32(3).u8(5).str("r2_f").u8(0).u8(8).str("swalk_f").u8(0); // counts are one more than stored
-    b.u32(2).u32(0);
-    b.u32(2).u32(uint32_t(attributes.size())); // block 1: two perimeter edges
-    b.u16(0).u16(0).u16(1).u16(5);
+    b.u32(uint32_t(textures.size() + 1)); // counts are one more than stored
+    for (const std::string& t : textures)
+        b.name(t);
+    b.u32(2).u32(1); // blocks (plus one), the first road block
+    b.u32(uint32_t(perimeter.size())).u32(uint32_t(attributes.size()));
+    for (const auto& [vertex, beyond] : perimeter)
+        b.u16(vertex).u16(beyond);
     for (uint16_t w : attributes)
         b.u16(w);
     b.u8(0).u8(4);   // flags of blocks 0 and 1
     b.u8(205).u8(0); // the second bytes
     for (float f : {-1.f, -2.f, -3.f, 4.f, 5.f, 6.f, 1.f, 2.f, 3.f, 9.f})
         b.f32(f);
-    return b.v;
+    return b.bytes(tail).v;
 }
 
 void testPsdl() {
@@ -470,6 +479,122 @@ void testPsdl() {
     CHECK(readPsdl(buildPsdl({0x80 | 11 << 3, 0, 1, 2}), psdl));
     CHECK(readPsdl(buildPsdl({0x80 | 13 << 3}), psdl));
     CHECK(psdlAttributeLength(psdlattr::DividedRoad, 2) == 14 && psdlAttributeLength(psdlattr::Tunnel, 5) == 5);
+
+    // The roads after the bounds: flags, a word, lanes each side and where
+    // they are across, a byte each end, eight vertices, then the blocks
+    // (negative in some of San Francisco's).
+    Bytes roads;
+    roads.u32(1).u16(0x440).u16(1).u8(1).u8(1).f32(0.25f).f32(0.75f).u8(1).u8(0x80);
+    for (uint16_t v = 0; v < 8; ++v)
+        roads.u16(v);
+    roads.u8(2).u16(1).u16(0xffff);
+    CHECK(!readPsdl(buildPsdl(attrs, 2, {{0, 0}, {1, 5}}, {"r2_f", "swalk_f"}, roads.v), psdl));
+    CHECK(psdl.firstRoadBlock == 1 && psdl.roads.size() == 1);
+    if (psdl.roads.size() == 1) {
+        const PsdlRoad& r = psdl.roads[0];
+        CHECK(r.flags == 0x440 && r.extra == 1 && r.lanes[0] == 1 && r.lanes[1] == 1);
+        CHECK(r.lanePositions == (std::vector<float>{0.25f, 0.75f}) && r.ends[0] == 1 && r.ends[1] == 0x80);
+        CHECK(r.vertices[7] == 7 && r.blocks == (std::vector<int32_t>{1, -1}));
+    }
+    roads.v.pop_back();
+    CHECK(readPsdl(buildPsdl(attrs, 2, {{0, 0}, {1, 5}}, {"r2_f", "swalk_f"}, roads.v), psdl)); // cut short
+    roads.u8(0xff).u8(0);
+    CHECK(readPsdl(buildPsdl(attrs, 2, {{0, 0}, {1, 5}}, {"r2_f", "swalk_f"}, roads.v), psdl)); // a byte left over
+}
+
+void testTunnels() {
+    // A tunnel over a rectangle strip from x 0 to 10 along z 0-10: walls
+    // 5.5 m high both sides, a curved ceiling reaching 7 at its crown, its
+    // start closed above the walls.
+    const std::vector<uint16_t> tube = {10 << 3, 1, 9 << 3 | 3, 0x153, 0x580, 0x700, 0x80 | 2 << 3 | 2, 0, 1, 3, 2};
+    Psdl psdl;
+    CHECK(!readPsdl(buildPsdl(tube), psdl));
+    CityMesh mesh;
+    buildCityMesh(psdl, mesh);
+    float crown = -1, wallTop = -1;
+    for (const gfx::Vertex& v : mesh.vertices) {
+        crown = std::max(crown, v.pos[1]);
+        if (v.pos[0] == 0)
+            wallTop = std::max(wallTop, v.pos[1]);
+    }
+    CHECK(std::fabs(crown - 7) < 1e-4f && std::fabs(wallTop - 5.5f) < 1e-4f);
+    // Two walls, eight pieces of arch, the strip, half the start's end each
+    // side (four pieces each).
+    CHECK(mesh.batches.size() == 1 && mesh.batches[0].indices.size() == (4 + 16 + 2 + 8) * 3);
+    // The lower height is the walls' either way round (San Francisco's
+    // tunnels: 9 then 7).
+    CHECK(!readPsdl(buildPsdl({10 << 3, 1, 9 << 3 | 3, 0x103, 0x900, 0x700, 0x80 | 2 << 3 | 2, 0, 1, 3, 2}), psdl));
+    buildCityMesh(psdl, mesh);
+    crown = wallTop = -1;
+    for (const gfx::Vertex& v : mesh.vertices) {
+        crown = std::max(crown, v.pos[1]);
+        if (v.pos[0] == 0)
+            wallTop = std::max(wallTop, v.pos[1]);
+    }
+    CHECK(std::fabs(crown - 9) < 1e-4f && std::fabs(wallTop - 7) < 1e-4f);
+
+    // A junction: walls along the edges the mask names (bit i: the edge
+    // ending at outline vertex i), a flat ceiling at 5.5 over the block.
+    const std::vector<uint16_t> junction = {10 << 3, 1, 9 << 3, 10, 0xb, 0x580, 0x700, 0, 0b1010, 0, 0, 0, 0, 0,
+                                            0x80 | 6 << 3 | 2, 0, 1, 2, 3};
+    CHECK(!readPsdl(buildPsdl(junction, 2, {{0, 0}, {1, 7}, {2, 0}, {3, 7}}), psdl));
+    buildCityMesh(psdl, mesh);
+    size_t ceiling = 0, walls = 0;
+    for (size_t i = 0; i + 2 < mesh.batches[0].indices.size(); i += 3) {
+        const gfx::Vertex& a = mesh.vertices[mesh.batches[0].indices[i]];
+        if (a.normal[1] != 0 && a.pos[1] > 5)
+            ++ceiling;
+        else if (a.normal[1] == 0)
+            ++walls;
+    }
+    CHECK(ceiling == 2 && walls == 4); // the edges 0-1 and 2-3
+}
+
+void testCityExtras() {
+    // Water over block 1 at its height, a batch of its own.
+    CityWater water;
+    CHECK(!parseCityWater("-1.9\r\n1\r\n", water) && water.height == -1.9f &&
+          water.blocks == (std::vector<uint16_t>{1}));
+    CHECK(parseCityWater("-1.9\nboat\n", water) && parseCityWater("", water));
+    Psdl psdl;
+    CHECK(!readPsdl(buildPsdl({0x80 | 10 << 3, 1}, 2, {{0, 0}, {1, 0}, {2, 0}, {3, 0}}), psdl));
+    CityMesh mesh;
+    buildCityMesh(psdl, mesh);
+    CHECK(!parseCityWater("-1.9 1", water));
+    addCityWater(psdl, water, 1, mesh);
+    CHECK(mesh.batches.size() == 1 && mesh.batches[0].water && mesh.batches[0].indices.size() == 6);
+    for (uint32_t i : mesh.batches[0].indices)
+        CHECK(mesh.vertices[i].pos[1] == -1.9f);
+    CHECK(mesh.batches[0].blocks == (std::vector<uint16_t>{1, 1}));
+
+    // A road whose texture has a low-detail version: made twice.
+    const std::vector<uint16_t> road = {10 << 3, 1, 0x80 | 0 << 3 | 2, 4, 0, 1, 5, 4, 3, 2, 5};
+    CHECK(!readPsdl(buildPsdl(road, 2, {{0, 0}, {1, 5}}, {"r2_f", "swalk_f", "r2_lo_f"}), psdl));
+    buildCityMesh(psdl, mesh);
+    int near = -1, far = -1;
+    for (size_t i = 0; i < mesh.batches.size(); ++i) {
+        if (mesh.batches[i].detail == 1)
+            near = int(i);
+        if (mesh.batches[i].detail == 2)
+            far = int(i);
+    }
+    CHECK(near >= 0 && far >= 0 && mesh.batches[size_t(near)].texture == "r2_f");
+    if (near >= 0 && far >= 0)
+        CHECK(mesh.batches[size_t(far)].texture == "r2_lo_f" &&
+              mesh.batches[size_t(far)].indices.size() == mesh.batches[size_t(near)].indices.size());
+
+    // Visibility: blocks 1 and 2; 1 sees both, 2 only itself. Rows are
+    // runs: under 0x80, that many of the next byte; from 0x80, 0x7f fewer
+    // bytes as they are.
+    Bytes pvs;
+    pvs.str("PVS0").u32(4).u32(0).u32(2).u32(4).u8(0x80).u8(0x3c).u8(1).u8(0x30);
+    Pvs v;
+    CHECK(!readCpvs(pvs.v, v) && v.blocks == 3 && v.rows.size() == 2);
+    CHECK(v.sees(1, 1) && v.sees(1, 2) && !v.sees(2, 1) && v.sees(2, 2) && !v.sees(1, 0));
+    CHECK(v.sees(0, 1) && v.sees(7, 1)); // not covered
+    pvs.v[8 + 8] = 9; // the last row ends past the file
+    CHECK(readCpvs(pvs.v, v));
+    CHECK(readCpvs(toBytes("PVS1"), v));
 }
 
 void testInstances() {
@@ -1452,6 +1577,8 @@ int main() {
     testPathset();
     testGizmos(tmp / "gizmos");
     testParkedCars(tmp / "parked");
+    testTunnels();
+    testCityExtras();
     testTrains(tmp / "trains");
     std::filesystem::remove_all(tmp);
     if (failures) {

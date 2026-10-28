@@ -128,7 +128,7 @@ Error readPsdl(const std::vector<uint8_t>& data, Psdl& out) {
         out.textures.push_back(std::move(name));
     }
     const uint32_t blocks = r.u32();
-    r.u32(); // meaning not known yet
+    out.firstRoadBlock = r.u32();
     if (!r.ok || blocks == 0)
         return Error::fail("truncated before the blocks");
     out.blocks.resize(blocks);
@@ -175,7 +175,7 @@ Error readPsdl(const std::vector<uint8_t>& data, Psdl& out) {
         return Error::fail("truncated in the blocks");
 
     // A byte of flags for each block, another byte each, then the city's
-    // bounds, centre and radius. What follows isn't worked out yet.
+    // bounds, centre and radius, then its roads.
     if (!r.need(uint64_t(blocks) * 2 + 40))
         return Error::fail("truncated after the blocks");
     for (PsdlBlock& block : out.blocks)
@@ -186,6 +186,35 @@ Error readPsdl(const std::vector<uint8_t>& data, Psdl& out) {
     out.max = r.vec3();
     out.center = r.vec3();
     out.radius = r.f32();
+    if (!r.need(4))
+        return Error::success(); // no roads (a city made for testing)
+    const uint32_t roads = r.u32();
+    for (uint32_t i = 0; i < roads; ++i) {
+        PsdlRoad road;
+        if (!r.need(6))
+            return Error::fail("truncated in the roads");
+        road.flags = r.u16();
+        road.extra = r.u16();
+        road.lanes[0] = r.u8();
+        road.lanes[1] = r.u8();
+        const size_t lanes = size_t(road.lanes[0]) + road.lanes[1];
+        if (!r.need(lanes * 4 + 2 + 16 + 1))
+            return Error::fail("truncated in the roads");
+        for (size_t k = 0; k < lanes; ++k)
+            road.lanePositions.push_back(r.f32());
+        road.ends[0] = r.u8();
+        road.ends[1] = r.u8();
+        for (uint16_t& v : road.vertices)
+            v = r.u16();
+        const size_t n = r.u8();
+        if (!r.need(n * 2))
+            return Error::fail("truncated in the roads");
+        for (size_t k = 0; k < n; ++k)
+            road.blocks.push_back(int16_t(r.u16()));
+        out.roads.push_back(std::move(road));
+    }
+    if (r.p != r.end)
+        return Error::fail(std::to_string(r.end - r.p) + " bytes left after the roads");
     return Error::success();
 }
 
