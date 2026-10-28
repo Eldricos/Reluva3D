@@ -94,20 +94,44 @@ void Page::fill(int x, int y, int w, int h, Color c, uint8_t alpha) {
 }
 
 void Page::drawSubtitles(const std::vector<Subtitle>& subtitles, double seconds) {
-    // Those due at that time, at the bottom in the game's dialogue style.
+    // The game plays them as a conversation in its movie mode (0x43a610):
+    // no window, the line due wrapped at 944 and centred in the bottom 64
+    // pixels (0x43cffc, 0x43d2a8), coloured as a conversation's are
+    // (0x43c070: Antoinette 8, the others 9, then 10 when the speaker
+    // changes).
     const TextStyle* style = ctx_.fonts ? ctx_.fonts->style("dialogue") : nullptr;
     if (!style || !style->font)
         return;
-    std::vector<std::string> lines;
-    for (const Subtitle& sub : subtitles)
-        if (seconds >= sub.start && seconds < sub.end)
-            for (const std::string& l : style->font->wrap(sub.line, style->pixels, kScreenW - 160))
-                lines.push_back(l);
+    const Subtitle* due = nullptr;
+    int colour = 8, dueColour = 8;
+    std::string lastSpeaker;
+    for (const Subtitle& sub : subtitles) {
+        const std::string speaker = fs::toLower(sub.speaker);
+        if (speaker.find("antoinette") != std::string::npos) {
+            colour = 8;
+        } else {
+            if (!lastSpeaker.empty() && speaker != lastSpeaker)
+                colour = colour == 9 ? 10 : 9;
+            else if (colour != 9 && colour != 10)
+                colour = 9;
+            lastSpeaker = speaker;
+        }
+        if (seconds >= sub.start && seconds < sub.end) {
+            due = &sub;
+            dueColour = colour;
+        }
+    }
+    if (!due)
+        return;
+    static const char* const kColours[] = {"dialogue for main character",
+                                           "dialogue text for second character in conversation",
+                                           "dialogue text for third character in conversation"};
+    const Color c = ctx_.fonts->colour(kColours[dueColour - 8]);
+    const std::vector<std::string> lines = style->font->wrap(due->line, style->pixels, 944);
     const int lh = style->font->lineHeight(style->pixels);
-    int y = kScreenH - 40 - int(lines.size()) * lh;
+    int y = kScreenH - 64 + (64 - int(lines.size()) * lh) / 2;
     for (const std::string& l : lines) {
-        ctx_.fonts->draw(ctx_.screen, *style, (kScreenW - style->font->width(l, style->pixels)) / 2, y, l,
-                         {255, 255, 255});
+        ctx_.fonts->draw(ctx_.screen, *style, (kScreenW - style->font->width(l, style->pixels)) / 2, y, l, c);
         y += lh;
     }
 }
@@ -624,6 +648,10 @@ bool ScenePage::startMovie(ScriptRunner& runner, const ScriptEvent& e, bool wait
     std::vector<uint8_t> text;
     if (!ctx_.files.read("text/movies/" + name + ".txt", text))
         movieSubtitles_ = moviesOwn(parseSubtitles(decodeText(text)), name);
+    // Starting them is starting a talk (0x42ae7d, not a dry run): the
+    // inventory closes and what's held is let go.
+    if (!movieSubtitles_.empty())
+        talkStarting(name);
     movieRunner_ = wait ? &runner : nullptr;
     return wait;
 }
