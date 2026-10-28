@@ -33,8 +33,8 @@ readme: "As a default, the X-Axis and Y-Axis operate in the analog mode.
   1/32768, held to -1..1 (*v*).
   - x (axis 0) when `joy_xbutton` is 0, and y (axis 1) when
     `joy_ybutton` is 0: an analog event for that axis (`SE_JOYSTICK_AXIS`)
-    with 0 inside ±`joy_threshold`, else `-(v * 127)` truncated (right and
-    forward negative... x right gives negative, y forward positive).
+    with 0 inside ±`joy_threshold`, else `-(v * 127)` truncated: x pushed right
+    gives a negative value, y pushed forward a positive one.
   - Otherwise each axis has two bits: *v* below -threshold sets bit
     2*i*, above +threshold bit 2*i*+1.
 - **Hat**, when the device has one: exactly 0 sets bit 12, 18000 bit
