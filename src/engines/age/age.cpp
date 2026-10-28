@@ -9,8 +9,8 @@
 // CONTRIBUTING.md: never use leaked or unlicensed code.
 //
 // For now the engine is a data viewer (see viewers.h for the keys): it
-// mounts the game's archives, drives its cars round its cities and shows
-// its models, textures and files.
+// mounts the game's archives, runs its races, drives its cars round its
+// cities and shows its models, textures and files.
 
 #include "common/audio/mixer.h"
 #include "engines/age/filesystem.h"
@@ -55,6 +55,7 @@ public:
 
         ViewerContext ctx{sys_, screen_, files_, game_, warnings, audioOut ? &mixer : nullptr};
         std::vector<std::unique_ptr<Page>> pages;
+        pages.push_back(std::make_unique<RaceViewer>(ctx));
         pages.push_back(std::make_unique<DriveViewer>(ctx));
         pages.push_back(std::make_unique<WorldViewer>(ctx));
         pages.push_back(std::make_unique<ModelViewer>(ctx));

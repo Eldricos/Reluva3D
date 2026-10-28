@@ -97,6 +97,9 @@ public:
     float forwardSpeed() const { return -dot(velocity, orientation.z); }
     // Where a wheel's centre is now (its suspension and the body's place).
     Vec3 wheelCenter(int i) const;
+    // Spheres round the body for bumping into other cars: centres in the
+    // world and their radius.
+    std::array<Vec3, 3> bumpers(float& radius) const;
 
 private:
     void substep(const CarControls& controls, const CollisionWorld& world, float h);
@@ -108,5 +111,9 @@ private:
     float shiftTimer_ = 0;   // no drive while changing gear
     float steerAngle_ = 0;   // eased towards the controls
 };
+
+// Two cars bumping: each is three spheres along its length; where they
+// overlap the cars are pushed apart and bounce off each other.
+void collideCars(CarSim& a, CarSim& b);
 
 } // namespace reluva::age

@@ -6,6 +6,11 @@
 // The Angel Game Engine data viewer's pages. Tab switches pages; Esc
 // goes back to the launcher.
 //
+// Race (3D): the game's races. In the menu Up/Down pick a line, Left/Right
+// change it (city, event, race, level, car), Enter starts. In a race the
+// Drive page's keys drive and C changes the camera; Esc leaves the race,
+// and Enter goes back to the menu from the results.
+//
 // Drive (3D): a car driven round a city. Up/Down (or W/S) accelerate and
 // brake (held when stopped, backs up), Left/Right (or A/D) steer, Space
 // is the handbrake. C changes the camera (near, far, in the car),
@@ -41,8 +46,12 @@
 #include "common/system.h"
 #include "common/gfx3d.h"
 #include "engines/age/car.h"
+#include "engines/age/car_actor.h"
 #include "engines/age/city_scene.h"
 #include "engines/age/engine_sound.h"
+#include "engines/age/opponent.h"
+#include "engines/age/race.h"
+#include "engines/age/road_graph.h"
 #include "engines/age/games.h"
 #include "engines/age/pkg.h"
 #include "engines/age/render_cache.h"
@@ -91,6 +100,24 @@ protected:
 
     ViewerContext& ctx_;
 };
+
+// A car the menus offer (tune/<car>.info), if its simulation and model
+// are there.
+struct CarInfo {
+    std::string base;        // "vpbug"
+    std::string description; // "VW New Beetle"
+    std::vector<std::string> colors;
+};
+std::vector<CarInfo> findCars(const SearchSet& files);
+
+// The driving keys held, as the Drive and Race pages read them: Up/W
+// throttle, Down/S brake, Left/A and Right/D steer, Space handbrake.
+enum DriveKeys : uint32_t { kDriveThrottle = 1, kDriveBrake = 2, kDriveLeft = 4, kDriveRight = 8, kDriveHandbrake = 16 };
+uint32_t driveKeyOf(uint32_t key);
+CarControls controlsOf(uint32_t keys);
+
+// The speed, gear and revs, bottom right of an RGBA overlay.
+void drawSpeedometer(Surface& overlay, const CarSim& sim);
 
 // The first part of a name's file name, for jumping between kinds:
 // "geometry/vpbug.pkg" -> "vpbug", "texture/sw_stc_tan.tex" -> "sw".
@@ -244,30 +271,14 @@ public:
     bool uses3D() const override { return true; }
 
 private:
-    struct CarInfo {
-        std::string base;        // "vpbug"
-        std::string description; // "VW New Beetle"
-        std::vector<std::string> colors;
-    };
-    struct Camera {
-        bool inside = false; // in the car (camPovCS), else following it (camTrackCS)
-        Vec3 offset{0, 1, 4};
-        Vec3 lookAt{0, 1.5f, 0};
-        float minDistance = 3, maxDistance = 6;
-        float fov = 70; // degrees
-    };
-
     void loadCity(int index);
     void loadCar(int index);
-    void unloadCar();
     void resetCar();
-    void loadCameras();
-    void drawCar();
     void drawHud();
 
     std::vector<CityInfo> cities_;
     std::vector<CarInfo> cars_;
-    int city_ = 0, car_ = 0;
+    int city_ = 0, carIndex_ = 0;
     uint32_t paintJob_ = 0;
     gfx::Renderer3D* renderer_ = nullptr;
     std::unique_ptr<CityScene> scene_;
@@ -276,20 +287,83 @@ private:
     Surface overlay_;
     std::string error_;
 
-    CarSetup setup_;
-    CarSim sim_;
-    ModelMesh body_;
-    std::array<ModelMesh, 4> wheels_;
+    CarActor car_;
     EngineSound engine_;
-
-    std::vector<Camera> cameras_;
+    std::vector<CarCamera> cameras_;
     int camera_ = 0;
     Vec3 cameraPos_{};
     bool cameraReset_ = true;
     int lighting_ = 4;
     bool showInfo_ = true;
-    uint32_t keys_ = 0; // driving keys held, bit per kDrive*
+    uint32_t keys_ = 0; // driving keys held: DriveKeys
     uint64_t lastMs_ = 0;
+};
+
+// A race (Blitz, Circuit, Checkpoint) from the game's race files, against
+// opponents driving their recorded paths. Keys in the header's comment.
+class RaceViewer : public Page {
+public:
+    explicit RaceViewer(ViewerContext& ctx);
+    ~RaceViewer() override;
+    const char* name() const override { return "Race"; }
+    size_t count() const override { return cities_.empty() || cars_.empty() ? 0 : 1; }
+    void activate() override;
+    void deactivate() override;
+    void handleEvent(const Event& ev) override;
+    void update(uint64_t nowMs) override;
+    bool uses3D() const override { return true; }
+    bool takesKey(const Event& ev) const override;
+
+private:
+    enum class State { Menu, Countdown, Racing, Finished };
+    struct Racer {
+        std::unique_ptr<CarActor> car;
+        PathDriver driver; // opponents only
+        std::string name;
+        size_t next = 0;      // index into targets_ of the next checkpoint
+        float finishTime = -1;
+        bool player = false;
+    };
+
+    void loadCity();
+    void startRace();
+    void endRace();
+    void stepRace(float dt);
+    float progressOf(const Racer& r) const;
+    void drawCheckpoints();
+    void drawArrow();
+    void drawMenu();
+    void drawRaceHud();
+    const Waypoint& targetPoint(size_t k) const { return race_.waypoints[targets_[k]]; }
+
+    std::vector<CityInfo> cities_;
+    std::vector<CarInfo> cars_;
+    gfx::Renderer3D* renderer_ = nullptr;
+    std::unique_ptr<CityScene> scene_;
+    CollisionWorld world_;
+    RoadGraph roads_;
+    Surface overlay_;
+    std::string error_;
+    int loadedCity_ = -1;
+
+    // The menu's choices.
+    int field_ = 0, city_ = 0, kind_ = 0, raceIndex_ = 0, level_ = 0, car_ = 0;
+    std::vector<std::string> raceNames_;
+
+    State state_ = State::Menu;
+    RaceDefinition race_;
+    std::vector<size_t> targets_; // the waypoints to reach, in order (laps unrolled)
+    std::vector<Racer> racers_;   // the player first
+    float clock_ = 0;             // seconds since the start (negative counting down)
+    std::string outcome_;
+    EngineSound engine_;
+    std::vector<CarCamera> cameras_;
+    int camera_ = 0;
+    Vec3 cameraPos_{};
+    bool cameraReset_ = true;
+    uint32_t keys_ = 0;
+    uint64_t lastMs_ = 0;
+    float orbit_ = 0; // the menu's camera, round the start
 };
 
 } // namespace reluva::age

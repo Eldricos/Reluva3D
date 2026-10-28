@@ -322,4 +322,42 @@ void CarSim::collideBody(const CollisionWorld& world) {
     }
 }
 
+std::array<Vec3, 3> CarSim::bumpers(float& radius) const {
+    // Along the body between its wheels, at mid height, as wide as it is.
+    const float front = setup_.wheels[0][2] - 0.4f, back = setup_.wheels[2][2] + 0.4f;
+    radius = std::max(0.6f, std::fabs(setup_.wheels[0][0]) + 0.2f);
+    std::array<Vec3, 3> out;
+    for (int i = 0; i < 3; ++i) {
+        const float z = front + (back - front) * float(i) / 2;
+        out[size_t(i)] = position + orientation * Vec3{0, 0.7f, z};
+    }
+    return out;
+}
+
+void collideCars(CarSim& a, CarSim& b) {
+    float ra, rb;
+    const auto sa = a.bumpers(ra), sb = b.bumpers(rb);
+    const float ma = a.setup().mass, mb = b.setup().mass;
+    for (const Vec3& pa : sa)
+        for (const Vec3& pb : sb) {
+            Vec3 d = pb - pa;
+            d[1] = 0; // pushed apart sideways, not up
+            const float dist = length(d);
+            const float depth = ra + rb - dist;
+            if (depth <= 0 || dist < 1e-4f)
+                continue;
+            const Vec3 n = d * (1 / dist);
+            // Apart in proportion to the other's mass.
+            a.position -= n * (depth * mb / (ma + mb));
+            b.position += n * (depth * ma / (ma + mb));
+            const float closing = dot(b.velocity - a.velocity, n);
+            if (closing < 0) {
+                const float j = -1.3f * closing / (1 / ma + 1 / mb); // a little bounce
+                a.velocity -= n * (j / ma);
+                b.velocity += n * (j / mb);
+            }
+            return; // one push a step is enough
+        }
+}
+
 } // namespace reluva::age
