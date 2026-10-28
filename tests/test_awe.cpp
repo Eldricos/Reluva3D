@@ -1153,7 +1153,8 @@ void testDialogue() {
         "dia_obs\t02a\ta\ta\tb\tpoirot\t0\tYes.\t0\t0\t0\t0\t0\t0\t0\t0\t0\n"
         "dia_obs\t02a\ta\tb\ta\tantoinette\t0\tThe man?\t0\t0\t0\t0\t0\t0\t0\t0\tinventory\\items\\gun\\invgun.png\n"
         "dia_obs\t02a\ta\tc\ta\tantoinette\t0\tSecret.\t0\ttag never\t0\t0\t0\t0\t0\t0\t0\n"
-        "dia_obs\t02a\tb\t1\ta\tpoirot\t0\tGood.\t0\t0\t0\t0\t0\t0\t0\t0\t0\n";
+        "dia_obs\t02a\tb\t1\ta\tpoirot\t0\tNever said.\t0\t0\t0\t0\t0\t0\t0\t0\t0\n"
+        "dia_obs\t02a\tc\ta\ta\tpoirot\t0\tNor this.\t0\t0\t0\t0\t0\t0\t0\t0\t0\n";
     GameState state;
     FakeHost scripts;
     QuietHost host;
@@ -1220,11 +1221,14 @@ void testDialogue() {
     run(1.6f);
     // Heard to its end: kept for the "talk" condition.
     CHECK(testCondition("talk dia_obs 02a aa", state) && !testCondition("talk dia_obs 02a ab", state));
-    // One choice left: played without asking; then part b, its opening.
+    // One choice left: played without asking. Then on to part b, which
+    // has only an opening: Start looks for its thread a (0x43a835), finds
+    // none and fails outright (0x43aaa3, no "+" from there), so part c
+    // isn't reached either and the talk ends.
     CHECK(d.line() && d.line()->text == "The man?");
     run(1.6f);
-    CHECK(d.line() && d.line()->text == "Good.");
-    run(4.0f); // the last line, the box slides out, the talk is done
+    CHECK(!d.line() || (d.line()->text != "Never said." && d.line()->text != "Nor this."));
+    run(4.0f); // the box slides out, the talk is done
     CHECK(!d.active());
     run(0.2f);
     CHECK(state.tags["after"] == 1 && runner.idle());

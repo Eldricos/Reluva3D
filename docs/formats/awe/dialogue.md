@@ -239,8 +239,9 @@ requested part exists, so it may be left over from the previous conversation.
    it is "available" (3.3 looks further on).
 9. Choosing what to play:
    * **Explicit thread, or a part with exactly one thread and no extras**:
-     t = thread (or `a`, code 0, if thread = -1). DM+0x14 = t; none → return 0
-     (note: +0x20 is left at 1). If t.status≠0, t.current=0 and +0x624 is set,
+     t = thread (or `a`, code 0, if thread = -1, even when the one thread
+     is another: an opening-only part fails here). DM+0x14 = t; none →
+     return 0 (note: +0x20 is left at 1; see 9.6). If t.status≠0, t.current=0 and +0x624 is set,
      or if t is not available (3.3) → **exhausted** (see below). Else play t
      from `nest` (or from t.current, or from its first line) and return 1.
    * **Otherwise** (thread = -1 and several threads or extras): n = the
@@ -747,25 +748,62 @@ ends. Exits exist only with gen (NPC clicks or `forcegen`).
    talk wasn't started from it, +0x44); for a name with neither `gen_` nor
    `com_` in it (0x43e750, any case), 0x419e80 puts the item in hand back
    and 0x419970 stops the item just taken blinking.
-2. `0x404720` / `0x404760` / `0x4046c0` / `0x4046f0` (talking state, mouth),
+2. ~~`0x404720` / `0x404760` / `0x4046c0` / `0x4046f0` (talking state, mouth),
    `0x441270` / `0x441560` / `0x4415b0` (head): the parameter meanings are
-   inferred.
-3. `word[0x4986f8]` (enables exit variant 4).
+   inferred~~: read. 0x404720 plays `talkidle1` unless `eavesidle` is
+   playing; 0x404760 stops `talk` and `talkidle1`..`4` (and their
+   `%stalkidle` forms); 0x4046c0 and 0x4046f0 play and stop `talk`, the
+   mouth. 0x441270(w1, w2) sends the head home (0x429e70) and plays
+   `head`+w1 for w2 seconds, eased 0.5; 0x441560(w1, w2, tilt) keeps the
+   tilt (+0x14fa), makes the cell (w1, w2) a place in the world through the
+   scene's grid (0x406dd0) and looks there (0x4414f0); 0x4415b0(w1, tilt):
+   `home` sends the head home, an object's name looks at it (its +0x10,
+   +0x18), anything else is a number (0x43e310) of degrees from the body's
+   heading. These are `turn`'s forms ([characters.md](characters.md#turn-the-head)).
+3. ~~`word[0x4986f8]` (enables exit variant 4)~~: the time of day (set by
+   0x402800 with the `time` verb, read by the night test 0x4027b0). Above 0,
+   the fourth goodbye drawn becomes the fifth: "Good evening" for "Good
+   day" (`gen_arbuthnot_exit` 3 and 4).
 4. ~~`[0x490068]` is assumed to be the subtitles option~~: it is the
    `Captions` setting (read and written under that name, 0x42ba10,
    0x42bba4).
-5. `0x43cb70` vs `0x43cc30`: which is wheel up and which is down. Whether
-   `[0x48b08c]`/`[0x48b090]` are the mouse position globals (they hold
-   400.0/300.0 in the file).
-6. Start leaves +0x20 = 1 when the named thread does not exist (returns 0).
-   A bug, or harmless?
-7. `cantalk` dry run: queued Event/Prevent commands and the box-show flags
-   are not obviously undone.
-8. `+0x618` is never set, so its branch in 0x43b8f0/0x43c35d is dead code.
-9. The scene name used in the visit tag is lower-cased by `0x43e9f0`
-   (it calls 0x472e21, assumed to be `_wcslwr`).
-10. The update order between the Povent runner and the pending action (+0x320)
-    within one frame is as read, but not checked at run time.
+5. ~~`0x43cb70` vs `0x43cc30`~~: the window procedure divides
+   `WM_MOUSEWHEEL`'s delta by 120 (0x40142d); each notch forward calls
+   0x43d810 → 0x43cc30 (up the list), each back 0x43d850 → 0x43cb70 (down
+   it). `[0x48b08c]`/`[0x48b090]` are the mouse's place, set by
+   `WM_MOUSEMOVE` (0x401495) and kept within x 1004 and y 748, or 758
+   while a conversation is on (+0x20); clicks use them (0x416036).
+6. ~~Start leaves +0x20 = 1 when the named thread does not exist~~: so it
+   does, and it matters. A part of one thread with no extras is played
+   from thread `a` (0x43a835: code 0, whatever its one thread is), so a
+   part with only an opening fails (0x43aaa3, a plain return 0: no `+`
+   from there). Two do in the install, both clicks on a character in 6B:
+   `dia_hubbardsalon a` and `dia_arbuthnotshoes a`. The `talk` then falls
+   back to the "nothing to say" line (gen is 1), whose Start resets +0x20.
+   The walkthrough recordings have it so: Hubbard's "I'm not in the mood
+   to talk right now" in Salon_02 in 6B (Part 7, 6:20.9) and Arbuthnot's
+   (Part 7, 0:52.7), found by matching the voice files against the
+   videos' sound; their openings ("Have you enjoyed rummaging around in my
+   room?", "See here, what do you think you're playing at?") are never
+   heard. With gen 0 the dialogue would be left active; nothing in the
+   install does that.
+7. ~~`cantalk` dry run~~: Start runs on as far as for a real talk; only
+   the inventory's changes, the required-line message (0x439ce5) and the
+   line's playing (0x43bd3d) look at +0x61c, and cantalk's 0x43a600 only
+   clears +0x20 and the slide (+0x54a), and only when Start succeeded. What
+   lasts is the visit tag (2.2, step 9): a cantalk that would open the
+   menu marks the character met this visit, so the talk after it can
+   regreet. The rest (exit and regreet threads, statuses) is built again
+   by the next Start.
+8. ~~`+0x618`~~: written only with 0 (0x438808, 0x438d88, 0x43b93f), so
+   its branches in 0x43b8f0 and 0x43c35d are dead code.
+9. ~~The visit tag's scene name lower-cased~~: 0x472e21 is `wcsrchr`, and
+   0x43e9f0 copies what follows the last `\`: the scene file's name, its
+   case kept. Tags are looked up without regard to case (0x47fa1b,
+   `_wcsicmp`), so that comes to the same.
+10. The update order between the Povent runner and the pending action
+    (+0x320) within one frame is as read from the code; it can't be
+    watched without the game running.
 
 
 ## In Reluva

@@ -701,7 +701,18 @@ conditions. Reluva's evaluator is `testCondition`
 
 - The fields the game loads but never reads keep their offsets: the
   common `b54`, `b58` and `b68`, `SPRT`'s `dc8`, the item's `1610` and
-  `1612`, and the camera's `238`, `23a` and `1240`.
+  `1612`, and the camera's `238`, `23a` and `1240`. Checked again over
+  every access to those offsets in `motoe.exe`: the common ones are
+  touched only by the object's constructor (`0x40de00`: `b58` 2000.0,
+  `b68` 0), the reader (`0x40fa20`), the writer (`0x40f360`) and a copy
+  (`0x40f080`); the item's only by its constructor (`0x420630`: 0) and
+  copy (`0x420700`); the camera's only by its constructor (`0x406960`:
+  `238` 1024, `23a` and `1240` 0) and reader (`0x406a60`); `SPRT`'s
+  `dc8` only by the scene reader (`0x43863e`; the other `+0xdc8`s are a
+  light's and a particle system's own fields). Nothing reads them, so the
+  code can't name them. In the install `b54` is 1 nearly everywhere, `b58`
+  2000 (4000 or 2200 on three characters), `b68` 1 on 21 pictures, `238`
+  1024 on every camera and `1240` 1 on two.
 - What Reluva doesn't do yet: the objects' own sounds (`sound`,
   `soundLoops`, `hoverSoundLoops`; empty or 0 in every scene), the
   animated pictures (`2DAN`, `NING`: in no scene).

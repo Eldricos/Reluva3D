@@ -445,13 +445,17 @@ bool DialogueManager::start(const std::string& name, int part, int thread, int n
                 loadProgress(q);
     const bool hasExtras = !extras().empty();
 
-    // A thread asked for, or the only one: played as it is.
+    // A thread asked for, or a part of one thread and no extras: thread a
+    // then (0x43a835), whatever the one thread is. dia_hubbardsalon and
+    // dia_arbuthnotshoes (6B) have only an opening, so they never play:
+    // the click falls back to the character's "nothing to say", as the
+    // walkthrough recordings have it (Part 7 at 0:52 and 6:20).
     const bool single = p->threads.size() == 1 && !hasExtras;
     if (thread != -1 || single) {
         const int code = thread == -1 ? 0 : thread;
         int ti = -1;
         for (size_t i = 0; i < p->threads.size(); i++)
-            if (p->threads[i].code == (single && thread == -1 ? p->threads[i].code : code)) {
+            if (p->threads[i].code == code) {
                 ti = int(i);
                 break;
             }
@@ -477,13 +481,18 @@ bool DialogueManager::start(const std::string& name, int part, int thread, int n
             if (t.code < 0x60 && available(t) && offered(t))
                 rows++;
         rows += int(extras().size());
-        if (rows > 0 && dry_)
+        // "Met them here": 1 this visit, 2 an earlier one. A dry run
+        // (cantalk) sets it too, as the game's goes on to here (+0x61c is
+        // only tested by the inventory's changes, the required-line
+        // message and the line's playing).
+        const std::string key = fs::toLower(host_.sceneName()) + " " + p->name + " " + std::to_string(p->code);
+        if (rows > 0 && dry_) {
+            state_.tags[key] = 1;
             return true;
+        }
         if (rows > 0) {
             if (gen_)
                 addExit(*p);
-            // "Met them here": 1 this visit, 2 an earlier one.
-            const std::string key = fs::toLower(host_.sceneName()) + " " + p->name + " " + std::to_string(p->code);
             const auto tag = state_.tags.find(key);
             const int visit = tag == state_.tags.end() ? -99 : tag->second;
             if (gen_ && greet && part < 100 && visit > 0)
