@@ -149,6 +149,7 @@ void DriveViewer::deactivate() {
     siren_.stop();
     life_.stop();
     engine_.stop();
+    music_.stop();
     car_.unload();
     flares_.reset();
     smoke_.reset();
@@ -236,6 +237,10 @@ void DriveViewer::loadCar(int index) {
         if (Error err = engine_.start(*ctx_.mixer, ctx_.files, car.base))
             error_ = err.message;
     startSounds();
+    // The cruising music (aud/dmusic), once for the drive.
+    if (ctx_.mixer && music_.segment().empty())
+        if (Error err = music_.start(ctx_.files, *ctx_.mixer, false, uint32_t(city_ * 5 + carIndex_)))
+            error_ = "music: " + err.message;
     // A police car's siren: the player's table for the city.
     siren_.stop();
     sirenOn_ = false;
@@ -386,6 +391,12 @@ void DriveViewer::update(uint64_t nowMs) {
     if (car_.sim.position[1] < scene_->psdl().min[1] - 50)
         resetCar();
     engine_.update(car_.sim.rpm, car_.sim.gear > 0 || manual_ ? controls.throttle : controls.brake);
+    {
+        GameMusic::State music;
+        music.speed = std::fabs(car_.sim.forwardSpeed());
+        music.chased = life_.police().chasing() > 0;
+        music_.update(dt, music);
+    }
     car_.lamps = {scene_->lampsLit(), controls.brake > 0 && car_.sim.forwardSpeed() > 0.5f, car_.sim.gear < 0};
     clock_ += dt;
     car_.siren = sirenOn_ ? 1 + int(clock_ * 4) % 2 : 0;

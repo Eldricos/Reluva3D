@@ -60,7 +60,7 @@ DlsSynth::Articulation DlsSynth::articulate(const std::vector<DlsConnection>& in
             const float v = float(c.scale) / 65536.0f;
             if (c.source == kSrcNone && c.control == kSrcNone) {
                 switch (c.destination) {
-                case kDstAttenuation: a.gainDb = -float(c.scale) / 655360.0f; break;
+                case kDstAttenuation: a.gainDb = float(c.scale) / 655360.0f; break; // negative: quieter
                 case kDstPan: a.pan = v / 1000; break;
                 case kDstPitch: a.tuneCents = v; break;
                 case kDstLfoFrequency: a.lfoFrequency = 440 * std::pow(2.0f, (v - 6900) / 1200); break;
@@ -94,7 +94,8 @@ DlsSynth::Articulation DlsSynth::articulate(const std::vector<DlsConnection>& in
 float DlsSynth::envelopeLevel(const Envelope& e, float t, float releasedAt, float releaseLevel, bool decibels) {
     // Attack rises evenly; decay falls (in decibels for volume, evenly
     // for pitch) over its time from full towards nothing, holding at the
-    // sustain level; release falls the same from where it was.
+    // sustain level; release falls the same from where it was. A volume
+    // sustain is a share of the 96 dB range (DLS 1: 50% is -48 dB).
     auto fall = [&](float from, float elapsed, float span) {
         if (span <= 0)
             return 0.0f;
@@ -117,9 +118,10 @@ float DlsSynth::envelopeLevel(const Envelope& e, float t, float releasedAt, floa
     t -= attack + e.hold;
     if (t < 0)
         return 1;
+    const float sustain = decibels ? dbToGain(kSilentDb * (1 - e.sustain)) : e.sustain;
     if (e.decay <= 0)
-        return e.sustain;
-    return std::max(e.sustain, fall(1, t, e.decay));
+        return sustain;
+    return std::max(sustain, fall(1, t, e.decay));
 }
 
 void DlsSynth::setInstrument(int channel, const DlsCollection* collection, const DlsInstrument* instrument) {
@@ -195,22 +197,54 @@ void DlsSynth::noteOn(int channel, int key, int velocity) {
         v.baseCents = v.art.keyTrack * float(key - v.info.unityNote) + float(v.info.fineTune) + v.art.tuneCents;
         // Velocity: its square, as gain (DLS's default curve).
         const float vel = float(velocity) / 127;
-        v.velocityGain = vel * vel * dbToGain(v.art.gainDb - float(v.info.gain) / 655360.0f);
+        v.velocityGain = vel * vel * dbToGain(v.art.gainDb + float(v.info.gain) / 655360.0f);
         voices_.push_back(v);
         break;
     }
 }
 
 void DlsSynth::noteOff(int channel, int key) {
+    if (channel < 0 || size_t(channel) >= channels_.size())
+        return;
+    const Channel& ch = channels_[size_t(channel)];
+    key = std::clamp(key + ch.transpose, 0, 127);
     for (Voice& v : voices_)
-        if (v.channel == channel && v.key == std::clamp(key + channels_[size_t(channel) % 64].transpose, 0, 127) &&
-            v.releasedAt < 0) {
+        if (v.channel == channel && v.key == key && v.releasedAt < 0 && !v.held) {
+            if (ch.sustain) {
+                v.held = true;
+                continue;
+            }
+            v.releasedAt = v.time;
+            v.releaseLevel = v.level;
+        }
+}
+
+void DlsSynth::setSustain(int channel, bool down) {
+    if (channel < 0 || size_t(channel) >= channels_.size())
+        return;
+    channels_[size_t(channel)].sustain = down;
+    if (down)
+        return;
+    for (Voice& v : voices_)
+        if (v.channel == channel && v.held) {
+            v.held = false;
             v.releasedAt = v.time;
             v.releaseLevel = v.level;
         }
 }
 
 void DlsSynth::allNotesOff() { voices_.clear(); }
+
+void DlsSynth::releaseAll() {
+    for (Voice& v : voices_)
+        if (v.releasedAt < 0) {
+            v.held = false;
+            v.releasedAt = v.time;
+            v.releaseLevel = v.level;
+        }
+    for (Channel& c : channels_)
+        c.sustain = false;
+}
 
 void DlsSynth::render(float* out, size_t frames, float gain) {
     constexpr size_t kBlock = 32; // controls (envelopes, LFO) worked out this often

@@ -56,6 +56,7 @@ void RaceViewer::deactivate() {
     life_.stop();
     engine_.stop();
     sounds_.stop();
+    music_.stop();
     racers_.clear();
     flares_.reset();
     smoke_.reset();
@@ -274,6 +275,10 @@ void RaceViewer::startRace() {
     if (ctx_.mixer) {
         engine_.start(*ctx_.mixer, ctx_.files, cars_[size_t(car_)].base);
         sounds_.start(*ctx_.mixer, ctx_.files, cars_[size_t(car_)].base, set.weather == 3);
+        // The race music: a tune picked by the race (aud/dmusic).
+        if (Error err =
+                music_.start(ctx_.files, *ctx_.mixer, true, uint32_t(raceIndex_ * 7 + city_ * 3 + int(race_.kind))))
+            error_ = "music: " + err.message;
     }
     cameras_ = loadCarCameras(ctx_.files, cars_[size_t(car_)].base);
     camera_ = std::min(camera_, int(cameras_.size()) - 1);
@@ -296,6 +301,7 @@ void RaceViewer::endRace() {
         front_->afterRace();
     life_.stop();
     engine_.stop();
+    music_.stop();
     racers_.clear();
     state_ = State::Menu;
     scene_->setLighting(4);
@@ -877,6 +883,12 @@ void RaceViewer::update(uint64_t nowMs) {
     } else {
         // After the finish the others race on to theirs, for the results.
         stepRace(dt);
+        GameMusic::State music;
+        // Waiting for the start counts as on the move, not stopped.
+        music.speed = state_ == State::Countdown ? 100 : std::fabs(racers_.front().car->sim.forwardSpeed());
+        music.chased = life_.police().chasing() > 0;
+        music.finished = state_ == State::Finished;
+        music_.update(dt, music);
         const CarCamera& cam = cameras_[size_t(camera_)];
         const CameraView view = updateCarCamera(cam, racers_.front().car->sim, dt, cameraPos_, cameraReset_);
         cameraReset_ = false;

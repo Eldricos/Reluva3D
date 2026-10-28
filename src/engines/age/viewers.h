@@ -64,6 +64,7 @@
 #include "engines/age/lesson.h"
 #include "engines/age/record.h"
 #include "engines/age/engine_sound.h"
+#include "engines/age/music.h"
 #include "engines/age/opponent.h"
 #include "engines/age/race.h"
 #include "engines/age/road_graph.h"
@@ -320,6 +321,7 @@ private:
     CarActor car_;
     EngineSound engine_;
     CarSounds sounds_;
+    GameMusic music_;
     Dashboard dash_; // for the in-car camera
     HudMap hudMap_;
     HudPictures pictures_;
@@ -420,6 +422,7 @@ private:
     std::string outcome_;
     EngineSound engine_;
     CarSounds sounds_;
+    GameMusic music_;
     Dashboard dash_; // for the in-car camera
     HudMap hudMap_;
     HudPictures pictures_;

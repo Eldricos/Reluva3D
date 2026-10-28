@@ -75,6 +75,7 @@ add_library(reluva_common STATIC
     src/common/detection.cpp
     src/common/riff.cpp
     src/common/audio/decode.cpp
+    src/common/audio/directmusic.cpp
     src/common/audio/dls.cpp
     src/common/audio/synth.cpp
     src/common/audio/mixer.cpp
@@ -228,6 +229,7 @@ if(RELUVA_ENGINE_AGE)
         src/engines/age/pvs.cpp
         src/engines/age/gizmos.cpp
         src/engines/age/ambient.cpp
+        src/engines/age/music.cpp
         src/engines/age/drive_viewer.cpp
         src/engines/age/race_viewer.cpp
     src/engines/age/record.cpp
