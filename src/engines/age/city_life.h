@@ -5,6 +5,7 @@
 
 #include "common/audio/mixer.h"
 #include "engines/age/aimap.h"
+#include "engines/age/ambient.h"
 #include "engines/age/bai.h"
 #include "engines/age/gizmos.h"
 #include "engines/age/pedestrians.h"
@@ -68,6 +69,8 @@ public:
     Police& police() { return police_; }
     const TrafficLights& lights() const { return lights_; }
     const Gizmos& gizmos() const { return gizmos_; }
+    // The city's ambient sounds (aud/ambient).
+    const AmbientSounds& ambient() const { return ambient_; }
     // The props (city/<map>/props.pathset) and traffic lights, which cars
     // can knock down.
     const Props& props() const { return props_; }
@@ -81,6 +84,7 @@ private:
     Police police_;
     TrafficLights lights_;
     Gizmos gizmos_;
+    AmbientSounds ambient_;
     bool lampsLit_ = false, night_ = false;
     int carTouches_ = 0;
     Props props_;

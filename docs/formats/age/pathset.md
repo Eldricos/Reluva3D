@@ -117,7 +117,50 @@ and Race pages
   be knocked down ([age-traffic.md](../../engines/age-traffic.md)).
   The `ids` look like PSDL block numbers here too.
 
-Not read yet: the decals and race layouts, and the audio path sets.
+- **Decals** (`city/<city>/decals.pathset`: 79 paths in London): flat
+  strips painted on the road. Each path's name is its texture
+  (`decal_x_inter_l`, London's yellow box junctions; `decal_zigzag_l`
+  by crossings; `decal_rxwalk03_l`; San Francisco's `r4i_rails_f`,
+  the cable car rails, the textures opaque), its points in pairs, the
+  strip's left and right edges in turn. Reluva lays a strip of quads
+  between the pairs, the texture once across and along it as often as
+  the strip is as long as it is wide (a 15 m square box junction shows
+  its diamonds once; rails repeat down the hills). The points' heights
+  are off (a box junction's are 15 cm under the road) and their words
+  aren't always blocks (20978 and up), so each corner is put 3 cm over
+  the highest surface of the city under it, and each quad drawn with
+  the block under its middle. Unnamed paths (`PATH44`) are left out:
+  they name no texture. `decals_good`/`decals_bad.pathset` lie beside
+  London's and aren't read.
+- **Race layouts** (`race/<city>/<race>.pathset`, as the races' files
+  are named: `circuit0`... `blitz10`, `crash0`..., London's `race6`,
+  `slalom`; also in `city/sf/`): props placed only for that race, read
+  as the city's props above and added to them. The circuits' are
+  concrete barricades (`sp_barricadeconcl_f`/`concr_f`, chevrons one
+  way or the other, end word `0x1402`: one every 2 m), closing the
+  side roads; London's Crash Course files place parked cars along a
+  line every 16 m (`0xa002`), car ferries and a trailer to jump from
+  (`0x1401`, facing the next point). San Francisco's `ramp.pathset` is
+  an unnamed line and places nothing.
+- **Audio path sets** (`city/<city>/audio_pathsets/`): where ambient
+  sounds are heard. The same points are written out again, with what's
+  heard, in `aud/ambient/<name>.csv` (`trolley` is `trolleycable.csv`,
+  `bouys_seals` `buoyseals.csv`, London's `sub_stations`
+  `tubevoices.csv`), so Reluva reads those
+  ([age-traffic.md](../../engines/age-traffic.md)). The `.csv`'s
+  layout: a header and a row of **Min distance**, **Max distance**,
+  **3D priority** and **Audible area** (0, 1 or 2; what it does isn't
+  known); a header and a row per sample: its name (a
+  `aud/aud22/Amb3D/<name>.22k.wav`), volume (0-1), **sample type**
+  (0 looped; 1 and 2 played now and then; 3 the pedestrians' screams,
+  played when something happens), the low and high **oneshot time
+  limit** (seconds between plays), **active**, min and max speed and
+  Doppler; then `VECTORPOINTS`, `x,y,z` and the points.
+  `aud/ambient/<city>ambientcontainer.csv` lists a city's: `birdies`,
+  `buoyseals`, `horns_gulls` and `trolleycable` in San Francisco
+  (`waves.csv`, with its own path set, isn't listed), `londonriver` and
+  `tubevoices` in London.
+
 Most of the street furniture (street lights, meters, bus stops) isn't
 in these files: `city/<city>/proprules.csv` lists, for rules `n01left`
 to `n20right`, which of `propdefs.csv`'s kinds line a road's side
@@ -138,3 +181,6 @@ found so far, so they aren't placed.
 | `sf_parkedcar` | 55 lines |
 | `london_parkedcar` | 91 lines |
 | `london_train` | 8 paths |
+| `city/london/decals` | 79 strips |
+| `race/london/circuit0` | 21 barricade lines |
+| `race/london/circuitX` | 73 barricade lines |

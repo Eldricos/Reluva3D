@@ -3,6 +3,7 @@
 
 #include "engines/age/city_scene.h"
 
+#include "engines/age/pathset.h"
 #include "engines/age/tune.h"
 
 #include <algorithm>
@@ -149,6 +150,12 @@ Error CityScene::load(const std::string& map) {
                 }
             }
         }
+    }
+    // The road markings (city/<map>/decals.pathset).
+    if (!files_.read("city/" + map + "/decals.pathset", data)) {
+        std::vector<PathsetPath> decals;
+        readPathset(data, decals);
+        addCityDecals(decals, mesh_);
     }
     std::vector<uint32_t> indices;
     for (const CityMesh::Batch& b : mesh_.batches) {
@@ -478,7 +485,7 @@ void CityScene::rebuildIndices() {
             out.texture = textures_->get(b.texture, out.translucent);
         for (size_t t = 0; t * 3 + 2 < b.indices.size(); ++t) {
             const uint16_t block = t < b.blocks.size() ? b.blocks[t] : 0;
-            if (viewBlock_ && !pvs_.sees(viewBlock_, block))
+            if (viewBlock_ && block != 0 && !pvs_.sees(viewBlock_, block)) // 0: no block (decals), always
                 continue;
             const bool isFar = block < far.size() && far[block];
             if ((b.detail == 1 && isFar) || (b.detail == 2 && !isFar))

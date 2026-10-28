@@ -24,7 +24,7 @@ size_t buildCityCollision(const SearchSet& files, const Psdl& psdl, const CityMe
     PhysicsMaterials materials;
     materials.load(files); // without them, every surface is the default
     for (const CityMesh::Batch& b : mesh.batches) {
-        if (b.water || b.detail == 2)
+        if (b.water || b.decal || b.detail == 2)
             continue; // what's under the water is driven on; far-off roads are there near too
         const PhysicsMaterial& m = materials.forTexture(b.texture);
         if (m.depth >= kSinkDepth)

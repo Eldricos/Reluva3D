@@ -47,8 +47,9 @@ Error parseBangerData(const std::string& text, BangerData& out);
 class Props {
 public:
     void clear() { props_.clear(); }
-    // city/<map>/props.pathset's props.
-    void load(const SearchSet& files, const std::string& map);
+    // city/<map>/props.pathset's props, and a race's own
+    // (race/<map>/<variant>.pathset: "circuit0"...).
+    void load(const SearchSet& files, const std::string& map, const std::string& variant = "");
     // The traffic lights, as poles.
     void addLights(const TrafficLights& lights);
     // Their shapes and banger data, once the models are at hand

@@ -143,8 +143,9 @@ junction starts at its own point in the cycle. The glows are the model's
 
 ## Props, and knocking things down
 
-The props of `city/<city>/props.pathset` ([pathset.md](../formats/age/pathset.md))
-stand where it puts them, and they and the traffic lights can be knocked
+The props of `city/<city>/props.pathset` ([pathset.md](../formats/age/pathset.md)),
+and in a race its own (`race/<city>/circuit0.pathset`...: the circuits'
+barricades, a lesson's parked cars and ramps), stand where they put them, and they and the traffic lights can be knocked
 down (`props.cpp`):
 
 - Each is collided with: its bound (`bound/<model>_BOUND.bnd`), else its
@@ -315,3 +316,21 @@ Francisco's Chinatown gate, which stands still.
 
 Whether the game raises its bridges on a timer, when ships come or only
 in some races isn't known.
+
+## Ambient sounds
+
+`AmbientSounds` (`ambient.cpp`) plays the city's ambiences
+(`aud/ambient/<city>ambientcontainer.csv`; the layout in
+[pathset.md](../formats/age/pathset.md)): San Francisco's birds over
+the Presidio, the bells and sea lions along the piers, the gulls and
+tug horns by the bay and the street cable under the cable car lines;
+London's river and the Underground's station voices. Each is as loud
+as the listener (the player's car) is near its nearest point: in full
+within its least distance, falling evenly to nothing at its greatest
+(the gulls 100-250 m, the cable 10-100 m). Its looped samples play while
+it's heard; the others play now and then, a random time between the
+sample's low and high limits apart, if it's heard then. That fall-off,
+and treating sample types 1 and 2 alike, are Reluva's; the Audible area,
+priority, Doppler and speed columns aren't used, and the sounds aren't
+panned.
+

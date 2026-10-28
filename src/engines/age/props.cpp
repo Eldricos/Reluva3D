@@ -31,7 +31,8 @@ Vec3 flat(Vec3 v) {
 std::vector<PropPlacement> placeProps(const std::vector<PathsetPath>& paths) {
     std::vector<PropPlacement> out;
     for (const PathsetPath& p : paths) {
-        if (p.model.empty() || p.points.empty())
+        // An unnamed path (PATH01...) places nothing.
+        if (p.model.empty() || p.model.rfind("PATH", 0) == 0 || p.points.empty())
             continue;
         const uint32_t kind = p.end & 0xff;
         if (kind == 1) {
@@ -79,13 +80,19 @@ Error parseBangerData(const std::string& text, BangerData& out) {
     return Error::success();
 }
 
-void Props::load(const SearchSet& files, const std::string& map) {
+void Props::load(const SearchSet& files, const std::string& map, const std::string& variant) {
     props_.clear();
     prepared_ = false;
     std::vector<uint8_t> data;
     std::vector<PathsetPath> paths;
     if (!files.read("city/" + map + "/props.pathset", data))
         readPathset(data, paths);
+    // A race's own: its barricades, a lesson's cars and ramps.
+    if (!variant.empty() && !files.read("race/" + map + "/" + variant + ".pathset", data)) {
+        std::vector<PathsetPath> race;
+        readPathset(data, race);
+        paths.insert(paths.end(), race.begin(), race.end());
+    }
     for (const PropPlacement& p : placeProps(paths)) {
         Prop prop;
         prop.model = p.model;

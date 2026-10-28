@@ -49,10 +49,11 @@ Error CityLife::start(gfx::Renderer3D& renderer, TextureCache& textures, const S
         first = err;
     police_.setPatrols(options.patrols ? &traffic_.network() : nullptr, &lights_);
     gizmos_.load(files, map_, options.variant, mixer);
+    ambient_.load(files, map_, mixer, options.seed + 2);
     // The props and the traffic lights, to knock down: their shapes once
     // the models are at hand (the first draw), in the world after.
     files_ = &files;
-    props_.load(files, map_);
+    props_.load(files, map_, options.variant);
     props_.addLights(lights_);
     propsInWorld_ = false;
     return first;
@@ -60,6 +61,7 @@ Error CityLife::start(gfx::Renderer3D& renderer, TextureCache& textures, const S
 
 void CityLife::stop() {
     gizmos_.clear();
+    ambient_.clear();
     traffic_.clear();
     peds_.unload();
     police_.clear();
@@ -75,6 +77,7 @@ void CityLife::update(float dt, CarSim& player, const std::vector<CarSim*>& othe
                       const RoadGraph& roads, bool fill) {
     lights_.update(dt);
     gizmos_.update(dt, world, player.position);
+    ambient_.update(dt, player.position);
     if (props_.prepared() && !propsInWorld_) {
         props_.collide(world);
         propsInWorld_ = true;
