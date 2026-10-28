@@ -23,6 +23,9 @@ constexpr int kFrameW = 640, kFrameH = 480;
 constexpr float kFar = 4000;
 constexpr float kPi = 3.14159265358979f;
 constexpr float kMph = 2.23694f; // miles an hour per metre a second
+constexpr float kTrafficLevels[] = {0, 0.25f, 0.5f, 1}; // none, light, normal, heavy
+const char* const kTrafficNames[] = {"no traffic", "light traffic", "normal traffic", "heavy traffic"};
+constexpr float kPedsPerTraffic = 0.2f; // pedestrian density for each of traffic
 
 std::string textOf(const std::vector<uint8_t>& data) { return std::string(data.begin(), data.end()); }
 
@@ -125,6 +128,7 @@ DriveViewer::DriveViewer(ViewerContext& ctx) : Page(ctx), cities_(findCities(ctx
 DriveViewer::~DriveViewer() { deactivate(); }
 
 void DriveViewer::deactivate() {
+    life_.stop();
     engine_.stop();
     car_.unload();
     scene_.reset();
@@ -154,7 +158,31 @@ void DriveViewer::loadCity(int index) {
     error_ = scene_->load(cities_[size_t(city_)].map).message;
     scene_->setLighting(lighting_);
     boundsUsed_ = buildCityCollision(ctx_.files, scene_->psdl(), scene_->mesh(), scene_->instances(), world_);
+    roads_.build(scene_->psdl());
+    if (Error err = life_.load(ctx_.files, cities_[size_t(city_)].map); err && error_.empty())
+        error_ = err.message;
     loadCar(carIndex_);
+    startLife();
+}
+
+void DriveViewer::startLife() {
+    // The city's settings and cruising's (race/<city>/roam.aimap: the
+    // police).
+    if (!life_.loaded())
+        return;
+    AiMapSettings settings = life_.citySettings();
+    std::vector<uint8_t> data;
+    if (!ctx_.files.read("race/" + cities_[size_t(city_)].map + "/roam.aimap", data))
+        parseAiMap(std::string(data.begin(), data.end()), settings);
+    CityLife::Options o;
+    o.traffic = kTrafficLevels[trafficLevel_];
+    o.peds = o.traffic * kPedsPerTraffic;
+    o.cops = cops_ ? -1 : 0;
+    o.rain = lighting_ % 4 == 3;
+    if (Error err = life_.start(*renderer_, scene_->textures(), ctx_.files, settings, o, ctx_.mixer);
+        err && error_.empty())
+        error_ = err.message;
+    fill_ = true;
 }
 
 void DriveViewer::loadCar(int index) {
@@ -177,6 +205,7 @@ void DriveViewer::resetCar() {
     // On the road nearest the middle, a little above it.
     car_.sim.reset(car_.setup, scene_->start + Vec3{0, 0.5f, 0}, scene_->startYaw);
     cameraReset_ = true;
+    fill_ = true;
 }
 
 void DriveViewer::handleEvent(const Event& ev) {
@@ -200,10 +229,21 @@ void DriveViewer::handleEvent(const Event& ev) {
             camera_ = (camera_ + 1) % int(cameras_.size());
             cameraReset_ = true;
         } else if (ev.key == 't') {
+            const bool rain = lighting_ % 4 == 3;
             lighting_ = (lighting_ + 1) % 16;
             scene_->setLighting(lighting_);
+            if (rain != (lighting_ % 4 == 3))
+                startLife(); // the pedestrians dressed for the weather
+        } else if (ev.key == 'y') {
+            trafficLevel_ = (trafficLevel_ + 1) % 4;
+            life_.setTrafficDensity(kTrafficLevels[trafficLevel_]);
+            life_.setPedDensity(kTrafficLevels[trafficLevel_] * kPedsPerTraffic);
+        } else if (ev.key == 'o') {
+            cops_ = !cops_;
+            startLife();
         } else if (ev.key == 'r') {
             resetCar();
+            life_.police().forgive();
         } else if (ev.key == 'i') {
             showInfo_ = !showInfo_;
         }
@@ -232,12 +272,22 @@ void DriveViewer::drawHud() {
         line(std::string("camera: ") + cameraNames[std::min(camera_, 2)] +
                  " (C); Up/Down, Left/Right, Space; PageUp/Down car, Home/End city, T time, R reset",
              {230, 230, 230});
+        char life[160];
+        std::snprintf(life, sizeof life, "%s (Y): %zu cars, %zu people; %zu police (O)", kTrafficNames[trafficLevel_],
+                      life_.traffic().count(), life_.pedestrians().count(), life_.police().count());
+        line(life, {230, 230, 230});
         char buf[160];
         const Vec3& p = car_.sim.position;
         std::snprintf(buf, sizeof buf, "%zu collision triangles (%zu placed models' bounds); at %.0f %.0f %.0f",
                       world_.size(), boundsUsed_, p[0], p[1], p[2]);
         line(buf, {230, 230, 230});
     }
+    if (const int chasing = life_.police().chasing()) {
+        const std::string how = chasing > 1 ? " (" + std::to_string(chasing) + ")" : "";
+        font::drawText(overlay_, 4, kFrameH - 24, "POLICE CHASING" + how, {255, 90, 90}, 2);
+    }
+    if (busted_ > 0)
+        font::drawText(overlay_, kFrameW / 2 - 120, kFrameH / 2 - 40, "BUSTED!", {255, 80, 80}, 6);
     drawSpeedometer(overlay_, car_.sim);
 }
 
@@ -253,6 +303,18 @@ void DriveViewer::update(uint64_t nowMs) {
     if (car_.sim.position[1] < scene_->psdl().min[1] - 50)
         resetCar();
     engine_.update(car_.sim.rpm, car_.sim.gear > 0 ? controls.throttle : controls.brake);
+    life_.update(dt, car_.sim, {}, world_, roads_, fill_);
+    fill_ = false;
+    // Busted: a moment to see it, then back to the start.
+    if (busted_ > 0) {
+        busted_ -= dt;
+        if (busted_ <= 0) {
+            resetCar();
+            life_.police().forgive();
+        }
+    } else if (life_.police().busted()) {
+        busted_ = 3;
+    }
 
     const CarCamera& cam = cameras_[size_t(camera_)];
     const CameraView view = updateCarCamera(cam, car_.sim, dt, cameraPos_, cameraReset_);
@@ -262,6 +324,7 @@ void DriveViewer::update(uint64_t nowMs) {
                       gfx::lookAlong(view.eye, normalized(view.target - view.eye), view.up));
     renderer_->beginFrame(viewProj, view.eye, {150, 170, 200});
     scene_->draw(viewProj, view.eye, true);
+    life_.draw(*renderer_, scene_->models(), scene_->light(), viewProj, view.eye);
     if (!cam.inside)
         car_.draw(scene_->light());
     drawHud();

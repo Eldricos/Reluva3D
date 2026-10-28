@@ -32,11 +32,15 @@ public:
     CarSetup setup;
     CarSim sim;
     uint32_t paintJobs = 1; // how many the model has
+    // A police car's siren lights (its SRN parts' glows): 0 off, else 1 or
+    // 2 for which pair is lit.
+    int siren = 0;
 
 private:
     gfx::Renderer3D* renderer_ = nullptr;
     ModelMesh body_;
     std::array<ModelMesh, 4> wheels_;
+    std::array<ModelMesh, 2> sirens_; // SRN0 and SRN2, SRN1 and SRN3
 };
 
 // A car's cameras (tune/camera): near and far following it, and in it.

@@ -64,6 +64,10 @@ std::string textOf(const std::vector<uint8_t>& data) { return std::string(data.b
 
 const char* raceKindName(RaceKind kind) { return infoKey(kind); }
 
+std::string raceAiMapName(const std::string& city, RaceKind kind, int index, bool professional) {
+    return "race/" + city + "/" + fileStem(kind) + std::to_string(index) + (professional ? ".aimap_p" : ".aimap");
+}
+
 std::vector<std::string> raceNames(const SearchSet& files, const std::string& city, RaceKind kind) {
     std::vector<uint8_t> data;
     if (files.read("tune/" + city + ".cinfo", data))

@@ -181,8 +181,8 @@ void drawModelMesh(gfx::Renderer3D& renderer, const ModelMesh& mesh, const gfx::
     }
 }
 
-const ModelCache::Model& ModelCache::get(const std::string& name) {
-    const std::string key = fs::toLower(name);
+const ModelCache::Model& ModelCache::get(const std::string& name, uint32_t paintJob) {
+    const std::string key = fs::toLower(name) + (paintJob ? "#" + std::to_string(paintJob) : "");
     auto it = models_.find(key);
     if (it != models_.end())
         return *it->second;
@@ -191,15 +191,17 @@ const ModelCache::Model& ModelCache::get(const std::string& name) {
     std::vector<uint8_t> data;
     Pkg pkg;
     if (!files_.read(file, data) && !readPkg(data, pkg)) {
+        model->paintJobs = std::max(1u, pkg.paintJobs);
+        paintJob %= model->paintJobs;
         for (const std::string& level : modelLevels(pkg)) {
             ModelMesh mesh;
-            if (buildModelMesh(renderer_, textures_, files_, file, pkg, level, 0, false, mesh))
+            if (buildModelMesh(renderer_, textures_, files_, file, pkg, level, paintJob, false, mesh))
                 break;
             model->levels.push_back(std::move(mesh));
         }
         if (model->levels.empty()) { // a model in one piece without level names
             ModelMesh mesh;
-            if (!buildModelMesh(renderer_, textures_, files_, file, pkg, "", 0, false, mesh) && mesh.mesh)
+            if (!buildModelMesh(renderer_, textures_, files_, file, pkg, "", paintJob, false, mesh) && mesh.mesh)
                 model->levels.push_back(std::move(mesh));
         }
         if (!model->levels.empty()) {
@@ -216,6 +218,31 @@ void ModelCache::clear() {
         for (ModelMesh& mesh : m->levels)
             destroyModelMesh(renderer_, mesh);
     models_.clear();
+}
+
+ViewFrustum::ViewFrustum(const gfx::Mat4& viewProj) {
+    const float* m = viewProj.data();
+    auto row = [&](int r) { return std::array<float, 4>{m[r], m[4 + r], m[8 + r], m[12 + r]}; };
+    const auto r0 = row(0), r1 = row(1), r2 = row(2), r3 = row(3);
+    for (size_t k = 0; k < 4; ++k) {
+        planes_[0][k] = r3[k] + r0[k];
+        planes_[1][k] = r3[k] - r0[k];
+        planes_[2][k] = r3[k] + r1[k];
+        planes_[3][k] = r3[k] - r1[k];
+        planes_[4][k] = r2[k];
+    }
+    for (auto& p : planes_) {
+        const float len = std::sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
+        for (float& c : p)
+            c /= len;
+    }
+}
+
+bool ViewFrustum::visible(const gfx::Vec3& c, float radius) const {
+    for (const auto& p : planes_)
+        if (p[0] * c[0] + p[1] * c[1] + p[2] * c[2] + p[3] < -radius)
+            return false;
+    return true;
 }
 
 } // namespace reluva::age

@@ -62,6 +62,11 @@ std::vector<std::string> raceNames(const SearchSet& files, const std::string& ci
 
 Error loadRace(const SearchSet& files, const std::string& city, RaceKind kind, int index, RaceDefinition& out);
 
+// The race's settings for the computer-driven cars, people and police:
+// race/<city>/<file><n>.aimap, or .aimap_p for a professional run (see
+// aimap.h).
+std::string raceAiMapName(const std::string& city, RaceKind kind, int index, bool professional);
+
 // Parsers for the files, for tests.
 Error parseRaceSettings(const std::string& csv, int index, std::array<RaceSettings, 2>& out);
 Error parseWaypoints(const std::string& csv, std::vector<Waypoint>& out);

@@ -9,13 +9,17 @@
 // Race (3D): the game's races. In the menu Up/Down pick a line, Left/Right
 // change it (city, event, race, level, car), Enter starts. In a race the
 // Drive page's keys drive and C changes the camera; Esc leaves the race,
-// and Enter goes back to the menu from the results.
+// and Enter goes back to the menu from the results. The race's traffic,
+// pedestrians and police are about as its settings say.
 //
 // Drive (3D): a car driven round a city. Up/Down (or W/S) accelerate and
 // brake (held when stopped, backs up), Left/Right (or A/D) steer, Space
 // is the handbrake. C changes the camera (near, far, in the car),
 // PageUp/PageDown the car, P its colour, Home/End the city, T the time and
 // weather, R puts the car back at the start, I shows or hides the info.
+// The city has traffic and people on its sidewalks (Y steps through none,
+// light, normal and heavy) and police, who chase a car speeding past them
+// (O turns them off and on).
 //
 // World (3D): a city (London, San Francisco) flown through. Left/Right
 // pick the city, drag to look, W/A/S/D move, Space/C (or E/Q) go up and
@@ -47,6 +51,7 @@
 #include "common/gfx3d.h"
 #include "engines/age/car.h"
 #include "engines/age/car_actor.h"
+#include "engines/age/city_life.h"
 #include "engines/age/city_scene.h"
 #include "engines/age/engine_sound.h"
 #include "engines/age/opponent.h"
@@ -274,6 +279,7 @@ private:
     void loadCity(int index);
     void loadCar(int index);
     void resetCar();
+    void startLife();
     void drawHud();
 
     std::vector<CityInfo> cities_;
@@ -295,6 +301,13 @@ private:
     bool cameraReset_ = true;
     int lighting_ = 4;
     bool showInfo_ = true;
+
+    CityLife life_;
+    RoadGraph roads_;
+    int trafficLevel_ = 2; // none, light, normal, heavy
+    bool cops_ = true;
+    bool fill_ = true;     // place the traffic anywhere round the car next update
+    float busted_ = 0;     // seconds the "busted" message has left
     uint32_t keys_ = 0; // driving keys held: DriveKeys
     uint64_t lastMs_ = 0;
 };
@@ -342,6 +355,8 @@ private:
     std::unique_ptr<CityScene> scene_;
     CollisionWorld world_;
     RoadGraph roads_;
+    CityLife life_;
+    bool fill_ = false;
     Surface overlay_;
     std::string error_;
     int loadedCity_ = -1;

@@ -4,7 +4,9 @@
 // Tests for the Angel Game Engine's readers against files built here,
 // following docs/formats/age/, so no game data is needed.
 
+#include "engines/age/aimap.h"
 #include "engines/age/ar_archive.h"
+#include "engines/age/bai.h"
 #include "engines/age/bound.h"
 #include "engines/age/car.h"
 #include "engines/age/city_mesh.h"
@@ -13,11 +15,13 @@
 #include "engines/age/games.h"
 #include "engines/age/instances.h"
 #include "engines/age/opponent.h"
+#include "engines/age/ped_model.h"
 #include "engines/age/pkg.h"
 #include "engines/age/psdl.h"
 #include "engines/age/race.h"
 #include "engines/age/road_graph.h"
 #include "engines/age/texture.h"
+#include "engines/age/traffic.h"
 #include "engines/age/tune.h"
 #include "engines/age/viewers.h"
 #include "zip_writer.h"
@@ -718,6 +722,281 @@ void testRoadGraph() {
     CHECK(g.route({2000, 0, 2000}, {0, 0, 0}).size() == 1); // nowhere near a road
 }
 
+
+// A road map (docs/formats/age/bai.md) of straight roads, each from one
+// junction to another: `lanes` lanes on side 1 (one-way, first to last)
+// and `back` on side 0, `n` points along it.
+struct BaiRoad {
+    Vec3 from, to;
+    uint32_t j0, j1; // junctions at the first and the last point
+    int lanes = 1, back = 0, n = 3;
+};
+
+void baiSide(Bytes& b, const BaiRoad& r, int lanes, int side) {
+    b.u16(uint32_t(lanes)).u16(0).u16(0).u16(1).u16(0);
+    for (int i = 0; i < (lanes + 1) * r.n; ++i)
+        b.f32(0);
+    for (int i = 0; i < lanes; ++i)
+        b.f32(2.5f + 5 * float(i));
+    for (int i = 0; i < 11; ++i)
+        b.u32(0xcdcdcdcd);
+    const Vec3 along = r.to - r.from;
+    const Vec3 across = normalized(Vec3{along[2], 0, -along[0]}); // to the left of the way
+    auto row = [&](float offset, bool reversed) {
+        for (int i = 0; i < r.n; ++i) {
+            const float t = float(reversed ? r.n - 1 - i : i) / float(r.n - 1);
+            const Vec3 p = r.from + along * t + across * offset;
+            b.f32(p[0]).f32(p[1]).f32(p[2]);
+        }
+    };
+    const float sign = side == 0 ? 1.0f : -1.0f;
+    for (int i = 0; i < lanes; ++i) // side 0's lanes are stored last to first
+        row(sign * (2.5f + 5 * float(i)), side == 0);
+    row(sign * 9, false);  // sidewalk
+    row(sign * 8, false);  // curb
+    row(sign * 10, false); // outer edge
+}
+
+std::vector<uint8_t> buildBai(const std::vector<BaiRoad>& roads, const std::vector<Vec3>& junctions) {
+    Bytes b;
+    b.str("CAI1").u16(uint32_t(junctions.size())).u16(uint32_t(roads.size()));
+    for (size_t k = 0; k < roads.size(); ++k) {
+        const BaiRoad& r = roads[k];
+        b.u16(uint32_t(k)).u16(uint32_t(r.n)).u16(0).u16(1).u16(uint32_t(100 + k)).f32(10).f32(15);
+        baiSide(b, r, r.back, 0);
+        baiSide(b, r, r.lanes, 1);
+        for (int i = 0; i < r.n; ++i)
+            b.f32(0);
+        for (int i = 0; i < r.n; ++i) {
+            const Vec3 p = r.from + (r.to - r.from) * (float(i) / float(r.n - 1));
+            b.f32(p[0]).f32(p[1]).f32(p[2]);
+        }
+        for (int i = 0; i < 12 * r.n; ++i)
+            b.f32(0);
+        for (uint32_t j : {r.j1, r.j0}) { // the last point's junction first
+            b.u32(j).u16(0xcdcd).u16(1).u16(0);
+            uint32_t slot = 0;
+            for (size_t o = 0; o < k; ++o)
+                slot += roads[o].j0 == j || roads[o].j1 == j;
+            b.u32(slot);
+            for (int i = 0; i < 6; ++i)
+                b.f32(0);
+        }
+    }
+    for (size_t j = 0; j < junctions.size(); ++j) {
+        std::vector<uint32_t> at;
+        for (size_t k = 0; k < roads.size(); ++k)
+            if (roads[k].j0 == j || roads[k].j1 == j)
+                at.push_back(uint32_t(k));
+        b.u16(uint32_t(j)).u16(uint32_t(200 + j)).f32(junctions[j][0]).f32(junctions[j][1]).f32(junctions[j][2]);
+        b.u16(uint32_t(at.size()));
+        for (uint32_t k : at)
+            b.u32(k);
+    }
+    b.u32(0); // the blocks' roads, not read
+    return b.v;
+}
+
+// A loop of two one-way roads round a 200 m by 20 m rectangle.
+std::vector<uint8_t> loopBai() {
+    return buildBai({{{0, 0, 0}, {200, 0, 0}, 0, 1, 1, 0, 5}, {{200, 0, -20}, {0, 0, -20}, 1, 0, 1, 0, 5}},
+                    {{-5, 0, -10}, {205, 0, -10}});
+}
+
+void testBai() {
+    const auto data = buildBai({{{0, 0, 0}, {100, 0, 0}, 0, 1, 2, 1, 3}}, {{0, 0, 0}, {100, 0, 0}});
+    AiRoadMap m;
+    CHECK(!readBai(data, m));
+    CHECK(m.roads.size() == 1 && m.junctions.size() == 2);
+    const AiRoad& r = m.roads[0];
+    CHECK(r.blocks.size() == 1 && r.blocks[0] == 100 && r.halfWidth == 10 && r.speedLimit == 15);
+    CHECK(r.sides[1].lanes.size() == 2 && r.sides[0].lanes.size() == 1 && r.middle.size() == 3);
+    CHECK(r.sides[1].laneOffsets.size() == 2 && r.sides[1].laneOffsets[1] == 7.5f);
+    CHECK(r.sides[1].lanes[0].front()[0] == 0 && r.sides[0].lanes[0].front()[0] == 100); // side 0's run back
+    CHECK(r.sides[1].sidewalk.size() == 3 && std::fabs(r.sides[1].curb[0][2] - 8) < 1e-4f);
+    CHECK(r.ends[0].junction == 1 && r.ends[1].junction == 0 && r.ends[0].control == 1);
+    CHECK(m.junctions[1].block == 201 && m.junctions[1].roads == std::vector<uint32_t>{0});
+
+    CHECK(readBai(std::vector<uint8_t>(data.begin(), data.end() - 30), m)); // truncated
+    auto bad = data;
+    bad[0] = 'X';
+    CHECK(readBai(bad, m));
+
+    // The lanes as driven: side 1's from the first point where traffic
+    // keeps right, side 0's back; the other way round where it keeps left.
+    CHECK(!readBai(data, m));
+    AiMapSettings right;
+    TrafficNetwork net;
+    net.build(m, right);
+    CHECK(net.lanes().size() == 3);
+    for (const TrafficLane& l : net.lanes()) {
+        const bool forward = l.side == 1;
+        CHECK(l.from == (forward ? 0u : 1u) && l.to == (forward ? 1u : 0u));
+        CHECK(std::fabs(l.points.front()[0] - (forward ? 0 : 100)) < 1e-3f && std::fabs(l.length() - 100) < 1e-3f);
+    }
+    CHECK(net.leaving(0).size() == 2 && net.leaving(1).size() == 1);
+    AiMapSettings left;
+    left.driveOnLeft = true;
+    net.build(m, left);
+    for (const TrafficLane& l : net.lanes())
+        CHECK(l.from == (l.side == 0 ? 0u : 1u) && std::fabs(l.points.front()[0] - (l.side == 0 ? 0 : 100)) < 1e-3f);
+    // A race's exceptions: no traffic starting on the road, and its limit.
+    right.exceptions.push_back({0, 0, 9});
+    net.build(m, right);
+    CHECK(!net.lanes()[0].spawns && net.lanes()[0].speed == 9);
+
+    Vec3 heading;
+    const std::vector<Vec3> pts = {{0, 0, 0}, {10, 0, 0}, {10, 0, 10}};
+    const std::vector<float> at = {0, 10, 20};
+    CHECK(pointAlong(pts, at, 15, &heading) == (Vec3{10, 0, 5}));
+    CHECK(std::fabs(heading[2] - 1) < 1e-4f);
+    CHECK(pointAlong(pts, at, 99) == (Vec3{10, 0, 10}));
+}
+
+void testAiMap() {
+    AiMapSettings s;
+    CHECK(!parseAiMap("[Speed Limit]\n15.00\n\n[Ambients Drive On The Left]\n1\n\n[Ambient Types/Density]\n2\n"
+                      "va_bus_f 0.25 0\nva_cab_l 1.0 0\n\n[GoodWeatherPedName / BadWeatherPedName]\n1\n"
+                      "pedmodel_man pedmodel_manw \n",
+                      s));
+    CHECK(s.speedLimit == 15 && s.driveOnLeft && s.ambients.size() == 2 && s.ambients[1].model == "va_cab_l");
+    CHECK(s.peds.size() == 1 && s.peds[0].bad == "pedmodel_manw");
+    // A race's file over the city's: its own sections replace theirs.
+    CHECK(!parseAiMap("# Default Road Speed Limit\n[Speed Limit]\n12\n\n[Exceptions]\n1\n55\t0.00\t0\n\n"
+                      "# Geo File, StartLink...\n[Police]\n1\nvpcop\t-978.0 89.7 62.8 50.000000 0 15 0.5 50.0\n\n"
+                      "[Opponent]\n2\nvpbug race3-a-0.opp 0.96 0 50.0 0.7 1 1 1 1 0 1.0\n"
+                      "vpcaddie race3-a-1.opp 0.88 0 50.0 0.7 1 1 1 1 0 1.0\n#vpbug old.opp 0.5\n",
+                      s));
+    CHECK(s.speedLimit == 12 && s.driveOnLeft && s.ambients.size() == 2);
+    CHECK(s.exceptions.size() == 1 && s.exceptions[0].road == 55 && s.exceptions[0].density == 0);
+    CHECK(s.police.size() == 1 && s.police[0].heading == 50 && s.police[0].rest.size() == 4 && s.policeGiven);
+    CHECK(s.opponents.size() == 2 && s.opponents[1].model == "vpcaddie" && std::fabs(s.opponents[0].skill - 0.96f) < 1e-5f);
+    CHECK(parseAiMap("nothing here", s));
+}
+
+void testTraffic(const std::filesystem::path& tmp) {
+    std::filesystem::remove_all(tmp);
+    test::writeFile(tmp / "geometry" / "va_test.pkg", toBytes("PKG3"));
+    test::writeFile(tmp / "tune" / "vehicle" / "va_test.aiVehicleData",
+                    toBytes("type: a\naiVehicleData {\n  Mass 1000\n  Size 2 1.5 4\n}\n"));
+    SearchSet files;
+    auto loose = std::make_unique<DirectoryArchive>();
+    CHECK(!loose->open(tmp));
+    files.add(std::move(loose), 1);
+    AiRoadMap m;
+    CHECK(!readBai(loopBai(), m));
+    AiMapSettings s;
+    s.ambients.push_back({"va_test", 1});
+    CollisionWorld flat;
+    flat.add({-500, 0, -500}, {-500, 0, 500}, {500, 0, 500});
+    flat.add({-500, 0, -500}, {500, 0, 500}, {500, 0, -500});
+    flat.build(64);
+
+    // One car round the loop: along the lanes, through both junctions.
+    Traffic t;
+    t.setup(files, m, s, 3);
+    t.setDensity(1.0f / Traffic::kCarsAtFull);
+    t.update(0.05f, {100, 0, -10}, {}, flat, true);
+    CHECK(t.count() == 1);
+    if (t.count() != 1)
+        return;
+    float minZ = 0, maxZ = -20, travelled = 0;
+    std::vector<RoadUser> u;
+    t.users(u);
+    Vec3 last = u[0].position;
+    for (int i = 0; i < 1200; ++i) { // a minute
+        t.update(0.05f, {100, 0, -10}, {}, flat);
+        u.clear();
+        t.users(u);
+        travelled += length(u[0].position - last);
+        last = u[0].position;
+        minZ = std::min(minZ, last[2]);
+        maxZ = std::max(maxZ, last[2]);
+        CHECK(length(u[0].velocity) <= 15.01f);
+    }
+    CHECK(travelled > 400 && minZ < -15 && maxZ > -5); // round both roads
+
+    // Something stopped in its way: it stops behind.
+    Traffic held;
+    held.setup(files, m, s, 3);
+    held.setDensity(1.0f / Traffic::kCarsAtFull);
+    held.update(0.05f, {100, 0, -10}, {}, flat, true);
+    u.clear();
+    held.users(u);
+    const Vec3 heading = normalized(u[0].velocity);
+    const Vec3 block = u[0].position + heading * 25.0f;
+    for (int i = 0; i < 160; ++i) // 8 s (after 10 it would go on through)
+        held.update(0.05f, {100, 0, -10}, {{block, {}}}, flat);
+    u.clear();
+    held.users(u);
+    const float gap = dot(block - u[0].position, heading);
+    CHECK(length(u[0].velocity) < 0.5f && gap > 5 && gap < 12);
+
+    // A driven car running into one from behind knocks it off its lane.
+    Traffic hit;
+    hit.setup(files, m, s, 3);
+    hit.setDensity(1.0f / Traffic::kCarsAtFull);
+    hit.update(0.05f, {100, 0, -10}, {}, flat, true);
+    u.clear();
+    hit.users(u);
+    const Vec3 way = normalized(u[0].velocity);
+    CarSim car;
+    car.reset(testCar(), u[0].position - way * 4.0f + Vec3{0, 0.5f, 0}, std::atan2(-way[0], -way[2]));
+    car.velocity = way * 30.0f;
+    CHECK(hit.collide(car) > 0);
+    std::filesystem::remove_all(tmp);
+}
+
+void testPedFiles() {
+    Skeleton sk;
+    CHECK(!parseSkeleton("NumBones 3\nbone root {\n\toffset 0 1 0\n\tbone spine {\n\t\toffset 0 0.5 0\n"
+                         "\t\tbone head {\n\t\t\toffset 0 0.25 0\n\t\t}\n\t}\n}\n",
+                         sk));
+    CHECK(sk.bones.size() == 3 && sk.bones[2].parent == 1 && sk.bones[1].offset[1] == 0.5f);
+    Skeleton broken;
+    CHECK(parseSkeleton("bone a {\n}\n}\n", broken)); // unbalanced
+
+    // Two frames of 3 + 3 * 3 channels: the spine turned a quarter about Z
+    // in the second, and the root moved along -Z (left out of the pose).
+    Bytes b;
+    b.u32(0).u32(2).u32(12).f32(1.5f).u8(1);
+    for (int f = 0; f < 2; ++f)
+        for (int c = 0; c < 12; ++c)
+            b.f32(c == 1 ? 1.0f : c == 2 ? -0.5f * float(f) : (f == 1 && c == 8) ? kPi() / 2 : 0.0f);
+    PedAnimation anim;
+    CHECK(!readPedAnimation(b.v, anim) && anim.frames == 2 && anim.channels == 12);
+    CHECK(readPedAnimation(std::vector<uint8_t>(b.v.begin(), b.v.end() - 4), anim));
+    CHECK(!readPedAnimation(b.v, anim));
+    auto near = [](const Vec3& a, const Vec3& b) { return length(a - b) < 1e-5f; };
+    auto pose = poseOf(sk, anim, 0);
+    CHECK(near(pose[2].at, {0, 1.75f, 0}));
+    pose = poseOf(sk, anim, 1);
+    CHECK(near(pose[1].at, {0, 1.5f, 0}) && near(pose[2].at, {-0.25f, 1.5f, 0}));
+
+    std::vector<PedMove> moves;
+    CHECK(!parsePedMoves("# anim name,mma name,...\nSTAND,pedanim_manstand,1,30,0,0,0,0,STAND\n"
+                         "WALK,pedanim_manwalk,1,20,0.281,1.409,0,0,WALK\n",
+                         moves));
+    CHECK(moves.size() == 2 && moves[1].animation == "pedanim_manwalk" && moves[1].next == "WALK");
+
+    // A model in packets (one a material), the vertices in bone order.
+    const std::string head = "version: 1.09\nverts: 3\n\nv\t0 0 0\nv\t1 0 0\nv\t0 1 0\nn\t0 0 1\nt1\t0 0\n";
+    const std::string mtl = "mtl M:SKIN {\n\tpackets:\t1\n\tprimitives:\t1\n\tadjuncts:\t3\n\tillum: diffuse\n"
+                            "\tdiffuse:\t0.5 0.25 1\n}\n";
+    PedMesh mesh;
+    CHECK(!parsePedMesh(head + mtl +
+                            "packet 3 1 2 {\n\tadj 0 0 0 0 0 0\n\tadj 1 0 0 0 0 0\n\tadj 2 0 0 0 0 1\n"
+                            "\ttri 0 1 2\n\tmtx 0 1\n}\nmtxv 2 1\n",
+                        mesh));
+    CHECK(mesh.materials.size() == 1 && mesh.materials[0].corners.size() == 3 && mesh.materials[0].indices.size() == 3);
+    CHECK(mesh.materials[0].corners[2].bone == 1 && mesh.materials[0].corners[1].bone == 0);
+    CHECK(mesh.materials[0].diffuse[1] == 0.25f);
+    // The same in one list, without the packets.
+    CHECK(!parsePedMesh(head + mtl + "adj 0 0 0 0 0\nadj 1 0 0 0 0\nadj 2 0 0 0 0\ntri 0 1 2\nmtxv 2 1\n", mesh));
+    CHECK(mesh.materials[0].corners.size() == 3 && mesh.materials[0].corners[2].bone == 1);
+    CHECK(parsePedMesh(head + mtl + "adj 0 0 0 0 0\nadj 1 0 0 0 0\nadj 2 0 0 0 0\ntri 0 1 2\nmtxv 2\n", mesh));
+}
+
 } // namespace
 
 int main() {
@@ -740,6 +1019,10 @@ int main() {
     testRaceFiles();
     testPathDriver();
     testRoadGraph();
+    testBai();
+    testAiMap();
+    testTraffic(tmp / "traffic");
+    testPedFiles();
     std::filesystem::remove_all(tmp);
     if (failures) {
         std::fprintf(stderr, "%d check(s) failed\n", failures);

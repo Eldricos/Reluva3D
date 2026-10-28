@@ -231,29 +231,9 @@ size_t CityScene::draw(const gfx::Mat4& viewProj, const gfx::Vec3& eye, bool mod
         }
     }
 
-    // The planes of the view, to leave out models outside it.
-    const float* m = viewProj.data();
-    auto row = [&](int r) { return std::array<float, 4>{m[r], m[4 + r], m[8 + r], m[12 + r]}; };
-    std::array<std::array<float, 4>, 5> planes;
-    const auto r0 = row(0), r1 = row(1), r2 = row(2), r3 = row(3);
-    for (size_t k = 0; k < 4; ++k) {
-        planes[0][k] = r3[k] + r0[k];
-        planes[1][k] = r3[k] - r0[k];
-        planes[2][k] = r3[k] + r1[k];
-        planes[3][k] = r3[k] - r1[k];
-        planes[4][k] = r2[k];
-    }
-    for (auto& p : planes) {
-        const float len = std::sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
-        for (float& c : p)
-            c /= len;
-    }
-    auto visible = [&](const gfx::Vec3& c, float radius) {
-        for (const auto& p : planes)
-            if (p[0] * c[0] + p[1] * c[1] + p[2] * c[2] + p[3] < -radius)
-                return false;
-        return true;
-    };
+    // Models outside the view are left out.
+    const ViewFrustum frustum(viewProj);
+    auto visible = [&](const gfx::Vec3& c, float radius) { return frustum.visible(c, radius); };
 
     // The city, opaque then translucent, then the models.
     for (int pass = 0; pass < 2 && cityMesh_; ++pass)
