@@ -377,7 +377,17 @@ void CarSim::collideBody(const CollisionWorld& world) {
             lo[k] = std::min(lo[k], v[k]);
             hi[k] = std::max(hi[k], v[k]);
         }
-    for (const Vec3& original : setup_.hull) {
+    // And the middles of the box's front, back and sides, low and halfway
+    // up, so that nothing narrow (a bollard, a cone) gets between them.
+    std::vector<Vec3> points = setup_.hull;
+    const Vec3 mid = (lo + hi) * 0.5f;
+    for (float y : {lo[1], mid[1]}) {
+        points.push_back({mid[0], y, lo[2]});
+        points.push_back({mid[0], y, hi[2]});
+        points.push_back({lo[0], y, mid[2]});
+        points.push_back({hi[0], y, mid[2]});
+    }
+    for (const Vec3& original : points) {
         Vec3 corner = original;
         for (size_t k = 0; k < 3; ++k)
             corner[k] = std::clamp(corner[k], std::min(lo[k] + kHullRadius, (lo[k] + hi[k]) / 2),
@@ -403,7 +413,14 @@ void CarSim::collideBody(const CollisionWorld& world) {
             continue;
         const float denom = 1 / m + dot(cross(inverseInertiaTimes(cross(r, c.normal)), r), c.normal);
         const float e = std::min(setup_.boundElasticity, c.surface.elasticity);
-        const float j = -(1 + e) * vn / denom;
+        float j = -(1 + e) * vn / denom;
+        if (c.surface.breakImpulse > 0 && j > c.surface.breakImpulse) {
+            // A prop knocked loose: not a wall. The car loses what the
+            // prop takes (an inelastic knock with a body of its mass).
+            if (std::find(broke.begin(), broke.end(), c.surface.prop) == broke.end())
+                broke.push_back(c.surface.prop);
+            j *= c.surface.propMass / (m + c.surface.propMass) / (1 + e);
+        }
         knock(j, p);
         velocity += c.normal * (j / m);
         angularVelocity += inverseInertiaTimes(cross(r, c.normal * j));

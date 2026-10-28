@@ -86,7 +86,7 @@ void TrafficLights::draw(gfx::Renderer3D& renderer, ModelCache& models, const Sc
             const float d = length(l.at - eye);
             const std::string& name = models_[size_t(l.model)];
             const ModelCache::Model& m = models.get(name);
-            if (!m.ok || d > distance || !frustum.visible(l.at + Vec3{0, 4, 0}, 8))
+            if (!m.ok || l.down || d > distance || !frustum.visible(l.at + Vec3{0, 4, 0}, 8))
                 continue;
             // The body is modelled about its middle, the glows as if it
             // stood on its origin: it's stood on the ground.

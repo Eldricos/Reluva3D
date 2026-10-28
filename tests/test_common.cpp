@@ -19,6 +19,7 @@
 #include "common/md4.h"
 #include "common/md5.h"
 #include "common/net.h"
+#include "common/pe.h"
 #include "common/text.h"
 #include "common/x86/cpu.h"
 #include "common/x86/win32.h"
@@ -29,6 +30,7 @@
 #include <cmath>
 #include <cstring>
 #include <cstdio>
+#include <map>
 #include <memory>
 #include <fstream>
 #include <string>
@@ -502,6 +504,79 @@ static void testX86Dll() {
     }
 }
 
+// A PE32 DLL with nothing but a string table: one .rsrc section at RVA
+// 0x1000 (file offset 0x200), type 6, block 34 (ids 528-543), one
+// language, two strings.
+static std::vector<uint8_t> stringTableDll() {
+    std::vector<uint8_t> f(0x400, 0);
+    auto put16 = [&](size_t at, uint32_t v) {
+        f[at] = uint8_t(v);
+        f[at + 1] = uint8_t(v >> 8);
+    };
+    auto put32 = [&](size_t at, uint32_t v) {
+        put16(at, v & 0xffff);
+        put16(at + 2, v >> 16);
+    };
+    f[0] = 'M';
+    f[1] = 'Z';
+    put32(0x3c, 0x80);
+    put32(0x80, 0x00004550);
+    put16(0x84, 0x14c);               // i386
+    put16(0x86, 1);                   // a section
+    put16(0x94, 224);                 // the optional header's size
+    put16(0x98, 0x10b);               // PE32
+    put32(0x98 + 32, 0x1000);         // section alignment
+    put32(0x98 + 36, 0x200);          // file alignment
+    put32(0x98 + 56, 0x2000);         // image size
+    put32(0x98 + 60, 0x200);          // headers' size
+    put32(0x98 + 92, 16);             // data directories
+    put32(0x98 + 96 + 2 * 8, 0x1000); // the resource directory
+    put32(0x98 + 96 + 2 * 8 + 4, 0x100);
+    const size_t sec = 0x98 + 224;
+    std::memcpy(&f[sec], ".rsrc", 5);
+    put32(sec + 8, 0x200);   // virtual size
+    put32(sec + 12, 0x1000); // RVA
+    put32(sec + 16, 0x200);  // raw size
+    put32(sec + 20, 0x200);  // raw offset
+    // The tree: type 6 -> name 34 -> language 1033 -> a data entry.
+    const size_t r = 0x200;
+    put16(r + 14, 1);
+    put32(r + 16, 6);
+    put32(r + 20, 0x80000000 | 0x18);
+    put16(r + 0x18 + 14, 1);
+    put32(r + 0x18 + 16, 34);
+    put32(r + 0x18 + 20, 0x80000000 | 0x30);
+    put16(r + 0x30 + 14, 1);
+    put32(r + 0x30 + 16, 1033);
+    put32(r + 0x30 + 20, 0x48); // the data entry
+    put32(r + 0x48, 0x1060);    // the strings' RVA
+    put32(r + 0x48 + 4, 0x40);
+    // Sixteen strings: "" , "Go!", then "Fünf" at 543, the rest empty.
+    size_t at = r + 0x60;
+    for (int k = 0; k < 16; ++k) {
+        const std::u16string s = k == 1 ? u"Go!" : k == 15 ? u"F\u00fcnf" : u"";
+        put16(at, uint32_t(s.size()));
+        at += 2;
+        for (char16_t c : s) {
+            put16(at, c);
+            at += 2;
+        }
+    }
+    return f;
+}
+
+static void testPeStrings() {
+    const std::vector<uint8_t> dll = stringTableDll();
+    PeImage pe;
+    CHECK(!parsePe(dll, pe));
+    CHECK(pe.resourceRva == 0x1000 && pe.sections.size() == 1);
+    std::map<uint32_t, std::string> strings;
+    CHECK(!readPeStrings(dll, pe, strings));
+    CHECK(strings.size() == 2 && strings[529] == "Go!" && strings[543] == "F\xc3\xbcnf");
+    pe.resourceRva = 0;
+    CHECK(readPeStrings(dll, pe, strings));
+}
+
 int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_tests";
     testMd5();
@@ -520,6 +595,7 @@ int main() {
     testGfxMath();
     testX86Instructions();
     testX86Dll();
+    testPeStrings();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

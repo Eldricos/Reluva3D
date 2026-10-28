@@ -9,6 +9,7 @@
 #include "engines/age/gizmos.h"
 #include "engines/age/pedestrians.h"
 #include "engines/age/police.h"
+#include "engines/age/props.h"
 #include "engines/age/road_graph.h"
 #include "engines/age/traffic.h"
 #include "engines/age/traffic_lights.h"
@@ -58,11 +59,18 @@ public:
     // Where the traffic's and the police's headlights light the road.
     void headlightPools(std::vector<gfx::DynamicLight>& out, const Vec3& eye) const;
 
+    // How many times the player has run into a car (the traffic's or the
+    // police's) since starting.
+    int carTouches() const { return carTouches_; }
+
     Traffic& traffic() { return traffic_; }
     Pedestrians& pedestrians() { return peds_; }
     Police& police() { return police_; }
     const TrafficLights& lights() const { return lights_; }
     const Gizmos& gizmos() const { return gizmos_; }
+    // The props (city/<map>/props.pathset) and traffic lights, which cars
+    // can knock down.
+    const Props& props() const { return props_; }
 
 private:
     AiRoadMap roads_;
@@ -74,6 +82,10 @@ private:
     TrafficLights lights_;
     Gizmos gizmos_;
     bool lampsLit_ = false, night_ = false;
+    int carTouches_ = 0;
+    Props props_;
+    const SearchSet* files_ = nullptr;
+    bool propsInWorld_ = false;
 };
 
 } // namespace reluva::age

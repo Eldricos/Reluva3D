@@ -53,7 +53,7 @@ public:
             ~AudioOff() { sys.stopAudio(); }
         } audioOff{sys_};
 
-        ViewerContext ctx{sys_, screen_, files_, game_, warnings, audioOut ? &mixer : nullptr};
+        ViewerContext ctx{sys_, screen_, files_, game_, warnings, audioOut ? &mixer : nullptr, target_.savePath};
         std::vector<std::unique_ptr<Page>> pages;
         pages.push_back(std::make_unique<RaceViewer>(ctx));
         pages.push_back(std::make_unique<DriveViewer>(ctx));

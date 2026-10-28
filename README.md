@@ -107,11 +107,16 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   **Left/Right** step through them (**PageUp/PageDown** by 10). The files page lists the
   search path and which archive each file comes from.
 
-- Midtown Madness 2 (Angel Game Engine) opens on its races: a menu (**Up/Down** pick a
-  line, **Left/Right** change the city, event, race, level or car, **Enter** starts), then
-  the Blitz, Circuit or Checkpoint race against its opponents, among the race's traffic,
-  pedestrians and police, driven as on the drive page (**C** camera, **Esc** leaves,
-  **Enter** after the results goes back to the menu). Next
+- Midtown Madness 2 (Angel Game Engine) opens on its races, through the game's own menus
+  redrawn (its splash picture, then the main menu, races, Crash Course and garage: **Up/Down**
+  move, **Left/Right** change, **Enter** presses, **Esc** goes back, or click; **U** opens
+  everything): a Blitz, Circuit or Checkpoint race against its opponents, or a Crash Course
+  lesson (jumps, slaloms, keeping up speed, following a car, losing the police), among the
+  race's traffic, pedestrians and police, driven as on the drive page (**C** camera, **Esc**
+  leaves, **Enter** after the results goes back to the menu, or on to the next lesson; **R**
+  restarts a lesson). Results and lessons passed are kept, and races, lessons, cars and
+  paint jobs open as the game's locked pictures say. Signs, barriers, lamps and traffic
+  lights can be knocked down. The opening movie (Indeo 5) isn't played. Next
   page, a cruise mode, driving a car round a city in 3D (it needs a GPU with Vulkan or Metal, as Elite Force's). **Up/Down** (or
   **W/S**) accelerate and brake (held when stopped, it backs up), **Left/Right** (or
   **A/D**) steer, **Space** is the handbrake, **C** changes the camera (near, far, in the

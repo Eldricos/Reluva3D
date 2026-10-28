@@ -35,6 +35,16 @@ public:
     Signal signal(uint32_t road, int end) const;
     bool has(uint32_t road, int end) const { return index_.count(key(road, end)) > 0; }
     size_t count() const { return lights_.size(); }
+    // Where light `i` stands (its model, the point it's stood on, its
+    // axes), and knocking it down (it's no longer drawn; its signal goes
+    // on, for the traffic).
+    struct Placement {
+        std::string model;
+        Vec3 at{};
+        Mat3 axes;
+    };
+    Placement placement(size_t i) const { return {models_[size_t(lights_[i].model)], lights_[i].at, lights_[i].axes}; }
+    void knockDown(size_t i) { lights_[i].down = true; }
 
     // The models with the glows for each light's state (the night glows,
     // larger, when `night`), within `distance` of the eye.
@@ -46,6 +56,7 @@ private:
         uint32_t road = 0, junction = 0;
         int end = 0, phase = 0;
         int model = 0; // 0 narrow, 1 wide
+        bool down = false; // knocked down
         Vec3 at{};
         Mat3 axes;     // X back towards the curb, Y up, Z facing the traffic
     };

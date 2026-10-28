@@ -26,6 +26,7 @@ Error CityLife::start(gfx::Renderer3D& renderer, TextureCache& textures, const S
                       const AiMapSettings& settings, const Options& options, audio::Mixer* mixer) {
     stop();
     current_ = settings;
+    carTouches_ = 0;
     traffic_.setup(files, roads_, settings, options.seed);
     traffic_.setDensity(options.traffic);
     lights_.build(roads_, settings);
@@ -48,6 +49,12 @@ Error CityLife::start(gfx::Renderer3D& renderer, TextureCache& textures, const S
         first = err;
     police_.setPatrols(options.patrols ? &traffic_.network() : nullptr, &lights_);
     gizmos_.load(files, map_, options.variant, mixer);
+    // The props and the traffic lights, to knock down: their shapes once
+    // the models are at hand (the first draw), in the world after.
+    files_ = &files;
+    props_.load(files, map_);
+    props_.addLights(lights_);
+    propsInWorld_ = false;
     return first;
 }
 
@@ -68,6 +75,17 @@ void CityLife::update(float dt, CarSim& player, const std::vector<CarSim*>& othe
                       const RoadGraph& roads, bool fill) {
     lights_.update(dt);
     gizmos_.update(dt, world, player.position);
+    if (props_.prepared() && !propsInWorld_) {
+        props_.collide(world);
+        propsInWorld_ = true;
+    }
+    {
+        std::vector<CarSim*> drivers{&player};
+        drivers.insert(drivers.end(), others.begin(), others.end());
+        for (CarSim* c : police_.cars())
+            drivers.push_back(c);
+        props_.update(dt, drivers, world, lights_);
+    }
     // The police keep behind what's ahead on patrol: the traffic and the
     // other cars.
     std::vector<RoadUser> ahead{{player.position, player.velocity}};
@@ -76,7 +94,10 @@ void CityLife::update(float dt, CarSim& player, const std::vector<CarSim*>& othe
     traffic_.users(ahead);
     gizmos_.users(ahead); // open bridges, trains
     police_.users(ahead); // each other (a car never counts itself: it's not ahead of itself)
+    const Vec3 beforePolice = player.velocity; // the police move the player only by running into it
     police_.update(dt, player, world, roads, current_.speedLimit, ahead);
+    if (length(player.velocity - beforePolice) > 0.05f)
+        ++carTouches_;
     // Every driven car bumps the traffic and the trains; the police bump
     // the opponents; the trains shove the traffic aside.
     std::vector<CarSim*> cops = police_.cars();
@@ -90,7 +111,9 @@ void CityLife::update(float dt, CarSim& player, const std::vector<CarSim*>& othe
             player.knock(change * player.setup().mass, player.position - normalized(push) * 2);
     };
     Vec3 before = player.velocity;
-    knocked(traffic_.collide(player), before);
+    const float traffic = traffic_.collide(player);
+    carTouches_ += traffic > 0;
+    knocked(traffic, before);
     before = player.velocity;
     knocked(gizmos_.collide(player), before);
     for (CarSim* c : others) {
@@ -116,6 +139,9 @@ void CityLife::update(float dt, CarSim& player, const std::vector<CarSim*>& othe
 
 void CityLife::draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight& light, const gfx::Mat4& viewProj,
                     const Vec3& eye, const FlareDrawer* flares) {
+    if (!props_.prepared() && files_)
+        props_.prepare(*files_, models);
+    props_.draw(renderer, models, light, viewProj, eye);
     lights_.draw(renderer, models, light, viewProj, eye, night_);
     gizmos_.draw(renderer, models, light, viewProj, eye);
     traffic_.draw(renderer, models, light, viewProj, eye, lampsLit_, flares);

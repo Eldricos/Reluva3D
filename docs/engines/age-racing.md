@@ -10,9 +10,12 @@ compared with the game.
 
 ## The Race page
 
-A menu (city, event, race, Amateur or Professional, car) over a view
-circling the race's start; Enter starts it. The race's time of day and
-weather set the lighting. A three-second countdown, then:
+The game's menus ([age-menus.md](age-menus.md)): its splash picture,
+then the main menu, the races and the Crash Course, and the garage to
+choose a car, its colour and its gearbox. Where their files aren't
+there, a menu of Reluva's own (city, event, race, level, car). The
+race's time of day and weather set the lighting. A three-second
+countdown, then:
 
 - **Checkpoints** are the waypoints after the start, in order: within
   the gate's radius (plus 2 m) and 10 m of its height counts. Blitz and
@@ -27,15 +30,74 @@ weather set the lighting. A three-second countdown, then:
   `hudarrow_blitz01` in a Blitz) above the car pointing to the next
   checkpoint.
 - The results list the racers by where they got to, with their times.
-
 - **Traffic, pedestrians and police** are as the race's settings say
   (its Ambient, Peds and Cops columns, and its aimap's exceptions and
   police): see [age-traffic.md](age-traffic.md). Busted by the police,
-  the race is over.
+  or wrecked, the race is over.
 
-The game's menus and HUD pictures (`tune/widget.csv` lays out the menus'
-widgets, `texture/*.tga` has their pictures, `mmlang.dll` their text)
-aren't redrawn yet; nor are unlocking, Crash Course or the other modes.
+## Crash Course
+
+Each city's 13 lessons (`race/<city>/crash<n>data.csv`,
+[race.md](../formats/age/race.md)), named in `mmlang.dll`
+([mmlang.md](../formats/age/mmlang.md)): San Francisco's "Golden Gate
+Stunt Driving School" (Frequent Flyer, Hit or Miss, Turn It Up!, Midterm
+1, ... Final) and London's "East End Cab Company School of Driving"
+(London Leap, Cutting Corners, ...). A lesson is driven through its
+checkpoints (its own file's), in its row's time limit, from the first
+point; its time of day and weather are `mmcrashdata.csv`'s row; its
+traffic is its own row's AmbDensity; the car to follow (or drive among)
+is its aimap's opponent.
+
+What each lesson asks isn't written down beside it: the event number
+picks a group of `mmlang.dll`'s messages (ids 192-245), and Reluva reads
+the rules from those:
+
+| Event | Lessons | Messages | Reluva's rule |
+|---|---|---|---|
+| 0 | Frequent Flyer, London Leap, River Dancing | "Take the jump to hit all checkpoints", "Good jumping!" | every checkpoint in time |
+| 2 | Straight, With Chaser, Follow That Car!, Midterm 3 (SF), Final (London) | "Follow that car!", "You Won!", "Car escaped!" | stay within 120 m of the car (its aimap opponent) until the time's up, or until it's at its end with you near; farther, "Car escaped!" |
+| 3 | The Heat Is On, Artful Dodging | "Practice evading your pursuers!", "Lose your pursuers before you finish!", "You survived the gauntlet!" | all of the aimap's police chase from the start; the end counts once none is chasing; busted fails |
+| 4 | Turn It Up!, Cutting Corners, Midterm 1, Final (SF) | "Maintain %.0f through the checkpoints", "You have not maintained the minimum speed!" | every checkpoint at the row's first extra column (50 or 40 mph) or faster |
+| 5 | Keep It Clean, Round You'll Go | "Don't even touch another car!", "You scraped the paint!" | touching a car (the traffic's or the police's) fails |
+| 7, 9 | Hit or Miss, Brake Dancing, About Face, The Weaver's Tale, The Knowledge, ... | "Ready... Set... Go!", "Time's up!" | every checkpoint in time |
+| 8 | Bonnie & Collide, Midterm 2 (SF) | "Drive as cleanly as you can!", "Wait...5 second penalty" | each knock (an impulse over 1,500, a second apart at most once) adds 5 seconds to the time |
+
+Being busted or wrecked fails any lesson. The checkpoints' fifth column,
+called "poly count" as in the circuits, varies from gate to gate here
+(4-16) and is read as the gate's radius. The other extra columns (1 in
+Brake Dancing's and The Knowledge's second, Bonnie & Collide's and the
+follow lessons' third) aren't used. A passed lesson offers the next
+(Enter), any lesson its restart (R).
+
+## The record and unlocking
+
+Reluva keeps what the player has done in `record.txt` in the game's save
+folder: each race's best place at each level (a Blitz finished in time
+counts as first) and the lessons passed. It's Reluva's own; the game's
+driver files (`.plr`) aren't read or written.
+
+- **Races** open three at a time (the `.cinfo`'s UnlockGroup), each
+  group once every race before it is placed at its MustPlace (3rd) or
+  better at that level (a Professional result counts for Amateur too).
+  That's Reluva's reading of the two keys.
+- **Lessons** open one after another, each once the one before is
+  passed.
+- **Cars and paint jobs**: the game's pictures say what opens each
+  (`jpg/<car>_lck.jpg` for a car, `_lck<n>` for paint job n, with `_p`
+  for a Professional's), and Reluva follows them: "To unlock this
+  vehicle, place 1st, 2nd, or 3rd in six San Francisco Checkpoint
+  Races" (Amateur), "... finish first in six ..." (Professional),
+  "... pass London Crash Course Midterm Exam Two", "... successfully
+  complete the San Francisco Crash Course" (its final lesson). Eight
+  cars have them (the Audi TT, the new Mini Cooper, the Light Tactical
+  Vehicle, the DB7, the New Beetle Dune, the Panoz GTR-1, the fire truck
+  and the New Beetle RSi) and twelve paint jobs (one each of the Audi
+  TT, the Mustang Fastback, the London cab, the new and the classic Mini,
+  the double-decker, the Dune, the GTR-1 and the fire truck, three of
+  the RSi). Every other car and paint job is open. The `.info` files'
+  UnlockScore and UnlockFlags (set on six cars) aren't
+  used: the pictures cover more.
+- **U** in the menus opens everything, for looking round.
 
 ## Opponents
 

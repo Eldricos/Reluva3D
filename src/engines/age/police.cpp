@@ -87,6 +87,14 @@ void Police::forgive() {
     bustTimer_ = 0;
 }
 
+void Police::chaseAll() {
+    for (Cop& c : cops_) {
+        c.chasing = true;
+        c.patrolling = false;
+        c.settled = c.reroute = c.behind = 0;
+    }
+}
+
 int Police::patrolling() const {
     int n = 0;
     for (const Cop& c : cops_)

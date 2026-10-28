@@ -105,8 +105,25 @@ and Race pages
   (`aud/ambient/trolleycable.csv` lists the same points), and the cable
   car model (`va_cablecar_f`) isn't placed by any file Reluva reads.
 
-Not read yet: the props, decals and race layouts, and the audio path
-sets.
+- **Props** (`city/<city>/props.pathset`: 144 paths in San Francisco,
+  placing 1,946 props): each path a model, its end word's low byte how
+  its points are used, as Reluva reads them from where the props stand:
+  0, a prop at each point (hot-dog carts, stacks of boxes, in squares
+  and parks); 1, points in pairs, a prop at the first facing the second
+  (1-2 m away: dumpsters, warning signs); 2, a line with a prop every
+  (second byte / 10) metres along it, its X axis along the line
+  (barricades every 2 m across dead ends, banners, lamps, freeway
+  supports every 16 m). They're drawn standing on their points, and can
+  be knocked down ([age-traffic.md](../../engines/age-traffic.md)).
+  The `ids` look like PSDL block numbers here too.
+
+Not read yet: the decals and race layouts, and the audio path sets.
+Most of the street furniture (street lights, meters, bus stops) isn't
+in these files: `city/<city>/proprules.csv` lists, for rules `n01left`
+to `n20right`, which of `propdefs.csv`'s kinds line a road's side
+(`streetlight`: `sp_lightstreet_f` from 9 m, every 29 m...). Which rule
+a road's side takes isn't in any field of the `.psdl` or `.bai` roads
+found so far, so they aren't placed.
 
 ## Counts
 

@@ -14,18 +14,22 @@
 #include "engines/age/dashboard.h"
 #include "engines/age/engine_sound.h"
 #include "engines/age/filesystem.h"
+#include "engines/age/front_end.h"
 #include "engines/age/games.h"
 #include "engines/age/gizmos.h"
 #include "engines/age/hud_map.h"
 #include "engines/age/instances.h"
+#include "engines/age/lesson.h"
 #include "engines/age/materials.h"
 #include "engines/age/opponent.h"
 #include "engines/age/pathset.h"
 #include "engines/age/ped_model.h"
 #include "engines/age/pkg.h"
+#include "engines/age/props.h"
 #include "engines/age/psdl.h"
 #include "engines/age/pvs.h"
 #include "engines/age/race.h"
+#include "engines/age/record.h"
 #include "engines/age/road_graph.h"
 #include "engines/age/texture.h"
 #include "engines/age/traffic.h"
@@ -879,6 +883,172 @@ void testDashboardFiles(const std::filesystem::path& tmp) {
     CHECK(loadDashSetup(files, "vpnone", dash));
 }
 
+void testLessons() {
+    LessonSettings l;
+    CHECK(!parseLessonSettings("Filename,Event,Checkpoints,TimeLimit,AmbDensity,extra,extra,extra,extra,etra,\r\n"
+                               "corner0waypoints,4,1,0,0,50,0,0,0,0,0\r\n",
+                               l));
+    CHECK(l.file == "corner0waypoints" && l.event == LessonEvent::MinimumSpeed && l.timeLimit == 0 && l.extra[0] == 50);
+    LessonSettings none;
+    CHECK(parseLessonSettings("Filename,Event\r\n", none));
+    // A lesson's checkpoints' fifth column is a radius whatever it's called.
+    std::vector<Waypoint> w;
+    CHECK(!parseWaypoints("x,y,z,a,poly count,frane rate\n0,0,0,0,7,0\n10,0,0,0,9,0\n", w, true) && w[1].radius == 9);
+    CHECK(!parseWaypoints("x,y,z,a,poly count,frane rate\n0,0,0,0,7,0\n10,0,0,0,9,0\n", w) && w[1].radius == 0);
+
+    using R = LessonJudge::Result;
+    LessonJudge j;
+    LessonJudge::Frame f;
+    f.dt = 0.1f;
+    // Minimum speed: too slow at a checkpoint fails.
+    j.start(l);
+    CHECK(j.message() == 232 && j.minimumSpeed() == 50);
+    f.clock = 1;
+    f.speedMph = 55;
+    CHECK(j.step(f) == R::Going && j.message() == 237); // up to speed
+    f.checkpoint = true;
+    f.speedMph = 40;
+    CHECK(j.step(f) == R::Failed && j.message() == 238);
+
+    // Clean: each knock 5 s; out of time with the penalties.
+    LessonSettings clean;
+    clean.event = LessonEvent::Clean;
+    clean.timeLimit = 20;
+    j.start(clean);
+    f = {};
+    f.dt = 0.1f;
+    f.clock = 2;
+    f.impact = 3000;
+    CHECK(j.step(f) == R::Going && j.penalty() == 5 && j.message() == 216);
+    f.clock = 3;
+    CHECK(j.step(f) == R::Going && j.penalty() == 5); // a moment between knocks
+    f.impact = 0;
+    f.clock = 9;
+    CHECK(std::fabs(j.timeLeft(9) - 6) < 1e-4f);
+    f.clock = 15.5f;
+    CHECK(j.step(f) == R::Failed && j.message() == 214);
+    j.start(clean);
+    f.clock = 4;
+    f.finished = true;
+    CHECK(j.step(f) == R::Passed && j.message() == 215);
+
+    // No touching: a car touched after the start fails.
+    LessonSettings touch;
+    touch.event = LessonEvent::NoTouching;
+    j.start(touch);
+    f = {};
+    f.carTouches = 2; // before the start
+    f.clock = 1;
+    CHECK(j.step(f) == R::Going);
+    f.carTouches = 3;
+    CHECK(j.step(f) == R::Failed && j.message() == 230);
+
+    // Cop chase: the end counts once the police are lost; busted fails.
+    LessonSettings chase;
+    chase.event = LessonEvent::CopChase;
+    chase.timeLimit = 100;
+    j.start(chase);
+    f = {};
+    f.dt = 4; // the opening message gone
+    f.clock = 10;
+    f.finished = true;
+    f.chasing = 2;
+    CHECK(j.step(f) == R::Going && j.message() == 197);
+    f.chasing = 0;
+    CHECK(j.step(f) == R::Passed && j.message() == 196);
+    j.start(chase);
+    f.busted = true;
+    CHECK(j.step(f) == R::Failed);
+
+    // Follow: escaped fails; kept up with for the time passes.
+    LessonSettings follow;
+    follow.event = LessonEvent::Follow;
+    follow.timeLimit = 36;
+    j.start(follow);
+    f = {};
+    f.clock = 5;
+    f.targetDistance = 50;
+    CHECK(j.step(f) == R::Going);
+    f.targetDistance = LessonJudge::kEscape + 1;
+    CHECK(j.step(f) == R::Failed && j.message() == 222);
+    j.start(follow);
+    f.targetDistance = 30;
+    f.clock = 36;
+    CHECK(j.step(f) == R::Passed && j.message() == 221);
+
+    // Gates: in time, or not.
+    LessonSettings gates;
+    gates.event = LessonEvent::Gates;
+    gates.timeLimit = 22;
+    j.start(gates);
+    f = {};
+    f.clock = 22.5f;
+    CHECK(j.step(f) == R::Failed && j.message() == 244);
+}
+
+void testWidgets() {
+    std::vector<Widget> w;
+    CHECK(!parseWidgets("MENU NAME,ID,WIDGET NAME,ID,X,Y,W,H,DESC\r\n"
+                        "Main Menu,1,dvrcc,0,439,242,230,90,4 State crash\r\n"
+                        "Main Menu,1,DRIVER NAME,4,177,128,205,24,\r\n"
+                        "short,line\r\n",
+                        w));
+    CHECK(w.size() == 2 && w[0].menu == "Main Menu" && w[0].name == "dvrcc" && w[0].x == 439 && w[0].h == 90 &&
+          w[0].desc == "4 State crash" && w[1].desc.empty());
+    CHECK(parseWidgets("MENU NAME,ID\r\n", w));
+}
+
+void testRecord() {
+    PlayerRecord r;
+    CHECK(!r.parse("# a comment\nrace sf checkpoint 2 a 3\nrace sf checkpoint 2 a 1\nlesson london 3\nnonsense\n"));
+    CHECK(r.bestPlace("sf", RaceKind::Checkpoint, 2, false) == 1 &&
+          r.bestPlace("sf", RaceKind::Checkpoint, 2, true) == 0);
+    r.raced("sf", RaceKind::Checkpoint, 2, false, 4); // not better
+    CHECK(r.bestPlace("sf", RaceKind::Checkpoint, 2, false) == 1);
+    CHECK(r.hasPassed("london", 3) && !r.hasPassed("sf", 3));
+    PlayerRecord again;
+    CHECK(!again.parse(r.text()) && again.bestPlace("sf", RaceKind::Checkpoint, 2, false) == 1 &&
+          again.hasPassed("london", 3));
+
+    // Races open three at a time, each group once every race before is
+    // placed 3rd or better; lessons one after another.
+    PlayerRecord p;
+    CHECK(raceOpen(p, "sf", RaceKind::Blitz, 2, false, 3, 3) && !raceOpen(p, "sf", RaceKind::Blitz, 3, false, 3, 3));
+    for (int i = 0; i < 3; ++i)
+        p.raced("sf", RaceKind::Blitz, i, false, i == 2 ? 4 : 2);
+    CHECK(!raceOpen(p, "sf", RaceKind::Blitz, 3, false, 3, 3));
+    p.raced("sf", RaceKind::Blitz, 2, true, 3); // a professional's result counts for amateurs
+    CHECK(raceOpen(p, "sf", RaceKind::Blitz, 5, false, 3, 3) && !raceOpen(p, "sf", RaceKind::Blitz, 6, false, 3, 3));
+    CHECK(!raceOpen(p, "sf", RaceKind::Blitz, 3, true, 3, 3));
+    CHECK(raceOpen(p, "sf", RaceKind::CrashCourse, 0, false, 3, 3) &&
+          !raceOpen(p, "sf", RaceKind::CrashCourse, 1, false, 3, 3));
+    p.passed("sf", 0);
+    CHECK(raceOpen(p, "sf", RaceKind::CrashCourse, 1, false, 3, 3));
+
+    // Unlocking, as the pictures say.
+    const RaceCount twelve = [](const std::string&, RaceKind) { return 12; };
+    PlayerRecord u;
+    CHECK(unlocked(u, "vpbug", -1, false, twelve)); // no rule: open
+    CHECK(!unlocked(u, "vpauditt", -1, false, twelve));
+    for (int i = 0; i < 6; ++i)
+        u.raced("sf", RaceKind::Checkpoint, i, false, 3);
+    CHECK(unlocked(u, "vpauditt", -1, false, twelve) && !unlocked(u, "vpauditt", -1, true, twelve));
+    CHECK(!unlocked(u, "vpauditt", 4, false, twelve)); // all twelve for the paint job
+    CHECK(!unlocked(u, "vp4x4", -1, false, twelve));
+    u.passed("sf", 12);
+    CHECK(unlocked(u, "vp4x4", -1, false, twelve));
+    for (const UnlockRule& rule : unlockRules())
+        if (rule.car == "vpauditt" && rule.paintJob < 0) {
+            CHECK(unlockText(rule, false) ==
+                  "To unlock this vehicle, place 1st, 2nd, or 3rd in six San Francisco Checkpoint Races");
+            CHECK(unlockText(rule, true) ==
+                  "To unlock this vehicle, finish first in six San Francisco Checkpoint Races");
+        } else if (rule.car == "vpcab") {
+            CHECK(unlockText(rule, false) ==
+                  "To unlock this custom paint job, pass London Crash Course Midterm Exam Two");
+        }
+}
+
 void testEngineSound() {
     EngineSoundSetup e;
     CHECK(!readEngineSound("Horn wave name,Horn volume,flags,Num Engine Samples,clutch wave name,clutch volume,,,,,\r\n"
@@ -1699,6 +1869,86 @@ void testTrains(const std::filesystem::path& tmp) {
         CHECK(length(after[i].first - before[i].first) > 1);
     std::filesystem::remove_all(tmp);
 }
+void testProps(const std::filesystem::path& tmp) {
+    // Placing: points; pairs (where, then a point it faces); a line with a
+    // prop every 2 m (end word 20 << 8 | 2).
+    std::vector<PathsetPath> paths(3);
+    paths[0].model = "sp_cone_f";
+    paths[0].points = {{0, 0, 0}, {5, 0, 0}};
+    paths[1].model = "sp_dumpstr_f";
+    paths[1].end = 1;
+    paths[1].points = {{10, 0, 0}, {10, 0, 2}};
+    paths[2].model = "sp_barricadewood_f";
+    paths[2].end = 20 << 8 | 2;
+    paths[2].points = {{0, 0, 10}, {5, 0, 10}};
+    const auto placed = placeProps(paths);
+    CHECK(placed.size() == 2 + 1 + 3);
+    if (placed.size() == 6) {
+        CHECK(placed[2].model == "sp_dumpstr_f" && std::fabs(placed[2].along[2] - 1) < 1e-4f);
+        CHECK(placed[3].at == (Vec3{0, 0, 10}) && placed[5].at == (Vec3{4, 0, 10}) && placed[4].along[0] == 1);
+    }
+    BangerData b;
+    CHECK(!parseBangerData("type: a\ndgBangerData {\n  Mass 9.3\n  ImpulseLimit2 4657.7\n}\n", b));
+    CHECK(std::fabs(b.mass - 9.3f) < 1e-4f && std::fabs(b.impulseLimit2 - 4657.7f) < 0.01f);
+    CHECK(parseBangerData("type: a\nother {\n}\n", b));
+
+    // A cone (breaks at sqrt(2500) = 50 kg m/s) and a tree (never) in the
+    // way of a car on a flat plane.
+    std::filesystem::remove_all(tmp);
+    test::writeFile(tmp / "city" / "test" / "props.pathset",
+                    buildPathset({{"sp_cone_f", {{0, 0, -30}}, 0}, {"sp_tree_s", {{6, 0, -30}}, 0}}));
+    test::writeFile(tmp / "tune" / "banger" / "sp_cone_f.dgBangerData",
+                    toBytes("type: a\ndgBangerData {\n  Mass 10\n  ImpulseLimit2 2500\n}\n"));
+    test::writeFile(tmp / "tune" / "banger" / "sp_tree_s.dgBangerData",
+                    toBytes("type: a\ndgBangerData {\n  Mass 50000\n  ImpulseLimit2 1e+30\n}\n"));
+    SearchSet files;
+    auto loose = std::make_unique<DirectoryArchive>();
+    CHECK(!loose->open(tmp));
+    files.add(std::move(loose), 1);
+    Props props;
+    props.load(files, "test");
+    CHECK(props.count() == 2);
+    props.prepare(files, [](const std::string& model, Vec3& lo, Vec3& hi) {
+        lo = model == "sp_tree_s" ? Vec3{-0.5f, -3, -0.5f} : Vec3{-0.3f, -0.4f, -0.3f};
+        hi = {-lo[0], -lo[1], -lo[2]};
+        return true;
+    });
+    CollisionWorld flat;
+    flat.add({-300, 0, -300}, {-300, 0, 300}, {300, 0, 300});
+    flat.add({-300, 0, -300}, {300, 0, 300}, {300, 0, -300});
+    flat.build();
+    props.collide(flat);
+    CollisionWorld::RayHit hit;
+    CHECK(flat.raycast({0, 5, -30}, {0, -1, 0}, 10, hit) && hit.surface.prop == 0 &&
+          std::fabs(hit.distance - 4.2f) < 0.01f);
+    CHECK(hit.surface.breakImpulse == 50 && hit.surface.propMass == 10);
+    CHECK(flat.raycast({6, 10, -30}, {0, -1, 0}, 20, hit) && hit.surface.prop == 1 && hit.surface.breakImpulse == 0);
+
+    // Driven through: the cone comes loose and falls out of the way; the
+    // car goes on, a little slower.
+    TrafficLights lights;
+    CarSim car;
+    car.reset(testCar(), {0, 0, 0}, 0);
+    CarControls go;
+    go.throttle = 1;
+    float speedBefore = 0;
+    for (int i = 0; i < 160 && car.position[2] > -40; ++i) {
+        if (car.position[2] > -26)
+            speedBefore = car.forwardSpeed();
+        car.step(go, flat, 0.05f);
+        props.update(0.05f, {&car}, flat, lights);
+    }
+    CHECK(props.loose() == 1 && car.position[2] < -35 && car.forwardSpeed() > speedBefore * 0.8f);
+    CHECK(!flat.raycast({0, 5, -30}, {0, -1, 0}, 10, hit) || hit.surface.prop < 0);
+    // The tree stops a car.
+    car.reset(testCar(), {6, 0, 0}, 0);
+    for (int i = 0; i < 80; ++i) {
+        car.step(go, flat, 0.05f);
+        props.update(0.05f, {&car}, flat, lights);
+    }
+    CHECK(props.loose() == 1 && car.position[2] > -30);
+}
+
 int main() {
     const auto tmp = std::filesystem::temp_directory_path() / "reluva_age_tests";
     testArchive(tmp / "archive");
@@ -1716,6 +1966,9 @@ int main() {
     testCarSim();
     testEngineSound();
     testCarFiles();
+    testLessons();
+    testRecord();
+    testWidgets();
     testDashboardFiles(tmp / "dash");
     testSidewalkMarkers();
     testRaceFiles();
@@ -1735,6 +1988,7 @@ int main() {
     testTunnels();
     testCityExtras();
     testTrains(tmp / "trains");
+    testProps(tmp / "props");
     std::filesystem::remove_all(tmp);
     if (failures) {
         std::fprintf(stderr, "%d check(s) failed\n", failures);

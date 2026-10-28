@@ -19,6 +19,10 @@ struct CollisionSurface {
     // car sounds play, how much a wheel on it is slowed, how deep it is.
     uint8_t sound = 0;
     float drag = 0, depth = 0;
+    // A prop that can be knocked down (props.h): its number, the impulse
+    // (kg m/s) that breaks it loose (0: it doesn't) and its mass.
+    int32_t prop = -1;
+    float breakImpulse = 0, propMass = 0;
 };
 
 // Triangles to collide with, in a grid over X and Z for finding those
@@ -46,6 +50,13 @@ public:
         std::erase_if(triangles_, [&](const Triangle& t) { return drop(t.a, t.b, t.c); });
         build(cellSize_);
     }
+    // The same by surface (a prop's triangles).
+    template <typename F>
+    void removeSurfaces(F&& drop) {
+        std::erase_if(triangles_, [&](const Triangle& t) { return drop(t.surface); });
+        build(cellSize_);
+    }
+    float cellSize() const { return cellSize_; }
 
     struct RayHit {
         float distance = 0;

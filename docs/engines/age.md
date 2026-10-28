@@ -193,28 +193,34 @@ recording how each format was worked out (CONTRIBUTING.md).
   the smoke uses, `.ter` ([bnd.md](../formats/age/bnd.md)). For
   watching the game run ([age-driving.md](age-driving.md)).
 
-### 5. The game (races and city life done; the rest next)
+### 5. The game (done but for music)
 
-- Done: Blitz, Circuit and Checkpoint races from `race/`, opponents
-  following their `.opp` paths (routed along the roads) in their aimaps'
-  cars, results; a Race page with its own menu.
-- Done: traffic and pedestrians on the road maps (`.bai`, `.aimap`,
-  `anim/`), police chases (cruising's and the races' police, the races'
-  Cops column), on the Drive and Race pages.
-- Next: Crash Course (`crash*`), unlocking; the menus redrawn from
-  `tune/widget.csv`'s layout, the `jpg/` backgrounds and `mmlang.dll`'s
-  strings. Done since: traffic lights, lane
-  changes, the cars' lamps, police patrols and sirens (the game has no
-  police radio recordings); the ferries, boats and drawbridges from the
-  `.pathset` files, and their parked cars and Underground trains. Left
-  for later in city life: traffic lights and signs that can be
-  knocked down (their `BREAK` parts), Crash Course's police lessons
-  (`copchase.csv`).
+- Blitz, Circuit and Checkpoint races from `race/`, opponents following
+  their `.opp` paths (routed along the roads) in their aimaps' cars,
+  results.
+- City life: traffic and pedestrians on the road maps (`.bai`, `.aimap`,
+  `anim/`), traffic lights, lane changes, the cars' lamps, police
+  patrols, chases and sirens (the game has no police radio recordings);
+  the ferries, boats and drawbridges, parked cars and Underground trains
+  from the `.pathset` files; the props of `props.pathset`, which, with
+  the traffic lights, can be knocked down (`.dgBangerData`).
+- Crash Course: each city's 13 lessons (`crash<n>data.csv`), named and
+  judged by `mmlang.dll`'s strings, cop chases included.
+- The player's record (Reluva's own file), and unlocking: races in
+  groups (the `.cinfo`), lessons in turn, cars and paint jobs as the
+  game's locked pictures say ([age-racing.md](age-racing.md)).
+- The menus redrawn from `tune/widget.csv`, the `jpg/` backgrounds and
+  the buttons' pictures, with `mmlang.dll`'s strings: the main menu,
+  races, Crash Course and garage ([age-menus.md](age-menus.md)).
+- Opening logos: `logos.avi` is Indeo 5, which has no published
+  description to write a decoder from; skipped, as the original's "No
+  Movie" shortcut does, with the game's splash picture shown instead.
+- Not done: the street furniture laid by `proprules.csv` (which rule a
+  road takes isn't known), props' `BREAK` parts, the other menus and
+  modes (Cops & Robbers, replays, options).
 - Music: DirectMusic segments and styles on DLS instruments needs a
   DirectMusic player in `common/audio`. Decided: it comes after the game
   runs; until then, no music.
-- Opening logos: an Indeo 5 decoder, or skipped (as the original's
-  "No Movie" shortcut does).
 
 ### 6. Multiplayer (later, optional)
 

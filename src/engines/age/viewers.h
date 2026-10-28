@@ -57,8 +57,12 @@
 #include "engines/age/city_scene.h"
 #include "engines/age/damage.h"
 #include "engines/age/dashboard.h"
+#include "engines/age/front_end.h"
 #include "engines/age/hud_map.h"
 #include "engines/age/hud_pictures.h"
+#include "engines/age/lang.h"
+#include "engines/age/lesson.h"
+#include "engines/age/record.h"
 #include "engines/age/engine_sound.h"
 #include "engines/age/opponent.h"
 #include "engines/age/race.h"
@@ -69,6 +73,7 @@
 #include "engines/age/texture.h"
 
 #include <cstdint>
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <string>
@@ -83,6 +88,7 @@ struct ViewerContext {
     const GameInfo& game;
     const std::vector<std::string>& warnings; // problems loading the game's files
     audio::Mixer* mixer = nullptr;            // sound output; none if the system has no audio
+    std::filesystem::path savePath;           // where this game's own files go (GameTarget::savePath); may be empty
 };
 
 class Page {
@@ -379,6 +385,8 @@ private:
     void drawMap(float dt);
     void drawMenu();
     void drawRaceHud();
+    void judgeLesson(float dt, bool checkpoint, float impact);
+    bool lesson() const { return race_.kind == RaceKind::CrashCourse; }
     const Waypoint& targetPoint(size_t k) const { return race_.waypoints[targets_[k]]; }
 
     std::vector<CityInfo> cities_;
@@ -420,6 +428,21 @@ private:
     uint32_t keys_ = 0;
     uint64_t lastMs_ = 0;
     float orbit_ = 0; // the menu's camera, round the start
+    GameStrings strings_;
+    LessonJudge judge_;
+    PlayerRecord record_;
+    bool openAll_ = false;  // U: every race and car open, whatever the record says
+    bool recorded_ = false; // this race's result is in the record
+
+    std::unique_ptr<FrontEnd> front_;   // the game's menus, when their files are there
+    std::unique_ptr<CarActor> showCar_; // the garage's car
+    int showCarIndex_ = -1, showPaint_ = -1, paint_ = 0;
+
+    bool raceIsOpen(int index) const;
+    bool carIsOpen(int car) const;
+    void recordResult();
+    void menuEvent(const Event& ev);
+    void drawGarageCar(float dt);
 };
 
 } // namespace reluva::age

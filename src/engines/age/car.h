@@ -109,6 +109,8 @@ public:
     // the city, or another car (collideCars); and where, in the car's frame.
     float impact = 0;
     Vec3 impactAt{};
+    // The props it broke loose since last cleared (CollisionSurface::prop).
+    std::vector<int32_t> broke;
     // Records a knock at a point in the world, if it's the hardest.
     void knock(float impulse, const Vec3& at) {
         if (impulse > impact) {
