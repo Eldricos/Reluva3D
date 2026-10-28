@@ -186,6 +186,10 @@ private:
     std::string error_, skinName_;
     gfx::MeshId mesh_ = 0;
     gfx::TextureId skin_ = 0;
+    // A Render/pc model's pages (its .art), and each part's runs of
+    // triangles on one page: first triangle, count, page.
+    std::vector<gfx::TextureId> pages_;
+    std::vector<std::vector<std::array<uint32_t, 3>>> pageRuns_;
     std::vector<int> partLevels_; // 0 high, 1 medium, 2 small, 3 tiny
     int level_ = 0;               // 0-3, or 4 for all
     bool textures_ = true, cullBack_ = true, spin_ = false, dragging_ = false;

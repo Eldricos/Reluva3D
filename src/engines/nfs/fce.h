@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "common/image.h"
 #include "common/types.h"
 
 #include <array>
@@ -47,5 +48,9 @@ struct Model {
 };
 
 Error parseModel(const std::vector<uint8_t>& data, Model& out);
+
+// The texture pages of a GameData/Render/pc model (cone.art, copN.art):
+// one image each, in page order (fce.md).
+Error parseArt(const std::vector<uint8_t>& data, std::vector<image::Image>& pages);
 
 } // namespace reluva::nfs

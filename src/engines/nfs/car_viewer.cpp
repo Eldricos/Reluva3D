@@ -67,9 +67,14 @@ void CarPage::release() {
             renderer_->destroyMesh(mesh_);
         if (skin_)
             renderer_->destroyTexture(skin_);
+        for (gfx::TextureId page : pages_)
+            if (page)
+                renderer_->destroyTexture(page);
     }
     mesh_ = 0;
     skin_ = 0;
+    pages_.clear();
+    pageRuns_.clear();
 }
 
 void CarPage::resetView() {
@@ -99,12 +104,42 @@ void CarPage::load(int index) {
     radius_ = std::max(0.5f, std::hypot(model_.halfSize[0], model_.halfSize[1], model_.halfSize[2]));
     resetView();
 
+    // A Render/pc model's pages: its .art, a picture for each page
+    // (fce.md), used in place of a skin.
+    const std::string folder = ref.name.substr(0, ref.name.size() - baseName(ref.name).size());
+    for (const FileRef& f : files_.files()) {
+        if (lower(f.name) != lower(folder + stem(ref.name) + ".art"))
+            continue;
+        std::vector<uint8_t> art;
+        std::vector<image::Image> images;
+        if (files_.read(f, art) || parseArt(art, images))
+            break;
+        for (const image::Image& img : images) {
+            gfx::TextureId id = 0;
+            renderer_->createTexture(img.w, img.h, img.rgba.data(), {}, id);
+            pages_.push_back(id);
+        }
+        skinName_ = baseName(f.name) + " (" + std::to_string(images.size()) + " pages)";
+        break;
+    }
+    for (const Model::Part& part : model_.parts) {
+        std::vector<std::array<uint32_t, 3>> runs;
+        for (uint32_t t = part.firstTriangle; t < part.firstTriangle + part.triangleCount; ++t) {
+            const uint32_t page = model_.triangles[t].texturePage;
+            if (!runs.empty() && runs.back()[2] == page && runs.back()[0] + runs.back()[1] == t)
+                ++runs.back()[1];
+            else
+                runs.push_back({t, 1, page});
+        }
+        pageRuns_.push_back(std::move(runs));
+    }
+
     // The skin: car00.tga beside a car.fce, goNN00.tga beside goNN.fce,
     // cone.tga beside cone.fce.
-    const std::string folder = ref.name.substr(0, ref.name.size() - baseName(ref.name).size());
     const std::string wanted[] = {folder + "car00.tga", folder + stem(ref.name) + "00.tga",
                                   folder + stem(ref.name) + ".tga"};
-    for (const std::string& name : wanted) {
+    for (const std::string& name : pages_.empty() ? std::vector<std::string>(std::begin(wanted), std::end(wanted))
+                                                  : std::vector<std::string>{}) {
         for (const FileRef& f : files_.files()) {
             if (lower(f.name) != lower(name))
                 continue;
@@ -233,9 +268,18 @@ void CarPage::update(uint64_t nowMs) {
             const Model::Part& part = model_.parts[p];
             if (part.triangleCount == 0 || (level_ < 4 && partLevels_[p] != level_))
                 continue;
-            call.firstIndex = part.firstTriangle * 3;
-            call.indexCount = part.triangleCount * 3;
-            renderer_->draw(call);
+            if (pages_.empty()) {
+                call.firstIndex = part.firstTriangle * 3;
+                call.indexCount = part.triangleCount * 3;
+                renderer_->draw(call);
+            } else {
+                for (const auto& [first, count, page] : pageRuns_[p]) {
+                    call.texture = textures_ && page < pages_.size() ? pages_[page] : 0;
+                    call.firstIndex = first * 3;
+                    call.indexCount = count * 3;
+                    renderer_->draw(call);
+                }
+            }
             triangles += part.triangleCount;
         }
     }

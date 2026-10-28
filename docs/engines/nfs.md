@@ -284,7 +284,6 @@ Not done yet:
   internal: consistency, text reading correctly, walls along fences;
 - fog, clouds and the sun;
 - the records in each track block (positions, lights, sounds);
-- the `Render/pc` models' `.art` textures;
 - the 8-bit texture sets.
 
 What was planned:

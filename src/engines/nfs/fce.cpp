@@ -116,4 +116,35 @@ Error parseModel(const std::vector<uint8_t>& data, Model& out) {
     return Error::success();
 }
 
+// One image after another, to the end: u32 width, u32 height, then the
+// pixels, 4 bytes each (blue, green, red, alpha), top row first.
+Error parseArt(const std::vector<uint8_t>& data, std::vector<image::Image>& pages) {
+    pages.clear();
+    size_t at = 0;
+    while (at < data.size()) {
+        if (data.size() - at < 8)
+            return Error::fail(".art: a page header runs past the end");
+        uint32_t w, h;
+        std::memcpy(&w, data.data() + at, 4);
+        std::memcpy(&h, data.data() + at + 4, 4);
+        at += 8;
+        if (w == 0 || h == 0 || w > 4096 || h > 4096 || uint64_t(w) * h * 4 > data.size() - at)
+            return Error::fail(".art: a page's pixels run past the end");
+        image::Image img;
+        img.w = int(w);
+        img.h = int(h);
+        img.rgba.resize(size_t(w) * h * 4);
+        for (size_t i = 0; i < size_t(w) * h; ++i) {
+            const uint8_t* p = data.data() + at + 4 * i;
+            img.rgba[4 * i] = p[2];
+            img.rgba[4 * i + 1] = p[1];
+            img.rgba[4 * i + 2] = p[0];
+            img.rgba[4 * i + 3] = p[3];
+        }
+        at += size_t(w) * h * 4;
+        pages.push_back(std::move(img));
+    }
+    return Error::success();
+}
+
 } // namespace reluva::nfs

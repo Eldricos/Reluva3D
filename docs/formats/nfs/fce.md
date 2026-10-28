@@ -108,8 +108,29 @@ The dummies are lights:
 | 44 | 3 floats | v of each corner (0 at the top of the texture) |
 
 Every car uses only page 0. The `Render/pc` models (the cone and
-`cop0`-`cop4`, whose use is still to be found) use pages 0-6. Their
-textures are presumably their `.art` files, which aren't read yet.
+`cop0`-`cop4`) use pages 0-6, from their `.art` files.
+
+## `.art`: the `Render/pc` models' pages
+
+Worked out from the bytes (October 2026): one image after another to the
+end of the file, each a u32 width, a u32 height, then width × height
+pixels of 4 bytes: blue, green, red, alpha, the top row first. Page n is
+the n'th image. All six files end exactly after their last image:
+
+| File | Pages |
+|---|---|
+| `cone.art` | 64 × 128, 1 × 1 |
+| `cop0.art` | 5 of 16 × 16 |
+| `cop1.art` | 7 of 16 × 16 |
+| `cop2.art` | 6 of 1 × 1 (plain colours) |
+| `cop3.art` | 6 of 16 × 16 |
+| `cop4.art` | 32 × 32, 8 × 8, 8 × 8, 32 × 32, 8 × 8, 8 × 8 |
+
+The page counts match the highest page each model uses. Drawn with them
+on the Cars page, the cone is orange with white stripes, and the five
+`cop` models are police officers in different uniforms (presumably those
+standing at roadblocks). `cone.tga`, beside them, is the same picture as
+the cone's first page.
 
 ## Coordinates and winding
 
