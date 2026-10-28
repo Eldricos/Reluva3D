@@ -69,7 +69,7 @@ the "Pathfinder map".
 |---|---|---|
 | 0 | 4 | `PFDx` |
 | 4 | u8 | 0 in all (a version?) |
-| 5 | u8 | 0 in most; 148-190 in six; unknown |
+| 5 | u8 | the section the music starts at |
 | 6 | u8 | number of sections, one per segment |
 | 7 | u8 | 16: the size of an event record |
 | 8 | u32 **big-endian** | number of events |
@@ -99,6 +99,35 @@ when the music doesn't follow the race.
 Events, 16 bytes: four values, then six section numbers in bytes 4-9
 (Hometown: 1, 23, 47, 69, 109, 129), with zeros after in most. They look
 like the places the game can jump in at; their use is to be found.
+
+**What the game plays** (October 2026, from the reads `nfs3.exe` makes
+of its copy of the stream, `C:\GameData\temp.mus`, in a scripted race on
+`trk000` with `hometech`):
+
+- As the race loads, it plays section 189: the map's header byte 5
+  (`0xBD`), a 12-second section of its own kind (21), the race's intro.
+  The other maps' byte 5 is 0, or another such section: `alpitech`
+  190, `atlatech` 185, `emprrock` 148, `homerock` 170, `losttech` 189.
+  The `.lin` maps have their own (`hometech.lin` 16).
+- After it, at the race's start, section 16, then 17, 18 ... 23 and back
+  to 16: the map's routes at low intensity (0-28), with the car standing
+  still. So the intensity is low for a car at rest; what raises it was
+  not seen (the car didn't move in that race).
+- The game reads 16 KB at a time, a section's second half while its
+  first plays.
+
+So byte 5 is the start section: the Music page starts there. The
+sections' first byte groups consecutive sections into parts (the intro
+alone in its own); the events, and what the parts mean to the game, are
+still to be found, from races where things happen (pursuits, crashes,
+the finish).
+
+## On the Music page
+
+The segments play as one stream (`audio::SoundQueue`, `common/audio`):
+the page keeps the next section decoded and queued behind the one
+playing, chosen by the intensity when it's queued, and each segment's
+last sample leads straight into the next one's first, with no gap.
 
 ## Tools
 

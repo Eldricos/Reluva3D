@@ -105,7 +105,7 @@ Error parseMusicMap(const std::vector<uint8_t>& data, MusicMap& out) {
     if (data.size() < kMapHeader || std::memcmp(data.data(), "PFDx", 4) != 0)
         return bad("no PFDx header");
     out.version = data[4];
-    out.unknown = data[5];
+    out.start = data[5];
     const size_t sections = data[6];
     if (data[7] != kEventSize)
         return bad("event records of " + std::to_string(data[7]) + " bytes");

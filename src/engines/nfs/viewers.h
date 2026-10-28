@@ -370,6 +370,7 @@ private:
     void start(int section);
     void stop();
     int following(int section) const;
+    int firstSection() const;
     const MusicMap* activeMap() const;
 
     const GameFiles& files_;
@@ -384,8 +385,13 @@ private:
     int section_ = -1; // playing
     std::vector<int> history_;
     std::shared_ptr<audio::Sound> current_;
+    // The segments playing one after another, one queued behind the one
+    // playing; the section last queued.
+    std::shared_ptr<audio::SoundQueue> queue_;
+    int queuedSection_ = -1;
     audio::SoundHandle playing_ = audio::kNoSound;
     uint64_t lastDraw_ = 0;
+    std::shared_ptr<audio::Sound> decodeSection(int section);
 };
 
 // The movies (.mad) with their sound.

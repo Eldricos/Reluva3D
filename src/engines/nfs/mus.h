@@ -49,7 +49,10 @@ struct MusicMap {
         std::vector<Route> routes; // none: the music stops (or the game decides)
         std::array<uint8_t, 28> raw{};
     };
-    int version = 0, unknown = 0;
+    int version = 0;
+    // The section the music starts at (header byte 5): a race's intro on
+    // some tracks' maps, else 0 (mus.md).
+    int start = 0;
     std::vector<Section> sections;
     std::vector<std::array<uint8_t, 16>> events; // not understood yet
     std::vector<uint32_t> offsets; // each section's segment, as a .mus file offset

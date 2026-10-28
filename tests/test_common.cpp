@@ -176,6 +176,38 @@ static void testMp3() {
     CHECK(bool(decodeMp3(std::vector<uint8_t>(100, 0), t))); // no frames
 }
 
+// Sounds queued play one after another with nothing between, the join
+// interpolated across.
+static void testSoundQueue() {
+    using namespace reluva::audio;
+    auto mono = [](int rate, std::vector<int16_t> samples) {
+        auto s = std::make_shared<Sound>();
+        s->rate = rate;
+        s->channels = 1;
+        s->samples = std::move(samples);
+        return s;
+    };
+    SoundQueue q;
+    q.push(mono(22050, {100, 200, 300}), 7);
+    q.push(mono(22050, {400, 500}), 8);
+    CHECK(q.playing() == 7 && q.queued() == 2);
+    int16_t out[12];
+    q.read(out, 6, 22050);
+    const int16_t expected[] = {100, 200, 300, 400, 500, 0};
+    for (int i = 0; i < 6; ++i)
+        CHECK(out[2 * i] == expected[i] && out[2 * i + 1] == expected[i]);
+    CHECK(q.playing() == -1 && q.queued() == 0);
+
+    // At half the output rate: each frame twice, halfway between them.
+    SoundQueue half;
+    half.push(mono(11025, {0, 100}), 1);
+    half.push(mono(11025, {200}), 2);
+    half.read(out, 3, 22050);
+    CHECK(out[0] == 0 && out[2] == 50 && out[4] == 100 && half.playing() == 1);
+    half.read(out, 3, 22050);
+    CHECK(out[0] == 150 && out[2] == 200 && out[4] == 200 && half.playing() == 2);
+}
+
 static void testMixer() {
     using namespace reluva::audio;
     auto make = [](int rate, int channels, std::vector<int16_t> samples) {
@@ -631,6 +663,7 @@ int main() {
     testEaXa();
     testMicroTalk();
     testMixer();
+    testSoundQueue();
     testFsAndDetection(tmp / "fs");
     testConfig(tmp / "cfg");
     testZip(tmp / "zip");

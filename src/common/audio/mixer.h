@@ -8,6 +8,7 @@
 #include "common/types.h"
 
 #include <cstdint>
+#include <deque>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -34,6 +35,30 @@ public:
     // Fills `frames` stereo frames (interleaved signed 16-bit) at `rate`
     // frames a second. Runs on the audio thread.
     virtual void read(int16_t* out, int frames, int rate) = 0;
+};
+
+// Sounds played one after another with nothing between them: a queue
+// the engine fills (ahead of time) while the mixer reads it as a stream.
+// Each sound's last frame leads into the next one's first, so music in
+// pieces plays as one. Each sound is tagged with a number of the engine's,
+// for telling which is playing.
+class SoundQueue : public Stream {
+public:
+    void push(std::shared_ptr<const Sound> sound, int tag);
+    // The tag of the sound playing (-1: none left), and how many sounds are
+    // queued with it.
+    int playing() const;
+    size_t queued() const;
+    void read(int16_t* out, int frames, int rate) override;
+
+private:
+    struct Entry {
+        std::shared_ptr<const Sound> sound;
+        int tag;
+    };
+    mutable std::mutex mutex_;
+    std::deque<Entry> queue_;
+    double position_ = 0; // in the first sound's frames
 };
 
 // Mixes any number of decoded sounds into the System's stereo output:

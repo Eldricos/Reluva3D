@@ -333,10 +333,8 @@ audio was checked as WAV files: spectrograms, and the comparisons above.
 
 Not done yet:
 
-- segments follow each other with a gap of up to a few milliseconds, as
-  the mixer can't queue a sound to start when another ends;
-- which section a race's music starts at, and what the maps' events and
-  sections' first bytes do (the game's own player would tell);
+- what the maps' events and sections' first bytes mean to the game
+  (the start section is known: [mus.md](../formats/nfs/mus.md));
 - the banks' unknown header tags;
 - the engine sounds' looping and pitch, which belong with the game.
 

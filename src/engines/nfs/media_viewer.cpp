@@ -223,6 +223,19 @@ void MusicPage::stop() {
         mixer_->stop(playing_);
     playing_ = audio::kNoSound;
     current_.reset();
+    queue_.reset();
+    queuedSection_ = -1;
+}
+
+std::shared_ptr<audio::Sound> MusicPage::decodeSection(int section) {
+    const MusicMap* m = activeMap();
+    const int segment = m ? loaded_.segmentAt(m->offsets[section]) : section;
+    auto sound = std::make_shared<audio::Sound>();
+    if (Error err = loaded_.decode(segment, *sound)) {
+        error_ = err.message;
+        return nullptr;
+    }
+    return sound;
 }
 
 void MusicPage::load(int stream) {
@@ -271,6 +284,15 @@ const MusicMap* MusicPage::activeMap() const {
     return nullptr;
 }
 
+// Where the music starts: the map's start section (a race's intro), or
+// the first.
+int MusicPage::firstSection() const {
+    if (const MusicMap* m = activeMap())
+        if (m->start >= 0 && m->start < static_cast<int>(m->sections.size()))
+            return m->start;
+    return 0;
+}
+
 int MusicPage::following(int section) const {
     if (const MusicMap* m = activeMap())
         return m->next(section, intensity_);
@@ -286,16 +308,19 @@ void MusicPage::start(int section) {
     history_.push_back(section);
     if (history_.size() > 64)
         history_.erase(history_.begin());
-    const MusicMap* m = activeMap();
-    const int segment = m ? loaded_.segmentAt(m->offsets[section]) : section;
-    auto sound = std::make_shared<audio::Sound>();
-    if (Error err = loaded_.decode(segment, *sound)) {
-        error_ = err.message;
+    current_ = decodeSection(section);
+    if (!current_ || !mixer_)
         return;
-    }
-    current_ = sound;
-    if (mixer_)
-        playing_ = mixer_->play(current_, audio::SoundType::Music);
+    // Played as a stream of segments, the next queued behind it.
+    queue_ = std::make_shared<audio::SoundQueue>();
+    queue_->push(current_, section);
+    queuedSection_ = section;
+    if (const int next = following(section); next >= 0)
+        if (auto sound = decodeSection(next)) {
+            queue_->push(sound, next);
+            queuedSection_ = next;
+        }
+    playing_ = mixer_->playStream(queue_, audio::SoundType::Music);
 }
 
 void MusicPage::handleKey(uint32_t k, uint16_t) {
@@ -310,10 +335,10 @@ void MusicPage::handleKey(uint32_t k, uint16_t) {
         if (playing_ != audio::kNoSound || (!mixer_ && section_ >= 0))
             stop(), section_ = -1;
         else
-            start(0);
+            start(firstSection());
         break;
-    case key::Home: start(0); break;
-    case 'n': start(section_ < 0 ? 0 : following(section_)); break;
+    case key::Home: start(firstSection()); break;
+    case 'n': start(section_ < 0 ? firstSection() : following(section_)); break;
     case 'l':
         if (haveMap_ && haveLinear_) {
             useLinear_ = !useLinear_;
@@ -329,11 +354,29 @@ void MusicPage::handleKey(uint32_t k, uint16_t) {
 bool MusicPage::tick(uint64_t nowMs) {
     if (!mixer_ || playing_ == audio::kNoSound)
         return false;
-    // The next segment when this one ends: a short gap, as the mixer
-    // doesn't queue sounds.
-    if (!mixer_->isPlaying(playing_)) {
-        start(following(section_));
-        return true;
+    // When the queue moves on to the next segment: that one is playing,
+    // and the one after it is queued (decided now, by the intensity).
+    if (queue_) {
+        const int now = queue_->playing();
+        if (now < 0) {
+            stop();
+            section_ = -1;
+            return true;
+        }
+        if (now != section_) {
+            section_ = now;
+            history_.push_back(now);
+            if (history_.size() > 64)
+                history_.erase(history_.begin());
+        }
+        if (queue_->queued() < 2 && queuedSection_ >= 0) {
+            const int next = following(queuedSection_);
+            queuedSection_ = next;
+            if (next >= 0)
+                if (auto sound = decodeSection(next))
+                    queue_->push(sound, next);
+            return true;
+        }
     }
     if (nowMs - lastDraw_ < 100)
         return false;
@@ -357,6 +400,8 @@ void MusicPage::draw(Surface& s) {
                                 ", " + std::to_string(m->sections.size()) + " sections, " +
                                 std::to_string(m->events.size()) + " events"
                           : "no map: segments in order";
+    if (m && firstSection() != 0)
+        order += ", starting at section " + std::to_string(firstSection());
     if (haveMap_ && haveLinear_)
         order += "   L: the other order";
     text(s, kMargin, y, std::to_string(loaded_.segments().size()) + " segments; " + order, kTextColor);
@@ -376,7 +421,7 @@ void MusicPage::draw(Surface& s) {
     y += font::kLineHeight * 2;
 
     if (section_ < 0) {
-        text(s, kMargin, y, "Stopped. Space plays from the first section.", kLabelColor);
+        text(s, kMargin, y, "Stopped. Space plays from the start.", kLabelColor);
         return;
     }
     const int segment = m ? loaded_.segmentAt(m->offsets[section_]) : section_;

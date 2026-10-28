@@ -165,4 +165,55 @@ Error startMixerOutput(System& sys, Mixer& mixer) {
     return sys.startAudio([&mixer](int16_t* out, int frames) { mixer.mix(out, frames); });
 }
 
+void SoundQueue::push(std::shared_ptr<const Sound> sound, int tag) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    queue_.push_back({std::move(sound), tag});
+}
+
+int SoundQueue::playing() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return queue_.empty() ? -1 : queue_.front().tag;
+}
+
+size_t SoundQueue::queued() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return queue_.size();
+}
+
+void SoundQueue::read(int16_t* out, int frames, int rate) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (int i = 0; i < frames; ++i) {
+        while (!queue_.empty() && position_ >= double(queue_.front().sound->frames())) {
+            position_ -= double(queue_.front().sound->frames());
+            queue_.pop_front();
+        }
+        if (queue_.empty()) {
+            out[2 * i] = out[2 * i + 1] = 0;
+            continue;
+        }
+        const Sound& s = *queue_.front().sound;
+        const size_t n = s.frames(), ch = size_t(s.channels);
+        const size_t f = size_t(position_);
+        const double t = position_ - double(f);
+        // Linear interpolation towards the frame after: this sound's, or
+        // the next one's first.
+        const Sound* after = &s;
+        size_t g = f + 1;
+        if (g >= n) {
+            if (queue_.size() > 1 && queue_[1].sound->frames() && queue_[1].sound->channels == s.channels) {
+                after = queue_[1].sound.get();
+                g = 0;
+            } else {
+                g = f;
+            }
+        }
+        for (size_t c = 0; c < 2; ++c) {
+            const size_t k = std::min(c, ch - 1);
+            const double v = s.samples[f * ch + k] * (1 - t) + after->samples[g * ch + k] * t;
+            out[2 * size_t(i) + c] = static_cast<int16_t>(std::clamp<long>(std::lround(v), -32768L, 32767L));
+        }
+        position_ += double(s.rate) / double(rate);
+    }
+}
+
 } // namespace reluva::audio
