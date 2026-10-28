@@ -246,12 +246,16 @@ void ScenePage::runFromInventory(const std::string& script, bool fromInventory) 
     runner_->run(script);
 }
 
-void ScenePage::interfaceTalk(const std::string& name) {
+void ScenePage::talkStarting(const std::string& name) {
+    // 0x43a670, once the conversation is found: the window closes unless
+    // a script of its own started the talk; then, unless the name has
+    // "gen_" or "com_" in it (0x43e750: anywhere, any case), the item in
+    // hand goes back and the one just taken stops blinking.
     if (ui_.open && !ui_.fromInventory)
         closeInventory();
     ui_.fromInventory = false;
     const std::string n = fs::toLower(name);
-    if (!startsWith(n, "gen_") && !startsWith(n, "com_")) {
+    if (n.find("gen_") == std::string::npos && n.find("com_") == std::string::npos) {
         releaseHeld();
         endFresh();
     }

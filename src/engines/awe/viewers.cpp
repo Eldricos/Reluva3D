@@ -2627,7 +2627,6 @@ void ScenePage::loadDialogue() {
 bool ScenePage::startTalk(ScriptRunner& runner, const ScriptEvent& e) {
     loadDialogue();
     const TalkArgs t = parseTalkArgs({e.words.begin() + 1, e.words.end()}, runner.fromCharacter());
-    interfaceTalk(t.name);
     if (dialogue_->talk(runner, t.name, t.part, t.thread, t.nest, t.gen, t.number, t.plus, t.greet))
         return true;
     return t.gen && dialogue_->noTalk(runner);

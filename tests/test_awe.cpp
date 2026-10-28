@@ -1140,6 +1140,8 @@ struct QuietHost : DialogueHost {
     void stopVoice() override {}
     std::string readText(const std::string&) override { return {}; }
     std::string sceneName() override { return "salon_01"; }
+    void talkStarting(const std::string& name) override { started.push_back(name); }
+    std::vector<std::string> started;
 };
 
 void testDialogue() {
@@ -1171,6 +1173,8 @@ void testDialogue() {
     runner.run("talk dia_obs a+, tag after 1");
     runner.update(0.01f);
     CHECK(d.active() && !runner.idle());
+    // The inventory's changes, once the conversation is found (0x43a670).
+    CHECK(host.started.size() == 1 && host.started[0] == "dia_obs");
     auto run = [&](float seconds) {
         for (float t = 0; t < seconds; t += 0.05f) {
             d.update(0.05f);

@@ -416,8 +416,10 @@ bool DialogueManager::start(const std::string& name, int part, int thread, int n
     DialoguePart* p = book_.find(name, part);
     if (!p)
         return false;
-    if (!dry_)
+    if (!dry_) {
         log("talk " + name + " " + partText(part));
+        host_.talkStarting(name);
+    }
     part_ = p;
     boxHeight_ = 160, window_ = 0;
     if (testCondition("act >07a", state_))

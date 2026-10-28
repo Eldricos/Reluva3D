@@ -622,7 +622,7 @@ private:
     bool startCard(ScriptRunner& runner, const ScriptEvent& e);
     // A conversation starting (0x43a649): the window closed unless it
     // started it, the item in hand put back unless it's a gen_ or com_.
-    void interfaceTalk(const std::string& name);
+    void talkStarting(const std::string& name) override;
     void logScript(const std::string& line);
     bool hidden(const Ac2Record& o) const;
     bool shown(const Ac2Record& o) const;

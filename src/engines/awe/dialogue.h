@@ -124,6 +124,9 @@ public:
     // The voice's level now (0x425140): 0 silent, more when it's loud; -1
     // if unknown.
     virtual int voiceLevel() { return -1; }
+    // A conversation found and starting (not a dry run): the inventory
+    // window closes and what's in hand goes back (0x43a670).
+    virtual void talkStarting(const std::string& name) { (void)name; }
 };
 
 class DialogueManager {
