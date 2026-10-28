@@ -386,6 +386,10 @@ private:
     void drawMenu();
     void drawRaceHud();
     void judgeLesson(float dt, bool checkpoint, float impact);
+    // The race's message `offset` into its event's group of mmlang.dll's
+    // strings, or `fallback`.
+    std::string raceMessage(int offset, const std::string& fallback) const;
+    void drawCentred(const std::string& text, int y, Color color, int scale);
     bool lesson() const { return race_.kind == RaceKind::CrashCourse; }
     const Waypoint& targetPoint(size_t k) const { return race_.waypoints[targets_[k]]; }
 
@@ -430,6 +434,9 @@ private:
     float orbit_ = 0; // the menu's camera, round the start
     GameStrings strings_;
     LessonJudge judge_;
+    std::string beatenAll_; // "You've beaten all the Blitz races!!", once they are
+    float finalLapFor_ = 0; // seconds "Final lap!" has left
+    int lastLap_ = 0;
     PlayerRecord record_;
     bool openAll_ = false;  // U: every race and car open, whatever the record says
     bool recorded_ = false; // this race's result is in the record
