@@ -56,8 +56,9 @@ every engine.
 
 1. **Check against the retail data.** Done for maps (all 67 load) and
    detection (one release); the retail paks are read; Elite Force's
-   shaders use no directive outside Quake III's. Still to do: write down
-   any Elite Force-specific entity keys, and detect its other releases
+   shaders use no directive outside Quake III's; its map entities are
+   surveyed ([eliteforce-entities.md](../formats/idtech3/eliteforce-entities.md)).
+   Still to do: detect its other releases
    (the Expansion Pack, the Mac and other-language versions).
 2. **3D rendering in `System`.** Done: `gfx::Renderer3D` in
    `src/common/gfx3d.h` (textures, static meshes, draw calls with blend,
