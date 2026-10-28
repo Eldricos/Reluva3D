@@ -24,8 +24,8 @@ const char* formatName(uint16_t format) {
     switch (format) {
     case texformat::Palette: return "8-bit palette";
     case texformat::PaletteAlpha: return "8-bit palette with alpha";
-    case texformat::Bgr: return "24-bit";
-    case texformat::Bgra: return "32-bit with alpha";
+    case texformat::Rgb: return "24-bit";
+    case texformat::Rgba: return "32-bit with alpha";
     default: return "unknown";
     }
 }
@@ -45,8 +45,8 @@ Error decodeTex(const std::vector<uint8_t>& data, Tex& out) {
     switch (out.format) {
     case texformat::Palette:
     case texformat::PaletteAlpha: bytesPerPixel = 1, palette = kPaletteSize; break;
-    case texformat::Bgr: bytesPerPixel = 3; break;
-    case texformat::Bgra: bytesPerPixel = 4; break;
+    case texformat::Rgb: bytesPerPixel = 3; break;
+    case texformat::Rgba: bytesPerPixel = 4; break;
     default: return Error::fail("unknown texture format " + std::to_string(out.format));
     }
     // Every level is checked to fit; only the first is decoded.
@@ -63,12 +63,14 @@ Error decodeTex(const std::vector<uint8_t>& data, Tex& out) {
     const uint8_t* pal = h + kHeaderSize;
     const uint8_t* src = pal + palette;
     uint8_t* dst = img.rgba.data();
+    // Palettes are B, G, R, A (as Windows' palettes); the other formats
+    // R, G, B(, A).
     for (size_t i = 0, n = size_t(w) * size_t(height); i < n; ++i, dst += 4) {
         const uint8_t* p = palette ? pal + 4 * src[i] : src + i * bytesPerPixel;
-        dst[0] = p[2];
+        dst[0] = palette ? p[2] : p[0];
         dst[1] = p[1];
-        dst[2] = p[0];
-        dst[3] = out.format == texformat::PaletteAlpha || out.format == texformat::Bgra ? p[3] : 255;
+        dst[2] = palette ? p[0] : p[2];
+        dst[3] = out.format == texformat::PaletteAlpha || out.format == texformat::Rgba ? p[3] : 255;
     }
     return Error::success();
 }

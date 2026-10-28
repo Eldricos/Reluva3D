@@ -137,6 +137,16 @@ yellow paint).
 
 Three floats; 863 models have one. Not known yet.
 
+### Where models stand
+
+Many models are modelled centred on their own origin, half below it
+(115 `sp_` props, the subway pieces, landmarks such as
+`ol_natgallery_l`); building fronts (`sw_`, `cw_`, `nw_`...) stand on it.
+Cities' `.inst` files place either kind where it belongs. A traffic
+light's glow parts (`REDGLOWDAY_H`...) don't fit its centred body: they
+sit about 4.6 m above its signal heads, as if the body stood on its
+origin. How the game places them is still to be found.
+
 ### xrefs
 
 Models placed inside this one (the Hyatt's red warning lights, bridge

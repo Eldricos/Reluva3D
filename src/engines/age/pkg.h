@@ -73,6 +73,12 @@ struct Pkg {
 
 Error readPkg(const std::vector<uint8_t>& data, Pkg& out);
 
+// Whether a model's part is one the game shows only when it's lit: a
+// car's lamps and their glows (HEADLIGHT0, HLIGHT, TLIGHT, BLIGHT,
+// RLIGHT, SLIGHT0, SIREN0, SRN0), a traffic light's (REDGLOWDAY...) and a
+// crossing's signs (WALK_NIGHT...).
+bool isLightPart(const std::string& part);
+
 // A part's placement (.mtx, next to the model: <model>_<part>.mtx).
 struct Mtx {
     Vec3 min{}, max{}; // the part's bounds as modelled

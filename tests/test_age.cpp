@@ -5,14 +5,19 @@
 // following docs/formats/age/, so no game data is needed.
 
 #include "engines/age/ar_archive.h"
+#include "engines/age/city_mesh.h"
 #include "engines/age/filesystem.h"
 #include "engines/age/games.h"
+#include "engines/age/instances.h"
 #include "engines/age/pkg.h"
+#include "engines/age/psdl.h"
 #include "engines/age/texture.h"
+#include "engines/age/tune.h"
 #include "engines/age/viewers.h"
 #include "zip_writer.h"
 
 #include <cstdio>
+#include <algorithm>
 #include <cstring>
 #include <filesystem>
 #include <string>
@@ -243,16 +248,16 @@ void testTex() {
     pal.v.pop_back(); // the 1x1 level cut short
     CHECK(decodeTex(pal.v, tex));
 
-    // 24-bit and 32-bit: B, G, R(, A) in the file.
-    Bytes bgr;
-    bgr.bytes(texHeader(1, 1, texformat::Bgr, 1, 0)).u8(1).u8(2).u8(3);
-    CHECK(!decodeTex(bgr.v, tex) && tex.image.rgba == (std::vector<uint8_t>{3, 2, 1, 255}));
-    Bytes bgra;
-    bgra.bytes(texHeader(1, 1, texformat::Bgra, 1, 0)).u8(1).u8(2).u8(3).u8(4);
-    CHECK(!decodeTex(bgra.v, tex) && tex.image.rgba == (std::vector<uint8_t>{3, 2, 1, 4}));
+    // 24-bit and 32-bit: R, G, B(, A) in the file, unlike the palettes.
+    Bytes rgb;
+    rgb.bytes(texHeader(1, 1, texformat::Rgb, 1, 0)).u8(1).u8(2).u8(3);
+    CHECK(!decodeTex(rgb.v, tex) && tex.image.rgba == (std::vector<uint8_t>{1, 2, 3, 255}));
+    Bytes rgba;
+    rgba.bytes(texHeader(1, 1, texformat::Rgba, 1, 0)).u8(1).u8(2).u8(3).u8(4);
+    CHECK(!decodeTex(rgba.v, tex) && tex.image.rgba == (std::vector<uint8_t>{1, 2, 3, 4}));
 
     CHECK(decodeTex(texHeader(1, 1, 99, 1, 0), tex)); // unknown format
-    CHECK(decodeTex(texHeader(0, 1, texformat::Bgr, 1, 0), tex));
+    CHECK(decodeTex(texHeader(0, 1, texformat::Rgb, 1, 0), tex));
     CHECK(decodeTex(toBytes("short"), tex));
 }
 
@@ -382,6 +387,106 @@ void testNames() {
     CHECK(!isLightPart("BODY") && !isLightPart("WHL0") && !isLightPart("BREAK01") && !isLightPart(""));
 }
 
+// A small city: 6 vertices, heights 10, 20 and 1, two textures, one block.
+std::vector<uint8_t> buildPsdl(const std::vector<uint16_t>& attributes, uint32_t version = 2) {
+    Bytes b;
+    b.str("PSD0").u32(version).u32(6);
+    const float v[6][3] = {{0, 0, 0}, {10, 0, 0}, {10, 0, 10}, {0, 0, 10}, {0, 0.15f, -2}, {10, 0.15f, -2}};
+    for (const auto& p : v)
+        b.f32(p[0]).f32(p[1]).f32(p[2]);
+    b.u32(3).f32(10).f32(20).f32(1);
+    b.u32(3).u8(5).str("r2_f").u8(0).u8(8).str("swalk_f").u8(0); // counts are one more than stored
+    b.u32(2).u32(0);
+    b.u32(2).u32(uint32_t(attributes.size())); // block 1: two perimeter edges
+    b.u16(0).u16(0).u16(1).u16(5);
+    for (uint16_t w : attributes)
+        b.u16(w);
+    b.u8(0).u8(4);   // flags of blocks 0 and 1
+    b.u8(205).u8(0); // the second bytes
+    for (float f : {-1.f, -2.f, -3.f, 4.f, 5.f, 6.f, 1.f, 2.f, 3.f, 9.f})
+        b.f32(f);
+    return b.v;
+}
+
+void testPsdl() {
+    // Texture 1 (r2_f); a roof at height 0 (10) over 0, 1, 2, 3; a facade
+    // from height 0 to 1 (10 to 20) along 0-1, repeated 2 x 3, marked last;
+    // then a stray texture attribute, as the retail cities have.
+    const std::vector<uint16_t> attrs = {10 << 3, 1, 12 << 3 | 3, 0, 0, 1, 2, 3,
+                                         0x80 | 11 << 3 | 6, 0, 1, 2, 3, 0, 1, 10 << 3, 2};
+    Psdl psdl;
+    CHECK(!readPsdl(buildPsdl(attrs), psdl));
+    CHECK(psdl.vertices.size() == 6 && psdl.heights.size() == 3 && psdl.textures.size() == 2);
+    CHECK(psdl.texture(1) == "r2_f" && psdl.texture(2) == "swalk_f" && psdl.texture(0).empty() && psdl.texture(3).empty());
+    CHECK(psdl.blocks.size() == 2 && psdl.blocks[1].perimeter.size() == 2 && psdl.blocks[1].perimeter[1].second == 5);
+    CHECK(psdl.blocks[1].attributes.size() == 4 && psdl.blocks[1].flags == 4 && psdl.blocks[0].extra == 205);
+    if (psdl.blocks.size() == 2 && psdl.blocks[1].attributes.size() > 1) {
+        const PsdlAttribute& roof = psdl.blocks[1].attributes[1];
+        CHECK(roof.type == psdlattr::Roof && roof.count == 3 && roof.words == (std::vector<uint16_t>{0, 0, 1, 2, 3}));
+    }
+    CHECK(psdl.min == (Vec3{-1, -2, -3}) && psdl.center == (Vec3{1, 2, 3}) && psdl.radius == 9);
+
+    CityMesh mesh;
+    buildCityMesh(psdl, mesh);
+    CHECK(mesh.batches.size() == 1 && mesh.batches[0].texture == "r2_f");
+    CHECK(mesh.batches[0].indices.size() == 4 * 3); // two roof triangles, two facade triangles
+    float lowest = 1e9f, highest = -1e9f, maxU = 0;
+    for (const gfx::Vertex& v : mesh.vertices) {
+        lowest = std::min(lowest, v.pos[1]);
+        highest = std::max(highest, v.pos[1]);
+        maxU = std::max(maxU, v.uv[0]);
+    }
+    CHECK(lowest == 10 && highest == 20 && maxU == 2);
+    for (size_t i = 0; i < 3; ++i) // the roof faces up
+        CHECK(mesh.vertices[i].pos[1] == 10 && mesh.vertices[i].normal[1] == 1);
+
+    // A road strip of two sections: the road in two halves (centre line
+    // at v = 0), two sidewalks; the sidewalks use the next texture.
+    const std::vector<uint16_t> road = {10 << 3, 1, 0x80 | 0 << 3 | 2, 4, 0, 1, 5, 4, 3, 2, 5};
+    CHECK(!readPsdl(buildPsdl(road), psdl));
+    buildCityMesh(psdl, mesh);
+    CHECK(mesh.batches.size() == 2 && mesh.batches[1].texture == "swalk_f");
+
+    // Damage: another version; an attribute after the last; one running
+    // past its block; an unknown type.
+    CHECK(readPsdl(buildPsdl(attrs, 3), psdl));
+    CHECK(readPsdl(buildPsdl({0x80 | 10 << 3, 1, 12 << 3 | 3, 0, 0, 1, 2, 3}), psdl));
+    CHECK(readPsdl(buildPsdl({0x80 | 11 << 3, 0, 1, 2}), psdl));
+    CHECK(readPsdl(buildPsdl({0x80 | 13 << 3}), psdl));
+    CHECK(psdlAttributeLength(psdlattr::DividedRoad, 2) == 14 && psdlAttributeLength(psdlattr::Tunnel, 5) == 5);
+}
+
+void testInstances() {
+    Bytes b;
+    // Turned only: the X axis's x and z, then the position.
+    b.u16(7).u16(0x100).u8(0x80 | 6).str("sp_box").f32(0).f32(1).f32(10).f32(20).f32(30);
+    // Three axes (scaled) and a position.
+    b.u16(8).u16(3).u8(4).str("abc").u8(0);
+    for (int i = 0; i < 12; ++i)
+        b.f32(float(i));
+    std::vector<Instance> list;
+    CHECK(!readInstances(b.v, list) && list.size() == 2);
+    CHECK(list[0].block == 7 && list[0].flags == 0x100 && list[0].model == "sp_box");
+    CHECK(list[0].matrix == (std::array<float, 12>{0, 0, 1, 0, 1, 0, -1, 0, 0, 10, 20, 30}));
+    CHECK(list[1].model == "abc" && list[1].matrix[11] == 11 && list[1].flags == 3);
+    b.v.pop_back();
+    CHECK(readInstances(b.v, list));
+}
+
+void testTune() {
+    TuneNode root;
+    CHECK(!parseTune("type: a\r\nclear-noon {\r\n  KeyColor 0.9\t0.8 0.7 \r\n  Engine {\r\n    MaxRPM 8500\r\n  }\r\n"
+                     "  Ambient -14145486\r\n}\r\n",
+                     root));
+    CHECK(root.children.size() == 1 && root.children[0].name == "clear-noon");
+    const TuneNode& n = root.children[0];
+    CHECK(n.number("keycolor", 2) == 0.7f && n.number("KeyColor", 3, -1) == -1 && n.number("Missing", 0, 5) == 5);
+    CHECK(n.child("Engine") && n.child("Engine")->number("MaxRPM") == 8500);
+    CHECK(n.number("Ambient") == -14145486.0f);
+    CHECK(parseTune("a {\n b 1\n", root));
+    CHECK(parseTune("}\n", root));
+}
+
 } // namespace
 
 int main() {
@@ -393,6 +498,9 @@ int main() {
     testTex();
     testPkg();
     testNames();
+    testPsdl();
+    testInstances();
+    testTune();
     std::filesystem::remove_all(tmp);
     if (failures) {
         std::fprintf(stderr, "%d check(s) failed\n", failures);
