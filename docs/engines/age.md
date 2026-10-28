@@ -1,0 +1,183 @@
+# The Angel Game Engine (plan)
+
+Engine id `age`, to live in `src/engines/age/`. First game: Midtown
+Madness 2 (`mm2`). This page is the plan for adding it; it becomes the
+engine's status page (like [idtech3.md](idtech3.md)) as the work lands.
+
+## Why an engine family
+
+Midtown Madness 2 runs on Angel Studios' Angel Game Engine (AGE), as
+does Midtown Madness (1999), and later Midnight Club II on PC. They share
+the archive format, models, textures, the city description (PSDL) and the
+car simulation's tuning files. As with `idtech3`, what they share is
+written once and what differs is keyed off a `GameInfo` entry, with
+game-specific code in subfolders (`src/engines/age/mm2/`).
+
+## What the retail copy holds
+
+Surveyed from the English Windows release (Midtown2.exe 1.00.3200,
+`reluva --hash` signatures below). Everything was read with a few lines
+of throwaway Python; nothing below came from anyone else's code.
+
+| File | Size | Contents |
+|---|---|---|
+| `mm2core.ar` | 21 MB | 5,680 files: `geometry/` (1,040 `.pkg` models, `.mtx`), `tune/` (cars, cities, cameras, HUD maps), `race/` (every race's checkpoints, opponents' recorded paths, AI maps), `bound/` (collision), `city/` (London and San Francisco: PSDL, instances, AI roads, visibility, lighting), `anim/` (pedestrians) |
+| `mm2tex.ar` | 114 MB | 3,665 `.tex` textures, 307 `.tga`, 388 `.jpg` menu backgrounds |
+| `mm2aud.ar` | 120 MB | 1,091 `.wav` sound effects and speech, 655 `.csv` sound tables, DirectMusic music (62 `.sgt` segments, 17 `.sty` styles, 14 `.dls` instrument banks) |
+| `mm2audex.ar` | 144 MB | 1,412 more `.wav` (commentary, police radio) |
+| `mmlang.dll` | | the game's text as Windows string resources (547 strings) |
+| `logos.avi` | 4 MB | the opening logos: Indeo 5 video, PCM sound |
+| `Midtown2.exe` + `MIDTOWN2.ICD` | | the program, under SafeDisc (see below) |
+
+### The archive (`.ar`)
+
+Worked out from `mm2core.ar` and confirmed by unpacking all four
+archives with every file's size matching:
+
+- Header: `DAVE`, then three little-endian u32: file count, directory
+  size, names size. The directory starts at 2048.
+- Directory: 16 bytes per file: offset of its name in the names block,
+  offset of its data from the start of the archive, size, stored size.
+- Names: zero-terminated, after the directory (2048 + directory size).
+  Paths use `/`; folders appear as entries ending in `/` with size 0.
+- Data: raw deflate (no zlib header) when stored size differs from size,
+  stored as is otherwise. Files start on 2048-byte boundaries.
+
+### Much of the game is text
+
+This is the most useful finding: a lot of the game's behaviour is in
+plain-text tuning files, so it can be read instead of reverse engineered.
+
+- `tune/vehicle/*.vehcarsim`: each car's simulation: mass, inertia box,
+  centre of gravity, aerodynamics, engine (horsepower, optimal and
+  maximum RPM), gearbox (ratios, shift points), drivetrain, brakes,
+  wheels and suspension. Also `.vehcardamage`, `.vehgyro`, `.vehstuck`,
+  `.vehtrailer`, and `.aiVehicleData` for traffic.
+- `tune/*.info`: the car list as the menus show it (name, colours,
+  horsepower, top speed, unlocking). `tune/*.cinfo`: each city's races
+  and their names.
+- `bound/*.bnd`: collision shapes as text (vertices, materials, polygons);
+  `.bbnd` are their binary forms.
+- `race/<city>/*.csv`: every race's checkpoints and settings;
+  `*.opp`: opponents' paths as CSV (x, y, z, brake, throttle...).
+- `tune/*.mmHudMap`, camera files and more use the same `type: a` text
+  form.
+
+Binary formats still to work out: `.pkg` models (`PKG3`, named `FILE`
+sections per level of detail and part), `.tex` textures (u16 width,
+height, format (1, 14, 17 and 18 seen), mipmaps, palette), `.psdl`
+(`PSD0`, the procedural street description the city's roads, sidewalks
+and buildings are generated from), `.inst` (placed models), `.bai`
+(`CAI1`, AI road network), `.cpvs` (`PVS0`, visibility), `.lmap` (`LMP0`),
+`.sky`, `.anim`/`.skel`.
+
+### The program is protected by SafeDisc
+
+`Midtown2.exe` is SafeDisc's loader; the game's code is in
+`MIDTOWN2.ICD`, whose `.text` and `.data` sections are encrypted
+(entropy 8.0 bits a byte). Its imports (DirectInput, DirectSound,
+DirectPlay, WinMM's mixer) can be read, its code can't. So:
+
+- Running the original program in the x86 interpreter, as Elite Force's
+  single-player DLLs are run, isn't an option: it would mean emulating
+  SafeDisc as well as Direct3D, DirectInput, DirectSound, DirectMusic and
+  DirectPlay.
+- Reluva reimplements the game, as for New Worlds: from the data files,
+  public format write-ups, and observation of the game running.
+- The temporary asset folder also contains a cracked executable
+  (`MM2-CD/crack`). It must not be used for this work (circumventing the
+  protection isn't something this project relies on), and it hasn't been
+  opened.
+
+## Detection
+
+`reluva --hash` on the retail install:
+
+```
+{"mm2core.ar", "8ba3c06f784f6f7abff1d4b902ef3440", 21430272},
+{"mm2tex.ar", "27dd94a1e010c39bd7ad77ad82f4cb2b", 113573888},
+{"mm2aud.ar", "887a50a3eaab9a2a0abc95ba52e19303", 119619584},
+{"Midtown2.exe", "fbcb14ab668d8fbe4dac1dec8ae2d4ae", 348576},
+```
+
+Detection keys on `mm2core.ar` (hash and size) with `Midtown2.exe`
+present; a fallback by file names alone finds other releases as "unknown
+release", as `idtech3` does.
+
+## Phases
+
+Each phase ends with something visible in Reluva, tests for what can be
+tested without game data, and a format page under `docs/formats/age/`
+recording how each format was worked out (CONTRIBUTING.md).
+
+### 1. Engine skeleton, detection and the archives
+
+- `src/engines/age/` with `MetaEngine`, `games.cpp` (detection table
+  above), registered in `registry.cpp`; CMake option
+  `RELUVA_ENGINE_AGE`.
+- `ar_archive.cpp`: the DAVE archive as a `common/archive.h` `Archive`,
+  so the four `.ar` files join a `SearchSet` with loose files over them
+  (the original reads loose files first, which mods rely on). Deflate
+  from `common/zip.cpp`.
+- `reluva-tool ar-list` and `ar-extract`.
+- Unit tests with a small archive built in the test, as
+  `tests/zip_writer.h` does for zips.
+- Viewer: a Files page listing the archives, and text files shown.
+
+### 2. Textures and models (data viewer)
+
+- `.tex` decoding for each format seen, checked against all 3,665.
+- `.pkg` models: parts, levels of detail (`_H`, `_M`, `_L`, `_VL`),
+  materials, damage variants; `.mtx` placement matrices.
+- Textures and Models pages, as New Worlds' and Elite Force's: cars
+  with their colours, buildings and props.
+
+### 3. The city
+
+- PSDL: the street network as rooms and blocks of typed attributes
+  (roads, sidewalks, crosswalks, facades, roofs, tunnels), turned into
+  meshes. This is the largest format; community write-ups of it exist
+  to compare against.
+- `.inst` placed models, `.sky`, `.lmap`/`.lt00`-`.lt15` lighting,
+  `.cpvs` visibility, `.water`.
+- World page: fly through London and San Francisco on the
+  `gfx::Renderer3D` the id Tech 3 engine already uses.
+
+### 4. Driving
+
+- Collision against the city (`.bnd`/`.bbnd`, PSDL ground).
+- The car simulation from `.vehcarsim`: engine and gearbox, tyres,
+  suspension, aerodynamics, damage. The tuning names and values give its
+  structure; behaviour is checked against recordings of the original
+  (acceleration times, top speeds, the `.info` figures).
+- Cameras from `tune/camera`, the HUD (speedometer, map from
+  `.mmHudMap`), engine and tyre sounds through `common/audio`.
+- Cruise mode: drive any car around either city.
+
+### 5. The game
+
+- Races from `race/`: Blitz, Circuit and Checkpoint, opponents following
+  their `.opp` paths, results and unlocking from the `.info` and `.cinfo`
+  files; Crash Course (`crash*`) in London.
+- Traffic and pedestrians on the AI road network (`.bai`, `.aimap`),
+  police chases.
+- The menus: the original's are built in the executable (with the
+  `jpg/` backgrounds and `mmlang.dll`'s strings), so they're redrawn from
+  screenshots of the original.
+- Music: DirectMusic segments and styles on DLS instruments needs a
+  DirectMusic player in `common/audio`; until then, no music (or the
+  `.wav` stingers).
+- Opening logos: an Indeo 5 decoder, or skipped (as the original's
+  "No Movie" shortcut does).
+
+### 6. Multiplayer (later, optional)
+
+The original uses DirectPlay. Playing against the original isn't
+practical; Reluva-to-Reluva play over `System::openUdp` is.
+
+## Open questions
+
+- Whether to also support Midtown Madness 1 now (shares the formats) or
+  after MM2 drives.
+- Whether to start a DirectMusic player early, since music matters to the
+  game's feel and nothing else in Reluva needs one yet.
