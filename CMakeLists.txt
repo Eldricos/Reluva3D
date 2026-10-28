@@ -186,7 +186,11 @@ if(RELUVA_ENGINE_AGE)
         src/engines/age/games.cpp
         src/engines/age/ar_archive.cpp
         src/engines/age/filesystem.cpp
-        src/engines/age/viewers.cpp)
+        src/engines/age/texture.cpp
+        src/engines/age/pkg.cpp
+        src/engines/age/viewers.cpp
+        src/engines/age/texture_viewer.cpp
+        src/engines/age/model_viewer.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_AGE)
 endif()
 target_link_libraries(reluva_engines PUBLIC reluva_common PRIVATE reluva_warnings)

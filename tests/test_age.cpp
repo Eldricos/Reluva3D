@@ -7,10 +7,13 @@
 #include "engines/age/ar_archive.h"
 #include "engines/age/filesystem.h"
 #include "engines/age/games.h"
+#include "engines/age/pkg.h"
+#include "engines/age/texture.h"
 #include "engines/age/viewers.h"
 #include "zip_writer.h"
 
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -193,6 +196,192 @@ void testFileLines() {
     CHECK(lines[0].substr(lines[0].size() - 10) == "PKG3FILE..");
 }
 
+// Little-endian writers for building files.
+struct Bytes {
+    std::vector<uint8_t> v;
+    Bytes& u8(uint32_t x) {
+        v.push_back(uint8_t(x));
+        return *this;
+    }
+    Bytes& u16(uint32_t x) { return u8(x).u8(x >> 8); }
+    Bytes& u32(uint32_t x) { return u16(x & 0xffff).u16(x >> 16); }
+    Bytes& f32(float f) {
+        uint32_t x;
+        std::memcpy(&x, &f, 4);
+        return u32(x);
+    }
+    Bytes& str(const std::string& s) {
+        v.insert(v.end(), s.begin(), s.end());
+        return *this;
+    }
+    // A name as models store them: a length byte counting the zero after it.
+    Bytes& name(const std::string& s) { return u8(uint32_t(s.size() + 1)).str(s).u8(0); }
+    Bytes& bytes(const std::vector<uint8_t>& b) {
+        v.insert(v.end(), b.begin(), b.end());
+        return *this;
+    }
+};
+
+std::vector<uint8_t> texHeader(int w, int h, int format, int levels, uint32_t flags) {
+    return Bytes().u16(uint32_t(w)).u16(uint32_t(h)).u16(uint32_t(format)).u16(uint32_t(levels)).u16(1).u32(flags).v;
+}
+
+void testTex() {
+    // 2x2 palette texture, two levels (2x2 and 1x1): index 1 is
+    // B=10 G=20 R=30 with alpha 40, which only format 14 uses.
+    Bytes pal;
+    pal.bytes(texHeader(2, 2, texformat::Palette, 2, 0x10001));
+    for (int i = 0; i < 256; ++i)
+        pal.u8(i == 1 ? 10 : 0).u8(i == 1 ? 20 : 0).u8(i == 1 ? 30 : 0).u8(i == 1 ? 40 : 255);
+    pal.u8(0).u8(1).u8(1).u8(0).u8(1);
+    Tex tex;
+    CHECK(!decodeTex(pal.v, tex));
+    CHECK(tex.image.w == 2 && tex.image.h == 2 && tex.levels == 2 && tex.flags == 0x10001);
+    CHECK(tex.image.rgba == (std::vector<uint8_t>{0, 0, 0, 255, 30, 20, 10, 255, 30, 20, 10, 255, 0, 0, 0, 255}));
+    pal.v[4] = texformat::PaletteAlpha;
+    CHECK(!decodeTex(pal.v, tex) && tex.image.pixel(1, 0)[3] == 40);
+    pal.v.pop_back(); // the 1x1 level cut short
+    CHECK(decodeTex(pal.v, tex));
+
+    // 24-bit and 32-bit: B, G, R(, A) in the file.
+    Bytes bgr;
+    bgr.bytes(texHeader(1, 1, texformat::Bgr, 1, 0)).u8(1).u8(2).u8(3);
+    CHECK(!decodeTex(bgr.v, tex) && tex.image.rgba == (std::vector<uint8_t>{3, 2, 1, 255}));
+    Bytes bgra;
+    bgra.bytes(texHeader(1, 1, texformat::Bgra, 1, 0)).u8(1).u8(2).u8(3).u8(4);
+    CHECK(!decodeTex(bgra.v, tex) && tex.image.rgba == (std::vector<uint8_t>{3, 2, 1, 4}));
+
+    CHECK(decodeTex(texHeader(1, 1, 99, 1, 0), tex)); // unknown format
+    CHECK(decodeTex(texHeader(0, 1, texformat::Bgr, 1, 0), tex));
+    CHECK(decodeTex(toBytes("short"), tex));
+}
+
+// A mesh section's contents: one group of one triangle list.
+std::vector<uint8_t> meshSection(uint32_t fvf, uint32_t shader, const std::vector<uint16_t>& indices,
+                                 uint32_t vertexCount = 3) {
+    Bytes b;
+    b.u32(1).u32(vertexCount).u32(uint32_t(indices.size())).u32(1).u32(fvf);
+    b.u32(1).u32(shader).u32(3).u32(vertexCount);
+    for (uint32_t i = 0; i < vertexCount; ++i) {
+        b.f32(float(i)).f32(float(i) * 2).f32(-float(i));
+        if (fvf & 0x10)
+            b.f32(0).f32(1).f32(0);
+        b.f32(0.5f).f32(float(i) / 4);
+    }
+    b.u32(uint32_t(indices.size()));
+    for (uint16_t i : indices)
+        b.u16(i);
+    return b.v;
+}
+
+Bytes& fileSection(Bytes& b, const std::string& name, const std::vector<uint8_t>& contents) {
+    return b.str("FILE").name(name).u32(uint32_t(contents.size())).bytes(contents);
+}
+
+void testPkg() {
+    Bytes shaders; // two paint jobs of one shader, byte colours (R, G, B, A)
+    shaders.u32(0x82).u32(1);
+    shaders.name("red_body").u8(255).u8(0).u8(0).u8(255).u8(128).u8(0).u8(0).u8(255).u8(0).u8(0).u8(0).u8(0).f32(0.5f);
+    // A glow: no texture, no diffuse or ambient, emissive (10, 20, 30).
+    shaders.u8(0).u32(0).u32(0).u8(10).u8(20).u8(30).u8(255).f32(0);
+    Bytes xrefs;
+    xrefs.u32(1);
+    for (int i = 0; i < 12; ++i)
+        xrefs.f32(float(i));
+    std::string field = "sp_light_red_f";
+    field.resize(32, '\0');
+    field.replace(16, 3, "max"); // what's left over after the name
+    xrefs.str(field);
+    Bytes offset;
+    offset.f32(1).f32(2).f32(3);
+
+    Bytes pkg;
+    pkg.str("PKG3");
+    fileSection(pkg, "BODY_H", meshSection(0x112, 0, {0, 1, 2}));
+    fileSection(pkg, "H", meshSection(0x102, 0, {2, 1, 0}));
+    fileSection(pkg, "shaders", shaders.v);
+    fileSection(pkg, "xrefs", xrefs.v);
+    fileSection(pkg, "offset", offset.v);
+    Pkg model;
+    CHECK(!readPkg(pkg.v, model));
+    CHECK(model.meshes.size() == 2);
+    const PkgMesh* body = model.mesh("BODY_H");
+    CHECK(body && body->part() == "BODY" && body->level() == "H" && body->fvf == 0x112);
+    CHECK(body && body->groups.size() == 1 && body->groups[0].indices == (std::vector<uint16_t>{0, 1, 2}));
+    if (body && !body->groups.empty()) {
+        const PkgVertex& v = body->groups[0].vertices[2];
+        CHECK(v.pos == (Vec3{2, 4, -2}) && v.normal == (Vec3{0, 1, 0}) && v.uv[0] == 0.5f && v.uv[1] == 0.5f);
+    }
+    const PkgMesh* h = model.mesh("H");
+    CHECK(h && h->part().empty() && h->level() == "H" && h->groups[0].vertices[1].normal == (Vec3{0, 0, 0}));
+    CHECK(model.paintJobs == 2 && model.shadersPerJob == 1 && model.shaders.size() == 2);
+    const PkgShader* red = model.shader(0, 0);
+    CHECK(red && red->texture == "red_body" && red->diffuse == (std::array<float, 4>{1, 0, 0, 1}));
+    CHECK(red && red->ambient[0] > 0.5f && red->ambient[0] < 0.51f && red->shininess == 0.5f);
+    const PkgShader* glow = model.shader(1, 0);
+    CHECK(glow && glow->texture.empty() && glow->diffuse[3] == 0 && glow->emissive[2] > 0.11f && glow->emissive[2] < 0.12f);
+    CHECK(!model.shader(0, 1) && !model.shader(2, 0));
+    CHECK(model.xrefs.size() == 1 && model.xrefs[0].name == "sp_light_red_f" && model.xrefs[0].matrix[11] == 11);
+    CHECK(model.hasOffset && model.offset == (Vec3{1, 2, 3}));
+
+    // Float colours: diffuse, ambient, specular, emissive, then shininess.
+    Bytes floats;
+    floats.u32(1).u32(1).name("s_wood");
+    for (int i = 0; i < 16; ++i)
+        floats.f32(float(i) / 16);
+    floats.f32(0.25f);
+    Bytes pkg2;
+    pkg2.str("PKG3");
+    fileSection(pkg2, "shaders", floats.v);
+    CHECK(!readPkg(pkg2.v, model) && model.shaders.size() == 1);
+    CHECK(model.shaders[0].specular[0] == 0.5f && model.shaders[0].emissive[3] == 15.0f / 16 &&
+          model.shaders[0].shininess == 0.25f);
+
+    // Damage: another version, an index past the vertices, totals that
+    // disagree, a section running past the end, data left over.
+    Bytes old;
+    old.str("PKG2");
+    CHECK(readPkg(old.v, model));
+    Bytes bad;
+    bad.str("PKG3");
+    fileSection(bad, "H", meshSection(0x112, 0, {0, 1, 3}));
+    CHECK(readPkg(bad.v, model));
+    auto totals = meshSection(0x112, 0, {0, 1, 2});
+    totals[4] = 4; // four vertices claimed
+    bad = Bytes();
+    bad.str("PKG3");
+    fileSection(bad, "H", totals);
+    CHECK(readPkg(bad.v, model));
+    bad = Bytes();
+    bad.str("PKG3");
+    fileSection(bad, "H", meshSection(0x112, 0, {0, 1, 2}));
+    bad.v.resize(bad.v.size() - 1);
+    CHECK(readPkg(bad.v, model));
+    auto extra = meshSection(0x112, 0, {0, 1, 2});
+    extra.push_back(0);
+    bad = Bytes();
+    bad.str("PKG3");
+    fileSection(bad, "H", extra);
+    CHECK(readPkg(bad.v, model));
+
+    // A part's placement: bounds, pivot, origin.
+    Bytes mtx;
+    for (int i = 0; i < 12; ++i)
+        mtx.f32(float(i));
+    Mtx m;
+    CHECK(!readMtx(mtx.v, m) && m.min == (Vec3{0, 1, 2}) && m.pivot == (Vec3{6, 7, 8}) && m.origin == (Vec3{9, 10, 11}));
+    mtx.v.pop_back();
+    CHECK(readMtx(mtx.v, m));
+}
+
+void testNames() {
+    CHECK(kindOf("geometry/vpbug.pkg") == "vpbug");
+    CHECK(kindOf("texture/SW_stc_tan.tex") == "sw");
+    CHECK(isLightPart("HEADLIGHT0") && isLightPart("SRN3") && isLightPart("TLIGHT") && isLightPart("REDGLOWNIGHT") &&
+          isLightPart("WALK_DAY") && isLightPart("NOWALK_NIGHT"));
+    CHECK(!isLightPart("BODY") && !isLightPart("WHL0") && !isLightPart("BREAK01") && !isLightPart(""));
+}
+
 } // namespace
 
 int main() {
@@ -201,6 +390,9 @@ int main() {
     testMount(tmp / "mount");
     testDetection(tmp / "detect");
     testFileLines();
+    testTex();
+    testPkg();
+    testNames();
     std::filesystem::remove_all(tmp);
     if (failures) {
         std::fprintf(stderr, "%d check(s) failed\n", failures);
