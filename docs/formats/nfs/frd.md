@@ -79,18 +79,18 @@ also decoded (October 2026, from a survey of all nine tracks):
 
 - **Lights** (16 bytes): a position, 3 × s32 in 16.16 fixed point, then
   a u32 type. The positions are on the tracks where lights would be:
-  Hometown's type 1 lights sit on the town centre's street lamps. The
-  types run 0 to 15 and differ by track (Hometown 1 and 7, Atlantica 13,
-  the Summit 3 and 13...). What each type looks like (glow picture,
+  `trk000`'s type 1 lights sit on its town centre's street lamps. The
+  types run 0 to 15 and differ by track (`trk000` 1 and 7, `trk004`
+  13, `trk007` 3 and 13...). What each type looks like (glow picture,
   colour, size) is in the game's code, which builds glows from
   `glw0`-`glw4` of `Render/pc/sfx.fsh` through function pointers; not
   worked out yet.
 - **Sounds** (16 bytes): a position as above, a u16 slot of the track's
   placed-sound bank (`Audio/SFX/tr3dNN.bnk`, or `...n`, `...w`, `...nw`
   by sky variant) and a u16 flag, 0 or 1 (not worked out). The slots fit
-  the banks: Hometown's go up to 7 of 32 slots, the Rocky Pass's to 20 of
-  21. The Empire City uses slot 12 of a 12-slot bank, so not every one
-  can be heard.
+  the banks: `trk000`'s go up to 7 of 32 slots, `trk005`'s to 20 of
+  21. `trk008` uses slot 12 of a 12-slot bank, so not every one can be
+  heard.
 
 The rest (positions, the road polygons' records, the virtual road,
 object references and polygon objects) is still kept as stored. Object
