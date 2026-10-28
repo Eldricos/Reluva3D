@@ -3,6 +3,8 @@
 
 #include "engines/age/city_life.h"
 
+#include "engines/age/psdl.h"
+
 #include <algorithm>
 
 namespace reluva::age {
@@ -19,6 +21,12 @@ Error CityLife::load(const SearchSet& files, const std::string& map) {
         return Error::fail("city/" + map + ".bai: " + err.message);
     if (!files.read("city/" + map + ".aimap", data))
         parseAiMap(std::string(data.begin(), data.end()), city_);
+    // The road blocks' street furniture rules.
+    blockRules_.clear();
+    Psdl psdl;
+    if (!files.read("city/" + map + ".psdl", data) && !readPsdl(data, psdl))
+        for (const PsdlBlock& b : psdl.blocks)
+            blockRules_.push_back(b.extra);
     return Error::success();
 }
 
@@ -54,6 +62,7 @@ Error CityLife::start(gfx::Renderer3D& renderer, TextureCache& textures, const S
     // the models are at hand (the first draw), in the world after.
     files_ = &files;
     props_.load(files, map_, options.variant);
+    props_.addStreetProps(files, map_, roads_, blockRules_);
     props_.addLights(lights_);
     propsInWorld_ = false;
     return first;

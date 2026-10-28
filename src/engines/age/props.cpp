@@ -11,6 +11,8 @@
 #include <cmath>
 #include <cstdio>
 #include <map>
+#include <random>
+#include <sstream>
 
 namespace reluva::age {
 
@@ -62,6 +64,125 @@ std::vector<PropPlacement> placeProps(const std::vector<PathsetPath>& paths) {
     return out;
 }
 
+namespace {
+
+// A .csv's rows, split at commas, the empty fields at the end dropped.
+std::vector<std::vector<std::string>> csvRows(const std::string& text) {
+    std::vector<std::vector<std::string>> out;
+    std::istringstream in(text);
+    std::string line;
+    while (std::getline(in, line)) {
+        if (!line.empty() && line.back() == '\r')
+            line.pop_back();
+        std::vector<std::string> row;
+        std::istringstream fields(line);
+        std::string f;
+        while (std::getline(fields, f, ','))
+            row.push_back(f);
+        while (!row.empty() && row.back().empty())
+            row.pop_back();
+        if (!row.empty())
+            out.push_back(std::move(row));
+    }
+    return out;
+}
+
+// How far along a line each point is.
+std::vector<float> along(const std::vector<Vec3>& line) {
+    std::vector<float> out(line.size(), 0);
+    for (size_t i = 1; i < line.size(); ++i)
+        out[i] = out[i - 1] + length(line[i] - line[i - 1]);
+    return out;
+}
+
+} // namespace
+
+std::map<std::string, StreetPropKind> parsePropDefs(const std::string& text) {
+    std::map<std::string, StreetPropKind> out;
+    const auto rows = csvRows(text);
+    for (size_t i = 1; i < rows.size(); ++i) { // after the header
+        const auto& r = rows[i];
+        if (r.size() < 7)
+            continue;
+        StreetPropKind k;
+        k.start = std::strtof(r[1].c_str(), nullptr);
+        k.spacing = std::strtof(r[2].c_str(), nullptr);
+        k.most = std::atoi(r[3].c_str());
+        k.minLerp = std::strtof(r[4].c_str(), nullptr);
+        k.maxLerp = std::strtof(r[5].c_str(), nullptr);
+        for (size_t f = 6; f < r.size(); ++f)
+            if (!r[f].empty())
+                k.models.push_back(r[f]);
+        out[r[0]] = std::move(k);
+    }
+    return out;
+}
+
+std::map<std::string, std::vector<std::string>> parsePropRules(const std::string& text) {
+    std::map<std::string, std::vector<std::string>> out;
+    const auto rows = csvRows(text);
+    for (size_t i = 1; i < rows.size(); ++i) {
+        std::vector<std::string>& kinds = out[rows[i][0]];
+        for (size_t f = 1; f < rows[i].size(); ++f)
+            if (!rows[i][f].empty()) // London's n11left skips a column
+                kinds.push_back(rows[i][f]);
+    }
+    return out;
+}
+
+std::vector<PropPlacement> placeStreetProps(const AiRoadMap& roads, const std::vector<uint8_t>& blockRules,
+                                            const std::map<std::string, StreetPropKind>& kinds,
+                                            const std::map<std::string, std::vector<std::string>>& rules,
+                                            uint32_t seed) {
+    std::vector<PropPlacement> out;
+    for (const AiRoad& road : roads.roads) {
+        int rule = 0;
+        for (uint16_t b : road.blocks)
+            if (b < blockRules.size() && blockRules[b])
+                rule = blockRules[b];
+        if (!rule)
+            continue;
+        std::mt19937 random(seed * 7919u + road.id);
+        for (int s = 0; s < 2; ++s) {
+            const AiRoadSide& side = road.sides[size_t(s)];
+            const size_t n = std::min(side.curb.size(), side.outerEdge.size());
+            if (n < 2)
+                continue;
+            char name[16];
+            std::snprintf(name, sizeof name, "n%02d%s", rule, s == 0 ? "left" : "right");
+            const auto r = rules.find(name);
+            if (r == rules.end())
+                continue;
+            const std::vector<Vec3> curb(side.curb.begin(), side.curb.begin() + std::ptrdiff_t(n));
+            const std::vector<float> at = along(curb);
+            for (const std::string& kindName : r->second) {
+                const auto k = kinds.find(kindName);
+                if (k == kinds.end() || k->second.models.empty())
+                    continue;
+                const StreetPropKind& kind = k->second;
+                const float spacing = std::max(1.0f, kind.spacing);
+                int placed = 0;
+                size_t i = 0;
+                for (float t = kind.start; t <= at.back() && placed < kind.most; t += spacing, ++placed) {
+                    while (i + 2 < n && at[i + 1] < t)
+                        ++i;
+                    const float span = std::max(1e-4f, at[i + 1] - at[i]);
+                    const float u = std::clamp((t - at[i]) / span, 0.0f, 1.0f);
+                    const Vec3 c = curb[i] + (curb[i + 1] - curb[i]) * u;
+                    const Vec3 o = side.outerEdge[i] + (side.outerEdge[i + 1] - side.outerEdge[i]) * u;
+                    const float across = std::uniform_real_distribution<float>(
+                        kind.minLerp, std::max(kind.minLerp, kind.maxLerp))(random);
+                    const size_t model = std::uniform_int_distribution<size_t>(0, kind.models.size() - 1)(random);
+                    // Turned with its X axis away from the road: a street
+                    // light's arm (along its -X) hangs over it.
+                    out.push_back({kind.models[model], c + (o - c) * across, flat(o - c)});
+                }
+            }
+        }
+    }
+    return out;
+}
+
 Error parseBangerData(const std::string& text, BangerData& out) {
     out = BangerData{};
     TuneNode root;
@@ -101,6 +222,24 @@ void Props::load(const SearchSet& files, const std::string& map, const std::stri
         prop.axes = {x, y, cross(x, y)};
         props_.push_back(prop);
     }
+}
+
+void Props::addStreetProps(const SearchSet& files, const std::string& map, const AiRoadMap& roads,
+                           const std::vector<uint8_t>& blockRules) {
+    std::vector<uint8_t> defs, rules;
+    if (files.read("city/" + map + "/propdefs.csv", defs) || files.read("city/" + map + "/proprules.csv", rules))
+        return;
+    for (const PropPlacement& p :
+         placeStreetProps(roads, blockRules, parsePropDefs(std::string(defs.begin(), defs.end())),
+                          parsePropRules(std::string(rules.begin(), rules.end())))) {
+        Prop prop;
+        prop.model = p.model;
+        prop.at = p.at;
+        const Vec3 x = p.along, y{0, 1, 0};
+        prop.axes = {x, y, cross(x, y)};
+        props_.push_back(prop);
+    }
+    prepared_ = false;
 }
 
 void Props::addLights(const TrafficLights& lights) {

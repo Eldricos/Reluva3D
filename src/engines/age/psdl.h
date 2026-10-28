@@ -46,7 +46,7 @@ struct PsdlBlock {
     std::vector<std::pair<uint16_t, uint16_t>> perimeter;
     std::vector<PsdlAttribute> attributes;
     uint8_t flags = 0;    // what it is: see psdlblock
-    uint8_t extra = 0;    // a second byte: 205 in block 0, 0-20 in road blocks, else 0; meaning not known
+    uint8_t extra = 0;    // a road block's street furniture rule (proprules.csv n01...), 0 none; 205 in block 0
 };
 
 // A block's flags (psdl.md).

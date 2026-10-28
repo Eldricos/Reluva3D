@@ -1961,6 +1961,43 @@ void testProps(const std::filesystem::path& tmp) {
         CHECK(placed[2].model == "sp_dumpstr_f" && std::fabs(placed[2].along[2] - 1) < 1e-4f);
         CHECK(placed[3].at == (Vec3{0, 0, 10}) && placed[5].at == (Vec3{4, 0, 10}) && placed[4].along[0] == 1);
     }
+    // Street furniture: a road in rule 3's block, 100 m along +X, its
+    // left side's curb at z -5 and outer edge at -7.
+    const auto kinds = parsePropDefs("name,start,distance,maxUse,minLerp,maxLerp,file1,file2,file3,file4,,,\r\n"
+                                     "streetlight,9,29,9999,0.1,0.1,sp_lightstreet_f\r\n"
+                                     "mailbox,1,1,1,0.2,0.2,sp_mailbox_f\r\n"
+                                     "newsboxs,7,10,1,0.1,0.1,sp_newsblue_f,sp_newsred_f,sp_newsyelw_f\r\n");
+    CHECK(kinds.size() == 3 && kinds.at("streetlight").start == 9 && kinds.at("streetlight").spacing == 29 &&
+          kinds.at("streetlight").most == 9999 && kinds.at("newsboxs").models.size() == 3 &&
+          std::fabs(kinds.at("mailbox").minLerp - 0.2f) < 1e-6f);
+    const auto rules =
+        parsePropRules("rulename,prop1,prop2,,,\r\nn03left,streetlight,,mailbox\r\nn03right,newsboxs\r\n");
+    CHECK(rules.size() == 2 && rules.at("n03left") == (std::vector<std::string>{"streetlight", "mailbox"}));
+    AiRoadMap street;
+    street.roads.resize(2);
+    street.roads[0].blocks = {7};
+    street.roads[1].blocks = {8}; // rule 0: none
+    for (AiRoad& r : street.roads) {
+        r.sides[0].curb = {{0, 0, -5}, {100, 0, -5}};
+        r.sides[0].outerEdge = {{0, 0, -7}, {100, 0, -7}};
+        r.sides[1].curb = {{0, 0, 5}, {100, 0, 5}};
+        r.sides[1].outerEdge = {{0, 0, 7}, {100, 0, 7}};
+    }
+    std::vector<uint8_t> blockRules(9, 0);
+    blockRules[7] = 3;
+    const auto furniture = placeStreetProps(street, blockRules, kinds, rules);
+    // Lights at 9, 38, 67 and 96 m and a mailbox on the left; a news box
+    // on the right.
+    CHECK(furniture.size() == 4 + 1 + 1);
+    if (furniture.size() == 6) {
+        CHECK(furniture[0].model == "sp_lightstreet_f" && std::fabs(furniture[0].at[0] - 9) < 1e-3f &&
+              std::fabs(furniture[0].at[2] + 5.2f) < 1e-3f && std::fabs(furniture[3].at[0] - 96) < 1e-3f);
+        CHECK(std::fabs(furniture[0].along[2] + 1) < 1e-4f); // X away from the road
+        CHECK(furniture[4].model == "sp_mailbox_f" && std::fabs(furniture[4].at[2] + 5.4f) < 1e-3f);
+        CHECK(furniture[5].model.rfind("sp_news", 0) == 0 && std::fabs(furniture[5].at[2] - 5.2f) < 1e-3f &&
+              std::fabs(furniture[5].along[2] - 1) < 1e-4f);
+    }
+
     BangerData b;
     CHECK(!parseBangerData("type: a\ndgBangerData {\n  Size 0.2 10.3 0.2\n  CG 0.18 5.15 0\n  Mass 9.3\n"
                            "  ImpulseLimit2 4657.7\n  NumParts 2\n}\n",

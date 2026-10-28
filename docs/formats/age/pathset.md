@@ -162,11 +162,32 @@ and Race pages
   `tubevoices` in London.
 
 Most of the street furniture (street lights, meters, bus stops) isn't
-in these files: `city/<city>/proprules.csv` lists, for rules `n01left`
-to `n20right`, which of `propdefs.csv`'s kinds line a road's side
-(`streetlight`: `sp_lightstreet_f` from 9 m, every 29 m...). Which rule
-a road's side takes isn't in any field of the `.psdl` or `.bai` roads
-found so far, so they aren't placed.
+in these files, nor in the `.inst` placed models: it's placed along the
+roads by rules. `city/<city>/propdefs.csv` names each kind: `name`,
+`start` (metres along the side to the first), `distance` (metres
+between them), `maxUse` (at most this many on a side), `minLerp` and
+`maxLerp` (how far across the sidewalk), and up to four models, one
+picked for each (`newsboxs`: blue, red or yellow). `proprules.csv`
+lists the kinds for each rule's left and right side (`n06right`:
+`streetlight,meter,trashcan,busstop,newsboxs`), and the road's PSDL
+blocks' second byte is its rule's number ([psdl.md](psdl.md)).
+San Francisco's `sf.grp` lists 21 neighbourhoods `N01`... by numbers
+that look like blocks, but only 11 of them agree with the blocks' bytes
+(the rest are other blocks or beyond the city's 1,172), so it's taken
+for an editor's file the city has since moved on from; London has none.
+
+Reluva's reading: side 0 of a `.bai` road (on the left from its first
+point) takes rule `n<NN>left`, side 1 `n<NN>right`; each kind is placed
+along the side's curb line from `start`, every `distance` metres, up to
+`maxUse`, `minLerp`-`maxLerp` of the way from the curb to the sidewalk's
+outer edge (0.1: by the curb). Each stands with its X axis away from the
+road, so a street light's arm (along its -X) hangs over it and signs
+face the traffic. That makes 5,369 in San Francisco (2,229 street
+lights, 1,298 meters...) and 5,117 in London; they're props like the
+others, knocked down and broken alike. The `b` kinds start 18 m in
+rather than 9, so the two sides' lights alternate. How the game spaces
+them round corners, and whether it keeps them off driveways and out of
+each other's way, isn't known.
 
 ## Counts
 
