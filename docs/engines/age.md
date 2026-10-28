@@ -14,7 +14,8 @@ stands, like [idtech3.md](idtech3.md).
 | Models | done: `.pkg` meshes, shaders with their paint jobs, placed models, and `.mtx` part placements ([pkg.md](../formats/age/pkg.md)); 1,034 of 1,040 retail models load (the 6 that don't are unused); `reluva-tool pkg-info` |
 | Cities | done: `.psdl` streets and buildings, generated from every attribute but tunnels ([psdl.md](../formats/age/psdl.md)); `.inst` placed models ([inst.md](../formats/age/inst.md)); the sky dome and the 16 lightings ([tune.md](../formats/age/tune.md)); both retail cities read whole, every texture and model they name found; `reluva-tool psdl-info` |
 | Driving | a first cruise mode, Reluva's model of the game's tuning ([age-driving.md](age-driving.md)): every car the menus offer, in either city; its simulation (suspension, tyres, engine, automatic gearbox, drag) from its `.vehCarSim`; collisions with the city's generated geometry, facade bounds and placed models' `.bnd` bounds ([bnd.md](../formats/age/bnd.md)); the near, far and in-car cameras from its camera files; its engine sound from its sound table; a HUD (speed, gear, revs). Not compared with the game yet |
-| Viewer | Drive page (3D); World page (3D): London and San Francisco flown through, from the road nearest the middle, at each time and weather; Models page (3D, on the GPU renderer): every model with its parts placed, by level of detail and paint job, the lit parts (lamps, glows) on request; Textures page; Files page: every file with its size and archive, by folder; text files shown as text, the rest as hex dumps |
+| Races | a first version ([age-racing.md](age-racing.md), [race.md](../formats/age/race.md)): every Blitz, Circuit and Checkpoint race of both cities from the game's race files, at Amateur or Professional, against opponents driving their recorded paths along a road graph Reluva builds from the city (88% of them finish; every checkpoint race's all do); checkpoints, laps, a Blitz's time limit, positions, results; the game's checkpoint stands and HUD arrow. Not yet: cops, traffic, pedestrians, Crash Course, the game's menus and HUD pictures, unlocking |
+| Viewer | Race page (3D); Drive page (3D); World page (3D): London and San Francisco flown through, from the road nearest the middle, at each time and weather; Models page (3D, on the GPU renderer): every model with its parts placed, by level of detail and paint job, the lit parts (lamps, glows) on request; Textures page; Files page: every file with its size and archive, by folder; text files shown as text, the rest as hex dumps |
 
 Decided: Midtown Madness 1 comes after Midtown Madness 2 runs; the
 DirectMusic player comes after the game runs.
@@ -178,16 +179,16 @@ recording how each format was worked out (CONTRIBUTING.md).
   sounds, tyre and collision sounds; tunnels (London's Underground
   cutting is open); the `.bbnd`/`.ter` bounds; manual gears.
 
-### 5. The game
+### 5. The game (races done; the rest next)
 
-- Races from `race/`: Blitz, Circuit and Checkpoint, opponents following
-  their `.opp` paths, results and unlocking from the `.info` and `.cinfo`
-  files; Crash Course (`crash*`) in London.
-- Traffic and pedestrians on the AI road network (`.bai`, `.aimap`),
-  police chases.
-- The menus: the original's are built in the executable (with the
-  `jpg/` backgrounds and `mmlang.dll`'s strings), so they're redrawn from
-  screenshots of the original.
+- Done: Blitz, Circuit and Checkpoint races from `race/`, opponents
+  following their `.opp` paths (routed along the roads), results; a Race
+  page with its own menu.
+- Next: traffic and pedestrians on the AI road network (`.bai`,
+  `.aimap`), police chases (the races' Cops column, `copchase.csv`),
+  Crash Course (`crash*`), unlocking; the menus redrawn from
+  `tune/widget.csv`'s layout, the `jpg/` backgrounds and `mmlang.dll`'s
+  strings; the game's HUD pictures.
 - Music: DirectMusic segments and styles on DLS instruments needs a
   DirectMusic player in `common/audio`. Decided: it comes after the game
   runs; until then, no music.

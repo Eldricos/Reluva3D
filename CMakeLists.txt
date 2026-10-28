@@ -200,7 +200,12 @@ if(RELUVA_ENGINE_AGE)
         src/engines/age/car.cpp
         src/engines/age/city_collision.cpp
         src/engines/age/engine_sound.cpp
+        src/engines/age/car_actor.cpp
+        src/engines/age/race.cpp
+        src/engines/age/opponent.cpp
+        src/engines/age/road_graph.cpp
         src/engines/age/drive_viewer.cpp
+        src/engines/age/race_viewer.cpp
         src/engines/age/world_viewer.cpp
         src/engines/age/texture_viewer.cpp
         src/engines/age/model_viewer.cpp)

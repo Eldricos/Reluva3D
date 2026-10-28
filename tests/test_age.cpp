@@ -12,8 +12,11 @@
 #include "engines/age/filesystem.h"
 #include "engines/age/games.h"
 #include "engines/age/instances.h"
+#include "engines/age/opponent.h"
 #include "engines/age/pkg.h"
 #include "engines/age/psdl.h"
+#include "engines/age/race.h"
+#include "engines/age/road_graph.h"
 #include "engines/age/texture.h"
 #include "engines/age/tune.h"
 #include "engines/age/viewers.h"
@@ -44,6 +47,8 @@ static int failures = 0;
 namespace {
 
 using test::toBytes;
+
+constexpr float kPi() { return 3.14159265358979f; }
 
 struct ArFile {
     std::string name;              // ending in '/' for a folder
@@ -623,6 +628,96 @@ void testSidewalkMarkers() {
     CHECK(mesh.vertices.empty());
 }
 
+void testRaceFiles() {
+    std::array<RaceSettings, 2> set;
+    const std::string table =
+        "Description, CarType, TimeofDay, Weather, Opponents, Cops, Ambient, Peds, NumLaps, TimeLimit, Difficulty, ...\r\n"
+        "none,0,0,0,4,0,0.0,0.0,3,50,1,0,0,0,4,0,0.0,0.0,4,40,1\r\n"
+        "none,0,2,1,7,1,0.2,0.1,3,50,1,0,3,2,6,2,0.3,0.4,4,40,1\r\n";
+    CHECK(!parseRaceSettings(table, 1, set));
+    CHECK(set[0].timeOfDay == 2 && set[0].weather == 1 && set[0].opponents == 7 && set[0].cops == 1 &&
+          set[0].laps == 3 && set[0].timeLimit == 50);
+    CHECK(set[1].timeOfDay == 3 && set[1].opponents == 6 && set[1].laps == 4 && std::fabs(set[1].peds - 0.4f) < 1e-5f);
+    CHECK(parseRaceSettings(table, 2, set));
+
+    std::vector<Waypoint> w;
+    CHECK(!parseWaypoints("x,y,z,a,radius,frame rate,state changes,texture changes,msg\r\n"
+                          "-1501.4,36.3,-285.7,92.3,8.0,0,0,0,\r\n-1466.5,34.8,-285.8,89.6,6.0,0,0,0,\r\n",
+                          w));
+    CHECK(w.size() == 2 && w[0].radius == 8 && w[1].heading > 89.5f && w[1].position[2] < -285.7f);
+    CHECK(!parseWaypoints("x,y,z,a,poly count,frane rate,state changes,texture changes,msg\n1,2,3,-90,11,0,0,0,\n4,5,6,0,11,0,0,0,\n", w));
+    CHECK(w[0].radius == 0); // circuits: a poly count, not a radius
+    CHECK(parseWaypoints("x,y,z,a,radius\n1,2,3,4,5\n", w)); // one waypoint
+
+    // An opponent's start, a point behind it (left out), then its path.
+    RaceDefinition::Opponent o;
+    CHECK(!parseOpponentPath("x,y,z,brake,forward offset,side offset,target speed,speed start,side start\n"
+                             "0,0,0,91.2,0,0,0,0,0\n70,0,0,0,0,0,0,0,0\n-100,0,0,0,0,0,0,0,0\n-200,0,50,0,0,0,0,0,0\n",
+                             o));
+    CHECK(o.skippedFirst && o.path.size() == 2 && o.path[0][0] == -100 && o.heading == 91.2f);
+    CHECK(std::fabs(o.startYaw - kPi() / 2) < 1e-4f); // facing -X
+    CHECK(!parseOpponentPath("x,y,z\n0,0,0,0\n10,0,0\n20,0,0\n", o) && !o.skippedFirst && o.path.size() == 2);
+
+    // Headings: 0 faces -Z, 90 faces +X.
+    const Mat3 east = Mat3::rotationY(headingToYaw(90));
+    CHECK(std::fabs((-east.z)[0] - 1) < 1e-4f);
+}
+
+void testPathDriver() {
+    CollisionWorld flat;
+    flat.add({-3000, 0, -3000}, {-3000, 0, 3000}, {3000, 0, 3000});
+    flat.add({-3000, 0, -3000}, {3000, 0, 3000}, {3000, 0, -3000});
+    flat.build(64);
+    // Two laps of a 200 m square.
+    const std::vector<Vec3> square = {{0, 0, -200}, {200, 0, -200}, {200, 0, 0}, {0, 0, 0}};
+    CarSim car;
+    car.reset(testCar(), {0, 0, 0}, 0);
+    PathDriver driver;
+    driver.start(square, 2, 0.9f);
+    float t = 0;
+    for (; t < 300 && !driver.finished(); t += 0.05f)
+        car.step(driver.drive(car, 0.05f), flat, 0.05f);
+    CHECK(driver.finished() && driver.lap() == 2 && t < 200); // lap() counts laps done
+    CHECK(std::fabs(car.position[0]) < 20 && std::fabs(car.position[2]) < 20);
+}
+
+void testRoadGraph() {
+    // Two roads (along X, then along Z further on) meeting at an
+    // intersection fan in its own block.
+    Bytes b;
+    const float v[][3] = {{0, 0, 0},    {0, 0, -5},   {0, 0, 5},    {0, 0, 0},    {50, 0, -5},  {50, 0, 5},
+                          {50, 0, 0},   {50, 0, 0},   {60, 0, -5},  {60, 0, 5},   {55, 0, -10}, {55, 0, 10},
+                          {55, 0, 10},  {60, 0, 10},  {50, 0, 10},  {60, 0, 100}, {50, 0, 100}, {0, 0, 0}};
+    b.str("PSD0").u32(2).u32(18);
+    for (const auto& p : v)
+        b.f32(p[0]).f32(p[1]).f32(p[2]);
+    b.u32(1).f32(0).u32(1).u32(4).u32(0);
+    auto block = [&](const std::vector<uint16_t>& attrs) {
+        b.u32(0).u32(uint32_t(attrs.size()));
+        for (uint16_t w : attrs)
+            b.u16(w);
+    };
+    block({0x80 | 0 << 3 | 2, 0, 1, 2, 0, 0, 4, 5, 0});         // road along X: curbs 1-2, then 4-5
+    block({0x80 | 5 << 3 | 4, 4, 5, 9, 8, 10, 11});              // the intersection's fan
+    block({0x80 | 0 << 3 | 2, 0, 14, 13, 0, 0, 16, 15, 0});     // road along Z: curbs 14-13, 16-15
+    b.u8(0).u8(0).u8(0).u8(0).u8(0).u8(0).u8(0).u8(0);
+    for (int i = 0; i < 10; ++i)
+        b.f32(0);
+    Psdl psdl;
+    CHECK(!readPsdl(b.v, psdl));
+    RoadGraph g;
+    g.build(psdl);
+    CHECK(g.nodeCount() == 5 && g.edgeCount() == 4);
+    const auto route = g.route({0, 0, 0}, {55, 0, 100});
+    // Along the first road, through the intersection, up the second.
+    CHECK(route.size() >= 3 && route.back() == (Vec3{55, 0, 100}));
+    bool viaIntersection = false;
+    for (const Vec3& p : route)
+        viaIntersection = viaIntersection || (std::fabs(p[0] - 55) < 6 && std::fabs(p[2]) < 6);
+    CHECK(viaIntersection);
+    CHECK(g.route({2000, 0, 2000}, {0, 0, 0}).size() == 1); // nowhere near a road
+}
+
 } // namespace
 
 int main() {
@@ -642,6 +737,9 @@ int main() {
     testCarSim();
     testEngineSound();
     testSidewalkMarkers();
+    testRaceFiles();
+    testPathDriver();
+    testRoadGraph();
     std::filesystem::remove_all(tmp);
     if (failures) {
         std::fprintf(stderr, "%d check(s) failed\n", failures);
