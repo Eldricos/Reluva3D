@@ -413,6 +413,18 @@ character's bones posed once per frame) the last part, from 06B to the
 end, took ten minutes. Played back the same way, all 966 of its clicks
 and uses are made through the game's pick.
 
+With `-sound` the player has a mixer that the game's clock drives (no
+audio device). Voices and waited-for sounds take their own time, and
+lines play out rather than being cut short; `-wav <file>` keeps what's
+mixed. Played so, the same playthrough reaches the credits, and every
+line said has its voice, except two kinds that have none in the game:
+Barnaby's ham radio in 07A (its messages are read as text) and act 8's
+evidence choices (lines with no speaker, chosen as pictures). In Sirkeci
+market the gaps between the cleaver conversation's voiced lines come
+within 40 ms of a recording of the game's (each voice found in both by
+its loudness envelope). `awe-check -sound` decodes all 3,423 sound files
+of the English install, about four and a half hours.
+
 A sample was also played in a real window (Xvfb, with clicks from
 xdotool), from the main menu through the opening, Klaus's cleavers and on
 to the market's third scene. It matched a recording of the game, once
