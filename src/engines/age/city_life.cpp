@@ -25,6 +25,9 @@ Error CityLife::start(gfx::Renderer3D& renderer, TextureCache& textures, const S
     current_ = settings;
     traffic_.setup(files, roads_, settings, options.seed);
     traffic_.setDensity(options.traffic);
+    lights_.build(roads_, settings);
+    traffic_.setLights(&lights_);
+    traffic_.setLaneChanges(options.laneChanges || settings.laneChanges);
     Error first = peds_.setup(renderer, files, roads_, settings, options.rain, options.seed + 1);
     peds_.setDensity(options.peds);
     if (Error err = police_.setup(renderer, textures, files, settings, options.cops, mixer); err && !first)
@@ -38,8 +41,15 @@ void CityLife::stop() {
     police_.clear();
 }
 
+void CityLife::setLamps(bool lit, bool night) {
+    lampsLit_ = lit;
+    night_ = night;
+    police_.setLampsLit(lit);
+}
+
 void CityLife::update(float dt, CarSim& player, const std::vector<CarSim*>& others, const CollisionWorld& world,
                       const RoadGraph& roads, bool fill) {
+    lights_.update(dt);
     police_.update(dt, player, world, roads, current_.speedLimit);
     // Every driven car bumps the traffic; the police bump the opponents.
     std::vector<CarSim*> cops = police_.cars();
@@ -61,10 +71,20 @@ void CityLife::update(float dt, CarSim& player, const std::vector<CarSim*>& othe
 }
 
 void CityLife::draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight& light, const gfx::Mat4& viewProj,
-                    const Vec3& eye) {
-    traffic_.draw(renderer, models, light, viewProj, eye);
+                    const Vec3& eye, const FlareDrawer* flares) {
+    lights_.draw(renderer, models, light, viewProj, eye, night_);
+    traffic_.draw(renderer, models, light, viewProj, eye, lampsLit_, flares);
     peds_.draw(viewProj, eye, light);
     police_.draw(light);
+    if (flares)
+        police_.drawFlares(*flares, eye);
+}
+
+void CityLife::headlightPools(std::vector<gfx::DynamicLight>& out, const Vec3& eye) const {
+    if (!lampsLit_)
+        return;
+    traffic_.headlightPools(out, eye);
+    police_.headlightPools(out);
 }
 
 } // namespace reluva::age

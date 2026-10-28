@@ -41,8 +41,9 @@ leaves out keep the city's values.
 | `Opponent` | model, `.opp` file, skill (0.70-1.00), then nine values | each opponent's car, and its skill as the share of its top speed Reluva's driver aims for |
 | `Density` | a share (cruising: London 0.1) | read, not used: the Drive page has its own levels |
 | `CopChaseDistance` | metres (Crash Course 150) | how near the police notice the player |
-| `AmbientLaneChanges` | 0 or 1 | read, not used |
-| `Hookmen`, `Subway`, `Traffic Lights` | | not read |
+| `AmbientLaneChanges` | 0 or 1 (only San Francisco's cruising files: 1) | traffic changes lanes (always on the Drive page) |
+| `Traffic Lights` | two model names, no count (London: `sp_traflitsingle_ped_l` twice) | the traffic lights' models, for narrow and wide roads; San Francisco has none, so Reluva uses `sp_traflitsingle_f` and `sp_traflitdual_f` |
+| `Hookmen`, `Subway` | | not read |
 
 Police lines appear in cruising (19 in San Francisco, 20 in London) and
 in some checkpoint races and Crash Course lessons (San Francisco's

@@ -36,6 +36,10 @@ public:
     // chased.
     void update(float dt, CarSim& player, const CollisionWorld& world, const RoadGraph& roads, float speedLimit);
     void draw(const SceneLight& light) const;
+    void drawFlares(const FlareDrawer& flares, const Vec3& eye) const;
+    // Their headlights on (evening, night, fog, rain).
+    void setLampsLit(bool lit) { lampsLit_ = lit; }
+    void headlightPools(std::vector<gfx::DynamicLight>& out) const;
 
     bool busted() const { return busted_; }
     // The player put back somewhere else: the chases end.
@@ -65,6 +69,7 @@ private:
     float noticeDistance_ = kNotice;
     float bustTimer_ = 0, clock_ = 0;
     bool busted_ = false;
+    bool lampsLit_ = false;
 };
 
 } // namespace reluva::age

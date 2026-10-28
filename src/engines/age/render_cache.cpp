@@ -5,6 +5,7 @@
 
 #include "common/fs.h"
 #include "engines/age/texture.h"
+#include "engines/age/vecmath.h"
 
 #include <algorithm>
 #include <cmath>
@@ -135,6 +136,8 @@ Error buildModelMesh(gfx::Renderer3D& renderer, TextureCache& textures, const Se
     }
     if (vertices.empty())
         return Error::success();
+    out.low = lo;
+    out.high = hi;
     for (size_t k = 0; k < 3; ++k)
         out.center[k] = (lo[k] + hi[k]) / 2;
     out.radius = std::sqrt((hi[0] - lo[0]) * (hi[0] - lo[0]) + (hi[1] - lo[1]) * (hi[1] - lo[1]) +
@@ -213,11 +216,92 @@ const ModelCache::Model& ModelCache::get(const std::string& name, uint32_t paint
     return *models_.emplace(key, std::move(model)).first->second;
 }
 
+const ModelMesh& ModelCache::part(const std::string& name, const std::string& part, uint32_t paintJob) {
+    const std::string key = fs::toLower(name) + "/" + part + "#" + std::to_string(paintJob);
+    auto it = parts_.find(key);
+    if (it != parts_.end())
+        return *it->second;
+    auto mesh = std::make_unique<ModelMesh>();
+    const std::string file = "geometry/" + name + ".pkg";
+    std::vector<uint8_t> data;
+    Pkg pkg;
+    if (!files_.read(file, data) && !readPkg(data, pkg))
+        buildModelMesh(renderer_, textures_, files_, file, pkg, "", paintJob % std::max(1u, pkg.paintJobs), true,
+                       *mesh, [&](const std::string& p) { return p == part; });
+    return *parts_.emplace(key, std::move(mesh)).first->second;
+}
+
+bool ModelCache::partOrigin(const std::string& name, const std::string& part, Vec3& out) {
+    const std::string key = fs::toLower(name) + "/" + part;
+    auto it = origins_.find(key);
+    if (it == origins_.end()) {
+        std::vector<uint8_t> data;
+        Mtx mtx;
+        const bool ok = !files_.read("geometry/" + name + "_" + part + ".mtx", data) && !readMtx(data, mtx);
+        it = origins_.emplace(key, std::make_pair(ok, ok ? mtx.origin : Vec3{})).first;
+    }
+    out = it->second.second;
+    return it->second.first;
+}
+
 void ModelCache::clear() {
     for (auto& [name, m] : models_)
         for (ModelMesh& mesh : m->levels)
             destroyModelMesh(renderer_, mesh);
     models_.clear();
+    for (auto& [name, m] : parts_)
+        destroyModelMesh(renderer_, *m);
+    parts_.clear();
+    origins_.clear();
+}
+
+FlareDrawer::FlareDrawer(gfx::Renderer3D& renderer, TextureCache& textures) : renderer_(renderer) {
+    // A unit square in X and Y, drawn turned to face the camera.
+    std::vector<gfx::Vertex> v(4);
+    const float corners[4][2] = {{-0.5f, -0.5f}, {0.5f, -0.5f}, {0.5f, 0.5f}, {-0.5f, 0.5f}};
+    for (size_t i = 0; i < 4; ++i) {
+        v[i].pos[0] = corners[i][0];
+        v[i].pos[1] = corners[i][1];
+        v[i].uv[0] = corners[i][0] + 0.5f;
+        v[i].uv[1] = 0.5f - corners[i][1];
+        v[i].normal[2] = 1;
+        v[i].color[0] = v[i].color[1] = v[i].color[2] = v[i].color[3] = 255;
+    }
+    renderer.createMesh(v, {0, 1, 2, 0, 2, 3}, quad_);
+    bool translucent = false;
+    texture_ = textures.get("lt_glow", translucent);
+}
+
+FlareDrawer::~FlareDrawer() {
+    if (quad_)
+        renderer_.destroyMesh(quad_);
+}
+
+void FlareDrawer::draw(const Vec3& at, float size, const std::array<float, 3>& color, const Vec3& eye) const {
+    if (!quad_ || size <= 0)
+        return;
+    Vec3 toEye = eye - at;
+    const float d = length(toEye);
+    if (d < 0.1f)
+        return;
+    toEye = toEye * (1 / d);
+    Vec3 right = cross(Vec3{0, 1, 0}, toEye);
+    right = length(right) > 1e-3f ? normalized(right) : Vec3{1, 0, 0};
+    const Vec3 up = cross(toEye, right);
+    // A little towards the camera, so the lamp's own glass doesn't cover it.
+    const Mat3 axes{right * size, up * size, toEye};
+    const Vec3 p = at + toEye * std::min(0.3f, d * 0.5f);
+    gfx::DrawCall call;
+    call.mesh = quad_;
+    call.indexCount = 6;
+    call.model = {axes.x[0], axes.x[1], axes.x[2], 0, axes.y[0], axes.y[1], axes.y[2], 0,
+                  axes.z[0], axes.z[1], axes.z[2], 0, p[0], p[1], p[2], 1};
+    call.texture = texture_;
+    call.color = {color[0], color[1], color[2], 1};
+    call.state.src = call.state.dst = gfx::Blend::One;
+    call.state.depthWrite = false;
+    call.state.cull = gfx::Cull::None;
+    renderer_.draw(call);
 }
 
 ViewFrustum::ViewFrustum(const gfx::Mat4& viewProj) {

@@ -280,4 +280,34 @@ size_t CityScene::draw(const gfx::Mat4& viewProj, const gfx::Vec3& eye, bool mod
     return shown.size();
 }
 
+void CityScene::drawDynamicLights(std::vector<gfx::DynamicLight> lights, const gfx::Vec3& eye) {
+    if (lights.empty() || !cityMesh_)
+        return;
+    auto distance = [&](const gfx::DynamicLight& l) {
+        const float dx = l.origin[0] - eye[0], dy = l.origin[1] - eye[1], dz = l.origin[2] - eye[2];
+        return dx * dx + dy * dy + dz * dz;
+    };
+    std::sort(lights.begin(), lights.end(),
+              [&](const gfx::DynamicLight& a, const gfx::DynamicLight& b) { return distance(a) < distance(b); });
+    if (lights.size() > size_t(gfx::kMaxDynamicLights))
+        lights.resize(size_t(gfx::kMaxDynamicLights));
+    renderer_.setDynamicLights(lights);
+    for (const Batch& b : batches_) {
+        if (b.translucent)
+            continue;
+        gfx::DrawCall call;
+        call.mesh = cityMesh_;
+        call.firstIndex = b.firstIndex;
+        call.indexCount = b.indexCount;
+        call.dynamicLights = true;
+        // Over what's drawn: what's there times (1 + the light).
+        call.state.src = gfx::Blend::DstColor;
+        call.state.dst = gfx::Blend::One;
+        call.state.depthEqual = true;
+        call.state.depthWrite = false;
+        call.state.cull = gfx::Cull::None;
+        renderer_.draw(call);
+    }
+}
+
 } // namespace reluva::age

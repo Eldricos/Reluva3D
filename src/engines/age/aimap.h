@@ -6,6 +6,7 @@
 #include "common/types.h"
 #include "engines/age/vecmath.h"
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -44,6 +45,9 @@ struct AiMapSettings {
     float density = -1; // [Density] where given (cruising, some modes)
     float copChaseDistance = 0;
     bool laneChanges = false;
+    // The traffic lights' models, for narrow and for wide roads ([Traffic
+    // Lights]; San Francisco's file has none, so these are its).
+    std::array<std::string, 2> trafficLights{"sp_traflitsingle_f", "sp_traflitdual_f"};
     std::vector<Ambient> ambients;
     std::vector<PedPair> peds;
     std::vector<RoadException> exceptions;

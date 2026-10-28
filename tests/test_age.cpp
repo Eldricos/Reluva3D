@@ -22,6 +22,7 @@
 #include "engines/age/road_graph.h"
 #include "engines/age/texture.h"
 #include "engines/age/traffic.h"
+#include "engines/age/traffic_lights.h"
 #include "engines/age/tune.h"
 #include "engines/age/viewers.h"
 #include "zip_writer.h"
@@ -730,6 +731,7 @@ struct BaiRoad {
     Vec3 from, to;
     uint32_t j0, j1; // junctions at the first and the last point
     int lanes = 1, back = 0, n = 3;
+    uint16_t control = 1; // at both ends
 };
 
 void baiSide(Bytes& b, const BaiRoad& r, int lanes, int side) {
@@ -773,14 +775,18 @@ std::vector<uint8_t> buildBai(const std::vector<BaiRoad>& roads, const std::vect
         }
         for (int i = 0; i < 12 * r.n; ++i)
             b.f32(0);
-        for (uint32_t j : {r.j1, r.j0}) { // the last point's junction first
-            b.u32(j).u16(0xcdcd).u16(1).u16(0);
+        for (int e = 0; e < 2; ++e) { // the last point's junction first
+            const uint32_t j = e == 0 ? r.j1 : r.j0;
+            b.u32(j).u16(0xcdcd).u16(r.control).u16(0);
             uint32_t slot = 0;
             for (size_t o = 0; o < k; ++o)
                 slot += roads[o].j0 == j || roads[o].j1 == j;
             b.u32(slot);
-            for (int i = 0; i < 6; ++i)
-                b.f32(0);
+            // On the curb on the right of the way in, and a metre across.
+            const Vec3 in = normalized(e == 0 ? r.to - r.from : r.from - r.to);
+            const Vec3 right{-in[2], 0, in[0]};
+            const Vec3 a = (e == 0 ? r.to : r.from) + right * 8.0f, bb = a - right;
+            b.f32(a[0]).f32(a[1]).f32(a[2]).f32(bb[0]).f32(bb[1]).f32(bb[2]);
         }
     }
     for (size_t j = 0; j < junctions.size(); ++j) {
@@ -997,6 +1003,139 @@ void testPedFiles() {
     CHECK(parsePedMesh(head + mtl + "adj 0 0 0 0 0\nadj 1 0 0 0 0\nadj 2 0 0 0 0\ntri 0 1 2\nmtxv 2\n", mesh));
 }
 
+void testTrafficLights() {
+    // A crossroads: four roads into junction 0 from the north, east, south
+    // and west, each from a junction of its own.
+    const auto data = buildBai({{{0, 0, -100}, {0, 0, 0}, 1, 0}, {{100, 0, 0}, {0, 0, 0}, 2, 0},
+                                {{0, 0, 100}, {0, 0, 0}, 3, 0}, {{-100, 0, 0}, {0, 0, 0}, 4, 0}},
+                               {{0, 0, 0}, {0, 0, -100}, {100, 0, 0}, {0, 0, 100}, {-100, 0, 0}});
+    AiRoadMap m;
+    CHECK(!readBai(data, m));
+    AiMapSettings s;
+    TrafficLights lights;
+    lights.build(m, s);
+    CHECK(lights.count() == 8 && lights.has(0, 0) && !lights.has(9, 0));
+    // Opposite roads together, the crossing ones the other way; each turn
+    // green, then amber, then red.
+    int greenTogether = 0, conflicts = 0, ambers = 0;
+    for (float t = 0; t < 64; t += 0.5f) {
+        lights.setClock(t);
+        const Signal n = lights.signal(0, 0), e = lights.signal(1, 0);
+        const Signal so = lights.signal(2, 0), w = lights.signal(3, 0);
+        CHECK(n == so && e == w);
+        greenTogether += n == Signal::Green;
+        conflicts += n != Signal::Red && e != Signal::Red;
+        ambers += n == Signal::Yellow;
+    }
+    CHECK(conflicts == 0 && greenTogether > 40 && ambers > 8);
+    CHECK(lights.signal(7, 0) == Signal::Green); // no light: as green
+
+    // No lights where the ends say none (control 3) or there are no points.
+    const auto plain = buildBai({{{0, 0, 0}, {100, 0, 0}, 0, 1, 1, 0, 3, 3}}, {{0, 0, 0}, {100, 0, 0}});
+    CHECK(!readBai(plain, m));
+    lights.build(m, s);
+    CHECK(lights.count() == 0);
+
+    AiMapSettings london;
+    CHECK(!parseAiMap("[Traffic Lights]\nsp_traflitsingle_ped_l sp_traflitsingle_ped_l\n", london));
+    CHECK(london.trafficLights[1] == "sp_traflitsingle_ped_l" && s.trafficLights[0] == "sp_traflitsingle_f");
+}
+
+void testTrafficRules(const std::filesystem::path& tmp) {
+    std::filesystem::remove_all(tmp);
+    test::writeFile(tmp / "geometry" / "va_test.pkg", toBytes("PKG3"));
+    test::writeFile(tmp / "tune" / "vehicle" / "va_test.aiVehicleData",
+                    toBytes("type: a\naiVehicleData {\n  Mass 1000\n  Size 2 1.5 4\n}\n"));
+    SearchSet files;
+    auto loose = std::make_unique<DirectoryArchive>();
+    CHECK(!loose->open(tmp));
+    files.add(std::move(loose), 1);
+    AiMapSettings s;
+    s.ambients.push_back({"va_test", 1});
+    CollisionWorld flat;
+    flat.add({-500, 0, -500}, {-500, 0, 500}, {500, 0, 500});
+    flat.add({-500, 0, -500}, {500, 0, 500}, {500, 0, -500});
+    flat.build(64);
+
+    // A loop of two-lane one-way roads.
+    AiRoadMap m;
+    CHECK(!readBai(buildBai({{{0, 0, 0}, {200, 0, 0}, 0, 1, 2, 0, 5}, {{200, 0, -30}, {0, 0, -30}, 1, 0, 2, 0, 5}},
+                            {{-5, 0, -15}, {205, 0, -15}}),
+                   m));
+    TrafficNetwork net;
+    net.build(m, s);
+    CHECK(net.lanes().size() == 4);
+    // Side by side: on the first road (heading +X, right is +Z) the lane
+    // at z 7.5 has the one at 2.5 on its left.
+    for (size_t i = 0; i < 2; ++i) {
+        const TrafficLane& l = net.lanes()[i];
+        const bool outer = l.points[0][2] > 5;
+        CHECK((outer ? l.left : l.right) == int(1 - i) && (outer ? l.right : l.left) == -1);
+    }
+
+    // Stopped by a red light, on at green.
+    TrafficLights lights;
+    lights.build(m, s);
+    float red = -1;
+    for (float t = 0; t < 60 && red < 0; t += 0.5f) {
+        lights.setClock(t);
+        if (lights.signal(0, 0) == Signal::Red && lights.signal(1, 0) == Signal::Red)
+            red = t;
+    }
+    CHECK(red >= 0);
+    Traffic t;
+    t.setup(files, m, s, 3);
+    t.setLights(&lights);
+    t.setDensity(2.0f / Traffic::kCarsAtFull);
+    t.update(0.05f, {100, 0, -15}, {}, flat, true);
+    CHECK(t.count() == 2);
+    for (int i = 0; i < 600; ++i) // 30 s: both reach their road's end and wait there
+        t.update(0.05f, {100, 0, -15}, {}, flat);
+    std::vector<RoadUser> u;
+    t.users(u);
+    for (const RoadUser& c : u)
+        CHECK(length(c.velocity) < 0.5f && (c.position[0] > 180 || c.position[0] < 20));
+    // Green for the first road: those waiting at its end go on through,
+    // those at the second's go as its own light says.
+    std::vector<uint32_t> roadOf;
+    for (const RoadUser& c : u)
+        roadOf.push_back(c.position[2] > 0 ? 0 : 1);
+    float green = red;
+    while (lights.signal(0, 0) != Signal::Green && green < red + 60)
+        lights.setClock(green += 0.5f);
+    for (int i = 0; i < 40; ++i) // 2 s, the lights held
+        t.update(0.05f, {100, 0, -15}, {}, flat);
+    u.clear();
+    t.users(u);
+    for (size_t i = 0; i < u.size(); ++i)
+        CHECK((length(u[i].velocity) > 2) == (lights.signal(roadOf[i], 0) == Signal::Green));
+
+    // Held up behind something stopped in its lane: round it in the other.
+    AiMapSettings quick = s;
+    bool tried = false;
+    for (uint32_t seed = 1; seed < 40 && !tried; ++seed) {
+        Traffic one;
+        one.setup(files, m, quick, seed);
+        one.setLaneChanges(true);
+        one.setDensity(1.0f / Traffic::kCarsAtFull);
+        one.update(0.05f, {100, 0, -15}, {}, flat, true);
+        u.clear();
+        one.users(u);
+        // One on the first road with room ahead of it.
+        if (u.size() != 1 || u[0].position[2] < -10 || u[0].position[0] < 15 || u[0].position[0] > 60)
+            continue;
+        const Vec3 block = u[0].position + Vec3{30, 0, 0};
+        for (int i = 0; i < 160; ++i) // 8 s
+            one.update(0.05f, {100, 0, -15}, {{block, {}}}, flat);
+        u.clear();
+        one.users(u);
+        CHECK(u[0].position[0] > block[0] + 5 && std::fabs(u[0].position[2] - block[2]) > 4);
+        tried = true;
+    }
+    CHECK(tried);
+    std::filesystem::remove_all(tmp);
+}
+
 } // namespace
 
 int main() {
@@ -1023,6 +1162,8 @@ int main() {
     testAiMap();
     testTraffic(tmp / "traffic");
     testPedFiles();
+    testTrafficLights();
+    testTrafficRules(tmp / "rules");
     std::filesystem::remove_all(tmp);
     if (failures) {
         std::fprintf(stderr, "%d check(s) failed\n", failures);

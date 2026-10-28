@@ -89,7 +89,7 @@ and each list:
 | BODY | a car's body |
 | SHADOW | a flat quad under a car, drawn with a dark texture |
 | WHL0-WHL3 (TWHL for trailers) | wheels: in the Beetle 0 front left, 1 front right, 2 and 3 the back (from the .mtx positions) |
-| HEADLIGHT0, HEADLIGHT1 | a square where each headlight is, untextured (its effect isn't known yet) |
+| HEADLIGHT0, HEADLIGHT1 | a square where each headlight is, untextured: where a flare is drawn (below) |
 | HLIGHT, TLIGHT, BLIGHT, RLIGHT, SLIGHT0-1 | lit headlights, tail, brake, reverse and indicator lamps (only ever at level L) |
 | SIREN0-1, SRN0-3 | sirens (level L) and their glows (level H) |
 | BREAK01... | pieces of props that come off when hit |
@@ -144,8 +144,15 @@ Many models are modelled centred on their own origin, half below it
 `ol_natgallery_l`); building fronts (`sw_`, `cw_`, `nw_`...) stand on it.
 Cities' `.inst` files place either kind where it belongs. A traffic
 light's glow parts (`REDGLOWDAY_H`...) don't fit its centred body: they
-sit about 4.6 m above its signal heads, as if the body stood on its
-origin. How the game places them is still to be found.
+are placed as if the body stood on its origin. The game puts its traffic
+lights up itself (the cities' `.inst` files have none), and stood on the
+ground, half its height up, the body's signal heads and the glows line up
+([age-traffic.md](../../engines/age-traffic.md)).
+
+The small untextured squares in many models, `HEADLIGHT0_H` and
+`HEADLIGHT1_H` (and a police car's `SRN0_H`-`SRN3_H`), placed by their
+`.mtx`, mark where lamps shine from; Reluva draws a flare there
+(`texture/lt_glow.tga`) rather than the square.
 
 ### xrefs
 

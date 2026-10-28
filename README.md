@@ -117,8 +117,9 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   **A/D**) steer, **Space** is the handbrake, **C** changes the camera (near, far, in the
   car), **PageUp/PageDown** the car, **P** its colour, **Home/End** the city, **T** the time
   and weather, **R** puts the car back at the start and **I** hides the info. The city has
-  traffic and people on its sidewalks (**Y** steps through none, light, normal and heavy)
-  and police, who chase a car speeding past them and bust it once it's stopped (**O** turns
+  traffic, which stops at its traffic lights and changes lanes, and people on its
+  sidewalks (**Y** steps through none, light, normal and heavy); cars' headlights come on
+  in the evening, at night and in fog and rain; and police, who chase a car speeding past them and bust it once it's stopped (**O** turns
   them off and on). The handling, the traffic and the police are Reluva's own, not yet
   compared with the game.
   **Tab** switches between racing, driving, the world, models, textures and files. In the world, **Left/Right** picks London or San

@@ -43,11 +43,17 @@ public:
     int lighting() const { return lighting_; }
     std::string lightingName() const;
     const SceneLight& light() const { return light_; }
+    // Lamps lit: in the evening and at night, and in fog and rain.
+    bool lampsLit() const { return lighting_ / 4 >= 2 || lighting_ % 4 >= 2; }
+    bool night() const { return lighting_ / 4 == 3; }
 
     // Draws the sky round `eye`, the city, then (if `models`) the placed
     // models in view; returns how many models were drawn. Between
     // Renderer3D::beginFrame and endFrame.
     size_t draw(const gfx::Mat4& viewProj, const gfx::Vec3& eye, bool models);
+    // Brightens the city's opaque surfaces drawn by draw() with `lights`
+    // (the nearest gfx::kMaxDynamicLights to `eye`): headlights on the road.
+    void drawDynamicLights(std::vector<gfx::DynamicLight> lights, const gfx::Vec3& eye);
 
     // What was loaded, for the pages' info and the collision world.
     const std::vector<std::string>& notes() const { return notes_; }

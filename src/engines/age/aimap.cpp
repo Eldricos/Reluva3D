@@ -81,6 +81,12 @@ Error parseAiMap(const std::string& text, AiMapSettings& out) {
     first("Density", out.density);
     first("CopChaseDistance", out.copChaseDistance);
     for (const auto& [name, lines] : sections) {
+        if (name == "Traffic Lights" && !lines.empty()) { // two names, no count
+            const auto w = words(lines[0]);
+            if (!w.empty())
+                out.trafficLights = {w[0], w.size() > 1 ? w[1] : w[0]};
+            continue;
+        }
         const auto list = rows(lines);
         if (name == "Ambient Types/Density") {
             out.ambients.clear();

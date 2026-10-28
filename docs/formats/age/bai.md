@@ -73,10 +73,10 @@ An end, 38 bytes:
 ```
 u32 junction
 u16                    cd cd
-u16 control            0, 1 or 3: not known (stop signs, lights?)
+u16 control            1 traffic lights, 0 give way, 3 none (as Reluva reads it)
 u16                    0
 u32 slot               the road's place in the junction's list
-point a, b             two points near the end; zero in most second ends
+point a, b             where traffic arriving there stops: see below
 ```
 
 `end[0]` is the junction at the road's last point and `end[1]` the one
@@ -109,8 +109,33 @@ and every two-way road's lanes lie on the right of the way they're
 stored in, in both cities (a one-way road's spread across its middle). London's aimap says its traffic keeps left
 ([aimap.md](aimap.md)), so there the cars drive every lane the other way.
 
+## The ends' control and points
+
+An end has its two points exactly when lanes arrive at it (by the
+right-hand reading above): 1,478 of the 1,838 ends, every one of them;
+the other 360 have zeros and control 3. Where there are points, `a`
+stands on the curb on the right of the way in, level with the road's
+last (or first) point and as far out as the road's half width, and `b`
+is a metre from it straight across the road. No traffic lights or stop
+signs are placed in the cities' instance files, so the game puts them up
+itself, and these are where (see
+[age-traffic.md](../../engines/age-traffic.md)).
+
+The control, by how it falls:
+
+| Control | Ends with points (San Francisco, London) | Where |
+|---|---|---|
+| 1 | 533, 519 | most junctions of three or more roads |
+| 0 | 36, 45 | only at junctions of three roads |
+| 3 | 81, 264 | the rest; every end without points |
+
+Reluva reads 1 as traffic lights (they're common, on crossroads in both
+cities), 0 as giving way (minor roads into T-junctions) and 3 as no
+control (the main road through a T-junction, ends nothing arrives at).
+That reading is a guess from where they fall.
+
 ## Not known yet
 
-The flags, the sides' kind, the ends' control and two points, the
-widths after the lane offsets, and the table after the junctions (a
-count, then for each PSDL block a count and its roads, it seems).
+The flags, the sides' kind, the widths after the lane offsets, and the
+table after the junctions (a count, then for each PSDL block a count and
+its roads, it seems).
