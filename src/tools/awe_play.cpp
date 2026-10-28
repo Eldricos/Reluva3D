@@ -251,16 +251,17 @@ public:
             a.target = names[i];
             a.n = seen[names[i]]++;
             a.kind = "click";
-            // With -mouse, only what the game's pick finds somewhere: an
-            // act's door over its base's hides the base's.
+            // With -mouse, only what the game's pick finds somewhere (an
+            // act's door over its base's hides the base's), with the item
+            // in hand for a use (Antoinette in the forest, by her bones).
             int x, y;
-            if (mouse && !p.pointFor(i, x, y))
-                continue;
-            if (p.clickRuns(i))
+            if (p.clickRuns(i) && (!mouse || p.pointFor(i, x, y, std::string())))
                 out.push_back(a);
             // (The items the cursor shows it would take: the others are
             // only Antoinette's "can't".)
             for (const std::string& item : p.usableItems(i)) {
+                if (mouse && !p.pointFor(i, x, y, item))
+                    continue;
                 Action u = a;
                 u.kind = "use";
                 u.item = item;
@@ -337,7 +338,7 @@ public:
             int x = 0, y = 0;
             if (index < 0) {
                 ok = false, problem = "no " + a.target + " to click in " + p.status().scene;
-            } else if (mouse && p.pointFor(size_t(index), x, y)) {
+            } else if (mouse && p.pointFor(size_t(index), x, y, a.kind == "use" ? a.item : std::string())) {
                 // As a player's mouse: the item taken up, the mouse moved
                 // there and clicked; the game's pick finds what it does.
                 if (a.kind == "use")

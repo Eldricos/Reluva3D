@@ -851,10 +851,10 @@ void testPicking() {
     c[1].hit = c[2].hit = false;
     CHECK(pick(c, false) == -1);
     // A character in front of nothing but behind a hotspot: the characters
-    // come first, those with only a rectangle by their bones' boxes, if
-    // they can be clicked.
+    // come first, those with neither rectangle nor outline by their bones'
+    // boxes, if they can be clicked or an item is in hand.
     PickCandidate npc;
-    npc.depth = 400, npc.character = true, npc.rect = true, npc.hit = true, npc.clickable = true;
+    npc.depth = 400, npc.character = true, npc.clickable = true;
     c[1].hit = true;
     c.push_back(npc);
     CHECK(pick(c, false) == 1); // bones missed: it's behind the hotspot's rectangle
@@ -863,16 +863,19 @@ void testPicking() {
     c[3].clickable = false;
     CHECK(pick(c, false) == 1);
     CHECK(pick(c, true) == 3); // an item in hand: tried all the same
-    // A character with an outline goes by it.
-    c[3].outline = true, c[3].boneHit = false;
+    // A character with a rectangle (or an outline) goes by it, not its bones.
+    c[3].rect = true, c[3].boneHit = true, c[3].hit = false;
+    CHECK(pick(c, false) == 1);
+    c[3].hit = true;
     CHECK(pick(c, false) == 3);
-    // pickFirst objects with an outline come before even the characters.
+    // pickFirst objects with a rectangle or an outline come before even
+    // the characters.
     PickCandidate first;
-    first.depth = -100, first.outline = true, first.rect = true, first.pickFirst = true, first.hit = true;
+    first.depth = -100, first.rect = true, first.pickFirst = true, first.hit = true;
     c.push_back(first);
     CHECK(pick(c, false) == 4);
-    c[4].outline = false; // a rectangle alone: no longer first
-    CHECK(pick(c, false) == 3);
+    c[4].rect = false, c[4].outline = true;
+    CHECK(pick(c, false) == 4);
 
     // Outlines: the pixel's centre against the polygon, by winding.
     const std::vector<std::pair<uint32_t, uint32_t>> square = {{10, 10}, {20, 10}, {20, 20}, {10, 20}};

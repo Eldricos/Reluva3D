@@ -180,6 +180,8 @@ public:
     // the game's pick finds it (0x435eb0) and clicks are taken, its
     // rectangle tried first; false if there's none on the screen.
     bool pointFor(size_t i, int& x, int& y) const;
+    // The same with an item in hand (a use's point): the pick tries more.
+    bool pointFor(size_t i, int& x, int& y, const std::string& holding);
     // An item taken up into the hand, as the inventory's click takes it.
     void takeUp(const std::string& item) { holdItem(item); }
     bool clickRuns(size_t i) const; // whether it has a script (Antoinette may not)

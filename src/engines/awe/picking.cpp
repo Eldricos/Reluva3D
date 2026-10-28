@@ -15,16 +15,17 @@ int pick(const std::vector<PickCandidate>& c, bool itemInHand) {
     std::vector<size_t> order(c.size());
     std::iota(order.begin(), order.end(), size_t(0));
     std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) { return c[a].depth < c[b].depth; });
-    // 1: pickFirst, with an outline or no rectangle.
+    // 1: pickFirst, with a rectangle or an outline (0x435f23).
     for (auto it = order.rbegin(); it != order.rend(); ++it)
-        if ((!c[*it].rect || c[*it].outline) && c[*it].pickFirst && c[*it].hit)
+        if ((c[*it].rect || c[*it].outline) && c[*it].pickFirst && c[*it].hit)
             return int(*it);
-    // 2: the characters.
+    // 2: the characters: by their rectangle or outline if they have one,
+    // else by their bones (0x435fd1).
     for (auto it = order.rbegin(); it != order.rend(); ++it) {
         const PickCandidate& p = c[*it];
         if (!p.character)
             continue;
-        const bool byBones = p.rect && !p.outline;
+        const bool byBones = !p.rect && !p.outline;
         if (byBones && !itemInHand && !p.clickable)
             continue;
         if (byBones ? p.boneHit : p.hit)

@@ -14,6 +14,7 @@
 #include "engines/awe/story.h"
 
 #include <algorithm>
+#include <utility>
 
 namespace reluva::awe {
 
@@ -155,6 +156,14 @@ bool ScenePage::pointFor(size_t i, int& x, int& y) const {
     if (objectRect(*target, l, t, r, b) && scan(l, t, r + 1, b + 1, 2))
         return true;
     return scan(0, 0, kScreenW, kScreenH, 4);
+}
+
+bool ScenePage::pointFor(size_t i, int& x, int& y, const std::string& holding) {
+    // Only what the pick sees of the hand (itemInHand), and put back.
+    const std::string was = std::exchange(state_.held, holding);
+    const bool found = std::as_const(*this).pointFor(i, x, y);
+    state_.held = was;
+    return found;
 }
 
 bool ScenePage::click(size_t i) {

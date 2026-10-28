@@ -167,7 +167,7 @@ const Ac2Record* ScenePage::pickAt(int sx, int sy) const {
         c.rect = objectRect(*o, l, t, r, b);
         c.clickable = clickable(*o);
         c.hit = hitObject(*o, sx, sy);
-        c.boneHit = c.character && c.rect && !c.outline && hitBones(*o, sx, sy);
+        c.boneHit = c.character && !c.rect && !c.outline && hitBones(*o, sx, sy);
         list.push_back(o);
         candidates.push_back(c);
     }

@@ -403,15 +403,20 @@ The objects are sorted by depth (`0x435e40`, a bubble sort on `d0`, else
 z: `0x4104b0`; a character's z is where it stands) and tried from the
 front, in three passes. A pass's first hit is the answer:
 
-1. Objects with `pickFirst` that have an outline (or no rectangle).
+1. Objects with `pickFirst` that have a rectangle or an outline
+   (`0x435f23`).
 2. The characters (`NPCX`, `PCXX`: virtual function +0x60, `0x4041f0`;
-   every other class's returns 0). One with a rectangle and no outline
-   is tried only if it can be clicked or an item is in hand, and then by
+   every other class's returns 0). One with a rectangle or an outline
+   goes by its hit test. One with neither (as Antoinette in the forest,
+   where the snowshoes are put on her: `IsRectEmpty` at `0x435fd9`) is
+   tried only if it can be clicked or an item is in hand, and then by
    its bones (`0x426120`, `0x428c80`): the ray through the point
    (`GrannyGetPickingRay`) against the box (`OBBMin`, `OBBMax`) of each
    of its meshes' bone bindings whose bone's name has `Bip01` in it,
-   posed as now (`GrannyGetWorldPose4x4`, `GrannyRayIntersectsBox`). The
-   others go by their hit test.
+   posed as now (`GrannyGetWorldPose4x4`, `GrannyRayIntersectsBox`).
+   (Reluva first had this the other way round, bones for those with a
+   rectangle; a recording of the game putting the snowshoes on
+   Antoinette, whose record there has no rectangle, showed it wrong.)
 3. Everything, by its hit test.
 
 The mouse and clicks use it with the same arguments; the torn letter
