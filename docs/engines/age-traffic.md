@@ -80,6 +80,39 @@ entered a junction on red. Lane changes are rare in such runs (5 in San
 Francisco's five minutes): cars are only held up mid-road by something
 slow or stopped, such as the player.
 
+## Parked cars
+
+The cities' parked-car lines ([pathset.md](../formats/age/pathset.md))
+are filled when a page starts, about 545 cars in London and 215 in San
+Francisco: nose to tail by the curb (a 2-4 m gap, as the line's end word
+gives it), side by side across a car park's bays, one place in six left
+empty, each in a random paint job and stood on the ground. London's are
+its `sp_pcar` models, San Francisco's its traffic's lighter cars.
+They're drawn within 340 m and stay put (they don't count towards the
+traffic's numbers, and they aren't left out far from the player). The
+traffic slows for one only if it stands within 1.6 m of its way (none
+does in either city; five-minute runs in London with and without them
+give the same speeds, within the runs' spread); the police and the
+pedestrians don't see them. A driven car (or a train) knocks one as it
+knocks the traffic: it slides to a stop, spinning, and is then kept clear
+of like a knocked traffic car.
+
+## Underground trains
+
+London's eight train paths each carry a train of three `va_ug_l`
+carriages, set on the path by two bogies 1.5 m in from each carriage's
+ends. A train runs from where its path's start word puts it to the far
+end and back, standing 15 seconds at each end, at up to 14 m/s,
+gathering speed and braking at 1 m/s² (the path's speed byte, 2 m/s, is
+too slow for a train; all of this is Reluva's). Its carriages are boxes
+that driven cars bounce off (a car on the line is shoved along and out of
+the way, the train unmoved), and spheres that push the traffic's cars
+aside, knocking them loose. The traffic and the police stop for them as
+for an open bridge. The nearest train is heard as the game's
+`aud/ambient/subwaycar.csv` says: `LondonTube` looped, out to 150 m, at
+0.98, louder as it speeds up. The tunnels themselves aren't drawn yet,
+only their floors and roofs collided with.
+
 ## Traffic lights
 
 The cities' instance files place no traffic lights: they stand at the

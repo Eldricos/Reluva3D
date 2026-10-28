@@ -9,6 +9,7 @@
 #include "engines/age/bai.h"
 #include "engines/age/car.h"
 #include "engines/age/collision.h"
+#include "engines/age/pathset.h"
 #include "engines/age/render_cache.h"
 #include "engines/age/traffic_lights.h"
 
@@ -66,20 +67,30 @@ Vec3 pointAlong(const std::vector<Vec3>& points, const std::vector<float>& at, f
 // along the lanes through the junctions, stopping for red lights and giving
 // way, taking turns at each, slowing for what's ahead and changing lanes
 // round it. Knocked by a driven car they slide to a stop and stay. Their
-// lamps show: brake lights, indicators, and headlights at night.
+// lamps show: brake lights, indicators, and headlights at night. And the
+// city's parked cars, which stay where they are until knocked.
 // Reluva's own driving (the game's is in its encrypted program); see
 // docs/engines/age-traffic.md.
 class Traffic {
 public:
     // tune/vehicle/<model>.aiVehicleData for each kind the aimap lists.
     void setup(const SearchSet& files, const AiRoadMap& map, const AiMapSettings& settings, uint32_t seed);
-    void clear() { cars_.clear(); }
+    void clear() {
+        cars_.clear();
+        parked_ = 0;
+    }
     // 0..1: how many cars there are about the focus (1 = kCarsAtFull).
     void setDensity(float density) { density_ = density; }
     float density() const { return density_; }
     // The lights they stop for (none: every junction is taken in turns).
     void setLights(const TrafficLights* lights) { lights_ = lights; }
     void setLaneChanges(bool on) { laneChanges_ = on; }
+    // Cars parked along `lines` (race/<city>/<city>_parkedcar.pathset): nose
+    // to tail beside a road, facing from a line's first point to its last,
+    // else side by side; a line's own model, else one of `models` (none
+    // there: the aimap's ambient cars up to 3 tonnes). Replaces those parked
+    // before; after setup().
+    void park(const SearchSet& files, const std::vector<PathsetPath>& lines, const std::vector<std::string>& models);
 
     // Moves the cars, starting new ones about `focus` (the player) and
     // leaving out those far from it. `fill` starts them anywhere round it
@@ -89,6 +100,10 @@ public:
     // A driven car bumping into the traffic. Returns the hardest knock
     // (change of speed, m/s), 0 if none.
     float collide(CarSim& car);
+    // The same for any body: `spheres` of `radius` on a body of `mass`
+    // (moved and changed as it's pushed back; a very heavy one, a train,
+    // just pushes).
+    float collide(const std::vector<Vec3>& spheres, float radius, float mass, Vec3& position, Vec3& velocity);
     // `night`: their headlights and tail lights on, and flares at the
     // headlights (with `flares`).
     void draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight& light, const gfx::Mat4& viewProj,
@@ -97,7 +112,10 @@ public:
     // `distance` of `eye`.
     void headlightPools(std::vector<gfx::DynamicLight>& out, const Vec3& eye, float distance = 120) const;
 
-    size_t count() const { return cars_.size(); }
+    size_t count() const { return cars_.size() - parked_; } // those driving
+    size_t parked() const { return parked_; }
+    // Where the parked cars stand and which way they face (knocked or not).
+    void parkedPlaces(std::vector<std::pair<Vec3, Vec3>>& out) const;
     void users(std::vector<RoadUser>& out) const; // for others to keep clear of
     const TrafficNetwork& network() const { return network_; }
 
@@ -110,6 +128,9 @@ private:
         Vec3 size{1.8f, 1.4f, 4.5f}; // width, height, length
         float mass = 1000;
     };
+    int kindOf(const SearchSet& files, const std::string& model);
+    // Whether a line from `a` to `b` runs beside a lane, within 5 m.
+    bool besideLane(const Vec3& a, const Vec3& b) const;
     struct Car {
         int kind = 0;
         uint32_t paintJob = 0;
@@ -138,6 +159,7 @@ private:
         bool loose = false;
         Vec3 velocity{};
         float spin = 0;
+        bool parked = false, settled = false; // settled: stood on the ground
     };
 
     int pickKind();
@@ -152,6 +174,8 @@ private:
 
     TrafficNetwork network_;
     std::vector<Kind> kinds_;
+    size_t ambient_ = 0; // the first kinds: the aimap's, the rest parked only
+    size_t parked_ = 0;
     std::vector<Car> cars_;
     std::vector<std::vector<size_t>> holders_; // per junction: lanes the cars crossing it came from
     std::mt19937 rng_;

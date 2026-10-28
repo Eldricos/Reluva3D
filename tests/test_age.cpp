@@ -1273,6 +1273,154 @@ void testGizmos(const std::filesystem::path& tmp) {
     CHECK(!g.load(files, "london", "race0") && g.bridges() == 1 && g.raised(0) == 1);
 }
 
+
+void testParkedCars(const std::filesystem::path& tmp) {
+    std::filesystem::remove_all(tmp);
+    Bytes pkg; // a level-H body 2 m across, 4 high and 2 long
+    pkg.str("PKG3");
+    fileSection(pkg, "H", meshSection(0x102, 0, {0, 1, 2}));
+    test::writeFile(tmp / "geometry" / "va_test.pkg", pkg.v);
+    test::writeFile(tmp / "geometry" / "sp_pcar_t.pkg", pkg.v);
+    test::writeFile(tmp / "tune" / "vehicle" / "va_test.aiVehicleData",
+                    toBytes("type: a\naiVehicleData {\n  Mass 1000\n  Size 2 1.5 4\n}\n"));
+    SearchSet files;
+    auto loose = std::make_unique<DirectoryArchive>();
+    CHECK(!loose->open(tmp));
+    files.add(std::move(loose), 1);
+    AiMapSettings s;
+    s.ambients.push_back({"va_test", 1});
+    CollisionWorld flat;
+    flat.add({-500, 0, -500}, {-500, 0, 500}, {500, 0, 500});
+    flat.add({-500, 0, -500}, {500, 0, 500}, {500, 0, -500});
+    flat.build(64);
+    AiRoadMap m; // the first road's lanes run along +X at z 2.5 and 7.5
+    CHECK(!readBai(buildBai({{{0, 0, 0}, {200, 0, 0}, 0, 1, 2, 0, 5}, {{200, 0, -30}, {0, 0, -30}, 1, 0, 2, 0, 5}},
+                            {{-5, 0, -15}, {205, 0, -15}}),
+                   m));
+    auto line = [](const std::string& name, const Vec3& a, const Vec3& b) {
+        PathsetPath p;
+        p.name = p.model = name;
+        p.points = {a, b};
+        p.end = 0x1402; // a 2 m gap
+        return p;
+    };
+    // By the curb; in a car park far from the roads; with its own model.
+    const std::vector<PathsetPath> lines = {line("PATH01", {20, 0.5f, 10}, {60, 0.5f, 10}),
+                                            line("PATH02", {20, 0, 100}, {41, 0, 100}),
+                                            line("sp_pcar_t", {100, 0, 10}, {130, 0, 10})};
+    Traffic t;
+    t.setup(files, m, s, 7);
+    t.park(files, lines, {});
+    CHECK(t.parked() > 3 && t.count() == 0);
+    std::vector<std::pair<Vec3, Vec3>> places;
+    t.parkedPlaces(places);
+    auto onGrid = [](float x, float first, float step) {
+        const float k = (x - first) / step;
+        return std::fabs(k - std::round(k)) < 1e-3f;
+    };
+    for (const auto& [p, h] : places) {
+        if (p[2] > 50) { // side by side, 3 m apart (2 wide, 1 between), facing across
+            CHECK(std::fabs(h[2]) > 0.99f && p[0] > 20 && p[0] < 41 && onGrid(p[0], 21.5f, 3));
+        } else if (p[0] < 70) { // nose to tail, 6 m apart (4 long, a 2 m gap), along
+            CHECK(h[0] > 0.99f && p[0] > 20 && p[0] < 60 && onGrid(p[0], 23, 6));
+        } else { // its own model, 2 m long
+            CHECK(h[0] > 0.99f && onGrid(p[0], 102, 4));
+        }
+    }
+    // Not among those to keep clear of, nor left out far from the player;
+    // stood on the ground.
+    std::vector<RoadUser> u;
+    t.users(u);
+    CHECK(u.empty());
+    for (int i = 0; i < 10; ++i)
+        t.update(0.05f, {0, 0, 5000}, {}, flat);
+    const size_t parked = t.parked();
+    CHECK(parked == places.size());
+    places.clear();
+    t.parkedPlaces(places);
+    CHECK(std::fabs(places[0].first[1]) < 1e-3f);
+    // Knocked, one slides off and is to be kept clear of.
+    Vec3 position = places[0].first, velocity{0, 0, -8};
+    CHECK(t.collide({places[0].first + Vec3{0, 0.5f, 1.5f}}, 1, 1e9f, position, velocity) > 0);
+    for (int i = 0; i < 10; ++i)
+        t.update(0.05f, {0, 0, 5000}, {}, flat);
+    t.users(u);
+    CHECK(u.size() == 1 && u[0].position[2] < places[0].first[2] - 0.1f && t.parked() == parked);
+    t.park(files, {}, {});
+    CHECK(t.parked() == 0);
+    std::filesystem::remove_all(tmp);
+}
+
+void testTrains(const std::filesystem::path& tmp) {
+    std::filesystem::remove_all(tmp);
+    Bytes pkg; // carriages 2 m wide and 2 long, standing on their origin
+    pkg.str("PKG3");
+    fileSection(pkg, "H", meshSection(0x102, 0, {0, 1, 2}));
+    test::writeFile(tmp / "geometry" / "va_ug_l.pkg", pkg.v);
+    test::writeFile(tmp / "geometry" / "va_test.pkg", pkg.v);
+    test::writeFile(tmp / "race" / "london" / "london_train.pathset",
+                    buildPathset({{"PATH0", {{0, 0, 0}, {100, 0, 0}}, 0x1402}}));
+    SearchSet files;
+    auto loose = std::make_unique<DirectoryArchive>();
+    CHECK(!loose->open(tmp));
+    files.add(std::move(loose), 1);
+    Gizmos g;
+    CHECK(!g.load(files, "london") && g.trains() == 1 && g.boats() == 0);
+    CollisionWorld world;
+    world.build();
+    // Off from the start, gathering speed.
+    const float span = 3 * 2 + 2 * 0.6f;
+    for (int i = 0; i < 50; ++i)
+        g.update(0.1f, world);
+    CHECK(std::fabs(g.trainSpeed(0) - 5 * Gizmos::kTrainAccel) < 0.2f && g.trainPosition(0)[0] > 10);
+    // Standing at the far end, then back.
+    float clock = 5;
+    while (g.trainSpeed(0) > 0 && clock < 60) {
+        g.update(0.1f, world);
+        clock += 0.1f;
+    }
+    CHECK(clock > 15 && clock < 30 && std::fabs(g.trainPosition(0)[0] - (100 - span + 1)) < 0.05f);
+    for (int i = 0; i < int(Gizmos::kTrainStand * 10) - 5; ++i)
+        g.update(0.1f, world);
+    CHECK(g.trainSpeed(0) == 0);
+    for (int i = 0; i < 50; ++i)
+        g.update(0.1f, world);
+    CHECK(g.trainSpeed(0) > 1 && g.trainPosition(0)[0] < 100 - span);
+    std::vector<RoadUser> u;
+    g.users(u);
+    CHECK(!u.empty() && u[0].solid && u[0].velocity[0] < -1);
+
+    // A car in its way is shoved out of it.
+    CarSim car;
+    car.reset(testCar(), g.trainPosition(0) + Vec3{-2, 0, 0}, 0);
+    car.velocity = {};
+    float knock = 0;
+    for (int i = 0; i < 20; ++i) {
+        g.update(0.05f, world);
+        knock = std::max(knock, g.collide(car));
+    }
+    CHECK(knock > 1 && car.position[0] < g.trainPosition(0)[0] - 1);
+    // A parked car on the line is pushed aside.
+    AiMapSettings s;
+    s.ambients.push_back({"va_test", 1});
+    Traffic t;
+    t.setup(files, AiRoadMap{}, s, 1);
+    PathsetPath across;
+    across.name = across.model = "PATH01";
+    across.points = {{20, 0, 1}, {20, 0, -1}};
+    t.park(files, {across}, {});
+    std::vector<std::pair<Vec3, Vec3>> before, after;
+    t.parkedPlaces(before);
+    CHECK(before.size() <= 1);
+    for (int i = 0; i < 400; ++i) {
+        g.update(0.1f, world);
+        g.push(t);
+    }
+    t.parkedPlaces(after);
+    for (size_t i = 0; i < before.size(); ++i)
+        CHECK(length(after[i].first - before[i].first) > 1);
+    std::filesystem::remove_all(tmp);
+}
 int main() {
     const auto tmp = std::filesystem::temp_directory_path() / "reluva_age_tests";
     testArchive(tmp / "archive");
@@ -1303,6 +1451,8 @@ int main() {
     testSpeedLimit();
     testPathset();
     testGizmos(tmp / "gizmos");
+    testParkedCars(tmp / "parked");
+    testTrains(tmp / "trains");
     std::filesystem::remove_all(tmp);
     if (failures) {
         std::fprintf(stderr, "%d check(s) failed\n", failures);

@@ -43,7 +43,8 @@ leaves out keep the city's values.
 | `CopChaseDistance` | metres (Crash Course 150) | how near the police notice the player |
 | `AmbientLaneChanges` | 0 or 1 (only San Francisco's cruising files: 1) | traffic changes lanes (always on the Drive page) |
 | `Traffic Lights` | two model names, no count (London: `sp_traflitsingle_ped_l` twice) | the traffic lights' models, for narrow and wide roads; San Francisco has none, so Reluva uses `sp_traflitsingle_f` and `sp_traflitdual_f` |
-| `Hookmen`, `Subway` | | not read |
+| `Hookmen` | | not read |
+| `Subway` | commented out in London's file: `#va_ug_l 3` | Reluva runs three `va_ug_l` carriages on each Underground train path ([pathset.md](pathset.md)) |
 
 Police lines appear in cruising (19 in San Francisco, 20 in London) and
 in some checkpoint races and Crash Course lessons (San Francisco's
