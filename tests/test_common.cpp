@@ -1268,8 +1268,10 @@ static void testDirectX() {
     // Direct3D, from the DirectDraw object, and a device on the back buffer.
     CHECK(call(dd, 0, {guid("{f5049e77-4861-11d2-a407-00a0c90629a8}"), out}) == 0);
     const uint32_t d3d = cpu.read32(out);
+    cpu.fpu.control = 0x027f; // 53 bits, as Windows starts a thread
     CHECK(call(d3d, 4, {guid("{84e63de0-46aa-11cf-816f-0000c020156e}"), back, out}) == 0); // CreateDevice
     const uint32_t device = cpu.read32(out);
+    CHECK(cpu.fpu.control == 0x007f); // Direct3D leaves it in single precision
 
     // Clear to blue, then a red-green-blue triangle (screen coordinates).
     CHECK(call(device, 10, {0, 0, 3, 0xff0000ffu, bits(1.0f), 0}) == 0); // Clear target and Z

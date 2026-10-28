@@ -224,6 +224,7 @@ std::optional<uint32_t> DirectDraw::invoke(const ComInterface& iface, int index,
         s->window = c.arg(1);
         s->exclusive = (c.arg(2) & kScExclusive) != 0;
         s->noWindowChanges = (c.arg(2) & 0x4) != 0; // DDSCL_NOWINDOWCHANGES
+        s->fpuPreserve = (c.arg(2) & 0x1000) != 0; // DDSCL_FPUPRESERVE
         return kDDOk;
     }
     if (m == "SetDisplayMode") {

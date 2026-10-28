@@ -807,10 +807,33 @@ reads, the vftables it builds for its own subclasses):
       by two half-spaces) is in world space at (-665.2, -50.5, 255.4),
       half-sizes 36 by 130.7 by 138. It lies just behind the main base,
       on the far side from Dash, so the segment rightly misses it.
+    - The score is the square of the tangent of the angle between the
+      line from the base to the shot and the camera's current view axis
+      (`UCam`'s rotation). So it depends on where the camera points at
+      that moment, which follows from the camera's smoothing so far.
+    - What the recording shows from 77.5 s isn't the reward close-up:
+      ours (`REWARD_CAM`, from Dash's left, the lock to his right) frames
+      him differently from the original (straight on, the lock behind
+      him). So the original films Dash from a walkway base the whole
+      time. `IsObscured` also counts an actor whose centre isn't on
+      screen from the current camera as obscured, so from the walkway
+      the door's shot would find no base and the view stays. The whole
+      difference comes down to ours turning to the main base at 6.57 s.
+    - With Direct3D's single precision (below) ours still turns away from
+      the walkway and shows the door, from a further base. So the
+      precision isn't the cause either.
     - So ours runs the game's own camera code to a consistent result.
-      Still open: an input ours gives that code differently (Dash's exact
-      path or speed near the lock, the camera's orientation, which the
-      score uses), or a different build in the recording (ours is 1.0).
+      There was only ever one release, so something ours gives that
+      code still differs. Not yet found; the candidates are Dash's exact
+      path or speed near the lock, and the camera's orientation.
+  - Found on the way: Direct3D 7 puts the FPU in single precision
+    (24 bits) when it makes a device, and on its calls, unless the
+    program passed `DDSCL_FPUPRESERVE`. LEGO Alpha Team passes
+    `MULTITHREADED | EXCLUSIVE | ALLOWREBOOT | FULLSCREEN`, so on a real
+    machine its sums run in single precision. Ours left the FPU at 53
+    bits; now `CreateDevice` and `BeginScene` set it as Direct3D does.
+    It changes the run's details (which base the camera takes for the
+    door); Mission One still plays through to "We did it!" and saves.
   - Found on the way: `DDCaps::CalcProcSpeed` (LoadComp) times the
     processor with RDTSC across `Sleep(500)`, and recommends shadows,
     environment animation and other detail (`MakeRecs`) above 250 and

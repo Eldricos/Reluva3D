@@ -151,6 +151,16 @@ VertexLayout::VertexLayout(uint32_t fvf) {
 
 // --- IDirect3D7 (on the DirectDraw object)
 
+// Direct3D 7 puts the calling thread's FPU in single precision (24 bits),
+// when it makes a device and when it's called, unless the program asked it
+// to keep the FPU as it was (DDSCL_FPUPRESERVE). A program made with it
+// does its sums that way, and some of its choices, such as which camera
+// base LEGO Alpha Team's camera takes, depend on them.
+static void singlePrecision(const DirectX::State& s, Cpu& c) {
+    if (!s.fpuPreserve)
+        c.fpu.control &= ~0x300;
+}
+
 std::optional<uint32_t> DirectDraw::invoke3d(const ComInterface& iface, int index, Cpu& c) {
     const std::string_view m = iface.methods[size_t(index)].name;
     // EnumDevices(callback(description, name, D3DDEVICEDESC7*, context), context)
@@ -201,6 +211,7 @@ std::optional<uint32_t> DirectDraw::invoke3d(const ComInterface& iface, int inde
             kind != kIidTnLHalDevice)
             return kDDErrInvalidParams;
         auto device = std::make_shared<Device>(s, target);
+        singlePrecision(*s, c);
         c.write32(out, s->com.pointer(device, s->interfaces.device7));
         return kDDOk;
     }
@@ -334,7 +345,11 @@ std::optional<uint32_t> Device::invoke(const ComInterface& iface, int index, Cpu
         s->process.memory().free(pf);
         return kDDOk;
     }
-    if (m == "BeginScene" || m == "EndScene" || m == "PreLoad")
+    if (m == "BeginScene") {
+        singlePrecision(*s, c);
+        return kDDOk;
+    }
+    if (m == "EndScene" || m == "PreLoad")
         return kDDOk;
     if (m == "GetDirect3D") {
         ++s->directDraw->refs;

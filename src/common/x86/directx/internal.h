@@ -234,7 +234,7 @@ struct DirectX::State {
     DirectX::Frame frame;
     // The display: its mode, and whether the program owns it (fullscreen).
     int width = 0, height = 0, bits = 0;
-    bool exclusive = false, noWindowChanges = false;
+    bool exclusive = false, noWindowChanges = false, fpuPreserve = false;
     int desktopWidth = 0, desktopHeight = 0, desktopBits = 0; // while a mode is set: the desktop's
     uint32_t window = 0;
     uint32_t videoUsed = 0;
