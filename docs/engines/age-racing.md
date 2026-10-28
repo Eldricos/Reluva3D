@@ -69,6 +69,30 @@ Brake Dancing's and The Knowledge's second, Bonnie & Collide's and the
 follow lessons' third) aren't used. A passed lesson offers the next
 (Enter), any lesson its restart (R).
 
+## Music
+
+The game's DirectMusic music ([directmusic.md](../formats/directmusic.md)),
+played by `music.cpp` on Reluva's DirectMusic player and DLS synthesizer.
+A race picks one of the five race tunes of
+`aud/dmusic/csv_files/singlerace.csv` (Enemy, Bullet, Duck, London,
+PimpHand), the Drive page one of the four cruising tunes of
+`singleroam.csv` (SunRoof, TacoLoco, LeTigre, BackOff); which one is
+Reluva's choice, by the race (or city and car). Its segments follow the
+play:
+
+| State | Segment |
+|---|---|
+| started | Start |
+| stopped (under 1.5 m/s) for 4 s | Idle, or Idle Cops if chased |
+| chased by the police, moving | Cops |
+| moving again (over 5 m/s) after stopping or a chase | Return |
+| the race over | Results |
+
+Each change waits for the next measure, as DirectMusic's do. The speeds
+and times are Reluva's; the game's own rules for switching aren't known.
+The tunes' pause segment and the big-air motif have no use yet (the pages
+have no pause, and jumps no music).
+
 ## The record and unlocking
 
 Reluva keeps what the player has done in `record.txt` in the game's save

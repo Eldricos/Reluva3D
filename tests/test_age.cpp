@@ -6,6 +6,7 @@
 
 #include "engines/age/aimap.h"
 #include "engines/age/ambient.h"
+#include "engines/age/music.h"
 #include "engines/age/ar_archive.h"
 #include "engines/age/bai.h"
 #include "engines/age/bound.h"
@@ -1733,6 +1734,58 @@ void testAmbient(const std::filesystem::path& tmp) {
     CHECK(sounds.load(files, "elsewhere", nullptr));
 }
 
+void testMusic(const std::filesystem::path& tmp) {
+    // The tunes' segments by state (aud/dmusic/csv_files): the race file's
+    // and the cruising file's columns differ in order.
+    const auto race =
+        parseMusicSets("Start Music,Return Music,Idle Race Music,Idle Cop Music,Cop chase music,"
+                       "Pause Music,Race results Music,Big air Motif style\r\n"
+                       "EnemyStart,EnemyReturn,EnemyIdle,EnemyIdleCops,EnemyCops,Pause,Results1,Groover\r\n",
+                       true);
+    CHECK(race.size() == 1 && race[0].idleCops == "EnemyIdleCops" && race[0].cops == "EnemyCops" &&
+          race[0].results == "Results1");
+    const auto roam = parseMusicSets("Start Music,Return Music,Idle Music,Cop Chase Music,idle cop music,Pause Music\n"
+                                     "SunroofStart,SunRoofReturn,SunRoofIdle,SunRoofCops,SunIdleCops,Pause\n",
+                                     false);
+    CHECK(roam.size() == 1 && roam[0].cops == "SunRoofCops" && roam[0].idleCops == "SunIdleCops");
+
+    // Which segment it asks for as things happen (the segments themselves
+    // aren't there: only the choice is checked).
+    std::filesystem::remove_all(tmp);
+    test::writeFile(tmp / "aud" / "dmusic" / "csv_files" / "singleroam.csv",
+                    toBytes("Start,Return,Idle,Cops,IdleCops,Pause\nS,R,I,C,IC,P\n"));
+    SearchSet files;
+    auto loose = std::make_unique<DirectoryArchive>();
+    CHECK(!loose->open(tmp));
+    files.add(std::move(loose), 1);
+    audio::Mixer mixer(22050);
+    GameMusic music;
+    CHECK(!music.start(files, mixer, false, 0) && music.segment() == "S");
+    GameMusic::State st;
+    st.speed = 20;
+    music.update(1, st);
+    CHECK(music.segment() == "S"); // on the move from the start: the start plays on
+    st.speed = 0;
+    for (int i = 0; i < 5; ++i)
+        music.update(1, st);
+    CHECK(music.segment() == "I"); // stopped a while
+    st.chased = true;
+    music.update(1, st);
+    CHECK(music.segment() == "IC");
+    st.speed = 20;
+    music.update(1, st);
+    CHECK(music.segment() == "C"); // chased on the move
+    st.chased = false;
+    music.update(1, st);
+    CHECK(music.segment() == "R"); // the chase over
+    st.paused = true;
+    music.update(1, st);
+    CHECK(music.segment() == "P");
+    music.stop();
+    CHECK(music.segment().empty());
+    CHECK(music.start(files, mixer, true, 0)); // no race list
+}
+
 void testGizmos(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
     // Models whose level-H mesh runs 0-2 m across: leaves 1 m either side.
@@ -2120,6 +2173,7 @@ int main() {
     testTrains(tmp / "trains");
     testProps(tmp / "props");
     testAmbient(tmp / "ambient");
+    testMusic(tmp / "music");
     std::filesystem::remove_all(tmp);
     if (failures) {
         std::fprintf(stderr, "%d check(s) failed\n", failures);

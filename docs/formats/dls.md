@@ -7,9 +7,11 @@ instruments, 368 waves). Read by `common/audio/dls.cpp`, played by
 
 ## How this was worked out
 
-DLS is a RIFF form whose chunk names and general layout are public (the
-MMA's Downloadable Sounds Level 1 specification, and Microsoft's
-DirectMusic documentation, which uses the same structures). Each chunk's
+DLS is a RIFF form published by the MIDI Manufacturers Association: the
+Downloadable Sounds Level 1 specification (v1.1b) gives the chunk grammar,
+the structures, the connection sources and destinations with their values,
+the default articulation and the units (time cents, relative pitch and
+gain, 0.1% units). Each chunk's
 fields below were checked against the game's files: every chunk's size
 is the one the layout gives (`insh` 12 bytes, `rgnh` 12, `wsmp` 20 plus
 16 per loop, `wlnk` 12, `art1` 8 plus 12 per connection), every pool
@@ -42,7 +44,7 @@ An instrument (`LIST 'ins '`):
   u16 source, control, destination, transform and s32 scale.
 
 `wsmp`: u32 size (20), u16 the key the wave plays at as recorded, s16 fine
-tune (cents), s32 gain (1/655360 dB), u32 options, u32 loops; each loop
+tune (cents), s32 gain (1/655360 dB, negative quieter), u32 options, u32 loops; each loop
 u32 size, type, start and length in samples.
 
 ## Playing them (Reluva's synthesizer)
@@ -65,12 +67,12 @@ Reluva takes their scales (all in 65536ths):
 
 | Destination | Count | Read as |
 |---|---|---|
-| 0x001 attenuation | 8 | gain, 1/655360 dB (from the LFO: tremolo depth) |
+| 0x001 attenuation | 8 | gain, 1/655360 dB, negative quieter (from the LFO: tremolo depth) |
 | 0x003 pitch | 17 | cents (from the key number: per 128 keys; the LFO: vibrato, with the mod wheel as control 0x81 or not; envelope 2: its depth) |
 | 0x004 pan | 67 | tenths of a percent, -500 left to 500 right |
 | 0x104, 0x105 | 14, 11 | LFO frequency (absolute pitch cents: 440 Hz at 6900) and delay (time cents) |
 | 0x206, 0x207, 0x209 | 30, 41, 130 | volume envelope attack, decay, release (time cents: 2^(v/1200) s; 0x80000000 none) |
-| 0x20a | 39 | volume envelope sustain, tenths of a percent |
+| 0x20a | 39 | volume envelope sustain, tenths of a percent of the 96 dB range (20%: -76.8 dB) |
 | 0x30a, 0x30b, 0x30d, 0x30e | 3, 4, 1, 2 | pitch envelope attack, decay, release, sustain |
 
 The volume envelope's attack rises evenly; decay and release fall 96 dB

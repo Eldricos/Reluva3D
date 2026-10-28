@@ -14,12 +14,11 @@ stands, like [idtech3.md](idtech3.md).
 | Models | done: `.pkg` meshes, shaders with their paint jobs, placed models, and `.mtx` part placements ([pkg.md](../formats/age/pkg.md)); 1,034 of 1,040 retail models load (the 6 that don't are unused); `reluva-tool pkg-info` |
 | Cities | done: `.psdl` streets and buildings, generated from every attribute, with tunnels, walls and railings, and the roads after the bounds read ([psdl.md](../formats/age/psdl.md)); `.cpvs` visibility ([pvs.md](../formats/age/pvs.md)); the water under the bridges, the road markings of `decals.pathset`, animated water textures, the texture flag that clamps ([tex.md](../formats/age/tex.md)); the city lit by its three lights, and its fog; `.inst` placed models ([inst.md](../formats/age/inst.md)); the sky dome and the 16 lightings ([tune.md](../formats/age/tune.md)); both retail cities read whole, every texture and model they name found; `reluva-tool psdl-info` |
 | Driving | a first cruise mode, Reluva's model of the game's tuning ([age-driving.md](age-driving.md)): every car the menus offer, in either city; its simulation (suspension, tyres, engine, automatic gearbox, drag) from its `.vehCarSim`; collisions with the city's generated geometry, facade bounds and placed models' `.bnd` bounds ([bnd.md](../formats/age/bnd.md)); the near, far and in-car cameras from its camera files; its engine sound from its sound table; a HUD (speed, gear, revs). Not compared with the game yet |
-| Races | a first version ([age-racing.md](age-racing.md), [race.md](../formats/age/race.md)): every Blitz, Circuit and Checkpoint race of both cities from the game's race files, at Amateur or Professional, against opponents in the cars and at the skills the race's aimap gives them, driving their recorded paths along a road graph Reluva builds from the city (88% of them finish; every checkpoint race's all do); checkpoints, laps, a Blitz's time limit, positions, results; the game's checkpoint stands and HUD arrow; the race's traffic, pedestrians and police. Not yet: Crash Course, the game's menus and HUD pictures, unlocking |
+| Races | a first version ([age-racing.md](age-racing.md), [race.md](../formats/age/race.md)): every Blitz, Circuit and Checkpoint race of both cities from the game's race files, at Amateur or Professional, against opponents in the cars and at the skills the race's aimap gives them, driving their recorded paths along a road graph Reluva builds from the city (88% of them finish; every checkpoint race's all do); checkpoints, laps, a Blitz's time limit, positions, results; the game's checkpoint stands and HUD arrow; the race's traffic, pedestrians and police; the game's music |
 | City life | a first version ([age-traffic.md](age-traffic.md)): the road maps ([bai.md](../formats/age/bai.md)) and AI settings ([aimap.md](../formats/age/aimap.md)) of both cities read whole; traffic in the game's ambient models along the lanes, through the junctions, knocked aside by the player; pedestrians, the game's skinned models and animations ([ped.md](../formats/age/ped.md)), walking the sidewalks and diving out of the way; police that chase a speeding player along the roads and bust a stopped one. traffic lights at the road ends the road maps mark, which the traffic stops for; lane changes; the cars' lamps (brake lights, indicators, headlights with flares and pools of light at night, sirens). police patrolling the lanes when not chasing, with the game's siren tables and arrest sound, and the player's own siren in the police car. Ferries, boats and ducks on their paths, drawbridges that rise and fall, parked cars, and London's Underground trains ([pathset.md](../formats/age/pathset.md)); props, signs and traffic lights knocked down and broken into pieces; each race's own barricades; the ambient sounds of `aud/ambient`; the street furniture of `proprules.csv` along the sidewalks (the game has no police radio to play) |
 | Viewer | Race page (3D); Drive page (3D); World page (3D): London and San Francisco flown through, from the road nearest the middle, at each time and weather; Models page (3D, on the GPU renderer): every model with its parts placed, by level of detail and paint job, the lit parts (lamps, glows) on request; Textures page; Files page: every file with its size and archive, by folder; text files shown as text, the rest as hex dumps |
 
-Decided: Midtown Madness 1 comes after Midtown Madness 2 runs; the
-DirectMusic player comes after the game runs.
+Decided: Midtown Madness 1 comes after Midtown Madness 2 runs.
 
 ## Why an engine family
 
@@ -193,7 +192,7 @@ recording how each format was worked out (CONTRIBUTING.md).
   the smoke uses, `.ter` ([bnd.md](../formats/age/bnd.md)). For
   watching the game run ([age-driving.md](age-driving.md)).
 
-### 5. The game (done but for music)
+### 5. The game
 
 - Blitz, Circuit and Checkpoint races from `race/`, opponents following
   their `.opp` paths (routed along the roads) in their aimaps' cars,
@@ -218,12 +217,11 @@ recording how each format was worked out (CONTRIBUTING.md).
 - Opening logos: `logos.avi` is Indeo 5, which has no published
   description to write a decoder from; skipped, as the original's "No
   Movie" shortcut does, with the game's splash picture shown instead.
-- Not done: the street furniture laid by `proprules.csv` (which rule a
-  road takes isn't known), the other menus and
-  modes (Cops & Robbers, replays, options).
-- Music: DirectMusic segments and styles on DLS instruments needs a
-  DirectMusic player in `common/audio`. Decided: it comes after the game
-  runs; until then, no music.
+- Music: the DirectMusic segments and styles, composed as they play by
+  Reluva's DirectMusic player on its DLS synthesizer (`common/audio`;
+  [directmusic.md](../formats/directmusic.md), [dls.md](../formats/dls.md)),
+  following the race or drive ([age-racing.md](age-racing.md)).
+- Not done: the other menus and modes (Cops & Robbers, replays, options).
 
 ### 6. Multiplayer (later, optional)
 

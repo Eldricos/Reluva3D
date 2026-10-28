@@ -28,10 +28,13 @@ public:
     void setModWheel(int channel, int value);        // CC 1
     void setPitchBend(int channel, float semitones);
     void setTranspose(int channel, int semitones);
+    // CC 64: while down, notes let go of keep sounding until it's let up.
+    void setSustain(int channel, bool down);
 
     void noteOn(int channel, int key, int velocity);
     void noteOff(int channel, int key);
-    void allNotesOff();
+    void allNotesOff(); // cut
+    void releaseAll();  // let go, each fading by its release
 
     // Adds `frames` stereo frames to `out` (interleaved, so 2 x frames
     // values), mixed at `gain`.
@@ -44,6 +47,7 @@ private:
         const DlsInstrument* instrument = nullptr;
         float volume = 100 / 127.0f, expression = 1, pan = 0.5f, modWheel = 0, bend = 0;
         int transpose = 0;
+        bool sustain = false;
     };
     // An envelope's times (seconds) and sustain (0-1).
     struct Envelope {
@@ -68,6 +72,7 @@ private:
         float time = 0; // since the note began
         float releasedAt = -1;
         float releaseLevel = 0;
+        bool held = false; // let go of under the sustain pedal
         float level = 0; // the volume envelope's last level
         bool done = false;
     };
