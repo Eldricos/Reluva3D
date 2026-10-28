@@ -49,11 +49,50 @@ The Tracks page uses the colours and heights:
   flipped.
 - **Ambient light.** The percentages scale the track's baked vertex
   lighting.
+- **The sun or moon.** The variant's picture (`SUND`, `SUNN`, `SUNW`, and
+  `SNNW` for night with weather where a track has one, else `SUNW`),
+  facing the camera inside the dome. Its text gives `A` (degrees round,
+  as for the dome's sunlit side), `B` (degrees above the horizon) and
+  `R`, taken as its width in degrees. It's added to the sky, unless the
+  text says `NOADD`; with `INFRONT` it's drawn over the horizon picture,
+  else behind it.
+- **Clouds.** With a cloud type other than 0, the variant's tile (`CLDD`,
+  `CLDN`, `CLWD`, `CLWN`) over a layer at the visual height, a tile every
+  300 units, fading out towards the horizon. Type 1 is added, type 2
+  blended. The colour is the cloud brightness (0-255) times the ambient
+  light, but at least a third of it. The clouds drift with the wind: its
+  speed in hundredths of a tile a second, towards its direction.
+- **Fog.** After the scene, its solid geometry is drawn again in the fog
+  colour, over what was drawn, more of it the further away: the density
+  is taken as how much fog there is at the horizon's radius, growing
+  linearly from the camera. Within a dynamic fog region (by the block the
+  camera is in), the colour and density go from the start's to the
+  apex's between the before and centre blocks, then to the end's by the
+  after block. The horizon picture is blended towards the fog colour by
+  its effect on the picture times the density. The clear colour is the
+  fog colour. `Y` turns fog off and on.
+- **Lightning.** With lightning on, each second has a chance (out of
+  256) of a flash a fifth of a second long, which brightens everything.
+
+## What the game does with it
+
+With `softtria.dll`, the only renderer Reluva runs, the game draws none
+of this: the sky is the clear colour (THRASH state 3), fog stays off
+(state 0x15 is always 0), and the 8-bit texture set (`TrNNN_8.qfs`) is
+used. Changing `3tr00.hrz` to dense red fog changed nothing in a race.
+The game decides by its renderer's number (`1 << number` at
+`0x7a3a58`, bit 1 being softtria, tested at `0x41dbe8` to pick the
+8-bit set). Its Direct3D and 3dfx paths would draw the sky and send fog
+to the renderer.
 
 Not yet:
 
-- **Fog and clouds.** The fog regions, the clouds (`CL??` pictures) and
-  lightning aren't drawn.
+- **Checked against the game.** How the density becomes a distance, the
+  sun's `R` and where `A` starts, the cloud layer's size and speed, and
+  the lightning are Reluva's readings: the game's hardware paths would
+  show them, and the software path draws none.
+- **The cloud dome offset and nimbus**, and the clouds' variance, aren't
+  used.
 - **Picture repeats.** The number of times the horizon picture repeats
   round the circle (Reluva uses four) is a guess, to check against the
   game.

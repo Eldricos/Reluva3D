@@ -7,6 +7,7 @@
 #include "common/fs.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 
@@ -23,7 +24,10 @@ constexpr const char* kDetailNames[] = {"low", "medium", "high"};
 constexpr const char* kVariantNames[] = {"day", "night", "weather", "night, weather"};
 constexpr const char* kHorizonSuffix[] = {"", "n", "w", "nw"};
 constexpr const char* kHorizonPicture[] = {"CHRD", "CHRN", "CHRW", "CHNW"};
-constexpr const char* kSunPicture[] = {"SUND", "SUNN", "SUNW", "SUNW"};
+// The sun (or moon) of each; night with weather has its own on some
+// tracks (SNNW), the weather's on the rest.
+constexpr const char* kSunPicture[] = {"SUND", "SUNN", "SUNW", "SNNW"};
+constexpr const char* kCloudPicture[] = {"CLDD", "CLDN", "CLWD", "CLWN"};
 constexpr int kTicksPerSecond = 60; // assumed for the keys' delays (frd.md)
 
 std::string lower(const std::string& s) { return fs::toLower(s); }
@@ -99,8 +103,8 @@ void TrackPage::releaseSky() {
     if (renderer_ && skyMesh_)
         renderer_->destroyMesh(skyMesh_);
     skyMesh_ = 0;
-    horizonPicture_ = 0; // owned by textures_
-    domeIndices_ = bandIndices_ = 0;
+    horizonPicture_ = sunPicture_ = cloudPicture_ = 0; // owned by textures_
+    domeIndices_ = bandIndices_ = sunFirst_ = sunIndices_ = cloudFirst_ = cloudIndices_ = 0;
 }
 
 void TrackPage::release() {
@@ -163,7 +167,8 @@ gfx::TextureId TrackPage::picture(const std::string& sheet, int number, bool lan
 }
 
 // A picture of the track's sky.fsh by name, and its text (the sun's).
-gfx::TextureId TrackPage::skyPicture(const std::string& name, std::string* text) {
+gfx::TextureId TrackPage::skyPicture(const std::string& name, std::string* text, const Horizon::Rgb* tint,
+                                     float tintAmount) {
     const std::string sheet = "GameData/Tracks/" + tracks_[index_] + "/sky.fsh";
     bool additive = false;
     picture(sheet, -1, false, &additive); // loads the sheet
@@ -173,7 +178,14 @@ gfx::TextureId TrackPage::skyPicture(const std::string& name, std::string* text)
                 *text = s.texts.front();
             image::Image img;
             gfx::TextureId id = 0;
-            if (!decodeShape(s, img) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), {}, id))
+            if (decodeShape(s, img))
+                return 0;
+            if (tint && tintAmount > 0)
+                for (size_t i = 0; i < img.rgba.size(); i += 4)
+                    for (int c = 0; c < 3; ++c)
+                        img.rgba[i + size_t(c)] = static_cast<uint8_t>(
+                            img.rgba[i + size_t(c)] + ((*tint)[size_t(c)] - img.rgba[i + size_t(c)]) * tintAmount);
+            if (!renderer_->createTexture(img.w, img.h, img.rgba.data(), {}, id))
                 textures_.push_back(id);
             return id;
         }
@@ -210,10 +222,21 @@ void TrackPage::loadSky() {
     // angle round, in degrees; fsh.md), for which side of the sky gets
     // the sun's colour.
     std::string sunText;
-    skyPicture(kSunPicture[variant_], &sunText);
-    float sunAngle = 0;
-    if (const size_t a = sunText.find('A'); a != std::string::npos)
-        sunAngle = std::strtof(sunText.c_str() + a + 1, nullptr) * kPi / 180.0f;
+    sunPicture_ = skyPicture(kSunPicture[variant_], &sunText);
+    if (!sunPicture_ && variant_ == 3)
+        sunPicture_ = skyPicture("SUNW", &sunText);
+    auto sunValue = [&](char letter, float otherwise) {
+        for (size_t i = 0; i < sunText.size(); ++i)
+            if (sunText[i] == letter && (i == 0 || sunText[i - 1] == ' ') && i + 1 < sunText.size() &&
+                (std::isdigit(static_cast<unsigned char>(sunText[i + 1])) || sunText[i + 1] == '-'))
+                return std::strtof(sunText.c_str() + i + 1, nullptr);
+        return otherwise;
+    };
+    const float sunAngle = sunValue('A', 0) * kPi / 180.0f;
+    const float sunHeight = sunValue('B', 45) * kPi / 180.0f;
+    const float sunSize = sunValue('R', 25) * kPi / 180.0f;
+    sunAdditive_ = sunText.find("NOADD") == std::string::npos;
+    sunInFront_ = sunText.find("INFRONT") != std::string::npos;
 
     const Horizon& h = horizon_;
     const float radius = static_cast<float>(std::max(h.radius, 100));
@@ -268,10 +291,96 @@ void TrackPage::loadSky() {
             }
         strip(first);
         bandIndices_ = static_cast<uint32_t>(indices.size()) - domeIndices_;
-        horizonPicture_ = skyPicture(kHorizonPicture[variant_], nullptr);
+        // Fogged by the fog's effect on it (percent) times its density.
+        horizonPicture_ = skyPicture(kHorizonPicture[variant_], nullptr, &h.fogColour,
+                                     h.fogOnPixmap / 100.0f * h.fogDensity / 100.0f);
+    }
+
+    // The sun (or moon): its picture facing the camera, A degrees round
+    // and B above the horizon, R degrees across, inside the dome.
+    if (sunPicture_) {
+        sunFirst_ = static_cast<uint32_t>(indices.size());
+        const float distance = radius * 0.9f, half = distance * std::tan(sunSize / 2);
+        const gfx::Vec3 centre{distance * std::cos(sunHeight) * std::sin(sunAngle), distance * std::sin(sunHeight),
+                               -distance * std::cos(sunHeight) * std::cos(sunAngle)};
+        const gfx::Vec3 right{std::cos(sunAngle), 0, std::sin(sunAngle)};
+        // Up on the picture: perpendicular to the direction and to right.
+        const gfx::Vec3 up{-std::sin(sunHeight) * std::sin(sunAngle), std::cos(sunHeight),
+                           std::sin(sunHeight) * std::cos(sunAngle)};
+        const uint32_t first = static_cast<uint32_t>(vertices.size());
+        for (int corner = 0; corner < 4; ++corner) {
+            const float x = corner == 1 || corner == 2 ? 1.0f : -1.0f, y = corner >= 2 ? 1.0f : -1.0f;
+            gfx::Vertex v{};
+            for (int i = 0; i < 3; ++i)
+                v.pos[i] = centre[i] + (right[i] * x + up[i] * y) * half;
+            v.uv[0] = (x + 1) / 2;
+            v.uv[1] = (1 - y) / 2;
+            setColour(v, {255, 255, 255});
+            vertices.push_back(v);
+        }
+        for (uint32_t k : {0u, 1u, 2u, 0u, 2u, 3u})
+            indices.push_back(first + k);
+        sunIndices_ = 6;
+    }
+
+    // The clouds: the variant's tile over a layer at the visual height,
+    // fading out towards the horizon (cloud type 1 additive, 2 blended;
+    // brightness 0-255). They drift with the wind (update()).
+    if (h.cloudType != 0)
+        cloudPicture_ = skyPicture(kCloudPicture[variant_], nullptr);
+    if (cloudPicture_) {
+        cloudFirst_ = static_cast<uint32_t>(indices.size());
+        constexpr int kRings = 8;
+        const float extent = radius * 1.5f, height = static_cast<float>(std::max(h.visualHeight, 100));
+        // Lit as the scene is: by the ambient light, but never below a
+        // third, so that night clouds still show against the sky.
+        const float ambient = std::clamp(std::max({h.ambient[0], h.ambient[1], h.ambient[2]}) / 100.0f, 0.33f, 1.0f);
+        const uint8_t bright = static_cast<uint8_t>(std::clamp(h.cloudBright, 0, 255) * ambient);
+        const uint32_t first = static_cast<uint32_t>(vertices.size());
+        for (int r = 0; r <= kRings; ++r)
+            for (int i = 0; i <= kSegments; ++i) {
+                const float a = 2 * kPi * i / kSegments, d = extent * r / kRings;
+                gfx::Vertex v{};
+                v.pos[0] = d * std::sin(a);
+                v.pos[1] = height;
+                v.pos[2] = -d * std::cos(a);
+                v.uv[0] = v.pos[0] / 300.0f; // a tile every 300 units
+                v.uv[1] = v.pos[2] / 300.0f;
+                v.color[0] = v.color[1] = v.color[2] = bright;
+                v.color[3] = static_cast<uint8_t>(255 * (1 - static_cast<float>(r) / kRings));
+                vertices.push_back(v);
+            }
+        for (int r = 0; r < kRings; ++r)
+            for (int i = 0; i < kSegments; ++i) {
+                const uint32_t p = first + uint32_t(r * (kSegments + 1) + i), q = p + kSegments + 1;
+                for (uint32_t k : {p, q, q + 1, p, q + 1, p + 1})
+                    indices.push_back(k);
+            }
+        cloudIndices_ = static_cast<uint32_t>(indices.size()) - cloudFirst_;
     }
     if (Error err = renderer_->createMesh(vertices, indices, skyMesh_))
         skyError_ = err.message;
+}
+
+void TrackPage::fogAt(int block, Horizon::Rgb& colour, float& density) const {
+    colour = horizon_.fogColour;
+    density = static_cast<float>(horizon_.fogDensity);
+    for (const Horizon::FogRegion& r : horizon_.fogRegions) {
+        auto lerp = [&](const Horizon::FogPoint& a, const Horizon::FogPoint& b, float t) {
+            colour = mix(a.colour, b.colour, t);
+            density = a.density + (b.density - a.density) * t;
+        };
+        if (block >= r.beforeSlice && block < r.centreSlice) {
+            lerp(r.start, r.apex, float(block - r.beforeSlice) / float(r.centreSlice - r.beforeSlice));
+            return;
+        }
+        if (block >= r.centreSlice && block <= r.afterSlice) {
+            lerp(r.apex, r.end, r.afterSlice > r.centreSlice
+                                    ? float(block - r.centreSlice) / float(r.afterSlice - r.centreSlice)
+                                    : 0.0f);
+            return;
+        }
+    }
 }
 
 void TrackPage::load(int index) {
@@ -457,6 +566,7 @@ void TrackPage::handleEvent(const Event& ev) {
         case 'o': objects_ = !objects_; break;
         case 'g': walls_ = !walls_; break;
         case 'f': cullBack_ = !cullBack_; break;
+        case 'y': fog_ = !fog_; break;
         case 'x':
             textureSet_ = 1 - textureSet_;
             if (renderer_) {
@@ -534,7 +644,24 @@ void TrackPage::update(uint64_t nowMs) {
     const gfx::Mat4 viewProj =
         gfx::multiply(gfx::perspective(1.0f, float(kFrameW) / float(kFrameH), 0.5f, 6000.0f),
                       gfx::lookAlong(eye, forward, {0, 1, 0}));
-    const Horizon::Rgb& fog = horizon_.fogColour;
+    Horizon::Rgb fog;
+    float fogDensity = 0;
+    fogAt(block_, fog, fogDensity);
+    if (!fog_)
+        fogDensity = 0;
+    // Lightning: a chance each second (out of 256) of a flash, a fifth of
+    // a second long, that lights everything up.
+    float flash = 0;
+    if (horizon_.lightning && horizon_.lightningChance > 0 && skyError_.empty()) {
+        if (nowMs - flashCheckedAt_ >= 1000) {
+            flashCheckedAt_ = nowMs;
+            flashSeed_ = flashSeed_ * 1103515245u + 12345u;
+            if (int((flashSeed_ >> 16) & 255) < horizon_.lightningChance)
+                flashAt_ = nowMs;
+        }
+        if (flashAt_ && nowMs - flashAt_ < 200)
+            flash = 1 - static_cast<float>(nowMs - flashAt_) / 200.0f;
+    }
     renderer_->beginFrame(viewProj, eye,
                           {static_cast<uint8_t>(fog[0]), static_cast<uint8_t>(fog[1]), static_cast<uint8_t>(fog[2])});
 
@@ -546,8 +673,39 @@ void TrackPage::update(uint64_t nowMs) {
         sky.rgbSource = gfx::ColorSource::Vertex;
         sky.state.cull = gfx::Cull::None;
         sky.state.depthTest = sky.state.depthWrite = false;
+        for (int i = 0; i < 3; ++i)
+            sky.color[size_t(i)] = 1 + flash;
         sky.indexCount = domeIndices_;
         renderer_->draw(sky);
+        auto drawSun = [&] {
+            if (!sunIndices_)
+                return;
+            gfx::DrawCall sun = sky;
+            sun.firstIndex = sunFirst_;
+            sun.indexCount = sunIndices_;
+            sun.texture = sunPicture_;
+            sun.state.src = gfx::Blend::SrcAlpha;
+            sun.state.dst = sunAdditive_ ? gfx::Blend::One : gfx::Blend::OneMinusSrcAlpha;
+            renderer_->draw(sun);
+        };
+        if (!sunInFront_)
+            drawSun();
+        if (cloudIndices_) {
+            gfx::DrawCall clouds = sky;
+            clouds.firstIndex = cloudFirst_;
+            clouds.indexCount = cloudIndices_;
+            clouds.texture = cloudPicture_;
+            clouds.alphaSource = gfx::ColorSource::Vertex;
+            clouds.state.src = gfx::Blend::SrcAlpha;
+            clouds.state.dst = horizon_.cloudType == 1 ? gfx::Blend::One : gfx::Blend::OneMinusSrcAlpha;
+            // Drifting with the wind: its speed (a hundredth of a tile a
+            // second for each unit) towards its direction (degrees).
+            const float drift = static_cast<float>(nowMs % 10000000) / 1000.0f * horizon_.windSpeed / 100.0f;
+            const float towards = static_cast<float>(horizon_.windDirection) * kPi / 180.0f;
+            clouds.preRow0[2] = -drift * std::sin(towards);
+            clouds.preRow1[2] = drift * std::cos(towards);
+            renderer_->draw(clouds);
+        }
         if (bandIndices_ && horizonPicture_) {
             sky.firstIndex = domeIndices_;
             sky.indexCount = bandIndices_;
@@ -556,6 +714,8 @@ void TrackPage::update(uint64_t nowMs) {
             sky.state.dst = gfx::Blend::OneMinusSrcAlpha;
             renderer_->draw(sky);
         }
+        if (sunInFront_)
+            drawSun();
     }
 
     size_t drawn = 0;
@@ -566,7 +726,7 @@ void TrackPage::update(uint64_t nowMs) {
         // The horizon's ambient light (percent) over the baked lighting.
         if (error_.empty() && skyError_.empty())
             for (int i = 0; i < 3; ++i)
-                call.color[i] = static_cast<float>(horizon_.ambient[i]) / 100.0f;
+                call.color[i] = static_cast<float>(horizon_.ambient[i]) / 100.0f + flash;
         call.state.cull = cullBack_ ? gfx::Cull::Back : gfx::Cull::None;
         call.state.alphaTest = gfx::AlphaTest::Ge128;
         std::vector<const std::vector<Batch>*> solid = {&batches_[kRoadLow + detail_]};
@@ -606,6 +766,28 @@ void TrackPage::update(uint64_t nowMs) {
         for (const auto* list : solid)
             pass(*list, false);
         movingPass(false);
+        // Fog: the solid geometry again in the fog's colour, over what was
+        // drawn, more of it the further away. The density (percent) is
+        // taken as how much there is at the horizon's distance.
+        if (fogDensity > 0 && skyError_.empty()) {
+            const gfx::DrawCall plain = call;
+            call.texture = 0;
+            call.rgbSource = gfx::ColorSource::Constant;
+            call.color = {fog[0] / 255.0f, fog[1] / 255.0f, fog[2] / 255.0f, 1};
+            call.fogDistance = static_cast<float>(std::max(horizon_.radius, 100)) / std::min(fogDensity / 100.0f, 1.0f);
+            call.state.src = gfx::Blend::SrcAlpha;
+            call.state.dst = gfx::Blend::OneMinusSrcAlpha;
+            call.state.depthEqual = true;
+            call.state.depthWrite = false;
+            call.state.alphaTest = gfx::AlphaTest::None;
+            const bool textured = textured_;
+            textured_ = false;
+            for (const auto* list : solid)
+                pass(*list, false);
+            movingPass(false);
+            textured_ = textured;
+            call = plain;
+        }
         call.state.depthBias = true;
         for (const auto* list : lanes)
             pass(*list, false);
@@ -648,7 +830,7 @@ void TrackPage::update(uint64_t nowMs) {
         if (!collisionError_.empty())
             lines.push_back(collisionError_);
     }
-    lines.push_back("PgUp/PgDn: track  WASD/arrows/drag: move  N/B: block  1-3: detail  H: sky  T V L O G X F: toggles");
+    lines.push_back("PgUp/PgDn: track  WASD/arrows/drag: move  N/B: block  1-3: detail  H: sky  T V L O G X F Y: toggles");
     for (size_t i = 0; i < lines.size(); ++i) {
         const int y = i + 1 == lines.size() ? kFrameH - font::kLineHeight - 4 : 4 + static_cast<int>(i) * font::kLineHeight;
         for (int yy = y - 2; yy < y + font::kLineHeight - 1; ++yy)

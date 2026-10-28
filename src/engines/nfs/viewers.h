@@ -236,7 +236,10 @@ private:
     void releaseSky();
     void toBlock(int block);
     gfx::TextureId picture(const std::string& sheet, int number, bool lane, bool* additive);
-    gfx::TextureId skyPicture(const std::string& name, std::string* text);
+    // A picture of the track's sky.fsh by name, and its text; blended
+    // towards `tint` by `tintAmount` (0-1) if given.
+    gfx::TextureId skyPicture(const std::string& name, std::string* text, const Horizon::Rgb* tint = nullptr,
+                              float tintAmount = 0);
 
     const GameFiles& files_;
     GameFolders folders_;
@@ -261,6 +264,19 @@ private:
     gfx::MeshId skyMesh_ = 0;
     gfx::TextureId horizonPicture_ = 0;
     uint32_t domeIndices_ = 0, bandIndices_ = 0;
+    // The sun (or moon) and the clouds, ranges of the sky mesh's indices
+    // after the band's.
+    gfx::TextureId sunPicture_ = 0, cloudPicture_ = 0;
+    uint32_t sunFirst_ = 0, sunIndices_ = 0, cloudFirst_ = 0, cloudIndices_ = 0;
+    bool sunAdditive_ = true, sunInFront_ = false;
+    // Lightning: when the last flash began (ms), and when it was last
+    // decided whether one comes.
+    uint64_t flashAt_ = 0, flashCheckedAt_ = 0;
+    uint32_t flashSeed_ = 1;
+    bool fog_ = true;
+    // The fog where the camera is: the base fog, or a dynamic region's
+    // (hrz.md), its colour and density (percent).
+    void fogAt(int block, Horizon::Rgb& colour, float& density) const;
     int variant_ = 0;
     int detail_ = 2, textureSet_ = 0, block_ = 0;
     bool textured_ = true, vertexLight_ = true, lanes_ = true, objects_ = true, cullBack_ = false, walls_ = false;
