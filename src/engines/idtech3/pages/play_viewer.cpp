@@ -972,7 +972,8 @@ void PlayViewer::handleEvent(const Event& ev) {
     if (menuOpen_) {
         // Menus that never took the keys (their key catcher) can't close
         // themselves: Esc does.
-        if (ev.type == EventType::KeyDown && ev.key == key::Escape && !menuCaught_) {
+        if (ev.type == EventType::KeyDown && ev.key == key::Escape && (!menuCaught_ || (ev.mods & keymod::Shift))) {
+            // (Shift+Esc always: back to the match, whatever they show.)
             closeMenu();
             return;
         }
