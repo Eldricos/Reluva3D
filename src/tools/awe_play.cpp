@@ -116,8 +116,10 @@ bool fromLine(const std::string& line, Action& a) {
 // game to settle, and looks at the story state.
 class Player {
 public:
-    Player(DirectoryArchive& files, double limit, System* threeD = nullptr) : limit_(limit) {
+    Player(DirectoryArchive& files, double limit, System* threeD = nullptr, bool characters = false)
+        : limit_(limit) {
         sys_.threeD = threeD;
+        sys_.characters = characters;
         screen_.create(kScreenW, kScreenH, PixelFormat::RGBA32);
         ctx_ = std::make_unique<ViewerContext>(ViewerContext{
             sys_, files, nullptr, screen_, std::filesystem::temp_directory_path() / "reluva-awe-solve", nullptr});
@@ -575,7 +577,7 @@ struct Node {
 int aweCommandSolve(int argc, char** argv) {
     // reluva-tool awe-acts <game> -solve <out> [-from <file>] [-budget n] [-level n] [-noclimb]
     //     [-goal text] [-t s] [-v]
-    // reluva-tool awe-acts <game> -play <file> [-list] [-reload] [-log n] [-mouse] [-3d] [-v]
+    // reluva-tool awe-acts <game> -play <file> [-list] [-reload] [-log n] [-mouse] [-3d | -characters] [-v]
     DirectoryArchive files;
     if (Error e = files.open(argv[2])) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
@@ -585,7 +587,7 @@ int aweCommandSolve(int argc, char** argv) {
     int budget = 1000000, levelBudget = 5000;
     bool climb = true;
     double limit = 900;
-    bool verbose = false, list = false, reload = false, mouse = false, threeD = false;
+    bool verbose = false, list = false, reload = false, mouse = false, threeD = false, characters = false;
     size_t logFrom = SIZE_MAX; // -log n: the script log from the n-th action on
     for (int i = 3; i < argc; i++) {
         const std::string a = argv[i];
@@ -617,6 +619,8 @@ int aweCommandSolve(int argc, char** argv) {
             mouse = true;
         else if (a == "-3d")
             threeD = true;
+        else if (a == "-characters")
+            characters = true;
     }
     // -3d: a window's renderer (under a display, real or virtual), so the
     // characters load and are picked by their bones.
@@ -628,7 +632,9 @@ int aweCommandSolve(int argc, char** argv) {
             return 1;
         }
     }
-    Player player(files, limit, window.get());
+    // -characters: the characters loaded without a window (drawn
+    // nowhere), so their routines run and the pick finds them.
+    Player player(files, limit, window.get(), characters);
     player.mouse = mouse;
 
     if (!playFile.empty()) {

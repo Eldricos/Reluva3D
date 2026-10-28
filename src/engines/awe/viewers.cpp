@@ -1661,7 +1661,9 @@ void ScenePage::update(uint64_t nowMs) {
     changed |= std::exchange(cursorMoved_, false);
     if (changed)
         draw();
-    if (!renderer_) {
+    // A page not drawing (a tool's) makes no 3D frame either: its
+    // characters still move, and are picked by their bones.
+    if (!renderer_ || !drawing_) {
         if (drawing_)
             Page::update(nowMs);
         return;

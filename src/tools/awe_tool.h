@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "common/gfx3d.h"
 #include "common/system.h"
 
 #include <cstdint>
@@ -18,6 +19,47 @@ int aweCheckCommand(int argc, char** argv);
 const char* aweToolUsage();
 
 namespace reluva::awe {
+
+// A renderer that keeps nothing and draws nothing: the scenes' characters
+// load (and run their routines) without a window.
+class NullRenderer : public gfx::Renderer3D {
+public:
+    Error createTexture(int, int, const uint8_t*, const gfx::TextureParams&, gfx::TextureId& out) override {
+        out = gfx::TextureId(++next_);
+        return Error::success();
+    }
+    void destroyTexture(gfx::TextureId) override {}
+    Error createMesh(const std::vector<gfx::Vertex>&, const std::vector<uint32_t>&, gfx::MeshId& out) override {
+        out = gfx::MeshId(++next_);
+        return Error::success();
+    }
+    Error createIndexedMesh(gfx::MeshId, const std::vector<uint32_t>&, gfx::MeshId& out) override {
+        out = gfx::MeshId(++next_);
+        return Error::success();
+    }
+    Error setMeshIndices(gfx::MeshId, const std::vector<uint32_t>&) override { return Error::success(); }
+    void destroyMesh(gfx::MeshId) override {}
+    int width() const override { return 1024; }
+    int height() const override { return 768; }
+    std::string deviceName() const override { return "none"; }
+    void beginFrame(const gfx::Mat4&, const gfx::Vec3&, Color) override {}
+    void draw(const gfx::DrawCall&) override {}
+    void setView(const gfx::Mat4&, const gfx::Vec3&) override {}
+    void setDynamicLights(const std::vector<gfx::DynamicLight>&) override {}
+    void setViewport(int, int, int, int) override {}
+    void setDepthRange(float) override {}
+    void clearDepth() override {}
+    bool hasStencil() const override { return false; }
+    void setStencilMode(StencilMode) override {}
+    void setMirrored(bool) override {}
+    void setGamma(float) override {}
+    void endFrame(const Surface*) override {}
+    void captureNextFrame() override {}
+    bool takeCapture(std::vector<uint8_t>&) override { return false; }
+
+private:
+    uint32_t next_ = 0;
+};
 
 // A System with no window: the last frame shown is kept, events come from
 // a queue.
@@ -42,9 +84,16 @@ public:
     Error startAudio(AudioCallback) override { return Error::fail("no audio"); }
     void stopAudio() override {}
     int audioRate() const override { return 44100; }
-    // 3D from another System (a window's), if given.
+    // 3D from another System (a window's), if given; else, with
+    // `characters`, a renderer that draws nothing.
     System* threeD = nullptr;
+    bool characters = false;
+    NullRenderer none;
     Error init3D(int width, int height, gfx::Renderer3D*& out) override {
+        if (!threeD && characters) {
+            out = &none;
+            return Error::success();
+        }
         if (!threeD) {
             out = nullptr;
             return Error::fail("no 3D");
