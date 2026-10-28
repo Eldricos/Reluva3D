@@ -10,7 +10,9 @@ stands, like [idtech3.md](idtech3.md).
 |---|---|
 | Detection | Midtown Madness 2: the English Windows release by `mm2core.ar`'s hash (install folder or the CD's `GAME` folder); other releases by file names, shown as "unknown release" |
 | Archives | done: `.ar` ([ar.md](../formats/age/ar.md)); all 13,288 retail files read. Every `.ar` in the game folder is mounted, loose files over them (`filesystem.cpp`); `reluva-tool ar-list` and `ar-extract` |
-| Viewer | Files page: every file with its size and archive, by folder; text files shown as text, the rest as hex dumps |
+| Textures | done: `.tex` in its four formats ([tex.md](../formats/age/tex.md)); all 3,665 retail textures decode; the flags' meanings still to work out; `reluva-tool tex-info` |
+| Models | done: `.pkg` meshes, shaders with their paint jobs, placed models, and `.mtx` part placements ([pkg.md](../formats/age/pkg.md)); 1,034 of 1,040 retail models load (the 6 that don't are unused); `reluva-tool pkg-info` |
+| Viewer | Models page (3D, on the GPU renderer): every model with its parts placed, by level of detail and paint job, the lit parts (lamps, glows) on request; Textures page; Files page: every file with its size and archive, by folder; text files shown as text, the rest as hex dumps |
 
 Decided: Midtown Madness 1 comes after Midtown Madness 2 runs; the
 DirectMusic player comes after the game runs.
@@ -74,9 +76,8 @@ plain-text tuning files, so it can be read instead of reverse engineered.
 - `tune/*.mmHudMap`, camera files and more use the same `type: a` text
   form.
 
-Binary formats still to work out: `.pkg` models (`PKG3`, named `FILE`
-sections per level of detail and part), `.tex` textures (u16 width,
-height, format (1, 14, 17 and 18 seen), mipmaps, palette), `.psdl`
+Binary formats still to work out (models and textures are done, see
+the table above): `.psdl`
 (`PSD0`, the procedural street description the city's roads, sidewalks
 and buildings are generated from), `.inst` (placed models), `.bai`
 (`CAI1`, AI road network), `.cpvs` (`PVS0`, visibility), `.lmap` (`LMP0`),
@@ -135,13 +136,18 @@ recording how each format was worked out (CONTRIBUTING.md).
   `tests/zip_writer.h` does for zips.
 - Viewer: a Files page listing the archives, and text files shown.
 
-### 2. Textures and models (data viewer)
+### 2. Textures and models (data viewer) (done)
 
 - `.tex` decoding for each format seen, checked against all 3,665.
 - `.pkg` models: parts, levels of detail (`_H`, `_M`, `_L`, `_VL`),
-  materials, damage variants; `.mtx` placement matrices.
+  materials; `.mtx` placement matrices.
 - Textures and Models pages, as New Worlds' and Elite Force's: cars
   with their colours, buildings and props.
+- Left for later phases: the texture flags (probably repeat or clamp,
+  checked when the city is drawn), animating water, drawing a model's
+  placed models (xrefs), what the `offset` section and the headlight
+  squares are for, and how the game uses the damage textures (`_dmg`),
+  which are among a car body's own shaders.
 
 ### 3. The city
 

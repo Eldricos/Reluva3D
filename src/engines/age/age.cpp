@@ -9,7 +9,7 @@
 // CONTRIBUTING.md: never use leaked or unlicensed code.
 //
 // For now the engine is a data viewer (see viewers.h for the keys): it
-// mounts the game's archives and shows its files.
+// mounts the game's archives and shows their models, textures and files.
 
 #include "engines/age/filesystem.h"
 #include "engines/age/games.h"
@@ -45,6 +45,8 @@ public:
 
         ViewerContext ctx{sys_, screen_, files_, game_, warnings};
         std::vector<std::unique_ptr<Page>> pages;
+        pages.push_back(std::make_unique<ModelViewer>(ctx));
+        pages.push_back(std::make_unique<TextureViewer>(ctx));
         pages.push_back(std::make_unique<FileViewer>(ctx));
         size_t page = 0;
         while (page < pages.size() && pages[page]->count() == 0)
@@ -52,6 +54,24 @@ public:
         if (page == pages.size())
             return Error::fail("No files found in " + target_.path.string());
         pages[page]->activate();
+        // Leaving a 3D page: its renderer goes, the framebuffer comes back.
+        auto switchTo = [&](size_t next) -> Error {
+            const bool was3D = pages[page]->uses3D();
+            pages[page]->deactivate();
+            if (was3D)
+                if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32))
+                    return err;
+            page = next;
+            pages[page]->activate();
+            return Error::success();
+        };
+        struct Leave { // a 3D page's GPU objects go before the system's renderer
+            std::vector<std::unique_ptr<Page>>& pages;
+            ~Leave() {
+                for (auto& p : pages)
+                    p->deactivate();
+            }
+        } leave{pages};
 
         while (true) {
             Event ev;
@@ -66,14 +86,17 @@ public:
                     do
                         next = (next + 1) % pages.size();
                     while (pages[next]->count() == 0);
-                    page = next;
-                    pages[page]->activate();
+                    if (Error err = switchTo(next))
+                        return err;
                     continue;
                 }
                 pages[page]->handleEvent(ev);
             }
+            pages[page]->update(sys_.getMillis());
             sys_.updateScreen(screen_);
-            sys_.delayMillis(10);
+            // 3D pages are paced by presenting (vsync); the rest needn't spin.
+            if (!pages[page]->uses3D())
+                sys_.delayMillis(10);
         }
     }
 

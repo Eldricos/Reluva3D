@@ -61,6 +61,22 @@ void Page::setTitle(const std::string& detail) {
     ctx_.sys.setWindowTitle(std::string("Reluva - ") + ctx_.game.name + " - " + name() + ": " + detail);
 }
 
+std::string kindOf(const std::string& name) {
+    std::string file = name.substr(name.rfind('/') + 1);
+    file = file.substr(0, file.find('.'));
+    return normalizeArchiveName(file.substr(0, file.find('_')));
+}
+
+bool isLightPart(const std::string& part) {
+    std::string p = part;
+    while (!p.empty() && p.back() >= '0' && p.back() <= '9')
+        p.pop_back();
+    for (const char* name : {"HEADLIGHT", "HLIGHT", "TLIGHT", "BLIGHT", "RLIGHT", "SLIGHT", "SIREN", "SRN"})
+        if (p == name)
+            return true;
+    return p.find("GLOW") != std::string::npos || p.rfind("WALK_", 0) == 0 || p.rfind("NOWALK_", 0) == 0;
+}
+
 // --- fileLines --------------------------------------------------------------------------
 
 std::vector<std::string> fileLines(const std::vector<uint8_t>& data, bool& isText) {

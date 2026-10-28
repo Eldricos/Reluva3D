@@ -13,6 +13,11 @@
 //   reluva-tool ar-list <file.ar> [filter]         list an Angel Game Engine archive's files (size,
 //                                                  stored size, offset), every one read to check it
 //   reluva-tool ar-extract <file.ar> <dir> [filter]  extract files whose name contains filter
+//   reluva-tool tex-info <file.tex | game folder> [out.tga]  a texture's header (and the image as
+//                                                  TGA), or decode every texture in a game, by format
+//   reluva-tool pkg-info <file.pkg | game folder> [out.obj]  a model's meshes, shaders and placed
+//                                                  models (and its meshes as OBJ), or read every model
+//                                                  in a game, with what fails and textures not found
 //   reluva-tool tex-survey <file.cat>...           group every texture by header layout
 //   reluva-tool tex-keys <file.cat>...             compare each colour key with the image corners
 //   reluva-tool chunks <file>                      try to read any file as a (u16 tag, u32 size) chunk tree
@@ -112,6 +117,9 @@
 #endif
 #ifdef RELUVA_ENGINE_AGE
 #include "engines/age/ar_archive.h"
+#include "engines/age/filesystem.h"
+#include "engines/age/pkg.h"
+#include "engines/age/texture.h"
 #endif
 #include "common/font.h"
 #include "common/fs.h"
@@ -140,6 +148,7 @@
 #endif
 
 #include <map>
+#include <iterator>
 #include <memory>
 #include <set>
 
@@ -5173,6 +5182,174 @@ int cmdArExtract(int argc, char** argv) {
     std::printf("%u files written to %s\n", written, outDir.string().c_str());
     return 0;
 }
+// A game folder's search path, for the commands taking one.
+static bool mountAge(const char* dir, reluva::SearchSet& files) {
+    std::vector<std::string> warnings;
+    if (reluva::Error err = reluva::age::mountGame(files, dir, warnings)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return false;
+    }
+    for (const std::string& w : warnings)
+        std::fprintf(stderr, "warning: %s\n", w.c_str());
+    return true;
+}
+
+static bool hasSuffix(const std::string& s, const char* suffix) {
+    const size_t n = std::strlen(suffix);
+    return s.size() >= n && s.compare(s.size() - n, n, suffix) == 0;
+}
+
+int cmdTexInfo(int argc, char** argv) {
+    using namespace reluva::age;
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool tex-info <file.tex | game folder> [out.tga]\n");
+        return 2;
+    }
+    if (std::filesystem::is_directory(argv[2])) {
+        reluva::SearchSet files;
+        if (!mountAge(argv[2], files))
+            return 1;
+        std::map<std::string, unsigned> byKind;
+        unsigned failed = 0, total = 0;
+        std::vector<uint8_t> data;
+        for (const std::string& n : files.list()) {
+            const std::string key = reluva::normalizeArchiveName(n);
+            if (key.rfind("texture/", 0) != 0 || !hasSuffix(key, ".tex"))
+                continue;
+            ++total;
+            Tex tex;
+            reluva::Error err = files.read(n, data);
+            if (!err)
+                err = decodeTex(data, tex);
+            if (err) {
+                std::printf("%s: %s\n", n.c_str(), err.message.c_str());
+                ++failed;
+                continue;
+            }
+            char flags[16];
+            std::snprintf(flags, sizeof flags, "0x%x", tex.flags);
+            ++byKind[std::string(formatName(tex.format)) + ", flags " + flags];
+        }
+        for (const auto& [kind, count] : byKind)
+            std::printf("%6u  %s\n", count, kind.c_str());
+        std::printf("%u textures, %u failed\n", total, failed);
+        return failed ? 1 : 0;
+    }
+    std::vector<uint8_t> data;
+    std::ifstream in(argv[2], std::ios::binary);
+    data.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    Tex tex;
+    if (reluva::Error err = decodeTex(data, tex)) {
+        std::fprintf(stderr, "%s: %s\n", argv[2], err.message.c_str());
+        return 1;
+    }
+    std::printf("%d x %d, %s (format %u), %u levels, flags 0x%x\n", tex.image.w, tex.image.h,
+                formatName(tex.format), tex.format, tex.levels, tex.flags);
+    if (argc > 3) {
+        const auto tga = reluva::image::encodeTga(tex.image);
+        std::ofstream(argv[3], std::ios::binary).write(reinterpret_cast<const char*>(tga.data()),
+                                                       std::streamsize(tga.size()));
+    }
+    return 0;
+}
+
+int cmdPkgInfo(int argc, char** argv) {
+    using namespace reluva::age;
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool pkg-info <file.pkg | game folder> [out.obj]\n");
+        return 2;
+    }
+    std::vector<uint8_t> data;
+    if (std::filesystem::is_directory(argv[2])) {
+        reluva::SearchSet files;
+        if (!mountAge(argv[2], files))
+            return 1;
+        unsigned total = 0, failed = 0, meshes = 0, shaders = 0, untextured = 0;
+        std::map<std::string, unsigned> missing;
+        for (const std::string& n : files.list()) {
+            const std::string key = reluva::normalizeArchiveName(n);
+            if (key.rfind("geometry/", 0) != 0 || !hasSuffix(key, ".pkg"))
+                continue;
+            ++total;
+            Pkg pkg;
+            reluva::Error err = files.read(n, data);
+            if (!err)
+                err = readPkg(data, pkg);
+            if (err) {
+                std::printf("%s: %s\n", n.c_str(), err.message.c_str());
+                ++failed;
+                continue;
+            }
+            meshes += unsigned(pkg.meshes.size());
+            for (const PkgShader& s : pkg.shaders) {
+                ++shaders;
+                if (s.texture.empty()) {
+                    ++untextured;
+                    continue;
+                }
+                const std::string t = "texture/" + s.texture;
+                if (!files.has(t + ".tex") && !files.has(t + "-0001.tex") && !files.has(t + ".tga"))
+                    ++missing[s.texture];
+            }
+        }
+        for (const auto& [name, count] : missing)
+            std::printf("texture not found: %s (%u shaders)\n", name.c_str(), count);
+        std::printf("%u models, %u failed; %u meshes; %u shaders, %u without a texture, %zu textures not found\n",
+                    total, failed, meshes, shaders, untextured, missing.size());
+        return failed ? 1 : 0;
+    }
+    std::ifstream in(argv[2], std::ios::binary);
+    data.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    Pkg pkg;
+    if (reluva::Error err = readPkg(data, pkg)) {
+        std::fprintf(stderr, "%s: %s\n", argv[2], err.message.c_str());
+        return 1;
+    }
+    for (const PkgMesh& m : pkg.meshes) {
+        size_t verts = 0, tris = 0;
+        for (const PkgGroup& g : m.groups) {
+            verts += g.vertices.size();
+            tris += g.indices.size() / 3;
+        }
+        std::printf("%-20s fvf 0x%03x, %2zu groups, %5zu vertices, %5zu triangles\n", m.name.c_str(), m.fvf,
+                    m.groups.size(), verts, tris);
+    }
+    std::printf("%u paint jobs of %u shaders\n", pkg.paintJobs, pkg.shadersPerJob);
+    for (size_t i = 0; i < pkg.shaders.size(); ++i) {
+        const PkgShader& s = pkg.shaders[i];
+        std::printf("  %2zu.%-2zu %-28s diffuse %.2f %.2f %.2f %.2f, ambient %.2f %.2f %.2f, specular %.2f %.2f "
+                    "%.2f, emissive %.2f %.2f %.2f, shininess %.2f\n",
+                    i / std::max(pkg.shadersPerJob, 1u), i % std::max(pkg.shadersPerJob, 1u),
+                    s.texture.empty() ? "(none)" : s.texture.c_str(), s.diffuse[0], s.diffuse[1], s.diffuse[2],
+                    s.diffuse[3], s.ambient[0], s.ambient[1], s.ambient[2], s.specular[0], s.specular[1],
+                    s.specular[2], s.emissive[0], s.emissive[1], s.emissive[2], s.shininess);
+    }
+    if (pkg.hasOffset)
+        std::printf("offset %.3f %.3f %.3f\n", pkg.offset[0], pkg.offset[1], pkg.offset[2]);
+    for (const PkgXref& x : pkg.xrefs)
+        std::printf("placed %s at %.3f %.3f %.3f\n", x.name.c_str(), x.matrix[9], x.matrix[10], x.matrix[11]);
+    if (argc > 3) {
+        // Each mesh as an object, positions as stored (parts not placed).
+        std::ofstream obj(argv[3]);
+        size_t base = 1;
+        for (const PkgMesh& m : pkg.meshes) {
+            obj << "o " << m.name << "\n";
+            for (const PkgGroup& g : m.groups) {
+                for (const PkgVertex& v : g.vertices)
+                    obj << "v " << v.pos[0] << " " << v.pos[1] << " " << v.pos[2] << "\nvt " << v.uv[0] << " "
+                        << 1 - v.uv[1] << "\n";
+                for (size_t i = 0; i + 2 < g.indices.size(); i += 3) {
+                    obj << "f";
+                    for (size_t k = 0; k < 3; ++k)
+                        obj << " " << base + g.indices[i + k] << "/" << base + g.indices[i + k];
+                    obj << "\n";
+                }
+                base += g.vertices.size();
+            }
+        }
+    }
+    return 0;
+}
 #endif // RELUVA_ENGINE_AGE
 
 int main(int argc, char** argv) {
@@ -5235,6 +5412,10 @@ int main(int argc, char** argv) {
         return cmdArList(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "ar-extract") == 0)
         return cmdArExtract(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "tex-info") == 0)
+        return cmdTexInfo(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "pkg-info") == 0)
+        return cmdPkgInfo(argc, argv);
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
     if (argc >= 2 && std::strcmp(argv[1], "bsp-check") == 0)
@@ -5313,6 +5494,8 @@ int main(int argc, char** argv) {
 #ifdef RELUVA_ENGINE_AGE
                  "  reluva-tool ar-list <file.ar> [name filter]\n"
                  "  reluva-tool ar-extract <file.ar> <output dir> [name filter]\n"
+                 "  reluva-tool tex-info <file.tex | game folder> [out.tga]\n"
+                 "  reluva-tool pkg-info <file.pkg | game folder> [out.obj]\n"
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
                  "  reluva-tool bsp-check <game folder, e.g. .../BaseEF>\n"
