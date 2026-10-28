@@ -12,6 +12,7 @@
 #include "engines/age/pkg.h"
 
 #include <array>
+#include <functional>
 #include <map>
 #include <memory>
 #include <string>
@@ -67,10 +68,14 @@ std::vector<std::string> modelLevels(const Pkg& pkg);
 
 // Uploads the meshes of one level of `pkg` (and those not named by level;
 // the lit parts, as isLightPart says, only if `lights`), each part placed
-// by its geometry/<model>_<part>.mtx. `pkgName` is the file it came from.
+// by its geometry/<model>_<part>.mtx unless `placeParts` is false (to
+// place them when drawing, as a car's wheels). `pkgName` is the file it
+// came from. `includePart`, if given, picks the parts.
 Error buildModelMesh(gfx::Renderer3D& renderer, TextureCache& textures, const SearchSet& files,
                      const std::string& pkgName, const Pkg& pkg, const std::string& level, uint32_t paintJob,
-                     bool lights, ModelMesh& out);
+                     bool lights, ModelMesh& out,
+                     const std::function<bool(const std::string& part)>& includePart = nullptr,
+                     bool placeParts = true);
 void destroyModelMesh(gfx::Renderer3D& renderer, ModelMesh& mesh);
 
 // The light a scene is drawn with.

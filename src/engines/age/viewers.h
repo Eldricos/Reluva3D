@@ -6,6 +6,12 @@
 // The Angel Game Engine data viewer's pages. Tab switches pages; Esc
 // goes back to the launcher.
 //
+// Drive (3D): a car driven round a city. Up/Down (or W/S) accelerate and
+// brake (held when stopped, backs up), Left/Right (or A/D) steer, Space
+// is the handbrake. C changes the camera (near, far, in the car),
+// PageUp/PageDown the car, P its colour, Home/End the city, T the time and
+// weather, R puts the car back at the start, I shows or hides the info.
+//
 // World (3D): a city (London, San Francisco) flown through. Left/Right
 // pick the city, drag to look, W/A/S/D move, Space/C (or E/Q) go up and
 // down, Shift goes faster, T steps through the 16 times and weathers, M
@@ -31,8 +37,12 @@
 // dump, scrolled the same way; Esc or Backspace goes back to the list.
 
 #include "common/archive.h"
+#include "common/audio/mixer.h"
 #include "common/system.h"
 #include "common/gfx3d.h"
+#include "engines/age/car.h"
+#include "engines/age/city_scene.h"
+#include "engines/age/engine_sound.h"
 #include "engines/age/games.h"
 #include "engines/age/pkg.h"
 #include "engines/age/render_cache.h"
@@ -52,6 +62,7 @@ struct ViewerContext {
     const SearchSet& files;
     const GameInfo& game;
     const std::vector<std::string>& warnings; // problems loading the game's files
+    audio::Mixer* mixer = nullptr;            // sound output; none if the system has no audio
 };
 
 class Page {
@@ -197,54 +208,88 @@ public:
     bool uses3D() const override { return true; }
 
 private:
-    struct City {
-        std::string map;  // file names' stem: "sf"
-        std::string name; // "San Francisco"
-    };
-    struct Placed {
-        const ModelCache::Model* model;
-        gfx::Mat4 matrix;
-        gfx::Vec3 center; // of its bounds, in the world
-        float radius;
-    };
-
     void load(int index);
-    void unload();
-    void applyLighting();
     void resetView();
     void drawInfo(const std::string& stats);
 
-    std::vector<City> cities_;
+    std::vector<CityInfo> cities_;
     int index_ = 0;
+    int lighting_ = 4;
     gfx::Renderer3D* renderer_ = nullptr;
-    std::unique_ptr<TextureCache> textures_;
-    std::unique_ptr<ModelCache> models_;
+    std::unique_ptr<CityScene> scene_;
     Surface overlay_;
-
     std::string error_;
-    std::vector<std::string> notes_;
-    gfx::MeshId cityMesh_ = 0;
-    struct Batch {
-        uint32_t firstIndex, indexCount;
-        gfx::TextureId texture;
-        bool translucent;
-    };
-    std::vector<Batch> batches_;
-    std::vector<Placed> placed_;
-    std::string sky_; // the sky dome's model
-    ModelMesh skyMesh_;
-    int lighting_ = 4; // index into the 16 (.lt00-.lt15): time * 4 + weather
-    std::string lightingName_;
-    SceneLight light_;
 
-    gfx::Vec3 start_{}; // on the road nearest the middle, facing along it
-    float startYaw_ = 0;
     gfx::Vec3 eye_{};
     float yaw_ = 0, pitch_ = 0;
     bool dragging_ = false, showInfo_ = true, showModels_ = true;
     int lastX_ = 0, lastY_ = 0;
     uint64_t lastMs_ = 0;
     uint32_t keys_ = 0; // movement keys held, bit per kMove*
+};
+
+// A car driven round a city: Reluva's simulation of it (car.h) against
+// the city's collisions, seen from the car's own cameras, with its engine
+// sound and a HUD. Keys in the header's comment.
+class DriveViewer : public Page {
+public:
+    explicit DriveViewer(ViewerContext& ctx);
+    ~DriveViewer() override;
+    const char* name() const override { return "Drive"; }
+    size_t count() const override { return cities_.empty() ? 0 : cars_.size(); }
+    void activate() override;
+    void deactivate() override;
+    void handleEvent(const Event& ev) override;
+    void update(uint64_t nowMs) override;
+    bool uses3D() const override { return true; }
+
+private:
+    struct CarInfo {
+        std::string base;        // "vpbug"
+        std::string description; // "VW New Beetle"
+        std::vector<std::string> colors;
+    };
+    struct Camera {
+        bool inside = false; // in the car (camPovCS), else following it (camTrackCS)
+        Vec3 offset{0, 1, 4};
+        Vec3 lookAt{0, 1.5f, 0};
+        float minDistance = 3, maxDistance = 6;
+        float fov = 70; // degrees
+    };
+
+    void loadCity(int index);
+    void loadCar(int index);
+    void unloadCar();
+    void resetCar();
+    void loadCameras();
+    void drawCar();
+    void drawHud();
+
+    std::vector<CityInfo> cities_;
+    std::vector<CarInfo> cars_;
+    int city_ = 0, car_ = 0;
+    uint32_t paintJob_ = 0;
+    gfx::Renderer3D* renderer_ = nullptr;
+    std::unique_ptr<CityScene> scene_;
+    CollisionWorld world_;
+    size_t boundsUsed_ = 0;
+    Surface overlay_;
+    std::string error_;
+
+    CarSetup setup_;
+    CarSim sim_;
+    ModelMesh body_;
+    std::array<ModelMesh, 4> wheels_;
+    EngineSound engine_;
+
+    std::vector<Camera> cameras_;
+    int camera_ = 0;
+    Vec3 cameraPos_{};
+    bool cameraReset_ = true;
+    int lighting_ = 4;
+    bool showInfo_ = true;
+    uint32_t keys_ = 0; // driving keys held, bit per kDrive*
+    uint64_t lastMs_ = 0;
 };
 
 } // namespace reluva::age

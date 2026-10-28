@@ -9,8 +9,10 @@
 // CONTRIBUTING.md: never use leaked or unlicensed code.
 //
 // For now the engine is a data viewer (see viewers.h for the keys): it
-// mounts the game's archives and shows its cities, models, textures and files.
+// mounts the game's archives, drives its cars round its cities and shows
+// its models, textures and files.
 
+#include "common/audio/mixer.h"
 #include "engines/age/filesystem.h"
 #include "engines/age/games.h"
 #include "engines/age/viewers.h"
@@ -43,8 +45,17 @@ public:
             return err;
         screen_.create(kScreenW, kScreenH, PixelFormat::RGBA32);
 
-        ViewerContext ctx{sys_, screen_, files_, game_, warnings};
+        // One mixer for every page's sounds; without audio output, none.
+        audio::Mixer mixer(sys_.audioRate());
+        const bool audioOut = !audio::startMixerOutput(sys_, mixer);
+        struct AudioOff { // stops the output before the mixer goes
+            System& sys;
+            ~AudioOff() { sys.stopAudio(); }
+        } audioOff{sys_};
+
+        ViewerContext ctx{sys_, screen_, files_, game_, warnings, audioOut ? &mixer : nullptr};
         std::vector<std::unique_ptr<Page>> pages;
+        pages.push_back(std::make_unique<DriveViewer>(ctx));
         pages.push_back(std::make_unique<WorldViewer>(ctx));
         pages.push_back(std::make_unique<ModelViewer>(ctx));
         pages.push_back(std::make_unique<TextureViewer>(ctx));

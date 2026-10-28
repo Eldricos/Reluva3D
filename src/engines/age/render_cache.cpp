@@ -72,7 +72,8 @@ std::vector<std::string> modelLevels(const Pkg& pkg) {
 
 Error buildModelMesh(gfx::Renderer3D& renderer, TextureCache& textures, const SearchSet& files,
                      const std::string& pkgName, const Pkg& pkg, const std::string& level, uint32_t paintJob,
-                     bool lights, ModelMesh& out) {
+                     bool lights, ModelMesh& out, const std::function<bool(const std::string& part)>& includePart,
+                     bool placeParts) {
     out = ModelMesh{};
     const std::string base = pkgName.substr(0, pkgName.rfind('.'));
     std::vector<gfx::Vertex> vertices;
@@ -84,12 +85,15 @@ Error buildModelMesh(gfx::Renderer3D& renderer, TextureCache& textures, const Se
         // only when asked for, at whatever level they're made.
         if (isLightPart(m.part()) ? !lights : isLevel(m.level()) && m.level() != level)
             continue;
+        if (includePart && !includePart(m.part()))
+            continue;
         // A part with a placement (wheels, lights, breakable pieces) is
         // modelled about its own centre and moved to its origin.
         Vec3 at{};
         Mtx mtx;
         std::vector<uint8_t> placement;
-        if (!m.part().empty() && !files.read(base + "_" + m.part() + ".mtx", placement) && !readMtx(placement, mtx))
+        if (placeParts && !m.part().empty() && !files.read(base + "_" + m.part() + ".mtx", placement) &&
+            !readMtx(placement, mtx))
             at = mtx.origin;
         const bool lit = m.fvf & kFvfNormal;
         for (const PkgGroup& g : m.groups) {

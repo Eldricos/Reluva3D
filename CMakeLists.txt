@@ -194,6 +194,13 @@ if(RELUVA_ENGINE_AGE)
         src/engines/age/tune.cpp
         src/engines/age/render_cache.cpp
         src/engines/age/viewers.cpp
+        src/engines/age/city_scene.cpp
+        src/engines/age/bound.cpp
+        src/engines/age/collision.cpp
+        src/engines/age/car.cpp
+        src/engines/age/city_collision.cpp
+        src/engines/age/engine_sound.cpp
+        src/engines/age/drive_viewer.cpp
         src/engines/age/world_viewer.cpp
         src/engines/age/texture_viewer.cpp
         src/engines/age/model_viewer.cpp)
