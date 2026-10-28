@@ -4,6 +4,8 @@
 // Tests for the id Tech 3 engine's readers, on data built here.
 
 #include "engines/idtech3/bindings.h"
+#include "engines/idtech3/client/joystick_input.h"
+#include "engines/idtech3/client/player_input.h"
 #include "engines/idtech3/botlib/aas.h"
 #include "engines/idtech3/botlib/bot_library.h"
 #include "engines/idtech3/botlib/bot_script.h"
@@ -13,6 +15,7 @@
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
+#include "engines/idtech3/eliteforce/game_info.h"
 #include "engines/idtech3/eliteforce/net_client.h"
 #include "engines/idtech3/raven/savegame.h"
 #include "engines/idtech3/server/server_world.h"
@@ -856,6 +859,60 @@ static void testFilesystemAndDetection(const std::filesystem::path& tmp) {
         CHECK(!v.files.empty() && !v.files[0].md5.empty() && v.files[0].size > 0);
     CHECK(!findGame("nope"));
     std::filesystem::remove_all(tmp);
+}
+
+static void testJoystick() {
+    // As the original engines read the joystick (eliteforce-input.md).
+    CvarStore cvars;
+    JoystickInput::registerCvars(cvars);
+    JoystickInput joy;
+    auto event = [&](EventType type, int a = 0, int value = 0) {
+        Event ev;
+        ev.type = type;
+        ev.joyButton = ev.joyAxis = a;
+        ev.joyValue = value;
+        ev.joyHat = uint8_t(a);
+        joy.event(ev);
+    };
+    event(EventType::JoyButtonDown, 0);
+    CHECK(joy.frame(cvars).keys.empty()); // in_joystick 0: nothing
+    cvars.set("in_joystick", "1");
+    JoystickInput::Frame f = joy.frame(cvars);
+    CHECK(f.keys.size() == 1 && f.keys[0] == std::make_pair(185, true)); // JOY1
+    // x past the threshold to the left: the left arrow (joy_xbutton 1, the
+    // default); y pushed forward all the way: analog, 127 (joy_ybutton 0).
+    event(EventType::JoyAxis, 0, -20000);
+    event(EventType::JoyAxis, 1, -32768);
+    f = joy.frame(cvars);
+    CHECK(f.keys.size() == 1 && f.keys[0] == std::make_pair(134, true) && f.x == 0 && f.y == 127);
+    // Inside the threshold: let go; analog x when joy_xbutton is 0, right
+    // negative; the hat's up is JOY24.
+    event(EventType::JoyAxis, 0, 3000);
+    f = joy.frame(cvars);
+    CHECK(f.keys.size() == 1 && f.keys[0] == std::make_pair(134, false));
+    cvars.set("joy_xbutton", "0");
+    event(EventType::JoyAxis, 0, 32767);
+    event(EventType::JoyHat, joyhat::Up);
+    f = joy.frame(cvars);
+    CHECK(f.x == -126 && f.keys.size() == 1 && f.keys[0] == std::make_pair(208, true));
+    event(EventType::JoyHat, joyhat::Up | joyhat::Right); // no diagonals
+    f = joy.frame(cvars);
+    CHECK(f.keys.size() == 1 && f.keys[0] == std::make_pair(208, false));
+    // Off again: everything held let go.
+    cvars.set("in_joystick", "0");
+    f = joy.frame(cvars);
+    CHECK(f.keys.size() == 1 && f.keys[0] == std::make_pair(185, false) && f.x == 0 && f.y == 0);
+    CHECK(KeyBindings::keyName(185) == "JOY1" && KeyBindings::keyName(216) == "JOY32" &&
+          KeyBindings::keyName(232) == "AUX16");
+
+    // The player: y forward moves forward, added to the keys' and held to
+    // 127; x turns at a hundredth of cl_yawspeed per step (right: negative).
+    PlayerInput input;
+    input.setJoystick(-127, 127);
+    input.turn(cvars, 1000);
+    const GameInfo game = eliteforce::gameInfo();
+    const PlayerInput::Command c = input.command(cvars, game);
+    CHECK(c.forward == 127 && c.right == 0 && std::fabs(input.yaw + 140 * 1.27f) < 0.01f);
 }
 
 static void testCvars() {
@@ -3114,6 +3171,7 @@ int main() {
     testQvm();
     testCompiledQvm();
     testCvars();
+    testJoystick();
     testKeyBindings();
     testMarks();
     testMdr();

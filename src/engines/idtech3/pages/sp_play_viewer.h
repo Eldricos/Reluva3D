@@ -4,6 +4,7 @@
 #pragma once
 
 #include "engines/idtech3/pages/page.h"
+#include "engines/idtech3/client/joystick_input.h"
 #include "engines/idtech3/client/player_input.h"
 #include "engines/idtech3/client/scene_drawer.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
@@ -124,6 +125,8 @@ private:
     uint64_t lastMs_ = 0;
     int32_t clientTime_ = 0;
     PlayerInput input_;
+    JoystickInput joystick_;
+    void pollJoystick();
     bool wasSkipping_ = false; // a scene was being skipped last frame
     // The screen capture for the next level's loading screen (see
     // SpGameHost::screenShot), and a level change waiting for the frame

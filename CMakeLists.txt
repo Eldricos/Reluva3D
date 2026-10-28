@@ -170,6 +170,7 @@ if(RELUVA_ENGINE_IDTECH3)
     src/engines/idtech3/pages/start_page.cpp
     src/engines/idtech3/client/scene_drawer.cpp
     src/engines/idtech3/client/player_input.cpp
+    src/engines/idtech3/client/joystick_input.cpp
     src/engines/idtech3/server/server_world.cpp
     src/engines/idtech3/qvm.cpp
     src/engines/idtech3/cvars.cpp

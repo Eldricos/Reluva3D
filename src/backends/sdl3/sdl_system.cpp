@@ -82,6 +82,8 @@ SdlSystem::~SdlSystem() {
     release3D();
     if (gameTexture_)
         SDL_DestroyTexture(gameTexture_);
+    if (joystick_)
+        SDL_CloseJoystick(joystick_);
     if (renderer_)
         SDL_DestroyRenderer(renderer_);
     if (gpu_)
@@ -269,6 +271,44 @@ bool SdlSystem::pollEvent(Event& out) {
         case SDL_EVENT_MOUSE_WHEEL:
             out.type = EventType::MouseWheel;
             out.wheelY = ev.wheel.integer_y;
+            return true;
+        case SDL_EVENT_JOYSTICK_ADDED:
+            // The first joystick connected is the one used, as the
+            // original's engine read joystick 1.
+            if (!joystick_)
+                if ((joystick_ = SDL_OpenJoystick(ev.jdevice.which)))
+                    joystickId_ = ev.jdevice.which;
+            break;
+        case SDL_EVENT_JOYSTICK_REMOVED:
+            if (joystick_ && ev.jdevice.which == joystickId_) {
+                SDL_CloseJoystick(joystick_);
+                joystick_ = nullptr;
+                out.type = EventType::JoyRemoved;
+                return true;
+            }
+            break;
+        case SDL_EVENT_JOYSTICK_BUTTON_DOWN:
+        case SDL_EVENT_JOYSTICK_BUTTON_UP:
+            if (!joystick_ || ev.jbutton.which != joystickId_)
+                break;
+            out.type = ev.type == SDL_EVENT_JOYSTICK_BUTTON_DOWN ? EventType::JoyButtonDown : EventType::JoyButtonUp;
+            out.joyButton = ev.jbutton.button;
+            return true;
+        case SDL_EVENT_JOYSTICK_AXIS_MOTION:
+            if (!joystick_ || ev.jaxis.which != joystickId_)
+                break;
+            out.type = EventType::JoyAxis;
+            out.joyAxis = ev.jaxis.axis;
+            out.joyValue = ev.jaxis.value;
+            return true;
+        case SDL_EVENT_JOYSTICK_HAT_MOTION:
+            if (!joystick_ || ev.jhat.which != joystickId_ || ev.jhat.hat != 0)
+                break;
+            out.type = EventType::JoyHat;
+            out.joyHat = uint8_t((ev.jhat.value & SDL_HAT_UP ? joyhat::Up : 0) |
+                                 (ev.jhat.value & SDL_HAT_RIGHT ? joyhat::Right : 0) |
+                                 (ev.jhat.value & SDL_HAT_DOWN ? joyhat::Down : 0) |
+                                 (ev.jhat.value & SDL_HAT_LEFT ? joyhat::Left : 0));
             return true;
         case SDL_EVENT_TEXT_INPUT:
             if (!ev.text.text)

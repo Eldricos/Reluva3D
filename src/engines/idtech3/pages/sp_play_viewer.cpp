@@ -71,6 +71,7 @@ SpPlayViewer::SpPlayViewer(ViewerContext& ctx) : Page(ctx) {
 SpPlayViewer::~SpPlayViewer() { deactivate(); }
 
 void SpPlayViewer::activate() {
+    JoystickInput::registerCvars(cvars_);
     const VideoSettings video = videoSettings(ctx_.cvars);
     frameW_ = video.width;
     frameH_ = video.height;
@@ -721,6 +722,12 @@ bool SpPlayViewer::takesKey(const Event& ev) const {
 void SpPlayViewer::handleEvent(const Event& ev) {
     if (!renderer_)
         return;
+    // The joystick, read once a frame (pollJoystick).
+    if (ev.type == EventType::JoyButtonDown || ev.type == EventType::JoyButtonUp || ev.type == EventType::JoyAxis ||
+        ev.type == EventType::JoyHat || ev.type == EventType::JoyRemoved) {
+        joystick_.event(ev);
+        return;
+    }
     if (cinematic_) {
         // A typed key (Esc too) or a click skips it, as the original's;
         // nothing else gets through meanwhile.
@@ -910,7 +917,35 @@ void SpPlayViewer::runGame(uint64_t nowMs) {
         soundSystem_->endFrame();
 }
 
+void SpPlayViewer::pollJoystick() {
+    // As the Play page's: the joystick's keys as keys (to the menus while
+    // they have the keys), its analog axes moving and turning the player.
+    const JoystickInput::Frame f = joystick_.frame(cvars_);
+    const bool menus = menusHaveKeys();
+    input_.setJoystick(menus || cinematic_ ? 0 : f.x, menus || cinematic_ ? 0 : f.y);
+    for (const auto& [k, down] : f.keys) {
+        if (cinematic_)
+            continue; // only typed keys and clicks skip one
+        if (ui_) {
+            if (down)
+                ui_->keysDown.insert(k);
+            else
+                ui_->keysDown.erase(k);
+        }
+        if (down && menusHaveKeys()) {
+            menuKey(k);
+            continue;
+        }
+        runBinding(ctx_.bindings.get(k), k, down);
+        if (!renderer_)
+            return;
+    }
+}
+
 void SpPlayViewer::update(uint64_t nowMs) {
+    if (!renderer_)
+        return;
+    pollJoystick();
     if (!renderer_)
         return;
     nowMs_ = nowMs;

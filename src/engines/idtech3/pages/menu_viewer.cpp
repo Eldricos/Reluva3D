@@ -143,6 +143,11 @@ bool MenuViewer::takesKey(const Event& ev) const {
 }
 
 void MenuViewer::handleEvent(const Event& ev) {
+    if (ev.type == EventType::JoyButtonDown || ev.type == EventType::JoyButtonUp || ev.type == EventType::JoyAxis ||
+        ev.type == EventType::JoyHat || ev.type == EventType::JoyRemoved) {
+        joystick_.event(ev);
+        return;
+    }
     if (ev.type == EventType::KeyDown && ev.key == 'r' && (ev.mods & keymod::Ctrl)) {
         // Ctrl+R: start the menus again, stopped or not.
         menus_.reset();
@@ -178,6 +183,10 @@ void MenuViewer::update(uint64_t nowMs) {
 
     renderer_->setGamma(brightness(ctx_));
     renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
+    // The joystick's keys, as the original's engine passes them to the
+    // menus (binding JOY1... in the Controls menu, moving with the arrows).
+    for (const auto& [k, down] : joystick_.frame(ctx_.cvars).keys)
+        menus_.key(k, down);
     menus_.frame(nowMs);
     checkCommands();
 

@@ -54,6 +54,9 @@ public:
     }
 
     void handleEvent(const Event& ev);
+    // A key by its Quake III number (the joystick's: JOY1..., the arrows
+    // its axes give), pressed or released; the menus take presses only.
+    void key(int32_t q3key, bool down);
     // A frame: the menus run (time in ms since they started) and their
     // pictures and 3D scenes drawn, after beginFrame.
     void frame(uint64_t nowMs);

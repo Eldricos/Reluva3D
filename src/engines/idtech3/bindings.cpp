@@ -35,6 +35,20 @@ constexpr KeyName kKeyNames[] = {
     {q3key::Mouse2, "MOUSE2"},   {q3key::Mouse3, "MOUSE3"},    {q3key::Mouse4, "MOUSE4"},
     {q3key::Mouse5, "MOUSE5"},   {q3key::WheelDown, "MWHEELDOWN"}, {q3key::WheelUp, "MWHEELUP"},
     {';', "SEMICOLON"},
+    // The joystick's buttons, and the original's names for 217 to 232
+    // (nothing presses those).
+    {185, "JOY1"}, {186, "JOY2"}, {187, "JOY3"}, {188, "JOY4"},
+    {189, "JOY5"}, {190, "JOY6"}, {191, "JOY7"}, {192, "JOY8"},
+    {193, "JOY9"}, {194, "JOY10"}, {195, "JOY11"}, {196, "JOY12"},
+    {197, "JOY13"}, {198, "JOY14"}, {199, "JOY15"}, {200, "JOY16"},
+    {201, "JOY17"}, {202, "JOY18"}, {203, "JOY19"}, {204, "JOY20"},
+    {205, "JOY21"}, {206, "JOY22"}, {207, "JOY23"}, {208, "JOY24"},
+    {209, "JOY25"}, {210, "JOY26"}, {211, "JOY27"}, {212, "JOY28"},
+    {213, "JOY29"}, {214, "JOY30"}, {215, "JOY31"}, {216, "JOY32"},
+    {217, "AUX1"}, {218, "AUX2"}, {219, "AUX3"}, {220, "AUX4"},
+    {221, "AUX5"}, {222, "AUX6"}, {223, "AUX7"}, {224, "AUX8"},
+    {225, "AUX9"}, {226, "AUX10"}, {227, "AUX11"}, {228, "AUX12"},
+    {229, "AUX13"}, {230, "AUX14"}, {231, "AUX15"}, {232, "AUX16"},
 };
 
 } // namespace

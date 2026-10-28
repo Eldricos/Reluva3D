@@ -91,6 +91,13 @@ void PlayerInput::turn(const CvarStore& cvars, int32_t dtMs) {
     if (!held("strafe"))
         yaw += float(held("left") - held("right")) * setting(cvars, "cl_yawspeed", 140) * keyScale;
     pitch += float(held("lookdown") - held("lookup")) * setting(cvars, "cl_pitchspeed", 140) * keyScale;
+    // The joystick, as the original (CL_JoystickMove): its x at a
+    // hundredth of cl_yawspeed per step of 127, unless strafing; its y
+    // looks only with +mlook held (otherwise it moves; command()).
+    if (!held("strafe"))
+        yaw += setting(cvars, "cl_yawspeed", 140) * 0.01f * float(joyX_) * keyScale;
+    if (held("mlook"))
+        pitch += setting(cvars, "cl_pitchspeed", 140) * 0.01f * float(joyY_) * keyScale;
     // Not held within straight up and down here: the game keeps the view
     // there, adding its own offset (the player state's delta angles, set
     // when spawning to face the spawn point's way). Holding the command's
@@ -116,8 +123,15 @@ PlayerInput::Command PlayerInput::command(const CvarStore& cvars, const GameInfo
     int side = held("moveright") - held("moveleft");
     if (held("strafe"))
         side += held("right") - held("left");
-    cmd.forward = int8_t(std::clamp(speed * (held("forward") - held("back")), -127, 127));
-    cmd.right = int8_t(std::clamp(speed * side, -127, 127));
+    int forward = std::clamp(speed * (held("forward") - held("back")), -127, 127);
+    side = std::clamp(speed * side, -127, 127);
+    // The joystick's, added to the keys' (CL_JoystickMove).
+    if (held("strafe"))
+        side = std::clamp(side + joyX_, -127, 127);
+    if (!held("mlook"))
+        forward = std::clamp(forward + joyY_, -127, 127);
+    cmd.forward = int8_t(forward);
+    cmd.right = int8_t(side);
     cmd.up = int8_t(std::clamp(speed * (held("moveup") - held("movedown")), -127, 127));
     return cmd;
 }

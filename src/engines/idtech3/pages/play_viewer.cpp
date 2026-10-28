@@ -136,6 +136,7 @@ void PlayViewer::restartVideo() {
 }
 
 void PlayViewer::activate() {
+    JoystickInput::registerCvars(cvars_);
     if (!setUpGraphics())
         return;
     menuOpen_ = false;
@@ -1117,6 +1118,12 @@ void PlayViewer::typingEvent(const Event& ev) {
 }
 
 void PlayViewer::handleEvent(const Event& ev) {
+    // The joystick, read once a frame (pollJoystick).
+    if (ev.type == EventType::JoyButtonDown || ev.type == EventType::JoyButtonUp || ev.type == EventType::JoyAxis ||
+        ev.type == EventType::JoyHat || ev.type == EventType::JoyRemoved) {
+        joystick_.event(ev);
+        return;
+    }
     if (typing_ != Typing::None) {
         // Typing takes the keys and characters; the mouse still looks.
         if (ev.type == EventType::MouseMove) {
@@ -1349,9 +1356,31 @@ bool PlayViewer::runLocal(uint64_t nowMs, int32_t dt) {
     return true;
 }
 
+void PlayViewer::pollJoystick() {
+    // As the original reads it each frame: its keys (buttons, and axes
+    // and hat taken as keys) run their bindings, or go to the menus over
+    // the match; its analog axes move and turn the player.
+    const JoystickInput::Frame f = joystick_.frame(cvars_);
+    const bool playing = !menuOpen_ && typing_ == Typing::None;
+    input_.setJoystick(playing ? f.x : 0, playing ? f.y : 0);
+    for (const auto& [k, down] : f.keys) {
+        if (menuOpen_) {
+            menus_.key(k, down);
+            runMenuCommands();
+        } else if (typing_ == Typing::None) {
+            runBinding(ctx_.bindings.get(k), k, down);
+        }
+        if (!renderer_)
+            return;
+    }
+}
+
 void PlayViewer::update(uint64_t nowMs) {
     if (videoRestart_)
         restartVideo();
+    if (!renderer_)
+        return;
+    pollJoystick();
     if (!renderer_)
         return;
     if (!shownMs_)

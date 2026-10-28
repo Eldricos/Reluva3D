@@ -5,6 +5,7 @@
 
 #include "engines/idtech3/pages/page.h"
 #include "engines/idtech3/pages/menu_layer.h"
+#include "engines/idtech3/client/joystick_input.h"
 #include "engines/idtech3/client/player_input.h"
 #include "engines/idtech3/client/scene_drawer.h"
 #include "engines/idtech3/eliteforce/cgame_host.h"
@@ -191,6 +192,8 @@ private:
     // The player's view angles in degrees (pitch counts downwards), and
     // what they hold.
     PlayerInput input_;
+    JoystickInput joystick_;
+    void pollJoystick();
     gfx::Vec3 eye_{};
 };
 

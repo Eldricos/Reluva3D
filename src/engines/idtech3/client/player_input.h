@@ -31,6 +31,13 @@ public:
     // The buttons held, each with the keys holding it.
     const std::map<std::string, std::set<int32_t>>& buttons() const { return buttons_; }
 
+    // The joystick's analog axes this frame, -127 to 127 (JoystickInput):
+    // x turns the view (with +strafe, steps sideways), y moves forward
+    // and back (with +mlook, looks up and down), as the original's.
+    void setJoystick(int32_t x, int32_t y) {
+        joyX_ = x;
+        joyY_ = y;
+    }
     // The mouse moved (pixels), until the next turn().
     void addMouse(float dx, float dy) {
         mouseX_ += dx;
@@ -61,6 +68,7 @@ private:
     std::map<std::string, std::set<int32_t>> buttons_; // and the keys holding each
     float mouseX_ = 0, mouseY_ = 0;                     // moved since the last turn
     float lastMouseX_ = 0, lastMouseY_ = 0;             // the last turn's, for m_filter
+    int32_t joyX_ = 0, joyY_ = 0;                       // the joystick's analog axes
 };
 
 } // namespace reluva::idtech3

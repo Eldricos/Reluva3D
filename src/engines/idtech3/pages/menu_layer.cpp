@@ -3,6 +3,8 @@
 
 #include "engines/idtech3/pages/menu_layer.h"
 
+#include "engines/idtech3/client/joystick_input.h"
+
 #include "common/fs.h"
 
 #include <algorithm>
@@ -55,6 +57,7 @@ bool MenuLayer::start(int32_t menu) {
     cvars_.create("rate", "25000", player);
     cvars_.create("sex", "male", player);
     cvars_.create("color", "4", player);
+    JoystickInput::registerCvars(cvars_); // the Controls menu's joystick settings
     ui_ = std::make_unique<eliteforce::UiHost>(ctx_.files, cvars_);
     if (scene_)
         scene_->reset(); // new handles
@@ -259,6 +262,13 @@ void MenuLayer::handleEvent(const Event& ev) {
     default: break;
     }
     if (err)
+        stop(err);
+}
+
+void MenuLayer::key(int32_t q3key, bool down) {
+    if (!ui_ || !down)
+        return;
+    if (Error err = ui_->call(eliteforce::UiHost::KeyEvent, {q3key, 1}))
         stop(err);
 }
 
