@@ -718,8 +718,9 @@ Started. Done so far:
   mph.
 
 - **Native sound mixer** (`host/native_sound.cpp`).
-  - **Why.** A race's frame rate is the interpreter's speed: in a race
-    some thread can always run, so the processor never idles
+  - **Why.** A race's frame rate in `nfs-host` is the interpreter's
+    speed: in a race some thread can always run, so the processor never
+    idles
     (`nfs-host` now reports idle time each second; it's 0). The hot spots
     of a race (`nfs-host -hotspots`) put about 27% of its instructions in
     the game's software sound mixer (iSND, linked into nfs3.exe):
@@ -756,7 +757,22 @@ Started. Done so far:
   - **The result.** On a race into a fence, the frames took 1.20 million
     instructions instead of 1.49 million, and the frame rate rose from
     18.2 to 20.4 a second here. The hot spots are now flat (the hottest
-    block 1.1%), so what's left to gain is in the interpreter itself.
+    block 1.1%).
+  - **A correction.** Those runs drew in software (`nfs-host -native`),
+    and a host-side profile (a sampling profiler, by source line) put
+    about a third of their time in that drawing (`NativeThrash`). With
+    the GPU's lists instead (`-gpulog`, as the Play page runs), the same
+    race made about 60 frames a second at 0.85 million instructions
+    each, the interpreter running 57 to 81 million a second. In the app
+    on software Vulkan, the game made 59 to 61 frames a second; the
+    driver drew about 20 of them. So in the app the interpreter keeps up,
+    at least on a machine like this one.
+- **How fast it goes, in the app.** Every 5 seconds the Play page writes
+  a line to the console. It gives the frames the game made and the
+  instructions a second, whether the GPU or software draws them, and how
+  many were drawn, not needed (a later one covered them), dropped (too
+  many waiting) and shown. That tells a slow interpreter from frames lost
+  on the way to the screen.
 
 - **Network play** (TCP). The game does its own networking through
   Windows Sockets 1.1 (`WSOCK32`, 25 functions by ordinal), with no

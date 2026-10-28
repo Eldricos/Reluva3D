@@ -113,6 +113,12 @@ private:
     std::filesystem::path compareFolder_;
     int compared_ = 0, newFrames_ = 0;
     std::string result_; // how the run ended
+    // How fast it goes (reportSpeed): frames the game made and the
+    // instructions run (counted on its thread), frames drawn, not needed
+    // (a later one covered them), dropped (too many waiting) and shown.
+    void reportSpeed(uint64_t nowMs);
+    std::atomic<uint64_t> statGameFrames_{0}, statDropped_{0}, statInstructions_{0};
+    uint64_t statFrom_ = 0, statLastInstructions_ = 0, statDrawn_ = 0, statSkipped_ = 0, statShown_ = 0;
 };
 
 } // namespace reluva::nfs

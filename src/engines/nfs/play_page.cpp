@@ -208,6 +208,10 @@ void PlayPage::start() {
         frame_ = frame;
         if (fillMovies_)
             fillMovieLines(frame_);
+        if (!gpu_) {
+            ++statGameFrames_;
+            statInstructions_ = host_->cpu().executed();
+        }
         newFrame_ = true;
         thrashLatest_ = false;
         if (gpu_ && compareFolder_.empty()) { // DirectDraw's picture (in GPU mode, the only frames here)
@@ -229,6 +233,8 @@ void PlayPage::start() {
                     for (int x = x0; x < x1; ++x)
                         primary_.row(y)[x * 4 + 3] = 0;
         }
+        ++statGameFrames_;
+        statInstructions_ = host_->cpu().executed();
         Pending p{std::move(frame), nullptr};
         if (!compareFolder_.empty())
             p.software = std::make_shared<const Surface>(frame_); // drawn at the same flip, just before
@@ -250,6 +256,7 @@ void PlayPage::start() {
                                            std::make_move_iterator(older.end()));
             }
             pending_.pop_front();
+            ++statDropped_;
         }
         thrashLatest_ = true;
     };
@@ -317,8 +324,9 @@ void PlayPage::pollGamepad() {
     host_->setJoystick(state);
 }
 
-bool PlayPage::tick(uint64_t) {
+bool PlayPage::tick(uint64_t nowMs) {
     pollGamepad();
+    reportSpeed(nowMs);
     std::lock_guard<std::mutex> lock(mutex_);
     // Until the first frame, the log shows how start-up is going.
     return newFrame_ || frame_.pixels.empty() || !running_;
@@ -355,9 +363,34 @@ void PlayPage::drawStatus(Surface& screen) {
     }
 }
 
-void PlayPage::update(uint64_t) {
+void PlayPage::reportSpeed(uint64_t nowMs) {
+    // Every 5 seconds, on the console: how fast the game runs and how much
+    // of it is shown, for telling a slow interpreter from frames lost on
+    // the way to the screen.
+    if (!statFrom_) {
+        statFrom_ = nowMs;
+        return;
+    }
+    if (nowMs - statFrom_ < 5000 || !running_)
+        return;
+    const double seconds = double(nowMs - statFrom_) / 1000.0;
+    const uint64_t instructions = statInstructions_;
+    std::printf("Play: the game made %.1f frames a second at %.1f million instructions a second; %s drew %.1f a "
+                "second (%.1f not needed, %.1f dropped), shown %.1f times a second\n",
+                double(statGameFrames_) / seconds, double(instructions - statLastInstructions_) / seconds / 1e6,
+                gpu_ ? "the GPU" : "software", double(statDrawn_) / seconds, double(statSkipped_) / seconds,
+                double(statDropped_) / seconds, double(statShown_) / seconds);
+    std::fflush(stdout);
+    statFrom_ = nowMs;
+    statLastInstructions_ = instructions;
+    statGameFrames_ = statDropped_ = 0;
+    statDrawn_ = statSkipped_ = statShown_ = 0;
+}
+
+void PlayPage::update(uint64_t nowMs) {
     pollGamepad();
     passForces();
+    reportSpeed(nowMs);
     std::deque<Pending> frames;
     Surface overlay;
     bool thrash = false;
@@ -399,6 +432,9 @@ void PlayPage::update(uint64_t) {
     for (size_t i = 0; i < from; ++i)
         gpuDraw_.updateTextures(frames[i].frame);
     frames.erase(frames.begin(), frames.begin() + std::ptrdiff_t(from));
+    statSkipped_ += from;
+    statDrawn_ += frames.size();
+    ++statShown_;
     std::vector<const ThrashFrame*> list;
     bool compare = false;
     for (const Pending& p : frames) {
