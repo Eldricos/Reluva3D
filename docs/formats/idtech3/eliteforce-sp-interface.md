@@ -200,8 +200,15 @@ on loading a level whose name doesn't start with `_`) gets the level's
 own picture as its `SHOT`: `levelshots/<map>.tga` through entry 23 at
 256 × 256, flipped (rows bottom first); if there's none, the engine's held
 screen capture (`0x40aab0`, captured then if none is held). A save the
-player makes gets the screen capture. Reluva's
-(`sp_play_viewer.cpp`, `levelShot`) does the same.
+player makes gets the screen capture. The name says `.tga`, but the
+image loader takes the `.jpg` when there's no `.tga`, and every
+levelshot the game ships is a `.jpg` (`levelshots/voy1.jpg`... in
+pak0.pk3; 33 of them, none for most later levels: borg2, voy2...).
+The held capture is the screen as the last level ended (kept for the
+next level's loading screen), so levels reached by a level change
+without a levelshot get that. Reluva's (`sp_play_viewer.cpp`,
+`levelShot`) does the same; reading only the `.tga` made its autosaves'
+pictures black.
 
 ## Scene entities
 

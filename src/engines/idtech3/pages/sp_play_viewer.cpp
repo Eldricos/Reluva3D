@@ -4,6 +4,7 @@
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/entities.h"
 #include "engines/idtech3/pages/sp_play_viewer.h"
+#include "engines/idtech3/shader.h"
 
 #include "common/font.h"
 #include "common/image.h"
@@ -507,9 +508,12 @@ std::vector<uint8_t> SpPlayViewer::levelShot(const std::string& map) const {
     // autosave's picture (renderer entry 23, eliteforce-sp-interface.md):
     // as it is if it's that size, otherwise each pixel the average of the
     // ones it covers, opaque; rows bottom first. Empty if there's none.
+    // Its image loader takes the .jpg when there's no .tga, as the
+    // renderer's always do: the game's levelshots are all .jpg.
     std::vector<uint8_t> data;
     image::Image img;
-    if (ctx_.files.read("levelshots/" + map + ".tga", data) || image::decode(data, img) || img.w <= 0 || img.h <= 0)
+    const std::string file = findImage(ctx_.files, "levelshots/" + map + ".tga");
+    if (file.empty() || ctx_.files.read(file, data) || image::decode(data, img) || img.w <= 0 || img.h <= 0)
         return {};
     std::vector<uint8_t> out(eliteforce::SpUiHost::kShotSize, 0);
     const bool same = img.w == 256 && img.h == 256;
@@ -594,6 +598,10 @@ void SpPlayViewer::saveGame(const std::string& name, bool autosave) {
     // screen.
     if (autosave || !ui_)
         header.shot = levelShot(map_);
+    // Without one, the screen as the last level ended (the capture the
+    // engine holds for the loading screen).
+    if (autosave && header.shot.empty() && game_->screenShot.size() == eliteforce::SpUiHost::kShotSize)
+        header.shot = game_->screenShot;
     if (header.shot.empty())
         header.shot = ui_ ? ui_->capture() : std::vector<uint8_t>(eliteforce::SpUiHost::kShotSize, 0);
     header.autosave = autosave;
