@@ -3085,8 +3085,17 @@ void ScenePage::line(int x0, int y0, int x1, int y1, Color c) {
     }
 }
 
-void ScenePage::handleEvent(const Event& ev) {
+void ScenePage::handleEvent(const Event& event) {
     frame_++;
+    // In a game the mouse's place is kept within x 1004 and y 748, or 758
+    // while a conversation is on (0x4014ce..0x401546); clicks and picks
+    // use that place (0x416036).
+    Event ev = event;
+    if (playing_ &&
+        (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown || ev.type == EventType::MouseUp)) {
+        ev.mouseX = std::min(ev.mouseX, 1004);
+        ev.mouseY = std::min(ev.mouseY, dialogue_->active() ? 758 : 748);
+    }
     if (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown || ev.type == EventType::MouseUp) {
         lastMouseX_ = ev.mouseX, lastMouseY_ = ev.mouseY;
         cursorMoved_ |= cursorShown();

@@ -313,6 +313,10 @@ void DialogueManager::addExit(DialoguePart& p) {
                     p.threads.end());
     std::string name = prefix_ + "exit";
     int r = rand() % 4;
+    // After dark (the time of day, word[0x4986f8], above 0) the fourth
+    // becomes the fifth, "Good evening" (0x43af67).
+    if (const auto t = state_.values.find("time"); t != state_.values.end() && t->second > 0 && r == 3)
+        r = 4;
     if (testCondition("act >07a", state_))
         name = "gen_solutionexit", r = 0;
     auto nth = [&](const std::string& n) -> const Thread* {
