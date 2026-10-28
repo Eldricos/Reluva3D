@@ -258,21 +258,13 @@ private:
         bool memoryOperand = false;
     } d_;
     void decodeModrm();
-    // ModRM operands decoded before, by the ModRM byte's address: what an
-    // operand's bytes say (registers, scale, displacement) is worked out
-    // once, its address each time. An entry is used only while the bytes
-    // it was made from are still there, so code written over (by the
-    // program or by native code) is never run stale.
+    // A ModRM operand's fields, decoded a byte at a time (the slow way, near
+    // the end of memory).
     struct ModrmEntry {
-        uint32_t address = 0; // of the ModRM byte; 0 for none
-        uint8_t length = 0;   // ModRM, SIB and displacement bytes
         uint8_t mod = 0, regField = 0, rm = 0;
         uint8_t base = 8, index = 8, scale = 0; // 8: no register
         uint32_t displacement = 0;
-        uint64_t bytes = 0; // the bytes decoded, the rest of the 8 zero
     };
-    static constexpr uint32_t kModrmCacheSize = 1u << 16;
-    std::vector<ModrmEntry> modrmCache_;
     void decodeModrmSlow(ModrmEntry& e);
     uint32_t readRm(int size);
     void writeRm(int size, uint32_t v);

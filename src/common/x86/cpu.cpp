@@ -63,7 +63,7 @@ constexpr uint32_t kReturnSlots = 1;
 
 } // namespace
 
-Cpu::Cpu(uint32_t memorySize) : modrmCache_(kModrmCacheSize), memory_(memorySize, 0), memoryLimit_(memorySize - kPageSize) {
+Cpu::Cpu(uint32_t memorySize) : memory_(memorySize, 0), memoryLimit_(memorySize - kPageSize) {
     nativeBase_ = memorySize - kMaxNatives * kNativeStride;
     std::memset(&memory_[nativeBase_ - kNativeStride * kReturnSlots], 0xf4, kMaxNatives * kNativeStride + kNativeStride);
 }
@@ -170,7 +170,6 @@ void Cpu::writeReg(int size, int r, uint32_t v) {
 }
 
 void Cpu::decodeModrmSlow(ModrmEntry& e) {
-    const uint32_t start = eip;
     const uint32_t m = fetch8();
     e = ModrmEntry{};
     e.mod = uint8_t(m >> 6);
@@ -197,34 +196,72 @@ void Cpu::decodeModrmSlow(ModrmEntry& e) {
         else if (e.mod == 2)
             e.displacement += fetch32();
     }
-    e.length = uint8_t(eip - start);
-    if (valid(start, 8)) {
-        std::memcpy(&e.bytes, memory_.data() + start, 8);
-        e.bytes &= ~0ull >> (64 - 8 * e.length);
-        e.address = start;
-    }
 }
 
 void Cpu::decodeModrm() {
-    ModrmEntry& e = modrmCache_[eip & (kModrmCacheSize - 1)];
-    uint64_t bytes = 0;
-    if (e.address != eip || !validSmall(eip, 8) ||
-        (std::memcpy(&bytes, memory_.data() + eip, 8), (bytes & (~0ull >> (64 - 8 * e.length))) != e.bytes))
+    // Decoded from the instruction's next 8 bytes, read at once (ModRM, SIB
+    // and displacement take at most 6).
+    if (!validSmall(eip, 8)) [[unlikely]] {
+        ModrmEntry e;
         decodeModrmSlow(e);
-    else
-        eip += e.length;
-    d_.hasModrm = true;
-    d_.mod = e.mod;
-    d_.regField = e.regField;
-    d_.rm = e.rm;
-    d_.memoryOperand = e.mod != 3;
-    if (!d_.memoryOperand)
+        d_.hasModrm = true;
+        d_.mod = e.mod;
+        d_.regField = e.regField;
+        d_.rm = e.rm;
+        d_.memoryOperand = e.mod != 3;
+        if (!d_.memoryOperand)
+            return;
+        uint32_t a = e.displacement + d_.segment;
+        if (e.base < 8)
+            a += reg[e.base];
+        if (e.index < 8)
+            a += reg[e.index] << e.scale;
+        d_.address = a;
         return;
-    uint32_t a = e.displacement + d_.segment;
-    if (e.base < 8)
-        a += reg[e.base];
-    if (e.index < 8)
-        a += reg[e.index] << e.scale;
+    }
+    uint64_t bytes;
+    std::memcpy(&bytes, memory_.data() + eip, 8);
+    const uint32_t m = uint32_t(bytes & 0xff), mod = m >> 6, rm = m & 7;
+    d_.hasModrm = true;
+    d_.mod = uint8_t(mod);
+    d_.regField = uint8_t((m >> 3) & 7);
+    d_.rm = uint8_t(rm);
+    d_.memoryOperand = mod != 3;
+    if (mod == 3) {
+        eip += 1;
+        return;
+    }
+    uint32_t a = d_.segment, length = 1;
+    bytes >>= 8; // what follows the ModRM byte
+    if (rm == 4) {
+        const uint32_t sib = uint32_t(bytes & 0xff), index = (sib >> 3) & 7, base = sib & 7;
+        bytes >>= 8;
+        length = 2;
+        if (index != 4)
+            a += reg[index] << (sib >> 6);
+        if (base == 5 && mod == 0) {
+            a += uint32_t(bytes);
+            bytes >>= 32;
+            length += 4;
+        } else {
+            a += reg[base];
+        }
+    } else if (rm == 5 && mod == 0) {
+        a += uint32_t(bytes);
+        eip += 5;
+        d_.address = a;
+        return;
+    } else {
+        a += reg[rm];
+    }
+    if (mod == 1) {
+        a += uint32_t(int32_t(int8_t(bytes & 0xff)));
+        length += 1;
+    } else if (mod == 2) {
+        a += uint32_t(bytes);
+        length += 4;
+    }
+    eip += length;
     d_.address = a;
 }
 
