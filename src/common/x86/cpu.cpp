@@ -36,6 +36,28 @@ std::string hex(uint32_t v) {
 #define RELUVA_FORCE_INLINE [[gnu::always_inline]] inline
 #endif
 
+// Case labels for runs of opcodes.
+#define RELUVA_CASE6(b) \
+    case (b):           \
+    case (b) + 1:       \
+    case (b) + 2:       \
+    case (b) + 3:       \
+    case (b) + 4:       \
+    case (b) + 5
+#define RELUVA_CASE8(b) \
+    RELUVA_CASE6(b):    \
+    case (b) + 6:       \
+    case (b) + 7
+
+// The bytes that are prefixes: operand size, REP and REPNE, the segment
+// overrides, LOCK and address size.
+constexpr std::array<bool, 256> kPrefix = [] {
+    std::array<bool, 256> t{};
+    for (int b : {0x66, 0xf3, 0xf2, 0x64, 0x26, 0x2e, 0x36, 0x3e, 0x65, 0xf0, 0x67})
+        t[size_t(b)] = true;
+    return t;
+}();
+
 // Calls end by returning here: a HLT just below the native functions.
 constexpr uint32_t kReturnSlots = 1;
 
@@ -751,9 +773,8 @@ RELUVA_FORCE_INLINE void Cpu::step() {
     if (trace) [[unlikely]]
         trace(*this);
     d_ = Decoded{};
-    uint8_t op;
-    while (true) {
-        op = uint8_t(fetch8());
+    uint8_t op = uint8_t(fetch8());
+    while (kPrefix[op]) [[unlikely]] {
         if (op == 0x66)
             d_.opSize16 = true;
         else if (op == 0xf3)
@@ -762,17 +783,23 @@ RELUVA_FORCE_INLINE void Cpu::step() {
             d_.repne = true;
         else if (op == 0x64)
             d_.segment = fsBase;
-        else if (op == 0x26 || op == 0x2e || op == 0x36 || op == 0x3e || op == 0x65 || op == 0xf0)
-            continue; // flat segments; LOCK means nothing here
         else if (op == 0x67)
             fault("16-bit addressing not implemented");
-        else
-            break;
+        // else flat segments; LOCK means nothing here
+        op = uint8_t(fetch8());
     }
     const int osz = d_.opSize16 ? 2 : 4;
 
+    switch (op) {
     // The eight ALU operations, in their six forms each.
-    if (op < 0x40 && (op & 7) < 6) {
+    RELUVA_CASE6(0x00):
+    RELUVA_CASE6(0x08):
+    RELUVA_CASE6(0x10):
+    RELUVA_CASE6(0x18):
+    RELUVA_CASE6(0x20):
+    RELUVA_CASE6(0x28):
+    RELUVA_CASE6(0x30):
+    RELUVA_CASE6(0x38): {
         const int aluOp = op >> 3;
         int size = (op & 1) ? osz : 1;
         uint32_t a, b;
@@ -805,47 +832,38 @@ RELUVA_FORCE_INLINE void Cpu::step() {
             writeReg(size, EAX, r);
         return;
     }
-    if (op >= 0x40 && op <= 0x4f) { // INC/DEC r
+    RELUVA_CASE8(0x40):
+    RELUVA_CASE8(0x48): { // INC/DEC r
         const int r = op & 7;
         const uint32_t cf = eflags & CF;
         writeReg(osz, r, alu(op < 0x48 ? 0 : 5, readReg(osz, r), 1, osz));
         eflags = (eflags & ~CF) | cf;
         return;
     }
-    if (op >= 0x50 && op <= 0x57) {
-        push(reg[op & 7]);
-        return;
-    }
-    if (op >= 0x58 && op <= 0x5f) {
-        reg[op & 7] = pop();
-        return;
-    }
-    if (op >= 0x70 && op <= 0x7f) { // Jcc rel8
+    RELUVA_CASE8(0x50): push(reg[op & 7]); return;
+    RELUVA_CASE8(0x58): reg[op & 7] = pop(); return;
+    RELUVA_CASE8(0x70):
+    RELUVA_CASE8(0x78): { // Jcc rel8
         const uint32_t rel = uint32_t(int32_t(int8_t(fetch8())));
         if (condition(op & 15))
             eip += rel;
         return;
     }
-    if (op >= 0x91 && op <= 0x97) { // XCHG eAX, r
+    case 0x91:
+    case 0x92:
+    case 0x93:
+    case 0x94:
+    case 0x95:
+    case 0x96:
+    case 0x97: { // XCHG eAX, r
         const uint32_t t = readReg(osz, EAX);
         writeReg(osz, EAX, readReg(osz, op & 7));
         writeReg(osz, op & 7, t);
         return;
     }
-    if (op >= 0xb0 && op <= 0xb7) { // MOV r8, imm8
-        writeReg(1, op & 7, fetch8());
-        return;
-    }
-    if (op >= 0xb8 && op <= 0xbf) { // MOV r, imm
-        writeReg(osz, op & 7, osz == 2 ? fetch16() : fetch32());
-        return;
-    }
-    if (op >= 0xd8 && op <= 0xdf) {
-        x87(op);
-        return;
-    }
-
-    switch (op) {
+    RELUVA_CASE8(0xb0): writeReg(1, op & 7, fetch8()); return; // MOV r8, imm8
+    RELUVA_CASE8(0xb8): writeReg(osz, op & 7, osz == 2 ? fetch16() : fetch32()); return; // MOV r, imm
+    RELUVA_CASE8(0xd8): x87(op); return;
     case 0x0f: twoByte(); return;
     // Segment registers: pushed and popped as selectors (the model is flat).
     case 0x06: pushSegment(0); return; // PUSH ES
