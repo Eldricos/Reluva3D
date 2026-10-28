@@ -9,7 +9,7 @@
 // CONTRIBUTING.md: never use leaked or unlicensed code.
 //
 // For now the engine is a data viewer (see viewers.h for the keys): it
-// mounts the game's archives and shows their models, textures and files.
+// mounts the game's archives and shows its cities, models, textures and files.
 
 #include "engines/age/filesystem.h"
 #include "engines/age/games.h"
@@ -45,6 +45,7 @@ public:
 
         ViewerContext ctx{sys_, screen_, files_, game_, warnings};
         std::vector<std::unique_ptr<Page>> pages;
+        pages.push_back(std::make_unique<WorldViewer>(ctx));
         pages.push_back(std::make_unique<ModelViewer>(ctx));
         pages.push_back(std::make_unique<TextureViewer>(ctx));
         pages.push_back(std::make_unique<FileViewer>(ctx));

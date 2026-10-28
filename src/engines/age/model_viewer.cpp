@@ -7,12 +7,10 @@
 #include "engines/age/viewers.h"
 
 #include "common/font.h"
-#include "common/fs.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
-#include <limits>
 
 namespace reluva::age {
 
@@ -20,18 +18,7 @@ namespace {
 
 constexpr int kFrameW = 640, kFrameH = 480;
 
-// Finest first, as the meshes' names end (BODY_H, BODY_M...).
-const char* const kLevels[] = {"H", "M", "L", "VL"};
-
-int levelRank(const std::string& level) {
-    for (int i = 0; i < 4; ++i)
-        if (level == kLevels[i])
-            return i;
-    return -1;
-}
-
-// "geometry/vpbug.pkg" -> "geometry/vpbug"
-std::string stem(const std::string& name) { return name.substr(0, name.rfind('.')); }
+bool isLevel(const std::string& level) { return level == "H" || level == "M" || level == "L" || level == "VL"; }
 
 } // namespace
 
@@ -45,21 +32,10 @@ ModelViewer::ModelViewer(ViewerContext& ctx) : Page(ctx) {
 
 ModelViewer::~ModelViewer() { deactivate(); }
 
-void ModelViewer::freeGpu() {
-    if (!renderer_)
-        return;
-    if (mesh_)
-        renderer_->destroyMesh(mesh_);
-    mesh_ = 0;
-    draws_.clear();
-    for (auto& [name, t] : textures_)
-        if (t.id)
-            renderer_->destroyTexture(t.id);
-    textures_.clear();
-}
-
 void ModelViewer::deactivate() {
-    freeGpu();
+    if (renderer_)
+        destroyModelMesh(*renderer_, mesh_);
+    textures_.reset();
     renderer_ = nullptr;
 }
 
@@ -73,6 +49,7 @@ void ModelViewer::activate() {
         setTitle("3D rendering not available");
         return;
     }
+    textures_ = std::make_unique<TextureCache>(*renderer_, ctx_.files);
     overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
     show(index_);
 }
@@ -81,9 +58,9 @@ void ModelViewer::show(int index) {
     index_ = index;
     const std::string& name = names_[size_t(index)];
     setTitle(name + " (" + std::to_string(index + 1) + "/" + std::to_string(names_.size()) + ")");
-    freeGpu();
+    destroyModelMesh(*renderer_, mesh_);
+    textures_->clear();
     error_.clear();
-    levels_.clear();
     level_ = 0;
     paintJob_ = 0;
     std::vector<uint8_t> data;
@@ -93,137 +70,23 @@ void ModelViewer::show(int index) {
         error_ = e.message;
     if (!error_.empty()) {
         pkg_ = Pkg{};
+        levels_.clear();
         return;
     }
-    for (const char* l : kLevels)
-        for (const PkgMesh& m : pkg_.meshes)
-            if (m.level() == l) {
-                levels_.push_back(l);
-                break;
-            }
+    levels_ = modelLevels(pkg_);
     build();
-
-    // Frame the finest level's bounds.
-    Vec3 lo{std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max()};
-    Vec3 hi{-lo[0], -lo[1], -lo[2]};
-    bool any = false;
-    for (const PkgMesh& m : pkg_.meshes) {
-        if (!levels_.empty() && levelRank(m.level()) >= 0 && m.level() != levels_.front())
-            continue;
-        Vec3 at{};
-        Mtx mtx;
-        std::vector<uint8_t> placement;
-        if (!m.part().empty() && !ctx_.files.read(stem(name) + "_" + m.part() + ".mtx", placement) &&
-            !readMtx(placement, mtx))
-            at = mtx.origin;
-        for (const PkgGroup& g : m.groups)
-            for (const PkgVertex& v : g.vertices)
-                for (size_t k = 0; k < 3; ++k) {
-                    lo[k] = std::min(lo[k], v.pos[k] + at[k]);
-                    hi[k] = std::max(hi[k], v.pos[k] + at[k]);
-                    any = true;
-                }
-    }
-    radius_ = 1;
-    center_ = {0, 0, 0};
-    if (any) {
-        for (size_t k = 0; k < 3; ++k)
-            center_[k] = (lo[k] + hi[k]) / 2;
-        radius_ = std::max(0.1f, std::sqrt((hi[0] - lo[0]) * (hi[0] - lo[0]) + (hi[1] - lo[1]) * (hi[1] - lo[1]) +
-                                           (hi[2] - lo[2]) * (hi[2] - lo[2])) /
-                                     2);
-    }
+    // Frame the finest level.
+    center_ = mesh_.center;
+    radius_ = std::max(0.1f, mesh_.radius);
     resetView();
 }
 
-gfx::TextureId ModelViewer::texture(const std::string& name, bool& translucent) {
-    const std::string key = fs::toLower(name);
-    auto it = textures_.find(key);
-    if (it == textures_.end()) {
-        LoadedTexture t;
-        Tex tex;
-        if (Error err = loadTexture(ctx_.files, name, tex)) {
-            missing_.push_back(name);
-        } else {
-            for (size_t i = 3; i < tex.image.rgba.size(); i += 4)
-                if (tex.image.rgba[i] != 255) {
-                    t.translucent = true;
-                    break;
-                }
-            gfx::TextureParams params;
-            params.anisotropic = true;
-            if (renderer_->createTexture(tex.image.w, tex.image.h, tex.image.rgba.data(), params, t.id))
-                t.id = 0;
-        }
-        it = textures_.emplace(key, t).first;
-    }
-    translucent = it->second.translucent;
-    return it->second.id;
-}
-
 void ModelViewer::build() {
-    if (mesh_)
-        renderer_->destroyMesh(mesh_);
-    mesh_ = 0;
-    draws_.clear();
-    missing_.clear();
-    triangles_ = vertices_ = 0;
-
-    std::vector<gfx::Vertex> vertices;
-    std::vector<uint32_t> indices;
+    destroyModelMesh(*renderer_, mesh_);
     const std::string level = levels_.empty() ? std::string() : levels_[size_t(level_)];
-    const std::string base = stem(names_[size_t(index_)]);
-    for (const PkgMesh& m : pkg_.meshes) {
-        // Meshes of the chosen level, and any not named by level; the lit
-        // parts only when asked for, at whatever level they're made.
-        if (isLightPart(m.part()) ? !showLights_ : levelRank(m.level()) >= 0 && m.level() != level)
-            continue;
-        // A part with a placement (wheels, lights, breakable pieces) is
-        // modelled about its own centre and moved to its origin.
-        Vec3 at{};
-        Mtx mtx;
-        std::vector<uint8_t> placement;
-        if (!m.part().empty() && !ctx_.files.read(base + "_" + m.part() + ".mtx", placement) &&
-            !readMtx(placement, mtx))
-            at = mtx.origin;
-        const bool lit = m.fvf & 0x10; // has normals
-        for (const PkgGroup& g : m.groups) {
-            Draw d;
-            d.firstIndex = uint32_t(indices.size());
-            d.indexCount = uint32_t(g.indices.size());
-            if (const PkgShader* s = pkg_.shader(paintJob_, g.shader)) {
-                d.color = s->diffuse;
-                if (!s->texture.empty())
-                    d.texture = texture(s->texture, d.translucent);
-                // A glow: no diffuse colour, only emissive, added.
-                if (s->diffuse[3] == 0 && (s->emissive[0] > 0 || s->emissive[1] > 0 || s->emissive[2] > 0)) {
-                    d.glow = true;
-                    d.color = {s->emissive[0], s->emissive[1], s->emissive[2], 1};
-                }
-            }
-            d.translucent = d.glow || d.translucent || d.color[3] < 1;
-            d.lit = lit && !d.glow;
-            const uint32_t first = uint32_t(vertices.size());
-            for (const PkgVertex& v : g.vertices) {
-                gfx::Vertex out{};
-                for (size_t k = 0; k < 3; ++k) {
-                    out.pos[k] = v.pos[k] + at[k];
-                    out.normal[k] = v.normal[k];
-                }
-                out.uv[0] = v.uv[0];
-                out.uv[1] = v.uv[1];
-                out.color[0] = out.color[1] = out.color[2] = out.color[3] = 255;
-                vertices.push_back(out);
-            }
-            for (uint16_t i : g.indices)
-                indices.push_back(first + i);
-            draws_.push_back(d);
-            vertices_ += g.vertices.size();
-            triangles_ += g.indices.size() / 3;
-        }
-    }
-    if (!vertices.empty() && renderer_->createMesh(vertices, indices, mesh_))
-        mesh_ = 0;
+    if (Error err = buildModelMesh(*renderer_, *textures_, ctx_.files, names_[size_t(index_)], pkg_, level, paintJob_,
+                                   showLights_, mesh_))
+        error_ = err.message;
 }
 
 void ModelViewer::resetView() {
@@ -312,15 +175,15 @@ void ModelViewer::drawInfo() {
         for (size_t i = 0; i < levels_.size(); ++i)
             lv += (i ? " " : "") + (int(i) == level_ ? "[" + levels_[i] + "]" : levels_[i]);
         char buf[200];
-        std::snprintf(buf, sizeof buf, "level %s (L), paint job %u of %u (P), lit parts %s (G); %zu vertices, %zu triangles",
+        std::snprintf(buf, sizeof buf,
+                      "level %s (L), paint job %u of %u (P), lit parts %s (G); %zu vertices, %zu triangles",
                       lv.empty() ? "-" : lv.c_str(), paintJob_ + 1, std::max(pkg_.paintJobs, 1u),
-                      showLights_ ? "shown" : "hidden", vertices_, triangles_);
+                      showLights_ ? "shown" : "hidden", mesh_.vertices, mesh_.triangles);
         lines.push_back({buf, white});
         std::string parts;
         for (const PkgMesh& m : pkg_.meshes)
             if (isLightPart(m.part()) ? showLights_
-                                      : levels_.empty() || m.level() == levels_[size_t(level_)] ||
-                                            levelRank(m.level()) < 0)
+                                      : levels_.empty() || m.level() == levels_[size_t(level_)] || !isLevel(m.level()))
                 parts += (parts.empty() ? "" : " ") + m.name;
         lines.push_back({"meshes: " + parts, white});
         std::snprintf(buf, sizeof buf, "%u shaders a paint job; %zu placed models", pkg_.shadersPerJob,
@@ -331,7 +194,7 @@ void ModelViewer::drawInfo() {
                 lines.push_back({"  " + x.name + " at " + std::to_string(x.matrix[9]) + " " +
                                      std::to_string(x.matrix[10]) + " " + std::to_string(x.matrix[11]),
                                  white});
-        for (const std::string& m : missing_)
+        for (const std::string& m : textures_->missing())
             lines.push_back({"missing texture: " + m, red});
     }
     int y = 4;
@@ -354,32 +217,9 @@ void ModelViewer::update(uint64_t) {
         gfx::lookAlong(eye, {-offset[0], -offset[1], -offset[2]}, {0, 1, 0}));
     renderer_->beginFrame(viewProj, eye, {70, 74, 82});
     // Opaque first, then the translucent over them.
-    for (int pass = 0; pass < 2 && mesh_; ++pass)
-        for (const Draw& d : draws_) {
-            if (d.translucent != (pass == 1))
-                continue;
-            gfx::DrawCall call;
-            call.mesh = mesh_;
-            call.firstIndex = d.firstIndex;
-            call.indexCount = d.indexCount;
-            call.texture = d.texture;
-            call.color = d.color;
-            call.rgbSource = d.lit ? gfx::ColorSource::Lighting : gfx::ColorSource::Constant;
-            call.ambientLight = {0.55f, 0.55f, 0.55f};
-            call.directedLight = {0.6f, 0.6f, 0.6f};
-            call.lightDirection = {-0.4f, 0.8f, -0.45f}; // from above, front left
-            if (d.glow) {
-                call.state.src = call.state.dst = gfx::Blend::One;
-                call.state.depthWrite = false;
-                call.state.cull = gfx::Cull::None;
-            } else if (pass == 1) {
-                call.state.src = gfx::Blend::SrcAlpha;
-                call.state.dst = gfx::Blend::OneMinusSrcAlpha;
-                call.state.depthWrite = false;
-                call.state.alphaTest = gfx::AlphaTest::Gt0;
-            }
-            renderer_->draw(call);
-        }
+    const SceneLight light;
+    drawModelMesh(*renderer_, mesh_, gfx::identity(), light, false);
+    drawModelMesh(*renderer_, mesh_, gfx::identity(), light, true);
     drawInfo();
     renderer_->endFrame(&overlay_);
 }

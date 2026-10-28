@@ -6,6 +6,11 @@
 // The Angel Game Engine data viewer's pages. Tab switches pages; Esc
 // goes back to the launcher.
 //
+// World (3D): a city (London, San Francisco) flown through. Left/Right
+// pick the city, drag to look, W/A/S/D move, Space/C (or E/Q) go up and
+// down, Shift goes faster, T steps through the 16 times and weathers, M
+// shows or hides the placed models, I the info, R returns to the start.
+//
 // Models (3D): every model (geometry/*.pkg), its parts placed by their
 // .mtx files. Left/Right step through them (PageUp/PageDown by 10,
 // Home/End), Up/Down jump to the next kind (the name's first part:
@@ -30,6 +35,7 @@
 #include "common/gfx3d.h"
 #include "engines/age/games.h"
 #include "engines/age/pkg.h"
+#include "engines/age/render_cache.h"
 #include "engines/age/texture.h"
 
 #include <cstdint>
@@ -78,12 +84,6 @@ protected:
 // The first part of a name's file name, for jumping between kinds:
 // "geometry/vpbug.pkg" -> "vpbug", "texture/sw_stc_tan.tex" -> "sw".
 std::string kindOf(const std::string& name);
-
-// Whether a model's part is one the game shows only when it's lit: a
-// car's lamps and their glows (HEADLIGHT0, HLIGHT, TLIGHT, BLIGHT,
-// RLIGHT, SLIGHT0, SIREN0, SRN0), a traffic light's (REDGLOWDAY...) and a
-// crossing's signs (WALK_NIGHT...).
-bool isLightPart(const std::string& part);
 
 // A file's contents as lines to show: its text (tabs expanded, CR LF and
 // LF ends) if it looks like text, else a hex dump of 16 bytes a line.
@@ -156,26 +156,15 @@ public:
     bool uses3D() const override { return true; }
 
 private:
-    // One draw: a group's triangles in the uploaded mesh, with its shader.
-    struct Draw {
-        uint32_t firstIndex = 0, indexCount = 0;
-        gfx::TextureId texture = 0;
-        std::array<float, 4> color{1, 1, 1, 1};
-        bool translucent = false;
-        bool lit = true;  // by the light (the mesh has normals), else as coloured
-        bool glow = false; // added to what's behind (a light's halo)
-    };
-
     void show(int index);
     void build(); // the current level of detail and paint job, uploaded
-    void freeGpu();
-    gfx::TextureId texture(const std::string& name, bool& translucent);
     void resetView();
     void drawInfo();
 
     std::vector<std::string> names_;
     int index_ = 0;
     gfx::Renderer3D* renderer_ = nullptr;
+    std::unique_ptr<TextureCache> textures_;
     Surface overlay_;
 
     Pkg pkg_;
@@ -183,21 +172,79 @@ private:
     std::vector<std::string> levels_; // the model's levels of detail, finest first
     int level_ = 0;
     uint32_t paintJob_ = 0;
-    gfx::MeshId mesh_ = 0;
-    std::vector<Draw> draws_;
-    struct LoadedTexture {
-        gfx::TextureId id = 0;
-        bool translucent = false;
-    };
-    std::map<std::string, LoadedTexture> textures_; // by lower-case name; id 0: missing
-    std::vector<std::string> missing_;
-    size_t triangles_ = 0, vertices_ = 0;
+    ModelMesh mesh_;
 
-    gfx::Vec3 center_{};
+    Vec3 center_{};
     float radius_ = 1;
     float yaw_ = 0, pitch_ = 0, distance_ = 1;
     bool dragging_ = false, showInfo_ = true, showLights_ = false;
     int lastX_ = 0, lastY_ = 0;
+};
+
+// A city flown through: its streets and buildings from the PSDL, the
+// models placed in it, its sky, lit as at one of its 16 times and
+// weathers. Keys in the header's comment.
+class WorldViewer : public Page {
+public:
+    explicit WorldViewer(ViewerContext& ctx);
+    ~WorldViewer() override;
+    const char* name() const override { return "World"; }
+    size_t count() const override { return cities_.size(); }
+    void activate() override;
+    void deactivate() override;
+    void handleEvent(const Event& ev) override;
+    void update(uint64_t nowMs) override;
+    bool uses3D() const override { return true; }
+
+private:
+    struct City {
+        std::string map;  // file names' stem: "sf"
+        std::string name; // "San Francisco"
+    };
+    struct Placed {
+        const ModelCache::Model* model;
+        gfx::Mat4 matrix;
+        gfx::Vec3 center; // of its bounds, in the world
+        float radius;
+    };
+
+    void load(int index);
+    void unload();
+    void applyLighting();
+    void resetView();
+    void drawInfo(const std::string& stats);
+
+    std::vector<City> cities_;
+    int index_ = 0;
+    gfx::Renderer3D* renderer_ = nullptr;
+    std::unique_ptr<TextureCache> textures_;
+    std::unique_ptr<ModelCache> models_;
+    Surface overlay_;
+
+    std::string error_;
+    std::vector<std::string> notes_;
+    gfx::MeshId cityMesh_ = 0;
+    struct Batch {
+        uint32_t firstIndex, indexCount;
+        gfx::TextureId texture;
+        bool translucent;
+    };
+    std::vector<Batch> batches_;
+    std::vector<Placed> placed_;
+    std::string sky_; // the sky dome's model
+    ModelMesh skyMesh_;
+    int lighting_ = 4; // index into the 16 (.lt00-.lt15): time * 4 + weather
+    std::string lightingName_;
+    SceneLight light_;
+
+    gfx::Vec3 start_{}; // on the road nearest the middle, facing along it
+    float startYaw_ = 0;
+    gfx::Vec3 eye_{};
+    float yaw_ = 0, pitch_ = 0;
+    bool dragging_ = false, showInfo_ = true, showModels_ = true;
+    int lastX_ = 0, lastY_ = 0;
+    uint64_t lastMs_ = 0;
+    uint32_t keys_ = 0; // movement keys held, bit per kMove*
 };
 
 } // namespace reluva::age

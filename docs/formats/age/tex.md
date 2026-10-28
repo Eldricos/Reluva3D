@@ -12,9 +12,15 @@ and a count from 1 to 10 that grew with the file size for the same image
 size. A file's size then came out exactly as 14 bytes of header, 1,024
 bytes of palette for formats 1 and 14, and each mipmap level (each half
 the last, down to 1 pixel) at 1, 3 or 4 bytes a pixel: true of all 3,665.
-The colour order was settled by looking: drawn as B, G, R the fire
-truck's body is red and San Francisco's map has blue water; drawn as R,
-G, B they're blue and orange.
+The colour order was settled by looking, and differs between the
+formats. The palettes are B, G, R, A: drawn that way the fire truck's
+body (format 1) is red and San Francisco's map has blue water, the other
+way round they're blue and orange. The 24- and 32-bit formats are R, G,
+B(, A): the US roads' centre lines (`r2_f`, format 17) come out yellow
+that way and cyan the other, and the red traffic light's glow
+(`s_red_glow`, format 18) averages 194, 2, 0 in its first three bytes.
+(The first version of this page had them all B, G, R, from the palette
+textures alone; the city's roads showed it wrong.)
 
 ## Layout
 
@@ -33,8 +39,8 @@ G, B they're blue and orange.
 |---|---|---|
 | 1 | 8-bit palette indices; every palette's alpha is 255 | 2,931 |
 | 14 | 8-bit palette indices, the palette's alpha used (signs, wheels, trees) | 139 |
-| 17 | 24-bit B, G, R (roads, ground, skies, some facades) | 300 |
-| 18 | 32-bit B, G, R, A (glows, dashboards, decals) | 295 |
+| 17 | 24-bit R, G, B (roads, ground, skies, some facades) | 300 |
+| 18 | 32-bit R, G, B, A (glows, dashboards, decals) | 295 |
 
 Sizes run from 8 to 650 pixels a side, and 148 aren't square. All but
 two are powers of two: `nl01_coit_top` (64 x 73) and

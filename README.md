@@ -27,8 +27,8 @@ src/engines/       one directory per engine, plus registry.cpp listing them
                    Voyager - Elite Force: search path, shader scripts, BSP
                    maps; currently runs as a data viewer (docs/engines/idtech3.md)
   age/             games on Angel Studios' Angel Game Engine, starting with
-                   Midtown Madness 2: its archives, textures and models;
-                   currently runs as a data viewer (docs/engines/age.md)
+                   Midtown Madness 2: its archives, textures, models and
+                   cities; currently runs as a data viewer (docs/engines/age.md)
 src/tools/         reluva-tool, utilities for studying game data
 tests/             unit tests for common/ and the engines
 ```
@@ -60,8 +60,8 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
 - `reluva --hash <files...>` prints detection signatures for an engine's table.
 - `reluva-tool` has developer tools for studying game data: `hexdump`,
   `cat-probe`, `cat-list` and `cat-extract` (New Worlds archives), `ar-list`,
-  `ar-extract`, `tex-info` and `pkg-info` (Midtown Madness 2's archives, textures
-  and models).
+  `ar-extract`, `tex-info`, `pkg-info` and `psdl-info` (Midtown Madness 2's
+  archives, textures, models and cities).
 - In game: **Ctrl+F5** returns to the launcher, **Alt+Enter** toggles fullscreen.
 - New Worlds currently opens as a data viewer. **Tab** switches between missions, models,
   textures, maps, sounds, strings and fonts, **Left/Right** step through them and **F** cycles filters.
@@ -106,9 +106,13 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   **Left/Right** step through them (**PageUp/PageDown** by 10). The files page lists the
   search path and which archive each file comes from.
 
-- Midtown Madness 2 (Angel Game Engine) opens as a data viewer on its models in 3D (it
-  needs a GPU with Vulkan or Metal, as Elite Force's). **Tab** switches between models,
-  textures and files. For models, **Left/Right** step (**PageUp/PageDown** by 10),
+- Midtown Madness 2 (Angel Game Engine) opens as a data viewer on its cities in 3D (it
+  needs a GPU with Vulkan or Metal, as Elite Force's). **Tab** switches between the
+  world, models, textures and files. In the world, **Left/Right** picks London or San
+  Francisco, drag to look, **W/A/S/D** move, **Space/C** (or **E/Q**) go up and down,
+  **Shift** goes faster, **T** steps through the 16 times of day and weathers, **M**
+  shows or hides the placed models, **I** the info and **R** returns to the start (on
+  the road nearest the city's middle). For models, **Left/Right** step (**PageUp/PageDown** by 10),
   **Up/Down** jump to the next kind (`vp` cars, `sp` props...), drag to turn, the wheel
   (or **+/-**) zooms, **L** changes the level of detail, **P** the paint job, **G** shows
   the parts that only show when lit (lamps, sirens' and traffic lights' glows), **I**

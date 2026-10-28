@@ -188,7 +188,13 @@ if(RELUVA_ENGINE_AGE)
         src/engines/age/filesystem.cpp
         src/engines/age/texture.cpp
         src/engines/age/pkg.cpp
+        src/engines/age/psdl.cpp
+        src/engines/age/city_mesh.cpp
+        src/engines/age/instances.cpp
+        src/engines/age/tune.cpp
+        src/engines/age/render_cache.cpp
         src/engines/age/viewers.cpp
+        src/engines/age/world_viewer.cpp
         src/engines/age/texture_viewer.cpp
         src/engines/age/model_viewer.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_AGE)

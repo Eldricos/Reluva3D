@@ -15,6 +15,9 @@
 //   reluva-tool ar-extract <file.ar> <dir> [filter]  extract files whose name contains filter
 //   reluva-tool tex-info <file.tex | game folder> [out.tga]  a texture's header (and the image as
 //                                                  TGA), or decode every texture in a game, by format
+//   reluva-tool psdl-info <game folder> <city> [out.obj]  a city's blocks and attributes by type,
+//                                                  textures not found, its placed models (.inst);
+//                                                  out.obj: the streets and buildings as generated
 //   reluva-tool pkg-info <file.pkg | game folder> [out.obj]  a model's meshes, shaders and placed
 //                                                  models (and its meshes as OBJ), or read every model
 //                                                  in a game, with what fails and textures not found
@@ -117,7 +120,10 @@
 #endif
 #ifdef RELUVA_ENGINE_AGE
 #include "engines/age/ar_archive.h"
+#include "engines/age/city_mesh.h"
 #include "engines/age/filesystem.h"
+#include "engines/age/instances.h"
+#include "engines/age/psdl.h"
 #include "engines/age/pkg.h"
 #include "engines/age/texture.h"
 #endif
@@ -5350,6 +5356,75 @@ int cmdPkgInfo(int argc, char** argv) {
     }
     return 0;
 }
+int cmdPsdlInfo(int argc, char** argv) {
+    using namespace reluva::age;
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool psdl-info <game folder> <city, e.g. sf> [out.obj]\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    if (!mountAge(argv[2], files))
+        return 1;
+    const std::string city = argv[3];
+    std::vector<uint8_t> data;
+    Psdl psdl;
+    reluva::Error err = files.read("city/" + city + ".psdl", data);
+    if (!err)
+        err = readPsdl(data, psdl);
+    if (err) {
+        std::fprintf(stderr, "city/%s.psdl: %s\n", city.c_str(), err.message.c_str());
+        return 1;
+    }
+    static const char* const kNames[] = {"road strip", "sidewalk strip", "rectangle strip", "sliver", "crosswalk",
+                                         "road fan", "fan", "facade bound", "divided road", "tunnel", "texture",
+                                         "facade", "roof"};
+    size_t counts[13] = {};
+    size_t attributes = 0;
+    for (const PsdlBlock& b : psdl.blocks)
+        for (const PsdlAttribute& a : b.attributes) {
+            ++counts[a.type];
+            ++attributes;
+        }
+    std::printf("%zu vertices, %zu heights, %zu textures, %zu blocks, %zu attributes\n", psdl.vertices.size(),
+                psdl.heights.size(), psdl.textures.size(), psdl.blocks.size() - 1, attributes);
+    for (size_t t = 0; t < 13; ++t)
+        std::printf("  %6zu %s\n", counts[t], kNames[t]);
+    std::printf("bounds %.1f %.1f %.1f to %.1f %.1f %.1f, centre %.1f %.1f %.1f, radius %.1f\n", psdl.min[0],
+                psdl.min[1], psdl.min[2], psdl.max[0], psdl.max[1], psdl.max[2], psdl.center[0], psdl.center[1],
+                psdl.center[2], psdl.radius);
+    for (const std::string& t : psdl.textures) {
+        const std::string base = "texture/" + t;
+        if (!t.empty() && !files.has(base + ".tex") && !files.has(base + "-0001.tex") && !files.has(base + ".tga"))
+            std::printf("texture not found: %s\n", t.c_str());
+    }
+    std::vector<Instance> instances;
+    if (!files.read("city/" + city + ".inst", data)) {
+        if (reluva::Error e = readInstances(data, instances))
+            std::printf("city/%s.inst: %s\n", city.c_str(), e.message.c_str());
+        size_t found = 0;
+        for (const Instance& i : instances)
+            found += files.has("geometry/" + i.model + ".pkg");
+        std::printf("%zu placed models, %zu of them found\n", instances.size(), found);
+    }
+    CityMesh mesh;
+    buildCityMesh(psdl, mesh);
+    size_t triangles = 0;
+    for (const CityMesh::Batch& b : mesh.batches)
+        triangles += b.indices.size() / 3;
+    std::printf("generated: %zu triangles in %zu textures; %zu attributes not drawn yet\n", triangles,
+                mesh.batches.size(), mesh.skipped);
+    if (argc > 4) {
+        std::ofstream obj(argv[4]);
+        for (const reluva::gfx::Vertex& v : mesh.vertices)
+            obj << "v " << v.pos[0] << " " << v.pos[1] << " " << v.pos[2] << "\n";
+        for (const CityMesh::Batch& b : mesh.batches) {
+            obj << "g " << (b.texture.empty() ? "untextured" : b.texture) << "\n";
+            for (size_t i = 0; i + 2 < b.indices.size(); i += 3)
+                obj << "f " << b.indices[i] + 1 << " " << b.indices[i + 1] + 1 << " " << b.indices[i + 2] + 1 << "\n";
+        }
+    }
+    return 0;
+}
 #endif // RELUVA_ENGINE_AGE
 
 int main(int argc, char** argv) {
@@ -5416,6 +5491,8 @@ int main(int argc, char** argv) {
         return cmdTexInfo(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "pkg-info") == 0)
         return cmdPkgInfo(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "psdl-info") == 0)
+        return cmdPsdlInfo(argc, argv);
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
     if (argc >= 2 && std::strcmp(argv[1], "bsp-check") == 0)
@@ -5496,6 +5573,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool ar-extract <file.ar> <output dir> [name filter]\n"
                  "  reluva-tool tex-info <file.tex | game folder> [out.tga]\n"
                  "  reluva-tool pkg-info <file.pkg | game folder> [out.obj]\n"
+                 "  reluva-tool psdl-info <game folder> <city> [out.obj]\n"
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
                  "  reluva-tool bsp-check <game folder, e.g. .../BaseEF>\n"

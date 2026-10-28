@@ -12,7 +12,8 @@ stands, like [idtech3.md](idtech3.md).
 | Archives | done: `.ar` ([ar.md](../formats/age/ar.md)); all 13,288 retail files read. Every `.ar` in the game folder is mounted, loose files over them (`filesystem.cpp`); `reluva-tool ar-list` and `ar-extract` |
 | Textures | done: `.tex` in its four formats ([tex.md](../formats/age/tex.md)); all 3,665 retail textures decode; the flags' meanings still to work out; `reluva-tool tex-info` |
 | Models | done: `.pkg` meshes, shaders with their paint jobs, placed models, and `.mtx` part placements ([pkg.md](../formats/age/pkg.md)); 1,034 of 1,040 retail models load (the 6 that don't are unused); `reluva-tool pkg-info` |
-| Viewer | Models page (3D, on the GPU renderer): every model with its parts placed, by level of detail and paint job, the lit parts (lamps, glows) on request; Textures page; Files page: every file with its size and archive, by folder; text files shown as text, the rest as hex dumps |
+| Cities | done: `.psdl` streets and buildings, generated from every attribute but tunnels ([psdl.md](../formats/age/psdl.md)); `.inst` placed models ([inst.md](../formats/age/inst.md)); the sky dome and the 16 lightings ([tune.md](../formats/age/tune.md)); both retail cities read whole, every texture and model they name found; `reluva-tool psdl-info` |
+| Viewer | World page (3D): London and San Francisco flown through, from the road nearest the middle, at each time and weather; Models page (3D, on the GPU renderer): every model with its parts placed, by level of detail and paint job, the lit parts (lamps, glows) on request; Textures page; Files page: every file with its size and archive, by folder; text files shown as text, the rest as hex dumps |
 
 Decided: Midtown Madness 1 comes after Midtown Madness 2 runs; the
 DirectMusic player comes after the game runs.
@@ -76,12 +77,9 @@ plain-text tuning files, so it can be read instead of reverse engineered.
 - `tune/*.mmHudMap`, camera files and more use the same `type: a` text
   form.
 
-Binary formats still to work out (models and textures are done, see
-the table above): `.psdl`
-(`PSD0`, the procedural street description the city's roads, sidewalks
-and buildings are generated from), `.inst` (placed models), `.bai`
-(`CAI1`, AI road network), `.cpvs` (`PVS0`, visibility), `.lmap` (`LMP0`),
-`.sky`, `.anim`/`.skel`.
+Binary formats still to work out (models, textures, cities and placed
+models are done, see the table above): `.bai` (`CAI1`, AI road network),
+`.cpvs` (`PVS0`, visibility), `.lmap` (`LMP0`), `.anim`/`.skel`.
 
 ### The program is protected by SafeDisc
 
@@ -149,16 +147,19 @@ recording how each format was worked out (CONTRIBUTING.md).
   squares are for, and how the game uses the damage textures (`_dmg`),
   which are among a car body's own shaders.
 
-### 3. The city
+### 3. The city (done)
 
-- PSDL: the street network as rooms and blocks of typed attributes
-  (roads, sidewalks, crosswalks, facades, roofs, tunnels), turned into
-  meshes. This is the largest format; community write-ups of it exist
-  to compare against.
-- `.inst` placed models, `.sky`, `.lmap`/`.lt00`-`.lt15` lighting,
-  `.cpvs` visibility, `.water`.
+- PSDL: the street network as blocks of typed attributes (roads,
+  sidewalks, crosswalks, facades, roofs), turned into meshes.
+- `.inst` placed models, `.sky`, `.lt00`-`.lt15` lighting.
 - World page: fly through London and San Francisco on the
   `gfx::Renderer3D` the id Tech 3 engine already uses.
+- Left for later: tunnels (their attributes aren't worked out), the
+  texture flags (repeat or clamp), `.cpvs`/`.pvs` visibility (the World
+  page culls by the view and distance instead), `.water`, `.lmap` and
+  the ambient maps, how the original lights the city (Reluva's
+  approximation is too bright at night), low-detail road textures far
+  away, animated water, and the PSDL's tail after the bounds.
 
 ### 4. Driving
 

@@ -18,8 +18,8 @@ namespace reluva::age {
 namespace texformat {
 constexpr uint16_t Palette = 1;       // 8-bit indices, 256 BGRA colours, opaque
 constexpr uint16_t PaletteAlpha = 14; // the same, the colours' alpha used
-constexpr uint16_t Bgr = 17;          // 24-bit
-constexpr uint16_t Bgra = 18;         // 32-bit
+constexpr uint16_t Rgb = 17;          // 24-bit: R, G, B
+constexpr uint16_t Rgba = 18;         // 32-bit: R, G, B, A
 } // namespace texformat
 
 // A .tex file's header and its first (largest) level, decoded to RGBA.
