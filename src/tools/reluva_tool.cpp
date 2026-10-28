@@ -4986,7 +4986,7 @@ int cmdGameRun(int argc, char** argv) {
                 std::printf("give all: %s\n", err ? err.message.c_str() : "ok");
                 ok = !err;
             }
-            const auto o = game.entityVec(0, 272);
+            const auto o = game.entityVec(0, game.layout().currentOrigin);
             std::printf("client 0's entity: %s at %.1f %.1f %.1f\n", game.linked().count(0) ? "linked" : "not linked",
                         o[0], o[1], o[2]);
         }
@@ -5003,9 +5003,9 @@ int cmdGameRun(int argc, char** argv) {
     }
     std::map<int32_t, q3::Vec3f> botStart;
     for (const int32_t c : game.botClients())
-        botStart[c] = game.entityVec(c, 272);
+        botStart[c] = game.entityVec(c, game.layout().currentOrigin);
     const bool player = ok && !noClient && game.linked().count(0);
-    const auto startPos = player ? game.entityVec(0, 272) : q3::Vec3f{};
+    const auto startPos = player ? game.entityVec(0, game.layout().currentOrigin) : q3::Vec3f{};
     for (int f = 0; ok && f < frames; ++f) {
         if (player) {
             // The player does nothing, as a server would see from an idle
@@ -5034,17 +5034,19 @@ int cmdGameRun(int argc, char** argv) {
             // The entity's position, and the player state as Quake III lays
             // it out (commandTime 0, origin 20, velocity 32, groundEntityNum
             // 68), to be checked against Elite Force's.
-            const auto o = game.entityVec(0, 272);
+            const auto o = game.entityVec(0, game.layout().currentOrigin);
             const auto po = game.clientVec(0, 20), pv = game.clientVec(0, 32);
             std::printf("  client 0 at %.1f %.1f %.1f; player state: commandTime %d, origin %.1f %.1f %.1f, "
                         "velocity %.1f %.1f %.1f, ground %d; commands read so far %d\n",
                         o[0], o[1], o[2], game.clientInt(0, 0), po[0], po[1], po[2], pv[0], pv[1], pv[2],
                         game.clientInt(0, 68), (game.callCounts().count(36) ? game.callCounts().at(36) : 0));
             // Quake III's pm_type (4), pm_flags (12), pm_time (16); and the
-            // game's copy of the last command (client + 464): its time and
+            // game's copy of the last command (after the player state and
+            // pers.connected: client + 464 in 1.0, 472 in 1.2): its time and
             // its weapon (5) and moves (20-22).
-            const int32_t cmdTime = game.clientInt(0, 464), cmdMoves = game.clientInt(0, 464 + 20),
-                          cmdWeapon = (game.clientInt(0, 464 + 4) >> 8) & 0xff;
+            const int32_t cmd = game.layout().playerStateSize + 4;
+            const int32_t cmdTime = game.clientInt(0, cmd), cmdMoves = game.clientInt(0, cmd + 20),
+                          cmdWeapon = (game.clientInt(0, cmd + 4) >> 8) & 0xff;
             std::printf("    pm_type %d, pm_flags 0x%x, pm_time %d; the game's command: time %d, weapon %d, "
                         "forward %d, right %d, up %d\n",
                         game.clientInt(0, 4), unsigned(game.clientInt(0, 12)), game.clientInt(0, 16), cmdTime,
@@ -5098,7 +5100,7 @@ int cmdGameRun(int argc, char** argv) {
         }
     }
     if (player) {
-        const auto o = game.entityVec(0, 272);
+        const auto o = game.entityVec(0, game.layout().currentOrigin);
         std::printf("client 0 moved %.1f units across and %.1f up over the frames\n",
                     std::sqrt((o[0] - startPos[0]) * (o[0] - startPos[0]) + (o[1] - startPos[1]) * (o[1] - startPos[1])),
                     o[2] - startPos[2]);
@@ -5106,7 +5108,7 @@ int cmdGameRun(int argc, char** argv) {
     if (player) {
         // What the game's movement code meets: its trace down from where
         // the player is, with a player's box and mask, ignoring the player.
-        const auto o = game.entityVec(0, 272);
+        const auto o = game.entityVec(0, game.layout().currentOrigin);
         const q3::Vec3f mins{-15, -15, -24}, maxs{15, 15, 32}, end{o[0], o[1], o[2] - 64};
         const int32_t mask = q3::contents::Solid | q3::contents::PlayerClip | q3::contents::Body;
         // And sideways: how far a player's box could go along each axis.
@@ -5129,12 +5131,12 @@ int cmdGameRun(int argc, char** argv) {
                         withEntities ? "world and entities" : "world only", t.fraction, t.startSolid, t.allSolid, hit,
                         t.endPos[2]);
             if (withEntities && hit >= 0 && hit < 1022) {
-                const auto eo = game.entityVec(hit, 272), emin = game.entityVec(hit, 220), emax = game.entityVec(hit, 232);
+                const auto eo = game.entityVec(hit, game.layout().currentOrigin), emin = game.entityVec(hit, game.layout().mins), emax = game.entityVec(hit, game.layout().maxs);
                 std::printf("  entity %d: origin %.1f %.1f %.1f, box %.1f %.1f %.1f to %.1f %.1f %.1f, contents %d, "
                             "brush model %d (model %d), owner %d\n",
                             hit, eo[0], eo[1], eo[2], emin[0], emin[1], emin[2], emax[0], emax[1], emax[2],
-                            game.entityInt(hit, 244), game.entityInt(hit, 216), game.entityInt(hit, 160),
-                            game.entityInt(hit, 296));
+                            game.entityInt(hit, game.layout().contents), game.entityInt(hit, game.layout().bmodel),
+                            game.entityInt(hit, game.layout().modelIndex), game.entityInt(hit, game.layout().ownerNum));
             }
         }
     }
@@ -5162,7 +5164,7 @@ int cmdGameRun(int argc, char** argv) {
         // calls the game made, with the first arguments of the first few.
         std::printf("bots: %zu\n", game.botClients().size());
         for (const int32_t c : game.botClients()) {
-            const auto o = game.entityVec(c, 272);
+            const auto o = game.entityVec(c, game.layout().currentOrigin);
             const auto s = botStart.count(c) ? botStart[c] : q3::Vec3f{};
             std::printf("  client %d: %s, at %.1f %.1f %.1f (was %.1f %.1f %.1f)\n", c,
                         game.linked().count(c) ? "linked" : "not linked", o[0], o[1], o[2], s[0], s[1], s[2]);
