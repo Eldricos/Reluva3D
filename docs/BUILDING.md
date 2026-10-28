@@ -135,7 +135,8 @@ the folder directly. CLion and Qt Creator also open `CMakeLists.txt` directly.
      installer.
    - To profile (**Debug > Performance Profiler**), start it with no
      debugging session running: the Diagnostic Tools a debugging session
-     opens count as a profiler already.
+     opens count as a profiler already. Release builds write symbols (a
+     `.pdb` beside the `.exe`), so the profiler names functions.
    - If the dropdown still shows Visual Studio's own **x64-Debug** and
      **x64-Release**, turn on **Tools > Options > CMake > General > Use
      CMakePresets.json** and reopen the folder.

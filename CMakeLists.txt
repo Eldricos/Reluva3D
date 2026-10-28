@@ -58,6 +58,12 @@ if(MSVC)
     if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         add_compile_options($<$<NOT:$<CONFIG:Debug>>:/Ob3>)
     endif()
+    # Release with symbols (a .pdb beside the .exe), for profilers; the code
+    # is the same. /Z7 keeps them in each object file (no shared .pdb for
+    # parallel compiles to fight over); /DEBUG would turn off the linker's
+    # dead-code removal, so that's asked for again.
+    add_compile_options($<$<CONFIG:Release>:/Z7>)
+    add_link_options($<$<CONFIG:Release>:/DEBUG> $<$<CONFIG:Release>:/OPT:REF> $<$<CONFIG:Release>:/OPT:ICF>)
 else()
     target_compile_options(reluva_warnings INTERFACE -Wall -Wextra -Wpedantic)
 endif()
