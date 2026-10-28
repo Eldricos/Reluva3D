@@ -10,6 +10,7 @@
 #include "common/archive.h"
 #include "common/gfx3d.h"
 #include "engines/age/pkg.h"
+#include "engines/age/texture.h"
 
 #include <array>
 #include <functional>
@@ -30,19 +31,36 @@ public:
     // A shader's texture by name (see loadTexture); 0 if it can't be
     // found, which is remembered in missing(). `translucent` says whether
     // any of its pixels aren't opaque.
+    // Animated ones (water: tune/<name>.movie, frames <name>-0001...)
+    // have all their frames loaded; get() gives the one named, or the first.
     gfx::TextureId get(const std::string& name, bool& translucent);
     void clear();
     const std::vector<std::string>& missing() const { return missing_; }
+
+    // Seconds into the animations, and the frame a texture shows then (the
+    // texture itself if it isn't animated).
+    void setTime(float seconds) { time_ = seconds; }
+    gfx::TextureId frame(gfx::TextureId id) const;
 
 private:
     struct Entry {
         gfx::TextureId id = 0;
         bool translucent = false;
     };
+    struct Animation {
+        std::vector<gfx::TextureId> frames;
+        float rate = 15; // frames a second
+        size_t first = 0;
+    };
+    gfx::TextureId create(const Tex& tex, bool& translucent);
+
     gfx::Renderer3D& renderer_;
     const SearchSet& files_;
     std::map<std::string, Entry> textures_; // by lower-case name
+    std::map<gfx::TextureId, Animation> animations_;
+    std::vector<gfx::TextureId> frameIds_; // every animation frame, to destroy
     std::vector<std::string> missing_;
+    float time_ = 0;
 };
 
 // One draw of a model: a group's triangles with its shader.
@@ -84,12 +102,20 @@ struct SceneLight {
     gfx::Vec3 ambient{0.55f, 0.55f, 0.55f};
     gfx::Vec3 directed{0.6f, 0.6f, 0.6f};
     gfx::Vec3 direction{-0.4f, 0.8f, -0.45f}; // towards the light
+    // Fog: none before fogStart metres, all fogColor from fogEnd (0: none).
+    gfx::Vec3 fogColor{};
+    float fogStart = 0, fogEnd = 0;
 };
 
+// The light's fog on a draw: mixed in towards the fog colour, or (for an
+// additive draw: glows, flares) faded out.
+void applyFog(gfx::DrawCall& call, const SceneLight& light, bool additive = false);
+
 // Draws a model's opaque draws (`translucent` false) or its translucent
-// and glowing ones (true), placed by `model`.
+// and glowing ones (true), placed by `model`, in the light's fog.
+// With `animate`, animated textures show their current frame.
 void drawModelMesh(gfx::Renderer3D& renderer, const ModelMesh& mesh, const gfx::Mat4& model, const SceneLight& light,
-                   bool translucent);
+                   bool translucent, const TextureCache* animate = nullptr);
 
 // The planes of a view (left, right, bottom, top, near), to leave out
 // what's outside it.

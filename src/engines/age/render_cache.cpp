@@ -9,6 +9,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <limits>
 
 namespace reluva::age {
@@ -27,24 +29,66 @@ bool isLevel(const std::string& level) {
 
 } // namespace
 
+gfx::TextureId TextureCache::create(const Tex& tex, bool& translucent) {
+    translucent = false;
+    for (size_t i = 3; i < tex.image.rgba.size(); i += 4)
+        if (tex.image.rgba[i] != 255) {
+            translucent = true;
+            break;
+        }
+    gfx::TextureParams params;
+    params.anisotropic = true;
+    // Flag bit 0: kept to its edges, not repeated (cars' bodies and the
+    // like; tex.md).
+    params.clamp = tex.flags & texflag::Clamp;
+    gfx::TextureId id = 0;
+    if (renderer_.createTexture(tex.image.w, tex.image.h, tex.image.rgba.data(), params, id))
+        return 0;
+    return id;
+}
+
 gfx::TextureId TextureCache::get(const std::string& name, bool& translucent) {
     const std::string key = fs::toLower(name);
     auto it = textures_.find(key);
     if (it == textures_.end()) {
         Entry e;
+        // An animation: the name, or one of its frames ("s_thames-0009").
+        std::string base = key;
+        size_t named = 0;
+        if (base.size() > 5 && base[base.size() - 5] == '-' &&
+            std::all_of(base.end() - 4, base.end(), [](char c) { return c >= '0' && c <= '9'; })) {
+            named = size_t(std::stoul(base.substr(base.size() - 4)));
+            base.resize(base.size() - 5);
+        }
+        std::vector<uint8_t> movie;
         Tex tex;
-        if (loadTexture(files_, name, tex)) {
-            missing_.push_back(name);
-        } else {
-            for (size_t i = 3; i < tex.image.rgba.size(); i += 4)
-                if (tex.image.rgba[i] != 255) {
-                    e.translucent = true;
+        if (!files_.read("tune/" + base + ".movie", movie)) {
+            Animation a;
+            const std::string text(movie.begin(), movie.end());
+            if (const size_t at = text.find("rate"); at != std::string::npos)
+                a.rate = std::max(1.0f, std::strtof(text.c_str() + at + 4, nullptr));
+            for (int f = 1; f < 1000; ++f) {
+                char frame[16];
+                std::snprintf(frame, sizeof frame, "-%04d", f);
+                if (loadTexture(files_, base + frame, tex))
                     break;
-                }
-            gfx::TextureParams params;
-            params.anisotropic = true;
-            if (renderer_.createTexture(tex.image.w, tex.image.h, tex.image.rgba.data(), params, e.id))
-                e.id = 0;
+                bool t;
+                const gfx::TextureId id = create(tex, t);
+                e.translucent = e.translucent || t;
+                a.frames.push_back(id);
+                frameIds_.push_back(id);
+            }
+            if (!a.frames.empty()) {
+                a.first = named ? (named - 1) % a.frames.size() : 0;
+                e.id = a.frames[a.first];
+                animations_[e.id] = a;
+            }
+        }
+        if (!e.id) {
+            if (loadTexture(files_, name, tex))
+                missing_.push_back(name);
+            else
+                e.id = create(tex, e.translucent);
         }
         it = textures_.emplace(key, e).first;
     }
@@ -52,11 +96,24 @@ gfx::TextureId TextureCache::get(const std::string& name, bool& translucent) {
     return it->second.id;
 }
 
+gfx::TextureId TextureCache::frame(gfx::TextureId id) const {
+    const auto it = animations_.find(id);
+    if (it == animations_.end())
+        return id;
+    const Animation& a = it->second;
+    return a.frames[(a.first + size_t(std::max(0.0f, time_) * a.rate)) % a.frames.size()];
+}
+
 void TextureCache::clear() {
     for (auto& [name, e] : textures_)
-        if (e.id)
+        if (e.id && !animations_.count(e.id))
             renderer_.destroyTexture(e.id);
+    for (gfx::TextureId id : frameIds_)
+        if (id)
+            renderer_.destroyTexture(id);
     textures_.clear();
+    animations_.clear();
+    frameIds_.clear();
     missing_.clear();
 }
 
@@ -153,7 +210,7 @@ void destroyModelMesh(gfx::Renderer3D& renderer, ModelMesh& mesh) {
 }
 
 void drawModelMesh(gfx::Renderer3D& renderer, const ModelMesh& mesh, const gfx::Mat4& model, const SceneLight& light,
-                   bool translucent) {
+                   bool translucent, const TextureCache* animate) {
     if (!mesh.mesh)
         return;
     for (const ModelDraw& d : mesh.draws) {
@@ -164,12 +221,13 @@ void drawModelMesh(gfx::Renderer3D& renderer, const ModelMesh& mesh, const gfx::
         call.firstIndex = d.firstIndex;
         call.indexCount = d.indexCount;
         call.model = model;
-        call.texture = d.texture;
+        call.texture = animate ? animate->frame(d.texture) : d.texture;
         call.color = d.color;
         call.rgbSource = d.lit ? gfx::ColorSource::Lighting : gfx::ColorSource::Constant;
         call.ambientLight = light.ambient;
         call.directedLight = light.directed;
         call.lightDirection = light.direction;
+        applyFog(call, light, d.glow);
         if (d.glow) {
             call.state.src = call.state.dst = gfx::Blend::One;
             call.state.depthWrite = false;
@@ -182,6 +240,14 @@ void drawModelMesh(gfx::Renderer3D& renderer, const ModelMesh& mesh, const gfx::
         }
         renderer.draw(call);
     }
+}
+
+void applyFog(gfx::DrawCall& call, const SceneLight& light, bool additive) {
+    if (light.fogEnd <= 0)
+        return;
+    call.fogColor = additive ? gfx::Vec3{} : light.fogColor;
+    call.fogNear = light.fogStart;
+    call.fogFar = light.fogEnd;
 }
 
 const ModelCache::Model& ModelCache::get(const std::string& name, uint32_t paintJob) {

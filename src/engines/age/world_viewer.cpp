@@ -96,6 +96,8 @@ void WorldViewer::handleEvent(const Event& ev) {
             scene_->setLighting(lighting_);
         } else if (ev.key == 'm') {
             showModels_ = !showModels_;
+        } else if (ev.key == 'v') {
+            scene_->setVisibility(!scene_->visibility());
         } else if (ev.key == 'i') {
             showInfo_ = !showInfo_;
         } else if (ev.key == 'r') {
@@ -133,9 +135,16 @@ void WorldViewer::drawInfo(const std::string& stats) {
         return;
     std::vector<std::string> lines = scene_->notes();
     lines.push_back(stats);
-    char pos[120];
+    char pos[160];
     std::snprintf(pos, sizeof pos, "at %.0f %.0f %.0f; W/A/S/D, Space/C, Shift, drag to look; M models, R start",
                   eye_[0], eye_[1], eye_[2]);
+    lines.push_back(pos);
+    if (scene_->viewBlock())
+        std::snprintf(pos, sizeof pos, "in block %zu: %zu blocks can be seen (V: visibility off)", scene_->viewBlock(),
+                      scene_->blocksDrawn());
+    else
+        std::snprintf(pos, sizeof pos, "%zu blocks drawn (V: visibility %s)", scene_->blocksDrawn(),
+                      scene_->visibility() ? "on, but not in a block" : "off");
     lines.push_back(pos);
     for (const std::string& m : scene_->textures().missing())
         if (lines.size() < 12)

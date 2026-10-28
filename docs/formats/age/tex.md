@@ -47,10 +47,7 @@ two are powers of two: `nl01_coit_top` (64 x 73) and
 `sf_wall_brick03_blkfence_2_l` (650 x 597), whose levels still halve
 (rounding down).
 
-## Flags (not known yet)
-
-The flags' meanings haven't been worked out; Reluva reads them and
-doesn't use them yet. What they go with:
+## Flags
 
 | Flags | Count | Seen on |
 |---|---|---|
@@ -63,14 +60,21 @@ doesn't use them yet. What they go with:
 | 0x10000 | 35 | skies |
 | 0x6, 0x7, 0x10002, 0x10003, 0x10006 | 43 | decals (crossings), a few fronts |
 
-A guess to test when the city is drawn: bits 0 and 1 may stop the
-texture repeating across or down (a building front repeats along the
-street but not up it; a car's body texture doesn't repeat at all), and
-0x8000/0x10000 may be about mipmaps or lighting.
+Bit 0 keeps a texture to its edges: of the 345 textures with it that the
+game's models use, 332 have their texture coordinates within 0-1 (to a
+fifth over), and the rest overshoot by a little or have broken
+coordinates; textures without it are repeated freely (pediment trims 17
+times across, rails 60). Reluva clamps those with bit 0. Bit 1 isn't
+"don't repeat": 273 of the 282 building fronts with it are repeated
+across the street and 252 up. The other bits aren't known.
 
 ## Animated textures
 
-Water is animated: `texture/s_ocean-0001.tex` to `-0030` and the like,
-with `tune/s_ocean.movie` giving the rate (`rate 15`, frames a second
-presumably). Models name the texture without the frame number
-(`s_ocean`). The viewer shows the first frame.
+Water is animated: `texture/s_ocean-0001.tex` to `-0030` and the like
+(121 frames in all for `s_ocean`, `s_pond`, `s_thames`, `s_water`), with
+`tune/s_ocean.movie` and the others giving the rate (`rate 20`; 15 for
+ponds, 30 for the Thames and `s_water`), frames a second. Models name the
+texture without the frame number (`s_ocean`), the cities' PSDL with one
+(`s_ocean-0007`, `s_thames-0009`). Reluva loads every frame of a texture
+that has a `.movie` and shows them in turn at that rate, from the one
+named.

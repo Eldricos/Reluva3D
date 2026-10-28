@@ -128,7 +128,8 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   **Tab** switches between racing, driving, the world, models, textures and files. In the world, **Left/Right** picks London or San
   Francisco, drag to look, **W/A/S/D** move, **Space/C** (or **E/Q**) go up and down,
   **Shift** goes faster, **T** steps through the 16 times of day and weathers, **M**
-  shows or hides the placed models, **I** the info and **R** returns to the start (on
+  shows or hides the placed models, **V** turns visibility culling (the city's `.cpvs`) off and
+  on, **I** the info and **R** returns to the start (on
   the road nearest the city's middle). For models, **Left/Right** step (**PageUp/PageDown** by 10),
   **Up/Down** jump to the next kind (`vp` cars, `sp` props...), drag to turn, the wheel
   (or **+/-**) zooms, **L** changes the level of detail, **P** the paint job, **G** shows

@@ -5385,8 +5385,10 @@ int cmdPsdlInfo(int argc, char** argv) {
             ++counts[a.type];
             ++attributes;
         }
-    std::printf("%zu vertices, %zu heights, %zu textures, %zu blocks, %zu attributes\n", psdl.vertices.size(),
-                psdl.heights.size(), psdl.textures.size(), psdl.blocks.size() - 1, attributes);
+    std::printf("%zu vertices, %zu heights, %zu textures, %zu blocks (roads from block %u), %zu attributes, "
+                "%zu roads\n",
+                psdl.vertices.size(), psdl.heights.size(), psdl.textures.size(), psdl.blocks.size() - 1,
+                psdl.firstRoadBlock, attributes, psdl.roads.size());
     for (size_t t = 0; t < 13; ++t)
         std::printf("  %6zu %s\n", counts[t], kNames[t]);
     std::printf("bounds %.1f %.1f %.1f to %.1f %.1f %.1f, centre %.1f %.1f %.1f, radius %.1f\n", psdl.min[0],
@@ -5411,8 +5413,7 @@ int cmdPsdlInfo(int argc, char** argv) {
     size_t triangles = 0;
     for (const CityMesh::Batch& b : mesh.batches)
         triangles += b.indices.size() / 3;
-    std::printf("generated: %zu triangles in %zu textures; %zu attributes not drawn yet\n", triangles,
-                mesh.batches.size(), mesh.skipped);
+    std::printf("generated: %zu triangles in %zu textures\n", triangles, mesh.batches.size());
     if (argc > 4) {
         std::ofstream obj(argv[4]);
         for (const reluva::gfx::Vertex& v : mesh.vertices)

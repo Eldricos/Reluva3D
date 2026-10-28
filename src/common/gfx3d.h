@@ -145,6 +145,10 @@ struct DrawCall {
     // > 0: the fragment's alpha is instead clamp(distance from the camera
     // / fogDistance), for blending a fog colour over drawn geometry.
     float fogDistance = 0;
+    // Fog mixed in after texturing: none nearer than fogNear, all fogColor
+    // from fogFar on (fogFar 0: none). Black fades additive draws out.
+    Vec3 fogColor{};
+    float fogNear = 0, fogFar = 0;
     std::array<Deform, 2> deforms{};
     float time = 0;              // seconds, for the deforms
     bool followCamera = false;   // positions are relative to the camera (skies)

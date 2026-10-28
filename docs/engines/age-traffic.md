@@ -110,8 +110,9 @@ the way, the train unmoved), and spheres that push the traffic's cars
 aside, knocking them loose. The traffic and the police stop for them as
 for an open bridge. The nearest train is heard as the game's
 `aud/ambient/subwaycar.csv` says: `LondonTube` looped, out to 150 m, at
-0.98, louder as it speeds up. The tunnels themselves aren't drawn yet,
-only their floors and roofs collided with.
+0.98, louder as it speeds up. The Underground's tunnels are drawn from
+the PSDL ([psdl.md](../formats/age/psdl.md)): walls 5.5 m high and an
+arched roof 7 m up.
 
 ## Traffic lights
 
