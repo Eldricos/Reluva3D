@@ -16,8 +16,9 @@ const std::string& ScriptEvent::arg(size_t i) const {
     return i < words.size() ? words[i] : none;
 }
 
-void addItem(GameState& state, const std::string& item, int st) {
-    // 0x41bc10: passports and fingerprint cards go to their own pages.
+void addItem(GameState& state, const std::string& item, int st, int slot) {
+    // 0x41bc10: a new one each time, whatever's there already; passports
+    // and fingerprint cards go to their own pages.
     const std::string name = fs::toLower(item);
     if (name.empty())
         return;
@@ -25,38 +26,20 @@ void addItem(GameState& state, const std::string& item, int st) {
         st = 5;
     else if (name.rfind("print", 0) == 0)
         st = 6;
-    if (state.items.insert(name).second) {
-        state.itemOrder.erase(std::remove(state.itemOrder.begin(), state.itemOrder.end(), name), state.itemOrder.end());
-        state.itemOrder.push_back(name);
-    }
-    if (st == 2)
-        state.itemStates.erase(name);
-    else
-        state.itemStates[name] = st;
+    GameState::Item added{name, st, 0};
+    // Its slot: the one given (a saved game's), else the lowest free one
+    // (0x41bfb0); the window turns to its page.
+    if (st == 1 || st == 2)
+        added.slot = slot >= 0 ? slot : state.freeSlot();
+    state.items.push_back(added);
     if (st != 1 && st != 2)
         return;
-    // Its slot: the one it had if that's free, else the lowest free one
-    // (0x41bfb0); the window turns to its page.
-    auto taken = [&](int slot) {
-        for (const auto& [other, s] : state.itemSlots) {
-            const int os = state.itemState(other);
-            if (other != name && s == slot && os >= 1 && os <= 3)
-                return true;
-        }
-        return false;
-    };
-    auto at = state.itemSlots.find(name);
-    if (at == state.itemSlots.end() || taken(at->second)) {
-        int slot = 0;
-        while (taken(slot))
-            slot++;
-        state.itemSlots[name] = slot;
-    }
-    state.itemPage = state.itemSlots[name] / 16;
+    state.itemPage = added.slot / 16;
     // Just taken: the one before stops blinking (0x41ba80).
     if (st == 1) {
-        if (!state.fresh.empty() && state.fresh != name && state.itemState(state.fresh) == 1)
-            state.itemStates.erase(state.fresh);
+        for (GameState::Item& i : state.items)
+            if (i.state == 1 && &i != &state.items.back())
+                i.state = 2;
         state.fresh = name;
     }
 }
@@ -264,49 +247,61 @@ bool ScriptRunner::runOwn(const ScriptEvent& e) {
         // In the bag (0x419ca0 with state 2).
         addItem(state_, e.arg(1), 2);
     } else if (v == "remove") {
-        // Gone (0x41c260); "remove all": everything carried taken away, to
-        // come back with "restore all" (0x41c3e0).
+        // Gone, the first of the name (0x41c260); "remove all": the one in
+        // hand put back, then everything in the bag taken away, to come
+        // back with "restore all" (0x41c3e0).
         const std::string item = fs::toLower(e.arg(1));
         if (item == "all") {
             state_.held.clear();
-            for (const std::string& i : state_.items)
-                if (state_.itemAvailable(i) || state_.itemState(i) == 3)
-                    state_.itemStates[i] = 7;
+            state_.fresh.clear();
+            for (GameState::Item& i : state_.items)
+                if (i.state >= 1 && i.state <= 3)
+                    i.state = 7;
         } else {
-            state_.items.erase(item);
-            state_.itemStates.erase(item);
-            if (state_.held == item)
-                state_.held.clear();
+            for (auto it = state_.items.begin(); it != state_.items.end(); ++it)
+                if (it->name == item) {
+                    if (it->state == 3)
+                        state_.held.clear();
+                    state_.items.erase(it);
+                    break;
+                }
         }
     } else if (v == "restore") {
-        // Back in the bag: a used-up item (0x41c320); "restore all" what
-        // "remove all" took, the small key going and "securityunlocked"
-        // with it (0x41c430).
+        // Back in the bag, in the lowest free slot: the first used-up one
+        // of the name (0x41c320); "restore all" what "remove all" took,
+        // the small key going and "securityunlocked" with it (0x41c430).
         const std::string item = fs::toLower(e.arg(1));
         if (item == "all") {
-            for (auto it = state_.itemStates.begin(); it != state_.itemStates.end();)
-                it = it->second == 7 ? state_.itemStates.erase(it) : std::next(it);
-            state_.items.erase("keysmall");
-            state_.itemStates.erase("keysmall");
+            for (GameState::Item& i : state_.items)
+                if (i.state == 7) {
+                    i.slot = state_.freeSlot();
+                    i.state = 2;
+                }
+            for (auto it = state_.items.begin(); it != state_.items.end(); ++it)
+                if (it->name == "keysmall") {
+                    state_.items.erase(it);
+                    break;
+                }
             state_.tags.erase("securityunlocked");
-        } else if (item != "this" && state_.itemState(item) == 4) {
-            state_.itemStates.erase(item);
+        } else if (item != "this") {
+            if (GameState::Item* i = state_.findItem(item, {4})) {
+                i->slot = state_.freeSlot();
+                i->state = 2;
+            }
         }
     } else if (v == "use") {
-        // Used up (0x41c160): kept, for "used" and "restore".
-        const std::string item = fs::toLower(e.arg(1));
-        const int st = state_.itemState(item);
-        if (st == 1 || st == 2 || st == 3) {
-            state_.itemStates[item] = 4;
-            if (state_.held == item)
+        // Used up, the first of the name in the bag, just taken or in hand
+        // (0x41c160): kept, for "used" and "restore".
+        if (GameState::Item* i = state_.findItem(e.arg(1), {1, 2, 3})) {
+            if (i->state == 3)
                 state_.held.clear();
+            if (i->state == 1)
+                state_.fresh.clear();
+            i->state = 4;
         }
     } else if (v == "clear") {
         state_.items.clear();
-        state_.itemStates.clear();
         state_.held.clear();
-        state_.itemSlots.clear();
-        state_.itemOrder.clear();
         state_.itemPage = 0;
         state_.fresh.clear();
     } else if (v == "timer") {
@@ -322,10 +317,7 @@ bool ScriptRunner::runOwn(const ScriptEvent& e) {
         state_.texts.clear();
         state_.timers.clear();
         state_.items.clear();
-        state_.itemStates.clear();
         state_.held.clear();
-        state_.itemSlots.clear();
-        state_.itemOrder.clear();
         state_.itemPage = 0;
         state_.fresh.clear();
         state_.act = "01a";

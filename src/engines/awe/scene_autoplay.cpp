@@ -265,8 +265,8 @@ bool ScenePage::travel(int car) {
 
 std::vector<std::pair<std::string, std::string>> ScenePage::matchingPrints() {
     std::vector<std::pair<std::string, std::string>> out;
-    for (const std::string& b : state_.itemOrder)
-        if (state_.itemState(b) == 6 && printRow(b) == 1) {
+    for (const GameState::Item& card : state_.items)
+        if (const std::string& b = card.name; card.state == 6 && printRow(b) == 1) {
             const std::string a = fs::toLower(itemInfo(b).flipped);
             if (state_.itemState(a) == 6 && printRow(a) == 0 && !state_.tags.count(a + "=" + b))
                 out.emplace_back(a, b);
@@ -278,9 +278,9 @@ bool ScenePage::comparePrintCards(const std::string& person, const std::string& 
     // Each row's card shown (0x41e2e0 compares the two shown), then the
     // magnifier.
     std::vector<std::string> rows[2];
-    for (const std::string& i : state_.itemOrder)
-        if (state_.itemState(i) == 6)
-            rows[printRow(i)].push_back(i);
+    for (const GameState::Item& i : state_.items)
+        if (i.state == 6)
+            rows[printRow(i.name)].push_back(i.name);
     const auto a = std::find(rows[0].begin(), rows[0].end(), person);
     const auto b = std::find(rows[1].begin(), rows[1].end(), thing);
     if (a == rows[0].end() || b == rows[1].end())

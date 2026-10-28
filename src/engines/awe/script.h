@@ -29,9 +29,10 @@ struct ScriptEvent {
 
 class ScriptRunner;
 
-// Gives Poirot an item in that state (2: in the bag, 1: just taken);
-// passports and fingerprint cards take their own (5, 6).
-void addItem(GameState& state, const std::string& item, int st);
+// Gives Poirot another item in that state (2: in the bag, 1: just taken),
+// in `slot` or the lowest free one; passports and fingerprint cards take
+// their own (5, 6).
+void addItem(GameState& state, const std::string& item, int st, int slot = -1);
 
 // Adds `seconds` to every timer ("time <n>", and each second that passes).
 void addTime(GameState& state, int seconds);

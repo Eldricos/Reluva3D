@@ -594,7 +594,7 @@ private:
     std::vector<std::string> bagItems(); // in the bag, just taken or in hand, in slot order
     std::string itemInSlot(int slot);
     int itemPages();
-    void holdItem(const std::string& item);
+    void holdItem(const std::string& item, int slot = -1);
     void releaseHeld();
     void endFresh();
     void playItemSound(const std::string& item);

@@ -55,11 +55,10 @@ bool ScenePage::useItem(const std::string& item, const Ac2Record& target) {
         holdItem(name);
     }
     auto release = [&](int to) {
+        // The one in hand.
+        if (GameState::Item* i = state_.findItem(name, {3}))
+            i->state = to;
         state_.held.clear();
-        if (to == 2)
-            state_.itemStates.erase(name);
-        else
-            state_.itemStates[name] = to;
     };
     // The first of its conditional scripts whose condition has "use" in it
     // and holds (0x40e7e0 in use mode): the item is used up, unless the

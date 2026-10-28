@@ -4,6 +4,7 @@
 #pragma once
 
 #include <functional>
+#include <initializer_list>
 #include <map>
 #include <set>
 #include <string>
@@ -58,18 +59,22 @@ struct GameState {
     std::string act;                 // "06a"; empty before the first
     std::map<std::string, int> values; // moving, weather, master...
     std::map<std::string, int> tags; // story tags: numbers set by scripts ("tag name 1")
-    // The inventory (0x49881c): every item Poirot has, whatever its state,
-    // and the states other than 2 (in the bag): 1 just taken, 3 in hand, 4
-    // used up (kept for "restore"), 5 a passport, 6 a fingerprint card, 7
-    // taken away by "remove all". `held` is the item in hand (the cursor).
-    std::set<std::string> items;
-    std::map<std::string, int> itemStates;
+    // The inventory (0x49881c, its list at +0x38): every item Poirot has,
+    // whatever its state, in the order taken; "take" adds one each time,
+    // so there can be two of a name (the five water glasses). Its state
+    // (+0x1620): 1 just taken, 2 in the bag, 3 in hand, 4 used up (kept
+    // for "restore"), 5 a passport, 6 a fingerprint card, 7 taken away by
+    // "remove all"; its slot in the inventory window (+0x1622, 16 to a
+    // page).
+    struct Item {
+        std::string name;
+        int state = 2;
+        int slot = 0;
+    };
+    std::vector<Item> items;
+    // The item in hand (the cursor), the page shown, and the item just
+    // taken that blinks there (one at a time).
     std::string held;
-    // Where the items are kept in the inventory window (0x41bc10): each
-    // item's slot (16 to a page), the page shown, and the item just taken
-    // that blinks there (one at a time).
-    std::map<std::string, int> itemSlots;
-    std::vector<std::string> itemOrder; // in the order they came
     int itemPage = 0;
     std::string fresh;
     // Timers (story state +0x1c): seconds since "timer <name>", plus what
@@ -97,10 +102,17 @@ struct GameState {
     // the game looks at (reluva-tool awe-acts -solve).
     std::function<void(std::string_view clause, bool holds)> onTest;
 
-    // An item's state: 0 if it isn't there.
+    // The first item of that name in one of `states` (any if empty), as
+    // the game looks them up (0x41b9b0, 0x41ba20, 0x41c160); null if none.
+    Item* findItem(const std::string& name, std::initializer_list<int> states = {});
+    const Item* findItem(const std::string& name, std::initializer_list<int> states = {}) const;
+    // The first one's state: 0 if there's none ("has <x>").
     int itemState(const std::string& item) const;
-    // Whether it's in the bag or just taken (1, 2), for "has <x> available".
+    // Whether one is in the bag or just taken (1, 2): "has <x> available".
     bool itemAvailable(const std::string& item) const;
+    // The lowest slot no item in the bag, just taken or in hand has
+    // (0x41bfb0).
+    int freeSlot() const;
 };
 
 std::string talkKey(std::string_view name, std::string_view act, int part, int thread);

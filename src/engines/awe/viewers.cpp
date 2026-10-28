@@ -1353,8 +1353,8 @@ void ScenePage::draw() {
             for (const auto& [t, v] : state_.tags)
                 tags += " " + t + "=" + std::to_string(v);
             std::string items;
-            for (const std::string& i : state_.items)
-                items += " " + i;
+            for (const GameState::Item& i : state_.items)
+                items += " " + i.name;
             lines.push_back("script: tags" + (tags.empty() ? std::string(" none") : tags) + "; items" +
                             (items.empty() ? std::string(" none") : items));
             for (const std::string& l : scriptLog_)

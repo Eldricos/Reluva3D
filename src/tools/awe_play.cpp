@@ -427,10 +427,13 @@ public:
         out.insert("last " + s.lastScene); // "lastscene" is tested (where the shoes are compared)
         for (const auto& [name, v] : s.tags)
             out.insert("tag " + name + " " + std::to_string(v));
-        for (const std::string& item : s.items)
-            // (Just taken or in hand: in the bag.)
-            out.insert("item " + item + " " +
-                       std::to_string(s.itemState(item) == 1 || s.itemState(item) == 3 ? 2 : s.itemState(item)));
+        // Each item and state, with how many there are (just taken or in
+        // hand: in the bag).
+        std::map<std::string, int> items;
+        for (const GameState::Item& i : s.items)
+            items[i.name + " " + std::to_string(i.state == 1 || i.state == 3 ? 2 : i.state)]++;
+        for (const auto& [item, n] : items)
+            out.insert("item " + item + (n > 1 ? " x" + std::to_string(n) : ""));
         for (const auto& [key, t] : s.talks)
             out.insert("talk " + key + " " + std::to_string(t.status) + " " + std::to_string(t.nest));
         for (const auto& [name, v] : s.texts)

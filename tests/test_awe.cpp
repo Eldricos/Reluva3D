@@ -680,7 +680,7 @@ void testConditions() {
     st.values["moving"] = 1;
     st.act = "06b";
     st.tags = {{"bardraweropen", 0}, {"eavesdrop04a", 3}};
-    st.items = {"icetongs"};
+    st.items = {{"icetongs"}};
     CHECK(testCondition("", st));
     CHECK(!testCondition("0", st));
     CHECK(testCondition("moving >0", st));
@@ -718,10 +718,10 @@ void testConditions() {
     CHECK(testCondition("tag missing <5", st) && !testCondition("tag missing 0", st)); // -99
     CHECK(!testCondition("act >06b", st) && testCondition("act >06a", st) && testCondition("act <07a", st));
     // The inventory: has, available, used, has all.
-    st.itemStates["icetongs"] = 4;
+    st.items[0].state = 4;
     CHECK(testCondition("has icetongs", st) && !testCondition("has icetongs available", st));
     CHECK(testCondition("used icetongs", st));
-    st.itemStates.clear();
+    st.items[0].state = 2;
     CHECK(testCondition("has icetongs available", st) && !testCondition("used icetongs", st));
     CHECK(!testCondition("has all passport", st));
     // Names in the scene, the scene left and the location.
@@ -938,7 +938,7 @@ void testScript() {
     CHECK(host.started.size() == 2 && host.started[1] == "scene salon_02 1");
     for (int i = 0; i < 4; i++)
         r.update(0.01f);
-    CHECK(state.tags["act04a"] == 5 && state.items.count("ticket") == 1 && r.idle());
+    CHECK(state.tags["act04a"] == 5 && state.itemState("ticket") == 2 && r.idle());
 
     // The "a" forms don't wait; "wait" counts down; a fade after a walk
     // starts as the walk ends.
@@ -963,7 +963,7 @@ void testScript() {
     r.run("removetag act04a, setchar debenham, remove ticket");
     for (int i = 0; i < 3; i++)
         r.update(0.01f);
-    CHECK(!state.tags.count("act04a") && r.character() == "debenham" && !state.items.count("ticket"));
+    CHECK(!state.tags.count("act04a") && r.character() == "debenham" && !state.itemState("ticket"));
     // The next script given acts on the player again (0x408cd8).
     r.run("tag after 1");
     CHECK(r.character().empty());
@@ -975,6 +975,19 @@ void testScript() {
     CHECK(r.character() == "antoinette");
     r.run("tag after 2");
     CHECK(r.character() == "klaus");
+    // Two of a name (0x41bc10 adds one each time): "use" the first in the
+    // bag, "restore" the first used up, "remove" the first whatever it is.
+    r.setCharacter("");
+    state.items.clear();
+    r.run("add waterglass, add waterglass, use waterglass");
+    for (int i = 0; i < 5; i++)
+        r.update(0.01f);
+    CHECK(state.items.size() == 2 && state.items[0].state == 4 && state.items[1].state == 2);
+    CHECK(testCondition("used waterglass", state) && testCondition("has waterglass available", state));
+    r.run("use waterglass, restore waterglass, remove waterglass");
+    for (int i = 0; i < 5; i++)
+        r.update(0.01f);
+    CHECK(state.items.size() == 1 && state.items[0].state == 4 && state.items[0].slot == 1);
 
     // The door macros, and a script file.
     struct FileHost : FakeHost {
@@ -1043,28 +1056,42 @@ void testScript() {
 }
 
 void testItemSlots() {
-    // Items take the lowest free slot of the inventory window (16 a page),
-    // keep it, and the window turns to its page; passports and fingerprint
-    // cards have their own pages; the item just taken blinks, one at a
-    // time (0x41bc10, 0x41bfb0, 0x41ba80).
+    // Items take the lowest free slot of the inventory window (16 a page)
+    // and the window turns to its page; passports and fingerprint cards
+    // have their own pages; the item just taken blinks, one at a time
+    // (0x41bc10, 0x41bfb0, 0x41ba80).
     GameState s;
+    auto slotOf = [&](const std::string& name) {
+        const GameState::Item* i = s.findItem(name, {1, 2, 3});
+        return i ? i->slot : -1;
+    };
     addItem(s, "hammer", 2);
     addItem(s, "pliers", 1);
     addItem(s, "passmichel", 2);
     addItem(s, "printmichel", 1);
-    CHECK(s.itemSlots["hammer"] == 0 && s.itemSlots["pliers"] == 1 && !s.itemSlots.count("passmichel"));
+    CHECK(slotOf("hammer") == 0 && slotOf("pliers") == 1 && slotOf("passmichel") == -1);
     CHECK(s.itemState("passmichel") == 5 && s.itemState("printmichel") == 6 && s.fresh == "pliers");
     addItem(s, "nails", 1);
-    CHECK(s.fresh == "nails" && s.itemState("pliers") == 2 && s.itemState("nails") == 1 && s.itemSlots["nails"] == 2);
-    s.itemStates["hammer"] = 4; // used up: its slot is free
+    CHECK(s.fresh == "nails" && s.itemState("pliers") == 2 && s.itemState("nails") == 1 && slotOf("nails") == 2);
+    s.findItem("hammer")->state = 4; // used up: its slot is free
     addItem(s, "coal", 2);
-    CHECK(s.itemSlots["coal"] == 0);
-    addItem(s, "hammer", 2); // back: its slot taken, so the next free one
-    CHECK(s.itemSlots["hammer"] == 3 && s.itemPage == 0);
+    CHECK(slotOf("coal") == 0);
+    addItem(s, "hammer", 2); // another: the next free slot
+    CHECK(slotOf("hammer") == 3 && s.itemPage == 0 && s.itemState("hammer") == 4);
     for (int i = 0; i < 13; i++)
         addItem(s, "thing" + std::to_string(i), 2);
-    CHECK(s.itemSlots["thing12"] == 16 && s.itemPage == 1);
-    CHECK(s.itemOrder.size() == 19 && s.itemOrder[0] == "hammer" && s.itemOrder[2] == "passmichel");
+    CHECK(slotOf("thing12") == 16 && s.itemPage == 1);
+    CHECK(s.items.size() == 20 && s.items[0].name == "hammer" && s.items[2].name == "passmichel");
+
+    // Two of a name, as the game keeps them: "use" takes the first in the
+    // bag, "restore" the first used up, "remove" the first of either.
+    GameState g;
+    addItem(g, "waterglass", 2);
+    addItem(g, "waterglass", 2);
+    CHECK(g.items.size() == 2 && g.items[1].slot == 1);
+    g.findItem("waterglass", {1, 2})->state = 4;
+    CHECK(g.itemAvailable("waterglass") && g.findItem("waterglass", {4}) == &g.items[0]);
+    CHECK(g.freeSlot() == 0);
 }
 
 void testDialogueBook() {
@@ -1251,7 +1278,7 @@ void testStory() {
     CHECK(loaded.size() == 1 && loaded[0] == "sirkeci.market" && state.values["weather"] == 1);
     for (int i = 0; i < 3; i++)
         main.update(0.01f);
-    CHECK(host.started.back() == "scene sirkeci.market_01 1 0" && state.items.count("ticket") && main.idle());
+    CHECK(host.started.back() == "scene sirkeci.market_01 1 0" && state.itemState("ticket") && main.idle());
     // 05A: its Event once its conditions hold and the queue runs dry.
     story.startAct("05a");
     story.update(0.01f);

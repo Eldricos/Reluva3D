@@ -5,9 +5,11 @@
 
 #include "common/fs.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdlib>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace reluva::awe {
@@ -204,7 +206,7 @@ bool testClause(std::string_view clause, const GameState& state) {
         // The item in hand is that one (0x408885); "use" alone always holds.
         result = arg(1).empty() || (!state.held.empty() && fs::toLower(state.held) == fs::toLower(arg(1)));
     } else if (word == "used") {
-        result = state.itemState(fs::toLower(arg(1))) == 4;
+        result = state.findItem(arg(1), {4}) != nullptr; // 0x41ba20
     }
     // Anything else (debug, demo, test, words it doesn't know) doesn't
     // hold; nor does "wearing" (what the player's model wears, 0x426260),
@@ -214,17 +216,33 @@ bool testClause(std::string_view clause, const GameState& state) {
 
 } // namespace
 
-int GameState::itemState(const std::string& item) const {
-    const std::string name = fs::toLower(item);
-    if (!items.count(name))
-        return 0;
-    const auto it = itemStates.find(name);
-    return it == itemStates.end() ? 2 : it->second;
+const GameState::Item* GameState::findItem(const std::string& name, std::initializer_list<int> states) const {
+    const std::string n = fs::toLower(name);
+    for (const Item& i : items)
+        if (i.name == n && (states.size() == 0 || std::find(states.begin(), states.end(), i.state) != states.end()))
+            return &i;
+    return nullptr;
 }
 
-bool GameState::itemAvailable(const std::string& item) const {
-    const int s = itemState(item);
-    return s == 1 || s == 2;
+GameState::Item* GameState::findItem(const std::string& name, std::initializer_list<int> states) {
+    return const_cast<Item*>(std::as_const(*this).findItem(name, states));
+}
+
+int GameState::itemState(const std::string& item) const {
+    const Item* i = findItem(item);
+    return i ? i->state : 0;
+}
+
+bool GameState::itemAvailable(const std::string& item) const { return findItem(item, {1, 2}) != nullptr; }
+
+int GameState::freeSlot() const {
+    int slot = 0;
+    for (bool taken = true; taken; slot += taken) {
+        taken = false;
+        for (const Item& i : items)
+            taken |= i.slot == slot && i.state >= 1 && i.state <= 3;
+    }
+    return slot;
 }
 
 std::string talkKey(std::string_view name, std::string_view act, int part, int thread) {

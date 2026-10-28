@@ -326,10 +326,18 @@ under the dialogue box and the cursor.
 ## In Reluva
 
 `src/engines/awe/scene_interface.cpp` does all of the above in the Scenes
-page, in a game. The item states, slots and the page shown are the
-`GameState`'s (`itemSlots`, `itemPage`, `fresh`), set by `addItem` as the
-game's `0x41bc10` sets them, and saved with the game (each item's slot
-and page, as `0x41c730` writes them). The item in hand is what the cursor
+page, in a game. The items are the `GameState`'s list, as the game's: in
+the order taken, each with its own state and slot. `addItem` adds one, as
+the game's `0x41bc10` does, every time, whatever's there already: the
+five water glasses of the Salon car's bar are five items, and two spouts
+can be carried. The lookups take the first of a name. `has` holds if
+there's one in any state, `has ... available` if one is in the bag or
+just taken (`0x41b9b0`), and `used` if one is used up (`0x41ba20`). The
+list is saved with the game: each item's slot and page, as `0x41c730`
+writes them, and a list with two of a name loads as two.
+
+(Reluva first kept one item to a name, and lost the second glass and
+spout: the olive oil of 06B could then never be poured.) The item in hand is what the cursor
 shows and what a click uses, on what the game's pick finds there
 ([ac2.md](ac2.md#the-mouse-picking-and-cursors)). F9 shows Reluva's info
 panel in a game (I is the inventory's).

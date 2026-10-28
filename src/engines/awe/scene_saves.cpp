@@ -155,13 +155,9 @@ SaveGame ScenePage::captureSave(const std::string& description) const {
     // Each item with its slot and page (0x41c730): passports at 0, 0,
     // fingerprint cards on page 0 in their row's slot.
     s.itemPage = state_.itemPage;
-    for (const std::string& item : state_.items) {
-        const int st = state_.itemState(item);
-        const auto at = state_.itemSlots.find(item);
-        int slot = at == state_.itemSlots.end() ? 0 : at->second;
-        if (st == 5 || st == 6)
-            slot = st == 6 ? printRow(item) : 0;
-        s.items.push_back({item, st, slot, st == 5 || st == 6 ? 0 : slot / 16});
+    for (const GameState::Item& i : state_.items) {
+        const int slot = i.state == 6 ? printRow(i.name) : i.state == 5 ? 0 : i.slot;
+        s.items.push_back({i.name, i.state, slot, i.state == 5 || i.state == 6 ? 0 : slot / 16});
     }
     return s;
 }
@@ -199,20 +195,10 @@ bool ScenePage::preloadData(const std::vector<uint8_t>& data, const std::string&
         state_.texts[fs::toLower(name)] = v;
     for (const SaveGame::Talk& k : save->talks)
         state_.talks[talkKey(k.name, k.act, k.part, k.thread)] = TalkProgress{k.status, k.nest};
-    state_.itemStates.clear();
     state_.held.clear();
-    state_.itemSlots.clear();
-    state_.itemOrder.clear();
-    for (const SaveGame::Item& i : save->items) {
-        // An item saved twice (used up, and again in the bag) counts as in
-        // the bag.
-        const std::string name = fs::toLower(i.name);
-        if (!state_.itemAvailable(name)) {
-            if (i.slot >= 0 && i.state != 5 && i.state != 6)
-                state_.itemSlots[name] = i.slot;
-            addItem(state_, name, i.state == 3 ? 2 : i.state);
-        }
-    }
+    for (const SaveGame::Item& i : save->items)
+        // Each as saved, in its slot (one in hand back in the bag).
+        addItem(state_, i.name, i.state == 3 ? 2 : i.state, i.state == 5 || i.state == 6 ? -1 : i.slot);
     state_.itemPage = std::max(0, save->itemPage);
     state_.fresh.clear();
     for (const SaveGame::Position& p : save->positions)

@@ -167,12 +167,10 @@ int ScenePage::printRow(const std::string& item) const {
 std::vector<std::string> ScenePage::bagItems() {
     // In the bag, just taken or in hand, by slot (0x41b7f0).
     std::vector<std::pair<int, std::string>> slots;
-    for (const std::string& i : state_.items) {
-        const int s = state_.itemState(i);
-        if (s >= 1 && s <= 3)
-            slots.emplace_back(state_.itemSlots.count(i) ? state_.itemSlots[i] : 0, i);
-    }
-    std::sort(slots.begin(), slots.end());
+    for (const GameState::Item& i : state_.items)
+        if (i.state >= 1 && i.state <= 3)
+            slots.emplace_back(i.slot, i.name);
+    std::stable_sort(slots.begin(), slots.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
     std::vector<std::string> out;
     for (auto& [slot, name] : slots)
         out.push_back(name);
@@ -181,45 +179,50 @@ std::vector<std::string> ScenePage::bagItems() {
 
 std::string ScenePage::itemInSlot(int slot) {
     // The item in the bag (or just taken) in that slot (0x41b790).
-    for (const std::string& i : state_.items) {
-        const int s = state_.itemState(i);
-        if ((s == 1 || s == 2) && state_.itemSlots.count(i) && state_.itemSlots[i] == slot)
-            return i;
-    }
+    for (const GameState::Item& i : state_.items)
+        if ((i.state == 1 || i.state == 2) && i.slot == slot)
+            return i.name;
     return {};
 }
 
 int ScenePage::itemPages() {
     // One empty page after the last used, 2 to 10 (0x41b6c0).
     int last = 0;
-    for (const std::string& i : state_.items) {
-        const int s = state_.itemState(i);
-        if ((s == 1 || s == 2) && state_.itemSlots.count(i) && state_.itemSlots[i] / 16 != 10)
-            last = std::max(last, state_.itemSlots[i] / 16);
-    }
+    for (const GameState::Item& i : state_.items)
+        if ((i.state == 1 || i.state == 2) && i.slot / 16 != 10)
+            last = std::max(last, i.slot / 16);
     return std::clamp(last + 2, 2, 10);
 }
 
-void ScenePage::holdItem(const std::string& item) {
-    // In hand (0x41c000): the item held before goes back in the bag.
+void ScenePage::holdItem(const std::string& item, int slot) {
+    // In hand (0x41c000): the one in that slot, else the first in the bag;
+    // the item held before goes back.
     releaseHeld();
-    if (item.empty() || !state_.items.count(item))
+    GameState::Item* in = nullptr;
+    for (GameState::Item& i : state_.items)
+        if (i.name == item && (i.state == 1 || i.state == 2) && (slot < 0 || i.slot == slot)) {
+            in = &i;
+            break;
+        }
+    if (!in)
         return;
     state_.held = item;
-    state_.itemStates[item] = 3;
+    in->state = 3;
 }
 
 void ScenePage::releaseHeld() {
     // Back in the bag (0x41c030).
-    if (!state_.held.empty() && state_.itemState(state_.held) == 3)
-        state_.itemStates.erase(state_.held);
+    for (GameState::Item& i : state_.items)
+        if (i.state == 3)
+            i.state = 2;
     state_.held.clear();
 }
 
 void ScenePage::endFresh() {
     // The item just taken stops blinking: in the bag (0x41ba80).
-    if (!state_.fresh.empty() && state_.itemState(state_.fresh) == 1)
-        state_.itemStates.erase(state_.fresh);
+    for (GameState::Item& i : state_.items)
+        if (i.state == 1)
+            i.state = 2;
     state_.fresh.clear();
     ui_.freshItem.clear();
 }
@@ -301,8 +304,8 @@ void ScenePage::showPage(int page) {
     } else if (page == 4) {
         // Passports (0x41d0b0): 12 a page, up to 3 pages.
         int n = 0;
-        for (const std::string& i : state_.items)
-            n += state_.itemState(i) == 5;
+        for (const GameState::Item& i : state_.items)
+            n += i.state == 5;
         if (n > 12)
             ui_.passPages = std::max(ui_.passPages, 2);
         if (n > 24)
@@ -607,9 +610,9 @@ bool ScenePage::interfaceEvent(const Event& ev) {
                     ui_.passPage = p, ui_.passAt = p * 12;
             } else if (ui_.page == 5) {
                 int n[2] = {0, 0};
-                for (const std::string& i : state_.items)
-                    if (state_.itemState(i) == 6)
-                        n[printRow(i)]++;
+                for (const GameState::Item& i : state_.items)
+                    if (i.state == 6)
+                        n[printRow(i.name)]++;
                 ui_.printAt[ui_.dragging - 1] = nearest(n[ui_.dragging - 1]);
             }
         }
@@ -809,25 +812,30 @@ bool ScenePage::pageClick(int x, int y) {
                 playItemSound(there);
                 endFresh();
                 ui_.hovered.clear();
-                holdItem(there);
+                holdItem(there, slot);
                 return true;
             }
             // In hand: put in an empty box, or swapped with the one there
             // (which is then in hand).
             const std::string held = state_.held;
+            GameState::Item* inHand = state_.findItem(held, {3});
             if (there.empty()) {
                 playItemSound(held);
-                state_.itemSlots[held] = slot;
+                if (inHand)
+                    inHand->slot = slot;
                 releaseHeld();
                 return true;
             }
-            const int heldSlot = state_.itemSlots.count(held) ? state_.itemSlots[held] : slot;
-            state_.itemSlots[held] = slot;
-            state_.itemSlots[there] = heldSlot;
+            const int heldSlot = inHand ? inHand->slot : slot;
+            for (GameState::Item& i : state_.items)
+                if ((i.state == 1 || i.state == 2) && i.slot == slot)
+                    i.slot = heldSlot;
+            if (inHand)
+                inHand->slot = slot;
             releaseHeld();
             endFresh();
             playItemSound(there);
-            holdItem(there);
+            holdItem(there, heldSlot);
             return false;
         }
         return false;
@@ -887,7 +895,7 @@ bool ScenePage::pageClick(int x, int y) {
                 playItemSound(state_.held);
                 box = state_.held;
                 releaseHeld();
-            } else if (!box.empty() && state_.itemState(box) >= 1 && state_.itemState(box) <= 2) {
+            } else if (!box.empty() && state_.itemAvailable(box)) {
                 playItemSound(box);
                 holdItem(box);
             }
@@ -904,9 +912,9 @@ bool ScenePage::pageClick(int x, int y) {
     case 4: {
         // Passports (0x41d2a0): a passport on the page, the arrows, the blip.
         std::vector<std::string> passes;
-        for (const std::string& i : state_.itemOrder)
-            if (state_.itemState(i) == 5)
-                passes.push_back(i);
+        for (const GameState::Item& i : state_.items)
+            if (i.state == 5)
+                passes.push_back(i.name);
         for (int c = 0; c < 12; c++) {
             const int px = wx + 45 + 72 * (c % 6), py = kTop + 61 + 70 * (c / 6);
             const int n = ui_.passPage * 12 + c;
@@ -928,9 +936,9 @@ bool ScenePage::pageClick(int x, int y) {
         // Fingerprint cards (0x41de80): each row's arrows and blip, then
         // the magnifier.
         int n[2] = {0, 0};
-        for (const std::string& i : state_.items)
-            if (state_.itemState(i) == 6)
-                n[printRow(i)]++;
+        for (const GameState::Item& i : state_.items)
+            if (i.state == 6)
+                n[printRow(i.name)]++;
         if (blipClick(x, y, 1, n[0], ui_.printAt[0]) || blipClick(x, y, 2, n[1], ui_.printAt[1]))
             return true;
         if (n[0] && n[1] && inside(x, y, wx + 225, kTop + 232, wx + 286, kTop + 287))
@@ -963,8 +971,8 @@ bool ScenePage::combine() {
         // taken, into the boxes from `first` (not fingerprint cards:
         // 0x418df0), the Event run.
         for (std::string& box : ui_.boxes) {
-            if (!box.empty())
-                state_.itemStates[box] = 4;
+            if (GameState::Item* i = box.empty() ? nullptr : state_.findItem(box, {1, 2, 3}))
+                i->state = 4;
             box.clear();
         }
         int box = first;
@@ -1028,9 +1036,9 @@ void ScenePage::comparePrints() {
     // The magnifier (0x41e2e0): the second row's card matches the first's
     // if its Flipped Description names it; the tag "<first>=<second>".
     std::vector<std::string> rows[2];
-    for (const std::string& i : state_.itemOrder)
-        if (state_.itemState(i) == 6)
-            rows[printRow(i)].push_back(i);
+    for (const GameState::Item& i : state_.items)
+        if (i.state == 6)
+            rows[printRow(i.name)].push_back(i.name);
     if (rows[0].empty() || rows[1].empty())
         return;
     const std::string a = rows[0][size_t(std::min(ui_.printAt[0], int(rows[0].size()) - 1))];
@@ -1121,16 +1129,15 @@ void ScenePage::drawPage(int page, int alpha) {
         // The items (0x41b080, 0x41bab0): one just taken blinks.
         drawBlip(1, itemPages(), state_.itemPage, alpha);
         std::string hovered;
-        for (const std::string& i : state_.items) {
-            const int s = state_.itemState(i);
-            if ((s != 1 && s != 2) || !state_.itemSlots.count(i) || state_.itemSlots[i] / 16 != state_.itemPage)
+        for (const GameState::Item& i : state_.items) {
+            if ((i.state != 1 && i.state != 2) || i.slot / 16 != state_.itemPage)
                 continue;
-            const int box = state_.itemSlots[i] % 16, bx = wx + 38 + 112 * (box % 4), by = kTop + 54 + 112 * (box / 4);
+            const int box = i.slot % 16, bx = wx + 38 + 112 * (box % 4), by = kTop + 54 + 112 * (box / 4);
             if (state_.held.empty() && inside(lastMouseX_, lastMouseY_, bx, by, bx + 96, by + 96))
-                hovered = i;
-            if (s == 1 && !caretOn_)
+                hovered = i.name;
+            if (i.state == 1 && !caretOn_)
                 continue;
-            blend(ctx_.screen, picture(itemPicture(i, "inv")), bx + 5, by + 5, alpha);
+            blend(ctx_.screen, picture(itemPicture(i.name, "inv")), bx + 5, by + 5, alpha);
         }
         if (!hovered.empty())
             bar(itemInfo(hovered).description);
@@ -1182,9 +1189,9 @@ void ScenePage::drawPage(int page, int alpha) {
         // Passports (0x41d120): the one shown above, the page's twelve
         // below.
         std::vector<std::string> passes;
-        for (const std::string& i : state_.itemOrder)
-            if (state_.itemState(i) == 5)
-                passes.push_back(i);
+        for (const GameState::Item& i : state_.items)
+            if (i.state == 5)
+                passes.push_back(i.name);
         drawBlip(1, ui_.passPages, ui_.passPage, alpha);
         if (ui_.passAt < int(passes.size())) {
             const std::string& p = passes[size_t(ui_.passAt)];
@@ -1205,9 +1212,9 @@ void ScenePage::drawPage(int page, int alpha) {
         // Fingerprint cards (0x41d7c0): each row's card and its
         // neighbours, with their names.
         std::vector<std::string> rows[2];
-        for (const std::string& i : state_.itemOrder)
-            if (state_.itemState(i) == 6)
-                rows[printRow(i)].push_back(i);
+        for (const GameState::Item& i : state_.items)
+            if (i.state == 6)
+                rows[printRow(i.name)].push_back(i.name);
         for (int r = 0; r < 2; r++) {
             const int n = int(rows[r].size()), at = std::min(ui_.printAt[r], std::max(0, n - 1)),
                       y = kTop + (r == 0 ? 56 : 320);

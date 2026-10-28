@@ -128,7 +128,7 @@ scenes, menus).
 | `act` | 175 | act (`06a`) | the act changes (`0x422580`): [acts.md](acts.md) |
 | `terminate` | 174 | | ends the conversation (in dialogue event files) |
 | `update` | 149 | | the scene looks at its objects' conditions again (`0x436280`) |
-| `restore` | 130 | item, `all` | an item used up back in the bag (`0x41c320`); `all`: what `remove all` took, the small key gone and the tag `securityunlocked` removed (`0x41c430`) |
+| `restore` | 130 | item, `all` | the first used-up item of the name back in the bag, in the lowest free slot (`0x41c320`); `all`: what `remove all` took, the small key gone and the tag `securityunlocked` removed (`0x41c430`) |
 | `dooropen` | 113 | point, side, sound | macro: above |
 | `stop` | 75 | sound | stops the first sound playing whose file has the name in it (`0x4251c0`) |
 | `savescene` | 57 | `this`, walk point, flag | remembers a scene to come back to (`gotoscene`): [acts.md](acts.md) |
@@ -148,8 +148,8 @@ scenes, menus).
 | `attach`, `detach` | 17, 15 | object | puts `models\objects\<name>_model.gr2` in the character's hand |
 | `leavebox`, `nobox` | 16, 4 | | the dialogue box |
 | `load`, `preload`, `menu` | 14, 10, 6 | slot | saved games and the menus |
-| `use` | 12 | item | the item used up (state 4), if it's in the bag or in hand (`0x41c160`) |
-| `remove`, `add` | 7, 3 | item | takes an item away (`0x41c260`); `remove all` takes everything carried away, to state 7 (`0x41c3e0`); `add` gives one, in the bag (`0x419ca0`); `take` gives it as just taken (1). Passports and fingerprint cards (names starting `pass`, `print`) go to states 5 and 6 |
+| `use` | 12 | item | the first item of the name in the bag, just taken or in hand used up (state 4) (`0x41c160`) |
+| `remove`, `add` | 7, 3 | item | takes the first item of the name away, whatever its state (`0x41c260`); `remove all` takes everything carried away, to state 7 (`0x41c3e0`); `add` gives another, in the bag, whatever's there already (`0x419ca0`, `0x41bc10`); `take` gives it as just taken (1). Passports and fingerprint cards (names starting `pass`, `print`) go to states 5 and 6 |
 | `run`, `runa` | 6, 1 | cell | as `walk`, running |
 | `previous` | 6 | | the scene before |
 | `yesno` | 2 | text, value | the yes/no box (`yesno quit2 0`) |
