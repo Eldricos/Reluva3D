@@ -648,9 +648,26 @@ ends. Exits exist only with gen (NPC clicks or `forcegen`).
   character", 9 "second character", 10 "third character". Font: "calisto mt
   12, shadow, dialogue" (*likely*).
 * Layout of choices: 3.4. Choices are picked by click (0x43d8c0: in choice
-  mode, the line under the cursor → its thread → play), or by keyboard
-  highlight and Enter (0x43d890). Clicks are ignored while the box slides,
+  mode, the line under the cursor → its thread → play), or by the mouse
+  wheel moving the highlight (0x43d810, 0x43d850, from 0x416391 and
+  0x4163b1) and the middle button taking it (0x43d890, from 0x4163c0; not
+  the keyboard, as first thought). Clicks are ignored while the box slides,
   during the 0.4 s pause, and while Prevent or Povent run.
+* Picture choices (act 8's evidence): a choice whose current line's Notes
+  name a `.jpg`, `.png` or `.tga` has that picture too (0x43cf90). The n
+  pictures sit in a row from x = (744 − (112n − 16))/2 + 280, 112 apart,
+  42 pixels down the box (`[0x483098]` = 42.0); each is hit from 8 pixels
+  before it to 8 after its 96 (0x43cdc3), tested before the text rows
+  (0x43c810, then 0x43cce0 for the thread). The text rows are drawn as
+  well. Checked against the recording (Part 10, 16:12 and 18:30).
+* Movie mode (0x43a610): the movie player starts the conversation named
+  after the movie from `Text\Movies\<movie>.txt` (0x42ae7d) and then sets
+  +0x6f0 and the box height 64. The window isn't drawn (0x43cffc skips it
+  and the head), there is no 0.4 s pause between lines (+0x6ec = 0), no
+  voice (0x43c6f0), and a line waits for the movie's clock to reach its
+  Duration's start (+0x1118; its length is +0x1114). So the line shows
+  centred in the bottom 64 pixels, in the speaker's colour, with Captions
+  on. As it isn't a dry run, the talk-start inventory changes apply.
 
 ---
 
@@ -723,14 +740,19 @@ ends. Exits exist only with gen (NPC clicks or `forcegen`).
 
 ## 9. Open questions
 
-1. `0x4194d0`, `0x419e80`, `0x419970` (inventory changes at Start): exact
-   effect.
+1. ~~`0x4194d0`, `0x419e80`, `0x419970` (inventory changes at Start)~~:
+   0x4194d0 closes the inventory window (when it's open, +0x20, and the
+   talk wasn't started from it, +0x44); for a name with neither `gen_` nor
+   `com_` in it (0x43e750, any case), 0x419e80 puts the item in hand back
+   and 0x419970 stops the item just taken blinking.
 2. `0x404720` / `0x404760` / `0x4046c0` / `0x4046f0` (talking state, mouth),
    `0x441270` / `0x441560` / `0x4415b0` (head): the parameter meanings are
    inferred.
 3. `word[0x4986f8]` (enables exit variant 4).
-4. `[0x490068]` is assumed to be the subtitles option.
-5. `0x43cb70` vs `0x43cc30`: which is keyboard up and which is down. Whether
+4. ~~`[0x490068]` is assumed to be the subtitles option~~: it is the
+   `Captions` setting (read and written under that name, 0x42ba10,
+   0x42bba4).
+5. `0x43cb70` vs `0x43cc30`: which is wheel up and which is down. Whether
    `[0x48b08c]`/`[0x48b090]` are the mouse position globals (they hold
    400.0/300.0 in the file).
 6. Start leaves +0x20 = 1 when the named thread does not exist (returns 0).
@@ -753,11 +775,14 @@ tables into parts, threads and lines with the game's codes; the
 `talk` condition, builds the exit and "again" threads and the generic
 extras for characters clicked, and slides the box in and out. The
 Scenes page is its host: it plays the voices (`Sound/VO`), draws the box
-(`src/engines/awe/dialogue_box.cpp`), and passes on clicks. Not done
-yet: the speakers' heads and mouths (logged), the inventory's changes
-at a talk's start, keyboard choices, picture choices (act 8),
-movie subtitles through the manager, and subtitles being optional (the
-text always shows).
+(`src/engines/awe/dialogue_box.cpp`) with act 8's picture choices,
+and passes on clicks, the wheel and the middle button. The speakers'
+heads and mouths move, the Captions option hides the said lines, and a
+talk's start closes the inventory and lets go of the item in hand
+(`talkStarting`). Movie subtitles are drawn as the movie mode draws them
+(timed by the movie's clock rather than run through the manager, which
+comes to the same: no voice, no pause, no clicks), and starting them
+counts as a talk start.
 
 Found by the playthrough search (acts.md): Reluva had counted every
 available extra and thread at a part's start and in the menu, also those
