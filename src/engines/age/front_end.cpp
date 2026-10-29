@@ -235,7 +235,7 @@ std::vector<FrontEnd::Item> FrontEnd::items() const {
     case Screen::Main:
         return {{"dvrcc", true},
                 {"main_sp", true},
-                {"main_mp", true, false},
+                {"main_mp", true, multiplayer},
                 {"main_qck", true, false},
                 {"DRIVER NAME", false}};
     case Screen::Races:
@@ -267,6 +267,8 @@ void FrontEnd::activate(const Item& item, Action& action) {
         go(Screen::CrashCourse);
     else if (w == "main_sp")
         go(Screen::Races);
+    else if (w == "main_mp")
+        action = Action::Multiplayer;
     else if (w == "blitz" || w == "cp" || w == "circuit") {
         choice_.kind = w == "blitz" ? RaceKind::Blitz : w == "cp" ? RaceKind::Checkpoint : RaceKind::Circuit;
         refresh();

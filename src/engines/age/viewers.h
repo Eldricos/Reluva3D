@@ -55,6 +55,7 @@
 #include "engines/age/car_actor.h"
 #include "engines/age/city_life.h"
 #include "engines/age/city_scene.h"
+#include "engines/age/cops_robbers.h"
 #include "engines/age/damage.h"
 #include "engines/age/dashboard.h"
 #include "engines/age/front_end.h"
@@ -65,6 +66,7 @@
 #include "engines/age/record.h"
 #include "engines/age/engine_sound.h"
 #include "engines/age/music.h"
+#include "engines/age/net_menus.h"
 #include "engines/age/opponent.h"
 #include "engines/age/race.h"
 #include "engines/age/road_graph.h"
@@ -375,6 +377,7 @@ private:
         size_t next = 0;      // index into targets_ of the next checkpoint
         float finishTime = -1;
         bool player = false;
+        uint8_t peer = kNoPlayer; // another player's car (multiplayer), driven by what its driver sends
     };
 
     void loadCity();
@@ -453,6 +456,35 @@ private:
     void recordResult();
     void menuEvent(const Event& ev);
     void drawGarageCar(float dt);
+    void drawArrowTo(const Vec3& to, bool blitz);
+
+    // Multiplayer (race_net.cpp): the game's multiplayer menus, then the
+    // session's game, each car driven on its own machine.
+    std::unique_ptr<NetMenus> net_;
+    bool netMenus_ = false;     // the multiplayer menus are up
+    bool netGame_ = false;      // playing a multiplayer game
+    bool garageForNet_ = false; // the garage's open for the lobby's car
+    uint64_t nowMs_ = 0;
+    GoldGame gold_;
+    uint32_t goldSeen_ = 0;                                  // the last gold event said
+    std::map<std::string, std::vector<std::string>> speech_; // the announcer's Cops & Robbers lines
+    std::string netMessage_;
+    float netMessageFor_ = 0;
+    int minutesSaid_ = 0;   // the last "N minutes remaining"
+    bool chatting_ = false; // typing a line to the others
+    std::string chatLine_;
+    void netUpdate(uint64_t nowMs);
+    void startNetGame();
+    void endNetGame();
+    void stepNet(float dt);
+    void driveRemote(Racer& r, float dt);
+    bool netEvent(const Event& ev);
+    void drawNetHud();
+    void drawNetLines();
+    void drawGold();
+    void netSay(const std::string& text);
+    void announce(const GoldEvent& e);
+    Vec3 gridSlot(const Vec3& centre, float yaw, size_t slot) const;
 };
 
 } // namespace reluva::age

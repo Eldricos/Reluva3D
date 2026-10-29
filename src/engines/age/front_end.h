@@ -65,7 +65,7 @@ public:
         int car = 0, paintJob = 0;
         bool manual = false;
     };
-    enum class Action { None, Changed, Start };
+    enum class Action { None, Changed, Start, Multiplayer };
 
     FrontEnd(const SearchSet& files, const std::vector<CityInfo>& cities, const std::vector<CarInfo>& cars,
              const GameStrings& strings, const PlayerRecord& record);
@@ -87,6 +87,16 @@ public:
     Rect carWindow() const;
     // "U": everything open, whatever the record says.
     bool openAll = false;
+    // Whether the main menu's Multiplayer button leads anywhere.
+    bool multiplayer = false;
+    // The garage alone (for the multiplayer lobby's car): Esc goes back
+    // to the main menu, GO DRIVE starts.
+    void showGarage() {
+        afterGarage_ = Screen::Main;
+        screen_ = Screen::Garage;
+        focus_ = 0;
+        refresh();
+    }
     bool raceOpen(int index) const;
     bool carOpen(int car) const;
     bool paintOpen(int car, int paintJob) const;

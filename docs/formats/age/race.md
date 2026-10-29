@@ -129,7 +129,19 @@ The lesson's `crash<n>.aimap` names its opponents' paths
 or to drive among. Its `copchase` aimap lists 14 police and
 `CopChaseDistance` 150.
 
+## Cops & Robbers: multicopwaypoints.csv
+
+In the waypoint files' form (x, y, z, a heading, then columns that are 0
+throughout): 44 places in San Francisco, 46 in London, spread across the
+city at the roadside, each heading along its road. Reluva plays
+multiplayer Cops & Robbers between them: the gold's home and the bases
+([age-multiplayer.md](../../engines/age-multiplayer.md)). Which the game
+uses for what isn't in the file.
+
+San Francisco's `cir1_strtpnts` to `cir9_strtpnts` (no extension: one
+to eight rows each, the same columns with one more 0) look like start
+grids, but don't match the circuits' starts by number. Not used.
+
 ## Not read yet
 
-The other modes' files (Cops & Robbers' `multicop`, the `accel0`
-"Stunt Mode" waypoints, which no lesson names).
+The `accel0` "Stunt Mode" waypoints, which no lesson names.
