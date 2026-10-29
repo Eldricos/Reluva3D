@@ -26,6 +26,9 @@ constexpr float kDiverged = 0.05f; // metres from where the recording had the ca
 
 // The bar's buttons, in mmlang.dll's REPLAY MENU words.
 enum Button { kPlay, kStep, kRew, kCam, kSave, kQuit, kButtons };
+// The bar: its top, and where its first word starts.
+constexpr int kBarY = 88, kBarFirstX = 110;
+constexpr double kRewind = 5; // seconds Rew goes back
 
 std::string clockText(float seconds) {
     char buf[32];
@@ -69,7 +72,7 @@ void RaceViewer::startReplay(Replay replay) {
     for (size_t i = 0; i < cities_.size(); ++i)
         if (cities_[i].map == playback_.city)
             city = int(i);
-    for (int k = 0; k < 4; ++k)
+    for (int k = 0; k < kRacePageKinds; ++k)
         if (int(racePageKind(k)) == playback_.kind)
             kind = k;
     for (size_t i = 0; i < cars_.size(); ++i)
@@ -175,9 +178,27 @@ void RaceViewer::replayButton(int which) {
         replayPaused_ = true;
         playFrame();
         break;
-    case kRew:
+    case kRew: {
+        // Back a few seconds: the race started again and run on (unseen)
+        // to there, as a replay can't be stepped backwards.
+        double back = kRewind;
+        size_t target = replayFrame_;
+        while (target > 0 && back > 0)
+            back -= playback_.frames[--target].dt;
+        const int cam = replayCam_, focus = replayFocus_;
+        const bool paused = replayPaused_;
         startReplay(playback_);
+        if (!replaying_)
+            break;
+        while (replayFrame_ < target)
+            playFrame();
+        replayCam_ = cam;
+        replayFocus_ = focus;
+        replayPaused_ = paused;
+        cameraReset_ = true;
+        tvSet_ = false;
         break;
+    }
     case kCam:
         replayCam_ = (replayCam_ + 1) % (int(cameras_.size()) + 1);
         cameraReset_ = true;
@@ -202,6 +223,22 @@ void RaceViewer::replayButton(int which) {
 }
 
 bool RaceViewer::replayEvent(const Event& ev) {
+    if (ev.type == EventType::MouseDown) {
+        // A word on the bar clicked.
+        if (ev.mouseY < kBarY - 4 || ev.mouseY >= kBarY + 22)
+            return true;
+        int x = kBarFirstX;
+        for (int b = 0; b < kButtons; ++b) {
+            const int w = int(replayWord(b).size() + 3) * font::kAdvance;
+            if (ev.mouseX >= x && ev.mouseX < x + w) {
+                replayFocus_ = b;
+                replayButton(b);
+                break;
+            }
+            x += w;
+        }
+        return true;
+    }
     if (ev.type != EventType::KeyDown)
         return true;
     switch (ev.key) {
@@ -236,7 +273,10 @@ bool RaceViewer::replayEvent(const Event& ev) {
 }
 
 void RaceViewer::gameMenuEvent(const Event& ev) {
-    switch (game_->handle(ev)) {
+    const GameMenus::Action action = game_->handle(ev);
+    if (const std::string clip = game_->takeVoice(); !clip.empty())
+        playVoice(clip);
+    switch (action) {
     case GameMenus::Action::Quit:
         quit_ = true;
         break;
@@ -304,28 +344,33 @@ CameraView RaceViewer::replayCamera(float dt, float& fov) {
     return v;
 }
 
+std::string RaceViewer::replayWord(int button) const {
+    const char* const fallback[kButtons] = {"Play", "Step", "Rew", "Cam", "Save", "Quit"};
+    const uint32_t ids[kButtons] = {484, 485, 486, 488, 489, 490};
+    return button == kPlay && !replayPaused_ ? strings_.get(487, "Stop") : strings_.get(ids[button], fallback[button]);
+}
+
 void RaceViewer::drawReplayBar() {
     // Below the race's own lines: the game's REPLAY MENU and its buttons,
     // the time.
-    const int y = 88;
+    const int y = kBarY;
     for (int r = y - 4; r < y + 22; ++r)
         for (int x = 0; x < kFrameW; ++x) {
             uint8_t* p = overlay_.row(r) + x * 4;
             p[0] = 20, p[1] = 10, p[2] = 60, p[3] = 200;
         }
     font::drawText(overlay_, 6, y + 4, strings_.get(483, "REPLAY MENU"), {255, 230, 140});
-    const char* const fallback[kButtons] = {"Play", "Step", "Rew", "Cam", "Save", "Quit"};
-    const uint32_t ids[kButtons] = {484, 485, 486, 488, 489, 490};
-    int x = 110;
+    int x = kBarFirstX;
     for (int b = 0; b < kButtons; ++b) {
-        std::string word = b == kPlay && !replayPaused_ ? strings_.get(487, "Stop") : strings_.get(ids[b], fallback[b]);
+        const std::string word = replayWord(b);
         const bool focused = b == replayFocus_;
         font::drawText(overlay_, x, y + 4, focused ? "[" + word + "]" : " " + word + " ",
                        focused ? Color{255, 255, 120} : Color{220, 220, 255});
         x += int(word.size() + 3) * font::kAdvance;
     }
     font::drawText(overlay_, kFrameW - 110, y + 4,
-                   clockText(std::max(0.0f, clock_)) + " / " + clockText(playback_.duration() - 3), {255, 255, 255});
+                   clockText(std::max(0.0f, clock_)) + " / " + clockText(playback_.duration() - (cruising() ? 0 : 3)),
+                   {255, 255, 255});
     if (!replayNote_.empty())
         font::drawText(overlay_, 6, y + 26, replayNote_, {255, 200, 120});
 }

@@ -43,6 +43,7 @@ bool clearBetween(const CollisionWorld& world, const Vec3& a, const Vec3& b) {
 Error Police::setup(gfx::Renderer3D& renderer, TextureCache& textures, const SearchSet& files,
                     const AiMapSettings& settings, int count, audio::Mixer* mixer, const std::string& sirenTable) {
     clear();
+    rng_.seed(7); // the same turns each time, so a replay's police drive as they did
     noticeDistance_ = settings.copChaseDistance > 0 ? settings.copChaseDistance : kNotice;
     Error first = Error::success();
     for (const auto& p : settings.police) {

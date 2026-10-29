@@ -17,6 +17,7 @@
 
 #include <filesystem>
 #include <functional>
+#include <utility>
 #include <string>
 #include <vector>
 
@@ -83,6 +84,8 @@ public:
     // The race menu's choice, for Change Race Options and Race Locales.
     void setFrontEnd(FrontEnd* front) { front_ = front; }
     const std::filesystem::path& replayFile() const { return replayFile_; }
+    // A recording to say now (the time or weather chosen, an alert), once.
+    std::string takeVoice() { return std::exchange(voice_, std::string()); }
     const std::string& replayName() const { return name_; }
 
 private:
@@ -157,6 +160,8 @@ private:
     int barInset() const { return screen_ == Screen::RaceOptions ? 20 : 23; }
     void drawConditionIcons(Surface& o, const std::string& w, bool focused) const;
     void stepCondition(const std::string& w, int dir);
+    void sayCondition(bool time);
+    std::string voice_;
     float raceShare(const std::string& w) const;
     void setRaceShare(const std::string& w, float v);
     std::string driverMenuName() const;

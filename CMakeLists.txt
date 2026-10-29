@@ -74,6 +74,7 @@ add_library(reluva_common STATIC
     src/common/x86/format.cpp
     src/common/detection.cpp
     src/common/riff.cpp
+    src/common/winhelp.cpp
     src/common/audio/decode.cpp
     src/common/audio/directmusic.cpp
     src/common/audio/dls.cpp
@@ -242,6 +243,8 @@ if(RELUVA_ENGINE_AGE)
         src/engines/age/race_net.cpp
         src/engines/age/race_replay.cpp
         src/engines/age/race_menus.cpp
+        src/engines/age/race_cruise.cpp
+        src/engines/age/help_viewer.cpp
     src/engines/age/record.cpp
         src/engines/age/world_viewer.cpp
         src/engines/age/texture_viewer.cpp

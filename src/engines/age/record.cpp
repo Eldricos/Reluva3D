@@ -18,6 +18,8 @@ const char* kindWord(RaceKind k) {
     case RaceKind::Circuit: return "circuit";
     case RaceKind::Checkpoint: return "checkpoint";
     case RaceKind::CrashCourse: return "crash";
+    case RaceKind::Cruise:
+        return "cruise";
     }
     return "?";
 }
@@ -34,6 +36,8 @@ const char* kindPlural(RaceKind k) {
     case RaceKind::Circuit: return "Circuit Races";
     case RaceKind::Checkpoint: return "Checkpoint Races";
     case RaceKind::CrashCourse: return "Crash Course";
+    case RaceKind::Cruise:
+        return "Cruise";
     }
     return "";
 }
@@ -161,7 +165,8 @@ bool PlayerRecord::lastRace(std::string& city, RaceKind& kind, int& index) const
     std::string k;
     if (!(words >> city >> k >> index))
         return false;
-    for (RaceKind r : {RaceKind::Blitz, RaceKind::Circuit, RaceKind::Checkpoint, RaceKind::CrashCourse})
+    for (RaceKind r :
+         {RaceKind::Blitz, RaceKind::Circuit, RaceKind::Checkpoint, RaceKind::CrashCourse, RaceKind::Cruise})
         if (k == kindWord(r)) {
             kind = r;
             return true;
@@ -258,6 +263,8 @@ bool raceOpen(const PlayerRecord& record, const std::string& city, RaceKind kind
               int group, int mustPlace) {
     if (kind == RaceKind::CrashCourse)
         return index == 0 || record.hasPassed(city, index - 1);
+    if (kind == RaceKind::Cruise) // the cruise and the stunt: always open
+        return true;
     if (group <= 0 || index < group)
         return true;
     const int before = index / group * group; // every race before this one's group

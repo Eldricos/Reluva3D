@@ -99,6 +99,8 @@ public:
         RaceOptions,   // the race menu's CHANGE: Change Race Options
         CityChoice,    // Enter on LOCATION: Race Locales
         Locked,        // GO DRIVE with a locked car: "You cannot pick a locked vehicle"
+        Help,          // the navigation bar's Help
+        Minimise,      // and its Minimise
     };
     // The drivers, for the main menu's SELECT DRIVER (Left/Right chooses).
     void setDrivers(DriverRoster* roster) { roster_ = roster; }

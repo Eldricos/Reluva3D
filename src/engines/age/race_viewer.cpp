@@ -26,8 +26,9 @@ constexpr float kCountdown = 3;             // seconds before the start
 constexpr float kCircuitRadius = 15;        // circuits' waypoints give no radius
 constexpr float kOpponentReach = 10;        // opponents count a checkpoint this much wider
 constexpr float kSkill[2] = {0.85f, 0.95f}; // amateur, professional: opponents' share of top speed
-const RaceKind kKinds[] = {RaceKind::Blitz, RaceKind::Circuit, RaceKind::Checkpoint, RaceKind::CrashCourse};
-constexpr int kKindCount = 4;
+const RaceKind kKinds[] = {RaceKind::Blitz, RaceKind::Circuit, RaceKind::Checkpoint, RaceKind::CrashCourse,
+                           RaceKind::Cruise};
+constexpr int kKindCount = kRacePageKinds;
 constexpr float kMph = 2.23694f;
 
 std::string clockText(float seconds) {
@@ -214,7 +215,8 @@ void RaceViewer::startRace() {
     }
     error_.clear();
     // The conditions the menus changed (or the replay's): over the race's.
-    const bool changed = replaying_ ? playback_.changed : conditionsChanged_;
+    // A cruise has none of its own: always the menu's.
+    const bool changed = replaying_ ? playback_.changed : conditionsChanged_ || race_.kind == RaceKind::Cruise;
     if (changed && !lesson()) {
         RaceSettings& s = race_.settings[size_t(level_)];
         const FrontEnd::Choice::Conditions c =
@@ -233,6 +235,8 @@ void RaceViewer::startRace() {
     }
     const RaceSettings& set = race_.settings[size_t(level_)];
     scene_->setLighting(std::clamp(set.timeOfDay, 0, 3) * 4 + std::clamp(set.weather, 0, 3));
+    if (race_.kind == RaceKind::Cruise)
+        startCruise();
 
     // The checkpoints in order: the waypoints after the start; a circuit's
     // lap ends back at the first, as many laps as it has.
@@ -333,15 +337,16 @@ void RaceViewer::startRace() {
         engine_.start(*ctx_.mixer, ctx_.files, cars_[size_t(car_)].base);
         sounds_.start(*ctx_.mixer, ctx_.files, cars_[size_t(car_)].base, set.weather == 3);
         // The race music: a tune picked by the race (aud/dmusic).
-        if (Error err =
-                music_.start(ctx_.files, *ctx_.mixer, true, uint32_t(raceIndex_ * 7 + city_ * 3 + int(race_.kind))))
+        // A cruise's, one of the cruising tunes.
+        if (Error err = music_.start(ctx_.files, *ctx_.mixer, !cruising(),
+                                     uint32_t(raceIndex_ * 7 + city_ * 3 + int(race_.kind) + car_)))
             error_ = "music: " + err.message;
     }
     cameras_ = loadCarCameras(ctx_.files, cars_[size_t(car_)].base);
     camera_ = std::min(camera_, int(cameras_.size()) - 1);
     dash_.load(ctx_.files, scene_->models(), scene_->textures(), cars_[size_t(car_)].base);
     cameraReset_ = true;
-    clock_ = -kCountdown;
+    clock_ = cruising() ? 0 : -kCountdown; // a cruise is off at once
     outcome_.clear();
     beatenAll_.clear();
     finalLapFor_ = 0;
@@ -368,7 +373,7 @@ void RaceViewer::startRace() {
         recording_.autoReverse = currentOptions().autoReverse;
         recording_.steerRate = currentOptions().steerRate();
         recording_.pedestrians = pedestrianShare();
-        recording_.changed = conditionsChanged_ && !lesson();
+        recording_.changed = changed && !lesson();
         recording_.laps = set.laps;
         recording_.opponents = set.opponents;
         recording_.timeOfDay = set.timeOfDay;
@@ -423,9 +428,10 @@ void RaceViewer::stepRace(float dt) {
         CarControls c;
         if (started) {
             if (r.player) {
-                // Driving on, unless finished (a cruise has no end).
-                c = r.next < targets_.size() || targets_.empty() ? controlsOf(chatting_ ? 0 : keys_)
-                                                                 : CarControls{0, 1, 0, false};
+                // Driving on, unless finished (a cruise has no end, and the
+                // stunt ends once stopped).
+                c = r.next < targets_.size() || targets_.empty() || stunt() ? controlsOf(chatting_ ? 0 : keys_)
+                                                                            : CarControls{0, 1, 0, false};
                 if (wear_.wrecked())
                     c.throttle = 0; // the engine's dead
                 c.shift = shift_;
@@ -510,6 +516,10 @@ void RaceViewer::stepRace(float dt) {
         recordResult();
         return;
     }
+    if (race_.kind == RaceKind::Cruise) {
+        stepCruise(dt);
+        return;
+    }
     if (state_ == State::Finished)
         return;
     // The end: the player finished, or ran out of time in a Blitz.
@@ -562,7 +572,11 @@ std::string RaceViewer::raceMessage(int offset, const std::string& fallback) con
     // (Ready, Set, Go, a penalty, finished 1st-8th, a loaf, all beaten),
     // Checkpoint from 179 (Ready, Set, Go, Game over, finished 1st-8th, a
     // loaf).
-    const int base = race_.kind == RaceKind::Blitz ? 158 : race_.kind == RaceKind::Circuit ? 165 : 179;
+    // The stunt's from 200 (to the end of the pier, don't fall in, Go!).
+    const int base = race_.kind == RaceKind::Blitz     ? 158
+                     : race_.kind == RaceKind::Circuit ? 165
+                     : race_.kind == RaceKind::Cruise  ? 200
+                                                       : 179;
     return strings_.get(uint32_t(base + offset), fallback);
 }
 
@@ -602,6 +616,10 @@ void RaceViewer::judgeLesson(float dt, bool checkpoint, float impact) {
 void RaceViewer::handleEvent(const Event& ev) {
     if (!renderer_)
         return;
+    if (help_ && help_->isOpen()) {
+        help_->handle(ev);
+        return;
+    }
     if (game_ && game_->isOpen()) {
         gameMenuEvent(ev);
         return;
@@ -610,6 +628,27 @@ void RaceViewer::handleEvent(const Event& ev) {
         return;
     if (ev.type == EventType::KeyUp) {
         keys_ &= ~driveKeyOf(ev.key);
+        return;
+    }
+    if (ev.type == EventType::MouseMove) {
+        if (state_ == State::Menu && front_)
+            menuEvent(ev); // pointed at
+        return;
+    }
+    if (ev.type == EventType::MouseDown) {
+        // A click: on the game's menus, the race's pause menu, results or
+        // replay bar.
+        if (ev.button != MouseButton::Left)
+            return;
+        if (state_ == State::Menu) {
+            if (front_)
+                menuEvent(ev);
+        } else if (replaying_)
+            replayEvent(ev);
+        else if (results_)
+            resultsEvent(ev);
+        else if (paused_)
+            pauseEvent(ev);
         return;
     }
     if (ev.type != EventType::KeyDown)
@@ -722,6 +761,20 @@ void RaceViewer::handleEvent(const Event& ev) {
 
 void RaceViewer::menuEvent(const Event& ev) {
     const FrontEnd::Action action = front_->handle(ev);
+    if (action == FrontEnd::Action::Minimise) {
+        ctx_.sys.minimizeWindow();
+        return;
+    }
+    if (action == FrontEnd::Action::Help) {
+        // The game's help file, read the first time it's asked for.
+        if (!help_) {
+            help_ = std::make_unique<HelpViewer>();
+            if (Error err = help_->load(ctx_.files))
+                error_ = err.message;
+        }
+        help_->open();
+        return;
+    }
     if (action == FrontEnd::Action::Replays && game_) {
         game_->open(GameMenus::Screen::ReplayList);
         return;
@@ -732,6 +785,8 @@ void RaceViewer::menuEvent(const Event& ev) {
                     : action == FrontEnd::Action::DeleteDriver ? GameMenus::Screen::DeleteDriver
                     : action == FrontEnd::Action::DriverStats  ? GameMenus::Screen::DriverStats
                                                                : GameMenus::Screen::RaceRecords);
+        if (const std::string clip = game_->takeVoice(); !clip.empty())
+            playVoice(clip); // "You cannot delete your only driver"
         return;
     }
     if (action == FrontEnd::Action::DriverChanged) {
@@ -743,6 +798,8 @@ void RaceViewer::menuEvent(const Event& ev) {
         game_->open(action == FrontEnd::Action::RaceOptions  ? GameMenus::Screen::RaceOptions
                     : action == FrontEnd::Action::CityChoice ? GameMenus::Screen::CitySelection
                                                              : GameMenus::Screen::Locked);
+        if (const std::string clip = game_->takeVoice(); !clip.empty())
+            playVoice(clip);
         return;
     }
     openAll_ = front_->openAll;
@@ -986,6 +1043,10 @@ void RaceViewer::drawRaceHud() {
         drawNetHud();
         return;
     }
+    if (cruising()) {
+        drawCruiseHud();
+        return;
+    }
     const Racer& player = racers_.front();
     const RaceSettings& set = race_.settings[size_t(level_)];
     font::drawText(overlay_, 4, 4, race_.name + "  (" + raceKindName(race_.kind) + ")", {150, 200, 255});
@@ -1046,8 +1107,18 @@ void RaceViewer::drawRaceHud() {
         std::snprintf(buf, sizeof buf, "POS %d/%zu", place, racers_.size());
         font::drawText(overlay_, 4, 62, buf, {255, 210, 80}, 2);
     }
-    // The countdown, as the game words it: Ready... Set... Go!
-    if (!lesson()) {
+    // The countdown, as the game words it: Ready... Set... Go! (The stunt's
+    // longer words smaller, and its word after the start.)
+    if (stunt()) {
+        if (clock_ < -kCountdown / 2)
+            drawCentred(raceMessage(0, "Race to the end of the pier!"), kFrameH / 2 - 40, {255, 255, 255}, 2);
+        else if (clock_ < 0)
+            drawCentred(raceMessage(1, "But don't fall in!"), kFrameH / 2 - 40, {255, 230, 120}, 2);
+        else if (clock_ < 1)
+            drawCentred(raceMessage(2, "Go!"), kFrameH / 2 - 40, {120, 255, 120}, 6);
+        else if (stuntMessageFor_ > 0)
+            drawCentred(strings_.get(stuntMessage_), 110, {255, 230, 120}, 2);
+    } else if (!lesson()) {
         if (clock_ < -kCountdown / 2)
             drawCentred(raceMessage(0, "Ready..."), kFrameH / 2 - 40, {255, 255, 255}, 5);
         else if (clock_ < 0)
@@ -1164,6 +1235,8 @@ void RaceViewer::update(uint64_t nowMs) {
             if (game_ && game_->isOpen())
                 game_->draw(overlay_, nowMs); // a dialog, over the menu
         }
+        if (help_)
+            help_->draw(overlay_);
         renderer_->endFrame(&overlay_);
         return;
     }

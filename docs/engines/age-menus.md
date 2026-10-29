@@ -47,12 +47,16 @@ encrypted ([age.md](age.md)).
   (`main_qck`: shown, not available); the driver's box shows the level, Amateur or Professional
   (Left/Right). The highlighted button's description (`mn_cc`...) is in
   the box at the bottom left.
-- **Single Race Menu** (`race_bk`): the event (`blitz`, `cp`, `circuit`;
-  `cruise` isn't offered: the Drive page is cruising), the race's name,
-  laps, opponents, city (LOCATION), time of day and weather (the race's
-  own), its pedestrian, traffic and police densities as bars, its map
-  (`<city>_map<kind><n>`), the event's description (`race_btz`...), and
-  the best place so far. `race_veh` goes to the garage.
+- **Single Race Menu** (`race_bk`): the event (`cruise`, `blitz`, `cp`,
+  `circuit`), the race's name, laps, opponents, city (LOCATION), time of
+  day and weather (the race's own, in `mmlang.dll`'s words 357-364:
+  Morning, Noon, Sunset, Night; Sunny, Cloudy, Foggy, Raining), its
+  pedestrian, traffic and police densities as bars, its map
+  (`<city>_map<kind><n>`; a cruise's the whole city's, `<city>_maproam`),
+  the event's description (`race_btz`..., a cruise's `race_rom`), and
+  the best place so far. `race_veh` goes to the garage. Cruise's "races"
+  are the cruise, and in San Francisco the game's stunt
+  ([age-racing.md](age-racing.md#cruise-and-the-stunt)).
 - **Crash Course** (`ccsf_bk`, `cclon_bk`): the city in the heading's
   box, the lesson, its description (`sf_cc<n>`, `lon_cc<n>`), and ticks
   in the PASS column of the curriculum on the background for the lessons
@@ -69,8 +73,11 @@ encrypted ([age.md](age.md)).
   (`texture/<CAR>_DESC`, stored upside down). `vesel_godrive` starts.
 
 Up/Down move between the controls, Left/Right change a value, Enter
-presses, Esc goes back; a click presses a button, or steps a value (on
-its left half back). **U** opens every race, lesson and car.
+presses, Esc goes back. The mouse works as in the game: pointing at a
+control chooses it (and says its word), a click presses a button, or
+steps a value (on its left half back). The same goes for the Options and
+the dialogs, and in the race for the in-race menu, the results screen's
+buttons and the replay's bar. **U** opens every race, lesson and car.
 
 ## Fitting the layout
 
@@ -92,14 +99,22 @@ single player's, opened from the lobby's SELECT VEHICLE.
 
 ## The navigation bar and Quit
 
-Every screen has the navigation bar's **OPTIONS** (`texture/MNAV_OPT`,
-five states) and exit (`mnav_ext`, three) at the top right, where the
-`Navigation Bar` menu of `widget.csv` puts them. The help (`mnav_hlp`)
-and minimise (`mnav_sto`) buttons aren't drawn: the game's help is its
-own Windows help files, and minimising is the window's. Exit, or Esc on
-the main menu, asks **QUIT?** (`jpg/quit_dlg`, OK and Cancel at
-`quit_dlg`'s places, with the `dlg_ok` and `dlg_can` pictures); OK
-leaves the game.
+Every screen has the navigation bar at the top right, where the
+`Navigation Bar` menu of `widget.csv` puts it: **OPTIONS**
+(`texture/MNAV_OPT`, five states), help (`mnav_hlp`, three), minimise
+(`mnav_sto`, three) and exit (`mnav_ext`, three).
+
+- **Help** shows the game's help file, `MM2HELP.HLP` in its folder (a
+  Windows Help file, read by `common/winhelp.cpp`:
+  [winhelp.md](../formats/winhelp.md)), in a page of Reluva's own over
+  the menu: the topics listed (Enter or a click reads one), and the
+  topic's text to scroll (Up/Down, Page Up/Down, the wheel). Esc goes
+  back, then closes. The help's pictures, links and fonts aren't shown.
+  Without the file the button isn't available.
+- **Minimise** puts the window away (`System::minimizeWindow`).
+- **Exit**, or Esc on the main menu, asks **QUIT?** (`jpg/quit_dlg`, OK
+  and Cancel at `quit_dlg`'s places, with the `dlg_ok` and `dlg_can`
+  pictures); OK leaves the game.
 
 ## Options
 
@@ -218,10 +233,14 @@ What the options do in Reluva:
   (`UIrecords`), the garage (`UIvehicles`), OPTIONS (`UIoptions`), GO
   DRIVE (`UIgo`) and the driver (`UIdriver`). They play as speech, so
   Play Commentary turns them off.
-- **Not used.** The recordings for the times of day and the weathers
-  (`UImorning`, `UIsunny`, `UIsnow`...) are for a menu that chooses
-  them, which Reluva's single race doesn't offer (each race has its
-  own); `uialert` has no place found yet.
+- **Times and weathers.** Choosing a time of day or a weather in Change
+  Race Options says it: `UImorning`, `UInoon`, `UIsunset`, `UInight`;
+  `UIsunny`, `UIcloudy`, `UIrain`. There's no recording for fog, and
+  `UIsnow` is for a weather the game hasn't (like `mmlang.dll`'s unused
+  "Weather: Snowing", 411).
+- **Alerts.** The dialogs that say no (You cannot pick a locked vehicle,
+  You cannot delete your only driver, a driver's name or a key already
+  taken) sound the game's `uialert` (`aud/aud11/uialert`).
 
 ## Drivers and records
 

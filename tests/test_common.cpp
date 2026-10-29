@@ -25,6 +25,7 @@
 #include "common/pe.h"
 #include "common/riff.h"
 #include "common/text.h"
+#include "common/winhelp.h"
 #include "common/x86/cpu.h"
 #include "common/x86/win32.h"
 #include "common/zip.h"
@@ -804,6 +805,72 @@ void testDirectMusic() {
     CHECK(level(8.3f, 9) < 0.0001 && !perf.playing());
 }
 
+// A Windows Help file made here: its directory (a B+ tree of one leaf),
+// |SYSTEM, and |TOPIC uncompressed with one topic of two records.
+static void testWinHelp() {
+    // The help compiler's LZ77: 'a' as it is, then three more from one back.
+    const uint8_t packed[] = {0x02, 'a', 0x00, 0x00, 'b'};
+    const std::vector<uint8_t> unpacked = winhelp::decompressLz77(packed, sizeof packed);
+    CHECK(std::string(unpacked.begin(), unpacked.end()) == "aaaab");
+
+    std::vector<uint8_t> f(16, 0);
+    auto u8 = [&](uint32_t v) { f.push_back(uint8_t(v)); };
+    auto u16 = [&](uint32_t v) { u8(v & 0xFF), u8(v >> 8 & 0xFF); };
+    auto u32 = [&](uint32_t v) { u16(v & 0xFFFF), u16(v >> 16); };
+    auto bytes = [&](const std::string& s) { f.insert(f.end(), s.begin(), s.end()); };
+    auto fileHeader = [&](uint32_t used) { u32(used), u32(used), u8(0); };
+
+    const uint32_t system = uint32_t(f.size());
+    fileHeader(12);
+    u16(0x036C), u16(33), u16(1), u32(0), u16(0); // version 4 (minor 33), not compressed
+
+    // The topic: its header record (title "Driving"), then its text:
+    // "Hello" (a font) " world" (paragraph's end) "" (the end), with a
+    // Windows apostrophe.
+    const uint32_t topic = uint32_t(f.size());
+    const std::string ld2a("Driving\0", 8), ld2b("Hello\0 world\x92s\0\0", 16);
+    const std::vector<uint8_t> ld1b = {0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00,
+                                       0x00, 0x00, 0x80, 0x01, 0x00, 0x82, 0xFF};
+    const uint32_t first = 12, second = first + 21 + 28 + uint32_t(ld2a.size());
+    const uint32_t topicBytes = 12 + (second - 12) + 21 + uint32_t(ld1b.size() + ld2b.size());
+    fileHeader(topicBytes);
+    u32(0xFFFFFFFF), u32(first), u32(first); // the block's header
+    u32(21 + 28 + uint32_t(ld2a.size())), u32(uint32_t(ld2a.size())), u32(0xFFFFFFFF), u32(second), u32(21 + 28);
+    u8(0x02);
+    u32(0), u32(0xFFFFFFFF), u32(0xFFFFFFFF), u32(0), u32(0xFFFFFFFF), u32(0xFFFFFFFF), u32(0xFFFFFFFF);
+    bytes(ld2a);
+    u32(21 + uint32_t(ld1b.size() + ld2b.size())), u32(uint32_t(ld2b.size())), u32(first), u32(0xFFFFFFFF),
+        u32(21 + uint32_t(ld1b.size()));
+    u8(0x20);
+    f.insert(f.end(), ld1b.begin(), ld1b.end());
+    bytes(ld2b);
+
+    const uint32_t directory = uint32_t(f.size());
+    fileHeader(38 + 1024);
+    u16(0x293B), u16(0x0402), u16(1024);
+    bytes(std::string("z4\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16));
+    u16(0), u16(0), u16(0), u16(0xFFFF), u16(1), u16(1), u32(2);
+    const size_t page = f.size();
+    u16(0), u16(2), u16(0xFFFF), u16(0xFFFF);
+    bytes(std::string("|SYSTEM\0", 8)), u32(system);
+    bytes(std::string("|TOPIC\0", 7)), u32(topic);
+    f.resize(page + 1024, 0);
+
+    const uint32_t header[4] = {0x00035F3F, directory, 0xFFFFFFFF, uint32_t(f.size())};
+    for (int i = 0; i < 16; ++i)
+        f[size_t(i)] = uint8_t(header[i / 4] >> (i % 4 * 8));
+
+    std::vector<winhelp::Topic> topics;
+    CHECK(!winhelp::readHelp(f, topics));
+    CHECK(topics.size() == 1);
+    if (topics.size() == 1) {
+        CHECK(topics[0].title == "Driving");
+        CHECK(topics[0].text == "Hello world's");
+    }
+    f[0] = 0;
+    CHECK(winhelp::readHelp(f, topics)); // not a help file
+}
+
 int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_tests";
     testMd5();
@@ -825,6 +892,7 @@ int main() {
     testPeStrings();
     testDls();
     testDirectMusic();
+    testWinHelp();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

@@ -59,6 +59,8 @@ public:
     // width x height (when it fits on the screen; the frame is letterboxed
     // in whatever size the window is).
     virtual void setVideoMode(int width, int height, bool fullscreen) { (void)width, (void)height, (void)fullscreen; }
+    // The window put away (minimised), for a game's own minimise button.
+    virtual void minimizeWindow() {}
 
     // --- Time ---------------------------------------------------------------
     virtual uint64_t getMillis() const = 0;

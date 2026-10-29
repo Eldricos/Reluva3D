@@ -142,6 +142,22 @@ San Francisco's `cir1_strtpnts` to `cir9_strtpnts` (no extension: one
 to eight rows each, the same columns with one more 0) look like start
 grids, but don't match the circuits' starts by number. Not used.
 
-## Not read yet
+## Cruise: roam.aimap
 
-The `accel0` "Stunt Mode" waypoints, which no lesson names.
+`race/<city>/roam.aimap` (and `.aimap_p`): the aimap form
+([aimap.md](aimap.md)) with no race beside it: police (19 in San
+Francisco, 20 at Professional; 20 in London), no opponents, and in
+London the traffic's density and types. Reluva reads it for the race
+menu's Cruise ([age-racing.md](../../engines/age-racing.md#cruise-and-the-stunt)).
+
+## The stunt: accel0waypoints.csv
+
+San Francisco's `accel0waypoints.csv`: five points in the waypoint
+files' form, in a straight line from (-1284, 40, 854) down to (-1, -1,
+-4) by the bay, the fifth column 9-15 (a radius, as in the lessons).
+`mmlang.dll`'s messages 199-204 name it "Stunt Mode: Acceleration";
+Reluva runs it as Cruise's second race there.
+
+Not read: `stunt0waypoints.csv` (one point), `stunt0.aimap`,
+`jump0waypoints.csv`-`jump2waypoints.csv`, `jump0.aimap` and
+`ramp.pathset`.

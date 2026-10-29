@@ -35,6 +35,59 @@ countdown, then:
   police): see [age-traffic.md](age-traffic.md). Busted by the police,
   or wrecked, the race is over.
 
+## Cruise and the stunt
+
+The race menu's **Cruise** (`cruise`, the first of its events) is the
+city with no race: no checkpoints, no clock, no countdown. "Explore the
+city, become one with your vehicle, and practice up for some serious
+racing, without the pressure of the clock", as the game's help puts it.
+
+- Its conditions are the menu's (Change Race Options): Reluva starts
+  from morning, sunny, half traffic and pedestrians and 4 police.
+- Its police patrol from `race/<city>/roam.aimap` (`.aimap_p` at
+  Professional, with one more in San Francisco): 19 and 20 of them in
+  San Francisco and London, at places across the city. That's Reluva's
+  reading of the name ("roam"); the game's own cruise isn't otherwise
+  described by its files.
+- It starts at one of the city's Cops & Robbers places
+  (`multicopwaypoints.csv`, as a multiplayer cruise does), picked by the
+  car, so its replay starts in the same place.
+- Busted or wrecked, the car is put back where it started, mended.
+- It plays one of the cruising tunes, as the Drive page does.
+- Esc pauses; Quit to Race Menu ends it. Nothing is recorded but the
+  last race run (Quick Race).
+
+**Stunt Mode: Acceleration.** San Francisco has one more file no race
+names, `race/sf/accel0waypoints.csv`, and `mmlang.dll` has a group of
+messages no lesson uses (199-204): "Stunt Mode: Acceleration", "Race to
+the end of the pier!", "But don't fall in!", "Go!", "Put the pedal to
+the metal!", "Great job! You can stop on a dime!". Reluva puts them
+together as the game's stunt, offered as Cruise's second race in San
+Francisco:
+
+- The file's five points run 1.5 km in a straight line down the hill
+  to the bay (Market Street, it looks like), from 40 m up to the water's
+  level, with road under all of it. Measured by casting down onto the
+  city's collision every 40 m: the ground runs on some 140 m past the
+  last point, then stops. That's the pier's end.
+- The car starts at the first point facing the second (the file's
+  first heading, 39.6 degrees, points 25 degrees off the road, into the
+  buildings).
+- The messages count it down (200, 201, 202), then "Put the pedal to
+  the metal!".
+- The points after the first are checkpoints, as in a race. Past the
+  last, stopped (under 0.5 m/s) is "Great job! You can stop on a
+  dime!", with the time and how far short of the pier's end. Falling in
+  (3 m below the lowest point) fails, as do being busted or wrecked.
+- Traffic is light (0.2) and there are no police.
+
+What isn't used: `race/sf/stunt0waypoints.csv` (one point, a start) and
+`stunt0.aimap` (light traffic, three roads without it, an opponent
+`vpford opp-c0.2` whose file isn't there), which look like the
+"Stunt Prototype" of the game's mode names (`mmlang.dll` 526, beside
+"Testing"); the `jump0`-`jump2` points and aimap; and `ramp.pathset`
+(one path of 13 points).
+
 ## Crash Course
 
 Each city's 13 lessons (`race/<city>/crash<n>data.csv`,
@@ -117,7 +170,12 @@ car was. A replay whose car isn't within 5 cm of the place says it "has
 gone its own way". That would happen if Reluva's driving or city changed
 since the replay was saved. A Blitz driven, replayed at once, saved, and
 loaded again from the main menu ran its 105 seconds to the same win at
-the same time, with no difference at any of its marks.
+the same time, with no difference at any of its marks. For that,
+everything random or timed in the city starts afresh with each race:
+the traffic's, pedestrians' and police's random choices from the race's
+seeds, and the traffic lights' clock from 0. (The police's and the
+lights' didn't at first: a cruise's replay drifted from 13 seconds in,
+found by comparing the two runs frame by frame.)
 
 **Watching.** After a race, **I** starts the instant replay of it. The
 main menu's INSTANT REPLAY (`main_rpl`) opens the game's **Replay**
@@ -132,7 +190,7 @@ saved, with LOAD (`RPL_LOAD`), EDIT (`rpl_edit`: renamed in the game's
 |---|---|---|
 | Play / Stop | Space | runs or stops it |
 | Step | `.` | one frame on |
-| Rew | Backspace | back to the start |
+| Rew | Backspace | back five seconds (the race run again, unseen, from its start to there) |
 | Cam | the Change Camera key | through the car's own cameras, and a roadside camera |
 | Save | | the replay saved, under a name ("Save as") |
 | Quit | Esc | for the race just driven, first the game's "Do you want to save this replay?" |
