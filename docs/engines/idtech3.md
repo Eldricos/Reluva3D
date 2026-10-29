@@ -59,8 +59,8 @@ every engine.
    detection (one release); the retail paks are read; Elite Force's
    shaders use no directive outside Quake III's; its map entities are
    surveyed ([eliteforce-entities.md](../formats/idtech3/eliteforce-entities.md)).
-   Still to do: detect its other releases
-   (the Expansion Pack, the Mac and other-language versions).
+   The Expansion Pack is detected too. Still to do: detect its other
+   releases (the Mac and other-language versions).
 2. **3D rendering in `System`.** Done: `gfx::Renderer3D` in
    `src/common/gfx3d.h` (textures, static meshes, draw calls with blend,
    depth, cull and alpha-test state, a 2D overlay), reached through
