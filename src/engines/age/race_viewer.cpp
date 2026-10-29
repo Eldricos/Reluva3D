@@ -328,6 +328,7 @@ void RaceViewer::startRace() {
 
 void RaceViewer::endRace() {
     replaying_ = false;
+    paused_ = results_ = false;
     if (front_)
         front_->afterRace();
     life_.stop();
@@ -610,10 +611,28 @@ void RaceViewer::handleEvent(const Event& ev) {
         replayEvent(ev);
         return;
     }
+    if (results_) {
+        resultsEvent(ev);
+        return;
+    }
+    if (paused_) {
+        pauseEvent(ev);
+        return;
+    }
+    if (!netGame_ && ev.key == key::Escape) {
+        // Esc stops the race: the game's in-race menu.
+        paused_ = true;
+        pauseFocus_ = 0;
+        keys_ = 0;
+        return;
+    }
+    if (!netGame_ && state_ == State::Finished && (ev.key == key::Return || ev.key == key::KpEnter)) {
+        results_ = true; // the game's results screen
+        resultsFocus_ = nextRaceOpen() ? 1 : 0;
+        return;
+    }
     if (state_ == State::Finished && !netGame_ && ev.key == 'i' && !recording_.empty()) {
-        replayOfThisRace_ = true; // the instant replay
-        replaySaved_ = false;
-        startReplay(recording_);
+        instantReplay(ReplayReturn::Results); // the instant replay
         return;
     }
     if (state_ == State::Finished && lesson() && (ev.key == 'r' || ev.key == key::Return || ev.key == key::KpEnter)) {
@@ -719,7 +738,8 @@ void RaceViewer::drawGarageCar(float dt) {
     }
     orbit_ += dt * 0.5f;
     showCar_->sim.reset(showCar_->setup, {0, 0, 0}, orbit_);
-    const Vec3 eye{0, 2.2f, 7.5f}, at{0, 0.7f, 0};
+    const bool show = front_->screen() == FrontEnd::Screen::Showcase;
+    const Vec3 eye = show ? Vec3{0, 2.4f, 13.0f} : Vec3{0, 2.2f, 7.5f}, at{0, 0.7f, 0};
     const gfx::Mat4 viewProj = gfx::multiply(gfx::perspective(35 * kPi / 180, float(r.w) / float(r.h), 0.1f, 100),
                                              gfx::lookAlong(eye, normalized(at - eye), {0, 1, 0}));
     renderer_->setView(viewProj, eye);
@@ -1025,10 +1045,11 @@ void RaceViewer::update(uint64_t nowMs) {
         eye = centre + Vec3{std::sin(orbit_) * 40, 18, std::cos(orbit_) * 40};
         target = centre;
     } else {
-        // After the finish the others race on to theirs, for the results.
+        // After the finish the others race on to theirs, for the results
+        // (stopped while paused, or on the results screen).
         if (replaying_)
             stepReplay(dt);
-        else {
+        else if (!paused_ && !results_) {
             recordFrame(dt);
             stepRace(dt);
             markRecording();
@@ -1038,6 +1059,7 @@ void RaceViewer::update(uint64_t nowMs) {
         music.speed = state_ == State::Countdown ? 100 : std::fabs(racers_.front().car->sim.forwardSpeed());
         music.chased = life_.police().chasing() > 0;
         music.finished = state_ == State::Finished;
+        music.paused = paused_;
         music_.update(dt, music);
         const CarCamera& cam = cameras_[size_t(camera_)];
         fov = cam.fov;
@@ -1054,14 +1076,15 @@ void RaceViewer::update(uint64_t nowMs) {
         gfx::lookAlong(eye, normalized(target - eye), up));
     if ((state_ == State::Menu || racers_.empty()) && front_) {
         // The game's menus, over a dark frame (the garage's car in its
-        // window).
+        // window), with their music and voices.
+        menuSounds();
         renderer_->beginFrame(viewProj, eye, {10, 14, 40});
         if (netMenus_ && net_) {
             net_->draw(overlay_, nowMs);
         } else if (game_ && game_->isOpen() && game_->screen() != GameMenus::Screen::Quit) {
             game_->draw(overlay_, nowMs);
         } else {
-            if (front_->screen() == FrontEnd::Screen::Garage)
+            if (front_->screen() == FrontEnd::Screen::Garage || front_->screen() == FrontEnd::Screen::Showcase)
                 drawGarageCar(dt);
             front_->draw(overlay_);
             if (game_ && game_->isOpen())
@@ -1113,8 +1136,12 @@ void RaceViewer::update(uint64_t nowMs) {
         drawRaceHud();
         if (replaying_)
             drawReplayBar();
+        if (paused_)
+            drawPauseMenu();
+        if (results_)
+            drawResults();
         if (game_ && game_->isOpen())
-            game_->draw(overlay_, nowMs); // the replay's save dialogs
+            game_->draw(overlay_, nowMs); // the Options, or the replay's save dialogs
     }
     renderer_->endFrame(&overlay_);
 }

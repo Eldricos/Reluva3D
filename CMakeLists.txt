@@ -240,6 +240,7 @@ if(RELUVA_ENGINE_AGE)
         src/engines/age/race_viewer.cpp
         src/engines/age/race_net.cpp
         src/engines/age/race_replay.cpp
+        src/engines/age/race_menus.cpp
     src/engines/age/record.cpp
         src/engines/age/world_viewer.cpp
         src/engines/age/texture_viewer.cpp

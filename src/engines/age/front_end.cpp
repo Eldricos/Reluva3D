@@ -190,7 +190,8 @@ FrontEnd::FrontEnd(const SearchSet& files, const std::vector<CityInfo>& cities, 
 }
 
 const Widget* FrontEnd::widget(const std::string& name) const {
-    static const char* const kMenus[] = {"Main Menu", "Single Race Menu", "Crash Course", "Garage Menu", ""};
+    static const char* const kMenus[] = {"Main Menu", "Single Race Menu",   "Crash Course",    "Garage Menu",
+                                         "",          "Crash Course Intro", "Vehicle Showcase"};
     const std::string menu = kMenus[int(screen_)];
     for (const Widget& w : widgets_)
         if (w.menu == menu && w.name == name)
@@ -259,7 +260,18 @@ std::vector<FrontEnd::Item> FrontEnd::screenItems() const {
                 {"RACE NAME", false}, {"RACE LOCALE", false}, {"race_veh", true}};
     case Screen::CrashCourse: return {{"city", false}, {"CRASH NAME", false}, {"host_dn", true}};
     case Screen::Garage:
-        return {{"VEHICLES", false}, {"CAR COLOR", false}, {"TRANSMISSION", false}, {"vesel_godrive", true}};
+        return {{"VEHICLES", false},
+                {"CAR COLOR", false},
+                {"TRANSMISSION", false},
+                {"veh_show", true, true, "veh_show", 4},
+                {"vesel_godrive", true}};
+    case Screen::CrashIntro:
+        // widget.csv's row for its BACK is garbled: the navigation bar's.
+        return {{"cci_lon", true, true, "cci_lon", 4},
+                {"cci_sf", true, true, "cci_sf", 4},
+                {"mnav_prev", true, true, "mnav_prv", 4}};
+    case Screen::Showcase:
+        return {{"opt_done", true, true, "opt_done", 4}};
     case Screen::Splash: return {};
     }
     return {};
@@ -280,8 +292,21 @@ void FrontEnd::activate(const Item& item, Action& action) {
         return;
     const std::string& w = item.widget;
     if (w == "dvrcc")
+        go(Screen::CrashIntro);
+    else if (w == "cci_lon" || w == "cci_sf") {
+        // London's cab company or San Francisco's stunt school.
+        for (size_t i = 0; i < cities_.size(); ++i)
+            if ((cities_[i].map == "london") == (w == "cci_lon"))
+                choice_.city = int(i);
         go(Screen::CrashCourse);
-    else if (w == "main_sp")
+    } else if (w == "mnav_prev" && screen_ == Screen::CrashIntro)
+        go(Screen::Main);
+    else if (w == "veh_show")
+        go(Screen::Showcase);
+    else if (w == "opt_done" && screen_ == Screen::Showcase) {
+        screen_ = Screen::Garage;
+        focus_ = 3;
+    } else if (w == "main_sp")
         go(Screen::Races);
     else if (w == "main_mp")
         action = Action::Multiplayer;
@@ -409,6 +434,11 @@ FrontEnd::Action FrontEnd::handle(const Event& ev) {
     case key::Escape:
         if (screen_ == Screen::Garage)
             go(afterGarage_);
+        else if (screen_ == Screen::Showcase) {
+            screen_ = Screen::Garage;
+            focus_ = 3;
+        } else if (screen_ == Screen::CrashCourse)
+            go(Screen::CrashIntro);
         else if (screen_ != Screen::Main)
             go(Screen::Main);
         else {
@@ -449,7 +479,9 @@ void FrontEnd::bar(Surface& o, const std::string& name, float share) const {
     }
 }
 
-FrontEnd::Rect FrontEnd::carWindow() const { return screen_ == Screen::Garage ? kCarWindow : Rect{}; }
+FrontEnd::Rect FrontEnd::carWindow() const {
+    return screen_ == Screen::Garage ? kCarWindow : screen_ == Screen::Showcase ? Rect{0, 0, 640, 480} : Rect{};
+}
 
 void FrontEnd::draw(Surface& o) {
     std::fill(o.pixels.begin(), o.pixels.end(), 0);
@@ -464,6 +496,12 @@ void FrontEnd::draw(Surface& o) {
     case Screen::CrashCourse: background = map == "london" ? "cclon_bk" : "ccsf_bk"; break;
     case Screen::Garage: background = "veh_bk"; break;
     case Screen::Splash: background = "splash"; break;
+    case Screen::CrashIntro:
+        background = "ilon_bk";
+        break;
+    case Screen::Showcase:
+        background = "";
+        break; // the car, the whole screen
     }
     if (screen_ == Screen::Splash) {
         if (const image::Image* bg = pictures_.jpg(background))
@@ -562,10 +600,24 @@ void FrontEnd::draw(Surface& o) {
                 else
                     font::drawText(o, kPassColumn - 4, kCurriculumRows[i], "X", {120, 255, 120});
             }
-        // The city, in the heading's box.
-        font::drawText(o, kCityBox.x + 6, kCityBox.y + 6, cities_[size_t(choice_.city)].name,
-                       focus_ == 0 ? Color{255, 255, 120} : Color{255, 230, 140});
+        // (The city: the background names its school; the heading's box,
+        // where it went, is under the navigation bar now.)
         font::drawText(o, 300, 380, "Left/Right: the city, the lesson   Enter: the garage", {200, 200, 255});
+    } else if (screen_ == Screen::Showcase) {
+        // The car alone, turning; its name and description.
+        const CarInfo& car = cars_[size_t(choice_.car)];
+        font::drawText(o, 40, 40, car.description, {255, 230, 140}, 2);
+        std::string upper = car.base;
+        for (char& c : upper)
+            c = char(std::toupper(static_cast<unsigned char>(c)));
+        if (const image::Image* d = pictures_.texture(upper + "_DESC")) {
+            image::Image flipped = *d; // stored upside down
+            const size_t row = size_t(d->w) * 4;
+            for (int y = 0; y < d->h; ++y)
+                std::copy_n(d->rgba.begin() + std::ptrdiff_t(size_t(d->h - 1 - y) * row), row,
+                            flipped.rgba.begin() + std::ptrdiff_t(size_t(y) * row));
+            drawPicture(o, flipped, 40, 396, 219, 69);
+        }
     } else if (screen_ == Screen::Garage) {
         const CarInfo& car = cars_[size_t(choice_.car)];
         const bool open = carOpen(choice_.car), paint = paintOpen(choice_.car, choice_.paintJob);

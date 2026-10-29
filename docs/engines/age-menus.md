@@ -168,6 +168,60 @@ What the options do in Reluva:
   `jpg/ctrl_dlg`: "Duplicate key or button, please make a different
   selection".
 
-Not drawn: the other menus (replays, driver records, the Cops & Robbers
-Settings and serial dialogs, the other dialogs), the Vehicle Showcase,
-and the menus' sounds and music.
+## The Crash Course's intro and the Vehicle Showcase
+
+- **Crash Course Intro** (`jpg/ilon_bk`): Uncle Donald's two schools,
+  first when the Crash Course is chosen. LONDON CABBIE (`cci_lon`) and SF
+  STUNT DRIVER (`cci_sf`) choose the city's school; BACK is the
+  navigation bar's (the screen's own row in `widget.csv` is garbled:
+  `2,mnav_prev,4,1,290,415,90`). The Crash Course screen's background
+  names its school, so the city isn't written over its heading any more
+  (where the navigation bar now is).
+- **Vehicle Showcase** (the garage's VEHICLE SHOWCASE, `veh_show`): the
+  car alone, turning, the whole screen, with its name and description;
+  DONE (`opt_done`) goes back. The game's `texture/VSDE_*` pictures
+  (Volkswagon Beetle, Bus, Cadillac Eldorado...) are mostly only the
+  car's name; the garage's fuller `<CAR>_DESC` is shown instead.
+
+## In the race
+
+- **Esc** stops the race: the game's in-race menu (`mmlang.dll`'s MAIN
+  MENU: Resume Driving, Restart Race or Restart Lesson, Instant Replay,
+  Options, Quit to Race Menu), over the race darkened. The game's
+  picture for it isn't among the files, so its words are drawn as they
+  are.
+  - Its Instant Replay is the race so far ([age-racing.md](age-racing.md#replays)).
+    Quitting the replay runs the race on to where it was paused, so it
+    can be driven on.
+  - Its Options are the Options menus.
+- **Enter**, after a race or lesson, opens the game's results screen:
+  - `jpg/rshi_bk` "Event Results" or `crshi_bk` "Crash Course Results".
+  - In its box: the racers in order with their times (`mmlang.dll`'s
+    DNF for those who didn't finish), or the lesson's Pass or Failed and
+    its time.
+  - Bottom left: the event's or the lesson's description.
+  - Down the right, the game's `texture/RESULT_*` buttons (four states:
+    blue, red pointed at, yellow pressed, grey not available): Restart
+    Race, Next Race (when the next is open, and for a lesson when this
+    one's passed), Instant Replay, Race Menu, Exit to Windows (which asks
+    Quit?). The lessons use the same pictures; there are none of their
+    own.
+
+## The menus' sounds
+
+- **Music.** The menus play the game's menu tune: the segment
+  `aud/dmusic/csv_files/ui.csv` names (`UI.sgt`), by Reluva's
+  DirectMusic player.
+- **Voices.** Pointing at a button says its word, as the game's
+  `aud/aud22/UI*.wav` recordings name them: RACES (`UIraces`),
+  MULTIPLAYER (`UImulti`), INSTANT REPLAY (`UIreplay`), RACE RECORDS
+  (`UIrecords`), the garage (`UIvehicles`), OPTIONS (`UIoptions`), GO
+  DRIVE (`UIgo`) and the driver (`UIdriver`). They play as speech, so
+  Play Commentary turns them off.
+- **Not used.** The recordings for the times of day and the weathers
+  (`UImorning`, `UIsunny`, `UIsnow`...) are for a menu that chooses
+  them, which Reluva's single race doesn't offer (each race has its
+  own); `uialert` has no place found yet.
+
+Not drawn: the other menus (driver records, the Cops & Robbers Settings
+and serial dialogs, the Race Environment dialog, the other dialogs).

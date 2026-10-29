@@ -141,11 +141,25 @@ void RaceViewer::stepReplay(float dt) {
 }
 
 void RaceViewer::endReplay() {
-    replaying_ = false;
     replayOfThisRace_ = false;
     replayQuitting_ = false;
+    if (replayReturn_ == ReplayReturn::Menu) {
+        replaying_ = false;
+        keys_ = 0;
+        endRace();
+        return;
+    }
+    // Back to the race (or its results): run on to where it was left,
+    // which is where it is when the recording's all played.
+    while (replayFrame_ < playback_.frames.size())
+        playFrame();
+    replaying_ = false;
     keys_ = 0;
-    endRace();
+    if (replayReturn_ == ReplayReturn::Results)
+        results_ = true;
+    else
+        paused_ = true;
+    replayReturn_ = ReplayReturn::Menu;
 }
 
 void RaceViewer::replayButton(int which) {

@@ -55,7 +55,9 @@ class FrontEnd {
 public:
     // Splash: jpg/splash.jpg, shown first (in place of the opening movie,
     // logos.avi, which is Indeo 5 and not played).
-    enum class Screen { Main, Races, CrashCourse, Garage, Splash };
+    // CrashIntro: jpg/ilon_bk, choosing the school; Showcase: the garage's
+    // car alone, the whole screen.
+    enum class Screen { Main, Races, CrashCourse, Garage, Splash, CrashIntro, Showcase };
     // What the menus have chosen.
     struct Choice {
         int city = 0;
@@ -79,6 +81,11 @@ public:
     // what's been unlocked).
     void afterRace() { go(afterGarage_); }
     Choice& choice() { return choice_; }
+    // The control with the focus (for the menus' voices).
+    std::string focusedWidget() const {
+        const auto list = items();
+        return focus_ >= 0 && size_t(focus_) < list.size() ? list[size_t(focus_)].widget : std::string();
+    }
     // Where the garage shows the car (in the overlay's pixels), to draw it
     // there in 3D; empty off the garage.
     struct Rect {
