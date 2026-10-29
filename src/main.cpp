@@ -45,9 +45,26 @@ static int printHashes(int argc, char** argv) {
     return 0;
 }
 
+// `reluva --detect <folder>...` lists the games found in each folder, as
+// the launcher's Add Game does.
+static int printDetected(int argc, char** argv) {
+    int found = 0;
+    for (int i = 2; i < argc; ++i)
+        for (const DetectedGame& g : detectGames(argv[i])) {
+            std::printf("%s: %s/%s  %s  [%s, %s]\n", argv[i], g.engineId.c_str(), g.gameId.c_str(),
+                        g.description.c_str(), g.language.c_str(), g.platform.c_str());
+            ++found;
+        }
+    if (!found)
+        std::printf("no games found\n");
+    return found ? 0 : 1;
+}
+
 int main(int argc, char** argv) {
     if (argc >= 2 && std::strcmp(argv[1], "--hash") == 0)
         return printHashes(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "--detect") == 0)
+        return printDetected(argc, argv);
 
     SdlSystem system;
     if (Error err = system.init()) {

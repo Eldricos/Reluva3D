@@ -142,6 +142,7 @@ char asAscii(uint32_t cp) {
     switch (cp) {
     case 0xa0: return ' ';
     case 0xb4: return '\'';
+    case 0xb7: return '*'; // and bullets, which become middle dots
     case 0xd7: return 'x';
     default: break;
     }

@@ -14,13 +14,17 @@ namespace reluva::text {
 // become U+FFFD.
 std::string utf16leToUtf8(const uint16_t* units, size_t count);
 
+// Convert Windows-1252 text (the Western code page of Windows 95 games) to
+// UTF-8. Its five unassigned bytes become U+FFFD.
+std::string windows1252ToUtf8(std::string_view s);
+
 // The code point at s[i] of UTF-8 text, advancing i past it (U+FFFD for a
 // bad sequence). i must be less than s.size().
 uint32_t nextUtf8(std::string_view s, size_t& i);
 
 // A code point as Latin-1 (U+0000-U+00FF) for drawing in fonts limited to
-// it: typographic quotes and dashes become their ASCII forms, a tab a space,
-// anything else outside Latin-1 '?'.
+// it: typographic quotes and dashes become their ASCII forms, a bullet a
+// middle dot, a tab a space, anything else outside Latin-1 '?'.
 uint32_t toLatin1(uint32_t cp);
 
 } // namespace reluva::text

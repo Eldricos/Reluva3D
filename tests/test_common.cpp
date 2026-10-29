@@ -111,6 +111,14 @@ static void testUtf16() {
     CHECK(text::utf16leToUtf8(nullptr, 0).empty());
 }
 
+static void testWindows1252() {
+    CHECK(text::windows1252ToUtf8("plain") == "plain");
+    // A bullet, as Clue's text files use, an e acute and the euro sign.
+    CHECK(text::windows1252ToUtf8("\x95 caf\xe9 \x80") == "\xe2\x80\xa2 caf\xc3\xa9 \xe2\x82\xac");
+    CHECK(text::windows1252ToUtf8("\x81") == "\xef\xbf\xbd");
+    CHECK(text::toLatin1(0x2022) == 0xb7);
+}
+
 static void testFont() {
     using namespace reluva;
     CHECK(font::length("Caf\xc3\xa9 \xe2\x80\x99") == 6); // é and ’ are one character each
@@ -368,6 +376,9 @@ static void testImage() {
     CHECK(!image::decode(image::encodeTga(two), back));
     CHECK(back.w == 2 && back.h == 2 && back.rgba == std::vector<uint8_t>({1, 2, 3, 255, 5, 6, 7, 255, 9, 10, 11,
                                                                            255, 13, 14, 15, 255}));
+    // And with alpha kept.
+    CHECK(!image::decode(image::encodeTga(two, true), back));
+    CHECK(back.w == 2 && back.h == 2 && back.rgba == two.rgba);
 
     // Blending half-transparent red over black.
     Surface s;
@@ -560,6 +571,7 @@ int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_tests";
     testMd5();
     testUtf16();
+    testWindows1252();
     testFont();
     testWav();
     testMp3();

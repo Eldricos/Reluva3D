@@ -52,4 +52,8 @@ uint32_t crc32(const uint8_t* data, size_t size, uint32_t crc = 0);
 // the data is damaged or doesn't come to exactly `size` bytes.
 Error inflateRaw(const uint8_t* data, size_t dataSize, size_t size, std::vector<uint8_t>& out);
 
+// The same for a zlib stream (RFC 1950: a 2-byte header, deflate data and
+// an Adler-32 of the result, which is checked).
+Error inflateZlib(const uint8_t* data, size_t dataSize, size_t size, std::vector<uint8_t>& out);
+
 } // namespace reluva
