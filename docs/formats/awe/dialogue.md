@@ -293,8 +293,8 @@ interpretation is **likely**.
 ### 2.4 The exit thread, 0x43af20 (sure)
 
 name = `+0x624 + "exit"` (e.g. `gen_arbuthnot_exit`), r = `rand()%4`; if
-`word[0x4986f8] > 0` and r == 3, r = 4 (*guess*: some time-of-day or late-game
-state; the 5th variant is "Good evening"). If `act >07a`: name =
+`word[0x4986f8] > 0` and r == 3, r = 4 (`word[0x4986f8]` is the time of day,
+9.3: after dark the 5th variant, "Good evening"). If `act >07a`: name =
 `gen_solutionexit`, r = 0. Find the r-th thread with code `3` among the parts
 with that name, in load order, and copy all its lines into the new thread
 (DM+0x6e8 = r). If none is found, fall back to `gen_exit` with the same r.
@@ -700,8 +700,8 @@ ends. Exits exist only with gen (NPC clicks or `forcegen`).
     (0x43ebb0, the debug log) and the condition is false.
   * `!talk ...` negates, as for any condition.
 * `cantalk <name> <code> ...` (0x407f24): a dry run of Start with +0x61c=1;
-  true if it would start. Speaking is skipped but other side effects are not
-  fully suppressed (*likely*). Its words are parsed as `talk`'s, with gen on unless
+  true if it would start. Speaking is skipped; the visit tag is still set
+  (9.7). Its words are parsed as `talk`'s, with gen on unless
   `nogen` (0x407f3a). Reluva's dry run (`DialogueManager::canTalk`) stops
   where the conversation would show its box, and puts back what it
   changed.

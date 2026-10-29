@@ -20,6 +20,18 @@ sample files have since confirmed or corrected it, "Where it stands"
 below says so, and the formats are written up in `docs/formats/awe/`
 with how each was worked out (CONTRIBUTING.md).
 
+For Murder on the Orient Express, four pages gather what's spread over
+the format pages:
+
+- [awe/known-differences.md](awe/known-differences.md): where Reluva
+  knowingly differs from the original;
+- [awe/unconfirmed.md](awe/unconfirmed.md): what's read from the code or
+  inferred but not seen in the running game;
+- [awe/testing.md](awe/testing.md): the automated checks, and a list of
+  things to try in a playthrough by hand;
+- [awe/reverse-engineering.md](awe/reverse-engineering.md): how it was
+  all worked out.
+
 ## Where it stands
 
 Worked out from a set of the game's files (the executable and DLLs, three
