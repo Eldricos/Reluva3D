@@ -291,6 +291,8 @@ void SpPlayViewer::runCommand(const std::string& line, bool fromGame) {
             error_ = "There's no map " + map;
             return;
         }
+        nextSpawnTarget_ = cmd == "maptransition" && w.size() >= 3 ? w[2] : std::string();
+        nextLoadTransition_ = cmd == "maptransition";
         start(int(it - names_.begin()));
     } else if (cmd == "disconnect") {
         endGame();
@@ -454,6 +456,8 @@ void SpPlayViewer::start(int index, int32_t loadMode, raven::SaveReader* save) {
     // the level started, then (but for an autosave) its time and
     // configstrings, then the game's own.
     game_->setSaveStream(nullptr, save);
+    game_->spawnTarget = std::exchange(nextSpawnTarget_, std::string());
+    game_->loadTransition = std::exchange(nextLoadTransition_, false);
     if ((err = game_->startLevel(map, bsp, eliteforce::SpGameHost::mapChecksum(data), 0, loadMode)))
         return stop("The game couldn't start the level: " + err.message);
     if (save)

@@ -92,6 +92,13 @@ public:
     // entity text. `checksum`: the map file's (mapChecksum()).
     // `loadMode`: 0 a new level, 1 a saved game being loaded, 2 an
     // autosave (the game's Init and ClientConnect are told).
+    // For the Expansion Pack's game code, which Init tells more: where in
+    // the level the player arrives (the spawn target maptransition named:
+    // "maptransition <map> <target>"), and whether the level was reached
+    // by a level change.
+    std::string spawnTarget;
+    bool loadTransition = false;
+    bool expansion() const { return expansion_; }
     Error startLevel(const std::string& mapName, std::shared_ptr<const Bsp> map, int32_t checksum,
                      int32_t randomSeed = 0, int32_t loadMode = 0);
     // A map file's checksum as the original's engine makes it (MD4, its
@@ -301,6 +308,10 @@ private:
     std::unique_ptr<x86::Win32Process> process_;
     const x86::Win32Process::Module* module_ = nullptr;
     uint32_t imports_ = 0, exports_ = 0, voiceVolume_ = 0, argvBuffer_ = 0;
+    // The Expansion Pack's game code, whose engine's table has two more
+    // functions (eliteforce-sp-interface.md): where each goes.
+    bool expansion_ = false;
+    int importPosition(int slot) const;
     std::shared_ptr<const Bsp> map_;
     LightGrid lightGrid_;
     std::unique_ptr<MarkSurfaces> marks_; // made on the first mark

@@ -11,6 +11,10 @@
 #include "engines/idtech3/raven/savegame.h"
 #include "engines/idtech3/entities.h"
 
+#include "common/detection.h"
+#include "common/md5.h"
+#include "engines/idtech3/vm_services.h"
+
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -65,6 +69,11 @@ enum Import : int {
     Malloc = 38,
     Free = 39,
     ImportCount = 40,
+    // The Expansion Pack's engine's two more, by their places in its table
+    // (the rest move along: 16 and 17 by one, 18 on by two).
+    XpFsGetFileList = 16,
+    XpReadFromSaveGameOptional = 19,
+    XpImportCount = 42,
 };
 
 constexpr int32_t kMaxEntities = 1024;
@@ -108,6 +117,12 @@ bool SpGameHost::entityShape(int32_t n, EntityShape& out) const {
 
 SpGameHost::~SpGameHost() = default;
 
+int SpGameHost::importPosition(int slot) const {
+    if (!expansion_ || slot < AppendToSaveGame)
+        return slot;
+    return slot < SendConsoleCommand ? slot + 1 : slot + 2;
+}
+
 void SpGameHost::import(int slot, std::function<uint32_t(x86::Cpu&)> fn) {
     // cdecl: the caller pops the arguments.
     const uint32_t address = cpu_->addNative("engine[" + std::to_string(slot) + "]", [this, slot, fn](x86::Cpu& c) {
@@ -117,7 +132,7 @@ void SpGameHost::import(int slot, std::function<uint32_t(x86::Cpu&)> fn) {
         c.reg[x86::Cpu::EAX] = fn(c);
         return 0u;
     });
-    cpu_->write32(imports_ + 4 * uint32_t(slot), address);
+    cpu_->write32(imports_ + 4 * uint32_t(importPosition(slot)), address);
 }
 
 uint32_t SpGameHost::text(const std::string& s) {
@@ -138,11 +153,18 @@ Error SpGameHost::load(const std::vector<uint8_t>& dll) {
     startMs_ = uint64_t(std::chrono::duration_cast<std::chrono::milliseconds>(
                             std::chrono::steady_clock::now().time_since_epoch())
                             .count());
+    // The Expansion Pack's (its own efgamex86.dll, 999,500 bytes) expects
+    // its engine's longer table.
+    {
+        Md5 md5;
+        md5.update(dll.data(), std::min<size_t>(dll.size(), kDetectionHashBytes));
+        expansion_ = dll.size() == 999500 && md5.hexDigest() == "f8f997ef96a09755f0d1c920c15ca773";
+    }
     if (Error e = process_->load("efgamex86.dll", dll, module_))
         return e;
     if (Error e = process_->attach(*module_))
         return e;
-    imports_ = process_->memory().alloc(4 * ImportCount);
+    imports_ = process_->memory().alloc(4 * (expansion_ ? XpImportCount : ImportCount));
     voiceVolume_ = process_->memory().alloc(4 * kMaxEntities);
     argvBuffer_ = process_->memory().alloc(kArgvSize);
     addImports();
@@ -235,8 +257,15 @@ Error SpGameHost::startLevel(const std::string& mapName, std::shared_ptr<const B
                                   startMs_);
     // Init(mapname, checksum, entity text, level time, random seed, global
     // time, a saved game just loaded: no).
-    if (Error e = callGame(Init, {text(mapName), uint32_t(checksum), text(map_->entities), uint32_t(levelTime_),
-                                  uint32_t(randomSeed), now, uint32_t(loadMode)}))
+    // The Expansion Pack's (as Jedi Outcast's): the spawn target after the
+    // map's name, and whether this is a level change last.
+    const std::vector<uint32_t> args =
+        expansion_ ? std::vector<uint32_t>{text(mapName), text(spawnTarget), uint32_t(checksum), text(map_->entities),
+                                           uint32_t(levelTime_), uint32_t(randomSeed), now, uint32_t(loadMode),
+                                           loadTransition ? 1u : 0u}
+                   : std::vector<uint32_t>{text(mapName), uint32_t(checksum), text(map_->entities), uint32_t(levelTime_),
+                                           uint32_t(randomSeed), now, uint32_t(loadMode)};
+    if (Error e = callGame(Init, args))
         return e;
     // Frames to let the level settle before anyone joins, as the original's
     // server runs them (three, then one more, 100 ms apart): the NPCs spawn
@@ -358,7 +387,12 @@ Error SpGameHost::runFrame(bool snapshot) {
 
 Error SpGameHost::writeLevel(bool autosave) { return callGame(WriteLevel, {autosave ? 1u : 0u}); }
 
-Error SpGameHost::readLevel(bool autosave) { return callGame(ReadLevel, {autosave ? 1u : 0u}); }
+Error SpGameHost::readLevel(bool autosave) {
+    // (The Expansion Pack's: and whether it's a level change's.)
+    if (expansion_)
+        return callGame(ReadLevel, {autosave ? 1u : 0u, loadTransition ? 1u : 0u});
+    return callGame(ReadLevel, {autosave ? 1u : 0u});
+}
 
 void SpGameHost::replaceConfigstrings(const std::map<int32_t, std::string>& strings) {
     configstrings_ = strings;
@@ -1395,22 +1429,70 @@ void SpGameHost::addImports() {
         saveWriter_->add(c.arg(0), c.memory().data() + data, length);
         return 1;
     });
-    import(ReadFromSaveGame, [this](x86::Cpu& c) -> uint32_t {
-        // (id, buffer, length): the saved game's next chunk, which must be
-        // this one, this long.
-        const uint32_t buffer = c.arg(1), length = c.arg(2);
+    // (id, buffer, length; and in the Expansion Pack's, a pointer for a
+    // buffer the engine makes when none is given): the saved game's next
+    // chunk, which must be this one and (unless the length is 0) this
+    // long. Optional (the Expansion Pack's other): a different chunk next
+    // is left for later, and 0 returned.
+    auto readChunk = [this](x86::Cpu& c, bool optional) -> uint32_t {
+        const uint32_t id = c.arg(0), length = c.arg(2);
+        uint32_t buffer = c.arg(1);
+        if (optional && (!saveReader_ || !saveReader_->peek(id)))
+            return 0;
         std::vector<uint8_t> data;
-        Error e = saveReader_ ? saveReader_->next(c.arg(0), data, length)
+        Error e = saveReader_ ? saveReader_->next(id, data, length)
                               : Error::fail("no saved game is being read");
+        if (!e && expansion_ && !buffer) {
+            buffer = process_->memory().alloc(std::max<uint32_t>(uint32_t(data.size()), 1));
+            if (!buffer)
+                e = Error::fail("no memory for it");
+            else if (const uint32_t out = c.arg(3); out && c.valid(out, 4))
+                c.write32(out, buffer);
+        }
         if (!e && !c.valid(buffer, uint32_t(data.size())))
             e = Error::fail("its buffer isn't in memory");
         if (e) {
-            c.abort("ReadFromSaveGame(" + chunkName(c.arg(0)) + "): " + e.message);
+            c.abort("ReadFromSaveGame(" + chunkName(id) + "): " + e.message);
             return 0;
         }
         std::memcpy(c.memory().data() + buffer, data.data(), data.size());
-        return 1;
-    });
+        return expansion_ ? uint32_t(data.size()) : 1u;
+    };
+    import(ReadFromSaveGame, [readChunk](x86::Cpu& c) { return readChunk(c, false); });
+    if (expansion_) {
+        // Its slots of their own (not through import(), which places the
+        // 1.x slots).
+        auto own = [this](int position, const char* name, std::function<uint32_t(x86::Cpu&)> fn) {
+            const uint32_t address = cpu_->addNative(name, [fn](x86::Cpu& c) {
+                c.reg[x86::Cpu::EAX] = fn(c);
+                return 0u;
+            });
+            cpu_->write32(imports_ + 4 * uint32_t(position), address);
+        };
+        own(XpReadFromSaveGameOptional, "engine[ReadFromSaveGameOptional]",
+            [readChunk](x86::Cpu& c) { return readChunk(c, true); });
+        own(XpFsGetFileList, "engine[FS_GetFileList]", [this, str](x86::Cpu& c) -> uint32_t {
+            // (path, extension, buffer, size) -> how many: names, each
+            // with its NUL, as the engine lists them; "$modlist" (mods):
+            // none.
+            const std::string path = str(c, 0, 256);
+            const uint32_t buffer = c.arg(2);
+            const int32_t size = int32_t(c.arg(3));
+            if (path == "$modlist" || size <= 0 || !c.valid(buffer, uint32_t(size)))
+                return 0;
+            int32_t used = 0;
+            uint32_t count = 0;
+            for (const std::string& n : VmFiles::listNames(files_, path, str(c, 1, 64))) {
+                const auto need = int32_t(n.size()) + 1;
+                if (used + need > size)
+                    break;
+                c.writeString(buffer + uint32_t(used), n, uint32_t(need));
+                used += need;
+                ++count;
+            }
+            return count;
+        });
+    }
 
     import(SendConsoleCommand, [this, str](x86::Cpu& c) {
         consoleCommands_.push_back(str(c, 0, 4096));
@@ -1554,7 +1636,7 @@ void SpGameHost::addImports() {
         return 1;
     });
     // Not a function: the voices' volumes, one int an entity.
-    cpu_->write32(imports_ + 4 * VoiceVolume, voiceVolume_);
+    cpu_->write32(imports_ + 4 * uint32_t(importPosition(VoiceVolume)), voiceVolume_);
     import(Malloc, [this](x86::Cpu& c) -> uint32_t {
         const uint32_t p = process_->memory().alloc(std::max(c.arg(0), 1u));
         if (!p)

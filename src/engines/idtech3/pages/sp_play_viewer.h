@@ -132,6 +132,10 @@ private:
     // SpGameHost::screenShot), and a level change waiting for the frame
     // it's taken from.
     std::vector<uint8_t> nextScreenShot_;
+    // The next level's arrival point and whether it's a level change (the
+    // Expansion Pack's maptransition <map> <spawn target>).
+    std::string nextSpawnTarget_;
+    bool nextLoadTransition_ = false;
     std::string pendingTransition_;
     bool runningTransition_ = false;
     float menuMouseX_ = 0, menuMouseY_ = 0;

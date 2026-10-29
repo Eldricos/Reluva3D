@@ -69,6 +69,43 @@ reads `ext_data/weapons.dat` through slots 14 and 15.
 
 This is JK2's list without `FlushCamFile`, `FS_GetFileList`, `totalMapContents`, `bIsFromZone` and the Ghoul2 functions.
 
+### The Expansion Pack's engine
+
+The Expansion Pack (its CD's `Setup/stvoy.exe`, 675,840 bytes, without
+copy protection; its `efgamex86.dll`, 999,500 bytes) changed this
+interface, as far as the game DLL sees it, in four places. The rest (the
+client game's numbered calls 0–70, the menus' table, `cvar_t`, API
+version 6) is as 1.x's. Found by setting the two engines' tables side by
+side (1.1's filled at 0x4286eb, the Expansion Pack's at 0x4254db) and
+comparing each slot's code, and the DLLs' own `Init` and `ReadLevel`.
+
+- **The engine's table has 42 slots.** Two are new and the rest move:
+  - slots 0–15 as above;
+  - **16:** `FS_GetFileList(path, extension, buffer, size)` → count, as
+    Jedi Outcast's (`$modlist` lists mods);
+  - **17, 18:** `AppendToSaveGame`, `ReadFromSaveGame` (1.x's 16, 17);
+  - **19:** the same read, with a different chunk next rewinding and
+    giving 0 instead of failing (an optional chunk; 0x427e50 calls the
+    reader with a flag of 1 where slot 18 passes 0);
+  - **20–41:** 1.x's 18–39 (`VoiceVolume` at 39).
+
+  `ReadFromSaveGame` takes a fourth argument, as Jedi Outcast's: with no
+  buffer given, the engine makes one ("Unable to allocate memory for
+  chunk %s") and stores it there; a length of 0 takes the chunk whatever
+  its length; it returns the length.
+- **`Init` has Jedi Outcast's arguments:** `Init(mapname, spawntarget,
+  checksum, entities, levelTime, randomSeed, globalTime, savegameLoaded,
+  loadTransition)`. The DLL (0x20068ef0) reads the checksum third and
+  tests the second as a string; the eighth and ninth it keeps.
+- **`ReadLevel(autosave, loadTransition)`:** one more argument.
+- **`maptransition <map> <spawntarget>`:** the game names where the
+  player arrives (1.x's: `maptransition <map>`), which `Init` is handed.
+
+Reluva's host (`sp_game_host.cpp`) recognises the Expansion Pack's DLL by
+its signature and lays its table out so, passing the extra arguments;
+borg1, a Virtual Voyager deck (`tour/deck01`) and `_holodeck_proton` run
+(`reluva-tool sp-run`).
+
 ### The game's functions (export table)
 
 | Offset | Field |
