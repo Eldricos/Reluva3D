@@ -93,6 +93,67 @@ and times are Reluva's; the game's own rules for switching aren't known.
 The tunes' pause segment and the big-air motif have no use yet (the pages
 have no pause, and jumps no music).
 
+## Replays
+
+The game's instant replay, and replays kept: Reluva's own files
+(`engines/age/replay.h`).
+
+**What a replay is.** It's the race run again, not a film of it. Every
+race (and lesson) is recorded as it's driven:
+
+- what it was started with: the city, the race, the level, the car and
+  its colour, and the options that change how the car drives or what's
+  in the city (auto reverse, steering sensitivity, pedestrians shown);
+- each frame's time step and the keys held.
+
+Played back, the race is started as it was and stepped with those same
+times and keys. Everything else follows from the race's seeds and the
+player's driving: the opponents, the traffic, the pedestrians, the
+police, the props knocked down. So it all comes back as it was, for a
+few bytes a frame (a minute and a half is about 9 KB).
+
+**Checking it.** Every 60 frames the recording keeps where the player's
+car was. A replay whose car isn't within 5 cm of the place says it "has
+gone its own way". That would happen if Reluva's driving or city changed
+since the replay was saved. A Blitz driven, replayed at once, saved, and
+loaded again from the main menu ran its 105 seconds to the same win at
+the same time, with no difference at any of its marks.
+
+**Watching.** After a race, **I** starts the instant replay of it. The
+main menu's INSTANT REPLAY (`main_rpl`) opens the game's **Replay**
+dialog (`jpg/rpl_bk`, "Choose a replay file"), which lists the replays
+saved, with LOAD (`RPL_LOAD`), EDIT (`rpl_edit`: renamed in the game's
+"Rename Replay" dialog, `jpg/REDIT_BK`), DELETE (`RPL_DEL`) and CANCEL.
+
+**The replay's bar** has the game's REPLAY MENU words (`mmlang.dll`
+483-490):
+
+| Button | Key | What it does |
+|---|---|---|
+| Play / Stop | Space | runs or stops it |
+| Step | `.` | one frame on |
+| Rew | Backspace | back to the start |
+| Cam | the Change Camera key | through the car's own cameras, and a roadside camera |
+| Save | | the replay saved, under a name ("Save as") |
+| Quit | Esc | for the race just driven, first the game's "Do you want to save this replay?" |
+
+Left and Right move along the bar, and Enter presses.
+
+The roadside camera stands 4 m up, 45 m ahead of the car and 10 m to one
+side (the other side each time), and watches it pass. Once the car is
+70 m away it moves on ahead.
+
+**Where they're kept.** Saved replays go in the save folder's `replays/`,
+as `<name>.rpl`:
+
+- "RLVRPLY", a version byte;
+- the start, as above;
+- the frames (each a float time step, the keys, a gear change, a flag);
+- the marks.
+
+Multiplayer games aren't recorded: the other players' cars come over
+the network, not from the race's seeds.
+
 ## The record and unlocking
 
 Reluva keeps what the player has done in `record.txt` in the game's save

@@ -22,9 +22,9 @@ namespace {
 
 constexpr int kFrameW = 640, kFrameH = 480;
 constexpr float kPi = 3.14159265358979f;
-constexpr float kCountdown = 3;         // seconds before the start
-constexpr float kCircuitRadius = 15;    // circuits' waypoints give no radius
-constexpr float kOpponentReach = 10;    // opponents count a checkpoint this much wider
+constexpr float kCountdown = 3;             // seconds before the start
+constexpr float kCircuitRadius = 15;        // circuits' waypoints give no radius
+constexpr float kOpponentReach = 10;        // opponents count a checkpoint this much wider
 constexpr float kSkill[2] = {0.85f, 0.95f}; // amateur, professional: opponents' share of top speed
 const RaceKind kKinds[] = {RaceKind::Blitz, RaceKind::Circuit, RaceKind::Checkpoint, RaceKind::CrashCourse};
 constexpr int kKindCount = 4;
@@ -44,6 +44,8 @@ float flatDistance(const Vec3& a, const Vec3& b) {
 }
 
 } // namespace
+
+RaceKind racePageKind(int index) { return kKinds[std::clamp(index, 0, kKindCount - 1)]; }
 
 RaceViewer::RaceViewer(ViewerContext& ctx) : Page(ctx), cities_(findCities(ctx.files)), cars_(findCars(ctx.files)) {}
 
@@ -153,7 +155,7 @@ bool RaceViewer::carIsOpen(int car) const {
 void RaceViewer::recordResult() {
     // Once a race: its place (a Blitz finished in time, first), or the
     // lesson passed; saved at once.
-    if (recorded_ || racers_.empty() || state_ != State::Finished || netGame_)
+    if (recorded_ || racers_.empty() || state_ != State::Finished || netGame_ || replaying_)
         return;
     recorded_ = true;
     const std::string& map = cities_[size_t(city_)].map;
@@ -179,7 +181,7 @@ void RaceViewer::startRace() {
     const std::string& map = cities_[size_t(city_)].map;
     if (raceNames_.empty())
         return;
-    if (!raceIsOpen(raceIndex_) || !carIsOpen(car_)) {
+    if (!replaying_ && (!raceIsOpen(raceIndex_) || !carIsOpen(car_))) {
         error_ = "Locked: see the menu";
         return;
     }
@@ -267,7 +269,7 @@ void RaceViewer::startRace() {
     // chase, all of its aimap's).
     CityLife::Options life;
     life.traffic = lesson() ? race_.lesson.ambient : set.ambient;
-    life.peds = set.peds * pedestrianShare();
+    life.peds = set.peds * (replaying_ ? playback_.pedestrians : pedestrianShare());
     life.cops = std::max(0, set.cops);
     if (lesson())
         life.cops = race_.lesson.event == LessonEvent::CopChase ? -1 : 0;
@@ -309,9 +311,23 @@ void RaceViewer::startRace() {
     keys_ = 0;
     state_ = State::Countdown;
     setTitle(race_.name + " (" + raceKindName(race_.kind) + ", " + cities_[size_t(city_)].name + ")");
+    if (!replaying_) {
+        // Recorded as it's driven, from here.
+        recording_ = Replay{};
+        recording_.city = map;
+        recording_.kind = int(race_.kind);
+        recording_.race = raceIndex_;
+        recording_.level = level_;
+        recording_.car = cars_[size_t(car_)].base;
+        recording_.paint = paint_;
+        recording_.autoReverse = currentOptions().autoReverse;
+        recording_.steerRate = currentOptions().steerRate();
+        recording_.pedestrians = pedestrianShare();
+    }
 }
 
 void RaceViewer::endRace() {
+    replaying_ = false;
     if (front_)
         front_->afterRace();
     life_.stop();
@@ -361,7 +377,11 @@ void RaceViewer::stepRace(float dt) {
                 c.shift = shift_;
                 shift_ = 0;
                 sim.manual = manual_;
-                applyControlOptions(sim);
+                if (replaying_) {
+                    sim.autoReverse = playback_.autoReverse;
+                    sim.steerRate = playback_.steerRate;
+                } else
+                    applyControlOptions(sim);
             } else {
                 if (r.botId != kNoPlayer && net_ && net_->session() &&
                     !NetMenus::hasRace(net_->session()->settings().mode))
@@ -528,6 +548,10 @@ void RaceViewer::judgeLesson(float dt, bool checkpoint, float impact) {
 void RaceViewer::handleEvent(const Event& ev) {
     if (!renderer_)
         return;
+    if (game_ && game_->isOpen()) {
+        gameMenuEvent(ev);
+        return;
+    }
     if (netEvent(ev))
         return;
     if (ev.type == EventType::KeyUp) {
@@ -554,10 +578,18 @@ void RaceViewer::handleEvent(const Event& ev) {
                 city_ = wrap(city_ + step, int(cities_.size()));
                 loadCity();
                 break;
-            case 1: kind_ = wrap(kind_ + step, kKindCount); break;
-            case 2: raceIndex_ = wrap(raceIndex_ + step, int(raceNames_.size())); break;
-            case 3: level_ = wrap(level_ + step, 2); break;
-            case 4: car_ = wrap(car_ + step, int(cars_.size())); break;
+            case 1:
+                kind_ = wrap(kind_ + step, kKindCount);
+                break;
+            case 2:
+                raceIndex_ = wrap(raceIndex_ + step, int(raceNames_.size()));
+                break;
+            case 3:
+                level_ = wrap(level_ + step, 2);
+                break;
+            case 4:
+                car_ = wrap(car_ + step, int(cars_.size()));
+                break;
             }
             if (field_ == 1 || field_ == 2) {
                 const std::string& map = cities_[size_t(city_)].map;
@@ -572,6 +604,16 @@ void RaceViewer::handleEvent(const Event& ev) {
             openAll_ = !openAll_;
             error_.clear();
         }
+        return;
+    }
+    if (replaying_) {
+        replayEvent(ev);
+        return;
+    }
+    if (state_ == State::Finished && !netGame_ && ev.key == 'i' && !recording_.empty()) {
+        replayOfThisRace_ = true; // the instant replay
+        replaySaved_ = false;
+        startReplay(recording_);
         return;
     }
     if (state_ == State::Finished && lesson() && (ev.key == 'r' || ev.key == key::Return || ev.key == key::KpEnter)) {
@@ -607,12 +649,11 @@ void RaceViewer::handleEvent(const Event& ev) {
 }
 
 void RaceViewer::menuEvent(const Event& ev) {
-    if (game_ && game_->isOpen()) {
-        if (game_->handle(ev) == GameMenus::Action::Quit)
-            quit_ = true;
+    const FrontEnd::Action action = front_->handle(ev);
+    if (action == FrontEnd::Action::Replays && game_) {
+        game_->open(GameMenus::Screen::ReplayList);
         return;
     }
-    const FrontEnd::Action action = front_->handle(ev);
     openAll_ = front_->openAll;
     if (action == FrontEnd::Action::Options || action == FrontEnd::Action::Quit) {
         if (game_)
@@ -833,8 +874,8 @@ void RaceViewer::drawMenu() {
                       s.timeLimit);
         font::drawText(overlay_, 40, y + 10, buf, {180, 180, 180});
         y += font::kLineHeight + 4;
-        std::snprintf(buf, sizeof buf, "traffic %.0f%%, pedestrians %.0f%%, police %d", s.ambient * 100,
-                      s.peds * 100, s.cops);
+        std::snprintf(buf, sizeof buf, "traffic %.0f%%, pedestrians %.0f%%, police %d", s.ambient * 100, s.peds * 100,
+                      s.cops);
         font::drawText(overlay_, 40, y + 10, buf, {180, 180, 180});
     }
     font::drawText(overlay_, 40, kFrameH - 40,
@@ -952,7 +993,7 @@ void RaceViewer::drawRaceHud() {
         }
         const bool hosting = netGame_ && net_ && net_->session() && net_->session()->isHost();
         font::drawText(overlay_, 60, y + 10,
-                       !netGame_ ? "Enter: back to the menu"
+                       !netGame_ ? (replaying_ ? "" : "Enter: back to the menu   I: instant replay")
                        : hosting ? "Enter: everyone back to the lobby"
                                  : "Waiting for the host (Esc: leave the session)",
                        {150, 200, 255});
@@ -985,7 +1026,13 @@ void RaceViewer::update(uint64_t nowMs) {
         target = centre;
     } else {
         // After the finish the others race on to theirs, for the results.
-        stepRace(dt);
+        if (replaying_)
+            stepReplay(dt);
+        else {
+            recordFrame(dt);
+            stepRace(dt);
+            markRecording();
+        }
         GameMusic::State music;
         // Waiting for the start counts as on the move, not stopped.
         music.speed = state_ == State::Countdown ? 100 : std::fabs(racers_.front().car->sim.forwardSpeed());
@@ -993,12 +1040,14 @@ void RaceViewer::update(uint64_t nowMs) {
         music.finished = state_ == State::Finished;
         music_.update(dt, music);
         const CarCamera& cam = cameras_[size_t(camera_)];
-        const CameraView view = updateCarCamera(cam, racers_.front().car->sim, dt, cameraPos_, cameraReset_);
+        fov = cam.fov;
+        const CameraView view = replaying_
+                                    ? replayCamera(dt, fov)
+                                    : updateCarCamera(cam, racers_.front().car->sim, dt, cameraPos_, cameraReset_);
         cameraReset_ = false;
         eye = view.eye;
         target = view.target;
         up = view.up;
-        fov = cam.fov;
     }
     const gfx::Mat4 viewProj = gfx::multiply(
         gfx::perspective(fov * kPi / 180, float(kFrameW) / float(kFrameH), 0.1f, currentOptions().farClip()),
@@ -1062,6 +1111,10 @@ void RaceViewer::update(uint64_t nowMs) {
             drawArrow();
         drawMap(dt);
         drawRaceHud();
+        if (replaying_)
+            drawReplayBar();
+        if (game_ && game_->isOpen())
+            game_->draw(overlay_, nowMs); // the replay's save dialogs
     }
     renderer_->endFrame(&overlay_);
 }

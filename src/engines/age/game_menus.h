@@ -11,6 +11,7 @@
 #include "common/system.h"
 #include "engines/age/front_end.h"
 #include "engines/age/options.h"
+#include "engines/age/replay.h"
 
 #include <filesystem>
 #include <functional>
@@ -32,11 +33,16 @@ public:
         Defaults,     // odef_dlg: restore the defaults?
         DuplicateKey, // ctrl_dlg
         Quit,         // quit_dlg
+        ReplayList,   // rpl_bk: choose a replay file
+        ReplayName,   // REDIT_BK: save as, or rename
+        ReplayAsk,    // "Do you want to save this replay?"
     };
     enum class Action {
         None,
-        Closed, // back to whatever opened it
-        Quit,   // leave the game
+        Closed,     // back to whatever opened it
+        Quit,       // leave the game
+        LoadReplay, // play replayFile()
+        SaveReplay, // save the replay played as replayName()
     };
 
     GameMenus(System& sys, const SearchSet& files, const GameStrings& strings, audio::Mixer* mixer,
@@ -48,10 +54,16 @@ public:
     bool isOpen() const { return screen_ != Screen::None; }
     Action handle(const Event& ev);
     void draw(Surface& overlay, uint64_t nowMs);
-    bool typing() const { return waitingForKey_; }
+    bool typing() const;
+    // After a replay: ask whether to save it, under this name.
+    void askToSaveReplay(const std::string& name);
+    // Save the replay played as (the replay's own Save).
+    void nameReplay(const std::string& name);
+    const std::filesystem::path& replayFile() const { return replayFile_; }
+    const std::string& replayName() const { return name_; }
 
 private:
-    enum class Kind { Button, Check, Bar, Choice, List, Label };
+    enum class Kind { Button, Check, Bar, Choice, List, Label, Text };
     struct Item {
         Kind kind = Kind::Button;
         std::string widget;  // widget.csv's name
@@ -97,6 +109,12 @@ private:
     int row_ = 0, column_ = 0; // Customize Controls: the control and which of its two keys
     bool waitingForKey_ = false;
     uint64_t openedMs_ = 0, nowMs_ = 0;
+    std::vector<ReplayEntry> replays_;
+    size_t replayRow_ = 0;
+    std::filesystem::path replayFile_;
+    std::string name_;            // the replay's name being typed
+    bool overlay(Screen s) const; // a dialog over whatever's beneath (drawn already)
+    void drawReplayList(Surface& o) const;
 };
 
 } // namespace reluva::age

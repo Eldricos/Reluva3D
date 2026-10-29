@@ -252,6 +252,7 @@ std::vector<FrontEnd::Item> FrontEnd::screenItems() const {
                 {"main_sp", true},
                 {"main_mp", true, multiplayer},
                 {"main_qck", true, false},
+                {"main_rpl", true, true, "main_rpl", 4},
                 {"DRIVER NAME", false}};
     case Screen::Races:
         return {{"blitz", true},      {"cp", true},           {"circuit", true},
@@ -286,6 +287,8 @@ void FrontEnd::activate(const Item& item, Action& action) {
         action = Action::Multiplayer;
     else if (w == "mnav_opt")
         action = Action::Options;
+    else if (w == "main_rpl")
+        action = Action::Replays;
     else if (w == "mnav_exit")
         action = Action::Quit;
     else if (w == "blitz" || w == "cp" || w == "circuit") {

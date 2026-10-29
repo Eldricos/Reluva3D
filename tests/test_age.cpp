@@ -35,6 +35,7 @@
 #include "engines/age/pvs.h"
 #include "engines/age/race.h"
 #include "engines/age/record.h"
+#include "engines/age/replay.h"
 #include "engines/age/road_graph.h"
 #include "engines/age/texture.h"
 #include "engines/age/traffic.h"
@@ -2530,6 +2531,52 @@ static void testOptions(const std::filesystem::path& tmp) {
     }
 }
 
+static void testReplays(const std::filesystem::path& tmp) {
+    Replay r;
+    r.name = "Mini: a race / of mine";
+    r.city = "london";
+    r.kind = int(RaceKind::Circuit);
+    r.race = 3;
+    r.level = 1;
+    r.car = "vpbug";
+    r.paint = 2;
+    r.autoReverse = true;
+    r.steerRate = 1.25f;
+    r.pedestrians = 0;
+    for (int i = 0; i < 130; ++i)
+        r.frames.push_back({0.05f, uint16_t(i % 7), int8_t(i % 3 - 1), uint8_t(i == 5 ? kReplayManual : 0)});
+    r.marks = {{1, 2, 3}, {4, 5, 6}};
+    CHECK(std::fabs(r.duration() - 6.5f) < 1e-3f);
+
+    // Written and read back as it was.
+    Replay back;
+    CHECK(!decodeReplay(encodeReplay(r), back));
+    CHECK(back.name == r.name && back.city == "london" && back.kind == int(RaceKind::Circuit) && back.race == 3 &&
+          back.level == 1 && back.car == "vpbug" && back.paint == 2 && back.autoReverse &&
+          std::fabs(back.steerRate - 1.25f) < 1e-6f && back.pedestrians == 0 && back.frames.size() == 130 &&
+          back.frames[5].flags == kReplayManual && back.frames[4].shift == 0 && back.frames[6].keys == 6 &&
+          back.marks.size() == 2 && back.marks[1][2] == 6);
+    std::vector<uint8_t> cut = encodeReplay(r);
+    cut.resize(cut.size() / 2);
+    CHECK(decodeReplay(cut, back) && decodeReplay({1, 2, 3}, back));
+
+    // Saved under its name, listed, renamed, deleted.
+    std::filesystem::remove_all(tmp);
+    CHECK(replayFileName(r.name) == "Mini_ a race _ of mine.rpl" && replayFileName("") == "replay.rpl");
+    CHECK(!saveReplay(tmp, r));
+    r.name = "Another";
+    CHECK(!saveReplay(tmp, r));
+    auto list = listReplays(tmp);
+    CHECK(list.size() == 2 && list[0].name == "Another" && list[1].name == "Mini: a race / of mine" &&
+          list[1].race == 3 && std::fabs(list[1].duration - 6.5f) < 1e-3f);
+    CHECK(!renameReplay(tmp, list[1], "Best lap"));
+    list = listReplays(tmp);
+    CHECK(list.size() == 2 && list[1].name == "Best lap" &&
+          !std::filesystem::exists(replayFolder(tmp) / "Mini_ a race _ of mine.rpl"));
+    CHECK(!deleteReplay(list[0]) && listReplays(tmp).size() == 1);
+    CHECK(listReplays(tmp / "none").empty());
+}
+
 int main() {
     const auto tmp = std::filesystem::temp_directory_path() / "reluva_age_tests";
     testArchive(tmp / "archive");
@@ -2575,6 +2622,7 @@ int main() {
     testNetSession();
     testGoldGame();
     testOptions(tmp / "options");
+    testReplays(tmp / "replays");
     std::filesystem::remove_all(tmp);
     if (failures) {
         std::fprintf(stderr, "%d check(s) failed\n", failures);
