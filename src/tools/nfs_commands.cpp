@@ -66,10 +66,10 @@ const char* const kUsageLines =
     "  reluva-tool mus-info <file.mus> [file.map | file.lin]\n"
     "  reluva-tool mus-wav <file.mus> <segment | all> <output dir>\n"
     "  reluva-tool mad-info <file.mad>\n"
-    "  reluva-tool mad-frames <file.mad> <output dir> [first frame] [count]\n"
+    "  reluva-tool mad-frames <file.mad> <output dir> [first frame] [count] [-game]\n"
     "  reluva-tool mad-wav <file.mad> <out.wav>\n"
     "  reluva-tool nfs-host <game folder> [-args \"nfs3.exe\"] [-renderer softtria.dll] [-limit N] [-log N] [-save dir]\n"
-    "                       [-frames dir] [-every N] [-watch address]... [-watchlimit 50] [-watchmem address size]\n"
+    "                       [-frames dir] [-every N] [-framesfrom N] [-watch address]... [-watchlimit 50] [-watchmem address size]\n"
     "                       [-slice instructions] [-dump memory.bin] [-keys ms:key,...]\n"
     "                       (keys: enter, up, a..., click, moveDX/DY) [-framelog frames.csv]\n"
     "                       [-timescale 0.1] [-thrashlog fromframe toframe] [-native] [-wav sound.wav]\n"
@@ -892,8 +892,12 @@ int cmdMadInfo(int argc, char** argv) {
 }
 
 int cmdMadFrames(int argc, char** argv) {
+    // -game, last: nfs3.exe's own arithmetic (mad.md, The game's decoder).
+    const bool game = argc > 4 && std::string(argv[argc - 1]) == "-game";
+    if (game)
+        --argc;
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool mad-frames <file.mad> <output dir> [first frame] [count]\n");
+        std::fprintf(stderr, "usage: reluva-tool mad-frames <file.mad> <output dir> [first frame] [count] [-game]\n");
         return 2;
     }
     std::vector<uint8_t> data;
@@ -908,6 +912,8 @@ int cmdMadFrames(int argc, char** argv) {
     const size_t count = argc > 5 ? size_t(std::atoi(argv[5])) : movie.frames().size();
     // Frames refer to those before, so decoding starts at the beginning.
     reluva::nfs::MadDecoder decoder;
+    if (game)
+        decoder.setArithmetic(reluva::nfs::MadDecoder::Arithmetic::Game);
     int written = 0;
     for (size_t i = 0; i < movie.frames().size() && i < first + count; ++i) {
         if (Error err = movie.decodeFrame(decoder, i))
@@ -984,6 +990,7 @@ int cmdNfsHost(int argc, char** argv) {
     uint64_t gpuDumpList = 0; // a list (1 the first) written out in full
     std::string gpuDumpDir;
     std::string framesDir;
+    uint64_t framesFrom = 0; // the first frame shown that -frames writes
     std::string forceLogFile; // the forces the game asks for, each time they change, as CSV
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
@@ -1069,6 +1076,8 @@ int cmdNfsHost(int argc, char** argv) {
             dumpFile = argv[++a];
         else if (arg == "-every" && a + 1 < argc)
             every = std::max(1, std::atoi(argv[++a]));
+        else if (arg == "-framesfrom" && a + 1 < argc)
+            framesFrom = std::strtoull(argv[++a], nullptr, 10);
     }
     const auto folders = reluva::nfs::findFolders(argv[2], {}, "nfs3.exe");
     std::printf("install %s, CD %s, writes to %s\n", folders.install.string().c_str(),
@@ -1098,7 +1107,7 @@ int cmdNfsHost(int argc, char** argv) {
                 strongestVibration = std::max(strongestVibration, f.vibration);
             }
         }
-        if (framesDir.empty() || shown++ % every)
+        if (framesDir.empty() || shown++ % every || uint64_t(shown - 1) < framesFrom)
             return;
         reluva::image::Image img;
         img.w = frame.w;

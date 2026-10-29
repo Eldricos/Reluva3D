@@ -96,7 +96,9 @@ The rest (positions, the road polygons' records, the virtual road,
 object references and polygon objects) is still kept as stored. Object
 references begin with a 16.16 position near their block. The positions
 look like runs of the road's polygons (a u16 first polygon, a u8 count,
-a u8, then −1).
+a u8, then −1). That byte at 3 is the music zone, 4-9: the game
+sends it to the Pathfinder map as an event when the car nears a slice
+where it changes ([mus.md](mus.md), The events the game sends).
 
 The Tracks page shows each light as a white glow (`glw0`) facing the
 camera, and each sound as a cyan diamond. Within 120 units of a sound, it

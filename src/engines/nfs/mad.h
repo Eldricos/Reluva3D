@@ -17,6 +17,10 @@ namespace reluva::nfs {
 // YUV 4:2:0.
 class MadDecoder {
 public:
+    // The arithmetic: the reference one FFmpeg's decoder shares, at 8 bits
+    // (the default), or nfs3.exe's own (mad.md, The game's decoder).
+    enum class Arithmetic { Game, Reference };
+    void setArithmetic(Arithmetic a) { arithmetic_ = a; }
     // Decodes one frame chunk (MADk, MADm or MADe, its 8-byte chunk header
     // included). The picture is kept until the next.
     Error decode(const uint8_t* chunk, size_t size);
@@ -25,7 +29,9 @@ public:
     // The picture as RGBA8888.
     void toSurface(Surface& out) const;
     // Plane access, for tests and tools: stride, then the planes (0 Y, 1 U,
-    // 2 V); chroma is half size each way.
+    // 2 V); chroma is half size each way. With the game's arithmetic the
+    // samples are its 7-bit ones, 64 the middle (they can pass 127: its
+    // copies wrap rather than clamp).
     int stride(int plane) const { return plane ? stride_ / 2 : stride_; }
     const uint8_t* plane(int plane) const { return current_[plane].data(); }
 
@@ -35,6 +41,10 @@ private:
     void copyBlock(int index, int mbX, int mbY, int mvX, int mvY, int add);
     void putBlock(int index, int mbX, int mbY, int16_t block[64]);
 
+    Arithmetic arithmetic_ = Arithmetic::Reference;
+    bool gameIntraBlock(int32_t block[64]);
+    void gamePutBlock(int index, int mbX, int mbY, int32_t block[64]);
+    int64_t gameQuant_[64] = {};
     int width_ = 0, height_ = 0, stride_ = 0, rows_ = 0; // rows_: luma rows held, a multiple of 16
     std::vector<uint8_t> current_[3], previous_[3];
     bool havePrevious_ = false;

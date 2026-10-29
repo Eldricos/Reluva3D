@@ -34,8 +34,17 @@ October 2026.
     Dolby logos, the title sequence's driving shots, the demos' races
     with their "DEMO" caption.
   - **Against FFmpeg.** Every frame of all four movies was compared with
-    FFmpeg 6.1's raw YUV output. Most frames are identical byte for byte;
-    the frames that differ are covered under "What isn't known" below.
+    FFmpeg 6.1's raw YUV output. Most frames are identical byte for byte.
+    FFmpeg keeps Q in 16 bits, so above *q* ≈ 8 its highest-frequency
+    values wrap; Reluva keeps them whole, as the game does (The game's
+    decoder, below). That is the only difference: with Q cut the same
+    way, all four movies match FFmpeg. 21 frames differ, all at high *q*:
+    4-8 in each demo movie and 5 in the title movie.
+  - **Against the game.** The game's decoder was read from nfs3.exe's
+    disassembly, and its arithmetic was rebuilt in Reluva and run on all
+    four movies. Frames of the demo movie were captured from the game in
+    nfs-host (`-native -deterministic 50000 -frames dir -framesfrom
+    2950`; frames 2968 and 2969 are movie frames 3 and 6).
   - **Audio.** The audio matches FFmpeg's decode sample for sample.
     FFmpeg rejects `demoav1`'s short last block; Reluva decodes it.
 
@@ -60,14 +69,19 @@ Each audio block follows the frame it belongs with. The four movies are
 |---|---|---|
 | 0 | 4 | tag |
 | 4 | u32 | chunk size |
-| 8 | u32 | 0 in all frames |
+| 8 | u32 | 0 in all frames; the game doesn't read it |
 | 12 | u32 | frame duration, in 1/65536 ms (0x42AAAB: 66.67 ms) |
 | 16 | u16 | width |
 | 18 | u16 | height |
-| 20 | u8 | 0 |
+| 20 | u8 | 0; not read |
 | 21 | u8 | quantiser scale (1-29) |
-| 22 | u16 | 0 |
+| 22 | u16 | 0; not read |
 | 24 | | the bitstream |
+
+nfs3.exe's player (0x495c54-0x495d4f) takes the duration, width and
+height from the first frame, and from each frame its tag (`MADk` or
+not) and quantiser byte. The bitstream starts at 24. No other header
+byte is read there. The stream code before it uses the chunk size.
 
 The bitstream is a sequence of 16-bit little-endian words, each read from
 its top bit.
@@ -148,19 +162,53 @@ row *u* and column *v*:
 - Q[0] = (S[0] × W[0]) >> 11, which is 16 (DC is not scaled by *q*);
 - Q[*i*] = (S[*i*] × W[*i*] × *q* + 32) >> 10.
 
+## The game's decoder
+
+nfs3.exe's decoder was read from the disassembly:
+
+| Address | What |
+|---|---|
+| 0x4f3560 | the quantiser, per frame |
+| 0x510e48 | an intra block's coefficients |
+| 0x510cbd | the inverse transform: 0x510a50 for the columns, 0x510bb3 for the rows |
+| 0x4f30d0 | the output table at 0x9f0d38 |
+| 0x4f3420 | a copied block |
+| 0x510ff8 | packing samples for display (V, U, Y1, Y0 per pixel pair) |
+
+It decodes the same bitstream with different arithmetic:
+
+- **The quantiser** is 16.16 fixed point, kept to 32 bits. Q[0] is W[0]
+  × 2^15 × S'[0] / 2^16 and Q[*i*] is W[*i*] × *q* × 2^12 × S'[*i*] /
+  2^16, rounded on bit 15. S'[*i*] = round(8192 / (a(*u*)·a(*v*))), a
+  table at 0x56d02c. Nothing is cut to 16 bits, so the game decodes high
+  *q* the way Reluva does, not the way FFmpeg does.
+- **Coefficients**: DC is *s* × Q[0], with no 128 offset (the picture is
+  centred on 0); AC is level × Q, not shifted and not made odd.
+- **The transform** is AAN in 32 bits. 1/√2 is a 32-bit multiply
+  (1518500250 / 2^31, then doubled). The odd part's rotations are x87
+  floats (0.541196108, 1.306563020, 0.382683426), rounded to the nearest.
+  A row whose AC terms are all 0 copies its DC term.
+- **Samples are 7 bits.** Bits 16-23 of each result, as a signed byte,
+  clamped to −64..63 and offset by 64.
+- **Copies add *d*** to these 7-bit samples (2*d* at 8 bits) and don't
+  clamp: a byte wraps.
+
+Reluva has this as `MadDecoder::Arithmetic::Game` (`mad-frames ...
+-game`). It is not the default. On the demo movies it differs from the
+reference decode by about 1 in 8 bits, and is no closer to frames
+captured from the game running in nfs-host.
+
 ## What isn't known
 
-- **16-bit quantiser values.** FFmpeg keeps Q in 16 bits. Above *q* ≈ 8
-  the highest-frequency values exceed 32,767 and wrap. Reluva keeps them
-  whole. That is the only difference between the two decodes: with Q
-  truncated the same way, all four movies match FFmpeg byte for byte.
-  - 21 frames differ, all at high *q*: 4-8 frames in each demo movie and
-    5 in the title movie.
-  - Which way the game's own decoder goes is unknown.
+- **The display step.** After 0x510ff8 the frame is a 4:2:2 buffer of 2
+  bytes a pixel (allocated at 0x4957f6). How the game turns it into RGB
+  and doubles it to 640×480 (0x4df1f0, 0x4df310) hasn't been followed.
+  The Movies page converts with the full-range BT.601 matrix and shows
+  each pixel twice.
 - **The fade-in frames.** The first frames of the demo movies (*q* 13-29)
   hold the same set of high-frequency coefficients in nearly every luma
-  block. They decode to a fine dot pattern over the picture, the same way
-  in FFmpeg. It isn't known whether the game shows that pattern or hides
-  it.
-- **Unknown fields.** The u32 at 8 and the bytes at 20 and 22-23 (zero
-  throughout).
+  block. They decode to a fine dot pattern, in FFmpeg, in Reluva's
+  reference decode and in the game's arithmetic. Frames captured from the
+  game show the same pattern at lower contrast. Neither a bilinear nor a
+  horizontal-only interpolated upscale of the decoded frame matches the
+  captures, so the softening is in the display step above.

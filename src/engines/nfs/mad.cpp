@@ -173,6 +173,63 @@ void inverseTransform(int16_t block[64], uint8_t* dst, int stride) {
                  [](int x) { return static_cast<uint8_t>(std::clamp(x >> 4, 0, 255)); });
 }
 
+// nfs3.exe's quantiser scales (0x56d02c): 8192 / (a(u) a(v)), rounded.
+const std::array<int64_t, 64>& gameScales() {
+    static const std::array<int64_t, 64> scales = [] {
+        std::array<int64_t, 64> s{};
+        const double pi = std::acos(-1.0);
+        auto a = [&](int k) { return k ? std::sqrt(2.0) * std::cos(k * pi / 16) : 1.0; };
+        for (int u = 0; u < 8; ++u)
+            for (int v = 0; v < 8; ++v)
+                s[u * 8 + v] = std::llround(8192 / (a(u) * a(v)));
+        return s;
+    }();
+    return scales;
+}
+
+// A 16.16 product rounded as the game rounds it (the carry out of bit 15),
+// kept to 32 bits.
+int32_t gameProduct(int64_t a, int64_t b) {
+    const int64_t v = a * b;
+    return static_cast<int32_t>(static_cast<uint32_t>((v >> 16) + ((v >> 15) & 1)));
+}
+
+// x87 rounding to the nearest, halves to even, as the game's 1.5 x 2^52 does.
+int32_t gameRound(double x) { return static_cast<int32_t>(std::nearbyint(x)); }
+
+// One pass of nfs3.exe's inverse transform (0x510a50, 0x510bb3): AAN with
+// the odd part's rotations in floating point and 1/sqrt(2) as a 32-bit
+// multiply, everything in 32 bits. Reads in[0..7], writes out[k * step].
+void gamePass(const int32_t* in, int32_t* out, int step) {
+    if (!(in[1] | in[2] | in[3] | in[4] | in[5] | in[6] | in[7])) {
+        for (int k = 0; k < 8; ++k)
+            out[k * step] = in[0];
+        return;
+    }
+    auto overRoot2 = [](int32_t x) { // imul 2^31 / sqrt(2), high half, doubled
+        const int64_t v = static_cast<int64_t>(x) * 1518500250;
+        return static_cast<int32_t>(static_cast<uint32_t>(static_cast<int32_t>(v >> 32)) << 1);
+    };
+    const int32_t z13 = in[5] + in[3], z10 = in[5] - in[3], z11 = in[1] + in[7], z12 = in[1] - in[7];
+    const int32_t t7 = z11 + z13, t11 = overRoot2(z11 - z13);
+    const float k0 = 0.541196108f, k1 = 1.306563020f, k2 = 0.382683426f; // the game's floats
+    const double z5 = (static_cast<double>(z12) + z10) * k2;
+    const int32_t a = gameRound(static_cast<double>(z10) * k0 + z5);
+    const int32_t b = gameRound(static_cast<double>(z12) * k1 - z5);
+    const int32_t odd1 = a + t11, odd2 = t11 + b, odd3 = b + t7;
+    const int32_t s26 = in[2] + in[6], d26 = overRoot2(in[2] - in[6]);
+    const int32_t s04 = in[0] + in[4], d04 = in[0] - in[4];
+    const int32_t e1 = d04 + d26, e2 = d04 - d26, e0 = s04 + (s26 + d26), e3 = s04 - (s26 + d26);
+    out[0 * step] = e0 + odd3;
+    out[7 * step] = e0 - odd3;
+    out[1 * step] = e1 + odd2;
+    out[6 * step] = e1 - odd2;
+    out[2 * step] = e2 + odd1;
+    out[5 * step] = e2 - odd1;
+    out[3 * step] = e3 + a;
+    out[4 * step] = e3 - a;
+}
+
 } // namespace
 
 uint32_t MadDecoder::peek(int n) const {
@@ -238,6 +295,68 @@ bool MadDecoder::decodeIntraBlock(int16_t block[64]) {
     }
 }
 
+// nfs3.exe's intra block (0x510e48): the DC term times Q[0], not offset
+// (its pictures are centred on 0), and each AC level times Q, in 32 bits,
+// neither scaled down nor made odd. In natural order (the game keeps the
+// block transposed, which its transform's order undoes).
+bool MadDecoder::gameIntraBlock(int32_t block[64]) {
+    const auto& table = acTable();
+    const auto& scan = zigzag();
+    block[0] = static_cast<int32_t>(static_cast<uint32_t>(readSigned(8)) * static_cast<uint32_t>(gameQuant_[0]));
+    int i = 0;
+    while (true) {
+        const AcEntry e = table[peek(16)];
+        if (e.length == 0)
+            return false;
+        bitPos_ += e.length;
+        if (e.run == 0xff)
+            return true;
+        int level, run;
+        if (e.level == 0) {
+            level = readSigned(10);
+            run = static_cast<int>(read(6));
+        } else {
+            level = e.level;
+            run = e.run;
+            if (read(1))
+                level = -level;
+        }
+        i += run + 1;
+        if (i > 63)
+            return false;
+        block[scan[i]] =
+            static_cast<int32_t>(static_cast<uint32_t>(level) * static_cast<uint32_t>(gameQuant_[scan[i]]));
+    }
+}
+
+// The game's transform, columns then rows (0x510cbd), to its 7-bit samples:
+// bits 16-23 of each value, as a signed byte, clamped to -64..63 and
+// centred on 64 (the table at 0x9f0d38).
+void MadDecoder::gamePutBlock(int index, int mbX, int mbY, int32_t block[64]) {
+    uint8_t* dst;
+    int s;
+    if (index < 4) {
+        s = stride_;
+        dst = current_[0].data() + static_cast<size_t>(mbY * 16 + (index & 2) * 4) * s + mbX * 16 + (index & 1) * 8;
+    } else {
+        s = stride_ / 2;
+        dst = current_[index - 3].data() + static_cast<size_t>(mbY * 8) * s + mbX * 8;
+    }
+    int32_t temp[64], column[8], row[8];
+    for (int u = 0; u < 8; ++u) {
+        for (int v = 0; v < 8; ++v)
+            column[v] = block[v * 8 + u];
+        gamePass(column, temp + u, 8); // temp[y * 8 + u]
+    }
+    for (int y = 0; y < 8; ++y) {
+        gamePass(temp + y * 8, row, 1);
+        for (int x = 0; x < 8; ++x) {
+            const int d = static_cast<int8_t>(static_cast<uint8_t>(row[x] >> 16));
+            dst[y * s + x] = static_cast<uint8_t>(std::clamp(d, -64, 63) + 64);
+        }
+    }
+}
+
 void MadDecoder::copyBlock(int index, int mbX, int mbY, int mvX, int mvY, int add) {
     // From the previous picture, moved by the macroblock's vector (halved
     // for chroma, toward zero), plus a brightness change. A source outside
@@ -263,9 +382,12 @@ void MadDecoder::copyBlock(int index, int mbX, int mbY, int mvX, int mvY, int ad
         return;
     const uint8_t* src = previous_[plane].data() + from;
     uint8_t* dst = current_[plane].data() + static_cast<size_t>(y) * s + x;
+    const bool game = arithmetic_ == Arithmetic::Game;
     for (int r = 0; r < 8; ++r)
         for (int c = 0; c < 8; ++c)
-            dst[r * s + c] = static_cast<uint8_t>(std::clamp(src[r * s + c] + add, 0, 255));
+            // The game adds without clamping, a byte wrapping (0x4f3420).
+            dst[r * s + c] = game ? static_cast<uint8_t>(src[r * s + c] + add)
+                                  : static_cast<uint8_t>(std::clamp(src[r * s + c] + add, 0, 255));
 }
 
 void MadDecoder::putBlock(int index, int mbX, int mbY, int16_t block[64]) {
@@ -294,8 +416,17 @@ void MadDecoder::decodeMacroblock(bool inter, int mbX, int mbY) {
     }
     for (int j = 0; j < 6; ++j) {
         if (map & (1 << j)) {
-            const int add = 2 * readMotion();
-            copyBlock(j, mbX, mbY, mvX, mvY, add);
+            // A change of brightness: in the game's 7-bit samples, d; in 8
+            // bits, 2d.
+            const int d = readMotion();
+            copyBlock(j, mbX, mbY, mvX, mvY, arithmetic_ == Arithmetic::Game ? d : 2 * d);
+        } else if (arithmetic_ == Arithmetic::Game) {
+            int32_t block[64] = {};
+            if (!gameIntraBlock(block)) {
+                damaged_ = true;
+                return;
+            }
+            gamePutBlock(j, mbX, mbY, block);
         } else {
             int16_t block[64] = {};
             if (!decodeIntraBlock(block)) {
@@ -330,9 +461,10 @@ Error MadDecoder::decode(const uint8_t* chunk, size_t size) {
         havePrevious_ = false;
     }
     // With no picture to refer to, an inter frame works from black.
+    const uint8_t middle = arithmetic_ == Arithmetic::Game ? 64 : 128;
     if (inter && !havePrevious_)
         for (int p = 0; p < 3; ++p)
-            std::fill(previous_[p].begin(), previous_[p].end(), p ? 0x80 : 0);
+            std::fill(previous_[p].begin(), previous_[p].end(), p ? middle : 0);
     if (inter)
         for (int p = 0; p < 3; ++p)
             current_[p] = previous_[p];
@@ -342,6 +474,11 @@ Error MadDecoder::decode(const uint8_t* chunk, size_t size) {
     quant_[0] = (scales[0] * kIntraMatrix[0]) >> 11;
     for (int i = 1; i < 64; ++i)
         quant_[i] = (scales[i] * kIntraMatrix[i] * qscale + 32) >> 10;
+    // The game's, in 16.16 with 7 more fraction bits and kept whole (0x4f3560).
+    const auto& game = gameScales();
+    gameQuant_[0] = gameProduct(static_cast<int64_t>(kIntraMatrix[0]) << 15, game[0]);
+    for (int i = 1; i < 64; ++i)
+        gameQuant_[i] = gameProduct(static_cast<int64_t>(kIntraMatrix[i] * qscale) << 12, game[i]);
 
     bits_ = chunk + kFrameHeader;
     bitCount_ = (size - kFrameHeader) * 8;
@@ -373,7 +510,9 @@ void MadDecoder::toSurface(Surface& out) const {
         const uint8_t* ur = current_[1].data() + static_cast<size_t>(y / 2) * cs;
         const uint8_t* vr = current_[2].data() + static_cast<size_t>(y / 2) * cs;
         for (int x = 0; x < width_; ++x) {
-            const int l = yr[x] << 16, u = ur[x / 2] - 128, v = vr[x / 2] - 128;
+            // The game's 7-bit samples as 8-bit ones (twice, at most 127).
+            auto at8 = [&](uint8_t s) { return arithmetic_ == Arithmetic::Game ? std::min<int>(s, 127) * 2 : s; };
+            const int l = at8(yr[x]) << 16, u = at8(ur[x / 2]) - 128, v = at8(vr[x / 2]) - 128;
             // 1.402, 0.344136, 0.714136 and 1.772 in 16 fraction bits.
             const int r = (l + 91881 * v + 32768) >> 16;
             const int g = (l - 22554 * u - 46802 * v + 32768) >> 16;

@@ -1229,6 +1229,7 @@ void testMovie() {
     }
     const Bytes intra = madFrame('k', k);
     MadDecoder d;
+    d.setArithmetic(MadDecoder::Arithmetic::Reference);
     CHECK(!d.decode(intra.data(), intra.size()));
     CHECK(d.width() == 16 && d.height() == 16);
     auto y = [&](int x, int row) { return d.plane(0)[row * d.stride(0) + x]; };
@@ -1278,6 +1279,22 @@ void testMovie() {
     CHECK(!d.decode(shifted.data(), shifted.size()));
     CHECK(y(7, 0) == 128 && y(6, 0) == 144);
 
+    // The game's arithmetic: 7-bit samples about 64, so 10 above the middle
+    // is 5; the escaped block's coefficient is 100 x Q, Q = 16 x 2^12 x 5906
+    // / 2^16 = 5906, spread from about +17 to -18 across.
+    MadDecoder g;
+    g.setArithmetic(MadDecoder::Arithmetic::Game);
+    CHECK(!g.decode(intra.data(), intra.size()));
+    auto gy = [&](int x, int row) { return g.plane(0)[row * g.stride(0) + x]; };
+    CHECK(gy(0, 0) == 69 && gy(8, 0) == 50 && gy(0, 8) == 64);
+    CHECK(gy(8, 8) == 81 && gy(15, 15) == 46);
+    Surface grgb;
+    g.toSurface(grgb);
+    CHECK(grgb.row(0)[0] == 138);
+    // Its copies add d itself, without clamping.
+    CHECK(!g.decode(inter.data(), inter.size()));
+    CHECK(gy(0, 0) == 72);
+
     Bytes bad = intra;
     bad.resize(30);
     CHECK(d.decode(bad.data(), bad.size()));
@@ -1311,6 +1328,7 @@ void testMovie() {
     CHECK(!movie.decodeAudio(sound));
     CHECK(sound.channels == 2 && sound.rate == 22050 && sound.samples.size() == 56);
     MadDecoder fresh;
+    fresh.setArithmetic(MadDecoder::Arithmetic::Reference);
     CHECK(!movie.decodeFrame(fresh, 0) && !movie.decodeFrame(fresh, 1));
     CHECK(fresh.plane(0)[0] == 144);
     CHECK(movie.decodeFrame(fresh, 2));

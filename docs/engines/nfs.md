@@ -967,11 +967,9 @@ Allowed under CONTRIBUTING.md:
 - In the Pathfinder maps ([mus.md](../formats/nfs/mus.md)): who sends
   events 2 and 3, and the race value that raises the control value in
   some race modes.
-- In the movies ([mad.md](../formats/nfs/mad.md)):
-  - whether the game's decoder keeps the quantiser in 16 bits, as FFmpeg
-    does;
-  - what the game shows for the demos' fade-in frames;
-  - the frame header's unused fields.
+- In the movies ([mad.md](../formats/nfs/mad.md)): how the game turns
+  its decoded 4:2:2 frames into RGB at 640×480, which softens the demos'
+  fade-in frames.
 
 - Which track number is which track.
 - Whether the Classics release differs from the original 1998 retail in
