@@ -66,6 +66,10 @@ GameMenus::GameMenus(System& sys, const SearchSet& files, const GameStrings& str
     std::vector<uint8_t> data;
     if (!files.read("tune/widget.csv", data))
         ok_ = !parseWidgets(std::string(data.begin(), data.end()), widgets_) && pictures_.jpg("opt_bk");
+    // Change Race Options' time and weather: the picture's two boxes
+    // (jpg/Renv_dlg; widget.csv's icons are placed for another layout).
+    widgets_.push_back({"Race Environment", "TIME", 150, 61, 125, 26, ""});
+    widgets_.push_back({"Race Environment", "WEATHER", 150, 95, 125, 26, ""});
     // A name used again in a menu (Create a New Driver's two "checkbox",
     // the records' "popup_checkbox"es) is numbered: "checkbox#2"...
     for (size_t i = 0; i < widgets_.size(); ++i) {
@@ -278,6 +282,10 @@ void GameMenus::go(Screen s) {
         newName_.clear();
         newPro_ = false;
     }
+    if (s == Screen::RaceOptions && front_)
+        conditions_ = front_->choice().conditions;
+    if (s == Screen::CitySelection && front_)
+        cityRow_ = size_t(std::max(0, front_->choice().city));
     if (s == Screen::DriverStats || s == Screen::RaceRecords) {
         screen_ = s;
         tableRow_ = 0;
@@ -363,6 +371,8 @@ void GameMenus::toggle(const std::string& w) {
 }
 
 float GameMenus::share(const std::string& w) const {
+    if (screen_ == Screen::RaceOptions)
+        return raceShare(w);
     const GameOptions& o = edit_;
     if (w == "WAVE VOLUME")
         return o.effectsVolume;
@@ -380,6 +390,10 @@ float GameMenus::share(const std::string& w) const {
 }
 
 void GameMenus::setShare(const std::string& w, float v) {
+    if (screen_ == Screen::RaceOptions) {
+        setRaceShare(w, v);
+        return;
+    }
     v = std::clamp(std::round(v * 20) / 20, 0.0f, 1.0f);
     GameOptions& o = edit_;
     if (w == "WAVE VOLUME")
@@ -428,8 +442,12 @@ std::string GameMenus::choiceText(const std::string& w) const {
 
 void GameMenus::step(const Item& item, int dir) {
     const std::string& w = item.widget;
-    if (item.kind == Kind::Bar)
+    if (item.kind == Kind::Bar && screen_ == Screen::RaceOptions)
+        setShare(w, share(w) + (w == "COP DENSITY" ? 0.25f : 0.1f) * float(dir)); // a tenth; a police car
+    else if (item.kind == Kind::Bar)
         setShare(w, share(w) + 0.05f * float(dir));
+    else if (screen_ == Screen::RaceOptions && (w == "TIME" || w == "WEATHER"))
+        stepCondition(w, dir);
     else if (w == "DISPLAY")
         edit_.fullScreen = !edit_.fullScreen;
     else if (w == "RESOLUTION")
@@ -682,9 +700,14 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
             const Widget* wd = widget(list[i].widget);
             switch (list[i].kind) {
             case Kind::Bar:
-                setShare(list[i].widget, float(ev.mouseX - (wd->x + originX() + kBarInset)) / kBarWidth);
+                setShare(list[i].widget, float(ev.mouseX - (wd->x + originX() + barInset())) / kBarWidth);
                 return Action::None;
             case Kind::Choice:
+                if (screen_ == Screen::RaceOptions) { // the icon clicked
+                    int& v = list[i].widget == "TIME" ? conditions_.timeOfDay : conditions_.weather;
+                    v = std::clamp((ev.mouseX - (wd->x + originX() + 4)) / 31, 0, 3);
+                    return Action::None;
+                }
                 step(list[i], ev.mouseX < wd->x + originX() + wd->w / 2 ? -1 : 1);
                 return Action::None;
             case Kind::List:
@@ -703,7 +726,12 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
     case key::Up:
     case key::Down: {
         const int dir = ev.key == key::Down ? 1 : -1;
-        if (item.kind == Kind::List && (screen_ == Screen::DriverStats || screen_ == Screen::RaceRecords)) {
+        if (item.kind == Kind::List && screen_ == Screen::CitySelection) {
+            if (cities_ && int(cityRow_) + dir >= 0 && size_t(int(cityRow_) + dir) < cities_->size()) {
+                cityRow_ = size_t(int(cityRow_) + dir);
+                break;
+            }
+        } else if (item.kind == Kind::List && (screen_ == Screen::DriverStats || screen_ == Screen::RaceRecords)) {
             if (int(tableRow_) + dir >= 0 && size_t(int(tableRow_) + dir) + 1 < table_.size()) {
                 tableRow_ = size_t(int(tableRow_) + dir);
                 break;
@@ -752,6 +780,9 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
         case Screen::LastDriver:
         case Screen::DriverStats:
         case Screen::RaceRecords:
+        case Screen::RaceOptions:
+        case Screen::CitySelection:
+        case Screen::Locked:
             screen_ = Screen::None;
             sys_.setTextInput(false);
             return Action::Closed;
@@ -806,15 +837,21 @@ void GameMenus::drawItems(Surface& o, const std::vector<Item>& list, int focus) 
             break;
         case Kind::Bar: {
             const int lit = int(std::lround(share(item.widget) * kBarWidth));
+            // (Change Race Options' rows are 15 high on a grid twice that.)
+            const int inset = barInset(), top = screen_ == Screen::RaceOptions ? -4 : w->h > 20 ? 6 : 2;
             if (item.widget == "BALANCE")
-                fill(o, x + kBarInset + std::min(lit, kBarWidth - 4), y + 6, 4, w->h - 12, {255, 200, 40});
+                fill(o, x + inset + std::min(lit, kBarWidth - 4), y + top, 4, w->h - 2 * top, {255, 200, 40});
             else if (item.enabled)
-                fill(o, x + kBarInset, y + 6, lit, w->h - 12, {255, 200, 40});
+                fill(o, x + inset, y + top, lit, w->h - 2 * top, {255, 200, 40});
             if (focused)
                 font::drawText(o, x + 2, y + 8, ">", {255, 255, 120});
             break;
         }
         case Kind::Choice:
+            if (screen_ == Screen::RaceOptions) {
+                drawConditionIcons(o, item.widget, focused);
+                break;
+            }
             text(o, item.widget, choiceText(item.widget), words);
             if (focused)
                 font::drawText(o, x - 10, y + 4, ">", {255, 255, 120});
@@ -928,6 +965,10 @@ void GameMenus::draw(Surface& o, uint64_t nowMs) {
                 drawPicture(o, *d, originX(), originY());
             if (was == Screen::DriverStats || was == Screen::RaceRecords)
                 drawTable(o);
+            if (was == Screen::CitySelection && cities_)
+                for (size_t i = 0; i < cities_->size(); ++i)
+                    font::drawText(o, originX() + 80, originY() + 98 + int(i) * 16, (*cities_)[i].name,
+                                   i == cityRow_ ? Color{255, 255, 120} : Color{220, 220, 255});
             drawItems(o, items(), focus_);
             return;
         }

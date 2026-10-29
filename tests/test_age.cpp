@@ -2547,6 +2547,14 @@ static void testReplays(const std::filesystem::path& tmp) {
         r.frames.push_back({0.05f, uint16_t(i % 7), int8_t(i % 3 - 1), uint8_t(i == 5 ? kReplayManual : 0)});
     r.marks = {{1, 2, 3}, {4, 5, 6}};
     CHECK(std::fabs(r.duration() - 6.5f) < 1e-3f);
+    r.changed = true; // run in its conditions as changed on the race menu
+    r.laps = 7;
+    r.opponents = 2;
+    r.timeOfDay = 3;
+    r.weather = 2;
+    r.cops = 4;
+    r.traffic = 0.6f;
+    r.peds = 0.2f;
 
     // Written and read back as it was.
     Replay back;
@@ -2556,6 +2564,20 @@ static void testReplays(const std::filesystem::path& tmp) {
           std::fabs(back.steerRate - 1.25f) < 1e-6f && back.pedestrians == 0 && back.frames.size() == 130 &&
           back.frames[5].flags == kReplayManual && back.frames[4].shift == 0 && back.frames[6].keys == 6 &&
           back.marks.size() == 2 && back.marks[1][2] == 6);
+    CHECK(back.changed && back.laps == 7 && back.opponents == 2 && back.timeOfDay == 3 && back.weather == 2 &&
+          back.cops == 4 && std::fabs(back.traffic - 0.6f) < 1e-6f && std::fabs(back.peds - 0.2f) < 1e-6f);
+    // A first-version replay (no conditions) still reads, unchanged.
+    std::vector<uint8_t> v1 = encodeReplay(r);
+    v1[7] = 1;
+    // The magic and version (8), the name, city, kind, race, level, car,
+    // paint, auto reverse, steering and pedestrians: then the conditions'
+    // 14 bytes, which version 1 hadn't.
+    const std::ptrdiff_t start =
+        8 + std::ptrdiff_t(1 + r.name.size() + 1 + r.city.size() + 1 + 2 + 1 + 1 + r.car.size() + 1 + 1 + 4 + 4);
+    v1.erase(v1.begin() + start, v1.begin() + start + 14);
+    Replay old;
+    CHECK(!decodeReplay(v1, old) && !old.changed && old.pedestrians == 0 && old.frames.size() == 130 &&
+          old.frames[6].keys == 6 && old.marks.size() == 2);
     std::vector<uint8_t> cut = encodeReplay(r);
     cut.resize(cut.size() / 2);
     CHECK(decodeReplay(cut, back) && decodeReplay({1, 2, 3}, back));

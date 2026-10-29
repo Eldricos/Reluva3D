@@ -470,6 +470,9 @@ private:
     float finalLapFor_ = 0; // seconds "Final lap!" has left
     int lastLap_ = 0;
     PlayerRecord record_; // the current driver's
+    // The race's conditions as the menus changed them (else its own).
+    FrontEnd::Choice::Conditions conditions_;
+    bool conditionsChanged_ = false;
     DriverRoster roster_;
     void switchDriver();
     bool openAll_ = false;  // U: every race and car open, whatever the record says

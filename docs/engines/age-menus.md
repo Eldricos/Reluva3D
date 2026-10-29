@@ -257,5 +257,66 @@ at (50, 10) rather than `menu.csv`'s (50, 37).
 **Quick Race** (`main_qck`, "Quick Race starts you in the last race you
 ran") goes to the garage for the driver's last race, then starts it.
 
-Not drawn: the Cops & Robbers Settings and serial dialogs, the Race
-Environment dialog and the remaining small dialogs.
+## Changing a race
+
+The Single Race Menu's own boxes hold the race's conditions, as its
+file has them. They can be changed:
+
+- **LAPS** (a circuit's) and **OPPONENTS** (up to as many as the race
+  has paths for): Left/Right.
+- **CHANGE** (`texture/race_chg`, 25 x 122 a state, five states): the
+  game's **Change Race Options** (`jpg/Renv_dlg`, at `menu.csv`'s 120,
+  52). It holds:
+  - The time of day and the weather, each a row of the game's icons
+    (`texture/RENV_*`) in the picture's box for it, the chosen one lit,
+    chosen with Left/Right or a click.
+  - The traffic, pedestrian and police densities, as bars on its grid
+    (a tenth of traffic or pedestrians a step, a police car a step,
+    0-4).
+  - **Hide Pedestrians** (`RENV_HIDE`).
+  - DONE (on its left) and CANCEL (on its right), as `widget.csv` places
+    them.
+
+A race whose conditions are changed shows "Changed: not recorded" and
+isn't kept in the record, as the game's records say: "The race
+statistics are recorded for races under default conditions only."
+Replays keep the conditions they were run in. Next Race goes back to
+the next race's own.
+
+Three things here aren't as `widget.csv` has them:
+
+- `race_chg` has no row in it: its place is measured, up the right of
+  the time, weather and densities.
+- Its icons (`renv_imorn`... at 208-376, 40 and 82) sit on the picture's
+  title. The picture has a box for each row instead, so they go in the
+  boxes.
+- The icons' names (sun, fog, rain, snow) don't match their pictures (a
+  sun, a cloud, rain, a sun behind a cloud). They're placed by picture,
+  in the order the lightings number the weathers ([tune.md](../formats/age/tune.md)):
+  clear, cloudy, foggy (the sun behind a cloud), rainy.
+
+**LOCATION**: Enter opens the game's **Race Locales** (`jpg/cenv_dlg`,
+"Choose race locale"), the cities to choose from. Left/Right still steps
+through them.
+
+**A locked car**: GO DRIVE gets the game's `jpg/lock_dlg`, "You cannot
+pick a locked vehicle".
+
+## Not drawn
+
+These dialogs in `widget.csv` aren't drawn:
+
+- **Setup Serial Communications** (`serial_dlg`) and the MSN Gaming
+  Zone's `zone_dlg` ("Connecting to MSN Gaming Zone..."): those
+  connections are the past's, and Reluva plays over TCP/IP only.
+- **`plim_dlg`** ("You cannot have more than 18 players"): Reluva's
+  sessions have 8 at most, which the host's MAX PLAYERS keeps to.
+- **Cops & Robbers Settings** (menu 13): its controls' pictures
+  (`copr_*`, `crt_*`, `aren_ready`) aren't among the files, nor is a
+  background for it. The Host Race Menu's Cops & Robbers panel and the
+  lobby's team buttons do its work.
+- **`xassign_dlg`** and **Control Warning**: no pictures (Control
+  Warning's `join_dlg` isn't shipped). Customize Controls' duplicate key
+  has its own, `ctrl_dlg`.
+- **`MessageBox`** is the game's general message box, `msg_dlg`: it's
+  used wherever a message has no picture of its own.

@@ -66,6 +66,8 @@ public:
     }
     static RaceKind raceKind(NetMode mode);
     std::string modeName(NetMode mode) const;
+    std::string goldMassName(int kg) const;
+    std::string timeLimitName(int minutes) const;
     std::string goldModeName(GoldMode mode) const;
     std::string teamName(uint8_t team) const; // in the session's mode
     // The car a player drives: its own, but the police car for a cop.

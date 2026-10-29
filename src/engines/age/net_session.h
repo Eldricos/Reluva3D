@@ -43,7 +43,7 @@ struct NetSettings {
     GoldMode gold = GoldMode::FreeForAll;
     GoldLimit limit = GoldLimit::Points;
     uint16_t limitValue = 5; // minutes, or points
-    uint16_t goldMass = 500; // kg the car carrying the gold takes on
+    uint16_t goldMass = 454; // kg the car carrying the gold takes on (the game's Half Ton)
     uint8_t maxPlayers = kMaxNetPlayers;
     bool teams() const { return mode == NetMode::CopsRobbers && gold != GoldMode::FreeForAll; }
 };

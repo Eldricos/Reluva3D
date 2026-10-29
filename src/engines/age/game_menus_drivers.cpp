@@ -58,6 +58,12 @@ std::string GameMenus::driverMenuName() const {
         return "Driver Record";
     case Screen::RaceRecords:
         return "Race Statistics";
+    case Screen::RaceOptions:
+        return "Race Environment";
+    case Screen::CitySelection:
+        return "City Selection";
+    case Screen::Locked:
+        return "locked_dlg";
     default:
         return {};
     }
@@ -73,7 +79,14 @@ void GameMenus::driverOrigin(int& x, int& y) const {
         x = 170, y = 127;
         break;
     case Screen::LastDriver:
+    case Screen::Locked:
         x = 120, y = 202;
+        break;
+    case Screen::RaceOptions: // tune/menu.csv's
+        x = 120, y = 52;
+        break;
+    case Screen::CitySelection:
+        x = 120, y = 75;
         break;
     default:
         x = kBigX, y = kBigY;
@@ -95,12 +108,35 @@ const char* GameMenus::driverPicture(Screen s) const {
         return "drec_dlg";
     case Screen::RaceRecords:
         return "hoff_dlg";
+    case Screen::RaceOptions:
+        return "Renv_dlg";
+    case Screen::CitySelection:
+        return "cenv_dlg";
+    case Screen::Locked:
+        return "lock_dlg";
     default:
         return "";
     }
 }
 
 std::vector<GameMenus::Item> GameMenus::driverItems() const {
+    if (screen_ == Screen::RaceOptions) {
+        // Its time and weather icons (texture/RENV_*: five states), the
+        // three densities on its grid, Hide Pedestrians (RENV_HIDE), and its
+        // two buttons as widget.csv has them: DONE left, CANCEL right.
+        std::vector<Item> list = {Item{Kind::Choice, "TIME", {}, 0, true}, Item{Kind::Choice, "WEATHER", {}, 0, true}};
+        for (const char* bar : {"TRAFFIC DENSITY", "PEDESTRIAN DENSITY", "COP DENSITY"})
+            list.push_back(Item{Kind::Bar, bar, {}, 0, true});
+        list.push_back(Item{Kind::Check, "dlg_chkb", "RENV_HIDE", 5, true});
+        list.push_back(Item{Kind::Button, "dlg_done", "dlg_done", 4, true});
+        list.push_back(Item{Kind::Button, "dlg_cancel", "dlg_can", 4, true});
+        return list;
+    }
+    if (screen_ == Screen::CitySelection)
+        return {Item{Kind::List, "CITY", {}, 0, true}, Item{Kind::Button, "dlg_cancel", "dlg_can", 4, true},
+                Item{Kind::Button, "dlg_done", "dlg_done", 4, true}};
+    if (screen_ == Screen::Locked)
+        return {Item{Kind::Button, "dlg_done", "dlg_ok", 4, true}};
     auto button = [](const std::string& w, const std::string& pic) { return Item{Kind::Button, w, pic, 4, true}; };
     auto box = [](const std::string& w, bool enabled = true) { return Item{Kind::Check, w, "dlg_chkb", 5, enabled}; };
     switch (screen_) {
@@ -143,7 +179,68 @@ std::vector<GameMenus::Item> GameMenus::driverItems() const {
     }
 }
 
+namespace {
+// The icons (texture/RENV_*, five states 31 high): the times morning,
+// noon, sunset, night; the weathers as their pictures show them, in the
+// lightings' order (clear, cloudy, foggy, rainy): a sun, a cloud, a sun
+// behind a cloud, rain. Their names say sun, fog, snow and rain.
+const char* const kTimeIcons[4] = {"RENV_IMORN", "RENV_INOON", "RENV_ISUNS", "RENV_INITE"};
+const char* const kWeatherIcons[4] = {"RENV_ISUN", "RENV_IFOG", "RENV_ISNOW", "RENV_IRAIN"};
+constexpr int kIconW = 28, kIconH = 21, kIconStep = 31;
+} // namespace
+
+void GameMenus::drawConditionIcons(Surface& o, const std::string& w, bool focused) const {
+    // Four icons, smaller, in the picture's box for the row: the chosen
+    // one lit (the pictures' fourth state), the others dimmed (their
+    // fifth), or plain (their first) in the row pointed at.
+    const Widget* wd = widget(w);
+    if (!wd)
+        return;
+    const bool time = w == "TIME";
+    const int chosen = time ? conditions_.timeOfDay : conditions_.weather;
+    for (int i = 0; i < 4; ++i) {
+        const image::Image* im = pictures_.texture(time ? kTimeIcons[i] : kWeatherIcons[i]);
+        if (!im)
+            continue;
+        const int states = 5, h = im->h / states, state = i == chosen ? 3 : focused ? 0 : 4;
+        image::Image band;
+        band.w = im->w;
+        band.h = h;
+        const size_t row = size_t(im->w) * 4;
+        band.rgba.assign(im->rgba.begin() + std::ptrdiff_t(size_t(state * h) * row),
+                         im->rgba.begin() + std::ptrdiff_t(size_t((state + 1) * h) * row));
+        drawPicture(o, band, originX() + wd->x + 4 + i * kIconStep, originY() + wd->y + 3, kIconW, kIconH);
+    }
+}
+
+void GameMenus::stepCondition(const std::string& w, int dir) {
+    int& v = w == "TIME" ? conditions_.timeOfDay : conditions_.weather;
+    v = (v + dir + 4) % 4;
+}
+
+float GameMenus::raceShare(const std::string& w) const {
+    if (w == "TRAFFIC DENSITY")
+        return conditions_.traffic;
+    if (w == "PEDESTRIAN DENSITY")
+        return conditions_.peds;
+    if (w == "COP DENSITY")
+        return std::min(1.0f, float(conditions_.cops) / 4);
+    return 0;
+}
+
+void GameMenus::setRaceShare(const std::string& w, float v) {
+    v = std::clamp(v, 0.0f, 1.0f);
+    if (w == "TRAFFIC DENSITY")
+        conditions_.traffic = std::round(v * 10) / 10;
+    else if (w == "PEDESTRIAN DENSITY")
+        conditions_.peds = std::round(v * 10) / 10;
+    else if (w == "COP DENSITY")
+        conditions_.cops = int(std::lround(v * 4)); // 0-4 police
+}
+
 bool GameMenus::driverChecked(const std::string& w) const {
+    if (screen_ == Screen::RaceOptions)
+        return w == "dlg_chkb" && conditions_.hidePeds;
     if (screen_ == Screen::NewDriver)
         return w == "checkbox#2" ? newPro_ : !newPro_;
     const size_t hash = w.find('#');
@@ -154,6 +251,11 @@ bool GameMenus::driverChecked(const std::string& w) const {
 }
 
 void GameMenus::driverToggle(const std::string& w) {
+    if (screen_ == Screen::RaceOptions) {
+        if (w == "dlg_chkb")
+            conditions_.hidePeds = !conditions_.hidePeds;
+        return;
+    }
     if (screen_ == Screen::NewDriver) {
         newPro_ = w == "checkbox#2";
         return;
@@ -179,6 +281,21 @@ GameMenus::Action GameMenus::driverActivate(const Item& item) {
         screen_ = Screen::None;
         sys_.setTextInput(false);
     };
+    if (screen_ == Screen::RaceOptions || screen_ == Screen::CitySelection) {
+        if (item.kind == Kind::List)
+            return driverActivate(Item{Kind::Button, "dlg_done", {}, 4, true});
+        if (w == "dlg_done" && front_) {
+            if (screen_ == Screen::RaceOptions) {
+                front_->choice().conditions = conditions_;
+                front_->conditionsChanged();
+            } else if (cities_ && cityRow_ < cities_->size()) {
+                front_->choice().city = int(cityRow_);
+                front_->refreshChoice();
+            }
+        }
+        close();
+        return Action::Closed;
+    }
     if (screen_ == Screen::NewDriver && w == "popup_done") {
         if (newName_.empty() || !roster_)
             return Action::None;

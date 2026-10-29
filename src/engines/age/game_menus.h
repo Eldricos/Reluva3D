@@ -44,6 +44,9 @@ public:
         LastDriver,      // lstp_dlg: you cannot delete your only driver
         DriverStats,     // drec_dlg: Driver's Stats
         RaceRecords,     // hoff_dlg: Race Records
+        RaceOptions,     // Renv_dlg: Change Race Options
+        CitySelection,   // cenv_dlg: Race Locales
+        Locked,          // lock_dlg: you cannot pick a locked vehicle
     };
     enum class Action {
         None,
@@ -61,6 +64,8 @@ public:
     void open(Screen s);
     Screen screen() const { return screen_; }
     bool isOpen() const { return screen_ != Screen::None; }
+    // A dialog over the menu that opened it (drawn first).
+    bool isDialog() const { return isOpen() && overlay(screen_); }
     Action handle(const Event& ev);
     void draw(Surface& overlay, uint64_t nowMs);
     bool typing() const;
@@ -75,6 +80,8 @@ public:
         record_ = record;
         cities_ = cities;
     }
+    // The race menu's choice, for Change Race Options and Race Locales.
+    void setFrontEnd(FrontEnd* front) { front_ = front; }
     const std::filesystem::path& replayFile() const { return replayFile_; }
     const std::string& replayName() const { return name_; }
 
@@ -141,7 +148,17 @@ private:
     std::array<bool, 8> filters_{true, true, false, true, true, true, true, true};
     std::vector<std::string> table_; // the stats' or records' lines
     size_t tableRow_ = 0;
-    bool driverScreen(Screen s) const { return s >= Screen::NewDriver && s <= Screen::RaceRecords; }
+    // The dialogs over a menu kept in game_menus_drivers.cpp: the drivers',
+    // and the race menu's.
+    bool driverScreen(Screen s) const { return s >= Screen::NewDriver && s <= Screen::Locked; }
+    FrontEnd* front_ = nullptr;
+    FrontEnd::Choice::Conditions conditions_; // as Change Race Options changes them
+    size_t cityRow_ = 0;
+    int barInset() const { return screen_ == Screen::RaceOptions ? 20 : 23; }
+    void drawConditionIcons(Surface& o, const std::string& w, bool focused) const;
+    void stepCondition(const std::string& w, int dir);
+    float raceShare(const std::string& w) const;
+    void setRaceShare(const std::string& w, float v);
     std::string driverMenuName() const;
     void driverOrigin(int& x, int& y) const;
     std::vector<Item> driverItems() const;
