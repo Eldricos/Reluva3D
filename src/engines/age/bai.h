@@ -30,6 +30,7 @@ struct AiRoadSide {
     uint16_t trams = 0, trains = 0;
     uint16_t kind = 0;                           // 0-3, meaning not known yet
     std::vector<Vec3> sidewalk, curb, outerEdge; // the sidewalk's middle and its two edges
+    std::array<float, 11> widths{};              // after the lane offsets: see docs/formats/age/bai.md
 };
 
 struct AiRoadEnd {

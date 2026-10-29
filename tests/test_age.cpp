@@ -606,6 +606,22 @@ void testCityExtras() {
     CHECK(readCpvs(pvs.v, v));
     CHECK(readCpvs(toBytes("PVS1"), v));
 
+    // A divided road whose divider (texture 2, a barrier 1 m high) runs
+    // from vertices 0-1 to 3-2: raised to its height, sides and ends; a
+    // flat one stays on the road.
+    for (const uint16_t kind : {uint16_t(3), uint16_t(1)}) {
+        const std::vector<uint16_t> divided = {
+            10 << 3, 1, 0x80 | 8 << 3 | 2, uint16_t(2 << 8 | kind), 0x100, 0, 0, 0, 1, 1, 1, 3, 3, 3, 2, 2, 2};
+        CHECK(!readPsdl(buildPsdl(divided), psdl));
+        buildCityMesh(psdl, mesh);
+        float top = -1;
+        for (const CityMesh::Batch& b : mesh.batches)
+            if (b.texture == "swalk_f")
+                for (uint32_t i : b.indices)
+                    top = std::max(top, mesh.vertices[i].pos[1]);
+        CHECK(kind == 3 ? std::fabs(top - 1) < 1e-4f : std::fabs(top) < 1e-4f);
+    }
+
     // Decals: a strip over a square at height 2 in block 5, taking its
     // height and block (the points' own words are no help); an unnamed
     // path places nothing.
@@ -1332,6 +1348,14 @@ void testBai() {
     right.exceptions.push_back({0, 0, 9});
     net.build(m, right);
     CHECK(!net.lanes()[0].spawns && net.lanes()[0].speed == 9);
+    // A road flagged 0x2 isn't for traffic: none starts on it, and it's
+    // taken only where there's no other way on (here there isn't).
+    right.exceptions.clear();
+    m.roads[0].flags = 2;
+    net.build(m, right);
+    CHECK(!net.lanes()[0].open && !net.lanes()[0].spawns);
+    for (size_t i = 0; i < net.lanes().size(); ++i)
+        CHECK(!net.waysOn(int(i)).empty());
 
     Vec3 heading;
     const std::vector<Vec3> pts = {{0, 0, 0}, {10, 0, 0}, {10, 0, 10}};

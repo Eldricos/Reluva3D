@@ -72,9 +72,10 @@ void readSide(Reader& r, size_t n, AiRoadSide& s) {
     r.skip(uint64_t(lanes + 1) * n * 4);
     for (uint16_t i = 0; i < lanes; ++i)
         s.laneOffsets.push_back(r.f32());
-    // Widths and offsets not used yet, then room for eight more floats
-    // (left as the allocator filled them where unused).
-    r.skip(44);
+    // Widths and offsets, then room for eight more floats (left as the
+    // allocator filled them where unused).
+    for (float& f : s.widths)
+        f = r.f32();
     for (uint16_t i = 0; i < lanes && r.ok; ++i)
         s.lanes.push_back(r.row(n));
     s.sidewalk = r.row(n);

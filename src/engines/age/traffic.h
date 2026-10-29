@@ -42,6 +42,7 @@ struct TrafficLane {
     int left = -1, right = -1; // the lanes beside it going the same way
     float speed = 15;          // m/s
     bool spawns = true;        // traffic starts on it (a race's exceptions leave some out)
+    bool open = true;          // traffic goes on it: not a road the road map flags 0x2 (bai.md)
     float length() const { return at.empty() ? 0 : at.back(); }
 };
 
@@ -51,6 +52,9 @@ public:
     void build(const AiRoadMap& map, const AiMapSettings& settings);
     const std::vector<TrafficLane>& lanes() const { return lanes_; }
     const std::vector<uint32_t>& leaving(uint32_t junction) const { return leaving_[junction]; }
+    // The ways on from a lane's end: open lanes onto other roads, else
+    // any onto other roads, else any (back along the same road).
+    std::vector<uint32_t> waysOn(int lane) const;
     size_t roadsAt(uint32_t junction) const { return roadsAt_[junction]; }
     size_t junctions() const { return leaving_.size(); }
 

@@ -107,7 +107,11 @@ void TrafficNetwork::build(const AiRoadMap& map, const AiMapSettings& settings) 
                 lane.toEnd = forward ? 0 : 1;
                 lane.control = road.ends[size_t(lane.toEnd)].control;
                 lane.speed = speed;
-                lane.spawns = spawns;
+                // Roads flagged 0x2 (the Underground's, some ramps and
+                // alleys: none has a sidewalk) are Reluva's reading of
+                // roads not for traffic.
+                lane.open = !(road.flags & 2);
+                lane.spawns = spawns && lane.open;
                 if (lane.length() < 1) {
                     previous = -1;
                     continue;
@@ -253,17 +257,21 @@ int Traffic::pickKind() {
     return int(ambient_) - 1;
 }
 
-int Traffic::pickNext(int lane) {
-    // Any lane leaving the junction ahead but back along the same road,
-    // unless that's the only way.
-    const TrafficLane& l = network_.lanes()[size_t(lane)];
-    const auto& out = network_.leaving(l.to);
+std::vector<uint32_t> TrafficNetwork::waysOn(int lane) const {
+    const TrafficLane& l = lanes_[size_t(lane)];
+    const auto& out = leaving_[l.to];
     std::vector<uint32_t> ways;
-    for (uint32_t k : out)
-        if (network_.lanes()[k].road != l.road)
-            ways.push_back(k);
-    if (ways.empty())
-        ways = out;
+    for (int pass = 0; pass < 3 && ways.empty(); ++pass)
+        for (uint32_t k : out)
+            if ((pass == 2 || lanes_[k].road != l.road) && (pass > 0 || lanes_[k].open))
+                ways.push_back(k);
+    return ways;
+}
+
+int Traffic::pickNext(int lane) {
+    // On to another road, an open one if there is (back along the same
+    // road only if that's the only way).
+    const std::vector<uint32_t> ways = network_.waysOn(lane);
     if (ways.empty())
         return -1;
     return int(ways[std::uniform_int_distribution<size_t>(0, ways.size() - 1)(rng_)]);

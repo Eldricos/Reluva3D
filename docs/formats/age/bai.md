@@ -32,7 +32,7 @@ junction[junctions]
 ```
 u16 id                 0, 1, 2... in order
 u16 n                  points along it
-u16 flags              0, 1, 2, 5, 8, 9, 10: not known
+u16 flags              see "Road flags and kinds" below
 u16 blocks
 u16 block[blocks]      the PSDL blocks it runs through
 f32 halfWidth          from its middle line to the sidewalks' outer edge
@@ -51,11 +51,12 @@ u16 lanes
 u16 trams              tram lines (San Francisco's cable cars)
 u16 trains             train lines (London)
 u16                    1 throughout
-u16 kind               0-3: not known
+u16 kind               its sidewalk: see below
 f32 distance[lanes + 1][n]   along each lane and the sidewalk
 f32 laneOffset[lanes]        each lane's distance from the middle line
-44 bytes               widths and offsets not used yet, then room for
-                       eight floats (cd where unused)
+f32 widths[11]         the sidewalk middle's distance from the middle
+                       line; minus the half width; each lane's pair
+                       (below); the half width; the rest unset (cd)
 point lane[lanes][n]   each lane's middle line
 point sidewalk[n]      the sidewalk's middle
 point track[trams + trains][n]
@@ -134,8 +135,46 @@ cities), 0 as giving way (minor roads into T-junctions) and 3 as no
 control (the main road through a T-junction, ends nothing arrives at).
 That reading is a guess from where they fall.
 
+## Road flags and kinds
+
+Worked out by comparing every road of both cities (919) with what's
+known of it (its lanes, tracks, sidewalks, the blocks it's in, the PSDL's
+own flags for it) and by drawing the roads that have each value on a map
+of the city.
+
+The sides' kinds are their sidewalks:
+
+| Kind | Sides | What they are |
+|---|---|---|
+| 0 | 1,205 | an ordinary sidewalk (3-5 m) |
+| 1 | 353 | the lane-less side of a one-way road (257), and both sides of 48 roads in central London with wide pavements (7.6 m) |
+| 2 | 12 | a narrow walkway (1.5 m): the Golden Gate Bridge and San Francisco's freeway |
+| 3 | 261 | none: 114 of the 128 roads with kind 3 on both sides have no sidewalk at all; London's Underground (77 of them under a roof), San Francisco's ramps and alleys |
+
+Reluva's pedestrians don't walk kind 3 sides.
+
+The flags:
+
+| Flag | Roads | Where |
+|---|---|---|
+| 0x1 | 10 | San Francisco's freeway (the PSDL road flags 0x8 on the same roads) |
+| 0x4 | 4 | four of those, its loop |
+| 0x2 | 99 | London's Underground and some of San Francisco's ramps and alleys: all have no sidewalk (kind 3); the PSDL road flags 0x10 on exactly the same roads |
+| 0x8 | 536 | 469 of London's 540 roads, 67 of San Francisco's 379: nothing found goes with it (not lanes, lengths, junction controls, furniture rules, tunnels) |
+
+Reluva reads 0x2 as a road not for traffic: its traffic doesn't start on
+them nor turn into them while there's another way (the game's aimaps
+give no exceptions to say otherwise, so without it Reluva's cars drove
+into the Underground).
+
+The widths: for a side with lanes, after the sidewalk's middle and the
+negative half width, a pair of equal values for each lane: its edge on
+the right as it's stored, as a distance from the middle line (5, 10 for
+two lanes 2.5 and 7.5 out; a one-way road's lanes across the middle are
+irregular), then the half width. A side with no lanes has the second
+value unset and the half width third.
+
 ## Not known yet
 
-The flags, the sides' kind, the widths after the lane offsets, and the
-table after the junctions (a count, then for each PSDL block a count and
-its roads, it seems).
+Flag 0x8, and the table after the junctions (a count, then for each PSDL
+block a count and its roads, it seems).

@@ -80,6 +80,11 @@ entered a junction on red. Lane changes are rare in such runs (5 in San
 Francisco's five minutes): cars are only held up mid-road by something
 slow or stopped, such as the player.
 
+- **Roads for traffic**: none on the road map's roads flagged 0x2 (the
+  Underground, some ramps and alleys; [bai.md](../formats/age/bai.md)):
+  the traffic doesn't start there, and turns into them only where
+  there's no other way; police patrols likewise.
+
 ## Parked cars
 
 The cities' parked-car lines ([pathset.md](../formats/age/pathset.md))
@@ -197,7 +202,8 @@ renderer's dynamic lights, the 16 nearest the camera).
 
 - **Models**: the city aimap's pairs, the second (dressed for rain) when
   the weather is rainy; each in one of its 48 paint jobs.
-- **Where**: on the road map's sidewalks, 70-120 m from the player (5-120
+- **Where**: on the road map's sidewalks (not the sides it says have
+  none, kind 3: the Underground, ramps), 70-120 m from the player (5-120
   m when starting), each a little to one side of the sidewalk's middle;
   left out beyond 140 m and drawn within 120 m.
 - **Walking**: along the sidewalk at the walk's own speed (1.4 m/s for
