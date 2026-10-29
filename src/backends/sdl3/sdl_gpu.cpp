@@ -31,6 +31,8 @@ struct VertexUniforms {
     float mode2[4];
     float ambient[4], directed[4], lightDir[4];
     DeformUniforms deforms[2];
+    float fillColor[2][4], fillDir[2][4];
+    float matAmbient[4], matEmissive[4];
 };
 struct FragmentUniforms {
     float params[4];
@@ -644,6 +646,13 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     put(vu.ambient, call.ambientLight);
     put(vu.directed, call.directedLight);
     put(vu.lightDir, call.lightDirection);
+    for (size_t k = 0; k < 2; ++k) {
+        put(vu.fillColor[k], call.fillLight[k]);
+        put(vu.fillDir[k], call.fillDirection[k]);
+    }
+    put(vu.matAmbient, call.materialAmbient);
+    vu.matAmbient[3] = call.materialLit ? 1.0f : 0.0f;
+    put(vu.matEmissive, call.materialEmissive);
     put(vu.eye, eye_);
     vu.eye[3] = call.time;
     put(vu.preRow0, call.preRow0);

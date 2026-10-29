@@ -68,7 +68,8 @@ private:
 struct ModelDraw {
     uint32_t firstIndex = 0, indexCount = 0;
     gfx::TextureId texture = 0;
-    std::array<float, 4> color{1, 1, 1, 1};
+    std::array<float, 4> color{1, 1, 1, 1}; // its shader's diffuse colour
+    Vec3 ambient{1, 1, 1}, emissive{};      // and ambient and emissive ones
     bool translucent = false;
     bool lit = true;   // by the light (the mesh has normals), else as coloured
     bool glow = false; // added to what's behind (a light's halo)
@@ -105,6 +106,8 @@ struct SceneLight {
     gfx::Vec3 ambient{0.55f, 0.55f, 0.55f};
     gfx::Vec3 directed{0.6f, 0.6f, 0.6f};
     gfx::Vec3 direction{-0.4f, 0.8f, -0.45f}; // towards the light
+    // The lighting file's two fill lights (none by default).
+    std::array<gfx::Vec3, 2> fill{}, fillDirection{};
     // Fog: none before fogStart metres, all fogColor from fogEnd (0: none).
     gfx::Vec3 fogColor{};
     float fogStart = 0, fogEnd = 0;

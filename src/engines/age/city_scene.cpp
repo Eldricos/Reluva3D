@@ -293,16 +293,18 @@ void CityScene::setLighting(int index) {
     TuneNode root;
     if (!files_.read(name, data) && !parseTune(textOf(data), root) && !root.children.empty()) {
         const TuneNode& l = root.children.front();
-        // Reluva's approximation of the original's lighting (how it lights
-        // the city isn't known yet): the key light, three quarters as
-        // strong; the two fills, which come from the side, as a quarter
-        // each of extra ambient light.
+        // Models, cars and people are lit as the city's surfaces are
+        // (relightCity): the ambient colour and the three lights, each by
+        // how squarely a surface faces it, as Direct3D lights vertices.
         light_.direction = towards(l.number("KeyHeading"), l.number("KeyPitch"));
+        light_.fillDirection = {towards(l.number("Fill1Heading"), l.number("Fill1Pitch")),
+                                towards(l.number("Fill2Heading"), l.number("Fill2Pitch"))};
         const uint32_t ambient = uint32_t(int32_t(l.number("Ambient")));
         for (size_t c = 0; c < 3; ++c) {
-            light_.directed[c] = 0.75f * l.number("KeyColor", c);
-            light_.ambient[c] = float(ambient >> (16 - 8 * c) & 0xff) / 255 +
-                                0.25f * (l.number("Fill1Color", c) + l.number("Fill2Color", c));
+            light_.directed[c] = l.number("KeyColor", c);
+            light_.fill[0][c] = l.number("Fill1Color", c);
+            light_.fill[1][c] = l.number("Fill2Color", c);
+            light_.ambient[c] = float(ambient >> (16 - 8 * c) & 0xff) / 255;
         }
         // The city's own surfaces get the three lights as they are (see
         // relightCity).
