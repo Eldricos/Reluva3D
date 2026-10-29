@@ -850,11 +850,28 @@ reads, the vftables it builds for its own subclasses):
     "We did it!" with Next Mission, Instant Replay and Return to HQ.
   - So every behaviour DLL a solution needs works as shipped, in the
     order the game's own solution runs it.
-  - `AutoLoadPuzzle <space>` in `Config.txt` would skip the menus (the
-    interface behaviour goes straight to `To_FirstSpace`), but the space
-    then never shows: the game sits on a black screen, its sounds placed
-    and nothing drawn. It's a leftover the game doesn't finish setting up
-    without its menus, so the sweep goes through them.
+  - `AutoLoadPuzzle <space>` in `Config.txt` would skip the menus, but the
+    screen stays black. Traced (`at-run -watch`) to the game itself:
+    - The interface behaviour (`PE0300.DLL`) reads the key, keeps the
+      space's name and takes the transition `To_FirstSpace` instead of
+      `To_ShowLogos`. That skips the logo, menu and loading states.
+    - Those states are what load a space into the director. In a normal
+      run, each space loaded calls `DDDirector::SetBackdrop` and
+      `SetExterior`: at frames 45 and 73 for the logos' spaces, and
+      1665–1667 for the mission's. The logos' `FadeIn` follows, and the
+      mission's start calls `ClearCameraBases`, after which the space
+      updates every frame (`DDSpace::UpdateActivities`).
+    - With `AutoLoadPuzzle`, none of those calls ever happens. The space
+      updates twice, at frames 3 and 162. The director's camera clicks
+      every frame but stays at its default place, at the origin and
+      unrotated, with nothing in view. No overlay camera is inserted for
+      the interface, so nothing is drawn at all: the game runs about
+      180,000 instructions a frame against 2.6 million in a mission.
+      Calling `FadeIn` and `SelectCameraBase` into it changes nothing.
+    - Reluva's stand-ins have no part in that choice. The key is a
+      leftover the shipped game doesn't support. Making it work would
+      mean doing the menus' work for the game rather than running it, so
+      the sweeps go through the menus.
 - Single Missions lists only the missions an Adventure has reached ("Select
   a Mission to Revisit").
 - Done: Mission One (M1010) played to the end, from a saved Adventure at
