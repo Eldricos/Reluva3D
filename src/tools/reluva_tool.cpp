@@ -13,6 +13,9 @@
 //   reluva-tool pac-extract <file> <dir> [filter]  extract files whose name contains filter
 //   reluva-tool at-run <game folder> [-v]          run LEGO Alpha Team's own code in the x86 interpreter
 //                                                  and report how far it gets
+//   reluva-tool at-sweep <game folder> <out folder> [-jobs n] [-quit frame] [-shots] [mission...]
+//                                                  run every mission (or those named) past Go, several
+//                                                  at once, and report which ran to the end
 //   reluva-tool fin-check <Fin.pac> [file.pac...]  read every model; count the objects read, and check
 //                                                  their links and (in the other archives) their images
 //   reluva-tool stb-dump <file.stb | file.cat>     print a string table, or list an archive's
@@ -149,6 +152,7 @@
 #include <set>
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <cmath>
 #include <cstdint>
@@ -5377,10 +5381,105 @@ static void printGraph(reluva::x86::Cpu& cpu, const std::vector<uint32_t>& roots
     }
 }
 
+// at-sweep <game folder> <out folder> [-jobs n] [-quit frame] [-shots] [mission...]:
+// each mission (all 54 by default) from an Adventure saved at it, through
+// the menus, its fly-over and Go with nothing placed, to a frame (3700):
+// one `at-run` each, several at once, then which stopped where they should
+// and which failed. Each mission's log and save go in <out>/<mission>.
+int cmdAtSweep(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool at-sweep <game folder> <out folder> [-jobs n] [-quit frame] [-shots] "
+                             "[mission...]\n");
+        return 2;
+    }
+    const std::filesystem::path game = argv[2], out = argv[3];
+    unsigned jobs = std::max(1u, std::thread::hardware_concurrency());
+    int quit = 3700;
+    bool shots = false;
+    std::vector<std::string> missions;
+    for (int a = 4; a < argc; ++a) {
+        const std::string arg = argv[a];
+        if (arg == "-jobs" && a + 1 < argc)
+            jobs = unsigned(std::max(1, std::atoi(argv[++a])));
+        else if (arg == "-quit" && a + 1 < argc)
+            quit = std::atoi(argv[++a]);
+        else if (arg == "-shots")
+            shots = true;
+        else
+            missions.push_back(arg);
+    }
+    if (missions.empty()) { // the three later training missions, then the Adventure's 50
+        missions = {"M0020", "M0030", "M0040"};
+        for (const auto& [first, last] : std::vector<std::pair<int, int>>{{1010, 1140}, {2010, 2160}, {3010, 3100}, {4010, 4070}})
+            for (int m = first; m <= last; m += 10)
+                missions.push_back("M" + std::to_string(m));
+        for (const char* odd : {"M1065", "M1085", "M1095", "M1135"})
+            missions.push_back(odd);
+        std::sort(missions.begin(), missions.end());
+    }
+    // The route: past the demo, Adventure, the first slot, past the
+    // mission's fly-over and goal, then Go.
+    const std::string route = "-limit 0 -fixed-clock -click 25 -point 1510@320,128 -click 1512 -point 1600@180,124 "
+                              "-click 1602 -click 2400 -click 2500 -click 3000 -point 3196@572,434 -click 3200";
+    auto quoted = [](const std::filesystem::path& p) { return "\"" + p.string() + "\""; };
+    std::vector<std::string> results(missions.size());
+    std::vector<double> seconds(missions.size());
+    std::atomic<size_t> next{0};
+    const auto start = std::chrono::steady_clock::now();
+    auto work = [&] {
+        for (size_t i; (i = next++) < missions.size();) {
+            const std::string& m = missions[i];
+            const std::filesystem::path dir = out / m;
+            std::error_code ec;
+            std::filesystem::remove_all(dir, ec);
+            std::filesystem::create_directories(dir / "save", ec);
+            {
+                std::ofstream g(dir / "save" / "Game.txt", std::ios::binary);
+                g << "##  Game.txt\r\n\r\nP0Space  " << m << "\r\nP0Time  1793119257\r\n\r\n##  End\r\n";
+            }
+            std::string cmd = quoted(argv[0]) + " at-run " + quoted(game) + " " + route + " -quit " + std::to_string(quit) +
+                              " -save " + quoted(dir / "save");
+            if (shots) {
+                std::filesystem::create_directories(dir / "shots", ec);
+                cmd += " -shots " + quoted(dir / "shots") + " -every 100";
+            }
+            cmd += " > " + quoted(dir / "log.txt") + " 2>&1";
+            const auto t0 = std::chrono::steady_clock::now();
+            if (std::system(cmd.c_str()) == -1)
+                std::fprintf(stderr, "%s: couldn't start at-run\n", m.c_str());
+            seconds[i] = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+            std::ifstream log(dir / "log.txt");
+            std::string line, last;
+            while (std::getline(log, line))
+                if (line.rfind("stopped at frame", 0) == 0 || line.rfind("failed", 0) == 0)
+                    last = line;
+            results[i] = last.empty() ? "no result" : last;
+            std::printf("%s %s (%.0f s)\n", m.c_str(), results[i].c_str(), seconds[i]);
+            std::fflush(stdout);
+        }
+    };
+    std::vector<std::thread> pool;
+    for (unsigned j = 0; j < std::min<size_t>(jobs, missions.size()); ++j)
+        pool.emplace_back(work);
+    for (auto& t : pool)
+        t.join();
+    const std::string expected = "stopped at frame " + std::to_string(quit) + ",";
+    size_t passed = 0;
+    for (size_t i = 0; i < missions.size(); ++i) {
+        if (results[i].rfind(expected, 0) == 0)
+            ++passed;
+        else
+            std::printf("not as expected: %s: %s\n", missions[i].c_str(), results[i].c_str());
+    }
+    std::printf("%zu of %zu missions ran to frame %d, %u at once, in %.0f s\n", passed, missions.size(), quit, jobs,
+                std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count());
+    return passed == missions.size() ? 0 : 1;
+}
+
 int cmdAtRun(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool at-run <game folder> [-v] [-limit instructions] [-trace count] "
-                             "[-memory MB] [-log] [-files] [-save folder] [-from frame] [-shots folder] [-every frames] [-click frame[@x,y]]... [-move frame@dx,dy]... "
+                             "[-memory MB] [-log] [-files] [-save folder] [-from frame] [-profile from-to] [-shots folder] [-every frames] [-click frame[@x,y]]... [-move frame@dx,dy]... "
                              "[-key frame@vk]... [-quit frame] [-fixed-clock] [-clock-rate frame@n] [-watch dll!export]... [-point frame@x,y]... "
                              "[-calls frame@dll!export] [-dump frame@address,bytes]...\n");
         return 2;
@@ -5424,6 +5523,12 @@ int cmdAtRun(int argc, char** argv) {
     uint32_t memoryMb = 1024;
     bool log = false;
     std::string shots;
+    // -profile from-to: where the program is, sampled every millisecond
+    // between those frames.
+    uint64_t profileFrom = 0, profileTo = 0;
+    std::atomic<bool> profiling{false}, profileDone{false};
+    std::vector<uint32_t> profileSamples;
+    std::thread profiler;
     uint64_t every = 30;
     // -click: a left click when a frame is shown, at a place on the screen
     // (where the pointer is if none is given).
@@ -5508,6 +5613,11 @@ int cmdAtRun(int argc, char** argv) {
             quitAt = std::strtoull(argv[++a], nullptr, 0);
         else if (arg == "-fixed-clock")
             fixedClock = true;
+        else if (arg == "-profile" && a + 1 < argc) {
+            const std::string v = argv[++a];
+            profileFrom = std::strtoull(v.c_str(), nullptr, 0);
+            profileTo = v.find('-') == std::string::npos ? UINT64_MAX : std::strtoull(v.c_str() + v.find('-') + 1, nullptr, 0);
+        }
         else if (arg == "-clock-rate" && a + 1 < argc) {
             const std::string v = argv[++a];
             clockFrom = std::strtoull(v.c_str(), nullptr, 0);
@@ -5660,6 +5770,18 @@ int cmdAtRun(int argc, char** argv) {
     std::function<void(Cpu&)> traceFn;             // installed from frame `traceFrom`
     game.directX().presented = [&](const reluva::x86::DirectX::Frame& f) {
         ++framesShown;
+        if (profileFrom && framesShown == profileFrom && !profiler.joinable()) {
+            profiling = true;
+            profiler = std::thread([&] {
+                while (!profileDone) {
+                    if (profiling)
+                        profileSamples.push_back(uint32_t(*static_cast<volatile uint32_t*>(&cpu.eip))); // racy, as a sample may be
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                }
+            });
+        }
+        if (profiling && framesShown >= profileTo)
+            profiling = false;
         if (traceFrom && framesShown == traceFrom && traceFn)
             cpu.trace = traceFn;
         if (fixedClock && clockFrom && framesShown == clockFrom) {
@@ -6067,6 +6189,25 @@ int cmdAtRun(int argc, char** argv) {
     uint32_t exitCode = 0;
     const uint64_t before = cpu.executed();
     reluva::Error ran = game.run(exitCode);
+    if (profiler.joinable()) {
+        profileDone = true;
+        profiler.join();
+        std::map<std::string, size_t> byFunction;
+        for (uint32_t a : profileSamples) {
+            std::string name = symbol(a);
+            const size_t bang = name.find('!');
+            if (const size_t plus = name.find('+', bang == std::string::npos ? 0 : bang); plus != std::string::npos && bang != std::string::npos)
+                name.resize(plus);
+            ++byFunction[name];
+        }
+        std::vector<std::pair<size_t, std::string>> top;
+        for (const auto& [name, n] : byFunction)
+            top.push_back({n, name});
+        std::sort(top.rbegin(), top.rend());
+        std::printf("profile: %zu samples\n", profileSamples.size());
+        for (size_t i = 0; i < top.size() && i < 60; ++i)
+            std::printf("  %5.1f%%  %s\n", 100.0 * double(top[i].first) / double(profileSamples.size()), top[i].second.c_str());
+    }
     if (framesShown) {
         std::printf("frames shown: %llu\n", (unsigned long long)framesShown);
         if (!shots.empty())
@@ -6153,6 +6294,8 @@ int main(int argc, char** argv) {
         return cmdFinCheck(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "at-run") == 0)
         return cmdAtRun(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "at-sweep") == 0)
+        return cmdAtSweep(argc, argv);
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
     if (argc >= 2 && std::strcmp(argv[1], "bsp-check") == 0)

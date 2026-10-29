@@ -366,6 +366,10 @@ Progress:
     program's, with their first arguments and what they returned.
   - Tracing (`-log`, `-trace`) only when asked, so the instruction cache
     stays in use.
+  - `-profile <from>-<to>`: where the program is, sampled every
+    millisecond between those frames, then the share of samples in each
+    function (the nearest export of its module, or the stand-in it's
+    in).
 
   The route (`-fixed-clock`): click on frame 25 (past the demo); the main
   menu is up by frame 1500. Then Single Missions (`-point 1510@320,184
@@ -764,6 +768,17 @@ reads, the vftables it builds for its own subclasses):
   and nothing placed, to frame 3700: all ran without a failure, the crew
   moving as the room has them, most ending in "Team Member Down! Try
   Again / Return to HQ", as an unsolved room does.
+  - `reluva-tool at-sweep <game folder> <out folder>` does this second
+    run for every mission (or those named), as many at once as there
+    are processors (`-jobs`), and reports which didn't run to the frame
+    (`-quit`, 3700). Each mission's log and save (and with `-shots`, a
+    frame every 100) go in its own folder. All 54 take about 50 minutes
+    on 4 processors, most of it the menus and loading before each Go.
+  - `AutoLoadPuzzle <space>` in `Config.txt` would skip the menus (the
+    interface behaviour goes straight to `To_FirstSpace`), but the space
+    then never shows: the game sits on a black screen, its sounds placed
+    and nothing drawn. It's a leftover the game doesn't finish setting up
+    without its menus, so the sweep goes through them.
 - Single Missions lists only the missions an Adventure has reached ("Select
   a Mission to Revisit").
 - Done: Mission One (M1010) played to the end, from a saved Adventure at
