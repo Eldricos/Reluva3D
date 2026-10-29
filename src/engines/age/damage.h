@@ -46,6 +46,7 @@ Error loadDamageSetup(const SearchSet& files, const std::string& car, DamageSetu
 class CarDamage {
 public:
     void reset() { damage_ = 0; }
+    void set(float damage) { damage_ = damage; } // as another player's machine says
     // An impulse (kg m/s); what it added.
     float knock(const DamageSetup& setup, float impulse);
     void update(const DamageSetup& setup, float dt);
@@ -68,6 +69,10 @@ struct CarWear {
     DamageSetup setup;
     CarDamage damage;
     float puffs = 0; // owed
+    // The dents made, for the other players to see: how many (counting
+    // on), and the last four, newest first, in the car's frame.
+    uint8_t dents = 0;
+    std::array<Vec3, 4> recentDents{};
 
     // Its setup (the defaults without one), mended.
     void load(const SearchSet& files, const std::string& car, CarActor& actor);
@@ -75,6 +80,8 @@ struct CarWear {
     // After the car's step: its knock (sim.impact) damages it and dents the
     // body there; smoking, it puffs.
     void update(float dt, CarActor& actor, SmokePuffs* smoke);
+    // Its smoke alone, at the damage it has (another player's car).
+    void puff(float dt, const CarActor& actor, SmokePuffs* smoke);
     float fraction() const { return damage.fraction(setup); }
     bool wrecked() const { return damage.wrecked(setup); }
 };

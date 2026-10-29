@@ -9,9 +9,12 @@
 
 #include "engines/age/net_session.h"
 
+#include "common/md5.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <random>
 
 namespace reluva::age {
 
@@ -30,7 +33,8 @@ enum Msg : uint8_t {
     kGame,      // the host's: the race clock, over, the game's state
     kLeave,     // a player is going
     kKick,      // the host ejects the player
-    kBye,       // the host is going
+    kBye,       // the host is going: who's host now (or none)
+    kChallenge, // the host's: prove the password with this
 };
 
 constexpr uint64_t kLobbyEveryMs = 250, kStatusEveryMs = 250, kGameEveryMs = 100, kCarsEveryMs = 50;
@@ -39,6 +43,10 @@ constexpr uint64_t kLoadingTimeoutMs = 60000; // while the game loads (a city ta
 constexpr uint64_t kJoinEveryMs = 500, kJoinTimeoutMs = 5000;
 constexpr size_t kChatKept = 8;
 constexpr size_t kStatesKept = 32;
+constexpr float kFastest = 110;               // m/s no car goes (the fastest top out near 70)
+constexpr float kAheadOfClock = 1;            // seconds a car's state may be stamped past the host's clock
+constexpr int kCheater = 5;                   // states turned down before a player's called a cheater
+constexpr uint32_t kChatUnknown = 0xFFFFFFFF; // a new host doesn't know what chat it has of a player
 
 class Writer {
 public:
@@ -122,6 +130,14 @@ void writeCar(Writer& w, const NetCarState& s) {
     w.u8(s.lamps);
     w.u16(s.next);
     w.f32(s.finishTime);
+    w.u16(uint16_t(std::clamp(std::lround(s.rpm), 0L, 65535L)));
+    w.u8(uint8_t(std::clamp(std::lround(s.throttle * 255), 0L, 255L)));
+    w.u16(uint16_t(std::clamp(std::lround(s.damage * 65535), 0L, 65535L)));
+    w.u8(s.dents);
+    for (const Vec3& d : s.dentAt) // 5 cm steps, +-6 m
+        for (float f : d)
+            w.u8(uint8_t(int8_t(std::clamp(std::lround(f * 20), -127L, 127L))));
+    w.u8(s.resets);
 }
 
 NetCarState readCar(Reader& r) {
@@ -145,7 +161,24 @@ NetCarState readCar(Reader& r) {
     s.lamps = r.u8();
     s.next = r.u16();
     s.finishTime = r.f32();
+    s.rpm = float(r.u16());
+    s.throttle = float(r.u8()) / 255;
+    s.damage = float(r.u16()) / 65535;
+    s.dents = r.u8();
+    for (Vec3& d : s.dentAt)
+        for (float& f : d)
+            f = float(int8_t(r.u8())) / 20;
+    s.resets = r.u8();
     return s;
+}
+
+// The proof of a password: HMAC-MD5 of the host's challenge and the
+// player's name, keyed by the password.
+std::array<uint8_t, 16> passwordProof(const std::string& password, const std::array<uint8_t, 16>& nonce,
+                                      const std::string& name) {
+    std::vector<uint8_t> message(nonce.begin(), nonce.end());
+    message.insert(message.end(), name.begin(), name.begin() + std::ptrdiff_t(std::min<size_t>(name.size(), 255)));
+    return hmacMd5(password.data(), password.size(), message.data(), message.size());
 }
 
 void writeSettings(Writer& w, const NetSettings& s) {
@@ -282,6 +315,10 @@ std::unique_ptr<NetSession> NetSession::host(std::unique_ptr<net::UdpSocket> soc
     s->password_ = password;
     s->settings_ = settings;
     s->myId_ = 0;
+    s->hostId_ = 0;
+    std::random_device random;
+    for (uint8_t& b : s->secret_)
+        b = uint8_t(random());
     NetPlayer me;
     me.id = 0;
     me.name = name;
@@ -319,6 +356,11 @@ std::vector<NetNotice> NetSession::takeNotices() {
 
 void NetSession::notice(NetNotice::Kind kind, const std::string& name, int reason) {
     notices_.push_back({kind, name, reason});
+}
+
+int NetSession::rejected(uint8_t id) const {
+    const auto it = rejected_.find(id);
+    return it == rejected_.end() ? 0 : it->second;
 }
 
 uint8_t NetSession::freeId() const {
@@ -527,9 +569,20 @@ void NetSession::leave() {
     if (closed_)
         return;
     if (host_) {
+        // The player who's been in longest (the lowest id) takes over, if
+        // two are left to play on (computer players go with the host).
+        uint8_t successor = kNoPlayer;
+        int left = 0;
+        for (const NetPlayer& p : players_)
+            if (p.id != myId_ && !p.bot && p.address.port) {
+                ++left;
+                successor = std::min(successor, p.id);
+            }
+        Writer w(kBye);
+        w.u8(left >= 2 ? successor : kNoPlayer);
         for (const auto& peer : peers_)
             for (int i = 0; i < 3; ++i)
-                socket_->send(peer->address, Writer(kBye).out);
+                socket_->send(peer->address, w.out);
     } else if (myId_ != kNoPlayer) {
         Writer w(kLeave);
         w.u8(myId_);
@@ -593,15 +646,18 @@ void NetSession::update(uint64_t nowMs) {
             Writer w(kJoin);
             w.u8(kNetVersion);
             w.str(wish_.name);
-            w.str(password_);
+            w.u8(haveProof_ ? 16 : 0); // the password proved, once the host's asked
+            if (haveProof_)
+                for (uint8_t b : proof_)
+                    w.u8(b);
             socket_->send(hostAddress_, w.out);
         }
         return;
     }
     if (silentTooLong(lastHeardMs_, nowMs)) {
-        closed_ = true;
-        notice(NetNotice::Kind::HostQuit);
-        return;
+        hostGone(nowMs, kNoPlayer); // gone without a word: someone takes over, if they can
+        if (closed_ || host_)
+            return;
     }
     if (nowMs >= lastStatusMs_ + kStatusEveryMs) {
         lastStatusMs_ = nowMs;
@@ -655,7 +711,11 @@ void NetSession::handleHost(const net::Address& from, const std::vector<uint8_t>
     }
     case kJoin: {
         const uint8_t version = r.u8();
-        const std::string name = r.str(), password = r.str();
+        const std::string name = r.str();
+        const uint8_t proofSize = r.u8();
+        std::array<uint8_t, 16> proof{};
+        for (size_t i = 0; i < proofSize && i < proof.size(); ++i)
+            proof[i] = r.u8();
         if (!r.ok)
             return;
         if (peer) { // asked again: the welcome was lost
@@ -664,11 +724,34 @@ void NetSession::handleHost(const net::Address& from, const std::vector<uint8_t>
             socket_->send(from, w.out);
             return;
         }
-        int refused = version != kNetVersion                        ? kRefusedVersion
-                      : phase_ != Phase::Lobby                      ? kRefusedPlaying
-                      : players_.size() >= settings_.maxPlayers     ? kRefusedFull
-                      : !password_.empty() && password != password_ ? kRefusedPassword
-                                                                    : 0;
+        // A password isn't sent: the host asks the player to prove it
+        // (HMAC-MD5 of a challenge it hasn't used before, and the name).
+        int refused = version != kNetVersion                    ? kRefusedVersion
+                      : players_.size() >= settings_.maxPlayers ? kRefusedFull
+                                                                : 0;
+        if (!refused && !password_.empty()) {
+            const auto it = challenges_.find(from);
+            if (it == challenges_.end() || proofSize != 16) {
+                Challenge c;
+                Md5 h;
+                ++nonceCount_;
+                h.update(secret_.data(), secret_.size());
+                h.update(&nonceCount_, sizeof nonceCount_);
+                h.update(&nowMs, sizeof nowMs);
+                c.nonce = h.digest();
+                c.sentMs = nowMs;
+                challenges_[from] = c;
+                Writer w(kChallenge);
+                for (uint8_t b : c.nonce)
+                    w.u8(b);
+                socket_->send(from, w.out);
+                return;
+            }
+            const bool right = passwordProof(password_, it->second.nonce, name) == proof;
+            challenges_.erase(it);
+            if (!right)
+                refused = kRefusedPassword;
+        }
         const uint8_t id = freeId();
         if (!refused && id == kNoPlayer)
             refused = kRefusedFull;
@@ -688,6 +771,8 @@ void NetSession::handleHost(const net::Address& from, const std::vector<uint8_t>
         player.name = name.empty() ? "Player" : name;
         player.car = "vpbug";
         player.team = teamWithFewer();
+        player.address = from;
+        // Joining a game already going: loaded in when its machine's ready.
         players_.push_back(player);
         notice(NetNotice::Kind::Joined, player.name);
         Writer w(kWelcome);
@@ -731,6 +816,8 @@ void NetSession::handleHost(const net::Address& from, const std::vector<uint8_t>
         }
         peer->echo = time;
         peer->echoAtMs = nowMs;
+        if (peer->chatTaken == kChatUnknown) // a new host: from here on
+            peer->chatTaken = chatSeq ? chatSeq - 1 : 0;
         if (chatSeq == peer->chatTaken + 1 && !text.empty()) {
             addChat(p->name, text);
             peer->chatTaken = chatSeq;
@@ -739,7 +826,7 @@ void NetSession::handleHost(const net::Address& from, const std::vector<uint8_t>
     }
     case kCar: {
         const NetCarState s = readCar(r);
-        if (r.ok && phase_ == Phase::Playing)
+        if (r.ok && phase_ == Phase::Playing && plausible(peer->id, s))
             storeCar(peer->id, s);
         return;
     }
@@ -767,8 +854,10 @@ void NetSession::sendLobby(uint64_t nowMs) {
             w.str(p.car);
             w.u8(p.paint);
             w.u8(p.team);
-            w.u8(uint8_t((p.ready ? 1 : 0) | (p.loaded ? 2 : 0) | (p.bot ? 4 : 0)));
+            w.u8(uint8_t((p.ready ? 1 : 0) | (p.loaded ? 2 : 0) | (p.bot ? 4 : 0) | (p.cheater ? 8 : 0)));
             w.u16(p.ping);
+            w.u32(p.address.ip);
+            w.u16(p.address.port);
         }
         w.u8(uint8_t(chat_.size()));
         for (const NetChatLine& c : chat_) {
@@ -838,6 +927,14 @@ void NetSession::handlePlayer(const net::Address& from, const std::vector<uint8_
             myId_ = r.u8();
             lastHeardMs_ = nowMs;
             lastStatusMs_ = 0;
+        } else if (type == kChallenge) {
+            std::array<uint8_t, 16> nonce{};
+            if (data.size() < r.at + nonce.size())
+                return;
+            std::copy_n(data.begin() + std::ptrdiff_t(r.at), nonce.size(), nonce.begin());
+            proof_ = passwordProof(password_, nonce, wish_.name.substr(0, 255));
+            haveProof_ = true;
+            joinSentMs_ = 0; // answered at once
         } else if (type == kRefuse) {
             closed_ = true;
             notice(NetNotice::Kind::Refused, {}, r.u8());
@@ -863,7 +960,10 @@ void NetSession::handlePlayer(const net::Address& from, const std::vector<uint8_
             p.ready = (flags & 1) != 0;
             p.loaded = (flags & 2) != 0;
             p.bot = (flags & 4) != 0;
+            p.cheater = (flags & 8) != 0;
             p.ping = r.u16();
+            p.address.ip = r.u32();
+            p.address.port = r.u16();
         }
         std::vector<NetChatLine> lines(r.u8());
         for (NetChatLine& c : lines) {
@@ -886,6 +986,9 @@ void NetSession::handlePlayer(const net::Address& from, const std::vector<uint8_
             if (!still && p.id != myId_)
                 notice(NetNotice::Kind::Left, p.name);
         }
+        for (const NetPlayer& p : players) // newly called a cheater
+            if (const NetPlayer* was = player(p.id); p.cheater && was && !was->cheater)
+                notice(NetNotice::Kind::Suspect, p.name);
         players_ = std::move(players);
         if (const NetPlayer* me = player(myId_); me && !teamChosen_)
             wish_.team = me->team; // the host put us on a side
@@ -964,13 +1067,118 @@ void NetSession::handlePlayer(const net::Address& from, const std::vector<uint8_
         closed_ = true;
         notice(NetNotice::Kind::Ejected);
         return;
-    case kBye:
-        closed_ = true;
-        notice(NetNotice::Kind::HostQuit);
+    case kBye: {
+        const uint8_t successor = r.u8();
+        hostGone(nowMs, r.ok ? successor : kNoPlayer);
+        if (!closed_ && !host_ && r.ok && successor == kNoPlayer) { // the host said nobody's to go on
+            closed_ = true;
+            notice(NetNotice::Kind::HostQuit);
+        }
         return;
+    }
     default:
         return;
     }
+}
+
+bool NetSession::plausible(uint8_t id, const NetCarState& s) {
+    // What a player's machine says of its car, as the host checks it: not
+    // stamped ahead of the race clock, and not further from where it last
+    // was than a car can go in the time, unless it's been put back since.
+    bool ok = s.clock <= clock(nowMs_) + kAheadOfClock && length(s.velocity) < kFastest;
+    const auto it = cars_.find(id);
+    if (ok && it != cars_.end() && !it->second.empty()) {
+        const NetCarState& last = it->second.back();
+        const float dt = s.clock - last.clock;
+        if (dt > 0 && s.resets == last.resets && length(s.position - last.position) > 2 + kFastest * dt)
+            ok = false;
+    }
+    if (ok)
+        return true;
+    if (++rejected_[id] == kCheater)
+        if (NetPlayer* p = mutablePlayer(id)) {
+            p->cheater = true;
+            notice(NetNotice::Kind::Suspect, p->name);
+        }
+    return false;
+}
+
+void NetSession::hostGone(uint64_t nowMs, uint8_t successor) {
+    // The players left (not the host, nor its computer players) play on
+    // if there are two of them, under the one the host named, else the
+    // one who's been in longest; each knows the others' addresses from
+    // the lobby.
+    std::vector<uint8_t> left;
+    for (const NetPlayer& p : players_)
+        if (p.id != hostId_ && !p.bot && (p.address.port || p.id == myId_))
+            left.push_back(p.id);
+    if (left.size() < 2) {
+        closed_ = true;
+        notice(NetNotice::Kind::HostQuit);
+        return;
+    }
+    const uint8_t next = std::find(left.begin(), left.end(), successor) != left.end()
+                             ? successor
+                             : *std::min_element(left.begin(), left.end());
+    const uint8_t oldHost = hostId_;
+    std::vector<uint8_t> gone;
+    for (const NetPlayer& p : players_)
+        if (p.id == oldHost || p.bot)
+            gone.push_back(p.id);
+    for (uint8_t id : gone) {
+        players_.erase(
+            std::remove_if(players_.begin(), players_.end(), [id](const NetPlayer& q) { return q.id == id; }),
+            players_.end());
+        cars_.erase(id);
+    }
+    hostId_ = next;
+    const NetPlayer* now = player(next);
+    notice(NetNotice::Kind::HostMoved, now ? now->name : std::string());
+    if (next == myId_) {
+        becomeHost(nowMs);
+        return;
+    }
+    hostAddress_ = now->address;
+    lastHeardMs_ = nowMs;
+}
+
+void NetSession::becomeHost(uint64_t nowMs) {
+    // Our clock (the old host's, as we kept it) goes on as the race clock.
+    const float raceClock = clock(nowMs);
+    const bool knew = clockKnown_;
+    host_ = true;
+    hostId_ = myId_;
+    peers_.clear();
+    challenges_.clear();
+    std::random_device random;
+    for (uint8_t& b : secret_)
+        b = uint8_t(random());
+    for (NetPlayer& p : players_) {
+        if (p.id == myId_) {
+            p.address = {};
+            p.name = wish_.name;
+            p.car = wish_.car;
+            p.paint = wish_.paint;
+            p.loaded = wish_.loaded;
+            continue;
+        }
+        auto peer = std::make_unique<Peer>();
+        peer->address = p.address;
+        peer->id = p.id;
+        peer->heardMs = nowMs;
+        peer->chatTaken = kChatUnknown;
+        peers_.push_back(std::move(peer));
+    }
+    for (const std::string& line : outbox_) // what we'd said that the old host hadn't taken
+        addChat(wish_.name, line);
+    outbox_.clear();
+    goMs_ = 0;
+    if (phase_ == Phase::Playing)
+        goMs_ = knew ? uint64_t(std::max<int64_t>(1, int64_t(nowMs) - int64_t(std::llround(raceClock * 1000))))
+                     : nowMs + 3000; // it hadn't started: the countdown again
+    else if (phase_ == Phase::Loading)
+        loadingSinceMs_ = nowMs;
+    lastLobbyMs_ = lastGameMs_ = lastCarsMs_ = 0;
 }
 
 void NetBrowser::update(uint64_t nowMs) {

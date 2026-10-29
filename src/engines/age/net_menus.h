@@ -11,6 +11,7 @@
 
 #include "common/system.h"
 #include "engines/age/front_end.h"
+#include "common/portmap.h"
 #include "engines/age/net_session.h"
 
 #include <deque>
@@ -118,6 +119,10 @@ private:
     Screen screen_ = Screen::Sessions;
     int focus_ = 0;
     std::unique_ptr<NetSession> session_;
+    // Hosting on the network: the router asked to pass the port on, and
+    // whether what came of it has been said.
+    std::unique_ptr<net::PortMapper> mapper_;
+    bool mapperSaid_ = false;
     std::unique_ptr<NetBrowser> browser_;
     size_t chosenSession_ = 0;
     std::string netName_ = "Player", address_, password_, chat_;

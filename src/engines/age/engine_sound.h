@@ -45,7 +45,9 @@ public:
     // Loads and starts them (silent until update()); missing recordings
     // are left out.
     Error start(audio::Mixer& mixer, const SearchSet& files, const std::string& car);
-    void update(float rpm, float throttle);
+    // `gain` (0..1) and `pan` (-1 left .. 1 right): another car's, heard
+    // from a way off.
+    void update(float rpm, float throttle, float gain = 1, float pan = 0);
     void stop();
 
 private:

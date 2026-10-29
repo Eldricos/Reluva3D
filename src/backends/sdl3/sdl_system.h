@@ -51,6 +51,9 @@ public:
     Error openUdp(uint16_t port, std::unique_ptr<net::UdpSocket>& out) override;
     bool resolveHost(const std::string& host, uint32_t& ip) override;
     std::vector<uint32_t> broadcastAddresses() override;
+    bool httpExchange(const net::Address& to, const std::string& request, std::string& response, uint32_t& localIp,
+                      int timeoutMs) override;
+    std::vector<uint32_t> gateways() override;
 
 private:
     static constexpr int kAudioRate = 44100;

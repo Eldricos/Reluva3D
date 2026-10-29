@@ -122,13 +122,14 @@ Error EngineSound::start(audio::Mixer& mixer, const SearchSet& files, const std:
     return Error::success();
 }
 
-void EngineSound::update(float rpm, float throttle) {
+void EngineSound::update(float rpm, float throttle, float gain, float pan) {
     for (size_t i = 0; i < playing_.size(); ++i) {
         if (playing_[i] == audio::kNoSound)
             continue;
         float volume, pitch;
         engineSampleMix(setup_.samples[i], rpm, throttle, volume, pitch);
-        mixer_->setVolume(playing_[i], int(volume * audio::kMaxVolume));
+        mixer_->setVolume(playing_[i], int(volume * gain * audio::kMaxVolume));
+        mixer_->setPan(playing_[i], int(std::clamp(pan, -1.0f, 1.0f) * audio::kMaxPan));
         mixer_->setPitch(playing_[i], pitch);
     }
 }

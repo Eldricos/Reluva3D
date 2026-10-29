@@ -44,6 +44,10 @@ public:
         uint8_t id = 0;
         uint8_t team = 0;
         Vec3 position{}, velocity{};
+        // Put back (fallen out, stuck) in the last moments: it drops the
+        // gold it had where it was, and can't take it or ram it loose for
+        // a while, so a car can't be "put back" onto the gold or its base.
+        bool putBack = false;
     };
 
     // The places to play between; the seed picks the gold's home and the

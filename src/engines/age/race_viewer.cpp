@@ -451,6 +451,7 @@ void RaceViewer::stepRace(float dt) {
         } else {
             c.brake = 0; // waiting on the line
         }
+        r.throttle = sim.gear > 0 || sim.manual ? c.throttle : c.brake;
         sim.step(c, world_, dt);
         r.car->lamps = {scene_->lampsLit(), c.brake > 0 && sim.forwardSpeed() > 0.5f, sim.gear < 0};
         // (A computer player outside a race is put back on the road by its
@@ -460,6 +461,8 @@ void RaceViewer::stepRace(float dt) {
         if (!r.player && !minded && (r.driver.wantsReset() || sim.position[1] < scene_->psdl().min[1] - 50)) {
             sim.reset(r.car->setup, r.driver.resetPoint() + Vec3{0, 0.5f, 0}, r.driver.resetYaw());
             r.driver.resetDone();
+            ++r.resets;
+            r.putBackAt = clock_;
         }
         if (r.player) {
             engine_.update(sim.rpm, sim.gear > 0 || sim.manual ? c.throttle : c.brake);
@@ -467,10 +470,13 @@ void RaceViewer::stepRace(float dt) {
             wear_.update(dt, *r.car, smoke_.get());
             impact = sim.impact;
             sim.impact = 0;
-            if (sim.position[1] < scene_->psdl().min[1] - 50) // fallen out: back to the last checkpoint
+            if (sim.position[1] < scene_->psdl().min[1] - 50) { // fallen out: back to the last checkpoint
                 sim.reset(r.car->setup,
                           (r.next > 0 ? targetPoint(r.next - 1) : race_.waypoints[0]).position + Vec3{0, 0.5f, 0},
                           headingToYaw((r.next > 0 ? targetPoint(r.next - 1) : race_.waypoints[0]).heading));
+                ++r.resets;
+                r.putBackAt = clock_;
+            }
         }
         // Checkpoints.
         if (started && r.next < targets_.size()) {

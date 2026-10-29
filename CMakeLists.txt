@@ -75,6 +75,7 @@ add_library(reluva_common STATIC
     src/common/detection.cpp
     src/common/riff.cpp
     src/common/winhelp.cpp
+    src/common/portmap.cpp
     src/common/audio/decode.cpp
     src/common/audio/directmusic.cpp
     src/common/audio/dls.cpp
