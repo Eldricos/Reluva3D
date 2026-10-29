@@ -863,6 +863,7 @@ struct Node {
 } // namespace
 
 int aweCommandSolve(int argc, char** argv) {
+    reloadDiffs = 0; // (awe-regress runs several in one process)
     // reluva-tool awe-acts <game> -solve <out> [-from <file>] [-budget n] [-level n] [-noclimb]
     //     [-goal text] [-t s] [-v]
     // reluva-tool awe-acts <game> -play <file> [-list] [-reload] [-log n] [-mouse] [-3d | -characters] [-sound] [-wav file]
@@ -1029,7 +1030,10 @@ int aweCommandSolve(int argc, char** argv) {
             for (const std::string& f : player.features(true))
                 std::printf("  %s\n", f.c_str());
         }
-        return ok && player.credits() ? 0 : 1;
+        // Passed: the credits reached, and nothing listed by -reloadeach,
+        // -wander or -hand.
+        return ok && player.credits() && reloadDiffs == 0 && wanderer.problems == 0 && player.handMissed.empty() ? 0
+                                                                                                             : 1;
     }
 
     // The search. Its start: the playthrough given, else a new game and Play.

@@ -292,6 +292,24 @@ a scene with nothing to do. On the English install three runs (seeds 1
 to 3, every 10 actions) made 9,900 actions off the route in about 190
 scenes, with 330 loads, and found nothing.
 
+**Checking a change: `reluva-tool awe-regress <install> <route.txt>
+[-3d] [-quick]`** runs the whole-game checks one after another and ends
+with a summary, "all passed" or which failed (its exit code 1):
+
+1. the route by the mouse with sound (`-play -mouse -sound`, with `-3d`
+   a window's renderer, else `-characters`);
+2. the route by the player's hand alone (`-hand`);
+3. saved and loaded after every action (`-reloadeach`);
+4. wandering off the route every 10 actions (`-wander`, seeds 1 and 2;
+   seed 1 only with `-quick`).
+
+Each passes when the credits are reached and nothing is listed. The
+route file is a playthrough from `awe-acts -solve`; it isn't in the
+repository, as it names the game's own files. If it isn't there,
+`awe-regress` searches for one first (with `-mouse -characters`, a few
+minutes) and keeps it there for next time. On the English install the
+four quick checks take about ten minutes.
+
 `-hand` plays the route as a player's hand does, by the mouse and keys
 alone, each input made through the page's own event handling and
 decided from the screen as it is (`ScenePage::handStep`): an item is

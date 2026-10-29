@@ -462,6 +462,67 @@ int cmdAweShot(int argc, char** argv) {
 // the scene it settles in is then clicked, each from the act afresh; with
 // -explore n, n clicks follow, each the one tried least so far. What
 // the scripts ask that Reluva doesn't do, or can't find, is listed.
+// reluva-tool awe-regress <game folder> <route.txt> [-3d] [-quick]: the
+// checks a change to the engine should pass, one after another, each a
+// whole game from a new game: the route by the mouse; by the player's
+// hand alone (inputs only); saved and loaded after every action; and
+// wandering off it (two seeds, one with -quick). With -3d the first runs
+// with a window's renderer (under a display). The route is a playthrough
+// file (awe-acts -solve; its own, made from the install, isn't committed:
+// it names the game's files); if the file isn't there it's searched for
+// first, with -mouse -characters, and kept there.
+int cmdAweRegress(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool awe-regress <game folder> <route.txt> [-3d] [-quick]\n");
+        return 1;
+    }
+    const std::string game = argv[2], route = argv[3];
+    bool threeD = false, quick = false;
+    for (int i = 4; i < argc; i++) {
+        threeD |= std::strcmp(argv[i], "-3d") == 0;
+        quick |= std::strcmp(argv[i], "-quick") == 0;
+    }
+    auto run = [&](const std::string& name, std::vector<std::string> args) {
+        std::vector<std::string> all = {argv[0], "awe-acts", game};
+        all.insert(all.end(), args.begin(), args.end());
+        std::vector<char*> av;
+        for (std::string& a : all)
+            av.push_back(a.data());
+        std::printf("== %s\n", name.c_str());
+        std::fflush(stdout);
+        const auto began = std::chrono::steady_clock::now();
+        const int rc = reluva::awe::aweCommandSolve(int(av.size()), av.data());
+        const double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
+        std::printf("== %s: %s (%.0f s)\n\n", name.c_str(), rc == 0 ? "passed" : "FAILED", secs);
+        std::fflush(stdout);
+        return rc == 0;
+    };
+    if (!std::filesystem::exists(route) &&
+        !run("the route searched for (" + route + ")", {"-solve", route, "-mouse", "-characters"}))
+        return 1;
+    std::vector<std::pair<std::string, bool>> results;
+    std::vector<std::string> first = {"-play", route, "-mouse", "-sound"};
+    first.push_back(threeD ? "-3d" : "-characters");
+    const std::string firstName = "the route by the mouse, with sound" + std::string(threeD ? " and 3D" : "");
+    results.emplace_back(firstName, run(firstName, first));
+    results.emplace_back("the route by the hand alone", run("the route by the hand alone",
+                                                             {"-play", route, "-hand", "-characters"}));
+    results.emplace_back("saved and loaded after every action",
+                         run("saved and loaded after every action", {"-play", route, "-mouse", "-characters", "-reloadeach"}));
+    for (const char* seed : quick ? std::vector<const char*>{"1"} : std::vector<const char*>{"1", "2"})
+        results.emplace_back(std::string("wandering off the route, seed ") + seed,
+                             run(std::string("wandering off the route, seed ") + seed,
+                                 {"-play", route, "-mouse", "-characters", "-wander", "10", seed}));
+    int failed = 0;
+    std::printf("== summary\n");
+    for (const auto& [name, ok] : results) {
+        std::printf("  %-50s %s\n", name.c_str(), ok ? "passed" : "FAILED");
+        failed += !ok;
+    }
+    std::printf("%s\n", failed ? "FAILED" : "all passed");
+    return failed ? 1 : 0;
+}
+
 int cmdAweActs(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool awe-acts <game folder> [act|slotN...] [-hotspots] [-explore n] [-t seconds] [-v]\n");
@@ -931,6 +992,8 @@ int aweToolCommand(int argc, char** argv) {
         return cmdAweShot(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "awe-acts") == 0)
         return cmdAweActs(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "awe-regress") == 0)
+        return cmdAweRegress(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "awe-table") == 0)
         return cmdAweTable(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "ac2-dump") == 0)
@@ -952,6 +1015,7 @@ const char* aweToolUsage() {
            "  reluva-tool awe-table <file.txt>\n"
            "  reluva-tool awe-shot <game folder> <scenes|pictures|text|sounds|movies> <out.tga> [key...]\n"
            "  reluva-tool awe-acts <game folder> [act|slotN...] [-hotspots] [-explore n] [-t seconds] [-v]\n"
+           "  reluva-tool awe-regress <game folder> <route.txt> [-3d] [-quick]\n"
            "  reluva-tool awe-acts <game folder> -solve <out.txt> [-from <playthrough>] [-budget n] [-level n] [-noclimb] [-goal text] [-characters] [-v]\n"
            "  reluva-tool awe-acts <game folder> -play <playthrough> [-list] [-reload] [-log n] [-mouse] [-3d | -characters] [-sound] [-wav file] [-v]\n"
            "  reluva-tool ac2-dump <scene.ac2>...\n"
