@@ -39,6 +39,11 @@ struct Replay {
     bool autoReverse = false;
     float steerRate = 1;
     float pedestrians = 1; // the share Show Pedestrians left
+    // The conditions it was run in, when changed from the race's own
+    // (laps, opponents, time, weather, police; traffic, pedestrians).
+    bool changed = false;
+    int laps = 1, opponents = 0, timeOfDay = 0, weather = 0, cops = 0;
+    float traffic = 0, peds = 0;
     // Its name, as saved.
     std::string name;
     std::vector<ReplayFrame> frames;

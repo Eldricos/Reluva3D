@@ -178,6 +178,7 @@ void RaceViewer::resultsEvent(const Event& ev) {
         case kResNext:
             if (nextRaceOpen()) {
                 results_ = false;
+                conditionsChanged_ = false; // the next race's own
                 ++raceIndex_;
                 life_.stop();
                 startRace();

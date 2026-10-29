@@ -17,7 +17,7 @@ namespace reluva::age {
 namespace {
 
 constexpr char kMagic[] = "RLVRPLY";
-constexpr uint8_t kVersion = 1;
+constexpr uint8_t kVersion = 2; // 2: the conditions (1 had none)
 
 class Out {
 public:
@@ -100,6 +100,11 @@ std::vector<uint8_t> encodeReplay(const Replay& r) {
     o.u8(r.autoReverse ? 1 : 0);
     o.f32(r.steerRate);
     o.f32(r.pedestrians);
+    o.u8(r.changed ? 1 : 0);
+    for (int v : {r.laps, r.opponents, r.timeOfDay, r.weather, r.cops})
+        o.u8(uint8_t(v));
+    o.f32(r.traffic);
+    o.f32(r.peds);
     o.u32(uint32_t(r.frames.size()));
     for (const ReplayFrame& f : r.frames) {
         o.f32(f.dt);
@@ -119,7 +124,8 @@ Error decodeReplay(const std::vector<uint8_t>& data, Replay& out) {
     for (const char* c = kMagic; *c; ++c)
         if (in.u8() != uint8_t(*c))
             return Error::fail("not a Reluva replay");
-    if (in.u8() != kVersion)
+    const uint8_t version = in.u8();
+    if (version < 1 || version > kVersion)
         return Error::fail("a replay of another version");
     Replay r;
     r.name = in.str();
@@ -132,6 +138,16 @@ Error decodeReplay(const std::vector<uint8_t>& data, Replay& out) {
     r.autoReverse = in.u8() != 0;
     r.steerRate = in.f32();
     r.pedestrians = in.f32();
+    if (version >= 2) {
+        r.changed = in.u8() != 0;
+        r.laps = in.u8();
+        r.opponents = in.u8();
+        r.timeOfDay = in.u8();
+        r.weather = in.u8();
+        r.cops = in.u8();
+        r.traffic = in.f32();
+        r.peds = in.f32();
+    }
     const uint32_t frames = in.u32();
     if (!in.ok || size_t(frames) * 8 > data.size())
         return Error::fail("a replay cut short");

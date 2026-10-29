@@ -146,8 +146,10 @@ side (the other side each time), and watches it pass. Once the car is
 **Where they're kept.** Saved replays go in the save folder's `replays/`,
 as `<name>.rpl`:
 
-- "RLVRPLY", a version byte;
-- the start, as above;
+- "RLVRPLY", a version byte (2);
+- the start, as above, and (since version 2) the conditions it was run
+  in when they were changed on the race menu (laps, opponents, time,
+  weather, police, traffic, pedestrians: [age-menus.md](age-menus.md#changing-a-race));
 - the frames (each a float time step, the keys, a gear change, a flag);
 - the marks.
 

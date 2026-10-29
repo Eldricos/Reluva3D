@@ -172,6 +172,9 @@ FrontEnd::FrontEnd(const SearchSet& files, const std::vector<CityInfo>& cities, 
     if (!files.read("tune/widget.csv", data))
         ok_ = !parseWidgets(std::string(data.begin(), data.end()), widgets_) && pictures_.jpg("main_bk") &&
               !cities.empty() && !cars.empty();
+    // The race menu's CHANGE (texture/race_chg, 25 x 122 a state) isn't in
+    // widget.csv: up the right of the time, weather and densities.
+    widgets_.push_back({"Single Race Menu", "race_chg", 612, 247, 25, 122, "5 State"});
     // The garage's bars: each car's .info figures against the most.
     for (const CarInfo& car : cars) {
         std::array<float, 4> f{};
@@ -230,10 +233,35 @@ void FrontEnd::refresh() {
     choice_.race = std::clamp(choice_.race, 0, std::max(0, int(raceNames_.size()) - 1));
     if (!raceNames_.empty())
         loadRace(files_, map, choice_.kind, choice_.race, race_);
+    // Another race (or level): its own conditions again.
+    const std::string key = map + " " + std::to_string(int(choice_.kind)) + " " + std::to_string(choice_.race) +
+                            (choice_.professional ? " p" : " a");
+    if (key != conditionsFor_) {
+        conditionsFor_ = key;
+        choice_.conditions = raceConditions();
+        choice_.changed = false;
+    }
     if (!cars_.empty())
         paintJobs_ = std::max(1, int(cars_[size_t(choice_.car)].colors.size()));
     choice_.paintJob = std::clamp(choice_.paintJob, 0, paintJobs_ - 1);
 }
+
+FrontEnd::Choice::Conditions FrontEnd::raceConditions() const {
+    Choice::Conditions c;
+    if (raceNames_.empty())
+        return c;
+    const RaceSettings& s = race_.settings[choice_.professional ? 1 : 0];
+    c.laps = std::max(1, s.laps);
+    c.opponents = std::min(std::max(0, s.opponents), mostOpponents());
+    c.timeOfDay = std::clamp(s.timeOfDay, 0, 3);
+    c.weather = std::clamp(s.weather, 0, 3);
+    c.cops = std::max(0, s.cops);
+    c.traffic = s.ambient;
+    c.peds = s.peds;
+    return c;
+}
+
+int FrontEnd::mostOpponents() const { return int(race_.opponents[choice_.professional ? 1 : 0].size()); }
 
 std::vector<FrontEnd::Item> FrontEnd::items() const {
     std::vector<Item> list = screenItems();
@@ -262,8 +290,17 @@ std::vector<FrontEnd::Item> FrontEnd::screenItems() const {
                 {"race_rec", true, roster_ != nullptr, "RACE_REC", 4},
                 {"main_rpl", true, true, "main_rpl", 4}};
     case Screen::Races:
-        return {{"blitz", true},      {"cp", true},           {"circuit", true},
-                {"RACE NAME", false}, {"RACE LOCALE", false}, {"race_veh", true}};
+        // LAPS (a circuit's) and OPPONENTS change with Left/Right; CHANGE
+        // (texture/race_chg) the rest.
+        return {{"blitz", true},
+                {"cp", true},
+                {"circuit", true},
+                {"RACE NAME", false},
+                {"LAPS", false, choice_.kind == RaceKind::Circuit},
+                {"OPPONENTS", false, mostOpponents() > 0},
+                {"RACE LOCALE", false},
+                {"race_chg", true, !raceNames_.empty(), "race_chg", 5},
+                {"race_veh", true}};
     case Screen::CrashCourse: return {{"city", false}, {"CRASH NAME", false}, {"host_dn", true}};
     case Screen::Garage:
         return {{"VEHICLES", false},
@@ -360,8 +397,9 @@ void FrontEnd::activate(const Item& item, Action& action) {
         focus_ = 0;
         action = Action::Changed;
     } else if (w == "vesel_godrive") {
-        if (carOpen(choice_.car) && paintOpen(choice_.car, choice_.paintJob))
-            action = Action::Start;
+        action = carOpen(choice_.car) && paintOpen(choice_.car, choice_.paintJob) ? Action::Start : Action::Locked;
+    } else if (w == "race_chg") {
+        action = Action::RaceOptions;
     }
 }
 
@@ -370,6 +408,14 @@ void FrontEnd::change(const Item& item, int step) {
     const std::string& w = item.widget;
     if (w == "RACE NAME" || w == "CRASH NAME") {
         choice_.race = wrap(choice_.race + step, int(raceNames_.size()));
+    } else if (w == "LAPS") {
+        choice_.conditions.laps = std::clamp(choice_.conditions.laps + step, 1, 20);
+        conditionsChanged();
+        return;
+    } else if (w == "OPPONENTS") {
+        choice_.conditions.opponents = std::clamp(choice_.conditions.opponents + step, 0, mostOpponents());
+        conditionsChanged();
+        return;
     } else if (w == "RACE LOCALE" || w == "city") {
         choice_.city = wrap(choice_.city + step, int(cities_.size()));
     } else if (w == "DRIVER NAME") {
@@ -472,6 +518,8 @@ FrontEnd::Action FrontEnd::handle(const Event& ev) {
     case key::KpEnter:
         if (item.button)
             activate(item, action);
+        else if (screen_ == Screen::Races && item.widget == "RACE LOCALE")
+            action = Action::CityChoice; // the game's Race Locales
         else if (screen_ == Screen::Races)
             activate({"race_veh", true}, action);
         else if (screen_ == Screen::CrashCourse)
@@ -619,18 +667,18 @@ void FrontEnd::draw(Surface& o) {
             name += " (locked)";
         text(o, "RACE NAME", name);
         if (!raceNames_.empty()) {
-            const RaceSettings& s = race_.settings[choice_.professional ? 1 : 0];
-            text(o, "LAPS", choice_.kind == RaceKind::Circuit ? std::to_string(std::max(1, s.laps)) : "-");
-            text(o, "OPPONENTS",
-                 std::to_string(
-                     std::min<size_t>(size_t(std::max(0, s.opponents)), race_.opponents[choice_.professional].size())));
+            const Choice::Conditions& c = choice_.conditions;
+            text(o, "LAPS", choice_.kind == RaceKind::Circuit ? std::to_string(c.laps) : "-");
+            text(o, "OPPONENTS", std::to_string(c.opponents));
             static const char* const kTimes[] = {"Morning", "Noon", "Evening", "Night"};
             static const char* const kWeathers[] = {"Clear", "Cloudy", "Fog", "Rain"};
-            text(o, "TIME", kTimes[std::clamp(s.timeOfDay, 0, 3)]);
-            text(o, "WEATHER", kWeathers[std::clamp(s.weather, 0, 3)]);
-            bar(o, "PEDESTRIAN DENSITY", s.peds);
-            bar(o, "TRAFFIC DENSITY", s.ambient);
-            bar(o, "COP DENSITY", std::min(1.0f, float(s.cops) / 4));
+            text(o, "TIME", kTimes[c.timeOfDay & 3]);
+            text(o, "WEATHER", kWeathers[c.weather & 3]);
+            bar(o, "PEDESTRIAN DENSITY", c.hidePeds ? 0 : c.peds);
+            bar(o, "TRAFFIC DENSITY", c.traffic);
+            bar(o, "COP DENSITY", std::min(1.0f, float(c.cops) / 4));
+            if (choice_.changed) // as the game's records say: not recorded
+                font::drawText(o, 404, 186, "Changed: not recorded", {255, 160, 120});
             const int best = record_.bestPlace(map, choice_.kind, choice_.race, choice_.professional);
             if (best > 0)
                 font::drawText(o, 404, 170,

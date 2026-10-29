@@ -56,6 +56,19 @@ void fillBox(Surface& o, const Box& b, Color c, uint8_t alpha = 255) {
 
 std::string cityPicture(const std::string& map) { return map == "london" ? "london" : "sf"; }
 
+// Cops & Robbers' choices as the game words them (mmlang.dll 506-513):
+// its gold masses, Weightless, Quarter Ton and Half Ton (a US ton's, in
+// kg), and its time limits.
+constexpr int kGoldMasses[3] = {0, 227, 454};
+constexpr int kTimeLimits[4] = {5, 10, 20, 30};
+int goldMassIndex(int kg) {
+    int at = 0;
+    for (int i = 0; i < 3; ++i)
+        if (kGoldMasses[i] <= kg)
+            at = i;
+    return at;
+}
+
 } // namespace
 
 NetMenus::NetMenus(System& sys, const SearchSet& files, const std::vector<CityInfo>& cities,
@@ -131,6 +144,19 @@ std::string NetMenus::carFor(const NetPlayer& p) const {
         if (c.base == p.car)
             return c.base;
     return cars_.empty() ? std::string() : cars_.front().base;
+}
+
+std::string NetMenus::goldMassName(int kg) const {
+    static const char* const kNames[3] = {"Weightless", "Quarter Ton", "Half Ton"};
+    const int at = goldMassIndex(kg);
+    return strings_.get(uint32_t(506 + at), kNames[at]);
+}
+
+std::string NetMenus::timeLimitName(int minutes) const {
+    for (int i = 0; i < 4; ++i)
+        if (kTimeLimits[i] == minutes)
+            return strings_.get(uint32_t(510 + i), std::to_string(minutes) + " minutes");
+    return std::to_string(minutes) + " minutes";
 }
 
 std::string NetMenus::noticeText(const NetNotice& n) const {
@@ -440,6 +466,10 @@ void NetMenus::activate(const Item& item, Action& action) {
     } else if (w == "dlg_cancel") {
         go(screen_ == Screen::Eject ? Screen::Lobby : Screen::Sessions);
     } else if (w == "dlg_done") {
+        if (screen_ == Screen::Address && address_.empty()) {
+            go(Screen::Sessions); // "or leave blank to search for available session"
+            return;
+        }
         if (screen_ == Screen::Address) {
             const auto [host, port] = net::splitHostPort(address_, kNetPort);
             net::Address a;
@@ -477,7 +507,7 @@ void NetMenus::activate(const Item& item, Action& action) {
                                            : GoldMode::RobberTeams;
     } else if (w == "none_cr" || w == "time_cr" || w == "point_cr") {
         settings_.limit = w == "none_cr" ? GoldLimit::None : w == "time_cr" ? GoldLimit::Time : GoldLimit::Points;
-        settings_.limitValue = settings_.limit == GoldLimit::Time ? 10 : 5;
+        settings_.limitValue = uint16_t(settings_.limit == GoldLimit::Time ? 10 : 5);
     } else if (w == "aren_strt") {
         if (editing_ && session_) {
             session_->setSettings(settings_);
@@ -522,10 +552,19 @@ void NetMenus::change(const Item& item, int step) {
     } else if (w == "LAPS") {
         settings_.laps = uint8_t(std::clamp(settings_.laps + step, 1, 20));
     } else if (w == "LIMIT VALUE") {
-        const int most = settings_.limit == GoldLimit::Time ? 60 : 50;
-        settings_.limitValue = uint16_t(std::clamp(settings_.limitValue + step, 1, most));
+        // The game's time limits (mmlang.dll: 5, 10, 20, 30 minutes); the
+        // points are deliveries, 1-50.
+        if (settings_.limit == GoldLimit::Time) {
+            int at = 0;
+            for (int i = 0; i < 4; ++i)
+                if (kTimeLimits[i] <= settings_.limitValue)
+                    at = i;
+            settings_.limitValue = uint16_t(kTimeLimits[std::clamp(at + step, 0, 3)]);
+        } else
+            settings_.limitValue = uint16_t(std::clamp(settings_.limitValue + step, 1, 50));
     } else if (w == "GOLD MASS") {
-        settings_.goldMass = uint16_t(std::clamp(settings_.goldMass + step * 100, 0, 2000));
+        // The game's three: Weightless, Quarter Ton, Half Ton.
+        settings_.goldMass = uint16_t(kGoldMasses[std::clamp(goldMassIndex(settings_.goldMass) + step, 0, 2)]);
     } else if (w == "RACE LOCALE") {
         settings_.city = uint8_t(wrap(settings_.city + step, int(cities_.size())));
         refreshRaces();
@@ -721,8 +760,14 @@ NetMenus::Action NetMenus::update(uint64_t nowMs) {
         case NetNotice::Kind::Ejected:
             message({}, "boot_dlg");
             break;
-        case NetNotice::Kind::HostQuit:
         case NetNotice::Kind::Refused:
+            if (n.reason == kRefusedPassword) {
+                message({}, "badp_dlg"); // the game's "Incorrect password"
+                break;
+            }
+            message(noticeText(n));
+            break;
+        case NetNotice::Kind::HostQuit:
             message(noticeText(n));
             break;
         default:
@@ -784,8 +829,9 @@ void NetMenus::drawHostRace(Surface& o) const {
     if (settings_.mode == NetMode::CopsRobbers) {
         if (settings_.limit != GoldLimit::None)
             text(o, "LIMIT VALUE",
-                 std::to_string(settings_.limitValue) + (settings_.limit == GoldLimit::Time ? " min" : " pts"));
-        text(o, "GOLD MASS", std::to_string(settings_.goldMass) + " kg");
+                 settings_.limit == GoldLimit::Time ? timeLimitName(settings_.limitValue)
+                                                    : std::to_string(settings_.limitValue) + " pts");
+        text(o, "GOLD MASS", goldMassName(settings_.goldMass));
     }
     text(o, "RACE LOCALE", cities_.empty() ? "" : cities_[settings_.city].name);
     text(o, "TIME", kTimes[settings_.timeOfDay & 3]);
@@ -817,9 +863,9 @@ void NetMenus::drawLobby(Surface& o) const {
     if (s.mode == NetMode::CopsRobbers) {
         lines.push_back(goldModeName(s.gold));
         lines.push_back(s.limit == GoldLimit::None   ? std::string("No limit")
-                        : s.limit == GoldLimit::Time ? std::to_string(s.limitValue) + " minutes"
+                        : s.limit == GoldLimit::Time ? timeLimitName(s.limitValue)
                                                      : std::to_string(s.limitValue) + " points");
-        lines.push_back(strings_.get(335, "Gold Mass") + ": " + std::to_string(s.goldMass) + " kg");
+        lines.push_back(strings_.get(335, "Gold Mass") + ": " + goldMassName(s.goldMass));
     }
     lines.push_back(strings_.get(87, "Locale:") + " " + city);
     lines.push_back(std::string(kTimes[s.timeOfDay & 3]) + ", " + kWeathers[s.weather & 3]);
@@ -946,7 +992,7 @@ void NetMenus::draw(Surface& o, uint64_t nowMs) {
             else if (was == Screen::Password)
                 drawDialog(o, "pass_dlg", "PASSWORD");
             else
-                drawDialog(o, "", "ENTER AN ADDRESS");
+                drawDialog(o, "tcp_dlg", "ENTER AN ADDRESS");
         }
         const auto list = items();
         for (size_t i = 0; i < list.size(); ++i) {
@@ -1010,9 +1056,9 @@ void NetMenus::draw(Surface& o, uint64_t nowMs) {
             break;
         }
         case Screen::Address:
-            font::drawText(o, kDialogX + 72, kDialogY + 72,
-                           "HOST NAME OR ADDRESS (port " + std::to_string(kNetPort) + ")", {220, 220, 255});
-            fillBox(o, {kDialogX + 72, kDialogY + 90, 203, 22}, {0, 0, 20});
+            // The game's own words are on jpg/tcp_dlg; the port's Reluva's.
+            font::drawText(o, kDialogX + 72, kDialogY + 118, "Port " + std::to_string(kNetPort) + " unless given",
+                           {200, 200, 255});
             text(o, "TCP/IP Address", address_ + ((nowMs / 400) % 2 && focus_ == 0 ? "_" : ""));
             break;
         case Screen::Password:

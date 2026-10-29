@@ -120,8 +120,9 @@ names):
   home. A car within 5 m of it, and 4 m above or below, picks it up; the
   nearest wins.
 - **Carrying.** The gold rides above the car that has it, and adds the
-  host's GOLD MASS, in kg, to that car's weight (0-2,000; 500 to begin
-  with).
+  host's GOLD MASS to that car's weight. The choices are the game's three
+  (`mmlang.dll` 506-508): Weightless, Quarter Ton and Half Ton, taken as a
+  US ton's (0, 227 and 454 kg). Half Ton is the default.
 - **Stealing.** A car of another side that rams the holder knocks the
   gold loose where it is:
   - "Rams" means their middles come within 4.5 m, closing at 4 m/s or
@@ -134,9 +135,12 @@ names):
   the gold goes back home.
 - **Limits** (GAME LIMITS):
   - NONE: the host ends the game.
-  - TIME: 1 to 60 minutes, with the game's "N minutes remaining" at 20,
-    15, 10, 5 and 1.
-  - POINT: the first side to that many points (1-50) wins.
+  - TIME: the game's 5, 10, 20 or 30 minutes (`mmlang.dll` 510-513),
+    with its "N minutes remaining" at 20, 15, 10, 5 and 1.
+  - POINT: the first side to that many deliveries (1-50) wins. The game's
+    own point limits are 100, 250, 500 and 1,000 points (514-517). What a
+    delivery is worth in them isn't in the files, so Reluva counts
+    deliveries.
 
 The host runs the gold. The others hear where it is, who has it, the
 scores and the last few events, and say them with the game's words
@@ -223,7 +227,7 @@ The multiplayer screens are `tune/widget.csv`'s, drawn as the others are
 | Screen | Background | Controls |
 |---|---|---|
 | Net Select Menu | `jpg/sess_bk` | `sess_zn`, `sess_ipx`, `sess_ser`, `sess_mod` (not available), `sess_tcp`, NET NAME, `sess_hst`, `sess_jn`, the sessions list (`textscroll`), BACK (`mnav_prev`, picture `mnav_prv`) |
-| Enter an Address | none shipped: a panel in the dialogs' colours | TCP/IP Address, `dlg_can`, `dlg_done` |
+| Enter an Address | `jpg/tcp_dlg` (400 x 330 at 120, 75: `menu.csv` gives it 300 x 225 at 170, 127) | TCP/IP Address, `dlg_can`, `dlg_done`. Left blank, back to the sessions (its words: "or leave blank to search for available session") |
 | Enter a valid password | `jpg/pass_dlg` | Password, `dlg_can`, `dlg_done` |
 | Host Options | `jpg/host_dlg` | Password, Max Players, Computer Players (Reluva's), `dlg_can`, `dlg_done` |
 | Host Race Menu | `jpg/host_bk`, with `jpg/host_cr` over the right for Cops & Robbers | `cruise_m`, `blitz_m`, `cp_m`, `circt_m`, `cops_m`; RACE NAME and LAPS; `free_cr`, `cpsvr_cr`, `robrs_cr`, `none_cr`, `time_cr`, `point_cr`, LIMIT VALUE, GOLD MASS; LOCATION, TIME, WEATHER, PEDESTRIAN DENSITY; `aren_strt` (picture `host_dn`) |
@@ -236,6 +240,7 @@ The dialogs' widgets are placed from the dialog's corner, which
 
 - `rtrv_dlg`, "Retrieving game settings...", while joining.
 - `boot_dlg`, "You have been ejected".
+- `badp_dlg`, "Incorrect password", when the host refuses one.
 - `msg_dlg`, the others: "The Host has quit", why a join was refused.
 
 Where a widget's name isn't a picture's, the picture was found by its

@@ -100,8 +100,10 @@ void RaceViewer::activate() {
         game_ = std::make_unique<GameMenus>(ctx_.sys, ctx_.files, strings_, ctx_.mixer, ctx_.savePath);
         if (!game_->loaded())
             game_.reset();
-        else
+        else {
             game_->setDrivers(&roster_, &record_, &cities_);
+            game_->setFrontEnd(front_.get());
+        }
     }
     quit_ = false;
     keys_ = 0;
@@ -171,7 +173,10 @@ void RaceViewer::switchDriver() {
 void RaceViewer::recordResult() {
     // Once a race: its place (a Blitz finished in time, first), or the
     // lesson passed; saved at once.
-    if (recorded_ || racers_.empty() || state_ != State::Finished || netGame_ || replaying_)
+    // Not a race run in changed conditions: "the race statistics are
+    // recorded for races under default conditions only" (jpg/hoff_dlg).
+    if (recorded_ || racers_.empty() || state_ != State::Finished || netGame_ || replaying_ ||
+        (conditionsChanged_ && !lesson()))
         return;
     recorded_ = true;
     const std::string& map = cities_[size_t(city_)].map;
@@ -208,6 +213,24 @@ void RaceViewer::startRace() {
         return;
     }
     error_.clear();
+    // The conditions the menus changed (or the replay's): over the race's.
+    const bool changed = replaying_ ? playback_.changed : conditionsChanged_;
+    if (changed && !lesson()) {
+        RaceSettings& s = race_.settings[size_t(level_)];
+        const FrontEnd::Choice::Conditions c =
+            replaying_ ? FrontEnd::Choice::Conditions{playback_.laps,      playback_.opponents,
+                                                      playback_.timeOfDay, playback_.weather,
+                                                      playback_.cops,      playback_.traffic,
+                                                      playback_.peds,      false}
+                       : conditions_;
+        s.laps = c.laps;
+        s.opponents = c.opponents;
+        s.timeOfDay = c.timeOfDay;
+        s.weather = c.weather;
+        s.cops = c.cops;
+        s.ambient = c.traffic;
+        s.peds = c.hidePeds ? 0 : c.peds;
+    }
     const RaceSettings& set = race_.settings[size_t(level_)];
     scene_->setLighting(std::clamp(set.timeOfDay, 0, 3) * 4 + std::clamp(set.weather, 0, 3));
 
@@ -345,6 +368,14 @@ void RaceViewer::startRace() {
         recording_.autoReverse = currentOptions().autoReverse;
         recording_.steerRate = currentOptions().steerRate();
         recording_.pedestrians = pedestrianShare();
+        recording_.changed = conditionsChanged_ && !lesson();
+        recording_.laps = set.laps;
+        recording_.opponents = set.opponents;
+        recording_.timeOfDay = set.timeOfDay;
+        recording_.weather = set.weather;
+        recording_.cops = set.cops;
+        recording_.traffic = set.ambient;
+        recording_.peds = set.peds;
     }
 }
 
@@ -707,6 +738,13 @@ void RaceViewer::menuEvent(const Event& ev) {
         switchDriver();
         return;
     }
+    if (game_ && (action == FrontEnd::Action::RaceOptions || action == FrontEnd::Action::CityChoice ||
+                  action == FrontEnd::Action::Locked)) {
+        game_->open(action == FrontEnd::Action::RaceOptions  ? GameMenus::Screen::RaceOptions
+                    : action == FrontEnd::Action::CityChoice ? GameMenus::Screen::CitySelection
+                                                             : GameMenus::Screen::Locked);
+        return;
+    }
     openAll_ = front_->openAll;
     if (action == FrontEnd::Action::Options || action == FrontEnd::Action::Quit) {
         if (game_)
@@ -738,6 +776,8 @@ void RaceViewer::menuEvent(const Event& ev) {
     // The menus' choice: the city (loaded now if it's another), the race,
     // the level, the car, its colour and gearbox.
     const FrontEnd::Choice& c = front_->choice();
+    conditions_ = c.conditions;
+    conditionsChanged_ = c.changed && c.kind != RaceKind::CrashCourse;
     for (int k = 0; k < kKindCount; ++k)
         if (kKinds[k] == c.kind)
             kind_ = k;
@@ -1115,14 +1155,14 @@ void RaceViewer::update(uint64_t nowMs) {
         renderer_->beginFrame(viewProj, eye, {10, 14, 40});
         if (netMenus_ && net_) {
             net_->draw(overlay_, nowMs);
-        } else if (game_ && game_->isOpen() && game_->screen() != GameMenus::Screen::Quit) {
+        } else if (game_ && game_->isOpen() && !game_->isDialog()) {
             game_->draw(overlay_, nowMs);
         } else {
             if (front_->screen() == FrontEnd::Screen::Garage || front_->screen() == FrontEnd::Screen::Showcase)
                 drawGarageCar(dt);
             front_->draw(overlay_);
             if (game_ && game_->isOpen())
-                game_->draw(overlay_, nowMs); // the Quit dialog, over the menu
+                game_->draw(overlay_, nowMs); // a dialog, over the menu
         }
         renderer_->endFrame(&overlay_);
         return;

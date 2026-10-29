@@ -66,7 +66,23 @@ public:
         bool professional = false;
         int car = 0, paintJob = 0;
         bool manual = false;
+        // The race's conditions: as its file has them, or changed on the
+        // race menu (LAPS, OPPONENTS, and CHANGE: the game's Change Race
+        // Options). A race run changed isn't recorded.
+        struct Conditions {
+            int laps = 1, opponents = 0, timeOfDay = 0, weather = 0, cops = 0;
+            float traffic = 0, peds = 0;
+            bool hidePeds = false;
+            bool operator==(const Conditions&) const = default;
+        };
+        Conditions conditions;
+        bool changed = false;
     };
+    // The chosen race's conditions as its file has them.
+    Choice::Conditions raceConditions() const;
+    // After the conditions are changed (the dialog).
+    void conditionsChanged() { choice_.changed = !(choice_.conditions == raceConditions()); }
+    int mostOpponents() const;
     enum class Action {
         None,
         Changed,
@@ -80,6 +96,9 @@ public:
         DriverStats,   // DRIVER'S STATS
         RaceRecords,   // RACE RECORDS
         DriverChanged, // another driver chosen: their record to read
+        RaceOptions,   // the race menu's CHANGE: Change Race Options
+        CityChoice,    // Enter on LOCATION: Race Locales
+        Locked,        // GO DRIVE with a locked car: "You cannot pick a locked vehicle"
     };
     // The drivers, for the main menu's SELECT DRIVER (Left/Right chooses).
     void setDrivers(DriverRoster* roster) { roster_ = roster; }
@@ -157,6 +176,7 @@ private:
     const PlayerRecord& record_;
     DriverRoster* roster_ = nullptr;
     bool driverChanged_ = false;
+    std::string conditionsFor_; // the race the conditions are of
     bool quickRace() const {
         std::string map;
         RaceKind kind;
