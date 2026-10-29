@@ -71,6 +71,8 @@
 #include "engines/age/opponent.h"
 #include "engines/age/options.h"
 #include "engines/age/race.h"
+#include "engines/age/replay.h"
+
 #include "engines/age/road_graph.h"
 #include "engines/age/games.h"
 #include "engines/age/pkg.h"
@@ -145,6 +147,9 @@ enum DriveKeys : uint32_t {
     kDriveHorn = 32,
     kDriveReverse = 64
 };
+// The Race page's events in its menu's order (Blitz, Circuit, Checkpoint,
+// Crash Course).
+RaceKind racePageKind(int index);
 // What a key is bound to (the Control Options' keys).
 Control controlOf(uint32_t key);
 // The player's car takes the Control Options (auto reverse, steering).
@@ -478,6 +483,36 @@ private:
     void menuEvent(const Event& ev);
     void drawGarageCar(float dt);
     void drawArrowTo(const Vec3& to, bool blitz);
+
+    // Replays (race_replay.cpp): the race being driven is recorded; a
+    // replay runs its race again from what was recorded.
+    Replay recording_;
+    Replay playback_;
+    bool replaying_ = false;
+    bool replayOfThisRace_ = false; // the instant replay of the race just driven (else one loaded)
+    bool replaySaved_ = false;
+    bool replayQuitting_ = false; // asked to save on the way out
+    size_t replayFrame_ = 0;
+    bool replayPaused_ = false;
+    double replayAccum_ = 0;
+    int replayCam_ = 0;   // the car's cameras, then (the last) the roadside one
+    int replayFocus_ = 0; // the replay bar's button
+    Vec3 tvAt_{};
+    bool tvSet_ = false;
+    float tvSide_ = 1;
+    std::string replayNote_;
+    void recordFrame(float dt);
+    void markRecording();
+    void startReplay(Replay replay);
+    void playFrame();
+    void stepReplay(float dt);
+    void endReplay();
+    bool replayEvent(const Event& ev);
+    void replayButton(int which);
+    CameraView replayCamera(float dt, float& fov);
+    void drawReplayBar();
+    void gameMenuEvent(const Event& ev);
+    std::string replayDefaultName() const;
 
     // Multiplayer (race_net.cpp): the game's multiplayer menus, then the
     // session's game, each car driven on its own machine.

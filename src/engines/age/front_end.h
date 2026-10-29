@@ -65,7 +65,7 @@ public:
         int car = 0, paintJob = 0;
         bool manual = false;
     };
-    enum class Action { None, Changed, Start, Multiplayer, Options, Quit };
+    enum class Action { None, Changed, Start, Multiplayer, Options, Quit, Replays };
 
     FrontEnd(const SearchSet& files, const std::vector<CityInfo>& cities, const std::vector<CarInfo>& cars,
              const GameStrings& strings, const PlayerRecord& record);

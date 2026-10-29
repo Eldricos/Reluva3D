@@ -21,7 +21,8 @@ namespace {
 
 // Where the dialogs go (tune/menu.csv's places for dialogs of their
 // size): the 300 x 225 ones, and the 400 x 76 message boxes.
-constexpr int kSmallX = 170, kSmallY = 127, kBoxX = 120, kBoxY = 202;
+constexpr int kSmallX = 170, kSmallY = 127, kBoxX = 120, kBoxY = 202, kDialogY = 75;
+constexpr int kReplayRow = 14, kReplayRows = 11; // the replay list's (in jpg/rpl_bk's box)
 // The bars' grid on the option screens' backgrounds, within their
 // widget's box (measured on jpg/aud_bk, gfx_bk, ctrl_bk).
 constexpr int kBarInset = 23, kBarWidth = 137;
@@ -85,7 +86,12 @@ std::string GameMenus::menuName() const {
     case Screen::DuplicateKey:
         return "odef_dlg";
     case Screen::Quit:
+    case Screen::ReplayAsk:
         return "quit_dlg";
+    case Screen::ReplayList:
+        return "Replay Selection";
+    case Screen::ReplayName:
+        return "Replay Description";
     case Screen::None:
         break;
     }
@@ -93,15 +99,54 @@ std::string GameMenus::menuName() const {
 }
 
 int GameMenus::originX() const {
-    return screen_ == Screen::Defaults || screen_ == Screen::DuplicateKey ? kSmallX
-           : screen_ == Screen::Quit                                      ? kBoxX
-                                                                          : 0;
+    switch (screen_) {
+    case Screen::Defaults:
+    case Screen::DuplicateKey:
+        return kSmallX;
+    case Screen::Quit:
+    case Screen::ReplayAsk:
+    case Screen::ReplayList:
+    case Screen::ReplayName:
+        return kBoxX;
+    default:
+        return 0;
+    }
 }
 
 int GameMenus::originY() const {
-    return screen_ == Screen::Defaults || screen_ == Screen::DuplicateKey ? kSmallY
-           : screen_ == Screen::Quit                                      ? kBoxY
-                                                                          : 0;
+    switch (screen_) {
+    case Screen::Defaults:
+    case Screen::DuplicateKey:
+        return kSmallY;
+    case Screen::Quit:
+    case Screen::ReplayAsk:
+        return kBoxY;
+    case Screen::ReplayList:
+    case Screen::ReplayName:
+        return kDialogY;
+    default:
+        return 0;
+    }
+}
+
+bool GameMenus::overlay(Screen s) const {
+    return s == Screen::Quit || s == Screen::ReplayAsk || s == Screen::ReplayList || s == Screen::ReplayName;
+}
+
+bool GameMenus::typing() const { return waitingForKey_ || screen_ == Screen::ReplayName; }
+
+void GameMenus::nameReplay(const std::string& name) {
+    name_ = name.substr(0, 40);
+    under_ = Screen::None;
+    screen_ = Screen::None;
+    go(Screen::ReplayName);
+}
+
+void GameMenus::askToSaveReplay(const std::string& name) {
+    name_ = name.substr(0, 40);
+    under_ = Screen::None;
+    screen_ = Screen::None;
+    go(Screen::ReplayAsk);
 }
 
 const Widget* GameMenus::widget(const std::string& name) const {
@@ -174,6 +219,15 @@ std::vector<GameMenus::Item> GameMenus::items() const {
         return {button("dlg_ok", "dlg_ok")};
     case Screen::Quit:
         return {button("popup_ok", "dlg_ok"), button("popup_cancel", "dlg_can")};
+    case Screen::ReplayAsk:
+        return {button("popup_ok", "dlg_yes"), button("popup_cancel", "dlg_no")};
+    case Screen::ReplayList:
+        return {Item{Kind::List, "CITY", {}, 0, !replays_.empty()}, button("rpl_load", "RPL_LOAD", !replays_.empty()),
+                button("rpl_edit", "rpl_edit", !replays_.empty()), button("rpl_del", "RPL_DEL", !replays_.empty()),
+                button("dlg_cancel", "dlg_can")};
+    case Screen::ReplayName:
+        return {Item{Kind::Text, "Description", {}, 0, true}, button("dlg_cancel", "dlg_can"),
+                button("dlg_done", "dlg_done")};
     case Screen::None:
         return {};
     }
@@ -190,8 +244,13 @@ void GameMenus::open(Screen s) {
 }
 
 void GameMenus::go(Screen s) {
-    if (s == Screen::Defaults || s == Screen::DuplicateKey || s == Screen::Quit) {
-        if (screen_ != Screen::Defaults && screen_ != Screen::DuplicateKey && screen_ != Screen::Quit)
+    if (s == Screen::ReplayList) {
+        replays_ = listReplays(savePath_);
+        replayRow_ = std::min(replayRow_, replays_.empty() ? 0 : replays_.size() - 1);
+    }
+    if (s == Screen::Defaults || s == Screen::DuplicateKey || s == Screen::Quit || s == Screen::ReplayName) {
+        if (screen_ != Screen::Defaults && screen_ != Screen::DuplicateKey && screen_ != Screen::Quit &&
+            screen_ != Screen::ReplayName)
             under_ = screen_;
     } else if (s != Screen::None && s != Screen::Options && screen_ == Screen::Options)
         entered_ = edit_; // what Cancel on the screen goes back to
@@ -205,6 +264,7 @@ void GameMenus::go(Screen s) {
         ++focus_;
     if (size_t(focus_) >= list.size())
         focus_ = 0;
+    sys_.setTextInput(typing());
 }
 
 bool GameMenus::checked(const std::string& w) const {
@@ -404,6 +464,10 @@ GameMenus::Action GameMenus::activate(const Item& item) {
         toggle(w);
         return Action::None;
     }
+    if (item.kind == Kind::List && screen_ == Screen::ReplayList)
+        return activate(Item{Kind::Button, "rpl_load", {}, 4, true});
+    if (item.kind == Kind::Text)
+        return activate(Item{Kind::Button, "dlg_done", {}, 4, true});
     if (item.kind == Kind::List) {
         waitingForKey_ = true;
         sys_.setTextInput(false);
@@ -443,12 +507,45 @@ GameMenus::Action GameMenus::activate(const Item& item) {
         go(under_);
     } else if (w == "dlg_can" || (w == "dlg_ok" && screen_ == Screen::DuplicateKey))
         go(under_);
-    else if (w == "popup_ok") {
+    else if (w == "popup_ok" && screen_ == Screen::ReplayAsk) {
+        under_ = Screen::None;
+        go(Screen::ReplayName); // save as
+    } else if (w == "popup_ok") {
         screen_ = Screen::None;
         return Action::Quit;
     } else if (w == "popup_cancel") {
         screen_ = Screen::None;
         return Action::Closed;
+    } else if (w == "rpl_load" && replayRow_ < replays_.size()) {
+        replayFile_ = replays_[replayRow_].file;
+        screen_ = Screen::None;
+        return Action::LoadReplay;
+    } else if (w == "rpl_edit" && replayRow_ < replays_.size()) {
+        name_ = replays_[replayRow_].name;
+        go(Screen::ReplayName);
+    } else if (w == "rpl_del" && replayRow_ < replays_.size()) {
+        deleteReplay(replays_[replayRow_]);
+        go(Screen::ReplayList);
+    } else if (w == "dlg_cancel" && screen_ == Screen::ReplayList) {
+        screen_ = Screen::None;
+        return Action::Closed;
+    } else if (w == "dlg_cancel" && screen_ == Screen::ReplayName) {
+        if (under_ == Screen::ReplayList)
+            go(Screen::ReplayList);
+        else {
+            screen_ = Screen::None;
+            return Action::Closed;
+        }
+    } else if (w == "dlg_done" && screen_ == Screen::ReplayName && !name_.empty()) {
+        if (under_ == Screen::ReplayList) {
+            if (replayRow_ < replays_.size())
+                renameReplay(savePath_, replays_[replayRow_], name_);
+            go(Screen::ReplayList);
+        } else {
+            screen_ = Screen::None;
+            sys_.setTextInput(false);
+            return Action::SaveReplay;
+        }
     }
     return Action::None;
 }
@@ -498,6 +595,21 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
         slot = ev.key;
         return Action::None;
     }
+    if (screen_ == Screen::ReplayName) {
+        if (ev.type == EventType::TextInput) {
+            for (const char* c = ev.text; *c; ++c)
+                if (static_cast<unsigned char>(*c) >= 32 && name_.size() < 40)
+                    name_.push_back(*c);
+            return Action::None;
+        }
+        if (ev.type == EventType::KeyDown && ev.key == key::Backspace) {
+            if (!name_.empty())
+                name_.pop_back();
+            return Action::None;
+        }
+        if (ev.type == EventType::KeyDown && ev.key == key::Space)
+            return Action::None; // typed, as text
+    }
     if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
         for (size_t i = 0; i < list.size(); ++i) {
             int w = 0, h = 0;
@@ -528,7 +640,12 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
     case key::Up:
     case key::Down: {
         const int dir = ev.key == key::Down ? 1 : -1;
-        if (item.kind == Kind::List && row_ + dir >= 0 && row_ + dir < kControls) {
+        if (item.kind == Kind::List && screen_ == Screen::ReplayList) {
+            if (int(replayRow_) + dir >= 0 && size_t(int(replayRow_) + dir) < replays_.size()) {
+                replayRow_ = size_t(int(replayRow_) + dir);
+                break;
+            }
+        } else if (item.kind == Kind::List && row_ + dir >= 0 && row_ + dir < kControls) {
             row_ += dir;
             break;
         }
@@ -553,8 +670,12 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
         switch (screen_) {
         case Screen::Options:
         case Screen::Quit:
+        case Screen::ReplayAsk:
+        case Screen::ReplayList:
             screen_ = Screen::None;
             return Action::Closed;
+        case Screen::ReplayName:
+            return activate(Item{Kind::Button, "dlg_cancel", {}, 4, true});
         case Screen::About:
             go(Screen::Options);
             break;
@@ -619,6 +740,12 @@ void GameMenus::drawItems(Surface& o, const std::vector<Item>& list, int focus) 
             if (focused)
                 font::drawText(o, x - 10, y + 4, ">", {255, 255, 120});
             break;
+        case Kind::Text:
+            // The end of it, as much as the box holds.
+            text(o, item.widget,
+                 (name_.size() > 36 ? name_.substr(name_.size() - 36) : name_) + ((nowMs_ / 400) % 2 ? "_" : ""),
+                 {255, 255, 255});
+            break;
         case Kind::List:
         case Kind::Label:
             break;
@@ -664,10 +791,64 @@ void GameMenus::drawScreenWords(Surface& o, uint64_t nowMs) const {
     }
 }
 
+void GameMenus::drawReplayList(Surface& o) const {
+    // The replays saved: their names, city and length; the chosen one lit.
+    const Widget* w = widget("CITY");
+    if (!w)
+        return;
+    const int x = w->x + originX() - 8, y0 = w->y + originY() + 10;
+    if (replays_.empty())
+        font::drawText(o, x + 4, y0, "No replays saved yet", {200, 200, 200});
+    const size_t first = replayRow_ >= size_t(kReplayRows) ? replayRow_ - size_t(kReplayRows) + 1 : 0;
+    for (size_t i = first; i < replays_.size() && i < first + size_t(kReplayRows); ++i) {
+        const ReplayEntry& r = replays_[i];
+        const int y = y0 + int(i - first) * kReplayRow;
+        if (i == replayRow_)
+            fill(o, x, y - 2, 258, kReplayRow, {50, 50, 130});
+        char line[96];
+        std::snprintf(line, sizeof line, "%-24.24s %-6s %d:%02d", r.name.c_str(), r.city.c_str(), int(r.duration) / 60,
+                      int(r.duration) % 60);
+        font::drawText(o, x + 4, y, line, i == replayRow_ ? Color{255, 255, 120} : Color{230, 230, 230});
+    }
+}
+
 void GameMenus::draw(Surface& o, uint64_t nowMs) {
     nowMs_ = nowMs;
     if (screen_ == Screen::None)
         return;
+    if (overlay(screen_)) {
+        // Dialogs over whatever's beneath: the rename over the list.
+        const Screen was = screen_;
+        const int keep = focus_;
+        if (was == Screen::ReplayName && under_ == Screen::ReplayList) {
+            screen_ = Screen::ReplayList;
+            focus_ = -1;
+            if (const image::Image* d = pictures_.jpg("rpl_bk"))
+                drawPicture(o, *d, originX(), originY());
+            drawItems(o, items(), -1);
+            drawReplayList(o);
+            screen_ = was;
+            focus_ = keep;
+        }
+        const char* picture = was == Screen::ReplayList   ? "rpl_bk"
+                              : was == Screen::ReplayName ? "REDIT_BK"
+                              : was == Screen::ReplayAsk  ? "msg_dlg"
+                                                          : "quit_dlg";
+        if (const image::Image* d = pictures_.jpg(picture))
+            drawPicture(o, *d, originX(), originY());
+        if (was == Screen::ReplayAsk) {
+            // "REPLAY SAVE MENU: Do you want to save this replay?" (the
+            // string lacks its D).
+            std::string ask = strings_.get(503, "Do you want to save this replay?");
+            if (ask.rfind("o ", 0) == 0)
+                ask = "D" + ask;
+            font::drawText(o, originX() + 80, originY() + 14, ask, {255, 255, 255});
+        }
+        if (was == Screen::ReplayList)
+            drawReplayList(o);
+        drawItems(o, items(), focus_);
+        return;
+    }
     const bool dialog = screen_ == Screen::Defaults || screen_ == Screen::DuplicateKey || screen_ == Screen::Quit;
     const Screen was = screen_;
     const int keepFocus = focus_;
