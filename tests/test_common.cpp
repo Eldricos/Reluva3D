@@ -11,6 +11,7 @@
 #include "data/x86_testdll.h"
 #include "common/archive.h"
 #include "common/config.h"
+#include "common/cue.h"
 #include "common/detection.h"
 #include "common/font.h"
 #include "common/fs.h"
@@ -496,6 +497,65 @@ static void testX86Dll() {
     }
 }
 
+static void testCue(const std::filesystem::path& tmp) {
+    std::filesystem::remove_all(tmp);
+    std::filesystem::create_directories(tmp);
+    // A data track of 3 sectors of 2048 bytes, then audio tracks of 2352:
+    // track 2 with a 2-sector pregap (INDEX 00) before its 4 sectors, and
+    // track 3 of 2 sectors. Track 4 is in a big-endian file of its own.
+    std::vector<uint8_t> image(3 * 2048, 0xd1);
+    image.insert(image.end(), 2 * 2352, 0);
+    for (int i = 0; i < 4 * 2352; ++i)
+        image.push_back(uint8_t(i));
+    image.insert(image.end(), 2 * 2352, 0x33);
+    test::writeFile(tmp / "Image.BIN", image);
+    std::vector<uint8_t> motorola;
+    for (int i = 0; i < 2352 / 2; ++i)
+        motorola.insert(motorola.end(), {0x12, 0x34});
+    test::writeFile(tmp / "b.bin", motorola);
+    const std::string sheet = "REM a comment\r\n"
+                              "FILE \"IMAGE.bin\" BINARY\r\n"
+                              "  TRACK 01 MODE1/2048\r\n"
+                              "    INDEX 01 00:00:00\r\n"
+                              "  TRACK 02 AUDIO\r\n"
+                              "    INDEX 00 00:00:03\r\n"
+                              "    INDEX 01 00:00:05\r\n"
+                              "  TRACK 03 AUDIO\r\n"
+                              "    PREGAP 00:02:00\r\n"
+                              "    INDEX 01 00:00:09\r\n"
+                              "FILE b.bin MOTOROLA\r\n"
+                              "  TRACK 04 AUDIO\r\n"
+                              "    INDEX 01 00:00:00\r\n";
+    std::vector<CueTrack> tracks;
+    CHECK(!parseCueSheet(sheet, tmp, tracks));
+    CHECK(tracks.size() == 4);
+    if (tracks.size() == 4) {
+        CHECK(tracks[0].number == 1 && !tracks[0].audio && tracks[0].offset == 0 && tracks[0].size == 3 * 2048);
+        CHECK(tracks[1].audio && tracks[1].offset == 3 * 2048 + 2 * 2352 && tracks[1].size == 4 * 2352);
+        CHECK(tracks[2].offset == 3 * 2048 + 6 * 2352 && tracks[2].size == 2 * 2352);
+        CHECK(tracks[3].bigEndian && tracks[3].offset == 0 && tracks[3].size == 2352);
+        CHECK(tracks[1].file.filename() == "Image.BIN");
+
+        std::vector<uint8_t> wav;
+        CHECK(!writeCueTrackWav(tracks[1], tmp / "track02.wav"));
+        std::ifstream f(tmp / "track02.wav", std::ios::binary);
+        wav.assign(std::istreambuf_iterator<char>(f), {});
+        audio::Sound sound;
+        CHECK(!audio::decodeWav(wav, sound) && sound.rate == 44100 && sound.channels == 2 &&
+              sound.frames() == 4 * 2352 / 4);
+        CHECK(wav.size() == 44 + 4 * 2352 && wav[44] == 0 && wav[45] == 1 && wav[44 + 300] == uint8_t(300));
+        CHECK(!writeCueTrackWav(tracks[3], tmp / "track04.wav"));
+        std::ifstream g(tmp / "track04.wav", std::ios::binary);
+        wav.assign(std::istreambuf_iterator<char>(g), {});
+        CHECK(wav.size() == 44 + 2352 && wav[44] == 0x34 && wav[45] == 0x12);
+        CHECK(writeCueTrackWav(tracks[0], tmp / "track01.wav")); // data, not audio
+    }
+    CHECK(parseCueSheet("FILE missing.bin BINARY\nTRACK 01 AUDIO\nINDEX 01 00:00:00\n", tmp, tracks));
+    CHECK(parseCueSheet("FILE b.bin WAVE\nTRACK 01 AUDIO\nINDEX 01 00:00:00\n", tmp, tracks));
+    CHECK(parseCueSheet("FILE b.bin BINARY\nTRACK 01 AUDIO\nINDEX 01 00:00:75\n", tmp, tracks));
+    std::filesystem::remove_all(tmp);
+}
+
 int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_tests";
     testMd5();
@@ -507,6 +567,7 @@ int main() {
     testFsAndDetection(tmp / "fs");
     testConfig(tmp / "cfg");
     testZip(tmp / "zip");
+    testCue(tmp / "cue");
     testSearchSet(tmp / "search");
     testImage();
     testNet();

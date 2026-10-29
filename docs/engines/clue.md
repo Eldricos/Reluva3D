@@ -102,15 +102,43 @@ Each step can be seen working before the next.
    the originals do; their choices compared with the original's over
    recorded games.
 7. **The rest.** The clickable objects' animations, thunder and other
-   ambient sounds, music, saved games (`SaveGames`) and `Prefs.ini`.
-8. **Network play** (later, if wanted). DirectPlay's protocol between
-   Reluva and Reluva at least; the Gaming Zone is gone.
+   ambient sounds, music (see below), saved games and `Prefs.ini`. Saved
+   games are Reluva's own: the original's needn't load.
+8. **Network play** (later). The original's local-network games, and
+   games over the internet by address in place of the Gaming Zone, which
+   is gone. Whether to speak DirectPlay's protocol, so as to play against
+   the original, is to be decided then.
 
-## Open questions
+## Music
 
-- **Music:** `Clue.exe` plays CD audio tracks. If the CD has them, they
-  would need to be ripped (to WAV, FLAC or MP3, say `track02.flac`),
-  as ScummVM asks for some games.
-- **Reference recordings** of the original running (on Windows 98 or
-  later in a virtual machine, or under Wine) are the best source for
-  timings and the computer players' behaviour.
+Source: the CD's cue sheet and its tracks, and `Clue.exe` 2.2 read where
+it plays them.
+
+The CD (volume label `Clue V2.0.01.27`) has a data track and four audio
+tracks, 44.1 kHz stereo, which aren't copied to the hard disk:
+
+| Track | Length |
+|---|---|
+| 2 | 3:55.00 |
+| 3 | 3:11.84 |
+| 4 | 2:38.51 |
+| 5 | 3:48.13 |
+
+`Clue.exe` plays them through Miles' "redbook" functions. The function
+that picks the next one when a track ends (at `0x42F130`) keeps a number
+from 2 to 6: 2 goes to 3, 3 to 4, 4 back to 2, 5 plays again, and 6 is
+silence. So tracks 2-4 play in turn and 5 loops alone. Where each is
+started (`0x404E53` starts 2, `0x411CFF` starts 5) is to be matched with
+the screens by watching the game. With no CD audio the original plays no
+music and carries on.
+
+Reluva can't read the tracks from the files on the CD, so the player
+rips them once, as ScummVM asks for some games, to `track02.wav` ...
+`track05.wav` (or `.mp3`) in the game's folder. Tracks that aren't there
+are left silent, as the original does without its CD. `reluva-tool
+cue-rip` makes them from a BIN/CUE image of the CD.
+
+## Reference recordings
+
+The original running in a virtual machine is the source for timings,
+which music plays where, and the computer players' behaviour.

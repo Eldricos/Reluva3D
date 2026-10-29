@@ -58,6 +58,7 @@ endif()
 # --- common: platform-independent core, no SDL allowed here -------------------
 add_library(reluva_common STATIC
     src/common/config.cpp
+    src/common/cue.cpp
     src/common/fs.cpp
     src/common/md5.cpp
     src/common/md4.cpp

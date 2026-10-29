@@ -5,6 +5,8 @@
 //
 //   reluva-tool hexdump <file> [offset] [length]   offset may be hex (0x..) or
 //                                                  negative (from the end)
+//   reluva-tool cue-rip <file.cue> [output dir]    list a CD image's tracks and write each audio
+//                                                  track as trackNN.wav (for games' CD music)
 //   reluva-tool cat-probe <file> [-q]              check a .cat file against the documented
 //                                                  layout and work out unknown entry kinds
 //   reluva-tool cat-list <file>                    list a .cat file's contents
@@ -107,6 +109,7 @@
 #include "engines/newworlds/model_textures.h"
 #include "engines/newworlds/model_render.h"
 #endif
+#include "common/cue.h"
 #include "common/font.h"
 #include "common/fs.h"
 #include "common/pe.h"
@@ -226,6 +229,46 @@ int cmdHexdump(int argc, char** argv) {
     hexdump(d, size_t(std::max(0LL, off)), len);
     return 0;
 }
+// A CD image's tracks, and its audio tracks written as track02.wav ... in
+// the output folder, the names games' CD music is looked for under.
+int cmdCueRip(int argc, char** argv) {
+    if (argc < 3 || argc > 4) {
+        std::fprintf(stderr, "usage: reluva-tool cue-rip <file.cue> [output dir]\n");
+        return 2;
+    }
+    std::vector<reluva::CueTrack> tracks;
+    if (reluva::Error err = reluva::readCueSheet(argv[2], tracks)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    for (const reluva::CueTrack& t : tracks) {
+        const uint64_t frames = t.size / uint64_t(t.sectorSize);
+        std::printf("track %02d  %-10s %8llu sectors  %2llu:%05.2f  %s @ %llu\n", t.number, t.mode.c_str(),
+                    static_cast<unsigned long long>(frames), static_cast<unsigned long long>(frames / 75 / 60),
+                    double(frames % (75 * 60)) / 75.0, t.file.filename().string().c_str(),
+                    static_cast<unsigned long long>(t.offset));
+    }
+    if (argc < 4)
+        return 0;
+    const std::filesystem::path dir = argv[3];
+    std::error_code ec;
+    std::filesystem::create_directories(dir, ec);
+    int written = 0;
+    for (const reluva::CueTrack& t : tracks) {
+        if (!t.audio)
+            continue;
+        char name[32];
+        std::snprintf(name, sizeof name, "track%02d.wav", t.number);
+        if (reluva::Error err = reluva::writeCueTrackWav(t, dir / name)) {
+            std::fprintf(stderr, "%s\n", err.message.c_str());
+            return 1;
+        }
+        ++written;
+    }
+    std::printf("%d audio track(s) written to %s\n", written, dir.string().c_str());
+    return 0;
+}
+
 #ifdef RELUVA_ENGINE_NEWWORLDS
 
 // Current understanding (see docs/formats/newworlds/cat.md): the file is a
@@ -5092,6 +5135,8 @@ int cmdPk3List(int argc, char** argv) {
 int main(int argc, char** argv) {
     if (argc >= 2 && std::strcmp(argv[1], "hexdump") == 0)
         return cmdHexdump(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "cue-rip") == 0)
+        return cmdCueRip(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "chunks") == 0)
         return cmdChunks(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "words") == 0)
@@ -5191,6 +5236,7 @@ int main(int argc, char** argv) {
     std::fprintf(stderr,
                  "usage:\n"
                  "  reluva-tool hexdump <file> [offset] [length]\n"
+                 "  reluva-tool cue-rip <file.cue> [output dir]\n"
                  "  reluva-tool chunks <file>\n"
                  "  reluva-tool words <file> [offset] [count]\n"
                  "  reluva-tool table <file> [values per row] [offset]\n"
