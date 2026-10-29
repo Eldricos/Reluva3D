@@ -962,8 +962,7 @@ Allowed under CONTRIBUTING.md:
   two fonts.
 
 - The sound header tags not understood ([bnk.md](../formats/nfs/bnk.md)):
-  `0x92` (1 or 2, but not bytes per sample), `0x06` (25 on most sounds)
-  and the rest.
+  `0x91` and the patch parameters the table there leaves out.
 - In the Pathfinder maps ([mus.md](../formats/nfs/mus.md)): who sends
   events 2 and 3, and the race value that raises the control value in
   some race modes.

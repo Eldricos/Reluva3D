@@ -118,6 +118,9 @@ gives −x to x):
 | Parameter | Meaning |
 |---|---|
 | `0x01`-`0x04` | the key and velocity ranges an alternative (`FD`/`FE`) is for |
+| `0x05` | the voices the sound may take, a bit each (default −1, any) |
+| `0x06` | the priority (default 0). When no voice is free, a sound takes the allowed voice of lowest priority below 102, the oldest of equals, whatever its own priority (`0x4ff86c`) |
+| `0x0B` | the number of voices it takes (default 1) |
 | `0x07` | the root key: played at key k, the sound is (k − root) semitones up |
 | `0x0A` | the pitch bend's range, in semitones each way (4 on most sounds; 10-16 on the engines) |
 | `0x0C` | the pan (0-127), with `0x0D` a random amount either side |
