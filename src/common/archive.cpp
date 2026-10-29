@@ -3,6 +3,8 @@
 
 #include "common/archive.h"
 
+#include "common/fs.h"
+
 #include <algorithm>
 #include <fstream>
 #include <map>
@@ -48,6 +50,8 @@ std::vector<std::string> DirectoryArchive::list() const {
     names.reserve(files_.size());
     for (const auto& [key, path] : files_)
         names.push_back(path.lexically_relative(dir_).generic_string());
+    // In one order on every system (the map's is the library's own).
+    std::sort(names.begin(), names.end(), [](const std::string& a, const std::string& b) { return fs::windowsNameLess(a, b); });
     return names;
 }
 

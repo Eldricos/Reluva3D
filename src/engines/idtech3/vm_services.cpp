@@ -3,6 +3,8 @@
 
 #include "engines/idtech3/vm_services.h"
 
+#include "engines/idtech3/filesystem.h"
+
 #include "engines/idtech3/qvm.h"
 
 #include <algorithm>
@@ -124,9 +126,18 @@ std::vector<std::string> VmFiles::listNames(const SearchSet& files, std::string_
 }
 
 int32_t VmFiles::list(Qvm& vm, int32_t folderAddress, int32_t extensionAddress, int32_t buffer, int32_t size) const {
-    const auto names = listNames(files_, vm.string(folderAddress, 256), vm.string(extensionAddress, 64));
+    const std::string folder = vm.string(folderAddress, 256);
     if (size <= 0 || !vm.valid(buffer, size))
         return 0;
+    if (folder == "$modlist") {
+        // The mods' folders and descriptions, as the engine lists them.
+        std::vector<uint8_t> list;
+        const uint32_t count =
+            packModList(modInstall_.empty() ? std::vector<ModFolder>{} : listMods(modInstall_, modBaseDir_), uint32_t(size), list);
+        std::memcpy(&vm.memory()[size_t(buffer)], list.data(), list.size());
+        return int32_t(count);
+    }
+    const auto names = listNames(files_, folder, vm.string(extensionAddress, 64));
     int32_t count = 0, used = 0;
     for (const std::string& n : names) {
         const auto need = int32_t(n.size()) + 1;

@@ -3,6 +3,7 @@
 
 // Tests for the id Tech 3 engine's readers, on data built here.
 
+#include "common/fs.h"
 #include "engines/idtech3/bindings.h"
 #include "engines/idtech3/client/joystick_input.h"
 #include "engines/idtech3/client/player_input.h"
@@ -1266,6 +1267,46 @@ static void testExpansionFileList(const std::filesystem::path& tmp) {
     CHECK(packFileList({"abc", "toolong", "de"}, 9, out) == 2);
     CHECK((out == std::vector<uint8_t>{'a', 'b', 'c', 0, 'd', 'e', 0, 0}));
     CHECK(packFileList({}, 4, out) == 0 && out == std::vector<uint8_t>{0});
+}
+
+// Folder listings in Windows' order on every system, and the mods list.
+static void testModList(const std::filesystem::path& tmp) {
+    using reluva::fs::windowsNameLess;
+    CHECK(windowsNameLess("aZ", "a_b") && !windowsNameLess("a_b", "aZ")); // '_' after the letters
+    CHECK(windowsNameLess("abc", "ABD") && windowsNameLess("ab", "abc") && !windowsNameLess("abc", "abc"));
+    CHECK(windowsNameLess("ABC", "abc") != windowsNameLess("abc", "ABC")); // told apart all the same
+
+    std::filesystem::remove_all(tmp);
+    const std::vector<uint8_t> text = test::toBytes("x");
+    test::writeFile(tmp / "BaseEF" / "pak0.pk3", text);
+    test::writeFile(tmp / "zeta" / "z.PK3", text);
+    test::writeFile(tmp / "mod_b" / "a.pk3", text);
+    test::writeFile(tmp / "mod_b" / "description.txt", test::toBytes("A mod with a long description, longer than 48 bytes"));
+    test::writeFile(tmp / "modA" / "a.pk3", text);
+    test::writeFile(tmp / "modA" / "description.txt", {});
+    test::writeFile(tmp / "nopaks" / "readme.txt", text);
+    test::writeFile(tmp / ".hidden" / "a.pk3", text);
+    const std::vector<ModFolder> mods = listMods(tmp, "baseef");
+    CHECK(mods.size() == 3);
+    if (mods.size() == 3) {
+        CHECK(mods[0].name == "modA" && mods[0].description == "modA");
+        CHECK(mods[1].name == "mod_b" && mods[1].description == "A mod with a long description, longer than 48 by");
+        CHECK(mods[2].name == "zeta" && mods[2].description == "zeta");
+    }
+    std::vector<uint8_t> out;
+    CHECK(packModList(mods, 4096, out) == 3 && out.size() == 5 + 5 + 6 + 49 + 5 + 5);
+    CHECK(out[0] == 'm' && out[4] == 0 && out[9] == 0);
+    CHECK(packModList(mods, 13, out) == 1 && out.size() == 10); // the second doesn't fit: it ends there
+    CHECK(packModList(mods, 12, out) == 0 && out.size() == 1);   // 2 bytes to spare, and then some
+    CHECK(packModList({}, 8, out) == 0 && out == std::vector<uint8_t>{0});
+
+    // A folder's loose files, in that order too.
+    DirectoryArchive dir;
+    test::writeFile(tmp / "list" / "b_x.txt", text);
+    test::writeFile(tmp / "list" / "bA.txt", text);
+    test::writeFile(tmp / "list" / "a.txt", text);
+    CHECK(!dir.open(tmp / "list"));
+    CHECK((dir.list() == std::vector<std::string>{"a.txt", "bA.txt", "b_x.txt"}));
 }
 
 // Sounds by name: decoded once, missing and broken ones remembered.
@@ -3274,6 +3315,7 @@ int main() {
     testVmFileList();
     testSoundLibrary(tmp / "sounds");
     testExpansionFileList(tmp / "filelist");
+    testModList(tmp / "mods");
     testAmbientSets();
     testServerWorld();
     testSaveChunks();

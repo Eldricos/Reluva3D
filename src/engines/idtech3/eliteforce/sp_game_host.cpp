@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
+#include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 
 #include "engines/idtech3/eliteforce/game_info.h"
@@ -14,6 +15,7 @@
 #include "common/detection.h"
 #include "common/md5.h"
 #include "common/archive.h"
+#include "common/fs.h"
 #include "engines/idtech3/vm_services.h"
 
 #include <algorithm>
@@ -1476,16 +1478,17 @@ void SpGameHost::addImports() {
             [readChunk](x86::Cpu& c) { return readChunk(c, true); });
         own(XpFsGetFileList, "engine[FS_GetFileList]", [this, str](x86::Cpu& c) -> uint32_t {
             // (path, extension, buffer, size) -> how many, as that
-            // engine's (expansionFileList, packFileList); "$modlist"
-            // (mods): none.
+            // engine's (expansionFileList, packFileList); "$modlist": the
+            // mods' folders and descriptions (listMods).
             const uint32_t path = c.arg(0), buffer = c.arg(2), size = c.arg(3);
             if (!path || int32_t(size) <= 0 || !c.valid(buffer, size))
                 return 0;
             const std::string folder = str(c, 0, 256);
             std::vector<uint8_t> list;
             const uint32_t count =
-                folder == "$modlist" ? packFileList({}, size, list)
-                                     : packFileList(expansionFileList(files_, folder, c.arg(1) ? str(c, 1, 64) : ""), size, list);
+                folder != "$modlist" ? packFileList(expansionFileList(files_, folder, c.arg(1) ? str(c, 1, 64) : ""), size, list)
+                : modInstall.empty() ? packModList({}, size, list)
+                                     : packModList(listMods(modInstall, modBaseDir), size, list);
             std::memcpy(c.memory().data() + buffer, list.data(), list.size());
             return count;
         });
@@ -1781,7 +1784,7 @@ std::vector<std::string> expansionFileList(const SearchSet& files, std::string_v
     };
     for (const Archive* archive : files.archives()) {
         if (dynamic_cast<const DirectoryArchive*>(archive)) {
-            // Loose files: the folder's own, in name order.
+            // Loose files: the folder's own, in Windows' order.
             std::vector<std::string> names;
             for (const std::string& n : archive->list()) {
                 const std::string key = lower(n);
@@ -1791,7 +1794,7 @@ std::vector<std::string> expansionFileList(const SearchSet& files, std::string_v
                     key.compare(key.size() - ext.size(), ext.size(), ext) == 0)
                     names.push_back(n.substr(base.size() + 1));
             }
-            std::sort(names.begin(), names.end(), [&](const std::string& a, const std::string& b) { return lower(a) < lower(b); });
+            std::sort(names.begin(), names.end(), [](const std::string& a, const std::string& b) { return reluva::fs::windowsNameLess(a, b); });
             for (const std::string& n : names)
                 add(n);
             continue;

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
+#include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/eliteforce/sp_ui_host.h"
 
 #include "engines/idtech3/eliteforce/game_info.h"
@@ -436,10 +437,19 @@ void SpUiHost::addImports() {
         return 0u;
     });
     import(FsGetFileList, [this](x86::Cpu& c) -> uint32_t {
-        // (folder, extension, buffer, size) -> count. "$modlist": no mods.
+        // (folder, extension, buffer, size) -> count. "$modlist": the
+        // mods' folders and descriptions, as the engine lists them.
         const std::string folder = str(c, 0, 256);
-        if (folder == "$modlist")
-            return 0;
+        if (folder == "$modlist") {
+            const uint32_t buffer = c.arg(2), size = c.arg(3);
+            if (int32_t(size) <= 0 || !c.valid(buffer, size))
+                return 0;
+            std::vector<uint8_t> list;
+            const uint32_t count =
+                packModList(modInstall.empty() ? std::vector<ModFolder>{} : listMods(modInstall, modBaseDir), size, list);
+            std::memcpy(c.memory().data() + buffer, list.data(), list.size());
+            return count;
+        }
         return fileList(folder, str(c, 1, 64), c.arg(2), c.arg(3));
     });
     import(FsReadFile, [this](x86::Cpu& c) -> uint32_t {

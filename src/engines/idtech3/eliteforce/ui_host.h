@@ -113,6 +113,11 @@ public:
     std::function<void(const std::string& sound, int channel)> startLocalSound;
     // What keys do, which the Controls menu shows and changes; none if not set.
     KeyBindings* bindings = nullptr;
+    // The install whose mods the Mods menu lists ("$modlist"), and its base
+    // game's folder.
+    void setModRoot(const std::filesystem::path& install, const std::string& baseDir) {
+        vmFiles_.setModRoot(install, baseDir);
+    }
     // Called by every system call before it's handled, for logging.
     std::function<void(int number, const int32_t* args)> trace;
     // Finding servers for the server list (calls 46 to 53, and the

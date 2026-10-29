@@ -118,6 +118,10 @@ public:
     std::function<uint32_t(uint32_t flag)> askGame;
     // What keys do (the Controls menu); none: no bindings.
     KeyBindings* bindings = nullptr;
+    // The install whose mods the Mods menu lists ("$modlist": listMods),
+    // and its base game's folder. None listed without it.
+    std::filesystem::path modInstall;
+    std::string modBaseDir;
     // Whether a shader or picture can be found (RegisterShader gives 0 for
     // one that can't); unset: all can.
     std::function<bool(const std::string& name)> shaderExists;

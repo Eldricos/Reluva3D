@@ -59,6 +59,7 @@ bool MenuLayer::start(int32_t menu) {
     cvars_.create("color", "4", player);
     JoystickInput::registerCvars(cvars_); // the Controls menu's joystick settings
     ui_ = std::make_unique<eliteforce::UiHost>(ctx_.files, cvars_);
+    ui_->setModRoot(ctx_.installPath, ctx_.game.baseDir);
     if (scene_)
         scene_->reset(); // new handles
     ui_->bindings = &ctx_.bindings;

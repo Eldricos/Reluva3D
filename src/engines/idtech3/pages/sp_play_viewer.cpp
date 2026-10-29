@@ -226,6 +226,8 @@ void SpPlayViewer::startMenus() {
         return true;
     };
     ui_->saveDir = saveDir_;
+    ui_->modInstall = ctx_.installPath;
+    ui_->modBaseDir = ctx_.game.baseDir;
     ui_->readSave = [this](const std::string& name, std::vector<uint8_t>& file) { return readSave(name, file); };
     ui_->listSave = [this](const std::string& name) {
         std::vector<uint8_t> file;
@@ -455,6 +457,8 @@ void SpPlayViewer::start(int index, int32_t loadMode, raven::SaveReader* save) {
     // then the client half.
     game_ = std::make_unique<eliteforce::SpGameHost>(ctx_.files, cvars_);
     game_->print = [](const std::string& text) { std::fputs(text.c_str(), stdout); };
+    game_->modInstall = ctx_.installPath;
+    game_->modBaseDir = ctx_.game.baseDir;
     game_->soundSystem = soundSystem_.get();
     game_->shaderExists = [this](const std::string& name) { return shaderFound(ctx_.shaders, ctx_.files, name); };
     // What the client game shows where the level has no picture of its

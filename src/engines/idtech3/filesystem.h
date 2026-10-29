@@ -6,6 +6,7 @@
 #include "common/archive.h"
 #include "common/types.h"
 
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <string_view>
@@ -30,5 +31,19 @@ constexpr int kPrioritiesPerGameDir = 1000;
 // when it isn't wanted).
 Error mountGameDir(SearchSet& set, const std::filesystem::path& install, std::string_view gameDir, int layer,
                    std::vector<std::string>& warnings, const std::vector<std::string>& skip = {});
+
+// The mods an install holds, as Elite Force's engines list them for
+// "$modlist" (FS_GetFileList; 1.2's and the Expansion Pack's alike): the
+// install's folders but the base game's and those starting with '.', that
+// hold a .pk3 of their own, in Windows' order (fs::windowsNameLess); each
+// with the first 48 bytes of its description.txt, or its name.
+struct ModFolder {
+    std::string name, description;
+};
+std::vector<ModFolder> listMods(const std::filesystem::path& install, std::string_view baseDir);
+// Into a buffer of `size` bytes as they write it: each mod's name and
+// description, each with its NUL, stopping at the first that would leave
+// 2 bytes or fewer. Returns how many were written.
+uint32_t packModList(const std::vector<ModFolder>& mods, uint32_t size, std::vector<uint8_t>& out);
 
 } // namespace reluva::idtech3

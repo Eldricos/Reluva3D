@@ -2467,6 +2467,14 @@ int cmdGeoSurvey(int argc, char** argv) {
 
 #ifdef RELUVA_ENGINE_IDTECH3
 // Mounts an id Tech 3 game folder (".../BaseEF") the way the engine does.
+// A game folder given on the command line: its install (the folder above
+// it) and its own name, for the mods list ("$modlist").
+std::pair<std::filesystem::path, std::string> idTech3Folders(const char* folder) {
+    const std::filesystem::path dir = std::filesystem::path(folder).lexically_normal();
+    const std::filesystem::path path = dir.has_filename() ? dir : dir.parent_path();
+    return {path.parent_path(), path.filename().string()};
+}
+
 bool mountIdTech3(const char* folder, reluva::SearchSet& set) {
     const std::filesystem::path dir = std::filesystem::path(folder).lexically_normal();
     const std::filesystem::path path = dir.has_filename() ? dir : dir.parent_path();
@@ -3290,6 +3298,7 @@ int cmdUiRun(int argc, char** argv) {
     for (const std::string& name : latched)
         cvars.create(name, "0", q3::CvarStore::ServerInfo | q3::CvarStore::Latch);
     ef::UiHost ui(set, cvars);
+    ui.setModRoot(idTech3Folders(argv[2]).first, idTech3Folders(argv[2]).second);
     if (ingameType >= 0) {
         // As the Play page's in-game menu: connected to a match of that
         // game type, its server info the menus' configstring 0.
@@ -4149,6 +4158,7 @@ int cmdSpMenus(int argc, char** argv) {
         cvars.set(name, value);
     q3::KeyBindings bindings;
     ef::SpUiHost ui(set, cvars);
+    std::tie(ui.modInstall, ui.modBaseDir) = idTech3Folders(argv[2]);
     ui.bindings = &bindings;
     ui.print = [](const std::string& text) {
         std::printf("menus: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
@@ -4317,6 +4327,7 @@ int cmdSpRun(int argc, char** argv) {
         return 1;
     }
     ef::SpGameHost game(set, cvars);
+    std::tie(game.modInstall, game.modBaseDir) = idTech3Folders(argv[2]);
     game.print = [](const std::string& text) {
         std::printf("game: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
     };

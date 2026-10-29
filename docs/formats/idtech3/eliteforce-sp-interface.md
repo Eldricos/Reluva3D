@@ -113,7 +113,22 @@ holodeck garden), Proton, Chaotica and others.
 The engine's listing (0x415700 in its `stvoy.exe`):
 
 - A null path gives 0; a null extension is taken as empty (any file).
-- `$modlist` lists the mods' folders instead (0x415a00).
+- `$modlist` lists the mods instead (0x415a00; 1.2's single-player engine
+  at 0x417170 and its multiplayer one at 0x420220 do the same, for their
+  menus' Mods screens, which set `fs_game` and run `vid_restart`):
+  - the install folder's folders (fs_basepath, as the system lists them),
+    except the base game's (`baseEF`, ignoring case) and those starting
+    with `.`;
+  - only those holding a `.pk3` of their own;
+  - each written as its name and then its description, each with a NUL.
+    The description is the first 48 bytes of `<mod>/description.txt`, up
+    to a NUL, or the name if that file is missing or empty.
+  - The buffer is first emptied. The list stops at the first mod that
+    would leave 2 bytes or fewer, with no extra NUL after the last.
+
+  Reluva lists them the same way (`listMods` and `packModList` in
+  `filesystem.cpp`). Choosing a mod sets `fs_game`, but Reluva doesn't
+  load mods yet.
 - The search path is walked in order. A pak's files are taken in the pak's
   own order when:
   - the file's folder is at least as long as the path and starts with it
@@ -133,8 +148,14 @@ The engine's listing (0x415700 in its `stvoy.exe`):
 - It returns how many names it wrote.
 
 Reluva follows this (`expansionFileList` and `packFileList` in
-`sp_game_host.cpp`). It lists loose files in name order, which is the
-order Windows gives them in.
+`sp_game_host.cpp`).
+
+Where a folder's listing reaches the game (loose files, mods, the order
+paks are searched in), Reluva puts names in the order Windows lists an
+NTFS folder: compared with a to z taken as upper case, so `_` comes after
+the letters (`fs::windowsNameLess`). The order is then the same on Linux
+and macOS, whose own listings come in other orders. Names that differ only
+in case, which only those systems can hold, are ordered by their bytes.
 
 Reluva's host (`sp_game_host.cpp`) recognises the Expansion Pack's DLL by
 its signature and lays its table out so, passing the extra arguments;

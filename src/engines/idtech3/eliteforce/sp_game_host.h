@@ -267,6 +267,10 @@ public:
 
     // What the game prints (Printf).
     std::function<void(const std::string&)> print;
+    // The install whose mods "$modlist" lists (the Expansion Pack's
+    // FS_GetFileList), and its base game's folder. None listed without it.
+    std::filesystem::path modInstall;
+    std::string modBaseDir;
     // Each call the game makes to the engine: its slot and the address it
     // was called from.
     std::function<void(int slot, uint32_t from)> trace;

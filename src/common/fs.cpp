@@ -18,6 +18,17 @@ std::string toLower(std::string_view s) {
     return out;
 }
 
+bool windowsNameLess(std::string_view a, std::string_view b) {
+    auto upper = [](char c) { return c >= 'a' && c <= 'z' ? static_cast<unsigned char>(c - 'a' + 'A') : static_cast<unsigned char>(c); };
+    const size_t n = std::min(a.size(), b.size());
+    for (size_t i = 0; i < n; ++i)
+        if (upper(a[i]) != upper(b[i]))
+            return upper(a[i]) < upper(b[i]);
+    if (a.size() != b.size())
+        return a.size() < b.size();
+    return a < b;
+}
+
 static std::optional<stdfs::path> findEntry(const stdfs::path& dir, const std::string& lowerName) {
     std::error_code ec;
     for (stdfs::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {

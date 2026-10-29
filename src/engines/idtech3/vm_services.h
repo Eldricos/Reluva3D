@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <map>
 #include <string>
@@ -76,12 +77,21 @@ public:
     static std::vector<std::string> listNames(const SearchSet& files, std::string_view folder,
                                               std::string_view extension);
 
+    // Where "$modlist" looks for mods (listMods): the install and its base
+    // game's folder. Unset, it lists none.
+    void setModRoot(std::filesystem::path install, std::string baseDir) {
+        modInstall_ = std::move(install);
+        modBaseDir_ = std::move(baseDir);
+    }
+
     size_t openCount() const { return open_.openCount(); }
     void setOnRead(std::function<void(const std::string&)> f) { open_.onRead = std::move(f); }
 
 private:
     const SearchSet& files_;
     GameFiles open_;
+    std::filesystem::path modInstall_;
+    std::string modBaseDir_;
 };
 
 // The memory and math calls numbered 100 and up, the same in each module:
