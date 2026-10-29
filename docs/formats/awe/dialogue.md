@@ -802,8 +802,12 @@ ends. Exits exist only with gen (NPC clicks or `forcegen`).
    case kept. Tags are looked up without regard to case (0x47fa1b,
    `_wcsicmp`), so that comes to the same.
 10. The update order between the Povent runner and the pending action
-    (+0x320) within one frame is as read from the code; it can't be
-    watched without the game running.
+    (+0x320) within one frame is as read from the code (a fixed order in
+    the frame's update, no branch between them); it hasn't been watched
+    in the running game. A difference would last one frame, with nothing
+    to see, so it's left as read. If the other AWE games give a reason to
+    run the original under a debugger (Wine here, or x64dbg on Windows),
+    two breakpoints would settle it.
 
 
 ## In Reluva
