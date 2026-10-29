@@ -51,4 +51,11 @@ struct Horizon {
 
 Error parseHorizon(std::string_view text, Horizon& out);
 
+// The fog value the game sends its renderer (THRASH state 0xe; thrash.md,
+// Fog) for a fog density in percent: for the scenery, and for the sky's
+// horizon picture, earth and clouds, which it fogs less by the horizon's
+// radius and the fog's effect on the pixmap. 0 for no fog.
+int sceneryFogValue(int density);
+int skyFogValue(const Horizon& h, int density);
+
 } // namespace reluva::nfs

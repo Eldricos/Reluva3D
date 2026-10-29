@@ -806,6 +806,18 @@ void testHorizon() {
     CHECK(parseHorizon(text + "7,", h));                      // a number too many
     CHECK(parseHorizon("1,2,3,4,5,99,", h));                  // regions that aren't there
     CHECK(parseHorizon("/* only a comment */", h));
+
+    // The fog values the game sent for Hometown's day (density 5, pixmap
+    // effect 70, radius 1500), and with the radius made 2000.
+    CHECK(sceneryFogValue(5) == 475 && sceneryFogValue(0) == 0 && sceneryFogValue(100) == 5);
+    Horizon hometown;
+    hometown.fogOnPixmap = 70;
+    hometown.radius = 1500;
+    CHECK(skyFogValue(hometown, 5) == 2375);
+    hometown.radius = 2000;
+    CHECK(skyFogValue(hometown, 5) == 2850);
+    hometown.fogOnPixmap = 100; // none on the pixmap: no fog for the sky
+    CHECK(skyFogValue(hometown, 5) == 0);
 }
 
 void testCollision() {

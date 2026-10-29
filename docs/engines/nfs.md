@@ -281,9 +281,13 @@ Not done yet:
 
 - comparing with screenshots from the original, which this phase's
   "done" asked for. There's no original to run here, so the checks were
-  internal: consistency, text reading correctly, walls along fences;
-- fog, clouds and the sun;
-- the records in each track block (positions, lights, sounds);
+  internal: consistency, text reading correctly, walls along fences.
+  Since then the sky has been checked against the hosted game's own
+  drawing ([hrz.md](../formats/nfs/hrz.md)).
+
+Added later: fog, clouds and the sun ([hrz.md](../formats/nfs/hrz.md)),
+then drawn as the game draws them; and the records in each track block,
+its lights and sounds ([frd.md](../formats/nfs/frd.md)).
 
 What was planned:
 
@@ -627,8 +631,8 @@ Started. Done so far:
     THRASH's books; the drawing is Reluva's). Told of a 3D card, the
     game also uses its 16-bit texture sets rather than `_8.qfs`. Fog is
     drawn as `voodoo2a.dll` has Glide draw it, natively and on the GPU.
-    `nfs-host -present voodoo2a.dll` does the same; without it the tool
-    runs softtria as before.
+    `nfs-host` does the same; `-present none` or `-renderer` gives the
+    game softtria as before.
 
   Checked with a copy of the game whose `.hrz` files give red fog
   (density 100, then 60 on every track): the far road and scenery turn
@@ -954,7 +958,9 @@ Allowed under CONTRIBUTING.md:
 
 - The units of the moving objects' key delays (60 ticks a second is
   assumed), and their rotation sense.
-- How many times the horizon picture repeats round the sky.
+- In the sky ([hrz.md](../formats/nfs/hrz.md)): where the horizon's
+  slot 0 and the sun sit round the circle, the sun's size, the clouds'
+  drift, and which texture set the night and weather skies use.
 
 - The `0x7C` blocks on cockpit pictures (hot spots?), and the flare
   parameters in `0x6F` text blocks (`A0 B45 R24 ROTATE`).
@@ -967,8 +973,6 @@ Allowed under CONTRIBUTING.md:
 - In the Pathfinder maps ([mus.md](../formats/nfs/mus.md)):
   - the sections' first byte;
   - the 16-byte events;
-  - header byte 5;
-  - which section a race starts at (Reluva starts at 0);
   - what the game feeds in as the intensity.
 - In the movies ([mad.md](../formats/nfs/mad.md)):
   - whether the game's decoder keeps the quantiser in 16 bits, as FFmpeg
@@ -976,12 +980,9 @@ Allowed under CONTRIBUTING.md:
   - what the game shows for the demos' fade-in frames;
   - the frame header's unused fields.
 
-- Which track number is which track. Is `_8.qfs` the 8-bit (software
-  renderer) texture set?
+- Which track number is which track.
 - Whether the Classics release differs from the original 1998 retail in
   data or code. Other releases (UK, German, patched) need their own
   hashes.
 - How the game uses `timeSetEvent` and `CreateThread`: sim ticks on a
   timer thread, or only audio and CD streaming?
-- The THRASH structures (vertex and texture formats, state ids): from
-  the calls the game makes in the spike.

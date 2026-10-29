@@ -38,6 +38,7 @@
 #include <fstream>
 #include <iterator>
 #include <map>
+#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -78,7 +79,9 @@ const char* const kUsageLines =
     "                       [-deterministic instructionsPerMs] (a clock of instructions; the end state hashed)\n"
     "                       [-hotspots from to] (instructions counted by where they run, 16-byte blocks)\n"
     "                       [-gpulog] (THRASH recorded as for the GPU; each frame's list summed up)\n"
-    "                       [-present voodoo2a.dll] (the renderer the game is told of; -renderer's loaded)\n"
+    "                       [-gpudump list dir] (that list in full: list.csv and its textures)\n"
+    "                       [-present voodoo2a.dll] (the renderer the game is told of, -renderer's loaded in\n"
+    "                       its place; the default; none: as -renderer)\n"
     "  reluva-tool nfs-native-check <game folder> [trials]\n"
     "  reluva-tool nfs-huff-check <game folder> [out dir]\n"
     "  reluva-tool nfs-survey <folder>... [-v]\n"
@@ -964,6 +967,9 @@ int cmdNfsHost(int argc, char** argv) {
     }
     reluva::nfs::GameHost::Options options;
     options.saveFolder = stdfs::temp_directory_path() / "reluva_nfs3_save";
+    // As the Play page: the game told of a Voodoo 2, so that it draws its sky
+    // and fog (docs/engines/nfs.md, Sky and fog).
+    options.presentedRenderer = "voodoo2a.dll";
     int traceCount = 0, every = 50; // traceCount: the last instructions kept, for a failure (0: none)
     std::vector<uint32_t> watch; // addresses at which to print the registers
     std::string dumpFile;        // the emulated memory, written at the end
@@ -974,6 +980,8 @@ int cmdNfsHost(int argc, char** argv) {
     std::string wavFile;                     // what the game's sound buffers played
     uint64_t hotFrom = 0, hotTo = 0;         // instructions counted by where they run, over this range
     bool gpuLog = false;
+    uint64_t gpuDumpList = 0; // a list (1 the first) written out in full
+    std::string gpuDumpDir;
     std::string framesDir;
     std::string forceLogFile; // the forces the game asks for, each time they change, as CSV
     for (int a = 3; a < argc; ++a) {
@@ -997,6 +1005,11 @@ int cmdNfsHost(int argc, char** argv) {
             options.thrashLogTo = std::strtoull(argv[++a], nullptr, 0);
         } else if (arg == "-present" && a + 1 < argc) {
             options.presentedRenderer = argv[++a];
+            if (options.presentedRenderer == "none")
+                options.presentedRenderer.clear();
+        } else if (arg == "-renderer" && a + 1 < argc) { // the game told of this one, and given it
+            options.renderer = argv[++a];
+            options.presentedRenderer.clear();
         } else if (arg == "-native") {
             options.nativeThrash = true;
         } else if (arg == "-deterministic" && a + 1 < argc) {
@@ -1014,6 +1027,11 @@ int cmdNfsHost(int argc, char** argv) {
             options.nativeThrash = true;
             options.gpuThrash = true;
             gpuLog = true;
+        } else if (arg == "-gpudump" && a + 2 < argc) { // a list in full: its vertices, by batch, and textures
+            options.nativeThrash = true;
+            options.gpuThrash = true;
+            gpuDumpList = std::strtoull(argv[++a], nullptr, 10);
+            gpuDumpDir = argv[++a];
         } else if (arg == "-joystick" && a + 1 < argc)
             options.joystick = argv[++a];
         else if (arg == "-net")
@@ -1090,8 +1108,59 @@ int cmdNfsHost(int argc, char** argv) {
     std::vector<uint32_t> recent(size_t(std::max(traceCount, 1)));
     size_t recentAt = 0;
     int watched = 0;
-    if (gpuLog)
+    // Every texture as it now is, for -gpudump.
+    std::map<uint32_t, reluva::nfs::ThrashFrame::Texture> dumpTextures;
+    uint64_t lists = 0;
+    if (gpuLog || gpuDumpList)
         host.onThrashFrame = [&](reluva::nfs::ThrashFrame&& f) {
+            if (f.resetTextures)
+                dumpTextures.clear();
+            for (auto& t : f.textures)
+                dumpTextures[t.handle] = t;
+            if (++lists == gpuDumpList) {
+                // batch,texture,width,height,blend,mode,cull,fog,fogcolour then x,y,z,rhw,diffuse,u,v per vertex
+                std::string csv = "batch,texture,width,height,blend,mode,cull,fog,fogcolour,x,y,z,rhw,diffuse,u,v\n";
+                char line[256];
+                std::set<uint32_t> used;
+                for (size_t i = 0; i < f.batches.size(); ++i) {
+                    const auto& b = f.batches[i];
+                    auto t = dumpTextures.find(b.texture);
+                    const int w = t == dumpTextures.end() ? 0 : t->second.width;
+                    const int h = t == dumpTextures.end() ? 0 : t->second.height;
+                    used.insert(b.texture);
+                    for (uint32_t v = b.first; v < b.first + b.count; ++v) {
+                        const auto& x = f.vertices[v];
+                        std::snprintf(line, sizeof line, "%zu,%u,%d,%d,%d,%d,%d,%g,%06x,%g,%g,%g,%g,%08x,%g,%g\n", i,
+                                      b.texture, w, h, int(b.blend), b.blendMode, b.cull, double(b.fog), b.fogColour,
+                                      double(x.x), double(x.y), double(x.z), double(x.rhw), x.diffuse, double(x.u),
+                                      double(x.v));
+                        csv += line;
+                    }
+                }
+                stdfs::create_directories(gpuDumpDir);
+                writeFile(stdfs::path(gpuDumpDir) / "list.csv", std::vector<uint8_t>(csv.begin(), csv.end()));
+                for (uint32_t handle : used) {
+                    auto t = dumpTextures.find(handle);
+                    if (t == dumpTextures.end() || t->second.rgba.empty())
+                        continue;
+                    reluva::image::Image img;
+                    img.w = t->second.width;
+                    img.h = t->second.height;
+                    img.rgba.resize(t->second.rgba.size() * 4);
+                    for (size_t i = 0; i < t->second.rgba.size(); ++i) {
+                        const uint32_t c = t->second.rgba[i];
+                        img.rgba[4 * i] = uint8_t(c >> 16);
+                        img.rgba[4 * i + 1] = uint8_t(c >> 8);
+                        img.rgba[4 * i + 2] = uint8_t(c);
+                        img.rgba[4 * i + 3] = uint8_t(c >> 24);
+                    }
+                    writeFile(stdfs::path(gpuDumpDir) / ("texture" + std::to_string(handle) + ".tga"),
+                              reluva::image::encodeTga(img));
+                }
+                std::printf("  list %llu written to %s\n", (unsigned long long)lists, gpuDumpDir.c_str());
+            }
+            if (!gpuLog)
+                return;
             size_t textured = 0;
             for (const auto& b : f.batches)
                 textured += b.texture ? b.count : 0;

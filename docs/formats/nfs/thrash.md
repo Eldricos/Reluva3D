@@ -309,7 +309,10 @@ pixels along edges. The comparison found two bugs, both fixed:
   frames that add to the last.
 
 `nfs-host -gpulog` records as for the GPU, without one, and sums up
-each frame's list: batches, vertices, textures, the flip's rectangle.
+each frame's list: batches, vertices, textures, the flip's rectangle. `nfs-host -gpudump n dir` writes the nth list out in full: every
+vertex with its batch's texture, blending, culling and fog
+(`list.csv`), and the textures it uses as TGA files. That is how the
+game's sky was measured ([hrz.md](hrz.md)).
 
 DirectDraw's frames (the movies) are shown over an empty frame. Frames
 are drawn at `renderscale` times 640x480 (2 unless set): the same

@@ -422,7 +422,7 @@ void GameHost::addSystem() {
                     softtriaKnown_ = dllFile == "softtria.dll" && m->image.timestamp == 0x35e4344f &&
                                      m->image.imageBase == 0x60000000;
                 }
-                say("  " + name + " loaded at " + hex(m->base));
+                say("  " + name + (dllFile != name ? " (" + dllFile + ")" : std::string()) + " loaded at " + hex(m->base));
                 if (Error e = process_->attach(*m)) {
                     say("  " + name + ": " + e.message);
                     return 0u;

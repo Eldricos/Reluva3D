@@ -20,10 +20,10 @@ constexpr float kPi = 3.14159265358979f;
 constexpr const char* kLaneSheet = "GameData/Render/pc/sfx.fsh";
 constexpr const char* kDetailNames[] = {"low", "medium", "high"};
 // The horizon files and sky pictures of each variant: day, night,
-// weather, night with weather.
+// weather, night with weather. (sky.fsh's CHRD, CHRN... are the cars'
+// reflections; the horizon picture is in the track's texture sheet.)
 constexpr const char* kVariantNames[] = {"day", "night", "weather", "night, weather"};
 constexpr const char* kHorizonSuffix[] = {"", "n", "w", "nw"};
-constexpr const char* kHorizonPicture[] = {"CHRD", "CHRN", "CHRW", "CHNW"};
 // The sun (or moon) of each; night with weather has its own on some
 // tracks (SNNW), the weather's on the rest.
 constexpr const char* kSunPicture[] = {"SUND", "SUNN", "SUNW", "SNNW"};
@@ -105,7 +105,7 @@ void TrackPage::releaseSky() {
         renderer_->destroyMesh(skyMesh_);
     skyMesh_ = 0;
     horizonPicture_ = sunPicture_ = cloudPicture_ = 0; // owned by textures_
-    domeIndices_ = bandIndices_ = sunFirst_ = sunIndices_ = cloudFirst_ = cloudIndices_ = 0;
+    domeIndices_ = earthIndices_ = bandIndices_ = sunFirst_ = sunIndices_ = cloudFirst_ = cloudIndices_ = 0;
 }
 
 void TrackPage::release() {
@@ -132,6 +132,14 @@ void TrackPage::release() {
     moving_.clear();
     for (auto& b : batches_)
         b.clear();
+}
+
+// The track's texture sheet: sets 0 and 1, then the same in 8 bits (for
+// the software renderer).
+std::string TrackPage::textureSheet() const {
+    const std::string number = tracks_[index_].substr(4); // "trk003" -> "03"
+    return "GameData/Tracks/" + tracks_[index_] + "/tr" + number + std::to_string(textureSet_ % 2) +
+           (textureSet_ >= 2 ? "_8" : "") + ".qfs";
 }
 
 // The GPU texture for a picture of a sheet (by its number, the shape
@@ -177,8 +185,7 @@ gfx::TextureId TrackPage::picture(const std::string& sheet, int number, bool lan
 }
 
 // A picture of the track's sky.fsh by name, and its text (the sun's).
-gfx::TextureId TrackPage::skyPicture(const std::string& name, std::string* text, const Horizon::Rgb* tint,
-                                     float tintAmount) {
+gfx::TextureId TrackPage::skyPicture(const std::string& name, std::string* text) {
     const std::string sheet = "GameData/Tracks/" + tracks_[index_] + "/sky.fsh";
     bool additive = false;
     picture(sheet, -1, false, &additive); // loads the sheet
@@ -190,16 +197,50 @@ gfx::TextureId TrackPage::skyPicture(const std::string& name, std::string* text,
             gfx::TextureId id = 0;
             if (decodeShape(s, img))
                 return 0;
-            if (tint && tintAmount > 0)
-                for (size_t i = 0; i < img.rgba.size(); i += 4)
-                    for (int c = 0; c < 3; ++c)
-                        img.rgba[i + size_t(c)] = static_cast<uint8_t>(
-                            img.rgba[i + size_t(c)] + ((*tint)[size_t(c)] - img.rgba[i + size_t(c)]) * tintAmount);
             if (!renderer_->createTexture(img.w, img.h, img.rgba.data(), {}, id))
                 textures_.push_back(id);
             return id;
         }
     return 0;
+}
+
+// The horizon picture: the track sheet's pictures 0000-0007 side by side,
+// the eight tiles nfs3.exe draws round the horizon (thrash.md's log of its
+// drawing; hrz.md).
+gfx::TextureId TrackPage::horizonStrip() {
+    const std::string sheet = textureSheet();
+    bool additive = false;
+    picture(sheet, 0, false, &additive); // loads the sheet
+    auto bank = banks_.find(sheet);
+    if (bank == banks_.end())
+        return 0;
+    constexpr int kTiles = 8;
+    std::array<image::Image, kTiles> tiles;
+    for (int i = 0; i < kTiles; ++i) {
+        char name[8];
+        std::snprintf(name, sizeof name, "%04d", i);
+        const Shape* shape = nullptr;
+        for (const Shape& s : bank->second.shapes)
+            if (s.name == name)
+                shape = &s;
+        if (!shape || decodeShape(*shape, tiles[size_t(i)]) || tiles[size_t(i)].w != tiles[0].w ||
+            tiles[size_t(i)].h != tiles[0].h)
+            return 0;
+    }
+    image::Image strip;
+    strip.w = tiles[0].w * kTiles;
+    strip.h = tiles[0].h;
+    strip.rgba.resize(size_t(strip.w) * size_t(strip.h) * 4);
+    const size_t row = size_t(tiles[0].w) * 4;
+    for (int i = 0; i < kTiles; ++i)
+        for (int y = 0; y < strip.h; ++y)
+            std::copy_n(tiles[size_t(i)].rgba.data() + size_t(y) * row, row,
+                        strip.rgba.data() + size_t(y) * row * kTiles + size_t(i) * row);
+    gfx::TextureId id = 0;
+    if (renderer_->createTexture(strip.w, strip.h, strip.rgba.data(), {}, id))
+        return 0;
+    textures_.push_back(id);
+    return id;
 }
 
 // The sky of the variant shown: a dome shaded from the earth's colours
@@ -267,7 +308,9 @@ void TrackPage::loadSky() {
             out.pos[2] = -r * std::cos(a);
             const float toSun = 0.5f + 0.5f * std::cos(a - sunAngle);
             setColour(out, mix(opposite, sunSide, toSun));
-            out.uv[0] = static_cast<float>(i) / kSegments * 4; // the picture four times round
+            // The horizon picture twice round: nfs3.exe has 16 slots of
+            // 22.5 degrees, a tile of the picture each (0x478bc0).
+            out.uv[0] = static_cast<float>(i) / kSegments * 2;
             out.uv[1] = v;
             vertices.push_back(out);
         }
@@ -283,13 +326,18 @@ void TrackPage::loadSky() {
     ring(top, radius, h.skyTop, h.skyTop, 0);
     ring(top + radius * 0.5f, 0, h.skyTop, h.skyTop, 0);
     strip(0);
+    earthIndices_ = static_cast<uint32_t>(indices.size()); // the earth's, fogged as the sky
     strip(2 * (kSegments + 1));
     strip(3 * (kSegments + 1));
     domeIndices_ = static_cast<uint32_t>(indices.size());
 
     // The horizon picture between its bottom and top, slightly inside
-    // the dome. With the mirror flag, every other copy is flipped.
-    if (h.hasPixmap) {
+    // the dome: the track sheet's first eight pictures (0000-0007) side by
+    // side. With the mirror flag the second copy is the first flipped, as
+    // the game draws slots 8-15 (tiles 7 to 0, each flipped).
+    if (h.hasPixmap)
+        horizonPicture_ = horizonStrip();
+    if (horizonPicture_) {
         const uint32_t first = static_cast<uint32_t>(vertices.size());
         ring(base + static_cast<float>(h.pixmapBottom), radius * 0.98f, {255, 255, 255}, {255, 255, 255}, 1);
         ring(base + static_cast<float>(h.pixmapTop), radius * 0.98f, {255, 255, 255}, {255, 255, 255}, 0);
@@ -301,9 +349,6 @@ void TrackPage::loadSky() {
             }
         strip(first);
         bandIndices_ = static_cast<uint32_t>(indices.size()) - domeIndices_;
-        // Fogged by the fog's effect on it (percent) times its density.
-        horizonPicture_ = skyPicture(kHorizonPicture[variant_], nullptr, &h.fogColour,
-                                     h.fogOnPixmap / 100.0f * h.fogDensity / 100.0f);
     }
 
     // The sun (or moon): its picture facing the camera, A degrees round
@@ -333,36 +378,39 @@ void TrackPage::loadSky() {
         sunIndices_ = 6;
     }
 
-    // The clouds: the variant's tile over a layer at the visual height,
-    // fading out towards the horizon (cloud type 1 additive, 2 blended;
-    // brightness 0-255). They drift with the wind (update()).
+    // The clouds: the variant's tile on a dome around the camera, as the
+    // game draws it (measured from its drawing, docs/formats/nfs/hrz.md):
+    // a grid of tiles about 450 units across, at off1 + 3 x off2 x
+    // cos(r / 1900) above the camera for the dome offset (off1, off2) and
+    // r along the ground. Each corner's brightness is between bright -
+    // variance and bright (cloud type 1 additive, 2 blended).
     if (h.cloudType != 0)
         cloudPicture_ = skyPicture(kCloudPicture[variant_], nullptr);
     if (cloudPicture_) {
         cloudFirst_ = static_cast<uint32_t>(indices.size());
-        constexpr int kRings = 8;
-        const float extent = radius * 1.5f, height = static_cast<float>(std::max(h.visualHeight, 100));
-        // Lit as the scene is: by the ambient light, but never below a
-        // third, so that night clouds still show against the sky.
-        const float ambient = std::clamp(std::max({h.ambient[0], h.ambient[1], h.ambient[2]}) / 100.0f, 0.33f, 1.0f);
-        const uint8_t bright = static_cast<uint8_t>(std::clamp(h.cloudBright, 0, 255) * ambient);
+        constexpr int kCells = 16;
+        constexpr float kCell = 450.0f;
         const uint32_t first = static_cast<uint32_t>(vertices.size());
-        for (int r = 0; r <= kRings; ++r)
-            for (int i = 0; i <= kSegments; ++i) {
-                const float a = 2 * kPi * i / kSegments, d = extent * r / kRings;
+        uint32_t seed = 12345;
+        const int low = std::clamp(h.cloudBright - h.cloudVariance, 0, 255), high = std::clamp(h.cloudBright, 0, 255);
+        for (int row = 0; row <= kCells; ++row)
+            for (int col = 0; col <= kCells; ++col) {
                 gfx::Vertex v{};
-                v.pos[0] = d * std::sin(a);
-                v.pos[1] = height;
-                v.pos[2] = -d * std::cos(a);
-                v.uv[0] = v.pos[0] / 300.0f; // a tile every 300 units
-                v.uv[1] = v.pos[2] / 300.0f;
-                v.color[0] = v.color[1] = v.color[2] = bright;
-                v.color[3] = static_cast<uint8_t>(255 * (1 - static_cast<float>(r) / kRings));
+                v.pos[0] = (static_cast<float>(col) - kCells / 2) * kCell;
+                v.pos[2] = (static_cast<float>(row) - kCells / 2) * kCell;
+                const float r = std::hypot(v.pos[0], v.pos[2]);
+                v.pos[1] = static_cast<float>(h.cloudDomeOffset[0]) +
+                           3.0f * static_cast<float>(h.cloudDomeOffset[1]) * std::cos(r / 1900.0f);
+                v.uv[0] = v.pos[0] / kCell;
+                v.uv[1] = v.pos[2] / kCell;
+                seed = seed * 1103515245u + 12345u;
+                const auto bright = static_cast<uint8_t>(low + int((seed >> 16) % uint32_t(high - low + 1)));
+                v.color[0] = v.color[1] = v.color[2] = v.color[3] = bright;
                 vertices.push_back(v);
             }
-        for (int r = 0; r < kRings; ++r)
-            for (int i = 0; i < kSegments; ++i) {
-                const uint32_t p = first + uint32_t(r * (kSegments + 1) + i), q = p + kSegments + 1;
+        for (int row = 0; row < kCells; ++row)
+            for (int col = 0; col < kCells; ++col) {
+                const uint32_t p = first + uint32_t(row * (kCells + 1) + col), q = p + kCells + 1;
                 for (uint32_t k : {p, q, q + 1, p, q + 1, p + 1})
                     indices.push_back(k);
             }
@@ -424,8 +472,7 @@ void TrackPage::load(int index) {
     // coordinates); z negated into the right-handed world, as models are,
     // except moving objects', which are placed each frame.
     // Sets 0 and 1, then the same in 8 bits (for the software renderer).
-    const std::string sheet =
-        folder + "tr" + number + std::to_string(textureSet_ % 2) + (textureSet_ >= 2 ? "_8" : "") + ".qfs";
+    const std::string sheet = textureSheet();
     std::vector<gfx::Vertex> vertices;
     struct Group {
         std::vector<uint32_t> indices;
@@ -859,6 +906,16 @@ void TrackPage::update(uint64_t nowMs) {
     }
     renderer_->beginFrame(viewProj, eye,
                           {static_cast<uint8_t>(fog[0]), static_cast<uint8_t>(fog[1]), static_cast<uint8_t>(fog[2])});
+    // Fog as the game has the card draw it (thrash.md, Fog): its curve over
+    // the depth, with the values it sends for the scenery and for the sky.
+    const bool fogged = fog_ && skyError_.empty();
+    const float sceneryFog = fogged ? static_cast<float>(sceneryFogValue(static_cast<int>(fogDensity + 0.5f))) : 0;
+    const float skyFog = fogged ? static_cast<float>(skyFogValue(horizon_, static_cast<int>(fogDensity + 0.5f))) : 0;
+    auto fogDraw = [&](gfx::DrawCall& call, float value) {
+        call.tableFog = value;
+        call.tableFogFromDepth = true;
+        call.tableFogColor = {fog[0] / 255.0f, fog[1] / 255.0f, fog[2] / 255.0f};
+    };
 
     // The sky first, around the camera, behind everything.
     if (skyMesh_) {
@@ -870,7 +927,10 @@ void TrackPage::update(uint64_t nowMs) {
         sky.state.depthTest = sky.state.depthWrite = false;
         for (int i = 0; i < 3; ++i)
             sky.color[size_t(i)] = 1 + flash;
-        sky.indexCount = domeIndices_;
+        // As the game draws it: the sky's shading, the sun and clouds, then
+        // the earth's shading and the horizon picture, fogged as the sky.
+        sky.firstIndex = earthIndices_;
+        sky.indexCount = domeIndices_ - earthIndices_;
         renderer_->draw(sky);
         auto drawSun = [&] {
             if (!sunIndices_)
@@ -899,8 +959,14 @@ void TrackPage::update(uint64_t nowMs) {
             const float towards = static_cast<float>(horizon_.windDirection) * kPi / 180.0f;
             clouds.preRow0[2] = -drift * std::sin(towards);
             clouds.preRow1[2] = drift * std::cos(towards);
+            if (horizon_.fogClouds)
+                fogDraw(clouds, skyFog);
             renderer_->draw(clouds);
         }
+        fogDraw(sky, skyFog);
+        sky.firstIndex = 0;
+        sky.indexCount = earthIndices_;
+        renderer_->draw(sky);
         if (bandIndices_ && horizonPicture_) {
             sky.firstIndex = domeIndices_;
             sky.indexCount = bandIndices_;
@@ -909,8 +975,10 @@ void TrackPage::update(uint64_t nowMs) {
             sky.state.dst = gfx::Blend::OneMinusSrcAlpha;
             renderer_->draw(sky);
         }
-        if (sunInFront_)
+        if (sunInFront_) {
+            sky.tableFog = 0;
             drawSun();
+        }
     }
 
     size_t drawn = 0;
@@ -924,6 +992,8 @@ void TrackPage::update(uint64_t nowMs) {
                 call.color[i] = static_cast<float>(horizon_.ambient[i]) / 100.0f + flash;
         call.state.cull = cullBack_ ? gfx::Cull::Back : gfx::Cull::None;
         call.state.alphaTest = gfx::AlphaTest::Ge128;
+        if (sceneryFog > 0)
+            fogDraw(call, sceneryFog);
         std::vector<const std::vector<Batch>*> solid = {&batches_[kRoadLow + detail_]};
         if (objects_)
             solid.push_back(&batches_[kObjects]);
@@ -961,28 +1031,6 @@ void TrackPage::update(uint64_t nowMs) {
         for (const auto* list : solid)
             pass(*list, false);
         movingPass(false);
-        // Fog: the solid geometry again in the fog's colour, over what was
-        // drawn, more of it the further away. The density (percent) is
-        // taken as how much there is at the horizon's distance.
-        if (fogDensity > 0 && skyError_.empty()) {
-            const gfx::DrawCall plain = call;
-            call.texture = 0;
-            call.rgbSource = gfx::ColorSource::Constant;
-            call.color = {fog[0] / 255.0f, fog[1] / 255.0f, fog[2] / 255.0f, 1};
-            call.fogDistance = static_cast<float>(std::max(horizon_.radius, 100)) / std::min(fogDensity / 100.0f, 1.0f);
-            call.state.src = gfx::Blend::SrcAlpha;
-            call.state.dst = gfx::Blend::OneMinusSrcAlpha;
-            call.state.depthEqual = true;
-            call.state.depthWrite = false;
-            call.state.alphaTest = gfx::AlphaTest::None;
-            const bool textured = textured_;
-            textured_ = false;
-            for (const auto* list : solid)
-                pass(*list, false);
-            movingPass(false);
-            textured_ = textured;
-            call = plain;
-        }
         call.state.depthBias = true;
         for (const auto* list : lanes)
             pass(*list, false);
@@ -991,6 +1039,7 @@ void TrackPage::update(uint64_t nowMs) {
             // A guide drawn over everything, so the walls show through the
             // ground and fences they follow.
             gfx::DrawCall wall = call;
+            wall.tableFog = 0;
             wall.rgbSource = gfx::ColorSource::Vertex;
             wall.color = {1, 1, 1, 1};
             wall.texture = 0;

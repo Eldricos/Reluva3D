@@ -3,7 +3,9 @@
 
 #include "engines/nfs/hrz.h"
 
+#include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <string>
 
 namespace reluva::nfs {
@@ -108,6 +110,20 @@ Error parseHorizon(std::string_view text, Horizon& out) {
     w.fadeOn = next();
     out.ambient = rgb();
     return Error::success();
+}
+
+// From nfs3.exe (0x470ad0 and 0x470b20, with the multiplier made as the
+// .hrz is read, 0x47a88e): 5 x (100 - density), clamped to 5..500.
+int sceneryFogValue(int density) {
+    return density == 0 ? 0 : 5 * std::clamp(100 - density, 1, 100);
+}
+
+// The sky's: times (1 - pixmap effect) x radius / 100, rounded as the x87
+// rounds (to the nearest, halves to even), from the float the game keeps.
+int skyFogValue(const Horizon& h, int density) {
+    const float effect = static_cast<float>(std::clamp(h.fogOnPixmap, 1, 100)) * 0.01f;
+    const double times = std::nearbyint((1.0 - double(effect)) * double(h.radius) * 0.01);
+    return 5 * std::clamp(100 - density, 1, 100) * static_cast<int>(times);
 }
 
 } // namespace reluva::nfs

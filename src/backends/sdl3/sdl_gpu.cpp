@@ -691,6 +691,7 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     vu.mode[3] = call.fogDistance;
     vu.mode2[0] = call.followCamera ? 1.0f : 0.0f;
     vu.mode2[1] = call.backLerp;
+    vu.mode2[2] = call.tableFogFromDepth ? 1.0f : 0.0f;
     for (size_t i = 0; i < call.deforms.size(); ++i) {
         const gfx::Deform& d = call.deforms[i];
         DeformUniforms& u = vu.deforms[i];

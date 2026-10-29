@@ -87,6 +87,10 @@ Attached blocks after the picture:
   - the words are flags.
   Reluva uses `A` to turn the sky's sun-side colour; the rest is to be
   checked.
+- **`sky.fsh`'s other pictures.** `CLDD`, `CLDN`, `CLWD` and `CLWN` are
+  the cloud tiles. `CHRD`, `CHRN`, `CHRW` and `CHNW` are sphere maps, a
+  ball's worth of sky, ground and horizon: the cars' reflections. The
+  horizon picture is in the track's texture sheet ([hrz.md](hrz.md)).
 
 Of the install's 16-bit 1:5:5:5 pictures, 2,897 are fully opaque, 636 mix opaque and
 clear pixels, and 24 are entirely clear.

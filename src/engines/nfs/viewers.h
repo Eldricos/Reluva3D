@@ -240,10 +240,10 @@ private:
     void releaseSky();
     void toBlock(int block);
     gfx::TextureId picture(const std::string& sheet, int number, bool lane, bool* additive);
-    // A picture of the track's sky.fsh by name, and its text; blended
-    // towards `tint` by `tintAmount` (0-1) if given.
-    gfx::TextureId skyPicture(const std::string& name, std::string* text, const Horizon::Rgb* tint = nullptr,
-                              float tintAmount = 0);
+    // A picture of the track's sky.fsh by name, and its text.
+    gfx::TextureId skyPicture(const std::string& name, std::string* text);
+    std::string textureSheet() const; // the track's texture sheet, of the set shown
+    gfx::TextureId horizonStrip();    // the horizon picture, from it
 
     const GameFiles& files_;
     GameFolders folders_;
@@ -267,7 +267,7 @@ private:
     std::string skyError_;
     gfx::MeshId skyMesh_ = 0;
     gfx::TextureId horizonPicture_ = 0;
-    uint32_t domeIndices_ = 0, bandIndices_ = 0;
+    uint32_t domeIndices_ = 0, earthIndices_ = 0, bandIndices_ = 0; // earth's: the dome's first
     // The sun (or moon) and the clouds, ranges of the sky mesh's indices
     // after the band's.
     gfx::TextureId sunPicture_ = 0, cloudPicture_ = 0;
