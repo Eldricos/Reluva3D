@@ -334,7 +334,9 @@ private:
 // effects. Without audio output the sounds are only listed.
 //   Up/Down: sound   PageUp/PageDown: bank   Home/End: first/last sound
 //   Space/Enter: play   S: stop   P: play as selected on/off
-//   Left/Right: pitch down/up a semitone (sounds with a loop loop until stopped)
+//   Left/Right: a sound with a bend range (most): its bend, or for a car's
+//   sounds its revs; others: the pitch, a semitone (sounds with a loop loop
+//   until stopped)
 class SoundPage : public Page {
 public:
     SoundPage(const GameFiles& files, audio::Mixer* mixer);
@@ -363,6 +365,13 @@ private:
     audio::SoundHandle playing_ = audio::kNoSound;
     bool autoPlay_ = true;
     int semitones_ = 0; // the pitch, up or down
+    // Engines, played as the game plays them (bnk.md): at key 60, bent by
+    // the revs, with the car's revs from its carp.txt when the bank has one
+    // beside it (else the bend is chosen directly).
+    int bend_ = 64, rpm_ = 0, minRpm_ = 0, redline_ = 0;
+    bool engine() const; // the selected sound has a bend range (0x0A)
+    double rate() const; // the rate to play it at, of its own
+    std::string engineText() const; // the revs, bend and pitch, for the header
 };
 
 // The music streams (.mus), played as their Pathfinder map (.map) leads

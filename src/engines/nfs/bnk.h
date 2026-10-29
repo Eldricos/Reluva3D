@@ -43,4 +43,16 @@ Error parseSoundBank(const std::vector<uint8_t>& data, SoundBank& out);
 // A bank's sound, decoded.
 Error decodeBankSound(const std::vector<uint8_t>& data, const SoundHeader& header, audio::Sound& out);
 
+// The pitch, in cents from the sound's own rate, that the game plays a
+// sound at (its patch parameters, bnk.md): the fine tune (0x10, a signed
+// byte) less the root key's (0x07) distance from the key played, in
+// hundreds, plus the bend (0-127, 64 none) over its range (0x0A,
+// semitones).
+int patchCents(const SoundHeader& h, int key, int bend);
+// The bend the game gives the player's engine at `rpm` (nfs3.exe 0x4119a9,
+// 0x417390): 127 x rpm / (redline + 1000, 500 less while the car's field
+// at +0x164, its gear by the look of it, is above 5), at most 100. The
+// engine is played at key 60.
+int engineBend(int rpm, int redline, int gear = 1);
+
 } // namespace reluva::nfs

@@ -1020,6 +1020,22 @@ void testSoundBank() {
     putU32(cut, 8, 40);
     CHECK(parseSoundBank(cut, bank));
     CHECK(parseSoundBank(Bytes{'B', 'N', 'K', 'x', 2, 0, 0, 0, 0, 0, 0, 0}, bank));
+
+    // Engines as the game pitches them, against its voices: the Corvette's
+    // engine (root key 74, fine tune 28, range 15) idling at 900 of a
+    // 6000 redline was at bend 16, -2497 cents; a range-6 sound at bend 77,
+    // 121 cents.
+    SoundHeader corvette;
+    corvette.tags = {{0x07, 74}, {0x0A, 15}, {0x10, 28}};
+    CHECK(engineBend(900, 6000) == 16);
+    CHECK(patchCents(corvette, 60, 16) == -2497);
+    CHECK(engineBend(6000, 6000) == 100 && engineBend(3000, 6000) == 54);
+    SoundHeader plane;
+    plane.tags = {{0x0A, 6}};
+    CHECK(patchCents(plane, 60, 77) == 121 && patchCents(plane, 60, 64) == 0);
+    SoundHeader flat;
+    flat.tags = {{0x10, 249}}; // a signed byte
+    CHECK(patchCents(flat, 60, 64) == -7);
 }
 
 void testMusic() {

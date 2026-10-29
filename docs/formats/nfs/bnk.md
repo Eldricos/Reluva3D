@@ -91,15 +91,10 @@ then read where it parses PT headers:
 - The routine at `0x501de8` reads the tags below `0x26` into a table of
   38 parameters (the "patch"; iSND's messages speak of tagged patches). `FD` and `FE` mark the patch's
   alternatives. An alternative is used when two values (the call's) fall
-  within the ranges held in parameters 1-2 and 3-4. Parameter `0x24` is
-  resolved as a sample (`0x5224e0`).
-- The routine that starts a voice (`0x501978`) uses them. For example:
-  - parameters `0x0C` and `0x0D` are clamped to 127, so they look like
-    volumes;
-  - `0x10`, less 7, plus `0x11` and the caller's value, gives a word of
-    the voice that behaves as its pitch.
-
-  The parameters' meanings are still to be named.
+  within the ranges held in parameters 1-2 and 3-4.
+- The routine that starts a voice (`0x501978`) uses them, and the ones
+  that update it (`0x502cb0`, `0x502d30`, and the 100 Hz tick at
+  `0x500c80`). Those name most of them; see Patch parameters below.
 
 The values, over all the banks (most common first):
 
@@ -114,6 +109,55 @@ The values, over all the banks (most common first):
 | `0x11` | 200, 300, 100, 150 | ambiences, positioned, rain |
 | `0x13` | 127, 100, 110 | ambiences, positioned, sirens |
 | `0x19`-`0x23` | 0 to 1,826 | a few ambiences |
+
+## Patch parameters
+
+From the routines above (random amounts come from `0x5224e0`, which
+gives −x to x):
+
+| Parameter | Meaning |
+|---|---|
+| `0x01`-`0x04` | the key and velocity ranges an alternative (`FD`/`FE`) is for |
+| `0x07` | the root key: played at key k, the sound is (k − root) semitones up |
+| `0x0A` | the pitch bend's range, in semitones each way (4 on most sounds; 10-16 on the engines) |
+| `0x0C` | the pan (0-127), with `0x0D` a random amount either side |
+| `0x0E` | the volume (0-127), with `0x0F` a random amount either side |
+| `0x10` | the fine tune, in cents, a signed byte (249 is −7) |
+| `0x11` | a random amount of pitch either side, in cents |
+| `0x15` | a table the velocity is read through |
+| `0x17` | a table the bend is read through (none on the retail sounds' engines) |
+| `0x1D`, `0x1E`, `0x1F` | a second wobble's table and period (100 Hz ticks), started at a random point if `0x1F` is set |
+| `0x20`, `0x21`, `0x22`, `0x23` | a pitch wobble: its table, its period in 100 Hz ticks, its depth in cents, and (if set) a random starting point |
+| `0x24` | when set, the caller's own detune (in cents) is added |
+
+**The pitch** is in cents from the sound's own rate: the rate is
+× 2^(cents / 1200), from a table of 2^(2^i cents) (`0x522e90`, the
+table at `0x56adec`). A voice's cents are
+
+fine tune − (root − key) × 100 + (bend − 64) × range × 100 / 64,
+
+the bend (0-127, 64 for none) set when it starts and by `SNDpitchbend`
+as it plays. Checked against the voices in a memory dump of a race: a
+range-6 sound at bend 77, 78 and 74 was at 121, 131 and 93 cents.
+
+**An engine's pitch from its revs** (`nfs3.exe` `0x4119a9`,
+`0x417390`): the game plays the car's engine (`car.bnk` in its
+`car.viv`) at key 60 and bends it each frame by
+
+bend = min(100, 127 × rpm / (redline + 1000) × Doppler),
+
+the redline from its `carp.txt` ("engine redline in rpm"). The 1000 is
+2000 for cars whose driver record (+0x220) has a flag other than 1 (the
+player's car had 1000), and 500 comes off while the car's field at
++0x164, its gear by the look of it, is above 5. The Doppler factor
+(`0x4124d0`, 16.16) is 1 for the player's own car: the idle figures below
+match with it so.
+So a Corvette (root key 74, fine tune 28, range 15, redline 6000) idling
+at 900 rpm is at bend 16, −2497 cents: what a memory dump of a race
+showed for its engine voice. At the redline the bend reaches 100. Other
+sounds use the bend too: the track's sound sources (Hometown's biplane)
+are bent by their Doppler shift alone, from 78 as they come to 54 as
+they go.
 
 Which sounds use which coding:
 
@@ -179,7 +223,11 @@ Reluva's decoder keeps them:
 ## On the Sounds page
 
 A sound with a loop (the engines, ambiences) plays it over and over until
-stopped, the loop's ends marked on its waveform. Left and Right move the
-pitch a semitone at a time, to hear an engine at other revs; how the game
-sets an engine's pitch from its revs is the game's (`carp.txt` and its
-code), not worked out.
+stopped, the loop's ends marked on its waveform. A sound with a bend
+range is played as the game plays it: Left and Right move its bend, 4 at
+a time. In a car's banks (beside its `carp.txt`) they move its revs
+instead, 250 rpm at a time from idle ("engine minimum rpm") to the
+redline, at key 60 and the game's bend for those revs; the header shows
+the revs, bend and cents. Elsewhere a sound is played at its own root
+key, as the key a caller would play isn't known. A sound without a bend
+range moves a semitone at a time.

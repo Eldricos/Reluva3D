@@ -139,4 +139,26 @@ Error decodeBankSound(const std::vector<uint8_t>& data, const SoundHeader& h, au
     }
 }
 
+// 0x501b1f (the voice's base pitch) and 0x502cb0 (with the bend).
+int patchCents(const SoundHeader& h, int key, int bend) {
+    auto tag = [&](int t, int otherwise) {
+        auto it = h.tags.find(t);
+        return it == h.tags.end() ? otherwise : static_cast<int>(it->second);
+    };
+    int fine = tag(0x10, 0);
+    if (fine >= 128 && fine < 256)
+        fine -= 256; // a signed byte: 249 is -7
+    const int root = tag(0x07, key);
+    const int range = tag(0x0A, 0) * 100;
+    const int bent = (std::clamp(bend, 0, 127) - 64) * range;
+    return fine - (root - key) * 100 + (bent >= 0 ? bent / 64 : -((-bent + 63) / 64)); // sar 6: floored
+}
+
+int engineBend(int rpm, int redline, int gear) {
+    const int over = redline + 1000 - (gear > 5 ? 500 : 0);
+    if (over <= 0)
+        return 0;
+    return std::clamp(127 * rpm / over, 0, 100);
+}
+
 } // namespace reluva::nfs

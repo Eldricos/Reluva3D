@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <cstdio>
 
 namespace reluva::nfs {
@@ -87,8 +88,60 @@ void SoundPage::load(int bank) {
     for (size_t i = 0; i < loaded_.slots.size(); ++i)
         if (loaded_.slots[i])
             sounds_.push_back(static_cast<int>(i));
+    // A car's banks sit in its car.viv with its carp.txt: the engine's
+    // revs, from idle ("engine minimum rpm") to "engine redline in rpm".
+    minRpm_ = redline_ = rpm_ = 0;
+    const FileRef& bankFile = banks_[bank_];
+    if (!bankFile.inner.empty())
+        for (const FileRef& f : files_.files())
+            if (f.file == bankFile.file && fs::toLower(f.inner) == "carp.txt") {
+                std::vector<uint8_t> carp;
+                if (files_.read(f, carp))
+                    break;
+                const std::string text(carp.begin(), carp.end());
+                auto value = [&](const std::string& name) {
+                    const size_t at = text.find(name);
+                    const size_t line = at == std::string::npos ? at : text.find('\n', at);
+                    return line == std::string::npos ? 0 : std::atoi(text.c_str() + line + 1);
+                };
+                minRpm_ = value("engine minimum rpm");
+                redline_ = value("engine redline in rpm");
+                if (redline_ <= minRpm_)
+                    minRpm_ = redline_ = 0;
+                rpm_ = minRpm_;
+                break;
+            }
     sound_ = -1;
     select(0);
+}
+
+bool SoundPage::engine() const {
+    return !sounds_.empty() && loaded_.slots[size_t(sounds_[size_t(sound_)])]->tags.count(0x0A) != 0;
+}
+
+// The key a sound is played at: 60 for a car's sounds, as the game plays
+// its engine; elsewhere the sound's own root key (0x07), the key a caller
+// would play isn't known.
+static int keyFor(const SoundHeader& h, bool car) {
+    auto root = h.tags.find(0x07);
+    return car || root == h.tags.end() ? 60 : static_cast<int>(root->second);
+}
+
+double SoundPage::rate() const {
+    if (!engine())
+        return std::pow(2.0, semitones_ / 12.0);
+    const SoundHeader& h = *loaded_.slots[size_t(sounds_[size_t(sound_)])];
+    const int bend = redline_ ? engineBend(rpm_, redline_) : bend_;
+    return std::pow(2.0, patchCents(h, keyFor(h, redline_ != 0), bend) / 1200.0);
+}
+
+std::string SoundPage::engineText() const {
+    const SoundHeader& h = *loaded_.slots[size_t(sounds_[size_t(sound_)])];
+    const int bend = redline_ ? engineBend(rpm_, redline_) : bend_;
+    std::string out = redline_ ? "   " + std::to_string(rpm_) + " rpm (redline " + std::to_string(redline_) + "), bend "
+                               : "   bend ";
+    return out + std::to_string(bend) + ", " + std::to_string(patchCents(h, keyFor(h, redline_ != 0), bend)) +
+           " cents";
 }
 
 void SoundPage::select(int sound) {
@@ -114,7 +167,7 @@ void SoundPage::play() {
     deactivate();
     if (mixer_ && decoded_) {
         playing_ = mixer_->play(decoded_, audio::SoundType::Effects, audio::kMaxVolume, 0, decoded_->loopEnd != 0);
-        mixer_->setRate(playing_, std::pow(2.0, semitones_ / 12.0));
+        mixer_->setRate(playing_, rate());
     }
 }
 
@@ -135,10 +188,16 @@ void SoundPage::handleKey(uint32_t k, uint16_t) {
     case 'p': autoPlay_ = !autoPlay_; break;
     case key::Left:
     case key::Right:
-        // The pitch, a semitone at a time: an engine at other revs.
-        semitones_ = std::clamp(semitones_ + (k == key::Right ? 1 : -1), -24, 24);
+        // An engine's revs (250 at a time) or bend (4); else the pitch, a
+        // semitone at a time.
+        if (engine() && redline_)
+            rpm_ = std::clamp(rpm_ + (k == key::Right ? 250 : -250), minRpm_, redline_);
+        else if (engine())
+            bend_ = std::clamp(bend_ + (k == key::Right ? 4 : -4), 0, 127);
+        else
+            semitones_ = std::clamp(semitones_ + (k == key::Right ? 1 : -1), -24, 24);
         if (mixer_ && playing_ != audio::kNoSound)
-            mixer_->setRate(playing_, std::pow(2.0, semitones_ / 12.0));
+            mixer_->setRate(playing_, rate());
         break;
     default: break;
     }
@@ -166,9 +225,9 @@ void SoundPage::draw(Surface& s) {
     text(s, kMargin, y,
          "Version " + std::to_string(loaded_.version) + ", " + std::to_string(loaded_.slots.size()) + " slots, " +
              std::to_string(sounds_.size()) + " sounds" + (autoPlay_ ? "   (plays when selected)" : "") +
-             (semitones_ ? "   pitch " + std::string(semitones_ > 0 ? "+" : "") + std::to_string(semitones_) +
-                               " semitones"
-                         : ""),
+             (engine() ? engineText() : semitones_ ? "   pitch " + std::string(semitones_ > 0 ? "+" : "") +
+                                                          std::to_string(semitones_) + " semitones"
+                                                    : std::string()),
          kLabelColor);
     y += font::kLineHeight;
     if (!mixer_) {

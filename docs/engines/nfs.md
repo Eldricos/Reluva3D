@@ -339,9 +339,8 @@ Not done yet:
 
 - what the maps' events and sections' first bytes mean to the game
   (the start section is known: [mus.md](../formats/nfs/mus.md));
-- the meanings of the sound patches' parameters (bnk.md: their
-  structure is known, and what the sound format's tags are);
-- how the game sets an engine's pitch from its revs.
+- the meanings of a few of the sound patches' parameters (bnk.md names
+  the rest, and how an engine's pitch follows its revs).
 
 What was planned:
 
