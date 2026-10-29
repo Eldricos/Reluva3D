@@ -215,4 +215,71 @@ std::array<float, 2> cloudDrift(const Horizon& h) {
     return {std::cos(turn) * speed, std::sin(turn) * speed};
 }
 
+// 0x47b5f9: on ticks that are a multiple of the second value, rand() %
+// 100 below the first.
+bool lightningStarts(const Horizon& h, uint64_t tick, SkyRandom& random) {
+    if (h.lightning <= 0 || h.lightningChance <= 0 || tick % uint64_t(h.lightningChance) != 0)
+        return false;
+    return random.next() % 100 < h.lightning;
+}
+
+namespace {
+
+constexpr int kBoltPoints = 240; // the game's pool of points (0x79c570)
+
+// 0x494420: n more points from `parent`, forking where n reaches `fork`.
+void growBolt(const Horizon& h, LightningBolt& bolt, int parent, int n, int fork, float spread, SkyRandom& random) {
+    constexpr float kTau = 6.28318530718f;
+    if (n == 0 || static_cast<int>(bolt.points.size()) >= kBoltPoints)
+        return;
+    const LightningBolt::Point& from = bolt.points[size_t(parent)];
+    LightningBolt::Point p;
+    p.parent = parent;
+    p.angle = from.angle + spread / 360.0f * static_cast<float>(random.next() % 5 - 2);
+    p.at[0] = from.at[0] + std::cos(p.angle * kTau) * 40;
+    p.at[2] = from.at[2] + std::sin(p.angle * kTau) * 40;
+    p.at[1] = cloudHeight(h, std::hypot(p.at[0], p.at[2]));
+    p.jitter = (1 - static_cast<float>(n) / 40) * 3;
+    bolt.points.push_back(p);
+    const int here = static_cast<int>(bolt.points.size()) - 1;
+    if (n == fork && random.next() % n != 0) {
+        growBolt(h, bolt, here, n - 1, static_cast<int>(n * 0.75), 9, random);
+        growBolt(h, bolt, here, n / 2, static_cast<int>(n * 0.3), 18, random);
+    } else {
+        growBolt(h, bolt, here, n - 1, fork, 9, random);
+    }
+}
+
+} // namespace
+
+// 0x47b620, 0x4945a0: starting within 750 of the camera on x and z, on
+// the dome, heading away from the camera; 40 points, forking at 30.
+LightningBolt makeBolt(const Horizon& h, SkyRandom& random) {
+    constexpr float kTau = 6.28318530718f;
+    LightningBolt bolt;
+    LightningBolt::Point first;
+    first.at[0] = static_cast<float>(random.next() % 1500 - 750);
+    first.at[2] = static_cast<float>(random.next() % 1500 - 750);
+    first.at[1] = cloudHeight(h, std::hypot(first.at[0], first.at[2]));
+    first.angle = std::atan2(first.at[2], first.at[0]) / kTau;
+    bolt.points.push_back(first);
+    growBolt(h, bolt, 0, 40, 30, 9, random);
+    return bolt;
+}
+
+// 0x494630: each point moves -1, 0 or 1 times its jitter on x and z.
+void tickBolt(LightningBolt& bolt, SkyRandom& random) {
+    for (LightningBolt::Point& p : bolt.points) {
+        const int dx = random.next() % 3 - 1, dz = random.next() % 3 - 1;
+        p.at[0] += static_cast<float>(dx) * p.jitter;
+        p.at[2] += static_cast<float>(dz) * p.jitter;
+    }
+    --bolt.life;
+}
+
+// 0x494390.
+int boltFlash(const LightningBolt& bolt) {
+    return std::clamp(bolt.life * 510 / 24, 0, 255);
+}
+
 } // namespace reluva::nfs

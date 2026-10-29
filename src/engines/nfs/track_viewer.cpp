@@ -28,8 +28,8 @@ constexpr const char* kHorizonSuffix[] = {"", "n", "w", "nw"};
 // tracks (SNNW), the weather's on the rest.
 constexpr const char* kSunPicture[] = {"SUND", "SUNN", "SUNW", "SNNW"};
 constexpr const char* kCloudPicture[] = {"CLDD", "CLDN", "CLWD", "CLWN"};
-constexpr int kTicksPerSecond = 60; // assumed for the keys' delays (frd.md)
 // The game's ticks (0x7d3684 counts them): 641 in 10 seconds of a race.
+// Moving objects' key delays and the clouds' drift are in them.
 constexpr int kGameTicksPerSecond = 64;
 
 std::string lower(const std::string& s) { return fs::toLower(s); }
@@ -105,7 +105,13 @@ void TrackPage::deactivate() {
 void TrackPage::releaseSky() {
     if (renderer_ && skyMesh_)
         renderer_->destroyMesh(skyMesh_);
-    skyMesh_ = 0;
+    if (renderer_ && boltMesh_)
+        renderer_->destroyMesh(boltMesh_);
+    skyMesh_ = boltMesh_ = 0;
+    boltIndices_ = 0;
+    skyVertices_.clear();
+    bolts_.clear();
+    sunRotate_ = skyChanged_ = false;
     horizonPicture_ = sunPicture_ = cloudPicture_ = 0; // owned by textures_
     domeIndices_ = earthIndices_ = bandIndices_ = sunFirst_ = sunIndices_ = cloudFirst_ = cloudIndices_ = 0;
 }
@@ -288,6 +294,7 @@ void TrackPage::loadSky() {
     const float sunSize = sunValue('R', 25);
     sunAdditive_ = sunText.find("NOADD") == std::string::npos;
     sunInFront_ = sunText.find("INFRONT") != std::string::npos;
+    sunRotate_ = sunText.find("ROTATE") != std::string::npos;
 
     const Horizon& h = horizon_;
     const float radius = static_cast<float>(std::max(h.radius, 100));
@@ -380,6 +387,12 @@ void TrackPage::loadSky() {
                            right[0] * dir[1] - right[1] * dir[0]};
         const float half = sunSize * 10 / std::sqrt(2.0f);
         const uint32_t first = static_cast<uint32_t>(vertices.size());
+        sunVertex_ = first;
+        sunCentre_ = centre;
+        for (int k = 0; k < 3; ++k) {
+            sunRight_[size_t(k)] = right[size_t(k)] * half;
+            sunUp_[size_t(k)] = up[size_t(k)] * half;
+        }
         for (int corner = 0; corner < 4; ++corner) {
             const float x = corner == 1 || corner == 2 ? 1.0f : -1.0f, y = corner >= 2 ? 1.0f : -1.0f;
             gfx::Vertex v{};
@@ -406,6 +419,8 @@ void TrackPage::loadSky() {
         cloudFirst_ = static_cast<uint32_t>(indices.size());
         const auto brightness = cloudBrightness(h, 12345);
         const uint32_t first = static_cast<uint32_t>(vertices.size());
+        cloudVertex_ = first;
+        cloudBase_ = brightness;
         for (int row = 0; row < kCloudPoints; ++row)
             for (int col = 0; col < kCloudPoints; ++col) {
                 gfx::Vertex v{};
@@ -428,8 +443,138 @@ void TrackPage::loadSky() {
             }
         cloudIndices_ = static_cast<uint32_t>(indices.size()) - cloudFirst_;
     }
+    skyVertices_ = vertices;
     if (Error err = renderer_->createMesh(vertices, indices, skyMesh_))
         skyError_ = err.message;
+
+    // Lightning's bolts: a quad for each point but the first, up to the
+    // game's 240 points.
+    if (h.lightning > 0 && h.lightningChance > 0) {
+        constexpr uint32_t kQuads = 240;
+        std::vector<gfx::Vertex> quads(kQuads * 4);
+        std::vector<uint32_t> quadIndices;
+        for (uint32_t q = 0; q < kQuads; ++q)
+            for (uint32_t k : {0u, 1u, 2u, 0u, 2u, 3u})
+                quadIndices.push_back(q * 4 + k);
+        if (!renderer_->createMesh(quads, quadIndices, boltMesh_))
+            boltIndices_ = 0;
+    }
+}
+
+// The sky's game ticks since the last frame (64 a second, at most a
+// second's worth at once): lightning starting, and its bolts jittering.
+void TrackPage::tickSky(uint64_t nowMs) {
+    const uint64_t target = nowMs * kGameTicksPerSecond / 1000;
+    if (skyTick_ == 0 || target < skyTick_ || target - skyTick_ > uint64_t(kGameTicksPerSecond))
+        skyTick_ = target;
+    while (skyTick_ < target && skyError_.empty()) {
+        ++skyTick_;
+        if (boltMesh_ && lightningStarts(horizon_, skyTick_, skyRandom_)) {
+            size_t points = 0;
+            for (const LightningBolt& b : bolts_)
+                points += b.points.size();
+            LightningBolt bolt = makeBolt(horizon_, skyRandom_);
+            if (points + bolt.points.size() <= 240)
+                bolts_.push_back(std::move(bolt));
+        }
+        if (!bolts_.empty())
+            skyChanged_ = true;
+        for (LightningBolt& b : bolts_)
+            tickBolt(b, skyRandom_);
+        bolts_.erase(std::remove_if(bolts_.begin(), bolts_.end(), [](const LightningBolt& b) { return b.life <= 0; }),
+                     bolts_.end());
+    }
+}
+
+// The sky's vertices that change, before the frame: the sun turned by
+// where it is on the screen (ROTATE: by its x / z in the view, in turns;
+// 0x479fd9), the clouds lit around the latest bolt (0x47b3a0: the grid
+// points next to where it starts, the rows either side at half), and the
+// bolts' quads.
+void TrackPage::updateSky(const gfx::Vec3& forward, const gfx::Vec3& right) {
+    if (!skyMesh_ || skyVertices_.empty() || !(sunRotate_ || skyChanged_))
+        return;
+    constexpr float kTau = 6.28318530718f;
+    if (sunRotate_ && sunIndices_) {
+        const float x = sunCentre_[0] * right[0] + sunCentre_[1] * right[1] + sunCentre_[2] * right[2];
+        const float z = sunCentre_[0] * forward[0] + sunCentre_[1] * forward[1] + sunCentre_[2] * forward[2];
+        const float turn = z > 0 ? x / z * kTau : 0;
+        const float c = std::cos(turn), sn = std::sin(turn);
+        for (int corner = 0; corner < 4; ++corner) {
+            const float cx = corner == 1 || corner == 2 ? 1.0f : -1.0f, cy = corner >= 2 ? 1.0f : -1.0f;
+            const float rx = cx * c - cy * sn, ry = cx * sn + cy * c;
+            gfx::Vertex& v = skyVertices_[sunVertex_ + uint32_t(corner)];
+            for (int k = 0; k < 3; ++k)
+                v.pos[k] = sunCentre_[size_t(k)] + sunRight_[size_t(k)] * rx + sunUp_[size_t(k)] * ry;
+        }
+    }
+    if (cloudIndices_) {
+        for (size_t i = 0; i < cloudBase_.size(); ++i) {
+            uint8_t* c = skyVertices_[cloudVertex_ + i].color;
+            c[0] = c[1] = c[2] = c[3] = cloudBase_[i];
+        }
+        if (!bolts_.empty()) {
+            const LightningBolt& bolt = bolts_.back();
+            const int flash = boltFlash(bolt);
+            auto cell = [](float at) {
+                return std::clamp(static_cast<int>(std::floor((at - kCloudFirst) / kCloudStep + 0.5f)), 0,
+                                  kCloudPoints - 1);
+            };
+            const int cx = cell(bolt.points[0].at[0]), cz = cell(bolt.points[0].at[2]);
+            for (int dx = -1; dx <= 1; ++dx)
+                for (int dz = -1; dz <= 1; ++dz) {
+                    const int x = cx + dx, z = cz + dz;
+                    if (x < 0 || x >= kCloudPoints || z < 0 || z >= kCloudPoints)
+                        continue;
+                    const int value = static_cast<int>(static_cast<float>(flash) * (1 - 0.5f * std::abs(dx)));
+                    uint8_t* c = skyVertices_[cloudVertex_ + uint32_t(z * kCloudPoints + x)].color;
+                    if (value <= c[0])
+                        continue;
+                    c[0] = c[1] = c[2] = static_cast<uint8_t>(value);
+                    if (horizon_.cloudType != 2)
+                        c[3] = static_cast<uint8_t>(value);
+                }
+        }
+    }
+    renderer_->setMeshVertices(skyMesh_, skyVertices_);
+
+    if (boltMesh_) {
+        std::vector<gfx::Vertex> quads(240 * 4);
+        uint32_t q = 0;
+        for (const LightningBolt& bolt : bolts_)
+            for (const LightningBolt::Point& p : bolt.points) {
+                if (p.parent < 0 || q >= 240)
+                    continue;
+                // Track coordinates to the page's (z negated); about a pixel
+                // and a half wide, across the line as seen.
+                const auto& a = bolt.points[size_t(p.parent)].at;
+                const gfx::Vec3 from{a[0], a[1], -a[2]}, to{p.at[0], p.at[1], -p.at[2]};
+                const gfx::Vec3 along{to[0] - from[0], to[1] - from[1], to[2] - from[2]};
+                const gfx::Vec3 mid{(to[0] + from[0]) / 2, (to[1] + from[1]) / 2, (to[2] + from[2]) / 2};
+                gfx::Vec3 side{along[1] * mid[2] - along[2] * mid[1], along[2] * mid[0] - along[0] * mid[2],
+                               along[0] * mid[1] - along[1] * mid[0]};
+                const float length = std::sqrt(side[0] * side[0] + side[1] * side[1] + side[2] * side[2]);
+                const float distance = std::sqrt(mid[0] * mid[0] + mid[1] * mid[1] + mid[2] * mid[2]);
+                if (length <= 0)
+                    continue;
+                const float width = distance * 0.0035f / length;
+                const gfx::Vec3* ends[4] = {&from, &to, &to, &from};
+                for (int k = 0; k < 4; ++k) {
+                    gfx::Vertex& v = quads[q * 4 + uint32_t(k)];
+                    const float s = k == 0 || k == 1 ? -width : width;
+                    for (int i = 0; i < 3; ++i)
+                        v.pos[i] = (*ends[k])[size_t(i)] + side[size_t(i)] * s;
+                    // 0xffe2e2ff, pale blue-white (0x4946fd).
+                    v.color[0] = v.color[1] = 0xe2;
+                    v.color[2] = v.color[3] = 0xff;
+                }
+                ++q;
+            }
+        boltIndices_ = q * 6;
+        if (q)
+            renderer_->setMeshVertices(boltMesh_, quads);
+    }
+    skyChanged_ = !bolts_.empty();
 }
 
 void TrackPage::fogAt(int block, Horizon::Rgb& colour, float& density) const {
@@ -903,19 +1048,8 @@ void TrackPage::update(uint64_t nowMs) {
     fogAt(here, fog, fogDensity);
     if (!fog_)
         fogDensity = 0;
-    // Lightning: a chance each second (out of 256) of a flash, a fifth of
-    // a second long, that lights everything up.
-    float flash = 0;
-    if (horizon_.lightning && horizon_.lightningChance > 0 && skyError_.empty()) {
-        if (nowMs - flashCheckedAt_ >= 1000) {
-            flashCheckedAt_ = nowMs;
-            flashSeed_ = flashSeed_ * 1103515245u + 12345u;
-            if (int((flashSeed_ >> 16) & 255) < horizon_.lightningChance)
-                flashAt_ = nowMs;
-        }
-        if (flashAt_ && nowMs - flashAt_ < 200)
-            flash = 1 - static_cast<float>(nowMs - flashAt_) / 200.0f;
-    }
+    tickSky(nowMs);
+    updateSky(forward, right);
     renderer_->beginFrame(viewProj, eye,
                           {static_cast<uint8_t>(fog[0]), static_cast<uint8_t>(fog[1]), static_cast<uint8_t>(fog[2])});
     // Fog as the game has the card draw it (thrash.md, Fog): its curve over
@@ -937,8 +1071,6 @@ void TrackPage::update(uint64_t nowMs) {
         sky.rgbSource = gfx::ColorSource::Vertex;
         sky.state.cull = gfx::Cull::None;
         sky.state.depthTest = sky.state.depthWrite = false;
-        for (int i = 0; i < 3; ++i)
-            sky.color[size_t(i)] = 1 + flash;
         // As the game draws it: the sky's shading, the sun and clouds, then
         // the earth's shading and the horizon picture, fogged as the sky.
         sky.firstIndex = earthIndices_;
@@ -975,6 +1107,15 @@ void TrackPage::update(uint64_t nowMs) {
                 fogDraw(clouds, skyFog);
             renderer_->draw(clouds);
         }
+        // Lightning's bolts, over the clouds (0x47a1c4).
+        if (boltMesh_ && boltIndices_) {
+            gfx::DrawCall bolts = sky;
+            bolts.mesh = boltMesh_;
+            bolts.firstIndex = 0;
+            bolts.indexCount = boltIndices_;
+            fogDraw(bolts, skyFog);
+            renderer_->draw(bolts);
+        }
         // INFRONT: the sun over the clouds, still behind the horizon.
         if (sunInFront_)
             drawSun();
@@ -1000,7 +1141,7 @@ void TrackPage::update(uint64_t nowMs) {
         // The horizon's ambient light (percent) over the baked lighting.
         if (error_.empty() && skyError_.empty())
             for (int i = 0; i < 3; ++i)
-                call.color[i] = static_cast<float>(horizon_.ambient[i]) / 100.0f + flash;
+                call.color[i] = static_cast<float>(horizon_.ambient[i]) / 100.0f;
         call.state.cull = cullBack_ ? gfx::Cull::Back : gfx::Cull::None;
         call.state.alphaTest = gfx::AlphaTest::Ge128;
         if (sceneryFog > 0)
@@ -1029,10 +1170,16 @@ void TrackPage::update(uint64_t nowMs) {
             if (!objects_)
                 return;
             for (const Moving& m : moving_) {
-                const float perKey = std::max(1, m.keyDelay) / static_cast<float>(kTicksPerSecond);
-                const float t = static_cast<float>(nowMs) / 1000.0f / perKey;
-                const size_t k = static_cast<size_t>(t) % m.keys.size();
-                call.model = keyMatrix(m.keys[k], m.keys[(k + 1) % m.keys.size()], t - std::floor(t));
+                // As nfs3.exe (0x40f4b0): a key every `delay` ticks (1-400,
+                // else 6), round keys - 1 of them (the last is the first
+                // again), blended towards the next by the ticks since.
+                if (m.keys.size() < 2)
+                    continue;
+                const int delay = m.keyDelay >= 1 && m.keyDelay <= 400 ? m.keyDelay : 6;
+                const float ticks = static_cast<float>(nowMs % 100000000) * kGameTicksPerSecond / 1000.0f;
+                const float t = ticks / static_cast<float>(delay);
+                const size_t k = static_cast<size_t>(t) % (m.keys.size() - 1);
+                call.model = keyMatrix(m.keys[k], m.keys[k + 1], t - std::floor(t));
                 pass(m.batches, additive);
             }
             call.model = gfx::identity();

@@ -148,9 +148,9 @@ Each group is a u32 count, then the objects. Each object starts with
   - 8 bytes holding a u16 at +24 (348 in the case studied), u16, u16,
     u8, u8;
   - at +32, a u16 number of keys;
-  - a u16: the key delay. At an assumed 60 ticks a second, Hometown's
-    17-key spinner (delay 6) turns about once in 1.7 s, and its 141-key
-    loop (delay 25) takes about a minute.
+  - a u16: the key delay, in game ticks (64 a second). Hometown's
+    17-key spinner (delay 6) turns once in 1.5 s, and its 141-key loop
+    (delay 25) takes 55 s.
   - the keys, 20 bytes each: 3 × s32 position in 16.16 fixed point and
     4 × s16 rotation in 2.14 fixed point, a quaternion by its unit length
     (`0x4000` = 1).
@@ -169,10 +169,22 @@ to 661: its spinning object sits at (−563, 2, 442), and its other object
 flies a loop 52 m up. The same loop is in the `.col` file
 ([col.md](col.md)).
 
-The Tracks page moves these objects along their keys. It assumes 60
-ticks a second, a quaternion order of x, y, z, w (the first key is
-`0, 0, 0, 0x4000`) and the game's rotation sense; all three are to be
-checked against the game.
+**How the game moves them** (`nfs3.exe`, `0x40f4b0`; worked out from
+its code). From the game's tick count t (64 a second, `0x7d3684`):
+
+- the delay d is the key delay if 1 to 400, else 6;
+- the key is (t / d) mod (keys − 1): the last key is the first again
+  (Hometown's loop: they differ by 1/65536 in one coordinate);
+- it moves from that key towards the next by (t mod d) / d, the
+  positions straight and the quaternions blended (`0x4b70f0`);
+- the quaternion's four values are taken in the file's order, each
+  × 4 / 65536, and made a matrix by `0x4b7590`. Run on sample values,
+  that gives the matrix Reluva's `keyMatrix` builds (x, y, z, w, the
+  game's vectors being rows), so the rotation sense is the game's.
+
+The Tracks page moves them so: 64 ticks a second, keys − 1 keys round,
+the same blend (normalised rather than spherical, which differs little
+between keys this close).
 
 ### Textures (47 bytes)
 

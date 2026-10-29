@@ -79,4 +79,36 @@ std::array<uint8_t, kCloudPoints * kCloudPoints> cloudBrightness(const Horizon& 
 // The clouds' drift each game tick, in tiles along x and z.
 std::array<float, 2> cloudDrift(const Horizon& h);
 
+// Random numbers for the sky, standing in for the game's rand(): 0 to
+// 32767.
+struct SkyRandom {
+    uint32_t seed = 1;
+    int next() {
+        seed = seed * 1103515245u + 12345u;
+        return static_cast<int>((seed >> 16) & 0x7fff);
+    }
+};
+
+// Lightning as the game makes it (0x47b5c0, 0x4945a0, 0x494420, 0x494630):
+// a bolt is points crawling across the cloud dome from where it starts,
+// each joined to its parent, camera-relative in the track's coordinates.
+// It lives 24 game ticks; each tick its points jitter.
+struct LightningBolt {
+    struct Point {
+        std::array<float, 3> at{};
+        int parent = -1;  // -1 for the first
+        float angle = 0;  // turns, the way it heads
+        float jitter = 0; // how far it moves a tick, at most
+    };
+    std::vector<Point> points;
+    int life = 24;
+};
+// Whether a bolt starts on this game tick: every `lightningChance` ticks,
+// a `lightning` percent chance.
+bool lightningStarts(const Horizon& h, uint64_t tick, SkyRandom& random);
+LightningBolt makeBolt(const Horizon& h, SkyRandom& random);
+void tickBolt(LightningBolt& bolt, SkyRandom& random);
+// How bright its flash is (0-255): full for half its life, then fading.
+int boltFlash(const LightningBolt& bolt);
+
 } // namespace reluva::nfs

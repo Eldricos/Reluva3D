@@ -81,7 +81,7 @@ struct Track {
         uint32_t type = 0;
         Vec3 reference{};
         std::vector<Key> keys; // world positions; the vertices are relative to them
-        int16_t keyDelay = 0;  // ticks per key, by the look of it
+        int16_t keyDelay = 0;  // game ticks (64 a second) per key
         std::vector<Vec3> vertices; // relative to the reference (still) or the key (moving)
         std::vector<uint32_t> colours;
         std::vector<Polygon> polygons;

@@ -848,6 +848,31 @@ void testHorizon() {
     CHECK(clouds == cloudBrightness(hometown, 1));
     CHECK(*std::max_element(clouds.begin(), clouds.end()) <= 235);
     CHECK(*std::max_element(clouds.begin(), clouds.end()) > *std::min_element(clouds.begin(), clouds.end()));
+
+    // Lightning: on ticks that are a multiple of the second value; a bolt
+    // of points 40 apart on the cloud dome, starting within 750, forking.
+    SkyRandom random;
+    hometown.lightning = 100;
+    hometown.lightningChance = 64;
+    CHECK(!lightningStarts(hometown, 63, random) && lightningStarts(hometown, 128, random));
+    hometown.lightning = 0;
+    CHECK(!lightningStarts(hometown, 128, random));
+    const LightningBolt bolt = makeBolt(hometown, random);
+    CHECK(bolt.points.size() > 40 && bolt.points.size() <= 240 && bolt.life == 24);
+    CHECK(std::fabs(bolt.points[0].at[0]) <= 750 && std::fabs(bolt.points[0].at[2]) <= 750);
+    bool onDome = true, apart = true;
+    for (size_t i = 1; i < bolt.points.size(); ++i) {
+        const auto& p = bolt.points[i];
+        const auto& q = bolt.points[size_t(p.parent)];
+        onDome = onDome && std::fabs(p.at[1] - cloudHeight(hometown, std::hypot(p.at[0], p.at[2]))) < 0.5f;
+        apart = apart && std::fabs(std::hypot(p.at[0] - q.at[0], p.at[2] - q.at[2]) - 40) < 0.01f;
+    }
+    CHECK(onDome && apart);
+    LightningBolt ticking = bolt;
+    CHECK(boltFlash(ticking) == 255);
+    for (int i = 0; i < 18; ++i)
+        tickBolt(ticking, random);
+    CHECK(ticking.life == 6 && boltFlash(ticking) == 127);
 }
 
 void testCollision() {

@@ -85,8 +85,10 @@ tiles show, left to right.
   - **How big.** A square whose corners are R × 10 from its centre: a
     side of R × 14.1 units at about 3000 to 3700 away. Hometown's R 25
     is about 7°.
-  - **ROTATE** turns it as it crosses the screen (by its x / z in the
-    view); without, its up follows the sky's.
+  - **ROTATE** turns it as it crosses the screen: by its x / z in the
+    view, in turns (`0x479fd9`), so a full turn 45° off the centre of
+    the view. Without, its up follows the sky's (the projected direction
+    from (cos A, cos B, sin A) to (cos A, sin B, sin A)).
   - Checked with `A313` in a copy's `sky.fsh`, which puts the sun down
     Hometown's start: the game drew it at the top centre of the screen,
     its centre about 12 pixels down at w 2981, 38 pixels across, as
@@ -119,6 +121,31 @@ tiles show, left to right.
     (cos dir, sin dir) × speed × 0.00003, in tiles, kept within a tile
     (`0x47b76a`). The game ticks about 64 times a second: its tick
     count (`0x7d3684`) went up 641 in 10 seconds of a race.
+- **Lightning's bolts**, over the clouds (`0x47a1c4`, `0x4946e0`), and
+  their flash on the clouds. From the code (`0x47b5c0`, `0x4945a0`,
+  `0x494420`, `0x494630`):
+  - **When.** On game ticks that are a multiple of the second lightning
+    value, with a chance in percent of the first (rand() % 100 below
+    it). Hometown's night with weather (75, 64) has one about three
+    times in four seconds. With the first 0 there's none.
+  - **Where.** A bolt starts at a random x and z within 750 of the
+    camera (rand() % 1500 − 750), on the cloud dome, heading away from
+    the camera; a thunder sound plays there.
+  - **Its shape.** Up to 40 points, each 40 units on from the last
+    along the ground and on the dome, turning by −2 to 2 times 9° each
+    step. Where the points left reach the fork value (30 at first), it
+    forks if rand() % n isn't 0: the main line goes on with the fork
+    value 0.75 n, and a branch of n / 2 points turns by 18° steps with
+    0.3 n. The game holds 240 points for all bolts.
+  - **Its life.** 24 ticks. Each tick every point moves −1, 0 or 1 times
+    its jitter on x and on z: (1 − n / 40) × 3, n the points left when
+    it was made.
+  - **Drawn** as lines in 0xFFE2E2FF, pale blue-white.
+  - **The flash.** For the latest bolt, life × 510 / 24, at most 255:
+    full for 12 ticks, then fading. It lights the cloud grid's points
+    around where the bolt starts (`0x47b3a0`): the nearest point and
+    those next to it, the columns either side at half, raising each
+    point's brightness to that if higher. Nothing else gets brighter.
 - **The earth's shading**, fogged as the sky: the band below the
   horizon, in the earth's colours.
 - **The horizon picture**, fogged as the sky, drawn white whatever the
@@ -179,8 +206,9 @@ The Tracks page draws as the game does, above, with the functions in
   as the game's flat quads.
 - **The sun or moon.** The variant's picture (`SUND`, `SUNN`, `SUNW`, and
   `SNNW` for night with weather where a track has one, else `SUNW`) at
-  the game's place and size, facing the camera, upright (`ROTATE` isn't
-  followed). Drawn before the clouds, or after them with `INFRONT`.
+  the game's place and size, facing the camera, upright or, with
+  `ROTATE`, turned as the game turns it. Drawn before the clouds, or
+  after them with `INFRONT`.
 - **The clouds.** The game's grid, dome, nimbus and brightness (with
   Reluva's own random numbers), drifting by the game's amount at 64
   ticks a second.
@@ -192,12 +220,13 @@ The Tracks page draws as the game does, above, with the functions in
   and on.
 - **Ambient light.** The percentages scale the track's baked vertex
   lighting.
-- **Lightning.** With lightning on, each second has a chance (out of
-  256) of a flash a fifth of a second long, which brightens everything.
+- **Lightning.** The game's bolts, chances, jitter, life and flash,
+  ticked at 64 a second (`lightningStarts`, `makeBolt`, `tickBolt`,
+  `boltFlash`), with Reluva's own random numbers. The bolts are thin
+  quads, about a pixel and a half wide.
 
 Not checked against the game:
 
-- **Lightning**: how often, how long and how bright.
 - **Units.** The track's coordinates are taken to be the units of the
   game's depth w, as the horizon radius and the cloud tiles are; the
   sun's and the road's directions agreeing supports it.

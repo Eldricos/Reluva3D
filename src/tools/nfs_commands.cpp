@@ -69,7 +69,7 @@ const char* const kUsageLines =
     "  reluva-tool mad-frames <file.mad> <output dir> [first frame] [count]\n"
     "  reluva-tool mad-wav <file.mad> <out.wav>\n"
     "  reluva-tool nfs-host <game folder> [-args \"nfs3.exe\"] [-renderer softtria.dll] [-limit N] [-log N] [-save dir]\n"
-    "                       [-frames dir] [-every N] [-watch address]... [-watchmem address size]\n"
+    "                       [-frames dir] [-every N] [-watch address]... [-watchlimit 50] [-watchmem address size]\n"
     "                       [-slice instructions] [-dump memory.bin] [-keys ms:key,...]\n"
     "                       (keys: enter, up, a..., click, moveDX/DY) [-framelog frames.csv]\n"
     "                       [-timescale 0.1] [-thrashlog fromframe toframe] [-native] [-wav sound.wav]\n"
@@ -972,6 +972,7 @@ int cmdNfsHost(int argc, char** argv) {
     options.presentedRenderer = "voodoo2a.dll";
     int traceCount = 0, every = 50; // traceCount: the last instructions kept, for a failure (0: none)
     std::vector<uint32_t> watch; // addresses at which to print the registers
+    int watchLimit = 50;         // how many times, at most
     std::string dumpFile;        // the emulated memory, written at the end
     uint32_t slice = 0;          // instructions between thread changes (0: the default)
     uint32_t watchMem = 0, watchMemSize = 0; // memory whose stores are printed
@@ -998,6 +999,8 @@ int cmdNfsHost(int argc, char** argv) {
             traceCount = std::atoi(argv[++a]);
         else if (arg == "-frames" && a + 1 < argc)
             framesDir = argv[++a];
+        else if (arg == "-watchlimit" && a + 1 < argc)
+            watchLimit = std::atoi(argv[++a]);
         else if (arg == "-watch" && a + 1 < argc)
             watch.push_back(uint32_t(std::strtoul(argv[++a], nullptr, 0)));
         else if (arg == "-thrashlog" && a + 2 < argc) {
@@ -1180,10 +1183,12 @@ int cmdNfsHost(int argc, char** argv) {
     if (traceCount > 0 || !watch.empty())
         host.cpu().trace = [&](reluva::x86::Cpu& c) {
             recent[recentAt++ % recent.size()] = c.eip;
-            if (!watch.empty() && watched < 50 && std::find(watch.begin(), watch.end(), c.eip) != watch.end()) {
+            if (!watch.empty() && watched < watchLimit && std::find(watch.begin(), watch.end(), c.eip) != watch.end()) {
                 ++watched;
-                std::printf("  at %08x: eax %08x ecx %08x edx %08x ebx %08x esp %08x ebp %08x esi %08x edi %08x\n", c.eip,
-                            c.reg[0], c.reg[1], c.reg[2], c.reg[3], c.reg[4], c.reg[5], c.reg[6], c.reg[7]);
+                std::printf("  at %08x: eax %08x ecx %08x edx %08x ebx %08x esp %08x ebp %08x esi %08x edi %08x [esp] %08x"
+                            " ms %llu\n",
+                            c.eip, c.reg[0], c.reg[1], c.reg[2], c.reg[3], c.reg[4], c.reg[5], c.reg[6], c.reg[7],
+                            c.valid(c.reg[4], 4) ? c.read32(c.reg[4]) : 0u, (unsigned long long)host.process().now());
             }
         };
     if (slice)

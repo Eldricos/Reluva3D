@@ -273,10 +273,22 @@ private:
     gfx::TextureId sunPicture_ = 0, cloudPicture_ = 0;
     uint32_t sunFirst_ = 0, sunIndices_ = 0, cloudFirst_ = 0, cloudIndices_ = 0;
     bool sunAdditive_ = true, sunInFront_ = false;
-    // Lightning: when the last flash began (ms), and when it was last
-    // decided whether one comes.
-    uint64_t flashAt_ = 0, flashCheckedAt_ = 0;
-    uint32_t flashSeed_ = 1;
+    // The sky mesh's vertices, kept to change as it goes: the sun turning
+    // (ROTATE), the clouds lit by lightning.
+    std::vector<gfx::Vertex> skyVertices_;
+    uint32_t sunVertex_ = 0, cloudVertex_ = 0;
+    std::array<uint8_t, kCloudPoints * kCloudPoints> cloudBase_{};
+    gfx::Vec3 sunCentre_{}, sunRight_{}, sunUp_{};
+    bool sunRotate_ = false, skyChanged_ = false;
+    // Lightning, ticked at the game's rate, and its bolts' mesh (thin
+    // quads, rebuilt each frame).
+    std::vector<LightningBolt> bolts_;
+    SkyRandom skyRandom_;
+    uint64_t skyTick_ = 0;
+    gfx::MeshId boltMesh_ = 0;
+    uint32_t boltIndices_ = 0;
+    void tickSky(uint64_t nowMs);
+    void updateSky(const gfx::Vec3& forward, const gfx::Vec3& right);
     bool fog_ = true;
     // The fog where the camera is: the base fog, or a dynamic region's
     // (hrz.md), its colour and density (percent).
