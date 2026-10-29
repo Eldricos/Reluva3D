@@ -514,7 +514,8 @@ std::vector<uint8_t> buildAnimatedFin() {
     floats({1, 2});
     w.b.push_back(1);
     w.str("whirr");
-    w.b.insert(w.b.end(), 10 + 16 + 1, 0);
+    w.b.insert(w.b.end(), {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0}); // looping
+    floats({0.5f, 20, 1000, 300}); // volume, falloff, distances
     put32(w.b, 2); // its lists: two numbers, then none, none
     w.b.insert(w.b.end(), {0, 0, 1, 0});
     put32(w.b, 0);
@@ -576,7 +577,8 @@ void testFinAnimation() {
     const FinActor& actor = f.actors[0x720];
     CHECK(actor.id == "U0001" && actor.name == "Thing");
     CHECK(actor.clips.size() == 1 && actor.clips[0].name == "spin" && actor.clips[0].start == 1 &&
-          actor.clips[0].sound == "whirr");
+          actor.clips[0].sound == "whirr" && actor.clips[0].loop && actor.clips[0].volume == 0.5f &&
+          actor.clips[0].falloff == 20 && actor.clips[0].maxDistance == 1000 && actor.clips[0].minDistance == 300);
     CHECK(actor.tracks.size() == 2 && actor.footprint.size() == 1 && actor.footprint[0][1] == 2);
     const FinActor::Track& node = actor.tracks[0];
     CHECK(node.rotations.size() == 1 && node.rotations[0].time == 4800 && node.rotations[0].value[0] == 0 &&

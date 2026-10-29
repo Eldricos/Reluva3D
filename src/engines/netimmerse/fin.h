@@ -120,6 +120,11 @@ struct FinLight : FinAvObject {
     std::array<float, 3> direction{};
     std::array<float, 3> ambient{}, diffuse{}, specular{};
     float spotAngle = 0; // degrees, a spot's
+    // *Guesses*: 3ds Max's multiplier; and, when `attenuated`, the range
+    // the light fades out over (the one light with it set has 136.8, the
+    // size of a room; the others' 12,800 to 179,200 would light all).
+    float multiplier = 1, range = 0;
+    bool attenuated = false;
 };
 
 // DDActorSharedData: the game's own data for a model. Its clips (named
@@ -130,7 +135,10 @@ struct FinActor {
     struct Clip {
         std::string name;
         float start = 0, end = 0; // seconds
-        std::string sound;        // played with it, or ""
+        std::string sound;        // played with it (a .DDS in the archives), or ""
+        // The sound's settings, as a puzzle's audio objects name theirs.
+        float volume = 1, falloff = 1, maxDistance = 0, minDistance = 0;
+        bool loop = false; // *guess*: set on walk cycles, idles and the like
     };
     template <typename T>
     struct Key {

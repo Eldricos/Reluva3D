@@ -194,8 +194,7 @@ are stored in the models. All 1,260 names are in `Map.pac`, `LMap.pac` or
 
 ## Animation
 
-Every class is now read; 116 of the 122 morph shapes read to exactly their
-end (below). `reluva-tool fin-check` also checks the actors' tracks against
+Every object of every class now reads to exactly its end. `reluva-tool fin-check` also checks the actors' tracks against
 the 3ds nodes (below). The viewer plays all of it.
 
 **How it was worked out.** Each class's objects were split out and dumped
@@ -228,9 +227,16 @@ fields. In order:
 - the clips: a count, then each:
   - its name (`at_rest`, `turn right`, `win`, `anim1`...);
   - start and end, in seconds;
-  - a byte: 1 if a sound follows. Then the sound's name (`u0179_on`), 10
-    bytes, four floats (1, 1, 600, 300: *guess*, volume, pitch and two
-    distances) and a byte;
+  - a byte: 1 if a sound follows. Then:
+    - the sound's name (`u0179_on`, a `.DDS` in `Audio.pac`: 245 of the
+      265 named are there);
+    - 4 bytes (0) and three flags. The first is set on clips that loop
+      (walk cycles, idles): *guess*, the sound loops;
+    - 4 bytes (0);
+    - its volume (0.03 to 1), falloff (1 to 80) and the distances out to
+      which (2,000 to 125,000) and within which (25 to 300) it's heard:
+      the four settings a puzzle's audio objects give by name (`Volume`,
+      `Falloff`, `MaxDist`, `MinDist`), and in that range;
   - three lists of 16-bit numbers (a count, then the numbers; meaning
     unknown);
 - the tracks: a count, then four for each:
@@ -347,13 +353,14 @@ type and the keys:
 
 ### Ni3dsMorphShape (122)
 
-A shape's fields, then, in the 116 that read exactly:
+A shape's fields, then:
 
 - a controller: two numbers (1, then 0x01000001), the cycle (2), a number,
   frequency, phase, start and stop;
 - two bytes;
-- the number of targets (6 in most), a number, four floats;
-- the keys: a count, then each:
+- the number of targets (6 in most) and of keys;
+- four floats and a number (5 in every file);
+- the keys, each:
   - its time;
   - six floats (*guess*: tension, continuity, bias and the like);
   - the number of targets again;
@@ -364,8 +371,9 @@ A shape's fields, then, in the 116 that read exactly:
 The first target is the shape's own vertices. The others are offsets from
 them. So the shape at a time is the first target plus each other times its
 weight. In E3020 the weights step one-hot through the targets, swaying
-the seaweed. Six, in three files, have a different number before the
-floats and extra bytes after the keys. They are drawn as modelled.
+the seaweed. All 122 read to exactly their end. (The key count was first
+taken from the later number, which is 5 like the count in most shapes;
+the six whose counts differ, 7, 4 and 2 keys, showed which is which.)
 
 ### NiLight (110, in the levels)
 
@@ -373,19 +381,35 @@ NiAVObject's fields, then:
 
 - 12 bytes (0);
 - a direction: (0, 0, −1) or none;
-- a byte;
-- three floats: for a spot, 22.5 (*guess*: its angle in degrees);
+- a byte (1: *guess*, on);
+- a spot's angle (22.5; −0.5 on omni lights);
+- a float (0);
+- *guess*: 3ds Max's multiplier (0.5 to 30 on omni lights, 1 to 3 on
+  spots);
 - the ambient, diffuse and specular colours (diffuse and specular always
   equal);
-- two floats: 12,800 to 179,200 and 0, or 1 and 0.5 (*guess*: ranges);
+- *guess*: a range, and 1 when the light fades out over it. The one light
+  with 1 there (Mission One's red one) has 136.8, the size of a room. The
+  others have 0 and 12,800 to 179,200, all multiples of 160. Spots have 1
+  and 0.5;
 - a byte;
 - the kind: 1 for the spots shining down −Z, 2 for the omni lights;
 - seven bytes.
 
-The levels are lit by their lightmaps, so the viewer only marks where the
-lights are (G). The game never hands Direct3D a light (`SetLight`) in
-Mission One, so the fields' meaning couldn't be read from what it does
-with them.
+The game never hands Direct3D a light (`SetLight`) in Mission One: it
+draws pre-transformed vertices with their colours, lighting them itself.
+Its light objects in memory hold the same fields as the file, so how it
+reads them couldn't be seen from the outside. The levels are lit by their
+lightmaps and vertex colours.
+
+In the viewer, G marks the lights. Pressed again, it lights the shapes
+that have normals (characters, parts) with them, by the guesses above:
+
+- the lights' ambient;
+- the one light reaching a shape most strongly, from its direction;
+- colour times the multiplier;
+- omni lights fading out over their range when that flag is set;
+- spots without their cone.
 
 ### DDCorona: glows
 

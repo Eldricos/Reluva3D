@@ -115,8 +115,12 @@ from the launcher, the engine now shows these pages (keys in
   - **Flip-book textures** cycle their images.
   - **Glows** (`DDCorona`) are drawn facing the camera, added to what's
     behind them.
-  - **Lights**: G marks them. They aren't applied, as the levels are lit
-    by their lightmaps.
+  - **Lights**: G marks them. Pressed again, G lights the shapes with
+    normals by them; how their fields are read is a guess (fin.md).
+  - **Clip sounds**: a clip with a sound plays it as it starts, at its
+    volume (looping if the clip's sound loops).
+  - **Footprints**: F shows the square a part fills on the board, from
+    its actor data.
   - The formats are in
     [../formats/netimmerse/fin.md](../formats/netimmerse/fin.md#animation).
     `fin-check` confirms that all 102 animated models have one track per

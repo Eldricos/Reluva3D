@@ -12,9 +12,11 @@
 //           10; drag to turn, wheel or +/- to zoom, W/A/S/D/Q/E to move
 //           the centre, T for textures, L for lightmaps, B for a level's
 //           sky, H for the hidden effects (sparks, stars...) and the
-//           characters' far-away stand-ins, G to mark the lights, R to
-//           reset the view, I to show or hide the info. Animated models
-//           play: C and V pick the clip, Space pauses.
+//           characters' far-away stand-ins, G to mark the lights (and
+//           again to light the shapes with them), F for
+//           the footprint, R to reset the view, I to show or hide the
+//           info. Animated models play: C and V pick the clip (with its
+//           sound), Space pauses.
 // Textures: every image. Left/Right step, PageUp/PageDown jump 10,
 //           Home/End; F picks the archive.
 // Fonts:    the game's .DDF fonts, drawn from their TGA pages. Left/Right
@@ -133,7 +135,7 @@ private:
     float radius_ = 1, yaw_ = 0.8f, pitch_ = 0.5f, distance_ = 1;
     bool dragging_ = false, showInfo_ = true, useTextures_ = true, useLightmaps_ = true, showBackdrop_ = true;
     bool showHidden_ = false; // the effects the game shows on events
-    bool showLights_ = false;
+    int lightMode_ = 0; // G: 0 off, 1 marked, 2 marked and lighting the shapes
     unsigned hiddenCount_ = 0;
     int lastX_ = 0, lastY_ = 0;
     // Animation: the actor's tracks by node, the clips (0: the whole
@@ -148,6 +150,18 @@ private:
     bool playing_ = true;
     uint64_t lastMs_ = 0, clockMs_ = 0;
     float posedTicks_ = -1;
+    // The clip's sound: started as the clip starts (and as it comes round
+    // again, unless the sound loops itself).
+    void clipSound();
+    void stopClipSound();
+    audio::SoundHandle clipSound_ = audio::kNoSound;
+    int soundClip_ = -1;
+    long soundPass_ = -1;
+    std::map<std::string, std::shared_ptr<const audio::Sound>> sounds_; // by name; nullptr if missing
+    // The actor's footprint on the floor (F).
+    bool showFootprint_ = false;
+    gfx::MeshId footprint_ = 0;
+    uint32_t footprintCount_ = 0;
 };
 
 class TexturePage : public Page {

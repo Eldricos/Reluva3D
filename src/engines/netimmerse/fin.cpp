@@ -297,7 +297,7 @@ void readMaterialAnimator(Reader& r, FinMaterialAnimator& a, bool alpha) {
 }
 
 // Ni3dsMorphShape: a shape, then a controller (two numbers first), two
-// bytes, the number of targets, a number, four numbers, the keys (each its
+// bytes, the numbers of targets and keys, five numbers, the keys (each its
 // time, six numbers, the number of targets again, then a weight, an
 // incoming and an outgoing tangent for each target, all the weights
 // first), and each target's vertices.
@@ -313,8 +313,8 @@ void readMorph(Reader& r, FinMorph& m) {
     c.stop = r.f32();
     r.skip(2);
     const uint32_t targets = r.u32();
-    r.skip(4 + 16);
     const uint32_t keys = r.u32();
+    r.skip(16 + 4); // four numbers, and one (5 in every file)
     if (targets > 64 || keys > 4096) {
         r.ok = false;
         return;
@@ -335,20 +335,24 @@ void readMorph(Reader& r, FinMorph& m) {
         m.targets.push_back(r.floats(size_t(m.vertexCount) * 3));
 }
 
-// NiLight: NiAVObject's fields, 12 bytes (0), a direction, a byte, three
-// numbers (a spot's angle first), ambient, diffuse and specular colours,
-// two numbers, a byte, the kind and seven bytes.
+// NiLight: NiAVObject's fields, 12 bytes (0), a direction, a byte, a
+// spot's angle, a number, the multiplier, ambient, diffuse and specular
+// colours, the range and whether it's used, a byte, the kind and seven
+// bytes.
 void readLight(Reader& r, FinLight& l) {
     readAvObject(r, l);
     r.skip(12);
     r.floats(l.direction.data(), 3);
     r.u8();
     l.spotAngle = r.f32();
-    r.skip(8);
+    r.skip(4);
+    l.multiplier = r.f32();
     r.floats(l.ambient.data(), 3);
     r.floats(l.diffuse.data(), 3);
     r.floats(l.specular.data(), 3);
-    r.skip(9);
+    l.range = r.f32();
+    l.attenuated = r.f32() == 1;
+    r.u8();
     l.kind = r.u8();
     r.skip(7);
 }
@@ -367,8 +371,17 @@ void readActor(Reader& r, FinActor& a) {
         c.start = r.f32();
         c.end = r.f32();
         if (r.u8()) {
+            // Its settings: 4 bytes (0), three flags (the first set on
+            // looping clips), 4 bytes (0), then volume, falloff and the
+            // distances out to which and within which it's heard.
             c.sound = r.string();
-            r.skip(10 + 16 + 1); // its settings: volume, distances...
+            r.skip(4);
+            c.loop = r.u8() != 0;
+            r.skip(2 + 4);
+            c.volume = r.f32();
+            c.falloff = r.f32();
+            c.maxDistance = r.f32();
+            c.minDistance = r.f32();
         }
         for (int list = 0; list < 3 && r.ok; ++list) // three lists of numbers, meaning unknown
             r.skip(size_t(r.u32()) * 2);

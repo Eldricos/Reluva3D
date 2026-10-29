@@ -7,6 +7,7 @@
 // morphs, materials, flip-book textures), with its glows.
 
 #include "engines/netimmerse/viewers.h"
+#include "engines/netimmerse/data.h"
 
 #include "common/font.h"
 #include "common/fs.h"
@@ -304,12 +305,52 @@ ModelPage::ModelPage(ViewerContext& ctx) : Page(ctx) {
 ModelPage::~ModelPage() { deactivate(); }
 
 void ModelPage::clearItems() {
-    if (renderer_)
+    if (renderer_) {
         for (const Item& item : items_)
             if (item.mesh)
                 renderer_->destroyMesh(item.mesh);
+        if (footprint_)
+            renderer_->destroyMesh(footprint_);
+    }
     items_.clear();
     itemOf_.clear();
+    footprint_ = 0;
+    footprintCount_ = 0;
+    stopClipSound();
+}
+
+void ModelPage::stopClipSound() {
+    if (ctx_.mixer && clipSound_ != audio::kNoSound)
+        ctx_.mixer->stop(clipSound_);
+    clipSound_ = audio::kNoSound;
+    soundClip_ = -1;
+    soundPass_ = -1;
+}
+
+void ModelPage::clipSound() {
+    if (!ctx_.mixer || clips_.empty())
+        return;
+    const FinActor::Clip& c = clips_[size_t(clip_)];
+    const float length = c.end - c.start;
+    const long pass = length > 0 ? long(clipTime_ / length) : 0;
+    if (clip_ == soundClip_ && (pass == soundPass_ || c.loop))
+        return;
+    stopClipSound();
+    soundClip_ = clip_;
+    soundPass_ = pass;
+    if (c.sound.empty() || !playing_)
+        return;
+    auto it = sounds_.find(c.sound);
+    if (it == sounds_.end()) {
+        std::shared_ptr<audio::Sound> sound = std::make_shared<audio::Sound>();
+        std::vector<uint8_t> data;
+        if (ctx_.files.read(c.sound + ".DDS", data) || decodeDds(data, *sound))
+            sound.reset();
+        it = sounds_.emplace(c.sound, sound).first;
+    }
+    if (it->second)
+        clipSound_ = ctx_.mixer->play(it->second, audio::SoundType::Effects,
+                                      int(std::clamp(c.volume, 0.0f, 1.0f) * audio::kMaxVolume), 0, c.loop);
 }
 
 void ModelPage::deactivate() {
@@ -457,6 +498,25 @@ void ModelPage::show(int index) {
     walk(clipTicks(), true);
     posedTicks_ = clipTicks();
     resetView();
+    // The footprint: its polygon as a fan of triangles, a little above the
+    // floor it's on.
+    if (actor_ && actor_->footprint.size() >= 3) {
+        std::vector<gfx::Vertex> verts(actor_->footprint.size());
+        std::vector<uint32_t> fan;
+        for (size_t i = 0; i < verts.size(); ++i) {
+            for (size_t k = 0; k < 3; ++k)
+                verts[i].pos[k] = actor_->footprint[i][k];
+            verts[i].normal[2] = 1;
+            for (size_t k = 0; k < 4; ++k)
+                verts[i].color[k] = 255;
+            if (i >= 2)
+                fan.insert(fan.end(), {0u, uint32_t(i - 1), uint32_t(i)});
+        }
+        if (!renderer_->createMesh(verts, fan, footprint_))
+            footprintCount_ = uint32_t(fan.size());
+        else
+            footprint_ = 0;
+    }
 
     unsigned shapes = 0, triangles = 0, glows = 0, missing = 0;
     std::vector<std::string> missingNames;
@@ -855,7 +915,8 @@ void ModelPage::handleEvent(const Event& ev) {
         case 't': useTextures_ = !useTextures_; break;
         case 'l': useLightmaps_ = !useLightmaps_; break;
         case 'b': showBackdrop_ = !showBackdrop_; break;
-        case 'g': showLights_ = !showLights_; break;
+        case 'g': lightMode_ = (lightMode_ + 1) % 3; break;
+        case 'f': showFootprint_ = !showFootprint_; break;
         case 'c':
         case 'v':
             if (!clips_.empty()) {
@@ -864,7 +925,11 @@ void ModelPage::handleEvent(const Event& ev) {
                 clipTime_ = 0;
             }
             break;
-        case ' ': playing_ = !playing_; break;
+        case ' ':
+            playing_ = !playing_;
+            if (!playing_)
+                stopClipSound();
+            break;
         case 'h': {
             showHidden_ = !showHidden_;
             // Keep the view and the clip.
@@ -931,6 +996,7 @@ void ModelPage::update(uint64_t nowMs) {
         clipTime_ += float(step) / 1000;
     if (const float ticks = clipTicks(); ticks != posedTicks_)
         pose(ticks);
+    clipSound();
 
     const gfx::Vec3 offset{std::cos(pitch_) * std::cos(yaw_), std::cos(pitch_) * std::sin(yaw_), std::sin(pitch_)};
     const gfx::Vec3 eye{centre_[0] + offset[0] * distance_, centre_[1] + offset[1] * distance_,
@@ -969,7 +1035,7 @@ void ModelPage::update(uint64_t nowMs) {
     std::vector<const Item*> order;
     auto drawn = [&](const Item& item) {
         return item.visible && item.mesh && (showBackdrop_ || !item.backdrop) &&
-               (item.kind != Item::Kind::Light || showLights_);
+               (item.kind != Item::Kind::Light || lightMode_ > 0);
     };
     for (const Item& item : items_)
         if (!item.blend && drawn(item))
@@ -985,6 +1051,40 @@ void ModelPage::update(uint64_t nowMs) {
     std::stable_sort(order.begin() + std::ptrdiff_t(opaque), order.end(),
                      [&](const Item* a, const Item* b) { return distance2(a) > distance2(b); });
     const float markerSize = radius_ * 0.03f;
+    // The model's own lights (G twice), for the shapes lit by normals: the
+    // lights' ambient, and the one light reaching the shape most strongly,
+    // from its direction. *Guesses*, as their fields are (fin.md): colour
+    // times the multiplier; an omni light fading out over its range when
+    // attenuated, else reaching everywhere; a spot shining down its -Z,
+    // its cone left out.
+    struct SceneLight {
+        gfx::Vec3 position{}, direction{}, color{};
+        bool spot = false, attenuated = false;
+        float range = 0;
+    };
+    std::vector<SceneLight> sceneLights;
+    gfx::Vec3 sceneAmbient{};
+    if (lightMode_ == 2)
+        for (const Item& item : items_) {
+            if (item.kind != Item::Kind::Light || !item.visible)
+                continue;
+            const FinLight& l = model_.lights.at(item.id);
+            SceneLight sl;
+            sl.position = {item.world[12], item.world[13], item.world[14]};
+            sl.spot = l.kind == 1;
+            gfx::Vec3 d{};
+            for (size_t r = 0; r < 3; ++r)
+                d[r] = item.world[r] * l.direction[0] + item.world[4 + r] * l.direction[1] + item.world[8 + r] * l.direction[2];
+            const float len = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+            for (size_t k = 0; k < 3; ++k) {
+                sl.direction[k] = len > 0 ? d[k] / len : 0;
+                sl.color[k] = std::clamp(l.diffuse[k] * l.multiplier, 0.0f, 2.0f);
+                sceneAmbient[k] += l.ambient[k];
+            }
+            sl.attenuated = l.attenuated && l.range > 0;
+            sl.range = l.range;
+            sceneLights.push_back(sl);
+        }
     for (const Item* drawnItem : order) {
         const Item& item = *drawnItem;
         gfx::DrawCall call;
@@ -1017,10 +1117,36 @@ void ModelPage::update(uint64_t nowMs) {
                          : item.lit                                          ? gfx::ColorSource::Lighting
                                                                              : gfx::ColorSource::Constant;
         call.alphaSource = item.vertexColors ? gfx::ColorSource::Vertex : gfx::ColorSource::Constant;
-        // A light over the viewer's shoulder.
+        // A light over the viewer's shoulder; or the model's own.
         call.ambientLight = {0.45f, 0.45f, 0.45f};
         call.directedLight = {0.6f, 0.6f, 0.6f};
         call.lightDirection = {offset[0] * 0.6f - offset[1] * 0.5f, offset[1] * 0.6f + offset[0] * 0.5f, 0.7f};
+        if (!sceneLights.empty() && item.lit) {
+            const gfx::Vec3 at = item.billboard ? gfx::Vec3{item.billboardAt[12], item.billboardAt[13], item.billboardAt[14]}
+                                                : item.centre;
+            float best = -1;
+            call.ambientLight = {0.15f + sceneAmbient[0], 0.15f + sceneAmbient[1], 0.15f + sceneAmbient[2]};
+            call.directedLight = {};
+            for (const SceneLight& l : sceneLights) {
+                gfx::Vec3 to{}; // towards the light
+                float strength = 1;
+                if (l.spot) {
+                    to = {-l.direction[0], -l.direction[1], -l.direction[2]};
+                } else {
+                    const gfx::Vec3 d{l.position[0] - at[0], l.position[1] - at[1], l.position[2] - at[2]};
+                    const float dist = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+                    to = dist > 0 ? gfx::Vec3{d[0] / dist, d[1] / dist, d[2] / dist} : gfx::Vec3{0, 0, 1};
+                    if (l.attenuated)
+                        strength = std::max(0.0f, 1 - dist / l.range);
+                }
+                const float bright = strength * (l.color[0] + l.color[1] + l.color[2]);
+                if (bright > best) {
+                    best = bright;
+                    call.lightDirection = to;
+                    call.directedLight = {l.color[0] * strength, l.color[1] * strength, l.color[2] * strength};
+                }
+            }
+        }
         // Back faces culled, as Direct3D does by default and nothing in
         // the files asks otherwise (closed shapes that blend, such as the
         // skeletons' heads, would otherwise show their insides);
@@ -1050,6 +1176,19 @@ void ModelPage::update(uint64_t nowMs) {
         }
     }
 
+    if (showFootprint_ && footprint_) {
+        gfx::DrawCall call;
+        call.mesh = footprint_;
+        call.indexCount = footprintCount_;
+        call.color = {0.3f, 1, 0.4f, 0.4f};
+        call.state.cull = gfx::Cull::None;
+        call.state.depthTest = false; // over the model, as it's under it
+        call.state.depthWrite = false;
+        call.state.src = gfx::Blend::SrcAlpha;
+        call.state.dst = gfx::Blend::OneMinusSrcAlpha;
+        renderer_->draw(call);
+    }
+
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
     std::vector<std::string> lines;
     if (showInfo_) {
@@ -1059,13 +1198,20 @@ void ModelPage::update(uint64_t nowMs) {
             char at[64];
             std::snprintf(at, sizeof at, "%.2f s of %.2f", c.end > c.start ? std::fmod(clipTime_, c.end - c.start) : 0.0f,
                           c.end - c.start);
+            std::string sound;
+            if (!c.sound.empty()) {
+                auto it = sounds_.find(c.sound);
+                sound = "  sound " + c.sound + (it != sounds_.end() && !it->second ? " (not found)" : "") +
+                        (c.loop ? ", looping" : "");
+            }
             lines.push_back("Clip " + std::to_string(clip_ + 1) + "/" + std::to_string(clips_.size()) + ": " + c.name +
-                            "  " + at + (playing_ ? "" : " (paused)") + "   C/V: clip   Space: pause");
+                            "  " + at + (playing_ ? "" : " (paused)") + sound + "   C/V: clip   Space: pause");
         }
         lines.push_back("Left/Right: model   drag: turn   wheel: zoom   W/A/S/D/Q/E: move   R: reset   I: info");
         lines.push_back(std::string("T: textures (") + (useTextures_ ? "on" : "off") + ")   L: lightmaps (" +
                         (useLightmaps_ ? "on" : "off") + ")   B: sky (" + (showBackdrop_ ? "on" : "off") +
-                        ")   G: lights (" + (showLights_ ? "on" : "off") + ")   H: hidden (" +
+                        ")   G: lights (" + (lightMode_ == 0 ? "off" : lightMode_ == 1 ? "marked" : "lighting") + ")   F: footprint (" +
+                        (!footprint_ ? "none" : showFootprint_ ? "on" : "off") + ")   H: hidden (" +
                         std::to_string(hiddenCount_) + ", " + (showHidden_ ? "shown" : "not shown") + ")");
     }
     if (!error_.empty())
