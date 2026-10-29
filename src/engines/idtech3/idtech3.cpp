@@ -32,6 +32,7 @@
 #include "engines/idtech3/pages/texture_viewer.h"
 #include "engines/idtech3/pages/world_viewer.h"
 
+#include <cstdio>
 #include <memory>
 
 namespace reluva {
@@ -55,15 +56,11 @@ public:
         const bool expansion = setting == target_.settings.end() || setting->second != "0";
         const std::vector<std::string> skip =
             expansion ? std::vector<std::string>{} : std::vector<std::string>{kExpansionPak};
-        if (Error err = mountGameDir(files_, target_.path, game_.baseDir, 0, warnings, skip))
+        // The mod the entry plays (as the original's +set fs_game), if any.
+        const auto modSetting = target_.settings.find("mod");
+        std::string mod = modSetting == target_.settings.end() ? std::string() : modFolderName(modSetting->second, game_.baseDir);
+        if (Error err = mountFiles(mod, skip, warnings))
             return err;
-        // Paks downloaded from servers, in the save folder's game folder:
-        // above the install's, as the original's home folder is.
-        if (!target_.savePath.empty() && fs::findDirectory(target_.savePath, game_.baseDir))
-            mountGameDir(files_, target_.savePath, game_.baseDir, 1, warnings);
-        // Damaged archives or scripts don't stop the viewer; the Files
-        // page lists what went wrong.
-        shaders_.load(files_, &warnings);
 
         if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32))
             return err;
@@ -77,9 +74,9 @@ public:
             ~AudioOff() { sys.stopAudio(); }
         } audioOff{sys_};
 
-        ViewerContext ctx{sys_, screen_, files_, shaders_, game_, warnings, target_.savePath,
+        ViewerContext ctx{sys_, screen_, files_, shaders_, game_, warnings, modSavePath(target_.savePath, mod),
                           audioOut ? &mixer : nullptr, {}, {}, {}, {}, {}, {}, {}, target_.path, false, {},
-                          singlePlayerDir(target_.path, game_, expansion)};
+                          singlePlayerDir(target_.path, game_, expansion), mod, target_.savePath};
         // A pak just downloaded: in the search path at once, above the
         // rest, and the shader scripts read again (it may bring its own).
         int added = 0;
@@ -87,15 +84,72 @@ public:
             auto zip = std::make_unique<ZipArchive>();
             if (Error err = zip->open(path))
                 return err;
-            files_.add(std::move(zip), 2 * kPrioritiesPerGameDir + ++added);
+            files_.add(std::move(zip), kDownloadPriority + ++added);
             shaders_.load(files_, nullptr);
             return Error::success();
         };
-        loadConfig(ctx);
+        startSettings(ctx);
         struct SaveConfig { // keeps settings changed while running, however it ends
             ViewerContext& ctx;
             ~SaveConfig() { saveConfig(ctx); }
         } saveOnExit{ctx};
+
+        // The pages, built again (from the start page, or the page that
+        // asked) each time the game's files change: a mod chosen in the
+        // menus.
+        std::string resumePage;
+        while (true) {
+            std::string switchedFrom;
+            if (Error err = runPages(ctx, resumePage, switchedFrom))
+                return err;
+            if (switchedFrom.empty())
+                return Error::success();
+            // fs_game changed and vid_restart run: the files mounted again
+            // for the mod (or none), its own settings, and the menus over.
+            const std::string next = modFolderName(ctx.cvars.string("fs_game"), game_.baseDir);
+            saveConfig(ctx);
+            warnings.clear();
+            if (Error err = mountFiles(next, skip, warnings))
+                return err;
+            added = 0;
+            ctx.gameDir = next;
+            ctx.savePath = modSavePath(target_.savePath, next);
+            ctx.cvars = CvarStore();
+            ctx.bindings = KeyBindings();
+            startSettings(ctx);
+            resumePage = switchedFrom;
+        }
+    }
+
+private:
+    // The game's files for a mod (or none), and their shader scripts.
+    // Damaged archives or scripts don't stop the viewer; the Files page
+    // lists what went wrong.
+    Error mountFiles(const std::string& mod, const std::vector<std::string>& skip, std::vector<std::string>& warnings) {
+        if (Error err = mountGame(files_, target_.path, target_.savePath, game_.baseDir, mod, warnings, skip))
+            return err;
+        std::printf("Game files: %s%s\n", game_.baseDir.c_str(), mod.empty() ? "" : (" and the mod " + mod).c_str());
+        shaders_.load(files_, &warnings);
+        return Error::success();
+    }
+
+    // The settings for the files mounted: the mod's own, or, until it has
+    // some, the game's; fs_game says which mod is played (set only from
+    // the command line, as the original's, but for the menus' Mods screens).
+    void startSettings(ViewerContext& ctx) {
+        const std::filesystem::path own = ctx.savePath;
+        if (!ctx.gameDir.empty() && !std::filesystem::exists(own / "reluva.cfg"))
+            ctx.savePath = ctx.homePath;
+        loadConfig(ctx);
+        ctx.savePath = own;
+        ctx.cvars.create("fs_game", ctx.gameDir, CvarStore::SystemInfo | CvarStore::Init);
+        ctx.cvars.set("fs_game", ctx.gameDir, true);
+    }
+
+    // The pages, from `resume` if it's one of them (else the start), until
+    // the player leaves (switchedFrom empty) or the game's files are to
+    // start again (switchedFrom: the page that asked).
+    Error runPages(ViewerContext& ctx, const std::string& resume, std::string& switchedFrom) {
         // The pages: the start (what to play), the game's own (single
         // player, Holomatch's menus and play), and the developer tools,
         // which Ctrl+Tab steps through once chosen.
@@ -126,6 +180,9 @@ public:
             return Error::fail("No files found in " + target_.path.string() + "/" + game_.baseDir);
         pages[0] = std::make_unique<StartPage>(ctx, std::move(choices));
         size_t page = 0;
+        for (size_t i = 1; i < firstTool; ++i)
+            if (!resume.empty() && pages[i]->name() == resume && pages[i]->count() > 0)
+                page = i;
         bool tools = false; // the developer tools chosen: Ctrl+Tab steps through every page
         pages[page]->activate();
         // Leaving a 3D page: its renderer goes, the framebuffer comes back.
@@ -137,6 +194,14 @@ public:
                     return err;
             page = next;
             pages[page]->activate();
+            return Error::success();
+        };
+        // The page shown left, its renderer gone, before the pages go.
+        auto leave = [&]() -> Error {
+            const bool was3D = pages[page]->uses3D();
+            pages[page]->deactivate();
+            if (was3D)
+                return sys_.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32);
             return Error::success();
         };
 
@@ -180,6 +245,15 @@ public:
                     }
             }
             pages[page]->update(sys_.getMillis());
+            // vid_restart with a different fs_game: the files start again
+            // (FS_ConditionalRestart in the original's).
+            if (ctx.requestRestart) {
+                ctx.requestRestart = false;
+                if (modFolderName(ctx.cvars.string("fs_game"), game_.baseDir) != ctx.gameDir) {
+                    switchedFrom = pages[page]->name();
+                    return leave();
+                }
+            }
             sys_.updateScreen(screen_);
             // 3D pages are paced by presenting (vsync); the rest needn't spin.
             if (!pages[page]->uses3D())
@@ -225,15 +299,39 @@ public:
     }
 
     std::vector<GameOption> options(const std::string& gameId, const std::filesystem::path& dir) const override {
+        const GameInfo* game = findGame(gameId);
+        if (!game)
+            return {};
+        std::vector<GameOption> out;
         // With the Expansion Pack there: whether to use it (an entry each,
         // the same folder added twice, gives both versions).
-        const GameInfo* game = findGame(gameId);
-        if (!game || !describeRelease(dir, *game).expansion)
-            return {};
-        return {{"expansion", "Use the Expansion Pack",
-                 "Its maps, Virtual Voyager and holodeck missions, and its menus' options.\n"
-                 "Off: the game as patch 1.2 left it, for matches with players without it.",
-                 true}};
+        if (describeRelease(dir, *game).expansion)
+            out.push_back({"expansion", "Use the Expansion Pack",
+                           "Its maps, Virtual Voyager and holodeck missions, and its menus' options.\n"
+                           "Off: the game as patch 1.2 left it, for matches with players without it.",
+                           true,
+                           {}});
+        // The mods beside the game's folder: which to play, as the
+        // original's +set fs_game (the menus' Mods screens change it too).
+        const std::vector<ModFolder> mods = listMods(dir, game->baseDir);
+        if (!mods.empty()) {
+            GameOption mod{"mod", "Mod",
+                           "A mod in the game's folder to play: its files over the game's, its own saved games\n"
+                           "and settings. The Mods screens in the game's menus change it while it runs.",
+                           true,
+                           {{"", "None"}}};
+            for (const ModFolder& m : mods) {
+                // Its description on one line, if it says more than its name.
+                std::string text;
+                for (const char c : m.description)
+                    text += static_cast<unsigned char>(c) < 32 ? ' ' : c;
+                while (!text.empty() && text.back() == ' ')
+                    text.pop_back();
+                mod.choices.emplace_back(m.name, text.empty() || text == m.name ? m.name : m.name + " - " + text);
+            }
+            out.push_back(std::move(mod));
+        }
+        return out;
     }
 
     std::vector<ImportPlan> planImport(const std::filesystem::path& source) const override {

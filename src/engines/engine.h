@@ -11,6 +11,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace reluva {
@@ -35,6 +36,9 @@ struct GameTarget {
 struct GameOption {
     std::string key, label, tooltip;
     bool defaultOn = true;
+    // A list to pick from instead of a checkbox: each value (kept in the
+    // entry's settings) and what's shown for it; the first is the default.
+    std::vector<std::pair<std::string, std::string>> choices;
 };
 
 // A running game. Created by its MetaEngine, run once, then destroyed.

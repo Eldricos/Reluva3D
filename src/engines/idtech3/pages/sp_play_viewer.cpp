@@ -354,8 +354,13 @@ void SpPlayViewer::runCommand(const std::string& line, bool fromGame) {
             std::error_code ec;
             std::filesystem::remove(saveDir_ / (w[1] + ".sav"), ec);
         }
-    } else if (cmd == "cvar_restart" || cmd == "snd_restart" || cmd == "in_restart" || cmd == "vid_restart" ||
-               cmd == "s_enable_a3d" || cmd == "s_disable_a3d") {
+    } else if (cmd == "vid_restart") {
+        // The game's files start again if a mod was chosen (fs_game, the
+        // Mods screen). The original's single player only reads fs_game as
+        // it starts; Reluva switches at once, as its Holomatch does.
+        ctx_.requestRestart = true;
+    } else if (cmd == "cvar_restart" || cmd == "snd_restart" || cmd == "in_restart" || cmd == "s_enable_a3d" ||
+               cmd == "s_disable_a3d") {
         // Nothing to restart here.
     } else {
         // The menus' own commands (ui_turbolift...), then the game's.

@@ -127,8 +127,8 @@ The engine's listing (0x415700 in its `stvoy.exe`):
     would leave 2 bytes or fewer, with no extra NUL after the last.
 
   Reluva lists them the same way (`listMods` and `packModList` in
-  `filesystem.cpp`). Choosing a mod sets `fs_game`, but Reluva doesn't
-  load mods yet.
+  `filesystem.cpp`), and loads the one chosen (see "Mods" in
+  [idtech3.md](../../engines/idtech3.md)).
 - The search path is walked in order. A pak's files are taken in the pak's
   own order when:
   - the file's folder is at least as long as the path and starts with it

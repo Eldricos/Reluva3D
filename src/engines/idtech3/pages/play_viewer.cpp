@@ -13,6 +13,7 @@
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/entities.h"
+#include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/info_string.h"
 #include "engines/idtech3/pure.h"
 #include "engines/idtech3/client/scene_drawer.h"
@@ -414,21 +415,23 @@ bool PlayViewer::startDownloads() {
 }
 
 bool PlayViewer::finishDownload(const std::string& name, const std::vector<uint8_t>& data) {
-    // Kept in the save folder's game folder, as the original keeps them in
-    // its home folder: a name with no way out of it, checked against the
-    // checksum the server gave before it's used.
+    // Kept in the save folder's game folder (the base game's, or the mod
+    // played's), as the original keeps them in its home folder: a name with
+    // no way out of it, checked against the checksum the server gave before
+    // it's used.
     if (downloads_.empty() || downloads_.front().first != name)
         return true;
     const int32_t expected = downloads_.front().second;
     downloads_.erase(downloads_.begin());
     const std::filesystem::path relative(name);
     const std::string folder = fs::toLower(relative.parent_path().string());
-    if (ctx_.savePath.empty() || relative.is_absolute() || name.find("..") != std::string::npos ||
-        folder != fs::toLower(ctx_.game.baseDir) || fs::toLower(relative.extension().string()) != ".pk3") {
+    if (ctx_.homePath.empty() || relative.is_absolute() || name.find("..") != std::string::npos ||
+        (folder != fs::toLower(ctx_.game.baseDir) && (ctx_.gameDir.empty() || folder != fs::toLower(ctx_.gameDir))) ||
+        fs::toLower(relative.extension().string()) != ".pk3") {
         stop("Won't keep the download " + name);
         return false;
     }
-    const std::filesystem::path path = ctx_.savePath / relative;
+    const std::filesystem::path path = ctx_.homePath / relative;
     std::error_code ec;
     std::filesystem::create_directories(path.parent_path(), ec);
     {
@@ -596,6 +599,23 @@ void PlayViewer::runRemote(uint64_t nowMs, int32_t dt) {
             return;
     }
     if (client_->takeNewGamestate()) {
+        // A server playing a mod (fs_game in its system info) other than
+        // this one's: as the original's client, the mod taken up, the
+        // game's files started again (the engine, at requestRestart) and
+        // the server joined again.
+        if (!client_->playingDemo()) {
+            const auto& info = client_->configstrings();
+            const std::string serverMod =
+                modFolderName(info.count(1) ? infoValue(info.at(1), "fs_game") : std::string(), ctx_.game.baseDir);
+            if (serverMod != ctx_.gameDir) {
+                cvars_.set("fs_game", serverMod, true);
+                ctx_.requestConnect = serverAddress_;
+                ctx_.requestRestart = true;
+                client_->disconnect();
+                client_.reset();
+                return;
+            }
+        }
         // Paks the server uses that this player hasn't: downloaded first
         // (the level loads when the server sends its game state again).
         if (!client_->playingDemo() && startDownloads())
@@ -788,6 +808,7 @@ void PlayViewer::consoleCommand(const std::string& text) {
     }
     if (verb == "vid_restart") {
         videoRestart_ = true; // before the next frame, not in the middle of this one
+        ctx_.requestRestart = true; // and the game's files, if fs_game changed
         return;
     }
     if (verb == "cmd") {

@@ -101,6 +101,16 @@ struct ViewerContext {
     // Where single player's code is (installPath, or its expansion/
     // folder for the Expansion Pack's); empty if there's none to run.
     std::filesystem::path singlePlayerPath;
+    // The mod being played (its folder's name, the fs_game cvar), or empty
+    // for the game itself. With one, savePath is the mod's own save folder
+    // (saves, settings, screenshots), and homePath stays the game's.
+    std::string gameDir;
+    // The game's save folder whatever the mod (GameTarget::savePath): the
+    // CD key, and paks downloaded into its <game folder>/ folders.
+    std::filesystem::path homePath;
+    // vid_restart run: the engine starts the game's files again if fs_game
+    // changed (the menus' Mods screens), as Elite Force's engines do.
+    bool requestRestart = false;
 };
 
 // The settings: the game's default.cfg, then the player's own (Reluva's

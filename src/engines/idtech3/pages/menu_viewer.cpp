@@ -97,8 +97,10 @@ void MenuViewer::checkCommands() {
                 menus_.reset();
                 return;
             } else if (verb == "vid_restart") {
-                // The video settings changed: the page starts its drawing over.
+                // The video settings changed: the page starts its drawing over;
+                // a mod chosen (fs_game), the game's files too.
                 restart_ = true;
+                ctx_.requestRestart = true;
             } else if (verb == "connect" && words.size() >= 2) {
                 // Joining a server (the server list's Engage).
                 ctx_.requestPage = "Play";

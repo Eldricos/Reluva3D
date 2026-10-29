@@ -38,7 +38,9 @@ void Page::fill(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b) {
 void Page::text(int x, int y, const std::string& s, Color c) { font::drawText(ctx_.screen, x, y, s, c); }
 
 void Page::setTitle(const std::string& detail) {
-    ctx_.sys.setWindowTitle(std::string("Reluva - ") + ctx_.game.name + " - " + name() + ": " + detail);
+    // With the mod played, if any.
+    ctx_.sys.setWindowTitle(std::string("Reluva - ") + ctx_.game.name + (ctx_.gameDir.empty() ? "" : " (" + ctx_.gameDir + ")") +
+                            " - " + name() + ": " + detail);
 }
 
 

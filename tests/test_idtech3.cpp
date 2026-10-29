@@ -1309,6 +1309,39 @@ static void testModList(const std::filesystem::path& tmp) {
     CHECK((dir.list() == std::vector<std::string>{"a.txt", "bA.txt", "b_x.txt"}));
 }
 
+// A mod's files over the game's: the install's, then the home folder's.
+static void testMountMod(const std::filesystem::path& tmp) {
+    std::filesystem::remove_all(tmp);
+    const std::filesystem::path install = tmp / "install", home = tmp / "home";
+    auto zip = [](const char* name, const char* text) { return test::buildZip({{name, test::toBytes(text), {}}}); };
+    test::writeFile(install / "BaseEF" / "pak0.pk3", zip("a.txt", "base"));
+    test::writeFile(install / "BaseEF" / "pak1.pk3", zip("b.txt", "base"));
+    test::writeFile(install / "BaseEF" / "pak2.pk3", zip("c.txt", "base"));
+    test::writeFile(home / "BaseEF" / "dl.pk3", zip("b.txt", "home base"));
+    test::writeFile(install / "MyMod" / "zz.pk3", zip("a.txt", "mod"));
+    test::writeFile(install / "MyMod" / "c.txt", test::toBytes("mod loose"));
+    test::writeFile(home / "MyMod" / "dl.pk3", zip("c.txt", "home mod"));
+    auto text = [](const SearchSet& set, const char* name) {
+        std::vector<uint8_t> data;
+        return set.read(name, data) ? std::string() : std::string(data.begin(), data.end());
+    };
+    SearchSet set;
+    std::vector<std::string> warnings;
+    CHECK(!mountGame(set, install, home, "BaseEF", "", warnings));
+    CHECK(text(set, "a.txt") == "base" && text(set, "b.txt") == "home base" && text(set, "c.txt") == "base");
+    CHECK(!mountGame(set, install, home, "BaseEF", "mymod", warnings)); // found ignoring case
+    CHECK(text(set, "a.txt") == "mod" && text(set, "b.txt") == "home base" && text(set, "c.txt") == "home mod");
+    CHECK(!mountGame(set, install, {}, "BaseEF", "MyMod", warnings));
+    CHECK(text(set, "c.txt") == "mod loose");
+    CHECK(!mountGame(set, install, home, "BaseEF", "NotThere", warnings) && text(set, "a.txt") == "base");
+    CHECK(mountGame(set, tmp / "nothing", home, "BaseEF", "", warnings)); // the base game's folder is needed
+
+    CHECK(modFolderName("MyMod", "baseEF") == "MyMod" && modFolderName("BASEEF", "baseEF").empty());
+    CHECK(modFolderName("../x", "baseEF").empty() && modFolderName(".git", "baseEF").empty() &&
+          modFolderName("a\\b", "baseEF").empty() && modFolderName("", "baseEF").empty());
+    CHECK(modSavePath(home, "MyMod") == home / "mods" / "MyMod" && modSavePath(home, "") == home);
+}
+
 // Sounds by name: decoded once, missing and broken ones remembered.
 static void testSoundLibrary(const std::filesystem::path& tmp) {
     using test::toBytes;
@@ -3316,6 +3349,7 @@ int main() {
     testSoundLibrary(tmp / "sounds");
     testExpansionFileList(tmp / "filelist");
     testModList(tmp / "mods");
+    testMountMod(tmp / "mount");
     testAmbientSets();
     testServerWorld();
     testSaveChunks();

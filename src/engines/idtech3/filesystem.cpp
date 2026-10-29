@@ -54,6 +54,36 @@ Error mountGameDir(SearchSet& set, const std::filesystem::path& install, std::st
     return Error::success();
 }
 
+Error mountGame(SearchSet& set, const std::filesystem::path& install, const std::filesystem::path& home,
+                std::string_view baseDir, std::string_view mod, std::vector<std::string>& warnings,
+                const std::vector<std::string>& skip) {
+    set.clear();
+    if (Error err = mountGameDir(set, install, baseDir, 0, warnings, skip))
+        return err;
+    if (!home.empty() && fs::findDirectory(home, baseDir))
+        mountGameDir(set, home, baseDir, 1, warnings);
+    if (!mod.empty()) {
+        if (fs::findDirectory(install, mod))
+            mountGameDir(set, install, mod, 2, warnings);
+        if (!home.empty() && fs::findDirectory(home, mod))
+            mountGameDir(set, home, mod, 3, warnings);
+    }
+    return Error::success();
+}
+
+std::string modFolderName(std::string_view value, std::string_view baseDir) {
+    if (value.empty() || value[0] == '.' || value.find_first_of("/\\:") != std::string_view::npos ||
+        fs::toLower(value) == fs::toLower(baseDir))
+        return {};
+    return std::string(value);
+}
+
+std::filesystem::path modSavePath(const std::filesystem::path& savePath, std::string_view mod) {
+    if (savePath.empty() || mod.empty())
+        return savePath;
+    return savePath / "mods" / std::filesystem::path(std::u8string(mod.begin(), mod.end()));
+}
+
 std::vector<ModFolder> listMods(const std::filesystem::path& install, std::string_view baseDir) {
     auto utf8 = [](const std::filesystem::path& p) {
         const std::u8string u8 = p.u8string();

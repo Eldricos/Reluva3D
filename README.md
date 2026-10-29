@@ -60,7 +60,9 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   `eliteforcepatch1_2.exe`) without running it. *Add expansion...* (or
   *Add Expansion...* for a game already added) copies the Expansion Pack from
   its CD; each game has a *Use the Expansion Pack* checkbox, so the same
-  folder can be added twice to play with and without it.
+  folder can be added twice to play with and without it. Mods (folders
+  beside the game's with their own paks) are chosen with a game's *Mod*
+  setting or the game's own Mods screens.
 - `reluva-tool detect <folder>` and `reluva-tool import <source> [destination]`
   do the same from a terminal.
 - `reluva <target>` starts a configured game directly. `reluva testbed`

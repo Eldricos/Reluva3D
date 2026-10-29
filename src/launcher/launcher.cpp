@@ -327,6 +327,13 @@ std::string Launcher::listLabel(const std::string& name) {
     }
     std::string label = config_.get(name, "description", name);
     for (const GameOption& o : it->second) {
+        if (!o.choices.empty()) {
+            const std::string value = config_.get(name, o.key, o.choices.front().first);
+            for (const auto& [v, shown] : o.choices)
+                if (v == value && v != o.choices.front().first)
+                    label += " [" + o.label + ": " + shown + "]";
+            continue;
+        }
         const bool on = config_.get(name, o.key, o.defaultOn ? "1" : "0") != "0";
         if (on != o.defaultOn)
             label += " [" + o.label + ": " + (on ? "on" : "off") + "]";
@@ -347,6 +354,28 @@ void Launcher::drawOptions() {
     ImGui::Spacing();
     ImGui::Separator();
     for (const GameOption& o : options_) {
+        if (!o.choices.empty()) {
+            // A list: the value kept, or the first (the default).
+            const std::string value = config_.get(selected_, o.key, o.choices.front().first);
+            std::string shown = o.choices.front().second;
+            for (const auto& [v, text] : o.choices)
+                if (v == value)
+                    shown = text;
+            ImGui::TextUnformatted(o.label.c_str());
+            if (!o.tooltip.empty() && ImGui::IsItemHovered())
+                ImGui::SetTooltip("%s", o.tooltip.c_str());
+            ImGui::SetNextItemWidth(-1);
+            if (ImGui::BeginCombo(("##" + o.key).c_str(), shown.c_str())) {
+                for (const auto& [v, text] : o.choices)
+                    if (ImGui::Selectable(text.c_str(), v == value)) {
+                        config_.set(selected_, o.key, v);
+                        config_.save();
+                        listOptions_.erase(selected_);
+                    }
+                ImGui::EndCombo();
+            }
+            continue;
+        }
         bool on = config_.get(selected_, o.key, o.defaultOn ? "1" : "0") != "0";
         if (ImGui::Checkbox(o.label.c_str(), &on)) {
             config_.set(selected_, o.key, on ? "1" : "0");
