@@ -157,7 +157,12 @@ void GoldGame::step(float clock, float dt, const std::vector<Car>& cars, float f
         // Its car's gone (the player left): the gold stays where it was.
         restAt(gold_, false);
     }
-    if (holder) {
+    if (holder && holder->putBack) {
+        event(GoldEvent::Kind::Dropped, holder->id, sideOf(*holder));
+        lastDropper_ = holder->id;
+        dropperWait_ = kDropperWait;
+        restAt(gold_, false); // where it was before the car was moved
+    } else if (holder) {
         gold_ = holder->position;
         if (holder->position[1] < floor) {
             event(GoldEvent::Kind::Returned, holder->id, sideOf(*holder));
@@ -170,7 +175,7 @@ void GoldGame::step(float clock, float dt, const std::vector<Car>& cars, float f
         } else if (holderSafe_ <= 0) {
             // Rammed by a car of another side.
             for (const Car& c : cars) {
-                if (c.id == holder->id || sideOf(c) == sideOf(*holder))
+                if (c.id == holder->id || sideOf(c) == sideOf(*holder) || c.putBack)
                     continue;
                 Vec3 d = c.position - holder->position;
                 d[1] = 0;
@@ -197,7 +202,7 @@ void GoldGame::step(float clock, float dt, const std::vector<Car>& cars, float f
         const Car* taker = nullptr;
         float nearest = kPickUp;
         for (const Car& c : cars) {
-            if (c.id == lastDropper_ && dropperWait_ > 0)
+            if ((c.id == lastDropper_ && dropperWait_ > 0) || c.putBack)
                 continue;
             const float d = flat(c.position, gold_);
             if (d < nearest && std::fabs(c.position[1] - gold_[1]) < 4) {

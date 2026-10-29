@@ -23,5 +23,13 @@ bool resolveSystemHost(const std::string& host, uint32_t& ip);
 // on 192.168.1.x/24...): 255.255.255.255 leaves by one of them only, so a
 // machine on several (a virtual machine's network as well) asks each.
 std::vector<uint32_t> systemBroadcastAddresses();
+// One HTTP exchange over TCP (a router's UPnP): connects to `to`, sends
+// `request`, and reads until the other end closes, at most `timeoutMs` in
+// all; `localIp` is the address this machine used. False if it couldn't.
+bool systemHttpExchange(const Address& to, const std::string& request, std::string& response, uint32_t& localIp,
+                        int timeoutMs);
+// The default gateways (the routers), where the system says: Linux's
+// /proc/net/route, Windows' adapters; elsewhere none.
+std::vector<uint32_t> systemGateways();
 
 } // namespace reluva::net

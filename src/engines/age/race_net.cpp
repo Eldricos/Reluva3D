@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 
 namespace reluva::age {
 
@@ -29,6 +30,10 @@ constexpr float kMessageFor = 3;  // seconds a game message stays up
 constexpr float kLinesFor = 10;   // and the session's lines
 constexpr float kPi = 3.14159265358979f;
 constexpr float kBotSkill = 0.9f; // computer players' share of their cars' top speed
+constexpr float kPutBackFor = 3;  // seconds a car put back can't take the gold
+constexpr float kHeardTo = 120;   // metres another car's engine can be heard to
+constexpr float kGateRadius = 15; // a checkpoint without a radius (circuits')
+constexpr float kGateSlack = 4;   // metres wider the host counts another's checkpoint
 
 std::string clockText(float seconds) {
     if (seconds < 0)
@@ -121,6 +126,8 @@ void RaceViewer::startNetGame() {
     places_ = points;
     if (set.mode == NetMode::CopsRobbers)
         gold_.start(set, points, session->seed());
+    unloadable_.clear();
+    progress_.clear();
     std::vector<NetPlayer> players = session->players();
     std::sort(players.begin(), players.end(), [](const NetPlayer& a, const NetPlayer& b) { return a.id < b.id; });
     std::map<uint8_t, int> bySide; // how many already at each base
@@ -295,8 +302,118 @@ void RaceViewer::driveRemote(Racer& r, float dt) {
     }
     r.car->lamps = {(s.lamps & kLampHead) != 0, (s.lamps & kLampBrake) != 0, (s.lamps & kLampReverse) != 0};
     r.car->siren = s.lamps & kLampSiren ? 1 + int(clock_ * 4) % 2 : 0;
-    r.next = std::min<size_t>(s.next, targets_.size());
-    r.finishTime = s.finishTime;
+    if (s.resets != r.seenResets) { // put back: no checkpoints on the way there
+        r.seenResets = s.resets;
+        r.putBackAt = clock_;
+        r.seen = false;
+    }
+    remoteLook(r, s, dt);
+    // How far it's got: the host counts it from where the car went; the
+    // others take the host's word (else its own machine's, until the host
+    // has spoken).
+    if (session->isHost()) {
+        checkProgress(r, s);
+    } else if (const auto p = progress_.find(r.peer); p != progress_.end()) {
+        r.next = std::min(p->second.first, targets_.size());
+        r.finishTime = p->second.second;
+    } else {
+        r.next = std::min<size_t>(s.next, targets_.size());
+        r.finishTime = s.finishTime;
+    }
+}
+
+void RaceViewer::checkProgress(Racer& r, const NetCarState& s) {
+    // Through its next checkpoint if the way it went since it was last
+    // seen passes within the checkpoint's reach (a little wider than its
+    // own machine's count).
+    if (r.seen && r.next < targets_.size()) {
+        const Waypoint& w = targetPoint(r.next);
+        const Vec3 a{r.seenAt[0], 0, r.seenAt[2]}, b{s.position[0], 0, s.position[2]},
+            c{w.position[0], 0, w.position[2]};
+        const Vec3 ab = b - a;
+        const float t = dot(ab, ab) > 1e-6f ? std::clamp(dot(c - a, ab) / dot(ab, ab), 0.0f, 1.0f) : 0;
+        const Vec3 nearest = a + ab * t;
+        const float height = r.seenAt[1] + (s.position[1] - r.seenAt[1]) * t;
+        if (length(c - nearest) < (w.radius > 0 ? w.radius : kGateRadius) + kGateSlack &&
+            std::fabs(height - w.position[1]) < 10 && ++r.next == targets_.size())
+            r.finishTime = s.clock;
+    }
+    r.seenAt = s.position;
+    r.seen = true;
+}
+
+void RaceViewer::remoteLook(Racer& r, const NetCarState& s, float dt) {
+    // Its engine, quieter with distance and to the side it's on; its
+    // damage: the dents its machine made, its smoke.
+    NetSession* session = net_ ? net_->session() : nullptr;
+    const NetPlayer* p = session ? session->player(r.peer) : nullptr;
+    if (!p || racers_.empty())
+        return;
+    const std::string base = net_->carFor(*p);
+    if (ctx_.mixer && !r.engine) {
+        r.engine = std::make_unique<EngineSound>();
+        if (r.engine->start(*ctx_.mixer, ctx_.files, base))
+            r.engine.reset();
+    }
+    if (r.engine) {
+        const CarSim& me = racers_.front().car->sim;
+        const Vec3 d = r.car->sim.position - me.position;
+        const float far = length(d);
+        const float near = std::clamp(1 - far / kHeardTo, 0.0f, 1.0f);
+        const float pan = far > 1 ? dot(d * (1 / far), me.orientation.x) : 0;
+        r.engine->update(s.rpm, s.throttle, near * near * 0.8f, pan);
+    }
+    if (!r.wear) {
+        r.wear = std::make_unique<CarWear>();
+        r.wear->load(ctx_.files, base, *r.car);
+    }
+    if (s.damage + 0.02f < r.damageShown) { // mended
+        r.car->mend();
+        r.dentsKnown = false;
+    }
+    if (!r.dentsKnown) { // the dents there are, as far as we're told
+        r.dentsSeen = uint8_t(s.dents - std::min<uint8_t>(s.dents, 4));
+        r.dentsKnown = true;
+    }
+    const int fresh = std::min<int>(uint8_t(s.dents - r.dentsSeen), 4);
+    for (int i = fresh - 1; i >= 0; --i)
+        r.car->dent(s.dentAt[size_t(i)], r.wear->setup.textureRadius);
+    r.dentsSeen = s.dents;
+    r.damageShown = s.damage;
+    r.wear->damage.set(s.damage * r.wear->setup.maxDamage);
+    r.wear->puff(dt, *r.car, smoke_.get());
+}
+
+void RaceViewer::syncNetRacers() {
+    // Players who've left (or a host that's gone, and its computer
+    // players) take their cars with them; players who've joined since the
+    // start bring theirs.
+    NetSession* session = net_ ? net_->session() : nullptr;
+    if (!session || racers_.empty())
+        return;
+    racers_.erase(std::remove_if(racers_.begin() + 1, racers_.end(),
+                                 [&](const Racer& r) { return !session->player(netIdOf(r)); }),
+                  racers_.end());
+    for (const NetPlayer& p : session->players()) {
+        if (p.id == session->myId() || unloadable_.count(p.id))
+            continue;
+        bool have = false;
+        for (const Racer& r : racers_)
+            have = have || netIdOf(r) == p.id;
+        if (have)
+            continue;
+        Racer r;
+        r.car = std::make_unique<CarActor>();
+        r.peer = p.id;
+        r.name = p.name;
+        if (r.car->load(*renderer_, scene_->textures(), ctx_.files, net_->carFor(p), p.paint)) {
+            unloadable_.insert(p.id);
+            continue;
+        }
+        const Waypoint& at = race_.waypoints.empty() ? Waypoint{scene_->start, 0, 0} : race_.waypoints[0];
+        r.car->sim.reset(r.car->setup, at.position + Vec3{0, 0.5f, 0}, headingToYaw(at.heading));
+        racers_.push_back(std::move(r));
+    }
 }
 
 uint8_t RaceViewer::netIdOf(const Racer& r) const {
@@ -311,7 +428,8 @@ std::vector<GoldGame::Car> RaceViewer::netCars() const {
         return cars;
     for (const Racer& r : racers_)
         if (const NetPlayer* p = session->player(netIdOf(r)))
-            cars.push_back({p->id, p->team, r.car->sim.position, r.car->sim.velocity});
+            cars.push_back(
+                {p->id, p->team, r.car->sim.position, r.car->sim.velocity, clock_ - r.putBackAt < kPutBackFor});
     return cars;
 }
 
@@ -329,6 +447,14 @@ NetCarState RaceViewer::carStateOf(const Racer& r) const {
                       (r.car->lamps.reverse ? kLampReverse : 0) | (r.car->siren ? kLampSiren : 0));
     s.next = uint16_t(std::min<size_t>(r.next, 65535));
     s.finishTime = r.finishTime;
+    s.rpm = sim.rpm;
+    s.throttle = r.throttle;
+    s.resets = r.resets;
+    if (r.player) {
+        s.damage = wear_.fraction();
+        s.dents = wear_.dents;
+        s.dentAt = wear_.recentDents;
+    }
     return s;
 }
 
@@ -354,6 +480,8 @@ void RaceViewer::planBot(Racer& r, float dt, const std::vector<GoldGame::Car>& c
         const Vec3 goal = robbing ? GoldBot::goal(r.botId, p->team, gold_, cars, chasing) : node;
         sim.reset(r.car->setup, node + Vec3{0, 0.5f, 0}, yawTowards(node, goal));
         r.bot.unstuck();
+        ++r.resets;
+        r.putBackAt = clock_;
     }
     if (r.car->hasSiren()) {
         bool chasing = false;
@@ -411,6 +539,7 @@ void RaceViewer::stepNet(float dt) {
     NetSession* session = net_ ? net_->session() : nullptr;
     if (!session || racers_.empty())
         return;
+    syncNetRacers();
     const NetSettings& set = session->settings();
     Racer& player = racers_.front();
     CarSim& sim = player.car->sim;
@@ -521,7 +650,26 @@ void RaceViewer::stepNet(float dt) {
         const float limit = race_.settings[0].timeLimit;
         const bool over = all || (first >= 0 && clock_ > first + kRaceOn) ||
                           (race_.kind == RaceKind::Blitz && limit > 0 && clock_ > limit);
-        session->setGameState({}, over);
+        // With everyone's progress as the host counts it.
+        std::vector<uint8_t> state;
+        for (const Racer& r : racers_) {
+            const uint8_t id = netIdOf(r);
+            const uint16_t next = uint16_t(std::min<size_t>(r.next, 65535));
+            uint32_t finish;
+            std::memcpy(&finish, &r.finishTime, 4);
+            state.insert(state.end(), {id, uint8_t(next), uint8_t(next >> 8), uint8_t(finish), uint8_t(finish >> 8),
+                                       uint8_t(finish >> 16), uint8_t(finish >> 24)});
+        }
+        session->setGameState(state, over);
+    } else if (!session->isHost()) {
+        const std::vector<uint8_t>& state = session->gameState();
+        for (size_t at = 0; at + 7 <= state.size(); at += 7) {
+            const uint32_t finish = uint32_t(state[at + 3]) | uint32_t(state[at + 4]) << 8 |
+                                    uint32_t(state[at + 5]) << 16 | uint32_t(state[at + 6]) << 24;
+            float f;
+            std::memcpy(&f, &finish, 4);
+            progress_[state[at]] = {size_t(state[at + 1] | state[at + 2] << 8), std::isfinite(f) ? f : -1};
+        }
     }
     if (session->over() && state_ != State::Finished) {
         if (player.finishTime >= 0) {

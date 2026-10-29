@@ -26,7 +26,7 @@ namespace reluva::age {
 
 constexpr uint16_t kNetPort = 28520; // where a host listens
 constexpr int kMaxNetPlayers = 8;
-constexpr uint8_t kNetVersion = 1;
+constexpr uint8_t kNetVersion = 2;
 constexpr uint8_t kNoPlayer = 255;
 
 // The Host Race Menu's events and its Cops & Robbers choices.
@@ -57,6 +57,10 @@ struct NetPlayer {
     bool ready = false, loaded = false;
     bool bot = false;  // a computer player, driven on the host's machine
     uint16_t ping = 0; // milliseconds there and back, as it last said
+    // Where the host reaches it, passed on so another can take over as
+    // host (none for the host and computer players).
+    net::Address address;
+    bool cheater = false; // the host has turned down too much of what its machine said
 };
 
 struct NetChatLine {
@@ -74,6 +78,14 @@ struct NetCarState {
     uint8_t lamps = 0;                         // kLamp* bits
     uint16_t next = 0;                         // its next checkpoint
     float finishTime = -1;                     // when it finished, if it has
+    // For its sound and look on the others' machines.
+    float rpm = 0, throttle = 0;
+    float damage = 0;             // 0..1 of the way to wrecked
+    uint8_t dents = 0;            // how many times its body's been dented (counting on, round past 255)
+    std::array<Vec3, 4> dentAt{}; // the last four, the newest first, in the car's frame
+    // Counted on each time it's put back (fallen out, stuck): a jump
+    // then is no trick.
+    uint8_t resets = 0;
 };
 enum : uint8_t { kLampHead = 1, kLampBrake = 2, kLampReverse = 4, kLampSiren = 8 };
 
@@ -95,6 +107,8 @@ struct NetNotice {
         Refused,     // the host refused us (`reason`)
         Started,     // the host started the game: load it
         BackToLobby, // the game's over: back to the lobby
+        HostMoved,   // the host went: `name` is host now
+        Suspect,     // the host turned down what `name`'s machine said of its car
     };
     Kind kind;
     std::string name;
@@ -117,10 +131,12 @@ public:
 
     // Reads what's arrived and sends what's due; call every frame.
     void update(uint64_t nowMs);
-    // Says goodbye (the host: to everyone).
+    // Says goodbye. The host hands the session to the player who's been
+    // in it longest, if there are two players left to play on.
     void leave();
 
     bool isHost() const { return host_; }
+    uint8_t hostId() const { return hostId_; }
     bool joining() const { return !host_ && myId_ == kNoPlayer && !closed_; }
     bool closed() const { return closed_; } // left, refused, ejected or the host gone
     uint8_t myId() const { return myId_; }
@@ -164,6 +180,9 @@ public:
     void sendBotCar(uint8_t id, const NetCarState& state);
     // The others' cars, by player, oldest first.
     const std::map<uint8_t, std::deque<NetCarState>>& cars() const { return cars_; }
+    // The host's checks: how many of a player's car states it turned down
+    // (moving faster than a car can, or stamped ahead of the clock).
+    int rejected(uint8_t id) const;
     // The host's word on the game (the gold, the scores; the race over),
     // passed to everyone as it is.
     void setGameState(const std::vector<uint8_t>& state, bool over);
@@ -183,6 +202,9 @@ private:
     void relayCars();
     void dropPlayer(uint8_t id, bool notify);
     void storeCar(uint8_t id, const NetCarState& s);
+    bool plausible(uint8_t id, const NetCarState& s); // the host's check of a player's car
+    void hostGone(uint64_t nowMs, uint8_t successor); // the host left or went quiet
+    void becomeHost(uint64_t nowMs);
     void notice(NetNotice::Kind kind, const std::string& name = {}, int reason = 0);
     void addChat(const std::string& from, const std::string& text);
     NetPlayer* mutablePlayer(uint8_t id);
@@ -192,6 +214,7 @@ private:
 
     std::unique_ptr<net::UdpSocket> socket_;
     bool host_ = false, closed_ = false;
+    uint8_t hostId_ = 0;
     net::Address hostAddress_;
     std::string sessionName_, password_;
     uint8_t myId_ = kNoPlayer;
@@ -210,12 +233,22 @@ private:
 
     // The host's.
     std::vector<std::unique_ptr<Peer>> peers_;
+    struct Challenge {
+        std::array<uint8_t, 16> nonce{};
+        uint64_t sentMs = 0;
+    };
+    std::map<net::Address, Challenge> challenges_; // asked to prove the password
+    uint32_t nonceCount_ = 0;
+    std::array<uint8_t, 16> secret_{}; // the host's own, for its challenges
+    std::map<uint8_t, int> rejected_;
     uint64_t loadingSinceMs_ = 0;
     uint64_t goMs_ = 0; // when the race clock reaches 0
 
     // A player's.
     NetPlayer wish_; // our name, car, team and readiness, as we last asked
     uint64_t lastHeardMs_ = 0, joinSentMs_ = 0, joinStartMs_ = 0;
+    std::array<uint8_t, 16> proof_{}; // the password, proved for the host's challenge
+    bool haveProof_ = false;
     std::deque<std::string> outbox_; // chat not yet taken by the host
     uint32_t outSeq_ = 0;            // the sequence number of outbox_.front()
     bool teamChosen_ = false;        // else the team's the host's choice

@@ -4,6 +4,7 @@
 // Tests for the Angel Game Engine's readers against files built here,
 // following docs/formats/age/, so no game data is needed.
 
+#include "common/md5.h"
 #include "engines/age/aimap.h"
 #include "engines/age/ambient.h"
 #include "engines/age/music.h"
@@ -2672,6 +2673,129 @@ static void testCruise(const std::filesystem::path& tmp) {
     CHECK(record.lastRace(city, kind, index) && kind == RaceKind::Cruise && index == kStuntRace);
 }
 
+// The gaps closed: a password proved, not sent; joining a game already
+// playing; the host's checks; the session handed on when the host goes.
+static void testNetSessionMore() {
+    CHECK(hmacMd5("key", 3, "The quick brown fox jumps over the lazy dog", 43) ==
+          (std::array<uint8_t, 16>{0x80, 0x07, 0x07, 0x13, 0x46, 0x3e, 0x77, 0x49, 0xb9, 0x0c, 0x2d, 0xc2, 0x49, 0x11,
+                                   0xe2, 0x75})); // RFC 2104's form, as published for MD5
+
+    auto network = net::LoopbackNetwork::create();
+    NetSettings settings;
+    settings.mode = NetMode::Cruise;
+    auto host = NetSession::host(network->open(kNetPort), "Hosting", settings, "swordfish");
+    const net::Address at{0x7f000001, kNetPort};
+    std::vector<NetSession*> players;
+    uint64_t t = 1000;
+    auto run = [&](int ms) {
+        for (int i = 0; i < ms / 10; ++i) {
+            t += 10;
+            if (host)
+                host->update(t);
+            for (NetSession* p : players)
+                p->update(t);
+        }
+    };
+    auto wrong = NetSession::join(network->open(0), at, "Eve", "trout");
+    players = {wrong.get()};
+    run(500);
+    auto refusal = wrong->takeNotices();
+    CHECK(wrong->closed() && !refusal.empty() && refusal.back().reason == kRefusedPassword);
+    auto ann = NetSession::join(network->open(0), at, "Ann", "swordfish");
+    auto bob = NetSession::join(network->open(0), at, "Bob", "swordfish");
+    players = {ann.get(), bob.get()};
+    run(600);
+    CHECK(ann->myId() == 1 && bob->myId() == 2 && host->players().size() == 3);
+
+    // Started and playing; Carl joins late and loads straight in.
+    ann->setReady(true);
+    bob->setReady(true);
+    run(500);
+    CHECK(!host->start(t));
+    run(300);
+    host->setLoaded();
+    ann->setLoaded();
+    bob->setLoaded();
+    run(3500);
+    CHECK(host->phase() == NetSession::Phase::Playing && host->clock(t) > 0.2f);
+    auto carl = NetSession::join(network->open(0), at, "Carl", "swordfish");
+    players.push_back(carl.get());
+    run(600);
+    bool started = false;
+    for (const NetNotice& n : carl->takeNotices())
+        started = started || n.kind == NetNotice::Kind::Started;
+    CHECK(carl->myId() == 3 && started && carl->phase() == NetSession::Phase::Playing && carl->counting() &&
+          std::fabs(carl->clock(t) - host->clock(t)) < 0.1f);
+    carl->setLoaded();
+
+    // The host's checks: a car that jumps 500 m in a tenth of a second
+    // isn't believed, unless it's been put back; five of those and the
+    // player's called a cheater.
+    NetCarState s;
+    s.position = {0, 0, 0};
+    s.rpm = 4200;
+    s.throttle = 0.5f;
+    s.damage = 0.25f;
+    s.dents = 1;
+    s.dentAt[0] = {1.2f, 0.4f, -2.0f};
+    for (int i = 0; i < 3; ++i) {
+        s.clock = bob->clock(t);
+        s.position[2] += 2;
+        bob->sendCar(s);
+        run(100);
+    }
+    CHECK(host->cars().count(2) && host->rejected(2) == 0);
+    const NetCarState& got = host->cars().at(2).back();
+    CHECK(std::fabs(got.rpm - 4200) < 1 && std::fabs(got.throttle - 0.5f) < 0.01f &&
+          std::fabs(got.damage - 0.25f) < 1e-3f && got.dents == 1 && std::fabs(got.dentAt[0][2] + 2) < 0.03f);
+    s.position = {500, 0, 0};
+    s.clock = bob->clock(t);
+    bob->sendCar(s);
+    run(100);
+    CHECK(host->rejected(2) >= 1 && host->cars().at(2).back().position[0] < 1);
+    s.resets = 1; // put back: believed
+    s.clock = bob->clock(t);
+    bob->sendCar(s);
+    run(100);
+    CHECK(std::fabs(host->cars().at(2).back().position[0] - 500) < 1e-3f);
+    for (int i = 0; i < 6; ++i) { // and on again, each a jump
+        s.clock = bob->clock(t);
+        s.position[0] += 500;
+        bob->sendCar(s);
+        run(100);
+    }
+    run(300);
+    bool cheat = false;
+    for (const NetNotice& n : ann->takeNotices())
+        cheat = cheat || (n.kind == NetNotice::Kind::Suspect && n.name == "Bob");
+    CHECK(host->player(2)->cheater && ann->player(2)->cheater && cheat);
+
+    // The host leaves: Ann (in longest) takes over, the others follow her,
+    // and the race clock goes on.
+    const float before = host->clock(t);
+    host->leave();
+    host.reset();
+    run(300);
+    bool moved = false;
+    for (const NetNotice& n : bob->takeNotices())
+        moved = moved || (n.kind == NetNotice::Kind::HostMoved && n.name == "Ann");
+    CHECK(moved && ann->isHost() && !bob->isHost() && !bob->closed() && bob->hostId() == 1 &&
+          ann->players().size() == 3);
+    CHECK(ann->phase() == NetSession::Phase::Playing && ann->clock(t) > before);
+    bob->say("still here");
+    run(1500);
+    CHECK(!ann->chat().empty() && ann->chat().back().text == "still here" && carl->chat().back().text == "still here");
+    CHECK(std::fabs(bob->clock(t) - ann->clock(t)) < 0.15f && !carl->closed());
+    // Ann goes quiet: Bob and Carl play on under Bob.
+    players = {bob.get(), carl.get()};
+    run(6000);
+    CHECK(bob->isHost() && carl->hostId() == 2 && !carl->closed() && bob->players().size() == 2);
+    // And when only one would be left, there's no session.
+    players = {carl.get()};
+    run(6000);
+    CHECK(carl->closed());
+}
+
 int main() {
     const auto tmp = std::filesystem::temp_directory_path() / "reluva_age_tests";
     testArchive(tmp / "archive");
@@ -2715,6 +2839,7 @@ int main() {
     testAmbient(tmp / "ambient");
     testMusic(tmp / "music");
     testNetSession();
+    testNetSessionMore();
     testGoldGame();
     testOptions(tmp / "options");
     testReplays(tmp / "replays");

@@ -173,13 +173,21 @@ std::string NetMenus::noticeText(const NetNotice& n) const {
         return strings_.get(73, "**Session returning to Lobby**");
     case NetNotice::Kind::Started:
         return {};
+    case NetNotice::Kind::HostMoved: // the game's words for the new host's own screen
+        if (session_ && session_->isHost())
+            return strings_.get(39, "You are now the Host");
+        return n.name + " is the host now";
+    case NetNotice::Kind::Suspect:
+        if (session_ && session_->me() && session_->me()->name == n.name && !session_->isHost())
+            return strings_.get(46, "You are a cheater");
+        return n.name + " " + strings_.get(41, "is a cheater");
     case NetNotice::Kind::Refused:
         switch (n.reason) {
         case kRefusedVersion:
             return strings_.get(83, "ERROR: Network versions do not match.");
         case kRefusedFull:
             return "The session is full";
-        case kRefusedPlaying:
+        case kRefusedPlaying: // older hosts' word
             return "The game has started: wait for the lobby";
         case kRefusedPassword:
             return "The password is wrong";
@@ -212,6 +220,7 @@ void NetMenus::leave() {
     if (session_)
         session_->leave();
     session_.reset();
+    mapper_.reset(); // the router's port closed again
     local_.reset();
     browser_.reset();
     sys_.setTextInput(false);
@@ -748,6 +757,26 @@ NetMenus::Action NetMenus::update(uint64_t nowMs) {
     if (!session_)
         return action;
     session_->update(nowMs);
+    // Hosting on the network (from the start, or taken over): the router
+    // asked to pass the port on, for players on the Internet.
+    if (session_->isHost() && !local_ && !mapper_) {
+        mapper_ = std::make_unique<net::PortMapper>(net::PortMapper::through(sys_), kNetPort);
+        mapperSaid_ = false;
+    }
+    if (mapper_ && mapper_->done() && !mapperSaid_) {
+        mapperSaid_ = true;
+        const net::PortMapping m = mapper_->result();
+        if (m.way == net::PortMapping::Way::None)
+            say(m.why + ": for players on the Internet, pass UDP port " + std::to_string(kNetPort) +
+                    " on to this computer by hand",
+                true);
+        else
+            say(std::string("The router passes the port on (") +
+                    (m.way == net::PortMapping::Way::Upnp ? "UPnP" : "NAT-PMP") + "): players on the Internet join " +
+                    (m.externalIp ? net::Address{m.externalIp, m.externalPort}.toString()
+                                  : "this computer's Internet address"),
+                true);
+    }
     for (const NetNotice& n : session_->takeNotices()) {
         say(noticeText(n), true);
         switch (n.kind) {
@@ -781,6 +810,7 @@ NetMenus::Action NetMenus::update(uint64_t nowMs) {
         }
     if (session_->closed()) {
         session_.reset();
+        mapper_.reset();
         go(Screen::Sessions);
         action = Action::Lobby;
     }

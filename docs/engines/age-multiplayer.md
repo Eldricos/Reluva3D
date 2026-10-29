@@ -32,7 +32,11 @@ sessions screen.
   the sessions found on the local network, asked for by a broadcast
   every second. With none in the list, JOIN asks for an address: a host
   name or `a.b.c.d`, with `:port` if it isn't 28520. Over the Internet,
-  the host's router has to pass UDP port 28520 on to the host.
+  the host's router has to pass UDP port 28520 on to the host, which
+  Reluva asks it to do (below).
+- **A game already playing** can be joined: the joiner loads straight
+  into it, and the others see their car arrive. A player who leaves (or
+  is ejected) takes their car with them.
 - **The lobby**:
   - The host's settings and the race's map.
   - The players, with their cars, teams, readiness and ping.
@@ -49,6 +53,9 @@ sessions screen.
   - **H**: the horn, and on the police car its siren's lights.
   - **Esc**: the host takes everyone back to the lobby; a player leaves
     the session.
+- **The host leaving.** When the host leaves the session, or its machine
+  stops answering for 5 seconds, the session goes on if two players are
+  left (below, "Taking over").
   - **Enter**: the host, after the results, takes everyone back to the
     lobby.
 
@@ -272,14 +279,18 @@ strings are a length byte and their bytes, floats IEEE.
 |---|---|---|
 | Query | anyone, broadcast | version, the asker's time (ms) |
 | Info | host | version, session name, event, city, players, most, flags (playing, password), the asker's time back |
-| Join | player | version, net name, password |
-| Welcome / Refuse | host | the player's id / why (version, full, playing, password) |
+| Join | player | version, net name, the password's proof (none until challenged) |
+| Challenge | host | 16 bytes, for a session with a password |
+| Welcome / Refuse | host | the player's id / why (version, full, password) |
 | Status | player, 4 a second | round, name, car, paint, team, flags (ready, loaded, team chosen), ping, its time, a chat line and its number |
-| Lobby | host, 4 a second to each | phase, round, seed, session name, settings, the player's id, every player, the last 8 chat lines, the player's chat taken, the player's time back and how long the host held it |
-| Car | player, 20 a second | its race clock, position, velocity, rotation (4 x int16), front wheels' angle, wheels' compression (cm), lamps (head, brake, reverse, siren), next checkpoint, finish time |
+| Lobby | host, 4 a second to each | phase, round, seed, session name, settings, the player's id, every player (with the address the host reaches it at, and whether it's been called a cheater), the last 8 chat lines, the player's chat taken, the player's time back and how long the host held it |
+| Car | player, 20 a second | its race clock, position, velocity, rotation (4 x int16), front wheels' angle, wheels' compression (cm), lamps (head, brake, reverse, siren), next checkpoint, finish time, engine revs, throttle, damage, how many dents and the last four (in 5 cm steps), times put back |
 | Cars | host, 20 a second to each | every other car's newest state |
-| Game | host, 10 a second | the race clock, over, the game's state (Cops & Robbers' gold, as `GoldGame::encode` writes it) |
-| Leave / Kick / Bye | player / host / host | a player going, ejected, the host going |
+| Game | host, 10 a second | the race clock, over, the game's state (Cops & Robbers' gold, as `GoldGame::encode` writes it; in a race each player's next checkpoint and finish as the host counts them) |
+| Leave / Kick / Bye | player / host / host | a player going, ejected, the host going (and who's to take over) |
+
+The version is 2 (version 1 sent the password itself, and had none of
+the Car fields after the finish time).
 
 - **Nothing depends on one datagram.** Each message is sent again and
   again, the newest replacing the last. A chat line is sent until the
@@ -302,23 +313,129 @@ strings are a length byte and their bytes, floats IEEE.
   - A collision with another player's car pushes and knocks only your
     own: their machine does the same for theirs, so the two agree.
 
+## Passwords
+
+A password isn't sent. A player joining a session that has one is sent a
+challenge: 16 bytes the host hasn't used before (MD5 of a secret of its
+own, a count and the time). The player answers with HMAC-MD5 (RFC 2104,
+keyed by the password) of the challenge and its net name, and the host
+checks it with its own copy. Each challenge is good for one answer. A
+wrong answer is refused as the game's "Incorrect password" (`badp_dlg`).
+That keeps the password off the network; it isn't encryption: the game
+itself goes in the clear.
+
+## Joining late, leaving, taking over
+
+- **Joining late.** The host takes a player in whatever the phase. The
+  joiner's first Lobby says the game's playing, so its machine loads it,
+  takes the clock from the Game messages and starts in its grid place (or
+  base, or Cops & Robbers place) with no countdown. A late joiner in a
+  race starts the race from the beginning.
+- **The cars follow the session.** Every machine adds a car when a
+  player appears and takes it away when they go.
+- **Taking over** ("Migrate Host", `mmlang.dll` 480). The Lobby passes
+  on every player's address as the host reaches it, so each player can
+  reach the others:
+  - The host leaving names who takes over: the player who's been in
+    longest (the lowest id). A host that just stops answering is replaced
+    the same way, by each player's own reckoning, after 5 seconds.
+  - It happens only if two players are left; otherwise the session ends
+    ("The Host has quit").
+  - The new host keeps the session as it was: the settings, the players,
+    the phase, the race clock (its own copy of the old host's), the chat,
+    and in Cops & Robbers the gold as last heard. The old host's computer
+    players go with it.
+  - The new host sees the game's "You are now the Host" (39); the others
+    "*name* is the host now".
+  - The players' addresses are those the old host saw: on one network
+    that's always right; across the Internet, only if each player can be
+    reached at the address its router showed the old host.
+
+## The host's checks
+
+The host doesn't take a player's word for everything:
+
+- **Cars.** A state stamped more than a second past the host's clock,
+  moving faster than 110 m/s, or further from the last state than 2 m
+  plus 110 m/s for the time between, is thrown away, unless the car
+  says it has been put back since (fallen out of the city, or stuck: a
+  count in each state). The fastest cars top out near 70 m/s.
+- **Cheaters.** Five states thrown away and the player is called a
+  cheater, in the game's words: "*name* is a cheater" (41) to the others,
+  "You are a cheater" (46) to them.
+- **Races.** The host counts each player's checkpoints itself: a
+  checkpoint counts when the way the car went between two states passes
+  within its radius (or 15 m) plus 4 m, and within 10 m of its height.
+  The finish is the time of the state that reached the last. Everyone's
+  positions and results, and when the race is over, go by the host's
+  count, which it sends with the Game.
+- **The gold.** A car that's been put back drops the gold it had where
+  it was, and for 3 seconds can't take it or ram it loose, so being "put
+  back" can't carry the gold home or onto it.
+
+## Others' cars: sound and damage
+
+Each car's state carries its engine's revs and throttle, its damage, and
+the dents its body has taken. On the others' machines:
+
+- **Engine.** Its own engine sound (its `aud/cardata` table, as for the
+  player's car), quieter with distance (silent at 120 m) and to the side
+  it's on.
+- **Damage.** The dents where its own machine made them, its body's
+  damaged textures within its `TextelDamageRadius`, and its smoke once
+  it's as damaged as smokes. Mended (a new game), it's clean again.
+
+## Reaching a host on the Internet
+
+A host behind a router can only be reached from the Internet if the
+router passes UDP port 28520 on to it. When a session is hosted on the
+network (or taken over), Reluva asks the router itself, on a thread of
+its own (`common/portmap.cpp`):
+
+1. **UPnP**, from the UPnP Device Architecture and its Internet Gateway
+   Device's WANIPConnection service (both published by the UPnP Forum):
+   - An SSDP search to 239.255.255.250:1900 for an
+     `InternetGatewayDevice:1` (else a `WANIPConnection:1`). The router's
+     answer gives its description's address.
+   - The description (over HTTP) names the WAN connection's service type
+     and control address.
+   - The SOAP action `AddPortMapping`: UDP 28520 to this machine's
+     address, for good (else for a day). Then `GetExternalIPAddress`.
+2. **NAT-PMP** (RFC 6886), if UPnP found nothing: a mapping request to
+   port 5351 of the gateway, for two hours, asked again at half that,
+   and the external address request. The gateway is the system's
+   (Linux's `/proc/net/route`, Windows' adapters), else the first address
+   of each network the machine is on.
+
+The lobby's lines say what came of it: the address players on the
+Internet join, or that the router didn't answer and the port has to be
+passed on by hand. The mapping is taken away when the host leaves
+(`DeletePortMapping`, or a NAT-PMP lifetime of 0).
+
 ## Not done
 
-- **Host migration.** "Migrate Host" is one of the game's in-game menu
-  words. When the host goes, the session ends.
-- **Joining a game already playing**: the host refuses until it's back
-  in the lobby.
-- **Others' engine sounds and damage**: other players' cars make no
-  engine sound and show no damage.
-- **Passwords** are sent as they are: a password keeps strangers out of
-  a game, nothing more.
-- **Cheating**: nothing checks what a player says of their car or their
-  race.
-- **NAT traversal**: a host behind a router needs its port passed on.
+- **Hole punching**: two players both behind routers that won't pass a
+  port on can't reach each other; that needs a server of Reluva's own on
+  the Internet to meet through, which it hasn't.
+- **Encryption**: the game's messages, chat included, go in the clear.
+- **What the host can't see**: the checks catch impossible movement and
+  progress, not a car tuned faster than it should be, within the limits.
+- **Computer players over a change of host**: they go with the old host.
 
 ## How it's tested
 
-`tests/test_age.cpp` has two tests, `testNetSession` and `testGoldGame`.
+`tests/test_age.cpp` has three tests, `testNetSession`, `testNetSessionMore`
+and `testGoldGame`; `tests/test_common.cpp`'s `testPortMap` asks routers
+made in the test (one with UPnP, one with NAT-PMP, one with neither).
+
+**`testNetSessionMore`**: a wrong password refused and the right one
+proved (and HMAC-MD5 against RFC 2104's published example); a player
+joining a game already playing and loading straight in, on the host's
+clock; the new Car fields passed on; a car that jumps 500 m thrown away
+until it says it's been put back, and five jumps calling it a cheater
+on every machine; the host leaving and the player in longest taking over
+with the clock going on and chat still passing; that host going quiet
+and the next taking over; and the session ending when only one is left.
 
 **`testNetSession`** plays a host and players over the in-memory network,
 a third of the datagrams lost for the middle of it:
@@ -345,3 +462,8 @@ same process on the real game's files, drawn by a software renderer:
 - The host alone with three computer players: Cops & Robbers (a point
   each side in five minutes) and a circuit race (all three finished).
 - Joining by address, and ejecting.
+- A player joining a circuit 11 seconds in: loaded straight into it,
+  each seeing the other's car.
+- Three Race pages in a cruise, the host leaving: the player in longest
+  took over and the third followed, both playing on with the host's car
+  gone and their clocks 0.05 s apart.

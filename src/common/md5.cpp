@@ -3,6 +3,7 @@
 
 #include "common/md5.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 
@@ -89,6 +90,16 @@ void Md5::update(const void* data, size_t len) {
 }
 
 std::string Md5::hexDigest() {
+    static const char* hex = "0123456789abcdef";
+    std::string out;
+    for (uint8_t byte : digest()) {
+        out += hex[byte >> 4];
+        out += hex[byte & 15];
+    }
+    return out;
+}
+
+std::array<uint8_t, 16> Md5::digest() {
     uint64_t bits = length_ * 8;
     const uint8_t pad = 0x80;
     update(&pad, 1);
@@ -99,17 +110,38 @@ std::string Md5::hexDigest() {
     for (int i = 0; i < 8; ++i)
         lenBytes[i] = static_cast<uint8_t>(bits >> (8 * i));
     update(lenBytes, 8);
-
-    static const char* hex = "0123456789abcdef";
-    std::string out;
-    for (uint32_t word : state_) {
-        for (int i = 0; i < 4; ++i) {
-            uint8_t byte = static_cast<uint8_t>(word >> (8 * i));
-            out += hex[byte >> 4];
-            out += hex[byte & 15];
-        }
-    }
+    std::array<uint8_t, 16> out{};
+    for (size_t w = 0; w < 4; ++w)
+        for (size_t i = 0; i < 4; ++i)
+            out[w * 4 + i] = static_cast<uint8_t>(state_[w] >> (8 * i));
     return out;
+}
+
+std::array<uint8_t, 16> hmacMd5(const void* key, size_t keyLen, const void* message, size_t len) {
+    // RFC 2104: MD5((K ^ opad) || MD5((K ^ ipad) || message)), the key
+    // hashed first if it's longer than MD5's 64-byte block.
+    std::array<uint8_t, 64> k{};
+    if (keyLen > k.size()) {
+        Md5 h;
+        h.update(key, keyLen);
+        const auto d = h.digest();
+        std::copy(d.begin(), d.end(), k.begin());
+    } else if (keyLen) {
+        std::memcpy(k.data(), key, keyLen);
+    }
+    std::array<uint8_t, 64> pad;
+    for (size_t i = 0; i < 64; ++i)
+        pad[i] = k[i] ^ 0x36;
+    Md5 inner;
+    inner.update(pad.data(), pad.size());
+    inner.update(message, len);
+    const auto innerDigest = inner.digest();
+    for (size_t i = 0; i < 64; ++i)
+        pad[i] = k[i] ^ 0x5c;
+    Md5 outer;
+    outer.update(pad.data(), pad.size());
+    outer.update(innerDigest.data(), innerDigest.size());
+    return outer.digest();
 }
 
 } // namespace reluva

@@ -83,6 +83,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <map>
+#include <set>
 #include <memory>
 #include <string>
 #include <vector>
@@ -405,6 +406,21 @@ private:
         uint8_t peer = kNoPlayer; // another player's car (multiplayer), driven by what its driver sends
         uint8_t botId = kNoPlayer; // a computer player the host drives (multiplayer)
         GoldBot bot;               // and its mind, outside the races
+        float throttle = 0;        // as last driven, for its sound on the others' machines
+        uint8_t resets = 0;        // times put back (fallen out, stuck), counting on
+        float putBackAt = -100;    // the race clock when it last was
+        // Another player's car on this machine: its engine and its damage,
+        // as its own machine says them.
+        std::unique_ptr<EngineSound> engine;
+        std::unique_ptr<CarWear> wear;
+        uint8_t dentsSeen = 0;
+        bool dentsKnown = false;
+        float damageShown = 0;
+        // The host's own account of another player's race: where its car
+        // last was, and how many times it had been put back then.
+        Vec3 seenAt{};
+        bool seen = false;
+        uint8_t seenResets = 0;
     };
 
     void loadCity();
@@ -584,6 +600,11 @@ private:
     std::vector<Waypoint> places_; // the city's Cops & Robbers places (computer players cruise between them)
     uint8_t netIdOf(const Racer& r) const;
     std::vector<GoldGame::Car> netCars() const;
+    void syncNetRacers();                                      // the cars as the session's players come and go
+    void remoteLook(Racer& r, const NetCarState& s, float dt); // another's engine and damage
+    void checkProgress(Racer& r, const NetCarState& s);        // the host's count of its checkpoints
+    std::set<uint8_t> unloadable_;                             // players whose cars couldn't be loaded
+    std::map<uint8_t, std::pair<size_t, float>> progress_;     // the host's count of each: next checkpoint, finish
     NetCarState carStateOf(const Racer& r) const;
     void planBot(Racer& r, float dt, const std::vector<GoldGame::Car>& cars);
 };

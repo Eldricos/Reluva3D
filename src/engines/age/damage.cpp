@@ -90,9 +90,17 @@ void CarWear::mend(CarActor& actor) {
 }
 
 void CarWear::update(float dt, CarActor& actor, SmokePuffs* smoke) {
-    if (actor.sim.impact > 0 && damage.knock(setup, actor.sim.impact) > 0)
+    if (actor.sim.impact > 0 && damage.knock(setup, actor.sim.impact) > 0) {
         actor.dent(actor.sim.impactAt, setup.textureRadius);
+        ++dents;
+        std::rotate(recentDents.rbegin(), recentDents.rbegin() + 1, recentDents.rend());
+        recentDents[0] = actor.sim.impactAt;
+    }
     damage.update(setup, dt);
+    puff(dt, actor, smoke);
+}
+
+void CarWear::puff(float dt, const CarActor& actor, SmokePuffs* smoke) {
     if (!smoke || !damage.smoking(setup))
         return;
     // From 10 puffs a second at MedDamage to 30 wrecked, from each place.

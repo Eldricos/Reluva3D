@@ -385,4 +385,11 @@ bool SdlSystem::resolveHost(const std::string& host, uint32_t& ip) { return net:
 
 std::vector<uint32_t> SdlSystem::broadcastAddresses() { return net::systemBroadcastAddresses(); }
 
+bool SdlSystem::httpExchange(const net::Address& to, const std::string& request, std::string& response,
+                             uint32_t& localIp, int timeoutMs) {
+    return net::systemHttpExchange(to, request, response, localIp, timeoutMs);
+}
+
+std::vector<uint32_t> SdlSystem::gateways() { return net::systemGateways(); }
+
 } // namespace reluva
