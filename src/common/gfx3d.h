@@ -142,6 +142,14 @@ struct DrawCall {
     ColorSource rgbSource = ColorSource::Constant, alphaSource = ColorSource::Constant;
     Vec3 ambientLight{}, directedLight{}; // for ColorSource::Lighting, 1 = full
     Vec3 lightDirection{0, 0, 1};         // towards the light, in world space
+    // Two more directed lights (fills) for ColorSource::Lighting, added
+    // as the first is: each a colour (none by default) and the way to it.
+    std::array<Vec3, 2> fillLight{}, fillDirection{};
+    // Lit as Direct3D lights a material (with ColorSource::Lighting):
+    // emissive + materialAmbient x ambientLight + color x the directed
+    // lights, rather than color x (ambient + directed).
+    bool materialLit = false;
+    Vec3 materialAmbient{}, materialEmissive{};
     // > 0: the fragment's alpha is instead clamp(distance from the camera
     // / fogDistance), for blending a fog colour over drawn geometry.
     float fogDistance = 0;

@@ -423,6 +423,8 @@ void PedModel::draw(const gfx::Mat4& model, int move, float time, uint32_t paint
         call.ambientLight = light.ambient;
         call.directedLight = light.directed;
         call.lightDirection = light.direction;
+        call.fillLight = light.fill;
+        call.fillDirection = light.fillDirection;
         applyFog(call, light);
         renderer_->draw(call);
     }

@@ -112,6 +112,21 @@ and drag terms, OptimumSlipPercent, camber and wobble, the axles'
 torque, SSS, and `.vehGyro` (Drift, Spin180, Reverse180: perhaps help
 in turning round).
 
+Across the 48 `.vehCarSim` files (and 20 `.vehGyro`s) these narrow
+down only so far without watching the game:
+- Most are the same for every car: the tyres' drag terms (0.02 along,
+  0.05 across), CarFrictionHandling (1), Engine AngInertia (1 in 39 of
+  40), the brakes' static coefficients (1.2), the gyro's Pitch and Roll
+  (0); the axles' TorqueCoef and DampCoef are 0 in 32 of 40.
+- AngVelDamp and AngVel2Damp are (6, 0, 6) in 10 cars: the first and
+  third (roll and pitch, the second being yaw) are what's damped; only a
+  few cars damp yaw (the Bullet's AngCDamp 5).
+- The tyres' displacement and damping come in two sets (0.125 and 0.25,
+  or 0.075 and 0.75); OptimumSlipPercent runs 0.01-0.42.
+- Drivetrain AngInertia is 2,000 in 23 cars, 30,000 in the 5 heavy ones.
+- Seven files are an older layout (DrivetrainLeft, Spin*, Drift*
+  fields), not read.
+
 `tests/test_age.cpp` checks a car with Reluva's default setup (250 hp,
 1,000 kg, a 90 mph top gear) settles on its springs, accelerates, tops
 out within 5% of top gear's speed (it does 0-60 in 8 seconds and tops

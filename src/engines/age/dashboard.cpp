@@ -94,6 +94,7 @@ void Dashboard::draw(gfx::Renderer3D& renderer, ModelCache& models, const CarSim
     // Lit evenly: it's inside the car.
     SceneLight inside = light;
     inside.directed = {0, 0, 0};
+    inside.fill = {};
     for (size_t c = 0; c < 3; ++c)
         inside.ambient[c] = std::clamp(light.ambient[c] + light.directed[c] * 0.5f, 0.35f, 1.0f);
     inside.fogEnd = 0;

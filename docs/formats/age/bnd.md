@@ -37,7 +37,11 @@ tri 4 5 6 0
 
 - `v x y z`: a vertex, in the model's coordinates.
 - `mtl <name> { ... }`: a material: elasticity and friction (used by the
-  car's collisions), an effect and a sound (not used yet).
+  car's collisions), an effect and a sound. All 635 materials in the 525
+  files have elasticity 0.1, friction 0.5 and effect `none`, and sound 0
+  or `none`: only their names (`default`, `grass`, `cobblestone`,
+  `water`, `deepwater`, `sand`, `mud`) say anything, and Reluva takes the
+  city material of that name ([age-driving.md](../../engines/age-driving.md)).
 - `quad a b c d m` and `tri a b c m`: polygons by vertex number, then
   their material's number.
 
@@ -75,7 +79,10 @@ bridges and ramps). Not read; what's known:
 | 4 × 3 | the bound's size along x, y and z |
 | 4 × 5 | a grid: cells across x (the size / 10, rounded up), 1, cells across z (likewise), the cells, and a count of references |
 
-then data for each polygon (an infinity, 1.0, a value, its bounds' lowest
-and highest corner, then edge data) and the cells' lists. It looks like a
-lookup grid for colliding with the polygons, which Reluva's own 8 m grid
-does without.
+then three floats, the cells per metre along x, y and z (5 cells over
+the Imax's 46.5 m: 0.1075, as stored), the bound's box (lowest corner,
+highest), and a u16 for each cell, rising from 0 (starts in a list).
+What follows doesn't read as lists of the bound's polygons: checked over
+all 184, the numbers listed for a cell name polygons that overlap it only
+22% of the time, so they're likely edges (the second count). It's a
+lookup grid for colliding, which Reluva's own 8 m grid does without.

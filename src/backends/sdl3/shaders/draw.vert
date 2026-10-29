@@ -45,6 +45,10 @@ layout(set = 1, binding = 0) uniform Draw {
     vec4 directed; // xyz: directed light
     vec4 lightDir; // xyz: towards the light, world space
     DeformData deforms[2];
+    vec4 fillColor[2]; // xyz: two more directed lights (fills), as directed
+    vec4 fillDir[2];   // xyz: towards each, world space
+    vec4 matAmbient;   // xyz: the material's ambient colour; w: 1 to light as Direct3D does
+    vec4 matEmissive;  // xyz: its emissive colour
 };
 
 const float TAU = 6.28318530718;
@@ -77,10 +81,16 @@ float wave(float func, float base, float amp, float phase, float freq, float t) 
     return base + amp * v;
 }
 
+vec3 directedLight(vec3 normal) {
+    return directed.rgb * max(dot(normal, lightDir.xyz), 0.0) +
+           fillColor[0].rgb * max(dot(normal, fillDir[0].xyz), 0.0) +
+           fillColor[1].rgb * max(dot(normal, fillDir[1].xyz), 0.0);
+}
+
 vec4 source(float which, vec4 vertexColor, vec3 normal) {
     int w = int(which + 0.5);
     if (w == 3)
-        return vec4(clamp(ambient.rgb + directed.rgb * max(dot(normal, lightDir.xyz), 0.0), 0.0, 1.0), 1.0);
+        return vec4(clamp(ambient.rgb + directedLight(normal), 0.0, 1.0), 1.0);
     return w == 1 ? vertexColor : (w == 2 ? vec4(1.0) - vertexColor : vec4(1.0));
 }
 
@@ -126,6 +136,11 @@ void main() {
     outUv = vec2(dot(postRow0.xyz, h), dot(postRow1.xyz, h));
 
     outColor = vec4(source(mode.y, inColor, normal).rgb, source(mode.z, inColor, normal).a) * color;
+    if (int(mode.y + 0.5) == 3 && matAmbient.w > 0.5)
+        // As Direct3D lights a vertex: emissive, the material's ambient
+        // colour by the ambient light, its diffuse (color) by the others.
+        outColor.rgb = clamp(matEmissive.rgb + matAmbient.rgb * ambient.rgb + color.rgb * directedLight(normal),
+                             0.0, 1.0);
     if (mode.w > 0.0)
         outColor = vec4(color.rgb, clamp(distance(world, eye.xyz) / mode.w, 0.0, 1.0));
     outWorld = world;

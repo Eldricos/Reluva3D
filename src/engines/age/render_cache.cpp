@@ -165,6 +165,8 @@ Error buildModelMesh(gfx::Renderer3D& renderer, TextureCache& textures, const Se
             d.indexCount = uint32_t(g.indices.size());
             if (const PkgShader* s = pkg.shader(paintJob, g.shader)) {
                 d.color = s->diffuse;
+                d.ambient = {s->ambient[0], s->ambient[1], s->ambient[2]};
+                d.emissive = {s->emissive[0], s->emissive[1], s->emissive[2]};
                 d.textureName = s->texture;
                 if (!s->texture.empty())
                     d.texture = textures.get(s->texture, d.translucent);
@@ -238,6 +240,13 @@ void drawModelMesh(gfx::Renderer3D& renderer, const ModelMesh& mesh, const gfx::
         call.ambientLight = light.ambient;
         call.directedLight = light.directed;
         call.lightDirection = light.direction;
+        call.fillLight = light.fill;
+        call.fillDirection = light.fillDirection;
+        // Its shader's colours lit as Direct3D lights a material (most of
+        // the game's give an ambient colour of 0.9 whatever the diffuse).
+        call.materialLit = d.lit;
+        call.materialAmbient = d.ambient;
+        call.materialEmissive = d.emissive;
         applyFog(call, light, d.glow);
         if (d.glow) {
             call.state.src = call.state.dst = gfx::Blend::One;

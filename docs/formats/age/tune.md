@@ -47,10 +47,16 @@ vertices; done for every vertex when the lighting changes. That's what
 darkens night: San Francisco's clear night has its second fill (0.7,
 0.5, 0.5) at pitch +1, from below, so it lights almost nothing, where
 Reluva used to add a quarter of each fill to every surface. Placed
-models, cars and people, which move or are shared, still get one light:
-the key at three quarters of its colour, and the ambient colour plus a
-quarter of each fill's as ambient light. Foggy nights are lit brightly
-(a white key light): their fog darkens them.
+models, cars and people are lit the same way, by their normals: the
+ambient colour and the key and both fills at their colours (the renderer
+takes a key light and two fills). A model's shader colours are used as
+Direct3D uses a material's: emissive, plus the shader's ambient colour
+times the ambient light, plus its diffuse colour times the three lights.
+That matters: of the game's 14,283 shaders, 7,908 have the same ambient
+and diffuse colours, but 6,317 don't, most with an ambient of 0.9 whatever
+the diffuse (403 of them a diffuse of 0.1, 194 of 0), so their parts
+show in the ambient light rather than going dark. Foggy nights are lit
+brightly (a white key light): their fog darkens them.
 
 Whether the city is also lit by its ambient maps isn't known: the
 `city/amb_*.ldef` files name `.tif` pictures (`\\taxi\projects\...
