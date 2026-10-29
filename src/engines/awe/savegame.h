@@ -67,7 +67,8 @@ std::vector<uint8_t> writeSaveGame(const SaveGame& save);
 // The first three records alone (0x412440): for the load screen's list.
 Error readSaveHeader(const std::vector<uint8_t>& data, std::string& description, std::string& date, std::string& time);
 
-// A 32-bit BMP of an RGBA picture (the slots' 256x192 thumbnails).
-std::vector<uint8_t> encodeBmp32(int width, int height, const std::vector<uint8_t>& rgba);
+// A 24-bit BMP of an RGBA picture (the slots' 256x192 thumbnails), as
+// the game writes them (alpha dropped).
+std::vector<uint8_t> encodeBmp24(int width, int height, const std::vector<uint8_t>& rgba);
 
 } // namespace reluva::awe

@@ -68,6 +68,9 @@ public:
         double a = 0, b = 0, heading = 0;
     };
     int search(Cell from, Cell to, bool openThrees, bool allowTwos, std::vector<Point>& out) const;
+    // The x87's precision the search follows: 24 bits, as in the game
+    // (the default), or 53 (for comparing with the game's code run so).
+    static void setSinglePrecision(bool on);
 
 private:
     int size_ = 0;

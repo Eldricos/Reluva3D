@@ -24,7 +24,9 @@ class GamePathFinder {
 public:
     GamePathFinder();
     ~GamePathFinder();
-    Error load(const std::vector<uint8_t>& exe);
+    // `single`: the x87 at 24 bits once the statics are made, as in the
+    // game (setSinglePrecision); else at 53 throughout.
+    Error load(const std::vector<uint8_t>& exe, bool single = true);
     struct Point {
         double a = 0, b = 0, heading = 0;
     };
@@ -37,6 +39,11 @@ public:
     std::vector<WalkGrid::Cell> findPath(const WalkGrid& grid, WalkGrid::Cell from, WalkGrid::Cell to,
                                          bool allowTwos);
     bool loaded() const { return object_ != 0; }
+    // The x87's precision control while the game's code runs: 53 bits
+    // (Windows' default for a program), or 24 bits, as Direct3D 8 leaves
+    // it after the game's CreateDevice (no D3DCREATE_FPU_PRESERVE:
+    // 0x401f01).
+    void setSinglePrecision(bool on);
 
 private:
     std::unique_ptr<x86::Cpu> cpu_;

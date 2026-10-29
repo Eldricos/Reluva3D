@@ -72,7 +72,10 @@ double Cpu::fpuPop() {
 }
 
 double Cpu::fpuRound(double v) const {
-    // Precision control 0: 24 bits (a game may set it for speed).
+    // Precision control 0: 24 bits (a game may set it for speed, or
+    // Direct3D for it). It rounds only FADD, FSUB, FMUL, FDIV (and their
+    // forms) and FSQRT; the transcendental instructions' results don't
+    // follow it (Intel SDM vol. 1, 8.1.5.2).
     return (fpu.control & 0x300) == 0 ? double(float(v)) : v;
 }
 
@@ -342,22 +345,22 @@ void Cpu::x87(uint8_t op) {
         case 0xec: fpuPush(0.301029995663981195214); return; // log10(2)
         case 0xed: fpuPush(0.693147180559945309417); return; // ln(2)
         case 0xee: fpuPush(0.0); return;
-        case 0xf0: st(0) = fpuRound(std::exp2(st(0)) - 1.0); return;
+        case 0xf0: st(0) = std::exp2(st(0)) - 1.0; return;
         case 0xf1: { // FYL2X
             const double x = st(0);
             fpuPop();
-            st(0) = fpuRound(st(0) * std::log2(x));
+            st(0) = st(0) * std::log2(x);
             return;
         }
         case 0xf2: // FPTAN
-            st(0) = fpuRound(std::tan(st(0)));
+            st(0) = std::tan(st(0));
             fpuPush(1.0);
             setC(0);
             return;
         case 0xf3: { // FPATAN
             const double x = st(0);
             fpuPop();
-            st(0) = fpuRound(std::atan2(st(0), x));
+            st(0) = std::atan2(st(0), x);
             return;
         }
         case 0xf4: { // FXTRACT
@@ -382,21 +385,21 @@ void Cpu::x87(uint8_t op) {
         case 0xf9: { // FYL2XP1
             const double x = st(0);
             fpuPop();
-            st(0) = fpuRound(st(0) * std::log1p(x) / std::log(2.0));
+            st(0) = st(0) * std::log1p(x) / std::log(2.0);
             return;
         }
         case 0xfa: st(0) = fpuRound(std::sqrt(st(0))); return;
         case 0xfb: { // FSINCOS
             const double v = st(0);
-            st(0) = fpuRound(std::sin(v));
-            fpuPush(fpuRound(std::cos(v)));
+            st(0) = std::sin(v);
+            fpuPush(std::cos(v));
             setC(0);
             return;
         }
         case 0xfc: st(0) = roundByMode(st(0), fpu.control); return;
-        case 0xfd: st(0) = fpuRound(std::ldexp(st(0), int(std::trunc(st(1))))); return;
-        case 0xfe: st(0) = fpuRound(std::sin(st(0))); setC(0); return;
-        case 0xff: st(0) = fpuRound(std::cos(st(0))); setC(0); return;
+        case 0xfd: st(0) = std::ldexp(st(0), int(std::trunc(st(1)))); return;
+        case 0xfe: st(0) = std::sin(st(0)); setC(0); return;
+        case 0xff: st(0) = std::cos(st(0)); setC(0); return;
         }
         break;
     case 0xda:

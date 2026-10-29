@@ -320,9 +320,11 @@ std::vector<uint8_t> writeSaveGame(const SaveGame& s) {
     return std::move(w.out);
 }
 
-std::vector<uint8_t> encodeBmp32(int width, int height, const std::vector<uint8_t>& rgba) {
-    // BITMAPFILEHEADER, BITMAPINFOHEADER, then BGRA rows bottom first.
-    const uint32_t imageSize = uint32_t(width) * uint32_t(height) * 4;
+std::vector<uint8_t> encodeBmp24(int width, int height, const std::vector<uint8_t>& rgba) {
+    // BITMAPFILEHEADER, BITMAPINFOHEADER, then BGR rows bottom first, each
+    // padded to 4 bytes: as D3DX's BMP writer (0x448d24) writes an
+    // R8G8B8 surface, the only colour format it writes.
+    const uint32_t stride = (uint32_t(width) * 3 + 3) & ~3u, imageSize = stride * uint32_t(height);
     std::vector<uint8_t> out(54 + imageSize, 0);
     auto put32 = [&](size_t at, uint32_t v) { std::memcpy(out.data() + at, &v, 4); };
     auto put16 = [&](size_t at, uint16_t v) { std::memcpy(out.data() + at, &v, 2); };
@@ -333,13 +335,13 @@ std::vector<uint8_t> encodeBmp32(int width, int height, const std::vector<uint8_
     put32(18, uint32_t(width));
     put32(22, uint32_t(height));
     put16(26, 1);
-    put16(28, 32);
+    put16(28, 24);
     put32(34, imageSize);
     for (int y = 0; y < height; y++)
         for (int x = 0; x < width; x++) {
             const uint8_t* p = rgba.data() + (size_t(y) * size_t(width) + size_t(x)) * 4;
-            uint8_t* q = out.data() + 54 + (size_t(height - 1 - y) * size_t(width) + size_t(x)) * 4;
-            q[0] = p[2], q[1] = p[1], q[2] = p[0], q[3] = 255;
+            uint8_t* q = out.data() + 54 + size_t(height - 1 - y) * stride + size_t(x) * 3;
+            q[0] = p[2], q[1] = p[1], q[2] = p[0];
         }
     return out;
 }

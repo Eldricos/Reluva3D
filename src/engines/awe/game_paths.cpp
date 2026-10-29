@@ -35,7 +35,7 @@ constexpr uint32_t kGridOffset = 8; // the object's copy of the grid, a * 64 + b
 GamePathFinder::GamePathFinder() = default;
 GamePathFinder::~GamePathFinder() = default;
 
-Error GamePathFinder::load(const std::vector<uint8_t>& exe) {
+Error GamePathFinder::load(const std::vector<uint8_t>& exe, bool single) {
     cpu_ = std::make_unique<x86::Cpu>(160u << 20);
     process_ = std::make_unique<x86::Win32Process>(*cpu_);
     const x86::Win32Process::Module* module = nullptr;
@@ -67,6 +67,9 @@ Error GamePathFinder::load(const std::vector<uint8_t>& exe) {
     // game makes it (0x4025a0): constructed, then its tables built.
     if (Error e = cpu_->call(kStatics.address, {}, result))
         return Error::fail("motoe.exe 0x42e820: " + e.message);
+    // The statics are made at start-up, at 53 bits; the object after
+    // Direct3D's CreateDevice (0x401a34, then 0x4024e0), at 24.
+    setSinglePrecision(single);
     object_ = mem.alloc(kObjectSize);
     if (!object_)
         return Error::fail("Out of emulated memory");
@@ -77,6 +80,10 @@ Error GamePathFinder::load(const std::vector<uint8_t>& exe) {
     if (Error e = cpu_->call(kBuildTables.address, {}, result))
         return Error::fail("motoe.exe 0x42e900: " + e.message);
     return Error::success();
+}
+
+void GamePathFinder::setSinglePrecision(bool on) {
+    cpu_->fpu.control = uint16_t((cpu_->fpu.control & ~0x300u) | (on ? 0u : 0x200u));
 }
 
 Error GamePathFinder::search(const WalkGrid& grid, bool openThrees, WalkGrid::Cell from, WalkGrid::Cell to,

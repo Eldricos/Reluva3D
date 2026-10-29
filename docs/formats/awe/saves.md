@@ -68,7 +68,12 @@ Nothing else is saved:
 The scenes rebuild their state from the tags and conditions.
 
 The thumbnail is a 256×192 BMP of the view as it was when the menu was
-opened. The game writes it with D3DX, probably as a 32-bit BMP.
+opened. The game copies the frame into a 256×192 A8R8G8B8 surface
+(`CreateImageSurface`, 0x43531e) and writes it with the statically
+linked D3DX, as a BMP (0x43536e, format 0). D3DX's BMP writer (0x448d24)
+writes only R8G8B8, R3G3B2, P8 and L8 surfaces, so the colour one comes
+out a 24-bit BMP: BGR rows, bottom first, no alpha. Reluva writes the
+same (`encodeBmp24`).
 
 ## The save and load screens
 

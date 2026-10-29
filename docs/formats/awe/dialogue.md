@@ -271,8 +271,14 @@ requested part exists, so it may be left over from the previous conversation.
 Tags: when a scene is left (0x423daa → 0x43aee0) every tag whose name
 contains the scene's name is set to 2. So the visit tag is 1 if you already
 talked during this visit to the scene and 2 if during an earlier visit, which
-picks `gen_regreet1` or `gen_regreet2`. **Sure** for the code; the
-interpretation is **likely**.
+picks `gen_regreet1` or `gen_regreet2`. **Sure**, the reading too: the
+lines say so. `gen_regreet1`'s are "I don't think I'm quite done yet",
+"Oh! Another thing!", "Before I go, there was something else...", "I've
+remembered something else I wanted to say" (this visit);
+`gen_regreet2`'s "You did not expect to see me again so soon, did
+you?", "Hello, I am afraid I am back again", "Something has occurred to
+me since I left you", "I'd like to talk to you again, if you don't mind"
+(an earlier one).
 
 ### 2.3 Special cases (sure)
 
@@ -411,9 +417,14 @@ The middle button (`WM_MBUTTONDOWN`, 0x401557 → 0x4163c0 → 0x43d890) takes
 the highlighted choice. The fields are reset to −1 when a menu is offered
 and when the conversation ends (0x4388ab, 0x438dfb, 0x43ba50).
 
-In Reluva (`DialogueManager::wheel`, `middleClick`) the wheel steps
-through the choices as shown, the gen extras among them; that the game's
-steps leave the extras out is possible but not checked.
+Both steps walk only the part's own threads (`+0x10`'s list: lettered,
+available, with a line) and the goodbye (`0x439c70(part, 0x62)`); the gen
+extras, other conversations' threads, aren't in that list, so the wheel
+passes over them (the mouse can still take them). On: none highlighted
+→ the first; the goodbye → the first; the last → the goodbye, or none
+without one. Back: none → the goodbye, or none without one (0x43cc68);
+the first → the goodbye, or none; the goodbye → the last. Reluva
+(`DialogueManager::wheel`, `middleClick`) does the same.
 
 Choosing (0x43ba50): +0x24=0, DM+0x14 = the thread, DM+0x18 = its current
 line, play it. The choice text is therefore also the first spoken line
@@ -646,8 +657,10 @@ ends. Exits exist only with gen (NPC clicks or `forcegen`).
   (h - rows*rowHeight)/2, wrapped at 944 px, in the speaker's colour.
 * Colours (fonts.txt, colour list from index 0): 6 "dialogue text when
   choosing", 7 "highlighted dialogue text when choosing", 8 "dialogue for main
-  character", 9 "second character", 10 "third character". Font: "calisto mt
-  12, shadow, dialogue" (*likely*).
+  character", 9 "second character", 10 "third character". Font: the
+  fonts' second (0x43dd1e and 0x43dd31 measure and draw with font 1;
+  0x414c10 takes it from the fonts loaded from `fonts.txt` in their rows'
+  order, 0x413b4c): "calisto mt 12, shadow, dialogue".
 * Layout of choices: 3.4. Choices are picked by click (0x43d8c0: in choice
   mode, the line under the cursor → its thread → play), or by the mouse
   wheel moving the highlight (0x43d810, 0x43d850, from 0x416391 and

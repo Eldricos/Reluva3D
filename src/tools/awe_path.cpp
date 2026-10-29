@@ -17,6 +17,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -130,18 +131,25 @@ int aweCommandPath(int argc, char** argv) {
     const bool all = argc >= 4 && std::strcmp(argv[3], "-all") == 0;
     if (argc < 4 || (!all && argc < 8)) {
         std::fprintf(stderr, "usage: reluva-tool awe-path <game folder> <scene.ac2> <a0> <b0> <a1> <b1>\n"
-                             "       reluva-tool awe-path <game folder> -all [pairs per scene]\n"
+                             "       reluva-tool awe-path <game folder> -all [pairs per scene] [-double]\n"
                              "  Reluva's path-finder beside the game's (from motoe.exe); -all compares them\n"
                              "  point for point between random cells of every scene\n");
         return 2;
     }
+    // -double: both at the x87's 53 bits, Windows' default; else at 24, as
+    // the game runs after Direct3D's CreateDevice.
+    bool single = true;
+    for (int i = 3; i < argc; i++)
+        if (std::strcmp(argv[i], "-double") == 0)
+            single = false;
+    WalkGrid::setSinglePrecision(single);
     GamePathFinder game;
-    if (Error e = game.load(readFile(std::string(argv[2]) + "/motoe.exe"))) {
+    if (Error e = game.load(readFile(std::string(argv[2]) + "/motoe.exe"), single)) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
     if (all)
-        return compareAll(game, argv[2], argc >= 5 ? std::atoi(argv[4]) : 100);
+        return compareAll(game, argv[2], argc >= 5 && argv[4][0] != '-' ? std::atoi(argv[4]) : 100);
 
     Ac2Scene scene;
     if (parseAc2(readFile(argv[3]), scene) || !scene.camera()) {

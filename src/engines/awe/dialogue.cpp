@@ -889,19 +889,35 @@ void DialogueManager::mouseMove(int x, int y) {
 }
 
 void DialogueManager::wheel(int steps, int x, int y) {
-    // The choices in turn, the goodbye last (0x43cb70 on, 0x43cc30 back):
-    // round from the goodbye to the first; without one, nothing is
-    // highlighted between the last and the first.
-    const int n = int(choices_.size());
-    if (!choosing_ || n == 0 || steps == 0)
+    // The part's own choices in turn, the goodbye last (0x43cb70 on,
+    // 0x43cc30 back): round from the goodbye to the first; without one,
+    // nothing is highlighted between the last and the first. Both walk
+    // only the part's threads (+0x10's list) and the goodbye, so the
+    // generic extras (other conversations' threads, 3.3) are passed over;
+    // the mouse can still pick them.
+    if (!choosing_ || choices_.empty() || steps == 0)
         return;
-    const Choice& last = choices_.back();
-    const bool goodbye = last.part == part_ && part_->threads[size_t(last.thread)].code == kExit;
+    std::vector<int> own;
+    for (size_t i = 0; i < choices_.size(); i++)
+        if (choices_[i].part == part_)
+            own.push_back(int(i));
+    if (own.empty())
+        return;
+    const int n = int(own.size());
+    const Choice& last = choices_[size_t(own.back())];
+    const bool goodbye = part_->threads[size_t(last.thread)].code == kExit;
     wheelX_ = x, wheelY_ = y;
+    // Where the highlight is among them (an extra highlighted by the
+    // mouse counts as none: 0x43cb84 finds no line of the part).
+    int at = -1;
+    for (int k = 0; k < n; k++)
+        if (own[size_t(k)] == highlighted_)
+            at = k;
     for (; steps > 0; steps--)
-        highlighted_ = highlighted_ < 0 ? n - 1 : highlighted_ > 0 ? highlighted_ - 1 : goodbye ? n - 1 : -1;
+        at = at < 0 ? (goodbye ? n - 1 : -1) : at > 0 ? at - 1 : goodbye ? n - 1 : -1; // none: the goodbye (0x43cc68)
     for (; steps < 0; steps++)
-        highlighted_ = highlighted_ < 0 ? 0 : highlighted_ + 1 < n ? highlighted_ + 1 : goodbye ? 0 : -1;
+        at = at < 0 ? 0 : at + 1 < n ? at + 1 : goodbye ? 0 : -1;
+    highlighted_ = at < 0 ? -1 : own[size_t(at)];
 }
 
 void DialogueManager::middleClick() {

@@ -1205,7 +1205,13 @@ void testDialogue() {
         CHECK(d.highlighted() == 0 && d.wheelChoosing());
         d.wheel(-2, 100, 300);
         CHECK(d.highlighted() == -1);
+        d.wheel(1, 100, 300); // back from none, with no goodbye: still none (0x43cc68)
+        CHECK(d.highlighted() == -1);
+        d.wheel(-1, 100, 300);
+        d.wheel(-1, 100, 300);
         d.wheel(1, 100, 300);
+        CHECK(d.highlighted() == 0);
+        d.wheel(-1, 100, 300);
         CHECK(d.highlighted() == 1);
         d.mouseMove(100, 300);
         CHECK(d.highlighted() == 1 && d.wheelChoosing());
@@ -1574,7 +1580,7 @@ void testSaveGame() {
     std::vector<uint8_t> rgba(4 * 4 * 4, 0);
     rgba[0] = 255;
     image::Image img;
-    CHECK(!image::decode(encodeBmp32(4, 4, rgba), img) && img.w == 4 && img.h == 4 && img.pixel(0, 0)[0] == 255);
+    CHECK(!image::decode(encodeBmp24(4, 4, rgba), img) && img.w == 4 && img.h == 4 && img.pixel(0, 0)[0] == 255);
 }
 
 void testShadows() {

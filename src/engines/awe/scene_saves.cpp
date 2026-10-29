@@ -438,7 +438,7 @@ void ScenePage::slotAction(const std::string& word, const std::string& second) {
                                 sum += grab_.pixel(x * fx + u, y * fy + v)[c];
                         t.pixel(x, y)[c] = uint8_t(sum / (fx * fy));
                     }
-            writeAll(savesFolder() / (slotName(slot) + ".bmp"), encodeBmp32(t.w, t.h, t.rgba));
+            writeAll(savesFolder() / (slotName(slot) + ".bmp"), encodeBmp24(t.w, t.h, t.rgba));
         }
         logScript("  (saved " + slotName(slot) + ": \"" + m.name + "\")");
         return;

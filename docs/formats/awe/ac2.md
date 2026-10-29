@@ -608,11 +608,24 @@ outside a room are 0 too: the walls' 1s keep a search inside.
 
   Reluva's port is `WalkGrid::search` and `WalkGrid::findPath`
   (`src/engines/awe/walk_grid.cpp`), with the game's three tries.
-  - **Arithmetic:** the game does its sums on the x87 at 53 bits. The
-    port does the same sums in doubles, in the same order, so its results
-    are the same to the bit. The file is built without fused
-    multiply-adds, which would round differently.
-  - **The check:** `reluva-tool awe-path <game folder> -all [pairs]`
+  - **Arithmetic:** the game does its sums on the x87 at 24 bits.
+    Direct3D 8's `CreateDevice` sets the x87 to single precision unless
+    asked not to (`D3DCREATE_FPU_PRESERVE`), and the game creates its
+    device with flags 0x20 only (software vertex processing, 0x401f01),
+    at start-up (0x401a34), before it makes the path-finder (0x4024e0,
+    then 0x4025a0) and its distance table. Only the static at 0x42e820 (2π
+    less 1e-8) is made before, at 53 bits. At 24 bits the x87 rounds each
+    add, subtract, multiply, divide and square root to 24 bits of
+    mantissa; sin, cos and atan aren't affected (Intel SDM vol. 1,
+    8.1.5.2). The port does the same sums in the same order, through a
+    `Real` that rounds after each of those operations, so its results are
+    the same to the bit. The file is built without fused multiply-adds,
+    which would round differently. (At 53 bits, as first assumed, 4 of the
+    22,480 searches below came out differently: a waypoint more on a
+    straight stretch, or one a cell over, where two nearly equal values
+    compare the other way.)
+  - **The check:** `reluva-tool awe-path <game folder> -all [pairs]
+    [-double]`
     plans paths between random open cells of every scene, four ways each
     (3s open or not, 2s allowed or not). It plans each both with the
     port and with the game's own code from the user's `motoe.exe`, run in
@@ -620,12 +633,10 @@ outside a room are 0 too: the walls' 1s keep a search inside.
     every point and heading.
   - **Result:** on the English 1.0 install, 20 pairs in each of the
     281 scenes with a walk grid gave 22,480 searches (19,024 with a
-    path), with 0 differences.
+    path), with 0 differences at 24 bits; and with `-double`, both at 53
+    bits, 0 too.
   - **Speed:** a search takes about 0.2 ms, against 5 to 35 ms for the
     game's code in the interpreter (31 ms on average over that run).
-  - **Assumption:** the interpreter keeps the x87 at 53 bits, which is
-    Windows' default for a program; it is assumed that the game leaves it
-    there.
 
 Characters walk at their walk animation's own pace. The walk carries the
 body forward (Poirot's root, `Bip01`, moves 240 units in its 0.8 s
