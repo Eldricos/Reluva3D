@@ -209,6 +209,19 @@ if(WIN32)
 endif()
 
 # --- developer tools -----------------------------------------------------------
+# A check of the 3D renderer on whatever GPU backend SDL picks (Metal on
+# macOS, Vulkan elsewhere) against reference frames: see
+# src/tools/render_check.cpp and .github/workflows/ci.yml.
+add_executable(reluva-render-check
+    src/tools/render_check.cpp
+    src/backends/sdl3/sdl_system.cpp
+    src/backends/sdl3/sdl_gpu.cpp
+    src/backends/sockets/socket_net.cpp)
+target_link_libraries(reluva-render-check PRIVATE reluva_common SDL3::SDL3 reluva_warnings)
+if(WIN32)
+    target_link_libraries(reluva-render-check PRIVATE ws2_32 iphlpapi)
+endif()
+
 add_executable(reluva-tool src/tools/reluva_tool.cpp src/backends/sockets/socket_net.cpp)
 target_link_libraries(reluva-tool PRIVATE reluva_engines reluva_warnings)
 if(WIN32)

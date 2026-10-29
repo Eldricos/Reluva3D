@@ -1,0 +1,87 @@
+# Builds Reluva and runs its tests on Linux, macOS and Windows, and checks
+# the 3D renderer (src/tools/render_check.cpp) against the reference frames
+# in tests/data/render: on macOS through Metal, on Linux through Vulkan on
+# Mesa's software driver (lavapipe). Windows' runners have no Vulkan driver,
+# so there it's built and tested only.
+#
+# The frames drawn, and where they differ from the references, are kept as
+# each run's artifacts. After a change that's meant to alter them, make new
+# references with `reluva-render-check tests/data/render --update` and
+# commit them.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    name: Linux (Vulkan, lavapipe)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkg-config \
+            libasound2-dev libpulse-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev \
+            libxfixes-dev libxi-dev libxss-dev libxtst-dev libxkbcommon-dev libdrm-dev libgbm-dev \
+            libgl1-mesa-dev libegl1-mesa-dev libdbus-1-dev libudev-dev libwayland-dev \
+            mesa-vulkan-drivers xvfb
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build
+      - name: Tests
+        run: ctest --test-dir build --output-on-failure
+      - name: Render check
+        env:
+          SDL_AUDIODRIVER: dummy
+          SDL_VIDEODRIVER: x11
+        run: xvfb-run -a -s "-screen 0 1280x1024x24" ./build/reluva-render-check tests/data/render --out render-out
+      - name: Frames drawn
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: render-linux
+          path: render-out
+          if-no-files-found: ignore
+
+  macos:
+    name: macOS (Metal)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Packages
+        run: brew install ninja
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build
+      - name: Tests
+        run: ctest --test-dir build --output-on-failure
+      - name: Render check
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: ./build/reluva-render-check tests/data/render --out render-out
+      - name: Frames drawn
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: render-macos
+          path: render-out
+          if-no-files-found: ignore
+
+  windows:
+    name: Windows (build and tests)
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: Tests
+        run: ctest --test-dir build -C Release --output-on-failure

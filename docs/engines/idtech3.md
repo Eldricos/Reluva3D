@@ -72,7 +72,10 @@ every engine.
    NVIDIA RTX 2080 on Windows (Visual Studio 2022 build), where retail maps
    run at the monitor's 144 Hz with about 1.2 ms of CPU time per frame.
    The Metal path
-   (macOS) is generated but untested.
+   (macOS) is checked by continuous integration: `reluva-render-check`
+   draws test frames through the renderer on a GitHub macOS runner and
+   compares them with references made on Vulkan (`tests/data/render`,
+   `.github/workflows/ci.yml`); it hasn't been played on a Mac yet.
 3. **World renderer**, continued: autosprites, mirrors, culling (by the
    vis data, areas and the view) and drawing order are done, and fog volumes
    follow the original's depth model. Translucent surfaces are drawn as

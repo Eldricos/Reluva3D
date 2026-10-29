@@ -89,6 +89,14 @@ one, Reluva falls back to SDL's usual renderer: everything else works and the
 World page says 3D isn't available. Setting `SDL_RENDER_DRIVER` to another
 renderer (e.g. `opengl`) forces that fallback.
 
+`reluva-render-check tests/data/render` draws test frames through the 3D
+renderer and compares them with the reference frames there; the CI workflow
+(`.github/workflows/ci.yml`) runs it on macOS (Metal) and Linux (Vulkan on
+Mesa's software driver). On Linux without a display, run it under
+`xvfb-run`. After a change meant to alter the frames, `--update` writes new
+references (check them, then commit them); `--out <folder>` keeps the frames
+drawn and where they differ.
+
 The shaders are compiled into `src/backends/sdl3/shaders/compiled.h`, which is
 committed. Only after changing `draw.vert` or `draw.frag` run
 `src/backends/sdl3/shaders/build.sh`, which needs `glslang-tools` and
