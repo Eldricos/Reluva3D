@@ -38,7 +38,7 @@ void drawImage(Surface& s, const image::Image& img, int x, int y, int scale = 1)
 //   M: the whole house, shrunk (a click there goes to that place)
 //   W: the walls nearest the camera (layer 4): see-through, solid or hidden
 //   O: the black outside on/off
-//   N: the level editor's tile numbers on/off   F: footprints (boxes) on/off
+//   N: the move-number templates (tilenum) on/off   F: footprints (boxes) on/off
 //   Space: pause the animations
 // The info line names what's under the mouse pointer.
 class MansionViewer {

@@ -50,14 +50,12 @@ struct Placement {
     uint8_t flags = 0;    // 0x40 always; 0x02: tag given; 0x20: timings given
     uint16_t tag = 0;     // when flags has 0x02; not understood
     uint16_t object = 0;  // into Level::objects
-    int16_t x = 0, y = 0; // the object's anchor, in the level's units: twice the world's
+    int16_t x = 0, y = 0; // the object's anchor in the world
     int16_t id = 0;       // -1 for floors; 1 for most things; not understood
     uint8_t layer = 0;    // 0-1 floors, 3 walls, 4 the walls nearest the camera, 5 furniture,
                           // 6 the black outside, 7 characters
     std::vector<Timing> timings;
 
-    int worldX() const { return x / 2; }
-    int worldY() const { return y / 2; }
 };
 
 struct Level {

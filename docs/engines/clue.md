@@ -121,7 +121,7 @@ the pages; **Esc** goes back to the launcher.
   faster), **Home** goes back to the middle, **M** shows the whole house
   (click to go to a place there), **W** makes the walls nearest the camera
   see-through, solid or hidden, **O** shows or hides the black outside,
-  **N** the level editor's tile numbers, **F** every object's box,
+  **N** the move numbers' templates the level keeps, **F** every object's box,
   **Space** pauses the animations. The info line names what's under the
   mouse pointer, with its layer, place and box.
 
@@ -169,16 +169,67 @@ rips them once, as ScummVM asks for some games, to `track02.wav` ...
 are left silent, as the original does without its CD. `reluva-tool
 cue-rip` makes them from a BIN/CUE image of the CD.
 
-## Reference screenshots wanted
+## What recordings of the original show
 
-To check the mansion against the original, screenshots of a game in
-progress (any one, with the default preferences) showing:
+Source: two recordings of the original on YouTube, watched frame by frame
+(October 2026): a longplay captured at the game's own 640×480
+(`MaiM8RGl2_c`, 52 min, one game) and a 720p one (`hwod9LA_9HU`, 56 min,
+two games). Times below are theirs ("L" and "C"). Matching the game's
+images in their frames also corrected the level's units (see
+[formats/clue/level.md](../formats/clue/level.md)).
 
-1. the Conservatory and the Billiard Room, and the Hall with the stairs,
-   each with the rooms' furniture in view;
-2. the same place with Walls, then Translucency, turned off in the
-   preferences;
-3. a suspect walking behind furniture or a wall, if one can be caught.
+**Start.** The intro video (L 0:30), then the main menu: Start Game, Load
+Game, Preferences, How to Play, Credits, Exit Game, over the mansion on
+its hill (L 1:00). Start Game asks "Locally (on this machine)" or
+"Networked (with other machines)" (C 26:30). Then the six suspects: "Please
+select a human or computer player..."; clicking one asks "Miss Scarlet is
+played by... Human / Computer / None" and for a human "Please enter a name
+for this player" (C 0:30-1:30). At least three must play. The deal video
+follows (C 2:00).
+
+**The view.** The mansion at its own size, the camera on the suspect whose
+turn it is, 640 × about 410 above a bar. The walls nearest the camera are
+see-through, about half (L 3:00, 5:00). The scene is dark, lit in pools
+around the lamps and the suspects (L 3:30, 33:00): the "Dynamic Lighting"
+preference. The hall's floor has a large gold "Clue" inlaid (L 12:30).
+A move being planned shows its squares numbered 1, 2, 3 ... on the floor
+(L 36:30, C 5:30): the `tilenum` objects. Instead of the house, the board
+can be shown as a flat map, the rooms drawn from above around the hall,
+"To Kitchen" and "To Conservatory" at the secret passages (L 14:00); the
+second recording plays most of its game on it (C 33:00 on).
+
+**The bar** (bottom, 640 × about 70): the notepad and the cards on the
+left, the six suspects' portraits (the one playing in a lit circle), the
+Clue logo; under them a line of text, the ticker's sentences ("Miss
+Scarlet, it is your turn.", "Mrs. White suggests Mr. Green with the rope in
+the ballroom."). When it's a human's turn, icons for the die and the other
+actions show at the bar's right end.
+
+**Panels.** The left column (about 200 wide) holds the cards in hand (two
+by three, over the player's portrait; L 8:00) or the notepad (every card
+in three lists with each player's marks in their colour, X marks and
+ticks; L 13:00, C 15:00). The right column holds the choices: "Please
+choose a Weapon..." (L 7:30), "Please choose a Suspect..." (L 44:30), "You
+have suggested... [suspect] in the... [room] with the... [weapon]" with
+Suggest and Cancel, "Click on an element to change" (L 33:00), and the
+suggestion's video, a 200 × 400 clip (L 16:30, the `CM_*.avi` size). A card
+shown to disprove is drawn large with OK (L 24:00, 41:30); a human
+disproving picks one of their matching cards and clicks Done (L 45:30,
+50:00). A
+box at the top right says who can or can't disprove, with their portrait
+(L 4:00).
+
+**The end.** A right accusation shows its three cards with "Professor Plum
+has accused correctly" and Continue (C 45:30), then the player set-up
+again. The prison clip (a suspect in a cell) plays near the end of the
+second game (C 55:30); what leads to it is still to be seen.
+
+## Reference screenshots still wanted
+
+1. The same view with Walls, Translucency and Dynamic Lighting each
+   turned off in the preferences, to see what each does.
+2. The Preferences and Load Game screens.
+3. A wrong accusation, and the end of a game won by a computer player.
 
 ## Reference recordings
 

@@ -2705,7 +2705,7 @@ int cmdClueLevel(int argc, char** argv) {
         ++flags[pl.flags];
         if (verbose) {
             std::printf("%-36s layer %d  at %5d,%5d  id %4d  flags %02x", level.objects[pl.object].c_str(), pl.layer,
-                        pl.worldX(), pl.worldY(), pl.id, pl.flags);
+                        pl.x, pl.y, pl.id, pl.flags);
             if (pl.flags & 0x02)
                 std::printf("  tag %u", pl.tag);
             for (const auto& t : pl.timings)

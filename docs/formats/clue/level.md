@@ -23,6 +23,16 @@ So a 16 × 16 square of floor is a 32 × 16 diamond on screen, the size of
 animation's `ISOA` frames ([res.md](res.md)), and stands at the box's back
 corner (its least x and y).
 
+The placements' x and y are in these units. That was measured on a
+recording of the original (the longplay listed in
+[../../engines/clue.md](../../engines/clue.md)): the grand piano, its
+music stand and the harp, found in a frame by matching their images, are
+(152, −9) and (102, −18) pixels apart on screen where the level has them
+(67, −85) and (33, −69) apart, as x − y and (x + y) / 2 give. A first
+reading had them in half units; that drew the house at half its size, its
+floors overlapping fourfold (hiding the hall's inlaid "Clue"), which
+looked believable until compared.
+
 ## `.o`: objects
 
 One record an object (1,148 in all the copies). The archive's size for
@@ -49,7 +59,7 @@ The types, by the objects that have them:
 | 3, 5, 9, 12 | furniture and things in the rooms |
 | 6 | the six suspects (`character`) |
 | 8 | the secret passages |
-| 11 | `tilenum`: numbers the level editor shows, not the game |
+| 11 | `tilenum`: the numbers the game shows on the squares of a move being planned (1, 2, 3 ...); the level's 9 stand together out of the way, as templates it seems |
 
 State 0 is what an object shows normally. A suspect's states 1-16 are
 eight `idle` and eight `mult` animations, a direction each, and 19 its
@@ -82,7 +92,7 @@ A placement:
 | 1 | flags: 0x40 always; 0x02 adds the tag; 0x20 adds timings |
 | 2 | with 0x02: a tag, not understood (1, 3, 261, 1030 ...) |
 | 2 | the object, by its number in `World.dat` |
-| 2 | x, in half world units (signed) |
+| 2 | x, in world units (signed) |
 | 2 | y, likewise |
 | 2 | not understood: −1 for floors and the outside, 1 for most things, others for a few (doors 120, paintings 57-94) |
 | 1 | the layer |
@@ -95,7 +105,7 @@ The layers, by what's on them:
 
 | Layer | |
 |---|---|
-| 0 | the hall's floor (188 blocks), a few others, the editor's tile numbers |
+| 0 | the hall's floor (188 blocks), a few others, the tile numbers |
 | 1 | the other floors |
 | 3 | walls |
 | 4 | the walls nearest the camera: the outer walls on the near sides, and the near walls of the rooms |
@@ -113,11 +123,16 @@ original.
 two 8s and a double 1.0. Probably the level editor's view: a position, a
 size, an 8 × 8 grid and a zoom.
 
-## Drawing order
+## Drawing order and the original's look
 
-The original's isn't known yet. Reluva draws the flat things first (the
-outside, then the floors by layer, each from the back), then sorts the
-others by their boxes: of two whose images overlap, the one wholly beyond
-the other along x, or else along y, is in front; boxes overlapping on the
-floor go by their centres. This puts every object of the mansion in a
-believable place; it's to be compared with screenshots of the original.
+Recordings show the walls nearest the camera (layer 4) drawn see-through,
+about half; Reluva's mansion page does so by default. They also show the
+whole scene dark, with pools of light around the lamps and the suspects:
+the readme's "Dynamic Lighting", not done yet.
+
+How the original orders what it draws isn't known. Reluva draws the flat
+things first (the outside, then the floors by layer, each from the back),
+then sorts the others by their boxes: of two whose images overlap, the one
+wholly beyond the other along x, or else along y, is in front; boxes
+overlapping on the floor go by their centres. Views of the ballroom and
+the billiard room drawn this way match the recordings' frames.

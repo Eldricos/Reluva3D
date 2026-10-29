@@ -13,8 +13,9 @@ namespace {
 constexpr int kInfoH = 26;
 constexpr int kAreaH = kScreenH - kInfoH;
 constexpr Color kBackground{24, 24, 36};
-// How much of the nearest walls shows when they're see-through.
-constexpr int kSeeThrough = 96;
+// How much of the nearest walls shows when they're see-through: about half,
+// judged against recordings of the original.
+constexpr int kSeeThrough = 128;
 
 void plot(Surface& s, int x, int y, Color c) {
     if (x < 0 || y < 0 || x >= s.w || y >= kAreaH)

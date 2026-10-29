@@ -414,7 +414,7 @@ static void testObjectsAndLevel() {
     if (level.placements.size() == 3) {
         const Placement& p = level.placements[1];
         CHECK(p.flags == 0x62 && p.tag == 3 && p.object == 0 && p.x == -64 && p.y == 128 && p.id == -1 &&
-              p.layer == 1 && p.worldX() == -32 && p.worldY() == 64);
+              p.layer == 1);
         CHECK(p.timings.size() == 1 && p.timings[0].time == 1000 && p.timings[0].state == 10);
         CHECK(level.placements[2].tag == 1030 && level.placements[2].layer == 7);
         CHECK(level.workspace.size() == 32);
@@ -469,12 +469,12 @@ static void testMansion(const std::filesystem::path& tmp) {
     CHECK(m.items().size() == 2 && m.problems().size() == 1); // the broken one is left out
     if (m.items().size() == 2) {
         const Mansion::Item& bench = m.items()[0];
-        CHECK(!bench.flat && bench.box.x == 100 && bench.box.y == 50 && bench.box.sizeX == 16);
-        CHECK(bench.anchorX == 50 && bench.anchorY == 75); // (x - y) / 2, (x + y) / 4 in the level's units
+        CHECK(!bench.flat && bench.box.x == 200 && bench.box.y == 100 && bench.box.sizeX == 16);
+        CHECK(bench.anchorX == 100 && bench.anchorY == 150); // x - y, (x + y) / 2
         CHECK(m.items()[1].flat);
         CHECK(m.drawOrder() == std::vector<size_t>({1, 0})); // the floor first
         // Frame 0's pieces: image Ia (3x2) at the frame's anchor offset plus its layer's.
-        CHECK(bench.rect.x == 50 - 44 && bench.rect.y == 75 - 106 - 5);
+        CHECK(bench.rect.x == 100 - 44 && bench.rect.y == 150 - 106 - 5);
     }
     std::filesystem::remove_all(tmp);
 }

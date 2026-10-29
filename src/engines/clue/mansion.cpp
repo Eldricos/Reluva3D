@@ -138,16 +138,15 @@ Error Mansion::build(const GameData& data, const Level& level) {
         }
         item.frames = resolve(data, *item.animation);
         item.layer = pl.layer;
-        // The level's units are half the world's.
-        item.box.x = floorDiv(pl.x, 2);
-        item.box.y = floorDiv(pl.y, 2);
+        item.box.x = pl.x;
+        item.box.y = pl.y;
         const Animation::Frame& f0 = item.animation->frames[0];
         item.box.sizeX = f0.sizeX;
         item.box.sizeY = f0.sizeY;
         item.box.height = f0.height;
         item.flat = f0.solid < 0 || !item.animation->isometric;
-        item.anchorX = floorDiv(pl.x - pl.y, 2);
-        item.anchorY = floorDiv(pl.x + pl.y, 4);
+        item.anchorX = pl.x - pl.y;
+        item.anchorY = floorDiv(pl.x + pl.y, 2);
         // The rectangle every frame's pieces fall in.
         bool any = false;
         int x0 = 0, y0 = 0, x1 = 0, y1 = 0;
