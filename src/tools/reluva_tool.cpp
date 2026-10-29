@@ -5200,6 +5200,7 @@ int cmdFinCheck(int argc, char** argv) {
     std::map<std::string, Count> counts;
     std::set<std::string> missingImages;
     unsigned files = 0, failed = 0, badLinks = 0, shapes = 0, triangles = 0;
+    unsigned actorsWithTracks = 0, trackMismatches = 0, keysChecked = 0, keysMatching = 0;
     std::vector<uint8_t> data;
     for (const auto& e : fin.entries()) {
         if (e.size == 0)
@@ -5251,6 +5252,47 @@ int cmdFinCheck(int argc, char** argv) {
                 expect(f, model.images.count(f) != 0, "an image");
         for (const auto& [id, image] : model.multiTextures)
             expect(image, model.images.count(image) != 0, "an image");
+        for (const auto& [id, flip] : model.flips)
+            expect(flip.target, model.typeOf(flip.target) == "NiTextureProperty", "a texture property");
+        for (const auto& [id, a] : model.materialAnimators)
+            expect(a.target, model.typeOf(a.target) == "NiMaterialProperty", "a material");
+        // An actor's tracks go to the 3ds nodes in depth-first order: there
+        // are as many, and each track's first key is where its node was
+        // saved.
+        const std::vector<uint32_t> animated = model.animatedNodes();
+        for (const auto& [id, actor] : model.actors) {
+            if (actor.tracks.empty())
+                continue;
+            ++actorsWithTracks;
+            if (actor.tracks.size() != animated.size()) {
+                ++trackMismatches;
+                std::printf("%s: %zu tracks for %zu 3ds nodes\n", e.name.c_str(), actor.tracks.size(), animated.size());
+                continue;
+            }
+            for (size_t i = 0; i < animated.size(); ++i) {
+                const auto& node = model.nodes.at(animated[i]);
+                const auto& t = actor.tracks[i];
+                if (!t.positions.empty()) {
+                    ++keysChecked;
+                    float d = 0;
+                    for (size_t k = 0; k < 3; ++k)
+                        d = std::max(d, std::fabs(t.positions.front().value[k] - node.translation[k]));
+                    keysMatching += d < 1e-3f;
+                }
+                if (!t.rotations.empty()) {
+                    // The quaternion's matrix, row by row, against the node's.
+                    const auto [w, x, y, z] = t.rotations.front().value;
+                    const float m[9] = {1 - 2 * (y * y + z * z), 2 * (x * y - w * z),     2 * (x * z + w * y),
+                                        2 * (x * y + w * z),     1 - 2 * (x * x + z * z), 2 * (y * z - w * x),
+                                        2 * (x * z - w * y),     2 * (y * z + w * x),     1 - 2 * (x * x + y * y)};
+                    float d = 0;
+                    for (size_t k = 0; k < 9; ++k)
+                        d = std::max(d, std::fabs(m[k] - node.rotation[k]));
+                    ++keysChecked;
+                    keysMatching += d < 1e-3f;
+                }
+            }
+        }
         if (images.size())
             for (const auto& [id, name] : model.images)
                 if (!images.has(name))
@@ -5265,6 +5307,9 @@ int cmdFinCheck(int argc, char** argv) {
     }
     std::printf("%u models, %u failed; %u shapes, %u triangles; %u read but not exactly; %u bad links\n", files,
                 failed, shapes, triangles, notExact, badLinks);
+    std::printf("%u models with animation tracks, %u with a track count unlike their 3ds nodes'; %u of %u first keys "
+                "where the node was saved\n",
+                actorsWithTracks, trackMismatches, keysMatching, keysChecked);
     if (images.size()) {
         std::printf("%zu images not found in the archives given", missingImages.size());
         for (const std::string& m : missingImages)

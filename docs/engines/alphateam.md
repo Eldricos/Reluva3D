@@ -88,7 +88,7 @@ from the launcher, the engine now shows these pages (keys in
   classes read ends exactly where the next begins, and every link and image
   name resolves.
   - **Characters.** Their limbs are skins that follow bones; all 15 are
-    whole, standing in the skeleton's rest pose.
+    whole.
   - **Billboards** face the camera.
   - **Drawing state, as Direct3D's defaults:**
     - back faces culled, since nothing in the files asks for two-sided
@@ -101,9 +101,24 @@ from the launcher, the engine now shows these pages (keys in
     normals were wrong.
   - **Hidden objects** (effects the game shows on events) and the
     characters' far-away stand-ins are left out unless H shows them.
-  - Not yet: animation (so no poses but the rest pose), morph shapes,
-    lights, glows (`DDCorona`), and flip-book textures (the first frame
-    shows).
+  - **Animation** plays, from the game's `DDActorSharedData`: each 3ds
+    node's position, rotation (quaternions or Euler angles), scale and
+    visibility keys, which move the skins' bones. C and V pick a clip
+    (`at_rest`, `pace right`, `win`... or the whole timeline), and Space
+    pauses. Keys are blended linearly, and rotations by slerp; their
+    tangents are left out.
+  - **Morph shapes** (the E3xxx levels' seaweed) move by their keyed
+    weights.
+  - **Material animators** change colour and alpha.
+  - **Flip-book textures** cycle their images.
+  - **Glows** (`DDCorona`) are drawn facing the camera, added to what's
+    behind them.
+  - **Lights**: G marks them. They aren't applied, as the levels are lit
+    by their lightmaps.
+  - The formats are in
+    [../formats/netimmerse/fin.md](../formats/netimmerse/fin.md#animation).
+    `fin-check` confirms that all 102 animated models have one track per
+    3ds node, and that 1,027 of 1,035 first keys match the saved pose.
 - Done: **Textures**: all 1,609 TGA images in `Map.pac`, `LMap.pac` and
   `Etc.pac`. All decode with `common/image`, 479 of them with alpha.
 - Done: **Sounds**: all 498 `.DDS` sounds (`decodeDds`), played through the
@@ -798,6 +813,9 @@ reads, the vftables it builds for its own subclasses):
     (`-quit`, 3700). It shows frames late, as the player does. Each mission's log and save (and with `-shots`, a
     frame every 100) go in its own folder. All 54 take about 50 minutes
     on 4 processors, most of it the menus and loading before each Go.
+    With the sound, gamma and late-presenting changes, all 54 still ran
+    to frame 3700 (5,056 s on 4 processors, against 5,298 s showing each
+    frame at its own flip).
   - `AutoLoadPuzzle <space>` in `Config.txt` would skip the menus (the
     interface behaviour goes straight to `To_FirstSpace`), but the space
     then never shows: the game sits on a black screen, its sounds placed

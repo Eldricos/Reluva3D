@@ -18,8 +18,8 @@ namespace reluva::netimmerse {
 // between objects use) and its fields. See docs/formats/netimmerse/fin.md.
 //
 // The objects are found by their headers, then each class that's
-// understood is read; a class that isn't (animation, skins, morphs) is
-// skipped without losing the rest. Every object records whether its fields
+// understood is read; a class that isn't is skipped without losing the
+// rest. Every object records whether its fields
 // were read to exactly its end, which `reluva-tool fin-check` counts.
 
 // NiAVObject: anything placed in the scene.
@@ -74,6 +74,83 @@ struct FinSkin : FinShape {
     std::vector<Influence> influences;
 };
 
+// Ni3dsMorphShape: a shape whose vertices move by weights keyed over time.
+// The first target is the shape as modelled; the others are offsets from
+// it, each added times its weight.
+struct FinMorph : FinShape {
+    struct Key {
+        float time = 0;              // ticks
+        std::vector<float> weights;  // one per target
+    };
+    std::vector<Key> keys;
+    std::vector<std::vector<float>> targets; // each x, y, z per vertex
+};
+
+// Animation times are 3ds Max ticks, 4800 a second.
+constexpr float kTicksPerSecond = 4800;
+
+// A NetImmerse time controller's settings, as far as they're known.
+struct FinController {
+    uint32_t cycle = 0; // *guess*: 0 loop, 1 reverse, 2 clamp
+    float frequency = 1, phase = 0, start = 0, stop = 0;
+    uint32_t target = 0; // id of what it animates
+};
+
+// NiFlipTextures: cycles its target NiTextureProperty's images. `stop` is
+// the cycle's length: stop × frequency is 160 ticks (a 30th of a second)
+// per image in every file.
+struct FinFlip : FinController {};
+
+// Ni3dsColorAnimator and Ni3dsAlphaAnimator: a material's colour or alpha
+// over time, keyed.
+struct FinMaterialAnimator : FinController {
+    uint32_t channel = 0; // colour: *guess* 0 ambient, 1 diffuse, 3 emissive
+    bool alpha = false;
+    struct Key {
+        float time = 0; // ticks
+        std::array<float, 3> value{}; // alpha: the first only
+    };
+    std::vector<Key> keys;
+};
+
+// NiLight. *Guess*, from the 110 in the levels: kind 1 is a spot shining
+// down its -Z, kind 2 an omni light.
+struct FinLight : FinAvObject {
+    uint8_t kind = 0;
+    std::array<float, 3> direction{};
+    std::array<float, 3> ambient{}, diffuse{}, specular{};
+    float spotAngle = 0; // degrees, a spot's
+};
+
+// DDActorSharedData: the game's own data for a model. Its clips (named
+// stretches of the one animation timeline), and the keys for each 3ds node
+// (Ni3dsAnimationNode, Ni3dsBone), in the order a depth-first walk of the
+// scene graph meets them.
+struct FinActor {
+    struct Clip {
+        std::string name;
+        float start = 0, end = 0; // seconds
+        std::string sound;        // played with it, or ""
+    };
+    template <typename T>
+    struct Key {
+        float time = 0; // ticks
+        T value{};
+    };
+    struct Track {
+        std::vector<Key<std::array<float, 3>>> positions;
+        std::vector<Key<std::array<float, 4>>> rotations; // quaternions: w, x, y, z
+        // Instead of rotations: an angle (radians) about each of X, Y and Z.
+        std::array<std::vector<Key<float>>, 3> euler;
+        std::vector<Key<float>> scales;
+        std::vector<Key<bool>> visible;
+    };
+    std::string id, name, textureSet;
+    std::vector<Clip> clips;
+    std::vector<Track> tracks;
+    std::vector<std::array<float, 3>> footprint; // a polygon on the floor
+};
+
 // NiAlphaProperty. Blend factors as NetImmerse numbers them (6 source
 // alpha, 7 one minus source alpha...).
 struct FinAlpha {
@@ -102,6 +179,11 @@ public:
     std::map<uint32_t, FinShape> shapes;
     std::map<uint32_t, FinShape> coronas; // DDCorona: glows, with vertices but no triangles
     std::map<uint32_t, FinSkin> skins;
+    std::map<uint32_t, FinMorph> morphs;
+    std::map<uint32_t, FinLight> lights;
+    std::map<uint32_t, FinFlip> flips;
+    std::map<uint32_t, FinMaterialAnimator> materialAnimators;
+    std::map<uint32_t, FinActor> actors;
     std::map<uint32_t, FinMaterial> materials;
     std::map<uint32_t, FinAlpha> alphas;
     std::map<uint32_t, std::vector<uint32_t>> textures;  // NiTextureProperty: its images' ids (frames)
@@ -112,6 +194,9 @@ public:
 
     // What kind of object an id is, or "" if none.
     std::string typeOf(uint32_t id) const;
+    // The 3ds nodes in the order an actor's tracks are: depth first from
+    // the roots, each node before its children, children in order.
+    std::vector<uint32_t> animatedNodes() const;
 
 private:
     std::vector<FinObjectInfo> objects_;

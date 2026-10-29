@@ -242,6 +242,207 @@ void readSkin(Reader& r, FinSkin& s) {
     s.firstInfluence.push_back(uint32_t(s.influences.size()));
 }
 
+// The settings a time controller starts with, after NiObjectNET's fields
+// and seven bytes (0, 0, 0, 1, 1, 0, 1 in every file): the cycle, a number
+// (0), frequency, phase, start, stop and the target.
+void readControllerTail(Reader& r, FinController& c) {
+    c.cycle = r.u32();
+    r.u32();
+    c.frequency = r.f32();
+    c.phase = r.f32();
+    c.start = r.f32();
+    c.stop = r.f32();
+    c.target = r.u32();
+}
+
+// NiFlipTextures: NiObjectNET's fields (its byte the cycle), three bytes,
+// frequency, phase, the cycle's length and the target.
+void readFlip(Reader& r, FinFlip& f) {
+    uint8_t cycle = 0;
+    readObjectNet(r, &cycle);
+    f.cycle = cycle;
+    r.skip(3);
+    f.frequency = r.f32();
+    f.phase = r.f32();
+    f.stop = r.f32();
+    f.target = r.u32();
+}
+
+// Ni3dsColorAnimator (with the colour's number first) and
+// Ni3dsAlphaAnimator: a controller, then the keys: their number and type,
+// each its time and value; type 2 adds tangents (and, for a colour, 24
+// bytes more).
+void readMaterialAnimator(Reader& r, FinMaterialAnimator& a, bool alpha) {
+    readObjectNet(r);
+    r.skip(7);
+    readControllerTail(r, a);
+    a.alpha = alpha;
+    if (!alpha)
+        a.channel = r.u32();
+    const uint32_t n = r.u32();
+    const uint32_t type = n ? r.u32() : 0;
+    const size_t values = alpha ? 1 : 3;
+    size_t extra = 0;
+    if (type == 2)
+        extra = alpha ? 8 : 48;
+    else if (type != 1 && n)
+        r.ok = false;
+    for (uint32_t i = 0; i < n && r.ok; ++i) {
+        FinMaterialAnimator::Key k;
+        k.time = r.f32();
+        r.floats(k.value.data(), values);
+        r.skip(extra);
+        a.keys.push_back(k);
+    }
+}
+
+// Ni3dsMorphShape: a shape, then a controller (two numbers first), two
+// bytes, the number of targets, a number, four numbers, the keys (each its
+// time, six numbers, the number of targets again, then a weight, an
+// incoming and an outgoing tangent for each target, all the weights
+// first), and each target's vertices.
+void readMorph(Reader& r, FinMorph& m) {
+    readShape(r, m);
+    FinController c;
+    r.skip(8);
+    c.cycle = r.u32();
+    r.u32();
+    c.frequency = r.f32();
+    c.phase = r.f32();
+    c.start = r.f32();
+    c.stop = r.f32();
+    r.skip(2);
+    const uint32_t targets = r.u32();
+    r.skip(4 + 16);
+    const uint32_t keys = r.u32();
+    if (targets > 64 || keys > 4096) {
+        r.ok = false;
+        return;
+    }
+    for (uint32_t i = 0; i < keys && r.ok; ++i) {
+        FinMorph::Key k;
+        k.time = r.f32();
+        r.skip(24);
+        if (r.u32() != targets) {
+            r.ok = false;
+            return;
+        }
+        k.weights = r.floats(targets);
+        r.skip(size_t(targets) * 8);
+        m.keys.push_back(std::move(k));
+    }
+    for (uint32_t t = 0; t < targets && r.ok; ++t)
+        m.targets.push_back(r.floats(size_t(m.vertexCount) * 3));
+}
+
+// NiLight: NiAVObject's fields, 12 bytes (0), a direction, a byte, three
+// numbers (a spot's angle first), ambient, diffuse and specular colours,
+// two numbers, a byte, the kind and seven bytes.
+void readLight(Reader& r, FinLight& l) {
+    readAvObject(r, l);
+    r.skip(12);
+    r.floats(l.direction.data(), 3);
+    r.u8();
+    l.spotAngle = r.f32();
+    r.skip(8);
+    r.floats(l.ambient.data(), 3);
+    r.floats(l.diffuse.data(), 3);
+    r.floats(l.specular.data(), 3);
+    r.skip(9);
+    l.kind = r.u8();
+    r.skip(7);
+}
+
+// DDActorSharedData. See docs/formats/netimmerse/fin.md for the layout.
+void readActor(Reader& r, FinActor& a) {
+    a.id = r.string();
+    r.string();
+    a.name = r.string();
+    a.textureSet = r.string();
+    r.skip(2 + 8); // a number, then two whose meaning is unknown
+    const uint32_t clips = r.u32();
+    for (uint32_t i = 0; i < clips && r.ok && i < 1024; ++i) {
+        FinActor::Clip c;
+        c.name = r.string();
+        c.start = r.f32();
+        c.end = r.f32();
+        if (r.u8()) {
+            c.sound = r.string();
+            r.skip(10 + 16 + 1); // its settings: volume, distances...
+        }
+        for (int list = 0; list < 3 && r.ok; ++list) // three lists of numbers, meaning unknown
+            r.skip(size_t(r.u32()) * 2);
+        a.clips.push_back(std::move(c));
+    }
+    const uint32_t tracks = r.u32();
+    if (tracks > 4096)
+        r.ok = false;
+    // Each key starts with its time and value; the types add more after.
+    auto keySize = [](char kind, uint32_t type) -> size_t {
+        switch (kind) {
+        case 'r': return type == 1 ? 44 : type == 2 ? 64 : type == 3 ? 96 : 0;
+        case 'p': return type == 1 ? 16 : type == 2 ? 64 : type == 3 ? 76 : 0;
+        case 's': return type == 1 ? 8 : type == 2 ? 16 : 0;
+        case 'f': return type == 1 ? 8 : type == 2 ? 16 : type == 3 ? 20 : 0;
+        default: return 0;
+        }
+    };
+    // A track: the number of keys, then (if any) their type and the keys.
+    auto track = [&](char kind, auto&& read) {
+        const uint32_t n = r.u32();
+        if (!n)
+            return;
+        const uint32_t type = r.u32();
+        const size_t size = keySize(kind, type);
+        if (!size || n > 100000 || !r.need(size * n)) {
+            r.ok = false;
+            return;
+        }
+        for (uint32_t i = 0; i < n; ++i) {
+            const size_t at = r.pos;
+            read();
+            r.pos = at + size;
+        }
+    };
+    for (uint32_t i = 0; i < tracks && r.ok; ++i) {
+        FinActor::Track t;
+        // Rotations: type 4 is a single key, 46 bytes, then a float track
+        // for each axis.
+        const size_t at = r.pos;
+        if (r.u32() == 1 && r.u32() == 4) {
+            r.skip(46);
+            for (auto& axis : t.euler)
+                track('f', [&] { axis.push_back({r.f32(), r.f32()}); });
+        } else {
+            r.pos = at;
+            track('r', [&] {
+                FinActor::Key<std::array<float, 4>> k;
+                k.time = r.f32();
+                r.skip(16); // the angle and axis
+                r.floats(k.value.data(), 4);
+                t.rotations.push_back(k);
+            });
+        }
+        track('p', [&] {
+            FinActor::Key<std::array<float, 3>> k;
+            k.time = r.f32();
+            r.floats(k.value.data(), 3);
+            t.positions.push_back(k);
+        });
+        track('s', [&] { t.scales.push_back({r.f32(), r.f32()}); });
+        const uint32_t shown = r.u32(); // no type: each key a time and a byte
+        for (uint32_t k = 0; k < shown && r.ok && k < 100000; ++k)
+            t.visible.push_back({r.f32(), r.u8() != 0});
+        a.tracks.push_back(std::move(t));
+    }
+    const uint32_t corners = r.u32();
+    for (uint32_t i = 0; i < corners && r.ok && i < 1024; ++i) {
+        std::array<float, 3> c{};
+        r.floats(c.data(), 3);
+        a.footprint.push_back(c);
+    }
+}
+
 uint32_t le32(const uint8_t* p) { return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24; }
 
 // The length-prefixed string at `at` (1 to maxLen characters), or an empty
@@ -256,6 +457,24 @@ std::string_view stringAt(const std::vector<uint8_t>& d, size_t at, size_t maxLe
 }
 
 } // namespace
+
+std::vector<uint32_t> FinFile::animatedNodes() const {
+    std::vector<uint32_t> out;
+    std::vector<uint32_t> stack(roots_.rbegin(), roots_.rend());
+    std::set<uint32_t> seen;
+    while (!stack.empty()) {
+        const uint32_t id = stack.back();
+        stack.pop_back();
+        auto node = nodes.find(id);
+        if (node == nodes.end() || !seen.insert(id).second)
+            continue;
+        const std::string type = typeOf(id);
+        if (type == "Ni3dsAnimationNode" || type == "Ni3dsBone")
+            out.push_back(id);
+        stack.insert(stack.end(), node->second.children.rbegin(), node->second.children.rend());
+    }
+    return out;
+}
 
 std::string FinFile::typeOf(uint32_t id) const {
     auto it = byId_.find(id);
@@ -329,6 +548,16 @@ Error FinFile::parse(const std::vector<uint8_t>& data) {
             readShape(r, shapes[info.id]);
         } else if (type == "Ni3dsSkin") {
             readSkin(r, skins[info.id]);
+        } else if (type == "Ni3dsMorphShape") {
+            readMorph(r, morphs[info.id]);
+        } else if (type == "NiLight") {
+            readLight(r, lights[info.id]);
+        } else if (type == "NiFlipTextures") {
+            readFlip(r, flips[info.id]);
+        } else if (type == "Ni3dsColorAnimator" || type == "Ni3dsAlphaAnimator") {
+            readMaterialAnimator(r, materialAnimators[info.id], type == "Ni3dsAlphaAnimator");
+        } else if (type == "DDActorSharedData") {
+            readActor(r, actors[info.id]);
         } else if (type == "DDCorona") {
             readShape(r, coronas[info.id], true);
         } else if (type == "NiMaterialProperty") {

@@ -477,6 +477,117 @@ void testDdf() {
             CHECK(screen.row(y)[x * 4] == ((x == 1 || x == 2) && (y == 2 || y == 3) ? 200 : 0));
 }
 
+// An animated model: a 3ds node over a bone, a flip-book, an alpha
+// animator and the game's actor data with a track for each node.
+std::vector<uint8_t> buildAnimatedFin() {
+    FinWriter w;
+    const std::string header = "Dweezil 23\n";
+    w.b.assign(header.begin(), header.end());
+    auto floats = [&](std::initializer_list<float> fs) {
+        for (float f : fs)
+            putFloat(w.b, f);
+    };
+    w.object("NiFlipTextures", 0x700);
+    w.objectNet("", 2); // its byte: the cycle
+    w.b.insert(w.b.end(), 3, 0);
+    floats({0.25f, 160, 1920});
+    put32(w.b, 0x400);
+    w.object("Ni3dsAlphaAnimator", 0x710);
+    w.objectNet("");
+    w.b.insert(w.b.end(), {0, 0, 0, 1, 1, 0, 1});
+    put32(w.b, 2); // cycle
+    put32(w.b, 0);
+    floats({1, 0, 0, 3200});
+    put32(w.b, 0x300);
+    put32(w.b, 2); // two keys of type 1: time, alpha
+    put32(w.b, 1);
+    floats({0, 1, 3200, 0});
+    w.object("DDActorSharedData", 0x720);
+    w.str("U0001");
+    w.str("");
+    w.str("Thing");
+    w.str("");
+    w.b.insert(w.b.end(), {1, 0});
+    floats({0.7f, 0});
+    put32(w.b, 1); // a clip, with a sound
+    w.str("spin");
+    floats({1, 2});
+    w.b.push_back(1);
+    w.str("whirr");
+    w.b.insert(w.b.end(), 10 + 16 + 1, 0);
+    put32(w.b, 2); // its lists: two numbers, then none, none
+    w.b.insert(w.b.end(), {0, 0, 1, 0});
+    put32(w.b, 0);
+    put32(w.b, 0);
+    put32(w.b, 2); // tracks
+    // The node: a rotation key (type 1: time, angle, axis, quaternion, two
+    // numbers), two position keys (type 1), no scale or visibility keys.
+    put32(w.b, 1);
+    put32(w.b, 1);
+    floats({4800, 3.14159f, 0, 0, 1, 0, 0, 0, 1, 0, 0});
+    put32(w.b, 2);
+    put32(w.b, 1);
+    floats({4800, 1, 2, 3, 9600, 4, 5, 6});
+    put32(w.b, 0);
+    put32(w.b, 0);
+    // The bone: Euler angles (one key, type 4, 46 bytes, then a track per
+    // axis), a scale key, a visibility key.
+    put32(w.b, 1);
+    put32(w.b, 4);
+    w.b.insert(w.b.end(), 46, 0);
+    put32(w.b, 1);
+    put32(w.b, 2); // X: one key of type 2 (time, value, two tangents)
+    floats({0, 0.5f, 0, 0});
+    put32(w.b, 0);
+    put32(w.b, 0);
+    put32(w.b, 0); // no position keys
+    put32(w.b, 1);
+    put32(w.b, 1);
+    floats({0, 2});
+    put32(w.b, 1);
+    putFloat(w.b, 4800);
+    w.b.push_back(0);
+    put32(w.b, 1); // the footprint: one corner
+    floats({1, 2, 0.1f});
+    w.object("Ni3dsBone", 0x20);
+    w.avObject("Bone", {0, 0, 0}, {}, false);
+    w.nodeTail({});
+    w.b.insert(w.b.end(), 48, 0);
+    w.str("Top Level Object");
+    w.object("Ni3dsAnimationNode", 0x10);
+    w.avObject("Root", {0, 0, 0}, {}, false);
+    w.nodeTail({0x20});
+    w.b.insert(w.b.end(), 48, 0);
+    w.str("End Of File");
+    return w.b;
+}
+
+void testFinAnimation() {
+    FinFile f;
+    CHECK(!f.parse(buildAnimatedFin()));
+    for (const auto& o : f.objects())
+        CHECK(o.read && o.exact);
+    CHECK(f.animatedNodes() == std::vector<uint32_t>({0x10, 0x20}));
+    const FinFlip& flip = f.flips[0x700];
+    CHECK(flip.cycle == 2 && flip.frequency == 0.25f && flip.phase == 160 && flip.stop == 1920 && flip.target == 0x400);
+    const FinMaterialAnimator& a = f.materialAnimators[0x710];
+    CHECK(a.alpha && a.target == 0x300 && a.stop == 3200 && a.keys.size() == 2 && a.keys[1].time == 3200 &&
+          a.keys[0].value[0] == 1);
+    const FinActor& actor = f.actors[0x720];
+    CHECK(actor.id == "U0001" && actor.name == "Thing");
+    CHECK(actor.clips.size() == 1 && actor.clips[0].name == "spin" && actor.clips[0].start == 1 &&
+          actor.clips[0].sound == "whirr");
+    CHECK(actor.tracks.size() == 2 && actor.footprint.size() == 1 && actor.footprint[0][1] == 2);
+    const FinActor::Track& node = actor.tracks[0];
+    CHECK(node.rotations.size() == 1 && node.rotations[0].time == 4800 && node.rotations[0].value[0] == 0 &&
+          node.rotations[0].value[3] == 1);
+    CHECK(node.positions.size() == 2 && node.positions[1].value[2] == 6 && node.scales.empty() && node.visible.empty());
+    const FinActor::Track& bone = actor.tracks[1];
+    CHECK(bone.rotations.empty() && bone.euler[0].size() == 1 && bone.euler[0][0].value == 0.5f && bone.euler[1].empty());
+    CHECK(bone.scales.size() == 1 && bone.scales[0].value == 2);
+    CHECK(bone.visible.size() == 1 && bone.visible[0].time == 4800 && !bone.visible[0].value);
+}
+
 int main() {
     const auto tmp = std::filesystem::temp_directory_path() / "reluva_netimmerse_tests";
     std::filesystem::create_directories(tmp);
@@ -488,6 +599,7 @@ int main() {
     testDds();
     testLocaleText();
     testFin();
+    testFinAnimation();
     testDdf();
     std::filesystem::remove_all(tmp);
     if (failures)

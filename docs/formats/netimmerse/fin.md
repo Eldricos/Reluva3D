@@ -108,7 +108,7 @@ What each subclass adds after NiNode's fields:
 |---|---|---|
 | `NiBillboardNode` | 909 | a number (1): the billboard mode. The viewer turns the node's +Z axis to the camera, which is how its quads lie: they're flat in X and Y |
 | `NiLODNode` | 64 | 5 bytes, the number of levels (one per child), 20 bytes for each level (its distances), a byte |
-| `Ni3dsAnimationNode`, `Ni3dsBone` | 860, 213 | 48 bytes of animation settings |
+| `Ni3dsAnimationNode`, `Ni3dsBone` | 860, 213 | 48 bytes of animation settings: 1, 1, 2, then floats 0, 1, 0 and the scene's range in ticks (16,000 to 356,800 in Evil Ogel), then 16 bytes of 0. The keys are in `DDActorSharedData` (below) |
 | `DDUnit` | 93 | a link, *guess*: to the model's `DDActorSharedData` |
 | `DDEnv` | 54 | a link, as `DDUnit`'s; the root of every level |
 
@@ -159,8 +159,8 @@ vertices), so the skinning is rigid. A vertex goes where its bone's
 placement puts its offset. The shape's own vertices are in the modelled
 pose, with the arms out, while the bones are where the file puts them; the
 two only agree for a vertex near its bone. Drawn this way, all 15
-characters are whole. They stand in the skeleton's rest pose, the agents
-with their arms out, as the game's animation hasn't been applied.
+characters are whole, in the pose of their first keys; animated by their
+tracks (below), they walk, turn and wave.
 
 **DDCorona** (215): a glow. A shape's fields up to the vertex colours
 (5 vertices: a square and its centre), then a link and 9 floats of its own
@@ -192,11 +192,154 @@ length and characters, e.g. `CorrBlk.tga`) and a number (7). No pixels
 are stored in the models. All 1,260 names are in `Map.pac`, `LMap.pac` or
 `Etc.pac`.
 
-## Not read yet
+## Animation
 
-`Ni3dsColorAnimator` (439), `Ni3dsAlphaAnimator` (393), `NiFlipTextures`
-(282), `Ni3dsMorphShape` (122: in the E3xxx levels and four units), `NiLight`
-(110) and the game's `DDActorSharedData` (147, up to 658 KB; it doesn't
-start with NiObjectNET's fields). The animation keys are in some of these
-and in the 48 bytes the 3ds nodes add. The reader finds them and skips them. Their links
-are kept, so animation can be added later without changing the rest.
+Every class is now read; 116 of the 122 morph shapes read to exactly their
+end (below). `reluva-tool fin-check` also checks the actors' tracks against
+the 3ds nodes (below). The viewer plays all of it.
+
+**How it was worked out.** Each class's objects were split out and dumped
+as numbers by scratch scripts, and fields were found by comparing many
+objects. Key sizes were then fixed by requiring every object to parse to
+exactly its end. That is how the 46-byte Euler prefix and the scale keys'
+16 bytes were found, by trying each size across all 147 files; one size
+fits every file and no other does. Meanings were checked against what can
+be measured:
+
+- the flip-books' frame counts against their textures' image counts;
+- the tracks' first keys against the nodes' saved placements;
+- the morph targets against their shapes' vertices.
+
+Nothing came from the game's code or any other source.
+
+**Times** are 3ds Max ticks, 4,800 a second (160 a frame at 30 frames a
+second). An actor's clip "at_rest" from 3.333 s starts at the 16,000-tick
+key.
+
+### DDActorSharedData (147, one per model)
+
+The game's own data for a model. It doesn't start with NiObjectNET's
+fields. In order:
+
+- four strings: the model's code (`B0001`), one always empty, its name
+  (`Evil Ogel`), and a texture set (`tl0019` in the levels, else empty);
+- a 16-bit number, then two floats (0.7 and 202,500 for the characters,
+  1 and 0 for the rest; meaning unknown);
+- the clips: a count, then each:
+  - its name (`at_rest`, `turn right`, `win`, `anim1`...);
+  - start and end, in seconds;
+  - a byte: 1 if a sound follows. Then the sound's name (`u0179_on`), 10
+    bytes, four floats (1, 1, 600, 300: *guess*, volume, pitch and two
+    distances) and a byte;
+  - three lists of 16-bit numbers (a count, then the numbers; meaning
+    unknown);
+- the tracks: a count, then four for each:
+  - **rotation**: a key count; if it's not 0, a key type, then the keys;
+  - **position**, the same;
+  - **scale**, the same;
+  - **visibility**: a key count, then keys of 5 bytes (a time and a byte,
+    0 hidden), with no type.
+- the footprint: a count, then that many points (3 floats), a polygon at
+  floor height: the square a part fills on the board.
+
+Each key starts with its time; the types add tangents or other data after:
+
+| Track | Type 1 | Type 2 | Type 3 |
+|---|---|---|---|
+| rotation | 44 bytes: time, angle, axis (3), quaternion (w, x, y, z), two floats | 64: as type 1, then a second quaternion and a float | 96 |
+| position | 16: time, x, y, z | 64 | 76 |
+| scale | 8: time, scale | 16 | |
+
+Rotation **type 4** is Euler angles. Its count is 1, then 46 bytes, then a
+float track for each of X, Y and Z: a key count, then (if not 0) a type
+and the keys. Type 1 keys are 8 bytes (time, angle in radians), type 2 are
+16 (with two tangents), type 3 are 20.
+
+The quaternions are absolute: each key's matrix, by the usual formula for
+column vectors, equals what the angle and axis next to it give.
+
+**Which node a track drives:** the 3ds nodes (`Ni3dsAnimationNode`,
+`Ni3dsBone`) in the order a depth-first walk from the roots meets them, a
+node before its children, children in order. For all 102 models with
+tracks there are exactly as many tracks as 3ds nodes. 1,027 of the 1,035
+tracks' first keys equal the node's saved translation or rotation: the
+files were saved in the pose at the first key. Track 1 of Evil Ogel
+(B0001) is `-hips`, track 2 `-hiphang`, then the right leg, the left, the
+spine, and the arms.
+
+The levels' actors have clips (`anim1`...) but few or no tracks; their
+animation is in the morph shapes and material animators below.
+
+### NiFlipTextures (282)
+
+NiObjectNET's fields, where the byte is 0, 1 or 2 (*guess*: the cycle,
+loop, reverse or clamp). Then three bytes, the frequency, the phase (in
+ticks), the cycle's length (in ticks) and a link to the
+`NiTextureProperty` whose images it cycles.
+
+In every file, length × frequency ÷ 160 is exactly the property's number
+of images, from 2 to 21. So each image lasts 160 ticks of the
+controller's own time, the clock times the frequency.
+
+### Ni3dsColorAnimator (439), Ni3dsAlphaAnimator (393)
+
+NiObjectNET's fields, then seven bytes (0, 0, 0, 1, 1, 0, 1). The
+controller follows: the cycle (2, or 0 in four), a number (0), then
+frequency, phase, start and stop. Then a link to the
+`NiMaterialProperty` it animates; the material links back through its
+`Ni3dsPropAnimExtraData`.
+
+A colour animator then has a channel: 3 (248 of them), 1 (99) or 0 (92).
+*Guess*: 0 ambient, 1 diffuse, 3 emissive. Both kinds then have a key
+count, a type and the keys:
+
+- alpha: type 1 is 8 bytes (time, alpha); type 2 is 16 (with two
+  tangents);
+- colour: type 1 is 16 (time, r, g, b); type 2 is 64 (with two tangents
+  and 24 bytes more).
+
+### Ni3dsMorphShape (122)
+
+A shape's fields, then, in the 116 that read exactly:
+
+- a controller: two numbers (1, then 0x01000001), the cycle (2), a number,
+  frequency, phase, start and stop;
+- two bytes;
+- the number of targets (6 in most), a number, four floats;
+- the keys: a count, then each:
+  - its time;
+  - six floats (*guess*: tension, continuity, bias and the like);
+  - the number of targets again;
+  - the weights, the incoming tangents, then the outgoing tangents, one of
+    each per target;
+- each target's vertices (3 floats each).
+
+The first target is the shape's own vertices. The others are offsets from
+them. So the shape at a time is the first target plus each other times its
+weight. In E3020 the weights step one-hot through the targets, swaying
+the seaweed. Six, in three files, have a different number before the
+floats and extra bytes after the keys. They are drawn as modelled.
+
+### NiLight (110, in the levels)
+
+NiAVObject's fields, then:
+
+- 12 bytes (0);
+- a direction: (0, 0, −1) or none;
+- a byte;
+- three floats: for a spot, 22.5 (*guess*: its angle in degrees);
+- the ambient, diffuse and specular colours (diffuse and specular always
+  equal);
+- two floats: 12,800 to 179,200 and 0, or 1 and 0.5 (*guess*: ranges);
+- a byte;
+- the kind: 1 for the spots shining down −Z, 2 for the omni lights;
+- seven bytes.
+
+The levels are lit by their lightmaps, so the viewer only marks where the
+lights are (G).
+
+### DDCorona: glows
+
+A glow's shape is a 2 × 2 square in X and Z and its centre, with white
+vertex colours; its image is its own or inherited texture. The viewer
+draws it facing the camera, added to what's behind it.

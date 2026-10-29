@@ -12,8 +12,9 @@
 //           10; drag to turn, wheel or +/- to zoom, W/A/S/D/Q/E to move
 //           the centre, T for textures, L for lightmaps, B for a level's
 //           sky, H for the hidden effects (sparks, stars...) and the
-//           characters' far-away stand-ins, R to reset the view, I to
-//           show or hide the info.
+//           characters' far-away stand-ins, G to mark the lights, R to
+//           reset the view, I to show or hide the info. Animated models
+//           play: C and V pick the clip, Space pauses.
 // Textures: every image. Left/Right step, PageUp/PageDown jump 10,
 //           Home/End; F picks the archive.
 // Fonts:    the game's .DDF fonts, drawn from their TGA pages. Left/Right
@@ -107,8 +108,15 @@ public:
 private:
     struct Item;
     void show(int index);
+    // Walks the scene graph as it is `ticks` into the animation: creating
+    // the items (`create`), or placing them again.
+    void walk(float ticks, bool create);
+    void pose(float ticks);
     void resetView();
+    void clearItems();
     gfx::TextureId texture(const std::string& name);
+    gfx::TextureId glowTexture();
+    float clipTicks() const; // where the animation is
 
     std::vector<std::string> names_; // the models in Fin.pac
     int index_ = 0;
@@ -116,16 +124,30 @@ private:
     Surface overlay_;
     FinFile model_;
     std::vector<Item> items_;
+    std::map<uint32_t, size_t> itemOf_; // by shape id
     std::map<std::string, gfx::TextureId> textures_; // by image name, lower case; 0 if it couldn't be read
-    std::vector<gfx::MeshId> meshes_;
+    gfx::TextureId glow_ = 0;
     std::string error_;
     std::vector<std::string> info_;
     gfx::Vec3 centre_{}, home_{};
     float radius_ = 1, yaw_ = 0.8f, pitch_ = 0.5f, distance_ = 1;
     bool dragging_ = false, showInfo_ = true, useTextures_ = true, useLightmaps_ = true, showBackdrop_ = true;
     bool showHidden_ = false; // the effects the game shows on events
+    bool showLights_ = false;
     unsigned hiddenCount_ = 0;
     int lastX_ = 0, lastY_ = 0;
+    // Animation: the actor's tracks by node, the clips (0: the whole
+    // timeline), where in the clip it is and whether it's playing.
+    const FinActor* actor_ = nullptr;
+    std::map<uint32_t, size_t> trackOf_;
+    std::map<uint32_t, std::vector<const FinMaterialAnimator*>> animatorsOf_; // by material
+    std::map<uint32_t, const FinFlip*> flipOf_;                                // by texture property
+    std::vector<FinActor::Clip> clips_;
+    int clip_ = 0;
+    float clipTime_ = 0; // seconds into the clip
+    bool playing_ = true;
+    uint64_t lastMs_ = 0, clockMs_ = 0;
+    float posedTicks_ = -1;
 };
 
 class TexturePage : public Page {
