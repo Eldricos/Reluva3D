@@ -15,6 +15,8 @@ src/common/        platform-independent core: System interface, events,
                    search sets; image decoding (TGA, JPEG, PNG, BMP); the 3D
                    rendering interface (gfx3d.h)
   audio/           sound decoders and the mixer, shared by every engine: WAV (PCM, IMA ADPCM), MP3
+  video/           movies: an AVI reader, an Indeo 5 decoder (derived from FFmpeg's
+                   LGPL one, see docs/formats/video/indeo5.md) and a player
 third_party/       outside code Reluva builds in, each with its licence (minimp3, stb_image)
 src/backends/sdl3/ the only code that touches SDL (window, rendering, input, audio),
                    including 3D on SDL's GPU API and its shaders
@@ -138,6 +140,10 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) first: only clean-room work is accepted.
 
 Reluva is free software, licensed under the GNU General Public License,
 version 3 or (at your option) any later version. See [LICENSE](LICENSE).
+
+The Indeo 5 decoder (`src/common/video/indeo5*`) is derived from FFmpeg's
+LGPL 2.1+ decoder by Maxim Poliakovski, used under the GPL 3 as the LGPL
+allows.
 
 Reluva doesn't include any game data. Games and their assets remain the
 property of their respective owners.

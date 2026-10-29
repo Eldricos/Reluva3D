@@ -128,8 +128,13 @@ from the launcher, the engine now shows these pages (keys in
 - Done: **Fonts**: all 12 of the game's own (`.DDF` with their TGA
   pages), each with a sample, every character it has, and its pages (P).
   The format is in [../formats/netimmerse/ddf.md](../formats/netimmerse/ddf.md).
-- **Intro movie** (`lmiintro.avi`, CD only): an AVI reader and whichever
-  codec it uses. Not needed to play, so last.
+- Done: **Intro movie** (`lmiintro.avi`, CD only): Indeo 5 video with PCM
+  sound. Reluva has its own AVI reader and Indeo 5 decoder; all 1,631
+  pictures match FFmpeg's decode byte for byte. If the file is copied
+  beside the install, the engine plays it before the game, and a key or
+  click skips it. See [../formats/video/avi.md](../formats/video/avi.md)
+  and [../formats/video/indeo5.md](../formats/video/indeo5.md), which
+  record what came from FFmpeg's LGPL decoder.
 
 The viewer was checked in this container with a software stand-in for the
 renderer, since it has no GPU: frames of characters, parts and levels

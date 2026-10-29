@@ -100,6 +100,10 @@ add_library(reluva_common STATIC
     src/common/audio/mixer.cpp
     src/common/audio/mp3.cpp
     src/common/audio/wav.cpp
+    src/common/video/avi.cpp
+    src/common/video/indeo5.cpp
+    src/common/video/indeo5_tables.cpp
+    src/common/video/movie.cpp
     src/common/font.cpp
     src/common/text.cpp)
 target_include_directories(reluva_common PUBLIC src)

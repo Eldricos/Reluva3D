@@ -7,7 +7,8 @@
 // owned executables; never from NetImmerse SDK source. See CONTRIBUTING.md.
 //
 // LEGO Alpha Team is played by running its own program in the x86
-// interpreter (alphateam/player.h). F12 pauses it and opens the data viewer
+// interpreter (alphateam/player.h), after the CD's intro movie if it's
+// beside the game (common/video/movie.h). F12 pauses it and opens the data viewer
 // (viewers.h): the archives, models, textures, sounds and text. Tab moves
 // between the viewer's pages; Esc goes back to the game. Without the
 // program, the engine is the viewer alone, and Esc goes back to the
@@ -19,6 +20,7 @@
 #include "engines/netimmerse/viewers.h"
 #include "common/audio/mixer.h"
 #include "common/fs.h"
+#include "common/video/movie.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -73,6 +75,15 @@ public:
         if (!fs::findFile(target_.path, "LEGOATeam.exe")) {
             bool quit = false;
             return viewer(quit);
+        }
+        // The CD's intro movie first, if it's been copied beside the game
+        // (the installer leaves it on the CD); a key or click skips it.
+        if (const auto intro = fs::findFile(target_.path, "lmiintro.avi")) {
+            bool quit = false;
+            if (Error err = video::playMovie(sys_, audioOut_ ? mixer_.get() : nullptr, *intro, quit))
+                std::fprintf(stderr, "%s\n", err.message.c_str());
+            if (quit)
+                return Error::success();
         }
         return play();
     }

@@ -57,10 +57,11 @@ to replace the executable, not the large archives.
 
 ## CD only
 
-- `lmiintro.avi` (39,840,492): the LEGO Media intro movie. Not copied by the
-  installer; Reluva can take it from the CD (or a copy beside the install)
-  and play it if present. Its video codec is to be checked (Cinepak and
-  Indeo were usual in 2000).
+- `lmiintro.avi` (39,840,492): the LEGO Media intro movie, 640 × 480 Indeo 5
+  at 15 frames a second with 22,050 Hz stereo PCM, 108.8 s. Not copied by
+  the installer, and the game's program never names it. Reluva plays it
+  before the game when a copy is beside the install
+  ([../video/avi.md](../video/avi.md)).
 - `data1.cab`/`data1.hdr`/`data2.cab`, `ikernel.ex_`, `layout.bin`, `setup.*`:
   InstallShield 6 installer. The install folder already holds what it
   unpacks, so Reluva doesn't need to read cabinets.
