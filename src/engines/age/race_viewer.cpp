@@ -926,6 +926,7 @@ void RaceViewer::update(uint64_t nowMs) {
             scene_->drawDynamicLights(pools, eye);
         }
         life_.draw(*renderer_, scene_->models(), scene_->light(), viewProj, eye, flares_.get());
+        scene_->drawBeacons(*flares_, eye);
         for (const Racer& r : racers_)
             if (!(r.player && inside)) {
                 r.car->draw(scene_->light());

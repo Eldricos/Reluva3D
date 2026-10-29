@@ -281,6 +281,7 @@ const ModelCache::Model& ModelCache::get(const std::string& name, uint32_t paint
     Pkg pkg;
     if (!files_.read(file, data) && !readPkg(data, pkg)) {
         model->paintJobs = std::max(1u, pkg.paintJobs);
+        model->xrefs = pkg.xrefs;
         paintJob %= model->paintJobs;
         for (const std::string& level : modelLevels(pkg)) {
             ModelMesh mesh;

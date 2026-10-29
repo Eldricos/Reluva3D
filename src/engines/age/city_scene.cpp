@@ -3,6 +3,8 @@
 
 #include "engines/age/city_scene.h"
 
+#include "common/fs.h"
+
 #include "engines/age/pathset.h"
 #include "engines/age/tune.h"
 
@@ -87,6 +89,7 @@ void CityScene::unload() {
     cityMesh_ = 0;
     batches_.clear();
     placed_.clear();
+    beacons_.clear();
     pvs_ = Pvs{};
     blockBounds_.clear();
     viewBlock_ = blocksDrawn_ = 0;
@@ -223,6 +226,22 @@ Error CityScene::load(const std::string& map) {
                                               inst.matrix[3 * a + 2] * inst.matrix[3 * a + 2]));
         p.radius *= scale;
         placed_.push_back(p);
+        // The models placed inside it (xrefs: a landmark's warning lights,
+        // awnings, doors), in its own coordinates.
+        for (const PkgXref& x : m.xrefs) {
+            const gfx::Mat4 xMatrix = gfx::multiply(matrix, instanceMatrix(x.matrix));
+            const std::string lower = fs::toLower(x.name);
+            if (lower == "sp_light_red_f" || lower == "sp_light_white_f") {
+                beacons_.push_back({gfx::transformPoint(xMatrix, {0, 0, 0}), lower == "sp_light_red_f"
+                                                                                 ? std::array<float, 3>{1, 0.15f, 0.1f}
+                                                                                 : std::array<float, 3>{1, 1, 0.9f}});
+                continue;
+            }
+            const ModelCache::Model& xm = models_->get(x.name);
+            if (!xm.ok)
+                continue;
+            placed_.push_back({&xm, xMatrix, gfx::transformPoint(xMatrix, xm.center), xm.radius * scale, inst.block});
+        }
     }
     std::snprintf(note, sizeof note, "%zu placed models (%zu not loaded)", placed_.size(), missing);
     notes_.push_back(note);
@@ -502,6 +521,17 @@ void CityScene::rebuildIndices() {
     }
     blocksDrawn_ = size_t(std::count(drawn.begin(), drawn.end(), true));
     renderer_.setMeshIndices(cityMesh_, indices);
+}
+
+void CityScene::drawBeacons(const FlareDrawer& flares, const Vec3& eye) const {
+    constexpr float kSize = 3, kDistance = 1500;
+    if (!lampsLit())
+        return;
+    for (const Beacon& b : beacons_) {
+        const Vec3 d{b.at[0] - eye[0], b.at[1] - eye[1], b.at[2] - eye[2]};
+        if (d[0] * d[0] + d[1] * d[1] + d[2] * d[2] < kDistance * kDistance)
+            flares.draw(b.at, kSize, b.color, eye);
+    }
 }
 
 size_t CityScene::blockAt(const Vec3& p) const {

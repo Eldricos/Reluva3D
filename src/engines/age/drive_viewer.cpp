@@ -445,6 +445,7 @@ void DriveViewer::update(uint64_t nowMs) {
         scene_->drawDynamicLights(pools, view.eye);
     }
     life_.draw(*renderer_, scene_->models(), scene_->light(), viewProj, view.eye, flares_.get());
+    scene_->drawBeacons(*flares_, view.eye);
     if (!cam.inside) {
         car_.draw(scene_->light());
         car_.drawFlares(*flares_, view.eye);

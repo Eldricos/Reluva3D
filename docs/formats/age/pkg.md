@@ -135,7 +135,13 @@ yellow paint).
 
 ### offset
 
-Three floats; 863 models have one. Not known yet.
+Three floats; 863 models have one: where the model's middle was before
+it was moved to its origin. 225 of the models the cities place stand
+exactly where their offset says (within half a metre across the ground:
+the Imax's is 877.8, 11.4, 164.3), so for the models built in the city
+it's their place in it; for the rest it's a small shift (the power
+station's 0, 44.1, 0 is half its height, the model being centred on its
+origin). Nothing needs it: the cities' `.inst` files place every model.
 
 ### Where models stand
 
@@ -160,7 +166,15 @@ Models placed inside this one (the Hyatt's red warning lights, bridge
 lamps, the cannery's awnings): a count, then each 48 bytes of matrix
 (three axes and a position, 12 floats) and a 32-byte name field (the
 name, a zero, and whatever was in the buffer before). The viewer lists
-them; drawing them is left for the city.
+them. 33 models have them, placed 255 times in the two cities, naming 20
+models: awnings, doors, windows, trees (`cl10`'s four kinds of tree
+aren't in the archives), and warning lights, `sp_light_red_f` (19) and
+`sp_light_white_f` (76). Those two are a single tiny untextured triangle
+each, marking where a light shines as a car's `HEADLIGHT` squares do.
+The city draws the others where their matrix puts them in the model
+(after its own placing), and a flare at each warning light while the
+lamps are lit: red on the power station's chimneys and the Hyatt, white
+on Tower Bridge (steady: whether the game's blink isn't known).
 
 ## What doesn't load
 

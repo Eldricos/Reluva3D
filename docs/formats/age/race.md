@@ -114,10 +114,15 @@ copchase,3,1,180,0.2,0,0,0,0,0,0
 - **Checkpoints**: 1 throughout. **TimeLimit** in seconds (0: none).
   **AmbDensity**: its traffic.
 - The extra columns: the first is the minimum speed in mph of the event
-  4 lessons (50 in San Francisco, 40 in London); the second is 1 for
-  Brake Dancing and The Knowledge, the third 1 for Bonnie & Collide,
-  Midterm 2 and the follow lessons, the fourth 1 for San Francisco's
-  "Straight, With Chaser": not known.
+  4 lessons (50 in San Francisco, 40 in London). The third is 1 exactly
+  in the lessons whose opponent is the point of the lesson: the car to
+  follow (every event 2 lesson) and Bonnie & Collide's and Midterm 2's
+  (event 8); London's lessons whose aimap has an opponent only for
+  company (`crash3`, `7`, `11`) have 0. The second is 1 for Brake Dancing
+  (`oneeighty`: back and forth between the same two places, the same
+  checkpoints over again) and The Knowledge (`map`: checkpoints across
+  London); the fourth for San Francisco's `crash10` (not at
+  Professional) and `crash11`. What those two do isn't known.
 
 The lesson's `crash<n>.aimap` names its opponents' paths
 (`vpbullet Follow-1.opp`, `vpford race0-a-6.opp`...): the car to follow,

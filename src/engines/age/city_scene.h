@@ -49,6 +49,11 @@ public:
     const SceneLight& light() const { return light_; }
     // Lamps lit: in the evening and at night, and in fog and rain.
     bool lampsLit() const { return lighting_ / 4 >= 2 || lighting_ % 4 >= 2; }
+    // The warning lights the landmarks' xrefs mark (`sp_light_red_f`,
+    // `sp_light_white_f`: a tiny untextured triangle each), as flares
+    // while the lamps are lit (pkg.md).
+    void drawBeacons(const FlareDrawer& flares, const Vec3& eye) const;
+    size_t beacons() const { return beacons_.size(); }
     bool night() const { return lighting_ / 4 == 3; }
 
     // Draws the sky round `eye`, the city, then (if `models`) the placed
@@ -137,6 +142,11 @@ private:
     gfx::MeshId cityMesh_ = 0;
     std::vector<Batch> batches_;
     std::vector<Placed> placed_;
+    struct Beacon {
+        Vec3 at{};
+        std::array<float, 3> color{};
+    };
+    std::vector<Beacon> beacons_;
     Pvs pvs_;
     std::vector<BlockBounds> blockBounds_;
     bool visibilityOn_ = true;
