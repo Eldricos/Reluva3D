@@ -704,8 +704,33 @@ void writePlaythrough(const std::string& file, const std::vector<Action>& path) 
 
 // Plays a playthrough from its start; false if an action can't be done
 // or the game sticks. `print` shows where each action leaves the game.
+// -reloadeach: after every action the game is saved and loaded again, as
+// the save and load screens do, and played on from the loaded game; what
+// the loaded game lacks or has more of is listed.
+size_t reloadDiffs = 0;
+
+void reloadAndCompare(Player& player, size_t n, const Action& a) {
+    const std::set<std::string> before = player.features(true);
+    const std::vector<uint8_t> save = player.snapshot();
+    if (!player.restore(save)) {
+        std::printf("  after %zu (%s): couldn't load the save\n", n, toLine(a).c_str());
+        reloadDiffs++;
+        return;
+    }
+    const std::set<std::string> after = player.features(true);
+    for (const std::string& f : before)
+        if (!after.count(f))
+            std::printf("  after %zu (%s): lost on loading: %s\n", n, toLine(a).substr(0, 60).c_str(), f.c_str()),
+                reloadDiffs++;
+    for (const std::string& f : after)
+        if (!before.count(f))
+            std::printf("  after %zu (%s): new on loading: %s\n", n, toLine(a).substr(0, 60).c_str(), f.c_str()),
+                reloadDiffs++;
+}
+
 bool replay(Player& player, std::vector<Action>& path, bool print, size_t& done, size_t logFrom = SIZE_MAX,
-            const std::map<size_t, std::string>& shots = {}, const std::string& shotsDir = {}) {
+            const std::map<size_t, std::string>& shots = {}, const std::string& shotsDir = {},
+            bool reloadEach = false) {
     done = 0;
     for (Action& a : path) {
         if (!shotsDir.empty()) {
@@ -734,6 +759,8 @@ bool replay(Player& player, std::vector<Action>& path, bool print, size_t& done,
             return false;
         }
         done++;
+        if (reloadEach && player.page().status().scene.rfind("menu.", 0) != 0)
+            reloadAndCompare(player, done, a);
     }
     return true;
 }
@@ -763,6 +790,7 @@ int aweCommandSolve(int argc, char** argv) {
     int budget = 1000000, levelBudget = 5000;
     bool climb = true;
     double limit = 900;
+    bool reloadEach = false;
     bool verbose = false, list = false, reload = false, mouse = false, hand = false, threeD = false, characters = false;
     bool sound = false;
     std::string wavFile;
@@ -796,6 +824,8 @@ int aweCommandSolve(int argc, char** argv) {
             list = true;
         else if (a == "-reload")
             reload = true;
+        else if (a == "-reloadeach")
+            reloadEach = true;
         else if (a == "-mouse")
             mouse = true;
         else if (a == "-hand")
@@ -844,7 +874,9 @@ int aweCommandSolve(int argc, char** argv) {
             return 1;
         }
         size_t done = 0;
-        const bool ok = replay(player, path, true, done, logFrom, shots, shotsDir);
+        const bool ok = replay(player, path, true, done, logFrom, shots, shotsDir, reloadEach);
+        if (reloadEach)
+            std::printf("saved and loaded after every action: %zu differences\n", reloadDiffs);
         if (!wavFile.empty()) {
             // 16-bit stereo PCM.
             std::ofstream out(wavFile, std::ios::binary);

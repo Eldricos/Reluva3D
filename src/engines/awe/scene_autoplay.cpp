@@ -210,8 +210,13 @@ std::vector<uint8_t> ScenePage::saveToMemory() const {
 }
 
 bool ScenePage::loadFromMemory(const std::vector<uint8_t>& data) {
-    // As the load screen loads a save: "preload", then "load, fade in".
+    // As the load screen loads a save: "preload", then "load, fade in";
+    // from the load screen, so it's the menu that's left, not the game's
+    // scene (whose "met them here" tags would go to 2: 0x423daa).
     newGame();
+    for (size_t i = 0; i < names_.size(); i++)
+        if (fs::toLower(names_[i]).find("menu.load_01.ac2") != std::string::npos)
+            index_ = int(i);
     runner_->clear();
     autoChoices_.clear();
     if (!preloadData(data, "the save in memory"))

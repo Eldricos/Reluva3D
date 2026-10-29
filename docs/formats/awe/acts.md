@@ -272,6 +272,16 @@ just before action n, `-shot <n>c<k> <out.tga>` just before that choice
 is taken (drawn: with `-3d`, the 3D under the 2D); `-shots <dir>` saves
 one before every action.
 
+`-reloadeach` saves the game after every action and loads it again, as
+the save and load screens do, plays on from the loaded game, and lists
+anything in the story state (act, scene, tags, items, conversations,
+scenes seen) the loaded game lost or gained. On the English install the
+route plays to the credits so with no difference. It found two: the
+tool loaded from the game's own scene, so leaving it marked that scene's
+"met them here" tags as an earlier visit's (a real load leaves the load
+screen); and the solved torn letter wrote its pieces' places again when
+its scene was shown.
+
 `-hand` plays the route as a player's hand does, by the mouse and keys
 alone, each input made through the page's own event handling and
 decided from the screen as it is (`ScenePage::handStep`): an item is

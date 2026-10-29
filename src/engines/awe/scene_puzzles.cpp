@@ -133,7 +133,8 @@ void ScenePage::openPuzzle(const std::string& kind) {
                 p.roll = float(msvcRand(seed) % 4) * 90 * kDegree;
             }
             overrides_[o] = p;
-            saveTornPiece(i);
+            if (!state_.tags.count("solved_tornletter"))
+                saveTornPiece(i); // solved, the pieces' places are let go, as on solving it
         }
         if (state_.tags.count("solved_tornletter")) {
             // Solved: the whole letter, the pieces gone.
