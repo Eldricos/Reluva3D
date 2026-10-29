@@ -78,8 +78,8 @@ count is the next word; otherwise the subtype is the count.
 | 4 | crosswalk | | 4 | vertices |
 | 5 | road fan | yes | count + 2 | a triangle fan of road (intersections) |
 | 6 | fan | yes | count + 2 | a triangle fan (ground, grass, plazas) |
-| 7 | facade bound | | 4 | a value (an angle, perhaps), a height, left and right vertices |
-| 8 | divided road | yes | 6 x count + 2 | two words not known, then sections: outer edge, curb, divider, divider, curb, outer edge |
+| 7 | facade bound | | 4 | its direction, a height, left and right vertices (below) |
+| 8 | divided road | yes | 6 x count + 2 | the divider's texture and kind, its height (below), then sections: outer edge, curb, divider, divider, curb, outer edge |
 | 9 | tunnel | yes | count | walls, railings and ceilings: flags, two heights, and for a junction an outline's edges (below) |
 | 10 | texture | | 1 | the texture is subtype x 256 + the word, 1-based |
 | 11 | facade | | 6 | bottom and top heights, repeats across and up, left and right vertices |
@@ -139,7 +139,19 @@ absolute (a roof at 52.3 over ground at 36).
 - **Roofs** are fans at their height over their vertices.
 - **Fans and road fans** are drawn at their vertices' heights.
 - **Facade bounds** aren't drawn: they follow the facades (same vertices),
-  probably for collisions.
+  probably for collisions. Their first word is the wall's direction in
+  64ths of a turn: floor(atan2(dz, dx) x 64 / 2 pi) + 32, from the left
+  vertex to the right (all 64 values are used; exact for 99.7% of London's
+  9,586 and 86% of San Francisco's 12,491, the rest one off).
+- **Divided roads' dividers**: the first word's high byte is the
+  divider's texture (numbered as the texture attribute's: 150 is
+  `s_jersey_rail`, the freeway's concrete barrier; 138 and 144
+  `swalk_f`), its low two bits its kind (1 flat, 2 a kerbed island, 3 a
+  barrier; bits 6 and 7 vary, not known), and the second word its height
+  in 256ths of a metre (0x26, 0.15 m, on the islands; 0x100, 1 m, on the
+  barrier, which is 1 m wide; 0x500 on the flat ones). Reluva raises the
+  islands and barriers to their height, sides and ends, in their texture;
+  as part of the city's mesh they're solid.
 - **Tunnels** (below).
 
 Texture coordinates for fans, roofs and road strips' lengths are
@@ -202,7 +214,8 @@ across the strip in eight pieces.
 | 0x8 | 556, 647 | roads: 98% of London's are in the road map's roads |
 | 0x10 | 214, 328 | the road map's junctions, every one |
 | 0x2 | 14, 209 | under a roof: San Francisco's road tunnels, London's Underground |
-| 0x20, 0x40, 0x80 | | with walls and railings mostly (every San Francisco block with 0x40 has a tunnel attribute); not settled |
+| 0x40 | 129, 214 | off the ground's level: the freeway, bridges, the Underground. 120 and 202 of them have another block over or under their middle (more than 3 m away); of the other blocks, 4% and 5% |
+| 0x20, 0x80 | 77, 27; 138, 90 | 0x20 with walls (`s_wall_veg`) and railings mostly; 0x80 with the freeway, plazas, parks and London's Embankment: not settled |
 
 ## The roads
 
@@ -211,16 +224,27 @@ many as the `.bai` road map's roads, in the same order), then each road:
 
 | Field | Contents |
 |---|---|
-| u16 | flags, not known (0x440 and 0x441 commonest) |
-| u16 | not known |
+| u16 | flags (0x440 and 0x441 commonest): below |
+| u16 | more flags: below |
 | u8, u8 | lanes on each side: the `.bai`'s side 1, then side 0 (all 540 in London, 358 of 379 in San Francisco) |
 | float each | where each lane is across the road, 0-1 (0.125, 0.375, 0.625, 0.875 for four) |
-| u8, u8 | a byte for each end: bits 0 and 7; bit 0 goes mostly with traffic lights there, not settled |
-| 8 u16 | vertices, four near each end; how they're used isn't known |
+| u8, u8 | a byte for each end, as the `.bai` orders them: bits 0 and 7. Bit 7 is set on every end where traffic gives way (the `.bai`'s control 0, 81 ends) and on 207 others; bit 0 goes mostly with traffic lights (463 of its 548 ends) |
+| 8 u16 | vertices: 0 and 1 the road's curb corners at its first point (each its curb distance across), 4 and 5 at its last; 2, 3 and 6, 7 points 20-35 m out beyond each end, across the junction |
 | u8 | blocks |
 | u16 each | the road's blocks, as the `.bai` lists them (375 of 379 and 532 of 540 the same; the `.bai` adds a junction's block now and then); 23 of San Francisco's roads list theirs negative (-408 for block 408) |
 
 Read this way both cities' files end exactly with the last road.
+
+The road's flags repeat what the `.bai` says of it (compared over all
+919 roads): 0x2 is set exactly when its side 1's sidewalk kind has bit 0
+set (kinds 1 and 3), 0x4 exactly when it has bit 1 set (2 and 3), 0x8
+exactly when the `.bai`'s road flag 0x1 is, 0x10 exactly when its 0x2 is;
+0x1 is on 271 of the 369 one-way roads and 13 others; 0x40 on the roads
+with sidewalks (not on 154 roads with kinds 1 or 3 both sides); 0x100 on
+21 two-way roads in San Francisco; 0x800 on 80 of the 81 roads under a
+roof and 137 others; 0x400 on all but 45. The second word: 0x40 on 47 of
+the 48 roads with kind 1 both sides; 0x80 and 0x100 on the Underground's
+(74 and 71 of 80); 0x1 on all but 62; 0x2 mostly with no sidewalk.
 
 ## Water
 
@@ -250,8 +274,10 @@ like, none). See [pathset.md](pathset.md).
 
 ## Not known yet
 
-Block flags 0x20-0x80; the divided
-road's two words; the tunnel attribute's other words and flags; facade
-bounds' first value; the roads' flags, ends and vertices. The program's
+Block flags 0x20 and 0x80; bits 6 and 7 of the divider's kind; the
+tunnel attribute's other words (3 and 6-9 of a junction's) and flags
+0x4 (on `s_wall_veg` and the Golden Gate's railing) and 0x4000 (on
+railings); the roads' flags 0x1, 0x100, 0x400, 0x800 and most of the
+second word; the end bytes' bit 0 exactly. The program's
 own handling of these is encrypted (see ../../engines/age.md), so they're
 for observation of the game running.

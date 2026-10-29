@@ -40,7 +40,8 @@ Error Pedestrians::setup(gfx::Renderer3D& renderer, const SearchSet& files, cons
     // Every sidewalk's middle line.
     for (const AiRoad& road : map.roads)
         for (const AiRoadSide& side : road.sides) {
-            if (side.sidewalk.size() < 2)
+            // Kind 3 sides have no sidewalk (the Underground, ramps).
+            if (side.sidewalk.size() < 2 || side.kind == 3)
                 continue;
             Walk w;
             w.points = side.sidewalk;

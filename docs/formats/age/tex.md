@@ -66,7 +66,12 @@ fifth over), and the rest overshoot by a little or have broken
 coordinates; textures without it are repeated freely (pediment trims 17
 times across, rails 60). Reluva clamps those with bit 0. Bit 1 isn't
 "don't repeat": 273 of the 282 building fronts with it are repeated
-across the street and 252 up. The other bits aren't known.
+across the street and 252 up. The other bits aren't known: 0x4 is on
+surfaces lying on the ground (concrete, steps, paving, the decals and
+the roads, 169 in all); 0x8000 on roads and ground, glows, dashboards and
+cars' backs, and goes with having no mipmaps (111 of its 475 have none,
+against 72 of the other 3,190); 0x10000 on the cars' textures and the
+skies.
 
 ## Animated textures
 

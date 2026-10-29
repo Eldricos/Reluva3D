@@ -143,12 +143,7 @@ void Police::startPatrol(Cop& cop, float speedLimit) {
             path.push_back(l.points[i]);
             cop.laneEnds.push_back(i + 1 == l.points.size() ? lane : -1);
         }
-        std::vector<uint32_t> ways;
-        for (uint32_t k : lanes_->leaving(l.to))
-            if (lanes[k].road != l.road)
-                ways.push_back(k);
-        if (ways.empty())
-            ways = lanes_->leaving(l.to);
+        const std::vector<uint32_t> ways = lanes_->waysOn(lane);
         if (ways.empty())
             break;
         lane = int(ways[std::uniform_int_distribution<size_t>(0, ways.size() - 1)(rng_)]);
