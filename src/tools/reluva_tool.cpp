@@ -40,6 +40,10 @@
 //                                                  corner, and dump the bytes where the walk stops
 //   reluva-tool lbp-info <file> [out]              decode a texture, show its key and colours,
 //                                                  write <out>.bmp and <out>_alpha.bmp
+//   reluva-tool clue-list <file>                    list a Clue .res, .a, .o or .lvl file's entries
+//   reluva-tool clue-extract <file> <dir> [filter]  write a Clue .res file's images as 32-bit TGA
+//   reluva-tool clue-check <game folder> [-uk]      decode every image and animation of a Clue
+//                                                  install or CD, and check what animations refer to
 //   reluva-tool bsp-check <game folder>            load every maps/*.bsp of an id Tech 3 game folder
 //                                                  (e.g. .../BaseEF), report failures and corrections
 //   reluva-tool pk3-list <game folder> [filter]    list the search path's files, with sizes and the
@@ -134,6 +138,10 @@
 #include "backends/sockets/socket_net.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/shader.h"
+#endif
+#ifdef RELUVA_ENGINE_CLUE
+#include "engines/clue/game_data.h"
+#include "engines/clue/resources.h"
 #endif
 
 #include <map>
@@ -2501,6 +2509,133 @@ int cmdGeoSurvey(int argc, char** argv) {
 }
 
 #endif // RELUVA_ENGINE_NEWWORLDS
+
+#ifdef RELUVA_ENGINE_CLUE
+int cmdClueList(int argc, char** argv) {
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: reluva-tool clue-list <file.res | file.a | file.o | file.lvl>\n");
+        return 2;
+    }
+    reluva::clue::DataDrive drive;
+    if (reluva::Error err = drive.open(argv[2])) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    for (const auto& e : drive.entries()) {
+        const std::vector<uint8_t> bytes = drive.read(e);
+        std::string tag;
+        for (size_t i = 0; i < 4 && i < bytes.size(); ++i)
+            tag += std::isprint(bytes[i]) ? char(bytes[i]) : '.';
+        std::printf("%8u %8u  %-4s  %s\n", e.offset, e.size, tag.c_str(), e.name.c_str());
+    }
+    std::printf("%zu entries\n", drive.entries().size());
+    return 0;
+}
+
+int cmdClueExtract(int argc, char** argv) {
+    if (argc < 4 || argc > 5) {
+        std::fprintf(stderr, "usage: reluva-tool clue-extract <file.res> <output dir> [name filter]\n");
+        return 2;
+    }
+    reluva::clue::DataDrive drive;
+    if (reluva::Error err = drive.open(argv[2])) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    const std::filesystem::path dir = argv[3];
+    std::error_code ec;
+    std::filesystem::create_directories(dir, ec);
+    const std::string filter = argc > 4 ? reluva::fs::toLower(argv[4]) : "";
+    int written = 0, failed = 0;
+    for (const auto& e : drive.entries()) {
+        if (!filter.empty() && reluva::fs::toLower(e.name).find(filter) == std::string::npos)
+            continue;
+        reluva::clue::Image img;
+        if (reluva::Error err = reluva::clue::decodeImage(drive.read(e), img)) {
+            std::fprintf(stderr, "%s: %s\n", e.name.c_str(), err.message.c_str());
+            ++failed;
+            continue;
+        }
+        const std::vector<uint8_t> tga = reluva::image::encodeTga(img.pixels, true);
+        std::ofstream f(dir / (e.name + ".tga"), std::ios::binary);
+        f.write(reinterpret_cast<const char*>(tga.data()), std::streamsize(tga.size()));
+        if (!f) {
+            std::fprintf(stderr, "cannot write %s\n", (dir / (e.name + ".tga")).string().c_str());
+            return 1;
+        }
+        ++written;
+    }
+    std::printf("%d image(s) written to %s, %d failed\n", written, dir.string().c_str(), failed);
+    return failed ? 1 : 0;
+}
+
+// Opens a Clue install or CD as the engine does and decodes everything:
+// every .res file's images, every .a file's animations and the images
+// they name.
+int cmdClueCheck(int argc, char** argv) {
+    if (argc < 3 || argc > 4) {
+        std::fprintf(stderr, "usage: reluva-tool clue-check <game folder> [-uk]\n");
+        return 2;
+    }
+    const bool uk = argc > 3 && std::strcmp(argv[3], "-uk") == 0;
+    reluva::clue::GameData data;
+    if (reluva::Error err = data.open(argv[2], uk ? reluva::clue::Language::UK : reluva::clue::Language::US)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    std::printf("%zu files in %zu folders\n", data.files().size(), data.folders().size());
+    int images = 0, imageFails = 0, anims = 0, animFails = 0, refs = 0, refFails = 0;
+    std::map<int, int> versions;
+    for (const auto& path : data.withExtension(".res")) {
+        const std::string drive = path.stem().string();
+        const reluva::clue::DataDrive* d = data.drive(drive, 'I');
+        if (!d) {
+            std::printf("  %s\n", data.lastError().c_str()); // it names the file
+            continue;
+        }
+        for (const auto& e : d->entries()) {
+            ++images;
+            const reluva::clue::Image* img = data.image(drive + ":" + e.name);
+            if (!img) {
+                ++imageFails;
+                std::printf("  %s\n", data.lastError().c_str());
+            } else {
+                ++versions[img->version];
+            }
+        }
+    }
+    for (const auto& path : data.withExtension(".a")) {
+        const std::string drive = path.stem().string();
+        const reluva::clue::DataDrive* d = data.drive(drive, 'A');
+        if (!d) {
+            std::printf("  %s\n", data.lastError().c_str()); // it names the file
+            continue;
+        }
+        for (const auto& e : d->entries()) {
+            ++anims;
+            const reluva::clue::Animation* a = data.animation(drive + ":" + e.name);
+            if (!a) {
+                ++animFails;
+                std::printf("  %s\n", data.lastError().c_str());
+                continue;
+            }
+            for (const std::string& name : a->images) {
+                ++refs;
+                if (!data.image(name)) {
+                    ++refFails;
+                    std::printf("  %s:%s names %s: %s\n", drive.c_str(), e.name.c_str(), name.c_str(),
+                                data.lastError().c_str());
+                }
+            }
+        }
+    }
+    std::printf("images: %d, %d failed (version 0x100: %d, 0x200: %d)\n", images, imageFails, versions[0x100],
+                versions[0x200]);
+    std::printf("animations: %d, %d failed; images they name: %d, %d missing or failed\n", anims, animFails, refs,
+                refFails);
+    return imageFails || animFails || refFails ? 1 : 0;
+}
+#endif // RELUVA_ENGINE_CLUE
 
 #ifdef RELUVA_ENGINE_IDTECH3
 // Mounts an id Tech 3 game folder (".../BaseEF") the way the engine does.
@@ -5189,6 +5324,14 @@ int main(int argc, char** argv) {
     if (argc >= 2 && std::strcmp(argv[1], "geo-faces") == 0)
         return cmdGeoFaces(argc, argv);
 #endif
+#ifdef RELUVA_ENGINE_CLUE
+    if (argc >= 2 && std::strcmp(argv[1], "clue-list") == 0)
+        return cmdClueList(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "clue-extract") == 0)
+        return cmdClueExtract(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "clue-check") == 0)
+        return cmdClueCheck(argc, argv);
+#endif
 #ifdef RELUVA_ENGINE_IDTECH3
     if (argc >= 2 && std::strcmp(argv[1], "bsp-check") == 0)
         return cmdBspCheck(argc, argv);
@@ -5263,6 +5406,11 @@ int main(int argc, char** argv) {
                  "  reluva-tool gmf-info <file.gmf> [record number]\n"
                  "  reluva-tool geo-faces <file.geo>\n"
                  "  reluva-tool lbp-info <file> [output prefix]\n"
+#endif
+#ifdef RELUVA_ENGINE_CLUE
+                 "  reluva-tool clue-list <file.res | file.a | file.o | file.lvl>\n"
+                 "  reluva-tool clue-extract <file.res> <output dir> [name filter]\n"
+                 "  reluva-tool clue-check <game folder> [-uk]\n"
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
                  "  reluva-tool bsp-check <game folder, e.g. .../BaseEF>\n"

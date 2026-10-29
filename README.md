@@ -26,6 +26,9 @@ src/engines/       one directory per engine, plus registry.cpp listing them
   idtech3/         games on the Quake III Arena engine, starting with Star Trek:
                    Voyager - Elite Force: search path, shader scripts, BSP
                    maps; currently runs as a data viewer (docs/engines/idtech3.md)
+  clue/            Clue: Murder at Boddy Mansion (EAI's Eagle library): its
+                   archives, images and animations; currently runs as a data
+                   viewer (docs/engines/clue.md)
 src/tools/         reluva-tool, utilities for studying game data
 tests/             unit tests for common/ and the engines
 ```
@@ -43,8 +46,8 @@ cmake --build build -j
 ./build/reluva
 ```
 
-Engines are CMake options (`RELUVA_ENGINE_IDTECH3` on, `RELUVA_ENGINE_NEWWORLDS`
-off by default for now); see the build notes.
+Engines are CMake options (`RELUVA_ENGINE_IDTECH3` and `RELUVA_ENGINE_CLUE` on,
+`RELUVA_ENGINE_NEWWORLDS` off by default for now); see the build notes.
 
 See **[docs/BUILDING.md](docs/BUILDING.md)** for step-by-step instructions for
 Linux (with each distro's packages) and Windows with Visual Studio 2022.
@@ -55,6 +58,7 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
 - `reluva <target>` starts a configured game directly. `reluva testbed`
   runs the test pattern.
 - `reluva --hash <files...>` prints detection signatures for an engine's table.
+- `reluva --detect <folders...>` lists the games found in each folder.
 - `reluva-tool` has developer tools for studying game data: `hexdump`,
   `cat-probe`, `cat-list` and `cat-extract` (New Worlds archives).
 - `reluva-tool cue-rip <image.cue> <folder>` writes the audio tracks of a
@@ -103,6 +107,10 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   **P** shows or hides patches, **I** the info and **R** resets the view. For textures,
   **Left/Right** step through them (**PageUp/PageDown** by 10). The files page lists the
   search path and which archive each file comes from.
+
+- Clue also opens as a data viewer: its animations playing, images, sounds and
+  text. **Tab** switches between them; `docs/engines/clue.md` lists the keys, and
+  how to add its CD music (`reluva-tool cue-rip`).
 
 The config is saved as `reluva.ini` in SDL's preferences folder
 (`~/.local/share/reluva/reluva/` on Linux, `%APPDATA%\reluva\reluva\` on Windows).

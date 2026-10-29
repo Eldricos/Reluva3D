@@ -78,11 +78,12 @@ of use to other games (AVI, Cinepak) in `src/common/`.
 
 Each step can be seen working before the next.
 
-1. **Detection and a data viewer.** Find the game in an install folder
-   or on the CD (US or UK data; 2.0 or 2.2). Readers for `PACK`, `DDRV`,
-   both image layouts and `ANIM`. A viewer as New Worlds has: images,
-   animations playing, sounds, text. `reluva-tool` commands to list and
-   extract them. Unit tests on made-up files.
+1. **Detection and a data viewer** (done). Finds the game in an install
+   folder or on the CD (US or UK data; 2.0 or 2.2). Readers for `PACK`,
+   `DDRV`, both image versions and `ANIM`. Viewers for the animations
+   (playing), images, sounds and text, described below. `reluva-tool`
+   commands to list, extract and check the files. Unit tests on made-up
+   files.
 2. **The mansion.** Read `.o` objects and `clue.lvl`, and draw the
    rooms: floor tiles, walls, objects in depth order, characters standing
    in them. Scroll around the house. The options for translucency,
@@ -108,6 +109,26 @@ Each step can be seen working before the next.
    games over the internet by address in place of the Gaming Zone, which
    is gone. Whether to speak DirectPlay's protocol, so as to play against
    the original, is to be decided then.
+
+## The data viewer
+
+Until the game runs, the engine shows its data. **Tab** switches between
+the pages; **Esc** goes back to the launcher.
+
+- **Animations**, playing: **Left/Right** the previous or next one,
+  **Up/Down** the previous or next file, **Space** pauses, **,/.** step a
+  frame, **Z** zooms, **A** shows the anchor point (a character's feet),
+  **L** one layer at a time.
+- **Images**: **Left/Right** step (**PageUp/PageDown** by 10,
+  **Home/End**), **Up/Down** the file, **Z** zooms, **B** changes the
+  background.
+- **Sounds**: the game's WAV files and the ripped music, if any.
+  **Left/Right** step, **Space** or **Enter** plays or stops, **A** plays
+  each as it's selected.
+- **Text**: **Left/Right** the file, **Up/Down**, **PageUp/PageDown** and
+  **Home/End** scroll.
+
+`reluva --detect <folder>` lists what's found in a folder.
 
 ## Music
 

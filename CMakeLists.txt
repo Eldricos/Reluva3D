@@ -12,6 +12,7 @@ option(RELUVA_BUILD_TESTS "Build unit tests" ON)
 # than Visual Studio accepts (error C2026).
 option(RELUVA_ENGINE_NEWWORLDS "Build the Star Trek: New Worlds engine" OFF)
 option(RELUVA_ENGINE_IDTECH3 "Build the id Tech 3 engine (Star Trek: Voyager - Elite Force)" ON)
+option(RELUVA_ENGINE_CLUE "Build the Clue: Murder at Boddy Mansion engine" ON)
 
 include(FetchContent)
 
@@ -180,6 +181,17 @@ if(RELUVA_ENGINE_IDTECH3)
         src/engines/idtech3/world_viewer.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_IDTECH3)
 endif()
+if(RELUVA_ENGINE_CLUE)
+    target_sources(reluva_engines PRIVATE
+        src/engines/clue/clue.cpp
+        src/engines/clue/resources.cpp
+        src/engines/clue/game_data.cpp
+        src/engines/clue/image_viewer.cpp
+        src/engines/clue/animation_viewer.cpp
+        src/engines/clue/sound_viewer.cpp
+        src/engines/clue/text_viewer.cpp)
+    target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_CLUE)
+endif()
 target_link_libraries(reluva_engines PUBLIC reluva_common PRIVATE reluva_warnings)
 
 # --- executable: SDL3 backend + ImGui launcher --------------------------------
@@ -213,6 +225,13 @@ if(RELUVA_BUILD_TESTS)
         add_executable(reluva_newworlds_tests tests/test_newworlds_cat.cpp)
         target_link_libraries(reluva_newworlds_tests PRIVATE reluva_engines reluva_warnings)
         add_test(NAME newworlds_cat COMMAND reluva_newworlds_tests)
+    endif()
+
+    if(RELUVA_ENGINE_CLUE)
+        add_executable(reluva_clue_tests tests/test_clue.cpp)
+        target_link_libraries(reluva_clue_tests PRIVATE reluva_engines reluva_warnings)
+        target_include_directories(reluva_clue_tests PRIVATE tests)
+        add_test(NAME clue COMMAND reluva_clue_tests)
     endif()
 
     if(RELUVA_ENGINE_IDTECH3)
