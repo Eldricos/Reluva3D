@@ -150,6 +150,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <sstream>
 
 #include <algorithm>
 #include <atomic>
@@ -5426,21 +5427,81 @@ static void printGraph(reluva::x86::Cpu& cpu, const std::vector<uint32_t>& roots
     }
 }
 
-// at-sweep <game folder> <out folder> [-jobs n] [-quit frame] [-shots] [mission...]:
+// The mission the first Adventure is on in a saved Game.txt ("P0Space"),
+// or "" if there's none.
+static std::string savedSpace(const std::filesystem::path& gameTxt) {
+    std::ifstream in(gameTxt);
+    std::string line;
+    while (std::getline(in, line)) {
+        std::istringstream words(line);
+        std::string key, value;
+        if (words >> key >> value && key == "P0Space")
+            return value;
+    }
+    return "";
+}
+
+// Writes a copy of the install's Etc.pac in which <space>.PUZ's entry
+// points at <space>_SOLVED.PUZ's data (the directory's offset and size;
+// the data itself is shared), for `at-run -solved`.
+static reluva::Error writeSolvedEtcPac(const std::filesystem::path& game, const std::string& space,
+                                       const std::filesystem::path& out) {
+    const auto path = reluva::fs::findFile(game, "Etc.pac");
+    if (!path)
+        return reluva::Error::fail("no Etc.pac in " + game.string());
+    std::ifstream in(*path, std::ios::binary);
+    std::vector<uint8_t> d((std::istreambuf_iterator<char>(in)), {});
+    if (d.size() < 20 || std::memcmp(d.data(), "PACK", 4) != 0)
+        return reluva::Error::fail("Etc.pac isn't a .pac archive");
+    auto le32 = [&](size_t at) { return uint32_t(d[at]) | uint32_t(d[at + 1]) << 8 | uint32_t(d[at + 2]) << 16 | uint32_t(d[at + 3]) << 24; };
+    const uint32_t count = le32(16), dataStart = le32(12);
+    std::string upper = space;
+    for (char& c : upper)
+        c = char(std::toupper(static_cast<unsigned char>(c)));
+    const std::string puzzle = upper + ".PUZ", solved = upper + "_SOLVED.PUZ";
+    size_t puzzleAt = 0, at = 20;
+    uint32_t solvedOffset = 0, solvedSize = 0;
+    for (uint32_t i = 0; i < count && at < dataStart; ++i) {
+        const size_t end = std::find(d.begin() + std::ptrdiff_t(at), d.begin() + dataStart, 0) - d.begin();
+        const std::string name(d.begin() + std::ptrdiff_t(at), d.begin() + std::ptrdiff_t(end));
+        const size_t fields = end + 1; // flags, offset, size, date
+        if (name == puzzle)
+            puzzleAt = fields;
+        if (name == solved) {
+            solvedOffset = le32(fields + 4);
+            solvedSize = le32(fields + 8);
+        }
+        at = fields + 20;
+    }
+    if (!puzzleAt || !solvedSize)
+        return reluva::Error::fail("Etc.pac has no " + puzzle + " and " + solved);
+    for (int k = 0; k < 4; ++k) {
+        d[puzzleAt + 4 + size_t(k)] = uint8_t(solvedOffset >> (8 * k));
+        d[puzzleAt + 8 + size_t(k)] = uint8_t(solvedSize >> (8 * k));
+    }
+    std::ofstream o(out, std::ios::binary);
+    o.write(reinterpret_cast<const char*>(d.data()), std::streamsize(d.size()));
+    return o ? reluva::Error::success() : reluva::Error::fail("can't write " + out.string());
+}
+
+// at-sweep <game folder> <out folder> [-jobs n] [-quit frame] [-shots] [-solved] [mission...]:
 // each mission (all 54 by default) from an Adventure saved at it, through
 // the menus, its fly-over and Go with nothing placed, to a frame (3700):
 // one `at-run` each, several at once, then which stopped where they should
 // and which failed. Each mission's log and save go in <out>/<mission>.
+// With -solved, each mission's puzzle is its _SOLVED.PUZ (the parts where
+// they solve it), and a mission passes when the Adventure moves on from it
+// (the game saves the next mission) by the frame (12000).
 int cmdAtSweep(int argc, char** argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool at-sweep <game folder> <out folder> [-jobs n] [-quit frame] [-shots] "
-                             "[mission...]\n");
+                             "[-solved] [mission...]\n");
         return 2;
     }
     const std::filesystem::path game = argv[2], out = argv[3];
     unsigned jobs = std::max(1u, std::thread::hardware_concurrency());
-    int quit = 3700;
-    bool shots = false;
+    int quit = 0;
+    bool shots = false, solved = false;
     std::vector<std::string> missions;
     for (int a = 4; a < argc; ++a) {
         const std::string arg = argv[a];
@@ -5450,11 +5511,16 @@ int cmdAtSweep(int argc, char** argv) {
             quit = std::atoi(argv[++a]);
         else if (arg == "-shots")
             shots = true;
+        else if (arg == "-solved")
+            solved = true;
         else
             missions.push_back(arg);
     }
-    if (missions.empty()) { // the three later training missions, then the Adventure's 50
-        missions = {"M0020", "M0030", "M0040"};
+    if (!quit)
+        quit = solved ? 12000 : 3700;
+    if (missions.empty()) { // the three later training missions (which have no _SOLVED.PUZ), then the Adventure's 50
+        if (!solved)
+            missions = {"M0020", "M0030", "M0040"};
         for (const auto& [first, last] : std::vector<std::pair<int, int>>{{1010, 1140}, {2010, 2160}, {3010, 3100}, {4010, 4070}})
             for (int m = first; m <= last; m += 10)
                 missions.push_back("M" + std::to_string(m));
@@ -5486,6 +5552,8 @@ int cmdAtSweep(int argc, char** argv) {
             }
             std::string cmd = quoted(argv[0]) + " at-run " + quoted(game) + " " + route + " -quit " + std::to_string(quit) +
                               " -save " + quoted(dir / "save");
+            if (solved)
+                cmd += " -solved " + m + " -until-advance";
             if (shots) {
                 std::filesystem::create_directories(dir / "shots", ec);
                 cmd += " -shots " + quoted(dir / "shots") + " -every 100";
@@ -5497,9 +5565,15 @@ int cmdAtSweep(int argc, char** argv) {
             seconds[i] = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
             std::ifstream log(dir / "log.txt");
             std::string line, last;
+            bool advanced = false; // with -solved, that line is the result whatever follows
             while (std::getline(log, line))
-                if (line.rfind("stopped at frame", 0) == 0 || line.rfind("failed", 0) == 0)
+                if (solved && line.rfind("advanced from", 0) == 0) {
                     last = line;
+                    advanced = true;
+                } else if (!advanced && (line.rfind("stopped at frame", 0) == 0 || line.rfind("failed", 0) == 0 ||
+                                         line.rfind("-solved:", 0) == 0)) {
+                    last = line;
+                }
             results[i] = last.empty() ? "no result" : last;
             std::printf("%s %s (%.0f s)\n", m.c_str(), results[i].c_str(), seconds[i]);
             std::fflush(stdout);
@@ -5510,7 +5584,7 @@ int cmdAtSweep(int argc, char** argv) {
         pool.emplace_back(work);
     for (auto& t : pool)
         t.join();
-    const std::string expected = "stopped at frame " + std::to_string(quit) + ",";
+    const std::string expected = solved ? "advanced from" : "stopped at frame " + std::to_string(quit) + ",";
     size_t passed = 0;
     for (size_t i = 0; i < missions.size(); ++i) {
         if (results[i].rfind(expected, 0) == 0)
@@ -5518,8 +5592,14 @@ int cmdAtSweep(int argc, char** argv) {
         else
             std::printf("not as expected: %s: %s\n", missions[i].c_str(), results[i].c_str());
     }
-    std::printf("%zu of %zu missions ran to frame %d, %u at once, in %.0f s\n", passed, missions.size(), quit, jobs,
-                std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count());
+    if (solved)
+        std::printf("%zu of %zu missions solved by their _SOLVED.PUZ (the Adventure moved on) by frame %d, %u at "
+                    "once, in %.0f s\n",
+                    passed, missions.size(), quit, jobs,
+                    std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count());
+    else
+        std::printf("%zu of %zu missions ran to frame %d, %u at once, in %.0f s\n", passed, missions.size(), quit, jobs,
+                    std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count());
     return passed == missions.size() ? 0 : 1;
 }
 
@@ -5528,7 +5608,7 @@ int cmdAtRun(int argc, char** argv) {
         std::fprintf(stderr, "usage: reluva-tool at-run <game folder> [-v] [-limit instructions] [-trace count] "
                              "[-memory MB] [-log] [-files] [-save folder] [-from frame] [-profile from-to] [-present-late] [-shots folder] [-every frames] [-click frame[@x,y]]... [-move frame@dx,dy]... "
                              "[-key frame@vk]... [-quit frame] [-fixed-clock] [-clock-rate frame@n] [-watch dll!export]... [-point frame@x,y]... "
-                             "[-calls frame@dll!export] [-dump frame@address,bytes]...\n");
+                             "[-calls frame@dll!export] [-dump frame@address,bytes]... [-solved space] [-until-advance]\n");
         return 2;
     }
     bool verbose = false;
@@ -5541,6 +5621,13 @@ int cmdAtRun(int argc, char** argv) {
     uint64_t clockFrom = 0, clockRate = 40000;
     bool files = false; // -files: each path the program asks for, and where it was found
     std::string saveDir; // -save: where what the program writes goes (else it may write nothing)
+    // -solved <space>: the game reads <space>_SOLVED.PUZ (the puzzle with
+    // its parts where they solve it) in place of <space>.PUZ.
+    std::string solvedSpace;
+    // -until-advance: stop once the save (in -save's folder) shows the
+    // first Adventure on a mission other than the one it started at.
+    bool untilAdvance = false;
+    uint64_t advancedAt = 0;
     // -from: -watch, -calls, -log and -step look from this frame on (the
     // instructions are traced only from then, which is much slower).
     uint64_t traceFrom = 0;
@@ -5661,6 +5748,10 @@ int cmdAtRun(int argc, char** argv) {
             quitAt = std::strtoull(argv[++a], nullptr, 0);
         else if (arg == "-present-late")
             presentLate = true;
+        else if (arg == "-solved" && a + 1 < argc)
+            solvedSpace = argv[++a];
+        else if (arg == "-until-advance")
+            untilAdvance = true;
         else if (arg == "-fixed-clock")
             fixedClock = true;
         else if (arg == "-profile" && a + 1 < argc) {
@@ -5743,6 +5834,24 @@ int cmdAtRun(int argc, char** argv) {
         game.setSaveFolder(saveDir);
     cpu.setInstructionLimit(limit);
     game.process().output = [](const std::string& text) { std::printf("[program] %s\n", text.c_str()); };
+    const std::string startSpace = saveDir.empty() ? "" : savedSpace(std::filesystem::path(saveDir) / "Game.txt");
+    if (!solvedSpace.empty()) {
+        // A copy of Etc.pac whose <space>.PUZ entry points at the solved
+        // puzzle's data, put where the program reads Etc.pac from.
+        const std::filesystem::path etc = saveDir.empty() ? std::filesystem::temp_directory_path() / "reluva_etc_solved.pac"
+                                                         : std::filesystem::path(saveDir) / "Etc_solved.pac";
+        if (reluva::Error err = writeSolvedEtcPac(argv[2], solvedSpace, etc)) {
+            std::fprintf(stderr, "-solved: %s\n", err.message.c_str());
+            return 1;
+        }
+        game.process().mapPath = [map = game.process().mapPath, etc](const std::string& path, bool writing)
+            -> std::optional<std::filesystem::path> {
+            const auto host = map(path, writing);
+            if (host && !writing && reluva::fs::toLower(host->filename().string()) == "etc.pac")
+                return etc;
+            return host;
+        };
+    }
     if (files)
         game.process().mapPath = [map = game.process().mapPath](const std::string& path, bool writing) {
             const auto host = map(path, writing);
@@ -5931,6 +6040,15 @@ int cmdAtRun(int argc, char** argv) {
             saveFrame(f);
         if (quitAt && f.number >= quitAt)
             cpu.requestStop();
+        if (untilAdvance && !saveDir.empty() && f.number % 25 == 0 && !advancedAt) {
+            const std::string now = savedSpace(std::filesystem::path(saveDir) / "Game.txt");
+            if (!startSpace.empty() && !now.empty() && now != startSpace) {
+                advancedAt = f.number;
+                std::printf("advanced from %s to %s by frame %llu\n", startSpace.c_str(), now.c_str(),
+                            (unsigned long long)f.number);
+                cpu.requestStop();
+            }
+        }
     };
 
     if (reluva::Error e = game.load()) {
@@ -6268,7 +6386,7 @@ int cmdAtRun(int argc, char** argv) {
     if (const auto* w = game.process().window(game.process().mainWindow()))
         std::printf("window: \"%s\" (class %s), %dx%d at %d,%d, %s\n", w->title.c_str(), w->className.c_str(),
                     w->width, w->height, w->x, w->y, w->visible ? "shown" : "hidden");
-    if (ran && !(quitAt && framesShown >= quitAt))
+    if (ran && !(quitAt && framesShown >= quitAt) && !advancedAt)
         return failed(ran);
     if (ran) {
         std::printf("stopped at frame %llu, after %llu instructions\n", (unsigned long long)framesShown,

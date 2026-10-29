@@ -48,8 +48,8 @@ std::array<float, 9> rotationOf(const std::array<float, 4>& q) {
             2 * (x * z - w * y),     2 * (y * z + w * x),     1 - 2 * (x * x + y * y)};
 }
 
-// Angles about X, Y and Z as one rotation, row by row: Z × Y × X (*guess*:
-// the 246 Euler keys are all on a few small parts, where this looks right).
+// Angles about X, Y and Z as one rotation, row by row: Z × Y × X, as the
+// game turns the Hand Cart Worker's head (checked in its memory).
 std::array<float, 9> rotationOf(float ax, float ay, float az) {
     const float cx = std::cos(ax), sx = std::sin(ax), cy = std::cos(ay), sy = std::sin(ay), cz = std::cos(az),
                 sz = std::sin(az);
@@ -58,13 +58,16 @@ std::array<float, 9> rotationOf(float ax, float ay, float az) {
             -sy,     cy * sx,                cy * cx};
 }
 
-std::array<float, 4> slerp(const std::array<float, 4>& a, std::array<float, 4> b, float f) {
+// Spherical interpolation from a to b; by the shorter way round unless
+// `shortest` is false.
+std::array<float, 4> slerp(const std::array<float, 4>& a, std::array<float, 4> b, float f, bool shortest = true) {
     float dot = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
-    if (dot < 0) {
+    if (shortest && dot < 0) {
         dot = -dot;
         for (float& c : b)
             c = -c;
     }
+    dot = std::max(dot, -0.9995f);
     float wa = 1 - f, wb = f;
     if (dot < 0.9995f) {
         const float angle = std::acos(dot), sinAngle = std::sin(angle);
@@ -83,8 +86,8 @@ std::array<float, 4> slerp(const std::array<float, 4>& a, std::array<float, 4> b
     return q;
 }
 
-// The value keyed at `t`: between the keys either side, blended by `mix`;
-// before the first key or after the last, theirs. Tangents are ignored.
+// The value keyed at `t`: `mix` of the keys either side and how far from
+// one to the other (0..1); before the first key or after the last, theirs.
 template <typename Key, typename Mix>
 auto sample(const std::vector<Key>& keys, float t, Mix mix) {
     if (t <= keys.front().time)
@@ -93,14 +96,45 @@ auto sample(const std::vector<Key>& keys, float t, Mix mix) {
         return keys.back().value;
     auto b = std::upper_bound(keys.begin(), keys.end(), t, [](float v, const Key& k) { return v < k.time; });
     auto a = b - 1;
-    const float f = b->time > a->time ? (t - a->time) / (b->time - a->time) : 0;
-    return mix(a->value, b->value, f);
+    const float u = b->time > a->time ? (t - a->time) / (b->time - a->time) : 0;
+    return mix(*a, *b, u);
 }
 
 const auto mixFloat = [](float a, float b, float f) { return a + (b - a) * f; };
 const auto mix3 = [](const std::array<float, 3>& a, const std::array<float, 3>& b, float f) {
     return std::array<float, 3>{a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f};
 };
+// Keys whose value is all there is, blended straight.
+const auto straight3 = [](const auto& a, const auto& b, float u) { return mix3(a.value, b.value, u); };
+
+// The curves between keys (docs/formats/netimmerse/fin.md): a position
+// by its key's cubic, a rotation by squad through the control quaternions,
+// a number by Hermite's with the tangents out of one key and into the
+// next. Straight keys blend straight.
+std::array<float, 3> positionCurve(const FinActor::PositionKey& a, const FinActor::PositionKey& b, float u) {
+    if (!a.curve)
+        return mix3(a.value, b.value, u);
+    std::array<float, 3> p{};
+    for (size_t k = 0; k < 3; ++k)
+        p[k] = a.value[k] + u * (a.out[k] + u * (a.a[k] + u * a.b[k]));
+    return p;
+}
+
+std::array<float, 4> rotationCurve(const FinActor::RotationKey& a, const FinActor::RotationKey& b, float u) {
+    if (!a.curve || !b.curve)
+        return slerp(a.value, b.value, u);
+    // As the game does it (checked against its bones in memory): none of
+    // squad's slerps takes the shorter way round.
+    return slerp(slerp(a.value, b.value, u, false), slerp(a.out, b.in, u, false), 2 * u * (1 - u), false);
+}
+
+float numberCurve(const FinActor::FloatKey& a, const FinActor::FloatKey& b, float u) {
+    if (!a.curve || !b.curve)
+        return mixFloat(a.value, b.value, u);
+    const float u2 = u * u, u3 = u2 * u;
+    return (2 * u3 - 3 * u2 + 1) * a.value + (u3 - 2 * u2 + u) * a.out + (-2 * u3 + 3 * u2) * b.value +
+           (u3 - u2) * b.in;
+}
 
 // A node's placement at `t` with its track's keys in place of what was
 // saved; and whether its visibility keys show it then.
@@ -109,20 +143,20 @@ gfx::Mat4 animated(const FinNode& n, const FinActor::Track& track, float t, bool
     std::array<float, 9> rotation = n.rotation;
     float scale = n.scale;
     if (!track.positions.empty())
-        translation = sample(track.positions, t, mix3);
+        translation = sample(track.positions, t, positionCurve);
     if (!track.rotations.empty()) {
-        rotation = rotationOf(sample(track.rotations, t, slerp));
+        rotation = rotationOf(sample(track.rotations, t, rotationCurve));
     } else if (!track.euler[0].empty() || !track.euler[1].empty() || !track.euler[2].empty()) {
         float angles[3] = {};
         for (size_t i = 0; i < 3; ++i)
             if (!track.euler[i].empty())
-                angles[i] = sample(track.euler[i], t, mixFloat);
+                angles[i] = sample(track.euler[i], t, numberCurve);
         rotation = rotationOf(angles[0], angles[1], angles[2]);
     }
     if (!track.scales.empty())
-        scale = sample(track.scales, t, mixFloat);
+        scale = sample(track.scales, t, numberCurve);
     if (!track.visible.empty())
-        visible = sample(track.visible, t, [](bool a, bool, float) { return a; });
+        visible = sample(track.visible, t, [](const auto& a, const auto&, float) { return a.value; });
     return placement(translation, rotation, scale);
 }
 
@@ -704,9 +738,9 @@ void ModelPage::walk(float ticks, bool create) {
                     for (const FinMorph::Key& k : m.keys)
                         keys.push_back({k.time, k.weights});
                     const std::vector<float> w = sample(keys, ticks, [](const auto& a, const auto& b, float f) {
-                        std::vector<float> out(a.size());
-                        for (size_t i = 0; i < a.size(); ++i)
-                            out[i] = a[i] + (b[i] - a[i]) * f;
+                        std::vector<float> out(a.value.size());
+                        for (size_t i = 0; i < out.size(); ++i)
+                            out[i] = a.value[i] + (b.value[i] - a.value[i]) * f;
                         return out;
                     });
                     // The first target is the shape; the others are offsets
@@ -907,8 +941,8 @@ void ModelPage::update(uint64_t nowMs) {
                       gfx::lookAlong(eye, {-offset[0], -offset[1], -offset[2]}, {0, 0, 1}));
     renderer_->beginFrame(viewProj, eye, {60, 64, 74});
 
-    // Material animators: the colour and alpha keyed now. Colour 1 is
-    // taken as the diffuse colour, 3 as emissive (added); 0 is left out.
+    // Material animators: the colour and alpha keyed now. Colour 1 is the
+    // diffuse colour, 3 emissive (added); 0, ambient, is left out.
     const float ticks = posedTicks_;
     for (Item& item : items_) {
         item.color = item.baseColor;
@@ -916,7 +950,7 @@ void ModelPage::update(uint64_t nowMs) {
             for (const FinMaterialAnimator* anim : a->second) {
                 if (anim->keys.empty())
                     continue;
-                const std::array<float, 3> v = sample(anim->keys, ticks, mix3);
+                const std::array<float, 3> v = sample(anim->keys, ticks, straight3);
                 if (anim->alpha) {
                     item.color[3] = v[0];
                 } else if (anim->channel == 1) {

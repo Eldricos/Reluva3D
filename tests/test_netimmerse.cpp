@@ -542,8 +542,8 @@ std::vector<uint8_t> buildAnimatedFin() {
     put32(w.b, 0);
     put32(w.b, 0); // no position keys
     put32(w.b, 1);
-    put32(w.b, 1);
-    floats({0, 2});
+    put32(w.b, 2); // a scale key of type 2: time, value, tangents in and out
+    floats({0, 2, 0.5f, 0.25f});
     put32(w.b, 1);
     putFloat(w.b, 4800);
     w.b.push_back(0);
@@ -584,7 +584,9 @@ void testFinAnimation() {
     CHECK(node.positions.size() == 2 && node.positions[1].value[2] == 6 && node.scales.empty() && node.visible.empty());
     const FinActor::Track& bone = actor.tracks[1];
     CHECK(bone.rotations.empty() && bone.euler[0].size() == 1 && bone.euler[0][0].value == 0.5f && bone.euler[1].empty());
-    CHECK(bone.scales.size() == 1 && bone.scales[0].value == 2);
+    CHECK(bone.scales.size() == 1 && bone.scales[0].value == 2 && bone.scales[0].curve && bone.scales[0].in == 0.5f &&
+          bone.scales[0].out == 0.25f);
+    CHECK(!node.positions[0].curve && !node.rotations[0].curve);
     CHECK(bone.visible.size() == 1 && bone.visible[0].time == 4800 && !bone.visible[0].value);
 }
 

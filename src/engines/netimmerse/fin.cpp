@@ -400,9 +400,21 @@ void readActor(Reader& r, FinActor& a) {
         }
         for (uint32_t i = 0; i < n; ++i) {
             const size_t at = r.pos;
-            read();
+            read(type, at);
             r.pos = at + size;
         }
+    };
+    // A number key: its time and value; type 2 adds the tangents in and out.
+    auto floatKey = [&](uint32_t type, size_t) {
+        FinActor::FloatKey k;
+        k.time = r.f32();
+        k.value = r.f32();
+        if (type == 2) {
+            k.in = r.f32();
+            k.out = r.f32();
+            k.curve = true;
+        }
+        return k;
     };
     for (uint32_t i = 0; i < tracks && r.ok; ++i) {
         FinActor::Track t;
@@ -412,24 +424,48 @@ void readActor(Reader& r, FinActor& a) {
         if (r.u32() == 1 && r.u32() == 4) {
             r.skip(46);
             for (auto& axis : t.euler)
-                track('f', [&] { axis.push_back({r.f32(), r.f32()}); });
+                track('f', [&](uint32_t type, size_t key) { axis.push_back(floatKey(type, key)); });
         } else {
             r.pos = at;
-            track('r', [&] {
-                FinActor::Key<std::array<float, 4>> k;
+            // The time, angle and axis, the quaternion and two numbers; type
+            // 2 adds a control quaternion (and its angle); type 3 tension,
+            // continuity and bias, then controls in and out (and angles).
+            track('r', [&](uint32_t type, size_t key) {
+                FinActor::RotationKey k;
                 k.time = r.f32();
-                r.skip(16); // the angle and axis
+                r.skip(16);
                 r.floats(k.value.data(), 4);
+                if (type == 2) {
+                    r.pos = key + 44;
+                    r.floats(k.in.data(), 4);
+                    k.out = k.in;
+                    k.curve = true;
+                } else if (type == 3) {
+                    r.pos = key + 56;
+                    r.floats(k.in.data(), 4);
+                    r.floats(k.out.data(), 4);
+                    k.curve = true;
+                }
                 t.rotations.push_back(k);
             });
         }
-        track('p', [&] {
-            FinActor::Key<std::array<float, 3>> k;
+        // The time and position; type 2 adds the tangents in and out, then
+        // the curve's a and b; type 3 tension, continuity and bias, the
+        // tangents, a and b.
+        track('p', [&](uint32_t type, size_t key) {
+            FinActor::PositionKey k;
             k.time = r.f32();
             r.floats(k.value.data(), 3);
+            if (type == 2 || type == 3) {
+                r.pos = key + (type == 2 ? 28 : 40);
+                r.floats(k.out.data(), 3);
+                r.floats(k.a.data(), 3);
+                r.floats(k.b.data(), 3);
+                k.curve = true;
+            }
             t.positions.push_back(k);
         });
-        track('s', [&] { t.scales.push_back({r.f32(), r.f32()}); });
+        track('s', [&](uint32_t type, size_t key) { t.scales.push_back(floatKey(type, key)); });
         const uint32_t shown = r.u32(); // no type: each key a time and a byte
         for (uint32_t k = 0; k < shown && r.ok && k < 100000; ++k)
             t.visible.push_back({r.f32(), r.u8() != 0});

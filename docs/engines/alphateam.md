@@ -105,8 +105,10 @@ from the launcher, the engine now shows these pages (keys in
     node's position, rotation (quaternions or Euler angles), scale and
     visibility keys, which move the skins' bones. C and V pick a clip
     (`at_rest`, `pace right`, `win`... or the whole timeline), and Space
-    pauses. Keys are blended linearly, and rotations by slerp; their
-    tangents are left out.
+    pauses. Between keys, each follows its curve as the game does: Bezier
+    and TCB positions by their cubic, rotations by squad, numbers by
+    Hermite's, Euler angles as Z × Y × X. This was checked against the
+    running game's bones in memory (see fin.md).
   - **Morph shapes** (the E3xxx levels' seaweed) move by their keyed
     weights.
   - **Material animators** change colour and alpha.

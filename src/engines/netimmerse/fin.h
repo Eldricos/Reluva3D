@@ -104,7 +104,7 @@ struct FinFlip : FinController {};
 // Ni3dsColorAnimator and Ni3dsAlphaAnimator: a material's colour or alpha
 // over time, keyed.
 struct FinMaterialAnimator : FinController {
-    uint32_t channel = 0; // colour: *guess* 0 ambient, 1 diffuse, 3 emissive
+    uint32_t channel = 0; // colour: 0 ambient, 1 diffuse, 3 emissive
     bool alpha = false;
     struct Key {
         float time = 0; // ticks
@@ -137,12 +137,33 @@ struct FinActor {
         float time = 0; // ticks
         T value{};
     };
+    // Keys of types 2 and 3 curve to the next key; type 1 runs straight.
+    // A position's curve from this key to the next, u running 0 to 1 over
+    // it, is value + u (out + u (a + u b)).
+    struct PositionKey {
+        float time = 0; // ticks
+        std::array<float, 3> value{}, out{}, a{}, b{};
+        bool curve = false;
+    };
+    // Rotations curve by squad, through each key's control quaternions.
+    struct RotationKey {
+        float time = 0;
+        std::array<float, 4> value{}, in{}, out{}; // quaternions: w, x, y, z
+        bool curve = false;
+    };
+    // A number's curve is Hermite's, with the tangents into and out of each
+    // key (already scaled to the intervals either side).
+    struct FloatKey {
+        float time = 0;
+        float value = 0, in = 0, out = 0;
+        bool curve = false;
+    };
     struct Track {
-        std::vector<Key<std::array<float, 3>>> positions;
-        std::vector<Key<std::array<float, 4>>> rotations; // quaternions: w, x, y, z
+        std::vector<PositionKey> positions;
+        std::vector<RotationKey> rotations;
         // Instead of rotations: an angle (radians) about each of X, Y and Z.
-        std::array<std::vector<Key<float>>, 3> euler;
-        std::vector<Key<float>> scales;
+        std::array<std::vector<FloatKey>, 3> euler;
+        std::vector<FloatKey> scales;
         std::vector<Key<bool>> visible;
     };
     std::string id, name, textureSet;

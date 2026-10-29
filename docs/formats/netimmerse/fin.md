@@ -242,21 +242,61 @@ fields. In order:
 - the footprint: a count, then that many points (3 floats), a polygon at
   floor height: the square a part fills on the board.
 
-Each key starts with its time; the types add tangents or other data after:
+Each key starts with its time; the types add tangents or other data after.
+Offsets are in floats from the key's start:
 
-| Track | Type 1 | Type 2 | Type 3 |
+| Track | Type 1 (straight) | Type 2 (Bezier) | Type 3 (TCB) |
 |---|---|---|---|
-| rotation | 44 bytes: time, angle, axis (3), quaternion (w, x, y, z), two floats | 64: as type 1, then a second quaternion and a float | 96 |
-| position | 16: time, x, y, z | 64 | 76 |
-| scale | 8: time, scale | 16 | |
+| rotation | 44 bytes: time, angle, axis (3), quaternion (w, x, y, z, at 5), two floats | 64: as type 1, then a control quaternion (at 11) and its angle | 96: as type 1, tension, continuity, bias, then control quaternions in (at 14) and out (at 18), and their angles |
+| position | 16: time, x, y, z | 64: time, value, tangent in (at 4), tangent out (at 7), a (at 10), b (at 13) | 76: time, value, tension, continuity, bias, tangent in (at 7), tangent out (at 10), a (at 13), b (at 16) |
+| scale | 8: time, scale | 16: time, value, tangent in, tangent out | |
 
 Rotation **type 4** is Euler angles. Its count is 1, then 46 bytes, then a
 float track for each of X, Y and Z: a key count, then (if not 0) a type
 and the keys. Type 1 keys are 8 bytes (time, angle in radians), type 2 are
-16 (with two tangents), type 3 are 20.
+16 (time, angle, tangents in and out), type 3 are 20 (no file uses them).
 
 The quaternions are absolute: each key's matrix, by the usual formula for
 column vectors, equals what the angle and axis next to it give.
+
+**Between keys** (u running 0 to 1 from one key to the next):
+
+- a curved **position** is `value + u (out + u (a + u b))`, its key's own
+  cubic. The tangents are already scaled to the interval either side: they
+  differ by the ratio of the intervals. `a` and `b` are the Hermite
+  polynomial's coefficients. In 719 of 737 Bezier segments and 2,900 of
+  2,957 TCB ones, a = 3d − 2 out − in' and b = −2d + out + in', where d is
+  the step to the next key and in' its tangent in. The rest are jumps
+  whose stored a and b weren't recomputed; the game uses the stored
+  ones, and so does Reluva;
+- a curved **rotation** is squad:
+  `slerp(slerp(q, q', u), slerp(out, in', u), 2u(1 − u))`, out being the
+  key's control quaternion and in' the next's. None of the three slerps
+  takes the shorter way round. 91% of the type 2 controls are exactly
+  Shoemake's `q exp(−(log(q⁻¹q₊) + log(q⁻¹q₋)) / 4)`; the rest sit where
+  intervals change or the track jumps;
+- a curved **number** (a scale, an Euler angle) is Hermite's, with the
+  key's tangent out and the next key's tangent in;
+- Euler angles make the rotation **Z × Y × X** (applied to column
+  vectors: X first);
+- straight keys are blended linearly, rotations by slerp.
+
+**Checked against the game.** The retail game was run in Reluva on
+Mission One (and M2020) with its solved puzzle. Its nodes' local
+transforms were read from its memory each frame: in NetImmerse's node
+objects, the translation, rotation matrix and scale follow 40 bytes after
+the pointer to the node's name. Each frame was fitted with the time that
+best matches one bone, and the others compared at that time:
+
+- Dash's bones (squad rotations): within 3 × 10⁻⁶ of squad over 60
+  frames. Straight slerp was up to 0.14 off. Taking the shorter way round
+  between the control quaternions was up to 1.3 off.
+- Evil Ogel's hose (Bezier positions): within 5 × 10⁻⁶ over 700 frames,
+  against 0.74 for straight lines in the 11 frames where they differ.
+- The Hand Cart Worker's head (three Euler angles): Z × Y × X within
+  5 × 10⁻⁷. The other orders were 1.7 × 10⁻⁴ to 10⁻² off. Hermite and
+  straight angle curves fitted equally there, so the number curves are
+  taken from the positions' scheme rather than seen apart.
 
 **Which node a track drives:** the 3ds nodes (`Ni3dsAnimationNode`,
 `Ni3dsBone`) in the order a depth-first walk from the roots meets them, a
@@ -279,7 +319,10 @@ ticks), the cycle's length (in ticks) and a link to the
 
 In every file, length × frequency ÷ 160 is exactly the property's number
 of images, from 2 to 21. So each image lasts 160 ticks of the
-controller's own time, the clock times the frequency.
+controller's own time (the clock times the frequency), which is the same
+as length ÷ images ticks of the clock. The phase's units and the cycle
+byte's meaning aren't confirmed; the game's current image wasn't found in
+its memory.
 
 ### Ni3dsColorAnimator (439), Ni3dsAlphaAnimator (393)
 
@@ -290,8 +333,12 @@ frequency, phase, start and stop. Then a link to the
 `Ni3dsPropAnimExtraData`.
 
 A colour animator then has a channel: 3 (248 of them), 1 (99) or 0 (92).
-*Guess*: 0 ambient, 1 diffuse, 3 emissive. Both kinds then have a key
-count, a type and the keys:
+0 is ambient and 3 emissive. The first key of each channel 0 animator
+equals its material's ambient colour (all 92), and of each channel 3
+animator its emissive colour (all 248). 1 is diffuse, by NifTools'
+numbering of the same field (0 ambient, 1 diffuse, 2 specular, 3
+emissive), which those agree with. Both kinds then have a key count, a
+type and the keys:
 
 - alpha: type 1 is 8 bytes (time, alpha); type 2 is 16 (with two
   tangents);
@@ -336,7 +383,9 @@ NiAVObject's fields, then:
 - seven bytes.
 
 The levels are lit by their lightmaps, so the viewer only marks where the
-lights are (G).
+lights are (G). The game never hands Direct3D a light (`SetLight`) in
+Mission One, so the fields' meaning couldn't be read from what it does
+with them.
 
 ### DDCorona: glows
 
