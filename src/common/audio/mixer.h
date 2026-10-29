@@ -68,6 +68,8 @@ public:
     void removeStream(const Stream* stream);
 
     void setTypeVolume(SoundType type, int volume);
+    // The whole mix to the left (-kMaxPan) or right (kMaxPan).
+    void setBalance(int balance);
     int typeVolume(SoundType type) const;
 
     int outputRate() const { return outputRate_; }
@@ -95,6 +97,7 @@ private:
     std::vector<Channel> channels_;
     SoundHandle nextHandle_ = 1;
     int typeVolume_[kSoundTypes] = {kMaxVolume, kMaxVolume, kMaxVolume};
+    int balance_ = 0;
     std::vector<int32_t> accumulator_; // mix()'s working buffer, stereo
     std::vector<std::pair<std::shared_ptr<Stream>, SoundType>> streams_;
     std::vector<float> streamBuffer_;

@@ -223,16 +223,30 @@ void CarSim::substep(const CarControls& controls, const CollisionWorld& world, f
     const float speed = forwardSpeed();
     const float lock = 1 / (1 + std::fabs(speed) / 25);
     const float wanted = -controls.steer * lock; // left positive
-    steerAngle_ += std::clamp(wanted - steerAngle_, -kSteerRate * h, kSteerRate * h);
+    steerAngle_ += std::clamp(wanted - steerAngle_, -kSteerRate * steerRate * h, kSteerRate * steerRate * h);
 
     // The gearbox: holding the brake when stopped backs up, the throttle
     // then brakes; the throttle when stopped in reverse goes forward again.
     if (!manual && gear > 0 && controls.brake > 0.1f && controls.throttle < 0.1f && speed < 0.5f)
         gear = -1;
-    else if (!manual && gear < 0 && controls.throttle > 0.1f && controls.brake < 0.1f && speed > -0.5f)
+    else if (!manual && gear < 0 && !backingOut_ && controls.throttle > 0.1f && controls.brake < 0.1f && speed > -0.5f)
         gear = 1;
-    const bool backwards = gear < 0 && !manual; // the pedals swap
-    const float drive = backwards ? controls.brake : controls.throttle;
+    else if (!manual && controls.reverse && !reverseHeld_ && std::fabs(speed) < 0.5f)
+        gear = gear < 0 ? 1 : -1;
+    reverseHeld_ = controls.reverse;
+    // Auto reverse: the throttle held a second against something that
+    // won't move backs the car away, for as long as it's held.
+    blockedFor_ = controls.throttle > 0.5f && gear > 0 && std::fabs(speed) < 0.3f ? blockedFor_ + h : 0;
+    if (!manual && autoReverse && blockedFor_ > 1) {
+        backingOut_ = true;
+        gear = -1;
+    }
+    if (backingOut_ && controls.throttle < 0.1f) {
+        backingOut_ = false;
+        gear = 1;
+    }
+    const bool backwards = gear < 0 && !manual && !backingOut_; // the pedals swap
+    const float drive = backingOut_ ? controls.throttle : backwards ? controls.brake : controls.throttle;
     const float braking = backwards ? controls.throttle : controls.brake;
 
     // The engine turns with the wheels.

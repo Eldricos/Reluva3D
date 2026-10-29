@@ -72,6 +72,12 @@ public:
     // Culling by the city's visibility file (on by default, where there is
     // one).
     void setVisibility(bool on) { visibilityOn_ = on; }
+    // The Graphics Options: the textured sky (else the fog's colour behind
+    // the city), how far placed models are drawn, and their detail (1 the
+    // finest: a level is chosen as if they were 1/detail further away).
+    void setSkyShown(bool on) { skyShown_ = on; }
+    void setModelDistance(float metres) { modelDistance_ = metres; }
+    void setModelDetail(float detail) { detail_ = detail; }
     bool visibility() const { return visibilityOn_ && !pvs_.empty(); }
     // The block the eye was last in (0: none, or visibility off), and how
     // many blocks were drawn from it.
@@ -150,6 +156,8 @@ private:
     Pvs pvs_;
     std::vector<BlockBounds> blockBounds_;
     bool visibilityOn_ = true;
+    bool skyShown_ = true;
+    float modelDistance_ = 900, detail_ = 1;
     size_t viewBlock_ = 0, blocksDrawn_ = 0;
     Vec3 detailFrom_{1e9f, 0, 0}; // where the roads' detail was last chosen from
     std::chrono::steady_clock::time_point loadedAt_; // the animations' clock starts

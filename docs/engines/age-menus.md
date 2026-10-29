@@ -90,6 +90,84 @@ boxes measured on the backgrounds, are in
 [age-multiplayer.md](age-multiplayer.md#the-menus). The garage is the
 single player's, opened from the lobby's SELECT VEHICLE.
 
-Not drawn: the other menus (options, replays, driver records, the
-Cops & Robbers Settings and serial dialogs, the other dialogs), the
-Vehicle Showcase, and the menus' sounds and music.
+## The navigation bar and Quit
+
+Every screen has the navigation bar's **OPTIONS** (`texture/MNAV_OPT`,
+five states) and exit (`mnav_ext`, three) at the top right, where the
+`Navigation Bar` menu of `widget.csv` puts them. The help (`mnav_hlp`)
+and minimise (`mnav_sto`) buttons aren't drawn: the game's help is its
+own Windows help files, and minimising is the window's. Exit, or Esc on
+the main menu, asks **QUIT?** (`jpg/quit_dlg`, OK and Cancel at
+`quit_dlg`'s places, with the `dlg_ok` and `dlg_can` pictures); OK
+leaves the game.
+
+## Options
+
+The game keeps its options in the Windows registry. Reluva keeps them
+in its own file, `options.txt` in the game's save folder: lines of a
+name and a value (`effectsvolume 0.8`, `key throttle 256 119`), read
+when the Race and Drive pages open. See `engines/age/options.h`.
+
+| Screen | Background | What's there |
+|---|---|---|
+| Main Options Menu | `opt_bk` | AUDIO, CONTROL, GRAPHICS (`opt_aud`, `opt_ctl`, `opt_gfx`), ABOUT MIDTOWN MADNESS 2 (`opt_abt`), BACK (`mnav_prev`, picture `mnav_prv`) |
+| Audio Options | `aud_bk` | Sound FX, Play Commentary, Play Music, City Sounds (`aud_fx`, `aud_com`, `aud_musc`, `aud_amb`); Device, Stereo FX, Sound Quality (shown, the system's); Sound FX Volume, Music/City Volume, Balance (bars) |
+| Graphics Options | `gfx_bk` | Textured Sky, Vehicle Reflections (not available), Show Pedestrians, Smart Rendering (`gfx_sky`, `gfx_rflx`, `gfx_peds`, `gfx_port`); Display (a window, or full screen), Renderer (shown), Resolution; Visibility and Lighting Quality (bars); Texture Quality (shown), Object Detail, Cloud Shadows (shown) |
+| Control Options | `ctrl_bk` | Auto Reverse, Use POV Hat, Force Feedback (not available) (`ctrl_aut`, `ctrl_pov`, `ctrl_fbk`); Controller (the keyboard); Steering Sensitivity (a bar); the joystick's dead zone, calibration and force feedback (not available); CUSTOMIZE CONTROLS (`ctrl_cus`) |
+| Control Custom | `cuss_bk` | each control and its two keys (`CW Array`) |
+| AboutMenu Menu | `about_bk` | the credits, `jpg/credits` (215 x 4,582), scrolling up through their box; DONE (`options_done`, picture `opt_done`) |
+
+Each option screen has DEFAULTS, CANCEL and DONE (`opt_def`, `opt_can`,
+and `opt_dn` with the picture `opt_done`). DEFAULTS asks first
+(`jpg/odef_dlg`: "Are you sure you want to restore the original
+settings?"). CANCEL forgets what was changed on the screen, and DONE
+keeps it, saves it and puts it in force. The checks are five-state
+pictures: clear, clear and pointed at, ticked, ticked and pointed at,
+not available. The focused control's description is the game's picture
+for it at the bottom left (`opt_taud`, `aud_tfx`, `gfx_tsky`, `ctl_trev`
+and the rest).
+
+What the options do in Reluva:
+
+- **Sound.**
+  - Sound FX, Play Commentary and Play Music turn the effects, the
+    speech and the music on and off.
+  - Sound FX Volume and Music/City Volume are those kinds' levels.
+  - Balance moves the whole mix left or right.
+  - City Sounds are the ambient sounds of `aud/ambient`. The game's
+    description says to check either Play Music or City Sounds, so
+    checking one clears the other; both may be off.
+- **Graphics.**
+  - Textured Sky: the sky dome; without it, the fog's colour.
+  - Show Pedestrians: none at all when off.
+  - Smart Rendering ("USE PVS" among `mmlang.dll`'s words): the city's
+    `.cpvs` visibility.
+  - Display and Resolution: the window, or full screen at 640 x 480 to
+    1,600 x 1,200.
+  - Visibility: how far the city is drawn, 800 m to 4,000 m, with the
+    placed models to 300-900 m.
+  - Lighting Quality below half: no pools of headlight on the road.
+  - Object Detail: how near a model must be for each finer level of
+    detail.
+- **Controls.**
+  - Auto Reverse: the game's description is "your vehicle goes into
+    reverse automatically when you accelerate after hitting a building
+    or something that won't get out of the way". So the throttle, held a
+    second against something without the car moving, backs it away for
+    as long as it's held. Only the player's car has it.
+  - Use POV Hat: the in-car view first.
+  - Steering Sensitivity: how fast the wheels turn to full lock (half
+    to one and a half times as fast).
+  - The keys: Throttle, Brakes, Steer Left and Right, Handbrake, Horn,
+    Shift Up and Down, Reverse, Transmission, Change Camera, Map Zoom,
+    Full Screen Map and Enter Chat Msg, named by `mmlang.dll`. Reverse
+    (by default B) takes a stopped car into reverse, or out of it.
+- **Customize Controls.** Enter waits for a key for the chosen one of
+  the control's two (Left/Right), and Backspace clears it. A key
+  already given to another control is refused with the game's
+  `jpg/ctrl_dlg`: "Duplicate key or button, please make a different
+  selection".
+
+Not drawn: the other menus (replays, driver records, the Cops & Robbers
+Settings and serial dialogs, the other dialogs), the Vehicle Showcase,
+and the menus' sounds and music.

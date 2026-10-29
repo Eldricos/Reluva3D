@@ -20,7 +20,6 @@ namespace reluva::age {
 namespace {
 
 constexpr int kFrameW = 640, kFrameH = 480;
-constexpr float kFar = 4000;
 constexpr float kPi = 3.14159265358979f;
 constexpr float kMph = 2.23694f; // miles an hour per metre a second
 constexpr float kTrafficLevels[] = {0, 0.25f, 0.5f, 1}; // none, light, normal, heavy
@@ -71,18 +70,43 @@ std::vector<CarInfo> findCars(const SearchSet& files) {
     return cars;
 }
 
+Control controlOf(uint32_t k) { return currentOptions().controlOf(k); }
+
+void applyGraphicsOptions(CityScene& scene, CityLife& life) {
+    const GameOptions& o = currentOptions();
+    static const float kDetail[4] = {0.4f, 0.6f, 0.8f, 1.0f};
+    scene.setSkyShown(o.texturedSky);
+    scene.setVisibility(o.smartRendering);
+    scene.setModelDistance(300 + 600 * o.visibility);
+    scene.setModelDetail(kDetail[std::clamp(o.objectDetail, 0, 3)]);
+    life.setAmbientGain(o.ambient ? 1.0f : 0.0f);
+}
+
+float pedestrianShare() { return currentOptions().pedestrians ? 1.0f : 0.0f; }
+
+bool headlightPoolsOn() { return currentOptions().lightingQuality >= 0.5f; }
+
+void applyControlOptions(CarSim& sim) {
+    sim.autoReverse = currentOptions().autoReverse;
+    sim.steerRate = currentOptions().steerRate();
+}
+
 uint32_t driveKeyOf(uint32_t k) {
-    switch (k) {
-    case key::Up:
-    case 'w': return kDriveThrottle;
-    case key::Down:
-    case 's': return kDriveBrake;
-    case key::Left:
-    case 'a': return kDriveLeft;
-    case key::Right:
-    case 'd': return kDriveRight;
-    case ' ': return kDriveHandbrake;
-    case 'h': return kDriveHorn;
+    switch (controlOf(k)) {
+    case Control::Throttle:
+        return kDriveThrottle;
+    case Control::Brakes:
+        return kDriveBrake;
+    case Control::SteerLeft:
+        return kDriveLeft;
+    case Control::SteerRight:
+        return kDriveRight;
+    case Control::Handbrake:
+        return kDriveHandbrake;
+    case Control::Horn:
+        return kDriveHorn;
+    case Control::Reverse:
+        return kDriveReverse;
     default: return 0;
     }
 }
@@ -93,6 +117,7 @@ CarControls controlsOf(uint32_t keys) {
     c.brake = keys & kDriveBrake ? 1.0f : 0.0f;
     c.steer = (keys & kDriveRight ? 1.0f : 0.0f) - (keys & kDriveLeft ? 1.0f : 0.0f);
     c.handbrake = keys & kDriveHandbrake;
+    c.reverse = keys & kDriveReverse;
     return c;
 }
 
@@ -170,6 +195,7 @@ void DriveViewer::activate() {
     }
     scene_ = std::make_unique<CityScene>(*renderer_, ctx_.files);
     overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
+    applySoundOptions(loadOptions(ctx_.savePath), ctx_.mixer);
     keys_ = 0;
     lastMs_ = 0;
     loadCity(city_);
@@ -213,7 +239,7 @@ void DriveViewer::startLife() {
         parseAiMap(std::string(data.begin(), data.end()), settings);
     CityLife::Options o;
     o.traffic = kTrafficLevels[trafficLevel_];
-    o.peds = o.traffic * kPedsPerTraffic;
+    o.peds = o.traffic * kPedsPerTraffic * pedestrianShare();
     o.cops = cops_ ? -1 : 0;
     o.rain = lighting_ % 4 == 3;
     o.laneChanges = true; // as San Francisco's cruising says
@@ -276,7 +302,8 @@ void DriveViewer::handleEvent(const Event& ev) {
     if (!renderer_ || cars_.empty())
         return;
     if (ev.type == EventType::KeyDown) {
-        if (ev.key == 'h' && car_.hasSiren()) { // a police car's horn is its siren
+        const Control control = controlOf(ev.key);
+        if (control == Control::Horn && car_.hasSiren()) { // a police car's horn is its siren
             sirenOn_ = !sirenOn_;
             return;
         }
@@ -290,12 +317,20 @@ void DriveViewer::handleEvent(const Event& ev) {
             loadCar((carIndex_ + (ev.key == key::PageDown ? 1 : cars - 1)) % cars);
         } else if (ev.key == key::Home || ev.key == key::End) {
             loadCity((city_ + (ev.key == key::End ? 1 : cities - 1)) % cities);
+        } else if (control == Control::ChangeCamera) {
+            camera_ = (camera_ + 1) % int(cameras_.size());
+            cameraReset_ = true;
+        } else if (control == Control::Transmission) {
+            manual_ = !manual_;
+        } else if (control == Control::ShiftUp || control == Control::ShiftDown) {
+            shift_ = control == Control::ShiftUp ? 1 : -1;
+        } else if (control == Control::MapZoom) {
+            hudMap_.toggleZoom();
+        } else if (control == Control::FullScreenMap) {
+            hudMap_.toggleFullScreen();
         } else if (ev.key == 'p') {
             ++paintJob_;
             loadCar(carIndex_);
-        } else if (ev.key == 'c') {
-            camera_ = (camera_ + 1) % int(cameras_.size());
-            cameraReset_ = true;
         } else if (ev.key == 't') {
             const bool rain = lighting_ % 4 == 3;
             lighting_ = (lighting_ + 1) % 16;
@@ -307,11 +342,7 @@ void DriveViewer::handleEvent(const Event& ev) {
         } else if (ev.key == 'y') {
             trafficLevel_ = (trafficLevel_ + 1) % 4;
             life_.setTrafficDensity(kTrafficLevels[trafficLevel_]);
-            life_.setPedDensity(kTrafficLevels[trafficLevel_] * kPedsPerTraffic);
-        } else if (ev.key == 'm') {
-            manual_ = !manual_;
-        } else if (ev.key == 'e' || ev.key == 'q') {
-            shift_ = ev.key == 'e' ? 1 : -1;
+            life_.setPedDensity(kTrafficLevels[trafficLevel_] * kPedsPerTraffic * pedestrianShare());
         } else if (ev.key == 'o') {
             cops_ = !cops_;
             startLife();
@@ -320,10 +351,6 @@ void DriveViewer::handleEvent(const Event& ev) {
             life_.police().forgive();
         } else if (ev.key == 'i') {
             showInfo_ = !showInfo_;
-        } else if (ev.key == 'z') {
-            hudMap_.toggleZoom();
-        } else if (ev.key == 'f') {
-            hudMap_.toggleFullScreen();
         }
     } else if (ev.type == EventType::KeyUp) {
         keys_ &= ~driveKeyOf(ev.key);
@@ -386,6 +413,7 @@ void DriveViewer::update(uint64_t nowMs) {
     controls.shift = shift_;
     shift_ = 0;
     car_.sim.manual = manual_;
+    applyControlOptions(car_.sim);
     car_.sim.step(controls, world_, dt);
     // Fallen out of the city (or sunk): back to the start.
     if (car_.sim.position[1] < scene_->psdl().min[1] - 50)
@@ -431,12 +459,13 @@ void DriveViewer::update(uint64_t nowMs) {
     const CarCamera& cam = cameras_[size_t(camera_)];
     const CameraView view = updateCarCamera(cam, car_.sim, dt, cameraPos_, cameraReset_);
     cameraReset_ = false;
-    const gfx::Mat4 viewProj =
-        gfx::multiply(gfx::perspective(cam.fov * kPi / 180, float(kFrameW) / float(kFrameH), 0.1f, kFar),
-                      gfx::lookAlong(view.eye, normalized(view.target - view.eye), view.up));
+    const gfx::Mat4 viewProj = gfx::multiply(
+        gfx::perspective(cam.fov * kPi / 180, float(kFrameW) / float(kFrameH), 0.1f, currentOptions().farClip()),
+        gfx::lookAlong(view.eye, normalized(view.target - view.eye), view.up));
     renderer_->beginFrame(viewProj, view.eye, {150, 170, 200});
+    applyGraphicsOptions(*scene_, life_);
     scene_->draw(viewProj, view.eye, true);
-    if (scene_->lampsLit()) {
+    if (scene_->lampsLit() && headlightPoolsOn()) {
         std::vector<gfx::DynamicLight> pools;
         gfx::DynamicLight mine;
         if (car_.headlightPool(mine))

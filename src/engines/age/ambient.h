@@ -55,6 +55,8 @@ public:
     Error load(const SearchSet& files, const std::string& map, audio::Mixer* mixer, uint32_t seed = 1);
     void clear();
     void update(float dt, const Vec3& listener);
+    // All of them louder or quieter (the Audio Options' ambient: 0 off).
+    void setGain(float gain) { gain_ = gain; }
 
     const std::vector<Ambience>& ambiences() const { return ambiences_; }
     // How many sounds are playing (for tests).
@@ -72,6 +74,7 @@ private:
     std::vector<Voice> voices_;
     audio::Mixer* mixer_ = nullptr;
     std::mt19937 random_;
+    float gain_ = 1;
 };
 
 } // namespace reluva::age

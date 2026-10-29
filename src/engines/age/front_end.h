@@ -65,7 +65,7 @@ public:
         int car = 0, paintJob = 0;
         bool manual = false;
     };
-    enum class Action { None, Changed, Start, Multiplayer };
+    enum class Action { None, Changed, Start, Multiplayer, Options, Quit };
 
     FrontEnd(const SearchSet& files, const std::vector<CityInfo>& cities, const std::vector<CarInfo>& cars,
              const GameStrings& strings, const PlayerRecord& record);
@@ -103,11 +103,20 @@ public:
 
 private:
     struct Item {
+        Item(std::string w, bool b, bool e = true, std::string p = {}, int n = 0)
+            : widget(std::move(w)), button(b), enabled(e), picture(std::move(p)), states(n) {}
         std::string widget;  // its widget.csv name (its picture, for buttons)
         bool button = false; // else a field changed with Left/Right
         bool enabled = true;
+        std::string picture; // when it isn't the widget's name
+        int states = 0;      // when the description doesn't say
+        const std::string& pictureName() const { return picture.empty() ? widget : picture; }
     };
     std::vector<Item> items() const;
+    std::vector<Item> screenItems() const;
+    int statesOf(const Item& item, const Widget& w) const {
+        return item.states ? item.states : w.desc.find("5 State") != std::string::npos ? 5 : 4;
+    }
     const Widget* widget(const std::string& name) const;
     void go(Screen s);
     void activate(const Item& item, Action& action);

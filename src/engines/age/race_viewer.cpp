@@ -21,7 +21,6 @@ namespace reluva::age {
 namespace {
 
 constexpr int kFrameW = 640, kFrameH = 480;
-constexpr float kFar = 4000;
 constexpr float kPi = 3.14159265358979f;
 constexpr float kCountdown = 3;         // seconds before the start
 constexpr float kCircuitRadius = 15;    // circuits' waypoints give no radius
@@ -81,6 +80,7 @@ void RaceViewer::activate() {
     }
     scene_ = std::make_unique<CityScene>(*renderer_, ctx_.files);
     overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
+    applySoundOptions(loadOptions(ctx_.savePath), ctx_.mixer);
     strings_.load(ctx_.files);
     record_.load(ctx_.savePath);
     front_ = std::make_unique<FrontEnd>(ctx_.files, cities_, cars_, strings_, record_);
@@ -91,7 +91,11 @@ void RaceViewer::activate() {
         if (!net_->loaded())
             net_.reset();
         front_->multiplayer = net_ != nullptr;
+        game_ = std::make_unique<GameMenus>(ctx_.sys, ctx_.files, strings_, ctx_.mixer, ctx_.savePath);
+        if (!game_->loaded())
+            game_.reset();
     }
+    quit_ = false;
     keys_ = 0;
     lastMs_ = 0;
     state_ = State::Menu;
@@ -124,7 +128,9 @@ void RaceViewer::loadCity() {
 }
 
 bool RaceViewer::takesKey(const Event& ev) const {
-    return (state_ != State::Menu || netMenus_) && ev.type == EventType::KeyDown && ev.key == key::Escape;
+    // In the game's menus Esc goes back (and on the main menu asks to
+    // quit); in a race it's the race's.
+    return (state_ != State::Menu || netMenus_ || front_) && ev.type == EventType::KeyDown && ev.key == key::Escape;
 }
 
 bool RaceViewer::raceIsOpen(int index) const {
@@ -261,7 +267,7 @@ void RaceViewer::startRace() {
     // chase, all of its aimap's).
     CityLife::Options life;
     life.traffic = lesson() ? race_.lesson.ambient : set.ambient;
-    life.peds = set.peds;
+    life.peds = set.peds * pedestrianShare();
     life.cops = std::max(0, set.cops);
     if (lesson())
         life.cops = race_.lesson.event == LessonEvent::CopChase ? -1 : 0;
@@ -355,6 +361,7 @@ void RaceViewer::stepRace(float dt) {
                 c.shift = shift_;
                 shift_ = 0;
                 sim.manual = manual_;
+                applyControlOptions(sim);
             } else {
                 if (r.botId != kNoPlayer && net_ && net_->session() &&
                     !NetMenus::hasRace(net_->session()->settings().mode))
@@ -582,25 +589,38 @@ void RaceViewer::handleEvent(const Event& ev) {
         endRace();
         return;
     }
+    const Control control = controlOf(ev.key);
     if (const uint32_t d = driveKeyOf(ev.key)) {
         keys_ |= d;
-    } else if (ev.key == 'c') {
+    } else if (control == Control::ChangeCamera) {
         camera_ = (camera_ + 1) % int(cameras_.size());
         cameraReset_ = true;
-    } else if (ev.key == 'z') {
+    } else if (control == Control::MapZoom) {
         hudMap_.toggleZoom();
-    } else if (ev.key == 'f') {
+    } else if (control == Control::FullScreenMap) {
         hudMap_.toggleFullScreen();
-    } else if (ev.key == 'm') {
+    } else if (control == Control::Transmission) {
         manual_ = !manual_;
-    } else if (ev.key == 'e' || ev.key == 'q') {
-        shift_ = ev.key == 'e' ? 1 : -1;
+    } else if (control == Control::ShiftUp || control == Control::ShiftDown) {
+        shift_ = control == Control::ShiftUp ? 1 : -1;
     }
 }
 
 void RaceViewer::menuEvent(const Event& ev) {
+    if (game_ && game_->isOpen()) {
+        if (game_->handle(ev) == GameMenus::Action::Quit)
+            quit_ = true;
+        return;
+    }
     const FrontEnd::Action action = front_->handle(ev);
     openAll_ = front_->openAll;
+    if (action == FrontEnd::Action::Options || action == FrontEnd::Action::Quit) {
+        if (game_)
+            game_->open(action == FrontEnd::Action::Options ? GameMenus::Screen::Options : GameMenus::Screen::Quit);
+        else if (action == FrontEnd::Action::Quit)
+            quit_ = true;
+        return;
+    }
     if (action == FrontEnd::Action::Multiplayer && net_) {
         netMenus_ = true;
         net_->enter();
@@ -980,30 +1000,35 @@ void RaceViewer::update(uint64_t nowMs) {
         up = view.up;
         fov = cam.fov;
     }
-    const gfx::Mat4 viewProj =
-        gfx::multiply(gfx::perspective(fov * kPi / 180, float(kFrameW) / float(kFrameH), 0.1f, kFar),
-                      gfx::lookAlong(eye, normalized(target - eye), up));
+    const gfx::Mat4 viewProj = gfx::multiply(
+        gfx::perspective(fov * kPi / 180, float(kFrameW) / float(kFrameH), 0.1f, currentOptions().farClip()),
+        gfx::lookAlong(eye, normalized(target - eye), up));
     if ((state_ == State::Menu || racers_.empty()) && front_) {
         // The game's menus, over a dark frame (the garage's car in its
         // window).
         renderer_->beginFrame(viewProj, eye, {10, 14, 40});
         if (netMenus_ && net_) {
             net_->draw(overlay_, nowMs);
+        } else if (game_ && game_->isOpen() && game_->screen() != GameMenus::Screen::Quit) {
+            game_->draw(overlay_, nowMs);
         } else {
             if (front_->screen() == FrontEnd::Screen::Garage)
                 drawGarageCar(dt);
             front_->draw(overlay_);
+            if (game_ && game_->isOpen())
+                game_->draw(overlay_, nowMs); // the Quit dialog, over the menu
         }
         renderer_->endFrame(&overlay_);
         return;
     }
     renderer_->beginFrame(viewProj, eye, {150, 170, 200});
+    applyGraphicsOptions(*scene_, life_);
     scene_->draw(viewProj, eye, true);
     if (state_ == State::Menu || racers_.empty()) {
         drawMenu();
     } else {
         const bool inside = cameras_[size_t(camera_)].inside;
-        if (scene_->lampsLit()) {
+        if (scene_->lampsLit() && headlightPoolsOn()) {
             std::vector<gfx::DynamicLight> pools;
             gfx::DynamicLight pool;
             for (const Racer& r : racers_)

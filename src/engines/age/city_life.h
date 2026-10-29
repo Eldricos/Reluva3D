@@ -72,6 +72,7 @@ public:
     const Gizmos& gizmos() const { return gizmos_; }
     // The city's ambient sounds (aud/ambient).
     const AmbientSounds& ambient() const { return ambient_; }
+    void setAmbientGain(float gain) { ambient_.setGain(gain); }
     // The props (city/<map>/props.pathset) and traffic lights, which cars
     // can knock down.
     const Props& props() const { return props_; }

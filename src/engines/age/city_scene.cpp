@@ -369,7 +369,7 @@ size_t CityScene::draw(const gfx::Mat4& viewProj, const gfx::Vec3& eye, bool mod
     }
 
     // The sky round the eye, behind everything.
-    if (skyMesh_.mesh) {
+    if (skyMesh_.mesh && skyShown_) {
         gfx::Mat4 at = gfx::identity();
         at[12] = eye[0];
         at[13] = eye[1];
@@ -421,10 +421,10 @@ size_t CityScene::draw(const gfx::Mat4& viewProj, const gfx::Vec3& eye, bool mod
             continue;
         const float dx = p.center[0] - eye[0], dy = p.center[1] - eye[1], dz = p.center[2] - eye[2];
         const float distance = std::sqrt(dx * dx + dy * dy + dz * dz);
-        if (distance - p.radius > kModelDistance || !visible(p.center, p.radius))
+        if (distance - p.radius > std::min(kModelDistance, modelDistance_) || !visible(p.center, p.radius))
             continue;
         // Finer levels nearer, by how large the model looks.
-        const float size = distance / std::max(1.0f, p.radius);
+        const float size = distance / std::max(1.0f, p.radius) / std::max(0.1f, detail_);
         const size_t levels = p.model->levels.size();
         const size_t level = std::min<size_t>(levels - 1, size < 10 ? 0 : size < 25 ? 1 : size < 60 ? 2 : 3);
         shown.push_back({&p, &p.model->levels[level]});

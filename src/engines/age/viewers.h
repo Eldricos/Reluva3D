@@ -59,6 +59,7 @@
 #include "engines/age/damage.h"
 #include "engines/age/dashboard.h"
 #include "engines/age/front_end.h"
+#include "engines/age/game_menus.h"
 #include "engines/age/hud_map.h"
 #include "engines/age/hud_pictures.h"
 #include "engines/age/lang.h"
@@ -68,6 +69,7 @@
 #include "engines/age/music.h"
 #include "engines/age/net_menus.h"
 #include "engines/age/opponent.h"
+#include "engines/age/options.h"
 #include "engines/age/race.h"
 #include "engines/age/road_graph.h"
 #include "engines/age/games.h"
@@ -111,6 +113,8 @@ public:
     // Whether Esc and Tab (which otherwise leave and switch pages) go to
     // the page instead.
     virtual bool takesKey(const Event& /*ev*/) const { return false; }
+    // The player asked to leave the game (its Quit dialog).
+    virtual bool wantsToQuit() const { return false; }
 
 protected:
     void clear(uint8_t r, uint8_t g, uint8_t b);
@@ -138,8 +142,21 @@ enum DriveKeys : uint32_t {
     kDriveLeft = 4,
     kDriveRight = 8,
     kDriveHandbrake = 16,
-    kDriveHorn = 32
+    kDriveHorn = 32,
+    kDriveReverse = 64
 };
+// What a key is bound to (the Control Options' keys).
+Control controlOf(uint32_t key);
+// The player's car takes the Control Options (auto reverse, steering).
+void applyControlOptions(CarSim& sim);
+// The scene and the city's life take the Graphics and Audio Options:
+// the sky, smart rendering (the .cpvs), how far and how finely models are
+// drawn, the ambient sounds. Cheap: called every frame.
+void applyGraphicsOptions(CityScene& scene, CityLife& life);
+// The share of pedestrians the options leave (Show Pedestrians).
+float pedestrianShare();
+// Headlights lighting the road (the Lighting Quality).
+bool headlightPoolsOn();
 uint32_t driveKeyOf(uint32_t key);
 CarControls controlsOf(uint32_t keys);
 
@@ -367,6 +384,7 @@ public:
     void update(uint64_t nowMs) override;
     bool uses3D() const override { return true; }
     bool takesKey(const Event& ev) const override;
+    bool wantsToQuit() const override { return quit_; }
 
 private:
     enum class State { Menu, Countdown, Racing, Finished };
@@ -463,6 +481,8 @@ private:
 
     // Multiplayer (race_net.cpp): the game's multiplayer menus, then the
     // session's game, each car driven on its own machine.
+    std::unique_ptr<GameMenus> game_; // the Options and the main menu's dialogs
+    bool quit_ = false;
     std::unique_ptr<NetMenus> net_;
     bool netMenus_ = false;     // the multiplayer menus are up
     bool netGame_ = false;      // playing a multiplayer game

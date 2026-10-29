@@ -104,6 +104,8 @@ public:
                     continue;
                 }
                 pages[page]->handleEvent(ev);
+                if (pages[page]->wantsToQuit())
+                    return Error::success();
             }
             pages[page]->update(sys_.getMillis());
             sys_.updateScreen(screen_);
