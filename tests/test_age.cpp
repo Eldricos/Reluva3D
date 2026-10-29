@@ -2577,6 +2577,49 @@ static void testReplays(const std::filesystem::path& tmp) {
     CHECK(listReplays(tmp / "none").empty());
 }
 
+static void testDrivers(const std::filesystem::path& tmp) {
+    std::filesystem::remove_all(tmp);
+    std::filesystem::create_directories(tmp);
+    // Before there were drivers: the record that was is the first's.
+    PlayerRecord old;
+    CHECK(!old.load(tmp));
+    old.raced("sf", RaceKind::Blitz, 2, false, 1, 61.5f);
+    old.raced("sf", RaceKind::Blitz, 2, false, 3, 70.0f); // the best kept
+    old.setLastRace("london", RaceKind::Circuit, 4);
+    CHECK(!old.save());
+    DriverRoster roster;
+    CHECK(!roster.load(tmp));
+    CHECK(roster.drivers().size() == 1 && roster.driver().name == "Player" && roster.driver().file == "record.txt");
+    PlayerRecord first;
+    first.load(tmp, roster.driver().file);
+    CHECK(first.bestPlace("sf", RaceKind::Blitz, 2, false) == 1 &&
+          std::fabs(first.bestTime("sf", RaceKind::Blitz, 2, false) - 61.5f) < 0.01f &&
+          first.bestTime("sf", RaceKind::Blitz, 3, false) < 0);
+    std::string city;
+    RaceKind kind = RaceKind::Blitz;
+    int index = 0;
+    CHECK(first.lastRace(city, kind, index) && city == "london" && kind == RaceKind::Circuit && index == 4);
+
+    // A new driver: theirs alone, a record of their own; no name twice.
+    CHECK(!roster.add("Bob", true) && roster.current() == 1 && roster.driver().professional &&
+          roster.driver().file == "record-1.txt");
+    CHECK(roster.add("bob", false) && roster.has("BOB") && roster.drivers().size() == 2);
+    PlayerRecord bob;
+    bob.load(tmp, roster.driver().file);
+    CHECK(bob.bestPlace("sf", RaceKind::Blitz, 2, false) == 0 && !bob.lastRace(city, kind, index));
+    bob.raced("sf", RaceKind::Blitz, 2, true, 2, 55);
+    CHECK(!bob.save() && !roster.save());
+    DriverRoster again;
+    again.load(tmp);
+    CHECK(again.drivers().size() == 2 && again.current() == 1 && again.drivers()[1].name == "Bob" &&
+          again.drivers()[1].professional);
+
+    // Deleted, with the record; never the only one.
+    CHECK(!again.remove(0) && again.drivers().size() == 1 && again.current() == 0 &&
+          !std::filesystem::exists(tmp / "record.txt") && std::filesystem::exists(tmp / "record-1.txt"));
+    CHECK(again.remove(0) && again.drivers().size() == 1);
+}
+
 int main() {
     const auto tmp = std::filesystem::temp_directory_path() / "reluva_age_tests";
     testArchive(tmp / "archive");
@@ -2623,6 +2666,7 @@ int main() {
     testGoldGame();
     testOptions(tmp / "options");
     testReplays(tmp / "replays");
+    testDrivers(tmp / "drivers");
     std::filesystem::remove_all(tmp);
     if (failures) {
         std::fprintf(stderr, "%d check(s) failed\n", failures);

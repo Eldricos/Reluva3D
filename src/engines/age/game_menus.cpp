@@ -66,6 +66,17 @@ GameMenus::GameMenus(System& sys, const SearchSet& files, const GameStrings& str
     std::vector<uint8_t> data;
     if (!files.read("tune/widget.csv", data))
         ok_ = !parseWidgets(std::string(data.begin(), data.end()), widgets_) && pictures_.jpg("opt_bk");
+    // A name used again in a menu (Create a New Driver's two "checkbox",
+    // the records' "popup_checkbox"es) is numbered: "checkbox#2"...
+    for (size_t i = 0; i < widgets_.size(); ++i) {
+        int seen = 1;
+        for (size_t j = 0; j < i; ++j)
+            if (widgets_[j].menu == widgets_[i].menu &&
+                widgets_[j].name.substr(0, widgets_[j].name.find('#')) == widgets_[i].name)
+                ++seen;
+        if (seen > 1)
+            widgets_[i].name += "#" + std::to_string(seen);
+    }
 }
 
 std::string GameMenus::menuName() const {
@@ -94,11 +105,18 @@ std::string GameMenus::menuName() const {
         return "Replay Description";
     case Screen::None:
         break;
+    default:
+        return driverMenuName();
     }
     return {};
 }
 
 int GameMenus::originX() const {
+    if (driverScreen(screen_)) {
+        int x = 0, y = 0;
+        driverOrigin(x, y);
+        return x;
+    }
     switch (screen_) {
     case Screen::Defaults:
     case Screen::DuplicateKey:
@@ -114,6 +132,11 @@ int GameMenus::originX() const {
 }
 
 int GameMenus::originY() const {
+    if (driverScreen(screen_)) {
+        int x = 0, y = 0;
+        driverOrigin(x, y);
+        return y;
+    }
     switch (screen_) {
     case Screen::Defaults:
     case Screen::DuplicateKey:
@@ -130,10 +153,13 @@ int GameMenus::originY() const {
 }
 
 bool GameMenus::overlay(Screen s) const {
-    return s == Screen::Quit || s == Screen::ReplayAsk || s == Screen::ReplayList || s == Screen::ReplayName;
+    return s == Screen::Quit || s == Screen::ReplayAsk || s == Screen::ReplayList || s == Screen::ReplayName ||
+           driverScreen(s);
 }
 
-bool GameMenus::typing() const { return waitingForKey_ || screen_ == Screen::ReplayName; }
+bool GameMenus::typing() const {
+    return waitingForKey_ || screen_ == Screen::ReplayName || (screen_ == Screen::NewDriver && focus_ == 0);
+}
 
 void GameMenus::nameReplay(const std::string& name) {
     name_ = name.substr(0, 40);
@@ -230,6 +256,8 @@ std::vector<GameMenus::Item> GameMenus::items() const {
                 button("dlg_done", "dlg_done")};
     case Screen::None:
         return {};
+    default:
+        return driverItems();
     }
     list.insert(list.end(), bottom.begin(), bottom.end());
     return list;
@@ -244,13 +272,25 @@ void GameMenus::open(Screen s) {
 }
 
 void GameMenus::go(Screen s) {
+    if (s == Screen::DeleteDriver && roster_ && roster_->drivers().size() <= 1)
+        s = Screen::LastDriver; // "You cannot delete your only driver"
+    if (s == Screen::NewDriver && screen_ != Screen::DuplicateDriver) {
+        newName_.clear();
+        newPro_ = false;
+    }
+    if (s == Screen::DriverStats || s == Screen::RaceRecords) {
+        screen_ = s;
+        tableRow_ = 0;
+        buildTable();
+    }
     if (s == Screen::ReplayList) {
         replays_ = listReplays(savePath_);
         replayRow_ = std::min(replayRow_, replays_.empty() ? 0 : replays_.size() - 1);
     }
-    if (s == Screen::Defaults || s == Screen::DuplicateKey || s == Screen::Quit || s == Screen::ReplayName) {
+    if (s == Screen::Defaults || s == Screen::DuplicateKey || s == Screen::Quit || s == Screen::ReplayName ||
+        s == Screen::DuplicateDriver) {
         if (screen_ != Screen::Defaults && screen_ != Screen::DuplicateKey && screen_ != Screen::Quit &&
-            screen_ != Screen::ReplayName)
+            screen_ != Screen::ReplayName && screen_ != Screen::DuplicateDriver)
             under_ = screen_;
     } else if (s != Screen::None && s != Screen::Options && screen_ == Screen::Options)
         entered_ = edit_; // what Cancel on the screen goes back to
@@ -268,6 +308,8 @@ void GameMenus::go(Screen s) {
 }
 
 bool GameMenus::checked(const std::string& w) const {
+    if (driverScreen(screen_))
+        return driverChecked(w);
     const GameOptions& o = edit_;
     if (w == "aud_fx")
         return o.soundFx;
@@ -291,6 +333,10 @@ bool GameMenus::checked(const std::string& w) const {
 }
 
 void GameMenus::toggle(const std::string& w) {
+    if (driverScreen(screen_)) {
+        driverToggle(w);
+        return;
+    }
     GameOptions& o = edit_;
     if (w == "aud_fx")
         o.soundFx = !o.soundFx;
@@ -459,6 +505,8 @@ GameMenus::Action GameMenus::cancel() {
 GameMenus::Action GameMenus::activate(const Item& item) {
     if (!item.enabled)
         return Action::None;
+    if (driverScreen(screen_))
+        return driverActivate(item);
     const std::string& w = item.widget;
     if (item.kind == Kind::Check) {
         toggle(w);
@@ -595,6 +643,21 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
         slot = ev.key;
         return Action::None;
     }
+    if (screen_ == Screen::NewDriver && focus_ == 0) {
+        if (ev.type == EventType::TextInput) {
+            for (const char* c = ev.text; *c; ++c)
+                if (static_cast<unsigned char>(*c) >= 32 && newName_.size() < 20)
+                    newName_.push_back(*c);
+            return Action::None;
+        }
+        if (ev.type == EventType::KeyDown && ev.key == key::Backspace) {
+            if (!newName_.empty())
+                newName_.pop_back();
+            return Action::None;
+        }
+        if (ev.type == EventType::KeyDown && ev.key == key::Space)
+            return Action::None;
+    }
     if (screen_ == Screen::ReplayName) {
         if (ev.type == EventType::TextInput) {
             for (const char* c = ev.text; *c; ++c)
@@ -640,7 +703,12 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
     case key::Up:
     case key::Down: {
         const int dir = ev.key == key::Down ? 1 : -1;
-        if (item.kind == Kind::List && screen_ == Screen::ReplayList) {
+        if (item.kind == Kind::List && (screen_ == Screen::DriverStats || screen_ == Screen::RaceRecords)) {
+            if (int(tableRow_) + dir >= 0 && size_t(int(tableRow_) + dir) + 1 < table_.size()) {
+                tableRow_ = size_t(int(tableRow_) + dir);
+                break;
+            }
+        } else if (item.kind == Kind::List && screen_ == Screen::ReplayList) {
             if (int(replayRow_) + dir >= 0 && size_t(int(replayRow_) + dir) < replays_.size()) {
                 replayRow_ = size_t(int(replayRow_) + dir);
                 break;
@@ -676,6 +744,17 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
             return Action::Closed;
         case Screen::ReplayName:
             return activate(Item{Kind::Button, "dlg_cancel", {}, 4, true});
+        case Screen::DuplicateDriver:
+            go(Screen::NewDriver);
+            break;
+        case Screen::NewDriver:
+        case Screen::DeleteDriver:
+        case Screen::LastDriver:
+        case Screen::DriverStats:
+        case Screen::RaceRecords:
+            screen_ = Screen::None;
+            sys_.setTextInput(false);
+            return Action::Closed;
         case Screen::About:
             go(Screen::Options);
             break;
@@ -741,6 +820,10 @@ void GameMenus::drawItems(Surface& o, const std::vector<Item>& list, int focus) 
                 font::drawText(o, x - 10, y + 4, ">", {255, 255, 120});
             break;
         case Kind::Text:
+            if (screen_ == Screen::NewDriver) {
+                text(o, item.widget, newName_ + (focused && (nowMs_ / 400) % 2 ? "_" : ""), {255, 255, 255});
+                break;
+            }
             // The end of it, as much as the box holds.
             text(o, item.widget,
                  (name_.size() > 36 ? name_.substr(name_.size() - 36) : name_) + ((nowMs_ / 400) % 2 ? "_" : ""),
@@ -829,6 +912,24 @@ void GameMenus::draw(Surface& o, uint64_t nowMs) {
             drawReplayList(o);
             screen_ = was;
             focus_ = keep;
+        }
+        if (driverScreen(was)) {
+            // The new driver's form under the duplicate name's warning.
+            if (was == Screen::DuplicateDriver) {
+                screen_ = Screen::NewDriver;
+                focus_ = -1;
+                if (const image::Image* d = pictures_.jpg(driverPicture(Screen::NewDriver)))
+                    drawPicture(o, *d, originX(), originY());
+                drawItems(o, items(), -1);
+                screen_ = was;
+                focus_ = keep;
+            }
+            if (const image::Image* d = pictures_.jpg(driverPicture(was)))
+                drawPicture(o, *d, originX(), originY());
+            if (was == Screen::DriverStats || was == Screen::RaceRecords)
+                drawTable(o);
+            drawItems(o, items(), focus_);
+            return;
         }
         const char* picture = was == Screen::ReplayList   ? "rpl_bk"
                               : was == Screen::ReplayName ? "REDIT_BK"

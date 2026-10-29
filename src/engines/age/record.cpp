@@ -3,6 +3,8 @@
 
 #include "engines/age/record.h"
 
+#include <algorithm>
+#include <cstdio>
 #include <fstream>
 #include <sstream>
 
@@ -38,10 +40,12 @@ const char* kindPlural(RaceKind k) {
 
 } // namespace
 
-Error PlayerRecord::load(const std::filesystem::path& folder) {
+Error PlayerRecord::load(const std::filesystem::path& folder, const std::string& file) {
     places_.clear();
     lessons_.clear();
-    path_ = folder.empty() ? std::filesystem::path() : folder / kFileName;
+    times_.clear();
+    last_.clear();
+    path_ = folder.empty() ? std::filesystem::path() : folder / file;
     if (path_.empty())
         return Error::success();
     std::ifstream in(path_, std::ios::binary);
@@ -65,10 +69,13 @@ Error PlayerRecord::save() const {
 }
 
 Error PlayerRecord::parse(const std::string& text) {
-    // Lines: "race <city> <kind> <index> <a|p> <place>" and
-    // "lesson <city> <index>"; '#' starts a comment.
+    // Lines: "race <city> <kind> <index> <a|p> <place>", "time <city>
+    // <kind> <index> <a|p> <seconds>", "lesson <city> <index>" and "last
+    // <city> <kind> <index>"; '#' starts a comment.
     places_.clear();
     lessons_.clear();
+    times_.clear();
+    last_.clear();
     std::istringstream lines(text);
     std::string line;
     while (std::getline(lines, line)) {
@@ -84,6 +91,21 @@ Error PlayerRecord::parse(const std::string& text) {
                 if (best == 0 || place < best)
                     best = place;
             }
+        } else if (what == "time") {
+            std::string city, kind, level;
+            int index = 0;
+            float seconds = -1;
+            if (words >> city >> kind >> index >> level >> seconds && seconds > 0) {
+                const std::string key = city + " " + kind + " " + std::to_string(index) + " " + level;
+                auto it = times_.find(key);
+                if (it == times_.end() || seconds < it->second)
+                    times_[key] = seconds;
+            }
+        } else if (what == "last") {
+            std::string city, kind;
+            int index = 0;
+            if (words >> city >> kind >> index)
+                last_ = city + " " + kind + " " + std::to_string(index);
         } else if (what == "lesson") {
             std::string city;
             int index = 0;
@@ -98,18 +120,53 @@ std::string PlayerRecord::text() const {
     std::string out = "# Reluva's record of a Midtown Madness 2 player\n";
     for (const auto& [key, place] : places_)
         out += "race " + key + " " + std::to_string(place) + "\n";
+    for (const auto& [key, seconds] : times_) {
+        char buf[32];
+        std::snprintf(buf, sizeof buf, " %.2f", double(seconds));
+        out += "time " + key + buf + "\n";
+    }
     for (const auto& [key, done] : lessons_)
         if (done)
             out += "lesson " + key + "\n";
+    if (!last_.empty())
+        out += "last " + last_ + "\n";
     return out;
 }
 
-void PlayerRecord::raced(const std::string& city, RaceKind kind, int index, bool professional, int place) {
+void PlayerRecord::raced(const std::string& city, RaceKind kind, int index, bool professional, int place, float time) {
+    if (time > 0) {
+        const std::string key = raceKey(city, kind, index, professional);
+        auto it = times_.find(key);
+        if (it == times_.end() || time < it->second)
+            times_[key] = time;
+    }
     if (place <= 0)
         return;
     int& best = places_[raceKey(city, kind, index, professional)];
     if (best == 0 || place < best)
         best = place;
+}
+
+float PlayerRecord::bestTime(const std::string& city, RaceKind kind, int index, bool professional) const {
+    auto it = times_.find(raceKey(city, kind, index, professional));
+    return it == times_.end() ? -1 : it->second;
+}
+
+void PlayerRecord::setLastRace(const std::string& city, RaceKind kind, int index) {
+    last_ = city + " " + kindWord(kind) + " " + std::to_string(index);
+}
+
+bool PlayerRecord::lastRace(std::string& city, RaceKind& kind, int& index) const {
+    std::istringstream words(last_);
+    std::string k;
+    if (!(words >> city >> k >> index))
+        return false;
+    for (RaceKind r : {RaceKind::Blitz, RaceKind::Circuit, RaceKind::Checkpoint, RaceKind::CrashCourse})
+        if (k == kindWord(r)) {
+            kind = r;
+            return true;
+        }
+    return false;
 }
 
 int PlayerRecord::bestPlace(const std::string& city, RaceKind kind, int index, bool professional) const {
@@ -215,6 +272,92 @@ bool raceOpen(const PlayerRecord& record, const std::string& city, RaceKind kind
             return false;
     }
     return true;
+}
+
+Error DriverRoster::load(const std::filesystem::path& folder) {
+    folder_ = folder;
+    drivers_.clear();
+    current_ = 0;
+    std::ifstream in(folder / kFileName, std::ios::binary);
+    for (std::string line; in && std::getline(in, line);) {
+        while (!line.empty() && (line.back() == '\r' || line.back() == '\n'))
+            line.pop_back();
+        if (line.rfind("current ", 0) == 0) {
+            current_ = std::atoi(line.c_str() + 8);
+            continue;
+        }
+        // <file> TAB <a|p> TAB <name>
+        const size_t a = line.find('\t'), b = a == std::string::npos ? a : line.find('\t', a + 1);
+        if (b == std::string::npos || line[0] == '#')
+            continue;
+        drivers_.push_back({line.substr(b + 1), line.substr(a + 1, b - a - 1) == "p", line.substr(0, a)});
+    }
+    if (drivers_.empty())
+        drivers_.push_back({"Player", false, PlayerRecord::kFileName}); // before there were drivers
+    current_ = std::clamp(current_, 0, int(drivers_.size()) - 1);
+    return Error::success();
+}
+
+Error DriverRoster::save() const {
+    if (folder_.empty())
+        return Error::fail("No save folder");
+    std::error_code ec;
+    std::filesystem::create_directories(folder_, ec);
+    std::ofstream out(folder_ / kFileName, std::ios::binary);
+    out << "# Reluva's Midtown Madness 2 drivers: record file, a or p, name\n";
+    for (const DriverEntry& d : drivers_)
+        out << d.file << '\t' << (d.professional ? 'p' : 'a') << '\t' << d.name << '\n';
+    out << "current " << current_ << '\n';
+    return out ? Error::success() : Error::fail("Can't write " + (folder_ / kFileName).string());
+}
+
+void DriverRoster::setCurrent(int index) {
+    if (!drivers_.empty())
+        current_ = std::clamp(index, 0, int(drivers_.size()) - 1);
+}
+
+bool DriverRoster::has(const std::string& name) const {
+    auto lower = [](std::string s) {
+        for (char& c : s)
+            c = char(std::tolower(static_cast<unsigned char>(c)));
+        return s;
+    };
+    for (const DriverEntry& d : drivers_)
+        if (lower(d.name) == lower(name))
+            return true;
+    return false;
+}
+
+Error DriverRoster::add(const std::string& name, bool professional) {
+    if (name.empty() || has(name))
+        return Error::fail("That driver name already exists");
+    // record-<n>.txt: the first number not taken.
+    std::string file;
+    for (int n = 1;; ++n) {
+        file = "record-" + std::to_string(n) + ".txt";
+        bool taken = false;
+        for (const DriverEntry& d : drivers_)
+            taken = taken || d.file == file;
+        std::error_code ec;
+        if (!taken && !std::filesystem::exists(folder_ / file, ec))
+            break;
+    }
+    drivers_.push_back({name, professional, file});
+    current_ = int(drivers_.size()) - 1;
+    return Error::success();
+}
+
+Error DriverRoster::remove(int index) {
+    if (drivers_.size() <= 1)
+        return Error::fail("You cannot delete your only driver");
+    if (index < 0 || size_t(index) >= drivers_.size())
+        return Error::fail("No such driver");
+    std::error_code ec;
+    if (!folder_.empty())
+        std::filesystem::remove(folder_ / drivers_[size_t(index)].file, ec);
+    drivers_.erase(drivers_.begin() + index);
+    current_ = std::clamp(current_ > index ? current_ - 1 : current_, 0, int(drivers_.size()) - 1);
+    return Error::success();
 }
 
 } // namespace reluva::age

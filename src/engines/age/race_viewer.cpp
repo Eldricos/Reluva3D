@@ -84,7 +84,9 @@ void RaceViewer::activate() {
     overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
     applySoundOptions(loadOptions(ctx_.savePath), ctx_.mixer);
     strings_.load(ctx_.files);
-    record_.load(ctx_.savePath);
+    roster_.load(ctx_.savePath);
+    record_.load(ctx_.savePath, roster_.driver().file);
+    level_ = roster_.driver().professional ? 1 : 0;
     front_ = std::make_unique<FrontEnd>(ctx_.files, cities_, cars_, strings_, record_);
     if (!front_->loaded())
         front_.reset(); // the text menu instead
@@ -93,9 +95,13 @@ void RaceViewer::activate() {
         if (!net_->loaded())
             net_.reset();
         front_->multiplayer = net_ != nullptr;
+        front_->setDrivers(&roster_);
+        front_->choice().professional = roster_.driver().professional;
         game_ = std::make_unique<GameMenus>(ctx_.sys, ctx_.files, strings_, ctx_.mixer, ctx_.savePath);
         if (!game_->loaded())
             game_.reset();
+        else
+            game_->setDrivers(&roster_, &record_, &cities_);
     }
     quit_ = false;
     keys_ = 0;
@@ -152,6 +158,16 @@ bool RaceViewer::carIsOpen(int car) const {
         [&files](const std::string& city, RaceKind kind) { return int(raceNames(files, city, kind).size()); });
 }
 
+void RaceViewer::switchDriver() {
+    // Another driver: their record, their level.
+    record_.load(ctx_.savePath, roster_.driver().file);
+    level_ = roster_.driver().professional ? 1 : 0;
+    if (front_) {
+        front_->choice().professional = roster_.driver().professional;
+        front_->refreshChoice(); // for what's open to them
+    }
+}
+
 void RaceViewer::recordResult() {
     // Once a race: its place (a Blitz finished in time, first), or the
     // lesson passed; saved at once.
@@ -171,7 +187,8 @@ void RaceViewer::recordResult() {
         for (const Racer& r : racers_)
             if (!r.player && r.finishTime >= 0 && r.finishTime < player.finishTime)
                 ++place;
-        record_.raced(map, race_.kind, raceIndex_, level_ == 1, race_.kind == RaceKind::Blitz ? 1 : place);
+        record_.raced(map, race_.kind, raceIndex_, level_ == 1, race_.kind == RaceKind::Blitz ? 1 : place,
+                      player.finishTime);
     }
     if (Error err = record_.save(); err && !ctx_.savePath.empty())
         error_ = err.message;
@@ -311,6 +328,11 @@ void RaceViewer::startRace() {
     keys_ = 0;
     state_ = State::Countdown;
     setTitle(race_.name + " (" + raceKindName(race_.kind) + ", " + cities_[size_t(city_)].name + ")");
+    if (!replaying_ && !netGame_) {
+        // The last race run (Quick Race's), kept.
+        record_.setLastRace(map, race_.kind, raceIndex_);
+        record_.save();
+    }
     if (!replaying_) {
         // Recorded as it's driven, from here.
         recording_ = Replay{};
@@ -671,6 +693,18 @@ void RaceViewer::menuEvent(const Event& ev) {
     const FrontEnd::Action action = front_->handle(ev);
     if (action == FrontEnd::Action::Replays && game_) {
         game_->open(GameMenus::Screen::ReplayList);
+        return;
+    }
+    if (game_ && (action == FrontEnd::Action::NewDriver || action == FrontEnd::Action::DeleteDriver ||
+                  action == FrontEnd::Action::DriverStats || action == FrontEnd::Action::RaceRecords)) {
+        game_->open(action == FrontEnd::Action::NewDriver      ? GameMenus::Screen::NewDriver
+                    : action == FrontEnd::Action::DeleteDriver ? GameMenus::Screen::DeleteDriver
+                    : action == FrontEnd::Action::DriverStats  ? GameMenus::Screen::DriverStats
+                                                               : GameMenus::Screen::RaceRecords);
+        return;
+    }
+    if (action == FrontEnd::Action::DriverChanged) {
+        switchDriver();
         return;
     }
     openAll_ = front_->openAll;

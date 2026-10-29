@@ -11,6 +11,8 @@
 #include "common/system.h"
 #include "engines/age/front_end.h"
 #include "engines/age/options.h"
+#include "engines/age/record.h"
+
 #include "engines/age/replay.h"
 
 #include <filesystem>
@@ -30,19 +32,26 @@ public:
         Control,
         Customize,
         About,
-        Defaults,     // odef_dlg: restore the defaults?
-        DuplicateKey, // ctrl_dlg
-        Quit,         // quit_dlg
-        ReplayList,   // rpl_bk: choose a replay file
-        ReplayName,   // REDIT_BK: save as, or rename
-        ReplayAsk,    // "Do you want to save this replay?"
+        Defaults,        // odef_dlg: restore the defaults?
+        DuplicateKey,    // ctrl_dlg
+        Quit,            // quit_dlg
+        ReplayList,      // rpl_bk: choose a replay file
+        ReplayName,      // REDIT_BK: save as, or rename
+        ReplayAsk,       // "Do you want to save this replay?"
+        NewDriver,       // newp_dlg: Create a New Driver
+        DuplicateDriver, // dupp_dlg
+        DeleteDriver,    // delp_dlg: are you sure?
+        LastDriver,      // lstp_dlg: you cannot delete your only driver
+        DriverStats,     // drec_dlg: Driver's Stats
+        RaceRecords,     // hoff_dlg: Race Records
     };
     enum class Action {
         None,
-        Closed,     // back to whatever opened it
-        Quit,       // leave the game
-        LoadReplay, // play replayFile()
-        SaveReplay, // save the replay played as replayName()
+        Closed,        // back to whatever opened it
+        Quit,          // leave the game
+        LoadReplay,    // play replayFile()
+        SaveReplay,    // save the replay played as replayName()
+        DriverChanged, // a driver added or deleted: the current one's record to read
     };
 
     GameMenus(System& sys, const SearchSet& files, const GameStrings& strings, audio::Mixer* mixer,
@@ -59,6 +68,13 @@ public:
     void askToSaveReplay(const std::string& name);
     // Save the replay played as (the replay's own Save).
     void nameReplay(const std::string& name);
+    // The drivers and their records, for the driver dialogs (and the
+    // cities, for the records' tables).
+    void setDrivers(DriverRoster* roster, PlayerRecord* record, const std::vector<CityInfo>* cities) {
+        roster_ = roster;
+        record_ = record;
+        cities_ = cities;
+    }
     const std::filesystem::path& replayFile() const { return replayFile_; }
     const std::string& replayName() const { return name_; }
 
@@ -115,6 +131,26 @@ private:
     std::string name_;            // the replay's name being typed
     bool overlay(Screen s) const; // a dialog over whatever's beneath (drawn already)
     void drawReplayList(Surface& o) const;
+
+    // The driver dialogs (game_menus_drivers.cpp).
+    DriverRoster* roster_ = nullptr;
+    PlayerRecord* record_ = nullptr;
+    const std::vector<CityInfo>* cities_ = nullptr;
+    std::string newName_;
+    bool newPro_ = false;
+    std::array<bool, 8> filters_{true, true, false, true, true, true, true, true};
+    std::vector<std::string> table_; // the stats' or records' lines
+    size_t tableRow_ = 0;
+    bool driverScreen(Screen s) const { return s >= Screen::NewDriver && s <= Screen::RaceRecords; }
+    std::string driverMenuName() const;
+    void driverOrigin(int& x, int& y) const;
+    std::vector<Item> driverItems() const;
+    Action driverActivate(const Item& item);
+    bool driverChecked(const std::string& w) const;
+    void driverToggle(const std::string& w);
+    void buildTable();
+    void drawTable(Surface& o) const;
+    const char* driverPicture(Screen s) const;
 };
 
 } // namespace reluva::age

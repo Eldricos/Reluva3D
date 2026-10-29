@@ -267,6 +267,9 @@ void RaceViewer::gameMenuEvent(const Event& ev) {
         if (replayQuitting_)
             endReplay(); // not saved
         break;
+    case GameMenus::Action::DriverChanged:
+        switchDriver();
+        break;
     default:
         break;
     }

@@ -223,5 +223,39 @@ What the options do in Reluva:
   them, which Reluva's single race doesn't offer (each race has its
   own); `uialert` has no place found yet.
 
-Not drawn: the other menus (driver records, the Cops & Robbers Settings
-and serial dialogs, the Race Environment dialog, the other dialogs).
+## Drivers and records
+
+The main menu's **SELECT DRIVER**: the driver's name and level in its
+box (Left/Right goes to another), and every driver in the grid below it.
+Each driver has their own level (Amateur or Professional, chosen when
+they're created) and their own record
+([age-racing.md](age-racing.md#the-record-and-unlocking)). The buttons
+beside it (`texture/DVRNEW`, `DVRDEL`, `DVRSTS`, `RACE_REC`) open:
+
+- **Create a New Driver** (`jpg/newp_dlg`): the name, AMATEUR or
+  PROFESSIONAL (`texture/Checkbox`), CANCEL and DONE. A name already
+  taken (whatever its letters' case) gets the game's `jpg/dupp_dlg`:
+  "The driver name you entered already exists. Please enter a unique
+  driver name."
+- **Delete This Driver**: the game's `jpg/delp_dlg`, "Are you sure you
+  want to delete this driver?" (YES and NO). The only driver can't be
+  deleted: `jpg/lstp_dlg`.
+- **Driver's Stats** (`jpg/drec_dlg`): the driver's best place and time
+  in each race at each level. Its checks (`texture/dlg_chkb`) choose the
+  events and the cities.
+- **Race Records** (`jpg/hoff_dlg`): each race's best time at each level
+  among all the drivers, and whose it is. Its checks choose amateur
+  times, professional times, the events and the cities. The game's
+  professional points aren't kept by Reluva, so that check isn't
+  available.
+
+Two controls in each of these menus share a name in `widget.csv` (two
+`checkbox`es, five and eight `popup_checkbox`es). They're told apart by
+their order. The stats' and records' dialogs are 460 high, so they go
+at (50, 10) rather than `menu.csv`'s (50, 37).
+
+**Quick Race** (`main_qck`, "Quick Race starts you in the last race you
+ran") goes to the garage for the driver's last race, then starts it.
+
+Not drawn: the Cops & Robbers Settings and serial dialogs, the Race
+Environment dialog and the remaining small dialogs.
