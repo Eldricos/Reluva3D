@@ -823,6 +823,29 @@ reads, the vftables it builds for its own subclasses):
     With the sound, gamma and late-presenting changes, all 54 still ran
     to frame 3700 (5,056 s on 4 processors, against 5,298 s showing each
     frame at its own flip).
+- Done: **every Adventure mission solved**, by the game's own solutions.
+  Most missions ship a `<space>_SOLVED.PUZ` beside their puzzle: the same
+  room with the movable parts where they solve it (the four training
+  missions have none).
+  - `at-run -solved <space>` makes the game read that file in place of
+    `<space>.PUZ`. It writes a copy of `Etc.pac` whose directory entry for
+    the puzzle points at the solved one's data, and the run reads that
+    copy. `-until-advance` stops the run once `Game.txt` shows the first
+    Adventure on another mission: the game saves the next mission as
+    soon as one is won.
+  - `at-sweep -solved` runs every Adventure mission so, through the menus
+    and Go, up to frame 12000.
+  - Result, on 4 processors in 5,106 s: 50 of the 51 moved on, each
+    between frames 3225 and 3600 (Go is pressed at 3200), in the game's
+    own order (M2090 leads to the training mission M0020, M2160 to
+    M0030, M3050 to M0040). Without the solved puzzles, none moves on.
+  - The 51st, M4070, is the last mission. Solved, it goes straight to the
+    ending, "The Victory Party" and the credits, and saves nothing new.
+    That was checked from its frames.
+  - Spot checks of M1010 and M1085 show the crew running to the goal and
+    "We did it!" with Next Mission, Instant Replay and Return to HQ.
+  - So every behaviour DLL a solution needs works as shipped, in the
+    order the game's own solution runs it.
   - `AutoLoadPuzzle <space>` in `Config.txt` would skip the menus (the
     interface behaviour goes straight to `To_FirstSpace`), but the space
     then never shows: the game sits on a black screen, its sounds placed
@@ -1013,8 +1036,9 @@ reads, the vftables it builds for its own subclasses):
 
 Still to do, whichever way phase 3 chose:
 
-- a mission played start to finish, then every mission (solving each
-  puzzle);
+- every mission played start to finish by hand, placing the parts (each
+  is solved by the game's own `_SOLVED.PUZ`, above, and Mission One by
+  hand);
 - checked against the original running on a period machine or a
   virtual machine: screenshots and recordings side by side.
 
