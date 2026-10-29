@@ -29,16 +29,16 @@ All values are little-endian. Floats are 32-bit IEEE.
 
 | Offset | Size | Meaning |
 |---|---|---|
-| `0x0000` | u32 | unknown: `0x00101013` in the five `Render/pc` models, values that differ from file to file in the others |
+| `0x0000` | u32 | room for a pointer: the game puts its polygon buffer here when it loads the model; the files hold leftovers |
 | `0x0004` | u32 | number of triangles |
 | `0x0008` | u32 | number of vertices |
-| `0x000C` | u32 | 1 in 50 models, 2-7 in the rest; meaning unknown |
+| `0x000C` | u32 | number of texture pages: 1 on every car, 2-7 on the `Render/pc` models (the highest page used, plus 1) |
 | `0x0010` | u32 | offset of the vertices (0) |
 | `0x0014` | u32 | offset of the normals (12 × vertices) |
 | `0x0018` | u32 | offset of the triangles (24 × vertices) |
-| `0x001C` | u32 | offset of a table of 32 bytes per vertex, after the triangles (meaning unknown) |
+| `0x001C` | u32 | offset of the game's workspace, 32 bytes per vertex, after the triangles (below) |
 | `0x0020` | u32 | offset of a table of 12 bytes per vertex (not the vertices) |
-| `0x0024` | u32 | offset of a table of 12 bytes per vertex, to the end of the file (not the normals) |
+| `0x0024` | u32 | offset of a table of 12 bytes per vertex, to the end of the file: the normals the lighting uses (`0x49da30`) |
 | `0x0028` | 3 floats | half the model's size in x, y, z |
 | `0x0034` | u32 | number of dummies (at most 16) |
 | `0x0038` | 16 × 3 floats | dummy positions |
@@ -54,7 +54,7 @@ All values are little-endian. Floats are 32-bit IEEE.
 | `0x0904` | 16 × 4 u32 | secondary colours |
 | `0x0A04` | 16 × 64 | dummy names |
 | `0x0E04` | 64 × 64 | part names |
-| `0x1E04` | 256 | unknown |
+| `0x1E04` | 64 × u32 | room for the pages' texture handles, filled at load; leftovers in the files |
 
 The table offsets count from `0x1F04`. Name slots past the counts may
 hold leftover names.
@@ -102,13 +102,47 @@ The dummies are lights:
 |---|---|---|
 | 0 | u32 | texture page: 0 is the car's `car00.tga` |
 | 4 | 3 × u32 | vertex indices, within the part |
-| 16 | 12 | unknown; `00 FF 00 FF...` in 97% of triangles, otherwise grey values such as `80 80 80 FF` |
-| 28 | u32 | flags: mostly 0, 1, 2, `0x80` or 5; meaning unknown |
+| 16 | 12 | `00 FF 00 FF...` in 97% of triangles, otherwise grey values such as `80 80 80 FF`; the game never reads it |
+| 28 | u32 | flags (below): mostly 0, 1, 2, `0x80` or 5 |
 | 32 | 3 floats | u of each corner |
 | 44 | 3 floats | v of each corner (0 at the top of the texture) |
 
+The flags, as the game draws (`0x49d0e0` copies them to its polygons;
+`0x49dbf0` draws):
+
+| Flag | Meaning |
+|---|---|
+| `0x1` | no reflection (environment map) |
+| `0x2` | a stronger reflection colour (`0x55e6e0`, default white, instead of `0x55e6dc`, half grey) |
+| `0x4` | two-sided: not culled when facing away |
+| `0x8` | unlit: one constant colour instead of each corner's lighting |
+
+`0x10`, `0x20` and `0x80` are never tested.
+
 Every car uses only page 0. The `Render/pc` models (the cone and
 `cop0`-`cop4`) use pages 0-6, from their `.art` files.
+
+## How the game loads a model
+
+Read from nfs3.exe (October 2026). The car loader (`0x4b7a60`) reads the
+whole file into memory and fixes it up in place (`0x49cfa0`):
+
+- it allocates 132 bytes per triangle and 4 per vertex, and stores the
+  pointer at `0x0000`;
+- it points each polygon's corners into the workspace at `0x001C`, at
+  the part's first vertex plus the index, 32 bytes each;
+- it copies each triangle's page, indices, flags and u, v (not bytes
+  16-27).
+
+The textures go into `0x1E04` (`0x49d320`): with one page, the car's
+TGA; with more, each `.art` image (`0x49d130`). A triangle's texture is
+`0x1E04`[page & 63] (`0x49dd56`).
+
+The workspace holds each vertex as drawn: screen x, y, z at 0, 4, 8; the
+lit colour (ARGB) at 16; clip flags at 20 (a triangle whose three
+corners share one is dropped); the reflection's u, v at 24 and 28,
+made from the normals (`0x49db70`). The files keep the last values the
+authoring tool computed: `amd7`'s has screen positions near 240, 274.
 
 ## `.art`: the `Render/pc` models' pages
 
