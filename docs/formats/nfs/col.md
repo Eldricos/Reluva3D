@@ -87,12 +87,30 @@ blocks).
 | Offset | Size | Meaning |
 |---|---|---|
 | 0 | 3 × s32 | position, 16.16 fixed point, in the track's coordinates |
-| 12 | u32 | unknown (`0x550FF8` along Hometown's start) |
-| 16 | 3 × s8, u8 | normal (÷ 127), then an unknown byte |
-| 20 | 3 × s8, u8 | forward |
-| 24 | 3 × s8, u8 | right |
+| 12 | u16 | a mask, bits across the road (below) |
+| 14 | u8 | two 4-bit codes, one for each side: the low one left, the high one right |
+| 15 | u8 | 0; 3 throughout `trk004`. Not read anywhere found |
+| 16 | 3 × s8, u8 | normal (÷ 127), then the lanes: the high 4 bits on the left, the low 4 on the right |
+| 20 | 3 × s8, u8 | forward, then the left lanes' width |
+| 24 | 3 × s8, u8 | right, then the right lanes' width |
 | 28 | s32 | the left wall's distance from the point along −right, 16.16 |
 | 32 | s32 | the right wall's distance along right, 16.16 |
+
+From nfs3.exe (October 2026; the block loader `0x41e370` keeps a pointer
+to the points, used in place):
+
+- **Lanes.** The road's sides are lanes × width × ½ from the point
+  (`0x408cbb` tests a car's sideways position against both;
+  `0x42006d` finds the right edge). Hometown has 1-2 lanes a side, 15-16
+  wide.
+- **The mask** (`0x4250bc`, `0x425f9c`) goes to `0x423fe0`, which asks
+  whether its set bits are one run; when they aren't, the game takes
+  another path (`0x4bdbd0`). 9 to 227 points a track have such a gap.
+  What a bit stands for isn't known.
+- **The side codes** (`0x430b04`, after a collision test): the code of
+  the side the car is on, as `0x40000` + code, goes to a car field the
+  game also sets to other event codes. 0-5 are seen; 2 is tested on its
+  own (`0x420cb2`). Probably the wall's kind; not settled.
 
 This is what the game drives on and keeps cars within. It will matter
 for driving, AI and the camera. Reluva reads it, but uses it only for

@@ -71,7 +71,7 @@ Attached blocks after the picture:
 | `0x2D` | palette, 16-bit 1:5:5:5; 16-byte header, width = number of colours (up to 256) | 6,306 |
 | `0x2A` | palette, 32-bit B, G, R, A | 70 |
 | `0x6F` | text: u32 length at offset 4, the text at 8 | 266 |
-| `0x7C` | a u32 count, then values: hot spots on cockpit pictures (`dash.qfs`); not decoded yet | 96 |
+| `0x7C` | a u32 count, then count (x, y) pairs of u32: the cockpit's gauges (below) | 96 |
 
 - **Palettes.** Every 8-bit picture has its own palette; no file has a
   shared `!pal` entry. The alpha bit in 16-bit palettes varies from
@@ -86,6 +86,33 @@ Attached blocks after the picture:
   - `R` × 10 is how far its corners are from its centre;
   - `ROTATE` turns it as it crosses the screen, `NOADD` blends it
     rather than adding it, and `INFRONT` draws it after the clouds.
+- **Gauges** (`0x7C`). On picture `0000` of each car's `dash.qfs`: 12
+  pairs, read by nfs3.exe (finder `0x4f2460`; the cockpit loader
+  `0x488ad0` copies 12 pairs to `0x792030` whatever the count; needles
+  drawn at `0x4880b0`). As 24 u32, in a 640×480 frame (scaled to the
+  screen):
+
+  | Values | Meaning |
+  |---|---|
+  | 0, 1 | a texel of the dash picture giving the needles' colour |
+  | 2 | the needle's width at its base (the tip is half) |
+  | 3 | not read |
+  | 4-13 | the speedometer: centre x, y; the hub's radius (the needle starts there); units (1 km/h, 0 mph); the lowest and highest reading; then p0 x, y and p1 x, y |
+  | 14-23 | the tachometer, the same; its units value isn't read, and its readings are thousands of rpm |
+
+  At the lowest reading the needle points from the centre toward p0, at
+  the highest toward p1, sweeping clockwise between them; its length is
+  the mean of the two distances. A gauge whose p0 equals p1 isn't drawn
+  (`merc` has all zeros: no gauges). Checked on all 17 cars: `amd7`'s
+  speedometer reads 0-170 mph about (384, 407), its tachometer 0-7
+  about (319, 407), and the colour texels are needle-coloured (white,
+  orange on `corv`, amber on `diab`). The F355's gear pictures (`geaR`
+  to `gea6`) carry 7 pairs too, the same on each; nothing reads them.
+- **Additive.** The picture loader (`0x4d40c3`, `0x4d42e8`) looks for
+  `<additive>`. The bare `additive` on picture `0064` of `tr000` and
+  `tr001` doesn't match it, so those aren't drawn additively. The sun's
+  text is read only by the sky loader (`0x47a970`); it knows no
+  keywords but `A`, `B`, `R`, `ROTATE`, `NOADD` and `INFRONT`.
 - **`sky.fsh`'s other pictures.** `CLDD`, `CLDN`, `CLWD` and `CLWN` are
   the cloud tiles. `CHRD`, `CHRN`, `CHRW` and `CHNW` are sphere maps, a
   ball's worth of sky, ground and horizon: the cars' reflections. The

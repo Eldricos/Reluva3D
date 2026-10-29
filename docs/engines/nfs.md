@@ -956,10 +956,8 @@ Allowed under CONTRIBUTING.md:
 ## Open questions
 
 
-- The `0x7C` blocks on cockpit pictures (hot spots?), and the flare
-  parameters in `0x6F` text blocks (`A0 B45 R24 ROTATE`).
-- The font header's flags and the size field that's 11 bytes short in
-  two fonts.
+- What the virtual road's mask bits and side codes stand for
+  ([col.md](../formats/nfs/col.md)).
 
 - The sound header tags not understood ([bnk.md](../formats/nfs/bnk.md)):
   `0x91` and the patch parameters the table there leaves out.

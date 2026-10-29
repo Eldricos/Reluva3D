@@ -23,15 +23,21 @@ All values are little-endian.
 | Offset | Size | Meaning |
 |---|---|---|
 | 0 | 4 | `FNTF` |
-| 4 | u32 | size. Equal to the file's in 6 fonts; in `arial10b` and `sci20` it's 11 bytes short (meaning unknown). |
+| 4 | u32 | size: 32 + 11 × glyphs + the atlas, without the padding before the atlas, so 11 short in `arial10b` and `sci20` (223 glyphs in room for 224). The game doesn't read it. |
 | 8 | u16 | 100 in all (a version?) |
 | 10 | u16 | number of glyphs (223 or 224) |
-| 12 | u16 | flags: 0, 1, 4 or 5; meaning unknown |
+| 12 | u16 | 0, 1, 4 or 5; the game doesn't read it |
+| 14 | u16 | 0 in all. If bits 0-1 are 2 (or there are over 255 glyphs, or the first code is above 255), the game looks codes up as 16-bit |
+| 16 | s8, s8 | x and y added to the pen where drawing starts |
 | 18 | u8 | line height in pixels |
-| 20 | u16 | 32 in all (the first character?) |
+| 19 | s8 | extra gap between lines: a new line moves down 18 + 19 |
+| 20 | u32 | offset of the glyph table: 32 in all |
 | 28 | u32 | offset of the atlas: 2496 in all (32 + 224 × 11) |
 
 The other bytes are 0 in every font.
+
+The game's two loaders (`setfont` at `0x4ef520`, `FONT_create` at
+`0x519f10`) were read in nfs3.exe (October 2026) for these fields.
 
 ## Glyphs (11 bytes each, from offset 32)
 
