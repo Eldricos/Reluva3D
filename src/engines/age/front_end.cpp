@@ -252,9 +252,15 @@ std::vector<FrontEnd::Item> FrontEnd::screenItems() const {
         return {{"dvrcc", true},
                 {"main_sp", true},
                 {"main_mp", true, multiplayer},
-                {"main_qck", true, false},
-                {"main_rpl", true, true, "main_rpl", 4},
-                {"DRIVER NAME", false}};
+                {"main_qck", true, quickRace()},
+                {"DRIVER NAME", false},
+                {"dvrnew", true, roster_ != nullptr, "DVRNEW", 4},
+                {"dvrdel", true, roster_ != nullptr, "DVRDEL", 4},
+                {"dvrsts", true, roster_ != nullptr, "DVRSTS", 4},
+                // RACE RECORDS and INSTANT REPLAY overlap where widget.csv
+                // puts them: the replay's drawn last, over the records'.
+                {"race_rec", true, roster_ != nullptr, "RACE_REC", 4},
+                {"main_rpl", true, true, "main_rpl", 4}};
     case Screen::Races:
         return {{"blitz", true},      {"cp", true},           {"circuit", true},
                 {"RACE NAME", false}, {"RACE LOCALE", false}, {"race_veh", true}};
@@ -314,7 +320,33 @@ void FrontEnd::activate(const Item& item, Action& action) {
         action = Action::Options;
     else if (w == "main_rpl")
         action = Action::Replays;
-    else if (w == "mnav_exit")
+    else if (w == "dvrnew")
+        action = Action::NewDriver;
+    else if (w == "dvrdel")
+        action = Action::DeleteDriver;
+    else if (w == "dvrsts")
+        action = Action::DriverStats;
+    else if (w == "race_rec")
+        action = Action::RaceRecords;
+    else if (w == "main_qck") {
+        // Quick Race: "Choose your vehicle and you're off! Quick Race starts
+        // you in the last race you ran."
+        std::string map;
+        RaceKind kind = RaceKind::Blitz;
+        int index = 0;
+        if (!record_.lastRace(map, kind, index))
+            return;
+        for (size_t i = 0; i < cities_.size(); ++i)
+            if (cities_[i].map == map)
+                choice_.city = int(i);
+        choice_.kind = kind;
+        choice_.race = index;
+        refresh();
+        afterGarage_ = Screen::Main;
+        screen_ = Screen::Garage;
+        focus_ = 0;
+        action = Action::Changed;
+    } else if (w == "mnav_exit")
         action = Action::Quit;
     else if (w == "blitz" || w == "cp" || w == "circuit") {
         choice_.kind = w == "blitz" ? RaceKind::Blitz : w == "cp" ? RaceKind::Checkpoint : RaceKind::Circuit;
@@ -341,7 +373,15 @@ void FrontEnd::change(const Item& item, int step) {
     } else if (w == "RACE LOCALE" || w == "city") {
         choice_.city = wrap(choice_.city + step, int(cities_.size()));
     } else if (w == "DRIVER NAME") {
-        choice_.professional = !choice_.professional; // the level, beside the name
+        // The next driver (their level comes with them).
+        if (roster_ && !roster_->drivers().empty()) {
+            roster_->setCurrent((roster_->current() + step + int(roster_->drivers().size())) %
+                                int(roster_->drivers().size()));
+            roster_->save();
+            choice_.professional = roster_->driver().professional;
+            driverChanged_ = true;
+        } else
+            choice_.professional = !choice_.professional;
     } else if (w == "VEHICLES") {
         choice_.car = wrap(choice_.car + step, int(cars_.size()));
         choice_.paintJob = 0;
@@ -393,6 +433,10 @@ FrontEnd::Action FrontEnd::handle(const Event& ev) {
                     // A field: its right half steps on, its left back.
                     const Widget* w = widget(list[i].widget);
                     change(list[i], w && ev.mouseX < w->x + w->w / 2 ? -1 : 1); // the city's box: on
+                    if (driverChanged_) {
+                        driverChanged_ = false;
+                        return Action::DriverChanged;
+                    }
                     action = Action::Changed;
                 }
                 return action;
@@ -417,6 +461,10 @@ FrontEnd::Action FrontEnd::handle(const Event& ev) {
     case key::Right:
         if (!item.button) {
             change(item, ev.key == key::Right ? 1 : -1);
+            if (driverChanged_) {
+                driverChanged_ = false;
+                return Action::DriverChanged;
+            }
             action = Action::Changed;
         }
         break;
@@ -541,10 +589,20 @@ void FrontEnd::draw(Surface& o) {
     std::string desc;
     if (screen_ == Screen::Main) {
         static const std::map<std::string, std::string> kDesc{
-            {"dvrcc", "mn_cc"}, {"main_sp", "mn_sp"}, {"main_mp", "mn_mp"}, {"main_qck", "mn_qck"}};
+            {"dvrcc", "mn_cc"},     {"main_sp", "mn_sp"},     {"main_mp", "mn_mp"}, {"main_qck", "mn_qck"},
+            {"dvrnew", "mn_new"},   {"dvrdel", "mn_del"},     {"dvrsts", "mn_sts"}, {"race_rec", "mn_rec"},
+            {"main_rpl", "mn_rpl"}, {"DRIVER NAME", "mn_drv"}};
         if (auto it = kDesc.find(list[size_t(focus_)].widget); it != kDesc.end())
             desc = it->second;
-        text(o, "DRIVER NAME", std::string("Player (") + (choice_.professional ? "Professional" : "Amateur") + ")");
+        // The driver, and every driver in the box below (the chosen one lit).
+        const std::string name = roster_ ? roster_->driver().name : std::string("Player");
+        text(o, "DRIVER NAME", name + " (" + (choice_.professional ? "Professional" : "Amateur") + ")");
+        if (roster_)
+            for (size_t i = 0; i < roster_->drivers().size() && i < 14; ++i) {
+                const DriverEntry& d = roster_->drivers()[i];
+                font::drawText(o, 184, 186 + int(i) * 14, d.name + (d.professional ? " (Pro)" : ""),
+                               int(i) == roster_->current() ? Color{255, 255, 120} : Color{200, 200, 255});
+            }
     } else if (screen_ == Screen::Races) {
         desc = choice_.kind == RaceKind::Blitz     ? "race_btz"
                : choice_.kind == RaceKind::Circuit ? "race_cir"

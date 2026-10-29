@@ -235,6 +235,7 @@ if(RELUVA_ENGINE_AGE)
         src/engines/age/cops_robbers.cpp
         src/engines/age/net_menus.cpp
         src/engines/age/game_menus.cpp
+        src/engines/age/game_menus_drivers.cpp
         src/engines/age/replay.cpp
         src/engines/age/drive_viewer.cpp
         src/engines/age/race_viewer.cpp

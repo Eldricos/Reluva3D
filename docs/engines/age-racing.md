@@ -156,10 +156,20 @@ the network, not from the race's seeds.
 
 ## The record and unlocking
 
-Reluva keeps what the player has done in `record.txt` in the game's save
-folder: each race's best place at each level (a Blitz finished in time
-counts as first) and the lessons passed. It's Reluva's own; the game's
-driver files (`.plr`) aren't read or written.
+Reluva keeps what each driver has done in a record of their own in the
+game's save folder. A record holds:
+
+- each race's best place and best time at each level (a Blitz finished
+  in time counts as first);
+- the lessons passed;
+- the last race run (the main menu's Quick Race starts it again).
+
+The drivers are listed in `drivers.txt` (each one's record file, level
+and name). The first driver keeps `record.txt`, the record from before
+there were drivers; each new one gets a `record-<n>.txt`. These files
+are Reluva's own; the game's driver files (`.plr`) aren't read or
+written. The drivers are chosen, created and deleted on the main menu
+([age-menus.md](age-menus.md#drivers-and-records)).
 
 - **Races** open three at a time (the `.cinfo`'s UnlockGroup), each
   group once every race before it is placed at its MustPlace (3rd) or

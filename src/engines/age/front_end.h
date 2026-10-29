@@ -67,7 +67,22 @@ public:
         int car = 0, paintJob = 0;
         bool manual = false;
     };
-    enum class Action { None, Changed, Start, Multiplayer, Options, Quit, Replays };
+    enum class Action {
+        None,
+        Changed,
+        Start,
+        Multiplayer,
+        Options,
+        Quit,
+        Replays,
+        NewDriver,     // the main menu's CREATE NEW DRIVER
+        DeleteDriver,  // DELETE THIS DRIVER
+        DriverStats,   // DRIVER'S STATS
+        RaceRecords,   // RACE RECORDS
+        DriverChanged, // another driver chosen: their record to read
+    };
+    // The drivers, for the main menu's SELECT DRIVER (Left/Right chooses).
+    void setDrivers(DriverRoster* roster) { roster_ = roster; }
 
     FrontEnd(const SearchSet& files, const std::vector<CityInfo>& cities, const std::vector<CarInfo>& cars,
              const GameStrings& strings, const PlayerRecord& record);
@@ -80,6 +95,8 @@ public:
     // Back from a race: to the screen it was chosen on (refreshed, for
     // what's been unlocked).
     void afterRace() { go(afterGarage_); }
+    // The choice looked at again (another driver's record, say).
+    void refreshChoice() { refresh(); }
     Choice& choice() { return choice_; }
     // The control with the focus (for the menus' voices).
     std::string focusedWidget() const {
@@ -138,6 +155,14 @@ private:
     const std::vector<CarInfo>& cars_;
     const GameStrings& strings_;
     const PlayerRecord& record_;
+    DriverRoster* roster_ = nullptr;
+    bool driverChanged_ = false;
+    bool quickRace() const {
+        std::string map;
+        RaceKind kind;
+        int index = 0;
+        return record_.lastRace(map, kind, index);
+    }
     MenuPictures pictures_;
     std::vector<Widget> widgets_;
     bool ok_ = false;

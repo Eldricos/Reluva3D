@@ -469,7 +469,9 @@ private:
     std::string beatenAll_; // "You've beaten all the Blitz races!!", once they are
     float finalLapFor_ = 0; // seconds "Final lap!" has left
     int lastLap_ = 0;
-    PlayerRecord record_;
+    PlayerRecord record_; // the current driver's
+    DriverRoster roster_;
+    void switchDriver();
     bool openAll_ = false;  // U: every race and car open, whatever the record says
     bool recorded_ = false; // this race's result is in the record
 
