@@ -32,6 +32,9 @@ public:
 
     // A tune picked from the race or cruising list (`seed` picks which).
     Error start(const SearchSet& files, audio::Mixer& mixer, bool race, uint32_t seed);
+    // The menus' tune: aud/dmusic/csv_files/ui.csv's segment (UI.sgt).
+    Error startMenu(const SearchSet& files, audio::Mixer& mixer);
+    bool playingMenu() const { return menu_ && performance_; }
     void stop();
 
     struct State {
@@ -54,6 +57,7 @@ private:
     std::string wanted_;
     float still_ = 0; // seconds stopped
     bool idle_ = false, wasChased_ = false, wasPaused_ = false;
+    bool menu_ = false;
 };
 
 } // namespace reluva::age

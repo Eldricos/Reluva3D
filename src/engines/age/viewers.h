@@ -512,6 +512,25 @@ private:
     CameraView replayCamera(float dt, float& fov);
     void drawReplayBar();
     void gameMenuEvent(const Event& ev);
+    // Where quitting a replay goes back to: the menus (a replay loaded),
+    // the results, or the race paused (it's run on to where it was).
+    enum class ReplayReturn { Menu, Results, Race };
+    ReplayReturn replayReturn_ = ReplayReturn::Menu;
+
+    // The race's own menus (race_menus.cpp): paused (Esc), and the
+    // game's results screens; the menus' music and voices.
+    bool paused_ = false, results_ = false;
+    int pauseFocus_ = 0, resultsFocus_ = 0;
+    std::string lastFocus_; // the menu control last spoken for
+    std::unique_ptr<MenuPictures> menuPictures_;
+    void pauseEvent(const Event& ev);
+    void resultsEvent(const Event& ev);
+    void drawPauseMenu();
+    void drawResults();
+    void menuSounds();
+    void playVoice(const std::string& clip);
+    bool nextRaceOpen() const;
+    void instantReplay(ReplayReturn back);
     std::string replayDefaultName() const;
 
     // Multiplayer (race_net.cpp): the game's multiplayer menus, then the

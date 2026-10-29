@@ -84,11 +84,46 @@ Error GameMusic::start(const SearchSet& files, audio::Mixer& mixer, bool race, u
     return Error::success();
 }
 
+Error GameMusic::startMenu(const SearchSet& files, audio::Mixer& mixer) {
+    stop();
+    // "Music segment" then its name.
+    std::string segment = "UI";
+    std::vector<uint8_t> data;
+    if (!files.read("aud/dmusic/csv_files/ui.csv", data)) {
+        const std::vector<std::string> lines = [&] {
+            std::vector<std::string> out;
+            std::istringstream in(std::string(data.begin(), data.end()));
+            for (std::string l; std::getline(in, l);) {
+                while (!l.empty() && (l.back() == '\r' || l.back() == ' '))
+                    l.pop_back();
+                if (!l.empty())
+                    out.push_back(l);
+            }
+            return out;
+        }();
+        if (lines.size() >= 2)
+            segment = lines[1];
+    }
+    const SearchSet* source = &files;
+    performance_ = std::make_shared<audio::DmPerformance>(
+        mixer.outputRate(),
+        [source](const std::string& name, std::vector<uint8_t>& out) {
+            return !source->read("aud/dmusic/" + name, out);
+        },
+        1);
+    mixer_ = &mixer;
+    mixer.addStream(performance_, audio::SoundType::Music);
+    wanted_ = segment;
+    menu_ = true;
+    return performance_->play(segment + ".sgt");
+}
+
 void GameMusic::stop() {
     if (mixer_ && performance_)
         mixer_->removeStream(performance_.get());
     performance_.reset();
     mixer_ = nullptr;
+    menu_ = false;
     wanted_.clear();
 }
 
