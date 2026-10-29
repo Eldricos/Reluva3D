@@ -48,6 +48,14 @@ public:
     // The games in `source` that can be imported (copied into a folder of
     // their own to run from): none unless the engine knows how.
     virtual std::vector<ImportPlan> planImport(const std::filesystem::path& /*source*/) const { return {}; }
+    // Adds what `file` holds for `plan`'s game (its patch: the patched
+    // files, in place of the plan's own); false, with why in `message`, if
+    // it isn't one the engine knows.
+    virtual bool addToImport(ImportPlan& /*plan*/, const std::filesystem::path& /*file*/,
+                             std::string& message) const {
+        message = "not a file Reluva can use for this game";
+        return false;
+    }
     virtual std::unique_ptr<Engine> create(System& system, const GameTarget& target) const = 0;
 };
 

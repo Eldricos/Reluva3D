@@ -23,6 +23,8 @@
 #include "common/x86/cpu.h"
 #include "common/x86/win32.h"
 #include "common/zip.h"
+#include "common/inflate.h"
+#include "common/wise.h"
 #include "zip_writer.h"
 
 #include <algorithm>
@@ -222,6 +224,76 @@ static void testMixer() {
     CHECK(!m.isPlaying(l) && out[0] == 0);
     // Nothing to play.
     CHECK(m.play(nullptr, SoundType::Effects) == kNoSound && m.play(make(22050, 1, {}), SoundType::Effects) == kNoSound);
+}
+
+// Raw deflate streams made with zlib (window bits -15): a stored block, one
+// with the fixed codes, one with its own.
+static const char kStored[] = "\x01\x0d\x00\xf2\xff\x73\x74\x6f\x72\x65\x64\x20\x62\x6c\x6f\x63\x6b\x21";
+static const char kFixed[] =
+    "\x0b\x2e\x49\x2c\x52\x08\x29\x4a\xcd\xb6\x52\x08\xcb\xaf\x4c\x4c\x4f\x2d\x52\xd0\x55\x70\xcd\xc9\x2c\x49\x55\x70"
+    "\xcb\x2f\x4a\x4e\xd5\x53\x08\xa6\x82\x0a\x06\x46\x26\x66\x16\x56\x36\x76\x0e\x4e\x2e\x6e\x1e\x5e\x3e\x7e\x01\x41"
+    "\x21\x61\x11\x51\x31\x71\x09\x49\x29\x69\x19\x59\x39\x79\x05\x45\x25\x65\x15\x55\x35\x75\x0d\x4d\x2d\x6d\x1d\x5d"
+    "\x3d\x7d\x03\x43\x23\x63\x13\x53\x33\x73\x0b\x4b\x2b\x6b\x1b\x5b\x3b\x7b\x00";
+static const char kDynamic[] =
+    "\xdd\x90\xc9\x01\x80\x20\x10\xc4\x5a\x99\x0a\x6c\xc0\x36\x68\x00\x94\x4b\x85\x55\x4e\xb1\x7a\xb7\x09\x3f\xbe\x93"
+    "\x7c\x22\x9c\xc6\x55\xfd\xb2\x43\x25\xea\x11\x86\x6e\x6c\x35\x9c\x19\xd4\x74\x42\x61\x7c\xc8\x67\x60\x25\x3b\x43"
+    "\xfc\x5d\x3e\x25\x7b\x61\x40\xb1\xd4\x7d\x71\x30\xbe\x69\x46\x8f\x8e\x38\xfc\x55\x29\x71\x6b\xf3\xf4\xff\x13\xdf"
+    "\x6c\x7b\x01";
+
+static void testInflateAndWise(const std::filesystem::path& tmp) {
+    struct Case {
+        const char* data;
+        size_t size, outSize;
+        uint32_t crc;
+    };
+    const Case cases[] = {{kStored, sizeof kStored - 1, 13, 0x69348c2d},
+                          {kFixed, sizeof kFixed - 1, 166, 0x95b7009b},
+                          {kDynamic, sizeof kDynamic - 1, 622, 0x2396af23}};
+    for (const Case& c : cases) {
+        // With bytes after it, as in a Wise installer: only the stream's taken.
+        std::vector<uint8_t> in(c.data, c.data + c.size);
+        in.insert(in.end(), {0xaa, 0xbb, 0xcc, 0xdd});
+        std::vector<uint8_t> out;
+        size_t used = 0;
+        CHECK(!inflateStream(in.data(), in.size(), out, used));
+        CHECK(used == c.size && out.size() == c.outSize && crc32(out.data(), out.size()) == c.crc);
+        CHECK(inflateStream(in.data(), c.size - 2, out, used)); // cut short
+    }
+    std::vector<uint8_t> out;
+    size_t used = 0;
+    const uint8_t bad[] = {0x07, 0x00}; // block type 3
+    CHECK(inflateStream(bad, sizeof bad, out, used));
+
+    // A Wise installer: a Windows program naming WiseMain, a header, then
+    // files, each a deflate stream and its CRC-32.
+    std::vector<uint8_t> exe(0x200, 0);
+    exe[0] = 'M';
+    exe[1] = 'Z';
+    exe[0x3c] = 0x40;
+    std::memcpy(&exe[0x40], "PE\0\0", 4);
+    exe[0x46] = 1;    // one section
+    exe[0x54] = 0;    // no optional header: the section table at 0x58
+    exe[0x58 + 16] = 0x00, exe[0x58 + 17] = 0x01; // its 0x100 bytes
+    exe[0x58 + 20] = 0x00, exe[0x58 + 21] = 0x01; // at 0x100
+    std::memcpy(&exe[0x120], "WiseMain", 8);
+    exe.resize(0x200);
+    const char header[] = "MS Sans Serif\0A patch Installation\0";
+    exe.insert(exe.end(), header, header + sizeof header - 1);
+    for (const Case& c : cases) {
+        exe.insert(exe.end(), c.data, c.data + c.size);
+        for (int i = 0; i < 4; ++i)
+            exe.push_back(uint8_t(c.crc >> (8 * i)));
+    }
+    exe.insert(exe.end(), {1, 2, 3}); // trailing bytes that aren't a file
+    test::writeFile(tmp / "patch.exe", exe);
+    std::vector<WiseStream> streams;
+    CHECK(!readWiseInstaller(tmp / "patch.exe", streams));
+    CHECK(streams.size() == 3 && streams[1].size == 166 && streams[1].crc == 0x95b7009b &&
+          streams[0].offset == 0x200 + sizeof header - 1);
+    CHECK(streams.size() == 3 && !extractWiseStream(tmp / "patch.exe", streams[2], out) && out.size() == 622);
+    exe[0x120] = 'X'; // not Wise's
+    test::writeFile(tmp / "other.exe", exe);
+    CHECK(readWiseInstaller(tmp / "other.exe", streams));
 }
 
 static void testZip(const std::filesystem::path& tmp) {
@@ -507,6 +579,7 @@ int main() {
     testFsAndDetection(tmp / "fs");
     testConfig(tmp / "cfg");
     testZip(tmp / "zip");
+    testInflateAndWise(tmp / "wise");
     testSearchSet(tmp / "search");
     testImage();
     testNet();

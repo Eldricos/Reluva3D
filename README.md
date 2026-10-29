@@ -55,6 +55,9 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   and plays them from there. *Import Game...* copies a game from its CD (or a
   disc image, or an install made by its own setup) into a folder of Reluva's,
   only the files Reluva needs, so nothing needs installing, on any system.
+  *Add patch...* there, or *Apply Patch...* for a game already added, takes
+  the patched files out of the game's patch installer (Elite Force's
+  `eliteforcepatch1_2.exe`) without running it.
 - `reluva-tool detect <folder>` and `reluva-tool import <source> [destination]`
   do the same from a terminal.
 - `reluva <target>` starts a configured game directly. `reluva testbed`

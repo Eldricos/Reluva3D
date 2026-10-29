@@ -190,6 +190,18 @@ private:
     Surface screen_;
 };
 
+// How many paks and saved games an import brings.
+std::string countNote(const ImportPlan& plan) {
+    size_t paks = 0, saves = 0;
+    for (const ImportPlan::File& f : plan.files) {
+        const std::string to = fs::toLower(f.to);
+        paks += to.size() > 4 && to.compare(to.size() - 4, 4, ".pk3") == 0;
+        saves += to.find("/saves/") != std::string::npos;
+    }
+    return std::to_string(paks) + " pak file" + (paks == 1 ? "" : "s") +
+           (saves ? ", " + std::to_string(saves) + " saved game" + (saves == 1 ? "" : "s") : std::string());
+}
+
 class IdTech3MetaEngine : public MetaEngine {
 public:
     const char* id() const override { return "idtech3"; }
@@ -232,7 +244,7 @@ public:
                         std::error_code ec;
                         const auto size = std::filesystem::file_size(from, ec);
                         if (!ec)
-                            plan.files.push_back({from, to, size});
+                            plan.files.push_back({from, to, size, std::nullopt});
                     };
                     // Files in a folder with one of `extensions` (lower case).
                     auto addAll = [&](const std::filesystem::path& dir, const std::string& to,
@@ -265,19 +277,69 @@ public:
                                              " weren't found beside " + base->filename().string());
                     else if (!release.singlePlayerPatch.empty())
                         plan.notes.push_back("Single player " + release.singlePlayerPatch);
-                    size_t paks = 0, saves = 0;
-                    for (const ImportPlan::File& f : plan.files) {
-                        paks += fs::toLower(f.to).size() > 4 && fs::toLower(f.to).substr(f.to.size() - 4) == ".pk3";
-                        saves += f.to.find("/saves/") != std::string::npos;
+                    plan.notes.push_back(countNote(plan));
+                    // A patch beside it (eliteforcepatch1_2.exe in the
+                    // folder picked) is applied as it's copied.
+                    std::error_code ec;
+                    for (std::filesystem::directory_iterator it(source, ec), end; !ec && it != end; it.increment(ec)) {
+                        std::string ignored;
+                        if (it->is_regular_file(ec) && fs::toLower(it->path().extension().string()) == ".exe")
+                            addToImport(plan, it->path(), ignored);
                     }
-                    plan.notes.push_back(std::to_string(paks) + " pak file" + (paks == 1 ? "" : "s") +
-                                         (saves ? ", " + std::to_string(saves) + " saved game" + (saves == 1 ? "" : "s")
-                                                : std::string()));
                     return {plan};
                 }
             }
         }
         return {};
+    }
+
+    bool addToImport(ImportPlan& plan, const std::filesystem::path& file, std::string& message) const override {
+        // A patch's installer: the files it holds that Reluva uses, told
+        // by their signatures, in place of the plan's.
+        const GameInfo* game = findGame(plan.game.gameId);
+        const auto& wanted = game ? patchFiles(*game) : std::vector<PatchFile>{};
+        if (wanted.empty()) {
+            message = "Reluva doesn't know this game's patches";
+            return false;
+        }
+        std::vector<WiseStream> streams;
+        if (Error err = readWiseInstaller(file, streams)) {
+            message = err.message;
+            return false;
+        }
+        std::string patch;
+        int found = 0;
+        for (const WiseStream& s : streams)
+            for (const PatchFile& f : wanted) {
+                if (int64_t(s.size) != f.size || s.headMd5 != f.md5)
+                    continue;
+                std::erase_if(plan.files,
+                              [&](const ImportPlan::File& p) { return fs::toLower(p.to) == fs::toLower(f.to); });
+                plan.files.push_back({file, f.to, s.size, s});
+                ++found;
+                if (std::string(f.patch) > patch)
+                    patch = f.patch;
+            }
+        if (patch.empty()) {
+            message = file.filename().string() + " isn't a patch Reluva knows for " + game->name;
+            return false;
+        }
+        // The plan now gives that patch level (and single player, which
+        // the patch brings).
+        if (const size_t at = plan.game.description.rfind(" ("); at != std::string::npos)
+            plan.game.description = plan.game.description.substr(0, at);
+        plan.game.description += " (" + patch + ")";
+        std::erase_if(plan.notes, [](const std::string& n) {
+            return n.rfind("Patch level", 0) == 0 || n.rfind("No single player", 0) == 0 ||
+                   n.rfind("Single player", 0) == 0;
+        });
+        plan.notes.insert(plan.notes.begin(), "Patch " + patch + " applied from " + file.filename().string() + " (" +
+                                                  std::to_string(found) + " files)");
+        for (std::string& n : plan.notes)
+            if (n.find(" pak file") != std::string::npos)
+                n = countNote(plan);
+        message.clear();
+        return true;
     }
 
     std::unique_ptr<Engine> create(System& system, const GameTarget& target) const override {

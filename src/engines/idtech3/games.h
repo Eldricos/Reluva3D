@@ -77,4 +77,18 @@ struct Release {
 };
 Release describeRelease(const std::filesystem::path& dir, const GameInfo& game);
 
+// A file a patch brings, by its signature (as detection's): where it goes
+// in the game's folder, and the patch level it gives (empty for one that
+// says nothing about it, as the DLLs).
+struct PatchFile {
+    const char* to;
+    const char* md5;
+    int64_t size;
+    const char* patch;
+};
+// The files of the game's patches that Reluva uses (Elite Force's 1.2
+// patch, eliteforcepatch1_2.exe, holds them all: pak1.pk3 from 1.1,
+// pak2.pk3, and single player's DLLs as 1.1 left them).
+const std::vector<PatchFile>& patchFiles(const GameInfo& game);
+
 } // namespace reluva::idtech3

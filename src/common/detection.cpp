@@ -72,7 +72,21 @@ Error runImport(const ImportPlan& plan, const std::filesystem::path& dest,
             return Error::fail("Couldn't make " + to.parent_path().string() + ": " + ec.message());
         std::filesystem::path part = to;
         part += ".part";
-        {
+        if (f.packed) {
+            // Out of an installer: unpacked whole, then written.
+            std::vector<uint8_t> bytes;
+            if (Error err = extractWiseStream(f.from, *f.packed, bytes))
+                return err;
+            std::ofstream out(part, std::ios::binary | std::ios::trunc);
+            if (!out.write(reinterpret_cast<const char*>(bytes.data()), std::streamsize(bytes.size())))
+                return Error::fail("Couldn't write " + part.string() + " (is the disk full?)");
+            out.close();
+            done += f.size;
+            if (progress && !progress(done, total)) {
+                std::filesystem::remove(part, ec);
+                return Error::fail("Import cancelled");
+            }
+        } else {
             std::ifstream in(f.from, std::ios::binary);
             if (!in)
                 return Error::fail("Couldn't read " + f.from.string());

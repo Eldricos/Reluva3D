@@ -8,6 +8,7 @@
 
 #include <imgui.h>
 #include <algorithm>
+#include <utility>
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_sdlrenderer3.h>
 
@@ -148,6 +149,13 @@ void Launcher::drawUi(std::optional<GameTarget>& launch, bool& quit) {
                           "only those Reluva needs; nothing is installed");
     ImGui::EndDisabled();
 
+    ImGui::BeginDisabled(!haveSelection || importRunning_ || importPlan_ || pickInProgress_);
+    if (ImGui::Button("Apply Patch...", bsize))
+        pickPatch(Pick::PatchForGame);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Update the selected game with its patch's installer\n(e.g. eliteforcepatch1_2.exe), on any system");
+    ImGui::EndDisabled();
+
     ImGui::BeginDisabled(!haveSelection || importRunning_);
     if (ImGui::Button("Remove", bsize)) {
         config_.removeSection(selected_);
@@ -221,6 +229,36 @@ void Launcher::handlePickedFolder() {
     if (!folder)
         return;
 
+    if (pickFor_ == Pick::PatchForImport || pickFor_ == Pick::PatchForGame) {
+        // A patch for the import shown, or for the selected game (a plan
+        // of the patch's files alone, into its folder).
+        if (pickFor_ == Pick::PatchForGame) {
+            const std::string path = config_.get(selected_, "path");
+            const std::string engine = config_.get(selected_, "engine"), gameId = config_.get(selected_, "gameid");
+            ImportPlan plan;
+            for (const DetectedGame& g : detectGames(path))
+                if (g.engineId == engine && g.gameId == gameId)
+                    plan.game = g;
+            if (plan.game.gameId.empty()) {
+                status_ = "The game isn't found in " + path + " any more";
+                return;
+            }
+            importPlan_ = std::move(plan);
+            importSource_ = *folder;
+            importDest_ = path;
+            patchTarget_ = selected_;
+        }
+        std::string message;
+        const MetaEngine* meta = importPlan_ ? findEngine(importPlan_->game.engineId) : nullptr;
+        if (!meta || !meta->addToImport(*importPlan_, *folder, message)) {
+            status_ = std::filesystem::path(*folder).filename().string() + ": " + message;
+            if (pickFor_ == Pick::PatchForGame) {
+                importPlan_.reset();
+                patchTarget_.clear();
+            }
+        }
+        return;
+    }
     if (pickFor_ == Pick::ImportDestination) {
         // A folder of the game's own inside the one chosen.
         if (importPlan_)
@@ -282,7 +320,15 @@ GameTarget Launcher::launchTarget(const std::string& name) {
     return targetFromConfig(name);
 }
 
+void Launcher::pickPatch(Pick purpose) {
+    static const SDL_DialogFileFilter kFilters[] = {{"Patch installers", "exe"}, {"All files", "*"}};
+    pickInProgress_ = true;
+    pickFor_ = purpose;
+    SDL_ShowOpenFileDialog(pickFolderCallback, this, sys_.window(), kFilters, 2, nullptr, false);
+}
+
 void Launcher::offerImport(std::vector<ImportPlan> plans, const std::string& source) {
+    patchTarget_.clear();
     importPlan_ = std::move(plans.front());
     importSource_ = source;
     // A new folder in the library, named after the game.
@@ -307,13 +353,15 @@ void Launcher::drawImport() {
     if (!ImGui::BeginPopupModal("Import game", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         return;
     const ImportPlan& plan = *importPlan_;
+    const bool patching = !patchTarget_.empty();
     ImGui::TextUnformatted(plan.game.description.c_str());
-    ImGui::TextDisabled("from %s", importSource_.c_str());
+    ImGui::TextDisabled("%s %s", patching ? "patched from" : "from", importSource_.c_str());
     ImGui::Spacing();
     for (const std::string& note : plan.notes)
         ImGui::BulletText("%s", note.c_str());
     ImGui::Spacing();
-    ImGui::Text("%zu files, %.0f MB, copied to:", plan.files.size(), double(plan.totalBytes()) / (1024 * 1024));
+    ImGui::Text("%zu files, %.0f MB, %s:", plan.files.size(), double(plan.totalBytes()) / (1024 * 1024),
+                patching ? "written into the game's folder" : "copied to");
     ImGui::TextWrapped("%s", importDest_.string().c_str());
     ImGui::Spacing();
     if (importRunning_) {
@@ -324,19 +372,29 @@ void Launcher::drawImport() {
             importCancel_ = true;
         ImGui::EndDisabled();
     } else {
-        if (ImGui::Button("Import"))
+        ImGui::BeginDisabled(plan.files.empty() || pickInProgress_);
+        if (ImGui::Button(patching ? "Apply" : "Import"))
             startImport();
-        ImGui::SameLine();
+        ImGui::EndDisabled();
         ImGui::BeginDisabled(pickInProgress_);
-        if (ImGui::Button("Change folder...")) {
-            pickInProgress_ = true;
-            pickFor_ = Pick::ImportDestination;
-            SDL_ShowOpenFolderDialog(pickFolderCallback, this, sys_.window(), nullptr, false);
+        if (!patching) {
+            ImGui::SameLine();
+            if (ImGui::Button("Add patch..."))
+                pickPatch(Pick::PatchForImport);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Apply the game's patch (its installer, e.g. eliteforcepatch1_2.exe) as it's copied");
+            ImGui::SameLine();
+            if (ImGui::Button("Change folder...")) {
+                pickInProgress_ = true;
+                pickFor_ = Pick::ImportDestination;
+                SDL_ShowOpenFolderDialog(pickFolderCallback, this, sys_.window(), nullptr, false);
+            }
         }
         ImGui::EndDisabled();
         ImGui::SameLine();
         if (ImGui::Button("Cancel")) {
             importPlan_.reset();
+            patchTarget_.clear();
             ImGui::CloseCurrentPopup();
         }
     }
@@ -345,7 +403,7 @@ void Launcher::drawImport() {
 
 void Launcher::startImport() {
     std::error_code ec;
-    if (std::filesystem::exists(importDest_, ec) && !std::filesystem::is_empty(importDest_, ec)) {
+    if (patchTarget_.empty() && std::filesystem::exists(importDest_, ec) && !std::filesystem::is_empty(importDest_, ec)) {
         status_ = importDest_.string() + " isn't empty: choose another folder";
         return;
     }
@@ -382,8 +440,16 @@ void Launcher::finishImport() {
     }
     const ImportPlan plan = std::move(*importPlan_);
     importPlan_.reset();
+    const std::string patched = std::exchange(patchTarget_, std::string());
     if (!error.empty()) {
-        status_ = error + (importCancel_ ? "; the files copied so far are in " + importDest_.string() : "");
+        status_ = error + (importCancel_ && patched.empty() ? "; the files copied so far are in " + importDest_.string()
+                                                             : "");
+        return;
+    }
+    if (!patched.empty()) {
+        // The game's description brought up to date ("... (1.2)").
+        launchTarget(patched);
+        status_ = "Patched " + config_.get(patched, "description");
         return;
     }
     // Added as the folder it went to, as detected there.

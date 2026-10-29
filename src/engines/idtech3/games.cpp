@@ -63,6 +63,11 @@ constexpr KnownFile kSpGameDlls[] = {
     {"efgamex86.dll", "030b262b7d9026e891aa404985e65d93", 974924, "1.1"},
 };
 
+constexpr KnownFile kSpUiDlls[] = {
+    {"efuix86.dll", "821a6c2a96d7007ffcd531d00a1ddc56", 376904, "1.0"},
+    {"efuix86.dll", "b491cd5d22b76b87e9dcddcdf7ea8c7a", 376904, "1.1"},
+};
+
 bool matches(const std::filesystem::path& dir, const KnownFile& f) {
     const auto path = fs::findFile(dir, f.name);
     if (!path)
@@ -75,6 +80,19 @@ bool matches(const std::filesystem::path& dir, const KnownFile& f) {
 }
 
 } // namespace
+
+const std::vector<PatchFile>& patchFiles(const GameInfo& game) {
+    static const std::vector<PatchFile> none;
+    static const std::vector<PatchFile> eliteForce = [] {
+        std::vector<PatchFile> files;
+        for (const KnownFile& f : kPatchPaks)
+            files.push_back({f.name, f.md5, f.size, f.patch});
+        files.push_back({kSpGameDlls[1].name, kSpGameDlls[1].md5, kSpGameDlls[1].size, ""});
+        files.push_back({kSpUiDlls[1].name, kSpUiDlls[1].md5, kSpUiDlls[1].size, ""});
+        return files;
+    }();
+    return game.gameId == std::string("stvef") ? eliteForce : none;
+}
 
 Release describeRelease(const std::filesystem::path& dir, const GameInfo& game) {
     Release r;

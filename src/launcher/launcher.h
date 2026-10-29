@@ -66,7 +66,8 @@ private:
     std::vector<DetectedGame> pendingChoices_;
 
     // What the next folder picked is for.
-    enum class Pick { AddGame, ImportSource, ImportDestination } pickFor_ = Pick::AddGame;
+    enum class Pick { AddGame, ImportSource, ImportDestination, PatchForImport, PatchForGame } pickFor_ = Pick::AddGame;
+    void pickPatch(Pick purpose);
 
     // Importing: what was found and where it goes; then the copying, on a
     // thread of its own, and how it ended.
@@ -79,6 +80,9 @@ private:
     std::atomic<uint64_t> importBytes_{0}, importTotal_{0};
     std::mutex importMutex_;
     std::string importError_;
+    // Applying a patch to a game already added (into its own folder),
+    // rather than importing a new one.
+    std::string patchTarget_;
 };
 
 } // namespace reluva

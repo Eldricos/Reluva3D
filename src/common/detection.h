@@ -4,10 +4,12 @@
 #pragma once
 
 #include "common/types.h"
+#include "common/wise.h"
 
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -52,6 +54,8 @@ struct ImportPlan {
         std::filesystem::path from;
         std::string to;
         uint64_t size = 0;
+        // When `from` is an installer (a patch) holding the file: where.
+        std::optional<WiseStream> packed;
     };
     std::vector<File> files;
     std::vector<std::string> notes;
