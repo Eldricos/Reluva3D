@@ -90,8 +90,9 @@ Each step can be seen working before the next.
    starting places, sorted by the boxes they fill, the rooms' animations
    playing. Scrolls; an overview of the whole house. The near walls
    see-through, solid or hidden.
-3. **Video.** An AVI reader and a Cinepak decoder, with the sound
-   through the mixer. Play the intro, the deal and the suggestion clips.
+3. **Video** (done). An AVI reader and a Cinepak decoder in
+   `src/common/video` ([formats/video.md](../formats/video.md)); the
+   videos page plays all 44 with their sound.
 4. **The interface.** The `RESI` layouts: windows, buttons, lists, text
    boxes, the bitmap fonts and cursors. The main menu, game setup,
    preferences, How to Play, credits, the notepad, the cards and the
@@ -125,6 +126,9 @@ the pages; **Esc** goes back to the launcher.
   **Space** pauses the animations. The info line names what's under the
   mouse pointer, with its layer, place and box.
 
+- **Videos**, playing with their sound: **Left/Right** the previous or
+  next one, **Space** or **Enter** plays it again or stops it, **Z** the
+  size.
 - **Animations**, playing: **Left/Right** the previous or next one,
   **Up/Down** the previous or next file, **Space** pauses, **,/.** step a
   frame, **Z** zooms, **A** shows the anchor point (a character's feet),

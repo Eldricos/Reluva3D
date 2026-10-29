@@ -9,8 +9,8 @@
 // owned copy. Never from leaked source code. See CONTRIBUTING.md and
 // docs/engines/clue.md.
 //
-// For now the engine is a data viewer: the mansion, animations, images,
-// sounds and text (see viewers.h for the keys). Tab switches between them; Esc goes back to
+// For now the engine is a data viewer: the mansion, videos, animations,
+// images, sounds and text (see viewers.h for the keys). Tab switches between them; Esc goes back to
 // the launcher.
 
 #include "engines/engine.h"
@@ -23,6 +23,7 @@ namespace {
 using clue::AnimationViewer;
 using clue::ImageViewer;
 using clue::MansionViewer;
+using clue::VideoViewer;
 using clue::SoundViewer;
 using clue::TextViewer;
 
@@ -82,24 +83,28 @@ public:
         } audioStop{sys_, audioOut};
 
         MansionViewer mansion(sys_, screen_, data_);
+        VideoViewer videos(sys_, screen_, data_, audioOut ? &mixer : nullptr);
         AnimationViewer animations(sys_, screen_, data_);
         ImageViewer images(sys_, screen_, data_);
         SoundViewer sounds(sys_, screen_, data_, audioOut ? &mixer : nullptr);
         TextViewer texts(sys_, screen_, data_);
-        // Viewer 0 shows the mansion (or why it can't), 1 animations, 2
-        // images, 3 sounds, 4 text; Tab moves to the next one that has
-        // something to show.
-        constexpr int kViewers = 5;
-        const size_t counts[kViewers] = {1, animations.count(), images.count(), sounds.count(), texts.count()};
+        // Viewer 0 shows the mansion (or why it can't), 1 videos, 2
+        // animations, 3 images, 4 sounds, 5 text; Tab moves to the next one
+        // that has something to show.
+        constexpr int kViewers = 6;
+        const size_t counts[kViewers] = {1, videos.count(), animations.count(), images.count(), sounds.count(),
+                                         texts.count()};
         int viewer = 0;
         const auto activate = [&] {
             if (viewer == 0)
                 mansion.activate();
             else if (viewer == 1)
-                animations.activate();
+                videos.activate();
             else if (viewer == 2)
-                images.activate();
+                animations.activate();
             else if (viewer == 3)
+                images.activate();
+            else if (viewer == 4)
                 sounds.activate();
             else
                 texts.activate();
@@ -125,7 +130,9 @@ public:
                 if (ev.key == key::Escape)
                     return Error::success();
                 if (ev.key == key::Tab) {
-                    if (viewer == 3)
+                    if (viewer == 1)
+                        videos.deactivate();
+                    else if (viewer == 4)
                         sounds.deactivate();
                     do
                         viewer = (viewer + 1) % kViewers;
@@ -134,19 +141,23 @@ public:
                     continue;
                 }
                 if (viewer == 1)
-                    animations.handleKey(ev.key);
+                    videos.handleKey(ev.key);
                 else if (viewer == 2)
-                    images.handleKey(ev.key);
+                    animations.handleKey(ev.key);
                 else if (viewer == 3)
-                    sounds.handleKey(ev.key);
+                    images.handleKey(ev.key);
                 else if (viewer == 4)
+                    sounds.handleKey(ev.key);
+                else if (viewer == 5)
                     texts.handleKey(ev.key);
             }
             if (viewer == 0)
                 mansion.update(sys_.getMillis());
             else if (viewer == 1)
+                videos.update(sys_.getMillis());
+            else if (viewer == 2)
                 animations.update(sys_.getMillis());
-            else if (viewer == 3)
+            else if (viewer == 4)
                 sounds.update(sys_.getMillis());
             sys_.updateScreen(screen_);
             sys_.delayMillis(10);

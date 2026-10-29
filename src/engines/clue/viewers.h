@@ -8,6 +8,7 @@
 #include "common/events.h"
 #include "common/system.h"
 #include "common/types.h"
+#include "common/video/avi.h"
 #include "engines/clue/game_data.h"
 #include "engines/clue/mansion.h"
 
@@ -77,6 +78,41 @@ private:
     int dragX_ = 0, dragY_ = 0, mouseX_ = -1, mouseY_ = -1;
     uint64_t now_ = 0, tick_ = 0;
     bool dirty_ = true;
+};
+
+// The videos (the intro, the deal, the suggestions' clips), with their
+// sound. 320x240 ones are shown twice the size, filling the screen.
+//   Left/Right: previous/next (it plays at once)   Space or Enter: play again or stop
+//   Z: twice the size or not
+class VideoViewer {
+public:
+    VideoViewer(System& sys, Surface& screen, const GameData& data, audio::Mixer* mixer);
+    size_t count() const { return files_.size(); }
+    void activate();
+    void deactivate(); // stops the sound when switching to another viewer
+    void handleKey(uint32_t key);
+    void update(uint64_t nowMs);
+
+private:
+    void load();
+    void start();
+    void stop();
+    void draw();
+
+    System& sys_;
+    Surface& screen_;
+    const GameData& data_;
+    audio::Mixer* mixer_;
+    std::vector<std::filesystem::path> files_;
+    int current_ = 0;
+    video::VideoPlayer player_;
+    std::shared_ptr<audio::Sound> sound_;
+    audio::SoundHandle playing_ = audio::kNoSound;
+    std::string error_;
+    bool running_ = false;
+    int zoom_ = 0; // 0: as the video's size says; 1 or 2 when chosen with Z
+    uint64_t startMs_ = 0, now_ = 0;
+    size_t drawnFrame_ = size_t(-1);
 };
 
 // Every image of every .res file.

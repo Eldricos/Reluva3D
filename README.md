@@ -15,6 +15,7 @@ src/common/        platform-independent core: System interface, events,
                    search sets; image decoding (TGA, JPEG, PNG, BMP); the 3D
                    rendering interface (gfx3d.h)
   audio/           sound decoders and the mixer, shared by every engine: WAV (PCM, IMA ADPCM), MP3
+  video/           video for every engine: AVI files with Cinepak (docs/formats/video.md)
 third_party/       outside code Reluva builds in, each with its licence (minimp3, stb_image)
 src/backends/sdl3/ the only code that touches SDL (window, rendering, input, audio),
                    including 3D on SDL's GPU API and its shaders
@@ -61,6 +62,8 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
 - `reluva --detect <folders...>` lists the games found in each folder.
 - `reluva-tool` has developer tools for studying game data: `hexdump`,
   `cat-probe`, `cat-list` and `cat-extract` (New Worlds archives).
+- `reluva-tool avi-frames <file.avi> [folder] [frames...]` decodes an AVI's
+  video (Cinepak) and writes frames as TGA.
 - `reluva-tool cue-rip <image.cue> <folder>` writes the audio tracks of a
   BIN/CUE image of a game's CD as `track02.wav` ..., for games whose music
   is CD audio.
@@ -110,7 +113,7 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
 
 - Clue also opens as a data viewer: Boddy Mansion drawn from its level file
   (scroll with the arrows or the mouse, **M** for the whole house, **W** for the
-  near walls), then its animations playing, images, sounds and text. **Tab**
+  near walls), then its videos, animations playing, images, sounds and text. **Tab**
   switches between them; `docs/engines/clue.md` lists the keys, and
   how to add its CD music (`reluva-tool cue-rip`).
 
