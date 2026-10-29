@@ -196,6 +196,97 @@ void TexturePage::update(uint64_t) {
     ctx_.sys.updateScreen(ctx_.screen);
 }
 
+// --- Fonts --------------------------------------------------------------------
+
+FontPage::FontPage(ViewerContext& ctx) : Page(ctx), entries_(collect<Entry>(ctx, {"ddf"})) {}
+
+void FontPage::show(int index) {
+    index_ = std::clamp(index, 0, int(entries_.size()) - 1);
+    use2D();
+    setTitle("Fonts");
+    const Entry& e = entries_[size_t(index_)];
+    const PacArchive& pac = *ctx_.archives.at(e.archive);
+    pages_.clear();
+    std::vector<uint8_t> data;
+    Error err = pac.read(e.name, data);
+    if (!err)
+        err = font_.parse(data);
+    for (int i = 0; !err && i < font_.pages; ++i) {
+        pages_.emplace_back();
+        err = pac.read(DdfFont::pageName(e.name, i), data);
+        if (!err)
+            err = image::decode(data, pages_.back());
+    }
+    error_ = err ? err.message : std::string();
+}
+
+void FontPage::handleEvent(const Event& ev) {
+    if (ev.type != EventType::KeyDown)
+        return;
+    const int n = int(entries_.size());
+    switch (ev.key) {
+    case key::Left: show((index_ + n - 1) % n); break;
+    case key::Right: show((index_ + 1) % n); break;
+    case 'p': showPages_ = !showPages_; break;
+    default: break;
+    }
+}
+
+void FontPage::update(uint64_t) {
+    clear(24, 26, 32);
+    const Entry& e = entries_[size_t(index_)];
+    text(8, 8, e.archive + "/" + e.name + "  (" + std::to_string(index_ + 1) + "/" + std::to_string(entries_.size()) +
+                   ")");
+    if (!error_.empty()) {
+        text(8, 8 + font::kLineHeight, error_, {255, 120, 120});
+    } else {
+        text(8, 8 + font::kLineHeight,
+             "\"" + font_.name + "\"  line " + std::to_string(font_.lineHeight) + ", descent " +
+                 std::to_string(font_.descent) + ", space " + std::to_string(font_.spaceAdvance) + ", chars " +
+                 std::to_string(font_.first) + "-" + std::to_string(font_.last) + ", " + std::to_string(font_.pages) +
+                 " pages of " + std::to_string(font_.pageWidth) + "x" + std::to_string(font_.pageHeight),
+             {170, 170, 170});
+        const int top = 8 + font::kLineHeight * 3;
+        if (showPages_) {
+            // The pages side by side, over a checkerboard.
+            int x0 = 8;
+            for (const image::Image& img : pages_) {
+                for (int y = 0; y < img.h && top + y < kScreenH - 20; ++y)
+                    for (int x = 0; x < img.w && x0 + x < kScreenW; ++x) {
+                        const uint8_t* s = img.pixel(x, y);
+                        const int check = ((x / 8 + y / 8) & 1) ? 90 : 60;
+                        uint8_t* d = ctx_.screen.row(top + y) + (x0 + x) * 4;
+                        for (int c = 0; c < 3; ++c)
+                            d[c] = uint8_t((s[c] * s[3] + check * (255 - s[3])) / 255);
+                    }
+                x0 += img.w + 8;
+            }
+        } else {
+            // A sample, then every character the font draws, a line at a time.
+            int y = top;
+            const Color white{255, 255, 255}, gold{250, 210, 90};
+            font_.draw(ctx_.screen, pages_, 8, y, "The quick brown fox jumps over the lazy dog.", white);
+            y += font_.lineHeight;
+            font_.draw(ctx_.screen, pages_, 8, y, "LEGO ALPHA TEAM 0123456789 !?&", gold);
+            y += font_.lineHeight + 4;
+            std::string line;
+            for (int c = font_.first; c <= font_.last && y + font_.lineHeight < kScreenH - 20; ++c) {
+                std::string next = line + char(c);
+                if (font_.measure(next) > kScreenW - 16) {
+                    font_.draw(ctx_.screen, pages_, 8, y, line, white);
+                    y += font_.lineHeight;
+                    next = std::string(1, char(c));
+                }
+                line = next;
+            }
+            if (y + font_.lineHeight < kScreenH - 20)
+                font_.draw(ctx_.screen, pages_, 8, y, line, white);
+        }
+    }
+    text(8, kScreenH - 14, "Left/Right: step   P: pages or sample", {150, 150, 150});
+    ctx_.sys.updateScreen(ctx_.screen);
+}
+
 // --- Sounds -------------------------------------------------------------------
 
 SoundPage::SoundPage(ViewerContext& ctx) : Page(ctx), entries_(collect<Entry>(ctx, {"dds"})) {}

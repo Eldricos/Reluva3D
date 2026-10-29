@@ -208,6 +208,7 @@ if(RELUVA_ENGINE_NETIMMERSE)
         src/engines/netimmerse/alphateam/game_process.cpp
         src/engines/netimmerse/alphateam/player.cpp
         src/engines/netimmerse/data.cpp
+        src/engines/netimmerse/ddf.cpp
         src/engines/netimmerse/fin.cpp
         src/engines/netimmerse/model_page.cpp
         src/engines/netimmerse/netimmerse.cpp

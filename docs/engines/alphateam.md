@@ -110,7 +110,9 @@ from the launcher, the engine now shows these pages (keys in
   mixer.
 - Done: **Text**: the language's text files and the puzzles.
   `parseLocaleText` reads the `==key==` format for later use.
-- **Fonts**: the game's own (`.DDF` with their TGA pages), still to do.
+- Done: **Fonts**: all 12 of the game's own (`.DDF` with their TGA
+  pages), each with a sample, every character it has, and its pages (P).
+  The format is in [../formats/netimmerse/ddf.md](../formats/netimmerse/ddf.md).
 - **Intro movie** (`lmiintro.avi`, CD only): an AVI reader and whichever
   codec it uses. Not needed to play, so last.
 

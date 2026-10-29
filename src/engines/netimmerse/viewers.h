@@ -16,12 +16,15 @@
 //           show or hide the info.
 // Textures: every image. Left/Right step, PageUp/PageDown jump 10,
 //           Home/End; F picks the archive.
+// Fonts:    the game's .DDF fonts, drawn from their TGA pages. Left/Right
+//           step, P shows the pages instead of the sample.
 // Sounds:   every sound. Left/Right (or Up/Down) step, PageUp/PageDown
 //           jump 10, Space or Enter plays or stops, A plays each as it's
 //           selected, F picks the archive.
 // Text:     the language's text files and the puzzles. Left/Right pick a
 //           file, Up/Down, PageUp/PageDown and Home/End scroll.
 
+#include "engines/netimmerse/ddf.h"
 #include "engines/netimmerse/fin.h"
 #include "engines/netimmerse/pac_archive.h"
 
@@ -140,6 +143,27 @@ private:
     void show(int index);
     std::vector<Entry> entries_;
     int index_ = 0;
+};
+
+class FontPage : public Page {
+public:
+    explicit FontPage(ViewerContext& ctx);
+    bool empty() const override { return entries_.empty(); }
+    void activate() override { show(index_); }
+    void handleEvent(const Event& ev) override;
+    void update(uint64_t) override;
+
+private:
+    struct Entry {
+        std::string archive, name;
+    };
+    void show(int index);
+    std::vector<Entry> entries_;
+    int index_ = 0;
+    bool showPages_ = false;
+    DdfFont font_;
+    std::vector<image::Image> pages_;
+    std::string error_;
 };
 
 class SoundPage : public Page {

@@ -89,7 +89,7 @@ archive (offset, size, date, name), and `reluva-tool pac-extract <file.pac>
 - `Etc.pac`:
   - 349 TGA images: the interface, cursors and briefing pictures;
   - 12 fonts: a `.DDF` (magic `FNT2`, a name, then the glyphs' boxes) plus
-    its `_0.TGA`, `_1.TGA` pages;
+    its `_0.TGA`, `_1.TGA` pages. See [../netimmerse/ddf.md](../netimmerse/ddf.md);
   - 111 `.PUZ` puzzles. These are text, starting `PUZVER 1`, with one line per
     placed part: the part's code, an actor name, its position and angles, then
     its properties (`Locked`, `ElectricSink`, `Momentum 6207.67`). Cameras

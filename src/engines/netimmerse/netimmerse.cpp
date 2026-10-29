@@ -179,6 +179,7 @@ private:
         pages.push_back(std::make_unique<ArchivesPage>(ctx, std::move(lines), std::move(errors)));
         pages.push_back(std::make_unique<ModelPage>(ctx));
         pages.push_back(std::make_unique<TexturePage>(ctx));
+        pages.push_back(std::make_unique<FontPage>(ctx));
         pages.push_back(std::make_unique<SoundPage>(ctx));
         pages.push_back(std::make_unique<TextPage>(ctx));
 

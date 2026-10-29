@@ -5,6 +5,7 @@
 // following docs/formats/alphateam/, so no game data is needed.
 
 #include "engines/netimmerse/data.h"
+#include "engines/netimmerse/ddf.h"
 #include "engines/netimmerse/fin.h"
 #include "engines/netimmerse/pac_archive.h"
 
@@ -426,6 +427,56 @@ void testFin() {
 
 } // namespace
 
+// A font with "A" and "B" on one 4x4 page: "A" 2x2 at the top-left, sitting
+// on the baseline, drawn one pixel right of the pen (its edges 1 and 3).
+std::vector<uint8_t> ddfFile(int bPage) {
+    std::vector<uint8_t> d(86 + 2 * 18);
+    std::memcpy(d.data(), "FNT2Arial", 9);
+    auto s16 = [&](size_t at, int v) {
+        d[at] = uint8_t(v);
+        d[at + 1] = uint8_t(v >> 8);
+    };
+    const int metrics[9] = {4, 4, 'A', 'B', 1, 5, 1, 4, 2};
+    for (int i = 0; i < 9; ++i)
+        s16(68 + size_t(i) * 2, metrics[i]);
+    const int glyphs[2][9] = {{0, 0, 2, 0, -1, 3, 3, 0, 0}, {2, 0, 3, -1, 0, 2, 2, 0, bPage}};
+    for (int g = 0; g < 2; ++g)
+        for (int i = 0; i < 9; ++i)
+            s16(86 + size_t(g) * 18 + size_t(i) * 2, glyphs[g][i]);
+    return d;
+}
+
+void testDdf() {
+    DdfFont font;
+    CHECK(!font.parse(ddfFile(0)));
+    CHECK(font.name == "Arial");
+    CHECK(font.first == 'A' && font.last == 'B' && font.pages == 1);
+    CHECK(font.lineHeight == 5 && font.descent == 1 && font.ascent() == 4 && font.spaceAdvance == 2);
+    CHECK(font.glyph(' ') == nullptr && font.glyph('A') && font.glyph('B')->height() == 2);
+    CHECK(font.glyph('A')->left == 1 && font.glyph('A')->right == 3 && font.glyph('A')->width() == 2);
+    CHECK(font.measure("A B") == 3 + 2 + 2);
+    CHECK(DdfFont::pageName("ARIAL.DDF", 1) == "ARIAL_1.TGA");
+    CHECK(font.parse(ddfFile(1))); // "B" on a page it doesn't have
+    std::vector<uint8_t> cut = ddfFile(0);
+    cut.resize(cut.size() - 1);
+    CHECK(font.parse(cut));
+
+    CHECK(!font.parse(ddfFile(0)));
+    image::Image page;
+    page.w = page.h = 4;
+    page.rgba.assign(4 * 4 * 4, 255);
+    for (int y = 0; y < 4; ++y)
+        for (int x = 0; x < 4; ++x)
+            page.pixel(x, y)[3] = (x < 2 && y < 2) ? 255 : 0;
+    Surface screen;
+    screen.create(8, 8, PixelFormat::RGBA32);
+    CHECK(font.draw(screen, {page}, 0, 0, "A", {200, 0, 0}) == 3);
+    // The baseline is 4 down, so "A" (2 above it) fills rows 2-3, columns 1-2.
+    for (int y = 0; y < 8; ++y)
+        for (int x = 0; x < 8; ++x)
+            CHECK(screen.row(y)[x * 4] == ((x == 1 || x == 2) && (y == 2 || y == 3) ? 200 : 0));
+}
+
 int main() {
     const auto tmp = std::filesystem::temp_directory_path() / "reluva_netimmerse_tests";
     std::filesystem::create_directories(tmp);
@@ -437,6 +488,7 @@ int main() {
     testDds();
     testLocaleText();
     testFin();
+    testDdf();
     std::filesystem::remove_all(tmp);
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
