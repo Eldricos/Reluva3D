@@ -75,6 +75,7 @@ struct CarControls {
     float steer = 0;    // -1 (left) .. 1 (right)
     bool handbrake = false;
     int shift = 0;      // manual gears: +1 up a gear, -1 down (from first, when stopped, to reverse)
+    bool reverse = false; // pressed when stopped: into reverse, or out of it
 };
 
 class CarSim {
@@ -97,6 +98,12 @@ public:
     const CarSetup& setup() const { return setup_; }
     // Weight carried besides the car's own (Cops & Robbers' gold), kg.
     float ballast = 0;
+    // The Control Options: auto reverse ("your vehicle goes into reverse
+    // automatically when you accelerate after hitting a building or
+    // something that won't get out of the way"); how fast the steering
+    // turns.
+    bool autoReverse = false; // the player's car takes the option's
+    float steerRate = 1;
     float mass() const { return setup_.mass + ballast; }
     Vec3 position{};          // of the body's origin
     Mat3 orientation;         // the body's axes: X right, Y up, Z back (cars face -Z)
@@ -140,6 +147,9 @@ private:
     float shiftTimer_ = 0;   // no drive while changing gear
     float steerAngle_ = 0;   // eased towards the controls
     float stuckFor_ = 0;     // seconds turned over
+    bool reverseHeld_ = false;
+    float blockedFor_ = 0;    // seconds the throttle's been held without going anywhere
+    bool backingOut_ = false; // auto reverse: backing away while the throttle's held
     Vec3 stuckAt_{};         // where it was when it turned over
 };
 

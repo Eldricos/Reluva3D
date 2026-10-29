@@ -195,6 +195,10 @@ const Widget* FrontEnd::widget(const std::string& name) const {
     for (const Widget& w : widgets_)
         if (w.menu == menu && w.name == name)
             return &w;
+    // The navigation bar, top right of every screen.
+    for (const Widget& w : widgets_)
+        if (w.menu == "Navigation Bar" && w.name == name)
+            return &w;
     return nullptr;
 }
 
@@ -231,6 +235,17 @@ void FrontEnd::refresh() {
 }
 
 std::vector<FrontEnd::Item> FrontEnd::items() const {
+    std::vector<Item> list = screenItems();
+    // The navigation bar's Options and Exit (the help and minimise
+    // buttons aren't Reluva's).
+    if (screen_ != Screen::Splash) {
+        list.push_back({"mnav_opt", true, true, "MNAV_OPT", 5});
+        list.push_back({"mnav_exit", true, true, "mnav_ext", 3});
+    }
+    return list;
+}
+
+std::vector<FrontEnd::Item> FrontEnd::screenItems() const {
     switch (screen_) {
     case Screen::Main:
         return {{"dvrcc", true},
@@ -269,6 +284,10 @@ void FrontEnd::activate(const Item& item, Action& action) {
         go(Screen::Races);
     else if (w == "main_mp")
         action = Action::Multiplayer;
+    else if (w == "mnav_opt")
+        action = Action::Options;
+    else if (w == "mnav_exit")
+        action = Action::Quit;
     else if (w == "blitz" || w == "cp" || w == "circuit") {
         choice_.kind = w == "blitz" ? RaceKind::Blitz : w == "cp" ? RaceKind::Checkpoint : RaceKind::Circuit;
         refresh();
@@ -314,8 +333,8 @@ bool FrontEnd::hit(const Item& item, int x, int y) {
         return false;
     int width = w->w, height = w->h;
     if (item.button)
-        if (const image::Image* im = pictures_.texture(item.widget)) {
-            const int states = w->desc.find("5 State") != std::string::npos ? 5 : 4;
+        if (const image::Image* im = pictures_.texture(item.pictureName())) {
+            const int states = statesOf(item, *w);
             width = im->w;
             height = im->h / states;
         }
@@ -389,6 +408,10 @@ FrontEnd::Action FrontEnd::handle(const Event& ev) {
             go(afterGarage_);
         else if (screen_ != Screen::Main)
             go(Screen::Main);
+        else {
+            action = Action::Quit; // "Quit?"
+            break;
+        }
         action = Action::Changed;
         break;
     case 'u': openAll = !openAll; break;
@@ -457,10 +480,10 @@ void FrontEnd::draw(Surface& o) {
             continue;
         const bool focused = int(i) == focus_;
         if (item.button) {
-            const image::Image* im = pictures_.texture(item.widget);
+            const image::Image* im = pictures_.texture(item.pictureName());
             if (!im)
                 continue;
-            const int states = w->desc.find("5 State") != std::string::npos ? 5 : 4;
+            const int states = statesOf(item, *w);
             bool chosen = (item.widget == "blitz" && choice_.kind == RaceKind::Blitz) ||
                           (item.widget == "cp" && choice_.kind == RaceKind::Checkpoint) ||
                           (item.widget == "circuit" && choice_.kind == RaceKind::Circuit);

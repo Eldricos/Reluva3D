@@ -207,7 +207,7 @@ void RaceViewer::startNetGame() {
     CityLife::Options life;
     life.traffic = 0;
     life.cops = 0;
-    life.peds = set.peds;
+    life.peds = set.peds * pedestrianShare();
     life.rain = set.weather == 3;
     life.seed = session->seed();
     life.variant = racing ? raceStem(race_.kind, raceIndex_) : std::string();
@@ -584,7 +584,7 @@ bool RaceViewer::netEvent(const Event& ev) {
     if (ev.type != EventType::KeyDown)
         return false;
     NetSession* session = net_ ? net_->session() : nullptr;
-    if (ev.key == 't') {
+    if (controlOf(ev.key) == Control::Chat) {
         chatting_ = true;
         chatLine_.clear();
         keys_ = 0;

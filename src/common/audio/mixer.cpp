@@ -157,10 +157,21 @@ void Mixer::mix(int16_t* out, int frames) {
         for (size_t i = 0; i < accumulator_.size(); ++i)
             accumulator_[i] += int32_t(std::lround(double(streamBuffer_[i]) * gain));
     }
+    // The balance: the far side quieter, linearly.
+    if (balance_ != 0)
+        for (size_t i = 0; i < accumulator_.size(); i += 2) {
+            int32_t& side = accumulator_[balance_ > 0 ? i : i + 1];
+            side = int32_t(int64_t(side) * (kMaxPan - std::abs(balance_)) / kMaxPan);
+        }
     for (size_t i = 0; i < accumulator_.size(); ++i)
         out[i] = int16_t(std::clamp<int32_t>(accumulator_[i], -32768, 32767));
     channels_.erase(std::remove_if(channels_.begin(), channels_.end(), [](const Channel& c) { return c.done; }),
                     channels_.end());
+}
+
+void Mixer::setBalance(int balance) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    balance_ = std::clamp(balance, -kMaxPan, kMaxPan);
 }
 
 Error startMixerOutput(System& sys, Mixer& mixer) {

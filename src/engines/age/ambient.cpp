@@ -156,7 +156,7 @@ void AmbientSounds::update(float dt, const Vec3& listener) {
         gains.push_back(ambientGain(a, nearest));
     }
     for (Voice& v : voices_) {
-        const float gain = gains[v.ambience] * v.sample->volume;
+        const float gain = gains[v.ambience] * v.sample->volume * gain_;
         const int volume = int(std::clamp(gain, 0.0f, 1.0f) * audio::kMaxVolume);
         if (v.sample->type == 0) {
             // A loop, while it's heard.

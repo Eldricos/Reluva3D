@@ -26,6 +26,7 @@
 #include "engines/age/lesson.h"
 #include "engines/age/materials.h"
 #include "engines/age/opponent.h"
+#include "engines/age/options.h"
 #include "engines/age/pathset.h"
 #include "engines/age/ped_model.h"
 #include "engines/age/pkg.h"
@@ -2470,6 +2471,65 @@ static void testGoldGame() {
     CHECK(lines.at("ROBGETLOOT") == std::vector<std::string>({"AL1/AL1COPS01", "AL1/AL1COPS02", "AL1/AL1COPS03"}));
 }
 
+static void testOptions(const std::filesystem::path& tmp) {
+    // The defaults: the arrows and WASD, the game's names.
+    GameOptions o;
+    CHECK(o.controlOf(key::Up) == Control::Throttle && o.controlOf('w') == Control::Throttle &&
+          o.controlOf(' ') == Control::Handbrake && o.controlOf('x') == Control::Count);
+    CHECK(controlStringId(Control::Throttle) == 280 && keyName(key::Up) == "Up" && keyName('w') == "W" &&
+          keyName(key::F1 + 2) == "F3");
+    CHECK(o.otherWith('a', Control::Throttle) == Control::SteerLeft &&
+          o.otherWith('a', Control::SteerLeft) == Control::Count);
+
+    // Changed, saved and read back.
+    o.music = false;
+    o.effectsVolume = 0.25f;
+    o.balance = -0.5f;
+    o.resolution = 2;
+    o.objectDetail = 1;
+    o.startInCar = true;
+    o.keys[size_t(Control::Horn)] = {'g', 'j'};
+    CHECK(!o.save(tmp));
+    GameOptions back;
+    CHECK(!back.load(tmp));
+    CHECK(!back.music && back.ambient && std::fabs(back.effectsVolume - 0.25f) < 1e-6f &&
+          std::fabs(back.balance + 0.5f) < 1e-6f && back.resolution == 2 && back.objectDetail == 1 && back.startInCar &&
+          back.controlOf('j') == Control::Horn && back.controlOf('h') == Control::Count);
+    back.resetControls();
+    CHECK(back.controlOf('h') == Control::Horn && !back.startInCar && !back.music); // the audio stays
+    GameOptions none;
+    CHECK(!none.load(tmp / "nothing") && none.music); // no file yet: the defaults
+    CHECK(GameOptions().farClip() == 4000 && o.steerRate() == 1);
+
+    // Auto reverse: the throttle held against a wall backs the car away
+    // once a second's passed; let go, it's in first again.
+    CollisionWorld walled;
+    walled.add({-300, 0, -300}, {-300, 0, 300}, {300, 0, 300});
+    walled.add({-300, 0, -300}, {300, 0, 300}, {300, 0, -300});
+    walled.add({-50, 0, -8}, {50, 0, -8}, {50, 10, -8});
+    walled.add({-50, 0, -8}, {50, 10, -8}, {-50, 10, -8});
+    walled.build(16);
+    for (bool assist : {false, true}) {
+        CarSim car;
+        car.reset(testCar(), {0, 0, 0}, 0);
+        car.autoReverse = assist;
+        CarControls go;
+        go.throttle = 1;
+        for (int i = 0; i < 60; ++i)
+            car.step(go, walled, 0.05f);
+        const float atWall = car.position[2];
+        for (int i = 0; i < 40; ++i)
+            car.step(go, walled, 0.05f);
+        if (assist)
+            CHECK(car.gear < 0 && car.position[2] > atWall + 1);
+        else
+            CHECK(car.gear > 0 && car.position[2] < atWall + 0.5f);
+        go.throttle = 0;
+        car.step(go, walled, 0.05f);
+        CHECK(car.gear > 0);
+    }
+}
+
 int main() {
     const auto tmp = std::filesystem::temp_directory_path() / "reluva_age_tests";
     testArchive(tmp / "archive");
@@ -2514,6 +2574,7 @@ int main() {
     testMusic(tmp / "music");
     testNetSession();
     testGoldGame();
+    testOptions(tmp / "options");
     std::filesystem::remove_all(tmp);
     if (failures) {
         std::fprintf(stderr, "%d check(s) failed\n", failures);
