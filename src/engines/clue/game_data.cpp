@@ -32,6 +32,7 @@ Error GameData::open(const std::filesystem::path& gameDir, Language language) {
     drives_.clear();
     images_.clear();
     animations_.clear();
+    objects_.clear();
     folders_.push_back(gameDir);
     std::vector<std::filesystem::path> roots;
     if (auto classic = fs::findDirectory(gameDir, "Data/Classic")) {
@@ -140,6 +141,29 @@ const Animation* GameData::animation(std::string_view fullName) const {
         }
     }
     return animations_.emplace(key, std::move(anim)).first->second.get();
+}
+
+const ObjectDef* GameData::object(std::string_view fullName) const {
+    const std::string key = fs::toLower(fullName);
+    auto it = objects_.find(key);
+    if (it != objects_.end())
+        return it->second.get();
+    std::unique_ptr<ObjectDef> obj;
+    ResourceName n;
+    if (!splitResourceName(fullName, n)) {
+        lastError_ = "not a resource name: " + std::string(fullName);
+    } else if (const DataDrive* d = drive(n.drive, 'O')) {
+        if (const DataDrive::Entry* e = d->find(n.name)) {
+            obj = std::make_unique<ObjectDef>();
+            if (Error err = parseObject(d->read(*e), *obj)) {
+                lastError_ = std::string(fullName) + ": " + err.message;
+                obj.reset();
+            }
+        } else {
+            lastError_ = "no " + n.name + " in " + n.drive + ".o";
+        }
+    }
+    return objects_.emplace(key, std::move(obj)).first->second.get();
 }
 
 } // namespace reluva::clue

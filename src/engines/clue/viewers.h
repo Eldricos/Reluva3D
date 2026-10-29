@@ -9,6 +9,7 @@
 #include "common/system.h"
 #include "common/types.h"
 #include "engines/clue/game_data.h"
+#include "engines/clue/mansion.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -31,6 +32,52 @@ void drawCheckerboard(Surface& s, int y0, int y1);
 void drawInfo(Surface& s, const std::string& line1, const std::string& line2 = {});
 // An image with its top-left corner at (x, y), scaled up by a whole number.
 void drawImage(Surface& s, const image::Image& img, int x, int y, int scale = 1);
+
+// The mansion as clue.lvl places it, its animations playing.
+//   Arrows or a mouse drag: scroll (Shift: faster)   Home: back to the middle
+//   M: the whole house, shrunk (a click there goes to that place)
+//   W: the walls nearest the camera (layer 4): see-through, solid or hidden
+//   O: the black outside on/off
+//   N: the level editor's tile numbers on/off   F: footprints (boxes) on/off
+//   Space: pause the animations
+// The info line names what's under the mouse pointer.
+class MansionViewer {
+public:
+    MansionViewer(System& sys, Surface& screen, const GameData& data);
+    bool loaded() const { return error_.empty(); }
+    const std::string& error() const { return error_; }
+    bool overview() const { return overview_; }
+    void activate();
+    void handleEvent(const Event& ev);
+    void update(uint64_t nowMs);
+
+private:
+    bool shown(const Mansion::Item& item) const;
+    void draw();
+    void drawScene(Surface& target, int camX, int camY);
+    void drawOverview();
+    void drawFootprint(const Mansion::Item& item);
+    const Mansion::Item* pick(int x, int y) const;
+    void centre();
+    void scroll(int dx, int dy);
+
+    System& sys_;
+    Surface& screen_;
+    const GameData& data_;
+    DataDrive levelFile_;
+    Level level_;
+    Mansion mansion_;
+    std::string error_;
+    int camX_ = 0, camY_ = 0;
+    enum class Walls { SeeThrough, Solid, Hidden } walls_ = Walls::SeeThrough;
+    bool outside_ = true, tileNumbers_ = false, footprints_ = false, paused_ = false;
+    bool overview_ = false;
+    Surface whole_;          // the whole house, for the overview; made when first asked for
+    bool dragging_ = false;
+    int dragX_ = 0, dragY_ = 0, mouseX_ = -1, mouseY_ = -1;
+    uint64_t now_ = 0, tick_ = 0;
+    bool dirty_ = true;
+};
 
 // Every image of every .res file.
 //   Left/Right: previous/next image   PageUp/PageDown: 10 at a time

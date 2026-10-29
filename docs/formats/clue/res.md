@@ -143,8 +143,8 @@ clipped, flipped, scaled and sheared variants).
 | 2 | number of images |
 | 2 | width |
 | 2 | height |
-| 4 | 10 in every record |
-| 4 | 136 in every record |
+| 4 | frames a second: 10 in every record |
+| 4 | 136 in every record (not understood) |
 | 4 | 4 + layers × frames × 10 |
 | | the images: each 1 + n bytes, a name `drive:Iname` |
 | | the layers: each a 4-byte number (0, 1, ...) and a 10-byte part for each frame |
@@ -173,9 +173,24 @@ extras:
 |---|---|---|
 | 0 | 2 | x of the frame's top left from the anchor point (signed; −44 for Miss Scarlet) |
 | 2 | 2 | y (−106 for her: the anchor is at her feet) |
-| 4 | 16 | not understood: 0, then `0x100` or 0, two signed values, a 0/1/−1, two sizes (16 × 16 for the characters) |
-| 20 | 2 | the frame's time in milliseconds (100 for the characters; 0 for still frames) |
+| 4 | 10 | not understood: 0, then `0x100` or 0, then three signed values (mostly 0) |
+| 14 | 2 | 1 for things that stand, −1 for flat ones (floors, the black outside), 0 for frames without a box |
+| 16 | 2 | the box's size along the world's x |
+| 18 | 2 | its size along y |
+| 20 | 2 | its height |
 | 22 | 2 | number of 7-byte extras that follow |
+
+The box is the space the object fills in the world, and the anchor point
+is its back corner on the floor (see [level.md](level.md) for the world's
+axes). Walls along x are 64 × 16 × 161, along y 16 × 64 × 161; the
+characters 16 × 16 × 100; the pool table 168 × 92 × 48; a 4 × 4 floor block
+64 × 64 × 1, flat. The image follows from it: a wall along x is 80 = 64 +
+16 pixels wide and its frame's top left is at (−16, −161) from the anchor.
+
+An earlier version of this page took bytes 20-21 for the frame's time: the
+characters' 100 fitted that, but walls' 161 and the armour's 140 show it's
+the height. The frames' rate is the header's: 10 a second in every
+animation (the header's first constant).
 
 The extras are rare: 96 in an install, each `88 13 00 00 00 00 00`
 (5000), two in each of the six characters' eight `mult` animations (one a

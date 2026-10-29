@@ -191,7 +191,10 @@ Error parseAnimation(const std::vector<uint8_t>& r, Animation& out) {
     const int frameCount = u16(r, p + 3), imageCount = u16(r, p + 5);
     out.width = u16(r, p + 7);
     out.height = u16(r, p + 9);
-    p += 23; // and two values not understood (10 and 136 in every record), and the layers' size
+    out.framesPerSecond = int(u32(r, p + 11));
+    if (out.framesPerSecond <= 0 || out.framesPerSecond > 1000)
+        return Error::fail("ANIM speed " + std::to_string(out.framesPerSecond) + " is out of range");
+    p += 23; // and a value not understood (136 in every record), and the layers' size
     for (int i = 0; i < imageCount; ++i) {
         std::string name;
         if (!text(name))
@@ -232,9 +235,12 @@ Error parseAnimation(const std::vector<uint8_t>& r, Animation& out) {
             p += 10;
             continue;
         }
-        for (int i = 0; i < 8; ++i)
-            f.words[i] = u16(r, p + 4 + 2 * size_t(i));
-        f.duration = u16(r, p + 20);
+        for (int i = 0; i < 5; ++i)
+            f.unknown[i] = u16(r, p + 4 + 2 * size_t(i));
+        f.solid = s16(r, p + 14);
+        f.sizeX = u16(r, p + 16);
+        f.sizeY = u16(r, p + 18);
+        f.height = u16(r, p + 20);
         const int extras = u16(r, p + 22);
         p += 24;
         if (size_t(blockEnd - p) < size_t(extras) * 7)

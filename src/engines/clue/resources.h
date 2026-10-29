@@ -70,16 +70,23 @@ struct Animation {
         int16_t x = 0, y = 0;
         uint16_t a = 0, b = 0; // not understood yet
     };
+    // A frame's place. In the long ISOA form, also the box the object fills
+    // in the world, which its anchor is the back corner of (least x and y,
+    // the floor): sizeX by sizeY on the floor and height high. Screen x is
+    // world x - y, screen y (x + y) / 2 - z, so the box's image spans
+    // -sizeY .. sizeX across and rises height above the anchor.
     struct Frame {
         int16_t anchorX = 0, anchorY = 0; // where the frame's top left is, from the anchor point
-        uint16_t duration = 0;            // milliseconds; 0 for still frames and the short form
-        uint16_t words[8] = {};           // the long form's bytes 4-19, not understood yet
+        uint16_t sizeX = 0, sizeY = 0, height = 0;
+        int16_t solid = 0;                // 1 for objects, -1 for flat things (floors), 0 without a box
+        uint16_t unknown[5] = {};         // the long form's bytes 4-13, not understood yet
         std::vector<std::array<uint8_t, 7>> extras;
     };
 
     std::string name;      // the record's own; often uninitialised memory, so empty then
     uint8_t kind[2] = {};  // not understood yet
     int width = 0, height = 0;
+    int framesPerSecond = 10; // 10 in every animation of the game
     std::vector<std::string> images; // "drive:Iname"
     std::vector<std::vector<Part>> layers; // [layer][frame]
     std::vector<Frame> frames;

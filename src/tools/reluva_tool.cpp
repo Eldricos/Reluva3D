@@ -42,8 +42,9 @@
 //                                                  write <out>.bmp and <out>_alpha.bmp
 //   reluva-tool clue-list <file>                    list a Clue .res, .a, .o or .lvl file's entries
 //   reluva-tool clue-extract <file> <dir> [filter]  write a Clue .res file's images as 32-bit TGA
-//   reluva-tool clue-check <game folder> [-uk]      decode every image and animation of a Clue
-//                                                  install or CD, and check what animations refer to
+//   reluva-tool clue-check <game folder> [-uk]      decode every image, animation and object of a Clue
+//                                                  install or CD, and build its mansion
+//   reluva-tool clue-level <clue.lvl> [-v]          a Clue level's placements (each one with -v)
 //   reluva-tool bsp-check <game folder>            load every maps/*.bsp of an id Tech 3 game folder
 //                                                  (e.g. .../BaseEF), report failures and corrections
 //   reluva-tool pk3-list <game folder> [filter]    list the search path's files, with sizes and the
@@ -141,6 +142,8 @@
 #endif
 #ifdef RELUVA_ENGINE_CLUE
 #include "engines/clue/game_data.h"
+#include "engines/clue/level.h"
+#include "engines/clue/mansion.h"
 #include "engines/clue/resources.h"
 #endif
 
@@ -2629,11 +2632,95 @@ int cmdClueCheck(int argc, char** argv) {
             }
         }
     }
+    int objects = 0, objectFails = 0;
+    for (const auto& path : data.withExtension(".o")) {
+        const std::string drive = path.stem().string();
+        const reluva::clue::DataDrive* d = data.drive(drive, 'O');
+        if (!d) {
+            std::printf("  %s\n", data.lastError().c_str()); // it names the file
+            continue;
+        }
+        for (const auto& e : d->entries()) {
+            ++objects;
+            if (!data.object(drive + ":" + e.name)) {
+                ++objectFails;
+                std::printf("  %s\n", data.lastError().c_str());
+            }
+        }
+    }
+    int placements = 0, buildProblems = 0;
+    bool levelOk = false;
+    if (const std::filesystem::path* lvl = data.find("clue.lvl")) {
+        reluva::clue::DataDrive file;
+        reluva::clue::Level level;
+        reluva::clue::Mansion mansion;
+        if (reluva::Error err = file.open(*lvl))
+            std::printf("  %s\n", err.message.c_str());
+        else if (reluva::Error err2 = reluva::clue::parseLevel(file, level))
+            std::printf("  clue.lvl: %s\n", err2.message.c_str());
+        else if (reluva::Error err3 = mansion.build(data, level))
+            std::printf("  clue.lvl: %s\n", err3.message.c_str());
+        else {
+            levelOk = true;
+            placements = int(level.placements.size());
+            buildProblems = int(mansion.problems().size());
+            for (const std::string& p : mansion.problems())
+                std::printf("  clue.lvl: %s\n", p.c_str());
+        }
+    } else {
+        std::printf("  no clue.lvl\n");
+    }
     std::printf("images: %d, %d failed (version 0x100: %d, 0x200: %d)\n", images, imageFails, versions[0x100],
                 versions[0x200]);
     std::printf("animations: %d, %d failed; images they name: %d, %d missing or failed\n", anims, animFails, refs,
                 refFails);
-    return imageFails || animFails || refFails ? 1 : 0;
+    std::printf("objects: %d, %d failed\n", objects, objectFails);
+    std::printf("clue.lvl: %s, %d placements, %d couldn't be built\n", levelOk ? "read" : "FAILED", placements,
+                buildProblems);
+    return imageFails || animFails || refFails || objectFails || !levelOk || buildProblems ? 1 : 0;
+}
+
+// A level's object names and placements: a summary, or each one with -v.
+int cmdClueLevel(int argc, char** argv) {
+    if (argc < 3 || argc > 4) {
+        std::fprintf(stderr, "usage: reluva-tool clue-level <clue.lvl> [-v]\n");
+        return 2;
+    }
+    reluva::clue::DataDrive file;
+    reluva::clue::Level level;
+    if (reluva::Error err = file.open(argv[2])) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    if (reluva::Error err = reluva::clue::parseLevel(file, level)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    const bool verbose = argc > 3 && std::strcmp(argv[3], "-v") == 0;
+    std::printf("\"%s\": %zu object names, %zu placements\n", level.title.c_str(), level.objects.size(),
+                level.placements.size());
+    std::map<int, int> layers, flags;
+    for (const auto& pl : level.placements) {
+        ++layers[pl.layer];
+        ++flags[pl.flags];
+        if (verbose) {
+            std::printf("%-36s layer %d  at %5d,%5d  id %4d  flags %02x", level.objects[pl.object].c_str(), pl.layer,
+                        pl.worldX(), pl.worldY(), pl.id, pl.flags);
+            if (pl.flags & 0x02)
+                std::printf("  tag %u", pl.tag);
+            for (const auto& t : pl.timings)
+                std::printf("  [%u ms -> %u]", t.time, t.state);
+            std::printf("\n");
+        }
+    }
+    std::printf("by layer:");
+    for (const auto& [l, n] : layers)
+        std::printf("  %d: %d", l, n);
+    std::printf("\nby flags:");
+    for (const auto& [f, n] : flags)
+        std::printf("  %02x: %d", f, n);
+    std::printf("\n");
+    return 0;
 }
 #endif // RELUVA_ENGINE_CLUE
 
@@ -5331,6 +5418,8 @@ int main(int argc, char** argv) {
         return cmdClueExtract(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "clue-check") == 0)
         return cmdClueCheck(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "clue-level") == 0)
+        return cmdClueLevel(argc, argv);
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
     if (argc >= 2 && std::strcmp(argv[1], "bsp-check") == 0)
@@ -5411,6 +5500,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool clue-list <file.res | file.a | file.o | file.lvl>\n"
                  "  reluva-tool clue-extract <file.res> <output dir> [name filter]\n"
                  "  reluva-tool clue-check <game folder> [-uk]\n"
+                 "  reluva-tool clue-level <clue.lvl> [-v]\n"
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
                  "  reluva-tool bsp-check <game folder, e.g. .../BaseEF>\n"

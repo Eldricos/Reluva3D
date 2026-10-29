@@ -4,10 +4,13 @@
 // Tests for the Clue engine's readers, on files made up here.
 
 #include "engines/clue/game_data.h"
+#include "engines/clue/level.h"
+#include "engines/clue/mansion.h"
 #include "engines/clue/resources.h"
 #include "zip_writer.h"
 
 #include <cstdio>
+#include <algorithm>
 #include <cstring>
 #include <filesystem>
 #include <string>
@@ -140,7 +143,7 @@ static Bytes image100() {
 
 // An ANIM record of 2 frames, 2 layers and 2 images, with an ISOA block in
 // the long form (one extra on frame 1) or the short one.
-static Bytes animation(bool shortForm) {
+static Bytes animation(bool shortForm, int solid = 1, int sizeX = 16, int sizeY = 16) {
     Bytes r = {'A', 'N', 'I', 'M'};
     put16(r, 0x200);
     r.push_back(0x80);
@@ -174,8 +177,11 @@ static Bytes animation(bool shortForm) {
             isoa.insert(isoa.end(), 6, 0);
             continue;
         }
-        for (int i = 0; i < 8; ++i)
+        for (int i = 0; i < 5; ++i)
             put16(isoa, uint32_t(i));
+        put16(isoa, uint32_t(solid & 0xffff));
+        put16(isoa, uint32_t(sizeX)); // the box on the floor
+        put16(isoa, uint32_t(sizeY));
         put16(isoa, 100 + uint32_t(frame));
         put16(isoa, uint32_t(frame)); // extras
         if (frame == 1)
@@ -247,12 +253,13 @@ static void testAnimations() {
     CHECK(a.images.size() == 2 && a.images[1] == "test:Ib");
     CHECK(a.layers.size() == 2 && a.frameCount() == 2 && a.isometric && !a.shortForm);
     CHECK(a.layers[1][1].image == 1 && a.layers[1][1].x == 11 && a.layers[1][1].y == -5);
-    CHECK(a.frames[0].anchorX == -44 && a.frames[0].anchorY == -106 && a.frames[1].duration == 101);
-    CHECK(a.frames[0].words[7] == 7 && a.frames[0].extras.empty() && a.frames[1].extras.size() == 1);
+    CHECK(a.frames[0].anchorX == -44 && a.frames[0].anchorY == -106 && a.frames[1].height == 101);
+    CHECK(a.frames[0].sizeX == 16 && a.frames[0].sizeY == 16 && a.frames[0].solid == 1 && a.framesPerSecond == 10);
+    CHECK(a.frames[0].unknown[4] == 4 && a.frames[0].extras.empty() && a.frames[1].extras.size() == 1);
     CHECK(a.frames[1].extras.size() == 1 && a.frames[1].extras[0][0] == 0x88);
 
     CHECK(!parseAnimation(animation(true), a));
-    CHECK(a.isometric && a.shortForm && a.frames[1].anchorY == -106 && a.frames[1].duration == 0);
+    CHECK(a.isometric && a.shortForm && a.frames[1].anchorY == -106 && a.frames[1].height == 0);
 
     Bytes bad = animation(false);
     bad.resize(bad.size() - 3);
@@ -310,11 +317,176 @@ static void testGameData(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+// An object record: its states and timings.
+static Bytes objectRecord(const char* name, uint8_t type, const std::vector<std::pair<int, const char*>>& states,
+                          const std::vector<std::pair<int, int>>& timings = {}) {
+    Bytes r;
+    put16(r, 0); // the length, filled in below
+    r.push_back(1);
+    Bytes field(32, 0);
+    std::memcpy(field.data(), name, std::strlen(name));
+    field[std::strlen(name) + 1] = 0x28; // what memory held after the name
+    r.insert(r.end(), field.begin(), field.end());
+    r.push_back(type);
+    put32(r, 1);
+    put16(r, uint32_t(states.size()));
+    for (const auto& [id, anim] : states) {
+        put16(r, uint32_t(id));
+        Bytes a(32, 0);
+        std::memcpy(a.data(), anim, std::strlen(anim));
+        r.insert(r.end(), a.begin(), a.end());
+    }
+    put16(r, uint32_t(timings.size()));
+    for (const auto& [time, state] : timings) {
+        put16(r, uint32_t(time));
+        r.push_back(0);
+        put16(r, uint32_t(state));
+        put16(r, 0);
+    }
+    r[0] = uint8_t(r.size());
+    r[1] = uint8_t(r.size() >> 8);
+    r.insert(r.end(), {0x4e, 0x00}); // the archive's size takes in the next record's first 2 bytes
+    return r;
+}
+
+struct TestPlacement {
+    uint8_t flags;
+    int tag, object, x, y, id, layer;
+    std::vector<std::pair<int, int>> timings;
+};
+
+// clue.lvl: World.dat's names and Objects.dat's placements.
+static Bytes levelFile(const std::vector<const char*>& names, const std::vector<TestPlacement>& placements) {
+    Bytes world(40, 0);
+    std::memcpy(world.data(), "Unnamed", 7);
+    put16(world, uint32_t(names.size()));
+    for (const char* n : names)
+        putText(world, n);
+    Bytes objects;
+    put16(objects, uint32_t(placements.size()));
+    for (const TestPlacement& p : placements) {
+        Bytes r;
+        r.push_back(p.flags);
+        if (p.flags & 0x02)
+            put16(r, uint32_t(p.tag));
+        put16(r, uint32_t(p.object));
+        put16(r, uint32_t(p.x & 0xffff));
+        put16(r, uint32_t(p.y & 0xffff));
+        put16(r, uint32_t(p.id & 0xffff));
+        r.push_back(uint8_t(p.layer));
+        if (p.flags & 0x20) {
+            put16(r, uint32_t(p.timings.size()));
+            for (const auto& [time, state] : p.timings) {
+                put16(r, uint32_t(time));
+                r.push_back(0);
+                put16(r, uint32_t(state));
+                put16(r, 0);
+            }
+        }
+        put16(objects, uint32_t(r.size() + 2));
+        objects.insert(objects.end(), r.begin(), r.end());
+    }
+    return drive({{"/World.dat", world}, {"/Info.dat", {0, 0}}, {"/Objects.dat", objects},
+                  {"/Workspace.dat", Bytes(32, 0)}});
+}
+
+static void testObjectsAndLevel() {
+    ObjectDef o;
+    CHECK(!parseObject(objectRecord("test:Obench", 3, {{0, "test:Awalk"}, {21, "test:Awalk"}}, {{1600, 21}}), o));
+    CHECK(o.name == "test:Obench" && o.type == 3 && o.unknown == 1 && o.states.size() == 2);
+    CHECK(o.state(21) && o.state(21)->animation == "test:Awalk" && !o.state(5));
+    CHECK(o.timings.size() == 1 && o.timings[0].time == 1600 && o.timings[0].state == 21);
+    Bytes cut = objectRecord("test:Ox", 0, {{0, "test:Awalk"}});
+    cut[0] += 7; // longer than it is
+    CHECK(parseObject(cut, o));
+    cut = objectRecord("test:Ox", 0, {{0, "test:Awalk"}});
+    cut[0] -= 1; // a byte left over
+    CHECK(parseObject(cut, o));
+
+    DataDrive d;
+    CHECK(!d.load(levelFile({"test:Ofloor", "test:Obench"},
+                            {{0x40, 0, 1, 100, 60, 1, 5, {}},
+                             {0x62, 3, 0, -64, 128, -1, 1, {{1000, 10}}},
+                             {0x42, 1030, 1, 436, 948, 1, 7, {}}})));
+    Level level;
+    CHECK(!parseLevel(d, level));
+    CHECK(level.title == "Unnamed" && level.objects.size() == 2 && level.placements.size() == 3);
+    if (level.placements.size() == 3) {
+        const Placement& p = level.placements[1];
+        CHECK(p.flags == 0x62 && p.tag == 3 && p.object == 0 && p.x == -64 && p.y == 128 && p.id == -1 &&
+              p.layer == 1 && p.worldX() == -32 && p.worldY() == 64);
+        CHECK(p.timings.size() == 1 && p.timings[0].time == 1000 && p.timings[0].state == 10);
+        CHECK(level.placements[2].tag == 1030 && level.placements[2].layer == 7);
+        CHECK(level.workspace.size() == 32);
+    }
+    // A placement naming an object that isn't there.
+    CHECK(!d.load(levelFile({"test:Ofloor"}, {{0x40, 0, 4, 0, 0, 1, 5, {}}})));
+    CHECK(parseLevel(d, level));
+}
+
+static void testDepth() {
+    // Separate in x or y: the further on is in front.
+    const WorldBox a{0, 0, 16, 16, 50}, beyondX{16, 0, 16, 16, 50}, beyondY{0, 20, 16, 16, 50};
+    CHECK(compareDepth(beyondX, a) == 1 && compareDepth(a, beyondX) == -1);
+    CHECK(compareDepth(beyondY, a) == 1 && compareDepth(a, beyondY) == -1);
+    CHECK(compareDepth(a, WorldBox{8, 8, 16, 16, 50}) == 0);
+
+    // A long wall in front of a small object whose centre is nearer the
+    // camera than the wall's: the boxes say the wall goes last.
+    const WorldBox wall{0, 48, 128, 16, 100}, thing{100, 20, 16, 16, 50}, far{1000, 1000, 16, 16, 50};
+    const ScreenRect over{0, 0, 100, 100}, away{5000, 5000, 10, 10};
+    std::vector<size_t> order = depthOrder({wall, thing, far}, {over, over, away});
+    CHECK(order.size() == 3);
+    const auto pos = [&](size_t i) { return std::find(order.begin(), order.end(), i) - order.begin(); };
+    CHECK(pos(1) < pos(0));
+
+    // Three boxes each in front of the next make a cycle; each still comes
+    // out once.
+    order = depthOrder({{0, 0, 10, 40, 10}, {10, 0, 40, 10, 10}, {5, 10, 10, 10, 10}}, {over, over, over});
+    std::sort(order.begin(), order.end());
+    CHECK(order == std::vector<size_t>({0, 1, 2}));
+}
+
+static void testMansion(const std::filesystem::path& tmp) {
+    std::filesystem::remove_all(tmp);
+    const auto res = tmp / "Data" / "Classic" / "Resource";
+    test::writeFile(res / "test.res", pack(drive({{"Ia", image200()}, {"Ib", image100()}})));
+    test::writeFile(res / "test.a", pack(drive({{"Awalk", animation(false)}, {"Afloor", animation(false, -1, 64, 64)}})));
+    test::writeFile(res / "test.o", drive({{"Obench", objectRecord("test:Obench", 3, {{0, "test:Awalk"}})},
+                                          {"Ofloor", objectRecord("test:Ofloor", 1, {{0, "test:Afloor"}})},
+                                          {"Obroken", objectRecord("test:Obroken", 3, {{0, "test:Anothere"}})}}));
+    test::writeFile(tmp / "Data" / "Classic" / "Levels" / "clue.lvl",
+                    levelFile({"test:Obench", "test:Ofloor", "test:Obroken"},
+                              {{0x40, 0, 0, 200, 100, 1, 5, {}},
+                               {0x40, 0, 1, 0, 0, -1, 1, {}},
+                               {0x40, 0, 2, 0, 0, 1, 5, {}}}));
+    GameData data;
+    CHECK(!data.open(tmp, Language::US));
+    DataDrive file;
+    Level level;
+    Mansion m;
+    CHECK(!file.open(*data.find("clue.lvl")) && !parseLevel(file, level) && !m.build(data, level));
+    CHECK(m.items().size() == 2 && m.problems().size() == 1); // the broken one is left out
+    if (m.items().size() == 2) {
+        const Mansion::Item& bench = m.items()[0];
+        CHECK(!bench.flat && bench.box.x == 100 && bench.box.y == 50 && bench.box.sizeX == 16);
+        CHECK(bench.anchorX == 50 && bench.anchorY == 75); // (x - y) / 2, (x + y) / 4 in the level's units
+        CHECK(m.items()[1].flat);
+        CHECK(m.drawOrder() == std::vector<size_t>({1, 0})); // the floor first
+        // Frame 0's pieces: image Ia (3x2) at the frame's anchor offset plus its layer's.
+        CHECK(bench.rect.x == 50 - 44 && bench.rect.y == 75 - 106 - 5);
+    }
+    std::filesystem::remove_all(tmp);
+}
+
 int main() {
     testUnpack();
     testDriveAndImages();
     testAnimations();
     testGameData(std::filesystem::temp_directory_path() / "reluva_clue_tests");
+    testObjectsAndLevel();
+    testDepth();
+    testMansion(std::filesystem::temp_directory_path() / "reluva_clue_mansion");
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

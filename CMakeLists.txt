@@ -186,6 +186,9 @@ if(RELUVA_ENGINE_CLUE)
         src/engines/clue/clue.cpp
         src/engines/clue/resources.cpp
         src/engines/clue/game_data.cpp
+        src/engines/clue/level.cpp
+        src/engines/clue/mansion.cpp
+        src/engines/clue/mansion_viewer.cpp
         src/engines/clue/image_viewer.cpp
         src/engines/clue/animation_viewer.cpp
         src/engines/clue/sound_viewer.cpp

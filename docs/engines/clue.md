@@ -84,10 +84,12 @@ Each step can be seen working before the next.
    (playing), images, sounds and text, described below. `reluva-tool`
    commands to list, extract and check the files. Unit tests on made-up
    files.
-2. **The mansion.** Read `.o` objects and `clue.lvl`, and draw the
-   rooms: floor tiles, walls, objects in depth order, characters standing
-   in them. Scroll around the house. The options for translucency,
-   lighting and walls.
+2. **The mansion** (done, to be checked against the original). Reads
+   the objects (`.o`) and `clue.lvl` ([formats/clue/level.md](../formats/clue/level.md))
+   and draws the house: floors, walls, furniture and the suspects at their
+   starting places, sorted by the boxes they fill, the rooms' animations
+   playing. Scrolls; an overview of the whole house. The near walls
+   see-through, solid or hidden.
 3. **Video.** An AVI reader and a Cinepak decoder, with the sound
    through the mixer. Play the intro, the deal and the suggestion clips.
 4. **The interface.** The `RESI` layouts: windows, buttons, lists, text
@@ -114,6 +116,14 @@ Each step can be seen working before the next.
 
 Until the game runs, the engine shows its data. **Tab** switches between
 the pages; **Esc** goes back to the launcher.
+
+- **The mansion**, first: **arrows** or a mouse drag scroll (**Shift**
+  faster), **Home** goes back to the middle, **M** shows the whole house
+  (click to go to a place there), **W** makes the walls nearest the camera
+  see-through, solid or hidden, **O** shows or hides the black outside,
+  **N** the level editor's tile numbers, **F** every object's box,
+  **Space** pauses the animations. The info line names what's under the
+  mouse pointer, with its layer, place and box.
 
 - **Animations**, playing: **Left/Right** the previous or next one,
   **Up/Down** the previous or next file, **Space** pauses, **,/.** step a
@@ -158,6 +168,17 @@ rips them once, as ScummVM asks for some games, to `track02.wav` ...
 `track05.wav` (or `.mp3`) in the game's folder. Tracks that aren't there
 are left silent, as the original does without its CD. `reluva-tool
 cue-rip` makes them from a BIN/CUE image of the CD.
+
+## Reference screenshots wanted
+
+To check the mansion against the original, screenshots of a game in
+progress (any one, with the default preferences) showing:
+
+1. the Conservatory and the Billiard Room, and the Hall with the stairs,
+   each with the rooms' furniture in view;
+2. the same place with Walls, then Translucency, turned off in the
+   preferences;
+3. a suspect walking behind furniture or a wall, if one can be caught.
 
 ## Reference recordings
 

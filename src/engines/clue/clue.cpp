@@ -9,8 +9,8 @@
 // owned copy. Never from leaked source code. See CONTRIBUTING.md and
 // docs/engines/clue.md.
 //
-// For now the engine is a data viewer: images, animations, sounds and text
-// (see viewers.h for the keys). Tab switches between them; Esc goes back to
+// For now the engine is a data viewer: the mansion, animations, images,
+// sounds and text (see viewers.h for the keys). Tab switches between them; Esc goes back to
 // the launcher.
 
 #include "engines/engine.h"
@@ -22,6 +22,7 @@ namespace {
 
 using clue::AnimationViewer;
 using clue::ImageViewer;
+using clue::MansionViewer;
 using clue::SoundViewer;
 using clue::TextViewer;
 
@@ -80,25 +81,25 @@ public:
             }
         } audioStop{sys_, audioOut};
 
-        ImageViewer images(sys_, screen_, data_);
+        MansionViewer mansion(sys_, screen_, data_);
         AnimationViewer animations(sys_, screen_, data_);
+        ImageViewer images(sys_, screen_, data_);
         SoundViewer sounds(sys_, screen_, data_, audioOut ? &mixer : nullptr);
         TextViewer texts(sys_, screen_, data_);
-        // Viewer 0 shows animations, 1 images, 2 sounds, 3 text; Tab moves
-        // to the next one that has something to show.
-        constexpr int kViewers = 4;
-        const size_t counts[kViewers] = {animations.count(), images.count(), sounds.count(), texts.count()};
-        if (counts[0] + counts[1] + counts[2] + counts[3] == 0)
-            return Error::fail("No images, animations, sounds or text found in " + target_.path.string());
+        // Viewer 0 shows the mansion (or why it can't), 1 animations, 2
+        // images, 3 sounds, 4 text; Tab moves to the next one that has
+        // something to show.
+        constexpr int kViewers = 5;
+        const size_t counts[kViewers] = {1, animations.count(), images.count(), sounds.count(), texts.count()};
         int viewer = 0;
-        while (counts[viewer] == 0)
-            viewer = (viewer + 1) % kViewers;
         const auto activate = [&] {
             if (viewer == 0)
-                animations.activate();
+                mansion.activate();
             else if (viewer == 1)
-                images.activate();
+                animations.activate();
             else if (viewer == 2)
+                images.activate();
+            else if (viewer == 3)
                 sounds.activate();
             else
                 texts.activate();
@@ -110,12 +111,21 @@ public:
             while (sys_.pollEvent(ev)) {
                 if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher)
                     return Error::success();
+                if (viewer == 0) {
+                    // Tab, and Esc outside the overview, are the engine's;
+                    // the rest is the mansion's (the mouse too).
+                    const bool keyDown = ev.type == EventType::KeyDown;
+                    if (!(keyDown && (ev.key == key::Tab || (ev.key == key::Escape && !mansion.overview())))) {
+                        mansion.handleEvent(ev);
+                        continue;
+                    }
+                }
                 if (ev.type != EventType::KeyDown)
                     continue;
                 if (ev.key == key::Escape)
                     return Error::success();
                 if (ev.key == key::Tab) {
-                    if (viewer == 2)
+                    if (viewer == 3)
                         sounds.deactivate();
                     do
                         viewer = (viewer + 1) % kViewers;
@@ -123,18 +133,20 @@ public:
                     activate();
                     continue;
                 }
-                if (viewer == 0)
+                if (viewer == 1)
                     animations.handleKey(ev.key);
-                else if (viewer == 1)
-                    images.handleKey(ev.key);
                 else if (viewer == 2)
+                    images.handleKey(ev.key);
+                else if (viewer == 3)
                     sounds.handleKey(ev.key);
-                else
+                else if (viewer == 4)
                     texts.handleKey(ev.key);
             }
             if (viewer == 0)
+                mansion.update(sys_.getMillis());
+            else if (viewer == 1)
                 animations.update(sys_.getMillis());
-            else if (viewer == 2)
+            else if (viewer == 3)
                 sounds.update(sys_.getMillis());
             sys_.updateScreen(screen_);
             sys_.delayMillis(10);

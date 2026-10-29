@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engines/clue/level.h"
 #include "engines/clue/resources.h"
 
 #include <filesystem>
@@ -40,6 +41,7 @@ public:
     // decoded once and kept; nullptr if missing or damaged.
     const Image* image(std::string_view fullName) const;
     const Animation* animation(std::string_view fullName) const;
+    const ObjectDef* object(std::string_view fullName) const; // "ballroom:Oblcouch_ad"
     // Why the last of those failed.
     const std::string& lastError() const { return lastError_; }
 
@@ -49,6 +51,7 @@ private:
     mutable std::map<std::string, std::unique_ptr<DataDrive>> drives_; // by file name; null if it failed
     mutable std::map<std::string, std::unique_ptr<Image>> images_;
     mutable std::map<std::string, std::unique_ptr<Animation>> animations_;
+    mutable std::map<std::string, std::unique_ptr<ObjectDef>> objects_;
     mutable std::string lastError_;
 };
 

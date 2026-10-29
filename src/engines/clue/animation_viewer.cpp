@@ -10,9 +10,6 @@ namespace reluva::clue {
 namespace {
 
 constexpr int kInfoH = 26;
-// Frames whose time isn't given (still frames, the short ISOA form and
-// animations without one) are shown this long while playing.
-constexpr uint64_t kDefaultFrameMs = 100;
 
 } // namespace
 
@@ -90,8 +87,7 @@ void AnimationViewer::handleKey(uint32_t key) {
 
 void AnimationViewer::update(uint64_t nowMs) {
     if (current_ && !paused_ && current_->frameCount() > 1) {
-        const uint16_t d = current_->frames[frame_].duration;
-        if (nowMs - frameStart_ >= (d ? d : kDefaultFrameMs)) {
+        if (nowMs - frameStart_ >= uint64_t(1000 / current_->framesPerSecond)) {
             frame_ = (frame_ + 1) % current_->frameCount();
             frameStart_ = nowMs;
             dirty_ = true;
@@ -147,8 +143,9 @@ void AnimationViewer::draw() {
         fillRect(screen_, ax, ay - 6, 1, 13, {255, 64, 64});
     }
     std::string line2 = "frame " + std::to_string(frame_ + 1) + "/" + std::to_string(a.frameCount());
-    if (!a.frames.empty() && a.frames[frame_].duration)
-        line2 += " (" + std::to_string(a.frames[frame_].duration) + " ms)";
+    if (!a.frames.empty() && a.frames[frame_].solid)
+        line2 += " box " + std::to_string(a.frames[frame_].sizeX) + "x" + std::to_string(a.frames[frame_].sizeY) +
+                 "x" + std::to_string(a.frames[frame_].height);
     line2 += "  " + std::to_string(a.width) + "x" + std::to_string(a.height) + "  " +
              std::to_string(a.images.size()) + " images, " + std::to_string(a.layers.size()) + " layer(s)";
     if (layer_ >= 0)
