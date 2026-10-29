@@ -144,6 +144,7 @@ public:
         float radius = 0;              // the finest level's
         Vec3 center{};
         uint32_t paintJobs = 1;
+        std::vector<PkgXref> xrefs; // models placed inside it
     };
 
     ModelCache(gfx::Renderer3D& renderer, TextureCache& textures, const SearchSet& files)
