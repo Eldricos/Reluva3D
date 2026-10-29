@@ -278,6 +278,9 @@ void GameMenus::open(Screen s) {
 void GameMenus::go(Screen s) {
     if (s == Screen::DeleteDriver && roster_ && roster_->drivers().size() <= 1)
         s = Screen::LastDriver; // "You cannot delete your only driver"
+    // The game's alert for the dialogs that say no.
+    if (s == Screen::LastDriver || s == Screen::Locked || s == Screen::DuplicateDriver || s == Screen::DuplicateKey)
+        voice_ = "uialert";
     if (s == Screen::NewDriver && screen_ != Screen::DuplicateDriver) {
         newName_.clear();
         newPro_ = false;
@@ -640,6 +643,17 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
     if (list.empty())
         return Action::None;
     focus_ = std::clamp(focus_, 0, int(list.size()) - 1);
+    if (ev.type == EventType::MouseMove && !waitingForKey_) {
+        // Pointed at: focused, as the game's are.
+        for (size_t i = 0; i < list.size(); ++i) {
+            int w = 0, h = 0;
+            if (list[i].enabled && list[i].kind != Kind::Label && hit(list[i], ev.mouseX, ev.mouseY, w, h)) {
+                focus_ = int(i);
+                break;
+            }
+        }
+        return Action::None;
+    }
     const Item& item = list[size_t(focus_)];
     // Customize Controls, waiting for the key to give a control.
     if (waitingForKey_) {
@@ -704,8 +718,10 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
                 return Action::None;
             case Kind::Choice:
                 if (screen_ == Screen::RaceOptions) { // the icon clicked
-                    int& v = list[i].widget == "TIME" ? conditions_.timeOfDay : conditions_.weather;
+                    const bool time = list[i].widget == "TIME";
+                    int& v = time ? conditions_.timeOfDay : conditions_.weather;
                     v = std::clamp((ev.mouseX - (wd->x + originX() + 4)) / 31, 0, 3);
+                    sayCondition(time);
                     return Action::None;
                 }
                 step(list[i], ev.mouseX < wd->x + originX() + wd->w / 2 ? -1 : 1);

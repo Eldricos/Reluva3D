@@ -60,6 +60,8 @@ const char* fileStem(RaceKind k) {
     case RaceKind::Circuit: return "circuit";
     case RaceKind::Checkpoint: return "race";
     case RaceKind::CrashCourse: return "crash";
+    case RaceKind::Cruise:
+        return "roam";
     }
     return "race";
 }
@@ -69,6 +71,8 @@ const char* infoKey(RaceKind k) {
     case RaceKind::Circuit: return "Circuit";
     case RaceKind::Checkpoint: return "Checkpoint";
     case RaceKind::CrashCourse: return "Crash Course";
+    case RaceKind::Cruise:
+        return "Cruise";
     }
     return "Checkpoint";
 }
@@ -82,6 +86,10 @@ const char* raceKindName(RaceKind kind) { return infoKey(kind); }
 std::string raceStem(RaceKind kind, int index) { return fileStem(kind) + std::to_string(index); }
 
 std::string raceAiMapName(const std::string& city, RaceKind kind, int index, bool professional) {
+    // A cruise's police patrol as roam.aimap says (the stunt has none).
+    if (kind == RaceKind::Cruise)
+        return "race/" + city + "/" + (index == kStuntRace ? "accel0" : "roam") +
+               (professional ? ".aimap_p" : ".aimap");
     return "race/" + city + "/" + fileStem(kind) + std::to_string(index) + (professional ? ".aimap_p" : ".aimap");
 }
 
@@ -108,6 +116,15 @@ std::vector<std::string> raceNames(const SearchSet& files, const std::string& ci
         const uint32_t first = city == "london" ? strings::kLondonLessons : strings::kSfLessons;
         for (uint32_t i = 0; files.has("race/" + city + "/crash" + std::to_string(i) + "data.csv"); ++i)
             names.push_back(strings.get(i < strings::kLessonCount ? first + i : 0, "Lesson " + std::to_string(i + 1)));
+        return names;
+    }
+    if (kind == RaceKind::Cruise) {
+        // mmlang.dll's words for them.
+        GameStrings strings;
+        strings.load(files);
+        std::vector<std::string> names{strings.get(588, "Cruise")};
+        if (files.has("race/" + city + "/accel0waypoints.csv"))
+            names.push_back(strings.get(199, "Stunt Mode: Acceleration"));
         return names;
     }
     if (files.read("tune/" + city + ".cinfo", data))
@@ -235,6 +252,25 @@ Error loadRace(const SearchSet& files, const std::string& city, RaceKind kind, i
     out.name = size_t(index) < names.size() ? names[size_t(index)] : "";
     const std::string dir = "race/" + city + "/";
     std::vector<uint8_t> data;
+    if (kind == RaceKind::Cruise) {
+        // No table: Reluva's own conditions to start from (the race menu
+        // changes them). The cruise starts where the race page puts it;
+        // the stunt along accel0's points, the last the end of the pier.
+        for (RaceSettings& s : out.settings) {
+            s.ambient = index == kStuntRace ? 0.2f : 0.5f;
+            s.peds = 0.5f;
+            s.cops = index == kStuntRace ? 0 : 4;
+            s.laps = 1;
+        }
+        if (index != kStuntRace)
+            return Error::success();
+        const std::string points = dir + "accel0waypoints.csv";
+        if (Error err = files.read(points, data))
+            return err;
+        if (Error err = parseWaypoints(textOf(data), out.waypoints, true))
+            return Error::fail(points + ": " + err.message);
+        return Error::success();
+    }
     const std::string table = dir + "mm" + fileStem(kind) + "data.csv";
     if (Error err = files.read(table, data))
         return err;

@@ -24,6 +24,7 @@ constexpr int kFrameW = 640, kFrameH = 480;
 
 // The pause menu: mmlang.dll's words.
 enum PauseItem { kResume, kRestart, kReplay, kOptions, kQuitRace, kPauseItems };
+constexpr int kPauseTop = 180, kPauseStep = 34;
 // The results' buttons (texture/RESULT_*, four states 90 high).
 enum ResultButton { kResRestart, kResNext, kResReplay, kResMenu, kResExit, kResultButtons };
 const char* const kResultPictures[kResultButtons] = {"RESULT_RESTART", "RESULT_NEXTRACE", "RESULT_REPLAY",
@@ -104,9 +105,17 @@ void RaceViewer::instantReplay(ReplayReturn back) {
 }
 
 void RaceViewer::pauseEvent(const Event& ev) {
-    if (ev.type != EventType::KeyDown)
+    int key = ev.key;
+    if (ev.type == EventType::MouseDown) {
+        // A line clicked: as Enter on it.
+        const int i = (ev.mouseY - kPauseTop + kPauseStep / 4) / kPauseStep;
+        if (ev.mouseY < kPauseTop - kPauseStep / 4 || i >= kPauseItems || ev.mouseX < 100 || ev.mouseX >= kFrameW - 100)
+            return;
+        pauseFocus_ = i;
+        key = key::Return;
+    } else if (ev.type != EventType::KeyDown)
         return;
-    switch (ev.key) {
+    switch (key) {
     case key::Up:
         pauseFocus_ = (pauseFocus_ + kPauseItems - 1) % kPauseItems;
         break;
@@ -146,10 +155,19 @@ void RaceViewer::pauseEvent(const Event& ev) {
 }
 
 void RaceViewer::resultsEvent(const Event& ev) {
-    if (ev.type != EventType::KeyDown)
-        return;
     auto enabled = [&](int b) { return b != kResNext || nextRaceOpen(); };
-    switch (ev.key) {
+    int key = ev.key;
+    if (ev.type == EventType::MouseDown) {
+        // A button clicked: as Enter on it.
+        const int b = (ev.mouseY - kResultTop) / kResultStep;
+        if (ev.mouseY < kResultTop || b >= kResultButtons || !enabled(b) || ev.mouseX < kResultX ||
+            ev.mouseX >= kResultX + 230)
+            return;
+        resultsFocus_ = b;
+        key = key::Return;
+    } else if (ev.type != EventType::KeyDown)
+        return;
+    switch (key) {
     case key::Up:
     case key::Down: {
         const int step = ev.key == key::Down ? 1 : kResultButtons - 1;
@@ -210,7 +228,7 @@ void RaceViewer::drawPauseMenu() {
                                                "Instant Replay", "Options", "Quit to Race Menu"};
     drawCentred(strings_.get(463, "MAIN MENU"), 120, {255, 230, 140}, 3);
     for (int i = 0; i < kPauseItems; ++i)
-        drawCentred(strings_.get(ids[i], fallback[i]), 180 + i * 34,
+        drawCentred(strings_.get(ids[i], fallback[i]), kPauseTop + i * kPauseStep,
                     i == pauseFocus_ ? Color{255, 255, 120} : Color{220, 220, 255}, 2);
 }
 

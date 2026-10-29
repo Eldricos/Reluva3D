@@ -56,6 +56,8 @@ const char* kindStem(RaceKind k) {
     case RaceKind::Circuit: return "circuit";
     case RaceKind::Checkpoint: return "race";
     case RaceKind::CrashCourse: return "crash";
+    case RaceKind::Cruise:
+        return "roam";
     }
     return "race";
 }
@@ -265,10 +267,12 @@ int FrontEnd::mostOpponents() const { return int(race_.opponents[choice_.profess
 
 std::vector<FrontEnd::Item> FrontEnd::items() const {
     std::vector<Item> list = screenItems();
-    // The navigation bar's Options and Exit (the help and minimise
-    // buttons aren't Reluva's).
+    // The navigation bar: Options, Help (the game's help file, when it's
+    // in the game's folder), Minimise and Exit.
     if (screen_ != Screen::Splash) {
         list.push_back({"mnav_opt", true, true, "MNAV_OPT", 5});
+        list.push_back({"mnav_help", true, files_.has("MM2HELP.HLP"), "mnav_hlp", 3});
+        list.push_back({"mnav_stow", true, true, "mnav_sto", 3});
         list.push_back({"mnav_exit", true, true, "mnav_ext", 3});
     }
     return list;
@@ -292,7 +296,8 @@ std::vector<FrontEnd::Item> FrontEnd::screenItems() const {
     case Screen::Races:
         // LAPS (a circuit's) and OPPONENTS change with Left/Right; CHANGE
         // (texture/race_chg) the rest.
-        return {{"blitz", true},
+        return {{"cruise", true},
+                {"blitz", true},
                 {"cp", true},
                 {"circuit", true},
                 {"RACE NAME", false},
@@ -353,6 +358,10 @@ void FrontEnd::activate(const Item& item, Action& action) {
         go(Screen::Races);
     else if (w == "main_mp")
         action = Action::Multiplayer;
+    else if (w == "mnav_help")
+        action = Action::Help;
+    else if (w == "mnav_stow")
+        action = Action::Minimise;
     else if (w == "mnav_opt")
         action = Action::Options;
     else if (w == "main_rpl")
@@ -385,8 +394,11 @@ void FrontEnd::activate(const Item& item, Action& action) {
         action = Action::Changed;
     } else if (w == "mnav_exit")
         action = Action::Quit;
-    else if (w == "blitz" || w == "cp" || w == "circuit") {
-        choice_.kind = w == "blitz" ? RaceKind::Blitz : w == "cp" ? RaceKind::Checkpoint : RaceKind::Circuit;
+    else if (w == "cruise" || w == "blitz" || w == "cp" || w == "circuit") {
+        choice_.kind = w == "cruise"  ? RaceKind::Cruise
+                       : w == "blitz" ? RaceKind::Blitz
+                       : w == "cp"    ? RaceKind::Checkpoint
+                                      : RaceKind::Circuit;
         refresh();
         action = Action::Changed;
     } else if (w == "race_veh" || w == "host_dn") {
@@ -469,6 +481,15 @@ FrontEnd::Action FrontEnd::handle(const Event& ev) {
     if (list.empty())
         return action;
     focus_ = std::clamp(focus_, 0, int(list.size()) - 1);
+    if (ev.type == EventType::MouseMove) {
+        // Pointed at: focused (and its word said), as the game's are.
+        for (size_t i = 0; i < list.size(); ++i)
+            if (list[i].enabled && hit(list[i], ev.mouseX, ev.mouseY)) {
+                focus_ = int(i);
+                break;
+            }
+        return action;
+    }
     if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
         for (size_t i = 0; i < list.size(); ++i)
             if (hit(list[i], ev.mouseX, ev.mouseY)) {
@@ -621,7 +642,8 @@ void FrontEnd::draw(Surface& o) {
             if (!im)
                 continue;
             const int states = statesOf(item, *w);
-            bool chosen = (item.widget == "blitz" && choice_.kind == RaceKind::Blitz) ||
+            bool chosen = (item.widget == "cruise" && choice_.kind == RaceKind::Cruise) ||
+                          (item.widget == "blitz" && choice_.kind == RaceKind::Blitz) ||
                           (item.widget == "cp" && choice_.kind == RaceKind::Checkpoint) ||
                           (item.widget == "circuit" && choice_.kind == RaceKind::Circuit);
             const int state = !item.enabled ? states - 1 : states == 5 && chosen ? 2 : focused ? 1 : 0;
@@ -654,11 +676,13 @@ void FrontEnd::draw(Surface& o) {
     } else if (screen_ == Screen::Races) {
         desc = choice_.kind == RaceKind::Blitz     ? "race_btz"
                : choice_.kind == RaceKind::Circuit ? "race_cir"
+               : choice_.kind == RaceKind::Cruise  ? "race_rom"
                                                    : "race_cp";
-        // The race's map, its name and its numbers.
+        // The race's map (a cruise's, the whole city's), its name and its
+        // numbers.
         const std::string mapPic = city + "_map" +
                                    (choice_.kind == RaceKind::Checkpoint ? "race" : kindStem(choice_.kind)) +
-                                   std::to_string(choice_.race);
+                                   (choice_.kind == RaceKind::Cruise ? std::string() : std::to_string(choice_.race));
         if (const image::Image* m = pictures_.jpg(mapPic))
             if (const Widget* w = widget("race map"))
                 drawPicture(o, *m, w->x, w->y, w->w, w->h);
@@ -670,14 +694,16 @@ void FrontEnd::draw(Surface& o) {
             const Choice::Conditions& c = choice_.conditions;
             text(o, "LAPS", choice_.kind == RaceKind::Circuit ? std::to_string(c.laps) : "-");
             text(o, "OPPONENTS", std::to_string(c.opponents));
-            static const char* const kTimes[] = {"Morning", "Noon", "Evening", "Night"};
-            static const char* const kWeathers[] = {"Clear", "Cloudy", "Fog", "Rain"};
-            text(o, "TIME", kTimes[c.timeOfDay & 3]);
-            text(o, "WEATHER", kWeathers[c.weather & 3]);
+            // mmlang.dll's words: Morning, Noon, Sunset, Night; Sunny,
+            // Cloudy, Foggy, Raining.
+            static const char* const kTimes[] = {"Morning", "Noon", "Sunset", "Night"};
+            static const char* const kWeathers[] = {"Sunny", "Cloudy", "Foggy", "Raining"};
+            text(o, "TIME", strings_.get(357 + uint32_t(c.timeOfDay & 3), kTimes[c.timeOfDay & 3]));
+            text(o, "WEATHER", strings_.get(361 + uint32_t(c.weather & 3), kWeathers[c.weather & 3]));
             bar(o, "PEDESTRIAN DENSITY", c.hidePeds ? 0 : c.peds);
             bar(o, "TRAFFIC DENSITY", c.traffic);
             bar(o, "COP DENSITY", std::min(1.0f, float(c.cops) / 4));
-            if (choice_.changed) // as the game's records say: not recorded
+            if (choice_.changed && choice_.kind != RaceKind::Cruise) // as the game's records say: not recorded
                 font::drawText(o, 404, 186, "Changed: not recorded", {255, 160, 120});
             const int best = record_.bestPlace(map, choice_.kind, choice_.race, choice_.professional);
             if (best > 0)

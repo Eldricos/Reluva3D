@@ -18,7 +18,12 @@ namespace reluva::age {
 // lessons (crash<n>data.csv, named in mmlang.dll). See
 // docs/formats/age/race.md.
 
-enum class RaceKind { Blitz, Circuit, Checkpoint, CrashCourse };
+// Cruise: the race menu's driving about the city, with no race; and,
+// under it where the city has one, the game's "Stunt Mode: Acceleration"
+// (race/<city>/accel0waypoints.csv). See docs/engines/age-racing.md.
+enum class RaceKind { Blitz, Circuit, Checkpoint, CrashCourse, Cruise };
+// A Cruise's "races": the cruise itself, then the stunt where there's one.
+constexpr int kCruiseRace = 0, kStuntRace = 1;
 const char* raceKindName(RaceKind kind); // "Blitz"...
 
 // One difficulty's columns of a race's row.

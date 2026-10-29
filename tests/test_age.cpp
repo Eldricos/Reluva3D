@@ -2642,6 +2642,36 @@ static void testDrivers(const std::filesystem::path& tmp) {
     CHECK(again.remove(0) && again.drivers().size() == 1);
 }
 
+// The race menu's Cruise: the cruise, and the stunt where the city has
+// accel0's points; their aimaps; always open; Quick Race remembers it.
+static void testCruise(const std::filesystem::path& tmp) {
+    std::filesystem::remove_all(tmp);
+    test::writeFile(tmp / "race" / "sf" / "accel0waypoints.csv",
+                    toBytes("x,y,z,a,poly count,frane rate,state changes,texture changes,msg\n"
+                            "-1283.6,40.0,854.1,39.6,15,0,0,0,\n-1.2,-0.8,-3.5,47.6,15,0,0,0,\n"));
+    SearchSet files;
+    auto loose = std::make_unique<DirectoryArchive>();
+    CHECK(!loose->open(tmp));
+    files.add(std::move(loose), 1);
+    const auto sf = raceNames(files, "sf", RaceKind::Cruise), london = raceNames(files, "london", RaceKind::Cruise);
+    CHECK(sf.size() == 2 && sf[0] == "Cruise" && sf[1] == "Stunt Mode: Acceleration");
+    CHECK(london.size() == 1);
+    RaceDefinition cruise, stunt;
+    CHECK(!loadRace(files, "london", RaceKind::Cruise, kCruiseRace, cruise));
+    CHECK(cruise.waypoints.empty() && cruise.settings[0].cops == 4 && cruise.opponents[0].empty());
+    CHECK(!loadRace(files, "sf", RaceKind::Cruise, kStuntRace, stunt));
+    CHECK(stunt.waypoints.size() == 2 && std::fabs(stunt.waypoints[1].radius - 15) < 0.01f &&
+          stunt.settings[1].cops == 0);
+    CHECK(raceAiMapName("sf", RaceKind::Cruise, kCruiseRace, true) == "race/sf/roam.aimap_p");
+    PlayerRecord record;
+    CHECK(raceOpen(record, "sf", RaceKind::Cruise, kStuntRace, false, 3, 3));
+    record.setLastRace("sf", RaceKind::Cruise, kStuntRace);
+    std::string city;
+    RaceKind kind = RaceKind::Blitz;
+    int index = 0;
+    CHECK(record.lastRace(city, kind, index) && kind == RaceKind::Cruise && index == kStuntRace);
+}
+
 int main() {
     const auto tmp = std::filesystem::temp_directory_path() / "reluva_age_tests";
     testArchive(tmp / "archive");
@@ -2689,6 +2719,7 @@ int main() {
     testOptions(tmp / "options");
     testReplays(tmp / "replays");
     testDrivers(tmp / "drivers");
+    testCruise(tmp / "cruise");
     std::filesystem::remove_all(tmp);
     if (failures) {
         std::fprintf(stderr, "%d check(s) failed\n", failures);

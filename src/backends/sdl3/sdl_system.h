@@ -41,6 +41,7 @@ public:
     void setTextInput(bool on) override;
     void setMouseCursorVisible(bool visible) override;
     void setVideoMode(int width, int height, bool fullscreen) override;
+    void minimizeWindow() override;
     void setRelativeMouse(bool on) override;
     uint64_t getMillis() const override;
     void delayMillis(uint32_t ms) override;

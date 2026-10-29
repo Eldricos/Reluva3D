@@ -216,6 +216,15 @@ void GameMenus::drawConditionIcons(Surface& o, const std::string& w, bool focuse
 void GameMenus::stepCondition(const std::string& w, int dir) {
     int& v = w == "TIME" ? conditions_.timeOfDay : conditions_.weather;
     v = (v + dir + 4) % 4;
+    sayCondition(w == "TIME");
+}
+
+void GameMenus::sayCondition(bool time) {
+    // The game's recordings of the times and weathers (aud/aud22/UI*.wav);
+    // there's none for fog (and a UIsnow for a weather the game hasn't).
+    static const char* const kTimes[] = {"UImorning", "UInoon", "UIsunset", "UInight"};
+    static const char* const kWeathers[] = {"UIsunny", "UIcloudy", "", "UIrain"};
+    voice_ = time ? kTimes[conditions_.timeOfDay & 3] : kWeathers[conditions_.weather & 3];
 }
 
 float GameMenus::raceShare(const std::string& w) const {

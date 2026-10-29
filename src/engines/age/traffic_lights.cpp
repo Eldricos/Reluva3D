@@ -14,6 +14,7 @@ namespace reluva::age {
 void TrafficLights::build(const AiRoadMap& map, const AiMapSettings& settings) {
     lights_.clear();
     index_.clear();
+    clock_ = 0; // each start the same, so a replay's lights change as they did
     models_ = settings.trafficLights;
     junctions_.assign(map.junctions.size(), {});
     // Each junction's controlled road slots, for their phases.

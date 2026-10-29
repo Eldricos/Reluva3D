@@ -308,6 +308,11 @@ void SdlSystem::setMouseCursorVisible(bool visible) {
         SDL_HideCursor();
 }
 
+void SdlSystem::minimizeWindow() {
+    if (window_)
+        SDL_MinimizeWindow(window_);
+}
+
 void SdlSystem::setVideoMode(int width, int height, bool fullscreen) {
     if (!window_)
         return;

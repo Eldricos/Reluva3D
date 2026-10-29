@@ -60,6 +60,7 @@
 #include "engines/age/dashboard.h"
 #include "engines/age/front_end.h"
 #include "engines/age/game_menus.h"
+#include "engines/age/help_viewer.h"
 #include "engines/age/hud_map.h"
 #include "engines/age/hud_pictures.h"
 #include "engines/age/lang.h"
@@ -148,8 +149,9 @@ enum DriveKeys : uint32_t {
     kDriveReverse = 64
 };
 // The Race page's events in its menu's order (Blitz, Circuit, Checkpoint,
-// Crash Course).
+// Crash Course, Cruise).
 RaceKind racePageKind(int index);
+constexpr int kRacePageKinds = 5;
 // What a key is bound to (the Control Options' keys).
 Control controlOf(uint32_t key);
 // The player's car takes the Control Options (auto reverse, steering).
@@ -421,6 +423,16 @@ private:
     std::string raceMessage(int offset, const std::string& fallback) const;
     void drawCentred(const std::string& text, int y, Color color, int scale);
     bool lesson() const { return race_.kind == RaceKind::CrashCourse; }
+    // The race menu's Cruise, and the stunt under it (race_cruise.cpp).
+    bool cruising() const { return race_.kind == RaceKind::Cruise && race_.index != kStuntRace; }
+    bool stunt() const { return race_.kind == RaceKind::Cruise && race_.index == kStuntRace; }
+    void startCruise();
+    void stepCruise(float dt);
+    void drawCruiseHud();
+    float cruiseHold_ = 0;      // seconds busted or wrecked shows before the car's put back
+    float stuntMessageFor_ = 0; // "Put the pedal to the metal!" after the start
+    uint32_t stuntMessage_ = 0;
+    Vec3 pierEnd_{}; // where the stunt's pier ends (the ground stops)
     const Waypoint& targetPoint(size_t k) const { return race_.waypoints[targets_[k]]; }
 
     std::vector<CityInfo> cities_;
@@ -513,6 +525,7 @@ private:
     void stepReplay(float dt);
     void endReplay();
     bool replayEvent(const Event& ev);
+    std::string replayWord(int button) const; // the bar's word for it
     void replayButton(int which);
     CameraView replayCamera(float dt, float& fov);
     void drawReplayBar();
@@ -541,6 +554,7 @@ private:
     // Multiplayer (race_net.cpp): the game's multiplayer menus, then the
     // session's game, each car driven on its own machine.
     std::unique_ptr<GameMenus> game_; // the Options and the main menu's dialogs
+    std::unique_ptr<HelpViewer> help_; // the navigation bar's Help
     bool quit_ = false;
     std::unique_ptr<NetMenus> net_;
     bool netMenus_ = false;     // the multiplayer menus are up
