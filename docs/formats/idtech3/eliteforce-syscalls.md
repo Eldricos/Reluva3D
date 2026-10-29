@@ -288,7 +288,8 @@ configstrings, the entity text, the server info string; linking (filling
 in `absmin`/`absmax`, a unit larger than the entity's box, as the original
 does), `SetBrushModel`, traces against the world and linked entities,
 point contents, entities in a box, entity contact and the PVS tests.
-Areas and area portals aren't separated yet. A player joins as on the original server: the
+Areas and area portals are separated as the original's: see
+[idtech3.md](../../engines/idtech3.md) (Game code). A player joins as on the original server: the
 userinfo string is stored for `GetUserinfo` (call 20), `vmMain(2,
 clientNum, 1, 0)` (connect: first time, not a bot) returns 0 or the
 address of the game's reason for refusing, and `vmMain(3, clientNum)`
@@ -503,8 +504,8 @@ render flags 12 (Quake III's first person 4 and depth hack 8), a
 turned, slightly bobbing axis, an origin just in front of and below the
 eye, and white (-1) at 116; the player's own body has flag 2 (Quake
 III's third person: drawn only in mirrors), as Quake III's client game
-does. Elite Force's player models are named `.mdr`; Reluva draws `.md3`
-models only so far.
+does. Elite Force's player models are named `.mdr`; Reluva draws them
+([mdr.md](mdr.md)), as well as `.md3` models.
 
 The player state differs from Quake III's from 48: gravity (800) and
 speed (250) are at 56 and 60, after two words of Elite Force's own. The
@@ -517,7 +518,10 @@ else) returns without drawing for the local player unless the snapshot's
 word 48 is 0, so the original can't be sending it: its network protocol
 sends only the fields in its table, the rest reaching the client game as
 0. Reluva's snapshots zero it (`GameHost::kPlayerStateServerOnly`).
-Which other fields the protocol leaves out isn't known yet.
+The protocol's full list of fields, and those it leaves out (48, 52,
+externalEventTime and everything after the arrays), is in
+[eliteforce-network.md](eliteforce-network.md) (Player state); network
+play sends only those fields, as the original.
 
 Effects are scene entities of other types, seen with `reluva-tool
 game-run <game> hm_dn1 -cgame -cgameframes 30 -fire` (and `-altfire`)

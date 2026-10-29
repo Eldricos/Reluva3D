@@ -172,8 +172,9 @@ one has to be checked before anything is written:
     (reverse engineering for interoperability, allowed by CONTRIBUTING.md
     where local law permits) and from Quake III's documented ones where
     they match, never from Raven's SDK.
-  - Probably only Holomatch uses the QVMs; single player has its DLLs. To
-    confirm.
+  - Only Holomatch uses the QVMs. Single player's engine (`stvoy.exe`)
+    loads its game and menus from the DLLs (`LoadLibrary` of
+    `efgamex86.dll` and `efuix86`), whatever the paks hold.
 - **Single player**: its logic ships as native x86 code
   (`efgamex86.dll`, with the menus in `efuix86.dll`), 32-bit Windows DLLs
   built with Visual C++ 6. Reluva runs them the way it runs the QVMs: in
@@ -181,6 +182,7 @@ one has to be checked before anything is written:
   [x86.md](x86.md)), with the engine's functions and the few Windows ones
   they call (KERNEL32's, for their C runtime) provided natively. The DLLs
   stay in the user's copy. Their interface to the engine (the tables
-  `GetGameAPI` and `GetUIAPI` exchange) still has to be worked out; Jedi
-  Outcast's GPL source, from the same studio and engine generation, is a
-  guide to its shape.
+  `GetGameAPI` and `GetUIAPI` exchange) was worked out from the retail
+  executable, with Jedi Outcast's GPL source, from the same studio and
+  engine generation, as a guide to its shape: see
+  [eliteforce-sp-interface.md](../formats/idtech3/eliteforce-sp-interface.md).

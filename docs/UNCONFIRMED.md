@@ -83,11 +83,9 @@ questions").
 
 - **Older versions:** 1.0's and 1.1's protocol, and whether a 1.2 client can
   talk to them.
-- **The player state's size.** Lilium has 468 bytes; the CD's QVMs measured
-  460, with gravity and speed 4 bytes earlier. The likely cause, 1.2 adding
-  an intro timer, isn't established, and the 8 bytes between 460 and 468
-  aren't known. Play against retail 1.2 works with Reluva choosing the
-  layout by size.
+- **1.2's player state** is 8 bytes longer than 1.0's: `introTime` at 56,
+  and one more word whose place isn't pinned down. The fields Reluva reads
+  are at known offsets in both layouts.
 - **Server lists:**
   - which info keys the retail menus require;
   - how many ports the retail browser scans, and whether it filters on
@@ -193,33 +191,3 @@ unknown").
   - navigation goals' sizes;
   - `point_combat`;
   - `func_usable`.
-
-## Docs to bring up to date
-
-These passages predate later work and contradict newer docs. The newer
-ones ([idtech3.md](engines/idtech3.md)) are taken to be right:
-
-- **[shader.md](formats/idtech3/shader.md):**
-  - it lists autosprites, portals and mirrors as not drawn yet;
-  - it says fog goes by distance from the camera. It now follows the
-    original's depth model.
-- **[mdr.md](formats/idtech3/mdr.md)** says only the most detailed level is
-  used. Levels of detail are now chosen as the original chooses them.
-- **[eliteforce-syscalls.md](formats/idtech3/eliteforce-syscalls.md):**
-  - it says only `.md3` models are drawn;
-  - it says areas and area portals aren't separated yet;
-  - it says it isn't known which player-state fields the protocol leaves
-    out.
-- **[x86.md](engines/x86.md)**'s first results mark the `GetGameAPI` table
-  as "probably" and "to be confirmed"; it's settled in
-  [eliteforce-sp-interface.md](formats/idtech3/eliteforce-sp-interface.md).
-- **[idtech3.md](engines/idtech3.md)**'s "Game code: open questions":
-  - it still says "Probably only Holomatch uses the QVMs ... To confirm";
-  - it says the DLLs' interface has to be worked out.
-- **[pk3.md](formats/idtech3/pk3.md):**
-  - it calls the cinematics "probably Bink videos" (they are);
-  - it says whether patches add paks is still to check (they do: `pak1`
-    to `pak3`).
-- **[eliteforce-network.md](formats/idtech3/eliteforce-network.md)**'s
-  player-state conflict (460 or 468 bytes) may be settled by play against
-  retail 1.2.

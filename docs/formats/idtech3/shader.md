@@ -77,9 +77,18 @@ Read from the GPL Quake III Arena renderer (`tr_shader.c`,
   `cloudHeight` (default 512) above the camera on a world of radius 4096:
   the arc cosines of the normalized hit point's x and y.
 - **Fog:** a surface in a fog volume gets a last pass of the volume's
-  `fogParms` colour, more opaque with distance, fully at its distance.
-  Reluva uses the distance from the camera; the original also accounts
-  for how deep in the volume the surface and the camera are.
+  `fogParms` colour, more opaque with depth along the view, fully at its
+  distance. As the original's, when the eye is outside the volume the fog
+  thins towards the volume's surface (its plane).
+- **Autosprites:** the level's `autosprite` surfaces are kept aside and
+  rebuilt as they're drawn, each quad facing the camera round its middle;
+  `autosprite2` quads turn about their long axis (the fire shaders). They
+  work in mirrors too. Models don't use them.
+- **Portals and mirrors:** as the original's renderer. The view from a
+  mirror's reflection, or a portal's camera, is drawn first inside the
+  surface's shape (marked in the stencil) and clipped at its plane; then
+  the surface and the main view. See
+  [idtech3.md](../../engines/idtech3.md) (Renderer).
 
 ## Interpreted
 
@@ -106,8 +115,7 @@ Read from the GPL Quake III Arena renderer (`tr_shader.c`,
 Waves are `<func> <base> <amplitude> <phase> <frequency>`, func one of
 `sin`, `triangle`, `square`, `sawtooth`, `inversesawtooth`, `noise`.
 
-Not drawn yet: `deformVertexes autosprite`, `autosprite2`, `text*` and
-`projectionShadow`; portals and mirrors (drawn as plain surfaces);
-`GL_SRC_ALPHA_SATURATE`. `reluva-tool shader-check <game folder>` lists
+Not drawn yet: `deformVertexes text*` and `projectionShadow` (the
+original's shader for its shadow mode 3); `GL_SRC_ALPHA_SATURATE`. `reluva-tool shader-check <game folder>` lists
 what a game's scripts use that isn't handled, including directives the
 parser doesn't know (game additions).

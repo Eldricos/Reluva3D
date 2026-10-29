@@ -453,8 +453,9 @@ Fields sent, in wire order:
 | 46 | damageShieldCount | 200 | 8 |
 | 47 | introTime | 56 | 32 |
 
-48 fields. The offsets are Lilium's layout of the player state (see
-[Layout cross-check](#layout-cross-check-with-reluva) for a conflict).
+48 fields. The offsets are Lilium's layout of the player state, which is
+patch 1.2's (the CD's 1.0 game code has a shorter one: see
+[Layout cross-check](#layout-cross-check-with-reluva)).
 Not sent: the words at 48 (a phaser recharge timer) and 52 (a 16-bit
 "use" debounce and 2 padding bytes), externalEventTime (152), and
 everything after the arrays. The arrays: stats[16] at 204, persistant[16]
@@ -853,24 +854,20 @@ Against [eliteforce-syscalls.md](eliteforce-syscalls.md) and
 - **User command: agrees** in every offset (serverTime 0, buttons 4,
   weapon 5, angles 8, moves 20–22, 24 bytes) and in the buttons being a
   byte.
-- **Player state: conflicts.** Lilium's layout is 468 bytes with the
-  timer at 48, a 16-bit field at 52, `introTime` at 56, gravity at 60,
-  speed at 64, eventSequence at 108. Reluva measured the retail game
-  code it runs at 460 bytes (copies of 460, the user command at client +
-  464, snapshot entities at 504), with the timer at 48, 52 zero, and
-  **gravity (800) at 56 and speed (250) at 60**. Reluva's player viewer
-  reads the event sequence at 108, which agrees with Lilium but not with
-  gravity at 56 unless something else moved. A likely explanation, not
-  established: Reluva's QVMs are the CD's (`pak0.pk3`), and patch 1.2's
-  game code (in `pak1`–`pak3`) added the holodeck-door intro timer at 56
-  and one more word, giving Lilium's layout. The wire format above
-  depends only on field order and widths, but a server must read the
-  fields from the game's memory at the right offsets, and a retail 1.2
-  client runs its own 1.2 client game; so a Reluva server for retail
-  clients should run the 1.2 QVMs and take its offsets from them. Reluva's
-  other observations fit Lilium's names with gravity at 60 except
-  those: firing changes 44 (weaponTime), 160 (weapon in Lilium), 396
-  (ammo[0] in Lilium); the use-item button changes 104 and 120.
+- **Player state: two layouts, by version.** Lilium's layout is 1.2's:
+  468 bytes, with the phaser timer at 48, a 16-bit field at 52,
+  `introTime` (the holodeck-door intro timer) at 56, gravity at 60, speed
+  at 64 and eventSequence at 108. The CD's game code (1.0, `pak0.pk3`)
+  has 460 bytes: gravity (800) at 56 and speed (250) at 60, as Reluva
+  first measured. 1.2 adds `introTime` at 56 and one more word, whose
+  place isn't pinned down; the fields Reluva reads are at known offsets
+  in both. Patch 1.2's game code is in `pak1.pk3`
+  and `pak2.pk3`. Reluva tells the two apart by the size of the player
+  states the game code copies whole (`BlockCopy` of 468 or 460;
+  `src/engines/idtech3/eliteforce/game_layout.h`), and reads the fields at
+  that version's offsets. Network play uses 1.2's, which play against the
+  retail game patched to 1.2 confirmed: a Reluva server runs the 1.2 game
+  code, as retail 1.2 clients do.
 - Configstrings and the game state: agree (1024 configstrings, 16,000
   characters, Quake III's numbering).
 
@@ -916,9 +913,6 @@ Against [eliteforce-syscalls.md](eliteforce-syscalls.md) and
 - Which `infoResponse` keys the retail server browser needs, how many
   ports it scans, and whether it filters on `gamename`.
 - How Raven's `getserversResponse` list ended.
-- The player state's true layout in the 1.2 game code (see the
-  cross-check): which pk3 holds the 1.2 QVMs, and the 8 bytes between
-  Lilium's 468 and Reluva's measured 460.
 - Whether any retail client or server sends opcode 1 (nop) or relies on
   the 0 that ends the game state for anything else.
 - Retail defaults for `rate` and `snaps` (Lilium's are 25000 and 20).
