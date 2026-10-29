@@ -818,6 +818,36 @@ void testHorizon() {
     CHECK(skyFogValue(hometown, 5) == 2850);
     hometown.fogOnPixmap = 100; // none on the pixmap: no fog for the sky
     CHECK(skyFogValue(hometown, 5) == 0);
+
+    // The sky's layout, as the game drew Hometown's: the sky's colour at
+    // the first slot edges, the cloud dome, the drift.
+    hometown.skyBaseSun = {223, 210, 151};
+    hometown.skyBaseOpposite = {120, 171, 204};
+    const auto base = skyBaseColours(hometown);
+    CHECK(base[0] == (Horizon::Rgb{223, 210, 151}) && base[1] == (Horizon::Rgb{210, 205, 157}));
+    CHECK(base[15] == base[0] && base[8] == base[7]);
+    CHECK(horizonTurn(hometown) == 0);
+    hometown.rotation = 90;
+    CHECK(std::fabs(horizonTurn(hometown) - 0.25f) < 1e-4f);
+    hometown.rotation = -90;
+    CHECK(std::fabs(horizonTurn(hometown) - 0.75f) < 1e-4f);
+    hometown.cloudDomeOffset = {-100, 250};
+    CHECK(std::fabs(cloudHeight(hometown, 0) - 650) < 0.01f);
+    CHECK(std::fabs(cloudHeight(hometown, 3000) + 100) < 0.01f);
+    hometown.nimbus = 80; // below 100: no effect
+    CHECK(std::fabs(cloudHeight(hometown, 0, 255) - 650) < 0.01f);
+    hometown.nimbus = 100; // the brightest hang half the arch (750) lower
+    CHECK(std::fabs(cloudHeight(hometown, 0, 255) - 275) < 0.01f);
+    hometown.windSpeed = 10;
+    hometown.windDirection = 90;
+    const auto drift = cloudDrift(hometown);
+    CHECK(std::fabs(drift[0]) < 1e-7f && std::fabs(drift[1] - 3e-4f) < 1e-7f);
+    hometown.cloudBright = 235;
+    hometown.cloudVariance = 208;
+    const auto clouds = cloudBrightness(hometown, 1);
+    CHECK(clouds == cloudBrightness(hometown, 1));
+    CHECK(*std::max_element(clouds.begin(), clouds.end()) <= 235);
+    CHECK(*std::max_element(clouds.begin(), clouds.end()) > *std::min_element(clouds.begin(), clouds.end()));
 }
 
 void testCollision() {

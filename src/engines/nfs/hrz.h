@@ -58,4 +58,25 @@ Error parseHorizon(std::string_view text, Horizon& out);
 int sceneryFogValue(int density);
 int skyFogValue(const Horizon& h, int density);
 
+// How nfs3.exe lays out the sky (docs/formats/nfs/hrz.md, What the game
+// does with it). The horizon has 16 slots of 22.5 degrees; the slot at a
+// heading h (in turns, atan2(x, z) / 2 pi in the track's coordinates) is
+// 16 x frac(h + 0.75 + horizonTurn(h)).
+float horizonTurn(const Horizon& h); // the rotation, in turns, 0 to 1
+// The sky's colour at each slot edge, just above the horizon: the sun
+// side's colour at edge 0, stepping an eighth of the way to the far
+// side's each edge, and back.
+std::array<Horizon::Rgb, 16> skyBaseColours(const Horizon& h);
+// The cloud dome's height above the camera at a distance r along the
+// ground, for a point of that brightness (with nimbus 100, brighter
+// points hang lower), and its grid: 13 x 13 points 450 apart, -3000 to
+// +2400 on each axis, each with a brightness (0-255; random, as the
+// game's, from `seed`), row by row along z.
+float cloudHeight(const Horizon& h, float r, int brightness = 0);
+constexpr int kCloudPoints = 13;
+constexpr float kCloudStep = 450, kCloudFirst = -3000;
+std::array<uint8_t, kCloudPoints * kCloudPoints> cloudBrightness(const Horizon& h, uint32_t seed);
+// The clouds' drift each game tick, in tiles along x and z.
+std::array<float, 2> cloudDrift(const Horizon& h);
+
 } // namespace reluva::nfs

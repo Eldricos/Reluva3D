@@ -126,4 +126,93 @@ int skyFogValue(const Horizon& h, int density) {
     return 5 * std::clamp(100 - density, 1, 100) * static_cast<int>(times);
 }
 
+// The rotation as the game keeps it (0x47877e): degrees x 65536 / 360,
+// in 16.16 turns, wrapped to 0..1.
+float horizonTurn(const Horizon& h) {
+    float turn = static_cast<float>(h.rotation * 65536 / 360) / 65536.0f;
+    while (turn < 0)
+        turn += 1;
+    while (turn > 1)
+        turn -= 1;
+    return turn;
+}
+
+// 0x478a34: the steps in 16.16, truncated.
+std::array<Horizon::Rgb, 16> skyBaseColours(const Horizon& h) {
+    std::array<Horizon::Rgb, 16> out{};
+    for (int k = 0; k < 8; ++k)
+        for (size_t c = 0; c < 3; ++c) {
+            const int value = (h.skyBaseSun[c] * 65536 + k * (h.skyBaseOpposite[c] - h.skyBaseSun[c]) * 8192) / 65536;
+            out[size_t(k)][c] = value;
+            out[size_t(15 - k)][c] = value;
+        }
+    return out;
+}
+
+// 0x47adc0: off1 + 3 off2 cos(r / 3000 quarter turns); less, for the
+// nimbus (0x47b2b6), brightness / 255 x 3 off2 / 2 x (nimbus / 100,
+// rounded down: only 100 counts).
+float cloudHeight(const Horizon& h, float r, int brightness) {
+    constexpr float kTau = 6.28318530718f;
+    const float arch = 3.0f * static_cast<float>(h.cloudDomeOffset[1]);
+    const float nimbus = static_cast<float>(std::max(h.nimbus, 0) / 100);
+    return static_cast<float>(h.cloudDomeOffset[0]) + arch * std::cos(r * 0.25f / 3000.0f * kTau) -
+           static_cast<float>(brightness) / 255.0f * arch * 0.5f * nimbus;
+}
+
+// 0x47ae10: bright less a random amount below the variance; then pushed
+// from the middle (a signed square root of (b - 128) / 128); then 20
+// passes that move each towards its neighbours within two points, by half
+// the mean of (neighbour - it) x |neighbour - 128| / 128, kept within
+// 0..bright.
+std::array<uint8_t, kCloudPoints * kCloudPoints> cloudBrightness(const Horizon& h, uint32_t seed) {
+    constexpr int n = kCloudPoints;
+    std::array<float, n * n> b{};
+    for (float& v : b) {
+        int value = h.cloudBright;
+        if (h.cloudVariance > 0) {
+            seed = seed * 1103515245u + 12345u;
+            value -= static_cast<int>((seed >> 16) & 0x7fff) % h.cloudVariance;
+        }
+        v = static_cast<float>(value);
+    }
+    for (float& v : b) {
+        const float x = (v - 128.0f) / 128.0f;
+        const float signedRoot = x < 0 ? -std::sqrt(-x) : std::sqrt(x);
+        v = (1 + signedRoot) * 0.5f * 255.0f;
+    }
+    const float bright = static_cast<float>(h.cloudBright);
+    for (int pass = 0; pass < 20; ++pass)
+        for (int row = 0; row < n; ++row)
+            for (int col = 0; col < n; ++col) {
+                const float here = b[size_t(row * n + col)];
+                float sum = 0, count = 0;
+                for (int dr = -2; dr <= 2; ++dr)
+                    for (int dc = -2; dc <= 2; ++dc) {
+                        const int r = row + dr, c = col + dc;
+                        if ((dr == 0 && dc == 0) || r < 0 || r >= n || c < 0 || c >= n)
+                            continue;
+                        const float other = b[size_t(r * n + c)];
+                        sum += (other - here) * std::fabs(other - 128.0f) / 128.0f;
+                        count += 1;
+                    }
+                const float mean = count > 0 ? sum / count : 0;
+                if (mean != 0)
+                    b[size_t(row * n + col)] = std::clamp(here + mean * 0.5f, 0.0f, bright);
+            }
+    std::array<uint8_t, n * n> out{};
+    for (size_t i = 0; i < out.size(); ++i)
+        out[i] = static_cast<uint8_t>(std::clamp(b[i], 0.0f, 255.0f));
+    return out;
+}
+
+// 0x478701: speed x 0.00003 tiles a tick, towards the direction (degrees,
+// from x towards z).
+std::array<float, 2> cloudDrift(const Horizon& h) {
+    constexpr float kTau = 6.28318530718f;
+    const float turn = static_cast<float>(h.windDirection) / 360.0f * kTau;
+    const float speed = static_cast<float>(h.windSpeed) * 3e-5f;
+    return {std::cos(turn) * speed, std::sin(turn) * speed};
+}
+
 } // namespace reluva::nfs

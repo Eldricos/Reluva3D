@@ -80,13 +80,12 @@ Attached blocks after the picture:
   marks textures drawn additively. Strings such as `A200 B45 R25 ROTATE`
   or `A0 B45 R30 INFRONT NOADD` sit on the sun pictures of each track's
   `sky.fsh` (`SUND`, `SUNN`, `SUNW`: day, night, weather) and on similar
-  sprites:
-  - `A` reads as the angle round the sky, in degrees;
-  - `B` reads as the height above the horizon;
-  - `R` reads as a size;
-  - the words are flags.
-  Reluva uses `A` to turn the sky's sun-side colour; the rest is to be
-  checked.
+  sprites. On the sun, from the game's code ([hrz.md](hrz.md), What the
+  game does with it):
+  - `A` and `B`, in degrees, place it at (cos A, cos B, sin A) × 3000;
+  - `R` × 10 is how far its corners are from its centre;
+  - `ROTATE` turns it as it crosses the screen, `NOADD` blends it
+    rather than adding it, and `INFRONT` draws it after the clouds.
 - **`sky.fsh`'s other pictures.** `CLDD`, `CLDN`, `CLWD` and `CLWN` are
   the cloud tiles. `CHRD`, `CHRN`, `CHRW` and `CHNW` are sphere maps, a
   ball's worth of sky, ground and horizon: the cars' reflections. The

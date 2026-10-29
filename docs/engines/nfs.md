@@ -957,10 +957,10 @@ Allowed under CONTRIBUTING.md:
 ## Open questions
 
 - The units of the moving objects' key delays (60 ticks a second is
-  assumed), and their rotation sense.
-- In the sky ([hrz.md](../formats/nfs/hrz.md)): where the horizon's
-  slot 0 and the sun sit round the circle, the sun's size, the clouds'
-  drift, and which texture set the night and weather skies use.
+  assumed; the game itself ticks about 64 a second, hrz.md), and their
+  rotation sense.
+- The sky's lightning ([hrz.md](../formats/nfs/hrz.md)): how often, how
+  long and how bright.
 
 - The `0x7C` blocks on cockpit pictures (hot spots?), and the flare
   parameters in `0x6F` text blocks (`A0 B45 R24 ROTATE`).
