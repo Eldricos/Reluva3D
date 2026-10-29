@@ -12,6 +12,7 @@
 
 #include "engines/age/net_session.h"
 #include "engines/age/race.h"
+#include "engines/age/road_graph.h"
 
 #include <array>
 #include <cstdint>
@@ -93,6 +94,41 @@ private:
     bool over_ = false;
     std::vector<GoldEvent> events_; // the last few
     uint32_t eventSeq_ = 0;
+};
+
+// A computer player's mind: where to drive, as a path along the roads for
+// its PathDriver. In Cops & Robbers it takes the gold, carries it home,
+// keeps near a teammate who has it and rams whoever else has it; in a
+// cruise it drives from place to place.
+class GoldBot {
+public:
+    void start(uint32_t seed) { *this = GoldBot(), seed_ = seed; }
+    // Where it wants to be: `chasing` when that's another side's car.
+    static Vec3 goal(uint8_t id, uint8_t team, const GoldGame& gold, const std::vector<GoldGame::Car>& cars,
+                     bool& chasing);
+    // A new path when it's time for one (the goal moved, the last path
+    // was driven, or a while has passed); false to keep on. `gold` null:
+    // a cruise, between `places`.
+    bool plan(float dt, const Vec3& at, uint8_t id, uint8_t team, const GoldGame* gold,
+              const std::vector<GoldGame::Car>& cars, const std::vector<Waypoint>& places, const RoadGraph& roads,
+              bool pathDone, std::vector<Vec3>& path);
+    // Hardly moved for six seconds with its goal still away: the caller
+    // puts it back on the road (the nearest point of `roads`) and calls
+    // unstuck().
+    bool stuck() const { return stillFor_ > 6; }
+    void unstuck() {
+        stillFor_ = 0;
+        replanIn_ = 0;
+    }
+
+private:
+    uint32_t seed_ = 1;
+    float replanIn_ = 0;
+    Vec3 planned_{};
+    bool planning_ = false;
+    size_t place_ = 0;
+    Vec3 still_{};       // where it was when it last moved 4 m
+    float stillFor_ = 0; // and how long ago
 };
 
 // The game's points for Cops & Robbers: race/<city>/multicopwaypoints.csv.

@@ -114,6 +114,7 @@ void RaceViewer::loadCity() {
     roads_.build(scene_->psdl());
     if (Error err = life_.load(ctx_.files, map); err && error_.empty())
         error_ = err.message;
+    botRoads_.build(life_.roadMap());
     loadedCity_ = city_;
     raceNames_ = raceNames(ctx_.files, map, kKinds[kind_]);
     raceIndex_ = std::min(raceIndex_, std::max(0, int(raceNames_.size()) - 1));
@@ -354,14 +355,22 @@ void RaceViewer::stepRace(float dt) {
                 c.shift = shift_;
                 shift_ = 0;
                 sim.manual = manual_;
-            } else
+            } else {
+                if (r.botId != kNoPlayer && net_ && net_->session() &&
+                    !NetMenus::hasRace(net_->session()->settings().mode))
+                    planBot(r, dt, netCars());
                 c = r.driver.drive(sim, dt);
+            }
         } else {
             c.brake = 0; // waiting on the line
         }
         sim.step(c, world_, dt);
         r.car->lamps = {scene_->lampsLit(), c.brake > 0 && sim.forwardSpeed() > 0.5f, sim.gear < 0};
-        if (!r.player && (r.driver.wantsReset() || sim.position[1] < scene_->psdl().min[1] - 50)) {
+        // (A computer player outside a race is put back on the road by its
+        // own mind: planBot.)
+        const bool minded =
+            r.botId != kNoPlayer && net_ && net_->session() && !NetMenus::hasRace(net_->session()->settings().mode);
+        if (!r.player && !minded && (r.driver.wantsReset() || sim.position[1] < scene_->psdl().min[1] - 50)) {
             sim.reset(r.car->setup, r.driver.resetPoint() + Vec3{0, 0.5f, 0}, r.driver.resetYaw());
             r.driver.resetDone();
         }

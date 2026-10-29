@@ -85,6 +85,7 @@ private:
     };
     std::vector<Item> items() const;
     const Widget* widget(const std::string& name) const;
+    const Widget* widget(const std::string& name, const std::string& menu) const;
     std::string menuName() const;
     int originX() const; // dialogs' widgets are from their corner
     int originY() const;
@@ -128,6 +129,9 @@ private:
     std::deque<Line> lines_;
     uint64_t nowMs_ = 0;
     std::string myCar_ = "vpbug";
+    int bots_ = 0;                                // computer players to host with
+    std::shared_ptr<net::LoopbackNetwork> local_; // hosting with no network: this computer only
+    static constexpr const char* kBotsField = "Computer Players";
     int myPaint_ = 0;
 };
 

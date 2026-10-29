@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engines/age/bai.h"
 #include "engines/age/psdl.h"
 #include "engines/age/vecmath.h"
 
@@ -20,10 +21,17 @@ namespace reluva::age {
 class RoadGraph {
 public:
     void build(const Psdl& psdl);
+    // From the road map instead (city/<map>.bai): every road's middle line
+    // to the junctions at its ends; the roads not for traffic (flag 2: the
+    // Underground, some ramps and alleys) cost four times their length.
+    void build(const AiRoadMap& map);
+    // The road point nearest `p`, if one's near enough to drive from.
+    bool nearestNode(const Vec3& p, Vec3& out, float reach = 60) const;
 
     // From a to b along the roads: the points to drive through, ending at
     // b; just {b} if there's no road near or no way.
-    std::vector<Vec3> route(const Vec3& a, const Vec3& b) const;
+    // `reach`: how far from a road a and b may be (60 m by default).
+    std::vector<Vec3> route(const Vec3& a, const Vec3& b, float reach = 60) const;
 
     size_t nodeCount() const { return nodes_.size(); }
     size_t edgeCount() const;
@@ -31,8 +39,8 @@ public:
 
 private:
     uint32_t add(const Vec3& p);
-    void join(uint32_t a, uint32_t b);
-    int nearest(const Vec3& p) const;
+    void join(uint32_t a, uint32_t b, float weight = 1);
+    int nearest(const Vec3& p, float reach = 60) const;
 
     std::vector<Vec3> nodes_;
     std::vector<std::vector<std::pair<uint32_t, float>>> links_; // neighbour, distance

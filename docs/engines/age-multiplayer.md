@@ -23,8 +23,11 @@ sessions screen.
 
 - **NET NAME**: type the name the others see.
 - **HOST**: the host's options (an optional password, at most 2 to 8
-  players), then the host's settings, then **DONE** opens the session
-  and goes to the lobby. The host listens on UDP port **28520**.
+  players, and how many computer players: below), then the host's
+  settings, then **DONE** opens the session and goes to the lobby. The
+  host listens on UDP port **28520**. With no network (or the port
+  taken), the session is on this computer alone: a game against the
+  computer players.
 - **JOIN**: joins the session chosen in the list below it. The list shows
   the sessions found on the local network, asked for by a broadcast
   every second. With none in the list, JOIN asks for an address: a host
@@ -164,6 +167,54 @@ players'. The arrow above the car points to the gold, or to your base
 when you have it. The map shows the gold and the bases, yours in the
 finish's colour. The checkpoint stands mark each base.
 
+## Computer players
+
+The host can fill the session with computer players: Host Options'
+COMPUTER PLAYERS, up to one fewer than the most players. The game has
+none in its multiplayer; this field is Reluva's, drawn below MAX
+PLAYERS the way that one is.
+
+- **Who they are.** They join as players do: "Opponent 1", "Opponent 2"
+  and so on (`mmlang.dll`'s names for opponents), in cars from the list.
+  They're sided like anyone, always ready, and in the lobby's list like
+  anyone; the host can eject one.
+- **Where they're driven.** The host's machine drives them and sends
+  their cars on as its own, so everyone sees them alike.
+- **In a race** they drive through the race's checkpoints, laps
+  unrolled, along the roads as the single player's opponents do, at 0.9
+  of their cars' top speed.
+- **In a cruise** they drive from one of the city's Cops & Robbers places
+  to another, at random.
+- **In Cops & Robbers** each looks at the game every few seconds (every
+  second while chasing) and drives at:
+  - the gold, while it lies;
+  - its base, while it has the gold;
+  - the opponent nearest a teammate who has the gold, to stop them;
+  - the car of another side that has the gold, a second ahead of it.
+
+  Within 40 m it drives straight at its goal, through and 20 m past a
+  car it's ramming. A cop flashes its siren while it chases.
+- **Their roads** are the road map's (`city/<map>.bai`): every road's
+  middle line, a point every 20 m, joined to the junctions at its ends.
+  The roads not for traffic (the Underground, some ramps and alleys) cost
+  four times their length. The Cops & Robbers places are up to 141 m off
+  the roads (in squares, parks, on raised ground), so their routes may
+  begin and end up to 250 m from a road. The single player's road graph,
+  from the city's geometry, is in pieces too far from many places: every
+  place had routes between them that failed on it, some 290 m from its
+  nearest point.
+- **Stuck.** One that hasn't moved 4 m in six seconds with its goal still
+  away, or that's fallen out of the city, is put back on the nearest
+  road point, facing its goal. A new path never puts it nearer its goal
+  than that: the opponents' own way back, onto their path's points, would
+  have put a computer player onto the gold it was driving at.
+
+Played out on the real cities without drawing (four computer players,
+ten minutes, each city and each game type), they chase, ram the gold
+loose and recover it. Each game had a delivery or two: the gold's home
+and the bases are a kilometre or more apart, a minute and a half's
+drive.
+
 ## The menus
 
 The multiplayer screens are `tune/widget.csv`'s, drawn as the others are
@@ -174,7 +225,7 @@ The multiplayer screens are `tune/widget.csv`'s, drawn as the others are
 | Net Select Menu | `jpg/sess_bk` | `sess_zn`, `sess_ipx`, `sess_ser`, `sess_mod` (not available), `sess_tcp`, NET NAME, `sess_hst`, `sess_jn`, the sessions list (`textscroll`), BACK (`mnav_prev`, picture `mnav_prv`) |
 | Enter an Address | none shipped: a panel in the dialogs' colours | TCP/IP Address, `dlg_can`, `dlg_done` |
 | Enter a valid password | `jpg/pass_dlg` | Password, `dlg_can`, `dlg_done` |
-| Host Options | `jpg/host_dlg` | Password, Max Players, `dlg_can`, `dlg_done` |
+| Host Options | `jpg/host_dlg` | Password, Max Players, Computer Players (Reluva's), `dlg_can`, `dlg_done` |
 | Host Race Menu | `jpg/host_bk`, with `jpg/host_cr` over the right for Cops & Robbers | `cruise_m`, `blitz_m`, `cp_m`, `circt_m`, `cops_m`; RACE NAME and LAPS; `free_cr`, `cpsvr_cr`, `robrs_cr`, `none_cr`, `time_cr`, `point_cr`, LIMIT VALUE, GOLD MASS; LOCATION, TIME, WEATHER, PEDESTRIAN DENSITY; `aren_strt` (picture `host_dn`) |
 | Network Arena | `jpg/lobbh_bk` (the host's), `jpg/lobbj_bk` (a player's) | Chat Entry, the players (`compscroll`), `lobb_red`/`lobb_blu` (pictures `lobb_rob`/`lobb_cop` in Cops & Robbers), `lobb_ejt`, `lobb_hst`, `mpst_veh` (picture `lobb_veh`), `lobb_rdy` (pictures: `lobb_srt`, GO DRIVE, for the host; `lobb_nr`, READY, and `lobb_rdy`, READY ticked, for a player) |
 | eject_DLG | `jpg/ejct_dlg` | the players, `dlg_done` |
@@ -274,8 +325,10 @@ a third of the datagrams lost for the middle of it:
 - Cars passed on, the game's state.
 - Back to the lobby, leaving, ejecting, and both kinds of timeout.
 
-**`testGoldGame`** covers the gold's rules and their encoding, and the
-announcer tables.
+**`testGoldGame`** covers the gold's rules and their encoding, the
+computer players' goals, and the announcer tables. `testNetSession` also
+adds a computer player: ready, loaded, its car passed on, kept ready
+back in the lobby.
 
 **The real game.** Two Race pages, a host and a player, were run in the
 same process on the real game's files, drawn by a software renderer:
@@ -284,4 +337,6 @@ same process on the real game's files, drawn by a software renderer:
 - Cops & Robbers.
 - A free-for-all whose places file put the gold and the base together,
   so it scored to its limit at once.
+- The host alone with three computer players: Cops & Robbers (a point
+  each side in five minutes) and a circuit race (all three finished).
 - Joining by address, and ejecting.

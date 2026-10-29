@@ -378,6 +378,8 @@ private:
         float finishTime = -1;
         bool player = false;
         uint8_t peer = kNoPlayer; // another player's car (multiplayer), driven by what its driver sends
+        uint8_t botId = kNoPlayer; // a computer player the host drives (multiplayer)
+        GoldBot bot;               // and its mind, outside the races
     };
 
     void loadCity();
@@ -404,6 +406,7 @@ private:
     std::unique_ptr<CityScene> scene_;
     CollisionWorld world_;
     RoadGraph roads_;
+    RoadGraph botRoads_; // the road map's (city/<map>.bai), for computer players
     CityLife life_;
     std::unique_ptr<FlareDrawer> flares_; // with the scene's textures
     std::unique_ptr<SmokePuffs> smoke_;   // a damaged car's
@@ -485,6 +488,11 @@ private:
     void netSay(const std::string& text);
     void announce(const GoldEvent& e);
     Vec3 gridSlot(const Vec3& centre, float yaw, size_t slot) const;
+    std::vector<Waypoint> places_; // the city's Cops & Robbers places (computer players cruise between them)
+    uint8_t netIdOf(const Racer& r) const;
+    std::vector<GoldGame::Car> netCars() const;
+    NetCarState carStateOf(const Racer& r) const;
+    void planBot(Racer& r, float dt, const std::vector<GoldGame::Car>& cars);
 };
 
 } // namespace reluva::age

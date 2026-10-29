@@ -65,6 +65,14 @@ NetMenus::NetMenus(System& sys, const SearchSet& files, const std::vector<CityIn
     if (!files.read("tune/widget.csv", data))
         ok_ = !parseWidgets(std::string(data.begin(), data.end()), widgets_) && pictures_.jpg("sess_bk") &&
               !cities.empty() && !cars.empty();
+    // Reluva's own: how many computer players, below Max Players and
+    // drawn as it is.
+    if (const Widget* max = widget("Max Players", "Host Options")) {
+        Widget bots = *max;
+        bots.name = kBotsField;
+        bots.y += 52;
+        widgets_.push_back(bots);
+    }
     if (!cars.empty())
         myCar_ = cars.front().base;
 }
@@ -178,6 +186,7 @@ void NetMenus::leave() {
     if (session_)
         session_->leave();
     session_.reset();
+    local_.reset();
     browser_.reset();
     sys_.setTextInput(false);
 }
@@ -226,8 +235,9 @@ int NetMenus::originX() const {
 
 int NetMenus::originY() const { return originX() ? kDialogY : 0; }
 
-const Widget* NetMenus::widget(const std::string& name) const {
-    const std::string menu = menuName();
+const Widget* NetMenus::widget(const std::string& name) const { return widget(name, menuName()); }
+
+const Widget* NetMenus::widget(const std::string& name, const std::string& menu) const {
     for (const Widget& w : widgets_)
         if (w.menu == menu && w.name == name)
             return &w;
@@ -270,7 +280,7 @@ std::vector<NetMenus::Item> NetMenus::items() const {
     case Screen::Password:
         return {field("Password", true), cancel, done};
     case Screen::HostOptions:
-        return {field("Password", true), field("Max Players"), cancel, done};
+        return {field("Password", true), field("Max Players"), field(kBotsField), cancel, done};
     case Screen::HostRace: {
         std::vector<Item> list = {button("cruise_m", "cruise_m", 5), button("blitz_m", "blitz_m", 5),
                                   button("cp_m", "cp_m", 5), button("circt_m", "circt_m", 5),
@@ -359,13 +369,21 @@ void NetMenus::refreshRaces() {
 void NetMenus::startHosting() {
     std::unique_ptr<net::UdpSocket> socket;
     if (Error err = sys_.openUdp(kNetPort, socket); err || !socket) {
-        message("Can't host: port " + std::to_string(kNetPort) + " isn't free (" + err.message + ")");
-        go(Screen::Sessions);
-        return;
+        // No network (or the port's taken): a game on this computer alone,
+        // against computer players.
+        local_ = net::LoopbackNetwork::create();
+        socket = local_->open(kNetPort);
+        message("Playing on this computer only: " + (err ? err.message : std::string("no network")));
     }
     browser_.reset();
     session_ = NetSession::host(std::move(socket), netName_, settings_, password_);
     session_->setCar(myCar_, uint8_t(myPaint_));
+    // The computer players: the game's names for opponents, in cars from
+    // the list.
+    for (int i = 0; i < bots_; ++i) {
+        const std::string car = cars_[(size_t(i) * 5 + 3) % cars_.size()].base;
+        session_->addBot(strings_.get(uint32_t(13 + i), "Opponent " + std::to_string(i + 1)), car);
+    }
     lines_.clear();
     lastChatSeq_ = 0;
     go(Screen::Lobby);
@@ -496,6 +514,9 @@ void NetMenus::change(const Item& item, int step) {
         chosenSession_ = size_t(wrap(int(chosenSession_) + step, int(n)));
     } else if (w == "Max Players") {
         settings_.maxPlayers = uint8_t(std::clamp(settings_.maxPlayers + step, 2, kMaxNetPlayers));
+        bots_ = std::min(bots_, settings_.maxPlayers - 1);
+    } else if (w == kBotsField) {
+        bots_ = std::clamp(bots_ + step, 0, settings_.maxPlayers - 1);
     } else if (w == "RACE NAME") {
         settings_.race = uint8_t(wrap(settings_.race + step, int(raceNames_.size())));
     } else if (w == "LAPS") {
@@ -998,8 +1019,17 @@ void NetMenus::draw(Surface& o, uint64_t nowMs) {
         case Screen::HostOptions: {
             std::string stars(password_.size(), '*');
             text(o, "Password", stars + ((nowMs / 400) % 2 && focus_ == 0 ? "_" : ""));
-            if (screen_ == Screen::HostOptions)
+            if (screen_ == Screen::HostOptions) {
                 text(o, "Max Players", std::to_string(settings_.maxPlayers));
+                if (const Widget* w = widget(kBotsField)) {
+                    // Its label and box, as the dialog draws Max Players'.
+                    const std::string label = "COMPUTER PLAYERS";
+                    font::drawText(o, kDialogX + w->x - 12 - int(label.size()) * font::kAdvance, kDialogY + w->y + 10,
+                                   label, {230, 230, 255});
+                    fillBox(o, {kDialogX + w->x, kDialogY + w->y, w->w, w->h - 8}, {0, 0, 20});
+                    text(o, kBotsField, std::to_string(bots_));
+                }
+            }
             break;
         }
         case Screen::HostRace:

@@ -286,6 +286,77 @@ bool GoldGame::decode(const std::vector<uint8_t>& data) {
     return true;
 }
 
+Vec3 GoldBot::goal(uint8_t id, uint8_t team, const GoldGame& gold, const std::vector<GoldGame::Car>& cars,
+                   bool& chasing) {
+    chasing = false;
+    const GoldGame::Car me{id, team, {}, {}};
+    if (gold.holder() == id)
+        return gold.base(gold.sideOf(me)); // home with it
+    for (const GoldGame::Car& c : cars)
+        if (c.id == gold.holder()) {
+            if (gold.sideOf(c) == gold.sideOf(me)) {
+                // A teammate has it: after whoever of the others is
+                // nearest it, else home ahead of it.
+                const GoldGame::Car* threat = nullptr;
+                for (const GoldGame::Car& o : cars)
+                    if (gold.sideOf(o) != gold.sideOf(me) &&
+                        (!threat || flat(o.position, c.position) < flat(threat->position, c.position)))
+                        threat = &o;
+                if (!threat)
+                    return gold.base(gold.sideOf(me));
+                chasing = true;
+                return threat->position + threat->velocity * 1.0f;
+            }
+            chasing = true;
+            return c.position + c.velocity * 1.0f; // where it's going
+        }
+    return gold.goldPosition();
+}
+
+bool GoldBot::plan(float dt, const Vec3& at, uint8_t id, uint8_t team, const GoldGame* gold,
+                   const std::vector<GoldGame::Car>& cars, const std::vector<Waypoint>& places, const RoadGraph& roads,
+                   bool pathDone, std::vector<Vec3>& path) {
+    replanIn_ -= dt;
+    if (flat(at, still_) > 4) {
+        still_ = at;
+        stillFor_ = 0;
+    } else
+        stillFor_ += dt;
+    bool chasing = false;
+    Vec3 target;
+    if (gold) {
+        target = goal(id, team, *gold, cars, chasing);
+    } else {
+        // A cruise: from place to place, the next at random.
+        if (places.empty())
+            return false;
+        if (!planning_ || flat(at, places[place_ % places.size()].position) < 30)
+            place_ = (seed_ = seed_ * 1664525u + 1013904223u) >> 8;
+        target = places[place_ % places.size()].position;
+    }
+    const bool moved = flat(target, planned_) > (chasing ? 10.0f : 25.0f);
+    if (planning_ && replanIn_ > 0 && !moved && !pathDone)
+        return false;
+    planning_ = true;
+    replanIn_ = chasing ? 1.0f : 4.0f;
+    planned_ = target;
+    if (flat(at, target) < 15 && !chasing)
+        stillFor_ = 0; // there, and waiting: not stuck
+    // Near: straight at it (a car to ram through, 20 m past it); else by
+    // the roads, from as far off them as the city's places are.
+    Vec3 aim = target;
+    if (chasing && flat(at, target) > 1) {
+        Vec3 d = target - at;
+        d[1] = 0;
+        aim = target + normalized(d) * 20.0f;
+    }
+    if (flat(at, target) < 40)
+        path = {aim};
+    else
+        path = roads.route(at, target, 250);
+    return true;
+}
+
 Error loadGoldPoints(const SearchSet& files, const std::string& city, std::vector<Waypoint>& out) {
     std::vector<uint8_t> data;
     if (Error err = files.read("race/" + city + "/multicopwaypoints.csv", data))

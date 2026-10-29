@@ -402,7 +402,7 @@ Error NetSession::start(uint64_t nowMs) {
     loadingSinceMs_ = nowMs;
     goMs_ = 0;
     for (NetPlayer& p : players_)
-        p.loaded = false;
+        p.loaded = p.bot;
     cars_.clear();
     gameState_.clear();
     over_ = false;
@@ -419,7 +419,7 @@ void NetSession::backToLobby() {
     phase_ = Phase::Lobby;
     ++round_;
     for (NetPlayer& p : players_)
-        p.ready = p.loaded = false;
+        p.ready = p.loaded = p.bot;
     wish_.ready = wish_.loaded = false;
     goMs_ = 0;
     cars_.clear();
@@ -482,6 +482,35 @@ void NetSession::dropPlayer(uint8_t id, bool notify) {
     peers_.erase(std::remove_if(peers_.begin(), peers_.end(), [id](const auto& q) { return q->id == id; }),
                  peers_.end());
     cars_.erase(id);
+}
+
+uint8_t NetSession::addBot(const std::string& name, const std::string& car) {
+    const uint8_t id = freeId();
+    if (!host_ || phase_ != Phase::Lobby || players_.size() >= settings_.maxPlayers || id == kNoPlayer)
+        return kNoPlayer;
+    NetPlayer p;
+    p.id = id;
+    p.name = name;
+    p.car = car;
+    p.team = teamWithFewer();
+    p.ready = p.loaded = p.bot = true;
+    players_.push_back(p);
+    lastLobbyMs_ = 0;
+    return id;
+}
+
+void NetSession::removeBots() {
+    std::vector<uint8_t> bots;
+    for (const NetPlayer& p : players_)
+        if (p.bot)
+            bots.push_back(p.id);
+    for (uint8_t id : bots)
+        dropPlayer(id, false);
+}
+
+void NetSession::sendBotCar(uint8_t id, const NetCarState& state) {
+    if (const NetPlayer* p = player(id); host_ && p && p->bot)
+        storeCar(id, state);
 }
 
 void NetSession::eject(uint8_t id) {
@@ -738,7 +767,7 @@ void NetSession::sendLobby(uint64_t nowMs) {
             w.str(p.car);
             w.u8(p.paint);
             w.u8(p.team);
-            w.u8(uint8_t((p.ready ? 1 : 0) | (p.loaded ? 2 : 0)));
+            w.u8(uint8_t((p.ready ? 1 : 0) | (p.loaded ? 2 : 0) | (p.bot ? 4 : 0)));
             w.u16(p.ping);
         }
         w.u8(uint8_t(chat_.size()));
@@ -833,6 +862,7 @@ void NetSession::handlePlayer(const net::Address& from, const std::vector<uint8_
             const uint8_t flags = r.u8();
             p.ready = (flags & 1) != 0;
             p.loaded = (flags & 2) != 0;
+            p.bot = (flags & 4) != 0;
             p.ping = r.u16();
         }
         std::vector<NetChatLine> lines(r.u8());
