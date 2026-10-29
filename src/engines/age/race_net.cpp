@@ -28,6 +28,7 @@ constexpr float kRaceOn = 60;     // seconds the others have to finish after the
 constexpr float kMessageFor = 3;  // seconds a game message stays up
 constexpr float kLinesFor = 10;   // and the session's lines
 constexpr float kPi = 3.14159265358979f;
+constexpr float kBotSkill = 0.9f; // computer players' share of their cars' top speed
 
 std::string clockText(float seconds) {
     if (seconds < 0)
@@ -117,6 +118,7 @@ void RaceViewer::startNetGame() {
     // city's Cops & Robbers places; in Cops & Robbers by their side's base.
     std::vector<Waypoint> points;
     loadGoldPoints(ctx_.files, map, points);
+    places_ = points;
     if (set.mode == NetMode::CopsRobbers)
         gold_.start(set, points, session->seed());
     std::vector<NetPlayer> players = session->players();
@@ -152,10 +154,12 @@ void RaceViewer::startNetGame() {
     for (size_t slot = 0; slot < players.size(); ++slot) {
         const NetPlayer& p = players[slot];
         const bool me = p.id == session->myId();
+        const bool bot = p.bot && session->isHost(); // ours to drive
         Racer r;
         r.car = std::make_unique<CarActor>();
         r.player = me;
-        r.peer = me ? kNoPlayer : p.id;
+        r.peer = me || bot ? kNoPlayer : p.id;
+        r.botId = bot ? p.id : kNoPlayer;
         r.name = p.name + (me ? " (you)" : "");
         const std::string car = net_->carFor(p);
         if (Error err = r.car->load(*renderer_, scene_->textures(), ctx_.files, car, p.paint)) {
@@ -168,6 +172,15 @@ void RaceViewer::startNetGame() {
         float yaw = 0;
         const Vec3 at = startOf(p, slot, yaw);
         r.car->sim.reset(r.car->setup, at, yaw);
+        if (bot && racing) {
+            // Through the race's checkpoints, along the roads.
+            std::vector<Vec3> through;
+            for (size_t k : targets_)
+                through.push_back(race_.waypoints[k].position);
+            size_t loopFrom = 0;
+            r.driver.start(routePath(roads_, at, through, false, loopFrom), 0, kBotSkill);
+        } else if (bot)
+            r.bot.start(session->seed() ^ (uint32_t(p.id) * 2654435761u));
         if (me) {
             if (!racing) // where to put the car back if it falls out of the city
                 race_.waypoints = {Waypoint{at, -yaw * 180 / kPi, 0}};
@@ -286,6 +299,70 @@ void RaceViewer::driveRemote(Racer& r, float dt) {
     r.finishTime = s.finishTime;
 }
 
+uint8_t RaceViewer::netIdOf(const Racer& r) const {
+    const NetSession* session = net_ ? net_->session() : nullptr;
+    return r.player ? (session ? session->myId() : kNoPlayer) : r.peer != kNoPlayer ? r.peer : r.botId;
+}
+
+std::vector<GoldGame::Car> RaceViewer::netCars() const {
+    std::vector<GoldGame::Car> cars;
+    const NetSession* session = net_ ? net_->session() : nullptr;
+    if (!session)
+        return cars;
+    for (const Racer& r : racers_)
+        if (const NetPlayer* p = session->player(netIdOf(r)))
+            cars.push_back({p->id, p->team, r.car->sim.position, r.car->sim.velocity});
+    return cars;
+}
+
+NetCarState RaceViewer::carStateOf(const Racer& r) const {
+    const CarSim& sim = r.car->sim;
+    NetCarState s;
+    s.clock = clock_;
+    s.position = sim.position;
+    s.velocity = sim.velocity;
+    s.rotation = quaternionOf(sim.orientation);
+    s.steer = sim.wheels[0].steer;
+    for (size_t k = 0; k < 4; ++k)
+        s.compression[k] = sim.wheels[k].compression;
+    s.lamps = uint8_t((r.car->lamps.head ? kLampHead : 0) | (r.car->lamps.brake ? kLampBrake : 0) |
+                      (r.car->lamps.reverse ? kLampReverse : 0) | (r.car->siren ? kLampSiren : 0));
+    s.next = uint16_t(std::min<size_t>(r.next, 65535));
+    s.finishTime = r.finishTime;
+    return s;
+}
+
+void RaceViewer::planBot(Racer& r, float dt, const std::vector<GoldGame::Car>& cars) {
+    // A computer player outside a race: a new path when its mind wants one;
+    // a cop's siren while it chases.
+    const NetSession* session = net_ ? net_->session() : nullptr;
+    const NetPlayer* p = session ? session->player(r.botId) : nullptr;
+    if (!p)
+        return;
+    const bool robbing = session->settings().mode == NetMode::CopsRobbers;
+    CarSim& sim = r.car->sim;
+    std::vector<Vec3> path;
+    if (r.bot.plan(dt, sim.position, r.botId, p->team, robbing ? &gold_ : nullptr, cars, places_, botRoads_,
+                   r.driver.finished() || r.driver.path().empty(), path))
+        r.driver.follow(std::move(path), kBotSkill);
+    // Wedged, or out of the city: back on the nearest road, facing its goal
+    // (never nearer the goal than the road is).
+    if (r.bot.stuck() || sim.position[1] < scene_->psdl().min[1] - 50) {
+        Vec3 node = sim.position;
+        botRoads_.nearestNode(sim.position, node, 1000);
+        bool chasing = false;
+        const Vec3 goal = robbing ? GoldBot::goal(r.botId, p->team, gold_, cars, chasing) : node;
+        sim.reset(r.car->setup, node + Vec3{0, 0.5f, 0}, yawTowards(node, goal));
+        r.bot.unstuck();
+    }
+    if (r.car->hasSiren()) {
+        bool chasing = false;
+        if (robbing)
+            GoldBot::goal(r.botId, p->team, gold_, cars, chasing);
+        r.car->siren = chasing ? 1 + int(clock_ * 4) % 2 : 0;
+    }
+}
+
 void RaceViewer::netSay(const std::string& text) {
     if (text.empty())
         return;
@@ -339,21 +416,12 @@ void RaceViewer::stepNet(float dt) {
     CarSim& sim = player.car->sim;
     netMessageFor_ = std::max(0.0f, netMessageFor_ - dt);
 
-    // Our car, to the others.
+    // Our car, and our computer players', to the others.
     if (session->counting()) {
-        NetCarState mine;
-        mine.clock = clock_;
-        mine.position = sim.position;
-        mine.velocity = sim.velocity;
-        mine.rotation = quaternionOf(sim.orientation);
-        mine.steer = sim.wheels[0].steer;
-        for (size_t k = 0; k < 4; ++k)
-            mine.compression[k] = sim.wheels[k].compression;
-        mine.lamps = uint8_t((player.car->lamps.head ? kLampHead : 0) | (player.car->lamps.brake ? kLampBrake : 0) |
-                             (player.car->lamps.reverse ? kLampReverse : 0) | (player.car->siren ? kLampSiren : 0));
-        mine.next = uint16_t(std::min<size_t>(player.next, 65535));
-        mine.finishTime = player.finishTime;
-        session->sendCar(mine);
+        session->sendCar(carStateOf(player));
+        for (const Racer& r : racers_)
+            if (r.botId != kNoPlayer)
+                session->sendBotCar(r.botId, carStateOf(r));
     }
     // A cop's siren, on the police car (H).
     if (player.car->hasSiren() && (keys_ & kDriveHorn) && state_ == State::Racing)
@@ -365,14 +433,7 @@ void RaceViewer::stepNet(float dt) {
         // The host runs the gold; the others hear how it is.
         if (session->isHost()) {
             if (state_ == State::Racing) {
-                std::vector<GoldGame::Car> cars;
-                for (const Racer& r : racers_) {
-                    const uint8_t id = r.player ? session->myId() : r.peer;
-                    const NetPlayer* p = session->player(id);
-                    if (p)
-                        cars.push_back({id, p->team, r.car->sim.position, r.car->sim.velocity});
-                }
-                gold_.step(clock_, dt, cars, scene_->psdl().min[1] - 50);
+                gold_.step(clock_, dt, netCars(), scene_->psdl().min[1] - 50);
             }
             session->setGameState(gold_.encode(), gold_.over());
         } else if (!session->gameState().empty()) {
@@ -380,6 +441,9 @@ void RaceViewer::stepNet(float dt) {
         }
         // The gold's weight on the car that has it.
         sim.ballast = gold_.holder() == session->myId() ? float(set.goldMass) : 0;
+        for (Racer& r : racers_)
+            if (r.botId != kNoPlayer)
+                r.car->sim.ballast = gold_.holder() == r.botId ? float(set.goldMass) : 0;
         for (const GoldEvent& e : gold_.eventsAfter(goldSeen_)) {
             goldSeen_ = e.seq;
             const NetPlayer* p = session->player(e.player);

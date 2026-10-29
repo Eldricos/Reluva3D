@@ -27,6 +27,7 @@ public:
     // city/<map>.bai and city/<map>.aimap.
     Error load(const SearchSet& files, const std::string& map);
     const AiMapSettings& citySettings() const { return city_; }
+    const AiRoadMap& roadMap() const { return roads_; }
     bool loaded() const { return !roads_.roads.empty(); }
 
     struct Options {

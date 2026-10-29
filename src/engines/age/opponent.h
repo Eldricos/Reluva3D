@@ -21,6 +21,9 @@ public:
     // to point `loopFrom` each time; 0 drives it once. `skill` scales the
     // top speed.
     void start(std::vector<Vec3> path, int laps, float skill, size_t loopFrom = 0);
+    // A new path driven once, kept stuck or backing out as it was (a
+    // computer player changing its mind as it goes).
+    void follow(std::vector<Vec3> path, float skill);
     CarControls drive(const CarSim& car, float dt);
     // At most this fast (metres a second), as a patrolling police car.
     void setSpeedLimit(float limit) { limit_ = limit; }

@@ -66,6 +66,15 @@ void PathDriver::resetDone() {
     }
 }
 
+void PathDriver::follow(std::vector<Vec3> path, float skill) {
+    const float stuck = stuckTime_, reverse = reverseTime_;
+    const int resets = resetsHere_;
+    start(std::move(path), 0, skill);
+    stuckTime_ = stuck;
+    reverseTime_ = reverse;
+    resetsHere_ = resets;
+}
+
 CarControls PathDriver::drive(const CarSim& car, float dt) {
     CarControls c;
     if (finished_ || path_.empty()) {

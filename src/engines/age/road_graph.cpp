@@ -4,14 +4,13 @@
 #include "engines/age/road_graph.h"
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <queue>
 
 namespace reluva::age {
 
 namespace {
-
-constexpr float kNear = 60; // metres from a road a route may start or end
 
 float flatDistance(const Vec3& a, const Vec3& b) {
     const float dx = a[0] - b[0], dz = a[2] - b[2];
@@ -26,10 +25,10 @@ uint32_t RoadGraph::add(const Vec3& p) {
     return uint32_t(nodes_.size() - 1);
 }
 
-void RoadGraph::join(uint32_t a, uint32_t b) {
+void RoadGraph::join(uint32_t a, uint32_t b, float weight) {
     if (a == b)
         return;
-    const float d = length(nodes_[a] - nodes_[b]);
+    const float d = length(nodes_[a] - nodes_[b]) * weight;
     links_[a].push_back({b, d});
     links_[b].push_back({a, d});
 }
@@ -111,9 +110,50 @@ void RoadGraph::build(const Psdl& psdl) {
                 join(ends[i], ends[j]);
 }
 
-int RoadGraph::nearest(const Vec3& p) const {
+void RoadGraph::build(const AiRoadMap& map) {
+    nodes_.clear();
+    links_.clear();
+    std::vector<uint32_t> junctions;
+    for (const AiJunction& j : map.junctions)
+        junctions.push_back(add(j.center));
+    for (const AiRoad& road : map.roads) {
+        if (road.middle.empty())
+            continue;
+        const float weight = road.flags & 2 ? 4.0f : 1.0f;
+        // A point every 20 m at most, so a place beside a long straight
+        // road is near one.
+        uint32_t previous = 0, first = 0;
+        for (size_t i = 0; i < road.middle.size(); ++i) {
+            if (i == 0) {
+                previous = first = add(road.middle[0]);
+                continue;
+            }
+            const Vec3 from = road.middle[i - 1], to = road.middle[i];
+            const int steps = std::max(1, int(std::ceil(length(to - from) / 20)));
+            for (int k = 1; k <= steps; ++k) {
+                const uint32_t n = add(from + (to - from) * (float(k) / float(steps)));
+                join(previous, n, weight);
+                previous = n;
+            }
+        }
+        // ends[1] is the junction at the first point, ends[0] the last's.
+        if (road.ends[1].junction < junctions.size())
+            join(first, junctions[road.ends[1].junction], weight);
+        if (road.ends[0].junction < junctions.size())
+            join(previous, junctions[road.ends[0].junction], weight);
+    }
+}
+
+bool RoadGraph::nearestNode(const Vec3& p, Vec3& out, float reach) const {
+    const int n = nearest(p, reach);
+    if (n >= 0)
+        out = nodes_[size_t(n)];
+    return n >= 0;
+}
+
+int RoadGraph::nearest(const Vec3& p, float reach) const {
     int best = -1;
-    float bestDistance = kNear;
+    float bestDistance = reach;
     for (size_t i = 0; i < nodes_.size(); ++i) {
         const float d = flatDistance(nodes_[i], p) + std::fabs(nodes_[i][1] - p[1]) * 2;
         if (d < bestDistance) {
@@ -124,8 +164,8 @@ int RoadGraph::nearest(const Vec3& p) const {
     return best;
 }
 
-std::vector<Vec3> RoadGraph::route(const Vec3& a, const Vec3& b) const {
-    const int from = nearest(a), to = nearest(b);
+std::vector<Vec3> RoadGraph::route(const Vec3& a, const Vec3& b, float reach) const {
+    const int from = nearest(a, reach), to = nearest(b, reach);
     if (from < 0 || to < 0 || from == to)
         return {b};
     // A* by distance.

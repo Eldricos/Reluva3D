@@ -2292,6 +2292,40 @@ static void testNetSession() {
           !host->everyoneReady());
     network->setDropFilter(nullptr);
 
+    // A computer player: ready and loaded from the start, sided like
+    // anyone, its car passed on as anyone's.
+    CHECK(host->addBot("Opponent 1", "vpcab") == kNoPlayer); // full
+    settings.maxPlayers = 4;
+    host->setSettings(settings);
+    const uint8_t botId = host->addBot("Opponent 1", "vpcab");
+    run(300);
+    const NetPlayer* bot = ann->player(botId);
+    CHECK(botId != kNoPlayer && bot && bot->bot && bot->ready && host->everyoneReady() == false);
+    bob->setReady(true);
+    ann->setReady(true);
+    run(800);
+    CHECK(host->everyoneReady() && !host->start(t));
+    run(300);
+    host->setLoaded();
+    ann->setLoaded();
+    bob->setLoaded();
+    run(800);
+    CHECK(host->phase() == NetSession::Phase::Playing); // nobody waited for the computer player
+    run(3200);
+    NetCarState botCar;
+    botCar.clock = host->clock(t);
+    botCar.position = {7, 0, 7};
+    host->sendBotCar(botId, botCar);
+    host->sendBotCar(2, botCar); // not a computer player: ignored
+    run(300);
+    CHECK(ann->cars().count(botId) && ann->cars().at(botId).back().position[0] == 7);
+    host->backToLobby();
+    run(500);
+    CHECK(host->player(botId)->ready && ann->player(botId)->ready);
+    host->removeBots();
+    run(300);
+    CHECK(!host->player(botId) && !ann->player(botId));
+
     // Bob goes; Ann's ejected; a player whose host goes quiet gives up.
     bob->leave();
     run(300);
@@ -2392,6 +2426,41 @@ static void testGoldGame() {
     CHECK(!g.over());
     g.step(61, 0.1f, {a, b}, -100);
     CHECK(g.over() && g.eventsAfter(g.lastEvent() - 1)[0].kind == GoldEvent::Kind::TimeUp);
+
+    // A computer player's goal: the gold lying, home with it, after the
+    // nearest threat to a teammate who has it, after another side's car
+    // that has it.
+    {
+        NetSettings t2 = s;
+        t2.gold = GoldMode::RobberTeams;
+        t2.limit = GoldLimit::None;
+        GoldGame h;
+        h.start(t2, points, 5);
+        GoldGame::Car me{1, 0, h.base(1), {}}, mate{2, 0, h.base(1) + Vec3{40, 0, 0}, {}},
+            them{3, 1, h.home(), {5, 0, 0}};
+        bool chasing = true;
+        CHECK(flatDist(GoldBot::goal(1, 0, h, {me, mate, them}, chasing), h.home()) < 1e-3f && !chasing);
+        h.step(1, 0.1f, {me, mate, them}, -100); // them: on the gold
+        CHECK(h.holder() == 3);
+        them.position = h.home();
+        const Vec3 after = GoldBot::goal(1, 0, h, {me, mate, them}, chasing);
+        CHECK(chasing && std::fabs(after[0] - (them.position[0] + 5)) < 1e-3f);
+        mate.position = h.home(); // a teammate picks it up instead
+        GoldGame h2;
+        h2.start(t2, points, 5);
+        h2.step(1, 0.1f, {mate}, -100);
+        CHECK(h2.holder() == 2 && flatDist(GoldBot::goal(1, 0, h2, {me, mate}, chasing), h2.base(0)) < 1e-3f &&
+              !chasing); // nobody to stop: home ahead of it
+        them.position = mate.position + Vec3{30, 0, 0};
+        them.velocity = {};
+        CHECK(flatDist(GoldBot::goal(1, 0, h2, {me, mate, them}, chasing), them.position) < 1e-3f &&
+              chasing); // after whoever's nearest it
+        me.position = h2.home();
+        GoldGame h3;
+        h3.start(t2, points, 5);
+        h3.step(1, 0.1f, {me}, -100);
+        CHECK(h3.holder() == 1 && flatDist(GoldBot::goal(1, 0, h3, {me}, chasing), h3.base(0)) < 1e-3f);
+    }
 
     // The announcer's lines.
     const auto lines = parseSpeechTable("Name prefix/type header,end sufix value,sufix add value\r\n"

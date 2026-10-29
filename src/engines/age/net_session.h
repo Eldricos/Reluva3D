@@ -55,6 +55,7 @@ struct NetPlayer {
     uint8_t paint = 0;
     uint8_t team = 0; // in the team modes: 0 or 1
     bool ready = false, loaded = false;
+    bool bot = false;  // a computer player, driven on the host's machine
     uint16_t ping = 0; // milliseconds there and back, as it last said
 };
 
@@ -143,6 +144,10 @@ public:
     // The host: the settings, ejecting a player, starting and ending.
     void setSettings(const NetSettings& settings);
     void eject(uint8_t id);
+    // The host's computer players: always ready, sides evened up like
+    // anyone's; kNoPlayer if the session's full.
+    uint8_t addBot(const std::string& name, const std::string& car);
+    void removeBots();
     bool everyoneReady() const; // every player but the host
     Error start(uint64_t nowMs);
     void backToLobby();
@@ -155,6 +160,8 @@ public:
     float clock(uint64_t nowMs) const;
     // Our car, sent on to the others.
     void sendCar(const NetCarState& state);
+    // The host: a computer player's car, sent on as anyone's.
+    void sendBotCar(uint8_t id, const NetCarState& state);
     // The others' cars, by player, oldest first.
     const std::map<uint8_t, std::deque<NetCarState>>& cars() const { return cars_; }
     // The host's word on the game (the gold, the scores; the race over),
