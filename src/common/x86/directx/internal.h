@@ -188,7 +188,7 @@ private:
 struct Interfaces {
     ComInterface directDraw, directDraw2, directDraw4, directDraw7;
     ComInterface surface, surface2, surface3, surface4, surface7;
-    ComInterface palette, clipper;
+    ComInterface palette, clipper, gammaControl;
     ComInterface direct3d7, device7, vertexBuffer7;
     Interfaces();
 };
@@ -205,6 +205,7 @@ extern const char* const kIidSurface4;
 extern const char* const kIidSurface7;
 extern const char* const kIidPalette;
 extern const char* const kIidClipper;
+extern const char* const kIidGammaControl;
 extern const char* const kIidDirect3D7;
 extern const char* const kIidDevice7;
 extern const char* const kIidVertexBuffer7;
@@ -235,6 +236,15 @@ struct DirectX::State {
     // The display: its mode, and whether the program owns it (fullscreen).
     int width = 0, height = 0, bits = 0;
     bool exclusive = false, noWindowChanges = false, fpuPreserve = false;
+    // The display's gamma ramp (IDirectDrawGammaControl): red, green and
+    // blue, 256 entries each, 0..65535; applied to the frames shown.
+    std::array<uint16_t, 768> gamma = identityGamma();
+    static std::array<uint16_t, 768> identityGamma() {
+        std::array<uint16_t, 768> g{};
+        for (size_t i = 0; i < 768; ++i)
+            g[i] = uint16_t((i % 256) * 257);
+        return g;
+    }
     int desktopWidth = 0, desktopHeight = 0, desktopBits = 0; // while a mode is set: the desktop's
     uint32_t window = 0;
     uint32_t videoUsed = 0;

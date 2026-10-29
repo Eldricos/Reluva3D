@@ -29,7 +29,7 @@ constexpr uint32_t kDdCaps = 0x1 /* 3D */ | 0x40 /* BLT */ | 0x200 /* BLTSTRETCH
                              0x04000000 /* BLTCOLORFILL */ | 0x10000000 /* BLTDEPTHFILL */ |
                              0x80000000u /* CANBLTSYSMEM */;
 constexpr uint32_t kDdCaps2 = 0x1000 /* WIDESURFACES */ | 0x80000 /* CANRENDERWINDOWED */ |
-                              0x02000000 /* FLIPNOVSYNC */;
+                              0x02000000 /* FLIPNOVSYNC */ | 0x00020000 /* PRIMARYGAMMA */;
 constexpr uint32_t kSurfaceCaps = kCapsBackBuffer | kCapsComplex | kCapsFlip | kCapsFrontBuffer | kCapsOffscreenPlain |
                                   kCapsPalette | kCapsPrimarySurface | kCapsSystemMemory | kCapsTexture | kCaps3DDevice |
                                   kCapsVideoMemory | kCapsVisible | kCapsZBuffer | kCapsMipMap | kCapsLocalVidMem;
@@ -328,7 +328,7 @@ DirectX::DirectX(Win32Process& process) : s_(std::make_unique<State>(*this, proc
     State* s = s_.get();
     dx::Interfaces& i = s->interfaces;
     for (ComInterface* f : {&i.directDraw, &i.directDraw2, &i.directDraw4, &i.directDraw7, &i.surface, &i.surface2,
-                            &i.surface3, &i.surface4, &i.surface7, &i.palette, &i.clipper, &i.direct3d7, &i.device7,
+                            &i.surface3, &i.surface4, &i.surface7, &i.palette, &i.clipper, &i.gammaControl, &i.direct3d7, &i.device7,
                             &i.vertexBuffer7})
         s->com.define(*f);
     const char* dll = "DDRAW.dll";

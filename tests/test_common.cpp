@@ -1338,6 +1338,22 @@ static void testDirectX() {
     CHECK(at(40, 5) == 0x0000ff); // the clear colour
     CHECK(at(31, 31) == 0x0000ff); // past the hypotenuse
     CHECK(at(45, 28) == 0xffffff && at(58, 28) == 0xff0000 && at(45, 44) == 0x00ff00 && at(58, 44) == 0x000000);
+    // The display's gamma ramp (IDirectDrawGammaControl, from the primary):
+    // red turned upside down, shown from then on.
+    CHECK(call(primary, 0, {guid("{69c11c3e-b46b-11d1-ad7a-00c04fc29b4e}"), out}) == 0);
+    const uint32_t gamma = cpu.read32(out);
+    const uint32_t ramp = mem(1536);
+    for (uint32_t i = 0; i < 768; ++i)
+        cpu.write16(ramp + 2 * i, uint16_t((i < 256 ? 255 - i : i % 256) * 257));
+    CHECK(call(gamma, 4, {0, ramp}) == 0); // SetGammaRamp
+    CHECK(call(primary, 11, {0, 1}) == 0 && call(primary, 11, {0, 1}) == 0); // the drawing shown again
+    CHECK(at(5, 5) == 0x000000 && at(40, 5) == 0xff00ff);
+    const uint32_t read = mem(1536);
+    CHECK(call(gamma, 3, {0, read}) == 0 && cpu.read16(read) == 0xffff && cpu.read16(read + 512) == 0); // GetGammaRamp
+    for (uint32_t i = 0; i < 768; ++i)
+        cpu.write16(ramp + 2 * i, uint16_t((i % 256) * 257));
+    CHECK(call(gamma, 4, {0, ramp}) == 0);
+    call(gamma, 2, {}); // Release: the primary keeps its other references
     // Drawing by rows on several threads draws the same as on one:
     // overlapping triangles, depth tested, bilinear, blended.
     CHECK(call(device, 37, {0, 16, 2}) == 0); // MAGFILTER: linear
@@ -1543,7 +1559,8 @@ static void testA3d() {
     const uint32_t api = cpu.read32(out);
     CHECK(call(api, 15, {0, 0, 0}) == 0); // Init
     CHECK(call(api, 0, {guid("{4730c6c2-b797-11d3-a33d-00104b67d10e}"), out}) == 0 && cpu.read32(out)); // the geometry
-    CHECK(call(api, 0, {guid("{c398e564-d90b-11d1-90fb-006008a1f441}"), out}) == 0);                   // the listener
+    CHECK(call(api, 0, {guid("{c398e563-d90b-11d1-90fb-006008a1f441}"), out}) == 0);                   // the listener
+    CHECK(cpu.read32(out) != 0);
     CHECK(call(api, 17, {0x1, out}) == 0); // NewSource, native (not positioned)
     const uint32_t source = cpu.read32(out);
     CHECK(a3d.sourcesMade() == 1);
@@ -1599,8 +1616,47 @@ static void testA3d() {
     CHECK(call(source, 14, {}) == 0);
     clock = 5000;
     CHECK(call(source, 19, {out}) == 0 && cpu.read32(out) == 250 && a3d.sourcesPlaying() == 0);
-    // A method not stood in for ends the run, naming it.
     CHECK(call(source, 2, {}) == 0); // Release
+
+    // A 3D source: no format until it has a wave (NiA3dSound asks, to know
+    // whether to load its file), then heard from where it is. The listener
+    // stays where A3D starts it: at the origin, facing -z, y up, so +x is
+    // to its right.
+    auto bits = [](float f) {
+        uint32_t v;
+        std::memcpy(&v, &f, 4);
+        return v;
+    };
+    CHECK(call(api, 17, {0x0, out}) == 0); // NewSource, 3D
+    const uint32_t positioned = cpu.read32(out);
+    CHECK(call(positioned, 8, {mem(18)}) != 0);        // GetWaveFormat: none yet
+    CHECK(call(positioned, 7, {format}) == 0);         // SetWaveFormat
+    CHECK(call(positioned, 5, {1000}) == 0);           // AllocateWaveData
+    CHECK(call(positioned, 11, {0, 1000, out, out2, out3, out4, 0}) == 0);
+    std::memset(cpu.memory().data() + cpu.read32(out), 0xc0, 1000);
+    CHECK(call(positioned, 12, {cpu.read32(out), 1000, 0, 0}) == 0);
+    CHECK(call(positioned, 38, {bits(1), bits(100), 1}) == 0); // SetMinMaxDistance: muted beyond 100
+    auto heard = [&](float x) { // the loudest left and right while it plays at (x, 0, 0)
+        CHECK(call(positioned, 20, {bits(x), 0, 0}) == 0); // SetPosition3f
+        CHECK(call(positioned, 15, {}) == 0);              // Rewind
+        CHECK(call(positioned, 13, {0}) == 0);             // Play
+        clock += 600;
+        CHECK(call(positioned, 56, {out}) == 0);
+        std::vector<int16_t> both(2 * 22050);
+        mixer.mix(both.data(), 22050);
+        int left = 0, right = 0;
+        for (size_t i = 0; i < both.size(); i += 2)
+            left = std::max(left, std::abs(int(both[i]))), right = std::max(right, std::abs(int(both[i + 1])));
+        clock += 600;
+        CHECK(call(positioned, 56, {out}) == 0 && cpu.read32(out) == 0); // played to its end
+        return std::pair{left, right};
+    };
+    const auto beyond = heard(200);
+    CHECK(beyond.first == 0 && beyond.second == 0);
+    const auto onTheRight = heard(10);
+    CHECK(onTheRight.second > onTheRight.first && onTheRight.second > 0);
+    CHECK(onTheRight.second < 0x4000); // fainter for its distance
+    CHECK(call(positioned, 2, {}) == 0);
 }
 
 int main() {

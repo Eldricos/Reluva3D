@@ -222,7 +222,7 @@ uint32_t Surface::argb(int x, int y) const { return d.format.toArgb(pixel(x, y),
 
 const ComInterface* Surface::query(const std::string& iid) {
     Interfaces& i = s->interfaces;
-    for (ComInterface* f : {&i.surface7, &i.surface4, &i.surface3, &i.surface2, &i.surface})
+    for (ComInterface* f : {&i.surface7, &i.surface4, &i.surface3, &i.surface2, &i.surface, &i.gammaControl})
         if (iid == f->iid)
             return f;
     return nullptr;
@@ -272,6 +272,20 @@ std::optional<uint32_t> Surface::invoke(const ComInterface& iface, int index, Cp
     // The interface this surface's own pointers are handed out as.
     auto pointerTo = [&](const std::shared_ptr<Surface>& other) { return com.pointer(other, iface); };
 
+    // IDirectDrawGammaControl: (flags, DDGAMMARAMP*), the ramp being
+    // three arrays of 256 WORDs, red, green, blue.
+    if (m == "GetGammaRamp" || m == "SetGammaRamp") {
+        const uint32_t ramp = c.arg(2);
+        if (!c.valid(ramp, 1536))
+            return kDDErrInvalidParams;
+        for (size_t i = 0; i < 768; ++i) {
+            if (m == "SetGammaRamp")
+                s->gamma[i] = c.read16(ramp + uint32_t(2 * i));
+            else
+                c.write16(ramp + uint32_t(2 * i), s->gamma[i]);
+        }
+        return kDDOk;
+    }
     if (m == "GetSurfaceDesc") {
         if (!c.valid(c.arg(1), 108))
             return kDDErrInvalidParams;
@@ -670,6 +684,10 @@ void DirectX::State::present() {
             continue;
         convert.row(cpu.memory().data() + at, to - from, frame.pixels.data() + size_t(y) * size_t(w) + size_t(from));
     }
+    if (gamma != identityGamma())
+        for (uint32_t& px : frame.pixels)
+            px = (px & 0xff000000u) | uint32_t(gamma[(px >> 16) & 0xff] >> 8) << 16 |
+                 uint32_t(gamma[256 + ((px >> 8) & 0xff)] >> 8) << 8 | uint32_t(gamma[512 + (px & 0xff)] >> 8);
     ++frame.number;
     if (owner.presented)
         owner.presented(frame);

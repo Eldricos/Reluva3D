@@ -517,6 +517,38 @@ Progress:
   `DDStreamingAudioManager::AddSource` returns sources. The streaming
   thread fills them as their play positions move, and the engine hears
   them through its mixer.
+  - Which sounds are which, as the game makes them (`NiA3dSource`'s
+    type): the streamed ones (`DDStreamingAudioManager`: music such as
+    `ThemeLoop.dds`, `OgelIntro.dds`, `RewardMusic.dds`, and the voices)
+    are type 5, native, not placed. The interface's sounds
+    (`DDUIManager::AddSound`) and the actors' skills (`DDSkill::Update`;
+    a byte in the skill's data picks native or 3D) are loaded from files.
+    The 3D ones are placed at their actors, in world units, with minimum
+    and maximum distances of 200 to 300 and 600 to 10,000; the listener
+    follows the camera (`NiA3dListener::A3dUpdate`, each frame from
+    `NiA3dSoundSystem::Click`), right-handed with z up.
+  - Two faults kept all but the streamed sounds from being heard (both in
+    x86.md): `GetWaveFormat` answering success for an empty source, so
+    `NiA3dSource::Load` never loaded the file, and the listener offered
+    under the wrong IID, so it stayed at the origin. With both fixed,
+    Mission One's skills and interface sounds load and play, placed
+    around the camera.
+- Done: the game's options (the Options screen from the main menu),
+  checked one by one:
+  - Screen resolution: the game changes the display mode itself
+    (`SetDisplayMode`); ours draws at the new size (800x600 checked), and
+    the frames shown follow it.
+  - Screen brightness and gamma: the game sets the display's gamma ramp
+    through `IDirectDrawGammaControl`, asked of the primary surface.
+    That interface wasn't offered, so neither did anything. Now the ramp
+    is applied to each frame shown (brightness 50% to 60% lifted the
+    dark parts by about 25 levels), and `GetCaps` reports
+    `DDCAPS2_PRIMARYGAMMA`.
+  - Music, voice-over and sound effects volumes: the game sets its
+    sources' gains (`IA3dSource::SetGain`), which ours applies.
+  - Mouse sensitivity and the advanced options (textures, lightmaps,
+    backdrop, environment animation, shadows) are the game's own
+    business: nothing of ours is involved.
 - Speed, measured headless (frames given to the engine, a click past the
   demo): the menu at headquarters runs at about 14 frames a second on 4
   cores, after about 22 seconds of loading.
@@ -590,10 +622,13 @@ headers' (`directx/interfaces.cpp`).
     them;
   - blits (stretching, colour keys, colour and depth fills) and flipping
     chains;
-  - palettes and clippers.
+  - palettes and clippers;
+  - the display's gamma ramp (`IDirectDrawGammaControl`, from any
+    surface).
 
   What reaches the primary surface becomes `DirectX::frame()`, handed to
-  the engine. In a window, that's the window's client area.
+  the engine, through the gamma ramp. In a window, that's the window's
+  client area.
 - **Direct3D 7:** RGB emulation and HAL devices, vertex buffers and state
   blocks. The drawing is a software rasterizer (`directx/raster.cpp`):
   - the fixed-function pipeline: transforms, lighting, materials and their
@@ -916,9 +951,6 @@ Still to do, whichever way phase 3 chose:
 
 - a mission played start to finish, then every mission (solving each
   puzzle);
-- sound placed in 3D as A3D placed it, and music;
-- the game's options (resolution, detail, volume) applied through
-  `System`;
 - checked against the original running on a period machine or a
   virtual machine: screenshots and recordings side by side.
 

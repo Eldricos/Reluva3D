@@ -23,7 +23,10 @@ namespace {
 const char* const kClsidA3dApi = "{92fa2c24-253c-11d2-90fb-006008a1f441}";
 const char* const kIidA3d = "{9ae07221-8ac4-11d3-b6aa-00600879f3ee}";      // the A3D object (version 4)
 const char* const kIidGeom = "{4730c6c2-b797-11d3-a33d-00104b67d10e}";     // its geometry
-const char* const kIidListener = "{c398e564-d90b-11d1-90fb-006008a1f441}"; // its listener
+// The listener's is the one NiA3dSound asks the A3D object for
+// (NiA3dListener::Startup). The source's and the material's are never asked
+// for (NewSource and NewMaterial hand them out); they follow on from it.
+const char* const kIidListener = "{c398e563-d90b-11d1-90fb-006008a1f441}"; // its listener
 
 constexpr uint32_t kClassNotRegistered = 0x80040154u;
 // Play modes; GetStatus's bits.
@@ -127,7 +130,7 @@ ComInterface makeGeom() {
 }
 
 ComInterface makeMaterial() {
-    return {"IA3dMaterial", "{c398e563-d90b-11d1-90fb-006008a1f441}",
+    return {"IA3dMaterial", "{c398e565-d90b-11d1-90fb-006008a1f441}",
             with({{"Load", 1},
                   {"Save", 1},
                   {"UnSerialize", 2},
@@ -145,7 +148,7 @@ ComInterface makeMaterial() {
 }
 
 ComInterface makeSource() {
-    return {"IA3dSource", "{c398e561-d90b-11d1-90fb-006008a1f441}",
+    return {"IA3dSource", "{c398e564-d90b-11d1-90fb-006008a1f441}",
             with({{"LoadWaveFile", 1},
                   {"LoadWaveData", 2},
                   {"AllocateWaveData", 1},
@@ -236,6 +239,7 @@ struct A3d::State {
     // The listener, for the sources' gains and pans.
     float listenerPos[3]{}, listenerFront[3]{0, 0, -1}, listenerTop[3]{0, 1, 0};
     float outputGain = 1, unitsPerMeter = 1, distanceModelScale = 1;
+    bool leftHanded = false; // SetCoordinateSystem: A3D_RIGHT_HANDED_CS 0, A3D_LEFT_HANDED_CS 1
     size_t made = 0;
     std::vector<std::weak_ptr<ComObject>> sources;
     explicit State(Win32Process& p) : process(p), cpu(p.cpu()), com(p) {}
@@ -255,9 +259,12 @@ public:
     uint32_t rate = 22050, bytesPerSecond = 44100;
     uint32_t data = 0, size = 0; // in the process's memory
     bool playing = false, looped = false;
+    bool formatSet = false; // SetWaveFormat called, or the format copied (DuplicateSource)
     uint32_t startMs = 0, startPos = 0, stoppedPos = 0; // where it was when last started, or stopped
     uint32_t fed = 0;                                   // how far it's been handed to the mixer
     float gain = 1, pitch = 1, position[3]{}, minDistance = 1, maxDistance = 1e9f, priority = 0.5f;
+    bool muteBeyondMax = false; // past its maximum distance: silent, or kept at the level there
+    float distanceScale = 1;    // how fast it fades with distance: 1 as in the world, 2 twice as fast
     std::vector<std::pair<uint32_t, uint32_t>> events; // wave events: offset, event handle
     std::shared_ptr<audio::SoundStream> stream;
     audio::SoundHandle sound = audio::kNoSound;
@@ -361,7 +368,10 @@ public:
         stream.reset();
     }
     // The gain heard, 0..256: the source's own, the output's, and its
-    // distance from the listener (inverse distance beyond the minimum).
+    // distance from the listener. Beyond its minimum distance it fades as
+    // min / (min + scale * (distance - min)), the distance going no further
+    // than its maximum, the scale being its own and the A3D object's
+    // distance model scales (1: inverse distance).
     int volume() const {
         double g = double(gain) * double(s->outputGain);
         if (!(type & 0x1)) { // 3D unless A3DSOURCE_INITIAL_RENDERMODE_NATIVE (bit 0)
@@ -369,8 +379,12 @@ public:
             for (int i = 0; i < 3; ++i)
                 d += double(position[i] - s->listenerPos[i]) * double(position[i] - s->listenerPos[i]);
             d = std::sqrt(d);
+            if (muteBeyondMax && d > maxDistance)
+                return 0;
+            d = std::min<double>(d, std::max<double>(maxDistance, minDistance));
+            const double scale = std::max(0.0, double(distanceScale) * double(s->distanceModelScale));
             if (d > minDistance && minDistance > 0)
-                g *= double(minDistance) / std::min<double>(d, std::max<double>(maxDistance, minDistance));
+                g *= double(minDistance) / (double(minDistance) + scale * (d - double(minDistance)));
         }
         return int(std::clamp(g, 0.0, 1.0) * audio::kMaxVolume);
     }
@@ -380,7 +394,11 @@ public:
             return 0;
         const float* f = s->listenerFront;
         const float* u = s->listenerTop;
-        const float right[3] = {f[1] * u[2] - f[2] * u[1], f[2] * u[0] - f[0] * u[2], f[0] * u[1] - f[1] * u[0]};
+        // Front x top points right in a right-handed system, left in a
+        // left-handed one.
+        const float side = s->leftHanded ? -1.0f : 1.0f;
+        const float right[3] = {side * (f[1] * u[2] - f[2] * u[1]), side * (f[2] * u[0] - f[0] * u[2]),
+                                side * (f[0] * u[1] - f[1] * u[0])};
         double dx = 0, d = 0;
         for (int i = 0; i < 3; ++i) {
             const double r = double(position[i] - s->listenerPos[i]);
@@ -440,6 +458,10 @@ public:
             if (!c.valid(p, 16))
                 return kEInvalidArg;
             if (m == "GetWaveFormat") {
+                // A source with no wave yet has no format: NiA3dSound asks
+                // this to tell whether a source still needs its file loaded.
+                if (!formatSet && !size)
+                    return kEFail;
                 c.write16(p, formatTag);
                 c.write16(p + 2, channels);
                 c.write32(p + 4, rate);
@@ -448,6 +470,7 @@ public:
                 c.write16(p + 14, bitsPerSample);
                 return kSOk;
             }
+            formatSet = true;
             formatTag = c.read16(p);
             channels = std::max<uint16_t>(c.read16(p + 2), 1);
             rate = c.read32(p + 4);
@@ -551,9 +574,9 @@ public:
                 outF(1 + i, position[i]);
             return kSOk;
         }
-        if (m == "SetGain" || m == "SetPitch" || m == "SetPriority") {
+        if (m == "SetGain" || m == "SetPitch" || m == "SetPriority" || m == "SetDistanceModelScale") {
             const float v = asFloat(c.arg(1));
-            (m == "SetGain" ? gain : m == "SetPitch" ? pitch : priority) = v;
+            (m == "SetGain" ? gain : m == "SetPitch" ? pitch : m == "SetPriority" ? priority : distanceScale) = v;
             if (m == "SetPitch" && playing) { // its rate changes from here
                 const uint32_t at = cursor();
                 stoppedPos = at;
@@ -563,20 +586,25 @@ public:
             heard();
             return kSOk;
         }
+        if (m == "GetDistanceModelScale") {
+            outF(1, distanceScale);
+            return kSOk;
+        }
         if (m == "GetGain" || m == "GetPitch" || m == "GetPriority") {
             outF(1, m == "GetGain" ? gain : m == "GetPitch" ? pitch : priority);
             return kSOk;
         }
-        if (m == "SetMinMaxDistance") { // (min, max, mode)
+        if (m == "SetMinMaxDistance") { // (min, max, mode): A3D_AUDIBLE 0, A3D_MUTE 1
             minDistance = asFloat(c.arg(1));
             maxDistance = asFloat(c.arg(2));
+            muteBeyondMax = c.arg(3) == 1;
             heard();
             return kSOk;
         }
         if (m == "GetMinMaxDistance") {
             outF(1, minDistance);
             outF(2, maxDistance);
-            out(3, 0);
+            out(3, muteBeyondMax ? 1 : 0);
             return kSOk;
         }
         if (m == "SetRenderMode") {
@@ -647,6 +675,10 @@ public:
             if (c.valid(c.arg(arg), 4))
                 c.write32(c.arg(arg), v);
         };
+        if (m == "SetCoordinateSystem") {
+            s->leftHanded = c.arg(1) == 1;
+            return kSOk;
+        }
         if (&iface == &s->listener) {
             float* target = m == "SetPosition3f" ? s->listenerPos : nullptr;
             if (target) {
@@ -713,6 +745,7 @@ public:
                 source->rate = from->rate, source->bytesPerSecond = from->bytesPerSecond;
                 source->blockAlign = from->blockAlign, source->bitsPerSample = from->bitsPerSample;
                 source->size = from->size;
+                source->formatSet = from->formatSet;
                 source->data = from->size ? s->process.memory().alloc(from->size) : 0;
                 if (source->data)
                     std::memcpy(c.memory().data() + source->data, c.memory().data() + from->data, from->size);

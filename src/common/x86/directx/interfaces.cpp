@@ -19,6 +19,7 @@ const char* const kIidSurface4 = "{0b2b8630-ad35-11d0-8ea6-00609797ea5b}";
 const char* const kIidSurface7 = "{06675a80-3b9b-11d2-b92f-00609797ea5b}";
 const char* const kIidPalette = "{6c14db84-a733-11ce-a521-0020af0be560}";
 const char* const kIidClipper = "{6c14db85-a733-11ce-a521-0020af0be560}";
+const char* const kIidGammaControl = "{69c11c3e-b46b-11d1-ad7a-00c04fc29b4e}";
 const char* const kIidDirect3D7 = "{f5049e77-4861-11d2-a407-00a0c90629a8}";
 const char* const kIidDevice7 = "{f5049e79-4861-11d2-a407-00a0c90629a8}";
 const char* const kIidVertexBuffer7 = "{f5049e7d-4861-11d2-a407-00a0c90629a8}";
@@ -84,6 +85,7 @@ Interfaces::Interfaces() {
     surface = {"IDirectDrawSurface", kIidSurface, first(kSurface7, 36)};
     palette = {"IDirectDrawPalette", kIidPalette,
                with({{"GetCaps", 1}, {"GetEntries", 4}, {"Initialize", 3}, {"SetEntries", 4}})};
+    gammaControl = {"IDirectDrawGammaControl", kIidGammaControl, with({{"GetGammaRamp", 2}, {"SetGammaRamp", 2}})};
     clipper = {"IDirectDrawClipper", kIidClipper,
                with({{"GetClipList", 3}, {"GetHWnd", 1}, {"Initialize", 2}, {"IsClipListChanged", 1},
                      {"SetClipList", 2}, {"SetHWnd", 2}})};
