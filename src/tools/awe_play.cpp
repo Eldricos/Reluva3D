@@ -46,6 +46,7 @@
 #include <map>
 #include <memory>
 #include <queue>
+#include <random>
 #include <set>
 #include <string>
 #include <vector>
@@ -728,9 +729,92 @@ void reloadAndCompare(Player& player, size_t n, const Action& a) {
                 reloadDiffs++;
 }
 
+// -wander every n seed: from every n-th action of the route, a player who
+// strays: up to `steps` actions picked at random among what can be done
+// (and now and then an item used where it isn't wanted), the game saved
+// and loaded again at random points; then the route goes on from where it
+// was left. What goes wrong is listed: an action that sticks or fails, a
+// load that loses something, a script verb not done, a scene with nothing
+// to do and no way on.
+struct Wander {
+    size_t every = 0, steps = 30;
+    std::mt19937 rng{1};
+    size_t walks = 0, actions = 0, problems = 0;
+    std::set<std::string> scenes;
+};
+
+void wander(Player& player, size_t at, Wander& w) {
+    const std::vector<uint8_t> back = player.snapshot();
+    w.walks++;
+    auto problem = [&](const std::string& what) {
+        w.problems++;
+        std::printf("  wander from %zu: %s\n", at, what.c_str());
+    };
+    std::string trail;
+    for (size_t k = 0; k < w.steps; k++) {
+        std::vector<Action> can = player.actions();
+        const ScenePage::GameStatus st = player.page().status();
+        if (st.scene.rfind("menu.", 0) == 0 || player.credits())
+            break;
+        w.scenes.insert(st.scene);
+        if (can.empty()) {
+            problem("nothing to do in " + st.scene + " (after" + trail + ")");
+            break;
+        }
+        Action a;
+        // One in eight: an item from the bag used on anything clickable
+        // (mostly "that won't work").
+        const std::vector<std::string> names = player.page().clickables();
+        std::vector<std::string> bag;
+        for (const GameState::Item& i : player.page().gameState().items)
+            if (i.state == 1 || i.state == 2)
+                bag.push_back(i.name);
+        if (!names.empty() && !bag.empty() && w.rng() % 8 == 0) {
+            const size_t t = w.rng() % names.size();
+            a.kind = "use";
+            a.scene = st.scene;
+            a.target = names[t];
+            a.n = int(std::count(names.begin(), names.begin() + long(t), names[t]));
+            a.item = bag[w.rng() % bag.size()];
+        } else {
+            a = can[w.rng() % can.size()];
+        }
+        const size_t logAt = player.log().size();
+        const bool ok = player.act(a);
+        w.actions++;
+        trail += " " + toLine(a).substr(0, 70) + ";";
+        for (size_t i = logAt; i < player.log().size(); i++)
+            if (player.log()[i].find("not done yet") != std::string::npos ||
+                player.log()[i].find("(no scene") != std::string::npos)
+                problem(player.log()[i] + " (" + toLine(a) + ")");
+        if (!ok) {
+            problem(toLine(a) + ": " + player.problem);
+            break;
+        }
+        if (w.rng() % 6 == 0) {
+            // Saved and loaded: nothing of the story lost.
+            const std::set<std::string> before = player.features(true);
+            const std::vector<uint8_t> save = player.snapshot();
+            if (!player.restore(save)) {
+                problem("couldn't load a save in " + st.scene);
+                break;
+            }
+            const std::set<std::string> after = player.features(true);
+            for (const std::string& f : before)
+                if (!after.count(f))
+                    problem("lost on loading: " + f);
+            for (const std::string& f : after)
+                if (!before.count(f))
+                    problem("new on loading: " + f);
+        }
+    }
+    if (!player.restore(back))
+        problem("couldn't go back to the route");
+}
+
 bool replay(Player& player, std::vector<Action>& path, bool print, size_t& done, size_t logFrom = SIZE_MAX,
             const std::map<size_t, std::string>& shots = {}, const std::string& shotsDir = {},
-            bool reloadEach = false) {
+            bool reloadEach = false, Wander* w = nullptr) {
     done = 0;
     for (Action& a : path) {
         if (!shotsDir.empty()) {
@@ -761,6 +845,8 @@ bool replay(Player& player, std::vector<Action>& path, bool print, size_t& done,
         done++;
         if (reloadEach && player.page().status().scene.rfind("menu.", 0) != 0)
             reloadAndCompare(player, done, a);
+        if (w && w->every && done % w->every == 0 && player.page().status().scene.rfind("menu.", 0) != 0)
+            wander(player, done, *w);
     }
     return true;
 }
@@ -791,6 +877,7 @@ int aweCommandSolve(int argc, char** argv) {
     bool climb = true;
     double limit = 900;
     bool reloadEach = false;
+    Wander wanderer;
     bool verbose = false, list = false, reload = false, mouse = false, hand = false, threeD = false, characters = false;
     bool sound = false;
     std::string wavFile;
@@ -826,6 +913,11 @@ int aweCommandSolve(int argc, char** argv) {
             reload = true;
         else if (a == "-reloadeach")
             reloadEach = true;
+        else if (a == "-wander" && i + 2 < argc)
+            wanderer.every = size_t(std::atoi(argv[i + 1])), wanderer.rng.seed(unsigned(std::atoi(argv[i + 2]))),
+                i += 2;
+        else if (a == "-wandersteps" && i + 1 < argc)
+            wanderer.steps = size_t(std::atoi(argv[++i]));
         else if (a == "-mouse")
             mouse = true;
         else if (a == "-hand")
@@ -874,7 +966,11 @@ int aweCommandSolve(int argc, char** argv) {
             return 1;
         }
         size_t done = 0;
-        const bool ok = replay(player, path, true, done, logFrom, shots, shotsDir, reloadEach);
+        const bool ok = replay(player, path, true, done, logFrom, shots, shotsDir, reloadEach,
+                               wanderer.every ? &wanderer : nullptr);
+        if (wanderer.every)
+            std::printf("wandered %zu times off the route, %zu actions in %zu scenes: %zu problems\n", wanderer.walks,
+                        wanderer.actions, wanderer.scenes.size(), wanderer.problems);
         if (reloadEach)
             std::printf("saved and loaded after every action: %zu differences\n", reloadDiffs);
         if (!wavFile.empty()) {

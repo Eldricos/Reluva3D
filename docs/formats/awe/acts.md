@@ -282,6 +282,16 @@ tool loaded from the game's own scene, so leaving it marked that scene's
 screen); and the solved torn letter wrote its pieces' places again when
 its scene was shown.
 
+`-wander <n> <seed>` strays from the route every n actions: up to 30
+actions (`-wandersteps`) picked at random among what a player could do,
+one in eight an item from the bag used on anything clickable, the game
+saved and loaded again now and then, after which the route goes on from
+where it was left. It lists an action that sticks or fails, a load that
+loses or gains something, a script verb not done, a missing scene, and
+a scene with nothing to do. On the English install three runs (seeds 1
+to 3, every 10 actions) made 9,900 actions off the route in about 190
+scenes, with 330 loads, and found nothing.
+
 `-hand` plays the route as a player's hand does, by the mouse and keys
 alone, each input made through the page's own event handling and
 decided from the screen as it is (`ScenePage::handStep`): an item is
