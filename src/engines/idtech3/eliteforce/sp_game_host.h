@@ -389,6 +389,19 @@ private:
     uint64_t startMs_ = 0;
 };
 
+// The Expansion Pack engine's FS_GetFileList (its import 16; 0x415700 in
+// its stvoy.exe): the files under `path` ending in `extension` (any, if
+// empty), named from just past the path. Paks' files up to one folder
+// below it ("sub/name.npc"), in search order and each pak's own order;
+// loose files from the folder itself only. A name already listed (any
+// case) is left out.
+std::vector<std::string> expansionFileList(const SearchSet& files, std::string_view path, std::string_view extension);
+// The names into a buffer of `size` bytes as that engine writes them: each
+// with its NUL, the list ended by an empty name. One that doesn't fit is
+// skipped (a shorter one later may still fit), at most 4095. Returns how
+// many were written.
+uint32_t packFileList(const std::vector<std::string>& names, uint32_t size, std::vector<uint8_t>& out);
+
 // Saving and loading a game (docs/formats/idtech3/eliteforce-sp-interface.md,
 // "Saved games"), in the original engine's two steps each.
 struct SaveHeader {

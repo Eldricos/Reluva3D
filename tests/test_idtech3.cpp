@@ -1234,6 +1234,40 @@ static void testSaveKind() {
     CHECK(!saveKind(noClient) && !saveKind(std::vector<uint8_t>{1, 2, 3}));
 }
 
+// The Expansion Pack engine's file listing (FS_GetFileList).
+static void testExpansionFileList(const std::filesystem::path& tmp) {
+    using reluva::idtech3::eliteforce::expansionFileList;
+    using reluva::idtech3::eliteforce::packFileList;
+    std::filesystem::remove_all(tmp);
+    const std::vector<uint8_t> text = test::toBytes("x");
+    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
+                    test::buildZip({{"ext_data/NPCs.cfg", text, {}},
+                                    {"ext_data/Addon.NPC", text, {}},
+                                    {"ext_data/sub/more.npc", text, {}},
+                                    {"ext_data/sub/deeper/no.npc", text, {}},
+                                    {"ext_dataX/odd.npc", text, {}},
+                                    {"other/no.npc", text, {}}}));
+    test::writeFile(tmp / "BaseEF" / "ext_data" / "loose.npc", text);
+    test::writeFile(tmp / "BaseEF" / "ext_data" / "addon.npc", text);
+    test::writeFile(tmp / "BaseEF" / "ext_data" / "sub" / "notloose.npc", text);
+    SearchSet set;
+    std::vector<std::string> warnings;
+    CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
+    std::vector<std::string> names = expansionFileList(set, "ext_data", ".npc");
+    std::sort(names.begin(), names.end());
+    // The pak's to one folder down, as the engine's (which also takes a
+    // folder whose name only starts with the path's); the folder's own
+    // loose files; addon.npc once.
+    CHECK((names == std::vector<std::string>{"Addon.NPC", "X/odd.npc", "loose.npc", "sub/more.npc"}) ||
+          (names == std::vector<std::string>{"X/odd.npc", "addon.npc", "loose.npc", "sub/more.npc"}));
+    CHECK(expansionFileList(set, "ext_data", "").size() == 5);
+
+    std::vector<uint8_t> out;
+    CHECK(packFileList({"abc", "toolong", "de"}, 9, out) == 2);
+    CHECK((out == std::vector<uint8_t>{'a', 'b', 'c', 0, 'd', 'e', 0, 0}));
+    CHECK(packFileList({}, 4, out) == 0 && out == std::vector<uint8_t>{0});
+}
+
 // Sounds by name: decoded once, missing and broken ones remembered.
 static void testSoundLibrary(const std::filesystem::path& tmp) {
     using test::toBytes;
@@ -3239,6 +3273,7 @@ int main() {
     testNetDeltas();
     testVmFileList();
     testSoundLibrary(tmp / "sounds");
+    testExpansionFileList(tmp / "filelist");
     testAmbientSets();
     testServerWorld();
     testSaveChunks();

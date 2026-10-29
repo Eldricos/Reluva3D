@@ -13,6 +13,7 @@
 
 #include "common/detection.h"
 #include "common/md5.h"
+#include "common/archive.h"
 #include "engines/idtech3/vm_services.h"
 
 #include <algorithm>
@@ -1474,24 +1475,18 @@ void SpGameHost::addImports() {
         own(XpReadFromSaveGameOptional, "engine[ReadFromSaveGameOptional]",
             [readChunk](x86::Cpu& c) { return readChunk(c, true); });
         own(XpFsGetFileList, "engine[FS_GetFileList]", [this, str](x86::Cpu& c) -> uint32_t {
-            // (path, extension, buffer, size) -> how many: names, each
-            // with its NUL, as the engine lists them; "$modlist" (mods):
-            // none.
-            const std::string path = str(c, 0, 256);
-            const uint32_t buffer = c.arg(2);
-            const int32_t size = int32_t(c.arg(3));
-            if (path == "$modlist" || size <= 0 || !c.valid(buffer, uint32_t(size)))
+            // (path, extension, buffer, size) -> how many, as that
+            // engine's (expansionFileList, packFileList); "$modlist"
+            // (mods): none.
+            const uint32_t path = c.arg(0), buffer = c.arg(2), size = c.arg(3);
+            if (!path || int32_t(size) <= 0 || !c.valid(buffer, size))
                 return 0;
-            int32_t used = 0;
-            uint32_t count = 0;
-            for (const std::string& n : VmFiles::listNames(files_, path, str(c, 1, 64))) {
-                const auto need = int32_t(n.size()) + 1;
-                if (used + need > size)
-                    break;
-                c.writeString(buffer + uint32_t(used), n, uint32_t(need));
-                used += need;
-                ++count;
-            }
+            const std::string folder = str(c, 0, 256);
+            std::vector<uint8_t> list;
+            const uint32_t count =
+                folder == "$modlist" ? packFileList({}, size, list)
+                                     : packFileList(expansionFileList(files_, folder, c.arg(1) ? str(c, 1, 64) : ""), size, list);
+            std::memcpy(c.memory().data() + buffer, list.data(), list.size());
             return count;
         });
     }
@@ -1761,6 +1756,76 @@ Error readSaveLevel(SaveReader& r, SpGameHost& game, bool autosave) {
         game.replaceConfigstrings(strings);
     }
     return game.readLevel(autosave);
+}
+
+std::vector<std::string> expansionFileList(const SearchSet& files, std::string_view path, std::string_view extension) {
+    // A name's folder depth: its slashes (either kind).
+    auto depth = [](std::string_view name) {
+        return std::count_if(name.begin(), name.end(), [](char c) { return c == '/' || c == '\\'; });
+    };
+    auto lower = [](std::string_view text) {
+        std::string out(text);
+        for (char& c : out)
+            c = char(std::tolower(static_cast<unsigned char>(c)));
+        return out;
+    };
+    const std::string base = lower(path), ext = lower(extension);
+    const auto baseDepth = depth(path);
+    std::vector<std::string> out;
+    std::set<std::string> seen;
+    auto add = [&](std::string_view name) {
+        if (!name.empty() && (name[0] == '/' || name[0] == '\\'))
+            name.remove_prefix(1);
+        if (seen.insert(lower(name)).second)
+            out.emplace_back(name);
+    };
+    for (const Archive* archive : files.archives()) {
+        if (dynamic_cast<const DirectoryArchive*>(archive)) {
+            // Loose files: the folder's own, in name order.
+            std::vector<std::string> names;
+            for (const std::string& n : archive->list()) {
+                const std::string key = lower(n);
+                if (key.size() > base.size() + 1 && key.compare(0, base.size(), base) == 0 &&
+                    key[base.size()] == '/' && key.find('/', base.size() + 1) == std::string::npos &&
+                    key.size() - base.size() - 1 >= ext.size() &&
+                    key.compare(key.size() - ext.size(), ext.size(), ext) == 0)
+                    names.push_back(n.substr(base.size() + 1));
+            }
+            std::sort(names.begin(), names.end(), [&](const std::string& a, const std::string& b) { return lower(a) < lower(b); });
+            for (const std::string& n : names)
+                add(n);
+            continue;
+        }
+        for (const std::string& n : archive->list()) {
+            const std::string key = lower(n);
+            const size_t slash = key.find_last_of("/\\");
+            // Its folder at least as long as the path and starting with it,
+            // at most two folders deeper; ending in the extension and more
+            // than the path and it.
+            if (depth(n) - baseDepth > 2 || slash == std::string::npos || slash < base.size() ||
+                key.compare(0, base.size(), base) != 0 || key.size() < ext.size() ||
+                key.size() == base.size() + ext.size() || key.compare(key.size() - ext.size(), ext.size(), ext) != 0)
+                continue;
+            add(std::string_view(n).substr(base.size()));
+        }
+    }
+    return out;
+}
+
+uint32_t packFileList(const std::vector<std::string>& names, uint32_t size, std::vector<uint8_t>& out) {
+    out.assign(size ? 1 : 0, 0);
+    uint32_t count = 0;
+    for (const std::string& n : names) {
+        if (count == 0xfff)
+            break;
+        const size_t used = out.size() - 1;
+        if (!size || n.size() + used + 2 > size)
+            continue;
+        out.insert(out.end() - 1, n.begin(), n.end());
+        out.insert(out.end() - 1, 0);
+        ++count;
+    }
+    return count;
 }
 
 std::optional<SaveKind> saveKind(std::istream& in) {

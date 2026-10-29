@@ -82,7 +82,7 @@ comparing each slot's code, and the DLLs' own `Init` and `ReadLevel`.
 - **The engine's table has 42 slots.** Two are new and the rest move:
   - slots 0–15 as above;
   - **16:** `FS_GetFileList(path, extension, buffer, size)` → count, as
-    Jedi Outcast's (`$modlist` lists mods);
+    Jedi Outcast's (`$modlist` lists mods); see "Listing files" below;
   - **17, 18:** `AppendToSaveGame`, `ReadFromSaveGame` (1.x's 16, 17);
   - **19:** the same read, with a different chunk next rewinding and
     giving 0 instead of failing (an optional chunk; 0x427e50 calls the
@@ -100,6 +100,41 @@ comparing each slot's code, and the DLLs' own `Init` and `ReadLevel`.
 - **`ReadLevel(autosave, loadTransition)`:** one more argument.
 - **`maptransition <map> <spawntarget>`:** the game names where the
   player arrives (1.x's: `maptransition <map>`), which `Init` is handed.
+
+### Listing files
+
+The game's one use is for NPCs: after `ext_data/NPCs.cfg` it lists
+`ext_data` for `.npc` into a 2048-byte buffer and adds each file
+(`ext_data/<name>`) to the definitions, all within 64 KB ("NPC
+extensions (*.npc) are too large"). The Expansion's pak3.pk3 has one,
+`ext_data/addon.npc`: Dischler (Virtual Voyager deck 15), Boothby (the
+holodeck garden), Proton, Chaotica and others.
+
+The engine's listing (0x415700 in its `stvoy.exe`):
+
+- A null path gives 0; a null extension is taken as empty (any file).
+- `$modlist` lists the mods' folders instead (0x415a00).
+- The search path is walked in order. A pak's files are taken in the pak's
+  own order when:
+  - the file's folder is at least as long as the path and starts with it
+    (ignoring case; there's no check for a slash after it, so `ext_dataX/`
+    matches `ext_data` too);
+  - it is at most two slashes deeper than the path (one subfolder down);
+  - its name is longer than the path and extension together, and ends in
+    the extension (ignoring case).
+
+  A loose folder's files are only that folder's own, with the extension.
+- The name given is the rest after the path, a leading slash dropped.
+  A name already in the buffer (ignoring case) isn't added again.
+- The buffer holds the names one after another, each ended by a NUL, and
+  the list by an extra NUL. A name is added only if its length, plus what
+  the buffer already holds, plus 2 fits in the size. One that doesn't fit
+  is skipped, and later names are still tried. At most 4095 are listed.
+- It returns how many names it wrote.
+
+Reluva follows this (`expansionFileList` and `packFileList` in
+`sp_game_host.cpp`). It lists loose files in name order, which is the
+order Windows gives them in.
 
 Reluva's host (`sp_game_host.cpp`) recognises the Expansion Pack's DLL by
 its signature and lays its table out so, passing the extra arguments;
