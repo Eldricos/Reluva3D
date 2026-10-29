@@ -98,6 +98,9 @@ struct ViewerContext {
     // A recorded match to play on the Play page (demo <name>: the file
     // under demos/).
     std::string requestDemo;
+    // Where single player's code is (installPath, or its expansion/
+    // folder for the Expansion Pack's); empty if there's none to run.
+    std::filesystem::path singlePlayerPath;
 };
 
 // The settings: the game's default.cfg, then the player's own (Reluva's

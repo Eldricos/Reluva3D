@@ -8,6 +8,7 @@
 #include "common/types.h"
 
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -24,6 +25,16 @@ struct GameTarget {
     // Where the engine may keep files for this game (settings, saves); may
     // not exist yet. Set by the frontend.
     std::filesystem::path savePath;
+    // Everything stored for it, the engine's own options among them
+    // (MetaEngine::options).
+    std::map<std::string, std::string> settings;
+};
+
+// A choice the launcher offers for a game, stored with it as `key` = "1"
+// or "0".
+struct GameOption {
+    std::string key, label, tooltip;
+    bool defaultOn = true;
 };
 
 // A running game. Created by its MetaEngine, run once, then destroyed.
@@ -48,6 +59,10 @@ public:
     // The games in `source` that can be imported (copied into a folder of
     // their own to run from): none unless the engine knows how.
     virtual std::vector<ImportPlan> planImport(const std::filesystem::path& /*source*/) const { return {}; }
+    // The choices it offers for the game in `dir` (none by default).
+    virtual std::vector<GameOption> options(const std::string& /*gameId*/, const std::filesystem::path& /*dir*/) const {
+        return {};
+    }
     // Adds what `file` holds for `plan`'s game (its patch: the patched
     // files, in place of the plan's own); false, with why in `message`, if
     // it isn't one the engine knows.

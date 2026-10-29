@@ -12,7 +12,7 @@
 namespace reluva::idtech3 {
 
 Error mountGameDir(SearchSet& set, const std::filesystem::path& install, std::string_view gameDir, int layer,
-                   std::vector<std::string>& warnings) {
+                   std::vector<std::string>& warnings, const std::vector<std::string>& skip) {
     const auto dir = fs::findDirectory(install, gameDir);
     if (!dir)
         return Error::fail("No " + std::string(gameDir) + " folder in " + install.string());
@@ -20,7 +20,8 @@ Error mountGameDir(SearchSet& set, const std::filesystem::path& install, std::st
     std::vector<std::filesystem::path> paks;
     std::error_code ec;
     for (std::filesystem::directory_iterator it(*dir, ec), end; !ec && it != end; it.increment(ec))
-        if (fs::toLower(it->path().extension().string()) == ".pk3" && it->is_regular_file(ec))
+        if (fs::toLower(it->path().extension().string()) == ".pk3" && it->is_regular_file(ec) &&
+            std::find(skip.begin(), skip.end(), fs::toLower(it->path().filename().string())) == skip.end())
             paks.push_back(it->path());
     // Compared in upper case: that puts '_' after the letters, unlike lower
     // case, and decides which pak overrides which.

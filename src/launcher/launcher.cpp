@@ -109,7 +109,7 @@ void Launcher::drawUi(std::optional<GameTarget>& launch, bool& quit) {
     if (targets.empty())
         ImGui::TextDisabled("No games yet. Use \"Add Game...\" and pick a game's install folder.");
     for (const std::string& name : targets) {
-        std::string label = config_.get(name, "description", name) + "##" + name;
+        std::string label = listLabel(name) + "##" + name;
         if (ImGui::Selectable(label.c_str(), selected_ == name, ImGuiSelectableFlags_AllowDoubleClick)) {
             selected_ = name;
             if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && !importRunning_)
@@ -154,6 +154,10 @@ void Launcher::drawUi(std::optional<GameTarget>& launch, bool& quit) {
         pickPatch(Pick::PatchForGame);
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Update the selected game with its patch's installer\n(e.g. eliteforcepatch1_2.exe), on any system");
+    if (ImGui::Button("Add Expansion...", bsize))
+        pickExpansion(Pick::PatchForGame);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Add an expansion to the selected game from its CD\n(or a folder it was installed to)");
     ImGui::EndDisabled();
 
     ImGui::BeginDisabled(!haveSelection || importRunning_);
@@ -165,9 +169,11 @@ void Launcher::drawUi(std::optional<GameTarget>& launch, bool& quit) {
     }
     ImGui::EndDisabled();
 
+    drawOptions();
+
     ImGui::Spacing();
     if (ImGui::Button("Run Testbed", bsize))
-        launch = GameTarget{"testbed", "testbed", "testbed", "Testbed", {}, {}};
+        launch = GameTarget{"testbed", "testbed", "testbed", "Testbed", {}, {}, {}};
 
     ImGui::Spacing();
     if (ImGui::Button("Quit", bsize))
@@ -308,6 +314,49 @@ void Launcher::addGame(const DetectedGame& game, const std::string& path) {
     selected_ = name;
 }
 
+std::string Launcher::listLabel(const std::string& name) {
+    // The description, and the options turned from their defaults (two
+    // entries for one folder, one without the Expansion Pack, told apart).
+    auto it = listOptions_.find(name);
+    if (it == listOptions_.end()) {
+        const MetaEngine* meta = findEngine(config_.get(name, "engine"));
+        it = listOptions_
+                 .emplace(name, meta ? meta->options(config_.get(name, "gameid"), config_.get(name, "path"))
+                                     : std::vector<GameOption>{})
+                 .first;
+    }
+    std::string label = config_.get(name, "description", name);
+    for (const GameOption& o : it->second) {
+        const bool on = config_.get(name, o.key, o.defaultOn ? "1" : "0") != "0";
+        if (on != o.defaultOn)
+            label += " [" + o.label + ": " + (on ? "on" : "off") + "]";
+    }
+    return label;
+}
+
+void Launcher::drawOptions() {
+    if (optionsFor_ != selected_) {
+        optionsFor_ = selected_;
+        options_.clear();
+        if (config_.hasSection(selected_) && selected_ != Config::kGlobalSection)
+            if (const MetaEngine* meta = findEngine(config_.get(selected_, "engine")))
+                options_ = meta->options(config_.get(selected_, "gameid"), config_.get(selected_, "path"));
+    }
+    if (options_.empty())
+        return;
+    ImGui::Spacing();
+    ImGui::Separator();
+    for (const GameOption& o : options_) {
+        bool on = config_.get(selected_, o.key, o.defaultOn ? "1" : "0") != "0";
+        if (ImGui::Checkbox(o.label.c_str(), &on)) {
+            config_.set(selected_, o.key, on ? "1" : "0");
+            config_.save();
+        }
+        if (!o.tooltip.empty() && ImGui::IsItemHovered())
+            ImGui::SetTooltip("%s", o.tooltip.c_str());
+    }
+}
+
 GameTarget Launcher::launchTarget(const std::string& name) {
     // A patch (or more of the game) may have been added to the folder since.
     const std::string engine = config_.get(name, "engine"), gameId = config_.get(name, "gameid");
@@ -325,6 +374,12 @@ void Launcher::pickPatch(Pick purpose) {
     pickInProgress_ = true;
     pickFor_ = purpose;
     SDL_ShowOpenFileDialog(pickFolderCallback, this, sys_.window(), kFilters, 2, nullptr, false);
+}
+
+void Launcher::pickExpansion(Pick purpose) {
+    pickInProgress_ = true;
+    pickFor_ = purpose;
+    SDL_ShowOpenFolderDialog(pickFolderCallback, this, sys_.window(), nullptr, false);
 }
 
 void Launcher::offerImport(std::vector<ImportPlan> plans, const std::string& source) {
@@ -355,7 +410,7 @@ void Launcher::drawImport() {
     const ImportPlan& plan = *importPlan_;
     const bool patching = !patchTarget_.empty();
     ImGui::TextUnformatted(plan.game.description.c_str());
-    ImGui::TextDisabled("%s %s", patching ? "patched from" : "from", importSource_.c_str());
+    ImGui::TextDisabled("%s %s", patching ? "adding from" : "from", importSource_.c_str());
     ImGui::Spacing();
     for (const std::string& note : plan.notes)
         ImGui::BulletText("%s", note.c_str());
@@ -383,6 +438,11 @@ void Launcher::drawImport() {
                 pickPatch(Pick::PatchForImport);
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("Apply the game's patch (its installer, e.g. eliteforcepatch1_2.exe) as it's copied");
+            ImGui::SameLine();
+            if (ImGui::Button("Add expansion..."))
+                pickExpansion(Pick::PatchForImport);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Copy an expansion too, from its CD (or a folder it was installed to)");
             ImGui::SameLine();
             if (ImGui::Button("Change folder...")) {
                 pickInProgress_ = true;
@@ -446,6 +506,8 @@ void Launcher::finishImport() {
                                                              : "");
         return;
     }
+    optionsFor_.clear(); // what the folder holds may have changed
+    listOptions_.clear();
     if (!patched.empty()) {
         // The game's description brought up to date ("... (1.2)").
         launchTarget(patched);
@@ -464,7 +526,7 @@ void Launcher::finishImport() {
 
 GameTarget Launcher::targetFromConfig(const std::string& name) const {
     return GameTarget{name, config_.get(name, "engine"), config_.get(name, "gameid"),
-                      config_.get(name, "description", name), config_.get(name, "path"), {}};
+                      config_.get(name, "description", name), config_.get(name, "path"), {}, config_.values(name)};
 }
 
 } // namespace reluva

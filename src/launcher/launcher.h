@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <filesystem>
+#include <map>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -68,6 +69,7 @@ private:
     // What the next folder picked is for.
     enum class Pick { AddGame, ImportSource, ImportDestination, PatchForImport, PatchForGame } pickFor_ = Pick::AddGame;
     void pickPatch(Pick purpose);
+    void pickExpansion(Pick purpose); // a folder: an expansion's CD or install
 
     // Importing: what was found and where it goes; then the copying, on a
     // thread of its own, and how it ended.
@@ -83,6 +85,15 @@ private:
     // Applying a patch to a game already added (into its own folder),
     // rather than importing a new one.
     std::string patchTarget_;
+
+    // The selected game's options (MetaEngine::options), found again when
+    // the selection or its folder's contents may have changed.
+    std::string optionsFor_;
+    std::vector<GameOption> options_;
+    void drawOptions();
+    // Every game's options, for the list (found once per game).
+    std::map<std::string, std::vector<GameOption>> listOptions_;
+    std::string listLabel(const std::string& name);
 };
 
 } // namespace reluva

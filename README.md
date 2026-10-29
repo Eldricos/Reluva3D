@@ -57,7 +57,10 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   only the files Reluva needs, so nothing needs installing, on any system.
   *Add patch...* there, or *Apply Patch...* for a game already added, takes
   the patched files out of the game's patch installer (Elite Force's
-  `eliteforcepatch1_2.exe`) without running it.
+  `eliteforcepatch1_2.exe`) without running it. *Add expansion...* (or
+  *Add Expansion...* for a game already added) copies the Expansion Pack from
+  its CD; each game has a *Use the Expansion Pack* checkbox, so the same
+  folder can be added twice to play with and without it.
 - `reluva-tool detect <folder>` and `reluva-tool import <source> [destination]`
   do the same from a terminal.
 - `reluva <target>` starts a configured game directly. `reluva testbed`

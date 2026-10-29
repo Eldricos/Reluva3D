@@ -43,16 +43,16 @@ bool shaderFound(const ShaderLibrary& shaders, const SearchSet& files, const std
 
 SpPlayViewer::SpPlayViewer(ViewerContext& ctx) : Page(ctx) {
     // A game with its single-player game code beside the game folder.
-    if (ctx.game.code != GameCode::EliteForce || ctx.game.spGameDll.empty() || ctx.installPath.empty())
+    if (ctx.game.code != GameCode::EliteForce || ctx.game.spGameDll.empty() || ctx.singlePlayerPath.empty())
         return;
     // (By name in any case: copied from a CD, they may be in capitals.)
-    const auto dll = fs::findFile(ctx.installPath, ctx.game.spGameDll);
+    const auto dll = fs::findFile(ctx.singlePlayerPath, ctx.game.spGameDll);
     std::ifstream in(dll ? *dll : std::filesystem::path(), std::ios::binary);
     if (!dll || !in)
         return;
     dll_.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
     // Its menus, if they're there too.
-    if (const auto uiPath = fs::findFile(ctx.installPath, ctx.game.spUiDll); uiPath && !ctx.game.spUiDll.empty())
+    if (const auto uiPath = fs::findFile(ctx.singlePlayerPath, ctx.game.spUiDll); uiPath && !ctx.game.spUiDll.empty())
         if (std::ifstream ui{*uiPath, std::ios::binary}; ui)
             uiDll_.assign(std::istreambuf_iterator<char>(ui), std::istreambuf_iterator<char>());
     // Its maps: all but multiplayer's.

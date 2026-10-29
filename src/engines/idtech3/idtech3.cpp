@@ -50,7 +50,12 @@ public:
 
     Error run() override {
         std::vector<std::string> warnings;
-        if (Error err = mountGameDir(files_, target_.path, game_.baseDir, 0, warnings))
+        // The Expansion Pack, unless this game's entry says to leave it out.
+        const auto setting = target_.settings.find("expansion");
+        const bool expansion = setting == target_.settings.end() || setting->second != "0";
+        const std::vector<std::string> skip =
+            expansion ? std::vector<std::string>{} : std::vector<std::string>{kExpansionPak};
+        if (Error err = mountGameDir(files_, target_.path, game_.baseDir, 0, warnings, skip))
             return err;
         // Paks downloaded from servers, in the save folder's game folder:
         // above the install's, as the original's home folder is.
@@ -73,7 +78,8 @@ public:
         } audioOff{sys_};
 
         ViewerContext ctx{sys_, screen_, files_, shaders_, game_, warnings, target_.savePath,
-                          audioOut ? &mixer : nullptr, {}, {}, {}, {}, {}, {}, {}, target_.path, false, {}};
+                          audioOut ? &mixer : nullptr, {}, {}, {}, {}, {}, {}, {}, target_.path, false, {},
+                          singlePlayerDir(target_.path, game_, expansion)};
         // A pak just downloaded: in the search path at once, above the
         // rest, and the shader scripts read again (it may bring its own).
         int added = 0;
@@ -218,6 +224,18 @@ public:
         return found;
     }
 
+    std::vector<GameOption> options(const std::string& gameId, const std::filesystem::path& dir) const override {
+        // With the Expansion Pack there: whether to use it (an entry each,
+        // the same folder added twice, gives both versions).
+        const GameInfo* game = findGame(gameId);
+        if (!game || !describeRelease(dir, *game).expansion)
+            return {};
+        return {{"expansion", "Use the Expansion Pack",
+                 "Its maps, Virtual Voyager and holodeck missions, and its menus' options.\n"
+                 "Off: the game as patch 1.2 left it, for matches with players without it.",
+                 true}};
+    }
+
     std::vector<ImportPlan> planImport(const std::filesystem::path& source) const override {
         // The game's folder (baseEF) under the folder picked: an install
         // (its folder), the CD (SETUP/BaseEF), or the game folder itself;
@@ -266,13 +284,18 @@ public:
                     if (const auto demos = fs::findDirectory(*base, "demos"))
                         addAll(*demos, baseTo + "demos/", {".efdemo", ".dm_24"});
                     const Release release = describeRelease(root, game);
+                    // Single player's code; the Expansion Pack's kept apart
+                    // (expansion/), so the game can be run without it too.
                     for (const std::string& dll : {game.spGameDll, game.spUiDll})
                         if (!dll.empty())
                             if (const auto path = fs::findFile(root, dll))
-                                add(*path, fs::toLower(dll));
+                                add(*path, (isExpansionDll(*path) ? "expansion/" : "") + fs::toLower(dll));
                     plan.notes.push_back("Patch level " + release.patch +
                                          (release.patch == "1.0" ? " (as on the CD; online play needs 1.2)" : ""));
-                    if (!release.singlePlayer)
+                    if (!release.singlePlayer && release.expansionSinglePlayer)
+                        plan.notes.push_back("Single player only with the Expansion Pack (the 1.x code isn't there: "
+                                             "add patch 1.2 to have it without)");
+                    else if (!release.singlePlayer)
                         plan.notes.push_back("No single player: " + game.spGameDll + " and " + game.spUiDll +
                                              " weren't found beside " + base->filename().string());
                     else if (!release.singlePlayerPatch.empty())
@@ -294,9 +317,12 @@ public:
     }
 
     bool addToImport(ImportPlan& plan, const std::filesystem::path& file, std::string& message) const override {
+        const GameInfo* game = findGame(plan.game.gameId);
+        std::error_code ec;
+        if (game && std::filesystem::is_directory(file, ec))
+            return addExpansion(plan, *game, file, message);
         // A patch's installer: the files it holds that Reluva uses, told
         // by their signatures, in place of the plan's.
-        const GameInfo* game = findGame(plan.game.gameId);
         const auto& wanted = game ? patchFiles(*game) : std::vector<PatchFile>{};
         if (wanted.empty()) {
             message = "Reluva doesn't know this game's patches";
@@ -326,13 +352,16 @@ public:
         }
         // The plan now gives that patch level (and single player, which
         // the patch brings).
+        const bool expansion = plan.game.description.find("Expansion Pack") != std::string::npos;
         if (const size_t at = plan.game.description.rfind(" ("); at != std::string::npos)
             plan.game.description = plan.game.description.substr(0, at);
-        plan.game.description += " (" + patch + ")";
+        plan.game.description += " (" + patch + (expansion ? " + Expansion Pack" : "") + ")";
         std::erase_if(plan.notes, [](const std::string& n) {
             return n.rfind("Patch level", 0) == 0 || n.rfind("No single player", 0) == 0 ||
                    n.rfind("Single player", 0) == 0;
         });
+        // (Its DLLs are single player's 1.x code, beside any Expansion
+        // Pack's.)
         plan.notes.insert(plan.notes.begin(), "Patch " + patch + " applied from " + file.filename().string() + " (" +
                                                   std::to_string(found) + " files)");
         for (std::string& n : plan.notes)
@@ -340,6 +369,61 @@ public:
                 n = countNote(plan);
         message.clear();
         return true;
+    }
+
+    // The Expansion Pack, from its CD (Setup/baseef: pak1 and pak2 as
+    // patch 1.2's, pak3 its own; its single-player code in Setup/) or an
+    // install it was added to.
+    bool addExpansion(ImportPlan& plan, const GameInfo& game, const std::filesystem::path& folder,
+                      std::string& message) const {
+        std::vector<std::filesystem::path> roots{folder};
+        if (const auto setup = fs::findDirectory(folder, "Setup"))
+            roots.push_back(*setup);
+        for (const std::filesystem::path& root : roots) {
+            const auto base = fs::findDirectory(root, game.baseDir);
+            const auto pak = base ? fs::findFile(*base, kExpansionPak) : std::nullopt;
+            if (!pak || !isExpansionPak(*pak))
+                continue;
+            auto replace = [&](const std::filesystem::path& from, const std::string& to) {
+                std::erase_if(plan.files,
+                              [&](const ImportPlan::File& p) { return fs::toLower(p.to) == fs::toLower(to); });
+                std::error_code e;
+                plan.files.push_back({from, to, std::filesystem::file_size(from, e), std::nullopt});
+            };
+            bool patched = false;
+            std::error_code e;
+            for (std::filesystem::directory_iterator it(*base, e), end; !e && it != end; it.increment(e)) {
+                const std::string name = fs::toLower(it->path().filename().string());
+                if (it->is_regular_file(e) && (it->path().extension() == ".pk3" || name.ends_with(".pk3") ||
+                                               name == "efq3.key" || name == "expefq3.key")) {
+                    replace(it->path(), game.baseDir + "/" + it->path().filename().string());
+                    patched |= name == "pak2.pk3";
+                }
+            }
+            for (const std::string& dll : {game.spGameDll, game.spUiDll})
+                if (const auto path = fs::findFile(root, dll); path && isExpansionDll(*path))
+                    replace(*path, "expansion/" + fs::toLower(dll));
+            // The description and notes: with it now.
+            std::string summary;
+            if (const size_t at = plan.game.description.rfind(" ("); at != std::string::npos) {
+                summary = plan.game.description.substr(at + 2, plan.game.description.size() - at - 3);
+                plan.game.description = plan.game.description.substr(0, at);
+            }
+            std::string patch = summary.substr(0, summary.find_first_of(" ,"));
+            if (patched)
+                patch = "1.2";
+            plan.game.description += " (" + patch + " + Expansion Pack)";
+            std::erase_if(plan.notes, [](const std::string& n) { return n.rfind("Patch level", 0) == 0; });
+            plan.notes.insert(plan.notes.begin(), "Expansion Pack from " + folder.filename().string() +
+                                                      (patched ? " (with patch 1.2's paks)" : ""));
+            for (std::string& n : plan.notes)
+                if (n.find(" pak file") != std::string::npos)
+                    n = countNote(plan);
+            message.clear();
+            return true;
+        }
+        message = "the Expansion Pack isn't found in " + folder.filename().string();
+        return false;
     }
 
     std::unique_ptr<Engine> create(System& system, const GameTarget& target) const override {

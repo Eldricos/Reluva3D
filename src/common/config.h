@@ -28,6 +28,8 @@ public:
     bool hasSection(const std::string& section) const;
     void removeSection(const std::string& section);
     std::vector<std::string> targets() const;
+    // Every key and value of a section (none if there's no such section).
+    std::map<std::string, std::string> values(const std::string& section) const;
 
 private:
     std::filesystem::path path_;

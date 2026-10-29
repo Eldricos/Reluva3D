@@ -74,8 +74,25 @@ struct Release {
     bool singlePlayer = false;
     std::string singlePlayerPatch;
     std::string summary;
+    // The Expansion Pack: its pak (pak3.pk3), and its single-player code
+    // (beside the game folder, as its own setup leaves it, or in
+    // expansion/, as an import does, the 1.x code staying beside it).
+    bool expansion = false;
+    bool expansionSinglePlayer = false;
 };
 Release describeRelease(const std::filesystem::path& dir, const GameInfo& game);
+
+// The Expansion Pack's pak, as the game folder holds it.
+constexpr const char* kExpansionPak = "pak3.pk3";
+// Whether `file` is the Expansion Pack's game DLL or menus DLL.
+bool isExpansionDll(const std::filesystem::path& file);
+// Whether `file` is the Expansion Pack's pak.
+bool isExpansionPak(const std::filesystem::path& file);
+// The folder whose single-player DLLs to run: with the Expansion Pack,
+// its own (expansion/, or beside the game folder when those are its);
+// without, the 1.x ones beside it (none when those are the expansion's).
+// Empty if there are none.
+std::filesystem::path singlePlayerDir(const std::filesystem::path& dir, const GameInfo& game, bool expansion);
 
 // A file a patch brings, by its signature (as detection's): where it goes
 // in the game's folder, and the patch level it gives (empty for one that
