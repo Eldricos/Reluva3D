@@ -5,6 +5,15 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Floating point as written, with no multiply and add fused into one step:
+# Clang does that by default on ARM (and GCC wherever FMA is available),
+# which rounds differently. The game code expects the original's x86
+# results (collision, movement, what a networked game agrees on), the same
+# on every machine. Visual Studio doesn't fuse unless asked.
+if(NOT MSVC)
+    add_compile_options(-ffp-contract=off)
+endif()
+
 option(RELUVA_USE_SYSTEM_SDL "Use an installed SDL3 instead of building it" OFF)
 option(RELUVA_BUILD_TESTS "Build unit tests" ON)
 # Engines can be left out of the build, like ScummVM's. New Worlds is off
