@@ -51,6 +51,8 @@ RaceViewer::RaceViewer(ViewerContext& ctx) : Page(ctx), cities_(findCities(ctx.f
 RaceViewer::~RaceViewer() { deactivate(); }
 
 void RaceViewer::deactivate() {
+    net_.reset(); // out of any session
+    netGame_ = netMenus_ = garageForNet_ = chatting_ = false;
     showCar_.reset();
     showCarIndex_ = -1;
     life_.stop();
@@ -84,6 +86,12 @@ void RaceViewer::activate() {
     front_ = std::make_unique<FrontEnd>(ctx_.files, cities_, cars_, strings_, record_);
     if (!front_->loaded())
         front_.reset(); // the text menu instead
+    if (front_) {
+        net_ = std::make_unique<NetMenus>(ctx_.sys, ctx_.files, cities_, cars_, strings_);
+        if (!net_->loaded())
+            net_.reset();
+        front_->multiplayer = net_ != nullptr;
+    }
     keys_ = 0;
     lastMs_ = 0;
     state_ = State::Menu;
@@ -115,7 +123,7 @@ void RaceViewer::loadCity() {
 }
 
 bool RaceViewer::takesKey(const Event& ev) const {
-    return state_ != State::Menu && ev.type == EventType::KeyDown && ev.key == key::Escape;
+    return (state_ != State::Menu || netMenus_) && ev.type == EventType::KeyDown && ev.key == key::Escape;
 }
 
 bool RaceViewer::raceIsOpen(int index) const {
@@ -138,7 +146,7 @@ bool RaceViewer::carIsOpen(int car) const {
 void RaceViewer::recordResult() {
     // Once a race: its place (a Blitz finished in time, first), or the
     // lesson passed; saved at once.
-    if (recorded_ || racers_.empty() || state_ != State::Finished)
+    if (recorded_ || racers_.empty() || state_ != State::Finished || netGame_)
         return;
     recorded_ = true;
     const std::string& map = cities_[size_t(city_)].map;
@@ -317,18 +325,30 @@ float RaceViewer::progressOf(const Racer& r) const {
 
 void RaceViewer::stepRace(float dt) {
     const bool wasStarted = clock_ >= 0;
-    clock_ += dt;
+    if (netGame_) {
+        // The host's clock; waiting for everyone to load, before the
+        // countdown.
+        NetSession* session = net_ ? net_->session() : nullptr;
+        clock_ = session && session->counting() ? session->clock(nowMs_) : -kCountdown - 1;
+    } else
+        clock_ += dt;
     const bool started = clock_ >= 0;
     if (lesson() && started && !wasStarted && race_.lesson.event == LessonEvent::CopChase)
         life_.police().chaseAll(); // after the player from the start
     bool checkpoint = false;       // the player reached one this frame
     float impact = 0;
     for (Racer& r : racers_) {
+        if (r.peer != kNoPlayer) {
+            driveRemote(r, dt);
+            continue;
+        }
         CarSim& sim = r.car->sim;
         CarControls c;
         if (started) {
             if (r.player) {
-                c = r.next < targets_.size() ? controlsOf(keys_) : CarControls{0, 1, 0, false};
+                // Driving on, unless finished (a cruise has no end).
+                c = r.next < targets_.size() || targets_.empty() ? controlsOf(chatting_ ? 0 : keys_)
+                                                                 : CarControls{0, 1, 0, false};
                 if (wear_.wrecked())
                     c.throttle = 0; // the engine's dead
                 c.shift = shift_;
@@ -381,6 +401,10 @@ void RaceViewer::stepRace(float dt) {
 
     if (state_ == State::Countdown && started)
         state_ = State::Racing;
+    if (netGame_) {
+        stepNet(dt);
+        return;
+    }
     // Into a circuit's last lap: "Final lap!" for a moment.
     finalLapFor_ = std::max(0.0f, finalLapFor_ - dt);
     if (race_.kind == RaceKind::Circuit && !racers_.empty()) {
@@ -488,6 +512,8 @@ void RaceViewer::judgeLesson(float dt, bool checkpoint, float impact) {
 void RaceViewer::handleEvent(const Event& ev) {
     if (!renderer_)
         return;
+    if (netEvent(ev))
+        return;
     if (ev.type == EventType::KeyUp) {
         keys_ &= ~driveKeyOf(ev.key);
         return;
@@ -566,6 +592,24 @@ void RaceViewer::handleEvent(const Event& ev) {
 void RaceViewer::menuEvent(const Event& ev) {
     const FrontEnd::Action action = front_->handle(ev);
     openAll_ = front_->openAll;
+    if (action == FrontEnd::Action::Multiplayer && net_) {
+        netMenus_ = true;
+        net_->enter();
+        return;
+    }
+    if (garageForNet_) {
+        // The lobby's car: chosen (GO DRIVE), or left as it was (Esc).
+        const FrontEnd::Choice& c = front_->choice();
+        if (action == FrontEnd::Action::Start || front_->screen() != FrontEnd::Screen::Garage) {
+            garageForNet_ = false;
+            netMenus_ = true;
+            if (action == FrontEnd::Action::Start)
+                net_->carChosen(cars_[size_t(c.car)].base, c.paintJob);
+            else
+                net_->showLobby();
+        }
+        return;
+    }
     if (action != FrontEnd::Action::Start)
         return;
     // The menus' choice: the city (loaded now if it's another), the race,
@@ -640,12 +684,16 @@ void RaceViewer::drawArrow() {
     const Racer& player = racers_.front();
     if (player.next >= targets_.size())
         return;
-    const ModelCache::Model& arrow =
-        scene_->models().get(race_.kind == RaceKind::Blitz ? "hudarrow_blitz01" : "hudarrow01");
+    drawArrowTo(targetPoint(player.next).position, race_.kind == RaceKind::Blitz);
+}
+
+void RaceViewer::drawArrowTo(const Vec3& target, bool blitz) {
+    const Racer& player = racers_.front();
+    const ModelCache::Model& arrow = scene_->models().get(blitz ? "hudarrow_blitz01" : "hudarrow01");
     if (!arrow.ok)
         return;
     const Vec3 at = player.car->sim.position + Vec3{0, 2.8f, 0};
-    Vec3 to = targetPoint(player.next).position - at;
+    Vec3 to = target - at;
     to[1] = 0;
     const float yaw = length(to) > 0.1f ? std::atan2(-to[0], -to[2]) : 0;
     SceneLight bright;
@@ -679,6 +727,18 @@ void RaceViewer::drawMap(float dt) {
                          true});
     for (CarSim* c : life_.police().cars())
         icons.push_back({c->position, -c->orientation.z, hudcolor::kPolice, false});
+    if (netGame_ && net_ && net_->session() && net_->session()->settings().mode == NetMode::CopsRobbers) {
+        // The gold, and the bases: ours the finish's colour.
+        const NetSession& session = *net_->session();
+        const NetPlayer* me = session.me();
+        GoldGame::Car self{session.myId(), me ? me->team : uint8_t(0), {}, {}};
+        icons.push_back({gold_.goldPosition(), {0, 0, -1}, hudcolor::kNext, true});
+        for (uint8_t side = 0; side < (gold_.teams() ? 2 : 1); ++side)
+            icons.push_back({gold_.base(side),
+                             {0, 0, -1},
+                             side == gold_.sideOf(self) || !gold_.teams() ? hudcolor::kFinish : hudcolor::kCheckpoint,
+                             true});
+    }
     for (const Racer& r : racers_)
         if (!r.player)
             icons.push_back({r.car->sim.position, -r.car->sim.orientation.z, hudcolor::kOpponent, false});
@@ -758,6 +818,10 @@ void RaceViewer::drawMenu() {
 
 void RaceViewer::drawRaceHud() {
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
+    if (netGame_ && !NetMenus::hasRace(net_ && net_->session() ? net_->session()->settings().mode : NetMode::Cruise)) {
+        drawNetHud();
+        return;
+    }
     const Racer& player = racers_.front();
     const RaceSettings& set = race_.settings[size_t(level_)];
     font::drawText(overlay_, 4, 4, race_.name + "  (" + raceKindName(race_.kind) + ")", {150, 200, 255});
@@ -857,10 +921,17 @@ void RaceViewer::drawRaceHud() {
             font::drawText(overlay_, 60, y, buf, r.player ? Color{255, 255, 120} : Color{230, 230, 230});
             y += font::kLineHeight + 2;
         }
-        font::drawText(overlay_, 60, y + 10, "Enter: back to the menu", {150, 200, 255});
+        const bool hosting = netGame_ && net_ && net_->session() && net_->session()->isHost();
+        font::drawText(overlay_, 60, y + 10,
+                       !netGame_ ? "Enter: back to the menu"
+                       : hosting ? "Enter: everyone back to the lobby"
+                                 : "Waiting for the host (Esc: leave the session)",
+                       {150, 200, 255});
     }
     if (life_.police().chasing() > 0 && state_ != State::Finished)
         font::drawText(overlay_, 4, kFrameH - 150, "POLICE CHASING", {255, 90, 90}, 2); // above the speedometer
+    if (netGame_)
+        drawNetLines();
     drawSpeedometer(overlay_, player.car->sim,
                     hudMap_.loaded() ? int(hudMap_.setup().left * float(kFrameW)) - 8 : kFrameW - 8, wear_.fraction(),
                     pictures_);
@@ -869,6 +940,9 @@ void RaceViewer::drawRaceHud() {
 void RaceViewer::update(uint64_t nowMs) {
     if (!renderer_ || cars_.empty())
         return;
+    nowMs_ = nowMs;
+    if (net_)
+        netUpdate(nowMs);
     const float dt = lastMs_ ? std::min(0.1f, float(nowMs - lastMs_) / 1000) : 0;
     lastMs_ = nowMs;
 
@@ -904,9 +978,13 @@ void RaceViewer::update(uint64_t nowMs) {
         // The game's menus, over a dark frame (the garage's car in its
         // window).
         renderer_->beginFrame(viewProj, eye, {10, 14, 40});
-        if (front_->screen() == FrontEnd::Screen::Garage)
-            drawGarageCar(dt);
-        front_->draw(overlay_);
+        if (netMenus_ && net_) {
+            net_->draw(overlay_, nowMs);
+        } else {
+            if (front_->screen() == FrontEnd::Screen::Garage)
+                drawGarageCar(dt);
+            front_->draw(overlay_);
+        }
         renderer_->endFrame(&overlay_);
         return;
     }
@@ -933,12 +1011,21 @@ void RaceViewer::update(uint64_t nowMs) {
                 r.car->drawFlares(*flares_, eye);
             }
         drawCheckpoints();
+        if (netGame_)
+            drawGold();
         if (smoke_)
             smoke_->draw(eye);
         if (inside && dash_.loaded())
             dash_.draw(*renderer_, scene_->models(), racers_.front().car->sim, wear_.fraction(), eye,
                        normalized(target - eye), up, float(kFrameW) / float(kFrameH), scene_->light());
-        drawArrow();
+        if (netGame_ && net_ && net_->session() && net_->session()->settings().mode == NetMode::CopsRobbers) {
+            const NetSession& session = *net_->session();
+            const NetPlayer* me = session.me();
+            const bool mine = gold_.holder() == session.myId();
+            GoldGame::Car self{session.myId(), me ? me->team : uint8_t(0), {}, {}};
+            drawArrowTo(mine ? gold_.base(gold_.sideOf(self)) : gold_.goldPosition(), mine);
+        } else
+            drawArrow();
         drawMap(dt);
         drawRaceHud();
     }

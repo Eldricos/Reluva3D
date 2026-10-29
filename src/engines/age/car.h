@@ -95,6 +95,9 @@ public:
     void step(const CarControls& controls, const CollisionWorld& world, float dt);
 
     const CarSetup& setup() const { return setup_; }
+    // Weight carried besides the car's own (Cops & Robbers' gold), kg.
+    float ballast = 0;
+    float mass() const { return setup_.mass + ballast; }
     Vec3 position{};          // of the body's origin
     Mat3 orientation;         // the body's axes: X right, Y up, Z back (cars face -Z)
     Vec3 velocity{}, angularVelocity{};

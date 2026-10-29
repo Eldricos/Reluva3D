@@ -43,8 +43,8 @@ encrypted ([age.md](age.md)).
   published description to write a decoder from, and the game's own
   "No Movie" shortcut leaves it out too.
 - **Main Menu** (`main_bk`): Crash Course (`dvrcc`), Races (`main_sp`),
-  Multiplayer and Quick Race (`main_mp`, `main_qck`: shown, not
-  available); the driver's box shows the level, Amateur or Professional
+  Multiplayer (`main_mp`: the multiplayer menus, below) and Quick Race
+  (`main_qck`: shown, not available); the driver's box shows the level, Amateur or Professional
   (Left/Right). The highlighted button's description (`mn_cc`...) is in
   the box at the bottom left.
 - **Single Race Menu** (`race_bk`): the event (`blitz`, `cp`, `circuit`;
@@ -80,6 +80,16 @@ garage's bars (6 high, 187 wide at x 125) sit 18 pixels lower and from x
 rows and PASS column aren't controls at all. Both were measured on the
 backgrounds.
 
-Not drawn: the other 40 menus (options, multiplayer, replays, driver
-records, the dialogs), the Vehicle Showcase, and the menus' sounds and
-music.
+## Multiplayer
+
+The Net Select Menu (sessions), Enter an Address, Enter a valid
+password, Host Options, the Host Race Menu, the Network Arena (the
+lobby) and the eject dialog, with the message boxes for joining, being
+ejected and the host quitting. Which picture is which control, and the
+boxes measured on the backgrounds, are in
+[age-multiplayer.md](age-multiplayer.md#the-menus). The garage is the
+single player's, opened from the lobby's SELECT VEHICLE.
+
+Not drawn: the other menus (options, replays, driver records, the
+Cops & Robbers Settings and serial dialogs, the other dialogs), the
+Vehicle Showcase, and the menus' sounds and music.

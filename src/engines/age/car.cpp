@@ -160,7 +160,7 @@ Vec3 CarSim::wheelCenter(int i) const {
 
 Vec3 CarSim::inverseInertiaTimes(const Vec3& torque) const {
     const Vec3& b = setup_.inertiaBox;
-    const float m = setup_.mass / 12;
+    const float m = mass() / 12;
     const Vec3 inertia{m * (b[1] * b[1] + b[2] * b[2]), m * (b[0] * b[0] + b[2] * b[2]),
                        m * (b[0] * b[0] + b[1] * b[1])};
     const Vec3 local = orientation.inverseTimes(torque);
@@ -211,7 +211,7 @@ void CarSim::step(const CarControls& controls, const CollisionWorld& world, floa
 }
 
 void CarSim::substep(const CarControls& controls, const CollisionWorld& world, float h) {
-    const float m = setup_.mass;
+    const float m = mass();
     const Vec3 com = position + orientation * setup_.centerOfGravity;
     Vec3 force{0, -kGravity * m, 0}, torque{0, 0, 0};
     auto applyAt = [&](const Vec3& f, const Vec3& point) {
@@ -368,7 +368,7 @@ void CarSim::substep(const CarControls& controls, const CollisionWorld& world, f
 }
 
 void CarSim::collideBody(const CollisionWorld& world) {
-    const float m = setup_.mass;
+    const float m = mass();
     // The spheres inside the hull's box, touching its faces, so the body is
     // as big as its bound (and a low car's clear of the road).
     Vec3 lo{1e30f, 1e30f, 1e30f}, hi{-1e30f, -1e30f, -1e30f};
@@ -451,7 +451,7 @@ std::array<Vec3, 3> CarSim::bumpers(float& radius) const {
 void collideCars(CarSim& a, CarSim& b) {
     float ra, rb;
     const auto sa = a.bumpers(ra), sb = b.bumpers(rb);
-    const float ma = a.setup().mass, mb = b.setup().mass;
+    const float ma = a.mass(), mb = b.mass();
     for (const Vec3& pa : sa)
         for (const Vec3& pb : sb) {
             Vec3 d = pb - pa;

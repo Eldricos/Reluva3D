@@ -230,8 +230,12 @@ if(RELUVA_ENGINE_AGE)
         src/engines/age/gizmos.cpp
         src/engines/age/ambient.cpp
         src/engines/age/music.cpp
+        src/engines/age/net_session.cpp
+        src/engines/age/cops_robbers.cpp
+        src/engines/age/net_menus.cpp
         src/engines/age/drive_viewer.cpp
         src/engines/age/race_viewer.cpp
+        src/engines/age/race_net.cpp
     src/engines/age/record.cpp
         src/engines/age/world_viewer.cpp
         src/engines/age/texture_viewer.cpp

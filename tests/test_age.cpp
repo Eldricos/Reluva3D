@@ -11,6 +11,8 @@
 #include "engines/age/bai.h"
 #include "engines/age/bound.h"
 #include "engines/age/car.h"
+#include "engines/age/cops_robbers.h"
+#include "engines/age/net_session.h"
 #include "engines/age/city_mesh.h"
 #include "engines/age/damage.h"
 #include "engines/age/dashboard.h"
@@ -2156,6 +2158,249 @@ void testProps(const std::filesystem::path& tmp) {
     CHECK(props.loose() == 1 && car.position[2] > -30);
 }
 
+static bool sameMatrix(const Mat3& a, const Mat3& b) {
+    const Vec3 ca[3] = {a.x, a.y, a.z}, cb[3] = {b.x, b.y, b.z};
+    for (int i = 0; i < 3; ++i)
+        for (int k = 0; k < 3; ++k)
+            if (std::fabs(ca[i][size_t(k)] - cb[i][size_t(k)]) > 1e-4f)
+                return false;
+    return true;
+}
+
+static void testNetSession() {
+    // Rotations through quaternions, whichever way the largest term falls.
+    for (const Mat3& m : {Mat3::rotation(normalized(Vec3{0.3f, 1, 0.2f}), 1.1f), Mat3::rotationY(3.0f),
+                          Mat3::rotation({1, 0, 0}, 2.9f), Mat3::rotation({0, 0, 1}, -2.8f), Mat3{}})
+        CHECK(sameMatrix(matrixOfQuaternion(quaternionOf(m)), m));
+
+    // A car between two states, and carried on past the last.
+    std::deque<NetCarState> states(2);
+    states[1].clock = 1;
+    states[1].position = {10, 0, 0};
+    states[1].velocity = {10, 0, 0};
+    states[1].rotation = quaternionOf(Mat3::rotationY(1));
+    NetCarState at;
+    CHECK(carStateAt(states, 0.5f, at) && std::fabs(at.position[0] - 5) < 1e-4f);
+    CHECK(sameMatrix(matrixOfQuaternion(at.rotation), Mat3::rotationY(0.5f)));
+    CHECK(carStateAt(states, 1.2f, at) && std::fabs(at.position[0] - 12) < 1e-3f);
+    CHECK(carStateAt(states, 9, at) && std::fabs(at.position[0] - 15) < 1e-3f); // half a second at most
+    CHECK(!carStateAt({}, 0, at));
+
+    // A host, found by a broadcast, and two players who join it; a third
+    // is one too many.
+    auto network = net::LoopbackNetwork::create();
+    NetSettings settings;
+    settings.mode = NetMode::Circuit;
+    settings.maxPlayers = 3;
+    auto host = NetSession::host(network->open(kNetPort), "Hosting", settings);
+    NetBrowser browser(network->open(0));
+    std::vector<NetSession*> players;
+    uint64_t t = 1000;
+    auto run = [&](int ms) {
+        for (int i = 0; i < ms / 10; ++i) {
+            t += 10;
+            host->update(t);
+            for (NetSession* p : players)
+                p->update(t);
+            browser.update(t);
+        }
+    };
+    run(300);
+    CHECK(browser.sessions().size() == 1 && browser.sessions()[0].name == "Hosting" &&
+          browser.sessions()[0].players == 1 && browser.sessions()[0].mode == NetMode::Circuit);
+    const net::Address at0 = browser.sessions()[0].address;
+    auto ann = NetSession::join(network->open(0), at0, "Ann");
+    auto bob = NetSession::join(network->open(0), at0, "Bob");
+    players = {ann.get(), bob.get()};
+    CHECK(ann->joining());
+    run(600);
+    CHECK(ann->myId() == 1 && bob->myId() == 2 && host->players().size() == 3);
+    CHECK(ann->players().size() == 3 && ann->settings().mode == NetMode::Circuit && ann->sessionName() == "Hosting");
+    // The host sides them to even up the teams; a player's own status
+    // doesn't undo it until they choose.
+    CHECK(host->player(1)->team == 1 && host->player(2)->team == 0 && ann->me()->team == 1);
+    auto joined = host->takeNotices();
+    CHECK(joined.size() == 2 && joined[0].kind == NetNotice::Kind::Joined && joined[0].name == "Ann");
+    auto carl = NetSession::join(network->open(0), at0, "Carl");
+    players.push_back(carl.get());
+    run(300);
+    auto refused = carl->takeNotices();
+    CHECK(carl->closed() && refused.size() == 1 && refused[0].kind == NetNotice::Kind::Refused &&
+          refused[0].reason == kRefusedFull);
+    players.pop_back();
+
+    // Chat, cars and teams, with a third of the datagrams lost.
+    network->setDropFilter([](const net::Address&, const net::Address&, size_t i) { return i % 3 == 0; });
+    ann->say("hello");
+    ann->say("again");
+    ann->setCar("vpcab", 2);
+    bob->setTeam(1);
+    run(2500);
+    CHECK(host->chat().size() == 2 && host->chat()[0].from == "Ann" && host->chat()[0].text == "hello" &&
+          host->chat()[1].text == "again");
+    CHECK(bob->chat().size() == 2 && bob->chat()[1].text == "again" && ann->chat().size() == 2);
+    CHECK(host->player(1)->car == "vpcab" && host->player(1)->paint == 2 && bob->player(2)->team == 1);
+
+    // Starting: everyone ready, then loaded; the clocks agree.
+    CHECK(!host->everyoneReady() && host->start(t));
+    ann->setReady(true);
+    bob->setReady(true);
+    run(800);
+    CHECK(host->everyoneReady() && !host->start(t));
+    run(800);
+    bool started = false;
+    for (const NetNotice& n : ann->takeNotices())
+        started = started || n.kind == NetNotice::Kind::Started;
+    CHECK(started && ann->phase() == NetSession::Phase::Loading && ann->round() == host->round() &&
+          ann->seed() == host->seed());
+    host->setLoaded();
+    ann->setLoaded();
+    run(800);
+    CHECK(host->phase() == NetSession::Phase::Loading); // Bob's still loading
+    bob->setLoaded();
+    run(800);
+    CHECK(host->phase() == NetSession::Phase::Playing && bob->phase() == NetSession::Phase::Playing);
+    run(3000);
+    CHECK(ann->counting() && std::fabs(ann->clock(t) - host->clock(t)) < 0.1f && host->clock(t) > 0.5f);
+
+    // Cars passed on to the others.
+    NetCarState mine;
+    mine.position = {1, 2, 3};
+    mine.next = 4;
+    for (int i = 0; i < 10; ++i) {
+        mine.clock = ann->clock(t);
+        mine.position[0] += 1;
+        ann->sendCar(mine);
+        NetCarState h;
+        h.clock = host->clock(t);
+        h.position = {50, 0, 0};
+        host->sendCar(h);
+        run(60);
+    }
+    run(300);
+    CHECK(bob->cars().count(1) && bob->cars().count(0) && !bob->cars().count(2) && host->cars().count(1));
+    CHECK(!bob->cars().at(1).empty() && bob->cars().at(1).back().next == 4 &&
+          std::fabs(bob->cars().at(1).back().position[0] - 11) < 1e-4f);
+    host->setGameState({7, 8, 9}, true);
+    run(500);
+    CHECK(ann->gameState() == std::vector<uint8_t>({7, 8, 9}) && ann->over());
+
+    // Back to the lobby: a new round, nobody ready.
+    host->backToLobby();
+    run(800);
+    CHECK(ann->phase() == NetSession::Phase::Lobby && ann->round() == host->round() && !host->player(1)->ready &&
+          !host->everyoneReady());
+    network->setDropFilter(nullptr);
+
+    // Bob goes; Ann's ejected; a player whose host goes quiet gives up.
+    bob->leave();
+    run(300);
+    bool left = false;
+    for (const NetNotice& n : ann->takeNotices())
+        left = left || (n.kind == NetNotice::Kind::Left && n.name == "Bob");
+    CHECK(left && host->players().size() == 2);
+    host->eject(1);
+    run(300);
+    auto ejected = ann->takeNotices();
+    CHECK(ann->closed() && !ejected.empty() && ejected.back().kind == NetNotice::Kind::Ejected &&
+          host->players().size() == 1);
+    auto dan = NetSession::join(network->open(0), at0, "Dan");
+    players = {dan.get()};
+    run(300);
+    CHECK(dan->myId() == 1);
+    for (int i = 0; i < 700; ++i) { // the host stops
+        t += 10;
+        dan->update(t);
+    }
+    auto quit = dan->takeNotices();
+    CHECK(dan->closed() && !quit.empty() && quit.back().kind == NetNotice::Kind::HostQuit);
+    // And a host whose player goes quiet drops it.
+    for (int i = 0; i < 700; ++i) {
+        t += 10;
+        host->update(t);
+    }
+    CHECK(host->players().size() == 1);
+}
+
+static void testGoldGame() {
+    std::vector<Waypoint> points(5);
+    points[1].position = {500, 0, 0};
+    points[2].position = {0, 0, 500};
+    points[3].position = {-500, 0, 0};
+    points[4].position = {0, 0, -500};
+    NetSettings s;
+    s.mode = NetMode::CopsRobbers;
+    s.gold = GoldMode::CopsAndRobbers;
+    s.limit = GoldLimit::Points;
+    s.limitValue = 2;
+    GoldGame g;
+    g.start(s, points, 7);
+    auto flatDist = [](const Vec3& a, const Vec3& b) { return std::hypot(a[0] - b[0], a[2] - b[2]); };
+    CHECK(flatDist(g.base(0), g.home()) >= 300 && flatDist(g.base(1), g.home()) >= 300 &&
+          flatDist(g.base(0), g.base(1)) >= 300);
+
+    // A takes the gold from its home; B rams A and knocks it loose; A
+    // can't take it straight back; B can.
+    GoldGame::Car a{1, 0, g.home(), {}}, b{2, 1, g.home() + Vec3{100, 0, 0}, {}};
+    float clock = 0;
+    auto step = [&](float dt) {
+        clock += dt;
+        g.step(clock, dt, {a, b}, -100);
+    };
+    step(0.1f);
+    CHECK(g.holder() == 1 && g.eventsAfter(0).size() == 1 && g.eventsAfter(0)[0].kind == GoldEvent::Kind::Got);
+    a.position = g.home() + Vec3{40, 0, 0};
+    step(2);
+    b.position = a.position + Vec3{3, 0, 0};
+    b.velocity = {-10, 0, 0};
+    step(0.1f);
+    CHECK(g.holder() == kNoPlayer && g.eventsAfter(1).size() == 1 &&
+          g.eventsAfter(1)[0].kind == GoldEvent::Kind::Dropped && g.eventsAfter(1)[0].player == 1);
+    b.position = a.position + Vec3{30, 0, 0};
+    step(0.1f);
+    CHECK(g.holder() == kNoPlayer); // A's waiting
+    b.position = a.position + Vec3{2, 0, 0};
+    b.velocity = {};
+    a.position[2] += 20;
+    step(0.1f);
+    CHECK(g.holder() == 2 && g.eventsAfter(2)[0].kind == GoldEvent::Kind::Recovered);
+
+    // B delivers it to its base: a point, the gold home again; twice is
+    // the limit.
+    b.position = g.base(1);
+    step(0.1f);
+    CHECK(g.score(1) == 1 && g.holder() == kNoPlayer && flatDist(g.goldPosition(), g.home()) < 1e-3f);
+    b.position = g.home();
+    step(0.1f);
+    b.position = g.base(1);
+    step(0.1f);
+    CHECK(g.score(1) == 2 && g.over() && g.eventsAfter(g.lastEvent() - 1)[0].kind == GoldEvent::Kind::PointLimit);
+
+    // As the players get it.
+    GoldGame copy;
+    CHECK(copy.decode(g.encode()) && copy.over() && copy.score(1) == 2 && copy.holder() == kNoPlayer &&
+          copy.lastEvent() == g.lastEvent() && copy.teams() && flatDist(copy.base(1), g.base(1)) < 1e-3f);
+    CHECK(!copy.decode({1, 2}));
+
+    // Free-for-all, against the clock: each for themselves, one hideout.
+    s.gold = GoldMode::FreeForAll;
+    s.limit = GoldLimit::Time;
+    s.limitValue = 1;
+    g.start(s, points, 3);
+    CHECK(!g.teams() && g.sideOf(a) == 1 && g.sideOf(b) == 2);
+    g.step(30, 0.1f, {a, b}, -100);
+    CHECK(!g.over());
+    g.step(61, 0.1f, {a, b}, -100);
+    CHECK(g.over() && g.eventsAfter(g.lastEvent() - 1)[0].kind == GoldEvent::Kind::TimeUp);
+
+    // The announcer's lines.
+    const auto lines = parseSpeechTable("Name prefix/type header,end sufix value,sufix add value\r\n"
+                                        "BLUETEAMHASGOLD header,,\r\nAS1\\AS1ROBROB ,10,9\r\n"
+                                        "ROBGETLOOT header,,,\r\nAL1\\AL1COPS,3,0,3\r\n");
+    CHECK(lines.size() == 2 && lines.at("BLUETEAMHASGOLD") == std::vector<std::string>({"AS1/AS1ROBROB10"}));
+    CHECK(lines.at("ROBGETLOOT") == std::vector<std::string>({"AL1/AL1COPS01", "AL1/AL1COPS02", "AL1/AL1COPS03"}));
+}
+
 int main() {
     const auto tmp = std::filesystem::temp_directory_path() / "reluva_age_tests";
     testArchive(tmp / "archive");
@@ -2198,6 +2443,8 @@ int main() {
     testProps(tmp / "props");
     testAmbient(tmp / "ambient");
     testMusic(tmp / "music");
+    testNetSession();
+    testGoldGame();
     std::filesystem::remove_all(tmp);
     if (failures) {
         std::fprintf(stderr, "%d check(s) failed\n", failures);
