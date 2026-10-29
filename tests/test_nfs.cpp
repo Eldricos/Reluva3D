@@ -1092,10 +1092,10 @@ void testMusic() {
 
     // A map of three sections: 0 goes to 1 (values 0-49) or 2 (50-100),
     // 1 to 0, 2 nowhere; one event; then the offsets, big-endian.
-    Bytes map = {'P', 'F', 'D', 'x', 0, 0, 3, 16, 0, 0, 0, 1};
-    auto section = [&](uint8_t kind, std::vector<std::array<uint8_t, 3>> routes) {
+    Bytes map = {'P', 'F', 'D', 'x', 0, 0, 3, 16, 0, 0, 0, 2};
+    auto section = [&](uint8_t part, std::vector<std::array<uint8_t, 3>> routes) {
         Bytes r(28, 0);
-        r[0] = kind;
+        r[0] = part;
         r[1] = uint8_t(routes.size());
         r[2] = r[3] = 0xff;
         for (size_t k = 0; k < routes.size(); ++k)
@@ -1103,18 +1103,27 @@ void testMusic() {
                 r[4 + 3 * k + i] = routes[k][i];
         map.insert(map.end(), r.begin(), r.end());
     };
-    section(1, {{0, 49, 1}, {50, 100, 2}});
-    section(2, {{0, 100, 0}});
-    section(3, {});
-    map.insert(map.end(), 16, 0);
+    section(0, {{0, 49, 1}, {60, 100, 2}});
+    section(1, {{0, 100, 0}});
+    section(1, {});
+    // Two rows of events, for parts 0 and 1: event 4 goes to 2, then 0.
+    for (uint8_t to : {uint8_t(2), uint8_t(0)}) {
+        Bytes row(16, 0);
+        row[4] = to;
+        row[9] = 77; // a section that isn't there
+        map.insert(map.end(), row.begin(), row.end());
+    }
     for (uint32_t o : {0u, second, 0x01020304u})
         put32be(map, o);
     MusicMap m;
     CHECK(!parseMusicMap(map, m));
-    CHECK(m.sections.size() == 3 && m.events.size() == 1 && m.offsets.size() == 3);
+    CHECK(m.sections.size() == 3 && m.events.size() == 2 && m.offsets.size() == 3);
     CHECK(m.offsets[1] == second && m.offsets[2] == 0x01020304u);
-    CHECK(m.next(0, 10) == 1 && m.next(0, 50) == 2 && m.next(0, 100) == 2 && m.next(1, 70) == 0);
-    CHECK(m.next(2, 0) == -1 && m.next(5, 0) == -1 && m.sections[2].kind == 3);
+    CHECK(m.next(0, 10) == 1 && m.next(0, 60) == 2 && m.next(0, 100) == 2 && m.next(1, 70) == 0);
+    CHECK(m.next(0, 55) == 0);                                  // no route for 55: the section again
+    CHECK(m.next(2, 0) == -1 && m.next(5, 0) == -1 && m.sections[2].part == 1);
+    CHECK(m.event(0, 4) == 2 && m.event(1, 4) == 0 && m.event(2, 4) == 0);
+    CHECK(m.event(0, 9) == -1 && m.event(0, 16) == -1 && m.event(7, 4) == -1);
     Bytes badRoute = map;
     badRoute[12 + 6] = 3; // section 0's first route to section 3
     CHECK(parseMusicMap(badRoute, m));

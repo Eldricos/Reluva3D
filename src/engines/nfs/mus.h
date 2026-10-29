@@ -45,8 +45,8 @@ struct MusicMap {
         int next = 0;          // section
     };
     struct Section {
-        int kind = 0; // the first byte; meaning unknown
-        std::vector<Route> routes; // none: the music stops (or the game decides)
+        int part = 0; // the first byte: its row of events
+        std::vector<Route> routes; // none: the music stops after it, unless an event is pending
         std::array<uint8_t, 28> raw{};
     };
     int version = 0;
@@ -54,11 +54,18 @@ struct MusicMap {
     // some tracks' maps, else 0 (mus.md).
     int start = 0;
     std::vector<Section> sections;
-    std::vector<std::array<uint8_t, 16>> events; // not understood yet
+    // The events, a row for each part: the section event e jumps to from a
+    // section of that part (nfs3.exe's SNDpathevent; mus.md). The game
+    // sends 0 and 1 itself and the track's zones (4-9).
+    std::vector<std::array<uint8_t, 16>> events;
     std::vector<uint32_t> offsets; // each section's segment, as a .mus file offset
 
-    // The section after `section` for a control value; -1 if none.
+    // The section after `section` for a control value, as the game picks
+    // it: the first route whose range holds the value, else the same
+    // section again; -1 if the section has no routes (the music ends).
     int next(int section, int value) const;
+    // The section event `e` leads to from `section`; -1 if none.
+    int event(int section, int e) const;
 };
 
 Error parseMusicMap(const std::vector<uint8_t>& data, MusicMap& out);

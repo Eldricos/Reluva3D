@@ -371,9 +371,18 @@ int MusicPage::firstSection() const {
     return 0;
 }
 
-int MusicPage::following(int section) const {
-    if (const MusicMap* m = activeMap())
+int MusicPage::following(int section) {
+    if (const MusicMap* m = activeMap()) {
+        // An event pending goes first, to its section for this part
+        // (nfs3.exe 0x4e6be3); else the route for the intensity.
+        if (pendingEvent_ >= 0) {
+            const int to = m->event(section, pendingEvent_);
+            pendingEvent_ = -1;
+            if (to >= 0)
+                return to;
+        }
         return m->next(section, intensity_);
+    }
     // No map: the segments in order.
     return section + 1 < static_cast<int>(loaded_.segments().size()) ? section + 1 : -1;
 }
@@ -417,6 +426,10 @@ void MusicPage::handleKey(uint32_t k, uint16_t) {
         break;
     case key::Home: start(firstSection()); break;
     case 'n': start(section_ < 0 ? firstSection() : following(section_)); break;
+    case '0': case '1': case '2': case '3': case '4':
+    case '5': case '6': case '7': case '8': case '9':
+        pendingEvent_ = static_cast<int>(k - '0');
+        break;
     case 'l':
         if (haveMap_ && haveLinear_) {
             useLinear_ = !useLinear_;
@@ -467,7 +480,7 @@ void MusicPage::draw(Surface& s) {
         load(0);
     frame(s, "Music  " + std::to_string(stream_ + 1) + "/" + std::to_string(streams_.size()) + "  " +
                  streams_[stream_].name,
-          "Up/Down: stream  Space: play  Left/Right: intensity  N: next");
+          "Up/Down: stream  Space: play  Left/Right: intensity  N: next  0-9: event");
     int y = 8 + font::kLineHeight * 2;
     if (!error_.empty()) {
         text(s, kMargin, y, error_, kWarnColor);
@@ -516,7 +529,7 @@ void MusicPage::draw(Surface& s) {
 
     if (m) {
         const MusicMap::Section& sec = m->sections[section_];
-        text(s, kMargin, y, "Routes from here (first byte " + std::to_string(sec.kind) + "):", kLabelColor);
+        text(s, kMargin, y, "Routes from here (part " + std::to_string(sec.part) + "):", kLabelColor);
         y += font::kLineHeight;
         if (sec.routes.empty())
             text(s, kMargin + 2 * font::kAdvance, y, "none: the music ends here", kTextColor), y += font::kLineHeight;
@@ -528,6 +541,16 @@ void MusicPage::draw(Surface& s) {
                  taken ? kTitleColor : kTextColor);
             y += font::kLineHeight;
         }
+        // This part's events: where each leads (the game sends 1 for a
+        // pursuit and the track's zones, 4-9), and the one pending.
+        std::string events = "Events:";
+        for (int e = 0; e < 10; ++e)
+            if (const int to = m->event(section_, e); to >= 0 && (e == 0 || to != 0))
+                events += "  " + std::to_string(e) + ">" + std::to_string(to);
+        if (pendingEvent_ >= 0)
+            events += "   pending " + std::to_string(pendingEvent_);
+        text(s, kMargin, y, events, pendingEvent_ >= 0 ? kTitleColor : kTextColor);
+        y += font::kLineHeight;
     } else {
         const int next = following(section_);
         text(s, kMargin, y, next < 0 ? "Last segment" : "Next: segment " + std::to_string(next), kLabelColor);

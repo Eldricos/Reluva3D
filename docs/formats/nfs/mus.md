@@ -71,34 +71,75 @@ the "Pathfinder map".
 | 4 | u8 | 0 in all (a version?) |
 | 5 | u8 | the section the music starts at |
 | 6 | u8 | number of sections, one per segment |
-| 7 | u8 | 16: the size of an event record |
-| 8 | u32 **big-endian** | number of events |
+| 7 | u8 | 16: the number of events (a row's length) |
+| 8 | u32 **big-endian** | number of rows of events, one per part |
 | 12 | 28 × sections | sections |
-| | 16 × events | events |
+| | 16 × rows | events |
 | | 4 × sections | each section's segment, as an offset in the `.mus`, **big-endian** |
 
 Sections, 28 bytes:
 
 | Offset | Size | Meaning |
 |---|---|---|
-| 0 | u8 | unknown (0 up to about 20) |
+| 0 | u8 | the part: the row of events used from this section |
 | 1 | u8 | number of routes, at most 8 |
 | 2 | 2 | `FF FF` in all |
 | 4 | 3 × routes | each route: low, high, next section |
 
-The next section is the one whose route's range holds a control value
-from 0 to 100. A track's interactive map has mostly three routes per
-section (Hometown's rock track: values 0-30 continue, 31-74 and 75-100
-jump to more intense parts), so the value is presumably the race's
-intensity. What the game feeds it is still to be found. Sections with no
-route (31 of them) end the music, or leave the choice to the game.
-
 The `.lin` maps have one route per section: a fixed order, perhaps for
 when the music doesn't follow the race.
 
-Events, 16 bytes: four values, then six section numbers in bytes 4-9
-(Hometown: 1, 23, 47, 69, 109, 129), with zeros after in most. They look
-like the places the game can jump in at; their use is to be found.
+Events: a row of 16 section numbers for each part. Event e from a
+section of part p leads to section `events[p][e]`.
+
+### How the game plays a map
+
+From `nfs3.exe`'s Pathfinder code (iSND's `SNDpathcontrol` at
+`0x4e705c`, `SNDpathevent` `0x4e70fc`, `SNDpatheventinterrupt`
+`0x4e7208`, and the choice at a section's end, `0x4e6be3`) and the
+game's calls to it (`0x4131xx`-`0x4136c6`, `0x418990`):
+
+- **At a section's end** the next is, in order:
+  - the section a pending event leads to, for this section's part; the
+    event is then used up;
+  - else the first route whose range holds the control value (0-127);
+  - else, no route holding it, the same section again.
+
+  If the section reached has no routes and no event is pending, the
+  music ends after it.
+- **Events** wait for the section's end (`SNDpathevent`). One sent as
+  urgent (the pursuit's) stays first: an ordinary one sent meanwhile
+  waits behind it. `SNDpatheventinterrupt` jumps at once instead.
+- **The events the game sends:**
+  - **4-9, the track's zones.** Every track has a music zone at each
+    slice: byte 3 of the FRD block's 8-byte position records
+    ([frd.md](frd.md)). The game reads it 16 slices ahead of the car
+    and sends it when it changes. Hometown's laps run zones 4, 5, 6, 7;
+    the other tracks use 4-9 in four to six runs a lap.
+  - **1, a pursuit starting** ("Start Cop Music"), sent as urgent.
+    When the pursuit ends ("Back to Normal") the game sends the zone
+    again.
+  - **0, at once** (`SNDpatheventinterrupt`): when the car's reset
+    timer passes 600 ticks, and from `0x418c60`. The zone follows as
+    an ordinary event.
+  - 2 and 3 weren't seen sent.
+- **The control value** (`SNDpathcontrol`), set when it changes:
+  - in a pursuit: 0 at the start and at the lower level, 100 at the
+    higher ("Low Cop Music", "Hi Cop Music");
+  - else 100 on the last lap (or past lap 5 of an 8-lap race), 50 on
+    the laps between, 0 on the first lap of a race of more than two
+    laps; in some race modes (a setting at `0x6fd520`) raised by 100 or
+    50 by a value of the race passed in;
+  - and 0 whenever the car is slower than 25 (its speed field, × 2,
+    under 50): standing still, the music stays calm.
+
+So Hometown's rock map (`homerock.map`): parts 1-11 and 14-22 are the
+zones' music, mostly eight sections each, with three routes each for
+values 0-28, 29-72 and 73-100; part 12 (sections 76-91) is the
+pursuit's, low for 0-50 and high for 51-100; part 13 (92-97) bridges back into a zone after event 0; and
+170 and 171, 6.4 seconds each, are the race's intro (the start, header
+byte 5) and the section an event leads to where a part has nothing of
+its own.
 
 **What the game plays** (October 2026, from the reads `nfs3.exe` makes
 of its copy of the stream, `C:\GameData\temp.mus`, in a scripted race on
@@ -116,18 +157,20 @@ of its copy of the stream, `C:\GameData\temp.mus`, in a scripted race on
 - The game reads 16 KB at a time, a section's second half while its
   first plays.
 
-So byte 5 is the start section: the Music page starts there. The
-sections' first byte groups consecutive sections into parts (the intro
-alone in its own); the events, and what the parts mean to the game, are
-still to be found, from races where things happen (pursuits, crashes,
-the finish).
+So byte 5 is the start section: the Music page starts there. The car
+standing still kept the control value at 0, as the game's rules above
+say.
 
 ## On the Music page
 
 The segments play as one stream (`audio::SoundQueue`, `common/audio`):
 the page keeps the next section decoded and queued behind the one
-playing, chosen by the intensity when it's queued, and each segment's
-last sample leads straight into the next one's first, with no gap.
+playing, chosen when it's queued, and each segment's last sample leads
+straight into the next one's first, with no gap. The choice is the
+game's, above: an event from the keys 0-9 if one is pending (1 a
+pursuit, 4-9 the zones; it applies to the next section decided), else
+the route for the intensity (Left/Right), else the same section. The
+page shows the part, where its events lead, and the event pending.
 
 ## Tools
 

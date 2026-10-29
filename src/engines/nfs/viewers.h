@@ -378,6 +378,8 @@ private:
 // from segment to segment by an intensity, or in the linear order (.lin).
 //   Up/Down: stream   Space: play/stop   Left/Right: intensity
 //   L: map or linear order   N: next segment now   Home: first segment
+//   0-9: an event for the next segment (the game's: 1 a pursuit, 4-9 the
+//   track's zones)
 class MusicPage : public Page {
 public:
     MusicPage(const GameFiles& files, audio::Mixer* mixer);
@@ -392,7 +394,7 @@ private:
     void load(int stream);
     void start(int section);
     void stop();
-    int following(int section) const;
+    int following(int section); // takes the pending event, if any
     int firstSection() const;
     const MusicMap* activeMap() const;
 
@@ -405,7 +407,8 @@ private:
     bool haveMap_ = false, haveLinear_ = false, useLinear_ = false;
     std::string error_, mapError_;
     int intensity_ = 50;
-    int section_ = -1; // playing
+    int pendingEvent_ = -1; // an event (0-9 keys) for the next section, as the game's SNDpathevent
+    int section_ = -1;      // playing
     std::vector<int> history_;
     std::shared_ptr<audio::Sound> current_;
     // The segments playing one after another, one queued behind the one

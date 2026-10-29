@@ -117,7 +117,7 @@ Error parseMusicMap(const std::vector<uint8_t>& data, MusicMap& out) {
         const uint8_t* r = &data[kMapHeader + i * kSectionSize];
         MusicMap::Section s;
         std::memcpy(s.raw.data(), r, kSectionSize);
-        s.kind = r[0];
+        s.part = r[0];
         // Up to eight routes from byte 4: low, high, next section.
         const int routes = r[1];
         if (routes > 8)
@@ -143,10 +143,22 @@ Error parseMusicMap(const std::vector<uint8_t>& data, MusicMap& out) {
 int MusicMap::next(int section, int value) const {
     if (section < 0 || section >= static_cast<int>(sections.size()))
         return -1;
+    if (sections[section].routes.empty())
+        return -1;
     for (const Route& r : sections[section].routes)
         if (value >= r.low && value <= r.high)
             return r.next;
-    return -1;
+    return section; // no route for the value: 0x4e6cd2 keeps the section
+}
+
+int MusicMap::event(int section, int e) const {
+    if (section < 0 || section >= static_cast<int>(sections.size()) || e < 0 || e >= 16)
+        return -1;
+    const size_t part = static_cast<size_t>(sections[section].part);
+    if (part >= events.size())
+        return -1;
+    const int to = events[part][static_cast<size_t>(e)];
+    return to < static_cast<int>(sections.size()) ? to : -1;
 }
 
 } // namespace reluva::nfs

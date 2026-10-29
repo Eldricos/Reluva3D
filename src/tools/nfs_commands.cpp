@@ -805,7 +805,7 @@ int cmdMusInfo(int argc, char** argv) {
             const auto& sec = map.sections[i];
             if (map.offsets[i] != s.offset)
                 ++mismatched;
-            std::printf("  kind %d", sec.kind);
+            std::printf("  part %d", sec.part);
             for (const auto& r : sec.routes)
                 std::printf("  %d-%d: %d", r.low, r.high, r.next);
             if (sec.routes.empty())

@@ -337,8 +337,8 @@ audio was checked as WAV files: spectrograms, and the comparisons above.
 
 Not done yet:
 
-- what the maps' events and sections' first bytes mean to the game
-  (the start section is known: [mus.md](../formats/nfs/mus.md));
+- (since done: the maps' events, parts and control value, as the game
+  uses them, [mus.md](../formats/nfs/mus.md));
 - the meanings of a few of the sound patches' parameters (bnk.md names
   the rest, and how an engine's pitch follows its revs).
 
@@ -964,10 +964,9 @@ Allowed under CONTRIBUTING.md:
 - The sound header tags not understood ([bnk.md](../formats/nfs/bnk.md)):
   `0x92` (1 or 2, but not bytes per sample), `0x06` (25 on most sounds)
   and the rest.
-- In the Pathfinder maps ([mus.md](../formats/nfs/mus.md)):
-  - the sections' first byte;
-  - the 16-byte events;
-  - what the game feeds in as the intensity.
+- In the Pathfinder maps ([mus.md](../formats/nfs/mus.md)): who sends
+  events 2 and 3, and the race value that raises the control value in
+  some race modes.
 - In the movies ([mad.md](../formats/nfs/mad.md)):
   - whether the game's decoder keeps the quantiser in 16 bits, as FFmpeg
     does;
