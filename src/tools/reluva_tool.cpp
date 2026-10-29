@@ -5418,9 +5418,11 @@ int cmdAtSweep(int argc, char** argv) {
         std::sort(missions.begin(), missions.end());
     }
     // The route: past the demo, Adventure, the first slot, past the
-    // mission's fly-over and goal, then Go.
-    const std::string route = "-limit 0 -fixed-clock -click 25 -point 1510@320,128 -click 1512 -point 1600@180,124 "
-                              "-click 1602 -click 2400 -click 2500 -click 3000 -point 3196@572,434 -click 3200";
+    // mission's fly-over and goal, then Go. Frames shown late, as the
+    // player shows them.
+    const std::string route = "-limit 0 -fixed-clock -present-late -click 25 -point 1510@320,128 -click 1512 "
+                              "-point 1600@180,124 -click 1602 -click 2400 -click 2500 -click 3000 -point 3196@572,434 "
+                              "-click 3200";
     auto quoted = [](const std::filesystem::path& p) { return "\"" + p.string() + "\""; };
     std::vector<std::string> results(missions.size());
     std::vector<double> seconds(missions.size());
@@ -5479,7 +5481,7 @@ int cmdAtSweep(int argc, char** argv) {
 int cmdAtRun(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool at-run <game folder> [-v] [-limit instructions] [-trace count] "
-                             "[-memory MB] [-log] [-files] [-save folder] [-from frame] [-profile from-to] [-shots folder] [-every frames] [-click frame[@x,y]]... [-move frame@dx,dy]... "
+                             "[-memory MB] [-log] [-files] [-save folder] [-from frame] [-profile from-to] [-present-late] [-shots folder] [-every frames] [-click frame[@x,y]]... [-move frame@dx,dy]... "
                              "[-key frame@vk]... [-quit frame] [-fixed-clock] [-clock-rate frame@n] [-watch dll!export]... [-point frame@x,y]... "
                              "[-calls frame@dll!export] [-dump frame@address,bytes]...\n");
         return 2;
@@ -5526,6 +5528,7 @@ int cmdAtRun(int argc, char** argv) {
     // -profile from-to: where the program is, sampled every millisecond
     // between those frames.
     uint64_t profileFrom = 0, profileTo = 0;
+    bool presentLate = false; // -present-late: DirectX::presentLate, as the player has it
     std::atomic<bool> profiling{false}, profileDone{false};
     std::vector<uint32_t> profileSamples;
     std::thread profiler;
@@ -5611,6 +5614,8 @@ int cmdAtRun(int argc, char** argv) {
             points.push_back(k);
         } else if (arg == "-quit" && a + 1 < argc)
             quitAt = std::strtoull(argv[++a], nullptr, 0);
+        else if (arg == "-present-late")
+            presentLate = true;
         else if (arg == "-fixed-clock")
             fixedClock = true;
         else if (arg == "-profile" && a + 1 < argc) {
@@ -5768,6 +5773,7 @@ int cmdAtRun(int argc, char** argv) {
     std::vector<Watch> watched;
     std::function<std::string(uint32_t)> symbolOf; // `symbol` below
     std::function<void(Cpu&)> traceFn;             // installed from frame `traceFrom`
+    game.directX().presentLate = presentLate;
     game.directX().presented = [&](const reluva::x86::DirectX::Frame& f) {
         ++framesShown;
         if (profileFrom && framesShown == profileFrom && !profiler.joinable()) {

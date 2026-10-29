@@ -10,6 +10,7 @@
 #include "common/x86/directx/directx.h"
 
 #include <array>
+#include <map>
 #include <cstdint>
 #include <memory>
 #include <set>
@@ -230,6 +231,11 @@ struct DirectX::State {
     // surfaces' pixels. (Before com, which holds the devices, so it's there
     // while they go.)
     std::set<dx::Device*> devices;
+    // With DirectX::presentLate: whether a flip's frame waits to be shown at
+    // the next, and the draws each device had queued by that flip. (Before
+    // com too: a device going takes itself out.)
+    bool latePending = false;
+    std::map<dx::Device*, uint64_t> lateDraws;
     ComHost com;
     dx::Interfaces interfaces;
     DirectX::Frame frame;
@@ -253,8 +259,11 @@ struct DirectX::State {
 
     State(DirectX& o, Win32Process& p) : owner(o), process(p), cpu(p.cpu()), com(p) {}
     void finishDraws();
-    // Copies the primary surface to the frame and tells the engine.
+    // Copies the primary surface to the frame and tells the engine: once
+    // its draws are done, or (presentShown) as it is.
     void present();
+    void presentShown();
+
     // Makes a surface's memory; 0 if there's no room.
     uint32_t allocate(dx::SurfaceData& d);
     std::shared_ptr<dx::Surface> makeSurface(int width, int height, const dx::PixelFormat& format,

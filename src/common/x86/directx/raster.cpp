@@ -514,6 +514,9 @@ struct DrawQueue {
         Draw draw;
         std::vector<std::array<ClipVertex, 3>> triangles;
         double area; // roughly, by the triangles' bounding boxes
+        // Instead of triangles: filling the rows of one band of bands (a
+        // clear), in turn with the draws.
+        std::function<void(int band, int bands)> fill = {};
     };
     explicit DrawQueue(DirectX::DrawThreads mode) : mode_(mode), thread_([this] { work(); }) {}
     ~DrawQueue() {
@@ -528,8 +531,21 @@ struct DrawQueue {
         {
             std::lock_guard<std::mutex> lock(mutex_);
             jobs_.push_back(std::move(job));
+            ++pushed_;
         }
         wake_.notify_all();
+    }
+    // How many jobs have been pushed: a mark finishThrough can wait for.
+    uint64_t pushed() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return pushed_;
+    }
+    // Waits for the first `count` jobs pushed to be drawn.
+    void finishThrough(uint64_t count) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        ++waiting_;
+        done_.wait(lock, [&] { return drawn_ >= count; });
+        --waiting_;
     }
     // Waits for every job pushed to be drawn. Meanwhile what's waiting is
     // drawn by rows on every thread, whatever its size: there's nothing
@@ -550,18 +566,24 @@ struct DrawQueue {
         if (mode == DirectX::DrawThreads::One || threads.count() == 1 ||
             (mode == DirectX::DrawThreads::Auto && area < 8192)) {
             Draw::Raster r;
-            for (const Job& j : jobs)
+            for (const Job& j : jobs) {
+                if (j.fill)
+                    j.fill(0, 1);
                 for (const auto& t : j.triangles)
                     j.draw.rasterize(r, t[0], t[1], t[2]);
+            }
             return;
         }
         std::vector<Draw::Raster> rasters(size_t(threads.count()));
         threads.run([&](int i) {
             Draw::Raster& r = rasters[size_t(i)];
             r.band = i, r.bands = threads.count();
-            for (const Job& j : jobs)
+            for (const Job& j : jobs) {
+                if (j.fill)
+                    j.fill(r.band, r.bands);
                 for (const auto& t : j.triangles)
                     j.draw.rasterize(r, t[0], t[1], t[2]);
+            }
         });
     }
 
@@ -574,6 +596,7 @@ private:
                 return; // quitting, with nothing left
             std::vector<Job> jobs;
             jobs.swap(jobs_);
+            const uint64_t count = jobs.size();
             drawing_ = true;
             const bool hurry = waiting_ > 0 && mode_ == DirectX::DrawThreads::Auto;
             lock.unlock();
@@ -581,28 +604,40 @@ private:
             jobs.clear(); // the draws' surfaces let go here, not under the lock
             lock.lock();
             drawing_ = false;
-            if (jobs_.empty())
-                done_.notify_all();
+            drawn_ += count;
+            done_.notify_all();
         }
     }
     const DirectX::DrawThreads mode_;
     std::mutex mutex_;
     std::condition_variable wake_, done_;
     std::vector<Job> jobs_;
-    int waiting_ = 0; // threads waiting in finish()
+    int waiting_ = 0; // threads waiting in finish() or finishThrough()
+    uint64_t pushed_ = 0, drawn_ = 0;
     bool drawing_ = false, quit_ = false;
     std::thread thread_;
 };
 
 Device::~Device() {
     finishDraws();
-    if (s)
+    if (s) {
         s->devices.erase(this);
+        s->lateDraws.erase(this);
+    }
 }
 
 void Device::finishDraws() {
     if (queue_)
         queue_->finish();
+}
+
+uint64_t Device::drawsQueued() {
+    return queue_ ? queue_->pushed() : 0;
+}
+
+void Device::finishDrawsThrough(uint64_t count) {
+    if (queue_)
+        queue_->finishThrough(count);
 }
 
 Draw Device::current() const {
@@ -1312,7 +1347,6 @@ void Draw::finish(int x, int y, float z, float eyeW, const float* attr, Color cu
 // viewport) of the target (flag 1) and the Z buffer (flag 2), within the
 // viewport.
 void Device::clear(uint32_t count, uint32_t rects, uint32_t flags, uint32_t color, float z) {
-    finishDraws();
     Cpu& c = s->cpu;
     const Rect vp{viewport.x, viewport.y, viewport.x + viewport.width, viewport.y + viewport.height};
     std::vector<Rect> areas;
@@ -1325,14 +1359,54 @@ void Device::clear(uint32_t count, uint32_t rects, uint32_t flags, uint32_t colo
         }
     else
         areas.push_back(vp);
-    for (const Rect& r : areas) {
-        if ((flags & 1) && target)
-            target->fill(r, target->d.format.fromArgb(color));
-        if ((flags & 2) && depth) {
-            const double max = double(depth->d.format.g ? depth->d.format.g : 0xffff);
-            depth->fill(r, uint32_t(std::floor(double(std::clamp(z, 0.0f, 1.0f)) * max + 0.5)));
-        }
+    // Filled in turn with the draws (DrawQueue), by rows: where the surfaces
+    // are now, as the draws queued are drawn where they were.
+    struct Fill {
+        uint8_t* at;
+        int width, height, pitch;
+        uint32_t bytes, value;
+    };
+    std::vector<Fill> fills;
+    uint8_t* mem = c.memory().data();
+    if ((flags & 1) && target) {
+        fills.push_back({mem + target->d.memory, target->d.width, target->d.height, target->d.pitch,
+                         target->d.format.bytes(), target->d.format.fromArgb(color)});
+        target->touched();
     }
+    if ((flags & 2) && depth) {
+        const double max = double(depth->d.format.g ? depth->d.format.g : 0xffff);
+        fills.push_back({mem + depth->d.memory, depth->d.width, depth->d.height, depth->d.pitch, depth->d.format.bytes(),
+                         uint32_t(std::floor(double(std::clamp(z, 0.0f, 1.0f)) * max + 0.5))});
+        depth->touched();
+    }
+    if (fills.empty() || areas.empty())
+        return;
+    auto fill = [fills, areas](int band, int bands) {
+        for (const Fill& f : fills)
+            for (Rect r : areas) {
+                r.left = std::max(r.left, 0), r.top = std::max(r.top, 0);
+                r.right = std::min(r.right, f.width), r.bottom = std::min(r.bottom, f.height);
+                for (int y = r.top; y < r.bottom; ++y) {
+                    if (bands > 1 && (y >> 3) % bands != band) // another thread's rows
+                        continue;
+                    uint8_t* row = f.at + uint32_t(y * f.pitch) + uint32_t(r.left) * f.bytes;
+                    for (int x = r.left; x < r.right; ++x, row += f.bytes)
+                        for (uint32_t b = 0; b < f.bytes; ++b)
+                            row[b] = uint8_t(f.value >> (8 * b));
+                }
+            }
+    };
+    double area = 0;
+    for (const Rect& r : areas)
+        area += double(std::max(0, r.right - r.left)) * double(std::max(0, r.bottom - r.top));
+    const DirectX::DrawThreads mode = s->owner.drawThreads;
+    if (mode == DirectX::DrawThreads::One) {
+        fill(0, 1);
+        return;
+    }
+    if (!queue_)
+        queue_ = std::make_shared<DrawQueue>(mode);
+    queue_->push({Draw{}, {}, area, fill});
 }
 
 } // namespace reluva::x86::dx

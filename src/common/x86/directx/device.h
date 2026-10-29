@@ -197,6 +197,9 @@ public:
     // Waits for the draws given so far to be drawn (they may be drawing on
     // another thread): before anything else reads or writes the surfaces.
     void finishDraws();
+    // Draws (and clears) queued so far, and waiting for the first so many.
+    uint64_t drawsQueued();
+    void finishDrawsThrough(uint64_t count);
     std::optional<uint32_t> invoke(const ComInterface& iface, int index, Cpu& c) override;
     const ComInterface* query(const std::string& iid) override;
 

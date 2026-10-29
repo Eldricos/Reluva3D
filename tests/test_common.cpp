@@ -1354,6 +1354,19 @@ static void testDirectX() {
         cpu.write16(ramp + 2 * i, uint16_t((i % 256) * 257));
     CHECK(call(gamma, 4, {0, ramp}) == 0);
     call(gamma, 2, {}); // Release: the primary keeps its other references
+    // Shown a flip late: a flip shows the frame before, its drawing done;
+    // the frame just flipped shows at the next.
+    dx.presentLate = true;
+    const uint64_t shown = f.number;
+    CHECK(call(device, 10, {0, 0, 1, 0xff00ff00u, bits(1.0f), 0}) == 0); // Clear to green
+    CHECK(call(primary, 11, {0, 1}) == 0);
+    CHECK(f.number == shown); // the first late flip has nothing before it to show
+    CHECK(call(device, 10, {0, 0, 1, 0xffffff00u, bits(1.0f), 0}) == 0); // yellow
+    CHECK(call(primary, 11, {0, 1}) == 0);
+    CHECK(f.number == shown + 1 && at(40, 5) == 0x00ff00); // the green one
+    CHECK(call(primary, 11, {0, 1}) == 0);
+    CHECK(f.number == shown + 2 && at(40, 5) == 0xffff00);
+    dx.presentLate = false;
     // Drawing by rows on several threads draws the same as on one:
     // overlapping triangles, depth tested, bilinear, blended.
     CHECK(call(device, 37, {0, 16, 2}) == 0); // MAGFILTER: linear

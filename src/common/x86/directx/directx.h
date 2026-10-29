@@ -51,6 +51,12 @@ public:
     // as many threads as there are processors when there's enough to draw
     // (Auto) or always (Always, for tests). It's the same either way.
     enum class DrawThreads { One, Auto, Always } drawThreads = DrawThreads::Auto;
+    // Frames shown a flip late: at a flip the frame before is shown, its
+    // drawing finished by then, and this one's drawing goes on while the
+    // program works out the next. The program needn't wait for the drawing
+    // unless it reads what's drawn. Off, a flip waits for its frame's
+    // drawing and shows it at once, which tests and frame counts need.
+    bool presentLate = false;
 
     struct State;
 

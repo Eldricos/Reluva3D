@@ -607,9 +607,29 @@ Progress:
     - Copying 4-byte reads in our own code instead of calling MSVCRT's
       `memcpy` was no faster: a call to a stand-in is one instruction to the
       interpreter and runs natively.
+  - Then, measured while Dash runs in Mission One (frames 3421 to 3600,
+    `at-run -profile`, and the drawing threads sampled with gdb): the
+    program's thread spent over a third of its time in `Flip`, waiting for
+    the frame's drawing to finish, about 12 ms a frame. The interpreter
+    wasn't the limit; the drawing was. (Drawing small draws as one batch
+    on every row thread changed nothing: the wait was for the frame's
+    drawing as a whole.)
+    - `Clear` is now queued with the draws, filled by rows as they are,
+      instead of waiting for them: the same pixels, and no wait at each
+      frame's start.
+    - `DirectX::presentLate`: a flip shows the frame before (waiting only
+      for the draws queued before its flip) and lets this frame's drawing
+      go on while the program works out the next. The player shows frames
+      this way; frames come a flip later, about 30 ms. Those 180 frames
+      went from 5.1 s to 3.9 s, Mission One's whole route from 2 min 3 s
+      to 1 min 28 s, with the same instructions run (frame numbers count
+      a flip later, so a click given by frame number comes a flip later
+      too). `at-run -present-late` and `at-sweep` run that way; `at-run`
+      without it, and the tests, show each frame at its own flip.
 - Not there yet:
-  - **more speed**: the interpreter is still most of the time while
-    playing (NetImmerse's scene graph, picking and its Direct3D renderer).
+  - **more speed**: with the drawing overlapped, the program's own code
+    (NetImmerse's scene graph, picking and its Direct3D renderer) and the
+    drawing take about as long as each other.
 
 #### DirectDraw and Direct3D 7
 
@@ -632,7 +652,9 @@ headers' (`directx/interfaces.cpp`).
 
   What reaches the primary surface becomes `DirectX::frame()`, handed to
   the engine, through the gamma ramp. In a window, that's the window's
-  client area.
+  client area. With `DirectX::presentLate` a flip hands over the frame
+  before, once its draws are done, and the program goes on while this
+  one's are drawn.
 - **Direct3D 7:** RGB emulation and HAL devices, vertex buffers and state
   blocks. The drawing is a software rasterizer (`directx/raster.cpp`):
   - the fixed-function pipeline: transforms, lighting, materials and their
@@ -771,7 +793,7 @@ reads, the vftables it builds for its own subclasses):
   - `reluva-tool at-sweep <game folder> <out folder>` does this second
     run for every mission (or those named), as many at once as there
     are processors (`-jobs`), and reports which didn't run to the frame
-    (`-quit`, 3700). Each mission's log and save (and with `-shots`, a
+    (`-quit`, 3700). It shows frames late, as the player does. Each mission's log and save (and with `-shots`, a
     frame every 100) go in its own folder. All 54 take about 50 minutes
     on 4 processors, most of it the menus and loading before each Go.
   - `AutoLoadPuzzle <space>` in `Config.txt` would skip the menus (the

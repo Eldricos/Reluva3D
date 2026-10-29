@@ -5,6 +5,7 @@
 // documentation describes them. A surface's pixels are in the process's
 // memory, rows `pitch` bytes apart, in its pixel format.
 
+#include "common/x86/directx/device.h"
 #include "common/x86/directx/internal.h"
 
 #include <algorithm>
@@ -267,7 +268,8 @@ std::optional<uint32_t> Surface::invoke(const ComInterface& iface, int index, Cp
     if (m == "Lock" || m == "Unlock" || m == "Blt" || m == "BltFast" || m == "BltBatch" || m == "Flip" ||
         m == "GetDC" || m == "ReleaseDC" || m == "Restore" || m == "SetPalette" || m == "SetColorKey" ||
         m == "UpdateOverlay" || m == "AddAttachedSurface" || m == "DeleteAttachedSurface")
-        s->finishDraws();
+        if (m != "Flip" || !s->owner.presentLate) // a late flip waits for less (flip)
+            s->finishDraws();
     ComHost& com = s->com;
     // The interface this surface's own pointers are handed out as.
     auto pointerTo = [&](const std::shared_ptr<Surface>& other) { return com.pointer(other, iface); };
@@ -562,14 +564,32 @@ uint32_t Surface::bltFast(Cpu& c) {
 uint32_t Surface::flip(Cpu&, const ComInterface&) {
     if (chain.size() < 2)
         return kDDErrNotFlippable;
+    const bool late = s->owner.presentLate && (d.caps[0] & kCapsPrimarySurface);
+    if (!late)
+        s->finishDraws();
+    else if (s->latePending) {
+        // The frame before, on the front buffer: shown once the draws
+        // queued before its flip are done. This frame's go on meanwhile;
+        // they're in the back buffer, as are the draws to come.
+        for (dx::Device* dev : s->devices)
+            if (auto it = s->lateDraws.find(dev); it != s->lateDraws.end())
+                dev->finishDrawsThrough(it->second);
+        s->presentShown();
+    }
     const uint32_t first = chain[0]->d.memory;
     for (size_t i = 0; i + 1 < chain.size(); ++i)
         chain[i]->d.memory = chain[i + 1]->d.memory;
     chain.back()->d.memory = first;
     for (Surface* b : chain)
         b->touched();
-    if (d.caps[0] & kCapsPrimarySurface)
-        s->present();
+    if (late) {
+        s->lateDraws.clear();
+        for (dx::Device* dev : s->devices)
+            s->lateDraws[dev] = dev->drawsQueued();
+        s->latePending = true;
+    } else if (d.caps[0] & kCapsPrimarySurface) {
+        s->presentShown();
+    }
     return kDDOk;
 }
 
@@ -663,6 +683,10 @@ std::shared_ptr<dx::Surface> DirectX::State::makeSurface(int w, int h, const dx:
 // window's client area of it.
 void DirectX::State::present() {
     finishDraws();
+    presentShown();
+}
+
+void DirectX::State::presentShown() {
     auto p = primary.lock();
     if (!p)
         return;
