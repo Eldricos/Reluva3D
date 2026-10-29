@@ -30,7 +30,8 @@ Error decode(const std::vector<uint8_t>& data, Image& out);
 std::vector<uint8_t> encodeTga(const Image& img, bool alpha = false);
 
 // Copy the image into an RGBA32 surface with its top-left corner at (x, y),
-// clipped to it, blending by alpha over what's there.
-void blit(Surface& dst, const Image& img, int x, int y);
+// clipped to it, blending by alpha over what's there; opacity (0-255) makes
+// the whole image that much see-through on top.
+void blit(Surface& dst, const Image& img, int x, int y, int opacity = 255);
 
 } // namespace reluva::image

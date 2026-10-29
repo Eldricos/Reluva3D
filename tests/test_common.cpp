@@ -389,6 +389,11 @@ static void testImage() {
     image::blit(s, img, 1, 0);
     image::blit(s, img, 5, 5); // clipped away
     CHECK(s.row(0)[0] == 0 && s.row(0)[4] == 128 && s.row(0)[7] == 255);
+    // And opaque red, half see-through, over black.
+    s.create(1, 1, PixelFormat::RGBA32);
+    img.rgba = {255, 0, 0, 255};
+    image::blit(s, img, 0, 0, 128);
+    CHECK(s.row(0)[0] == 128 && s.row(0)[1] == 0);
 }
 
 static void testGfxMath() {

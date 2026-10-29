@@ -59,7 +59,7 @@ std::vector<uint8_t> encodeTga(const Image& img, bool alpha) {
     return out;
 }
 
-void blit(Surface& dst, const Image& img, int x, int y) {
+void blit(Surface& dst, const Image& img, int x, int y, int opacity) {
     if (dst.format != PixelFormat::RGBA32)
         return;
     for (int sy = 0; sy < img.h; ++sy) {
@@ -72,8 +72,10 @@ void blit(Surface& dst, const Image& img, int x, int y) {
             if (dx < 0 || dx >= dst.w)
                 continue;
             const uint8_t* s = img.pixel(sx, sy);
+            const int a = opacity == 255 ? s[3] : s[3] * opacity / 255;
+            if (a == 0)
+                continue;
             uint8_t* d = row + dx * 4;
-            const int a = s[3];
             for (int c = 0; c < 3; ++c)
                 d[c] = static_cast<uint8_t>((s[c] * a + d[c] * (255 - a)) / 255);
             d[3] = 255;
