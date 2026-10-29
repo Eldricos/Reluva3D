@@ -21,6 +21,8 @@
 #include "common/md5.h"
 #include "common/net.h"
 #include "common/text.h"
+#include "common/video/avi.h"
+#include "common/video/cinepak.h"
 #include "common/x86/cpu.h"
 #include "common/x86/win32.h"
 #include "common/zip.h"
@@ -572,6 +574,174 @@ static void testCue(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+// Cinepak data, big-endian.
+static void putBe16(std::vector<uint8_t>& b, uint32_t v) {
+    b.push_back(uint8_t(v >> 8));
+    b.push_back(uint8_t(v));
+}
+static void putBe32(std::vector<uint8_t>& b, uint32_t v) {
+    putBe16(b, v >> 16);
+    putBe16(b, v & 0xffff);
+}
+static void putChunk(std::vector<uint8_t>& b, uint32_t id, const std::vector<uint8_t>& data) {
+    putBe16(b, id);
+    putBe16(b, uint32_t(data.size() + 4));
+    b.insert(b.end(), data.begin(), data.end());
+}
+// A frame of one 8x4 strip of the chunks given.
+static std::vector<uint8_t> cinepakFrame(int flags, const std::vector<uint8_t>& chunks) {
+    std::vector<uint8_t> strip;
+    putBe16(strip, flags & 1 ? 0x1100 : 0x1000);
+    putBe16(strip, uint32_t(12 + chunks.size()));
+    putBe16(strip, 0);
+    putBe16(strip, 0);
+    putBe16(strip, 4); // its height
+    putBe16(strip, 8); // its width
+    strip.insert(strip.end(), chunks.begin(), chunks.end());
+    std::vector<uint8_t> f = {uint8_t(flags), 0, 0, 0};
+    const size_t len = 10 + strip.size();
+    f[1] = uint8_t(len >> 16);
+    f[2] = uint8_t(len >> 8);
+    f[3] = uint8_t(len);
+    putBe16(f, 8);
+    putBe16(f, 4);
+    putBe16(f, 1);
+    f.insert(f.end(), strip.begin(), strip.end());
+    return f;
+}
+
+static void testCinepak() {
+    // A keyframe: V1 entry 0 four greys; V4 entries 0-3 one grey each, and
+    // entry 1 coloured. Block 0 is V1 0, block 1 V4 0 1 2 3.
+    std::vector<uint8_t> chunks, data;
+    data = {10, 20, 30, 40, 0, 0};
+    putChunk(chunks, 0x2200, data); // V1, full
+    data.clear();
+    for (int i = 0; i < 4; ++i) {
+        const uint8_t y = uint8_t(50 + 10 * i);
+        data.insert(data.end(), {y, y, y, y, uint8_t(i == 1 ? 10 : 0), uint8_t(i == 1 ? -10 : 0)});
+    }
+    putChunk(chunks, 0x2000, data); // V4, full
+    data.clear();
+    putBe32(data, 0x40000000); // block 0: V1, block 1: V4
+    data.insert(data.end(), {0, 0, 1, 2, 3});
+    putChunk(chunks, 0x3000, data);
+    video::CinepakDecoder dec;
+    const std::vector<uint8_t> key = cinepakFrame(0, chunks);
+    CHECK(!dec.decode(key.data(), key.size()));
+    const image::Image& pic = dec.picture();
+    const auto rgb = [&](int x, int y) {
+        const uint8_t* p = pic.pixel(x, y);
+        return std::vector<int>{p[0], p[1], p[2]};
+    };
+    CHECK(pic.w == 8 && pic.h == 4);
+    CHECK(rgb(0, 0) == std::vector<int>({10, 10, 10}) && rgb(1, 1) == std::vector<int>({10, 10, 10}));
+    CHECK(rgb(2, 0) == std::vector<int>({20, 20, 20}) && rgb(0, 3) == std::vector<int>({30, 30, 30}));
+    CHECK(rgb(3, 3) == std::vector<int>({40, 40, 40}));
+    CHECK(rgb(4, 0) == std::vector<int>({50, 50, 50}));
+    // Y 60, U 10, V -10: R = Y + 2V, G = Y - U/2 - V, B = Y + 2U.
+    CHECK(rgb(6, 0) == std::vector<int>({40, 65, 80}) && rgb(7, 1) == std::vector<int>({40, 65, 80}));
+    CHECK(rgb(4, 2) == std::vector<int>({70, 70, 70}) && rgb(7, 3) == std::vector<int>({80, 80, 80}));
+
+    // An inter frame: V1 entry 0 replaced (partial, grey), block 0 left
+    // alone, block 1 V1 0.
+    chunks.clear();
+    data.clear();
+    putBe32(data, 0x80000000);
+    data.insert(data.end(), {200, 210, 220, 230});
+    putChunk(chunks, 0x2700, data); // V1, partial, grey
+    data.clear();
+    putBe32(data, 0x40000000); // block 0: unchanged; block 1: changed, V1
+    data.push_back(0);
+    putChunk(chunks, 0x3100, data);
+    const std::vector<uint8_t> inter = cinepakFrame(1, chunks);
+    CHECK(!dec.decode(inter.data(), inter.size()));
+    CHECK(rgb(0, 0) == std::vector<int>({10, 10, 10}));
+    CHECK(rgb(4, 0) == std::vector<int>({200, 200, 200}) && rgb(7, 3) == std::vector<int>({230, 230, 230}));
+    CHECK(!dec.decode(nullptr, 0)); // an empty frame: the same picture
+    CHECK(rgb(4, 0) == std::vector<int>({200, 200, 200}));
+    CHECK(dec.decode(inter.data(), 9));
+    std::vector<uint8_t> bad = inter;
+    bad[12] = 0xff; // the strip's size
+    CHECK(dec.decode(bad.data(), bad.size()));
+
+    // The same in an AVI: a video and an audio stream, the movie's chunks
+    // grouped in a "rec " list, the second frame empty (a repeat).
+    const auto chunk = [](std::vector<uint8_t>& b, const char* id, const std::vector<uint8_t>& d) {
+        b.insert(b.end(), id, id + 4);
+        const uint32_t n = uint32_t(d.size());
+        b.insert(b.end(), {uint8_t(n), uint8_t(n >> 8), uint8_t(n >> 16), uint8_t(n >> 24)});
+        b.insert(b.end(), d.begin(), d.end());
+        if (n & 1)
+            b.push_back(0);
+    };
+    const auto list = [&](std::vector<uint8_t>& b, const char* type, const std::vector<uint8_t>& d) {
+        std::vector<uint8_t> body(type, type + 4);
+        body.insert(body.end(), d.begin(), d.end());
+        chunk(b, "LIST", body);
+    };
+    const auto le32 = [](std::vector<uint8_t>& b, uint32_t v) {
+        b.insert(b.end(), {uint8_t(v), uint8_t(v >> 8), uint8_t(v >> 16), uint8_t(v >> 24)});
+    };
+    std::vector<uint8_t> avih, strhV, strfV, strhA, strfA, strlV, strlA, hdrl, rec, movi, riff;
+    le32(avih, 66667);
+    avih.resize(56, 0);
+    strhV = {'v', 'i', 'd', 's', 'c', 'v', 'i', 'd'};
+    strhV.resize(20, 0);
+    le32(strhV, 1);  // scale
+    le32(strhV, 15); // rate
+    strhV.resize(56, 0);
+    le32(strfV, 40);
+    le32(strfV, 8);
+    le32(strfV, 4);
+    strfV.insert(strfV.end(), {1, 0, 24, 0, 'c', 'v', 'i', 'd'});
+    strfV.resize(40, 0);
+    strhA = {'a', 'u', 'd', 's'};
+    strhA.resize(56, 0);
+    strfA = {1, 0, 1, 0, 0x22, 0x56, 0, 0, 0x44, 0xac, 0, 0, 2, 0, 16, 0};
+    chunk(strlV, "strh", strhV);
+    chunk(strlV, "strf", strfV);
+    chunk(strlA, "strh", strhA);
+    chunk(strlA, "strf", strfA);
+    chunk(hdrl, "avih", avih);
+    list(hdrl, "strl", strlV);
+    list(hdrl, "strl", strlA);
+    chunk(rec, "00db", cinepakFrame(0, [&] {
+              std::vector<uint8_t> c, d = {10, 20, 30, 40, 0, 0};
+              putChunk(c, 0x2200, d);
+              d.clear();
+              putBe32(d, 0);
+              d.insert(d.end(), {0, 0});
+              putChunk(c, 0x3000, d);
+              return c;
+          }()));
+    chunk(rec, "01wb", {0x00, 0x01, 0xff, 0xff, 0x34, 0x12});
+    list(movi, "rec ", rec);
+    chunk(movi, "00dc", {});
+    chunk(movi, "01wb", {0x00, 0x80});
+    std::vector<uint8_t> body;
+    list(body, "hdrl", hdrl);
+    list(body, "movi", movi);
+    riff = {'R', 'I', 'F', 'F'};
+    le32(riff, uint32_t(4 + body.size()));
+    riff.insert(riff.end(), {'A', 'V', 'I', ' '});
+    riff.insert(riff.end(), body.begin(), body.end());
+    riff.insert(riff.end(), {0, 0, 0, 0}); // bytes after the form, as some files have
+
+    video::VideoPlayer player;
+    CHECK(!player.open(riff));
+    const video::AviFile& avi = player.file();
+    CHECK(avi.videoCodec() == "cvid" && avi.width() == 8 && avi.height() == 4 && avi.frameCount() == 2);
+    CHECK(avi.framesPerSecond() == 15 && std::fabs(player.durationSeconds() - 2.0 / 15) < 1e-9);
+    audio::Sound sound;
+    CHECK(!avi.audio(sound) && sound.rate == 22050 && sound.channels == 1);
+    CHECK(sound.samples == std::vector<int16_t>({0x100, -1, 0x1234, -32768}));
+    CHECK(!player.seek(0.1) && player.frameShown() == 1);
+    CHECK(player.picture().pixel(7, 3)[0] == 40); // the first frame's, repeated
+    CHECK(!player.seek(0) && player.frameShown() == 0 && !player.seek(10) && player.frameShown() == 1);
+    CHECK(player.open({'R', 'I', 'F', 'F', 4, 0, 0, 0, 'W', 'A', 'V', 'E'}));
+}
+
 int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_tests";
     testMd5();
@@ -584,6 +754,7 @@ int main() {
     testFsAndDetection(tmp / "fs");
     testConfig(tmp / "cfg");
     testZip(tmp / "zip");
+    testCinepak();
     testCue(tmp / "cue");
     testSearchSet(tmp / "search");
     testImage();

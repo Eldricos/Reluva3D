@@ -7,6 +7,8 @@
 //                                                  negative (from the end)
 //   reluva-tool cue-rip <file.cue> [output dir]    list a CD image's tracks and write each audio
 //                                                  track as trackNN.wav (for games' CD music)
+//   reluva-tool avi-frames <file.avi> [out dir] [frame...]  an AVI's streams; decode every frame (Cinepak),
+//                                                  writing the frames named as TGA (all with "all")
 //   reluva-tool cat-probe <file> [-q]              check a .cat file against the documented
 //                                                  layout and work out unknown entry kinds
 //   reluva-tool cat-list <file>                    list a .cat file's contents
@@ -115,6 +117,7 @@
 #include "engines/newworlds/model_render.h"
 #endif
 #include "common/cue.h"
+#include "common/video/avi.h"
 #include "common/font.h"
 #include "common/fs.h"
 #include "common/pe.h"
@@ -242,6 +245,68 @@ int cmdHexdump(int argc, char** argv) {
 }
 // A CD image's tracks, and its audio tracks written as track02.wav ... in
 // the output folder, the names games' CD music is looked for under.
+// An AVI's streams, and its video decoded from start to end, timed; the
+// frames asked for written as frame_NNNN.tga.
+int cmdAviFrames(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool avi-frames <file.avi> [output dir] [frame number... | all]\n");
+        return 2;
+    }
+    Bytes data;
+    if (!readFile(argv[2], data)) {
+        std::fprintf(stderr, "cannot open %s\n", argv[2]);
+        return 1;
+    }
+    reluva::video::VideoPlayer player;
+    if (reluva::Error err = player.open(std::move(data))) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    const reluva::video::AviFile& avi = player.file();
+    std::printf("video: %s %dx%d, %zu frames at %.3f a second (%.2f s)\n", avi.videoCodec().c_str(), avi.width(),
+                avi.height(), avi.frameCount(), avi.framesPerSecond(), player.durationSeconds());
+    reluva::audio::Sound sound;
+    if (!avi.hasAudio())
+        std::printf("no sound\n");
+    else if (reluva::Error err = avi.audio(sound))
+        std::printf("sound: %s\n", err.message.c_str());
+    else
+        std::printf("sound: %d Hz, %d channel(s), %.2f s\n", sound.rate, sound.channels,
+                    double(sound.frames()) / sound.rate);
+    std::set<size_t> wanted;
+    bool all = false;
+    for (int i = 4; i < argc; ++i) {
+        if (std::strcmp(argv[i], "all") == 0)
+            all = true;
+        else
+            wanted.insert(size_t(std::strtoul(argv[i], nullptr, 10)));
+    }
+    const std::filesystem::path dir = argc > 3 ? argv[3] : "";
+    if (!dir.empty()) {
+        std::error_code ec;
+        std::filesystem::create_directories(dir, ec);
+    }
+    const auto start = std::chrono::steady_clock::now();
+    int written = 0;
+    for (size_t f = 0; f < avi.frameCount(); ++f) {
+        if (reluva::Error err = player.seek((double(f) + 0.5) / avi.framesPerSecond())) {
+            std::fprintf(stderr, "%s\n", err.message.c_str());
+            return 1;
+        }
+        if (!dir.empty() && (all || wanted.count(f))) {
+            char name[32];
+            std::snprintf(name, sizeof name, "frame_%04zu.tga", f);
+            const std::vector<uint8_t> tga = reluva::image::encodeTga(player.picture());
+            std::ofstream out(dir / name, std::ios::binary);
+            out.write(reinterpret_cast<const char*>(tga.data()), std::streamsize(tga.size()));
+            ++written;
+        }
+    }
+    const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+    std::printf("all %zu frames decoded in %.0f ms; %d written\n", avi.frameCount(), ms, written);
+    return 0;
+}
+
 int cmdCueRip(int argc, char** argv) {
     if (argc < 3 || argc > 4) {
         std::fprintf(stderr, "usage: reluva-tool cue-rip <file.cue> [output dir]\n");
@@ -5359,6 +5424,8 @@ int main(int argc, char** argv) {
         return cmdHexdump(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "cue-rip") == 0)
         return cmdCueRip(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "avi-frames") == 0)
+        return cmdAviFrames(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "chunks") == 0)
         return cmdChunks(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "words") == 0)
@@ -5469,6 +5536,7 @@ int main(int argc, char** argv) {
                  "usage:\n"
                  "  reluva-tool hexdump <file> [offset] [length]\n"
                  "  reluva-tool cue-rip <file.cue> [output dir]\n"
+                 "  reluva-tool avi-frames <file.avi> [output dir] [frame number... | all]\n"
                  "  reluva-tool chunks <file>\n"
                  "  reluva-tool words <file> [offset] [count]\n"
                  "  reluva-tool table <file> [values per row] [offset]\n"

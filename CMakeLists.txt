@@ -78,6 +78,8 @@ add_library(reluva_common STATIC
     src/common/audio/mixer.cpp
     src/common/audio/mp3.cpp
     src/common/audio/wav.cpp
+    src/common/video/avi.cpp
+    src/common/video/cinepak.cpp
     src/common/font.cpp
     src/common/text.cpp)
 target_include_directories(reluva_common PUBLIC src)
@@ -192,7 +194,8 @@ if(RELUVA_ENGINE_CLUE)
         src/engines/clue/image_viewer.cpp
         src/engines/clue/animation_viewer.cpp
         src/engines/clue/sound_viewer.cpp
-        src/engines/clue/text_viewer.cpp)
+        src/engines/clue/text_viewer.cpp
+        src/engines/clue/video_viewer.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_CLUE)
 endif()
 target_link_libraries(reluva_engines PUBLIC reluva_common PRIVATE reluva_warnings)
