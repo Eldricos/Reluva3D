@@ -71,6 +71,9 @@ public:
     std::function<bool(const std::string& name, std::vector<uint8_t>& file)> readSave;
     // Where saved games are written, listed with the game's own.
     std::filesystem::path saveDir;
+    // Whether a saved game (by name) is listed: those the game running
+    // can't read (another version's) are left out. All when unset.
+    std::function<bool(const std::string& name)> listSave;
     // The comment the save menu set for the next save (its description).
     std::string saveComment;
     // The picture of the game for the next save, or of the saved game

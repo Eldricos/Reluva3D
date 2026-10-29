@@ -4544,6 +4544,36 @@ int cmdSpRun(int argc, char** argv) {
         if (e)
             return failed("WriteLevel", e), 1;
         std::printf("saved: %zu bytes from the game\n", w.bytes().size());
+        {
+            // Its chunks: each id in the order first written, how many and
+            // their lengths (one, or the smallest and largest).
+            const Bytes& out = w.bytes();
+            std::vector<std::string> order;
+            std::map<std::string, std::tuple<int, uint32_t, uint32_t>> seen;
+            for (size_t at = 0; at + 12 <= out.size();) {
+                uint32_t id, length;
+                std::memcpy(&id, out.data() + at, 4);
+                std::memcpy(&length, out.data() + at + 4, 4);
+                const std::string name = reluva::idtech3::raven::chunkName(id);
+                auto [it, added] = seen.try_emplace(name, 0, length, length);
+                if (added)
+                    order.push_back(name);
+                auto& [count, low, high] = it->second;
+                ++count;
+                low = std::min(low, length);
+                high = std::max(high, length);
+                at += 16 + length;
+            }
+            std::printf("chunks:");
+            for (const std::string& name : order) {
+                const auto& [count, low, high] = seen[name];
+                std::printf(" %s", name.c_str());
+                if (count > 1)
+                    std::printf("x%d", count);
+                std::printf(low == high ? "(%u)" : "(%u-%u)", low, high);
+            }
+            std::printf("\n");
+        }
         ef::SpGameHost loaded(set, cvars);
         loaded.print = game.print;
         efs::SaveReader r(w.bytes());

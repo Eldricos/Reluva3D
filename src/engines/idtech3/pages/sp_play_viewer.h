@@ -52,6 +52,14 @@ private:
     void saveGame(const std::string& name, bool autosave);
     void loadGame(std::string name);
     bool readSave(const std::string& name, std::vector<uint8_t>& file) const;
+    // Whether the game code running can read a saved game: 1.x's and the
+    // Expansion Pack's can't read each other's (eliteforce::saveKind);
+    // one of neither is let through.
+    bool saveFits(const std::vector<uint8_t>& file) const;
+    // Saved games in the other version's folder moved to their own (a
+    // game played both ways keeps 1.x's in saves/ and the Expansion
+    // Pack's in expansion/saves/).
+    void sortSaves() const;
     std::vector<uint8_t> levelShot(const std::string& map) const;
     void runGameCommands();
     // Cinematics (video/<name>.bik): full screen, the game ended first
@@ -98,6 +106,7 @@ private:
     // play back; closed as the game ends.
     std::ofstream recording_;
     std::filesystem::path saveDir_;  // where saved games are written
+    bool expansion_ = false;         // the Expansion Pack's game code is running
     size_t gameCommandsRun_ = 0;     // of the game's console commands
     // The in-game menu waits a frame while the game is captured for the
     // save menu's picture.

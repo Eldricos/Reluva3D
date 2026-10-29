@@ -317,6 +317,11 @@ uint32_t SpUiHost::fileList(const std::string& folder, const std::string& extens
     }
     std::sort(names.begin(), names.end());
     names.erase(std::unique(names.begin(), names.end()), names.end());
+    if (dir == "saves" && listSave)
+        std::erase_if(names, [this](const std::string& n) {
+            const size_t dot = n.rfind('.');
+            return !listSave(dot == std::string::npos ? n : n.substr(0, dot));
+        });
     uint32_t used = 0, count = 0;
     for (const std::string& n : names) {
         if (used + n.size() + 1 > size)

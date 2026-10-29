@@ -588,6 +588,23 @@ as `current.sav` and then renamed.
        except 1, `CSIN` (its index) and `CSDA` (its text with the NUL).
 6. The game's `WriteLevel(autosave)`.
 
+### The Expansion Pack's saves
+
+The Expansion Pack's engine writes and reads the same chunks in the same
+order (its save at 0x427350, chunk writer 0x427a40, reader 0x427b60), and
+its game the same chunk ids. But the game's player record is longer:
+its `GCLI` chunks are 3364 bytes where 1.0's and 1.1's are 2720 (1.0 and
+1.1 write the same layout). The game asks for each chunk at its own
+length, so neither version's game can read the other's saves: the load
+stops at the first `GCLI` ("Loaded chunk (GCLI) has different length
+than requested"). The original keeps both in the one `saves/` folder.
+Reluva tells them apart by that chunk's length
+(`eliteforce::saveKind`) and keeps them in separate folders.
+
+Its game's direct calls to `ReadFromSaveGame` give a buffer (a length of
+0 for `OBJT`, taking it whatever its length); none was found calling the
+optional read (slot 19). Reluva's host serves both as described above.
+
 ### Loading
 
 `load <name>` reads the save back in the same order.

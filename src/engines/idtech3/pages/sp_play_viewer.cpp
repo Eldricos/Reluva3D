@@ -3,6 +3,7 @@
 
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/entities.h"
+#include "engines/idtech3/games.h"
 #include "engines/idtech3/pages/sp_play_viewer.h"
 #include "engines/idtech3/shader.h"
 
@@ -17,6 +18,7 @@
 #include <cstring>
 #include <ctime>
 #include <fstream>
+#include <tuple>
 
 namespace reluva::idtech3 {
 
@@ -51,6 +53,7 @@ SpPlayViewer::SpPlayViewer(ViewerContext& ctx) : Page(ctx) {
     if (!dll || !in)
         return;
     dll_.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    expansion_ = isExpansionDll(*dll);
     // Its menus, if they're there too.
     if (const auto uiPath = fs::findFile(ctx.singlePlayerPath, ctx.game.spUiDll); uiPath && !ctx.game.spUiDll.empty())
         if (std::ifstream ui{*uiPath, std::ios::binary}; ui)
@@ -97,7 +100,11 @@ void SpPlayViewer::activate() {
     if (ctx_.mixer)
         soundSystem_ = std::make_unique<SoundSystem>(*ctx_.mixer, soundLibrary_);
     startMs_ = 0;
-    saveDir_ = ctx_.savePath.empty() ? std::filesystem::path() : ctx_.savePath / "saves";
+    // Each version's saved games in a folder of its own (sortSaves).
+    saveDir_ = ctx_.savePath.empty()      ? std::filesystem::path()
+               : expansion_              ? ctx_.savePath / "expansion" / "saves"
+                                          : ctx_.savePath / "saves";
+    sortSaves();
     // The player's userinfo, as the original's client registers it.
     cvars_.create("name", ctx_.game.spPlayerName, CvarStore::Archive | CvarStore::UserInfo);
     cvars_.create("snaps", "20", CvarStore::Archive | CvarStore::UserInfo);
@@ -220,6 +227,10 @@ void SpPlayViewer::startMenus() {
     };
     ui_->saveDir = saveDir_;
     ui_->readSave = [this](const std::string& name, std::vector<uint8_t>& file) { return readSave(name, file); };
+    ui_->listSave = [this](const std::string& name) {
+        std::vector<uint8_t> file;
+        return readSave(name, file) && saveFits(file);
+    };
     ui_->askGame = [this](uint32_t flag) { return game_ ? game_->allowedToSaveHere(flag) : flag; };
     if (Error err = ui_->load(uiDll_))
         return menusStopped(err);
@@ -510,6 +521,42 @@ bool SpPlayViewer::readSave(const std::string& name, std::vector<uint8_t>& file)
     return !ctx_.files.read("saves/" + name + ".sav", file);
 }
 
+bool SpPlayViewer::saveFits(const std::vector<uint8_t>& file) const {
+    const auto kind = eliteforce::saveKind(file);
+    return !kind || *kind == (expansion_ ? eliteforce::SaveKind::Expansion : eliteforce::SaveKind::Original);
+}
+
+void SpPlayViewer::sortSaves() const {
+    if (ctx_.savePath.empty())
+        return;
+    const std::filesystem::path original = ctx_.savePath / "saves", expansion = ctx_.savePath / "expansion" / "saves";
+    for (const auto& [from, to, wrong] : {std::tuple{original, expansion, eliteforce::SaveKind::Expansion},
+                                          std::tuple{expansion, original, eliteforce::SaveKind::Original}}) {
+        std::error_code ec;
+        std::vector<std::filesystem::path> moving;
+        for (std::filesystem::directory_iterator it(from, ec), end; !ec && it != end; it.increment(ec)) {
+            const std::filesystem::path& p = it->path();
+            if (fs::toLower(p.extension().string()) != ".sav" || !it->is_regular_file(ec))
+                continue;
+            std::ifstream in(p, std::ios::binary);
+            if (eliteforce::saveKind(in) == wrong)
+                moving.push_back(p);
+        }
+        for (const std::filesystem::path& p : moving) {
+            std::filesystem::create_directories(to, ec);
+            // With its recording of the player's commands, if there's one;
+            // never over a save of the same name there.
+            if (std::filesystem::exists(to / p.filename(), ec))
+                continue;
+            std::filesystem::rename(p, to / p.filename(), ec);
+            std::filesystem::path input = p;
+            input.replace_extension(".input");
+            if (!ec && std::filesystem::exists(input, ec) && !std::filesystem::exists(to / input.filename(), ec))
+                std::filesystem::rename(input, to / input.filename(), ec);
+        }
+    }
+}
+
 std::vector<uint8_t> SpPlayViewer::levelShot(const std::string& map) const {
     // levelshots/<map>.tga at 256 x 256, as the original's engine makes an
     // autosave's picture (renderer entry 23, eliteforce-sp-interface.md):
@@ -660,6 +707,11 @@ void SpPlayViewer::loadGame(std::string name) {
     std::vector<uint8_t> file;
     if (!readSave(name, file)) {
         lastCommand_ = "Failed to open savegame " + name;
+        return;
+    }
+    if (!saveFits(file)) {
+        lastCommand_ = name + (expansion_ ? " was saved without the Expansion Pack, and can't be loaded with it on"
+                                          : " was saved with the Expansion Pack, and can't be loaded with it off");
         return;
     }
     raven::SaveReader r(std::move(file));

@@ -24,8 +24,10 @@
 #include <array>
 #include <cstdint>
 #include <functional>
+#include <iosfwd>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -409,5 +411,14 @@ Error readSaveHeader(SaveReader& r, CvarStore& cvars, SaveHeader& out);
 // `r` as its save stream: but for an autosave, the time and configstrings;
 // then the game's ReadLevel.
 Error readSaveLevel(SaveReader& r, SpGameHost& game, bool autosave);
+
+// Which game code wrote a saved game. 1.0's and 1.1's write the same
+// chunks; the Expansion Pack's player chunk (the game's first, GCLI) is
+// longer (3364 bytes to 2720), and neither reads the other's saves. Told
+// by that chunk's length; nothing for a file that isn't a saved game or
+// has no GCLI.
+enum class SaveKind { Original, Expansion };
+std::optional<SaveKind> saveKind(std::istream& in);
+std::optional<SaveKind> saveKind(const std::vector<uint8_t>& file);
 
 } // namespace reluva::idtech3::eliteforce

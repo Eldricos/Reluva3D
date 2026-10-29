@@ -21,6 +21,7 @@
 #include "engines/idtech3/server/server_world.h"
 #include "engines/idtech3/eliteforce/net_fields.h"
 #include "engines/idtech3/eliteforce/net_server.h"
+#include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/entities.h"
 #include "engines/idtech3/filesystem.h"
@@ -1209,6 +1210,28 @@ static void testSaveChunks() {
     damaged[12 + 2] ^= 1;
     SaveReader bad(damaged);
     CHECK(bad.next(chunkId("COMM"), data));
+}
+
+// Which game code wrote a saved game: by the length of its first GCLI.
+static void testSaveKind() {
+    using namespace reluva::idtech3::raven;
+    using reluva::idtech3::eliteforce::SaveKind;
+    using reluva::idtech3::eliteforce::saveKind;
+    auto save = [](uint32_t clientLength) {
+        SaveWriter w;
+        w.addText(chunkId("COMM"), "borg1", 128);
+        w.addInt(chunkId("GAME"), 0);
+        const std::vector<uint8_t> client(clientLength);
+        w.add(chunkId("GCLI"), client.data(), clientLength);
+        w.add(chunkId("GCLI"), client.data(), 4);
+        return w.bytes();
+    };
+    CHECK(saveKind(save(2720)) == SaveKind::Original);
+    CHECK(saveKind(save(3364)) == SaveKind::Expansion);
+    CHECK(!saveKind(save(100)));
+    std::vector<uint8_t> noClient = save(2720);
+    noClient.resize(16 + 128);
+    CHECK(!saveKind(noClient) && !saveKind(std::vector<uint8_t>{1, 2, 3}));
 }
 
 // Sounds by name: decoded once, missing and broken ones remembered.
@@ -3219,6 +3242,7 @@ int main() {
     testAmbientSets();
     testServerWorld();
     testSaveChunks();
+    testSaveKind();
     testSoundSystem(tmp / "soundsystem");
     testCollision();
     testGameHost(tmp / "game");

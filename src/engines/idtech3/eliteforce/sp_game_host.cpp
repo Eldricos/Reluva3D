@@ -20,6 +20,8 @@
 #include <chrono>
 #include <cmath>
 #include <cstring>
+#include <istream>
+#include <sstream>
 
 namespace reluva::idtech3::eliteforce {
 
@@ -1759,6 +1761,32 @@ Error readSaveLevel(SaveReader& r, SpGameHost& game, bool autosave) {
         game.replaceConfigstrings(strings);
     }
     return game.readLevel(autosave);
+}
+
+std::optional<SaveKind> saveKind(std::istream& in) {
+    // The chunks' headers only (id, length, checksum; then the data and
+    // the magic word), stepped over to the first GCLI.
+    const uint32_t clientId = chunkId("GCLI");
+    for (int n = 0; n < 100000; ++n) {
+        uint32_t header[3];
+        if (!in.read(reinterpret_cast<char*>(header), sizeof header))
+            return std::nullopt;
+        if (header[0] == clientId) {
+            if (header[1] == 2720)
+                return SaveKind::Original;
+            if (header[1] == 3364)
+                return SaveKind::Expansion;
+            return std::nullopt;
+        }
+        if (!in.seekg(std::streamoff(header[1]) + 4, std::ios::cur))
+            return std::nullopt;
+    }
+    return std::nullopt;
+}
+
+std::optional<SaveKind> saveKind(const std::vector<uint8_t>& file) {
+    std::istringstream in(std::string(file.begin(), file.end()), std::ios::binary);
+    return saveKind(in);
 }
 
 } // namespace reluva::idtech3::eliteforce
