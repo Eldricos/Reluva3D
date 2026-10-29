@@ -118,6 +118,16 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
 The config is saved as `reluva.ini` in SDL's preferences folder
 (`~/.local/share/reluva/reluva/` on Linux, `%APPDATA%\reluva\reluva\` on Windows).
 
+## Elite Force: status notes
+
+- [docs/KNOWN_DIFFERENCES.md](docs/KNOWN_DIFFERENCES.md): where Reluva
+  deliberately differs from the original game.
+- [docs/UNCONFIRMED.md](docs/UNCONFIRMED.md): what's assumed rather than
+  confirmed.
+- [docs/TESTING.md](docs/TESTING.md): what still needs playing.
+- [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md): how it was all
+  worked out, and the rules followed.
+
 ## Adding an engine
 
 1. Create `src/engines/<name>/` with an `Engine` and a `MetaEngine` (copy `testbed`).
