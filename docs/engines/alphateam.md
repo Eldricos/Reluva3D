@@ -748,15 +748,27 @@ reads, the vftables it builds for its own subclasses):
     -point 3416@572,434 -click 3420
     ```
 
-  - The camera as Dash reaches the lock differs from the original's
-    recording (below), and the cause isn't found yet. Ours, about half a
-    second before Dash reaches the lock, moves to the camera base beside
-    the skull door, films the lock and then the door opening from there
-    (so close that the skull's own texture fills the screen), then turns
-    to Dash for "We did it!". The original stays on the walkway base
-    behind Dash the whole time: from about 77.5 s to "We did it!" at
-    89 s it shows Dash in front of the lock and never the door. Traced
-    (`at-run -watch` from frame 3400 with `-from`):
+  - The camera at Mission One's end matches the original's, settled with
+    a recording the game owner made for it: the original played twice
+    with the camera input known (the first run as our route: the
+    rightmost camera button five times, the second tile turned right, Go,
+    then hands off). Side by side, half a second apart from Go, ours
+    shows the same shots in the same order: the high view over the
+    room (held 2.5 s), the pen and the walkway as Dash runs, the lock
+    from beside the skull, the skull door opening (framed with its eyes
+    and teeth), a moment's wide view, the reward close-up of Dash and
+    "We did it!". Ours runs up to half a second behind, which is within
+    how Go was lined up (the Go button turning red).
+    - The earlier recording of the playthrough doesn't show the door:
+      that player turned the camera (its view changes faster than the
+      camera ever holds a base), and the camera before Go decides the
+      bases used afterwards.
+    - What was wrong in ours was the FPU's precision (below): at 53 bits
+      the camera pushed into the skull until its texture filled the
+      screen; with Direct3D's single precision it frames the skull as
+      the original does.
+    - How the camera chooses, as traced on the way (`at-run -watch`
+      from frame 3400 with `-from`):
     - DDIcam (LoadComp) films the action of the highest priority: Dash's
       (30, `t0011.dll`), then the plunger lock's (220, `og0019b.dll`),
       then the door's (230, `og0019a.dll`, as it starts to open), each
@@ -855,10 +867,6 @@ reads, the vftables it builds for its own subclasses):
       89 s). Its view changes a little at about 85 s, where the chain's
       5 + 2 seconds and the music would bring `REWARD_CAM`. Ours films
       the door opening first.
-    - Not settled: the original player's camera input during the run,
-      which ours can't replay. The recording alone doesn't show
-      whether the original's door shot lost to that input or to
-      something ours still does differently.
   - Found on the way: Direct3D 7 puts the FPU in single precision
     (24 bits) when it makes a device, and on its calls, unless the
     program passed `DDSCL_FPUPRESERVE`. LEGO Alpha Team passes
@@ -898,8 +906,9 @@ reads, the vftables it builds for its own subclasses):
   - In the training mission, the mission menu has Skip Training Mission
     too (Keep Playing, Start Over, Skip Training Mission, Options, Return
     to HQ, Exit Game).
-  - Mission One's end differs (above): the camera base chosen as Dash
-    reaches the lock; not yet explained.
+  - Mission One's end looks different from ours because that player
+    turned the camera; with the camera input matched, it's the same
+    (above).
   - Each recording shows that mission solved, which is what playing them
     through needs.
 
