@@ -143,10 +143,10 @@ recording how each format was worked out (CONTRIBUTING.md).
   materials; `.mtx` placement matrices.
 - Textures and Models pages, as New Worlds' and Elite Force's: cars
   with their colours, buildings and props.
-- Left for later phases: the texture flags (probably repeat or clamp,
-  checked when the city is drawn), animating water, drawing a model's
-  placed models (xrefs) and what the `offset` section is for. (The
-  damage textures, `_dmg`, are used since phase 4.)
+- Done since: the texture flag that clamps, animated water, the models
+  placed inside models (xrefs, with the landmarks' warning lights as
+  flares at night), what the `offset` section is (where a model's middle
+  was in the city). (The damage textures, `_dmg`, are used since phase 4.)
 
 ### 3. The city (done)
 
@@ -163,11 +163,19 @@ recording how each format was worked out (CONTRIBUTING.md).
   Direct3D would, and the `_fog.csv` fog; low-detail road textures far
   off. `.lmap` holds nothing to go on, and the ambient maps' pictures
   aren't shipped ([tune.md](../formats/age/tune.md)).
-- Still not known: some flags and words of the tunnel attribute, the
-  roads' flags, ends and vertices, block flags 0x20-0x80 and the road
-  blocks' second byte, the other texture flags; how placed models and
-  cars are lit (one light still), and whether the game uses the
-  low-detail roads as Reluva does. For watching the game run.
+- Worked out from the files since (compared over every road and block
+  of both cities): the road map's sidewalk kinds and road flags (roads
+  with none, kept free of traffic and pedestrians), the PSDL roads'
+  flags, ends and vertices, block flag 0x40 (off the ground's level), the
+  road blocks' second byte (the street furniture rule), the facade
+  bounds' direction, the dividers' texture, kind and height (raised and
+  solid now) ([psdl.md](../formats/age/psdl.md), [bai.md](../formats/age/bai.md)).
+  Models and cars are lit as the city is, by all three lights, with their
+  shaders' ambient colours as Direct3D uses them ([tune.md](../formats/age/tune.md)).
+- Still not known: some flags and words of the tunnel attribute, a few
+  road flags (the `.bai`'s 0x8, the PSDL's 0x100-0x800), block flags 0x20
+  and 0x80, texture flags 0x4, 0x8000 and 0x10000, and whether the game
+  uses the low-detail roads as Reluva does. For watching the game run.
 
 ### 4. Driving (done)
 
@@ -188,9 +196,11 @@ recording how each format was worked out (CONTRIBUTING.md).
   surface, knocks and the suspension.
 - Drive page: any car round either city.
 - Still not known: Aero's angular damping, `.vehGyro`, the tyres'
-  finer terms, where the game lays out its HUD, which particle texture
-  the smoke uses, `.ter` ([bnd.md](../formats/age/bnd.md)). For
-  watching the game run ([age-driving.md](age-driving.md)).
+  finer terms (what can be said from the 48 cars' values is in
+  [age-driving.md](age-driving.md)), where the game lays out its HUD,
+  which particle texture the smoke uses, the rest of `.ter` after its
+  grid's header ([bnd.md](../formats/age/bnd.md); the bounds' material
+  effects and sounds are all none). For watching the game run.
 
 ### 5. The game
 
