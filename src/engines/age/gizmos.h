@@ -31,7 +31,7 @@ public:
     Gizmos(const Gizmos&) = delete;
     Gizmos& operator=(const Gizmos&) = delete;
     // Seconds of a drawbridge's cycle: down, rising, up, falling.
-    static constexpr float kDown = 50, kRising = 8, kUp = 20, kFalling = 8;
+    static constexpr float kDown = 74, kRising = 8, kUp = 40, kFalling = 8;
     static constexpr float kRaised = 0.5f; // radians a leaf rises to
     // A train: its carriages (as London's aimap's commented-out
     // "[Subway] va_ug_l 3" has it), top speed (m/s), acceleration and

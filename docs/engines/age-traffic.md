@@ -354,9 +354,13 @@ Francisco's Chinatown gate, which stands still.
   metre for ducks, so long boats turn as a whole), bobbing 8 cm (2 for
   ducks). They don't collide.
 - **Drawbridges**: each leaf turns up about its hinge, the end at the
-  bank. The cycle is Reluva's: 50 seconds down, 8 rising, 20 up (to half
-  a radian, about 29°), 8 falling, each bridge 29 seconds behind the one
-  before; a race's `open:` bridge starts up. A leaf is as wide as half
+  bank. They go up and down on a timer: 74 seconds down, 8 rising, 40 up
+  (to half a radian, about 29°), 8 falling, 130 s in all, each bridge
+  29 seconds behind the one before; a race's `open:` bridge starts up.
+  The 130 s fits two runs of London Run in the footage
+  ([age-footage.md](age-footage.md)): raised 10-18 s into the race,
+  down at about 80 s, raised again at about 140 s. The phases' lengths
+  are Reluva's within that. A leaf is as wide as half
   its model, which is modelled about the middle of its length with its
   road at its origin's height, and is drawn hinged at the path's height.
 - **Driving over them**: a leaf's road is two triangles that move with
@@ -370,8 +374,8 @@ Francisco's Chinatown gate, which stands still.
   across each hinge, every 2 m, that cars held up 10 seconds don't drive
   through as they do through others.
 
-Whether the game raises its bridges on a timer, when ships come or only
-in some races isn't known.
+No ships were seen near a raised bridge in the footage, so the timer
+isn't tied to boats. Tower Bridge was down when crossed in Bridge Bash.
 
 ## Ambient sounds
 

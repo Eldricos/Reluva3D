@@ -1576,6 +1576,16 @@ void RaceViewer::update(uint64_t nowMs) {
         music.chased = life_.police().chasing() > 0;
         music.finished = state_ == State::Finished;
         music.paused = paused_;
+        if (state_ == State::Racing && !lesson() && !targets_.empty()) {
+            const Racer& me = racers_.front();
+            const int laps = race_.settings[size_t(level_)].laps;
+            if (race_.kind == RaceKind::Circuit)
+                music.lastStretch = laps > 1 && lastLap_ == laps - 1;
+            else if (anyOrder())
+                music.lastStretch = remaining(me) == std::vector<size_t>{targets_.size() - 1};
+            else
+                music.lastStretch = me.next + 1 == targets_.size();
+        }
         music_.update(dt, music);
         // A second off the ground: the tune's big-air motif, once a jump.
         {
