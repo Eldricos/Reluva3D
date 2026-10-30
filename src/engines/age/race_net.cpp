@@ -822,8 +822,10 @@ void RaceViewer::drawNetHud() {
                    {150, 200, 255});
     const bool timed = set.mode == NetMode::CopsRobbers && set.limit == GoldLimit::Time;
     const float shown = timed ? float(set.limitValue) * 60 - std::max(0.0f, clock_) : std::max(0.0f, clock_);
-    font::drawText(overlay_, 4, 18, (timed ? "LEFT " : "TIME ") + clockText(shown), {255, 255, 255}, 2);
-    pictures_.clock(overlay_, shown, kFrameW - 8, 8);
+    if (pictures_.loaded())
+        pictures_.clock(overlay_, shown, kFrameW / 2, 0);
+    else
+        font::drawText(overlay_, 4, 18, (timed ? "LEFT " : "TIME ") + clockText(shown), {255, 255, 255}, 2);
     if (set.mode == NetMode::CopsRobbers) {
         // The score: each team's, or each player's (the best first).
         int y = 40;

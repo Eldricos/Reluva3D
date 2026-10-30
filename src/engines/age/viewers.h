@@ -433,6 +433,7 @@ private:
     float progressOf(const Racer& r) const;
     void drawCheckpoints();
     void drawArrow();
+    void drawOpponentMarkers();
     void drawMap(float dt);
     void drawMenu();
     void drawRaceHud();
@@ -500,6 +501,10 @@ private:
     std::string beatenAll_; // "You've beaten all the Blitz races!!", once they are
     float finalLapFor_ = 0; // seconds "Final lap!" has left
     int lastLap_ = 0;
+    std::vector<float> lapEnds_;     // the clock at each of the player's laps' ends
+    float splitFor_ = 0, split_ = 0; // the time shown after a checkpoint, and for how long yet
+    bool splitIsLap_ = false;
+    gfx::Mat4 viewProj_{}; // this frame's, for the opponents' markers
     PlayerRecord record_; // the current driver's
     // The race's conditions as the menus changed them (else its own).
     FrontEnd::Choice::Conditions conditions_;

@@ -31,6 +31,21 @@ const RaceKind kKinds[] = {RaceKind::Blitz, RaceKind::Circuit, RaceKind::Checkpo
 constexpr int kKindCount = kRacePageKinds;
 constexpr float kMph = 2.23694f;
 
+// Where the game puts its race messages and its list on a 640 x 480
+// screen (measured on its own screens): the list's lines 24 apart from
+// y 23, its labels green; the countdown and messages over the road at
+// y 110; the time after a checkpoint under the car.
+constexpr int kListTop = 23, kListStep = 24, kMessageY = 110, kSplitY = 394;
+constexpr Color kListLabel{130, 230, 120}, kMessage{255, 230, 120};
+
+// A lap's or a split's time as the game shows it: "0:45:21".
+std::string splitText(float seconds) {
+    const int hundredths = std::max(0, int(seconds * 100));
+    char text[24];
+    std::snprintf(text, sizeof text, "%d:%02d:%02d", hundredths / 6000, hundredths / 100 % 60, hundredths % 100);
+    return text;
+}
+
 std::string clockText(float seconds) {
     if (seconds < 0)
         seconds = 0;
@@ -360,6 +375,8 @@ void RaceViewer::startRace() {
     beatenAll_.clear();
     finalLapFor_ = 0;
     lastLap_ = 0;
+    lapEnds_.clear();
+    splitFor_ = 0;
     if (lesson())
         judge_.start(race_.lesson);
     keys_ = 0;
@@ -522,6 +539,18 @@ void RaceViewer::stepRace(float dt) {
 
     if (state_ == State::Countdown && started)
         state_ = State::Racing;
+    // A checkpoint passed: the time so far, a lap's own at its end.
+    splitFor_ = std::max(0.0f, splitFor_ - dt);
+    if (checkpoint && !lesson() && !racers_.empty()) {
+        const Racer& player = racers_.front();
+        const size_t perLap = race_.waypoints.size();
+        splitIsLap_ = race_.kind == RaceKind::Circuit && perLap && player.next % perLap == 0;
+        const float lapStart = lapEnds_.empty() ? 0 : lapEnds_.back();
+        split_ = race_.kind == RaceKind::Circuit ? clock_ - lapStart : clock_;
+        if (splitIsLap_)
+            lapEnds_.push_back(clock_);
+        splitFor_ = 3;
+    }
     if (netGame_) {
         stepNet(dt);
         return;
@@ -935,12 +964,17 @@ void RaceViewer::drawArrow() {
 
 void RaceViewer::drawArrowTo(const Vec3& target, bool blitz) {
     const Racer& player = racers_.front();
-    const ModelCache::Model& arrow = scene_->models().get(blitz ? "hudarrow_blitz01" : "hudarrow01");
-    if (!arrow.ok)
-        return;
     const Vec3 at = player.car->sim.position + Vec3{0, 2.8f, 0};
     Vec3 to = target - at;
     to[1] = 0;
+    // Its second paint job (yellow) when the way is behind the car, as the
+    // game's loading tips say.
+    Vec3 ahead = -player.car->sim.orientation.z;
+    ahead[1] = 0;
+    const bool behind = dot(ahead, to) < 0;
+    const ModelCache::Model& arrow = scene_->models().get(blitz ? "hudarrow_blitz01" : "hudarrow01", behind ? 1 : 0);
+    if (!arrow.ok)
+        return;
     const float yaw = length(to) > 0.1f ? std::atan2(-to[0], -to[2]) : 0;
     SceneLight bright;
     bright.ambient = {1, 1, 1};
@@ -955,6 +989,59 @@ void RaceViewer::drawArrowTo(const Vec3& target, bool blitz) {
         call.state.depthTest = false;
         call.state.cull = gfx::Cull::None;
         renderer_->draw(call);
+    }
+}
+
+void RaceViewer::drawOpponentMarkers() {
+    // Over each opponent the game's marker: a purple triangle pointing down
+    // at it and, once the race is on, its place in opp_icon's digits above
+    // (measured on the game's screens: the triangle 1.5 m across, 2.3 m
+    // tall, its point 4.5 m over the car; the digit as wide, over it).
+    constexpr float kTip = 4.5f, kTop = 6.8f, kHalfWidth = 0.75f, kDigit = 8.0f, kDigitSize = 1.4f;
+    constexpr uint8_t kPurple[3] = {192, 16, 255};
+    std::vector<const Racer*> order;
+    for (const Racer& r : racers_)
+        order.push_back(&r);
+    std::stable_sort(order.begin(), order.end(),
+                     [&](const Racer* a, const Racer* b) { return progressOf(*a) > progressOf(*b); });
+    struct Marker {
+        float depth, x, tipY, topY, pixelsPerMetre;
+        int place;
+    };
+    std::vector<Marker> markers;
+    for (size_t i = 0; i < order.size(); ++i) {
+        const Racer& r = *order[i];
+        if (r.player)
+            continue;
+        const Vec3 at = r.car->sim.position;
+        const Vec3 tip = gfx::transformPoint(viewProj_, at + Vec3{0, kTip, 0});
+        const Vec3 top = gfx::transformPoint(viewProj_, at + Vec3{0, kTop, 0});
+        if (tip[2] <= 0 || tip[2] >= 1 || top[2] <= 0 || top[2] >= 1)
+            continue; // behind the eye, or too far
+        auto px = [](float ndc, int size) { return (ndc * 0.5f + 0.5f) * float(size); };
+        const float tipY = float(kFrameH) - px(tip[1], kFrameH), topY = float(kFrameH) - px(top[1], kFrameH);
+        markers.push_back({tip[2], px(tip[0], kFrameW), tipY, topY, (tipY - topY) / (kTop - kTip), int(i + 1)});
+    }
+    // The farthest first, so the nearer go over them.
+    std::sort(markers.begin(), markers.end(), [](const Marker& a, const Marker& b) { return a.depth > b.depth; });
+    for (const Marker& m : markers) {
+        if (m.x < -200 || m.x > kFrameW + 200 || m.pixelsPerMetre <= 0)
+            continue;
+        const float half = kHalfWidth * m.pixelsPerMetre;
+        for (int y = std::max(0, int(m.topY)); y < std::min(kFrameH, int(m.tipY)); ++y) {
+            const float w = half * (m.tipY - float(y)) / std::max(1.0f, m.tipY - m.topY);
+            uint8_t* row = overlay_.row(y);
+            for (int x = std::max(0, int(m.x - w)); x < std::min(kFrameW, int(m.x + w) + 1); ++x) {
+                uint8_t* d = row + x * 4;
+                d[0] = kPurple[0];
+                d[1] = kPurple[1];
+                d[2] = kPurple[2];
+                d[3] = 255;
+            }
+        }
+        if (clock_ >= 0 && m.place <= 8)
+            pictures_.place(overlay_, m.place, int(m.x), int(m.tipY - (kDigit - kTip) * m.pixelsPerMetre),
+                            std::max(4, int(kDigitSize * m.pixelsPerMetre)));
     }
 }
 
@@ -1074,27 +1161,68 @@ void RaceViewer::drawRaceHud() {
     }
     const Racer& player = racers_.front();
     const RaceSettings& set = race_.settings[size_t(level_)];
-    font::drawText(overlay_, 4, 4, race_.name + "  (" + raceKindName(race_.kind) + ")", {150, 200, 255});
-    // Time, or time left in a Blitz or a lesson with a limit.
+    drawOpponentMarkers();
+    // Time, or time left in a Blitz or a lesson with a limit: the game's
+    // digits, top middle.
     const float lessonLeft = lesson() ? judge_.timeLeft(clock_) : -1;
     const bool blitz = (race_.kind == RaceKind::Blitz && set.timeLimit > 0) || lessonLeft >= 0;
     const float shown = lessonLeft >= 0 ? lessonLeft
                         : blitz         ? set.timeLimit - std::max(0.0f, clock_)
                                         : std::max(0.0f, clock_);
-    font::drawText(overlay_, 4, 18, (blitz ? "LEFT " : "TIME ") + clockText(shown),
-                   blitz && shown < 10 ? Color{255, 90, 90} : Color{255, 255, 255}, 2);
-    pictures_.clock(overlay_, shown, kFrameW - 8, 8); // and in the game's digits, top right
-    // Checkpoints, laps, position.
-    const size_t perLap = race_.waypoints.size() - (race_.kind == RaceKind::Circuit ? 0 : 1);
+    if (pictures_.loaded())
+        pictures_.clock(overlay_, shown, kFrameW / 2, 0);
+    else
+        drawCentred(clockText(shown), 4, blitz && shown < 10 ? Color{255, 90, 90} : Color{120, 255, 120}, 3);
+    // The game's list, top left (its words: Place, Check, Lap): the place
+    // against opponents, the checkpoints this lap, the lap, and each lap's
+    // time, the one under way last.
+    const bool circuit = race_.kind == RaceKind::Circuit;
+    const size_t perLap = std::max<size_t>(1, race_.waypoints.size() - (circuit ? 0 : 1));
+    const int laps = std::max(1, set.laps);
+    const int lap = std::min(int(player.next / perLap), laps - 1);
     char buf[80];
-    if (race_.kind == RaceKind::Circuit) {
-        const int laps = std::max(1, set.laps);
-        std::snprintf(buf, sizeof buf, "LAP %d/%d", std::min(int(player.next / perLap) + 1, laps), laps);
-        font::drawText(overlay_, 4, 40, buf, {255, 255, 255}, 2);
+    int listY = kListTop;
+    auto listLine = [&](const std::string& label, const std::string& value, int valueX) {
+        font::drawText(overlay_, 2, listY, label, kListLabel);
+        font::drawText(overlay_, valueX, listY, value, {255, 255, 255});
+        listY += kListStep;
+    };
+    auto word = [&](uint32_t id, const char* fallback) {
+        std::string w = strings_.get(id, fallback);
+        while (!w.empty() && w.back() == ' ')
+            w.pop_back();
+        return w;
+    };
+    if (racers_.size() > 1 && !lesson()) {
+        int place = 1;
+        const float mine = progressOf(player);
+        for (const Racer& r : racers_)
+            if (!r.player && progressOf(r) > mine)
+                ++place;
+        std::snprintf(buf, sizeof buf, "%d/%zu", place, racers_.size());
+        listLine(word(259, "Place:"), buf, 50);
+    }
+    if (circuit) {
+        std::snprintf(buf, sizeof buf, "%zu/%zu", player.next >= targets_.size() ? perLap : player.next % perLap,
+                      perLap);
+        listLine(word(260, "Check:"), buf, 50);
+        std::snprintf(buf, sizeof buf, "%d/%d", lap + 1, laps);
+        listLine(word(261, "Lap:"), buf, 50);
+        for (size_t i = 0; i < lapEnds_.size(); ++i)
+            listLine(std::to_string(i + 1) + ".", splitText(lapEnds_[i] - (i ? lapEnds_[i - 1] : 0)), 28);
+        if (lapEnds_.size() < size_t(laps) && clock_ > 0)
+            listLine(std::to_string(lapEnds_.size() + 1) + ".",
+                     splitText(clock_ - (lapEnds_.empty() ? 0 : lapEnds_.back())), 28);
     } else {
-        std::snprintf(buf, sizeof buf, "CHECKPOINT %zu/%zu", std::min(player.next + 1, targets_.size()),
-                      targets_.size());
-        font::drawText(overlay_, 4, 40, buf, {255, 255, 255}, 2);
+        std::snprintf(buf, sizeof buf, "%zu/%zu", std::min(player.next, targets_.size()), targets_.size());
+        listLine(word(255, "Check:"), buf, 50);
+    }
+    // After each checkpoint, the time so far (this lap's in a circuit)
+    // under the car; at a lap's end with "Lap time" over it.
+    if (splitFor_ > 0) {
+        drawCentred(splitText(split_), kSplitY, kMessage, 1);
+        if (splitIsLap_)
+            drawCentred(strings_.get(63, "Lap time"), kSplitY - 22, kMessage, 1);
     }
     if (lesson()) {
         // The game's message for the moment.
@@ -1105,7 +1233,7 @@ void RaceViewer::drawRaceHud() {
                 std::snprintf(line, sizeof line, text.c_str(), double(judge_.minimumSpeed()));
                 text = line;
             }
-            int y = 110;
+            int y = kMessageY;
             for (size_t at = 0; at <= text.size();) { // a string may have line breaks
                 size_t end = text.find('\n', at);
                 if (end == std::string::npos)
@@ -1113,48 +1241,40 @@ void RaceViewer::drawRaceHud() {
                 std::string line = text.substr(at, end - at);
                 while (!line.empty() && line.front() == ' ')
                     line.erase(line.begin());
-                const int w = int(line.size()) * font::kAdvance * 2;
-                font::drawText(overlay_, (kFrameW - w) / 2, y, line, {255, 230, 120}, 2);
+                drawCentred(line, y, kMessage, 2);
                 y += font::kLineHeight * 2 + 4;
                 at = end + 1;
             }
         }
         if (judge_.penalty() > 0) {
             std::snprintf(buf, sizeof buf, "PENALTY %.0f s", judge_.penalty());
-            font::drawText(overlay_, 4, 62, buf, {255, 120, 90}, 2);
+            font::drawText(overlay_, 2, listY, buf, {255, 120, 90});
         }
-    } else if (racers_.size() > 1) {
-        int place = 1;
-        const float mine = progressOf(player);
-        for (const Racer& r : racers_)
-            if (!r.player && progressOf(r) > mine)
-                ++place;
-        std::snprintf(buf, sizeof buf, "POS %d/%zu", place, racers_.size());
-        font::drawText(overlay_, 4, 62, buf, {255, 210, 80}, 2);
     }
     // The countdown, as the game words it: Ready... Set... Go! (The stunt's
-    // longer words smaller, and its word after the start.)
+    // words after the start too.) Where the game shows its messages: over
+    // the middle of the road.
     if (stunt()) {
         if (clock_ < -kCountdown / 2)
-            drawCentred(raceMessage(0, "Race to the end of the pier!"), kFrameH / 2 - 40, {255, 255, 255}, 2);
+            drawCentred(raceMessage(0, "Race to the end of the pier!"), kMessageY, kMessage, 2);
         else if (clock_ < 0)
-            drawCentred(raceMessage(1, "But don't fall in!"), kFrameH / 2 - 40, {255, 230, 120}, 2);
+            drawCentred(raceMessage(1, "But don't fall in!"), kMessageY, kMessage, 2);
         else if (clock_ < 1)
-            drawCentred(raceMessage(2, "Go!"), kFrameH / 2 - 40, {120, 255, 120}, 6);
+            drawCentred(raceMessage(2, "Go!"), kMessageY, kMessage, 2);
         else if (stuntMessageFor_ > 0)
-            drawCentred(strings_.get(stuntMessage_), 110, {255, 230, 120}, 2);
+            drawCentred(strings_.get(stuntMessage_), kMessageY, kMessage, 2);
     } else if (!lesson()) {
         if (clock_ < -kCountdown / 2)
-            drawCentred(raceMessage(0, "Ready..."), kFrameH / 2 - 40, {255, 255, 255}, 5);
+            drawCentred(raceMessage(0, "Ready..."), kMessageY, kMessage, 2);
         else if (clock_ < 0)
-            drawCentred(raceMessage(1, "Set..."), kFrameH / 2 - 40, {255, 230, 120}, 5);
+            drawCentred(raceMessage(1, "Set..."), kMessageY, kMessage, 2);
         else if (clock_ < 1)
-            drawCentred(raceMessage(2, "Go!"), kFrameH / 2 - 40, {120, 255, 120}, 6);
+            drawCentred(raceMessage(2, "Go!"), kMessageY, kMessage, 2);
     } else if (clock_ < 0) {
-        drawCentred(std::to_string(int(std::ceil(-clock_))), kFrameH / 2 - 40, {255, 255, 255}, 8);
+        drawCentred(std::to_string(int(std::ceil(-clock_))), kMessageY, kMessage, 2);
     }
     if (finalLapFor_ > 0)
-        drawCentred(strings_.get(62, "Final lap!"), kFrameH / 2 - 80, {255, 120, 90}, 4);
+        drawCentred(strings_.get(62, "Final lap!"), kSplitY - 22, kMessage, 1);
     if (state_ == State::Finished && lesson()) {
         font::drawText(overlay_, 60, 170, outcome_, {255, 255, 120}, 3);
         const bool passed = judge_.result() == LessonJudge::Result::Passed;
@@ -1244,6 +1364,7 @@ void RaceViewer::update(uint64_t nowMs) {
     const gfx::Mat4 viewProj = gfx::multiply(
         gfx::perspective(fov * kPi / 180, float(kFrameW) / float(kFrameH), 0.1f, currentOptions().farClip()),
         gfx::lookAlong(eye, normalized(target - eye), up));
+    viewProj_ = viewProj;
     if ((state_ == State::Menu || racers_.empty()) && front_) {
         // The game's menus, over a dark frame (the garage's car in its
         // window), with their music and voices.

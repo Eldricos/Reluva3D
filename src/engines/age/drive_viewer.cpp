@@ -126,10 +126,7 @@ CarControls controlsOf(uint32_t keys) {
 void drawSpeedometer(Surface& overlay, const CarSim& sim, int right, float damage, const HudPictures& pictures) {
     const int h = overlay.h;
     if (pictures.loaded()) {
-        // The panel bottom left, the damage meter between it and the map.
-        constexpr int kPanelW = 202, kPanelH = 110;
-        pictures.speedometer(overlay, sim, 8, h - kPanelH - 8);
-        pictures.damage(overlay, damage, kPanelW + 16, h - 10, std::max(40, right - kPanelW - 24));
+        pictures.gauges(overlay, sim, damage);
         return;
     }
     char speed[16];
