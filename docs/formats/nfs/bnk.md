@@ -71,7 +71,7 @@ taken as empty.
 | `0x92` | the 3D method: 1 software (iSND mixes it), 2 DirectSound 3D | 1 |
 | `0x93` | room for the DirectSound 3D buffer's pointer, 0 in the files | |
 | `0x00`-`0x25` | the patch's parameters, below | |
-| `0x91` | 50 in all that have it; read with the stream's tags, unknown | |
+| `0x91` | the mixing quality, 0-100: 50 (182 sounds) or 100 (25, in the traffic cars' and `FeData/Plac`'s `car.viv`); below | 0 |
 
 **How these were worked out** (October 2026). Each tag was surveyed over
 all 408 banks. The game's sound code (iSND, linked into `nfs3.exe`) was
@@ -92,6 +92,9 @@ then read where it parses PT headers:
   38 parameters (the "patch"; iSND's messages speak of tagged patches). `FD` and `FE` mark the patch's
   alternatives. An alternative is used when two values (the call's) fall
   within the ranges held in parameters 1-2 and 3-4.
+- `0x91` is read at `0x522658`, by the routine that hands a voice to
+  iSND's software mixer (`0x522510`, called from `0x501d65`); see The
+  mixing quality below.
 - The routine that starts a voice (`0x501978`) uses them, and the ones
   that update it (`0x502cb0`, `0x502d30`, and the 100 Hz tick at
   `0x500c80`). Those name most of them; see Patch parameters below.
@@ -109,6 +112,14 @@ The values, over all the banks (most common first):
 | `0x11` | 200, 300, 100, 150 | ambiences, positioned, rain |
 | `0x13` | 127, 100, 110 | ambiences, positioned, sirens |
 | `0x19`-`0x23` | 0 to 1,826 | a few ambiences |
+| `0x08` | 0 (54), 2, 3 | 58 sounds: `putt`, `sputt`, positioned sounds |
+| `0x09` | 3, 4 | the 4 sounds with a `0x19` envelope (`tr3d00`, `tr3d04`, `tram00`, `tram04`) |
+| `0x12` | 147 to 191 | 25 sounds in cars' banks |
+| `0x1C` | 0 | the 2 envelopes of `tr3d04` and `tram04` |
+
+None of the install's 4,426 sounds has `0x00`, `0x14`, `0x16`, `0x18`,
+`0x1A`, `0x1B` or `0x25` (October 2026, a survey of the 408 banks on the
+install, alternatives included).
 
 ## Patch parameters
 
@@ -127,11 +138,61 @@ gives −x to x):
 | `0x0E` | the volume (0-127), with `0x0F` a random amount either side |
 | `0x10` | the fine tune, in cents, a signed byte (249 is −7) |
 | `0x11` | a random amount of pitch either side, in cents |
-| `0x15` | a table the velocity is read through |
+| `0x15` | a table the pan is read through, after the caller's pan is added (`0x501bcb`, and `0x4e9a43` when the pan changes) |
 | `0x17` | a table the bend is read through (none on the retail sounds' engines) |
-| `0x1D`, `0x1E`, `0x1F` | a second wobble's table and period (100 Hz ticks), started at a random point if `0x1F` is set |
+| `0x1D`, `0x1E`, `0x1F` | a volume wobble: its table (the volume is × value / 127, `0x5014fa`) and period (100 Hz ticks), started at a random point if `0x1F` is set |
 | `0x20`, `0x21`, `0x22`, `0x23` | a pitch wobble: its table, its period in 100 Hz ticks, its depth in cents, and (if set) a random starting point |
-| `0x24` | when set, the caller's own detune (in cents) is added |
+| `0x24` | a random detune either side, in cents: drawn once per call (`0x50204c`), the same for all the call's voices, and added when `0x24` is set (`0x501b38`) |
+| `0x25` | how much of the caller's pan is used (default 1): the caller's pan p becomes `0x25` × (p − 64) + 64 (`0x501b8b`, `0x4e9a13`); 1 leaves it, 0 centres it |
+| `0x09`, `0x19`, `0x1C` | a volume envelope (below): its number of segments (default 1), its table, and its starting level (default 127) |
+| `0x12` | a table the voice's final volume (0-127) is read through (`0x501526`) |
+| `0x13` | the send to iSND's effects bus 0 (0-127, default 0), below |
+| `0x00`, `0x08`, `0x1B` | copied into the voice (+0x0D, +0x36, +0x0B; `0x501b6d`, `0x501c4e`, `0x501ce7`). Nothing was found reading +0x0D or +0x36 back. +0x0B is read only by the audio streamer (`sstream.c`, `0x4e8a8d`), from the patch it builds for itself |
+| `0x14`, `0x16`, `0x18`, `0x1A` | stored by `0x501de8` but not read when a voice starts |
+
+Tables (`0x12`, `0x15`, `0x17`, `0x19`, `0x1D`, `0x20`) are given as
+offsets from the tag; `0x5018dc` turns them into pointers.
+
+**The volume** of a voice, 0-127, is computed at `0x5014a0` as
+
+caller's volume × (patch volume × velocity / 127) × envelope level ×
+master / 127³,
+
+then multiplied by the `0x1D` wobble's table value / 127 when there is
+one, then read through `0x12`'s table when there is one.
+
+**The envelope** (`0x19`): pairs of u32, a length in 100 Hz ticks and a
+level (0-127). The level starts at `0x1C` and moves in a straight line to
+each pair's level over its length (`0x501c32`; the tick at `0x500d4c`). A
+negative length holds forever. After the last of `0x09`'s segments the
+voice stops (`0x500d72`). The default table (`0x5678a8`) is one pair,
+(forever, 127): a sound plays at full level until it ends. `tr3d04` and
+`tram04` start theirs at level 0, so they fade in.
+
+**The effects send** (`0x13`): the voice's level into effects bus 0 is
+`0x13` × the caller's send × the bus's master level / 127² (`0x501d26`,
+`0x50319a`); iSND's mixer then sends (left + right) / 2 × that / 128 of
+the voice to the bus (`0x500654`). The game sets the bus up once
+(`SNDfxinitbus` at `0x4e9c70`, called from `0x418759` with 127 and 20),
+and turns its master level to 127 (`0x418770`) when a test of the
+player's car at `0x4174dd` (`0x420bf0`) holds, and back to 0 otherwise.
+What the bus does (an echo or reverb, by its use) and what `0x420bf0`
+tests (tunnels?) weren't followed.
+
+**The mixing quality** (`0x91`). At `0x522658`, `0x91` (0 if absent)
+plus a game-wide offset (`0x9ef616`) is clamped to 0-100 and passed to
+the mixer's voice setup (`0x5000b8`). There it picks one of two sets of
+routines for the voice's sample format (`0x500100` and on): 25 or less,
+the set at `0x9f6aec`; above, the set at `0x9f6afc`. With MMX (CPUID bit
+23, `0x4f1dc2`) both sets hold the same routines (`0x4ffda2`). Without
+it they differ: `0x5211c0`/`0x521310` below, a resampler that repeats
+samples by a 16.16 step (`0x52125b`), and `0x521bc4`/`0x521800` above,
+which choose separate routines for rates above, below and at the
+output's (`0x52175c`). The offset is set at `0x40fcde`: 0, or −50 when
+the audio option at `0x6fbbe0` is 0 (it is 1 by default, `0x4725f2`).
+So the retail sounds (50 or 100) get the better routines unless that
+option drops the 50s to 0. How the two routine sets sound different was
+not followed.
 
 **The pitch** is in cents from the sound's own rate: the rate is
 × 2^(cents / 1200), from a table of 2^(2^i cents) (`0x522e90`, the

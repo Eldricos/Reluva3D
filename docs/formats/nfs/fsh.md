@@ -107,7 +107,19 @@ Attached blocks after the picture:
   speedometer reads 0-170 mph about (384, 407), its tachometer 0-7
   about (319, 407), and the colour texels are needle-coloured (white,
   orange on `corv`, amber on `diab`). The F355's gear pictures (`geaR`
-  to `gea6`) carry 7 pairs too, the same on each; nothing reads them.
+  to `gea6`) carry 7 pairs too, the same on each; the game doesn't read
+  them. The `0x7C` finder (`0x4f2460`) has one caller, `0x488c36`, on
+  picture `0000`.
+- **The gear indicator** (`0x488c5d`). When `dash.qfs` has more than two
+  pictures (on the install, only the F355's), the cockpit loader loads
+  `geaR`, `geaN`, `gea1` ... `gea6` as eight textures (`0x4d4080`, slots
+  at `0x791c10`, 0x2C bytes each) and sets `0x55d6a4`. It places the
+  indicator from `geaR`'s header alone: its position fields (offset 12,
+  12-bit signed x and y; 312, 371 on the F355), kept as floats at
+  `0x55d69c` and `0x55d6a0`. Each frame (`0x4894f1`) it draws the picture
+  for the car's gear byte (+0x50B, an index into the eight in that order)
+  at that point, scaled by the screen's width / 640 and height / 480, at
+  that picture's own width and height.
   The Cockpits page draws the needles so. These parts are Reluva's own
   choices, not read from the game: a reading past the range stops at its
   end; a needle is a flat quad in the texel's colour; and the steering

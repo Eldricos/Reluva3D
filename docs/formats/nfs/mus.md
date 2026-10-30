@@ -122,14 +122,40 @@ game's calls to it (`0x4131xx`-`0x4136c6`, `0x418990`):
   - **0, at once** (`SNDpatheventinterrupt`): when the car's reset
     timer passes 600 ticks, and from `0x418c60`. The zone follows as
     an ordinary event.
-  - 2 and 3 weren't seen sent.
+  - **2 and 3 are never sent by the game's own code.** The only calls
+    to `SNDpathevent` and `SNDpatheventinterrupt` are at `0x41356e`,
+    `0x41358e`, `0x4136c6`, `0x418a37`, `0x418aac`, `0x418b2e`,
+    `0x418c1c`, `0x418c93` and `0x418cb3`. Each sends the constant 0 or
+    1, or the current zone (`0x552834`, 4 at a race's start, `0x412ab9`;
+    then the FRD zone, `0x4211c0`). So 2 or 3 would come only from a
+    track whose zone byte is 2 or 3, and the retail tracks have none.
 - **The control value** (`SNDpathcontrol`), set when it changes:
   - in a pursuit: 0 at the start and at the lower level, 100 at the
     higher ("Low Cop Music", "Hi Cop Music");
-  - else 100 on the last lap (or past lap 5 of an 8-lap race), 50 on
-    the laps between, 0 on the first lap of a race of more than two
-    laps; in some race modes (a setting at `0x6fd520`) raised by 100 or
-    50 by a value of the race passed in;
+  - else, by the lap (`0x4133ad`; laps counted from 0, of n): 100 on
+    the last lap (or past lap 5 of an 8-lap race); 0 on lap 0 of a race
+    of other than two laps, and on lap 1 of an 8-lap race; else 50;
+  - then a race setting at `0x6fd520` (`0x413403`) changes it:
+    - 0: no change;
+    - 1: tables by lap (0-7, `0x412d14` and `0x412d34`), one for the car
+      in the lead and one for the rest:
+
+      | Lap | Leading | Not leading |
+      |---|---|---|
+      | 0 | 50 in a 2-lap race, else 0 | 0 |
+      | 1 | 100 in a 2-lap race, else 50 | 50 in a 2-lap race, else 0 |
+      | 2 | 100 in a 4-lap race, else 50 | 50 in a 4-lap race, else 0 |
+      | 3 | 100 in a 4-lap race, else 50 | 100 in a 4-lap race, else 0 |
+      | 4-6 | 100 | 50 |
+      | 7 | 100 | 100 |
+
+    - 2 or more: +100 in first place, +50 in second or third, at most
+      100.
+
+    The place is the driver record's +0x2BC (`0x412d85`), 1 for the
+    leader: the race order, numbered from 1 after sorting the cars
+    (`0x4553f2`). What the setting's values stand for (race types?)
+    wasn't followed;
   - and 0 whenever the car is slower than 25 (its speed field, × 2,
     under 50): standing still, the music stays calm.
 

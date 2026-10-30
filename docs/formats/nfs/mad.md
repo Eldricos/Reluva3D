@@ -198,17 +198,92 @@ Reluva has this as `MadDecoder::Arithmetic::Game` (`mad-frames ...
 reference decode by about 1 in 8 bits, and is no closer to frames
 captured from the game running in nfs-host.
 
-## What isn't known
+## The game's display step
 
-- **The display step.** After 0x510ff8 the frame is a 4:2:2 buffer of 2
-  bytes a pixel (allocated at 0x4957f6). How the game turns it into RGB
-  and doubles it to 640×480 (0x4df1f0, 0x4df310) hasn't been followed.
-  The Movies page converts with the full-range BT.601 matrix and shows
-  each pixel twice.
+Read from the disassembly (October 2026). After 0x510ff8 the frame is a
+4:2:2 buffer of 2 bytes a pixel (allocated at 0x4957f6): per pixel pair
+the bytes V, U, Y1, Y0, each a 7-bit sample (0-127).
+
+| Address | What |
+|---|---|
+| 0x495bc0 | opens a movie; called once, from 0x4961b5 |
+| 0x4df1f0 | the display setup: keeps the position, size and mode |
+| 0x4df2b0 | shows a frame |
+| 0x4fdc90 | the software converter: clipping, then a routine per line |
+| 0x4fda20 | builds the conversion tables for 15- or 16-bit screens |
+| 0x4fd61c, 0x4fd6ef, 0x4fd7b6, 0x4fd892, 0x4fd8ee | the line routines |
+
+**Hardware or software.** 0x4df1f0 can ask DirectDraw for overlay or
+blit support for YUV surfaces (its caps, bits 0x2000/0x4000 and
+0x100/0x200), but the movie player always passes the flag that skips
+this (`push 0x1` at 0x4961ab), so movies always go through the software
+converter. It works only on 15- and 16-bit screens (0x565010); any other
+returns −2.
+
+**The scaling mode** depends on the CPU's clock, measured at start-up
+(0x4f2076, MHz × 10⁶ in 0x5652a4; chosen at 0x496175):
+
+| CPU | Mode | Each output frame |
+|---|---|---|
+| under 133 MHz | 1 | each pixel twice across, on even lines; odd lines not written |
+| 133-199 MHz | 2 | as 1, and each odd line the average of the source lines above and below it, each pixel twice across |
+| 200 MHz and up | 3 | interpolated across and down (below) |
+
+The picture is centred on the screen at twice its size (0x495c92).
+
+**The conversion** (tables from 0x4fda20). With Y, U, V the 7-bit
+samples:
+
+- R = 2Y + 1 + 2 × round(1.402 × (V − 63.5))
+- G = 2Y + 1 + 2 × (round(−0.3441 × (U − 63.5)) + round(−0.7141 × (V − 63.5)))
+- B = 2Y + 1 + 2 × round(1.772 × (U − 63.5))
+
+Each is clamped to 0-255. These are the full-range BT.601 (JPEG)
+coefficients, applied to the 7-bit samples' centres; each chroma term is
+rounded to the nearest (x87 `fistp`, in the FPU's rounding mode) on its
+own, and G's two separately. Then each component is cut to 5 bits (6 for
+16-bit G) in one of two ways:
+
+- the left pixel of each output pair (low half of each 32-bit write):
+  (c + 4) >> 3, at most 31 (6-bit G: (c + 2) >> 2, at most 63);
+- the right pixel: c >> 3 (c >> 2).
+
+So even columns are rounded and odd columns truncated, a two-pixel
+dither. 0x4fdd09 makes the starting x odd when the screen address there
+isn't 4-byte aligned, keeping the writes aligned.
+
+**The averages** are per byte, of the 7-bit samples, rounded down:
+(a + b) >> 1 on the packed 32-bit words, masked with 0x7F7F7F7F.
+
+- **Pixel repeat** (modes 1 and 2, 0x4fd6ef): each source pixel is
+  written twice, once rounded and once truncated (the dither above).
+- **Odd lines, mode 2** (0x4fd7b6): Y, U and V averaged between source
+  lines j and j + 1, then repeated as above, on output line 2j + 1;
+  the last odd line isn't written.
+- **Across, mode 3** (0x4fd892): from source pixel pairs (Y0, Y1, U, V)
+  and the next pair (Y0′, U′, V′), four output pixels: Y0, (Y0 + Y1)/2,
+  Y1, (Y1 + Y0′)/2. The first two keep U, V; the last two take (U + U′)/2,
+  (V + V′)/2. The last source pair of a line isn't interpolated, so each
+  line stops 4 pixels short.
+- **Down, mode 3** (0x4fd8ee): the odd lines average source lines j and
+  j + 1 first, then interpolate across the same way; again the last odd
+  line isn't written.
+
+When the area is above 153,600 pixels the odd lines' pass first calls
+0x4f90e0, which can unlock and relock the screen.
+
+The Movies page converts with the full-range BT.601 matrix in floating
+point and shows each pixel twice: mode 1's layout, but with the odd lines
+filled, and without the 7-bit centring, the per-term rounding or the
+dither.
+
+## What isn't known
 - **The fade-in frames.** The first frames of the demo movies (*q* 13-29)
   hold the same set of high-frequency coefficients in nearly every luma
   block. They decode to a fine dot pattern, in FFmpeg, in Reluva's
   reference decode and in the game's arithmetic. Frames captured from the
   game show the same pattern at lower contrast. Neither a bilinear nor a
   horizontal-only interpolated upscale of the decoded frame matches the
-  captures, so the softening is in the display step above.
+  captures. The game's own modes (above) were found after that
+comparison; matching the captures against mode 2 or 3, with the emulated
+CPU's measured clock, hasn't been tried.
