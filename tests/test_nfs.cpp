@@ -759,6 +759,38 @@ Bytes makeTrack() {
 }
 
 // Lights as nfs3.exe's table has them (frd.md, Lights).
+void testPolygonAnimation() {
+    Track::Polygon p;
+    p.texture = 7;
+    CHECK(p.textureAt(1000) == 7); // not animated
+    // Animated from entry 7: 10 ticks a frame, 4 frames (84, as on the
+    // tracks).
+    p.flags = Track::Polygon::kAnimated | Track::Polygon::kTwoSided;
+    p.animationBase = 7;
+    p.animation = 84;
+    CHECK(p.frameDelay() == 10 && p.frameCount() == 4);
+    CHECK(p.textureAt(0) == 7 && p.textureAt(9) == 7 && p.textureAt(10) == 8 && p.textureAt(39) == 10 &&
+          p.textureAt(40) == 7);
+    p.animation = 0xf9; // 31 ticks, 1 frame: still
+    CHECK(p.textureAt(0) == 7 && p.textureAt(500) == 7);
+}
+
+// Placed sounds as the game plays them (frd.md, Sounds).
+void testPlacedSounds() {
+    // 2^18 / distance^2, at most 127: full within 45 units.
+    CHECK(placedSoundVolume(0) == 127 && placedSoundVolume(40) == 127);
+    CHECK(placedSoundVolume(64) == 64 && placedSoundVolume(128) == 16 && placedSoundVolume(256) == 4);
+    // A one-shot fires in the eighth of 64 frames picked, then picks again.
+    struct Fixed {
+        int value;
+        int next() { return value; }
+    } random{5};
+    OneShotTimer t; // picks 0 first
+    CHECK(t.fires(64, random) && t.pick == 5);
+    CHECK(!t.fires(65, random) && !t.fires(39, random) && t.fires(40, random) && t.pick == 5);
+    CHECK(t.fires(47, random) && !t.fires(48, random));
+}
+
 void testLightLook() {
     CHECK(lightLook(0, 0).color == 0xffdeeaeb && lightLook(0, 0).size == 5 && lightLook(0, 12345).shown);
     CHECK(lightLook(16 + 7, 0).color == 0xffff0000); // the type is taken & 15
@@ -784,7 +816,7 @@ void testTrack() {
         CHECK(b.polygons[4].size() == 2 && b.polygons[6].size() == 1 && b.polygons[0].empty());
         if (b.polygons[4].size() == 2) {
             CHECK(b.polygons[4][1].vertices == (std::array<uint16_t, 4>{1, 3, 4, 4}));
-            CHECK(b.polygons[4][1].texture == 1 && b.polygons[4][1].flags == 0x10 && b.polygons[4][1].extra == 0xf9);
+            CHECK(b.polygons[4][1].texture == 1 && b.polygons[4][1].flags == 0x10 && b.polygons[4][1].animation == 0xf9);
         }
         CHECK(b.objectLayers[0].size() == 2 && b.objectLayers[1].empty());
         if (b.objectLayers[0].size() == 2)
@@ -1552,6 +1584,8 @@ int main() {
     testModel();
     testTrack();
     testLightLook();
+    testPolygonAnimation();
+    testPlacedSounds();
     testHorizon();
     testCollision();
     testSoundBank();

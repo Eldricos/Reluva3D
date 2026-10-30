@@ -252,6 +252,8 @@ private:
         gfx::TextureId texture = 0;
         uint32_t firstIndex = 0, indexCount = 0;
         bool additive = false;
+        bool twoSided = false;  // polygon flag 0x10: never culled
+        bool seeThrough = false; // texture flag 0x02: half grey, half clear
     };
     enum Kind { kRoadLow, kRoadMedium, kRoadHigh, kObjects, kLanes, kWalls, kKinds };
     // An object moving along its keys; its vertices are stored as in the
@@ -260,6 +262,13 @@ private:
         std::vector<Track::ExtraObject::Key> keys;
         int keyDelay = 0;
         std::vector<Batch> batches;
+    };
+    // Animated polygons of one kind with the same delay and frame count:
+    // a copy of each for every frame, which drawing picks by the tick.
+    struct Animation {
+        int delay = 1;
+        std::vector<std::vector<Batch>> frames;
+        const std::vector<Batch>& at(uint64_t tick) const { return frames[(tick / delay) % frames.size()]; }
     };
 
     void load(int index);
@@ -288,6 +297,7 @@ private:
     std::map<std::string, std::pair<gfx::TextureId, bool>> pictures_; // "sheet/number" -> texture, additive
     std::array<std::vector<Batch>, kKinds> batches_;
     std::vector<Moving> moving_;
+    std::array<std::vector<Animation>, kKinds> animations_;
     TrackCollision collision_;
     std::string collisionError_;
     // The sky, for the variant shown (0 day, 1 night, 2 weather, 3 both).
@@ -329,7 +339,8 @@ private:
         std::array<float, 3> at{};
         bool light = false;
         int value = 0; // the light's type, or the sound's slot
-        uint16_t flag = 0;
+        uint16_t kind = 0; // a sound's: 0 a loop, 1 a one-shot
+        bool heard = false; // the first sound of its block, the only one the game plays
     };
     std::vector<Mark> marks_;
     gfx::MeshId markMesh_ = 0;
@@ -337,13 +348,16 @@ private:
     bool marksShown_ = true;
     void loadMarks();
     void drawMarks(const gfx::Vec3& eye, const gfx::Vec3& right, const gfx::Vec3& up);
-    // The track's placed sounds (tr3dNN.bnk of the variant), each playing
-    // while the camera is near it.
+    // The track's placed sounds (tr3dNN.bnk of the variant), as the game
+    // plays them (frd.md, Sounds): one loop at a time, one-shots at random.
     audio::Mixer* mixer_ = nullptr;
     std::vector<uint8_t> soundData_;
     SoundBank soundBank_;
     std::map<int, std::shared_ptr<audio::Sound>> soundSlots_;
-    std::map<size_t, audio::SoundHandle> soundsPlaying_; // by mark
+    std::map<size_t, audio::SoundHandle> soundsPlaying_; // the loop, by mark
+    uint32_t soundFrame_ = 0; // frames drawn, the one-shots' clock
+    OneShotTimer oneShots_;
+    SkyRandom soundRandom_;
     void loadSounds();
     void stopSounds();
     void updateSounds(const gfx::Vec3& eye, const gfx::Vec3& right);

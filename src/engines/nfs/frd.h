@@ -21,9 +21,16 @@ struct Track {
     struct Polygon {
         std::array<uint16_t, 4> vertices{};
         uint16_t texture = 0; // into `textures`
-        uint16_t unknown = 0;
-        uint8_t flags = 0;
-        uint8_t extra = 0;
+        // Animated (kAnimated): the first frame's texture entry, and the
+        // delay in ticks (top 5 bits) and number of frames (low 3).
+        uint16_t animationBase = 0;
+        uint8_t flags = 0; // kTwoSided, kAnimated (frd.md, Polygons)
+        uint8_t animation = 0;
+        static constexpr uint8_t kAnimated = 0x04, kTwoSided = 0x10;
+        int frameDelay() const { return animation >> 3; }
+        int frameCount() const { return animation & 7; }
+        // The texture entry shown at a game tick (64 a second; 0x41b52b).
+        uint16_t textureAt(uint64_t tick) const;
     };
 
     // Polygons grouped as an object within a block (`type` 1); type 4
@@ -66,7 +73,7 @@ struct Track {
         // at random; frd.md).
         struct PlacedSound {
             Vec3 position{};
-            uint16_t slot = 0, flag = 0;
+            uint16_t slot = 0, kind = 0;
         };
         std::vector<Light> lightList;
         std::vector<PlacedSound> soundList;
@@ -95,7 +102,9 @@ struct Track {
         std::array<float, 8> corners{}; // u, v of polygon corners 0-3
         bool lane = false;
         uint16_t picture = 0; // the shape's number in the sheet
-        uint32_t unknown1 = 0, unknown2 = 0;
+        uint32_t handle = 0; // room the game fills at load; leftovers
+        uint32_t flags = 0;  // low byte: kSeeThrough, 0x04 (frd.md, Textures)
+        static constexpr uint32_t kSeeThrough = 0x02;
     };
 
     std::vector<Block> blocks;
@@ -115,5 +124,23 @@ struct LightLook {
     bool shown = true;
 };
 LightLook lightLook(uint32_t type, uint64_t tick);
+
+// A placed sound's volume (0-127) at a distance in track units, as
+// 0x41d210 has it: 2^16 over (distance in 1/16 units)^2 / 2^10, at most 127.
+int placedSoundVolume(float distance);
+
+// When the game fires a one-shot placed sound (kind 1; 0x41d27d): on a
+// frame whose (count & 63) >> 3 is the number picked, 0 to 7, which is
+// then picked afresh. One pick shared by all, from rand().
+struct OneShotTimer {
+    int pick = 0;
+    template <typename Random>
+    bool fires(uint32_t frame, Random& random) {
+        if (static_cast<int>((frame & 63) >> 3) != pick)
+            return false;
+        pick = random.next() & 7;
+        return true;
+    }
+};
 
 } // namespace reluva::nfs

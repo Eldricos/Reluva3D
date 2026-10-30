@@ -127,10 +127,12 @@ sends it to the Pathfinder map as an event when the car nears a slice
 where it changes ([mus.md](mus.md), The events the game sends).
 
 The Tracks page shows each light as a `glw0` glow facing the camera, in
-its type's colour and size and blinking as the table above has it, and each sound as a cyan diamond. Within 120 units of a sound, it
-plays that slot of the variant's bank, louder the nearer and panned by
-side: slots that loop play on, the rest once each time the camera comes
-near. The overlay names the nearest light or sound; `M` hides them all.
+its type's colour and size and blinking as the table above has it, and each sound as a cyan diamond. It plays the sounds as the game does:
+only each block's first, louder by the game's inverse square and panned
+by side; the nearest loop within 300 units (the game takes the first of
+the blocks seen) and one-shots when the timer picks a frame, counting
+the page's frames as the game counts its own (`0x434a73`). A loop plays
+looped whatever its bank says. The overlay names the nearest light or sound; `M` hides them all.
 
 ### Polygons
 

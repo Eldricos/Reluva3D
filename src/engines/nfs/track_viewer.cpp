@@ -10,6 +10,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <tuple>
 
 namespace reluva::nfs {
 
@@ -140,6 +141,8 @@ void TrackPage::release() {
     moving_.clear();
     for (auto& b : batches_)
         b.clear();
+    for (auto& a : animations_)
+        a.clear();
 }
 
 // The track's texture sheet: sets 0 and 1, then the same in 8 bits (for
@@ -184,8 +187,10 @@ gfx::TextureId TrackPage::picture(const std::string& sheet, int number, bool lan
     gfx::TextureId id = 0;
     if (shape && !decodeShape(*shape, img) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), {}, id)) {
         textures_.push_back(id);
+        // As the game's picture loader (0x4d40c3), which looks for exactly
+        // "<additive>": tr000's and tr001's bare "additive" don't count.
         for (const std::string& t : shape->texts)
-            if (lower(t).find("additive") != std::string::npos)
+            if (t.find("<additive>") != std::string::npos)
                 *additive = true;
     }
     pictures_[key] = {id, *additive};
@@ -635,13 +640,20 @@ void TrackPage::load(int index) {
         std::vector<uint32_t> indices;
         bool additive = false;
     };
-    using Groups = std::map<gfx::TextureId, Group>;
+    // By picture, then two-sided, then see-through.
+    using Groups = std::map<std::tuple<gfx::TextureId, bool, bool>, Group>;
     std::array<Groups, kKinds> groups;
     std::vector<Groups> movingGroups;
-    auto add = [&](Groups& into, const std::vector<Track::Vec3>& verts, const std::vector<uint32_t>& colours,
-                   const Track::Vec3& offset, float mirror, const std::vector<Track::Polygon>& polygons) {
-        for (const Track::Polygon& p : polygons) {
-            const Track::Texture& tex = track_.textures[p.texture];
+    // Animated polygons by kind and animation byte, a Groups per frame.
+    std::map<std::pair<int, uint8_t>, std::vector<Groups>> animatedGroups;
+    // One polygon with the texture entry given.
+    auto addPolygon = [&](Groups& into, const std::vector<Track::Vec3>& verts, const std::vector<uint32_t>& colours,
+                          const Track::Vec3& offset, float mirror, const Track::Polygon& p, uint16_t entry) {
+        {
+            const Track::Texture& tex = track_.textures[entry < track_.textures.size() ? entry : p.texture];
+            // The game draws these in a constant half grey, half clear
+            // (0x41b596), sorted by depth.
+            const bool seeThrough = (tex.flags & Track::Texture::kSeeThrough) != 0;
             bool additive = false;
             const gfx::TextureId id = tex.lane ? picture(kLaneSheet, tex.picture, true, &additive)
                                                : picture(sheet, tex.picture, false, &additive);
@@ -656,36 +668,54 @@ void TrackPage::load(int index) {
                 out.uv[0] = tex.corners[2 * k];
                 out.uv[1] = tex.corners[2 * k + 1];
                 out.normal[1] = 1;
-                out.color[0] = static_cast<uint8_t>(c >> 16);
-                out.color[1] = static_cast<uint8_t>(c >> 8);
-                out.color[2] = static_cast<uint8_t>(c);
-                out.color[3] = 255;
+                out.color[0] = seeThrough ? 127 : static_cast<uint8_t>(c >> 16);
+                out.color[1] = seeThrough ? 127 : static_cast<uint8_t>(c >> 8);
+                out.color[2] = seeThrough ? 127 : static_cast<uint8_t>(c);
+                out.color[3] = seeThrough ? 127 : 255;
                 vertices.push_back(out);
             }
-            Group& g = into[id];
+            Group& g = into[{id, (p.flags & Track::Polygon::kTwoSided) != 0, seeThrough}];
             g.additive = additive;
             for (uint32_t i : {0u, 1u, 2u, 0u, 2u, 3u})
                 g.indices.push_back(first + i);
         }
     };
+    // Polygons of a kind (-1: a moving object's, not animated); an
+    // animated one goes in once for each frame.
+    auto add = [&](int kind, Groups& into, const std::vector<Track::Vec3>& verts,
+                   const std::vector<uint32_t>& colours, const Track::Vec3& offset, float mirror,
+                   const std::vector<Track::Polygon>& polygons) {
+        for (const Track::Polygon& p : polygons) {
+            if (kind < 0 || !(p.flags & Track::Polygon::kAnimated) || p.frameDelay() == 0 || p.frameCount() < 2) {
+                addPolygon(into, verts, colours, offset, mirror, p, p.textureAt(0));
+                continue;
+            }
+            auto& frames = animatedGroups[{kind, p.animation}];
+            frames.resize(static_cast<size_t>(p.frameCount()));
+            for (int f = 0; f < p.frameCount(); ++f)
+                addPolygon(frames[size_t(f)], verts, colours, offset, mirror, p,
+                           p.textureAt(static_cast<uint64_t>(f * p.frameDelay())));
+        }
+    };
     for (const Track::Block& b : track_.blocks) {
         for (int level = 0; level < 3; ++level) {
-            add(groups[kRoadLow + level], b.vertices, b.colours, {}, -1, b.polygons[2 * level]);
-            add(groups[kRoadLow + level], b.vertices, b.colours, {}, -1, b.polygons[2 * level + 1]);
+            add(kRoadLow + level, groups[kRoadLow + level], b.vertices, b.colours, {}, -1, b.polygons[2 * level]);
+            add(kRoadLow + level, groups[kRoadLow + level], b.vertices, b.colours, {}, -1,
+                b.polygons[2 * level + 1]);
         }
-        add(groups[kLanes], b.vertices, b.colours, {}, -1, b.polygons[6]);
+        add(kLanes, groups[kLanes], b.vertices, b.colours, {}, -1, b.polygons[6]);
         for (const auto& layer : b.objectLayers)
             for (const Track::BlockObject& o : layer)
-                add(groups[kObjects], b.vertices, b.colours, {}, -1, o.polygons);
+                add(kObjects, groups[kObjects], b.vertices, b.colours, {}, -1, o.polygons);
     }
     for (const auto& group : track_.extraObjects)
         for (const Track::ExtraObject& o : group) {
             if (o.type == 4) {
-                add(groups[kObjects], o.vertices, o.colours, o.reference, -1, o.polygons);
+                add(kObjects, groups[kObjects], o.vertices, o.colours, o.reference, -1, o.polygons);
             } else if (!o.keys.empty()) {
                 moving_.push_back({o.keys, o.keyDelay, {}});
                 movingGroups.emplace_back();
-                add(movingGroups.back(), o.vertices, o.colours, {}, 1, o.polygons);
+                add(-1, movingGroups.back(), o.vertices, o.colours, {}, 1, o.polygons);
             }
         }
 
@@ -714,15 +744,16 @@ void TrackPage::load(int index) {
                 vertices.push_back(out);
             }
             for (uint32_t k : {0u, 1u, 2u, 0u, 2u, 3u})
-                groups[kWalls][0].indices.push_back(first + k);
+                groups[kWalls][{0, false, false}].indices.push_back(first + k);
         }
     }
 
     std::vector<uint32_t> indices;
     auto flush = [&](const Groups& from, std::vector<Batch>& to) {
-        for (const auto& [texture, g] : from) {
+        for (const auto& [key, g] : from) {
+            const auto& [texture, twoSided, seeThrough] = key;
             to.push_back({texture, static_cast<uint32_t>(indices.size()), static_cast<uint32_t>(g.indices.size()),
-                          g.additive});
+                          g.additive, twoSided, seeThrough});
             indices.insert(indices.end(), g.indices.begin(), g.indices.end());
         }
     };
@@ -730,6 +761,14 @@ void TrackPage::load(int index) {
         flush(groups[kind], batches_[kind]);
     for (size_t i = 0; i < moving_.size(); ++i)
         flush(movingGroups[i], moving_[i].batches);
+    for (const auto& [key, frames] : animatedGroups) {
+        Animation a;
+        a.delay = key.second >> 3;
+        a.frames.resize(frames.size());
+        for (size_t f = 0; f < frames.size(); ++f)
+            flush(frames[f], a.frames[f]);
+        animations_[size_t(key.first)].push_back(std::move(a));
+    }
     if (!vertices.empty())
         if (Error err = renderer_->createMesh(vertices, indices, mesh_))
             error_ = err.message;
@@ -760,7 +799,8 @@ void TrackPage::loadMarks() {
         for (const Track::Block::Light& l : b.lightList)
             marks_.push_back({{l.position[0], l.position[1], -l.position[2]}, true, static_cast<int>(l.type), 0});
         for (const Track::Block::PlacedSound& snd : b.soundList)
-            marks_.push_back({{snd.position[0], snd.position[1], -snd.position[2]}, false, snd.slot, snd.flag});
+            marks_.push_back({{snd.position[0], snd.position[1], -snd.position[2]}, false, snd.slot, snd.kind,
+                              &snd == &b.soundList.front()});
     }
     bool additive = false;
     picture(kLaneSheet, -1, false, &additive); // loads the sheet
@@ -876,45 +916,66 @@ void TrackPage::stopSounds() {
     soundsPlaying_.clear();
 }
 
-// A sound plays while the camera is within 120 units of it, louder the
-// nearer, panned by which side it's on. Sounds the bank loops play on;
-// the rest once each time the camera comes near.
+// The placed sounds within reach, as the game plays them (0x41d210):
+// only each block's first; the nearest loop on one channel, stopped when
+// none is in reach; one-shots on frames the timer picks. The volume falls
+// with the square of the distance; the pan is by side. The game takes
+// the sounds of the blocks seen from the camera's (and the first loop
+// among them), where this takes those within reach (and the nearest).
 void TrackPage::updateSounds(const gfx::Vec3& eye, const gfx::Vec3& right) {
     if (!mixer_ || soundData_.empty())
         return;
-    constexpr float kRange = 120;
+    constexpr float kReach = 300; // volume 2 of 127 there
+    ++soundFrame_;
+    auto decoded = [&](int slot) -> std::shared_ptr<audio::Sound> {
+        if (slot < 0 || slot >= static_cast<int>(soundBank_.slots.size()) || !soundBank_.slots[size_t(slot)])
+            return nullptr;
+        auto& sound = soundSlots_[slot];
+        if (!sound) {
+            sound = std::make_shared<audio::Sound>();
+            if (decodeBankSound(soundData_, *soundBank_.slots[size_t(slot)], *sound))
+                sound = std::make_shared<audio::Sound>(); // nothing to play
+        }
+        return sound->samples.empty() ? nullptr : sound;
+    };
+    size_t loop = marks_.size();
+    float loopDistance = kReach;
+    int loopVolume = 0, loopPan = 0;
     for (size_t i = 0; i < marks_.size(); ++i) {
         const Mark& m = marks_[i];
-        if (m.light)
+        if (m.light || !m.heard)
             continue;
         const float dx = m.at[0] - eye[0], dy = m.at[1] - eye[1], dz = m.at[2] - eye[2];
         const float d = std::sqrt(dx * dx + dy * dy + dz * dz);
-        auto playing = soundsPlaying_.find(i);
-        if (d > kRange) {
-            if (playing != soundsPlaying_.end()) {
-                mixer_->stop(playing->second);
-                soundsPlaying_.erase(playing);
-            }
+        if (d > kReach)
             continue;
-        }
-        const int volume = static_cast<int>(audio::kMaxVolume * (1 - d / kRange));
+        const int volume = placedSoundVolume(d) * audio::kMaxVolume / 127;
         const int pan = d > 0 ? static_cast<int>(audio::kMaxPan * (dx * right[0] + dz * right[2]) / d) : 0;
-        if (playing != soundsPlaying_.end()) {
-            mixer_->setVolume(playing->second, volume);
-            mixer_->setPan(playing->second, pan);
-            continue;
+        if (m.kind == 1) {
+            if (oneShots_.fires(soundFrame_, soundRandom_))
+                if (auto sound = decoded(m.value))
+                    mixer_->play(sound, audio::SoundType::Effects, volume, pan, false);
+        } else if (d < loopDistance) {
+            loop = i;
+            loopDistance = d;
+            loopVolume = volume;
+            loopPan = pan;
         }
-        if (m.value < 0 || m.value >= static_cast<int>(soundBank_.slots.size()) || !soundBank_.slots[size_t(m.value)])
-            continue;
-        const SoundHeader& header = *soundBank_.slots[size_t(m.value)];
-        auto& decoded = soundSlots_[m.value];
-        if (!decoded) {
-            decoded = std::make_shared<audio::Sound>();
-            if (decodeBankSound(soundData_, header, *decoded))
-                continue;
-        }
-        soundsPlaying_[i] = mixer_->play(decoded, audio::SoundType::Effects, volume, pan, header.loopEnd > 0);
     }
+    // The loop: kept going while it's still the one, else changed.
+    for (auto it = soundsPlaying_.begin(); it != soundsPlaying_.end();) {
+        if (it->first == loop) {
+            mixer_->setVolume(it->second, loopVolume);
+            mixer_->setPan(it->second, loopPan);
+            ++it;
+        } else {
+            mixer_->stop(it->second);
+            it = soundsPlaying_.erase(it);
+        }
+    }
+    if (loop < marks_.size() && !soundsPlaying_.count(loop))
+        if (auto sound = decoded(marks_[loop].value))
+            soundsPlaying_[loop] = mixer_->play(sound, audio::SoundType::Effects, loopVolume, loopPan, true);
 }
 
 // Puts the camera above a block's centre, looking along the road.
@@ -1147,22 +1208,32 @@ void TrackPage::update(uint64_t nowMs) {
         if (error_.empty() && skyError_.empty())
             for (int i = 0; i < 3; ++i)
                 call.color[i] = static_cast<float>(horizon_.ambient[i]) / 100.0f;
-        call.state.cull = cullBack_ ? gfx::Cull::Back : gfx::Cull::None;
         call.state.alphaTest = gfx::AlphaTest::Ge128;
         if (sceneryFog > 0)
             fogDraw(call, sceneryFog);
-        std::vector<const std::vector<Batch>*> solid = {&batches_[kRoadLow + detail_]};
+        // Each kind's batches, and its animated polygons at this tick's
+        // frame.
+        auto kind = [&](int k, std::vector<const std::vector<Batch>*>& into) {
+            into.push_back(&batches_[k]);
+            for (const Animation& a : animations_[k])
+                into.push_back(&a.at(skyTick_));
+        };
+        std::vector<const std::vector<Batch>*> solid;
+        kind(kRoadLow + detail_, solid);
         if (objects_)
-            solid.push_back(&batches_[kObjects]);
+            kind(kObjects, solid);
         std::vector<const std::vector<Batch>*> lanes;
         if (lanes_)
-            lanes.push_back(&batches_[kLanes]);
+            kind(kLanes, lanes);
         std::vector<const std::vector<Batch>*> all = solid;
         all.insert(all.end(), lanes.begin(), lanes.end());
-        auto pass = [&](const std::vector<Batch>& list, bool additive) {
+        // Additive pictures, see-through ones, or the rest.
+        enum Pass { kSolid, kSeeThrough, kAdditive };
+        auto pass = [&](const std::vector<Batch>& list, Pass which) {
             for (const Batch& b : list) {
-                if (b.additive != additive)
+                if ((b.additive ? kAdditive : b.seeThrough ? kSeeThrough : kSolid) != which)
                     continue;
+                call.state.cull = cullBack_ && !b.twoSided ? gfx::Cull::Back : gfx::Cull::None;
                 call.texture = textured_ ? b.texture : 0;
                 call.firstIndex = b.firstIndex;
                 call.indexCount = b.indexCount;
@@ -1171,7 +1242,7 @@ void TrackPage::update(uint64_t nowMs) {
             }
         };
         // Moving objects at the key for now, between it and the next.
-        auto movingPass = [&](bool additive) {
+        auto movingPass = [&](Pass which) {
             if (!objects_)
                 return;
             for (const Moving& m : moving_) {
@@ -1185,18 +1256,18 @@ void TrackPage::update(uint64_t nowMs) {
                 const float t = ticks / static_cast<float>(delay);
                 const size_t k = static_cast<size_t>(t) % (m.keys.size() - 1);
                 call.model = keyMatrix(m.keys[k], m.keys[k + 1], t - std::floor(t));
-                pass(m.batches, additive);
+                pass(m.batches, which);
             }
             call.model = gfx::identity();
         };
         // Solid first, then the lane markings pulled onto the road, then
         // additive pictures (lights, glows) over everything.
         for (const auto* list : solid)
-            pass(*list, false);
-        movingPass(false);
+            pass(*list, kSolid);
+        movingPass(kSolid);
         call.state.depthBias = true;
         for (const auto* list : lanes)
-            pass(*list, false);
+            pass(*list, kSolid);
         call.state.depthBias = false;
         if (walls_) {
             // A guide drawn over everything, so the walls show through the
@@ -1213,12 +1284,27 @@ void TrackPage::update(uint64_t nowMs) {
                 renderer_->draw(wall);
             }
         }
+        // See-through surfaces (glass, water) blended over what's behind,
+        // in the half grey and half alpha of their vertices. The game sorts
+        // them by depth; here they go in the mesh's order.
+        {
+            const gfx::DrawCall before = call;
+            call.rgbSource = call.alphaSource = gfx::ColorSource::Vertex;
+            call.state.src = gfx::Blend::SrcAlpha;
+            call.state.dst = gfx::Blend::OneMinusSrcAlpha;
+            call.state.depthWrite = false;
+            call.state.alphaTest = gfx::AlphaTest::None;
+            for (const auto* list : all)
+                pass(*list, kSeeThrough);
+            movingPass(kSeeThrough);
+            call = before;
+        }
         call.state.src = call.state.dst = gfx::Blend::One;
         call.state.depthWrite = false;
         call.state.alphaTest = gfx::AlphaTest::None;
         for (const auto* list : all)
-            pass(*list, true);
-        movingPass(true);
+            pass(*list, kAdditive);
+        movingPass(kAdditive);
     }
 
     {
@@ -1254,8 +1340,9 @@ void TrackPage::update(uint64_t nowMs) {
             if (nearest->light)
                 std::snprintf(what, sizeof what, "light, type %d", nearest->value);
             else
-                std::snprintf(what, sizeof what, "sound, slot %d of tr3d%s%s.bnk, flag %d", nearest->value,
-                              tracks_[index_].substr(4).c_str(), kHorizonSuffix[variant_], nearest->flag);
+                std::snprintf(what, sizeof what, "sound, slot %d of tr3d%s%s.bnk, %s%s", nearest->value,
+                              tracks_[index_].substr(4).c_str(), kHorizonSuffix[variant_],
+                              nearest->kind ? "one-shot" : "loop", nearest->heard ? "" : " (not played)");
             line += std::string("  near: ") + what;
         }
         lines.push_back(line);

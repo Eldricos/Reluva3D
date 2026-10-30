@@ -269,7 +269,15 @@ What was built, with each format written up in `docs/formats/nfs/`:
     wheel turns at its mill);
   - the virtual road's walls as a guide;
   - the lights in their types' colours, sizes and blinking, from the
-    game's table ([frd.md](../formats/nfs/frd.md), Lights).
+    game's table ([frd.md](../formats/nfs/frd.md), Lights);
+  - animated textures (the river through Hometown's covered bridge),
+    two-sided polygons, and see-through ones (trk002's and trk006's
+    blue panels) blended half grey over what's behind, though not
+    sorted by depth as the game sorts them;
+  - additive pictures only where the text is `<additive>`, as the
+    game's loader has it;
+  - the placed sounds as the game plays them: one loop, random
+    one-shots, each block's first sound only.
 - **The Cockpits page** shows each car's `dash.qfs`: the dash, the
   steering wheel, and the speedometer and tachometer needles where the
   picture's `0x7C` block puts them ([fsh.md](../formats/nfs/fsh.md),

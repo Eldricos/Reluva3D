@@ -3,6 +3,7 @@
 
 #include "engines/nfs/frd.h"
 
+#include <algorithm>
 #include <cstring>
 #include <string>
 
@@ -81,9 +82,9 @@ void readPolygons(Reader& r, uint32_t n, std::vector<Track::Polygon>& out) {
         for (uint16_t& v : p.vertices)
             v = r.u16();
         p.texture = r.u16();
-        p.unknown = r.u16();
+        p.animationBase = r.u16();
         p.flags = r.u8();
-        p.extra = r.u8();
+        p.animation = r.u8();
     }
 }
 
@@ -160,7 +161,7 @@ Error parseTrack(const std::vector<uint8_t>& data, Track& out) {
             Track::Block::PlacedSound snd;
             snd.position = position(b.sounds, at);
             std::memcpy(&snd.slot, b.sounds.data() + at + 12, 2);
-            std::memcpy(&snd.flag, b.sounds.data() + at + 14, 2);
+            std::memcpy(&snd.kind, b.sounds.data() + at + 14, 2);
             b.soundList.push_back(snd);
         }
     }
@@ -253,10 +254,10 @@ Error parseTrack(const std::vector<uint8_t>& data, Track& out) {
     for (Track::Texture& t : out.textures) {
         t.width = r.u16();
         t.height = r.u16();
-        t.unknown1 = r.u32();
+        t.handle = r.u32();
         for (float& c : t.corners)
             c = r.f32();
-        t.unknown2 = r.u32();
+        t.flags = r.u32();
         t.lane = r.u8() != 0;
         t.picture = r.u16();
     }
@@ -270,6 +271,18 @@ Error parseTrack(const std::vector<uint8_t>& data, Track& out) {
                 if (p.texture >= out.textures.size())
                     return bad("a polygon uses a texture past the table");
     return Error::success();
+}
+
+uint16_t Track::Polygon::textureAt(uint64_t tick) const {
+    if (!(flags & kAnimated) || frameDelay() == 0 || frameCount() == 0)
+        return texture;
+    return static_cast<uint16_t>(animationBase + (tick / static_cast<uint64_t>(frameDelay())) % frameCount());
+}
+
+int placedSoundVolume(float distance) {
+    const int64_t d = static_cast<int64_t>(distance * 65536); // 16.16
+    const int64_t square = ((d >> 12) * (d >> 12)) >> 10;
+    return square == 0 ? 127 : static_cast<int>(std::min<int64_t>(0x10000 / square, 127));
 }
 
 LightLook lightLook(uint32_t type, uint64_t tick) {

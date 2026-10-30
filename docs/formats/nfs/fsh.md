@@ -114,7 +114,8 @@ Attached blocks after the picture:
   wheel (picture `0001`) goes with its centre at its screen position.
 - **Additive.** The picture loader (`0x4d40c3`, `0x4d42e8`) looks for
   `<additive>`. The bare `additive` on picture `0064` of `tr000` and
-  `tr001` doesn't match it, so those aren't drawn additively. The sun's
+  `tr001` doesn't match it, so those aren't drawn additively (nor on the
+  Tracks page). The sun's
   text is read only by the sky loader (`0x47a970`); it knows no
   keywords but `A`, `B`, `R`, `ROTATE`, `NOADD` and `INFRONT`.
 - **`sky.fsh`'s other pictures.** `CLDD`, `CLDN`, `CLWD` and `CLWN` are
