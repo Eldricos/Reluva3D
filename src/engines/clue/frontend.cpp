@@ -29,7 +29,7 @@ constexpr int kBarTop = 413;
 enum Dialog {
     kMainMenu = 1, kStartChoice = 2, kLoadGame = 3, kRulesMenu = 4, kRules = 5, kCredits = 6, kExit = 7,
     kConnection = 9, kNetGame = 10, kCreditsText = 14, kVariants = 15, kPicker = 17, kSetupFirst = 18,
-    kPrefs = 24, kLoading = 26, kGameMenu = 35,
+    kPrefs = 24, kLoading = 26, kGameMenu = 35, kSaveGame = 36,
 };
 // Controls most dialogs share.
 constexpr int kReturn = 10000, kOk = 10001;
@@ -116,7 +116,7 @@ void FrontEnd::leave() {
 void FrontEnd::resume() {
     sys_.setWindowTitle("Clue: Murder at Boddy Mansion");
     sys_.setMouseCursorVisible(false);
-    if (at_ == Screen::Game || at_ == Screen::GameMenu)
+    if (at_ == Screen::Game || at_ == Screen::GameMenu || at_ == Screen::SaveGame)
         playMusic(true);
     else if (at_ != Screen::Intro && at_ != Screen::Deal)
         playMusic(false);
@@ -173,8 +173,12 @@ void FrontEnd::go(Screen s) {
         break;
     case Screen::LoadGame:
         showDialog(kLoadGame);
-        for (int slot = 0; slot < 8; ++slot)
-            dialog_->setEnabled(slot, false); // no saved games yet
+        // The saved games, by their names; the empty slots can't be chosen.
+        for (int slot = 0; slot < kSaveSlots; ++slot) {
+            const std::string name = savedName(slot);
+            dialog_->setText(slot, name);
+            dialog_->setEnabled(slot, !name.empty());
+        }
         break;
     case Screen::RulesMenu: showDialog(kRulesMenu); break;
     case Screen::Rules:
@@ -210,6 +214,18 @@ void FrontEnd::go(Screen s) {
     case Screen::Game:
         dialog_.reset();
         gameMenu_.reset();
+        if (!play_ && mansion_ && loadSlot_ >= 0) {
+            // A saved game, in place of a new one.
+            const int slot = loadSlot_;
+            loadSlot_ = -1;
+            play_ = std::make_unique<Play>(sys_, screen_, data_, mixer_, resi_, *fonts_, *mansion_, level_);
+            play_->setLook(playLook());
+            if (loadGame(slot)) {
+                play_.reset();
+                go(Screen::MainMenu);
+                return;
+            }
+        }
         if (!play_ && mansion_) {
             play_ = std::make_unique<Play>(sys_, screen_, data_, mixer_, resi_, *fonts_, *mansion_, level_);
             play_->setLook(playLook());
@@ -225,7 +241,17 @@ void FrontEnd::go(Screen s) {
         if (const ResiDialog* d = resi_.dialog(kGameMenu)) {
             // Over the game, in the middle of the view.
             gameMenu_ = std::make_unique<DialogView>(data_, *fonts_, *d, (kW - 231) / 2, (kBarTop - 395) / 2);
-            gameMenu_->setEnabled(0, false); // Save: saved games come later
+            // Save: when it's a human's turn and nothing is going on.
+            gameMenu_->setEnabled(0, play_ && play_->canSave() && !savesFolder().empty());
+        }
+        break;
+    case Screen::SaveGame:
+        if (const ResiDialog* d = resi_.dialog(kSaveGame)) {
+            gameMenu_ = std::make_unique<DialogView>(data_, *fonts_, *d, (kW - 231) / 2, (kBarTop - 395) / 2);
+            saveSlot_ = -1;
+            for (int slot = 0; slot < kSaveSlots; ++slot)
+                gameMenu_->setText(2 + slot, savedName(slot));
+            gameMenu_->setEnabled(1, false);
         }
         break;
     }
@@ -357,10 +383,6 @@ void FrontEnd::onClick(int id) {
         else if (id == kReturn)
             go(Screen::Connection);
         break;
-    case Screen::LoadGame:
-        if (id == kReturn)
-            go(Screen::MainMenu);
-        break;
     case Screen::RulesMenu:
         if (id >= 0 && id <= 6) {
             rulesTopic_ = id;
@@ -463,8 +485,13 @@ void FrontEnd::onClick(int id) {
     case Screen::GameMenu:
         if (id == 4)
             go(Screen::Game);
+        else if (id == 0)
+            go(Screen::SaveGame);
         else if (id == 3) {
             stopMusic();
+            if (play_)
+                play_->stopSounds();
+            play_.reset();
             go(Screen::MainMenu);
         } else if (id == 1) {
             prefsReturn_ = Screen::GameMenu;
@@ -474,8 +501,90 @@ void FrontEnd::onClick(int id) {
             go(Screen::RulesMenu);
         }
         break;
+    case Screen::SaveGame:
+        if (id >= 2 && id < 2 + kSaveSlots) {
+            // A slot chosen: its name to type, over its button.
+            if (saveSlot_ >= 0) {
+                gameMenu_->setVisible(10 + saveSlot_, false);
+                gameMenu_->setVisible(2 + saveSlot_, true);
+            }
+            saveSlot_ = id - 2;
+            // Its name so far, to type over; an empty slot's to type afresh.
+            const std::string name = savedName(saveSlot_);
+            gameMenu_->setVisible(id, false);
+            gameMenu_->setVisible(10 + saveSlot_, true);
+            gameMenu_->setText(10 + saveSlot_, name);
+            gameMenu_->focus(10 + saveSlot_);
+            gameMenu_->setEnabled(1, true);
+            sys_.setTextInput(true);
+        } else if (id == 1 && saveSlot_ >= 0) {
+            sys_.setTextInput(false);
+            saveGame(saveSlot_, gameMenu_->text(10 + saveSlot_));
+            go(Screen::Game);
+        } else if (id == 0) {
+            sys_.setTextInput(false);
+            go(Screen::GameMenu);
+        }
+        break;
+    case Screen::LoadGame:
+        if (id >= 0 && id < kSaveSlots) {
+            loadSlot_ = id;
+            play_.reset();
+            go(Screen::Loading);
+        } else if (id == kReturn)
+            go(Screen::MainMenu);
+        break;
     default: break;
     }
+}
+
+std::filesystem::path FrontEnd::savesFolder() const {
+    return prefsFile_.empty() ? std::filesystem::path() : prefsFile_.parent_path() / "saves";
+}
+
+std::filesystem::path FrontEnd::saveFile(int slot) const {
+    return savesFolder() / ("slot" + std::to_string(slot + 1) + ".sav");
+}
+
+std::string FrontEnd::savedName(int slot) const {
+    if (savesFolder().empty())
+        return {};
+    std::ifstream in(saveFile(slot), std::ios::binary);
+    std::string tag, name;
+    int version = 0;
+    if (!(in >> tag >> version) || tag != "reluva-clue-save" || in.get() != '\n' || !saveio::getString(in, name))
+        return {};
+    return name.empty() ? "Game " + std::to_string(slot + 1) : name;
+}
+
+Error FrontEnd::saveGame(int slot, const std::string& name) {
+    if (!play_ || savesFolder().empty())
+        return Error::fail("nothing to save");
+    std::error_code ec;
+    std::filesystem::create_directories(savesFolder(), ec);
+    // Written whole beside it, then put in its place.
+    const std::filesystem::path file = saveFile(slot), part = file.string() + ".part";
+    {
+        std::ofstream out(part, std::ios::binary);
+        out << "reluva-clue-save 1\n";
+        saveio::putString(out, name);
+        out << '\n';
+        play_->save(out);
+        if (!out)
+            return Error::fail("couldn't write " + part.string());
+    }
+    std::filesystem::rename(part, file, ec);
+    return ec ? Error::fail("couldn't write " + file.string()) : Error::success();
+}
+
+Error FrontEnd::loadGame(int slot) {
+    std::ifstream in(saveFile(slot), std::ios::binary);
+    std::string tag, name;
+    int version = 0;
+    if (!(in >> tag >> version) || tag != "reluva-clue-save" || version != 1 || in.get() != '\n' ||
+        !saveio::getString(in, name))
+        return Error::fail("not a saved game");
+    return play_->load(in);
 }
 
 void FrontEnd::handleEvent(const Event& ev) {
@@ -499,9 +608,15 @@ void FrontEnd::handleEvent(const Event& ev) {
             play_->handleEvent(ev);
         return;
     }
-    if (at_ == Screen::GameMenu) {
+    if (at_ == Screen::GameMenu || at_ == Screen::SaveGame) {
         if (ev.type == EventType::KeyDown && ev.key == key::Escape) {
-            go(Screen::Game);
+            if (at_ == Screen::SaveGame)
+                sys_.setTextInput(false);
+            go(at_ == Screen::SaveGame ? Screen::GameMenu : Screen::Game);
+            return;
+        }
+        if (ev.type == EventType::KeyDown && ev.key == key::Return && at_ == Screen::SaveGame) {
+            onClick(1);
             return;
         }
         if (gameMenu_) {
@@ -625,6 +740,24 @@ void FrontEnd::drawStorm() {
     }
 }
 
+void FrontEnd::menuThunder() {
+    // The storm's thunder now and then (Clue.exe's mnThndr1.wav and
+    // mnThndr2.wav); when isn't known, so every 12-30 s.
+    if (!mixer_)
+        return;
+    if (nextThunder_ == 0 || nextThunder_ > now_ + 60000)
+        nextThunder_ = now_ + 8000;
+    if (now_ < nextThunder_)
+        return;
+    const char* file = (now_ / 7) % 2 ? "mnThndr1.wav" : "mnThndr2.wav";
+    if (const std::filesystem::path* p = data_.find(file)) {
+        auto s = std::make_shared<audio::Sound>();
+        if (!audio::decodeSound(readFile(*p), *s))
+            mixer_->play(s, audio::SoundType::Effects);
+    }
+    nextThunder_ = now_ + 12000 + (now_ * 2654435761u) % 18000;
+}
+
 void FrontEnd::drawCursor() {
     // The game's pointer, a gloved hand pointing up and to the left.
     const Animation* a = data_.animation("cursors:Apointcrsr");
@@ -680,7 +813,7 @@ void FrontEnd::update(uint64_t nowMs) {
     }
     // The game's music goes on to its next track: 2, 3, 4, 2 ...
     if (musicInGame_ && mixer_ && music_ != audio::kNoSound && !mixer_->isPlaying(music_) &&
-        (at_ == Screen::Game || at_ == Screen::GameMenu))
+        (at_ == Screen::Game || at_ == Screen::GameMenu || at_ == Screen::SaveGame))
         playTrack(musicTrack_ == 4 ? 2 : musicTrack_ + 1);
     if (at_ == Screen::Loading) {
         // Shown while the mansion is put together, then the deal.
@@ -697,10 +830,11 @@ void FrontEnd::update(uint64_t nowMs) {
                 return;
             }
         }
-        go(Screen::Deal);
+        // A saved game goes straight on; a new one is dealt first.
+        go(loadSlot_ >= 0 ? Screen::Game : Screen::Deal);
         return;
     }
-    if ((at_ == Screen::Game || at_ == Screen::GameMenu) && play_) {
+    if ((at_ == Screen::Game || at_ == Screen::GameMenu || at_ == Screen::SaveGame) && play_) {
         play_->setLook(playLook());
         if (at_ == Screen::Game)
             play_->update(nowMs);
@@ -713,15 +847,17 @@ void FrontEnd::update(uint64_t nowMs) {
             return;
         }
         play_->draw();
-        if (at_ == Screen::GameMenu && gameMenu_)
+        if ((at_ == Screen::GameMenu || at_ == Screen::SaveGame) && gameMenu_)
             gameMenu_->draw(screen_);
     } else {
         fillRect(screen_, 0, 0, kW, kH, {0, 0, 0});
         if (dialog_) {
             // The storm goes between the menu's background and its controls.
             dialog_->drawBackground(screen_);
-            if (at_ != Screen::Picker && at_ != Screen::Setup)
+            if (at_ != Screen::Picker && at_ != Screen::Setup) {
                 drawStorm();
+                menuThunder();
+            }
             dialog_->drawControls(screen_);
         }
     }

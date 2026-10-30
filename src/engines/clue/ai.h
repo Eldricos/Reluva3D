@@ -53,6 +53,9 @@ public:
     void holdsOneOf(int owner, const std::array<int, 3>& cards); // showed one, not seen which
     void notAll(const std::array<int, 3>& cards); // a wrong accusation: not all three in the case file
 
+    void save(std::ostream& out) const;
+    Error load(std::istream& in);
+
 private:
     void set(int card, int owner, Mark m);
     void settle(); // deduce until nothing more can be
@@ -84,10 +87,15 @@ public:
     int chooseShow(const Game& game, int suggester);
 
     bool ready() const { return notes_.complete(); }
+
+    // Saved and loaded with the game (the board's distances worked out again).
+    void save(std::ostream& out) const;
+    Error load(std::istream& in, const Game& game);
     const Notebook& notebook() const { return notes_; }
     int level() const { return level_; }
 
 private:
+    void measure(const Board& board);
     int distance(const Place& from, int room) const;
     int target(const Game& game) const;
     bool roomWanted(int room) const;

@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <climits>
 #include <deque>
+#include <istream>
+#include <ostream>
 
 namespace reluva::clue {
 
@@ -201,8 +203,11 @@ void ComputerPlayer::reset(const Game& game, int me, uint32_t seed, int level) {
     rng_.seed(seed);
     shownTo_.clear();
     notes_.reset(game, me, false, level >= Expert);
+    measure(game.board());
+}
+
+void ComputerPlayer::measure(const Board& board) {
     // Each room's distances: from the squares before its doors, outwards.
-    const Board& board = game.board();
     for (int r = 0; r < kRoomCount; ++r) {
         auto& d = toRoom_[size_t(r)];
         d.clear();
@@ -421,6 +426,97 @@ int ComputerPlayer::chooseShow(const Game& game, int suggester) {
     const int c = cards[rng_() % cards.size()];
     shown.push_back(c);
     return c;
+}
+
+void Notebook::save(std::ostream& out) const {
+    out << "notebook 1 " << countCards_ << ' ' << useClues_ << '\n';
+    for (const auto& row : marks_) {
+        for (Mark m : row)
+            out << int(m) << ' ';
+        out << '\n';
+    }
+    for (int n : handSize_)
+        out << n << ' ';
+    out << '\n' << oneOf_.size();
+    for (const auto& [owner, cards] : oneOf_)
+        out << ' ' << owner << ' ' << cards[0] << ' ' << cards[1] << ' ' << cards[2];
+    out << '\n' << notAll_.size();
+    for (const auto& cards : notAll_)
+        out << ' ' << cards[0] << ' ' << cards[1] << ' ' << cards[2];
+    out << '\n';
+}
+
+Error Notebook::load(std::istream& in) {
+    std::string tag;
+    int version = 0;
+    if (!(in >> tag >> version >> countCards_ >> useClues_) || tag != "notebook" || version != 1)
+        return Error::fail("a saved notebook is damaged");
+    for (auto& row : marks_)
+        for (Mark& m : row) {
+            int v = 0;
+            if (!(in >> v) || v < Unknown || v > No)
+                return Error::fail("a saved notebook is damaged");
+            m = Mark(v);
+        }
+    for (int& n : handSize_)
+        if (!(in >> n))
+            return Error::fail("a saved notebook is damaged");
+    const auto card = [](int c) { return c >= 0 && c < kCardCount; };
+    size_t n = 0;
+    if (!(in >> n) || n > 1000)
+        return Error::fail("a saved notebook is damaged");
+    oneOf_.assign(n, {});
+    for (auto& [owner, cards] : oneOf_)
+        if (!(in >> owner >> cards[0] >> cards[1] >> cards[2]) || owner < 0 || owner >= kOwners || !card(cards[0]) ||
+            !card(cards[1]) || !card(cards[2]))
+            return Error::fail("a saved notebook is damaged");
+    if (!(in >> n) || n > 100)
+        return Error::fail("a saved notebook is damaged");
+    notAll_.assign(n, {});
+    for (auto& cards : notAll_)
+        if (!(in >> cards[0] >> cards[1] >> cards[2]) || !card(cards[0]) || !card(cards[1]) || !card(cards[2]))
+            return Error::fail("a saved notebook is damaged");
+    contradiction_ = false;
+    return Error::success();
+}
+
+void ComputerPlayer::save(std::ostream& out) const {
+    out << "player 1 " << me_ << ' ' << level_ << '\n' << rng_ << '\n';
+    notes_.save(out);
+    out << shownTo_.size();
+    for (const auto& [who, cards] : shownTo_) {
+        out << ' ' << who << ' ' << cards.size();
+        for (int c : cards)
+            out << ' ' << c;
+    }
+    out << '\n';
+}
+
+Error ComputerPlayer::load(std::istream& in, const Game& game) {
+    std::string tag;
+    int version = 0;
+    if (!(in >> tag >> version >> me_ >> level_ >> rng_) || tag != "player" || version != 1 || me_ < 0 ||
+        me_ >= kSuspectCount || level_ < Novice || level_ > Expert)
+        return Error::fail("a saved computer player is damaged");
+    if (Error err = notes_.load(in))
+        return err;
+    size_t n = 0;
+    if (!(in >> n) || n > size_t(kSuspectCount))
+        return Error::fail("a saved computer player is damaged");
+    shownTo_.clear();
+    for (size_t i = 0; i < n; ++i) {
+        int who = 0;
+        size_t count = 0;
+        if (!(in >> who >> count) || count > size_t(kCardCount))
+            return Error::fail("a saved computer player is damaged");
+        auto& cards = shownTo_[who];
+        cards.assign(count, 0);
+        for (int& c : cards)
+            if (!(in >> c))
+                return Error::fail("a saved computer player is damaged");
+    }
+    measure(game.board());
+    return Error::success();
 }
 
 } // namespace reluva::clue

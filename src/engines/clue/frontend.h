@@ -56,7 +56,7 @@ public:
 private:
     enum class Screen {
         Intro, MainMenu, StartChoice, Connection, NetGame, LoadGame, RulesMenu, Rules, Credits, CreditsText,
-        Exit, Picker, Setup, Variants, Prefs, Loading, Deal, Game, GameMenu
+        Exit, Picker, Setup, Variants, Prefs, Loading, Deal, Game, GameMenu, SaveGame
     };
 
     void go(Screen s);
@@ -74,8 +74,16 @@ private:
     void stopMusic();
     void startGame();
     PlayLook playLook() const;
+    // Saved games: eight slots, in the saves folder beside the preferences.
+    static constexpr int kSaveSlots = 8;
+    std::filesystem::path savesFolder() const;
+    std::filesystem::path saveFile(int slot) const;
+    std::string savedName(int slot) const; // empty for an empty slot
+    Error saveGame(int slot, const std::string& name);
+    Error loadGame(int slot);
     void drawCursor();
     void drawStorm();
+    void menuThunder();
     void applyVolumes();
 
     System& sys_;
@@ -116,7 +124,9 @@ private:
     Level level_;
     std::unique_ptr<Mansion> mansion_;
     std::unique_ptr<Play> play_;
-    std::unique_ptr<DialogView> gameMenu_;
+    std::unique_ptr<DialogView> gameMenu_; // the Esc menu, or its Save window
+    int saveSlot_ = -1, loadSlot_ = -1;
+    uint64_t nextThunder_ = 0; // in the menus
 };
 
 } // namespace reluva::clue

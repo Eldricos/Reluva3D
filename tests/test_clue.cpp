@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cstring>
 #include <filesystem>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -906,6 +907,72 @@ static void testComputerPlayers() {
     }
 }
 
+// A game of computer players saved half way and loaded again goes on
+// exactly as the one that wasn't.
+static void testSaveLoad() {
+    Board board;
+    CHECK(!board.build(testBoardLevel()));
+    const std::array<bool, kSuspectCount> playing{true, true, false, true, false, true};
+    Game game;
+    CHECK(!game.start(board, playing, false, 77));
+    std::array<ComputerPlayer, kSuspectCount> ai;
+    for (int s = 0; s < kSuspectCount; ++s)
+        if (playing[size_t(s)])
+            ai[size_t(s)].reset(game, s, 100u + uint32_t(s), s % 3);
+    const auto step = [](Game& g, std::array<ComputerPlayer, kSuspectCount>& players,
+                         const std::array<bool, kSuspectCount>& in) {
+        ComputerPlayer& me = players[size_t(g.turn())];
+        switch (me.decide(g)) {
+        case ComputerPlayer::Action::Roll: g.rollDie(); break;
+        case ComputerPlayer::Action::Passage: g.takePassage(); break;
+        case ComputerPlayer::Action::Walk: g.walk(me.chooseWalk(g)); break;
+        case ComputerPlayer::Action::Suggest: {
+            const Accusation a = me.chooseSuggestion(g);
+            g.suggest(a.suspect, a.weapon);
+            if (g.phase() == Game::Phase::Disprove)
+                g.show(players[size_t(g.disprover())].chooseShow(g, g.turn()));
+            for (int s = 0; s < kSuspectCount; ++s)
+                if (in[size_t(s)])
+                    players[size_t(s)].observe(g);
+            break;
+        }
+        case ComputerPlayer::Action::Accuse: g.accuse(me.chooseAccusation()); break;
+        case ComputerPlayer::Action::EndTurn: g.endTurn(); break;
+        }
+    };
+    for (int i = 0; i < 60 && game.phase() != Game::Phase::Over; ++i)
+        step(game, ai, playing);
+    std::stringstream saved;
+    game.save(saved);
+    for (int s = 0; s < kSuspectCount; ++s)
+        if (playing[size_t(s)])
+            ai[size_t(s)].save(saved);
+    Game copy;
+    std::array<ComputerPlayer, kSuspectCount> copyAi;
+    CHECK(!copy.load(saved, board));
+    for (int s = 0; s < kSuspectCount; ++s)
+        if (playing[size_t(s)])
+            CHECK(!copyAi[size_t(s)].load(saved, copy));
+    for (int i = 0; i < 20000 && game.phase() != Game::Phase::Over; ++i) {
+        step(game, ai, playing);
+        step(copy, copyAi, playing);
+        CHECK(copy.turn() == game.turn() && copy.phase() == game.phase());
+        for (int s = 0; s < kSuspectCount; ++s)
+            CHECK(copy.place(s) == game.place(s));
+    }
+    CHECK(copy.phase() == Game::Phase::Over && copy.winner() == game.winner());
+    // Damaged saves are refused.
+    std::stringstream bad("game 1\n1 0 9");
+    Game broken;
+    CHECK(broken.load(bad, board));
+    std::stringstream other("notebook 1");
+    CHECK(broken.load(other, board));
+    std::string text;
+    std::stringstream strings;
+    saveio::putString(strings, "a name with spaces");
+    CHECK(saveio::getString(strings, text) && text == "a name with spaces");
+}
+
 int main() {
     testUnpack();
     testDriveAndImages();
@@ -920,6 +987,7 @@ int main() {
     testRules();
     testNotebook();
     testComputerPlayers();
+    testSaveLoad();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

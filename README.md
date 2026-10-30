@@ -115,7 +115,8 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   layout file), setting up the players, then the game in the mansion: the die or
   No Die Roll, moves planned square by square and walked, suggestions with their
   videos, disproving, accusations, the notepad and the board from above, hot seat
-  for several people; computer players at three levels, deducing from what they see. **F9** switches to a viewer of its data: Boddy
+  for several people; computer players at three levels, deducing from what they see;
+  the rooms' clickable hot spots, thunder and wind, and saved games. **F9** switches to a viewer of its data: Boddy
   Mansion drawn from its level file (scroll with the arrows or the mouse, **M** for
   the whole house, **W** for the near walls), its videos, animations, images, sounds
   and text, **Tab** switching between them; `docs/engines/clue.md` lists the keys, and

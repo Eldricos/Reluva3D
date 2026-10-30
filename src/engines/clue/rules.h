@@ -12,6 +12,8 @@
 
 #include <array>
 #include <cstdint>
+#include <iosfwd>
+#include <string>
 #include <random>
 #include <vector>
 
@@ -30,6 +32,13 @@ struct Accusation {
     bool has(int card) const { return card == suspectCard(suspect) || card == weaponCard(weapon) || card == roomCard(room); }
     bool operator==(const Accusation& o) const { return suspect == o.suspect && weapon == o.weapon && room == o.room; }
 };
+
+// Saved games are Reluva's own: whitespace-separated numbers, strings by
+// their length (see docs/engines/clue.md).
+namespace saveio {
+void putString(std::ostream& out, const std::string& s);
+bool getString(std::istream& in, std::string& s);
+} // namespace saveio
 
 class Game {
 public:
@@ -107,6 +116,10 @@ public:
     // no one is left.
     Error accuse(const Accusation& a);
     Error endTurn();
+
+    // The whole state of the game, to be saved; loaded on the same board.
+    void save(std::ostream& out) const;
+    Error load(std::istream& in, const Board& board);
 
     // The square suspects stand on when in a room, kept apart.
     Square standingSquare(int suspect) const;

@@ -100,8 +100,8 @@ Each step can be seen working before the next.
    (locally), the six suspects' players (human with a name, or computer
    at a difficulty), the game variants, Preferences (saved), How to Play
    with its texts, Credits, Exit; then "Entering the mansion", the deal,
-   and the mansion with the game's bar and the Esc menu. Load Game, Save
-   and the network screens show but don't work yet. The in-game panels
+   and the mansion with the game's bar and the Esc menu. The network
+   screens show but don't work yet. The in-game panels
    (cards, notepad, suggestion and accusation, disproving) come with the
    rules, as they need them.
 5. **The game** (done, to be checked against the original). The board
@@ -125,9 +125,13 @@ Each step can be seen working before the next.
    deductions; `reluva-tool clue-board <clue.lvl> <games>` plays mixed
    games of the three levels on the real board. The levels are matched
    to recordings of the original at each.
-7. **The rest.** The clickable objects' animations, thunder and other
-   ambient sounds, music (see below), saved games and `Prefs.ini`. Saved
-   games are Reluva's own: the original's needn't load.
+7. **The rest** (done, to be checked against the original). The rooms'
+   hot spots (below), thunder and gusts of wind with the drapes blowing,
+   the fire and the fountain heard near them, thunder over the menus'
+   storm; saved games. Saved games are Reluva's own, in eight slots as
+   the original's Save window and Load Game screen have: the original's
+   needn't load. The original's `Prefs.ini` isn't read: Reluva keeps its
+   own preferences.
 8. **Network play** (later). The original's local-network games, and
    games over the internet by address in place of the Gaming Zone, which
    is gone. Whether to speak DirectPlay's protocol, so as to play against
@@ -209,6 +213,51 @@ the revolver, the billiard room), read off its ticker:
   right: the game took 15 minutes, about ten rounds.
 
 
+
+## Hot spots, weather and sounds
+
+Source: `clue.lvl` and the objects (`.o`), the readme ("Clickable Items
+- ... Click on the bear in the Billiard Room, and you may see him dance,
+or you could get mauled!"), and `Clue.exe` 2.2's table of sounds.
+
+**Hot spots.** Furniture whose object has states 20, 21 or 22 (`..._ag`,
+`..._ab`, `..._an` animations: good, bad, neutral) reacts when clicked,
+with one of them by chance: the bear dances or mauls, the piano's lid
+opens, the telephone on the lounge's lamp table rings, the stove's pot
+boils over, and 25 or so others. The object's timings give each
+reaction's sound: time 1500, 1600, 1700 for states 20, 21, 22, the value
+a number into `Clue.exe`'s sound table from its 61st entry
+(`bear_g.wav` 0, `bear_b.wav` 1, `rhino_b.wav` 2 ... `mnky_b.wav` 21; the
+table is a list of pointers to the names at 0x5CA98 in 2.2's file).
+Reactions don't touch the game. Reluva takes clicks on hot spots any
+time but while a human is planning a move (the clicks are then the
+move's); see-through walls don't catch the pointer.
+
+**Weather.** Thunder (`BigThunder4/5`, `MidThunder1-3`, `SmallThunder6-8`)
+every 20-60 s; gusts of wind (`wind light gusts`, `wind heavy gusts`)
+every 25-75 s, when the drapes (type 12 objects) play their state 23
+(light) or 24 (heavy). Over the menus, `mnThndr1`/`mnThndr2` every
+12-30 s. How often the original does each is a guess.
+
+**Sounds of things.** The library's fire (`LBfirepl_n.wav`) and the
+conservatory's fountain (`fntn_n.wav`) loop while they're near the
+view's middle, louder the nearer (full within 150 pixels, none beyond
+600).
+
+## Saved games
+
+From the Esc menu, **Save** (when it's a human's turn and nothing is
+going on) opens the original's Save window: eight slots; click one,
+type its name, OK (or Enter). **Load Game** on the main menu lists them;
+choosing one goes into the mansion and on from where it was saved,
+without the deal.
+
+They are kept in Reluva's folder for the game, `saves/slot1.sav` ...
+`slot8.sav`: text, a header line `reluva-clue-save 1`, the name, then
+the game: the players, the rules' state (cards, places, the turn, the
+die's random state), each computer player's notebook and random state,
+each human's notepad, and where the suspects stand. A save is written
+beside the old one and then put in its place.
 
 ## Playing
 

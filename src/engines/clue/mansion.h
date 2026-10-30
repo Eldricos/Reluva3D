@@ -98,6 +98,16 @@ public:
     // An animation's frames as pieces to draw (kept).
     const std::vector<Frame>* frames(const GameData& data, const Animation& anim) { return resolve(data, anim); }
 
+    // An item playing another of its object's states (a hot spot's
+    // reaction, the drapes in a gust) from startMs: once, then back to
+    // state 0, or looping until stopped. False if it has no such state.
+    bool playState(const GameData& data, size_t item, uint16_t state, uint64_t startMs, bool loop = false);
+    void stopState(size_t item) { states_.erase(item); }
+    bool playingState(size_t item, uint64_t nowMs) const;
+    // The item drawn uppermost at a point of the view (in the mansion's
+    // screen space: the camera added), by its pixels; -1 for none.
+    int itemAt(int x, int y, const MansionLook& look, uint64_t nowMs) const;
+
     // Builds every placement; those whose object or animation can't be
     // found or read are left out and counted in problems().
     Error build(const GameData& data, const Level& level);
@@ -119,7 +129,16 @@ public:
 private:
     const std::vector<Frame>* resolve(const GameData& data, const Animation& anim);
 
+    struct Playing {
+        const Animation* animation = nullptr;
+        const std::vector<Frame>* frames = nullptr;
+        uint64_t start = 0;
+        bool loop = false;
+    };
+    const std::vector<Frame>& framesAt(size_t item, uint64_t nowMs, const MansionLook& look, size_t& frame) const;
+
     const Level* level_ = nullptr;
+    std::map<size_t, Playing> states_;
     std::vector<Item> items_;
     std::vector<size_t> order_;
     size_t flatCount_ = 0;              // order_'s first entries, the flat items

@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <functional>
+#include <istream>
+#include <ostream>
 #include <set>
 
 namespace reluva::clue {
@@ -374,6 +376,83 @@ Square Game::standingSquare(int suspect) const {
         k += places_[size_t(s)].inRoom() && places_[size_t(s)].room == p.room;
     const auto& squares = board_->standing(p.room);
     return squares.empty() ? Square{} : squares[std::min(k, squares.size() - 1)];
+}
+
+namespace saveio {
+
+void putString(std::ostream& out, const std::string& s) { out << s.size() << ' ' << s << ' '; }
+
+bool getString(std::istream& in, std::string& s) {
+    size_t n = 0;
+    if (!(in >> n) || n > 4096 || in.get() != ' ')
+        return false;
+    s.assign(n, '\0');
+    return bool(in.read(s.data(), std::streamsize(n)));
+}
+
+} // namespace saveio
+
+void Game::save(std::ostream& out) const {
+    out << "game 1\n";
+    for (const Seat& seat : seats_) {
+        out << seat.playing << ' ' << seat.out << ' ' << seat.hand.size();
+        for (int c : seat.hand)
+            out << ' ' << c;
+        out << '\n';
+    }
+    for (int s = 0; s < kSuspectCount; ++s)
+        out << places_[size_t(s)].square.x << ' ' << places_[size_t(s)].square.y << ' ' << places_[size_t(s)].room
+            << ' ' << broughtIn_[size_t(s)] << ' ' << suggestedIn_[size_t(s)] << '\n';
+    out << solution_.suspect << ' ' << solution_.weapon << ' ' << solution_.room << ' ' << noDieRoll_ << ' ' << turn_
+        << ' ' << int(phase_) << ' ' << roll_ << ' ' << moves_ << ' ' << startRoom_ << ' ' << enteredRoom_ << ' '
+        << suggestedThisTurn_ << ' ' << suggestion_.suspect << ' ' << suggestion_.weapon << ' ' << suggestion_.room
+        << ' ' << disprover_ << ' ' << shown_ << ' ' << winner_ << ' ' << passed_.size();
+    for (int p : passed_)
+        out << ' ' << p;
+    out << '\n' << rng_ << '\n';
+}
+
+Error Game::load(std::istream& in, const Board& board) {
+    std::string tag;
+    int version = 0;
+    if (!(in >> tag >> version) || tag != "game" || version != 1)
+        return Error::fail("not a saved game of this kind");
+    const auto valid = [](int v, int lo, int hi) { return v >= lo && v < hi; };
+    for (Seat& seat : seats_) {
+        size_t n = 0;
+        if (!(in >> seat.playing >> seat.out >> n) || n > size_t(kCardCount))
+            return Error::fail("a saved game's seats are damaged");
+        seat.hand.assign(n, 0);
+        for (int& c : seat.hand)
+            if (!(in >> c) || !valid(c, 0, kCardCount))
+                return Error::fail("a saved game's cards are damaged");
+    }
+    for (int s = 0; s < kSuspectCount; ++s) {
+        Place& p = places_[size_t(s)];
+        bool brought = false;
+        if (!(in >> p.square.x >> p.square.y >> p.room >> brought >> suggestedIn_[size_t(s)]) ||
+            !valid(p.room, kNoRoom, kRoomCount))
+            return Error::fail("a saved game's places are damaged");
+        broughtIn_[size_t(s)] = brought;
+    }
+    int phase = 0;
+    size_t passed = 0;
+    if (!(in >> solution_.suspect >> solution_.weapon >> solution_.room >> noDieRoll_ >> turn_ >> phase >> roll_ >>
+          moves_ >> startRoom_ >> enteredRoom_ >> suggestedThisTurn_ >> suggestion_.suspect >> suggestion_.weapon >>
+          suggestion_.room >> disprover_ >> shown_ >> winner_ >> passed) ||
+        !valid(turn_, 0, kSuspectCount) || !valid(phase, 0, int(Phase::Over) + 1) || passed > size_t(kSuspectCount) ||
+        !valid(solution_.suspect, 0, kSuspectCount) || !valid(solution_.weapon, 0, kWeaponCount) ||
+        !valid(solution_.room, 0, kRoomCount))
+        return Error::fail("a saved game's turn is damaged");
+    phase_ = Phase(phase);
+    passed_.assign(passed, 0);
+    for (int& p : passed_)
+        if (!(in >> p))
+            return Error::fail("a saved game's turn is damaged");
+    if (!(in >> rng_))
+        return Error::fail("a saved game's die is damaged");
+    board_ = &board;
+    return Error::success();
 }
 
 } // namespace reluva::clue

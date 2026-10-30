@@ -112,6 +112,7 @@ const std::vector<Mansion::Frame>* Mansion::resolve(const GameData& data, const 
 Error Mansion::build(const GameData& data, const Level& level) {
     level_ = &level;
     items_.clear();
+    states_.clear();
     order_.clear();
     problems_.clear();
     frames_.clear();
@@ -251,6 +252,81 @@ void blitLit(Surface& dst, const image::Image& img, int x, int y, int opacity, i
 
 } // namespace
 
+bool Mansion::playState(const GameData& data, size_t item, uint16_t state, uint64_t startMs, bool loop) {
+    if (item >= items_.size())
+        return false;
+    Item& it = items_[item];
+    const ObjectDef::State* st = it.object->state(state);
+    const Animation* a = st ? data.animation(st->animation) : nullptr;
+    if (!a || a->frameCount() == 0)
+        return false;
+    Playing p;
+    p.animation = a;
+    p.frames = resolve(data, *a);
+    p.start = startMs;
+    p.loop = loop;
+    states_[item] = p;
+    // Its rectangle takes in the new frames, so it isn't left out of a view.
+    for (const Frame& frame : *p.frames)
+        for (const Piece& piece : frame) {
+            const ScreenRect r{it.anchorX + piece.dx, it.anchorY + piece.dy, piece.image->pixels.w,
+                               piece.image->pixels.h};
+            const int x1 = std::max(it.rect.x + it.rect.w, r.x + r.w), y1 = std::max(it.rect.y + it.rect.h, r.y + r.h);
+            it.rect.x = std::min(it.rect.x, r.x);
+            it.rect.y = std::min(it.rect.y, r.y);
+            it.rect.w = x1 - it.rect.x;
+            it.rect.h = y1 - it.rect.y;
+        }
+    return true;
+}
+
+bool Mansion::playingState(size_t item, uint64_t nowMs) const {
+    auto it = states_.find(item);
+    if (it == states_.end())
+        return false;
+    const Playing& p = it->second;
+    if (p.loop)
+        return true;
+    const uint64_t fps = uint64_t(std::max(1, p.animation->framesPerSecond));
+    return nowMs < p.start || (nowMs - p.start) * fps / 1000 < p.frames->size();
+}
+
+const std::vector<Mansion::Frame>& Mansion::framesAt(size_t index, uint64_t nowMs, const MansionLook& look,
+                                                    size_t& frame) const {
+    const Item& item = items_[index];
+    frame = 0;
+    if (auto it = states_.find(index); it != states_.end() && playingState(index, nowMs)) {
+        const Playing& p = it->second;
+        const uint64_t fps = uint64_t(std::max(1, p.animation->framesPerSecond));
+        frame = size_t((nowMs - std::min(nowMs, p.start)) * fps / 1000) % p.frames->size();
+        return *p.frames;
+    }
+    const auto& frames = *item.frames;
+    if (look.animate && frames.size() > 1)
+        frame = size_t(nowMs * uint64_t(item.animation->framesPerSecond) / 1000) % frames.size();
+    return frames;
+}
+
+int Mansion::itemAt(int x, int y, const MansionLook& look, uint64_t nowMs) const {
+    for (size_t n = order_.size(); n-- > 0;) {
+        const size_t i = order_[n];
+        const Item& item = items_[i];
+        // The near walls, see-through, don't stop the pointer.
+        if (item.flat || !shown(item, look) || !item.rect.contains(x, y) ||
+            (item.layer == 4 && look.walls != MansionLook::Walls::Solid))
+            continue;
+        size_t f = 0;
+        const auto& frames = framesAt(i, nowMs, look, f);
+        for (const Piece& p : frames[f]) {
+            const int px = x - item.anchorX - p.dx, py = y - item.anchorY - p.dy;
+            if (px >= 0 && py >= 0 && px < p.image->pixels.w && py < p.image->pixels.h &&
+                p.image->pixels.pixel(px, py)[3] > 0)
+                return int(i);
+        }
+    }
+    return -1;
+}
+
 bool Mansion::shown(const Item& item, const MansionLook& look) const {
     if (item.object->type == ObjectDef::TileNumber)
         return look.tileNumbers;
@@ -340,10 +416,8 @@ void Mansion::draw(Surface& target, int camX, int camY, const MansionLook& look,
         const Item& item = items_[order_[n]];
         if (!shown(item, look) || !item.rect.overlaps(view))
             continue;
-        const auto& frames = *item.frames;
         size_t f = 0;
-        if (look.animate && frames.size() > 1)
-            f = size_t(nowMs * uint64_t(item.animation->framesPerSecond) / 1000) % frames.size();
+        const auto& frames = framesAt(order_[n], nowMs, look, f);
         int opacity = item.layer == 4 && look.walls == MansionLook::Walls::SeeThrough ? look.seeThrough : 255;
         // Over a suspect: see-through.
         if (!item.flat)

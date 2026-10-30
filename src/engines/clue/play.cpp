@@ -14,6 +14,8 @@
 #include <algorithm>
 #include <cmath>
 #include <fstream>
+#include <istream>
+#include <ostream>
 #include <iterator>
 #include <sstream>
 
@@ -101,6 +103,28 @@ const char* const kMark[5] = {"UI:Anoteschk", "UI:Anotesx", "UI:Anoteso", "UI:An
 constexpr int kMapX = 208, kMapY = 5, kMapW = 425, kMapH = 407;
 constexpr int kMapSquare = 13, kMapCol0X = 8, kMapRow0Y = 15, kMapFirst = 9;
 
+// The sounds the objects' reactions play: Clue.exe's table of sounds from
+// its 61st (bear_g.wav) on, numbered as the objects' timings number them.
+const char* const kObjectSound[] = {"bear_g.wav",      "bear_b.wav",    "rhino_b.wav",   "chest_open.wav",
+                                    "chest_close.wav", "pooltbl_n.wav", "rdgtbl_n.wav",  "book_fall.wav",
+                                    "stdesk_close.wav", "stdesk_open.wav", "clock_b.wav", "phono_b.wav",
+                                    "phonetbl_g.wav",  "phonetbl_b.wav", "srvcrt_g.wav", "vase.wav",
+                                    "pot_b.wav",       "trky_b.wav",    "piano_b.wav",   "blsofa_b.wav",
+                                    "pitcher.wav",     "mnky_b.wav"};
+// A hot spot's reactions: states 20 (good), 21 (bad) and 22 (neutral); the
+// sound of each is the object's timing 1500, 1600 or 1700.
+constexpr uint16_t kReactionFirst = 20, kReactionLast = 22;
+// The weather: thunder now and then, gusts of wind that blow the drapes
+// (their states 23, light, and 24, heavy).
+const char* const kThunder[] = {"BigThunder4.wav",   "BigThunder5.wav",   "MidThunder1.wav",  "MidThunder2.wav",
+                                "MidThunder3.wav",   "SmallThunder6.wav", "SmallThunder7.wav", "SmallThunder8.wav"};
+// Sounds heard near things in the house, louder the nearer the view's middle.
+struct Ambient {
+    const char* object;
+    const char* sound;
+};
+const Ambient kAmbient[] = {{"library:Olbfirepl_an", "LBfirepl_n.wav"}, {"conservatory:Ocnfntn", "fntn_n.wav"}};
+
 int floorDiv(int a, int b) { return a >= 0 ? a / b : -((-a + b - 1) / b); }
 
 std::vector<uint8_t> readFile(const std::filesystem::path& p) {
@@ -174,9 +198,13 @@ Error Play::start(const std::array<Player, kSuspectCount>& players, bool noDieRo
         for (int c : game_.seat(k).hand)
             notes_[size_t(k)][size_t(c)] = {k, {1, 1}, {}};
     }
+    readTexts();
+    beginTurn();
+    return Error::success();
+}
+
+void Play::readTexts() {
     tickerLines_ = readLines(data_, "TickerStrings.txt");
-    // The notepad's names: Notepad.txt's lines but its comments and the
-    // kinds' headings.
     // Notepad.txt: each kind's heading, then its cards.
     cardNames_.clear();
     kindNames_ = {"Suspects", "Weapons", "Rooms"};
@@ -196,7 +224,84 @@ Error Play::start(const std::array<Player, kSuspectCount>& players, bool noDieRo
         heading = false;
     }
     cardNames_.resize(kCardCount);
-    beginTurn();
+}
+
+bool Play::canSave() const {
+    return window_ == Window::None && steps_.empty() && !busy() && humanTurn() &&
+           game_.phase() != Game::Phase::Over && game_.phase() != Game::Phase::Disprove;
+}
+
+void Play::save(std::ostream& out) const {
+    out << "play 1\n";
+    for (const Player& p : players_) {
+        out << int(p.kind) << ' ' << p.level << ' ';
+        saveio::putString(out, p.name);
+        out << '\n';
+    }
+    out << seed_ << '\n';
+    game_.save(out);
+    for (int s = 0; s < kSuspectCount; ++s)
+        if (players_[size_t(s)].kind != Player::None)
+            ai_[size_t(s)].save(out);
+    for (int s = 0; s < kSuspectCount; ++s) {
+        const Walker& w = walkers_[size_t(s)];
+        out << autoDisprove_[size_t(s)] << ' ' << w.x << ' ' << w.y << ' ' << w.facing << '\n';
+        for (int c = 0; c < kCardCount; ++c) {
+            const NoteRow& row = notes_[size_t(s)][size_t(c)];
+            out << row.colour << ' ' << row.marks[0] << ' ' << row.marks[1] << ' ' << shownBy_[size_t(s)][size_t(c)]
+                << ' ';
+            saveio::putString(out, row.text);
+        }
+        out << '\n';
+    }
+}
+
+Error Play::load(std::istream& in) {
+    const Error damaged = Error::fail("the saved game is damaged");
+    std::string tag;
+    int version = 0;
+    if (!(in >> tag >> version) || tag != "play" || version != 1)
+        return Error::fail("not a saved game of Reluva's");
+    for (Player& p : players_) {
+        int kind = 0;
+        if (!(in >> kind >> p.level) || kind < Player::None || kind > Player::Computer || p.level < 0 || p.level > 2 ||
+            in.get() != ' ' || !saveio::getString(in, p.name))
+            return damaged;
+        p.kind = Player::Kind(kind);
+    }
+    if (!(in >> seed_))
+        return damaged;
+    if (Error err = board_.build(level_))
+        return err;
+    if (Error err = game_.load(in, board_))
+        return err;
+    for (int s = 0; s < kSuspectCount; ++s)
+        if (players_[size_t(s)].kind != Player::None)
+            if (Error err = ai_[size_t(s)].load(in, game_))
+                return err;
+    for (int s = 0; s < kSuspectCount; ++s) {
+        Walker& w = walkers_[size_t(s)];
+        bool autoDisprove = false;
+        if (!(in >> autoDisprove >> w.x >> w.y >> w.facing) || w.facing < 0 || w.facing > 7)
+            return damaged;
+        autoDisprove_[size_t(s)] = autoDisprove;
+        w.walking = false;
+        w.route.clear();
+        for (int c = 0; c < kCardCount; ++c) {
+            NoteRow& row = notes_[size_t(s)][size_t(c)];
+            if (!(in >> row.colour >> row.marks[0] >> row.marks[1] >> shownBy_[size_t(s)][size_t(c)]) ||
+                in.get() != ' ' || !saveio::getString(in, row.text) || row.colour < -1 ||
+                row.colour >= kSuspectCount || row.marks[0] < 0 || row.marks[0] > 5 || row.marks[1] < 0 ||
+                row.marks[1] > 5)
+                return damaged;
+        }
+    }
+    readTexts();
+    // On, from the start of the turn's sentence; a move half planned is
+    // planned again.
+    plan_.clear();
+    say(line(game_.turn(), kYourTurn));
+    centreOn(game_.turn());
     return Error::success();
 }
 
@@ -787,6 +892,8 @@ void Play::handleEvent(const Event& ev) {
         clickPanel(x - kLeftX, y - kLeftY);
         return;
     }
+    if (!map_ && clickHotSpot(x, y))
+        return;
     if (busy() || !steps_.empty() || !humanTurn())
         return;
     if (map_ && x >= kMapX && x < kMapX + kMapW && y >= kMapY && y < kMapY + kMapH)
@@ -844,6 +951,72 @@ void Play::walkPlan() {
     }
     startWalk(path);
     then([this] { afterAction(); });
+}
+
+bool Play::clickHotSpot(int x, int y) {
+    // While a move is being planned, clicks are the move's.
+    if (humanTurn() && game_.canMove() && !busy())
+        return false;
+    const int i = mansion_.itemAt(x + camX_, y + camY_, look_.mansion, now_);
+    if (i < 0 || mansion_.playingState(size_t(i), now_))
+        return false;
+    const ObjectDef* o = mansion_.items()[size_t(i)].object;
+    std::vector<uint16_t> reactions;
+    for (const ObjectDef::State& st : o->states)
+        if (st.id >= kReactionFirst && st.id <= kReactionLast)
+            reactions.push_back(st.id);
+    if (reactions.empty())
+        return false;
+    const uint16_t state = reactions[ambientRng_() % reactions.size()];
+    if (!mansion_.playState(data_, size_t(i), state, now_))
+        return false;
+    const uint16_t code = uint16_t(1500 + 100 * (state - kReactionFirst));
+    for (const Timing& t : o->timings)
+        if (t.time == code && t.state < std::size(kObjectSound))
+            sound(kObjectSound[t.state]);
+    return true;
+}
+
+void Play::updateAmbience() {
+    if (nextThunder_ == 0) {
+        nextThunder_ = now_ + 15000 + ambientRng_() % 30000;
+        nextGust_ = now_ + 20000 + ambientRng_() % 40000;
+    }
+    if (now_ >= nextThunder_) {
+        sound(kThunder[ambientRng_() % std::size(kThunder)]);
+        nextThunder_ = now_ + 20000 + ambientRng_() % 40000;
+    }
+    if (now_ >= nextGust_) {
+        const bool heavy = ambientRng_() % 3 == 0;
+        sound(heavy ? "wind heavy gusts.wav" : "wind light gusts.wav");
+        for (size_t i = 0; i < mansion_.items().size(); ++i)
+            if (mansion_.items()[i].object->type == ObjectDef::Drapes)
+                mansion_.playState(data_, i, heavy ? 24 : 23, now_ + ambientRng_() % 400);
+        nextGust_ = now_ + 25000 + ambientRng_() % 50000;
+    }
+    if (!mixer_)
+        return;
+    // The fire and the fountain: by how far they are from the view's middle.
+    for (size_t k = 0; k < std::size(kAmbient); ++k) {
+        int volume = 0;
+        for (const Mansion::Item& item : mansion_.items())
+            if (item.object->name == kAmbient[k].object) {
+                const int dx = item.anchorX - (camX_ + kW / 2), dy = item.anchorY - (camY_ + kBarTop / 2);
+                const double d = std::hypot(double(dx), double(dy));
+                volume = std::max(volume, int(audio::kMaxVolume * std::clamp((600 - d) / 450, 0.0, 1.0)));
+            }
+        audio::SoundHandle& h = ambient_[k];
+        if (volume > 0 && (h == audio::kNoSound || !mixer_->isPlaying(h))) {
+            if (const auto loop = loadSound(kAmbient[k].sound))
+                h = mixer_->play(loop, audio::SoundType::Effects, volume, 0, true);
+        } else if (h != audio::kNoSound) {
+            if (volume == 0) {
+                mixer_->stop(h);
+                h = audio::kNoSound;
+            } else
+                mixer_->setVolume(h, volume);
+        }
+    }
 }
 
 void Play::clickView(int x, int y) {
@@ -975,6 +1148,7 @@ void Play::editNote(int card) {
 void Play::update(uint64_t nowMs) {
     const uint64_t dt = now_ == 0 ? 0 : std::min<uint64_t>(nowMs - now_, 100);
     now_ = nowMs;
+    updateAmbience();
     // The walks.
     for (int s = 0; s < kSuspectCount; ++s) {
         Walker& w = walkers_[size_t(s)];
@@ -1029,9 +1203,7 @@ std::string Play::line(int suspect, int index) const {
     return n < tickerLines_.size() ? tickerLines_[n] : std::string(); // Windows-1252, as the fonts
 }
 
-void Play::sound(const std::string& file, bool voice) {
-    if (!mixer_ || (voice && !look_.butlerVoice))
-        return;
+std::shared_ptr<audio::Sound> Play::loadSound(const std::string& file) {
     auto it = sounds_.find(file);
     if (it == sounds_.end()) {
         std::shared_ptr<audio::Sound> s;
@@ -1042,14 +1214,21 @@ void Play::sound(const std::string& file, bool voice) {
         }
         it = sounds_.emplace(file, s).first;
     }
-    if (!it->second)
+    return it->second;
+}
+
+void Play::sound(const std::string& file, bool voice) {
+    if (!mixer_ || (voice && !look_.butlerVoice))
+        return;
+    const auto s = loadSound(file);
+    if (!s)
         return;
     if (voice) {
         if (voice_ != audio::kNoSound)
             mixer_->stop(voice_);
-        voice_ = mixer_->play(it->second, audio::SoundType::Speech);
+        voice_ = mixer_->play(s, audio::SoundType::Speech);
     } else
-        mixer_->play(it->second, audio::SoundType::Effects);
+        mixer_->play(s, audio::SoundType::Effects);
 }
 
 void Play::startVideo(const std::string& file) {
@@ -1076,6 +1255,11 @@ void Play::stopVideo() {
 
 void Play::stopSounds() {
     stopVideo();
+    for (audio::SoundHandle& h : ambient_) {
+        if (mixer_ && h != audio::kNoSound)
+            mixer_->stop(h);
+        h = audio::kNoSound;
+    }
     if (mixer_ && voice_ != audio::kNoSound)
         mixer_->stop(voice_);
     voice_ = audio::kNoSound;

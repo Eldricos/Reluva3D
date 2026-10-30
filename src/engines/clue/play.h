@@ -25,7 +25,9 @@
 #include <array>
 #include <deque>
 #include <functional>
+#include <iosfwd>
 #include <map>
+#include <random>
 #include <memory>
 #include <string>
 #include <vector>
@@ -52,6 +54,10 @@ public:
     ~Play();
 
     Error start(const std::array<Player, kSuspectCount>& players, bool noDieRoll, uint32_t seed);
+    // Saved games: when it's a human's turn and nothing is going on.
+    bool canSave() const;
+    void save(std::ostream& out) const;
+    Error load(std::istream& in); // in place of start()
     void setLook(const PlayLook& look) { look_ = look; }
 
     void handleEvent(const Event& ev);
@@ -89,6 +95,7 @@ private:
     bool busy() const;
     void runSteps();
 
+    void readTexts();
     void beginTurn();
     void computerTurn();
     void afterAction();
@@ -111,6 +118,8 @@ private:
     void clickPick(int id);
     int actionAt(int x, int y) const;
     void clickAction(int slot);
+    bool clickHotSpot(int x, int y);
+    void updateAmbience();
     void clickView(int x, int y);
     void clickSquare(const Place& p);
     void clickMap(int x, int y);
@@ -122,6 +131,7 @@ private:
     void say(const std::string& sentence);
     void drawTicker();
     void editNote(int card);
+    std::shared_ptr<audio::Sound> loadSound(const std::string& file);
     void sound(const std::string& file, bool voice = false);
     int promptLine() const;
     void promptHuman();
@@ -207,6 +217,10 @@ private:
     uint64_t videoStart_ = 0;
 
     std::map<std::string, std::shared_ptr<audio::Sound>> sounds_;
+    // The weather and the sounds of things in the house.
+    std::mt19937 ambientRng_{12345};
+    uint64_t nextThunder_ = 0, nextGust_ = 0;
+    std::array<audio::SoundHandle, 2> ambient_{audio::kNoSound, audio::kNoSound};
     audio::SoundHandle voice_ = audio::kNoSound;
 };
 
