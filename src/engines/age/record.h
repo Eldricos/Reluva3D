@@ -108,6 +108,18 @@ using RaceCount = std::function<int(const std::string& city, RaceKind kind)>;
 bool unlocked(const PlayerRecord& record, const std::string& car, int paintJob, bool professional,
               const RaceCount& raceCount);
 
+// race/<city>/<city>_rewards.csv: what a city's races open and the
+// results screen's words for it ("Good Job! You've unlocked the Audi
+// TT!"): the race kind (blitz, circuit, race for Checkpoint, crash), half
+// or all of them (a lesson's number for crash), the car and its paint job
+// (0: the car itself).
+struct Reward {
+    std::string kind, which, car;
+    int paintJob = 0;
+    std::string message;
+};
+std::vector<Reward> parseRewards(const std::string& text);
+
 // What it takes, in words (as the pictures put it), for a menu.
 std::string unlockText(const UnlockRule& rule, bool professional);
 

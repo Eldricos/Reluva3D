@@ -111,7 +111,7 @@ void HudMap::update(float dt) {
 
 void HudMap::draw(gfx::Renderer3D& renderer, ModelCache& models, const Vec3& center, const Vec3& forward,
                   const std::vector<HudMapIcon>& icons, int frameW, int frameH) const {
-    if (!ok_)
+    if (!ok_ || !shown())
         return;
     int x, y, w, h;
     if (full_) {

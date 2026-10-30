@@ -60,8 +60,9 @@ public:
     // models in view; returns how many models were drawn. Between
     // Renderer3D::beginFrame and endFrame. With visibility on, only the
     // blocks the city's .cpvs says can be seen from the eye's block (and
-    // the models in them) are drawn.
-    size_t draw(const gfx::Mat4& viewProj, const gfx::Vec3& eye, bool models);
+    // the models in them) are drawn. `again`: a second view in the same
+    // frame (a mirror), with the blocks chosen for the first.
+    size_t draw(const gfx::Mat4& viewProj, const gfx::Vec3& eye, bool models, bool again = false);
     // Brightens the city's opaque surfaces drawn by draw() with `lights`
     // (the nearest gfx::kMaxDynamicLights to `eye`): headlights on the road.
     void drawDynamicLights(std::vector<gfx::DynamicLight> lights, const gfx::Vec3& eye);

@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <sstream>
 
 namespace reluva::age {
 
@@ -277,6 +278,25 @@ void RaceViewer::drawResults() {
     }
     if (!beatenAll_.empty())
         font::drawText(overlay_, kBoxX, kBoxY + 290, beatenAll_, {120, 255, 120});
+    // What the race opened, in the box beside the description (as on the
+    // game's screens), wrapped.
+    if (!unlockMessage_.empty()) {
+        constexpr int kX = 290, kY = 404;
+        constexpr size_t kWide = 44;
+        std::istringstream words(unlockMessage_);
+        std::string word, text;
+        int lineY = kY;
+        while (words >> word) {
+            if (!text.empty() && text.size() + 1 + word.size() > kWide) {
+                font::drawText(overlay_, kX, lineY, text, {255, 255, 120});
+                lineY += font::kLineHeight + 2;
+                text.clear();
+            }
+            text += (text.empty() ? "" : " ") + word;
+        }
+        if (!text.empty())
+            font::drawText(overlay_, kX, lineY, text, {255, 255, 120});
+    }
     // Bottom left, the event's description, or the lesson's.
     const std::string& map = cities_[size_t(city_)].map;
     const std::string desc = lesson() ? (map == "london" ? "lon_cc" : "sf_cc") + std::to_string(raceIndex_)

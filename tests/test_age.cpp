@@ -1139,6 +1139,17 @@ void testRecord() {
             CHECK(unlockText(rule, false) ==
                   "To unlock this custom paint job, pass London Crash Course Midterm Exam Two");
         }
+    // race/<city>/<city>_rewards.csv: the results screen's words.
+    const std::vector<Reward> rewards =
+        parseRewards("RaceType,RaceNum,CarName,VariantNum (zero if it unlocks a car),\r\n"
+                     "blitz,half,vpsemi,0,Good Job! You've unlocked the Freightliner Fire Truck!,\r\n"
+                     "crash,3,vpvwcup,6,Congrats!  Mystery paint job for the New Beetle RSi!,\r\n"
+                     "circuit,half,vpvwcup,0,Congratulations! You've unlocked the New Beetle RSi!\r\n");
+    CHECK(rewards.size() == 3 && rewards[0].kind == "blitz" && rewards[0].which == "half" &&
+          rewards[0].car == "vpsemi" && rewards[0].paintJob == 0 &&
+          rewards[0].message == "Good Job! You've unlocked the Freightliner Fire Truck!");
+    CHECK(rewards[1].which == "3" && rewards[1].paintJob == 6 &&
+          rewards[2].message == "Congratulations! You've unlocked the New Beetle RSi!");
 }
 
 void testEngineSound() {
@@ -2592,14 +2603,17 @@ static void testGoldGame() {
 }
 
 static void testOptions(const std::filesystem::path& tmp) {
-    // The defaults: the arrows and WASD, the game's names.
+    // The defaults: the game's (its help's keyboard table), its names.
     GameOptions o;
-    CHECK(o.controlOf(key::Up) == Control::Throttle && o.controlOf('w') == Control::Throttle &&
-          o.controlOf(' ') == Control::Handbrake && o.controlOf('x') == Control::Count);
-    CHECK(controlStringId(Control::Throttle) == 280 && keyName(key::Up) == "Up" && keyName('w') == "W" &&
-          keyName(key::F1 + 2) == "F3");
-    CHECK(o.otherWith('a', Control::Throttle) == Control::SteerLeft &&
-          o.otherWith('a', Control::SteerLeft) == Control::Count);
+    CHECK(o.controlOf(key::Up) == Control::Throttle && o.controlOf('w') == Control::Count &&
+          o.controlOf(' ') == Control::Handbrake && o.controlOf(key::Return) == Control::Horn &&
+          o.controlOf('q') == Control::FullScreenMap && o.controlOf(key::Tab) == Control::MapToggle &&
+          o.controlOf('h') == Control::HudToggle && o.controlOf(key::Backspace) == Control::RearViewMirror &&
+          o.controlOf('s') == Control::NextCheckpoint && o.controlOf('a') == Control::ShiftUp);
+    CHECK(controlStringId(Control::Throttle) == 280 && controlStringId(Control::RearViewMirror) == 305 &&
+          keyName(key::Up) == "Up" && keyName('w') == "W" && keyName(key::F1 + 2) == "F3");
+    CHECK(o.otherWith('z', Control::Throttle) == Control::ShiftDown &&
+          o.otherWith('z', Control::ShiftDown) == Control::Count);
 
     // Changed, saved and read back.
     o.music = false;
@@ -2614,9 +2628,9 @@ static void testOptions(const std::filesystem::path& tmp) {
     CHECK(!back.load(tmp));
     CHECK(!back.music && back.ambient && std::fabs(back.effectsVolume - 0.25f) < 1e-6f &&
           std::fabs(back.balance + 0.5f) < 1e-6f && back.resolution == 2 && back.objectDetail == 1 && back.startInCar &&
-          back.controlOf('j') == Control::Horn && back.controlOf('h') == Control::Count);
+          back.controlOf('j') == Control::Horn && back.controlOf(key::Return) == Control::Count);
     back.resetControls();
-    CHECK(back.controlOf('h') == Control::Horn && !back.startInCar && !back.music); // the audio stays
+    CHECK(back.controlOf(key::Return) == Control::Horn && !back.startInCar && !back.music); // the audio stays
     GameOptions none;
     CHECK(!none.load(tmp / "nothing") && none.music); // no file yet: the defaults
     CHECK(GameOptions().farClip() == 4000 && o.steerRate() == 1);

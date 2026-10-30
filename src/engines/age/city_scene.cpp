@@ -356,13 +356,13 @@ void CityScene::setLighting(int index) {
     }
 }
 
-size_t CityScene::draw(const gfx::Mat4& viewProj, const gfx::Vec3& eye, bool models) {
+size_t CityScene::draw(const gfx::Mat4& viewProj, const gfx::Vec3& eye, bool models, bool again) {
     textures_->setTime(
         std::chrono::duration<float>(std::chrono::steady_clock::now() - loadedAt_).count());
     // What can be seen from the eye's block, again when it's in another.
     const size_t from = visibility() ? blockAt({eye[0], eye[1], eye[2]}) : 0;
     const float moved = std::hypot(eye[0] - detailFrom_[0], eye[1] - detailFrom_[1], eye[2] - detailFrom_[2]);
-    if (from != viewBlock_ || moved > kDetailStep) {
+    if (!again && (from != viewBlock_ || moved > kDetailStep)) {
         viewBlock_ = from;
         detailFrom_ = {eye[0], eye[1], eye[2]};
         rebuildIndices();

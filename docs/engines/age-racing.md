@@ -17,21 +17,41 @@ there, a menu of Reluva's own (city, event, race, level, car). The
 race's time of day and weather set the lighting. A three-second
 countdown, then:
 
-- **Checkpoints** are the waypoints after the start, in order: within
-  the gate's radius (plus 2 m) and 10 m of its height counts. Blitz and
-  Checkpoint races end at the last; a circuit's lap ends back at the
-  start line, for its NumLaps laps.
+- **Checkpoints** are the waypoints after the start: within the gate's
+  radius (plus 2 m) and 10 m of its height counts. Blitz and Checkpoint
+  races end at the last; a circuit's lap ends back at the start line,
+  for its NumLaps laps. A circuit's are taken in order. In a Blitz or
+  Checkpoint race alone the player takes them in any order, the finish
+  last: "You can go through the checkpoints in any order... In a
+  Checkpoint Race, the finish line does not appear until you clear all
+  the checkpoints" (the game's help). The arrow points to the nearest
+  left, or (S, X: Next and Prev. Checkpoint) the next or the one before
+  in the list of those left. The opponents keep to their paths' order;
+  in multiplayer the host still checks them in order.
 - **Blitz**: no opponents (the files give none), the time limit counts
   down; past it, "Time's up".
 - **Circuit and Checkpoint**: against the race's opponents. Position is
   checkpoints reached, then nearness to the next.
-- The game's own models mark the way: its checkpoint stand (`pt_check`)
-  at both ends of the next two gates, and its HUD arrow (`hudarrow01`,
+- The game's own models mark the way: its gates, and its HUD arrow
+  (`hudarrow01`,
   `hudarrow_blitz01` in a Blitz) above the car pointing to the next
   checkpoint. Each arrow has two paint jobs, its own colour and yellow:
   "The green compass arrow points to the nearest checkpoint, and turns
   yellow if it's behind you" (the game's loading tips), so it's yellow
   when the checkpoint is behind the car.
+- **Gates**: `pt_check` (and `pt_finish` at the finish line) is a whole
+  gate, two posts and a banner, 2 across and 1 high about its middle
+  (`pt_blue`, `pt_red`, `pt_bank` and `pt_hideout` are alike, poles with
+  banners). Scaled by the checkpoint's radius it spans the road, half as
+  high, as on the game's screens; Reluva had drawn two of them unscaled at
+  the gate's ends, and only their opaque part, so they never showed. The
+  texture has alpha, so both its passes are drawn. Lessons' gates have
+  the second paint job: `CCStand`, the Crash Course banner. The next two
+  gates are drawn, or in a race in any order every one left.
+- In a race in any order, a light blue (10, 230, 240) diamond over each
+  checkpoint left, long and narrow: about 2.2 m across and 5.5 m tall,
+  13 m up, drawn over everything (measured on the game's screens; no
+  model or picture for it was found, so Reluva draws it).
 - Over each opponent, the game's marker: a purple (192, 16, 255)
   triangle pointing down at it and, once the race is on, its place in
   `opp_icon`'s digits above (the place: the cars ahead of the player
@@ -277,6 +297,15 @@ written. The drivers are chosen, created and deleted on the main menu
   the RSi). Every other car and paint job is open. The `.info` files'
   UnlockScore and UnlockFlags (set on six cars) aren't
   used: the pictures cover more.
+- `race/<city>/<city>_rewards.csv` says the same in other words: the race
+  kind (`blitz`, `circuit`, `race` for Checkpoint, `crash`), `half` or
+  `all` of them (a lesson's number for `crash`), the car, its paint job
+  (0: the car) and the results screen's message. All twenty rows agree
+  with the pictures (half is the five Blitz or Circuit races of ten, six
+  Checkpoint races of twelve), but for one number: the fire truck's
+  paint job is 2 there and `vpsemi_lck4` in the pictures. So a reward is
+  matched to its rule by car, city and kind; when a result opens it, its
+  message shows on the results screen.
 - **U** in the menus opens everything, for looking round.
 
 ## Opponents

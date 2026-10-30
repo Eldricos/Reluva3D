@@ -33,6 +33,11 @@ enum class Control : int {
     ChangeCamera,
     MapZoom,
     FullScreenMap,
+    MapToggle,
+    HudToggle,
+    RearViewMirror,
+    NextCheckpoint,
+    PrevCheckpoint,
     Chat,
     Count
 };

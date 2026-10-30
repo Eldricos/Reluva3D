@@ -180,8 +180,23 @@ What the options do in Reluva:
     to one and a half times as fast).
   - The keys: Throttle, Brakes, Steer Left and Right, Handbrake, Horn,
     Shift Up and Down, Reverse, Transmission, Change Camera, Map Zoom,
-    Full Screen Map and Enter Chat Msg, named by `mmlang.dll`. Reverse
-    (by default B) takes a stopped car into reverse, or out of it.
+    Full Screen Map, Map Toggle, HUD Toggle, Rear View Mirror, Next and
+    Prev. Checkpoint, and Enter Chat Msg, named by `mmlang.dll` (strings
+    276-309, which also name controls Reluva hasn't: Thrill Cam, the
+    looks, Wide Angle, Dashboard On/Off, Rotating Map, the CD player,
+    Camera Pan and Opponent Position). Their keys by default are the
+    game's, from its help file's "Driving with a Keyboard": the arrows,
+    Space the handbrake, Enter the horn, A and Z up and down a gear, R
+    reverse (a stopped car into reverse, or out of it), T the
+    transmission, C the camera, E the map's zoom, Q the full-screen map
+    (which stops a race alone), Tab the map on and off, H the HUD
+    (clock, list, speed, gear, revs and damage), Backspace the rear-view
+    mirror, S and X the arrow to the next or the one before of the
+    checkpoints left. The help gives no chat key: Y is Reluva's. (Before,
+    Reluva's own defaults had WASD as well as the arrows; a saved
+    `options.txt` keeps its keys.) The help says Tab toggles "between two
+    different sizes of city map, or turn[s] the map on and off"; Reluva's
+    only turns it on and off.
 - **Customize Controls.** Enter waits for a key for the chosen one of
   the control's two (Left/Right), and Backspace clears it. A key
   already given to another control is refused with the game's
@@ -219,7 +234,10 @@ What the options do in Reluva:
   - In its box: the racers in order with their times (`mmlang.dll`'s
     DNF for those who didn't finish), or the lesson's Pass or Failed and
     its time.
-  - Bottom left: the event's or the lesson's description.
+  - Bottom left: the event's or the lesson's description; beside it,
+    what the race just opened, in the words of the city's
+    `race/<city>/<city>_rewards.csv` ("Congrats!  New paint job for the
+    New Beetle RSi!"), as on the game's screens.
   - Down the right, the game's `texture/RESULT_*` buttons (four states:
     blue, red pointed at, yellow pressed, grey not available): Restart
     Race, Next Race (when the next is open, and for a lesson when this

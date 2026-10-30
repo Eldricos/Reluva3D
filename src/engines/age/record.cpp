@@ -244,6 +244,44 @@ bool unlocked(const PlayerRecord& record, const std::string& car, int paintJob, 
     return true; // no rule: open from the start
 }
 
+std::vector<Reward> parseRewards(const std::string& text) {
+    std::vector<Reward> out;
+    std::istringstream in(text);
+    std::string line;
+    bool header = true;
+    while (std::getline(in, line)) {
+        while (!line.empty() && (line.back() == '\r' || line.back() == ',' || line.back() == ' '))
+            line.pop_back();
+        if (header || line.empty()) {
+            header = false;
+            continue;
+        }
+        // Four fields, then the message (which could hold a comma).
+        Reward r;
+        std::string* fields[3] = {&r.kind, &r.which, &r.car};
+        size_t at = 0;
+        bool ok = true;
+        for (int f = 0; f < 4 && ok; ++f) {
+            const size_t comma = line.find(',', at);
+            if (comma == std::string::npos) {
+                ok = false;
+                break;
+            }
+            const std::string field = line.substr(at, comma - at);
+            if (f < 3)
+                *fields[f] = field;
+            else
+                r.paintJob = std::atoi(field.c_str());
+            at = comma + 1;
+        }
+        if (!ok)
+            continue;
+        r.message = line.substr(at);
+        out.push_back(std::move(r));
+    }
+    return out;
+}
+
 std::string unlockText(const UnlockRule& rule, bool professional) {
     const std::string what = rule.paintJob < 0 ? "this vehicle" : "this custom paint job";
     if (rule.kind == RaceKind::CrashCourse) {

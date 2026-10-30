@@ -27,7 +27,7 @@ constexpr int kReplayRow = 14, kReplayRows = 11; // the replay list's (in jpg/rp
 // widget's box (measured on jpg/aud_bk, gfx_bk, ctrl_bk).
 constexpr int kBarInset = 23, kBarWidth = 137;
 // Customize Controls' list: its rows and columns (on jpg/cuss_bk's box).
-constexpr int kListRow = 20, kKeyColumn = 160, kSecondColumn = 230;
+constexpr int kListRow = 18, kKeyColumn = 160, kSecondColumn = 230; // 19 controls from y 62
 // The About screen's credits scroll by at this many pixels a second.
 constexpr float kCreditsSpeed = 30;
 
