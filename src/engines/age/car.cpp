@@ -118,6 +118,16 @@ Error loadCarSetup(const SearchSet& files, const std::string& car, CarSetup& out
             out.stuckTime = s->number("TimeThresh", 0, out.stuckTime);
             out.stuckDistance = s->number("PosThresh", 0, out.stuckDistance);
             out.stuckSpeed = s->number("MoveThresh", 0, out.stuckSpeed);
+            const float turn = s->number("Turn", 0, 1.5708f);
+            out.stuckTilt = std::clamp(std::min(turn, 1.5708f) * 2 / 3, 0.3f, 1.5708f);
+            out.stuckTurn = s->number("Rotation");
+        }
+    TuneNode gyro;
+    if (!files.read("tune/vehicle/" + car + ".vehGyro", data) && !parseTune(textOf(data), gyro))
+        if (const TuneNode* g = gyro.child("vehGyro")) {
+            out.gyroSpin = std::max(0.0f, g->number("Spin180"));
+            out.gyroReverse = std::max(0.0f, g->number("Reverse180"));
+            out.gyroDrift = std::max(0.0f, g->number("Drift"));
         }
 
     // The wheels where their placements put them, their radius from their
@@ -190,7 +200,7 @@ void CarSim::step(const CarControls& controls, const CollisionWorld& world, floa
 
     // Turned over and stuck: set upright, facing the same way, a little
     // above where it lay.
-    const bool over = orientation.y[1] < 0.5f; // tilted past 60 degrees
+    const bool over = orientation.y[1] < std::cos(setup_.stuckTilt);
     if (!over || length(velocity) > setup_.stuckSpeed) {
         stuckFor_ = 0;
         return;
@@ -201,7 +211,7 @@ void CarSim::step(const CarControls& controls, const CollisionWorld& world, floa
     if (stuckFor_ >= setup_.stuckTime) {
         if (length(position - stuckAt_) <= setup_.stuckDistance) {
             const Vec3 nose = -orientation.z;
-            const float yaw = std::atan2(-nose[0], -nose[2]);
+            const float yaw = std::atan2(-nose[0], -nose[2]) + setup_.stuckTurn;
             orientation = Mat3::rotationY(yaw);
             position[1] += 1;
             velocity = angularVelocity = {0, 0, 0};
@@ -371,6 +381,22 @@ void CarSim::substep(const CarControls& controls, const CollisionWorld& world, f
 
     velocity += force * (h / m);
     angularVelocity += inverseInertiaTimes(torque) * h;
+    // The gyro's help turning round, about the car's up, on the ground:
+    // left steering turns it left, except backing, where the nose swings
+    // the other way.
+    const bool grounded = std::any_of(wheels.begin(), wheels.end(), [](const Wheel& w) { return w.contact; });
+    if (grounded && std::fabs(controls.steer) > 0.3f) {
+        const float along = -dot(velocity, orientation.z);
+        const bool sliding = wheels[2].slip > 0.3f || wheels[3].slip > 0.3f;
+        float help = 0;
+        if (controls.handbrake && along > 3)
+            help += setup_.gyroSpin;
+        if (along < -3)
+            help -= setup_.gyroReverse;
+        if (sliding && along > 3)
+            help += setup_.gyroDrift;
+        angularVelocity += orientation.y * (-controls.steer * help * h);
+    }
     angularVelocity = angularVelocity * (1 / (1 + 0.5f * h));
     position += velocity * h;
     const float turn = length(angularVelocity) * h;

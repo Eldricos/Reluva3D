@@ -85,8 +85,14 @@ A rigid body stepped 120 times a second.
 - **Stuck** (`.vehStuck`): tilted past 60 degrees, slower than
   **MoveThresh** (1.75 m/s) and no further than **PosThresh** (1.25 m)
   from where it tipped after **TimeThresh** (2 s), a car is set upright,
-  facing the way it did, a metre up. Turn, Rotation and Translation
-  aren't used.
+  facing the way it did, a metre up. **Turn** is 1.57 (90 degrees) or
+  3.14 for most cars, 2.06 for the city bus and 0.74 (42 degrees) for the
+  double-decker: read as how far over counts, two thirds of it up to 90
+  degrees, so 60 for most (as Reluva had it) and 28 for the double-decker,
+  which tips over sooner. **Rotation** (0 for all) is read as a turn to
+  add as it's set upright. **Translation** (0.1, the classic Mini's
+  0.164) would be the lift; Reluva keeps its metre, so it lands clear of
+  the ground.
 - Left alone and nearly stopped, a car holds still.
 
 ### Against the game's figures
@@ -109,8 +115,18 @@ the turning and with its square, in radians a second squared, the
 Bullet's 5 of yaw stops it turning at all: their units must be other),
 the engine's and drivetrain's inertias, the tyres' displacement, damping
 and drag terms, OptimumSlipPercent, camber and wobble, the axles'
-torque, SSS, and `.vehGyro` (Drift, Spin180, Reverse180: perhaps help
-in turning round).
+torque and SSS.
+
+`.vehGyro` (20 cars): **Drift**, **Spin180**, **Reverse180**, Pitch and
+Roll (0 for all; the fire truck's all 0). Read as help turning round:
+turning (radians a second squared, at full steering, about the car's up,
+on the ground) added while the handbrake's held at speed (Spin180: 0.15
+for the Freightliner to 1.6 for the new Mini), backing at more than
+3 m/s (Reverse180, the nose swinging the other way: 0.07 for the GTR-1
+to 6.1 for the classic Mini) and while the back wheels slide (Drift,
+0.03-0.73). Racing with it, the opponents still finish every race
+measured; San Francisco's circuits came out a little faster, London's
+City Circuit slower (600 s against 566) with more resets.
 
 Across the 48 `.vehCarSim` files (and 20 `.vehGyro`s) these narrow
 down only so far without watching the game:
@@ -227,9 +243,26 @@ behaves):
   swings round to look the way the car goes, at **RevOnApp**'s rate,
   and back at **RevOffApp**'s once the car goes forward.
 
-RearRate, FlipDelay, the Steer numbers (SteerOn is 0 for all), the
-App rotation numbers, LookAbove, BlendTime and CameraNear/Far aren't
-used.
+- **RearRate** (0.5): backing, before it swings round, the rate is that
+  share of itself, as FrontRate drifting.
+- **AppRot** (30 or 60): the most its bearing round the car turns, in
+  degrees a second (not swinging round). **AppPosMin** (0.25 m) and
+  **AppRotMin** (0.01 rad): moves smaller than these are left alone.
+- **LookAbove** (0 for most, 0.2-0.66): metres it looks over TrackTo.
+- **SteerOn**, **SteerMin**, **SteerAmt**: turned with the steering past
+  SteerMin, SteerAmt degrees at full lock; SteerOn is 0 for every car,
+  so it's never on.
+- **CameraNear** (0.5 behind, 0.1 in the car): the near clip.
+- **BlendTime** (1.2 s for all): a change of camera blends over it, from
+  the last view to the new.
+
+Not used: **FlipDelay** (0.5 for all: the camera stays level whatever
+the car does, so there's nothing to delay), **AppXRot** and **AppApp**/
+**AppAppOn** (tilt and the approach's own approach: Reluva's camera
+doesn't tilt, and AppInc/AppDec already ease the rate), **VertOffset**,
+and **CameraFar** (137-600 m: Reluva's far clip is the Graphics
+Options' visibility, and the game's own screens show the city farther
+off than 600 m).
 
 ## The dashboard
 

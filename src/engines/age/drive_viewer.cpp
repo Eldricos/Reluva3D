@@ -21,6 +21,7 @@ namespace {
 
 constexpr int kFrameW = 640, kFrameH = 480;
 constexpr float kPi = 3.14159265358979f;
+constexpr float kBigAir = 1;     // seconds off the ground that count as big air (Reluva's)
 constexpr float kMph = 2.23694f; // miles an hour per metre a second
 // None, light, normal (London's cruising [Density], 0.1), heavy: shares of
 // the lanes' capacity (traffic.h).
@@ -343,6 +344,7 @@ void DriveViewer::handleEvent(const Event& ev) {
         } else if (control == Control::ChangeCamera) {
             camera_ = (camera_ + 1) % int(cameras_.size());
             cameraReset_ = true;
+            blend_.start(lastView_, cameras_[size_t(camera_)].blendTime);
         } else if (control == Control::Transmission) {
             manual_ = !manual_;
         } else if (control == Control::ShiftUp || control == Control::ShiftDown) {
@@ -458,6 +460,18 @@ void DriveViewer::update(uint64_t nowMs) {
         music.speed = std::fabs(car_.sim.forwardSpeed());
         music.chased = life_.police().chasing() > 0;
         music_.update(dt, music);
+        // A second off the ground: the tune's big-air motif, once a jump.
+        {
+            const CarSim& air = car_.sim;
+            const bool off =
+                std::none_of(air.wheels.begin(), air.wheels.end(), [](const CarSim::Wheel& w) { return w.contact; });
+            airFor_ = off ? airFor_ + dt : 0;
+            if (airFor_ >= kBigAir && !airPlayed_) {
+                music_.bigAir();
+                airPlayed_ = true;
+            }
+            airPlayed_ = airPlayed_ && off;
+        }
     }
     car_.lamps = {scene_->lampsLit(), controls.brake > 0 && car_.sim.forwardSpeed() > 0.5f, car_.sim.gear < 0};
     clock_ += dt;
@@ -497,11 +511,12 @@ void DriveViewer::update(uint64_t nowMs) {
     }
 
     const CarCamera& cam = cameras_[size_t(camera_)];
-    const CameraView view = updateCarCamera(cam, car_.sim, dt, cameraPos_, cameraReset_);
+    const CameraView view = blend_.apply(updateCarCamera(cam, car_.sim, dt, cameraPos_, cameraReset_), dt);
+    lastView_ = view;
     cameraReset_ = false;
-    const gfx::Mat4 viewProj = gfx::multiply(
-        gfx::perspective(cam.fov * kPi / 180, float(kFrameW) / float(kFrameH), 0.1f, currentOptions().farClip()),
-        gfx::lookAlong(view.eye, normalized(view.target - view.eye), view.up));
+    const gfx::Mat4 viewProj = gfx::multiply(gfx::perspective(cam.fov * kPi / 180, float(kFrameW) / float(kFrameH),
+                                                              cam.nearClip, currentOptions().farClip()),
+                                             gfx::lookAlong(view.eye, normalized(view.target - view.eye), view.up));
     renderer_->beginFrame(viewProj, view.eye, {150, 170, 200});
     applyGraphicsOptions(*scene_, life_);
     scene_->draw(viewProj, view.eye, true);

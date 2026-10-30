@@ -165,6 +165,10 @@ public:
     Error play(const std::string& segmentFile);
     // Reads a segment's files ahead, so play() later has nothing to read.
     Error prepare(const std::string& segmentFile);
+    // A style's motif (a pattern marked as one) over the segment playing,
+    // from now, with a band for its instruments (empty: none). Reads its
+    // files first: call from the same thread as play().
+    Error playMotif(const std::string& styleFile, const std::string& motif, const std::string& bandFile);
     void stop();
     bool playing() const;
     std::string current() const;
@@ -203,7 +207,7 @@ private:
     // performance tick.
     void composeMeasure(double performanceTick);
     void choosePattern(int measure);
-    void addPattern(const DmPattern& pattern, int measureInPattern, double performanceTick);
+    void addPattern(const DmStyle& style, const DmPattern& pattern, int measureInPattern, double performanceTick);
     void addCurve(const DmCurve& c, double start, int channel);
     double tempoAt(double segmentTick) const;
     const DmChord& chordAt(double segmentTick) const;

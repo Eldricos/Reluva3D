@@ -126,12 +126,15 @@ Francisco:
   (3 m below the lowest point) fails, as do being busted or wrecked.
 - Traffic is the cruise's (0.1) and there are no police.
 
-What isn't used: `race/sf/stunt0waypoints.csv` (one point, a start) and
-`stunt0.aimap` (light traffic, three roads without it, an opponent
-`vpford opp-c0.2` whose file isn't there), which look like the
-"Stunt Prototype" of the game's mode names (`mmlang.dll` 526, beside
-"Testing"); the `jump0`-`jump2` points and aimap; and `ramp.pathset`
-(one path of 13 points).
+**Stunt Prototype.** `race/sf/stunt0waypoints.csv` (one point, a start)
+and `stunt0.aimap` (traffic 0.13, three roads without it, no police, an
+opponent `vpford opp-c0.2` whose path isn't there) look like the "Stunt
+Prototype" of the game's mode names (`mmlang.dll` 526, beside
+"Testing"). Reluva offers it as Cruise's third in San Francisco: a
+cruise from that start, with that traffic, without the opponent.
+
+What isn't used: the `jump0`-`jump2` points and aimap, and
+`ramp.pathset` (one path of 13 points).
 
 ## Crash Course
 
@@ -158,13 +161,28 @@ the rules from those:
 | 4 | Turn It Up!, Cutting Corners, Midterm 1, Final (SF) | "Maintain %.0f through the checkpoints", "You have not maintained the minimum speed!" | every checkpoint at the row's first extra column (50 or 40 mph) or faster |
 | 5 | Keep It Clean, Round You'll Go | "Don't even touch another car!", "You scraped the paint!" | touching a car (the traffic's or the police's) fails |
 | 7, 9 | Hit or Miss, Brake Dancing, About Face, The Weaver's Tale, The Knowledge, ... | "Ready... Set... Go!", "Time's up!" | every checkpoint in time |
-| 8 | Bonnie & Collide, Midterm 2 (SF) | "Drive as cleanly as you can!", "Wait...5 second penalty" | each knock (an impulse over 1,500, a second apart at most once) adds 5 seconds to the time |
+| 8 | Bonnie & Collide, Midterm 2 (SF) | "Destroy that car!", "You did it!", "Car reached destination", "Get going! Lose the tail" (616-623, 652) | ram the aimap's car until it's over or stopped 2 s (it isn't put back on its path) before it reaches its end or the time's up; no arrow till then. With police about (Midterm 2's six), then lose them to the checkpoint, as The Heat Is On |
 
 Being busted or wrecked fails any lesson. The checkpoints' fifth column,
 called "poly count" as in the circuits, varies from gate to gate here
-(4-16) and is read as the gate's radius. The other extra columns (1 in
-Brake Dancing's and The Knowledge's second, Bonnie & Collide's and the
-follow lessons' third) aren't used. A passed lesson offers the next
+(4-16) and is read as the gate's radius.
+
+Event 8 had been read from the messages 210-216, which `mmlang.dll`
+names "Bonnie & Collide" too ("Drive as cleanly as you can!", "Wait...5
+second penalty"); but the lesson's picture says "Buckle up! It's time to
+ram another car into submission!", the walkthrough footage shows the
+pickup rammed until "You did it!" and Midterm 2 as "Destroy that car!"
+then "Get going! Lose the tail", and 616-623 are that lesson's words. No
+lesson uses 210-216.
+
+The other extra columns: the third (1 in the follow and destroy lessons,
+every lesson with an aimap car) marks the car, which the event already
+says; the second (1 in Brake Dancing, "master the Forward 180", and The
+Knowledge, "Race from landmark to landmark as you practice your map
+skills") and the fourth (1 in San Francisco's Straight, With Chaser and
+Midterm 3) aren't used: nothing in the files or the footage (Straight,
+With Chaser plays as a plain follow, without a clock on the screen)
+says what they do. A passed lesson offers the next
 (Enter), any lesson its restart (R).
 
 ## Music
@@ -188,8 +206,11 @@ play:
 
 Each change waits for the next measure, as DirectMusic's do. The speeds
 and times are Reluva's; the game's own rules for switching aren't known.
-The tunes' pause segment and the big-air motif have no use yet (the pages
-have no pause, and jumps no music).
+Paused, the tune's Pause segment plays. Both lists' last three columns
+name the **big-air motif**: GrooverStyle's `BigAir` pattern (a motif,
+one measure of two parts) with the `BigAir` band. A second off the
+ground (Reluva's measure of big air), it plays once over the tune, from
+then, its band's instruments on its own channels.
 
 ## Replays
 
@@ -280,8 +301,10 @@ written. The drivers are chosen, created and deleted on the main menu
   group once every race before it is placed at its MustPlace (3rd) or
   better at that level (a Professional result counts for Amateur too).
   That's Reluva's reading of the two keys.
-- **Lessons** open one after another, each once the one before is
-  passed.
+- **Lessons** are all open ("You can select lessons in any order", the
+  game's help) but the Final, which opens once the three Midterms
+  (lessons 3, 7 and 11) are passed: "You've passed all three Midterms
+  and it's time for the Final Exam" (its description).
 - **Cars and paint jobs**: the game's pictures say what opens each
   (`jpg/<car>_lck.jpg` for a car, `_lck<n>` for paint job n, with `_p`
   for a Professional's), and Reluva follows them: "To unlock this

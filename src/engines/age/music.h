@@ -17,6 +17,8 @@ namespace reluva::age {
 // aud/dmusic/csv_files/singlerace.csv or singleroam.csv.
 struct MusicSet {
     std::string start, back, idle, idleCops, cops, pause, results;
+    // The big-air motif: its style, its name in it, its band.
+    std::string airStyle, airMotif, airBand;
 };
 // The rows of one of those files (the race file's columns: start,
 // return, idle, idle with cops, cop chase, pause, results; the cruising
@@ -44,6 +46,8 @@ public:
         bool finished = false; // the race is over: the results
     };
     void update(float dt, const State& state);
+    // A big jump: the tune's big-air motif over it.
+    void bigAir();
 
     // The segment playing or about to (for tests and the page's notes).
     const std::string& segment() const { return wanted_; }

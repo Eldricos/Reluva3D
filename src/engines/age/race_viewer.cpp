@@ -22,6 +22,7 @@ namespace {
 
 constexpr int kFrameW = 640, kFrameH = 480;
 constexpr float kPi = 3.14159265358979f;
+constexpr float kBigAir = 1;                // seconds off the ground that count as big air (Reluva's)
 constexpr float kCountdown = 3;             // seconds before the start
 constexpr float kCircuitRadius = 15;        // circuits' waypoints give no radius
 constexpr float kOpponentReach = 10;        // opponents count a checkpoint this much wider
@@ -415,6 +416,7 @@ void RaceViewer::startRace() {
     lastLap_ = 0;
     lapEnds_.clear();
     splitFor_ = 0;
+    targetStill_ = 0;
     unlockMessage_.clear();
     cleared_.assign(targets_.size(), false);
     lastCleared_ = 0;
@@ -575,7 +577,10 @@ void RaceViewer::stepRace(float dt) {
         // own mind: planBot.)
         const bool minded =
             r.botId != kNoPlayer && net_ && net_->session() && !NetMenus::hasRace(net_->session()->settings().mode);
-        if (!r.player && !minded && (r.driver.wantsReset() || sim.position[1] < scene_->psdl().min[1] - 50)) {
+        // The car to destroy stays where it's been rammed to.
+        const bool target = lesson() && race_.lesson.event == LessonEvent::Destroy && &r == &racers_[1];
+        if (!r.player && !minded && !target &&
+            (r.driver.wantsReset() || sim.position[1] < scene_->psdl().min[1] - 50)) {
             sim.reset(r.car->setup, r.driver.resetPoint() + Vec3{0, 0.5f, 0}, r.driver.resetYaw());
             r.driver.resetDone();
             ++r.resets;
@@ -762,7 +767,12 @@ void RaceViewer::judgeLesson(float dt, bool checkpoint, float impact) {
     if (racers_.size() > 1) {
         f.targetDistance = flatDistance(player.car->sim.position, racers_[1].car->sim.position);
         f.targetDone = racers_[1].driver.finished();
+        // Rammed into submission: turned over, or held stopped 2 s.
+        const CarSim& target = racers_[1].car->sim;
+        targetStill_ = clock_ > 1 && length(target.velocity) < 1 ? targetStill_ + dt : 0;
+        f.targetStopped = target.orientation.y[1] < 0.5f || targetStill_ >= 2;
     }
+    f.police = int(life_.police().count());
     const auto before = judge_.result();
     const auto now = judge_.step(f);
     if (state_ != State::Finished && now != before && now != LessonJudge::Result::Going) {
@@ -908,6 +918,7 @@ void RaceViewer::handleEvent(const Event& ev) {
     } else if (control == Control::ChangeCamera) {
         camera_ = (camera_ + 1) % int(cameras_.size());
         cameraReset_ = true;
+        blend_.start(lastView_, cameras_[size_t(camera_)].blendTime);
     } else if (control == Control::MapZoom) {
         hudMap_.toggleZoom();
     } else if (control == Control::FullScreenMap) {
@@ -1088,6 +1099,10 @@ void RaceViewer::drawArrow() {
     const Racer& player = racers_.front();
     const size_t k = targetOf(player);
     if (k >= targets_.size())
+        return;
+    // No way to point while there's a car to destroy (as on the game's
+    // screens): the car's marker shows it.
+    if (lesson() && race_.lesson.event == LessonEvent::Destroy && !judge_.destroyed())
         return;
     drawArrowTo(targetPoint(k).position, race_.kind == RaceKind::Blitz);
 }
@@ -1508,7 +1523,7 @@ void RaceViewer::update(uint64_t nowMs) {
     lastMs_ = nowMs;
 
     Vec3 eye, target, up{0, 1, 0};
-    float fov = 70;
+    float fov = 70, nearClip = 0.1f;
     if (state_ == State::Menu || racers_.empty()) {
         // Round the chosen race's start.
         orbit_ += dt * 0.15f;
@@ -1533,18 +1548,32 @@ void RaceViewer::update(uint64_t nowMs) {
         music.finished = state_ == State::Finished;
         music.paused = paused_;
         music_.update(dt, music);
+        // A second off the ground: the tune's big-air motif, once a jump.
+        {
+            const CarSim& air = racers_.front().car->sim;
+            const bool off =
+                std::none_of(air.wheels.begin(), air.wheels.end(), [](const CarSim::Wheel& w) { return w.contact; });
+            airFor_ = off ? airFor_ + dt : 0;
+            if (airFor_ >= kBigAir && !airPlayed_) {
+                music_.bigAir();
+                airPlayed_ = true;
+            }
+            airPlayed_ = airPlayed_ && off;
+        }
         const CarCamera& cam = cameras_[size_t(camera_)];
         fov = cam.fov;
-        const CameraView view = replaying_
-                                    ? replayCamera(dt, fov)
-                                    : updateCarCamera(cam, racers_.front().car->sim, dt, cameraPos_, cameraReset_);
+        const CameraView view =
+            replaying_ ? replayCamera(dt, fov)
+                       : blend_.apply(updateCarCamera(cam, racers_.front().car->sim, dt, cameraPos_, cameraReset_), dt);
+        lastView_ = view;
+        nearClip = cam.nearClip;
         cameraReset_ = false;
         eye = view.eye;
         target = view.target;
         up = view.up;
     }
     const gfx::Mat4 viewProj = gfx::multiply(
-        gfx::perspective(fov * kPi / 180, float(kFrameW) / float(kFrameH), 0.1f, currentOptions().farClip()),
+        gfx::perspective(fov * kPi / 180, float(kFrameW) / float(kFrameH), nearClip, currentOptions().farClip()),
         gfx::lookAlong(eye, normalized(target - eye), up));
     viewProj_ = viewProj;
     if ((state_ == State::Menu || racers_.empty()) && front_) {

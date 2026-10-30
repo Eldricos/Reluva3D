@@ -47,10 +47,19 @@ struct CarSetup {
     // reverse: Trans's Low, High and Reverse, read as miles an hour.
     float lowSpeed = 9, highSpeed = 40, reverseSpeed = 13;
     float gearChangeTime = 0.8f;
-    // tune/vehicle/<car>.vehStuck: turned over (tilted past 60 degrees) and
+    // tune/vehicle/<car>.vehStuck: turned over (tilted past stuckTilt) and
     // moving slower than stuckSpeed (metres a second), no further than
-    // stuckDistance (metres) in stuckTime seconds, the car is set upright.
+    // stuckDistance (metres) in stuckTime seconds, the car is set upright,
+    // turned by stuckTurn. Turn is read as how far over counts (90 or 180
+    // degrees for most cars, 42 for the double-decker), two thirds of it
+    // up to 90 (so 60 degrees for most); Rotation as the turn (0 for all).
     float stuckTime = 2, stuckDistance = 1.25f, stuckSpeed = 1.75f;
+    float stuckTilt = 1.0472f, stuckTurn = 0;
+    // tune/vehicle/<car>.vehGyro: help turning round, read as turning
+    // (radians a second squared, at full steering) added while the
+    // handbrake's held (Spin180), backing (Reverse180) or the back wheels
+    // slide (Drift). Pitch and Roll are 0 for all.
+    float gyroSpin = 0, gyroReverse = 0, gyroDrift = 0;
 
     AxleSetup front, back;
     // Front left, front right, back left, back right: each wheel's centre

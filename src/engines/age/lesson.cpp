@@ -21,8 +21,9 @@ constexpr uint32_t kGo = 243;
 constexpr uint32_t kEvade = 193, kSurvived = 196, kLoseThem = 197, kChaseTimesUp = 198;
 // Jump.
 constexpr uint32_t kTakeTheJump = 206, kGoodJumping = 209;
-// Clean.
-constexpr uint32_t kDriveCleanly = 213, kCleanTimesUp = 214, kGoodDriving = 215, kPenalty = 216;
+// Destroy ("Bonnie & Collide", 616-623; 210-216, under the same name,
+// are drive-cleanly messages no lesson uses), and the tail to lose after.
+constexpr uint32_t kDestroy = 619, kDidIt = 620, kReachedDestination = 621, kDestroyTimesUp = 623, kLoseTheTail = 652;
 // Follow.
 constexpr uint32_t kFollowThatCar = 220, kYouWon = 221, kEscaped = 222;
 // No touching.
@@ -38,16 +39,18 @@ constexpr uint32_t kPass = 651;
 void LessonJudge::start(const LessonSettings& lesson) {
     lesson_ = lesson;
     result_ = Result::Going;
-    penalty_ = knockWait_ = 0;
+    penalty_ = 0;
     touchesAtStart_ = -1;
-    upToSpeed_ = false;
+    upToSpeed_ = destroyed_ = false;
     switch (lesson.event) {
     case LessonEvent::Jump: show(msg::kTakeTheJump); break;
     case LessonEvent::Follow: show(msg::kFollowThatCar); break;
     case LessonEvent::CopChase: show(msg::kEvade); break;
     case LessonEvent::MinimumSpeed: show(lesson.extra[0] > 0 ? msg::kMaintain : msg::kGo); break;
     case LessonEvent::NoTouching: show(msg::kDontTouch); break;
-    case LessonEvent::Clean: show(msg::kDriveCleanly); break;
+    case LessonEvent::Destroy:
+        show(msg::kDestroy);
+        break;
     default: show(msg::kGo); break;
     }
 }
@@ -58,7 +61,6 @@ float LessonJudge::timeLeft(float clock) const {
 
 LessonJudge::Result LessonJudge::step(const Frame& f) {
     messageFor_ = std::max(0.0f, messageFor_ - f.dt);
-    knockWait_ = std::max(0.0f, knockWait_ - f.dt);
     if (result_ != Result::Going || f.clock < 0)
         return result_;
     if (touchesAtStart_ < 0)
@@ -70,10 +72,23 @@ LessonJudge::Result LessonJudge::step(const Frame& f) {
         fail(msg::kGameOver);
         return result_;
     }
-    if (e == LessonEvent::Clean && f.impact > kKnock && knockWait_ <= 0) {
-        penalty_ += kPenalty;
-        knockWait_ = 1;
-        show(msg::kPenalty);
+    if (e == LessonEvent::Destroy && !destroyed_) {
+        // The car rammed into submission before it gets away or the time's
+        // up; then done, or (police about) away from them to the end.
+        if (f.targetDone) {
+            fail(msg::kReachedDestination);
+        } else if (lesson_.timeLimit > 0 && timeLeft(f.clock) <= 0) {
+            fail(msg::kDestroyTimesUp);
+        } else if (f.targetStopped) {
+            destroyed_ = true;
+            if (f.police > 0) {
+                show(msg::kLoseTheTail);
+            } else {
+                result_ = Result::Passed;
+                show(msg::kDidIt);
+            }
+        }
+        return result_;
     }
     if (e == LessonEvent::MinimumSpeed && lesson_.extra[0] > 0) {
         if (f.checkpoint && f.speedMph < lesson_.extra[0]) {
@@ -102,7 +117,7 @@ LessonJudge::Result LessonJudge::step(const Frame& f) {
     }
     if (lesson_.timeLimit > 0 && left <= 0) {
         fail(e == LessonEvent::CopChase     ? msg::kChaseTimesUp
-             : e == LessonEvent::Clean      ? msg::kCleanTimesUp
+             : e == LessonEvent::Destroy    ? msg::kDestroyTimesUp
              : e == LessonEvent::NoTouching ? msg::kTouchTimesUp
                                             : msg::kTimesUp);
         return result_;
@@ -119,7 +134,7 @@ LessonJudge::Result LessonJudge::step(const Frame& f) {
     }
     if (!f.finished)
         return result_;
-    if (e == LessonEvent::CopChase && f.chasing > 0) {
+    if ((e == LessonEvent::CopChase || e == LessonEvent::Destroy) && f.chasing > 0) {
         if (messageFor_ <= 0)
             show(msg::kLoseThem);
         return result_;
@@ -130,7 +145,9 @@ LessonJudge::Result LessonJudge::step(const Frame& f) {
     case LessonEvent::CopChase: show(msg::kSurvived); break;
     case LessonEvent::MinimumSpeed: show(msg::kGreatDriving); break;
     case LessonEvent::NoTouching: show(msg::kTouchWon); break;
-    case LessonEvent::Clean: show(msg::kGoodDriving); break;
+    case LessonEvent::Destroy:
+        show(msg::kSurvived);
+        break;
     default: show(msg::kPass); break;
     }
     return result_;

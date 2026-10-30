@@ -190,11 +190,36 @@ std::vector<CarCamera> loadCarCameras(const SearchSet& files, const std::string&
         c.reverseDelay = n.number("RevDelay", 0, c.reverseDelay);
         c.reverseOn = n.number("RevOnApp", 0, c.reverseOn);
         c.reverseOff = n.number("RevOffApp", 0, c.reverseOff);
+        c.rearRate = n.number("RearRate", 0, c.rearRate);
+        if (!c.inside) {
+            c.turnRate = n.number("AppRot", 0, c.turnRate) * 3.14159265f / 180;
+            c.stillMove = n.number("AppPosMin");
+            c.stillTurn = n.number("AppRotMin");
+            c.lookAbove = n.number("LookAbove");
+        }
+        c.steerOn = n.number("SteerOn") != 0;
+        c.steerMin = n.number("SteerMin", 0, c.steerMin);
+        c.steerAmount = n.number("SteerAmt") * 3.14159265f / 180;
+        c.nearClip = std::max(0.05f, n.number("CameraNear", 0, c.nearClip));
+        c.blendTime = n.number("BlendTime");
         cameras.push_back(c);
     }
     if (cameras.empty())
         cameras.push_back({});
     return cameras;
+}
+
+CameraView CameraBlend::apply(const CameraView& to, float dt) {
+    if (left <= 0 || total <= 0)
+        return to;
+    left = std::max(0.0f, left - dt);
+    const float t = 1 - left / total;
+    const float s = t * t * (3 - 2 * t); // eased at both ends
+    CameraView v;
+    v.eye = from.eye + (to.eye - from.eye) * s;
+    v.target = from.target + (to.target - from.target) * s;
+    v.up = normalized(from.up + (to.up - from.up) * s);
+    return v;
 }
 
 CameraView updateCarCamera(const CarCamera& cam, const CarSim& sim, float dt, CameraFollow& follow, bool reset) {
@@ -220,8 +245,16 @@ CameraView updateCarCamera(const CarCamera& cam, const CarSim& sim, float dt, Ca
     ahead = length(ahead) > 0.1f ? normalized(ahead) : Vec3{0, 0, -1};
     if (backwards)
         ahead = -ahead;
+    const float steering = sim.wheels[0].steer / std::max(0.01f, sim.setup().front.steeringLimit);
+    if (cam.steerOn && std::fabs(steering) > cam.steerMin) {
+        // Turned with the steering past its least (the wheels' steer is
+        // left positive).
+        const float a = cam.steerAmount * steering;
+        ahead =
+            Vec3{ahead[0] * std::cos(a) - ahead[2] * std::sin(a), 0, ahead[0] * std::sin(a) + ahead[2] * std::cos(a)};
+    }
     const Mat3 heading{cross(ahead, {0, 1, 0}), {0, 1, 0}, -ahead};
-    v.target = sim.position + heading * cam.lookAt;
+    v.target = sim.position + heading * cam.lookAt + Vec3{0, cam.lookAbove, 0};
     // Tilted with the hill: up behind the car going down, down going up.
     const float slope = std::clamp(backwards ? -rise : rise, cam.hillMin, cam.hillMax);
     follow.slope =
@@ -236,8 +269,7 @@ CameraView updateCarCamera(const CarCamera& cam, const CarSim& sim, float dt, Ca
     // fast; drifting, slower; swinging round, its own.
     const float share = std::clamp((std::fabs(speed) - cam.slowSpeed) / (cam.fastSpeed - cam.slowSpeed), 0.0f, 1.0f);
     const float rate = cam.approachSlow + (cam.approachFast - cam.approachSlow) * share;
-    const float steer = std::fabs(sim.wheels[0].steer) / std::max(0.01f, sim.setup().front.steeringLimit);
-    follow.hardFor = steer >= cam.hardSteer ? follow.hardFor + dt : 0;
+    follow.hardFor = std::fabs(steering) >= cam.hardSteer ? follow.hardFor + dt : 0;
     if (reset) {
         follow.position = wanted;
         follow.rate = rate;
@@ -247,6 +279,8 @@ CameraView updateCarCamera(const CarCamera& cam, const CarSim& sim, float dt, Ca
     float across = follow.rate;
     if (follow.hardFor > cam.driftDelay)
         across *= cam.driftRate;
+    if (speed < -1 && !backwards)
+        across *= cam.rearRate;
     if (follow.swinging) {
         across = backwards ? cam.reverseOn : cam.reverseOff;
         follow.swinging = std::hypot(wanted[0] - follow.position[0], wanted[2] - follow.position[2]) > 1;
@@ -259,9 +293,15 @@ CameraView updateCarCamera(const CarCamera& cam, const CarSim& sim, float dt, Ca
     float bearing = std::atan2(nowX, nowZ);
     float turn = std::atan2(wantX, wantZ) - bearing;
     turn = std::remainder(turn, 6.2831853f);
-    bearing += turn * pull;
+    if (std::fabs(turn) > cam.stillTurn || follow.swinging) {
+        float by = turn * pull;
+        if (!follow.swinging && !reset)
+            by = std::clamp(by, -cam.turnRate * dt, cam.turnRate * dt);
+        bearing += by;
+    }
     float distance = std::hypot(nowX, nowZ);
-    distance += (std::hypot(wantX, wantZ) - distance) * pull;
+    if (std::fabs(std::hypot(wantX, wantZ) - distance) > cam.stillMove)
+        distance += (std::hypot(wantX, wantZ) - distance) * pull;
     distance = std::clamp(distance, cam.minDistance, cam.maxDistance);
     follow.position[0] = v.target[0] + std::sin(bearing) * distance;
     follow.position[2] = v.target[2] + std::cos(bearing) * distance;

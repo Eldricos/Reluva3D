@@ -67,6 +67,10 @@ void RaceViewer::startCruise() {
         }
         return;
     }
+    if (race_.index == kPrototypeRace && !race_.waypoints.empty()) {
+        race_.waypoints.resize(1); // its one point: the start
+        return;
+    }
     std::vector<Waypoint> places;
     loadGoldPoints(ctx_.files, cities_[size_t(city_)].map, places);
     Waypoint start{scene_->start, -scene_->startYaw * 180 / kPi, 0};

@@ -364,6 +364,10 @@ private:
     std::vector<CarCamera> cameras_;
     int camera_ = 0;
     CameraFollow cameraPos_{};
+    CameraBlend blend_;      // a change of camera, blended
+    float airFor_ = 0;       // seconds the player's car has been off the ground
+    bool airPlayed_ = false; // the big-air motif, this jump
+    CameraView lastView_;    // the last frame's
     bool cameraReset_ = true;
     int lighting_ = 4;
     bool showInfo_ = true;
@@ -508,6 +512,10 @@ private:
     std::vector<CarCamera> cameras_;
     int camera_ = 0;
     CameraFollow cameraPos_{};
+    CameraBlend blend_;      // a change of camera, blended
+    float airFor_ = 0;       // seconds the player's car has been off the ground
+    bool airPlayed_ = false; // the big-air motif, this jump
+    CameraView lastView_;    // the last frame's
     bool cameraReset_ = true;
     uint32_t keys_ = 0;
     uint64_t lastMs_ = 0;
@@ -520,6 +528,7 @@ private:
     std::vector<float> lapEnds_;     // the clock at each of the player's laps' ends
     float splitFor_ = 0, split_ = 0; // the time shown after a checkpoint, and for how long yet
     bool splitIsLap_ = false;
+    float targetStill_ = 0;     // seconds the car to destroy has stood still
     std::string unlockMessage_; // the results screen's: what the race opened
     bool hudShown_ = true;      // the game's HUD Toggle
     bool mirror_ = false;       // the rear-view mirror (Rear View Mirror)

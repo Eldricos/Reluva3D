@@ -69,6 +69,7 @@ struct BangerData {
     Vec3 particlesAt{};
     int texNumber = 0;
     std::vector<Vec3> glows; // GlowOffset: its lamps, from its middle
+    float elasticity = 0.5f; // Elasticity: 0.5 for nearly all (a car bounces off more above that)
     bool bursts() const { return texNumber > 0 && (particles.initialBlast > 0 || particles.spewRate > 0); }
 };
 Error parseBangerData(const std::string& text, BangerData& out);
