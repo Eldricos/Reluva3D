@@ -151,15 +151,82 @@ to the points, used in place):
     Every track has some; on Hometown, 36 points with 2 on both sides.
   - **Wall hits.** After a wall collision, the car's impact field
     (`+0x170`) is `0x40000` + the code of the side hit, 4 when on
-    neither (`0x430c2e`). The impact code (`0x42ac40`) uses it for two
-    tables of 8: `0x553740`, the kind of effect spawned at the contact
-    point (`0x4cae00`; codes 1, 2, 4: kind 3, which also gets
-    `0x4cac20` at low speed; 3, 5, 7: kind 2; 0, 6: none), and
-    `0x553760` (8, 8, 8, 16, 8, 17, 16, 16), loaded at `0x42aea0` but
-    used nowhere found. The kinds are entries of a 128-byte effect
-    table (`0x560b64`); what each looks like isn't known.
+    neither (`0x430c2e`). The code is read only after the bounce has
+    been worked out, and the push-back (`0x4a0300`) only asks whether
+    it is 0, so the codes don't change friction or bounce. They pick
+    the effects, through two tables of 8 in the impact code
+    (`0x42ac40`): `0x553740`, the particle kind (codes 1, 2, 4: kind
+    3; 3, 5, 7: kind 2; 0, 6: none), and `0x553760`, the sound's
+    material (8, 8, 8, 16, 8, 17, 16, 16). Followed in the code
+    (October 2026); what a hit does, when the impact (`+0x168`) is
+    over 5 (`0x42acea`):
+    - **A jolt** (`0x4295a0`): two wobbles of the car's body, periods
+      16-23 (random) and 35, sizes from the impact (× 1/45, at most
+      1.5) and a value from the car's data (`+0x528` → `+0x294`). They
+      are added to car `+0x920` and `+0x924` (`0x42a9bd`), its tilts
+      by the look of it. Not side-specific: other hit types do it too.
+    - **One particle** of the code's kind at the contact point
+      (`+0x178`, `0x42aee7` → `0x4cae00`).
+    - **The camera director** gets interest 5 for the car (`0x4bd9d0`,
+      read by `0x4bda00`), the most of any hit type.
+    - **A sound**, queued on the car (`0x42b115` → `0x4284e0`, up to 8
+      at `+0x7dc`) as category 5 (`0x553780`), the material from
+      `0x553760`, loudness impact × ¼, at most 10 (127 at `0x411ad5`).
+      The car sound code (`0x4119df` → `0x416d90`) turns category 5
+      and the material into a slot (`0x4149e0`) of `Gen.bnk`
+      (`Gen3d.bnk` when `0x5525a4` is set, `0x4141fc`; the bank is
+      table entry 2, `0x414236`), played on one voice (`0x417080`,
+      voice `0x1f`): material 8, slot 30 or 32 at random, 33 when
+      louder than 110; material 16, slot 30; material 17, slot 29.
+      In `Gen.bnk` 29 is 0.44 s, 30 0.53 s and duller, 32 0.82 s,
+      33 1.18 s and brighter (16-bit PCM but 33, EA-XA). Not listened
+      to, so not named. `Gen3d.bnk` has the same sounds two slots up
+      and nothing in 29 and 30; whether the game allows for that
+      wasn't followed.
 
-  How 1, 3, 4 and 5 differ beyond the effect kind isn't known.
+    Then, for any wall hit (`0x42b11a`), by car `+0xb8` (its speed by
+    the look of it):
+    - 22 or more, and car `+0x15c` (unknown) under 3: kind-3 codes get
+      a burst of kind-3 particles (`0x4cac20`; 30 of them, fewer below
+      speed 40, thrown with the car's velocity ± 3) and a second sound,
+      material 18: slot 32, 34, 35 or 37 at random (`0x4149ac`); kind-2
+      codes get one more kind-2 particle. With `+0x15c` 3 or more,
+      every code gets a kind-2 particle;
+    - under 22: a kind-6 particle when the speed or the impact is over
+      15 (`0x42b248`).
+
+    The particle kinds are 128-byte templates (`0x560b64` + kind ×
+    128, static data, copied by `0x4ca850`). Read off the template
+    values, so what they look like is inferred, not seen:
+    - **kind 3, sparks:** 16 ticks' life (`+0x4`, `0x4ca8f4`), white
+      turning orange (`+0x4c` `0xffffffff`, `+0x50` `0xff00c6ff`),
+      −0.25 at `+0x2c` (falling), flag `+0x58` set (also on kinds 7
+      and 8, the other orange ones); `+0x0` is the burst's count;
+    - **kind 2, a puff of dust:** 128 ticks, light grey at half
+      opacity fading to clear (`0x7fdfdfdf` → `0x7f000000`), growing
+      (`+0x44` 3), slowed each tick (`+0x38` 0.8, `0x4cb4d0`);
+    - **kind 6, smoke:** 256 ticks, grey (`0x7fffffff` →
+      `0x7f404040`).
+
+    Also from the impact code but not side-specific: a heavy hit (over
+    30) adds to car `+0x8d4` (`0x42ad15`), damage perhaps; and
+    `0x471270` for one tracked car (`0x471dc0`). Not followed.
+
+  So 1, 3, 4 and 5 differ only in their particles and sound:
+
+  | Code | Particles | Sound | Where (counts of sides) | Inferred material |
+  |---|---|---|---|---|
+  | 1 | sparks | material 8 | 1,746: Rocky Pass 801 (mostly left), Summit 629, Empire City 136, Redrock 123 | metal guard rail |
+  | 3 | dust | material 16 (slot 30) | 35: Summit 26, Aquatica 6, Country Woods 3 | unknown |
+  | 4 | sparks | material 8 | 13,644: every track, most of the city and canyon ones | rock, concrete, buildings |
+  | 5 | dust | material 17 (slot 29) | 6,013: Country Woods (nearly all), Summit, Rocky Pass, Hometown | grass, dirt or snow verges |
+
+  The materials come from the Track page (walls, key G, October 2026):
+  Rocky Pass block 88, a guard rail on the left (code 1) and a rock
+  face on the right (4); Empire City block 4, a railing on the right
+  (1) and a building on the left (4); Hometown block 8, grass banks
+  with wooden fences (5); Country Woods block 40, snow banks (5), though
+  a brick wall stands there too. Code 3 wasn't looked at.
 
 This is what the game drives on and keeps cars within. It will matter
 for driving, AI and the camera. Reluva reads it, but uses it only for

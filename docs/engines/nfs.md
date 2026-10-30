@@ -1109,8 +1109,9 @@ Allowed under CONTRIBUTING.md:
 
 ## Open questions
 
-- What the wall codes' impact effects look like, and how side codes 1,
-  3, 4 and 5 differ ([col.md](../formats/nfs/col.md)).
+- How the wall hits' particles and sounds look and sound in play (read
+  from the code only), and wall code 3's material
+  ([col.md](../formats/nfs/col.md)).
 - What sets the audio option at `0x6fbbe0` to 0, which drops the
   sounds at mixing quality 50 to nearest-sample resampling
   ([bnk.md](../formats/nfs/bnk.md)).
