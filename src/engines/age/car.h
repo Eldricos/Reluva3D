@@ -29,12 +29,24 @@ struct AxleSetup {
     float brakeCoef = 0.6f;
     float handbrakeCoef = 0;
     float staticFriction = 3, slidingFriction = 2.7f;
+    float rolling = 0.015f; // TireDragCoefLong: rolling resistance, a share of the load
 };
 
 struct CarSetup {
     std::string name; // "vpbug"
     float mass = 1000;
     Vec3 inertiaBox{2, 2, 3}; // the box whose inertia the car's is: width, height, length
+    // Aero's angular damping about the car's x (pitch) and z (roll): a
+    // constant, one with the turning and one with its square (AngCDamp,
+    // AngVelDamp, AngVel2Damp), read as a torque of the car's mass times
+    // that; yaw's isn't used (see docs/engines/age-driving.md).
+    Vec3 angDampC{}, angDampV{}, angDampV2{};
+    // Speed-sensitive steering: the lock falls with the speed above
+    // SSSThreshold (mph) as much as SSSValue says (1: Reluva's 1/(1+v/25),
+    // 0: none, the Minis').
+    float sssValue = 1, sssThreshold = 0;
+    // The full lock's share at a speed (m/s).
+    float lockAt(float speed) const;
     Vec3 centerOfGravity{};
     float boundFriction = 0.5f, boundElasticity = 0.5f;
     int drivetrain = 0; // 0: rear wheels driven, 1: front, 2: all four
