@@ -6,6 +6,8 @@
 #include "engines/clue/game_data.h"
 #include "engines/clue/level.h"
 #include "engines/clue/mansion.h"
+#include "engines/clue/resi.h"
+#include "engines/clue/ui.h"
 #include "engines/clue/resources.h"
 #include "zip_writer.h"
 
@@ -479,6 +481,130 @@ static void testMansion(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+// A RESI string: its length, the characters and a NUL (nothing for "").
+static void putResiText(Bytes& b, const std::string& s) {
+    b.push_back(uint8_t(s.size()));
+    if (s.empty())
+        return;
+    b.insert(b.end(), s.begin(), s.end());
+    b.push_back(0);
+}
+
+// A control: its 112-byte block, its two strings and its list's items.
+static void putControl(Bytes& b, int type, int id, int l, int t, int r, int bot, int centreX, int font, int group,
+                       const std::string& text, const std::string& anim, const std::vector<std::string>& items = {}) {
+    std::array<int32_t, 28> v{};
+    v[0] = type;
+    v[1] = id;
+    v[2] = l;
+    v[3] = t;
+    v[4] = r;
+    v[5] = bot;
+    v[6] = 0x01bbaa28; // pointers the file holds as they were
+    v[9] = centreX;
+    v[10] = 1;
+    v[14] = font;
+    v[15] = font;
+    v[16] = group;
+    v[19] = 55;
+    v[22] = -1;
+    for (int32_t x : v)
+        put32(b, uint32_t(x));
+    putResiText(b, text);
+    putResiText(b, anim);
+    put16(b, uint32_t(items.size()));
+    for (const auto& item : items)
+        putResiText(b, item);
+}
+
+static Bytes resiFile() {
+    Bytes b = {'R', 'E', 'S', 'I', 1, 1}; // a dialog, a font
+    put32(b, 6);
+    putResiText(b, "largeu:Alargeu");
+    put32(b, 0);
+    put32(b, 6);
+    for (int i = 0; i < 9; ++i)
+        put32(b, i == 0 ? 7 : i == 6 ? 6 : 0);
+    putResiText(b, "menu:AexitBgnd");
+    b.push_back(4);
+    putControl(b, 1, 9999, 180, 120, 458, 183, 1, 6, 0, "Are you sure you wish|to exit Clue?", "");
+    putControl(b, 3, 10001, 260, 185, 380, 220, 1, 6, 0, "Yes", "menu:AexitYesBtn");
+    putControl(b, 3, 10000, 260, 228, 380, 260, 1, 6, 1, "No", "menu:AexitNoBtn");
+    putControl(b, 5, 10, 210, 258, 380, 0, 0, 6, 0, "", "", {"one", "two"});
+    return b;
+}
+
+static void testResi() {
+    Resi resi;
+    CHECK(!parseResi(resiFile(), resi));
+    CHECK(resi.fonts.size() == 1 && resi.fonts[0].id == 6 && resi.fonts[0].animation == "largeu:Alargeu" &&
+          resi.fonts[0].lineSpacing == 6);
+    CHECK(resi.font(6) && !resi.font(1));
+    const ResiDialog* d = resi.dialog(7);
+    CHECK(d && d->background == "menu:AexitBgnd" && d->controls.size() == 4 && !resi.dialog(1));
+    if (d && d->controls.size() == 4) {
+        const ResiControl* yes = d->control(10001);
+        CHECK(yes && yes->type == ResiControl::TextButton && yes->text == "Yes" && yes->animation == "menu:AexitYesBtn");
+        CHECK(yes && yes->left == 260 && yes->top == 185 && yes->right == 380 && yes->centreX == 1 && yes->font == 6);
+        CHECK(d->controls[0].text == "Are you sure you wish|to exit Clue?" && d->controls[0].animation.empty());
+        CHECK(d->controls[2].group == 1 && d->controls[3].items == std::vector<std::string>({"one", "two"}));
+    }
+    Bytes cut = resiFile();
+    cut.resize(cut.size() - 5);
+    CHECK(parseResi(cut, resi));
+    Bytes more = resiFile();
+    more.push_back(0);
+    CHECK(parseResi(more, resi));
+    CHECK(parseResi({'R', 'I', 'F', 'F', 0, 0}, resi));
+    CHECK(splitLines("a|b\r\nc") == std::vector<std::string>({"a", "b", "c"}));
+}
+
+static void testDialog(const std::filesystem::path& tmp) {
+    std::filesystem::remove_all(tmp);
+    std::filesystem::create_directories(tmp / "Data" / "Classic");
+    GameData data;
+    CHECK(!data.open(tmp, Language::US));
+    Resi resi;
+    CHECK(!parseResi(resiFile(), resi));
+    const Fonts fonts(data, resi); // its animation isn't there: a font without glyphs
+    DialogView view(data, fonts, *resi.dialog(7));
+    // Group 1 starts hidden; the game shows it.
+    CHECK(view.visible(10001) && !view.visible(10000));
+    view.setGroupVisible(1, true);
+    CHECK(view.visible(10000));
+    view.setText(10001, "Oui");
+    CHECK(view.text(10001) == "Oui" && view.text(9999) == "Are you sure you wish|to exit Clue?");
+    // A click is a press and a release on the same button.
+    const auto mouse = [&](EventType type, int x, int y) {
+        Event e;
+        e.type = type;
+        e.mouseX = x;
+        e.mouseY = y;
+        e.button = MouseButton::Left;
+        return view.handleEvent(e);
+    };
+    CHECK(mouse(EventType::MouseDown, 300, 200) == -1 && mouse(EventType::MouseUp, 300, 200) == 10001);
+    CHECK(mouse(EventType::MouseDown, 300, 200) == -1 && mouse(EventType::MouseUp, 300, 240) == -1);
+    view.setEnabled(10001, false);
+    CHECK(mouse(EventType::MouseDown, 300, 200) == -1 && mouse(EventType::MouseUp, 300, 200) == -1);
+    // Typing goes to the edit box that has the focus.
+    view.focus(10);
+    Event typed;
+    typed.type = EventType::TextInput;
+    std::snprintf(typed.text, sizeof typed.text, "Jo\xc3\xa9"); // é, kept as Windows-1252
+    view.handleEvent(typed);
+    CHECK(view.text(10) == "Jo\xe9");
+    Event back;
+    back.type = EventType::KeyDown;
+    back.key = key::Backspace;
+    view.handleEvent(back);
+    CHECK(view.text(10) == "Jo");
+    Surface s;
+    s.create(640, 480, PixelFormat::RGBA32);
+    view.draw(s); // without its pictures: nothing to draw, nothing to fail
+    std::filesystem::remove_all(tmp);
+}
+
 int main() {
     testUnpack();
     testDriveAndImages();
@@ -487,6 +613,8 @@ int main() {
     testObjectsAndLevel();
     testDepth();
     testMansion(std::filesystem::temp_directory_path() / "reluva_clue_mansion");
+    testResi();
+    testDialog(std::filesystem::temp_directory_path() / "reluva_clue_dialog");
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

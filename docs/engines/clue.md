@@ -93,10 +93,17 @@ Each step can be seen working before the next.
 3. **Video** (done). An AVI reader and a Cinepak decoder in
    `src/common/video` ([formats/video.md](../formats/video.md)); the
    videos page plays all 44 with their sound.
-4. **The interface.** The `RESI` layouts: windows, buttons, lists, text
-   boxes, the bitmap fonts and cursors. The main menu, game setup,
-   preferences, How to Play, credits, the notepad, the cards and the
-   ticker.
+4. **The interface** (done, but for the in-game panels). `dialogInfo.res`
+   read ([formats/clue/resi.md](../formats/clue/resi.md)); the game's
+   fonts, dialogs, buttons, sliders and pointer. The game now starts as
+   the original: the intro, the main menu over the storm, Start Game
+   (locally), the six suspects' players (human with a name, or computer
+   at a difficulty), the game variants, Preferences (saved), How to Play
+   with its texts, Credits, Exit; then "Entering the mansion", the deal,
+   and the mansion with the game's bar and the Esc menu. Load Game, Save
+   and the network screens show but don't work yet. The in-game panels
+   (cards, notepad, suggestion and accusation, disproving) come with the
+   rules, as they need them.
 5. **The game.** The board: squares, doors, secret passages, from the
    level. Turns, the die or credits, moving (with walk cycles),
    suggestions (moving the suspect and weapon into the room), disproving,
@@ -113,10 +120,31 @@ Each step can be seen working before the next.
    is gone. Whether to speak DirectPlay's protocol, so as to play against
    the original, is to be decided then.
 
+## Playing
+
+The game opens with its intro (a key or a click skips it), then its
+menus, as the original. In the game, the arrow keys move the view
+(**Shift**: faster) and **Esc** opens the game's menu. The preferences
+are saved in Reluva's folder for the game (`preferences.ini`); "Mansion
+Walls" off hides the nearest walls, "Translucency" off makes them solid.
+
+The music, when the CD's tracks have been ripped into the game's folder
+(below): track 5 in the menus, looping; tracks 2, 3 and 4 in turn in the
+game. Which plays where is a reading of `Clue.exe` (below), to be checked
+against the original.
+
+The game's bar, placed where a 640×480 recording of the original shows
+it (its pictures matched in the frames): the top and side frames (0, 0),
+(0, 4), (635, 4); the ornaments (0, 413), (594, 413); the notes and cards
+button (39, 413), the board button (84, 413); the six portraits from
+(141, 413), 60 apart (frame 0 as they are, 1 whose turn it is, 2 not
+playing); the logo (501, 413); the ticker (0, 462) with its sentence; the
+drawer of a human's actions (511, 413), out over the logo.
+
 ## The data viewer
 
-Until the game runs, the engine shows its data. **Tab** switches between
-the pages; **Esc** goes back to the launcher.
+**F9** switches between the game and a viewer of its data (and back;
+**Esc** also goes back). **Tab** switches between the viewer's pages.
 
 - **The mansion**, first: **arrows** or a mouse drag scroll (**Shift**
   faster), **Home** goes back to the middle, **M** shows the whole house

@@ -147,6 +147,7 @@
 #include "engines/clue/game_data.h"
 #include "engines/clue/level.h"
 #include "engines/clue/mansion.h"
+#include "engines/clue/resi.h"
 #include "engines/clue/resources.h"
 #endif
 
@@ -2735,6 +2736,45 @@ int cmdClueCheck(int argc, char** argv) {
     } else {
         std::printf("  no clue.lvl\n");
     }
+    // dialogInfo.res: every font, background and control picture it names.
+    int dialogs = 0, controls = 0, missing = 0;
+    bool resiOk = false;
+    if (const std::filesystem::path* path = data.find("dialogInfo.res")) {
+        std::ifstream in(*path, std::ios::binary);
+        const std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        reluva::clue::Resi resi;
+        if (reluva::Error err = reluva::clue::parseResi(bytes, resi)) {
+            std::printf("  dialogInfo.res: %s\n", err.message.c_str());
+        } else {
+            resiOk = true;
+            const auto check = [&](const std::string& name, const std::string& where) {
+                if (name.empty() || name.find(':') == std::string::npos)
+                    return;
+                const size_t colon = name.find(':');
+                const bool isImage = colon + 1 < name.size() && (name[colon + 1] == 'I' || name[colon + 1] == 'i');
+                if (isImage ? !data.image(name) : !data.animation(name)) {
+                    ++missing;
+                    std::printf("  dialogInfo.res: %s names %s: %s\n", where.c_str(), name.c_str(),
+                                data.lastError().c_str());
+                }
+            };
+            for (const auto& f : resi.fonts)
+                check(f.animation, "font " + std::to_string(f.id));
+            for (const auto& d : resi.dialogs) {
+                ++dialogs;
+                check(d.background, "dialog " + std::to_string(d.id));
+                for (const auto& c : d.controls) {
+                    ++controls;
+                    const bool picture = c.type == reluva::clue::ResiControl::Image ||
+                                         c.type == reluva::clue::ResiControl::ImageButton ||
+                                         c.type == reluva::clue::ResiControl::Slider ||
+                                         c.type == reluva::clue::ResiControl::ScrollKnob;
+                    check(picture ? c.text : c.animation,
+                          "dialog " + std::to_string(d.id) + " control " + std::to_string(c.id));
+                }
+            }
+        }
+    }
     std::printf("images: %d, %d failed (version 0x100: %d, 0x200: %d)\n", images, imageFails, versions[0x100],
                 versions[0x200]);
     std::printf("animations: %d, %d failed; images they name: %d, %d missing or failed\n", anims, animFails, refs,
@@ -2742,7 +2782,10 @@ int cmdClueCheck(int argc, char** argv) {
     std::printf("objects: %d, %d failed\n", objects, objectFails);
     std::printf("clue.lvl: %s, %d placements, %d couldn't be built\n", levelOk ? "read" : "FAILED", placements,
                 buildProblems);
-    return imageFails || animFails || refFails || objectFails || !levelOk || buildProblems ? 1 : 0;
+    std::printf("dialogInfo.res: %s, %d dialogs, %d controls; pictures they name: %d missing or failed\n",
+                resiOk ? "read" : "FAILED", dialogs, controls, missing);
+    return imageFails || animFails || refFails || objectFails || !levelOk || buildProblems || !resiOk || missing ? 1
+                                                                                                               : 0;
 }
 
 // A level's object names and placements: a summary, or each one with -v.

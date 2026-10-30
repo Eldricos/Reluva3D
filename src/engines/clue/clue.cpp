@@ -9,11 +9,15 @@
 // owned copy. Never from leaked source code. See CONTRIBUTING.md and
 // docs/engines/clue.md.
 //
-// For now the engine is a data viewer: the mansion, videos, animations,
-// images, sounds and text (see viewers.h for the keys). Tab switches between them; Esc goes back to
-// the launcher.
+// The game starts as the original does: its intro, then its menus, the
+// players' set-up and the mansion with the game's bar (frontend.h); the
+// rules themselves aren't played yet. F9 switches to a viewer of the
+// game's data (the mansion, videos, animations, images, sounds and text;
+// see viewers.h for the keys), where Tab moves between its pages and F9 or
+// Esc goes back.
 
 #include "engines/engine.h"
+#include "engines/clue/frontend.h"
 #include "engines/clue/viewers.h"
 
 namespace reluva {
@@ -82,6 +86,12 @@ public:
             }
         } audioStop{sys_, audioOut};
 
+        clue::FrontEnd game(sys_, screen_, data_, audioOut ? &mixer : nullptr,
+                            target_.savePath.empty() ? std::filesystem::path() : target_.savePath / "preferences.ini");
+        if (Error err = game.open())
+            return err;
+        bool viewing = false; // the data viewer instead of the game
+
         MansionViewer mansion(sys_, screen_, data_);
         VideoViewer videos(sys_, screen_, data_, audioOut ? &mixer : nullptr);
         AnimationViewer animations(sys_, screen_, data_);
@@ -109,13 +119,34 @@ public:
             else
                 texts.activate();
         };
-        activate();
+        const auto leaveViewer = [&] {
+            if (viewer == 1)
+                videos.deactivate();
+            else if (viewer == 4)
+                sounds.deactivate();
+            viewing = false;
+            game.resume();
+        };
 
         while (true) {
             Event ev;
             while (sys_.pollEvent(ev)) {
                 if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher)
                     return Error::success();
+                if (ev.type == EventType::KeyDown && ev.key == key::F1 + 8) { // F9
+                    if (viewing) {
+                        leaveViewer();
+                    } else {
+                        game.leave();
+                        viewing = true;
+                        activate();
+                    }
+                    continue;
+                }
+                if (!viewing) {
+                    game.handleEvent(ev);
+                    continue;
+                }
                 if (viewer == 0) {
                     // Tab, and Esc outside the overview, are the engine's;
                     // the rest is the mansion's (the mouse too).
@@ -127,8 +158,10 @@ public:
                 }
                 if (ev.type != EventType::KeyDown)
                     continue;
-                if (ev.key == key::Escape)
-                    return Error::success();
+                if (ev.key == key::Escape) {
+                    leaveViewer();
+                    continue;
+                }
                 if (ev.key == key::Tab) {
                     if (viewer == 1)
                         videos.deactivate();
@@ -151,7 +184,11 @@ public:
                 else if (viewer == 5)
                     texts.handleKey(ev.key);
             }
-            if (viewer == 0)
+            if (!viewing) {
+                game.update(sys_.getMillis());
+                if (game.quit())
+                    return Error::success();
+            } else if (viewer == 0)
                 mansion.update(sys_.getMillis());
             else if (viewer == 1)
                 videos.update(sys_.getMillis());

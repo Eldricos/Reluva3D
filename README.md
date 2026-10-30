@@ -28,8 +28,8 @@ src/engines/       one directory per engine, plus registry.cpp listing them
                    Voyager - Elite Force: search path, shader scripts, BSP
                    maps; currently runs as a data viewer (docs/engines/idtech3.md)
   clue/            Clue: Murder at Boddy Mansion (EAI's Eagle library): its
-                   archives, images and animations; currently runs as a data
-                   viewer (docs/engines/clue.md)
+                   archives, images, animations, mansion and menus; starts as the
+                   original, up to the game's rules (docs/engines/clue.md)
 src/tools/         reluva-tool, utilities for studying game data
 tests/             unit tests for common/ and the engines
 ```
@@ -111,10 +111,12 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   **Left/Right** step through them (**PageUp/PageDown** by 10). The files page lists the
   search path and which archive each file comes from.
 
-- Clue also opens as a data viewer: Boddy Mansion drawn from its level file
-  (scroll with the arrows or the mouse, **M** for the whole house, **W** for the
-  near walls), then its videos, animations playing, images, sounds and text. **Tab**
-  switches between them; `docs/engines/clue.md` lists the keys, and
+- Clue starts as the original does: its intro, its menus (from the game's own
+  layout file), setting up the players, and the mansion with the game's bar; the
+  rules themselves aren't played yet. **F9** switches to a viewer of its data: Boddy
+  Mansion drawn from its level file (scroll with the arrows or the mouse, **M** for
+  the whole house, **W** for the near walls), its videos, animations, images, sounds
+  and text, **Tab** switching between them; `docs/engines/clue.md` lists the keys, and
   how to add its CD music (`reluva-tool cue-rip`).
 
 The config is saved as `reluva.ini` in SDL's preferences folder
