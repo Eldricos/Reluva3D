@@ -2,7 +2,7 @@
 
 Status: **interpreter implemented** (`src/engines/idtech3/qvm.cpp`), tested
 on hand-built programs and on a C program compiled by the Quake III compiler
-(`tests/data/qvm/`), whose every result matches the same program compiled
+(`tests/engines/idtech3/data/qvm/`), whose every result matches the same program compiled
 natively, and running Elite Force's own three QVMs (the menus, the client
 game and the server game, Holomatch played with them); their system calls
 are in [eliteforce-syscalls.md](eliteforce-syscalls.md). `reluva-tool
@@ -136,7 +136,7 @@ words (handle, modification count, value as a float, value as an integer)
 and the value as a 256-byte string: 272 bytes, which is also the spacing of
 the structures Elite Force's menus register in turn.
 
-The test programs in `tests/data/qvm/` are compiled with the Quake III
+The test programs in `tests/engines/idtech3/data/qvm/` are compiled with the Quake III
 compiler tools (`q3lcc`, `q3asm`), built from the ioquake3 source; only
 their output, QVMs of Reluva's own test programs, is committed. `lcc` is
 under its own licence (its `COPYRIGHT` file) and isn't part of Reluva.

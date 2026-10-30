@@ -141,7 +141,7 @@ every engine.
    The Metal path
    (macOS) is checked by continuous integration: `reluva-render-check`
    draws test frames through the renderer on a GitHub macOS runner and
-   compares them with references made on Vulkan (`tests/data/render`,
+   compares them with references made on Vulkan (`tests/render`,
    `.github/workflows/ci.yml`); it hasn't been played on a Mac yet.
 3. **World renderer**, continued: autosprites, mirrors, culling (by the
    vis data, areas and the view) and drawing order are done, and fog volumes

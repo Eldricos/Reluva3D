@@ -30,40 +30,67 @@ function(reluva_add_engine name)
     set_property(GLOBAL APPEND PROPERTY RELUVA_ENGINE_ACCESSORS ${E_ACCESSOR})
 endfunction()
 
-# reluva_add_engine_test(<engine> NAME <test> SOURCES <files>... [TARGET <program>]
-#                        [NETWORK] [LABELS <labels>...])
-#   A test program (reluva_<engine>_tests unless TARGET names it), run by
-#   ctest as <test>. NETWORK: it uses sockets (Windows' socket libraries
-#   linked). It's compiled with RELUVA_SOURCE_DIR, the repository's folder,
-#   for the data it keeps under tests/data/.
-function(reluva_add_engine_test name)
+# reluva_add_tests(<area> SOURCES <files>... TOPICS <topic>... [LABELS <labels>...])
+#   Test files for reluva-tests, the one test program: <area> is "common" or
+#   an engine's name. Each topic is a suite the files register
+#   (tests/support/test.h), named <area>.<topic> ("idtech3.unit.collision",
+#   "idtech3.engine"); ctest runs each as a test of that name, labelled
+#   <area> and the topic's first word ("unit", "engine"). Engines call
+#   it as reluva_add_engine_tests; reluva_finish_tests makes the program.
+function(reluva_add_tests area)
     if(NOT RELUVA_BUILD_TESTS)
         return()
     endif()
-    cmake_parse_arguments(T "NETWORK" "NAME;TARGET" "SOURCES;LABELS" ${ARGN})
-    set(target reluva_${name}_tests)
-    if(T_TARGET)
-        set(target ${T_TARGET})
+    cmake_parse_arguments(T "" "" "SOURCES;TOPICS;LABELS" ${ARGN})
+    set_property(GLOBAL APPEND PROPERTY RELUVA_TEST_SOURCES ${T_SOURCES})
+    foreach(topic IN LISTS T_TOPICS)
+        string(REGEX REPLACE "\\..*$" "" kind "${topic}")
+        set_property(GLOBAL APPEND PROPERTY RELUVA_TEST_TOPICS "${area}.${topic}")
+        set_property(GLOBAL PROPERTY RELUVA_TEST_LABELS_${area}.${topic} "${area};${kind};${T_LABELS}")
+    endforeach()
+endfunction()
+macro(reluva_add_engine_tests)
+    reluva_add_tests(${ARGN})
+endmacro()
+
+# reluva-tests from every test file added, and a ctest test for each topic,
+# plus one checking that every suite the program has is among them.
+function(reluva_finish_tests)
+    if(NOT RELUVA_BUILD_TESTS)
+        return()
     endif()
-    add_executable(${target} ${T_SOURCES})
-    target_link_libraries(${target} PRIVATE reluva_engines reluva_warnings)
-    target_include_directories(${target} PRIVATE ${PROJECT_SOURCE_DIR}/tests)
-    if(T_NETWORK AND WIN32)
-        target_link_libraries(${target} PRIVATE ws2_32 iphlpapi)
+    get_property(sources GLOBAL PROPERTY RELUVA_TEST_SOURCES)
+    get_property(topics GLOBAL PROPERTY RELUVA_TEST_TOPICS)
+    add_executable(reluva-tests
+        ${PROJECT_SOURCE_DIR}/tests/support/main.cpp
+        ${PROJECT_SOURCE_DIR}/src/backends/sockets/socket_net.cpp
+        ${sources})
+    target_link_libraries(reluva-tests PRIVATE reluva_engines reluva_warnings)
+    if(WIN32)
+        target_link_libraries(reluva-tests PRIVATE ws2_32 iphlpapi)
     endif()
-    target_compile_definitions(${target} PRIVATE RELUVA_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
-    add_test(NAME ${T_NAME} COMMAND ${target})
-    set_tests_properties(${T_NAME} PROPERTIES LABELS "${name};${T_LABELS}")
+    # Test files include their data and helpers from the repository's top
+    # ("tests/engines/idtech3/fixtures.h") and find committed records through
+    # RELUVA_SOURCE_DIR.
+    target_include_directories(reluva-tests PRIVATE ${PROJECT_SOURCE_DIR})
+    target_compile_definitions(reluva-tests PRIVATE RELUVA_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+    foreach(topic IN LISTS topics)
+        get_property(labels GLOBAL PROPERTY RELUVA_TEST_LABELS_${topic})
+        add_test(NAME ${topic} COMMAND reluva-tests ${topic})
+        set_tests_properties(${topic} PROPERTIES LABELS "${labels}")
+    endforeach()
+    add_test(NAME tests.coverage COMMAND reluva-tests --covered-by ${topics})
 endfunction()
 
 # reluva_add_gamedata_test(<engine> GAME <game id> ENV <variable> SCRIPT <file>
 #                          STEPS <step>...)
 #   The engine test that needs a game's own files: each step a ctest test,
-#   <engine>_gamedata_<step>, labelled gamedata. ctest runs <file> as a CMake
+#   <engine>.gamedata.<step>, labelled gamedata. ctest runs <file> as a CMake
 #   script with:
 #     TOOL     reluva-tool, which runs the game's code and reads its files;
 #     STEP     the step;
-#     RECORDS  the folder of committed records, tests/data/<engine>/gamedata/;
+#     RECORDS  the folder of committed records,
+#              tests/engines/<engine>/data/gamedata/;
 #     OUTPUT   a folder in the build for each step's full output.
 #   The game's folder comes from the environment variable <variable> when
 #   the tests run; without it the steps print "SKIPPED:" and count as
@@ -74,14 +101,14 @@ function(reluva_add_gamedata_test name)
     endif()
     cmake_parse_arguments(G "" "GAME;ENV;SCRIPT" "STEPS" ${ARGN})
     foreach(step IN LISTS G_STEPS)
-        set(test ${name}_gamedata_${step})
+        set(test ${name}.gamedata.${step})
         add_test(NAME ${test}
             COMMAND ${CMAKE_COMMAND}
                 -DTOOL=$<TARGET_FILE:reluva-tool>
                 -DSTEP=${step}
                 -DGAME=${G_GAME}
                 -DGAME_ENV=${G_ENV}
-                -DRECORDS=${PROJECT_SOURCE_DIR}/tests/data/${name}/gamedata
+                -DRECORDS=${PROJECT_SOURCE_DIR}/tests/engines/${name}/data/gamedata
                 -DOUTPUT=${PROJECT_BINARY_DIR}/gamedata/${name}
                 -P ${G_SCRIPT})
         set_tests_properties(${test} PROPERTIES

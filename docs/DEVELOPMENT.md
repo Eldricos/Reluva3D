@@ -24,22 +24,46 @@ Notes for developers. Building and running are covered in the
 | `reluva` | The launcher and games |
 | `reluva-tool` | Developer tools for studying game data and running game code outside the window; `reluva-tool` alone lists its commands |
 | `reluva-render-check` | The 3D renderer's check against reference frames (below) |
-| `reluva_tests`, `reluva_idtech3_tests`, `reluva_newworlds_tests` | Unit tests, run together by `ctest` |
+| `reluva-tests` | Every test that needs no game files: the shared code's and each enabled engine's (below) |
 
 ## Tests
 
+- **Names.** Tests come in suites named `<area>.<kind>.<topic>`: the area is
+  `common` (the shared code) or an engine, the kind is `unit`, `engine` or
+  `gamedata`. For example `common.unit.audio`, `idtech3.unit.collision`,
+  `idtech3.engine` (the basic engine test, below) and
+  `idtech3.gamedata.maps`. ctest uses the same names.
 - **Running them:**
-  - `ctest --test-dir build --output-on-failure` runs every unit test;
+  - `ctest --test-dir build --output-on-failure` runs them all;
   - with Visual Studio's generator, add `-C Release` (or `Debug`);
-  - in Visual Studio itself, pick a test program as the startup item, or use
-    **Test > Test Explorer**.
+  - `ctest -L <label>` runs some: a kind (`unit`, `engine`, `gamedata`) or an
+    area (`common`, `idtech3`);
+  - `reluva-tests` runs them directly: alone, every suite; with names, those
+    suites, or every suite under a name (`reluva-tests idtech3`,
+    `reluva-tests idtech3.unit`); `--list` lists the suites and their cases;
+  - in Visual Studio itself, pick `reluva-tests.exe` as the startup item, or
+    use **Test > Test Explorer**.
 - **No game data needed,** but for the game-files tests ([below](#engine-tests)),
   which are skipped unless pointed at a game. The tests use their own data:
   files built in code, and small test programs compiled to the games'
-  formats in `tests/data/` and `tests/x86/`. Their `build.sh` scripts
-  remake them, which is only needed after changing their sources.
-- **Labels:** `ctest -L engine` runs the engine tests, `ctest -L gamedata`
-  the game-files tests, and `ctest -L idtech3` everything for one engine.
+  formats (`tests/common/x86/`, `tests/engines/idtech3/data/qvm/`). Their
+  `build.sh` scripts remake them, which is only needed after changing their
+  sources.
+- **Where they are:**
+
+  ```
+  tests/support/           the framework (test.h) and reluva-tests' main
+  tests/common/            the shared code's tests and their data
+  tests/engines/<engine>/  each engine's: unit/, engine.cpp, gamedata.cmake, data/
+  tests/render/            the render check's reference frames
+  ```
+
+- **Writing one.** A test file registers its suite, with its cases
+  (`tests/support/test.h` shows how), and `CHECK(condition)` checks.
+  Each case gets an empty folder of its own. The engine's `CMakeLists.txt`
+  lists the file in `reluva_add_engine_tests` (`reluva_add_tests` for
+  `common`), and the suite's topic in `TOPICS`, so ctest runs it. The
+  `tests.coverage` test fails if a suite is missing from `TOPICS`.
 - **CI.** The workflow (`.github/workflows/ci.yml`) builds and runs the
   tests on Linux, macOS and Windows for every push and pull request. It
   also builds each engine alone, every other disabled, so no engine comes
@@ -63,9 +87,8 @@ what an engine does is caught, even where no unit test looks. Elite Force
   scenes. It passes when the record matches the committed one.
 - **Who runs it.** Anyone, and CI on Linux, macOS and Windows. `ctest`
   runs it with the rest, or alone with `ctest -L engine`.
-- **Elite Force's.** `tests/idtech3_engine_test.cpp` (ctest
-  `idtech3_engine`), with its record in
-  `tests/data/idtech3/engine-record.txt`. It covers:
+- **Elite Force's.** `tests/engines/idtech3/engine.cpp` (`idtech3.engine`),
+  with its record in `tests/engines/idtech3/data/engine-record.txt`. It covers:
   - the game folder mounted, with paks and a loose file overriding each
     other, and detected;
   - shaders, a map and a model read;
@@ -76,7 +99,7 @@ what an engine does is caught, even where no unit test looks. Elite Force
   - the menus drawing and taking keys.
 - **When it fails.** It prints each line of the record, with the old value
   beside any that changed. If the change is meant, run
-  `reluva_idtech3_engine_test --update`, review the record's diff, and
+  `reluva-tests idtech3.engine --update`, review the record's diff, and
   commit it with the change.
 
 ### The game-files test: with your own copy of the game
@@ -97,8 +120,8 @@ what an engine does is caught, even where no unit test looks. Elite Force
   On Windows: `set RELUVA_STVEF=C:\Games\EliteForce`, then
   `ctest --test-dir build -C Release -L gamedata`. Without the variable the
   steps show as skipped, so a plain `ctest` stays green for everyone.
-- **Elite Force's steps** (`tests/idtech3_gamedata.cmake`, ctest
-  `idtech3_gamedata_<step>`):
+- **Elite Force's steps** (`tests/engines/idtech3/gamedata.cmake`, ctest
+  `idtech3.gamedata.<step>`):
 
   | Step | What it runs |
   |---|---|
@@ -115,7 +138,7 @@ what an engine does is caught, even where no unit test looks. Elite Force
 
   Game code and data are paired as the launcher pairs them: 1.2's code
   without the Expansion Pack's pak, and the Expansion's with it.
-- **Records.** They are kept in `tests/data/idtech3/gamedata/<release>/`,
+- **Records.** They are kept in `tests/engines/idtech3/data/gamedata/<release>/`,
   one file per step. There's a folder for each of 1.0, 1.2, 1.2 with the
   Expansion Pack imported (both versions' code kept), and an install made
   with the Expansion (only its code). The records hold only checksums,
@@ -146,28 +169,31 @@ what an engine does is caught, even where no unit test looks. Elite Force
 
 ### Adding them to a new engine
 
-1. **The basic test.** Write a program that makes a small install, takes
-   the engine through what playing does, and writes a record. Copy the
-   `Hash` and `Record` classes from `tests/idtech3_engine_test.cpp`, which
-   also has the `--update` handling. Register it in the engine's
-   `CMakeLists.txt`:
+1. **The basic test.** Write `tests/engines/<engine>/engine.cpp`: a suite
+   named `<engine>.engine` that makes a small install, takes the engine
+   through what playing does, and writes a record. Copy the `Hash` and
+   `Record` classes from `tests/engines/idtech3/engine.cpp`, which also has
+   the `--update` handling. List it in the engine's `CMakeLists.txt`, with
+   its unit tests:
 
    ```cmake
-   reluva_add_engine_test(<engine> NAME <engine>_engine TARGET reluva_<engine>_engine_test
-       SOURCES ${PROJECT_SOURCE_DIR}/tests/<engine>_engine_test.cpp LABELS engine)
+   set(tests ${PROJECT_SOURCE_DIR}/tests/engines/<engine>)
+   reluva_add_engine_tests(<engine>
+       SOURCES ${tests}/unit/....cpp ${tests}/engine.cpp
+       TOPICS unit.... engine)
    ```
 
-   It's compiled with `RELUVA_SOURCE_DIR`, for finding its record under
-   `tests/data/<engine>/`.
+   Tests are compiled with `RELUVA_SOURCE_DIR`, for finding the record
+   under `tests/engines/<engine>/data/`.
 2. **The game-files test.** Write a CMake script that runs one step (`STEP`)
    of `reluva-tool` commands on the game. Copy
-   `tests/idtech3_gamedata.cmake`: its `run_tool` and `record_run`
+   `tests/engines/idtech3/gamedata.cmake`: its `run_tool` and `record_run`
    functions, its skip when the variable isn't set, and its record
    handling. Register its steps:
 
    ```cmake
    reluva_add_gamedata_test(<engine> GAME <game id> ENV RELUVA_<GAME>
-       SCRIPT ${PROJECT_SOURCE_DIR}/tests/<engine>_gamedata.cmake
+       SCRIPT ${tests}/gamedata.cmake
        STEPS release maps ...)
    ```
 3. **Make runs repeatable.** Any clock or random seed the game's code sees
@@ -180,7 +206,7 @@ what an engine does is caught, even where no unit test looks. Elite Force
 
 ## The render check
 
-`reluva-render-check tests/data/render` draws two test frames through the 3D
+`reluva-render-check tests/render` draws two test frames through the 3D
 renderer and compares them with the reference frames there:
 
 - **The frames.** The first is a grid of cells, each trying one feature:

@@ -136,10 +136,10 @@ if(WIN32)
 endif()
 
 # --- tests ----------------------------------------------------------------------
-# The shared code's; each engine adds its own (reluva_add_engine_test).
-if(RELUVA_BUILD_TESTS)
-    add_executable(reluva_tests tests/test_common.cpp)
-    target_link_libraries(reluva_tests PRIVATE reluva_common reluva_warnings)
-    target_include_directories(reluva_tests PRIVATE tests)
-    add_test(NAME common COMMAND reluva_tests)
-endif()
+# reluva-tests: the shared code's tests (tests/common/) and each enabled
+# engine's (reluva_add_engine_tests in its CMakeLists.txt). See
+# docs/DEVELOPMENT.md (Tests).
+reluva_add_tests(common
+    SOURCES ${PROJECT_SOURCE_DIR}/tests/common/unit.cpp
+    TOPICS unit.hashes unit.files unit.archives unit.text unit.audio unit.image unit.net unit.x86)
+reluva_finish_tests()

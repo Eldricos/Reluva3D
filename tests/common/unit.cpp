@@ -7,8 +7,8 @@
 #include "common/audio/mixer.h"
 #include "common/audio/mp3.h"
 #include "common/audio/wav.h"
-#include "data/tone440_mp3.h"
-#include "data/x86_testdll.h"
+#include "tests/common/data/tone440_mp3.h"
+#include "tests/common/data/x86_testdll.h"
 #include "common/archive.h"
 #include "common/config.h"
 #include "common/detection.h"
@@ -25,7 +25,8 @@
 #include "common/zip.h"
 #include "common/inflate.h"
 #include "common/wise.h"
-#include "zip_writer.h"
+#include "tests/support/test.h"
+#include "tests/support/zip_writer.h"
 
 #include <algorithm>
 #include <cmath>
@@ -36,17 +37,6 @@
 #include <string>
 
 using namespace reluva;
-
-static int failures = 0;
-
-#define CHECK(cond)                                                     \
-    do {                                                                \
-        if (!(cond)) {                                                  \
-            std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, \
-                         __LINE__, #cond);                              \
-            ++failures;                                                 \
-        }                                                               \
-    } while (0)
 
 static std::string md5Of(const std::string& s) {
     Md5 m;
@@ -553,7 +543,7 @@ static void testX86Dll() {
             if (e || r != kX86TestExpected[t][i]) {
                 std::fprintf(stderr, "x86 test %d, input %d: %s (0x%08x, expected 0x%08x)\n", t, i,
                              e ? e.message.c_str() : "wrong result", r, kX86TestExpected[t][i]);
-                ++failures;
+                ++test::failures();
             }
         }
     // Loaded again it goes elsewhere, relocated: its table of function
@@ -568,28 +558,43 @@ static void testX86Dll() {
     }
 }
 
-int main() {
-    auto tmp = std::filesystem::temp_directory_path() / "reluva_tests";
-    testMd5();
-    testUtf16();
-    testFont();
-    testWav();
-    testMp3();
-    testMixer();
-    testFsAndDetection(tmp / "fs");
-    testConfig(tmp / "cfg");
-    testZip(tmp / "zip");
-    testInflateAndWise(tmp / "wise");
-    testSearchSet(tmp / "search");
-    testImage();
-    testNet();
-    testMd4();
-    testGfxMath();
-    testX86Instructions();
-    testX86Dll();
-    if (failures)
-        std::fprintf(stderr, "%d check(s) failed\n", failures);
-    else
-        std::printf("All tests passed\n");
-    return failures ? 1 : 0;
-}
+static const reluva::test::Suite hashesSuite("common.unit.hashes", {
+    {"md5", [](const std::filesystem::path&) { testMd5(); }},
+    {"md4", [](const std::filesystem::path&) { testMd4(); }},
+});
+
+static const reluva::test::Suite filesSuite("common.unit.files", {
+    {"filesystem and detection", [](const std::filesystem::path& tmp) { testFsAndDetection(tmp / "fs"); }},
+    {"config", [](const std::filesystem::path& tmp) { testConfig(tmp / "cfg"); }},
+    {"search set", [](const std::filesystem::path& tmp) { testSearchSet(tmp / "search"); }},
+});
+
+static const reluva::test::Suite archivesSuite("common.unit.archives", {
+    {"zip", [](const std::filesystem::path& tmp) { testZip(tmp / "zip"); }},
+    {"inflate and wise", [](const std::filesystem::path& tmp) { testInflateAndWise(tmp / "wise"); }},
+});
+
+static const reluva::test::Suite textSuite("common.unit.text", {
+    {"utf16", [](const std::filesystem::path&) { testUtf16(); }},
+    {"font", [](const std::filesystem::path&) { testFont(); }},
+});
+
+static const reluva::test::Suite audioSuite("common.unit.audio", {
+    {"wav", [](const std::filesystem::path&) { testWav(); }},
+    {"mp3", [](const std::filesystem::path&) { testMp3(); }},
+    {"mixer", [](const std::filesystem::path&) { testMixer(); }},
+});
+
+static const reluva::test::Suite imageSuite("common.unit.image", {
+    {"image", [](const std::filesystem::path&) { testImage(); }},
+    {"3d math", [](const std::filesystem::path&) { testGfxMath(); }},
+});
+
+static const reluva::test::Suite netSuite("common.unit.net", {
+    {"network", [](const std::filesystem::path&) { testNet(); }},
+});
+
+static const reluva::test::Suite x86Suite("common.unit.x86", {
+    {"instructions", [](const std::filesystem::path&) { testX86Instructions(); }},
+    {"test dll", [](const std::filesystem::path&) { testX86Dll(); }},
+});

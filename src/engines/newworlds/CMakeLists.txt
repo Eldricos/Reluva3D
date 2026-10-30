@@ -37,6 +37,7 @@ reluva_add_engine(newworlds
         font_viewer.cpp
         levels.cpp)
 
-reluva_add_engine_test(newworlds
-    NAME newworlds_cat
-    SOURCES ${PROJECT_SOURCE_DIR}/tests/test_newworlds_cat.cpp)
+# Its tests (tests/engines/newworlds/), in reluva-tests.
+reluva_add_engine_tests(newworlds
+    SOURCES ${PROJECT_SOURCE_DIR}/tests/engines/newworlds/unit.cpp
+    TOPICS unit.archives unit.files unit.game unit.render)

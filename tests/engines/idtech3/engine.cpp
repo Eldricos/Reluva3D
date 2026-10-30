@@ -10,21 +10,21 @@
 //     overriding earlier ones) and detected;
 //   - its shaders, a map and a model read;
 //   - a level started on the server: game code (Reluva's own test QVM,
-//     tests/data/qvm/fake_game.c);
+//     tests/engines/idtech3/data/qvm/fake_game.c);
 //   - a player joining over the network (in memory, losing a datagram in
 //     four), moving about, map_restart, and leaving;
 //   - the client game taking its snapshots and drawing scenes (fake
 //     cgame);
 //   - the menus starting, drawing and taking keys (fake ui).
 //
-// The unit tests (test_idtech3.cpp) check each part's values. This writes
+// The unit tests (tests/engines/idtech3/unit/) check each part's values. This writes
 // everything the run produces into a record, one line per step: counts,
 // and checksums of states, snapshots and scenes. The record is compared
-// with tests/data/idtech3/engine-record.txt, so a change anywhere that
+// with tests/engines/idtech3/data/engine-record.txt, so a change anywhere that
 // changes what the engine does (in common/, say) is caught, even where no
 // unit test looks.
 //
-//   reluva_idtech3_engine_test [record file] [--update]
+//   reluva-tests idtech3.engine [--update]
 //
 // --update writes the run's record as the new one. Do that only after a
 // change meant to alter behaviour, and look at the record's diff before
@@ -45,11 +45,12 @@
 #include "engines/idtech3/shader.h"
 #include "engines/registry.h"
 
-#include "data/qvm/fake_cgame_qvm.h"
-#include "data/qvm/fake_game_qvm.h"
-#include "data/qvm/fake_ui_qvm.h"
-#include "idtech3_fixtures.h"
-#include "zip_writer.h"
+#include "tests/engines/idtech3/data/qvm/fake_cgame_qvm.h"
+#include "tests/engines/idtech3/data/qvm/fake_game_qvm.h"
+#include "tests/engines/idtech3/data/qvm/fake_ui_qvm.h"
+#include "tests/engines/idtech3/fixtures.h"
+#include "tests/support/test.h"
+#include "tests/support/zip_writer.h"
 
 #include <cstdio>
 #include <cstring>
@@ -413,49 +414,39 @@ std::vector<std::string> readLines(const std::filesystem::path& path) {
     return out;
 }
 
-} // namespace
-
-int main(int argc, char** argv) {
-    std::filesystem::path recordPath = RELUVA_SOURCE_DIR "/tests/data/idtech3/engine-record.txt";
-    bool update = false;
-    for (int i = 1; i < argc; ++i) {
-        if (std::strcmp(argv[i], "--update") == 0)
-            update = true;
-        else
-            recordPath = argv[i];
-    }
-
-    const std::filesystem::path dir = std::filesystem::temp_directory_path() / "reluva_idtech3_engine_test";
+// The run, its record against the committed one (or, with --update,
+// written as the new one).
+void engineTest(const std::filesystem::path& tmp) {
+    const std::filesystem::path recordPath = RELUVA_SOURCE_DIR "/tests/engines/idtech3/data/engine-record.txt";
+    const std::filesystem::path dir = tmp / "install";
     makeInstall(dir);
     Record rec;
     SearchSet set;
     std::vector<std::string> warnings;
-    if (Error e = mountGame(set, dir, {}, "BaseEF", "", warnings)) {
-        std::fprintf(stderr, "mounting the test install: %s\n", e.message.c_str());
-        return 1;
-    }
+    if (Error e = mountGame(set, dir, {}, "BaseEF", "", warnings))
+        return test::fail("mounting the test install: " + e.message);
     install(dir, set, rec);
     files(set, rec);
     play(set, rec);
     menus(set, rec);
-    std::filesystem::remove_all(dir);
+    for (const std::string& line : rec.lines())
+        if (line.find(": FAILED ") != std::string::npos)
+            test::fail(line);
 
-    if (update) {
+    if (test::option("update")) {
         std::filesystem::create_directories(recordPath.parent_path());
         std::ofstream out(recordPath);
-        out << "# The id Tech 3 engine test's record (tests/idtech3_engine_test.cpp).\n"
-               "# Written by `reluva_idtech3_engine_test --update`; review its diff before committing.\n";
+        out << "# The id Tech 3 engine test's record (tests/engines/idtech3/engine.cpp).\n"
+               "# Written by `reluva-tests idtech3.engine --update`; review its diff before committing.\n";
         for (const std::string& line : rec.lines())
             out << line << "\n";
         std::printf("Record written to %s (%zu lines)\n", recordPath.string().c_str(), rec.lines().size());
-        return rec.failures ? 1 : 0;
+        return;
     }
 
     const std::vector<std::string> want = readLines(recordPath);
-    if (want.empty()) {
-        std::fprintf(stderr, "No record at %s: make one with --update\n", recordPath.string().c_str());
-        return 1;
-    }
+    if (want.empty())
+        return test::fail("no record at " + recordPath.string() + ": make one with reluva-tests idtech3.engine --update");
     int differ = 0;
     const size_t n = std::max(want.size(), rec.lines().size());
     for (size_t i = 0; i < n; ++i) {
@@ -468,12 +459,13 @@ int main(int argc, char** argv) {
         ++differ;
         std::printf("  DIFF  %s\n        was %s\n", got.c_str(), expected.c_str());
     }
-    if (differ || rec.failures) {
-        std::printf("%d line(s) differ from %s. If the change is meant, run with --update and review the record's "
-                    "diff.\n",
-                    differ, recordPath.string().c_str());
-        return 1;
-    }
-    std::printf("The engine did as recorded (%zu steps).\n", rec.lines().size());
-    return 0;
+    if (differ)
+        test::fail(std::to_string(differ) + " line(s) differ from " + recordPath.string() +
+                   ". If the change is meant, run reluva-tests idtech3.engine --update and review the record's diff.");
 }
+
+} // namespace
+
+static const reluva::test::Suite suite("idtech3.engine", {
+    {"play through", [](const std::filesystem::path& tmp) { engineTest(tmp); }},
+});

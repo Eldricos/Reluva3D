@@ -25,7 +25,7 @@
 #   cinematics     the videos decoded (bink-decode)
 # A command that fails fails the step. What each prints (paths and timings
 # taken out) is checksummed, with a summary line, into a record:
-# tests/data/idtech3/gamedata/<release>/<step>.txt. The step passes when
+# tests/engines/idtech3/data/gamedata/<release>/<step>.txt. The step passes when
 # its record is the same as the committed one, so any change in what the
 # engine does with the real game is caught.
 #

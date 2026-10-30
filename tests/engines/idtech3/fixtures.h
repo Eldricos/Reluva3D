@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Small game files built in code for the id Tech 3 tests: a map, a model
-// and a map for collision, shared by the unit tests and the engine test.
+// Small game files built in code for the id Tech 3 tests (a map, a model
+// and a map for collision) and helpers, shared by the unit tests and the
+// engine test.
 
 #pragma once
 
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/collision.h"
 
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -202,5 +204,8 @@ inline std::shared_ptr<Bsp> collisionMap() {
     bsp->models = {world, door};
     return bsp;
 }
+
+// Whether two floats are within a thousandth.
+inline bool near(float a, float b) { return std::fabs(a - b) < 1e-3f; }
 
 } // namespace reluva::idtech3::fixtures

@@ -248,7 +248,8 @@ src/backends/sockets/ networking
 src/launcher/        the launcher (Dear ImGui)
 src/engines/         one folder per engine, plus registry.cpp listing them
 src/tools/           reluva-tool and reluva-render-check
-tests/               unit tests and their data
+tests/               the tests (reluva-tests) and their data: shared code's in common/, each
+                     engine's in engines/<engine>/
 third_party/         outside code built in, each with its licence (minimp3, stb_image)
 docs/                documentation: shared in docs/common/, each engine's in docs/engines/<engine>/
 ```
@@ -272,8 +273,8 @@ include SDL.
 3. **Give it a `CMakeLists.txt`** in its folder (copy `testbed`'s):
    - `reluva_add_engine(<name> ACCESSOR <function> SOURCES ...)` names the
      function that returns its `MetaEngine`, and lists its sources;
-   - `reluva_add_engine_test(<name> NAME <test> SOURCES ...)` adds its
-     unit tests.
+   - `reluva_add_engine_tests(<name> SOURCES ... TOPICS ...)` adds its
+     tests, from `tests/engines/<name>/`, to `reluva-tests`.
 
    The build finds the folder, and adds the engine to the registry, by
    itself. Code elsewhere that uses the engine (its `reluva-tool`

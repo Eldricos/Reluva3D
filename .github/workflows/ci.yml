@@ -1,12 +1,12 @@
 # Builds Reluva and runs its tests on Linux, macOS and Windows, and checks
 # the 3D renderer (src/tools/render_check.cpp) against the reference frames
-# in tests/data/render: on macOS through Metal, on Linux through Vulkan on
+# in tests/render: on macOS through Metal, on Linux through Vulkan on
 # Mesa's software driver (lavapipe). Windows' runners have no Vulkan driver,
 # so there it's built and tested only.
 #
 # The frames drawn, and where they differ from the references, are kept as
 # each run's artifacts. After a change that's meant to alter them, make new
-# references with `reluva-render-check tests/data/render --update` and
+# references with `reluva-render-check tests/render --update` and
 # commit them.
 #
 # The "engine alone" jobs build each engine with every other one disabled
@@ -44,7 +44,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
           SDL_VIDEODRIVER: x11
-        run: xvfb-run -a -s "-screen 0 1280x1024x24" ./build/reluva-render-check tests/data/render --out render-out
+        run: xvfb-run -a -s "-screen 0 1280x1024x24" ./build/reluva-render-check tests/render --out render-out
       - name: Frames drawn
         if: always()
         uses: actions/upload-artifact@v7
@@ -69,7 +69,7 @@ jobs:
       - name: Render check
         env:
           SDL_AUDIODRIVER: dummy
-        run: ./build/reluva-render-check tests/data/render --out render-out
+        run: ./build/reluva-render-check tests/render --out render-out
       - name: Frames drawn
         if: always()
         uses: actions/upload-artifact@v7

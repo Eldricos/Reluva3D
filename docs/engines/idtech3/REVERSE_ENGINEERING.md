@@ -142,12 +142,12 @@ every file, not just a sample:
 - **Unit tests** (`ctest`) cover the readers, the interpreters and the
   hosts. Where the retail game can't be used, they use test programs of
   Reluva's own:
-  - **QVMs** compiled from C in `tests/data/qvm/` with the Quake III
+  - **QVMs** compiled from C in `tests/engines/idtech3/data/qvm/` with the Quake III
     compiler tools (built from ioquake3). `fake_game.c` and `fake_ui.c`
     exercise the engine's calls the way the retail programs do, and
     `test_vm.c` checks the interpreter against the same C compiled
     natively.
-  - **A DLL** compiled from `tests/x86/testdll.c`, whose functions run both
+  - **A DLL** compiled from `tests/common/x86/testdll.c`, whose functions run both
     in the x86 interpreter and natively, for comparison.
 - **The render check** (`reluva-render-check`) draws test frames through
   the 3D renderer and compares them with reference frames. CI runs it on

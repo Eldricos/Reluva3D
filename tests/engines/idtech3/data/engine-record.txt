@@ -1,5 +1,5 @@
-# The id Tech 3 engine test's record (tests/idtech3_engine_test.cpp).
-# Written by `reluva_idtech3_engine_test --update`; review its diff before committing.
+# The id Tech 3 engine test's record (tests/engines/idtech3/engine.cpp).
+# Written by `reluva-tests idtech3.engine --update`; review its diff before committing.
 install.files: 11 c9c091c89686c117
 install.override.pak1: hello world
 install.override.loose: loose

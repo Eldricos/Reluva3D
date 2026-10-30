@@ -4,6 +4,8 @@
 // Tests for the New Worlds .cat reader against archives built here, following
 // docs/engines/newworlds/cat.md, so no game data is needed.
 
+#include "tests/support/test.h"
+
 #include "engines/newworlds/arf.h"
 #include "engines/newworlds/briefing.h"
 #include "engines/newworlds/cat_archive.h"
@@ -34,17 +36,6 @@
 
 using namespace reluva;
 using namespace reluva::newworlds;
-
-static int failures = 0;
-
-#define CHECK(cond)                                                     \
-    do {                                                                \
-        if (!(cond)) {                                                  \
-            std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, \
-                         __LINE__, #cond);                              \
-            ++failures;                                                 \
-        }                                                               \
-    } while (0)
 
 namespace {
 
@@ -1031,32 +1022,34 @@ void testRasterizer() {
 
 } // namespace
 
-int main() {
-    auto tmp = std::filesystem::temp_directory_path() / "reluva_cat_tests";
-    testNormalizeName();
-    testRead(tmp);
-    testRejectsCorruption(tmp);
-    testStringTable();
-    testTexture();
-    testGeo();
-    testGmf();
-    testMdl();
-    testArf();
-    testFif();
-    testLevels();
-    testBriefing();
-    testMissionScripts();
-    testColony();
-    testStarSystem();
-    testModelPose();
-    testEconomy();
-    testWorld();
-    testModelTextures();
-    testRasterizer();
-    std::filesystem::remove_all(tmp);
-    if (failures)
-        std::fprintf(stderr, "%d check(s) failed\n", failures);
-    else
-        std::printf("All tests passed\n");
-    return failures ? 1 : 0;
-}
+static const reluva::test::Suite archivesSuite("newworlds.unit.archives", {
+    {"names", [](const std::filesystem::path&) { testNormalizeName(); }},
+    {"read", [](const std::filesystem::path& tmp) { testRead(tmp); }},
+    {"corruption", [](const std::filesystem::path& tmp) { testRejectsCorruption(tmp); }},
+});
+
+static const reluva::test::Suite filesSuite("newworlds.unit.files", {
+    {"string table", [](const std::filesystem::path&) { testStringTable(); }},
+    {"texture", [](const std::filesystem::path&) { testTexture(); }},
+    {"geo", [](const std::filesystem::path&) { testGeo(); }},
+    {"gmf", [](const std::filesystem::path&) { testGmf(); }},
+    {"mdl", [](const std::filesystem::path&) { testMdl(); }},
+    {"arf", [](const std::filesystem::path&) { testArf(); }},
+    {"fif", [](const std::filesystem::path&) { testFif(); }},
+    {"levels", [](const std::filesystem::path&) { testLevels(); }},
+    {"model textures", [](const std::filesystem::path&) { testModelTextures(); }},
+});
+
+static const reluva::test::Suite gameSuite("newworlds.unit.game", {
+    {"briefing", [](const std::filesystem::path&) { testBriefing(); }},
+    {"mission scripts", [](const std::filesystem::path&) { testMissionScripts(); }},
+    {"colony", [](const std::filesystem::path&) { testColony(); }},
+    {"star system", [](const std::filesystem::path&) { testStarSystem(); }},
+    {"model pose", [](const std::filesystem::path&) { testModelPose(); }},
+    {"economy", [](const std::filesystem::path&) { testEconomy(); }},
+    {"world", [](const std::filesystem::path&) { testWorld(); }},
+});
+
+static const reluva::test::Suite renderSuite("newworlds.unit.render", {
+    {"rasterizer", [](const std::filesystem::path&) { testRasterizer(); }},
+});
