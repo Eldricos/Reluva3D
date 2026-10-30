@@ -26,6 +26,14 @@
 
 namespace reluva::x86::dx {
 
+// The steps of a pixel's way, inlined into the triangle's loop: called for
+// every pixel, their calls cost more than much of their work.
+#if defined(_MSC_VER)
+#define RELUVA_PIXEL_STEP __forceinline
+#else
+#define RELUVA_PIXEL_STEP [[gnu::always_inline]] inline
+#endif
+
 namespace {
 
 // Render states.
@@ -679,44 +687,52 @@ void Device::drawBatch() {
 // Clips a triangle to the view volume, projects it, culls it by its
 // winding, and fills what's left.
 void Device::triangle(const ClipVertex& a, const ClipVertex& b, const ClipVertex& c) {
-    std::vector<ClipVertex> poly;
-    if (projected) {
-        poly = {a, b, c};
-    } else {
-        poly = {a, b, c};
-        for (int plane = 0; plane < 6 && !poly.empty(); ++plane) {
-            std::vector<ClipVertex> next;
-            for (size_t i = 0; i < poly.size(); ++i) {
-                const ClipVertex& p = poly[i];
-                const ClipVertex& q = poly[(i + 1) % poly.size()];
+    // Each plane adds at most one corner: 3 + 6 at most.
+    struct Polygon {
+        ClipVertex v[9];
+        size_t n = 0;
+        size_t size() const { return n; }
+        ClipVertex& operator[](size_t i) { return v[i]; }
+        const ClipVertex& operator[](size_t i) const { return v[i]; }
+    } polys[2];
+    Polygon* poly = &polys[0];
+    poly->v[0] = a, poly->v[1] = b, poly->v[2] = c, poly->n = 3;
+    if (!projected) {
+        for (int plane = 0; plane < 6 && poly->n; ++plane) {
+            Polygon& next = poly == &polys[0] ? polys[1] : polys[0];
+            next.n = 0;
+            for (size_t i = 0; i < poly->n; ++i) {
+                const ClipVertex& p = (*poly)[i];
+                const ClipVertex& q = (*poly)[(i + 1) % poly->n];
                 const float dp = planeDistance(p, plane), dq = planeDistance(q, plane);
                 if (dp >= 0)
-                    next.push_back(p);
+                    next.v[next.n++] = p;
                 if ((dp >= 0) != (dq >= 0))
-                    next.push_back(lerp(p, q, dp / (dp - dq)));
+                    next.v[next.n++] = lerp(p, q, dp / (dp - dq));
             }
-            poly.swap(next);
+            poly = &next;
         }
-        if (poly.size() < 3)
+        if (poly->n < 3)
             return;
-        for (ClipVertex& p : poly) {
-            if (p.w <= 0)
+        for (size_t i = 0; i < poly->n; ++i) {
+            if (poly->v[i].w <= 0)
                 return;
-            p = project(p);
+            poly->v[i] = project(poly->v[i]);
         }
     }
+    const Polygon& shape = *poly;
     // Winding on the screen (y down): positive is clockwise.
     float area = 0;
-    for (size_t i = 0; i < poly.size(); ++i) {
-        const ClipVertex& p = poly[i];
-        const ClipVertex& q = poly[(i + 1) % poly.size()];
+    for (size_t i = 0; i < shape.size(); ++i) {
+        const ClipVertex& p = shape[i];
+        const ClipVertex& q = shape[(i + 1) % shape.size()];
         area += p.x * q.y - q.x * p.y;
     }
     const uint32_t cull = renderStates[kCullMode];
     if ((cull == 2 && area > 0) || (cull == 3 && area < 0) || area == 0)
         return;
-    for (size_t i = 1; i + 1 < poly.size(); ++i)
-        batch_.push_back({poly[0], poly[i], poly[i + 1]});
+    for (size_t i = 1; i + 1 < shape.size(); ++i)
+        batch_.push_back({shape[0], shape[i], shape[i + 1]});
     if (!batching_)
         drawBatch();
 }
@@ -994,7 +1010,7 @@ void Draw::prepareSamplers(Raster& r) const {
     }
 }
 
-uint32_t Draw::sample(const Raster& r, int stage, float u, float v, bool* keyed) const {
+RELUVA_PIXEL_STEP uint32_t Draw::sample(const Raster& r, int stage, float u, float v, bool* keyed) const {
     const Sampler& sm = r.samplers[stage];
     if (!sm.argb)
         return 0xffffffffu;
@@ -1053,6 +1069,13 @@ uint32_t Draw::sample(const Raster& r, int stage, float u, float v, bool* keyed)
     if (!keyed && ix >= 0 && iy >= 0 && ix + 1 < sm.width && iy + 1 < sm.height) { // all four inside: no addressing
         const uint32_t* p = sm.argb + size_t(iy) * size_t(sm.width) + size_t(ix);
         return mix(mix(p[0], p[1], ax), mix(p[sm.width], p[sm.width + 1], ax), ay);
+    }
+    if (!keyed && sm.wrapPow2) { // wrapping across an edge: the texel's addressing, by masks
+        const int mx = sm.width - 1, my = sm.height - 1;
+        const size_t x0 = size_t(ix & mx), x1 = size_t((ix + 1) & mx);
+        const uint32_t* r0 = sm.argb + size_t(iy & my) * size_t(sm.width);
+        const uint32_t* r1 = sm.argb + size_t((iy + 1) & my) * size_t(sm.width);
+        return mix(mix(r0[x0], r0[x1], ax), mix(r1[x0], r1[x1], ax), ay);
     }
     bool k00 = false, k10 = false, k01 = false, k11 = false;
     const uint32_t t00 = texel(ix, iy, k00), t10 = texel(ix + 1, iy, k10);
@@ -1140,7 +1163,7 @@ void Draw::pixel(Raster& r, int x, int y, float z, float eyeW, const float* attr
 
 // Whether a pixel is on the target and passes the depth test; where its
 // depth is, and the depth it would write.
-bool Draw::depthTest(int x, int y, float z, uint8_t*& zAt, uint32_t& zNew) const {
+RELUVA_PIXEL_STEP bool Draw::depthTest(int x, int y, float z, uint8_t*& zAt, uint32_t& zNew) const {
     zAt = nullptr;
     zNew = 0;
     const PixelConfig& cf = cfg_;
@@ -1163,7 +1186,7 @@ bool Draw::depthTest(int x, int y, float z, uint8_t*& zAt, uint32_t& zNew) const
 }
 
 // A pixel past the depth test: texture stages, then the rest (finish).
-void Draw::shade(const Raster& r, int x, int y, float z, float eyeW, const float* attr, uint8_t* zAt,
+RELUVA_PIXEL_STEP void Draw::shade(const Raster& r, int x, int y, float z, float eyeW, const float* attr, uint8_t* zAt,
                  uint32_t zNew) const {
     const PixelConfig& cf = cfg_;
     // Texture stages.
@@ -1196,7 +1219,8 @@ void Draw::shade(const Raster& r, int x, int y, float z, float eyeW, const float
                 apply(sc.alphaOp, src[sc.source[2]], src[sc.source[3]], 3, 4);
             else
                 result[3] = src[1][3];
-            std::copy(result, result + 4, src[1]);
+            for (int i = 0; i < 4; ++i)
+                src[1][i] = result[i];
         }
         finish(x, y, z, eyeW, attr, Color{src[1][0], src[1][1], src[1][2], src[1][3]}, zAt, zNew);
         return;
@@ -1270,7 +1294,7 @@ void Draw::shade(const Raster& r, int x, int y, float z, float eyeW, const float
 
 // The rest of a pixel's way, from its colour after the texture stages:
 // specular, alpha test, fog, blending, the write.
-void Draw::finish(int x, int y, float z, float eyeW, const float* attr, Color current, uint8_t* zAt,
+RELUVA_PIXEL_STEP void Draw::finish(int x, int y, float z, float eyeW, const float* attr, Color current, uint8_t* zAt,
                   uint32_t zNew) const {
     const PixelConfig& cf = cfg_;
     const Color specular{attr[4], attr[5], attr[6], attr[7]};
@@ -1390,9 +1414,18 @@ void Device::clear(uint32_t count, uint32_t rects, uint32_t flags, uint32_t colo
                     if (bands > 1 && (y >> 3) % bands != band) // another thread's rows
                         continue;
                     uint8_t* row = f.at + uint32_t(y * f.pitch) + uint32_t(r.left) * f.bytes;
-                    for (int x = r.left; x < r.right; ++x, row += f.bytes)
-                        for (uint32_t b = 0; b < f.bytes; ++b)
-                            row[b] = uint8_t(f.value >> (8 * b));
+                    if (f.bytes == 2) {
+                        const uint16_t v = uint16_t(f.value);
+                        for (int x = r.left; x < r.right; ++x, row += 2)
+                            std::memcpy(row, &v, 2);
+                    } else if (f.bytes == 4) {
+                        for (int x = r.left; x < r.right; ++x, row += 4)
+                            std::memcpy(row, &f.value, 4);
+                    } else {
+                        for (int x = r.left; x < r.right; ++x, row += f.bytes)
+                            for (uint32_t b = 0; b < f.bytes; ++b)
+                                row[b] = uint8_t(f.value >> (8 * b));
+                    }
                 }
             }
     };

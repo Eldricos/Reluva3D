@@ -5606,7 +5606,7 @@ int cmdAtSweep(int argc, char** argv) {
 int cmdAtRun(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool at-run <game folder> [-v] [-limit instructions] [-trace count] "
-                             "[-memory MB] [-log] [-files] [-save folder] [-from frame] [-profile from-to] [-present-late] [-shots folder] [-every frames] [-click frame[@x,y]]... [-move frame@dx,dy]... "
+                             "[-memory MB] [-log] [-files] [-save folder] [-from frame] [-profile from-to] [-profile-addresses] [-present-late] [-shots folder] [-every frames] [-click frame[@x,y]]... [-move frame@dx,dy]... "
                              "[-key frame@vk]... [-quit frame] [-fixed-clock] [-clock-rate frame@n] [-watch dll!export]... [-point frame@x,y]... "
                              "[-calls frame@dll!export] [-dump frame@address,bytes]... [-solved space] [-until-advance]\n");
         return 2;
@@ -5663,6 +5663,7 @@ int cmdAtRun(int argc, char** argv) {
     bool presentLate = false; // -present-late: DirectX::presentLate, as the player has it
     std::atomic<bool> profiling{false}, profileDone{false};
     std::vector<uint32_t> profileSamples;
+    bool profileAddresses = false; // -profile-addresses: also by 64-byte stretch of code
     std::thread profiler;
     uint64_t every = 30;
     // -click: a left click when a frame is shown, at a place on the screen
@@ -5754,6 +5755,8 @@ int cmdAtRun(int argc, char** argv) {
             untilAdvance = true;
         else if (arg == "-fixed-clock")
             fixedClock = true;
+        else if (arg == "-profile-addresses")
+            profileAddresses = true;
         else if (arg == "-profile" && a + 1 < argc) {
             const std::string v = argv[++a];
             profileFrom = std::strtoull(v.c_str(), nullptr, 0);
@@ -6376,6 +6379,20 @@ int cmdAtRun(int argc, char** argv) {
         std::printf("profile: %zu samples\n", profileSamples.size());
         for (size_t i = 0; i < top.size() && i < 60; ++i)
             std::printf("  %5.1f%%  %s\n", 100.0 * double(top[i].first) / double(profileSamples.size()), top[i].second.c_str());
+        if (profileAddresses) {
+            // The busiest 64-byte stretches of code, for functions no export names.
+            std::map<uint32_t, size_t> byBlock;
+            for (uint32_t a : profileSamples)
+                ++byBlock[a & ~63u];
+            std::vector<std::pair<size_t, uint32_t>> blocks;
+            for (const auto& [a, n] : byBlock)
+                blocks.push_back({n, a});
+            std::sort(blocks.rbegin(), blocks.rend());
+            std::printf("profile by address:\n");
+            for (size_t i = 0; i < blocks.size() && i < 60; ++i)
+                std::printf("  %5.1f%%  %08x  %s\n", 100.0 * double(blocks[i].first) / double(profileSamples.size()),
+                            blocks[i].second, symbol(blocks[i].second).c_str());
+        }
     }
     if (framesShown) {
         std::printf("frames shown: %llu\n", (unsigned long long)framesShown);

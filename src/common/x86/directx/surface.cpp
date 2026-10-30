@@ -10,6 +10,8 @@
 
 #include <algorithm>
 #include <cstring>
+#include <mutex>
+#include <tuple>
 #include <string_view>
 
 namespace reluva::x86::dx {
@@ -122,6 +124,21 @@ ArgbConverter::ArgbConverter(const PixelFormat& format, const uint32_t* palette)
             c.table[v] = uint8_t(channel((v << c.drop) << c.shift, mask));
         channels_.push_back(c);
     }
+    if (format.bytes() != 2)
+        return;
+    // Built once per format: a frame or texture is converted many times.
+    static std::mutex lock;
+    static std::map<std::tuple<uint32_t, uint32_t, uint32_t, uint32_t, uint32_t>, std::shared_ptr<const std::vector<uint32_t>>>
+        tables;
+    const std::lock_guard<std::mutex> hold(lock);
+    auto& table = tables[{format.flags, format.r, format.g, format.b, format.a}];
+    if (!table) {
+        auto t = std::make_shared<std::vector<uint32_t>>(65536);
+        for (uint32_t v = 0; v < 65536; ++v)
+            (*t)[v] = (*this)(v);
+        table = std::move(t);
+    }
+    wide_ = table;
 }
 
 void ArgbConverter::row(const uint8_t* bytes, int count, uint32_t* out) const {

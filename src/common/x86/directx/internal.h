@@ -52,6 +52,8 @@ class ArgbConverter {
 public:
     ArgbConverter(const PixelFormat& format, const uint32_t* palette);
     uint32_t operator()(uint32_t value) const {
+        if (wide_)
+            return (*wide_)[value & 0xffff];
         if (general_)
             return format_.toArgb(value, palette_);
         uint32_t argb = alpha_;
@@ -72,6 +74,9 @@ private:
     bool general_ = false; // palettized or luminance: toArgb itself
     uint32_t alpha_ = 0;   // 0xff000000 without an alpha channel
     std::vector<Channel> channels_;
+    // 16-bit formats: every value's colour, shared by every converter of
+    // the format.
+    std::shared_ptr<const std::vector<uint32_t>> wide_;
 };
 PixelFormat rgbFormat(int bits); // 8 (palettized), 16 (565), 24, 32 (X888)
 PixelFormat zFormat(int bits);
