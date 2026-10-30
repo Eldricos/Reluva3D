@@ -1111,8 +1111,9 @@ Allowed under CONTRIBUTING.md:
 
 - What the wall codes' impact effects look like, and how side codes 1,
   3, 4 and 5 differ ([col.md](../formats/nfs/col.md)).
-- How the two sets of mixer routines that tag `0x91` chooses between
-  sound different ([bnk.md](../formats/nfs/bnk.md)).
+- What sets the audio option at `0x6fbbe0` to 0, which drops the
+  sounds at mixing quality 50 to nearest-sample resampling
+  ([bnk.md](../formats/nfs/bnk.md)).
 - Whether the captured movie frames match the game's interpolating
   display modes ([mad.md](../formats/nfs/mad.md)).
 - What the race's two step functions do, and thread `0x512ad0`

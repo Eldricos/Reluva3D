@@ -147,7 +147,8 @@ gives −x to x):
 | `0x09`, `0x19`, `0x1C` | a volume envelope (below): its number of segments (default 1), its table, and its starting level (default 127) |
 | `0x12` | a table the voice's final volume (0-127) is read through (`0x501526`) |
 | `0x13` | the send to iSND's effects bus 0 (0-127, default 0), below |
-| `0x00`, `0x08`, `0x1B` | copied into the voice (+0x0D, +0x36, +0x0B; `0x501b6d`, `0x501c4e`, `0x501ce7`). Nothing was found reading +0x0D or +0x36 back. +0x0B is read only by the audio streamer (`sstream.c`, `0x4e8a8d`), from the patch it builds for itself |
+| `0x00`, `0x08` | copied into the voice (+0x0D, +0x36; `0x501b6d`, `0x501c4e`) and never read back. `0x00` defaults to 1 (`0x5017c0`), `0x08` to −1 (`0x501821`). The music streams' headers carry `0x00` = 2 (and `0x06` = 101) in all 1,733 of them, so their voices get 2. See Unread voice fields below |
+| `0x1B` | the stream's chunks per second (default 15, `0x5017d0`). Copied into the voice (+0x0B, `0x501ce7`); only the audio streamer (`sstream.c`) reads it back, below |
 | `0x14`, `0x16`, `0x18`, `0x1A` | stored by `0x501de8` but not read when a voice starts |
 
 Tables (`0x12`, `0x15`, `0x17`, `0x19`, `0x1D`, `0x20`) are given as
@@ -191,8 +192,98 @@ which choose separate routines for rates above, below and at the
 output's (`0x52175c`). The offset is set at `0x40fcde`: 0, or −50 when
 the audio option at `0x6fbbe0` is 0 (it is 1 by default, `0x4725f2`).
 So the retail sounds (50 or 100) get the better routines unless that
-option drops the 50s to 0. How the two routine sets sound different was
-not followed.
+option drops the 50s to 0. Only that one write to `0x6fbbe0` was found,
+so what sets it to 0 (a saved setting copied in whole?) stays unknown.
+
+What a set is. The set holds one routine per sample format: 8-bit mono,
+8-bit stereo, 16-bit mono, 16-bit stereo (`0x5000b8`'s flags 1, 2, 4,
+8, from the bits and channels at `0x5226f8`-`0x522981`). Each is the
+setup of the voice's resampler: it fills in the resampler's three
+routines (set the step, count the input wanted, resample) at voice
++0xDB0, +0xDB4, +0xDB8 (`0x5001d3`). The step is the 16.16 ratio of
+input to output rate, at most 8 (`0x5001d8`). Everything else is the
+same in both sets: the decoders that turn 8-bit, 16-bit or EA-XA data
+into float samples (table `0x9f6a6c`, chosen by format and compression),
+the mixers that apply the levels (`0x9f6adc`-`0x9f6ae8`: `0x520a40`
+mono, `0x520e00` stereo, the same for 8 and 16 bits), and the mix down
+to 16 bits with its clipping (`0x521d00`). So the only difference is
+how the samples are resampled. Read from the code (`0x4ffe61`, the
+non-MMX table):
+
+- **25 or less** (`0x5211c0` mono, `0x521310` stereo): nearest sample,
+  rounded down. Each output frame copies input frame ⌊position⌋ as it
+  is, and the position steps by the 16.16 step (`0x5212cb`,
+  `0x521430`); the fraction carries to the next block (`0x5212e6`).
+  There is a branch that repeats the previous block's last sample
+  (`0x5212aa`), but the test that turns it on (`0x5212e8`, the step's
+  integer part against the whole step) never holds.
+- **Above 25** (`0x521bc4` mono, `0x521800` stereo): linear
+  interpolation. Setting the step picks one of three pairs of routines
+  (`0x521b20`, `0x52175c`): above 1, below 1, or exactly 1. Each output
+  is a × (1 − t) + b × t, t the fraction × 1/65536 (`0x521972`,
+  `0x521a9c`; the bulk in `0x5273c0` mono and `0x527330` stereo, the
+  routines Reluva runs natively). The last input sample is kept
+  (+0x10) so the first output of the next block interpolates across
+  the join. When the step crosses 1 the position is reset
+  (`0x521b7a`, `0x5217b6`). There is no filter beyond the linear one.
+
+At a step of exactly 1 both sets pass the input through untouched
+(`0x52125b`, `0x521a10`), so a sound played at the output's rate sounds
+the same either way. Otherwise the low set gives a stepped wave: its
+images and aliasing are heard as a grainy, metallic edge, worst when a
+sound is pitched down a lot (an engine at low revs). The high set
+smooths that but still aliases somewhat when pitched up.
+
+With MMX (`0x4ffda2`) both quality bands get the same routines
+(`0x51fc38` 8-bit mono and so on). They are built like the high set
+(the same three-way choice of step, `0x51fb94`) and interpolate on
+integers (`0x51f9de`: two 8-bit samples times their weights; the bulk
+in MMX at `0x527170`). On an MMX machine `0x91` changes nothing.
+
+In practice: on a machine without MMX, with the option at its default,
+every retail sound (50 or 100) gets linear interpolation and the
+nearest-sample routines are never used. With the option at 0, the 182
+sounds at 50 drop to nearest-sample and the 25 at 100 (the traffic
+cars' and `FeData/Plac`'s `car.viv`) stay linear. Reluva's x86 core
+reports a Pentium without MMX (`common/x86/cpu.cpp`, CPUID), so it runs
+the non-MMX routines. Whether the MMX integer routines round or clip
+differently from the float ones was not transcribed.
+
+**Unread voice fields** (`0x00`, `0x08`). The voices are one static
+array, 16 of 0x60 bytes at `0xa09b3c`, and voice pointers are only ever
+made as `0xa09b3c` + n × 0x60. A search of the whole of `nfs3.exe` for
+accesses at +0x0D and +0x36 (byte, word or dword, and the absolute
+`0xa09b49`/`0xa09b72` forms) finds only the two writes. The dword reads
+at +0x34, +0x35, +0x36 (`0x501b90`, `0x501d26`, `0x501d35`, `0x50319a`,
+`0x4e9e91`) are all shifted right 24, so they read the bytes at +0x37 to
++0x39. The other reads at +0x0D in iSND (`0x4e9305`, `0x502771`,
+`0x5029d0` and others) are on the stream buffer records, which keep
+flags at +0x0C/+0x0D, not on voices. `eacsnd.dll` is the DirectSound
+driver (`iSNDdirectplay3d` and the like), loaded by name rather than
+imported. Its calls take buffers, rates and positions, and it cannot
+see the voice array. So `0x00` and `0x08` have no effect in this build.
+Their meaning for EA's other games stays unknown.
+
+**The streamer's chunk rate** (`0x1B`). `iSNDparseheader` copies the
+stream's `SCHl` PT header into `0x5646a0` (`0x4e8144`) and starts a
+voice from it (`0x4e8a54`). It then reads the voice's +0x0B
+(`0x4e8a8d`) into `0x5646ff`. That value is used three ways:
+
+- `SNDstreambuftime` (`0x4e7ce0`): the chunks still queued (from
+  `SNDstreamchunksleft`, `0x4e7c58`) × 1000 / the value
+  (`0x4e7d95`-`0x4e7dbd`), the buffered time in milliseconds. A value
+  of 0 asserts "THIS FUNCTION REQUIRES A NEWER AUDIO STREAM FORMAT"
+  (`0x4e7d5a`).
+- `SNDstreaminterrupt` (`0x4e7a14`): in state 2 (`0x5646fd`, set as
+  the stream's voice starts, `0x4e8a98`), it keeps the next
+  3 × value chunks of the queue (about 3 seconds) and frees the rest
+  (`0x4e7ab8`-`0x4e7afc`), so new data takes over soon.
+- It is passed to `0x5017b4`, a stub that returns 0 (`0x4e7c86`,
+  `0x4e7e71`).
+
+No retail stream has `0x1B`, so it is 15. The `.mus` files fit that:
+their `SCDl` blocks hold 1,456 or 1,484 samples in turn, 1,470 on
+average, which is 22,050 / 15 (`atlarock.mus`).
 
 **The pitch** is in cents from the sound's own rate: the rate is
 × 2^(cents / 1200), from a table of 2^(2^i cents) (`0x522e90`, the
