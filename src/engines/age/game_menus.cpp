@@ -27,7 +27,8 @@ constexpr int kReplayRow = 14, kReplayRows = 11; // the replay list's (in jpg/rp
 // widget's box (measured on jpg/aud_bk, gfx_bk, ctrl_bk).
 constexpr int kBarInset = 23, kBarWidth = 137;
 // Customize Controls' list: its rows and columns (on jpg/cuss_bk's box).
-constexpr int kListRow = 18, kKeyColumn = 160, kSecondColumn = 230; // 19 controls from y 62
+constexpr int kListRow = 18, kKeyColumn = 160, kSecondColumn = 230;
+constexpr int kListShown = 19; // controls shown at once from y 62 (the list scrolls)
 // The About screen's credits scroll by at this many pixels a second.
 constexpr float kCreditsSpeed = 30;
 
@@ -551,7 +552,7 @@ GameMenus::Action GameMenus::activate(const Item& item) {
     else if (w == "opt_abt")
         go(Screen::About);
     else if (w == "ctrl_cus") {
-        row_ = column_ = 0;
+        row_ = column_ = listTop_ = 0;
         go(Screen::Customize);
     } else if (w == "mnav_prev") {
         screen_ = Screen::None;
@@ -631,7 +632,7 @@ bool GameMenus::hit(const Item& item, int x, int y, int& w, int& h) const {
             h = im->h / std::max(1, item.states);
         }
     if (item.kind == Kind::List)
-        h = kListRow * kControls;
+        h = kListRow * std::min(kControls, kListShown);
     const int x0 = wd->x + originX(), y0 = wd->y + originY();
     return x >= x0 && x < x0 + w && y >= y0 && y < y0 + h;
 }
@@ -727,7 +728,7 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
                 step(list[i], ev.mouseX < wd->x + originX() + wd->w / 2 ? -1 : 1);
                 return Action::None;
             case Kind::List:
-                row_ = std::clamp((ev.mouseY - (wd->y + originY())) / kListRow, 0, kControls - 1);
+                row_ = std::clamp(listTop_ + (ev.mouseY - (wd->y + originY())) / kListRow, 0, kControls - 1);
                 column_ = ev.mouseX >= wd->x + kSecondColumn ? 1 : 0;
                 return activate(list[i]);
             default:
@@ -759,6 +760,7 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
             }
         } else if (item.kind == Kind::List && row_ + dir >= 0 && row_ + dir < kControls) {
             row_ += dir;
+            listTop_ = std::clamp(listTop_, row_ - kListShown + 1, row_);
             break;
         }
         for (size_t tries = 0; tries < list.size(); ++tries) {
@@ -899,8 +901,8 @@ void GameMenus::drawScreenWords(Surface& o, uint64_t nowMs) const {
         font::drawText(o, 432, 154, "Left/Right: which key", {255, 255, 255});
         font::drawText(o, 432, 168, "Backspace: none", {255, 255, 255});
         font::drawText(o, 432, 182, "Esc: as it was", {255, 255, 255});
-        for (int i = 0; i < kControls; ++i) {
-            const int y = w->y + i * kListRow + 4;
+        for (int i = listTop_; i < std::min(kControls, listTop_ + kListShown); ++i) {
+            const int y = w->y + (i - listTop_) * kListRow + 4;
             const bool row = i == row_;
             if (row)
                 fill(o, w->x - 6, y - 3, 290, kListRow - 2, {40, 40, 110});

@@ -42,6 +42,7 @@
 #include "engines/age/traffic.h"
 #include "engines/age/traffic_lights.h"
 #include "engines/age/tune.h"
+#include "engines/age/view_controls.h"
 #include "engines/age/viewers.h"
 #include "zip_writer.h"
 
@@ -973,6 +974,34 @@ void testDashboardFiles(const std::filesystem::path& tmp) {
     for (int i = 0; i < 100; ++i)
         updateCarCamera(cams[0], car, 0.05f, follow, false);
     CHECK(follow.backwards && follow.position[2] < -3.8f);
+
+    // The game's view controls: the Thrill Cam stands ahead of the car,
+    // looking back at it; Look Back in the car looks behind; Wide Angle
+    // widens and hides the dashboard; Camera Pan goes round while held.
+    {
+        ViewControls vc;
+        CarSim still;
+        still.reset(testCar(), {0, 0, 0}, 0); // facing -z
+        CarCamera inside;
+        inside.inside = true;
+        const CameraView ahead{{0, 1, 0}, {0, 1, -1}, {0, 1, 0}};
+        CHECK(vc.press(Control::ThrillCam, true) && vc.thrill);
+        CameraView t = vc.apply(ahead, cams[0], still, 0.05f);
+        CHECK(t.eye[2] < -30 && t.target[2] > t.eye[2]);
+        vc.press(Control::ThrillCam, true);
+        CHECK(vc.press(Control::LookBack, true));
+        t = vc.apply(ahead, inside, still, 0.05f);
+        CHECK(t.target[2] - t.eye[2] > 0.9f);
+        CHECK(vc.press(Control::WideAngle, true) && vc.fov(70) > 90 && !vc.showDashboard());
+        CHECK(!vc.press(Control::Throttle, true));
+        vc.press(Control::LookForward, true);
+        CameraView behind{{0, 2, 4}, {0, 1, 0}, {0, 1, 0}};
+        vc.press(Control::CameraPan, true);
+        for (int i = 0; i < 10; ++i)
+            t = vc.apply(behind, cams[0], still, 0.1f);
+        CHECK(std::fabs(t.eye[0]) > 2 &&
+              std::fabs(length(t.eye - t.target) - length(behind.eye - behind.target)) < 1e-3f);
+    }
 }
 
 void testLessons() {
@@ -2619,11 +2648,14 @@ static void testGoldGame() {
 static void testOptions(const std::filesystem::path& tmp) {
     // The defaults: the game's (its help's keyboard table), its names.
     GameOptions o;
-    CHECK(o.controlOf(key::Up) == Control::Throttle && o.controlOf('w') == Control::Count &&
+    CHECK(o.controlOf(key::Up) == Control::Throttle && o.controlOf('w') == Control::WideAngle &&
           o.controlOf(' ') == Control::Handbrake && o.controlOf(key::Return) == Control::Horn &&
           o.controlOf('q') == Control::FullScreenMap && o.controlOf(key::Tab) == Control::MapToggle &&
           o.controlOf('h') == Control::HudToggle && o.controlOf(key::Backspace) == Control::RearViewMirror &&
-          o.controlOf('s') == Control::NextCheckpoint && o.controlOf('a') == Control::ShiftUp);
+          o.controlOf('s') == Control::NextCheckpoint && o.controlOf('a') == Control::ShiftUp &&
+          o.controlOf('v') == Control::ThrillCam && o.controlOf(key::Kp0 + 2) == Control::LookBack &&
+          o.controlOf('f') == Control::RotatingMap && o.controlOf('5') == Control::CdNext &&
+          o.controlOf('i') == Control::OpponentPosition && o.keys[size_t(Control::CameraPan)][0] == 0);
     CHECK(controlStringId(Control::Throttle) == 280 && controlStringId(Control::RearViewMirror) == 305 &&
           keyName(key::Up) == "Up" && keyName('w') == "W" && keyName(key::F1 + 2) == "F3");
     CHECK(o.otherWith('z', Control::Throttle) == Control::ShiftDown &&

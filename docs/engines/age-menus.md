@@ -181,10 +181,11 @@ What the options do in Reluva:
   - The keys: Throttle, Brakes, Steer Left and Right, Handbrake, Horn,
     Shift Up and Down, Reverse, Transmission, Change Camera, Map Zoom,
     Full Screen Map, Map Toggle, HUD Toggle, Rear View Mirror, Next and
-    Prev. Checkpoint, and Enter Chat Msg, named by `mmlang.dll` (strings
-    276-309, which also name controls Reluva hasn't: Thrill Cam, the
-    looks, Wide Angle, Dashboard On/Off, Rotating Map, the CD player,
-    Camera Pan and Opponent Position). Their keys by default are the
+    Prev. Checkpoint, Thrill Cam, Look Left, Right, Back and Forward,
+    Wide Angle, Dashboard On/Off, Rotating Map, the CD player's four
+    (Toggle CD Player, Start/Stop CD, Prev. and Next CD Track), Camera
+    Pan, Opponent Position and Enter Chat Msg: all 33 of `mmlang.dll`'s
+    (strings 276-309). The list scrolls, 19 at a time. Their keys by default are the
     game's, from its help file's "Driving with a Keyboard": the arrows,
     Space the handbrake, Enter the horn, A and Z up and down a gear, R
     reverse (a stopped car into reverse, or out of it), T the
@@ -197,6 +198,45 @@ What the options do in Reluva:
     `options.txt` keeps its keys.) The help says Tab toggles "between two
     different sizes of city map, or turn[s] the map on and off"; Reluva's
     only turns it on and off.
+  - The rest of the help's table: V the Thrill Cam, the number pad's 4,
+    6, 2 and 8 to look left, right, back and forward in the car, W the
+    wide view, D the dashboard, F the rotating map, 2-5 the CD player,
+    I Opponent Position; Camera Pan has no key in it, so none. What they
+    do, where the help doesn't say, is Reluva's:
+    - **Thrill Cam**: "view your vehicle from a cool angle while you
+      perform a big stunt": a camera stood 35 m ahead of the car, 8 m to
+      the side and 3 m up, watching it go by, stood again ahead once the
+      car's past it or 80 m off. V again: back to the camera before.
+    - **Look Left, Right, Back, Forward**: in the car, the view a quarter
+      round, half round, or ahead again; the dashboard goes while
+      looking aside.
+    - **Wide Angle**: a view 1.35 times as wide, without the dashboard
+      ("When you're not in wide screen view, you can press the D key to
+      toggle the Dashboard View"). **Dashboard On/Off**: the car's
+      dashboard in the car view.
+    - **Rotating Map**: the corner map turned with the player, else north
+      up. **Map Toggle** (Tab) now goes through two sizes and off: the
+      corner's, 1.6 times it (its bottom right corner kept; the help
+      doesn't give the second size), none.
+    - **Camera Pan**: held, the follow camera goes round the car (1.2
+      radians a second), back again after.
+    - **Opponent Position**: "This little green arrow indicates your
+      opponent's position": a half-size green HUD arrow, lower, to the
+      nearest opponent.
+    - **The CD player**: the game's `CD_BG` panel (179 x 100,
+      "Midtown tek HI-FI STEREO"), its play or stop button lit
+      (`CD_PLAY_DN`, `CD_STOP_DN`) and the track's name in its display,
+      bottom middle (the game's place for it isn't known). The game's
+      player played an audio CD; Reluva's tracks are the game's own
+      tunes, the five race tunes then the four cruising ones (Enemy,
+      Bullet, Duck, London, PimpHand, SunRoof, TacoLoco, LeTigre,
+      BackOff). Start/Stop stops the music or plays the track; Prev. and
+      Next go to the track before or after and play it, their buttons
+      (`CD_PREV`, `CD_NEXT`) lit a moment.
+  - **F1** (not a control the list can change): the controls' list over
+    the game, each with its keys; a race alone and the Drive page stand
+    still while it's up, as the help says ("in Single Player, the game
+    will pause").
 - **Customize Controls.** Enter waits for a key for the chosen one of
   the control's two (Left/Right), and Backspace clears it. A key
   already given to another control is refused with the game's

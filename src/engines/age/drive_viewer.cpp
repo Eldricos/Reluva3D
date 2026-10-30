@@ -335,6 +335,21 @@ void DriveViewer::handleEvent(const Event& ev) {
             keys_ |= d;
             return;
         }
+        if (ev.key == key::F1) {
+            view_.controlsList = !view_.controlsList; // stops the drive while it's up
+            keys_ = 0;
+            return;
+        }
+        if (control == Control::RotatingMap) {
+            hudMap_.toggleRotating();
+            return;
+        }
+        if (cd_.press(control, music_, ctx_.files, ctx_.mixer))
+            return;
+        if (view_.press(control, true)) {
+            cameraReset_ = cameraReset_ || control == Control::ThrillCam;
+            return;
+        }
         const int cars = int(cars_.size()), cities = int(cities_.size());
         if (ev.key == key::PageUp || ev.key == key::PageDown) {
             paintJob_ = 0;
@@ -387,6 +402,7 @@ void DriveViewer::handleEvent(const Event& ev) {
         }
     } else if (ev.type == EventType::KeyUp) {
         keys_ &= ~driveKeyOf(ev.key);
+        view_.press(controlOf(ev.key), false);
     }
 }
 
@@ -440,7 +456,8 @@ void DriveViewer::drawHud() {
 void DriveViewer::update(uint64_t nowMs) {
     if (!renderer_ || cars_.empty())
         return;
-    const float dt = lastMs_ ? std::min(0.1f, float(nowMs - lastMs_) / 1000) : 0;
+    // Still while F1's list of the controls is up.
+    const float dt = lastMs_ && !view_.controlsList ? std::min(0.1f, float(nowMs - lastMs_) / 1000) : 0;
     lastMs_ = nowMs;
 
     CarControls controls = controlsOf(keys_);
@@ -511,12 +528,14 @@ void DriveViewer::update(uint64_t nowMs) {
     }
 
     const CarCamera& cam = cameras_[size_t(camera_)];
-    const CameraView view = blend_.apply(updateCarCamera(cam, car_.sim, dt, cameraPos_, cameraReset_), dt);
+    const CameraView view =
+        view_.apply(blend_.apply(updateCarCamera(cam, car_.sim, dt, cameraPos_, cameraReset_), dt), cam, car_.sim, dt);
     lastView_ = view;
     cameraReset_ = false;
-    const gfx::Mat4 viewProj = gfx::multiply(gfx::perspective(cam.fov * kPi / 180, float(kFrameW) / float(kFrameH),
-                                                              cam.nearClip, currentOptions().farClip()),
-                                             gfx::lookAlong(view.eye, normalized(view.target - view.eye), view.up));
+    const gfx::Mat4 viewProj =
+        gfx::multiply(gfx::perspective(view_.fov(cam.fov) * kPi / 180, float(kFrameW) / float(kFrameH), cam.nearClip,
+                                       currentOptions().farClip()),
+                      gfx::lookAlong(view.eye, normalized(view.target - view.eye), view.up));
     renderer_->beginFrame(viewProj, view.eye, {150, 170, 200});
     applyGraphicsOptions(*scene_, life_);
     scene_->draw(viewProj, view.eye, true);
@@ -530,13 +549,14 @@ void DriveViewer::update(uint64_t nowMs) {
     }
     life_.draw(*renderer_, scene_->models(), scene_->light(), viewProj, view.eye, flares_.get());
     scene_->drawBeacons(*flares_, view.eye);
-    if (!cam.inside) {
+    const bool inside = cam.inside && !view_.thrill;
+    if (!inside) {
         car_.draw(scene_->light());
         car_.drawFlares(*flares_, view.eye);
     }
     if (smoke_)
         smoke_->draw(view.eye);
-    if (cam.inside && dash_.loaded()) {
+    if (inside && dash_.loaded() && view_.showDashboard() && view_.look == 0) {
         dash_.draw(*renderer_, scene_->models(), car_.sim, wear_.fraction(), view.eye,
                    normalized(view.target - view.eye), view.up, float(kFrameW) / float(kFrameH), scene_->light());
     }
@@ -553,6 +573,10 @@ void DriveViewer::update(uint64_t nowMs) {
     icons.push_back({car_.sim.position, -car_.sim.orientation.z, hudcolor::kPlayer, false});
     hudMap_.draw(*renderer_, scene_->models(), car_.sim.position, -car_.sim.orientation.z, icons, kFrameW, kFrameH);
     drawHud();
+    cd_.update(dt);
+    cd_.draw(overlay_, pictures_);
+    if (view_.controlsList)
+        drawControlsList(overlay_, currentOptions(), [&](Control c) { return controlFallbackName(c); });
     renderer_->endFrame(&overlay_);
 }
 

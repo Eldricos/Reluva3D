@@ -62,15 +62,45 @@ std::vector<MusicSet> parseMusicSets(const std::string& text, bool race) {
     return out;
 }
 
-Error GameMusic::start(const SearchSet& files, audio::Mixer& mixer, bool race, uint32_t seed) {
-    stop();
+namespace {
+
+std::vector<MusicSet> readSets(const SearchSet& files, bool race) {
     std::vector<uint8_t> data;
     const std::string list = race ? "aud/dmusic/csv_files/singlerace.csv" : "aud/dmusic/csv_files/singleroam.csv";
-    if (Error err = files.read(list, data))
-        return err;
-    const std::vector<MusicSet> sets = parseMusicSets(std::string(data.begin(), data.end()), race);
+    if (files.read(list, data))
+        return {};
+    return parseMusicSets(std::string(data.begin(), data.end()), race);
+}
+
+} // namespace
+
+std::vector<std::string> GameMusic::trackNames(const SearchSet& files) {
+    std::vector<std::string> names;
+    for (bool race : {true, false})
+        for (const MusicSet& s : readSets(files, race)) {
+            std::string n = s.start;
+            if (n.size() > 5 && n.compare(n.size() - 5, 5, "Start") == 0)
+                n.resize(n.size() - 5);
+            names.push_back(n);
+        }
+    return names;
+}
+
+Error GameMusic::startTrack(const SearchSet& files, audio::Mixer& mixer, size_t track) {
+    const std::vector<MusicSet> race = readSets(files, true);
+    const bool isRace = track < race.size();
+    const std::vector<MusicSet> sets = isRace ? race : readSets(files, false);
+    const size_t index = isRace ? track : track - race.size();
+    if (index >= sets.size())
+        return Error::fail("no such track");
+    return start(files, mixer, isRace, uint32_t(index));
+}
+
+Error GameMusic::start(const SearchSet& files, audio::Mixer& mixer, bool race, uint32_t seed) {
+    stop();
+    const std::vector<MusicSet> sets = readSets(files, race);
     if (sets.empty())
-        return Error::fail(list + ": no music");
+        return Error::fail(std::string(race ? "singlerace" : "singleroam") + ".csv: no music");
     set_ = sets[seed % sets.size()];
     const SearchSet* source = &files;
     performance_ = std::make_shared<audio::DmPerformance>(

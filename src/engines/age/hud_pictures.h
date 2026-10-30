@@ -30,6 +30,10 @@ public:
     void gauges(Surface& overlay, const CarSim& sim, float damage) const;
     // Minutes, seconds and hundredths ("01:02:19"), centred on `centre`.
     void clock(Surface& overlay, float seconds, int centre, int y) const;
+    // The CD player (CD_BG, 179 x 100) with its top left at (x, y): the
+    // play or stop button lit, `pressed` (-1 previous, 1 next, 0 none) lit
+    // too, `text` in its display. False without the pictures.
+    bool cdPlayer(Surface& overlay, int x, int y, bool playing, int pressed, const std::string& text) const;
     // A place (1-8; 9: the gold's $) from opp_icon, `size` across centred
     // on (x, y), as over an opponent; false without the picture.
     bool place(Surface& overlay, int place, int x, int y, int size) const;
@@ -43,6 +47,7 @@ private:
 
     std::map<std::string, image::Image> images_;
     image::Image places_; // opp_icon
+    std::map<std::string, image::Image> cd_; // CD_BG and its buttons
     bool ok_ = false;
 };
 

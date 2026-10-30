@@ -26,8 +26,12 @@ countdown, then:
   Checkpoint Race, the finish line does not appear until you clear all
   the checkpoints" (the game's help). The arrow points to the nearest
   left, or (S, X: Next and Prev. Checkpoint) the next or the one before
-  in the list of those left. The opponents keep to their paths' order;
-  in multiplayer the host still checks them in order.
+  in the list of those left. So do the opponents and the other players:
+  an opponent clears any checkpoint left that it comes near, or passes
+  where its path is nearest it, and finishes once it's through them all
+  and the finish; in multiplayer the host checks each player's way
+  against all the checkpoints it has left. Each racer keeps its own
+  list of those cleared.
 - **Blitz**: no opponents (the files give none), the time limit counts
   down; past it, "Time's up".
 - **Circuit and Checkpoint**: against the race's opponents. Position is

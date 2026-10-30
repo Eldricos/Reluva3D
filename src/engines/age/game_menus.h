@@ -133,6 +133,7 @@ private:
     GameOptions edit_;         // as changed on the screens
     GameOptions entered_;      // as they were when the Options opened
     int row_ = 0, column_ = 0; // Customize Controls: the control and which of its two keys
+    int listTop_ = 0;          // and the first shown
     bool waitingForKey_ = false;
     uint64_t openedMs_ = 0, nowMs_ = 0;
     std::vector<ReplayEntry> replays_;

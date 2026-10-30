@@ -29,22 +29,46 @@ struct ControlInfo {
     uint32_t first, second;
 };
 constexpr ControlInfo kInfo[kControls] = {
-    {280, "Throttle", key::Up, 0},     {281, "Brakes", key::Down, 0},
-    {283, "Steer Left", key::Left, 0}, {284, "Steer Right", key::Right, 0},
-    {307, "Handbrake", key::Space, 0}, {279, "Horn", key::Return, 0},
-    {291, "Shift Up", 'a', 0},         {292, "Shift Down", 'z', 0},
-    {293, "Reverse", 'r', 0},          {278, "Transmission", 't', 0},
-    {276, "Change Camera", 'c', 0},    {299, "Map Zoom", 'e', 0},
-    {298, "Full Screen Map", 'q', 0},  {296, "Map Toggle", key::Tab, 0},
-    {297, "HUD Toggle", 'h', 0},       {305, "Rear View Mirror", key::Backspace, 0},
-    {294, "Next Checkpoint", 's', 0},  {295, "Prev. Checkpoint", 'x', 0},
+    {280, "Throttle", key::Up, 0},
+    {281, "Brakes", key::Down, 0},
+    {283, "Steer Left", key::Left, 0},
+    {284, "Steer Right", key::Right, 0},
+    {307, "Handbrake", key::Space, 0},
+    {279, "Horn", key::Return, 0},
+    {291, "Shift Up", 'a', 0},
+    {292, "Shift Down", 'z', 0},
+    {293, "Reverse", 'r', 0},
+    {278, "Transmission", 't', 0},
+    {276, "Change Camera", 'c', 0},
+    {299, "Map Zoom", 'e', 0},
+    {298, "Full Screen Map", 'q', 0},
+    {296, "Map Toggle", key::Tab, 0},
+    {297, "HUD Toggle", 'h', 0},
+    {305, "Rear View Mirror", key::Backspace, 0},
+    {294, "Next Checkpoint", 's', 0},
+    {295, "Prev. Checkpoint", 'x', 0},
+    {277, "Thrill Cam", 'v', 0},
+    {286, "Look Left", key::Kp0 + 4, 0},
+    {285, "Look Right", key::Kp0 + 6, 0},
+    {287, "Look Back", key::Kp0 + 2, 0},
+    {288, "Look Forward", key::Kp0 + 8, 0},
+    {289, "Wide Angle", 'w', 0},
+    {290, "Dashboard On/Off", 'd', 0},
+    {300, "Rotating Map", 'f', 0},
+    {301, "Toggle CD Player", '2', 0},
+    {302, "Start/Stop CD", '3', 0},
+    {304, "Prev. CD Track", '4', 0},
+    {303, "Next CD Track", '5', 0},
+    {306, "Camera Pan", 0, 0}, // no key in the help's tables
+    {308, "Opponent Position", 'i', 0},
     {309, "Enter Chat Msg", 'y', 0},
 };
 
-const char* kNames[kControls] = {"throttle", "brakes",    "left",      "right",     "handbrake",
-                                 "horn",     "shiftup",   "shiftdown", "reverse",   "transmission",
-                                 "camera",   "mapzoom",   "fullmap",   "maptoggle", "hud",
-                                 "mirror",   "nextcheck", "prevcheck", "chat"};
+const char* kNames[kControls] = {
+    "throttle",     "brakes",   "left",      "right",    "handbrake",   "horn", "shiftup",   "shiftdown", "reverse",
+    "transmission", "camera",   "mapzoom",   "fullmap",  "maptoggle",   "hud",  "mirror",    "nextcheck", "prevcheck",
+    "thrill",       "lookleft", "lookright", "lookback", "lookforward", "wide", "dashboard", "rotatemap", "cd",
+    "cdplay",       "cdprev",   "cdnext",    "pan",      "opponent",    "chat"};
 
 float number(const std::string& s, float lo, float hi) { return std::clamp(std::strtof(s.c_str(), nullptr), lo, hi); }
 

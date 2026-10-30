@@ -3,6 +3,7 @@
 
 #include "engines/age/hud_pictures.h"
 
+#include "common/font.h"
 #include "engines/age/car.h"
 #include "engines/age/texture.h"
 
@@ -47,6 +48,11 @@ bool HudPictures::load(const SearchSet& files) {
                     p[k] = uint8_t(p[k] * 255 / a);
                 p[3] = uint8_t(a);
             }
+    for (const char* n : {"CD_BG", "CD_PLAY_DN", "CD_STOP_DN", "CD_PREV", "CD_NEXT"}) {
+        Tex t;
+        if (!loadTexture(files, n, t))
+            cd_[n] = std::move(t.image);
+    }
     Tex places;
     places_ = loadTexture(files, "opp_icon", places) ? image::Image{} : std::move(places.image);
     return ok_;
@@ -115,6 +121,26 @@ void HudPictures::gauges(Surface& overlay, const CarSim& sim, float damage) cons
     const int from = int(std::lround(std::clamp(damage, 0.0f, 1.0f) * float(std::max(0, bar.w - label.w))));
     blit(overlay, bar, 8, 467, label.w, label.h, 1, from);
     blit(overlay, label, 8, 467, label.w, label.h);
+}
+
+bool HudPictures::cdPlayer(Surface& overlay, int x, int y, bool playing, int pressed, const std::string& text) const {
+    // The buttons' places in CD_BG: play, stop, then previous and next.
+    constexpr int kButtonY = 73, kPlayX = 18, kStopX = 48, kPrevX = 98, kNextX = 128;
+    auto get = [&](const char* n) -> const image::Image* {
+        auto it = cd_.find(n);
+        return it == cd_.end() ? nullptr : &it->second;
+    };
+    const image::Image* bg = get("CD_BG");
+    if (!bg)
+        return false;
+    blit(overlay, *bg, x, y, bg->w, bg->h);
+    if (const image::Image* b = get(playing ? "CD_PLAY_DN" : "CD_STOP_DN"))
+        blit(overlay, *b, x + (playing ? kPlayX : kStopX), y + kButtonY, b->w, b->h);
+    if (pressed != 0)
+        if (const image::Image* b = get(pressed < 0 ? "CD_PREV" : "CD_NEXT"))
+            blit(overlay, *b, x + (pressed < 0 ? kPrevX : kNextX), y + kButtonY, b->w, b->h);
+    font::drawText(overlay, x + 44, y + 38, text.substr(0, 12), {20, 30, 40}); // in its display, left of "CD player"
+    return true;
 }
 
 bool HudPictures::place(Surface& overlay, int place, int x, int y, int size) const {

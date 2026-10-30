@@ -70,10 +70,15 @@ public:
     void toggleZoom() { zoomIn_ = !zoomIn_; }
     void toggleFullScreen() { full_ = !full_; }
     bool fullScreen() const { return full_; }
-    // The corner map on or off (the game's Map Toggle); full screen shows
-    // either way.
-    void toggleShown() { shown_ = !shown_; }
-    bool shown() const { return shown_ || full_; }
+    // The corner map's sizes, then off (the game's Map Toggle: "toggle
+    // between two different sizes of city map, or turn the map on and
+    // off"); full screen shows either way. The larger is Reluva's: 1.6
+    // times, its bottom right corner kept.
+    void toggleShown() { size_ = (size_ + 1) % 3; }
+    bool shown() const { return size_ < 2 || full_; }
+    // Turned with the player (the Rotating Map), else north up.
+    void toggleRotating() { rotating_ = !rotating_; }
+    bool rotating() const { return rotating_; }
     // Eases the height towards the zoom's.
     void update(float dt);
     // The height it's seen from now.
@@ -92,7 +97,8 @@ private:
     HudMapSetup setup_;
     std::string model_;
     gfx::MeshId quad_ = 0; // the ocean
-    bool ok_ = false, zoomIn_ = false, full_ = false, shown_ = true;
+    bool ok_ = false, zoomIn_ = false, full_ = false, rotating_ = true;
+    int size_ = 0; // 0 the corner's, 1 larger, 2 off
     float distance_ = 0;
 };
 
