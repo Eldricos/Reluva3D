@@ -345,7 +345,10 @@ What was built, with each format written up in `docs/formats/nfs/`:
   leads to the next as the map's routes say for the intensity, which can
   be changed while it plays, or by the linear order (`.lin`).
 - **The Movies page** plays the movies with their sound, which keeps the
-  time. It can pause, jump and step frame by frame.
+  time. It can pause, jump and step frame by frame. It shows them as
+  the game does, by its decoder and its display step at twice the size
+  ([mad.md](../formats/nfs/mad.md)), which matches frames captured from
+  the game; key G switches to its other modes or a plain conversion.
 - **The engine** starts the mixer's audio output for the pages.
 - **Tools:** `reluva-tool bnk-info`, `bnk-wav`, `mus-info`, `mus-wav`,
   `mad-info`, `mad-frames`, `mad-wav`. `nfs-survey` now also covers

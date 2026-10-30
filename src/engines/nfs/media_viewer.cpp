@@ -608,6 +608,7 @@ void MoviePage::load(int movie) {
     audio_.reset();
     error_.clear();
     decoder_ = {};
+    decoder_.setArithmetic(display_ ? MadDecoder::Arithmetic::Game : MadDecoder::Arithmetic::Reference);
     decoded_ = -1;
     picture_ = {};
     std::vector<uint8_t> data;
@@ -646,7 +647,10 @@ void MoviePage::showFrame(int frame) {
             return;
         }
     decoded_ = frame;
-    decoder_.toSurface(picture_);
+    if (display_)
+        decoder_.toGameSurface(picture_, static_cast<MadDecoder::Display>(display_));
+    else
+        decoder_.toSurface(picture_);
 }
 
 void MoviePage::seek(int frame, uint64_t nowMs) {
@@ -692,6 +696,17 @@ void MoviePage::handleKey(uint32_t k, uint16_t) {
         stopSound();
         showFrame(decoded_ + 1);
         break;
+    case 'g': {
+        // 3, 2, 1, then Reluva's own; the decoder starts again from the
+        // first frame with the arithmetic to match.
+        display_ = (display_ + 3) % 4;
+        const int frame = decoded_;
+        decoded_ = -1;
+        decoder_ = {};
+        decoder_.setArithmetic(display_ ? MadDecoder::Arithmetic::Game : MadDecoder::Arithmetic::Reference);
+        showFrame(std::max(frame, 0));
+        break;
+    }
     default: break;
     }
 }
@@ -731,7 +746,7 @@ void MoviePage::draw(Surface& s) {
         load(0);
     frame(s, "Movies  " + std::to_string(movie_ + 1) + "/" + std::to_string(movies_.size()) + "  " +
                  movies_[movie_].name,
-          "Up/Down: movie  Space: pause  Left/Right: 5 s  PgUp/PgDn: frame");
+          "Up/Down: movie  Space: pause  Left/Right: 5 s  PgUp/PgDn: frame  G: display");
     int y = 8 + font::kLineHeight * 2;
     if (!error_.empty()) {
         text(s, kMargin, y, error_, kWarnColor);
@@ -740,11 +755,14 @@ void MoviePage::draw(Surface& s) {
     const int count = static_cast<int>(loaded_.frames().size());
     const double total = count * frameMs() / 1000;
     char info[160];
-    std::snprintf(info, sizeof info, "%dx%d  %.0f fps  frame %d/%d (%s)  %s / %s  %s%s", loaded_.width(),
+    static constexpr const char* kDisplays[] = {"Reluva's conversion", "game mode 1", "game mode 2",
+                                                "game mode 3"};
+    std::snprintf(info, sizeof info, "%dx%d  %.0f fps  frame %d/%d (%s)  %s / %s  %s%s  %s", loaded_.width(),
                   loaded_.height(), 1000 / frameMs(), decoded_ + 1, count,
                   decoded_ >= 0 && loaded_.frames()[decoded_].kind == 'k' ? "key" : "inter",
                   seconds(std::max(decoded_, 0) * frameMs() / 1000).c_str(), seconds(total).c_str(),
-                  paused_ ? "paused" : "playing", mixer_ ? (audio_ ? "" : "  (no sound)") : "  (no audio output)");
+                  paused_ ? "paused" : "playing", mixer_ ? (audio_ ? "" : "  (no sound)") : "  (no audio output)",
+                  kDisplays[display_]);
     text(s, kMargin, y, info, kTextColor);
     y += font::kLineHeight + 4;
 

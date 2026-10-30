@@ -66,7 +66,7 @@ const char* const kUsageLines =
     "  reluva-tool mus-info <file.mus> [file.map | file.lin]\n"
     "  reluva-tool mus-wav <file.mus> <segment | all> <output dir>\n"
     "  reluva-tool mad-info <file.mad>\n"
-    "  reluva-tool mad-frames <file.mad> <output dir> [first frame] [count] [-game]\n"
+    "  reluva-tool mad-frames <file.mad> <output dir> [first frame] [count] [-game] [-display 1-3]\n"
     "  reluva-tool mad-wav <file.mad> <out.wav>\n"
     "  reluva-tool nfs-host <game folder> [-args \"nfs3.exe\"] [-renderer softtria.dll] [-limit N] [-log N] [-save dir]\n"
     "                       [-frames dir] [-every N] [-framesfrom N] [-watch address]... [-watchlimit 50] [-watchmem address size]\n"
@@ -895,12 +895,24 @@ int cmdMadInfo(int argc, char** argv) {
 }
 
 int cmdMadFrames(int argc, char** argv) {
-    // -game, last: nfs3.exe's own arithmetic (mad.md, The game's decoder).
-    const bool game = argc > 4 && std::string(argv[argc - 1]) == "-game";
-    if (game)
-        --argc;
+    // Options last: -game, nfs3.exe's own arithmetic (mad.md, The game's
+    // decoder); -display 1-3, shown at twice the size as the game shows it
+    // in that mode (The game's display step).
+    bool game = false;
+    int display = 0;
+    for (bool more = true; more;) {
+        more = false;
+        if (argc > 4 && std::string(argv[argc - 1]) == "-game") {
+            game = more = true;
+            --argc;
+        } else if (argc > 5 && std::string(argv[argc - 2]) == "-display") {
+            display = std::clamp(std::atoi(argv[argc - 1]), 1, 3);
+            argc -= 2;
+            more = true;
+        }
+    }
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool mad-frames <file.mad> <output dir> [first frame] [count] [-game]\n");
+        std::fprintf(stderr, "usage: reluva-tool mad-frames <file.mad> <output dir> [first frame] [count] [-game] [-display 1-3]\n");
         return 2;
     }
     std::vector<uint8_t> data;
@@ -924,7 +936,10 @@ int cmdMadFrames(int argc, char** argv) {
         if (i < first)
             continue;
         reluva::Surface s;
-        decoder.toSurface(s);
+        if (display)
+            decoder.toGameSurface(s, static_cast<reluva::nfs::MadDecoder::Display>(display));
+        else
+            decoder.toSurface(s);
         reluva::image::Image img;
         img.w = s.w;
         img.h = s.h;

@@ -525,6 +525,106 @@ void MadDecoder::toSurface(Surface& out) const {
     }
 }
 
+namespace {
+
+// The game's conversion tables (0x4fda20): 2Y + 1 plus twice each chroma
+// term, rounded to the nearest on its own, for 7-bit samples.
+struct DisplayTables {
+    int rv[256], gu[256], gv[256], bu[256];
+    DisplayTables() {
+        for (int s = 0; s < 256; ++s) {
+            const double c = s - 63.5;
+            rv[s] = 2 * static_cast<int>(std::nearbyint(1.402 * c));
+            gu[s] = 2 * static_cast<int>(std::nearbyint(-0.3441 * c));
+            gv[s] = 2 * static_cast<int>(std::nearbyint(-0.7141 * c));
+            bu[s] = 2 * static_cast<int>(std::nearbyint(1.772 * c));
+        }
+    }
+};
+
+// A pixel of 7-bit samples to RGBA8888 by way of 5:6:5: rounded in the
+// left pixel of each output pair, truncated in the right.
+void putGamePixel(uint8_t* dst, int y, int u, int v, bool rounded) {
+    static const DisplayTables t;
+    const int l = 2 * y + 1;
+    const int c[3] = {std::clamp(l + t.rv[v], 0, 255), std::clamp(l + t.gu[u] + t.gv[v], 0, 255),
+                      std::clamp(l + t.bu[u], 0, 255)};
+    for (int k = 0; k < 3; ++k) {
+        const int bits = k == 1 ? 6 : 5, top = (1 << bits) - 1;
+        const int q = rounded ? std::min((c[k] + (1 << (7 - bits))) >> (8 - bits), top) : c[k] >> (8 - bits);
+        dst[k] = static_cast<uint8_t>(q << (8 - bits) | q >> (2 * bits - 8));
+    }
+    dst[3] = 255;
+}
+
+} // namespace
+
+void MadDecoder::toGameSurface(Surface& out, Display mode) const {
+    out.create(width_ * 2, height_ * 2, PixelFormat::RGBA32);
+    for (int y = 0; y < out.h; ++y) {
+        uint8_t* row = out.row(y);
+        for (int x = 0; x < out.w; ++x)
+            row[4 * x] = row[4 * x + 1] = row[4 * x + 2] = 0, row[4 * x + 3] = 255;
+    }
+    // Each source line as the game's 4:2:2 line: Y for every pixel, U and V
+    // for each pair (the 4:2:0 chroma line serving two luma lines), in
+    // 7-bit samples.
+    const int pairs = width_ / 2, cs = stride_ / 2;
+    auto sample = [&](uint8_t s) { return arithmetic_ == Arithmetic::Game ? s & 0xff : s >> 1; };
+    auto line = [&](int j, std::vector<int>& ys, std::vector<int>& us, std::vector<int>& vs) {
+        ys.resize(width_);
+        us.resize(pairs);
+        vs.resize(pairs);
+        for (int x = 0; x < width_; ++x)
+            ys[x] = sample(current_[0][static_cast<size_t>(j) * stride_ + x]);
+        for (int p = 0; p < pairs; ++p) {
+            us[p] = sample(current_[1][static_cast<size_t>(j / 2) * cs + p]);
+            vs[p] = sample(current_[2][static_cast<size_t>(j / 2) * cs + p]);
+        }
+    };
+    // Two lines averaged per sample, rounded down (the packed words'
+    // (a + b) >> 1 masked with 0x7F7F7F7F).
+    auto average = [](std::vector<int>& a, const std::vector<int>& b) {
+        for (size_t i = 0; i < a.size(); ++i)
+            a[i] = ((a[i] + b[i]) >> 1) & 0x7f;
+    };
+    auto put = [&](int outY, const std::vector<int>& ys, const std::vector<int>& us, const std::vector<int>& vs) {
+        uint8_t* row = out.row(outY);
+        if (mode != Display::Interpolate) {
+            for (int x = 0; x < width_; ++x) {
+                putGamePixel(row + 8 * x, ys[x], us[x / 2], vs[x / 2], true);
+                putGamePixel(row + 8 * x + 4, ys[x], us[x / 2], vs[x / 2], false);
+            }
+            return;
+        }
+        // Four pixels from each pair and the next; the last pair isn't
+        // interpolated, so the line stops 4 pixels short.
+        for (int p = 0; p + 1 < pairs; ++p) {
+            const int y0 = ys[2 * p], y1 = ys[2 * p + 1], y2 = ys[2 * p + 2];
+            const int u = us[p], v = vs[p], u2 = (us[p] + us[p + 1]) >> 1, v2 = (vs[p] + vs[p + 1]) >> 1;
+            uint8_t* d = row + 16 * p;
+            putGamePixel(d, y0, u, v, true);
+            putGamePixel(d + 4, (y0 + y1) >> 1, u, v, false);
+            putGamePixel(d + 8, y1, u2, v2, true);
+            putGamePixel(d + 12, (y1 + y2) >> 1, u2, v2, false);
+        }
+    };
+    std::vector<int> ys, us, vs, ys2, us2, vs2;
+    for (int j = 0; j < height_; ++j) {
+        line(j, ys, us, vs);
+        put(2 * j, ys, us, vs);
+        // The odd line below, from this source line and the next; the
+        // last isn't written, nor any in mode 1.
+        if (mode == Display::Repeat || j + 1 >= height_)
+            continue;
+        line(j + 1, ys2, us2, vs2);
+        average(ys, ys2);
+        average(us, us2);
+        average(vs, vs2);
+        put(2 * j + 1, ys, us, vs);
+    }
+}
+
 Error MadMovie::open(std::vector<uint8_t> data) {
     data_ = std::move(data);
     frames_.clear();

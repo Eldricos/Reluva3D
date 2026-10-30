@@ -28,6 +28,13 @@ public:
     int height() const { return height_; }
     // The picture as RGBA8888.
     void toSurface(Surface& out) const;
+    // The picture at twice its size as nfs3.exe shows it on a 16-bit
+    // screen (mad.md, The game's display step): its 7-bit conversion and
+    // two-pixel dither, then one of its three ways of doubling, chosen by
+    // the processor's clock. Lines the mode doesn't write stay black. The
+    // 5:6:5 result is widened to RGBA8888 by repeating its top bits.
+    enum class Display { Repeat = 1, Average = 2, Interpolate = 3 };
+    void toGameSurface(Surface& out, Display mode) const;
     // Plane access, for tests and tools: stride, then the planes (0 Y, 1 U,
     // 2 V); chroma is half size each way. With the game's arithmetic the
     // samples are its 7-bit ones, 64 the middle (they can pass 127: its

@@ -1356,6 +1356,30 @@ void testMovie() {
     d.toSurface(rgb);
     CHECK(rgb.w == 16 && rgb.row(0)[0] == 138 && rgb.row(0)[1] == 138 && rgb.row(0)[3] == 255);
 
+    // As the game shows it: at twice the size. Y 138 is the 7-bit 69 and
+    // chroma 128 the 7-bit 64, half a step above the centre 63.5; the
+    // colour by mad.md's formula, cut to 5:6:5 and widened again.
+    Surface shown;
+    d.toGameSurface(shown, MadDecoder::Display::Interpolate);
+    CHECK(shown.w == 32 && shown.h == 32);
+    {
+        const int l = 2 * (138 >> 1) + 1;
+        const int r = l + 2 * int(std::nearbyint(1.402 * 0.5));
+        const int g = l + 2 * (int(std::nearbyint(-0.3441 * 0.5)) + int(std::nearbyint(-0.7141 * 0.5)));
+        const int b = l + 2 * int(std::nearbyint(1.772 * 0.5));
+        auto widen5 = [](int q) { return q << 3 | q >> 2; };
+        auto widen6 = [](int q) { return q << 2 | q >> 4; };
+        // Column 0 rounded, column 1 truncated.
+        CHECK(shown.row(0)[0] == widen5(std::min((r + 4) >> 3, 31)) && shown.row(0)[1] == widen6(std::min((g + 2) >> 2, 63)) &&
+              shown.row(0)[2] == widen5(std::min((b + 4) >> 3, 31)));
+        CHECK(shown.row(0)[4] == widen5(r >> 3) && shown.row(0)[6] == widen5(b >> 3));
+    }
+    // Mode 3 leaves each line's last 4 pixels and the last line black;
+    // mode 1 leaves the odd lines black.
+    CHECK(shown.row(0)[28 * 4] == 0 && shown.row(0)[27 * 4] != 0 && shown.row(31)[0] == 0 && shown.row(1)[0] != 0);
+    d.toGameSurface(shown, MadDecoder::Display::Repeat);
+    CHECK(shown.row(1)[0] == 0 && shown.row(2)[0] != 0 && shown.row(0)[31 * 4] != 0);
+
     // An inter frame copying block 0 only ("01", map 000001), vector 0,0,
     // 6 brighter (motion code +3, doubled); the rest intra: 128, and block 3
     // as before.

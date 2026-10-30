@@ -494,6 +494,8 @@ private:
 // The movies (.mad) with their sound.
 //   Up/Down: movie   Space: pause   Left/Right: 5 seconds back/on
 //   Home: start   PageUp/PageDown: frame by frame (paused)
+//   G: shown as the game shows it (its decoder, then its display modes 3,
+//   2 or 1, mad.md) or by Reluva's plain conversion
 class MoviePage : public Page {
 public:
     MoviePage(const GameFiles& files, audio::Mixer* mixer);
@@ -521,6 +523,7 @@ private:
     std::shared_ptr<audio::Sound> audio_;
     MadDecoder decoder_;
     int decoded_ = -1; // the frame the decoder holds
+    int display_ = 3;  // the game's display mode; 0: Reluva's conversion
     Surface picture_;
     bool paused_ = false;
     // The clock: the audio's position while it plays, else time since

@@ -272,18 +272,35 @@ isn't 4-byte aligned, keeping the writes aligned.
 When the area is above 153,600 pixels the odd lines' pass first calls
 0x4f90e0, which can unlock and relock the screen.
 
-The Movies page converts with the full-range BT.601 matrix in floating
-point and shows each pixel twice: mode 1's layout, but with the odd lines
-filled, and without the 7-bit centring, the per-term rounding or the
-dither.
+Reluva does all three (`MadDecoder::toGameSurface`; `reluva-tool
+mad-frames ... -display 1-3`), and the Movies page shows movies so by
+default, in mode 3 with the game's decoder arithmetic: the game in
+nfs-host reads its processor as 300 MHz, so mode 3 is what it shows. Key
+G steps through modes 2 and 1 and Reluva's plain conversion (the
+full-range BT.601 matrix in floating point, each pixel shown twice).
+
+**Checked against the game** (October 2026). The demo's first frames
+were captured from the game in nfs-host (`-frames dir -every 1
+-framesfrom 2950`: captures 2968-2970 are `demoav1` frames 3, 6 and 10)
+and compared in 5:6:5 with every frame of the three demos in each mode
+and arithmetic:
+
+| Capture | Mode 3, game arithmetic | Mode 3, reference | Mode 2 | Mode 1 |
+|---|---|---|---|---|
+| 2968 (frame 3) | 67.8% of pixels exact, mean 0.22 | 66% | 51% | lower |
+| 2969 (frame 6) | 36%, mean 0.58 | 35% | 10%, mean 3.07 | lower |
+| 2970 (frame 10) | 82.7%, mean 0.09 | 69% | 65% | lower |
+
+Mode 3 matches best in every frame, with the layout exact: each line's
+last 4 pixels and the last line are black in both. What differs is one
+step of 5:6:5 here and there, mostly in green alone or in all three
+together: samples one apart, from the decoder, not the display. The
+chroma lines are used as they are for both luma lines they cover;
+averaging them between lines matches worse (70% against 82.7% on frame
+10). The softer look of the fade-in frames is this interpolation.
 
 ## What isn't known
-- **The fade-in frames.** The first frames of the demo movies (*q* 13-29)
-  hold the same set of high-frequency coefficients in nearly every luma
-  block. They decode to a fine dot pattern, in FFmpeg, in Reluva's
-  reference decode and in the game's arithmetic. Frames captured from the
-  game show the same pattern at lower contrast. Neither a bilinear nor a
-  horizontal-only interpolated upscale of the decoded frame matches the
-  captures. The game's own modes (above) were found after that
-comparison; matching the captures against mode 2 or 3, with the emulated
-CPU's measured clock, hasn't been tried.
+- **The remaining differences** from the game's frames: one step of
+  5:6:5 in a third to two-thirds of the pixels of the high-*q* fade-in
+  frames, from decoded samples one apart. The game's decoder arithmetic as
+  rebuilt (The game's decoder) isn't yet exact there.
