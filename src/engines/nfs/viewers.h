@@ -183,9 +183,11 @@ private:
 };
 
 // Every model (cars, traffic, police, the front end's track models) in 3D,
-// with its skin.
+// with its skin, drawn by its triangles' flags (two-sided, unlit) and with
+// the game's reflection of a track's sky.
 //   Left/Right: model   drag or A/D/W/S: turn   wheel or +/-: zoom
-//   L: detail level   T: textures   C: back faces   Space: spin   R: reset
+//   L: detail level   T: textures   C: back faces   E: reflection's sky
+//   Space: spin   R: reset
 class CarPage : public Page {
 public:
     explicit CarPage(const GameFiles& files);
@@ -215,9 +217,25 @@ private:
     gfx::MeshId mesh_ = 0;
     gfx::TextureId skin_ = 0;
     // A Render/pc model's pages (its .art), and each part's runs of
-    // triangles on one page: first triangle, count, page.
+    // triangles drawn alike: by page and flags, a range of the mesh's
+    // indices each.
     std::vector<gfx::TextureId> pages_;
-    std::vector<std::vector<std::array<uint32_t, 3>>> pageRuns_;
+    struct Run {
+        uint32_t firstIndex = 0, indexCount = 0, page = 0;
+        bool twoSided = false, unlit = false, strong = false;
+    };
+    std::vector<std::vector<Run>> runs_;
+    // The reflection (0x49db70, 0x43400f): the triangles without
+    // kNoReflection again, added over the model with source alpha, their
+    // sphere-map coordinates from the normals as the camera sees them,
+    // remade each frame. Its runs index envMesh_.
+    gfx::MeshId envMesh_ = 0;
+    std::vector<gfx::Vertex> envVertices_;
+    std::vector<std::array<float, 3>> envNormals_; // in the world
+    std::vector<std::vector<Run>> envRuns_;
+    std::vector<std::pair<std::string, gfx::TextureId>> skies_; // a track's sphere maps: name, texture
+    int sky_ = 0;       // which, or skies_.size() for no reflection
+    void loadSkies();
     std::vector<int> partLevels_; // 0 high, 1 medium, 2 small, 3 tiny
     int level_ = 0;               // 0-3, or 4 for all
     bool textures_ = true, cullBack_ = true, spin_ = false, dragging_ = false;

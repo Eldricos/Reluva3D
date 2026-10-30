@@ -759,6 +759,17 @@ Bytes makeTrack() {
 }
 
 // Lights as nfs3.exe's table has them (frd.md, Lights).
+// The cars' reflection on the sky's sphere map (fce.md, flags).
+void testReflectionUv() {
+    auto near = [](std::array<float, 2> a, float u, float v) {
+        return std::fabs(a[0] - u) < 1e-4f && std::fabs(a[1] - v) < 1e-4f;
+    };
+    CHECK(near(reflectionUv(0, 0, 1), 0.5f, 0.5f) && near(reflectionUv(0, 0, -1), 0.5f, 0.5f));
+    CHECK(near(reflectionUv(1, 0, 0), 1.0f, 0.5f) && near(reflectionUv(0, -1, 0), 0.5f, 0.0f));
+    const float d = std::sqrt(0.5f); // 45 degrees: 0.5 + 0.7071 * 0.7071 / sqrt(2 * 1.7071)
+    CHECK(near(reflectionUv(d, 0, d), 0.5f + 0.5f / std::sqrt(2 * (1 + d)), 0.5f));
+}
+
 void testPolygonAnimation() {
     Track::Polygon p;
     p.texture = 7;
@@ -1585,6 +1596,7 @@ int main() {
     testTrack();
     testLightLook();
     testPolygonAnimation();
+    testReflectionUv();
     testPlacedSounds();
     testHorizon();
     testCollision();

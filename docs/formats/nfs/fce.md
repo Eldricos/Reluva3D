@@ -119,6 +119,17 @@ The flags, as the game draws (`0x49d0e0` copies them to its polygons;
 
 `0x10`, `0x20` and `0x80` are never tested.
 
+**The reflection** (`0x49db70`, drawn at `0x43400f`): each reflecting
+triangle is drawn again with a sphere map of the track's sky (`CHRD`,
+`CHRN`, `CHRW` or `CHNW` in `sky.fsh`), added with source alpha (THRASH
+blend 1) in the corner colour: `7F7F7F7F` (half grey at half alpha), or
+`FFFFFFFF` with flag `0x2`. A corner's place on the map comes from its
+normal turned into the camera's space (x, y, z):
+u, v = 0.5 + (x, y) × 0.707106 / √(2 (1 + |z|)).
+
+The Cars page draws the flags so, with Hometown's sky maps (`E` picks
+one, or none). Taking y downward on screen is Reluva's reading.
+
 Every car uses only page 0. The `Render/pc` models (the cone and
 `cop0`-`cop4`) use pages 0-6, from their `.art` files.
 

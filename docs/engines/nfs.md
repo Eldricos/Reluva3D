@@ -257,7 +257,9 @@ What was built, with each format written up in `docs/formats/nfs/`:
   - [col.md](../formats/nfs/col.md): the virtual road and moving
     objects' paths;
   - [hrz.md](../formats/nfs/hrz.md): sky settings.
-- **The Cars page** draws every model with its skin and detail levels.
+- **The Cars page** draws every model with its skin and detail levels,
+  its triangles' flags (two-sided, unlit) and the game's reflection of a
+  track's sky ([fce.md](../formats/nfs/fce.md)).
   The levels go by a part's place, as the names can't be trusted.
 - **The Tracks page** draws each track. It shows:
   - the road at three details, roadside and placed objects, and lane

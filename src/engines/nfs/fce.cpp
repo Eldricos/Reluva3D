@@ -4,6 +4,7 @@
 #include "engines/nfs/fce.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 
 namespace reluva::nfs {
@@ -145,6 +146,11 @@ Error parseArt(const std::vector<uint8_t>& data, std::vector<image::Image>& page
         pages.push_back(std::move(img));
     }
     return Error::success();
+}
+
+std::array<float, 2> reflectionUv(float x, float y, float z) {
+    const float k = 0.707106f / std::sqrt(2 * (1 + std::fabs(z)));
+    return {x * k + 0.5f, y * k + 0.5f};
 }
 
 } // namespace reluva::nfs

@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <tuple>
 
 namespace reluva::nfs {
 
@@ -53,11 +54,16 @@ void CarPage::activate(System& sys) {
         return;
     }
     overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
+    loadSkies();
     load(index_);
 }
 
 void CarPage::deactivate() {
     release();
+    if (renderer_)
+        for (const auto& [name, id] : skies_)
+            renderer_->destroyTexture(id);
+    skies_.clear();
     renderer_ = nullptr;
 }
 
@@ -65,16 +71,21 @@ void CarPage::release() {
     if (renderer_) {
         if (mesh_)
             renderer_->destroyMesh(mesh_);
+        if (envMesh_)
+            renderer_->destroyMesh(envMesh_);
         if (skin_)
             renderer_->destroyTexture(skin_);
         for (gfx::TextureId page : pages_)
             if (page)
                 renderer_->destroyTexture(page);
     }
-    mesh_ = 0;
+    mesh_ = envMesh_ = 0;
     skin_ = 0;
     pages_.clear();
-    pageRuns_.clear();
+    runs_.clear();
+    envRuns_.clear();
+    envVertices_.clear();
+    envNormals_.clear();
 }
 
 void CarPage::resetView() {
@@ -122,17 +133,6 @@ void CarPage::load(int index) {
         skinName_ = baseName(f.name) + " (" + std::to_string(images.size()) + " pages)";
         break;
     }
-    for (const Model::Part& part : model_.parts) {
-        std::vector<std::array<uint32_t, 3>> runs;
-        for (uint32_t t = part.firstTriangle; t < part.firstTriangle + part.triangleCount; ++t) {
-            const uint32_t page = model_.triangles[t].texturePage;
-            if (!runs.empty() && runs.back()[2] == page && runs.back()[0] + runs.back()[1] == t)
-                ++runs.back()[1];
-            else
-                runs.push_back({t, 1, page});
-        }
-        pageRuns_.push_back(std::move(runs));
-    }
 
     // The skin: car00.tga beside a car.fce, goNN00.tga beside goNN.fce,
     // cone.tga beside cone.fce.
@@ -158,12 +158,36 @@ void CarPage::load(int index) {
     // One vertex per triangle corner, as each corner has its own texture
     // coordinates. z is negated: the model is left-handed, the world
     // right-handed (fce.md), which also makes front faces counter-clockwise.
+    // Each part's triangles are put in order of how they're drawn (page,
+    // two-sided, unlit), so that each run is one range of indices.
     std::vector<gfx::Vertex> vertices;
-    std::vector<uint32_t> indices;
+    std::vector<uint32_t> indices, envIndices;
     for (const Model::Part& part : model_.parts) {
         partLevels_.push_back(partLevel(partLevels_.size(), model_.parts.size()));
-        for (uint32_t t = part.firstTriangle; t < part.firstTriangle + part.triangleCount; ++t) {
+        std::vector<uint32_t> order(part.triangleCount);
+        for (uint32_t i = 0; i < part.triangleCount; ++i)
+            order[i] = part.firstTriangle + i;
+        auto drawnAs = [&](uint32_t t) {
             const Model::Triangle& tri = model_.triangles[t];
+            return std::make_tuple(pages_.empty() ? 0u : tri.texturePage,
+                                   (tri.flags & Model::Triangle::kTwoSided) != 0,
+                                   (tri.flags & Model::Triangle::kUnlit) != 0);
+        };
+        std::stable_sort(order.begin(), order.end(), [&](uint32_t a, uint32_t b) { return drawnAs(a) < drawnAs(b); });
+        std::vector<Run> runs, envRuns;
+        for (uint32_t t : order) {
+            const Model::Triangle& tri = model_.triangles[t];
+            const auto [page, twoSided, unlit] = drawnAs(t);
+            if (runs.empty() || runs.back().page != page || runs.back().twoSided != twoSided ||
+                runs.back().unlit != unlit)
+                runs.push_back({static_cast<uint32_t>(indices.size()), 0, page, twoSided, unlit, false});
+            runs.back().indexCount += 3;
+            const bool reflects = !(tri.flags & Model::Triangle::kNoReflection);
+            const bool strong = (tri.flags & Model::Triangle::kStrongReflection) != 0;
+            if (reflects && (envRuns.empty() || envRuns.back().strong != strong || envRuns.back().twoSided != twoSided))
+                envRuns.push_back({static_cast<uint32_t>(envIndices.size()), 0, 0, twoSided, false, strong});
+            if (reflects)
+                envRuns.back().indexCount += 3;
             for (int k = 0; k < 3; ++k) {
                 const Model::Vec3& p = model_.vertices[tri.vertices[k]];
                 const Model::Vec3& n = model_.normals[tri.vertices[k]];
@@ -179,12 +203,50 @@ void CarPage::load(int index) {
                 std::fill(std::begin(v.color), std::end(v.color), uint8_t(255));
                 indices.push_back(static_cast<uint32_t>(vertices.size()));
                 vertices.push_back(v);
+                if (reflects) {
+                    // Half grey at half alpha, or white for a strong one
+                    // (0x55e6dc, 0x55e6e0).
+                    gfx::Vertex e = v;
+                    std::fill(std::begin(e.color), std::end(e.color), uint8_t(strong ? 255 : 127));
+                    envIndices.push_back(static_cast<uint32_t>(envVertices_.size()));
+                    envVertices_.push_back(e);
+                    envNormals_.push_back({v.normal[0], v.normal[1], v.normal[2]});
+                }
             }
         }
+        runs_.push_back(std::move(runs));
+        envRuns_.push_back(std::move(envRuns));
     }
     if (!vertices.empty())
         if (Error err = renderer_->createMesh(vertices, indices, mesh_))
             error_ = err.message;
+    if (!envVertices_.empty())
+        if (Error err = renderer_->createMesh(envVertices_, envIndices, envMesh_))
+            envMesh_ = 0;
+}
+
+// The sphere maps of Hometown's sky.fsh (CHRD day, CHRN night, CHRW and
+// CHNW weather), which the game gives the cars as their reflection.
+void CarPage::loadSkies() {
+    if (!skies_.empty())
+        return;
+    for (const FileRef& f : files_.files()) {
+        if (lower(f.name) != "gamedata/tracks/trk000/sky.fsh")
+            continue;
+        std::vector<uint8_t> data;
+        ShapeBank bank;
+        if (files_.read(f, data) || parseShapeBank(std::move(data), bank))
+            break;
+        for (const char* name : {"CHRD", "CHRN", "CHRW", "CHNW"})
+            for (const Shape& shape : bank.shapes) {
+                image::Image img;
+                gfx::TextureId id = 0;
+                if (shape.name == name && !decodeShape(shape, img) &&
+                    !renderer_->createTexture(img.w, img.h, img.rgba.data(), {}, id))
+                    skies_.push_back({name, id});
+            }
+        break;
+    }
 }
 
 void CarPage::handleEvent(const Event& ev) {
@@ -213,6 +275,7 @@ void CarPage::handleEvent(const Event& ev) {
         case 'l': level_ = (level_ + 1) % 5; break;
         case 't': textures_ = !textures_; break;
         case 'c': cullBack_ = !cullBack_; break;
+        case 'e': sky_ = (sky_ + 1) % static_cast<int>(skies_.size() + 1); break;
         case ' ': spin_ = !spin_; break;
         case 'r': resetView(); break;
         default: break;
@@ -263,24 +326,62 @@ void CarPage::update(uint64_t nowMs) {
         call.ambientLight = {0.45f, 0.45f, 0.45f};
         call.directedLight = {0.7f, 0.7f, 0.7f};
         call.lightDirection = {0.36f, 0.8f, 0.48f};
-        call.state.cull = cullBack_ ? gfx::Cull::Back : gfx::Cull::None;
+        auto shown = [&](size_t p) {
+            return model_.parts[p].triangleCount && (level_ == 4 || partLevels_[p] == level_);
+        };
         for (size_t p = 0; p < model_.parts.size(); ++p) {
-            const Model::Part& part = model_.parts[p];
-            if (part.triangleCount == 0 || (level_ < 4 && partLevels_[p] != level_))
+            if (!shown(p))
                 continue;
-            if (pages_.empty()) {
-                call.firstIndex = part.firstTriangle * 3;
-                call.indexCount = part.triangleCount * 3;
+            for (const Run& r : runs_[p]) {
+                if (!pages_.empty())
+                    call.texture = textures_ && r.page < pages_.size() ? pages_[r.page] : 0;
+                call.state.cull = cullBack_ && !r.twoSided ? gfx::Cull::Back : gfx::Cull::None;
+                // Unlit: one constant white (0x55e6e8) for the lighting.
+                call.rgbSource = r.unlit ? gfx::ColorSource::Constant : gfx::ColorSource::Lighting;
+                call.firstIndex = r.firstIndex;
+                call.indexCount = r.indexCount;
                 renderer_->draw(call);
-            } else {
-                for (const auto& [first, count, page] : pageRuns_[p]) {
-                    call.texture = textures_ && page < pages_.size() ? pages_[page] : 0;
-                    call.firstIndex = first * 3;
-                    call.indexCount = count * 3;
-                    renderer_->draw(call);
+            }
+            triangles += model_.parts[p].triangleCount;
+        }
+
+        // The reflection: each corner's normal as the camera sees it
+        // (right, down, ahead) to the sphere map, added with source alpha
+        // (THRASH blend 1) in the corner's colour.
+        if (envMesh_ && sky_ < static_cast<int>(skies_.size())) {
+            const gfx::Vec3 ahead{-offset[0], -offset[1], -offset[2]};
+            gfx::Vec3 right{-ahead[2], 0, ahead[0]}; // ahead x up
+            const float rl = std::hypot(right[0], right[2]);
+            right = {right[0] / rl, 0, right[2] / rl};
+            // down = ahead x right
+            const gfx::Vec3 dn{ahead[1] * right[2] - ahead[2] * right[1], ahead[2] * right[0] - ahead[0] * right[2],
+                               ahead[0] * right[1] - ahead[1] * right[0]};
+            for (size_t i = 0; i < envVertices_.size(); ++i) {
+                const auto& n = envNormals_[i];
+                const auto uv = reflectionUv(n[0] * right[0] + n[1] * right[1] + n[2] * right[2],
+                                             n[0] * dn[0] + n[1] * dn[1] + n[2] * dn[2],
+                                             n[0] * ahead[0] + n[1] * ahead[1] + n[2] * ahead[2]);
+                envVertices_[i].uv[0] = uv[0];
+                envVertices_[i].uv[1] = uv[1];
+            }
+            renderer_->setMeshVertices(envMesh_, envVertices_);
+            gfx::DrawCall env;
+            env.mesh = envMesh_;
+            env.texture = skies_[size_t(sky_)].second;
+            env.rgbSource = env.alphaSource = gfx::ColorSource::Vertex;
+            env.state.src = gfx::Blend::SrcAlpha;
+            env.state.dst = gfx::Blend::One;
+            env.state.depthWrite = false;
+            for (size_t p = 0; p < model_.parts.size(); ++p) {
+                if (!shown(p))
+                    continue;
+                for (const Run& r : envRuns_[p]) {
+                    env.state.cull = cullBack_ && !r.twoSided ? gfx::Cull::Back : gfx::Cull::None;
+                    env.firstIndex = r.firstIndex;
+                    env.indexCount = r.indexCount;
+                    renderer_->draw(env);
                 }
             }
-            triangles += part.triangleCount;
         }
     }
 
@@ -292,9 +393,11 @@ void CarPage::update(uint64_t nowMs) {
     } else {
         lines.push_back(std::to_string(model_.parts.size()) + " parts, " + std::to_string(model_.triangles.size()) +
                         " triangles; showing " + kLevelNames[level_] + " detail (" + std::to_string(triangles) +
-                        ")  skin: " + (skinName_.empty() ? "none" : skinName_) + (cullBack_ ? "" : "  back faces"));
+                        ")  skin: " + (skinName_.empty() ? "none" : skinName_) + "  reflection: " +
+                        (sky_ < static_cast<int>(skies_.size()) ? skies_[size_t(sky_)].first : "off") +
+                        (cullBack_ ? "" : "  back faces"));
     }
-    lines.push_back("Left/Right: model  drag/WASD: turn  wheel: zoom  L: detail  T: skin  C: faces  Space: spin");
+    lines.push_back("Left/Right: model  drag/WASD: turn  wheel: zoom  L: detail  T: skin  C: faces  E: sky  Space: spin");
     for (size_t i = 0; i < lines.size(); ++i) {
         const int y = i + 1 == lines.size() ? kFrameH - font::kLineHeight - 4 : 4 + static_cast<int>(i) * font::kLineHeight;
         for (int yy = y - 2; yy < y + font::kLineHeight - 1; ++yy)
