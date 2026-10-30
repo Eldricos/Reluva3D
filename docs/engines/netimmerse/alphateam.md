@@ -397,7 +397,8 @@ Progress:
   - `-profile <from>-<to>`: where the program is, sampled every
     millisecond between those frames, then the share of samples in each
     function (the nearest export of its module, or the stand-in it's
-    in).
+    in). With `-profile-addresses`, also the busiest 64-byte stretches of
+    code, each with its function.
 
   The route (`-fixed-clock`): click on frame 25 (past the demo); the main
   menu is up by frame 1500. Then Single Missions (`-point 1510@320,184
@@ -582,8 +583,9 @@ Progress:
     backdrop, environment animation, shadows) are the game's own
     business: nothing of ours is involved.
 - Speed, measured headless (frames given to the engine, a click past the
-  demo): the menu at headquarters runs at about 14 frames a second on 4
-  cores, after about 22 seconds of loading.
+  demo): the menu at headquarters runs at about 17 frames a second on 4
+  cores, after about 20 seconds of loading (scaled from 14 and 22 by the
+  latest measurements below).
   - Inlining instruction execution (memory access, fetching, operands)
     and the rasterizer's per-draw set-up got it there from about half
     that.
@@ -654,10 +656,40 @@ Progress:
       a flip later, so a click given by frame number comes a flip later
       too). `at-run -present-late` and `at-sweep` run that way; `at-run`
       without it, and the tests, show each frame at its own flip.
+  - Then, profiled again: callgrind's instruction counts, one run
+    counting only the drawing threads (`--toggle-collect` on
+    `DrawQueue::draw`) and one only the interpreter (`Cpu::runCached`),
+    and each thread's CPU time from `/proc`. Up to the headquarters menu
+    the drawing threads used twice the CPU time of the program's thread,
+    which waited for them about a sixth of the time at each flip. The
+    rasterizer drew about 940 triangles a frame but tested about 916,000
+    pixels (three times the screen), nearly all bilinear and on the
+    simple texture-stage path.
+    - The pixel's steps (depth test, texture stages, sampling, the rest)
+      are inlined into the triangle's loop; their calls had cost more
+      than much of their work.
+    - Bilinear samples that cross a wrapping texture's edge took the
+      general path, texel by texel; they're now addressed by masks.
+    - 16-bit frames and textures convert to 32-bit colour by one table
+      per format; clears store whole pixels; clipping a triangle no
+      longer allocates.
+    - The interpreter's loop spent about 12 host instructions of each
+      guest instruction on bookkeeping. It now counts a block's
+      instructions at once, and takes the parity flag from a table
+      (x86.md).
+    - Measured on the M1010 solved route (`at-run ... -solved M1010`):
+      frames 600 to 1200, at the headquarters menu, went from 13.1 s to
+      10.6 s; the route to frame 3300 from 76.7 s to 68.0 s, with about
+      15% less CPU time over all threads. Loading (to frame 600) went from
+      20.8 s to 19.3 s. Each the mean of two runs; the machine varies by
+      up to 10% run to run. The same instructions ran (8,763,980,719 to
+      frame 3300) and the frames saved every 300 came out byte-identical.
 - Not there yet:
-  - **more speed**: with the drawing overlapped, the program's own code
-    (NetImmerse's scene graph, picking and its Direct3D renderer) and the
-    drawing take about as long as each other.
+  - **more speed**: the program's own code (NetImmerse's scene graph,
+    picking and its Direct3D renderer) in the interpreter is now most of
+    the time; the drawing is mostly overlapped with it. What's left in the
+    interpreter's loop is finding and checking each block (about a tenth)
+    and computing every flag of every ALU operation.
 
 #### DirectDraw and Direct3D 7
 

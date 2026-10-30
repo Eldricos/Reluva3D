@@ -14,7 +14,7 @@ Adventure missions are solved by the game's own solutions in automated
 runs, and Mission One has also been played through by hand.
 
 It's slow for now: the game draws in software in the interpreter. Loading
-takes about 22 seconds, and the menus run at about 14 frames a second on 4
+takes about 20 seconds, and the menus run at about 17 frames a second on 4
 cores.
 
 A data viewer of the game's files comes with it: archives, models (with
