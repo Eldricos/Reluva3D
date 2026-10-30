@@ -41,6 +41,8 @@ public:
     // The newest frame shown, as 0xAARRGGBB, if there's one since the last
     // asked for.
     bool frame(std::vector<uint32_t>& pixels, int& width, int& height);
+    // How many frames the game has shown (flipped) so far.
+    uint64_t framesShown();
     // Holds the game at its next frame (or lets it go on).
     void pause(bool paused);
     // Whether the program has stopped: by itself (`ended`) or with an error

@@ -109,7 +109,22 @@ private:
         screen();
         sys_.updateScreen(screen_); // black while it loads
         std::vector<uint32_t> pixels;
+        // The game's frames a second, in the window's title: those it
+        // shows (flips), counted over each second.
+        uint64_t rateFrom = sys_.getMillis(), rateFrames = player.framesShown();
+        auto showRate = [&](const std::string& rate) {
+            sys_.setWindowTitle("Reluva - " + target_.description + (rate.empty() ? "" : " - " + rate));
+        };
+        showRate("");
         while (true) {
+            if (const uint64_t now = sys_.getMillis(); now - rateFrom >= 1000) {
+                const uint64_t frames = player.framesShown();
+                char rate[48];
+                std::snprintf(rate, sizeof rate, "%.1f frames a second",
+                              double(frames - rateFrames) * 1000.0 / double(now - rateFrom));
+                showRate(frames > 0 ? rate : "");
+                rateFrom = now, rateFrames = frames;
+            }
             Event ev;
             while (sys_.pollEvent(ev)) {
                 if ((ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher) &&
@@ -127,6 +142,7 @@ private:
                     screen();
                     sys_.updateScreen(screen_);
                     player.pause(false);
+                    rateFrom = sys_.getMillis(), rateFrames = player.framesShown();
                     continue;
                 }
                 player.input(ev);

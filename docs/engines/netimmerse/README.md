@@ -33,6 +33,8 @@ skips it).
 While playing:
 
 - the mouse is held by the window (the game draws its own pointer);
+- the window's title shows the game's frames a second (at most 60, as
+  its flips wait for the display);
 - **Ctrl+F5** goes back to the launcher;
 - **F12** pauses the game and opens the data viewer; **Esc** there goes
   back to the game.

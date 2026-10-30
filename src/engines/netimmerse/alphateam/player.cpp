@@ -42,6 +42,11 @@ bool Player::frame(std::vector<uint32_t>& pixels, int& width, int& height) {
     return true;
 }
 
+uint64_t Player::framesShown() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return frameNumber_;
+}
+
 void Player::pause(bool paused) {
     {
         std::lock_guard<std::mutex> lock(mutex_);
