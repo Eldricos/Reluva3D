@@ -261,6 +261,7 @@ private:
         bool memoryOperand = false;
     } d_;
     void decodeModrm();
+    void decodeModrmInline(); // the same, inlined into the instructions in cpu.cpp
     // A ModRM operand's fields, decoded a byte at a time (the slow way, near
     // the end of memory).
     struct ModrmEntry {
@@ -273,6 +274,7 @@ private:
     void writeRm(int size, uint32_t v);
     uint32_t readReg(int size, int r) const;
     void writeReg(int size, int r, uint32_t v);
+    void writeRegInline(int size, int r, uint32_t v);
 
     // Integer operations, setting the flags.
     uint32_t alu(int op, uint32_t a, uint32_t b, int size);

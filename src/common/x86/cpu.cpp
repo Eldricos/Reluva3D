@@ -150,7 +150,7 @@ void Cpu::popSegment(int s) {
 }
 
 
-uint32_t Cpu::readReg(int size, int r) const {
+RELUVA_FORCE_INLINE uint32_t Cpu::readReg(int size, int r) const {
     if (size == 4)
         return reg[size_t(r)];
     if (size == 2)
@@ -158,7 +158,7 @@ uint32_t Cpu::readReg(int size, int r) const {
     return r < 4 ? reg[size_t(r)] & 0xff : (reg[size_t(r - 4)] >> 8) & 0xff;
 }
 
-void Cpu::writeReg(int size, int r, uint32_t v) {
+RELUVA_FORCE_INLINE void Cpu::writeRegInline(int size, int r, uint32_t v) {
     if (size == 4)
         reg[size_t(r)] = v;
     else if (size == 2)
@@ -198,7 +198,7 @@ void Cpu::decodeModrmSlow(ModrmEntry& e) {
     }
 }
 
-void Cpu::decodeModrm() {
+RELUVA_FORCE_INLINE void Cpu::decodeModrmInline() {
     // Decoded from the instruction's next 8 bytes, read at once (ModRM, SIB
     // and displacement take at most 6).
     if (!validSmall(eip, 8)) [[unlikely]] {
@@ -265,18 +265,22 @@ void Cpu::decodeModrm() {
     d_.address = a;
 }
 
-uint32_t Cpu::readRm(int size) {
+RELUVA_FORCE_INLINE uint32_t Cpu::readRm(int size) {
     return d_.memoryOperand ? load(d_.address, size) : readReg(size, d_.rm);
 }
 
-void Cpu::writeRm(int size, uint32_t v) {
+RELUVA_FORCE_INLINE void Cpu::writeRm(int size, uint32_t v) {
     if (d_.memoryOperand)
         store(d_.address, v, size);
     else
-        writeReg(size, d_.rm, v);
+        writeRegInline(size, d_.rm, v);
 }
 
-void Cpu::setLogicFlags(uint32_t r, int size) {
+// Out of line, for fpu.cpp.
+void Cpu::decodeModrm() { decodeModrmInline(); }
+void Cpu::writeReg(int size, int r, uint32_t v) { writeRegInline(size, r, v); }
+
+RELUVA_FORCE_INLINE void Cpu::setLogicFlags(uint32_t r, int size) {
     r &= mask(size);
     eflags &= ~(CF | OF | AF | ZF | SF | PF);
     if (!r)
@@ -287,7 +291,7 @@ void Cpu::setLogicFlags(uint32_t r, int size) {
         eflags |= PF;
 }
 
-uint32_t Cpu::alu(int op, uint32_t a, uint32_t b, int size) {
+RELUVA_FORCE_INLINE uint32_t Cpu::alu(int op, uint32_t a, uint32_t b, int size) {
     const uint32_t m = mask(size), sign = signBit(size);
     a &= m;
     b &= m;
@@ -416,7 +420,7 @@ uint32_t Cpu::shift(int op, uint32_t v, uint32_t count, int size) {
     return r;
 }
 
-bool Cpu::condition(int cc) const {
+RELUVA_FORCE_INLINE bool Cpu::condition(int cc) const {
     const bool cf = eflags & CF, zf = eflags & ZF, sf = eflags & SF, of = eflags & OF, pf = eflags & PF;
     bool r = false;
     switch (cc >> 1) {
@@ -465,10 +469,10 @@ void Cpu::group3(int size) {
             overflow = p != int64_t(signExtend(uint32_t(p), size));
         }
         if (size == 1) {
-            writeReg(2, EAX, uint32_t(product) & 0xffff);
+            writeRegInline(2, EAX, uint32_t(product) & 0xffff);
         } else if (size == 2) {
-            writeReg(2, EAX, uint32_t(product) & 0xffff);
-            writeReg(2, EDX, uint32_t(product >> 16) & 0xffff);
+            writeRegInline(2, EAX, uint32_t(product) & 0xffff);
+            writeRegInline(2, EDX, uint32_t(product >> 16) & 0xffff);
         } else {
             reg[EAX] = uint32_t(product);
             reg[EDX] = uint32_t(product >> 32);
@@ -488,13 +492,13 @@ void Cpu::group3(int size) {
                 const uint32_t q = ax / v, rem = ax % v;
                 if (q > 0xff)
                     fault("division overflow");
-                writeReg(2, EAX, (rem << 8) | q);
+                writeRegInline(2, EAX, (rem << 8) | q);
             } else {
                 const int32_t n = int16_t(ax), dv = int8_t(v);
                 const int32_t q = n / dv, rem = n % dv;
                 if (q < -128 || q > 127)
                     fault("division overflow");
-                writeReg(2, EAX, (uint32_t(rem & 0xff) << 8) | uint32_t(q & 0xff));
+                writeRegInline(2, EAX, (uint32_t(rem & 0xff) << 8) | uint32_t(q & 0xff));
             }
         } else if (size == 2) {
             const uint32_t n = (reg[EDX] & 0xffff) << 16 | (reg[EAX] & 0xffff);
@@ -502,15 +506,15 @@ void Cpu::group3(int size) {
                 const uint32_t q = n / v, rem = n % v;
                 if (q > 0xffff)
                     fault("division overflow");
-                writeReg(2, EAX, q);
-                writeReg(2, EDX, rem);
+                writeRegInline(2, EAX, q);
+                writeRegInline(2, EDX, rem);
             } else {
                 const int32_t sn = int32_t(n), dv = int16_t(v);
                 const int32_t q = sn / dv, rem = sn % dv;
                 if (q < -32768 || q > 32767)
                     fault("division overflow");
-                writeReg(2, EAX, uint32_t(q));
-                writeReg(2, EDX, uint32_t(rem));
+                writeRegInline(2, EAX, uint32_t(q));
+                writeRegInline(2, EDX, uint32_t(rem));
             }
         } else {
             const uint64_t n = uint64_t(reg[EDX]) << 32 | reg[EAX];
@@ -591,7 +595,7 @@ void Cpu::stringOp(uint8_t op) {
             break;
         case 0xac:
         case 0xad: // LODS
-            writeReg(size, EAX, load(reg[ESI] + d_.segment, size));
+            writeRegInline(size, EAX, load(reg[ESI] + d_.segment, size));
             reg[ESI] += step;
             break;
         case 0xae:
@@ -618,15 +622,15 @@ void Cpu::twoByte() {
         return;
     }
     if (op >= 0x90 && op <= 0x9f) { // SETcc
-        decodeModrm();
+        decodeModrmInline();
         writeRm(1, condition(op & 15) ? 1 : 0);
         return;
     }
     if (op >= 0x40 && op <= 0x4f) { // CMOVcc
-        decodeModrm();
+        decodeModrmInline();
         const uint32_t v = readRm(osz);
         if (condition(op & 15))
-            writeReg(osz, d_.regField, v);
+            writeRegInline(osz, d_.regField, v);
         return;
     }
     if (op >= 0xc8) { // BSWAP
@@ -635,7 +639,7 @@ void Cpu::twoByte() {
         return;
     }
     switch (op) {
-    case 0x1f: decodeModrm(); return; // NOP r/m
+    case 0x1f: decodeModrmInline(); return; // NOP r/m
     case 0xa0: pushSegment(4); return; // PUSH FS
     case 0xa1: popSegment(4); return;  // POP FS
     case 0xa8: pushSegment(5); return; // PUSH GS
@@ -665,7 +669,7 @@ void Cpu::twoByte() {
     case 0xb3: // BTR
     case 0xbb: // BTC
     case 0xba: { // BT/BTS/BTR/BTC r/m, imm8
-        decodeModrm();
+        decodeModrmInline();
         uint32_t bit;
         int kind;
         if (op == 0xba) {
@@ -697,7 +701,7 @@ void Cpu::twoByte() {
     case 0xa5: // SHLD r/m, r, CL
     case 0xac: // SHRD r/m, r, imm8
     case 0xad: { // SHRD r/m, r, CL
-        decodeModrm();
+        decodeModrmInline();
         const uint32_t count = ((op & 1) ? reg[ECX] : fetch8()) & 31;
         if (!count)
             return;
@@ -724,9 +728,9 @@ void Cpu::twoByte() {
         return;
     }
     case 0xaf: { // IMUL r, r/m
-        decodeModrm();
+        decodeModrmInline();
         const int64_t p = int64_t(signExtend(readReg(osz, d_.regField), osz)) * signExtend(readRm(osz), osz);
-        writeReg(osz, d_.regField, uint32_t(p));
+        writeRegInline(osz, d_.regField, uint32_t(p));
         eflags &= ~(CF | OF);
         if (p != int64_t(signExtend(uint32_t(p), osz)))
             eflags |= CF | OF;
@@ -735,13 +739,13 @@ void Cpu::twoByte() {
     case 0xb0: // CMPXCHG r/m8, r8
     case 0xb1: { // CMPXCHG r/m, r
         const int size = op == 0xb0 ? 1 : osz;
-        decodeModrm();
+        decodeModrmInline();
         const uint32_t dst = readRm(size), acc = readReg(size, EAX);
         alu(7, acc, dst, size);
         if (eflags & ZF)
             writeRm(size, readReg(size, d_.regField));
         else
-            writeReg(size, EAX, dst);
+            writeRegInline(size, EAX, dst);
         return;
     }
     case 0xb6: // MOVZX r, r/m8
@@ -749,14 +753,14 @@ void Cpu::twoByte() {
     case 0xbe: // MOVSX r, r/m8
     case 0xbf: { // MOVSX r, r/m16
         const int from = (op & 1) ? 2 : 1;
-        decodeModrm();
+        decodeModrmInline();
         const uint32_t v = readRm(from);
-        writeReg(osz, d_.regField, op < 0xbe ? v : uint32_t(signExtend(v, from)));
+        writeRegInline(osz, d_.regField, op < 0xbe ? v : uint32_t(signExtend(v, from)));
         return;
     }
     case 0xbc: // BSF
     case 0xbd: { // BSR
-        decodeModrm();
+        decodeModrmInline();
         const uint32_t v = readRm(osz) & mask(osz);
         if (!v) {
             eflags |= ZF;
@@ -770,16 +774,16 @@ void Cpu::twoByte() {
         else
             for (i = uint32_t(osz * 8 - 1); !((v >> i) & 1); --i)
                 ;
-        writeReg(osz, d_.regField, i);
+        writeRegInline(osz, d_.regField, i);
         return;
     }
     case 0xc0: // XADD r/m8, r8
     case 0xc1: { // XADD r/m, r
         const int size = op == 0xc0 ? 1 : osz;
-        decodeModrm();
+        decodeModrmInline();
         const uint32_t dst = readRm(size), src = readReg(size, d_.regField);
         const uint32_t sum = alu(0, dst, src, size);
-        writeReg(size, d_.regField, dst);
+        writeRegInline(size, d_.regField, dst);
         writeRm(size, sum);
         return;
     }
@@ -845,13 +849,13 @@ RELUVA_FORCE_INLINE void Cpu::step() {
         switch (op & 7) {
         case 0:
         case 1: // r/m, r
-            decodeModrm();
+            decodeModrmInline();
             a = readRm(size);
             b = readReg(size, d_.regField);
             break;
         case 2:
         case 3: // r, r/m
-            decodeModrm();
+            decodeModrmInline();
             a = readReg(size, d_.regField);
             b = readRm(size);
             break;
@@ -866,16 +870,16 @@ RELUVA_FORCE_INLINE void Cpu::step() {
         if ((op & 7) < 2)
             writeRm(size, r);
         else if ((op & 7) < 4)
-            writeReg(size, d_.regField, r);
+            writeRegInline(size, d_.regField, r);
         else
-            writeReg(size, EAX, r);
+            writeRegInline(size, EAX, r);
         return;
     }
     RELUVA_CASE8(0x40):
     RELUVA_CASE8(0x48): { // INC/DEC r
         const int r = op & 7;
         const uint32_t cf = eflags & CF;
-        writeReg(osz, r, alu(op < 0x48 ? 0 : 5, readReg(osz, r), 1, osz));
+        writeRegInline(osz, r, alu(op < 0x48 ? 0 : 5, readReg(osz, r), 1, osz));
         eflags = (eflags & ~CF) | cf;
         return;
     }
@@ -896,12 +900,12 @@ RELUVA_FORCE_INLINE void Cpu::step() {
     case 0x96:
     case 0x97: { // XCHG eAX, r
         const uint32_t t = readReg(osz, EAX);
-        writeReg(osz, EAX, readReg(osz, op & 7));
-        writeReg(osz, op & 7, t);
+        writeRegInline(osz, EAX, readReg(osz, op & 7));
+        writeRegInline(osz, op & 7, t);
         return;
     }
-    RELUVA_CASE8(0xb0): writeReg(1, op & 7, fetch8()); return; // MOV r8, imm8
-    RELUVA_CASE8(0xb8): writeReg(osz, op & 7, osz == 2 ? fetch16() : fetch32()); return; // MOV r, imm
+    RELUVA_CASE8(0xb0): writeRegInline(1, op & 7, fetch8()); return; // MOV r8, imm8
+    RELUVA_CASE8(0xb8): writeRegInline(osz, op & 7, osz == 2 ? fetch16() : fetch32()); return; // MOV r, imm
     RELUVA_CASE8(0xd8): x87(op); return;
     case 0x0f: twoByte(); return;
     // Segment registers: pushed and popped as selectors (the model is flat).
@@ -913,16 +917,16 @@ RELUVA_FORCE_INLINE void Cpu::step() {
     case 0x1e: pushSegment(3); return; // PUSH DS
     case 0x1f: popSegment(3); return;  // POP DS
     case 0x8c: // MOV r/m16, Sreg
-        decodeModrm();
+        decodeModrmInline();
         if (d_.regField > 5)
             fault("MOV from segment register " + std::to_string(d_.regField));
         if (d_.memoryOperand)
             store(d_.address, sreg[d_.regField], 2);
         else
-            writeReg(osz, d_.rm, sreg[d_.regField]);
+            writeRegInline(osz, d_.rm, sreg[d_.regField]);
         return;
     case 0x8e: // MOV Sreg, r/m16
-        decodeModrm();
+        decodeModrmInline();
         if (d_.regField > 5 || d_.regField == 1)
             fault("MOV to segment register " + std::to_string(d_.regField));
         sreg[d_.regField] = uint16_t(readRm(2));
@@ -944,7 +948,7 @@ RELUVA_FORCE_INLINE void Cpu::step() {
         setLogicFlags(r & 0xff, 1);
         if (newCf)
             eflags |= CF;
-        writeReg(1, EAX, r);
+        writeRegInline(1, EAX, r);
         return;
     }
     case 0x60: { // PUSHAD
@@ -964,10 +968,10 @@ RELUVA_FORCE_INLINE void Cpu::step() {
     case 0x6a: push(uint32_t(int32_t(int8_t(fetch8())))); return;
     case 0x69: // IMUL r, r/m, imm
     case 0x6b: {
-        decodeModrm();
+        decodeModrmInline();
         const int32_t imm = op == 0x6b ? int8_t(fetch8()) : signExtend(osz == 2 ? fetch16() : fetch32(), osz);
         const int64_t p = int64_t(signExtend(readRm(osz), osz)) * imm;
-        writeReg(osz, d_.regField, uint32_t(p));
+        writeRegInline(osz, d_.regField, uint32_t(p));
         eflags &= ~(CF | OF);
         if (p != int64_t(signExtend(uint32_t(p), osz)))
             eflags |= CF | OF;
@@ -978,7 +982,7 @@ RELUVA_FORCE_INLINE void Cpu::step() {
     case 0x82:
     case 0x83: { // ALU r/m, imm
         const int size = (op == 0x81 || op == 0x83) ? osz : 1;
-        decodeModrm();
+        decodeModrmInline();
         const uint32_t imm = op == 0x81 ? (osz == 2 ? fetch16() : fetch32()) : op == 0x83 ? uint32_t(int32_t(int8_t(fetch8())))
                                                                                          : fetch8();
         const uint32_t r = alu(d_.regField, readRm(size), imm, size);
@@ -989,45 +993,45 @@ RELUVA_FORCE_INLINE void Cpu::step() {
     case 0x84:
     case 0x85: { // TEST r/m, r
         const int size = op == 0x84 ? 1 : osz;
-        decodeModrm();
+        decodeModrmInline();
         setLogicFlags(readRm(size) & readReg(size, d_.regField), size);
         return;
     }
     case 0x86:
     case 0x87: { // XCHG r/m, r
         const int size = op == 0x86 ? 1 : osz;
-        decodeModrm();
+        decodeModrmInline();
         const uint32_t t = readRm(size);
         writeRm(size, readReg(size, d_.regField));
-        writeReg(size, d_.regField, t);
+        writeRegInline(size, d_.regField, t);
         return;
     }
-    case 0x88: decodeModrm(); writeRm(1, readReg(1, d_.regField)); return;
-    case 0x89: decodeModrm(); writeRm(osz, readReg(osz, d_.regField)); return;
-    case 0x8a: decodeModrm(); writeReg(1, d_.regField, readRm(1)); return;
-    case 0x8b: decodeModrm(); writeReg(osz, d_.regField, readRm(osz)); return;
+    case 0x88: decodeModrmInline(); writeRm(1, readReg(1, d_.regField)); return;
+    case 0x89: decodeModrmInline(); writeRm(osz, readReg(osz, d_.regField)); return;
+    case 0x8a: decodeModrmInline(); writeRegInline(1, d_.regField, readRm(1)); return;
+    case 0x8b: decodeModrmInline(); writeRegInline(osz, d_.regField, readRm(osz)); return;
     case 0x8d: // LEA (the offset, without a segment's base)
-        decodeModrm();
+        decodeModrmInline();
         if (!d_.memoryOperand)
             fault("LEA with a register operand");
-        writeReg(osz, d_.regField, d_.address - d_.segment);
+        writeRegInline(osz, d_.regField, d_.address - d_.segment);
         return;
     case 0x8f: { // POP r/m
         const uint32_t v = pop();
-        decodeModrm();
+        decodeModrmInline();
         writeRm(4, v);
         return;
     }
     case 0x90: return; // NOP
     case 0x98: // CWDE / CBW
         if (osz == 2)
-            writeReg(2, EAX, uint32_t(int32_t(int8_t(reg[EAX]))));
+            writeRegInline(2, EAX, uint32_t(int32_t(int8_t(reg[EAX]))));
         else
             reg[EAX] = uint32_t(int32_t(int16_t(reg[EAX])));
         return;
     case 0x99: // CDQ / CWD
         if (osz == 2)
-            writeReg(2, EDX, (reg[EAX] & 0x8000) ? 0xffff : 0);
+            writeRegInline(2, EDX, (reg[EAX] & 0x8000) ? 0xffff : 0);
         else
             reg[EDX] = (reg[EAX] & 0x80000000u) ? 0xffffffffu : 0;
         return;
@@ -1038,9 +1042,9 @@ RELUVA_FORCE_INLINE void Cpu::step() {
         eflags = (pop() & 0x00240fd5u) | 0x2;
         return;
     case 0x9e: eflags = (eflags & ~0xd5u) | (((reg[EAX] >> 8) & 0xd5u)); return; // SAHF
-    case 0x9f: writeReg(1, 4, (eflags & 0xd5u) | 0x2); return;                  // LAHF
-    case 0xa0: writeReg(1, EAX, load(fetch32() + d_.segment, 1)); return;
-    case 0xa1: writeReg(osz, EAX, load(fetch32() + d_.segment, osz)); return;
+    case 0x9f: writeRegInline(1, 4, (eflags & 0xd5u) | 0x2); return;                  // LAHF
+    case 0xa0: writeRegInline(1, EAX, load(fetch32() + d_.segment, 1)); return;
+    case 0xa1: writeRegInline(osz, EAX, load(fetch32() + d_.segment, osz)); return;
     case 0xa2: store(fetch32() + d_.segment, readReg(1, EAX), 1); return;
     case 0xa3: store(fetch32() + d_.segment, readReg(osz, EAX), osz); return;
     case 0xa4:
@@ -1062,7 +1066,7 @@ RELUVA_FORCE_INLINE void Cpu::step() {
     case 0xd2:
     case 0xd3: { // shifts and rotates
         const int size = (op & 1) ? osz : 1;
-        decodeModrm();
+        decodeModrmInline();
         const uint32_t count = op <= 0xc1 ? fetch8() : op <= 0xd1 ? 1 : reg[ECX] & 0xff;
         writeRm(size, shift(d_.regField, readRm(size), count, size));
         return;
@@ -1074,8 +1078,8 @@ RELUVA_FORCE_INLINE void Cpu::step() {
         return;
     }
     case 0xc3: eip = pop(); return;
-    case 0xc6: decodeModrm(); writeRm(1, fetch8()); return;
-    case 0xc7: decodeModrm(); writeRm(osz, osz == 2 ? fetch16() : fetch32()); return;
+    case 0xc6: decodeModrmInline(); writeRm(1, fetch8()); return;
+    case 0xc7: decodeModrmInline(); writeRm(osz, osz == 2 ? fetch16() : fetch32()); return;
     case 0xc8: { // ENTER (nesting level 0)
         const uint32_t size = fetch16(), level = fetch8();
         if (level)
@@ -1091,7 +1095,7 @@ RELUVA_FORCE_INLINE void Cpu::step() {
         return;
     case 0xcc: fault("breakpoint (INT3)");
     case 0xcd: fault("software interrupt " + std::to_string(fetch8()));
-    case 0xd7: writeReg(1, EAX, load(reg[EBX] + (reg[EAX] & 0xff) + d_.segment, 1)); return; // XLAT
+    case 0xd7: writeRegInline(1, EAX, load(reg[EBX] + (reg[EAX] & 0xff) + d_.segment, 1)); return; // XLAT
     case 0xe0:
     case 0xe1:
     case 0xe2: { // LOOPNE, LOOPE, LOOP
@@ -1118,8 +1122,8 @@ RELUVA_FORCE_INLINE void Cpu::step() {
     case 0xeb: eip += uint32_t(int32_t(int8_t(fetch8()))); return;
     case 0xf4: fault("HLT");
     case 0xf5: eflags ^= CF; return;
-    case 0xf6: decodeModrm(); group3(1); return;
-    case 0xf7: decodeModrm(); group3(osz); return;
+    case 0xf6: decodeModrmInline(); group3(1); return;
+    case 0xf7: decodeModrmInline(); group3(osz); return;
     case 0xf8: eflags &= ~CF; return;
     case 0xf9: eflags |= CF; return;
     case 0xfa:
@@ -1127,7 +1131,7 @@ RELUVA_FORCE_INLINE void Cpu::step() {
     case 0xfc: eflags &= ~DF; return;
     case 0xfd: eflags |= DF; return;
     case 0xfe: { // INC/DEC r/m8
-        decodeModrm();
+        decodeModrmInline();
         if (d_.regField > 1)
             fault("undefined instruction fe /" + std::to_string(d_.regField));
         const uint32_t cf = eflags & CF;
@@ -1136,7 +1140,7 @@ RELUVA_FORCE_INLINE void Cpu::step() {
         return;
     }
     case 0xff: {
-        decodeModrm();
+        decodeModrmInline();
         switch (d_.regField) {
         case 0:
         case 1: { // INC/DEC r/m

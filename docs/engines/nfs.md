@@ -907,7 +907,15 @@ Started. Done so far:
     while logging.
 
   Start-up now takes about 300 million instructions to its second frame
-  (4.9 seconds), and a track 72 million (16% fewer). The track's wait
+  (4.9 seconds), and a track 72 million (16% fewer).
+  - Later (October 2026), with the interpreter's helpers inlined
+    ([x86.md](x86.md)), start-up to the first menu frame went from
+    7.0-7.6 s to 6.5-6.6 s here, in real time with `-nomovie`. The faster
+    build ran more instructions in that time (670 million rather than
+    550): part of start-up is the game waiting on its clock, polling its
+    timer service. The title movie, if it plays, spends 62% of its
+    instructions in one loop, the YUV-to-RGB conversion at `0x4fd61c`
+    (lookup tables at `0x9f4fb0`-`0x9f6218`). The track's wait
   stays about 1.3 seconds, though, so part of it is spent elsewhere. Much
   more would take a faster interpreter core, translating whole blocks of
   code, rather than more routines run natively.
