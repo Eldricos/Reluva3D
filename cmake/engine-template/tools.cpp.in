@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) @YEAR@ The Reluva contributors
+
+// reluva-tool's @TITLE@ commands for a game's files. Add a command as a
+// function and a line in the table at the end (src/tools/tool.h); add a
+// file to reluva_add_engine_tools in the engine's CMakeLists.txt.
+
+#include "tools/tool.h"
+
+#include <cstdio>
+#include <filesystem>
+#include <system_error>
+
+namespace {
+
+using namespace reluva::tool;
+
+// Every file in a game's folder, with its size: where to start.
+int cmdFiles(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool @ENGINE@ files <game folder>\n");
+        return 2;
+    }
+    std::error_code ec;
+    const std::filesystem::path root = argv[2];
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(root, ec))
+        if (entry.is_regular_file())
+            std::printf("%12llu  %s\n", static_cast<unsigned long long>(entry.file_size()),
+                        entry.path().lexically_relative(root).generic_string().c_str());
+    if (ec) {
+        std::fprintf(stderr, "%s: %s\n", argv[2], ec.message().c_str());
+        return 1;
+    }
+    return 0;
+}
+
+const Commands commands("@ENGINE@", {
+    {"files", "<game folder>",
+     "list every file in a game's folder, with its size",
+     cmdFiles},
+});
+
+} // namespace

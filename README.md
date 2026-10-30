@@ -268,26 +268,15 @@ include SDL.
 
 ## Adding an engine
 
-1. **Create `src/engines/<name>/`** with an `Engine` and a `MetaEngine`
-   (copy `testbed`).
-2. **Add a detection table,** built with `reluva --hash`.
-3. **Give it a `CMakeLists.txt`** in its folder (copy `testbed`'s):
-   - `reluva_add_engine(<name> ACCESSOR <function> SOURCES ...)` names the
-     function that returns its `MetaEngine`, and lists its sources;
-   - `reluva_add_engine_tools(<name> SOURCES ...)` adds its `reluva-tool`
-     commands, from its `tools/` folder;
-   - `reluva_add_engine_tests(<name> SOURCES ... TOPICS ...)` adds its
-     tests, from `tests/engines/<name>/`, to `reluva-tests`.
+```sh
+cmake -DENGINE=<name> -DTITLE="<Name shown>" -P cmake/NewEngine.cmake
+```
 
-   The build finds the folder, and adds the engine to the registry, by
-   itself. Nothing outside the engine's folder and its tests names it, so
-   it can be left out of the build. See `cmake/ReluvaEngines.cmake`.
-4. **Add a line `<name>=enabled` to `engines.cfg`.**
-5. **Give it engine tests:** a basic one that needs no game files (run by
-   CI), and one that runs on a developer's copy of the game. See
-   [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#engine-tests).
-6. **Document it** in `docs/engines/<name>/`, starting with a
-   `README.md`: what it runs, where it stands, how to use it.
+starts one from a template: its folder in `src/engines/`, its first
+`reluva-tool` command, its tests and its docs folder, and its line in
+`engines.cfg`. It builds and passes its tests from the start.
+[docs/ADDING_AN_ENGINE.md](docs/ADDING_AN_ENGINE.md) goes from there to an
+engine that runs a game.
 
 ## Contributing
 

@@ -60,6 +60,7 @@ function(reluva_finish_tests)
     get_property(topics GLOBAL PROPERTY RELUVA_TEST_TOPICS)
     add_executable(reluva-tests
         ${PROJECT_SOURCE_DIR}/tests/support/main.cpp
+        ${PROJECT_SOURCE_DIR}/tests/support/record.cpp
         ${PROJECT_SOURCE_DIR}/src/backends/sockets/socket_net.cpp
         ${sources})
     target_link_libraries(reluva-tests PRIVATE reluva_engines reluva_warnings)
@@ -106,6 +107,8 @@ endfunction()
 #   <engine>.gamedata.<step>, labelled gamedata. ctest runs <file> as a CMake
 #   script with:
 #     TOOL     reluva-tool, which runs the game's code and reads its files;
+#     HELPERS  cmake/ReluvaGamedata.cmake, the helpers every such script
+#              shares (running the tool, keeping and comparing records);
 #     STEP     the step;
 #     RECORDS  the folder of committed records,
 #              tests/engines/<engine>/data/gamedata/;
@@ -123,6 +126,7 @@ function(reluva_add_gamedata_test name)
         add_test(NAME ${test}
             COMMAND ${CMAKE_COMMAND}
                 -DTOOL=$<TARGET_FILE:reluva-tool>
+                -DHELPERS=${PROJECT_SOURCE_DIR}/cmake/ReluvaGamedata.cmake
                 -DSTEP=${step}
                 -DGAME=${G_GAME}
                 -DGAME_ENV=${G_ENV}

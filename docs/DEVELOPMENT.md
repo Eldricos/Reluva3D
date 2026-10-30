@@ -198,27 +198,33 @@ what an engine does is caught, even where no unit test looks. Elite Force
 
 ### Adding them to a new engine
 
-1. **The basic test.** Write `tests/engines/<engine>/engine.cpp`: a suite
-   named `<engine>.engine` that makes a small install, takes the engine
-   through what playing does, and writes a record. Copy the `Hash` and
-   `Record` classes from `tests/engines/idtech3/engine.cpp`, which also has
-   the `--update` handling. List it in the engine's `CMakeLists.txt`, with
-   its unit tests:
+An engine started from the template (`cmake/NewEngine.cmake`, see
+[ADDING_AN_ENGINE.md](ADDING_AN_ENGINE.md)) has a basic engine test
+already. Then:
+
+1. **The basic test** (`tests/engines/<engine>/engine.cpp`). Add steps to
+   it as the engine grows: make the install, take the engine through what
+   playing does, and add what happens to the record. `test::Record` and
+   `test::Hash` (`tests/support/record.h`) keep the lines and the
+   checksums; `Record::check` compares the record with the committed one,
+   or writes it with `--update`.
+2. **The game-files test.** Write `tests/engines/<engine>/gamedata.cmake`,
+   which runs one step (`STEP`) of `reluva-tool <engine>` commands on the
+   game. The shared helpers (`cmake/ReluvaGamedata.cmake`) do the rest:
 
    ```cmake
-   set(tests ${PROJECT_SOURCE_DIR}/tests/engines/<engine>)
-   reluva_add_engine_tests(<engine>
-       SOURCES ${tests}/unit/....cpp ${tests}/engine.cpp
-       TOPICS unit.... engine)
+   include("${HELPERS}")
+   gamedata_begin("the one holding <its data folder>")   # game_dir, or skipped
+   # ... work out the release (reluva-tool detect), then the step:
+   if(STEP STREQUAL "maps")
+       record_run(maps "maps read" <engine> map-check "${game_dir}")
+   endif()
+   gamedata_end("${release}" "${release_folder}")         # compare or write
    ```
 
-   Tests are compiled with `RELUVA_SOURCE_DIR`, for finding the record
-   under `tests/engines/<engine>/data/`.
-2. **The game-files test.** Write a CMake script that runs one step (`STEP`)
-   of `reluva-tool` commands on the game. Copy
-   `tests/engines/idtech3/gamedata.cmake`: its `run_tool` and `record_run`
-   functions, its skip when the variable isn't set, and its record
-   handling. Register its steps:
+   `record_run` runs a command and records a checksum of its output (and a
+   summary line); `record_file` records a file a command wrote. Register
+   its steps (the template's `CMakeLists.txt` has this, commented out):
 
    ```cmake
    reluva_add_gamedata_test(<engine> GAME <game id> ENV RELUVA_<GAME>

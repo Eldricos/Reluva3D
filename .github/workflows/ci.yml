@@ -11,7 +11,8 @@
 #
 # The "engine alone" jobs build each engine with every other one disabled
 # (engines.cfg), so no engine comes to rely on another's code, and any
-# engine can be left out for the rest to build.
+# engine can be left out for the rest to build. The engines are read from
+# engines.cfg, so a new engine is built alone once it has its line there.
 
 name: CI
 
@@ -90,13 +91,41 @@ jobs:
       - name: Tests
         run: ctest --test-dir build -C Release --output-on-failure
 
+  engines:
+    name: Engine list
+    runs-on: ubuntu-24.04
+    outputs:
+      list: ${{ steps.list.outputs.list }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Engines in engines.cfg
+        id: list
+        # Every engine named in engines.cfg, enabled or not, and the
+        # testbed. An engine folder with no line there fails the job: the
+        # build would leave it out without a word.
+        run: |
+          names=$(sed -nE 's/^([A-Za-z0-9_]+)=.*/\1/p' engines.cfg)
+          missing=0
+          for dir in src/engines/*/; do
+            engine=$(basename "$dir")
+            if [ "$engine" != testbed ] && ! printf '%s\n' $names | grep -qx "$engine"; then
+              echo "::error file=engines.cfg::src/engines/$engine has no line in engines.cfg (add $engine=enabled)"
+              missing=1
+            fi
+          done
+          list=$(printf '%s\n' $names testbed | jq -R . | jq -cs .)
+          echo "Engines: $list"
+          echo "list=$list" >> "$GITHUB_OUTPUT"
+          exit $missing
+
   engine-alone:
     name: Engine alone (${{ matrix.engine }})
+    needs: engines
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        engine: [idtech3, newworlds, testbed]
+        engine: ${{ fromJSON(needs.engines.outputs.list) }}
     steps:
       - uses: actions/checkout@v7
       - name: Packages

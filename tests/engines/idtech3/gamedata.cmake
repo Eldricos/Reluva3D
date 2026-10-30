@@ -30,88 +30,20 @@
 # its record is the same as the committed one, so any change in what the
 # engine does with the real game is caught.
 #
-# Environment:
-#   RELUVA_STVEF             the game's folder
-#   RELUVA_GAMEDATA_UPDATE=1 write this run's records as the new ones
-#   RELUVA_GAMEDATA_RECORDS  a folder of records of your own, instead of the
-#                            committed ones
-# Each command's full output is kept in the build, under gamedata/idtech3/
-# <step>/, with the previous run's beside it (.previous.txt), to see what
-# changed.
+# Environment: RELUVA_STVEF, the game's folder; and those of the shared
+# helpers (cmake/ReluvaGamedata.cmake): RELUVA_GAMEDATA_UPDATE=1 writes this
+# run's records as the new ones, RELUVA_GAMEDATA_RECORDS names a folder of
+# records of your own. Each command's full output is kept in the build,
+# under gamedata/idtech3/<step>/, with the previous run's beside it
+# (.previous.txt), to see what changed.
 
-cmake_minimum_required(VERSION 3.24)
+include("${HELPERS}")
+gamedata_begin("the one holding baseEF")
 
-set(game_dir "$ENV{${GAME_ENV}}")
-if(game_dir STREQUAL "")
-    message("SKIPPED: set ${GAME_ENV} to the game's folder (the one holding baseEF) to run this step")
-    return()
-endif()
-if(NOT IS_DIRECTORY "${game_dir}")
-    message(FATAL_ERROR "${GAME_ENV} is \"${game_dir}\", which isn't a folder")
-endif()
-file(REAL_PATH "${game_dir}" game_dir)
-
-# The base game's folder, in any case.
-set(base "")
-file(GLOB children LIST_DIRECTORIES true "${game_dir}/*")
-foreach(child IN LISTS children)
-    get_filename_component(leaf "${child}" NAME)
-    string(TOLOWER "${leaf}" lower)
-    if(lower STREQUAL "baseef" AND IS_DIRECTORY "${child}")
-        set(base "${child}")
-    endif()
-endforeach()
+find_folder(base "${game_dir}" baseEF)
 if(base STREQUAL "")
     message(FATAL_ERROR "No baseEF folder in ${game_dir}")
 endif()
-
-# Runs reluva-tool with the arguments given; fails the step if it fails.
-# The output, with the game's folder and timings taken out, in <var>.
-function(run_tool var)
-    execute_process(COMMAND "${TOOL}" ${ARGN}
-        OUTPUT_VARIABLE out ERROR_VARIABLE out RESULT_VARIABLE rc TIMEOUT 1800)
-    string(REPLACE "${game_dir}" "<game>" out "${out}")
-    string(REGEX REPLACE " in [0-9]+(\\.[0-9]+)? s" "" out "${out}")
-    if(NOT rc EQUAL 0)
-        list(JOIN ARGN " " shown)
-        string(REPLACE "${game_dir}" "<game>" shown "${shown}")
-        string(LENGTH "${out}" length)
-        if(length GREATER 4000)
-            math(EXPR from "${length} - 4000")
-            string(SUBSTRING "${out}" ${from} 4000 out)
-        endif()
-        message(FATAL_ERROR "reluva-tool ${shown} failed (${rc}):\n${out}")
-    endif()
-    set(${var} "${out}" PARENT_SCOPE)
-endfunction()
-
-# The step's record lines, kept in order.
-set(record "")
-# One run of the tool: <name> in the record, with a checksum of its output
-# and the last line matching <summary> (a regular expression; "" for none).
-function(record_run name summary)
-    run_tool(out ${ARGN})
-    set(dir "${OUTPUT}/${STEP}")
-    file(MAKE_DIRECTORY "${dir}")
-    if(EXISTS "${dir}/${name}.txt")
-        file(RENAME "${dir}/${name}.txt" "${dir}/${name}.previous.txt")
-    endif()
-    file(WRITE "${dir}/${name}.txt" "${out}")
-    string(SHA256 sum "${out}")
-    string(SUBSTRING "${sum}" 0 16 sum)
-    set(line "${name}: ${sum}")
-    if(NOT summary STREQUAL "")
-        # (A ";" would split the line: CMake's lists.)
-        string(REPLACE ";" "," flat "${out}")
-        string(REGEX MATCHALL "[^\n]*${summary}[^\n]*" found "${flat}")
-        if(found)
-            list(GET found -1 last)
-            string(STRIP "${last}" last)
-            string(APPEND line " | ${last}")
-        endif()
-    endif()
-    set(record "${record}${line}\n" PARENT_SCOPE)
-endfunction()
 
 # What the game is: the record's folder is named after it.
 run_tool(detected detect "${game_dir}")
@@ -219,40 +151,12 @@ elseif(STEP STREQUAL "cinematics")
         set(yuv "${OUTPUT}/${STEP}/${video}.yuv")
         set(pcm "${OUTPUT}/${STEP}/${video}.pcm")
         record_run(${video} "frames, " idtech3 bink-decode "${base}" video/${video} -frames 60 -yuv "${yuv}" -pcm "${pcm}")
-        file(SHA256 "${yuv}" yuv_sum)
-        file(SHA256 "${pcm}" pcm_sum)
-        string(SUBSTRING "${yuv_sum}" 0 16 yuv_sum)
-        string(SUBSTRING "${pcm_sum}" 0 16 pcm_sum)
-        string(APPEND record "${video}.pictures: ${yuv_sum}\n${video}.sound: ${pcm_sum}\n")
+        record_file(${video}.pictures "${yuv}")
+        record_file(${video}.sound "${pcm}")
         file(REMOVE "${yuv}" "${pcm}")
     endforeach()
 else()
     message(FATAL_ERROR "No step \"${STEP}\"")
 endif()
 
-# The record, against the one kept for this release.
-set(records "${RECORDS}")
-if(NOT "$ENV{RELUVA_GAMEDATA_RECORDS}" STREQUAL "")
-    set(records "$ENV{RELUVA_GAMEDATA_RECORDS}")
-endif()
-set(record_file "${records}/${slug}/${STEP}.txt")
-if("$ENV{RELUVA_GAMEDATA_UPDATE}" STREQUAL "1")
-    file(MAKE_DIRECTORY "${records}/${slug}")
-    file(WRITE "${record_file}" "${record}")
-    message("Record written: ${record_file}\n${record}")
-    return()
-endif()
-if(NOT EXISTS "${record_file}")
-    message(FATAL_ERROR "No record for ${release}'s ${STEP} step (${record_file}). This run's:\n${record}\n"
-                        "Check it, then keep it with RELUVA_GAMEDATA_UPDATE=1.")
-endif()
-file(READ "${record_file}" want)
-if(want STREQUAL record)
-    message("${release}, ${STEP}: as recorded\n${record}")
-    return()
-endif()
-message(FATAL_ERROR "${release}, ${STEP}: different from the record (${record_file}).\n"
-                    "Recorded:\n${want}\nThis run:\n${record}\n"
-                    "Each command's output is in ${OUTPUT}/${STEP}/ with the previous run's beside it "
-                    "(.previous.txt). If the change is meant, run again with RELUVA_GAMEDATA_UPDATE=1 and "
-                    "review the records' diff.")
+gamedata_end("${release}" "${slug}")

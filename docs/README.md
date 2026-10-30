@@ -6,6 +6,7 @@ requirements, building, running and contributing. The rest is here.
 | Folder | What's in it |
 |---|---|
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Notes for working on Reluva: build options, tests, the render check, shaders, IDEs, troubleshooting |
+| [ADDING_AN_ENGINE.md](ADDING_AN_ENGINE.md) | Starting a new engine from the template, and taking it to a game that runs |
 | [common/](common/) | Formats and components shared by engines, matching `src/common/` |
 | [engines/](engines/) | One folder per engine, matching `src/engines/<engine>/` |
 

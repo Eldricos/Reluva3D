@@ -49,6 +49,7 @@
 #include "tests/engines/idtech3/data/qvm/fake_game_qvm.h"
 #include "tests/engines/idtech3/data/qvm/fake_ui_qvm.h"
 #include "tests/engines/idtech3/fixtures.h"
+#include "tests/support/record.h"
 #include "tests/support/test.h"
 #include "tests/support/zip_writer.h"
 
@@ -67,48 +68,8 @@ namespace ef = reluva::idtech3::eliteforce;
 
 namespace {
 
-// FNV-1a, 64 bits, over everything added: a checksum that's the same on
-// every machine.
-class Hash {
-public:
-    Hash& bytes(const void* data, size_t size) {
-        const auto* p = static_cast<const uint8_t*>(data);
-        for (size_t i = 0; i < size; ++i) {
-            h_ ^= p[i];
-            h_ *= 0x100000001b3ull;
-        }
-        return *this;
-    }
-    Hash& bytes(const std::vector<uint8_t>& v) { return bytes(v.data(), v.size()); }
-    Hash& text(const std::string& s) { return bytes(s.data(), s.size() + 1); }
-    Hash& i32(int32_t v) { return bytes(&v, 4); }
-    Hash& f32(float v) { return bytes(&v, 4); }
-    std::string hex() const {
-        char out[17];
-        std::snprintf(out, sizeof out, "%016llx", static_cast<unsigned long long>(h_));
-        return out;
-    }
-
-private:
-    uint64_t h_ = 0xcbf29ce484222325ull;
-};
-
-// The run's record: "step: value" lines, in order.
-class Record {
-public:
-    void add(const std::string& step, const std::string& value) { lines_.push_back(step + ": " + value); }
-    void add(const std::string& step, int64_t value) { add(step, std::to_string(value)); }
-    const std::vector<std::string>& lines() const { return lines_; }
-    // A step that couldn't be done at all.
-    void fail(const std::string& step, const std::string& why) {
-        add(step, "FAILED " + why);
-        ++failures;
-    }
-    int failures = 0;
-
-private:
-    std::vector<std::string> lines_;
-};
+using test::Hash;
+using test::Record;
 
 std::vector<uint8_t> bytesOf(const uint8_t* begin, size_t size) { return {begin, begin + size}; }
 
@@ -405,19 +366,9 @@ void menus(const SearchSet& set, Record& rec) {
     rec.add("menus.cvar", r);
 }
 
-std::vector<std::string> readLines(const std::filesystem::path& path) {
-    std::vector<std::string> out;
-    std::ifstream in(path);
-    for (std::string line; std::getline(in, line);)
-        if (!line.empty() && line[0] != '#')
-            out.push_back(line);
-    return out;
-}
-
 // The run, its record against the committed one (or, with --update,
 // written as the new one).
 void engineTest(const std::filesystem::path& tmp) {
-    const std::filesystem::path recordPath = RELUVA_SOURCE_DIR "/tests/engines/idtech3/data/engine-record.txt";
     const std::filesystem::path dir = tmp / "install";
     makeInstall(dir);
     Record rec;
@@ -429,39 +380,8 @@ void engineTest(const std::filesystem::path& tmp) {
     files(set, rec);
     play(set, rec);
     menus(set, rec);
-    for (const std::string& line : rec.lines())
-        if (line.find(": FAILED ") != std::string::npos)
-            test::fail(line);
-
-    if (test::option("update")) {
-        std::filesystem::create_directories(recordPath.parent_path());
-        std::ofstream out(recordPath);
-        out << "# The id Tech 3 engine test's record (tests/engines/idtech3/engine.cpp).\n"
-               "# Written by `reluva-tests idtech3.engine --update`; review its diff before committing.\n";
-        for (const std::string& line : rec.lines())
-            out << line << "\n";
-        std::printf("Record written to %s (%zu lines)\n", recordPath.string().c_str(), rec.lines().size());
-        return;
-    }
-
-    const std::vector<std::string> want = readLines(recordPath);
-    if (want.empty())
-        return test::fail("no record at " + recordPath.string() + ": make one with reluva-tests idtech3.engine --update");
-    int differ = 0;
-    const size_t n = std::max(want.size(), rec.lines().size());
-    for (size_t i = 0; i < n; ++i) {
-        const std::string got = i < rec.lines().size() ? rec.lines()[i] : "(nothing)";
-        const std::string expected = i < want.size() ? want[i] : "(nothing)";
-        if (got == expected) {
-            std::printf("  ok    %s\n", got.c_str());
-            continue;
-        }
-        ++differ;
-        std::printf("  DIFF  %s\n        was %s\n", got.c_str(), expected.c_str());
-    }
-    if (differ)
-        test::fail(std::to_string(differ) + " line(s) differ from " + recordPath.string() +
-                   ". If the change is meant, run reluva-tests idtech3.engine --update and review the record's diff.");
+    rec.check(RELUVA_SOURCE_DIR "/tests/engines/idtech3/data/engine-record.txt", "idtech3.engine",
+              "tests/engines/idtech3/engine.cpp");
 }
 
 } // namespace
