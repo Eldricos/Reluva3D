@@ -206,6 +206,8 @@ private:
     // TAPI's events, delivered when the thread that started it next asks
     // for messages or sleeps (serial.cpp).
     std::function<void(x86::Cpu&)> tapiDeliver_;
+    std::function<bool()> tapiNews_; // whether there are events (a wait condition)
+    uint32_t tapiThread_ = 0;        // the thread they go to: the one that started TAPI
     class CommPort;
     class SerialLink;
     class ModemPort;

@@ -871,10 +871,18 @@ void GameHost::addUser() {
         auto& q = queues_[self()];
         if (tapiDeliver_)
             tapiDeliver_(c);
-        process_->wait([&] { return !q.empty(); }, 0xffffffffu);
+        const bool tapi = tapiNews_ && tapiThread_ == self();
+        process_->wait([&] { return !q.empty() || (tapi && tapiNews_()); }, 0xffffffffu);
         if (process_->ending()) {
             c.abort("the process is ending");
             return 0u;
+        }
+        if (q.empty() && tapi) {
+            // TAPI's news: its callbacks run, and WM_NULL comes back, as
+            // the message to TAPI's own window would.
+            tapiDeliver_(c);
+            writeMsg(c, c.arg(0), {0, 0, 0, 0, uint32_t(process_->now())});
+            return 1u;
         }
         const Message m = q.front();
         q.pop_front();

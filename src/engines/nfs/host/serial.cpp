@@ -391,26 +391,35 @@ void GameHost::addModem() {
     // What's happened on the line since: a call coming in, a dial
     // answered or not; then the events, to the callback of the thread
     // that initialised TAPI (as its hidden window would deliver them).
-    auto deliver = [this, m, queue](Cpu& c) {
-        if (process_->currentThread() && process_->currentThread()->id != m->thread)
-            return;
+    // Whether there's news for the game: the line looked at (a call coming
+    // in, a dial answered or not), its events queued (without waking
+    // anyone: this runs as a thread's wait condition).
+    auto news = [this, m] {
+        auto add = [m](uint32_t state, uint32_t p2) { m->events.push_back({kCall, kLineCallState, state, p2, 0}); };
         if (m->answering && !m->offered && !m->call && m->listener && m->listener->connected()) {
             m->offered = true;
             say("  modem: a call is coming in");
-            queue(kCall, kLineCallState, kOffering, 0x10); // LINEMEDIAMODE_DATAMODEM
+            add(kOffering, 0x10); // LINEMEDIAMODE_DATAMODEM
         }
         if (m->dialing && m->call) {
             if (m->call->connected()) {
                 m->dialing = false;
                 m->connected = true;
                 say("  modem: the call is answered");
-                queue(kCall, kLineCallState, kConnected, 0x10);
+                add(kConnected, 0x10);
             } else if (std::chrono::steady_clock::now() - m->dialedAt > std::chrono::seconds(30)) {
                 m->dialing = false;
                 say("  modem: no answer");
-                queue(kCall, kLineCallState, kDisconnected, 0x8); // LINEDISCONNECTMODE_NOANSWER
+                add(kDisconnected, 0x8); // LINEDISCONNECTMODE_NOANSWER
             }
         }
+        return !m->events.empty() && m->callback;
+    };
+    tapiNews_ = news;
+    auto deliver = [this, m, news](Cpu& c) {
+        if (process_->currentThread() && process_->currentThread()->id != m->thread)
+            return;
+        news();
         while (!m->events.empty() && m->callback) {
             const auto e = m->events.front();
             m->events.pop_front();
@@ -444,6 +453,7 @@ void GameHost::addModem() {
     provide(t, "lineInitialize", 5, [this, m](Cpu& c) {
         m->callback = c.arg(2);
         m->thread = process_->currentThread() ? process_->currentThread()->id : 0;
+        tapiThread_ = m->thread;
         c.write32(c.arg(0), 1);
         c.write32(c.arg(4), 1);
         say("  modem: TAPI started, one line");
