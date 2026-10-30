@@ -2,140 +2,258 @@
 
 **R**eimplemented **E**ngines for **L**egacy, **U**nsupported & **V**intage **A**dventures.
 
-A framework for running classic games natively on modern systems by
-reimplementing their engines, in the spirit of ScummVM. Games are not
-included: you point Reluva at your own installed copy.
+Reluva runs classic games natively on modern systems by reimplementing
+their engines, in the spirit of ScummVM. Games aren't included: you point
+Reluva at your own copy, and it plays it on Windows, Linux or macOS. There's
+no emulator and no original engine, and nothing to install from the game's
+CD.
 
-## Layout
+## Games
 
-```
-src/common/        platform-independent core: System interface, events,
-                   surfaces, config, case-insensitive file lookup, detection,
-                   text and a built-in font; archives (folders, .zip/.pk3) and
-                   search sets; image decoding (TGA, JPEG, PNG, BMP); the 3D
-                   rendering interface (gfx3d.h)
-  audio/           sound decoders and the mixer, shared by every engine: WAV (PCM, IMA ADPCM), MP3
-third_party/       outside code Reluva builds in, each with its licence (minimp3, stb_image)
-src/backends/sdl3/ the only code that touches SDL (window, rendering, input, audio),
-                   including 3D on SDL's GPU API and its shaders
-src/launcher/      Dear ImGui game list: add / remove / start games
-src/engines/       one directory per engine, plus registry.cpp listing them
-  testbed/         built-in test "game" that exercises the backend
-  newworlds/       Star Trek: New Worlds: readers for its archives and their
-                   files; currently runs as a data viewer
-  idtech3/         games on the Quake III Arena engine, starting with Star Trek:
-                   Voyager - Elite Force: search path, shader scripts, BSP
-                   maps; currently runs as a data viewer (docs/engines/idtech3.md)
-src/tools/         reluva-tool, utilities for studying game data
-tests/             unit tests for common/ and the engines
-```
+Each engine is a module that can run a family of games.
 
-Engines only use `common/` and `engines/engine.h`. They never include SDL.
+| Engine | Games | State | Docs |
+|---|---|---|---|
+| `idtech3` | Star Trek: Voyager - Elite Force (1.0, 1.2, Expansion Pack) | Playable: single player, Holomatch (multiplayer, LAN and Internet), mods | [docs/engines/idtech3](docs/engines/idtech3/README.md) |
+| `newworlds` | Star Trek: New Worlds | Data viewer, first missions playable on their maps; off by default | [docs/engines/newworlds](docs/engines/newworlds/README.md) |
+| `testbed` | A test pattern, no game | For checking a system's graphics, sound and input | — |
+
+## Requirements
+
+**To play:**
+
+- 64-bit Windows, Linux (X11 or Wayland) or macOS.
+- For 3D games, a graphics driver with Vulkan (Windows, Linux) or Metal
+  (macOS). Current drivers for AMD, Intel and NVIDIA have it; on Linux,
+  Mesa's is the `mesa-vulkan-drivers` package (or your distro's
+  equivalent).
+- Your own copy of the game. Each engine's docs say which releases it
+  recognises.
+
+**To build:**
+
+- CMake 3.24 or later, Git, and a C++20 compiler: GCC, Clang, Visual Studio
+  2022, or Apple's command line tools.
+- SDL3 and Dear ImGui are downloaded and built by CMake. The first configure
+  needs internet access and takes a few minutes.
+- On Linux, the system headers SDL builds against (below).
 
 ## Building
 
-Needs CMake 3.24+, Git and a C++20 compiler. SDL3 and Dear ImGui are
-downloaded and built automatically.
+### Linux
 
-```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j
-./build/reluva
+1. **Install the tools and SDL's build dependencies.**
+
+   **Ubuntu / Debian / Mint / Pop!_OS** (tested on Ubuntu 24.04):
+
+   ```sh
+   sudo apt install build-essential git cmake ninja-build pkg-config \
+     libasound2-dev libpulse-dev libpipewire-0.3-dev libjack-dev libsndio-dev \
+     libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev \
+     libxss-dev libxtst-dev libxkbcommon-dev libdrm-dev libgbm-dev \
+     libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev \
+     libdbus-1-dev libibus-1.0-dev libudev-dev libwayland-dev libdecor-0-dev liburing-dev
+   ```
+
+   **Fedora:**
+
+   ```sh
+   sudo dnf install gcc-c++ git cmake ninja-build \
+     alsa-lib-devel pulseaudio-libs-devel pipewire-devel pipewire-jack-audio-connection-kit-devel \
+     libX11-devel libXext-devel libXrandr-devel libXcursor-devel libXfixes-devel libXi-devel \
+     libXScrnSaver-devel libxkbcommon-devel libdrm-devel mesa-libgbm-devel \
+     mesa-libGL-devel mesa-libGLES-devel mesa-libEGL-devel vulkan-devel \
+     wayland-devel wayland-protocols-devel libdecor-devel dbus-devel ibus-devel systemd-devel liburing-devel
+   ```
+
+   **Arch / Manjaro / SteamOS:**
+
+   ```sh
+   sudo pacman -S base-devel git cmake ninja alsa-lib jack libpulse pipewire sndio \
+     libx11 libxcursor libxext libxinerama libxkbcommon libxrandr libxrender libxss libxtst \
+     mesa vulkan-headers wayland wayland-protocols libdecor ibus libusb hidapi
+   ```
+
+   The Fedora and Arch lists follow SDL's own
+   [Linux build notes](https://wiki.libsdl.org/SDL3/README-linux#build-dependencies).
+   Check there if a package name has changed.
+
+2. **Build and run:**
+
+   ```sh
+   git clone https://github.com/Eldricos/Reluva3D.git
+   cd Reluva3D
+   cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+   cmake --build build
+   ./build/reluva
+   ```
+
+### Windows (Visual Studio 2022)
+
+1. **Install Visual Studio.**
+   1. Run the [Visual Studio 2022 installer](https://visualstudio.microsoft.com/vs/)
+      (Community edition is free).
+   2. Tick the **Desktop development with C++** workload. Its default
+      components include **C++ CMake tools for Windows** and a **Windows
+      SDK**, the two you need.
+   3. Under **Individual components**, also tick **Git for Windows**, unless
+      you have Git already.
+2. **Open the project.**
+   1. Start Visual Studio, choose **Clone a repository**, and paste
+      `https://github.com/Eldricos/Reluva3D.git`. If you've cloned it
+      already, use **File > Open > Folder...** instead.
+   2. Visual Studio configures the project from `CMakeLists.txt`. The first
+      time, it downloads and builds SDL3 and ImGui. Wait for *"CMake
+      generation finished."* in the **Output** window, with "CMake" chosen
+      in its dropdown.
+3. **Build and run.**
+   1. In the toolbar, choose **x64-Release** for a fast build (or
+      **x64-Debug** for debugging).
+   2. In **Select Startup Item**, next to the green ▶ button, choose
+      **reluva.exe**.
+   3. Press **F5** to build and run under the debugger, or **Ctrl+F5** to
+      run without it.
+
+   A console window beside the game shows Reluva's log.
+
+**From a command prompt instead:** use the **x64 Native Tools Command Prompt
+for VS 2022** (in the Start menu):
+
+```bat
+git clone https://github.com/Eldricos/Reluva3D.git
+cd Reluva3D
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release
+build\Release\reluva.exe
 ```
 
-Engines are CMake options (`RELUVA_ENGINE_IDTECH3` on, `RELUVA_ENGINE_NEWWORLDS`
-off by default for now); see the build notes.
+With this generator, pick Debug or Release with `--config` when building.
 
-See **[docs/BUILDING.md](docs/BUILDING.md)** for step-by-step instructions for
-Linux (with each distro's packages) and Windows with Visual Studio 2022.
+### macOS
 
-## Usage
+1. **Install the tools:** Apple's command line tools
+   (`xcode-select --install`), then CMake and Ninja, for example with
+   [Homebrew](https://brew.sh): `brew install cmake ninja`.
+2. **Build and run:**
 
-- `reluva` opens the launcher. *Add Game...* scans a folder for supported games
-  and plays them from there. *Import Game...* copies a game from its CD (or a
-  disc image, or an install made by its own setup) into a folder of Reluva's,
-  only the files Reluva needs, so nothing needs installing, on any system.
-  *Add patch...* there, or *Apply Patch...* for a game already added, takes
-  the patched files out of the game's patch installer (Elite Force's
-  `eliteforcepatch1_2.exe`) without running it. *Add expansion...* (or
-  *Add Expansion...* for a game already added) copies the Expansion Pack from
-  its CD; each game has a *Use the Expansion Pack* checkbox, so the same
-  folder can be added twice to play with and without it. Mods (folders
-  beside the game's with their own paks) are chosen with a game's *Mod*
-  setting or the game's own Mods screens.
-- `reluva-tool detect <folder>` and `reluva-tool import <source> [destination]`
-  do the same from a terminal.
-- `reluva <target>` starts a configured game directly. `reluva testbed`
-  runs the test pattern.
-- `reluva --hash <files...>` prints detection signatures for an engine's table.
-- `reluva-tool` has developer tools for studying game data: `hexdump`,
-  `cat-probe`, `cat-list` and `cat-extract` (New Worlds archives).
-- In game: **Ctrl+F5** returns to the launcher, **Alt+Enter** toggles fullscreen.
-- New Worlds currently opens as a data viewer. **Tab** switches between missions, models,
-  textures, maps, sounds, strings and fonts, **Left/Right** step through them and **F** cycles filters.
-  Missions (level.dat's list) show their map with the briefing over it: **Up/Down** turn its
-  pages, **B** hides it, **J** picks the side of a joint mission, **Space** plays the mission's
-  voice clip, **N/P** the next or previous one, **M** the planet's music, **Enter** plays the
-  briefing step by step (**Enter** again skips a step, **Backspace** stops), **X** steps through
-  the mission's script (its events, messages and objectives; **Z** stops), **I** shows the game's
-  interface over the map in the side's style (the script's messages and objectives in it), **C**
-  shows or hides the colony (its hub where the recordings put it, growing as the script builds)
-  and **V** looks at it, and **F3** plays on the map with the game's own camera and controls
-  (select and move the colony's starting units, **B** to build, the mission's script running;
-  see `docs/formats/newworlds/game.md`); the map's
-  keys work too. For
-  models, drag with the mouse (or **W/A/S/D**) to rotate, use the wheel (or
-  **+/-**) to zoom, **Space** to spin, **P** to show one part at a time, **L**
-  for outlines, **U** for texture-coordinate checks, **T** to turn textures off, **G** to change how alpha layers are used (by default glow in `_g` textures, transparency in the others), **H** for smooth or flat shading, **M** for the model's points (from its .mdl), **N** to select the next one and **K** to play its animations (or sweep its turret)
-  (glow, ignored, transparency), **C** to
-  colour faces by texture number, **B** to show back faces
-  and **R** to reset the view. Maps are built from their ground tiles: drag to
-  rotate, use the wheel to zoom, **W/A/S/D** to move, **Q/E** to turn,
-  **Left/Right** for the next map, **T** for textures, **G** to colour the ground by its terrain codes or show resource deposits, **O** for the placed trees and rocks, **H** for smooth or flat shading, **K** for
-  the walls between levels and **L** for outlines. For sounds, **Space** (or
-  **Enter**) plays or stops the selected one, **A** plays each as it's selected and **F**
-  lists every copy of the sounds the archives store more than once. For strings,
-  **Left/Right** picks a table, **Up/Down**, **PageUp/PageDown** and **Home/End**
-  scroll, **+/-** change the text size and **F** switches to the game's fonts.
-  For fonts, **Left/Right** picks one, **+/-** change the size and **B** outlines
-  the glyphs' boxes.
+   ```sh
+   git clone https://github.com/Eldricos/Reluva3D.git
+   cd Reluva3D
+   cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+   cmake --build build
+   ./build/reluva
+   ```
 
-- Elite Force (id Tech 3) also opens as a data viewer, starting on its maps in 3D.
-  **Ctrl+Tab** switches between the menus, the game, the 3D world, models, wireframe maps, textures and
-  files (plain **Tab** is the game's). In the world,
-  **Left/Right** picks a map, drag to look, **W/A/S/D** move, **Space/C** (or **E/Q**) go up
-  and down, **Shift** goes faster, **R** returns to the start and **I** shows or hides the
-  info; it needs a GPU with Vulkan (Linux, Windows) or Metal (macOS). Models placed by the
-  map's entities show too. The models page shows every model, players put together:
-  **Left/Right** step, drag to turn, the wheel zooms, **A** animates, **,/.** step frames.
-  For wireframe maps,
-  **Left/Right** picks one,
-  drag (or **Shift+arrows**) rotates, the wheel (or **+/-**) zooms, **W/A/S/D/Q/E** move,
-  **P** shows or hides patches, **I** the info and **R** resets the view. For textures,
-  **Left/Right** step through them (**PageUp/PageDown** by 10). The files page lists the
-  search path and which archive each file comes from.
+macOS builds and passes the tests and the 3D render check on Apple Silicon
+in CI. It hasn't been played on a Mac yet.
 
-The config is saved as `reluva.ini` in SDL's preferences folder
-(`~/.local/share/reluva/reluva/` on Linux, `%APPDATA%\reluva\reluva\` on Windows).
+### Build options
 
-## Elite Force: status notes
+Engines can be left out of the build:
 
-- [docs/KNOWN_DIFFERENCES.md](docs/KNOWN_DIFFERENCES.md): where Reluva
-  deliberately differs from the original game.
-- [docs/UNCONFIRMED.md](docs/UNCONFIRMED.md): what's assumed rather than
-  confirmed.
-- [docs/TESTING.md](docs/TESTING.md): what still needs playing.
-- [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md): how it was all
-  worked out, and the rules followed.
+| Option | Engine | Default |
+|---|---|---|
+| `RELUVA_ENGINE_IDTECH3` | id Tech 3 (Elite Force) | on |
+| `RELUVA_ENGINE_NEWWORLDS` | Star Trek: New Worlds | off: two of its files hold string literals longer than Visual Studio accepts. With GCC or Clang, add `-DRELUVA_ENGINE_NEWWORLDS=ON` |
+| `RELUVA_BUILD_TESTS` | the unit tests | on |
+| `RELUVA_USE_SYSTEM_SDL` | use an installed SDL3 instead of building it | off |
+
+In Visual Studio the options are under **Project > CMake Settings**.
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) has debug builds, tests, the
+render check and troubleshooting.
+
+## Using Reluva
+
+`reluva` opens the launcher, a list of your games.
+
+- **Add Game...** finds the games in a folder, such as an existing install,
+  and plays them from there.
+- **Import Game...** copies a game from its CD, a disc image, or an install
+  into Reluva's own library folder. It takes only the files Reluva needs, so
+  nothing has to be installed, on any system. Some engines can apply a
+  game's patches and expansions as they're copied.
+- **Start** (or a double-click) plays the selected game. Settings for the
+  selected game, where an engine has them, are shown below the buttons.
+
+In a game:
+
+- **Ctrl+F5** returns to the launcher.
+- **Alt+Enter** toggles fullscreen.
+
+What each game's pages and keys are is in its engine's docs.
+
+### From the command line
+
+| Command | What it does |
+|---|---|
+| `reluva <name>` | Starts a game from the launcher's list directly, by its entry's name |
+| `reluva testbed` | The test pattern: **Esc** to exit, **Space** for a tone |
+| `reluva --hash <files...>` | Prints files' detection signatures, for an engine's table of releases |
+| `reluva-tool` | Developer tools for studying games' files; alone, it lists its commands |
+
+### Where Reluva keeps its files
+
+Everything goes in SDL's preferences folder for Reluva:
+
+| System | Folder |
+|---|---|
+| Linux | `~/.local/share/reluva/reluva/` |
+| Windows | `%APPDATA%\reluva\reluva\` |
+| macOS | `~/Library/Application Support/reluva/reluva/` |
+
+In it:
+
+- **`reluva.ini`:** the launcher's list of games, and their settings.
+- **`games/<name>/`:** each game's own files: its settings, saved games,
+  screenshots and downloads.
+- **`library/`:** games copied by *Import Game...*.
+
+## Repository layout
+
+```
+src/common/          platform-independent core: the System interface, events, surfaces, config,
+                     case-insensitive file lookup, detection, archives (folders, .zip/.pk3) and
+                     search sets, images, text and fonts, the 3D rendering interface (gfx3d.h),
+                     installers (Wise), and shared interpreters and decoders
+  audio/             sound decoders and the mixer: WAV (PCM, IMA ADPCM), MP3
+  video/             video decoders (Bink)
+  x86/               an x86 interpreter and Windows stand-ins, for games' native code
+src/backends/sdl3/   the only code that touches SDL: window, rendering (2D and 3D, on SDL's GPU
+                     API), input, audio
+src/backends/sockets/ networking
+src/launcher/        the launcher (Dear ImGui)
+src/engines/         one folder per engine, plus registry.cpp listing them
+src/tools/           reluva-tool and reluva-render-check
+tests/               unit tests and their data
+third_party/         outside code built in, each with its licence (minimp3, stb_image)
+docs/                documentation: shared in docs/common/, each engine's in docs/engines/<engine>/
+```
+
+Engines use only `src/common/` and `src/engines/engine.h`. They never
+include SDL.
+
+## Documentation
+
+[docs/README.md](docs/README.md) is the map. In short:
+
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): working on Reluva.
+- [docs/common/](docs/common/): formats and components shared by engines.
+- `docs/engines/<engine>/`: everything about one engine and its games.
 
 ## Adding an engine
 
-1. Create `src/engines/<name>/` with an `Engine` and a `MetaEngine` (copy `testbed`).
-2. Add a detection table built with `reluva --hash`.
-3. Register its accessor in `src/engines/registry.cpp` and add the source to
-   `CMakeLists.txt`.
+1. Create `src/engines/<name>/` with an `Engine` and a `MetaEngine` (copy
+   `testbed`).
+2. Add a detection table, built with `reluva --hash`.
+3. Register its accessor in `src/engines/registry.cpp`, and add its sources
+   and a `RELUVA_ENGINE_<NAME>` option to `CMakeLists.txt`.
+4. Document it in `docs/engines/<name>/`, starting with a `README.md`:
+   what it runs, where it stands, how to use it.
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) first: only clean-room work is accepted.
+## Contributing
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) first: only clean-room work is
+accepted.
 
 ## License
 

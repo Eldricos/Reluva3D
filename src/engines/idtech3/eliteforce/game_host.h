@@ -30,7 +30,7 @@ namespace reluva::idtech3::eliteforce {
 
 // Elite Force's game logic (vm/qagame.qvm, the server side of Holomatch)
 // run with the engine side of its system calls, in Elite Force's
-// numbering (docs/formats/idtech3/eliteforce-syscalls.md). For now it
+// numbering (docs/engines/idtech3/formats/eliteforce-syscalls.md). For now it
 // loads a level: the map's entities are handed over, and what the game
 // does with them is recorded. Calls that would fill in the game's own
 // structures (traces, brush models) wait until their layouts are known;

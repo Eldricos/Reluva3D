@@ -15,7 +15,7 @@
 namespace reluva::idtech3 {
 
 // The checksums id Tech 3 games tell their .pk3 files apart by
-// (docs/formats/idtech3/pk3.md): the MD4 of the CRC-32 of every file in
+// (docs/engines/idtech3/formats/pk3.md): the MD4 of the CRC-32 of every file in
 // it that isn't empty, in the central directory's order (as 32-bit
 // little-endian words), its four words XORed together. A pure server's
 // checksum puts its checksum feed (a number it picks for each level)

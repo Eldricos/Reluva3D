@@ -14,7 +14,7 @@ namespace reluva::idtech3 {
 // Turns a patch surface's control points into an even grid of triangles
 // (collision uses this; drawing uses the adaptive grids below). The grid is
 // width x height control points, every 3x3 block (sharing its edges) a
-// biquadratic Bezier patch; see docs/formats/idtech3/bsp.md. Each block is
+// biquadratic Bezier patch; see docs/engines/idtech3/formats/bsp.md. Each block is
 // cut into `level` x `level` quads. Every vertex attribute is
 // interpolated. Triangles are wound like the map's polygons: clockwise
 // seen from the side the normals face.

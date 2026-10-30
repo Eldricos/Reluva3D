@@ -13,7 +13,7 @@
 namespace reluva::newworlds {
 
 // What a briefing step shows behind its page (see
-// docs/formats/newworlds/play.md).
+// docs/engines/newworlds/play.md).
 enum class BriefingView {
     Galaxy,     // the Tabula Rasa galaxy
     StarSystem, // the mission's star system

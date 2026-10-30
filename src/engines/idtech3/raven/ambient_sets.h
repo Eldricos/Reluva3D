@@ -16,7 +16,7 @@
 namespace reluva::idtech3::raven {
 
 // Ambient sound sets, as Elite Force's and Jedi Knight's engines keep them
-// (sound/sound.txt; see docs/formats/idtech3/eliteforce-sp-interface.md):
+// (sound/sound.txt; see docs/engines/idtech3/formats/eliteforce-sp-interface.md):
 // named groups of sounds the client game asks the engine to play.
 //
 // - A general set is the level's background: a looping sound and, every

@@ -15,7 +15,7 @@
 namespace reluva::idtech3 {
 
 // The joystick as Elite Force's engines read it once a frame (both
-// stvoy.exe and stvoyHM.exe; see docs/formats/idtech3/eliteforce-input.md):
+// stvoy.exe and stvoyHM.exe; see docs/engines/idtech3/formats/eliteforce-input.md):
 // its buttons as the keys JOY1 to JOY32; its x and y axes either analog
 // (joy_xbutton, joy_ybutton 0), turning and moving the player through
 // PlayerInput, or, like its third and fourth axes, a key for each way past

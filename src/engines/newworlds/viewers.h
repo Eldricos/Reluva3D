@@ -80,7 +80,7 @@ private:
 
 // Shows every model with its textures. A model's textures are the ones named
 // after it (k_bop: k_bop_a, k_bop_b, k_bop_g), in name order; each face picks
-// one with the last value of its last corner. See docs/formats/newworlds/geo.md.
+// one with the last value of its last corner. See docs/engines/newworlds/geo.md.
 //   T: textures on/off   G: alpha layers (as glow, ignored, as transparency)
 //   Left/Right: previous/next   PageUp/PageDown: jump 10   Home/End: first/last
 //   Mouse drag or W/A/S/D: rotate   wheel or +/-: zoom   R: reset the view
@@ -149,7 +149,7 @@ private:
 
 // Shows the planet maps (.gmf), built from their ground tiles: a map is a
 // grid of blocks, a block 2 x 2 tiles, and a tile one of the planet's ground
-// models. See docs/formats/newworlds/gmf.md.
+// models. See docs/engines/newworlds/gmf.md.
 //   Left/Right: previous/next map   Mouse drag: rotate   wheel or +/-: zoom
 //   W/A/S/D: move   Q/E: turn   R: reset the view   L: outlines   K: walls
 //   O: placed objects (trees, rocks) on/off   H: smooth or flat shading
@@ -179,7 +179,7 @@ public:
     // How the ground is coloured (0 textures, 1 terrain codes, 2 deposits).
     int colouring() const { return colouring_; }
     // Points the camera at a map position as the game gives them (eighths
-    // of a block, row first; see docs/formats/newworlds/gmf.md), close and
+    // of a block, row first; see docs/engines/newworlds/gmf.md), close and
     // low for a ground view or high above for an overview; a < 0 for the
     // whole map. turn() turns it about its target.
     void lookAt(int a, int b, bool ground);
@@ -498,7 +498,7 @@ private:
 // so its keys move the view), its briefing pages from the side's string
 // table, its voice clips (Media/FedVO, KlingVO, RomVO) and its planet's
 // music. The maps hold no units, buildings or colonies (see
-// docs/formats/newworlds/gmf.md); where the missions put them isn't known.
+// docs/engines/newworlds/gmf.md); where the missions put them isn't known.
 //   Left/Right: previous/next mission   Up/Down: briefing page
 //   B: briefing on/off   J: side (joint missions)
 //   Space: play/stop the voice clip   N/P: next/previous clip (and play it)

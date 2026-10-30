@@ -38,7 +38,7 @@ struct TraceResult {
 // contents share a bit with the mask. Curved surfaces (patches) collide
 // too: each is cut into triangles once, each triangle a thin convex
 // volume (its plane both ways, its edges, and its bounding box), found
-// through the same leaves. See docs/formats/idtech3/bsp.md.
+// through the same leaves. See docs/engines/idtech3/formats/bsp.md.
 class CollisionWorld {
 public:
     explicit CollisionWorld(const Bsp& bsp);

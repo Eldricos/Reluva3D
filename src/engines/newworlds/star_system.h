@@ -14,7 +14,7 @@ namespace reluva::newworlds {
 
 // The briefings' star systems: glblgame.cat's geo/solsys/ models, one per
 // system (karazin, taal, ...), and the planet pictures in lbp/txr/solsys/.
-// See docs/formats/newworlds/geo.md#star-systems.
+// See docs/engines/newworlds/geo.md#star-systems.
 
 // The system a mission's string table names most often, among the models'
 // names (compared as letters only, ignoring case: "F'Thorc" is fthorc);

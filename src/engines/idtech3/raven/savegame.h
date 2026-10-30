@@ -13,7 +13,7 @@
 namespace reluva::idtech3::raven {
 
 // Elite Force single player's saved games (saves/<name>.sav), as its
-// engine writes them (docs/formats/idtech3/eliteforce-sp-interface.md,
+// engine writes them (docs/engines/idtech3/formats/eliteforce-sp-interface.md,
 // "Saved games"): a run of chunks, each
 //
 //   id (4 bytes, its four letters as a little-endian number: 'COMM' is

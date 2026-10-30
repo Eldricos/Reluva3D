@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The bots' map of a level (.aas). See aas.h and docs/formats/idtech3/aas.md.
+// The bots' map of a level (.aas). See aas.h and docs/engines/idtech3/formats/aas.md.
 
 #include "engines/idtech3/botlib/aas.h"
 

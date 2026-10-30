@@ -1,7 +1,7 @@
 # Elite Force single player: how the DLLs and the engine talk
 
 Single player's game logic lives in two native DLLs that the x86 interpreter
-runs (see [../../engines/x86.md](../../engines/x86.md)):
+runs (see [../../engines/x86.md](../../../common/x86.md)):
 
 - `efgamex86.dll` holds the server game and, in the same DLL, the client
   game (cgame).
@@ -128,7 +128,7 @@ The engine's listing (0x415700 in its `stvoy.exe`):
 
   Reluva lists them the same way (`listMods` and `packModList` in
   `filesystem.cpp`), and loads the one chosen (see "Mods" in
-  [idtech3.md](../../engines/idtech3.md)).
+  [idtech3.md](../README.md)).
 - The search path is walked in order. A pak's files are taken in the pak's
   own order when:
   - the file's folder is at least as long as the path and starts with it

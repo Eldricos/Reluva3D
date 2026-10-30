@@ -20,7 +20,7 @@ struct PointLight {
     std::array<float, 3> direction{0, 0, 1};
 };
 
-// A map's light grid (see docs/formats/idtech3/bsp.md): light sampled on
+// A map's light grid (see docs/engines/idtech3/formats/bsp.md): light sampled on
 // a regular grid over the world, by default every 64 x 64 x 128 units.
 class LightGrid {
 public:

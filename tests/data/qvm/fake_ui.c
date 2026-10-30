@@ -4,7 +4,7 @@
  * A stand-in for a game's vm/ui.qvm, for testing the engine side of the
  * menus' system calls (src/engines/idtech3/eliteforce/ui_host.cpp) with
  * code the Quake III compiler generates. It calls them the way the
- * original's menus are seen to (docs/formats/idtech3/eliteforce-syscalls.md),
+ * original's menus are seen to (docs/engines/idtech3/formats/eliteforce-syscalls.md),
  * in Elite Force's numbering (fake_ui.asm). build.sh compiles it into
  * fake_ui_qvm.h. vmMain must be the first function. */
 

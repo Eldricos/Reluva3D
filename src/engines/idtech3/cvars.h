@@ -14,7 +14,7 @@ namespace reluva::idtech3 {
 class Qvm;
 
 // Console variables: named strings the engine and the game code share
-// (settings, game state). See docs/formats/idtech3/qvm.md.
+// (settings, game state). See docs/engines/idtech3/formats/qvm.md.
 class CvarStore {
 public:
     // Flags as the game code passes them (the Quake III values).

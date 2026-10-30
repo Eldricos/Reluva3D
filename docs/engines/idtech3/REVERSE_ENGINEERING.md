@@ -4,7 +4,7 @@ Reluva runs Star Trek: Voyager - Elite Force from the player's own copy, with
 none of Raven's or id's code in it. This page describes how the facts
 behind that were found and checked, so they can be checked again,
 extended, or applied to another game. The facts themselves are in
-[docs/formats/](formats/) and [docs/engines/](engines/), each with the
+[formats/](formats/) and this engine's [README](README.md), each with the
 address or file it came from.
 
 ## Ground rules
@@ -21,8 +21,8 @@ address or file it came from.
 - **Raven's Elite Force game source is off-limits.** The single-player
   source Raven released in 2002 comes under a licence that forbids
   derivative works and reverse engineering. It isn't read, and nothing is
-  taken from it ([idtech3.md](engines/idtech3.md#game-code-open-questions),
-  [CONTRIBUTING.md](../CONTRIBUTING.md)). The same goes for leaked source
+  taken from it ([idtech3.md](README.md#game-code-open-questions),
+  [CONTRIBUTING.md](../../../CONTRIBUTING.md)). The same goes for leaked source
   of any kind.
 - **The retail game is studied as a legally owned copy, for
   interoperability.** Its binaries are disassembled and its data files
@@ -39,10 +39,10 @@ what Reluva replaces. The game logic is what Reluva runs as it is:
 
 - **Holomatch:** three QVM programs in the paks (`vm/ui.qvm`,
   `vm/cgame.qvm`, `vm/qagame.qvm`), run by a QVM interpreter
-  ([qvm.md](formats/idtech3/qvm.md)).
+  ([qvm.md](formats/qvm.md)).
 - **Single player:** two 32-bit Windows DLLs (`efgamex86.dll`,
   `efuix86.dll`, built with Visual C++ 6), run by an x86 interpreter with a
-  small Windows stand-in ([x86.md](engines/x86.md)). This runs on any
+  small Windows stand-in ([x86.md](../../common/x86.md)). This runs on any
   machine, not just x86 Windows.
 
 So most of the reverse engineering is about the boundary: the calls each
@@ -80,7 +80,7 @@ From there:
     Expansion's engine saves exactly as 1.2's does;
   - the Expansion's import table turned out to have two new slots, with
     the old ones moved up (see
-    [eliteforce-sp-interface.md](formats/idtech3/eliteforce-sp-interface.md)).
+    [eliteforce-sp-interface.md](formats/eliteforce-sp-interface.md)).
 - **Recording the result.** Each fact goes into the docs with the address
   it came from (for example "0x415700 in the Expansion's `stvoy.exe`"), so
   anyone with the same files can look again.
@@ -112,7 +112,7 @@ every file, not just a sample:
 - `shader-check`: Elite Force's 1872 shaders use no directive outside
   Quake III's.
 - `entity-survey`: every entity class and key the maps use
-  ([eliteforce-entities.md](formats/idtech3/eliteforce-entities.md)).
+  ([eliteforce-entities.md](formats/eliteforce-entities.md)).
 - `model-check`, `image-check`, `tex-survey` and `pk3-list`: models,
   textures and archives.
 
@@ -125,13 +125,13 @@ every file, not just a sample:
 - **The 1.2 patch** is a Wise installer. Its layout was worked out from
   the file itself: a stub, a header, then raw deflate streams, each
   followed by a CRC-32. That lets Reluva take the patched files out
-  without running it, on any system ([wise.md](formats/wise.md)).
+  without running it, on any system ([wise.md](../../common/wise.md)).
 
 ### 5. The original game as the reference
 
 - **Network play** was checked against the retail game patched to 1.2,
   with Reluva as server and as client
-  ([eliteforce-network.md](formats/idtech3/eliteforce-network.md)).
+  ([eliteforce-network.md](formats/eliteforce-network.md)).
 - **In-game behaviour** was checked by playing the retail game and Reluva
   side by side on Windows, and reporting what differed. Each report became
   a fix with its cause written down: the scoreboard's missing calls, the
@@ -152,14 +152,15 @@ every file, not just a sample:
 - **The render check** (`reluva-render-check`) draws test frames through
   the 3D renderer and compares them with reference frames. CI runs it on
   macOS (Metal) and Linux (Vulkan), and builds and tests on Windows
-  ([BUILDING.md](BUILDING.md), `.github/workflows/ci.yml`).
+  ([DEVELOPMENT.md](../../DEVELOPMENT.md#the-render-check), `.github/workflows/ci.yml`).
 - **Across machines.** The same code must give the same results on every
   machine: CI on ARM found that fused multiply-add changed collision
   results, so it's turned off in the build.
 
 ## Writing it down
 
-- Facts go in `docs/formats/` (file formats, interfaces, protocols), each
+- Facts go in this folder's `formats/` (file formats, interfaces,
+  protocols), and shared code's in [docs/common/](../../common/), each
   with its source: an address in a named binary, a file and its hash, or
   the published source it was read in.
 - What Reluva does differently on purpose is listed in

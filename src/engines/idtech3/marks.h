@@ -24,7 +24,7 @@ constexpr int32_t Sky = 0x4, NoImpact = 0x10, NoMarks = 0x20;
 // the pieces of the level's surfaces under it, clipped to its outline,
 // which it then draws as polygons with its own texture coordinates. This
 // is what the original's mark fragment call answers; see
-// docs/formats/idtech3/eliteforce-syscalls.md.
+// docs/engines/idtech3/formats/eliteforce-syscalls.md.
 class MarkSurfaces {
 public:
     // The world's surfaces (the map's first model): planar faces,

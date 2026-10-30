@@ -18,7 +18,7 @@ namespace reluva::idtech3::botlib {
 // neighbours (walking, jumping, teleporting...), with how long that takes.
 // The format and what routing answers were read from the GPL ioquake3 bot
 // library (aasfile.h, be_aas_file.c, be_aas_sample.c, be_aas_route.c);
-// docs/formats/idtech3/aas.md describes them. This is new code from that
+// docs/engines/idtech3/formats/aas.md describes them. This is new code from that
 // description.
 
 // How a bot gets from one area to the next.

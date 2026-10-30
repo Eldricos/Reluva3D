@@ -4,7 +4,7 @@
 // How Bink movies are laid out and decoded follows the published
 // descriptions of the format and the GPL decoders that document it
 // (FFmpeg's, as carried by ScummVM); this is new code written from that
-// description, checked against FFmpeg's output (docs/formats/bink.md).
+// description, checked against FFmpeg's output (docs/common/bink.md).
 
 #include "common/video/bink.h"
 

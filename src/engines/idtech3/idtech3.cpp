@@ -4,7 +4,7 @@
 // id Tech 3 engine: games built on the Quake III Arena engine, starting
 // with Star Trek: Voyager - Elite Force.
 //
-// Sources: the file formats are documented in docs/formats/idtech3/, from
+// Sources: the file formats are documented in docs/engines/idtech3/formats/, from
 // the game's own data and from the Quake III Arena source code id Software
 // released under the GPL (version 2 or later, so usable in this GPLv3
 // project). See CONTRIBUTING.md: never use leaked or unlicensed code.

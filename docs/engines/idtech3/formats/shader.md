@@ -88,7 +88,7 @@ Read from the GPL Quake III Arena renderer (`tr_shader.c`,
   mirror's reflection, or a portal's camera, is drawn first inside the
   surface's shape (marked in the stencil) and clipped at its plane; then
   the surface and the main view. See
-  [idtech3.md](../../engines/idtech3.md) (Renderer).
+  [idtech3.md](../README.md) (Renderer).
 
 ## Interpreted
 

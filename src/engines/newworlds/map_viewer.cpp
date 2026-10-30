@@ -203,7 +203,7 @@ void MapViewer::resetView() {
 
 // A tile's ground model, decoded once per map, with its textures. Which
 // textures the game gives ground tiles isn't known (see
-// docs/formats/newworlds/gmf.md); chooseGroundTextures picks them by role.
+// docs/engines/newworlds/gmf.md); chooseGroundTextures picks them by role.
 const MapViewer::TileModel& MapViewer::tileModel(uint32_t index) {
     auto found = tileModels_.find(index);
     if (found != tileModels_.end())

@@ -16,7 +16,7 @@ Where a meaning is given, its source is marked:
 - **?**: not known.
 
 Raven's own Elite Force game source isn't used (see
-[../../engines/idtech3.md](../../engines/idtech3.md)).
+[../../engines/idtech3.md](../README.md)).
 
 ## Who reads them
 

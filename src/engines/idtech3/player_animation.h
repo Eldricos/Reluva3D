@@ -10,7 +10,7 @@
 namespace reluva::idtech3 {
 
 // A player model's animations (its animation.cfg): each a run of frames
-// played at a speed, some looping. See docs/formats/idtech3/md3.md.
+// played at a speed, some looping. See docs/engines/idtech3/formats/md3.md.
 struct PlayerAnimation {
     std::string name; // BOTH_DEATH1, TORSO_STAND, LEGS_RUN... (from the line's comment)
     enum class Part { Both, Torso, Legs } part = Part::Both;

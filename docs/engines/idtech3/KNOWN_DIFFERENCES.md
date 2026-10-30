@@ -19,15 +19,15 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
     running it. It recognises files by their contents and doesn't read the
     installer's script.
   - This works the same on every system.
-  - See [idtech3.md](engines/idtech3.md) (Import) and
-    [wise.md](formats/wise.md).
+  - See [idtech3.md](README.md) (Import) and
+    [wise.md](../../common/wise.md).
 - **The Expansion Pack, switchable.** Installing the original's Expansion
   replaces the single-player DLLs.
   - Reluva keeps the Expansion's DLLs in `expansion/`, beside 1.2's.
   - Each game in the launcher has a *Use the Expansion Pack* setting.
     With it off, `pak3.pk3` isn't loaded and 1.2's DLLs are used.
   - The same folder added twice gives both versions.
-  - See [idtech3.md](engines/idtech3.md) (Detection).
+  - See [idtech3.md](README.md) (Detection).
 - **Saves kept apart by version.** The original keeps 1.x and Expansion
   saves in one `saves/` folder, although neither version's game can load
   the other's: the Expansion's player chunk is longer.
@@ -35,7 +35,7 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
     found in the wrong folder.
   - Its Load menu leaves out the other version's saves, and loading one is
     refused with a message.
-  - See [eliteforce-sp-interface.md](formats/idtech3/eliteforce-sp-interface.md)
+  - See [eliteforce-sp-interface.md](formats/eliteforce-sp-interface.md)
     ("The Expansion Pack's saves").
 - **Where the player's files go.** The original writes into its install
   folder. Reluva writes into its own save folder for each game:
@@ -52,7 +52,7 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
   - Reluva puts a mod's saves, settings and screenshots in the save
     folder's `mods/<mod>/`. Its settings start as a copy of the game's.
   - The CD key is shared between mods.
-  - See [idtech3.md](engines/idtech3.md) (Mods).
+  - See [idtech3.md](README.md) (Mods).
 - **Mods in single player switch at once.** The original single-player
   engine reads `fs_game` only as it starts, so its Mods screen takes effect
   at the next launch. Reluva restarts the game's files at once, as
@@ -63,11 +63,11 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
   sorts names as Windows lists an NTFS folder: `a`-`z` compared as capitals,
   so `_` comes after the letters. Linux and macOS then give the game the
   same order as Windows. See
-  [eliteforce-sp-interface.md](formats/idtech3/eliteforce-sp-interface.md)
+  [eliteforce-sp-interface.md](formats/eliteforce-sp-interface.md)
   ("Listing files").
 - **Pak archives** are checked against each file's CRC. Encrypted, Zip64
   and split archives aren't read (none are expected in game data). See
-  [pk3.md](formats/idtech3/pk3.md).
+  [pk3.md](formats/pk3.md).
 - **Detection.** Releases are recognised by the contents of their files, not
   by the registry. Only the English Windows release and its patches are
   known. Others are shown as "unknown release".
@@ -83,18 +83,18 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
 - **Anisotropic filtering**, when turned on, is always 16x.
 - **Lightmaps** are always brightened twice over. The original doubles or
   quadruples them depending on its gamma mode; doubling matches its look in
-  a window. See [shader.md](formats/idtech3/shader.md).
+  a window. See [shader.md](formats/shader.md).
 - **Curved surfaces** are always drawn at full detail. The original lowers
   their detail with distance (`r_lodCurveError`). See
-  [bsp.md](formats/idtech3/bsp.md).
+  [bsp.md](formats/bsp.md).
 - **Collision with curved surfaces** is Reluva's own method: the curves are
   cut into small triangles that collide like thin brushes. It's close to the
-  original but not identical. See [bsp.md](formats/idtech3/bsp.md)
+  original but not identical. See [bsp.md](formats/bsp.md)
   ("Collision").
 - **Animated models in Elite Force's MDR format** are posed at load and
   blended on the GPU. The original blends the bones. It differs only in
   how a blend between two very different frames bends. See
-  [mdr.md](formats/idtech3/mdr.md).
+  [mdr.md](formats/mdr.md).
 - **Unreadable map surfaces.** A surface of an unknown type is skipped,
   where Quake III refuses the map.
 - **Not drawn yet:**
@@ -107,7 +107,7 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
   - autosprites on models (no model uses them).
 - **Drawn approximately:** `rgbGen lightingDiffuse` uses vertex colours, and
   `alphaGen portal`, `lightingSpecular` and `entity` are opaque. See
-  [shader.md](formats/idtech3/shader.md).
+  [shader.md](formats/shader.md).
 - **Ignored:** single player's `R_Scissor` call, which nothing in the game
   calls.
 
@@ -139,14 +139,14 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
   - Windows' structured exceptions end the run;
   - there's no MMX or SSE, which the game doesn't use.
 
-  See [x86.md](engines/x86.md).
+  See [x86.md](../../common/x86.md).
 
 ## Holomatch and network play
 
 - **Master servers.** Raven's master server is gone. When the menus ask for
   it, Reluva asks every master set (`sv_master1`-`5`), which includes the
   community's `efmaster.tjps.eu`. It always asks for empty and full servers
-  too. See [eliteforce-network.md](formats/idtech3/eliteforce-network.md).
+  too. See [eliteforce-network.md](formats/eliteforce-network.md).
 - **Every level is open to others.** The Play page hosts each level it
   starts on port 27960 (or the next free of 27961-27963), when the game
   code is 1.2's. `reluva-tool net-run` hosts without a local player.
@@ -165,7 +165,7 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
   - the server's frame runs before the local player's command is stamped;
   - a player-state word the protocol doesn't send is zeroed.
 
-  See [eliteforce-syscalls.md](formats/idtech3/eliteforce-syscalls.md).
+  See [eliteforce-syscalls.md](formats/eliteforce-syscalls.md).
 
 ## Menus and input
 
@@ -178,14 +178,14 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
 - **The menus' pointer** follows the system mouse.
 - **The joystick** is read through SDL rather than Windows' joystick API.
   `in_joystick` takes effect at once; the original waits for `in_restart`.
-  See [eliteforce-input.md](formats/idtech3/eliteforce-input.md).
+  See [eliteforce-input.md](formats/eliteforce-input.md).
 
 ## Bots
 
 - **Routing** finds the quickest route out from the goal over the whole map,
   and keeps it until an area opens or closes. The original speeds this up
   with clusters, portals and caches. The routes are the same kind, not
-  proven identical. See [aas.md](formats/idtech3/aas.md).
+  proven identical. See [aas.md](formats/aas.md).
 - **Bots don't answer chat.** The game has no reply-chat file
   (`rchat.c`). The code to answer is there, but the data isn't.
 
@@ -198,10 +198,10 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
   - treats division by zero as an error;
   - keeps `switch` tables read-only.
 
-  See [qvm.md](formats/idtech3/qvm.md).
+  See [qvm.md](formats/qvm.md).
 
 ## Videos
 
 - **Bink sound** is clipped before overlapping blocks are blended, which
   differs from FFmpeg's decoder on a few peaks. Colours are converted as
-  BT.601 studio range. See [bink.md](formats/bink.md).
+  BT.601 studio range. See [bink.md](../../common/bink.md).

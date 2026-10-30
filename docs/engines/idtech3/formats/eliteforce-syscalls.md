@@ -13,7 +13,7 @@ they're worked out here from the game's code, for interoperability:
   calls, documented in the GPL Quake III source (the order of its
   `ui_public.h`, `cg_public.h`, `g_public.h`). The calls are identified
   from that order and the logs below, not from Raven's SDK, which Reluva
-  doesn't use (see [the engine page](../../engines/idtech3.md)).
+  doesn't use (see [the engine page](../README.md)).
 
 "Seen" means the call appeared in a log with arguments that fit; "order"
 means it's assumed from Quake III's order (the seen calls fit that
@@ -289,7 +289,7 @@ in `absmin`/`absmax`, a unit larger than the entity's box, as the original
 does), `SetBrushModel`, traces against the world and linked entities,
 point contents, entities in a box, entity contact and the PVS tests.
 Areas and area portals are separated as the original's: see
-[idtech3.md](../../engines/idtech3.md) (Game code). A player joins as on the original server: the
+[idtech3.md](../README.md) (Game code). A player joins as on the original server: the
 userinfo string is stored for `GetUserinfo` (call 20), `vmMain(2,
 clientNum, 1, 0)` (connect: first time, not a bot) returns 0 or the
 address of the game's reason for refusing, and `vmMain(3, clientNum)`

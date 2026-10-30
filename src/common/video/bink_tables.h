@@ -7,7 +7,7 @@
 
 namespace reluva::bink {
 
-// Bink's fixed tables (docs/formats/bink.md).
+// Bink's fixed tables (docs/common/bink.md).
 extern const uint16_t kCriticalFrequencies[25]; // audio band edges, Hz
 extern const uint8_t kScan[64];                 // DCT coefficient order
 extern const uint16_t kTreeCodes[16][16];       // the 16 code trees: each symbol's code,

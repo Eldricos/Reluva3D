@@ -26,7 +26,7 @@ struct Entity {
 };
 
 // Parse the entity lump: { "key" "value" ... } blocks. See
-// docs/formats/idtech3/bsp.md.
+// docs/engines/idtech3/formats/bsp.md.
 Error parseEntities(std::string_view text, std::vector<Entity>& out);
 
 } // namespace reluva::idtech3

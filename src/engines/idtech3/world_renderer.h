@@ -17,7 +17,7 @@ namespace reluva::idtech3 {
 // Draws a map's surfaces (every model's: the world's and brush entities')
 // with their shaders through a ShaderCache: sorted by the shaders' sort
 // order, the sky box and cloud layers behind, fog passes over fogged
-// surfaces. See docs/engines/idtech3.md for what's approximate or missing.
+// surfaces. See docs/engines/idtech3/README.md for what's approximate or missing.
 class WorldRenderer {
 public:
     WorldRenderer(gfx::Renderer3D& renderer, ShaderCache& shaders) : r_(renderer), shaders_(shaders) {}

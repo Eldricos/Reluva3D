@@ -28,7 +28,7 @@ namespace reluva::idtech3::eliteforce {
 
 // Elite Force's single-player menus (efuix86.dll), run in the x86
 // interpreter in a process of their own, with the engine's side of their
-// interface (docs/formats/idtech3/eliteforce-sp-interface.md, "The menus"):
+// interface (docs/engines/idtech3/formats/eliteforce-sp-interface.md, "The menus"):
 // the 59 functions Init is handed, and calls into the 12 GetUIAPI hands
 // back. Drawing is recorded, as the client game's, for the page to show.
 class SpUiHost {

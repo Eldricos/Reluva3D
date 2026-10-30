@@ -12,7 +12,7 @@
 
 namespace reluva::newworlds {
 
-// A .gmf map (chunk tag 0x11). See docs/formats/newworlds/gmf.md; much of the
+// A .gmf map (chunk tag 0x11). See docs/engines/newworlds/gmf.md; much of the
 // format is still unknown and is skipped.
 //
 // A map is a grid of blocks; a block is 2 x 2 tiles; a tile is a ground model
@@ -76,7 +76,7 @@ int tileAt(const GmfMap& map, int tx, int ty);
 // archive order): returns, per model number, an index into geoNames, or
 // kNoModel for a number with no model. Not archive order (which differs per
 // planet) but one list of fixed places for all six planets (see
-// docs/formats/newworlds/gmf.md): base_01-16, hole_01, base_21, base_22,
+// docs/engines/newworlds/gmf.md): base_01-16, hole_01, base_21, base_22,
 // base_20, base_18, crack_03-06, -, crack_08, brid_01-02, ramp, concrete,
 // hole_03, hole_02, concact, base_19, base_23-26, base_17, -, then the
 // planets' own models at 41-54 (balls, water, mountains, arch and needle,

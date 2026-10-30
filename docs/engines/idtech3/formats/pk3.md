@@ -63,10 +63,10 @@ The install folder also holds both executables (`stvoy.exe` for single
 player, `stvoyHM.exe` for Holomatch), the native game and menu code
 (`efgamex86.dll`, `efuix86.dll`) and the Bink video player
 (`binkw32.dll`): the cinematics are Bink videos in the paks
-(`video/<name>.bik`, see [bink.md](../bink.md)).
+(`video/<name>.bik`, see [bink.md](../../../common/bink.md)).
 
 `pak0.pk3` holds 67 maps and a `vm/` folder with `qagame.qvm`,
-`cgame.qvm` and `ui.qvm` (see `docs/engines/idtech3.md`).
+`cgame.qvm` and `ui.qvm` (see `docs/engines/idtech3/README.md`).
 
 The patches and the Expansion Pack add paks: `pak1.pk3` (1.1),
 `pak2.pk3` (1.2, both with new game code in `vm/`) and `pak3.pk3` (the

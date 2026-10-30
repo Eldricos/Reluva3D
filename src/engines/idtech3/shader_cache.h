@@ -29,7 +29,7 @@ enum class Lighting { Lightmap, Vertex, Diffuse, TwoD, Effect };
 // Shaders turned into what the GPU draws, shared by everything a page
 // shows: each stage's textures loaded and states decided once, the parts
 // that change with time evaluated per draw. The rules follow the
-// original renderer, see docs/formats/idtech3/shader.md.
+// original renderer, see docs/engines/idtech3/formats/shader.md.
 class ShaderCache {
 public:
     // One stage, resolved.

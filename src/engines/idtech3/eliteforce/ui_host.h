@@ -25,7 +25,7 @@ namespace reluva::idtech3::eliteforce {
 
 // Elite Force's menus: vm/ui.qvm run with the engine side of its system
 // calls, in Elite Force's numbering, as worked out in
-// docs/formats/idtech3/eliteforce-syscalls.md. Drawing is recorded, not
+// docs/engines/idtech3/formats/eliteforce-syscalls.md. Drawing is recorded, not
 // done: each frame's pictures are collected for whatever shows them.
 class UiHost {
 public:
@@ -73,7 +73,7 @@ public:
     }
     // Where in glconfig_t Quake III's 17 words (maxTextureSize ...
     // vidWidth, vidHeight ...) start: 5124 in Elite Force, after a word of
-    // its own (docs/formats/idtech3/eliteforce-syscalls.md). For trying
+    // its own (docs/engines/idtech3/formats/eliteforce-syscalls.md). For trying
     // other layouts.
     void setGlconfigWords(int32_t offset) { glconfigWords_ = offset; }
     // Where the CD key the menus take (call 57) is kept; none: it's only

@@ -20,7 +20,7 @@ constexpr int kPrioritiesPerGameDir = 1000;
 
 // Add one game folder of an install (the base game's, or a mod's) to the
 // search set, the way id Tech 3 games search their files (see
-// docs/formats/idtech3/pk3.md): loose files first, then the folder's .pk3
+// docs/engines/idtech3/formats/pk3.md): loose files first, then the folder's .pk3
 // files, later names (compared in upper case) before earlier ones, so
 // pak1.pk3 overrides pak0.pk3 and pak_x.pk3 overrides paka.pk3.
 //

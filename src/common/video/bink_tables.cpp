@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Bink's fixed tables (docs/formats/bink.md): constants of the format that
+// Bink's fixed tables (docs/common/bink.md): constants of the format that
 // every decoder has to use, as published decoders give them.
 
 #include "common/video/bink_tables.h"

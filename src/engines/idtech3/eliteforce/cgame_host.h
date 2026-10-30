@@ -29,7 +29,7 @@ namespace reluva::idtech3::eliteforce {
 
 // Elite Force's client game (vm/cgame.qvm: the player's view, HUD and
 // effects) run with the engine side of its system calls, in Elite Force's
-// numbering (docs/formats/idtech3/eliteforce-syscalls.md). For now it
+// numbering (docs/engines/idtech3/formats/eliteforce-syscalls.md). For now it
 // starts: it's given the server's configstrings as its game state, and
 // what it loads and registers is recorded. Snapshots and drawing come
 // next; calls not implemented are counted in unhandled().
