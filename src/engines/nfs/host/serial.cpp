@@ -22,6 +22,7 @@
 #include <cctype>
 #include <chrono>
 #include <deque>
+#include <optional>
 
 namespace reluva::nfs {
 
@@ -379,6 +380,7 @@ void GameHost::addModem() {
         uint32_t nextRequest = 1;
         bool answering = false, offered = false, dialing = false, connected = false;
         std::chrono::steady_clock::time_point dialedAt;
+        std::optional<std::chrono::steady_clock::time_point> answeredAt; // when CONNECTED goes
         std::shared_ptr<SerialLink> listener, call;
         std::shared_ptr<ModemPort> port = std::make_shared<ModemPort>();
         std::deque<std::array<uint32_t, 5>> events; // device, message, param1-3
@@ -401,7 +403,15 @@ void GameHost::addModem() {
             say("  modem: a call is coming in");
             add(kOffering, 0x10); // LINEMEDIAMODE_DATAMODEM
         }
-        if (m->dialing && m->call) {
+        // Modems take seconds to connect, and the game counts on it: its
+        // main thread waits for the TAPI thread to start before it waits
+        // for the call, and misses one connected at once.
+        const auto now = std::chrono::steady_clock::now();
+        if (m->answeredAt && now >= *m->answeredAt) {
+            m->answeredAt.reset();
+            add(kConnected, 0x10);
+        }
+        if (m->dialing && m->call && now - m->dialedAt > std::chrono::seconds(2)) {
             if (m->call->connected()) {
                 m->dialing = false;
                 m->connected = true;
@@ -557,7 +567,7 @@ void GameHost::addModem() {
         m->listener.reset();
         m->connected = true;
         const uint32_t id = request();
-        queue(kCall, kLineCallState, kConnected, 0x10);
+        m->answeredAt = std::chrono::steady_clock::now() + std::chrono::seconds(2);
         say("  modem: answered");
         (void)c;
         return id;
