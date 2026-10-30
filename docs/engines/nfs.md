@@ -519,12 +519,38 @@ Started. Done so far:
     The mixer tests the same address for Dolby (`cmp [0x6fbc00],2` at
     0x417299 and 0x418119). Byte 0xac (0x6fbbec) is another setting: the
     code at 0x41057f picks 1 to 7 at random when it's 0.
-  - **Dolby Surround**, checked before with byte 0xac set to 2, so it
-    was never on. That check found opposite-phase spans in the "Dolby"
-    race, but the stereo race has them too: in 133-second recordings, the lowest
-    50 ms correlation of the race's second half is -0.95 in stereo and
-    -1.00 in Dolby. That measure doesn't tell them apart; Dolby is still to
-    check.
+  - **Dolby Surround** (audio mode 2) works: the game makes it itself,
+    in its own mixer, and nothing in Reluva is in the way. Worked out
+    from the code and from two races (modes 0 and 2, `-native
+    -deterministic`, byte 0xc0 set):
+    - The device is opened as for stereo: start-up turns mode 2 into 0
+      (0x40fb44). Dolby is only in how voices are placed.
+    - In mode 2 the game starts its sounds with voice type 1 (`mov
+      [ebp-0x9],ah` with ah 1 at 0x418467 and 0x41854b, `[ebp-0x5]` at
+      0x41823e) and an angle round the listener. Each update then sets that angle
+      (0x4e9850, called at 0x4172ad and 0x418135) where stereo sets a pan
+      (0x4e9950). In stereo, angles behind are folded to the front
+      (`0xbfff - angle`, 0x417309).
+    - The angle becomes left and right levels at 0x52b1c0. For other
+      voice types both are made positive (0x5224b0). For type 1, an
+      angle from 0x4000 to 0xc000 (behind) has one level negated
+      (0x522320; 0x522481 left, 0x522491 right): the sound goes into
+      left minus right, as a Pro Logic decoder's surround.
+    - The levels are signed bytes (0x5006a4). The mixer's set-up turns
+      them into float gains with `fild` (0x520a71), so a negative one
+      mixes in opposite phase; the native mixers keep the sign
+      (`nfs-native-check` tries gains from -1.5 to 1.5, all the same).
+    - Counted with `-watch` over a 180-second run: in stereo none of
+      843 level settings (0x5006a4) has a negative side, and of 939 at
+      the mixer (0x520a8e) none. In Dolby, 505 of 2913 have opposite
+      signs, the rear branches run 114 and 388 times, and 1554 of 4041
+      mixer settings are opposite (the lowest level -19 of 127).
+    - The recordings can't show it by themselves. Decoded as a passive
+      decoder would (S = L-R, C = L+R, 100 ms windows), the race is near
+      0 dB S/C in both modes (-1.4 stereo, -1.2 Dolby): the stereo
+      sources fill S already. Nor can the two be subtracted: the mixing
+      changes the instruction count, so the races drift apart, and
+      `-wav` pulls by the wall clock.
   - **D3D/EAX** (audio mode 3). Worked out from `eacsnd.dll`'s code and
     a race with the mode set:
     - The game asks for 3D only if the sound card has 3D buffers in
@@ -1118,8 +1144,9 @@ Allowed under CONTRIBUTING.md:
 - The movies' remaining differences from the game's frames: decoded
   samples one apart on the high-*q* fade-in frames
   ([mad.md](../formats/nfs/mad.md)).
-- Whether Dolby Surround (audio mode 2) works: the earlier check had
-  the wrong byte, and its measure can't tell Dolby from stereo.
+- How loud the Dolby surround is in a recording: the rear sounds are
+  in opposite phase in the game's levels, but the race's stereo sources
+  hide them in L-R, and two races can't be lined up to subtract.
 - The race types' names (0-3; 3 is the pursuit), the network modes 2-4,
   and the 32 Hz car-dynamics task `0x4a2830`
   ([nfs-threads.md](nfs-threads.md)).
