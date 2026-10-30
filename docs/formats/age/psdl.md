@@ -173,11 +173,17 @@ block (a road strip, a divided road or a rectangle strip): along the
 strip's first and last vertices of each section. With a count of 10 (37,
 in junctions) it walls the block's own outline: words 4 and 5 are a mask
 of its edges, bit *i* for the edge ending at outline vertex *i*, and the
-masked edges are exactly those with no block beyond them in all 37.
+masked edges have no road beyond them in all 37 (paired with the
+neighbour stored at the edge's first vertex, 76 have nothing beyond and
+33 border ground blocks, as round the railed junctions).
 Words 6-7 and 8-9 are two more edge masks the same way, identical to
 each other in all 37, set in only 4 (San Francisco's blocks 962, 964,
-966 and London's 1168), each within the wall mask; what they mark isn't
-known. Word 3 is less than the outline's edge count every time and 0 in
+966 and London's 1168), each within the wall mask. All six edges they
+mark are of no length (a corner point repeated) with a different road
+block on either side, as where two roads' mouths meet; every other
+walled edge of no length has the same road, or none, on one side. Not
+exact (four such corners aren't marked), so perhaps a wall's end post;
+not drawn. Word 3 is less than the outline's edge count every time and 0 in
 7 of London's 10 Underground junctions; it isn't a walled edge nor the
 longest, and isn't known.
 
@@ -190,7 +196,7 @@ longest, and isn't known.
 | 0x100 | a curved ceiling | only on tunnel textures (95) |
 | 0x200-0x1000 | four more flags with the closing ones, "offset" in what's remembered of the names | not used |
 | 0x4 | goes with a second height of exactly 2 m (all 135 with it, none without); 116 of San Francisco's 120 and London's one are in elevated (0x40) blocks, and two have no walls at all, so probably a 2 m fascia under a raised deck | not drawn by Reluva |
-| 0x4000 | on all London's railings (`s_conc_rail`, `tl_bridgerail_l`), San Francisco's 15 `s_conc_rail`, and every `s_wall_veg` wall of its road 4 (blocks 423-441); second height 1 or 3 | not known |
+| 0x4000 | on all London's railings (`s_conc_rail`, `tl_bridgerail_l`), San Francisco's 15 `s_conc_rail`, and every `s_wall_veg` wall of its road 4 (blocks 423-441); second height 1 or 3; always in 0x80 blocks | not known: not the texture's alpha (`pl_ggbridge_rail_f` is cut out too, without it), the strip, the block's height, nor what lies beyond the wall |
 
 The names of these flags (sides, flat and curved ceilings, closed and
 offset ends) are what's remembered of the modding community's public
@@ -229,17 +235,44 @@ do both. In San Francisco all 77 have road quads out of plane by more
 than 2 cm, against 49 of the 508 others, so it looks like a mark for a
 twisted road surface. It doesn't separate exactly: 65 and 78 curving,
 sloping blocks lack it. Ruled out: negatively listed blocks, open edges,
-the neighbours' 0x40, slope or curve alone.
+the neighbours' 0x40, slope or curve alone. The best single measure, a
+strip quad out of plane by more than 2.44 cm, is wrong for 10 of San
+Francisco's 556 road blocks and fails in London (straight two-section
+Underground ramps flagged, others like them not). It isn't a road's: 12
+and 15 roads have blocks with and without it. Roads never bank (each
+section's two edges are level across), so the twist is only the inner
+and outer edges sloping differently. San Francisco's older `sfai.psdl`
+has no 0x20 at all, so it was worked out by a later tool, perhaps from
+something not in the file.
 
-**0x80**: San Francisco's elevated freeway is 112 of its 149. In London
-it's on exactly the 32 Underground junctions with station models
-(`subway_a`, `_c`, `_f`) and no 10-word tunnel. Every ramp, tunnel,
-bridge deck and Underground entrance model with a `.ter` stands in a
-0x80 block (18 in San Francisco, 83 in London; not the Golden Gate's
-parts, `embarcramp03` or the Bay Bridge). "The ground here is a placed
-model's" fits London but not the freeway. The city folders' `.cpvs`
-files named by masks (`sf_0`, `_2`, `_4` ... `_128`, `_254`, `_255`) may
-be the visibility for each flag; not examined.
+**0x80** marks a block with more to collide with than its floor, it
+seems:
+- On road blocks it's having walls or railings: a road block has 0x80
+  exactly when it has a tunnel attribute, but for 4 in San Francisco
+  (561, 647, 651, 652) and 1 in London (857) of 1,039 (127 and 23 with
+  both, 412 and 472 with neither). That's San Francisco's elevated
+  freeway (112 of its 149): every raised road block that isn't a tunnel
+  has `s_wall_veg` walls.
+- The others (15 and 22 blocks, all 0x84) are ground under ramp, tunnel
+  mouth and bridge models with a `.ter` (10 and 5); the Underground's and
+  Broadway tunnel's entrances (San Francisco's 131, 133, London's 10),
+  whose models carry the instance flag 0x2000, only ever found in 0x80
+  blocks (15 instances); and London's 32 Underground junctions with
+  station models (`subway_a`, `_c`, `_f`) and no 10-word tunnel.
+- Not exact: some junctions with walls lack it (San Francisco 971, 973,
+  1092), some without have it (London 1021-1030, `r1_stone256`), and
+  empty Embankment ground has it (San Francisco 122, 126, 312; London
+  245-298, seven blocks). A model's `.ter` alone isn't it: 89 San
+  Francisco blocks without 0x80 hold `.ter` bounds.
+
+In the older `sfai.psdl` 0x80 is only on 144 building blocks and the
+freeway is plain 0x48, so the shipped cities' 0x20 and 0x80 were
+recomputed by a later tool. The visibility files don't single these
+blocks out ([pvs.md](pvs.md)). The city folders also hold `<city>.rid`,
+each block's editor number one per line (1,171 and 1,341 lines), and
+`<city>.extra`, pairs of those numbers and a model, each the block the
+`.inst` puts that model in (15 in San Francisco; London's Underground
+models and its river wall).
 
 ## The roads
 
@@ -310,7 +343,7 @@ like, none). See [pathset.md](pathset.md).
 
 ## Not known yet
 
-Block flag 0x80 (0x20 not exactly); bits 6 and 7 of the divider's
+Block flags 0x80 and 0x20 exactly; bits 6 and 7 of the divider's
 kind; a junction tunnel's word 3 and what its masks in words 6-9 mark;
 the tunnels' flag 0x4000; the roads' flag 0x1 and the rest of the
 second word; the end bytes' bit 0 exactly. The program's

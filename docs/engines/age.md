@@ -183,10 +183,16 @@ recording how each format was worked out (CONTRIBUTING.md).
   colliding) ([bai.md](../formats/age/bai.md),
   [psdl.md](../formats/age/psdl.md), [tex.md](../formats/age/tex.md),
   [bnd.md](../formats/age/bnd.md)).
-- Still not known: a junction tunnel's word 3 and extra masks, the
-  tunnels' flag 0x4000, block flag 0x80 (0x20 marks twisted road blocks
-  only roughly), texture flags 0x8000 and 0x10000, and whether the game
-  uses the low-detail roads as Reluva does. For watching the game run.
+- Since then: the `.cpvs` variants are cuts of `.pvshist`'s scores (the
+  game's at 8); block flag 0x80 is, on roads, having walls or railings,
+  and otherwise ground with a model's collision or an entrance, not
+  exactly; texture flag 0x8000 is on what's seen closest, which Reluva
+  reads as "keep full detail" for its Texture Quality.
+- Still not known: a junction tunnel's word 3 and exactly what its extra
+  masks mark, the tunnels' flag 0x4000, the exact rules for block flags
+  0x20 and 0x80, texture flag 0x10000, and whether the game uses the
+  low-detail roads as Reluva does. For watching the game run (no
+  footage taken under the freeway or along the railings shows them).
 
 ### 4. Driving (done)
 
