@@ -13,9 +13,6 @@ namespace {
 constexpr int kInfoH = 26;
 constexpr int kAreaH = kScreenH - kInfoH;
 constexpr Color kBackground{24, 24, 36};
-// How much of the nearest walls shows when they're see-through: about half,
-// judged against recordings of the original.
-constexpr int kSeeThrough = 128;
 
 void plot(Surface& s, int x, int y, Color c) {
     if (x < 0 || y < 0 || x >= s.w || y >= kAreaH)
@@ -89,15 +86,7 @@ void MansionViewer::scroll(int dx, int dy) {
     dirty_ = true;
 }
 
-bool MansionViewer::shown(const Mansion::Item& item) const {
-    if (item.object->type == ObjectDef::TileNumber)
-        return tileNumbers_;
-    if (item.layer == 4)
-        return walls_ != Walls::Hidden;
-    if (item.layer == 6)
-        return outside_;
-    return true;
-}
+bool MansionViewer::shown(const Mansion::Item& item) const { return mansion_.shown(item, look_); }
 
 void MansionViewer::handleEvent(const Event& ev) {
     if (!loaded())
@@ -131,12 +120,12 @@ void MansionViewer::handleEvent(const Event& ev) {
         case key::Down: scroll(0, step); break;
         case key::Home: centre(); break;
         case 'w':
-            walls_ = walls_ == Walls::SeeThrough ? Walls::Solid
-                     : walls_ == Walls::Solid    ? Walls::Hidden
-                                                 : Walls::SeeThrough;
+            look_.walls = look_.walls == Walls::SeeThrough ? Walls::Solid
+                          : look_.walls == Walls::Solid    ? Walls::Hidden
+                                                           : Walls::SeeThrough;
             break;
-        case 'o': outside_ = !outside_; break;
-        case 'n': tileNumbers_ = !tileNumbers_; break;
+        case 'o': look_.outside = !look_.outside; break;
+        case 'n': look_.tileNumbers = !look_.tileNumbers; break;
         case 'f': footprints_ = !footprints_; break;
         case 'm':
             overview_ = true;
@@ -185,20 +174,9 @@ void MansionViewer::update(uint64_t nowMs) {
 }
 
 void MansionViewer::drawScene(Surface& target, int camX, int camY) {
-    const int viewH = &target == &screen_ ? kAreaH : target.h;
-    const ScreenRect view{camX, camY, target.w, viewH};
-    for (size_t i : mansion_.drawOrder()) {
-        const Mansion::Item& item = mansion_.items()[i];
-        if (!shown(item) || !item.rect.overlaps(view))
-            continue;
-        const auto& frames = *item.frames;
-        size_t f = 0;
-        if (!paused_ && frames.size() > 1)
-            f = size_t(now_ * uint64_t(item.animation->framesPerSecond) / 1000) % frames.size();
-        const int opacity = item.layer == 4 && walls_ == Walls::SeeThrough ? kSeeThrough : 255;
-        for (const Mansion::Piece& p : frames[f])
-            image::blit(target, p.image->pixels, item.anchorX + p.dx - camX, item.anchorY + p.dy - camY, opacity);
-    }
+    MansionLook look = look_;
+    look.animate = !paused_;
+    mansion_.draw(target, camX, camY, look, now_);
 }
 
 void MansionViewer::drawFootprint(const Mansion::Item& item) {
@@ -228,7 +206,7 @@ const Mansion::Item* MansionViewer::pick(int x, int y) const {
     const auto& order = mansion_.drawOrder();
     for (auto it = order.rbegin(); it != order.rend(); ++it) {
         const Mansion::Item& item = mansion_.items()[*it];
-        if (!shown(item) || !item.rect.contains(x, y) || (item.layer == 4 && walls_ == Walls::SeeThrough))
+        if (!shown(item) || !item.rect.contains(x, y) || (item.layer == 4 && look_.walls == Walls::SeeThrough))
             continue;
         // Its frame 0's pieces, where they aren't transparent.
         for (const Mansion::Piece& p : (*item.frames)[0]) {
@@ -302,9 +280,10 @@ void MansionViewer::draw() {
     if (!mansion_.problems().empty())
         line1 += " (" + std::to_string(mansion_.problems().size()) + " couldn't be shown: " +
                  mansion_.problems().front() + ")";
-    std::string line2 = std::string("near walls ") +
-                        (walls_ == Walls::SeeThrough ? "see-through" : walls_ == Walls::Solid ? "solid" : "hidden") +
-                        "  outside " + (outside_ ? "on" : "off");
+    std::string line2 =
+        std::string("near walls ") +
+        (look_.walls == Walls::SeeThrough ? "see-through" : look_.walls == Walls::Solid ? "solid" : "hidden") +
+        "  outside " + (look_.outside ? "on" : "off");
     if (paused_)
         line2 += "  paused";
     const Mansion::Item* hit = mouseY_ >= 0 && mouseY_ < kAreaH ? pick(mouseX_ + camX_, mouseY_ + camY_) : nullptr;

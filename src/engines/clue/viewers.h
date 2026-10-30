@@ -70,8 +70,9 @@ private:
     Mansion mansion_;
     std::string error_;
     int camX_ = 0, camY_ = 0;
-    enum class Walls { SeeThrough, Solid, Hidden } walls_ = Walls::SeeThrough;
-    bool outside_ = true, tileNumbers_ = false, footprints_ = false, paused_ = false;
+    using Walls = MansionLook::Walls;
+    MansionLook look_;
+    bool footprints_ = false, paused_ = false;
     bool overview_ = false;
     Surface whole_;          // the whole house, for the overview; made when first asked for
     bool dragging_ = false;

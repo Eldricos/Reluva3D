@@ -201,4 +201,30 @@ Error Mansion::build(const GameData& data, const Level& level) {
     return Error::success();
 }
 
+bool Mansion::shown(const Item& item, const MansionLook& look) const {
+    if (item.object->type == ObjectDef::TileNumber)
+        return look.tileNumbers;
+    if (item.layer == 4)
+        return look.walls != MansionLook::Walls::Hidden;
+    if (item.layer == 6)
+        return look.outside;
+    return true;
+}
+
+void Mansion::draw(Surface& target, int camX, int camY, const MansionLook& look, uint64_t nowMs) const {
+    const ScreenRect view{camX, camY, target.w, target.h};
+    for (size_t i : order_) {
+        const Item& item = items_[i];
+        if (!shown(item, look) || !item.rect.overlaps(view))
+            continue;
+        const auto& frames = *item.frames;
+        size_t f = 0;
+        if (look.animate && frames.size() > 1)
+            f = size_t(nowMs * uint64_t(item.animation->framesPerSecond) / 1000) % frames.size();
+        const int opacity = item.layer == 4 && look.walls == MansionLook::Walls::SeeThrough ? look.seeThrough : 255;
+        for (const Piece& p : frames[f])
+            image::blit(target, p.image->pixels, item.anchorX + p.dx - camX, item.anchorY + p.dy - camY, opacity);
+    }
+}
+
 } // namespace reluva::clue

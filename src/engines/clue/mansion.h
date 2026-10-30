@@ -43,6 +43,16 @@ struct ScreenRect {
 // overlapping boxes can make) by the depth of their centres.
 std::vector<size_t> depthOrder(const std::vector<WorldBox>& boxes, const std::vector<ScreenRect>& rects);
 
+// How the mansion is drawn: the walls nearest the camera (layer 4), the
+// black outside (layer 6), the move-number templates.
+struct MansionLook {
+    enum class Walls { SeeThrough, Solid, Hidden } walls = Walls::SeeThrough;
+    int seeThrough = 128; // the near walls' opacity when see-through: about half, as in recordings
+    bool outside = true;
+    bool tileNumbers = false;
+    bool animate = true;
+};
+
 class Mansion {
 public:
     // An image to draw, from the item's anchor point.
@@ -73,6 +83,11 @@ public:
     const std::vector<size_t>& drawOrder() const { return order_; } // into items()
     const ScreenRect& bounds() const { return bounds_; }
     const std::vector<std::string>& problems() const { return problems_; }
+
+    // Whether the look shows an item; and the view from (camX, camY) drawn
+    // into the target, the animations at the time given.
+    bool shown(const Item& item, const MansionLook& look) const;
+    void draw(Surface& target, int camX, int camY, const MansionLook& look, uint64_t nowMs) const;
 
 private:
     const std::vector<Frame>* resolve(const GameData& data, const Animation& anim);
