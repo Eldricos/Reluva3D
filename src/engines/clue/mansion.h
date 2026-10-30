@@ -52,7 +52,16 @@ struct MansionLook {
     bool tileNumbers = false;
     bool animate = true;
     bool characters = true; // the suspects where clue.lvl stands them (off when the game moves them)
+    // "Lighting Effects": the house dark but around the lights (world
+    // points on the floor, the suspects). Each item takes one brightness,
+    // by how far its middle is from the nearest light on screen.
+    bool lighting = false;
+    std::vector<std::pair<int, int>> lights;
 };
+
+// How bright lighting makes something whose middle is at (x, y) on the
+// floor, 0-256, as measured on a recording (docs/engines/clue.md).
+int lightLevel(int x, int y, const std::vector<std::pair<int, int>>& lights);
 
 class Mansion {
 public:

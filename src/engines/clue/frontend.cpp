@@ -312,6 +312,7 @@ PlayLook FrontEnd::playLook() const {
     look.autoNotes = prefs_.on[Preferences::AutoNotes];
     look.butlerVoice = prefs_.on[Preferences::ButlerVoice];
     look.walkAnimations = prefs_.on[Preferences::WalkAnimations];
+    look.mansion.lighting = prefs_.on[Preferences::Lighting];
     look.mansion.walls = !prefs_.on[Preferences::MansionWalls] ? MansionLook::Walls::Hidden
                          : prefs_.on[Preferences::Translucency] ? MansionLook::Walls::SeeThrough
                                                                  : MansionLook::Walls::Solid;
@@ -704,9 +705,10 @@ void FrontEnd::update(uint64_t nowMs) {
         if (at_ == Screen::Game)
             play_->update(nowMs);
         if (play_->finished()) {
-            // The end's Continue: the players' set-up again.
+            // The game over: back to the main menu, as the original.
+            play_->stopSounds();
             play_.reset();
-            go(Screen::Picker);
+            go(Screen::MainMenu);
             drawCursor();
             return;
         }

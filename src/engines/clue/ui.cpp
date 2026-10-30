@@ -92,6 +92,22 @@ const BitmapFont* Fonts::get(int id) const {
     return it == fonts_.end() ? nullptr : it->second.get();
 }
 
+std::string typedText(std::string_view utf8) {
+    // The fonts are Windows-1252: keep ASCII and Latin-1 from UTF-8.
+    std::string out;
+    for (size_t k = 0; k < utf8.size(); ++k) {
+        const uint8_t b = uint8_t(utf8[k]);
+        if (b < 0x80) {
+            if (b >= 32)
+                out += char(b);
+        } else if ((b == 0xc2 || b == 0xc3) && k + 1 < utf8.size()) {
+            out += char(((b & 0x03) << 6) | (uint8_t(utf8[k + 1]) & 0x3f));
+            ++k;
+        }
+    }
+    return out;
+}
+
 std::vector<std::string> splitLines(std::string_view text) {
     std::vector<std::string> lines(1);
     for (char ch : text) {
@@ -449,17 +465,9 @@ int DialogView::handleEvent(const Event& ev) {
                     st.textSet = true;
                 }
                 const size_t most = dialog_.controls[i].maxLength > 0 ? size_t(dialog_.controls[i].maxLength) : 20;
-                // The fonts are Windows-1252: keep ASCII and Latin-1 from UTF-8.
-                for (size_t k = 0; ev.text[k] && st.text.size() < most; ++k) {
-                    const uint8_t b = uint8_t(ev.text[k]);
-                    if (b < 0x80) {
-                        if (b >= 32)
-                            st.text += char(b);
-                    } else if ((b == 0xc2 || b == 0xc3) && ev.text[k + 1]) {
-                        st.text += char(((b & 0x03) << 6) | (uint8_t(ev.text[k + 1]) & 0x3f));
-                        ++k;
-                    }
-                }
+                st.text += typedText(ev.text);
+                if (st.text.size() > most)
+                    st.text.resize(most);
             }
         return -1;
     }

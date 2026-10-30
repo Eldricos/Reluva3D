@@ -119,7 +119,9 @@ private:
     bool humanTurn() const;
 
     std::string line(int suspect, int index) const; // TickerStrings.txt
-    void say(const std::string& sentence) { ticker_ = sentence; }
+    void say(const std::string& sentence);
+    void drawTicker();
+    void editNote(int card);
     void sound(const std::string& file, bool voice = false);
     int promptLine() const;
     void promptHuman();
@@ -166,14 +168,23 @@ private:
 
     // The bar, the panels and the windows.
     std::string ticker_;
+    uint64_t tickerSince_ = 0;
+    Surface tickerStrip_;
     std::vector<std::string> tickerLines_;
     std::vector<std::string> cardNames_; // Notepad.txt's, in card order
     std::array<std::string, 3> kindNames_; // its headings
     Panel panel_ = Panel::None;
     bool map_ = false; // the board seen from above, over the view
     int panelOwner_ = -1;
-    // Each human's own marks on their notepad: 0 none, 1 X, 2 a tick.
-    std::array<std::array<int, kCardCount>, kSuspectCount> marks_{};
+    // Each player's notepad: a row's colour (a suspect's, or -1), its two
+    // marks (0 none, then tick, X, O, tick in O, X in O) and its note.
+    struct NoteRow {
+        int colour = -1;
+        std::array<int, 2> marks{};
+        std::string text;
+    };
+    std::array<std::array<NoteRow, kCardCount>, kSuspectCount> notes_;
+    int editing_ = -1; // the card whose note is being typed
     // What each human was shown, and by whom (for the notepad).
     std::array<std::array<int, kCardCount>, kSuspectCount> shownBy_{};
     Window window_ = Window::None;

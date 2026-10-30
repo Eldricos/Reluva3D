@@ -165,20 +165,32 @@ As the original, from its recordings and its How to Play texts:
   click it.
 - **The notes and cards** button (the bar's left) opens the cards in
   hand; the notepad icon under them opens the notepad, whose cards icon
-  goes back. Click a notepad row to mark it (an X, a tick, none). With
-  "Auto Notes" on, every card known is crossed off in the colour of
-  whoever showed or holds it.
+  goes back. Each row has a colour box (click: each suspect's colour in
+  turn, then none), two marks (click: tick, X, O, tick in O, X in O,
+  none) and a triangle that opens a note to type beside the notepad
+  (Enter closes it; the triangle shows when a row has one, and pointing
+  at it shows the note). Your own cards start in your colour, ticked
+  twice; with "Auto Notes" on, a card shown to you is put in the
+  colour of who showed it, crossed twice.
 - **The board** button shows the board from above, with the suspects'
   pawns; moves can be planned on it too.
 - When a human must disprove, their matching cards are shown: click one,
-  then Done. A card shown to a human is shown large, with OK. A human
-  who accuses wrongly sees the solution and chooses whether to go on
-  disproving by hand or automatically.
+  then Done. A card shown to a human is shown large, with OK.
+- **The end.** A right accusation shows the solution; Continue plays the
+  murderer's prison clip, then the main menu. A human who accuses wrongly
+  while other humans play on is asked whether to go on disproving by
+  hand or automatically (the solution isn't shown). When no human is
+  left in the game, the solution is shown ("You have accused
+  incorrectly", or "Everyone has accused incorrectly") and the game ends.
 
 The computer players take their turns on their own, the camera following
-them. The suggestions' videos play in the right column when "Suggest
-Movies" is on; the spoken lines play when "Butler Voice" is on; "Walk
-Animations" off moves the suspects at once.
+them. The ticker keeps "..., it is your turn." through a human's turn;
+the prompts ("please roll the die") are spoken. A sentence stays centred
+8 s, then scrolls left, coming round from the right. The suggestions'
+videos play in the right column when "Suggest Movies" is on; the spoken
+lines play when "Butler Voice" is on; "Walk Animations" off moves the
+suspects at once; "Lighting Effects" darkens the house but around the
+suspects.
 
 The music, when the CD's tracks have been ripped into the game's folder
 (below): track 5 in the menus, looping; tracks 2, 3 and 4 in turn in the
@@ -208,16 +220,28 @@ the original draws the fireplace over Miss Scarlet at the start (L 3:00)
 and the walls around Mrs. Peacock (L 3:30); with "Translucency" off, it
 isn't.
 
+**Lighting Effects**, measured on the same view with it on and off (VM
+0:21 and 0:28, below): each floor tile and each object takes one
+brightness (the ratio is flat across each), full within 30 units of a
+suspect, falling to 22% over the next 230, the distance taken on screen
+(x − y, (x + y) / 2), which fits better than in the world. Reluva lights
+around every suspect.
+
+**Timings** from the VM recording: a suspect walks a square in about
+0.6 s; each "can / cannot disprove" box shows about 3 s.
+
 ### Not yet as the original
 
-- The timings (how long each sentence and box stays, how fast the
-  suspects walk) are guesses, to be measured on recordings.
-- The original's notepad has three columns of marks and a triangle on
-  each row; Reluva's has one column of marks and who holds the card.
+- Whether the lamps light their walls too, and whether all suspects or
+  only some carry light, isn't settled: the measured view had one
+  suspect in it.
+- Which marks the original's Auto Notes puts on a card shown is a
+  guess (crossed twice, from the 720p recording's notepad); own cards
+  ticked twice is as recorded.
 - Where suspects stand in a room, and which cards a cards window fills
   first, are Reluva's choice.
-- "Lighting Effects" (the pools of light) and the clickable objects
-  ("please choose an active object") come later (step 7).
+- The clickable objects ("please choose an active object") come later
+  (step 7).
 
 ## The data viewer
 
@@ -334,12 +358,23 @@ has accused correctly" and Continue (C 45:30), then the player set-up
 again. The prison clip (a suspect in a cell) plays near the end of the
 second game (C 55:30); what leads to it is still to be seen.
 
+### The VM recording
+
+A recording of the original 2.2 in a virtual machine, made for Reluva
+(1280×720, 27:42, October 2026; "VM" with its times): walking (0:40-
+1:00), each preference changed with the view before and after (0:20-
+3:00), every notepad mark and note (4:10-5:05), a lone human's wrong
+accusation and the end (7:30-7:53), a whole game won by a computer
+player (8:20-23:48), and a game of humans where one accuses wrongly and
+chooses how to go on disproving (24:00-27:40).
+
 ## Reference screenshots still wanted
 
 1. The same view with Walls, Translucency and Dynamic Lighting each
    turned off in the preferences, to see what each does.
 2. The Preferences and Load Game screens.
-3. A wrong accusation, and the end of a game won by a computer player.
+3. A view with Lighting Effects on, near a lamp and away from the
+   suspects, to see whether lamps light their walls.
 
 ## Reference recordings
 

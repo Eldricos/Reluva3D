@@ -53,6 +53,9 @@ struct UiRect {
     bool contains(int px, int py) const { return px >= x && px < x + w && py >= y && py < y + h; }
 };
 
+// Typed text (UTF-8) as the fonts' Windows-1252: ASCII and Latin-1 kept.
+std::string typedText(std::string_view utf8);
+
 // Splits a dialog's text at its '|'s (and a text file's at its line ends).
 std::vector<std::string> splitLines(std::string_view text);
 

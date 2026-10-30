@@ -4,6 +4,7 @@
 #include "engines/clue/mansion.h"
 
 #include <algorithm>
+#include <cmath>
 #include <numeric>
 
 namespace reluva::clue {
@@ -205,6 +206,51 @@ Error Mansion::build(const GameData& data, const Level& level) {
     return Error::success();
 }
 
+int lightLevel(int x, int y, const std::vector<std::pair<int, int>>& lights) {
+    // Measured on the original with Lighting Effects on and off (the same
+    // view): full within 30 of a light, then down over 230 to 22%. The
+    // distance is on screen: the floor's x - y and (x + y) / 2.
+    constexpr double kFull = 30, kFade = 230, kAmbient = 0.22;
+    double best = kAmbient;
+    for (const auto& [lx, ly] : lights) {
+        const int dx = x - lx, dy = y - ly;
+        const double d = std::hypot(double(dx - dy), (dx + dy) / 2.0);
+        best = std::max(best, kAmbient + (1 - kAmbient) * std::clamp(1 - (d - kFull) / kFade, 0.0, 1.0));
+    }
+    return int(best * 256);
+}
+
+namespace {
+
+// image::blit, the colours scaled by level / 256.
+void blitLit(Surface& dst, const image::Image& img, int x, int y, int opacity, int level) {
+    if (level >= 256) {
+        image::blit(dst, img, x, y, opacity);
+        return;
+    }
+    for (int sy = 0; sy < img.h; ++sy) {
+        const int dy = y + sy;
+        if (dy < 0 || dy >= dst.h)
+            continue;
+        uint8_t* row = dst.row(dy);
+        for (int sx = 0; sx < img.w; ++sx) {
+            const int dx = x + sx;
+            if (dx < 0 || dx >= dst.w)
+                continue;
+            const uint8_t* s = img.pixel(sx, sy);
+            const int a = opacity == 255 ? s[3] : s[3] * opacity / 255;
+            if (a == 0)
+                continue;
+            uint8_t* d = row + dx * 4;
+            for (int c = 0; c < 3; ++c)
+                d[c] = static_cast<uint8_t>(((s[c] * level >> 8) * a + d[c] * (255 - a)) / 255);
+            d[3] = 255;
+        }
+    }
+}
+
+} // namespace
+
 bool Mansion::shown(const Item& item, const MansionLook& look) const {
     if (item.object->type == ObjectDef::TileNumber)
         return look.tileNumbers;
@@ -304,8 +350,11 @@ void Mansion::draw(Surface& target, int camX, int camY, const MansionLook& look,
             for (const auto& [at, rect] : revealed)
                 if (at <= n && item.rect.overlaps(rect))
                     opacity = std::min(opacity, look.seeThrough);
+        const int level = look.lighting ? lightLevel(item.box.x + item.box.sizeX / 2,
+                                                    item.box.y + item.box.sizeY / 2, look.lights)
+                                        : 256;
         for (const Piece& p : frames[f])
-            image::blit(target, p.image->pixels, item.anchorX + p.dx - camX, item.anchorY + p.dy - camY, opacity);
+            blitLit(target, p.image->pixels, item.anchorX + p.dx - camX, item.anchorY + p.dy - camY, opacity, level);
     }
     drawActors(order_.size());
 }

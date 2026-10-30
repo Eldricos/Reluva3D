@@ -32,8 +32,15 @@ constexpr int kShownX = 398;
 // rolled, then the end of the turn), the bulb (suggest), the handcuffs.
 constexpr int kDrawerX = 511, kSlotY = 420;
 constexpr int kSlotX[3] = {535, 574, 606}, kSlotW[3] = {33, 27, 32}, kSlotH = 42;
-// How fast suspects walk, in world units a second: a square in about 0.4 s.
-constexpr int kWalkSpeed = 160;
+// How fast suspects walk, in world units a second: a square in about 0.6 s,
+// as measured on a recording.
+constexpr int kWalkSpeed = 110;
+// How long each "can / cannot disprove" box shows (about 3 s in recordings).
+constexpr int kToldMs = 2800;
+// The ticker: a sentence stays centred 8 s, then scrolls left at 3.5 pixels
+// a second, coming round again from the right (as in recordings), between
+// the ticker's ends.
+constexpr int kTickerStillMs = 8000, kTickerSpeed = 35, kTickerLeft = 48, kTickerRight = 598;
 
 // dialogInfo.res's in-game dialogs.
 enum { kChooseDialog = 30, kToldDialog = 31, kPickDialog = 32, kShownDialog = 33, kSolutionDialog = 34,
@@ -80,8 +87,14 @@ const int kHandX[6] = {111, 18, 111, 18, 111, 18}, kHandY[6] = {246, 246, 129, 1
 const UiRect kSummarySuspect{8, 40, 65, 173}, kSummaryRoom{89, 104, 98, 76}, kSummaryWeapon{90, 213, 73, 86};
 // The notepad: each kind's first row (rows 15 apart), the columns for
 // who holds a card and for the marks.
-const int kNoteRowY[3] = {25, 134, 243}, kNoteHeadY[3] = {9, 118, 227};
-constexpr int kNoteTextX = 16, kNoteHolderX = 131, kNoteMarkX = 146, kNoteRowH = 15;
+// Measured on a recording at 640x480: rows 15.2 apart from each kind's
+// first; the columns of the colour, the two marks and the note's triangle.
+const int kNoteRowY[3] = {20, 129, 239}, kNoteHeadY[3] = {4, 113, 223};
+constexpr int kNoteTextX = 16, kNoteColourX = 139, kNoteMarkX[2] = {154, 170}, kNoteTriangleX = 184,
+              kNoteRowH = 15;
+int noteRowY(int kind, int row) { return kNoteRowY[kind] + row * 76 / 5; }
+// The marks a click goes round, after none.
+const char* const kMark[5] = {"UI:Anoteschk", "UI:Anotesx", "UI:Anoteso", "UI:Anoteschko", "UI:Anotesxo"};
 
 // The board from above (UI:Aoverhead): where it goes, and its squares,
 // 13 pixels each, column 9 and row 9 at (8, 15) in it.
@@ -149,10 +162,16 @@ Error Play::start(const std::array<Player, kSuspectCount>& players, bool noDieRo
         Board::standingPoint(board_.start(s), walkers_[size_t(s)].x, walkers_[size_t(s)].y);
         walkers_[size_t(s)].facing = 4;
     }
-    for (auto& m : marks_)
-        m.fill(0);
     for (auto& m : shownBy_)
         m.fill(-1);
+    // Each player's notepad starts with their own cards in their colour,
+    // ticked twice (as the original's does).
+    for (int k = 0; k < kSuspectCount; ++k) {
+        for (NoteRow& row : notes_[size_t(k)])
+            row = {};
+        for (int c : game_.seat(k).hand)
+            notes_[size_t(k)][size_t(c)] = {k, {1, 1}, {}};
+    }
     tickerLines_ = readLines(data_, "TickerStrings.txt");
     // The notepad's names: Notepad.txt's lines but its comments and the
     // kinds' headings.
@@ -248,9 +267,10 @@ int Play::promptLine() const {
 }
 
 void Play::promptHuman() {
-    const int l = promptLine();
-    say(line(game_.turn(), l));
-    if (const char* v = promptVoice(l))
+    // Spoken only: the ticker keeps "..., it is your turn." through a
+    // human's turn, as recorded (the prompts' sentences are in
+    // TickerStrings.txt all the same).
+    if (const char* v = promptVoice(promptLine()))
         sound(v, true);
 }
 
@@ -405,7 +425,7 @@ void Play::suggestionMade() {
             say(line(p, kCannotDisprove));
             sound(std::string("cannot disprove ") + kVoice[p] + ".WAV", true);
         });
-        pause(1500);
+        pause(kToldMs);
     }
     const int d = game_.disprover();
     if (d >= 0) {
@@ -414,7 +434,7 @@ void Play::suggestionMade() {
             say(line(d, kCanDisprove));
             sound(std::string("can disprove ") + kVoice[d] + ".WAV", true);
         });
-        pause(1500);
+        pause(kToldMs);
         then([this, d, s] {
             if (players_[size_t(d)].kind == Player::Human && !autoDisprove_[size_t(d)])
                 openPick();
@@ -432,8 +452,13 @@ void Play::suggestionMade() {
         for (int k = 0; k < kSuspectCount; ++k)
             if (players_[size_t(k)].kind != Player::None)
                 ai_[size_t(k)].observe(game_, s, a, d, k == s ? game_.shown() : -1);
-        if (game_.shown() >= 0)
+        if (game_.shown() >= 0) {
             shownBy_[size_t(s)][size_t(game_.shown())] = d;
+            // Auto Notes: the card crossed off in the colour of who showed it.
+            NoteRow& row = notes_[size_t(s)][size_t(game_.shown())];
+            if (look_.autoNotes && row.colour < 0 && row.marks[0] == 0 && row.marks[1] == 0)
+                row = {d, {2, 2}, row.text};
+        }
         afterAction();
     });
 }
@@ -445,32 +470,40 @@ void Play::accusationMade(const Accusation& a) {
     then([this, s, a] {
         game_.accuse(a);
         if (game_.winner() == s) {
+            // Right: the solution, then (Continue) the murderer in prison,
+            // then the main menu (as recorded).
             say(line(s, kAccusedRight));
             sound(std::string("accused correct ") + kVoice[s] + ".WAV", true);
             pause(1500);
+            then([this] { showSolution(3); });
             if (look_.suggestMovies) {
                 const int murderer = game_.solution().suspect;
                 then([this, murderer] { startVideo(std::string(kVoice[murderer]) + "_prison.avi"); });
             }
-            then([this] { showSolution(3); });
+            then([this] { finished_ = true; });
             return;
         }
         say(line(s, kAccusedWrong));
         sound(std::string("accuse incorrect ") + kVoice[s] + ".WAV", true);
         placeWalkers(false); // off a doorway
         pause(1500);
-        if (players_[size_t(s)].kind == Player::Human) {
-            then([this] { showSolution(6); });
-            if (game_.phase() != Game::Phase::Over)
-                then([this, s] {
-                    viewerOut_ = s;
-                    openLoser();
-                });
+        // With no human left in the game, it is over: the solution, then
+        // the main menu. Else a human out is asked how to go on disproving.
+        bool humansIn = false;
+        for (int k = 0; k < kSuspectCount; ++k)
+            humansIn = humansIn || (players_[size_t(k)].kind == Player::Human && !game_.seat(k).out);
+        if (game_.phase() == Game::Phase::Over || !humansIn) {
+            const bool everyone = game_.phase() == Game::Phase::Over;
+            then([this, everyone] { showSolution(everyone ? 5 : 6); });
+            then([this] { finished_ = true; });
+            return;
         }
-        if (game_.phase() == Game::Phase::Over)
-            then([this] { showSolution(5); });
-        else
-            beginTurn(); // the rules have gone on to the next player
+        if (players_[size_t(s)].kind == Player::Human)
+            then([this, s] {
+                viewerOut_ = s;
+                openLoser();
+            });
+        beginTurn(); // the rules have gone on to the next player
     });
 }
 
@@ -619,10 +652,8 @@ void Play::openShown() {
 
 void Play::showSolution(int text) {
     const ResiDialog* d = resi_.dialog(kSolutionDialog);
-    if (!d) {
-        finished_ = game_.phase() == Game::Phase::Over;
+    if (!d)
         return;
-    }
     dialog_ = std::make_unique<DialogView>(data_, fonts_, *d, 0, 0);
     window_ = Window::Solution;
     solutionText_ = text;
@@ -658,6 +689,28 @@ void Play::handleEvent(const Event& ev) {
         else if (ev.key == key::Down)
             camY_ += step;
     }
+    // Typing a note.
+    if (editing_ >= 0 && panelOwner_ >= 0) {
+        std::string& text = notes_[size_t(panelOwner_)][size_t(editing_)].text;
+        if (ev.type == EventType::TextInput) {
+            text += typedText(ev.text);
+            if (text.size() > 40)
+                text.resize(40);
+            return;
+        }
+        if (ev.type == EventType::KeyDown && ev.key == key::Backspace) {
+            if (!text.empty())
+                text.pop_back();
+            return;
+        }
+        if (ev.type == EventType::KeyDown && (ev.key == key::Return || ev.key == key::Escape)) {
+            editNote(-1);
+            return;
+        }
+        if (ev.type == EventType::MouseUp &&
+            !(ev.mouseX >= kLeftX && ev.mouseX < kLeftX + 202 && ev.mouseY >= kLeftY && ev.mouseY < kLeftY + 408))
+            editNote(-1);
+    }
     // A window takes the clicks while it is open.
     if (window_ != Window::None && dialog_) {
         if (window_ == Window::Choose && choosePage_ == 3 && ev.type == EventType::MouseUp) {
@@ -684,8 +737,6 @@ void Play::handleEvent(const Event& ev) {
             if (id == kOk) {
                 window_ = Window::None;
                 dialog_.reset();
-                if (game_.phase() == Game::Phase::Over && steps_.empty())
-                    finished_ = true;
             }
             break;
         case Window::Loser:
@@ -880,21 +931,38 @@ void Play::clickPanel(int x, int y) {
         panel_ = Panel::Cards;
         return;
     }
-    // A row of the notepad: its mark goes round none, X, tick.
+    // A row of the notepad: its colour goes round the suspects', each mark
+    // round the marks; its triangle opens the row's note.
     const int who = panelOwner_;
     if (who < 0)
         return;
     static const int kFirst[3] = {suspectCard(0), weaponCard(0), roomCard(0)};
     static const int kCount[3] = {kSuspectCount, kWeaponCount, kRoomCount};
-    for (int k = 0; k < 3; ++k) {
-        const int row = (y - kNoteRowY[k]) / kNoteRowH;
-        if (y >= kNoteRowY[k] && row < kCount[k]) {
-            int& m = marks_[size_t(who)][size_t(kFirst[k] + row)];
-            m = (m + 1) % 3;
+    for (int k = 0; k < 3; ++k)
+        for (int r = 0; r < kCount[k]; ++r) {
+            const int top = noteRowY(k, r);
+            if (y < top || y >= top + kNoteRowH)
+                continue;
+            const int card = kFirst[k] + r;
+            NoteRow& row = notes_[size_t(who)][size_t(card)];
+            if (x >= kNoteColourX && x < kNoteMarkX[0])
+                row.colour = row.colour + 1 < kSuspectCount ? row.colour + 1 : -1;
+            else if (x >= kNoteMarkX[0] && x < kNoteMarkX[1])
+                row.marks[0] = (row.marks[0] + 1) % 6;
+            else if (x >= kNoteMarkX[1] && x < kNoteTriangleX)
+                row.marks[1] = (row.marks[1] + 1) % 6;
+            else if (x >= kNoteTriangleX)
+                editNote(editing_ == card ? -1 : card);
+            else
+                return;
             sound("click.wav");
             return;
         }
-    }
+}
+
+void Play::editNote(int card) {
+    editing_ = card;
+    sys_.setTextInput(card >= 0);
 }
 
 // ---- Time --------------------------------------------------------------------
@@ -1084,6 +1152,9 @@ void Play::draw() {
     fillRect(screen_, 0, 0, screen_.w, screen_.h, {0, 0, 0});
     MansionLook look = look_.mansion;
     look.characters = false;
+    look.lights.clear();
+    for (const Walker& w : walkers_)
+        look.lights.push_back({w.x, w.y});
     mansion_.draw(screen_, camX_, camY_, look, now_, actors());
     drawMap();
     drawPanel();
@@ -1116,8 +1187,34 @@ void Play::drawBar() {
         drawActions();
     drawAnimation("UI:Aticker", 0, kTickerTop);
     drawAnimation("UI:Artbtmornnorm", 599, kTickerTop + 1);
-    if (const BitmapFont* f = fonts_.get(2))
-        drawText(screen_, *f, ticker_, 0, kTickerTop, kW, 18, true, true);
+    drawTicker();
+}
+
+void Play::say(const std::string& sentence) {
+    if (sentence != ticker_)
+        tickerSince_ = now_;
+    ticker_ = sentence;
+}
+
+void Play::drawTicker() {
+    const BitmapFont* f = fonts_.get(2);
+    if (!f || ticker_.empty())
+        return;
+    // Drawn into a strip the ticker's width, so as to come round.
+    const int w = kTickerRight - kTickerLeft, h = 18;
+    if (tickerStrip_.w != w)
+        tickerStrip_.create(w, h, PixelFormat::RGBA32);
+    std::fill(tickerStrip_.pixels.begin(), tickerStrip_.pixels.end(), 0);
+    const int textW = f->width(ticker_);
+    const uint64_t moving = now_ - tickerSince_ > uint64_t(kTickerStillMs) ? now_ - tickerSince_ - kTickerStillMs : 0;
+    const int start = (kW - textW) / 2 - kTickerLeft;
+    int x = start - int(moving * kTickerSpeed / 10000);
+    x = ((x % w) + w) % w;
+    const int lineY = (h - f->lineHeight()) / 2;
+    f->draw(tickerStrip_, x, lineY, ticker_);
+    f->draw(tickerStrip_, x - w, lineY, ticker_);
+    image::Image strip{w, h, tickerStrip_.pixels};
+    image::blit(screen_, strip, kTickerLeft, kTickerTop);
 }
 
 void Play::drawActions() {
@@ -1169,22 +1266,35 @@ void Play::drawPanel() {
         if (font)
             drawText(screen_, *font, kindNames_[size_t(k)], kLeftX + 10, kLeftY + kNoteHeadY[k], 150, kNoteRowH, false,
                      true);
-        for (int row = 0; row < kCount[k]; ++row) {
-            const int card = kFirst[k] + row;
-            const int y = kLeftY + kNoteRowY[k] + row * kNoteRowH;
+        // The ruling: light grey lines under each row and between the columns.
+        const Color rule{190, 190, 190};
+        const int top = kLeftY + noteRowY(k, 0), bottom = kLeftY + noteRowY(k, kCount[k]);
+        for (int r = 1; r <= kCount[k]; ++r)
+            fillRect(screen_, kLeftX + 8, kLeftY + noteRowY(k, r) - 1, 194, 1, rule);
+        for (int x : {kNoteColourX, kNoteMarkX[0], kNoteMarkX[1], kNoteTriangleX})
+            fillRect(screen_, kLeftX + x, top, 1, bottom - top, rule);
+        for (int r = 0; r < kCount[k]; ++r) {
+            const int card = kFirst[k] + r;
+            const int y = kLeftY + noteRowY(k, r);
             if (font)
                 drawText(screen_, *font, cardNames_[size_t(card)], kLeftX + kNoteTextX, y, 115, kNoteRowH, false, true);
-            // Who holds it, in their colour: the owner, or who showed it.
-            const bool own = std::find(seat.hand.begin(), seat.hand.end(), card) != seat.hand.end();
-            const int holder = own ? who : shownBy_[size_t(who)][size_t(card)];
-            if (holder >= 0)
-                drawAnimation(std::string("UI:A") + kKey[holder] + "noteclr", kLeftX + kNoteHolderX, y + 1);
-            // The owner's mark; with Auto Notes, an X for every card known.
-            int mark = marks_[size_t(who)][size_t(card)];
-            if (mark == 0 && look_.autoNotes && holder >= 0)
-                mark = 1;
-            if (mark)
-                drawAnimation(mark == 1 ? "UI:Anotesx" : "UI:Anoteschk", kLeftX + kNoteMarkX, y + 1);
+            const NoteRow& row = notes_[size_t(who)][size_t(card)];
+            if (row.colour >= 0)
+                drawAnimation(std::string("UI:A") + kKey[row.colour] + "noteclr", kLeftX + kNoteColourX + 1, y + 1);
+            for (int m = 0; m < 2; ++m)
+                if (row.marks[size_t(m)] > 0)
+                    drawAnimation(kMark[row.marks[size_t(m)] - 1], kLeftX + kNoteMarkX[m] + 1, y + 1);
+            // The triangle: pointing right while its note is open; marked
+            // when there is one.
+            const char* tri = editing_ == card ? "notesrt" : row.text.empty() ? "notesup" : "notemark";
+            drawAnimation(std::string("UI:A") + kKey[who] + tri, kLeftX + kNoteTriangleX, y + 1);
+            // The note, beside the notepad: while it is open, or the
+            // pointer is on its triangle.
+            const bool hover = mouseX_ >= kLeftX + kNoteTriangleX && mouseX_ < kLeftX + 205 && mouseY_ >= y &&
+                               mouseY_ < y + kNoteRowH;
+            if (const BitmapFont* f = fonts_.get(2); f && (editing_ == card || (hover && !row.text.empty())))
+                f->draw(screen_, kLeftX + 212, y + (kNoteRowH - f->lineHeight()) / 2,
+                        row.text + (editing_ == card && now_ / 500 % 2 ? "|" : ""));
         }
     }
     drawAnimation("UI:Acardsbtn", kLeftX + 3, kLeftY + 375);
