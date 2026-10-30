@@ -50,10 +50,12 @@ struct KernelObject {
 // WriteFile on its handle come here. They run on the program's thread and
 // may wait (Win32Process::wait); each returns false (and sets `error`, a
 // Windows error code) on failure. A read given an OVERLAPPED (`overlapped`)
-// mustn't wait: it completes at once with what there is, which the
-// program takes as an overlapped read finished straight away.
+// mustn't wait: it takes what there is; with nothing there, the read is left
+// pending (ERROR_IO_PENDING), its event signalled once readable() and the
+// bytes taken by GetOverlappedResult.
 struct DeviceObject : KernelObject {
     virtual bool read(Cpu& cpu, uint32_t buffer, uint32_t size, bool overlapped, uint32_t& done, uint32_t& error) = 0;
+    virtual bool readable() = 0;
     virtual bool write(Cpu& cpu, uint32_t buffer, uint32_t size, uint32_t& done, uint32_t& error) = 0;
 };
 
@@ -98,6 +100,8 @@ public:
     // Supplies an import (WINMM.dll's timeGetTime, say), or replaces a
     // stand-in. `dll` is matched ignoring case. Returns its address.
     uint32_t provide(const std::string& dll, const std::string& function, Cpu::Native fn);
+    // A stand-in's address (0 if there's none), for calling it from tests.
+    uint32_t standIn(const std::string& dll, const std::string& function) const;
     // The imports the loaded modules have that nothing stands in for
     // ("DLL!function"); calling one fails the run.
     const std::vector<std::string>& missingImports() const { return missing_; }
@@ -135,6 +139,9 @@ public:
     // Signals an event (as SetEvent), from the program's side; false if
     // the handle isn't one.
     bool setEvent(uint32_t handle);
+    // Resets an event, then signals it as soon as `condition` holds (checked
+    // whenever a thread waits on it), for overlapped I/O finishing.
+    void signalEventWhen(uint32_t handle, std::function<bool()> condition);
     uint32_t lastError() const { return lastError_; }
     void setLastError(uint32_t e) { lastError_ = e; }
 
@@ -268,6 +275,11 @@ private:
     std::vector<std::string> missing_;
     uint32_t stackTop_ = 0, tib_ = 0, peb_ = 0;
     uint32_t commandLine_ = 0, environment_ = 0, environmentW_ = 0;
+    // Overlapped device reads left pending, by OVERLAPPED address.
+    struct PendingRead {
+        uint32_t handle = 0, buffer = 0, size = 0;
+    };
+    std::map<uint32_t, PendingRead> pendingReads_;
     uint32_t lastError_ = 0;
     uint32_t heapHandle_ = 0x7ffe0000; // HeapCreate's handles: never dereferenced
     uint32_t exceptionFilter_ = 0;

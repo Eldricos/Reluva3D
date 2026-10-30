@@ -24,6 +24,7 @@ constexpr uint32_t kThreadStack = 1u << 20;
 
 struct EventObject : KernelObject {
     bool manualReset = false, signaled = false;
+    std::function<bool()> signalWhen; // signalled once this holds (signalEventWhen)
 };
 
 struct MutexObject : KernelObject {
@@ -34,6 +35,13 @@ struct MutexObject : KernelObject {
 } // namespace
 
 uint64_t Win32Process::now() const { return milliseconds(); }
+
+void Win32Process::signalEventWhen(uint32_t handle, std::function<bool()> condition) {
+    if (auto e = object<EventObject>(handle)) {
+        e->signaled = false;
+        e->signalWhen = std::move(condition);
+    }
+}
 
 bool Win32Process::setEvent(uint32_t handle) {
     auto e = object<EventObject>(handle);
@@ -487,8 +495,13 @@ void Win32Process::addThreadStandIns() {
     auto isSignaled = [this, thread, selfId](uint32_t h) -> bool {
         if (auto t = thread(h))
             return t->finished;
-        if (auto e = object<EventObject>(h))
+        if (auto e = object<EventObject>(h)) {
+            if (!e->signaled && e->signalWhen && e->signalWhen()) {
+                e->signaled = true;
+                e->signalWhen = nullptr;
+            }
             return e->signaled;
+        }
         if (auto m = object<MutexObject>(h))
             return m->owner == 0 || m->owner == selfId();
         return true; // a file or the like: signalled

@@ -231,6 +231,11 @@ uint32_t Win32Process::provide(const std::string& dll, const std::string& functi
     return provided_[key] = cpu_.addNative(dll + "!" + function, std::move(fn));
 }
 
+uint32_t Win32Process::standIn(const std::string& dll, const std::string& function) const {
+    auto it = provided_.find(dllKey(dll) + "!" + function);
+    return it == provided_.end() ? 0 : it->second;
+}
+
 void Win32Process::stdcall(const char* dll, const char* name, int args, std::function<uint32_t(Cpu&)> fn) {
     const uint32_t pop = uint32_t(args) * 4;
     provide(dll, name, [fn = std::move(fn), pop](Cpu& c) {

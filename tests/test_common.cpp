@@ -567,6 +567,65 @@ static void testWin32Files() {
     stdfs::remove_all(root);
 }
 
+// A serial port the host provides (Win32Process::openSerialPort): plain
+// reads, and overlapped ones left pending until there are bytes.
+static void testWin32SerialPort() {
+    struct Port : x86::DeviceObject {
+        std::string incoming, written;
+        bool read(x86::Cpu& c, uint32_t buffer, uint32_t size, bool, uint32_t& done, uint32_t&) override {
+            done = uint32_t(std::min<size_t>(size, incoming.size()));
+            for (uint32_t i = 0; i < done; ++i)
+                c.write8(buffer + i, uint8_t(incoming[i]));
+            incoming.erase(0, done);
+            return true;
+        }
+        bool write(x86::Cpu& c, uint32_t buffer, uint32_t size, uint32_t& done, uint32_t&) override {
+            for (uint32_t i = 0; i < size; ++i)
+                written += char(c.read8(buffer + i));
+            done = size;
+            return true;
+        }
+        bool readable() override { return !incoming.empty(); }
+    };
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    auto port = std::make_shared<Port>();
+    int opened = 0;
+    process.openSerialPort = [&](int n) -> std::shared_ptr<x86::DeviceObject> {
+        opened = n;
+        return n == 2 ? port : nullptr;
+    };
+    auto call = [&](const char* name, std::vector<uint32_t> args) {
+        uint32_t r = 0;
+        CHECK(!cpu.call(process.standIn("KERNEL32.dll", name), args, r));
+        return r;
+    };
+    const uint32_t mem = process.memory().alloc(256);
+    cpu.writeString(mem, "\\\\.\\COM2", 16);
+    const uint32_t h = call("CreateFileA", {mem, 0xc0000000u, 0, 0, 3, 0x40000080u, 0});
+    CHECK(opened == 2 && h != 0xffffffffu && call("GetFileType", {h}) == 2);
+    cpu.writeString(mem, "COM1", 16);
+    CHECK(call("CreateFileA", {mem, 0xc0000000u, 0, 0, 3, 0, 0}) == 0xffffffffu && opened == 1);
+    // Written and read plainly.
+    cpu.writeString(mem + 16, "hi", 3);
+    const uint32_t done = mem + 32, buffer = mem + 64, overlapped = mem + 128;
+    CHECK(call("WriteFile", {h, mem + 16, 2, done, 0}) == 1 && port->written == "hi" && cpu.read32(done) == 2);
+    port->incoming = "abc";
+    CHECK(call("ReadFile", {h, buffer, 2, done, 0}) == 1 && cpu.read32(done) == 2 && cpu.read8(buffer + 1) == 'b');
+    // Overlapped: what's there at once; then nothing, pending, its event
+    // signalled when bytes come, which GetOverlappedResult takes.
+    const uint32_t event = call("CreateEventA", {0, 1, 0, 0});
+    cpu.write32(overlapped + 16, event);
+    CHECK(call("ReadFile", {h, buffer, 8, done, overlapped}) == 1 && cpu.read32(done) == 1 && cpu.read8(buffer) == 'c');
+    CHECK(call("ReadFile", {h, buffer, 8, done, overlapped}) == 0 && process.lastError() == 997);
+    CHECK(call("WaitForSingleObject", {event, 0}) == 0x102); // WAIT_TIMEOUT
+    CHECK(call("GetOverlappedResult", {h, overlapped, done, 0}) == 0 && process.lastError() == 996);
+    port->incoming = "xyz";
+    CHECK(call("WaitForSingleObject", {event, 0}) == 0);
+    CHECK(call("GetOverlappedResult", {h, overlapped, done, 0}) == 1 && cpu.read32(done) == 3 && cpu.read8(buffer + 2) == 'z');
+    CHECK(call("CloseHandle", {h}) == 1);
+}
+
 static void testX86Dll() {
     x86::Cpu cpu(64u << 20);
     x86::Win32Process process(cpu);
@@ -690,6 +749,7 @@ int main() {
     testX86Instructions();
     testX86Dll();
     testWin32Files();
+    testWin32SerialPort();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

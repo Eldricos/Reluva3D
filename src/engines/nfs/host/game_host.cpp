@@ -571,7 +571,6 @@ void GameHost::addSystem() {
             c.write32(c.arg(3), c.arg(2));
         return 1u;
     });
-    provide(k, "GetOverlappedResult", 4, [](Cpu&) { return 0u; });
 
     // Display settings: GDI32.
     provide("GDI32.dll", "GetDeviceCaps", 2, [](Cpu& c) -> uint32_t {

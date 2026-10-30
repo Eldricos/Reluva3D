@@ -333,9 +333,21 @@ void Win32Process::addFileStandIns() {
             const bool ok = device->read(c, buffer, size, overlapped != 0, n, error);
             if (done)
                 c.write32(done, n);
+            if (overlapped && ok && n == 0 && size) {
+                // Nothing yet: pending, its event (OVERLAPPED +16) signalled
+                // when there is, the bytes taken by GetOverlappedResult.
+                pendingReads_[overlapped] = {c.arg(0), buffer, size};
+                c.write32(overlapped, 0x103); // STATUS_PENDING
+                if (const uint32_t event = c.read32(overlapped + 16))
+                    signalEventWhen(event, [device] { return device->readable(); });
+                lastError_ = 997; // ERROR_IO_PENDING
+                return 0u;
+            }
             if (overlapped && ok) { // Internal (status 0) and InternalHigh (bytes)
                 c.write32(overlapped, 0);
                 c.write32(overlapped + 4, n);
+                if (const uint32_t event = c.read32(overlapped + 16))
+                    setEvent(event);
             }
             lastError_ = error;
             return ok ? 1u : 0u;
@@ -348,6 +360,39 @@ void Win32Process::addFileStandIns() {
         const size_t n = size ? std::fread(c.memory().data() + buffer, 1, size, f->file) : 0;
         if (done)
             c.write32(done, uint32_t(n));
+        return 1u;
+    });
+    // GetOverlappedResult(handle, OVERLAPPED*, LPDWORD done, wait): a
+    // device read left pending takes its bytes now (waiting for some if
+    // asked); anything else finished when it was started.
+    stdcall(k, "GetOverlappedResult", 4, [this](Cpu& c) {
+        const uint32_t overlapped = c.arg(1);
+        auto it = pendingReads_.find(overlapped);
+        if (it == pendingReads_.end()) {
+            if (c.arg(2))
+                c.write32(c.arg(2), c.read32(overlapped + 4));
+            return 1u;
+        }
+        const PendingRead p = it->second;
+        auto device = object<DeviceObject>(p.handle);
+        if (!device) {
+            pendingReads_.erase(it);
+            lastError_ = 995; // ERROR_OPERATION_ABORTED
+            return 0u;
+        }
+        if (!device->readable()) {
+            if (!c.arg(3) || !wait([device] { return device->readable(); }, 0xffffffffu)) {
+                lastError_ = 996; // ERROR_IO_INCOMPLETE
+                return 0u;
+            }
+        }
+        pendingReads_.erase(it);
+        uint32_t n = 0, error = 0;
+        device->read(c, p.buffer, p.size, true, n, error);
+        c.write32(overlapped, 0);
+        c.write32(overlapped + 4, n);
+        if (c.arg(2))
+            c.write32(c.arg(2), n);
         return 1u;
     });
     stdcall(k, "WriteFile", 5, [this](Cpu& c) {

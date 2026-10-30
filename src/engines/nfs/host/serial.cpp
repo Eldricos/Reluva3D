@@ -19,6 +19,9 @@
 #include "engines/nfs/host/game_host.h"
 
 #include <algorithm>
+#include <cctype>
+#include <chrono>
+#include <deque>
 
 namespace reluva::nfs {
 
@@ -55,16 +58,26 @@ public:
             host_.say("  serial: listening on " + at.toString());
             return true;
         }
+        target_ = at;
+        host_.say("  serial: connecting to " + at.toString());
+        return dial();
+    }
+
+    // A connection to target_ under way (again, after one that failed:
+    // the other copy may not be listening yet).
+    bool dial() {
+        if (stream_ >= 0)
+            net_.close(stream_);
+        lastDial_ = std::chrono::steady_clock::now();
         stream_ = net_.open(net::Sockets::Stream);
         if (stream_ < 0)
             return false;
         if (host_.options_.netAddress)
             net_.bind(stream_, {host_.options_.netAddress, 0});
-        const Result r = net_.connect(stream_, at);
+        const Result r = net_.connect(stream_, target_);
         connecting_ = r == Result::InProgress || r == Result::WouldBlock;
         connected_ = r == Result::Ok;
-        host_.say("  serial: connecting to " + at.toString());
-        return connected_ || connecting_;
+        return true;
     }
 
     // Whether the other end is there (the cable's carrier); accepts or
@@ -85,7 +98,6 @@ public:
             const net::Sockets::Ready ready = net_.ready(stream_);
             if (ready.failed) {
                 connecting_ = false;
-                host_.say("  serial: the other end isn't there");
             } else if (ready.write) {
                 connecting_ = false;
                 connected_ = true;
@@ -93,6 +105,10 @@ public:
                 host_.say("  serial: connected");
             }
         }
+        // Not there yet: tried again every half second.
+        if (!connected_ && !connecting_ && target_.port &&
+            std::chrono::steady_clock::now() - lastDial_ > std::chrono::milliseconds(500))
+            dial();
         return connected_;
     }
 
@@ -117,8 +133,10 @@ public:
                 connected_ = false;
                 return true;
             }
-            if (r == Result::Ok)
+            if (r == Result::Ok && n) {
+                host_.logTraffic(false, 0, target_, c.memory().data() + buffer + done, n);
                 done += uint32_t(n);
+            }
             return done >= size;
         };
         if (take() || immediate || size == 0)
@@ -138,6 +156,7 @@ public:
             size_t n = 0;
             const Result r = net_.send(stream_, c.memory().data() + buffer + done, size - done, n);
             if (r == Result::Ok) {
+                host_.logTraffic(true, 0, target_, c.memory().data() + buffer + done, n);
                 done += uint32_t(n);
                 continue;
             }
@@ -153,6 +172,13 @@ public:
             }
         }
         return true;
+    }
+
+    // Whether a read would find something (or the other end has gone).
+    bool readable() override {
+        if (!connected())
+            return false;
+        return net_.ready(stream_).read;
     }
 
     // Bytes waiting to be read.
@@ -181,6 +207,8 @@ private:
     net::Sockets& net_;
     int listener_ = -1, stream_ = -1;
     bool connecting_ = false, connected_ = false;
+    net::Address target_; // where a connecting link connects to
+    std::chrono::steady_clock::time_point lastDial_;
 };
 
 // "listen:port" (or ":port") or "host:port" to an address; false if the
