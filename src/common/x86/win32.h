@@ -172,6 +172,10 @@ public:
     // "\\.\COM1"), its number given; null if there's none (the open fails
     // with ERROR_FILE_NOT_FOUND).
     std::function<std::shared_ptr<DeviceObject>(int port)> openSerialPort;
+    // Called when a thread of the program calls Sleep or SleepEx, before it
+    // sleeps: for the host's own deliveries to a thread that polls so
+    // (TAPI's callbacks, say).
+    std::function<void(Cpu& cpu)> beforeSleep;
 
     // --- Threads (win32_threads.cpp) -----------------------------------------------
     // The program's threads take turns on the processor, each on a host

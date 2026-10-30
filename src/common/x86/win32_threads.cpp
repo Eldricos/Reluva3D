@@ -424,6 +424,8 @@ void Win32Process::addThreadStandIns() {
     });
 
     stdcall(k, "Sleep", 1, [this, endIfEnding](Cpu& c) {
+        if (beforeSleep)
+            beforeSleep(c);
         if (c.arg(0) == 0)
             yield();
         else
@@ -432,6 +434,8 @@ void Win32Process::addThreadStandIns() {
         return 0u;
     });
     stdcall(k, "SleepEx", 2, [this, endIfEnding](Cpu& c) {
+        if (beforeSleep)
+            beforeSleep(c);
         if (c.arg(0) == 0)
             yield();
         else

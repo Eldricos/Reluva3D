@@ -204,7 +204,7 @@ private:
     void addSerial();   // COM ports over TCP, on Options::serial (serial.cpp)
     void addModem();    // TAPI32 for a modem, on Options::modem (serial.cpp)
     // TAPI's events, delivered when the thread that started it next asks
-    // for messages (serial.cpp).
+    // for messages or sleeps (serial.cpp).
     std::function<void(x86::Cpu&)> tapiDeliver_;
     class CommPort;
     class SerialLink;

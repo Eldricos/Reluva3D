@@ -419,6 +419,8 @@ void GameHost::addModem() {
         }
     };
     tapiDeliver_ = deliver;
+    // The game waits for a call by sleeping, not by asking for messages.
+    process_->beforeSleep = deliver;
     auto request = [m, queue](uint32_t result = 0) {
         const uint32_t id = m->nextRequest++;
         queue(0, kLineReply, id, result);
