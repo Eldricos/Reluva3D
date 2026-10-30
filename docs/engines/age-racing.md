@@ -137,8 +137,8 @@ Prototype" of the game's mode names (`mmlang.dll` 526, beside
 "Testing"). Reluva offers it as Cruise's third in San Francisco: a
 cruise from that start, with that traffic, without the opponent.
 
-What isn't used: the `jump0`-`jump2` points and aimap, and
-`ramp.pathset` (one path of 13 points).
+The `jump0`-`jump2` points and `ramp.pathset` aren't used (see the
+Crash Course's columns below).
 
 ## Crash Course
 
@@ -181,12 +181,21 @@ lesson uses 210-216.
 
 The other extra columns: the third (1 in the follow and destroy lessons,
 every lesson with an aimap car) marks the car, which the event already
-says; the second (1 in Brake Dancing, "master the Forward 180", and The
+says. The second (1 in Brake Dancing, "master the Forward 180", and The
 Knowledge, "Race from landmark to landmark as you practice your map
-skills") and the fourth (1 in San Francisco's Straight, With Chaser and
-Midterm 3) aren't used: nothing in the files or the footage (Straight,
-With Chaser plays as a plain follow, without a clock on the screen)
-says what they do. A passed lesson offers the next
+skills") takes the compass arrow away: in the walkthrough footage The
+Knowledge is driven from start to end without one (the Midterm before
+it, with the column 0, has it throughout), the way found by the map.
+The fourth (1 in San Francisco's Straight, With Chaser and Midterm 3)
+isn't used: nothing in the files or the footage says what it does
+(Straight, With Chaser plays as a plain follow; London's Follow That
+Car!, with it 0, looks the same, neither showing a clock).
+
+`race/sf/jump0`-`jump2waypoints.csv` are three short routes down San
+Francisco's hills and along the bay (5, 6 and 4 points; `jump0.aimap`:
+traffic 0.1, no police or opponents) and `ramp.pathset` one path,
+"PATH01", of 13 points near `jump2`'s start, naming no model: nothing
+names them as races or says what they're for, so they aren't used. A passed lesson offers the next
 (Enter), any lesson its restart (R).
 
 ## Music
