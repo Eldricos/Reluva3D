@@ -27,6 +27,24 @@ bool isLevel(const std::string& level) {
     return false;
 }
 
+// Half the size each way, each pixel the mean of four.
+image::Image halve(const image::Image& in) {
+    image::Image out;
+    out.w = std::max(1, in.w / 2);
+    out.h = std::max(1, in.h / 2);
+    out.rgba.resize(size_t(out.w) * out.h * 4);
+    for (int y = 0; y < out.h; ++y)
+        for (int x = 0; x < out.w; ++x)
+            for (int c = 0; c < 4; ++c) {
+                int sum = 0;
+                for (int dy = 0; dy < 2; ++dy)
+                    for (int dx = 0; dx < 2; ++dx)
+                        sum += in.pixel(std::min(in.w - 1, x * 2 + dx), std::min(in.h - 1, y * 2 + dy))[c];
+                out.pixel(x, y)[c] = uint8_t((sum + 2) / 4);
+            }
+    return out;
+}
+
 } // namespace
 
 gfx::TextureId TextureCache::create(const Tex& tex, bool& translucent) {
@@ -41,8 +59,17 @@ gfx::TextureId TextureCache::create(const Tex& tex, bool& translucent) {
     // Flag bit 0: kept to its edges, not repeated (cars' bodies and the
     // like; tex.md).
     params.clamp = tex.flags & texflag::Clamp;
+    // The Texture Quality: smaller, but for those flagged to keep their
+    // detail.
+    const image::Image* image = &tex.image;
+    image::Image smaller;
+    if (!(tex.flags & texflag::FullDetail))
+        for (int i = 0; i < halvings_ && image->w >= 32 && image->h >= 32; ++i) {
+            smaller = halve(*image);
+            image = &smaller;
+        }
     gfx::TextureId id = 0;
-    if (renderer_.createTexture(tex.image.w, tex.image.h, tex.image.rgba.data(), params, id))
+    if (renderer_.createTexture(image->w, image->h, image->rgba.data(), params, id))
         return 0;
     return id;
 }

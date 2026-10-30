@@ -85,6 +85,8 @@ void applyGraphicsOptions(CityScene& scene, CityLife& life) {
     life.setAmbientGain(o.ambient ? 1.0f : 0.0f);
 }
 
+int textureHalvings() { return 3 - std::clamp(currentOptions().textureQuality, 0, 3); }
+
 float pedestrianShare() { return currentOptions().pedestrians ? 1.0f : 0.0f; }
 
 bool headlightPoolsOn() { return currentOptions().lightingQuality >= 0.5f; }
@@ -229,6 +231,7 @@ void DriveViewer::loadCity(int index) {
     car_.unload();
     flares_.reset();
     smoke_.reset();
+    scene_->textures().setHalvings(textureHalvings());
     error_ = scene_->load(cities_[size_t(city_)].map).message;
     flares_ = std::make_unique<FlareDrawer>(*renderer_, scene_->textures());
     smoke_ = std::make_unique<SmokePuffs>(*renderer_, scene_->textures());

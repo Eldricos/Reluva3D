@@ -217,14 +217,11 @@ std::vector<GameMenus::Item> GameMenus::items() const {
                 bar("BALANCE")};
         break;
     case Screen::Graphics:
-        // Reflections, the renderer, texture quality and cloud shadows
-        // aren't Reluva's to change.
-        list = {check("gfx_sky"),        check("gfx_rflx", false),
-                check("gfx_peds"),       check("gfx_port"),
-                choice("DISPLAY"),       choice("RENDERER", false),
-                choice("RESOLUTION"),    bar("far clip"),
-                bar("lighting"),         choice("TEXTURE QUALITY", false),
-                choice("OBJECT DETAIL"), choice("CLOUD SHADOWS", false)};
+        // Reflections, the renderer and cloud shadows aren't Reluva's to
+        // change.
+        list = {check("gfx_sky"),  check("gfx_rflx", false),  check("gfx_peds"),       check("gfx_port"),
+                choice("DISPLAY"), choice("RENDERER", false), choice("RESOLUTION"),    bar("far clip"),
+                bar("lighting"),   choice("TEXTURE QUALITY"), choice("OBJECT DETAIL"), choice("CLOUD SHADOWS", false)};
         break;
     case Screen::Control:
         // The keyboard only: no joystick to calibrate, no force feedback.
@@ -434,7 +431,7 @@ std::string GameMenus::choiceText(const std::string& w) const {
         return std::to_string(r.w) + " x " + std::to_string(r.h);
     }
     if (w == "TEXTURE QUALITY")
-        return strings_.get(576, "High");
+        return strings_.get(kDetail[edit_.textureQuality & 3], kDetailNames[edit_.textureQuality & 3]);
     if (w == "OBJECT DETAIL")
         return strings_.get(kDetail[edit_.objectDetail & 3], kDetailNames[edit_.objectDetail & 3]);
     if (w == "CLOUD SHADOWS")
@@ -458,6 +455,8 @@ void GameMenus::step(const Item& item, int dir) {
         edit_.resolution = (edit_.resolution + dir + int(resolutions().size())) % int(resolutions().size());
     else if (w == "OBJECT DETAIL")
         edit_.objectDetail = std::clamp(edit_.objectDetail + dir, 0, 3);
+    else if (w == "TEXTURE QUALITY")
+        edit_.textureQuality = std::clamp(edit_.textureQuality + dir, 0, 3);
     else if (item.kind == Kind::List)
         column_ = dir > 0 ? 1 : 0;
 }

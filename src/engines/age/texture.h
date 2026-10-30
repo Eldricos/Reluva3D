@@ -26,7 +26,10 @@ constexpr uint16_t Rgba = 18;         // 32-bit: R, G, B, A
 // A texture's flags, as far as they're known (tex.md).
 namespace texflag {
 constexpr uint32_t Clamp = 0x1; // its coordinates kept within it, not repeated
-}
+// Reluva's reading: kept at full size whatever the Texture Quality (on
+// what's seen closest: cars' backs, dashboards, the roads, particles).
+constexpr uint32_t FullDetail = 0x8000;
+} // namespace texflag
 
 struct Tex {
     uint16_t format = 0;

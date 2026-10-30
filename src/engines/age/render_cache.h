@@ -39,6 +39,10 @@ public:
     // A texture's size in pixels (after get()); false if it isn't loaded.
     bool size(const std::string& name, int& width, int& height) const;
     const std::vector<std::string>& missing() const { return missing_; }
+    // Textures loaded from now on are halved this many times (the Texture
+    // Quality), but for those flagged texflag::FullDetail and down to
+    // 16 pixels at least.
+    void setHalvings(int n) { halvings_ = n; }
 
     // Seconds into the animations, and the frame a texture shows then (the
     // texture itself if it isn't animated).
@@ -65,6 +69,7 @@ private:
     std::vector<gfx::TextureId> frameIds_; // every animation frame, to destroy
     std::vector<std::string> missing_;
     float time_ = 0;
+    int halvings_ = 0;
 };
 
 // One draw of a model: a group's triangles with its shader.

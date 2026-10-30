@@ -74,16 +74,39 @@ of those drawn only on walls, 1 of 417. Of the 131 textures with a
 physics material other than `none`, 117 have it, the 14 without being
 the sidewalks and `s_water`. What the game does with it isn't known.
 
-The other bits aren't known. 0x8000 is on roads and ground, glows,
-dashboards, steering wheels, speedometer needles and some cars' backs
-and damage textures; 111 of its 475 have one mip level, against 72 of
-the other 3,190, but it isn't the mip chain, alpha, colours or the
-materials ("never shown at reduced size" fits what it's on and can't be
-tested from the files). 0x10000 is on 1,055 of the 1,166 car textures
-(not the fire engine's and the F350's, the wheels or the numbers), all
-32 skies, the full-detail road textures (18006, not the 8006 low-detail
-ones) and some building textures (`sw_stc_*` garages and doors); it
-isn't having variants (`_ni`, `_dmg`), the mip chain or the format.
+0x8000 is on what the player sees closest and largest:
+- the cars' backs, which the chase camera looks at: 214 of 247 (`_bk`,
+  `_tpbk`, `_bklft`, `_bk1` and their `_dmg`), but only 9 of the 95
+  lowest-detail (`_vl`) backs, so it goes with being seen near, not with
+  being a back;
+- the cockpit: 79 of 93 dashboards, steering wheels and needles;
+- every 24-bit ground texture (153 of 153 with 0x4 in format 17; none of
+  the 16 ground textures in palette formats, none of the 147 other
+  format-17 textures);
+- the particles (`fxpt*`).
+
+The car's other textures almost never have it (3 of 886). 111 of the
+475 have a single mip level, mostly the 256-pixel dashboards, which never
+shrink on screen. A few inconsistencies (one car's back without it while
+its `_dmg` and `_vl` have it) say it was set by hand per file. It isn't
+the shaders, the vertex format, the level of detail or how the mips were
+made. Reluva reads it as "keep full detail": the help's Texture Quality
+(Very High, High, Medium, Low, for "surface textures") leaves these
+alone. Better filtering for near surfaces would fit too; footage at a
+low texture quality would tell them apart.
+
+0x10000 isn't known. It's on 1,055 of the 1,166 car textures (not the
+fire engine's and semi's shared `vplafrance*`, the F350's backs, the
+trailers, glows or `carbottom`), all 32 skies (in San Francisco every
+24-bit single-level `sky_*_f`, none of the palette `sky_*_l`), the
+plain lane roads (33 of 33, 21 of 26 `_fa`, 3 of 44 `_lo`, 1 of 45
+junctions, crossings and ground) and about 40 building and prop
+textures (`sw_stc_*` garages and doors, `tl_challfront*`, `kl_` museum
+textures, `p_fence_blk*`, `treesmall*_s`). The full-detail member of each
+sky and road pair has it, which suggests a texture-quality tier; it
+isn't the shaders, reflections (their maps are separate, and trees and
+fences have it), the size, format or mips. No file lists texture
+properties.
 
 ## Animated textures
 

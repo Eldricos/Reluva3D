@@ -136,6 +136,7 @@ void RaceViewer::loadCity() {
     flares_.reset();
     smoke_.reset();
     const std::string& map = cities_[size_t(city_)].map;
+    scene_->textures().setHalvings(textureHalvings());
     error_ = scene_->load(map).message;
     flares_ = std::make_unique<FlareDrawer>(*renderer_, scene_->textures());
     smoke_ = std::make_unique<SmokePuffs>(*renderer_, scene_->textures());
