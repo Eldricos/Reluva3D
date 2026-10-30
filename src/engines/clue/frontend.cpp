@@ -164,13 +164,18 @@ void FrontEnd::go(Screen s) {
         showDialog(kMainMenu);
         break;
     case Screen::StartChoice: showDialog(kStartChoice); break;
-    case Screen::Connection: showDialog(kConnection); break;
-    case Screen::NetGame:
-        showDialog(kNetGame);
-        // Network play comes later (docs/engines/clue.md).
-        dialog_->setEnabled(1, false);
-        dialog_->setEnabled(2, false);
+    case Screen::Connection:
+        showDialog(kConnection);
+        // The Internet Game Zone is gone: games by address instead.
+        dialog_->setText(0, "Internet|by address");
         break;
+    case Screen::NetGame: showDialog(kNetGame); break;
+    case Screen::NetHost:
+    case Screen::NetJoin:
+    case Screen::NetAddress:
+    case Screen::NetLobby:
+    case Screen::NetSetup:
+    case Screen::NetMessage: netShow(s); break;
     case Screen::LoadGame:
         showDialog(kLoadGame);
         // The saved games, by their names; the empty slots can't be chosen.
@@ -229,7 +234,9 @@ void FrontEnd::go(Screen s) {
         if (!play_ && mansion_) {
             play_ = std::make_unique<Play>(sys_, screen_, data_, mixer_, resi_, *fonts_, *mansion_, level_);
             play_->setLook(playLook());
-            if (play_->start(players_, noDieRoll_, uint32_t(sys_.getMillis() * 2654435761u))) {
+            const Error err = net_ ? play_->startNetwork(*net_)
+                                   : play_->start(players_, noDieRoll_, uint32_t(sys_.getMillis() * 2654435761u));
+            if (err) {
                 play_.reset();
                 go(Screen::MainMenu);
                 return;
@@ -372,16 +379,10 @@ void FrontEnd::onClick(int id) {
             go(Screen::MainMenu);
         break;
     case Screen::Connection:
-        if (id == 0 || id == 1)
-            go(Screen::NetGame);
-        else if (id == kReturn)
+        if (id == kReturn)
             go(Screen::StartChoice);
-        break;
-    case Screen::NetGame:
-        if (id == 0)
-            go(Screen::MainMenu);
-        else if (id == kReturn)
-            go(Screen::Connection);
+        else
+            netClick(id);
         break;
     case Screen::RulesMenu:
         if (id >= 0 && id <= 6) {
@@ -492,7 +493,10 @@ void FrontEnd::onClick(int id) {
             if (play_)
                 play_->stopSounds();
             play_.reset();
-            go(Screen::MainMenu);
+            if (net_)
+                netLeave();
+            else
+                go(Screen::MainMenu);
         } else if (id == 1) {
             prefsReturn_ = Screen::GameMenu;
             go(Screen::Prefs);
@@ -534,7 +538,7 @@ void FrontEnd::onClick(int id) {
         } else if (id == kReturn)
             go(Screen::MainMenu);
         break;
-    default: break;
+    default: netClick(id); break;
     }
 }
 
@@ -628,6 +632,21 @@ void FrontEnd::handleEvent(const Event& ev) {
     }
     if (!dialog_)
         return;
+    // The network screens: Esc goes back (a lobby is left), Enter sends.
+    const bool netScreen = at_ == Screen::NetHost || at_ == Screen::NetAddress || at_ == Screen::NetJoin ||
+                           at_ == Screen::NetLobby || at_ == Screen::NetSetup || at_ == Screen::NetMessage;
+    if (netScreen && ev.type == EventType::KeyDown && (ev.key == key::Escape || ev.key == key::Return)) {
+        const bool esc = ev.key == key::Escape;
+        if (at_ == Screen::NetLobby)
+            esc ? netLeave() : netClick(60);
+        else if (at_ == Screen::NetMessage)
+            netClick(kOk);
+        else if (at_ == Screen::NetHost || at_ == Screen::NetAddress)
+            netClick(esc ? kReturn : 2);
+        else if (esc)
+            netClick(kReturn);
+        return;
+    }
     // Esc as each screen's way back.
     if (ev.type == EventType::KeyDown && ev.key == key::Escape) {
         if (at_ == Screen::MainMenu)
@@ -785,6 +804,7 @@ void FrontEnd::drawCursor() {
 
 void FrontEnd::update(uint64_t nowMs) {
     now_ = nowMs;
+    netUpdate(); // the network's, whatever is on the screen
     if (movie_) {
         const double t = double(nowMs - movieStart_) / 1000.0;
         const bool soundOn = mixer_ && movieSound_ != audio::kNoSound && mixer_->isPlaying(movieSound_);
@@ -842,7 +862,10 @@ void FrontEnd::update(uint64_t nowMs) {
             // The game over: back to the main menu, as the original.
             play_->stopSounds();
             play_.reset();
-            go(Screen::MainMenu);
+            if (net_)
+                netLeave();
+            else
+                go(Screen::MainMenu);
             drawCursor();
             return;
         }
@@ -854,7 +877,8 @@ void FrontEnd::update(uint64_t nowMs) {
         if (dialog_) {
             // The storm goes between the menu's background and its controls.
             dialog_->drawBackground(screen_);
-            if (at_ != Screen::Picker && at_ != Screen::Setup) {
+            if (at_ != Screen::Picker && at_ != Screen::Setup && at_ != Screen::NetLobby && at_ != Screen::NetSetup &&
+                at_ != Screen::NetMessage) {
                 drawStorm();
                 menuThunder();
             }

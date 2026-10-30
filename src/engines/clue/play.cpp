@@ -167,6 +167,22 @@ Play::Play(System& sys, Surface& screen, const GameData& data, audio::Mixer* mix
 
 Play::~Play() { stopSounds(); }
 
+Error Play::startNetwork(netplay::Session& session) {
+    // The players as the host's lobby has them; the same deal everywhere.
+    std::array<Player, kSuspectCount> players;
+    for (int s = 0; s < kSuspectCount; ++s) {
+        const netplay::Seat& seat = session.lobby().seats[size_t(s)];
+        players[size_t(s)].kind = seat.kind == netplay::Seat::Human      ? Player::Human
+                                  : seat.kind == netplay::Seat::Computer ? Player::Computer
+                                                                         : Player::None;
+        players[size_t(s)].level = seat.level;
+        players[size_t(s)].name = seat.name;
+        owner_[size_t(s)] = seat.owner;
+    }
+    net_ = &session;
+    return start(players, session.lobby().noDieRoll, session.seed());
+}
+
 Error Play::start(const std::array<Player, kSuspectCount>& players, bool noDieRoll, uint32_t seed) {
     if (Error err = board_.build(level_))
         return err;
@@ -227,7 +243,7 @@ void Play::readTexts() {
 }
 
 bool Play::canSave() const {
-    return window_ == Window::None && steps_.empty() && !busy() && humanTurn() &&
+    return !net_ && window_ == Window::None && steps_.empty() && !busy() && humanTurn() &&
            game_.phase() != Game::Phase::Over && game_.phase() != Game::Phase::Disprove;
 }
 
@@ -315,7 +331,7 @@ bool Play::busy() const {
     if (now_ < waitUntil_ || video_)
         return true;
     if (window_ == Window::Pick || window_ == Window::Shown || window_ == Window::Solution ||
-        window_ == Window::Loser)
+        window_ == Window::Loser || awaitingShow_)
         return true;
     return std::any_of(walkers_.begin(), walkers_.end(), [](const Walker& w) { return w.walking; });
 }
@@ -330,9 +346,22 @@ void Play::runSteps() {
 
 bool Play::humanTurn() const { return players_[size_t(game_.turn())].kind == Player::Human; }
 
+bool Play::local(int seat) const {
+    return players_[size_t(seat)].kind == Player::Human && (!net_ || owner_[size_t(seat)] == net_->me());
+}
+
+bool Play::localTurn() const { return local(game_.turn()); }
+
 int Play::viewer() const {
-    // The human whose turn it is; in a computer's turn, the human who
-    // played last before it.
+    // Over a network, this machine's player.
+    if (net_) {
+        for (int s = 0; s < kSuspectCount; ++s)
+            if (local(s))
+                return s;
+        return -1;
+    }
+    // At one machine, the human whose turn it is; in a computer's turn,
+    // the human who played last before it.
     for (int k = 0; k < kSuspectCount; ++k) {
         const int s = (game_.turn() - k + kSuspectCount) % kSuspectCount;
         if (players_[size_t(s)].kind == Player::Human)
@@ -353,7 +382,7 @@ void Play::beginTurn() {
         centreOn(s);
     });
     pause(1200);
-    if (humanTurn())
+    if (localTurn())
         then([this] { promptHuman(); });
 }
 
@@ -382,8 +411,120 @@ void Play::promptHuman() {
 }
 
 void Play::afterAction() {
-    if (game_.phase() != Game::Phase::Over && humanTurn())
+    if (game_.phase() != Game::Phase::Over && localTurn())
         promptHuman();
+}
+
+// ---- Actions ----------------------------------------------------------------------
+
+void Play::perform(const netplay::Command& c) {
+    if (!net_) {
+        apply(c);
+        return;
+    }
+    // Over a network: to the host, to be played out by everyone in its order.
+    net_->submit(c);
+    pending_ = true;
+}
+
+namespace {
+
+netplay::Command command(netplay::Command::Type type, int seat, std::vector<int16_t> args = {}) {
+    netplay::Command c;
+    c.type = type;
+    c.seat = uint8_t(seat);
+    c.args = std::move(args);
+    return c;
+}
+
+} // namespace
+
+void Play::apply(const netplay::Command& c) {
+    using netplay::Command;
+    if (c.seat == game_.turn() || c.type == Command::Show)
+        pending_ = false;
+    // Whoever's it is: the player whose turn it is, but for showing a card
+    // (the disprover's) and a player gone (any).
+    if (c.type != Command::Show && c.type != Command::TakeOver && c.seat != game_.turn())
+        return;
+    const int s = c.seat;
+    switch (c.type) {
+    case Command::Roll:
+        if (!game_.canRoll())
+            return;
+        game_.rollDie();
+        rollStart_ = now_;
+        plan_.clear();
+        sound("dice shake and roll.WAV");
+        pause(900);
+        then([this] { afterAction(); });
+        break;
+    case Command::Walk: {
+        std::vector<Place> path;
+        for (size_t i = 0; i + 1 < c.args.size(); i += 2)
+            path.push_back(c.args[i] < 0 ? Place{{}, c.args[i + 1]} : Place{{c.args[i], c.args[i + 1]}, kNoRoom});
+        plan_.clear();
+        if (game_.walk(path)) {
+            if (local(s))
+                sound("nogo.wav");
+            return;
+        }
+        startWalk(path);
+        then([this] { afterAction(); });
+        break;
+    }
+    case Command::Passage:
+        if (game_.takePassage())
+            return;
+        plan_.clear();
+        sound("door open.wav");
+        placeWalkers(false);
+        centreOn(s);
+        pause(500);
+        then([this] { afterAction(); });
+        break;
+    case Command::Suggest:
+        if (c.args.size() < 2 || game_.suggest(c.args[0], c.args[1]))
+            return;
+        suggestionMade();
+        break;
+    case Command::Accuse:
+        if (c.args.size() < 3 || !game_.canAccuse())
+            return;
+        accusationMade({c.args[0], c.args[1], c.args[2]});
+        break;
+    case Command::EndTurn:
+        if (!game_.canEndTurn() && game_.phase() != Game::Phase::Moved && game_.phase() != Game::Phase::Suggested)
+            return;
+        endTurn();
+        break;
+    case Command::Show:
+        if (c.args.empty() || game_.phase() != Game::Phase::Disprove || game_.disprover() != s ||
+            game_.show(c.args[0]))
+            return;
+        awaitingShow_ = false;
+        if (window_ == Window::Pick) {
+            window_ = Window::None;
+            dialog_.reset();
+        }
+        break;
+    case Command::TakeOver:
+        // A player gone: the computer plays on for them.
+        if (players_[size_t(s)].kind != Player::Human)
+            return;
+        players_[size_t(s)].kind = Player::Computer;
+        players_[size_t(s)].level = ComputerPlayer::Normal;
+        say(players_[size_t(s)].name + " has left the game.");
+        if (awaitingShow_ && game_.phase() == Game::Phase::Disprove && game_.disprover() == s) {
+            game_.show(ai_[size_t(s)].chooseShow(game_, game_.turn()));
+            awaitingShow_ = false;
+            if (window_ == Window::Pick) {
+                window_ = Window::None;
+                dialog_.reset();
+            }
+        }
+        break;
+    }
 }
 
 void Play::computerTurn() {
@@ -543,14 +684,24 @@ void Play::suggestionMade() {
         });
         pause(kToldMs);
         then([this, d, s] {
-            if (players_[size_t(d)].kind == Player::Human && !autoDisprove_[size_t(d)])
-                openPick();
-            else
+            if (players_[size_t(d)].kind != Player::Human) {
                 game_.show(ai_[size_t(d)].chooseShow(game_, s));
+                return;
+            }
+            // A human's: their choice, by hand or (out of the game, if
+            // they chose so) by the computer, on their own machine; the
+            // others wait for it.
+            awaitingShow_ = true;
+            if (!local(d))
+                return;
+            if (autoDisprove_[size_t(d)])
+                perform(command(netplay::Command::Show, d, {int16_t(ai_[size_t(d)].chooseShow(game_, s))}));
+            else
+                openPick();
         });
         then([this, s] {
             told_.reset();
-            if (players_[size_t(s)].kind == Player::Human)
+            if (local(s))
                 openShown();
         });
     }
@@ -608,7 +759,7 @@ void Play::accusationMade(const Accusation& a) {
             then([this] { finished_ = true; });
             return;
         }
-        if (players_[size_t(s)].kind == Player::Human)
+        if (local(s))
             then([this, s] {
                 viewerOut_ = s;
                 openLoser();
@@ -694,10 +845,12 @@ void Play::clickChoose(int id) {
     } else if (id == 27 || id == 33) {
         window_ = Window::None;
         dialog_.reset();
-        if (id == 27 && !game_.suggest(chosen_.suspect, chosen_.weapon))
-            suggestionMade();
-        else if (id == 33)
-            accusationMade(chosen_);
+        const int s = game_.turn();
+        if (id == 27)
+            perform(command(netplay::Command::Suggest, s, {int16_t(chosen_.suspect), int16_t(chosen_.weapon)}));
+        else
+            perform(command(netplay::Command::Accuse, s,
+                            {int16_t(chosen_.suspect), int16_t(chosen_.weapon), int16_t(chosen_.room)}));
         return;
     } else
         return;
@@ -745,9 +898,10 @@ void Play::clickPick(int id) {
             return;
         }
     if (id == kOk && pickChosen_ >= 0) {
-        game_.show(pickCards_[size_t(pickChosen_)]);
+        const int card = pickCards_[size_t(pickChosen_)];
         window_ = Window::None;
         dialog_.reset();
+        perform(command(netplay::Command::Show, game_.disprover(), {int16_t(card)}));
     }
 }
 
@@ -894,7 +1048,7 @@ void Play::handleEvent(const Event& ev) {
     }
     if (!map_ && clickHotSpot(x, y))
         return;
-    if (busy() || !steps_.empty() || !humanTurn())
+    if (busy() || !steps_.empty() || !localTurn() || pending_)
         return;
     if (map_ && x >= kMapX && x < kMapX + kMapW && y >= kMapY && y < kMapY + kMapH)
         clickMap(x - kMapX, y - kMapY);
@@ -903,7 +1057,7 @@ void Play::handleEvent(const Event& ev) {
 }
 
 int Play::actionAt(int x, int y) const {
-    if (!humanTurn() || game_.phase() == Game::Phase::Over)
+    if (!localTurn() || game_.phase() == Game::Phase::Over)
         return -1;
     for (int k = 0; k < 3; ++k)
         if (x >= kSlotX[k] && x < kSlotX[k] + kSlotW[k] && y >= kSlotY && y < kSlotY + kSlotH)
@@ -912,19 +1066,14 @@ int Play::actionAt(int x, int y) const {
 }
 
 void Play::clickAction(int slot) {
-    if (busy() || !steps_.empty() || window_ != Window::None)
+    if (busy() || !steps_.empty() || window_ != Window::None || pending_)
         return;
     if (slot == 0) {
-        if (game_.canRoll()) {
-            game_.rollDie();
-            rollStart_ = now_;
-            plan_.clear();
-            sound("dice shake and roll.WAV");
-            pause(900);
-            then([this] { afterAction(); });
-        } else if (game_.canEndTurn()) {
+        if (game_.canRoll())
+            perform(command(netplay::Command::Roll, game_.turn()));
+        else if (game_.canEndTurn()) {
             sound("click.wav");
-            endTurn();
+            perform(command(netplay::Command::EndTurn, game_.turn()));
         } else if (game_.noDieRoll() && game_.canMove() && !plan_.empty() && game_.canWalk(plan_))
             walkPlan();
         else
@@ -943,19 +1092,22 @@ void Play::clickAction(int slot) {
 }
 
 void Play::walkPlan() {
-    const std::vector<Place> path = plan_;
-    plan_.clear();
-    if (game_.walk(path)) {
+    if (!game_.canWalk(plan_)) {
+        plan_.clear();
         sound("nogo.wav");
         return;
     }
-    startWalk(path);
-    then([this] { afterAction(); });
+    std::vector<int16_t> args;
+    for (const Place& p : plan_) {
+        args.push_back(int16_t(p.inRoom() ? -1 : p.square.x));
+        args.push_back(int16_t(p.inRoom() ? p.room : p.square.y));
+    }
+    perform(command(netplay::Command::Walk, game_.turn(), args));
 }
 
 bool Play::clickHotSpot(int x, int y) {
     // While a move is being planned, clicks are the move's.
-    if (humanTurn() && game_.canMove() && !busy())
+    if (localTurn() && game_.canMove() && !busy())
         return false;
     const int i = mansion_.itemAt(x + camX_, y + camY_, look_.mansion, now_);
     if (i < 0 || mansion_.playingState(size_t(i), now_))
@@ -1026,13 +1178,7 @@ void Play::clickView(int x, int y) {
         for (const Mansion::Item& item : mansion_.items())
             if (item.object->type == ObjectDef::SecretPassage && item.rect.contains(x + camX_, y + camY_) &&
                 board_.roomAt(Board::squareAt(item.box.x, item.box.y)) == game_.place(s).room) {
-                game_.takePassage();
-                plan_.clear();
-                sound("door open.wav");
-                placeWalkers(false);
-                centreOn(s);
-                pause(500);
-                then([this] { afterAction(); });
+                perform(command(netplay::Command::Passage, s));
                 return;
             }
     if (!game_.canMove())
@@ -1053,13 +1199,7 @@ void Play::clickMap(int x, int y) {
     const int room = board_.roomAt(sq);
     // From a corner room, the room in the opposite corner: the passage.
     if (room != kNoRoom && game_.canTakePassage() && board_.passage(game_.place(game_.turn()).room) == room) {
-        game_.takePassage();
-        plan_.clear();
-        sound("door open.wav");
-        placeWalkers(false);
-        centreOn(game_.turn());
-        pause(500);
-        then([this] { afterAction(); });
+        perform(command(netplay::Command::Passage, game_.turn()));
         return;
     }
     if (!game_.canMove())
@@ -1197,6 +1337,25 @@ void Play::update(uint64_t nowMs) {
             stopVideo();
     }
     runSteps();
+    if (net_) {
+        // The players' actions, in the host's order, each when this
+        // machine has played out what went before it (a card shown, or a
+        // player gone, as soon as it's waited for).
+        netplay::Command c;
+        while (net_->nextCommand(c))
+            incoming_.push_back(c);
+        while (!incoming_.empty() && game_.phase() != Game::Phase::Over) {
+            const netplay::Command& next = incoming_.front();
+            const bool waitedFor = awaitingShow_ && (next.type == netplay::Command::Show ||
+                                                    next.type == netplay::Command::TakeOver);
+            if (!waitedFor && (busy() || !steps_.empty()))
+                break;
+            const netplay::Command now = next;
+            incoming_.pop_front();
+            apply(now);
+            runSteps();
+        }
+    }
     if (!busy() && steps_.empty() && window_ == Window::None && game_.phase() != Game::Phase::Over &&
         !humanTurn())
         computerTurn();
@@ -1315,7 +1474,7 @@ std::vector<Mansion::Actor> Play::actors() {
     }
     // A move being planned: its squares numbered, and the next squares it
     // can take numbered faintly.
-    if (humanTurn() && game_.canMove() && !busy()) {
+    if (localTurn() && game_.canMove() && !busy()) {
         const auto number = [&](const Square& sq, int n, int opacity) {
             if (n < 1 || n > 9)
                 return;
@@ -1387,7 +1546,7 @@ void Play::drawBar() {
     }
     drawAnimation("UI:Alogobtn", 501, kBarTop);
     drawAnimation("UI:Arightorn", 594, kBarTop);
-    if (humanTurn() && game_.phase() != Game::Phase::Over)
+    if (localTurn() && game_.phase() != Game::Phase::Over)
         drawActions();
     drawAnimation("UI:Aticker", 0, kTickerTop);
     drawAnimation("UI:Artbtmornnorm", 599, kTickerTop + 1);
@@ -1513,7 +1672,7 @@ void Play::drawMap() {
         y = kMapY + kMapRow0Y + int(std::lround((row - kMapFirst) * kMapSquare));
     };
     // A move being planned: its squares numbered in the map's small digits.
-    if (humanTurn() && game_.canMove() && !busy())
+    if (localTurn() && game_.canMove() && !busy())
         for (size_t i = 0; i < plan_.size() && i < 9; ++i)
             if (!plan_[i].inRoom()) {
                 int x, y;

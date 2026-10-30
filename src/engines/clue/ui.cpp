@@ -161,6 +161,18 @@ void DialogView::setVisible(int id, bool v) {
             state_[i].visible = v;
 }
 
+void DialogView::setTextAt(size_t index, std::string text) {
+    if (index < state_.size()) {
+        state_[index].text = std::move(text);
+        state_[index].textSet = true;
+    }
+}
+
+void DialogView::setVisibleAt(size_t index, bool v) {
+    if (index < state_.size())
+        state_[index].visible = v;
+}
+
 void DialogView::setGroupVisible(int group, bool v) {
     for (size_t i = 0; i < state_.size(); ++i)
         if (dialog_.controls[i].group == group)
@@ -356,7 +368,12 @@ void DialogView::drawControls(Surface& s) const {
                 break;
             const std::vector<std::string> lines = wrapped(c);
             const int fit = r.h > 0 ? std::max(1, r.h / std::max(1, f->lineHeight())) : int(lines.size());
-            if (int(lines.size()) <= fit) {
+            // Only a dialog with a scroll knob scrolls its text; elsewhere
+            // text a little over its box is drawn whole, as the original's
+            // ("Please wait for the Host|to start this game").
+            const bool scrolls = std::any_of(dialog_.controls.begin(), dialog_.controls.end(),
+                                             [](const ResiControl& k) { return k.type == ResiControl::ScrollKnob; });
+            if (int(lines.size()) <= fit || !scrolls) {
                 std::string joined;
                 for (size_t k = 0; k < lines.size(); ++k)
                     joined += (k ? "|" : "") + lines[k];

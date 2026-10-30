@@ -100,8 +100,7 @@ Each step can be seen working before the next.
    (locally), the six suspects' players (human with a name, or computer
    at a difficulty), the game variants, Preferences (saved), How to Play
    with its texts, Credits, Exit; then "Entering the mansion", the deal,
-   and the mansion with the game's bar and the Esc menu. The network
-   screens show but don't work yet. The in-game panels
+   and the mansion with the game's bar and the Esc menu. The in-game panels
    (cards, notepad, suggestion and accusation, disproving) come with the
    rules, as they need them.
 5. **The game** (done, to be checked against the original). The board
@@ -132,10 +131,10 @@ Each step can be seen working before the next.
    the original's Save window and Load Game screen have: the original's
    needn't load. The original's `Prefs.ini` isn't read: Reluva keeps its
    own preferences.
-8. **Network play** (later). The original's local-network games, and
-   games over the internet by address in place of the Gaming Zone, which
-   is gone. Whether to speak DirectPlay's protocol, so as to play against
-   the original, is to be decided then.
+8. **Network play** (done, to be tried between real machines). Games
+   on the local network and over the internet by address, in the
+   original's network screens. Reluva's own protocol, not DirectPlay's:
+   Reluva and the original can't play each other (below).
 
 ## The computer players
 
@@ -258,6 +257,66 @@ the game: the players, the rules' state (cards, places, the turn, the
 die's random state), each computer player's notebook and random state,
 each human's notepad, and where the suspects stand. A save is written
 beside the old one and then put in its place.
+
+## Network play
+
+Start Game, **Networked**, then:
+
+- **LAN TCP/IP**: **Host New Game** (a game name, your name, how many
+  humans at most), or **Join Game**, which lists the games found on the
+  local network (Refresh asks again).
+- **Internet by address** (the original's "Internet Game Zone" button;
+  the Zone closed in 2006): **Host New Game** as above, and tell the
+  others your address; **Join Game** asks for the host's address,
+  `a.b.c.d`, `a.b.c.d:port` or a name. The host's router must forward
+  UDP port 23398 to the host's machine.
+
+Then the original's players' picker, with its chat line (type, Enter or
+the telephone sends it). Each player clicks a suspect to take it (again
+to give it back). The host clicks any other suspect to make it a computer
+player at a level, or none, and its **Options** to switch Classic / No
+Die Roll; **Start Game** once there are three suspects and every machine
+that joined has one. The game then deals the same cards on every
+machine.
+
+In the game each machine shows its own player's cards and notepad, and
+only its own player's turns take clicks. A player who leaves (or whose
+machine stops answering for 15 s) is played on by a Normal computer
+player; if the host leaves, the others see "The Host Has Disconnected"
+and the game ends. Saving isn't offered in network games. The Esc menu
+doesn't pause the others: the game catches up when it's closed.
+
+**How it works.** UDP, port 23398. Datagrams begin `CLU` and a version.
+Finding games: a broadcast "ask", each host answering with its game's
+name, its host's name and its places. Joining: "connect" with the
+player's name, answered "accept" (with the machine's number) or "refuse"
+(full, or begun). After that, messages to and from the host go over a
+channel that numbers them, resends them every 250 ms until acknowledged,
+and delivers them in order; an acknowledgement goes at least once a
+second, and 15 s without one ends the connection. The host keeps the
+lobby and sends it whole on each change. The game: the start carries the
+random seed; then each player's action (roll, walk with its squares,
+passage, suggest, accuse, end the turn, a card shown, a player taken
+over) goes to the host, which sends every action, in one order, to
+everyone, itself included. Every machine plays the actions out from the
+same deal and seed, so the die and the computer players come out the
+same everywhere. The host checks each action is from the machine whose
+player it is. `src/engines/clue/netplay.h`.
+
+Tested: unit tests over Reluva's in-memory network (finding, joining,
+the lobby, chat, starting, the order of actions, a lossy network, a
+player gone, the host gone); whole games of three machines in one
+process with the real game, each at its own frame rate, on a clean and a
+lossy (one datagram in four lost) network, with the die and without, a
+machine dropping half way: every machine ends in the same state; and two
+copies of Reluva on one machine over its real network, through the
+screens, into the same game. Not yet tried between two real machines.
+
+**Against the original.** The original speaks DirectPlay 5/6 (the
+`DPLAYX` session, its own messages inside), which nothing but Windows
+still has; to play against it, Reluva would have to speak DirectPlay's
+protocol and the original's messages, which would need recording
+network play of the original. Not planned unless it's wanted.
 
 ## Playing
 

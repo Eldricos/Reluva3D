@@ -7,6 +7,7 @@
 #include "engines/clue/board.h"
 #include "engines/clue/game_data.h"
 #include "engines/clue/level.h"
+#include "engines/clue/netplay.h"
 #include "engines/clue/mansion.h"
 #include "engines/clue/resi.h"
 #include "engines/clue/ui.h"
@@ -973,6 +974,124 @@ static void testSaveLoad() {
     CHECK(saveio::getString(strings, text) && text == "a name with spaces");
 }
 
+// Network play over the in-memory network: finding a game, joining, the
+// lobby, chat, the start, the players' actions in one order, a lossy
+// network, and a player gone.
+static bool dropEveryThird(const net::Address&, const net::Address&, size_t index) { return index % 3 == 0; }
+
+static void testNetplay(bool lossy) {
+    using namespace netplay;
+    auto network = net::LoopbackNetwork::create();
+    if (lossy)
+        network->setDropFilter(dropEveryThird);
+    auto host = Session::host(network->open(kDefaultPort), "Boddy", "Hostess", 4);
+    auto browser = Session::browse(network->open(0), {net::Address::broadcast(kDefaultPort)});
+    uint64_t now = 1000;
+    std::vector<Session*> all{host.get(), browser.get()};
+    const auto run = [&](int ms) {
+        for (int t = 0; t < ms; t += 20) {
+            now += 20;
+            for (Session* s : all)
+                s->update(now);
+        }
+    };
+    run(3000);
+    CHECK(browser->found().size() == 1);
+    if (browser->found().empty())
+        return;
+    CHECK(browser->found()[0].gameName == "Boddy" && browser->found()[0].hostName == "Hostess" &&
+          browser->found()[0].humans == 1 && browser->found()[0].maxHumans == 4);
+    const net::Address at = browser->found()[0].address;
+    auto anne = Session::join(network->open(0), at, "Anne");
+    auto bob = Session::join(network->open(0), at, "Bob");
+    all = {host.get(), anne.get(), bob.get()};
+    run(3000);
+    CHECK(anne->state() == Session::State::Lobby && bob->state() == Session::State::Lobby);
+    CHECK(anne->me() != bob->me() && anne->me() > 0);
+    // Taking suspects; the host sets a computer player and the variant.
+    host->take(Scarlet);
+    anne->take(Mustard);
+    bob->take(Scarlet); // taken: refused
+    run(2000);
+    CHECK(!host->canStart()); // Bob has no suspect yet
+    bob->take(White);
+    host->setSeat(Plum, Seat::Computer, 2);
+    host->setSeat(Mustard, Seat::Computer, 0); // Anne's: not the host's to change
+    host->setNoDieRoll(true);
+    run(2000);
+    for (Session* s : all) {
+        const Lobby& l = s->lobby();
+        CHECK(l.seats[Scarlet].kind == Seat::Human && l.seats[Scarlet].owner == 0 && l.seats[Scarlet].name == "Hostess");
+        CHECK(l.seats[Mustard].kind == Seat::Human && l.seats[Mustard].name == "Anne");
+        CHECK(l.seats[White].kind == Seat::Human && l.seats[White].name == "Bob");
+        CHECK(l.seats[Plum].kind == Seat::Computer && l.seats[Plum].level == 2 && l.noDieRoll);
+    }
+    // Chat goes to everyone, said by its speaker.
+    std::string line;
+    while (anne->nextChat(line) || bob->nextChat(line) || host->nextChat(line)) {
+    }
+    anne->chat("Hello");
+    run(1000);
+    for (Session* s : all)
+        CHECK(s->nextChat(line) && line == "Anne: Hello");
+    // The start, and the players' actions: in the host's order, the same
+    // for everyone; one for a suspect not theirs is dropped.
+    CHECK(host->canStart());
+    host->start(4242);
+    run(1000);
+    CHECK(anne->state() == Session::State::Playing && anne->seed() == 4242 && bob->lobby().started);
+    Command c;
+    c.type = Command::Walk;
+    c.seat = Mustard;
+    c.args = {3, 28, 12, 28, 13, -1, 4};
+    anne->submit(c);
+    c.type = Command::Roll;
+    c.seat = Scarlet;
+    c.args.clear();
+    host->submit(c);
+    c.seat = White; // Bob's, sent by Anne
+    anne->submit(c);
+    for (int k = 0; k < 20; ++k) {
+        c.type = Command::Show;
+        c.seat = White;
+        c.args = {int16_t(k)};
+        bob->submit(c);
+    }
+    run(4000);
+    std::vector<std::vector<Command>> got(all.size());
+    for (size_t i = 0; i < all.size(); ++i)
+        while (all[i]->nextCommand(c))
+            got[i].push_back(c);
+    CHECK(got[0].size() == 22);
+    for (size_t i = 1; i < all.size(); ++i) {
+        CHECK(got[i].size() == got[0].size());
+        for (size_t k = 0; k < got[0].size() && k < got[i].size(); ++k)
+            CHECK(got[i][k].type == got[0][k].type && got[i][k].seat == got[0][k].seat &&
+                  got[i][k].args == got[0][k].args);
+    }
+    // Bob's shows in the order he sent them.
+    int expect = 0;
+    for (const Command& k : got[0])
+        if (k.type == Command::Show)
+            CHECK(k.args[0] == expect++);
+    // Bob goes quiet: the host gives Mrs. White to the computer, for everyone.
+    all = {host.get(), anne.get()};
+    run(int(Channel::kTimeoutMs) + 2000);
+    CHECK(host->nextLeft() == White);
+    bool takenOver = false;
+    while (anne->nextCommand(c))
+        takenOver = takenOver || (c.type == Command::TakeOver && c.seat == White);
+    CHECK(takenOver);
+    // The host gone: Anne's session is lost.
+    host->leave();
+    run(1000);
+    CHECK(anne->state() == Session::State::Lost);
+    Command decoded;
+    size_t offset = 0;
+    const Bytes bytes = encodeCommand({Command::Accuse, 2, {1, 2, 3}});
+    CHECK(decodeCommand(bytes, offset, decoded) && decoded.type == Command::Accuse && decoded.args.size() == 3);
+}
+
 int main() {
     testUnpack();
     testDriveAndImages();
@@ -988,6 +1107,8 @@ int main() {
     testNotebook();
     testComputerPlayers();
     testSaveLoad();
+    testNetplay(false);
+    testNetplay(true);
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

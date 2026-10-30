@@ -193,9 +193,11 @@ if(RELUVA_ENGINE_CLUE)
         src/engines/clue/rules.cpp
         src/engines/clue/ai.cpp
         src/engines/clue/play.cpp
+        src/engines/clue/netplay.cpp
         src/engines/clue/resi.cpp
         src/engines/clue/ui.cpp
         src/engines/clue/frontend.cpp
+        src/engines/clue/frontend_net.cpp
         src/engines/clue/mansion.cpp
         src/engines/clue/mansion_viewer.cpp
         src/engines/clue/image_viewer.cpp

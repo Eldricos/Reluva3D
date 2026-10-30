@@ -18,6 +18,7 @@
 #include "engines/clue/board.h"
 #include "engines/clue/game_data.h"
 #include "engines/clue/mansion.h"
+#include "engines/clue/netplay.h"
 #include "engines/clue/resi.h"
 #include "engines/clue/rules.h"
 #include "engines/clue/ui.h"
@@ -54,6 +55,9 @@ public:
     ~Play();
 
     Error start(const std::array<Player, kSuspectCount>& players, bool noDieRoll, uint32_t seed);
+    // A game over a network: the session's lobby and deal; this machine
+    // plays its own suspect, the others' actions come through the session.
+    Error startNetwork(netplay::Session& session);
     // Saved games: when it's a human's turn and nothing is going on.
     bool canSave() const;
     void save(std::ostream& out) const;
@@ -126,6 +130,12 @@ private:
     void clickPanel(int x, int y);
     int viewer() const; // whose cards and notes the panels show
     bool humanTurn() const;
+    bool local(int seat) const; // a human playing at this machine
+    bool localTurn() const;
+    // A human's action: played out now, or over a network sent to the host
+    // and played out when it comes back in order.
+    void perform(const netplay::Command& c);
+    void apply(const netplay::Command& c);
 
     std::string line(int suspect, int index) const; // TickerStrings.txt
     void say(const std::string& sentence);
@@ -162,6 +172,13 @@ private:
     std::array<Player, kSuspectCount> players_;
     std::array<ComputerPlayer, kSuspectCount> ai_;
     std::array<bool, kSuspectCount> autoDisprove_{}; // humans out who chose Automatically
+    // Over a network: the session, each human's machine, the actions to
+    // play out, and whether this machine's is on its way.
+    netplay::Session* net_ = nullptr;
+    std::array<int, kSuspectCount> owner_{};
+    std::deque<netplay::Command> incoming_;
+    bool pending_ = false;
+    bool awaitingShow_ = false; // a human's card to show, waited for
     uint32_t seed_ = 0;
 
     std::deque<std::function<void()>> steps_;

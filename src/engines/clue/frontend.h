@@ -14,6 +14,7 @@
 #include "engines/clue/game_data.h"
 #include "engines/clue/level.h"
 #include "engines/clue/mansion.h"
+#include "engines/clue/netplay.h"
 #include "engines/clue/play.h"
 #include "engines/clue/resi.h"
 #include "engines/clue/ui.h"
@@ -56,7 +57,9 @@ public:
 private:
     enum class Screen {
         Intro, MainMenu, StartChoice, Connection, NetGame, LoadGame, RulesMenu, Rules, Credits, CreditsText,
-        Exit, Picker, Setup, Variants, Prefs, Loading, Deal, Game, GameMenu, SaveGame
+        Exit, Picker, Setup, Variants, Prefs, Loading, Deal, Game, GameMenu, SaveGame,
+        // Network play (frontend_net.cpp).
+        NetHost, NetJoin, NetAddress, NetLobby, NetSetup, NetMessage
     };
 
     void go(Screen s);
@@ -85,6 +88,16 @@ private:
     void drawStorm();
     void menuThunder();
     void applyVolumes();
+
+    // Network play (frontend_net.cpp).
+    void netShow(Screen s);
+    void netClick(int id);
+    void netUpdate();
+    void refreshLobby();
+    void refreshNetSetup();
+    void netLeave();
+    void netLost(std::string message);
+    std::unique_ptr<net::UdpSocket> netSocket(uint16_t port, std::string& error);
 
     System& sys_;
     Surface& screen_;
@@ -126,6 +139,17 @@ private:
     std::unique_ptr<Play> play_;
     std::unique_ptr<DialogView> gameMenu_; // the Esc menu, or its Save window
     int saveSlot_ = -1, loadSlot_ = -1;
+
+    // Network play: over the internet (by address) or the local network;
+    // the session; the host's seat being set up and its draft; this
+    // machine's name; a line to show on the message screen.
+    bool netInternet_ = false;
+    std::unique_ptr<netplay::Session> net_;
+    int netSeat_ = 0;
+    netplay::Seat netDraft_;
+    int netMaxHumans_ = 6;
+    std::string netName_ = "Player", netMessage_;
+    std::vector<std::string> netChat_;
     uint64_t nextThunder_ = 0; // in the menus
 };
 

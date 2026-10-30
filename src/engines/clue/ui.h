@@ -76,6 +76,9 @@ public:
     bool visible(int id) const;
     void setEnabled(int id, bool enabled);
     void setText(int id, std::string text); // a Text's, a TextButton's or an Edit's
+    // By its place in the dialog, for controls without an id of their own (9999).
+    void setTextAt(size_t index, std::string text);
+    void setVisibleAt(size_t index, bool visible);
     std::string text(int id) const;
     // A button drawn in its pressed frame however the mouse is (a choice made).
     void setChosen(int id, bool chosen);

@@ -116,7 +116,8 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   No Die Roll, moves planned square by square and walked, suggestions with their
   videos, disproving, accusations, the notepad and the board from above, hot seat
   for several people; computer players at three levels, deducing from what they see;
-  the rooms' clickable hot spots, thunder and wind, and saved games. **F9** switches to a viewer of its data: Boddy
+  the rooms' clickable hot spots, thunder and wind, saved games, and network play on
+  the local network or by address. **F9** switches to a viewer of its data: Boddy
   Mansion drawn from its level file (scroll with the arrows or the mouse, **M** for
   the whole house, **W** for the near walls), its videos, animations, images, sounds
   and text, **Tab** switching between them; `docs/engines/clue.md` lists the keys, and
