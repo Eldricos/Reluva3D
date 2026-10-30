@@ -160,9 +160,28 @@ seen; an expert otherwise one already shown to someone else.
 
 In 600 games of two of each level (`clue-board ... 600`), the experts
 won 483, the normal players 74 and the novices 43, in 38 turns a game
-on average. How the original's levels differ isn't known: its
-computer players' play is to be compared over recorded games (one is
-in the VM recording, 8:20-23:48: an expert game).
+on average.
+
+**The original's play.** The VM recording's game (8:20-23:48, Miss
+Scarlet human, the others computer players; the answer Miss Scarlet,
+the revolver, the billiard room), read off its ticker:
+
+- A computer player suggests on about half its turns; the rest are
+  spent walking. No computer player named itself.
+- Once a kind is settled, it names that kind's answer and varies the
+  rest: from 17:52 on, Mr. Green, Mrs. Peacock, Professor Plum, Colonel
+  Mustard and Mrs. White all suggest "Miss Scarlet with the revolver in
+  ..." (the hall, the dining room, the library, the study, the
+  ballroom, the billiard room), as Reluva's experts do.
+- Some repeat a suggestion another made earlier ("Mrs. White suggests
+  Mr. Green with the pipe in the hall" at 14:05 and 17:38), so they
+  don't take in everything others learn.
+- Professor Plum, suggesting in the billiard room with nobody able to
+  disprove it (23:24-23:38), accused at once, in the same turn, and was
+  right: the game took 15 minutes, about ten rounds.
+
+How the original's three levels differ is still to be seen: a game
+with novices would show it.
 
 ## Playing
 
