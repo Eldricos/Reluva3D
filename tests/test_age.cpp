@@ -1441,9 +1441,25 @@ void testTraffic(const std::filesystem::path& tmp) {
     // One car round the loop: along the lanes, through both junctions.
     Traffic t;
     t.setup(files, m, s, 3);
-    t.setDensity(1.0f / Traffic::kCarsAtFull);
+    t.setDensity(1);
+    t.setCarLimit(1);
     t.update(0.05f, {100, 0, -10}, {}, flat, true);
     CHECK(t.count() == 1);
+    {
+        // The density's a share of the lanes' capacity: a car every 25 m
+        // of lane within reach at 1, a tenth of that at 0.1.
+        float lane = 0;
+        for (const TrafficLane& l : t.network().lanes())
+            lane += l.spawns ? l.length() : 0;
+        Traffic full;
+        full.setup(files, m, s, 3);
+        full.setDensity(1);
+        full.setCarLimit(1000);
+        CHECK(full.carsWanted({100, 0, -10}) == size_t(std::lround(lane / Traffic::kLaneAtFull)));
+        full.setDensity(0.1f);
+        CHECK(full.carsWanted({100, 0, -10}) == size_t(std::lround(0.1f * lane / Traffic::kLaneAtFull)));
+        CHECK(full.carsWanted({5000, 0, 5000}) == 0); // no lane near
+    }
     if (t.count() != 1)
         return;
     float minZ = 0, maxZ = -20, travelled = 0;
@@ -1465,7 +1481,8 @@ void testTraffic(const std::filesystem::path& tmp) {
     // Something stopped in its way: it stops behind.
     Traffic held;
     held.setup(files, m, s, 3);
-    held.setDensity(1.0f / Traffic::kCarsAtFull);
+    held.setDensity(1);
+    held.setCarLimit(1);
     held.update(0.05f, {100, 0, -10}, {}, flat, true);
     u.clear();
     held.users(u);
@@ -1481,7 +1498,8 @@ void testTraffic(const std::filesystem::path& tmp) {
     // A driven car running into one from behind knocks it off its lane.
     Traffic hit;
     hit.setup(files, m, s, 3);
-    hit.setDensity(1.0f / Traffic::kCarsAtFull);
+    hit.setDensity(1);
+    hit.setCarLimit(1);
     hit.update(0.05f, {100, 0, -10}, {}, flat, true);
     u.clear();
     hit.users(u);
@@ -1623,11 +1641,19 @@ void testTrafficRules(const std::filesystem::path& tmp) {
             red = t;
     }
     CHECK(red >= 0);
+    // Two cars, one on each road (a seed that starts them so).
     Traffic t;
-    t.setup(files, m, s, 3);
-    t.setLights(&lights);
-    t.setDensity(2.0f / Traffic::kCarsAtFull);
-    t.update(0.05f, {100, 0, -15}, {}, flat, true);
+    for (uint32_t seed = 3; seed < 40; ++seed) {
+        t.setup(files, m, s, seed);
+        t.setLights(&lights);
+        t.setDensity(1);
+        t.setCarLimit(2);
+        t.update(0.05f, {100, 0, -15}, {}, flat, true);
+        std::vector<RoadUser> two;
+        t.users(two);
+        if (two.size() == 2 && (two[0].position[2] > 0) != (two[1].position[2] > 0))
+            break;
+    }
     CHECK(t.count() == 2);
     for (int i = 0; i < 600; ++i) // 30 s: both reach their road's end and wait there
         t.update(0.05f, {100, 0, -15}, {}, flat);
@@ -1657,7 +1683,8 @@ void testTrafficRules(const std::filesystem::path& tmp) {
         Traffic one;
         one.setup(files, m, quick, seed);
         one.setLaneChanges(true);
-        one.setDensity(1.0f / Traffic::kCarsAtFull);
+        one.setDensity(1);
+        one.setCarLimit(1);
         one.update(0.05f, {100, 0, -15}, {}, flat, true);
         u.clear();
         one.users(u);

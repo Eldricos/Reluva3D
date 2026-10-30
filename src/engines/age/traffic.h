@@ -42,6 +42,7 @@ struct TrafficLane {
     int left = -1, right = -1; // the lanes beside it going the same way
     float speed = 15;          // m/s
     bool spawns = true;        // traffic starts on it (a race's exceptions leave some out)
+    float share = 1;           // of the traffic's density on it (a race's exception: 0 or 1)
     bool open = true;          // traffic goes on it: not a road the road map flags 0x2 (bai.md)
     float length() const { return at.empty() ? 0 : at.back(); }
 };
@@ -83,7 +84,10 @@ public:
         cars_.clear();
         parked_ = 0;
     }
-    // 0..1: how many cars there are about the focus (1 = kCarsAtFull).
+    // How full the lanes about the focus are: 1 a lane at capacity, a car
+    // every kLaneAtFull metres (about 2,000 cars an hour at the city's
+    // 15 m/s); the aimaps' [Density] and the races' Ambient. Never more
+    // than carLimit() cars.
     void setDensity(float density) { density_ = density; }
     float density() const { return density_; }
     // The lights they stop for (none: every junction is taken in turns).
@@ -123,7 +127,13 @@ public:
     void users(std::vector<RoadUser>& out) const; // for others to keep clear of
     const TrafficNetwork& network() const { return network_; }
 
-    static constexpr int kCarsAtFull = 60;
+    static constexpr float kLaneAtFull = 25;
+    static constexpr int kMostCars = 160;
+    void setCarLimit(int cars) { carLimit_ = cars; }
+    int carLimit() const { return carLimit_; }
+    // How many cars the density asks for about `focus`: the lane there
+    // (within 340 m, by each lane's share) over kLaneAtFull, times it.
+    size_t carsWanted(const Vec3& focus);
 
 private:
     struct Kind {
@@ -184,6 +194,20 @@ private:
     std::vector<std::vector<size_t>> holders_; // per junction: lanes the cars crossing it came from
     std::mt19937 rng_;
     float density_ = 0;
+    int carLimit_ = kMostCars;
+    // The lanes in short pieces, for the lane near the focus and where to
+    // start cars: those within reach of where it was last looked at.
+    struct Piece {
+        uint32_t lane = 0;
+        float from = 0, to = 0; // metres along the lane
+        Vec3 middle{};
+        float weight = 0; // its length times its lane's share
+    };
+    std::vector<Piece> pieces_;
+    std::vector<uint32_t> near_; // pieces within reach of nearFrom_
+    Vec3 nearFrom_{1e9f, 0, 1e9f};
+    float nearLane_ = 0; // their weights' sum
+    void findNear(const Vec3& focus);
     const TrafficLights* lights_ = nullptr;
     bool laneChanges_ = false;
     float clock_ = 0;

@@ -22,9 +22,11 @@ namespace {
 constexpr int kFrameW = 640, kFrameH = 480;
 constexpr float kPi = 3.14159265358979f;
 constexpr float kMph = 2.23694f; // miles an hour per metre a second
-constexpr float kTrafficLevels[] = {0, 0.25f, 0.5f, 1}; // none, light, normal, heavy
+// None, light, normal (London's cruising [Density], 0.1), heavy: shares of
+// the lanes' capacity (traffic.h).
+constexpr float kTrafficLevels[] = {0, 0.05f, 0.1f, 0.25f};
 const char* const kTrafficNames[] = {"no traffic", "light traffic", "normal traffic", "heavy traffic"};
-constexpr float kPedsPerTraffic = 0.2f; // pedestrian density for each of traffic
+constexpr float kPedLevels[] = {0, 0.05f, 0.1f, 0.2f}; // the pedestrians' density with each
 
 std::string textOf(const std::vector<uint8_t>& data) { return std::string(data.begin(), data.end()); }
 
@@ -239,7 +241,7 @@ void DriveViewer::startLife() {
         parseAiMap(std::string(data.begin(), data.end()), settings);
     CityLife::Options o;
     o.traffic = kTrafficLevels[trafficLevel_];
-    o.peds = o.traffic * kPedsPerTraffic * pedestrianShare();
+    o.peds = kPedLevels[trafficLevel_] * pedestrianShare();
     o.cops = cops_ ? -1 : 0;
     o.rain = lighting_ % 4 == 3;
     o.laneChanges = true; // as San Francisco's cruising says
@@ -342,7 +344,7 @@ void DriveViewer::handleEvent(const Event& ev) {
         } else if (ev.key == 'y') {
             trafficLevel_ = (trafficLevel_ + 1) % 4;
             life_.setTrafficDensity(kTrafficLevels[trafficLevel_]);
-            life_.setPedDensity(kTrafficLevels[trafficLevel_] * kPedsPerTraffic * pedestrianShare());
+            life_.setPedDensity(kPedLevels[trafficLevel_] * pedestrianShare());
         } else if (ev.key == 'o') {
             cops_ = !cops_;
             startLife();
