@@ -208,6 +208,7 @@ private:
     std::function<void(x86::Cpu&)> tapiDeliver_;
     std::function<bool()> tapiNews_; // whether there are events (a wait condition)
     uint32_t tapiThread_ = 0;        // the thread they go to: the one that started TAPI
+    std::function<bool()> tapiBusy_; // whether a call is under way (or awaited)
     class CommPort;
     class SerialLink;
     class ModemPort;

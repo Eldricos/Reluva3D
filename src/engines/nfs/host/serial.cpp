@@ -416,6 +416,7 @@ void GameHost::addModem() {
         return !m->events.empty() && m->callback;
     };
     tapiNews_ = news;
+    tapiBusy_ = [m] { return m->call != nullptr || m->listener != nullptr; };
     auto deliver = [this, m, news](Cpu& c) {
         if (process_->currentThread() && process_->currentThread()->id != m->thread)
             return;

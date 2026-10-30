@@ -871,8 +871,11 @@ void GameHost::addUser() {
         auto& q = queues_[self()];
         if (tapiDeliver_)
             tapiDeliver_(c);
+        // While a call is under way, TAPI's window gets status messages:
+        // the game's loop waiting on it comes round at least every 100 ms.
         const bool tapi = tapiNews_ && tapiThread_ == self();
-        process_->wait([&] { return !q.empty() || (tapi && tapiNews_()); }, 0xffffffffu);
+        process_->wait([&] { return !q.empty() || (tapi && tapiNews_()); },
+                       tapi && tapiBusy_() ? 100u : 0xffffffffu);
         if (process_->ending()) {
             c.abort("the process is ending");
             return 0u;
