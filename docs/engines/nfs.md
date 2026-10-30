@@ -88,9 +88,11 @@ marked *public* have community write-ups to check against (see
 | `DashHud/*.pos` | HUD layouts | text ("RacerDigitalSpeedometer: (x,y) - ...") |
 | `replay.rp3`, `ghost.gst` | a replay and a ghost lap | binary, same header |
 
-The nine tracks (`trk000`-`trk008`) match the nine front-end track images
-(`aqua atla coun empi home lost redr rock summ`). Which number is which
-track is to be confirmed from `text.eng`.
+The nine tracks (`trk000`-`trk008`) are, in order, Hometown, Redrock
+Ridge, Atlantica, Rocky Pass, Country Woods, Lost Canyons, Aquatica,
+Summit and Empire City, the bonus track
+([tracks.md](../formats/nfs/tracks.md)). Backward, mirrored, night and
+weather are flags, not other numbers.
 
 ## The executable's structure
 
@@ -395,7 +397,10 @@ What runs:
   - THRASH's calls are counted on their way through (`thrash.cpp`).
 - **Threads and the multimedia timer.** Seven threads and one timer,
   scheduled as Windows would (x86.md). The game relies on its threads'
-  priorities.
+  priorities. What each one does is in
+  [nfs-threads.md](nfs-threads.md): the race simulation runs on the main
+  thread, and the 128 Hz timer only counts ticks and wakes the sound,
+  controls and tick threads.
 - **What happens.** Clicks from a script (`-keys`) choose *One Player*,
   *Single Race* and *Race*. The game then:
   - draws its front end;
@@ -1034,25 +1039,14 @@ Allowed under CONTRIBUTING.md:
 
 ## Open questions
 
-
-- What the virtual road's mask bits and side codes stand for
-  ([col.md](../formats/nfs/col.md)).
-- In the tracks ([frd.md](../formats/nfs/frd.md)): polygon flags `0x20`
-  and `0x40`, the lane polygons' u16 at 10, and the road pass that
-  texture flag `0x04` leaves out.
-
-- The sound header tags not understood ([bnk.md](../formats/nfs/bnk.md)):
-  `0x91` and the patch parameters the table there leaves out.
-- In the Pathfinder maps ([mus.md](../formats/nfs/mus.md)): who sends
-  events 2 and 3, and the race value that raises the control value in
-  some race modes.
-- In the movies ([mad.md](../formats/nfs/mad.md)): how the game turns
-  its decoded 4:2:2 frames into RGB at 640×480, which softens the demos'
-  fade-in frames.
-
-- Which track number is which track.
+- What the wall codes' impact effects look like, and how side codes 1,
+  3, 4 and 5 differ ([col.md](../formats/nfs/col.md)).
+- How the two sets of mixer routines that tag `0x91` chooses between
+  sound different ([bnk.md](../formats/nfs/bnk.md)).
+- Whether the captured movie frames match the game's interpolating
+  display modes ([mad.md](../formats/nfs/mad.md)).
+- What the race's two step functions do, and thread `0x512ad0`
+  ([nfs-threads.md](nfs-threads.md)).
 - Whether the Classics release differs from the original 1998 retail in
   data or code. Other releases (UK, German, patched) need their own
   hashes.
-- How the game uses `timeSetEvent` and `CreateThread`: sim ticks on a
-  timer thread, or only audio and CD streaming?

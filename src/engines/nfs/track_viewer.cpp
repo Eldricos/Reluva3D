@@ -10,6 +10,8 @@
 #include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
+#include <iterator>
 #include <tuple>
 
 namespace reluva::nfs {
@@ -24,6 +26,16 @@ constexpr const char* kDetailNames[] = {"low", "medium", "high"};
 // weather, night with weather. (sky.fsh's CHRD, CHRN... are the cars'
 // reflections; the horizon picture is in the track's texture sheet.)
 constexpr const char* kVariantNames[] = {"day", "night", "weather", "night, weather"};
+// The tracks by number (text strings 102 on, docs/formats/nfs/tracks.md).
+constexpr const char* kTrackNames[] = {"Hometown",      "Redrock Ridge", "Atlantica", "Rocky Pass", "Country Woods",
+                                       "Lost Canyons", "Aquatica",      "Summit",    "Empire City"};
+
+// The track's name from its folder ("trk003"), whose number is in hex.
+std::string trackName(const std::string& folder)
+{
+    const unsigned long number = std::strtoul(folder.c_str() + 3, nullptr, 16);
+    return number < std::size(kTrackNames) ? kTrackNames[number] : std::string();
+}
 constexpr const char* kHorizonSuffix[] = {"", "n", "w", "nw"};
 // The sun (or moon) of each; night with weather has its own on some
 // tracks (SNNW), the weather's on the rest.
@@ -1316,7 +1328,8 @@ void TrackPage::update(uint64_t nowMs) {
 
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), uint8_t(0));
     std::vector<std::string> lines = {"Tracks  " + std::to_string(index_ + 1) + "/" + std::to_string(tracks_.size()) +
-                                      "  " + tracks_[index_] + "  " + kVariantNames[variant_]};
+                                      "  " + tracks_[index_] + "  " + trackName(tracks_[index_]) + "  " +
+                                      kVariantNames[variant_]};
     if (!error_.empty()) {
         lines.push_back(error_);
     } else {
