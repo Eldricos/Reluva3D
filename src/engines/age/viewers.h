@@ -84,6 +84,7 @@
 #include <filesystem>
 #include <map>
 #include <set>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -173,6 +174,12 @@ CarControls controlsOf(uint32_t keys);
 // pictures, if loaded, along the bottom left of the map (which starts at
 // x = `right`); else as text, bottom right, ending there.
 void drawSpeedometer(Surface& overlay, const CarSim& sim, int right, float damage, const HudPictures& pictures);
+// The game's rear-view mirror, top right of the frame (x 447, y 0, 193 x 77
+// at 640 x 480, as on its screens): what's behind the car, flipped as a
+// mirror shows it. `world` draws the world for a view; the view and the
+// viewport are the whole frame's again after (the caller's view to set).
+void drawRearMirror(gfx::Renderer3D& renderer, const CarSim& sim, float farClip,
+                    const std::function<void(const gfx::Mat4& viewProj, const Vec3& eye)>& world);
 
 // The first part of a name's file name, for jumping between kinds:
 // "geometry/vpbug.pkg" -> "vpbug", "texture/sw_stc_tan.tex" -> "sw".
@@ -353,13 +360,15 @@ private:
     HudMap hudMap_;
     HudPictures pictures_;
     int shift_ = 0;       // a gear change asked for (manual gears)
-    bool manual_ = false; // manual gears (M)
+    bool manual_ = false; // manual gears (T)
     std::vector<CarCamera> cameras_;
     int camera_ = 0;
     CameraFollow cameraPos_{};
     bool cameraReset_ = true;
     int lighting_ = 4;
     bool showInfo_ = true;
+    bool hudShown_ = true; // the game's HUD Toggle
+    bool mirror_ = false;  // the rear-view mirror (Rear View Mirror)
 
     CityLife life_;
     std::unique_ptr<FlareDrawer> flares_; // with the scene's textures
@@ -454,6 +463,13 @@ private:
     uint32_t stuntMessage_ = 0;
     Vec3 pierEnd_{}; // where the stunt's pier ends (the ground stops)
     const Waypoint& targetPoint(size_t k) const { return race_.waypoints[targets_[k]]; }
+    bool anyOrder() const;
+    // The checkpoint the racer is making for: its next, or (the player in
+    // any order) the arrow's.
+    size_t targetOf(const Racer& r) const;
+    std::vector<size_t> remaining() const; // the player's checkpoints still to clear, in order
+    void pickCheckpoint(int step);
+    void drawCheckpointMarkers();
 
     std::vector<CityInfo> cities_;
     std::vector<CarInfo> cars_;
@@ -504,6 +520,15 @@ private:
     std::vector<float> lapEnds_;     // the clock at each of the player's laps' ends
     float splitFor_ = 0, split_ = 0; // the time shown after a checkpoint, and for how long yet
     bool splitIsLap_ = false;
+    std::string unlockMessage_; // the results screen's: what the race opened
+    bool hudShown_ = true;      // the game's HUD Toggle
+    bool mirror_ = false;       // the rear-view mirror (Rear View Mirror)
+    // A Checkpoint or Blitz race alone: the player's checkpoints in any
+    // order, the finish once they're all cleared (the game's help); the
+    // arrow at the nearest, or the one picked (Next/Prev. Checkpoint).
+    std::vector<bool> cleared_;
+    size_t lastCleared_ = 0;
+    int picked_ = -1;
     gfx::Mat4 viewProj_{}; // this frame's, for the opponents' markers
     PlayerRecord record_; // the current driver's
     // The race's conditions as the menus changed them (else its own).

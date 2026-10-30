@@ -165,6 +165,29 @@ void drawSpeedometer(Surface& overlay, const CarSim& sim, int right, float damag
     }
 }
 
+void drawRearMirror(gfx::Renderer3D& renderer, const CarSim& sim, float farClip,
+                    const std::function<void(const gfx::Mat4& viewProj, const Vec3& eye)>& world) {
+    constexpr int kX = 447, kY = 0, kW = 193, kH = 77;
+    constexpr float kFov = 25; // degrees, up and down
+    // From the driver's head, looking back level.
+    const Vec3 eye = sim.position + sim.orientation * Vec3{0, 1.2f, 0};
+    Vec3 back = sim.orientation.z;
+    back[1] = 0;
+    back = length(back) > 0.1f ? normalized(back) : Vec3{0, 0, 1};
+    gfx::Mat4 proj = gfx::perspective(kFov * kPi / 180, float(kW) / float(kH), 0.1f, farClip);
+    for (int c = 0; c < 4; ++c)
+        proj[size_t(c * 4)] = -proj[size_t(c * 4)]; // left for right
+    const gfx::Mat4 viewProj = gfx::multiply(proj, gfx::lookAlong(eye, back, {0, 1, 0}));
+    renderer.clearDepth();
+    renderer.setViewport(kX, kY, kW, kH);
+    renderer.setView(viewProj, eye);
+    renderer.setMirrored(true);
+    world(viewProj, eye);
+    renderer.setMirrored(false);
+    renderer.setViewport(0, 0, 0, 0);
+    renderer.clearDepth();
+}
+
 DriveViewer::DriveViewer(ViewerContext& ctx) : Page(ctx), cities_(findCities(ctx.files)), cars_(findCars(ctx.files)) {}
 
 DriveViewer::~DriveViewer() { deactivate(); }
@@ -328,10 +351,18 @@ void DriveViewer::handleEvent(const Event& ev) {
             hudMap_.toggleZoom();
         } else if (control == Control::FullScreenMap) {
             hudMap_.toggleFullScreen();
-        } else if (ev.key == 'p') {
+        } else if (control == Control::MapToggle) {
+            hudMap_.toggleShown();
+        } else if (control == Control::HudToggle) {
+            hudShown_ = !hudShown_;
+        } else if (control == Control::RearViewMirror) {
+            mirror_ = !mirror_;
+            // The page's own keys, on function keys clear of the game's controls
+            // (F4 is the game's restart).
+        } else if (ev.key == key::F1 + 7) {
             ++paintJob_;
             loadCar(carIndex_);
-        } else if (ev.key == 't') {
+        } else if (ev.key == key::F1 + 4) {
             const bool rain = lighting_ % 4 == 3;
             lighting_ = (lighting_ + 1) % 16;
             scene_->setLighting(lighting_);
@@ -339,17 +370,17 @@ void DriveViewer::handleEvent(const Event& ev) {
                 startLife(); // the pedestrians dressed for the weather
                 startSounds(); // the tyres on wet roads
             }
-        } else if (ev.key == 'y') {
+        } else if (ev.key == key::F1 + 5) {
             trafficLevel_ = (trafficLevel_ + 1) % 4;
             life_.setTrafficDensity(kTrafficLevels[trafficLevel_]);
             life_.setPedDensity(kPedLevels[trafficLevel_] * pedestrianShare());
-        } else if (ev.key == 'o') {
+        } else if (ev.key == key::F1 + 6) {
             cops_ = !cops_;
             startLife();
-        } else if (ev.key == 'r') {
+        } else if (ev.key == key::F1 + 3) {
             resetCar();
             life_.police().forgive();
-        } else if (ev.key == 'i') {
+        } else if (ev.key == key::F1 + 8) {
             showInfo_ = !showInfo_;
         }
     } else if (ev.type == EventType::KeyUp) {
@@ -367,21 +398,22 @@ void DriveViewer::drawHud() {
         y += lh;
     };
     std::string color = paintJob_ < car.colors.size() ? car.colors[paintJob_] : std::to_string(paintJob_ + 1);
-    line(car.description + " (" + color + ", P)  in " + cities_[size_t(city_)].name + ", " +
-             scene_->lightingName(),
+    line(car.description + " (" + color + ", F8)  in " + cities_[size_t(city_)].name + ", " + scene_->lightingName(),
          {150, 200, 255});
     if (!error_.empty())
         line(error_, {255, 120, 120});
     if (showInfo_) {
         const char* const cameraNames[] = {"near", "far", "in the car"};
         line(std::string("camera: ") + cameraNames[std::min(camera_, 2)] +
-                 " (C); Up/Down, Left/Right, Space; H horn; " + (manual_ ? "manual (M), E/Q gears" : "automatic (M)") +
-                 "; PageUp/Down car, Home/End city, T time, R reset; map: Z zoom, F full screen",
+                 " (C); Up/Down, Left/Right, Space; Enter horn; " +
+                 (manual_ ? "manual (T), A/Z gears" : "automatic (T)") +
+                 "; PageUp/Down car, Home/End city, F5 time, F4 reset; map: E zoom, Q full screen, Tab on/off; "
+                 "H HUD; Backspace mirror",
              {230, 230, 230});
         char life[160];
-        std::snprintf(life, sizeof life, "%s (Y): %zu cars, %zu people; %zu police (O), %d on patrol%s",
+        std::snprintf(life, sizeof life, "%s (F6): %zu cars, %zu people; %zu police (F7), %d on patrol%s",
                       kTrafficNames[trafficLevel_], life_.traffic().count(), life_.pedestrians().count(),
-                      life_.police().count(), life_.police().patrolling(), car_.hasSiren() ? "; H siren" : "");
+                      life_.police().count(), life_.police().patrolling(), car_.hasSiren() ? "; Enter siren" : "");
         line(life, {230, 230, 230});
         char buf[160];
         const Vec3& p = car_.sim.position;
@@ -397,8 +429,10 @@ void DriveViewer::drawHud() {
         font::drawText(overlay_, kFrameW / 2 - 120, kFrameH / 2 - 40, "BUSTED!", {255, 80, 80}, 6);
     else if (wrecked_ > 0)
         font::drawText(overlay_, kFrameW / 2 - 140, kFrameH / 2 - 40, "WRECKED!", {255, 150, 60}, 6);
-    drawSpeedometer(overlay_, car_.sim, hudMap_.loaded() ? int(hudMap_.setup().left * float(kFrameW)) - 8 : kFrameW - 8,
-                    wear_.fraction(), pictures_);
+    if (hudShown_)
+        drawSpeedometer(overlay_, car_.sim,
+                        hudMap_.loaded() ? int(hudMap_.setup().left * float(kFrameW)) - 8 : kFrameW - 8,
+                        wear_.fraction(), pictures_);
 }
 
 void DriveViewer::update(uint64_t nowMs) {
@@ -491,6 +525,11 @@ void DriveViewer::update(uint64_t nowMs) {
         dash_.draw(*renderer_, scene_->models(), car_.sim, wear_.fraction(), view.eye,
                    normalized(view.target - view.eye), view.up, float(kFrameW) / float(kFrameH), scene_->light());
     }
+    if (mirror_)
+        drawRearMirror(*renderer_, car_.sim, currentOptions().farClip(), [&](const gfx::Mat4& vp, const Vec3& eye) {
+            scene_->draw(vp, eye, true, true);
+            life_.draw(*renderer_, scene_->models(), scene_->light(), vp, eye);
+        });
     // The map: the player, the police.
     hudMap_.update(dt);
     std::vector<HudMapIcon> icons;

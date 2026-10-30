@@ -70,6 +70,10 @@ public:
     void toggleZoom() { zoomIn_ = !zoomIn_; }
     void toggleFullScreen() { full_ = !full_; }
     bool fullScreen() const { return full_; }
+    // The corner map on or off (the game's Map Toggle); full screen shows
+    // either way.
+    void toggleShown() { shown_ = !shown_; }
+    bool shown() const { return shown_ || full_; }
     // Eases the height towards the zoom's.
     void update(float dt);
     // The height it's seen from now.
@@ -88,7 +92,7 @@ private:
     HudMapSetup setup_;
     std::string model_;
     gfx::MeshId quad_ = 0; // the ocean
-    bool ok_ = false, zoomIn_ = false, full_ = false;
+    bool ok_ = false, zoomIn_ = false, full_ = false, shown_ = true;
     float distance_ = 0;
 };
 

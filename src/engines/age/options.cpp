@@ -21,31 +21,30 @@ GameOptions& current() {
 }
 
 // Each control's name in mmlang.dll (the Customize Controls list), and
-// its keys by default: the arrows and WASD, Space for the handbrake.
+// its keys by default: the game's, as its help file lists them ("Driving
+// with a Keyboard"). The chat's key isn't listed there; Y is Reluva's.
 struct ControlInfo {
     uint32_t stringId;
     const char* name;
     uint32_t first, second;
 };
 constexpr ControlInfo kInfo[kControls] = {
-    {280, "Throttle", key::Up, 'w'},
-    {281, "Brakes", key::Down, 's'},
-    {283, "Steer Left", key::Left, 'a'},
-    {284, "Steer Right", key::Right, 'd'},
-    {307, "Handbrake", key::Space, 0},
-    {279, "Horn", 'h', 0},
-    {291, "Shift Up", 'e', 0},
-    {292, "Shift Down", 'q', 0},
-    {293, "Reverse", 'b', 0},
-    {278, "Transmission", 'm', 0},
-    {276, "Change Camera", 'c', 0},
-    {299, "Map Zoom", 'z', 0},
-    {298, "Full Screen Map", 'f', 0},
-    {309, "Enter Chat Msg", 't', 0},
+    {280, "Throttle", key::Up, 0},     {281, "Brakes", key::Down, 0},
+    {283, "Steer Left", key::Left, 0}, {284, "Steer Right", key::Right, 0},
+    {307, "Handbrake", key::Space, 0}, {279, "Horn", key::Return, 0},
+    {291, "Shift Up", 'a', 0},         {292, "Shift Down", 'z', 0},
+    {293, "Reverse", 'r', 0},          {278, "Transmission", 't', 0},
+    {276, "Change Camera", 'c', 0},    {299, "Map Zoom", 'e', 0},
+    {298, "Full Screen Map", 'q', 0},  {296, "Map Toggle", key::Tab, 0},
+    {297, "HUD Toggle", 'h', 0},       {305, "Rear View Mirror", key::Backspace, 0},
+    {294, "Next Checkpoint", 's', 0},  {295, "Prev. Checkpoint", 'x', 0},
+    {309, "Enter Chat Msg", 'y', 0},
 };
 
-const char* kNames[kControls] = {"throttle",  "brakes",  "left",         "right",  "handbrake", "horn",    "shiftup",
-                                 "shiftdown", "reverse", "transmission", "camera", "mapzoom",   "fullmap", "chat"};
+const char* kNames[kControls] = {"throttle", "brakes",    "left",      "right",     "handbrake",
+                                 "horn",     "shiftup",   "shiftdown", "reverse",   "transmission",
+                                 "camera",   "mapzoom",   "fullmap",   "maptoggle", "hud",
+                                 "mirror",   "nextcheck", "prevcheck", "chat"};
 
 float number(const std::string& s, float lo, float hi) { return std::clamp(std::strtof(s.c_str(), nullptr), lo, hi); }
 

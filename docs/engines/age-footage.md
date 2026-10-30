@@ -66,16 +66,22 @@ race.
   puts it for traffic keeping left.
 - The cars' damaged textures (`_dmg`) showing as they're knocked.
 
-## Seen, not in Reluva yet
+## Seen, and since built
 
 - A rear-view mirror (BACKSPACE, per the loading tips) top right,
-  x 446-640, y 0-75 at 640 x 480.
+  x 447-640, y 0-77 at 640 x 480, without a frame: the world drawn
+  again, looking back from the driver's head, flipped.
 - The loading screens' tips: F1 for the controls, Q to pause on the
-  full-screen map, H for the HUD, TAB for the map.
-- In Checkpoint races, small light blue markers over the checkpoints
-  still to reach.
+  full-screen map, H for the HUD, TAB for the map. They led to the help
+  file's keyboard table, now Reluva's default keys
+  ([age-menus.md](age-menus.md)). F1's list of controls isn't built.
+- In Checkpoint and Blitz races, small light blue markers over the
+  checkpoints still to reach, which led to the races' checkpoints being
+  taken in any order, as the help says, and to the gates themselves:
+  the footage shows each as one banner across the road, which is how
+  `pt_check` is made ([age-racing.md](age-racing.md)).
 - The results screen's message for what was unlocked ("Congrats! New
-  paint job for the New Beetle RSi!").
+  paint job for the New Beetle RSi!"), from the cities' `_rewards.csv`.
 
 ## What they don't settle
 

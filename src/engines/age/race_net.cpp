@@ -866,9 +866,10 @@ void RaceViewer::drawNetHud() {
                        {150, 200, 255});
     }
     drawNetLines();
-    drawSpeedometer(overlay_, player.car->sim,
-                    hudMap_.loaded() ? int(hudMap_.setup().left * float(kFrameW)) - 8 : kFrameW - 8, wear_.fraction(),
-                    pictures_);
+    if (hudShown_)
+        drawSpeedometer(overlay_, player.car->sim,
+                        hudMap_.loaded() ? int(hudMap_.setup().left * float(kFrameW)) - 8 : kFrameW - 8,
+                        wear_.fraction(), pictures_);
 }
 
 } // namespace reluva::age
