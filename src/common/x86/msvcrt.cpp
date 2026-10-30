@@ -246,7 +246,7 @@ void addMsvcrt(Win32Process& process) {
     auto s = std::make_shared<State>(process);
     State& st = *s;
     Cpu& c = process.cpu();
-    auto cdecl = [&process](const char* name, std::function<uint32_t(Cpu&)> fn) {
+    auto provideCdecl = [&process](const char* name, std::function<uint32_t(Cpu&)> fn) {
         process.provideCdecl(kDll, name, std::move(fn));
     };
     // A function returning a double, on the FPU stack.
@@ -285,15 +285,15 @@ void addMsvcrt(Win32Process& process) {
     process.provideData(kDll, "_iob", st.iob);
     process.provideData(kDll, "_adjust_fdiv", st.adjustFdiv);
     process.provideData(kDll, "_acmdln", st.acmdln);
-    cdecl("__p__fmode", [s](Cpu&) { return s->fmode; });
-    cdecl("__p__commode", [s](Cpu&) { return s->commode; });
-    cdecl("_errno", [s](Cpu&) { return s->errnoAt; });
+    provideCdecl("__p__fmode", [s](Cpu&) { return s->fmode; });
+    provideCdecl("__p__commode", [s](Cpu&) { return s->commode; });
+    provideCdecl("_errno", [s](Cpu&) { return s->errnoAt; });
 
     // --- Start-up and ending -----------------------------------------------------
-    cdecl("__set_app_type", [](Cpu&) { return 0u; });
-    cdecl("__setusermatherr", [](Cpu&) { return 0u; });
+    provideCdecl("__set_app_type", [](Cpu&) { return 0u; });
+    provideCdecl("__setusermatherr", [](Cpu&) { return 0u; });
     // __getmainargs(argc*, argv*, envp*, wildcards, startinfo*)
-    cdecl("__getmainargs", [s](Cpu& c) {
+    provideCdecl("__getmainargs", [s](Cpu& c) {
         c.write32(c.arg(0), 1);
         c.write32(c.arg(1), s->argv);
         c.write32(c.arg(2), s->envp);
@@ -301,7 +301,7 @@ void addMsvcrt(Win32Process& process) {
     });
     // _initterm(begin, end): calls each function in the table (the
     // module's static constructors).
-    cdecl("_initterm", [](Cpu& c) {
+    provideCdecl("_initterm", [](Cpu& c) {
         for (uint32_t at = c.arg(0); at < c.arg(1); at += 4) {
             const uint32_t fn = c.read32(at);
             uint32_t result = 0;
@@ -316,25 +316,25 @@ void addMsvcrt(Win32Process& process) {
     // Functions to run at the end: kept by the module itself
     // (__dllonexit's table) or here; the process never ends normally, so
     // they're not run.
-    cdecl("_onexit", [](Cpu& c) { return c.arg(0); });
-    cdecl("atexit", [](Cpu&) { return 0u; });
-    cdecl("__dllonexit", [](Cpu& c) { return c.arg(0); });
+    provideCdecl("_onexit", [](Cpu& c) { return c.arg(0); });
+    provideCdecl("atexit", [](Cpu&) { return 0u; });
+    provideCdecl("__dllonexit", [](Cpu& c) { return c.arg(0); });
     auto ending = [s](Cpu& c) {
         s->p.exited = c.arg(0);
         c.abort("the program called exit(" + std::to_string(int32_t(c.arg(0))) + ")");
         return 0u;
     };
-    cdecl("exit", ending);
-    cdecl("_exit", ending);
-    cdecl("abort", [](Cpu& c) {
+    provideCdecl("exit", ending);
+    provideCdecl("_exit", ending);
+    provideCdecl("abort", [](Cpu& c) {
         c.abort("the program called abort()");
         return 0u;
     });
-    cdecl("_purecall", [](Cpu& c) {
+    provideCdecl("_purecall", [](Cpu& c) {
         c.abort("a pure virtual function was called");
         return 0u;
     });
-    cdecl("?terminate@@YAXXZ", [](Cpu& c) {
+    provideCdecl("?terminate@@YAXXZ", [](Cpu& c) {
         c.abort("the program called terminate()");
         return 0u;
     });
@@ -343,12 +343,12 @@ void addMsvcrt(Win32Process& process) {
     // Structured and C++ exceptions aren't dispatched yet: the handlers are
     // only called when one is, so reaching them, or throwing, ends the run
     // (naming the C++ type thrown, from its ThrowInfo).
-    cdecl("_XcptFilter", [](Cpu&) { return 0u; }); // EXCEPTION_CONTINUE_SEARCH
-    cdecl("_except_handler3", [](Cpu& c) {
+    provideCdecl("_XcptFilter", [](Cpu&) { return 0u; }); // EXCEPTION_CONTINUE_SEARCH
+    provideCdecl("_except_handler3", [](Cpu& c) {
         c.abort("an exception reached a handler; exceptions aren't dispatched yet");
         return 1u;
     });
-    cdecl("__CxxFrameHandler", [](Cpu& c) {
+    provideCdecl("__CxxFrameHandler", [](Cpu& c) {
         c.abort("an exception reached a C++ handler; exceptions aren't dispatched yet");
         return 1u;
     });
@@ -453,9 +453,9 @@ void addMsvcrt(Win32Process& process) {
     thiscall("??1type_info@@UAE@XZ", 0, [](Cpu&, uint32_t) { return 0u; });
 
     // --- Memory -----------------------------------------------------------------------
-    cdecl("malloc", [s](Cpu& c) { return s->p.memory().alloc(std::max(c.arg(0), 1u)); });
-    cdecl("??2@YAPAXI@Z", [s](Cpu& c) { return s->p.memory().alloc(std::max(c.arg(0), 1u)); }); // operator new
-    cdecl("calloc", [s](Cpu& c) {
+    provideCdecl("malloc", [s](Cpu& c) { return s->p.memory().alloc(std::max(c.arg(0), 1u)); });
+    provideCdecl("??2@YAPAXI@Z", [s](Cpu& c) { return s->p.memory().alloc(std::max(c.arg(0), 1u)); }); // operator new
+    provideCdecl("calloc", [s](Cpu& c) {
         const uint64_t n = uint64_t(c.arg(0)) * c.arg(1);
         return n > 0x7fffffff ? 0u : s->p.memory().alloc(std::max(uint32_t(n), 1u)); // alloc zeroes
     });
@@ -464,9 +464,9 @@ void addMsvcrt(Win32Process& process) {
             s->p.memory().free(c.arg(0));
         return 0u;
     };
-    cdecl("free", free);
-    cdecl("??3@YAXPAX@Z", free); // operator delete
-    cdecl("realloc", [s](Cpu& c) {
+    provideCdecl("free", free);
+    provideCdecl("??3@YAXPAX@Z", free); // operator delete
+    provideCdecl("realloc", [s](Cpu& c) {
         const uint32_t old = c.arg(0), size = c.arg(1);
         Arena& m = s->p.memory();
         if (!old)
@@ -485,28 +485,28 @@ void addMsvcrt(Win32Process& process) {
         m.free(old);
         return p;
     });
-    cdecl("_msize", [s](Cpu& c) { return s->p.memory().size(c.arg(0)); });
-    cdecl("memcpy", [s](Cpu& c) {
+    provideCdecl("_msize", [s](Cpu& c) { return s->p.memory().size(c.arg(0)); });
+    provideCdecl("memcpy", [s](Cpu& c) {
         if (c.valid(c.arg(0), c.arg(2)) && c.valid(c.arg(1), c.arg(2)))
             std::memmove(s->ptr(c.arg(0)), s->ptr(c.arg(1)), c.arg(2));
         return c.arg(0);
     });
-    cdecl("memmove", [s](Cpu& c) {
+    provideCdecl("memmove", [s](Cpu& c) {
         if (c.valid(c.arg(0), c.arg(2)) && c.valid(c.arg(1), c.arg(2)))
             std::memmove(s->ptr(c.arg(0)), s->ptr(c.arg(1)), c.arg(2));
         return c.arg(0);
     });
-    cdecl("memset", [s](Cpu& c) {
+    provideCdecl("memset", [s](Cpu& c) {
         if (c.valid(c.arg(0), c.arg(2)))
             std::memset(s->ptr(c.arg(0)), int(c.arg(1) & 0xff), c.arg(2));
         return c.arg(0);
     });
-    cdecl("memcmp", [s](Cpu& c) {
+    provideCdecl("memcmp", [s](Cpu& c) {
         if (!c.valid(c.arg(0), c.arg(2)) || !c.valid(c.arg(1), c.arg(2)))
             return 0u;
         return uint32_t(std::memcmp(s->ptr(c.arg(0)), s->ptr(c.arg(1)), c.arg(2)));
     });
-    cdecl("memchr", [s](Cpu& c) -> uint32_t {
+    provideCdecl("memchr", [s](Cpu& c) -> uint32_t {
         if (!c.valid(c.arg(0), c.arg(2)))
             return 0u;
         const void* hit = std::memchr(s->ptr(c.arg(0)), int(c.arg(1) & 0xff), c.arg(2));
@@ -514,21 +514,21 @@ void addMsvcrt(Win32Process& process) {
     });
 
     // --- Strings (the "C" locale's) --------------------------------------------------
-    cdecl("strlen", [s](Cpu& c) { return uint32_t(s->length(c.arg(0))); });
-    cdecl("strcpy", [s](Cpu& c) {
+    provideCdecl("strlen", [s](Cpu& c) { return uint32_t(s->length(c.arg(0))); });
+    provideCdecl("strcpy", [s](Cpu& c) {
         const size_t n = s->length(c.arg(1));
         if (c.valid(c.arg(0), uint32_t(n + 1)))
             std::memmove(s->ptr(c.arg(0)), s->ptr(c.arg(1)), n + 1);
         return c.arg(0);
     });
-    cdecl("strcat", [s](Cpu& c) {
+    provideCdecl("strcat", [s](Cpu& c) {
         const size_t at = s->length(c.arg(0)), n = s->length(c.arg(1));
         if (c.valid(c.arg(0), uint32_t(at + n + 1)))
             std::memmove(s->ptr(c.arg(0)) + at, s->ptr(c.arg(1)), n + 1);
         return c.arg(0);
     });
     // strncpy(to, from, n): pads with NULs, doesn't terminate a full copy.
-    cdecl("strncpy", [s](Cpu& c) {
+    provideCdecl("strncpy", [s](Cpu& c) {
         const uint32_t n = c.arg(2);
         if (!c.valid(c.arg(0), n))
             return c.arg(0);
@@ -537,7 +537,7 @@ void addMsvcrt(Win32Process& process) {
         std::memset(s->ptr(c.arg(0)) + len, 0, n - len);
         return c.arg(0);
     });
-    cdecl("strncat", [s](Cpu& c) {
+    provideCdecl("strncat", [s](Cpu& c) {
         const size_t at = s->length(c.arg(0)), n = std::min<size_t>(s->length(c.arg(1)), c.arg(2));
         if (c.valid(c.arg(0), uint32_t(at + n + 1))) {
             std::memmove(s->ptr(c.arg(0)) + at, s->ptr(c.arg(1)), n);
@@ -557,12 +557,12 @@ void addMsvcrt(Win32Process& process) {
         }
         return 0u;
     };
-    cdecl("strcmp", [compare](Cpu& c) { return compare(c.arg(0), c.arg(1), SIZE_MAX, false); });
-    cdecl("strncmp", [compare](Cpu& c) { return compare(c.arg(0), c.arg(1), c.arg(2), false); });
-    cdecl("_stricmp", [compare](Cpu& c) { return compare(c.arg(0), c.arg(1), SIZE_MAX, true); });
-    cdecl("_strcmpi", [compare](Cpu& c) { return compare(c.arg(0), c.arg(1), SIZE_MAX, true); });
-    cdecl("_strnicmp", [compare](Cpu& c) { return compare(c.arg(0), c.arg(1), c.arg(2), true); });
-    cdecl("strchr", [s](Cpu& c) -> uint32_t {
+    provideCdecl("strcmp", [compare](Cpu& c) { return compare(c.arg(0), c.arg(1), SIZE_MAX, false); });
+    provideCdecl("strncmp", [compare](Cpu& c) { return compare(c.arg(0), c.arg(1), c.arg(2), false); });
+    provideCdecl("_stricmp", [compare](Cpu& c) { return compare(c.arg(0), c.arg(1), SIZE_MAX, true); });
+    provideCdecl("_strcmpi", [compare](Cpu& c) { return compare(c.arg(0), c.arg(1), SIZE_MAX, true); });
+    provideCdecl("_strnicmp", [compare](Cpu& c) { return compare(c.arg(0), c.arg(1), c.arg(2), true); });
+    provideCdecl("strchr", [s](Cpu& c) -> uint32_t {
         const size_t n = s->length(c.arg(0));
         const char ch = char(c.arg(1));
         if (!ch)
@@ -570,7 +570,7 @@ void addMsvcrt(Win32Process& process) {
         const void* hit = std::memchr(s->ptr(c.arg(0)), ch, n);
         return hit ? c.arg(0) + uint32_t(static_cast<const char*>(hit) - s->ptr(c.arg(0))) : 0u;
     });
-    cdecl("strrchr", [s](Cpu& c) -> uint32_t {
+    provideCdecl("strrchr", [s](Cpu& c) -> uint32_t {
         const size_t n = s->length(c.arg(0));
         const char ch = char(c.arg(1));
         for (size_t i = n + 1; i-- > 0;)
@@ -578,24 +578,24 @@ void addMsvcrt(Win32Process& process) {
                 return c.arg(0) + uint32_t(i);
         return 0u;
     });
-    cdecl("strstr", [s](Cpu& c) -> uint32_t {
+    provideCdecl("strstr", [s](Cpu& c) -> uint32_t {
         const std::string hay = s->str(c.arg(0)), needle = s->str(c.arg(1));
         const size_t at = hay.find(needle);
         return at == std::string::npos ? 0u : c.arg(0) + uint32_t(at);
     });
-    cdecl("strspn", [s](Cpu& c) {
+    provideCdecl("strspn", [s](Cpu& c) {
         return uint32_t(std::min(s->str(c.arg(0)).find_first_not_of(s->str(c.arg(1))), s->length(c.arg(0))));
     });
-    cdecl("strcspn", [s](Cpu& c) {
+    provideCdecl("strcspn", [s](Cpu& c) {
         return uint32_t(std::min(s->str(c.arg(0)).find_first_of(s->str(c.arg(1))), s->length(c.arg(0))));
     });
-    cdecl("strpbrk", [s](Cpu& c) -> uint32_t {
+    provideCdecl("strpbrk", [s](Cpu& c) -> uint32_t {
         const size_t at = s->str(c.arg(0)).find_first_of(s->str(c.arg(1)));
         return at == std::string::npos ? 0u : c.arg(0) + uint32_t(at);
     });
     // strtok(text, delimiters): Visual C++ keeps its place per thread; one
     // thread here.
-    cdecl("strtok", [s](Cpu& c) -> uint32_t {
+    provideCdecl("strtok", [s](Cpu& c) -> uint32_t {
         uint32_t at = c.arg(0) ? c.arg(0) : s->strtokNext;
         if (!at)
             return 0u;
@@ -617,7 +617,7 @@ void addMsvcrt(Win32Process& process) {
         }
         return at;
     });
-    cdecl("_strdup", [s](Cpu& c) -> uint32_t {
+    provideCdecl("_strdup", [s](Cpu& c) -> uint32_t {
         if (!c.arg(0))
             return 0u;
         const size_t n = s->length(c.arg(0));
@@ -630,12 +630,12 @@ void addMsvcrt(Win32Process& process) {
             s->c.write8(i, uint8_t(fn(s->c.read8(i))));
         return at;
     };
-    cdecl("_strupr", [mapCase](Cpu& c) { return mapCase(c.arg(0), [](int ch) { return ch >= 'a' && ch <= 'z' ? ch - 32 : ch; }); });
-    cdecl("_strlwr", [mapCase](Cpu& c) { return mapCase(c.arg(0), lowerAscii); });
+    provideCdecl("_strupr", [mapCase](Cpu& c) { return mapCase(c.arg(0), [](int ch) { return ch >= 'a' && ch <= 'z' ? ch - 32 : ch; }); });
+    provideCdecl("_strlwr", [mapCase](Cpu& c) { return mapCase(c.arg(0), lowerAscii); });
 
     // Characters, the "C" locale's classes.
-    auto ctype = [&cdecl](const char* name, int (*fn)(int)) {
-        cdecl(name, [fn](Cpu& c) {
+    auto ctype = [&provideCdecl](const char* name, int (*fn)(int)) {
+        provideCdecl(name, [fn](Cpu& c) {
             const int ch = int32_t(c.arg(0));
             return uint32_t(ch >= 0 && ch < 128 && fn(ch) ? 1 : 0);
         });
@@ -650,15 +650,15 @@ void addMsvcrt(Win32Process& process) {
     ctype("isprint", [](int ch) { return std::isprint(ch); });
     ctype("ispunct", [](int ch) { return std::ispunct(ch); });
     ctype("iscntrl", [](int ch) { return std::iscntrl(ch); });
-    cdecl("toupper", [](Cpu& c) {
+    provideCdecl("toupper", [](Cpu& c) {
         const int ch = int32_t(c.arg(0));
         return uint32_t(ch >= 'a' && ch <= 'z' ? ch - 32 : ch);
     });
-    cdecl("tolower", [](Cpu& c) { return uint32_t(lowerAscii(int32_t(c.arg(0)))); });
+    provideCdecl("tolower", [](Cpu& c) { return uint32_t(lowerAscii(int32_t(c.arg(0)))); });
 
     // --- Numbers ------------------------------------------------------------------------
-    cdecl("atoi", [s](Cpu& c) { return uint32_t(int32_t(std::strtol(s->str(c.arg(0)).c_str(), nullptr, 10))); });
-    cdecl("atol", [s](Cpu& c) { return uint32_t(int32_t(std::strtol(s->str(c.arg(0)).c_str(), nullptr, 10))); });
+    provideCdecl("atoi", [s](Cpu& c) { return uint32_t(int32_t(std::strtol(s->str(c.arg(0)).c_str(), nullptr, 10))); });
+    provideCdecl("atol", [s](Cpu& c) { return uint32_t(int32_t(std::strtol(s->str(c.arg(0)).c_str(), nullptr, 10))); });
     cdeclDouble("atof", [s](Cpu& c) { return std::strtod(s->str(c.arg(0)).c_str(), nullptr); });
     cdeclDouble("strtod", [s](Cpu& c) {
         const std::string text = s->str(c.arg(0));
@@ -682,8 +682,8 @@ void addMsvcrt(Win32Process& process) {
             c.write32(c.arg(1), c.arg(0) + uint32_t(end - text.c_str()));
         return v;
     };
-    cdecl("strtol", [strtoInteger](Cpu& c) { return strtoInteger(c, true); });
-    cdecl("strtoul", [strtoInteger](Cpu& c) { return strtoInteger(c, false); });
+    provideCdecl("strtol", [strtoInteger](Cpu& c) { return strtoInteger(c, true); });
+    provideCdecl("strtoul", [strtoInteger](Cpu& c) { return strtoInteger(c, false); });
     // _itoa(value, buffer, radix): negative only in base 10.
     auto itoa = [](Cpu& c, uint32_t value, bool negative) {
         const uint32_t radix = std::clamp(c.arg(2), 2u, 36u);
@@ -699,24 +699,24 @@ void addMsvcrt(Win32Process& process) {
         c.writeString(c.arg(1), digits, uint32_t(digits.size() + 1));
         return c.arg(1);
     };
-    cdecl("_itoa", [itoa](Cpu& c) { return itoa(c, c.arg(0), c.arg(2) == 10 && int32_t(c.arg(0)) < 0); });
-    cdecl("_ltoa", [itoa](Cpu& c) { return itoa(c, c.arg(0), c.arg(2) == 10 && int32_t(c.arg(0)) < 0); });
-    cdecl("_ultoa", [itoa](Cpu& c) { return itoa(c, c.arg(0), false); });
-    cdecl("abs", [](Cpu& c) { return uint32_t(std::abs(int32_t(c.arg(0)))); });
-    cdecl("labs", [](Cpu& c) { return uint32_t(std::abs(int32_t(c.arg(0)))); });
+    provideCdecl("_itoa", [itoa](Cpu& c) { return itoa(c, c.arg(0), c.arg(2) == 10 && int32_t(c.arg(0)) < 0); });
+    provideCdecl("_ltoa", [itoa](Cpu& c) { return itoa(c, c.arg(0), c.arg(2) == 10 && int32_t(c.arg(0)) < 0); });
+    provideCdecl("_ultoa", [itoa](Cpu& c) { return itoa(c, c.arg(0), false); });
+    provideCdecl("abs", [](Cpu& c) { return uint32_t(std::abs(int32_t(c.arg(0)))); });
+    provideCdecl("labs", [](Cpu& c) { return uint32_t(std::abs(int32_t(c.arg(0)))); });
     // rand: Visual C++'s generator (seed * 214013 + 2531011, bits 16 to
     // 30), so a game's random choices come out as they did.
-    cdecl("srand", [s](Cpu& c) {
+    provideCdecl("srand", [s](Cpu& c) {
         s->holdrand = c.arg(0);
         return 0u;
     });
-    cdecl("rand", [s](Cpu&) {
+    provideCdecl("rand", [s](Cpu&) {
         s->holdrand = s->holdrand * 214013u + 2531011u;
         return (s->holdrand >> 16) & 0x7fffu;
     });
     // qsort(base, count, size, compare): a merge sort, which needs only
     // the comparison to order consistently, calling the program's.
-    cdecl("qsort", [s](Cpu& c) {
+    provideCdecl("qsort", [s](Cpu& c) {
         const uint32_t base = c.arg(0), count = c.arg(1), size = c.arg(2), fn = c.arg(3);
         if (count < 2 || !size || !c.valid(base, count * size))
             return 0u;
@@ -818,7 +818,7 @@ void addMsvcrt(Win32Process& process) {
     });
     // _controlfp(new, mask): Visual C++'s portable control bits, as the
     // x87 control word holds them.
-    cdecl("_controlfp", [](Cpu& c) {
+    provideCdecl("_controlfp", [](Cpu& c) {
         auto toPortable = [](uint16_t cw) {
             uint32_t v = 0;
             if (cw & 0x01) v |= 0x10;    // invalid
@@ -855,8 +855,8 @@ void addMsvcrt(Win32Process& process) {
         s->c.writeString(to, text, uint32_t(text.size() + 1));
         return uint32_t(text.size());
     };
-    cdecl("sprintf", [put, varargs](Cpu& c) { return put(c.arg(0), formatPrintf(c, c.arg(1), varargs(c, 2))); });
-    cdecl("vsprintf", [put](Cpu& c) { return put(c.arg(0), formatPrintf(c, c.arg(1), c.arg(2))); });
+    provideCdecl("sprintf", [put, varargs](Cpu& c) { return put(c.arg(0), formatPrintf(c, c.arg(1), varargs(c, 2))); });
+    provideCdecl("vsprintf", [put](Cpu& c) { return put(c.arg(0), formatPrintf(c, c.arg(1), c.arg(2))); });
     // _snprintf(buffer, size, format, ...): -1 (and no NUL) if it doesn't fit.
     auto boundedPrintf = [](Cpu& c, uint32_t args) {
         const std::string text = formatPrintf(c, c.arg(2), args);
@@ -870,9 +870,9 @@ void addMsvcrt(Win32Process& process) {
         }
         return 0xffffffffu;
     };
-    cdecl("_snprintf", [boundedPrintf, varargs](Cpu& c) { return boundedPrintf(c, varargs(c, 3)); });
-    cdecl("_vsnprintf", [boundedPrintf](Cpu& c) { return boundedPrintf(c, c.arg(3)); });
-    cdecl("sscanf", [s, varargs](Cpu& c) {
+    provideCdecl("_snprintf", [boundedPrintf, varargs](Cpu& c) { return boundedPrintf(c, varargs(c, 3)); });
+    provideCdecl("_vsnprintf", [boundedPrintf](Cpu& c) { return boundedPrintf(c, c.arg(3)); });
+    provideCdecl("sscanf", [s, varargs](Cpu& c) {
         return uint32_t(scanFormat(c, s->str(c.arg(0)), s->str(c.arg(1)), varargs(c, 2)));
     });
 
@@ -922,7 +922,7 @@ void addMsvcrt(Win32Process& process) {
         }
         return ch;
     };
-    cdecl("fopen", [s](Cpu& c) -> uint32_t {
+    provideCdecl("fopen", [s](Cpu& c) -> uint32_t {
         std::string mode = s->str(c.arg(1));
         mode.erase(std::remove_if(mode.begin(), mode.end(), [](char ch) { return ch == 't'; }), mode.end());
         const bool text = mode.find('b') == std::string::npos;
@@ -940,7 +940,7 @@ void addMsvcrt(Win32Process& process) {
             s->text.insert(file);
         return file;
     });
-    cdecl("fclose", [s](Cpu& c) {
+    provideCdecl("fclose", [s](Cpu& c) {
         const uint32_t file = c.arg(0);
         auto it = s->handles.find(file);
         if (it == s->handles.end())
@@ -952,29 +952,29 @@ void addMsvcrt(Win32Process& process) {
         s->p.memory().free(file);
         return 0u;
     });
-    cdecl("fprintf", [output, varargs](Cpu& c) {
+    provideCdecl("fprintf", [output, varargs](Cpu& c) {
         const std::string text = formatPrintf(c, c.arg(1), varargs(c, 2));
         return output(c.arg(0), text) ? uint32_t(text.size()) : 0xffffffffu;
     });
-    cdecl("vfprintf", [output](Cpu& c) {
+    provideCdecl("vfprintf", [output](Cpu& c) {
         const std::string text = formatPrintf(c, c.arg(1), c.arg(2));
         return output(c.arg(0), text) ? uint32_t(text.size()) : 0xffffffffu;
     });
-    cdecl("printf", [s, varargs](Cpu& c) {
+    provideCdecl("printf", [s, varargs](Cpu& c) {
         const std::string text = formatPrintf(c, c.arg(0), varargs(c, 1));
         if (s->p.output)
             s->p.output(text);
         return uint32_t(text.size());
     });
-    cdecl("fputs", [s, output](Cpu& c) { return output(c.arg(1), s->str(c.arg(0))) ? 0u : 0xffffffffu; });
-    cdecl("fputc", [output](Cpu& c) { return output(c.arg(1), std::string(1, char(c.arg(0)))) ? c.arg(0) & 0xff : 0xffffffffu; });
-    cdecl("fwrite", [s, output](Cpu& c) {
+    provideCdecl("fputs", [s, output](Cpu& c) { return output(c.arg(1), s->str(c.arg(0))) ? 0u : 0xffffffffu; });
+    provideCdecl("fputc", [output](Cpu& c) { return output(c.arg(1), std::string(1, char(c.arg(0)))) ? c.arg(0) & 0xff : 0xffffffffu; });
+    provideCdecl("fwrite", [s, output](Cpu& c) {
         const uint32_t bytes = c.arg(1) * c.arg(2);
         if (!c.valid(c.arg(0), bytes) || !c.arg(1))
             return 0u;
         return output(c.arg(3), std::string(s->ptr(c.arg(0)), bytes)) ? c.arg(2) : 0u;
     });
-    cdecl("fread", [s, hostFile, getChar](Cpu& c) {
+    provideCdecl("fread", [s, hostFile, getChar](Cpu& c) {
         std::FILE* f = hostFile(c.arg(3));
         const uint32_t size = c.arg(1), bytes = c.arg(1) * c.arg(2);
         if (!f || !size || !c.valid(c.arg(0), bytes))
@@ -994,17 +994,17 @@ void addMsvcrt(Win32Process& process) {
         const size_t n = std::fread(s->ptr(c.arg(0)) + at, 1, bytes - at, f) + at;
         return uint32_t(n / size);
     });
-    cdecl("fgetc", [hostFile, getChar](Cpu& c) {
+    provideCdecl("fgetc", [hostFile, getChar](Cpu& c) {
         std::FILE* f = hostFile(c.arg(0));
         return f ? uint32_t(getChar(c.arg(0), f)) : 0xffffffffu;
     });
-    cdecl("ungetc", [s](Cpu& c) {
+    provideCdecl("ungetc", [s](Cpu& c) {
         if (int32_t(c.arg(0)) == -1)
             return 0xffffffffu;
         s->ungot[c.arg(1)] = int(c.arg(0) & 0xff);
         return c.arg(0) & 0xff;
     });
-    cdecl("fgets", [hostFile, getChar](Cpu& c) -> uint32_t {
+    provideCdecl("fgets", [hostFile, getChar](Cpu& c) -> uint32_t {
         std::FILE* f = hostFile(c.arg(2));
         const int32_t n = int32_t(c.arg(1));
         if (!f || n <= 0 || !c.valid(c.arg(0), uint32_t(n)))
@@ -1023,32 +1023,32 @@ void addMsvcrt(Win32Process& process) {
         c.write8(c.arg(0) + uint32_t(i), 0);
         return c.arg(0);
     });
-    cdecl("fseek", [s, hostFile](Cpu& c) {
+    provideCdecl("fseek", [s, hostFile](Cpu& c) {
         std::FILE* f = hostFile(c.arg(0));
         s->ungot.erase(c.arg(0));
         static const int whence[3] = {SEEK_SET, SEEK_CUR, SEEK_END};
         return f && c.arg(2) <= 2 && std::fseek(f, int32_t(c.arg(1)), whence[c.arg(2)]) == 0 ? 0u : 0xffffffffu;
     });
-    cdecl("ftell", [s, hostFile](Cpu& c) {
+    provideCdecl("ftell", [s, hostFile](Cpu& c) {
         std::FILE* f = hostFile(c.arg(0));
         if (!f)
             return 0xffffffffu;
         return uint32_t(std::ftell(f) - (s->ungot.count(c.arg(0)) ? 1 : 0));
     });
-    cdecl("feof", [s, hostFile](Cpu& c) {
+    provideCdecl("feof", [s, hostFile](Cpu& c) {
         std::FILE* f = hostFile(c.arg(0));
         return f && !s->ungot.count(c.arg(0)) && std::feof(f) ? 1u : 0u;
     });
-    cdecl("ferror", [hostFile](Cpu& c) {
+    provideCdecl("ferror", [hostFile](Cpu& c) {
         std::FILE* f = hostFile(c.arg(0));
         return f && std::ferror(f) ? 1u : 0u;
     });
-    cdecl("fflush", [hostFile](Cpu& c) {
+    provideCdecl("fflush", [hostFile](Cpu& c) {
         if (std::FILE* f = hostFile(c.arg(0)))
             std::fflush(f);
         return 0u;
     });
-    cdecl("setvbuf", [](Cpu&) { return 0u; });
+    provideCdecl("setvbuf", [](Cpu&) { return 0u; });
 
     // --- Files by name ------------------------------------------------------------------------
     auto host = [s](uint32_t name, bool writing) {
@@ -1056,7 +1056,7 @@ void addMsvcrt(Win32Process& process) {
         return s->p.mapPath ? s->p.mapPath(full, writing) : std::nullopt;
     };
     // _access(path, mode): 0 if it's there; mode 2 or 6 asks for writing.
-    cdecl("_access", [s, host](Cpu& c) {
+    provideCdecl("_access", [s, host](Cpu& c) {
         const auto path = host(c.arg(0), (c.arg(1) & 2) != 0);
         std::error_code ec;
         if (!path || !std::filesystem::exists(*path, ec)) {
@@ -1068,7 +1068,7 @@ void addMsvcrt(Win32Process& process) {
     // _stat(path, struct _stat*): Visual C++ 6's layout (36 bytes):
     // st_dev, st_ino (16 bits), st_mode (16), st_nlink, st_uid, st_gid
     // (16 each), st_rdev, st_size, st_atime, st_mtime, st_ctime.
-    cdecl("_stat", [s, host](Cpu& c) {
+    provideCdecl("_stat", [s, host](Cpu& c) {
         const auto path = host(c.arg(0), false);
         std::error_code ec;
         if (!path || !std::filesystem::exists(*path, ec) || !c.valid(c.arg(1), 36)) {
@@ -1094,13 +1094,13 @@ void addMsvcrt(Win32Process& process) {
             c.write32(out + at, uint32_t(std::max<int64_t>(unix, 0)));
         return 0u;
     });
-    cdecl("_chdir", [s](Cpu& c) {
+    provideCdecl("_chdir", [s](Cpu& c) {
         s->p.setCurrentFolder(s->str(c.arg(0)));
         return 0u;
     });
     // _getcwd(buffer, size): the current folder, without its last backslash
     // unless it's a drive's root; a buffer is allocated if none is given.
-    cdecl("_getcwd", [s](Cpu& c) -> uint32_t {
+    provideCdecl("_getcwd", [s](Cpu& c) -> uint32_t {
         std::string dir = s->p.currentFolder();
         if (dir.size() > 3)
             dir.pop_back();
@@ -1115,7 +1115,7 @@ void addMsvcrt(Win32Process& process) {
     });
     // _splitpath(path, drive, dir, name, ext) and _makepath(path, drive,
     // dir, name, ext), as documented.
-    cdecl("_splitpath", [s](Cpu& c) {
+    provideCdecl("_splitpath", [s](Cpu& c) {
         std::string p = s->str(c.arg(0));
         std::string drive, dir, name, ext;
         if (p.size() >= 2 && p[1] == ':')
@@ -1134,7 +1134,7 @@ void addMsvcrt(Win32Process& process) {
                 c.writeString(to, *text, uint32_t(text->size() + 1));
         return 0u;
     });
-    cdecl("_makepath", [s](Cpu& c) {
+    provideCdecl("_makepath", [s](Cpu& c) {
         std::string p;
         if (c.arg(1)) {
             const std::string drive = s->str(c.arg(1));
@@ -1160,15 +1160,15 @@ void addMsvcrt(Win32Process& process) {
     });
 
     // --- Time -------------------------------------------------------------------------------------
-    cdecl("time", [](Cpu& c) {
+    provideCdecl("time", [](Cpu& c) {
         const uint32_t now = uint32_t(std::time(nullptr));
         if (c.arg(0))
             c.write32(c.arg(0), now);
         return now;
     });
-    cdecl("clock", [s](Cpu&) { return s->p.milliseconds ? s->p.milliseconds() : 0u; }); // CLOCKS_PER_SEC is 1000
+    provideCdecl("clock", [s](Cpu&) { return s->p.milliseconds ? s->p.milliseconds() : 0u; }); // CLOCKS_PER_SEC is 1000
     // localtime(time_t*): a struct tm (nine ints) kept here.
-    cdecl("localtime", [s](Cpu& c) -> uint32_t {
+    provideCdecl("localtime", [s](Cpu& c) -> uint32_t {
         const std::time_t t = std::time_t(c.read32(c.arg(0)));
         const std::tm* tm = std::localtime(&t);
         if (!tm)
@@ -1179,7 +1179,7 @@ void addMsvcrt(Win32Process& process) {
             c.write32(s->tm + 4 * i, uint32_t(fields[i]));
         return s->tm;
     });
-    cdecl("ctime", [s](Cpu& c) -> uint32_t {
+    provideCdecl("ctime", [s](Cpu& c) -> uint32_t {
         const std::time_t t = std::time_t(c.read32(c.arg(0)));
         const std::tm* tm = std::localtime(&t);
         if (!tm)
@@ -1193,8 +1193,8 @@ void addMsvcrt(Win32Process& process) {
     // --- Threads ------------------------------------------------------------------------------------
     // _beginthread(start, stack size, arg): run in turns with the main
     // thread (Win32Process::startThread).
-    cdecl("_beginthread", [s](Cpu& c) { return s->p.startThread(c.arg(0), c.arg(2)); });
-    cdecl("_endthread", [s](Cpu& c) {
+    provideCdecl("_beginthread", [s](Cpu& c) { return s->p.startThread(c.arg(0), c.arg(2)); });
+    provideCdecl("_endthread", [s](Cpu& c) {
         if (s->p.inThread())
             s->p.threadEnd();
         else
