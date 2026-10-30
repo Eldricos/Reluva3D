@@ -472,11 +472,21 @@ void testCockpit() {
     Needle n = needle(c.speedometer, c.width, 100);
     CHECK(near((n.x[2] + n.x[3]) / 2, 100) && near((n.y[2] + n.y[3]) / 2, 90));
     CHECK(near(n.x[0] - n.x[1], 4) && near(n.x[3] - n.x[2], 2)); // base 4 wide, tip 2
-    // At the ends, toward p0 and p1; past them, clamped.
+    // At the ends, toward p0 and p1; past them it turns on, as the game's.
     n = needle(c.speedometer, c.width, 0);
     CHECK(near((n.x[2] + n.x[3]) / 2, 90) && near((n.y[2] + n.y[3]) / 2, 100));
-    n = needle(c.speedometer, c.width, 500);
+    n = needle(c.speedometer, c.width, 200);
     CHECK(near((n.x[2] + n.x[3]) / 2, 110) && near((n.y[2] + n.y[3]) / 2, 100));
+    n = needle(c.speedometer, c.width, 300);
+    CHECK(near((n.x[2] + n.x[3]) / 2, 100) && near((n.y[2] + n.y[3]) / 2, 110));
+    // A range from high to low sweeps the other way, under the bottom.
+    Gauge reversed = c.speedometer;
+    std::swap(reversed.low, reversed.high);
+    n = needle(reversed, c.width, 100);
+    CHECK(near((n.x[2] + n.x[3]) / 2, 100) && near((n.y[2] + n.y[3]) / 2, 110));
+    // The wheel: a quarter turn at full lock standing still, none at 800/2.2369 m/s.
+    CHECK(near(wheelTurns(128, 0), 0.25f) && near(wheelTurns(-64, 0), -0.125f) && near(wheelTurns(128, 800 / 2.2369f / 2), 0));
+    CHECK(near(metresPerSecond(c.speedometer, 36), 10));
     // Fewer than 12 pairs: not read.
     dash.unknown[0].data.resize(40);
     CHECK(!readCockpit(dash, c));
@@ -817,6 +827,9 @@ void testPlacedSounds() {
 }
 
 void testLightLook() {
+    // Dimmed: k = 0.5 * 65536 >> 8 = 128, each byte * k >> 8; 1 and above unchanged.
+    CHECK(dimLight(0xffdf1616, 0.5f) == 0x7f6f0b0b && dimLight(0xffdf1616, 1) == 0xffdf1616);
+    CHECK(dimLight(0xffffffff, 0.999999f) == 0xfefefefe); // k at most 0xffff >> 8 = 255
     CHECK(lightLook(0, 0).color == 0xffdeeaeb && lightLook(0, 0).size == 5 && lightLook(0, 12345).shown);
     CHECK(lightLook(16 + 7, 0).color == 0xffff0000); // the type is taken & 15
     // Type 5: off while bit 6 of the tick is set, a second on and off.

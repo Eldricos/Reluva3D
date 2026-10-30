@@ -22,7 +22,9 @@
 #include "engines/nfs/game_files.h"
 #include "engines/nfs/text_table.h"
 
+#include <array>
 #include <filesystem>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <optional>
@@ -109,9 +111,11 @@ private:
     bool alpha_ = true;
 };
 
-// Each car's cockpit (dash.qfs): the dash, the steering wheel and the
-// speedometer and tachometer needles where the 0x7C block puts them.
-//   Left/Right: car   Space: sweep the needles   Up/Down: move them (paused)
+// Each car's cockpit (dash.qfs): the dash, the steering wheel, the gear
+// indicator and the speedometer and tachometer needles, drawn as the game
+// draws them.
+//   Left/Right: car   Space: sweep the needles and wheel   Up/Down: move
+//   the needles (paused)   A/D: steer   G: next gear
 class CockpitPage : public Page {
 public:
     explicit CockpitPage(const GameFiles& files);
@@ -129,10 +133,15 @@ private:
     int index_ = -1;
     std::string error_;
     image::Image dash_, wheel_;
-    int wheelX_ = 0, wheelY_ = 0; // the wheel's top left
+    int wheelX_ = 0, wheelY_ = 0;           // where the wheel's pivot goes
+    int wheelPivotX_ = 0, wheelPivotY_ = 0; // in the wheel's picture
+    std::array<image::Image, std::size(kGearPictures)> gears_;
+    int gearX_ = 0, gearY_ = 0; // the gear indicator's top left
     bool haveGauges_ = false;
     Cockpit cockpit_;
     float position_ = 0; // 0-1 of each gauge's range
+    int steering_ = 0;   // -128 to 127, as the car's
+    int gear_ = 1;       // neutral
     bool sweeping_ = true;
     uint64_t lastMs_ = 0;
 };
@@ -250,6 +259,7 @@ private:
 //   1/2/3: road detail   H: day, night, weather   T: textures
 //   V: vertex light   L: lanes   O: objects   G: the virtual road's walls and edges
 //   X: next texture set (two, then their 8-bit versions)   F: back faces   R: start
+//   I: dim the lights as the game's effects intensity does (100, 75, 50, 25%)
 class TrackPage : public Page {
 public:
     TrackPage(const GameFiles& files, const GameFolders& folders, audio::Mixer* mixer = nullptr);
@@ -346,6 +356,7 @@ private:
     void tickSky(uint64_t nowMs);
     void updateSky(const gfx::Vec3& forward, const gfx::Vec3& right);
     bool fog_ = true;
+    float lightIntensity_ = 1; // the game's SFX_INTENSITY, which dims lights
     // The fog where the camera is: the base fog, or a dynamic region's
     // (hrz.md), its colour and density (percent).
     void fogAt(int block, Horizon::Rgb& colour, float& density) const;

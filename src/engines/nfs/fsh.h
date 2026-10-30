@@ -74,14 +74,28 @@ struct Cockpit {
 // False when the shape has no gauges block, or a short one.
 bool readCockpit(const Shape& shape, Cockpit& out);
 
-// A needle's corners at a reading (clamped to the gauge's range): base
+// A needle's corners at a reading, as the game finds them (fsh.md): base
 // left, base right, tip right, tip left. It points from the centre toward
-// p0 at the lowest reading and p1 at the highest, turning clockwise on
-// screen, as long as the mean of their distances.
+// p0 at the low reading and p1 at the high, turning clockwise on screen
+// (anticlockwise when low isn't below high), as long as the mean of their
+// distances. Readings past the range turn on past p0 or p1; the game
+// doesn't clamp them.
 struct Needle {
     float x[4] = {}, y[4] = {};
 };
 Needle needle(const Gauge& gauge, float width, float reading);
+
+// How far the steering wheel (picture 0001) turns, in turns clockwise on
+// screen, for the car's steering (-128 to 127) at a speed in metres a
+// second: a quarter turn at full lock standing still, less as the car goes
+// faster, none at about 400 mph (fsh.md).
+float wheelTurns(int steering, float speed);
+// A speed in metres a second, from a speedometer's reading in its units.
+float metresPerSecond(const Gauge& speedometer, float reading);
+
+// The gear indicator's pictures by the car's gear: reverse, neutral, then
+// first to sixth.
+constexpr const char* kGearPictures[] = {"geaR", "geaN", "gea1", "gea2", "gea3", "gea4", "gea5", "gea6"};
 
 // "8-bit", "16-bit 1:5:5:5"... for messages and viewers.
 const char* shapeTypeName(uint8_t type);

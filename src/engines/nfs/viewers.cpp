@@ -225,6 +225,27 @@ void fillQuad(Surface& s, const Needle& n, const uint8_t color[3]) {
             p[2] = color[2];
         }
 }
+
+// A picture turned clockwise by `turns` about its pivot (px, py), with the
+// pivot put at (x, y) and pixels picked nearest, as the game turns the
+// wheel (fsh.md).
+void blitTurned(Surface& s, const image::Image& img, int px, int py, int x, int y, float turns) {
+    const float a = turns * 6.28318531f, c = std::cos(a), sn = std::sin(a);
+    const float reach = std::hypot(float(std::max(px, img.w - px)), float(std::max(py, img.h - py))) + 1;
+    for (int dy = std::max(0, int(y - reach)); dy <= std::min(s.h - 1, int(y + reach)); ++dy)
+        for (int dx = std::max(0, int(x - reach)); dx <= std::min(s.w - 1, int(x + reach)); ++dx) {
+            // Back from the screen into the picture.
+            const float ox = dx + 0.5f - x, oy = dy + 0.5f - y;
+            const int sx = int(std::floor(px + ox * c + oy * sn)), sy = int(std::floor(py - ox * sn + oy * c));
+            if (sx < 0 || sy < 0 || sx >= img.w || sy >= img.h)
+                continue;
+            const uint8_t* src = img.pixel(sx, sy);
+            uint8_t* d = s.row(dy) + dx * 4;
+            const int alpha = src[3];
+            for (int k = 0; k < 3; ++k)
+                d[k] = static_cast<uint8_t>((src[k] * alpha + d[k] * (255 - alpha)) / 255);
+        }
+}
 } // namespace
 
 CockpitPage::CockpitPage(const GameFiles& files) : files_(files) {
@@ -239,6 +260,7 @@ void CockpitPage::load(int index) {
     index_ = index;
     error_.clear();
     dash_ = wheel_ = {};
+    gears_ = {};
     haveGauges_ = false;
     std::vector<uint8_t> data;
     ShapeBank bank;
@@ -250,16 +272,25 @@ void CockpitPage::load(int index) {
         error_ = err.message;
         return;
     }
-    // Picture 0000 is the dash, 0001 the wheel, placed by its centre.
+    // Picture 0000 is the dash, 0001 the wheel, turned about its centre
+    // and placed by its position; the gear pictures all go where geaR's
+    // position says.
     for (const Shape& shape : bank.shapes) {
         if (shape.name == "0000") {
             if (Error err = decodeShape(shape, dash_))
                 error_ = err.message;
             haveGauges_ = readCockpit(shape, cockpit_);
         } else if (shape.name == "0001" && !decodeShape(shape, wheel_)) {
-            wheelX_ = shape.x - shape.centerX;
-            wheelY_ = shape.y - shape.centerY;
+            wheelX_ = shape.x;
+            wheelY_ = shape.y;
+            wheelPivotX_ = shape.centerX;
+            wheelPivotY_ = shape.centerY;
         }
+        for (size_t i = 0; i < gears_.size(); ++i)
+            if (shape.name == kGearPictures[i] && !decodeShape(shape, gears_[i]) && i == 0) {
+                gearX_ = shape.x;
+                gearY_ = shape.y;
+            }
     }
     if (dash_.w == 0 && error_.empty())
         error_ = "no picture 0000";
@@ -271,6 +302,15 @@ void CockpitPage::handleKey(uint32_t key, uint16_t) {
     case key::Right: load((index_ + 1) % count); break;
     case key::Left: load((index_ + count - 1) % count); break;
     case ' ': sweeping_ = !sweeping_; break;
+    case 'a':
+        sweeping_ = false;
+        steering_ = std::max(steering_ - 16, -128);
+        break;
+    case 'd':
+        sweeping_ = false;
+        steering_ = std::min(steering_ + 16, 127);
+        break;
+    case 'g': gear_ = (gear_ + 1) % static_cast<int>(gears_.size()); break;
     case key::Up:
         sweeping_ = false;
         position_ = std::min(position_ + 0.05f, 1.0f);
@@ -288,17 +328,18 @@ bool CockpitPage::tick(uint64_t nowMs) {
     lastMs_ = nowMs;
     if (!sweeping_)
         return false;
-    // Up and back down in 4 seconds.
+    // Up and back down in 4 seconds, the wheel turning to and fro.
     position_ += static_cast<float>(elapsed) / 2000 * (position_ < 0 ? -1 : 1);
     if (position_ > 1)
         position_ = -1 + (position_ - 1);
     else if (position_ < -1 || (position_ < 0 && position_ > -0.0001f))
         position_ = 0;
+    steering_ = static_cast<int>(std::lround(127 * std::sin(position_ * 3.14159265f)));
     return true;
 }
 
 void CockpitPage::draw(Surface& s) {
-    const std::string keys = "Left/Right: car  Space: sweep  Up/Down: needles";
+    const std::string keys = "Left/Right: car  Space: sweep  Up/Down: needles  A/D: steer  G: gear";
     std::string title = "Cockpits";
     if (index_ >= 0)
         title += "  " + std::to_string(index_ + 1) + "/" + std::to_string(dashes_.size()) + "  " +
@@ -309,9 +350,10 @@ void CockpitPage::draw(Surface& s) {
         return;
     }
     // The dash fills the 640x480 frame; the text goes over it.
+    // The game's order: the dash, the needles, the gear, the wheel.
     image::blit(s, dash_, 0, 0);
-    image::blit(s, wheel_, wheelX_, wheelY_);
     const float t = std::fabs(position_);
+    float speed = 0;
     std::string readings = "no gauges";
     if (haveGauges_) {
         uint8_t color[3] = {255, 255, 255};
@@ -322,6 +364,8 @@ void CockpitPage::draw(Surface& s) {
             if (g->shown()) {
                 const float reading = g->low + (g->high - g->low) * t;
                 fillQuad(s, needle(*g, cockpit_.width, reading), color);
+                if (g == &cockpit_.speedometer)
+                    speed = metresPerSecond(*g, reading);
                 char part[48];
                 if (g == &cockpit_.speedometer)
                     std::snprintf(part, sizeof part, "%.0f %s  ", reading, g->kmh ? "km/h" : "mph");
@@ -332,6 +376,14 @@ void CockpitPage::draw(Surface& s) {
         if (line[0])
             readings = line;
     }
+    image::blit(s, gears_[gear_], gearX_, gearY_);
+    const float turns = wheelTurns(steering_, speed);
+    blitTurned(s, wheel_, wheelPivotX_, wheelPivotY_, wheelX_, wheelY_, turns);
+    char wheel[64];
+    std::snprintf(wheel, sizeof wheel, "  steering %d (%.0f deg)", steering_, turns * 360);
+    readings += wheel;
+    if (gears_[gear_].w > 0)
+        readings += std::string("  gear ") + "RN123456"[gear_];
     // The title, the readings and the keys over the dash, on strips.
     fill(s, 0, 0, s.w, 2 * font::kLineHeight + 12, kBackground);
     text(s, kMargin, 8, title, kTitleColor);

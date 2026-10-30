@@ -103,6 +103,17 @@ also decoded (October 2026, from a survey of all nine tracks):
   | 11 | `FF1E95E3` | 2.5 | |
   | 12 | `FF1E95E3` | 3.125 | 6, 0 |
   | 13 | `FFE0E027` | 3.75 | |
+
+  Two options change them. With the Direct3D renderer (`d3da`) only,
+  the effects intensity slider (`SFX_INTENSITY`, a float at `0x6fbc38`,
+  1.0 by default, `0x472e5c`; 0.5 on an "STB Velocity 128" card,
+  `0x472ea0`) dims them when below 1: k = min(f × 65536, 0xFFFF) >> 8,
+  then each byte of the colour, alpha too, becomes byte × k >> 8
+  (`0x491223`); size and blinking stay. The same factor dims the
+  headlight pass and other effects. And no lights are drawn when the
+  detail level at `0x6fbc30` is 2 (`0x4911b7`; its default comes from
+  the processor's speed). The Tracks page dims them so with key I
+  (`dimLight`).
 - **Sounds** (16 bytes): a position as above, a u16 slot of the track's
   placed-sound bank (`Audio/SFX/tr3dNN.bnk`, or `...n`, `...w`, `...nw`
   by sky variant) and a u16 kind (`0x41d210`): 0 a loop, the first

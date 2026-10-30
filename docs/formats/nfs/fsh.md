@@ -120,10 +120,41 @@ Attached blocks after the picture:
   for the car's gear byte (+0x50B, an index into the eight in that order)
   at that point, scaled by the screen's width / 640 and height / 480, at
   that picture's own width and height.
-  The Cockpits page draws the needles so. These parts are Reluva's own
-  choices, not read from the game: a reading past the range stops at its
-  end; a needle is a flat quad in the texel's colour; and the steering
-  wheel (picture `0001`) goes with its centre at its screen position.
+- **Drawing** (`0x489240`, read in nfs3.exe in October 2026): the dash
+  in 256×256 tiles, then the needles (`0x4880b0`), the gear (`0x4894f1`)
+  and last the steering wheel (`0x488470`), so the wheel covers the
+  needles. Every vertex takes the car's shading from the track
+  (`0x4206f0`, alpha 255; `FF7F7F7F` without it), which is why the
+  game's dash is darker than the picture.
+- **Needles** (set up at `0x488d8c`-`0x489232`). The two ends'
+  directions a0 and a1 are found in turns (atan2, `0x4ea9c0`), each in
+  [0, 1). When low < high and a1 < a0, a1 gains a turn (a clockwise
+  sweep); when low ≥ high and a0 < a1, a0 gains one. The needle's
+  direction is reading × scale + (a1 − high × scale), scale being
+  (a1 − a0) / (high − low): no clamp, so a reading past the range turns
+  on past its end. The speedometer reads the car's speed (+0x4F4, m/s,
+  its size), its limits turned into m/s (× 1/3.6 for km/h, × 0.44704726
+  for mph); the tachometer reads the rpm (+0x590) / 1000. The ranges
+  come from the dash alone, not `carp.txt`. A needle samples nothing of
+  its own: all four corners take the dash texel at the colour point
+  (the tile (x/256) × 2 + y/256, u = (x % 256) / 256 + 1/512, and so for
+  v), so it's a flat quad of that colour.
+- **The steering wheel** (picture `0001`) turns about its centre fields
+  (offset 8 and 10; `amd7` 155, 155) put at its position fields (offset
+  12; `amd7` 353, 455). Its angle in turns, clockwise on screen, is
+  steering × (0.5 − |speed| × 2.2369 / 800) / 256 (`0x488515`), steering
+  being the car's (+0x51C, following the controls' signed byte, −128 to
+  127) and speed in m/s: a quarter turn at full lock standing still,
+  less as the car goes faster, none at about 400 mph. On a mirrored
+  track (`0x6fd4c4`) it's turned the other way. The corners are rotated
+  in 640×480 units (`0x496bf0`), then scaled to the screen.
+
+  The Cockpits page draws all of these so (`needle`, `wheelTurns`), with
+  the readings and the steering swept or set by keys, and the F355's
+  gear chosen by key. Checked against a frame of the game in
+  `nfs-host` (the Corvette in Hometown's starting grid, 0 mph, 900 rpm,
+  wheel straight): the dash, the wheel and both needles fall in the same
+  places; the game's picture is darker, by the shading above.
 - **Additive.** The picture loader (`0x4d40c3`, `0x4d42e8`) looks for
   `<additive>`. The bare `additive` on picture `0064` of `tr000` and
   `tr001` doesn't match it, so those aren't drawn additively (nor on the

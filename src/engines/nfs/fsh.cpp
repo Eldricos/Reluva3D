@@ -238,13 +238,21 @@ bool readCockpit(const Shape& shape, Cockpit& out) {
 }
 
 Needle needle(const Gauge& g, float width, float reading) {
-    constexpr float kTurn = 6.28318531f;
-    const float a0 = std::atan2(g.p0y - g.centerY, g.p0x - g.centerX);
-    float a1 = std::atan2(g.p1y - g.centerY, g.p1x - g.centerX);
-    if (a1 < a0) // y grows downward, so a growing angle turns clockwise
-        a1 += kTurn;
-    const float t = g.high != g.low ? std::clamp((reading - g.low) / (g.high - g.low), 0.0f, 1.0f) : 0.0f;
-    const float a = a0 + (a1 - a0) * t;
+    // The two ends' directions in turns, each in [0, 1).
+    auto turns = [](float dx, float dy) {
+        const float a = std::atan2(dy, dx) / 6.28318531f;
+        return a < 0 ? a + 1 : a;
+    };
+    float a0 = turns(g.p0x - g.centerX, g.p0y - g.centerY);
+    float a1 = turns(g.p1x - g.centerX, g.p1y - g.centerY);
+    if (g.low < g.high) {
+        if (a1 < a0) // y grows downward, so a growing angle turns clockwise
+            a1 += 1;
+    } else if (a0 < a1) {
+        a0 += 1;
+    }
+    const float scale = g.high != g.low ? (a1 - a0) / (g.high - g.low) : 0.0f;
+    const float a = (reading * scale + (a1 - g.high * scale)) * 6.28318531f;
     const float length = (std::hypot(g.p0x - g.centerX, g.p0y - g.centerY) +
                           std::hypot(g.p1x - g.centerX, g.p1y - g.centerY)) / 2;
     const float ux = std::cos(a), uy = std::sin(a), nx = -uy, ny = ux;
@@ -257,6 +265,15 @@ Needle needle(const Gauge& g, float width, float reading) {
     n.x[2] = tx - nx * tip, n.y[2] = ty - ny * tip;
     n.x[3] = tx + nx * tip, n.y[3] = ty + ny * tip;
     return n;
+}
+
+float wheelTurns(int steering, float speed) {
+    // 2.2369 turns metres a second into mph; 0.00125 is 1/800.
+    return steering * (0.5f - std::fabs(speed) * 2.2369f * 0.00125f) / 256;
+}
+
+float metresPerSecond(const Gauge& speedometer, float reading) {
+    return reading * (speedometer.kmh ? 1 / 3.6f : 0.44704726f);
 }
 
 } // namespace reluva::nfs

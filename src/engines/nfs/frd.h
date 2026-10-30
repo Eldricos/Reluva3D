@@ -124,6 +124,10 @@ struct LightLook {
     bool shown = true;
 };
 LightLook lightLook(uint32_t type, uint64_t tick);
+// A light's ARGB colour dimmed by the effects intensity (the Direct3D
+// renderer's SFX_INTENSITY option, 0-1; 1 leaves it as it is), each byte
+// alpha included, as 0x491223 does.
+uint32_t dimLight(uint32_t color, float intensity);
 
 // A placed sound's volume (0-127) at a distance in track units, as
 // 0x41d210 has it: 2^16 over (distance in 1/16 units)^2 / 2^10, at most 127.

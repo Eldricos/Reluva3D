@@ -305,4 +305,14 @@ LightLook lightLook(uint32_t type, uint64_t tick) {
     return {e.color, e.size, !(e.blinks && ((tick + e.phase) >> e.shift) & 1)};
 }
 
+uint32_t dimLight(uint32_t color, float intensity) {
+    if (intensity >= 1)
+        return color;
+    const uint32_t k = static_cast<uint32_t>(std::min(static_cast<int>(intensity * 65536), 0xffff)) >> 8;
+    uint32_t out = 0;
+    for (int shift = 0; shift < 32; shift += 8)
+        out |= (((color >> shift) & 0xff) * k >> 8) << shift;
+    return out;
+}
+
 } // namespace reluva::nfs

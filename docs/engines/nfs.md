@@ -284,9 +284,12 @@ What was built, with each format written up in `docs/formats/nfs/`:
   - the placed sounds as the game plays them: one loop, random
     one-shots, each block's first sound only.
 - **The Cockpits page** shows each car's `dash.qfs`: the dash, the
-  steering wheel, and the speedometer and tachometer needles where the
-  picture's `0x7C` block puts them ([fsh.md](../formats/nfs/fsh.md),
-  Gauges), sweeping their ranges or moved with the keys.
+  steering wheel, the F355's gear indicator, and the speedometer and
+  tachometer needles where the picture's `0x7C` block puts them
+  ([fsh.md](../formats/nfs/fsh.md), Gauges), all drawn as the game
+  draws them: the needles' angles, the wheel turning with the steering
+  and the speed. They sweep or are set with the keys. A frame from the
+  game in `nfs-host` agrees with the page.
 - **Tools:** `reluva-tool fce-info`, `fce-obj`, `frd-check`, `frd-obj`.
   `nfs-survey` now also reads models, tracks, `.col` and `.hrz` files.
 - **Unit tests** on hand-built data for each reader.

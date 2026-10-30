@@ -848,7 +848,8 @@ void TrackPage::drawMarks(const gfx::Vec3& eye, const gfx::Vec3& right, const gf
     std::vector<gfx::Vertex> vertices;
     vertices.reserve(marks_.size() * 4);
     for (const Mark& m : marks_) {
-        const LightLook look = m.light ? lightLook(static_cast<uint32_t>(m.value), skyTick_) : LightLook{};
+        LightLook look = m.light ? lightLook(static_cast<uint32_t>(m.value), skyTick_) : LightLook{};
+        look.color = dimLight(look.color, lightIntensity_);
         const float half = !m.light ? 0.6f : look.shown ? look.size : 0.0f;
         for (int corner = 0; corner < 4; ++corner) {
             const float x = corner == 1 || corner == 2 ? 1.0f : -1.0f, y = corner >= 2 ? 1.0f : -1.0f;
@@ -1042,6 +1043,7 @@ void TrackPage::handleEvent(const Event& ev) {
         case 'g': walls_ = !walls_; break;
         case 'f': cullBack_ = !cullBack_; break;
         case 'y': fog_ = !fog_; break;
+        case 'i': lightIntensity_ = lightIntensity_ <= 0.25f ? 1.0f : lightIntensity_ - 0.25f; break;
         case 'm':
             marksShown_ = !marksShown_;
             if (!marksShown_)
@@ -1362,13 +1364,15 @@ void TrackPage::update(uint64_t nowMs) {
                               nearest->kind ? "one-shot" : "loop", nearest->heard ? "" : " (not played)");
             line += std::string("  near: ") + what;
         }
+        if (lightIntensity_ < 1)
+            line += "  lights " + std::to_string(static_cast<int>(lightIntensity_ * 100)) + "%";
         lines.push_back(line);
         if (!skyError_.empty())
             lines.push_back(skyError_);
         if (!collisionError_.empty())
             lines.push_back(collisionError_);
     }
-    lines.push_back("PgUp/PgDn: track  WASD/arrows/drag: move  N/B: block  1-3: detail  H: sky  T V L O G X F Y M: toggles");
+    lines.push_back("PgUp/PgDn: track  WASD/arrows/drag: move  N/B: block  1-3: detail  H: sky  I: lights  T V L O G X F Y M: toggles");
     for (size_t i = 0; i < lines.size(); ++i) {
         const int y = i + 1 == lines.size() ? kFrameH - font::kLineHeight - 4 : 4 + static_cast<int>(i) * font::kLineHeight;
         for (int yy = y - 2; yy < y + font::kLineHeight - 1; ++yy)
