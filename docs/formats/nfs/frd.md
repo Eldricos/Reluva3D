@@ -81,13 +81,35 @@ also decoded (October 2026, from a survey of all nine tracks):
   a u32 type. The positions are on the tracks where lights would be:
   `trk000`'s type 1 lights sit on its town centre's street lamps. The
   types run 0 to 15 and differ by track (`trk000` 1 and 7, `trk004`
-  13, `trk007` 3 and 13...). What each type looks like (glow picture,
-  colour, size) is in the game's code, which builds glows from
-  `glw0`-`glw4` of `Render/pc/sfx.fsh` through function pointers; not
-  worked out yet.
+  13, `trk007` 3 and 13...). Every type is drawn with `glw0` of
+  `Render/pc/sfx.fsh`; the type (& 15) picks a colour, a size and a
+  blink from a table in nfs3.exe (`0x55e3dc`, 12 bytes each, used by
+  `0x491190`). A blinking light is hidden while
+  ((t + phase) >> shift) & 1, t the tick count (64 a second):
+
+  | Type | Colour (ARGB) | Size | Blink: shift, phase |
+  |---|---|---|---|
+  | 0, 14, 15 | `FFDEEAEB` | 5 | |
+  | 1 | `B9FFFFFF` | 4.5 | |
+  | 2 | `FFFFFFD2` | 5 | |
+  | 3 | `FF80E5F0` | 4.5 | |
+  | 4 | `FFD9C45E` | 5 | |
+  | 5 | `FFDF1616` | 5 | 6, 0 |
+  | 6 | `FFDF1616` | 5 | 5, 27 |
+  | 7 | `FFFF0000` | 3.125 | 6, 0 |
+  | 8 | `FFA3B1BE` | 3.75 | |
+  | 9 | `FFDF1616` | 3.125 | |
+  | 10 | `BADF1616` | 2.5 | |
+  | 11 | `FF1E95E3` | 2.5 | |
+  | 12 | `FF1E95E3` | 3.125 | 6, 0 |
+  | 13 | `FFE0E027` | 3.75 | |
 - **Sounds** (16 bytes): a position as above, a u16 slot of the track's
   placed-sound bank (`Audio/SFX/tr3dNN.bnk`, or `...n`, `...w`, `...nw`
-  by sky variant) and a u16 flag, 0 or 1 (not worked out). The slots fit
+  by sky variant) and a u16 kind (`0x41d210`): 0 a loop, the first
+  within reach playing on one channel; 1 a one-shot, fired at random
+  moments on another. The volume falls with the square of the
+  distance. The game passes only a block's first sound record, so the
+  second of the one block that has two is never heard. The slots fit
   the banks: `trk000`'s go up to 7 of 32 slots, `trk005`'s to 20 of
   21. `trk008` uses slot 12 of a 12-slot bank, so not every one can be
   heard.
@@ -95,8 +117,12 @@ also decoded (October 2026, from a survey of all nine tracks):
 The rest (positions, the road polygons' records, the virtual road,
 object references and polygon objects) is still kept as stored. Object
 references begin with a 16.16 position near their block. The positions
-look like runs of the road's polygons (a u16 first polygon, a u8 count,
-a u8, then −1). That byte at 3 is the music zone, 4-9: the game
+are one record per slice of the track (8 per block; the block's first
+slice is its start position): a u16 first polygon and a u8 count, the
+run of high-detail road polygons (list 4) across that slice, then a
+u8 and −1. The game finds which road polygon a car is on by starting
+from the run's middle one and walking sideways (`0x41e990`). The byte
+at 3 is the music zone, 4-9: the game
 sends it to the Pathfinder map as an event when the car nears a slice
 where it changes ([mus.md](mus.md), The events the game sends).
 
@@ -114,9 +140,14 @@ A polygon is 14 bytes:
 |---|---|---|
 | 0 | 4 × u16 | vertices, of its block (or its object). A quad; a triangle repeats one. |
 | 8 | u16 | an entry of the texture table |
-| 10 | u16 | unknown |
-| 12 | u8 | flags (unknown) |
-| 13 | u8 | unknown (`0xF9` often) |
+| 10 | u16 | the animation's first texture entry (as at 8 when animated; 0 except on lane markings, where nothing found reads it) |
+| 12 | u8 | flags: `0x10` two-sided, `0x04` animated, `0x01` (none in the files); `0x20` and `0x40` are common but nothing found reads them |
+| 13 | u8 | the animation: delay in ticks in the top 5 bits, frames in the low 3 (`0xF9`: 31 ticks, 1 frame, still) |
+
+An animated polygon's texture entry is the one at 10, plus
+(t / delay) mod frames, t the game's tick count (64 a second;
+`0x41b52b`). The track's animated polygons have 28, 84 or 86: 3 or 10
+ticks, 4-6 frames.
 
 Each block has seven lists. Each list is a u32 count, then (if it isn't
 0) the count again and the polygons:
@@ -140,15 +171,22 @@ objects use the block's vertices.
 ### Placed objects
 
 Each group is a u32 count, then the objects. Each object starts with
-3 × u32: type, a number, and an unknown (−32 for type 4). Then, by type:
+3 × u32: type, a number, and a heading. The number is an entry of the
+block's object references (20 bytes each; `0x41cac6`): the game keeps a
+state for each (standing, knocked down, or moving), and the reference's
+byte 19 = 2 makes it one a car can hit (`0x41d403`). The heading's low
+byte, × 256 / 65536 of a turn, sets the turn about the vertical of an
+object knocked over (`0x41d5a0`): −32, ±64 and −128 are 45°, 90° and
+180°. Then, by type:
 
 - **Type 4** (still, 2,046 of them):
   - 3 floats, the reference point;
   - a u32.
 - **Type 3** (moving, 20 of them):
-  - 12 unknown bytes;
-  - 8 bytes holding a u16 at +24 (348 in the case studied), u16, u16,
-    u8, u8;
+  - 12 bytes the game doesn't read (room for a reference point, which
+    type 4 uses; here leftovers);
+  - 8 bytes: a u32 size of the data, then a u16 size again, a u8 3 and
+    the object's index among the block's moving ones (0, 1, 2...);
   - at +32, a u16 number of keys;
   - a u16: the key delay, in game ticks (64 a second). Hometown's
     17-key spinner (delay 6) turns once in 1.5 s, and its 141-key loop
@@ -194,9 +232,10 @@ between keys this close).
 |---|---|---|
 | 0 | u16 | width |
 | 2 | u16 | height |
-| 4 | u32 | unknown (looks like a leftover memory address) |
+| 4 | u32 | room for the picture's handle: the game writes it at load (`0x419b4d`); the files hold leftovers |
 | 8 | 8 floats | u, v of polygon corners 0 to 3 |
-| 40 | u32 | unknown |
+| 40 | u8 | flags: `0x02` a see-through surface, drawn half grey and half clear and sorted by depth (`0x41b596`); `0x04` left out of a second pass over the road (`0x41ae90`, not identified). Values 0, 4, 6 |
+| 41 | 3 | not read (byte 43 often `0xFF`) |
 | 44 | u8 | 1: a lane texture |
 | 45 | u16 | the picture's number |
 

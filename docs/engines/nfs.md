@@ -958,6 +958,9 @@ Allowed under CONTRIBUTING.md:
 
 - What the virtual road's mask bits and side codes stand for
   ([col.md](../formats/nfs/col.md)).
+- In the tracks ([frd.md](../formats/nfs/frd.md)): polygon flags `0x20`
+  and `0x40`, the lane polygons' u16 at 10, and the road pass that
+  texture flag `0x04` leaves out.
 
 - The sound header tags not understood ([bnk.md](../formats/nfs/bnk.md)):
   `0x91` and the patch parameters the table there leaves out.
