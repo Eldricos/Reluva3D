@@ -58,24 +58,6 @@ void toExtended(double v, uint8_t* p) {
 
 } // namespace
 
-void Cpu::fpuPush(double v) {
-    fpu.top = uint8_t((fpu.top - 1) & 7);
-    fpu.regs[fpu.top] = v;
-    fpu.tags &= uint8_t(~(1u << fpu.top));
-}
-
-double Cpu::fpuPop() {
-    const double v = fpu.regs[fpu.top];
-    fpu.tags |= uint8_t(1u << fpu.top);
-    fpu.top = uint8_t((fpu.top + 1) & 7);
-    return v;
-}
-
-double Cpu::fpuRound(double v) const {
-    // Precision control 0: 24 bits (a game may set it for speed).
-    return (fpu.control & 0x300) == 0 ? double(float(v)) : v;
-}
-
 void Cpu::fpuCompare(double a, double b, bool setEflags, bool) {
     uint16_t c = 0;
     if (std::isnan(a) || std::isnan(b))

@@ -40,7 +40,7 @@ constexpr ParityTable kParity;
 struct CachedOps {
     using Cached = Cpu::Cached;
 
-    static uint32_t address(const Cpu& c, const Cached& e) {
+    RELUVA_FORCE_INLINE static uint32_t address(const Cpu& c, const Cached& e) {
         uint32_t a = e.disp;
         if (e.base >= 0)
             a += c.reg[size_t(e.base)];
@@ -49,34 +49,34 @@ struct CachedOps {
         return e.fs ? a + c.fsBase : a;
     }
     template <int S>
-    static uint32_t getReg(const Cpu& c, int r) {
+    RELUVA_FORCE_INLINE static uint32_t getReg(const Cpu& c, int r) {
         return S == 4 ? c.reg[size_t(r)] : c.readReg(S, r);
     }
     template <int S>
-    static void setReg(Cpu& c, int r, uint32_t v) {
+    RELUVA_FORCE_INLINE static void setReg(Cpu& c, int r, uint32_t v) {
         if (S == 4)
             c.reg[size_t(r)] = v;
         else
             c.writeReg(S, r, v);
     }
     template <int S>
-    static uint32_t getRm(Cpu& c, const Cached& e) {
+    RELUVA_FORCE_INLINE static uint32_t getRm(Cpu& c, const Cached& e) {
         return e.mem ? c.load(address(c, e), S) : getReg<S>(c, e.rm);
     }
     template <int S>
-    static void setRm(Cpu& c, const Cached& e, uint32_t v) {
+    RELUVA_FORCE_INLINE static void setRm(Cpu& c, const Cached& e, uint32_t v) {
         if (e.mem)
             c.store(address(c, e), v, S);
         else
             setReg<S>(c, e.rm, v);
     }
-    static void next(Cpu& c, const Cached& e) { c.eip += e.length; }
+    RELUVA_FORCE_INLINE static void next(Cpu& c, const Cached& e) { c.eip += e.length; }
 
     static void legacy(Cpu& c, const Cached&) { c.execute(); }
 
     // Cpu::alu and Cpu::condition, for one operation each.
     template <int Op, int S>
-    static uint32_t alu(Cpu& c, uint32_t a, uint32_t b) {
+    RELUVA_FORCE_INLINE static uint32_t alu(Cpu& c, uint32_t a, uint32_t b) {
         constexpr uint32_t m = S == 4 ? 0xffffffffu : S == 2 ? 0xffffu : 0xffu;
         constexpr uint32_t sign = S == 4 ? 0x80000000u : S == 2 ? 0x8000u : 0x80u;
         a &= m;
@@ -110,17 +110,17 @@ struct CachedOps {
         return r;
     }
     template <int S>
-    static uint32_t logicFlags(uint32_t r) { // ZF, SF and PF of a result
+    RELUVA_FORCE_INLINE static uint32_t logicFlags(uint32_t r) { // ZF, SF and PF of a result
         constexpr uint32_t sign = S == 4 ? 0x80000000u : S == 2 ? 0x8000u : 0x80u;
         return (r ? 0 : Cpu::ZF) | (r & sign ? Cpu::SF : 0) | kParity.flag[r & 0xff];
     }
     template <int S>
-    static void test(Cpu& c, uint32_t r) {
+    RELUVA_FORCE_INLINE static void test(Cpu& c, uint32_t r) {
         constexpr uint32_t m = S == 4 ? 0xffffffffu : S == 2 ? 0xffffu : 0xffu;
         c.eflags = (c.eflags & ~(Cpu::CF | Cpu::OF | Cpu::AF | Cpu::ZF | Cpu::SF | Cpu::PF)) | logicFlags<S>(r & m);
     }
     template <int Cc>
-    static bool condition(const Cpu& c) {
+    RELUVA_FORCE_INLINE static bool condition(const Cpu& c) {
         const uint32_t f = c.eflags;
         bool r;
         if constexpr (Cc >> 1 == 0)
@@ -357,7 +357,7 @@ struct CachedOps {
 
     // The x87 unit's commonest: loads, stores and arithmetic on memory and
     // registers, FXCH, FNSTSW AX (as Cpu::x87 does them).
-    static double loadReal(Cpu& c, uint32_t a, bool wide) {
+    RELUVA_FORCE_INLINE static double loadReal(Cpu& c, uint32_t a, bool wide) {
         if (wide) {
             const uint64_t bits = uint64_t(c.load(a, 4)) | uint64_t(c.load(a + 4, 4)) << 32;
             double v;
@@ -369,7 +369,7 @@ struct CachedOps {
         std::memcpy(&f, &bits, 4);
         return double(f);
     }
-    static void storeReal(Cpu& c, uint32_t a, double v, bool wide) {
+    RELUVA_FORCE_INLINE static void storeReal(Cpu& c, uint32_t a, double v, bool wide) {
         if (wide) {
             uint64_t bits;
             std::memcpy(&bits, &v, 8);
@@ -384,7 +384,7 @@ struct CachedOps {
     }
     // dst = x op y, for the eight forms (2 and 3 compare x with y).
     template <int R>
-    static void arith(Cpu& c, double& dst, double x, double y) {
+    RELUVA_FORCE_INLINE static void arith(Cpu& c, double& dst, double x, double y) {
         if constexpr (R == 0)
             dst = c.fpuRound(x + y);
         else if constexpr (R == 1)

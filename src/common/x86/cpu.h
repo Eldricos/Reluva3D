@@ -73,7 +73,7 @@ public:
     // --- Memory --------------------------------------------------------------
     Memory& memory() { return memory_; }
     uint32_t memorySize() const { return uint32_t(memory_.size()); }
-    bool valid(uint32_t address, uint32_t size) const {
+    RELUVA_FORCE_INLINE bool valid(uint32_t address, uint32_t size) const {
         return address >= kPageSize && size <= memory_.size() && address <= memory_.size() - size;
     }
     // Reads and writes for native code (no fault: out of range reads 0,
@@ -224,7 +224,7 @@ private:
     void x87(uint8_t op);
 
     // x87 helpers.
-    double& st(int i) { return fpu.regs[size_t((fpu.top + i) & 7)]; }
+    RELUVA_FORCE_INLINE double& st(int i) { return fpu.regs[size_t((fpu.top + i) & 7)]; }
     void fpuCompare(double a, double b, bool setEflags, bool unordered);
     double fpuRound(double v) const;
 
@@ -282,13 +282,13 @@ private:
 
 // The hot paths of running instructions, inline.
 
-inline uint8_t* Cpu::at(uint32_t a, uint32_t size) {
+RELUVA_FORCE_INLINE uint8_t* Cpu::at(uint32_t a, uint32_t size) {
     if (!valid(a, size)) [[unlikely]]
         memoryFault(a, size);
     return memory_.data() + a;
 }
 
-inline uint32_t Cpu::load(uint32_t a, int size) {
+RELUVA_FORCE_INLINE uint32_t Cpu::load(uint32_t a, int size) {
     const uint8_t* p = at(a, uint32_t(size));
     if (size == 1)
         return p[0];
@@ -299,7 +299,7 @@ inline uint32_t Cpu::load(uint32_t a, int size) {
     return v;
 }
 
-inline void Cpu::store(uint32_t a, uint32_t v, int size) {
+RELUVA_FORCE_INLINE void Cpu::store(uint32_t a, uint32_t v, int size) {
     uint8_t* p = at(a, uint32_t(size));
     if (size == 1)
         p[0] = uint8_t(v);
@@ -310,15 +310,34 @@ inline void Cpu::store(uint32_t a, uint32_t v, int size) {
         std::memcpy(p, &v, 4);
 }
 
-inline void Cpu::push(uint32_t v) {
+RELUVA_FORCE_INLINE void Cpu::push(uint32_t v) {
     reg[ESP] -= 4;
     store(reg[ESP], v, 4);
 }
 
-inline uint32_t Cpu::pop() {
+RELUVA_FORCE_INLINE uint32_t Cpu::pop() {
     const uint32_t v = load(reg[ESP], 4);
     reg[ESP] += 4;
     return v;
+}
+
+// The x87 stack (fpu.cpp has the rest of the unit).
+RELUVA_FORCE_INLINE void Cpu::fpuPush(double v) {
+    fpu.top = uint8_t((fpu.top - 1) & 7);
+    fpu.regs[fpu.top] = v;
+    fpu.tags &= uint8_t(~(1u << fpu.top));
+}
+
+RELUVA_FORCE_INLINE double Cpu::fpuPop() {
+    const double v = fpu.regs[fpu.top];
+    fpu.tags |= uint8_t(1u << fpu.top);
+    fpu.top = uint8_t((fpu.top + 1) & 7);
+    return v;
+}
+
+RELUVA_FORCE_INLINE double Cpu::fpuRound(double v) const {
+    // Precision control 0: 24 bits (a game may set it for speed).
+    return (fpu.control & 0x300) == 0 ? double(float(v)) : v;
 }
 
 inline uint32_t Cpu::fetch8() { return load(eip++, 1); }
@@ -333,7 +352,7 @@ inline uint32_t Cpu::fetch32() {
     return v;
 }
 
-inline uint32_t Cpu::readReg(int size, int r) const {
+RELUVA_FORCE_INLINE uint32_t Cpu::readReg(int size, int r) const {
     if (size == 4)
         return reg[size_t(r)];
     if (size == 2)
@@ -341,7 +360,7 @@ inline uint32_t Cpu::readReg(int size, int r) const {
     return r < 4 ? reg[size_t(r)] & 0xff : (reg[size_t(r - 4)] >> 8) & 0xff;
 }
 
-inline void Cpu::writeReg(int size, int r, uint32_t v) {
+RELUVA_FORCE_INLINE void Cpu::writeReg(int size, int r, uint32_t v) {
     if (size == 4)
         reg[size_t(r)] = v;
     else if (size == 2)
