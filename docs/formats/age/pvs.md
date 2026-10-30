@@ -19,10 +19,14 @@ like offsets; the bytes after them looked like 2-bit patterns (`0x03`,
 every row of both cities unpacks to two bits for each block, low bits
 first, 3 or 0, and agrees with the `.pvs` but for 9,339 (San Francisco)
 and 11,238 (London) pairs it drops, and one it adds in San Francisco. The
-variants `sf_0.cpvs`-`sf_255.cpvs` get smaller as the number grows, and
-`sf.cpvs`
-is byte for byte `sf_8.cpvs` (`london.cpvs` is `london_8.cpvs`), so
-the dropped pairs are presumably the low scores of `.pvshist`.
+variants `sf_0.cpvs`-`sf_255.cpvs` get smaller as the number grows:
+`<city>_N.cpvs` holds exactly the `.pvshist` pairs scoring more than N
+(checked for every N, 0 to 255, in both cities; scores run 2-255).
+`sf.cpvs`, `london.cpvs` and `london_bad.cpvs` are byte for byte the
+`_8` files, so the game's own cut is 8, and the pairs it drops from the
+`.pvs` are exactly those scoring 8 or less (`sf_8` keeps 95,683 and
+drops 9,339). `sf_00`, `sf_254` and `london_254` have 1,165 and 1,342
+rows, from an older build of the cities.
 
 ## `.cpvs` layout
 
