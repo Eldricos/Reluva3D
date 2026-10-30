@@ -205,7 +205,7 @@ CarControls PathDriver::drive(const CarSim& car, float dt) {
     const float wheelbase = std::max(1.0f, std::fabs(setup.wheels[0][2] - setup.wheels[2][2]));
     // The lock the car has at this speed (CarSim takes some off as it goes
     // faster): asked for in full, the wheels turn as far as the arc needs.
-    const float lock = std::max(0.05f, setup.front.steeringLimit) / (1 + std::fabs(speed) / 25);
+    const float lock = std::max(0.05f, setup.front.steeringLimit) * setup.lockAt(speed);
     if (z <= 0) {
         c.steer = x < 0 ? -1.0f : 1.0f; // behind: round as hard as it goes
     } else {

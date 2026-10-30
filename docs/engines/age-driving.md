@@ -109,13 +109,44 @@ for good (the Bullet's back tyres' is 1.4 / 3, so it crawled). The low
 cars also sat on their hull's spheres. Reluva's AI drivers finish the
 races 15-25% sooner than before, with fewer resets.
 
-Not used: Aero's **AngCDamp**, **AngVelDamp** and **AngVel2Damp** (read
-as the car's turning slowed about its three axes, by a constant, with
-the turning and with its square, in radians a second squared, the
-Bullet's 5 of yaw stops it turning at all: their units must be other),
-the engine's and drivetrain's inertias, the tyres' displacement, damping
-and drag terms, OptimumSlipPercent, camber and wobble, the axles'
-torque and SSS.
+Aero's **AngCDamp**, **AngVelDamp** and **AngVel2Damp** are a damper's
+three terms per axis (x pitch, y yaw, z roll): a constant against the
+turning, one with the turning and one with its square (the older layout
+has linear CDamp, VelDamp and Vel2Damp beside them, so "Vel" is the
+turning, not the road speed). Read as a torque of the car's mass times
+that (so an angular deceleration of 12 x it over the inertia box's two
+sides squared): as plain radians a second squared the Bullet's yaw 5
+stops it turning at all with Reluva's grip, as newton metres they'd do
+nothing. They're used for pitch and roll: the trucks' and the police
+car's (6, 0, 6) keep them from tipping, the DB7's and GTR-1's large
+pitch constants hold them level. Yaw's aren't: the AI cars' 5.8-9 would
+keep them from cornering at Reluva's grip (which is StaticFric / 3; at
+StaticFric itself they'd fit), so that's left until the grip's settled.
+Damping pitch only in the air was tried: San Francisco's hill circuits
+came out as before, but London Run's opponents worse (2 of 7 unfinished
+in 900 s); damped always, every opponent finishes, London's circuits
+faster with fewer resets (London Run 697 s to 602), San Francisco's a
+little slower (Take It Easy 505 to 585).
+
+**SSSValue** and **SSSThreshold**: speed-sensitive steering. Most cars
+have 1 and 0, read as Reluva's lock of 1 / (1 + v / 25); the Minis 0
+(no less lock with speed); two AI cars 0.4 from 50 or 30 (mph). Reluva's
+lock is 1 / (1 + SSSValue x the speed over the threshold / 25), the
+opponents steering with the same. **TireDragCoefLong** (0.02, the DB7's
+rear 0.07) is the wheels' rolling resistance as a share of the load
+(Reluva had 0.015 for all).
+
+Not used: the engine's and drivetrain's inertias (Engine AngInertia 1,
+plausible as kg m2 for the engine alone; Drivetrain 2,000-30,000 can't
+be kg m2 at the wheels, which would weigh the car 7-66 times over), the
+tyres' displacement and damping (two sets: 0.125 / 0.25 for the
+player's cars, 0.075 / 0.75 for the AI's: a contact patch's give and
+its damping, it seems), TireDragCoefLat (0.05), OptimumSlipPercent (a
+share: 0.2 front, 0.14 back for most, the trucks 0.42-0.74, the AI's
+fronts 0.01-0.03), CamberLimit (-1, 0, 0.2, 0.4, 0.49, 0.17: too large
+for camber in radians), WobbleLimit (0 for all) and the axles'
+TorqueCoef and DampCoef (1 and 0.5 on eight cars: an anti-roll bar,
+perhaps).
 
 `.vehGyro` (20 cars): **Drift**, **Spin180**, **Reverse180**, Pitch and
 Roll (0 for all; the fire truck's all 0). Read as help turning round:
@@ -135,8 +166,9 @@ down only so far without watching the game:
   40), the brakes' static coefficients (1.2), the gyro's Pitch and Roll
   (0); the axles' TorqueCoef and DampCoef are 0 in 32 of 40.
 - AngVelDamp and AngVel2Damp are (6, 0, 6) in 10 cars: the first and
-  third (roll and pitch, the second being yaw) are what's damped; only a
-  few cars damp yaw (the Bullet's AngCDamp 5).
+  third (pitch and roll, the second being yaw) are what's damped; the
+  city bus (6, 0, 0) and the Freightliner (3, 0, 0) damp pitch only; few
+  cars damp yaw (the Bullet's AngCDamp 5).
 - The tyres' displacement and damping come in two sets (0.125 and 0.25,
   or 0.075 and 0.75); OptimumSlipPercent runs 0.01-0.42.
 - Drivetrain AngInertia is 2,000 in 23 cars, 30,000 in the 5 heavy ones.

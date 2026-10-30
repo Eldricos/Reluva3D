@@ -29,7 +29,6 @@ constexpr float kMetresPerSecondPerMph = 0.44704f;
 constexpr float kFrictionScale = 3;
 constexpr float kHullRadius = 0.2f;     // spheres round the hull's corners
 constexpr float kSteerRate = 3;         // full lock and back, per second
-constexpr float kRolling = 0.015f;      // of a wheel's load
 constexpr float kEngineBraking = 0.04f; // likewise
 
 std::string textOf(const std::vector<uint8_t>& data) { return std::string(data.begin(), data.end()); }
@@ -45,9 +44,15 @@ void readAxle(const TuneNode* n, AxleSetup& a) {
     a.handbrakeCoef = n->number("HandbrakeCoef", 0, a.handbrakeCoef);
     a.staticFriction = n->number("StaticFric", 0, a.staticFriction);
     a.slidingFriction = n->number("SlidingFric", 0, a.slidingFriction);
+    a.rolling = std::clamp(n->number("TireDragCoefLong", 0, a.rolling), 0.0f, 0.2f);
 }
 
 } // namespace
+
+float CarSetup::lockAt(float speed) const {
+    const float over = std::max(0.0f, std::fabs(speed) - sssThreshold * kMetresPerSecondPerMph);
+    return 1 / (1 + sssValue * over / 25);
+}
 
 float CarSetup::power(float r) const {
     // Rising from a third at idle to full at the optimum, falling to two
@@ -96,7 +101,14 @@ Error loadCarSetup(const SearchSet& files, const std::string& car, CarSetup& out
     if (const TuneNode* aero = sim->child("Aero")) {
         out.drag = aero->number("Drag", 0, out.drag);
         out.down = aero->number("Down");
+        for (size_t k = 0; k < 3; ++k) {
+            out.angDampC[k] = std::max(0.0f, aero->number("AngCDamp", k));
+            out.angDampV[k] = std::max(0.0f, aero->number("AngVelDamp", k));
+            out.angDampV2[k] = std::max(0.0f, aero->number("AngVel2Damp", k));
+        }
     }
+    out.sssValue = std::max(0.0f, sim->number("SSSValue", 0, out.sssValue));
+    out.sssThreshold = std::max(0.0f, sim->number("SSSThreshold", 0, out.sssThreshold));
     if (const TuneNode* e = sim->child("Engine")) {
         out.maxHorsePower = e->number("MaxHorsePower", 0, out.maxHorsePower);
         out.idleRpm = e->number("IdleRPM", 0, out.idleRpm);
@@ -231,7 +243,7 @@ void CarSim::substep(const CarControls& controls, const CollisionWorld& world, f
 
     // Steering eases to the controls, less lock the faster the car goes.
     const float speed = forwardSpeed();
-    const float lock = 1 / (1 + std::fabs(speed) / 25);
+    const float lock = setup_.lockAt(speed);
     const float wanted = -controls.steer * lock; // left positive
     steerAngle_ += std::clamp(wanted - steerAngle_, -kSteerRate * steerRate * h, kSteerRate * steerRate * h);
 
@@ -332,7 +344,7 @@ void CarSim::substep(const CarControls& controls, const CollisionWorld& world, f
         float lateral = -across * share / h * 0.5f;
         // Rolling resistance (1.5% of the load, a road tyre's), and the
         // engine holding the car back off the throttle in gear.
-        const float rolling = kRolling + (drive == 0 && gear != 0 ? kEngineBraking : 0.0f);
+        const float rolling = axle.rolling + (drive == 0 && gear != 0 ? kEngineBraking : 0.0f);
         float longitudinal = -std::clamp(along, -1.0f, 1.0f) * rolling * load;
         const bool drives = setup_.drivetrain == 2 || (setup_.drivetrain == 1) == frontWheel;
         if (drives)
@@ -381,6 +393,23 @@ void CarSim::substep(const CarControls& controls, const CollisionWorld& world, f
 
     velocity += force * (h / m);
     angularVelocity += inverseInertiaTimes(torque) * h;
+    {
+        // Aero's damping of pitch and roll: m (C + V w + V2 w|w|) against
+        // the turning, in the car's frame, as an acceleration through its
+        // inertia (the constant part stops at none, not past it).
+        const Vec3 local = orientation.inverseTimes(angularVelocity);
+        Vec3 slowed = local;
+        const Vec3& b = setup_.inertiaBox;
+        const float inertiaShare[3] = {12 / (b[1] * b[1] + b[2] * b[2]), 0, 12 / (b[0] * b[0] + b[1] * b[1])};
+        for (int k : {0, 2}) {
+            const float w = local[size_t(k)];
+            const float by = (setup_.angDampC[size_t(k)] + setup_.angDampV[size_t(k)] * std::fabs(w) +
+                              setup_.angDampV2[size_t(k)] * w * w) *
+                             inertiaShare[k] * h;
+            slowed[size_t(k)] = std::fabs(w) <= by ? 0 : w - std::copysign(by, w);
+        }
+        angularVelocity = orientation * slowed;
+    }
     // The gyro's help turning round, about the car's up, on the ground:
     // left steering turns it left, except backing, where the nose swings
     // the other way.
