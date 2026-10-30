@@ -146,6 +146,19 @@ private:
     std::map<uint32_t, std::vector<const FinMaterialAnimator*>> animatorsOf_; // by material
     std::map<uint32_t, const FinFlip*> flipOf_;                                // by texture property
     std::map<const FinFlip*, uint16_t> flipNumber_; // in the file's order, as clips' lists number them
+    std::map<uint32_t, uint16_t> morphNumber_;      // likewise, by id
+    // Where the tracks and morph shapes a clip doesn't move were left, as
+    // the game leaves them: by node, the pose (and whether it's shown); by
+    // morph shape, the weights.
+    struct HeldPose {
+        gfx::Mat4 local;
+        bool shown = true;
+    };
+    std::map<uint32_t, HeldPose> heldPose_;
+    std::map<uint32_t, std::vector<float>> heldWeights_;
+    // Whether the clip moves what it lists by number (the whole timeline:
+    // everything).
+    bool clipMoves(const std::vector<uint16_t> FinActor::Clip::*list, size_t number) const;
     std::vector<FinActor::Clip> clips_;
     int clip_ = 0;
     float clipTime_ = 0; // seconds into the clip

@@ -562,6 +562,37 @@ std::vector<uint8_t> buildAnimatedFin() {
     w.b.push_back(1);
     put32(w.b, 2);
     put32(w.b, 0);
+    // A morph shape of one vertex: two targets, two keys.
+    w.object("Ni3dsMorphShape", 0x740);
+    w.avObject("Weed", {0, 0, 0}, {}, false);
+    w.b.insert(w.b.end(), {1, 0});
+    put32(w.b, 0xeeee);
+    floats({0, 0, 0});
+    put32(w.b, 0); // no normals
+    floats({0, 0, 0, 1});
+    w.b.insert(w.b.end(), {0, 0, 0, 0}); // no triangles or uv sets
+    put32(w.b, 0);
+    put32(w.b, 0);
+    put32(w.b, 0);
+    w.b.insert(w.b.end(), {1, 0, 0, 0, 1, 0, 0, 1}); // animation type, flags
+    put32(w.b, 2);
+    put32(w.b, 0);
+    floats({1, 0, 0, 3200});
+    w.b.insert(w.b.end(), {0, 1}); // normals updated
+    put32(w.b, 2); // targets
+    put32(w.b, 2); // keys
+    floats({0, 0, 0, 1}); // its bounding sphere
+    put32(w.b, 5); // NiBaryMorphKey
+    for (float t : {0.f, 3200.f}) {
+        floats({t, 1, 0.5f, 0, 0, -1, -1});
+        put32(w.b, 2);
+        floats({1, t > 0 ? 1.f : 0.f, 0, 0.5f, 0, 0.5f}); // weights, in, out
+    }
+    floats({1, 2, 3, 0, 0, 1}); // the targets' vertices
+    w.object("DDUnit", 0x750);
+    w.avObject("Unit", {0, 0, 0}, {}, false);
+    w.nodeTail({});
+    put32(w.b, 0x720);
     w.object("Ni3dsBone", 0x20);
     w.avObject("Bone", {0, 0, 0}, {}, false);
     w.nodeTail({});
@@ -604,6 +635,12 @@ void testFinAnimation() {
           actor.clips[0].delay == 0);
     CHECK(actor.clips[0].tracks == std::vector<uint16_t>({0, 1}) && actor.clips[0].flips.empty() &&
           actor.clips[0].morphs.empty());
+    const FinMorph& weed = f.morphs[0x740];
+    CHECK(weed.keys.size() == 2 && weed.targets.size() == 2 && weed.keys[1].time == 3200 &&
+          weed.keys[0].value == 1 && weed.keys[0].tension == 0.5f && weed.keys[0].derived[0] == -1 &&
+          weed.keys[1].weights[1] == 1 && weed.keys[0].in[1] == 0.5f && weed.keys[0].out[1] == 0.5f &&
+          weed.targets[1][2] == 1);
+    CHECK(f.nodes[0x750].actor == 0x720);
     const FinLight& lamp = f.lights[0x730];
     CHECK(lamp.type == FinLight::Point && lamp.on && lamp.dimmer == 3 && lamp.diffuse[0] == 1 &&
           lamp.attenuated && lamp.attenuationDistance == 32000 && lamp.attenuationCurve == 0 &&

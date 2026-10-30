@@ -5244,6 +5244,8 @@ int cmdFinCheck(int argc, char** argv) {
                        "a node or shape");
             for (uint32_t p : node.properties)
                 expect(p, model.typeOf(p).find("Property") != std::string::npos, "a property");
+            if (node.actor)
+                expect(node.actor, model.typeOf(node.actor) == "DDActorSharedData", "an actor's data");
         }
         for (const auto& [id, shape] : model.shapes) {
             ++shapes;

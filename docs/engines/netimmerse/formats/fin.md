@@ -125,7 +125,7 @@ What each subclass adds after NiNode's fields:
 | `NiBillboardNode` | 909 | a number (1): the billboard mode. The viewer turns the node's +Z axis to the camera, which is how its quads lie: they're flat in X and Y |
 | `NiLODNode` | 64 | 5 bytes, the number of levels (one per child), 20 bytes for each level (its distances), a byte |
 | `Ni3dsAnimationNode`, `Ni3dsBone` | 860, 213 | 48 bytes of animation settings: 1, 1, 2, then floats 0, 1, 0 and the scene's range in ticks (16,000 to 356,800 in Evil Ogel), then 16 bytes of 0. The keys are in `DDActorSharedData` (below) |
-| `DDUnit` | 93 | a link, *guess*: to the model's `DDActorSharedData` |
+| `DDUnit` | 93 | a link to the model's `DDActorSharedData` *(from the code: `LinkObject` sets the member `DDActor`'s accessors read it through; formerly a guess)*. All 147 `DDUnit` and `DDEnv` links point at one (`reluva-tool fin-check`) |
 | `DDEnv` | 54 | a link, as `DDUnit`'s; the root of every level |
 
 A level's sky is under a node named `Exterior` (holding `Backdrop`).
@@ -194,7 +194,7 @@ Each is NiObjectNET's fields, then:
 | `NiMaterialProperty` | 3,728 | ambient, diffuse, specular, emissive (3 floats each), glossiness, alpha |
 | `NiAlphaProperty` | 2,278 | a byte (blending on), source and destination factors (6 and 7 in every file: source alpha and one minus source alpha) |
 | `NiTextureProperty` | 2,068 | the index of the image shown (0; `GetIndex`, which `NiFlipTextures::Act` sets), the number of images, their links: one, or several frames for a `NiFlipTextures` to cycle |
-| `NiMultiTextureProperty` | 582 | a count (1), a link to an image (a lightmap from `LMap.pac`), 6 numbers (1, 0, 1, 0, 1, 1) |
+| `NiMultiTextureProperty` | 582 | four lists, each a count and its values *(from the code)*: the images (one link, a lightmap from `LMap.pac`), and one each of the combine modes (0), clamp modes (0) and filter modes (1) |
 | `NiTextureModeProperty` | 8,967 | the apply, filter and clamp modes (3, 0 to 2, 0 to 3) *(from the code)* |
 | `NiVertexColorProperty` | 285 | the colour mode (1) *(from the code)* |
 | `NiZBufferProperty` | 215 | two bytes: depth test and depth write, both 0 *(from the code; formerly a guess)* |
@@ -436,10 +436,13 @@ A shape's fields, then:
 - two bytes, the second whether its normals are updated
   (`GetUpdateNormals`) *(from the code)*;
 - the number of targets (6 in most) and of keys;
-- four floats and a number (5 in every file);
+- its bounding sphere (an `NiBound`: centre and radius) and the keys'
+  type, 5 in every file: `NiBaryMorphKey` *(from the code)*;
 - the keys, each:
   - its time;
-  - six floats (*guess*: tension, continuity, bias and the like);
+  - an `NiTCBFloatKey`'s fields *(from the code; formerly guessed)*: its
+    value, tension, continuity and bias (0 in every key), and two values
+    worked out from them (the value's tangents);
   - the number of targets again;
   - the weights, the incoming tangents, then the outgoing tangents, one of
     each per target;
@@ -451,6 +454,15 @@ weight. In E3020 the weights step one-hot through the targets, swaying
 the seaweed. All 122 read to exactly their end. (The key count was first
 taken from the later number, which is 5 like the count in most shapes;
 the six whose counts differ, 7, 4 and 2 keys, showed which is which.)
+
+Between keys each weight follows Hermite's curve, with the key's
+outgoing tangent and the next key's incoming one: w + u (out + u (a +
+u b)), a = 3d − 2 out − in′, b = out + in′ − 2d, d the step to the next
+weight *(from the code: `NiBaryMorphKey::MorphInterpolate` and
+`NiInterpScalar::Bezier`)*. The tangents in the files are half the step
+across the key (±0.5), as Catmull-Rom's would be, or ±1 at the ends. The
+viewer blends them so, and, playing a clip, moves only the morph shapes
+the clip lists (DDActorSharedData, above).
 
 ### NiLight (110, in the levels)
 
@@ -500,10 +512,16 @@ own structure and lights vertices in software (the game never calls
 The levels are lit by their lightmaps and vertex colours; these lights
 reach the characters and parts.
 
+A spot lights only within its cone. With s the distance from the light
+along its direction and L the distance itself, its strength is the point
+light's times (s² − L² cos² α) ÷ (s² sin² α), α the spot angle: 1 on its
+axis, 0 at the cone's edge, nothing outside it or behind the light. The
+spot exponent isn't used. An angle past 90° makes it a point light.
+
 In the viewer, G marks the lights. Pressed again, it lights the shapes
 that have normals (characters, parts) with them, as above: every light's
 ambient, and the one light reaching a shape most strongly, from its
-direction (spots without their cone).
+direction, a spot within its cone.
 
 ### DDCorona: glows
 

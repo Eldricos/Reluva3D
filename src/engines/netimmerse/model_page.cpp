@@ -419,6 +419,13 @@ gfx::TextureId ModelPage::glowTexture() {
     return glow_;
 }
 
+bool ModelPage::clipMoves(const std::vector<uint16_t> FinActor::Clip::*list, size_t number) const {
+    if (clip_ == 0 || clips_.empty())
+        return true;
+    const std::vector<uint16_t>& l = clips_[size_t(clip_)].*list;
+    return std::find(l.begin(), l.end(), number) != l.end();
+}
+
 float ModelPage::clipTicks() const {
     if (clips_.empty())
         return 0;
@@ -438,6 +445,9 @@ void ModelPage::show(int index) {
     animatorsOf_.clear();
     flipOf_.clear();
     flipNumber_.clear();
+    morphNumber_.clear();
+    heldPose_.clear();
+    heldWeights_.clear();
     clips_.clear();
     clip_ = 0;
     clipTime_ = 0;
@@ -485,6 +495,9 @@ void ModelPage::show(int index) {
     for (const FinObjectInfo& o : model_.objects())
         if (auto f = model_.flips.find(o.id); o.type == "NiFlipTextures" && f != model_.flips.end())
             flipNumber_[&f->second] = uint16_t(flipNumber_.size());
+    for (const FinObjectInfo& o : model_.objects())
+        if (o.type == "Ni3dsMorphShape" && model_.morphs.count(o.id))
+            morphNumber_[o.id] = uint16_t(morphNumber_.size());
     for (const auto& [id, m] : model_.morphs)
         if (!m.keys.empty())
             lastKey = std::max(lastKey, m.keys.back().time);
@@ -725,8 +738,17 @@ void ModelPage::walk(float ticks, bool create) {
                 }
                 bool shown = true;
                 const auto track = trackOf_.find(id);
-                const gfx::Mat4 local =
-                    track != trackOf_.end() ? animated(n, actor_->tracks[track->second], ticks, shown) : localMatrix(n);
+                gfx::Mat4 local;
+                if (track == trackOf_.end()) {
+                    local = localMatrix(n);
+                } else if (clipMoves(&FinActor::Clip::tracks, track->second)) {
+                    local = animated(n, actor_->tracks[track->second], ticks, shown);
+                    heldPose_[id] = {local, shown};
+                } else if (auto held = heldPose_.find(id); held != heldPose_.end()) {
+                    local = held->second.local, shown = held->second.shown;
+                } else {
+                    local = localMatrix(n); // as saved, which is the first key's pose
+                }
                 if (!shown)
                     return;
                 const gfx::Mat4 world = gfx::multiply(parent, local);
@@ -802,15 +824,36 @@ void ModelPage::walk(float ticks, bool create) {
                 // The targets blended by the weights keyed now.
                 const FinMorph& m = model_.morphs.at(id);
                 if (!m.keys.empty() && !m.targets.empty() && m.keys.front().weights.size() == m.targets.size()) {
-                    std::vector<FinActor::Key<std::vector<float>>> keys;
-                    for (const FinMorph::Key& k : m.keys)
-                        keys.push_back({k.time, k.weights});
-                    const std::vector<float> w = sample(keys, ticks, [](const auto& a, const auto& b, float f) {
-                        std::vector<float> out(a.value.size());
-                        for (size_t i = 0; i < out.size(); ++i)
-                            out[i] = a.value[i] + (b.value[i] - a.value[i]) * f;
-                        return out;
-                    });
+                    // Each weight by Hermite's curve, with the key's tangent
+                    // out and the next's in (NiBaryMorphKey::MorphInterpolate).
+                    // Those the clip doesn't move stay as they were.
+                    const auto number = morphNumber_.find(id);
+                    const bool moves = number == morphNumber_.end() || clipMoves(&FinActor::Clip::morphs, number->second);
+                    std::vector<float> w;
+                    if (auto held = heldWeights_.find(id); !moves && held != heldWeights_.end()) {
+                        w = held->second;
+                    } else {
+                        const float t = moves ? ticks : m.keys.front().time;
+                        if (t <= m.keys.front().time || m.keys.size() == 1) {
+                            w = m.keys.front().weights;
+                        } else if (t >= m.keys.back().time) {
+                            w = m.keys.back().weights;
+                        } else {
+                            size_t k = 1;
+                            while (m.keys[k].time <= t)
+                                ++k;
+                            const FinMorph::Key& p = m.keys[k - 1];
+                            const FinMorph::Key& q = m.keys[k];
+                            const float u = q.time > p.time ? (t - p.time) / (q.time - p.time) : 0;
+                            w.resize(p.weights.size());
+                            for (size_t i = 0; i < w.size(); ++i) {
+                                const float d = q.weights[i] - p.weights[i];
+                                const float ca = 3 * d - 2 * p.out[i] - q.in[i], cb = p.out[i] + q.in[i] - 2 * d;
+                                w[i] = p.weights[i] + u * (p.out[i] + u * (ca + u * cb));
+                            }
+                        }
+                        heldWeights_[id] = w;
+                    }
                     // The first target is the shape; the others are offsets
                     // from it, added by their weights.
                     blended = m.targets.front();
@@ -1061,12 +1104,14 @@ void ModelPage::update(uint64_t nowMs) {
     // The model's own lights (G twice), for the shapes lit by normals, as
     // NiDirect3d lights vertices (fin.md): every light's ambient, and the
     // one light reaching the shape most strongly, from its direction. Each
-    // colour is times the dimmer. Point lights (and spots, their cone left
-    // out) fade with distance L when attenuated, as 1 / (a L + b L^3).
+    // colour is times the dimmer. Point lights and spots fade with distance
+    // L when attenuated, as 1 / (a L + b L^3); a spot reaches only within
+    // its cone, fading to its edge.
     struct SceneLight {
         gfx::Vec3 position{}, direction{}, color{};
-        bool directional = false, attenuated = false;
-        float linear = 0, cubic = 0; // a and b
+        bool directional = false, attenuated = false, spot = false;
+        float linear = 0, cubic = 0;     // a and b
+        float cos2 = 0, sin2 = 1;        // a spot's angle's cosine and sine, squared
     };
     std::vector<SceneLight> sceneLights;
     gfx::Vec3 sceneAmbient{};
@@ -1080,6 +1125,12 @@ void ModelPage::update(uint64_t nowMs) {
             SceneLight sl;
             sl.position = {item.world[12], item.world[13], item.world[14]};
             sl.directional = l.type == FinLight::Directional;
+            if (l.type == FinLight::Spot) {
+                const float angle = l.spotAngle * 3.14159265f / 180;
+                sl.spot = std::cos(angle) > 0; // wider than a half-space: as a point light
+                sl.cos2 = std::cos(angle) * std::cos(angle);
+                sl.sin2 = std::sin(angle) * std::sin(angle);
+            }
             gfx::Vec3 d{};
             for (size_t r = 0; r < 3; ++r)
                 d[r] = item.world[r] * l.direction[0] + item.world[4 + r] * l.direction[1] + item.world[8 + r] * l.direction[2];
@@ -1163,6 +1214,15 @@ void ModelPage::update(uint64_t nowMs) {
                     if (l.attenuated) {
                         const double fall = double(l.linear) * dist + double(l.cubic) * dist * dist * dist;
                         strength = fall > 0 ? float(std::min(1.0, 1 / fall)) : 1;
+                    }
+                    // A spot's cone, as NiDirect3d works it out: with s the
+                    // distance along its direction, (s^2 - L^2 cos^2) /
+                    // (s^2 sin^2) of the angle, 1 on its axis and 0 at its
+                    // edge; nothing outside it or behind.
+                    if (l.spot) {
+                        const float s = -(d[0] * l.direction[0] + d[1] * l.direction[1] + d[2] * l.direction[2]);
+                        const float cone = s > 0 && l.sin2 > 0 ? (s * s - dist * dist * l.cos2) / (s * s * l.sin2) : 0;
+                        strength *= std::clamp(cone, 0.0f, 1.0f);
                     }
                 }
                 const float bright = strength * (l.color[0] + l.color[1] + l.color[2]);

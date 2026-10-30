@@ -168,7 +168,7 @@ void readAvObject(Reader& r, FinAvObject& o) {
 
 void readNode(Reader& r, FinNode& n, uint32_t extra) {
     readAvObject(r, n);
-    r.skip(9); // two numbers and a byte, meaning unknown
+    r.skip(9); // the sorting mode, a number and whether it's a visual object
     n.children = r.links();
     r.links(); // effects (lights)
     r.skip(extra);
@@ -318,7 +318,9 @@ void readMorph(Reader& r, FinMorph& m) {
     r.skip(2);
     const uint32_t targets = r.u32();
     const uint32_t keys = r.u32();
-    r.skip(16 + 4); // four numbers, and one (5 in every file)
+    r.skip(16); // its bounding sphere (NiBound: centre, radius)
+    if (r.u32() != 5) // the keys' type: NiBaryMorphKey
+        r.ok = false;
     if (targets > 64 || keys > 4096) {
         r.ok = false;
         return;
@@ -326,13 +328,19 @@ void readMorph(Reader& r, FinMorph& m) {
     for (uint32_t i = 0; i < keys && r.ok; ++i) {
         FinMorph::Key k;
         k.time = r.f32();
-        r.skip(24);
+        k.value = r.f32();
+        k.tension = r.f32();
+        k.continuity = r.f32();
+        k.bias = r.f32();
+        k.derived[0] = r.f32();
+        k.derived[1] = r.f32();
         if (r.u32() != targets) {
             r.ok = false;
             return;
         }
         k.weights = r.floats(targets);
-        r.skip(size_t(targets) * 8);
+        k.in = r.floats(targets);
+        k.out = r.floats(targets);
         m.keys.push_back(std::move(k));
     }
     for (uint32_t t = 0; t < targets && r.ok; ++t)
@@ -604,7 +612,13 @@ Error FinFile::parse(const std::vector<uint8_t>& data) {
         if (type == "NiLODNode") {
             readLodNode(r, nodes[info.id]);
         } else if (auto extra = kNodeExtra.find(type); extra != kNodeExtra.end()) {
-            readNode(r, nodes[info.id], extra->second);
+            FinNode& node = nodes[info.id];
+            if (type == "DDUnit" || type == "DDEnv") { // a link to its DDActorSharedData
+                readNode(r, node, 0);
+                node.actor = r.u32();
+            } else {
+                readNode(r, node, extra->second);
+            }
         } else if (type == "NiTriShape" || type == "NiEnvMappedTriShape") {
             readShape(r, shapes[info.id]);
         } else if (type == "Ni3dsSkin") {
@@ -644,7 +658,7 @@ Error FinFile::parse(const std::vector<uint8_t>& data) {
             readObjectNet(r);
             const uint32_t count = r.u32();
             multiTextures[info.id] = r.u32();
-            r.skip(24); // six numbers, the same in every file
+            r.skip(24); // a count and mode for each of combine (0), clamp (0) and filter (1)
             if (count != 1)
                 r.ok = false;
         } else if (type == "NiImage") {

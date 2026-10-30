@@ -40,6 +40,7 @@ struct FinNode : FinAvObject {
     std::vector<uint32_t> children; // ids
     // NiLODNode: one child per level of detail, the first the nearest.
     bool levelsOfDetail = false;
+    uint32_t actor = 0; // DDUnit, DDEnv: id of its DDActorSharedData
 };
 
 // NiTriShape (and NiEnvMappedTriShape): a triangle mesh with its data
@@ -78,9 +79,14 @@ struct FinSkin : FinShape {
 // The first target is the shape as modelled; the others are offsets from
 // it, each added times its weight.
 struct FinMorph : FinShape {
+    // NiBaryMorphKey: an NiTCBFloatKey (its value, tension, continuity and
+    // bias, and two values worked out from them), then a weight and the
+    // tangents into and out of it for each target.
     struct Key {
-        float time = 0;              // ticks
-        std::vector<float> weights;  // one per target
+        float time = 0; // ticks
+        float value = 0, tension = 0, continuity = 0, bias = 0;
+        std::array<float, 2> derived{};
+        std::vector<float> weights, in, out; // one per target
     };
     std::vector<Key> keys;
     std::vector<std::vector<float>> targets; // each x, y, z per vertex

@@ -110,7 +110,10 @@ from the launcher, the engine now shows these pages (keys in
     Hermite's, Euler angles as Z × Y × X. This was checked against the
     running game's bones in memory (see fin.md).
   - **Morph shapes** (the E3xxx levels' seaweed) move by their keyed
-    weights.
+    weights, each on Hermite's curve as `NiBaryMorphKey` gives it.
+  - Playing a clip moves only what the clip lists, as the game does:
+    its tracks, flip-books and morph shapes. The rest stay where they
+    were left (the whole timeline moves everything).
   - **Material animators** change colour and alpha.
   - **Flip-book textures** cycle their images as the game's
     `NiFlipTextures::Act` does, at the clip's time: those the clip lists,
@@ -119,7 +122,8 @@ from the launcher, the engine now shows these pages (keys in
     behind them.
   - **Lights**: G marks them. Pressed again, G lights the shapes with
     normals by them, as NiDirect3d's software lighting does: the dimmer,
-    the light's type, and attenuation by its distance and curve (fin.md).
+    the light's type, attenuation by its distance and curve, and a spot's
+    cone (fin.md). No file has a spot, so the cone hasn't been seen.
   - The fields these rest on, formerly guesses, were named from the
     game's own DLLs: their exported accessors and loaders, and the code
     that uses them (fin.md, "Checked against the game's code").
