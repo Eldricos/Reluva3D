@@ -32,7 +32,9 @@ public:
     // with bilinear filtering if `smoothTextures` (else point-sampled, as
     // the software renderer).
     // With `network`, the game's sockets are the machine's, for its
-    // network play over TCP. With `fillMovies`, the black lines the game
+    // network play over TCP and IPX; `serial` and `modem` (as reluva.ini's
+    // "listen:port" or "host:port") make its COM ports and its modem links
+    // over TCP too. With `fillMovies`, the black lines the game
     // leaves between a movie's are filled in.
     // A game controller connected at the start is offered to the game as a
     // joystick unless `offerJoystick` is false: a wheel as a wheel, with
@@ -41,7 +43,8 @@ public:
     // axis numbers) is for a wheel SDL has no layout for.
     PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer* mixer, int renderScale = 2,
              bool smoothTextures = false, bool offerJoystick = true, bool forceFeedback = true,
-             std::string wheelPedals = {}, bool network = true, bool fillMovies = true);
+             std::string wheelPedals = {}, bool network = true, bool fillMovies = true, std::string serial = {},
+             std::string modem = {});
     ~PlayPage() override;
     const char* name() const override { return "Play"; }
     bool capturesEscape() const override { return true; }
@@ -78,6 +81,7 @@ private:
     bool offerJoystick_ = true;
     bool forceFeedback_ = true;
     bool network_ = true; // the game's sockets on the machine's (System::sockets)
+    std::string serial_, modem_; // its COM ports' and modem's links (GameHost::Options)
     bool fillMovies_ = true; // the black lines between a movie's filled in
     std::string wheelPedals_;
     GamepadForce force_;     // as last passed on

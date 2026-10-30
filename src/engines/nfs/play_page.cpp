@@ -88,9 +88,10 @@ bool fillMovieLines(Surface& frame) {
 
 PlayPage::PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer* mixer, int renderScale,
                    bool smoothTextures, bool offerJoystick, bool forceFeedback, std::string wheelPedals,
-                   bool network, bool fillMovies)
+                   bool network, bool fillMovies, std::string serial, std::string modem)
     : folders_(std::move(folders)), saveFolder_(std::move(saveFolder)), mixer_(mixer), offerJoystick_(offerJoystick),
-      forceFeedback_(forceFeedback), network_(network), fillMovies_(fillMovies), wheelPedals_(std::move(wheelPedals)),
+      forceFeedback_(forceFeedback), network_(network), serial_(std::move(serial)), modem_(std::move(modem)),
+      fillMovies_(fillMovies), wheelPedals_(std::move(wheelPedals)),
       renderScale_(std::clamp(renderScale, 1, 4)) {
     gpuDraw_.scale = renderScale_;
     gpuDraw_.nearest = !smoothTextures;
@@ -187,8 +188,11 @@ void PlayPage::start() {
     options.presentedRenderer = "voodoo2a.dll";
     options.gpuThrash = gpu_;
     options.gpuAndSoftware = gpu_ && !compareFolder_.empty();
-    if (network_ && sys_)
+    if (network_ && sys_) {
         options.sockets = sys_->sockets();
+        options.serial = serial_;
+        options.modem = modem_;
+    }
     // A controller connected now is offered to the game as a joystick (it
     // looks for them once, as it starts).
     // A wheel as one (its pedals together on Y), and its forces if it can

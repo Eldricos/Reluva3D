@@ -902,6 +902,27 @@ Started. Done so far:
     and Connect, reached the lobby (the game picked one as host), and
     raced Hometown, eight cars on both screens, their race clocks a
     second apart, 8,337 race messages each way.
+  - **Modem, over TCP.** With `-modem`, LoadLibrary("tapi32.dll") finds
+    a TAPI 1.4 stand-in (`host/serial.cpp`): one line device, a data
+    modem, whose calls are TCP links like the serial port's. The copy
+    that answers listens (`-modem listen:port`); dialing connects to the
+    number typed if it is an address (`127*0*0*1:2400`, * for the dots
+    as on a keypad) or else to `-modem host:port`. `lineGetID` gives a
+    handle to the modem's port ("comm/datamodem"), which the game's
+    serial driver takes. Things the game counts on, each found by it
+    hanging:
+    - TAPI's events reach the thread that started TAPI when it next asks
+      for messages or sleeps; its GetMessage wakes for them, and comes
+      round every 100 ms while a call is under way, as TAPI's window gets
+      status messages;
+    - the line's port is there before a call (`lineGetID` on the line);
+    - a call connects two seconds after the dial or the answer: the
+      game's main thread waits for its TAPI thread to start before it
+      waits for the call, and missed one connected at once.
+
+    Two copies (127.0.0.4 answering, 127.0.0.5 dialing "12") reached
+    the lobby, both players listed, the answering copy the host, and
+    exchanged 5,437 messages each way over six minutes.
   - **`-netlog file`** writes each message sent and received: the game's
     milliseconds, the direction, the socket, the peer and the bytes.
   - **Scripting the menus.** A test script clicks by sending the cursor
@@ -976,9 +997,7 @@ Still to do:
     on one machine have played.
   - How a race holds up over a slower link, or when a copy stalls for
     loading longer than the original did.
-  - The messages written up as a format.
-  - IPX (which could be carried over UDP), modem and serial links
-    (a null-modem cable over TCP) aren't stood in for.
+  - A race over the modem stand-in (the lobby is reached; see above).
 - **Not planned:** d3da (see above) and the Glide renderers, which the
   native and GPU drawing make unneeded. The game is told it has a Voodoo
   2 only to draw as for one (see Sky and fog).
