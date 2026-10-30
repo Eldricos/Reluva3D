@@ -5,7 +5,7 @@ the `.geo` format**. Stored in `misc.cat` with chunk tag `0x2c` (522 files):
 ships, vehicles, crew and buildings (`mdl/kln/k_bop.mdl`, `mdl/fed/fss_a.mdl`),
 the planets' ground tiles (`mdl/ice/ice07.mdl`), sky and solar-system models
 (`mdl/sky`, `mdl/solsys`) and a few others. Worked out from the files
-themselves, October 2026. `reluva-tool mdl-info <file.mdl | misc.cat>` shows
+themselves, October 2026. `reluva-tool newworlds mdl-info <file.mdl | misc.cat>` shows
 one or surveys them all; all 522 decode.
 
 A metamodel names a model's parts and points and lists its states; each
@@ -143,7 +143,7 @@ probably their `deconstructed` state: the same bounds, the faces cut up
 and no edges. Not the construction pad (they stand full height); perhaps
 the building wrecked.
 
-`reluva-tool geo-info` lists a model's attachments; the model viewer's K
+`reluva-tool newworlds geo-info` lists a model's attachments; the model viewer's K
 sweeps a turret (round once in 12 s, the gun rising and falling 25°).
 The code: `src/engines/newworlds/model_pose.h`.
 

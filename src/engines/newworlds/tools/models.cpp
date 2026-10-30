@@ -31,7 +31,7 @@ using namespace reluva::tool;
 
 bool writeObj(const reluva::newworlds::GeoModel& m, const std::string& path) {
     std::ofstream f(path);
-    f << "# exported by reluva-tool geo-info\n";
+    f << "# exported by reluva-tool newworlds geo-info\n";
     // OBJ numbers vertices across the whole file, so offset each part's.
     std::vector<size_t> base;
     size_t next = 1;
@@ -66,7 +66,7 @@ bool writeObj(const reluva::newworlds::GeoModel& m, const std::string& path) {
 
 int cmdGeoInfo(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool geo-info <file.geo> [out.obj]\n");
+        std::fprintf(stderr, "usage: reluva-tool newworlds geo-info <file.geo> [out.obj]\n");
         return 2;
     }
     Bytes d;
@@ -174,7 +174,7 @@ int cmdGeoInfo(int argc, char** argv) {
 
 int cmdGeoFaces(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool geo-faces <file.geo>\n");
+        std::fprintf(stderr, "usage: reluva-tool newworlds geo-faces <file.geo>\n");
         return 2;
     }
     Bytes d;
@@ -214,7 +214,7 @@ int cmdGeoFaces(int argc, char** argv) {
 // their texture coordinates, to tell what kind of texture each must be.
 int cmdGeoSlots(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool geo-slots <file.geo>...\n");
+        std::fprintf(stderr, "usage: reluva-tool newworlds geo-slots <file.geo>...\n");
         return 2;
     }
     namespace nw = reluva::newworlds;
@@ -273,7 +273,7 @@ int cmdGeoSheet(int argc, char** argv) {
     if (large)
         --argc, ++argv;
     if (argc < 5) {
-        std::fprintf(stderr, "usage: reluva-tool geo-sheet [-l|-t] <out.ppm> <name filter> <file.cat>...\n");
+        std::fprintf(stderr, "usage: reluva-tool newworlds geo-sheet [-l|-t] <out.ppm> <name filter> <file.cat>...\n");
         return 2;
     }
     namespace nw = reluva::newworlds;
@@ -348,7 +348,7 @@ int cmdGeoTextures(int argc, char** argv) {
     if (all)
         ++first;
     if (argc <= first) {
-        std::fprintf(stderr, "usage: reluva-tool geo-textures [-a] <file.cat>...\n");
+        std::fprintf(stderr, "usage: reluva-tool newworlds geo-textures [-a] <file.cat>...\n");
         return 2;
     }
     namespace nw = reluva::newworlds;
@@ -413,7 +413,7 @@ int cmdGeoTextures(int argc, char** argv) {
 
 int cmdGeoSurvey(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool geo-survey <file.cat>...\n");
+        std::fprintf(stderr, "usage: reluva-tool newworlds geo-survey <file.cat>...\n");
         return 2;
     }
     std::map<std::string, std::vector<std::string>> failures;
@@ -464,7 +464,7 @@ int cmdGeoSurvey(int argc, char** argv) {
 
 int cmdMdlInfo(int argc, char** argv) {
     if (argc != 3) {
-        std::fprintf(stderr, "usage: reluva-tool mdl-info <file.mdl | file.cat>\n");
+        std::fprintf(stderr, "usage: reluva-tool newworlds mdl-info <file.mdl | file.cat>\n");
         return 2;
     }
     namespace nw = reluva::newworlds;

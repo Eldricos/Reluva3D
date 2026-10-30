@@ -2,8 +2,8 @@
 
 Status: **fully understood**. Reader: `src/engines/newworlds/fif.cpp`.
 Worked out from the files themselves, October 2026: the six fonts in
-`fedgui.cat` and `glblgui.cat`. `reluva-tool fif-info <file.fif>` prints a
-glyph table; `reluva-tool fif-info <archive.cat>` lists an archive's fonts.
+`fedgui.cat` and `glblgui.cat`. `reluva-tool newworlds fif-info <file.fif>` prints a
+glyph table; `reluva-tool newworlds fif-info <archive.cat>` lists an archive's fonts.
 
 A font is two files under `fnt/`, packed together in a pair of containers
 (see [cat.md](cat.md)):

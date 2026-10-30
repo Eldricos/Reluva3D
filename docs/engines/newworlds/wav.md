@@ -3,8 +3,8 @@
 Status: **fully decoded**. Stored in the `.cat` archives with chunk tag
 `0x33` under `stnwsfx/` (85 in `kliactor.cat`, 91 in `fedactor.cat`, 35 in
 `fedmisc.cat`, 3 each in the alpine and desert planet archives). Worked out from the files themselves, October 2026.
-`reluva-tool wav-info <file.wav | archive.cat>` shows one or surveys them
-all; `reluva-tool wav-decode <in.wav> <out.wav>` writes 16-bit PCM. All
+`reluva-tool newworlds wav-info <file.wav | archive.cat>` shows one or surveys them
+all; `reluva-tool newworlds wav-decode <in.wav> <out.wav>` writes 16-bit PCM. All
 decode.
 
 ## Layout
@@ -89,7 +89,7 @@ match the tables' page counts (10, 10 and 11 pages before the pass page),
 so which page each slot goes with isn't known. `klimisc.cat` and
 `rommisc.cat` have no such slots (only `alert003.wav`).
 
-`reluva-tool wav-info <archive.cat>` marks each copy with the first one it
+`reluva-tool newworlds wav-info <archive.cat>` marks each copy with the first one it
 repeats.
 
 ## In Reluva

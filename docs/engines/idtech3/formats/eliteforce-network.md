@@ -780,7 +780,7 @@ never adjusted after, and the next message is read whenever the time
 shown reaches the newest snapshot. The client game gets 1 as
 `DrawActiveFrame`'s third argument (a demo: nothing predicted from the
 player's commands). Esc ends it, as does the end of the file, and the
-menus return to their main menu. `reluva-tool demo-run <game> <demo>`
+menus return to their main menu. `reluva-tool idtech3 demo-run <game> <demo>`
 plays one headless through the client game: all three play in real time
 (590.1 s of match in 590.2 s of frames for demo0000).
 

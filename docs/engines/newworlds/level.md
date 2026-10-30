@@ -3,7 +3,7 @@
 Status: **fully understood**. Reader: `src/engines/newworlds/levels.cpp`.
 A loose text file in the game folder (1,134 bytes, CRLF lines): the
 missions the main menu offers. `olevel.dat`, `kapla.rse` and `game.ini` are
-covered below. `reluva-tool level-info <level.dat>
+covered below. `reluva-tool newworlds level-info <level.dat>
 [planet.cat...]` lists them, with the archives holding their maps.
 
 ```

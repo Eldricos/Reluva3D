@@ -98,7 +98,7 @@ struct Walker {
 
 int cmdCatProbe(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool cat-probe <file.cat> [-q]\n");
+        std::fprintf(stderr, "usage: reluva-tool newworlds cat-probe <file.cat> [-q]\n");
         return 2;
     }
     Bytes d;
@@ -263,7 +263,7 @@ int cmdCatProbe(int argc, char** argv) {
 
 int cmdCatList(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool cat-list <file.cat>\n");
+        std::fprintf(stderr, "usage: reluva-tool newworlds cat-list <file.cat>\n");
         return 2;
     }
     reluva::newworlds::CatArchive cat;
@@ -284,7 +284,7 @@ int cmdCatList(int argc, char** argv) {
 
 int cmdCatExtract(int argc, char** argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool cat-extract <file.cat> <output dir> [name filter]\n");
+        std::fprintf(stderr, "usage: reluva-tool newworlds cat-extract <file.cat> <output dir> [name filter]\n");
         return 2;
     }
     reluva::newworlds::CatArchive cat;
@@ -329,7 +329,7 @@ int cmdCatExtract(int argc, char** argv) {
 
 int cmdStbDump(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool stb-dump <file.stb | file.cat>\n");
+        std::fprintf(stderr, "usage: reluva-tool newworlds stb-dump <file.stb | file.cat>\n");
         return 2;
     }
     namespace nw = reluva::newworlds;

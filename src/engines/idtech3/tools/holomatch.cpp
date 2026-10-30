@@ -39,7 +39,7 @@ using namespace reluva::idtech3::tool;
 
 int cmdUiRun(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool ui-run <game folder> [-frames N] [-menu M] [-ingame gametype] [-size WxH] [-glwords N] [-trace] [-v]\n");
+        std::fprintf(stderr, "usage: reluva-tool idtech3 ui-run <game folder> [-frames N] [-menu M] [-ingame gametype] [-size WxH] [-glwords N] [-trace] [-v]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -185,7 +185,7 @@ int cmdUiRun(int argc, char** argv) {
 
 int cmdGameRun(int argc, char** argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n");
+        std::fprintf(stderr, "usage: reluva-tool idtech3 game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -1067,7 +1067,7 @@ int cmdDemoRun(int argc, char** argv) {
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool demo-run <game folder> <demo> [-nocgame]\n");
+        std::fprintf(stderr, "usage: reluva-tool idtech3 demo-run <game folder> <demo> [-nocgame]\n");
         return 1;
     }
     reluva::SearchSet set;

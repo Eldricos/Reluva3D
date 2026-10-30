@@ -43,7 +43,7 @@ namespace {
 constexpr uint64_t kHintMs = 8000;
 constexpr float kPi = 3.14159265358979f;
 // The command's button bits: attack 1 (Quake III's) and alt attack 32
-// (Elite Force's own), found with reluva-tool game-run -buttons: holding
+// (Elite Force's own), found with reluva-tool idtech3 game-run -buttons: holding
 // either changes the same player state words (weapon time, ammunition,
 // events). See eliteforce-syscalls.md.
 

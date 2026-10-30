@@ -102,7 +102,7 @@ private:
     std::string map_;                // the level running
     std::string lastLoaded_;         // the saved game last loaded, for "load *respawn"
     // The player's commands since a saved game was loaded, written beside
-    // it (<name>.input) for reluva-tool sp-run -load <save> -replay to
+    // it (<name>.input) for reluva-tool idtech3 sp-run -load <save> -replay to
     // play back; closed as the game ends.
     std::ofstream recording_;
     std::filesystem::path saveDir_;  // where saved games are written

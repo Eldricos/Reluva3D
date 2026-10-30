@@ -2,7 +2,7 @@
 
 Status: **all lumps read and cross-checked** (`src/engines/idtech3/bsp.cpp`);
 the light grid is kept raw. **Verified on all 67 retail Elite Force maps**
-(`reluva-tool bsp-check`, October 2026): every one is version 46 with the
+(`reluva-tool idtech3 bsp-check`, October 2026): every one is version 46 with the
 record sizes below, and 27 of them need the corrections described at the
 end.
 
@@ -189,7 +189,7 @@ record, the field and its value, e.g. `BSP surface 0: index 2 is vertex 3
 
 Some Elite Force maps hold values out of range that the original engine
 accepts. Reluva corrects them the same way and counts them (`Bsp::fixes`,
-shown in the map viewer and by `reluva-tool bsp-check`):
+shown in the map viewer and by `reluva-tool idtech3 bsp-check`):
 
 | Value | Original behaviour | Reluva sets |
 |---|---|---|

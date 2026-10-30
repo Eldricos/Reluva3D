@@ -213,7 +213,7 @@ What each game's pages and keys are is in its engine's docs.
 | `reluva <name>` | Starts a game from the launcher's list directly, by its entry's name |
 | `reluva testbed` | The test pattern: **Esc** to exit, **Space** for a tone |
 | `reluva --hash <files...>` | Prints files' detection signatures, for an engine's table of releases |
-| `reluva-tool` | Developer tools for studying games' files; alone, it lists its commands |
+| `reluva-tool` | Developer tools for studying games' files: `reluva-tool <engine> <command>`; alone, it lists the engines and the commands for any game |
 
 ### Where Reluva keeps its files
 

@@ -41,7 +41,7 @@ using namespace reluva::idtech3::tool;
 // pressed along the way; reports what they drew and the commands they ran.
 int cmdSpMenus(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool sp-menus <game folder> [-dll efuix86.dll] [-frames N] "
+        std::fprintf(stderr, "usage: reluva-tool idtech3 sp-menus <game folder> [-dll efuix86.dll] [-frames N] "
                              "[-menu name] [-key frame key]... [-set name value]... [-fixedclock] [-skippak pak]...\n");
         return 2;
     }
@@ -161,9 +161,9 @@ int cmdSpRun(int argc, char** argv) {
     // The map can be left out with -load (the saved game's).
     const int firstOption = argc >= 4 && argv[3][0] != '-' ? 4 : 3;
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] "
+        std::fprintf(stderr, "usage: reluva-tool idtech3 sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] "
                              "[-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus] [-saveload] [-fixedclock] [-skippak pak]...\n"
-                             "       reluva-tool sp-run <game folder> -load <saved game> [-replay <name>.input] [options as above]\n");
+                             "       reluva-tool idtech3 sp-run <game folder> -load <saved game> [-replay <name>.input] [options as above]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -678,7 +678,7 @@ int cmdSpRun(int argc, char** argv) {
 // the format's GPL release in Jedi Outcast numbers them.
 int cmdIbiDump(int argc, char** argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool ibi-dump <game folder> <script, e.g. real_scripts/borg1/intro>\n");
+        std::fprintf(stderr, "usage: reluva-tool idtech3 ibi-dump <game folder> <script, e.g. real_scripts/borg1/intro>\n");
         return 2;
     }
     reluva::SearchSet set;

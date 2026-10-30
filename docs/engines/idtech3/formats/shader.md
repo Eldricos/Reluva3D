@@ -3,7 +3,7 @@
 Status: **every Quake III directive parsed and drawn** except those listed
 at the end (`src/engines/idtech3/shader.cpp`, `world_renderer.cpp`).
 Checked on generated test maps and on the retail Elite Force maps, which
-look as in the original. `reluva-tool shader-check` on Elite Force
+look as in the original. `reluva-tool idtech3 shader-check` on Elite Force
 (October 2026): 1891 shaders, **no directive outside Quake III's set**.
 All are drawn but `deformVertexes projectionShadow` (1, the original's
 shader for r_shadows 3's projected shadows); autosprites (2,
@@ -116,6 +116,6 @@ Waves are `<func> <base> <amplitude> <phase> <frequency>`, func one of
 `sin`, `triangle`, `square`, `sawtooth`, `inversesawtooth`, `noise`.
 
 Not drawn yet: `deformVertexes text*` and `projectionShadow` (the
-original's shader for its shadow mode 3); `GL_SRC_ALPHA_SATURATE`. `reluva-tool shader-check <game folder>` lists
+original's shader for its shadow mode 3); `GL_SRC_ALPHA_SATURATE`. `reluva-tool idtech3 shader-check <game folder>` lists
 what a game's scripts use that isn't handled, including directives the
 parser doesn't know (game additions).

@@ -160,7 +160,7 @@ in case, which only those systems can hold, are ordered by their bytes.
 Reluva's host (`sp_game_host.cpp`) recognises the Expansion Pack's DLL by
 its signature and lays its table out so, passing the extra arguments;
 borg1, a Virtual Voyager deck (`tour/deck01`) and `_holodeck_proton` run
-(`reluva-tool sp-run`).
+(`reluva-tool idtech3 sp-run`).
 
 ### The game's functions (export table)
 

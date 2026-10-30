@@ -41,8 +41,8 @@ int cmdNetRun(int argc, char** argv) {
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-pure] [-addbot <name>]...\n"
-                             "       reluva-tool net-run <game folder> -join <host[:port]> [seconds] [-name <name>]\n");
+        std::fprintf(stderr, "usage: reluva-tool idtech3 net-run <game folder> <map> [seconds] [-port N] [-public] [-pure] [-addbot <name>]...\n"
+                             "       reluva-tool idtech3 net-run <game folder> -join <host[:port]> [seconds] [-name <name>]\n");
         return 1;
     }
     reluva::SearchSet set;

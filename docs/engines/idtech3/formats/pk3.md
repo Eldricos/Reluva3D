@@ -45,7 +45,7 @@ central directory's order, as 32-bit little-endian words; the MD4 of
 those bytes; and the digest's four little-endian words XORed together.
 A pure server's checksum of a pak (for the `cp` check,
 [eliteforce-network.md](eliteforce-network.md)) is the same with the
-server's checksum feed as a first word. `reluva-tool pk3-sums <game
+server's checksum feed as a first word. `reluva-tool idtech3 pk3-sums <game
 folder> [feed]` prints them (`src/engines/idtech3/pure.cpp`). The GPL
 engine that runs Elite Force knows the retail paks by theirs: `pak0.pk3`
 3376297517, `pak1.pk3` 596947475, `pak2.pk3` 3960871590, `pak3.pk3`

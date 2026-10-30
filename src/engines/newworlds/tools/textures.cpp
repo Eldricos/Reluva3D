@@ -62,7 +62,7 @@ bool writeBmp(const std::string& path, int w, int h, const uint8_t* palette, int
 
 int cmdLbpInfo(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool lbp-info <file> [output prefix]\n");
+        std::fprintf(stderr, "usage: reluva-tool newworlds lbp-info <file> [output prefix]\n");
         return 2;
     }
     Bytes d;
@@ -135,7 +135,7 @@ int cmdLbpInfo(int argc, char** argv) {
 // what their header holds, to find the layouts the decoder doesn't handle.
 int cmdTexSurvey(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool tex-survey <file.cat>...\n");
+        std::fprintf(stderr, "usage: reluva-tool newworlds tex-survey <file.cat>...\n");
         return 2;
     }
     struct Group {
@@ -223,7 +223,7 @@ int cmdTexSurvey(int argc, char** argv) {
 // pixels, which in sprites and interface images are nearly always background.
 int cmdTexKeys(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool tex-keys <file.cat>...\n");
+        std::fprintf(stderr, "usage: reluva-tool newworlds tex-keys <file.cat>...\n");
         return 2;
     }
     unsigned total = 0, keyIsCorner = 0, cornerLooksKey = 0;
@@ -278,7 +278,7 @@ int cmdTexKeys(int argc, char** argv) {
 
 int cmdGroundTextures(int argc, char** argv) {
     if (argc != 3) {
-        std::fprintf(stderr, "usage: reluva-tool ground-textures <planet.cat>\n");
+        std::fprintf(stderr, "usage: reluva-tool newworlds ground-textures <planet.cat>\n");
         return 2;
     }
     namespace nw = reluva::newworlds;

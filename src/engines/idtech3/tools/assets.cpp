@@ -28,7 +28,7 @@ using namespace reluva::idtech3::tool;
 
 int cmdImageCheck(int argc, char** argv) {
     if (argc != 3 && argc != 4) {
-        std::fprintf(stderr, "usage: reluva-tool image-check <game folder> [map name filter]\n");
+        std::fprintf(stderr, "usage: reluva-tool idtech3 image-check <game folder> [map name filter]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -83,7 +83,7 @@ int cmdImageCheck(int argc, char** argv) {
 
 int cmdModelCheck(int argc, char** argv) {
     if (argc < 3 || argc > 5) {
-        std::fprintf(stderr, "usage: reluva-tool model-check <game folder> [name filter] [-v]\n");
+        std::fprintf(stderr, "usage: reluva-tool idtech3 model-check <game folder> [name filter] [-v]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -259,7 +259,7 @@ int cmdModelCheck(int argc, char** argv) {
 
 int cmdShaderShow(int argc, char** argv) {
     if (argc != 4) {
-        std::fprintf(stderr, "usage: reluva-tool shader-show <game folder> <shader | model.md3>\n");
+        std::fprintf(stderr, "usage: reluva-tool idtech3 shader-show <game folder> <shader | model.md3>\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -339,7 +339,7 @@ int cmdShaderShow(int argc, char** argv) {
 
 int cmdShaderCheck(int argc, char** argv) {
     if (argc != 3) {
-        std::fprintf(stderr, "usage: reluva-tool shader-check <game folder>\n");
+        std::fprintf(stderr, "usage: reluva-tool idtech3 shader-check <game folder>\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;

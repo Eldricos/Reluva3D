@@ -28,8 +28,8 @@ using namespace reluva::idtech3::tool;
 // audio track as 16-bit PCM, for comparing with another decoder.
 int cmdBinkDecode(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool bink-decode <file.bik> [-frames N] [-yuv out.yuv] [-pcm out.pcm]\n"
-                             "       reluva-tool bink-decode <game folder> [video/name.bik] [options]\n"
+        std::fprintf(stderr, "usage: reluva-tool idtech3 bink-decode <file.bik> [-frames N] [-yuv out.yuv] [-pcm out.pcm]\n"
+                             "       reluva-tool idtech3 bink-decode <game folder> [video/name.bik] [options]\n"
                              "  (a game folder alone lists its movies, inside its .pk3 files too)\n");
         return 2;
     }

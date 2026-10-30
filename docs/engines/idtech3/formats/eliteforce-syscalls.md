@@ -6,8 +6,8 @@ server's game logic). Each reaches the engine through numbered system calls
 (see [qvm.md](qvm.md)). The numbers and arguments are Elite Force's own, so
 they're worked out here from the game's code, for interoperability:
 
-- `reluva-tool qvm-info` lists the numbers each program's code uses.
-- `reluva-tool qvm-run` runs a program, answering every call with 0, and
+- `reluva-tool idtech3 qvm-info` lists the numbers each program's code uses.
+- `reluva-tool idtech3 qvm-run` runs a program, answering every call with 0, and
   logs each call with its arguments and the text they point at.
 - Where the evidence fits, the meaning is taken from Quake III Arena's
   calls, documented in the GPL Quake III source (the order of its
@@ -84,7 +84,7 @@ Structures the engine fills in:
 - `glconfig_t` (call 43): renderer, vendor and version strings of 1024
   bytes and a 2048-byte extensions string (Quake III's is 8192), then a
   word of Elite Force's own, then Quake III's 17 words: 5192 bytes. Found
-  with `reluva-tool qvm-refs` on the address the menus pass: the strings
+  with `reluva-tool idtech3 qvm-refs` on the address the menus pass: the strings
   at 0, 1024, 2048 and 3072 are each passed on to be printed; the menus'
   next variable starts at 5192 (5196, read 310 times, fits the white
   shader that filled rectangles use). Right after the call the menus
@@ -129,7 +129,7 @@ Answering 57 as if it were `GetCDKey` had overwritten the typed key with
 an empty one and declined every key. The menus never read the key back.
 
 Reluva's side: `src/engines/idtech3/eliteforce/ui_host.cpp`, run by
-`reluva-tool ui-run` and shown by the Menu page (`pages/menu_viewer.cpp`).
+`reluva-tool idtech3 ui-run` and shown by the Menu page (`pages/menu_viewer.cpp`).
 
 ## Game logic (`vm/qagame.qvm`)
 
@@ -270,13 +270,13 @@ is given the bot's own client, `(chatstate, bs->client, sendto)`, and
 the bot then says it with `say` (sendto 0) or `say_team` (1). Structures:
 a console message is 276 bytes (handle, time, type, 256 of text, two
 pointers); a match is 328 (256 of text, type, subtype, then 8 variables
-of an offset byte and a length). `reluva-tool game-run ... -addbot "name skill"` adds bots and lists
-the calls they make. `reluva-tool qvm-dis ... -syscalls 200 599`
+of an offset byte and a length). `reluva-tool idtech3 game-run ... -addbot "name skill"` adds bots and lists
+the calls they make. `reluva-tool idtech3 qvm-dis ... -syscalls 200 599`
 summarises each of the game's calls in a range, and `-func N` lists the
 function holding instruction N with the functions it calls.
 
 Reluva's side: `src/engines/idtech3/eliteforce/game_host.cpp`, run by
-`reluva-tool game-run <game folder> <map>`. Starting a level follows the
+`reluva-tool idtech3 game-run <game folder> <map>`. Starting a level follows the
 original server: it sets `mapname` and the server cvars, calls
 `vmMain(0, 0, seed, 0)`, during which the game reads the BSP's entity
 text with call 37 (each call gives one token, as Quake III's `COM_Parse`
@@ -316,7 +316,7 @@ after the buttons (5): with the buttons a byte, the button probe below
 found nothing from bit 7 (128) up, bits 8 and above being weapon
 numbers instead.
 
-The button bits, from `reluva-tool game-run <game> hm_dn1 -buttons`,
+The button bits, from `reluva-tool idtech3 game-run <game> hm_dn1 -buttons`,
 which holds each bit for a second with the phaser and lists the player
 state words that change (leaving out those that change with nothing
 held): 1 and 32 change the same words (44, the weapon time in Quake
@@ -358,7 +358,7 @@ there and differs from the game's. So without the Expansion Pack the
 original's menus don't offer the modes; its console (`exec
 assimilation`...) does. Reluva sets it as the engine does, and to 1
 regardless unless `reluva_modeButtons` is 0. Checked with `reluva-tool
-ui-run <game> -vmcall 77497 -click 516 129 -cvar g_pModSpecialties`:
+idtech3 ui-run <game> -vmcall 77497 -click 516 129 -cvar g_pModSpecialties`:
 the four rows for free-for-all (y 129, 159, 189, 219) turn on
 Specialties, Disintegration, Elimination and Action Hero.
 
@@ -378,9 +378,9 @@ A match ends with the server game running `vstr nextmap` (ExitLevel,
 or use in the intermission. The engine sets `nextmap` to `map_restart 0`
 as it spawns a level (`stvoyHM.exe` 0x433935), before the commands after
 the map command run (a map cycle's `set nextmap vstr d2`); empty, the
-match never moved on. `reluva-tool game-run <game> hm_borg1 -set
+match never moved on. `reluva-tool idtech3 game-run <game> hm_borg1 -set
 timelimit 1 -addbot 'munro 2' -tap 20` reaches the end and restarts the
-level 7 s later; without -tap it waits. `reluva-tool game-run <game> <map> -set
+level 7 s later; without -tap it waits. `reluva-tool idtech3 game-run <game> <map> -set
 g_gametype 3 -set g_pModAssimilation 1 -addbot ...` runs one headless.
 
 ## Client game (`vm/cgame.qvm`)
@@ -454,7 +454,7 @@ from 288, players from 544, the game version at 12). The screen settings
 are the menus' `glconfig_t`.
 
 Reluva's side: `src/engines/idtech3/eliteforce/cgame_host.cpp`, started
-by `reluva-tool game-run <game folder> <map> -cgame` with the server
+by `reluva-tool idtech3 game-run <game folder> <map> -cgame` with the server
 game's configstrings. As in Quake III, configstrings 0 and 1 are the
 server's own: the info strings of every server-info cvar (`mapname`,
 `g_gametype`...) and every system-info one, set after the game starts and
@@ -494,7 +494,7 @@ model 8, lighting origin 12, shadow plane 24, axes 28 (forward, left,
 up), non-normalized axes 64, origin 68, frame 80, old origin 84, old
 frame 96, back-lerp 100, skin number 104, custom skin 108, custom shader
 112, RGBA 116, texture coordinates 120, shader time 128, radius 132,
-rotation 136. The evidence, from `reluva-tool game-run ... -cgame
+rotation 136. The evidence, from `reluva-tool idtech3 game-run ... -cgame
 -entities 8` on hm_dn1: the player's legs, torso and head have their
 model handles at 8 (`lower.mdr`, `upper.mdr`, `head.md3`) and their skin
 handles at 108 (`lower_default.skin`...), the player's origin at 12 and
@@ -524,7 +524,7 @@ externalEventTime and everything after the arrays), is in
 play sends only those fields, as the original.
 
 Effects are scene entities of other types, seen with `reluva-tool
-game-run <game> hm_dn1 -cgame -cgameframes 30 -fire` (and `-altfire`)
+idtech3 game-run <game> hm_dn1 -cgame -cgameframes 30 -fire` (and `-altfire`)
 holding the phaser's fire against a wall (each field read off the
 entities the client game added):
 

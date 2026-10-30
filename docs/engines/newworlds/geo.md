@@ -13,8 +13,8 @@ byte dumps of five small models, October 2026:
 | `geo/map/aln/lod/alien_14.geo` | 1476 | terrain tile: square sloping up 3264 units |
 
 Reader: `src/engines/newworlds/geo.cpp`. Check every model with
-`reluva-tool geo-survey *.cat`; export one to OBJ with
-`reluva-tool geo-info <file> <out.obj>`. Stored in `.cat` archives with chunk
+`reluva-tool newworlds geo-survey *.cat`; export one to OBJ with
+`reluva-tool newworlds geo-info <file> <out.obj>`. Stored in `.cat` archives with chunk
 tag `0x17`; the size in the archive's copied metadata never matches, so these
 were presumably converted when packed.
 
@@ -83,7 +83,7 @@ Each face picks one with the **last value of its last corner**
 1 both wings (`k_bop_b`), and 2 three spots on the body (`k_bop_g`, the
 small 128 × 128 one). So the textures are numbered in name order.
 
-`reluva-tool geo-textures <file.cat>...` applies the rule below to every model
+`reluva-tool newworlds geo-textures <file.cat>...` applies the rule below to every model
 and lists the ones it finds no textures for (`-a` lists every model's).
 Known misses: textures look misplaced on some models, such as `fpdt` and
 `fhf_p`.
@@ -98,7 +98,7 @@ shared textures a model uses: their names appear in no other file (the
 the models.
 
 Comparing the two archives (October 2026) placed one of them, by the shape
-of each number's faces (`reluva-tool geo-slots <file.geo>` lists faces, area,
+of each number's faces (`reluva-tool newworlds geo-slots <file.geo>` lists faces, area,
 facing and texture-coordinate range per number):
 
 - **Own textures come first, in name order, `_g` included**: `frps_a`,
@@ -175,7 +175,7 @@ are the empires' building **portals** (`fedconyardportalmetamodel`) and the
 natives' **interiors** (`taubattempleinteriormetamodel`); which textures
 they use isn't known (the Romulans have a `portal1`).
 
-`reluva-tool geo-sheet [-l|-t] <out.ppm> <filter> <file.cat>...` draws every
+`reluva-tool newworlds geo-sheet [-l|-t] <out.ppm> <filter> <file.cat>...` draws every
 main model whose name holds the filter to a contact sheet, textured by the
 rule below, two views each (`-l` four, `-t` eight round it at the
 briefings' height): the way the recordings' models were matched.

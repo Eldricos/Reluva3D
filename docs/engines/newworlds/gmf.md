@@ -6,7 +6,7 @@ archive, mostly 380–470 KB (`kurt64.gmf` in `icewrld` is 166 KB). Each
 archive also holds that planet's ground tiles (`geo/map/alp/alpin_01.geo`
 …, 93 in `alpwrld`) and terrain textures (`lbp/txr/map/alp/green01`,
 `cliff01`, `brid01`, …). Worked out from the start of `coverd2.gmf`, October
-2026. `reluva-tool gmf-info <file>` walks the layout below.
+2026. `reluva-tool newworlds gmf-info <file>` walks the layout below.
 
 All values little-endian.
 
@@ -156,7 +156,7 @@ Checked on all 31 maps of the six planet archives (`icewrld`, `deswrld`,
 
   Found by fitting every map: each tile's terrain layers give its heights
   (see [Terrain codes](#terrain-codes)), and neighbouring tiles' edges must
-  meet (heights at 5 points within 80 units). `reluva-tool gmf-fit
+  meet (heights at 5 points within 80 units). `reluva-tool newworlds gmf-fit
   <planet.cat>` checks a numbering both ways, `-m` for a summary, `-o file`
   to try another, `-h` per number by heights. With this table 98-99.6 % of
   tile edges meet on every planet (the earlier table, with `alpwrld`'s own
@@ -171,7 +171,7 @@ Checked on all 31 maps of the six planet archives (`icewrld`, `deswrld`,
   middle-level plateau), each used by a few tiles.
 - **Rotation:** bits 14-15 of the fourth value turn the model anticlockwise
   by that many quarter turns about the tile's centre. Bits 16-17 are one
-  value per model number, the same on all 31 maps (`reluva-tool gmf-dump`
+  value per model number, the same on all 31 maps (`reluva-tool newworlds gmf-dump`
   and a count): 2 for the shaped pieces 0-5, 9, 11, 12, 15, `crack_03`,
   `05`, `06` and `brid_02`; 1 for the flat ones (6-8, 10, 13, 14, 18-20,
   34-40), `crack_04`, `ramp`, `hole_02`, `concact`, water, balls, `needle_0`
@@ -255,7 +255,7 @@ each texture number a texture by the shape of its faces (high, middle or
 low flat ground, or slope: `top`/`snow`, `med`/`rock`, `low`/`ice` or a
 plain variant, `cliff`), preferring one numbered like the tile; holes,
 cracks, ramps, bridges, water and concrete use their own
-(`reluva-tool ground-textures <planet.cat>` lists the choices). Each
+(`reluva-tool newworlds ground-textures <planet.cat>` lists the choices). Each
 planet's `concrete` texture (`lbp/txr/map/<planet>/concrete`; the ice
 world's is in `glblgame.cat`, not `icewrld.cat`) is square panels, blue-grey
 on ice and tan on desert: the colonies' pads in the recordings.
@@ -294,5 +294,5 @@ map, and 68 % of them sit where another map has one too (cracks: about 50 %, ram
 come with the maps' shared terrain. The pads under starting colonies come with the colony (see
 [colony.md](colony.md#concrete)).
 
-`reluva-tool gmf-dump <planet.cat> <dir>` writes each map's tiles (position, model number and
+`reluva-tool newworlds gmf-dump <planet.cat> <dir>` writes each map's tiles (position, model number and
 name, flags), grid and placed objects as CSV files, for this kind of study.

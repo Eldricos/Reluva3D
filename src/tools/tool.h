@@ -12,8 +12,9 @@
 //
 // The shared commands are in src/tools/; an engine's are in its tools/
 // folder, listed in its CMakeLists.txt by reluva_add_engine_tools, so they
-// are built only with the engine. A command is given reluva-tool's whole
-// command line: argv[1] is its name, its arguments start at argv[2].
+// are built only with the engine. A command is given reluva-tool's command
+// line from its name on (without an engine's name before it): argv[1] is
+// its name, its arguments start at argv[2].
 
 #pragma once
 

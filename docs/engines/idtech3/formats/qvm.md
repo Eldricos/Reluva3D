@@ -6,7 +6,7 @@ on hand-built programs and on a C program compiled by the Quake III compiler
 natively, and running Elite Force's own three QVMs (the menus, the client
 game and the server game, Holomatch played with them); their system calls
 are in [eliteforce-syscalls.md](eliteforce-syscalls.md). `reluva-tool
-qvm-info` and `qvm-run` look inside them.
+idtech3 qvm-info` and `qvm-run` look inside them.
 
 Sources: the GPL Quake III Arena source (`qcommon/qfiles.h`, `vm.c`,
 `vm_interpreted.c`, `vm_local.h`), read for the format and behaviour, not
@@ -99,25 +99,25 @@ calls with their arguments, and what the menus printed to
 
 ## Tools
 
-- `reluva-tool qvm-info <game folder> vm/ui.qvm [-s]`: sizes, function
+- `reluva-tool idtech3 qvm-info <game folder> vm/ui.qvm [-s]`: sizes, function
   count, and every system call number the code uses (a constant negative
   target just before a `CALL`), with how many call sites; `-s` lists the
   strings in its data.
-- `reluva-tool qvm-run <game folder> vm/ui.qvm [command [args...]]`: runs
+- `reluva-tool idtech3 qvm-run <game folder> vm/ui.qvm [command [args...]]`: runs
   `vmMain` answering every system call with 0, logging each call's number
   and arguments, with the text of arguments that point at strings. This is
   how Elite Force's system calls are worked out from its own code
   ([eliteforce-syscalls.md](eliteforce-syscalls.md)).
-- `reluva-tool qvm-refs <game folder> vm/ui.qvm <address> <size>`: the
+- `reluva-tool idtech3 qvm-refs <game folder> vm/ui.qvm <address> <size>`: the
   constants in the code that point into a structure at `address` (as seen
   in a `qvm-run` log), by offset, with the instruction that uses each:
   which fields of the structure the code reads or writes, to check its
   layout.
-- `reluva-tool qvm-dis <game folder> vm/ui.qvm <first> [count]`: lists
+- `reluva-tool idtech3 qvm-dis <game folder> vm/ui.qvm <first> [count]`: lists
   instructions, noting the text a constant points at, constants that look
   like floats, and the system call a call makes; with `-ref <address>
   [size]`, the code around every use of an address instead.
-- `reluva-tool ui-run <game folder> [-frames N] [-menu M]`: runs Elite
+- `reluva-tool idtech3 ui-run <game folder> [-frames N] [-menu M]`: runs Elite
   Force's menus with the engine's real system calls (see the Elite Force
   page) and reports what they print, register and draw, and the calls not
   implemented yet.

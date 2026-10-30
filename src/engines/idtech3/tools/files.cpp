@@ -22,7 +22,7 @@ using namespace reluva::idtech3::tool;
 
 int cmdPk3List(int argc, char** argv) {
     if (argc != 3 && argc != 4) {
-        std::fprintf(stderr, "usage: reluva-tool pk3-list <game folder> [name filter]\n");
+        std::fprintf(stderr, "usage: reluva-tool idtech3 pk3-list <game folder> [name filter]\n");
         return 2;
     }
     reluva::SearchSet set;
@@ -48,7 +48,7 @@ int cmdPk3List(int argc, char** argv) {
 int cmdPk3Sums(int argc, char** argv) {
     namespace q3 = reluva::idtech3;
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool pk3-sums <game folder> [feed]\n");
+        std::fprintf(stderr, "usage: reluva-tool idtech3 pk3-sums <game folder> [feed]\n");
         return 1;
     }
     reluva::SearchSet set;
@@ -70,7 +70,7 @@ int cmdPk3Sums(int argc, char** argv) {
 
 int cmdFileShow(int argc, char** argv) {
     if (argc != 4) {
-        std::fprintf(stderr, "usage: reluva-tool file-show <game folder> <path>\n");
+        std::fprintf(stderr, "usage: reluva-tool idtech3 file-show <game folder> <path>\n");
         return 2;
     }
     reluva::SearchSet set;

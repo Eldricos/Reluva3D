@@ -2,7 +2,7 @@
 
 Status: **implemented** (`src/engines/idtech3/md3.cpp`, drawn by
 `model_cache.cpp`). **Checked on all 1156 retail Elite Force models**
-(`reluva-tool model-check`, October 2026): all read, and every one of
+(`reluva-tool idtech3 model-check`, October 2026): all read, and every one of
 their 3862 surfaces finds its shader or image (782 through skins) except
 12 that name none: models whose shader the game code picks
 (`models/misc/telep.md3`) and player heads whose skin the game chooses

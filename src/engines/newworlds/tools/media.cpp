@@ -27,7 +27,7 @@ using namespace reluva::tool;
 
 int cmdWavInfo(int argc, char** argv) {
     if (argc != 3) {
-        std::fprintf(stderr, "usage: reluva-tool wav-info <file.wav | file.mp3 | file.cat>\n");
+        std::fprintf(stderr, "usage: reluva-tool newworlds wav-info <file.wav | file.mp3 | file.cat>\n");
         return 2;
     }
     namespace nw = reluva::newworlds;
@@ -81,7 +81,7 @@ int cmdWavInfo(int argc, char** argv) {
 
 int cmdWavDecode(int argc, char** argv) {
     if (argc != 4) {
-        std::fprintf(stderr, "usage: reluva-tool wav-decode <in.wav | in.mp3> <out.wav>\n");
+        std::fprintf(stderr, "usage: reluva-tool newworlds wav-decode <in.wav | in.mp3> <out.wav>\n");
         return 2;
     }
     std::vector<uint8_t> data;
@@ -107,7 +107,7 @@ int cmdWavDecode(int argc, char** argv) {
 
 int cmdFifInfo(int argc, char** argv) {
     if (argc != 3) {
-        std::fprintf(stderr, "usage: reluva-tool fif-info <file.fif | file.cat>\n");
+        std::fprintf(stderr, "usage: reluva-tool newworlds fif-info <file.fif | file.cat>\n");
         return 2;
     }
     namespace nw = reluva::newworlds;

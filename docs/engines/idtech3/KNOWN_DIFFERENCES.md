@@ -149,7 +149,7 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
   too. See [eliteforce-network.md](formats/eliteforce-network.md).
 - **Every level is open to others.** The Play page hosts each level it
   starts on port 27960 (or the next free of 27961-27963), when the game
-  code is 1.2's. `reluva-tool net-run` hosts without a local player.
+  code is 1.2's. `reluva-tool idtech3 net-run` hosts without a local player.
 - **Pure servers:**
   - Reluva's server lists the client game's and menus' paks among the
     level's even when it isn't pure.

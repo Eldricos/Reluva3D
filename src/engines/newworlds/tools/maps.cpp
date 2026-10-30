@@ -31,7 +31,7 @@ using namespace reluva::tool;
 
 int cmdLevelInfo(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool level-info <level.dat> [file.cat...]\n");
+        std::fprintf(stderr, "usage: reluva-tool newworlds level-info <level.dat> [file.cat...]\n");
         return 2;
     }
     namespace nw = reluva::newworlds;
@@ -74,7 +74,7 @@ int cmdLevelInfo(int argc, char** argv) {
 // layout. See docs/engines/newworlds/gmf.md.
 int cmdGmfInfo(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool gmf-info <file.gmf> [record number]\n");
+        std::fprintf(stderr, "usage: reluva-tool newworlds gmf-info <file.gmf> [record number]\n");
         return 2;
     }
     Bytes d;
@@ -255,7 +255,7 @@ int cmdGmfInfo(int argc, char** argv) {
 // tileModelOrder. The model the numbering gives should fit best.
 int cmdGmfFit(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool gmf-fit [-a] <planet.cat> [map]\n");
+        std::fprintf(stderr, "usage: reluva-tool newworlds gmf-fit [-a] <planet.cat> [map]\n");
         return 2;
     }
     namespace nw = reluva::newworlds;
@@ -768,7 +768,7 @@ int cmdGmfFit(int argc, char** argv) {
 // (each block's grid entry) and <map>_objects.csv (placed objects).
 int cmdGmfDump(int argc, char** argv) {
     if (argc != 4) {
-        std::fprintf(stderr, "usage: reluva-tool gmf-dump <planet.cat> <output dir>\n");
+        std::fprintf(stderr, "usage: reluva-tool newworlds gmf-dump <planet.cat> <output dir>\n");
         return 2;
     }
     namespace nw = reluva::newworlds;

@@ -28,14 +28,21 @@ Notes for developers. Building and running are covered in the
 
 ## reluva-tool
 
-- **Using it.** `reluva-tool` alone lists its commands, grouped by engine;
-  `reluva-tool help <command>` says what one takes and does.
+- **Using it.** Commands for any game are run as
+  `reluva-tool <command> ...`, an engine's as
+  `reluva-tool <engine> <command> ...` (`reluva-tool idtech3 bsp-check
+  <game folder>`).
+  - `reluva-tool` alone lists the commands for any game, and the engines;
+  - `reluva-tool help <engine>` lists an engine's commands, with what each
+    does;
+  - `reluva-tool help [engine] <command>` shows one.
 - **Where the commands are.** The ones for any game (bytes, Windows DLLs,
   detecting and importing games) are in `src/tools/`. Each engine's are in
   its `tools/` folder, by topic (`src/engines/idtech3/tools/qvm.cpp`), and
   are built only with the engine.
 - **Adding one.** Write it as `int cmdName(int argc, char** argv)` (its
-  arguments start at `argv[2]`), and add it to the table at the end of its
+  name is `argv[1]`, its arguments start at `argv[2]`, with or without the
+  engine's name before it), and add it to the table at the end of its
   file, with its arguments and a description:
 
   ```cpp
@@ -186,7 +193,7 @@ what an engine does is caught, even where no unit test looks. Elite Force
   Afterwards, run with `RELUVA_GAMEDATA_RECORDS=~/ef-records` (and without
   `UPDATE`) to compare against it.
 - **Repeatable runs.** The game code reads a clock that moves only with the
-  game (`reluva-tool sp-run -fixedclock`). Floating point is the same on
+  game (`reluva-tool idtech3 sp-run -fixedclock`). Floating point is the same on
   every run.
 
 ### Adding them to a new engine

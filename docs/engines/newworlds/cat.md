@@ -3,9 +3,9 @@
 Status: **archive structure fully understood** (verified on all 24 retail
 archives); the formats of the stored files are not studied yet. Reader:
 `src/engines/newworlds/cat_archive.cpp`.
-Worked out from hex dumps and `reluva-tool cat-probe` runs on the clean
+Worked out from hex dumps and `reluva-tool newworlds cat-probe` runs on the clean
 retail `rommisc.cat` and `glblgame.cat`, October 2026. Run
-`reluva-tool cat-probe <file>` to check this description against any archive.
+`reluva-tool newworlds cat-probe <file>` to check this description against any archive.
 
 All values are little-endian.
 
@@ -95,7 +95,7 @@ environment-map textures), `.geo` (geometry), `.wav`.
 
 ## Verified
 
-`reluva-tool cat-probe` walks the table using only the rules above and checks
+`reluva-tool newworlds cat-probe` walks the table using only the rules above and checks
 that every chunk starts where the previous one ended, that the walk ends
 exactly at the end of the table chunk, and that the last chunk ends exactly
 at the end of the file. All 24 archives of the retail install pass.

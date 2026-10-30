@@ -128,7 +128,7 @@ models' names alone.
 ### The game's names for the buildings
 
 `misc.cat`'s metamodels (`mdl/fed/`, `mdl/kln/`, `mdl/rom/`) name each
-model, in the game's own words for internal use (`reluva-tool mdl-info`):
+model, in the game's own words for internal use (`reluva-tool newworlds mdl-info`):
 
 - **Federation:** `fch` hub (`_b`, `_c` its upgrades), `fcy` construction
   yard (upgrades `_b`, `_c`), `fvpy_a`-`_c` vehicle yard, `frps_a`

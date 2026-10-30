@@ -124,7 +124,7 @@ once: resampled to the output rate, each with its volume, pan and looping,
 and music, speech and effects volumes for the game's settings. The data
 viewer's sounds page lists the
 game folder's loose `.mp3` and `.wav` files after the archives' sounds and
-plays them; `reluva-tool wav-info` and `wav-decode` take MP3s too. The
+plays them; `reluva-tool newworlds wav-info` and `wav-decode` take MP3s too. The
 missions page plays each mission's voice clips and its planet's theme (see
 [level.md](level.md#in-reluva)). The voice
 MP3s decode to within 1 of ffmpeg's samples. Stepping through a mission's

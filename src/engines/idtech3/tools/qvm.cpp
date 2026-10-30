@@ -78,7 +78,7 @@ void printQvmInstruction(const reluva::idtech3::Qvm& vm, size_t i, bool mark) {
 
 int cmdQvmInfo(int argc, char** argv) {
     if (argc < 4 || argc > 5) {
-        std::fprintf(stderr, "usage: reluva-tool qvm-info <game folder> <vm/x.qvm> [-s]\n");
+        std::fprintf(stderr, "usage: reluva-tool idtech3 qvm-info <game folder> <vm/x.qvm> [-s]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -143,7 +143,7 @@ int cmdQvmInfo(int argc, char** argv) {
 
 int cmdQvmRun(int argc, char** argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n");
+        std::fprintf(stderr, "usage: reluva-tool idtech3 qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -201,7 +201,7 @@ int cmdQvmRun(int argc, char** argv) {
 
 int cmdQvmRefs(int argc, char** argv) {
     if (argc != 6) {
-        std::fprintf(stderr, "usage: reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n");
+        std::fprintf(stderr, "usage: reluva-tool idtech3 qvm-refs <game folder> <vm/x.qvm> <address> <size>\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -235,14 +235,14 @@ int cmdQvmRefs(int argc, char** argv) {
 
 int cmdQvmDis(int argc, char** argv) {
     if (argc < 5) {
-        std::fprintf(stderr, "usage: reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count]\n"
-                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -ref <address> [size]\n"
-                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -str <text>\n"
-                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -syscall <number>\n"
-                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -syscalls <first> <last>\n"
-                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -func <instruction>\n"
-                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -blockcopies\n"
-                             "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -fields <address of a pointer>\n");
+        std::fprintf(stderr, "usage: reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> <first instruction> [count]\n"
+                             "       reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> -ref <address> [size]\n"
+                             "       reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> -str <text>\n"
+                             "       reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> -syscall <number>\n"
+                             "       reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> -syscalls <first> <last>\n"
+                             "       reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> -func <instruction>\n"
+                             "       reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> -blockcopies\n"
+                             "       reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> -fields <address of a pointer>\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;

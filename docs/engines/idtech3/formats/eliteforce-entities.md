@@ -1,7 +1,7 @@
 # Elite Force: map entities
 
 What the retail maps' entity lumps hold ([bsp.md](bsp.md) for the
-format), from `reluva-tool entity-survey` run on the retail `baseEF`
+format), from `reluva-tool idtech3 entity-survey` run on the retail `baseEF`
 (patched to 1.2) in October 2026: **67 maps, 44,849 entities, 210
 classes, 106 keys**, all maps read without error. The survey's own output
 lists every class with its keys, counts and common values; this page

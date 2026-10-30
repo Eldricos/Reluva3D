@@ -3,7 +3,7 @@
 Status: **understood**: formats 1 and 6, with or without a colour key, which
 covers every texture in the retail archives the survey found.
 Decoder: `src/engines/newworlds/texture.cpp`; the New Worlds engine currently
-shows every texture in an install. `reluva-tool lbp-info <file> <prefix>`
+shows every texture in an install. `reluva-tool newworlds lbp-info <file> <prefix>`
 decodes one to BMP files.
 Stored in `.cat` archives with chunk tag `0x16`.
 
@@ -25,7 +25,7 @@ layer 2              format 6 only: width × height bytes of alpha. In model
 
 ### Formats
 
-`reluva-tool tex-survey` over all 23 retail archives (2,108 textures):
+`reluva-tool newworlds tex-survey` over all 23 retail archives (2,108 textures):
 
 | Format | Key flag | Count | Used for |
 |---|---|---|---|
@@ -57,7 +57,7 @@ For format 6 with a key, keyed pixels are transparent; the decoder keeps the
 alpha layer separately (`Texture::alpha`), since in model textures it is a
 light map rather than transparency.
 
-**The key index is the transparent colour.** `reluva-tool tex-keys` over all 69
+**The key index is the transparent colour.** `reluva-tool newworlds tex-keys` over all 69
 colour-keyed textures in the retail archives:
 
 - Interface images (`lbp/gui/...`): key 255 (191 in `pbbutt.lbp`), always pure

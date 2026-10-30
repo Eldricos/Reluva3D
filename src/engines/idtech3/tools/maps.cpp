@@ -29,7 +29,7 @@ using namespace reluva::idtech3::tool;
 
 int cmdBspCheck(int argc, char** argv) {
     if (argc != 3) {
-        std::fprintf(stderr, "usage: reluva-tool bsp-check <game folder>\n");
+        std::fprintf(stderr, "usage: reluva-tool idtech3 bsp-check <game folder>\n");
         return 2;
     }
     reluva::SearchSet set;
@@ -69,7 +69,7 @@ int cmdBspCheck(int argc, char** argv) {
 // target it (what triggers it).
 int cmdBspEntities(int argc, char** argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool bsp-entities <game folder> <map> [text]...\n");
+        std::fprintf(stderr, "usage: reluva-tool idtech3 bsp-entities <game folder> <map> [text]...\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -131,7 +131,7 @@ int cmdEntitySurvey(int argc, char** argv) {
     // entities and maps use each, a few of the values each key takes, and
     // the spawnflags bits each class uses; written to a file as plain text.
     if (argc < 3 || argc > 4) {
-        std::fprintf(stderr, "usage: reluva-tool entity-survey <game folder> [output file]\n");
+        std::fprintf(stderr, "usage: reluva-tool idtech3 entity-survey <game folder> [output file]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -314,7 +314,7 @@ int cmdPortalCheck(int argc, char** argv) {
     // `portal`, and the entities that place their cameras (Quake III's
     // misc_portal_surface, aimed by its target, a misc_portal_camera).
     if (argc != 3) {
-        std::fprintf(stderr, "usage: reluva-tool portal-check <game folder>\n");
+        std::fprintf(stderr, "usage: reluva-tool idtech3 portal-check <game folder>\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
