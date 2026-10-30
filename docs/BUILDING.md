@@ -217,3 +217,11 @@ The 3D pages use Metal, which every Mac that runs a current macOS has.
   object file format limit") needs `/bigobj`, which the CMake files now
   pass to MSVC; after updating, use **Project > Delete Cache and
   Reconfigure**.
+- **Visual Studio: games running Windows code (LEGO Alpha Team, Elite
+  Force's single player) are slow.** Use the **x64-Release**
+  configuration, not x64-Debug. It's CMake's RelWithDebInfo, whose
+  defaults (`/Ob1`, `/INCREMENTAL`) suit debugging. The CMake files now
+  change those for MSVC to full inlining (`/Ob2`) and plain linking
+  (`/INCREMENTAL:NO /OPT:REF /OPT:ICF`), keeping the debug information.
+  After updating, use **Project > Delete Cache and Reconfigure** so the
+  new flags are picked up.

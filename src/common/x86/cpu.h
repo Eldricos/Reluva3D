@@ -260,22 +260,27 @@ private:
         uint8_t reg = 0, rm = 0, sub = 0; // ModRM's reg field, a register operand, the operation
         int8_t base = -1, index = -1;     // the memory operand's registers (-1: none)
         uint8_t scale = 0;
-        bool mem = false, fs = false; // a memory operand; FS's base added
-        bool ends = false;            // it may go elsewhere (or runs from its bytes): its block's last
+        bool mem : 1 = false, fs : 1 = false; // a memory operand; FS's base added
+        bool ends : 1 = false;                // it may go elsewhere (or runs from its bytes): its block's last
     };
     // Instructions run one after another: those up to the first that may go
     // elsewhere. Valid while its bytes are still there (code, the first
     // `words` 8-byte words from start, the last masked to `bytes`).
     static constexpr int kBlockOps = 16, kBlockWords = 8;
-    struct Block {
+    // What's read each time a block runs comes first, in as few cache lines
+    // as can be (a profile on Visual Studio's build found the table's
+    // misses a good part of the loop's time): the block's start, then its
+    // instructions; the bytes to check them against, seldom read, last.
+    struct alignas(64) Block {
         uint32_t start = 0xffffffffu;
-        uint8_t count = 0, bytes = 0, words = 0;
         uint32_t epoch = 0; // codeEpoch_ when its bytes were last checked
+        uint8_t count = 0, bytes = 0, words = 0;
+        Cached ops[kBlockOps];
         uint64_t lastMask = 0;
         uint64_t code[kBlockWords]{};
-        Cached ops[kBlockOps];
     };
     static constexpr uint32_t kBlockEntries = 1u << 15;
+    static_assert(sizeof(Cached) == 24, "a cached instruction in 24 bytes");
     std::vector<Block> blocks_;
     void decode(Cached& e, uint32_t at);
     void build(Block& b, uint32_t at);

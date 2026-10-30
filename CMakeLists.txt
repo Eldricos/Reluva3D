@@ -17,6 +17,20 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # whatever the system's code page.
 if(MSVC)
     add_compile_options(/bigobj /utf-8)
+    # Visual Studio's "x64-Release" configuration is CMake's RelWithDebInfo,
+    # whose defaults are made for debugging: /Ob1 inlines only what's
+    # marked inline, and /INCREMENTAL links every call through a jump stub.
+    # The interpreter calls a handler for every instruction it runs, so a
+    # profile of LEGO Alpha Team found these costing much of the game's
+    # thread. Inline fully and link plainly, keeping the debug information.
+    foreach(lang C CXX)
+        string(REPLACE "/Ob1" "/Ob2" CMAKE_${lang}_FLAGS_RELWITHDEBINFO "${CMAKE_${lang}_FLAGS_RELWITHDEBINFO}")
+    endforeach()
+    foreach(kind EXE SHARED MODULE)
+        string(REGEX REPLACE "/INCREMENTAL(:[A-Z]+)?" "/INCREMENTAL:NO" CMAKE_${kind}_LINKER_FLAGS_RELWITHDEBINFO
+               "${CMAKE_${kind}_LINKER_FLAGS_RELWITHDEBINFO}")
+        string(APPEND CMAKE_${kind}_LINKER_FLAGS_RELWITHDEBINFO " /OPT:REF /OPT:ICF")
+    endforeach()
 endif()
 
 option(RELUVA_USE_SYSTEM_SDL "Use an installed SDL3 instead of building it" OFF)
