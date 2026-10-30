@@ -486,19 +486,27 @@ void addMsvcrt(Win32Process& process) {
         return p;
     });
     provideCdecl("_msize", [s](Cpu& c) { return s->p.memory().size(c.arg(0)); });
+    // These three say what they write (Cpu::noteWrite): they're called so
+    // often that the instruction cache can't check all its code after each.
     provideCdecl("memcpy", [s](Cpu& c) {
-        if (c.valid(c.arg(0), c.arg(2)) && c.valid(c.arg(1), c.arg(2)))
+        if (c.valid(c.arg(0), c.arg(2)) && c.valid(c.arg(1), c.arg(2))) {
             std::memmove(s->ptr(c.arg(0)), s->ptr(c.arg(1)), c.arg(2));
+            c.noteWrite(c.arg(0), c.arg(2));
+        }
         return c.arg(0);
     });
     provideCdecl("memmove", [s](Cpu& c) {
-        if (c.valid(c.arg(0), c.arg(2)) && c.valid(c.arg(1), c.arg(2)))
+        if (c.valid(c.arg(0), c.arg(2)) && c.valid(c.arg(1), c.arg(2))) {
             std::memmove(s->ptr(c.arg(0)), s->ptr(c.arg(1)), c.arg(2));
+            c.noteWrite(c.arg(0), c.arg(2));
+        }
         return c.arg(0);
     });
     provideCdecl("memset", [s](Cpu& c) {
-        if (c.valid(c.arg(0), c.arg(2)))
+        if (c.valid(c.arg(0), c.arg(2))) {
             std::memset(s->ptr(c.arg(0)), int(c.arg(1) & 0xff), c.arg(2));
+            c.noteWrite(c.arg(0), c.arg(2));
+        }
         return c.arg(0);
     });
     provideCdecl("memcmp", [s](Cpu& c) {
@@ -1201,6 +1209,15 @@ void addMsvcrt(Win32Process& process) {
             c.abort("the program ended its main thread (_endthread)");
         return 0u;
     });
+
+    // Those that write only what they note (memcpy, memmove, memset) or
+    // nothing at all: frequent enough that each would otherwise send the
+    // instruction cache to check all its code again (Cpu::setWritesTracked).
+    for (const char* name : {"memcpy", "memmove", "memset", "memcmp", "memchr", "strlen", "strcmp", "strncmp",
+                             "_stricmp", "_strnicmp", "toupper", "tolower", "_ftol", "floor", "ceil", "_CIacos",
+                             "_CIasin", "_CIatan", "_CIsqrt", "_CIsin", "_CIcos", "_CItan", "_CIexp", "_CIlog",
+                             "_CIlog10", "_CIpow", "_CIfmod", "_CIatan2"})
+        c.setWritesTracked(std::string(kDll) + "!" + name);
 }
 
 } // namespace reluva::x86

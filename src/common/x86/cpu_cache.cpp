@@ -488,7 +488,7 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
         }
         Block& b = blocks[(eip ^ (eip >> 15)) & (kBlockEntries - 1)];
         bool fresh = b.start == eip;
-        if (fresh) {
+        if (fresh && b.epoch != codeEpoch_) {
             uint64_t differ = 0;
             const int last = b.words - 1;
             for (int w = 0; w < last; ++w) {
@@ -500,6 +500,7 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
             std::memcpy(&now, memory + eip + 8 * uint32_t(last), 8);
             differ |= (now ^ b.code[last]) & b.lastMask;
             fresh = differ == 0;
+            b.epoch = codeEpoch_;
         }
         if (!fresh)
             build(b, eip);
@@ -568,6 +569,11 @@ void Cpu::build(Block& b, uint32_t at) {
         return;
     }
     std::memcpy(b.code, memory_.data() + at, 8u * b.words);
+    // Its pages, and the one before (a write starting there may reach in),
+    // are code: writes to them make blocks check their bytes again.
+    for (uint32_t page = (at >= 3 ? at - 3 : 0) >> 12; page <= (at + 8u * b.words - 1) >> 12; ++page)
+        codePages_[page] = 1;
+    b.epoch = codeEpoch_;
 }
 
 // Makes the entry for the instruction at `at`: a handler of its own if it's

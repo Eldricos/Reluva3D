@@ -121,6 +121,13 @@ public:
     // The address a native function is called at (in a reserved range at
     // the top of memory, which holds HLT instructions).
     uint32_t addNative(std::string name, Native fn);
+    // Natives write memory directly, so after one runs the cached blocks
+    // check their code again; unless it's marked as one that writes
+    // nothing but what it tells noteWrite (or nothing at all): the
+    // commonest, memcpy and the like, which would otherwise make every
+    // block check itself again.
+    void setWritesTracked(const std::string& nativeName);
+    void noteWrite(uint32_t address, uint32_t size);
     // The name of the native function at `address`, if it is one.
     const std::string* nativeName(uint32_t address) const;
     // Where the reserved range begins: memory below it is the program's.
@@ -190,6 +197,8 @@ private:
 
     // Memory as the instructions see it (faulting).
     uint8_t* at(uint32_t a, uint32_t size);
+    // at(), for writing: notes a write to a page holding cached code.
+    uint8_t* atWrite(uint32_t a, uint32_t size);
     uint32_t load(uint32_t a, int size);
     void store(uint32_t a, uint32_t v, int size);
     void push(uint32_t v);
@@ -232,6 +241,7 @@ private:
     struct NativeEntry {
         std::string name;
         Native fn;
+        bool writesTracked = false;
     };
     std::vector<NativeEntry> natives_;
     uint32_t nativeBase_ = 0; // natives are at nativeBase_ + 16 * index
@@ -260,6 +270,7 @@ private:
     struct Block {
         uint32_t start = 0xffffffffu;
         uint8_t count = 0, bytes = 0, words = 0;
+        uint32_t epoch = 0; // codeEpoch_ when its bytes were last checked
         uint64_t lastMask = 0;
         uint64_t code[kBlockWords]{};
         Cached ops[kBlockOps];
@@ -268,6 +279,17 @@ private:
     std::vector<Block> blocks_;
     void decode(Cached& e, uint32_t at);
     void build(Block& b, uint32_t at);
+    // A block's bytes are checked again only when code may have changed
+    // since: codeEpoch_ moves on whenever an instruction writes to a page
+    // holding a cached block (codePages_, marked as blocks are made) or a
+    // native notes one (noteWrite), after any other native, and each time
+    // runUntil starts, as the host may have written memory since.
+    std::vector<uint8_t> codePages_;
+    uint32_t codeEpoch_ = 1;
+    RELUVA_FORCE_INLINE void notePageWrite(uint32_t a) {
+        if (codePages_[a >> 12]) [[unlikely]]
+            ++codeEpoch_;
+    }
     // The block running, counted whole before it ran, and where it began.
     struct {
         const Block* block = nullptr;
@@ -299,8 +321,17 @@ RELUVA_FORCE_INLINE uint32_t Cpu::load(uint32_t a, int size) {
     return v;
 }
 
+inline uint8_t* Cpu::atWrite(uint32_t a, uint32_t size) {
+    uint8_t* p = at(a, size);
+    for (uint32_t page = a >> 12; page <= (a + size - 1) >> 12; ++page)
+        if (codePages_[page])
+            ++codeEpoch_;
+    return p;
+}
+
 RELUVA_FORCE_INLINE void Cpu::store(uint32_t a, uint32_t v, int size) {
     uint8_t* p = at(a, uint32_t(size));
+    notePageWrite(a); // a write reaching into the next page: that's marked too (build)
     if (size == 1)
         p[0] = uint8_t(v);
     else if (size == 2) {

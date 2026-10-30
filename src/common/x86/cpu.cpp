@@ -65,7 +65,7 @@ void freePages(void* p, size_t bytes) {
 
 // The memory comes zeroed from the system: only the pages the program
 // uses are ever really there.
-Cpu::Cpu(uint32_t memorySize) : memory_(memorySize) {
+Cpu::Cpu(uint32_t memorySize) : memory_(memorySize), codePages_((size_t(memorySize) >> 12) + 1, 0) {
     nativeBase_ = memorySize - kMaxNatives * kNativeStride;
     std::memset(&memory_[nativeBase_ - kNativeStride * kReturnSlots], 0xf4, kMaxNatives * kNativeStride + kNativeStride);
 }
@@ -103,6 +103,22 @@ bool Cpu::writeString(uint32_t address, std::string_view text, uint32_t size) {
     std::memcpy(&memory_[address], text.data(), n);
     memory_[address + n] = 0;
     return true;
+}
+
+void Cpu::setWritesTracked(const std::string& nativeName) {
+    for (NativeEntry& n : natives_)
+        if (n.name == nativeName)
+            n.writesTracked = true;
+}
+
+void Cpu::noteWrite(uint32_t address, uint32_t size) {
+    if (size == 0 || !valid(address, size))
+        return;
+    for (uint32_t page = address >> 12; page <= (address + size - 1) >> 12; ++page)
+        if (codePages_[page]) {
+            ++codeEpoch_;
+            return;
+        }
 }
 
 uint32_t Cpu::addNative(std::string name, Native fn) {
@@ -398,7 +414,7 @@ void Cpu::stringOp(uint8_t op) {
         const uint64_t bytes = uint64_t(reg[ECX]) * uint32_t(size);
         const uint32_t src = reg[ESI] + d_.segment, dst = reg[EDI];
         if (bytes <= 0xffffffffu && (uint64_t(dst) + bytes <= src || dst < src)) {
-            uint8_t* to = at(dst, uint32_t(bytes));
+            uint8_t* to = atWrite(dst, uint32_t(bytes));
             const uint8_t* from = at(src, uint32_t(bytes));
             std::memmove(to, from, size_t(bytes));
             reg[ESI] += uint32_t(bytes);
@@ -410,7 +426,7 @@ void Cpu::stringOp(uint8_t op) {
     if (repeat && !(eflags & DF) && (op == 0xaa || op == 0xab) && reg[ECX]) {
         const uint64_t bytes = uint64_t(reg[ECX]) * uint32_t(size);
         if (bytes <= 0xffffffffu) {
-            uint8_t* to = at(reg[EDI], uint32_t(bytes));
+            uint8_t* to = atWrite(reg[EDI], uint32_t(bytes));
             const uint32_t v = readReg(size, EAX);
             if (size == 1)
                 std::memset(to, int(v & 0xff), size_t(bytes));
@@ -997,6 +1013,8 @@ void Cpu::callNative(uint32_t address) {
     if (i >= natives_.size())
         fault("call to an unused native slot");
     const uint32_t popBytes = natives_[i].fn(*this);
+    if (!natives_[i].writesTracked)
+        ++codeEpoch_; // it may have written code: blocks check theirs again
     if (!abort_.empty()) {
         std::string message = std::move(abort_);
         abort_.clear();
@@ -1010,6 +1028,7 @@ void Cpu::callNative(uint32_t address) {
 // and native functions, until eip reaches `returnAddress`.
 void Cpu::runUntil(uint32_t returnAddress) {
     const uint32_t nativeStart = nativeBase_ - kNativeStride * kReturnSlots;
+    ++codeEpoch_; // the host may have written memory since the last run
     // A thread that yields (a native asked, by Cpu::yield) stops here, with
     // eip where it goes on from: resume() runs it again later.
     while (eip != returnAddress && !yield_) {

@@ -219,7 +219,7 @@ void Cpu::x87(uint8_t op) {
             case 2: store(a, uint32_t(toInteger(roundByMode(st(0), fpu.control), 32)), 4); return;
             case 3: store(a, uint32_t(toInteger(roundByMode(st(0), fpu.control), 32)), 4); fpuPop(); return;
             case 5: fpuPush(fromExtended(at(a, 10))); return;
-            case 7: toExtended(fpuPop(), at(a, 10)); return;
+            case 7: toExtended(fpuPop(), atWrite(a, 10)); return;
             }
             break;
         case 0xdd:
@@ -237,7 +237,7 @@ void Cpu::x87(uint8_t op) {
             case 6: { // FNSAVE
                 storeEnvironment();
                 for (int i = 0; i < 8; ++i)
-                    toExtended(st(i), at(a + 28 + 10 * uint32_t(i), 10));
+                    toExtended(st(i), atWrite(a + 28 + 10 * uint32_t(i), 10));
                 init();
                 return;
             }
