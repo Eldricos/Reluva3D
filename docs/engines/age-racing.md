@@ -28,7 +28,29 @@ countdown, then:
 - The game's own models mark the way: its checkpoint stand (`pt_check`)
   at both ends of the next two gates, and its HUD arrow (`hudarrow01`,
   `hudarrow_blitz01` in a Blitz) above the car pointing to the next
-  checkpoint.
+  checkpoint. Each arrow has two paint jobs, its own colour and yellow:
+  "The green compass arrow points to the nearest checkpoint, and turns
+  yellow if it's behind you" (the game's loading tips), so it's yellow
+  when the checkpoint is behind the car.
+- Over each opponent, the game's marker: a purple (192, 16, 255)
+  triangle pointing down at it and, once the race is on, its place in
+  `opp_icon`'s digits above (the place: the cars ahead of the player
+  carry the lower numbers). Measured on the game's screens: about 1.5 m
+  across and 2.3 m tall, its point 4.5 m over the car, drawn over
+  everything.
+- The HUD, as the game's screens show it ([age-footage.md](age-footage.md)):
+  the clock top middle; top left, lines 24 pixels apart from y 23, the
+  game's words (strings 254-261) in green and their values in white:
+  **Place** (against opponents), **Check** (this lap's checkpoints, or
+  the race's), **Lap** in a circuit, then each lap's time ("1.
+  0:45:21"), the lap under way last. After each checkpoint the time so
+  far (this lap's in a circuit) shows under the car for a few seconds,
+  with "Lap time" over it at a lap's end; "Final lap!" shows there too.
+  "Ready...", "Set...", "Go!" and the lessons' messages are over the
+  road, at y 110. The speed, gear, revs and damage meter are bottom left
+  ([age-driving.md](age-driving.md)), the map bottom right. The game's
+  text is Gill Sans MT (its string table names the fonts and sizes);
+  Reluva uses its own font.
 - The results list the racers by where they got to, with their times.
 - **Traffic, pedestrians and police** are as the race's settings say
   (its Ambient, Peds and Cops columns, and its aimap's exceptions and

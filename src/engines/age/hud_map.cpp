@@ -20,6 +20,7 @@ namespace {
 constexpr float kFov = 30;          // degrees, up and down: a guess
 constexpr float kTriLength = 28;    // hudmap_tri, nose to tail
 constexpr float kFullScreen = 0.9f; // full screen: this share of the frame's height, square
+constexpr float kShown = 0.92f;     // of its Size the corner map is drawn
 
 } // namespace
 
@@ -121,8 +122,11 @@ void HudMap::draw(gfx::Renderer3D& renderer, ModelCache& models, const Vec3& cen
     } else {
         x = int(setup_.left * float(frameW));
         y = int(setup_.top * float(frameH));
-        w = std::min(frameW - x, int(setup_.width * float(frameW)));
-        h = std::min(frameH - y, int(setup_.height * float(frameH)));
+        // The game draws it a little smaller than its Size: 124 x 110 of
+        // 0.21 x 0.25 at 640 x 480, 245 x 165 at 1280 x 720 (from its own
+        // screens).
+        w = std::min(frameW - x, int(setup_.width * kShown * float(frameW)));
+        h = std::min(frameH - y, int(setup_.height * kShown * float(frameH)));
     }
     if (w <= 0 || h <= 0)
         return;

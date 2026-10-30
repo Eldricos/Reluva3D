@@ -132,10 +132,9 @@ void RaceViewer::stepCruise(float dt) {
 }
 
 void RaceViewer::drawCruiseHud() {
-    // The cruise's name, the police after you, and why the car's about to
-    // be put back.
+    // As the game's cruise: no words but the police after you and why the
+    // car's about to be put back.
     const Racer& player = racers_.front();
-    font::drawText(overlay_, 4, 4, race_.name + "  (" + cities_[size_t(city_)].name + ")", {150, 200, 255});
     if (!outcome_.empty())
         drawCentred(outcome_, kFrameH / 2 - 40, {255, 120, 90}, 4);
     if (life_.police().chasing() > 0 && cruiseHold_ <= 0)

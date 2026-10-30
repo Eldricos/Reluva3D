@@ -14,33 +14,35 @@ namespace reluva::age {
 
 class CarSim;
 
-// The game's HUD pictures (texture/*.tga, made for a 640 x 480 screen):
-// the speedometer's panel (SPEED) with its digits (DIGITAC_*_HALF), gear
-// (DIGITAC_GEAR_*), revs (TACOMETER TICKS_HALF) and MPH; the damage meter
-// (DAMAGE, DAMAGE_LABLE); and the clock's digits (DIGI_*). Where they go is
-// Reluva's layout: the game's isn't in its files. See
-// docs/engines/age-driving.md.
+// The game's HUD pictures (texture/*.tga, made for a 640 x 480 screen),
+// where the game puts them (measured on its own screens, see
+// docs/engines/age-driving.md): bottom left the speed (DIGITAC_*), the
+// gear (DIGITAC_GEAR_*), the revs (SPEED_TICKS) and the damage meter
+// (DAMAGE under DAMAGE_LABLE); the clock's digits (DIGI_*) top middle.
 class HudPictures {
 public:
     // False if they aren't there.
     bool load(const SearchSet& files);
     bool loaded() const { return ok_; }
 
-    // The panel with its top left at (x, y): 202 x 110.
-    void speedometer(Surface& overlay, const CarSim& sim, int x, int y) const;
-    // The meter, `width` across with its label above, its bottom left at
-    // (x, y); `damage` 0..1.
-    void damage(Surface& overlay, float damage, int x, int y, int width) const;
-    // Minutes, seconds and tenths, ending at `right`.
-    void clock(Surface& overlay, float seconds, int right, int y) const;
+    // The speed, gear, revs and damage (0..1), bottom left of a 640 x 480
+    // overlay.
+    void gauges(Surface& overlay, const CarSim& sim, float damage) const;
+    // Minutes, seconds and hundredths ("01:02:19"), centred on `centre`.
+    void clock(Surface& overlay, float seconds, int centre, int y) const;
+    // A place (1-8; 9: the gold's $) from opp_icon, `size` across centred
+    // on (x, y), as over an opponent; false without the picture.
+    bool place(Surface& overlay, int place, int x, int y, int size) const;
 
 private:
     const image::Image* get(const std::string& name) const;
     // Drawn over what's there, `w` x `h` (scaled to it), or only the left
-    // `share` of it.
-    void blit(Surface& overlay, const image::Image& im, int x, int y, int w, int h, float share = 1) const;
+    // `share` of it; `from` (0 or more): its columns from that one, unscaled.
+    void blit(Surface& overlay, const image::Image& im, int x, int y, int w, int h, float share = 1,
+              int from = -1) const;
 
     std::map<std::string, image::Image> images_;
+    image::Image places_; // opp_icon
     bool ok_ = false;
 };
 
