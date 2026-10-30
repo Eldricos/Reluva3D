@@ -11,6 +11,14 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Visual Studio: the interpreter's stand-ins and handlers are thousands of
+# lambdas and template instances, more sections than an object file holds
+# by default in a debug build (error C1128); and the sources are UTF-8,
+# whatever the system's code page.
+if(MSVC)
+    add_compile_options(/bigobj /utf-8)
+endif()
+
 option(RELUVA_USE_SYSTEM_SDL "Use an installed SDL3 instead of building it" OFF)
 option(RELUVA_BUILD_TESTS "Build unit tests" ON)
 # Engines can be left out of the build, like ScummVM's. New Worlds is off

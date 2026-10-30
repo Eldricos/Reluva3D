@@ -209,3 +209,11 @@ The 3D pages use Metal, which every Mac that runs a current macOS has.
 - **Strange errors after changing dependencies or compilers:** delete the
   `build` folder (in Visual Studio: **Project > Delete Cache and Reconfigure**)
   and configure again.
+- **Visual Studio: many LNK2019 "unresolved external symbol" errors for
+  `reluva::x86::...` or `reluva::video::...`:** the files defining them
+  didn't compile, and the linker only reports what's missing. Look for the
+  first `error C....` above the link errors in the **Output** window
+  (**Show output from: Build**). Error C1128 ("number of sections exceeded
+  object file format limit") needs `/bigobj`, which the CMake files now
+  pass to MSVC; after updating, use **Project > Delete Cache and
+  Reconfigure**.
