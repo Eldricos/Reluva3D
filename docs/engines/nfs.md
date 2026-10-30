@@ -922,7 +922,10 @@ Started. Done so far:
 
     Two copies (127.0.0.4 answering, 127.0.0.5 dialing "12") reached
     the lobby, both players listed, the answering copy the host, and
-    exchanged 5,437 messages each way over six minutes.
+    raced Hometown, eight cars on both screens, about 16,900 race
+    messages each way (the serial link's 12-byte packets). Their race
+    clocks were 11 seconds apart, against one over serial and TCP; why
+    wasn't looked into.
   - **`-netlog file`** writes each message sent and received: the game's
     milliseconds, the direction, the socket, the peer and the bytes.
   - **Scripting the menus.** A test script clicks by sending the cursor
@@ -997,7 +1000,7 @@ Still to do:
     on one machine have played.
   - How a race holds up over a slower link, or when a copy stalls for
     loading longer than the original did.
-  - A race over the modem stand-in (the lobby is reached; see above).
+  - Why the race clocks drift 11 s apart over the modem stand-in.
 - **Not planned:** d3da (see above) and the Glide renderers, which the
   native and GPU drawing make unneeded. The game is told it has a Voodoo
   2 only to draw as for one (see Sky and fog).
