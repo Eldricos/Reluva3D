@@ -27,6 +27,7 @@
 #include "common/x86/cpu.h"
 #include "common/x86/directx/dinput.h"
 #include "common/x86/directx/directx.h"
+#include "common/x86/directx/internal.h"
 #include "common/x86/msvcp60.h"
 #include "common/x86/msvcrt.h"
 #include "common/x86/win32.h"
@@ -1749,6 +1750,35 @@ std::vector<uint8_t> indeo5GreyFrame(int type) {
     return b.bytes;
 }
 
+// Pixel conversion: the quick paths (a table per 16-bit format, the
+// value itself for 32-bit) give what PixelFormat::toArgb does.
+void testArgbConverter() {
+    using reluva::x86::dx::ArgbConverter;
+    using reluva::x86::dx::PixelFormat;
+    PixelFormat x888{reluva::x86::dx::kPfRgb, 0, 32, 0xff0000, 0xff00, 0xff, 0};
+    PixelFormat a888{reluva::x86::dx::kPfRgb | reluva::x86::dx::kPfAlphaPixels, 0, 32, 0xff0000, 0xff00, 0xff,
+                     0xff000000u};
+    PixelFormat r565{reluva::x86::dx::kPfRgb, 0, 16, 0xf800, 0x07e0, 0x001f, 0};
+    PixelFormat a1555{reluva::x86::dx::kPfRgb | reluva::x86::dx::kPfAlphaPixels, 0, 16, 0x7c00, 0x03e0, 0x001f, 0x8000};
+    uint32_t seed = 12345;
+    for (const PixelFormat& f : {x888, a888, r565, a1555}) {
+        const ArgbConverter convert(f, nullptr);
+        std::vector<uint8_t> bytes(64 * 4);
+        for (uint8_t& b : bytes)
+            b = uint8_t((seed = seed * 1103515245u + 12345u) >> 16);
+        const int n = int(bytes.size() / f.bytes());
+        std::vector<uint32_t> out(size_t(n), 0);
+        convert.row(bytes.data(), n, out.data());
+        bool same = true;
+        for (int i = 0; i < n; ++i) {
+            uint32_t v = 0;
+            std::memcpy(&v, bytes.data() + size_t(i) * f.bytes(), f.bytes());
+            same = same && out[size_t(i)] == f.toArgb(v, nullptr) && convert(v) == out[size_t(i)];
+        }
+        CHECK(same);
+    }
+}
+
 void testVideo() {
     using namespace reluva::video;
     // A key frame: grey; a null frame keeps it.
@@ -1891,6 +1921,7 @@ int main() {
     testDirectX();
     testInput();
     testA3d();
+    testArgbConverter();
     testVideo();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);

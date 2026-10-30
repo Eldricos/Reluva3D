@@ -54,6 +54,8 @@ public:
     uint32_t operator()(uint32_t value) const {
         if (wide_)
             return (*wide_)[value & 0xffff];
+        if (direct_)
+            return alpha_ ? (value & 0xffffffu) | alpha_ : value;
         if (general_)
             return format_.toArgb(value, palette_);
         uint32_t argb = alpha_;
@@ -77,6 +79,9 @@ private:
     // 16-bit formats: every value's colour, shared by every converter of
     // the format.
     std::shared_ptr<const std::vector<uint32_t>> wide_;
+    // 32-bit 0x(AA)RRGGBB: the value is the colour (its alpha 255 without
+    // an alpha channel).
+    bool direct_ = false;
 };
 PixelFormat rgbFormat(int bits); // 8 (palettized), 16 (565), 24, 32 (X888)
 PixelFormat zFormat(int bits);

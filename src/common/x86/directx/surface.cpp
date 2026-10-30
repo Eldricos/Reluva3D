@@ -124,6 +124,8 @@ ArgbConverter::ArgbConverter(const PixelFormat& format, const uint32_t* palette)
             c.table[v] = uint8_t(channel((v << c.drop) << c.shift, mask));
         channels_.push_back(c);
     }
+    direct_ = format.bits == 32 && format.r == 0xff0000u && format.g == 0xff00u && format.b == 0xffu &&
+              (!alpha || format.a == 0xff000000u);
     if (format.bytes() != 2)
         return;
     // Built once per format: a frame or texture is converted many times.
@@ -156,6 +158,13 @@ void ArgbConverter::row(const uint8_t* bytes, int count, uint32_t* out) const {
             out[i] = (*this)(uint32_t(bytes[3 * i] | bytes[3 * i + 1] << 8 | bytes[3 * i + 2] << 16));
         break;
     default:
+        if (direct_) {
+            std::memcpy(out, bytes, size_t(count) * 4);
+            if (alpha_)
+                for (int i = 0; i < count; ++i)
+                    out[i] = (out[i] & 0xffffffu) | alpha_;
+            break;
+        }
         for (int i = 0; i < count; ++i) {
             uint32_t v;
             std::memcpy(&v, bytes + 4 * i, 4);
