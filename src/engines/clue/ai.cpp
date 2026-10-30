@@ -95,8 +95,6 @@ void Notebook::holdsOneOf(int owner, const std::array<int, 3>& cards) {
 }
 
 void Notebook::notAll(const std::array<int, 3>& cards) {
-    if (!countCards_)
-        return;
     notAll_.push_back(cards);
     settle();
 }
@@ -163,19 +161,19 @@ void Notebook::settle() {
                     for (int c = 0; c < kCardCount; ++c)
                         put(c, o, Yes);
             }
-            // A wrong accusation: with two of its cards in the case file,
-            // the third isn't.
-            for (const auto& cards : notAll_) {
-                int in = 0, other = -1;
-                for (int c : cards) {
-                    if (inCaseFile(c))
-                        ++in;
-                    else
-                        other = c;
-                }
-                if (in == 2)
-                    put(other, kCaseFile, No);
+        }
+        // A wrong accusation: with two of its cards in the case file, the
+        // third isn't.
+        for (const auto& cards : notAll_) {
+            int in = 0, other = -1;
+            for (int c : cards) {
+                if (inCaseFile(c))
+                    ++in;
+                else
+                    other = c;
             }
+            if (in == 2)
+                put(other, kCaseFile, No);
         }
         // Who showed a card not seen holds one of the three: when two are
         // lacked, the third.
@@ -202,7 +200,10 @@ void ComputerPlayer::reset(const Game& game, int me, uint32_t seed, int level) {
     level_ = level;
     rng_.seed(seed);
     shownTo_.clear();
-    notes_.reset(game, me, false, level >= Expert);
+    // No level counts cards or works out which of three an unseen card was
+    // (the original's experts are no quicker than without: about ten
+    // rounds in a recorded game of five, as Reluva's without).
+    notes_.reset(game, me, false, false);
     measure(game.board());
 }
 
@@ -233,9 +234,9 @@ void ComputerPlayer::observe(const Game& game) {
     const int suggester = game.turn(), disprover = game.disprover();
     const std::array<int, 3> cards = cardsOf(game.suggestion());
     const bool mine = suggester == me_;
-    // Who couldn't answer lacks all three: below expert, noted only of its
-    // own suggestions.
-    if (mine || level_ >= Expert)
+    // Who couldn't answer lacks all three: noted only of its own
+    // suggestions (the original's experts repeat others' suggestions).
+    if (mine)
         for (int p : game.passed())
             for (int c : cards)
                 notes_.lacks(p, c);
@@ -254,7 +255,10 @@ void ComputerPlayer::observe(const Game& game) {
         notes_.holdsOneOf(disprover, cards);
 }
 
-void ComputerPlayer::observeAccusation(const Accusation& a) { notes_.notAll(cardsOf(a)); }
+void ComputerPlayer::observeAccusation(const Accusation& a) {
+    if (level_ >= Expert)
+        notes_.notAll(cardsOf(a));
+}
 
 bool ComputerPlayer::roomWanted(int room) const {
     // A room worth suggesting in: one that may be the answer; or, the room

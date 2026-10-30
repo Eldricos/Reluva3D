@@ -148,14 +148,16 @@ how it chooses, by level, matched to the recordings below:
 | Its suggestions nobody could answer: what it doesn't hold is the answer | yes | yes | yes |
 | Who couldn't answer its own suggestions lacks their three cards | yes | yes | yes |
 | A card is in one place; the case file holds one of each kind | yes | yes | yes |
-| Who couldn't answer others' suggestions | | | yes |
-| Who answered a suggestion it didn't see holds one of the three | | | yes |
 | A wrong accusation: not all three are the answer | | | yes |
 | What it names | anyone and anything; itself about a quarter of the time | what it doesn't know | a kind's answer once known; else the unknown card fewest might hold; never itself in doubt |
 | Which card it shows | any | one the suggester has seen | that, else one shown to someone else |
 
-The notebook can also count each player's cards; no level does, as
-that made experts far quicker than the original's. Computer players
+The notebook can also count each player's cards, note who couldn't
+answer others' suggestions, and work out which of three cards an unseen
+answer was; no level does, as each made experts quicker than the
+original's (with all three, 6 rounds a game where the recorded game took
+about 10; without, 9.8). The original's experts also repeat suggestions
+others have made, which fits their not noting others' answers. Computer players
 accuse only when they know the answer, so they never accuse wrongly.
 They head for the nearest room that may be the answer (once the room
 is known, any room), taking a secret passage when the room beyond is
@@ -169,12 +171,13 @@ make-up):
 |---|---|---|
 | Novice (3 players) | no accusation in 14 and 12 rounds (two games); named itself 26% | 21.5 rounds a game, 20% won within 12; names itself 26% |
 | Normal (6 players) | no accusation in about 10 rounds; named itself 10% | 11.4 rounds, 57% won within 12; 16% |
-| Expert (6 players) | won in about 10 rounds; never named itself | 6.0 rounds; 2% |
+| Expert (5 and a human) | won in about 10 rounds; never named itself | 9.8 rounds, 72% won within 12; 3% |
 
-The experts are still quicker than the one recorded expert game; with
-one game to go on, that's left as it is. In mixed games of two of each
-level (`clue-board ... 600`), experts won 534, normal players 53,
-novices 13.
+(Reluva's expert and normal figures for five of the level and a normal
+player in place of the human, as the recordings had.) In mixed games of
+two of each level (`clue-board ... 600`), experts won 287, normal
+players 254, novices 59: the experts' edge is in naming a kind's answer
+once known and choosing the cards that settle most.
 
 **The recordings.** Read off each game's ticker, every turn and
 suggestion:
