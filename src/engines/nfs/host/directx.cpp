@@ -1083,11 +1083,14 @@ void GameHost::mixSound(int16_t* out, int frames, int rate) {
         double left = gain * (b.pan > 0 ? decibels(-b.pan) : 1.0);
         double right = gain * (b.pan < 0 ? decibels(b.pan) : 1.0);
         double step = double(b.rate) / double(rate);
+        double muffle = 1; // the rear's low-pass coefficient; 1 passes all
         if (b.flags & kCtrl3d) { // placed by DirectSound 3D, not panned
             const Ds3dResult placed = spatialize(listener_, b.place);
             left = gain * placed.left;
             right = gain * placed.right;
             step *= placed.doppler;
+            if (placed.behind > 0)
+                muffle = lowPassCoefficient(rearCutoff(placed.behind), rate);
         }
         auto sample = [&](uint32_t frame, int channel) {
             const uint8_t* p = memory + b.memory + frame * uint32_t(b.blockAlign) + uint32_t(channel * bytes);
@@ -1129,7 +1132,14 @@ void GameHost::mixSound(int16_t* out, int frames, int rate) {
                 b.outCursor += step;
                 continue;
             }
-            const int l = sample(f, 0), r = b.channels > 1 ? sample(f, 1) : l;
+            double l = sample(f, 0), r = b.channels > 1 ? sample(f, 1) : l;
+            if (muffle < 1) {
+                l = b.rearLow[0] += muffle * (l - b.rearLow[0]);
+                r = b.rearLow[1] += muffle * (r - b.rearLow[1]);
+            } else {
+                b.rearLow[0] = l;
+                b.rearLow[1] = r;
+            }
             soundMix_[size_t(i) * 2] += int32_t(l * left);
             soundMix_[size_t(i) * 2 + 1] += int32_t(r * right);
             b.outCursor += step;

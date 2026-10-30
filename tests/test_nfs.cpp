@@ -1751,6 +1751,14 @@ void testSound3d() {
     s.position[2] = 1;
     r = spatialize(listener, s);
     CHECK(near(r.left, 1) && near(r.right, 0.1));
+    // Straight behind (-x for this listener): both speakers 3 dB down and
+    // muffled to 4 kHz; beside, neither.
+    s.position[0] = -1;
+    s.position[2] = 0;
+    r = spatialize(listener, s);
+    CHECK(near(r.behind, 1) && near(r.left, std::pow(10.0, -0.15)) && near(r.right, r.left));
+    CHECK(near(rearCutoff(r.behind), 4000) && near(rearCutoff(0), 20000) && near(rearGain(0), 1));
+    CHECK(near(lowPassCoefficient(4000, 44100), 1 - std::exp(-2 * 3.14159265358979 * 4000 / 44100)));
     // Head-relative: the position is the listener's own, whichever way it
     // faces; disabled: as it is, wherever.
     s.mode = 1;

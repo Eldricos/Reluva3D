@@ -73,6 +73,8 @@ Ds3dResult spatialize(const Ds3dListener& listener, const Ds3dSource& source) {
     // Pan: the farther speaker down by up to 20 dB.
     const double side = d > 1e-9 ? std::clamp(local.x / d, -1.0, 1.0) : 0.0;
     const double far = std::pow(10.0, -std::fabs(side));
+    r.behind = d > 1e-9 ? std::clamp(-local.z / d, 0.0, 1.0) : 0.0;
+    gain *= rearGain(r.behind);
     r.left = gain * (side > 0 ? far : 1.0);
     r.right = gain * (side < 0 ? far : 1.0);
 
@@ -88,6 +90,14 @@ Ds3dResult spatialize(const Ds3dListener& listener, const Ds3dSource& source) {
             r.doppler = 2.0;
     }
     return r;
+}
+
+double rearGain(double behind) { return std::pow(10.0, -3.0 * std::clamp(behind, 0.0, 1.0) / 20); }
+
+double rearCutoff(double behind) { return 20000 - 16000 * std::clamp(behind, 0.0, 1.0); }
+
+double lowPassCoefficient(double cutoff, double rate) {
+    return rate > 0 ? 1 - std::exp(-2 * kPi * cutoff / rate) : 1.0;
 }
 
 } // namespace reluva::nfs

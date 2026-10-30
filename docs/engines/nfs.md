@@ -595,8 +595,13 @@ Started. Done so far:
     line. For the pan, the nearer speaker gets it all and the farther one
     is turned down, by up to 20 dB for a sound straight to one side. Real
     cards used HRTFs or speaker panning of their own, which aren't
-    documented. Front and back sound the same. Doppler changes the pitch
-    heard, not the play cursor the game sees.
+    documented. Behind the listener, Reluva turns a sound down by up to
+    3 dB and muffles it, through a one-pole low-pass whose cut-off falls
+    from 20 kHz beside to 4 kHz straight behind (`rearGain`,
+    `rearCutoff`), as a head shadows sound from behind; that rule is
+    Reluva's own, as DirectSound leaves it to the card. Doppler changes
+    the pitch heard, not the play cursor the game sees; the game gives
+    its sounds no velocities, so it never comes in.
 
     Checked on a race from a save folder with byte 0xc0 set to 3
     (`nfs-host -native -wav`, 5 billion instructions): the game makes 4

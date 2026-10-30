@@ -365,6 +365,7 @@ private:
         // when it drifts.
         double outCursor = 0;
         bool outSynced = false;
+        double rearLow[2] = {0, 0}; // the rear's low-pass, per channel (sound3d.h)
         // Whether each 256-byte block was written since it was last played,
         // for counting the times the game didn't keep up.
         std::vector<uint8_t> fresh;

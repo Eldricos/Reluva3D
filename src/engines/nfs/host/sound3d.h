@@ -33,11 +33,24 @@ struct Ds3dListener {
     float distanceFactor = 1, rolloffFactor = 1, dopplerFactor = 1;
 };
 
-// What a source comes to at the listener: a gain for each speaker and the
-// ratio its frequency is shifted by.
+// What a source comes to at the listener: a gain for each speaker, the
+// ratio its frequency is shifted by, and how far behind the listener it is
+// (0 beside or ahead, 1 straight behind), for the rear's muffling.
 struct Ds3dResult {
     double left = 1, right = 1, doppler = 1;
+    double behind = 0;
 };
+
+// Behind the listener, as a head would hear it: turned down by up to 3 dB
+// and muffled, through a one-pole low-pass whose cut-off falls from 20 kHz
+// beside to 4 kHz straight behind. DirectSound leaves front and back to
+// the card (its documentation describes no rule); this is Reluva's, so
+// that a sound behind doesn't sound the same as one ahead.
+double rearGain(double behind);
+double rearCutoff(double behind);
+// The low-pass's coefficient for a cut-off at a sample rate:
+// y += a * (x - y).
+double lowPassCoefficient(double cutoff, double rate);
 
 // The model, worked out from DirectSound's documentation of it:
 // - distance: full volume up to the minimum distance; past it, the gain is
@@ -50,7 +63,8 @@ struct Ds3dResult {
 //   to 20 dB, for a sound straight to one side;
 // - Doppler: f * (c + v_listener) / (c + v_source), the velocities each
 //   along the line from the listener to the source, c 343.3 m/s; within
-//   half to twice the frequency.
+//   half to twice the frequency;
+// - behind: rearGain on both speakers (and `behind` for the muffling).
 Ds3dResult spatialize(const Ds3dListener& listener, const Ds3dSource& source);
 
 } // namespace reluva::nfs
