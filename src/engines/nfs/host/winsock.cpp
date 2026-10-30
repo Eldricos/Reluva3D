@@ -2,7 +2,10 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // WSOCK32, Windows Sockets 1.1, as nfs3.exe imports it (by ordinal), on
-// the network the host is given (Options::sockets, net::Sockets). From
+// the network the host is given (Options::sockets, net::Sockets). IPX
+// datagram sockets (AF_IPX) are carried over UDP: an IPX node is an IPv4
+// address (its first four bytes), an IPX socket number a UDP port, and the
+// broadcast node (all FF) a UDP broadcast. From
 // the Windows Sockets 1.1 specification: its structures (sockaddr_in,
 // fd_set, hostent, WSADATA) in the game's memory, its error numbers, and
 // its blocking: a socket blocks unless the game makes it non-blocking
@@ -56,6 +59,38 @@ bool readAddress(Cpu& c, uint32_t at, uint32_t length, net::Address& out) {
     return true;
 }
 
+// SOCKADDR_IPX: family (6), network (4 bytes), node (6), socket (in
+// network order); 14 bytes. The node's first four bytes are the IPv4
+// address carrying it (all FF: broadcast), the socket the UDP port.
+bool readIpxAddress(Cpu& c, uint32_t at, uint32_t length, net::Address& out) {
+    if (!at || length < 14 || c.read16(at) != 6) // AF_IPX
+        return false;
+    bool broadcast = true;
+    for (uint32_t i = 0; i < 6; ++i)
+        broadcast = broadcast && c.read8(at + 6 + i) == 0xff;
+    out.ip = broadcast ? 0xffffffffu
+                       : uint32_t(c.read8(at + 6)) << 24 | uint32_t(c.read8(at + 7)) << 16 |
+                             uint32_t(c.read8(at + 8)) << 8 | c.read8(at + 9);
+    out.port = uint16_t(c.read8(at + 12) << 8 | c.read8(at + 13));
+    return true;
+}
+
+void writeIpxAddress(Cpu& c, uint32_t at, uint32_t lengthAt, const net::Address& a) {
+    if (!at || (lengthAt && c.read32(lengthAt) < 14))
+        return;
+    c.write16(at, 6);
+    for (uint32_t i = 2; i < 14; ++i)
+        c.write8(at + i, 0);
+    c.write8(at + 6, uint8_t(a.ip >> 24));
+    c.write8(at + 7, uint8_t(a.ip >> 16));
+    c.write8(at + 8, uint8_t(a.ip >> 8));
+    c.write8(at + 9, uint8_t(a.ip));
+    c.write8(at + 12, uint8_t(a.port >> 8));
+    c.write8(at + 13, uint8_t(a.port));
+    if (lengthAt)
+        c.write32(lengthAt, 14);
+}
+
 void writeAddress(Cpu& c, uint32_t at, uint32_t lengthAt, const net::Address& a) {
     if (!at)
         return;
@@ -76,7 +111,20 @@ void writeAddress(Cpu& c, uint32_t at, uint32_t lengthAt, const net::Address& a)
 
 } // namespace
 
+void GameHost::logTraffic(bool sent, uint32_t handle, const net::Address& peer, const uint8_t* data, size_t size) {
+    if (!netLog_ || !size)
+        return;
+    const uint32_t ms = process_->milliseconds ? process_->milliseconds() : 0;
+    std::fprintf(netLog_, "%u %c %u %s %zu ", ms, sent ? '>' : '<', handle, peer.toString().c_str(), size);
+    for (size_t i = 0; i < size; ++i)
+        std::fprintf(netLog_, "%02x", data[i]);
+    std::fprintf(netLog_, "\n");
+    std::fflush(netLog_);
+}
+
 void GameHost::addNetwork() {
+    if (!options_.netLog.empty() && !netLog_)
+        netLog_ = std::fopen(options_.netLog.c_str(), "w");
     const char* w = "WSOCK32.dll";
     net::Sockets* net = options_.sockets.get();
     auto self = [this] { return process_->currentThread() ? process_->currentThread()->id : 0u; };
@@ -160,22 +208,27 @@ void GameHost::addNetwork() {
         return 0u;
     });
 
-    // socket(af, type, protocol): TCP and UDP over IPv4; not IPX (AF_IPX 6).
+    // socket(af, type, protocol): TCP and UDP over IPv4, and IPX datagrams
+    // (AF_IPX 6, SOCK_DGRAM, NSPROTO_IPX 1000-1255) over UDP; not SPX.
     provide(w, "#23", 3, [this, net, fail, log](Cpu& c) {
         if (!wsStarted_)
             return fail(kNOTINITIALISED);
-        if (c.arg(0) != 2)
+        const bool ipx = c.arg(0) == 6;
+        if (c.arg(0) != 2 && !ipx)
             return fail(kEAFNOSUPPORT);
-        if (c.arg(1) != 1 && c.arg(1) != 2)
+        if (ipx ? c.arg(1) != 2 || (c.arg(2) && (c.arg(2) < 1000 || c.arg(2) > 1255)) : c.arg(1) != 1 && c.arg(1) != 2)
             return fail(kEPROTONOSUPPORT);
         WsSocket s;
+        s.ipx = ipx;
         s.stream = c.arg(1) == 1;
         s.socket = net->open(s.stream ? net::Sockets::Stream : net::Sockets::Datagram);
         if (s.socket < 0)
             return fail(kEMFILE);
+        if (ipx) // IPX sockets may broadcast and hear broadcasts without asking
+            net->setOption(s.socket, net::Sockets::Broadcast, 1);
         const uint32_t handle = nextWsSocket_++;
         wsSockets_[handle] = s;
-        log("socket " + std::to_string(handle) + (s.stream ? " (TCP)" : " (UDP)"));
+        log("socket " + std::to_string(handle) + (s.stream ? " (TCP)" : s.ipx ? " (IPX)" : " (UDP)"));
         return handle;
     });
     provide(w, "#3", 1, [this, net, find, fail](Cpu& c) { // closesocket
@@ -191,7 +244,7 @@ void GameHost::addNetwork() {
         net::Address a;
         if (!s)
             return fail(kENOTSOCK);
-        if (!readAddress(c, c.arg(1), c.arg(2), a))
+        if (!(s->ipx ? readIpxAddress : readAddress)(c, c.arg(1), c.arg(2), a))
             return fail(kEFAULT);
         a = ours(a);
         const Result r = net->bind(s->socket, a);
@@ -259,8 +312,16 @@ void GameHost::addNetwork() {
         const Result r = net->shutdown(s->socket, int(c.arg(1)));
         return r == Result::Ok || r == Result::NotConnected ? 0u : fail(wsError(r));
     });
+    // This machine's address for an IPX node: Options::netAddress, or its
+    // name's.
+    auto ipxNode = [this, net] {
+        uint32_t ip = options_.netAddress;
+        if (!ip && !net->resolve(net->hostName(), ip))
+            ip = 0x7f000001;
+        return ip;
+    };
     for (const bool peer : {true, false}) // getpeername (5), getsockname (6)
-        provide(w, peer ? "#5" : "#6", 3, [net, find, fail, peer](Cpu& c) {
+        provide(w, peer ? "#5" : "#6", 3, [net, find, fail, peer, ipxNode](Cpu& c) {
             WsSocket* s = find(c.arg(0));
             if (!s)
                 return fail(kENOTSOCK);
@@ -268,12 +329,18 @@ void GameHost::addNetwork() {
             const Result r = peer ? net->peerAddress(s->socket, a) : net->localAddress(s->socket, a);
             if (r != Result::Ok)
                 return fail(wsError(r));
+            if (s->ipx) {
+                if (!a.ip)
+                    a.ip = ipxNode();
+                writeIpxAddress(c, c.arg(1), c.arg(2), a);
+                return 0u;
+            }
             writeAddress(c, c.arg(1), c.arg(2), a);
             return 0u;
         });
 
     // send(s, buf, len, flags), recv(s, buf, len, flags): MSG_PEEK (2).
-    provide(w, "#19", 4, [net, find, fail, blocking](Cpu& c) {
+    provide(w, "#19", 4, [this, net, find, fail, blocking](Cpu& c) {
         WsSocket* s = find(c.arg(0));
         if (!s)
             return fail(kENOTSOCK);
@@ -283,9 +350,14 @@ void GameHost::addNetwork() {
         size_t done = 0;
         const int sock = s->socket;
         const Result r = blocking(*s, true, [&] { return net->send(sock, data.data(), data.size(), done); });
+        if (r == Result::Ok && netLog_) {
+            net::Address peer;
+            net->peerAddress(sock, peer);
+            logTraffic(true, c.arg(0), peer, data.data(), done);
+        }
         return r == Result::Ok ? uint32_t(done) : fail(wsError(r));
     });
-    provide(w, "#16", 4, [net, find, fail, blocking](Cpu& c) {
+    provide(w, "#16", 4, [this, net, find, fail, blocking](Cpu& c) {
         WsSocket* s = find(c.arg(0));
         if (!s)
             return fail(kENOTSOCK);
@@ -298,6 +370,11 @@ void GameHost::addNetwork() {
             return fail(wsError(r));
         for (size_t i = 0; i < done; ++i)
             c.write8(c.arg(1) + uint32_t(i), data[i]);
+        if (!peek && netLog_) {
+            net::Address peer;
+            net->peerAddress(sock, peer);
+            logTraffic(false, c.arg(0), peer, data.data(), done);
+        }
         return uint32_t(done);
     });
     // sendto(s, buf, len, flags, to, tolen): a broadcast to each of
@@ -307,7 +384,7 @@ void GameHost::addNetwork() {
         net::Address to;
         if (!s)
             return fail(kENOTSOCK);
-        if (!s->stream && !readAddress(c, c.arg(4), c.arg(5), to)) // a stream's is ignored
+        if (!s->stream && !(s->ipx ? readIpxAddress : readAddress)(c, c.arg(4), c.arg(5), to)) // a stream's is ignored
             return fail(kEFAULT);
         std::vector<uint8_t> data(c.arg(2));
         for (uint32_t i = 0; i < data.size(); ++i)
@@ -328,10 +405,11 @@ void GameHost::addNetwork() {
         for (const net::Address& t : targets)
             if (!(options_.netAddress && t.ip == options_.netAddress)) // not to itself
                 r = net->sendTo(s->socket, t, data.data(), data.size());
+        logTraffic(true, c.arg(0), to, data.data(), data.size());
         return r == Result::Ok ? c.arg(2) : fail(wsError(r));
     });
     // recvfrom(s, buf, len, flags, from, fromlen).
-    provide(w, "#17", 6, [net, find, fail, blocking](Cpu& c) {
+    provide(w, "#17", 6, [this, net, find, fail, blocking](Cpu& c) {
         WsSocket* s = find(c.arg(0));
         if (!s)
             return fail(kENOTSOCK);
@@ -346,7 +424,9 @@ void GameHost::addNetwork() {
             return fail(wsError(r));
         for (size_t i = 0; i < done; ++i)
             c.write8(c.arg(1) + uint32_t(i), data[i]);
-        writeAddress(c, c.arg(4), c.arg(5), from);
+        (s->ipx ? writeIpxAddress : writeAddress)(c, c.arg(4), c.arg(5), from);
+        if (!peek)
+            logTraffic(false, c.arg(0), from, data.data(), done);
         return uint32_t(done);
     });
 
@@ -404,12 +484,38 @@ void GameHost::addNetwork() {
         net->setOption(s->socket, option, v);
         return 0u;
     });
-    provide(w, "#7", 5, [find, fail](Cpu& c) { // getsockopt: zeros (SO_ERROR none, SO_TYPE from the socket)
+    // getsockopt: zeros (SO_ERROR none, SO_TYPE from the socket); for IPX
+    // (NSPROTO_IPX), one adapter (IPX_MAX_ADAPTER_NUM) and its address
+    // (IPX_ADDRESS: network 0, node this machine's address).
+    provide(w, "#7", 5, [find, fail, ipxNode, log](Cpu& c) {
         WsSocket* s = find(c.arg(0));
         if (!s)
             return fail(kENOTSOCK);
         if (!c.arg(3) || !c.arg(4))
             return fail(kEFAULT);
+        if (c.arg(1) == 1000 && c.arg(2) == 0x400d) { // IPX_MAX_ADAPTER_NUM
+            c.write32(c.arg(3), 1);
+            c.write32(c.arg(4), 4);
+            return 0u;
+        }
+        if (c.arg(1) == 1000 && c.arg(2) == 0x4007) { // IPX_ADDRESS: IPX_ADDRESS_DATA, 24 bytes
+            const uint32_t at = c.arg(3), ip = ipxNode();
+            if (c.read32(c.arg(4)) < 24)
+                return fail(kEFAULT);
+            for (uint32_t i = 4; i < 24; ++i) // adapter number (in) kept
+                c.write8(at + i, 0);
+            c.write8(at + 8, uint8_t(ip >> 24));
+            c.write8(at + 9, uint8_t(ip >> 16));
+            c.write8(at + 10, uint8_t(ip >> 8));
+            c.write8(at + 11, uint8_t(ip));
+            c.write8(at + 15, 1);         // status: up
+            c.write32(at + 16, 1470);     // the largest packet: what a UDP datagram carries safely
+            c.write32(at + 20, 100000);   // link speed, in 100 bit/s units: 10 Mbit/s
+            c.write32(c.arg(4), 24);
+            return 0u;
+        }
+        if (c.arg(1) == 1000)
+            log("getsockopt IPX " + std::to_string(c.arg(2)) + ": zero");
         const uint32_t value = c.arg(1) == 0xffff && c.arg(2) == 0x1008 ? (s->stream ? 1u : 2u) : 0u; // SO_TYPE
         c.write32(c.arg(3), value);
         c.write32(c.arg(4), 4);

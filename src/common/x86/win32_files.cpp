@@ -235,6 +235,23 @@ void Win32Process::addFileStandIns() {
 
     // CreateFileA(name, access, share, security, disposition, flags, template)
     auto open = [this, writable, writableCopy](const std::string& name, bool write, uint32_t disposition) -> uint32_t {
+        // COM1-COM9 (or \\.\COMn): the host's serial ports.
+        {
+            std::string device = name.rfind("\\\\.\\", 0) == 0 ? name.substr(4) : name;
+            std::transform(device.begin(), device.end(), device.begin(),
+                           [](unsigned char ch) { return char(std::tolower(ch)); });
+            if (device.size() == 4 && device.compare(0, 3, "com") == 0 && device[3] >= '1' && device[3] <= '9') {
+                auto port = openSerialPort ? openSerialPort(device[3] - '0') : nullptr;
+                if (fileOpened)
+                    fileOpened(name, port != nullptr);
+                if (!port) {
+                    lastError_ = kFileNotFound;
+                    return kInvalidHandle;
+                }
+                lastError_ = 0;
+                return addHandle(port);
+            }
+        }
         const std::string full = fullPath(name);
         // NUL, in any folder and with any extension, is the null device:
         // an empty file nothing written to lasts in.
@@ -306,13 +323,26 @@ void Win32Process::addFileStandIns() {
         const uint32_t buffer = c.arg(1), size = c.arg(2), done = c.arg(3);
         if (done)
             c.write32(done, 0);
+        if (!c.valid(buffer, size) && size) {
+            lastError_ = 998; // ERROR_NOACCESS
+            return 0u;
+        }
+        if (auto device = object<DeviceObject>(c.arg(0))) {
+            uint32_t n = 0, error = 0;
+            const uint32_t overlapped = c.arg(4);
+            const bool ok = device->read(c, buffer, size, overlapped != 0, n, error);
+            if (done)
+                c.write32(done, n);
+            if (overlapped && ok) { // Internal (status 0) and InternalHigh (bytes)
+                c.write32(overlapped, 0);
+                c.write32(overlapped + 4, n);
+            }
+            lastError_ = error;
+            return ok ? 1u : 0u;
+        }
         auto f = object<FileObject>(c.arg(0));
         if (!f) {
             lastError_ = kInvalidHandleError;
-            return 0u;
-        }
-        if (!c.valid(buffer, size) && size) {
-            lastError_ = 998; // ERROR_NOACCESS
             return 0u;
         }
         const size_t n = size ? std::fread(c.memory().data() + buffer, 1, size, f->file) : 0;
@@ -330,6 +360,13 @@ void Win32Process::addFileStandIns() {
         if (handle == kStdHandles + 1 || handle == kStdHandles + 2) {
             if (output)
                 output(std::string(data, size));
+        } else if (auto device = object<DeviceObject>(handle)) {
+            uint32_t n = 0, error = 0;
+            const bool ok = device->write(c, buffer, size, n, error);
+            if (done)
+                c.write32(done, n);
+            lastError_ = error;
+            return ok ? 1u : 0u;
         } else {
             auto f = object<FileObject>(handle);
             if (!f) {
@@ -396,7 +433,7 @@ void Win32Process::addFileStandIns() {
         return 1u;
     });
     stdcall(k, "GetFileType", 1, [this](Cpu& c) {
-        if (c.arg(0) >= kStdHandles && c.arg(0) <= kStdHandles + 2)
+        if ((c.arg(0) >= kStdHandles && c.arg(0) <= kStdHandles + 2) || object<DeviceObject>(c.arg(0)))
             return 2u; // FILE_TYPE_CHAR
         return object<FileObject>(c.arg(0)) ? 1u : 0u; // FILE_TYPE_DISK
     });

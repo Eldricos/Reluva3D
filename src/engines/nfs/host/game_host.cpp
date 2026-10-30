@@ -116,6 +116,7 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
     addSystem();
     addUser();
     addNetwork();
+    addSerial();
     addDirectX();
     addDirectSound();
     if (options_.nativeThrash) {
@@ -125,7 +126,10 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
     }
 }
 
-GameHost::~GameHost() = default;
+GameHost::~GameHost() {
+    if (netLog_)
+        std::fclose(netLog_);
+}
 
 namespace {
 
@@ -567,10 +571,6 @@ void GameHost::addSystem() {
             c.write32(c.arg(3), c.arg(2));
         return 1u;
     });
-    // No serial ports (modem play).
-    for (const char* name : {"GetCommState", "SetCommState", "GetCommProperties", "GetCommModemStatus",
-                             "SetCommTimeouts", "PurgeComm", "EscapeCommFunction"})
-        provide(k, name, 2, [](Cpu&) { return 0u; });
     provide(k, "GetOverlappedResult", 4, [](Cpu&) { return 0u; });
 
     // Display settings: GDI32.
@@ -870,6 +870,8 @@ void GameHost::addUser() {
     };
     provide(u, "GetMessageA", 4, [this, self, writeMsg](Cpu& c) {
         auto& q = queues_[self()];
+        if (tapiDeliver_)
+            tapiDeliver_(c);
         process_->wait([&] { return !q.empty(); }, 0xffffffffu);
         if (process_->ending()) {
             c.abort("the process is ending");
@@ -882,6 +884,8 @@ void GameHost::addUser() {
     });
     provide(u, "PeekMessageA", 5, [this, self, writeMsg](Cpu& c) {
         auto& q = queues_[self()];
+        if (tapiDeliver_)
+            tapiDeliver_(c);
         if (q.empty()) {
             process_->yield();
             return 0u;

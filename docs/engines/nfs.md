@@ -851,11 +851,13 @@ Started. Done so far:
       `gethostbyname`) to show it.
     - **Joining.** It asks for a domain name or IP address and connects
       to that player's port 1030.
-    - **Messages.** Each one starts with its 16-bit length, itself
-      included: the receiver peeks at 2 bytes, then at that many, then
-      reads them.
-    - **In a race.** Each player sends a 35-byte message about 29 times
-      a second, about once a frame. Nothing used UDP.
+    - **Messages** ([net.md](../formats/nfs/net.md)). Each one starts
+      with a big-endian 16-bit length of what follows: the receiver peeks
+      at 2 bytes, then at that many more, then reads them. (Taken at
+      first to include itself; the logs of `-netlog` showed otherwise.)
+    - **In a race.** The host sends a 35-byte frame of every car's
+      controls about 30 times a second, and each player its own controls
+      in 8 bytes. Nothing used UDP.
   - **Two copies on one machine.** `nfs-host -net` gives the game the
     machine's sockets, and `-netaddr 127.0.0.2` gives a copy its own
     loopback address wherever the game asks for any. So two copies can
@@ -871,6 +873,21 @@ Started. Done so far:
     - **Race.** A started the race, and both loaded the same race of
       eight cars (two players and six of the game's). They ran it for
       four minutes, their race clocks a second apart, with no drop-out.
+  - **IPX, over UDP** (October 2026). The game's IPX play
+    (`win\ipx.c`) uses Winsock's `AF_IPX` datagram sockets. The
+    stand-in carries them over UDP: an IPX node is an IPv4 address (its
+    first four bytes), an IPX socket number a UDP port, and the broadcast
+    node (all FF) a UDP broadcast (to `-broadcast`'s addresses if given).
+    `getsockopt` reports one adapter and its address (`IPX_MAX_ADAPTER_NUM`,
+    `IPX_ADDRESS`); the sockets may broadcast without asking. Two copies
+    (127.0.0.2 and 127.0.0.3): A chose Network (IPX), Create Game, a name
+    and Peer-to-Peer; B chose Refresh Game List, the game and Join. Both
+    reached the lobby listing both players, and raced Hometown, about
+    2,000 race messages each way, until B's run ended. The game finds
+    games on IPX socket 0x452 and then talks through EA's reliable layer
+    ([net.md](../formats/nfs/net.md)).
+  - **`-netlog file`** writes each message sent and received: the game's
+    milliseconds, the direction, the socket, the peer and the bytes.
   - **Scripting the menus.** A test script clicks by sending the cursor
     to the corner and then moving it to the point: the game's cursor is
     the sum of the mouse's moves, clamped to the screen, without

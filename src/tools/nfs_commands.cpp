@@ -76,6 +76,9 @@ const char* const kUsageLines =
     "                       [-joystick name] (keys also joy:A=V...: axes 0-5 = V, button bB; +key/-key held)\n"
     "                       [-wheel] [-ff] (the joystick a wheel; with force feedback) [-forcelog forces.csv]\n"
     "                       [-net] (the network) [-netaddr a.b.c.d] [-broadcast a.b.c.d,...]\n"
+    "                       [-netlog messages.txt] (each message sent and received, in hex)\n"
+    "                       [-serial listen:port | host:port] (COM ports: a link over TCP, with -net)\n"
+    "                       [-modem listen:port | host:port] (a TAPI modem whose calls are such links)\n"
     "                       [-deterministic instructionsPerMs] (a clock of instructions; the end state hashed)\n"
     "                       [-hotspots from to] (instructions counted by where they run, 16-byte blocks)\n"
     "                       [-gpulog] (THRASH recorded as for the GPU; each frame's list summed up)\n"
@@ -1046,6 +1049,12 @@ int cmdNfsHost(int argc, char** argv) {
             options.joystick = argv[++a];
         else if (arg == "-net")
             options.sockets = reluva::net::systemSockets();
+        else if (arg == "-netlog" && a + 1 < argc)
+            options.netLog = argv[++a];
+        else if (arg == "-serial" && a + 1 < argc)
+            options.serial = argv[++a];
+        else if (arg == "-modem" && a + 1 < argc)
+            options.modem = argv[++a];
         else if ((arg == "-netaddr" || arg == "-broadcast") && a + 1 < argc) {
             const std::string list = argv[++a];
             for (size_t at = 0; at < list.size();) {

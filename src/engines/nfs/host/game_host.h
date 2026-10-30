@@ -13,6 +13,7 @@
 #include "engines/nfs/host/thrash_native.h"
 
 #include <cstdint>
+#include <cstdio>
 #include <array>
 #include <atomic>
 #include <deque>
@@ -86,6 +87,18 @@ public:
         // 255.255.255.255 (empty: there).
         uint32_t netAddress = 0;
         std::vector<uint32_t> broadcastTo;
+        // A file to write each message the game sends or receives to, as a
+        // line: the game's milliseconds, > or <, the socket, the peer, the
+        // length and the bytes in hex (empty: none).
+        std::string netLog;
+        // The serial link every COM port is (serial.cpp): "listen:port" to
+        // wait for the other copy, "host:port" to connect to it; empty:
+        // no serial ports.
+        std::string serial;
+        // The modem's link (serial.cpp), as `serial`: "listen:port" answers
+        // calls, "host:port" is where calls go unless the number dialed is
+        // an address; empty: no modem (TAPI32 isn't there).
+        std::string modem;
     };
     GameHost(GameFolders folders, Options options);
     ~GameHost();
@@ -188,6 +201,13 @@ private:
     void addSystem();   // KERNEL32 left over, GDI32, ADVAPI32, VERSION, SHELL32, ole32
     void addUser();     // USER32: windows and messages
     void addNetwork();  // WSOCK32, on Options::sockets (winsock.cpp)
+    void addSerial();   // COM ports over TCP, on Options::serial (serial.cpp)
+    void addModem();    // TAPI32 for a modem, on Options::modem (serial.cpp)
+    // TAPI's events, delivered when the thread that started it next asks
+    // for messages (serial.cpp).
+    std::function<void(x86::Cpu&)> tapiDeliver_;
+    class SerialLink;
+    friend class SerialLink;
     void addDirectX();  // DDRAW and DINPUT
     void addDirectSound();
     void addNativeRoutines(); // the C library's hottest routines in nfs3.exe, natively
@@ -267,11 +287,14 @@ private:
     struct WsSocket {
         int socket = -1;
         bool stream = false, nonBlocking = false, bound = false;
+        bool ipx = false; // an IPX datagram socket, carried over UDP (winsock.cpp)
     };
     std::map<uint32_t, WsSocket> wsSockets_;
     uint32_t nextWsSocket_ = 0x100;
     std::map<uint32_t, uint32_t> wsLastError_; // by thread
     bool wsStarted_ = false;
+    std::FILE* netLog_ = nullptr;
+    void logTraffic(bool sent, uint32_t handle, const net::Address& peer, const uint8_t* data, size_t size);
     uint32_t wsBuffer_ = 0; // inet_ntoa's and gethostbyname's results
     int mouseDx_ = 0, mouseDy_ = 0;
     bool mouseButton_ = false;

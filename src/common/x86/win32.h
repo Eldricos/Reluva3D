@@ -46,6 +46,17 @@ struct KernelObject {
     virtual ~KernelObject() = default;
 };
 
+// A character device the host provides (a serial port): ReadFile and
+// WriteFile on its handle come here. They run on the program's thread and
+// may wait (Win32Process::wait); each returns false (and sets `error`, a
+// Windows error code) on failure. A read given an OVERLAPPED (`overlapped`)
+// mustn't wait: it completes at once with what there is, which the
+// program takes as an overlapped read finished straight away.
+struct DeviceObject : KernelObject {
+    virtual bool read(Cpu& cpu, uint32_t buffer, uint32_t size, bool overlapped, uint32_t& done, uint32_t& error) = 0;
+    virtual bool write(Cpu& cpu, uint32_t buffer, uint32_t size, uint32_t& done, uint32_t& error) = 0;
+};
+
 // A Windows process for 32-bit DLLs built for Windows 95 to XP (the C
 // runtime of Visual C++ 6 and its kind) to run in: their images loaded
 // and relocated, their imports bound, the system's functions they call
@@ -150,6 +161,10 @@ public:
     std::filesystem::path hostPath(const std::string& windowsPath, bool forWriting) const;
     // Each file the program opens, and whether it was there.
     std::function<void(const std::string& windowsPath, bool found)> fileOpened;
+    // A device the program opens by name: "COM1" to "COM9" (also as
+    // "\\.\COM1"), its number given; null if there's none (the open fails
+    // with ERROR_FILE_NOT_FOUND).
+    std::function<std::shared_ptr<DeviceObject>(int port)> openSerialPort;
 
     // --- Threads (win32_threads.cpp) -----------------------------------------------
     // The program's threads take turns on the processor, each on a host
