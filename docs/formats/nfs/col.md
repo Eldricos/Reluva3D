@@ -195,18 +195,11 @@ to the points, used in place):
     - under 22: a kind-6 particle when the speed or the impact is over
       15 (`0x42b248`).
 
-    The particle kinds are 128-byte templates (`0x560b64` + kind ×
-    128, static data, copied by `0x4ca850`). Read off the template
-    values, so what they look like is inferred, not seen:
-    - **kind 3, sparks:** 16 ticks' life (`+0x4`, `0x4ca8f4`), white
-      turning orange (`+0x4c` `0xffffffff`, `+0x50` `0xff00c6ff`),
-      −0.25 at `+0x2c` (falling), flag `+0x58` set (also on kinds 7
-      and 8, the other orange ones); `+0x0` is the burst's count;
-    - **kind 2, a puff of dust:** 128 ticks, light grey at half
-      opacity fading to clear (`0x7fdfdfdf` → `0x7f000000`), growing
-      (`+0x44` 3), slowed each tick (`+0x38` 0.8, `0x4cb4d0`);
-    - **kind 6, smoke:** 256 ticks, grey (`0x7fffffff` →
-      `0x7f404040`).
+    Every one of these happens only on a tick the kind's throttle
+    allows, so a slow hit's smoke often doesn't come (Particles, below).
+    The single particle is `0x4cae00`: the kind's own, at the contact,
+    with no velocity given, spinning either way (`+0x34` × ±1 from the
+    random number's bit 0); kind 0 makes nothing.
 
     Also from the impact code but not side-specific: a heavy hit (over
     30) adds to car `+0x8d4` (`0x42ad15`), damage perhaps; and
@@ -229,5 +222,125 @@ to the points, used in place):
   a brick wall stands there too. Code 3 wasn't looked at.
 
 This is what the game drives on and keeps cars within. It will matter
-for driving, AI and the camera. Reluva reads it, but uses it only for
-the walls guide so far.
+for driving, AI and the camera. Reluva reads it, and uses it for the
+walls guide and the wall hits' particles (below) so far.
+
+### Particles
+
+The wall hits' sparks, dust and smoke, read from nfs3.exe in October
+2026, from making to drawing. Reluva has them in
+`src/engines/nfs/particles.cpp` and shows them on the Track page (key P
+at the wall nearest the line of sight; Shift+P a fast hit). The ticks
+below are the game's, 64 a second (`0x7d3684`); a particle's life is
+counted every other one.
+
+**Templates.** A kind's 128 bytes at `0x560b64` + kind × 128 (static
+data; 14 kinds, those of the wall hits here). What the code reads:
+
+| Offset | Read by | Meaning | 2 dust | 3 sparks | 6 smoke |
+|---|---|---|---|---|---|
+| +0x00 | `0x4cac30` | a burst's count | 1 | 30 | 1 |
+| +0x04 | `0x4ca8f4` | life, ticks of 32 a second | 128 | 16 | 256 |
+| +0x08 | `0x4ca88f` | throttle: made only when (tick / 2) % (this + 1) is 0 | 1 | 0 | 3 |
+| +0x10 | `0x4ca872` | upward speed | 3.1 | 2 | 1.5 |
+| +0x14 | `0x4ca878` | speed along the first direction given | 2 | 5 | 0.5 |
+| +0x18 | `0x4ca884` | speed along the second | 3.5 | 2 | 0.5 |
+| +0x1c | `0x4ca916` | each speed × 1 + (random − ½) × this | 0.5 | 0.5 | 0.5 |
+| +0x20, +0x24, +0x28 | `0x4caa24` | a sideways push: its turning, size and growth | 0.05, 0.05, 0.047 | 0.02, 0.05, 0.031 | 0 |
+| +0x2c | `0x4cb427` | added to the upward speed each tick (gravity) | 0 | −0.25 | 0 |
+| +0x30 | `0x4ca9fa` | spin, turns a tick | 0.5 | 0 | 0.1 |
+| +0x34 | `0x4ca88c` | part of the velocity given (a car's) | 0.5 | 0.5 | 0.5 |
+| +0x38 | `0x4cb4d0` | drag: speeds, spin and push × this each tick | 0.8 | 1 | 0.95 |
+| +0x3c | `0x4cb556` | if set, spin held within ±0.25 | 0 | 0 | 0 |
+| +0x40 | `0x4ca9c7` | size: half the picture's diagonal | 0.75 | 0.01 | 0.75 |
+| +0x44 | `0x4ca9e9` | growth over the life | 3 | 0 | 2.5 |
+| +0x48 | `0x4ca9ca` | size × 1 + random × this | 0.5 | 0 | 0.5 |
+| +0x4c | `0x4caa55` | colour at birth, ARGB | `7FDFDFDF` | `FFFFFFFF` | `7FFFFFFF` |
+| +0x50 | `0x4cb388` | taken off the colour over the life, byte by byte | `7F000000` | `FF00C6FF` | `7F404040` |
+| +0x54 | `0x4caa5f` | random part taken off the colour at birth | 0 | 0 | 0 |
+| +0x58 | `0x4cc026` | the polygon's flags word (`+0x6`) | 0 | 1 | 0 |
+| +0x5c | `0x4cab0b` | drawn as a streak | 0 | 1 | 0 |
+| +0x60 | `0x4cbdd1` | farthest drawn, units (× 1, 1, 0.85, 0.7 by the option at `0x6fbc28`, `0x4ca480`) | 150 | 50 | 150 |
+| +0x64, +0x68 | `0x4ca515` | `SLnn` pictures and something near the camera (`0x4ca500`); not these kinds | 0 | 0 | 0 |
+
+**Making one** (`0x4ca850`: kind, position, scale s, directions a and
+b, velocity c). It takes a free slot of the 600 at `0x7ddfd0` (128 bytes
+each), else the one with the least life (`0x4ca4b0`). Nothing is made
+when the Horizon option (`0x6fbc30`) is Off, or when it is Low on
+every other of the throttle's turns ((tick / 2) % (2 × throttle + 2)
+is 0, kept at `+0x7d`; the drawing skips those too), or off the
+throttle's turn. Then life and its maximum from `+0x04`; the three
+speeds each × 1 ± spread/2 (random numbers in the order up, along,
+across); velocity = s × along × a + s × across × b + c × `+0x34`, plus
+s × up on y; size `+0x40` × (1 + random × `+0x48`); growth `+0x44` × s;
+angle a random part of a turn; spin `+0x30` × s; the push from
+`+0x20`-`+0x28` at a random angle; the colour; the picture
+(`0x7ddd68` + kind × 44). A particle with no velocity at all is freed
+at once. The random numbers are `0x4eb230`'s (`0x4e0d88`'s low 16
+bits / 65536); Reluva uses its own generator for them.
+
+**The spawners.** `0x4cae00` (one particle, above): s 1, a, b and c 0,
+so it only rises. `0x4cac20` (the sparks' burst, given the contact and
+the car's speed / 2, `0x42b17a`): 30 sparks (`+0x00`), or
+round(30 × speed / 20) when that speed is under 20, so 16-29 for car
+speeds 22-39; a = the car's velocity (`+0xa4`) as a unit vector, b =
+from the car's position (`+0x98`) to the contact as one, c = the car's
+velocity + 6 × random − 3 on each axis, s = 0.75-1 at random. Each spark
+then loses up to half its life (random % (life / 2)) and gets 0-2
+children (random % 3, `+0x7e`). When a spark with children dies,
+`0x4cab60` makes that many more sparks where it was: a its velocity's
+direction, c its velocity, s 0.25-1, half the life (8 of 16, so they
+start half orange).
+
+**Each tick** (`0x4cb2c0`, in the 64 Hz task list after the cars,
+`0x4bc931`), for each live particle: on odd ticks only,
+- part = (maximum − life) / maximum;
+- the push (if its turning isn't 0): velocity x += sin(push angle) ×
+  push size, z += cos(push angle) × push size; its growth and turning
+  × drag; push size += growth; push angle += turning (angles in turns,
+  `0x4ea930`);
+- the spin: angle += spin, then spin × drag;
+- size = birth size + growth × part;
+- on ticks with bit 1 also set, the colour: each byte = birth byte −
+  round(`+0x50` byte × part); so sparks go from white to `FFFF3900`
+  (orange) as their alpha goes to 0, dust and smoke fade from half
+  opacity;
+- velocity x, z × drag, y = (y + gravity) × drag;
+- life − 1; freed when the alpha reaches 0; children made at 0.
+
+And every tick, odd or even, position += velocity / 64 (`0x4cb46e`).
+
+**Drawing** (`0x4cbc90`, per view). Each particle in the camera's
+space: not drawn behind the camera or past `+0x60`. Its half size on
+the screen is size × the projection's scale / depth, rounded to whole
+pixels (at depths under 1 it isn't divided). The quad (`0xa0` bytes) carries the particle's colour at its
+four corners, its kind's picture and the template's `+0x58` as its
+flags; quads are sorted by depth (`0x4c7610`) with the scene's.
+- **Sparks** (`+0x5c` set): a streak from where the spark was. The
+  game keeps, per view, the last screen point (`+0x58`) and whether it
+  was drawn (`+0x78`); drawn last frame, the corners are that point
+  twice and the spark's point ± (w, h), w and h its half size held to
+  0.5-1 pixel, and the kept point moves halfway to the spark; else a
+  dot of w × h from the spark's point, which is kept. So the streak's
+  length is the screen movement over about two frames.
+- **The rest:** a square turned by the angle: corners at (−A, B),
+  (B, A), (A, −B), (−B, −A) from the centre, A = sin(angle) × half,
+  B = cos(angle) × half (`0x4cc235`).
+- With renderer flag bit 6 (`0x7a3a58`) set and the effects intensity
+  under 1, kinds with `+0x58` bit 0 are dimmed as the lights are
+  (`0x4cbf2f`; [frd.md](frd.md), Lights).
+
+**Pictures** (`0x4cb590`): `SNnn` of `GameData/Render/pc/sfx.fsh` for
+kind nn, `SPnn` when the night flag (`0x6fd4c8`) is set. `SN03` (sparks)
+is 8 × 8, opaque, yellow; `SN02` (dust) a dark brown puff and `SN06`
+(smoke) a grey one, 32 × 32 with alpha.
+
+**Inferred, not followed:** that flags bit 0 means the quad is added
+rather than blended (the lights' glows set it too, `0x49155f`, and the
+Track page adds those); that the picture is multiplied by the corners'
+colour; which corner of the picture goes where; whether particles are
+fogged. The Track page also works the streak in the world rather than
+on the screen, doesn't round sizes to pixels, and makes up the car (its
+speed 40 or 18, impact 10, `+0x15c` 0, the contact half a unit in from
+the wall's line and up from the road, the centre a unit further in).
+

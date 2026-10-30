@@ -16,6 +16,7 @@
 #include "engines/nfs/bnk.h"
 #include "engines/nfs/mad.h"
 #include "engines/nfs/mus.h"
+#include "engines/nfs/particles.h"
 #include "engines/nfs/ffn.h"
 #include "engines/nfs/folders.h"
 #include "engines/nfs/fsh.h"
@@ -260,6 +261,9 @@ private:
 //   V: vertex light   L: lanes   O: objects   G: the virtual road's walls and edges
 //   X: next texture set (two, then their 8-bit versions)   F: back faces   R: start
 //   I: dim the lights as the game's effects intensity does (100, 75, 50, 25%)
+//   P: a wall hit at the nearest virtual-road wall ahead, its particles as
+//   the game makes them for that side's code (Shift+P: a fast hit, 40;
+//   else 18); held, it repeats
 class TrackPage : public Page {
 public:
     TrackPage(const GameFiles& files, const GameFolders& folders, audio::Mixer* mixer = nullptr);
@@ -390,6 +394,29 @@ private:
     void loadSounds();
     void stopSounds();
     void updateSounds(const gfx::Vec3& eye, const gfx::Vec3& right);
+    // Wall-hit particles (particles.h), run at the game's 64 ticks a
+    // second and drawn as it draws them, with sfx.fsh's SNnn (SPnn at
+    // night) pictures.
+    ParticleSystem particles_;
+    ParticleRandom particleRandom_;
+    uint64_t particleTick_ = 0, particleStartMs_ = 0;
+    std::vector<WallHit> pendingHits_; // made at the next tick
+    std::string hitText_;
+    std::map<std::string, gfx::TextureId> particlePictures_; // by picture name, owned by textures_
+    gfx::MeshId particleMesh_ = 0;
+    // This frame's particles: runs of the mesh's quads drawn alike.
+    struct ParticleRun {
+        gfx::TextureId texture = 0;
+        bool added = false;
+        uint32_t first = 0, count = 0; // quads
+    };
+    std::vector<ParticleRun> particleRuns_;
+    gfx::TextureId particlePicture(int kind);
+    void hitWall(bool fast);
+    void tickParticles(uint64_t nowMs);
+    // Before the frame: the particles' quads; after the scene: drawn.
+    void prepareParticles(const gfx::Vec3& eye, const gfx::Vec3& forward, const gfx::Vec3& right, const gfx::Vec3& up);
+    void drawParticles();
     int variant_ = 0;
     int detail_ = 2, textureSet_ = 0, block_ = 0;
     bool textured_ = true, vertexLight_ = true, lanes_ = true, objects_ = true, cullBack_ = false, walls_ = false;

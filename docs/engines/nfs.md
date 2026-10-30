@@ -283,6 +283,14 @@ What was built, with each format written up in `docs/formats/nfs/`:
     game's loader has it;
   - the placed sounds as the game plays them: one loop, random
     one-shots, each block's first sound only.
+  - wall-hit particles (key P, Shift+P for a fast hit): at the
+    virtual-road wall nearest the line of sight, the side's code picks
+    sparks, dust or smoke as the impact code does, and they move at the
+    game's 64 ticks a second by its rules and are drawn as it draws
+    them: sparks as thin streaks, dust and smoke as turning pictures
+    from `sfx.fsh` ([col.md](../formats/nfs/col.md), Particles). The
+    car is made up (its speed 40 or 18, its centre a unit in from the
+    wall) and the random numbers aren't the game's.
 - **The Cockpits page** shows each car's `dash.qfs`: the dash, the
   steering wheel, the F355's gear indicator, and the speedometer and
   tachometer needles where the picture's `0x7C` block puts them

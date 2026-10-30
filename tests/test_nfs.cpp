@@ -18,6 +18,7 @@
 #include "engines/nfs/host/thrash_native.h"
 #include "engines/nfs/mad.h"
 #include "engines/nfs/mus.h"
+#include "engines/nfs/particles.h"
 #include "engines/nfs/games.h"
 #include "engines/nfs/refpack.h"
 #include "engines/nfs/text_table.h"
@@ -838,6 +839,114 @@ void testLightLook() {
     // Type 6: bit 5, 27 ticks ahead.
     CHECK(lightLook(6, 4).shown && !lightLook(6, 5).shown && lightLook(6, 37).shown);
     CHECK(lightLook(10, 0).color >> 24 == 0xba && lightLook(10, 0).size == 2.5f);
+}
+
+void testParticles() {
+    // The side codes' kinds (0x553740) and the burst's count (0x4cac20).
+    CHECK(wallParticleKind(1) == 3 && wallParticleKind(2) == 3 && wallParticleKind(4) == 3);
+    CHECK(wallParticleKind(3) == 2 && wallParticleKind(5) == 2 && wallParticleKind(7) == 2);
+    CHECK(wallParticleKind(0) == 0 && wallParticleKind(6) == 0 && wallParticleKind(9) == 0);
+    CHECK(burstCount(20) == 30 && burstCount(30) == 30 && burstCount(11) == 16 && burstCount(15) == 22);
+    // Sparks: white, to orange and clear (bytes rounded as fistp, halves to even).
+    const ParticleTemplate& sparks = *particleTemplate(3);
+    CHECK(particleColour(sparks, 0) == 0xffffffff && particleColour(sparks, 1) == 0x00ff3900);
+    CHECK(particleColour(sparks, 0.5f) == 0x7fff9c7f);
+    CHECK(particleColour(*particleTemplate(2), 1) == 0x00dfdfdf);
+    CHECK(!particleTemplate(1) && particleTemplate(6)->life == 256);
+
+    // One dust puff (0x4cae00): random 0.5 throughout, so the template's own
+    // speeds; it rises, spins (the sign from the first number's bit 0).
+    ParticleSystem sys;
+    ParticleRandom random;
+    random.script = {1, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000};
+    sys.spawnOne(2, {10, 20, 30}, 0, random);
+    CHECK(sys.live() == 1);
+    const Particle* p = &sys.particles()[0];
+    CHECK(p->kind == 2 && p->life == 128 && p->lifeMax == 128 && p->colour == 0x7fdfdfdf);
+    CHECK(p->velocity[0] == 0 && std::fabs(p->velocity[1] - 3.1f) < 1e-6f && p->velocity[2] == 0);
+    CHECK(p->size == 0.9375f && p->spin == 0.5f && p->growth == 3.0f && p->angle == 0.5f);
+    // The throttle: dust every other pair of ticks, smoke one in four; none
+    // with Horizon off, half at Low.
+    sys.clear();
+    CHECK(!sys.spawn(2, {}, 1, {}, {}, {}, 2, random) && sys.spawn(2, {}, 1, {}, {}, {}, 4, random));
+    CHECK(sys.spawn(6, {}, 1, {}, {}, {}, 1, random) && !sys.spawn(6, {}, 1, {}, {}, {}, 6, random) &&
+          sys.spawn(6, {}, 1, {}, {}, {}, 8, random));
+    CHECK(!sys.spawn(3, {}, 1, {}, {}, {}, 0, random, 2) && !sys.spawn(3, {}, 1, {}, {}, {}, 0, random, 1) &&
+          sys.spawn(3, {}, 1, {}, {}, {}, 2, random, 1));
+    // Nothing moving: not made.
+    sys.clear();
+    CHECK(sys.spawn(6, {}, 0, {}, {}, {}, 0, random) && sys.live() == 0);
+
+    // A spark: along × a + across × b + up, then falling and moving 1/64 of
+    // its velocity a game tick, the rest every other tick.
+    sys.clear();
+    random.script = {0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000};
+    Particle* s = sys.spawn(3, {0, 0, 0}, 1, {0, 0, 1}, {1, 0, 0}, {0, 0, 0}, 0, random);
+    CHECK(s && s->velocity[0] == 2 && s->velocity[1] == 2 && s->velocity[2] == 5);
+    sys.step(0, random); // even: moves only
+    CHECK(s->life == 16 && s->position[2] == 5 / 64.0f && s->velocity[1] == 2);
+    sys.step(1, random);
+    CHECK(s->life == 15 && s->velocity[1] == 1.75f && s->colour == 0xffffffff);
+    sys.step(2, random);
+    sys.step(3, random); // odd with bit 1: the colour, at 1/16 of its life
+    CHECK(s->life == 14 && s->colour == particleColour(sparks, 1 / 16.0f));
+    // Its end: two more sparks of half the life from where it was.
+    s->children = 2;
+    random.script.clear();
+    for (uint32_t tick = 4; sys.particles()[0].children != 0 && tick < 64; ++tick)
+        sys.step(tick, random);
+    // The second, in a later slot, is stepped in the same pass (as the game).
+    CHECK(sys.particles()[0].life == 8 && sys.particles()[1].life == 7 && sys.live() == 2);
+    CHECK(sys.particles()[0].children == 0 && sys.particles()[0].lifeMax == 16);
+
+    // When all 600 are taken, the one with the least life goes.
+    sys.clear();
+    for (int i = 0; i < ParticleSystem::kSlots; ++i)
+        sys.particles()[size_t(i)].life = 100 + (i == 321 ? -50 : i);
+    CHECK(&sys.slot() == &sys.particles()[321]);
+
+    // Wall hits (0x42ac40): fast on a sparks code, one spark and a burst of
+    // 30; fast on dust, two puffs; slow, the code's particle and smoke.
+    auto hitCount = [&](int code, float speed, float rough = 0) {
+        ParticleSystem hits;
+        WallHit hit;
+        hit.code = code;
+        hit.speed = speed;
+        hit.impact = 10;
+        hit.rough = rough;
+        hit.contact = {1, 0, 0};
+        hit.carVelocity = {0, 0, speed};
+        wallHitParticles(hits, hit, 0, random);
+        return hits.live();
+    };
+    CHECK(hitCount(4, 40) == 31 && hitCount(1, 22) == 1 + 16 && hitCount(5, 40) == 2);
+    CHECK(hitCount(5, 18) == 2 && hitCount(0, 18) == 1 && hitCount(0, 40) == 0 && hitCount(4, 10) == 1);
+    CHECK(hitCount(4, 40, 3) == 2);
+    // The burst's sparks live 9-16 ticks and may each leave 0-2 more.
+    {
+        ParticleSystem hits;
+        hits.burst({0, 0, 0}, {-1, 0, 0}, {0, 0, 40}, 20, 0, random);
+        bool ok = hits.live() == 30;
+        for (const Particle& q : hits.particles())
+            if (q.life)
+                ok = ok && q.life >= 9 && q.life <= 16 && q.children >= 0 && q.children <= 2 && q.velocity[2] > 10;
+        CHECK(ok);
+    }
+
+    // Drawing: a square turned by the angle, its corners `half` away; a
+    // streak from where the spark was drawn, the tail then halfway.
+    Particle d;
+    d.position = {5, 5, 5};
+    const ParticleVec right{1, 0, 0}, up{0, 1, 0};
+    auto corners = pictureCorners(d, right, up, 2);
+    CHECK(corners[0] == (ParticleVec{5, 3, 5}) && corners[1] == (ParticleVec{7, 5, 5}) &&
+          corners[2] == (ParticleVec{5, 7, 5}) && corners[3] == (ParticleVec{3, 5, 5}));
+    corners = streakCorners(d, right, up, 0.5f, 0.1f); // held to half a pixel
+    CHECK(d.tailSet && d.tail == d.position && corners[0] == d.position && corners[2] == (ParticleVec{5.25f, 4.75f, 5}));
+    d.position = {9, 5, 5};
+    corners = streakCorners(d, right, up, 0.5f, 3); // held to a pixel
+    CHECK(corners[0] == (ParticleVec{5, 5, 5}) && corners[1] == corners[0] && corners[2] == (ParticleVec{9.5f, 4.5f, 5}) &&
+          corners[3] == (ParticleVec{8.5f, 5.5f, 5}) && d.tail == (ParticleVec{7, 5, 5}));
 }
 
 void testTrack() {
@@ -1810,6 +1919,7 @@ int main() {
     testModel();
     testTrack();
     testLightLook();
+    testParticles();
     testPolygonAnimation();
     testReflectionUv();
     testPlacedSounds();

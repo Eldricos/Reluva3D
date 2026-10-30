@@ -44,6 +44,8 @@ constexpr const char* kCloudPicture[] = {"CLDD", "CLDN", "CLWD", "CLWN"};
 // The game's ticks (0x7d3684 counts them): 641 in 10 seconds of a race.
 // Moving objects' key delays and the clouds' drift are in them.
 constexpr int kGameTicksPerSecond = 64;
+// The camera's vertical field of view (radians), as gfx::perspective has it.
+constexpr float kFieldOfView = 1.0f;
 
 std::string lower(const std::string& s) { return fs::toLower(s); }
 
@@ -140,6 +142,14 @@ void TrackPage::release() {
     if (renderer_ && markMesh_)
         renderer_->destroyMesh(markMesh_);
     markMesh_ = 0;
+    particles_.clear();
+    pendingHits_.clear();
+    hitText_.clear();
+    particlePictures_.clear(); // owned by textures_
+    particleRuns_.clear();
+    if (renderer_ && particleMesh_)
+        renderer_->destroyMesh(particleMesh_);
+    particleMesh_ = 0;
     if (renderer_) {
         if (mesh_)
             renderer_->destroyMesh(mesh_);
@@ -995,6 +1005,204 @@ void TrackPage::updateSounds(const gfx::Vec3& eye, const gfx::Vec3& right) {
             soundsPlaying_[loop] = mixer_->play(sound, audio::SoundType::Effects, loopVolume, loopPan, true);
 }
 
+// A wall hit at the virtual road's wall nearest the line of sight (ahead,
+// within 150 units): a car going along the road the way the
+// camera looks, at 40 (fast) or 18, its side against the wall, as the
+// game's impact code (0x42ac40) would see it. Made at the next tick.
+void TrackPage::hitWall(bool fast) {
+    const gfx::Vec3 forward{std::sin(yaw_) * std::cos(pitch_), std::sin(pitch_), -std::cos(yaw_) * std::cos(pitch_)};
+    const auto& road = collision_.road;
+    int best = -1;
+    bool bestRight = false;
+    float bestDistance = 1e9f;
+    for (size_t i = 0; i < road.size(); ++i)
+        for (bool right : {false, true}) {
+            const TrackCollision::RoadPoint& p = road[i];
+            const int code = (p.unknown >> (right ? 16 : 20)) & 15; // byte 14: low nibble right
+            if (code == 0)
+                continue;
+            const float s = right ? p.rightWall : -p.leftWall;
+            const float d[3] = {p.position[0] + p.right[0] * s - eye_[0], p.position[1] + p.right[1] * s - eye_[1],
+                                -(p.position[2] + p.right[2] * s) - eye_[2]};
+            // How far from the line of sight, of those ahead.
+            const float ahead = d[0] * forward[0] + d[1] * forward[1] + d[2] * forward[2];
+            const float distance = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+            if (ahead < 1 || distance > 150)
+                continue;
+            const float off = std::sqrt(std::max(0.0f, distance * distance - ahead * ahead));
+            if (off >= bestDistance)
+                continue;
+            best = static_cast<int>(i);
+            bestRight = right;
+            bestDistance = off;
+        }
+    if (best < 0) {
+        hitText_ = road.empty() ? "wall hit: this track has no virtual road" : "wall hit: no wall ahead";
+        return;
+    }
+    const TrackCollision::RoadPoint& p = road[size_t(best)];
+    WallHit hit;
+    hit.code = (p.unknown >> (bestRight ? 16 : 20)) & 15;
+    hit.speed = fast ? 40.0f : 18.0f;
+    hit.impact = 10;
+    const float s = bestRight ? p.rightWall : -p.leftWall;
+    const float out = bestRight ? 1.0f : -1.0f; // from the road to the wall
+    // The contact half a unit in from the wall's line and up from the road
+    // (the game's is the car's corner, +0x178), the car going the way the
+    // camera looks (the track's z is the world's -z), its centre a unit
+    // further in.
+    const float ahead = p.forward[0] * forward[0] + p.forward[1] * forward[1] - p.forward[2] * forward[2] >= 0 ? 1.0f : -1.0f;
+    for (int i = 0; i < 3; ++i) {
+        hit.contact[size_t(i)] =
+            p.position[size_t(i)] + p.right[size_t(i)] * (s - out * 0.5f) + p.normal[size_t(i)] * 0.5f;
+        hit.carPosition[size_t(i)] = hit.contact[size_t(i)] - p.right[size_t(i)] * out;
+        hit.carVelocity[size_t(i)] = p.forward[size_t(i)] * ahead * hit.speed;
+    }
+    pendingHits_.push_back(hit);
+    const int kind = wallParticleKind(hit.code);
+    const char* what = kind == 3 ? "sparks" : kind == 2 ? "dust" : "none";
+    const char* slow = hit.speed > 15 ? "smoke" : "nothing more";
+    char text[200];
+    const float dx = hit.contact[0] - eye_[0], dy = hit.contact[1] - eye_[1], dz = -hit.contact[2] - eye_[2];
+    std::snprintf(text, sizeof text, "wall hit: point %d, %s side, %.0f away, code %d (%s), speed %.0f: %s", best,
+                  bestRight ? "right" : "left", std::sqrt(dx * dx + dy * dy + dz * dz), hit.code, what, hit.speed,
+                  fast ? (kind == 3 ? "a burst of sparks" : kind == 2 ? "more dust" : "nothing more") : slow);
+    hitText_ = text;
+}
+
+// The particles at the game's rate: each 64 Hz tick the hits waiting,
+// then the particles' step (0x4cb2c0 runs after the cars in the "Sc64"
+// list). Not more than a second's worth at once.
+void TrackPage::tickParticles(uint64_t nowMs) {
+    if (!particleStartMs_ || nowMs < particleStartMs_)
+        particleStartMs_ = nowMs;
+    const uint64_t target = (nowMs - particleStartMs_) * kGameTicksPerSecond / 1000;
+    if (target > particleTick_ + kGameTicksPerSecond)
+        particleTick_ = target - kGameTicksPerSecond;
+    for (; particleTick_ < target; ++particleTick_) {
+        const uint32_t tick = static_cast<uint32_t>(particleTick_);
+        for (const WallHit& hit : pendingHits_)
+            wallHitParticles(particles_, hit, tick, particleRandom_);
+        pendingHits_.clear();
+        particles_.step(tick, particleRandom_);
+    }
+}
+
+// A kind's picture: SNnn of sfx.fsh, SPnn at night (0x4cb590).
+gfx::TextureId TrackPage::particlePicture(int kind) {
+    char name[8];
+    std::snprintf(name, sizeof name, "%s%02d", variant_ % 2 ? "SP" : "SN", kind % 100);
+    if (auto it = particlePictures_.find(name); it != particlePictures_.end())
+        return it->second;
+    gfx::TextureId id = 0;
+    bool additive = false;
+    picture(kLaneSheet, -1, false, &additive); // loads the sheet
+    for (const Shape& shape : banks_[kLaneSheet].shapes)
+        if (shape.name == name) {
+            image::Image img;
+            if (!decodeShape(shape, img) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), {}, id))
+                textures_.push_back(id);
+            else
+                id = 0;
+        }
+    particlePictures_[name] = id;
+    return id;
+}
+
+// The particles as 0x4cbc90 draws them: each a quad on the screen in its
+// colour over its kind's picture, nearer than the template's reach and in
+// front of the camera; sparks as streaks from where they were, the rest
+// as squares turned by their angle. Farthest first (the game sorts them
+// by depth, 0x4c7610).
+void TrackPage::prepareParticles(const gfx::Vec3& eye, const gfx::Vec3& forward, const gfx::Vec3& right,
+                                 const gfx::Vec3& up) {
+    particleRuns_.clear();
+    if (!renderer_ || particles_.live() == 0)
+        return;
+    constexpr uint32_t kQuads = ParticleSystem::kSlots;
+    if (!particleMesh_) {
+        std::vector<gfx::Vertex> vertices(kQuads * 4);
+        std::vector<uint32_t> indices;
+        for (uint32_t i = 0; i < kQuads; ++i)
+            for (uint32_t k : {0u, 1u, 2u, 0u, 2u, 3u})
+                indices.push_back(4 * i + k);
+        if (renderer_->createMesh(vertices, indices, particleMesh_))
+            particleMesh_ = 0;
+        if (!particleMesh_)
+            return;
+    }
+    // In the track's coordinates (z mirrored).
+    const ParticleVec r{right[0], right[1], -right[2]}, u{up[0], up[1], -up[2]};
+    const float focal = static_cast<float>(kFrameH) / 2 / std::tan(kFieldOfView / 2); // pixels
+    struct Shown {
+        Particle* p;
+        float depth;
+    };
+    std::vector<Shown> shown;
+    for (Particle& p : particles_.particles()) {
+        if (p.life == 0)
+            continue;
+        const ParticleTemplate* t = particleTemplate(p.kind);
+        const float depth = (p.position[0] - eye[0]) * forward[0] + (p.position[1] - eye[1]) * forward[1] +
+                            (-p.position[2] - eye[2]) * forward[2];
+        if (!t || depth <= 0 || depth > t->reach) {
+            p.tailSet = false;
+            continue;
+        }
+        shown.push_back({&p, depth});
+    }
+    std::sort(shown.begin(), shown.end(), [](const Shown& a, const Shown& b) { return a.depth > b.depth; });
+    std::vector<gfx::Vertex> vertices(kQuads * 4);
+    static constexpr float kUv[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+    for (size_t q = 0; q < shown.size(); ++q) {
+        Particle& p = *shown[q].p;
+        const ParticleTemplate& t = *particleTemplate(p.kind);
+        const float pixel = shown[q].depth / focal;
+        const std::array<ParticleVec, 4> corners =
+            t.streak ? streakCorners(p, r, u, pixel, p.size / pixel) : pictureCorners(p, r, u, p.size);
+        for (int k = 0; k < 4; ++k) {
+            gfx::Vertex& v = vertices[q * 4 + size_t(k)];
+            v.pos[0] = corners[size_t(k)][0];
+            v.pos[1] = corners[size_t(k)][1];
+            v.pos[2] = -corners[size_t(k)][2];
+            v.uv[0] = kUv[k][0];
+            v.uv[1] = kUv[k][1];
+            v.normal[1] = 1;
+            v.color[0] = static_cast<uint8_t>(p.colour >> 16);
+            v.color[1] = static_cast<uint8_t>(p.colour >> 8);
+            v.color[2] = static_cast<uint8_t>(p.colour);
+            v.color[3] = static_cast<uint8_t>(p.colour >> 24);
+        }
+        const gfx::TextureId texture = particlePicture(p.kind);
+        const bool added = (t.flags & 1) != 0;
+        if (particleRuns_.empty() || particleRuns_.back().texture != texture || particleRuns_.back().added != added)
+            particleRuns_.push_back({texture, added, static_cast<uint32_t>(q), 0});
+        ++particleRuns_.back().count;
+    }
+    if (renderer_->setMeshVertices(particleMesh_, vertices))
+        particleRuns_.clear();
+}
+
+// Over the scene, tested against its depth but not written to it: blended
+// by their alpha, or added (polygon flag 1, as the lights' glows; inferred).
+void TrackPage::drawParticles() {
+    if (particleRuns_.empty())
+        return;
+    gfx::DrawCall call;
+    call.mesh = particleMesh_;
+    call.rgbSource = call.alphaSource = gfx::ColorSource::Vertex;
+    call.state.cull = gfx::Cull::None;
+    call.state.depthWrite = false;
+    call.state.src = gfx::Blend::SrcAlpha;
+    for (const ParticleRun& run : particleRuns_) {
+        call.texture = run.texture;
+        call.state.dst = run.added ? gfx::Blend::One : gfx::Blend::OneMinusSrcAlpha;
+        call.firstIndex = 6 * run.first;
+        call.indexCount = 6 * run.count;
+        renderer_->draw(call);
+    }
+}
+
 // Puts the camera above a block's centre, looking along the road.
 void TrackPage::toBlock(int block) {
     if (track_.blocks.empty())
@@ -1043,6 +1251,7 @@ void TrackPage::handleEvent(const Event& ev) {
         case 'g': walls_ = !walls_; break;
         case 'f': cullBack_ = !cullBack_; break;
         case 'y': fog_ = !fog_; break;
+        case 'p': hitWall((ev.mods & keymod::Shift) != 0); break;
         case 'i': lightIntensity_ = lightIntensity_ <= 0.25f ? 1.0f : lightIntensity_ - 0.25f; break;
         case 'm':
             marksShown_ = !marksShown_;
@@ -1124,7 +1333,7 @@ void TrackPage::update(uint64_t nowMs) {
 
     const gfx::Vec3 eye{eye_[0], eye_[1], eye_[2]};
     const gfx::Mat4 viewProj =
-        gfx::multiply(gfx::perspective(1.0f, float(kFrameW) / float(kFrameH), 0.5f, 6000.0f),
+        gfx::multiply(gfx::perspective(kFieldOfView, float(kFrameW) / float(kFrameH), 0.5f, 6000.0f),
                       gfx::lookAlong(eye, forward, {0, 1, 0}));
     Horizon::Rgb fog;
     float fogDensity = 0;
@@ -1134,6 +1343,9 @@ void TrackPage::update(uint64_t nowMs) {
         fogDensity = 0;
     tickSky(nowMs);
     updateSky(forward, right);
+    const gfx::Vec3 up{-std::sin(pitch_) * std::sin(yaw_), std::cos(pitch_), std::sin(pitch_) * std::cos(yaw_)};
+    tickParticles(nowMs);
+    prepareParticles(eye, forward, right, up);
     renderer_->beginFrame(viewProj, eye,
                           {static_cast<uint8_t>(fog[0]), static_cast<uint8_t>(fog[1]), static_cast<uint8_t>(fog[2])});
     // Fog as the game has the card draw it (thrash.md, Fog): its curve over
@@ -1325,12 +1537,10 @@ void TrackPage::update(uint64_t nowMs) {
         movingPass(kAdditive);
     }
 
-    {
-        const gfx::Vec3 up{-std::sin(pitch_) * std::sin(yaw_), std::cos(pitch_), std::sin(pitch_) * std::cos(yaw_)};
-        drawMarks(eye, right, up);
-        if (marksShown_)
-            updateSounds(eye, right);
-    }
+    drawMarks(eye, right, up);
+    if (marksShown_)
+        updateSounds(eye, right);
+    drawParticles();
 
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), uint8_t(0));
     std::vector<std::string> lines = {"Tracks  " + std::to_string(index_ + 1) + "/" + std::to_string(tracks_.size()) +
@@ -1367,12 +1577,14 @@ void TrackPage::update(uint64_t nowMs) {
         if (lightIntensity_ < 1)
             line += "  lights " + std::to_string(static_cast<int>(lightIntensity_ * 100)) + "%";
         lines.push_back(line);
+        if (!hitText_.empty())
+            lines.push_back(hitText_ + "  (" + std::to_string(particles_.live()) + " particles)");
         if (!skyError_.empty())
             lines.push_back(skyError_);
         if (!collisionError_.empty())
             lines.push_back(collisionError_);
     }
-    lines.push_back("PgUp/PgDn: track  WASD/arrows/drag: move  N/B: block  1-3: detail  H: sky  I: lights  T V L O G X F Y M: toggles");
+    lines.push_back("PgUp/PgDn: track  WASD/arrows/drag: move  N/B: block  1-3: detail  H: sky  I: lights  P: wall hit  T V L O G X F Y M: toggles");
     for (size_t i = 0; i < lines.size(); ++i) {
         const int y = i + 1 == lines.size() ? kFrameH - font::kLineHeight - 4 : 4 + static_cast<int>(i) * font::kLineHeight;
         for (int yy = y - 2; yy < y + font::kLineHeight - 1; ++yy)
