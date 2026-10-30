@@ -256,8 +256,17 @@ Error loadRace(const SearchSet& files, const std::string& city, RaceKind kind, i
         // No table: Reluva's own conditions to start from (the race menu
         // changes them). The cruise starts where the race page puts it;
         // the stunt along accel0's points, the last the end of the pier.
+        // The cruise's traffic as its roam.aimap's [Density] says (London's
+        // 0.1); San Francisco's gives none, so the same.
+        float traffic = 0.1f;
+        AiMapSettings roam;
+        if (!files.read(dir + "roam.aimap", data)) {
+            parseAiMap(textOf(data), roam);
+            if (roam.density >= 0)
+                traffic = roam.density;
+        }
         for (RaceSettings& s : out.settings) {
-            s.ambient = index == kStuntRace ? 0.2f : 0.5f;
+            s.ambient = traffic;
             s.peds = 0.5f;
             s.cops = index == kStuntRace ? 0 : 4;
             s.laps = 1;

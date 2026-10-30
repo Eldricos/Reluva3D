@@ -125,9 +125,11 @@ std::vector<GameMenus::Item> GameMenus::driverItems() const {
         // three densities on its grid, Hide Pedestrians (RENV_HIDE), and its
         // two buttons as widget.csv has them: DONE left, CANCEL right.
         std::vector<Item> list = {Item{Kind::Choice, "TIME", {}, 0, true}, Item{Kind::Choice, "WEATHER", {}, 0, true}};
+        // "There are no pedestrians in a Circuit Race" (the game's help).
+        const bool peds = !front_ || front_->choice().kind != RaceKind::Circuit;
         for (const char* bar : {"TRAFFIC DENSITY", "PEDESTRIAN DENSITY", "COP DENSITY"})
-            list.push_back(Item{Kind::Bar, bar, {}, 0, true});
-        list.push_back(Item{Kind::Check, "dlg_chkb", "RENV_HIDE", 5, true});
+            list.push_back(Item{Kind::Bar, bar, {}, 0, peds || std::string(bar) != "PEDESTRIAN DENSITY"});
+        list.push_back(Item{Kind::Check, "dlg_chkb", "RENV_HIDE", 5, peds});
         list.push_back(Item{Kind::Button, "dlg_done", "dlg_done", 4, true});
         list.push_back(Item{Kind::Button, "dlg_cancel", "dlg_can", 4, true});
         return list;

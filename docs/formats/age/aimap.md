@@ -36,10 +36,10 @@ leaves out keep the city's values.
 | `Ambients Drive On The Left` | 0 or 1 (London 1) | which way the lanes are driven ([bai.md](bai.md)) |
 | `Ambient Types/Density` | model, cumulative share, 0 | the traffic's models: a random 0-1 picks the first whose share is above it |
 | `GoodWeatherPedName / BadWeatherPedName` | pairs of models | the pedestrians, the second of each pair when it rains |
-| `Exceptions` | road, density, speed limit (`# Rd Id, Density, Speed Limit`) | no traffic starts on those roads with density 0; a speed limit above 0 replaces the default |
+| `Exceptions` | road, density, speed limit (`# Rd Id, Density, Speed Limit`) | the road's share of the traffic's density (0.00 in 337 lines, 1.0 in 16): 0 keeps it off; a speed limit above 0 replaces the default |
 | `Police` | model, x, y, z, heading, then four values (`0 15 0.5 50` in 129 of 227 lines; `0 15 0 50`, `0 15 1 100`, `0 15 0 70`, `0 15 0.5 70` in the rest) | where the police start; the heading in degrees as the race files' (0 faces -Z); the comment names the fields "Geo File, StartLink, Start Dist, Start Mode, Start Lane, Patrol Route", but the lines don't follow it, and what the four values mean isn't known |
 | `Opponent` | model, `.opp` file, skill (0.70-1.00), then nine values | each opponent's car, and its skill as the share of its top speed Reluva's driver aims for |
-| `Density` | a share (cruising: London 0.1) | read, not used: the Drive page has its own levels |
+| `Density` | a share: London's cruising `roam` 0.1, San Francisco's lesson and stunt files 0-0.13 | the traffic's density, as the races' Ambient column ([age-traffic.md](../../engines/age-traffic.md#how-many)): the race menu's Cruise starts from it |
 | `CopChaseDistance` | metres (Crash Course 150) | how near the police notice the player |
 | `AmbientLaneChanges` | 0 or 1 (only San Francisco's cruising files: 1) | traffic changes lanes (always on the Drive page) |
 | `Traffic Lights` | two model names, no count (London: `sp_traflitsingle_ped_l` twice) | the traffic lights' models, for narrow and wide roads; San Francisco has none, so Reluva uses `sp_traflitsingle_f` and `sp_traflitdual_f` |

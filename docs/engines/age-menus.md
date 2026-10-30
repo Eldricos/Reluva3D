@@ -279,7 +279,12 @@ ran") goes to the garage for the driver's last race, then starts it.
 ## Changing a race
 
 The Single Race Menu's own boxes hold the race's conditions, as its
-file has them. They can be changed:
+file has them. As the game's help says, they can be changed once the
+driver has placed in that race: 1st, 2nd or 3rd as an Amateur (a
+Professional's place counts too), 1st as a Professional (a Blitz
+finished in time counts as 1st). A cruise's can always be changed. Until
+then LAPS, OPPONENTS and CHANGE aren't available (U, everything open,
+opens them too). Then:
 
 - **LAPS** (a circuit's) and **OPPONENTS** (up to as many as the race
   has paths for): Left/Right.
@@ -320,6 +325,10 @@ through them.
 
 **A locked car**: GO DRIVE gets the game's `jpg/lock_dlg`, "You cannot
 pick a locked vehicle".
+
+In a circuit, Change Race Options' pedestrian density and Hide
+Pedestrians aren't available: "there are no pedestrians in a Circuit
+Race", the help says, and the circuits' Peds columns are all 0.
 
 ## Not drawn
 

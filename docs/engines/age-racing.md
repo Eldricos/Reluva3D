@@ -42,8 +42,11 @@ city with no race: no checkpoints, no clock, no countdown. "Explore the
 city, become one with your vehicle, and practice up for some serious
 racing, without the pressure of the clock", as the game's help puts it.
 
-- Its conditions are the menu's (Change Race Options): Reluva starts
-  from morning, sunny, half traffic and pedestrians and 4 police.
+- Its conditions are the menu's (Change Race Options), always open to
+  change. They start from morning, sunny, the traffic its `roam.aimap`'s
+  `[Density]` gives (London's 0.1; San Francisco's has none, so the
+  same: [age-traffic.md](age-traffic.md#how-many)), half the
+  pedestrians and 4 police.
 - Its police patrol from `race/<city>/roam.aimap` (`.aimap_p` at
   Professional, with one more in San Francisco): 19 and 20 of them in
   San Francisco and London, at places across the city. That's Reluva's
@@ -79,7 +82,7 @@ Francisco:
   last, stopped (under 0.5 m/s) is "Great job! You can stop on a
   dime!", with the time and how far short of the pier's end. Falling in
   (3 m below the lowest point) fails, as do being busted or wrecked.
-- Traffic is light (0.2) and there are no police.
+- Traffic is the cruise's (0.1) and there are no police.
 
 What isn't used: `race/sf/stunt0waypoints.csv` (one point, a start) and
 `stunt0.aimap` (light traffic, three roads without it, an opponent

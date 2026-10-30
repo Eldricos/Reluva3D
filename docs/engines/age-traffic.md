@@ -13,14 +13,37 @@ with the game.
 
 ## How many
 
+The game's figure for traffic is a density: the races' Ambient column
+(0-0.9; most 0.1-0.3), the lessons' AmbDensity (0-0.3), the aimaps'
+`[Density]` where they have one (London's cruising `roam.aimap` 0.1, San
+Francisco's lesson and stunt files 0-0.13), and per road the aimaps'
+exceptions (0.00 or 1.0). The race menu shows it as a bar. None of the
+files says how many cars it makes. Reluva reads it as a share of the
+lanes' capacity:
+
+- **1.0 is a lane at capacity**: about 2,000 cars an hour, the usual
+  figure for a city lane, which at the city's 15 m/s speed limit is a
+  car every 25 m (1.7 s apart).
+- The cars wanted are the density times the lane near the player (within
+  340 m, each road by its exception's share) over 25 m. So there are
+  more downtown than on a bridge, and none where there's no road.
+- About 12 km of lane lies within 340 m of a road point in either city
+  (London's median 11.4 km, San Francisco's 13.1 km). So 0.1 makes
+  about 50 cars round the player, 0.2 about 100. Measured in races:
+  18-45 cars at 0.1, 48-104 at 0.2.
+- At most 160 cars (Reluva's limit for drawing and steering them); the
+  races at 0.5 and over reach it.
+- New cars start on a piece of lane each as likely as its length.
+  (Before, a lane was picked first, so short lanes were overfilled.)
+
 | | Drive page | Race page |
 |---|---|---|
-| Traffic | Y steps through none, light, normal and heavy: 0, 15, 30 and 60 cars | the race's Ambient column (0-0.6) times 60 |
-| Pedestrians | a fifth of the traffic's share times 300, at most 60 | the race's Peds column (mostly 0-0.1) times 300, at most 60 |
+| Traffic | Y steps through none, light, normal and heavy: 0, 0.05, 0.1 (the cruising file's) and 0.25 | the race's Ambient column; a cruise its `roam.aimap`'s `[Density]` (0.1; San Francisco's has none, so the same) |
+| Pedestrians | 0, 0.05, 0.1 and 0.2 with those, times 300, at most 60 | the race's Peds column (mostly 0-0.1) times 300, at most 60 |
 | Police | `race/<city>/roam.aimap`'s (O turns them off) | as many of the race's aimap police as its Cops column |
 
-The aimaps' `[Density]` (cruising in London: 0.1) isn't used; how it maps
-to a number of cars isn't known.
+Before this, the density was a share of a fixed 60 cars, the same
+downtown as on a bridge: a race at 0.2 had 12.
 
 ## Traffic
 

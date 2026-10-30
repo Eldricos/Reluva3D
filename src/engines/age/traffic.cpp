@@ -26,6 +26,8 @@ constexpr float kGap = 3;            // metres kept behind what's ahead
 constexpr float kSpawnNear = 140;    // out of sight: no nearer than this
 constexpr float kSpawnFar = 300;
 constexpr float kForget = 340;       // left out beyond this
+constexpr float kPiece = 20;         // metres: the lanes are counted in pieces this long at most
+constexpr float kNearAgain = 20;     // metres the focus moves before the lane near it is counted again
 constexpr float kHoldLimit = 6;      // seconds held at a junction before going anyway
 constexpr float kLooseFriction = 6;  // m/s^2 slowing a knocked car
 constexpr float kLaneChange = 2.5f;  // seconds moving across to another lane
@@ -77,9 +79,11 @@ void TrafficNetwork::build(const AiRoadMap& map, const AiMapSettings& settings) 
     for (const AiRoad& road : map.roads) {
         float speed = settings.speedLimit > 0 ? settings.speedLimit : road.speedLimit;
         bool spawns = true;
+        float share = 1;
         for (const auto& e : settings.exceptions)
             if (e.road == road.id) {
                 spawns = e.density > 0;
+                share = std::max(0.0f, e.density);
                 if (e.speedLimit > 0)
                     speed = e.speedLimit;
             }
@@ -112,6 +116,7 @@ void TrafficNetwork::build(const AiRoadMap& map, const AiMapSettings& settings) 
                 // roads not for traffic.
                 lane.open = !(road.flags & 2);
                 lane.spawns = spawns && lane.open;
+                lane.share = lane.spawns ? share : 0;
                 if (lane.length() < 1) {
                     previous = -1;
                     continue;
@@ -145,6 +150,46 @@ void Traffic::setup(const SearchSet& files, const AiRoadMap& map, const AiMapSet
         if (files.has("geometry/" + a.model + ".pkg"))
             kinds_[size_t(kindOf(files, a.model))].upTo = a.upTo;
     ambient_ = kinds_.size();
+    // The lanes in pieces of up to 20 m.
+    pieces_.clear();
+    near_.clear();
+    nearFrom_ = {1e9f, 0, 1e9f};
+    const auto& lanes = network_.lanes();
+    for (uint32_t li = 0; li < lanes.size(); ++li) {
+        const TrafficLane& l = lanes[li];
+        if (!l.spawns || l.share <= 0)
+            continue;
+        const int n = std::max(1, int(std::ceil(l.length() / kPiece)));
+        for (int k = 0; k < n; ++k) {
+            Piece p;
+            p.lane = li;
+            p.from = l.length() * float(k) / float(n);
+            p.to = l.length() * float(k + 1) / float(n);
+            p.middle = pointAlong(l.points, l.at, (p.from + p.to) / 2);
+            p.weight = (p.to - p.from) * l.share;
+            pieces_.push_back(p);
+        }
+    }
+}
+
+void Traffic::findNear(const Vec3& focus) {
+    // Again once the focus has moved on a little.
+    if (flat(focus - nearFrom_) < kNearAgain)
+        return;
+    nearFrom_ = focus;
+    near_.clear();
+    nearLane_ = 0;
+    for (uint32_t i = 0; i < pieces_.size(); ++i)
+        if (flat(pieces_[i].middle - focus) < kForget) {
+            near_.push_back(i);
+            nearLane_ += pieces_[i].weight;
+        }
+}
+
+size_t Traffic::carsWanted(const Vec3& focus) {
+    findNear(focus);
+    const float cars = std::clamp(density_, 0.0f, 1.0f) * nearLane_ / kLaneAtFull;
+    return std::min<size_t>(size_t(std::lround(cars)), size_t(std::max(0, carLimit_)));
 }
 
 int Traffic::kindOf(const SearchSet& files, const std::string& model) {
@@ -420,16 +465,24 @@ void Traffic::update(float dt, const Vec3& focus, const std::vector<RoadUser>& o
             ++i;
         }
     }
-    // Start new ones, out of sight unless filling.
-    const size_t wanted = size_t(std::lround(std::clamp(density_, 0.0f, 1.0f) * kCarsAtFull));
+    // Start new ones, out of sight unless filling: on a piece of lane
+    // within reach, each as likely as its length (and its lane's share).
+    const size_t wanted = carsWanted(focus);
     const auto& lanes = network_.lanes();
-    std::uniform_int_distribution<size_t> anyLane(0, lanes.size() - 1);
-    for (int tries = fill ? 4000 : 200; tries > 0 && count() < wanted; --tries) {
-        const size_t li = anyLane(rng_);
+    std::vector<float> upTo;
+    if (count() < wanted) {
+        upTo.reserve(near_.size());
+        float sum = 0;
+        for (uint32_t i : near_)
+            upTo.push_back(sum += pieces_[i].weight);
+    }
+    for (int tries = fill ? 4000 : 200; tries > 0 && count() < wanted && !upTo.empty() && upTo.back() > 0; --tries) {
+        const float pick = std::uniform_real_distribution<float>(0, upTo.back())(rng_);
+        const Piece& piece =
+            pieces_[near_[size_t(std::upper_bound(upTo.begin(), upTo.end(), pick) - upTo.begin()) % near_.size()]];
+        const size_t li = piece.lane;
         const TrafficLane& l = lanes[li];
-        if (!l.spawns)
-            continue;
-        const float s = std::uniform_real_distribution<float>(0, l.length())(rng_);
+        const float s = std::uniform_real_distribution<float>(piece.from, piece.to)(rng_);
         const Vec3 p = pointAlong(l.points, l.at, s);
         const float d = flat(p - focus);
         if (d > kSpawnFar || d < (fill ? 25 : kSpawnNear))

@@ -83,6 +83,9 @@ public:
     // After the conditions are changed (the dialog).
     void conditionsChanged() { choice_.changed = !(choice_.conditions == raceConditions()); }
     int mostOpponents() const;
+    // Whether the race's conditions may be changed (the game's help: once
+    // placed in it; a cruise's always).
+    bool conditionsOpen() const;
     enum class Action {
         None,
         Changed,

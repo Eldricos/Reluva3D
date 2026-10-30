@@ -263,6 +263,23 @@ FrontEnd::Choice::Conditions FrontEnd::raceConditions() const {
     return c;
 }
 
+bool FrontEnd::conditionsOpen() const {
+    // The game's help: a race's conditions (and a circuit's laps and
+    // opponents) open once it's been placed in, 1st-3rd as an Amateur,
+    // 1st as a Professional; a cruise's always.
+    if (choice_.kind == RaceKind::Cruise || openAll)
+        return true;
+    if (choice_.kind == RaceKind::CrashCourse || cities_.empty())
+        return false;
+    const std::string& map = cities_[size_t(choice_.city)].map;
+    const int pro = record_.bestPlace(map, choice_.kind, choice_.race, true);
+    if (choice_.professional)
+        return pro == 1;
+    const int amateur = record_.bestPlace(map, choice_.kind, choice_.race, false);
+    const int best = amateur > 0 && pro > 0 ? std::min(amateur, pro) : std::max(amateur, pro);
+    return best >= 1 && best <= 3;
+}
+
 int FrontEnd::mostOpponents() const { return int(race_.opponents[choice_.professional ? 1 : 0].size()); }
 
 std::vector<FrontEnd::Item> FrontEnd::items() const {
@@ -301,10 +318,10 @@ std::vector<FrontEnd::Item> FrontEnd::screenItems() const {
                 {"cp", true},
                 {"circuit", true},
                 {"RACE NAME", false},
-                {"LAPS", false, choice_.kind == RaceKind::Circuit},
-                {"OPPONENTS", false, mostOpponents() > 0},
+                {"LAPS", false, choice_.kind == RaceKind::Circuit && conditionsOpen()},
+                {"OPPONENTS", false, mostOpponents() > 0 && conditionsOpen()},
                 {"RACE LOCALE", false},
-                {"race_chg", true, !raceNames_.empty(), "race_chg", 5},
+                {"race_chg", true, !raceNames_.empty() && conditionsOpen(), "race_chg", 5},
                 {"race_veh", true}};
     case Screen::CrashCourse: return {{"city", false}, {"CRASH NAME", false}, {"host_dn", true}};
     case Screen::Garage:
