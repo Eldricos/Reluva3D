@@ -185,7 +185,7 @@ void RaceViewer::startNetGame() {
             for (size_t k : targets_)
                 through.push_back(race_.waypoints[k].position);
             size_t loopFrom = 0;
-            r.driver.start(routePath(roads_, at, through, false, loopFrom), 0, kBotSkill);
+            r.driver.start(routePath(roads_, at, through, false, loopFrom, &botRoads_), 0, kBotSkill);
         } else if (bot)
             r.bot.start(session->seed() ^ (uint32_t(p.id) * 2654435761u));
         if (me) {

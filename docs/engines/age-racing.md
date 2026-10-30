@@ -263,32 +263,73 @@ Professional in San Francisco's first race; at least 0.6). Where the
 aimap doesn't say, it's every third car in the list after the player's,
 at 85% (Amateur) or 95% (Professional):
 
-- The path's points are joined along the roads by the **road graph**:
-  points along the middle of every road strip and divided road, joined in
-  order; a point in the middle of each block with road fans (an
-  intersection), joined to the road ends within its fans' reach plus 4 m;
-  and road ends within 3 m of each other. Routes are A* by distance from
-  the road point nearest one path point to the one nearest the next.
-  Without it the straight lines between points cut through buildings at
-  every diagonal.
-- The driver steers for the next point (twice the angle off it, full
-  lock at 0.5 radians), counts a point reached within 14 m or once past
-  it, and slows for the sharpest turn within 60 m beyond it: from 42 m/s
-  for a straight down to 12 m/s for a right angle, braking at 7 m/s²
-  in time. Well off its line it keeps to 9 m/s.
-- Stuck (under 1.5 m/s for 2.5 s) it backs out for 1.2 s with the
-  steering the other way; stuck for 6 s, or 8 s without getting 2 m
-  nearer its point, it's put back at the point before facing the next,
-  and after two of those at the same point, on the point itself.
+- **The route.** The path's points are joined along the roads by the
+  **road graph**: points along the middle of every road strip and
+  divided road, joined in order; a point in the middle of each block with
+  road fans (an intersection), joined to the road ends within its fans'
+  reach plus 4 m; and road ends within 3 m of each other. Routes are A*
+  by distance from the road point nearest one path point to the one
+  nearest the next. Without it the straight lines between points cut
+  through buildings at every diagonal.
+  - Where that graph has no way (round Tower Bridge's north side, for
+    one), the leg goes by the road map's lanes (`.bai`,
+    [bai.md](../formats/age/bai.md)) instead.
+  - A join of the graph whose straight line runs into a wall costs twenty
+    times its length, so routes go round.
+  - A route that goes out to a path point and straight back the same way
+    (a point a little off the main road, reached up a side street) has
+    that spur cut: no car turns round in a street.
+- **Steering.** The driver steers for a point along its route, 8 m plus
+  0.6 s of travel ahead (at most 35 m). That's pure pursuit: the wheels'
+  angle for the arc through that point, from the car's wheelbase, its
+  lock, and the lock `CarSim` takes off at speed. The point is brought in
+  closer (but no nearer than 0.4 s) until the straight line to it passes
+  within 4 m of every corner of the route on the way; a longer look cuts
+  a junction's corner through its buildings. The arc is never tighter
+  than the tyres hold at the car's speed (10 m/s²).
+- **Speed.** Each corner in the 160 m ahead has a radius: how far the
+  route's heading turns over 8 m either side of it (a junction turns over
+  several short legs, not at a point). It can be taken at the speed
+  where speed²/radius is 7 m/s² (at least 6 m/s). The driver brakes at
+  7 m/s² to be down to each corner's speed 6 m before it, and gently
+  (0.4) while steering hard, or it spins. Pointing well off its way, it
+  keeps to 9 m/s.
+- **A point is reached** within 14 m or once past it.
+- **Stuck** (under 1.5 m/s for 2.5 s), it backs out for 1.2 s with the
+  steering the other way. Stuck for 6 s, or 8 s without getting 2 m
+  nearer its point, it's put back at the point before, facing the next.
+  After two of those at the same point, it's put on the point itself.
+- **Checkpoints.** An opponent's path doesn't always pass the race's
+  checkpoints: "Round Westminster"'s misses its fifth by 121 m. Each
+  checkpoint is matched to the point of the opponent's route nearest it,
+  in order, laps included. The checkpoint counts when the car passes
+  within its reach, or once it's gone on past that point.
 - Cars bump each other: three spheres along each, pushed apart and
   bounced.
 
-Measured over every circuit and checkpoint race of both cities at
-Professional with every opponent at 95% in one car (scratch runs of 900
-seconds each, not part of the repository, before the aimaps were read),
-254 of the 289 opponents finish: all of every checkpoint
-race's, and all but those of six circuits (San Francisco's "Floor It!",
-London's "Parks But No Parking", "London Run", "Gimme Some Royalties",
-"Soho Mojo" and "Zany Zigzag"), whose opponents get round, but slowly,
-with many resets. The game's road map for its traffic (`.bai`, read for
-the traffic now) has lanes, and would likely route them better.
+**How it was measured.** Each change was measured on the Race page
+itself: a scratch harness (not in the repository) started a race and
+stepped it, undrawn, for up to 900 or 1500 seconds, with its traffic,
+police, bridges and props. It counted each opponent's finish and resets,
+and where they reset.
+
+- Before this version, at Professional, 62 of the 114 opponents of the
+  20 circuits finished in 900 s, with 11 resets each. Seven circuits had
+  no finishers.
+- Now, 100 finish in 900 s, and all 114 in 1500 s (as do all 113 at
+  Amateur), with about 6 resets each.
+- All 147 opponents of the 24 checkpoint races finish, with about 2
+  resets each.
+- The long ones are the long races: "Gimme Some Royalties" and "Soho
+  Mojo" are four laps of about 3.7 km (970 s); "Midtown Mayhem" has slow
+  Audi TTs (933 s).
+- "Underground" still resets about 24 times an opponent, in the Tube's
+  tunnels and in a pile-up at a tunnel mouth at the start.
+
+**Repeatable.** The same harness found the same race ending two ways
+from one run to the next. Valgrind showed why: a body's bounds were
+measured from uninitialised values (`bodyBounds` took the first vertex's
+Y and Z as the minimum of themselves and whatever was in memory).
+London's parked cars, sized by it, sometimes came out huge, blocking a
+road. Now the same race runs the same way every time (eight runs alike),
+and Valgrind finds nothing in a London or San Francisco race.

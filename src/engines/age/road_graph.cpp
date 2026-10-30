@@ -33,6 +33,28 @@ void RoadGraph::join(uint32_t a, uint32_t b, float weight) {
     links_[b].push_back({a, d});
 }
 
+size_t RoadGraph::penalizeBlocked(const CollisionWorld& world, float penalty) {
+    size_t blocked = 0;
+    for (uint32_t a = 0; a < links_.size(); ++a)
+        for (auto& [b, cost] : links_[a]) {
+            if (b < a)
+                continue; // each join once, both ways set together
+            const Vec3 from = nodes_[a] + Vec3{0, 0.8f, 0}, to = nodes_[b] + Vec3{0, 0.8f, 0};
+            const float span = length(to - from);
+            CollisionWorld::RayHit hit;
+            // A wall (not the road rising over a hump) short of the far end.
+            if (span < 1 || !world.raycast(from, (to - from) * (1 / span), span - 0.5f, hit) ||
+                std::fabs(hit.normal[1]) > 0.5f)
+                continue;
+            ++blocked;
+            cost *= penalty;
+            for (auto& [c, back] : links_[b])
+                if (c == a)
+                    back *= penalty;
+        }
+    return blocked;
+}
+
 size_t RoadGraph::edgeCount() const {
     size_t n = 0;
     for (const auto& l : links_)

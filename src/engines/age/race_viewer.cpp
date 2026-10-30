@@ -127,6 +127,7 @@ void RaceViewer::loadCity() {
     pictures_.load(ctx_.files);
     buildCityCollision(ctx_.files, scene_->psdl(), scene_->mesh(), scene_->instances(), world_);
     roads_.build(scene_->psdl());
+    roads_.penalizeBlocked(world_);
     if (Error err = life_.load(ctx_.files, map); err && error_.empty())
         error_ = err.message;
     botRoads_.build(life_.roadMap());
@@ -304,7 +305,14 @@ void RaceViewer::startRace() {
         r.car->sim.reset(r.car->setup, o.start + Vec3{0, 0.5f, 0}, o.startYaw);
         size_t loopFrom = 0;
         const bool circuit = race_.kind == RaceKind::Circuit;
-        r.driver.start(routePath(roads_, o.start, o.path, circuit, loopFrom), circuit ? laps : 0, skill, loopFrom);
+        r.driver.start(routePath(roads_, o.start, o.path, circuit, loopFrom, &botRoads_), circuit ? laps : 0, skill,
+                       loopFrom);
+        if (!lesson()) {
+            std::vector<Vec3> gates;
+            for (size_t k = 0; k < targets_.size(); ++k)
+                gates.push_back(targetPoint(k).position);
+            r.gatePoints = pathPointsNearest(r.driver, gates);
+        }
         racers_.push_back(std::move(r));
     }
 
@@ -482,7 +490,11 @@ void RaceViewer::stepRace(float dt) {
         if (started && r.next < targets_.size()) {
             const Waypoint& w = targetPoint(r.next);
             const float radius = (w.radius > 0 ? w.radius : kCircuitRadius) + (r.player ? 2 : kOpponentReach);
-            if (flatDistance(sim.position, w.position) < radius && std::fabs(sim.position[1] - w.position[1]) < 10) {
+            // An opponent also once it's gone on past where its own path
+            // is nearest the checkpoint (some paths take another way).
+            const bool byPath = r.next < r.gatePoints.size() && r.driver.passed() > r.gatePoints[r.next];
+            if (byPath ||
+                (flatDistance(sim.position, w.position) < radius && std::fabs(sim.position[1] - w.position[1]) < 10)) {
                 checkpoint = checkpoint || r.player;
                 if (++r.next == targets_.size())
                     r.finishTime = clock_;

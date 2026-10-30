@@ -406,6 +406,9 @@ private:
         uint8_t peer = kNoPlayer; // another player's car (multiplayer), driven by what its driver sends
         uint8_t botId = kNoPlayer; // a computer player the host drives (multiplayer)
         GoldBot bot;               // and its mind, outside the races
+        // An opponent: where along its path it's nearest each checkpoint
+        // (its path doesn't always go through them all).
+        std::vector<size_t> gatePoints;
         float throttle = 0;        // as last driven, for its sound on the others' machines
         uint8_t resets = 0;        // times put back (fallen out, stuck), counting on
         float putBackAt = -100;    // the race clock when it last was

@@ -218,12 +218,13 @@ bool bodyBounds(const Pkg& pkg, Vec3& low, Vec3& high) {
             if (m.level() != level || (!m.part().empty() && m.part() != "BODY"))
                 continue;
             for (const PkgGroup& g : m.groups)
-                for (const PkgVertex& v : g.vertices)
+                for (const PkgVertex& v : g.vertices) {
                     for (size_t k = 0; k < 3; ++k) {
                         low[k] = any ? std::min(low[k], v.pos[k]) : v.pos[k];
                         high[k] = any ? std::max(high[k], v.pos[k]) : v.pos[k];
-                        any = true;
                     }
+                    any = true; // after all three of the first vertex's
+                }
         }
         if (any)
             return true;
