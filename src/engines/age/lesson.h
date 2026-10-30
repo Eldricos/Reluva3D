@@ -15,8 +15,6 @@ namespace reluva::age {
 // docs/engines/age-racing.md.
 class LessonJudge {
 public:
-    static constexpr float kPenalty = 5;     // seconds a knock costs in a Clean lesson
-    static constexpr float kKnock = 1500;    // an impulse (kg m/s) that counts as a knock there
     static constexpr float kEscape = 120;    // metres behind the car to follow, and it's escaped
     static constexpr float kMessageTime = 3; // seconds a message shows
 
@@ -35,13 +33,16 @@ public:
         bool busted = false, wrecked = false;
         float targetDistance = -1; // metres to the car to follow (-1: none)
         bool targetDone = false;   // that car has reached its end
+        bool targetStopped = false; // the car to destroy is wrecked, over or stopped
+        int police = 0;             // police in the lesson
     };
 
     void start(const LessonSettings& lesson);
     Result step(const Frame& f);
     Result result() const { return result_; }
 
-    // Seconds added for knocks.
+    // Seconds added (none: the penalties' messages, 216, belong to a
+    // group of the game's no lesson uses).
     float penalty() const { return penalty_; }
     // Seconds left (penalties counted), or -1 with no limit.
     float timeLeft(float clock) const;
@@ -49,6 +50,8 @@ public:
     // MinimumSpeed lessons' "Maintain %.0f".
     uint32_t message() const { return messageFor_ > 0 ? message_ : 0; }
     float minimumSpeed() const { return lesson_.extra[0]; }
+    // A Destroy lesson's car has been rammed into submission.
+    bool destroyed() const { return destroyed_; }
 
 private:
     void show(uint32_t id) {
@@ -62,10 +65,10 @@ private:
 
     LessonSettings lesson_;
     Result result_ = Result::Going;
-    float penalty_ = 0, knockWait_ = 0, messageFor_ = 0;
+    float penalty_ = 0, messageFor_ = 0;
     uint32_t message_ = 0;
     int touchesAtStart_ = -1;
-    bool upToSpeed_ = false;
+    bool upToSpeed_ = false, destroyed_ = false;
 };
 
 } // namespace reluva::age

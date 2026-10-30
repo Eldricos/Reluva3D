@@ -171,9 +171,14 @@ void AmbientSounds::update(float dt, const Vec3& listener, const Vec3& right, co
         nearestAt.push_back(at);
     }
     const float speed = length(velocity);
+    constexpr float kUnderground = -4; // metres: below the streets
+    const bool below = listener[1] < kUnderground;
     auto gainOf = [&](const Voice& v) {
         const AmbientSample& s = *v.sample;
         if (speed < s.minSpeed || speed > s.maxSpeed)
+            return 0.0f;
+        const int area = ambiences_[v.ambience].area;
+        if ((area == 1 && !below) || (area == 2 && below))
             return 0.0f;
         return gains[v.ambience] * s.volume * gain_;
     };

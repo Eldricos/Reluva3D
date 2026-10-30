@@ -456,6 +456,46 @@ void DmPerformance::applyBand(const DmBand& band) {
 
 Error DmPerformance::play(const std::string& file) { return load(file, true); }
 
+Error DmPerformance::playMotif(const std::string& styleFile, const std::string& motif, const std::string& bandFile) {
+    // Its files read here (as load() does), then its measures composed at
+    // once from the tick playing now.
+    auto st = style(styleFile);
+    if (!st)
+        return Error::fail("can't read style " + styleFile);
+    const DmPattern* pattern = nullptr;
+    for (const DmPattern& p : st->patterns)
+        if ((p.embellishment & kDmMotif) && p.name == motif)
+            pattern = &p;
+    if (!pattern)
+        return Error::fail("no motif " + motif + " in " + styleFile);
+    DmBand band;
+    std::vector<uint8_t> data;
+    const bool hasBand = !bandFile.empty() && loader_(bandFile, data) && !readDmBand(data, band);
+    std::map<std::string, std::unique_ptr<DlsCollection>> loaded;
+    for (const DmInstrument& i : band.instruments) {
+        const std::string& f = i.dls.file;
+        if (f.empty() || loaded.count(f) || known_.count(f))
+            continue;
+        auto c = std::make_unique<DlsCollection>();
+        if (std::vector<uint8_t> d; !loader_(f, d) || readDls(d, *c))
+            c.reset();
+        loaded[f] = std::move(c);
+        known_.insert(f);
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (auto& [f, c] : loaded)
+        collections_[f] = std::move(c);
+    if (!playing_)
+        return Error::fail("no segment playing");
+    if (hasBand)
+        applyBand(band);
+    const int measureTicks = st->timeSig.measureTicks();
+    for (int m = 0; m < std::max(1, pattern->measures); ++m)
+        addPattern(*st, *pattern, m, performanceTick_ + double(m * measureTicks));
+    std::stable_sort(events_.begin(), events_.end(), [](const Event& a, const Event& b) { return a.tick < b.tick; });
+    return Error::success();
+}
+
 Error DmPerformance::prepare(const std::string& file) { return load(file, false); }
 
 Error DmPerformance::load(const std::string& file, bool queue) {
@@ -632,15 +672,16 @@ void DmPerformance::addCurve(const DmCurve& c, double start, int channel) {
     }
 }
 
-void DmPerformance::addPattern(const DmPattern& pattern, int measureInPattern, double start) {
+void DmPerformance::addPattern(const DmStyle& style, const DmPattern& pattern, int measureInPattern, double start) {
     Playing& p = *playing_;
     // Each part's variation, chosen as the pattern starts; parts with a
-    // lock id share theirs.
+    // lock id share theirs (a motif's style's kept apart from the tune's).
     std::map<int, int> locked;
-    const size_t patternIndex = size_t(&pattern - p.style->patterns.data());
+    const size_t patternIndex =
+        size_t(&pattern - style.patterns.data()) + (&style == p.style.get() ? 0 : size_t(1) << 20);
     for (size_t r = 0; r < pattern.parts.size(); ++r) {
         const DmPartRef& ref = pattern.parts[r];
-        const DmPart& part = p.style->parts[ref.part];
+        const DmPart& part = style.parts[ref.part];
         const size_t key = patternIndex << 8 | r;
         if (measureInPattern == 0 || !instanceVariation_.count(key)) {
             std::vector<int> choices = part.variations();
@@ -745,7 +786,7 @@ void DmPerformance::composeMeasure(double start) {
     const int measure = int(from) / measureTicks;
     choosePattern(measure);
     if (p.pattern) {
-        addPattern(*p.pattern, p.pattern->measures - p.measuresLeft, start);
+        addPattern(*p.style, *p.pattern, p.pattern->measures - p.measuresLeft, start);
         --p.measuresLeft;
     }
     // A sequence track's own notes and curves in this measure.

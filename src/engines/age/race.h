@@ -23,7 +23,9 @@ namespace reluva::age {
 // (race/<city>/accel0waypoints.csv). See docs/engines/age-racing.md.
 enum class RaceKind { Blitz, Circuit, Checkpoint, CrashCourse, Cruise };
 // A Cruise's "races": the cruise itself, then the stunt where there's one.
-constexpr int kCruiseRace = 0, kStuntRace = 1;
+// Cruise's entries: the cruise, the stunt (accel0), and San Francisco's
+// unfinished "Stunt Prototype" (stunt0: a start and an aimap).
+constexpr int kCruiseRace = 0, kStuntRace = 1, kPrototypeRace = 2;
 const char* raceKindName(RaceKind kind); // "Blitz"...
 
 // One difficulty's columns of a race's row.
@@ -52,7 +54,7 @@ enum class LessonEvent : int {
     MinimumSpeed = 4, // each checkpoint at extra[0] mph or more
     NoTouching = 5,   // through the traffic without touching a car
     Gates = 7,        // the checkpoints in time (slaloms, turns)
-    Clean = 8,        // each knock costs 5 seconds
+    Destroy = 8,      // ram the car into submission (then, with police, lose them)
     Map = 9,          // the checkpoints in time, finding the way
 };
 

@@ -217,12 +217,19 @@ down (`props.cpp`):
   they fly off (a car door's glass).
 - **NumGlows** and **GlowOffset**: 19 bangers have one lamp (the street,
   park, freeway, Thames and Chinatown lamps, the banner lamps, a lit
-  sawhorse; two are pieces, which Reluva leaves out), the offset from
+  sawhorse; two are pieces, a sign's, whose lamps light while it stands), the offset from
   the model's middle (the street lamp's 3.65 up, the freeway lamp's
   17.8). At night Reluva draws a warm flare there while the prop
   stands.
-- Elasticity, Friction and **Flash** (numbers like 685 that don't look
-  like anything) aren't used.
+- **Elasticity** is 0.5 for 989 of the 992 bangers, 1.5 for the traffic
+  light and the parking meter, 0.9 for a banner lamp: a standing prop's
+  surface bounces a car by its share of 0.5 (three times as much off a
+  traffic light). **Friction** is 0.9 for all, the city's default, so it
+  changes nothing.
+- **Flash** isn't used: 0 for 652 bangers, else numbers that run in
+  batches, the same within a model's set (306-314 on the traffic's
+  HEADLIGHT bangers, 188 on all four of the police car's sirens, 684-688
+  on some London props): a stamp of some kind, not a setting.
 
 ## Lamps and flares
 
@@ -389,5 +396,8 @@ The **min speed** and **max speed** columns (0 and 999,999 for all)
 are the listener's speeds it's heard between. At most 8 ambient sounds
 play at once: the loops of the highest **3D priority** (12 for all but
 the screams' 8) first, then the loudest; a one-shot only when there's
-room. The Audible area (0, 1 or 2) isn't used.
+room. The **Audible area** is read by where the ambiences' points are:
+1 (the tube's voices, 7-15 m below the streets) heard only from more
+than 4 m underground, 2 (the buoys and sea lions, at the water) only
+from above that, 0 anywhere.
 

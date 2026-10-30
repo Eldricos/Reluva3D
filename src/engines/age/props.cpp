@@ -199,6 +199,7 @@ Error parseBangerData(const std::string& text, BangerData& out) {
     }
     out.parts = int(n->number("NumParts"));
     out.texNumber = int(n->number("TexNumber"));
+    out.elasticity = n->number("Elasticity", 0, out.elasticity);
     if (const TuneNode* rule = n->child("BirthRule")) {
         out.particles = parseBirthRule(*rule);
         for (size_t k = 0; k < 3; ++k)
@@ -334,11 +335,18 @@ void Props::prepare(const SearchSet& files, const ModelBox& box) {
             if (e == effectOf.end())
                 e = effectOf.emplace(key, addEffect(pb, {})).first;
             piece.effect = e->second;
+            // A piece's own lamps (a sign's), from its middle.
+            for (const Vec3& g : pb.glows)
+                p.glows.push_back(pb.cg + g);
             p.pieces.push_back(piece);
         }
         p.surface = CollisionSurface{};
         p.surface.prop = int32_t(i);
         p.surface.propMass = b.mass;
+        // Elasticity relative to the props' usual 0.5 (a traffic light's
+        // 1.5, three times as bouncy as the rest); Friction is 0.9 for all,
+        // the city's default, so the surface's own stays.
+        p.surface.elasticity *= has ? std::clamp(b.elasticity / 0.5f, 0.0f, 4.0f) : 1;
         p.surface.breakImpulse =
             has && b.impulseLimit2 > 0 && b.impulseLimit2 < kNeverBreaks ? std::sqrt(b.impulseLimit2) : 0;
         // Its bound, else its model's box (a traffic light: its pole).

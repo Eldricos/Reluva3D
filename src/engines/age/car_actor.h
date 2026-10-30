@@ -87,6 +87,19 @@ struct CarCamera {
     // the way the car goes, at RevOnApp's rate, and back at RevOffApp's.
     bool reverse = false;
     float reverseDelay = 2, reverseOn = 2, reverseOff = 4;
+    // Backing (not yet swung round), the rate is RearRate of itself.
+    float rearRate = 1;
+    // Its bearing round the car turns at most AppRot degrees a second (not
+    // swinging round); moves under AppPosMin metres and AppRotMin radians
+    // are left alone; it looks LookAbove metres over TrackTo.
+    float turnRate = 1e9f, stillMove = 0, stillTurn = 0, lookAbove = 0;
+    // SteerOn: turned with the steering past SteerMin, SteerAmt degrees at
+    // full lock (off for every car).
+    bool steerOn = false;
+    float steerMin = 0.5f, steerAmount = 0;
+    // CameraNear: the near clip, metres; BlendTime: seconds a change to
+    // this camera blends over.
+    float nearClip = 0.1f, blendTime = 0;
 };
 std::vector<CarCamera> loadCarCameras(const SearchSet& files, const std::string& car);
 
@@ -105,6 +118,17 @@ struct CameraFollow {
     float slope = 0; // the hill's sine it's tilted by
 };
 CameraView updateCarCamera(const CarCamera& cam, const CarSim& sim, float dt, CameraFollow& follow, bool reset);
+// A change of camera blended over the new one's BlendTime: start() with
+// the view before it, then each frame's view through apply().
+struct CameraBlend {
+    CameraView from;
+    float left = 0, total = 0;
+    void start(const CameraView& last, float seconds) {
+        from = last;
+        left = total = seconds;
+    }
+    CameraView apply(const CameraView& to, float dt);
+};
 
 // The 4x4 of a rotation and a position.
 gfx::Mat4 matrixOf(const Mat3& r, const Vec3& p);

@@ -299,8 +299,15 @@ std::string unlockText(const UnlockRule& rule, bool professional) {
 
 bool raceOpen(const PlayerRecord& record, const std::string& city, RaceKind kind, int index, bool professional,
               int group, int mustPlace) {
-    if (kind == RaceKind::CrashCourse)
-        return index == 0 || record.hasPassed(city, index - 1);
+    if (kind == RaceKind::CrashCourse) {
+        // "You can select lessons in any order" (the game's help); the
+        // Final once the three Midterms (lessons 3, 7 and 11) are passed:
+        // "You've passed all three Midterms and it's time for the Final
+        // Exam" (its description).
+        if (index != 12)
+            return true;
+        return record.hasPassed(city, 3) && record.hasPassed(city, 7) && record.hasPassed(city, 11);
+    }
     if (kind == RaceKind::Cruise) // the cruise and the stunt: always open
         return true;
     if (group <= 0 || index < group)

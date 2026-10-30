@@ -32,7 +32,10 @@ struct Ambience {
     float minDistance = 0; // heard in full this near a point
     float maxDistance = 0; // and not at all this far
     int priority = 0;      // "3D priority": the higher kept playing first
-    int area = 0;          // "Audible area": not used yet
+    // "Audible area": 0 anywhere, 1 only from underground (the tube's
+    // voices, 7-15 m down), 2 only above ground (the buoys and sea lions):
+    // Reluva's reading, by where their points are.
+    int area = 0;
     std::vector<AmbientSample> samples;
     std::vector<Vec3> points; // VECTORPOINTS
 };

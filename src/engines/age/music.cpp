@@ -49,6 +49,14 @@ std::vector<MusicSet> parseMusicSets(const std::string& text, bool race) {
             s.idleCops = f[4];
             s.pause = f[5];
         }
+        // Then the big-air motif's style, name and band (after the results
+        // in the race file).
+        const size_t air = race ? 7 : 6;
+        if (f.size() > air + 2) {
+            s.airStyle = f[air];
+            s.airMotif = f[air + 1];
+            s.airBand = f[air + 2];
+        }
         out.push_back(s);
     }
     return out;
@@ -132,6 +140,12 @@ void GameMusic::want(const std::string& segment) {
         return;
     wanted_ = segment;
     performance_->play(segment + ".sgt");
+}
+
+void GameMusic::bigAir() {
+    if (performance_ && !menu_ && !set_.airStyle.empty() && !set_.airMotif.empty())
+        performance_->playMotif(set_.airStyle + ".sty", set_.airMotif,
+                                set_.airBand.empty() ? "" : set_.airBand + ".bnd");
 }
 
 void GameMusic::update(float dt, const State& s) {

@@ -88,7 +88,10 @@ std::string raceStem(RaceKind kind, int index) { return fileStem(kind) + std::to
 std::string raceAiMapName(const std::string& city, RaceKind kind, int index, bool professional) {
     // A cruise's police patrol as roam.aimap says (the stunt has none).
     if (kind == RaceKind::Cruise)
-        return "race/" + city + "/" + (index == kStuntRace ? "accel0" : "roam") +
+        return "race/" + city + "/" +
+               (index == kStuntRace       ? "accel0"
+                : index == kPrototypeRace ? "stunt0"
+                                          : "roam") +
                (professional ? ".aimap_p" : ".aimap");
     return "race/" + city + "/" + fileStem(kind) + std::to_string(index) + (professional ? ".aimap_p" : ".aimap");
 }
@@ -123,8 +126,13 @@ std::vector<std::string> raceNames(const SearchSet& files, const std::string& ci
         GameStrings strings;
         strings.load(files);
         std::vector<std::string> names{strings.get(588, "Cruise")};
-        if (files.has("race/" + city + "/accel0waypoints.csv"))
+        if (files.has("race/" + city + "/accel0waypoints.csv")) {
             names.push_back(strings.get(199, "Stunt Mode: Acceleration"));
+            // The mode names' "Stunt Prototype": stunt0's start, traffic and
+            // closed roads (its opponent's path, opp-c0.2, isn't shipped).
+            if (files.has("race/" + city + "/stunt0waypoints.csv"))
+                names.push_back(strings.get(526, "Stunt Prototype"));
+        }
         return names;
     }
     if (files.read("tune/" + city + ".cinfo", data))
@@ -260,7 +268,7 @@ Error loadRace(const SearchSet& files, const std::string& city, RaceKind kind, i
         // 0.1); San Francisco's gives none, so the same.
         float traffic = 0.1f;
         AiMapSettings roam;
-        if (!files.read(dir + "roam.aimap", data)) {
+        if (!files.read(dir + (index == kPrototypeRace ? "stunt0.aimap" : "roam.aimap"), data)) {
             parseAiMap(textOf(data), roam);
             if (roam.density >= 0)
                 traffic = roam.density;
@@ -268,15 +276,17 @@ Error loadRace(const SearchSet& files, const std::string& city, RaceKind kind, i
         for (RaceSettings& s : out.settings) {
             s.ambient = traffic;
             s.peds = 0.5f;
-            s.cops = index == kStuntRace ? 0 : 4;
+            s.cops = index == kCruiseRace ? 4 : 0;
             s.laps = 1;
         }
-        if (index != kStuntRace)
+        if (index == kCruiseRace)
             return Error::success();
-        const std::string points = dir + "accel0waypoints.csv";
+        const std::string points = dir + (index == kStuntRace ? "accel0waypoints.csv" : "stunt0waypoints.csv");
         if (Error err = files.read(points, data))
             return err;
-        if (Error err = parseWaypoints(textOf(data), out.waypoints, true))
+        // The prototype's has one point, its start: enough.
+        if (Error err = parseWaypoints(textOf(data), out.waypoints, true);
+            err && !(index == kPrototypeRace && out.waypoints.size() == 1))
             return Error::fail(points + ": " + err.message);
         return Error::success();
     }

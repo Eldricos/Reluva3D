@@ -199,7 +199,8 @@ recording how each format was worked out (CONTRIBUTING.md).
 - Sounds: the engine, horn, clutch, tyres rolling and skidding by
   surface, knocks and the suspension.
 - Drive page: any car round either city.
-- Still not known: Aero's angular damping, `.vehGyro`, the tyres'
+- Still not known: Aero's angular damping (`.vehGyro` and `.vehStuck`
+  are read now, as Reluva's readings), the tyres'
   finer terms (what can be said from the 48 cars' values is in
   [age-driving.md](age-driving.md)), which particle texture the smoke uses, the rest of `.ter` after its
   grid's header ([bnd.md](../formats/age/bnd.md); the bounds' material

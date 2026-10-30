@@ -1002,27 +1002,34 @@ void testLessons() {
     f.speedMph = 40;
     CHECK(j.step(f) == R::Failed && j.message() == 238);
 
-    // Clean: each knock 5 s; out of time with the penalties.
-    LessonSettings clean;
-    clean.event = LessonEvent::Clean;
-    clean.timeLimit = 20;
-    j.start(clean);
+    // Destroy: rammed into submission, done; with police, then lose them
+    // at the end; the car at its destination first fails.
+    LessonSettings destroy;
+    destroy.event = LessonEvent::Destroy;
+    destroy.timeLimit = 100;
+    j.start(destroy);
+    CHECK(j.message() == 619);
     f = {};
     f.dt = 0.1f;
-    f.clock = 2;
-    f.impact = 3000;
-    CHECK(j.step(f) == R::Going && j.penalty() == 5 && j.message() == 216);
-    f.clock = 3;
-    CHECK(j.step(f) == R::Going && j.penalty() == 5); // a moment between knocks
-    f.impact = 0;
-    f.clock = 9;
-    CHECK(std::fabs(j.timeLeft(9) - 6) < 1e-4f);
-    f.clock = 15.5f;
-    CHECK(j.step(f) == R::Failed && j.message() == 214);
-    j.start(clean);
-    f.clock = 4;
+    f.clock = 5;
+    f.finished = true; // the checkpoint's no use yet
+    CHECK(j.step(f) == R::Going);
+    f.targetStopped = true;
+    CHECK(j.step(f) == R::Passed && j.message() == 620);
+    j.start(destroy);
+    f.police = 6;
+    f.finished = false;
+    CHECK(j.step(f) == R::Going && j.message() == 652); // "Get going!  Lose the tail"
     f.finished = true;
-    CHECK(j.step(f) == R::Passed && j.message() == 215);
+    f.chasing = 1;
+    CHECK(j.step(f) == R::Going);
+    f.chasing = 0;
+    CHECK(j.step(f) == R::Passed && j.message() == 196);
+    j.start(destroy);
+    f = {};
+    f.clock = 5;
+    f.targetDone = true;
+    CHECK(j.step(f) == R::Failed && j.message() == 621);
 
     // No touching: a car touched after the start fails.
     LessonSettings touch;
@@ -1112,10 +1119,15 @@ void testRecord() {
     p.raced("sf", RaceKind::Blitz, 2, true, 3); // a professional's result counts for amateurs
     CHECK(raceOpen(p, "sf", RaceKind::Blitz, 5, false, 3, 3) && !raceOpen(p, "sf", RaceKind::Blitz, 6, false, 3, 3));
     CHECK(!raceOpen(p, "sf", RaceKind::Blitz, 3, true, 3, 3));
+    // Lessons in any order; the Final once the three Midterms are passed.
     CHECK(raceOpen(p, "sf", RaceKind::CrashCourse, 0, false, 3, 3) &&
-          !raceOpen(p, "sf", RaceKind::CrashCourse, 1, false, 3, 3));
-    p.passed("sf", 0);
-    CHECK(raceOpen(p, "sf", RaceKind::CrashCourse, 1, false, 3, 3));
+          raceOpen(p, "sf", RaceKind::CrashCourse, 11, false, 3, 3) &&
+          !raceOpen(p, "sf", RaceKind::CrashCourse, 12, false, 3, 3));
+    p.passed("sf", 3);
+    p.passed("sf", 7);
+    CHECK(!raceOpen(p, "sf", RaceKind::CrashCourse, 12, false, 3, 3));
+    p.passed("sf", 11);
+    CHECK(raceOpen(p, "sf", RaceKind::CrashCourse, 12, false, 3, 3));
 
     // Unlocking, as the pictures say.
     const RaceCount twelve = [](const std::string&, RaceKind) { return 12; };
@@ -1883,11 +1895,13 @@ void testMusic(const std::filesystem::path& tmp) {
     // and the cruising file's columns differ in order.
     const auto race =
         parseMusicSets("Start Music,Return Music,Idle Race Music,Idle Cop Music,Cop chase music,"
-                       "Pause Music,Race results Music,Big air Motif style\r\n"
-                       "EnemyStart,EnemyReturn,EnemyIdle,EnemyIdleCops,EnemyCops,Pause,Results1,Groover\r\n",
+                       "Pause Music,Race results Music,Big air Motif style,Big Air Motif name,Big Air Motif Band\r\n"
+                       "EnemyStart,EnemyReturn,EnemyIdle,EnemyIdleCops,EnemyCops,Pause,Results1,GrooverStyle,BigAir,"
+                       "BigAir\r\n",
                        true);
     CHECK(race.size() == 1 && race[0].idleCops == "EnemyIdleCops" && race[0].cops == "EnemyCops" &&
-          race[0].results == "Results1");
+          race[0].results == "Results1" && race[0].airStyle == "GrooverStyle" && race[0].airMotif == "BigAir" &&
+          race[0].airBand == "BigAir");
     const auto roam = parseMusicSets("Start Music,Return Music,Idle Music,Cop Chase Music,idle cop music,Pause Music\n"
                                      "SunroofStart,SunRoofReturn,SunRoofIdle,SunRoofCops,SunIdleCops,Pause\n",
                                      false);
