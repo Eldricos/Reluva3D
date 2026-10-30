@@ -21,6 +21,15 @@
 #include <cstring>
 #include <utility>
 
+#if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
+#include <xmmintrin.h>
+#define RELUVA_PREFETCH(p) _mm_prefetch(reinterpret_cast<const char*>(p), _MM_HINT_T0)
+#elif defined(__GNUC__)
+#define RELUVA_PREFETCH(p) __builtin_prefetch(p)
+#else
+#define RELUVA_PREFETCH(p) ((void)(p))
+#endif
+
 namespace reluva::x86 {
 
 // PF for each low byte of a result: set when its bits set are even.
@@ -504,6 +513,12 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
         }
         if (!fresh)
             build(b, eip);
+        // The blocks it may go to next, into the cache while it runs: the
+        // table is larger than the caches, and finding the next block was
+        // much of this loop's time.
+        for (uint32_t to : b.next)
+            if (to != 0xffffffffu)
+                RELUVA_PREFETCH(&blocks[(to ^ (to >> 15)) & (kBlockEntries - 1)]);
         const Cached* e = b.ops;
         const Cached* const last = e + b.count - 1;
         if (executed_ + b.count <= end) {
@@ -511,7 +526,8 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
             // rest (uncountBlock). Only a block's last instruction reads
             // the count (RDTSC ends its block).
             executed_ += b.count;
-            counting_ = {&b, eip};
+            counting_.block = &b; // two stores: as one, Visual Studio's build stalled on it
+            counting_.start = eip;
             for (;; ++e) {
                 instructionStart_ = eip;
                 e->run(*this, *e);
@@ -561,6 +577,19 @@ void Cpu::build(Block& b, uint32_t at) {
     // One that ends the block and is run from its bytes has length 0: the
     // block's bytes are those before it.
     b.bytes = uint8_t(bytes);
+    // Where it goes next, when that's known.
+    const Cached& last = b.ops[b.count - 1];
+    b.next[0] = b.next[1] = 0xffffffffu;
+    if (!last.ends) {
+        b.next[0] = at + bytes; // full: straight on
+    } else if (last.length) {
+        using O = CachedOps;
+        const uint32_t after = at + bytes, target = after + last.imm;
+        if (last.run == &O::jmp || last.run == &O::call)
+            b.next[0] = target;
+        else if (last.run != &O::ret && last.run != &O::jmpRm && last.run != &O::callRm)
+            b.next[0] = after, b.next[1] = target; // a conditional jump
+    }
     b.words = uint8_t(std::max<uint32_t>(1, (bytes + 7) / 8));
     const uint32_t tail = bytes - 8 * (b.words - 1u);
     b.lastMask = tail >= 8 ? ~uint64_t(0) : (uint64_t(1) << (8 * tail)) - 1;

@@ -275,6 +275,10 @@ private:
         uint32_t start = 0xffffffffu;
         uint32_t epoch = 0; // codeEpoch_ when its bytes were last checked
         uint8_t count = 0, bytes = 0, words = 0;
+        // Where it's likely to go next (0xffffffff: not known): a jump's
+        // or call's target, both ways of a conditional jump, or straight on.
+        // Their blocks are fetched into the cache while this one runs.
+        uint32_t next[2] = {0xffffffffu, 0xffffffffu};
         Cached ops[kBlockOps];
         uint64_t lastMask = 0;
         uint64_t code[kBlockWords]{};
