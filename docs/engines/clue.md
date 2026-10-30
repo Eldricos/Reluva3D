@@ -349,20 +349,27 @@ and the walls around Mrs. Peacock (L 3:30); with "Translucency" off, it
 isn't.
 
 **Lighting Effects**, measured on the same view with it on and off (VM
-0:21 and 0:28, below): each floor tile and each object takes one
-brightness (the ratio is flat across each), full within 30 units of a
-suspect, falling to 22% over the next 230, the distance taken on screen
-(x − y, (x + y) / 2), which fits better than in the world. Reluva lights
-around every suspect.
+0:21 and 0:28, below), then checked on a second recording made for it
+(VM2 0:42 and 1:12: walking along lamp-lit walls, and a view with one
+suspect behind a wall): each frame placed exactly on Reluva's unlit
+render of the house (by its edges), then the brightness of each object
+in the original divided by Reluva's. Each floor tile and object takes
+one brightness, full within 45 units of a suspect, falling to 21% over
+the next 225, the distance taken on screen (x − y, (x + y) / 2), which
+fits better than in the world (the two recordings' fits were 30/230/22%
+and 60/220/20%; the middle is used). **The wall lamps don't light
+anything**: walls with lamps on them are bright or dark by how far they
+are from a suspect (the same `wall:Olglite_w` 1.7 times Reluva's
+brightness 159 units from Miss Scarlet and 0.18 at 315), and a fit with
+the lamps and fires as lights of their own is no better than one
+without. What looks like lamplight is the suspect's light falling on
+the walls behind the lamps. Reluva lights around every suspect.
 
 **Timings** from the VM recording: a suspect walks a square in about
 0.6 s; each "can / cannot disprove" box shows about 3 s.
 
 ### Not yet as the original
 
-- Whether the lamps light their walls too, and whether all suspects or
-  only some carry light, isn't settled: the measured view had one
-  suspect in it.
 - Which marks the original's Auto Notes puts on a card shown is a
   guess (crossed twice, from the 720p recording's notepad); own cards
   ticked twice is as recorded.
@@ -486,7 +493,12 @@ has accused correctly" and Continue (C 45:30), then the player set-up
 again. The prison clip (a suspect in a cell) plays near the end of the
 second game (C 55:30); what leads to it is still to be seen.
 
-### The VM recording
+### The VM recordings
+
+A second, "VM2" (1280×720, 16:30, October 2026): a game with Lighting
+Effects on, its first minutes walking along the lit walls of the lounge
+and the hall.
+
 
 A recording of the original 2.2 in a virtual machine, made for Reluva
 (1280×720, 27:42, October 2026; "VM" with its times): walking (0:40-
@@ -501,8 +513,7 @@ chooses how to go on disproving (24:00-27:40).
 1. The same view with Walls, Translucency and Dynamic Lighting each
    turned off in the preferences, to see what each does.
 2. The Preferences and Load Game screens.
-3. A view with Lighting Effects on, near a lamp and away from the
-   suspects, to see whether lamps light their walls.
+
 
 ## Reference recordings
 

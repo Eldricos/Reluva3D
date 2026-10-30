@@ -208,10 +208,11 @@ Error Mansion::build(const GameData& data, const Level& level) {
 }
 
 int lightLevel(int x, int y, const std::vector<std::pair<int, int>>& lights) {
-    // Measured on the original with Lighting Effects on and off (the same
-    // view): full within 30 of a light, then down over 230 to 22%. The
-    // distance is on screen: the floor's x - y and (x + y) / 2.
-    constexpr double kFull = 30, kFade = 230, kAmbient = 0.22;
+    // Measured on recordings of the original (docs/engines/clue.md): full
+    // within 45 of a suspect, then down over 225 to 21%. The distance is on
+    // screen: the floor's x - y and (x + y) / 2. The wall lamps and the
+    // fires give no light of their own.
+    constexpr double kFull = 45, kFade = 225, kAmbient = 0.21;
     double best = kAmbient;
     for (const auto& [lx, ly] : lights) {
         const int dx = x - lx, dy = y - ly;
