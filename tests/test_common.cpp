@@ -848,15 +848,32 @@ static void testWinHelp() {
     f.insert(f.end(), ld1b.begin(), ld1b.end());
     bytes(ld2b);
 
+    // A picture: one 2 x 2 DIB of 8 bits a pixel, two colours, its rows
+    // (bottom first, 4 bytes each) packed in runs.
+    const uint32_t bm0 = uint32_t(f.size());
+    const std::vector<uint8_t> runs = {0x82, 1, 0, 2, 0, 0x82, 0, 1, 2, 0}; // 1 0 | 0 0 ; 0 1 | 0 0
+    fileHeader(uint32_t(8 + 28 + 8 + runs.size()));
+    u16(0x506C), u16(1), u32(8);
+    u8(6), u8(1);                           // a DIB, packed in runs
+    u16(0), u16(0);                         // resolution
+    u8(2), u8(16);                          // 1 plane, 8 bits
+    u16(4), u16(4), u16(4), u16(0);         // 2 x 2, 2 colours used, 0 important
+    u16(uint32_t(runs.size()) * 2), u16(0); // the packed size, no hot spots
+    u32(2 + 18 + 8 + 8), u32(0);            // the data after the colours
+    u32(0x0000FF), u32(0x00FF00);           // blue, green (B, G, R, 0)
+    f.insert(f.end(), runs.begin(), runs.end());
+    CHECK(winhelp::unpackRuns(runs.data(), runs.size()) == std::vector<uint8_t>({1, 0, 0, 0, 0, 1, 0, 0}));
+
     const uint32_t directory = uint32_t(f.size());
     fileHeader(38 + 1024);
     u16(0x293B), u16(0x0402), u16(1024);
     bytes(std::string("z4\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16));
-    u16(0), u16(0), u16(0), u16(0xFFFF), u16(1), u16(1), u32(2);
+    u16(0), u16(0), u16(0), u16(0xFFFF), u16(1), u16(1), u32(3);
     const size_t page = f.size();
-    u16(0), u16(2), u16(0xFFFF), u16(0xFFFF);
+    u16(0), u16(3), u16(0xFFFF), u16(0xFFFF);
     bytes(std::string("|SYSTEM\0", 8)), u32(system);
     bytes(std::string("|TOPIC\0", 7)), u32(topic);
+    bytes(std::string("|bm0\0", 5)), u32(bm0);
     f.resize(page + 1024, 0);
 
     const uint32_t header[4] = {0x00035F3F, directory, 0xFFFFFFFF, uint32_t(f.size())};
@@ -870,6 +887,20 @@ static void testWinHelp() {
         CHECK(topics[0].title == "Driving");
         CHECK(topics[0].text == "Hello world's");
     }
+    // The picture: the bottom row first, so (0, 0) is the second row's.
+    winhelp::Picture picture;
+    CHECK(!winhelp::readPicture(f, 0, picture) && picture.width == 2 && picture.height == 2);
+    if (picture.rgba.size() == 16) {
+        CHECK(picture.rgba[0] == 0 && picture.rgba[1] == 0 && picture.rgba[2] == 255); // index 0: blue
+        CHECK(picture.rgba[5] == 255 && picture.rgba[4] == 0);                         // index 1: green
+        CHECK(picture.rgba[8] == 0 && picture.rgba[9] == 255 && picture.rgba[14] == 255);
+    }
+    CHECK(winhelp::readPicture(f, 1, picture)); // there's no |bm1
+    CHECK(winhelp::plainText("a\x02"
+                             "5\x02"
+                             "b\x03"
+                             "c\x01"
+                             "7\x01") == "abc");
     f[0] = 0;
     CHECK(winhelp::readHelp(f, topics)); // not a help file
 }

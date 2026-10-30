@@ -101,11 +101,12 @@ unpacked size it's phrase-compressed.
 | `0x81` | a line break | |
 | `0x82` | the paragraph's end | |
 | `0x83` | a tab | |
-| `0x86`-`0x88` | a picture (in the line, left, right): a kind, its size (signed), hot spots for kind `0x22` | the size |
+| `0x86`-`0x88` | a picture (in the line, left, right): a kind (3 a picture, `0x22` one with hot spots, 5 a window a program draws), its size (signed), the hot spots' count for `0x22`; a picture's data is a 16-bit source (0: the file's `\|bm` pictures) and its number | the size |
 | `0x89` | a hot spot's end | |
 | `0x8B`, `0x8C` | a space, a hyphen, that don't break | |
 | `0xC8`, `0xCC` | a macro | a 16-bit size, then it |
-| `0xE0`-`0xE7` | a jump or pop-up to a topic | 4 |
+| `0xE0`, `0xE1` | Windows 3.0's jump and pop-up | 4 |
+| `0xE2`, `0xE3`, `0xE6`, `0xE7` | a pop-up and a jump (the last two without the link's font): the hash of the topic's context name; the link's words run to the next `0x89` | 4 |
 | `0xEA`-`0xEF` | to another file | a 16-bit size, then it |
 | `0x20`, `0x21` | a field | 4, 2 |
 | `0xFF` | the end | |
@@ -136,9 +137,46 @@ The older phrase form (`|Phrases`) isn't read: this file doesn't have it.
 **Text.** It's in Windows' character set. Reluva changes the quotes,
 dashes, ellipsis, bullet and marks to ASCII.
 
+## Links
+
+A jump names its topic by the 32-bit hash of the topic's context name.
+Two B+ trees turn that into a topic:
+
+- `|CONTEXT` (key form `L4`): a hash and its topic offset.
+- `|TTLBTREE` (`Lz`): each topic's offset and its title, in the topics'
+  order.
+
+The topic is the last whose offset is at or before the hash's. All 468
+jumps in `MM2HELP.HLP` are found in `|CONTEXT` (167 entries); 465 land
+exactly on a topic's start; `|TTLBTREE`'s 183 entries are its 183
+topics. Reluva's reader marks a link's words in the topic's text with
+the topic it goes to (`winhelp.h`'s marks), and a picture's place with
+its number.
+
+## Pictures
+
+`|bm<n>`: the help compiler's own bitmap files. Each is:
+
+- a magic (`lP`, `0x506C`; or `lp`) and how many pictures it holds, each
+  one's offset (32-bit), then each picture:
+- a type (5 a device's bitmap, 6 a DIB, 8 a metafile, not read) and a
+  packing (0 none, 1 runs, 2 LZ77, 3 LZ77 then runs);
+- in compressed numbers (as above): the resolution (two longs), planes
+  and bits a pixel (words), width, height, colours used and important,
+  the packed data's size and the hot spots' size (longs);
+- where the data and the hot spots are (32-bit, from the picture's
+  start), and a DIB's colours (BGR and a zero, as many as it uses).
+
+The data unpacks to rows from the bottom, each a whole 4 bytes (2 for a
+device's bitmap). Runs: a byte with its top bit set is followed by that
+many (less the bit) bytes as they are, else by one byte to repeat that
+many times.
+
+`MM2HELP.HLP`'s 24 are all type 6 packed with LZ77: 23 at 24 bits (the
+help's banner, the cars, the screens and the HUD, 385 x 206 to 640 x 480)
+and an arrow at 8 bits. Each was checked by eye.
+
 ## Not read
 
-- The pictures (`|bm<n>`: the help compiler's own bitmap files, 1.4 MB
-  of `MM2HELP.HLP`).
-- The links between topics, the keywords (`|KWBTREE`...), the fonts
-  (`|FONT`) and the contents.
+- The hot spots in pictures, the keywords (`|KWBTREE`...), the fonts
+  (`|FONT`), the macros and the contents.
