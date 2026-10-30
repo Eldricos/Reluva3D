@@ -1115,8 +1115,11 @@ Allowed under CONTRIBUTING.md:
 - What sets the audio option at `0x6fbbe0` to 0, which drops the
   sounds at mixing quality 50 to nearest-sample resampling
   ([bnk.md](../formats/nfs/bnk.md)).
-- Whether the captured movie frames match the game's interpolating
-  display modes ([mad.md](../formats/nfs/mad.md)).
+- The movies' remaining differences from the game's frames: decoded
+  samples one apart on the high-*q* fade-in frames
+  ([mad.md](../formats/nfs/mad.md)).
+- Whether Dolby Surround (audio mode 2) works: the earlier check had
+  the wrong byte, and its measure can't tell Dolby from stereo.
 - The race types' names (0-3; 3 is the pursuit), the network modes 2-4,
   and the 32 Hz car-dynamics task `0x4a2830`
   ([nfs-threads.md](nfs-threads.md)).
