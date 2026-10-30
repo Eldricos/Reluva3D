@@ -24,7 +24,6 @@ namespace {
 constexpr int kW = 640, kH = 480;
 // The game's bar: the view of the mansion is above it.
 constexpr int kBarTop = 413;
-constexpr int kTickerTop = 462;
 
 // dialogInfo.res's dialogs, by number.
 enum Dialog {
@@ -35,10 +34,6 @@ enum Dialog {
 // Controls most dialogs share.
 constexpr int kReturn = 10000, kOk = 10001;
 
-// The suspects' names in resource names, in the game's order.
-const char* const kSuspectKey[kSuspects] = {"sca", "mus", "whi", "gre", "pea", "plu"};
-const char* const kCharacter[kSuspects] = {"character:Oscarlet", "character:Omustard", "character:Owhite",
-                                           "character:Ogreen",   "character:Opeacock", "character:Oplum"};
 const char* const kLevelName[3] = {"Novice CPU", "Normal CPU", "Expert CPU"};
 // The rules' topics, in the How to Play menu's order, and their files.
 const char* const kRulesFile[7] = {"Setup.txt", "Character Movement.txt", "Entering or Leaving a Room.txt",
@@ -104,18 +99,6 @@ Error FrontEnd::open() {
     if (!prefsFile_.empty())
         prefs_.load(prefsFile_);
     applyVolumes();
-    // The ticker's sentences for whose turn it is: one a suspect, in order.
-    if (const auto* ticker = data_.find("TickerStrings.txt")) {
-        std::istringstream in(readText(ticker->filename().string()));
-        std::string line;
-        int k = 0;
-        while (std::getline(in, line) && k < kSuspects) {
-            if (!line.empty() && line.back() == '\r')
-                line.pop_back();
-            if (line.size() > 16 && line.compare(line.size() - 16, 16, "it is your turn.") == 0)
-                turnSentence_[size_t(k++)] = line;
-        }
-    }
     sys_.setWindowTitle("Clue: Murder at Boddy Mansion");
     sys_.setMouseCursorVisible(false);
     go(Screen::Intro);
@@ -123,6 +106,8 @@ Error FrontEnd::open() {
 }
 
 void FrontEnd::leave() {
+    if (play_)
+        play_->stopSounds();
     stopMovie();
     stopMusic();
     sys_.setMouseCursorVisible(true);
@@ -225,6 +210,15 @@ void FrontEnd::go(Screen s) {
     case Screen::Game:
         dialog_.reset();
         gameMenu_.reset();
+        if (!play_ && mansion_) {
+            play_ = std::make_unique<Play>(sys_, screen_, data_, mixer_, resi_, *fonts_, *mansion_, level_);
+            play_->setLook(playLook());
+            if (play_->start(players_, noDieRoll_, uint32_t(sys_.getMillis() * 2654435761u))) {
+                play_.reset();
+                go(Screen::MainMenu);
+                return;
+            }
+        }
         playMusic(true);
         break;
     case Screen::GameMenu:
@@ -308,10 +302,20 @@ void FrontEnd::startGame() {
     for (Player& p : players_)
         if (p.kind == Player::Human && p.name.empty())
             p.name = "Human";
-    turn_ = 0;
-    while (turn_ < kSuspects && players_[size_t(turn_)].kind == Player::None)
-        ++turn_;
+    play_.reset();
     go(Screen::Loading);
+}
+
+PlayLook FrontEnd::playLook() const {
+    PlayLook look;
+    look.suggestMovies = prefs_.on[Preferences::SuggestMovies];
+    look.autoNotes = prefs_.on[Preferences::AutoNotes];
+    look.butlerVoice = prefs_.on[Preferences::ButlerVoice];
+    look.walkAnimations = prefs_.on[Preferences::WalkAnimations];
+    look.mansion.walls = !prefs_.on[Preferences::MansionWalls] ? MansionLook::Walls::Hidden
+                         : prefs_.on[Preferences::Translucency] ? MansionLook::Walls::SeeThrough
+                                                                 : MansionLook::Walls::Solid;
+    return look;
 }
 
 void FrontEnd::onClick(int id) {
@@ -488,19 +492,10 @@ void FrontEnd::handleEvent(const Event& ev) {
         return;
     }
     if (at_ == Screen::Game) {
-        if (ev.type == EventType::KeyDown) {
-            const int step = (ev.mods & keymod::Shift) ? 128 : 32;
-            if (ev.key == key::Escape)
-                go(Screen::GameMenu);
-            else if (ev.key == key::Left)
-                camX_ -= step;
-            else if (ev.key == key::Right)
-                camX_ += step;
-            else if (ev.key == key::Up)
-                camY_ -= step;
-            else if (ev.key == key::Down)
-                camY_ += step;
-        }
+        if (ev.type == EventType::KeyDown && ev.key == key::Escape)
+            go(Screen::GameMenu);
+        else if (play_)
+            play_->handleEvent(ev);
         return;
     }
     if (at_ == Screen::GameMenu) {
@@ -654,52 +649,6 @@ void FrontEnd::drawCursor() {
         }
 }
 
-void FrontEnd::drawBar() {
-    // Where the bar's parts are, measured on a 640x480 recording of the original.
-    const auto put = [&](const char* name, int x, int y, int frame = 0) {
-        const Animation* a = data_.animation(name);
-        if (!a || a->layers.empty() || a->frameCount() == 0)
-            return;
-        const auto& part = a->layers[0][size_t(std::clamp(frame, 0, int(a->frameCount()) - 1))];
-        if (part.image >= a->images.size())
-            return;
-        if (const Image* img = data_.image(a->images[part.image]))
-            image::blit(screen_, img->pixels, x + part.x + img->offsetX, y + part.y + img->offsetY);
-    };
-    put("UI:Atopframe", 0, 0);
-    put("UI:Aleftframe", 0, 4);
-    put("UI:Artframe", 635, 4);
-    put("UI:Aleftorn", 0, kBarTop);
-    put("UI:Anotecardbtn", 39, kBarTop);
-    put("UI:Agamebdbtn", 84, kBarTop);
-    for (int k = 0; k < kSuspects; ++k) {
-        // Frames: 0 as it is, 1 whose turn it is, 2 not playing.
-        const int frame = k == turn_ ? 1 : players_[size_t(k)].kind == Player::None ? 2 : 0;
-        put((std::string("UI:A") + kSuspectKey[k] + "bottom").c_str(), 141 + 60 * k, kBarTop, frame);
-    }
-    put("UI:Alogobtn", 501, kBarTop);
-    put("UI:Arightorn", 594, kBarTop);
-    put("UI:Aticker", 0, kTickerTop);
-    put("UI:Artbtmornnorm", 599, kTickerTop + 1);
-    if (const BitmapFont* f = fonts_->get(2); f && turn_ < kSuspects)
-        drawText(screen_, *f, turnSentence_[size_t(turn_)], 0, kTickerTop, kW, 18, true, true);
-}
-
-void FrontEnd::drawGame() {
-    if (!mansion_)
-        return;
-    MansionLook look;
-    look.walls = !prefs_.on[Preferences::MansionWalls] ? MansionLook::Walls::Hidden
-                 : prefs_.on[Preferences::Translucency] ? MansionLook::Walls::SeeThrough
-                                                         : MansionLook::Walls::Solid;
-    const ScreenRect& b = mansion_->bounds();
-    camX_ = std::clamp(camX_, b.x - kW / 2, b.x + b.w - kW / 2);
-    camY_ = std::clamp(camY_, b.y - kBarTop / 2, b.y + b.h - kBarTop / 2);
-    fillRect(screen_, 0, 0, kW, kH, {0, 0, 0});
-    mansion_->draw(screen_, camX_, camY_, look, now_);
-    drawBar();
-}
-
 void FrontEnd::update(uint64_t nowMs) {
     now_ = nowMs;
     if (movie_) {
@@ -746,18 +695,22 @@ void FrontEnd::update(uint64_t nowMs) {
                 go(Screen::MainMenu);
                 return;
             }
-            // The camera on the first player's suspect.
-            for (const Mansion::Item& item : mansion_->items())
-                if (turn_ < kSuspects && item.object->name == kCharacter[turn_]) {
-                    camX_ = item.anchorX - kW / 2;
-                    camY_ = item.anchorY - 60 - kBarTop / 2;
-                }
         }
         go(Screen::Deal);
         return;
     }
-    if (at_ == Screen::Game || at_ == Screen::GameMenu) {
-        drawGame();
+    if ((at_ == Screen::Game || at_ == Screen::GameMenu) && play_) {
+        play_->setLook(playLook());
+        if (at_ == Screen::Game)
+            play_->update(nowMs);
+        if (play_->finished()) {
+            // The end's Continue: the players' set-up again.
+            play_.reset();
+            go(Screen::Picker);
+            drawCursor();
+            return;
+        }
+        play_->draw();
         if (at_ == Screen::GameMenu && gameMenu_)
             gameMenu_->draw(screen_);
     } else {

@@ -9,7 +9,7 @@ namespace reluva::clue {
 
 namespace {
 
-constexpr int kScreenWidth = 640;
+constexpr int kScreenWidth = 640, kScreenHeight = 480;
 
 // An image of the interface: an animation's frame (its first layer) or,
 // for names of images ("menu:IprefsKnob"), the image itself.
@@ -119,6 +119,24 @@ DialogView::DialogView(const GameData& data, const Fonts& fonts, const ResiDialo
     : data_(data), fonts_(fonts), dialog_(dialog), x_(x), y_(y), state_(dialog.controls.size()) {
     for (size_t i = 0; i < state_.size(); ++i)
         state_[i].visible = dialog_.controls[i].group == 0;
+    // Its size: its background's; without one, its largest picture's (the
+    // disproving window's backgrounds are pictures in it); else the screen's.
+    const Picture bg = picture(data_, dialog_.background, 0);
+    if (bg.image) {
+        width_ = bg.image->pixels.w + bg.dx;
+        height_ = bg.image->pixels.h + bg.dy;
+    } else {
+        for (const ResiControl& c : dialog_.controls)
+            if (c.type == ResiControl::Image)
+                if (const Picture p = picture(data_, c.text, 0); p.image) {
+                    width_ = std::max(width_, c.left + p.image->pixels.w + p.dx);
+                    height_ = std::max(height_, c.top + p.image->pixels.h + p.dy);
+                }
+    }
+    if (width_ <= 0 || height_ <= 0) {
+        width_ = kScreenWidth - x_;
+        height_ = kScreenHeight - y_;
+    }
 }
 
 void DialogView::setVisible(int id, bool v) {
@@ -212,10 +230,11 @@ UiRect DialogView::rectOf(const ResiControl& c) const {
         r.w = c.right - c.left;
     if (c.bottom > c.top)
         r.h = c.bottom - c.top;
-    if (c.right == -1) {
-        r.x = 0;
-        r.w = kScreenWidth;
-    }
+    // -1: as far as the dialog goes.
+    if (c.right == -1)
+        r.w = width_ - c.left;
+    if (c.bottom == -1)
+        r.h = height_ - c.top;
     if (c.type == ResiControl::Edit && r.h == 0)
         if (const BitmapFont* f = fonts_.get(c.font))
             r.h = f->lineHeight();
@@ -305,7 +324,12 @@ void DialogView::drawControls(Surface& s) const {
                 const BitmapFont* f = fonts_.get(hot && st.enabled ? c.otherFont : c.font);
                 if (!f)
                     f = fonts_.get(c.font);
-                if (f)
+                // centreY 2 (the suggestion window's choices): the name along
+                // the picture's foot, as recordings show it; else in its middle.
+                if (f && c.centreY == 2)
+                    drawText(s, *f, st.textSet ? st.text : c.text, r.x, r.y + r.h - f->lineHeight(), r.w,
+                             f->lineHeight(), true, false);
+                else if (f)
                     drawText(s, *f, st.textSet ? st.text : c.text, r.x, r.y, r.w, r.h, true, true);
             }
             break;

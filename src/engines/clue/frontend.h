@@ -4,8 +4,8 @@
 #pragma once
 
 // The game as it starts: the intro, the menus and their screens (all from
-// dialogInfo.res), setting up the players, and the mansion with the
-// game's bar, before the rules are played (see docs/engines/clue.md).
+// dialogInfo.res), setting up the players, then the game itself (play.h)
+// with its Esc menu (see docs/engines/clue.md).
 
 #include "common/audio/mixer.h"
 #include "common/events.h"
@@ -14,6 +14,7 @@
 #include "engines/clue/game_data.h"
 #include "engines/clue/level.h"
 #include "engines/clue/mansion.h"
+#include "engines/clue/play.h"
 #include "engines/clue/resi.h"
 #include "engines/clue/ui.h"
 
@@ -57,11 +58,6 @@ private:
         Intro, MainMenu, StartChoice, Connection, NetGame, LoadGame, RulesMenu, Rules, Credits, CreditsText,
         Exit, Picker, Setup, Variants, Prefs, Loading, Deal, Game, GameMenu
     };
-    struct Player {
-        enum Kind { None, Human, Computer } kind = None;
-        std::string name;
-        int level = 1; // 0 novice, 1 normal, 2 expert
-    };
 
     void go(Screen s);
     void onClick(int id);
@@ -77,8 +73,7 @@ private:
     void playTrack(int track);
     void stopMusic();
     void startGame();
-    void drawGame();
-    void drawBar();
+    PlayLook playLook() const;
     void drawCursor();
     void drawStorm();
     void applyVolumes();
@@ -120,9 +115,7 @@ private:
     DataDrive levelFile_;
     Level level_;
     std::unique_ptr<Mansion> mansion_;
-    int camX_ = 0, camY_ = 0;
-    int turn_ = 0;                     // the suspect whose turn it is
-    std::array<std::string, kSuspects> turnSentence_;
+    std::unique_ptr<Play> play_;
     std::unique_ptr<DialogView> gameMenu_;
 };
 

@@ -104,14 +104,25 @@ Each step can be seen working before the next.
    and the network screens show but don't work yet. The in-game panels
    (cards, notepad, suggestion and accusation, disproving) come with the
    rules, as they need them.
-5. **The game.** The board: squares, doors, secret passages, from the
-   level. Turns, the die or credits, moving (with walk cycles),
-   suggestions (moving the suspect and weapon into the room), disproving,
-   accusations and the end. Hot-seat play with hidden cards. The spoken
-   lines and the ticker's sentences.
-6. **Computer players.** They note what they learn and deduce from it as
-   the originals do; their choices compared with the original's over
-   recorded games.
+5. **The game** (done, to be checked against the original). The board
+   read from the level ([formats/clue/board.md](../formats/clue/board.md)):
+   squares, doors, starting squares, secret passages. The rules as the
+   game's own texts give them (`rules.h`): the deal, turns, the die or No
+   Die Roll's nine moves, moving, suggestions bringing the suspect in,
+   disproving in turn, accusations, being out, the end. Played as
+   described under "In the game" below: moves planned square by square
+   and walked, the suggestion and accusation window, the suggestions'
+   videos, disproving, the card shown, the solution, the notepad and the
+   cards, the board from above, the ticker's sentences and the spoken
+   lines. Hot seat: each human sees only their own cards and notes.
+   Weapons are cards only: the mansion has no weapon tokens. Plain
+   computer players for now (below). Unit tests for the board, the
+   rules and whole games of computer players.
+6. **Computer players.** For now they head for the nearest room they know
+   nothing of, suggest what they don't know, show a card already shown
+   when they can, and accuse only when sure; the three levels play
+   alike. To do: note and deduce as the originals do; their choices
+   compared with the original's over recorded games.
 7. **The rest.** The clickable objects' animations, thunder and other
    ambient sounds, music (see below), saved games and `Prefs.ini`. Saved
    games are Reluva's own: the original's needn't load.
@@ -128,6 +139,47 @@ menus, as the original. In the game, the arrow keys move the view
 are saved in Reluva's folder for the game (`preferences.ini`); "Mansion
 Walls" off hides the nearest walls, "Translucency" off makes them solid.
 
+### In the game
+
+As the original, from its recordings and its How to Play texts:
+
+- **The die** (the drawer's first icon, at the bar's right end, on a
+  human's turn): rolls; the icon shows the number. Then click the
+  squares of the move one at a time, starting next to the suspect. Each
+  is numbered on the floor as it's planned, and the squares it can go on
+  to are numbered faintly. Clicking one of the move's squares again goes
+  back to it. When the die's number is reached, or a room's floor is
+  clicked from before its door, the suspect walks there.
+- **No Die Roll**: the first icon shows the moves left; plan the move
+  the same way and click its last square again (or the icon) to walk.
+  Suggesting, accusing and the secret passages cost three moves.
+- **Secret passages**: from a corner room at the start of a turn, click
+  the passage in the room (or, on the board from above, the room it
+  leads to).
+- **The bulb** suggests, after entering a room (or when brought into one
+  by someone's suggestion): choose a suspect, then a weapon, then
+  Suggest. **The handcuffs** accuse, any time in the turn: a suspect, a
+  weapon and a room. On the summary, click a picture to choose again;
+  Cancel gives up.
+- **Ending the turn**: once moved, the first icon is the suspect's pawn;
+  click it.
+- **The notes and cards** button (the bar's left) opens the cards in
+  hand; the notepad icon under them opens the notepad, whose cards icon
+  goes back. Click a notepad row to mark it (an X, a tick, none). With
+  "Auto Notes" on, every card known is crossed off in the colour of
+  whoever showed or holds it.
+- **The board** button shows the board from above, with the suspects'
+  pawns; moves can be planned on it too.
+- When a human must disprove, their matching cards are shown: click one,
+  then Done. A card shown to a human is shown large, with OK. A human
+  who accuses wrongly sees the solution and chooses whether to go on
+  disproving by hand or automatically.
+
+The computer players take their turns on their own, the camera following
+them. The suggestions' videos play in the right column when "Suggest
+Movies" is on; the spoken lines play when "Butler Voice" is on; "Walk
+Animations" off moves the suspects at once.
+
 The music, when the CD's tracks have been ripped into the game's folder
 (below): track 5 in the menus, looping; tracks 2, 3 and 4 in turn in the
 game. Which plays where is a reading of `Clue.exe` (below), to be checked
@@ -139,7 +191,33 @@ it (its pictures matched in the frames): the top and side frames (0, 0),
 button (39, 413), the board button (84, 413); the six portraits from
 (141, 413), 60 apart (frame 0 as they are, 1 whose turn it is, 2 not
 playing); the logo (501, 413); the ticker (0, 462) with its sentence; the
-drawer of a human's actions (511, 413), out over the logo.
+drawer of a human's actions (511, 413), out over the logo, its three
+icons at (535, 420), (574, 420) and (606, 420): the die (`UI:Arolldiebtn`,
+then `UI:Arolled` with the number, or `UI:Anoroll` with the moves left,
+then the suspect's pawn `UI:A<sca>end` to end the turn), the bulb, the
+handcuffs. The left column (5, 5): the cards window and the notepad. The
+right column (434, 4): the choice window (dialog 30), the box saying who
+can or can't disprove (dialog 31, with that suspect's portrait), a
+human's choice of card (dialog 32), and the videos; the card shown, large
+(dialog 33, `UI:Algcard`, one frame a card), at (398, 4). The board from
+above (`UI:Aoverhead`) at (208, 5), its squares 13 pixels, column 9 and
+row 9 at (8, 15) in it. The solution (dialog 34) fills the screen.
+
+Whatever stands in front of a suspect on screen is drawn see-through, as
+the original draws the fireplace over Miss Scarlet at the start (L 3:00)
+and the walls around Mrs. Peacock (L 3:30); with "Translucency" off, it
+isn't.
+
+### Not yet as the original
+
+- The timings (how long each sentence and box stays, how fast the
+  suspects walk) are guesses, to be measured on recordings.
+- The original's notepad has three columns of marks and a triangle on
+  each row; Reluva's has one column of marks and who holds the card.
+- Where suspects stand in a room, and which cards a cards window fills
+  first, are Reluva's choice.
+- "Lighting Effects" (the pools of light) and the clickable objects
+  ("please choose an active object") come later (step 7).
 
 ## The data viewer
 

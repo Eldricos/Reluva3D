@@ -41,7 +41,7 @@ struct ResiControl {
     // How its text sits in its rectangle (as in recordings: the
     // preferences' labels are left-aligned, the titles centred).
     int32_t centreX = 0;       // 1: centred across; 0: from the left
-    int32_t centreY = 0;       // 1: centred down; 2: the suggestion window's choices (their name under them)
+    int32_t centreY = 0;       // 1: centred down; 2: the suggestion window's choices (their name at their foot)
     int32_t maxLength = 0;     // 32 in many controls, not understood; Reluva takes it as a text box's length limit
     int32_t style = 0;         // 2 for two-line buttons ("Locally|on this machine")
     std::array<int32_t, 28> raw{}; // the 112 bytes as stored (pointers among them)

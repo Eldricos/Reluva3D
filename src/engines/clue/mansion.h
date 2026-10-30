@@ -51,6 +51,7 @@ struct MansionLook {
     bool outside = true;
     bool tileNumbers = false;
     bool animate = true;
+    bool characters = true; // the suspects where clue.lvl stands them (off when the game moves them)
 };
 
 class Mansion {
@@ -74,6 +75,20 @@ public:
         ScreenRect rect;              // of frame 0 on screen
     };
 
+    // Something drawn among the items that isn't in the level: a suspect
+    // walking, a number on a square. Put in the drawing order by its box.
+    struct Actor {
+        WorldBox box;            // box.x, box.y its anchor in the world, as a placement's
+        const Frame* frame = nullptr;
+        bool flat = false;       // on the floor: after the floors, under everything else
+        int opacity = 255;
+        // What stands in front of it is drawn see-through (with walls
+        // see-through), as the original does around the suspects.
+        bool reveal = false;
+    };
+    // An animation's frames as pieces to draw (kept).
+    const std::vector<Frame>* frames(const GameData& data, const Animation& anim) { return resolve(data, anim); }
+
     // Builds every placement; those whose object or animation can't be
     // found or read are left out and counted in problems().
     Error build(const GameData& data, const Level& level);
@@ -87,7 +102,10 @@ public:
     // Whether the look shows an item; and the view from (camX, camY) drawn
     // into the target, the animations at the time given.
     bool shown(const Item& item, const MansionLook& look) const;
-    void draw(Surface& target, int camX, int camY, const MansionLook& look, uint64_t nowMs) const;
+    void draw(Surface& target, int camX, int camY, const MansionLook& look, uint64_t nowMs,
+              const std::vector<Actor>& actors = {}) const;
+    // Where an actor goes in the drawing order: before drawOrder()[n].
+    size_t insertionPoint(const Actor& actor) const;
 
 private:
     const std::vector<Frame>* resolve(const GameData& data, const Animation& anim);
@@ -95,6 +113,8 @@ private:
     const Level* level_ = nullptr;
     std::vector<Item> items_;
     std::vector<size_t> order_;
+    size_t flatCount_ = 0;              // order_'s first entries, the flat items
+    std::vector<size_t> orderOf_;       // each item's place in order_
     ScreenRect bounds_;
     std::vector<std::string> problems_;
     std::map<const Animation*, std::vector<Frame>> frames_;

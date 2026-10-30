@@ -186,8 +186,12 @@ Error Mansion::build(const GameData& data, const Level& level) {
         rects.push_back(items_[i].rect);
     }
     order_ = flat;
+    flatCount_ = flat.size();
     for (size_t k : depthOrder(boxes, rects))
         order_.push_back(solid[k]);
+    orderOf_.assign(items_.size(), 0);
+    for (size_t n = 0; n < order_.size(); ++n)
+        orderOf_[order_[n]] = n;
 
     bounds_ = items_.front().rect;
     for (const Item& it : items_) {
@@ -204,6 +208,8 @@ Error Mansion::build(const GameData& data, const Level& level) {
 bool Mansion::shown(const Item& item, const MansionLook& look) const {
     if (item.object->type == ObjectDef::TileNumber)
         return look.tileNumbers;
+    if (item.object->type == ObjectDef::Character)
+        return look.characters;
     if (item.layer == 4)
         return look.walls != MansionLook::Walls::Hidden;
     if (item.layer == 6)
@@ -211,20 +217,97 @@ bool Mansion::shown(const Item& item, const MansionLook& look) const {
     return true;
 }
 
-void Mansion::draw(Surface& target, int camX, int camY, const MansionLook& look, uint64_t nowMs) const {
+namespace {
+
+ScreenRect actorRect(const Mansion::Actor& a) {
+    const int ax = a.box.x - a.box.y, ay = floorDiv(a.box.x + a.box.y, 2);
+    ScreenRect r{ax, ay, 0, 0};
+    bool any = false;
+    for (const Mansion::Piece& p : *a.frame) {
+        const ScreenRect q{ax + p.dx, ay + p.dy, p.image->pixels.w, p.image->pixels.h};
+        if (!any)
+            r = q;
+        else {
+            const int x1 = std::max(r.x + r.w, q.x + q.w), y1 = std::max(r.y + r.h, q.y + q.h);
+            r.x = std::min(r.x, q.x);
+            r.y = std::min(r.y, q.y);
+            r.w = x1 - r.x;
+            r.h = y1 - r.y;
+        }
+        any = true;
+    }
+    return r;
+}
+
+} // namespace
+
+size_t Mansion::insertionPoint(const Actor& actor) const {
+    if (actor.flat)
+        return flatCount_;
+    // After everything it is in front of, before everything in front of it
+    // (of what it overlaps on screen); when the two can't both be had, the
+    // things in front of it win.
+    const ScreenRect rect = actorRect(actor);
+    size_t after = flatCount_, before = order_.size();
+    for (size_t n = flatCount_; n < order_.size(); ++n) {
+        const Item& item = items_[order_[n]];
+        if (!item.rect.overlaps(rect) || item.object->type == ObjectDef::Character)
+            continue;
+        int c = compareDepth(actor.box, item.box);
+        if (c == 0)
+            c = centreDepth(actor.box) < centreDepth(item.box) ? -1 : 1;
+        if (c > 0)
+            after = std::max(after, n + 1);
+        else
+            before = std::min(before, n);
+    }
+    return std::min(after, before);
+}
+
+void Mansion::draw(Surface& target, int camX, int camY, const MansionLook& look, uint64_t nowMs,
+                   const std::vector<Actor>& actors) const {
     const ScreenRect view{camX, camY, target.w, target.h};
-    for (size_t i : order_) {
-        const Item& item = items_[i];
+    // The actors in the order, each before the item it goes before; those
+    // at the same point back to front.
+    std::vector<std::pair<size_t, const Actor*>> placed;
+    std::vector<std::pair<size_t, ScreenRect>> revealed;
+    for (const Actor& a : actors)
+        if (a.frame && actorRect(a).overlaps(view)) {
+            placed.push_back({insertionPoint(a), &a});
+            if (a.reveal && look.walls != MansionLook::Walls::Solid)
+                revealed.push_back({placed.back().first, actorRect(a)});
+        }
+    std::stable_sort(placed.begin(), placed.end(), [](const auto& x, const auto& y) {
+        return x.first != y.first ? x.first < y.first : centreDepth(x.second->box) < centreDepth(y.second->box);
+    });
+    size_t next = 0;
+    const auto drawActors = [&](size_t upTo) {
+        for (; next < placed.size() && placed[next].first <= upTo; ++next) {
+            const Actor& a = *placed[next].second;
+            const int ax = a.box.x - a.box.y - camX, ay = floorDiv(a.box.x + a.box.y, 2) - camY;
+            for (const Piece& p : *a.frame)
+                image::blit(target, p.image->pixels, ax + p.dx, ay + p.dy, a.opacity);
+        }
+    };
+    for (size_t n = 0; n < order_.size(); ++n) {
+        drawActors(n);
+        const Item& item = items_[order_[n]];
         if (!shown(item, look) || !item.rect.overlaps(view))
             continue;
         const auto& frames = *item.frames;
         size_t f = 0;
         if (look.animate && frames.size() > 1)
             f = size_t(nowMs * uint64_t(item.animation->framesPerSecond) / 1000) % frames.size();
-        const int opacity = item.layer == 4 && look.walls == MansionLook::Walls::SeeThrough ? look.seeThrough : 255;
+        int opacity = item.layer == 4 && look.walls == MansionLook::Walls::SeeThrough ? look.seeThrough : 255;
+        // Over a suspect: see-through.
+        if (!item.flat)
+            for (const auto& [at, rect] : revealed)
+                if (at <= n && item.rect.overlaps(rect))
+                    opacity = std::min(opacity, look.seeThrough);
         for (const Piece& p : frames[f])
             image::blit(target, p.image->pixels, item.anchorX + p.dx - camX, item.anchorY + p.dy - camY, opacity);
     }
+    drawActors(order_.size());
 }
 
 } // namespace reluva::clue

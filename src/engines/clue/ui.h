@@ -109,6 +109,7 @@ private:
     const Fonts& fonts_;
     const ResiDialog& dialog_;
     int x_, y_;
+    int width_ = 0, height_ = 0; // the dialog's size, for controls reaching to its edges
     std::vector<State> state_; // one per control
     int hover_ = -1, pressed_ = -1, focus_ = -1, dragging_ = -1;
 };

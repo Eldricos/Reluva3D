@@ -480,6 +480,22 @@ static void testMansion(const std::filesystem::path& tmp) {
         CHECK(m.drawOrder() == std::vector<size_t>({1, 0})); // the floor first
         // Frame 0's pieces: image Ia (3x2) at the frame's anchor offset plus its layer's.
         CHECK(bench.rect.x == 100 - 44 && bench.rect.y == 150 - 106 - 5);
+        // Actors go into the order by their boxes: before the bench when
+        // behind it, after it when in front; on the floor,
+        // after the floors and before everything else.
+        Mansion::Actor actor;
+        actor.frame = &(*bench.frames)[0];
+        actor.box = {199, 100, 16, 16, 100}; // overlapping it on screen (its picture is 3x2)
+        CHECK(m.insertionPoint(actor) == 1);
+        actor.box = {202, 101, 16, 16, 100};
+        CHECK(m.insertionPoint(actor) == 2);
+        actor.flat = true;
+        CHECK(m.insertionPoint(actor) == 1);
+        Surface s;
+        s.create(640, 480, PixelFormat::RGBA32);
+        MansionLook look;
+        look.characters = false;
+        m.draw(s, 0, 0, look, 0, {actor}); // drawn, whatever its place
     }
     std::filesystem::remove_all(tmp);
 }
