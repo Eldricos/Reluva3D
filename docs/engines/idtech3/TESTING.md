@@ -1,10 +1,25 @@
 # Testing Elite Force: the playthrough list
 
 What still needs trying in the real game, by a person, with the retail
-files. The automated tests (`ctest`) and the render check
-(`reluva-render-check`, run by CI on macOS and Linux) cover the parts that
-can be checked without them. See [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md)
-for how those work.
+files.
+
+What can be checked by a program is checked automatically:
+
+- **Without the game:** the unit tests, the basic engine test and the
+  render check, run by CI on every push.
+- **With your copy of the game:** the game-files test runs every map,
+  model and shader, the game's code on several maps (Holomatch, single
+  player and the Expansion Pack, with saving and loading), the menus and
+  the videos, and compares the results with records. Run it after any
+  change:
+
+  ```sh
+  RELUVA_STVEF=/path/to/EliteForce ctest --test-dir build -L gamedata
+  ```
+
+See [DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests) for both, and
+[REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) for the rest of the
+checking.
 
 Each item names what to do and what should happen. When something differs
 from the original game, note:

@@ -180,6 +180,8 @@ Error SpUiHost::load(const std::vector<uint8_t>& dll) {
         if (print)
             print(s);
     };
+    if (clock)
+        process_->milliseconds = clock;
     if (Error e = process_->load("efuix86.dll", dll, module_))
         return e;
     if (Error e = process_->attach(*module_))

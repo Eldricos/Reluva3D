@@ -2475,12 +2475,14 @@ std::pair<std::filesystem::path, std::string> idTech3Folders(const char* folder)
     return {path.parent_path(), path.filename().string()};
 }
 
-bool mountIdTech3(const char* folder, reluva::SearchSet& set) {
+// `skip`: paks left out (lower case), as the launcher leaves out the
+// Expansion Pack's when it's turned off.
+bool mountIdTech3(const char* folder, reluva::SearchSet& set, const std::vector<std::string>& skip = {}) {
     const std::filesystem::path dir = std::filesystem::path(folder).lexically_normal();
     const std::filesystem::path path = dir.has_filename() ? dir : dir.parent_path();
     std::vector<std::string> warnings;
     if (reluva::Error err =
-            reluva::idtech3::mountGameDir(set, path.parent_path(), path.filename().string(), 0, warnings)) {
+            reluva::idtech3::mountGameDir(set, path.parent_path(), path.filename().string(), 0, warnings, skip)) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return false;
     }
@@ -4104,12 +4106,15 @@ int cmdBinkDecode(int argc, char** argv) {
 int cmdSpMenus(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool sp-menus <game folder> [-dll efuix86.dll] [-frames N] "
-                             "[-menu name] [-key frame key]... [-set name value]...\n");
+                             "[-menu name] [-key frame key]... [-set name value]... [-fixedclock] [-skippak pak]...\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
     int frames = 10;
+    std::vector<std::string> skipPaks; // -skippak name: a pak left out (the Expansion Pack's, say)
+    bool fixedClock = false; // -fixedclock: a clock that only moves with the frames, for runs that repeat
+    int clockFrame = 0;
     std::string dllPath, menu = "main";
     std::vector<std::pair<int, int32_t>> keys; // (frame, key)
     std::vector<std::pair<std::string, std::string>> settings;
@@ -4127,6 +4132,10 @@ int cmdSpMenus(int argc, char** argv) {
                 k = std::atoi(argv[i + 2]);
             keys.emplace_back(std::atoi(argv[i + 1]), k);
             i += 2;
+        } else if (std::strcmp(argv[i], "-skippak") == 0 && i + 1 < argc) {
+            skipPaks.push_back(reluva::fs::toLower(argv[++i]));
+        } else if (std::strcmp(argv[i], "-fixedclock") == 0) {
+            fixedClock = true;
         } else if (std::strcmp(argv[i], "-set") == 0 && i + 2 < argc) {
             settings.emplace_back(argv[i + 1], argv[i + 2]);
             i += 2;
@@ -4151,7 +4160,7 @@ int cmdSpMenus(int argc, char** argv) {
     if (!readFile(dllPath.c_str(), dll))
         return 1;
     reluva::SearchSet set;
-    if (!mountIdTech3(argv[2], set))
+    if (!mountIdTech3(argv[2], set, skipPaks))
         return 1;
     q3::CvarStore cvars;
     for (const auto& [name, value] : settings)
@@ -4171,12 +4180,15 @@ int cmdSpMenus(int argc, char** argv) {
         std::printf("instructions run: %llu, at 0x%08x\n", (unsigned long long)ui.cpu().executed(), ui.cpu().faultEip);
         return 1;
     };
+    if (fixedClock)
+        ui.clock = [&clockFrame] { return 10000u + uint32_t(clockFrame) * 50u; };
     if (reluva::Error e = ui.load(dll))
         return failed("Loading efuix86.dll", e);
     std::printf("efuix86.dll loaded; %zu shaders, %zu sounds registered\n", ui.shaders().size(), ui.sounds().size());
     if (reluva::Error e = ui.setActiveMenu(menu))
         return failed("SetActiveMenu", e);
     for (int f = 0; f < frames; ++f) {
+        clockFrame = f;
         for (const auto& [at, k] : keys)
             if (at == f) {
                 std::printf("[frame %d] key %s (%d)\n", f, q3::KeyBindings::keyName(k).c_str(), k);
@@ -4214,7 +4226,7 @@ int cmdSpRun(int argc, char** argv) {
     const int firstOption = argc >= 4 && argv[3][0] != '-' ? 4 : 3;
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] "
-                             "[-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus] [-saveload]\n"
+                             "[-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus] [-saveload] [-fixedclock] [-skippak pak]...\n"
                              "       reluva-tool sp-run <game folder> -load <saved game> [-replay <name>.input] [options as above]\n");
         return 2;
     }
@@ -4224,6 +4236,8 @@ int cmdSpRun(int argc, char** argv) {
     bool traceCalls = false, noClient = false, runCgame = false, watch = false;
     std::vector<std::string> finds; // -find text: entities with a text field containing it
     bool icarusNames = false;       // -icarus: the script system's table of entity names
+    std::vector<std::string> skipPaks; // -skippak name: a pak left out (the Expansion Pack's, say)
+    bool fixedClock = false;        // -fixedclock: the game's clock moves with its level time, for runs that repeat
     bool saveLoad = false;          // -saveload: save at the end, load into a fresh game
     std::string loadName;           // -load save: a saved game (its name in saves/, or a file)
     std::string replayPath;         // -replay file: the player's commands, as the Play page records them
@@ -4246,6 +4260,10 @@ int cmdSpRun(int argc, char** argv) {
             finds.push_back(reluva::fs::toLower(argv[++i]));
         else if (std::strcmp(argv[i], "-icarus") == 0)
             icarusNames = true;
+        else if (std::strcmp(argv[i], "-skippak") == 0 && i + 1 < argc)
+            skipPaks.push_back(reluva::fs::toLower(argv[++i]));
+        else if (std::strcmp(argv[i], "-fixedclock") == 0)
+            fixedClock = true;
         else if (std::strcmp(argv[i], "-saveload") == 0)
             saveLoad = true;
         else if (std::strcmp(argv[i], "-load") == 0 && i + 1 < argc)
@@ -4279,7 +4297,7 @@ int cmdSpRun(int argc, char** argv) {
     if (!readFile(dllPath.c_str(), dll))
         return 1;
     reluva::SearchSet set;
-    if (!mountIdTech3(argv[2], set))
+    if (!mountIdTech3(argv[2], set, skipPaks))
         return 1;
     q3::CvarStore cvars;
     for (const auto& [name, value] : settings)
@@ -4327,6 +4345,8 @@ int cmdSpRun(int argc, char** argv) {
         return 1;
     }
     ef::SpGameHost game(set, cvars);
+    if (fixedClock)
+        game.clock = [&game] { return 10000u + uint32_t(game.levelTime()); };
     std::tie(game.modInstall, game.modBaseDir) = idTech3Folders(argv[2]);
     game.print = [](const std::string& text) {
         std::printf("game: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
@@ -4586,6 +4606,8 @@ int cmdSpRun(int argc, char** argv) {
             std::printf("\n");
         }
         ef::SpGameHost loaded(set, cvars);
+        if (fixedClock)
+            loaded.clock = [&loaded] { return 10000u + uint32_t(loaded.levelTime()); };
         loaded.print = game.print;
         efs::SaveReader r(w.bytes());
         if ((e = loaded.load(dll)))

@@ -280,7 +280,10 @@ include SDL.
    commands) goes inside `#ifdef RELUVA_ENGINE_<NAME>`. See
    `cmake/ReluvaEngines.cmake`.
 4. **Add a line `<name>=enabled` to `engines.cfg`.**
-5. **Document it** in `docs/engines/<name>/`, starting with a
+5. **Give it engine tests:** a basic one that needs no game files (run by
+   CI), and one that runs on a developer's copy of the game. See
+   [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#engine-tests).
+6. **Document it** in `docs/engines/<name>/`, starting with a
    `README.md`: what it runs, where it stands, how to use it.
 
 ## Contributing

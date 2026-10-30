@@ -109,6 +109,11 @@ public:
     // --- What the engine provides ------------------------------------------
     // What the menus print (Printf).
     std::function<void(const std::string&)> print;
+    // The clock the game's code reads (milliseconds: GetTickCount,
+    // timeGetTime, the engine's Milliseconds, Init's start-up time). Unset,
+    // the real one; set before load() for runs that repeat exactly (the
+    // engine tests).
+    std::function<uint32_t()> clock;
     // A sound to play now, not placed in the world (S_StartLocalSound).
     std::function<void(const std::string& sound, int channel)> startLocalSound;
     // Configstrings of the game running (GetConfigString): false if none.

@@ -155,6 +155,8 @@ Error SpGameHost::load(const std::vector<uint8_t>& dll) {
         if (print)
             print(s);
     };
+    if (clock)
+        process_->milliseconds = clock;
     startMs_ = uint64_t(std::chrono::duration_cast<std::chrono::milliseconds>(
                             std::chrono::steady_clock::now().time_since_epoch())
                             .count());
@@ -256,10 +258,11 @@ Error SpGameHost::startLevel(const std::string& mapName, std::shared_ptr<const B
     // linking itself into the camera's tags) would otherwise be due at 0,
     // which is never.
     levelTime_ = kStartTimeMs;
-    const uint32_t now = uint32_t(std::chrono::duration_cast<std::chrono::milliseconds>(
-                                      std::chrono::steady_clock::now().time_since_epoch())
-                                      .count() -
-                                  startMs_);
+    const uint32_t now = clock ? clock()
+                               : uint32_t(std::chrono::duration_cast<std::chrono::milliseconds>(
+                                              std::chrono::steady_clock::now().time_since_epoch())
+                                              .count() -
+                                          startMs_);
     // Init(mapname, checksum, entity text, level time, random seed, global
     // time, a saved game just loaded: no).
     // The Expansion Pack's (as Jedi Outcast's): the spawn target after the

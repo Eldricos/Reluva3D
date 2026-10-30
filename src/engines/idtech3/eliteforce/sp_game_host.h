@@ -267,6 +267,11 @@ public:
 
     // What the game prints (Printf).
     std::function<void(const std::string&)> print;
+    // The clock the game's code reads (milliseconds: GetTickCount,
+    // timeGetTime, the engine's Milliseconds, Init's start-up time). Unset,
+    // the real one; set before load() for runs that repeat exactly (the
+    // engine tests).
+    std::function<uint32_t()> clock;
     // The install whose mods "$modlist" lists (the Expansion Pack's
     // FS_GetFileList), and its base game's folder. None listed without it.
     std::filesystem::path modInstall;

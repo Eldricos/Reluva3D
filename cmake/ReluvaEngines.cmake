@@ -30,22 +30,65 @@ function(reluva_add_engine name)
     set_property(GLOBAL APPEND PROPERTY RELUVA_ENGINE_ACCESSORS ${E_ACCESSOR})
 endfunction()
 
-# reluva_add_engine_test(<engine> NAME <test> SOURCES <files>... [NETWORK])
-#   A test program, reluva_<engine>_tests, run by ctest as <test>. NETWORK:
-#   it uses sockets (Windows' socket libraries linked).
+# reluva_add_engine_test(<engine> NAME <test> SOURCES <files>... [TARGET <program>]
+#                        [NETWORK] [LABELS <labels>...])
+#   A test program (reluva_<engine>_tests unless TARGET names it), run by
+#   ctest as <test>. NETWORK: it uses sockets (Windows' socket libraries
+#   linked). It's compiled with RELUVA_SOURCE_DIR, the repository's folder,
+#   for the data it keeps under tests/data/.
 function(reluva_add_engine_test name)
     if(NOT RELUVA_BUILD_TESTS)
         return()
     endif()
-    cmake_parse_arguments(T "NETWORK" "NAME" "SOURCES" ${ARGN})
+    cmake_parse_arguments(T "NETWORK" "NAME;TARGET" "SOURCES;LABELS" ${ARGN})
     set(target reluva_${name}_tests)
+    if(T_TARGET)
+        set(target ${T_TARGET})
+    endif()
     add_executable(${target} ${T_SOURCES})
     target_link_libraries(${target} PRIVATE reluva_engines reluva_warnings)
     target_include_directories(${target} PRIVATE ${PROJECT_SOURCE_DIR}/tests)
     if(T_NETWORK AND WIN32)
         target_link_libraries(${target} PRIVATE ws2_32 iphlpapi)
     endif()
+    target_compile_definitions(${target} PRIVATE RELUVA_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
     add_test(NAME ${T_NAME} COMMAND ${target})
+    set_tests_properties(${T_NAME} PROPERTIES LABELS "${name};${T_LABELS}")
+endfunction()
+
+# reluva_add_gamedata_test(<engine> GAME <game id> ENV <variable> SCRIPT <file>
+#                          STEPS <step>...)
+#   The engine test that needs a game's own files: each step a ctest test,
+#   <engine>_gamedata_<step>, labelled gamedata. ctest runs <file> as a CMake
+#   script with:
+#     TOOL     reluva-tool, which runs the game's code and reads its files;
+#     STEP     the step;
+#     RECORDS  the folder of committed records, tests/data/<engine>/gamedata/;
+#     OUTPUT   a folder in the build for each step's full output.
+#   The game's folder comes from the environment variable <variable> when
+#   the tests run; without it the steps print "SKIPPED:" and count as
+#   skipped, so anyone can run ctest. See docs/DEVELOPMENT.md (Engine tests).
+function(reluva_add_gamedata_test name)
+    if(NOT RELUVA_BUILD_TESTS)
+        return()
+    endif()
+    cmake_parse_arguments(G "" "GAME;ENV;SCRIPT" "STEPS" ${ARGN})
+    foreach(step IN LISTS G_STEPS)
+        set(test ${name}_gamedata_${step})
+        add_test(NAME ${test}
+            COMMAND ${CMAKE_COMMAND}
+                -DTOOL=$<TARGET_FILE:reluva-tool>
+                -DSTEP=${step}
+                -DGAME=${G_GAME}
+                -DGAME_ENV=${G_ENV}
+                -DRECORDS=${PROJECT_SOURCE_DIR}/tests/data/${name}/gamedata
+                -DOUTPUT=${PROJECT_BINARY_DIR}/gamedata/${name}
+                -P ${G_SCRIPT})
+        set_tests_properties(${test} PROPERTIES
+            LABELS "gamedata;${name}"
+            SKIP_REGULAR_EXPRESSION "SKIPPED:"
+            TIMEOUT 3600)
+    endforeach()
 endfunction()
 
 # Reads <file>'s lines into RELUVA_ENGINE_STATE_<engine> (enabled or

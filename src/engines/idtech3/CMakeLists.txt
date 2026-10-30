@@ -78,3 +78,24 @@ reluva_add_engine_test(idtech3
         ${PROJECT_SOURCE_DIR}/tests/test_idtech3.cpp
         ${PROJECT_SOURCE_DIR}/src/backends/sockets/socket_net.cpp
     NETWORK)
+
+# The engine as a whole, without game files: a small install played through,
+# its record compared (tests/data/idtech3/engine-record.txt). See
+# docs/DEVELOPMENT.md (Engine tests).
+reluva_add_engine_test(idtech3
+    NAME idtech3_engine
+    TARGET reluva_idtech3_engine_test
+    SOURCES
+        ${PROJECT_SOURCE_DIR}/tests/idtech3_engine_test.cpp
+        ${PROJECT_SOURCE_DIR}/src/backends/sockets/socket_net.cpp
+    NETWORK
+    LABELS engine)
+
+# The engine test with Elite Force's own files: skipped unless RELUVA_STVEF
+# names the game's folder (ctest -L gamedata). See tests/idtech3_gamedata.cmake
+# and docs/DEVELOPMENT.md (Engine tests).
+reluva_add_gamedata_test(idtech3
+    GAME stvef
+    ENV RELUVA_STVEF
+    SCRIPT ${PROJECT_SOURCE_DIR}/tests/idtech3_gamedata.cmake
+    STEPS release maps shaders models images holomatch menus single_player expansion cinematics)

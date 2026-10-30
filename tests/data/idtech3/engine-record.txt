@@ -1,0 +1,30 @@
+# The id Tech 3 engine test's record (tests/idtech3_engine_test.cpp).
+# Written by `reluva_idtech3_engine_test --update`; review its diff before committing.
+install.files: 11 c9c091c89686c117
+install.override.pak1: hello world
+install.override.loose: loose
+install.detected: idtech3/stvef Star Trek: Voyager - Elite Force (unknown release) (1.0, no single player)
+shaders: 2 0 warnings 09455a84720621e2
+map: 3 vertices, 3 indices, 2 leafs b45c63fb6f1d7210
+model: 2 frames 33579a037595c23c
+server.start: level time 150, 3 linked, configstrings 9712507dd018c034
+world.collision: 264 hits 3697b4a46fa2e1eb
+world.game: a932c25b504898ef
+client.connect: 4 frames, configstrings 59c2f0e44c8b6dc5
+play.forward.server: 0ede17f2305b8f25
+play.forward.snapshots: 41 f45f2fef6497b83b
+play.forward.cgame: 1b6b9069023cc89f
+play.strafe.server: 6b2720fd1fbc3425
+play.strafe.snapshots: 30 575a4e508368d21e
+play.strafe.cgame: a17d279174d900b6
+play.player: 5080 0 309
+play.announced: yes
+play.restart: handled, restarts 1
+play.after-restart.server: 9fbecc261ad2d925
+play.after-restart.snapshots: 20 2328db9a2f4559a6
+play.after-restart.cgame: 4d31f368c359c6ff
+play.left: 0 players, slot 0 free
+menus.init: 1203, printed 8 characters
+menus.drawn: 25edbf1e5071db23
+menus.typed: 82003
+menus.cvar: 40
