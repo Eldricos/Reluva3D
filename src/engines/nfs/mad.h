@@ -37,8 +37,7 @@ public:
     void toGameSurface(Surface& out, Display mode) const;
     // Plane access, for tests and tools: stride, then the planes (0 Y, 1 U,
     // 2 V); chroma is half size each way. With the game's arithmetic the
-    // samples are its 7-bit ones, 64 the middle (they can pass 127: its
-    // copies wrap rather than clamp).
+    // samples are its 7-bit ones (0-127), 64 the middle.
     int stride(int plane) const { return plane ? stride_ / 2 : stride_; }
     const uint8_t* plane(int plane) const { return current_[plane].data(); }
 

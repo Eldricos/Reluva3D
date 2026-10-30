@@ -1141,9 +1141,6 @@ Allowed under CONTRIBUTING.md:
 - What sets the audio option at `0x6fbbe0` to 0, which drops the
   sounds at mixing quality 50 to nearest-sample resampling
   ([bnk.md](../formats/nfs/bnk.md)).
-- The movies' remaining differences from the game's frames: decoded
-  samples one apart on the high-*q* fade-in frames
-  ([mad.md](../formats/nfs/mad.md)).
 - How loud the Dolby surround is in a recording: the rear sounds are
   in opposite phase in the game's levels, but the race's stereo sources
   hide them in L-R, and two races can't be lined up to subtract.

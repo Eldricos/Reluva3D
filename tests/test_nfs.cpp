@@ -1310,13 +1310,13 @@ struct MadBits {
     }
 };
 
-Bytes madFrame(char kind, const MadBits& bits, int qscale = 1) {
+Bytes madFrame(char kind, const MadBits& bits, int qscale = 1, int width = 16) {
     Bytes f = {'M', 'A', 'D', uint8_t(kind)};
     const Bytes body = bits.bytes();
     put32(f, uint32_t(24 + body.size()));
     put32(f, 0);
     put32(f, 4369067); // 66.67 ms, in 1/65536 ms
-    put16(f, 16);
+    put16(f, uint16_t(width));
     put16(f, 16);
     f.push_back(0);
     f.push_back(uint8_t(qscale));
@@ -1430,9 +1430,82 @@ void testMovie() {
     Surface grgb;
     g.toSurface(grgb);
     CHECK(grgb.row(0)[0] == 138);
-    // Its copies add d itself, without clamping.
+    // Its copies add d itself.
     CHECK(!g.decode(inter.data(), inter.size()));
     CHECK(gy(0, 0) == 72);
+
+    // Its quantiser matrix applied transposed (its scan is the zigzag
+    // transposed): the escaped level 5 at scan position 14, row 0 column 4,
+    // takes W[4][0] = 22, not W[0][4] = 26. Q = 22 x 2^12 x 8192 / 2^16 =
+    // 11264, and 5 Q = 56320, across as + - - + + - - +: bits 16-23 give 0
+    // and -1 (with 26, 66560: 1 and -2).
+    MadBits t;
+    for (int j = 0; j < 6; ++j) {
+        t.put(0, 8);
+        if (j == 0) {
+            t.code("000001");
+            t.put(5, 10);
+            t.put(13, 6);
+        }
+        t.code("10");
+    }
+    const Bytes transposed = madFrame('k', t);
+    CHECK(!g.decode(transposed.data(), transposed.size()));
+    CHECK(gy(0, 0) == 64 && gy(1, 0) == 63 && gy(2, 0) == 63 && gy(3, 0) == 64 && gy(5, 7) == 63 && gy(7, 7) == 64);
+
+    // Its copies clamp to 0-127, as its output table does: 124 (DC 120)
+    // copied 16 brighter ("1", "0", "1111") is 127.
+    MadBits bright;
+    bright.put(120, 8);
+    bright.code("10");
+    for (int j = 1; j < 6; ++j) {
+        bright.put(0, 8);
+        bright.code("10");
+    }
+    const Bytes brightFrame = madFrame('k', bright);
+    MadBits brighter;
+    brighter.code("1");  // all copied
+    brighter.code("00"); // vector 0, 0
+    brighter.code("101111");
+    for (int j = 1; j < 6; ++j)
+        brighter.code("0");
+    const Bytes brighterFrame = madFrame('m', brighter);
+    CHECK(!g.decode(brightFrame.data(), brightFrame.size()) && gy(0, 0) == 124);
+    CHECK(!g.decode(brighterFrame.data(), brighterFrame.size()) && gy(0, 0) == 127 && gy(8, 0) == 64);
+
+    // Its chroma vector is the luma one shifted right, rounding down (-1:
+    // -1), where the reference halves it toward zero (0). 32x16: the first
+    // macroblock's U is 10 above the middle; the second copies its U one
+    // pixel left, the rest copied as they are.
+    MadBits two;
+    for (int j = 0; j < 12; ++j) {
+        two.put(j == 4 ? 20 : 0, 8);
+        two.code("10");
+    }
+    MadBits left;
+    left.code("1" "00"); // the first macroblock copied, vector 0, 0
+    for (int j = 0; j < 6; ++j)
+        left.code("0");
+    left.code("01");
+    left.put(16, 6);      // U alone copied
+    left.code("111111"); // x -1
+    left.code("0");      // y 0
+    for (int j = 0; j < 6; ++j) {
+        if (j == 4) {
+            left.code("0");
+            continue;
+        }
+        left.put(0, 8);
+        left.code("10");
+    }
+    const Bytes twoFrame = madFrame('k', two, 1, 32), leftFrame = madFrame('m', left, 1, 32);
+    auto gu = [&](MadDecoder& dec, int x) { return dec.plane(1)[x]; };
+    CHECK(!g.decode(twoFrame.data(), twoFrame.size()) && gu(g, 7) == 74 && gu(g, 8) == 64);
+    CHECK(!g.decode(leftFrame.data(), leftFrame.size()) && gu(g, 7) == 74 && gu(g, 8) == 74 && gu(g, 9) == 64);
+    MadDecoder r;
+    r.setArithmetic(MadDecoder::Arithmetic::Reference);
+    CHECK(!r.decode(twoFrame.data(), twoFrame.size()) && gu(r, 7) > 128 && gu(r, 8) == 128);
+    CHECK(!r.decode(leftFrame.data(), leftFrame.size()) && gu(r, 8) == 128);
 
     Bytes bad = intra;
     bad.resize(30);

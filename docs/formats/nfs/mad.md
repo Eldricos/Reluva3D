@@ -42,9 +42,14 @@ October 2026.
     4-8 in each demo movie and 5 in the title movie.
   - **Against the game.** The game's decoder was read from nfs3.exe's
     disassembly, and its arithmetic was rebuilt in Reluva and run on all
-    four movies. Frames of the demo movie were captured from the game in
-    nfs-host (`-native -deterministic 50000 -frames dir -framesfrom
-    2950`; frames 2968 and 2969 are movie frames 3 and 6).
+    four movies. Two kinds of ground truth came from the game in
+    nfs-host (`-native -deterministic 50000`):
+    - its decoded pictures, from memory: the run stopped at a set
+      instruction count (`-limit`) and its memory written out (`-dump`),
+      the six pictures read at the addresses the allocation at 0x49581f
+      returns (seen with `-watch 0x49581f`);
+    - the screen, as the demo movie plays (`-frames dir -every 1
+      -framesfrom 2950`).
   - **Audio.** The audio matches FFmpeg's decode sample for sample.
     FFmpeg rejects `demoav1`'s short last block; Reluva decodes it.
 
@@ -172,7 +177,8 @@ nfs3.exe's decoder was read from the disassembly:
 | 0x510e48 | an intra block's coefficients |
 | 0x510cbd | the inverse transform: 0x510a50 for the columns, 0x510bb3 for the rows |
 | 0x4f30d0 | the output table at 0x9f0d38 |
-| 0x4f3420 | a copied block |
+| 0x5688cc | the scan order |
+| 0x4f3420, 0x4f34f0 | a copied luma block, a copied chroma block |
 | 0x510ff8 | packing samples for display (V, U, Y1, Y0 per pixel pair) |
 
 It decodes the same bitstream with different arithmetic:
@@ -184,19 +190,44 @@ It decodes the same bitstream with different arithmetic:
   *q* the way Reluva does, not the way FFmpeg does.
 - **Coefficients**: DC is *s* × Q[0], with no 128 offset (the picture is
   centred on 0); AC is level × Q, not shifted and not made odd.
+- **The matrix is applied transposed.** The game's scan (0x5688cc) is the
+  zigzag transposed (position 1 is index 8), and it looks Q up at the
+  same place as it stores the coefficient. Its transform's order undoes
+  the transposition of the block, but not of Q: the coefficient at row
+  *u*, column *v* takes W[*v*][*u*]. W isn't symmetric (row 0 ends 26,
+  27, 29, 34, column 0 22, 26, 26, 27), so this is the main difference
+  from the reference decode. S' is symmetric.
 - **The transform** is AAN in 32 bits. 1/√2 is a 32-bit multiply
   (1518500250 / 2^31, then doubled). The odd part's rotations are x87
   floats (0.541196108, 1.306563020, 0.382683426), rounded to the nearest.
   A row whose AC terms are all 0 copies its DC term.
 - **Samples are 7 bits.** Bits 16-23 of each result, as a signed byte,
   clamped to −64..63 and offset by 64.
-- **Copies add *d*** to these 7-bit samples (2*d* at 8 bits) and don't
-  clamp: a byte wraps.
+- **Copies** are made from the previous 4:2:2 picture (below), into the
+  same 32-bit block buffers as the transform's results: *d* − 64 is added
+  to each 7-bit sample (0x4f3420 for luma, 0x4f34f0 for chroma), centring
+  it on 0, and the output table then clamps it as it does the
+  transform's. So a copy is the sample plus *d* (2*d* at 8 bits), clamped
+  to 0-127. The table's last entry (index 127) is never written, but no
+  sample reaches it.
+- **The chroma vector** is the luma one's pixel pair and line: chroma is
+  read from the 4:2:2 picture's line *y* + *mv*<sub>y</sub>, which holds
+  chroma line (*y* + *mv*<sub>y</sub>) >> 1. So both components are
+  halved rounding down, not toward zero: a vector of −1 moves chroma by
+  −1, not 0.
+- **No bounds test.** The game doesn't check where a copy's source lies.
+  No copy in the four movies has its source outside the picture (Reluva
+  keeps the reference test).
+
+The player decodes into a ring of six 4:2:2 pictures (0x4957f6, each
+153,640 bytes apart). When it falls behind it skips frames up to the
+next key frame: in nfs-host's slow deterministic run the ring held
+`titleav` frames 32, 33, 35, 40, 45, 46, 47, 50, 55, 60, 61 in turn.
 
 Reluva has this as `MadDecoder::Arithmetic::Game` (`mad-frames ...
--game`). It is not the default. On the demo movies it differs from the
-reference decode by about 1 in 8 bits, and is no closer to frames
-captured from the game running in nfs-host.
+-game`). The Movies page uses it; elsewhere the reference decode is the
+default. On `demoav1` the two differ by 1 in 8 bits on average (the
+game's samples have 7), and 2% of samples by 4 or more.
 
 ## The game's display step
 
@@ -279,28 +310,34 @@ nfs-host reads its processor as 300 MHz, so mode 3 is what it shows. Key
 G steps through modes 2 and 1 and Reluva's plain conversion (the
 full-range BT.601 matrix in floating point, each pixel shown twice).
 
-**Checked against the game** (October 2026). The demo's first frames
-were captured from the game in nfs-host (`-frames dir -every 1
--framesfrom 2950`: captures 2968-2970 are `demoav1` frames 3, 6 and 10)
-and compared in 5:6:5 with every frame of the three demos in each mode
-and arithmetic:
+**Checked against the game** (October 2026), both ways:
 
-| Capture | Mode 3, game arithmetic | Mode 3, reference | Mode 2 | Mode 1 |
-|---|---|---|---|---|
-| 2968 (frame 3) | 67.8% of pixels exact, mean 0.22 | 66% | 51% | lower |
-| 2969 (frame 6) | 36%, mean 0.58 | 35% | 10%, mean 3.07 | lower |
-| 2970 (frame 10) | 82.7%, mean 0.09 | 69% | 65% | lower |
+- **The decoded samples.** The game's six 4:2:2 pictures were read from
+  its memory at six points of the intro (`titleav`), holding 11 whole
+  frames between 32 and 61, key and inter, and at most points one more
+  being decoded. With the game arithmetic every sample of each whole
+  frame is identical to Reluva's, Y, U and V, and each frame being
+  decoded is too as far as it had got. Before the three fixes above (the
+  transposed matrix, the copies' clamp, the chroma vector's rounding)
+  94-98% of the samples of the key frames were, most of the rest ±1 and
+  none more than ±7.
+- **The screen.** Every frame the game showed of `demoav1` was captured
+  (`-frames dir -every 1 -framesfrom 2950`: captures 2968-3084, movie
+  frames 3 to 445, 114 of them) and compared in 5:6:5 with Reluva's mode
+  3 and the game arithmetic: all 114 are identical in every pixel.
 
-Mode 3 matches best in every frame, with the layout exact: each line's
-last 4 pixels and the last line are black in both. What differs is one
-step of 5:6:5 here and there, mostly in green alone or in all three
-together: samples one apart, from the decoder, not the display. The
-chroma lines are used as they are for both luma lines they cover;
-averaging them between lines matches worse (70% against 82.7% on frame
-10). The softer look of the fade-in frames is this interpolation.
+Before the fixes, the best mode 3 matches had been 67.8%, 36% and 82.7%
+of pixels exact (frames 3, 6 and 10), against 66%, 35% and 69% for the
+reference arithmetic and 51%, 10% and 65% for mode 2. So mode 3 is
+right, with its layout (each line's last 4 pixels and the last line
+black), and the chroma lines are used as they are for both luma lines
+they cover. The softer look of the fade-in frames is this
+interpolation.
 
 ## What isn't known
-- **The remaining differences** from the game's frames: one step of
-  5:6:5 in a third to two-thirds of the pixels of the high-*q* fade-in
-  frames, from decoded samples one apart. The game's decoder arithmetic as
-  rebuilt (The game's decoder) isn't yet exact there.
+- **Copies from outside the picture.** The game doesn't test the source
+  and would read whatever lies beside its picture; Reluva skips them. The
+  four movies have none.
+- **Mode 1 and 2 against the game.** They were read from the
+  disassembly, but the game in nfs-host always picks mode 3, so only
+  mode 3 has been compared with the screen.

@@ -359,8 +359,10 @@ void MadDecoder::gamePutBlock(int index, int mbX, int mbY, int32_t block[64]) {
 
 void MadDecoder::copyBlock(int index, int mbX, int mbY, int mvX, int mvY, int add) {
     // From the previous picture, moved by the macroblock's vector (halved
-    // for chroma, toward zero), plus a brightness change. A source outside
-    // the picture leaves the block as it was.
+    // for chroma: toward zero, or in the game rounded down), plus a
+    // brightness change. A source outside the picture leaves the block as
+    // it was.
+    const bool game = arithmetic_ == Arithmetic::Game;
     int plane, x, y, rows, s;
     if (index < 4) {
         plane = 0;
@@ -372,8 +374,10 @@ void MadDecoder::copyBlock(int index, int mbX, int mbY, int mvX, int mvY, int ad
         plane = index - 3;
         x = mbX * 8;
         y = mbY * 8;
-        mvX /= 2;
-        mvY /= 2;
+        // The game copies chroma from its 4:2:2 picture, at the luma
+        // vector's pixel pair and line (0x4f34f0): the vector shifted right.
+        mvX = game ? mvX >> 1 : mvX / 2;
+        mvY = game ? mvY >> 1 : mvY / 2;
         rows = height_ / 2;
         s = stride_ / 2;
     }
@@ -382,12 +386,12 @@ void MadDecoder::copyBlock(int index, int mbX, int mbY, int mvX, int mvY, int ad
         return;
     const uint8_t* src = previous_[plane].data() + from;
     uint8_t* dst = current_[plane].data() + static_cast<size_t>(y) * s + x;
-    const bool game = arithmetic_ == Arithmetic::Game;
     for (int r = 0; r < 8; ++r)
         for (int c = 0; c < 8; ++c)
-            // The game adds without clamping, a byte wrapping (0x4f3420).
-            dst[r * s + c] = game ? static_cast<uint8_t>(src[r * s + c] + add)
-                                  : static_cast<uint8_t>(std::clamp(src[r * s + c] + add, 0, 255));
+            // The game adds d - 64 to its 7-bit samples (0x4f3420, 0x4f34f0),
+            // centring them on 0 as its transform's are, and its output
+            // table clamps them to 0-127 as it does those.
+            dst[r * s + c] = static_cast<uint8_t>(std::clamp(src[r * s + c] + add, 0, game ? 127 : 255));
 }
 
 void MadDecoder::putBlock(int index, int mbX, int mbY, int16_t block[64]) {
@@ -475,10 +479,13 @@ Error MadDecoder::decode(const uint8_t* chunk, size_t size) {
     for (int i = 1; i < 64; ++i)
         quant_[i] = (scales[i] * kIntraMatrix[i] * qscale + 32) >> 10;
     // The game's, in 16.16 with 7 more fraction bits and kept whole (0x4f3560).
+    // Its scan (0x5688cc) is the zigzag transposed, and it looks Q up by the
+    // transposed place too, so a coefficient at row u, column v takes the
+    // matrix's W[v][u]: the matrix applied transposed.
     const auto& game = gameScales();
     gameQuant_[0] = gameProduct(static_cast<int64_t>(kIntraMatrix[0]) << 15, game[0]);
     for (int i = 1; i < 64; ++i)
-        gameQuant_[i] = gameProduct(static_cast<int64_t>(kIntraMatrix[i] * qscale) << 12, game[i]);
+        gameQuant_[i] = gameProduct(static_cast<int64_t>(kIntraMatrix[(i & 7) * 8 + (i >> 3)] * qscale) << 12, game[i]);
 
     bits_ = chunk + kFrameHeader;
     bitCount_ = (size - kFrameHeader) * 8;
