@@ -163,6 +163,9 @@ void applyControlOptions(CarSim& sim);
 // the sky, smart rendering (the .cpvs), how far and how finely models are
 // drawn, the ambient sounds. Cheap: called every frame.
 void applyGraphicsOptions(CityScene& scene, CityLife& life);
+// How many times the city's textures are halved (the Texture Quality:
+// none at Very High, three at Low). Taken when a city is loaded.
+int textureHalvings();
 // The share of pedestrians the options leave (Show Pedestrians).
 float pedestrianShare();
 // Headlights lighting the road (the Lighting Quality).

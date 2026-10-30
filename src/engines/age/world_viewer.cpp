@@ -53,6 +53,7 @@ void WorldViewer::load(int index) {
     index_ = index;
     const CityInfo& city = cities_[size_t(index)];
     setTitle(city.name + " (" + city.map + ")");
+    scene_->textures().setHalvings(textureHalvings());
     error_ = scene_->load(city.map).message;
     scene_->setLighting(lighting_);
     resetView();

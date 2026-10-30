@@ -76,6 +76,7 @@ struct GameOptions {
     float visibility = 1;      // 0..1: how far the city is drawn
     float lightingQuality = 1; // 0..1: below half, no headlight pools
     int objectDetail = 3;      // 0 Low .. 3 Very High
+    int textureQuality = 3;    // the same
     // Control Options.
     bool autoReverse = true; // the brake backs up when stopped
     bool startInCar = false; // the in-car view first (POV)

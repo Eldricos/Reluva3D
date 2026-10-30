@@ -9,6 +9,7 @@
 #include "engines/age/ambient.h"
 #include "engines/age/music.h"
 #include "engines/age/ar_archive.h"
+#include "engines/age/render_cache.h"
 #include "engines/age/bai.h"
 #include "engines/age/bound.h"
 #include "engines/age/car.h"
@@ -2651,6 +2652,69 @@ static void testGoldGame() {
     CHECK(lines.at("ROBGETLOOT") == std::vector<std::string>({"AL1/AL1COPS01", "AL1/AL1COPS02", "AL1/AL1COPS03"}));
 }
 
+// A renderer that only remembers the textures' sizes.
+struct SizeRenderer : gfx::Renderer3D {
+    std::vector<std::pair<int, int>> sizes;
+    Error createTexture(int w, int h, const uint8_t*, const gfx::TextureParams&, gfx::TextureId& out) override {
+        sizes.emplace_back(w, h);
+        out = gfx::TextureId(sizes.size());
+        return Error::success();
+    }
+    void destroyTexture(gfx::TextureId) override {}
+    Error createMesh(const std::vector<gfx::Vertex>&, const std::vector<uint32_t>&, gfx::MeshId&) override {
+        return Error::fail("no");
+    }
+    Error createIndexedMesh(gfx::MeshId, const std::vector<uint32_t>&, gfx::MeshId&) override {
+        return Error::fail("no");
+    }
+    Error setMeshIndices(gfx::MeshId, const std::vector<uint32_t>&) override { return Error::fail("no"); }
+    void destroyMesh(gfx::MeshId) override {}
+    int width() const override { return 640; }
+    int height() const override { return 480; }
+    std::string deviceName() const override { return "sizes"; }
+    void beginFrame(const gfx::Mat4&, const gfx::Vec3&, Color) override {}
+    void draw(const gfx::DrawCall&) override {}
+    void setView(const gfx::Mat4&, const gfx::Vec3&) override {}
+    void setDynamicLights(const std::vector<gfx::DynamicLight>&) override {}
+    void setViewport(int, int, int, int) override {}
+    void setDepthRange(float) override {}
+    void clearDepth() override {}
+    bool hasStencil() const override { return false; }
+    void setStencilMode(StencilMode) override {}
+    void setMirrored(bool) override {}
+    void setGamma(float) override {}
+    void endFrame(const Surface*) override {}
+    void captureNextFrame() override {}
+    bool takeCapture(std::vector<uint8_t>&) override { return false; }
+};
+
+static void testTextureQuality(const std::filesystem::path& tmp) {
+    // Two 64x64 textures, one flagged to keep its detail, and a 16x16.
+    auto tex = [&](const char* name, int size, uint32_t flags) {
+        Bytes b;
+        b.bytes(texHeader(uint16_t(size), uint16_t(size), texformat::Rgb, 1, flags));
+        for (int i = 0; i < size * size * 3; ++i)
+            b.u8(uint8_t(i));
+        test::writeFile(tmp / "texture" / (std::string(name) + ".tex"), b.v);
+    };
+    tex("plain", 64, 0);
+    tex("near", 64, texflag::FullDetail);
+    tex("tiny", 16, 0);
+    SearchSet files;
+    auto loose = std::make_unique<DirectoryArchive>();
+    CHECK(!loose->open(tmp));
+    files.add(std::move(loose), 1);
+    SizeRenderer renderer;
+    TextureCache cache(renderer, files);
+    cache.setHalvings(3); // Low
+    bool translucent = false;
+    CHECK(cache.get("plain", translucent) && cache.get("near", translucent) && cache.get("tiny", translucent));
+    // Halved down to 16 at least; the flagged one and the small one kept.
+    CHECK(renderer.sizes == (std::vector<std::pair<int, int>>{{16, 16}, {64, 64}, {16, 16}}));
+    int w = 0, h = 0;
+    CHECK(cache.size("plain", w, h) && w == 64 && h == 64); // its own size, as stored
+}
+
 static void testOptions(const std::filesystem::path& tmp) {
     // The defaults: the game's (its help's keyboard table), its names.
     GameOptions o;
@@ -2673,14 +2737,16 @@ static void testOptions(const std::filesystem::path& tmp) {
     o.balance = -0.5f;
     o.resolution = 2;
     o.objectDetail = 1;
+    o.textureQuality = 2;
     o.startInCar = true;
     o.keys[size_t(Control::Horn)] = {'g', 'j'};
     CHECK(!o.save(tmp));
     GameOptions back;
     CHECK(!back.load(tmp));
     CHECK(!back.music && back.ambient && std::fabs(back.effectsVolume - 0.25f) < 1e-6f &&
-          std::fabs(back.balance + 0.5f) < 1e-6f && back.resolution == 2 && back.objectDetail == 1 && back.startInCar &&
-          back.controlOf('j') == Control::Horn && back.controlOf(key::Return) == Control::Count);
+          std::fabs(back.balance + 0.5f) < 1e-6f && back.resolution == 2 && back.objectDetail == 1 &&
+          back.textureQuality == 2 && back.startInCar && back.controlOf('j') == Control::Horn &&
+          back.controlOf(key::Return) == Control::Count);
     back.resetControls();
     CHECK(back.controlOf(key::Return) == Control::Horn && !back.startInCar && !back.music); // the audio stays
     GameOptions none;
@@ -3026,6 +3092,7 @@ int main() {
     testNetSessionMore();
     testGoldGame();
     testOptions(tmp / "options");
+    testTextureQuality(tmp / "texquality");
     testReplays(tmp / "replays");
     testDrivers(tmp / "drivers");
     testCruise(tmp / "cruise");
