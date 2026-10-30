@@ -111,9 +111,46 @@ also decoded (October 2026, from a survey of all nine tracks):
   then each byte of the colour, alpha too, becomes byte × k >> 8
   (`0x491223`); size and blinking stay. The same factor dims the
   headlight pass and other effects. And no lights are drawn when the
-  detail level at `0x6fbc30` is 2 (`0x4911b7`; its default comes from
-  the processor's speed). The Tracks page dims them so with key I
-  (`dimLight`).
+  Horizon option at `0x6fbc30` is 2 (`0x4911b7`). The Tracks page dims
+  them so with key I (`dimLight`).
+
+  The slider is on the Advanced Graphics screen (`advgrph.mnu`) and the
+  race's pause menu graphics (`psgraph.mnu`), `codelink=SFX_INTENSITY`;
+  without `d3da` it's flagged off (`0x448738`). It runs from 0 ("none") to 1
+  ("full"): the arrow keys move it by its step, 0.1 from the menus'
+  `r0_step`, and clamp it to [0, 1] (`0x46a8d7`-`0x46a962`). Whether
+  dragging it with the mouse snaps to 0.1 isn't known (`snap=0`).
+  Its callback (`0x448570`, `0x44cf70`) stores the value.
+
+  The Horizon option is `hrzlevel`, the u32 at `0x6fbc30` (the options
+  table entry at `0x556718`; its list, `0x55624a`, is text 187, 185,
+  229): 0 High, 1 Low, 2 Off. It's on the Graphics screen
+  (`graphics.mnu`, `kMenuGRAPHICSHorizon001`) and in `psgraph.mnu`.
+  Its default is set by `0x472d10` from the processor's speed in MHz
+  (`0x4f1ef0` / 1,000,000; `0x472d8e`-`0x472de2`) through the table at
+  `0x472190`:
+
+  | MHz | Index | Horizon |
+  |---|---|---|
+  | up to 166 | 0 | 2, Off |
+  | 167-200 | 1 | 1, Low |
+  | 201-233 | 2 | 1, Low |
+  | 234-266 | 3 | 0, High |
+  | over 266, or no timer | 4 | 0, High |
+
+  With renderer flag bits 6 of `0x7a3a58` set the index is halved
+  first (`0x472de4`). The same index picks the other detail defaults
+  from the tables beside it (`0x47217c`-`0x4721ae`).
+
+  Both are saved. `config.dat` is the 0x20F0 bytes of settings at
+  `0x6fbb40`, written whole (`0x47285f`) and read back whole
+  (`0x472a68`; its first u32 must be 0x20F0). So the Horizon option is
+  the u32 at offset 0xF0 and the slider the float at 0xF8. `0x472d10`
+  only runs when `config.dat` is missing or doesn't match (size or
+  renderer, `0x472ab6`, `0x472adf`, via `0x67900c`; `0x473195`), and
+  from `0x4a3dda`. The install's own `config.dat` has Horizon 2 (Off)
+  and the slider 1.0; one saved by `nfs-host` (renderer changed, so
+  the defaults rerun on its fast clock) has Horizon 0.
 - **Sounds** (16 bytes): a position as above, a u16 slot of the track's
   placed-sound bank (`Audio/SFX/tr3dNN.bnk`, or `...n`, `...w`, `...nw`
   by sky variant) and a u16 kind (`0x41d210`): 0 a loop, the first

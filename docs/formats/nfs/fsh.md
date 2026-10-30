@@ -139,22 +139,44 @@ Attached blocks after the picture:
   its own: all four corners take the dash texel at the colour point
   (the tile (x/256) × 2 + y/256, u = (x % 256) / 256 + 1/512, and so for
   v), so it's a flat quad of that colour.
+
+  There is no idle or offset term: the reading is |+0x4F4| as it is
+  (`0x48810c`-`0x488150`). A car on the starting grid isn't quite
+  still, though. Watching `0x488505` (the wheel's copy of the same
+  speed) in `nfs-host` gave the Corvette 0.10 to 0.24 m/s on
+  Hometown's grid (0.16 m/s at 67.8 s), while the HUD says 0 MPH. That
+  is about 0.36 mph, half a degree on the Corvette's speedometer
+  (1.49° a mph): the needle's tip falls one pixel further round than
+  at 0. The game's needle pixels match the formula's at 0.3-0.4 mph
+  exactly, and at 0 they differ by 4 pixels at the tip.
 - **The steering wheel** (picture `0001`) turns about its centre fields
   (offset 8 and 10; `amd7` 155, 155) put at its position fields (offset
   12; `amd7` 353, 455). Its angle in turns, clockwise on screen, is
   steering × (0.5 − |speed| × 2.2369 / 800) / 256 (`0x488515`), steering
   being the car's (+0x51C, following the controls' signed byte, −128 to
-  127) and speed in m/s: a quarter turn at full lock standing still,
+  127; positive is right) and speed in m/s: a quarter turn at full lock standing still,
   less as the car goes faster, none at about 400 mph. On a mirrored
   track (`0x6fd4c4`) it's turned the other way. The corners are rotated
   in 640×480 units (`0x496bf0`), then scaled to the screen.
+
+  Positive steering is right, so turning right turns the wheel
+  clockwise, as a real one. Found in `nfs-host`: holding the right
+  arrow key from 80 s, a store watch on +0x51C (`-watchmem`, the
+  Corvette at `0x5e1120`) showed it climb by 16 a step (stored at
+  `0x4aa393`), 0 to 127 in about a quarter of a second; the frame at 80.2 s (+0x51C about 100) shows the
+  wheel turned about 70° clockwise (the badge's left wing up), and the
+  car turned right.
 
   The Cockpits page draws all of these so (`needle`, `wheelTurns`), with
   the readings and the steering swept or set by keys, and the F355's
   gear chosen by key. Checked against a frame of the game in
   `nfs-host` (the Corvette in Hometown's starting grid, 0 mph, 900 rpm,
   wheel straight): the dash, the wheel and both needles fall in the same
-  places; the game's picture is darker, by the shading above.
+  places; the game's picture is darker, by the shading above. The
+  speedometer needle sits a pixel further round in the game, by the
+  grid speed above. Key D (steering up) turns the page's wheel clockwise,
+  as the game's turns for right: at 95 it looks as the game's frame
+  at 80.2 s.
 - **Additive.** The picture loader (`0x4d40c3`, `0x4d42e8`) looks for
   `<additive>`. The bare `additive` on picture `0064` of `tr000` and
   `tr001` doesn't match it, so those aren't drawn additively (nor on the
