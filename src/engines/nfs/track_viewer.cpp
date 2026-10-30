@@ -733,24 +733,28 @@ void TrackPage::load(int index) {
 
     // The virtual road's walls: a barrier along each side, red on the left
     // and green on the right, from each road point to the next (a guide
-    // for checking the .col data against the scenery).
+    // for checking the .col data against the scenery). Lower and yellow,
+    // the road's edges from its lane counts and widths.
     const auto& road = collision_.road;
     for (size_t i = 0; i + 1 < road.size(); ++i) {
         const auto& a = road[i];
         const auto& b = road[i + 1];
-        for (int side = 0; side < 2; ++side) {
-            const float sa = side ? a.rightWall : -a.leftWall, sb = side ? b.rightWall : -b.leftWall;
+        for (int side = 0; side < 4; ++side) {
+            const bool right = side % 2 != 0, edge = side >= 2;
+            const float sa = edge ? (right ? a.rightEdge() : -a.leftEdge()) : (right ? a.rightWall : -a.leftWall);
+            const float sb = edge ? (right ? b.rightEdge() : -b.leftEdge()) : (right ? b.rightWall : -b.leftWall);
+            const float height = edge ? 0.4f : 1.5f;
             const uint32_t first = static_cast<uint32_t>(vertices.size());
             for (int k = 0; k < 4; ++k) {
                 const auto& p = k < 2 ? a : b;
                 const float s = k < 2 ? sa : sb;
                 gfx::Vertex out{};
                 out.pos[0] = p.position[0] + p.right[0] * s;
-                out.pos[1] = p.position[1] + p.right[1] * s + (k == 1 || k == 2 ? 1.5f : 0);
+                out.pos[1] = p.position[1] + p.right[1] * s + (k == 1 || k == 2 ? height : 0);
                 out.pos[2] = -(p.position[2] + p.right[2] * s);
                 out.normal[1] = 1;
-                out.color[0] = side ? 40 : 255;
-                out.color[1] = side ? 255 : 40;
+                out.color[0] = edge || !right ? 255 : 40;
+                out.color[1] = edge || right ? 255 : 40;
                 out.color[2] = 40;
                 out.color[3] = 255;
                 vertices.push_back(out);

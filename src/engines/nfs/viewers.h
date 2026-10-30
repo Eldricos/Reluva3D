@@ -248,7 +248,7 @@ private:
 //   PageUp/PageDown: track   W/S/A/D: move   arrows or drag: look
 //   Space/C: up/down   Shift: faster   N/B: next/previous block
 //   1/2/3: road detail   H: day, night, weather   T: textures
-//   V: vertex light   L: lanes   O: objects   G: the virtual road's walls
+//   V: vertex light   L: lanes   O: objects   G: the virtual road's walls and edges
 //   X: next texture set (two, then their 8-bit versions)   F: back faces   R: start
 class TrackPage : public Page {
 public:

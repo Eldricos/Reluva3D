@@ -105,7 +105,8 @@ to the points, used in place):
 - **Lanes.** The road's sides are lanes × width × ½ from the point
   (`0x408cbb` tests a car's sideways position against both;
   `0x42006d` finds the right edge). Hometown has 1-2 lanes a side, 15-16
-  wide.
+  wide. The Track page draws these edges with the walls (key G); on
+  Hometown they lie on the painted edge lines.
 - **The mask** is read in three places only, all in the automatic
   camera views (the camera code's dispatcher `0x426450` and its table
   `0x4263f0`; the views are cycled from a 21-entry list at `0x55fe68`,

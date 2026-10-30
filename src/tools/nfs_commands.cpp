@@ -300,14 +300,14 @@ int cmdFfnRender(int argc, char** argv) {
     for (const auto& l : lines)
         width = std::max(width, font.measure(l));
     reluva::Surface surface;
-    surface.create(width + 16, font.lineHeight * int(lines.size()) + 16, reluva::PixelFormat::RGBA32);
+    surface.create(width + 16, font.lineStep() * int(lines.size()) + 16, reluva::PixelFormat::RGBA32);
     for (size_t i = 0; i < surface.pixels.size(); i += 4) {
         surface.pixels[i] = surface.pixels[i + 1] = 40;
         surface.pixels[i + 2] = 60;
         surface.pixels[i + 3] = 255;
     }
     for (size_t i = 0; i < lines.size(); ++i)
-        font.draw(surface, 8, 8 + font.lineHeight * int(i), lines[i], {255, 255, 255});
+        font.draw(surface, 8, 8 + font.lineStep() * int(i), lines[i], {255, 255, 255});
     reluva::image::Image img;
     img.w = surface.w;
     img.h = surface.h;
@@ -316,8 +316,8 @@ int cmdFfnRender(int argc, char** argv) {
         std::fprintf(stderr, "can't write %s\n", argv[3]);
         return 1;
     }
-    std::printf("line height %d, flags %d, atlas %dx%d\n", font.lineHeight, font.flags, font.atlasWidth,
-                font.atlasHeight);
+    std::printf("line height %d, gap %d, pen %d,%d, flags %d, atlas %dx%d\n", font.lineHeight, font.lineGap,
+                font.penX, font.penY, font.flags, font.atlasWidth, font.atlasHeight);
     return 0;
 }
 

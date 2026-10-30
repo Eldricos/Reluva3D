@@ -374,7 +374,7 @@ void StringPage::load(int table) {
 }
 
 int StringPage::linesPerPage() const {
-    const int lineHeight = gameFont_ && font_ ? font_->lineHeight : font::kLineHeight;
+    const int lineHeight = gameFont_ && font_ ? font_->lineStep() : font::kLineHeight;
     return std::max(1, (480 - 3 * font::kLineHeight - 24) / lineHeight);
 }
 
@@ -407,7 +407,7 @@ void StringPage::draw(Surface& s) {
         return;
     }
     const bool game = gameFont_ && font_;
-    const int lineHeight = game ? font_->lineHeight : font::kLineHeight;
+    const int lineHeight = game ? font_->lineStep() : font::kLineHeight;
     constexpr int kTextX = kMargin + 6 * font::kAdvance;
     const int end = std::min(top_ + linesPerPage(), static_cast<int>(loaded_.strings.size()));
     for (int i = top_; i < end; ++i, y += lineHeight) {
@@ -473,7 +473,9 @@ void FontPage::draw(Surface& s) {
     for (const auto& g : loaded_.glyphs)
         glyphs += g.width > 0;
     text(s, kMargin, y,
-         std::to_string(glyphs) + " characters  line height " + std::to_string(loaded_.lineHeight) + "  flags " +
+         std::to_string(glyphs) + " characters  line height " + std::to_string(loaded_.lineHeight) + " + " +
+             std::to_string(loaded_.lineGap) + "  pen " + std::to_string(loaded_.penX) + "," +
+             std::to_string(loaded_.penY) + "  flags " +
              std::to_string(loaded_.flags) + "  atlas " + std::to_string(loaded_.atlasWidth) + "x" +
              std::to_string(loaded_.atlasHeight) + "  size " + std::to_string(scale_) + "x",
          kLabelColor);
@@ -503,7 +505,7 @@ void FontPage::draw(Surface& s) {
     Surface layer;
     layer.create(std::max(areaW, 1), std::max(areaH, 1), PixelFormat::RGBA32);
     clear(layer);
-    const int lineHeight = std::max(loaded_.lineHeight, 1);
+    const int lineHeight = std::max(loaded_.lineStep(), 1);
     for (size_t i = 0; i < lines.size(); ++i)
         loaded_.draw(layer, 0, static_cast<int>(i) * lineHeight, lines[i], {255, 255, 255});
     for (int dy = 0; dy < layer.h * scale_ && y + dy < s.h; ++dy) {

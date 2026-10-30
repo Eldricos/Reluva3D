@@ -22,16 +22,20 @@ struct Font {
         int offsetX = 0, offsetY = 0; // from the pen and the line's top
     };
     int lineHeight = 0;
+    int lineGap = 0;         // added to lineHeight between lines
+    int penX = 0, penY = 0;  // added to the pen where drawing starts
     int flags = 0; // not understood yet
     std::array<Glyph, 256> glyphs{}; // by character code; width 0: none
     int atlasWidth = 0, atlasHeight = 0;
     std::vector<uint8_t> coverage; // atlas pixels, 0 (clear) to 255 (solid)
 
     bool has(uint8_t code) const { return glyphs[code].width > 0; }
+    // How far a new line moves down, as the game does it.
+    int lineStep() const { return lineHeight + lineGap; }
     // The width of Windows-1252 text drawn in this font.
     int measure(std::string_view text) const;
-    // Draws Windows-1252 text with its top-left corner at (x, y) into an
-    // RGBA32 surface, blending by coverage, clipped to it; returns the x
+    // Draws Windows-1252 text with its top-left corner at (x, y), moved by
+    // the pen offset, into an RGBA32 surface, blending by coverage, clipped to it; returns the x
     // after the last character.
     int draw(Surface& surface, int x, int y, std::string_view text, Color color) const;
 };

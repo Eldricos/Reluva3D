@@ -24,6 +24,15 @@ struct TrackCollision {
         float leftWall = 0, rightWall = 0; // distances from the point, along right
         uint32_t unknown = 0;
         std::array<uint8_t, 3> extra{}; // the vectors' fourth bytes
+
+        // The lanes, from the fourth bytes: the count on each side (high 4
+        // bits left, low 4 right) and each side's lane width.
+        int leftLanes() const { return extra[0] >> 4; }
+        int rightLanes() const { return extra[0] & 0x0f; }
+        // The road's edges, as the game finds them: lanes × width × ½ from
+        // the point, along −right and right.
+        float leftEdge() const { return leftLanes() * extra[1] * 0.5f; }
+        float rightEdge() const { return rightLanes() * extra[2] * 0.5f; }
     };
 
     struct Structure {

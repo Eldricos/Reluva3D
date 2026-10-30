@@ -271,7 +271,8 @@ What was built, with each format written up in `docs/formats/nfs/`:
   - the sky dome and horizon picture in four variants;
   - the moving objects animated along their keys (Hometown's water
     wheel turns at its mill);
-  - the virtual road's walls as a guide;
+  - the virtual road's walls as a guide, with the road's edges from its
+    lane counts and widths (key G);
   - the lights in their types' colours, sizes and blinking, from the
     game's table ([frd.md](../formats/nfs/frd.md), Lights);
   - animated textures (the river through Hometown's covered bridge),

@@ -552,6 +552,20 @@ void testFont() {
     CHECK(s.row(2)[4 + 1] == 0 && s.row(2)[8] == 200);                     // (1, 2) clear, (2, 2) solid
     CHECK(s.row(2)[3 * 4] == 200);                                         // 'B'
 
+    CHECK(font.penX == 0 && font.penY == 0 && font.lineStep() == 9);
+
+    // A pen offset of (1, -1) moves everything; the gap adds to a line's step.
+    Bytes moved = b;
+    moved[16] = 1;
+    moved[17] = 0xff;
+    moved[19] = 2;
+    CHECK(!parseFont(moved, font));
+    CHECK(font.penX == 1 && font.penY == -1 && font.lineGap == 2 && font.lineStep() == 11);
+    Surface m;
+    m.create(6, 4, PixelFormat::RGBA32);
+    CHECK(font.draw(m, 0, 3, "AB", {200, 100, 50}) == 5);
+    CHECK(m.row(1)[2 * 4] == 200 && m.row(2)[4 * 4] == 200); // 'A' at (2, 1), 'B' at (4, 2)
+
     Bytes outside = b;
     outside[32 + 4] = 3; // 'A' at x 3 runs off the atlas
     CHECK(parseFont(outside, font));
@@ -1027,6 +1041,7 @@ void testCollision() {
         CHECK(r.position[0] == 829.5f && r.position[2] == 136.25f && r.normal[1] == 1.0f);
         CHECK(r.forward[0] == 85 / 127.0f && r.forward[2] == -93 / 127.0f && r.right[0] == -94 / 127.0f);
         CHECK(r.leftWall == 23.5f && r.rightWall == 28.0f && r.extra[0] == 34 && r.unknown == 0x550ff8);
+        CHECK(r.leftLanes() == 2 && r.rightLanes() == 2 && r.leftEdge() == 16.0f && r.rightEdge() == 16.0f);
     }
 
     Bytes badVertex = b;

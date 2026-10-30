@@ -28,7 +28,10 @@ Error parseFont(const std::vector<uint8_t>& data, Font& out) {
         return bad("no FNTF header");
     const unsigned count = le16(&data[10]);
     out.flags = le16(&data[12]);
+    out.penX = static_cast<int8_t>(data[16]);
+    out.penY = static_cast<int8_t>(data[17]);
     out.lineHeight = data[18];
+    out.lineGap = static_cast<int8_t>(data[19]);
     const uint32_t atlas = le32(&data[28]);
     if (kHeaderSize + count * kGlyphSize > atlas || static_cast<uint64_t>(atlas) + 16 > data.size())
         return bad("its glyph table runs past its atlas");
@@ -77,6 +80,8 @@ int Font::measure(std::string_view text) const {
 }
 
 int Font::draw(Surface& surface, int x, int y, std::string_view text, Color color) const {
+    x += penX;
+    y += penY;
     for (char c : text) {
         const Glyph& g = glyphs[static_cast<uint8_t>(c)];
         for (int gy = 0; gy < g.height; ++gy) {
@@ -98,7 +103,7 @@ int Font::draw(Surface& surface, int x, int y, std::string_view text, Color colo
         }
         x += g.advance;
     }
-    return x;
+    return x - penX;
 }
 
 } // namespace reluva::nfs

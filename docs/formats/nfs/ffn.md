@@ -34,7 +34,9 @@ All values are little-endian.
 | 20 | u32 | offset of the glyph table: 32 in all |
 | 28 | u32 | offset of the atlas: 2496 in all (32 + 224 × 11) |
 
-The other bytes are 0 in every font.
+The other bytes are 0 in every font. Bytes 16, 17 and 19 are 0 in all 16
+retail fonts too; Reluva applies them anyway (`Font::draw`,
+`Font::lineStep`), on the Strings and Fonts pages and in `ffn-render`.
 
 The game's two loaders (`setfont` at `0x4ef520`, `FONT_create` at
 `0x519f10`) were read in nfs3.exe (October 2026) for these fields.
