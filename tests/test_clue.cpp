@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Tests for the Clue engine's readers, on files made up here.
+// Tests for the Clue engine's readers, on files made up here, and its rules.
 
+#include "engines/clue/ai.h"
+#include "engines/clue/board.h"
 #include "engines/clue/game_data.h"
 #include "engines/clue/level.h"
 #include "engines/clue/mansion.h"
 #include "engines/clue/resi.h"
 #include "engines/clue/ui.h"
 #include "engines/clue/resources.h"
+#include "engines/clue/rules.h"
 #include "zip_writer.h"
 
 #include <cstdio>
@@ -605,6 +608,215 @@ static void testDialog(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+// A small mansion: two rows of corridor (y 2 and 3, x 0-26) and, above
+// them, the nine rooms, 2 x 2 each, three columns apart, each with a door
+// down to the corridor at its left column. The suspects start on row 3,
+// five apart; the kitchen and the study have the secret passages.
+static Level testBoardLevel() {
+    Level level;
+    const auto object = [&](const std::string& name) {
+        for (size_t i = 0; i < level.objects.size(); ++i)
+            if (level.objects[i] == name)
+                return uint16_t(i);
+        level.objects.push_back(name);
+        return uint16_t(level.objects.size() - 1);
+    };
+    const auto place = [&](const std::string& name, int x, int y, int layer) {
+        Placement p;
+        p.object = object(name);
+        p.x = int16_t(x);
+        p.y = int16_t(y);
+        p.layer = uint8_t(layer);
+        level.placements.push_back(p);
+    };
+    const auto at = [](int square) { return 16 + 64 * square; };
+    for (int x = 0; x <= 26; ++x)
+        for (int y : {2, 3})
+            place("r_hwfloor:Ohwfloor", at(x), at(y), 0);
+    static const char* const kFolders[kRoomCount] = {"hallroom", "lounge", "diningroom", "kitchen", "ballroom",
+                                                     "conservatory", "billiardroom", "library", "study"};
+    for (int r = 0; r < kRoomCount; ++r) {
+        for (int x = 3 * r; x < 3 * r + 2; ++x)
+            for (int y : {0, 1})
+                place("r_woodfloor:Owoodfloor", at(x), at(y), 1);
+        place(std::string(kFolders[r]) + ":Ochair", at(3 * r + 1) + 8, at(0) + 8, 5);
+        place("wall:Ohwdrtop_na", at(3 * r), at(1) + 48, 3);
+    }
+    place("secretpass:Oktsp", at(9) + 8, at(0) + 8, 5);
+    place("secretpass:Osp_w", at(24) + 8, at(0) + 8, 5);
+    static const char* const kNames[kSuspectCount] = {"scarlet", "mustard", "white", "green", "peacock", "plum"};
+    for (int s = 0; s < kSuspectCount; ++s)
+        place(std::string("character:O") + kNames[s], at(5 * s) + 24, at(3) + 24, 7);
+    return level;
+}
+
+static void testBoard() {
+    Board board;
+    CHECK(!board.build(testBoardLevel()));
+    CHECK(board.corridor().size() == 54);
+    CHECK(board.doors().size() == size_t(kRoomCount));
+    for (int r = 0; r < kRoomCount; ++r) {
+        CHECK(board.roomSquares(r).size() == 4);
+        CHECK((board.roomAt({3 * r + 1, 1}) == r));
+    }
+    CHECK((board.roomAt({2, 0}) == kNoRoom && board.isCorridor({2, 2}) && !board.isCorridor({2, 1})));
+    CHECK((board.doors()[0].room == Hall && board.doors()[0].inside == Square{0, 1} &&
+          board.doors()[0].outside == Square{0, 2}));
+    CHECK((board.start(Plum) == Square{25, 3}));
+    CHECK(board.passage(Kitchen) == Study && board.passage(Study) == Kitchen && board.passage(Hall) == kNoRoom);
+    // The chair's square comes last of a room's places to stand.
+    CHECK((board.standing(Lounge).back() == Square{4, 0}));
+    int wx, wy;
+    Board::standingPoint({29, 11}, wx, wy);
+    CHECK(wx == 1896 && wy == 744); // where clue.lvl stands Miss Scarlet
+    CHECK((Board::squareAt(1896, 744) == Square{29, 11} && Board::squareAt(15, 15) == Square{-1, -1}));
+    // Steps: along the corridor, in at a door, out of a room by its doors.
+    const auto n = board.neighbours({{3, 2}, kNoRoom});
+    CHECK((n.size() == 4 && std::count(n.begin(), n.end(), Place{{}, Lounge}) == 1));
+    CHECK((board.neighbours({{}, Lounge}) == std::vector<Place>({{{3, 2}, kNoRoom}})));
+    // Without one of the rooms the board can't be made.
+    Level partial = testBoardLevel();
+    partial.placements.erase(std::remove_if(partial.placements.begin(), partial.placements.end(),
+                                            [&](const Placement& p) {
+                                                return partial.objects[p.object] == "study:Ochair";
+                                            }),
+                             partial.placements.end());
+    CHECK(board.build(partial));
+}
+
+static void testRules() {
+    Board board;
+    CHECK(!board.build(testBoardLevel()));
+    Game game;
+    CHECK((game.start(board, {true, true, false, false, false, false}, false, 1))); // two aren't enough
+    const std::array<bool, kSuspectCount> three{true, false, true, false, true, false};
+    CHECK(!game.start(board, three, false, 7));
+    // The deal: 18 cards, six each, none of them the case file's.
+    size_t dealt = 0;
+    for (int s = 0; s < kSuspectCount; ++s) {
+        dealt += game.seat(s).hand.size();
+        CHECK(game.seat(s).hand.size() == (three[size_t(s)] ? 6u : 0u));
+        for (int c : game.seat(s).hand)
+            CHECK(!game.solution().has(c));
+    }
+    CHECK(dealt == 18);
+    Game same;
+    same.start(board, three, false, 7);
+    CHECK(same.solution() == game.solution() && same.seat(White).hand == game.seat(White).hand);
+
+    // Miss Scarlet first: she can only roll (no passage, no room).
+    CHECK(game.turn() == Scarlet && game.phase() == Game::Phase::Start);
+    CHECK(game.canRoll() && !game.canSuggest() && !game.canTakePassage() && game.canAccuse() && !game.canEndTurn());
+    const int roll = game.rollDie();
+    CHECK(roll >= 1 && roll <= 6 && game.phase() == Game::Phase::Moving && !game.canRoll());
+    // From (0, 3): up to (0, 2), then along row 2. Into the hall from (0, 2).
+    std::vector<Place> path{{{0, 2}, kNoRoom}};
+    for (int x = 1; int(path.size()) < roll; ++x)
+        path.push_back({{x, 2}, kNoRoom});
+    CHECK(game.canWalk(path));
+    if (roll > 1) {
+        CHECK((game.canWalk({{{0, 2}, kNoRoom}, {{}, Hall}}))); // a room ends the move early
+        std::vector<Place> shortPath(path.begin(), path.end() - 1);
+        CHECK(!game.canWalk(shortPath)); // short of the die's number
+    }
+    CHECK((!game.canWalk({{{1, 3}, kNoRoom}, {{0, 3}, kNoRoom}}))); // back to where she stood
+    CHECK((!game.canWalk({{{1, 2}, kNoRoom}})));                    // not a neighbour
+    const auto steps = game.nextSteps({{{0, 2}, kNoRoom}});
+    CHECK((std::count(steps.begin(), steps.end(), Place{{}, Hall}) == (roll > 1 ? 1 : 0)));
+    const auto all = game.destinations();
+    CHECK(!all.empty());
+    for (const auto& d : all)
+        CHECK(game.canWalk(d));
+    CHECK((!game.walk({{{0, 2}, kNoRoom}, {{}, Hall}}) == (roll > 1)));
+    if (roll == 1)
+        CHECK((!game.walk({{{0, 2}, kNoRoom}})));
+    CHECK(game.phase() == Game::Phase::Moved);
+    CHECK(game.canSuggest() == (roll > 1) && game.canEndTurn());
+    CHECK(!game.endTurn() && game.turn() == White);
+
+    // No Die Roll: nine moves; suggestions, passages and accusations three.
+    Game nd;
+    CHECK((!nd.start(board, {true, true, true, false, false, false}, true, 3)));
+    CHECK(nd.moves() == 9 && !nd.canRoll() && nd.canMove());
+    CHECK((nd.canWalk({{{0, 2}, kNoRoom}}) && nd.canWalk({{{0, 2}, kNoRoom}, {{}, Hall}})));
+    CHECK((!nd.walk({{{0, 2}, kNoRoom}, {{}, Hall}}) && nd.moves() == 7 && nd.place(Scarlet) == Place{{}, Hall}));
+    // Mr. Green isn't played; he is brought to the hall all the same.
+    const Accusation s{Green, Rope, Hall};
+    CHECK(nd.canSuggest() && !nd.suggest(Green, Rope) && nd.moves() == 4);
+    CHECK((nd.place(Green) == Place{{}, Hall} && nd.suggestion() == s && !nd.canSuggest()));
+    // The first to her left with a card named shows one.
+    int expect = -1;
+    for (int k : {Mustard, White})
+        if (expect < 0 && std::any_of(nd.seat(k).hand.begin(), nd.seat(k).hand.end(), [&](int c) { return s.has(c); }))
+            expect = k;
+    CHECK(nd.disprover() == expect);
+    if (expect >= 0) {
+        CHECK(nd.phase() == Game::Phase::Disprove && !nd.disproving().empty());
+        CHECK(nd.show(roomCard(Study) == nd.disproving()[0] ? -1 : roomCard(Study)));
+        CHECK(!nd.show(nd.disproving()[0]) && nd.shown() >= 0 && s.has(nd.shown()));
+    }
+    CHECK(nd.phase() == Game::Phase::Suggested && nd.canAccuse());
+    // Wrong: out, and on to the next. Mustard, then, right: he wins.
+    Accusation wrong = nd.solution();
+    wrong.room = (wrong.room + 1) % kRoomCount;
+    CHECK(!nd.accuse(wrong) && nd.seat(Scarlet).out && nd.turn() == Mustard);
+    CHECK(!nd.accuse(nd.solution()) && nd.phase() == Game::Phase::Over && nd.winner() == Mustard);
+
+    // A suspect blocking the only door traps the one inside.
+    Game trap;
+    trap.start(board, {true, true, true, false, false, false}, true, 5);
+    CHECK((!trap.walk({{{0, 2}, kNoRoom}, {{}, Hall}}) && !trap.endTurn()));     // Scarlet into the hall
+    CHECK((!trap.walk({{{4, 3}, kNoRoom}, {{3, 3}, kNoRoom}, {{2, 3}, kNoRoom}, {{1, 3}, kNoRoom},
+                      {{1, 2}, kNoRoom}, {{0, 2}, kNoRoom}}) && !trap.endTurn())); // Mustard before its door
+    while (trap.turn() != Scarlet)
+        CHECK(!trap.walk(trap.destinations().front()) && !trap.endTurn());
+    CHECK(trap.trapped() && !trap.canMove() && trap.canEndTurn() && trap.destinations().empty());
+    // Two suspects in a room stand apart.
+    CHECK(trap.standingSquare(Scarlet) == board.standing(Hall)[0]);
+}
+
+// Computer players alone, to the end: someone must win, and as they only
+// accuse when sure, nobody wrongly.
+static void testComputerPlayers() {
+    Board board;
+    CHECK(!board.build(testBoardLevel()));
+    for (uint32_t seed = 1; seed <= 40; ++seed) {
+        const bool noDie = seed % 2 == 0;
+        const std::array<bool, kSuspectCount> playing{true, seed % 3 != 0, true, true, seed % 5 != 0, true};
+        Game game;
+        CHECK(!game.start(board, playing, noDie, seed));
+        std::array<ComputerPlayer, kSuspectCount> ai;
+        for (int s = 0; s < kSuspectCount; ++s)
+            if (playing[size_t(s)])
+                ai[size_t(s)].reset(game, s, seed * 7 + uint32_t(s));
+        int actions = 0;
+        while (game.phase() != Game::Phase::Over && actions++ < 20000) {
+            ComputerPlayer& me = ai[size_t(game.turn())];
+            switch (me.decide(game)) {
+            case ComputerPlayer::Action::Roll: CHECK(game.rollDie() > 0); break;
+            case ComputerPlayer::Action::Passage: CHECK(!game.takePassage()); break;
+            case ComputerPlayer::Action::Walk: CHECK(!game.walk(me.chooseWalk(game))); break;
+            case ComputerPlayer::Action::Suggest: {
+                const Accusation a = me.chooseSuggestion(game);
+                CHECK(!game.suggest(a.suspect, a.weapon));
+                if (game.phase() == Game::Phase::Disprove)
+                    CHECK(!game.show(ai[size_t(game.disprover())].chooseShow(game, game.turn())));
+                for (int s = 0; s < kSuspectCount; ++s)
+                    if (playing[size_t(s)])
+                        ai[size_t(s)].observe(game, game.turn(), game.suggestion(), game.disprover(),
+                                              s == game.turn() ? game.shown() : -1);
+                break;
+            }
+            case ComputerPlayer::Action::Accuse: CHECK(!game.accuse(me.chooseAccusation())); break;
+            case ComputerPlayer::Action::EndTurn: CHECK(!game.endTurn()); break;
+            }
+        }
+        CHECK(game.phase() == Game::Phase::Over && game.winner() >= 0);
+        for (int s = 0; s < kSuspectCount; ++s)
+            CHECK(!game.seat(s).out);
+    }
+}
+
 int main() {
     testUnpack();
     testDriveAndImages();
@@ -615,6 +827,9 @@ int main() {
     testMansion(std::filesystem::temp_directory_path() / "reluva_clue_mansion");
     testResi();
     testDialog(std::filesystem::temp_directory_path() / "reluva_clue_dialog");
+    testBoard();
+    testRules();
+    testComputerPlayers();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

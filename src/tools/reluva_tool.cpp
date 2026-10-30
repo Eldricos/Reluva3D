@@ -47,6 +47,8 @@
 //   reluva-tool clue-check <game folder> [-uk]      decode every image, animation and object of a Clue
 //                                                  install or CD, and build its mansion
 //   reluva-tool clue-level <clue.lvl> [-v]          a Clue level's placements (each one with -v)
+//   reluva-tool clue-board <clue.lvl> [games]       the board a Clue level lays out; games of
+//                                                  computer players on it
 //   reluva-tool bsp-check <game folder>            load every maps/*.bsp of an id Tech 3 game folder
 //                                                  (e.g. .../BaseEF), report failures and corrections
 //   reluva-tool pk3-list <game folder> [filter]    list the search path's files, with sizes and the
@@ -144,6 +146,8 @@
 #include "engines/idtech3/shader.h"
 #endif
 #ifdef RELUVA_ENGINE_CLUE
+#include "engines/clue/ai.h"
+#include "engines/clue/board.h"
 #include "engines/clue/game_data.h"
 #include "engines/clue/level.h"
 #include "engines/clue/mansion.h"
@@ -2829,6 +2833,116 @@ int cmdClueLevel(int argc, char** argv) {
         std::printf("  %02x: %d", f, n);
     std::printf("\n");
     return 0;
+}
+
+// The board clue.lvl lays out, drawn in characters: '.' corridors, a room's
+// letter, '#' its doors' squares, a digit a suspect's start.
+int cmdClueBoard(int argc, char** argv) {
+    if (argc != 3 && argc != 4) {
+        std::fprintf(stderr, "usage: reluva-tool clue-board <clue.lvl> [games]\n");
+        return 2;
+    }
+    reluva::clue::DataDrive file;
+    reluva::clue::Level level;
+    reluva::clue::Board board;
+    reluva::Error err = file.open(argv[2]);
+    if (!err)
+        err = reluva::clue::parseLevel(file, level);
+    if (!err)
+        err = board.build(level);
+    if (err) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    static const char* const kRooms[] = {"Hall", "Lounge", "Dining Room", "Kitchen", "Ballroom",
+                                         "Conservatory", "Billiard Room", "Library", "Study"};
+    int x0 = 1 << 20, y0 = 1 << 20, x1 = -x0, y1 = -y0;
+    const auto extend = [&](const reluva::clue::Square& s) {
+        x0 = std::min(x0, s.x), y0 = std::min(y0, s.y), x1 = std::max(x1, s.x), y1 = std::max(y1, s.y);
+    };
+    for (const auto& s : board.corridor())
+        extend(s);
+    for (int r = 0; r < reluva::clue::kRoomCount; ++r)
+        for (const auto& s : board.roomSquares(r))
+            extend(s);
+    std::set<reluva::clue::Square> doorSquares;
+    for (const auto& d : board.doors())
+        doorSquares.insert(d.inside);
+    for (int y = y0; y <= y1; ++y) {
+        std::string line;
+        for (int x = x0; x <= x1; ++x) {
+            const reluva::clue::Square s{x, y};
+            char c = ' ';
+            if (board.isCorridor(s))
+                c = '.';
+            else if (int r = board.roomAt(s); r != reluva::clue::kNoRoom)
+                c = doorSquares.count(s) ? '#' : char('A' + r);
+            for (int k = 0; k < reluva::clue::kSuspectCount; ++k)
+                if (board.start(k) == s)
+                    c = char('0' + k);
+            line += c;
+        }
+        std::printf("%3d %s\n", y, line.c_str());
+    }
+    std::printf("columns %d to %d; %zu corridor squares\n", x0, x1, board.corridor().size());
+    for (int r = 0; r < reluva::clue::kRoomCount; ++r) {
+        int doors = 0;
+        for (const auto& d : board.doors())
+            doors += d.room == r;
+        const int to = board.passage(r);
+        std::printf("%c %-13s %3zu squares, %d doors%s%s\n", 'A' + r, kRooms[r], board.roomSquares(r).size(), doors,
+                    to == reluva::clue::kNoRoom ? "" : ", a passage to the ", to == reluva::clue::kNoRoom ? "" : kRooms[to]);
+    }
+    for (int k = 0; k < reluva::clue::kSuspectCount; ++k)
+        std::printf("suspect %d starts at %d,%d\n", k, board.start(k).x, board.start(k).y);
+    // Games of six computer players on it, alternately with the die and without.
+    const int games = argc > 3 ? std::atoi(argv[3]) : 0;
+    int turns = 0, unfinished = 0, wrong = 0;
+    for (int g = 0; g < games; ++g) {
+        using reluva::clue::ComputerPlayer;
+        using reluva::clue::Game;
+        Game game;
+        game.start(board, {true, true, true, true, true, true}, g % 2 == 1, uint32_t(g + 1));
+        std::array<ComputerPlayer, reluva::clue::kSuspectCount> ai;
+        for (int s = 0; s < reluva::clue::kSuspectCount; ++s)
+            ai[size_t(s)].reset(game, s, uint32_t(g * 31 + s));
+        int steps = 0;
+        for (; game.phase() != Game::Phase::Over && steps < 100000; ++steps) {
+            ComputerPlayer& me = ai[size_t(game.turn())];
+            reluva::Error e;
+            switch (me.decide(game)) {
+            case ComputerPlayer::Action::Roll: game.rollDie(); break;
+            case ComputerPlayer::Action::Passage: e = game.takePassage(); break;
+            case ComputerPlayer::Action::Walk: e = game.walk(me.chooseWalk(game)); break;
+            case ComputerPlayer::Action::Suggest: {
+                const auto a = me.chooseSuggestion(game);
+                e = game.suggest(a.suspect, a.weapon);
+                if (!e && game.phase() == Game::Phase::Disprove)
+                    e = game.show(ai[size_t(game.disprover())].chooseShow(game, game.turn()));
+                for (int s = 0; s < reluva::clue::kSuspectCount; ++s)
+                    ai[size_t(s)].observe(game, game.turn(), game.suggestion(), game.disprover(),
+                                          s == game.turn() ? game.shown() : -1);
+                break;
+            }
+            case ComputerPlayer::Action::Accuse: e = game.accuse(me.chooseAccusation()); break;
+            case ComputerPlayer::Action::EndTurn:
+                e = game.endTurn();
+                ++turns;
+                break;
+            }
+            if (e) {
+                std::printf("game %d: %s\n", g, e.message.c_str());
+                break;
+            }
+        }
+        unfinished += game.phase() != Game::Phase::Over;
+        for (int s = 0; s < reluva::clue::kSuspectCount; ++s)
+            wrong += game.seat(s).out;
+    }
+    if (games)
+        std::printf("%d games: %d unfinished, %d wrong accusations, %.1f turns a game\n", games, unfinished, wrong,
+                    double(turns) / games);
+    return unfinished ? 1 : 0;
 }
 #endif // RELUVA_ENGINE_CLUE
 
@@ -5530,6 +5644,8 @@ int main(int argc, char** argv) {
         return cmdClueCheck(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "clue-level") == 0)
         return cmdClueLevel(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "clue-board") == 0)
+        return cmdClueBoard(argc, argv);
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
     if (argc >= 2 && std::strcmp(argv[1], "bsp-check") == 0)
@@ -5612,6 +5728,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool clue-extract <file.res> <output dir> [name filter]\n"
                  "  reluva-tool clue-check <game folder> [-uk]\n"
                  "  reluva-tool clue-level <clue.lvl> [-v]\n"
+                 "  reluva-tool clue-board <clue.lvl> [games]\n"
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
                  "  reluva-tool bsp-check <game folder, e.g. .../BaseEF>\n"
