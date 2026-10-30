@@ -1093,6 +1093,13 @@ void Play::clickSquare(const Place& p) {
         return;
     }
     plan_.push_back(p);
+    // The view goes to the newest square, as the original's does.
+    if (!p.inRoom()) {
+        int wx, wy;
+        Board::standingPoint(p.square, wx, wy);
+        camX_ = (wx - wy) - kW / 2;
+        camY_ = floorDiv(wx + wy, 2) - kBarTop / 2;
+    }
     // The die's number reached, or a room: the walk begins.
     const int limit = game_.noDieRoll() ? game_.moves() : game_.roll();
     if (p.inRoom() || int(plan_.size()) == limit)
@@ -1344,6 +1351,14 @@ void Play::draw() {
     look.lights.clear();
     for (const Walker& w : walkers_)
         look.lights.push_back({w.x, w.y});
+    // A move being planned carries a light at its end (VM2 0:51-0:59).
+    for (auto it = plan_.rbegin(); it != plan_.rend(); ++it)
+        if (!it->inRoom()) {
+            int wx, wy;
+            Board::standingPoint(it->square, wx, wy);
+            look.lights.push_back({wx, wy});
+            break;
+        }
     mansion_.draw(screen_, camX_, camY_, look, now_, actors());
     drawMap();
     drawPanel();

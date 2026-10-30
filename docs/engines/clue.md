@@ -363,7 +363,14 @@ are from a suspect (the same `wall:Olglite_w` 1.7 times Reluva's
 brightness 159 units from Miss Scarlet and 0.18 at 315), and a fit with
 the lamps and fires as lights of their own is no better than one
 without. What looks like lamplight is the suspect's light falling on
-the walls behind the lamps. Reluva lights around every suspect.
+the walls behind the lamps. The lights are the suspects, and the end of
+a move being planned: as each square is clicked, a pool of light goes
+to it and the view moves to it (VM2 0:51-0:59; the frame at 0:59, five
+squares planned, fits Miss Scarlet's light alone with error 0.31, hers
+and one on the newest square 0.24, one on the square before it 0.23,
+one on every planned square 0.24, one at the pointer 0.29: so the
+newest square, perhaps still sliding onto it). Reluva lights around
+every suspect and the newest square of a move being planned.
 
 **Timings** from the VM recording: a suspect walks a square in about
 0.6 s; each "can / cannot disprove" box shows about 3 s.
