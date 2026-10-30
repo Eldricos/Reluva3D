@@ -10,11 +10,11 @@
 
 namespace reluva::age {
 
-// Drives a car through a path's points (an opponent's .opp path): steers
-// for the next point, slows for the corner there, backs out when stuck.
+// Drives a car through a path's points (an opponent's .opp path, routed
+// along the roads): steers (pure pursuit) for a point a little way along
+// the path, slows for each corner ahead in time, backs out when stuck.
 // Reluva's stand-in for the game's opponents, whose driving is in its
-// encrypted program; the game also has road maps for them (.aimap) that
-// aren't read yet. See docs/engines/age-racing.md.
+// encrypted program. See docs/engines/age-racing.md.
 class PathDriver {
 public:
     // `laps` > 0 drives the path round that many times, from its end back
@@ -31,6 +31,10 @@ public:
     bool finished() const { return finished_; }
     int lap() const { return lap_; }
     size_t next() const { return index_; }
+    // How many of the path's points it's gone on from, laps unrolled.
+    size_t passed() const { return passed_; }
+    int laps() const { return laps_; }
+    size_t loopFrom() const { return loopFrom_; }
     const std::vector<Vec3>& path() const { return path_; }
     // Stuck for long, or 8 s without getting nearer the next point: the
     // caller puts the car back at `resetPoint` facing `resetYaw`, and
@@ -44,7 +48,7 @@ public:
 private:
     std::vector<Vec3> path_;
     int laps_ = 0, lap_ = 0;
-    size_t index_ = 0, loopFrom_ = 0;
+    size_t index_ = 0, loopFrom_ = 0, passed_ = 0;
     float skill_ = 1;
     float limit_ = 1e9f;
     bool finished_ = false;
@@ -55,10 +59,17 @@ private:
     int resetsHere_ = 0; // at the current point: after two, the next reset skips it
 };
 
+// Where along a driver's path (as passed() counts its points) it's
+// nearest each of `gates` in turn: the race's checkpoints, which an
+// opponent's own path doesn't always go through.
+std::vector<size_t> pathPointsNearest(const PathDriver& driver, const std::vector<Vec3>& gates);
+
 // An opponent's points joined along the roads: from `start` to the first,
 // on through the rest and (for a circuit, `loop`) from the last back to
 // the first. `loopFrom` is set to where the loop begins in the result.
+// `fallback`: another graph (the road map's) for the legs `roads` has no
+// way for.
 std::vector<Vec3> routePath(const RoadGraph& roads, const Vec3& start, const std::vector<Vec3>& points, bool loop,
-                            size_t& loopFrom);
+                            size_t& loopFrom, const RoadGraph* fallback = nullptr);
 
 } // namespace reluva::age

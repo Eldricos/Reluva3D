@@ -1187,6 +1187,35 @@ void testPathDriver() {
         car.step(driver.drive(car, 0.05f), flat, 0.05f);
     CHECK(driver.finished() && driver.lap() == 2 && t < 200); // lap() counts laps done
     CHECK(std::fabs(car.position[0]) < 20 && std::fabs(car.position[2]) < 20);
+    CHECK(driver.passed() == 8); // four points, twice
+
+    // The race's checkpoints, each matched to the nearest point of the
+    // path as it's driven (two laps of the square: 0-3, then 0-3 again).
+    const std::vector<Vec3> gates = {{230, 0, -230}, {230, 0, 30}, {-30, 0, 30}, {-30, 0, -230},
+                                     {230, 0, -230}, {230, 0, 30}, {-30, 0, 30}, {-30, 0, -230}};
+    const std::vector<size_t> at = pathPointsNearest(driver, gates);
+    CHECK(at == std::vector<size_t>({1, 2, 3, 4, 5, 6, 7, 7}));
+
+    // A route that goes out to a point and straight back the same way:
+    // the spur's cut (no road graph here, so the points are joined as they are).
+    RoadGraph none;
+    size_t loopFrom = 0;
+    const std::vector<Vec3> route =
+        routePath(none, {0, 0, 0}, {{0, 0, -50}, {30, 0, -50}, {1, 0, -51}, {0, 0, -150}}, false, loopFrom);
+    CHECK(route.size() == 2 && std::fabs(route[1][2] + 150) < 1e-3f);
+
+    // A body's bounds: every axis from the first vertex on.
+    Pkg pkg;
+    pkg.meshes.resize(1);
+    pkg.meshes[0].name = "BODY_H";
+    pkg.meshes[0].groups.resize(1);
+    for (const Vec3& v : {Vec3{1, 2, 3}, Vec3{-1, 0, 5}, Vec3{0, 1, 4}}) {
+        PkgVertex vertex;
+        vertex.pos = v;
+        pkg.meshes[0].groups[0].vertices.push_back(vertex);
+    }
+    Vec3 low{-99, -99, -99}, high{99, 99, 99};
+    CHECK(bodyBounds(pkg, low, high) && low == Vec3({-1, 0, 3}) && high == Vec3({1, 2, 5}));
 }
 
 void testRoadGraph() {

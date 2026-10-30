@@ -4,6 +4,7 @@
 #pragma once
 
 #include "engines/age/bai.h"
+#include "engines/age/collision.h"
 #include "engines/age/psdl.h"
 #include "engines/age/vecmath.h"
 
@@ -25,6 +26,11 @@ public:
     // to the junctions at its ends; the roads not for traffic (flag 2: the
     // Underground, some ramps and alleys) cost four times their length.
     void build(const AiRoadMap& map);
+    // Joins whose straight line runs into a wall (the city's collision, at
+    // a car's height) cost `penalty` times as much: built from the roads'
+    // ends, a few join through a building's corner. Not taken away, so
+    // the roads stay joined where there's no other way. How many.
+    size_t penalizeBlocked(const CollisionWorld& world, float penalty = 20);
     // The road point nearest `p`, if one's near enough to drive from.
     bool nearestNode(const Vec3& p, Vec3& out, float reach = 60) const;
 
