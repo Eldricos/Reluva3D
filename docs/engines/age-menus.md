@@ -108,8 +108,13 @@ Every screen has the navigation bar at the top right, where the
   Windows Help file, read by `common/winhelp.cpp`:
   [winhelp.md](../formats/winhelp.md)), in a page of Reluva's own over
   the menu: the topics listed (Enter or a click reads one), and the
-  topic's text to scroll (Up/Down, Page Up/Down, the wheel). Esc goes
-  back, then closes. The help's pictures, links and fonts aren't shown.
+  topic's text to scroll (Up/Down, Page Up/Down, the wheel), with its
+  pictures in their places (shrunk to fit the page, at most 300 high)
+  and its links coloured and underlined. Tab (Shift+Tab) chooses a link,
+  Enter or a click follows it, Backspace (or a right click) goes back
+  to the topic before; Esc goes back to the list, then closes. A tab
+  after a list's bullet goes 4 columns on, else to the second column,
+  and a wrapped line goes on under it. The help's fonts aren't used.
   Without the file the button isn't available.
 - **Minimise** puts the window away (`System::minimizeWindow`).
 - **Exit**, or Esc on the main menu, asks **QUIT?** (`jpg/quit_dlg`, OK

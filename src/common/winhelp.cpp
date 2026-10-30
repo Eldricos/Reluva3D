@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <functional>
 #include <map>
 
 namespace reluva::winhelp {
@@ -251,7 +252,8 @@ void skipParagraph(Reader& r) {
 
 // A text record's words: LinkData2's strings, each followed by the next of
 // LinkData1's commands (a paragraph's end, a tab, a picture...).
-std::string recordText(uint8_t type, const uint8_t* ld1, size_t n1, const std::string& ld2) {
+std::string recordText(uint8_t type, const uint8_t* ld1, size_t n1, const std::string& ld2,
+                       const std::function<int(uint32_t)>& linkTarget) {
     Reader r{ld1, ld1 + n1};
     r.longWord(); // the topic's size so far
     r.word();     // and this record's text's
@@ -263,6 +265,7 @@ std::string recordText(uint8_t type, const uint8_t* ld1, size_t n1, const std::s
         r.skip(size_t(columns) * 4);
     }
     std::string out;
+    bool inLink = false;
     size_t at = 0; // in ld2
     auto nextString = [&] {
         if (at > ld2.size())
@@ -313,18 +316,31 @@ std::string recordText(uint8_t type, const uint8_t* ld1, size_t n1, const std::s
             case 0x86:
             case 0x87:
             case 0x88: { // a picture, or a window in the text
+                // Kind 0x03 a picture, 0x22 one with hot spots (their
+                // count first); its data a type (0: from the file's |bm
+                // pictures) and the picture's number. Kind 0x05 a window
+                // a program draws in.
                 const uint8_t kind = r.u8();
                 const int32_t size = r.longInt();
                 if (kind == 0x22)
-                    r.word(); // its hot spots
-                if (size < 0)
+                    r.word();
+                if (size < 0) {
                     r.bad = true;
-                else
+                } else if ((kind == 0x03 || kind == 0x22) && size >= 4) {
+                    const uint16_t from = r.u16(), number = r.u16();
+                    r.skip(size_t(size) - 4);
+                    if (from == 0)
+                        out += "\n" + std::string(1, kPictureMark) + std::to_string(number) + kPictureMark + "\n";
+                } else {
                     r.skip(size_t(size));
+                }
                 break;
             }
-            case 0x89:
-                break; // a hot spot's end
+            case 0x89: // a hot spot's end
+                if (inLink)
+                    out += kLinkEnd;
+                inLink = false;
+                break;
             case 0x8B:
                 out += ' ';
                 break;
@@ -337,12 +353,19 @@ std::string recordText(uint8_t type, const uint8_t* ld1, size_t n1, const std::s
                 break; // a macro
             case 0xE0:
             case 0xE1:
+                r.skip(4); // Windows 3.0's
+                break;
             case 0xE2:
             case 0xE3:
             case 0xE6:
-            case 0xE7:
-                r.skip(4);
-                break; // a jump or a pop-up
+            case 0xE7: { // a jump or a pop-up: the hash of the topic's context name
+                const int target = linkTarget(r.u32());
+                if (target >= 0 && !inLink) {
+                    out += std::string(1, kLinkMark) + std::to_string(target) + kLinkMark;
+                    inLink = true;
+                }
+                break;
+            }
             case 0xEA:
             case 0xEB:
             case 0xEE:
@@ -357,6 +380,8 @@ std::string recordText(uint8_t type, const uint8_t* ld1, size_t n1, const std::s
         if (type != kTable)
             break;
     }
+    if (inLink)
+        out += kLinkEnd;
     return type == kTable ? out + "\n\n" : out;
 }
 
@@ -412,11 +437,9 @@ std::vector<uint8_t> decompressLz77(const uint8_t* data, size_t size) {
     return out;
 }
 
-Error readHelp(const std::vector<uint8_t>& file, std::vector<Topic>& out) {
-    out.clear();
+Error openHelp(const std::vector<uint8_t>& file, HelpFile& help) {
     if (file.size() < 16 || le32(file.data()) != kMagic)
         return Error::fail("not a Windows Help file");
-    HelpFile help{file, {}};
     size_t dirStart = 0, dirSize = 0;
     if (!help.body(le32(&file[4]), dirStart, dirSize))
         return Error::fail("its directory is past its end");
@@ -434,6 +457,47 @@ Error readHelp(const std::vector<uint8_t>& file, std::vector<Topic>& out) {
     });
     if (!listed)
         return Error::fail("its directory can't be read");
+    return Error::success();
+}
+
+Error readHelp(const std::vector<uint8_t>& file, std::vector<Topic>& out) {
+    out.clear();
+    HelpFile help{file, {}};
+    if (Error err = openHelp(file, help))
+        return err;
+
+    // The links: a jump names its topic by the hash of a context name;
+    // |CONTEXT gives the hash's topic offset (a B+ tree of a 32-bit hash
+    // and offset), |TTLBTREE each topic's offset in order (an offset and
+    // the topic's title).
+    std::map<uint32_t, uint32_t> contexts;
+    std::vector<uint32_t> topicOffsets;
+    if (const uint8_t* tree = nullptr; true) {
+        size_t size = 0;
+        if (help.get("|CONTEXT", tree, size))
+            forEachLeaf(tree, size, [&](const uint8_t* p, int n, const uint8_t* end) {
+                for (int i = 0; i < n && end - p >= 8; ++i, p += 8)
+                    contexts[le32(p)] = le32(p + 4);
+            });
+        if (help.get("|TTLBTREE", tree, size))
+            forEachLeaf(tree, size, [&](const uint8_t* p, int n, const uint8_t* end) {
+                for (int i = 0; i < n && end - p >= 5; ++i) {
+                    topicOffsets.push_back(le32(p));
+                    const uint8_t* zero = static_cast<const uint8_t*>(std::memchr(p + 4, 0, size_t(end - p - 4)));
+                    if (!zero)
+                        return;
+                    p = zero + 1;
+                }
+            });
+    }
+    // The topic a hash names: the last to start at or before its offset.
+    const auto linkTarget = [&](uint32_t hash) {
+        const auto it = contexts.find(hash);
+        if (it == contexts.end())
+            return -1;
+        const auto after = std::upper_bound(topicOffsets.begin(), topicOffsets.end(), it->second);
+        return after == topicOffsets.begin() ? -1 : int(after - topicOffsets.begin()) - 1;
+    };
 
     // |SYSTEM: the version, and whether the topics are compressed.
     const uint8_t* system = nullptr;
@@ -503,7 +567,7 @@ Error readHelp(const std::vector<uint8_t>& file, std::vector<Topic>& out) {
             scrollFrom = nonScroll != -1 && n1 >= 24 ? int32_t(le32(ld1 + 20)) : -1;
         } else if ((type == kDisplay || type == kTable) && !out.empty()) {
             if (scrollFrom == -1 || int64_t(pos) >= scrollFrom)
-                out.back().text += recordText(type, ld1, n1, ld2);
+                out.back().text += recordText(type, ld1, n1, ld2, linkTarget);
         }
         if (next <= pos)
             break;
@@ -512,6 +576,136 @@ Error readHelp(const std::vector<uint8_t>& file, std::vector<Topic>& out) {
     for (Topic& t : out)
         t.text = tidy(ascii(t.text));
     return out.empty() ? Error::fail("no topics") : Error::success();
+}
+
+std::string plainText(const std::string& text) {
+    std::string out;
+    for (size_t i = 0; i < text.size(); ++i) {
+        const char c = text[i];
+        if (c == kPictureMark || c == kLinkMark) { // past the number and its closing mark
+            const size_t close = text.find(c, i + 1);
+            i = close == std::string::npos ? text.size() : close;
+        } else if (c != kLinkEnd) {
+            out += c;
+        }
+    }
+    return out;
+}
+
+std::vector<uint8_t> unpackRuns(const uint8_t* data, size_t size) {
+    std::vector<uint8_t> out;
+    for (size_t i = 0; i < size;) {
+        const uint8_t n = data[i++];
+        if (n & 0x80) {
+            const size_t count = std::min<size_t>(n & 0x7F, size - i);
+            out.insert(out.end(), data + i, data + i + count);
+            i += count;
+        } else if (i < size) {
+            out.insert(out.end(), n, data[i++]);
+        }
+    }
+    return out;
+}
+
+Error readPicture(const std::vector<uint8_t>& file, int number, Picture& out) {
+    out = Picture{};
+    HelpFile help{file, {}};
+    if (Error err = openHelp(file, help))
+        return err;
+    const uint8_t* data = nullptr;
+    size_t size = 0;
+    const std::string name = "|bm" + std::to_string(number);
+    if (!help.get(name, data, size) || size < 8)
+        return Error::fail("no " + name);
+    // The file: magic ("lP" or "lp"), how many pictures, where each starts;
+    // the first is read.
+    if (le16(data) != 0x506C && le16(data) != 0x706C)
+        return Error::fail(name + " isn't a picture file");
+    const uint8_t* picture = data + le32(data + 4);
+    if (picture + 2 > data + size)
+        return Error::fail(name + " is short");
+    // Each: its type (5 a device's bitmap, 6 a DIB, 8 a metafile, not
+    // read), its packing (0 none, 1 runs, 2 LZ77, 3 both), then compressed
+    // numbers: resolution, planes and bits a pixel, size, colours, the
+    // packed data's size, the hot spots' size; then where the data and hot
+    // spots are (from the picture's start); a DIB's colours follow.
+    const uint8_t type = picture[0], packing = picture[1];
+    if (type != 5 && type != 6)
+        return Error::fail(name + ": a kind of picture that isn't read");
+    Reader r{picture + 2, data + size};
+    r.longWord();
+    r.longWord();
+    const uint32_t planes = r.word(), bits = r.word();
+    const uint32_t width = r.longWord(), height = r.longWord(), colorsUsed = r.longWord();
+    r.longWord(); // colours important
+    const uint32_t packedSize = r.longWord();
+    r.longWord(); // hot spots' size
+    const uint32_t packedAt = r.u32();
+    r.u32(); // the hot spots'
+    if (r.bad || planes != 1 || width == 0 || height == 0 || width > 8192 || height > 8192 ||
+        (bits != 1 && bits != 4 && bits != 8 && bits != 24 && bits != 32))
+        return Error::fail(name + ": not a picture as read");
+    std::vector<uint32_t> palette;
+    if (type == 6 && bits <= 8) {
+        const uint32_t colors = colorsUsed ? colorsUsed : 1u << bits;
+        for (uint32_t i = 0; i < colors && i < 256 && r.has(4); ++i) {
+            const uint32_t bgrx = r.u32();
+            palette.push_back(bgrx);
+        }
+    } else if (bits <= 8) { // a device's bitmap: black and white
+        for (uint32_t i = 0; i < (1u << bits); ++i)
+            palette.push_back(i ? 0xFFFFFF : 0);
+    }
+    if (picture + packedAt + packedSize > data + size)
+        return Error::fail(name + ": its data is past its end");
+    const uint8_t* packed = picture + packedAt;
+    std::vector<uint8_t> pixels;
+    switch (packing) {
+    case 0:
+        pixels.assign(packed, packed + packedSize);
+        break;
+    case 1:
+        pixels = unpackRuns(packed, packedSize);
+        break;
+    case 2:
+        pixels = decompressLz77(packed, packedSize);
+        break;
+    case 3: {
+        const std::vector<uint8_t> once = decompressLz77(packed, packedSize);
+        pixels = unpackRuns(once.data(), once.size());
+        break;
+    }
+    default:
+        return Error::fail(name + ": a packing that isn't read");
+    }
+    // Rows from the bottom, each to a whole 4 bytes (a DIB) or 2 (a
+    // device's bitmap).
+    const size_t rowBytes = type == 6 ? (width * bits + 31) / 32 * 4 : (width * bits + 15) / 16 * 2;
+    if (pixels.size() < rowBytes * height)
+        return Error::fail(name + ": its data is short");
+    out.width = int(width);
+    out.height = int(height);
+    out.rgba.resize(size_t(width) * height * 4);
+    for (uint32_t y = 0; y < height; ++y) {
+        const uint8_t* row = pixels.data() + (height - 1 - y) * rowBytes;
+        uint8_t* to = out.rgba.data() + size_t(y) * width * 4;
+        for (uint32_t x = 0; x < width; ++x, to += 4) {
+            uint32_t bgr = 0;
+            if (bits == 24 || bits == 32) {
+                const uint8_t* p = row + x * (bits / 8);
+                bgr = uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16;
+            } else {
+                const uint32_t bit = x * bits;
+                const uint32_t index = (row[bit / 8] >> (8 - bits - bit % 8)) & ((1u << bits) - 1);
+                bgr = index < palette.size() ? palette[index] : 0;
+            }
+            to[0] = uint8_t(bgr >> 16);
+            to[1] = uint8_t(bgr >> 8);
+            to[2] = uint8_t(bgr);
+            to[3] = 255;
+        }
+    }
+    return Error::success();
 }
 
 } // namespace reluva::winhelp
