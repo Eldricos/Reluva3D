@@ -13,6 +13,11 @@
 # (engines.cfg), so no engine comes to rely on another's code, and any
 # engine can be left out for the rest to build. The engines are read from
 # engines.cfg, so a new engine is built alone once it has its line there.
+#
+# The "new engine from the template" job makes an engine with
+# cmake/NewEngine.cmake and builds and tests it, so the template keeps up
+# with the code it uses (src/engines/engine.h, the tests' and tools'
+# frameworks).
 
 name: CI
 
@@ -150,3 +155,42 @@ jobs:
         run: cmake --build build
       - name: Tests
         run: ctest --test-dir build --output-on-failure
+
+  template:
+    name: New engine from the template
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkg-config \
+            libasound2-dev libpulse-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev \
+            libxfixes-dev libxi-dev libxss-dev libxtst-dev libxkbcommon-dev libdrm-dev libgbm-dev \
+            libgl1-mesa-dev libegl1-mesa-dev libdbus-1-dev libudev-dev libwayland-dev
+      - name: Make an engine
+        # As docs/ADDING_AN_ENGINE.md says to; a name with "_" checks the
+        # names made from it (TemplateCheck, templateCheckMetaEngine).
+        run: cmake -DENGINE=template_check -DTITLE="Template Check" -P cmake/NewEngine.cmake
+      - name: Engine list
+        # It alone (and the testbed), as a new engine is built at first.
+        run: |
+          sed -E 's/^([A-Za-z0-9_]+)=.*/\1=disabled/' engines.cfg > engines-ci.cfg
+          sed -i -E 's/^template_check=disabled$/template_check=enabled/' engines-ci.cfg
+          cat engines-ci.cfg
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DRELUVA_ENGINES_FILE=$PWD/engines-ci.cfg
+      - name: Build
+        # Warnings fail it: a new engine should start clean.
+        run: |
+          cmake --build build 2>&1 | tee build.log
+          if grep -E "src/engines/template_check|tests/engines/template_check" build.log | grep -q "warning:"; then
+            echo "::error::the template's code builds with warnings"
+            exit 1
+          fi
+      - name: Tests
+        run: ctest --test-dir build --output-on-failure
+      - name: Its reluva-tool command
+        run: |
+          ./build/reluva-tool help template_check
+          ./build/reluva-tool template_check files tests/engines/template_check
