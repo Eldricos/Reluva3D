@@ -25,6 +25,21 @@ bounding-volume types and of the alpha blend factors. Where it disagrees
 with these files (a capsule is 28 bytes here, not 32, for example), the
 files win.
 
+**Checked against the game's code** (October 2026). Fields whose
+meaning the files alone couldn't show were then named from the game's own
+DLLs. Reverse engineering of a legally owned program for interoperability
+is among the sources [CONTRIBUTING.md](../../../../CONTRIBUTING.md)
+allows. NiMain, NiAnimation, NiA3dSound and LoadComp export their C++
+functions by name. Each class's `LoadBinary` shows the order it reads its
+members (a stream read each, with its size and the member's offset), and
+the exported one-line accessors (`GetDimmer`, `GetCycleType`...) name the
+member at each offset. Where the meaning needed more, the code that uses
+a member was read: NiDirect3d's software lighting, `NiFlipTextures::Act`,
+`DDSkill::Update` and `DDActor::OnPreDisplay`, and calls were watched
+with `at-run -watch` while the game ran. The fields named this way are
+marked *(from the code)* below. The former *guesses* they settle are
+recorded with them.
+
 `src/engines/netimmerse/fin.{h,cpp}` reads them.
 
 ## The file
@@ -74,7 +89,7 @@ it follows.
 | scale | float |
 | velocity | 3 floats |
 | number of properties, then their links | 4 + 4 each |
-| a number, 1 to 5; meaning unknown | 4 |
+| the collision propagate mode, 1 to 5 *(from the code: NiAVObject's `CollisionPropagate`)* | 4 |
 | a pointer to the collision volume; 0: none | 4 |
 | the collision volume, if there is one | below |
 
@@ -98,9 +113,10 @@ capsules, which are the level's walls and floors.
 
 ## Nodes
 
-**NiNode:** NiAVObject's fields, then two numbers and a byte (always 2, 0
-and 1 or 0; meaning unknown), the children (a count and links), and the
-effects (a count and links; always 0 here).
+**NiNode:** NiAVObject's fields, then the sorting mode (2 in every file:
+the default; 0 is on, 1 off), a number (0), a byte (1 or 0: whether it's
+a visual object, `IsVisualObject`) *(from the code)*, the children (a
+count and links), and the effects (a count and links; always 0 here).
 
 What each subclass adds after NiNode's fields:
 
@@ -116,10 +132,13 @@ A level's sky is under a node named `Exterior` (holding `Backdrop`).
 
 The characters have, on each arm and leg bone, a node named `LOD_RArm1`,
 `LOD_LLeg2` and so on, over a billboard of one flat quad. Their textures
-are `LodBlack.tga`, `LodRed.tga` and the like: plain colours. *Guess*:
-stand-ins for a character far away, which the game switches to itself, as
-nothing in the file marks them. The viewer leaves them out with the hidden
-effects.
+are `LodBlack.tga`, `LodRed.tga` and the like: plain colours. They're
+stand-ins for a character far away *(from the code; formerly a guess)*:
+`DDActor::OnPreDisplay` compares the camera's squared distance with the
+actor's switch distance (in `DDActorSharedData`, below: 202,500, 450
+units, for the characters). Within it the skinned meshes (`Ni3dsSkin`)
+show and every node whose name starts `LOD_` is hidden; beyond it, the
+other way round. The viewer leaves them out with the hidden effects.
 
 ## Shapes
 
@@ -174,21 +193,23 @@ Each is NiObjectNET's fields, then:
 |---|---|---|
 | `NiMaterialProperty` | 3,728 | ambient, diffuse, specular, emissive (3 floats each), glossiness, alpha |
 | `NiAlphaProperty` | 2,278 | a byte (blending on), source and destination factors (6 and 7 in every file: source alpha and one minus source alpha) |
-| `NiTextureProperty` | 2,068 | a number (0), the number of images, their links: one, or several frames for a `NiFlipTextures` to cycle |
+| `NiTextureProperty` | 2,068 | the index of the image shown (0; `GetIndex`, which `NiFlipTextures::Act` sets), the number of images, their links: one, or several frames for a `NiFlipTextures` to cycle |
 | `NiMultiTextureProperty` | 582 | a count (1), a link to an image (a lightmap from `LMap.pac`), 6 numbers (1, 0, 1, 0, 1, 1) |
-| `NiTextureModeProperty` | 8,967 | 3 numbers (3, 0 to 2, 0 to 3) |
-| `NiVertexColorProperty` | 285 | a number (1) |
-| `NiZBufferProperty` | 215 | two bytes (0 and 0; *guess*: no depth test or write) |
-| `NiSpecularProperty` | 61 | a byte (1) |
-| `NiShadeProperty` | 5 | nothing more |
+| `NiTextureModeProperty` | 8,967 | the apply, filter and clamp modes (3, 0 to 2, 0 to 3) *(from the code)* |
+| `NiVertexColorProperty` | 285 | the colour mode (1) *(from the code)* |
+| `NiZBufferProperty` | 215 | two bytes: depth test and depth write, both 0 *(from the code; formerly a guess)* |
+| `NiSpecularProperty` | 61 | a byte: specular on (1) *(from the code)* |
+| `NiShadeProperty` | 5 | nothing more: its loader reads NiObject's fields and one byte, smooth shading, which is the byte read with them |
 
 The viewer applies a property to the object it's on and everything under
 it, unless something nearer has its own of the same class. That's how
 NetImmerse's scene graph is generally described, and the models look
 right drawn that way.
 
-**NiImage** (3,372): NiObjectNET's fields (its byte is 1), the file name (a
-length and characters, e.g. `CorrBlk.tga`) and a number (7). No pixels
+**NiImage** (3,372): NiObjectNET's fields (its byte is 1: the image is
+external, a file name follows; 0 would mean pixels in the file), the file
+name (a length and characters, e.g. `CorrBlk.tga`) and the preferred
+texture format (7) *(from the code)*. No pixels
 are stored in the models. All 1,260 names are in `Map.pac`, `LMap.pac` or
 `Etc.pac`.
 
@@ -221,24 +242,51 @@ The game's own data for a model. It doesn't start with NiObjectNET's
 fields. In order:
 
 - four strings: the model's code (`B0001`), one always empty, its name
-  (`Evil Ogel`), and a texture set (`tl0019` in the levels, else empty);
-- a 16-bit number, then two floats (0.7 and 202,500 for the characters,
-  1 and 0 for the rest; meaning unknown);
+  (`Evil Ogel`), and a texture set (`tl0019` in the levels, else empty).
+  To the game *(from the code)* the first two are NiObject's name and
+  extra-data count (0, which reads as an empty string);
+- two bytes and two floats *(from the code, read through `DDActor`'s
+  accessors)*: whether it casts a shadow (`GetMakeShadow`), whether it's a
+  prop (`IsProp`), the shadow's multiplier (`GetShadowMult`: 0.7 for the
+  characters, 1 for the rest), and the squared distance from the camera
+  within which its full model shows (202,500 for the characters; 0 for
+  the rest: no switching), beyond which its `LOD_` stand-ins do (Nodes,
+  above);
 - the clips: a count, then each:
   - its name (`at_rest`, `turn right`, `win`, `anim1`...);
   - start and end, in seconds;
   - a byte: 1 if a sound follows. Then:
     - the sound's name (`u0179_on`, a `.DDS` in `Audio.pac`: 245 of the
       265 named are there);
-    - 4 bytes (0) and three flags. The first is set on clips that loop
-      (walk cycles, idles): *guess*, the sound loops;
-    - 4 bytes (0);
-    - its volume (0.03 to 1), falloff (1 to 80) and the distances out to
-      which (2,000 to 125,000) and within which (25 to 300) it's heard:
-      the four settings a puzzle's audio objects give by name (`Volume`,
-      `Falloff`, `MaxDist`, `MinDist`), and in that range;
-  - three lists of 16-bit numbers (a count, then the numbers; meaning
-    unknown);
+    - the name of the node the sound is placed at (empty in every file:
+      the model itself);
+    - three flags: the sound loops (75 of the 265: walk cycles, idles;
+      formerly a guess); it's heard unplaced, not in 3D (7: A3D's native
+      render mode, the flag `NiA3dSource` is made with); it's muted
+      beyond its maximum distance (116: A3D's `A3D_MUTE`, else it stays
+      at the level there);
+    - a delay (0 in every file). `DDSkill::Update` plays the sound at
+      once when it's 0 or less;
+    - its volume (0.03 to 1), falloff (1 to 80: the distance model's
+      scale, `SetDistanceModelScale`) and the distances out to which
+      (2,000 to 125,000) and within which (25 to 300) it's heard: the four
+      settings a puzzle's audio objects give by name (`Volume`, `Falloff`,
+      `MaxDist`, `MinDist`), and in that range. All *(from the code)*:
+      the order `DDActorSharedData::LoadBinary` reads them in and the
+      `NiA3dSource` calls `DDSkill::Update` makes with them;
+  - three lists of 16-bit numbers (each a count, then the numbers): what
+    the clip animates *(from the code)*. While the clip plays,
+    `DDSkill::Update` updates only these, at the clip's time in whole
+    ticks (its seconds × 4,800, rounded):
+    - the tracks (below) by number: the actor's animation nodes;
+    - the flip-books (`NiFlipTextures`, `Act`), numbered in the order
+      they're loaded;
+    - the morph shapes, likewise numbered.
+
+    They're worked out when the model is made (`DDActorManager::
+    ProcessSkills`): what has keys within the clip's time. Everything
+    else keeps where it was. All 905 lists in the files name only things
+    the model has (`reluva-tool fin-check`);
 - the tracks: a count, then four for each:
   - **rotation**: a key count; if it's not 0, a key type, then the keys;
   - **position**, the same;
@@ -318,23 +366,51 @@ animation is in the morph shapes and material animators below.
 
 ### NiFlipTextures (282)
 
-NiObjectNET's fields, where the byte is 0, 1 or 2 (*guess*: the cycle,
-loop, reverse or clamp). Then three bytes, the frequency, the phase (in
-ticks), the cycle's length (in ticks) and a link to the
-`NiTextureProperty` whose images it cycles.
+Here an `NiAction`, not a controller. *(From the code: its
+`LoadBinary`, its accessors, and `Act`, the function that sets the
+image.)* NiObject's fields (no flags byte: the byte the reader takes
+with them is the first of the next number), then:
 
-In every file, length × frequency ÷ 160 is exactly the property's number
-of images, from 2 to 21. So each image lasts 160 ticks of the
-controller's own time (the clock times the frequency), which is the same
-as length ÷ images ticks of the clock. The phase's units and the cycle
-byte's meaning aren't confirmed; the game's current image wasn't found in
-its memory.
+- the out-of-bounds type: 0 loop (159), 1 back and forth (33), 2 clamp
+  (90). The cycle byte formerly guessed at;
+- the rate (formerly "frequency");
+- the start time, in ticks (formerly "phase");
+- the duration, in ticks: images × seconds per frame ÷ rate, as `SetRate`
+  works it out (formerly "length");
+- a link to the `NiTextureProperty` whose images it cycles.
+
+In every file, duration × rate ÷ 160 is exactly the property's number of
+images, from 2 to 21: 160 ticks (a 30th of a second) an image at rate 1.
+
+`Act(t)` sets the property's image index for a time t in ticks. With
+d = t − start, the image is images × (d mod duration) ÷ duration,
+truncated:
+
+- looping, wrapped backwards before the start;
+- back and forth, the odd passes of |d| ÷ duration run backwards;
+- clamped, the first image before the start and the last after it ends;
+- never past the last image.
+
+The rate isn't used there: it's already in the duration. The game calls
+`Act` from `DDSkill::Update` with the clip's time, for the flip-books the
+clip lists (DDActorSharedData, above). Watched with `at-run -watch` in
+Mission One, the times went up by 160 ticks a call, within the clips.
 
 ### Ni3dsColorAnimator (439), Ni3dsAlphaAnimator (393)
 
-NiObjectNET's fields, then seven bytes (0, 0, 0, 1, 1, 0, 1). The
-controller follows: the cycle (2, or 0 in four), a number (0), then
-frequency, phase, start and stop. Then a link to the
+NiObjectNET's fields, then the animation's settings, as
+`Ni3dsAnimationCore::AnimCoreLoadBinary` reads them *(from the code)*:
+
+- an animation type (4 bytes, the first read with NiObjectNET's fields);
+- four bytes (1, 1, 0, 1), the last whether the scene graph updates. With
+  the type's last three bytes these are the "seven bytes" read before;
+- the cycle type: 0 loop, 1 back and forth, 2 clamp (2, or 0 in four);
+- the default display time (0);
+- frequency, phase, and the begin and end key times.
+
+`ComputeScaledTime` takes a time t to t × frequency + phase, then by the
+cycle type loops it, plays it back and forth, or leaves it, and clamps it
+between the begin and end key times. Then a link to the
 `NiMaterialProperty` it animates; the material links back through its
 `Ni3dsPropAnimExtraData`.
 
@@ -355,9 +431,10 @@ type and the keys:
 
 A shape's fields, then:
 
-- a controller: two numbers (1, then 0x01000001), the cycle (2), a number,
-  frequency, phase, start and stop;
-- two bytes;
+- the animation's settings, as an animator's above (the type 1, the flag
+  bytes 1, 0, 0, 1; the cycle 2);
+- two bytes, the second whether its normals are updated
+  (`GetUpdateNormals`) *(from the code)*;
 - the number of targets (6 in most) and of keys;
 - four floats and a number (5 in every file);
 - the keys, each:
@@ -377,39 +454,56 @@ the six whose counts differ, 7, 4 and 2 keys, showed which is which.)
 
 ### NiLight (110, in the levels)
 
-NiAVObject's fields, then:
+NiAVObject's fields, then *(from the code: NiMain's `NiLight::LoadBinary`
+and accessors)*:
 
-- 12 bytes (0);
-- a direction: (0, 0, −1) or none;
-- a byte (1: *guess*, on);
-- a spot's angle (22.5; −0.5 on omni lights);
-- a float (0);
-- *guess*: 3ds Max's multiplier (0.5 to 30 on omni lights, 1 to 3 on
-  spots);
+- the location (3 floats; 0 in every file: the node's translation places
+  it);
+- the direction: (0, 0, −1), or 0 on point lights;
+- the light switch, a byte (1: on, in every file);
+- the spot angle, in degrees (22.5; −0.5 on point lights) and exponent
+  (0);
+- the dimmer (0.5 to 30 on point lights, 1 to 3 on the directional ones),
+  formerly guessed as 3ds Max's multiplier: every colour is multiplied by
+  it;
 - the ambient, diffuse and specular colours (diffuse and specular always
   equal);
-- *guess*: a range, and 1 when the light fades out over it. The one light
-  with 1 there (Mission One's red one) has 136.8, the size of a room. The
-  others have 0 and 12,800 to 179,200, all multiples of 160. Spots have 1
-  and 0.5;
-- a byte;
-- the kind: 1 for the spots shining down −Z, 2 for the omni lights;
-- seven bytes.
+- the attenuation distance and curve (floats), then whether it's
+  attenuated (a byte). The float formerly read as that flag is the curve;
+- the light type, 4 bytes: 0 ambient, 1 directional, 2 point, 3 spot. The
+  110 are 24 directional (formerly "spots shining down −Z") and 86 point
+  lights;
+- the nodes it lights: a count (0 in every file) and links.
 
-The game never hands Direct3D a light (`SetLight`) in Mission One: it
-draws pre-transformed vertices with their colours, lighting them itself.
-Its light objects in memory hold the same fields as the file, so how it
-reads them couldn't be seen from the outside. The levels are lit by their
-lightmaps and vertex colours.
+As `reluva-tool fin-check` tallies them: the 24 directional lights have
+distance 1, curve 0.5, not attenuated (19), or attenuated with distances
+96,000 and 179,200, which directional lights don't use (5). The 86 point
+lights are all attenuated, 85 with curve 0 and distances from 12,800 to
+48,640, and Mission One's red light with distance 136.8 and curve 1.
+
+**How the game lights with them.** NiDirect3d turns each light into its
+own structure and lights vertices in software (the game never calls
+`SetLight`):
+
+- each colour times the dimmer;
+- the type picks the case: ambient lights add their ambient only;
+  directional ones use their world direction; point lights their world
+  location; spots both, with a cone of the spot angle;
+- for a vertex with normal n and v the vector to a point light,
+  unattenuated, the strength is n·v ÷ |v| (the cosine);
+- attenuated, with D the distance and k the curve to the fourth power,
+  the strength is cos θ ÷ (a L + b L³), L = |v|, where
+  a = 64 (1 − k) ÷ (D (1 − k) + k D³) and b = 64 k ÷ (the same). That
+  makes 1/64 at L = D: a curve of 0 falls off as 1/L, a curve of 1 as
+  1/L³. A distance of 0 or less leaves the light reaching nothing.
+
+The levels are lit by their lightmaps and vertex colours; these lights
+reach the characters and parts.
 
 In the viewer, G marks the lights. Pressed again, it lights the shapes
-that have normals (characters, parts) with them, by the guesses above:
-
-- the lights' ambient;
-- the one light reaching a shape most strongly, from its direction;
-- colour times the multiplier;
-- omni lights fading out over their range when that flag is set;
-- spots without their cone.
+that have normals (characters, parts) with them, as above: every light's
+ambient, and the one light reaching a shape most strongly, from its
+direction (spots without their cone).
 
 ### DDCorona: glows
 

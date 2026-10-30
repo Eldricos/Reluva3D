@@ -277,6 +277,7 @@ struct ModelPage::Item {
     gfx::Mat4 world = gfx::identity();
     std::vector<std::string> frames; // the texture's images: one, or a flip-book's
     const FinFlip* flip = nullptr;
+    mutable size_t image = 0; // the flip-book's, kept while a clip doesn't move it
     std::string lightmap;
     uint32_t material = 0;
     std::array<float, 4> baseColor{1, 1, 1, 1}, color{1, 1, 1, 1};
@@ -436,6 +437,7 @@ void ModelPage::show(int index) {
     trackOf_.clear();
     animatorsOf_.clear();
     flipOf_.clear();
+    flipNumber_.clear();
     clips_.clear();
     clip_ = 0;
     clipTime_ = 0;
@@ -480,6 +482,9 @@ void ModelPage::show(int index) {
     }
     for (const auto& [id, f] : model_.flips)
         flipOf_[f.target] = &f;
+    for (const FinObjectInfo& o : model_.objects())
+        if (auto f = model_.flips.find(o.id); o.type == "NiFlipTextures" && f != model_.flips.end())
+            flipNumber_[&f->second] = uint16_t(flipNumber_.size());
     for (const auto& [id, m] : model_.morphs)
         if (!m.keys.empty())
             lastKey = std::max(lastKey, m.keys.back().time);
@@ -490,7 +495,10 @@ void ModelPage::show(int index) {
         for (const FinActor::Clip& c : actor_->clips)
             lastKey = std::max(lastKey, c.end * kTicksPerSecond);
     }
-    clips_.push_back({"whole timeline", 0, lastKey / kTicksPerSecond, ""});
+    FinActor::Clip whole;
+    whole.name = "whole timeline";
+    whole.end = lastKey / kTicksPerSecond;
+    clips_.push_back(whole);
     if (actor_)
         for (const FinActor::Clip& c : actor_->clips)
             clips_.push_back(c);
@@ -988,10 +996,9 @@ void ModelPage::handleEvent(const Event& ev) {
 void ModelPage::update(uint64_t nowMs) {
     if (!renderer_)
         return;
-    // The clock: the clip moves on while playing; flip-books always.
+    // The clock: the clip moves on while playing.
     const uint64_t step = lastMs_ ? std::min<uint64_t>(nowMs - std::min(nowMs, lastMs_), 100) : 0;
     lastMs_ = nowMs;
-    clockMs_ += step;
     if (playing_)
         clipTime_ += float(step) / 1000;
     if (const float ticks = clipTicks(); ticks != posedTicks_)
@@ -1051,16 +1058,15 @@ void ModelPage::update(uint64_t nowMs) {
     std::stable_sort(order.begin() + std::ptrdiff_t(opaque), order.end(),
                      [&](const Item* a, const Item* b) { return distance2(a) > distance2(b); });
     const float markerSize = radius_ * 0.03f;
-    // The model's own lights (G twice), for the shapes lit by normals: the
-    // lights' ambient, and the one light reaching the shape most strongly,
-    // from its direction. *Guesses*, as their fields are (fin.md): colour
-    // times the multiplier; an omni light fading out over its range when
-    // attenuated, else reaching everywhere; a spot shining down its -Z,
-    // its cone left out.
+    // The model's own lights (G twice), for the shapes lit by normals, as
+    // NiDirect3d lights vertices (fin.md): every light's ambient, and the
+    // one light reaching the shape most strongly, from its direction. Each
+    // colour is times the dimmer. Point lights (and spots, their cone left
+    // out) fade with distance L when attenuated, as 1 / (a L + b L^3).
     struct SceneLight {
         gfx::Vec3 position{}, direction{}, color{};
-        bool spot = false, attenuated = false;
-        float range = 0;
+        bool directional = false, attenuated = false;
+        float linear = 0, cubic = 0; // a and b
     };
     std::vector<SceneLight> sceneLights;
     gfx::Vec3 sceneAmbient{};
@@ -1069,20 +1075,34 @@ void ModelPage::update(uint64_t nowMs) {
             if (item.kind != Item::Kind::Light || !item.visible)
                 continue;
             const FinLight& l = model_.lights.at(item.id);
+            if (!l.on)
+                continue;
             SceneLight sl;
             sl.position = {item.world[12], item.world[13], item.world[14]};
-            sl.spot = l.kind == 1;
+            sl.directional = l.type == FinLight::Directional;
             gfx::Vec3 d{};
             for (size_t r = 0; r < 3; ++r)
                 d[r] = item.world[r] * l.direction[0] + item.world[4 + r] * l.direction[1] + item.world[8 + r] * l.direction[2];
             const float len = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
             for (size_t k = 0; k < 3; ++k) {
                 sl.direction[k] = len > 0 ? d[k] / len : 0;
-                sl.color[k] = std::clamp(l.diffuse[k] * l.multiplier, 0.0f, 2.0f);
-                sceneAmbient[k] += l.ambient[k];
+                sl.color[k] = std::clamp(l.diffuse[k] * l.dimmer, 0.0f, 2.0f);
+                sceneAmbient[k] += l.ambient[k] * l.dimmer;
             }
-            sl.attenuated = l.attenuated && l.range > 0;
-            sl.range = l.range;
+            if (l.type == FinLight::Ambient)
+                continue;
+            // At the distance D, 1/64; the curve c sets the cubic part,
+            // k = c^4. No distance: nothing reaches.
+            sl.attenuated = l.attenuated;
+            const float reach = l.attenuationDistance;
+            if (reach > 0) {
+                const float k = l.attenuationCurve * l.attenuationCurve * l.attenuationCurve * l.attenuationCurve;
+                const float scale = 64 / (reach * (1 - k) + k * reach * reach * reach);
+                sl.linear = (1 - k) * scale;
+                sl.cubic = k * scale;
+            } else {
+                sl.linear = sl.cubic = std::numeric_limits<float>::max();
+            }
             sceneLights.push_back(sl);
         }
     for (const Item* drawnItem : order) {
@@ -1102,13 +1122,17 @@ void ModelPage::update(uint64_t nowMs) {
                 at[k] /= s > 0 ? s : 1;
             call.model = gfx::multiply(at, scale);
         }
-        // A flip-book's frame: each lasts 160 ticks of its own time (the
-        // clock times its frequency, plus its phase).
-        size_t frame = 0;
+        // A flip-book's image, as NiFlipTextures::Act gives it at the
+        // clip's time in whole ticks: those the clip lists (all of them
+        // on the whole timeline); the others keep theirs.
         if (item.flip && item.frames.size() > 1) {
-            const double own = (double(clockMs_) / 1000 * kTicksPerSecond + item.flip->phase) * item.flip->frequency;
-            frame = size_t(std::max(0.0, own / 160)) % item.frames.size();
+            const FinActor::Clip& c = clips_[size_t(clip_)];
+            const auto number = flipNumber_.find(item.flip);
+            if (clip_ == 0 || (number != flipNumber_.end() &&
+                               std::find(c.flips.begin(), c.flips.end(), number->second) != c.flips.end()))
+                item.image = item.flip->image(std::floor(double(clipTicks()) + 0.5), item.frames.size());
         }
+        const size_t frame = item.image;
         call.texture = useTextures_ && !item.frames.empty() ? texture(item.frames[frame]) : 0;
         if ((item.kind == Item::Kind::Glow && !call.texture) || item.kind == Item::Kind::Light)
             call.texture = glowTexture();
@@ -1130,14 +1154,16 @@ void ModelPage::update(uint64_t nowMs) {
             for (const SceneLight& l : sceneLights) {
                 gfx::Vec3 to{}; // towards the light
                 float strength = 1;
-                if (l.spot) {
+                if (l.directional) {
                     to = {-l.direction[0], -l.direction[1], -l.direction[2]};
                 } else {
                     const gfx::Vec3 d{l.position[0] - at[0], l.position[1] - at[1], l.position[2] - at[2]};
                     const float dist = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
                     to = dist > 0 ? gfx::Vec3{d[0] / dist, d[1] / dist, d[2] / dist} : gfx::Vec3{0, 0, 1};
-                    if (l.attenuated)
-                        strength = std::max(0.0f, 1 - dist / l.range);
+                    if (l.attenuated) {
+                        const double fall = double(l.linear) * dist + double(l.cubic) * dist * dist * dist;
+                        strength = fall > 0 ? float(std::min(1.0, 1 / fall)) : 1;
+                    }
                 }
                 const float bright = strength * (l.color[0] + l.color[1] + l.color[2]);
                 if (bright > best) {

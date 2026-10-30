@@ -4,6 +4,7 @@
 #include "engines/netimmerse/fin.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <set>
 #include <string_view>
@@ -242,9 +243,11 @@ void readSkin(Reader& r, FinSkin& s) {
     s.firstInfluence.push_back(uint32_t(s.influences.size()));
 }
 
-// The settings a time controller starts with, after NiObjectNET's fields
-// and seven bytes (0, 0, 0, 1, 1, 0, 1 in every file): the cycle, a number
-// (0), frequency, phase, start, stop and the target.
+// Ni3dsAnimationCore's settings, after the animation type and four flag
+// bytes (0, 1, 1, 0, 1 in every file, the type's last three bytes and the
+// flags making the "seven bytes" after readObjectNet's byte): the cycle,
+// the default display time (0), frequency, phase, begin and end key
+// times, and here the target.
 void readControllerTail(Reader& r, FinController& c) {
     c.cycle = r.u32();
     r.u32();
@@ -255,16 +258,16 @@ void readControllerTail(Reader& r, FinController& c) {
     c.target = r.u32();
 }
 
-// NiFlipTextures: NiObjectNET's fields (its byte the cycle), three bytes,
-// frequency, phase, the cycle's length and the target.
+// NiFlipTextures: NiObject's fields (no flags byte: readObjectNet's is the
+// first of the out-of-bounds type), then the rate, start time, duration
+// and the texture property.
 void readFlip(Reader& r, FinFlip& f) {
-    uint8_t cycle = 0;
-    readObjectNet(r, &cycle);
-    f.cycle = cycle;
-    r.skip(3);
-    f.frequency = r.f32();
-    f.phase = r.f32();
-    f.stop = r.f32();
+    uint8_t low = 0;
+    readObjectNet(r, &low);
+    f.outOfBounds = low | uint32_t(r.u8()) << 8 | uint32_t(r.u16()) << 16;
+    f.rate = r.f32();
+    f.startTime = r.f32();
+    f.duration = r.f32();
     f.target = r.u32();
 }
 
@@ -296,8 +299,9 @@ void readMaterialAnimator(Reader& r, FinMaterialAnimator& a, bool alpha) {
     }
 }
 
-// Ni3dsMorphShape: a shape, then a controller (two numbers first), two
-// bytes, the numbers of targets and keys, five numbers, the keys (each its
+// Ni3dsMorphShape: a shape, then its Ni3dsAnimationCore (the animation
+// type and four flag bytes first), two bytes (the second whether its
+// normals are updated), the numbers of targets and keys, five numbers, the keys (each its
 // time, six numbers, the number of targets again, then a weight, an
 // incoming and an outgoing tangent for each target, all the weights
 // first), and each target's vertices.
@@ -335,26 +339,28 @@ void readMorph(Reader& r, FinMorph& m) {
         m.targets.push_back(r.floats(size_t(m.vertexCount) * 3));
 }
 
-// NiLight: NiAVObject's fields, 12 bytes (0), a direction, a byte, a
-// spot's angle, a number, the multiplier, ambient, diffuse and specular
-// colours, the range and whether it's used, a byte, the kind and seven
-// bytes.
+// NiLight: NiAVObject's fields, then the location, direction, switch,
+// spot angle and exponent, dimmer, ambient, diffuse and specular colours,
+// the attenuation's distance, curve and switch, the type, and the nodes it
+// lights.
 void readLight(Reader& r, FinLight& l) {
     readAvObject(r, l);
-    r.skip(12);
+    r.floats(l.location.data(), 3);
     r.floats(l.direction.data(), 3);
-    r.u8();
+    l.on = r.u8() != 0;
     l.spotAngle = r.f32();
-    r.skip(4);
-    l.multiplier = r.f32();
+    l.spotExponent = r.f32();
+    l.dimmer = r.f32();
     r.floats(l.ambient.data(), 3);
     r.floats(l.diffuse.data(), 3);
     r.floats(l.specular.data(), 3);
-    l.range = r.f32();
-    l.attenuated = r.f32() == 1;
-    r.u8();
-    l.kind = r.u8();
-    r.skip(7);
+    l.attenuationDistance = r.f32();
+    l.attenuationCurve = r.f32();
+    l.attenuated = r.u8() != 0;
+    l.type = r.u32();
+    const uint32_t count = r.u32();
+    for (uint32_t i = 0; i < count && r.ok; ++i)
+        l.illuminated.push_back(r.u32());
 }
 
 // DDActorSharedData. See docs/engines/netimmerse/formats/fin.md for the layout.
@@ -371,20 +377,26 @@ void readActor(Reader& r, FinActor& a) {
         c.start = r.f32();
         c.end = r.f32();
         if (r.u8()) {
-            // Its settings: 4 bytes (0), three flags (the first set on
-            // looping clips), 4 bytes (0), then volume, falloff and the
-            // distances out to which and within which it's heard.
+            // Its settings: the node it's placed at, three flags (loop,
+            // unplaced, muted beyond its maximum distance), a delay, then
+            // volume, falloff and the distances out to which and within
+            // which it's heard.
             c.sound = r.string();
-            r.skip(4);
+            c.soundNode = r.string();
             c.loop = r.u8() != 0;
-            r.skip(2 + 4);
+            c.unplaced = r.u8() != 0;
+            c.muteBeyondMax = r.u8() != 0;
+            c.delay = r.f32();
             c.volume = r.f32();
             c.falloff = r.f32();
             c.maxDistance = r.f32();
             c.minDistance = r.f32();
         }
-        for (int list = 0; list < 3 && r.ok; ++list) // three lists of numbers, meaning unknown
-            r.skip(size_t(r.u32()) * 2);
+        for (auto* list : {&c.tracks, &c.flips, &c.morphs}) {
+            const uint32_t n = r.u32();
+            for (uint32_t k = 0; k < n && r.ok && k < 65536; ++k)
+                list->push_back(r.u16());
+        }
         a.clips.push_back(std::move(c));
     }
     const uint32_t tracks = r.u32();
@@ -663,6 +675,37 @@ Error FinFile::parse(const std::vector<uint8_t>& data) {
     if (roots_.empty())
         return Error::fail("no top-level object");
     return Error::success();
+}
+
+// As NiFlipTextures::Act works it out.
+size_t FinFlip::image(double t, size_t images) const {
+    if (images == 0)
+        return 0;
+    const double d = duration;
+    const double from = t - startTime;
+    double at = 0; // into the duration
+    switch (outOfBounds) {
+    case Loop:
+        at = from < 0 ? d - std::fmod(-from, d) : std::fmod(from, d);
+        break;
+    case Reverse: { // odd passes backwards
+        const double a = std::fabs(from);
+        at = std::fmod(a, d);
+        if (long(a / d) % 2)
+            at = d - at;
+        break;
+    }
+    default:
+        if (from < 0)
+            return 0;
+        if (from >= d)
+            return images - 1;
+        at = from;
+        break;
+    }
+    if (!(d > 0) || !(at >= 0))
+        return 0;
+    return std::min(images - 1, size_t(double(images) * at / d));
 }
 
 } // namespace reluva::netimmerse

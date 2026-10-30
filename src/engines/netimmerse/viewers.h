@@ -145,11 +145,12 @@ private:
     std::map<uint32_t, size_t> trackOf_;
     std::map<uint32_t, std::vector<const FinMaterialAnimator*>> animatorsOf_; // by material
     std::map<uint32_t, const FinFlip*> flipOf_;                                // by texture property
+    std::map<const FinFlip*, uint16_t> flipNumber_; // in the file's order, as clips' lists number them
     std::vector<FinActor::Clip> clips_;
     int clip_ = 0;
     float clipTime_ = 0; // seconds into the clip
     bool playing_ = true;
-    uint64_t lastMs_ = 0, clockMs_ = 0;
+    uint64_t lastMs_ = 0;
     float posedTicks_ = -1;
     // The clip's sound: started as the clip starts (and as it comes round
     // again, unless the sound loops itself).

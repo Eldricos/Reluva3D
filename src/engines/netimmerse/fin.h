@@ -89,17 +89,28 @@ struct FinMorph : FinShape {
 // Animation times are 3ds Max ticks, 4800 a second.
 constexpr float kTicksPerSecond = 4800;
 
-// A NetImmerse time controller's settings, as far as they're known.
+// Ni3dsAnimationCore's settings (NiAnimation's AnimCoreLoadBinary): a
+// time t is t × frequency + phase, then looped, played back and forth or
+// clamped between the begin and end key times (`start`, `stop`).
 struct FinController {
-    uint32_t cycle = 0; // *guess*: 0 loop, 1 reverse, 2 clamp
+    uint32_t cycle = 0; // 0 loop, 1 reverse (back and forth), 2 clamp
     float frequency = 1, phase = 0, start = 0, stop = 0;
     uint32_t target = 0; // id of what it animates
 };
 
-// NiFlipTextures: cycles its target NiTextureProperty's images. `stop` is
-// the cycle's length: stop × frequency is 160 ticks (a 30th of a second)
-// per image in every file.
-struct FinFlip : FinController {};
+// NiFlipTextures (an NiAction): cycles its target NiTextureProperty's
+// images. At a time t (ticks), the image is images × (t − start) ÷
+// duration, past the ends as `outOfBounds` says. The rate is already in
+// the duration (images × 160 ÷ rate in every file: 160 ticks, a 30th of
+// a second, an image at rate 1).
+struct FinFlip {
+    enum OutOfBounds : uint32_t { Loop = 0, Reverse = 1, Clamp = 2 }; // reverse: back and forth
+    uint32_t outOfBounds = Loop;
+    float rate = 1, startTime = 0, duration = 0;
+    uint32_t target = 0; // id of its NiTextureProperty
+    // Its image at time t of n.
+    size_t image(double t, size_t images) const;
+};
 
 // Ni3dsColorAnimator and Ni3dsAlphaAnimator: a material's colour or alpha
 // over time, keyed.
@@ -113,18 +124,21 @@ struct FinMaterialAnimator : FinController {
     std::vector<Key> keys;
 };
 
-// NiLight. *Guess*, from the 110 in the levels: kind 1 is a spot shining
-// down its -Z, kind 2 an omni light.
+// NiLight, as NiMain's LoadBinary reads it and NiDirect3d lights vertices
+// with it (fin.md).
 struct FinLight : FinAvObject {
-    uint8_t kind = 0;
-    std::array<float, 3> direction{};
+    enum Type : uint32_t { Ambient = 0, Directional = 1, Point = 2, Spot = 3 };
+    uint32_t type = Point;
+    bool on = true; // the light switch
+    std::array<float, 3> location{}, direction{};
     std::array<float, 3> ambient{}, diffuse{}, specular{};
-    float spotAngle = 0; // degrees, a spot's
-    // *Guesses*: 3ds Max's multiplier; and, when `attenuated`, the range
-    // the light fades out over (the one light with it set has 136.8, the
-    // size of a room; the others' 12,800 to 179,200 would light all).
-    float multiplier = 1, range = 0;
+    float spotAngle = 0, spotExponent = 0; // degrees
+    float dimmer = 1; // each colour is times this
+    // When `attenuated`: falling off with distance, to 1/64 at
+    // `attenuationDistance`, more steeply the higher the curve.
     bool attenuated = false;
+    float attenuationDistance = 0, attenuationCurve = 0;
+    std::vector<uint32_t> illuminated; // ids: the nodes it lights (none in the retail files)
 };
 
 // DDActorSharedData: the game's own data for a model. Its clips (named
@@ -136,9 +150,19 @@ struct FinActor {
         std::string name;
         float start = 0, end = 0; // seconds
         std::string sound;        // played with it (a .DDS in the archives), or ""
-        // The sound's settings, as a puzzle's audio objects name theirs.
+        // The sound's settings, as LoadComp gives them to its NiA3dSource:
+        // the node it's placed at (none: the model's own), whether it
+        // loops, is heard unplaced (A3D's native render mode) and is muted
+        // beyond its maximum distance; a delay before it starts (0: at
+        // once); volume, the distance model's scale and the distances.
+        std::string soundNode;
+        bool loop = false, unplaced = false, muteBeyondMax = false;
+        float delay = 0;
         float volume = 1, falloff = 1, maxDistance = 0, minDistance = 0;
-        bool loop = false; // *guess*: set on walk cycles, idles and the like
+        // What the clip animates, the things with keys in its time: tracks
+        // (by number), flip-books and morph shapes (each numbered in the
+        // order the file holds them).
+        std::vector<uint16_t> tracks, flips, morphs;
     };
     template <typename T>
     struct Key {

@@ -488,7 +488,7 @@ std::vector<uint8_t> buildAnimatedFin() {
             putFloat(w.b, f);
     };
     w.object("NiFlipTextures", 0x700);
-    w.objectNet("", 2); // its byte: the cycle
+    w.objectNet("", 2); // the first byte of the out-of-bounds type (clamp)
     w.b.insert(w.b.end(), 3, 0);
     floats({0.25f, 160, 1920});
     put32(w.b, 0x400);
@@ -514,7 +514,8 @@ std::vector<uint8_t> buildAnimatedFin() {
     floats({1, 2});
     w.b.push_back(1);
     w.str("whirr");
-    w.b.insert(w.b.end(), {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0}); // looping
+    // No node; looping, placed, muted beyond its maximum distance; no delay.
+    w.b.insert(w.b.end(), {0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0});
     floats({0.5f, 20, 1000, 300}); // volume, falloff, distances
     put32(w.b, 2); // its lists: two numbers, then none, none
     w.b.insert(w.b.end(), {0, 0, 1, 0});
@@ -550,6 +551,17 @@ std::vector<uint8_t> buildAnimatedFin() {
     w.b.push_back(0);
     put32(w.b, 1); // the footprint: one corner
     floats({1, 2, 0.1f});
+    // A point light: location, direction, switch, spot angle and
+    // exponent, dimmer, three colours, attenuation distance, curve and
+    // switch, type, no nodes.
+    w.object("NiLight", 0x730);
+    w.avObject("Lamp", {0, 0, 0}, {}, false);
+    floats({0, 0, 0, 0, 0, 0});
+    w.b.push_back(1);
+    floats({-0.5f, 0, 3, 0.1f, 0.1f, 0.1f, 1, 0.5f, 0, 1, 0.5f, 0, 32000, 0});
+    w.b.push_back(1);
+    put32(w.b, 2);
+    put32(w.b, 0);
     w.object("Ni3dsBone", 0x20);
     w.avObject("Bone", {0, 0, 0}, {}, false);
     w.nodeTail({});
@@ -570,7 +582,16 @@ void testFinAnimation() {
         CHECK(o.read && o.exact);
     CHECK(f.animatedNodes() == std::vector<uint32_t>({0x10, 0x20}));
     const FinFlip& flip = f.flips[0x700];
-    CHECK(flip.cycle == 2 && flip.frequency == 0.25f && flip.phase == 160 && flip.stop == 1920 && flip.target == 0x400);
+    CHECK(flip.outOfBounds == FinFlip::Clamp && flip.rate == 0.25f && flip.startTime == 160 && flip.duration == 1920 &&
+          flip.target == 0x400);
+    // Images as Act gives them: 1920 ticks over 4 images, from 160.
+    CHECK(flip.image(0, 4) == 0 && flip.image(160 + 480, 4) == 1 && flip.image(5000, 4) == 3);
+    FinFlip loop = flip;
+    loop.outOfBounds = FinFlip::Loop;
+    CHECK(loop.image(160 + 1920 + 960, 4) == 2 && loop.image(160 - 480, 4) == 3);
+    FinFlip reverse = flip;
+    reverse.outOfBounds = FinFlip::Reverse;
+    CHECK(reverse.image(160 + 1920 + 480, 4) == 3 && reverse.image(160 + 480, 4) == 1);
     const FinMaterialAnimator& a = f.materialAnimators[0x710];
     CHECK(a.alpha && a.target == 0x300 && a.stop == 3200 && a.keys.size() == 2 && a.keys[1].time == 3200 &&
           a.keys[0].value[0] == 1);
@@ -579,6 +600,14 @@ void testFinAnimation() {
     CHECK(actor.clips.size() == 1 && actor.clips[0].name == "spin" && actor.clips[0].start == 1 &&
           actor.clips[0].sound == "whirr" && actor.clips[0].loop && actor.clips[0].volume == 0.5f &&
           actor.clips[0].falloff == 20 && actor.clips[0].maxDistance == 1000 && actor.clips[0].minDistance == 300);
+    CHECK(actor.clips[0].soundNode.empty() && !actor.clips[0].unplaced && actor.clips[0].muteBeyondMax &&
+          actor.clips[0].delay == 0);
+    CHECK(actor.clips[0].tracks == std::vector<uint16_t>({0, 1}) && actor.clips[0].flips.empty() &&
+          actor.clips[0].morphs.empty());
+    const FinLight& lamp = f.lights[0x730];
+    CHECK(lamp.type == FinLight::Point && lamp.on && lamp.dimmer == 3 && lamp.diffuse[0] == 1 &&
+          lamp.attenuated && lamp.attenuationDistance == 32000 && lamp.attenuationCurve == 0 &&
+          lamp.illuminated.empty());
     CHECK(actor.tracks.size() == 2 && actor.footprint.size() == 1 && actor.footprint[0][1] == 2);
     const FinActor::Track& node = actor.tracks[0];
     CHECK(node.rotations.size() == 1 && node.rotations[0].time == 4800 && node.rotations[0].value[0] == 0 &&

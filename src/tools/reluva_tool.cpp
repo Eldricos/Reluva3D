@@ -5202,6 +5202,12 @@ int cmdFinCheck(int argc, char** argv) {
     std::set<std::string> missingImages;
     unsigned files = 0, failed = 0, badLinks = 0, shapes = 0, triangles = 0;
     unsigned actorsWithTracks = 0, trackMismatches = 0, keysChecked = 0, keysMatching = 0;
+    // Lights, by their settings: type, switch, attenuation (its switch,
+    // distance and curve).
+    std::map<std::string, unsigned> lightKinds;
+    unsigned clipLists = 0, clipListsOut = 0;
+    unsigned flipModes[4] = {}; // loop, reverse, clamp, other
+    unsigned clipSounds = 0, soundLoop = 0, soundUnplaced = 0, soundMuted = 0, soundOdd = 0;
     std::vector<uint8_t> data;
     for (const auto& e : fin.entries()) {
         if (e.size == 0)
@@ -5253,8 +5259,10 @@ int cmdFinCheck(int argc, char** argv) {
                 expect(f, model.images.count(f) != 0, "an image");
         for (const auto& [id, image] : model.multiTextures)
             expect(image, model.images.count(image) != 0, "an image");
-        for (const auto& [id, flip] : model.flips)
+        for (const auto& [id, flip] : model.flips) {
             expect(flip.target, model.typeOf(flip.target) == "NiTextureProperty", "a texture property");
+            ++flipModes[std::min<uint32_t>(flip.outOfBounds, 3)];
+        }
         for (const auto& [id, a] : model.materialAnimators)
             expect(a.target, model.typeOf(a.target) == "NiMaterialProperty", "a material");
         // An actor's tracks go to the 3ds nodes in depth-first order: there
@@ -5294,6 +5302,35 @@ int cmdFinCheck(int argc, char** argv) {
                 }
             }
         }
+        // A clip's lists name tracks, flip-books and morph shapes by number.
+        for (const auto& [id, actor] : model.actors)
+            for (const auto& c : actor.clips) {
+                if (!c.sound.empty()) {
+                    ++clipSounds;
+                    soundLoop += c.loop, soundUnplaced += c.unplaced, soundMuted += c.muteBeyondMax;
+                    soundOdd += !c.soundNode.empty() || c.delay != 0;
+                }
+                const std::pair<const std::vector<uint16_t>*, size_t> lists[] = {
+                    {&c.tracks, animated.size()}, {&c.flips, model.flips.size()}, {&c.morphs, model.morphs.size()}};
+                for (const auto& [list, count] : lists) {
+                    clipLists += !list->empty();
+                    for (uint16_t v : *list)
+                        if (v >= count) {
+                            ++clipListsOut;
+                            break;
+                        }
+                }
+            }
+        for (const auto& [id, l] : model.lights) {
+            static const char* const kTypes[] = {"ambient", "directional", "point", "spot"};
+            char key[160];
+            std::snprintf(key, sizeof key, "%-11s %-3s attenuated %d, distance %g, curve %g",
+                          l.type < 4 ? kTypes[l.type] : "?", l.on ? "on" : "off", int(l.attenuated),
+                          double(l.attenuationDistance), double(l.attenuationCurve));
+            ++lightKinds[key];
+            for (uint32_t n : l.illuminated)
+                expect(n, model.nodes.count(n) != 0, "a node");
+        }
         if (images.size())
             for (const auto& [id, name] : model.images)
                 if (!images.has(name))
@@ -5308,6 +5345,18 @@ int cmdFinCheck(int argc, char** argv) {
     }
     std::printf("%u models, %u failed; %u shapes, %u triangles; %u read but not exactly; %u bad links\n", files,
                 failed, shapes, triangles, notExact, badLinks);
+    std::printf("%u clip lists (tracks, flip-books, morph shapes), %u naming more than the model has\n", clipLists,
+                clipListsOut);
+    std::printf("flip-books: %u loop, %u back and forth, %u clamp, %u other\n", flipModes[0], flipModes[1],
+                flipModes[2], flipModes[3]);
+    std::printf("%u clip sounds: %u loop, %u unplaced, %u muted beyond their maximum distance, %u with a node or a "
+                "delay\n",
+                clipSounds, soundLoop, soundUnplaced, soundMuted, soundOdd);
+    if (!lightKinds.empty()) {
+        std::printf("lights:\n");
+        for (const auto& [key, n] : lightKinds)
+            std::printf("  %4u %s\n", n, key.c_str());
+    }
     std::printf("%u models with animation tracks, %u with a track count unlike their 3ds nodes'; %u of %u first keys "
                 "where the node was saved\n",
                 actorsWithTracks, trackMismatches, keysMatching, keysChecked);

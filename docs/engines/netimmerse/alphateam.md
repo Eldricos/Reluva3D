@@ -112,11 +112,17 @@ from the launcher, the engine now shows these pages (keys in
   - **Morph shapes** (the E3xxx levels' seaweed) move by their keyed
     weights.
   - **Material animators** change colour and alpha.
-  - **Flip-book textures** cycle their images.
+  - **Flip-book textures** cycle their images as the game's
+    `NiFlipTextures::Act` does, at the clip's time: those the clip lists,
+    or all of them on the whole timeline. The others keep their image.
   - **Glows** (`DDCorona`) are drawn facing the camera, added to what's
     behind them.
   - **Lights**: G marks them. Pressed again, G lights the shapes with
-    normals by them; how their fields are read is a guess (fin.md).
+    normals by them, as NiDirect3d's software lighting does: the dimmer,
+    the light's type, and attenuation by its distance and curve (fin.md).
+  - The fields these rest on, formerly guesses, were named from the
+    game's own DLLs: their exported accessors and loaders, and the code
+    that uses them (fin.md, "Checked against the game's code").
   - **Clip sounds**: a clip with a sound plays it as it starts, at its
     volume (looping if the clip's sound loops).
   - **Footprints**: F shows the square a part fills on the board, from
