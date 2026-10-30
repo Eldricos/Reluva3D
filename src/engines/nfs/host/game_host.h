@@ -10,6 +10,7 @@
 #include "common/x86/win32.h"
 #include "engines/nfs/folders.h"
 #include "engines/nfs/host/force_effects.h"
+#include "engines/nfs/host/sound3d.h"
 #include "engines/nfs/host/thrash_native.h"
 
 #include <cstdint>
@@ -233,6 +234,9 @@ private:
     uint32_t makeObject(const std::string& interface, const std::vector<Method>& methods) {
         return newObject(makeVtable(interface, methods));
     }
+    // IDirectSound3DBuffer and IDirectSound3DListener (directx.cpp), their
+    // methods made safe for the audio thread by `locked`.
+    void addDirectSound3D(const std::function<void(std::vector<Method>&)>& locked);
     uint32_t callWindow(const Window& w, uint32_t msg, uint32_t wParam, uint32_t lParam);
     Window* window(uint32_t handle);
     void post(uint32_t threadId, const Message& m);
@@ -368,8 +372,21 @@ private:
         uint64_t bytesWritten = 0; // more than its size: it's streamed, rewritten as it plays
         uint32_t lastBlock = 0xffffffffu;
         bool staleBlock = false; // the block playing is stale, so silent
+        uint32_t flags = 0;      // DSBCAPS_ as created; DSBCAPS_CTRL3D (0x10): placed by `place`
+        // Its 3D parameters: those in force, and those set with
+        // DS3D_DEFERRED, for CommitDeferredSettings.
+        Ds3dSource place, deferredPlace;
         uint32_t position(uint64_t nowMs);
     };
+    // Sound memory, by address: how many buffers share it (a buffer and its
+    // duplicates), so it's freed with the last.
+    std::map<uint32_t, int> soundMemoryUsers_;
+    // IDirectSound3DBuffer objects -> the sound buffer each places.
+    std::map<uint32_t, uint32_t> sound3dBuffers_;
+    uint32_t sound3dBufferVtable_ = 0, listenerObject_ = 0;
+    // The listener (the primary buffer's IDirectSound3DListener), as in
+    // force and as deferred.
+    Ds3dListener listener_, deferredListener_;
     std::mutex soundMutex_; // soundBuffers_, between the game and the audio thread
     std::vector<int32_t> soundMix_;
     SoundStats soundStats_;

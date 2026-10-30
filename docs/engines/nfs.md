@@ -511,17 +511,77 @@ Started. Done so far:
     right) is 10 to 14 dB below the middle; and for the last 90 seconds,
     driving straight on, the right channel runs about 2 dB louder than
     the left.
-  - **Dolby Surround.** The audio mode is one byte at 0xac of
-    `FeData/config/config.dat`: 0 is stereo and 2 is Dolby. The file is
-    loaded whole at 0x6fbb40, so the game's `audiomode` setting at
-    0x6fbbec is that byte. Going by the order of its option names, 1 is
-    mono and 3 is D3D/EAX, which would ask for DirectSound's 3D
-    interfaces. The stand-in has none, and that mode hasn't been tried.
-    Set to
-    2 in a copy of the install, the race's mix has short spans where
-    left and right are in opposite phase (a 50 ms correlation as low as
-    -0.49; the stereo race's lowest is +0.16). That is how Pro Logic
-    carries the rear channel, and it reaches the output unchanged.
+  - **The audio mode** is one byte at 0xc0 of
+    `FeData/config/config.dat` (0x6fbc00 once loaded): 0 stereo, 1 mono,
+    2 Dolby, 3 D3D/EAX. Found by stopping at 0x40fb44 (`-watch`), where
+    the sound's start-up reads it: with byte 0xc0 set to 3 in the save
+    folder's copy the register holds 3, with byte 0xac set to 3 it holds 0.
+    The mixer tests the same address for Dolby (`cmp [0x6fbc00],2` at
+    0x417299 and 0x418119). Byte 0xac (0x6fbbec) is another setting: the
+    code at 0x41057f picks 1 to 7 at random when it's 0.
+  - **Dolby Surround**, checked before with byte 0xac set to 2, so it
+    was never on. That check found opposite-phase spans in the "Dolby"
+    race, but the stereo race has them too: in 133-second recordings, the lowest
+    50 ms correlation of the race's second half is -0.95 in stereo and
+    -1.00 in Dolby. That measure doesn't tell them apart; Dolby is still to
+    check.
+  - **D3D/EAX** (audio mode 3). Worked out from `eacsnd.dll`'s code and
+    a race with the mode set:
+    - The game asks for 3D only if the sound card has 3D buffers in
+      hardware. `iSNDdirectcaps` (0x401428 in the DLL) sets its 3D bit
+      (0x20000) when DSCAPS' most hardware 3D buffers (+0x2c) isn't 0. The
+      game then starts the sound with 0x20808 in place of 0x808 (0x40fbd5).
+      The stand-in's `GetCaps` says 64 hardware buffers, 3D ones too
+      (the free counts drop as they're used). Before, it said none, and
+      mode 3 played as stereo.
+    - With the bit, `iSNDdirectstart` makes the primary buffer with
+      `DSBCAPS_CTRL3D` (flags 0x11) and asks it for
+      `IDirectSound3DListener` (0x401fc4). Without it, the start fails
+      ("NO 3D LISTENER INTERFACE"). The listener is never used after:
+      its position, orientation and factors stay the defaults.
+    - The mix is still the game's own, into a streamed buffer. Some
+      sounds go to buffers of their own: `iSNDdirectcreate3dbuf` makes
+      one per sound, mono, flags 0xb4 (`LOCHARDWARE`, `CTRL3D`,
+      `CTRLFREQUENCY`, `CTRLVOLUME`), filled once through the game's
+      callback (0x40117c). `iSNDdirectplay3d` (0x402814) plays one,
+      through `DuplicateSoundBuffer` if it's playing already; gets its
+      `IDirectSound3DBuffer`; sets its frequency, position and volume;
+      and plays it.
+    - `iSNDdirectpos3d` (0x402668) places it: the game's callback gives a
+      vector, scaled by 1/65536, to `SetPosition`, applied at once. In the
+      race the vectors are all one unit long, so DirectSound's distance
+      model never comes in. The game sets the loudness itself, with
+      `SetVolume`, and only the direction is DirectSound's: y is 0, and x
+      and z go round as the car turns.
+    - No EAX. Neither `eacsnd.dll` nor `nfs3.exe` holds the GUIDs of
+      `IKsPropertySet` or EAX's property sets, so nothing asks for them.
+      EAX cards of the time added their reverb to DirectSound 3D's buffers
+      by themselves. The stand-in answers no to `IKsPropertySet`, as a
+      card without EAX does.
+
+    The stand-in (`host/sound3d.h`, `directx.cpp`) has both 3D
+    interfaces, with deferred settings and `CommitDeferredSettings`, and
+    `DuplicateSoundBuffer` (the memory shared, freed with the last
+    buffer). It mixes a 3D buffer in software, by DirectSound's model as
+    Microsoft documents it: full volume up to the least distance, then
+    min / (min + rolloff * (d - min)), no quieter past the most distance;
+    the cone's outside volume; Doppler from the velocities along the
+    line. For the pan, the nearer speaker gets it all and the farther one
+    is turned down, by up to 20 dB for a sound straight to one side. Real
+    cards used HRTFs or speaker panning of their own, which aren't
+    documented. Front and back sound the same. Doppler changes the pitch
+    heard, not the play cursor the game sees.
+
+    Checked on a race from a save folder with byte 0xc0 set to 3
+    (`nfs-host -native -wav`, 5 billion instructions): the game makes 4
+    3D buffers and plays them 9 times (3 through duplicates), with 2,070
+    `SetPosition` calls, and no call fails or isn't stood in for. Over
+    100 seconds of 3D buffers played, their samples' RMS is 9,332 and
+    what reaches each speaker 470 or so: the game plays them quietly. In
+    the race (the last 60 seconds) the mix's level, in 10-second spans,
+    is within 0.5 dB of the stereo race's; the spans around the loading
+    pause before it differ by up to 2.3 dB, as the two runs reach it at
+    slightly different times.
   - **Slow frames.** `nfs-host -wav` counts the 256-byte blocks of the
     buffer that come round to be played again without the game having
     written them since. That happens only when the game stalls for longer

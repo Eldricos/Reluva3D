@@ -213,6 +213,7 @@ if(RELUVA_ENGINE_NFS)
         src/engines/nfs/host/directx.cpp
         src/engines/nfs/host/force_effects.cpp
         src/engines/nfs/host/native_sound.cpp
+        src/engines/nfs/host/sound3d.cpp
         src/engines/nfs/host/winsock.cpp
         src/engines/nfs/host/serial.cpp
         src/engines/nfs/host/thrash.cpp

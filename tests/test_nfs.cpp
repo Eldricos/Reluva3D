@@ -14,6 +14,7 @@
 #include "engines/nfs/game_files.h"
 #include "engines/nfs/hrz.h"
 #include "engines/nfs/host/force_effects.h"
+#include "engines/nfs/host/sound3d.h"
 #include "engines/nfs/host/thrash_native.h"
 #include "engines/nfs/mad.h"
 #include "engines/nfs/mus.h"
@@ -1631,6 +1632,87 @@ void testForceEffects() {
     CHECK(spring.durationUs == DiEffect::kInfinite && spring.positiveCoefficient == 2000);
 }
 
+// DirectSound 3D's model (sound3d.h): distance, pan, cone and Doppler.
+void testSound3d() {
+    auto near = [](double a, double b) { return std::fabs(a - b) < 1e-4; };
+    Ds3dListener listener;
+    Ds3dSource s;
+    // Ahead, within the minimum distance: as it is.
+    s.position[2] = 0.5f;
+    Ds3dResult r = spatialize(listener, s);
+    CHECK(near(r.left, 1) && near(r.right, 1) && near(r.doppler, 1));
+    // Ahead at 2 and 4 times the minimum distance: -6 and -12 dB or so;
+    // twice the rolloff, faster; past the maximum distance, no quieter.
+    s.position[2] = 2;
+    CHECK(near(spatialize(listener, s).left, 0.5));
+    s.position[2] = 4;
+    CHECK(near(spatialize(listener, s).left, 0.25));
+    listener.rolloffFactor = 2;
+    CHECK(near(spatialize(listener, s).left, 1.0 / 7));
+    listener.rolloffFactor = 1;
+    s.maxDistance = 2;
+    CHECK(near(spatialize(listener, s).left, 0.5));
+    s.maxDistance = 1e9f;
+    // Straight to the right: the left speaker 20 dB down; to the left, the
+    // other way round; 30 degrees right, the left down by 10 dB.
+    s.position[0] = 1;
+    s.position[2] = 0;
+    r = spatialize(listener, s);
+    CHECK(near(r.right, 1) && near(r.left, 0.1));
+    s.position[0] = -1;
+    r = spatialize(listener, s);
+    CHECK(near(r.left, 1) && near(r.right, 0.1));
+    s.position[0] = 0.5f;
+    s.position[2] = std::sqrt(0.75f);
+    r = spatialize(listener, s);
+    CHECK(near(r.right, 1) && near(r.left, std::pow(10.0, -0.5)));
+    // The listener turned to face +x: a source at +x is ahead; one at +z is
+    // now to its left.
+    listener.front[0] = 1;
+    listener.front[2] = 0;
+    s.position[0] = 1;
+    s.position[2] = 0;
+    r = spatialize(listener, s);
+    CHECK(near(r.left, 1) && near(r.right, 1));
+    s.position[0] = 0;
+    s.position[2] = 1;
+    r = spatialize(listener, s);
+    CHECK(near(r.left, 1) && near(r.right, 0.1));
+    // Head-relative: the position is the listener's own, whichever way it
+    // faces; disabled: as it is, wherever.
+    s.mode = 1;
+    s.position[0] = 1;
+    s.position[2] = 0;
+    r = spatialize(listener, s);
+    CHECK(near(r.right, 1) && near(r.left, 0.1));
+    s.mode = 2;
+    s.position[0] = 100;
+    r = spatialize(listener, s);
+    CHECK(near(r.left, 1) && near(r.right, 1));
+    s = Ds3dSource();
+    listener = Ds3dListener();
+    // A cone pointing away (-z) from a listener at the origin, the source
+    // ahead of it at z 1: outside, so -20 dB.
+    s.position[2] = 1;
+    s.insideCone = 90;
+    s.outsideCone = 180;
+    s.coneOrientation[2] = 1;
+    s.coneOutsideVolume = -2000;
+    CHECK(near(spatialize(listener, s).left, 0.1));
+    s.coneOrientation[2] = -1; // pointing at the listener: inside
+    CHECK(near(spatialize(listener, s).left, 1));
+    s = Ds3dSource();
+    // Doppler: a source 10 units ahead coming at the listener at a tenth of
+    // the speed of sound sounds higher, 1 / 0.9; going away, lower.
+    s.position[2] = 10;
+    s.velocity[2] = -34.33f;
+    CHECK(near(spatialize(listener, s).doppler, 1 / 0.9));
+    s.velocity[2] = 34.33f;
+    CHECK(near(spatialize(listener, s).doppler, 1 / 1.1));
+    listener.dopplerFactor = 0;
+    CHECK(near(spatialize(listener, s).doppler, 1));
+}
+
 int main() {
     const stdfs::path tmp = stdfs::temp_directory_path() / "reluva_nfs_tests";
     stdfs::remove_all(tmp);
@@ -1656,6 +1738,7 @@ int main() {
     testMusic();
     testMovie();
     testForceEffects();
+    testSound3d();
     testThrashFog();
     stdfs::remove_all(tmp);
     if (failures)

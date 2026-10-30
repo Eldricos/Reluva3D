@@ -11,7 +11,9 @@
 // - DirectInput: the keyboard, the mouse and a joystick, with force
 //   feedback effects (force_effects.h) when the controller can give them.
 // - DirectSound: buffers the sound DLL fills, played in time (their
-//   positions move as they would) but not heard yet.
+//   positions move as they would) and mixed for the speakers (mixSound),
+//   with DirectSound 3D's buffers and listener (sound3d.h) for the
+//   game's D3D/EAX sound setting.
 
 #include "engines/nfs/host/game_host.h"
 
@@ -26,6 +28,14 @@ namespace {
 using x86::Cpu;
 
 constexpr uint32_t kOk = 0, kNoInterface = 0x80004002u, kInvalidParams = 0x80070057u;
+// DSBCAPS bits: a primary buffer, one in "hardware", one placed in 3D.
+constexpr uint32_t kPrimaryBuffer = 0x1, kLocHardware = 0x4, kLocSoftware = 0x8, kCtrl3d = 0x10;
+// The first part of the interfaces' IIDs (279AFA8x-4981-11CE-A521-0020AF0BE560).
+constexpr uint32_t kIidDirectSoundBuffer = 0x279afa85u, kIidDirectSound3DListener = 0x279afa84u,
+                   kIidDirectSound3DBuffer = 0x279afa86u;
+// How many buffers the stand-in says it plays "in hardware" (DSCAPS): the
+// game's D3D/EAX setting wants 3D ones. All are mixed in software anyway.
+constexpr uint32_t kHardwareBuffers = 64;
 // DDSCAPS bits.
 constexpr uint32_t kBackBuffer = 0x4, kFlip = 0x10, kPrimary = 0x200;
 
@@ -1070,9 +1080,15 @@ void GameHost::mixSound(int16_t* out, int frames, int rate) {
             b.outSynced = true;
         }
         const double gain = decibels(b.volume);
-        const double left = gain * (b.pan > 0 ? decibels(-b.pan) : 1.0);
-        const double right = gain * (b.pan < 0 ? decibels(b.pan) : 1.0);
-        const double step = double(b.rate) / double(rate);
+        double left = gain * (b.pan > 0 ? decibels(-b.pan) : 1.0);
+        double right = gain * (b.pan < 0 ? decibels(b.pan) : 1.0);
+        double step = double(b.rate) / double(rate);
+        if (b.flags & kCtrl3d) { // placed by DirectSound 3D, not panned
+            const Ds3dResult placed = spatialize(listener_, b.place);
+            left = gain * placed.left;
+            right = gain * placed.right;
+            step *= placed.doppler;
+        }
         auto sample = [&](uint32_t frame, int channel) {
             const uint8_t* p = memory + b.memory + frame * uint32_t(b.blockAlign) + uint32_t(channel * bytes);
             return bytes == 1 ? (int(p[0]) - 128) << 8 : int(int16_t(p[0] | p[1] << 8));
@@ -1089,7 +1105,9 @@ void GameHost::mixSound(int16_t* out, int frames, int rate) {
             // (it stalled): silence, rather than what it held a loop ago,
             // which DirectSound would play (a stutter).
             const bool streamed = b.bytesWritten > b.size;
-            if (block != b.lastBlock && b.written && block < b.fresh.size()) {
+            // (Not a 3D buffer's: those hold one sound each, written once
+            // and played again and again.)
+            if (block != b.lastBlock && b.written && block < b.fresh.size() && !(b.flags & kCtrl3d)) {
                 b.lastBlock = block;
                 ++soundStats_.blocks;
                 if (!b.fresh[block]) {
@@ -1121,6 +1139,276 @@ void GameHost::mixSound(int16_t* out, int frames, int rate) {
         out[i] = int16_t(std::clamp<int32_t>(soundMix_[i], -32768, 32767));
 }
 
+namespace {
+
+float asFloat(uint32_t bits) {
+    float f;
+    std::memcpy(&f, &bits, 4);
+    return f;
+}
+uint32_t floatBits(float f) {
+    uint32_t bits;
+    std::memcpy(&bits, &f, 4);
+    return bits;
+}
+void readVector(const Cpu& c, uint32_t p, float* v) {
+    for (int i = 0; i < 3; ++i)
+        v[i] = asFloat(c.read32(p + 4 * uint32_t(i)));
+}
+void writeVector(Cpu& c, uint32_t p, const float* v) {
+    for (int i = 0; i < 3; ++i)
+        c.write32(p + 4 * uint32_t(i), floatBits(v[i]));
+}
+// Three float arguments from `first` on, as a vector.
+void argVector(const Cpu& c, int first, float* v) {
+    for (int i = 0; i < 3; ++i)
+        v[i] = asFloat(c.arg(first + i));
+}
+
+} // namespace
+
+// IDirectSound3DBuffer and IDirectSound3DListener. A setting made with
+// DS3D_DEFERRED (1) waits for the listener's CommitDeferredSettings; one
+// made with DS3D_IMMEDIATE (0) is heard at once. The Get methods give what
+// was last set, deferred or not.
+void GameHost::addDirectSound3D(const std::function<void(std::vector<Method>&)>& locked) {
+    // The sound buffer a 3D buffer places.
+    auto placed = [this](Cpu& c) -> DsBuffer* {
+        auto it = sound3dBuffers_.find(c.arg(0));
+        if (it == sound3dBuffers_.end())
+            return nullptr;
+        auto b = soundBuffers_.find(it->second);
+        return b == soundBuffers_.end() ? nullptr : &b->second;
+    };
+    // Changes a 3D buffer's parameters, now or deferred.
+    auto set = [placed](Cpu& c, uint32_t apply, const std::function<void(Ds3dSource&)>& change) {
+        DsBuffer* b = placed(c);
+        if (!b)
+            return kInvalidParams;
+        change(b->deferredPlace);
+        if (!(apply & 1))
+            b->place = b->deferredPlace;
+        return kOk;
+    };
+    // Reads a 3D buffer's parameters into the game's memory.
+    auto get = [placed](Cpu& c, const std::function<void(const Ds3dSource&)>& read) {
+        DsBuffer* b = placed(c);
+        if (!b || !c.arg(1))
+            return kInvalidParams;
+        read(b->deferredPlace);
+        return kOk;
+    };
+    std::vector<Method> b = {
+        {"QueryInterface", 3, [this](Cpu& c) {
+             const uint32_t iid = c.read32(c.arg(1));
+             auto it = sound3dBuffers_.find(c.arg(0));
+             if (iid == kIidDirectSound3DBuffer) {
+                 c.write32(c.arg(2), c.arg(0));
+                 return kOk;
+             }
+             if (iid == kIidDirectSoundBuffer && it != sound3dBuffers_.end()) {
+                 c.write32(c.arg(2), it->second);
+                 return kOk;
+             }
+             say("  IDirectSound3DBuffer::QueryInterface(" + guid(c, c.arg(1)) + "): no");
+             c.write32(c.arg(2), 0);
+             return kNoInterface;
+         }},
+        {"AddRef", 1, [](Cpu&) { return 2u; }},
+        {"Release", 1, [this](Cpu& c) {
+             sound3dBuffers_.erase(c.arg(0));
+             return 0u;
+         }},
+        // DS3DBUFFER: size, position (+4), velocity (+16), the cone's inside
+        // and outside angles (+28), orientation (+36) and outside volume
+        // (+48), the least and most distances (+52), the mode (+60).
+        {"GetAllParameters", 2, [get](Cpu& c) {
+             return get(c, [&](const Ds3dSource& s) {
+                 const uint32_t p = c.arg(1);
+                 writeVector(c, p + 4, s.position);
+                 writeVector(c, p + 16, s.velocity);
+                 c.write32(p + 28, s.insideCone);
+                 c.write32(p + 32, s.outsideCone);
+                 writeVector(c, p + 36, s.coneOrientation);
+                 c.write32(p + 48, uint32_t(s.coneOutsideVolume));
+                 c.write32(p + 52, floatBits(s.minDistance));
+                 c.write32(p + 56, floatBits(s.maxDistance));
+                 c.write32(p + 60, s.mode);
+             });
+         }},
+        {"GetConeAngles", 3, [placed](Cpu& c) {
+             DsBuffer* b = placed(c);
+             if (!b)
+                 return kInvalidParams;
+             if (c.arg(1))
+                 c.write32(c.arg(1), b->deferredPlace.insideCone);
+             if (c.arg(2))
+                 c.write32(c.arg(2), b->deferredPlace.outsideCone);
+             return kOk;
+         }},
+        {"GetConeOrientation", 2,
+         [get](Cpu& c) { return get(c, [&](const Ds3dSource& s) { writeVector(c, c.arg(1), s.coneOrientation); }); }},
+        {"GetConeOutsideVolume", 2, [get](Cpu& c) {
+             return get(c, [&](const Ds3dSource& s) { c.write32(c.arg(1), uint32_t(s.coneOutsideVolume)); });
+         }},
+        {"GetMaxDistance", 2,
+         [get](Cpu& c) { return get(c, [&](const Ds3dSource& s) { c.write32(c.arg(1), floatBits(s.maxDistance)); }); }},
+        {"GetMinDistance", 2,
+         [get](Cpu& c) { return get(c, [&](const Ds3dSource& s) { c.write32(c.arg(1), floatBits(s.minDistance)); }); }},
+        {"GetMode", 2, [get](Cpu& c) { return get(c, [&](const Ds3dSource& s) { c.write32(c.arg(1), s.mode); }); }},
+        {"GetPosition", 2,
+         [get](Cpu& c) { return get(c, [&](const Ds3dSource& s) { writeVector(c, c.arg(1), s.position); }); }},
+        {"GetVelocity", 2,
+         [get](Cpu& c) { return get(c, [&](const Ds3dSource& s) { writeVector(c, c.arg(1), s.velocity); }); }},
+        {"SetAllParameters", 3, [set](Cpu& c) {
+             if (!c.arg(1))
+                 return kInvalidParams;
+             return set(c, c.arg(2), [&](Ds3dSource& s) {
+                 const uint32_t p = c.arg(1);
+                 readVector(c, p + 4, s.position);
+                 readVector(c, p + 16, s.velocity);
+                 s.insideCone = c.read32(p + 28);
+                 s.outsideCone = c.read32(p + 32);
+                 readVector(c, p + 36, s.coneOrientation);
+                 s.coneOutsideVolume = int32_t(c.read32(p + 48));
+                 s.minDistance = asFloat(c.read32(p + 52));
+                 s.maxDistance = asFloat(c.read32(p + 56));
+                 s.mode = c.read32(p + 60);
+             });
+         }},
+        {"SetConeAngles", 4, [set](Cpu& c) {
+             return set(c, c.arg(3), [&](Ds3dSource& s) {
+                 s.insideCone = c.arg(1);
+                 s.outsideCone = c.arg(2);
+             });
+         }},
+        {"SetConeOrientation", 5,
+         [set](Cpu& c) { return set(c, c.arg(4), [&](Ds3dSource& s) { argVector(c, 1, s.coneOrientation); }); }},
+        {"SetConeOutsideVolume", 3,
+         [set](Cpu& c) { return set(c, c.arg(2), [&](Ds3dSource& s) { s.coneOutsideVolume = int32_t(c.arg(1)); }); }},
+        {"SetMaxDistance", 3,
+         [set](Cpu& c) { return set(c, c.arg(2), [&](Ds3dSource& s) { s.maxDistance = asFloat(c.arg(1)); }); }},
+        {"SetMinDistance", 3,
+         [set](Cpu& c) { return set(c, c.arg(2), [&](Ds3dSource& s) { s.minDistance = asFloat(c.arg(1)); }); }},
+        {"SetMode", 3, [set](Cpu& c) { return set(c, c.arg(2), [&](Ds3dSource& s) { s.mode = c.arg(1); }); }},
+        {"SetPosition", 5,
+         [set](Cpu& c) { return set(c, c.arg(4), [&](Ds3dSource& s) { argVector(c, 1, s.position); }); }},
+        {"SetVelocity", 5,
+         [set](Cpu& c) { return set(c, c.arg(4), [&](Ds3dSource& s) { argVector(c, 1, s.velocity); }); }},
+    };
+    locked(b);
+    sound3dBufferVtable_ = makeVtable("IDirectSound3DBuffer", b);
+
+    // The listener: one, the primary buffer's.
+    auto setListener = [this](uint32_t apply, const std::function<void(Ds3dListener&)>& change) {
+        change(deferredListener_);
+        if (!(apply & 1))
+            listener_ = deferredListener_;
+        return kOk;
+    };
+    auto getListener = [this](Cpu& c, const std::function<void(const Ds3dListener&)>& read) {
+        if (!c.arg(1))
+            return kInvalidParams;
+        read(deferredListener_);
+        return kOk;
+    };
+    std::vector<Method> l = {
+        {"QueryInterface", 3, [this](Cpu& c) {
+             if (c.read32(c.arg(1)) == kIidDirectSound3DListener) {
+                 c.write32(c.arg(2), c.arg(0));
+                 return kOk;
+             }
+             say("  IDirectSound3DListener::QueryInterface(" + guid(c, c.arg(1)) + "): no");
+             c.write32(c.arg(2), 0);
+             return kNoInterface;
+         }},
+        {"AddRef", 1, [](Cpu&) { return 2u; }},
+        {"Release", 1, [](Cpu&) { return 0u; }},
+        // DS3DLISTENER: size, position (+4), velocity (+16), front (+28),
+        // top (+40), the distance, rolloff and Doppler factors (+52).
+        {"GetAllParameters", 2, [getListener](Cpu& c) {
+             return getListener(c, [&](const Ds3dListener& s) {
+                 const uint32_t p = c.arg(1);
+                 writeVector(c, p + 4, s.position);
+                 writeVector(c, p + 16, s.velocity);
+                 writeVector(c, p + 28, s.front);
+                 writeVector(c, p + 40, s.top);
+                 c.write32(p + 52, floatBits(s.distanceFactor));
+                 c.write32(p + 56, floatBits(s.rolloffFactor));
+                 c.write32(p + 60, floatBits(s.dopplerFactor));
+             });
+         }},
+        {"GetDistanceFactor", 2, [getListener](Cpu& c) {
+             return getListener(c, [&](const Ds3dListener& s) { c.write32(c.arg(1), floatBits(s.distanceFactor)); });
+         }},
+        {"GetDopplerFactor", 2, [getListener](Cpu& c) {
+             return getListener(c, [&](const Ds3dListener& s) { c.write32(c.arg(1), floatBits(s.dopplerFactor)); });
+         }},
+        {"GetOrientation", 3, [getListener](Cpu& c) {
+             return getListener(c, [&](const Ds3dListener& s) {
+                 writeVector(c, c.arg(1), s.front);
+                 if (c.arg(2))
+                     writeVector(c, c.arg(2), s.top);
+             });
+         }},
+        {"GetPosition", 2, [getListener](Cpu& c) {
+             return getListener(c, [&](const Ds3dListener& s) { writeVector(c, c.arg(1), s.position); });
+         }},
+        {"GetRolloffFactor", 2, [getListener](Cpu& c) {
+             return getListener(c, [&](const Ds3dListener& s) { c.write32(c.arg(1), floatBits(s.rolloffFactor)); });
+         }},
+        {"GetVelocity", 2, [getListener](Cpu& c) {
+             return getListener(c, [&](const Ds3dListener& s) { writeVector(c, c.arg(1), s.velocity); });
+         }},
+        {"SetAllParameters", 3, [setListener](Cpu& c) {
+             if (!c.arg(1))
+                 return kInvalidParams;
+             return setListener(c.arg(2), [&](Ds3dListener& s) {
+                 const uint32_t p = c.arg(1);
+                 readVector(c, p + 4, s.position);
+                 readVector(c, p + 16, s.velocity);
+                 readVector(c, p + 28, s.front);
+                 readVector(c, p + 40, s.top);
+                 s.distanceFactor = asFloat(c.read32(p + 52));
+                 s.rolloffFactor = asFloat(c.read32(p + 56));
+                 s.dopplerFactor = asFloat(c.read32(p + 60));
+             });
+         }},
+        {"SetDistanceFactor", 3, [setListener](Cpu& c) {
+             return setListener(c.arg(2), [&](Ds3dListener& s) { s.distanceFactor = asFloat(c.arg(1)); });
+         }},
+        {"SetDopplerFactor", 3, [setListener](Cpu& c) {
+             return setListener(c.arg(2), [&](Ds3dListener& s) { s.dopplerFactor = asFloat(c.arg(1)); });
+         }},
+        {"SetOrientation", 8, [setListener](Cpu& c) {
+             return setListener(c.arg(7), [&](Ds3dListener& s) {
+                 argVector(c, 1, s.front);
+                 argVector(c, 4, s.top);
+             });
+         }},
+        {"SetPosition", 5,
+         [setListener](Cpu& c) {
+             return setListener(c.arg(4), [&](Ds3dListener& s) { argVector(c, 1, s.position); });
+         }},
+        {"SetRolloffFactor", 3, [setListener](Cpu& c) {
+             return setListener(c.arg(2), [&](Ds3dListener& s) { s.rolloffFactor = asFloat(c.arg(1)); });
+         }},
+        {"SetVelocity", 5,
+         [setListener](Cpu& c) {
+             return setListener(c.arg(4), [&](Ds3dListener& s) { argVector(c, 1, s.velocity); });
+         }},
+        // CommitDeferredSettings: the listener's and every buffer's.
+        {"CommitDeferredSettings", 1, [this](Cpu&) {
+             listener_ = deferredListener_;
+             for (auto& [object, buffer] : soundBuffers_)
+                 buffer.place = buffer.deferredPlace;
+             return kOk;
+         }},
+    };
+    locked(l);
+    listenerObject_ = makeObject("IDirectSound3DListener", l);
+}
+
 void GameHost::addDirectSound() {
     auto ok = [](Cpu&) { return kOk; };
     auto buffer = [this](Cpu& c) -> DsBuffer* {
@@ -1141,19 +1429,54 @@ void GameHost::addDirectSound() {
         b.bits = c.read16(p + 14);
     };
     std::vector<Method> m = {
-        {"QueryInterface", 3, [](Cpu&) { return kNoInterface; }},
+        // QueryInterface: IDirectSound3DBuffer of a buffer made with
+        // DSBCAPS_CTRL3D, IDirectSound3DListener of a primary one. Nothing
+        // else, IKsPropertySet (EAX's property sets) included.
+        {"QueryInterface", 3, [this, buffer](Cpu& c) {
+             DsBuffer* b = buffer(c);
+             const uint32_t iid = c.read32(c.arg(1));
+             c.write32(c.arg(2), 0);
+             if (!b)
+                 return kNoInterface;
+             if (iid == kIidDirectSoundBuffer) {
+                 c.write32(c.arg(2), c.arg(0));
+                 return kOk;
+             }
+             if (iid == kIidDirectSound3DBuffer && !b->primary && (b->flags & kCtrl3d)) {
+                 const uint32_t object = newObject(sound3dBufferVtable_);
+                 sound3dBuffers_[object] = c.arg(0);
+                 c.write32(c.arg(2), object);
+                 return kOk;
+             }
+             if (iid == kIidDirectSound3DListener && b->primary && (b->flags & kCtrl3d)) {
+                 c.write32(c.arg(2), listenerObject_);
+                 return kOk;
+             }
+             say("  IDirectSoundBuffer::QueryInterface(" + guid(c, c.arg(1)) + "): no");
+             return kNoInterface;
+         }},
         {"AddRef", 1, [](Cpu&) { return 2u; }},
+        // Release: the buffer goes, its memory with the last buffer sharing
+        // it (DuplicateSoundBuffer).
         {"Release", 1, [this](Cpu& c) {
              auto it = soundBuffers_.find(c.arg(0));
              if (it != soundBuffers_.end() && !it->second.primary) {
-                 process_->memory().free(it->second.memory);
+                 if (--soundMemoryUsers_[it->second.memory] <= 0) {
+                     soundMemoryUsers_.erase(it->second.memory);
+                     process_->memory().free(it->second.memory);
+                 }
+                 std::erase_if(sound3dBuffers_, [&](const auto& p) { return p.second == c.arg(0); });
                  soundBuffers_.erase(it);
              }
              return 0u;
          }},
         {"GetCaps", 2, [buffer](Cpu& c) {
              if (DsBuffer* b = buffer(c)) {
-                 c.write32(c.arg(1) + 4, b->primary ? 1 : 0x8); // DSBCAPS_PRIMARYBUFFER / STATIC
+                 // DSBCAPS_PRIMARYBUFFER, or as created, in software unless
+                 // asked for in hardware.
+                 const uint32_t f = b->flags & ~(kLocHardware | kLocSoftware);
+                 c.write32(c.arg(1) + 4, b->primary ? kPrimaryBuffer | (b->flags & kCtrl3d)
+                                                    : f | (b->flags & kLocHardware ? kLocHardware : kLocSoftware));
                  c.write32(c.arg(1) + 8, b->size);
              }
              return kOk;
@@ -1302,14 +1625,18 @@ void GameHost::addDirectSound() {
          }},
         {"Restore", 1, ok},
     };
-    // The audio thread reads the buffers too (mixSound).
-    for (Method& method : m)
-        if (method.fn)
-            method.fn = [this, fn = std::move(method.fn)](Cpu& c) {
-                std::lock_guard<std::mutex> lock(soundMutex_);
-                return fn(c);
-            };
+    // The audio thread reads the buffers and the listener too (mixSound).
+    auto locked = [this](std::vector<Method>& methods) {
+        for (Method& method : methods)
+            if (method.fn)
+                method.fn = [this, fn = std::move(method.fn)](Cpu& c) {
+                    std::lock_guard<std::mutex> lock(soundMutex_);
+                    return fn(c);
+                };
+    };
+    locked(m);
     soundBufferVtable_ = makeVtable("IDirectSoundBuffer", m);
+    addDirectSound3D(locked);
 
     std::vector<Method> ds = {
         {"QueryInterface", 3, [](Cpu&) { return kNoInterface; }},
@@ -1320,7 +1647,8 @@ void GameHost::addDirectSound() {
         {"CreateSoundBuffer", 4, [this, readFormat](Cpu& c) {
              const uint32_t desc = c.arg(1);
              DsBuffer b;
-             b.primary = c.read32(desc + 4) & 1;
+             b.flags = c.read32(desc + 4);
+             b.primary = b.flags & kPrimaryBuffer;
              b.size = b.primary ? 22050 * 4 / 4 : c.read32(desc + 8);
              readFormat(c, c.read32(desc + 16), b);
              say("  CreateSoundBuffer: " + std::string(b.primary ? "primary" : "secondary") + ", " +
@@ -1331,22 +1659,68 @@ void GameHost::addDirectSound() {
                  return 0x8007000eu; // E_OUTOFMEMORY
              const uint32_t object = newObject(soundBufferVtable_);
              std::lock_guard<std::mutex> lock(soundMutex_);
+             ++soundMemoryUsers_[b.memory];
              soundBuffers_[object] = b;
              c.write32(c.arg(2), object);
              return kOk;
          }},
         // GetCaps: a sound card that does 8 and 16 bits, mono and stereo, at
-        // any rate, in software.
-        {"GetCaps", 2, [](Cpu& c) {
+        // any rate, with "hardware" buffers, 3D ones too (from +0x14: all,
+        // static and streaming, the most and those free; from +0x2c the 3D
+        // ones likewise). eacsnd.dll gives the game 3D sound only if the
+        // most 3D buffers (+0x2c) isn't 0.
+        {"GetCaps", 2, [this](Cpu& c) {
              const uint32_t p = c.arg(1), size = c.read32(p);
              for (uint32_t o = 4; o < size && o < 96; o += 4)
                  c.write32(p + o, 0);
              c.write32(p + 4, 0x1 | 0x2 | 0x4 | 0x8 | 0x10);
              c.write32(p + 8, 100);
              c.write32(p + 12, 100000);
+             uint32_t used = 0, used3d = 0;
+             {
+                 std::lock_guard<std::mutex> lock(soundMutex_);
+                 for (const auto& [object, b] : soundBuffers_)
+                     if (!b.primary && (b.flags & kLocHardware)) {
+                         ++used;
+                         used3d += (b.flags & kCtrl3d) ? 1 : 0;
+                     }
+             }
+             const uint32_t free = kHardwareBuffers - std::min(used, kHardwareBuffers);
+             const uint32_t free3d = kHardwareBuffers - std::min(used3d, kHardwareBuffers);
+             const uint32_t counts[12] = {kHardwareBuffers, kHardwareBuffers, kHardwareBuffers, free,   free,   free,
+                                          kHardwareBuffers, kHardwareBuffers, kHardwareBuffers, free3d, free3d, free3d};
+             for (uint32_t i = 0; i < 12 && 0x14 + 4 * i < size; ++i)
+                 c.write32(p + 0x14 + 4 * i, counts[i]);
              return kOk;
          }},
-        {"DuplicateSoundBuffer", 3, [](Cpu&) { return 0x80004001u; }},
+        // DuplicateSoundBuffer(this, original, duplicate**): a buffer of its
+        // own sharing the original's memory, as it is set but stopped at
+        // the start.
+        {"DuplicateSoundBuffer", 3, [this](Cpu& c) {
+             std::lock_guard<std::mutex> lock(soundMutex_);
+             auto it = soundBuffers_.find(c.arg(1));
+             if (it == soundBuffers_.end() || it->second.primary || !c.arg(2))
+                 return kInvalidParams;
+             DsBuffer d;
+             const DsBuffer& o = it->second;
+             d.memory = o.memory;
+             d.size = o.size;
+             d.rate = o.rate;
+             d.blockAlign = o.blockAlign;
+             d.channels = o.channels;
+             d.bits = o.bits;
+             d.volume = o.volume;
+             d.pan = o.pan;
+             d.flags = o.flags;
+             d.place = o.place;
+             d.deferredPlace = o.deferredPlace;
+             d.startMs = process_->now();
+             const uint32_t object = newObject(soundBufferVtable_);
+             ++soundMemoryUsers_[d.memory];
+             soundBuffers_[object] = d;
+             c.write32(c.arg(2), object);
+             return kOk;
+         }},
         {"SetCooperativeLevel", 3, ok},
         {"Compact", 1, ok},
         {"GetSpeakerConfig", 2, [](Cpu& c) {
