@@ -116,6 +116,18 @@ good packet resets a counter of 1,920 ticks (15 s, set at `0x4a6506`);
 at 0 the link is closed (`0x51d8f0`). The library's clock runs at 128
 ticks a second.
 
+## Serial
+
+Over a serial link (a null-modem cable, stood in for as TCP) the game
+first looks for a modem: `+++`, then `ATE1` and CR, `AT` and CR. With
+another copy at the other end instead, it goes on to the reliable layer
+of IPX's data packets, without the `ea dat` tag: the 6-byte header
+(0xFE, length, sequence, acknowledgement, BE checksum) and the game
+message. The first packets carry the players (26 bytes, with the name,
+then 176 with the player record); in a race, each copy sends a 12-byte
+packet about 30 times a second (the header and 6 bytes, read from the
+captures only).
+
 ## What isn't known
 
 - The race settings' fields (02), most of the player and set-up records'
@@ -124,6 +136,5 @@ ticks a second.
   many it sends before an acknowledgement.
 - The messages not captured (07-09, 0b-12) and the fields of `dec`,
   `add` and `rsp`.
-- Serial and modem links: whether they use the same reliable layer as
-  IPX. The serial link is stood in for (a COM port over TCP,
-  [nfs.md](../../engines/nfs.md)), and its traffic hasn't been read yet.
+- What the serial link's first exchanges carry beyond the reliable
+  layer (below), and how the two ends choose which hosts.

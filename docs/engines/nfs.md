@@ -886,6 +886,22 @@ Started. Done so far:
     2,000 race messages each way, until B's run ended. The game finds
     games on IPX socket 0x452 and then talks through EA's reliable layer
     ([net.md](../formats/nfs/net.md)).
+  - **Serial, over TCP.** COM1-COM9 are one link over TCP
+    (`-serial listen:port` on one copy, `-serial host:port` on the
+    other; `host/serial.cpp`), as through a null-modem cable: what one
+    writes the other reads; the connecting copy tries again every half
+    second until the other listens. The comm functions keep the line
+    settings and report the carrier while the other end is there. The
+    game's serial driver reads overlapped from a thread of its own
+    while holding a lock, so an overlapped read with nothing waiting is
+    left pending (ERROR_IO_PENDING), its event signalled when bytes
+    come, and `GetOverlappedResult` takes them (`Win32Process`). The
+    game first looks for a modem on the line (`+++`, `ATE1`, `AT`), then
+    talks through the same reliable layer as IPX's data packets
+    ([net.md](../formats/nfs/net.md)). Two copies, each choosing Serial
+    and Connect, reached the lobby (the game picked one as host), and
+    raced Hometown, eight cars on both screens, their race clocks a
+    second apart, 8,337 race messages each way.
   - **`-netlog file`** writes each message sent and received: the game's
     milliseconds, the direction, the socket, the peer and the bytes.
   - **Scripting the menus.** A test script clicks by sending the cursor
