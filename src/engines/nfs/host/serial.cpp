@@ -36,7 +36,19 @@ constexpr uint32_t kMaxDword = 0xffffffffu, kErrorGenFailure = 31;
 
 // The link: a TCP connection, made when the port is opened (connecting)
 // or when the other end connects (listening).
-class GameHost::SerialLink : public x86::DeviceObject {
+// A COM port as the comm functions see it: its line settings and
+// timeouts, whether the other end is there, and what's waiting.
+class GameHost::CommPort : public x86::DeviceObject {
+public:
+    virtual bool connected() = 0;
+    virtual void purge() = 0;
+
+    std::array<uint32_t, 5> timeouts_{}; // COMMTIMEOUTS
+    std::array<uint8_t, 28> dcb_{};      // the DCB last set
+    bool dcbSet_ = false;
+};
+
+class GameHost::SerialLink : public CommPort {
 public:
     SerialLink(GameHost& host, net::Sockets& net) : host_(host), net_(net) {}
     ~SerialLink() override {
@@ -82,7 +94,7 @@ public:
 
     // Whether the other end is there (the cable's carrier); accepts or
     // finishes connecting first, without waiting.
-    bool connected() {
+    bool connected() override {
         if (connected_)
             return true;
         if (listener_ >= 0 && stream_ < 0) {
@@ -189,7 +201,7 @@ public:
         return bytes;
     }
     // Throws away what's waiting (PurgeComm's PURGE_RXCLEAR).
-    void purge() {
+    void purge() override {
         uint8_t scrap[512];
         for (uint32_t n = waiting(); n > 0; n = waiting()) {
             size_t got = 0;
@@ -197,10 +209,6 @@ public:
                 break;
         }
     }
-
-    std::array<uint32_t, 5> timeouts_{}; // COMMTIMEOUTS
-    std::array<uint8_t, 28> dcb_{};      // the DCB last set
-    bool dcbSet_ = false;
 
 private:
     GameHost& host_;
@@ -250,7 +258,7 @@ void GameHost::addSerial() {
             return link;
         };
     }
-    auto find = [this](uint32_t handle) { return process_->object<SerialLink>(handle); };
+    auto find = [this](uint32_t handle) { return process_->object<CommPort>(handle); };
 
     // GetCommState(handle, DCB*): the DCB last set, else 9600 8N1, binary.
     provide(k, "GetCommState", 2, [find](Cpu& c) -> uint32_t {
@@ -334,6 +342,31 @@ void GameHost::addSerial() {
         addModem();
 }
 
+// The modem's COM port (lineGetID's "comm/datamodem"): the call's link
+// while there's one, else a line with nothing on it.
+class GameHost::ModemPort : public CommPort {
+public:
+    std::shared_ptr<SerialLink> call;
+    bool connected() override { return call && call->connected(); }
+    void purge() override {
+        if (call)
+            call->purge();
+    }
+    bool readable() override { return call && call->readable(); }
+    bool read(Cpu& c, uint32_t buffer, uint32_t size, bool overlapped, uint32_t& done, uint32_t& error) override {
+        done = error = 0;
+        if (!call)
+            return true;
+        call->timeouts_ = timeouts_;
+        return call->read(c, buffer, size, overlapped, done, error);
+    }
+    bool write(Cpu& c, uint32_t buffer, uint32_t size, uint32_t& done, uint32_t& error) override {
+        error = 0;
+        done = size; // no call: the bytes go nowhere, as to a modem on hook
+        return !call || call->write(c, buffer, size, done, error);
+    }
+};
+
 void GameHost::addModem() {
     const char* t = "TAPI32.DLL";
     net::Sockets* net = options_.sockets.get();
@@ -347,6 +380,7 @@ void GameHost::addModem() {
         bool answering = false, offered = false, dialing = false, connected = false;
         std::chrono::steady_clock::time_point dialedAt;
         std::shared_ptr<SerialLink> listener, call;
+        std::shared_ptr<ModemPort> port = std::make_shared<ModemPort>();
         std::deque<std::array<uint32_t, 5>> events; // device, message, param1-3
     };
     auto m = std::make_shared<Modem>();
@@ -493,6 +527,7 @@ void GameHost::addModem() {
         }
         m->call = std::make_shared<SerialLink>(*this, *net);
         m->call->start(false, at);
+        m->port->call = m->call;
         m->dialing = true;
         m->connected = false;
         m->dialedAt = std::chrono::steady_clock::now();
@@ -505,6 +540,7 @@ void GameHost::addModem() {
         if (!m->offered || !m->listener)
             return kInvalCallHandle;
         m->call = m->listener;
+        m->port->call = m->call;
         m->listener.reset();
         m->connected = true;
         const uint32_t id = request();
@@ -514,10 +550,11 @@ void GameHost::addModem() {
         return id;
     });
     // lineGetID(line, address, call, select, LPVARSTRING, class): for
-    // "comm/datamodem", a handle to the call's link (and a port name).
+    // "comm/datamodem", a handle to the modem's port (and its name), the
+    // line's or the call's: the same port, which is the call's link.
     provide(t, "lineGetID", 6, [this, m, sizeOk](Cpu& c) -> uint32_t {
         const std::string cls = c.string(c.arg(5), 64);
-        if (cls != "comm/datamodem" || !m->call)
+        if (cls != "comm/datamodem")
             return kOperationUnavailable;
         const uint32_t at = c.arg(4);
         if (!sizeOk(c, at, 24 + 4 + 5))
@@ -525,13 +562,14 @@ void GameHost::addModem() {
         c.write32(at + 12, 4);  // dwStringFormat: STRINGFORMAT_BINARY
         c.write32(at + 16, 9);  // dwStringSize
         c.write32(at + 20, 24); // dwStringOffset
-        c.write32(at + 24, process_->addHandle(m->call));
+        c.write32(at + 24, process_->addHandle(m->port));
         c.writeString(at + 28, "COM1", 5);
         return 0u;
     });
     // lineDrop(call, userInfo, size): hung up.
     provide(t, "lineDrop", 3, [this, m, request, queue](Cpu&) {
         m->call.reset();
+        m->port->call.reset();
         m->dialing = m->connected = m->offered = false;
         const uint32_t id = request();
         queue(kCall, kLineCallState, kIdle);
@@ -542,6 +580,7 @@ void GameHost::addModem() {
     provide(t, "lineClose", 1, [m](Cpu&) {
         m->listener.reset();
         m->call.reset();
+        m->port->call.reset();
         m->answering = m->offered = m->dialing = m->connected = false;
         return 0u;
     });

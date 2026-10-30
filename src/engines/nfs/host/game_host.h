@@ -206,7 +206,9 @@ private:
     // TAPI's events, delivered when the thread that started it next asks
     // for messages (serial.cpp).
     std::function<void(x86::Cpu&)> tapiDeliver_;
+    class CommPort;
     class SerialLink;
+    class ModemPort;
     friend class SerialLink;
     void addDirectX();  // DDRAW and DINPUT
     void addDirectSound();
