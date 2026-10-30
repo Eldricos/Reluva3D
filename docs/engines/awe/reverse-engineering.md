@@ -56,6 +56,10 @@ original to check Reluva's own code against them:
   `granny2.dll` run in the interpreter, byte for byte (bit for bit for
   the curves) on every file of the install (`awe-check`). See
   [gr2.md](../../formats/awe/gr2.md).
+- **Whole poses:** a model posed by an animation, by Reluva and by
+  `granny2.dll`'s own sampling, compared bone by bone (`awe-pose`) over
+  every model and animation pair. This found the Count's slumped pose:
+  curves with no knots, which Granny reads as the identity.
 - **The path-finder:** Reluva's port of `motoe.exe`'s path planning was
   compared with the game's own code in the interpreter: 22,480 searches
   over the 281 scenes with a walk grid, every point and heading the same

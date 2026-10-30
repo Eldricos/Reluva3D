@@ -390,6 +390,15 @@ Error loadAnimation(const Gr2File& file, Animation& out) {
             const Gr2Object curve = t.object(kCurves[c]);
             if (curve.member("Knots")) {
                 *curves[c] = readCurve(curve);
+                // An old-format curve with no knots is the identity: Granny
+                // gives no move, no turn, unit scale, not the bone's rest
+                // (checked with granny2.dll: awe-pose). Count Andrenyi's
+                // sitidle1 has such curves for his neck and collarbones.
+                if (curves[c]->knots.empty()) {
+                    curves[c]->degree = 0;
+                    curves[c]->knots = {0.0f};
+                    curves[c]->controls = kIdentities[c];
+                }
                 continue;
             }
             if (!curve.valid())

@@ -523,6 +523,77 @@ int cmdAweRegress(int argc, char** argv) {
     return failed ? 1 : 0;
 }
 
+// reluva-tool awe-pose <game folder> <model.gr2> <animation.gr2> [seconds...]:
+// the model posed by the animation, Reluva's way (computePose) and
+// granny2.dll's (run in the x86 interpreter), bone by bone: the largest
+// difference in each bone's world matrix.
+int cmdAwePose(int argc, char** argv) {
+    if (argc < 5) {
+        std::fprintf(stderr, "usage: reluva-tool awe-pose <game folder> <model.gr2> <animation.gr2> [seconds...]\n");
+        return 1;
+    }
+    reluva::DirectoryArchive files;
+    if (reluva::Error e = files.open(argv[2])) {
+        std::fprintf(stderr, "%s\n", e.message.c_str());
+        return 1;
+    }
+    std::vector<uint8_t> dllData, modelData, animData;
+    if (files.read("granny2.dll", dllData) || files.read(argv[3], modelData) || files.read(argv[4], animData)) {
+        std::fprintf(stderr, "can't read granny2.dll, %s or %s\n", argv[3], argv[4]);
+        return 1;
+    }
+    awe::GrannyDll dll;
+    if (reluva::Error e = dll.load(dllData)) {
+        std::fprintf(stderr, "%s\n", e.message.c_str());
+        return 1;
+    }
+    awe::Gr2File modelFile, animFile;
+    awe::Model model;
+    awe::Animation anim;
+    if (reluva::Error e = modelFile.open(modelData); e || awe::loadModel(modelFile, model)) {
+        std::fprintf(stderr, "can't load the model\n");
+        return 1;
+    }
+    if (reluva::Error e = animFile.open(animData); e || awe::loadAnimation(animFile, anim)) {
+        std::fprintf(stderr, "can't load the animation\n");
+        return 1;
+    }
+    awe::GrannyDll::LoadedFile dm, da;
+    if (reluva::Error e = dll.loadFile(modelData, dm); e || dll.loadFile(animData, da)) {
+        std::fprintf(stderr, "granny2.dll can't load them\n");
+        return 1;
+    }
+    std::vector<float> times;
+    for (int i = 5; i < argc; i++)
+        times.push_back(float(std::atof(argv[i])));
+    if (times.empty())
+        times = {0.0f, anim.duration / 3, anim.duration * 2 / 3};
+    int worst = 0;
+    for (float t : times) {
+        std::vector<std::array<float, 16>> theirs;
+        if (reluva::Error e = dll.worldPose(dm, da, t, theirs)) {
+            std::fprintf(stderr, "granny2.dll: %s\n", e.message.c_str());
+            return 1;
+        }
+        awe::Pose ours;
+        awe::computePose(model, &anim, t, ours);
+        std::printf("t %.3f: %zu bones (granny2.dll %zu)\n", t, ours.world.size(), theirs.size());
+        for (size_t b = 0; b < std::min(ours.world.size(), theirs.size()); b++) {
+            float d = 0;
+            for (size_t k = 0; k < 16; k++)
+                d = std::max(d, std::abs(ours.world[b][k] - theirs[b][k]));
+            if (d > 0.01f) {
+                worst++;
+                std::printf("  %-28s differs by %.3f (ours at %.1f %.1f %.1f, granny2.dll at %.1f %.1f %.1f)\n",
+                            model.bones[b].name.c_str(), d, ours.world[b][12], ours.world[b][13], ours.world[b][14],
+                            theirs[b][12], theirs[b][13], theirs[b][14]);
+            }
+        }
+    }
+    std::printf("%d bone poses differ by more than 0.01\n", worst);
+    return worst ? 1 : 0;
+}
+
 int cmdAweActs(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool awe-acts <game folder> [act|slotN...] [-hotspots] [-explore n] [-t seconds] [-v]\n");
@@ -992,6 +1063,8 @@ int aweToolCommand(int argc, char** argv) {
         return cmdAweShot(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "awe-acts") == 0)
         return cmdAweActs(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "awe-pose") == 0)
+        return cmdAwePose(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "awe-regress") == 0)
         return cmdAweRegress(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "awe-table") == 0)
@@ -1018,6 +1091,7 @@ const char* aweToolUsage() {
            "  reluva-tool awe-regress <game folder> <route.txt> [-3d] [-quick]\n"
            "  reluva-tool awe-acts <game folder> -solve <out.txt> [-from <playthrough>] [-budget n] [-level n] [-noclimb] [-goal text] [-characters] [-v]\n"
            "  reluva-tool awe-acts <game folder> -play <playthrough> [-list] [-reload] [-log n] [-mouse] [-3d | -characters] [-sound] [-wav file] [-v]\n"
+           "  reluva-tool awe-pose <game folder> <model.gr2> <animation.gr2> [seconds...]\n"
            "  reluva-tool ac2-dump <scene.ac2>...\n"
            "  reluva-tool awe-path <game folder> <scene.ac2> <a0> <b0> <a1> <b1> | -all [pairs]\n"
            "  reluva-tool awe-scripts <game folder> [-v]\n"

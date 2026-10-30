@@ -242,6 +242,64 @@ void GrannyDll::freeFile(LoadedFile& file) {
     file = LoadedFile();
 }
 
+Error GrannyDll::worldPose(const LoadedFile& model, const LoadedFile& animation, float t,
+                           std::vector<std::array<float, 16>>& out) {
+    out.clear();
+    if (!module_)
+        return Error::fail("granny2.dll isn't loaded");
+    const char* names[] = {"_GrannyInstantiateModel@4",      "_GrannyPlayControlledAnimation@12",
+                           "_GrannySetModelClock@8",          "_GrannyGetSourceSkeleton@4",
+                           "_GrannyNewLocalPose@4",           "_GrannyNewWorldPose@4",
+                           "_GrannySampleModelAnimations@16", "_GrannyBuildWorldPose@24",
+                           "_GrannyGetWorldPose4x4@8"};
+    uint32_t fn[9];
+    for (int i = 0; i < 9; i++)
+        if (!(fn[i] = module_->exportAddress(names[i])))
+            return Error::fail(std::string("granny2.dll has no ") + names[i]);
+    const uint32_t infoType = type("GrannyFileInfoType"), skeletonType = type("GrannySkeletonType");
+    uint32_t models = 0, animations = 0, bones = 0;
+    if (!infoType || !skeletonType || !memberOffset(infoType, "Models", models) ||
+        !memberOffset(infoType, "Animations", animations) || !memberOffset(skeletonType, "Bones", bones))
+        return Error::fail("granny2.dll's types aren't as expected");
+    // file info -> Models[0], Animations[0] (counted arrays of pointers)
+    const uint32_t m = read32(read32(model.info + models + 4)), a = read32(read32(animation.info + animations + 4));
+    if (!m || !a)
+        return Error::fail("no model or no animation");
+    auto bits = [](float f) {
+        uint32_t v;
+        std::memcpy(&v, &f, 4);
+        return v;
+    };
+    uint32_t instance = 0, control = 0, skeleton = 0, local = 0, world = 0, ignored = 0;
+    Error e = cpu_->call(fn[0], {m}, instance);
+    if (!e)
+        e = cpu_->call(fn[1], {bits(0.0f), a, instance}, control);
+    if (!e)
+        e = cpu_->call(fn[2], {instance, bits(t)}, ignored);
+    if (!e)
+        e = cpu_->call(fn[3], {instance}, skeleton);
+    const uint32_t count = e ? 0 : read32(skeleton + bones);
+    if (!e)
+        e = cpu_->call(fn[4], {count}, local);
+    if (!e)
+        e = cpu_->call(fn[5], {count}, world);
+    if (!e)
+        e = cpu_->call(fn[6], {instance, 0, count, local}, ignored);
+    if (!e)
+        e = cpu_->call(fn[7], {skeleton, 0, count, local, 0, world}, ignored);
+    for (uint32_t b = 0; !e && b < count; b++) {
+        uint32_t p = 0;
+        e = cpu_->call(fn[8], {world, b}, p);
+        std::array<float, 16> mtx{};
+        for (uint32_t k = 0; !e && k < 16; k++) {
+            const uint32_t v = read32(p + 4 * k);
+            std::memcpy(&mtx[k], &v, 4);
+        }
+        out.push_back(mtx);
+    }
+    return e;
+}
+
 Error GrannyDll::expandCurve(uint32_t address, const std::vector<float>& identity, PlainCurve& out) {
     out = PlainCurve();
     if (!module_)

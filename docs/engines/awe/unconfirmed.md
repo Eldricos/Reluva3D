@@ -33,15 +33,6 @@ out about 1.10 to 1.15 x the true value, less 10 to 13, varying a little
 from part to part: about 10 to 20 % more contrast, most likely the
 capture's video range read as full range. What's left after that:
 
-- **The characters' colours.** In Salon_02 (6B, Part 7 at 6:22, the
-  frame's own fit at a correlation of 0.997), Reluva's frame put through
-  the same transform and the walkthrough's encoding, Antoinette and
-  Hubbard agree with the recording within 5 to 10 % per channel. The
-  Count comes out 1.6 to 1.9 times brighter in the recording there; his
-  pose differs (head up and turned in the recording, down in Reluva's),
-  and in his two other recorded scenes (Part 7 at 6:43, Part 9 at 33:47)
-  he looks alike, though their close-ups leave too little background to
-  measure. Left open: likely the pose.
 - **The dialogue text.** Its colour is the right `fonts.txt` one (a
   second speaker's line comes out nearest colour 9, as the game's rule
   gives) and as bright as Reluva's within what the video can show: thin
@@ -54,6 +45,15 @@ capture's video range read as full range. What's left after that:
 
 Moved to their format pages; kept here so the reasoning can be found:
 
+- **The characters' colours:** in Salon_02 (6B, Part 7 at 6:22, the
+  frame's own fit at a correlation of 0.997), Reluva's frame put through
+  the recording's transform and encoding, Antoinette, Hubbard and the
+  Count agree with the recording within 0 to 15 % per channel, part by
+  part. The Count had come out 1.6 to 1.9 times brighter in the
+  recording, sitting upright where Reluva had him slumped: a bug in
+  reading Granny curves with no knots, found by posing his `sitidle1`
+  with granny2.dll (`awe-pose`) and fixed.
+  [gr2.md](../../formats/awe/gr2.md).
 - **The x87's precision:** 24 bits, not 53. Direct3D 8's `CreateDevice`
   sets it, the game doesn't ask it not to, and the path-finder is made
   after. At 53 bits 4 of 22,480 test paths differed from the game's; the

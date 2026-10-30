@@ -8,6 +8,7 @@
 #include "common/x86/win32.h"
 
 #include <cstdint>
+#include <array>
 #include <memory>
 #include <string_view>
 #include <vector>
@@ -84,6 +85,13 @@ public:
     // against (reluva-tool awe-check -curves).
     Error evaluateCurve(uint32_t address, const std::vector<float>& identity, bool normalize, bool loopBack,
                         bool loopForward, float duration, float t, std::vector<float>& out);
+
+    // The world pose of a loaded model file's first model playing a
+    // loaded animation file's first animation, `t` seconds in, as Granny
+    // makes it (GrannyInstantiateModel, GrannyPlayControlledAnimation,
+    // GrannySetModelClock, GrannySampleModelAnimations, GrannyBuildWorldPose):
+    // each bone's 4x4 world matrix, column-major, no offset.
+    Error worldPose(const LoadedFile& model, const LoadedFile& animation, float t, std::vector<std::array<float, 16>>& out);
 
 private:
     std::unique_ptr<x86::Cpu> cpu_;

@@ -156,6 +156,8 @@ scenes, two Granny files, the text tables, two backgrounds):
     install read, with cameras and compressed curves compared against the
     DLL, and with `-textures` and `-oodle` the textures and sections too:
     the regression test);
+  - `awe-pose` (a model posed by an animation, by Reluva and by
+    granny2.dll, compared bone by bone);
   - `awe-path` (paths planned by Reluva's port and by `motoe.exe`'s code,
     compared; `-all` over every scene);
   - `awe-acts` (every act, or developers' save, played without a window

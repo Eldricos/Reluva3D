@@ -503,6 +503,29 @@ On the full install (1,803 files, 1,701 animations): 293,531 curves at
 That is float rounding: the largest position difference is a step of a
 float at a few hundred units. The check fails above 8 ε.
 
+**Whole poses.** That check skipped curves with no knots, and so missed
+how they're read. `reluva-tool awe-pose <game> <model> <animation>
+[seconds...]` poses the model both ways: Reluva's `computePose`, and
+granny2.dll's `GrannyInstantiateModel`, `GrannyPlayControlledAnimation`,
+`GrannySetModelClock`, `GrannySampleModelAnimations` and
+`GrannyBuildWorldPose` in the interpreter; then compares every bone's
+world matrix. It found that an old-format curve with no knots (most
+animation files have some, 1,666 of them) is the identity to Granny: no
+move, no turn, unit scale. Reluva had kept the bone's rest transform
+there. Where the rest isn't the identity that changes the pose: Count
+Andrenyi's `sitidle1`, for one, has empty orientation curves for his neck
+and collarbones, and Reluva sat him slumped forward with his head down
+where the game has him upright (found against the walkthrough, Part 7,
+6:16 to 6:44). Reluva now reads such a curve as the identity.
+
+Over every character model and its animations that don't carry it
+along (1,689 pairs, at 0, a third and two thirds of each), every bone
+then agrees within 0.01. The animations that carry the character along
+(walks, runs, turns, and Antoinette's `blizzard2`, whose root
+moves) differ by the root's motion alone: Granny's sampling takes
+it out of the pose; Reluva takes it out where it places the character
+(above).
+
 ## Vector tracks
 
 About 80 animations also have vector tracks: "Displacement Max
