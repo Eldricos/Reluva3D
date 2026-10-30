@@ -1965,6 +1965,12 @@ void testMusic(const std::filesystem::path& tmp) {
     st.chased = false;
     music.update(1, st);
     CHECK(music.segment() == "R"); // the chase over
+    st.lastStretch = true;
+    music.update(1, st);
+    CHECK(music.segment() == "C"); // the final lap
+    st.lastStretch = false;
+    music.update(1, st);
+    CHECK(music.segment() == "R");
     st.paused = true;
     music.update(1, st);
     CHECK(music.segment() == "P");
@@ -2013,9 +2019,9 @@ void testGizmos(const std::filesystem::path& tmp) {
     CollisionWorld::RayHit hit;
     const Vec3 down{0, -1, 0};
     CHECK(world.raycast({15, 20, 0}, down, 30, hit) && std::fabs(hit.point[1] - 8) < 1e-3f);
-    // Down 50 s, then rising: the leaves tip up from the hinges, and the
+    // Down 74 s, then rising: the leaves tip up from the hinges, and the
     // traffic stops there.
-    for (int i = 0; i < 62 * 4; ++i)
+    for (int i = 0; i < 86 * 4; ++i)
         g.update(0.25f, world);
     CHECK(g.raised(0) == 1);
     g.users(u);

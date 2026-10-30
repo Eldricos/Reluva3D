@@ -85,8 +85,31 @@ race.
 
 ## What they don't settle
 
-- When the bridges open, the music's rules for changing segments, the
-  props' Flash values and the camera's numbers beyond what's in
+- The music's rules for idling, chases and the pause, the props' Flash
+  values and the camera's numbers beyond what's in
   [age-driving.md](age-driving.md): nothing in the videos shows them
-  clearly enough to measure.
+  clearly enough to measure. Stops of 5-13 s in mid-race show no clear
+  change of music.
+
+## Bridges and music, looked at again
+
+A second pass at the 34-minute video, frame by frame around London's
+drawbridges, and through its sound:
+
+- **The drawbridges cycle.** In two runs of London Run, the race's
+  `open:` bridge is raised 10-18 s into the race, down about 80 s in
+  and raised again about 140 s in. No ships were nearby. Tower Bridge
+  was down when crossed in Bridge Bash. Reluva's bridges now cycle every
+  130 s ([age-traffic.md](age-traffic.md)).
+- **The music's tempo** was measured from the sound: the beat's onsets
+  in windows of a few seconds, and the period they repeat at. A race
+  starts beatless for about 8-15 s, then the groove comes in, whatever
+  the car is doing. A few seconds after "Final lap!" (3-4 s, the next
+  measure) London Run's beat goes from 0.50 to 0.45 s, on both runs.
+  After Bridge Bash's last checkpoint its 0.43 s groove stops within a
+  second and a 0.78 s pattern plays to the finish. Next to the
+  segments' own tempos, these fit the race tune's chase segment, and
+  Reluva now plays it there ([age-racing.md](age-racing.md)). After the
+  finish the beat stops for a few seconds, then the results screen's
+  own music plays (0.35 s), then the menu's (0.43 s).
 - The opening movie isn't in any of them.

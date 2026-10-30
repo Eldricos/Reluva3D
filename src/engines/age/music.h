@@ -49,6 +49,7 @@ public:
         bool chased = false; // police after the player
         bool paused = false;
         bool finished = false; // the race is over: the results
+        bool lastStretch = false; // a race's final lap, or only the finish left
     };
     void update(float dt, const State& state);
     // A big jump: the tune's big-air motif over it.

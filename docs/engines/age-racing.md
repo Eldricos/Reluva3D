@@ -214,11 +214,20 @@ play:
 | started | Start |
 | stopped (under 1.5 m/s) for 4 s | Idle, or Idle Cops if chased |
 | chased by the police, moving | Cops |
+| a circuit's final lap, or only the finish left in a checkpoint race or Blitz | Cops |
 | moving again (over 5 m/s) after stopping or a chase | Return |
 | the race over | Results |
 
 Each change waits for the next measure, as DirectMusic's do. The speeds
-and times are Reluva's; the game's own rules for switching aren't known.
+and times for idling are Reluva's. The footage
+([age-footage.md](age-footage.md)) shows the rest. The beatless start
+of the Start segment runs about 8-15 s. A few seconds after "Final lap!"
+the tune speeds up, and the same happens after a checkpoint race's last
+checkpoint. That faster groove matches the tempo of the tune's chase
+segment, read from the `.sgt` files' tempo tracks: Bullet races at 140
+bpm and its Cops segment is at 155, and the 0.78 s pattern heard after
+Bridge Bash's last checkpoint is two of its beats. The beat stops in the
+seconds after the finish, then Results plays.
 Paused, the tune's Pause segment plays. Both lists' last three columns
 name the **big-air motif**: GrooverStyle's `BigAir` pattern (a motif,
 one measure of two parts) with the `BigAir` band. A second off the

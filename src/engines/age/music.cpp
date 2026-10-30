@@ -198,13 +198,15 @@ void GameMusic::update(float dt, const State& s) {
         idle_ = false;
     if (idle_) {
         want(s.chased ? set_.idleCops : set_.idle);
-    } else if (s.chased) {
+    } else if (s.chased || s.lastStretch) {
+        // The race's last stretch speeds up too: the chase segment (see
+        // docs/engines/age-footage.md).
         want(set_.cops);
     } else if (wasIdle || wasChased_ || wasPaused_) {
         // On the move again, out of a chase or back from the pause.
         want(set_.back);
     }
-    wasChased_ = s.chased;
+    wasChased_ = s.chased || s.lastStretch;
     wasPaused_ = false;
 }
 
