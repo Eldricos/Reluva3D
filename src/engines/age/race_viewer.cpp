@@ -418,8 +418,10 @@ void RaceViewer::startRace() {
     splitFor_ = 0;
     targetStill_ = 0;
     unlockMessage_.clear();
-    cleared_.assign(targets_.size(), false);
-    lastCleared_ = 0;
+    for (Racer& r : racers_) {
+        r.cleared.assign(targets_.size(), false);
+        r.lastCleared = 0;
+    }
     picked_ = -1;
     if (lesson())
         judge_.start(race_.lesson);
@@ -476,29 +478,35 @@ float RaceViewer::progressOf(const Racer& r) const {
 }
 
 bool RaceViewer::anyOrder() const {
-    return !netGame_ && !lesson() && (race_.kind == RaceKind::Checkpoint || race_.kind == RaceKind::Blitz) &&
-           targets_.size() > 1 && cleared_.size() == targets_.size();
+    return !lesson() && (race_.kind == RaceKind::Checkpoint || race_.kind == RaceKind::Blitz) && targets_.size() > 1;
 }
 
-std::vector<size_t> RaceViewer::remaining() const {
+std::vector<size_t> RaceViewer::remaining(const Racer& r) const {
     // The finish only once the rest are cleared.
+    auto cleared = [&](size_t k) { return k < r.cleared.size() && r.cleared[k]; };
     std::vector<size_t> out;
     for (size_t k = 0; k + 1 < targets_.size(); ++k)
-        if (!cleared_[k])
+        if (!cleared(k))
             out.push_back(k);
-    if (out.empty() && !targets_.empty() && !cleared_.back())
+    if (out.empty() && !targets_.empty() && !cleared(targets_.size() - 1))
         out.push_back(targets_.size() - 1);
     return out;
 }
 
+void RaceViewer::clearCheckpoint(Racer& r, size_t k) {
+    r.cleared.resize(targets_.size(), false);
+    if (k < r.cleared.size())
+        r.cleared[k] = true;
+    r.lastCleared = k;
+}
+
 size_t RaceViewer::targetOf(const Racer& r) const {
-    if (!r.player || !anyOrder() || r.next >= targets_.size())
+    if (!anyOrder() || r.next >= targets_.size())
         return r.next;
-    const std::vector<size_t> left = remaining();
+    const std::vector<size_t> left = remaining(r);
     if (left.empty())
         return targets_.size();
-    if (picked_ >= 0 && size_t(picked_) < cleared_.size() && !cleared_[size_t(picked_)] &&
-        std::find(left.begin(), left.end(), size_t(picked_)) != left.end())
+    if (r.player && picked_ >= 0 && std::find(left.begin(), left.end(), size_t(picked_)) != left.end())
         return size_t(picked_);
     // The nearest.
     size_t best = left.front();
@@ -595,7 +603,7 @@ void RaceViewer::stepRace(float dt) {
             impact = sim.impact;
             sim.impact = 0;
             if (sim.position[1] < scene_->psdl().min[1] - 50) { // fallen out: back to the last checkpoint
-                const size_t last = anyOrder() ? lastCleared_ : r.next - 1;
+                const size_t last = anyOrder() ? r.lastCleared : r.next - 1;
                 const Waypoint& back = r.next > 0 ? targetPoint(last) : race_.waypoints[0];
                 sim.reset(r.car->setup, back.position + Vec3{0, 0.5f, 0}, headingToYaw(back.heading));
                 ++r.resets;
@@ -603,16 +611,17 @@ void RaceViewer::stepRace(float dt) {
             }
         }
         // Checkpoints.
-        if (started && r.player && anyOrder() && r.next < targets_.size()) {
-            // Any of those left, the finish last.
-            for (size_t k : remaining()) {
+        if (started && anyOrder() && r.next < targets_.size()) {
+            // Any of those left, the finish last (an opponent also past
+            // where its own path is nearest one).
+            for (size_t k : remaining(r)) {
                 const Waypoint& w = targetPoint(k);
-                const float radius = (w.radius > 0 ? w.radius : kCircuitRadius) + 2;
-                if (flatDistance(sim.position, w.position) < radius &&
-                    std::fabs(sim.position[1] - w.position[1]) < 10) {
-                    cleared_[k] = true;
-                    lastCleared_ = k;
-                    checkpoint = true;
+                const float radius = (w.radius > 0 ? w.radius : kCircuitRadius) + (r.player ? 2 : kOpponentReach);
+                const bool byPath = !r.player && k < r.gatePoints.size() && r.driver.passed() > r.gatePoints[k];
+                if (byPath || (flatDistance(sim.position, w.position) < radius &&
+                               std::fabs(sim.position[1] - w.position[1]) < 10)) {
+                    clearCheckpoint(r, k);
+                    checkpoint = checkpoint || r.player;
                     if (++r.next == targets_.size())
                         r.finishTime = clock_;
                     break;
@@ -798,6 +807,7 @@ void RaceViewer::handleEvent(const Event& ev) {
         return;
     if (ev.type == EventType::KeyUp) {
         keys_ &= ~driveKeyOf(ev.key);
+        view_.press(controlOf(ev.key), false);
         return;
     }
     if (ev.type == EventType::MouseMove) {
@@ -912,6 +922,12 @@ void RaceViewer::handleEvent(const Event& ev) {
         endRace();
         return;
     }
+    if (ev.key == key::F1) {
+        // The controls' list (a race alone stops while it's up).
+        view_.controlsList = !view_.controlsList;
+        keys_ = 0;
+        return;
+    }
     const Control control = controlOf(ev.key);
     if (const uint32_t d = driveKeyOf(ev.key)) {
         keys_ |= d;
@@ -932,6 +948,11 @@ void RaceViewer::handleEvent(const Event& ev) {
         mirror_ = !mirror_;
     } else if (control == Control::NextCheckpoint || control == Control::PrevCheckpoint) {
         pickCheckpoint(control == Control::NextCheckpoint ? 1 : -1);
+    } else if (control == Control::RotatingMap) {
+        hudMap_.toggleRotating();
+    } else if (cd_.press(control, music_, ctx_.files, ctx_.mixer)) {
+    } else if (view_.press(control, true)) {
+        cameraReset_ = cameraReset_ || control == Control::ThrillCam;
     } else if (control == Control::Transmission) {
         manual_ = !manual_;
     } else if (control == Control::ShiftUp || control == Control::ShiftDown) {
@@ -1107,16 +1128,16 @@ void RaceViewer::drawArrow() {
     drawArrowTo(targetPoint(k).position, race_.kind == RaceKind::Blitz);
 }
 
-void RaceViewer::drawArrowTo(const Vec3& target, bool blitz) {
+void RaceViewer::drawArrowTo(const Vec3& target, bool blitz, bool little) {
     const Racer& player = racers_.front();
-    const Vec3 at = player.car->sim.position + Vec3{0, 2.8f, 0};
+    const Vec3 at = player.car->sim.position + Vec3{0, little ? 2.0f : 2.8f, 0};
     Vec3 to = target - at;
     to[1] = 0;
     // Its second paint job (yellow) when the way is behind the car, as the
     // game's loading tips say.
     Vec3 ahead = -player.car->sim.orientation.z;
     ahead[1] = 0;
-    const bool behind = dot(ahead, to) < 0;
+    const bool behind = dot(ahead, to) < 0 && !little;
     const ModelCache::Model& arrow = scene_->models().get(blitz ? "hudarrow_blitz01" : "hudarrow01", behind ? 1 : 0);
     if (!arrow.ok)
         return;
@@ -1129,7 +1150,10 @@ void RaceViewer::drawArrowTo(const Vec3& target, bool blitz) {
         call.mesh = arrow.levels.front().mesh;
         call.firstIndex = d.firstIndex;
         call.indexCount = d.indexCount;
-        call.model = matrixOf(Mat3::rotationY(yaw), at);
+        Mat3 turn = Mat3::rotationY(yaw);
+        if (little)
+            turn = Mat3{turn.x * 0.5f, turn.y * 0.5f, turn.z * 0.5f};
+        call.model = matrixOf(turn, at);
         call.texture = d.texture;
         call.state.depthTest = false;
         call.state.cull = gfx::Cull::None;
@@ -1535,7 +1559,7 @@ void RaceViewer::update(uint64_t nowMs) {
         // (stopped while paused, or on the results screen).
         if (replaying_)
             stepReplay(dt);
-        else if (!paused_ && !results_ && !(hudMap_.fullScreen() && !netGame_)) {
+        else if (!paused_ && !results_ && !((hudMap_.fullScreen() || view_.controlsList) && !netGame_)) {
             // (The full-screen map stops a race alone, as the game's does.)
             recordFrame(dt);
             stepRace(dt);
@@ -1563,10 +1587,15 @@ void RaceViewer::update(uint64_t nowMs) {
         const CarCamera& cam = cameras_[size_t(camera_)];
         fov = cam.fov;
         const CameraView view =
-            replaying_ ? replayCamera(dt, fov)
-                       : blend_.apply(updateCarCamera(cam, racers_.front().car->sim, dt, cameraPos_, cameraReset_), dt);
+            replaying_
+                ? replayCamera(dt, fov)
+                : view_.apply(
+                      blend_.apply(updateCarCamera(cam, racers_.front().car->sim, dt, cameraPos_, cameraReset_), dt),
+                      cam, racers_.front().car->sim, dt);
         lastView_ = view;
         nearClip = cam.nearClip;
+        if (!replaying_)
+            fov = view_.fov(fov);
         cameraReset_ = false;
         eye = view.eye;
         target = view.target;
@@ -1603,7 +1632,7 @@ void RaceViewer::update(uint64_t nowMs) {
     if (state_ == State::Menu || racers_.empty()) {
         drawMenu();
     } else {
-        const bool inside = cameras_[size_t(camera_)].inside;
+        const bool inside = cameras_[size_t(camera_)].inside && !view_.thrill;
         if (scene_->lampsLit() && headlightPoolsOn()) {
             std::vector<gfx::DynamicLight> pools;
             gfx::DynamicLight pool;
@@ -1625,7 +1654,7 @@ void RaceViewer::update(uint64_t nowMs) {
             drawGold();
         if (smoke_)
             smoke_->draw(eye);
-        if (inside && dash_.loaded())
+        if (inside && dash_.loaded() && view_.showDashboard() && view_.look == 0)
             dash_.draw(*renderer_, scene_->models(), racers_.front().car->sim, wear_.fraction(), eye,
                        normalized(target - eye), up, float(kFrameW) / float(kFrameH), scene_->light());
         if (netGame_ && net_ && net_->session() && net_->session()->settings().mode == NetMode::CopsRobbers) {
@@ -1636,6 +1665,17 @@ void RaceViewer::update(uint64_t nowMs) {
             drawArrowTo(mine ? gold_.base(gold_.sideOf(self)) : gold_.goldPosition(), mine);
         } else
             drawArrow();
+        if (view_.opponent && !racers_.empty()) {
+            // Opponent Position: a little green arrow to the nearest.
+            const Racer* nearest = nullptr;
+            for (const Racer& r : racers_)
+                if (!r.player &&
+                    (!nearest || length(r.car->sim.position - racers_.front().car->sim.position) <
+                                     length(nearest->car->sim.position - racers_.front().car->sim.position)))
+                    nearest = &r;
+            if (nearest)
+                drawArrowTo(nearest->car->sim.position, false, true);
+        }
         if (mirror_)
             drawRearMirror(*renderer_, racers_.front().car->sim, currentOptions().farClip(),
                            [&](const gfx::Mat4& vp, const Vec3& eye) {
@@ -1648,6 +1688,11 @@ void RaceViewer::update(uint64_t nowMs) {
                            });
         drawMap(dt);
         drawRaceHud();
+        cd_.update(dt);
+        cd_.draw(overlay_, pictures_);
+        if (view_.controlsList)
+            drawControlsList(overlay_, currentOptions(),
+                             [&](Control c) { return strings_.get(controlStringId(c), controlFallbackName(c)); });
         if (replaying_)
             drawReplayBar();
         if (paused_)

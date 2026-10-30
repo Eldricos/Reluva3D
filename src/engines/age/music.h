@@ -34,6 +34,11 @@ public:
 
     // A tune picked from the race or cruising list (`seed` picks which).
     Error start(const SearchSet& files, audio::Mixer& mixer, bool race, uint32_t seed);
+    // The CD player's tracks (Reluva's: the game's player played an audio
+    // CD): every tune of the race list, then of the cruising list, by its
+    // start segment's name less "Start" ("Enemy", "SunRoof"...).
+    static std::vector<std::string> trackNames(const SearchSet& files);
+    Error startTrack(const SearchSet& files, audio::Mixer& mixer, size_t track);
     // The menus' tune: aud/dmusic/csv_files/ui.csv's segment (UI.sgt).
     Error startMenu(const SearchSet& files, audio::Mixer& mixer);
     bool playingMenu() const { return menu_ && performance_; }

@@ -66,6 +66,7 @@
 #include "engines/age/lang.h"
 #include "engines/age/lesson.h"
 #include "engines/age/record.h"
+#include "engines/age/view_controls.h"
 #include "engines/age/engine_sound.h"
 #include "engines/age/music.h"
 #include "engines/age/net_menus.h"
@@ -365,6 +366,8 @@ private:
     int camera_ = 0;
     CameraFollow cameraPos_{};
     CameraBlend blend_;      // a change of camera, blended
+    ViewControls view_;      // the game's view controls (Thrill Cam, looking round...)
+    CdPlayer cd_;            // the CD player
     float airFor_ = 0;       // seconds the player's car has been off the ground
     bool airPlayed_ = false; // the big-air motif, this jump
     CameraView lastView_;    // the last frame's
@@ -413,7 +416,9 @@ private:
         std::unique_ptr<CarActor> car;
         PathDriver driver; // opponents only
         std::string name;
-        size_t next = 0;      // index into targets_ of the next checkpoint
+        size_t next = 0;           // index into targets_ of the next checkpoint (in any order: how many cleared)
+        std::vector<bool> cleared; // in a race in any order, those cleared
+        size_t lastCleared = 0;
         float finishTime = -1;
         bool player = false;
         uint8_t peer = kNoPlayer; // another player's car (multiplayer), driven by what its driver sends
@@ -471,7 +476,10 @@ private:
     // The checkpoint the racer is making for: its next, or (the player in
     // any order) the arrow's.
     size_t targetOf(const Racer& r) const;
-    std::vector<size_t> remaining() const; // the player's checkpoints still to clear, in order
+    // A racer's checkpoints still to clear, in order (the player's by default).
+    std::vector<size_t> remaining(const Racer& r) const;
+    std::vector<size_t> remaining() const { return remaining(racers_.front()); }
+    void clearCheckpoint(Racer& r, size_t k);
     void pickCheckpoint(int step);
     void drawCheckpointMarkers();
 
@@ -513,6 +521,8 @@ private:
     int camera_ = 0;
     CameraFollow cameraPos_{};
     CameraBlend blend_;      // a change of camera, blended
+    ViewControls view_;      // the game's view controls (Thrill Cam, looking round...)
+    CdPlayer cd_;            // the CD player
     float airFor_ = 0;       // seconds the player's car has been off the ground
     bool airPlayed_ = false; // the big-air motif, this jump
     CameraView lastView_;    // the last frame's
@@ -535,8 +545,6 @@ private:
     // A Checkpoint or Blitz race alone: the player's checkpoints in any
     // order, the finish once they're all cleared (the game's help); the
     // arrow at the nearest, or the one picked (Next/Prev. Checkpoint).
-    std::vector<bool> cleared_;
-    size_t lastCleared_ = 0;
     int picked_ = -1;
     gfx::Mat4 viewProj_{}; // this frame's, for the opponents' markers
     PlayerRecord record_; // the current driver's
@@ -557,7 +565,9 @@ private:
     void recordResult();
     void menuEvent(const Event& ev);
     void drawGarageCar(float dt);
-    void drawArrowTo(const Vec3& to, bool blitz);
+    // The HUD arrow over the car pointing to `to`; `little`: the Opponent
+    // Position's, smaller, lower and always green.
+    void drawArrowTo(const Vec3& to, bool blitz, bool little = false);
 
     // Replays (race_replay.cpp): the race being driven is recorded; a
     // replay runs its race again from what was recorded.

@@ -223,6 +223,7 @@ if(RELUVA_ENGINE_AGE)
     src/engines/age/dashboard.cpp
     src/engines/age/front_end.cpp
     src/engines/age/hud_map.cpp
+    src/engines/age/view_controls.cpp
     src/engines/age/hud_pictures.cpp
     src/engines/age/lang.cpp
     src/engines/age/lesson.cpp

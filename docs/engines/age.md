@@ -231,6 +231,12 @@ recording how each format was worked out (CONTRIBUTING.md).
 - Opening logos: `logos.avi` is Indeo 5, which has no published
   description to write a decoder from; skipped, as the original's "No
   Movie" shortcut does, with the game's splash picture shown instead.
+  Checked again: MultimediaWiki's Indeo 4 and 5 pages give some headers,
+  the Huffman row lengths (without which symbol each code is) and the
+  wavelet's taps, but not the run-value tables, the block syntax, the
+  transforms or the motion compensation, and say their tables came from
+  reverse engineering a decoder; Intel's patents describe the encoder.
+  Not enough to write one from.
 - Music: the DirectMusic segments and styles, composed as they play by
   Reluva's DirectMusic player on its DLS synthesizer (`common/audio`;
   [directmusic.md](../formats/directmusic.md), [dls.md](../formats/dls.md)),

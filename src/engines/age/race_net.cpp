@@ -326,17 +326,27 @@ void RaceViewer::checkProgress(Racer& r, const NetCarState& s) {
     // Through its next checkpoint if the way it went since it was last
     // seen passes within the checkpoint's reach (a little wider than its
     // own machine's count).
+    // In a race in any order, through any of those it has left (the
+    // finish last).
     if (r.seen && r.next < targets_.size()) {
-        const Waypoint& w = targetPoint(r.next);
-        const Vec3 a{r.seenAt[0], 0, r.seenAt[2]}, b{s.position[0], 0, s.position[2]},
-            c{w.position[0], 0, w.position[2]};
-        const Vec3 ab = b - a;
-        const float t = dot(ab, ab) > 1e-6f ? std::clamp(dot(c - a, ab) / dot(ab, ab), 0.0f, 1.0f) : 0;
-        const Vec3 nearest = a + ab * t;
-        const float height = r.seenAt[1] + (s.position[1] - r.seenAt[1]) * t;
-        if (length(c - nearest) < (w.radius > 0 ? w.radius : kGateRadius) + kGateSlack &&
-            std::fabs(height - w.position[1]) < 10 && ++r.next == targets_.size())
-            r.finishTime = s.clock;
+        const std::vector<size_t> gates = anyOrder() ? remaining(r) : std::vector<size_t>{r.next};
+        for (size_t k : gates) {
+            const Waypoint& w = targetPoint(k);
+            const Vec3 a{r.seenAt[0], 0, r.seenAt[2]}, b{s.position[0], 0, s.position[2]},
+                c{w.position[0], 0, w.position[2]};
+            const Vec3 ab = b - a;
+            const float t = dot(ab, ab) > 1e-6f ? std::clamp(dot(c - a, ab) / dot(ab, ab), 0.0f, 1.0f) : 0;
+            const Vec3 nearest = a + ab * t;
+            const float height = r.seenAt[1] + (s.position[1] - r.seenAt[1]) * t;
+            if (length(c - nearest) < (w.radius > 0 ? w.radius : kGateRadius) + kGateSlack &&
+                std::fabs(height - w.position[1]) < 10) {
+                if (anyOrder())
+                    clearCheckpoint(r, k);
+                if (++r.next == targets_.size())
+                    r.finishTime = s.clock;
+                break;
+            }
+        }
     }
     r.seenAt = s.position;
     r.seen = true;

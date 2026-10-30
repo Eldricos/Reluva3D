@@ -74,7 +74,7 @@ race.
 - The loading screens' tips: F1 for the controls, Q to pause on the
   full-screen map, H for the HUD, TAB for the map. They led to the help
   file's keyboard table, now Reluva's default keys
-  ([age-menus.md](age-menus.md)). F1's list of controls isn't built.
+  ([age-menus.md](age-menus.md)). F1's list of controls is built too.
 - In Checkpoint and Blitz races, small light blue markers over the
   checkpoints still to reach, which led to the races' checkpoints being
   taken in any order, as the help says, and to the gates themselves:

@@ -127,11 +127,20 @@ void HudMap::draw(gfx::Renderer3D& renderer, ModelCache& models, const Vec3& cen
         // screens).
         w = std::min(frameW - x, int(setup_.width * kShown * float(frameW)));
         h = std::min(frameH - y, int(setup_.height * kShown * float(frameH)));
+        if (size_ == 1) {
+            constexpr float kLarger = 1.6f;
+            const int right = x + w, bottom = y + h;
+            w = int(float(w) * kLarger);
+            h = int(float(h) * kLarger);
+            x = std::max(0, right - w);
+            y = std::max(0, bottom - h);
+        }
     }
     if (w <= 0 || h <= 0)
         return;
-    // From above, the way the player faces up the map.
-    Vec3 up{forward[0], 0, forward[2]};
+    // From above, the way the player faces up the map (or north, not
+    // rotating).
+    Vec3 up = rotating_ ? Vec3{forward[0], 0, forward[2]} : Vec3{0, 0, -1};
     up = length(up) > 1e-4f ? normalized(up) : Vec3{0, 0, -1};
     const Vec3 eye{center[0], distance_, center[2]};
     const gfx::Mat4 viewProj = gfx::multiply(gfx::perspective(kFov * 3.14159265f / 180, float(w) / float(h), 1, 1e5f),
