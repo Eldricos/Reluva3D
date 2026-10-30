@@ -399,7 +399,7 @@ void Mansion::draw(Surface& target, int camX, int camY, const MansionLook& look,
     for (const Actor& a : actors)
         if (a.frame && actorRect(a).overlaps(view)) {
             placed.push_back({insertionPoint(a), &a});
-            if (a.reveal && look.walls != MansionLook::Walls::Solid)
+            if (a.reveal && look.walls == MansionLook::Walls::SeeThrough)
                 revealed.push_back({placed.back().first, actorRect(a)});
         }
     std::stable_sort(placed.begin(), placed.end(), [](const auto& x, const auto& y) {
