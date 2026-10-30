@@ -52,6 +52,18 @@ Error PhysicsMaterials::parse(std::string_view mtl, std::string_view csv) {
         } else if (word == "}") {
             m = nullptr;
         } else if (m) {
+            if (word == "ptxindex:" || word == "ptxthreshold:") {
+                for (size_t k = 0; k < 2; ++k) {
+                    float v = 0;
+                    if (!(words >> v))
+                        break;
+                    if (word == "ptxindex:")
+                        m->particles[k] = int(v);
+                    else
+                        m->particleSlip[k] = v;
+                }
+                continue;
+            }
             float v = 0;
             words >> v;
             if (word == "elasticity:")
@@ -68,7 +80,7 @@ Error PhysicsMaterials::parse(std::string_view mtl, std::string_view csv) {
                 m->height = v;
             else if (word == "depth:")
                 m->depth = v;
-            // effect:, ptxindex:, ptxthreshold: (particles) aren't used.
+            // effect: is "none" for every material.
         }
     }
     if (m)
@@ -116,6 +128,12 @@ CollisionSurface PhysicsMaterials::surface(const PhysicsMaterial& m) const {
     s.sound = uint8_t(std::max(0, m.sound));
     s.drag = m.drag;
     s.depth = m.depth;
+    for (size_t k = 0; k < 2; ++k) {
+        s.particles[k] = int8_t(std::clamp(m.particles[k], -1, 127));
+        s.particleSlip[k] = m.particleSlip[k];
+    }
+    s.spread = m.width;
+    s.rise = m.height;
     return s;
 }
 

@@ -123,6 +123,7 @@ void RaceViewer::loadCity() {
     error_ = scene_->load(map).message;
     flares_ = std::make_unique<FlareDrawer>(*renderer_, scene_->textures());
     smoke_ = std::make_unique<SmokePuffs>(*renderer_, scene_->textures());
+    smoke_->loadWheelEffects(ctx_.files);
     hudMap_.load(*renderer_, ctx_.files, scene_->models(), map);
     pictures_.load(ctx_.files);
     buildCityCollision(ctx_.files, scene_->psdl(), scene_->mesh(), scene_->instances(), world_);
@@ -472,6 +473,8 @@ void RaceViewer::stepRace(float dt) {
             ++r.resets;
             r.putBackAt = clock_;
         }
+        if (smoke_)
+            smoke_->wheels(dt, sim);
         if (r.player) {
             engine_.update(sim.rpm, sim.gear > 0 || sim.manual ? c.throttle : c.brake);
             sounds_.update(dt, sim, started && (keys_ & kDriveHorn));
@@ -511,6 +514,10 @@ void RaceViewer::stepRace(float dt) {
         others.push_back(&racers_[i].car->sim);
     life_.setLamps(scene_->lampsLit(), scene_->night());
     life_.update(dt, racers_.front().car->sim, others, world_, roads_, fill_);
+    // What flies out of the props knocked down: coins, papers, leaves.
+    for (const Props::Burst& b : life_.takeBursts())
+        if (smoke_)
+            smoke_->burst(b.rule, b.at, b.velocity, smoke_->look(b.texture));
     fill_ = false;
 
     if (state_ == State::Countdown && started)

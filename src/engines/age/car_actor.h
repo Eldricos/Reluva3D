@@ -71,6 +71,22 @@ struct CarCamera {
     Vec3 lookAt{0, 1.5f, 0};
     float minDistance = 3, maxDistance = 6;
     float fov = 70; // degrees
+    // How fast a following one catches the car up (a share of the way a
+    // second): across, from MinAppXZPos at MinSpeed to MaxAppXZPos at
+    // MaxSpeed (m/s), the rate rising by at most AppInc a second and
+    // falling by AppDec; up and down, AppYPos.
+    float approachSlow = 6, approachFast = 6, slowSpeed = 0, fastSpeed = 35;
+    float approachRise = 1e9f, approachFall = 1e9f, approachUp = 6;
+    // Drifting (steering past MinHardSteer for DriftDelay seconds), the
+    // rate is FrontRate of itself, letting the car swing out.
+    float hardSteer = 0.8f, driftDelay = 0.3f, driftRate = 1;
+    // Up and down hills it tilts with the car, the slope's sine kept
+    // within HillMin..HillMax, easing HillLerp of the way a frame (at 30).
+    float hillMin = 0, hillMax = 0, hillLerp = 0;
+    // Backing for RevDelay seconds (ReverseOn), it swings round to look
+    // the way the car goes, at RevOnApp's rate, and back at RevOffApp's.
+    bool reverse = false;
+    float reverseDelay = 2, reverseOn = 2, reverseOff = 4;
 };
 std::vector<CarCamera> loadCarCameras(const SearchSet& files, const std::string& car);
 
@@ -79,7 +95,16 @@ std::vector<CarCamera> loadCarCameras(const SearchSet& files, const std::string&
 struct CameraView {
     Vec3 eye{}, target{}, up{0, 1, 0};
 };
-CameraView updateCarCamera(const CarCamera& cam, const CarSim& sim, float dt, Vec3& follow, bool reset);
+// What a following camera keeps from frame to frame.
+struct CameraFollow {
+    Vec3 position{};
+    float rate = 0;       // its approach rate now
+    float hardFor = 0;    // seconds steered hard
+    float backingFor = 0; // seconds going backwards
+    bool backwards = false, swinging = false;
+    float slope = 0; // the hill's sine it's tilted by
+};
+CameraView updateCarCamera(const CarCamera& cam, const CarSim& sim, float dt, CameraFollow& follow, bool reset);
 
 // The 4x4 of a rotation and a position.
 gfx::Mat4 matrixOf(const Mat3& r, const Vec3& p);

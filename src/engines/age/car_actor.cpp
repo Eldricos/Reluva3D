@@ -171,6 +171,25 @@ std::vector<CarCamera> loadCarCameras(const SearchSet& files, const std::string&
         c.minDistance = n.number("MinDist", 0, c.minDistance);
         c.maxDistance = std::max(c.minDistance, n.number("MaxDist", 0, c.maxDistance));
         c.fov = n.number("CameraFOV", 0, c.fov);
+        if (!c.inside && n.number("ApproachOn") != 0) {
+            c.approachSlow = n.number("MinAppXZPos", 0, c.approachSlow);
+            c.approachFast = std::max(c.approachSlow, n.number("MaxAppXZPos", 0, c.approachFast));
+            c.slowSpeed = n.number("MinSpeed", 0, c.slowSpeed);
+            c.fastSpeed = std::max(c.slowSpeed + 1, n.number("MaxSpeed", 0, c.fastSpeed));
+            c.approachRise = n.number("AppInc", 0, c.approachRise);
+            c.approachFall = n.number("AppDec", 0, c.approachFall);
+            c.approachUp = n.number("AppYPos", 0, c.approachUp);
+        }
+        c.hardSteer = n.number("MinHardSteer", 0, c.hardSteer);
+        c.driftDelay = n.number("DriftDelay", 0, c.driftDelay);
+        c.driftRate = n.number("FrontRate", 0, c.driftRate);
+        c.hillMin = n.number("HillMin");
+        c.hillMax = std::max(c.hillMin, n.number("HillMax"));
+        c.hillLerp = std::clamp(n.number("HillLerp"), 0.0f, 1.0f);
+        c.reverse = n.number("ReverseOn") != 0;
+        c.reverseDelay = n.number("RevDelay", 0, c.reverseDelay);
+        c.reverseOn = n.number("RevOnApp", 0, c.reverseOn);
+        c.reverseOff = n.number("RevOffApp", 0, c.reverseOff);
         cameras.push_back(c);
     }
     if (cameras.empty())
@@ -178,7 +197,8 @@ std::vector<CarCamera> loadCarCameras(const SearchSet& files, const std::string&
     return cameras;
 }
 
-CameraView updateCarCamera(const CarCamera& cam, const CarSim& sim, float dt, Vec3& follow, bool reset) {
+CameraView updateCarCamera(const CarCamera& cam, const CarSim& sim, float dt, CameraFollow& follow, bool reset) {
+    constexpr float kFrameRate = 30; // HillLerp is a frame's
     CameraView v;
     if (cam.inside) {
         v.eye = sim.position + sim.orientation * cam.offset;
@@ -186,26 +206,67 @@ CameraView updateCarCamera(const CarCamera& cam, const CarSim& sim, float dt, Ve
         v.up = sim.orientation.y;
         return v;
     }
-    // Following, turned only with the car's heading.
+    // Following, turned only with the car's heading; backing long enough,
+    // the other way round.
+    const float speed = sim.forwardSpeed();
+    follow.backingFor = speed < -1 ? follow.backingFor + dt : 0;
+    const bool backwards = cam.reverse && follow.backingFor > cam.reverseDelay;
+    if (backwards != follow.backwards && !reset)
+        follow.swinging = true;
+    follow.backwards = backwards;
     Vec3 ahead = -sim.orientation.z;
+    const float rise = ahead[1];
     ahead[1] = 0;
     ahead = length(ahead) > 0.1f ? normalized(ahead) : Vec3{0, 0, -1};
+    if (backwards)
+        ahead = -ahead;
     const Mat3 heading{cross(ahead, {0, 1, 0}), {0, 1, 0}, -ahead};
     v.target = sim.position + heading * cam.lookAt;
-    const Vec3 wanted = sim.position + heading * cam.offset;
-    if (reset)
-        follow = wanted;
-    follow += (wanted - follow) * std::min(1.0f, dt * 6);
-    // Within the camera's distances of the car, horizontally.
-    Vec3 flat = follow - v.target;
-    const float height = flat[1];
-    flat[1] = 0;
-    const float d = length(flat);
-    if (d > 1e-3f) {
-        flat = flat * (std::clamp(d, cam.minDistance, cam.maxDistance) / d);
-        follow = v.target + flat + Vec3{0, height, 0};
+    // Tilted with the hill: up behind the car going down, down going up.
+    const float slope = std::clamp(backwards ? -rise : rise, cam.hillMin, cam.hillMax);
+    follow.slope =
+        reset ? slope : follow.slope + (slope - follow.slope) * std::min(1.0f, cam.hillLerp * kFrameRate * dt);
+    Vec3 offset = cam.offset;
+    if (follow.slope != 0) {
+        const float s = follow.slope, c = std::sqrt(std::max(0.0f, 1 - s * s));
+        offset = {offset[0], offset[1] * c - offset[2] * s, offset[2] * c + offset[1] * s};
     }
-    v.eye = follow;
+    const Vec3 wanted = sim.position + heading * offset;
+    // How fast it catches up: by the speed, rising and falling at most so
+    // fast; drifting, slower; swinging round, its own.
+    const float share = std::clamp((std::fabs(speed) - cam.slowSpeed) / (cam.fastSpeed - cam.slowSpeed), 0.0f, 1.0f);
+    const float rate = cam.approachSlow + (cam.approachFast - cam.approachSlow) * share;
+    const float steer = std::fabs(sim.wheels[0].steer) / std::max(0.01f, sim.setup().front.steeringLimit);
+    follow.hardFor = steer >= cam.hardSteer ? follow.hardFor + dt : 0;
+    if (reset) {
+        follow.position = wanted;
+        follow.rate = rate;
+        follow.swinging = false;
+    }
+    follow.rate = std::clamp(rate, follow.rate - cam.approachFall * dt, follow.rate + cam.approachRise * dt);
+    float across = follow.rate;
+    if (follow.hardFor > cam.driftDelay)
+        across *= cam.driftRate;
+    if (follow.swinging) {
+        across = backwards ? cam.reverseOn : cam.reverseOff;
+        follow.swinging = std::hypot(wanted[0] - follow.position[0], wanted[2] - follow.position[2]) > 1;
+    }
+    // Across, round the car: its bearing and distance from the point it
+    // looks at each eased, the distance kept within the camera's.
+    const float pull = std::min(1.0f, dt * across);
+    const float nowX = follow.position[0] - v.target[0], nowZ = follow.position[2] - v.target[2];
+    const float wantX = wanted[0] - v.target[0], wantZ = wanted[2] - v.target[2];
+    float bearing = std::atan2(nowX, nowZ);
+    float turn = std::atan2(wantX, wantZ) - bearing;
+    turn = std::remainder(turn, 6.2831853f);
+    bearing += turn * pull;
+    float distance = std::hypot(nowX, nowZ);
+    distance += (std::hypot(wantX, wantZ) - distance) * pull;
+    distance = std::clamp(distance, cam.minDistance, cam.maxDistance);
+    follow.position[0] = v.target[0] + std::sin(bearing) * distance;
+    follow.position[2] = v.target[2] + std::cos(bearing) * distance;
+    follow.position[1] += (wanted[1] - follow.position[1]) * std::min(1.0f, dt * cam.approachUp);
+    v.eye = follow.position;
     return v;
 }
 

@@ -88,13 +88,25 @@ gfx::TextureId TextureCache::get(const std::string& name, bool& translucent, boo
             if (loadTexture(files_, name, tex)) {
                 if (!optional)
                     missing_.push_back(name);
-            } else
+            } else {
                 e.id = create(tex, e.translucent);
+                e.width = tex.image.w;
+                e.height = tex.image.h;
+            }
         }
         it = textures_.emplace(key, e).first;
     }
     translucent = it->second.translucent;
     return it->second.id;
+}
+
+bool TextureCache::size(const std::string& name, int& width, int& height) const {
+    const auto it = textures_.find(fs::toLower(name));
+    if (it == textures_.end() || !it->second.id)
+        return false;
+    width = it->second.width;
+    height = it->second.height;
+    return true;
 }
 
 gfx::TextureId TextureCache::frame(gfx::TextureId id) const {

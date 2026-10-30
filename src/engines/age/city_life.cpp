@@ -86,7 +86,7 @@ void CityLife::update(float dt, CarSim& player, const std::vector<CarSim*>& othe
                       const RoadGraph& roads, bool fill) {
     lights_.update(dt);
     gizmos_.update(dt, world, player.position);
-    ambient_.update(dt, player.position);
+    ambient_.update(dt, player.position, player.orientation.x, player.velocity);
     if (props_.prepared() && !propsInWorld_) {
         props_.collide(world);
         propsInWorld_ = true;
@@ -159,8 +159,11 @@ void CityLife::draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLi
     traffic_.draw(renderer, models, light, viewProj, eye, lampsLit_, flares);
     peds_.draw(viewProj, eye, light);
     police_.draw(light);
-    if (flares)
+    if (flares) {
         police_.drawFlares(*flares, eye);
+        if (night_)
+            props_.drawGlows(*flares, eye);
+    }
 }
 
 void CityLife::headlightPools(std::vector<gfx::DynamicLight>& out, const Vec3& eye) const {
