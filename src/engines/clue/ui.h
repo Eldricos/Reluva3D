@@ -24,7 +24,9 @@ namespace reluva::clue {
 // (Windows-1252), drawn as its glyph image in its cell.
 class BitmapFont {
 public:
-    BitmapFont(const GameData& data, const ResiFont& font);
+    // Packed: each glyph's ink a pixel after the last's (the ticker), not
+    // by the glyphs' cells.
+    BitmapFont(const GameData& data, const ResiFont& font, bool packed = false);
     int lineHeight() const { return lineHeight_; }
     int width(std::string_view line) const;
     void draw(Surface& s, int x, int y, std::string_view line) const;
@@ -32,6 +34,7 @@ public:
 private:
     struct Glyph {
         const Image* image = nullptr;
+        int dx = 0; // where its image goes from the pen
         int advance = 0;
     };
     std::array<Glyph, 256> glyphs_{};

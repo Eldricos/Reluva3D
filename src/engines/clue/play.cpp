@@ -1560,7 +1560,11 @@ void Play::say(const std::string& sentence) {
 }
 
 void Play::drawTicker() {
-    const BitmapFont* f = fonts_.get(2);
+    // The ticker's font, packed as the original draws it.
+    if (!tickerFont_)
+        if (const ResiFont* rf = resi_.font(2))
+            tickerFont_ = std::make_unique<BitmapFont>(data_, *rf, true);
+    const BitmapFont* f = tickerFont_ ? tickerFont_.get() : fonts_.get(2);
     if (!f || ticker_.empty())
         return;
     // Drawn into a strip the ticker's width, so as to come round.

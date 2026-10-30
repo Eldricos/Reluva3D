@@ -213,6 +213,17 @@ the revolver, the billiard room), read off its ticker:
 
 
 
+## Fonts
+
+The fonts' glyphs are drawn by their cells (an EIMG 0x100 glyph's cell
+width, a 0x200 glyph's image width), as the menus and dialogs show them:
+the Preferences screen's labels measure 103, 111, 91 and 92 pixels in
+the longplay at 640×480 (L 1:02), Reluva's 105, 115, 92 and 94. The
+ticker's sentence is drawn packed, each glyph's ink a pixel after the
+last's and a space its cell and a pixel: "Miss Scarlet, it is your turn."
+is 169 pixels in the longplay (L 3:00) and the VM recording, 189 by
+cells, 172 packed.
+
 ## Hot spots, weather and sounds
 
 Source: `clue.lvl` and the objects (`.o`), the readme ("Clickable Items

@@ -197,6 +197,7 @@ private:
     std::string ticker_;
     uint64_t tickerSince_ = 0;
     Surface tickerStrip_;
+    std::unique_ptr<BitmapFont> tickerFont_;
     std::vector<std::string> tickerLines_;
     std::vector<std::string> cardNames_; // Notepad.txt's, in card order
     std::array<std::string, 3> kindNames_; // its headings

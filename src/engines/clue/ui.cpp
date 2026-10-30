@@ -47,7 +47,7 @@ bool clickable(const ResiControl& c) {
 
 } // namespace
 
-BitmapFont::BitmapFont(const GameData& data, const ResiFont& font) {
+BitmapFont::BitmapFont(const GameData& data, const ResiFont& font, bool packed) {
     const Animation* a = data.animation(font.animation);
     if (!a || a->layers.empty())
         return;
@@ -61,8 +61,33 @@ BitmapFont::BitmapFont(const GameData& data, const ResiFont& font) {
         if (part.image >= a->images.size())
             continue;
         g.image = data.image(a->images[part.image]);
-        if (g.image)
-            g.advance = (g.image->version == 0x100 ? g.image->cellW : g.image->pixels.w) + font.textSpacing;
+        if (!g.image)
+            continue;
+        g.advance = (g.image->version == 0x100 ? g.image->cellW : g.image->pixels.w) + font.textSpacing;
+        g.dx = g.image->offsetX;
+        if (!packed)
+            continue;
+        // Packed: each glyph's ink one pixel after the last's, as the
+        // original draws its ticker (its sentence 168 pixels wide in a
+        // 640x480 recording, 189 by the glyphs' cells; the same font's
+        // labels in dialogs are drawn by their cells). A glyph without ink
+        // (the space) keeps its cell and a pixel.
+        const image::Image& px = g.image->pixels;
+        int first = -1, last = -1;
+        for (int x = 0; x < px.w; ++x)
+            for (int y = 0; y < px.h; ++y)
+                if (px.pixel(x, y)[3]) {
+                    if (first < 0)
+                        first = x;
+                    last = x;
+                    break;
+                }
+        if (first < 0) {
+            g.advance += 1;
+            continue;
+        }
+        g.dx = -first;
+        g.advance = last - first + 2 + font.textSpacing;
     }
 }
 
@@ -77,7 +102,7 @@ void BitmapFont::draw(Surface& s, int x, int y, std::string_view line) const {
     for (char ch : line) {
         const Glyph& g = glyphs_[uint8_t(ch)];
         if (g.image)
-            image::blit(s, g.image->pixels, x + g.image->offsetX, y + g.image->offsetY);
+            image::blit(s, g.image->pixels, x + g.dx, y + g.image->offsetY);
         x += g.advance;
     }
 }
