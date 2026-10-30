@@ -142,14 +142,33 @@ A polygon is 14 bytes:
 |---|---|---|
 | 0 | 4 × u16 | vertices, of its block (or its object). A quad; a triangle repeats one. |
 | 8 | u16 | an entry of the texture table |
-| 10 | u16 | the animation's first texture entry (as at 8 when animated; 0 except on lane markings, where nothing found reads it) |
-| 12 | u8 | flags: `0x10` two-sided, `0x04` animated, `0x01` (none in the files); `0x20` and `0x40` are common but nothing found reads them |
+| 10 | u16 | the animation's first texture entry (as at 8 when animated); read only on animated polygons, below |
+| 12 | u8 | flags: `0x10` two-sided, `0x04` animated, `0x01` (none in the files); `0x20` and `0x40` are never tested, below |
 | 13 | u8 | the animation: delay in ticks in the top 5 bits, frames in the low 3 (`0xF9`: 31 ticks, 1 frame, still) |
 
 An animated polygon's texture entry is the one at 10, plus
 (t / delay) mod frames, t the game's tick count (64 a second;
 `0x41b52b`). The track's animated polygons have 28, 84 or 86: 3 or 10
 ticks, 4-6 frames.
+
+What reads the polygons (nfs3.exe, October 2026). The three loops that
+draw them (`0x41ae90`, `0x41b2f0`, `0x41b640`) copy byte 12 and test
+only `0x10`, `0x01` (`0x41b4e6`, `0x41b7c8`) and `0x04` (`0x41b52b`,
+`0x41b80a`). No other code was found reading byte 12 (every read of a
+polygon's +12, and every loop stepping 14 bytes, was checked), and the
+car's road finding (`0x41e990`) uses the 8-byte road records, not the
+polygons. So:
+
+- **`0x20` and `0x40`** do nothing in the game. Over the nine tracks
+  the roadside lists (1, 3, 5) all have `0x20`; lane markings never
+  have either; on the road (list 4), `0x20` is on 5 % and `0x40` on
+  8 %, inside the slices' runs like the rest; `0x60` is rare (6 to 115 a
+  track). Probably editor marks.
+- **The field at 10** is read only behind the `0x04` test (`0x41b563`,
+  `0x41b842`). Lane markings (list 6, 27,748 polygons) all have flags
+  0, so theirs is never read. The values there (mostly 0-7, also 38,
+  42, 43 and some like `0x845`, `0x8004`, `0xFEFE`) look like
+  leftovers.
 
 Each block has seven lists. Each list is a u32 count, then (if it isn't
 0) the count again and the polygons:
@@ -236,10 +255,26 @@ between keys this close).
 | 2 | u16 | height |
 | 4 | u32 | room for the picture's handle: the game writes it at load (`0x419b4d`); the files hold leftovers |
 | 8 | 8 floats | u, v of polygon corners 0 to 3 |
-| 40 | u8 | flags: `0x02` a see-through surface, drawn half grey and half clear and sorted by depth (`0x41b596`); `0x04` left out of a second pass over the road (`0x41ae90`, not identified). Values 0, 4, 6 |
+| 40 | u8 | flags: `0x02` a see-through surface, drawn half grey and half clear and sorted by depth (`0x41b596`); `0x04` not lit by the headlights' projected texture (below). Values 0, 4, 6 |
 | 41 | 3 | not read (byte 43 often `0xFF`) |
 | 44 | u8 | 1: a lane texture |
 | 45 | u16 | the picture's number |
+
+**Texture flag `0x04` and the headlights.** `0x41ae90` is called for
+each car (the loop at `0x41c6cc` over the cars, `0x5efac8`) and each
+list of a block in view: the road and roadside at the block's detail,
+three object layers, and the lane markings at high detail. With the
+`projtex` option on (`0x6fbc3c`, its name in the options table at
+`0x55676c`) and the z-buffer in use (`0x7a3a60`, `0x431b44`), a polygon
+whose texture lacks `0x04` is drawn again as two triangles with the
+headlight picture (`0x41b24c` → `0x41a360` → `0x41a120`, with a
+fixed texture, `0x8b4814`). One whose texture has `0x04`, or any polygon with the
+option off (or a light record of type 1), only has the light added to
+its vertices' colours (`0x41b0cd`). The car's light reach (10 to 40,
+or 20 to 60) is set from the same option at `0x42d253`; that this is
+the headlights comes from that and the option's name, not from seeing
+it. Over the nine tracks, every lane marking and every roadside polygon has `0x04`, as
+do 30 % of object polygons and 5 % of the road's.
 
 The picture is the shape named by its number (`0042`) in the track's
 sheet, `trNN0.qfs` (or `trNN1.qfs`, an alternative set that differs in a
