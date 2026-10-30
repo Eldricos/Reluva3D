@@ -1205,7 +1205,13 @@ void ScenePage::draw() {
             }
         auto slotZ = [&](const ModelSlot& s) {
             const Character& c = characters_[s.character];
-            return s.footprint < 0 ? c.z : c.footprints[size_t(s.footprint)].z;
+            // A character's depth field when it isn't 0, else where it
+            // stands (0x4104b0, every object's: Antoinette at 11000 in front
+            // of the dining car's tables in 7A).
+            if (s.footprint >= 0)
+                return c.footprints[size_t(s.footprint)].z;
+            const float depth = c.record ? c.record->f("depth") : 0.0f;
+            return depth != 0 ? depth : c.z;
         };
         auto slotIndex = [&](const ModelSlot& s) {
             const Character& c = characters_[s.character];

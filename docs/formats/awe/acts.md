@@ -269,8 +269,9 @@ its end, `-log n` the script log from the n-th action on. With `-v`
 the log numbers each choice taken (`choice 1104c12: 1 of [...]`, the
 12th choice of action 1104), and `-shot <n> <out.tga>` saves the screen
 just before action n, `-shot <n>c<k> <out.tga>` just before that choice
-is taken (drawn: with `-3d`, the 3D under the 2D); `-shots <dir>` saves
-one before every action.
+is taken, `-shot <n>l<k> <out.tga>` a second into the k-th line said in
+action n (with `-sound`, so lines last) (drawn: with `-3d`, the 3D under
+the 2D); `-shots <dir>` saves one before every action.
 
 `-reloadeach` saves the game after every action and loads it again, as
 the save and load screens do, plays on from the loaded game, and lists

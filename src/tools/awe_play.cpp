@@ -147,6 +147,13 @@ public:
                 unlocked_ = true;
             else if (at != std::string::npos && l.compare(at, std::string::npos, "lock") == 0)
                 unlocked_ = false;
+            // A line said ("    speaker: text"): -shot <n>l<k> takes the k-th
+            // of action n a second after it starts.
+            if (at == 4 && l.find(": ") != std::string::npos && l.find(' ', at) > l.find(':', at)) {
+                linesSaid_++;
+                if (const auto s = lineShots.find({action, linesSaid_}); s != lineShots.end())
+                    lineShotAt_ = sys_.now + 1000, lineShotFile_ = s->second;
+            }
         };
         page_->setDrawing(false);
         page_->activate();
@@ -163,7 +170,10 @@ public:
 
     // -shot <n>c<k>: before the k-th choice of action n is taken, a shot
     // of the box.
-    std::map<std::pair<size_t, size_t>, std::string> choiceShots;
+    std::map<std::pair<size_t, size_t>, std::string> choiceShots, lineShots; // -shot <n>l<k>: a second into a line
+    size_t linesSaid_ = 0;
+    uint64_t lineShotAt_ = 0;
+    std::string lineShotFile_;
     size_t action = 0; // the playthrough's action being done, from 1
 
     // -shot: the screen as it is now, drawn (the 3D under the 2D with a
@@ -222,6 +232,11 @@ public:
         size_t lastLog = log_.size();
         while (sys_.now - start < uint64_t(limit_ * 1000)) {
             step();
+            if (!lineShotFile_.empty() && sys_.now >= lineShotAt_) {
+                const std::string file = std::exchange(lineShotFile_, std::string());
+                std::printf("  shot at line %zul%zu: %s %s\n", action, linesSaid_, file.c_str(),
+                            shot(file) ? "saved" : "not saved");
+            }
             if (hand)
                 deliver(page_->handWhileRunning());
             else
@@ -830,6 +845,7 @@ bool replay(Player& player, std::vector<Action>& path, bool print, size_t& done,
                         player.shot(s->second) ? "saved" : "not saved");
         const size_t logAt = player.log().size();
         player.action = done + 1;
+        player.linesSaid_ = 0;
         const bool ok = player.act(a);
         const ScenePage::GameStatus st = player.page().status();
         if (print)
@@ -884,7 +900,7 @@ int aweCommandSolve(int argc, char** argv) {
     std::string wavFile;
     std::map<size_t, std::string> shots;
     std::string shotsDir; // -shots: a frame before every action
-    std::map<std::pair<size_t, size_t>, std::string> choiceShots; // -shot: before which action or choice, to which file
+    std::map<std::pair<size_t, size_t>, std::string> choiceShots, lineShots; // -shot: before which action or choice, to which file
     size_t logFrom = SIZE_MAX; // -log n: the script log from the n-th action on
     for (int i = 3; i < argc; i++) {
         const std::string a = argv[i];
@@ -933,6 +949,10 @@ int aweCommandSolve(int argc, char** argv) {
             sound = true, wavFile = argv[++i];
         else if (a == "-shots" && i + 1 < argc)
             shotsDir = argv[++i];
+        else if (a == "-shot" && i + 2 < argc && std::strchr(argv[i + 1], 'l'))
+            lineShots[{size_t(std::atoi(argv[i + 1])), size_t(std::atoi(std::strchr(argv[i + 1], 'l') + 1))}] =
+                argv[i + 2],
+                i += 2;
         else if (a == "-shot" && i + 2 < argc && std::strchr(argv[i + 1], 'c'))
             choiceShots[{size_t(std::atoi(argv[i + 1])), size_t(std::atoi(std::strchr(argv[i + 1], 'c') + 1))}] =
                 argv[i + 2],
@@ -959,6 +979,7 @@ int aweCommandSolve(int argc, char** argv) {
     player.mouse = mouse;
     player.hand = hand;
     player.choiceShots = choiceShots;
+    player.lineShots = lineShots;
 
     if (!playFile.empty()) {
         std::vector<Action> path;

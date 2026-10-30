@@ -10,7 +10,10 @@ This comes from `motoe.exe` (English 1.0), read in a disassembler to make
 Reluva work with the game:
 
 - the frame render (`0x402ed0`) and the scene's draw in depth order
-  (`0x435d90`, the depth `0x4104b0`);
+  (`0x435d90`, the depth `0x4104b0`: the object's depth field when it
+  isn't 0, else its z, characters' too. 35 characters set one, as
+  Antoinette's 11000 in the 7A dining car, in front of the tables'
+  cutouts at 2000);
 - the model mesh draw and its shadow pass (`0x428500` → `0x428250`), and
   where a mesh is made rigid (`0x427ff5`, `GrannyMeshIsRigid`);
 - the darkening quad (`0x402ba0`);

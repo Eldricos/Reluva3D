@@ -400,7 +400,8 @@ model moves it puts the rectangle back at that offset (`0x40eb60`, from
 `GrannyWorldSpaceToWindowSpace`).
 
 The objects are sorted by depth (`0x435e40`, a bubble sort on `d0`, else
-z: `0x4104b0`; a character's z is where it stands) and tried from the
+z: `0x4104b0`; a character's z is where it stands, unless its own depth
+field is set) and tried from the
 front, in three passes. A pass's first hit is the answer:
 
 1. Objects with `pickFirst` that have a rectangle or an outline

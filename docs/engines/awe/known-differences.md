@@ -46,8 +46,10 @@ The format pages give the detail; this page gathers them.
 
 - **Fades go by the clock.** The game steps a fade by 8/255 every 0.01 s
   but at most one step a frame, so it fades more slowly when frames are
-  slow. Reluva steps by the time that has passed. See
-  [acts.md](../../formats/awe/acts.md).
+  slow. Reluva steps by the time that has passed: 32 steps, 0.32 s. The
+  recordings' fades measured 0.27 to 0.47 s: the longer ones are the
+  game's frame-bound steps; the shortest is under the 0.32 s the game
+  can't go below, within what a 30 fps video can tell of a ramp's ends. See [acts.md](../../formats/awe/acts.md).
 
 ## Saves and scenes
 

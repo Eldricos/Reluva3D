@@ -24,14 +24,31 @@ settled, move it to the format page it belongs to and take it off here.
 
 ## Checked only against recordings
 
-These were compared with the walkthrough videos, whose encoding shifts
-colours and brightness, so small differences can't be told apart from
-the video's:
+The recordings were calibrated before comparing: the prerendered
+background a frame shows is in the install, so fitting the frame's
+pixels against it (where nothing covers it) gives the recording's colour
+transform, per channel (see
+[reverse-engineering.md](reverse-engineering.md)). The walkthrough comes
+out about 1.10 to 1.15 x the true value, less 10 to 13, varying a little
+from part to part: about 10 to 20 % more contrast, most likely the
+capture's video range read as full range. What's left after that:
 
-- the lit characters' colours (the specular brings the dress and skin
-  nearer the recording's; the skin is still a little paler in Reluva);
-- the dialogue text's brightness (a shade brighter in the recordings);
-- fade lengths (0.27 to 0.47 s in a recording, as straight ramps).
+- **The characters' colours.** In Salon_02 (6B, Part 7 at 6:22, the
+  frame's own fit at a correlation of 0.997), Reluva's frame put through
+  the same transform and the walkthrough's encoding, Antoinette and
+  Hubbard agree with the recording within 5 to 10 % per channel. The
+  Count comes out 1.6 to 1.9 times brighter in the recording there; his
+  pose differs (head up and turned in the recording, down in Reluva's),
+  and in his two other recorded scenes (Part 7 at 6:43, Part 9 at 33:47)
+  he looks alike, though their close-ups leave too little background to
+  measure. Left open: likely the pose.
+- **The dialogue text.** Its colour is the right `fonts.txt` one (a
+  second speaker's line comes out nearest colour 9, as the game's rule
+  gives) and as bright as Reluva's within what the video can show: thin
+  coloured text is smeared by the video's quarter-resolution colour, and
+  the method's own error there (25 % or more in green and blue) is as
+  large as any difference. The "shade brighter" look is the recording's
+  contrast.
 
 ## Settled since
 
@@ -54,6 +71,10 @@ Moved to their format pages; kept here so the reasoning can be found:
 - **The dialogue font:** the code measures and draws the lines with font
   1, the second row of `fonts.txt`. [dialogue.md](../../formats/awe/dialogue.md),
   section 6.
+- **Fade lengths:** the recordings' 0.27 to 0.47 s are the game's fade
+  of at most one step a frame (0.32 s at the least; the 0.27 s within
+  the video's measurement); listed with the known differences.
+  [known-differences.md](known-differences.md).
 - **The save's thumbnail:** a 24-bit BMP. D3DX's BMP writer in the game
   writes only 24- and 8-bit files; Reluva wrote 32-bit and now writes
   24. [saves.md](../../formats/awe/saves.md).

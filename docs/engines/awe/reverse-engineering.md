@@ -85,6 +85,14 @@ The walkthrough is about ten hours of video. To find a moment in it:
   salon gives her "not in the mood" line, not her conversation's
   opening.
 
+To compare colours, the recording's own colour transform is fitted
+first: the background a frame shows is a picture in the install, so the
+frame's pixels where nothing covers it, against the picture's, give per
+channel how the capture and the video changed the game's colours. Reluva's
+frame is then put through the same transform and the same encoding (1280
+x 720, 4:2:0 H.264 at the walkthrough's bitrate) before the two are
+compared.
+
 Then frames of the recording and Reluva's frames of the same moment
 were set side by side, or measured: shadows' darkness, direction and
 length from the owner's clips, lit colours in patches, fade lengths
