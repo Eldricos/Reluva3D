@@ -791,6 +791,80 @@ static void testRules() {
     CHECK(trap.standingSquare(Scarlet) == board.standing(Hall)[0]);
 }
 
+// The notebook's deductions, on a made-up deal.
+static void testNotebook() {
+    Board board;
+    CHECK(!board.build(testBoardLevel()));
+    Game game;
+    CHECK(!game.start(board, {true, true, true, false, false, false}, false, 9));
+    const Accusation& answer = game.solution();
+    Notebook n;
+    n.reset(game, Scarlet, true, true);
+    // Its own cards; the seats not playing hold nothing.
+    for (int c : game.seat(Scarlet).hand)
+        CHECK(n.holder(c) == Scarlet && n.outOfCaseFile(c));
+    CHECK(n.mark(0, White + 1) == Notebook::No);
+    CHECK(!n.complete());
+    // Mustard shown holding a card: nobody else has it.
+    const int m = game.seat(Mustard).hand[0];
+    n.holds(Mustard, m);
+    CHECK(n.holder(m) == Mustard && n.mark(m, White) == Notebook::No && n.outOfCaseFile(m));
+    // White, who showed one of three without it being seen, two of them
+    // being known to be elsewhere: the third is hers.
+    const int w = game.seat(White).hand[0];
+    std::array<int, 3> three{w, game.seat(Scarlet).hand[0], m};
+    std::sort(three.begin(), three.end());
+    n.holdsOneOf(White, three);
+    CHECK(n.holder(w) == White);
+    // Told everything but the answer's: the answer is found.
+    for (int s : {Mustard, White})
+        for (int c : game.seat(s).hand)
+            n.holds(s, c);
+    CHECK(n.complete() && n.solved(0) == suspectCard(answer.suspect) && n.solved(1) == weaponCard(answer.weapon) &&
+          n.solved(2) == roomCard(answer.room));
+    // Counting: a player whose hand is all found holds nothing else; one
+    // lacking all cards but as many as they hold, holds those.
+    Notebook c;
+    c.reset(game, Scarlet, true, true);
+    for (int card : game.seat(White).hand)
+        c.holds(White, card);
+    for (int card = 0; card < kCardCount; ++card)
+        if (std::find(game.seat(White).hand.begin(), game.seat(White).hand.end(), card) == game.seat(White).hand.end())
+            CHECK(c.mark(card, White) == Notebook::No);
+    Notebook d;
+    d.reset(game, Scarlet, true, true);
+    for (int card = 0; card < kCardCount; ++card)
+        if (std::find(game.seat(Mustard).hand.begin(), game.seat(Mustard).hand.end(), card) ==
+            game.seat(Mustard).hand.end())
+            d.lacks(Mustard, card);
+    for (int card : game.seat(Mustard).hand)
+        CHECK(d.holder(card) == Mustard);
+    // Without counting (a novice), the same leaves them open.
+    Notebook e;
+    e.reset(game, Scarlet, false, false);
+    for (int card = 0; card < kCardCount; ++card)
+        if (std::find(game.seat(Mustard).hand.begin(), game.seat(Mustard).hand.end(), card) ==
+            game.seat(Mustard).hand.end())
+            e.lacks(Mustard, card);
+    CHECK(e.holder(game.seat(Mustard).hand[0]) == -1); // White's or the case file's, for all it can tell
+    // A wrong accusation naming the two cards known to be the answer's:
+    // its room isn't.
+    Notebook f;
+    f.reset(game, Scarlet, true, true);
+    for (int s : {Mustard, White})
+        for (int card : game.seat(s).hand)
+            if (card < roomCard(0))
+                f.holds(s, card);
+    CHECK(f.solved(0) == suspectCard(answer.suspect) && f.solved(1) == weaponCard(answer.weapon));
+    int wrongRoom = -1;
+    for (int r = 0; r < kRoomCount; ++r)
+        if (r != answer.room && !f.outOfCaseFile(roomCard(r)))
+            wrongRoom = r;
+    CHECK(wrongRoom >= 0);
+    f.notAll({suspectCard(answer.suspect), weaponCard(answer.weapon), roomCard(wrongRoom)});
+    CHECK(f.outOfCaseFile(roomCard(wrongRoom)));
+}
+
 // Computer players alone, to the end: someone must win, and as they only
 // accuse when sure, nobody wrongly.
 static void testComputerPlayers() {
@@ -819,8 +893,7 @@ static void testComputerPlayers() {
                     CHECK(!game.show(ai[size_t(game.disprover())].chooseShow(game, game.turn())));
                 for (int s = 0; s < kSuspectCount; ++s)
                     if (playing[size_t(s)])
-                        ai[size_t(s)].observe(game, game.turn(), game.suggestion(), game.disprover(),
-                                              s == game.turn() ? game.shown() : -1);
+                        ai[size_t(s)].observe(game);
                 break;
             }
             case ComputerPlayer::Action::Accuse: CHECK(!game.accuse(me.chooseAccusation())); break;
@@ -845,6 +918,7 @@ int main() {
     testDialog(std::filesystem::temp_directory_path() / "reluva_clue_dialog");
     testBoard();
     testRules();
+    testNotebook();
     testComputerPlayers();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);

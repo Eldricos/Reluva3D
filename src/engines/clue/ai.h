@@ -3,10 +3,18 @@
 
 #pragma once
 
-// A computer player: what it has learned, and its choices. For now a plain
-// one: it heads for the nearest room it knows nothing of, suggests what it
-// doesn't know, and accuses once a single card of each kind is left. How
-// the original's three levels play is for later (docs/engines/clue.md).
+// The computer players: a notebook of what each knows of who holds which
+// card, deduced from what it sees, and their choices. The three levels of
+// the set-up screen deduce more or less (see docs/engines/clue.md):
+//
+// - Novice: only what it is shown, and its own suggestions nobody could
+//   answer.
+// - Normal: also who couldn't answer others' suggestions, and that each
+//   card is in one place only.
+// - Expert: also who must hold one of the cards of a suggestion they
+//   answered, how many cards each holds, and others' wrong accusations;
+//   and it plays to learn the most: naming cards it knows when a kind is
+//   settled, showing a card the suggester has already seen.
 
 #include "engines/clue/rules.h"
 
@@ -17,13 +25,53 @@
 
 namespace reluva::clue {
 
+// Who holds each card, as far as can be told: the seats 0-5 and the case
+// file (kCaseFile).
+class Notebook {
+public:
+    static constexpr int kCaseFile = kSuspectCount, kOwners = kSuspectCount + 1;
+    enum Mark : uint8_t { Unknown, Yes, No };
+
+    // A fresh notebook for the seat `me`: its hand known, the seats not
+    // playing holding nothing, every playing seat `handSize` cards.
+    void reset(const Game& game, int me, bool countCards, bool useClues);
+
+    Mark mark(int card, int owner) const { return marks_[size_t(card)][size_t(owner)]; }
+    int holder(int card) const;  // the owner known to hold it, or -1
+    bool inCaseFile(int card) const { return mark(card, kCaseFile) == Yes; }
+    bool outOfCaseFile(int card) const { return mark(card, kCaseFile) == No; }
+    int solved(int kind) const;  // 0 suspects, 1 weapons, 2 rooms: the card known in the case file, or -1
+    bool complete() const { return solved(0) >= 0 && solved(1) >= 0 && solved(2) >= 0; }
+    int unknownCount() const;    // cards whose place isn't known
+
+    // What can be seen happen.
+    void holds(int owner, int card);              // shown it, or it's in one's hand
+    void lacks(int owner, int card);              // couldn't show it
+    void holdsOneOf(int owner, const std::array<int, 3>& cards); // showed one, not seen which
+    void notAll(const std::array<int, 3>& cards); // a wrong accusation: not all three in the case file
+
+private:
+    void set(int card, int owner, Mark m);
+    void settle(); // deduce until nothing more can be
+
+    std::array<std::array<Mark, kOwners>, kCardCount> marks_{};
+    std::array<int, kOwners> handSize_{};
+    std::vector<std::pair<int, std::array<int, 3>>> oneOf_;
+    std::vector<std::array<int, 3>> notAll_;
+    bool countCards_ = true, useClues_ = true;
+    bool contradiction_ = false;
+};
+
 class ComputerPlayer {
 public:
-    void reset(const Game& game, int me, uint32_t seed);
+    enum Level { Novice, Normal, Expert };
 
-    // What it learns from each suggestion answered (shown: the card it was
-    // shown, when it made the suggestion; -1 otherwise).
-    void observe(const Game& game, int suggester, const Accusation& s, int disprover, int shown);
+    void reset(const Game& game, int me, uint32_t seed, int level = Expert);
+
+    // After a suggestion is answered (or not): what this player can see of
+    // it. A wrong accusation: what was accused.
+    void observe(const Game& game);
+    void observeAccusation(const Accusation& a);
 
     enum class Action { Roll, Passage, Walk, Suggest, Accuse, EndTurn };
     Action decide(const Game& game);
@@ -32,18 +80,20 @@ public:
     Accusation chooseAccusation() const;
     int chooseShow(const Game& game, int suggester);
 
-    bool ready() const; // one card of each kind left: it knows the answer
-    bool knownOut(int card) const { return out_[size_t(card)]; }
+    bool ready() const { return notes_.complete(); }
+    const Notebook& notebook() const { return notes_; }
+    int level() const { return level_; }
 
 private:
     int distance(const Place& from, int room) const;
     int target(const Game& game) const;
-    int pick(int first, int count);
+    bool roomWanted(int room) const;
+    int pick(int kind, const Game& game);
 
     int me_ = 0;
+    int level_ = Expert;
     std::mt19937 rng_;
-    std::array<bool, kCardCount> out_{};   // known not to be in the case file
-    std::array<bool, kCardCount> found_{}; // known to be in it
+    Notebook notes_;
     // The steps from each corridor square to each room.
     std::array<std::map<Square, int>, kRoomCount> toRoom_;
     std::map<int, std::vector<int>> shownTo_; // the cards it has shown each suspect

@@ -157,7 +157,9 @@ Error Play::start(const std::array<Player, kSuspectCount>& players, bool noDieRo
     // humans out of the game who let it disprove for them.
     for (int s = 0; s < kSuspectCount; ++s)
         if (playing[size_t(s)])
-            ai_[size_t(s)].reset(game_, s, seed * 7919u + uint32_t(s));
+            ai_[size_t(s)].reset(game_, s, seed * 7919u + uint32_t(s),
+                                 players[size_t(s)].kind == Player::Computer ? players[size_t(s)].level
+                                                                             : ComputerPlayer::Expert);
     for (int s = 0; s < kSuspectCount; ++s) {
         Board::standingPoint(board_.start(s), walkers_[size_t(s)].x, walkers_[size_t(s)].y);
         walkers_[size_t(s)].facing = 4;
@@ -451,7 +453,7 @@ void Play::suggestionMade() {
         told_.reset();
         for (int k = 0; k < kSuspectCount; ++k)
             if (players_[size_t(k)].kind != Player::None)
-                ai_[size_t(k)].observe(game_, s, a, d, k == s ? game_.shown() : -1);
+                ai_[size_t(k)].observe(game_);
         if (game_.shown() >= 0) {
             shownBy_[size_t(s)][size_t(game_.shown())] = d;
             // Auto Notes: the card crossed off in the colour of who showed it.
@@ -483,6 +485,9 @@ void Play::accusationMade(const Accusation& a) {
             then([this] { finished_ = true; });
             return;
         }
+        for (int k = 0; k < kSuspectCount; ++k)
+            if (players_[size_t(k)].kind != Player::None)
+                ai_[size_t(k)].observeAccusation(a);
         say(line(s, kAccusedWrong));
         sound(std::string("accuse incorrect ") + kVoice[s] + ".WAV", true);
         placeWalkers(false); // off a doorway

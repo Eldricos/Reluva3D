@@ -9,14 +9,198 @@
 
 namespace reluva::clue {
 
-void ComputerPlayer::reset(const Game& game, int me, uint32_t seed) {
-    me_ = me;
-    rng_.seed(seed);
-    out_.fill(false);
-    found_.fill(false);
-    shownTo_.clear();
+namespace {
+
+constexpr int kKindFirst[3] = {suspectCard(0), weaponCard(0), roomCard(0)};
+constexpr int kKindCount[3] = {kSuspectCount, kWeaponCount, kRoomCount};
+
+std::array<int, 3> cardsOf(const Accusation& a) {
+    return {suspectCard(a.suspect), weaponCard(a.weapon), roomCard(a.room)};
+}
+
+} // namespace
+
+// ---- The notebook --------------------------------------------------------------
+
+void Notebook::reset(const Game& game, int me, bool countCards, bool useClues) {
+    countCards_ = countCards;
+    useClues_ = useClues;
+    contradiction_ = false;
+    oneOf_.clear();
+    notAll_.clear();
+    for (auto& row : marks_)
+        row.fill(Unknown);
+    for (int s = 0; s < kSuspectCount; ++s)
+        handSize_[size_t(s)] = int(game.seat(s).hand.size());
+    handSize_[kCaseFile] = 3;
+    for (int s = 0; s < kSuspectCount; ++s)
+        if (!game.seat(s).playing)
+            for (int c = 0; c < kCardCount; ++c)
+                marks_[size_t(c)][size_t(s)] = No;
+    for (int c = 0; c < kCardCount; ++c)
+        marks_[size_t(c)][size_t(me)] = No;
     for (int c : game.seat(me).hand)
-        out_[size_t(c)] = true;
+        marks_[size_t(c)][size_t(me)] = Yes;
+    settle();
+}
+
+int Notebook::holder(int card) const {
+    for (int o = 0; o < kOwners; ++o)
+        if (mark(card, o) == Yes)
+            return o;
+    return -1;
+}
+
+int Notebook::solved(int kind) const {
+    for (int c = kKindFirst[kind]; c < kKindFirst[kind] + kKindCount[kind]; ++c)
+        if (inCaseFile(c))
+            return c;
+    return -1;
+}
+
+int Notebook::unknownCount() const {
+    int n = 0;
+    for (int c = 0; c < kCardCount; ++c)
+        n += holder(c) < 0;
+    return n;
+}
+
+void Notebook::set(int card, int owner, Mark m) {
+    Mark& at = marks_[size_t(card)][size_t(owner)];
+    if (at == m)
+        return;
+    if (at != Unknown)
+        contradiction_ = true; // seen wrong (it can't be, but nothing is changed for it)
+    else
+        at = m;
+}
+
+void Notebook::holds(int owner, int card) {
+    set(card, owner, Yes);
+    settle();
+}
+
+void Notebook::lacks(int owner, int card) {
+    set(card, owner, No);
+    settle();
+}
+
+void Notebook::holdsOneOf(int owner, const std::array<int, 3>& cards) {
+    if (!useClues_)
+        return;
+    oneOf_.push_back({owner, cards});
+    settle();
+}
+
+void Notebook::notAll(const std::array<int, 3>& cards) {
+    if (!countCards_)
+        return;
+    notAll_.push_back(cards);
+    settle();
+}
+
+void Notebook::settle() {
+    for (bool changed = true; changed;) {
+        changed = false;
+        const auto put = [&](int card, int owner, Mark m) {
+            if (mark(card, owner) == Unknown) {
+                marks_[size_t(card)][size_t(owner)] = m;
+                changed = true;
+            }
+        };
+        for (int c = 0; c < kCardCount; ++c) {
+            // A card is in one place: held by one, lacked by the others;
+            // lacked by all others, held by the last.
+            const int h = holder(c);
+            if (h >= 0)
+                for (int o = 0; o < kOwners; ++o)
+                    if (o != h)
+                        put(c, o, No);
+            int open = -1, opens = 0;
+            for (int o = 0; o < kOwners; ++o)
+                if (mark(c, o) != No) {
+                    open = o;
+                    ++opens;
+                }
+            if (opens == 1)
+                put(c, open, Yes);
+        }
+        // The case file has one card of each kind.
+        for (int k = 0; k < 3; ++k) {
+            int yes = -1, open = -1, opens = 0;
+            for (int c = kKindFirst[k]; c < kKindFirst[k] + kKindCount[k]; ++c) {
+                if (mark(c, kCaseFile) == Yes)
+                    yes = c;
+                if (mark(c, kCaseFile) != No) {
+                    open = c;
+                    ++opens;
+                }
+            }
+            if (yes >= 0)
+                for (int c = kKindFirst[k]; c < kKindFirst[k] + kKindCount[k]; ++c)
+                    if (c != yes)
+                        put(c, kCaseFile, No);
+            if (opens == 1)
+                put(open, kCaseFile, Yes);
+        }
+        if (countCards_) {
+            // So many cards each: all found, the rest lacked; as many left
+            // open as are still to find, all held.
+            for (int o = 0; o < kCaseFile; ++o) {
+                int yes = 0, open = 0;
+                for (int c = 0; c < kCardCount; ++c) {
+                    yes += mark(c, o) == Yes;
+                    open += mark(c, o) == Unknown;
+                }
+                if (open == 0)
+                    continue;
+                if (yes == handSize_[size_t(o)])
+                    for (int c = 0; c < kCardCount; ++c)
+                        put(c, o, No);
+                else if (yes + open == handSize_[size_t(o)])
+                    for (int c = 0; c < kCardCount; ++c)
+                        put(c, o, Yes);
+            }
+            // A wrong accusation: with two of its cards in the case file,
+            // the third isn't.
+            for (const auto& cards : notAll_) {
+                int in = 0, other = -1;
+                for (int c : cards) {
+                    if (inCaseFile(c))
+                        ++in;
+                    else
+                        other = c;
+                }
+                if (in == 2)
+                    put(other, kCaseFile, No);
+            }
+        }
+        // Who showed a card not seen holds one of the three: when two are
+        // lacked, the third.
+        for (const auto& [owner, cards] : oneOf_) {
+            int open = -1, opens = 0;
+            bool held = false;
+            for (int c : cards) {
+                held = held || mark(c, owner) == Yes;
+                if (mark(c, owner) == Unknown) {
+                    open = c;
+                    ++opens;
+                }
+            }
+            if (!held && opens == 1)
+                put(open, owner, Yes);
+        }
+    }
+}
+
+// ---- The player ---------------------------------------------------------------
+
+void ComputerPlayer::reset(const Game& game, int me, uint32_t seed, int level) {
+    me_ = me;
+    level_ = level;
+    rng_.seed(seed);
+    shownTo_.clear();
+    notes_.reset(game, me, level >= Expert, level >= Expert);
     // Each room's distances: from the squares before its doors, outwards.
     const Board& board = game.board();
     for (int r = 0; r < kRoomCount; ++r) {
@@ -40,57 +224,83 @@ void ComputerPlayer::reset(const Game& game, int me, uint32_t seed) {
     }
 }
 
-void ComputerPlayer::observe(const Game& game, int suggester, const Accusation& s, int disprover, int shown) {
-    if (suggester == me_ && shown >= 0)
-        out_[size_t(shown)] = true;
-    // Nobody could answer: what the suggester named and doesn't hold is the
-    // answer. Only the cards it holds itself are sure to be the suggester's.
-    if (disprover < 0 && suggester == me_)
-        for (int c : {suspectCard(s.suspect), weaponCard(s.weapon), roomCard(s.room)})
-            if (!out_[size_t(c)])
-                found_[size_t(c)] = true;
+void ComputerPlayer::observe(const Game& game) {
+    const int suggester = game.turn(), disprover = game.disprover();
+    const std::array<int, 3> cards = cardsOf(game.suggestion());
+    const bool mine = suggester == me_;
+    // Who couldn't answer lacks all three: a novice notes it only of its
+    // own suggestions.
+    if (mine || level_ >= Normal)
+        for (int p : game.passed())
+            for (int c : cards)
+                notes_.lacks(p, c);
+    if (disprover < 0) {
+        // Nobody could: what the suggester doesn't hold is the answer (or
+        // the suggester's, which only it knows).
+        if (mine)
+            for (int c : cards)
+                if (notes_.mark(c, me_) != Notebook::Yes)
+                    notes_.holds(Notebook::kCaseFile, c);
+        return;
+    }
+    if (mine && game.shown() >= 0)
+        notes_.holds(disprover, game.shown());
+    else if (disprover != me_)
+        notes_.holdsOneOf(disprover, cards);
+}
+
+void ComputerPlayer::observeAccusation(const Accusation& a) { notes_.notAll(cardsOf(a)); }
+
+bool ComputerPlayer::roomWanted(int room) const {
+    // A room worth suggesting in: one that may be the answer; or, the room
+    // being known, any (a novice only those in doubt).
+    const int card = roomCard(room);
+    if (!notes_.outOfCaseFile(card))
+        return true;
+    return level_ >= Normal && notes_.solved(2) >= 0;
+}
+
+int ComputerPlayer::pick(int kind, const Game& game) {
+    const int first = kKindFirst[kind], count = kKindCount[kind];
     (void)game;
-}
-
-int ComputerPlayer::pick(int first, int count) {
-    // The one found, else one not known to be out, else any.
-    for (int c = first; c < first + count; ++c)
-        if (found_[size_t(c)])
-            return c - first;
-    std::vector<int> open;
-    for (int c = first; c < first + count; ++c)
-        if (!out_[size_t(c)])
-            open.push_back(c - first);
+    // Settled: the answer (nobody can show it, so what's shown is of the
+    // rest), or a card of its own; a novice names what it likes.
+    const int answer = notes_.solved(kind);
+    if (answer >= 0 && level_ >= Expert)
+        return answer - first;
+    // In doubt: one whose holder isn't known; an expert the one fewest
+    // players might hold, as that settles most.
+    std::vector<int> open, mineToo;
+    for (int c = first; c < first + count; ++c) {
+        if (notes_.holder(c) < 0)
+            open.push_back(c);
+        if (notes_.mark(c, me_) == Notebook::Yes)
+            mineToo.push_back(c);
+    }
     if (open.empty())
-        return int(rng_() % uint32_t(count));
-    return open[rng_() % open.size()];
-}
-
-bool ComputerPlayer::ready() const {
-    const auto known = [&](int first, int count) {
-        int open = 0;
-        for (int c = first; c < first + count; ++c) {
-            if (found_[size_t(c)])
-                return true;
-            open += !out_[size_t(c)];
-        }
-        return open == 1;
-    };
-    return known(suspectCard(0), kSuspectCount) && known(weaponCard(0), kWeaponCount) &&
-           known(roomCard(0), kRoomCount);
+        return answer >= 0 ? answer - first : int(rng_() % uint32_t(count));
+    if (level_ >= Expert) {
+        std::stable_sort(open.begin(), open.end(), [&](int a, int b) {
+            const auto maybe = [&](int c) {
+                int n = 0;
+                for (int o = 0; o < Notebook::kOwners; ++o)
+                    n += notes_.mark(c, o) == Notebook::Unknown;
+                return n;
+            };
+            return maybe(a) < maybe(b);
+        });
+        // One of the best two, by chance, so as not to be read.
+        return open[rng_() % std::min<size_t>(open.size(), 2)] - first;
+    }
+    return open[rng_() % open.size()] - first;
 }
 
 Accusation ComputerPlayer::chooseAccusation() const {
-    const auto only = [&](int first, int count) {
-        for (int c = first; c < first + count; ++c)
-            if (found_[size_t(c)])
-                return c - first;
-        for (int c = first; c < first + count; ++c)
-            if (!out_[size_t(c)])
-                return c - first;
-        return 0;
+    const auto only = [&](int kind) {
+        const int c = notes_.solved(kind);
+        return c >= 0 ? c - kKindFirst[kind] : 0;
     };
-    return {only(suspectCard(0), kSuspectCount), only(weaponCard(0), kWeaponCount), only(roomCard(0), kRoomCount)};
+    return {only(0), only(1), only(2)};
 }
 
 int ComputerPlayer::distance(const Place& from, int room) const {
@@ -111,15 +321,14 @@ int ComputerPlayer::distance(const Place& from, int room) const {
 }
 
 int ComputerPlayer::target(const Game& game) const {
-    // The nearest room still in doubt, not the one it is in; failing that
-    // (it knows the room) the nearest other room, to ask about the rest.
+    // The nearest room worth suggesting in, not the one it is in.
     const Place& at = game.place(me_);
     int best = kNoRoom, bestD = INT_MAX;
     for (int pass = 0; pass < 2 && best == kNoRoom; ++pass)
         for (int r = 0; r < kRoomCount; ++r) {
             if (at.inRoom() && at.room == r)
                 continue;
-            if (pass == 0 && out_[size_t(roomCard(r))] && !found_[size_t(roomCard(r))])
+            if (pass == 0 && !roomWanted(r))
                 continue;
             const int d = distance(at, r);
             if (d < bestD) {
@@ -133,13 +342,14 @@ int ComputerPlayer::target(const Game& game) const {
 ComputerPlayer::Action ComputerPlayer::decide(const Game& game) {
     if (game.canAccuse() && ready())
         return Action::Accuse;
-    if (game.canSuggest())
+    if (game.canSuggest() && (roomWanted(game.place(me_).room) || game.phase() != Game::Phase::Start))
         return Action::Suggest;
     if (game.phase() == Game::Phase::Start) {
         if (game.canTakePassage()) {
-            // Through the passage when the room beyond is one in doubt.
+            // Through the passage when the room beyond is worth it, and
+            // nearer than anything the die might reach.
             const int to = game.board().passage(game.place(me_).room);
-            if (!out_[size_t(roomCard(to))])
+            if (roomWanted(to))
                 return Action::Passage;
         }
         if (game.canRoll())
@@ -161,10 +371,12 @@ std::vector<Place> ComputerPlayer::chooseWalk(const Game& game) {
     int bestD = INT_MAX;
     for (size_t i = 0; i < options.size(); ++i) {
         const Place& end = options[i].back();
-        // Any room in doubt reached now is as good as the one aimed for.
+        // Any room worth it reached now is as good as the one aimed for;
+        // without the die, only with three moves left to suggest there.
         int d = room == kNoRoom ? 0 : distance(end, room);
+        const bool canAfford = !game.noDieRoll() || game.moves() - int(options[i].size()) >= Game::kActionCost;
         if (end.inRoom())
-            d = out_[size_t(roomCard(end.room))] && end.room != room ? d : -1;
+            d = (roomWanted(end.room) || end.room == room) && canAfford ? -1 : d + 2;
         if (d < bestD) {
             bestD = d;
             best = i;
@@ -174,18 +386,29 @@ std::vector<Place> ComputerPlayer::chooseWalk(const Game& game) {
 }
 
 Accusation ComputerPlayer::chooseSuggestion(const Game& game) {
-    return {pick(suspectCard(0), kSuspectCount), pick(weaponCard(0), kWeaponCount), game.place(me_).room};
+    const int s = pick(0, game), w = pick(1, game);
+    return {s, w, game.place(me_).room};
 }
 
 int ComputerPlayer::chooseShow(const Game& game, int suggester) {
-    // A card that suggester has seen already gives nothing away.
     const auto cards = game.disproving();
     if (cards.empty())
         return -1;
     auto& shown = shownTo_[suggester];
-    for (int c : cards)
-        if (std::find(shown.begin(), shown.end(), c) != shown.end())
-            return c;
+    if (level_ >= Normal) {
+        // A card that suggester has seen already gives nothing away; an
+        // expert then shows one already shown to others.
+        for (int c : cards)
+            if (std::find(shown.begin(), shown.end(), c) != shown.end())
+                return c;
+        if (level_ >= Expert)
+            for (const auto& [who, theirs] : shownTo_)
+                for (int c : cards)
+                    if (std::find(theirs.begin(), theirs.end(), c) != theirs.end()) {
+                        shown.push_back(c);
+                        return c;
+                    }
+    }
     const int c = cards[rng_() % cards.size()];
     shown.push_back(c);
     return c;

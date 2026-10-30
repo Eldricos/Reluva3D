@@ -2898,14 +2898,17 @@ int cmdClueBoard(int argc, char** argv) {
     // Games of six computer players on it, alternately with the die and without.
     const int games = argc > 3 ? std::atoi(argv[3]) : 0;
     int turns = 0, unfinished = 0, wrong = 0;
+    std::array<int, 3> wins{};
     for (int g = 0; g < games; ++g) {
         using reluva::clue::ComputerPlayer;
         using reluva::clue::Game;
         Game game;
         game.start(board, {true, true, true, true, true, true}, g % 2 == 1, uint32_t(g + 1));
         std::array<ComputerPlayer, reluva::clue::kSuspectCount> ai;
+        // The levels mixed: two players of each, their seats changing game
+        // to game.
         for (int s = 0; s < reluva::clue::kSuspectCount; ++s)
-            ai[size_t(s)].reset(game, s, uint32_t(g * 31 + s));
+            ai[size_t(s)].reset(game, s, uint32_t(g * 31 + s), (s + g) % 3);
         int steps = 0;
         for (; game.phase() != Game::Phase::Over && steps < 100000; ++steps) {
             ComputerPlayer& me = ai[size_t(game.turn())];
@@ -2920,11 +2923,17 @@ int cmdClueBoard(int argc, char** argv) {
                 if (!e && game.phase() == Game::Phase::Disprove)
                     e = game.show(ai[size_t(game.disprover())].chooseShow(game, game.turn()));
                 for (int s = 0; s < reluva::clue::kSuspectCount; ++s)
-                    ai[size_t(s)].observe(game, game.turn(), game.suggestion(), game.disprover(),
-                                          s == game.turn() ? game.shown() : -1);
+                    ai[size_t(s)].observe(game);
                 break;
             }
-            case ComputerPlayer::Action::Accuse: e = game.accuse(me.chooseAccusation()); break;
+            case ComputerPlayer::Action::Accuse: {
+                const auto a = me.chooseAccusation();
+                e = game.accuse(a);
+                if (!e && game.phase() != Game::Phase::Over)
+                    for (auto& p : ai)
+                        p.observeAccusation(a);
+                break;
+            }
             case ComputerPlayer::Action::EndTurn:
                 e = game.endTurn();
                 ++turns;
@@ -2936,12 +2945,15 @@ int cmdClueBoard(int argc, char** argv) {
             }
         }
         unfinished += game.phase() != Game::Phase::Over;
+        if (game.winner() >= 0)
+            ++wins[size_t(ai[size_t(game.winner())].level())];
         for (int s = 0; s < reluva::clue::kSuspectCount; ++s)
             wrong += game.seat(s).out;
     }
     if (games)
-        std::printf("%d games: %d unfinished, %d wrong accusations, %.1f turns a game\n", games, unfinished, wrong,
-                    double(turns) / games);
+        std::printf("%d games: %d unfinished, %d wrong accusations, %.1f turns a game; won by novices %d, normal "
+                    "players %d, experts %d\n",
+                    games, unfinished, wrong, double(turns) / games, wins[0], wins[1], wins[2]);
     return unfinished ? 1 : 0;
 }
 #endif // RELUVA_ENGINE_CLUE

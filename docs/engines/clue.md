@@ -115,14 +115,15 @@ Each step can be seen working before the next.
    videos, disproving, the card shown, the solution, the notepad and the
    cards, the board from above, the ticker's sentences and the spoken
    lines. Hot seat: each human sees only their own cards and notes.
-   Weapons are cards only: the mansion has no weapon tokens. Plain
-   computer players for now (below). Unit tests for the board, the
+   Weapons are cards only: the mansion has no weapon tokens. Computer
+   players at three levels (step 6). Unit tests for the board, the
    rules and whole games of computer players.
-6. **Computer players.** For now they head for the nearest room they know
-   nothing of, suggest what they don't know, show a card already shown
-   when they can, and accuse only when sure; the three levels play
-   alike. To do: note and deduce as the originals do; their choices
-   compared with the original's over recorded games.
+6. **Computer players** (done, to be compared with more of the
+   original's games). Each keeps a notebook of who holds which card
+   (`ai.h`) and deduces from what it sees; the set-up screen's three
+   levels see and deduce more or less (below). Unit tests for the
+   deductions; `reluva-tool clue-board <clue.lvl> <games>` plays mixed
+   games of the three levels on the real board.
 7. **The rest.** The clickable objects' animations, thunder and other
    ambient sounds, music (see below), saved games and `Prefs.ini`. Saved
    games are Reluva's own: the original's needn't load.
@@ -130,6 +131,38 @@ Each step can be seen working before the next.
    games over the internet by address in place of the Gaming Zone, which
    is gone. Whether to speak DirectPlay's protocol, so as to play against
    the original, is to be decided then.
+
+## The computer players
+
+Each computer player keeps a notebook: for each card, whether each
+player and the case file hold it, lack it, or might. What it notes, by
+level:
+
+| | Novice | Normal | Expert |
+|---|---|---|---|
+| Its own cards; cards shown to it | yes | yes | yes |
+| Its suggestions nobody could answer: what it doesn't hold is the answer | yes | yes | yes |
+| Who couldn't answer a suggestion lacks its three cards | its own suggestions | all | all |
+| A card is in one place; the case file holds one of each kind | yes | yes | yes |
+| Who answered a suggestion it didn't see holds one of the three | | | yes |
+| How many cards each holds | | | yes |
+| A wrong accusation: not all three are the answer | | | yes |
+
+It accuses only when it knows the answer, so computer players never
+accuse wrongly. It heads for the nearest room that may be the answer
+(once the room is known, any room), taking a secret passage when the
+room beyond is worth it; without the die, it keeps three moves to
+suggest with. It names what it doesn't know; an expert names a kind's
+answer once it knows it (nobody can show it, so what is shown is of the
+rest) and, among the unknown, the card fewest players might hold. When
+showing a card, a normal player shows one the suggester has already
+seen; an expert otherwise one already shown to someone else.
+
+In 600 games of two of each level (`clue-board ... 600`), the experts
+won 483, the normal players 74 and the novices 43, in 38 turns a game
+on average. How the original's levels differ isn't known: its
+computer players' play is to be compared over recorded games (one is
+in the VM recording, 8:20-23:48: an expert game).
 
 ## Playing
 
