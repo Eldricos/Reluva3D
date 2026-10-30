@@ -520,7 +520,8 @@ where the game has him upright (found against the walkthrough, Part 7,
 
 Over every character model and its animations that don't carry it
 along (1,689 pairs, at 0, a third and two thirds of each), every bone
-then agrees within 0.01. The animations that carry the character along
+then agrees within 0.01; before, 337 of them differed, across 20
+characters. The animations that carry the character along
 (walks, runs, turns, and Antoinette's `blizzard2`, whose root
 moves) differ by the root's motion alone: Granny's sampling takes
 it out of the pose; Reluva takes it out where it places the character
