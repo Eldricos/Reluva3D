@@ -22,9 +22,31 @@ Notes for developers. Building and running are covered in the
 | Program | What it's for |
 |---|---|
 | `reluva` | The launcher and games |
-| `reluva-tool` | Developer tools for studying game data and running game code outside the window; `reluva-tool` alone lists its commands |
+| `reluva-tool` | Developer commands for studying game data and running game code outside the window ([below](#reluva-tool)) |
 | `reluva-render-check` | The 3D renderer's check against reference frames (below) |
 | `reluva-tests` | Every test that needs no game files: the shared code's and each enabled engine's (below) |
+
+## reluva-tool
+
+- **Using it.** `reluva-tool` alone lists its commands, grouped by engine;
+  `reluva-tool help <command>` says what one takes and does.
+- **Where the commands are.** The ones for any game (bytes, Windows DLLs,
+  detecting and importing games) are in `src/tools/`. Each engine's are in
+  its `tools/` folder, by topic (`src/engines/idtech3/tools/qvm.cpp`), and
+  are built only with the engine.
+- **Adding one.** Write it as `int cmdName(int argc, char** argv)` (its
+  arguments start at `argv[2]`), and add it to the table at the end of its
+  file, with its arguments and a description:
+
+  ```cpp
+  const Commands commands("idtech3", {
+      {"bsp-check", "<game folder>", "load every maps/*.bsp of a game folder", cmdBspCheck},
+  });
+  ```
+
+  A new file goes in the engine's `reluva_add_engine_tools` list, in its
+  `CMakeLists.txt`. Helpers every command can use (`readFile`, `rd32`,
+  `hexdump`) are in `src/tools/tool.h`.
 
 ## Tests
 

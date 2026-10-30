@@ -129,11 +129,14 @@ if(WIN32)
     target_link_libraries(reluva-render-check PRIVATE ws2_32 iphlpapi)
 endif()
 
-add_executable(reluva-tool src/tools/reluva_tool.cpp src/backends/sockets/socket_net.cpp)
-target_link_libraries(reluva-tool PRIVATE reluva_engines reluva_warnings)
-if(WIN32)
-    target_link_libraries(reluva-tool PRIVATE ws2_32 iphlpapi)
-endif()
+# reluva-tool: the shared commands (src/tools/) and each enabled engine's
+# (reluva_add_engine_tools in its CMakeLists.txt).
+reluva_finish_tool(
+    src/tools/main.cpp
+    src/tools/tool.cpp
+    src/tools/commands.cpp
+    src/tools/games.cpp
+    src/tools/x86.cpp)
 
 # --- tests ----------------------------------------------------------------------
 # reluva-tests: the shared code's tests (tests/common/) and each enabled

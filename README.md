@@ -246,8 +246,9 @@ src/backends/sdl3/   the only code that touches SDL: window, rendering (2D and 3
                      API), input, audio
 src/backends/sockets/ networking
 src/launcher/        the launcher (Dear ImGui)
-src/engines/         one folder per engine, plus registry.cpp listing them
-src/tools/           reluva-tool and reluva-render-check
+src/engines/         one folder per engine (its reluva-tool commands in its tools/), plus
+                     registry.cpp listing them
+src/tools/           reluva-tool, with its commands for any game, and reluva-render-check
 tests/               the tests (reluva-tests) and their data: shared code's in common/, each
                      engine's in engines/<engine>/
 third_party/         outside code built in, each with its licence (minimp3, stb_image)
@@ -273,13 +274,14 @@ include SDL.
 3. **Give it a `CMakeLists.txt`** in its folder (copy `testbed`'s):
    - `reluva_add_engine(<name> ACCESSOR <function> SOURCES ...)` names the
      function that returns its `MetaEngine`, and lists its sources;
+   - `reluva_add_engine_tools(<name> SOURCES ...)` adds its `reluva-tool`
+     commands, from its `tools/` folder;
    - `reluva_add_engine_tests(<name> SOURCES ... TOPICS ...)` adds its
      tests, from `tests/engines/<name>/`, to `reluva-tests`.
 
    The build finds the folder, and adds the engine to the registry, by
-   itself. Code elsewhere that uses the engine (its `reluva-tool`
-   commands) goes inside `#ifdef RELUVA_ENGINE_<NAME>`. See
-   `cmake/ReluvaEngines.cmake`.
+   itself. Nothing outside the engine's folder and its tests names it, so
+   it can be left out of the build. See `cmake/ReluvaEngines.cmake`.
 4. **Add a line `<name>=enabled` to `engines.cfg`.**
 5. **Give it engine tests:** a basic one that needs no game files (run by
    CI), and one that runs on a developer's copy of the game. See

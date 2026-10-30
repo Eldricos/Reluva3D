@@ -15,7 +15,6 @@ set(RELUVA_ENGINES_LOCAL_FILE "${PROJECT_SOURCE_DIR}/engines.local.cfg")
 # reluva_add_engine(<engine> ACCESSOR <function> SOURCES <files>...)
 #   A library of the engine's code, reluva_engine_<engine>, using common/.
 #   <function> returns its MetaEngine (`const MetaEngine& <function>()`).
-#   RELUVA_ENGINE_<ENGINE> is defined for code that uses the engine.
 function(reluva_add_engine name)
     cmake_parse_arguments(E "" "ACCESSOR" "SOURCES" ${ARGN})
     if(NOT E_ACCESSOR OR NOT E_SOURCES)
@@ -24,8 +23,6 @@ function(reluva_add_engine name)
     set(target reluva_engine_${name})
     add_library(${target} STATIC ${E_SOURCES})
     target_link_libraries(${target} PUBLIC reluva_common PRIVATE reluva_warnings)
-    string(TOUPPER "${name}" upper)
-    target_compile_definitions(${target} PUBLIC RELUVA_ENGINE_${upper})
     set_property(GLOBAL APPEND PROPERTY RELUVA_ENGINE_TARGETS ${target})
     set_property(GLOBAL APPEND PROPERTY RELUVA_ENGINE_ACCESSORS ${E_ACCESSOR})
 endfunction()
@@ -80,6 +77,27 @@ function(reluva_finish_tests)
         set_tests_properties(${topic} PROPERTIES LABELS "${labels}")
     endforeach()
     add_test(NAME tests.coverage COMMAND reluva-tests --covered-by ${topics})
+endfunction()
+
+# reluva_add_engine_tools(<engine> SOURCES <file>...)
+#   An engine's reluva-tool commands (src/engines/<engine>/tools/), built into
+#   reluva-tool only when the engine is. Each file registers its commands
+#   (src/tools/tool.h). reluva_finish_tool makes the program.
+function(reluva_add_engine_tools name)
+    cmake_parse_arguments(ARG "" "" "SOURCES" ${ARGN})
+    foreach(source IN LISTS ARG_SOURCES)
+        get_filename_component(source "${source}" ABSOLUTE)
+        set_property(GLOBAL APPEND PROPERTY RELUVA_TOOL_SOURCES "${source}")
+    endforeach()
+endfunction()
+
+function(reluva_finish_tool)
+    get_property(sources GLOBAL PROPERTY RELUVA_TOOL_SOURCES)
+    add_executable(reluva-tool ${ARGN} ${PROJECT_SOURCE_DIR}/src/backends/sockets/socket_net.cpp ${sources})
+    target_link_libraries(reluva-tool PRIVATE reluva_engines reluva_warnings)
+    if(WIN32)
+        target_link_libraries(reluva-tool PRIVATE ws2_32 iphlpapi)
+    endif()
 endfunction()
 
 # reluva_add_gamedata_test(<engine> GAME <game id> ENV <variable> SCRIPT <file>

@@ -72,6 +72,19 @@ reluva_add_engine(idtech3
         eliteforce/net_client.cpp
         pages/world_viewer.cpp)
 
+# Its reluva-tool commands (reluva-tool lists them).
+reluva_add_engine_tools(idtech3
+    SOURCES
+        tools/game_folder.cpp
+        tools/files.cpp
+        tools/maps.cpp
+        tools/assets.cpp
+        tools/qvm.cpp
+        tools/holomatch.cpp
+        tools/network.cpp
+        tools/single_player.cpp
+        tools/cinematics.cpp)
+
 # Its tests (tests/engines/idtech3/), in reluva-tests: the unit tests by
 # topic, and the engine test, without game files: a small install played
 # through, its record compared (data/engine-record.txt). See

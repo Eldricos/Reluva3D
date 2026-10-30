@@ -37,6 +37,15 @@ reluva_add_engine(newworlds
         font_viewer.cpp
         levels.cpp)
 
+# Its reluva-tool commands (reluva-tool lists them).
+reluva_add_engine_tools(newworlds
+    SOURCES
+        tools/archives.cpp
+        tools/textures.cpp
+        tools/models.cpp
+        tools/maps.cpp
+        tools/media.cpp)
+
 # Its tests (tests/engines/newworlds/), in reluva-tests.
 reluva_add_engine_tests(newworlds
     SOURCES ${PROJECT_SOURCE_DIR}/tests/engines/newworlds/unit.cpp
