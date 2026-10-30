@@ -4,9 +4,10 @@ Engine id `newworlds`, in `src/engines/newworlds/`. It runs Star Trek: New
 Worlds (Interplay, 2000) from the player's own install.
 
 It isn't part of the default build yet: two of its source files hold
-string literals longer than Visual Studio accepts. Build it with GCC or
-Clang with `-DRELUVA_ENGINE_NEWWORLDS=ON` (see the main
-[README](../../../README.md#build-options)).
+string literals longer than Visual Studio accepts. To build it with GCC or
+Clang, set `newworlds=enabled` in `engines.cfg` (or in your
+`engines.local.cfg`). See the main
+[README](../../../README.md#choosing-engines).
 
 ## Where it stands
 

@@ -147,16 +147,40 @@ With this generator, pick Debug or Release with `--config` when building.
 macOS builds and passes the tests and the 3D render check on Apple Silicon
 in CI. It hasn't been played on a Mac yet.
 
+### Choosing engines
+
+`engines.cfg`, at the top of the repository, lists the engines to build, one
+per line:
+
+```
+idtech3=enabled
+newworlds=disabled
+```
+
+- **Leaving an engine out.** Set it to `disabled` (say, one that doesn't
+  build at the moment), and back to `enabled` to build it again. The next
+  build picks the change up by itself, in Visual Studio too.
+- **Just for your machine.** Put the lines to change in `engines.local.cfg`
+  beside it. Its lines win, and git ignores it.
+- **The testbed** is always built.
+- **New Worlds** is disabled by default: two of its files hold string
+  literals longer than Visual Studio accepts. With GCC or Clang, enable it.
+
+A typo is caught when CMake configures:
+
+- **A line naming no engine, or a value other than `enabled` or
+  `disabled`,** stops it with a message.
+- **An engine folder with no line** is reported and left out.
+
+The summary line, `Reluva engines: ...`, shows what's built.
+
 ### Build options
 
-Engines can be left out of the build:
-
-| Option | Engine | Default |
+| Option | What | Default |
 |---|---|---|
-| `RELUVA_ENGINE_IDTECH3` | id Tech 3 (Elite Force) | on |
-| `RELUVA_ENGINE_NEWWORLDS` | Star Trek: New Worlds | off: two of its files hold string literals longer than Visual Studio accepts. With GCC or Clang, add `-DRELUVA_ENGINE_NEWWORLDS=ON` |
 | `RELUVA_BUILD_TESTS` | the unit tests | on |
 | `RELUVA_USE_SYSTEM_SDL` | use an installed SDL3 instead of building it | off |
+| `RELUVA_ENGINES_FILE` | another engine list, instead of `engines.cfg` | `engines.cfg` |
 
 In Visual Studio the options are under **Project > CMake Settings**.
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) has debug builds, tests, the
@@ -242,13 +266,22 @@ include SDL.
 
 ## Adding an engine
 
-1. Create `src/engines/<name>/` with an `Engine` and a `MetaEngine` (copy
-   `testbed`).
-2. Add a detection table, built with `reluva --hash`.
-3. Register its accessor in `src/engines/registry.cpp`, and add its sources
-   and a `RELUVA_ENGINE_<NAME>` option to `CMakeLists.txt`.
-4. Document it in `docs/engines/<name>/`, starting with a `README.md`:
-   what it runs, where it stands, how to use it.
+1. **Create `src/engines/<name>/`** with an `Engine` and a `MetaEngine`
+   (copy `testbed`).
+2. **Add a detection table,** built with `reluva --hash`.
+3. **Give it a `CMakeLists.txt`** in its folder (copy `testbed`'s):
+   - `reluva_add_engine(<name> ACCESSOR <function> SOURCES ...)` names the
+     function that returns its `MetaEngine`, and lists its sources;
+   - `reluva_add_engine_test(<name> NAME <test> SOURCES ...)` adds its
+     unit tests.
+
+   The build finds the folder, and adds the engine to the registry, by
+   itself. Code elsewhere that uses the engine (its `reluva-tool`
+   commands) goes inside `#ifdef RELUVA_ENGINE_<NAME>`. See
+   `cmake/ReluvaEngines.cmake`.
+4. **Add a line `<name>=enabled` to `engines.cfg`.**
+5. **Document it** in `docs/engines/<name>/`, starting with a
+   `README.md`: what it runs, where it stands, how to use it.
 
 ## Contributing
 

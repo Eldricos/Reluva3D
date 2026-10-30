@@ -8,6 +8,10 @@
 # each run's artifacts. After a change that's meant to alter them, make new
 # references with `reluva-render-check tests/data/render --update` and
 # commit them.
+#
+# The "engine alone" jobs build each engine with every other one disabled
+# (engines.cfg), so no engine comes to rely on another's code, and any
+# engine can be left out for the rest to build.
 
 name: CI
 
@@ -85,3 +89,35 @@ jobs:
         run: cmake --build build --config Release --parallel
       - name: Tests
         run: ctest --test-dir build -C Release --output-on-failure
+
+  engine-alone:
+    name: Engine alone (${{ matrix.engine }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [idtech3, newworlds, testbed]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkg-config \
+            libasound2-dev libpulse-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev \
+            libxfixes-dev libxi-dev libxss-dev libxtst-dev libxkbcommon-dev libdrm-dev libgbm-dev \
+            libgl1-mesa-dev libegl1-mesa-dev libdbus-1-dev libudev-dev libwayland-dev
+      - name: Engine list
+        # Every engine in engines.cfg disabled but this one (the testbed is
+        # always built).
+        run: |
+          sed -E 's/^([A-Za-z0-9_]+)=.*/\1=disabled/' engines.cfg > engines-ci.cfg
+          if [ "${{ matrix.engine }}" != testbed ]; then
+            sed -i -E 's/^${{ matrix.engine }}=disabled$/${{ matrix.engine }}=enabled/' engines-ci.cfg
+          fi
+          cat engines-ci.cfg
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DRELUVA_ENGINES_FILE=$PWD/engines-ci.cfg
+      - name: Build
+        run: cmake --build build
+      - name: Tests
+        run: ctest --test-dir build --output-on-failure

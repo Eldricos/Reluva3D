@@ -38,7 +38,11 @@ Notes for developers. Building and running are covered in the
   `tests/data/`, `tests/x86/`. Their `build.sh` scripts remake them, which
   is only needed after changing their sources.
 - **CI.** The workflow (`.github/workflows/ci.yml`) builds and runs the
-  tests on Linux, macOS and Windows for every push and pull request.
+  tests on Linux, macOS and Windows for every push and pull request. It
+  also builds each engine alone, every other disabled, so no engine comes
+  to rely on another's code. To try that locally, point
+  `-DRELUVA_ENGINES_FILE` at a list of your own, or use
+  `engines.local.cfg`.
 
 ## The render check
 
