@@ -243,11 +243,25 @@ Reactions don't touch the game. Reluva takes clicks on hot spots any
 time but while a human is planning a move (the clicks are then the
 move's); see-through walls don't catch the pointer.
 
-**Weather.** Thunder (`BigThunder4/5`, `MidThunder1-3`, `SmallThunder6-8`)
-every 20-60 s; gusts of wind (`wind light gusts`, `wind heavy gusts`)
-every 25-75 s, when the drapes (type 12 objects) play their state 23
-(light) or 24 (heavy). Over the menus, `mnThndr1`/`mnThndr2` every
-12-30 s. How often the original does each is a guess.
+**Weather.** Found in the sound of five recordings of the original
+(the longplay, "The Classic", Playthroughs 01 and 02, the Steam Deck
+one), by cross-correlating each of the game's WAVs with their sound,
+whitened (the music under it hides a plain correlation): in the house,
+thunder only, `BigThunder5` two times in three and `MidThunder3` the
+third; gaps of 12 s at least, median 38-50 s, mean 44-57 s, up to 2-3
+minutes (57, 23, 14 and 56 thunders in four of them; the Steam Deck
+recording's game sound is too low to tell). The other thunders and the
+wind's gusts weren't heard once. Reluva plays thunder 12 s plus an
+exponential 38 s on average apart (at most 3 minutes), and blows the
+drapes (type 12 objects, their state 23, or 24 one time in three) with
+it, silently: when the original blows them isn't known. Over the menus,
+`mnThndr1`/`mnThndr2` every 12-30 s, as the recordings' first minutes
+have it (10-35 s).
+
+**Pace.** A computer player's turn without a suggestion takes 5-9 s in
+the recordings, from one "..., it is your turn." to the next; Reluva's,
+7-8.5 s. With a suggestion (its video, the boxes saying who can and
+can't disprove), 20-22 s; Reluva's, 20-22 s.
 
 **Sounds of things.** The library's fire (`LBfirepl_n.wav`) and the
 conservatory's fountain (`fntn_n.wav`) loop while they're near the

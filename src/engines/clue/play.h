@@ -237,7 +237,7 @@ private:
     std::map<std::string, std::shared_ptr<audio::Sound>> sounds_;
     // The weather and the sounds of things in the house.
     std::mt19937 ambientRng_{12345};
-    uint64_t nextThunder_ = 0, nextGust_ = 0;
+    uint64_t nextThunder_ = 0;
     std::array<audio::SoundHandle, 2> ambient_{audio::kNoSound, audio::kNoSound};
     audio::SoundHandle voice_ = audio::kNoSound;
 };

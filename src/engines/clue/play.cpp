@@ -114,10 +114,13 @@ const char* const kObjectSound[] = {"bear_g.wav",      "bear_b.wav",    "rhino_b
 // A hot spot's reactions: states 20 (good), 21 (bad) and 22 (neutral); the
 // sound of each is the object's timing 1500, 1600 or 1700.
 constexpr uint16_t kReactionFirst = 20, kReactionLast = 22;
-// The weather: thunder now and then, gusts of wind that blow the drapes
-// (their states 23, light, and 24, heavy).
-const char* const kThunder[] = {"BigThunder4.wav",   "BigThunder5.wav",   "MidThunder1.wav",  "MidThunder2.wav",
-                                "MidThunder3.wav",   "SmallThunder6.wav", "SmallThunder7.wav", "SmallThunder8.wav"};
+// The weather, as five recordings of the original have it (found in
+// their sound, docs/engines/clue.md): thunder, BigThunder5 two times in
+// three and MidThunder3 the third, at least 12 s apart and 38 s more on
+// average; the other thunders and the wind's gusts never heard in the
+// house. The drapes (states 23, light, and 24, heavy) blow with it.
+const char* const kThunder[] = {"BigThunder5.wav", "BigThunder5.wav", "MidThunder3.wav"};
+constexpr double kThunderMinMs = 12000, kThunderMeanMs = 38000, kThunderMaxMs = 180000;
 // Sounds heard near things in the house, louder the nearer the view's middle.
 struct Ambient {
     const char* object;
@@ -1130,21 +1133,21 @@ bool Play::clickHotSpot(int x, int y) {
 }
 
 void Play::updateAmbience() {
-    if (nextThunder_ == 0) {
-        nextThunder_ = now_ + 15000 + ambientRng_() % 30000;
-        nextGust_ = now_ + 20000 + ambientRng_() % 40000;
-    }
+    // Gaps of 12 s and an exponential 38 s on average more.
+    const auto gap = [this]() {
+        const double u = (double(ambientRng_() % 1000000) + 0.5) / 1000000.0;
+        return uint64_t(std::min(kThunderMaxMs, kThunderMinMs - kThunderMeanMs * std::log(u)));
+    };
+    if (nextThunder_ == 0)
+        nextThunder_ = now_ + gap();
     if (now_ >= nextThunder_) {
         sound(kThunder[ambientRng_() % std::size(kThunder)]);
-        nextThunder_ = now_ + 20000 + ambientRng_() % 40000;
-    }
-    if (now_ >= nextGust_) {
+        // The drapes stir with it; in one gust in three, hard.
         const bool heavy = ambientRng_() % 3 == 0;
-        sound(heavy ? "wind heavy gusts.wav" : "wind light gusts.wav");
         for (size_t i = 0; i < mansion_.items().size(); ++i)
             if (mansion_.items()[i].object->type == ObjectDef::Drapes)
                 mansion_.playState(data_, i, heavy ? 24 : 23, now_ + ambientRng_() % 400);
-        nextGust_ = now_ + 25000 + ambientRng_() % 50000;
+        nextThunder_ = now_ + gap();
     }
     if (!mixer_)
         return;
