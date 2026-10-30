@@ -92,6 +92,7 @@ void Cpu::memoryFault(uint32_t a, uint32_t size) {
 }
 
 void Cpu::fault(const std::string& message) {
+    uncountBlock();
     throw Fault{message + " at " + hex(instructionStart_)};
 }
 

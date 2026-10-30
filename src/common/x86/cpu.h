@@ -235,6 +235,12 @@ private:
     std::vector<Block> blocks_;
     void decode(Cached& e, uint32_t at);
     void build(Block& b, uint32_t at);
+    // The block running, counted whole before it ran, and where it began.
+    struct {
+        const Block* block = nullptr;
+        uint32_t start = 0;
+    } counting_;
+    void uncountBlock(); // takes back the count of its instructions not run
     int depth_ = 0;
     std::string abort_;
     bool yield_ = false;

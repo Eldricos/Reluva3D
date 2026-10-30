@@ -10,7 +10,7 @@
 // returns, LEA, MOVZX/MOVSX, shifts, SETcc) have handlers of their own;
 // the rest, and those with prefixes other than FS, run from their bytes
 // as before (Cpu::execute); those that can't go elsewhere (x87, NOT, NEG,
-// MUL, DIV, RDTSC, REP string operations) without ending their block. A block keeps its instructions' bytes and is
+// MUL, DIV, REP string operations) without ending their block; RDTSC, which reads the count, ends its own. A block keeps its instructions' bytes and is
 // remade when they've changed, however they were written (a program's
 // loader copying code with a native memcpy, say).
 
@@ -22,6 +22,20 @@
 #include <utility>
 
 namespace reluva::x86 {
+
+// PF for each low byte of a result: set when its bits set are even.
+struct ParityTable {
+    uint8_t flag[256];
+    constexpr ParityTable() : flag{} {
+        for (int i = 0; i < 256; ++i) {
+            int bits = 0;
+            for (int v = i; v; v >>= 1)
+                bits += v & 1;
+            flag[i] = bits % 2 ? 0 : uint8_t(Cpu::PF);
+        }
+    }
+};
+constexpr ParityTable kParity;
 
 struct CachedOps {
     using Cached = Cpu::Cached;
@@ -98,7 +112,7 @@ struct CachedOps {
     template <int S>
     static uint32_t logicFlags(uint32_t r) { // ZF, SF and PF of a result
         constexpr uint32_t sign = S == 4 ? 0x80000000u : S == 2 ? 0x8000u : 0x80u;
-        return (r ? 0 : Cpu::ZF) | (r & sign ? Cpu::SF : 0) | (__builtin_parity(r & 0xff) ? 0 : Cpu::PF);
+        return (r ? 0 : Cpu::ZF) | (r & sign ? Cpu::SF : 0) | kParity.flag[r & 0xff];
     }
     template <int S>
     static void test(Cpu& c, uint32_t r) {
@@ -491,15 +505,42 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
             build(b, eip);
         const Cached* e = b.ops;
         const Cached* const last = e + b.count - 1;
-        for (;; ++e) {
-            instructionStart_ = eip;
-            if (++executed_ > end)
-                fault("instruction limit reached");
-            e->run(*this, *e);
-            if (e == last)
-                break;
+        if (executed_ + b.count <= end) {
+            // Counted as a whole; a fault part way through uncounts the
+            // rest (uncountBlock). Only a block's last instruction reads
+            // the count (RDTSC ends its block).
+            executed_ += b.count;
+            counting_ = {&b, eip};
+            for (;; ++e) {
+                instructionStart_ = eip;
+                e->run(*this, *e);
+                if (e == last)
+                    break;
+            }
+            counting_.block = nullptr;
+        } else {
+            for (;; ++e) {
+                instructionStart_ = eip;
+                if (++executed_ > end)
+                    fault("instruction limit reached");
+                e->run(*this, *e);
+                if (e == last)
+                    break;
+            }
         }
     } while (eip != returnAddress && eip < nativeStart);
+}
+
+void Cpu::uncountBlock() {
+    const Block* b = counting_.block;
+    if (!b)
+        return;
+    counting_.block = nullptr;
+    uint32_t at = counting_.start;
+    int i = 0;
+    while (i < b->count - 1 && at != instructionStart_)
+        at += b->ops[i++].length;
+    executed_ -= uint64_t(b->count - 1 - i);
 }
 
 // Makes the block that starts at `at`: its instructions up to the first
@@ -673,8 +714,6 @@ void Cpu::decode(Cached& e, uint32_t at) {
         } else if (op == 0xaf) {
             modrm();
             run = bySize(&O::imul<2, false>, &O::imul<4, false>);
-        } else if (op == 0x31) { // RDTSC
-            plain = true;
         }
     } else if (op < 0x40 && (op & 7) < 6) { // the ALU operations
         const int sub = op >> 3;
