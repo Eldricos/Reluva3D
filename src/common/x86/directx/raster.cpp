@@ -20,6 +20,7 @@
 #include <cmath>
 #include <condition_variable>
 #include <cstring>
+#include <deque>
 #include <functional>
 #include <mutex>
 #include <thread>
@@ -439,84 +440,15 @@ void Device::draw(uint32_t primitive, uint32_t fvf, uint32_t vertices, uint32_t 
         depth->touched();
 }
 
-namespace {
-
-// Threads that draw alongside the one drawing: as many as there are
-// processors, less that one, up to 7.
-class RowThreads {
-public:
-    static RowThreads& get() {
-        static RowThreads threads;
-        return threads;
-    }
-    int count() const { return int(workers_.size()) + 1; }
-    // job(i) for each i below count(), 0 on this thread, and waits for them.
-    void run(const std::function<void(int)>& job) {
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            job_ = &job;
-            pending_ = int(workers_.size());
-            ++generation_;
-        }
-        start_.notify_all();
-        job(0);
-        std::unique_lock<std::mutex> lock(mutex_);
-        done_.wait(lock, [this] { return pending_ == 0; });
-        job_ = nullptr;
-    }
-    ~RowThreads() {
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            quit_ = true;
-        }
-        start_.notify_all();
-        for (std::thread& t : workers_)
-            t.join();
-    }
-
-private:
-    RowThreads() {
-        const int n = std::clamp(int(std::thread::hardware_concurrency()), 1, 8);
-        for (int i = 1; i < n; ++i)
-            workers_.emplace_back([this, i] { work(i); });
-    }
-    void work(int index) {
-        uint64_t seen = 0;
-        for (;;) {
-            const std::function<void(int)>* job;
-            {
-                std::unique_lock<std::mutex> lock(mutex_);
-                start_.wait(lock, [&] { return quit_ || generation_ != seen; });
-                if (quit_)
-                    return;
-                seen = generation_;
-                job = job_;
-            }
-            (*job)(index);
-            {
-                std::lock_guard<std::mutex> lock(mutex_);
-                --pending_;
-            }
-            done_.notify_one();
-        }
-    }
-    std::vector<std::thread> workers_;
-    std::mutex mutex_;
-    std::condition_variable start_, done_;
-    const std::function<void(int)>* job_ = nullptr;
-    uint64_t generation_ = 0;
-    int pending_ = 0;
-    bool quit_ = false;
-};
-
-} // namespace
-
-// The draws given and not yet drawn, drawn in order on a thread of their
-// own while the program goes on. It takes every draw waiting at once, and
-// with enough to draw, draws them by rows with the row threads: each takes
-// its own rows (groups of 8, dealt round) and draws every triangle there,
-// draw after draw, so each pixel is drawn by one thread, in the order it
-// would be by one alone.
+// The draws given and not yet drawn, drawn in order by threads of their
+// own while the program goes on: as many as there are processors, up to
+// 8. Each draws only its own rows (groups of 8, dealt round), every draw in
+// turn, so each pixel is drawn by one thread, in the order one alone would
+// draw it. Each goes through the draws at its own pace: a thread with less
+// to draw in one moves on to the next without waiting for the others, and
+// a draw is done once every thread is past it. (Drawing draws in batches,
+// every thread waiting for the slowest at the end of each, a profile at
+// 1024x768 found the threads idle a third of the time.)
 struct DrawQueue {
     struct Job {
         Draw draw;
@@ -526,22 +458,32 @@ struct DrawQueue {
         // clear), in turn with the draws.
         std::function<void(int band, int bands)> fill = {};
     };
-    explicit DrawQueue(DirectX::DrawThreads mode) : mode_(mode), thread_([this] { work(); }) {}
+    explicit DrawQueue(DirectX::DrawThreads) {
+        const int n = std::clamp(int(std::thread::hardware_concurrency()), 1, 8);
+        passed_.assign(size_t(n), 0);
+        for (int i = 0; i < n; ++i)
+            threads_.emplace_back([this, i, n] { work(i, n); });
+    }
     ~DrawQueue() {
         {
             std::lock_guard<std::mutex> lock(mutex_);
             quit_ = true;
         }
         wake_.notify_all();
-        thread_.join();
+        for (std::thread& t : threads_)
+            t.join();
     }
     void push(Job job) {
+        auto shared = std::make_shared<const Job>(std::move(job));
+        bool wake;
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            jobs_.push_back(std::move(job));
+            jobs_.push_back(std::move(shared));
             ++pushed_;
+            wake = sleeping_ > 0;
         }
-        wake_.notify_all();
+        if (wake)
+            wake_.notify_all();
     }
     // How many jobs have been pushed: a mark finishThrough can wait for.
     uint64_t pushed() {
@@ -551,79 +493,72 @@ struct DrawQueue {
     // Waits for the first `count` jobs pushed to be drawn.
     void finishThrough(uint64_t count) {
         std::unique_lock<std::mutex> lock(mutex_);
-        ++waiting_;
         done_.wait(lock, [&] { return drawn_ >= count; });
-        --waiting_;
     }
-    // Waits for every job pushed to be drawn. Meanwhile what's waiting is
-    // drawn by rows on every thread, whatever its size: there's nothing
-    // else to do.
+    // Waits for every job pushed to be drawn.
     void finish() {
         std::unique_lock<std::mutex> lock(mutex_);
-        ++waiting_;
-        done_.wait(lock, [this] { return jobs_.empty() && !drawing_; });
-        --waiting_;
+        done_.wait(lock, [this] { return drawn_ == pushed_; });
     }
-    // Draws jobs in order, by rows on the row threads when there's enough
-    // to draw (or always, with DrawThreads::Always).
-    static void draw(const std::vector<Job>& jobs, DirectX::DrawThreads mode) {
-        double area = 0;
-        for (const Job& j : jobs)
-            area += j.area;
-        RowThreads& threads = RowThreads::get();
-        if (mode == DirectX::DrawThreads::One || threads.count() == 1 ||
-            (mode == DirectX::DrawThreads::Auto && area < 8192)) {
-            Draw::Raster r;
-            for (const Job& j : jobs) {
-                if (j.fill)
-                    j.fill(0, 1);
-                for (const auto& t : j.triangles)
-                    j.draw.rasterize(r, t[0], t[1], t[2]);
-            }
-            return;
+    // Draws jobs in order on this thread (DrawThreads::One).
+    static void draw(const std::vector<Job>& jobs, DirectX::DrawThreads) {
+        Draw::Raster r;
+        for (const Job& j : jobs) {
+            if (j.fill)
+                j.fill(0, 1);
+            for (const auto& t : j.triangles)
+                j.draw.rasterize(r, t[0], t[1], t[2]);
         }
-        std::vector<Draw::Raster> rasters(size_t(threads.count()));
-        threads.run([&](int i) {
-            Draw::Raster& r = rasters[size_t(i)];
-            r.band = i, r.bands = threads.count();
-            for (const Job& j : jobs) {
-                if (j.fill)
-                    j.fill(r.band, r.bands);
-                for (const auto& t : j.triangles)
-                    j.draw.rasterize(r, t[0], t[1], t[2]);
-            }
-        });
     }
 
 private:
-    void work() {
+    void work(int band, int bands) {
+        Draw::Raster r;
+        r.band = band, r.bands = bands;
         std::unique_lock<std::mutex> lock(mutex_);
         for (;;) {
-            wake_.wait(lock, [this] { return quit_ || !jobs_.empty(); });
-            if (jobs_.empty())
-                return; // quitting, with nothing left
-            std::vector<Job> jobs;
-            jobs.swap(jobs_);
-            const uint64_t count = jobs.size();
-            drawing_ = true;
-            const bool hurry = waiting_ > 0 && mode_ == DirectX::DrawThreads::Auto;
+            while (passed_[size_t(band)] == pushed_) {
+                if (quit_)
+                    return;
+                ++sleeping_;
+                wake_.wait(lock);
+                --sleeping_;
+            }
+            std::shared_ptr<const Job> job = jobs_[size_t(passed_[size_t(band)] - first_)];
             lock.unlock();
-            draw(jobs, hurry ? DirectX::DrawThreads::Always : mode_);
-            jobs.clear(); // the draws' surfaces let go here, not under the lock
+            if (job->fill)
+                job->fill(band, bands);
+            for (const auto& t : job->triangles)
+                job->draw.rasterize(r, t[0], t[1], t[2]);
+            job.reset();
             lock.lock();
-            drawing_ = false;
-            drawn_ += count;
-            done_.notify_all();
+            ++passed_[size_t(band)];
+            const uint64_t least = *std::min_element(passed_.begin(), passed_.end());
+            if (least > drawn_) {
+                // Every thread is past these: let them go (their surfaces
+                // with them), not under the lock.
+                std::vector<std::shared_ptr<const Job>> gone;
+                while (first_ < least) {
+                    gone.push_back(std::move(jobs_.front()));
+                    jobs_.pop_front();
+                    ++first_;
+                }
+                drawn_ = least;
+                lock.unlock();
+                done_.notify_all();
+                gone.clear();
+                lock.lock();
+            }
         }
     }
-    const DirectX::DrawThreads mode_;
     std::mutex mutex_;
     std::condition_variable wake_, done_;
-    std::vector<Job> jobs_;
-    int waiting_ = 0; // threads waiting in finish() or finishThrough()
-    uint64_t pushed_ = 0, drawn_ = 0;
-    bool drawing_ = false, quit_ = false;
-    std::thread thread_;
+    std::deque<std::shared_ptr<const Job>> jobs_; // from job number first_ on
+    uint64_t first_ = 0, pushed_ = 0, drawn_ = 0;
+    std::vector<uint64_t> passed_; // by thread: the jobs it's past
+    int sleeping_ = 0;
+    bool quit_ = false;
+    std::vector<std::thread> threads_;
 };
 
 Device::~Device() {

@@ -48,8 +48,8 @@ public:
     // made in it.
     uint32_t videoMemory = 32u << 20;
     // How a draw's triangles are drawn: on this thread (One), or by rows on
-    // as many threads as there are processors when there's enough to draw
-    // (Auto) or always (Always, for tests). It's the same either way.
+    // as many threads as there are processors, each at its own pace (Auto
+    // and Always, which are now the same). It's the same either way.
     enum class DrawThreads { One, Auto, Always } drawThreads = DrawThreads::Auto;
     // Frames shown a flip late: at a flip the frame before is shown, its
     // drawing finished by then, and this one's drawing goes on while the

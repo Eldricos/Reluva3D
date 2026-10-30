@@ -710,6 +710,14 @@ Progress:
       machine drew frames nobody saw. The player now shows at most one a
       60th of a second, as a 60 Hz display would; `at-run` still runs
       flat out.
+  - Then at 1024x768x32, the resolution most players choose: in
+    Mission One (`Width  1024`, `Height  768`, `BPP  32` in `Game.txt`)
+    the program's thread waited at a third of its flips for the frame
+    before to be drawn, while the drawing threads were idle a third of
+    their time: they drew in batches, each waiting at the end of each
+    for the slowest. They now go through the draws each at its own pace
+    (each still draws only its own rows, every draw in turn): the
+    route from 106 s to 95 s on 4 cores, with the same frames.
 - Not there yet:
   - **more speed**: the program's own code (NetImmerse's scene graph,
     picking and its Direct3D renderer) in the interpreter is now most of
