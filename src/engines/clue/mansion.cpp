@@ -333,6 +333,8 @@ bool Mansion::shown(const Item& item, const MansionLook& look) const {
         return look.tileNumbers;
     if (item.object->type == ObjectDef::Character)
         return look.characters;
+    if (look.walls == MansionLook::Walls::None && item.object->type == ObjectDef::Wall)
+        return false;
     if (item.layer == 4)
         return look.walls != MansionLook::Walls::Hidden;
     if (item.layer == 6)

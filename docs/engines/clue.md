@@ -351,8 +351,11 @@ network play of the original. Not planned unless it's wanted.
 The game opens with its intro (a key or a click skips it), then its
 menus, as the original. In the game, the arrow keys move the view
 (**Shift**: faster) and **Esc** opens the game's menu. The preferences
-are saved in Reluva's folder for the game (`preferences.ini`); "Mansion
-Walls" off hides the nearest walls, "Translucency" off makes them solid.
+are saved in Reluva's folder for the game (`preferences.ini`). As the VM
+recording shows them: "Translucency" on draws the nearest walls
+see-through, off leaves them out (the lounge's near wall gone between
+0:57 and 1:09, the same view); "Mansion Walls" off leaves out every wall
+in the house, floors, furniture and pictures left (2:53 and 3:02).
 
 ### In the game
 
@@ -604,10 +607,8 @@ chooses how to go on disproving (24:00-27:40).
 
 ## Reference screenshots still wanted
 
-1. The same view with Walls, Translucency and Dynamic Lighting each
-   turned off in the preferences, to see what each does.
-2. The Preferences and Load Game screens.
-
+1. The Load Game screen with saved games in it (none of the recordings
+   shows it), and the Save window.
 
 ## Reference recordings
 

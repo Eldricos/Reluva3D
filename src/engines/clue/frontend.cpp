@@ -346,9 +346,12 @@ PlayLook FrontEnd::playLook() const {
     look.butlerVoice = prefs_.on[Preferences::ButlerVoice];
     look.walkAnimations = prefs_.on[Preferences::WalkAnimations];
     look.mansion.lighting = prefs_.on[Preferences::Lighting];
-    look.mansion.walls = !prefs_.on[Preferences::MansionWalls] ? MansionLook::Walls::Hidden
+    // As a recording of the original shows them (docs/engines/clue.md):
+    // "Mansion Walls" off, no walls at all; "Translucency" off, the near
+    // walls gone; on, the near walls see-through.
+    look.mansion.walls = !prefs_.on[Preferences::MansionWalls] ? MansionLook::Walls::None
                          : prefs_.on[Preferences::Translucency] ? MansionLook::Walls::SeeThrough
-                                                                 : MansionLook::Walls::Solid;
+                                                                 : MansionLook::Walls::Hidden;
     return look;
 }
 

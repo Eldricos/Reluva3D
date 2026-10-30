@@ -122,6 +122,7 @@ void MansionViewer::handleEvent(const Event& ev) {
         case 'w':
             look_.walls = look_.walls == Walls::SeeThrough ? Walls::Solid
                           : look_.walls == Walls::Solid    ? Walls::Hidden
+                          : look_.walls == Walls::Hidden   ? Walls::None
                                                            : Walls::SeeThrough;
             break;
         case 'o': look_.outside = !look_.outside; break;
@@ -282,7 +283,10 @@ void MansionViewer::draw() {
                  mansion_.problems().front() + ")";
     std::string line2 =
         std::string("near walls ") +
-        (look_.walls == Walls::SeeThrough ? "see-through" : look_.walls == Walls::Solid ? "solid" : "hidden") +
+        (look_.walls == Walls::SeeThrough ? "see-through"
+         : look_.walls == Walls::Solid    ? "solid"
+         : look_.walls == Walls::Hidden   ? "hidden"
+                                          : "none at all") +
         "  outside " + (look_.outside ? "on" : "off");
     if (paused_)
         line2 += "  paused";

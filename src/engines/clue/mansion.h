@@ -46,7 +46,9 @@ std::vector<size_t> depthOrder(const std::vector<WorldBox>& boxes, const std::ve
 // How the mansion is drawn: the walls nearest the camera (layer 4), the
 // black outside (layer 6), the move-number templates.
 struct MansionLook {
-    enum class Walls { SeeThrough, Solid, Hidden } walls = Walls::SeeThrough;
+    // The near walls (layer 4) see-through, solid or hidden; None: every
+    // wall hidden (the original's "Mansion Walls" off).
+    enum class Walls { SeeThrough, Solid, Hidden, None } walls = Walls::SeeThrough;
     int seeThrough = 128; // the near walls' opacity when see-through: about half, as in recordings
     bool outside = true;
     bool tileNumbers = false;
