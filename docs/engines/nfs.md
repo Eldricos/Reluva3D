@@ -1117,7 +1117,8 @@ Allowed under CONTRIBUTING.md:
   ([bnk.md](../formats/nfs/bnk.md)).
 - Whether the captured movie frames match the game's interpolating
   display modes ([mad.md](../formats/nfs/mad.md)).
-- What the race's two step functions do, and thread `0x512ad0`
+- The race types' names (0-3; 3 is the pursuit), the network modes 2-4,
+  and the 32 Hz car-dynamics task `0x4a2830`
   ([nfs-threads.md](nfs-threads.md)).
 - Whether the Classics release differs from the original 1998 retail in
   data or code. Other releases (UK, German, patched) need their own
