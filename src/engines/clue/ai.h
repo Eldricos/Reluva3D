@@ -5,16 +5,19 @@
 
 // The computer players: a notebook of what each knows of who holds which
 // card, deduced from what it sees, and their choices. The three levels of
-// the set-up screen deduce more or less (see docs/engines/clue.md):
+// the set-up screen, matched to recordings of the original's (see
+// docs/engines/clue.md):
 //
-// - Novice: only what it is shown, and its own suggestions nobody could
-//   answer.
-// - Normal: also who couldn't answer others' suggestions, and that each
-//   card is in one place only.
-// - Expert: also who must hold one of the cards of a suggestion they
-//   answered, how many cards each holds, and others' wrong accusations;
-//   and it plays to learn the most: naming cards it knows when a kind is
-//   settled, showing a card the suggester has already seen.
+// - Novice: names anyone and anything, itself often; notes only what it is
+//   shown and who couldn't answer its own suggestions.
+// - Normal: names what it doesn't know; notes the same.
+// - Expert: also notes who couldn't answer others' suggestions and who must
+//   hold one of the cards of a suggestion they answered, and others' wrong
+//   accusations; names a kind's answer once known, never itself in doubt,
+//   and shows a card already seen when it can.
+//
+// The notebook can also count each player's cards; no level does (the
+// original's experts aren't that strong).
 
 #include "engines/clue/rules.h"
 

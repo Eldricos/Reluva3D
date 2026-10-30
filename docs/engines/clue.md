@@ -123,7 +123,8 @@ Each step can be seen working before the next.
    (`ai.h`) and deduces from what it sees; the set-up screen's three
    levels see and deduce more or less (below). Unit tests for the
    deductions; `reluva-tool clue-board <clue.lvl> <games>` plays mixed
-   games of the three levels on the real board.
+   games of the three levels on the real board. The levels are matched
+   to recordings of the original at each.
 7. **The rest.** The clickable objects' animations, thunder and other
    ambient sounds, music (see below), saved games and `Prefs.ini`. Saved
    games are Reluva's own: the original's needn't load.
@@ -135,32 +136,59 @@ Each step can be seen working before the next.
 ## The computer players
 
 Each computer player keeps a notebook: for each card, whether each
-player and the case file hold it, lack it, or might. What it notes, by
-level:
+player and the case file hold it, lack it, or might. What it notes and
+how it chooses, by level, matched to the recordings below:
 
 | | Novice | Normal | Expert |
 |---|---|---|---|
 | Its own cards; cards shown to it | yes | yes | yes |
 | Its suggestions nobody could answer: what it doesn't hold is the answer | yes | yes | yes |
-| Who couldn't answer a suggestion lacks its three cards | its own suggestions | all | all |
+| Who couldn't answer its own suggestions lacks their three cards | yes | yes | yes |
 | A card is in one place; the case file holds one of each kind | yes | yes | yes |
+| Who couldn't answer others' suggestions | | | yes |
 | Who answered a suggestion it didn't see holds one of the three | | | yes |
-| How many cards each holds | | | yes |
 | A wrong accusation: not all three are the answer | | | yes |
+| What it names | anyone and anything; itself about a quarter of the time | what it doesn't know | a kind's answer once known; else the unknown card fewest might hold; never itself in doubt |
+| Which card it shows | any | one the suggester has seen | that, else one shown to someone else |
 
-It accuses only when it knows the answer, so computer players never
-accuse wrongly. It heads for the nearest room that may be the answer
-(once the room is known, any room), taking a secret passage when the
-room beyond is worth it; without the die, it keeps three moves to
-suggest with. It names what it doesn't know; an expert names a kind's
-answer once it knows it (nobody can show it, so what is shown is of the
-rest) and, among the unknown, the card fewest players might hold. When
-showing a card, a normal player shows one the suggester has already
-seen; an expert otherwise one already shown to someone else.
+The notebook can also count each player's cards; no level does, as
+that made experts far quicker than the original's. Computer players
+accuse only when they know the answer, so they never accuse wrongly.
+They head for the nearest room that may be the answer (once the room
+is known, any room), taking a secret passage when the room beyond is
+worth it; without the die, they keep three moves to suggest with.
 
-In 600 games of two of each level (`clue-board ... 600`), the experts
-won 483, the normal players 74 and the novices 43, in 38 turns a game
-on average.
+**Measured against the original** (the recordings below; Reluva's
+figures from `reluva-tool clue-board` and 300 games each of the same
+make-up):
+
+| Level | Original | Reluva |
+|---|---|---|
+| Novice (3 players) | no accusation in 14 and 12 rounds (two games); named itself 26% | 21.5 rounds a game, 20% won within 12; names itself 26% |
+| Normal (6 players) | no accusation in about 10 rounds; named itself 10% | 11.4 rounds, 57% won within 12; 16% |
+| Expert (6 players) | won in about 10 rounds; never named itself | 6.0 rounds; 2% |
+
+The experts are still quicker than the one recorded expert game; with
+one game to go on, that's left as it is. In mixed games of two of each
+level (`clue-board ... 600`), experts won 534, normal players 53,
+novices 13.
+
+**The recordings.** Read off each game's ticker, every turn and
+suggestion:
+
+- *Expert*: the VM recording (8:20-23:48), five expert players and a
+  human.
+- *Normal*: "Clue: Murder at Boddy Mansion | Cluedo ... | Steam Deck
+  OLED" (YouTube `OesVaOfek9M`, 4:00-24:10): five normal players and a
+  human, who won at 24:00. Every computer player suggested on nearly
+  every turn, a different room each time; none had accused. They named
+  themselves three times in about thirty suggestions.
+- *Novice*: "Playthrough 01" and "02" (`kXb0pdCPDuo`, 4:37-21:30, two
+  novices and a human; `UCJ_YqBDIOQ`, 1:23-15:40, the same). The humans
+  won both; neither novice had accused. Novices named themselves often
+  (Colonel Mustard three times, Mrs. Peacock three, Professor Plum three
+  of six) and kept naming cards they could know (Colonel Mustard the
+  candlestick five times running).
 
 **The original's play.** The VM recording's game (8:20-23:48, Miss
 Scarlet human, the others computer players; the answer Miss Scarlet,
@@ -180,8 +208,7 @@ the revolver, the billiard room), read off its ticker:
   disprove it (23:24-23:38), accused at once, in the same turn, and was
   right: the game took 15 minutes, about ten rounds.
 
-How the original's three levels differ is still to be seen: a game
-with novices would show it.
+
 
 ## Playing
 

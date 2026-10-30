@@ -200,7 +200,7 @@ void ComputerPlayer::reset(const Game& game, int me, uint32_t seed, int level) {
     level_ = level;
     rng_.seed(seed);
     shownTo_.clear();
-    notes_.reset(game, me, level >= Expert, level >= Expert);
+    notes_.reset(game, me, false, level >= Expert);
     // Each room's distances: from the squares before its doors, outwards.
     const Board& board = game.board();
     for (int r = 0; r < kRoomCount; ++r) {
@@ -228,9 +228,9 @@ void ComputerPlayer::observe(const Game& game) {
     const int suggester = game.turn(), disprover = game.disprover();
     const std::array<int, 3> cards = cardsOf(game.suggestion());
     const bool mine = suggester == me_;
-    // Who couldn't answer lacks all three: a novice notes it only of its
+    // Who couldn't answer lacks all three: below expert, noted only of its
     // own suggestions.
-    if (mine || level_ >= Normal)
+    if (mine || level_ >= Expert)
         for (int p : game.passed())
             for (int c : cards)
                 notes_.lacks(p, c);
@@ -268,11 +268,20 @@ int ComputerPlayer::pick(int kind, const Game& game) {
     const int answer = notes_.solved(kind);
     if (answer >= 0 && level_ >= Expert)
         return answer - first;
+    // A novice names anyone and anything, itself about a quarter of the
+    // time, as the original's novices do (docs/engines/clue.md).
+    if (level_ == Novice) {
+        if (kind == 0 && rng_() % 8 == 0)
+            return me_;
+        return int(rng_() % uint32_t(count));
+    }
     // In doubt: one whose holder isn't known; an expert the one fewest
     // players might hold, as that settles most.
     std::vector<int> open, mineToo;
     for (int c = first; c < first + count; ++c) {
-        if (notes_.holder(c) < 0)
+        // An expert doesn't name itself while in doubt (the original's
+        // experts never did).
+        if (notes_.holder(c) < 0 && !(level_ >= Expert && kind == 0 && c == suspectCard(me_)))
             open.push_back(c);
         if (notes_.mark(c, me_) == Notebook::Yes)
             mineToo.push_back(c);
