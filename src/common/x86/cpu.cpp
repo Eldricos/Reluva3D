@@ -1004,17 +1004,15 @@ void Cpu::callNative(uint32_t address) {
     }
     eip = pop();
     reg[ESP] += popBytes;
-    if (yield_) {
-        yield_ = false;
-        throw Yield{};
-    }
 }
 
 // Runs instructions through the decoded-instruction cache (cpu_cache.cpp),
 // and native functions, until eip reaches `returnAddress`.
 void Cpu::runUntil(uint32_t returnAddress) {
     const uint32_t nativeStart = nativeBase_ - kNativeStride * kReturnSlots;
-    while (eip != returnAddress) {
+    // A thread that yields (a native asked, by Cpu::yield) stops here, with
+    // eip where it goes on from: resume() runs it again later.
+    while (eip != returnAddress && !yield_) {
         if (eip >= nativeStart || !cacheOn || trace)
             step();
         else
@@ -1036,6 +1034,10 @@ Error Cpu::call(uint32_t address, const std::vector<uint32_t>& args, uint32_t& r
         push(returnAddress);
         eip = address;
         runUntil(returnAddress);
+        if (yield_) { // a call can't stop part way: out to the thread's resume()
+            yield_ = false;
+            throw Yield{};
+        }
     } catch (Fault& f) {
         if (faultEip == 0 || depth_ == 1) {
             faultReg = reg;
@@ -1074,6 +1076,11 @@ Error Cpu::resume() {
     ++depth_;
     try {
         runUntil(never);
+        if (yield_) { // stopped for another thread: not an exception, as it's routine
+            yield_ = false;
+            --depth_;
+            return Error::success();
+        }
     } catch (Yield&) {
         --depth_;
         return Error::success();
