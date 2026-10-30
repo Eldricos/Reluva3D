@@ -174,7 +174,12 @@ strip's first and last vertices of each section. With a count of 10 (37,
 in junctions) it walls the block's own outline: words 4 and 5 are a mask
 of its edges, bit *i* for the edge ending at outline vertex *i*, and the
 masked edges are exactly those with no block beyond them in all 37.
-Words 3 and 6-9 aren't known.
+Words 6-7 and 8-9 are two more edge masks the same way, identical to
+each other in all 37, set in only 4 (San Francisco's blocks 962, 964,
+966 and London's 1168), each within the wall mask; what they mark isn't
+known. Word 3 is less than the outline's edge count every time and 0 in
+7 of London's 10 Underground junctions; it isn't a walled edge nor the
+longest, and isn't known.
 
 | Flag | Meaning | How it was settled |
 |---|---|---|
@@ -184,8 +189,8 @@ Words 3 and 6-9 aren't known.
 | 0x40, 0x80 | the same for the right half | |
 | 0x100 | a curved ceiling | only on tunnel textures (95) |
 | 0x200-0x1000 | four more flags with the closing ones, "offset" in what's remembered of the names | not used |
-| 0x4 | only with `s_wall_veg` and the Golden Gate's railing | not known |
-| 0x4000 | on railings and some walls | not known |
+| 0x4 | goes with a second height of exactly 2 m (all 135 with it, none without); 116 of San Francisco's 120 and London's one are in elevated (0x40) blocks, and two have no walls at all, so probably a 2 m fascia under a raised deck | not drawn by Reluva |
+| 0x4000 | on all London's railings (`s_conc_rail`, `tl_bridgerail_l`), San Francisco's 15 `s_conc_rail`, and every `s_wall_veg` wall of its road 4 (blocks 423-441); second height 1 or 3 | not known |
 
 The names of these flags (sides, flat and curved ceilings, closed and
 offset ends) are what's remembered of the modding community's public
@@ -215,7 +220,26 @@ across the strip in eight pieces.
 | 0x10 | 214, 328 | the road map's junctions, every one |
 | 0x2 | 14, 209 | under a roof: San Francisco's road tunnels, London's Underground |
 | 0x40 | 129, 214 | off the ground's level: the freeway, bridges, the Underground. 120 and 202 of them have another block over or under their middle (more than 3 m away); of the other blocks, 4% and 5% |
-| 0x20, 0x80 | 77, 27; 138, 90 | 0x20 with walls (`s_wall_veg`) and railings mostly; 0x80 with the freeway, plazas, parks and London's Embankment: not settled |
+| 0x20, 0x80 | 77, 27; 138, 90 | 0x20 on road blocks that curve and slope (below); 0x80 with the freeway, plazas, parks and London's Embankment: not settled (below) |
+
+
+**0x20** is only on road blocks, never junctions (77 in San Francisco,
+27 in London), and they curve and slope: 76 of the 77 and 25 of the 27
+do both. In San Francisco all 77 have road quads out of plane by more
+than 2 cm, against 49 of the 508 others, so it looks like a mark for a
+twisted road surface. It doesn't separate exactly: 65 and 78 curving,
+sloping blocks lack it. Ruled out: negatively listed blocks, open edges,
+the neighbours' 0x40, slope or curve alone.
+
+**0x80**: San Francisco's elevated freeway is 112 of its 149. In London
+it's on exactly the 32 Underground junctions with station models
+(`subway_a`, `_c`, `_f`) and no 10-word tunnel. Every ramp, tunnel,
+bridge deck and Underground entrance model with a `.ter` stands in a
+0x80 block (18 in San Francisco, 83 in London; not the Golden Gate's
+parts, `embarcramp03` or the Bay Bridge). "The ground here is a placed
+model's" fits London but not the freeway. The city folders' `.cpvs`
+files named by masks (`sf_0`, `_2`, `_4` ... `_128`, `_254`, `_255`) may
+be the visibility for each flag; not examined.
 
 ## The roads
 
@@ -240,11 +264,23 @@ The road's flags repeat what the `.bai` says of it (compared over all
 set (kinds 1 and 3), 0x4 exactly when it has bit 1 set (2 and 3), 0x8
 exactly when the `.bai`'s road flag 0x1 is, 0x10 exactly when its 0x2 is;
 0x1 is on 271 of the 369 one-way roads and 13 others; 0x40 on the roads
-with sidewalks (not on 154 roads with kinds 1 or 3 both sides); 0x100 on
-21 two-way roads in San Francisco; 0x800 on 80 of the 81 roads under a
-roof and 137 others; 0x400 on all but 45. The second word: 0x40 on 47 of
-the 48 roads with kind 1 both sides; 0x80 and 0x100 on the Underground's
-(74 and 71 of 80); 0x1 on all but 62; 0x2 mostly with no sidewalk.
+with sidewalks (not on 154 roads with kinds 1 or 3 both sides).
+
+A second look, comparing each bit with everything the `.bai` and the
+blocks say of the same road, settled more of them:
+
+| Bits | Meaning | How it was settled |
+|---|---|---|
+| 0x20 | the freeway's loop | set exactly on the 4 roads with the `.bai`'s flag 0x4 |
+| 0x100 | cable-car tracks | set exactly on the 21 roads whose `.bai` sides have trams (all `r4_track_f`) |
+| 0x200 | a train line | set exactly on London's 28 roads with the Underground's track (`r_sub_l`) |
+| 0x400, 0x800 | one two-bit field: the control at the road's first end (the `.bai`'s end 1), numbered as the `.bai`'s: 0 give way, 1 traffic lights, 3 none | 0x800 is never without 0x400; where lanes arrive at that end it equals the `.bai`'s control at all 559 ends; where none arrive the `.bai` has 3 and the PSDL keeps 0 or 1 (on 244 roads). 0 is on 45 roads, nearly all the stem of a T |
+| second word, bits 0-1 | the control at the other end (the `.bai`'s end 0), the same way | equal on all 919 roads |
+| second word, 0x80, 0x100 | the road's end 1, end 0 leads under the Underground | in London an end with a block over it always has the bit; seven 0x100 roads have no cover there, and in San Francisco the match is weak |
+
+The second word's 0x40 is on 47 of the 48 roads with kind 1 both sides,
+its 0x2 mostly with no sidewalk. Reluva takes the controls and the
+trams from the `.bai`, which says the same.
 
 ## Water
 
@@ -274,10 +310,9 @@ like, none). See [pathset.md](pathset.md).
 
 ## Not known yet
 
-Block flags 0x20 and 0x80; bits 6 and 7 of the divider's kind; the
-tunnel attribute's other words (3 and 6-9 of a junction's) and flags
-0x4 (on `s_wall_veg` and the Golden Gate's railing) and 0x4000 (on
-railings); the roads' flags 0x1, 0x100, 0x400, 0x800 and most of the
+Block flag 0x80 (0x20 not exactly); bits 6 and 7 of the divider's
+kind; a junction tunnel's word 3 and what its masks in words 6-9 mark;
+the tunnels' flag 0x4000; the roads' flag 0x1 and the rest of the
 second word; the end bytes' bit 0 exactly. The program's
 own handling of these is encrypted (see ../../engines/age.md), so they're
 for observation of the game running.

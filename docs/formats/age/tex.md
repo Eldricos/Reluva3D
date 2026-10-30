@@ -66,12 +66,24 @@ fifth over), and the rest overshoot by a little or have broken
 coordinates; textures without it are repeated freely (pediment trims 17
 times across, rails 60). Reluva clamps those with bit 0. Bit 1 isn't
 "don't repeat": 273 of the 282 building fronts with it are repeated
-across the street and 252 up. The other bits aren't known: 0x4 is on
-surfaces lying on the ground (concrete, steps, paving, the decals and
-the roads, 169 in all); 0x8000 on roads and ground, glows, dashboards and
-cars' backs, and goes with having no mipmaps (111 of its 475 have none,
-against 72 of the other 3,190); 0x10000 on the cars' textures and the
-skies.
+across the street and 252 up. 0x4 marks the ground's surfaces: every texture with it is a road or
+ground texture (roads, low-detail roads, grass, gravel, stone) or a
+ground decal or concrete. Of the city textures drawn only on the
+ground, 48 of 55 have it (not the sidewalks, the water or `nf_patio`);
+of those drawn only on walls, 1 of 417. Of the 131 textures with a
+physics material other than `none`, 117 have it, the 14 without being
+the sidewalks and `s_water`. What the game does with it isn't known.
+
+The other bits aren't known. 0x8000 is on roads and ground, glows,
+dashboards, steering wheels, speedometer needles and some cars' backs
+and damage textures; 111 of its 475 have one mip level, against 72 of
+the other 3,190, but it isn't the mip chain, alpha, colours or the
+materials ("never shown at reduced size" fits what it's on and can't be
+tested from the files). 0x10000 is on 1,055 of the 1,166 car textures
+(not the fire engine's and the F350's, the wheels or the numbers), all
+32 skies, the full-detail road textures (18006, not the 8006 low-detail
+ones) and some building textures (`sw_stc_*` garages and doors); it
+isn't having variants (`_ni`, `_dmg`), the mip chain or the format.
 
 ## Animated textures
 

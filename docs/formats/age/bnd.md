@@ -3,7 +3,7 @@
 Models' collision shapes, `bound/<model>_BOUND.bnd` in `mm2core.ar` (525
 files: every car, props, landmarks; building fronts have none). Read by
 `src/engines/age/bound.cpp`. `.bbnd` (324) is the same in binary, read
-where there's no `.bnd`; `.ter` (184) is a grid over a bound, not read.
+where there's no `.bnd`; `.ter` (184) is a grid and edge data for a bound, not read.
 
 ## How this was worked out
 
@@ -68,7 +68,7 @@ There's no edge count; the `.bnd`s' edges are all 0 anyway.
 ## `.ter`
 
 Beside 184 of the bounds, for the larger models (landmarks, the cities'
-bridges and ramps). Not read; what's known:
+bridges and ramps). Not read; its layout:
 
 | Bytes | Contents |
 |---|---|
@@ -79,10 +79,33 @@ bridges and ramps). Not read; what's known:
 | 4 × 3 | the bound's size along x, y and z |
 | 4 × 5 | a grid: cells across x (the size / 10, rounded up), 1, cells across z (likewise), the cells, and a count of references |
 
-then three floats, the cells per metre along x, y and z (5 cells over
-the Imax's 46.5 m: 0.1075, as stored), the bound's box (lowest corner,
-highest), and a u16 for each cell, rising from 0 (starts in a list).
-What follows doesn't read as lists of the bound's polygons: checked over
-all 184, the numbers listed for a cell name polygons that overlap it only
-22% of the time, so they're likely edges (the second count). It's a
-lookup grid for colliding, which Reluva's own 8 m grid does without.
+then three floats, the cells per metre along x, y and z (the cells over
+the size: 5 cells over the Imax's 46.5 m is 0.1075, as stored), and the
+bound's box (lowest corner, highest): 81 bytes in all. The second count
+is the bound's edges. After the header, checked over all 184 files (the
+size after it is exactly 4 x cells + 2 x references + 20 x edges + 16 x
+polygons every time):
+
+| Each | Contents |
+|---|---|
+| u16 × cells | where each cell's list starts (the counts before it summed) |
+| u16 × cells | how many in each cell's list (summing to the references) |
+| u16 × references | polygon numbers |
+| u16, u16 × edges | each edge's two vertices |
+| u32 × 4 × polygons | each polygon's edges in its vertices' order (the fourth unused for a triangle) |
+| 3 floats × edges | a unit vector for each edge |
+| float × edges | a number for each edge |
+
+The edges and polygons match the `.bnd`'s polygons in all 184. Cells
+are numbered z × cells across + x; all 48,425 references name a
+polygon whose box overlaps its cell (an earlier reading of the lists as
+edges, at 22%, had them in the wrong order). The edge's vector is, for
+an edge of one polygon, the outward normal in that polygon's plane; for
+an edge two polygons share, the unit bisector of their normals (10,754
+of about 10,900). Its number is 0 for an edge of one polygon (8,634 of
+8,640), for a shared convex edge the cosine of half the angle between
+the polygons, sqrt((1 + n1·n2) / 2) (5,745 of 5,807), and 2 for a
+concave one (3,016 of 3,076); flat shared edges have 1 or 2. So it's
+the game's edge data for colliding with the bound's edges, and a grid
+for finding polygons. Reluva works its own out from the `.bnd` (an 8 m
+grid) and doesn't read it.

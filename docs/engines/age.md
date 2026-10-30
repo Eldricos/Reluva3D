@@ -174,9 +174,18 @@ recording how each format was worked out (CONTRIBUTING.md).
   solid now) ([psdl.md](../formats/age/psdl.md), [bai.md](../formats/age/bai.md)).
   Models and cars are lit as the city is, by all three lights, with their
   shaders' ambient colours as Direct3D uses them ([tune.md](../formats/age/tune.md)).
-- Still not known: some flags and words of the tunnel attribute, a few
-  road flags (the `.bai`'s 0x8, the PSDL's 0x100-0x800), block flags 0x20
-  and 0x80, texture flags 0x4, 0x8000 and 0x10000, and whether the game
+- Worked out since by comparing the files with each other: the `.bai`'s
+  road flag 0x8 (a level road), the PSDL roads' 0x100 (cable-car tracks),
+  0x200 (a train line) and 0x400/0x800 with the second word's low bits
+  (the junction controls at the two ends), the tunnels' flag 0x4 (a 2 m
+  fascia under raised decks, it seems), texture flag 0x4 (the ground's
+  surfaces) and the whole of `.ter` (a polygon grid and edge data for
+  colliding) ([bai.md](../formats/age/bai.md),
+  [psdl.md](../formats/age/psdl.md), [tex.md](../formats/age/tex.md),
+  [bnd.md](../formats/age/bnd.md)).
+- Still not known: a junction tunnel's word 3 and extra masks, the
+  tunnels' flag 0x4000, block flag 0x80 (0x20 marks twisted road blocks
+  only roughly), texture flags 0x8000 and 0x10000, and whether the game
   uses the low-detail roads as Reluva does. For watching the game run.
 
 ### 4. Driving (done)

@@ -160,7 +160,15 @@ The flags:
 | 0x1 | 10 | San Francisco's freeway (the PSDL road flags 0x8 on the same roads) |
 | 0x4 | 4 | four of those, its loop |
 | 0x2 | 99 | London's Underground and some of San Francisco's ramps and alleys: all have no sidewalk (kind 3); the PSDL road flags 0x10 on exactly the same roads |
-| 0x8 | 536 | 469 of London's 540 roads, 67 of San Francisco's 379: nothing found goes with it (not lanes, lengths, junction controls, furniture rules, tunnels) |
+| 0x8 | 536 | a level road: 469 of London's 540 roads, 67 of San Francisco's 379 |
+
+0x8 is set exactly when the heights along the road's middle line differ
+by less than a quarter of a metre: in San Francisco the 67 roads with it
+vary by 0.237 m at most and the 312 without by 0.276 m at least; in
+London 0.15 m at most against 1.19 m at least. The road's slope doesn't
+separate them; how much it rises or falls in all does. Nothing earlier
+compared (lanes, lengths, junction controls, furniture rules, tunnels)
+went with it. Reluva has no use for it.
 
 Reluva reads 0x2 as a road not for traffic: its traffic doesn't start on
 them nor turn into them while there's another way (the game's aimaps
@@ -176,5 +184,5 @@ value unset and the half width third.
 
 ## Not known yet
 
-Flag 0x8, and the table after the junctions (a count, then for each PSDL
+The table after the junctions (a count, then for each PSDL
 block a count and its roads, it seems).
