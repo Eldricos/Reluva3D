@@ -18,7 +18,7 @@ class Qvm;
 
 // What every game module's system calls have in common, whatever their
 // numbers in a given game: reading files by handle, and the memory and
-// math helpers. See docs/formats/idtech3/qvm.md.
+// math helpers. See docs/engines/idtech3/formats/qvm.md.
 
 // The files one game module has open, by the handles it holds (1 and up).
 // Reading only: nothing the menus or the game write is kept yet.

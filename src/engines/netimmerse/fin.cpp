@@ -357,7 +357,7 @@ void readLight(Reader& r, FinLight& l) {
     r.skip(7);
 }
 
-// DDActorSharedData. See docs/formats/netimmerse/fin.md for the layout.
+// DDActorSharedData. See docs/engines/netimmerse/formats/fin.md for the layout.
 void readActor(Reader& r, FinActor& a) {
     a.id = r.string();
     r.string();

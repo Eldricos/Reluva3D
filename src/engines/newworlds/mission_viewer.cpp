@@ -928,7 +928,7 @@ void MissionViewer::drawPlay() {
 }
 
 // The in-game interface, laid out as the recordings show it on the 640 x
-// 480 screen; see docs/formats/newworlds/gui.md#the-in-game-interface.
+// 480 screen; see docs/engines/newworlds/formats/gui.md#the-in-game-interface.
 void MissionViewer::drawInterface() {
     const Level& level = missions_[size_t(current_)];
     const char side = missionSides(level.shortName)[size_t(side_)];

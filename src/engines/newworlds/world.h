@@ -15,7 +15,7 @@ namespace reluva::newworlds {
 // player's selection and battle groups. Positions are in world units, x
 // east and y north as the map viewer draws the map (a tile is 8192, a
 // block 16384; a map position <a:b> is y = a / 8 blocks, x = b / 8). Only
-// what recordings of play show is modelled (docs/formats/newworlds/play.md
+// what recordings of play show is modelled (docs/engines/newworlds/play/play.md
 // and play-tutorials.md); figures not yet measured in the game are named
 // placeholders (vm-checklist.md).
 

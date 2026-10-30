@@ -1693,7 +1693,7 @@ struct LeBits {
     }
 };
 
-// A 16x16 key frame by docs/formats/video/indeo5.md, every block uncoded,
+// A 16x16 key frame by docs/common/video/indeo5.md, every block uncoded,
 // so a flat grey picture: one luma band of 16x16 macroblocks of 8x8
 // blocks, chroma bands of 4x4.
 std::vector<uint8_t> indeo5GreyFrame(int type) {

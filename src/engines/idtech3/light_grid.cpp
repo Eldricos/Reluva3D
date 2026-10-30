@@ -3,7 +3,7 @@
 
 // The grid's layout and how the original samples it were read from the
 // GPL Quake III Arena renderer (tr_bsp.c R_LoadLightGrid, tr_light.c);
-// docs/formats/idtech3/bsp.md describes it.
+// docs/engines/idtech3/formats/bsp.md describes it.
 
 #include "engines/idtech3/light_grid.h"
 #include "engines/idtech3/world_renderer.h" // brightenLight

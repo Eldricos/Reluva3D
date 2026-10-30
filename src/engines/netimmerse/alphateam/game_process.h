@@ -19,7 +19,7 @@
 namespace reluva::netimmerse::alphateam {
 
 // LEGO Alpha Team's own code (LEGOATeam.exe and the DLLs beside it) run in
-// the x86 interpreter, as docs/engines/alphateam.md's phase 3 plans: each
+// the x86 interpreter, as docs/engines/netimmerse/alphateam.md's phase 3 plans: each
 // module loaded once the modules it imports from are, its start-up run,
 // then the program's. What the code asks of Windows is stood in for by
 // Win32Process and by this engine.

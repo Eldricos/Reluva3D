@@ -108,7 +108,7 @@ const auto mix3 = [](const std::array<float, 3>& a, const std::array<float, 3>& 
 // Keys whose value is all there is, blended straight.
 const auto straight3 = [](const auto& a, const auto& b, float u) { return mix3(a.value, b.value, u); };
 
-// The curves between keys (docs/formats/netimmerse/fin.md): a position
+// The curves between keys (docs/engines/netimmerse/formats/fin.md): a position
 // by its key's cubic, a rotation by squad through the control quaternions,
 // a number by Hermite's with the tangents out of one key and into the
 // next. Straight keys blend straight.

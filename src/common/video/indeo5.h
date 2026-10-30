@@ -16,7 +16,7 @@ namespace reluva::video {
 // (luma optionally into four wavelet bands), each band into tiles and
 // macroblocks of 8x8 or 4x4 blocks: slant-transformed, quantised,
 // run-length and Huffman coded, with motion compensation from the frame
-// before. See docs/formats/video/indeo5.md.
+// before. See docs/common/video/indeo5.md.
 class Indeo5Decoder {
 public:
     Indeo5Decoder();

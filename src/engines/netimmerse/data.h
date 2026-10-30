@@ -15,7 +15,7 @@
 namespace reluva::netimmerse {
 
 // A .DDS sound (Audio.pac, Ambient.pac, Locale_*.pac): an 18-byte Windows
-// WAVEFORMATEX, then 16-bit PCM samples. See docs/formats/alphateam/pac.md.
+// WAVEFORMATEX, then 16-bit PCM samples. See docs/engines/netimmerse/formats/pac.md.
 Error decodeDds(const std::vector<uint8_t>& data, audio::Sound& out);
 
 // A language text file (Locale_*.pac's .TXT): each "==key==" line is

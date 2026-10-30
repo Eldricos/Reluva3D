@@ -22,7 +22,7 @@
 namespace reluva::idtech3 {
 
 // The sounds of a level, as the original's sound system plays what the
-// client game asks for (see docs/engines/idtech3.md): sounds placed in the
+// client game asks for (see docs/engines/idtech3/README.md): sounds placed in the
 // world or on entities, heard from the listener's position, louder near
 // and panned to the side they're on; looping sounds the client game
 // re-adds each frame; the music.

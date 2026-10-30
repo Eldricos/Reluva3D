@@ -3,7 +3,7 @@
 
 // How the original lays out its sky box and cloud texture coordinates, and
 // how it treats surfaces' lightmaps, was read from the GPL Quake III Arena
-// renderer (tr_sky.c, tr_bsp.c); docs/formats/idtech3/shader.md describes
+// renderer (tr_sky.c, tr_bsp.c); docs/engines/idtech3/formats/shader.md describes
 // it. This is new code written from that description.
 
 #include "engines/idtech3/world_renderer.h"

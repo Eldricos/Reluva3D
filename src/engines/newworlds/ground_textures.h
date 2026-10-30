@@ -11,7 +11,7 @@
 namespace reluva::newworlds {
 
 // Which of a planet's textures each texture slot of a ground tile model gets.
-// Neither the maps nor the models say (see docs/formats/newworlds/gmf.md), so
+// Neither the maps nor the models say (see docs/engines/newworlds/formats/gmf.md), so
 // this is the viewer's own rule, not the game's: each slot gets a role from
 // the shape of its faces (high, middle or low flat ground, or slope), and the
 // role a texture by the planet's names, preferring one numbered like the

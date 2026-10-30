@@ -4,8 +4,9 @@
 #pragma once
 
 // The NetImmerse engine's data viewer: pages showing what LEGO Alpha Team's
-// archives hold, while the game itself can't run yet. Tab moves to the next
-// page, Esc returns to the launcher.
+// archives hold, opened with F12 over the game (or alone without its
+// program). Tab moves to the next page, Esc returns. Its use is described in
+// docs/engines/netimmerse/README.md.
 //
 // Archives: what each .pac archive holds.
 // Models:   every .FIN model in 3D. Left/Right step, PageUp/PageDown jump

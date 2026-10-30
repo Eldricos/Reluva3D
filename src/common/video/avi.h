@@ -14,7 +14,7 @@ namespace reluva::video {
 
 // A Microsoft AVI file (RIFF "AVI "): its first video stream's frames and
 // its first audio stream, read from the whole file in memory. See
-// docs/formats/video/avi.md.
+// docs/common/video/avi.md.
 struct AviFile {
     struct Chunk {
         size_t offset = 0, size = 0; // in the file; a frame of size 0 repeats the last

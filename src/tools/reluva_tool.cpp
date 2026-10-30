@@ -242,7 +242,7 @@ int cmdHexdump(int argc, char** argv) {
 }
 #ifdef RELUVA_ENGINE_NEWWORLDS
 
-// Current understanding (see docs/formats/newworlds/cat.md): the file is a
+// Current understanding (see docs/engines/newworlds/formats/cat.md): the file is a
 // tree of chunks, each a u16 tag + u32 size + payload.
 //   0x00 tag 1, size = rest of file
 //   0x06 tag 5, size = table of contents: u32 count, then one entry per item
@@ -2242,7 +2242,7 @@ int cmdGeoTextures(int argc, char** argv) {
 // Map (.gmf) layout as far as known: u16 counts of type-21, type-20 and
 // type-19 records, u16 grid width and height; those records (u16 type, u16
 // length, u16 ?, then `length` bytes) in that order; then data of unknown
-// layout. See docs/formats/newworlds/gmf.md.
+// layout. See docs/engines/newworlds/formats/gmf.md.
 int cmdGmfInfo(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool gmf-info <file.gmf> [record number]\n");

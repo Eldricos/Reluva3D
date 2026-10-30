@@ -12,7 +12,7 @@
 namespace reluva::newworlds {
 
 // A mission's colony, laid out on its map from what recordings of play show
-// (docs/formats/newworlds/colony.md). The game keeps its starting colonies
+// (docs/engines/newworlds/formats/colony.md). The game keeps its starting colonies
 // in STNW.exe, not the maps, so this is an approximation: the hub where the
 // recordings place the colony, and each building the mission's script
 // builds in the next free block around it.

@@ -5,6 +5,14 @@ fetches the exact versions Reluva uses and builds them along with the project
 (the first configure takes a few minutes). You only need a compiler, CMake,
 Git, and on Linux the system headers SDL builds against.
 
+| Platform | Compiler | Status |
+|---|---|---|
+| Linux | GCC 13 (or Clang) | developed and tested here |
+| Windows | Visual Studio 2022 | supported |
+| macOS | Apple Clang (Xcode) | expected to work, not yet tested |
+
+All need CMake 3.24 or later and a C++20 compiler.
+
 ## Linux
 
 ### 1. Install the tools and SDL's build dependencies
@@ -46,18 +54,18 @@ Check there if a package name has changed.
 ### 2. Build and run
 
 ```sh
-git clone https://github.com/Eldricos/Reluva.git
-cd Reluva
+git clone https://github.com/Eldricos/Reluva3D.git
+cd Reluva3D
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-./build/reluva_tests      # unit tests
+ctest --test-dir build    # unit tests (reluva_tests and each engine's)
 ./build/reluva            # launcher
 ./build/reluva testbed    # test pattern: Esc to exit, Space for a tone
 ```
 
 For debugging, use a separate folder: `cmake -S . -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug`.
 
-Run everything from the top `Reluva` folder; there's no need to `cd build`.
+Run everything from the top `Reluva3D` folder; there's no need to `cd build`.
 Linux only runs programs from the current folder when the path is given, hence
 the `./build/` prefix. The same goes for the developer tool, for example with
 the game installed in `games/newworlds`:
@@ -75,8 +83,7 @@ Install it, delete `build/`, and configure again.
 
 **Engines** can be left out of the build with CMake options:
 `RELUVA_ENGINE_IDTECH3` (Elite Force, on by default),
-`RELUVA_ENGINE_NETIMMERSE` (LEGO Alpha Team, on by default; for now it opens
-as a data viewer) and
+`RELUVA_ENGINE_NETIMMERSE` (LEGO Alpha Team, on by default) and
 `RELUVA_ENGINE_NEWWORLDS` (Star Trek: New Worlds, **off** by default for now,
 because two of its files hold string literals longer than Visual Studio
 accepts). An engine left out of the build doesn't recognise its games: the
@@ -84,7 +91,7 @@ launcher then says no supported game was found. To build New Worlds with GCC or 
 `cmake -S . -B build -DRELUVA_ENGINE_NEWWORLDS=ON`. In Visual Studio the options
 are under *Project > CMake Settings*.
 
-**3D rendering** (the Elite Force World page) uses SDL's GPU API: Vulkan on
+**3D rendering** (Elite Force's pages, the LEGO Alpha Team viewer's models) uses SDL's GPU API: Vulkan on
 Linux and Windows, Metal on macOS. Nothing extra is needed to build it. To run
 it, the graphics driver must support Vulkan, as current drivers for AMD, Intel
 and NVIDIA do (on Debian/Ubuntu, Mesa's is `mesa-vulkan-drivers`). Without
@@ -115,7 +122,7 @@ the folder directly. CLion and Qt Creator also open `CMakeLists.txt` directly.
 ### 2. Open the project
 
 1. Start Visual Studio and choose **Clone a repository**.
-   Paste `https://github.com/Eldricos/Reluva.git`, pick a folder, and click **Clone**.
+   Paste `https://github.com/Eldricos/Reluva3D.git`, pick a folder, and click **Clone**.
    (If you already cloned it, use **File > Open > Folder...** instead.)
 2. Visual Studio detects `CMakeLists.txt` and configures the project
    automatically. The first time, it downloads and builds SDL3 and ImGui. Follow
@@ -143,16 +150,17 @@ file that opens, add an `args` line to the `reluva.exe` entry:
 "args": [ "testbed" ]
 ```
 
-**Unit tests:** pick **reluva_tests.exe** as the startup item and run it, or
-use **Test > Test Explorer**.
+**Unit tests:** pick **reluva_tests.exe** (or an engine's,
+`reluva_netimmerse_tests.exe` and so on) as the startup item and run it, or use
+**Test > Test Explorer**.
 
 ### Command-line alternative
 
 From the **x64 Native Tools Command Prompt for VS 2022** (in the Start menu):
 
 ```bat
-git clone https://github.com/Eldricos/Reluva.git
-cd Reluva
+git clone https://github.com/Eldricos/Reluva3D.git
+cd Reluva3D
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release
 build\Release\reluva.exe
@@ -160,6 +168,28 @@ build\Release\reluva.exe
 
 With this generator, choose Debug or Release with `--config` when building
 (`CMAKE_BUILD_TYPE` is ignored). `cmake --open build` opens the generated `.sln`.
+
+## macOS
+
+Not yet tested: nothing in the build is specific to Linux or Windows, SDL3
+supports macOS, and the 3D renderer's Metal shaders are built in. Reports are
+welcome.
+
+1. Install Xcode's command-line tools: `xcode-select --install`.
+2. Install CMake and Ninja, for example with [Homebrew](https://brew.sh):
+   `brew install cmake ninja`.
+3. Build and run as on Linux:
+
+```sh
+git clone https://github.com/Eldricos/Reluva3D.git
+cd Reluva3D
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+ctest --test-dir build
+./build/reluva
+```
+
+The 3D pages use Metal, which every Mac that runs a current macOS has.
 
 ## Troubleshooting
 

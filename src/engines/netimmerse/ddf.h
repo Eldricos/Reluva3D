@@ -16,7 +16,7 @@ namespace reluva::netimmerse {
 // A LEGO Alpha Team font (.DDF): a Windows font drawn into TGA pages
 // ("ARIAL_0.TGA", "ARIAL_1.TGA" beside "ARIAL.DDF"), white with the
 // coverage in alpha, and where each character is on them. See
-// docs/formats/netimmerse/ddf.md.
+// docs/engines/netimmerse/formats/ddf.md.
 struct DdfFont {
     struct Glyph {
         int x = 0, y = 0; // its top-left corner on its page

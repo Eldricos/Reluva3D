@@ -15,7 +15,7 @@ namespace reluva::netimmerse {
 
 // A LEGO Alpha Team model (.FIN): a NetImmerse stream of objects, each
 // written as its class name, its address when saved (its id, which links
-// between objects use) and its fields. See docs/formats/netimmerse/fin.md.
+// between objects use) and its fields. See docs/engines/netimmerse/formats/fin.md.
 //
 // The objects are found by their headers, then each class that's
 // understood is read; a class that isn't is skipped without losing the

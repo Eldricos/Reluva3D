@@ -18,7 +18,7 @@ namespace reluva::newworlds {
 // animations, and the turrets and guns of tanks, artillery and defences.
 // A geometry part belongs to one of the .mdl's nodes (GeoModel::Part::node,
 // named by the .mdl's parts list: turret=1, gun=2); see
-// docs/formats/newworlds/mdl.md#moving-parts.
+// docs/engines/newworlds/formats/mdl.md#moving-parts.
 
 // Where a part is moved to: v' = to + m × (v − from); normals turn by m.
 struct PartPose {

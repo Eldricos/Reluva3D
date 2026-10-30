@@ -3,7 +3,7 @@
 
 // How the original renderer interprets shaders (defaults, sort order,
 // implicit shaders) was read from the GPL Quake III Arena renderer
-// (tr_shader.c, tr_shade_calc.c); docs/formats/idtech3/shader.md
+// (tr_shader.c, tr_shade_calc.c); docs/engines/idtech3/formats/shader.md
 // describes it. This is new code written from that description.
 
 #include "engines/idtech3/shader_cache.h"

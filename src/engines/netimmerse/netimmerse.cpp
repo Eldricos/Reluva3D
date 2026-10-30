@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // NetImmerse engine, for games built on Numerical Design's NetImmerse,
-// starting with LEGO Alpha Team (docs/engines/alphateam.md). Clean-room:
+// starting with LEGO Alpha Team (docs/engines/netimmerse/alphateam.md). Clean-room:
 // everything comes from the games' data, observing them run, or study of
 // owned executables; never from NetImmerse SDK source. See CONTRIBUTING.md.
 //
@@ -40,7 +40,7 @@ using netimmerse::PacArchive;
 //
 // Detection keys on the language's archive, which also tells the languages
 // apart; the executable, which a patch would replace, is only required to
-// exist. See docs/formats/alphateam/install.md.
+// exist. See docs/engines/netimmerse/formats/install.md.
 const std::vector<GameVariant> kVariants = {
     // English Windows retail CD, volume LEGOATEN (October 2026).
     {"legoalphateam", "LEGO Alpha Team", "en", "windows",

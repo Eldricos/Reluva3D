@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Tests for the New Worlds .cat reader against archives built here, following
-// docs/formats/newworlds/cat.md, so no game data is needed.
+// docs/engines/newworlds/formats/cat.md, so no game data is needed.
 
 #include "engines/newworlds/arf.h"
 #include "engines/newworlds/briefing.h"
@@ -302,7 +302,7 @@ void putF(std::vector<uint8_t>& b, float f) {
     put32(b, v);
 }
 
-// A two-sided triangle laid out as in docs/formats/newworlds/geo.md: face 0
+// A two-sided triangle laid out as in docs/engines/newworlds/formats/geo.md: face 0
 // in the file header, face 1 its back, one edge group (or none, as in
 // terrain tiles).
 // Two triangles back to back. With twoParts the back is part 1, with its

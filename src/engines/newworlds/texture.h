@@ -10,7 +10,7 @@
 
 namespace reluva::newworlds {
 
-// A decoded texture (chunk tag 0x16). See docs/formats/newworlds/lbp.md.
+// A decoded texture (chunk tag 0x16). See docs/engines/newworlds/formats/lbp.md.
 struct Texture {
     uint32_t format = 0;
     bool colourKeyed = false;  // a palette index is transparent

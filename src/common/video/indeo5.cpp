@@ -4,7 +4,7 @@
 // Poliakovski, LGPL 2.1 or later; used under the GPL 3 as the LGPL's
 // section 3 allows.
 
-// Indeo 5's bitstream as described in docs/formats/video/indeo5.md: the
+// Indeo 5's bitstream as described in docs/common/video/indeo5.md: the
 // picture and GOP headers, then each band of each plane, tile by tile, its
 // macroblocks' types, coded-block patterns, quantiser deltas and motion
 // vectors, then their blocks. Intel never published the format; it's

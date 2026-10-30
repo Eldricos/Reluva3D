@@ -16,7 +16,7 @@ namespace reluva::netimmerse {
 
 // A .pac archive, as LEGO Alpha Team keeps its data (Bhvr.pac, Etc.pac...):
 // a header, a directory of names with their place in the file, then the
-// files one after another. See docs/formats/alphateam/pac.md.
+// files one after another. See docs/engines/netimmerse/formats/pac.md.
 //
 // Every entry seen has 0 in its flags word; what other values would mean
 // (compression?) isn't known, so such entries are listed but not read.

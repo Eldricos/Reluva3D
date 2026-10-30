@@ -11,7 +11,7 @@
 
 namespace reluva::newworlds {
 
-// A .geo model (chunk tag 0x17). See docs/formats/newworlds/geo.md; parts of
+// A .geo model (chunk tag 0x17). See docs/engines/newworlds/formats/geo.md; parts of
 // the format are still unknown and are skipped.
 struct GeoModel {
     struct Vec3 {
@@ -42,7 +42,7 @@ struct GeoModel {
     };
 
     // A named point (a turret's axis, a gun's muzzle, a docking point); the
-    // .mdl names them in order (see docs/formats/newworlds/mdl.md).
+    // .mdl names them in order (see docs/engines/newworlds/formats/mdl.md).
     struct Attachment {
         float frame[10];  // its orientation (9 floats, row by row) and a scale (1), as in .arf frames
         Vec3 position;

@@ -12,7 +12,7 @@
 namespace reluva::audio {
 
 // A RIFF WAVE file: 8- and 16-bit PCM and IMA ADPCM (format 0x11, as in
-// Star Trek: New Worlds; see docs/formats/newworlds/wav.md).
+// Star Trek: New Worlds; see docs/engines/newworlds/formats/wav.md).
 Error decodeWav(const std::vector<uint8_t>& data, Sound& out);
 
 // A 16-bit PCM WAV file of the sound, for checking it elsewhere.

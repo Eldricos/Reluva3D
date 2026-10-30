@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Tests for the NetImmerse engine's readers against files built here,
-// following docs/formats/alphateam/, so no game data is needed.
+// following docs/engines/netimmerse/formats/, so no game data is needed.
 
 #include "engines/netimmerse/data.h"
 #include "engines/netimmerse/ddf.h"
@@ -251,7 +251,7 @@ void testLocaleText() {
     CHECK(e[3].first == "Last" && e[3].second == "end");
 }
 
-// A model written as docs/formats/netimmerse/fin.md describes: a LOD node
+// A model written as docs/engines/netimmerse/formats/fin.md describes: a LOD node
 // (roots) over a node with a collision box, holding a textured triangle.
 struct FinWriter {
     std::vector<uint8_t> b;

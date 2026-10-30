@@ -41,7 +41,7 @@ struct SpEntityLayout {
 
 // Elite Force's single-player game logic (the server side of
 // efgamex86.dll), run in the x86 interpreter, with the engine's side of the
-// interface it was built for (docs/formats/idtech3/eliteforce-sp-interface.md):
+// interface it was built for (docs/engines/idtech3/formats/eliteforce-sp-interface.md):
 // the 40 functions GetGameAPI is handed, and calls into the 13 it hands
 // back. One player, client 0, as in the original.
 class SpGameHost {

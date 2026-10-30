@@ -16,7 +16,7 @@ namespace reluva::idtech3 {
 
 // A Quake III virtual machine program (.qvm): game code compiled to
 // bytecode, run by an interpreter, which reaches the engine only through
-// numbered system calls. See docs/formats/idtech3/qvm.md.
+// numbered system calls. See docs/engines/idtech3/formats/qvm.md.
 class Qvm {
 public:
     // The engine's side: system call `number` with the VM's argument words
@@ -109,7 +109,7 @@ private:
     const std::pair<uint32_t, uint32_t>* protectedOverlap(int64_t address, int64_t size) const;
 };
 
-// The opcodes (docs/formats/idtech3/qvm.md), in their numbering.
+// The opcodes (docs/engines/idtech3/formats/qvm.md), in their numbering.
 namespace qvmop {
 enum : uint8_t {
     Undef, Ignore, Break, Enter, Leave, Call, Push, Pop, Const, Local, Jump,

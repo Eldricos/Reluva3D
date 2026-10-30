@@ -13,7 +13,7 @@
 // 14882:1998) says it does. Each class's size, and the places of the fields
 // the games' code touches, were measured from that code: the offsets it
 // reads and writes, what its inline constructors set up, the order of the
-// vftables it builds. They're listed in docs/engines/alphateam.md. The rest
+// vftables it builds. They're listed in docs/engines/netimmerse/alphateam.md. The rest
 // of each class is ours. The exported names are the ones the games import,
 // mapped to these functions by msvcp60.def. No part of Microsoft's library
 // was looked at or used.

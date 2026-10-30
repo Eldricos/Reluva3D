@@ -13,7 +13,7 @@
 namespace reluva::newworlds {
 
 // A .mdl "metamodel" (chunk tag 0x2c): the names of a model's parts and
-// points, and its states. See docs/formats/newworlds/mdl.md. The geometry
+// points, and its states. See docs/engines/newworlds/formats/mdl.md. The geometry
 // that follows (each state's model, as in the .geo files) isn't read here.
 struct MdlModel {
     struct Name {

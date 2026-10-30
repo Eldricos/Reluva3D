@@ -4,7 +4,7 @@
 // The QVM format and how the original runs it (the call and stack
 // conventions, each opcode's effect) were read from the GPL Quake III Arena
 // source (qcommon/vm.c, vm_interpreted.c, vm_local.h, qfiles.h) and are
-// described in docs/formats/idtech3/qvm.md. This is new code written from
+// described in docs/engines/idtech3/formats/qvm.md. This is new code written from
 // that description.
 
 #include "engines/idtech3/qvm.h"

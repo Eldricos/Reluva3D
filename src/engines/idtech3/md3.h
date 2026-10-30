@@ -16,7 +16,7 @@ namespace reluva::idtech3 {
 
 // A model (.md3, "IDP3" version 15): surfaces of triangles whose vertices
 // move from frame to frame, and tags (named points with axes) where other
-// models attach. See docs/formats/idtech3/md3.md.
+// models attach. See docs/engines/idtech3/formats/md3.md.
 
 using Vec3 = std::array<float, 3>;
 
@@ -61,7 +61,7 @@ struct Md3Model {
 // Parse a whole .md3 file, checking every count and offset.
 Error parseMd3(const std::vector<uint8_t>& data, Md3Model& out);
 // Parse a whole .mdr file (Raven's skeletal models, "RDM5" version 2;
-// see docs/formats/idtech3/mdr.md), posed into an Md3Model: each frame's
+// see docs/engines/idtech3/formats/mdr.md), posed into an Md3Model: each frame's
 // vertices placed by their bones, each frame's tags from theirs. `lod`
 // picks the level of detail (0 the most detailed; past the last, the last).
 Error parseMdr(const std::vector<uint8_t>& data, Md3Model& out, int lod = 0);

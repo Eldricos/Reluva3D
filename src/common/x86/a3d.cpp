@@ -4,7 +4,7 @@
 // Interface layouts and constants are Aureal's A3D 3.0 SDK documentation's
 // (ia3dapi.h, freely distributed by Aureal). Every method a program
 // calls was checked against its call sites: the slot it calls and the words
-// it pushes (docs/engines/alphateam.md).
+// it pushes (docs/engines/netimmerse/alphateam.md).
 
 #include "common/x86/a3d.h"
 
