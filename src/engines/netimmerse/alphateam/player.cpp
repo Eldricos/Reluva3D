@@ -5,6 +5,7 @@
 
 #include "engines/netimmerse/alphateam/game_process.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace reluva::netimmerse::alphateam {
@@ -80,6 +81,18 @@ void Player::work() {
     // works out the next, about a quarter quicker, for a frame's delay.
     game.directX().presentLate = true;
     game.directX().presented = [this](const x86::DirectX::Frame& f) {
+        // A flip waits for the display's vertical blank, as the game's
+        // (DDFLIP_WAIT) did on a 60 Hz display: no more frames than are
+        // shown, rather than the processor's fill drawing ones nobody sees.
+        // A frame that came late doesn't make the next ones hurry.
+        {
+            using namespace std::chrono;
+            constexpr auto kFrame = duration_cast<steady_clock::duration>(duration<double>(1.0 / 60));
+            const auto now = steady_clock::now();
+            if (nextFlip_ > now)
+                std::this_thread::sleep_until(nextFlip_);
+            nextFlip_ = std::max(nextFlip_, now) + kFrame;
+        }
         {
             std::unique_lock<std::mutex> lock(mutex_);
             frame_ = f.pixels;

@@ -7,14 +7,47 @@
 
 #include <array>
 #include <atomic>
+#include <cstddef>
 #include <cstring>
 #include <cstdint>
 #include <functional>
+#include <new>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace reluva::x86 {
+
+// Memory straight from the system (mmap, VirtualAlloc), which gives it
+// zeroed, a page at a time as it's first touched.
+void* allocatePages(size_t bytes);
+void freePages(void* p, size_t bytes);
+
+// An allocator of such memory: elements made without a value are left as
+// the zeros they already are, so a large memory costs only what's used.
+template <typename T>
+struct PageAllocator {
+    using value_type = T;
+    PageAllocator() = default;
+    template <typename U>
+    PageAllocator(const PageAllocator<U>&) {}
+    T* allocate(size_t n) {
+        if (void* p = allocatePages(n * sizeof(T)))
+            return static_cast<T*>(p);
+        throw std::bad_alloc();
+    }
+    void deallocate(T* p, size_t n) { freePages(p, n * sizeof(T)); }
+    template <typename U>
+    void construct(U*) noexcept {} // zero already
+    template <typename U, typename... Args>
+    void construct(U* p, Args&&... args) {
+        ::new (static_cast<void*>(p)) U(std::forward<Args>(args)...);
+    }
+    template <typename U>
+    bool operator==(const PageAllocator<U>&) const { return true; }
+};
+using Memory = std::vector<uint8_t, PageAllocator<uint8_t>>;
 
 // A 32-bit x86 processor, interpreted (written from Intel's published
 // instruction set reference), for running native game code (Windows DLLs
@@ -38,7 +71,7 @@ public:
     explicit Cpu(uint32_t memorySize);
 
     // --- Memory --------------------------------------------------------------
-    std::vector<uint8_t>& memory() { return memory_; }
+    Memory& memory() { return memory_; }
     uint32_t memorySize() const { return uint32_t(memory_.size()); }
     bool valid(uint32_t address, uint32_t size) const {
         return address >= kPageSize && size <= memory_.size() && address <= memory_.size() - size;
@@ -195,7 +228,7 @@ private:
     void fpuCompare(double a, double b, bool setEflags, bool unordered);
     double fpuRound(double v) const;
 
-    std::vector<uint8_t> memory_;
+    Memory memory_;
     struct NativeEntry {
         std::string name;
         Native fn;

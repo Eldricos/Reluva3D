@@ -690,6 +690,19 @@ Progress:
       20.8 s to 19.3 s. Each the mean of two runs; the machine varies by
       up to 10% run to run. The same instructions ran (8,763,980,719 to
       frame 3300) and the frames saved every 300 came out byte-identical.
+  - Then, from playing it in a Release build on Windows: over 1 GB of
+    memory and half the processor.
+    - The program's 1 GB of memory was a zero-filled `std::vector`,
+      written through at start-up. It now comes zeroed from the system
+      (`mmap`, `VirtualAlloc`) through `PageAllocator` (x86.md), so only
+      the pages the program uses are there: the M1010 route's peak went
+      from 1,106 MB to 130 MB, with the same frames.
+    - The game draws as fast as it can (its main thread asked to sleep
+      500 ms in 1,300 frames, `at-run` now says), counting on `Flip` to
+      wait for the display's vertical blank. Ours didn't, so a fast
+      machine drew frames nobody saw. The player now shows at most one a
+      60th of a second, as a 60 Hz display would; `at-run` still runs
+      flat out.
 - Not there yet:
   - **more speed**: the program's own code (NetImmerse's scene graph,
     picking and its Direct3D renderer) in the interpreter is now most of

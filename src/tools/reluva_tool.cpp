@@ -6457,6 +6457,7 @@ int cmdAtRun(int argc, char** argv) {
     if (ran) {
         std::printf("stopped at frame %llu, after %llu instructions\n", (unsigned long long)framesShown,
                     (unsigned long long)cpu.executed());
+        std::printf("the main thread asked to sleep %llu ms in all\n", (unsigned long long)game.process().slept());
         return 0;
     }
     std::printf("the program returned %u after %llu instructions\n", exitCode,

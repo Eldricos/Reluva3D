@@ -5,6 +5,7 @@
 
 #include "common/events.h"
 
+#include <chrono>
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
@@ -63,6 +64,7 @@ private:
     std::vector<uint32_t> frame_;
     int width_ = 0, height_ = 0;
     uint64_t frameNumber_ = 0, frameTaken_ = 0;
+    std::chrono::steady_clock::time_point nextFlip_{}; // the next vertical blank a flip may show at
     bool paused_ = false, stopping_ = false, finished_ = false, ended_ = false;
     std::string error_, output_;
     float pendingX_ = 0, pendingY_ = 0; // fractions of a pixel of movement not passed on yet

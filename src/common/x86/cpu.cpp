@@ -6,6 +6,14 @@
 #include <cstdio>
 #include <cstring>
 
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#else
+#include <sys/mman.h>
+#endif
+
 namespace reluva::x86 {
 
 namespace {
@@ -33,7 +41,31 @@ constexpr uint32_t kReturnSlots = 1;
 
 } // namespace
 
-Cpu::Cpu(uint32_t memorySize) : memory_(memorySize, 0) {
+void* allocatePages(size_t bytes) {
+    if (bytes == 0)
+        return nullptr;
+#if defined(_WIN32)
+    return VirtualAlloc(nullptr, bytes, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+#else
+    void* p = mmap(nullptr, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    return p == MAP_FAILED ? nullptr : p;
+#endif
+}
+
+void freePages(void* p, size_t bytes) {
+    if (!p)
+        return;
+#if defined(_WIN32)
+    (void)bytes;
+    VirtualFree(p, 0, MEM_RELEASE);
+#else
+    munmap(p, bytes);
+#endif
+}
+
+// The memory comes zeroed from the system: only the pages the program
+// uses are ever really there.
+Cpu::Cpu(uint32_t memorySize) : memory_(memorySize) {
     nativeBase_ = memorySize - kMaxNatives * kNativeStride;
     std::memset(&memory_[nativeBase_ - kNativeStride * kReturnSlots], 0xf4, kMaxNatives * kNativeStride + kNativeStride);
 }
