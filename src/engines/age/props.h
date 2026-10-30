@@ -8,6 +8,7 @@
 #include "engines/age/bai.h"
 #include "engines/age/car.h"
 #include "engines/age/collision.h"
+#include "engines/age/damage.h"
 #include "engines/age/pathset.h"
 #include "engines/age/render_cache.h"
 #include "engines/age/traffic_lights.h"
@@ -62,6 +63,13 @@ struct BangerData {
     float impulseLimit2 = 0; // ImpulseLimit2: the square of the impulse that breaks it loose
     Vec3 size{}, cg{};       // its box's size, and its middle from the prop's foot
     int parts = 0;           // NumParts: its break pieces (<model>_BREAK01... in its .pkg)
+    // What flies out when it breaks (its BirthRule block, with its
+    // Position from its middle), as texture/fxpt<TexNumber>: 0 none.
+    BirthRule particles;
+    Vec3 particlesAt{};
+    int texNumber = 0;
+    std::vector<Vec3> glows; // GlowOffset: its lamps, from its middle
+    bool bursts() const { return texNumber > 0 && (particles.initialBlast > 0 || particles.spewRate > 0); }
 };
 Error parseBangerData(const std::string& text, BangerData& out);
 
@@ -95,6 +103,17 @@ public:
     void draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight& light, const gfx::Mat4& viewProj,
               const Vec3& eye) const;
 
+    // Its lamps' glows, those standing (at night).
+    void drawGlows(const FlareDrawer& flares, const Vec3& eye) const;
+    // What flew out of the props broken since last asked: a rule, its
+    // texture, where and how fast.
+    struct Burst {
+        BirthRule rule;
+        std::string texture;
+        Vec3 at, velocity;
+    };
+    std::vector<Burst> takeBursts() { return std::move(bursts_); }
+
     size_t count() const { return props_.size(); }
     size_t loose() const;
     // Pieces of props come apart, and those come to rest; the lowest
@@ -124,11 +143,22 @@ private:
             Vec3 position{}, velocity{}, spin{};
             Mat3 orientation;
             bool resting = false;
+            int effect = -1; // its particles (effects_)
         };
         std::vector<Piece> pieces;
         bool apart = false;
+        int effect = -1;         // its particles (effects_)
+        std::vector<Vec3> glows; // its lamps, in its own axes from its foot
     };
+    struct Effect {
+        BirthRule rule;
+        Vec3 at{}; // from the prop's (or piece's) middle
+        std::string texture;
+    };
+    int addEffect(const BangerData& b, const Vec3& middle);
     std::vector<Prop> props_;
+    std::vector<Effect> effects_;
+    std::vector<Burst> bursts_;
     bool prepared_ = false;
 };
 

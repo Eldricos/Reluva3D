@@ -7,6 +7,7 @@
 #include "common/types.h"
 #include "engines/age/collision.h"
 
+#include <array>
 #include <map>
 #include <string>
 #include <string_view>
@@ -24,6 +25,9 @@ struct PhysicsMaterial {
     int sound = 0;                          // which surface of the car sound tables
     float drag = 0;                         // slows a wheel on it
     float width = 0, height = 0, depth = 0; // depth: deep water (100) sinks a car
+    // ptxindex and ptxthreshold: the wheels' particles (see CollisionSurface).
+    std::array<int, 2> particles{-1, -1};
+    std::array<float, 2> particleSlip{0.25f, 0.5f};
 };
 
 class PhysicsMaterials {

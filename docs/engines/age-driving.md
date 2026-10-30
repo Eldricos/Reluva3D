@@ -147,8 +147,37 @@ its sound (which surface of the tyres' tables), its drag and depth.
 Deep water (depth 10 or more: the bay, the Thames) isn't collided with,
 so a car sinks and is put back. A model's bound polygons keep their own
 friction and elasticity and take the sound, drag and depth of the city
-material of their material's name. Width and height (ripples?) and
-the effects and particles aren't used.
+material of their material's name. **effect** is `none` for every
+material, so it isn't used.
+
+**ptxindex** and **ptxthreshold** are two pairs: what a wheel on the
+material throws up, and from how much slip. The thresholds are 0.25 and
+0.5 for most, 0.25 and 0.3 for cobblestone, 0 and 0 for water. Reluva
+reads them against the wheel's slip (0 gripping, 1 sliding at 10 m/s or
+spinning): the first effect once the wheel slips past the first
+threshold, the second past the second, from none at the threshold to 8
+particles a second slipping fully. A threshold of 0 (water) means
+whenever the wheel rolls (over 1.5 m/s), more the faster up to 10 m/s.
+The indices aren't named anywhere: they aren't the `tune/effects` rules
+in alphabetical or archive order. Reluva pairs them by what the
+materials are, and draws each with the particle texture that looks like
+it:
+
+| ptxindex | used by | rule (`tune/effects`) | texture |
+|---|---|---|---|
+| 1 | grass, sand (first) | `dust` | `fxpt8` |
+| 2 | grass (second) | `grass` | `fxpt4` |
+| 4 | `_default`, cobblestone (first): every road | `smoke` | `fxpt8` |
+| 5 | sand (second) | `dirt` | `fxpt11` |
+| 6 | water (second) | `splash` | `fxpt9` |
+| 7 | cobblestone (second) | `rock` | `fxpt14` |
+
+The rules' frame numbers (grass 6-9, splash 16-21) are of a sheet
+bigger than any of the textures, so a particle takes any frame of its
+texture; their radii (1-2 m, for clouds) are halved. **width** (water
+2.42, grass and sand 0.45) spreads where the particles start across the
+tyre's foot, and **height** (grass 0.04) lifts it: Reluva's reading of
+them.
 
 ## The city's collisions
 
@@ -175,8 +204,32 @@ up, four behind), eases towards it (at 6 a second), is kept between
 **MinDist** and **MaxDist** of the point **TrackTo** above the car, and
 looks at that point; **CameraFOV** is its field of view. `camPovCS` (in
 the car): at **Offset** in the car, looking along it, with the
-dashboard over the view. The many other numbers (approach, drift, hill
-and reverse behaviour) aren't used yet.
+dashboard over the view.
+
+The rest of `camTrackCS`, by Reluva's reading of the names (the numbers
+are alike across the cars, so they're checked by how the camera
+behaves):
+
+- **Approach** (ApproachOn 1 for all): how fast the camera catches the
+  car up, a share of the way a second. **MinAppXZPos** at **MinSpeed**
+  to **MaxAppXZPos** at **MaxSpeed** across (most cars 1.8 at rest to
+  12 at 35 m/s: about 6 at 15 m/s, the rate Reluva used before), rising
+  by at most **AppInc** a second and falling by **AppDec**; **AppYPos**
+  up and down. It goes round the car, its bearing and distance eased
+  apart, so it swings round rather than through the car.
+- **Drift**: steering past **MinHardSteer** (0.8 of full lock) for
+  **DriftDelay** (0.3 s), the rate is **FrontRate** (0.55) of itself, so
+  the car swings out before the camera follows.
+- **Hill**: the offset is tilted with the car's slope, its sine kept
+  within **HillMin**..**HillMax** (-0.56..0.56 for most), easing
+  **HillLerp** of the way a frame (at 30 a second).
+- **Reverse** (ReverseOn): backing for **RevDelay** (2 s), the camera
+  swings round to look the way the car goes, at **RevOnApp**'s rate,
+  and back at **RevOffApp**'s once the car goes forward.
+
+RearRate, FlipDelay, the Steer numbers (SteerOn is 0 for all), the
+App rotation numbers, LookAbove, BlendTime and CameraNear/Far aren't
+used.
 
 ## The dashboard
 
@@ -228,7 +281,10 @@ smokes, from 10 puffs a second to 30 near wrecked, from each offset: a
 billboard of a frame of `texture/fxpt8` (four smoke puffs, two by two;
 frame 2 is the dark one), rising (Gravity is up: 15, where the falling
 effects' are -9.8), growing by DRadius a frame (at 30 a second) and
-fading over its life. Which texture the frames are of is a guess. At
+fading over its life (and by DAlpha, in 255ths a frame), slowed by its
+Drag. Which texture the frames are of is a guess. The same rules make
+the props' and the wheels' particles (see
+[age-traffic.md](age-traffic.md) and the materials above). At
 MaxDamage the car is wrecked: its engine stops; the Drive page puts it
 back mended after a moment, a race ends ("Wrecked"). Each knock's place
 takes the body's parts within TextelDamageRadius to their damaged

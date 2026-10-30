@@ -36,6 +36,8 @@ public:
     // A texture not found is 0, and listed as missing unless `optional`.
     gfx::TextureId get(const std::string& name, bool& translucent, bool optional = false);
     void clear();
+    // A texture's size in pixels (after get()); false if it isn't loaded.
+    bool size(const std::string& name, int& width, int& height) const;
     const std::vector<std::string>& missing() const { return missing_; }
 
     // Seconds into the animations, and the frame a texture shows then (the
@@ -47,6 +49,7 @@ private:
     struct Entry {
         gfx::TextureId id = 0;
         bool translucent = false;
+        int width = 0, height = 0;
     };
     struct Animation {
         std::vector<gfx::TextureId> frames;

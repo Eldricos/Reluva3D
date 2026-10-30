@@ -11,23 +11,35 @@
 #include "engines/age/vecmath.h"
 
 #include <array>
+#include <map>
 #include <random>
 #include <string>
 #include <vector>
 
 namespace reluva::age {
 
-// How a car's smoke puffs are made: the birth rules of a .vehCarDamage
-// and tune/effects/*.asBirthRule (the fields Reluva uses).
-struct SmokeRule {
+struct TuneNode;
+
+// How particles are made: a birth rule, as a .vehCarDamage, the props'
+// .dgBangerData (its BirthRule block) and tune/effects/*.asBirthRule have
+// them.
+struct BirthRule {
+    Vec3 positionVar{};                    // metres either way
     Vec3 velocity{0, 1, 0}, velocityVar{}; // metres a second, and how far either way
     float life = 1, lifeVar = 0;           // seconds
     float radius = 0.4f, radiusVar = 0;    // metres
     float dRadius = 0;                     // growth, metres a frame (at 30 frames a second)
+    float drag = 0;                        // slowing, a share of the speed a second
+    float dAlpha = 0;                      // fading, in 255ths a frame
     float gravity = 0;                     // metres a second squared, up
+    int initialBlast = 0;                  // particles at once
+    float spewRate = 0, spewTime = 0;      // then a second, for that long (0: no end)
     std::array<float, 4> color{1, 1, 1, 1};
-    int frame = 0; // TexFrameStart
+    int frame = 0, frameEnd = 0; // TexFrameStart, TexFrameEnd
 };
+using SmokeRule = BirthRule;
+// From a rule's block (the fields above; the others aren't used).
+BirthRule parseBirthRule(const TuneNode& n);
 
 // tune/vehicle/<car>.vehCarDamage: see docs/engines/age-driving.md.
 struct DamageSetup {
@@ -86,8 +98,9 @@ struct CarWear {
     bool wrecked() const { return damage.wrecked(setup); }
 };
 
-// Smoke puffs: billboards of texture/fxpt8 (its four frames, two by two),
-// rising and fading.
+// Particles: billboards of one of the game's particle textures
+// (texture/fxpt<n>), rising, falling and fading as their rules say. The
+// cars' smoke is texture/fxpt8's (its four frames, two by two).
 class SmokePuffs {
 public:
     SmokePuffs(gfx::Renderer3D& renderer, TextureCache& textures);
@@ -95,23 +108,61 @@ public:
     SmokePuffs(const SmokePuffs&) = delete;
     SmokePuffs& operator=(const SmokePuffs&) = delete;
 
-    void emit(const SmokeRule& rule, const Vec3& at, const Vec3& carVelocity);
+    // A texture and how many frames across it (and down): 2 for the game's
+    // 128-pixel sheets of four, else 1.
+    struct Look {
+        gfx::TextureId texture = 0;
+        int grid = 1;
+    };
+    Look look(const std::string& texture);
+
+    // One particle (the smoke's look by default).
+    void emit(const BirthRule& rule, const Vec3& at, const Vec3& carVelocity, const Look* look = nullptr);
+    // A rule's InitialBlast at once (at least one), then its SpewRate for
+    // its SpewTimeLimit.
+    void burst(const BirthRule& rule, const Vec3& at, const Vec3& velocity, const Look& look);
+    // What a car's wheels throw up from what they're on (the surfaces'
+    // particles): tune/effects/*.asBirthRule, by Reluva's reading of the
+    // materials' effect numbers (see docs/engines/age-driving.md).
+    void loadWheelEffects(const SearchSet& files);
+    void wheels(float dt, const CarSim& car);
     void update(float dt);
-    void clear() { puffs_.clear(); }
+    void clear() {
+        puffs_.clear();
+        spews_.clear();
+        wheelOwed_.clear();
+    }
     size_t count() const { return puffs_.size(); }
     void draw(const Vec3& eye) const;
 
 private:
     struct Puff {
         Vec3 position, velocity;
-        float age = 0, life = 1, radius = 0.4f, grow = 0, gravity = 0;
+        float age = 0, life = 1, radius = 0.4f, grow = 0, gravity = 0, drag = 0, fade = 0;
         std::array<float, 4> color;
         int frame = 0;
+        Look look;
+    };
+    struct Spew {
+        BirthRule rule;
+        Vec3 at, velocity;
+        Look look;
+        float left = 0, owed = 0;
     };
     gfx::Renderer3D& renderer_;
+    TextureCache& textures_;
     gfx::MeshId quad_ = 0;
-    gfx::TextureId texture_ = 0;
+    Look smoke_;
+    std::map<std::string, Look> looks_;
     std::vector<Puff> puffs_;
+    std::vector<Spew> spews_;
+    struct WheelEffect {
+        BirthRule rule;
+        Look look;
+        bool loaded = false;
+    };
+    std::array<WheelEffect, 8> wheelEffects_;
+    std::map<const CarSim*, std::array<float, 8>> wheelOwed_; // particles owed, per wheel and threshold
     std::minstd_rand random_{7};
 };
 

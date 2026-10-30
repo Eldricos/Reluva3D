@@ -356,7 +356,7 @@ private:
     bool manual_ = false; // manual gears (M)
     std::vector<CarCamera> cameras_;
     int camera_ = 0;
-    Vec3 cameraPos_{};
+    CameraFollow cameraPos_{};
     bool cameraReset_ = true;
     int lighting_ = 4;
     bool showInfo_ = true;
@@ -490,7 +490,7 @@ private:
     bool manual_ = false;
     std::vector<CarCamera> cameras_;
     int camera_ = 0;
-    Vec3 cameraPos_{};
+    CameraFollow cameraPos_{};
     bool cameraReset_ = true;
     uint32_t keys_ = 0;
     uint64_t lastMs_ = 0;

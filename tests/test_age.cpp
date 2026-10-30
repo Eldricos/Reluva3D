@@ -858,13 +858,17 @@ void testCarFiles() {
     PhysicsMaterials m;
     CHECK(!m.parse("mtl deepwater {\n\telasticity: 0.5\n\tfriction: 0.65\n\tdrag: 0.5\n\tdepth: 100.0\n}\n"
                    "mtl _default {\n\tfriction: 0.9\n\tsound: 0\n}\n"
-                   "mtl grass {\n\tfriction: 0.45\n\tsound: 2\n\tptxindex: 4 -1\n}\n",
+                   "mtl grass {\n\tfriction: 0.45\n\tsound: 2\n\twidth: 0.45\n\theight: 0.04\n"
+                   "\tptxindex: 1 2\n\tptxthreshold: 0.25 0.5\n}\n",
                    "texture,physics\r\nS_THAMES,deepwater\r\nlawn,grass\r\nroad,none\r\n"));
     CHECK(m.forTexture("s_thames-0009").name == "deepwater" && m.forTexture("s_thames").depth == 100);
     CHECK(m.forTexture("LAWN").name == "grass" && m.forTexture("road").name == "_default");
     CHECK(m.byName("nothing").name == "_default");
     const CollisionSurface grass = m.surface(m.byName("grass"));
     CHECK(std::fabs(grass.friction - CollisionSurface{}.friction * 0.5f) < 1e-4f && grass.sound == 2);
+    CHECK(grass.particles[0] == 1 && grass.particles[1] == 2 && grass.particleSlip[1] == 0.5f &&
+          grass.spread == 0.45f && grass.rise == 0.04f);
+    CHECK(m.surface(m.byName("deepwater")).particles[0] == -1);
     CHECK(m.surface(m.byName("deepwater")).drag == 0.5f);
     CHECK(m.parse("mtl open {\nfriction: 1\n", ""));
 
@@ -900,7 +904,19 @@ void testCarFiles() {
                             "  RegenerateRate 100\n  SmokeOffset -0.13 0.6 -1.65\n  Gravity 15\n"
                             "  TexFrameStart 2\n  Color -167772161\n}\n",
                             d));
-    CHECK(d.maxDamage == 10000 && d.smokeOffset[2] == -1.65f && d.smokeOffset2[2] == -1.65f && d.smoke.frame == 2);
+    CHECK(d.maxDamage == 10000 && d.smokeOffset[2] == -1.65f && d.smokeOffset2[2] == -1.65f && d.smoke.frame == 2 &&
+          d.smoke.frameEnd == 2);
+    {
+        // tune/effects/*.asBirthRule: the same rule.
+        TuneNode root;
+        CHECK(!parseTune("type: a\nasBirthRule {\n  PositionVar 0.5 0 0.5\n  Drag 0.2\n  DAlpha -5\n"
+                         "  InitialBlast 32\n  SpewRate 8\n  SpewTimeLimit 10\n  TexFrameStart 16\n"
+                         "  TexFrameEnd 21\n}\n",
+                         root));
+        const BirthRule r = parseBirthRule(root.children.front());
+        CHECK(r.positionVar[2] == 0.5f && r.drag == 0.2f && r.dAlpha == -5 && r.initialBlast == 32 && r.spewRate == 8 &&
+              r.spewTime == 10 && r.frame == 16 && r.frameEnd == 21);
+    }
     CHECK(std::fabs(d.smoke.color[3] - 0xf5 / 255.0f) < 1e-4f && d.smoke.color[0] == 1);
     CarDamage damage;
     CHECK(damage.knock(d, 1400) == 0 && damage.knock(d, 3500) == 2000 && !damage.smoking(d));
@@ -926,6 +942,13 @@ void testDashboardFiles(const std::filesystem::path& tmp) {
     // The Beetle's is .asNode, others' .asnode.
     test::writeFile(tmp / "tune" / "vpbug_dash.asNode",
                     toBytes("type: a\nasNode {\n  DashPos 0 -0.3 -0.9\n  WheelFact 0.75\n  SpeedRotMax 3.614\n}\n"));
+    // A following camera: it catches up slowly when the car is slow, and
+    // backing for RevDelay seconds it swings round to the car's front.
+    test::writeFile(tmp / "tune" / "camera" / "vpbug_near.camTrackCS",
+                    toBytes("type: a\ncamTrackCS {\n  Offset 0 1 4\n  MinAppXZPos 1.5\n  MaxAppXZPos 8\n"
+                            "  MaxSpeed 15\n  AppInc 2.5\n  AppDec 10\n  ApproachOn 1\n  ReverseOn 1\n"
+                            "  RevDelay 2\n  RevOnApp 2\n  RevOffApp 4\n  HillMin -0.5\n  HillMax 0.5\n"
+                            "  HillLerp 0.1\n  TrackTo 0 1.7 0\n  MaxDist 5.3\n  MinDist 3.9\n}\n"));
     SearchSet files;
     auto loose = std::make_unique<DirectoryArchive>();
     CHECK(!loose->open(tmp));
@@ -934,6 +957,22 @@ void testDashboardFiles(const std::filesystem::path& tmp) {
     CHECK(!loadDashSetup(files, "vpbug", dash));
     CHECK(dash.dashPos[1] == -0.3f && dash.wheelFact == 0.75f && dash.speedRotMax == 3.614f && dash.rpmRotMax == 3);
     CHECK(loadDashSetup(files, "vpnone", dash));
+
+    const std::vector<CarCamera> cams = loadCarCameras(files, "vpbug");
+    CHECK(cams.size() == 1 && cams[0].approachSlow == 1.5f && cams[0].approachFast == 8 && cams[0].reverse &&
+          cams[0].reverseDelay == 2 && cams[0].hillMax == 0.5f);
+    CarSim car;
+    car.reset(testCar(), {0, 0, 0}, 0); // facing -z
+    CameraFollow follow;
+    updateCarCamera(cams[0], car, 0.05f, follow, true);
+    CHECK(follow.position[2] > 3.8f && follow.rate == 1.5f);
+    car.velocity = {0, 0, 4}; // backing
+    for (int i = 0; i < 30; ++i)
+        updateCarCamera(cams[0], car, 0.05f, follow, false);
+    CHECK(!follow.backwards && follow.position[2] > 3.8f);
+    for (int i = 0; i < 100; ++i)
+        updateCarCamera(cams[0], car, 0.05f, follow, false);
+    CHECK(follow.backwards && follow.position[2] < -3.8f);
 }
 
 void testLessons() {
@@ -1787,7 +1826,7 @@ void testAmbient(const std::filesystem::path& tmp) {
                              "sample name,sample volume,sample type,oneshot time limit low,oneshot time limit high,"
                              "active,min speed,max speed,Doppler\r\n"
                              "buoybell,0.95,2,5,10,1,0,999999,0\r\n"
-                             "streetcable,0.82,0,0,0,1,0,999999,0\r\n"
+                             "streetcable,0.82,0,0,0,1,0,999999,1\r\n"
                              "VECTORPOINTS,,,,,,,,\r\nx,y,z,,,,,,\r\n"
                              "-146.180206,-0.000192,-662.411499,,,,,,\r\n"
                              "-6.795126,-0.000042,-603.490356\r\n";
@@ -1799,6 +1838,7 @@ void testAmbient(const std::filesystem::path& tmp) {
         CHECK(a.samples[0].name == "buoybell" && std::fabs(a.samples[0].volume - 0.95f) < 1e-5f &&
               a.samples[0].type == 2 && a.samples[0].low == 5 && a.samples[0].high == 10 && a.samples[0].active);
         CHECK(a.samples[1].type == 0 && std::fabs(a.points[1][2] + 603.490356f) < 1e-3f);
+        CHECK(!a.samples[0].doppler && a.samples[1].doppler && a.samples[1].maxSpeed == 999999);
     }
     CHECK(ambientGain(a, 3) == 1 && std::fabs(ambientGain(a, 40) - 0.5f) < 1e-5f && ambientGain(a, 80) == 0);
     CHECK(parseAmbience("sample name\n", a));
@@ -1816,6 +1856,14 @@ void testAmbient(const std::filesystem::path& tmp) {
     CHECK(!sounds.load(files, "test", nullptr) && sounds.ambiences().size() == 1);
     sounds.update(1, {0, 0, 0});
     CHECK(sounds.playing() == 0); // nothing to play them on
+    // 20 m east of a point, facing north (right is east), driving at it:
+    // heard on the left, the Doppler sound higher.
+    sounds.update(0.1f, {-6.795126f + 20, 0, -603.490356f}, {1, 0, 0}, {-10, 0, 0});
+    CHECK(sounds.heard(0).pan < -80 && sounds.heard(0).pitch == 1);
+    CHECK(sounds.heard(1).pan < -80 && std::fabs(sounds.heard(1).pitch - 353.0f / 343) < 1e-4f);
+    // Over the point: in the middle.
+    sounds.update(0.1f, {-6.795126f, 0, -603.490356f}, {1, 0, 0});
+    CHECK(sounds.heard(0).pan == 0);
     CHECK(sounds.load(files, "elsewhere", nullptr));
 }
 
@@ -2138,8 +2186,14 @@ void testProps(const std::filesystem::path& tmp) {
 
     BangerData b;
     CHECK(!parseBangerData("type: a\ndgBangerData {\n  Size 0.2 10.3 0.2\n  CG 0.18 5.15 0\n  Mass 9.3\n"
-                           "  ImpulseLimit2 4657.7\n  NumParts 2\n}\n",
+                           "  ImpulseLimit2 4657.7\n  NumParts 2\n  NumGlows 1\n  GlowOffset 0 1.99 0\n"
+                           "  BirthRule {\n    Position 0 1 0\n    VelocityVar 5 2 1\n    Life 1\n"
+                           "    Radius 0.54\n    InitialBlast 16\n    Gravity -9.8\n    TexFrameEnd 3\n  }\n"
+                           "  TexNumber 6\n}\n",
                            b));
+    CHECK(b.bursts() && b.texNumber == 6 && b.particles.initialBlast == 16 && b.particles.frameEnd == 3 &&
+          b.particles.velocityVar[0] == 5 && b.particlesAt[1] == 1 && b.particles.gravity == -9.8f);
+    CHECK(b.glows.size() == 1 && b.glows[0][1] == 1.99f);
     CHECK(std::fabs(b.mass - 9.3f) < 1e-4f && std::fabs(b.impulseLimit2 - 4657.7f) < 0.01f && b.parts == 2 &&
           b.cg[1] == 5.15f && b.size[1] == 10.3f);
     CHECK(parseBangerData("type: a\nother {\n}\n", b));
@@ -2149,9 +2203,11 @@ void testProps(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
     test::writeFile(tmp / "city" / "test" / "props.pathset",
                     buildPathset({{"sp_cone_f", {{0, 0, -30}}, 0}, {"sp_tree_s", {{6, 0, -30}}, 0}}));
-    // The cone has two pieces: a base (its middle 0.1 up) and a top.
+    // The cone has two pieces: a base (its middle 0.1 up) and a top; it
+    // throws out litter (texture fxpt3) as it breaks.
     test::writeFile(tmp / "tune" / "banger" / "sp_cone_f.dgBangerData",
-                    toBytes("type: a\ndgBangerData {\n  Mass 10\n  ImpulseLimit2 2500\n  NumParts 2\n}\n"));
+                    toBytes("type: a\ndgBangerData {\n  Mass 10\n  ImpulseLimit2 2500\n  NumParts 2\n"
+                            "  BirthRule {\n    Position 0 0.5 0\n    InitialBlast 8\n  }\n  TexNumber 3\n}\n"));
     test::writeFile(tmp / "tune" / "banger" / "sp_cone_f_BREAK01.dgBangerData",
                     toBytes("type: a\ndgBangerData {\n  Size 0.6 0.2 0.6\n  CG 0 0.1 0\n  Mass 4\n}\n"));
     test::writeFile(tmp / "tune" / "banger" / "sp_cone_f_BREAK02.dgBangerData",
@@ -2201,6 +2257,12 @@ void testProps(const std::filesystem::path& tmp) {
         props.update(0.05f, {&car}, flat, lights);
     }
     CHECK(props.loose() == 1 && car.position[2] < -35 && car.forwardSpeed() > speedBefore * 0.8f);
+    {
+        const std::vector<Props::Burst> bursts = props.takeBursts();
+        CHECK(bursts.size() == 1 && bursts[0].texture == "fxpt3" && bursts[0].rule.initialBlast == 8 &&
+              std::fabs(bursts[0].at[1] - 0.5f) < 0.01f && std::fabs(bursts[0].at[2] + 30) < 0.01f);
+        CHECK(props.takeBursts().empty());
+    }
     CHECK(!flat.raycast({0, 5, -30}, {0, -1, 0}, 10, hit) || hit.surface.prop < 0);
     // It came apart: both pieces fly off and come to rest on the ground.
     for (int i = 0; i < 100; ++i)

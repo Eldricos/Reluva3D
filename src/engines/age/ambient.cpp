@@ -77,6 +77,13 @@ Error parseAmbience(const std::string& text, Ambience& out) {
         s.low = number(f, 3);
         s.high = number(f, 4);
         s.active = f.size() < 6 || number(f, 5) != 0;
+        // The speeds the listener's heard it between, and Doppler (the
+        // columns after "active").
+        if (f.size() > 7) {
+            s.minSpeed = number(f, 6);
+            s.maxSpeed = number(f, 7);
+        }
+        s.doppler = number(f, 8) != 0;
         out.samples.push_back(s);
     }
     if (out.samples.empty())
@@ -147,41 +154,106 @@ void AmbientSounds::clear() {
     mixer_ = nullptr;
 }
 
-void AmbientSounds::update(float dt, const Vec3& listener) {
+void AmbientSounds::update(float dt, const Vec3& listener, const Vec3& right, const Vec3& velocity) {
+    constexpr float kSound = 343;    // m/s
+    constexpr float kMostPan = 0.8f; // of the way to one side: some of it heard in both ears
     std::vector<float> gains;
+    std::vector<Vec3> nearestAt;
     for (const Ambience& a : ambiences_) {
         float nearest = 1e30f;
+        Vec3 at = listener;
         for (const Vec3& p : a.points)
-            nearest = std::min(nearest, length(p - listener));
+            if (const float d = length(p - listener); d < nearest) {
+                nearest = d;
+                at = p;
+            }
         gains.push_back(ambientGain(a, nearest));
+        nearestAt.push_back(at);
     }
-    for (Voice& v : voices_) {
-        const float gain = gains[v.ambience] * v.sample->volume * gain_;
+    const float speed = length(velocity);
+    auto gainOf = [&](const Voice& v) {
+        const AmbientSample& s = *v.sample;
+        if (speed < s.minSpeed || speed > s.maxSpeed)
+            return 0.0f;
+        return gains[v.ambience] * s.volume * gain_;
+    };
+    // The loops heard, the most important (then the loudest) first, up to
+    // the most that play; one-shots take what's left.
+    std::vector<size_t> loops;
+    for (size_t i = 0; i < voices_.size(); ++i)
+        if (voices_[i].sample->type == 0 && voices_[i].sound && gainOf(voices_[i]) > 0.01f)
+            loops.push_back(i);
+    std::stable_sort(loops.begin(), loops.end(), [&](size_t a, size_t b) {
+        const int pa = ambiences_[voices_[a].ambience].priority, pb = ambiences_[voices_[b].ambience].priority;
+        return pa != pb ? pa > pb : gainOf(voices_[a]) > gainOf(voices_[b]);
+    });
+    if (loops.size() > kMostVoices)
+        loops.resize(kMostVoices);
+    size_t busy = 0;
+    for (size_t i = 0; i < voices_.size(); ++i) {
+        Voice& v = voices_[i];
+        if (v.sample->type == 0)
+            busy += std::find(loops.begin(), loops.end(), i) != loops.end();
+        else if (mixer_ && v.handle != audio::kNoSound && mixer_->isPlaying(v.handle))
+            ++busy;
+    }
+    for (size_t i = 0; i < voices_.size(); ++i) {
+        Voice& v = voices_[i];
+        const float gain = gainOf(v);
         const int volume = int(std::clamp(gain, 0.0f, 1.0f) * audio::kMaxVolume);
+        // From where its nearest point is: to the side it's on (less so
+        // within its least distance, where it's all round), and higher
+        // coming nearer.
+        const Ambience& a = ambiences_[v.ambience];
+        Vec3 to = nearestAt[v.ambience] - listener;
+        to[1] = 0;
+        const float away = length(to);
+        v.heard.pan = 0;
+        if (away > 1e-3f && length(right) > 1e-3f) {
+            const float side = dot(to * (1 / away), normalized(right));
+            const float spread = std::clamp(away / std::max(1.0f, a.minDistance), 0.0f, 1.0f);
+            v.heard.pan = int(std::lround(side * spread * kMostPan * float(audio::kMaxPan)));
+        }
+        v.heard.pitch = 1;
+        if (v.sample->doppler && away > 1e-3f) {
+            const float closing = dot(velocity, to * (1 / away));
+            v.heard.pitch = std::clamp((kSound + closing) / kSound, 0.5f, 2.0f);
+        }
+        auto place = [&] {
+            if (mixer_ && v.handle != audio::kNoSound) {
+                mixer_->setVolume(v.handle, volume);
+                mixer_->setPan(v.handle, v.heard.pan);
+                mixer_->setPitch(v.handle, v.heard.pitch);
+            }
+        };
         if (v.sample->type == 0) {
-            // A loop, while it's heard.
+            // A loop, while it's heard (and among those that play).
             if (!mixer_ || !v.sound)
                 continue;
-            if (gain > 0.01f && v.handle == audio::kNoSound)
-                v.handle = mixer_->play(v.sound, audio::SoundType::Effects, volume, 0, true);
-            else if (gain <= 0.01f && v.handle != audio::kNoSound) {
+            const bool heard = std::find(loops.begin(), loops.end(), i) != loops.end();
+            if (heard && v.handle == audio::kNoSound)
+                v.handle = mixer_->play(v.sound, audio::SoundType::Effects, volume, v.heard.pan, true);
+            else if (!heard && v.handle != audio::kNoSound) {
                 mixer_->stop(v.handle);
                 v.handle = audio::kNoSound;
             }
-            if (v.handle != audio::kNoSound)
-                mixer_->setVolume(v.handle, volume);
+            place();
             continue;
         }
         // A one-shot, now and then while it's heard.
         if (mixer_ && v.handle != audio::kNoSound && !mixer_->isPlaying(v.handle))
             v.handle = audio::kNoSound;
+        place();
         v.wait -= dt;
         if (v.wait > 0)
             continue;
         const float low = std::max(0.5f, v.sample->low), high = std::max(low, v.sample->high);
         v.wait = std::uniform_real_distribution<float>(low, high)(random_);
-        if (gain > 0.01f && mixer_ && v.sound && v.handle == audio::kNoSound)
-            v.handle = mixer_->play(v.sound, audio::SoundType::Effects, volume, 0, false);
+        if (gain > 0.01f && mixer_ && v.sound && v.handle == audio::kNoSound && busy < kMostVoices) {
+            v.handle = mixer_->play(v.sound, audio::SoundType::Effects, volume, v.heard.pan, false);
+            mixer_->setPitch(v.handle, v.heard.pitch);
+            ++busy;
+        }
     }
 }
 

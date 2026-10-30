@@ -19,6 +19,12 @@ struct CollisionSurface {
     // car sounds play, how much a wheel on it is slowed, how deep it is.
     uint8_t sound = 0;
     float drag = 0, depth = 0;
+    // What a wheel on it throws up (materials' ptxindex: an effect, -1
+    // none), once it slips more than each threshold; and how wide and
+    // high (width, height).
+    std::array<int8_t, 2> particles{-1, -1};
+    std::array<float, 2> particleSlip{0.25f, 0.5f};
+    float spread = 0, rise = 0;
     // A prop that can be knocked down (props.h): its number, the impulse
     // (kg m/s) that breaks it loose (0: it doesn't) and its mass.
     int32_t prop = -1;

@@ -22,6 +22,8 @@ struct AmbientSample {
     float low = 0;    // a one-shot's seconds between plays: from `low`
     float high = 0;   // to `high`
     bool active = true;
+    float minSpeed = 0, maxSpeed = 1e9f; // heard while the listener goes this fast (m/s)
+    bool doppler = false;                // its pitch shifted by the listener's coming and going
 };
 
 // aud/ambient/<name>.csv: a sound heard near a set of points (the city's
@@ -29,7 +31,7 @@ struct AmbientSample {
 struct Ambience {
     float minDistance = 0; // heard in full this near a point
     float maxDistance = 0; // and not at all this far
-    int priority = 0;      // "3D priority"
+    int priority = 0;      // "3D priority": the higher kept playing first
     int area = 0;          // "Audible area": not used yet
     std::vector<AmbientSample> samples;
     std::vector<Vec3> points; // VECTORPOINTS
@@ -54,13 +56,23 @@ public:
 
     Error load(const SearchSet& files, const std::string& map, audio::Mixer* mixer, uint32_t seed = 1);
     void clear();
-    void update(float dt, const Vec3& listener);
+    // Round the listener: where it is, its right (for each sound's pan;
+    // none: all in the middle) and its velocity (for Doppler).
+    void update(float dt, const Vec3& listener, const Vec3& right = {}, const Vec3& velocity = {});
     // All of them louder or quieter (the Audio Options' ambient: 0 off).
     void setGain(float gain) { gain_ = gain; }
 
     const std::vector<Ambience>& ambiences() const { return ambiences_; }
-    // How many sounds are playing (for tests).
+    // How many sounds are playing (for tests), and a voice's pan and pitch
+    // as last set.
     size_t playing() const;
+    struct Heard {
+        int pan = 0;
+        float pitch = 1;
+    };
+    Heard heard(size_t voice) const { return voice < voices_.size() ? voices_[voice].heard : Heard{}; }
+    // At most this many play at once.
+    static constexpr size_t kMostVoices = 8;
 
 private:
     struct Voice {
@@ -69,6 +81,7 @@ private:
         std::shared_ptr<const audio::Sound> sound;
         audio::SoundHandle handle = audio::kNoSound;
         float wait = 0; // a one-shot's seconds to its next play
+        Heard heard;
     };
     std::vector<Ambience> ambiences_;
     std::vector<Voice> voices_;

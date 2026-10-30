@@ -76,6 +76,8 @@ public:
     // The props (city/<map>/props.pathset) and traffic lights, which cars
     // can knock down.
     const Props& props() const { return props_; }
+    // What flew out of the props knocked down since last asked.
+    std::vector<Props::Burst> takeBursts() { return props_.takeBursts(); }
 
 private:
     AiRoadMap roads_;

@@ -198,6 +198,17 @@ Error parseBangerData(const std::string& text, BangerData& out) {
         out.cg[k] = n->number("CG", k);
     }
     out.parts = int(n->number("NumParts"));
+    out.texNumber = int(n->number("TexNumber"));
+    if (const TuneNode* rule = n->child("BirthRule")) {
+        out.particles = parseBirthRule(*rule);
+        for (size_t k = 0; k < 3; ++k)
+            out.particlesAt[k] = rule->number("Position", k);
+    }
+    // NumGlows of them, the offsets one after another.
+    const int glows = std::clamp(int(n->number("NumGlows")), 0, 8);
+    for (int g = 0; g < glows; ++g)
+        out.glows.push_back(Vec3{n->number("GlowOffset", size_t(3 * g)), n->number("GlowOffset", size_t(3 * g + 1)),
+                                 n->number("GlowOffset", size_t(3 * g + 2))});
     return Error::success();
 }
 
@@ -266,8 +277,17 @@ void Props::prepare(const SearchSet& files, ModelCache& models) {
     });
 }
 
+int Props::addEffect(const BangerData& b, const Vec3& middle) {
+    if (!b.bursts())
+        return -1;
+    effects_.push_back({b.particles, middle + b.particlesAt, "fxpt" + std::to_string(b.texNumber)});
+    return int(effects_.size() - 1);
+}
+
 void Props::prepare(const SearchSet& files, const ModelBox& box) {
     std::map<std::string, std::pair<BangerData, bool>> banger;
+    effects_.clear();
+    std::map<std::string, int> effectOf; // a model's or piece's, shared
     for (size_t i = 0; i < props_.size(); ++i) {
         Prop& p = props_[i];
         Vec3 low, high;
@@ -284,6 +304,17 @@ void Props::prepare(const SearchSet& files, const ModelBox& box) {
             it = banger.emplace(p.model, std::make_pair(b, has)).first;
         }
         const auto& [b, has] = it->second;
+        if (has) {
+            auto e = effectOf.find(p.model);
+            if (e == effectOf.end())
+                e = effectOf.emplace(p.model, addEffect(b, b.cg)).first;
+            p.effect = e->second;
+            // Its lamps: offsets from its model's middle, which stands
+            // `lift` up.
+            p.glows.clear();
+            for (const Vec3& g : b.glows)
+                p.glows.push_back(g + Vec3{0, p.lift, 0});
+        }
         // Its pieces: <model>_BREAK01... each with its own banger data.
         p.pieces.clear();
         for (int k = 1; has && k <= std::min(b.parts, 9); ++k) {
@@ -298,6 +329,11 @@ void Props::prepare(const SearchSet& files, const ModelBox& box) {
             piece.part = name;
             piece.cg = pb.cg;
             piece.size = pb.size;
+            const std::string key = p.model + "_" + name;
+            auto e = effectOf.find(key);
+            if (e == effectOf.end())
+                e = effectOf.emplace(key, addEffect(pb, {})).first;
+            piece.effect = e->second;
             p.pieces.push_back(piece);
         }
         p.surface = CollisionSurface{};
@@ -358,6 +394,11 @@ void Props::update(float dt, const std::vector<CarSim*>& cars, CollisionWorld& w
             changed = true;
             if (p.light >= 0)
                 lights.knockDown(size_t(p.light));
+            // What flies out: from its middle, and from each piece.
+            if (p.effect >= 0) {
+                const Effect& e = effects_[size_t(p.effect)];
+                bursts_.push_back({e.rule, e.texture, p.at + p.axes * e.at, car->velocity * 0.3f});
+            }
             // Come apart, where it has pieces: each from where it was, off
             // the way it was pushed, turning, a little up.
             if (!p.pieces.empty()) {
@@ -373,6 +414,10 @@ void Props::update(float dt, const std::vector<CarSim*>& cars, CollisionWorld& w
                     piece.velocity = push * (speed * share) + Vec3{0, 1.5f + float(k % 2), 0};
                     piece.spin = axis * (2 + float(k)) + Vec3{0, 0.5f * float(k % 2 ? 1 : -1), 0};
                     piece.resting = false;
+                    if (piece.effect >= 0) {
+                        const Effect& e = effects_[size_t(piece.effect)];
+                        bursts_.push_back({e.rule, e.texture, piece.position + p.axes * e.at, piece.velocity * 0.5f});
+                    }
                 }
             }
             // Pushed the way the car goes: tall ones fall over that way
@@ -478,6 +523,22 @@ size_t Props::pieces(size_t* resting, float* lowest) const {
 
 size_t Props::loose() const {
     return size_t(std::count_if(props_.begin(), props_.end(), [](const Prop& p) { return p.loose; }));
+}
+
+void Props::drawGlows(const FlareDrawer& flares, const Vec3& eye) const {
+    // A street lamp's light: warm, the size of the city's beacons'
+    // smaller ones.
+    constexpr float kSize = 2, kDistance = 600;
+    constexpr std::array<float, 3> kColor{1, 0.9f, 0.7f};
+    for (const Prop& p : props_) {
+        if (p.loose)
+            continue;
+        for (const Vec3& g : p.glows) {
+            const Vec3 at = p.at + p.axes * g;
+            if (length(at - eye) < kDistance)
+                flares.draw(at, kSize, kColor, eye);
+        }
+    }
 }
 
 } // namespace reluva::age

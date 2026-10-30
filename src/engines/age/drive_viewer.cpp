@@ -211,6 +211,7 @@ void DriveViewer::loadCity(int index) {
     error_ = scene_->load(cities_[size_t(city_)].map).message;
     flares_ = std::make_unique<FlareDrawer>(*renderer_, scene_->textures());
     smoke_ = std::make_unique<SmokePuffs>(*renderer_, scene_->textures());
+    smoke_->loadWheelEffects(ctx_.files);
     hudMap_.load(*renderer_, ctx_.files, scene_->models(), cities_[size_t(city_)].map);
     pictures_.load(ctx_.files);
     scene_->setLighting(lighting_);
@@ -433,9 +434,15 @@ void DriveViewer::update(uint64_t nowMs) {
     siren_.update(dt, sirenOn_ ? 0.9f : 0.0f);
     life_.setLamps(scene_->lampsLit(), scene_->night());
     life_.update(dt, car_.sim, {}, world_, roads_, fill_);
+    // What flies out of the props knocked down: coins, papers, leaves.
+    for (const Props::Burst& b : life_.takeBursts())
+        if (smoke_)
+            smoke_->burst(b.rule, b.at, b.velocity, smoke_->look(b.texture));
     fill_ = false;
     sounds_.update(dt, car_.sim, (keys_ & kDriveHorn) && !car_.hasSiren());
     wear_.update(dt, car_, smoke_.get());
+    if (smoke_)
+        smoke_->wheels(dt, car_.sim);
     car_.sim.impact = 0;
     if (smoke_)
         smoke_->update(dt);

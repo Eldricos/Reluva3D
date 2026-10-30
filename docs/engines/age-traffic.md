@@ -203,8 +203,26 @@ down (`props.cpp`):
   the car went (at half to 80% of its speed, up 1.5-2.5 m/s, turning),
   fall, bounce a little on the ground under them, and come to rest.
   Standing, a model's pieces aren't drawn with it (they'd be at its
-  foot). Elasticity, Friction, the glows and the particles (BirthRule)
-  aren't used.
+  foot).
+- What flies out: the banger's **BirthRule** block (the
+  `tune/effects` rules' fields) and **TexNumber**, the texture
+  `texture/fxpt<TexNumber>`: phone booths and parking meters throw
+  coins (`fxpt2`), bins litter (`fxpt3`), mailboxes and news boxes
+  papers (`fxpt7`), trees leaves (`fxpt5`). About 41 bangers have an
+  **InitialBlast** or a **SpewRate**; breaking, the prop throws its
+  blast at once (at least one) from its middle plus the rule's
+  **Position**, each a frame between TexFrameStart and TexFrameEnd of
+  the texture's (the 128-pixel ones are four frames, two by two), then
+  spews for **SpewTimeLimit** seconds. Its pieces throw their own as
+  they fly off (a car door's glass).
+- **NumGlows** and **GlowOffset**: 19 bangers have one lamp (the street,
+  park, freeway, Thames and Chinatown lamps, the banner lamps, a lit
+  sawhorse; two are pieces, which Reluva leaves out), the offset from
+  the model's middle (the street lamp's 3.65 up, the freeway lamp's
+  17.8). At night Reluva draws a warm flare there while the prop
+  stands.
+- Elasticity, Friction and **Flash** (numbers like 685 that don't look
+  like anything) aren't used.
 
 ## Lamps and flares
 
@@ -361,7 +379,15 @@ within its least distance, falling evenly to nothing at its greatest
 (the gulls 100-250 m, the cable 10-100 m). Its looped samples play while
 it's heard; the others play now and then, a random time between the
 sample's low and high limits apart, if it's heard then. That fall-off,
-and treating sample types 1 and 2 alike, are Reluva's; the Audible area,
-priority, Doppler and speed columns aren't used, and the sounds aren't
-panned.
+and treating sample types 1 and 2 alike, are Reluva's. Each sound is
+panned to the side its nearest point is on (at most 0.8 of the way, and
+less within its least distance, where it's all round). A sample with
+**Doppler** set (the tug horns here; the ferry, the bridge and the
+train too, which have no points and aren't played this way) is higher
+as the listener comes nearer, by (343 + closing speed) / 343.
+The **min speed** and **max speed** columns (0 and 999,999 for all)
+are the listener's speeds it's heard between. At most 8 ambient sounds
+play at once: the loops of the highest **3D priority** (12 for all but
+the screams' 8) first, then the loudest; a one-shot only when there's
+room. The Audible area (0, 1 or 2) isn't used.
 
