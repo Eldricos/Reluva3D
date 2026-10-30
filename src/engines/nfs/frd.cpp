@@ -272,4 +272,24 @@ Error parseTrack(const std::vector<uint8_t>& data, Track& out) {
     return Error::success();
 }
 
+LightLook lightLook(uint32_t type, uint64_t tick) {
+    struct Entry {
+        uint32_t color;
+        bool blinks;
+        uint8_t shift, phase;
+        float size;
+    };
+    static constexpr Entry kTypes[16] = {
+        {0xffdeeaeb, false, 0, 0, 5},     {0xb9ffffff, false, 0, 0, 4.5f}, {0xffffffd2, false, 0, 0, 5},
+        {0xff80e5f0, false, 0, 0, 4.5f},  {0xffd9c45e, false, 0, 0, 5},    {0xffdf1616, true, 6, 0, 5},
+        {0xffdf1616, true, 5, 27, 5},     {0xffff0000, true, 6, 0, 3.125f}, {0xffa3b1be, false, 0, 0, 3.75f},
+        {0xffdf1616, false, 0, 0, 3.125f}, {0xbadf1616, false, 0, 0, 2.5f}, {0xff1e95e3, false, 0, 0, 2.5f},
+        {0xff1e95e3, true, 6, 0, 3.125f}, {0xffe0e027, false, 0, 0, 3.75f}, {0xffdeeaeb, false, 0, 0, 5},
+        {0xffdeeaeb, false, 0, 0, 5},
+    };
+    const Entry& e = kTypes[type & 15];
+    // Hidden while bit `shift` of the tick plus the phase is set (0x4911d9).
+    return {e.color, e.size, !(e.blinks && ((tick + e.phase) >> e.shift) & 1)};
+}
+
 } // namespace reluva::nfs

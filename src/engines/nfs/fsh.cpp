@@ -6,6 +6,7 @@
 #include "engines/nfs/refpack.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 
 namespace reluva::nfs {
@@ -209,6 +210,53 @@ Error decodeShape(const Shape& shape, image::Image& out) {
     for (size_t i = 0; i < count; ++i)
         toRgba(shape.type, &shape.pixels[i * bpp], &out.rgba[i * 4]);
     return Error::success();
+}
+
+bool readCockpit(const Shape& shape, Cockpit& out) {
+    for (const Shape::Block& b : shape.unknown) {
+        // A u32 count, then (x, y) pairs; the game takes 12 pairs whatever
+        // the count says (0x488c41).
+        if (b.type != kGauges || b.data.size() < 4 + 24 * 4)
+            continue;
+        float v[24];
+        for (int i = 0; i < 24; ++i) {
+            int32_t n;
+            std::memcpy(&n, b.data.data() + 4 + 4 * i, 4);
+            v[i] = static_cast<float>(n);
+        }
+        out.colorX = static_cast<int>(v[0]);
+        out.colorY = static_cast<int>(v[1]);
+        out.width = v[2];
+        auto gauge = [&](const float* g, Gauge& to) {
+            to = {g[0], g[1], g[2], g[3] != 0, g[4], g[5], g[6], g[7], g[8], g[9]};
+        };
+        gauge(v + 4, out.speedometer);
+        gauge(v + 14, out.tachometer);
+        return true;
+    }
+    return false;
+}
+
+Needle needle(const Gauge& g, float width, float reading) {
+    constexpr float kTurn = 6.28318531f;
+    const float a0 = std::atan2(g.p0y - g.centerY, g.p0x - g.centerX);
+    float a1 = std::atan2(g.p1y - g.centerY, g.p1x - g.centerX);
+    if (a1 < a0) // y grows downward, so a growing angle turns clockwise
+        a1 += kTurn;
+    const float t = g.high != g.low ? std::clamp((reading - g.low) / (g.high - g.low), 0.0f, 1.0f) : 0.0f;
+    const float a = a0 + (a1 - a0) * t;
+    const float length = (std::hypot(g.p0x - g.centerX, g.p0y - g.centerY) +
+                          std::hypot(g.p1x - g.centerX, g.p1y - g.centerY)) / 2;
+    const float ux = std::cos(a), uy = std::sin(a), nx = -uy, ny = ux;
+    const float bx = g.centerX + ux * g.hub, by = g.centerY + uy * g.hub;
+    const float tx = g.centerX + ux * length, ty = g.centerY + uy * length;
+    const float base = width / 2, tip = width / 4;
+    Needle n;
+    n.x[0] = bx + nx * base, n.y[0] = by + ny * base;
+    n.x[1] = bx - nx * base, n.y[1] = by - ny * base;
+    n.x[2] = tx - nx * tip, n.y[2] = ty - ny * tip;
+    n.x[3] = tx + nx * tip, n.y[3] = ty + ny * tip;
+    return n;
 }
 
 } // namespace reluva::nfs

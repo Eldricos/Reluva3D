@@ -782,8 +782,9 @@ void TrackPage::loadMarks() {
     loadSounds();
 }
 
-// Each mark as a quad facing the camera: a white glow for a light (3
-// units across), a small cyan diamond for a sound.
+// Each mark as a quad facing the camera: a light's glow as its type has
+// it (lightLook: colour, size, blinking at the sky's ticks), a small cyan
+// diamond for a sound.
 void TrackPage::drawMarks(const gfx::Vec3& eye, const gfx::Vec3& right, const gfx::Vec3& up) {
     if (!markMesh_ || !marksShown_)
         return;
@@ -791,7 +792,8 @@ void TrackPage::drawMarks(const gfx::Vec3& eye, const gfx::Vec3& right, const gf
     std::vector<gfx::Vertex> vertices;
     vertices.reserve(marks_.size() * 4);
     for (const Mark& m : marks_) {
-        const float half = m.light ? 1.5f : 0.6f;
+        const LightLook look = m.light ? lightLook(static_cast<uint32_t>(m.value), skyTick_) : LightLook{};
+        const float half = !m.light ? 0.6f : look.shown ? look.size : 0.0f;
         for (int corner = 0; corner < 4; ++corner) {
             const float x = corner == 1 || corner == 2 ? 1.0f : -1.0f, y = corner >= 2 ? 1.0f : -1.0f;
             gfx::Vertex v{};
@@ -800,7 +802,10 @@ void TrackPage::drawMarks(const gfx::Vec3& eye, const gfx::Vec3& right, const gf
             v.uv[0] = (x + 1) / 2;
             v.uv[1] = (1 - y) / 2;
             if (m.light) {
-                v.color[0] = v.color[1] = v.color[2] = v.color[3] = 255;
+                v.color[0] = static_cast<uint8_t>(look.color >> 16);
+                v.color[1] = static_cast<uint8_t>(look.color >> 8);
+                v.color[2] = static_cast<uint8_t>(look.color);
+                v.color[3] = static_cast<uint8_t>(look.color >> 24);
             } else {
                 // The diamond: the quad's corners pulled in to its edges' middles.
                 for (int i = 0; i < 3; ++i)

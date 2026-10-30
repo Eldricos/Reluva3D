@@ -108,6 +108,10 @@ Attached blocks after the picture:
   about (319, 407), and the colour texels are needle-coloured (white,
   orange on `corv`, amber on `diab`). The F355's gear pictures (`geaR`
   to `gea6`) carry 7 pairs too, the same on each; nothing reads them.
+  The Cockpits page draws the needles so. These parts are Reluva's own
+  choices, not read from the game: a reading past the range stops at its
+  end; a needle is a flat quad in the texel's colour; and the steering
+  wheel (picture `0001`) goes with its centre at its screen position.
 - **Additive.** The picture loader (`0x4d40c3`, `0x4d42e8`) looks for
   `<additive>`. The bare `additive` on picture `0064` of `tr000` and
   `tr001` doesn't match it, so those aren't drawn additively. The sun's

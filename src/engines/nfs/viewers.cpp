@@ -6,6 +6,7 @@
 #include "engines/nfs/play_page.h"
 
 #include <cstdlib>
+#include <cstring>
 
 #include "engines/nfs/page_draw.h"
 
@@ -197,6 +198,146 @@ void TexturePage::draw(Surface& s) {
             p[3] = 255;
         }
     }
+}
+
+// --- Cockpits -----------------------------------------------------------------
+
+namespace {
+
+// A convex quad, filled where a pixel's centre is inside all four edges.
+void fillQuad(Surface& s, const Needle& n, const uint8_t color[3]) {
+    const float x0 = std::min({n.x[0], n.x[1], n.x[2], n.x[3]}), x1 = std::max({n.x[0], n.x[1], n.x[2], n.x[3]});
+    const float y0 = std::min({n.y[0], n.y[1], n.y[2], n.y[3]}), y1 = std::max({n.y[0], n.y[1], n.y[2], n.y[3]});
+    for (int y = std::max(0, int(std::floor(y0))); y <= std::min(s.h - 1, int(std::ceil(y1))); ++y)
+        for (int x = std::max(0, int(std::floor(x0))); x <= std::min(s.w - 1, int(std::ceil(x1))); ++x) {
+            const float px = x + 0.5f, py = y + 0.5f;
+            bool positive = false, negative = false;
+            for (int i = 0; i < 4; ++i) {
+                const int j = (i + 1) % 4;
+                const float c = (n.x[j] - n.x[i]) * (py - n.y[i]) - (n.y[j] - n.y[i]) * (px - n.x[i]);
+                (c > 0 ? positive : negative) |= c != 0;
+            }
+            if (positive && negative)
+                continue;
+            uint8_t* p = s.row(y) + x * 4;
+            p[0] = color[0];
+            p[1] = color[1];
+            p[2] = color[2];
+        }
+}
+} // namespace
+
+CockpitPage::CockpitPage(const GameFiles& files) : files_(files) {
+    for (const FileRef& f : files.withExtensions({".qfs"}))
+        if (fs::toLower(baseName(f.name)) == "dash.qfs")
+            dashes_.push_back(f);
+    if (!dashes_.empty())
+        load(0);
+}
+
+void CockpitPage::load(int index) {
+    index_ = index;
+    error_.clear();
+    dash_ = wheel_ = {};
+    haveGauges_ = false;
+    std::vector<uint8_t> data;
+    ShapeBank bank;
+    if (Error err = files_.read(dashes_[index], data)) {
+        error_ = err.message;
+        return;
+    }
+    if (Error err = parseShapeBank(std::move(data), bank)) {
+        error_ = err.message;
+        return;
+    }
+    // Picture 0000 is the dash, 0001 the wheel, placed by its centre.
+    for (const Shape& shape : bank.shapes) {
+        if (shape.name == "0000") {
+            if (Error err = decodeShape(shape, dash_))
+                error_ = err.message;
+            haveGauges_ = readCockpit(shape, cockpit_);
+        } else if (shape.name == "0001" && !decodeShape(shape, wheel_)) {
+            wheelX_ = shape.x - shape.centerX;
+            wheelY_ = shape.y - shape.centerY;
+        }
+    }
+    if (dash_.w == 0 && error_.empty())
+        error_ = "no picture 0000";
+}
+
+void CockpitPage::handleKey(uint32_t key, uint16_t) {
+    const int count = static_cast<int>(dashes_.size());
+    switch (key) {
+    case key::Right: load((index_ + 1) % count); break;
+    case key::Left: load((index_ + count - 1) % count); break;
+    case ' ': sweeping_ = !sweeping_; break;
+    case key::Up:
+        sweeping_ = false;
+        position_ = std::min(position_ + 0.05f, 1.0f);
+        break;
+    case key::Down:
+        sweeping_ = false;
+        position_ = std::max(position_ - 0.05f, 0.0f);
+        break;
+    default: break;
+    }
+}
+
+bool CockpitPage::tick(uint64_t nowMs) {
+    const uint64_t elapsed = lastMs_ ? nowMs - lastMs_ : 0;
+    lastMs_ = nowMs;
+    if (!sweeping_)
+        return false;
+    // Up and back down in 4 seconds.
+    position_ += static_cast<float>(elapsed) / 2000 * (position_ < 0 ? -1 : 1);
+    if (position_ > 1)
+        position_ = -1 + (position_ - 1);
+    else if (position_ < -1 || (position_ < 0 && position_ > -0.0001f))
+        position_ = 0;
+    return true;
+}
+
+void CockpitPage::draw(Surface& s) {
+    const std::string keys = "Left/Right: car  Space: sweep  Up/Down: needles";
+    std::string title = "Cockpits";
+    if (index_ >= 0)
+        title += "  " + std::to_string(index_ + 1) + "/" + std::to_string(dashes_.size()) + "  " +
+                 dashes_[index_].name;
+    frame(s, title, keys);
+    if (!error_.empty()) {
+        text(s, kMargin, 8 + font::kLineHeight, error_, kWarnColor);
+        return;
+    }
+    // The dash fills the 640x480 frame; the text goes over it.
+    image::blit(s, dash_, 0, 0);
+    image::blit(s, wheel_, wheelX_, wheelY_);
+    const float t = std::fabs(position_);
+    std::string readings = "no gauges";
+    if (haveGauges_) {
+        uint8_t color[3] = {255, 255, 255};
+        if (cockpit_.colorX >= 0 && cockpit_.colorY >= 0 && cockpit_.colorX < dash_.w && cockpit_.colorY < dash_.h)
+            std::copy_n(dash_.pixel(cockpit_.colorX, cockpit_.colorY), 3, color);
+        char line[96] = "";
+        for (const Gauge* g : {&cockpit_.speedometer, &cockpit_.tachometer})
+            if (g->shown()) {
+                const float reading = g->low + (g->high - g->low) * t;
+                fillQuad(s, needle(*g, cockpit_.width, reading), color);
+                char part[48];
+                if (g == &cockpit_.speedometer)
+                    std::snprintf(part, sizeof part, "%.0f %s  ", reading, g->kmh ? "km/h" : "mph");
+                else
+                    std::snprintf(part, sizeof part, "%.0f rpm", reading * 1000);
+                std::strncat(line, part, sizeof line - std::strlen(line) - 1);
+            }
+        if (line[0])
+            readings = line;
+    }
+    // The title, the readings and the keys over the dash, on strips.
+    fill(s, 0, 0, s.w, 2 * font::kLineHeight + 12, kBackground);
+    text(s, kMargin, 8, title, kTitleColor);
+    text(s, kMargin, 8 + font::kLineHeight, readings, kTextColor);
+    fill(s, 0, s.h - font::kLineHeight - 8, s.w, font::kLineHeight + 8, kBackground);
+    text(s, kMargin, s.h - font::kLineHeight - 4, keys + "   Tab: next page   Esc: launcher", kLabelColor);
 }
 
 // --- Strings ------------------------------------------------------------------
@@ -393,6 +534,7 @@ std::vector<std::unique_ptr<Page>> makePages(const char* gameName, const GameFol
     pages.push_back(std::make_unique<TrackPage>(files, folders, mixer));
     pages.push_back(std::make_unique<CarPage>(files));
     pages.push_back(std::make_unique<TexturePage>(files));
+    pages.push_back(std::make_unique<CockpitPage>(files));
     pages.push_back(std::make_unique<StringPage>(files));
     pages.push_back(std::make_unique<FontPage>(files));
     pages.push_back(std::make_unique<SoundPage>(files, mixer));

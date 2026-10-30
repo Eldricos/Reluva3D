@@ -56,13 +56,14 @@ struct Track {
         uint32_t startPosition = 0;
         std::vector<uint8_t> positions, polygonRoad, virtualRoad, objectRefs, polygonObjects, sounds, lights;
         // A light: where (16.16 fixed point in the file) and its type,
-        // which picks how it looks (not worked out yet).
+        // which picks how it looks (lightLook).
         struct Light {
             Vec3 position{};
             uint32_t type = 0;
         };
         // A sound placed on the track: where, the slot of the track's
-        // tr3dNN.bnk it plays, and a flag (0 or 1, not worked out yet).
+        // tr3dNN.bnk it plays, and its kind (0 a loop, 1 a one-shot fired
+        // at random; frd.md).
         struct PlacedSound {
             Vec3 position{};
             uint16_t slot = 0, flag = 0;
@@ -103,5 +104,16 @@ struct Track {
 };
 
 Error parseTrack(const std::vector<uint8_t>& data, Track& out);
+
+// How a light of a type looks at a game tick (64 a second), from
+// nfs3.exe's table at 0x55e3dc (frd.md, Lights): drawn with glw0 in its
+// colour (ARGB), size units from its centre to its edges, unless it's
+// blinking off.
+struct LightLook {
+    uint32_t color = 0;
+    float size = 0;
+    bool shown = true;
+};
+LightLook lightLook(uint32_t type, uint64_t tick);
 
 } // namespace reluva::nfs

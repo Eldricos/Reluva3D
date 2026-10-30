@@ -109,6 +109,34 @@ private:
     bool alpha_ = true;
 };
 
+// Each car's cockpit (dash.qfs): the dash, the steering wheel and the
+// speedometer and tachometer needles where the 0x7C block puts them.
+//   Left/Right: car   Space: sweep the needles   Up/Down: move them (paused)
+class CockpitPage : public Page {
+public:
+    explicit CockpitPage(const GameFiles& files);
+    const char* name() const override { return "Cockpits"; }
+    bool empty() const override { return dashes_.empty(); }
+    void handleKey(uint32_t key, uint16_t mods) override;
+    void draw(Surface& screen) override;
+    bool tick(uint64_t nowMs) override;
+
+private:
+    void load(int index);
+
+    const GameFiles& files_;
+    std::vector<FileRef> dashes_;
+    int index_ = -1;
+    std::string error_;
+    image::Image dash_, wheel_;
+    int wheelX_ = 0, wheelY_ = 0; // the wheel's top left
+    bool haveGauges_ = false;
+    Cockpit cockpit_;
+    float position_ = 0; // 0-1 of each gauge's range
+    bool sweeping_ = true;
+    uint64_t lastMs_ = 0;
+};
+
 // The front-end string tables, in the game's own font.
 //   Left/Right: language   Up/Down: line   PageUp/PageDown: page
 //   Home/End: first/last   F: the game's font or Reluva's

@@ -267,7 +267,13 @@ What was built, with each format written up in `docs/formats/nfs/`:
   - the sky dome and horizon picture in four variants;
   - the moving objects animated along their keys (Hometown's water
     wheel turns at its mill);
-  - the virtual road's walls as a guide.
+  - the virtual road's walls as a guide;
+  - the lights in their types' colours, sizes and blinking, from the
+    game's table ([frd.md](../formats/nfs/frd.md), Lights).
+- **The Cockpits page** shows each car's `dash.qfs`: the dash, the
+  steering wheel, and the speedometer and tachometer needles where the
+  picture's `0x7C` block puts them ([fsh.md](../formats/nfs/fsh.md),
+  Gauges), sweeping their ranges or moved with the keys.
 - **Tools:** `reluva-tool fce-info`, `fce-obj`, `frd-check`, `frd-obj`.
   `nfs-survey` now also reads models, tracks, `.col` and `.hrz` files.
 - **Unit tests** on hand-built data for each reader.

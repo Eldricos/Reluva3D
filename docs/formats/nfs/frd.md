@@ -126,8 +126,8 @@ at 3 is the music zone, 4-9: the game
 sends it to the Pathfinder map as an event when the car nears a slice
 where it changes ([mus.md](mus.md), The events the game sends).
 
-The Tracks page shows each light as a white glow (`glw0`) facing the
-camera, and each sound as a cyan diamond. Within 120 units of a sound, it
+The Tracks page shows each light as a `glw0` glow facing the camera, in
+its type's colour and size and blinking as the table above has it, and each sound as a cyan diamond. Within 120 units of a sound, it
 plays that slot of the variant's bank, louder the nearer and panned by
 side: slots that loop play on, the rest once each time the camera comes
 near. The overlay names the nearest light or sound; `M` hides them all.

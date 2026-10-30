@@ -23,6 +23,7 @@ enum ShapeType : uint8_t {
     kPalette16Bit1555 = 0x2d,
     kPalette32Bit = 0x2a,
     kShapeText = 0x6f,
+    kGauges = 0x7c, // a cockpit's gauges (Cockpit)
 };
 
 // One picture of an .fsh bank, with the blocks attached to it.
@@ -53,6 +54,34 @@ Error parseShapeBank(std::vector<uint8_t> data, ShapeBank& out);
 
 // A shape as RGBA. 8-bit shapes without a palette fail.
 Error decodeShape(const Shape& shape, image::Image& out);
+
+// A cockpit picture's gauges, from its 0x7C block (fsh.md, Gauges): in
+// the 640x480 frame of dash.qfs's picture 0000.
+struct Gauge {
+    float centerX = 0, centerY = 0;
+    float hub = 0;     // the needle starts this far from the centre
+    bool kmh = false;  // the speedometer's units: km/h, or mph
+    float low = 0, high = 0; // the readings at p0 and p1 (rpm in thousands)
+    float p0x = 0, p0y = 0, p1x = 0, p1y = 0;
+    // A gauge whose two points are the same isn't drawn.
+    bool shown() const { return p0x != p1x || p0y != p1y; }
+};
+struct Cockpit {
+    int colorX = 0, colorY = 0; // a pixel of the picture in the needles' colour
+    float width = 0;            // a needle's width at its base; the tip is half
+    Gauge speedometer, tachometer;
+};
+// False when the shape has no gauges block, or a short one.
+bool readCockpit(const Shape& shape, Cockpit& out);
+
+// A needle's corners at a reading (clamped to the gauge's range): base
+// left, base right, tip right, tip left. It points from the centre toward
+// p0 at the lowest reading and p1 at the highest, turning clockwise on
+// screen, as long as the mean of their distances.
+struct Needle {
+    float x[4] = {}, y[4] = {};
+};
+Needle needle(const Gauge& gauge, float width, float reading);
 
 // "8-bit", "16-bit 1:5:5:5"... for messages and viewers.
 const char* shapeTypeName(uint8_t type);

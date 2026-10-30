@@ -450,6 +450,38 @@ void testShapes() {
     CHECK(parseShapeBank(Bytes{'S', 'H', 'P', 'X'}, bank));
 }
 
+// A cockpit's gauges block (fsh.md, Gauges) and its needles.
+void testCockpit() {
+    Shape dash;
+    Cockpit c;
+    CHECK(!readCockpit(dash, c));
+    // Colour texel (5, 6), width 4; a speedometer about (100, 100), hub 0,
+    // km/h, 0-200, from the left (90, 100) to the right (110, 100); no
+    // tachometer.
+    const int32_t v[24] = {5, 6, 4, 0, 100, 100, 0, 1, 0, 200, 90, 100, 110, 100};
+    Shape::Block b{kGauges, {}};
+    put32(b.data, 12);
+    for (int32_t x : v)
+        put32(b.data, uint32_t(x));
+    dash.unknown.push_back(b);
+    CHECK(readCockpit(dash, c));
+    CHECK(c.colorX == 5 && c.colorY == 6 && c.width == 4);
+    CHECK(c.speedometer.shown() && c.speedometer.kmh && c.speedometer.high == 200 && !c.tachometer.shown());
+    auto near = [](float a, float b) { return std::fabs(a - b) < 1e-3f; };
+    // Half way it points up: the sweep turns clockwise, over the top.
+    Needle n = needle(c.speedometer, c.width, 100);
+    CHECK(near((n.x[2] + n.x[3]) / 2, 100) && near((n.y[2] + n.y[3]) / 2, 90));
+    CHECK(near(n.x[0] - n.x[1], 4) && near(n.x[3] - n.x[2], 2)); // base 4 wide, tip 2
+    // At the ends, toward p0 and p1; past them, clamped.
+    n = needle(c.speedometer, c.width, 0);
+    CHECK(near((n.x[2] + n.x[3]) / 2, 90) && near((n.y[2] + n.y[3]) / 2, 100));
+    n = needle(c.speedometer, c.width, 500);
+    CHECK(near((n.x[2] + n.x[3]) / 2, 110) && near((n.y[2] + n.y[3]) / 2, 100));
+    // Fewer than 12 pairs: not read.
+    dash.unknown[0].data.resize(40);
+    CHECK(!readCockpit(dash, c));
+}
+
 void testTextTable() {
     // Three offsets, then the strings; the last without its 0.
     Bytes b;
@@ -724,6 +756,17 @@ Bytes makeTrack() {
         put16(b, uint16_t(40 + t));
     }
     return b;
+}
+
+// Lights as nfs3.exe's table has them (frd.md, Lights).
+void testLightLook() {
+    CHECK(lightLook(0, 0).color == 0xffdeeaeb && lightLook(0, 0).size == 5 && lightLook(0, 12345).shown);
+    CHECK(lightLook(16 + 7, 0).color == 0xffff0000); // the type is taken & 15
+    // Type 5: off while bit 6 of the tick is set, a second on and off.
+    CHECK(lightLook(5, 63).shown && !lightLook(5, 64).shown && lightLook(5, 128).shown);
+    // Type 6: bit 5, 27 ticks ahead.
+    CHECK(lightLook(6, 4).shown && !lightLook(6, 5).shown && lightLook(6, 37).shown);
+    CHECK(lightLook(10, 0).color >> 24 == 0xba && lightLook(10, 0).size == 2.5f);
 }
 
 void testTrack() {
@@ -1502,11 +1545,13 @@ int main() {
     testRefPack();
     testViv();
     testShapes();
+    testCockpit();
     testTextTable();
     testFont();
     testGameFiles(tmp);
     testModel();
     testTrack();
+    testLightLook();
     testHorizon();
     testCollision();
     testSoundBank();
