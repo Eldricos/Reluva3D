@@ -1125,6 +1125,11 @@ void RaceViewer::drawArrow() {
     // screens): the car's marker shows it.
     if (lesson() && race_.lesson.event == LessonEvent::Destroy && !judge_.destroyed())
         return;
+    // The lessons with their row's second extra column set (The Knowledge,
+    // Brake Dancing) have none: the map shows the way (as on the game's
+    // screens).
+    if (lesson() && race_.lesson.extra[1] != 0)
+        return;
     drawArrowTo(targetPoint(k).position, race_.kind == RaceKind::Blitz);
 }
 
