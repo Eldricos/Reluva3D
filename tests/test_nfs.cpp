@@ -1245,6 +1245,16 @@ void testSoundBank() {
     CHECK(parseSoundBank(cut, bank));
     CHECK(parseSoundBank(Bytes{'B', 'N', 'K', 'x', 2, 0, 0, 0, 0, 0, 0, 0}, bank));
 
+    // Version 4 has its slots from 20, after the audio's size and -1: the
+    // same bank so laid out keeps its slot numbers.
+    Bytes v4 = {'B', 'N', 'K', 'l', 4, 0, 4, 0};
+    put32(v4, 128 + 8);
+    put32(v4, uint32_t(b.size() - 128));
+    put32(v4, 0xffffffffu);
+    v4.insert(v4.end(), b.begin() + 12, b.end()); // offsets count from each slot, so they still hold
+    CHECK(!parseSoundBank(v4, bank));
+    CHECK(bank.version == 4 && bank.slots.size() == 4 && bank.slots[0] && !bank.slots[1] && bank.slots[2] && !bank.slots[3]);
+
     // Engines as the game pitches them, against its voices: the Corvette's
     // engine (root key 74, fine tune 28, range 15) idling at 900 of a
     // 6000 redline was at bend 16, -2497 cents; a range-6 sound at bend 77,

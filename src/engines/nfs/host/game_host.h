@@ -55,6 +55,11 @@ public:
         // (0: real time). Runs are then the same each time, for comparing
         // builds of the interpreter.
         uint32_t instructionsPerMs = 0;
+        // The processor's clock the time stamp counter reports, in MHz, by
+        // the game's clock. The game sets its detail defaults from it on a
+        // first run, and its movies' display mode (mad.md: 1 under 133, 2
+        // under 200, else 3).
+        uint32_t cpuMhz = 300;
         // Frames whose THRASH calls are logged in full (arguments, results,
         // the memory pointer arguments point at): from, to (inclusive).
         uint64_t thrashLogFrom = 0, thrashLogTo = 0;

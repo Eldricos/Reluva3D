@@ -111,26 +111,62 @@ also decoded (October 2026, from a survey of all nine tracks):
   then each byte of the colour, alpha too, becomes byte × k >> 8
   (`0x491223`); size and blinking stay. The same factor dims the
   headlight pass and other effects. And no lights are drawn when the
-  Horizon option at `0x6fbc30` is 2 (`0x4911b7`). The Tracks page dims
-  them so with key I (`dimLight`).
+  Special Effects option at `0x6fbc30` is 2, Off (`0x4911b7`). The
+  Tracks page dims them so with key I (`dimLight`).
 
   The slider is on the Advanced Graphics screen (`advgrph.mnu`) and the
   race's pause menu graphics (`psgraph.mnu`), `codelink=SFX_INTENSITY`;
   without `d3da` it's flagged off (`0x448738`). It runs from 0 ("none") to 1
-  ("full"): the arrow keys move it by its step, 0.1 from the menus'
-  `r0_step`, and clamp it to [0, 1] (`0x46a8d7`-`0x46a962`). Whether
-  dragging it with the mouse snaps to 0.1 isn't known (`snap=0`).
-  Its callback (`0x448570`, `0x44cf70`) stores the value.
+  ("full"): the arrow keys move it by its step and clamp it to [0, 1]
+  (`0x46a8d7`-`0x46a962`). The step is the menu's `snap` when that is
+  above 0 and at most 1, else `r0_step` (`0x46a873`, `0x46a70d`), so
+  0.1 here. **Dragging doesn't snap** (October 2026): the mouse sets
+  the value to the knob's position over the track's length in pixels
+  (`0x469590`), and every setter passes it through `0x4693c0`, which
+  rounds to a multiple of `snap` (half up, `0x53ae50` = 0.5) only when
+  `snap` isn't 0. With `snap=0.000000` it's returned as it is, so a drag
+  gives any of the track's pixel steps (a 195-pixel bar, `p1_w`), not
+  tenths. The menu parser keeps `snap`, `r0_step` and `r0_val` at
+  +0x44, +0x48 and +0x54 of its template (`0x604ee0`; the attribute
+  table at `0x558324`), the control's same offsets. Its callback
+  (`0x448570`, `0x44cf70`) stores the value.
 
-  The Horizon option is `hrzlevel`, the u32 at `0x6fbc30` (the options
-  table entry at `0x556718`; its list, `0x55624a`, is text 187, 185,
-  229): 0 High, 1 Low, 2 Off. It's on the Graphics screen
-  (`graphics.mnu`, `kMenuGRAPHICSHorizon001`) and in `psgraph.mnu`.
+  **Correction (October 2026): `0x6fbc30` is the Special Effects option,
+  not the Horizon.** The options table (`0x5563e8`, 0x14-byte entries:
+  name, list, two zero words, then the value's address, read by
+  `0x442c90`-`0x442cc9`) gives `sfxlevel` (`kMenuGRAPHICSSpecialE001`)
+  `0x6fbc30` and `hrzlevel` (`kMenuGRAPHICSHorizon001`) `0x6fbc2c`; the
+  address after an entry's name belongs to the next entry. Both lists
+  are text 187, 185, 229: 0 High, 1 Low, 2 Off; both options are on the
+  Graphics screen (`graphics.mnu`) and in `psgraph.mnu`. So the lights
+  above, the particles ([col.md](col.md)) and the rest below go by the
+  Special Effects option. Its other readers:
+  - `0x491bc0` (from the car drawing, `0x4b8d74`, `0x4b8e8d`): the rain,
+    skipped when Off or without weather (`0x6fd4cc`);
+  - `0x492980` (per car, `0x4b8efe`): a glow drawn at the car with the
+    effects intensity, skipped when Off (the car's lights, by the look
+    of it; not followed);
+  - `0x4c6f00` (per view, `0x4bc267`, `0x4bc2e5`): skipped when Off. It
+    draws up to 64 strips of 0x340 bytes (`0x560110`, count
+    `0x7d5758`), laid down per wheel from `0x429cf1` and `0x429ea8`
+    through `0x4db940` with the road polygon's material: tyre marks,
+    most likely;
+  - `0x4cc5c0` (per view): the particles aren't drawn when Off;
+    `0x4cbd0c`: at Low every other throttle turn is skipped;
+  - `0x4cc600` (per view, `0x4bc3c1`): only at High, `0x4cb750`, a
+    screen-space pass of four quads scaled by the effects intensity
+    and skipped for camera modes 8 and 14 (not followed further);
+  - `0x4dece0` (per view, `0x4bc375`): the number of raindrops
+    (`weather.fsh`, `DRP%d`) is halved at Low and quartered at Off;
+    `0x4dedf0` (`0x4bc39b`) does without the splashes (`SPL%d`) at Off;
+  - `0x47268e`, `0x472e3b`: the defaults (below).
+
   Its default is set by `0x472d10` from the processor's speed in MHz
-  (`0x4f1ef0` / 1,000,000; `0x472d8e`-`0x472de2`) through the table at
-  `0x472190`:
+  (`0x4f1ef0` / 1,000,000; `0x472d8e`-`0x472de2`) through tables of five
+  (`0x472168`-`0x4721ae`); the Special Effects and Horizon tables
+  (`0x472190`, `0x472172`) are the same:
 
-  | MHz | Index | Horizon |
+  | MHz | Index | Special Effects, Horizon |
   |---|---|---|
   | up to 166 | 0 | 2, Off |
   | 167-200 | 1 | 1, Low |
@@ -138,19 +174,29 @@ also decoded (October 2026, from a survey of all nine tracks):
   | 234-266 | 3 | 0, High |
   | over 266, or no timer | 4 | 0, High |
 
-  With renderer flag bits 6 of `0x7a3a58` set the index is halved
-  first (`0x472de4`). The same index picks the other detail defaults
-  from the tables beside it (`0x47217c`-`0x4721ae`).
+  The others by index: `viewlevel` (`0x6fbc28`) 3, 3, 2, 1, 1;
+  `cardetail` (`0x6fbc1c`) 2, 2, 1, 0, 0; `projtex` (`0x6fbc3c`) 0, 0, 0,
+  1, 1; `0x6fbc20` 0, 1, 1, 1, 1; `0x6fbc24` and `0x791b28` 0, 0, 1, 1, 1.
+  With either software renderer the index is halved first
+  (`0x472de4`: `test byte [0x7a3a58], 6`). That byte is 1 << the
+  renderer's number in the DLL table at `0x55fd68`: 0 `nulla`, 1
+  `softtria`, 2 `softlina`, 3 `voodooa`, 4 `voodoo2a`, 5 `ragea`, 6
+  `d3da` (so bit 6, 0x40, is Direct3D, as tested for the slider and the
+  dimming), 7 and 8 `powervra` (`-pvr`, `-pvr2`; the 0x180 tests), then
+  the Verite pair. So the mask 6 is bits 1 and 2, `softtria` and
+  `softlina`; with them `0x472eaa` also turns the z-buffer and projected
+  textures off and sets a 320-wide mode.
 
   Both are saved. `config.dat` is the 0x20F0 bytes of settings at
   `0x6fbb40`, written whole (`0x47285f`) and read back whole
   (`0x472a68`; its first u32 must be 0x20F0). So the Horizon option is
-  the u32 at offset 0xF0 and the slider the float at 0xF8. `0x472d10`
-  only runs when `config.dat` is missing or doesn't match (size or
-  renderer, `0x472ab6`, `0x472adf`, via `0x67900c`; `0x473195`), and
-  from `0x4a3dda`. The install's own `config.dat` has Horizon 2 (Off)
-  and the slider 1.0; one saved by `nfs-host` (renderer changed, so
-  the defaults rerun on its fast clock) has Horizon 0.
+  the u32 at offset 0xEC, Special Effects at 0xF0 and the slider the
+  float at 0xF8. `0x472d10` only runs when `config.dat` is missing or
+  doesn't match (size or renderer, `0x472ab6`, `0x472adf`, via
+  `0x67900c`; `0x473195`), and from `0x4a3dda`. The install's own
+  `config.dat` has both at 2 (Off) and the slider 1.0; one saved by
+  `nfs-host` (renderer changed, so the defaults rerun on its fast
+  clock) has 0. `nfs-host -mhz N` sets the clock the game measures.
 - **Sounds** (16 bytes): a position as above, a u16 slot of the track's
   placed-sound bank (`Audio/SFX/tr3dNN.bnk`, or `...n`, `...w`, `...nw`
   by sky variant) and a u16 kind (`0x41d210`): 0 a loop, the first

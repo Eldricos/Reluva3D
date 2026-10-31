@@ -43,7 +43,21 @@ All values are little-endian unless noted.
 | 4 | u16 | version: 2 for most banks, 4 for the car engines, 3D sounds and track ambiences |
 | 6 | u16 | number of slots |
 | 8 | u32 | size of the headers' area (slots and PT headers); the audio follows |
-| 12 | 4 × n | each slot's offset to its PT header, counted from the slot itself |
+| 12 | 4 × n | version 2: each slot's offset to its PT header, counted from the slot itself |
+| 12 | u32 | version 4: the size of the audio (the file's size less the headers' area) |
+| 16 | u32 | version 4: −1 in all 74 |
+| 20 | 4 × n | version 4: the slots, as above |
+
+The game's parser (`0x502620`) takes the slots from +0x14 for version 4
+and +0x0C for version 2 (`0x50265b`-`0x5026d9`; other versions get a
+warning and are read as 2). Checked in October 2026: so read,
+`Gen3d.bnk` (version 4) has its sounds in the same slots as `Gen.bnk`
+(0, 1, 5, 10, 11, 15, 18, 24, 25, 29-35, 37, 40-47). Reluva's
+`parseSoundBank` reads them so too. Until October 2026 it read every
+bank's slots from 12, so for the 74 version-4 banks (car engines,
+`gen3d`, `siren3d`, `tr3d*`, `tram*`) its slot numbers were two too high
+and the last two slots were lost; the Tracks page's placed sounds,
+which name slots of `tr3d*`, played the wrong ones.
 
 A slot of 0 or −1 is empty. A few slots (a couple of hundred) point
 into the audio data, at no header: leftovers by the look of them, and
@@ -192,8 +206,16 @@ which choose separate routines for rates above, below and at the
 output's (`0x52175c`). The offset is set at `0x40fcde`: 0, or −50 when
 the audio option at `0x6fbbe0` is 0 (it is 1 by default, `0x4725f2`).
 So the retail sounds (50 or 100) get the better routines unless that
-option drops the 50s to 0. Only that one write to `0x6fbbe0` was found,
-so what sets it to 0 (a saved setting copied in whole?) stays unknown.
+option drops the 50s to 0. The only code write to `0x6fbbe0` is that
+default. It is the **`enginesound`** option (October 2026): the options
+table (`0x5563e8`; entry name at `0x556bcc`, value address at
+`0x556bdc`) names it, with the list `0x55631a`, text 159 "Standard" and
+160 "Optimal", so 0 Standard and 1 Optimal (the default). No menu has
+`listname=enginesound` (none of the install's or the CD's `.mnu`
+files), so nothing in the game sets it: only `config.dat` does, saved
+and loaded whole, at offset 0xA0 (the install's has 1). A
+`config.dat` with byte 0xA0 at 0 gives the nearest-sample sounds
+below.
 
 What a set is. The set holds one routine per sample format: 8-bit mono,
 8-bit stereo, 16-bit mono, 16-bit stereo (`0x5000b8`'s flags 1, 2, 4,
@@ -246,8 +268,47 @@ nearest-sample routines are never used. With the option at 0, the 182
 sounds at 50 drop to nearest-sample and the 25 at 100 (the traffic
 cars' and `FeData/Plac`'s `car.viv`) stay linear. Reluva's x86 core
 reports a Pentium without MMX (`common/x86/cpu.cpp`, CPUID), so it runs
-the non-MMX routines. Whether the MMX integer routines round or clip
-differently from the float ones was not transcribed.
+the non-MMX routines.
+
+**The MMX path is integer throughout** (transcribed October 2026). With
+MMX `0x4ffda2` replaces the mixers (`0x51f580` 8-bit mono, `0x51f680`,
+`0x51f750` 16-bit mono, `0x51f850`), the resamplers and the mix down
+(`0x520920`) too, and the mix bus holds 16-bit words, not floats:
+- **Levels.** The set-up stores each level L (−128 to 127) as the word
+  L × 256 (`0x51f5b0`, `0x51f780`); the mixer multiplies with `pmulhw`,
+  so a 16-bit sample s gives ⌊L × s / 256⌋ (`0x51f7dc`), rounded down.
+  An 8-bit sample goes in as the high byte of a word whose low byte
+  is left from the previous pass (`punpcklbw mm6, mm5`, `0x51f60c`):
+  an error under 1/256 of a step.
+- **The bus.** Each voice is added with signed saturation (`paddsw`,
+  `0x51f7eb`), so the bus clips at ±32767, half scale, voice by voice,
+  in the order the voices are mixed.
+- **The mix down** doubles each word with saturation (`paddsw mm0,
+  mm0`, `0x520958`). So the output is always even, and clips at
+  −32768 and 32767 (32766 from below).
+- **Resampling** (`0x527170`, the 8-bit bulk): the weights are
+  (0xFFFF − frac) / 2 and frac / 2, 15 bits, applied with `pmaddwd`
+  to the samples × 256 and shifted down 23: rounded down again, then
+  saturated to 8 bits (`packsswb`). The scalar edge (`0x51f9de`)
+  does the same in 32 bits.
+
+The float path (`0x520a40` and on, `0x521d00`): gain L × 1/127
+(`0x56ad10`; at 127 exactly 1, with no multiply), sums kept in float,
+and one rounding at the end, to nearest (adding 1.5 × 2²³, `0x55188c`),
+then a clip to −32768..32767 (`0x521d34`). So the two differ:
+- the gain: L/128 with MMX, L/127 without, 0.07 dB quieter;
+- rounding: down at every step with MMX, about −1 step per voice on
+  average, against one rounding to nearest;
+- resolution: the MMX output's lowest bit is always 0;
+- clipping: the same limits at the end, but MMX saturates a half-scale
+  bus as each voice is added, so a loud voice clips there and later
+  ones of the other sign subtract from the clipped value.
+
+Worked through numerically on `Gen.bnk` slot 32 (October 2026, from the
+transcriptions above, not by running the routines): against the float
+result, MMX at L = 127 differs by RMS 78 steps (max 255), nearly all
+the 127/128 gain (−42 dB); with the gain taken out, by a mean of −1.0
+and RMS 1.15 steps (max 2), at L = 64 −0.75 and 0.93.
 
 **Unread voice fields** (`0x00`, `0x08`). The voices are one static
 array, 16 of 0x60 bytes at `0xa09b3c`, and voice pointers are only ever

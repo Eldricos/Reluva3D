@@ -188,6 +188,40 @@ debug print says it: `acutal lap=%d false lap=%d actual counter=%d`
 (`0x5369e8`, to an empty function `0x42d510`). Hometown's zones 4, 5,
 6, 7 ([mus.md](mus.md)) fit its pair 4, 7.
 
+**What the pairs are for** (October 2026). The music's lap is also set
+from the car's own lap count (+0x204) when that changes, in the lap
+handler `0x412d60` (called from `0x4173c3`; the copy at
+`0x4132f4`-`0x4132ff`, when +0x204 differs from the car's last, kept
+at `0x5710c8`). So the zone pair only moves the music on early, at the
+last zone change before the line, rather than at the line itself; a
+track without a pair still gets its music laps, at the line. The zones
+at each slice (byte 3 of the FRD's position records, from the start
+line on) show why Atlantica and Aquatica have none:
+
+| Track | Zones in order (first slice) | Last change before the line | Pair |
+|---|---|---|---|
+| 0 Hometown | 4, 5 (191), 6 (477), 7 (641), 4 (823) | 7 to 4 | 4, 7 |
+| 1 Redrock Ridge | 4, 5, 6, 7 (1033), 4 (1398) | 7 to 4 | 4, 7 |
+| 2 Atlantica | 4, 5 (380), 6 (920), 4 (1287) | 6 to 4 | none |
+| 3 Rocky Pass | 4, 5, 6, 7 (972), 4 (1322) | 7 to 4 | 4, 7 |
+| 4 Country Woods | 4, 5, 8, 9 (641), 7 (1081), 4 (1263) | 7 to 4 | 4, 9 |
+| 5 Lost Canyons | 4, 5, 8, 9 (902), 6 (1085), 4 (1572) | 6 to 4 | 4, 9 |
+| 6 Aquatica | 7, 8 (548), 9 (747), 6 (1029) | 6 to 7 | none |
+| 7 Summit | 4, 5, 8, 9 (1143), 4 (1549) | 9 to 4 | 4, 9 |
+| 8 Empire City | 4, 7 (367, one slice), 5, 6, 7 (945), 4 (1202) | 7 to 4 | 4, 7 |
+
+The pairs are all (4, 7) or (4, 9): the lap ends in zone 7 or 9 and
+starts in 4. Aquatica never enters zone 4 at all (it runs 7, 8, 9, 6,
+one FRD for both directions), so no pair of that shape can fit it.
+Atlantica's lap ends 6 to 4, so (4, 6) would have served it forward,
+and backward its 5 to 4 at slice 380 fits the (4, 5) the others have;
+why it has neither isn't known (an earlier zone layout, perhaps).
+Country Woods and Lost Canyons have (4, 9), but in the shipped FRDs
+their zone 9 is followed by 7 or 6, not 4, so their forward pair never
+matches either: of the forward pairs only tracks 0, 1, 3, 7 and 8 ever
+count. Either way the music's lap still follows the real one at the
+line. Read from the files and the code, not watched in a race.
+
 ## What isn't known
 
 - Answered in [physics.md](physics.md): the race types `0x6fd3b8` are
@@ -195,5 +229,8 @@ debug print says it: `acutal lap=%d false lap=%d actual counter=%d`
   tournament and knockout have no traffic); `0x6fd470` is their level
   (0 Beginner, 1 Expert) and `0x6fd4f0` the `ai` option (0 Normal, 1
   Aggressive).
-- Why Atlantica and Aquatica have no music lap pair.
+- Partly answered above (Music laps): Aquatica never enters zone 4,
+  so no (4, x) pair fits it; Atlantica would fit (4, 6) forward and
+  (4, 5) backward, so its −1s stay unexplained. Without a pair the
+  music's lap still follows the real lap, at the line.
 - Not checked at run time.

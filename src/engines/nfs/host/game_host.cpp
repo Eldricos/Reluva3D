@@ -65,12 +65,13 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
             return uint32_t(ms * scale);
         };
     }
-    // The time stamp counter of a 300 MHz processor, by the game's clock.
-    // The game times it to set its detail levels on a first run (by MHz:
-    // above 266 is the highest); counting instructions it found 60 MHz and
-    // turned the horizon off (docs/engines/nfs.md, Sky and fog).
-    cpu_->timestampCounter = [this, last = uint64_t(0)]() mutable {
-        last = std::max(last + 1, uint64_t(process_->now()) * 300000);
+    // The time stamp counter of a 300 MHz processor (Options::cpuMhz), by
+    // the game's clock. The game times it to set its detail levels on a
+    // first run (by MHz: above 266 is the highest); counting instructions it
+    // found 60 MHz and turned the horizon off (docs/engines/nfs.md, Sky and
+    // fog).
+    cpu_->timestampCounter = [this, last = uint64_t(0), perMs = uint64_t(options_.cpuMhz) * 1000]() mutable {
+        last = std::max(last + 1, uint64_t(process_->now()) * perMs);
         return last;
     };
     process_->fileOpened = [this](const std::string& path, bool found) {

@@ -178,20 +178,49 @@ to the points, used in place):
       table entry 2, `0x414236`), played on one voice (`0x417080`,
       voice `0x1f`): material 8, slot 30 or 32 at random, 33 when
       louder than 110; material 16, slot 30; material 17, slot 29.
-      In `Gen.bnk` 29 is 0.44 s, 30 0.53 s and duller, 32 0.82 s,
-      33 1.18 s and brighter (16-bit PCM but 33, EA-XA). Not listened
-      to, so not named. `Gen3d.bnk` has the same sounds two slots up
-      and nothing in 29 and 30; whether the game allows for that
-      wasn't followed.
+      Measured on `Gen.bnk`'s decoded sounds (October 2026; not
+      listened to, so not named; energy centroid, the frequency below
+      which 85% of the energy lies, and the time by which 90% of it
+      has played):
+
+      | Slot | Used for | Length | Centroid | 85% below | 90% of energy by |
+      |---|---|---|---|---|---|
+      | 29 | material 17 (code 5) | 0.44 s | 300 Hz | 230 Hz | 0.11 s |
+      | 30 | material 16 (code 3), material 8 | 0.53 s | 80 Hz | 60 Hz | 0.18 s |
+      | 32 | material 8, material 18 | 0.82 s | 760 Hz | 1.4 kHz | 0.42 s |
+      | 33 | material 8, louder than 110 | 1.18 s | 1.6 kHz | 4.7 kHz | 0.69 s |
+      | 34 | material 18 | 0.40 s | 970 Hz | 1.9 kHz | 0.28 s |
+      | 35 | material 18 | 0.80 s (44.1 kHz) | 1.9 kHz | 3.5 kHz | 0.47 s |
+      | 37 | material 18 | 0.53 s | 960 Hz | 1.9 kHz | 0.29 s |
+
+      So 29 and 30 are short dull thumps (30 almost all under 100 Hz,
+      peaking 0.15 s in), 32 and 33 longer and bright (33 the
+      brightest and longest, the hard hit), and the burst's four
+      (32-37) mid-bright, 0.4-0.8 s. All peak near full scale (RMS −8
+      to −10 dBFS). The levels from the slots' PT headers are the
+      same (`0x06` = 20).
+
+      `Gen3d.bnk` holds the same sounds in the same slots: it is a
+      version-4 bank, whose slot table starts at 20, not 12 (two more
+      words: the audio's size and −1; the game's parser, `0x50265b`,
+      `0x502686`). So the game needs no allowance. Read as a version-2
+      bank its sounds seem two slots up, which is what was seen; see
+      [bnk.md](bnk.md).
 
     Then, for any wall hit (`0x42b11a`), by car `+0xb8` (its speed by
     the look of it):
-    - 22 or more, and car `+0x15c` (unknown) under 3: kind-3 codes get
+    - 22 or more, and car `+0x15c` under 3: kind-3 codes get
       a burst of kind-3 particles (`0x4cac20`; 30 of them, fewer below
       speed 40, thrown with the car's velocity ± 3) and a second sound,
       material 18: slot 32, 34, 35 or 37 at random (`0x4149ac`); kind-2
       codes get one more kind-2 particle. With `+0x15c` 3 or more,
-      every code gets a kind-2 particle;
+      every code gets a kind-2 particle. `+0x15c` is the car's
+      clearance, its lowest corner's height over the road, set each
+      step by `0x4a0440` (`0x4a289a`; [physics.md](physics.md), Car
+      dynamics). So a car hitting a wall 3 or more above the road
+      (in the air) makes a puff of dust and no sparks or second
+      sound. The test is an integer compare of the float
+      (`0x42b152`), right for any sign;
     - under 22: a kind-6 particle when the speed or the impact is over
       15 (`0x42b248`).
 
@@ -210,7 +239,7 @@ to the points, used in place):
   | Code | Particles | Sound | Where (counts of sides) | Inferred material |
   |---|---|---|---|---|
   | 1 | sparks | material 8 | 1,746: Rocky Pass 801 (mostly left), Summit 629, Empire City 136, Redrock 123 | metal guard rail |
-  | 3 | dust | material 16 (slot 30) | 35: Summit 26, Aquatica 6, Country Woods 3 | unknown |
+  | 3 | dust | material 16 (slot 30, the dullest thump) | 35: Summit 26, Aquatica 6, Country Woods 3 | not named |
   | 4 | sparks | material 8 | 13,644: every track, most of the city and canyon ones | rock, concrete, buildings |
   | 5 | dust | material 17 (slot 29) | 6,013: Country Woods (nearly all), Summit, Rocky Pass, Hometown | grass, dirt or snow verges |
 
@@ -219,7 +248,19 @@ to the points, used in place):
   face on the right (4); Empire City block 4, a railing on the right
   (1) and a building on the left (4); Hometown block 8, grass banks
   with wooden fences (5); Country Woods block 40, snow banks (5), though
-  a brick wall stands there too. Code 3 wasn't looked at.
+  a brick wall stands there too.
+
+  Code 3 (looked at on the Track page, October 2026) comes in short
+  runs of 1-7 slices: Summit slices 1555-1629 (blocks 194-203, both
+  sides, walls 18-31 away), Aquatica 836-838 and 917-919 (blocks 104
+  and 114, left, 13-15 away) and Country Woods 518-520 (block 64,
+  right, 10 away). Summit's are in the town by the finish, where the
+  street is laid with planks, with snow banks, a timber arcade and
+  a wooden railing beside it; Aquatica's block 104 is the seaward
+  edge, a low bank above the water. With its dust and the dullest of
+  the thumps (slot 30, below 100 Hz) it reads as a soft edge, snow or
+  earth banks perhaps, but nothing in the pictures sets these few
+  slices apart from the code-5 banks around them, so it stays unnamed.
 
 This is what the game drives on and keeps cars within. It will matter
 for driving, AI and the camera. Reluva reads it, and uses it for the
@@ -266,7 +307,8 @@ data; 14 kinds, those of the wall hits here). What the code reads:
 **Making one** (`0x4ca850`: kind, position, scale s, directions a and
 b, velocity c). It takes a free slot of the 600 at `0x7ddfd0` (128 bytes
 each), else the one with the least life (`0x4ca4b0`). Nothing is made
-when the Horizon option (`0x6fbc30`) is Off, or when it is Low on
+when the Special Effects option (`0x6fbc30`, not the Horizon: see
+[frd.md](frd.md), Lights) is Off, or when it is Low on
 every other of the throttle's turns ((tick / 2) % (2 × throttle + 2)
 is 0, kept at `+0x7d`; the drawing skips those too), or off the
 throttle's turn. Then life and its maximum from `+0x04`; the three
@@ -326,7 +368,7 @@ flags; quads are sorted by depth (`0x4c7610`) with the scene's.
 - **The rest:** a square turned by the angle: corners at (−A, B),
   (B, A), (A, −B), (−B, −A) from the centre, A = sin(angle) × half,
   B = cos(angle) × half (`0x4cc235`).
-- With renderer flag bit 6 (`0x7a3a58`) set and the effects intensity
+- With renderer flag bit 6 (`0x7a3a58`, Direct3D) set and the effects intensity
   under 1, kinds with `+0x58` bit 0 are dimmed as the lights are
   (`0x4cbf2f`; [frd.md](frd.md), Lights).
 

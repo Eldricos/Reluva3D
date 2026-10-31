@@ -80,6 +80,7 @@ const char* const kUsageLines =
     "                       [-serial listen:port | host:port] (COM ports: a link over TCP, with -net)\n"
     "                       [-modem listen:port | host:port] (a TAPI modem whose calls are such links)\n"
     "                       [-deterministic instructionsPerMs] (a clock of instructions; the end state hashed)\n"
+    "                       [-mhz N] (the processor's clock the time stamp counter shows; 300 by default)\n"
     "                       [-hotspots from to] (instructions counted by where they run, 16-byte blocks)\n"
     "                       [-gpulog] (THRASH recorded as for the GPU; each frame's list summed up)\n"
     "                       [-gpudump list dir] (that list in full: list.csv and its textures)\n"
@@ -1043,6 +1044,8 @@ int cmdNfsHost(int argc, char** argv) {
             options.nativeThrash = true;
         } else if (arg == "-deterministic" && a + 1 < argc) {
             options.instructionsPerMs = uint32_t(std::strtoul(argv[++a], nullptr, 0));
+        } else if (arg == "-mhz" && a + 1 < argc) {
+            options.cpuMhz = std::max(1u, uint32_t(std::strtoul(argv[++a], nullptr, 0)));
         } else if (arg == "-timescale" && a + 1 < argc)
             options.timeScale = std::atof(argv[++a]);
         else if (arg == "-framelog" && a + 1 < argc)

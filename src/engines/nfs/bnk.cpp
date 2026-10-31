@@ -80,15 +80,18 @@ Error parseSoundBank(const std::vector<uint8_t>& data, SoundBank& out) {
     // The headers' area: the slot table and the PT headers; the audio data
     // follows it.
     const size_t headers = std::min<size_t>(le32(&data[8]), data.size());
-    if (12 + 4ull * count > data.size())
+    // Version 4 has 8 more bytes first (the audio's size, then -1); the
+    // game reads its slots from 20 (0x50265b), others' from 12.
+    const size_t table = out.version == 4 ? 20 : 12;
+    if (table + 4ull * count > data.size())
         return Error::fail("Not a valid .bnk bank: its slots run past the end");
     out.slots.resize(count);
     for (unsigned i = 0; i < count; ++i) {
         // Each slot's offset counts from the slot. Slots of 0 or -1 are
         // empty; a few others point into the audio data, at no header
         // (left over, by the look of them), and count as empty too.
-        const uint32_t offset = le32(&data[12 + 4 * i]);
-        const uint64_t at = 12ull + 4 * i + offset;
+        const uint32_t offset = le32(&data[table + 4 * i]);
+        const uint64_t at = table + 4ull * i + offset;
         if (offset == 0 || offset == 0xffffffff || at + 4 > headers || std::memcmp(&data[at], "PT\0\0", 4) != 0)
             continue;
         SoundHeader h;

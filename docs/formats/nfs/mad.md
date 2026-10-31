@@ -306,7 +306,8 @@ When the area is above 153,600 pixels the odd lines' pass first calls
 Reluva does all three (`MadDecoder::toGameSurface`; `reluva-tool
 mad-frames ... -display 1-3`), and the Movies page shows movies so by
 default, in mode 3 with the game's decoder arithmetic: the game in
-nfs-host reads its processor as 300 MHz, so mode 3 is what it shows. Key
+nfs-host reads its processor as 300 MHz (unless `-mhz` says otherwise),
+so mode 3 is what it shows. Key
 G steps through modes 2 and 1 and Reluva's plain conversion (the
 full-range BT.601 matrix in floating point, each pixel shown twice).
 
@@ -326,6 +327,19 @@ full-range BT.601 matrix in floating point, each pixel shown twice).
   frames 3 to 445, 114 of them) and compared in 5:6:5 with Reluva's mode
   3 and the game arithmetic: all 114 are identical in every pixel.
 
+- **Modes 1 and 2** (October 2026), with `nfs-host -mhz N`, which sets
+  the clock the time stamp counter shows: at `-mhz 120` the game
+  picks mode 1 and at `-mhz 160` mode 2 (stops at the mode-2 odd-line
+  routine `0x4fd7b6` at 160 only, and at the mode-3 one `0x4fd892` at
+  neither). The intro (`titleav`) was captured with `-deterministic
+  200000` (so few frames are skipped) and `-frames dir -every 1`,
+  and each capture compared in 5:6:5 with `reluva-tool mad-frames
+  titleav.mad dir 0 300 -game -display 1` or `2`: in mode 1, 185
+  captures (movie frames 32-298, 177 of them) and in mode 2, 187
+  (179 frames) are identical in every pixel, black odd lines and all.
+  Against the other mode the same captures match only about half
+  of their non-black pixels.
+
 Before the fixes, the best mode 3 matches had been 67.8%, 36% and 82.7%
 of pixels exact (frames 3, 6 and 10), against 66%, 35% and 69% for the
 reference arithmetic and 51%, 10% and 65% for mode 2. So mode 3 is
@@ -338,6 +352,5 @@ interpolation.
 - **Copies from outside the picture.** The game doesn't test the source
   and would read whatever lies beside its picture; Reluva skips them. The
   four movies have none.
-- **Mode 1 and 2 against the game.** They were read from the
-  disassembly, but the game in nfs-host always picks mode 3, so only
-  mode 3 has been compared with the screen.
+- Modes 1 and 2 have now been compared with the game too (above),
+  on the intro only; the demo movies weren't captured in those modes.

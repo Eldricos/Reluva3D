@@ -607,6 +607,34 @@ Started. Done so far:
         clearly does. The sounds behind reach the surround speakers
         through the matrix, about 19 dB under the front over the race,
         and 5 to 10 dB under it at their loudest moments.
+    - **Which voices are behind** (October 2026). Logged with `-watch`
+      at the two angle updates, 0x4172ad (esi the sound slot, edx the
+      angle; 0x417080) and 0x41812b (ebx the slot, edi the angle;
+      0x417fd0), over a Dolby race (`-deterministic 50000`,
+      `70000:+up`, 240 seconds, single race, no cops, no wall hits):
+      7,713 updates, 1,465 of them behind (0x4000-0xc000); the rear
+      branches ran 778 (0x522481) and 1,107 (0x522491) times.
+      - **Slots 4-7, the other cars' engines**: 1,805 updates, 773
+        behind (43%), so 53% of all the rear placements. They are the
+        four cars heard, kept at 0x570b78 (0x38 bytes each, cleared at
+        0x411719-0x41173a), each played through 0x4179d0 with slot =
+        its index + 4 (0x412013, from 0x411e60), its angle from the
+        listener (0x410d30).
+      - **Slot 26 (0x1a), the player's own car**: 3,117 updates, 108
+        behind (3%, 7% of the rear ones). 0x415210, the player car's
+        sounds, plays the road-surface and track-zone loops there
+        (0x41542b; 0x415050 by slice ranges, table 0x552d54); slot 0x24
+        is the second player's in split screen, whose angles are fixed
+        left and right (0x3fff, 0xc000).
+      - Slot 21: 917, 437 behind (48%, 30% of the rear ones); slots
+        22-25: 201, 147 behind. Not identified.
+      - Slots 8 and 10: 1,673 updates, none behind.
+      - Not heard in this race: the cops' sirens (slots 0x1b-0x1e,
+        0x417fd0 via 0x411c50, for a car with +0x200 bit 0x20 and
+        +0x710 bit 0x10), the traffic (slots 0-3, 0x411cb0, +0x200 bit
+        4) and the one-shots on slot 0x1f (wall hits, 0x416d90).
+      So the rear channel carries mostly the other cars' engines, as
+      they fall behind; the player's own car is almost always in front.
     - Before `-wav` followed the game's clock, the recordings couldn't
       be lined up at all. Even now they can't be subtracted: they are the
       same, sample for sample, for the first 41 seconds, and then the
@@ -1208,16 +1236,13 @@ Allowed under CONTRIBUTING.md:
 
 ## Open questions
 
-- How the wall hits' particles and sounds look and sound in play (read
-  from the code only), and wall code 3's material
-  ([col.md](../formats/nfs/col.md)).
-- What sets the audio option at `0x6fbbe0` to 0, which drops the
-  sounds at mixing quality 50 to nearest-sample resampling
-  ([bnk.md](../formats/nfs/bnk.md)).
-- Which voices are the ones behind in a Dolby race (other cars, the
-  player's own?), and how a real Pro Logic decoder of the time (with its
-  surround delay and 7 kHz low-pass) would place them; only the matrix's
-  sums are measured.
+- How the wall hits' particles look in play (read from the code only;
+  their sounds are measured, not listened to), and wall code 3's
+  material, looked at but not named ([col.md](../formats/nfs/col.md)).
+- Which sounds Dolby slots 21-25 are (the other cars' engines and the
+  player's own are identified, above), and how a real Pro Logic decoder
+  of the time (with its surround delay and 7 kHz low-pass) would place
+  them; only the matrix's sums are measured.
 - The car handling in full: the tyre model, steering and gear changes,
   landing, and the computer cars' simpler model. The race types, the
   network kinds, `carp.txt`'s place in memory, the engine and the car
