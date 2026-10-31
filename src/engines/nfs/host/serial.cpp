@@ -165,6 +165,11 @@ public:
             done = size;
             return true;
         }
+        if (size && host_.dropOutgoing()) { // lost on the line
+            host_.logTraffic(true, 0, target_, c.memory().data() + buffer, size, true);
+            done = size;
+            return true;
+        }
         while (done < size) {
             size_t n = 0;
             const Result r = net_.send(stream_, c.memory().data() + buffer + done, size - done, n);

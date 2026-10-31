@@ -71,12 +71,13 @@ const char* const kUsageLines =
     "  reluva-tool nfs-host <game folder> [-args \"nfs3.exe\"] [-renderer softtria.dll] [-limit N] [-log N] [-save dir]\n"
     "                       [-frames dir] [-every N] [-framesfrom N] [-watch address]... [-watchlimit 50] [-watchmem address size]\n"
     "                       [-slice instructions] [-dump memory.bin] [-keys ms:key,...]\n"
-    "                       (keys: enter, up, a..., click, moveDX/DY) [-framelog frames.csv]\n"
+    "                       (keys: enter, up, a..., kp0-kp9, click, moveDX/DY) [-framelog frames.csv]\n"
     "                       [-timescale 0.1] [-thrashlog fromframe toframe] [-native] [-wav sound.wav]\n"
     "                       [-joystick name] (keys also joy:A=V...: axes 0-5 = V, button bB; +key/-key held)\n"
     "                       [-wheel] [-ff] (the joystick a wheel; with force feedback) [-forcelog forces.csv]\n"
     "                       [-net] (the network) [-netaddr a.b.c.d] [-broadcast a.b.c.d,...]\n"
     "                       [-netlog messages.txt] (each message sent and received, in hex)\n"
+    "                       [-netdrop N[:fromMs[-toMs]]] (every Nth packet sent lost, over those game ms)\n"
     "                       [-serial listen:port | host:port] (COM ports: a link over TCP, with -net)\n"
     "                       [-modem listen:port | host:port] (a TAPI modem whose calls are such links)\n"
     "                       [-deterministic instructionsPerMs] (a clock of instructions; the end state hashed)\n"
@@ -1066,7 +1067,14 @@ int cmdNfsHost(int argc, char** argv) {
             options.sockets = reluva::net::systemSockets();
         else if (arg == "-netlog" && a + 1 < argc)
             options.netLog = argv[++a];
-        else if (arg == "-serial" && a + 1 < argc)
+        else if (arg == "-netdrop" && a + 1 < argc) { // N[:fromMs[-toMs]]
+            char* end = nullptr;
+            options.netDrop = uint32_t(std::strtoul(argv[++a], &end, 10));
+            if (end && *end == ':')
+                options.netDropFrom = uint32_t(std::strtoul(end + 1, &end, 10));
+            if (end && *end == '-')
+                options.netDropTo = uint32_t(std::strtoul(end + 1, nullptr, 10));
+        } else if (arg == "-serial" && a + 1 < argc)
             options.serial = argv[++a];
         else if (arg == "-modem" && a + 1 < argc)
             options.modem = argv[++a];

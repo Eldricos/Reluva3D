@@ -564,6 +564,23 @@ static void testWin32Files() {
     CHECK(process.hostPath("config.txt", false) == root / "game" / "GameData" / "Config.TXT");
     CHECK(process.hostPath("C:\\GAMEDATA\\CONFIG.TXT", true) == root / "save" / "GameData" / "Config.TXT");
     CHECK(process.hostPath("D:\\x", false).empty());
+    // A new file goes into a folder only if the folder is there, in the
+    // game's files or in the writes (NFS III tests folders so).
+    auto call = [&](const char* name, std::vector<uint32_t> args) {
+        uint32_t r = 0;
+        CHECK(!cpu.call(process.standIn("KERNEL32.dll", name), args, r));
+        return r;
+    };
+    const uint32_t mem = process.memory().alloc(256);
+    cpu.writeString(mem, "C:\\NoSuchDir\\exist.nam", 64);
+    CHECK(call("CreateFileA", {mem, 0xc0000000u, 0, 0, 2, 0x80, 0}) == 0xffffffffu);
+    CHECK(call("GetLastError", {}) == 3); // ERROR_PATH_NOT_FOUND
+    CHECK(!stdfs::exists(root / "save" / "NoSuchDir"));
+    cpu.writeString(mem, "C:\\GameData\\exist.nam", 64);
+    const uint32_t h = call("CreateFileA", {mem, 0xc0000000u, 0, 0, 2, 0x80, 0});
+    CHECK(h != 0xffffffffu);
+    call("CloseHandle", {h});
+    CHECK(stdfs::exists(root / "save" / "GameData" / "exist.nam"));
     stdfs::remove_all(root);
 }
 

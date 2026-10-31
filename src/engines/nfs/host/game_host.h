@@ -92,6 +92,13 @@ public:
         // line: the game's milliseconds, > or <, the socket, the peer, the
         // length and the bytes in hex (empty: none).
         std::string netLog;
+        // Every netDrop-th packet sent from game millisecond netDropFrom
+        // until netDropTo (0: to the end) is lost, to see the game's
+        // resends (netDrop 0: none): an IPX datagram or a serial or modem
+        // write goes nowhere, a TCP send fails with WSAEWOULDBLOCK (as when
+        // the socket's buffer is full). -netlog writes each with x for its
+        // direction.
+        uint32_t netDrop = 0, netDropFrom = 0, netDropTo = 0;
         // The serial link every COM port is (serial.cpp): "listen:port" to
         // wait for the other copy, "host:port" to connect to it; empty:
         // no serial ports.
@@ -303,7 +310,11 @@ private:
     std::map<uint32_t, uint32_t> wsLastError_; // by thread
     bool wsStarted_ = false;
     std::FILE* netLog_ = nullptr;
-    void logTraffic(bool sent, uint32_t handle, const net::Address& peer, const uint8_t* data, size_t size);
+    void logTraffic(bool sent, uint32_t handle, const net::Address& peer, const uint8_t* data, size_t size,
+                    bool dropped = false);
+    // Whether this packet sent is one Options::netDrop loses.
+    bool dropOutgoing();
+    uint64_t netSent_ = 0; // packets sent since netDropFrom
     uint32_t wsBuffer_ = 0; // inet_ntoa's and gethostbyname's results
     int mouseDx_ = 0, mouseDy_ = 0;
     bool mouseButton_ = false;

@@ -111,15 +111,24 @@ void writeAddress(Cpu& c, uint32_t at, uint32_t lengthAt, const net::Address& a)
 
 } // namespace
 
-void GameHost::logTraffic(bool sent, uint32_t handle, const net::Address& peer, const uint8_t* data, size_t size) {
+void GameHost::logTraffic(bool sent, uint32_t handle, const net::Address& peer, const uint8_t* data, size_t size,
+                          bool dropped) {
     if (!netLog_ || !size)
         return;
     const uint32_t ms = process_->milliseconds ? process_->milliseconds() : 0;
-    std::fprintf(netLog_, "%u %c %u %s %zu ", ms, sent ? '>' : '<', handle, peer.toString().c_str(), size);
+    std::fprintf(netLog_, "%u %c %u %s %zu ", ms, dropped ? 'x' : sent ? '>' : '<', handle, peer.toString().c_str(),
+                 size);
     for (size_t i = 0; i < size; ++i)
         std::fprintf(netLog_, "%02x", data[i]);
     std::fprintf(netLog_, "\n");
     std::fflush(netLog_);
+}
+
+bool GameHost::dropOutgoing() {
+    const uint32_t ms = process_->milliseconds ? process_->milliseconds() : 0;
+    if (!options_.netDrop || ms < options_.netDropFrom || (options_.netDropTo && ms >= options_.netDropTo))
+        return false;
+    return ++netSent_ % options_.netDrop == 0;
 }
 
 void GameHost::addNetwork() {
@@ -349,6 +358,12 @@ void GameHost::addNetwork() {
             data[i] = c.read8(c.arg(1) + i);
         size_t done = 0;
         const int sock = s->socket;
+        if (!data.empty() && dropOutgoing()) { // as if the socket's buffer were full
+            net::Address peer;
+            net->peerAddress(sock, peer);
+            logTraffic(true, c.arg(0), peer, data.data(), data.size(), true);
+            return fail(wsError(Result::WouldBlock));
+        }
         const Result r = blocking(*s, true, [&] { return net->send(sock, data.data(), data.size(), done); });
         if (r == Result::Ok && netLog_) {
             net::Address peer;
@@ -400,6 +415,10 @@ void GameHost::addNetwork() {
             targets.clear();
             for (uint32_t ip : options_.broadcastTo)
                 targets.push_back({ip, to.port});
+        }
+        if (dropOutgoing()) { // lost on the way
+            logTraffic(true, c.arg(0), to, data.data(), data.size(), true);
+            return c.arg(2);
         }
         Result r = Result::Ok;
         for (const net::Address& t : targets)

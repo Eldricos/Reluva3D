@@ -290,6 +290,17 @@ void Win32Process::addFileStandIns() {
             lastError_ = kFileExists;
             return kInvalidHandle;
         }
+        // A new file only in a folder that's there (NFS III tells whether a
+        // folder exists by creating a file in it).
+        if (!exists) {
+            const size_t slash = full.find_last_of('\\');
+            if (slash != std::string::npos && slash > 2 && !stdfs::is_directory(hostPath(full.substr(0, slash), false), ec)) {
+                lastError_ = kPathNotFound;
+                if (fileOpened)
+                    fileOpened(full, false);
+                return kInvalidHandle;
+            }
+        }
         const bool truncate = disposition == 1 || disposition == 2 || disposition == 5;
         auto f = std::make_shared<FileObject>();
         f->path = full;

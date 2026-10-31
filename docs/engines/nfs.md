@@ -1043,6 +1043,13 @@ Started. Done so far:
     of each other and their last within 50 ms, 271 s later.
   - **`-netlog file`** writes each message sent and received: the game's
     milliseconds, the direction, the socket, the peer and the bytes.
+  - **`-netdrop N[:from[-to]]`** loses every Nth packet a copy sends
+    (from game millisecond `from` until `to`), to see the game's resends:
+    an IPX datagram or a serial or modem write goes nowhere, and a TCP
+    `send` fails with WSAEWOULDBLOCK, as with a full buffer. `-netlog`
+    writes each with `x` for its direction. What it showed is in
+    [net.md](../formats/nfs/net.md) (Timers and window). For holding the
+    driving keys in a race, `-keys` knows the keypad's `kp0`-`kp9`.
   - **Scripting the menus.** A test script clicks by sending the cursor
     to the corner and then moving it to the point: the game's cursor is
     the sum of the mouse's moves, clamped to the screen, without
