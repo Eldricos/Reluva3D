@@ -5,6 +5,7 @@
 
 #include "common/archive.h"
 #include "common/gfx3d.h"
+#include "engines/awe/ac2.h"
 #include "engines/awe/granny_dll.h"
 #include "engines/awe/lighting.h"
 #include "engines/awe/model.h"
@@ -19,6 +20,17 @@ namespace reluva::awe {
 
 // Reads a .gr2 file from the game's files.
 Error openGr2(const Archive& files, const std::string& name, Gr2File& out);
+
+// The game's stencil shadow, drawn with a model when the renderer has a
+// stencil (docs/formats/awe/shadows.md, 0x428500): each textured mesh's
+// shadow first, flattened away from the scene's shadow light, setting the
+// stencil to 1 where it passes the depth test and writing nothing else;
+// then its body, setting it to `ref` (2 for the player, 0 for others).
+struct StencilShadow {
+    const Ac2Scene* scene = nullptr; // whose lights make the shadow light
+    bool cast = true;                // its shadow too (MODL shadow)
+    uint8_t ref = 0;
+};
 
 // A model with its textures on the GPU.
 class GpuModel {
@@ -37,10 +49,16 @@ public:
     // them as they are; the results are clipped). Lit by `lighting` with
     // `material` as the game lights it, per vertex; without, by a fixed
     // light from the model's front.
+    // With `shadow`, the stencil shadow as above.
     size_t draw(const Pose& pose, const gfx::Mat4& placement, bool helpers, std::vector<gfx::MeshId>& frameMeshes,
-                float brightness = 1, const SceneLighting* lighting = nullptr, const Material& material = {});
+                float brightness = 1, const SceneLighting* lighting = nullptr, const Material& material = {},
+                const StencilShadow* shadow = nullptr);
 
 private:
+    void drawShadow(const ModelMesh& mesh, const Pose& pose, const gfx::Mat4& placement,
+                    const std::vector<std::array<float, 3>>& positions, const Ac2Scene& scene,
+                    const std::array<float, 3>& light, std::vector<gfx::MeshId>& frameMeshes);
+
     gfx::Renderer3D& renderer_;
     Model model_;
     std::vector<gfx::TextureId> textures_;

@@ -364,12 +364,18 @@ void SdlGpuRenderer::clearDepth() {
     if (pass_ && viewport_.w > 0 && viewport_.h > 0)
         SDL_SetGPUViewport(pass_, &viewport_);
     if (pass_)
-        SDL_SetGPUStencilReference(pass_, 1);
+        SDL_SetGPUStencilReference(pass_, stencilRef_);
 }
 
 void SdlGpuRenderer::setStencilMode(StencilMode mode) {
     if (hasStencil_)
         stencilMode_ = mode;
+}
+
+void SdlGpuRenderer::setStencilReference(uint8_t ref) {
+    stencilRef_ = ref;
+    if (pass_)
+        SDL_SetGPUStencilReference(pass_, ref);
 }
 
 bool SdlGpuRenderer::upload(const void* data, uint32_t size, SDL_GPUBuffer* buffer, bool cycle) {
@@ -627,7 +633,8 @@ SDL_GPUGraphicsPipeline* SdlGpuRenderer::pipeline(const gfx::DrawState& state) {
     info.depth_stencil_state.enable_depth_write = state.depthWrite;
     info.depth_stencil_state.compare_op = state.depthEqual ? SDL_GPU_COMPAREOP_EQUAL : SDL_GPU_COMPAREOP_LESS_OR_EQUAL;
     if (stencilMode_ != StencilMode::None) {
-        // Mark: 1 wherever drawn; Inside: drawn only where it's 1.
+        // Mark: the reference wherever drawn (and the depth test passed);
+        // Inside: drawn only where it's the reference.
         SDL_GPUStencilOpState op{};
         op.fail_op = op.depth_fail_op = SDL_GPU_STENCILOP_KEEP;
         op.pass_op = stencilMode_ == StencilMode::Mark ? SDL_GPU_STENCILOP_REPLACE : SDL_GPU_STENCILOP_KEEP;
@@ -661,12 +668,13 @@ void SdlGpuRenderer::beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3& eye,
     if (wantSamples_ != samples_)
         makeMultisampleTargets();
     stencilMode_ = StencilMode::None;
+    stencilRef_ = 1;
     mirrored_ = false;
     // No marks to start with.
     const SDL_FColor c = {clear.r / 255.0f, clear.g / 255.0f, clear.b / 255.0f, 1.0f};
     pass_ = beginPass(&c, false);
     if (pass_)
-        SDL_SetGPUStencilReference(pass_, 1);
+        SDL_SetGPUStencilReference(pass_, stencilRef_);
 }
 
 void SdlGpuRenderer::draw(const gfx::DrawCall& call) {

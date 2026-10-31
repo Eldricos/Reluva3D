@@ -692,6 +692,8 @@ private:
                       const gfx::Mat4& placement, bool shadow, uint8_t ref, ShadowStencil& stencil) const;
     void drawMask(const CoverageMask& mask, Color colour, uint8_t alpha);
     void drawWhiteOut();
+    int whiteOut() const; // the player's white-out's alpha now, 0 none
+    void stencilQuad(gfx::TextureId mask, gfx::Renderer3D::StencilMode mode, uint8_t ref, Color colour, uint8_t alpha);
     // Whether the characters are drawn now.
     bool charactersShown() const {
         return renderer_ && showCharacters_ && scene_.camera() && !movie_ && sceneShown_ && !load_.screen;
@@ -833,7 +835,8 @@ private:
             bool twice = false; // a scrolling one, at at2 as well
         };
         std::vector<Part> parts;
-        std::vector<uint8_t> resets;
+        std::vector<uint8_t> resets;      // where its pictures take shadows off (a byte a pixel)
+        gfx::TextureId resetMask = 0;     // the same as a texture's alpha, for the GPU's stencil
         std::string key; // what it was made from; empty: made every time
     };
     void dropLayer(PictureLayer& layer);

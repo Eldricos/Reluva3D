@@ -156,34 +156,33 @@ Reluva draws the frame in the game's order:
    condition not holding, or hidden by a script) is left out, shadow and
    all ([characters.md](characters.md#when-a-character-is-there)).
 2. The characters are drawn in depth order, each followed by its layer.
-   A triangle is filled into the stencil a row at a time, the row left
-   once its pixels inside have been passed (they're one run, each edge's
-   test changing only once along it): the same pixels as testing all of
-   its bounding box.
 
-Reluva's renderer has no stencil buffer, so `shadows.cpp` keeps the
-game's stencil on the CPU (`ShadowStencil`): a value and a depth for
-each pixel. As each character is drawn, its meshes, already skinned on
-the CPU, are projected through the scene's camera and filled in:
+The shadows use the renderer's stencil buffer, as the game's use
+Direct3D's (`GpuModel::draw` with a `StencilShadow`, and
+`ScenePage::stencilQuad`):
 
 - each textured mesh's shadow, flattened as above (rigid ones as the
-  game does), sets the stencil to 1 where it passes the depth test, and
-  writes no depth;
-- then its body sets the stencil to 2 for the player and 0 for others,
-  and writes its depth;
+  game does), is drawn with no colour and no depth, setting the stencil
+  to 1 where it passes the depth test;
+- then its body sets the stencil to 2 for the player and 0 for others
+  (where it passes the depth test), and writes its depth;
 - the props attached to it follow, the same way;
-- then the layer drawn after it sets the stencil to 0 wherever one of
-  its pictures that resets the stencil has alpha.
+- then the layer drawn after it: a mask of where its pictures that reset
+  the stencil have alpha (made with the layer), alpha-tested, sets the
+  stencil to 0 there.
 
-When every character is drawn, the pixels whose stencil is 1 go to the
-screen as a black quad at alpha 63, over the characters and the
-pictures. The pixels whose stencil is 2 make the player's white-out.
+When every character is drawn, a black quad at alpha 63 is drawn over
+the frame where the stencil is 1, and the player's white-out where it's
+2. The triangles are filled and clipped by the graphics card, as the
+game's are.
 
-The depth test uses the CPU's own depths of the characters' triangles,
-not the renderer's. Pictures write none, as in the game.
-
-**Differences from the game:**
-
-- The CPU fills triangles at pixel centres, which may differ from the
-  graphics card's edges by a pixel.
-- A triangle with a corner behind the camera is left out of the stencil.
+A device without a stencil buffer gets the same from the CPU instead
+(`ShadowStencil` in `shadows.cpp`): a value and a depth for each pixel,
+the meshes (already skinned on the CPU) projected through the scene's
+camera and filled in the same order, the pixels whose stencil ends at 1
+then drawn as a black quad at alpha 63. A triangle is filled a row at a
+time, the row left once its pixels inside have been passed (they're one
+run, each edge's test changing only once along it). Its edges can differ
+from a graphics card's by a pixel, and it leaves out a triangle with a
+corner behind the camera. Over the first 60 frames of the route the two
+differ by at most four pixels a frame, at shadows' edges.

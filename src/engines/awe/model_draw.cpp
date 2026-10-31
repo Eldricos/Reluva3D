@@ -3,6 +3,8 @@
 
 #include "engines/awe/model_draw.h"
 
+#include "engines/awe/shadows.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -32,9 +34,11 @@ GpuModel::~GpuModel() {
 
 size_t GpuModel::draw(const Pose& pose, const gfx::Mat4& placement, bool helpers,
                       std::vector<gfx::MeshId>& frameMeshes, float brightness, const SceneLighting* lighting,
-                      const Material& material) {
+                      const Material& material, const StencilShadow* shadow) {
     std::vector<std::array<float, 3>> positions, normals;
     size_t triangles = 0;
+    const bool stencil = shadow && shadow->scene && renderer_.hasStencil();
+    const std::array<float, 3> light = stencil ? shadowLight(*shadow->scene) : std::array<float, 3>{};
     for (const ModelMesh& mesh : model_.meshes) {
         bool textured = false;
         for (const auto& g : mesh.groups)
@@ -76,10 +80,16 @@ size_t GpuModel::draw(const Pose& pose, const gfx::Mat4& placement, bool helpers
                 }
             }
         }
+        if (stencil && shadow->cast && textured)
+            drawShadow(mesh, pose, placement, positions, *shadow->scene, light, frameMeshes);
         gfx::MeshId id = 0;
         if (renderer_.createMesh(verts, mesh.indices, id))
             continue;
         frameMeshes.push_back(id);
+        if (stencil) {
+            renderer_.setStencilMode(gfx::Renderer3D::StencilMode::Mark);
+            renderer_.setStencilReference(shadow->ref);
+        }
         // The specular, which Direct3D adds after the texture
         // (D3DRS_SPECULARENABLE, 0x427160): a pass adding it over the model.
         gfx::MeshId shineId = 0;
@@ -130,8 +140,65 @@ size_t GpuModel::draw(const Pose& pose, const gfx::Mat4& placement, bool helpers
                 renderer_.draw(add);
             }
         }
+        if (stencil)
+            renderer_.setStencilMode(gfx::Renderer3D::StencilMode::None);
     }
     return triangles;
+}
+
+void GpuModel::drawShadow(const ModelMesh& mesh, const Pose& pose, const gfx::Mat4& placement,
+                          const std::vector<std::array<float, 3>>& positions, const Ac2Scene& scene,
+                          const std::array<float, 3>& light, std::vector<gfx::MeshId>& frameMeshes) {
+    // In the world, flattened: drawn with no colour (the frame kept, blend
+    // Zero/One) and no depth, setting the stencil to 1 where it passes the
+    // depth test (0x428250).
+    std::vector<gfx::Vertex> verts(mesh.vertices.size());
+    for (gfx::Vertex& v : verts) {
+        v = {};
+        v.color[0] = v.color[1] = v.color[2] = v.color[3] = 255;
+    }
+    if (mesh.rigid && !mesh.vertices.empty()) {
+        // A rigid mesh (the cleaver's, the luggage's) is drawn with its
+        // bone's matrix as the world, which the shadow replaces (0x4285f0):
+        // its own vertices (turned to the game's axes) are flattened onto
+        // the plane at the bone's height, from a light moved by the bone's
+        // position. So its shadow lies about the world's origin, not under
+        // the prop.
+        const size_t bone = mesh.vertices[0].bones[0];
+        const gfx::Mat4 world =
+            bone < pose.skinning.size() ? gfx::multiply(placement, pose.skinning[bone]) : placement;
+        const float origin[3] = {world[12], world[13], world[14]};
+        const std::array<float, 3> moved = shadowLight(scene, origin);
+        for (size_t v = 0; v < verts.size(); v++) {
+            const float* q = mesh.vertices[v].position;
+            const float p[3] = {q[0], q[2], -q[1]};
+            const std::array<float, 3> f = flattenOntoPlane(moved, origin[1], p);
+            std::copy(f.begin(), f.end(), verts[v].pos);
+        }
+    } else {
+        // A skinned mesh is already in the world: flattened onto the floor.
+        for (size_t v = 0; v < verts.size() && v < positions.size(); v++) {
+            const gfx::Vec3 w = gfx::transformPoint(placement, positions[v]);
+            const float p[3] = {w[0], w[1], w[2]};
+            const std::array<float, 3> f = flattenOntoFloor(light, p);
+            std::copy(f.begin(), f.end(), verts[v].pos);
+        }
+    }
+    gfx::MeshId id = 0;
+    if (renderer_.createMesh(verts, mesh.indices, id))
+        return;
+    frameMeshes.push_back(id);
+    renderer_.setStencilMode(gfx::Renderer3D::StencilMode::Mark);
+    renderer_.setStencilReference(1);
+    gfx::DrawCall call;
+    call.mesh = id;
+    call.indexCount = uint32_t(mesh.indices.size());
+    call.state.src = gfx::Blend::Zero;
+    call.state.dst = gfx::Blend::One;
+    call.state.depthWrite = false;
+    call.state.cull = gfx::Cull::None;
+    renderer_.draw(call);
+    renderer_.setStencilMode(gfx::Renderer3D::StencilMode::None);
 }
 
 Pose poseAt(const Model& model, const Animation* animation, float time) {

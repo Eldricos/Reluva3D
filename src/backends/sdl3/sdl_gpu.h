@@ -50,6 +50,7 @@ public:
     void clearDepth() override;
     bool hasStencil() const override { return hasStencil_; }
     void setStencilMode(StencilMode mode) override;
+    void setStencilReference(uint8_t ref) override;
     void setMirrored(bool mirrored) override { mirrored_ = mirrored; }
     void setGamma(float gamma) override { gamma_ = gamma > 0.05f ? gamma : 1.0f; }
     int setMultisampling(int samples) override;
@@ -98,6 +99,7 @@ private:
     SDL_GPUTextureFormat depthFormat_ = SDL_GPU_TEXTUREFORMAT_D16_UNORM;
     bool hasStencil_ = false;
     StencilMode stencilMode_ = StencilMode::None;
+    uint8_t stencilRef_ = 1;
     bool mirrored_ = false;
     SDL_GPUTexture* color_ = nullptr; // the frame, wrapped by colorView_ for the renderer
     SDL_GPUTexture* depth_ = nullptr;

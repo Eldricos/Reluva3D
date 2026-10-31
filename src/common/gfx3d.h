@@ -210,6 +210,9 @@ public:
     enum class StencilMode : uint8_t { None, Mark, Inside };
     virtual bool hasStencil() const = 0;
     virtual void setStencilMode(StencilMode mode) = 0;
+    // The value Mark writes (where a draw passes its depth test) and
+    // Inside compares with: 1 at the start of each frame.
+    virtual void setStencilReference(uint8_t ref) { (void)ref; }
     // A mirrored view: the draws that follow have their faces' winding
     // the other way round, so culling keeps the same faces (until set
     // back, and each frame).

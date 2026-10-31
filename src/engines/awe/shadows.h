@@ -55,8 +55,9 @@ private:
     int minX_ = 1 << 30, minY_ = 1 << 30, maxX_ = -1, maxY_ = -1;
 };
 
-// The game's stencil as the frame is drawn, on the CPU (Reluva's renderer
-// has none): each pixel's stencil value and the depth of the models drawn
+// The game's stencil as the frame is drawn, on the CPU, for a device with
+// no stencil buffer (with one, the renderer's is used): each pixel's
+// stencil value and the depth of the models drawn
 // there so far. Triangles are screen x, y and depth (0 near, 1 far).
 class ShadowStencil {
 public:

@@ -9,12 +9,11 @@ The format pages give the detail; this page gathers them.
 
 ## Drawing
 
-- **Shadows are filled on the CPU.** The game uses the graphics card's
-  stencil buffer. Reluva's renderer has none, so `shadows.cpp` keeps the
-  stencil on the CPU. Triangles are filled at pixel centres, which may
-  differ from a graphics card's edges by a pixel. A shadow triangle with
-  a corner behind the camera is left out. See
-  [shadows.md](../../formats/awe/shadows.md).
+- **Shadows on a device without a stencil buffer** are filled on the
+  CPU: their edges may differ from a graphics card's by a pixel, and a
+  shadow triangle with a corner behind the camera is left out. With a
+  stencil buffer (any current graphics card), they're drawn as the
+  game's are. See [shadows.md](../../formats/awe/shadows.md).
 - **The specular light is a second pass.** Direct3D adds the specular
   colour after the texture in one draw. Reluva draws the textured model,
   then adds the specular in a pass over it (depth equal, no depth

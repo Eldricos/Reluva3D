@@ -1390,6 +1390,16 @@ void ScenePage::draw() {
                 layer.parts.push_back(part);
                 first = false;
             }
+            // Where it takes the shadows off, for the GPU's stencil: alpha
+            // 255 there, else 0.
+            if (!layer.resets.empty() && renderer_->hasStencil()) {
+                std::vector<uint8_t> mask(layer.resets.size() * 4, 0);
+                for (size_t i = 0; i < layer.resets.size(); i++)
+                    mask[i * 4 + 3] = layer.resets[i] ? 255 : 0;
+                gfx::TextureParams nearest = params;
+                nearest.nearest = true;
+                renderer_->createTexture(kScreenW, kScreenH, mask.data(), nearest, layer.resetMask);
+            }
         }
         std::fill(ctx_.screen.pixels.begin(), ctx_.screen.pixels.end(), 0);
     } else {
@@ -1892,9 +1902,11 @@ void ScenePage::update(uint64_t nowMs) {
             }
         }
         // The shadows (docs/formats/awe/shadows.md): the game's stencil,
-        // made on the CPU as the frame is drawn.
+        // on the GPU as the game's is; made on the CPU as the frame is
+        // drawn where the device has no stencil buffer.
         const bool shadows = options_.get(GameOptions::Shadows);
-        if (shadows) {
+        const bool gpuStencil = shadows && renderer_->hasStencil();
+        if (shadows && !gpuStencil) {
             if (!stencil_)
                 stencil_ = std::make_unique<ShadowStencil>(kScreenW, kScreenH);
             stencil_->clear();
@@ -1935,7 +1947,7 @@ void ScenePage::update(uint64_t nowMs) {
             if (slot.footprint >= 0) {
                 renderer_->setView(viewProjection, cam.eye());
                 drawFootprint(c.footprints[size_t(slot.footprint)], lighting, bright);
-            } else if (shadows && drawn) {
+            } else if (shadows && !gpuStencil && drawn) {
                 // 0x428836: its pixels' stencil 2 for the player, 0 for the
                 // others.
                 const uint8_t ref = c.player ? 2 : 0;
@@ -1947,20 +1959,36 @@ void ScenePage::update(uint64_t nowMs) {
             if (slot.footprint < 0 && drawn) {
                 renderer_->setView(viewProjection, cam.eye());
                 const Material material = c.record ? materialOf(*c.record) : Material();
-                c.model->draw(poses[i], c.placement, false, frameMeshes_, bright, &lighting, material);
+                // 0x428836: its pixels' stencil 2 for the player, 0 for the
+                // others; each mesh's shadow first, if it casts one.
+                StencilShadow stencil;
+                stencil.scene = &scene_;
+                stencil.cast = c.shadow;
+                stencil.ref = c.player ? 2 : 0;
+                const StencilShadow* withShadow = gpuStencil ? &stencil : nullptr;
+                c.model->draw(poses[i], c.placement, false, frameMeshes_, bright, &lighting, material, withShadow);
                 for (size_t k = 0; k < c.props.size(); k++)
                     c.props[k].second->draw(propPoses[i][k], c.placement, false, frameMeshes_, bright, &lighting,
-                                            material);
+                                            material, withShadow);
             }
-            // The pictures after it.
+            // The pictures after it, taking the shadows off under them.
             if (layer < layers_.size()) {
                 drawLayer(layer);
-                if (shadows)
+                if (gpuStencil)
+                    stencilQuad(layers_[layer].resetMask, gfx::Renderer3D::StencilMode::Mark, 0, Color{0, 0, 0}, 0);
+                else if (shadows)
                     stencil_->reset(layers_[layer].resets);
                 layer++;
             }
         }
-        if (shadows) {
+        if (gpuStencil) {
+            // Where the stencil is 1, darkened (0x402ba0: black at alpha
+            // 63); then the player washed toward white with distance, in
+            // the snow (the camera's whiteoutStart and whiteoutEnd, 0x402e20).
+            stencilQuad(0, gfx::Renderer3D::StencilMode::Inside, 1, Color{0, 0, 0}, 63);
+            if (const int alpha = whiteOut(); alpha > 0)
+                stencilQuad(0, gfx::Renderer3D::StencilMode::Inside, 2, Color{255, 255, 255}, uint8_t(alpha));
+        } else if (shadows) {
             // Where the stencil is 1, darkened (0x402ba0: black at alpha
             // 63); then the player washed toward white with distance, in
             // the snow (the camera's whiteoutStart and whiteoutEnd, 0x402e20).
@@ -2116,22 +2144,52 @@ void ScenePage::drawMask(const CoverageMask& mask, Color colour, uint8_t alpha) 
     renderer_->draw(call);
 }
 
-void ScenePage::drawWhiteOut() {
+int ScenePage::whiteOut() const {
     // 0x402e20: a white quad where the stencil is 2 (the player's pixels
     // still showing), more opaque the further it has walked past A, fully
     // at B.
     const Ac2Record* camr = scene_.camera();
     const float a = camr->f("whiteoutStart"), b = camr->f("whiteoutEnd");
     if (a == b)
-        return;
+        return 0;
     for (const Character& c : characters_) {
         if (!c.player || c.z >= a)
             continue;
-        const int alpha = c.z < b ? 255 : int((a - c.z) / (a - b) * 255);
-        stencil_->select(2, *shadowMask_);
-        drawMask(*shadowMask_, Color{255, 255, 255}, uint8_t(std::clamp(alpha, 0, 255)));
-        return;
+        return std::clamp(c.z < b ? 255 : int((a - c.z) / (a - b) * 255), 0, 255);
     }
+    return 0;
+}
+
+void ScenePage::drawWhiteOut() {
+    if (const int alpha = whiteOut(); alpha > 0) {
+        stencil_->select(2, *shadowMask_);
+        drawMask(*shadowMask_, Color{255, 255, 255}, uint8_t(alpha));
+    }
+}
+
+void ScenePage::stencilQuad(gfx::TextureId mask, gfx::Renderer3D::StencilMode mode, uint8_t ref, Color colour,
+                            uint8_t alpha) {
+    // A quad over the frame. With a mask (Mark): the stencil set to `ref`
+    // where the mask's alpha isn't 0, nothing drawn. Without (Inside):
+    // `colour` at `alpha` where the stencil is `ref`.
+    if (!quad_ || (mode == gfx::Renderer3D::StencilMode::Mark && !mask))
+        return;
+    gfx::DrawCall call;
+    call.mesh = quad_;
+    call.indexCount = 6;
+    call.texture = mask;
+    call.color = {colour.r / 255.0f, colour.g / 255.0f, colour.b / 255.0f, mask ? 1.0f : alpha / 255.0f};
+    call.state.src = mask ? gfx::Blend::Zero : gfx::Blend::SrcAlpha;
+    call.state.dst = mask ? gfx::Blend::One : gfx::Blend::OneMinusSrcAlpha;
+    call.state.alphaTest = mask ? gfx::AlphaTest::Gt0 : gfx::AlphaTest::None;
+    call.state.depthTest = false;
+    call.state.depthWrite = false;
+    call.state.cull = gfx::Cull::None;
+    renderer_->setView(gfx::identity(), {0, 0, 0});
+    renderer_->setStencilMode(mode);
+    renderer_->setStencilReference(ref);
+    renderer_->draw(call);
+    renderer_->setStencilMode(gfx::Renderer3D::StencilMode::None);
 }
 
 void ScenePage::fillPolygon(const std::vector<std::pair<float, float>>& points, Color c, uint8_t alpha) {
@@ -2377,6 +2435,8 @@ void ScenePage::dropLayer(PictureLayer& layer) {
     for (const PictureLayer::Part& part : layer.parts)
         if (part.texture)
             renderer_->destroyTexture(part.texture);
+    if (layer.resetMask)
+        renderer_->destroyTexture(layer.resetMask);
     layer = PictureLayer();
 }
 
