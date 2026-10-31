@@ -302,8 +302,8 @@ void MansionViewer::draw() {
         const Placement& pl = level_.placements[hit->placement];
         line1 = hit->object->name + "  layer " + std::to_string(pl.layer) + "  at " + std::to_string(hit->box.x) +
                 "," + std::to_string(hit->box.y) + "  box " + std::to_string(hit->box.sizeX) + "x" +
-                std::to_string(hit->box.sizeY) + "x" + std::to_string(hit->box.height) + "  id " +
-                std::to_string(pl.id) + "  type " + std::to_string(hit->object->type);
+                std::to_string(hit->box.sizeY) + "x" + std::to_string(hit->box.height) + "  z " +
+                std::to_string(pl.z) + "  type " + std::to_string(hit->object->type);
         if (!footprints_ && !hit->flat)
             drawFootprint(*hit);
     }

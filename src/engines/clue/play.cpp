@@ -28,6 +28,7 @@ constexpr int kBarTop = 413, kTickerTop = 462;
 // The columns over the view: the cards and the notepad on the left, the
 // choices, disproving and videos on the right.
 constexpr int kLeftX = 5, kLeftY = 5, kRightX = 434, kRightY = 4;
+constexpr int kVideoFrameX = 427, kVideoFrameY = 4, kVideoFrameW = 208, kVideoFrameH = 408;
 // The card shown to a human, wider: from further left.
 constexpr int kShownX = 398;
 // The drawer's three places, over the logo: the die (then the number
@@ -87,14 +88,14 @@ const char* promptVoice(int line) {
 // holes in the choice window's summary for the suspect, room and weapon.
 const int kHandX[6] = {111, 18, 111, 18, 111, 18}, kHandY[6] = {246, 246, 129, 129, 12, 12};
 const UiRect kSummarySuspect{8, 40, 65, 173}, kSummaryRoom{89, 104, 98, 76}, kSummaryWeapon{90, 213, 73, 86};
-// The notepad: each kind's first row (rows 15 apart), the columns for
-// who holds a card and for the marks.
-// Measured on a recording at 640x480: rows 15.2 apart from each kind's
-// first; the columns of the colour, the two marks and the note's triangle.
-const int kNoteRowY[3] = {20, 129, 239}, kNoteHeadY[3] = {4, 113, 223};
-constexpr int kNoteTextX = 16, kNoteColourX = 139, kNoteMarkX[2] = {154, 170}, kNoteTriangleX = 184,
-              kNoteRowH = 15;
-int noteRowY(int kind, int row) { return kNoteRowY[kind] + row * 76 / 5; }
+// The notepad: its picture (UI:A...notepad) is ruled, each kind's rows 15
+// apart below its line (at 22, 131 and 240), the columns of the colour, the
+// two marks and the note's triangle 15 wide from 131: each row's cells are
+// inside those lines.
+const int kNoteRowY[3] = {23, 132, 241}, kNoteHeadY[3] = {4, 113, 223};
+constexpr int kNoteTextX = 16, kNoteColourX = 132, kNoteMarkX[2] = {147, 162}, kNoteTriangleX = 177,
+              kNoteRowH = 14;
+int noteRowY(int kind, int row) { return kNoteRowY[kind] + row * 15; }
 // The marks a click goes round, after none.
 const char* const kMark[5] = {"UI:Anoteschk", "UI:Anotesx", "UI:Anoteso", "UI:Anoteschko", "UI:Anotesxo"};
 
@@ -886,6 +887,13 @@ void Play::openPick() {
     const int* slots = pickCards_.size() == 1 ? kOne : kMore;
     for (size_t i = 0; i < pickCards_.size() && i < 3; ++i)
         dialog_->setVisible(slots[i], true);
+    // With one card there's no choosing: the original shows it, unmarked,
+    // with Done and without the words (a recording made for it, 1:30).
+    if (pickCards_.size() == 1) {
+        pickChosen_ = 0;
+        dialog_->setVisible(17 + who, false);
+        dialog_->setVisible(kOk, true);
+    }
 }
 
 int Play::pickSlot(size_t i) const {
@@ -895,7 +903,7 @@ int Play::pickSlot(size_t i) const {
 
 void Play::clickPick(int id) {
     for (size_t i = 0; i < pickCards_.size(); ++i)
-        if (id == pickSlot(i)) {
+        if (id == pickSlot(i) && pickCards_.size() > 1) {
             pickChosen_ = int(i);
             for (size_t j = 0; j < pickCards_.size(); ++j)
                 dialog_->setChosen(pickSlot(j), j == i);
@@ -1273,7 +1281,7 @@ void Play::clickPanel(int x, int y) {
     for (int k = 0; k < 3; ++k)
         for (int r = 0; r < kCount[k]; ++r) {
             const int top = noteRowY(k, r);
-            if (y < top || y >= top + kNoteRowH)
+            if (y < top || y >= top + 15)
                 continue;
             const int card = kFirst[k] + r;
             NoteRow& row = notes_[size_t(who)][size_t(card)];
@@ -1477,12 +1485,14 @@ std::vector<Mansion::Actor> Play::actors() {
         actor.frame = &(*frames)[f];
         actor.box = {w.x, w.y, a->frames[f].sizeX, a->frames[f].sizeY, a->frames[f].height};
         actor.reveal = true;
+        // Its square: suspects stand 24 in from its corner.
+        actor.revealBox = Mansion::revealBox(w.x - 24, w.y - 24);
         out.push_back(actor);
     }
-    // A move being planned: its squares numbered, and the next squares it
-    // can take numbered faintly.
+    // A move being planned: its squares numbered as they are clicked (only
+    // they, as the original).
     if (localTurn() && game_.canMove() && !busy()) {
-        const auto number = [&](const Square& sq, int n, int opacity) {
+        const auto number = [&](const Square& sq, int n) {
             if (n < 1 || n > 9)
                 return;
             const Animation* a = data_.animation(std::string("tilenum:At_") + char('a' + n - 1));
@@ -1493,16 +1503,13 @@ std::vector<Mansion::Actor> Play::actors() {
             actor.box = {Board::kGridOrigin + sq.x * Board::kSquareSize,
                          Board::kGridOrigin + sq.y * Board::kSquareSize, Board::kSquareSize, Board::kSquareSize, 1};
             actor.flat = true;
-            actor.opacity = opacity;
-            actor.reveal = opacity == 255;
+            actor.reveal = true;
+            actor.revealBox = Mansion::revealBox(actor.box.x, actor.box.y);
             out.push_back(actor);
         };
         for (size_t i = 0; i < plan_.size(); ++i)
             if (!plan_[i].inRoom())
-                number(plan_[i].square, int(i) + 1, 255);
-        for (const Place& p : game_.nextSteps(plan_))
-            if (!p.inRoom())
-                number(p.square, int(plan_.size()) + 1, 110);
+                number(plan_[i].square, int(i) + 1);
     }
     return out;
 }
@@ -1640,13 +1647,6 @@ void Play::drawPanel() {
         if (font)
             drawText(screen_, *font, kindNames_[size_t(k)], kLeftX + 10, kLeftY + kNoteHeadY[k], 150, kNoteRowH, false,
                      true);
-        // The ruling: light grey lines under each row and between the columns.
-        const Color rule{190, 190, 190};
-        const int top = kLeftY + noteRowY(k, 0), bottom = kLeftY + noteRowY(k, kCount[k]);
-        for (int r = 1; r <= kCount[k]; ++r)
-            fillRect(screen_, kLeftX + 8, kLeftY + noteRowY(k, r) - 1, 194, 1, rule);
-        for (int x : {kNoteColourX, kNoteMarkX[0], kNoteMarkX[1], kNoteTriangleX})
-            fillRect(screen_, kLeftX + x, top, 1, bottom - top, rule);
         for (int r = 0; r < kCount[k]; ++r) {
             const int card = kFirst[k] + r;
             const int y = kLeftY + noteRowY(k, r);
@@ -1654,14 +1654,14 @@ void Play::drawPanel() {
                 drawText(screen_, *font, cardNames_[size_t(card)], kLeftX + kNoteTextX, y, 115, kNoteRowH, false, true);
             const NoteRow& row = notes_[size_t(who)][size_t(card)];
             if (row.colour >= 0)
-                drawAnimation(std::string("UI:A") + kKey[row.colour] + "noteclr", kLeftX + kNoteColourX + 1, y + 1);
+                drawAnimation(std::string("UI:A") + kKey[row.colour] + "noteclr", kLeftX + kNoteColourX, y);
             for (int m = 0; m < 2; ++m)
                 if (row.marks[size_t(m)] > 0)
-                    drawAnimation(kMark[row.marks[size_t(m)] - 1], kLeftX + kNoteMarkX[m] + 1, y + 1);
+                    drawAnimation(kMark[row.marks[size_t(m)] - 1], kLeftX + kNoteMarkX[m], y);
             // The triangle: pointing right while its note is open; marked
             // when there is one.
             const char* tri = editing_ == card ? "notesrt" : row.text.empty() ? "notesup" : "notemark";
-            drawAnimation(std::string("UI:A") + kKey[who] + tri, kLeftX + kNoteTriangleX, y + 1);
+            drawAnimation(std::string("UI:A") + kKey[who] + tri, kLeftX + kNoteTriangleX, y);
             // The note, beside the notepad: while it is open, or the
             // pointer is on its triangle.
             const bool hover = mouseX_ >= kLeftX + kNoteTriangleX && mouseX_ < kLeftX + 205 && mouseY_ >= y &&
@@ -1708,8 +1708,11 @@ void Play::drawWindows() {
     if (told_)
         told_->draw(screen_);
     if (video_) {
+        // In its frame (UI:Isuggframe: black, edged in white), against the
+        // screen's right-hand frame, as the original shows its videos.
+        drawAnimation("UI:Asuggframe", kVideoFrameX, kVideoFrameY);
         const image::Image& pic = video_->picture();
-        image::blit(screen_, pic, kRightX + (201 - pic.w) / 2, kRightY + (409 - pic.h) / 2);
+        image::blit(screen_, pic, kVideoFrameX + (kVideoFrameW - pic.w) / 2, kVideoFrameY + (kVideoFrameH - pic.h) / 2);
     }
     if (!dialog_ || window_ == Window::None)
         return;

@@ -421,7 +421,7 @@ static void testObjectsAndLevel() {
     CHECK(level.title == "Unnamed" && level.objects.size() == 2 && level.placements.size() == 3);
     if (level.placements.size() == 3) {
         const Placement& p = level.placements[1];
-        CHECK(p.flags == 0x62 && p.tag == 3 && p.object == 0 && p.x == -64 && p.y == 128 && p.id == -1 &&
+        CHECK(p.flags == 0x62 && p.tag == 3 && p.object == 0 && p.x == -64 && p.y == 128 && p.z == -1 &&
               p.layer == 1);
         CHECK(p.timings.size() == 1 && p.timings[0].time == 1000 && p.timings[0].state == 10);
         CHECK(level.placements[2].tag == 1030 && level.placements[2].layer == 7);

@@ -22,11 +22,13 @@ namespace reluva::clue {
 struct WorldBox {
     int x = 0, y = 0;
     int sizeX = 0, sizeY = 0, height = 0;
+    int z = 0; // how high above the floor it starts
 };
 
 // Whether a is drawn after b (it hides b where they overlap on screen):
-// 1 if a is in front, -1 if b is, 0 if their boxes overlap on the floor,
-// when neither can be said to be in front.
+// 1 if a is in front, -1 if b is (beyond it along x, or else y, or else
+// wholly above it), 0 if their boxes overlap, when neither can be said to
+// be in front.
 int compareDepth(const WorldBox& a, const WorldBox& b);
 
 // Where screen rectangles are: x, y, width, height.
@@ -46,10 +48,12 @@ std::vector<size_t> depthOrder(const std::vector<WorldBox>& boxes, const std::ve
 // How the mansion is drawn: the walls nearest the camera (layer 4), the
 // black outside (layer 6), the move-number templates.
 struct MansionLook {
-    // The near walls (layer 4) see-through, solid or hidden; None: every
-    // wall hidden (the original's "Mansion Walls" off).
+    // SeeThrough: everything solid but what stands in front of a suspect
+    // or a move's square, see-through (the original's "Translucency");
+    // Solid: all of it solid; Hidden: the near walls (layer 4) left out;
+    // None: every wall left out (the original's "Mansion Walls" off).
     enum class Walls { SeeThrough, Solid, Hidden, None } walls = Walls::SeeThrough;
-    int seeThrough = 128; // the near walls' opacity when see-through: about half, as in recordings
+    int seeThrough = 128; // the opacity of what is see-through: about half, as in recordings
     bool outside = true;
     bool tileNumbers = false;
     bool animate = true;
@@ -93,10 +97,16 @@ public:
         const Frame* frame = nullptr;
         bool flat = false;       // on the floor: after the floors, under everything else
         int opacity = 255;
-        // What stands in front of it is drawn see-through (with walls
-        // see-through), as the original does around the suspects.
+        // What stands in front of this box is drawn see-through (with
+        // walls see-through), as the original does around the suspects
+        // and the squares of a move: a square of the floor and a suspect's
+        // height over it (Mansion::revealBox).
         bool reveal = false;
+        WorldBox revealBox;
     };
+    // The box a suspect or a move's square shows through what is in
+    // front of it: the square from (x, y), a suspect's height.
+    static WorldBox revealBox(int x, int y);
     // An animation's frames as pieces to draw (kept).
     const std::vector<Frame>* frames(const GameData& data, const Animation& anim) { return resolve(data, anim); }
 

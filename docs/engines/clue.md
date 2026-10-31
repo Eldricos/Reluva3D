@@ -381,9 +381,9 @@ computer players play on behind it ("The Classic" 46:48-47:03, a whole
 turn; Playthrough 01 4:45-4:50 and 17:25-17:32), and in network games so
 does everyone else. The preferences
 are saved in Reluva's folder for the game (`preferences.ini`). As the VM
-recording shows them: "Translucency" on draws the nearest walls
-see-through, off leaves them out (the lounge's near wall gone between
-0:57 and 1:09, the same view); "Mansion Walls" off leaves out every wall
+recording shows them: "Translucency" on draws what stands in front of
+the suspects see-through (below), off leaves the nearest walls out (the
+lounge's near wall gone between 0:57 and 1:09, the same view); "Mansion Walls" off leaves out every wall
 in the house, floors, furniture and pictures left (2:53 and 3:02).
 
 ### In the game
@@ -393,8 +393,8 @@ As the original, from its recordings and its How to Play texts:
 - **The die** (the drawer's first icon, at the bar's right end, on a
   human's turn): rolls; the icon shows the number. Then click the
   squares of the move one at a time, starting next to the suspect. Each
-  is numbered on the floor as it's planned, and the squares it can go on
-  to are numbered faintly. Clicking one of the move's squares again goes
+  is numbered on the floor as it's clicked (the squares it could go on
+  to aren't marked, as in the original). Clicking one of the move's squares again goes
   back to it. When the die's number is reached, or a room's floor is
   clicked from before its door, the suspect walks there.
 - **No Die Roll**: the first icon shows the moves left; plan the move
@@ -426,7 +426,8 @@ As the original, from its recordings and its How to Play texts:
 - **The board** button shows the board from above, with the suspects'
   pawns; moves can be planned on it too.
 - When a human must disprove, their matching cards are shown: click one,
-  then Done. A card shown to a human is shown large, with OK.
+  then Done. With only one, it is shown already chosen, with Done, as the
+  original does (a recording made for it, OriginalClue 1:30). A card shown to a human is shown large, with OK.
 - **The end.** A right accusation shows the solution; Continue plays the
   murderer's prison clip, then the main menu. A human who accuses wrongly
   while other humans play on is asked whether to go on disproving by
@@ -461,15 +462,28 @@ then the suspect's pawn `UI:A<sca>end` to end the turn), the bulb, the
 handcuffs. The left column (5, 5): the cards window and the notepad. The
 right column (434, 4): the choice window (dialog 30), the box saying who
 can or can't disprove (dialog 31, with that suspect's portrait), a
-human's choice of card (dialog 32), and the videos; the card shown, large
+human's choice of card (dialog 32), and the videos, in their frame
+(`UI:Asuggframe`, 208 × 408, black edged in white) at (427, 4) against
+the right-hand frame, the clip in its middle; the card shown, large
 (dialog 33, `UI:Algcard`, one frame a card), at (398, 4). The board from
 above (`UI:Aoverhead`) at (208, 5), its squares 13 pixels, column 9 and
 row 9 at (8, 15) in it. The solution (dialog 34) fills the screen.
 
-Whatever stands in front of a suspect on screen is drawn see-through, as
-the original draws the fireplace over Miss Scarlet at the start (L 3:00)
-and the walls around Mrs. Peacock (L 3:30); with "Translucency" off, it
-isn't.
+With "Translucency" on, the house is drawn solid, near walls and all,
+but what stands in front of a suspect, or of a square of the move being
+planned, is drawn see-through, whole pieces at a time (the walls are
+built of pieces a square long): the fireplace over Miss Scarlet at the
+start (L 3:00), the walls around Mrs. Peacock (L 3:30). A recording made
+for it (OriginalClue, 0:02-0:36, set beside NewClue, Reluva's before
+this) shows the extent: what is in front of a box a square across and
+116 high (180 pixels tall on the screen) over the suspect's square or the
+move's; elsewhere the near walls are solid. With "Translucency" off the
+near walls are left out and nothing is see-through.
+
+The notepad's picture (`UI:A<sca>notepad`) is ruled: each kind's rows 15
+pixels apart below its line (22, 131 and 240), the columns of the colour,
+the two marks and the triangle 15 wide from 131. The names, colours,
+marks and triangles go in its cells.
 
 **Lighting Effects**, measured on the same view with it on and off (VM
 0:21 and 0:28, below), then checked on a second recording made for it

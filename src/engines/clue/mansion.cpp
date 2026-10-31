@@ -3,6 +3,8 @@
 
 #include "engines/clue/mansion.h"
 
+#include "engines/clue/board.h"
+
 #include <algorithm>
 #include <cmath>
 #include <numeric>
@@ -26,6 +28,10 @@ int compareDepth(const WorldBox& a, const WorldBox& b) {
     if (a.y >= b.y + b.sizeY)
         return 1;
     if (b.y >= a.y + a.sizeY)
+        return -1;
+    if (a.z >= b.z + b.height)
+        return 1;
+    if (b.z >= a.z + a.height)
         return -1;
     return 0;
 }
@@ -147,8 +153,12 @@ Error Mansion::build(const GameData& data, const Level& level) {
         item.box.sizeY = f0.sizeY;
         item.box.height = f0.height;
         item.flat = f0.solid < 0 || !item.animation->isometric;
+        // Raised by its height: a door's lintel on its frame, the lamps and
+        // pictures on the walls. (1, most things' height, and the floors'
+        // -1 are taken as the floor.)
+        item.box.z = pl.z > 1 ? pl.z : 0;
         item.anchorX = pl.x - pl.y;
-        item.anchorY = floorDiv(pl.x + pl.y, 2);
+        item.anchorY = floorDiv(pl.x + pl.y, 2) - item.box.z;
         // The rectangle every frame's pieces fall in.
         bool any = false;
         int x0 = 0, y0 = 0, x1 = 0, y1 = 0;
@@ -366,6 +376,13 @@ ScreenRect actorRect(const Mansion::Actor& a) {
 
 } // namespace
 
+WorldBox Mansion::revealBox(int x, int y) {
+    // As measured on the original (a recording made for it, 0:24): what
+    // turns see-through is what stands in front of a box a square across
+    // and 116 high, 180 pixels tall on the screen.
+    return {x, y, Board::kSquareSize, Board::kSquareSize, 116};
+}
+
 size_t Mansion::insertionPoint(const Actor& actor) const {
     if (actor.flat)
         return flatCount_;
@@ -395,13 +412,16 @@ void Mansion::draw(Surface& target, int camX, int camY, const MansionLook& look,
     // The actors in the order, each before the item it goes before; those
     // at the same point back to front.
     std::vector<std::pair<size_t, const Actor*>> placed;
-    std::vector<std::pair<size_t, ScreenRect>> revealed;
-    for (const Actor& a : actors)
-        if (a.frame && actorRect(a).overlaps(view)) {
+    std::vector<std::pair<WorldBox, ScreenRect>> revealed;
+    for (const Actor& a : actors) {
+        if (a.frame && actorRect(a).overlaps(view))
             placed.push_back({insertionPoint(a), &a});
-            if (a.reveal && look.walls == MansionLook::Walls::SeeThrough)
-                revealed.push_back({placed.back().first, actorRect(a)});
+        if (a.reveal && look.walls == MansionLook::Walls::SeeThrough) {
+            const WorldBox& b = a.revealBox;
+            revealed.push_back({b, {b.x - b.y - b.sizeY, floorDiv(b.x + b.y, 2) - b.height, b.sizeX + b.sizeY,
+                                    (b.sizeX + b.sizeY) / 2 + b.height}});
         }
+    }
     std::stable_sort(placed.begin(), placed.end(), [](const auto& x, const auto& y) {
         return x.first != y.first ? x.first < y.first : centreDepth(x.second->box) < centreDepth(y.second->box);
     });
@@ -421,12 +441,19 @@ void Mansion::draw(Surface& target, int camX, int camY, const MansionLook& look,
             continue;
         size_t f = 0;
         const auto& frames = framesAt(order_[n], nowMs, look, f);
-        int opacity = item.layer == 4 && look.walls == MansionLook::Walls::SeeThrough ? look.seeThrough : 255;
-        // Over a suspect: see-through.
+        // In front of a suspect or a move's square: see-through, the whole
+        // piece (the walls are built of pieces a square long), as the
+        // original draws them.
+        int opacity = 255;
         if (!item.flat)
-            for (const auto& [at, rect] : revealed)
-                if (at <= n && item.rect.overlaps(rect))
-                    opacity = std::min(opacity, look.seeThrough);
+            for (const auto& [box, rect] : revealed)
+                if (item.rect.overlaps(rect)) {
+                    int c = compareDepth(item.box, box);
+                    if (c == 0)
+                        c = centreDepth(item.box) < centreDepth(box) ? -1 : 1;
+                    if (c > 0)
+                        opacity = look.seeThrough;
+                }
         const int level = look.lighting ? lightLevel(item.box.x + item.box.sizeX / 2,
                                                     item.box.y + item.box.sizeY / 2, look.lights)
                                         : 256;

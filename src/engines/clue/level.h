@@ -51,7 +51,10 @@ struct Placement {
     uint16_t tag = 0;     // when flags has 0x02; not understood
     uint16_t object = 0;  // into Level::objects
     int16_t x = 0, y = 0; // the object's anchor in the world
-    int16_t id = 0;       // -1 for floors; 1 for most things; not understood
+    // The height it stands at above the floor: -1 for floors, 1 for most
+    // things, more for what hangs on walls (lamps 88-97, pictures) or tops
+    // a door (its lintel 119-121, the frames being 161 high).
+    int16_t z = 0;
     uint8_t layer = 0;    // 0-1 floors, 3 walls, 4 the walls nearest the camera, 5 furniture,
                           // 6 the black outside, 7 characters
     std::vector<Timing> timings;

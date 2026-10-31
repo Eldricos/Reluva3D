@@ -126,7 +126,7 @@ Error parseLevel(const DataDrive& drive, Level& out) {
         pl.object = u16(o, q);
         pl.x = int16_t(u16(o, q + 2));
         pl.y = int16_t(u16(o, q + 4));
-        pl.id = int16_t(u16(o, q + 6));
+        pl.z = int16_t(u16(o, q + 6));
         pl.layer = o[q + 8];
         q += 9;
         if ((pl.flags & 0x20) && !readTimings(o, q, end, pl.timings))

@@ -94,7 +94,7 @@ A placement:
 | 2 | the object, by its number in `World.dat` |
 | 2 | x, in world units (signed) |
 | 2 | y, likewise |
-| 2 | not understood: −1 for floors and the outside, 1 for most things, others for a few (doors 120, paintings 57-94) |
+| 2 | the height it stands at above the floor: −1 for floors and the outside, 1 for most things, more for what hangs on a wall or tops a door (the doors' lintels 119-121 on their 161-high frames, paintings 57-94, wall lamps 88-97); see below |
 | 1 | the layer |
 | | with 0x20: a 2-byte count and that many 7-byte timings, as in `.o` |
 
@@ -114,10 +114,16 @@ The layers, by what's on them:
 | 7 | the six suspects, at their starting places |
 
 Without layer 4 the house is a cut-away dollhouse, every room open to
-view; with it the near walls hide the rooms.
-The readme's options include "Walls" and "Translucency", so the game
-presumably hides or fades them; which, and when, is to be seen in the
-original.
+view; with it the near walls hide the rooms. The original leaves layer 4
+out with "Translucency" off; with it on, it draws it solid but for what
+stands in front of the suspects ([clue.md](../../engines/clue.md)).
+
+The height (the field after the position) lifts a thing off the floor:
+it is drawn that much higher on the screen. Without it the doors'
+lintels lie on the floor at their doors and the wall lamps and pictures
+at the walls' feet; with it they are where recordings of the original
+show them. 1, most things' height, is taken as the floor, as are the
+floors' −1.
 
 `Workspace.dat` (32 bytes): four 4-byte numbers (1210, 540, 16068, 720),
 two 8s and a double 1.0. Probably the level editor's view: a position, a
@@ -125,8 +131,8 @@ size, an 8 × 8 grid and a zoom.
 
 ## Drawing order and the original's look
 
-Recordings show the walls nearest the camera (layer 4) drawn see-through,
-about half; Reluva's mansion page does so by default. They also show the
+Recordings show what stands in front of the suspects drawn see-through,
+about half. They also show the
 whole scene dark, with pools of light around the lamps and the suspects:
 the readme's "Dynamic Lighting", not done yet.
 
