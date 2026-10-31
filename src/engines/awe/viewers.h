@@ -27,6 +27,7 @@
 #include "engines/awe/movie_player.h"
 #include "engines/awe/savegame.h"
 #include "engines/awe/shadows.h"
+#include "engines/awe/sprite.h"
 #include "engines/awe/camera.h"
 
 #include <array>
@@ -73,6 +74,8 @@ public:
         present();
         finishScreenshot(nullptr, &ctx_.screen);
     }
+    // Whether it draws in 3D each frame, paced by presenting (vsync).
+    virtual bool uses3D() const { return false; }
     // Whether Escape is the page's now (a movie skipped), not the way out.
     virtual bool wantsEscape() const { return false; }
     // Whether the page asks to go back to the launcher (the game's quit).
@@ -153,6 +156,7 @@ public:
     void deactivate() override;
     void handleEvent(const Event& ev) override;
     void update(uint64_t nowMs) override;
+    bool uses3D() const override { return renderer_ != nullptr && drawing_; }
     bool wantsEscape() const override { return movie_ != nullptr || playing_; }
     bool quitRequested() const override { return quit_; }
 
@@ -511,6 +515,7 @@ private:
     void saveOptions() const;
     void applyVolumes(int music, int sound);
     void applyBrightness();
+    void applyBrightness(std::vector<uint8_t>& rgba) const;
     // Anti-Aliasing: the 3D drawn with 4x multisampling, else 2x, if on.
     void applyAntiAliasing();
     int brightnessLevel() const;
@@ -809,9 +814,28 @@ private:
     // (opaque) before them all. Each is a texture, and where its pictures
     // take the shadows off (a byte a pixel; none for layer 0).
     struct PictureLayer {
-        gfx::TextureId texture = 0;
+        // Drawn in turn: pictures put together over the whole frame, or
+        // one drawn alone where it is (one that scrolls, a video loop).
+        struct Part {
+            gfx::TextureId texture = 0; // put together; 0 for one alone
+            const Ac2Record* alone = nullptr;
+            int w = 0, h = 0;
+            SpriteTransform at, at2;
+            bool twice = false; // a scrolling one, at at2 as well
+        };
+        std::vector<Part> parts;
         std::vector<uint8_t> resets;
+        std::string key; // what it was made from; empty: made every time
     };
+    void dropLayer(PictureLayer& layer);
+    // The texture of a picture drawn alone, made when it changes.
+    struct AloneTexture {
+        gfx::TextureId texture = 0;
+        std::string key;
+    };
+    std::map<const Ac2Record*, AloneTexture> aloneTextures_;
+    void aloneTexture(const Ac2Record& o, const image::Image& img);
+    uint64_t layersMade_ = 0; // a new scene's layers are new
     std::vector<PictureLayer> layers_;
     std::vector<ModelSlot> characterOrder_; // characters_ and footprints in depth order, as draw() found it
     gfx::MeshId quad_ = 0;

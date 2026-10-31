@@ -30,6 +30,20 @@ Reluva work with the game:
 The findings were checked against the install's models, their animation
 files' track masks, and the scenes' and dialogue's scripts.
 
+## When a character is there
+
+A character is an object like any other: drawn, shadow and all, only
+while it's shown, that is not hidden by a script and its `condition`
+holding. The character's draw (`0x425e00`, slot 0xc of the `NPCX` and
+`PCXX` vtables) asks the object's shown test (slot 0x50, `0x40ecd0`:
++0xb00 and +0xb04) first and draws nothing if it fails; the common
+update (`0x40e900`, slot 0x4c, shared by every object class) tests the
+condition every frame and shows or hides the object by it. 49 characters
+in the install have a condition: Greta Ohlsson, for one, stands in the
+Sirkeci market's scenes only with `tag gretafollow`, and Michel in the
+corridors only until `tag micheladmonish`. The pick's list uses the same
+test ([ac2.md](ac2.md#the-pick-0x435eb0)).
+
 ## Animations on Granny controls
 
 A character plays up to **ten** animations at once, each on a Granny

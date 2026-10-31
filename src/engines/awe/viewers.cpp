@@ -386,14 +386,17 @@ void ScenePage::releaseGpu() {
         for (gfx::TextureId t : frameTextures_)
             renderer_->destroyTexture(t);
         for (PictureLayer& l : layers_)
-            if (l.texture)
-                renderer_->destroyTexture(l.texture);
+            dropLayer(l);
+        for (auto& [o, t] : aloneTextures_)
+            if (t.texture)
+                renderer_->destroyTexture(t.texture);
         if (quad_)
             renderer_->destroyMesh(quad_);
     }
     frameMeshes_.clear();
     frameTextures_.clear();
     layers_.clear();
+    aloneTextures_.clear();
     characterOrder_.clear();
     quad_ = 0;
 }
@@ -404,6 +407,7 @@ void ScenePage::load() {
     error_.clear();
     base_.clear();
     scene_ = Ac2Scene();
+    layersMade_++; // its pictures' layers are made afresh
     lightConditions_.clear();
     characters_.clear();
     loops_.clear();
@@ -1243,59 +1247,147 @@ void ScenePage::draw() {
             return !sprite || sprite->i("scroll") == 0;
         };
         const bool shadows = options_.get(GameOptions::Shadows);
-        for (PictureLayer& l : layers_)
-            if (l.texture)
-                renderer_->destroyTexture(l.texture);
-        layers_.assign(characterOrder_.size() + 1, PictureLayer());
+        for (size_t k = characterOrder_.size() + 1; k < layers_.size(); k++)
+            dropLayer(layers_[k]);
+        layers_.resize(characterOrder_.size() + 1);
         std::vector<size_t> layerOfPicture;
         for (const Ac2Record* o : pictures)
             layerOfPicture.push_back(layerOf(o));
+        // A picture that scrolls and a video loop are drawn by themselves,
+        // a quad of their own, so the rest of their layer needn't be put
+        // together again as they move (the clouds, the countryside going
+        // by): unless moved by a puzzle.
+        auto alone = [&](const Ac2Record* o) {
+            return (scrolls_.count(o) || loops_.count(o)) && !overrides_.count(o);
+        };
         gfx::TextureParams params;
         params.clamp = true;
         params.mipmaps = false;
         for (size_t k = 0; k < layers_.size(); k++) {
             PictureLayer& layer = layers_[k];
-            bool any = false, allReset = true;
+            std::vector<const Ac2Record*> in;
+            bool allReset = true, anyAlone = false;
             for (size_t p = 0; p < pictures.size(); p++)
-                if (layerOfPicture[p] == k)
-                    any = true, allReset &= resetsShadows(pictures[p]);
+                if (layerOfPicture[p] == k) {
+                    in.push_back(pictures[p]);
+                    allReset &= resetsShadows(pictures[p]);
+                    anyAlone |= alone(pictures[p]);
+                }
             // A character's breath, drawn just after it (0x425e48); none
             // with "Particle Effects" off.
             const ParticleSystem* breath = nullptr;
             if (k > 0 && characterOrder_[k - 1].footprint < 0 && options_.get(GameOptions::Rain))
                 breath = characters_[characterOrder_[k - 1].character].breath.get();
-            any |= breath != nullptr;
             allReset &= breath == nullptr; // particles take no shadows off
-            if (!any && k > 0)
+            if (in.empty() && !breath && k > 0) {
+                dropLayer(layer);
                 continue;
+            }
+            // Where those drawn alone are now: as place() puts them.
+            auto placeAlone = [&](PictureLayer::Part& part) {
+                const Ac2Record* o = part.alone;
+                SpriteTransform& t = part.at;
+                t = SpriteTransform();
+                t.x = o->f("x"), t.y = o->f("y");
+                if (o->field("spriteScaleX"))
+                    t.scaleX = o->f("spriteScaleX"), t.scaleY = o->f("spriteScaleY");
+                if (const Ac2Record* p = o->part(o->tag == "BINK" ? "BNKX" : "SPRT"))
+                    t.roll = p->f("roll");
+                part.twice = false;
+                if (const auto sc = scrolls_.find(o); sc != scrolls_.end()) {
+                    // Where it has got to, and again a width or height
+                    // behind, so the two cover the way (0x437db6).
+                    t.x = sc->second.x, t.y = sc->second.y;
+                    const int way = o->part("SPRT")->i("scroll");
+                    part.at2 = t;
+                    part.at2.x += way == 1 ? float(part.w) : way == 2 ? -float(part.w) : 0.0f;
+                    part.at2.y += way == 3 ? float(part.h) : way == 4 ? -float(part.h) : 0.0f;
+                    part.twice = true;
+                }
+            };
+            // Put together again only when what's in it has changed: which
+            // pictures; always with particles or the options screen's
+            // sliders. Most draws (the mouse moving, a line said, a cloud
+            // moving on) change none of them.
+            std::string key;
+            {
+                auto put = [&key](const auto& v) { key.append(reinterpret_cast<const char*>(&v), sizeof v); };
+                put(layersMade_), put(brightnessLevel()), put(shadows);
+                bool remade = breath != nullptr || optionsMenu_;
+                for (const Ac2Record* o : in) {
+                    put(o);
+                    remade |= particles_.count(o) != 0;
+                    if (const auto ov = overrides_.find(o); ov != overrides_.end())
+                        put(ov->second.x), put(ov->second.y), put(ov->second.roll), put(ov->second.cx),
+                            put(ov->second.cy), put(ov->second.tint);
+                    if (!alone(o)) {
+                        if (const auto lp = loops_.find(o); lp != loops_.end())
+                            put(lp->second.next);
+                        if (const auto sc = scrolls_.find(o); sc != scrolls_.end())
+                            put(sc->second.x), put(sc->second.y);
+                    }
+                }
+                if (remade)
+                    key.clear();
+            }
+            if (!key.empty() && key == layer.key) {
+                for (PictureLayer::Part& part : layer.parts)
+                    if (part.alone) {
+                        aloneTexture(*part.alone, imageOf(part.alone));
+                        placeAlone(part);
+                    }
+                continue;
+            }
+            dropLayer(layer);
+            layer.key = std::move(key);
             auto takeResets = [&] {
                 layer.resets.assign(size_t(kScreenW) * kScreenH, 0);
                 for (size_t i = 0; i < layer.resets.size(); i++)
                     layer.resets[i] = ctx_.screen.pixels[i * 4 + 3] != 0;
             };
             const bool resets = shadows && k > 0;
-            if (resets && !allReset) {
+            if (resets && (!allReset || anyAlone)) {
                 // Those pictures alone first, for where they reset.
                 std::fill(ctx_.screen.pixels.begin(), ctx_.screen.pixels.end(), 0);
-                for (size_t p = 0; p < pictures.size(); p++)
-                    if (layerOfPicture[p] == k && resetsShadows(pictures[p]))
-                        place(pictures[p], true);
+                for (const Ac2Record* o : in)
+                    if (resetsShadows(o))
+                        place(o, true);
                 takeResets();
             }
-            // The background's layer opaque, the others over what's behind.
-            if (k == 0)
-                clear(0, 0, 0);
-            else
-                std::fill(ctx_.screen.pixels.begin(), ctx_.screen.pixels.end(), 0);
-            if (breath)
-                drawParticles(*breath, true);
-            for (size_t p = 0; p < pictures.size(); p++)
-                if (layerOfPicture[p] == k)
-                    place(pictures[p], k > 0);
-            if (resets && allReset)
-                takeResets();
-            applyBrightness();
-            renderer_->createTexture(kScreenW, kScreenH, ctx_.screen.pixels.data(), params, layer.texture);
+            // The rest in runs between those drawn alone, each put together
+            // over the whole frame: the background's first opaque, the
+            // others over what's behind.
+            size_t next = 0;
+            bool first = true;
+            while (next < in.size() || (first && breath)) {
+                if (!(first && breath) && next < in.size() && alone(in[next])) {
+                    PictureLayer::Part part;
+                    part.alone = in[next++];
+                    const image::Image& img = imageOf(part.alone);
+                    part.w = img.w, part.h = img.h;
+                    aloneTexture(*part.alone, img);
+                    placeAlone(part);
+                    layer.parts.push_back(part);
+                    first = false;
+                    continue;
+                }
+                const bool opaque = k == 0 && first;
+                if (opaque)
+                    clear(0, 0, 0);
+                else
+                    std::fill(ctx_.screen.pixels.begin(), ctx_.screen.pixels.end(), 0);
+                if (first && breath)
+                    drawParticles(*breath, true);
+                for (; next < in.size() && !alone(in[next]); next++)
+                    place(in[next], !opaque);
+                if (resets && allReset && !anyAlone)
+                    takeResets();
+                applyBrightness();
+                PictureLayer::Part part;
+                renderer_->createTexture(kScreenW, kScreenH, ctx_.screen.pixels.data(), params, part.texture);
+                layer.parts.push_back(part);
+                first = false;
+            }
         }
         std::fill(ctx_.screen.pixels.begin(), ctx_.screen.pixels.end(), 0);
     } else {
@@ -1733,21 +1825,50 @@ void ScenePage::update(uint64_t nowMs) {
         renderer_->createMesh(v, {0, 2, 1, 0, 3, 2}, quad_);
     }
     auto drawLayer = [&](size_t k) {
-        if (k >= layers_.size() || !layers_[k].texture || !quad_)
+        if (k >= layers_.size() || !quad_)
             return;
-        renderer_->setView(gfx::identity(), {0, 0, 0});
-        gfx::DrawCall call;
-        call.mesh = quad_;
-        call.indexCount = 6;
-        call.texture = layers_[k].texture;
-        if (k > 0) {
-            call.state.src = gfx::Blend::SrcAlpha;
-            call.state.dst = gfx::Blend::OneMinusSrcAlpha;
+        for (size_t i = 0; i < layers_[k].parts.size(); i++) {
+            const PictureLayer::Part& part = layers_[k].parts[i];
+            gfx::DrawCall call;
+            call.mesh = quad_;
+            call.indexCount = 6;
+            if (k > 0 || i > 0) {
+                call.state.src = gfx::Blend::SrcAlpha;
+                call.state.dst = gfx::Blend::OneMinusSrcAlpha;
+            }
+            call.state.depthTest = false;
+            call.state.depthWrite = false;
+            call.state.cull = gfx::Cull::None;
+            if (!part.alone) {
+                call.texture = part.texture;
+                renderer_->setView(gfx::identity(), {0, 0, 0});
+                renderer_->draw(call);
+                continue;
+            }
+            // The quad over the whole frame taken to where the picture's
+            // corners go (twice for one that scrolls).
+            const auto t = aloneTextures_.find(part.alone);
+            if (t == aloneTextures_.end() || !t->second.texture)
+                continue;
+            call.texture = t->second.texture;
+            for (int n = 0; n < (part.twice ? 2 : 1); n++) {
+                const SpriteTransform& at = n ? part.at2 : part.at;
+                float x0, y0, xu, yu, xv, yv;
+                at.apply(0, 0, x0, y0);
+                at.apply(float(part.w), 0, xu, yu);
+                at.apply(0, float(part.h), xv, yv);
+                // The quad's (X, Y) is the picture's ((X + 1) / 2, (1 - Y) / 2)
+                // of the way across and down; then pixels to clip space.
+                const float sx = 2.0f / kScreenW, sy = -2.0f / kScreenH;
+                gfx::Mat4 m = gfx::identity();
+                m[0] = sx * (xu - x0) / 2, m[1] = sy * (yu - y0) / 2;
+                m[4] = -sx * (xv - x0) / 2, m[5] = -sy * (yv - y0) / 2;
+                m[12] = sx * (x0 + (xu - x0) / 2 + (xv - x0) / 2) - 1;
+                m[13] = sy * (y0 + (yu - y0) / 2 + (yv - y0) / 2) + 1;
+                renderer_->setView(m, {0, 0, 0});
+                renderer_->draw(call);
+            }
         }
-        call.state.depthTest = false;
-        call.state.depthWrite = false;
-        call.state.cull = gfx::Cull::None;
-        renderer_->draw(call);
     };
     drawLayer(0);
     for (gfx::TextureId t : frameTextures_)
@@ -1804,10 +1925,15 @@ void ScenePage::update(uint64_t nowMs) {
         for (const ModelSlot& slot : order) {
             const size_t i = slot.character;
             const Character& c = characters_[i];
+            // A character is drawn, as any object, only while shown: not
+            // hidden and its condition holding (0x425e00 asks slot 0x50
+            // first; 0x40e900 tests the condition every frame). Greta
+            // waits in the market until "tag gretafollow".
+            const bool drawn = !c.record || objectShown(*c.record);
             if (slot.footprint >= 0) {
                 renderer_->setView(viewProjection, cam.eye());
                 drawFootprint(c.footprints[size_t(slot.footprint)], lighting, bright);
-            } else if (shadows) {
+            } else if (shadows && drawn) {
                 // 0x428836: its pixels' stencil 2 for the player, 0 for the
                 // others.
                 const uint8_t ref = c.player ? 2 : 0;
@@ -1816,7 +1942,7 @@ void ScenePage::update(uint64_t nowMs) {
                     stencilModel(viewProjection, *c.props[k].second, propPoses[i][k], c.placement, c.shadow, ref,
                                  *stencil_);
             }
-            if (slot.footprint < 0) {
+            if (slot.footprint < 0 && drawn) {
                 renderer_->setView(viewProjection, cam.eye());
                 const Material material = c.record ? materialOf(*c.record) : Material();
                 c.model->draw(poses[i], c.placement, false, frameMeshes_, bright, &lighting, material);
@@ -2241,6 +2367,35 @@ std::vector<std::string> ScenePage::objectKeys(const Ac2Record& o) {
         keys.push_back(name.substr(0, name.rfind('.')));
     }
     return keys;
+}
+
+void ScenePage::dropLayer(PictureLayer& layer) {
+    for (const PictureLayer::Part& part : layer.parts)
+        if (part.texture)
+            renderer_->destroyTexture(part.texture);
+    layer = PictureLayer();
+}
+
+void ScenePage::aloneTexture(const Ac2Record& o, const image::Image& img) {
+    // Made again with the brightness, or a video loop's next frame.
+    std::string key = std::to_string(brightnessLevel()) + " " + std::to_string(img.w) + "x" + std::to_string(img.h);
+    if (const auto lp = loops_.find(&o); lp != loops_.end())
+        key += " " + std::to_string(lp->second.next);
+    AloneTexture& t = aloneTextures_[&o];
+    if (t.texture && t.key == key)
+        return;
+    if (t.texture)
+        renderer_->destroyTexture(t.texture);
+    t.texture = 0;
+    t.key = key;
+    if (img.w <= 0 || img.h <= 0)
+        return;
+    std::vector<uint8_t> rgba = img.rgba;
+    applyBrightness(rgba);
+    gfx::TextureParams params;
+    params.clamp = true;
+    params.mipmaps = false;
+    renderer_->createTexture(img.w, img.h, rgba.data(), params, t.texture);
 }
 
 bool ScenePage::hidden(const Ac2Record& o) const {

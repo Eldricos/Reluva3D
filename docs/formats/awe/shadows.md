@@ -147,8 +147,18 @@ Reluva draws the frame in the game's order:
 1. The pictures are put in layers between the characters, by the depths
    above (`ScenePage::draw`). The first layer, behind every character,
    holds the background; each other layer comes after one character.
-   Each layer is a texture over the whole screen.
+   A layer's pictures are put together on the CPU into textures over the
+   whole screen, made again only when what's in them changes (which
+   pictures, a puzzle's moves, particles); a picture that scrolls and a
+   video loop are each drawn alone between those, a quad of their own,
+   so the clouds and the countryside going by move without the rest
+   being put together again. A character that isn't shown (its
+   condition not holding, or hidden by a script) is left out, shadow and
+   all ([characters.md](characters.md#when-a-character-is-there)).
 2. The characters are drawn in depth order, each followed by its layer.
+   A triangle is filled into the stencil a row at a time, from where its
+   edges cross the row to where they leave it: the pixels are the same as
+   testing every pixel of its bounding box, at a fraction of the cost.
 
 Reluva's renderer has no stencil buffer, so `shadows.cpp` keeps the
 game's stencil on the CPU (`ShadowStencil`): a value and a depth for

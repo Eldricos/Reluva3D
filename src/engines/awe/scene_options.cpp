@@ -82,13 +82,17 @@ void ScenePage::applyBrightness() {
     // Gamma g: a linear ramp of slope 32g + 97 over 257 (5 leaves colours
     // as they are), clipped (0x402040): the pictures here, the characters
     // as they're drawn.
+    applyBrightness(ctx_.screen.pixels);
+}
+
+void ScenePage::applyBrightness(std::vector<uint8_t>& rgba) const {
     const int g = brightnessLevel();
     if (g == 5)
         return;
     const int slope = 32 * g + 97;
-    for (size_t i = 0; i + 3 < ctx_.screen.pixels.size(); i += 4)
+    for (size_t i = 0; i + 3 < rgba.size(); i += 4)
         for (size_t c = 0; c < 3; c++)
-            ctx_.screen.pixels[i + c] = uint8_t(std::min(255, ctx_.screen.pixels[i + c] * slope / 257));
+            rgba[i + c] = uint8_t(std::min(255, rgba[i + c] * slope / 257));
 }
 
 void ScenePage::applyAntiAliasing() {
