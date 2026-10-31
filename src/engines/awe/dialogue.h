@@ -189,6 +189,10 @@ public:
     // 10 the others).
     const DialogueLine* line() const;
     int colour() const { return colour_; }
+    // Whether the line's text is drawn now (0x43cf90): not while its
+    // Prevent or a Povent runs, nothing is pending, nor in the pause before
+    // the next line. The box is drawn empty meanwhile.
+    bool lineShown() const { return !waitPrevent_ && !pending_ && pause_ < 0 && povent_.idle(); }
     struct Choice {
         std::string text;
         DialoguePart* part;

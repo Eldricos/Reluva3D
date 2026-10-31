@@ -1739,11 +1739,11 @@ ScenePage::HandInput ScenePage::handWhileRunning() {
     if (movie_)
         return movieName_.find("legal") == std::string::npos ? In{In::Kind::Key, 0, 0, key::Escape} : In{};
     if (yesNo_) {
-        if (yesNo_->rows.empty())
+        if (!yesNo_->drawn)
             drawNow();
-        if (yesNo_->rows.empty())
+        if (!yesNo_->drawn)
             return In{};
-        return In{In::Kind::Click, 512, yesNo_->rows[0].first + yesNo_->rows[0].second / 2, 0};
+        return In{In::Kind::Click, yesNo_->x[0] + yesNo_->w[0] / 2, 394 + yesNo_->h[0] / 2, 0};
     }
     if (!dialogue_->active() || !dialogue_->ready())
         return In{};

@@ -155,6 +155,28 @@ OK and Cancel.
 The placard is the one the hover captions use; the message's text is
 looked up once and then kept.
 
+## The yes/no box
+
+`yesno <text> <value>` (the main menu's Escape and EXIT, the in-game
+menu's MAIN MENU, overwriting a save) asks in a popup of its own
+(`0x432930` opens it, `0x432630` and `0x432d60` draw it, `0x4330c0` hits
+it), not the dialogue box:
+
+- `interface\mainmenuwin.tga`, centred on the screen.
+- The question (the interface text named) in the popup font (`fonts.txt`
+  font 8, "popup dialogs": Calisto MT 17) and colour 11 ("popup menu
+  text"), centred, its foot at y = 364.
+- Yes and No (interface texts `yes` and `no`) at y = 394, in colour 12
+  ("highlighted popup menu text") while the mouse is over one, else 11.
+  With m the wider of the two, Yes is centred in m pixels ending at
+  x = 482, No in m pixels starting at x = 542.
+- Each is clicked within its own box, edges included. The mouse coming
+  onto one plays `mouseover2.wav`; a click plays `select2.wav`. Enter and
+  Escape answer yes and no.
+
+The value says what yes does (`0x432cb1`): 0 quits, 1 goes back to the
+main menu, 2 overwrites the save.
+
 ## Restoring a save
 
 `preload <x>` reads a save into the story state. `quick` is the quick

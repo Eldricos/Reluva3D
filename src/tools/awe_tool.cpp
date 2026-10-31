@@ -362,7 +362,7 @@ int cmdAweShot(int argc, char** argv) {
     for (int i = 5; i < argc; i++)
         if (std::strncmp(argv[i], "savedir:", 8) == 0)
             saves = argv[i] + 8;
-    awe::ViewerContext ctx{sys, files, nullptr, screen, saves, haveFonts ? &fonts : nullptr};
+    awe::ViewerContext ctx{sys, files, nullptr, screen, saves, haveFonts ? &fonts : nullptr, {}, -1};
     std::unique_ptr<awe::Page> page;
     const std::string which = argv[3];
     if (which == "scenes")
@@ -636,7 +636,7 @@ int cmdAweActs(int argc, char** argv) {
     reluva::Surface screen;
     screen.create(awe::kScreenW, awe::kScreenH, reluva::PixelFormat::RGBA32);
     awe::ViewerContext ctx{sys, files, nullptr, screen, std::filesystem::temp_directory_path() / "reluva-awe-acts",
-                           nullptr};
+                           nullptr, {}, -1};
     int problems = 0;
     // Runs the game on till it settles; false if it sticks.
     auto settle = [&](awe::ScenePage& page, std::vector<std::string>& log, const std::string& what) {

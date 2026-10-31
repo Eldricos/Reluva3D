@@ -1043,11 +1043,15 @@ void ScenePage::loadCharacters() {
     if (!any)
         return;
     // Loading them takes a few seconds each the first time (granny2.dll
-    // decodes their textures): say so.
-    std::fill(ctx_.screen.pixels.begin(), ctx_.screen.pixels.end(), 0);
-    font::drawText(ctx_.screen, 8, 8, "Loading the characters...", {255, 230, 150}, 2);
-    renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
-    renderer_->endFrame(&ctx_.screen);
+    // decodes their textures): say so, in the viewer. Not in a game: the
+    // game goes from scene to scene (a talk's close-ups) with no frame
+    // between, and a black one would flash.
+    if (!playing_) {
+        std::fill(ctx_.screen.pixels.begin(), ctx_.screen.pixels.end(), 0);
+        font::drawText(ctx_.screen, 8, 8, "Loading the characters...", {255, 230, 150}, 2);
+        renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
+        renderer_->endFrame(&ctx_.screen);
+    }
 
     for (const Ac2Record* o : scene_.objects()) {
         if (o->tag != "NPCX" && o->tag != "PCXX")
@@ -1670,7 +1674,7 @@ void ScenePage::draw() {
             choices.push_back(ch.text);
             choicePictures.push_back(ch.picture.empty() ? nullptr : &picture(normalizeArchiveName(ch.picture)));
         }
-        const DialogueLine* said = dialogue_->line();
+        const DialogueLine* said = dialogue_->lineShown() ? dialogue_->line() : nullptr;
         // "Text Captions" off: no box or line unless choosing, or the radio
         // (0x43cf90).
         const bool radio = said && (said->name == "dia_barnabyham" || said->name == "hamradio");
@@ -1693,19 +1697,8 @@ void ScenePage::draw() {
         drawPuzzleBox();
     if (messageTime_ > 0 && !yesNo_ && !load_.screen && !movie_)
         drawMessage();
-    if (yesNo_ && ctx_.fonts) {
-        // The box: the question and Yes / No as the dialogue's choices.
-        DialogueBoxPictures pics;
-        pics.window = &picture("interface/dialoguewin01.png");
-        pics.bullet = &picture("interface/dialoguewin04.png");
-        pics.bulletOn = &picture("interface/dialoguewin05.png");
-        const auto areas = drawDialogueBox(ctx_.screen, *ctx_.fonts, pics, kScreenH - 200, yesNo_->text,
-                                           ctx_.fonts->colour("popup menu text"),
-                                           {interfaceText("yes"), interfaceText("no")}, -1);
-        yesNo_->rows.clear();
-        for (const auto& a : areas)
-            yesNo_->rows.push_back({a.y, a.h});
-    }
+    if (yesNo_ && ctx_.fonts)
+        drawYesNo();
     if (load_.screen) {
         // The location's picture, the wheel turning at its foot (0x422ff0).
         const image::Image& back = picture("interface/loading/loading_" +
@@ -3462,10 +3455,22 @@ void ScenePage::handleEvent(const Event& event) {
     }
     if (yesNo_) {
         // The yes/no box takes every click and key while it's up.
-        if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
-            for (size_t i = 0; i < yesNo_->rows.size(); i++)
-                if (ev.mouseY >= yesNo_->rows[i].first && ev.mouseY < yesNo_->rows[i].first + yesNo_->rows[i].second)
-                    return answer(i == 0);
+        if (ev.type == EventType::MouseMove) {
+            // The word under the mouse lights up, with mouseover2.wav as it
+            // comes onto one (0x4325b0).
+            const int at = yesNoAt(ev.mouseX, ev.mouseY);
+            if (at != yesNo_->highlighted) {
+                yesNo_->highlighted = at;
+                if (at >= 0)
+                    playSound("mouseover2");
+                draw();
+            }
+        } else if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
+            // select2.wav as one is clicked (0x43274b).
+            if (const int at = yesNoAt(ev.mouseX, ev.mouseY); at >= 0) {
+                playSound("select2");
+                return answer(at == 0);
+            }
         } else if (ev.type == EventType::KeyDown && (ev.key == key::Return || ev.key == key::Escape)) {
             answer(ev.key == key::Return);
         }

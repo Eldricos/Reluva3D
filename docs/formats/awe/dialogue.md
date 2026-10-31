@@ -655,6 +655,13 @@ ends. Exits exist only with gen (NPC clicks or `forcegen`).
 * The spoken line is drawn **only if subtitles are on (or ham radio)**,
   horizontally centred, vertically centred in the box: y = box top +
   (h - rows*rowHeight)/2, wrapped at 944 px, in the speaker's colour.
+  And only once the line is under way (0x43cf90): not while its Prevent
+  runs (+0x3c, +0xd0), nor while a Povent runs (+0x22c, +0x2c0) or an
+  action waits on it (+0x320), nor in the pause before the next line
+  (+0x6ec). Meanwhile the box is drawn empty, so the next speaker's line
+  never shows in the last one's colour (a recording of the original: the
+  box empty for half a second between Antoinette's line and Klaus's
+  reply, as its close-up comes up).
 * Colours (fonts.txt, colour list from index 0): 6 "dialogue text when
   choosing", 7 "highlighted dialogue text when choosing", 8 "dialogue for main
   character", 9 "second character", 10 "third character". Font: the

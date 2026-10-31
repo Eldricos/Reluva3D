@@ -59,7 +59,7 @@ public:
         awe::GameFonts fonts;
         const bool haveFonts = !fonts.load(files_);
         awe::ViewerContext ctx{sys_, files_, audioOut ? &mixer : nullptr, screen_, target_.savePath,
-                               haveFonts ? &fonts : nullptr};
+                               haveFonts ? &fonts : nullptr, {}, -1};
         int shots = 0;
 
         std::vector<std::unique_ptr<awe::Page>> pages;

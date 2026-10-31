@@ -543,13 +543,19 @@ private:
     void drawSlots();
     // The yes/no box (0x432930): its question and its kind (0 quit the
     // program, 1 quit the game, 2 overwrite a save); the choice's rows.
+    // The yes/no popup (0x432930): its question, what a yes does, Yes's
+    // and No's places as last drawn, and which the mouse is over.
     struct YesNo {
         std::string text;
         int kind = 0;
-        std::vector<std::pair<int, int>> rows;
+        int x[2] = {}, w[2] = {}, h[2] = {};
+        bool drawn = false;
+        int highlighted = -1;
     };
     std::unique_ptr<YesNo> yesNo_;
     void answer(bool yes);
+    void drawYesNo();
+    int yesNoAt(int x, int y) const; // 0 Yes, 1 No, -1 neither (0x4330c0)
     std::string interfaceText(const std::string& tag);
     // "movie <name> [inscene] [silent]" (0x40a725); false if there's no
     // such movie. endMovie: it's over (or skipped).

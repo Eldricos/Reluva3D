@@ -558,6 +558,45 @@ void ScenePage::drawSlots() {
     }
 }
 
+void ScenePage::drawYesNo() {
+    // 0x432630, 0x432d60: interface\mainmenuwin.tga centred on the
+    // screen; the question in the popup font (font 8) and the popup text
+    // colour (11), centred, its foot at y 364; Yes and No below at y 394,
+    // in the highlighted colour (12) when the mouse is over them. With m
+    // the wider of the two, Yes is centred in m pixels ending at x 482,
+    // No in m pixels from x 542.
+    const image::Image& box = picture("interface/mainmenuwin.tga");
+    if (box.w)
+        image::blitOver(ctx_.screen, box, (kScreenW - box.w) / 2, (kScreenH - box.h) / 2);
+    const TextStyle* style = ctx_.fonts->style("popup dialogs");
+    if (!style || !style->font)
+        return;
+    const Color plain = ctx_.fonts->colour("popup menu text", {255, 230, 230});
+    const Color lit = ctx_.fonts->colour("highlighted popup menu text", {255, 255, 255});
+    const int lineH = style->font->lineHeight(style->pixels);
+    const int qw = style->font->width(yesNo_->text, style->pixels);
+    ctx_.fonts->draw(ctx_.screen, *style, (kScreenW - qw) / 2, 364 - lineH, yesNo_->text, plain);
+    const std::string words[2] = {interfaceText("yes"), interfaceText("no")};
+    for (int i = 0; i < 2; i++)
+        yesNo_->w[i] = style->font->width(words[i], style->pixels), yesNo_->h[i] = lineH;
+    const int m = std::max(yesNo_->w[0], yesNo_->w[1]);
+    yesNo_->x[0] = (m - yesNo_->w[0]) / 2 - m + 482;
+    yesNo_->x[1] = (m - yesNo_->w[1]) / 2 + 542;
+    yesNo_->drawn = true;
+    for (int i = 0; i < 2; i++)
+        ctx_.fonts->draw(ctx_.screen, *style, yesNo_->x[i], 394, words[i], yesNo_->highlighted == i ? lit : plain);
+}
+
+int ScenePage::yesNoAt(int x, int y) const {
+    // Each word's own box, edges included, from y 394 (0x4330c0).
+    if (!yesNo_ || !yesNo_->drawn)
+        return -1;
+    for (int i = 0; i < 2; i++)
+        if (x >= yesNo_->x[i] && x <= yesNo_->x[i] + yesNo_->w[i] && y >= 394 && y <= 394 + yesNo_->h[i])
+            return i;
+    return -1;
+}
+
 void ScenePage::answer(bool yes) {
     // 0x432cb1: 0 quits the program, 1 the game, 2 overwrites the save.
     const int kind = yesNo_->kind;
