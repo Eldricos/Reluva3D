@@ -56,21 +56,25 @@ struct MansionLook {
     // Reluva's own, for its mansion page: the walls nearest the camera
     // (layer 4) as they are, see-through or left out.
     enum class NearWalls { Solid, SeeThrough, Hidden } nearWalls = NearWalls::Solid;
-    int seeThrough = 128; // the opacity of what is see-through: about half, as in recordings
     bool outside = true;
     bool tileNumbers = false;
     bool animate = true;
     bool characters = true; // the suspects where clue.lvl stands them (off when the game moves them)
-    // "Lighting Effects": the house dark but around the lights (world
-    // points on the floor, the suspects). Each item takes one brightness,
-    // by how far its middle is from the nearest light on screen.
+    // "Lighting Effects": the house dark but near the revealing actors, as
+    // Clue.exe lights it (docs/engines/clue.md).
     bool lighting = false;
-    std::vector<std::pair<int, int>> lights;
 };
 
-// How bright lighting makes something whose middle is at (x, y) on the
-// floor, 0-256, as measured on a recording (docs/engines/clue.md).
-int lightLevel(int x, int y, const std::vector<std::pair<int, int>>& lights);
+// Clue.exe's shades (ImageRLE16.dll's pixel functions, by the number in
+// the high half of an object's draw flags): 0 as it is, 3 half over what
+// is behind (see-through), 6-16 darker by steps from 7/8 to 1/4, 17 (3/16)
+// where no light reaches. Applied to the 5 bits of each colour, as it does.
+uint8_t shade(uint8_t c8, int level);
+// The shade a light at (lx, ly) gives a point (x, y) on the floor (Clue.exe
+// at 0x4289c0): by max(dx, dy) + min(dx, dy) / 2, full within 80, a step
+// darker each 16 on, to 1/4 from 240.
+int lightShade(int lx, int ly, int x, int y);
+constexpr int kShadeNone = 0, kShadeSeeThrough = 3, kShadeUnlit = 17;
 
 class Mansion {
 public:
@@ -78,6 +82,7 @@ public:
     struct Piece {
         const Image* image = nullptr;
         int dx = 0, dy = 0;
+        int layer = 0; // its layer in the animation (walls and floors are lit by it)
     };
     using Frame = std::vector<Piece>;
 
@@ -97,6 +102,8 @@ public:
         // 8 a secret passage, 12 drapes ...
         uint8_t kind = 0, subKind = 0;
         bool keepsSolid = false; // furniture with a timing at 2000: never see-through
+        int worldX = 0, worldY = 0; // the placement's position (box.x, box.y less the frame's offsets)
+        int layers = 0;             // its animation's
     };
 
     // Something drawn among the items that isn't in the level: a suspect

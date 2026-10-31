@@ -98,8 +98,8 @@ const std::vector<Mansion::Frame>* Mansion::resolve(const GameData& data, const 
             ax = anim.frames[f].anchorX;
             ay = anim.frames[f].anchorY;
         }
-        for (const auto& layer : anim.layers) {
-            const Animation::Part& part = layer[f];
+        for (size_t l = 0; l < anim.layers.size(); ++l) {
+            const Animation::Part& part = anim.layers[l][f];
             if (part.image >= anim.images.size())
                 continue;
             const Image* img = data.image(anim.images[part.image]);
@@ -107,7 +107,7 @@ const std::vector<Mansion::Frame>* Mansion::resolve(const GameData& data, const 
                 problems_.push_back(data.lastError());
                 continue;
             }
-            frames[f].push_back({img, ax + part.x + img->offsetX, ay + part.y + img->offsetY});
+            frames[f].push_back({img, ax + part.x + img->offsetX, ay + part.y + img->offsetY, int(l)});
         }
     }
     return &frames_.emplace(&anim, std::move(frames)).first->second;
@@ -149,6 +149,9 @@ Error Mansion::build(const GameData& data, const Level& level) {
         const Animation::Frame& f0 = item.animation->frames[0];
         // The box: from the anchor by the frame's offsets (bytes 10-13 of
         // its ISOA entry, as Clue.exe reads them at 0x449361).
+        item.worldX = pl.x;
+        item.worldY = pl.y;
+        item.layers = int(item.animation->layers.size());
         item.box.x += int16_t(f0.unknown[3]);
         item.box.y += int16_t(f0.unknown[4]);
         item.box.sizeX = f0.sizeX;
@@ -226,27 +229,44 @@ Error Mansion::build(const GameData& data, const Level& level) {
     return Error::success();
 }
 
-int lightLevel(int x, int y, const std::vector<std::pair<int, int>>& lights) {
-    // Measured on recordings of the original (docs/engines/clue.md): full
-    // within 45 of a suspect, then down over 225 to 21%. The distance is on
-    // screen: the floor's x - y and (x + y) / 2. The wall lamps and the
-    // fires give no light of their own.
-    constexpr double kFull = 45, kFade = 225, kAmbient = 0.21;
-    double best = kAmbient;
-    for (const auto& [lx, ly] : lights) {
-        const int dx = x - lx, dy = y - ly;
-        const double d = std::hypot(double(dx - dy), (dx + dy) / 2.0);
-        best = std::max(best, kAmbient + (1 - kAmbient) * std::clamp(1 - (d - kFull) / kFade, 0.0, 1.0));
+uint8_t shade(uint8_t c8, int level) {
+    const int c = c8 >> 3;
+    int r = c;
+    switch (level) {
+    case 5: r = c - (c >> 4); break;
+    case 6: r = c - (c >> 3); break;
+    case 7: r = c - (c >> 3) - (c >> 4); break;
+    case 8: r = c - (c >> 2); break;
+    case 9: r = c - (c >> 2) - (c >> 4); break;
+    case 10: r = c - (c >> 2) - (c >> 3); break;
+    case 11: r = (c >> 1) + (c >> 4); break;
+    case 12: r = c >> 1; break;
+    case 13: r = (c >> 1) - (c >> 4); break;
+    case 14: r = (c >> 1) - (c >> 3); break;
+    case 15: r = (c >> 2) + (c >> 4); break;
+    case 16: r = c >> 2; break;
+    case 17: r = (c >> 2) - (c >> 4); break;
+    case 18: r = (c >> 2) - (c >> 3); break;
+    case 19: r = c >> 4; break;
+    default: return c8;
     }
-    return int(best * 256);
+    return uint8_t((r << 3) | (r >> 2));
+}
+
+int lightShade(int lx, int ly, int x, int y) {
+    const int dx = std::abs(lx - x), dy = std::abs(ly - y);
+    const int d = dx > dy ? dx + dy / 2 : dy + dx / 2;
+    const int step = std::clamp(d / 16 - 4, 0, 11);
+    return step == 0 ? kShadeNone : 5 + step;
 }
 
 namespace {
 
-// image::blit, the colours scaled by level / 256.
-void blitLit(Surface& dst, const image::Image& img, int x, int y, int opacity, int level) {
-    if (level >= 256) {
-        image::blit(dst, img, x, y, opacity);
+// image::blit through one of Clue.exe's shades: see-through is half the
+// picture's 5-bit colours and half what is behind (its pixel function 3).
+void blitShaded(Surface& dst, const image::Image& img, int x, int y, int level) {
+    if (level == kShadeNone) {
+        image::blit(dst, img, x, y);
         return;
     }
     for (int sy = 0; sy < img.h; ++sy) {
@@ -259,16 +279,23 @@ void blitLit(Surface& dst, const image::Image& img, int x, int y, int opacity, i
             if (dx < 0 || dx >= dst.w)
                 continue;
             const uint8_t* s = img.pixel(sx, sy);
-            const int a = opacity == 255 ? s[3] : s[3] * opacity / 255;
-            if (a == 0)
+            if (s[3] == 0)
                 continue;
             uint8_t* d = row + dx * 4;
-            for (int c = 0; c < 3; ++c)
-                d[c] = static_cast<uint8_t>(((s[c] * level >> 8) * a + d[c] * (255 - a)) / 255);
+            for (int c = 0; c < 3; ++c) {
+                int v;
+                if (level == kShadeSeeThrough) {
+                    const int r = (s[c] >> 4) + (d[c] >> 4); // (src5 >> 1) + (dst5 >> 1)
+                    v = (r << 3) | (r >> 2);
+                } else
+                    v = shade(s[c], level);
+                d[c] = uint8_t((v * s[3] + d[c] * (255 - s[3])) / 255);
+            }
             d[3] = 255;
         }
     }
 }
+
 
 } // namespace
 
@@ -437,6 +464,36 @@ size_t Mansion::insertionPoint(const Actor& actor) const {
     return std::min(after, before);
 }
 
+namespace {
+
+// Clue.exe's division by a power of two, towards 0 (its grid cells).
+int cellOf(int v) { return (v + (v < 0 ? 127 : 0)) >> 7; }
+
+// The light an object keeps: the nearest of those that reached it.
+struct Lit {
+    bool any = false;
+    int x = 0, y = 0;
+    void offer(int lx, int ly, int px, int py) {
+        const long long d = 1LL * (lx - px) * (lx - px) + 1LL * (ly - py) * (ly - py);
+        if (!any || d < 1LL * (x - px) * (x - px) + 1LL * (y - py) * (y - py)) {
+            any = true;
+            x = lx;
+            y = ly;
+        }
+    }
+    int at(int px, int py) const { return any ? lightShade(x, y, px, py) : kShadeUnlit; }
+};
+
+// Whether a revealing actor reaches something anchored at (x, y) (Clue.exe
+// at 0x428220): the 128-unit cells within 240 of it, and one more round.
+bool reaches(const Mansion::Actor& a, int x, int y) {
+    constexpr int kReach = (13 + 2) * 16;
+    return cellOf(x) >= cellOf(a.box.x - kReach) - 1 && cellOf(x) <= cellOf(a.box.x + kReach) + 1 &&
+           cellOf(y) >= cellOf(a.box.y - kReach) - 1 && cellOf(y) <= cellOf(a.box.y + kReach) + 1;
+}
+
+} // namespace
+
 void Mansion::draw(Surface& target, int camX, int camY, const MansionLook& look, uint64_t nowMs,
                    const std::vector<Actor>& actors) const {
     const ScreenRect view{camX, camY, target.w, target.h};
@@ -447,9 +504,20 @@ void Mansion::draw(Surface& target, int camX, int camY, const MansionLook& look,
     for (const Actor& a : actors) {
         if (a.frame && actorRect(a).overlaps(view))
             placed.push_back({insertionPoint(a), &a});
-        if (a.reveal && look.inFront != MansionLook::InFront::Solid)
+        if (a.reveal)
             revealing.push_back(&a);
     }
+    const bool fades = look.inFront != MansionLook::InFront::Solid;
+    // Lighting, as Clue.exe's (0x428220 with Lighting Effects on): each
+    // revealing actor gives its light, from the middle of its box, to what
+    // it reaches and doesn't show through; each thing keeps the nearest.
+    const auto lightFor = [&](int x, int y, int px, int py, const Item* item) {
+        Lit lit;
+        for (const Actor* a : revealing)
+            if (reaches(*a, x, y) && !(item && fades && !item->flat && inFrontOf(*item, *a)))
+                lit.offer(a->box.x + a->box.sizeX / 2, a->box.y + a->box.sizeY / 2, px, py);
+        return lit;
+    };
     std::stable_sort(placed.begin(), placed.end(), [](const auto& x, const auto& y) {
         return x.first != y.first ? x.first < y.first : centreDepth(x.second->box) < centreDepth(y.second->box);
     });
@@ -458,8 +526,16 @@ void Mansion::draw(Surface& target, int camX, int camY, const MansionLook& look,
         for (; next < placed.size() && placed[next].first <= upTo; ++next) {
             const Actor& a = *placed[next].second;
             const int ax = a.box.x - a.box.y - camX, ay = floorDiv(a.box.x + a.box.y, 2) - camY;
+            int level = kShadeNone;
+            if (look.lighting) {
+                const int px = a.box.x + a.box.sizeX / 2, py = a.box.y + a.box.sizeY / 2;
+                level = lightFor(a.box.x, a.box.y, px, py, nullptr).at(px, py);
+            }
             for (const Piece& p : *a.frame)
-                image::blit(target, p.image->pixels, ax + p.dx, ay + p.dy, a.opacity);
+                if (a.opacity == 255)
+                    blitShaded(target, p.image->pixels, ax + p.dx, ay + p.dy, level);
+                else
+                    image::blit(target, p.image->pixels, ax + p.dx, ay + p.dy, a.opacity);
         }
     };
     for (size_t n = 0; n < order_.size(); ++n) {
@@ -471,20 +547,47 @@ void Mansion::draw(Surface& target, int camX, int camY, const MansionLook& look,
         const auto& frames = framesAt(order_[n], nowMs, look, f);
         // In front of the suspect whose turn it is or a move's number: see-
         // through, or left out, the whole piece.
-        int opacity = 255;
-        if (!item.flat &&
+        bool seeThrough = false;
+        if (fades && !item.flat &&
             std::any_of(revealing.begin(), revealing.end(), [&](const Actor* a) { return inFrontOf(item, *a); })) {
             if (look.inFront == MansionLook::InFront::Hidden)
                 continue;
-            opacity = look.seeThrough;
+            seeThrough = true;
         }
         if (item.layer == 4 && look.nearWalls == MansionLook::NearWalls::SeeThrough)
-            opacity = std::min(opacity, look.seeThrough);
-        const int level = look.lighting ? lightLevel(item.box.x + item.box.sizeX / 2,
-                                                    item.box.y + item.box.sizeY / 2, look.lights)
-                                        : 256;
-        for (const Piece& p : frames[f])
-            blitLit(target, p.image->pixels, item.anchorX + p.dx - camX, item.anchorY + p.dy - camY, opacity, level);
+            seeThrough = true;
+        const int x0 = item.anchorX - camX, y0 = item.anchorY - camY;
+        if (seeThrough || !look.lighting) {
+            for (const Piece& p : frames[f])
+                blitShaded(target, p.image->pixels, x0 + p.dx, y0 + p.dy,
+                           seeThrough ? kShadeSeeThrough : kShadeNone);
+            continue;
+        }
+        // Its light, at the middle of its box (from the placement, as
+        // Clue.exe measures it, 0x428980); lit walls a shade for each
+        // 16-unit slice (0x42B5D0), lit floors of 4 x 4 tiles one a tile
+        // (0x42AF70; lit floors of other sizes it doesn't draw).
+        const int wx = item.worldX, wy = item.worldY, sx = item.box.sizeX, sy = item.box.sizeY;
+        const Lit lit = lightFor(wx, wy, wx + sx / 2, wy + sy / 2, &item);
+        const bool sliced = lit.any && item.layers != 1;
+        if (sliced && item.kind == 1 && item.layers != 16)
+            continue;
+        for (const Piece& p : frames[f]) {
+            int px = wx + sx / 2, py = wy + sy / 2;
+            if (sliced && item.kind == 0) {
+                if (sx >= sy) {
+                    px = wx + 16 * p.layer + 8;
+                    py = wy + 8;
+                } else {
+                    px = wx + 8;
+                    py = wy + 16 * (item.layers - p.layer) - 8;
+                }
+            } else if (sliced && item.kind == 1) {
+                px = wx + 16 * (p.layer % 4) + 8;
+                py = wy + 16 * (p.layer / 4) + 8;
+            }
+            blitShaded(target, p.image->pixels, x0 + p.dx, y0 + p.dy, lit.at(px, py));
+        }
     }
     drawActors(order_.size());
 }

@@ -493,39 +493,44 @@ only (the flag 0x428080 gives, by its square's zone, 0x42A210). The
 pieces are whole objects: walls come a square long, so the faded part
 looks rectangular.
 
-One thing in the recording isn't explained yet: at the start (0:00-0:07)
-the lounge's armchair to the right of the fireplace (`Olgosch_cd`)
-stays solid, though by the code it is in front of Miss Scarlet, and
-Reluva fades it.
+At the start (0:00-0:07) the lounge's armchair to the right of the
+fireplace (`Olgosch_cd`) looks solid, though by the code it is in front
+of Miss Scarlet. Drawn as the code does see-through (half its colours,
+half the lit rug's, below), Reluva's looks the same: both are faded.
 
 The notepad's picture (`UI:A<sca>notepad`) is ruled: each kind's rows 15
 pixels apart below its line (22, 131 and 240), the columns of the colour,
 the two marks and the triangle 15 wide from 131. The names, colours,
 marks and triangles go in its cells.
 
-**Lighting Effects**, measured on the same view with it on and off (VM
-0:21 and 0:28, below), then checked on a second recording made for it
-(VM2 0:42 and 1:12: walking along lamp-lit walls, and a view with one
-suspect behind a wall): each frame placed exactly on Reluva's unlit
-render of the house (by its edges), then the brightness of each object
-in the original divided by Reluva's. Each floor tile and object takes
-one brightness, full within 45 units of a suspect, falling to 21% over
-the next 225, the distance taken on screen (x − y, (x + y) / 2), which
-fits better than in the world (the two recordings' fits were 30/230/22%
-and 60/220/20%; the middle is used). **The wall lamps don't light
-anything**: walls with lamps on them are bright or dark by how far they
-are from a suspect (the same `wall:Olglite_w` 1.7 times Reluva's
-brightness 159 units from Miss Scarlet and 0.18 at 315), and a fit with
-the lamps and fires as lights of their own is no better than one
-without. What looks like lamplight is the suspect's light falling on
-the walls behind the lamps. The lights are the suspects, and the end of
-a move being planned: as each square is clicked, a pool of light goes
-to it and the view moves to it (VM2 0:51-0:59; the frame at 0:59, five
-squares planned, fits Miss Scarlet's light alone with error 0.31, hers
-and one on the newest square 0.24, one on the square before it 0.23,
-one on every planned square 0.24, one at the pointer 0.29: so the
-newest square, perhaps still sliding onto it). Reluva lights around
-every suspect and the newest square of a move being planned.
+**Lighting Effects**, as `Clue.exe` 2.2 does it (read from its code and
+`ImageRLE16.dll`'s). The lights are the actors that show what stands in
+front of them (above): the suspect whose turn it is and the numbers of a
+planned move; nothing else gives light (not the wall lamps, nor the
+fires). Each frame every object starts unlit, then each light, from the
+middle of its box (a suspect's 8 units in, a number's square's middle),
+reaches what is anchored in the 128-unit cells within 240 units of it
+and one cell further, but for what it shows through; each object keeps
+the nearest light that reached it (0x428220, 0x4287C0). The shade at a
+point (0x4289C0): d = max(dx, dy) + min(dx, dy) / 2 from the light;
+full within 80, then a step darker for each 16 on: 7/8, 13/16, 3/4,
+11/16, 5/8, 9/16, 1/2, 7/16, 3/8, 5/16, and 1/4 from 240 on; an object
+no light reached is 3/16 (the default 0x110000, set at 0x4176CB). An
+object is shaded at the middle of its box; a lit wall a shade for each
+16-unit slice (each its own layer, 0x42B5D0); a lit floor of 4 × 4
+tiles a shade for each tile (0x42AF70; a lit floor of another size isn't
+drawn). The shades are `ImageRLE16.dll`'s pixel functions (from its
+`GetBlittersTable`), taking each colour's 5 bits down by shifts and
+subtractions (level 6, 7/8: c − c/8 ...); see-through is its function
+3, half the picture's colours and half what is behind.
+
+Before this was read, the lighting was measured on recordings (VM 0:21
+and 0:28, VM2 0:42-1:12): full near a suspect, falling to about 21%,
+and a pool of light following the squares of a planned move as they are
+clicked. The code accounts for both: 21% is the far shades' 1/4 and
+3/16, and the planned squares are lights of their own. Set beside
+OriginalClue at 0:02, Reluva's frame now matches it to within a few
+levels of 255 across the view.
 
 **Timings** from the VM recording: a suspect walks a square in about
 0.6 s; each "can / cannot disprove" box shows about 3 s.

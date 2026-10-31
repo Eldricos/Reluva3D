@@ -1514,17 +1514,6 @@ void Play::draw() {
     fillRect(screen_, 0, 0, screen_.w, screen_.h, {0, 0, 0});
     MansionLook look = look_.mansion;
     look.characters = false;
-    look.lights.clear();
-    for (const Walker& w : walkers_)
-        look.lights.push_back({w.x, w.y});
-    // A move being planned carries a light at its end (VM2 0:51-0:59).
-    for (auto it = plan_.rbegin(); it != plan_.rend(); ++it)
-        if (!it->inRoom()) {
-            int wx, wy;
-            Board::standingPoint(it->square, wx, wy);
-            look.lights.push_back({wx, wy});
-            break;
-        }
     mansion_.draw(screen_, camX_, camY_, look, now_, actors());
     drawMap();
     drawPanel();

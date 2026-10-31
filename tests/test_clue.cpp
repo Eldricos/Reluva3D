@@ -455,6 +455,22 @@ static void testDepth() {
     CHECK(order == std::vector<size_t>({0, 1, 2}));
 }
 
+static void testLighting() {
+    // ImageRLE16.dll's shades, on a colour's 5 bits (31: 248 in 8 bits).
+    CHECK(shade(248, kShadeNone) == 248);
+    CHECK(shade(248, 6) == ((28 << 3) | (28 >> 2)));  // 31 - 3
+    CHECK(shade(248, 12) == ((15 << 3) | (15 >> 2))); // 31 / 2
+    CHECK(shade(248, 16) == ((7 << 3) | (7 >> 2)));   // 31 / 4
+    CHECK(shade(248, kShadeUnlit) == ((6 << 3) | (6 >> 2))); // 7 - 1
+    // Clue.exe's steps: max + min / 2, full within 80, then each 16 a step.
+    CHECK(lightShade(0, 0, 79, 0) == kShadeNone);
+    CHECK(lightShade(0, 0, 60, 40) == 6); // 60 + 20 = 80
+    CHECK(lightShade(0, 0, 96, 0) == 7);
+    CHECK(lightShade(0, 0, 239, 0) == 15);
+    CHECK(lightShade(0, 0, 240, 0) == 16);
+    CHECK(lightShade(0, 0, 1000, 1000) == 16);
+}
+
 static void testMansion(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
     const auto res = tmp / "Data" / "Classic" / "Resource";
@@ -1153,6 +1169,7 @@ int main() {
     testGameData(std::filesystem::temp_directory_path() / "reluva_clue_tests");
     testObjectsAndLevel();
     testDepth();
+    testLighting();
     testMansion(std::filesystem::temp_directory_path() / "reluva_clue_mansion");
     testResi();
     testDialog(std::filesystem::temp_directory_path() / "reluva_clue_dialog");
