@@ -209,13 +209,15 @@ Error Play::start(const std::array<Player, kSuspectCount>& players, bool noDieRo
     }
     for (auto& m : shownBy_)
         m.fill(-1);
-    // Each player's notepad starts with their own cards in their colour,
-    // ticked twice (as the original's does).
+    // Each player's notepad starts empty, as the original's does with Auto
+    // Notes off (its players colour their own cards in by hand); with it
+    // on, their own cards are put in their colour.
     for (int k = 0; k < kSuspectCount; ++k) {
         for (NoteRow& row : notes_[size_t(k)])
             row = {};
-        for (int c : game_.seat(k).hand)
-            notes_[size_t(k)][size_t(c)] = {k, {1, 1}, {}};
+        if (look_.autoNotes)
+            for (int c : game_.seat(k).hand)
+                notes_[size_t(k)][size_t(c)].colour = k;
     }
     readTexts();
     beginTurn();
@@ -715,10 +717,12 @@ void Play::suggestionMade() {
                 ai_[size_t(k)].observe(game_);
         if (game_.shown() >= 0) {
             shownBy_[size_t(s)][size_t(game_.shown())] = d;
-            // Auto Notes: the card crossed off in the colour of who showed it.
+            // Auto Notes: the card in the colour of who showed it, as the
+            // original's players note it by hand; a row already noted is
+            // left as it is.
             NoteRow& row = notes_[size_t(s)][size_t(game_.shown())];
-            if (look_.autoNotes && row.colour < 0 && row.marks[0] == 0 && row.marks[1] == 0)
-                row = {d, {2, 2}, row.text};
+            if (look_.autoNotes && row.colour < 0)
+                row.colour = d;
         }
         afterAction();
     });

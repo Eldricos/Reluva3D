@@ -401,9 +401,13 @@ As the original, from its recordings and its How to Play texts:
   turn, then none), two marks (click: tick, X, O, tick in O, X in O,
   none) and a triangle that opens a note to type beside the notepad
   (Enter closes it; the triangle shows when a row has one, and pointing
-  at it shows the note). Your own cards start in your colour, ticked
-  twice; with "Auto Notes" on, a card shown to you is put in the
-  colour of who showed it, crossed twice.
+  at it shows the note). The notepad starts empty, as the original's
+  with Auto Notes off (its default): in the recordings players colour
+  their own cards in by hand, and each card shown to them in the shower's
+  colour, without marks. With "Auto Notes" on, Reluva does that for
+  them: their own cards in their colour, each card shown in the colour
+  of who showed it, rows already noted left alone. (No recording has
+  Auto Notes on, so what the original's does is a guess.)
 - **The board** button shows the board from above, with the suspects'
   pawns; moves can be planned on it too.
 - When a human must disprove, their matching cards are shown: click one,
@@ -481,9 +485,8 @@ every suspect and the newest square of a move being planned.
 
 ### Not yet as the original
 
-- Which marks the original's Auto Notes puts on a card shown is a
-  guess (crossed twice, from the 720p recording's notepad); own cards
-  ticked twice is as recorded.
+- What the original's Auto Notes does isn't recorded (see the notepad,
+  above).
 - Where suspects stand in a room, and which cards a cards window fills
   first, are Reluva's choice.
 - The clickable objects ("please choose an active object") come later
