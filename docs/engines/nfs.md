@@ -78,7 +78,7 @@ marked *public* have community write-ups to check against (see
 | `trNN00.can`... | replay and attract camera paths | binary |
 | `3trNN[n][w].hrz` | sky and fog per condition (day/night/weather) | commented text |
 | `trNN.ccm`, `simhts.dat`, `speeds[fr].bin`, `tut*.bin` | cameras, heights, AI speed tables (forward/reverse), tutorial | to study |
-| `carp.txt` | car performance | **labelled text**: "mass [kg](2)", "number of gears(3)"... |
+| `carp.txt` | car performance | **labelled text**: "mass [kg](2)", "number of gears(3)"...; where it goes in [physics.md](../formats/nfs/physics.md) |
 | `*.bnk` | sound banks | `BNKl`, entries with `PT` headers (EA ADPCM). *Public.* |
 | `*.mus` + `.map` + `.lin` | interactive music | `SCHl`/`SCCl`/`SCDl` streams; `.map` is `PFDx`, EA's "Pathfinder" map, choosing segments as the race goes |
 | `*.mad` | movies (CD) | `MADk` chunks, 320x240. *Public.* |
@@ -1183,7 +1183,7 @@ Still to do:
 
 1. Front end from the `.mnu` files and `text.*`.
 2. Single race.
-3. Physics from `carp.txt`.
+3. Physics from `carp.txt` ([physics.md](../formats/nfs/physics.md)).
 4. AI and traffic from the speed tables and the virtual road.
 5. Pursuit.
 6. Replays.
@@ -1218,9 +1218,11 @@ Allowed under CONTRIBUTING.md:
   player's own?), and how a real Pro Logic decoder of the time (with its
   surround delay and 7 kHz low-pass) would place them; only the matrix's
   sums are measured.
-- The race types' names (0-3; 3 is the pursuit), the network modes 2-4,
-  and the 32 Hz car-dynamics task `0x4a2830`
-  ([nfs-threads.md](nfs-threads.md)).
+- The car handling in full: the tyre model, steering and gear changes,
+  landing, and the computer cars' simpler model. The race types, the
+  network kinds, `carp.txt`'s place in memory, the engine and the car
+  dynamics task `0x4a2830` are in
+  [physics.md](../formats/nfs/physics.md).
 - Whether the Classics release differs from the original 1998 retail in
   data or code. Other releases (UK, German, patched) need their own
   hashes.

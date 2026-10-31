@@ -141,7 +141,7 @@ default past it (rows 9 and 10 are never filled).
 | +0x8 int | `0x40eca0` | if set, no oncoming traffic; else about 70 in 256 traffic cars drive the other way (`0x40c5dc`). Past track 10: 1 if the track header's nibble (byte 0x37 >> 4) is 0 |
 | +0xC int | `0x40ec70` | 1 or −1: which side the traffic keeps to, with the direction (`0x40c31a`, `0x40cefe`); past track 10: 1 |
 | +0x14 float | `0x40ee80` | the AI racers' speed factor (`0x40933f`) |
-| +0x18 float | `0x40ee80` | the same, used instead in race types 1 and 2, or when `0x6fd4f0` is set |
+| +0x18 float | `0x40ee80` | the same, used instead in race types 1 and 2 (Tournament, Knockout), or with the aggressive AI (`0x6fd4f0`) |
 | +0x1C float | `0x40ece0` | 30 mph in every row, default 60 mph. Nothing calls `0x40ece0` |
 | +0x10 | - | never written |
 
@@ -190,7 +190,10 @@ debug print says it: `acutal lap=%d false lap=%d actual counter=%d`
 
 ## What isn't known
 
-- The names of the race types `0x6fd3b8` (3 is the pursuit; 1 and 2
-  have no traffic) and what `0x6fd470` and `0x6fd4f0` are.
+- Answered in [physics.md](physics.md): the race types `0x6fd3b8` are
+  0 Single Race, 1 Tournament, 2 Knockout, 3 Hot Pursuit (so the
+  tournament and knockout have no traffic); `0x6fd470` is their level
+  (0 Beginner, 1 Expert) and `0x6fd4f0` the `ai` option (0 Normal, 1
+  Aggressive).
 - Why Atlantica and Aquatica have no music lap pair.
 - Not checked at run time.

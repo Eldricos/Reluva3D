@@ -189,8 +189,8 @@ them all. Each car brings its own (slots `+0x5F8`-`+0x61C`, filled by
 | Sc32 | 8 | `0x42ce70` | for all cars: lane slot (+0x638), sideways offset (+0x7B8), speed along the road (+0x7C0, signed; +0x7C4 its size), wrong way (+0x5F4) | [col.md](../formats/nfs/col.md) names +0x638; fields read by the cops' and AI code |
 | Sc32 | 10 | `0x471e10` | probably force feedback: works on the input device at `0x678b50` of the device list `0x6fc970` (a name compared with "Microsoft"), effects through `0x435d20`/`0x436230`; not added in replays | likely, not checked |
 | Sc32 | 21 | car +0x600 | **the driver**: a human `0x431430` (copies the control word's bytes `0x79c4a5`-`0x79c4ab` to the car: +0x504, +0x505, steering +0x518, gear +0x506, buttons); an AI racer `0x409c00`; traffic `0x40c9f0`; a cop `0x4032e0`; another network player's car `0x40bf50` | car kind flags below |
-| Sc32 | 30 | car `0x4a2830` | car dynamics at 32 Hz (not split up) | constants 0.6, 0.25 |
-| Sc32 | 30 | car +0x608 | a human's engine, gears and tyres `0x4ae4c1` (`0x4ad7a3`, gear +0x50B; `0x4aa8e7` when in the air or slow); the computer's cars `0x4088f0` | |
+| Sc32 | 30 | car `0x4a2830` | car dynamics: gravity (split along the road), downforce, the height over the road, on the road, landing or in the air ([physics.md](../formats/nfs/physics.md)) | read; the creep on the grid checked |
+| Sc32 | 30 | car +0x608 | a human's engine, gears, brakes and four tyres `0x4ae4c1` (`0x4ad7a3`, engine `0x4aaed1`, gear +0x50B, rpm +0x590; `0x4aa8e7` when in the air or tipped); the computer's cars `0x4088f0`, a simpler model ([physics.md](../formats/nfs/physics.md)) | rpm against speed checked |
 | Sc32 | 30 | car +0x614 | computer-driven cars: turns the orientation (+0xC0) by the spin (+0xE4) / 32 (`0x4a2f10` → `0x4a2e20`) | |
 | Sc32 | 40 | car `0x4311d0` | collisions with walls and cars (`0x4304b0`, `0x430da0`; wall hits in [col.md](../formats/nfs/col.md)) | `0x5537bc` count |
 | Sc32 | 50 | car `0x42b900` | the results of impacts: reads and clears +0x168-+0x170 (`0x42ac40` effects), resets (`0x428f90`) | |
@@ -227,7 +227,8 @@ this machine makes an extra control frame and catches up.
 **`0x4c7bd0(step)`** (every 32nd step, 2 Hz) also does nothing but in
 network play. It sends message 0x0b ([net.md](../formats/nfs/net.md))
 to all: +1 the sender's slot (`0x7a2278`), +4 the step, +8 the local
-car's speed along the road (s16, from +0x7C0) and its u16 at +8, +0xC
+car's speed along the road (s16, from +0x7C0) and its race distance
+(+8, lap × road slices + slice, `0x42ce10`; [physics.md](../formats/nfs/physics.md)), +0xC
 byte 3 of its control word. The host adds each AI car's u16 +8 (list
 `0x5efb88`, count `0x6fd520`; 28 bytes in all, 14 from a player). A
 player also keeps its own copy (`0x7dd110`, 20 rows by step / 32) and
@@ -314,12 +315,13 @@ table's next entry.
   calls table entry +0x2C: the names its trace strings give don't line
   up with what the entries do, so when in the front end the advertiser
   starts and stops wasn't pinned down. Not checked at run time.
-- What some step tasks do in detail: `0x4a2830` (32 Hz car dynamics),
-  `0x4088f0`, the drivers, `0x471e10` (force feedback is a guess) and
-  `0x4cb2c0` (particles is a guess); the u16 at car +8 that the
-  network status message carries.
-- The race types' names (`0x6fd3b8` 0-3; 3 is the pursuit) and the
-  network kinds of `0x6fd3b0` 2-4.
+- What some step tasks do in detail: the tyre model inside `0x4ad7a3`,
+  the computer cars' `0x4088f0`, the drivers, `0x471e10` (force
+  feedback is a guess) and `0x4cb2c0` (particles is a guess). The car
+  dynamics, engine and the car +8 field are in
+  [physics.md](../formats/nfs/physics.md); so are the race types
+  (`0x6fd3b8`: Single Race, Tournament, Knockout, Hot Pursuit) and
+  `0x6fd3b0`'s kinds (2 modem, 3 serial, 4 IPX or TCP).
 - The slow-down when the main thread falls behind was read from the
   code; no run was slow enough to hit it (a run at `-deterministic
   10000` didn't reach the race with the usual keys).
