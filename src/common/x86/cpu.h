@@ -73,17 +73,23 @@ public:
     // --- Memory --------------------------------------------------------------
     Memory& memory() { return memory_; }
     uint32_t memorySize() const { return uint32_t(memory_.size()); }
+    // In memory, past the first page: [4096, size). One compare, as each
+    // instruction's load and store asks (an address below 4096 wraps to
+    // past every span).
     RELUVA_FORCE_INLINE bool valid(uint32_t address, uint32_t size) const {
-        return address >= kPageSize && size <= memory_.size() && address <= memory_.size() - size;
+        return uint64_t(uint32_t(address - kPageSize)) + size <= span_;
     }
     // Reads and writes for native code (no fault: out of range reads 0,
-    // writes are dropped; check valid() first where it matters).
+    // writes are dropped; check valid() first where it matters). The
+    // writes are noted as instructions' are (noteWrite).
     uint8_t read8(uint32_t a) const { return valid(a, 1) ? memory_[a] : 0; }
     uint16_t read16(uint32_t a) const;
     uint32_t read32(uint32_t a) const;
     void write8(uint32_t a, uint8_t v) {
-        if (valid(a, 1))
+        if (valid(a, 1)) {
+            notePageWrite(a);
             memory_[a] = v;
+        }
     }
     void write16(uint32_t a, uint16_t v);
     void write32(uint32_t a, uint32_t v);
@@ -121,11 +127,12 @@ public:
     // The address a native function is called at (in a reserved range at
     // the top of memory, which holds HLT instructions).
     uint32_t addNative(std::string name, Native fn);
-    // Natives write memory directly, so after one runs the cached blocks
-    // check their code again; unless it's marked as one that writes
-    // nothing but what it tells noteWrite (or nothing at all): the
-    // commonest, memcpy and the like, which would otherwise make every
-    // block check itself again.
+    // Natives may write memory directly, so after one runs the cached
+    // blocks check their code again; unless it's marked as one that writes
+    // nothing but through write8/16/32 and writeString or what it tells
+    // noteWrite (or nothing at all): the commonest, memcpy, operator new
+    // and the like, which would otherwise make every block check itself
+    // again.
     void setWritesTracked(const std::string& nativeName);
     void noteWrite(uint32_t address, uint32_t size);
     // The name of the native function at `address`, if it is one.
@@ -238,6 +245,7 @@ private:
     double fpuRound(double v) const;
 
     Memory memory_;
+    uint32_t span_ = 0; // its size less the first page (valid)
     struct NativeEntry {
         std::string name;
         Native fn;

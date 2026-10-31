@@ -66,6 +66,7 @@ void freePages(void* p, size_t bytes) {
 // The memory comes zeroed from the system: only the pages the program
 // uses are ever really there.
 Cpu::Cpu(uint32_t memorySize) : memory_(memorySize), codePages_((size_t(memorySize) >> 12) + 1, 0) {
+    span_ = memorySize > kPageSize ? memorySize - kPageSize : 0;
     nativeBase_ = memorySize - kMaxNatives * kNativeStride;
     std::memset(&memory_[nativeBase_ - kNativeStride * kReturnSlots], 0xf4, kMaxNatives * kNativeStride + kNativeStride);
 }
@@ -80,13 +81,16 @@ uint32_t Cpu::read32(uint32_t a) const {
 }
 void Cpu::write16(uint32_t a, uint16_t v) {
     if (valid(a, 2)) {
+        notePageWrite(a); // and the next page, if it reaches in: marked with this one (build)
         memory_[a] = uint8_t(v);
         memory_[a + 1] = uint8_t(v >> 8);
     }
 }
 void Cpu::write32(uint32_t a, uint32_t v) {
-    if (valid(a, 4))
+    if (valid(a, 4)) {
+        notePageWrite(a);
         std::memcpy(&memory_[a], &v, 4);
+    }
 }
 
 std::string Cpu::string(uint32_t address, size_t max) const {
@@ -102,6 +106,7 @@ bool Cpu::writeString(uint32_t address, std::string_view text, uint32_t size) {
     const size_t n = std::min<size_t>(text.size(), size - 1);
     std::memcpy(&memory_[address], text.data(), n);
     memory_[address + n] = 0;
+    noteWrite(address, uint32_t(n + 1));
     return true;
 }
 

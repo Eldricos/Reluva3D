@@ -796,6 +796,10 @@ A3d::A3d(Win32Process& process) : s_(std::make_unique<State>(process)) {
     State* s = s_.get();
     for (ComInterface* f : {&s->a3d, &s->listener, &s->geom, &s->material, &s->source})
         s->com.define(*f);
+    // Called for each sound every frame, and writing no memory: the
+    // instruction cache needn't check its code after each (Cpu::setWritesTracked).
+    for (const char* m : {"SetPosition3f", "SetVelocity3f", "SetOrientation6f", "SetGain", "SetPitch"})
+        process.cpu().setWritesTracked(s->source.name + "::" + m);
     auto earlier = process.createComObject;
     process.createComObject = [s, this, earlier](const std::string& clsid, const std::string& iid, uint32_t out) {
         if (clsid != kClsidA3dApi)

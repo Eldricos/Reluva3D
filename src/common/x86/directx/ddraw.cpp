@@ -333,6 +333,15 @@ DirectX::DirectX(Win32Process& process) : s_(std::make_unique<State>(*this, proc
         s->com.define(*f);
     const char* dll = "DDRAW.dll";
     Cpu& c = process.cpu();
+    // Called every frame, many times over, and writing the process's memory
+    // only through Cpu::write32 or not at all (the draws fill surfaces later,
+    // on the drawing threads), so the instruction cache needn't check its
+    // code after each (Cpu::setWritesTracked).
+    for (const char* m : {"SetRenderState", "SetTextureStageState", "SetTexture", "SetTransform", "MultiplyTransform",
+                          "SetViewport", "SetMaterial", "SetLight", "LightEnable", "BeginScene", "EndScene",
+                          "DrawPrimitive", "DrawIndexedPrimitive", "DrawPrimitiveVB", "DrawIndexedPrimitiveVB"})
+        c.setWritesTracked(i.device7.name + "::" + m);
+    c.setWritesTracked(i.surface7.name + "::IsLost");
     auto text = [&](const std::string& t) {
         const uint32_t a = process.memory().alloc(uint32_t(t.size() + 1));
         c.writeString(a, t, uint32_t(t.size() + 1));

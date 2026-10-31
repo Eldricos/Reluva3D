@@ -1210,10 +1210,12 @@ void addMsvcrt(Win32Process& process) {
         return 0u;
     });
 
-    // Those that write only what they note (memcpy, memmove, memset) or
-    // nothing at all: frequent enough that each would otherwise send the
+    // Those that write only what they note (memcpy, memmove, memset; the
+    // heap's, which zeroes through Arena, notes; _EH_prolog's Cpu::write32)
+    // or nothing at all: frequent enough that each would otherwise send the
     // instruction cache to check all its code again (Cpu::setWritesTracked).
-    for (const char* name : {"memcpy", "memmove", "memset", "memcmp", "memchr", "strlen", "strcmp", "strncmp",
+    for (const char* name : {"malloc", "calloc", "realloc", "free", "??2@YAPAXI@Z", "??3@YAXPAX@Z", "_EH_prolog",
+                             "memcpy", "memmove", "memset", "memcmp", "memchr", "strlen", "strcmp", "strncmp",
                              "_stricmp", "_strnicmp", "toupper", "tolower", "_ftol", "floor", "ceil", "_CIacos",
                              "_CIasin", "_CIatan", "_CIsqrt", "_CIsin", "_CIcos", "_CItan", "_CIexp", "_CIlog",
                              "_CIlog10", "_CIpow", "_CIfmod", "_CIatan2"})

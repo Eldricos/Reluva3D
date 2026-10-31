@@ -718,6 +718,16 @@ Progress:
     for the slowest. They now go through the draws each at its own pace
     (each still draws only its own rows, every draw in turn): the
     route from 106 s to 95 s on 4 cores, with the same frames.
+  - A profile at 1024x768x32 (28 frames a second) still had the
+    program's thread busy four fifths of the time and the drawing
+    threads half. One block run in four checked its bytes again, because
+    operator new, free and Direct3D's setters and draws, called millions
+    of times on the route, counted as natives that might have written
+    code; and every load and store asked whether its address was in
+    memory with three compares. Those natives are now known to write
+    only what's noted, and the question is one compare: the program's
+    thread through the route from 54.8 s to 46.3 s, with the same
+    instructions and frames.
 - Not there yet:
   - **more speed**: the program's own code (NetImmerse's scene graph,
     picking and its Direct3D renderer) in the interpreter is now most of

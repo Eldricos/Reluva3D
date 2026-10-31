@@ -455,6 +455,12 @@ static void testX86Instructions(bool cached) {
     x86::Cpu cpu(16u << 20);
     cpu.cacheOn = cached;
     cpu.setStack(0x100000);
+    // In memory: past the first page, up to the end.
+    const uint32_t size = 16u << 20;
+    CHECK(!cpu.valid(0, 1) && !cpu.valid(4095, 1) && !cpu.valid(4095, 2) && !cpu.valid(0xfffff000u, 0x2000));
+    CHECK(cpu.valid(4096, 1) && cpu.valid(4096, size - 4096) && !cpu.valid(4096, size - 4095));
+    CHECK(cpu.valid(size - 4, 4) && !cpu.valid(size - 3, 4) && cpu.valid(size, 0) && !cpu.valid(size, 1));
+    CHECK(!cpu.valid(0xffffffffu, 2) && !cpu.valid(8192, 0xffffffffu));
     // mov eax, 5; add eax, 0xfffffffb; setz al; movzx eax, al; ret
     CHECK(runX86(cpu, {0xb8, 5, 0, 0, 0, 0x83, 0xc0, 0xfb, 0x0f, 0x94, 0xc0, 0x0f, 0xb6, 0xc0, 0xc3}) == 1);
     // mov ecx, 10; xor eax, eax; loop: add eax, ecx; dec ecx; jnz loop; ret  (55)

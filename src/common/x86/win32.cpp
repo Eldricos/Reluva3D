@@ -79,6 +79,7 @@ uint32_t Arena::alloc(uint32_t size, uint32_t align) {
             free_[aligned + size] = length - (aligned - start) - size;
         used_[aligned] = size;
         std::memset(cpu_.memory().data() + aligned, 0, size);
+        cpu_.noteWrite(aligned, size);
         return aligned;
     }
     return 0;
@@ -100,6 +101,7 @@ bool Arena::claim(uint32_t address, uint32_t size) {
         free_[address + size] = start + length - address - size;
     used_[address] = size;
     std::memset(cpu_.memory().data() + address, 0, size);
+    cpu_.noteWrite(address, size);
     return true;
 }
 
