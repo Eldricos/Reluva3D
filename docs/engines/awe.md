@@ -143,7 +143,8 @@ scenes, two Granny files, the text tables, two backgrounds):
 - **Pages.** A game is played from the Scenes page (N starts one). The
   other pages are data viewers: Models (textured, animated, with the
   mouse to turn and zoom), Movies, Pictures, Text and Sounds.
-  Tab moves between them.
+  Tab moves between them. The window's title names the page and what it
+  shows, then the frames shown in the last second.
 - **reluva-tool:**
   - `ac2-dump` (one scene in full, or many checked to their ends);
   - `gr2-info` (sections, and with `-t` the whole type tree);

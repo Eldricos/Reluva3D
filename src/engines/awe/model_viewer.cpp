@@ -86,7 +86,7 @@ void ModelPage::load() {
     if (models_.empty() || !renderer_)
         return;
     const Entry& e = models_[size_t(index_)];
-    ctx_.sys.setWindowTitle("Models: " + e.model);
+    ctx_.setTitle("Models: " + e.model);
     // Decoding the textures in granny2.dll takes a few seconds: say so.
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
     font::drawText(overlay_, 8, 8, "Loading " + e.model + "...", {255, 230, 150}, 2);

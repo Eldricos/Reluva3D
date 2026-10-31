@@ -76,7 +76,16 @@ public:
             return Error::fail("No scenes, models, pictures, text or sounds found in " + target_.path.string());
         pages[page]->activate();
 
+        // Frames shown in the last second, after the title.
+        uint64_t second = sys_.getMillis();
+        int frames = 0;
         while (true) {
+            if (const uint64_t now = sys_.getMillis(); now - second >= 1000) {
+                ctx.fps = int(frames * 1000 / (now - second));
+                ctx.setTitle(ctx.title);
+                second = now, frames = 0;
+            }
+            frames++;
             Event ev;
             while (sys_.pollEvent(ev)) {
                 if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher ||

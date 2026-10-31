@@ -180,7 +180,7 @@ void Page::finishScreenshot(gfx::Renderer3D* renderer, const Surface* overlay) {
     const std::vector<uint8_t> tga = image::encodeTga(img);
     std::ofstream out(shotFile_, std::ios::binary);
     out.write(reinterpret_cast<const char*>(tga.data()), std::streamsize(tga.size()));
-    ctx_.sys.setWindowTitle((out ? "Saved " : "Couldn't save ") + shotFile_.string());
+    ctx_.setTitle((out ? "Saved " : "Couldn't save ") + shotFile_.string());
     shotFile_.clear();
 }
 
@@ -261,7 +261,7 @@ void PicturePage::show() {
     }
     help("Left/Right: picture  PgUp/PgDn: 10  Home/End");
     present();
-    ctx_.sys.setWindowTitle("Pictures: " + name);
+    ctx_.setTitle("Pictures: " + name);
 }
 
 void PicturePage::handleEvent(const Event& ev) {
@@ -1633,7 +1633,7 @@ void ScenePage::draw() {
         ctx_.sys.setMouseCursorVisible(systemCursor_ = system);
     if (!renderer_)
         present();
-    ctx_.sys.setWindowTitle("Scenes: " + (names_.empty() ? std::string() : names_[size_t(index_)]));
+    ctx_.setTitle("Scenes: " + (names_.empty() ? std::string() : names_[size_t(index_)]));
 }
 
 void ScenePage::update(uint64_t nowMs) {
@@ -3458,7 +3458,7 @@ void MoviePage::open() {
         info_ += ", sound " + std::to_string(file.audioTracks()[0].sampleRate) + " Hz";
     if (!player_.error().empty())
         info_ += ", " + player_.error();
-    ctx_.sys.setWindowTitle("Movies: " + name);
+    ctx_.setTitle("Movies: " + name);
 }
 
 void MoviePage::update(uint64_t nowMs) {
@@ -3563,7 +3563,7 @@ void TextPage::draw() {
         text(4, font::kLineHeight + 6 + i * font::kLineHeight, lines_[size_t(scroll_ + i)]);
     help("Left/Right: file  Up/Down, PgUp/PgDn (with Shift: file by 10): scroll");
     present();
-    ctx_.sys.setWindowTitle("Text: " + (names_.empty() ? std::string() : names_[size_t(index_)]));
+    ctx_.setTitle("Text: " + (names_.empty() ? std::string() : names_[size_t(index_)]));
 }
 
 void TextPage::handleEvent(const Event& ev) {
@@ -3641,7 +3641,7 @@ void SoundPage::draw() {
     }
     help("Up/Down (Left/Right): sound  PgUp/PgDn: 10  Space/Enter: play  S: stop");
     present();
-    ctx_.sys.setWindowTitle("Sounds");
+    ctx_.setTitle("Sounds");
 }
 
 void SoundPage::handleEvent(const Event& ev) {

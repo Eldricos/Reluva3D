@@ -56,6 +56,14 @@ struct ViewerContext {
     Surface& screen;      // kScreenW x kScreenH, RGBA32
     std::filesystem::path savePath; // where screenshots go (F12)
     const GameFonts* fonts = nullptr;  // the game's fonts, if they loaded
+    // The window's title, the frame rate after it once the loop has
+    // measured one (-1: not shown).
+    std::string title;
+    int fps = -1;
+    void setTitle(const std::string& t) {
+        title = t;
+        sys.setWindowTitle(fps < 0 ? t : t + "  -  " + std::to_string(fps) + " fps");
+    }
 };
 
 class Page {
