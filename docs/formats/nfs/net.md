@@ -54,7 +54,7 @@ sleeping 10 + 50 × i ms, before giving up on the player.
 | `00` | 41 | 40 bytes kept at `0x55ed08`: the version, `27, 2.0`, NUL-ended, then whatever the buffer held | `0x4a6df0` |
 | `01` | 124 | the session, kept at `0x7a2214`: +1 the host's name; +0x62 u16 players (2); +0x64 u16 the receiver's slot (1); from +0x6a, 0xFF for each empty slot | `0x4a68d0` |
 | `02` | 40 | the race settings, kept at `0x79f8f0` (below) | `0x49b2b0` |
-| `03` | 96 | a player, kept at `0x79f5f0` + slot × 0x60: +4 u32 slot; +8 u8 ready (0, then 1); +9 name (32); +0x29 make (`Chevrolet`, 16); +0x39 model (`Corvette`, 16); the rest unknown. A copy ignores its own; the host passes others' on | `0x49b310` |
+| `03` | 96 | a player, kept at `0x79f5f0` + slot × 0x60 (below). A copy ignores its own; the host passes others' on | `0x49b310` |
 | `04` | 4 | a barrier: +2 u16 its number (1, 0x0f, 0x10, 0x17, 0x18, 0x1f, 0x0d, 3-6 seen at a race's start; 0x0c abandons); +1 is whatever the buffer held. The host sends, each player answers with the same, within a timeout in seconds (`0x4a6a10`'s first argument, × 128 ticks) | `0x4a6c40` |
 | `05` | up to 209 | a piece of a block, appended (the race's set-up: 2,192 bytes in 11 pieces; below) | `0x4c6080` |
 | `06` | 33, host to all | one race frame: 8 u32 input words, one for each car | `0x4c61e0` |
@@ -62,18 +62,61 @@ sleeping 10 + 50 × i ms, before giving up on the player.
 | `0a` | any | chat: NUL-ended text (`Player1: hi`); the host passes it on | `0x42d710` |
 | `07` | 20 | link set-up over serial and modem (`0x4c4310`): +4 u32 the frame count `0x79c1a4`; +8 the player's name (`Player1`). Stored at `0x7d3650` (Serial, below) | `0x4c4190` |
 | `08` | 12 | the pause menu: +4 u32 an operation, +8 u32 a frame (below); +1-3 whatever the buffer held | `0x4c5b00` |
-| `09` | 16 | +1 the sender's car; +4, +8, +0xC three u32 flags for its steering, gas and brake bindings (`0x43c000`), kept at `0x6fd550` + car × 0x6C | `0x43dab0` |
-| `0b` | 14 + 2 per AI car | a status every 32 steps (`0x4c7bd0`, [nfs-threads.md](../../engines/nfs-threads.md)) | `0x4c7d30` |
-| `0c` | 196 | +1 a car; +4 0xC0 bytes of the car's state (car + 0x224), copied in. Sent for every car between barriers 0x22 and 0x23 (`0x4c7ea0`) | `0x4c7f90` |
-| `0d` | 2 | +1 a car that has finished: its +0x2C4 is set to 3 (`0x4c7e50`) | `0x4c7e80` |
+| `09` | 16 | +1 the sender's car; +4, +8, +0xC three u32 flags for its steering, gas and brake bindings, kept in the set-up's car (+0x14-0x1C, `0x6fd550` + car × 0x6C). `0x43c000` gives 1 unless the control is bound to an input device's axis (binding kind 1) and that device's record (`0x6fc970` + n × 0x88) lacks flag 4; so 1 for keys | `0x43dab0` |
+| `0b` | 14 + 2 per AI car | a status every 32 steps (`0x4c7bd0`, [nfs-threads.md](../../engines/nfs-threads.md)). Positional updates only (below) | `0x4c7d30` |
+| `0c` | 196 | +1 a car; +4 0xC0 bytes of the car's race record (car + 0x224: finish time, laps), copied in. Sent at the race's end (`0x4c7ea0`, from `0x455423`, the results), the local car's to the host and the host's for every car, between barriers 0x22 and 0x23 (90 s). Positional updates only | `0x4c7f90` |
+| `0d` | 2 | +1 a car that has finished: its +0x2C4 is set to 3 (`0x4c7e50`). Sent with each 0b once the local car has finished (`0x4c7d09`). Positional updates only | `0x4c7e80` |
 | `0e` | 18 | +2 eight u16, one per slot, to `0x7a22ca`: 2 for a player the host has dropped (`0x49ecf0`); seen when a player quit (`0e` `0f`, then 0, 2, 0...) | `0x49edb0` |
 | `0f`, `11` | 28 | a car offered: +1 a 16-byte key, compared with each car's +0x31C (`0x439990`; the Corvette's is 0x13 and zeros, its serial number); +0x14 u32 the car's flags (car +0x380, below); +0x18 u32 the size of its `carp.txt`. `0f` goes from a player to the host, `11` from the host to the others (Car download, below) | `0x49b3e0`, `0x49b470` |
 | `10`, `12` | up to 209 | the next piece of that car's data (the bytes after the type), 208 at most | `0x49b500`, `0x49b520` |
 
 Sizes for 07-12 are what the senders pass to `0x4a60e0`. All but 0b, 0c
 and 0d are in the captures: 07 over serial and modem, 08 and 0e from the
-pause menu, 11 and 12 from a car download. 0b and 0c are sent only with
-`0x6fd50c` set, which no captured run had.
+pause menu, 11 and 12 from a car download. 0b, 0c and 0d are sent only
+with `0x6fd50c` set (Positional updates, below).
+
+**Positional updates** (`0x6fd50c`). The texts the host dialog loads
+(`0x43f325`, texts 27-34) name two pairs of choices: Peer-to-Peer or
+Client/Server (`0x7a22e4` 1 or 0) and "Positional Updates" ("best for
+slow network connections and Internet") or "Controller Updates" ("best
+for fast, local area networks"). `0x6fd50c` is the first of the second
+pair: the dialog starts it at 0 (`0x43f43e`-`0x43f45e`, Controller) and
+its handler can only clear it (`0x43f927`); the TCP Host Game dialog
+shows only the first pair (seen in a run). The one place that sets it
+to 1 is `0x49e080`, reached at the first front-end entry (`0x473218`,
+`0x55b03c` starts at 1) when the command line gave a game: `-IP=`,
+`-PORT=`, `-NAME=`, `-PLAYERS=`, `-PNUM=`, `-RACE=`, `-TRACK=`, `-CAR=`,
+`-LAPS=`, `-LEVEL=`, `-CLASS=`, `-AINUM=` (table `0x55ec50`, parsed by
+`0x4a5080` into `0x7a1fa0`-`0x7a2018`; "You must specify ALL of the
+following information: Rebroadcaster address, Player Name, Player ID,
+Number of Players"). That is a launch from EA's online service: it sets
+`0x7a22e0` 3, `0x7a22e4` 2, `0x6fd50c` 1, `0x6fd3b0` 4, hosts if
+`-PNUM=` is 1 or less (`0x49e2e0`) or else joins (`0x49e220`), and
+connects through `NPSConnectToServer` of an NPS client DLL
+(`0x4a54f0`, `0x4a5b00`; the default server `HPEREZ2.eac.ea.com`, port
+6666), which the CD doesn't have. With it set the race isn't lockstep:
+each copy takes only its own car's frames (`0x4c67c6`), stores its own
+word without waiting for the host (`0x4c6154`), the other players' cars
+are driven by `0x40bf50` from their 0b statuses (`0x42c4c4`), and the
+results are made to agree with 0c. Where the front end would set Hot
+Pursuit it sets Knockout instead (`0x452b11`).
+
+**Captured with positional updates.** In a copy of the game (`nfs3.exe`
+patched: `0x43f43e` and `0x43f451` store 1, so Connect Players turns
+`0x6fd50c` on), two copies raced Hometown over TCP as before. No 06 went
+either way: after the barriers each copy sent only 0b, every 32 steps
+(the step at +4 going 0x20, 0x40...; about 2 a second), the player's 14
+bytes (+1 slot 1, +8 s16 speed, +0xA u16 race distance, +0xC byte 3 of
+its word), the host's 26 with six u16 for the computer's cars (7, 0xA,
+0xD... on the grid, each car's distance). With a second patch that
+makes every racer finish at once (`0x4ce3f5` and `0x4ce48d` skipped),
+each copy sent 0d with its slot after every 0b (`0d00` from the host,
+`0d01` from the player); at the race's end, between barriers 0x22 and
+0x23, the player sent its 0c (car 1) and the host all eight. 0c's
+0xC0 bytes are the car from +0x224: +0 the finish distance (laps ×
+road slices, 0x77E), +8 the slice (1, 4, 7...: the grid), +0x14 the
+step the lap began less 512 (`0x4ce4c7`; -512 here), +0x98 the place (car +0x2BC), +0xA0 the state (3,
+finished).
 
 **The race settings** (02). The host builds the message from the
 front end's variables (`0x49aa80`) and sends it whenever they differ
@@ -89,7 +132,7 @@ same variables (`0x49a800`). The front end's option table at `0x5563fc`
 | 3 | 1 | `0x6fd504` | `classLimiter`: Limit to A, B, C, Unlimited (0-3) | 3 |
 | 4 | 1 | `0x6fd4b4` | the number of laps (2, 4 or 8, from +5 by `0x4cf190`) | 2 |
 | 5 | 1 | `0x6fd4b0` | `laps`: 2, 4, 8 (0-2) | 0 |
-| 6 | 1 | `0x6fd4d4` | `opcars`: the opponents' car; 4 and up is a car (its number + 4) | 2 |
+| 6 | 1 | `0x6fd4d4` | `opcars`: the opponents' car: 0 "None" (text 193), 1-3 Class A, B, C (texts 190-192, set at `0x43a34f`); 4 and up is a car (its number + 4) | 2 |
 | 7 | 1 | | not set | 0 |
 | 8 | 16 | | when +6 is 4 or more, that car's name (car record +0x31C, `0x439520`); the receiver finds its own number for it (`0x439990`) | 0 |
 | 0x18 | 1 | `0x6fd4d0` | `oppnumber`: None, One, Full Grid (0-2) | 2 |
@@ -106,7 +149,7 @@ same variables (`0x49a800`). The front end's option table at `0x5563fc`
 The "Captured" column is the same in every run that raced (TCP, IPX,
 serial and modem) but for the seed. Tournament and Knockout set Full Grid,
 traffic off and their own laps; Hot Pursuit sets Full Grid (`0x44bedd`,
-`0x44c095`, `0x44c23b`). What `opcars` 0-3 mean wasn't followed.
+`0x44c095`, `0x44c23b`). The lobby showed "Opponent Car... Class B" for the captured 2.
 
 **Pausing** (08, `0x4c55a0`, `0x4c5720`). The u32 at +4:
 
@@ -114,7 +157,7 @@ traffic off and their own laps; Hot Pursuit sets Full Grid (`0x44bedd`,
 |---|---|---|
 | 0 | a player who pauses (Esc), to the host, +8 0; the host sends it to all | pause. The host picks the frame (frames stored + 2, `0x4c6970`) and sends it at +8 (0x25E, 0x385 seen); when each copy reaches it, it stops sending controls (`0x560108`) and waits at barrier 8 (for up to 30 s) |
 | 1 | a player choosing Continue, to the host (`0x4c5a68`) | continue: the host notes it (`0x7d36c4`) and ends the pause with barrier 9 |
-| 2 | no sender found | the others take state 0xA, which ends the pause with barrier 0xA |
+| 2 | nobody: of the six calls of `0x4a60e0` with 12 bytes, `0x4c5637` and `0x4c566d` send 0, `0x4c5a7a` 1, `0x4c5aa7` 3, `0x4c5b53` passes a 0 on, and `0x4a6611` is barrier 0x0c | a player takes state 0xA (`0x4c5ba5`), which ends the pause with barrier 0xA |
 | 3 | a player choosing Quit, then Game Setup, to the host (`0x4c5a90`) | quit: the host marks that player's slot 0xB and drops it (`0x49ecf0`, which sends 0e) |
 
 The host's own choices send no 08: it goes straight to the barrier. The
@@ -136,10 +179,49 @@ Pauses are at least 32 frames apart (`0x7d36cc` + 0x20). In the second
 argument of `0x4a6a10` is the barrier; the first, 0x1E for the pause and
 0x14 for the others, is its timeout in seconds.
 
-**The race set-up** (05): a header of 0x1A0 bytes, which repeats the
-settings of 02, then 8 cars of 0x6C bytes (+0x20 u32 the driver's
-number, +0x24 the name, `Ram Rod`, `Lead Foot`..., six floats of 1.0, the
-car's codes), then the starting order, 8 u32.
+**The player** (03, built at `0x49a8e0` into `0x79f918`):
+
+| Offset | Size | Contents |
+|---|---|---|
+| 0 | 1 | the type, 3 |
+| 4 | 4 | the slot |
+| 8 | 1 | ready (`0x6fd508`) |
+| 9 | 11 | the name (`0x6fd2fc`; the online launch's `-NAME=` takes 11) |
+| 0x14 | 1 | the car chosen, its place in the car list (`0x6fd2bc`) |
+| 0x15 | 1 | transmission, 1 automatic (`0x6fd2d4`) |
+| 0x16 | 3 | the three flags of 09, one byte each (`0x6fd2dc`-`0x6fd2e4`) |
+| 0x19 | 16 | the car's key (car +0x31C; 0x13 for the Corvette) |
+| 0x29 | 16 | make (`0x439ab0`) |
+| 0x39 | 16 | model |
+| 0x49 | 4 | the car's colour (`0x6fd307`-`0x6fd30a`; `70 00 00 77` captured) |
+| 0x50 | 4 | the car's flags (car +0x380; 0x42 for the Corvette) |
+| 0x54 | 12 | three floats from car +0x394 (1.18326, 0.668848, 2.40644 for the Corvette); meaning not followed |
+
+**The race set-up** (05) is a copy of memory from `0x6fd39c`, 2,192
+bytes: the race's variables, then 8 cars of 0x6C bytes at `0x6fd53c` +
+car × 0x6C, then the starting order (8 u32 at +0x850). The header's
+words are the variables at `0x6fd39c` + offset: +0x18 the seed
+(`0x6fd3b4`), +0x14 the kind of play (`0x6fd3b0`, 4), +0x118 the laps,
++0x134 `oppnumber`, +0x138 `opcars`, +0x168 `classLimiter`, +0x16C ready
+(`0x6fd508`), +0x174 the cars (`0x6fd510`, 8), +0x178 the players
+(`0x6fd514`, 2), +0x17C the human racers (`0x6fd518`), +0x184 the
+computer's racers (`0x6fd520`, 6); +0xC (2), +0xF0 (1), +0x150 (1) and
++0x190 (0x13) weren't named. Each car (filled for players at
+`0x49acf1`-`0x49adeb` from their 03):
+
+| Offset | Contents |
+|---|---|
+| 0 | the slot (0-7) |
+| 4 | the car's number (from 03's key, `0x439990`) |
+| 8 | 1 a player, 2 the computer |
+| 0xC | transmission (03 +0x15); 1 makes the driver shift itself (`0x43149a`) |
+| 0x10 | the colour (03 +0x49) |
+| 0x14, 0x18, 0x1C | the flags of 09 (03 +0x16-0x18); 1 for players, 0 for the computer's cars |
+| 0x20 | the driver's number (2-6 for `Gotcha`, `Ram Rod`, `Dead Beat`, `Mulligan`, `Wild One`; the players had 0 and 6) |
+| 0x24 | the name (16) |
+| 0x38 | five floats, 1.0 |
+| 0x4C | three floats, 03's +0x54 (players only) |
+| 0x5C | a number (0x13, 2, 0xF, 0...), not followed |
 
 **The race** is lockstep: in the captured races no positions or speeds
 went over the network, only each car's controls (0b and 0c, which carry
@@ -219,8 +301,24 @@ most 280 bytes after it (`0x4f60b0`); the socket (`socket(6, 2, 1000)` at
 player), `dec` (176 bytes, the game: its GUID, address and name), `add`
 (140, the player asking to join), `rsp` (36), then `opn` and `dat`. The
 host sends `ola` every 100 ticks (781 ms); a player not heard from in 450
-ticks (3.5 s) is dropped. Others the code knows: `ply`, `req`, `no!`,
-`bye`. Their fields were read from the captures, not the code.
+ticks (3.5 s) is dropped. Others the code knows: `ply`, `req`, `get`, `no!`,
+`bye`, `out` (sent when a player left).
+
+The joining messages share a head after the tag: +4 a BE u32, the
+asker's number for a question (from `0x5689dc`, counting from 1, by
+`0x513190`, which also waits 2 × 128 ticks for the answer) or the
+question's number in an answer; +8 the game's IPX address (network 4,
+node 6, BE socket 2); +0x14 8 bytes, zero. Then:
+
+| Tag | Bytes | After the head | Built at |
+|---|---|---|---|
+| `dec` | 176 | +0x1C the game's GUID (BE u32, u16, u16, 8 bytes: the one in its `EAGAME.` name); +0x2C its name (32, `Player1`); +0x4C-0x5F words of the game's record (+0x74-0x87), BE: only +0x5C was set, 8, the most players (`0x5132a0` stops there); +0x70 BE the mask of player rows in use (game +0x50, 0 before anyone joined) | `0x513030` |
+| `add` | 140 | +0x1C a 16-byte string (zero); +0x2C 0x5C bytes of the joining player's record (+0x30 of its game object): its IPX address at +0x2C, its name at +0x74 (`Player1`); +0x88 is whatever the stack held (`fd9d64ff`) | `0x5144b0` (NET_setgame) |
+| `rsp` | 36 | +0x1C BE 1, taken; +0x20 BE the player's row in the game's table (0x64-byte rows at game +0x88), 0 for the first | `0x5137b9` |
+
+How found: the captures' bytes, then the builders: `dec`'s fields at
+`0x513056`-`0x51313c`, `add`'s at `0x5144ea`-`0x514551`, `rsp`'s at
+`0x5137ec`-`0x51381c`.
 
 **Data** (`dat`, `0x51c7c0`-`0x51da60`): after the tag, a header, then
 the game message:
@@ -248,7 +346,23 @@ come from words of the car's `fedata` file in its `car.viv`: +6 gives
 +8 0x02, +0xE 0x04, +0x10 0x10 (`Lcop`, `Peln`, `Vcop`: the police cars),
 +0x14 0x40 (every car on the CD but those five and `Knoc`). So of the
 CD's cars only `Knoc` could be offered; cars added to an install would
-be. In turn, between barriers 0x0F + slot, each
+be. The others: +8, flag 0x02, is set for every CD car but `Elni`,
+`Knoc` and `Peln` (`fedata.eng`), and is read only by car filters that
+nothing seems to use: `0x4390f0`'s masks 2 and 4 (its one caller,
+`0x4391d0`, has no direct call) and `0x43a6e0`'s bit 0x20000 (no
+caller passes it).
++0xE, flag 0x04, is set for no CD car: such a car's front-end pictures
+(`IN_%s.fsh`, `SL%s01.qfs`, `H%s.qfs`, `SH%s.qfs`) are read from its
+own folder (`%s%s\`, car +0x315) rather than the shared one
+(`0x4530c0`-`0x453330`), as an added car would need. Two flags come
+from the code, not `fedata`: 0x20 for a car whose make is `Ferrari` or
+`Mercedes` (`0x43a22e`, `0x43a255`), whose entry mask 0x2000 clears in
+Hot Pursuit (`0x43aa56`; yet a run's Hot Pursuit list still showed the
+Ferraris, so which list that is wasn't settled); 0x08, a car left out
+of the lists (`0x439109`). Mask 0x4000 clears the police cars (0x10)
+outside Hot Pursuit (`0x43aaa1`, `0x44c100`); Hot Pursuit uses 0x2008
+instead (`0x44c10f`). (`0x4391d0` and the bit 0x20000 have no direct
+caller or user.) In turn, between barriers 0x0F + slot, each
 player offers its own car to the host (0f, 10); then between barriers
 0x17 + slot the host offers each player's car to all the others (11, 12).
 The data: the car's `carp.txt` (the size at +0x18) in pieces of 208
@@ -265,7 +379,8 @@ name, raced with it, and removed the folder when it quit. A copy that
 has the car (`0x439990` finds the key) takes the pieces and ignores them.
 
 **Timers and window** (`cmn\packet.c`). Each transport sets three u16
-when it opens a link, as fractions of `0x5643d8` (128):
+when it opens a link, as fractions of `0x5643d8` (128), but only those
+the caller left at 0:
 
 | Transport | +0x2A acknowledge | +0x2C ask again | +0x2E resend | Set at |
 |---|---|---|---|---|
@@ -273,13 +388,37 @@ when it opens a link, as fractions of `0x5643d8` (128):
 | modem | ÷ 16 = 8 | ÷ 4 = 32 | ÷ 4 = 32 | `0x4fa550` |
 | serial | ÷ 16 = 8 | ÷ 10 = 12 | ÷ 10 = 12 | `0x4fa780` |
 | defaults | 2 | 4 | 6 | `0x4f5130` |
+| the game's IPX links | ÷ 4 = 32 | ÷ 4 = 32 | ÷ 4 = 32 | `0x49efb0` (from `0x49e8cd`, `0x49ebec`), before the open |
+
+So over IPX the game's own 32 counts win: the transport's 4 and 8 never
+apply to its players' links.
 
 A data packet sent gets the +0x2E count (`0x51c958`); a request for a
 missing packet (a control with sequence 0x7F or below) the +0x2C count
 (`0x51cad3`); a packet received starts an acknowledgement count of
-+0x2A (`0x51c820`). The counts go down by 1 at each service of the link (`0x51caf0`), not by the clock; at 0 the
-packet is sent again (`rsnd`). In the IPX capture the 18 packets sent
-again went 240-260 ms after the first copy.
++0x2A (`0x51c820`). The counts go down by 1 at each service of the link,
+and at 0 the packet is sent again (`rsnd`).
+
+**The service** is the reliable layer's entry +0xC, `0x51d8f0`. Opening
+a link whose layer has one (`0x4f5130`; TCP's hasn't) adds `0x4f5110`
+to the network thread's handlers (`0x4f2930`, table `0x9f0c00`); that
+thread (`0x4f27a0`) runs them each time the 128 Hz timer callback sets
+its event (`0x48ee1b` → `0x4f2a60`), and `0x4f5110` calls the service
+of every open link (list `0x9f2628`). So a link is served once a tick,
+every 7.8 ms, on the network thread, over serial, modem and IPX alike.
+Each service takes 1 from the 15 s keep-alive count (+0x24, 1,920
+ticks); if the transport says the link can send (+8: IPX `0x4f56c0`,
+serial and modem `0x4fa480`), it takes 1 from each send buffer's count
+(`0x51d010`), resends those at 0 (`0x51d040` → `0x51c8f0`) and counts
+down the acknowledgement (+0x2C of the link, an `fb` control at 0,
+`0x51d9c4`). In ms: a count n is n × 7.8 ms, so 12 is 94 ms (serial),
+32 is 250 ms (modem, and the game's IPX links).
+
+Checked at run time (IPX, `-watch` on copy B): from the link's opening
+at 73,248 ms, 300 services in 2,360 ms (7.9 ms apart), 299 of them
+counting the buffers down. In the race that followed, the packets sent
+again went 247-251 ms after the first copy, and again every 250 ms
+(499, 749... ms) while unacknowledged.
 
 The window is the number of send buffers, 2^(n−1) − 1 for an n from 2
 to 7 (`0x51d30c`-`0x51d33f`, `0x51d53b`); with none free a send fails
@@ -296,10 +435,12 @@ cores; the clocks are each game's):
 |---|---|---|
 | serial | the receiver asks for it (a control with its sequence) when the next arrives; sent again 33-46 ms after the first copy (29 of 29) | the oldest packet sent again every 93-95 ms (12 counts), an acknowledgement (`fb`) between; 8 packets ahead, then the game stopped making frames |
 | modem | the same, 34-201 ms (46 of 47) | sent again every 195 ms or so (32 counts); 32 packets ahead before new ones stopped |
-| IPX | | 240-260 ms (8 counts, the earlier capture) |
+| IPX | | 240-260 ms (32 counts, the earlier capture); 247-251 ms, then every 250 ms (a later race) |
 
-So a service comes about every 6-8 ms over serial and modem, about every
-30 ms over IPX; it isn't one clock. In a race the game, not the window,
+So the counts are of ticks, 7.8 ms each, on every link: serial's 12
+counts are its 93-95 ms, modem's and IPX's 32 their 195-250 ms. (The
+modem's 195 ms is 25 counts; whether its countdown skipped ticks when
+the transport couldn't send wasn't followed.) In a race the game, not the window,
 stopped the sending: the lockstep stalls before 63 packets are out.
 
 **TCP** has no reliable layer: its open (`0x4f7380`) gives the link
@@ -338,14 +479,23 @@ was the lower.
 
 ## What isn't known
 
-- Most of the player and set-up records' numbers (03, 05); what
-  `opcars` 0-3 mean.
-- The meaning of 09's flags beyond how `0x43c000` makes them.
-- 0b and 0c (never sent: `0x6fd50c` unset) and 0d, not captured; 08 with
-  2, never sent.
-- Spike strips weren't seen laid (that needs a pursuit with a player as
-  cop); what fedata's flags 0x02 and 0x04 mean.
-- What calls a link's service, and why it comes so much more often over
-  serial and modem than over IPX; whether anything but the game's
-  lockstep keeps a link under its 63 buffers.
-- The fields of `dec`, `add` and `rsp`.
+- Some numbers of the player and set-up records: 03's three floats
+  (car +0x394), the set-up car's +0x5C, the header's words at +0xC,
+  +0xF0, +0x150 and +0x190; why the players' driver numbers were 0 and 6.
+- What an input device's flag 4 is (09's flags are 0 only for an axis of
+  a device without it); no run used a joystick over the network.
+- 0b, 0c and 0d were captured only from a patched copy: the unpatched
+  game sends them only when launched by EA's online service, whose NPS
+  DLL isn't on the CD. Whether the Positional/Controller choice was ever
+  shown in some dialog wasn't found.
+- Spike strips weren't seen laid. The way there was found but not
+  finished: Hot Pursuit is in the lobby's race-type list (click the
+  header at 240,77, then 208,108), and police cars are offered in Hot
+  Pursuit (mask 0x2008), but the script didn't reach them in Player
+  Car's list.
+- Why the modem's resends came every 195 ms, not 250 (32 counts);
+  whether anything but the game's lockstep keeps a link under its 63
+  buffers.
+- `dec`'s words at +0x4C-0x5B and +0x70 beyond the captured values;
+  `add`'s 16-byte string at +0x1C (zero in the capture: perhaps a
+  password).

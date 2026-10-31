@@ -54,7 +54,7 @@ calls `WaitForMultipleObjectsEx` at `0x4df705`).
 | `0x42dc20` | start-up (`0x4b6205`), handle `0x7a3aac` | above normal (1) | every 4th tick (32 Hz) | the controls thread: reads the devices (`0x48f550`), then puts the bits in a 32-entry ring (`0x79c2b8`) and counts `0x79c4ac` |
 | `0x4e53c0` | stream open (`0x4e4578`) | above normal (1) | on demand | `cmn\cdstream.c` `streamreaderthread`: reads the music (`.mus`) from the CD (`D:\GameData\Audio\pc\show5.mus` in the menus). Stopped with `TerminateThread` and made again for the race's music |
 | `0x4f1820` | `initasync` (`0x4f0e9f`) | above normal (1) | on demand | `win\async.c` `asyncreader`: reads files in the background. It waited once and did nothing in this run |
-| `0x4f27a0` | `0x4f2890` | highest (2) | each tick (`0x4f2a60`) | calls handlers in a table (`0x9f0c00`) under a critical section; `cmn\connect.c` adds them. Network play only; not made in this run |
+| `0x4f27a0` | `0x4f2890` | highest (2) | each tick (`0x4f2a60`) | calls up to 8 handlers in a table (`0x9f0c00`, added by `0x4f2930`) under a critical section: `0x4f5110`, which serves every open link of the reliable layer (added by the link open `0x4f5130`; see [net.md](../formats/nfs/net.md), Timers), and `0x514260`, the IPX gather service's (added at `0x5142a8`). So links are served at 128 Hz, 7.8 ms apart (checked: 300 services in 2,360 ms). Network play only; not made in this run |
 | `0x4f5b10` | `win\ipx.c` | highest (2) | - | IPX receive. Network only |
 | `0x4f68c0` | `win\tcp.c` | highest (2) | - | TCP receive (`TCPrecv`). Network only |
 | `0x4fa210` | `win\tapipkt.c` | above normal (1) | - | TAPI (modem). Network only |
@@ -280,9 +280,35 @@ them the game's own.
 ## The IPX game advertiser (`0x512ad0`)
 
 `0x512c80(address, name)` starts it. Its only caller is `0x4f5f70`, an
-entry (+0x2C) of the IPX service's function table at `0x566e20` (`DOS
-IPX compatible`, `win\ipx.c`), so it runs on the machine that opens an
-IPX game, from game set-up, not during the race. `0x512c80`:
+entry of the IPX transport's function table (`0x566e4c`, +0x2C from
+the table's head at `0x566e20`, `DOS IPX compatible`, `win\ipx.c`; its
+callers reach it as +0x28 of their pointer). The entry after it,
+`0x4f5f90`, is `0x512d70`, the stop. They are called by the IPX gather
+service's `NET_` functions (`cmn\connect.c` dispatches through a table
+at `0x5689e8`: +0x1C new game, +0x24 shut, +0x28 open, +0x2C end):
+
+| `NET_` function (game's call) | Its IPX entry | Advertiser | When |
+|---|---|---|---|
+| `NET_newgame` (`0x4f4f10`, from `0x49e79d`) | `0x514650`, at `0x5147c7` | starts | Create Game's Ok |
+| `NET_shutgame` (`0x4f4f50`, from `0x49eeaf`) | `0x514850`, at `0x514888` | stops | the host starts the race (`0x49ee50`, called at `0x49ac89` just before the settings 02 are built) |
+| `NET_opengame` (`0x4f4f70`, from `0x49ee3c`) | `0x5148b0`, at `0x514903` | starts again | back in the lobby after a race (`0x49ede0`, from the front end's entry `0x473211`) |
+| `NET_endgame` (`0x4f4f90`, from `0x49ef8e`) | `0x514970`, at `0x5149d3` | stops | the session is closed (`0x49eed0`, from `0x4a6622` and the lobby's exits) |
+
+All four happen only on the host (`0x7a22da`), over the network
+(`0x7a22e0` 3) and not client/server through EA's service (`0x7a22e4`
+2). The trace names (`NET_newgame` at `0x54d11c`...) do line up: each
+`NET_` function prints its own name (`0x4f4c50`, when the library's
+debug level `0x566de0` is set) and calls its slot of the service's
+table. Checked in a run (`-watch` on `0x512c80`, `0x4f5f70` and the
+`NET_` functions): copy A clicked Create Game's Ok at 60.8 s; at that
+millisecond `NET_newgame` (return `0x49e7a2`), `0x4f5f70` (return
+`0x5147ca`) and `0x512c80` ran, once each. Copy B, finding and joining,
+called `NET_getgames` four times (each Refresh) and `NET_setgame`, which
+sent `add` (`0x5144b0` through `0x513190`). In a second run A clicked
+Start Race at 97 s; at 97,837 ms `NET_shutgame` (return `0x49eeb4`) and
+`0x512d70` (return `0x51488b`) ran, once each. So it runs on the machine
+that opens an IPX game, from Create Game until the race starts.
+`0x512c80`:
 
 1. opens an IPX socket (`0x5129e0`, handle `0xa0b0bc`);
 2. builds the answer of [net.md](../formats/nfs/net.md)'s "finding
@@ -311,10 +337,8 @@ table's next entry.
 
 ## What isn't known
 
-- Which `NET_` function (`cmn\connect.c`, `0x4f4c80`-`0x4f5200`)
-  calls table entry +0x2C: the names its trace strings give don't line
-  up with what the entries do, so when in the front end the advertiser
-  starts and stops wasn't pinned down. Not checked at run time.
+- The advertiser's restart (`NET_opengame`) and last stop
+  (`NET_endgame`) were read from the code, not seen at run time.
 - What some step tasks do in detail: the tyre model inside `0x4ad7a3`,
   the computer cars' `0x4088f0`, the drivers, `0x471e10` (force
   feedback is a guess) and `0x4cb2c0` (particles is a guess). The car
