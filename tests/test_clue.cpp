@@ -5,6 +5,7 @@
 
 #include "engines/clue/ai.h"
 #include "engines/clue/board.h"
+#include "engines/clue/frontend.h"
 #include "engines/clue/game_data.h"
 #include "engines/clue/level.h"
 #include "engines/clue/netplay.h"
@@ -1092,6 +1093,18 @@ static void testNetplay(bool lossy) {
     CHECK(decodeCommand(bytes, offset, decoded) && decoded.type == Command::Accuse && decoded.args.size() == 3);
 }
 
+// The original's Prefs.ini, as the install has it.
+static void testOriginalPrefs() {
+    Preferences p;
+    CHECK(!p.on[Preferences::AutoNotes] && p.musicVolume == 50); // the original's defaults
+    const std::vector<uint8_t> file{1, 0, 1, 1, 1, 0, 1, 0, 3, 0, 0, 0, 10, 0, 0, 0};
+    CHECK(p.loadOriginal(file));
+    CHECK(p.on[Preferences::SuggestMovies] && !p.on[Preferences::Lighting] && p.on[Preferences::AutoNotes] &&
+          !p.on[Preferences::WalkAnimations] && p.on[Preferences::MansionWalls]);
+    CHECK(p.musicVolume == 30 && p.masterVolume == 100);
+    CHECK(!p.loadOriginal({1, 2, 3}));
+}
+
 int main() {
     testUnpack();
     testDriveAndImages();
@@ -1107,6 +1120,7 @@ int main() {
     testNotebook();
     testComputerPlayers();
     testSaveLoad();
+    testOriginalPrefs();
     testNetplay(false);
     testNetplay(true);
     if (failures)

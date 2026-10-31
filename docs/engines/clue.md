@@ -129,8 +129,8 @@ Each step can be seen working before the next.
    the fire and the fountain heard near them, thunder over the menus'
    storm; saved games. Saved games are Reluva's own, in eight slots as
    the original's Save window and Load Game screen have: the original's
-   needn't load. The original's `Prefs.ini` isn't read: Reluva keeps its
-   own preferences.
+   needn't load. The original's `Prefs.ini` is read the first time
+   (below).
 8. **Network play** (done, to be tried between real machines). Games
    on the local network and over the internet by address, in the
    original's network screens. Reluva's own protocol, not DirectPlay's:
@@ -270,6 +270,17 @@ can't disprove), 20-22 s; Reluva's, 20-22 s.
 conservatory's fountain (`fntn_n.wav`) loop while they're near the
 view's middle, louder the nearer (full within 150 pixels, none beyond
 600).
+
+## Preferences
+
+Reluva keeps its own (`preferences.ini` in its folder for the game).
+The first time, with none yet, it takes the original's `Prefs.ini` from
+the game's folder: 16 bytes, the seven switches in the Preferences
+screen's order (a byte each, 1 on), a byte unused, then the music's and
+the master volume as 32-bit numbers from 0 to 10 (`Clue.exe` 2.2 makes
+them its mixer's by 127 / 10, at 0x415E63; its preferences' defaults at
+0x42FA30: everything on but Auto Notes, both volumes 5). Reluva's
+defaults are the same.
 
 ## Saved games
 

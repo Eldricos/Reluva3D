@@ -34,11 +34,16 @@ constexpr int kSuspects = 6;
 // The preferences screen's settings, saved between runs.
 struct Preferences {
     enum Switch { SuggestMovies, Lighting, Translucency, AutoNotes, ButlerVoice, WalkAnimations, MansionWalls, kSwitches };
-    std::array<bool, kSwitches> on{true, true, true, true, true, true, true};
-    int musicVolume = 80, masterVolume = 100; // 0-100
+    // The original's defaults: all on but Auto Notes, both volumes half.
+    std::array<bool, kSwitches> on{true, true, true, false, true, true, true};
+    int musicVolume = 50, masterVolume = 50; // 0-100
 
     void load(const std::filesystem::path& file);
     void save(const std::filesystem::path& file) const;
+    // The original's Prefs.ini (16 bytes: the seven switches, a byte, the
+    // music's and the master volume 0-10 as 32-bit numbers); false if it
+    // isn't one.
+    bool loadOriginal(const std::vector<uint8_t>& bytes);
 };
 
 class FrontEnd {

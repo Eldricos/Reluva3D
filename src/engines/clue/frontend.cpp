@@ -69,6 +69,22 @@ void Preferences::load(const std::filesystem::path& file) {
     }
 }
 
+bool Preferences::loadOriginal(const std::vector<uint8_t>& b) {
+    // As Clue.exe reads and writes it (its preferences' constructor at
+    // 0x42FA30 in 2.2, the volumes made the mixer's by 127 / 10 at 0x415E63).
+    if (b.size() != 16)
+        return false;
+    for (int k = 0; k < kSwitches; ++k)
+        on[size_t(k)] = b[size_t(k)] != 0;
+    const auto volume = [&](size_t at) {
+        const int v = int(b[at] | (b[at + 1] << 8) | (b[at + 2] << 16) | (uint32_t(b[at + 3]) << 24));
+        return std::clamp(v, 0, 10) * 10;
+    };
+    musicVolume = volume(8);
+    masterVolume = volume(12);
+    return true;
+}
+
 void Preferences::save(const std::filesystem::path& file) const {
     if (file.empty())
         return;
@@ -98,6 +114,11 @@ Error FrontEnd::open() {
     fonts_ = std::make_unique<Fonts>(data_, resi_);
     if (!prefsFile_.empty())
         prefs_.load(prefsFile_);
+    // The first time, the original's own preferences, if it has any.
+    std::error_code ec;
+    if (prefsFile_.empty() || !std::filesystem::exists(prefsFile_, ec))
+        if (const std::filesystem::path* original = data_.find("Prefs.ini"))
+            prefs_.loadOriginal(readFile(*original));
     applyVolumes();
     sys_.setWindowTitle("Clue: Murder at Boddy Mansion");
     sys_.setMouseCursorVisible(false);
