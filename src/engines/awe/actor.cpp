@@ -204,29 +204,47 @@ Actor::Motion Actor::motion(const Animation& animation) {
         if (model.bones[b].name == "Bip01")
             root = int(b);
     if (root >= 0 && animation.duration > 0) {
-        Pose start, end;
-        computePose(model, &animation, 0, start);
-        computePose(model, &animation, animation.duration, end);
-        const Mat4& a = start.world[size_t(root)];
-        const Mat4& b = end.world[size_t(root)];
-        for (int k = 0; k < 3; k++)
-            m.drift[k] = b[size_t(12 + k)] - a[size_t(12 + k)];
-        // The turn about the model's up (Z): where the root's most level
-        // axis points, followed through the loop, as the game adds up the
-        // root's turn frame by frame (0x441f70). (A turn of a whole circle
-        // in a loop, as the vendors' rotatel, ends where it began.)
-        const int axis = std::abs(a[2]) < std::abs(a[6]) ? 0 : 4;
-        auto yaw = [&](const Mat4& w) { return std::atan2(w[size_t(axis + 1)], w[size_t(axis)]); };
-        constexpr int kSteps = 32;
-        float total = 0, last = yaw(a);
-        for (int k = 1; k <= kSteps; k++) {
-            Pose p;
-            computePose(model, &animation, animation.duration * float(k) / kSteps, p);
-            const float y = k == kSteps ? yaw(b) : yaw(p.world[size_t(root)]);
-            total += std::remainder(y - last, 6.2831853f);
-            last = y;
-        }
-        m.turn = total * kDegrees;
+        // The mask it plays under as the base: a bone with none stays at
+        // rest (Animator::blend).
+        const Animator::Slot* base = animator_.base();
+        const std::vector<float>* mask = base && base->animation.get() == &animation ? &base->mask : nullptr;
+        auto measure = [&](bool masked, float drift[3], float& turn) {
+            auto posed = [&](float t, Pose& out) {
+                std::vector<BoneTransform> local;
+                sampleLocal(model, &animation, t, local);
+                if (masked && mask)
+                    for (size_t b = 0; b < local.size() && b < mask->size(); b++)
+                        if ((*mask)[b] <= 0)
+                            local[b] = model.bones[b].rest;
+                poseFromLocal(model, std::move(local), out);
+            };
+            Pose start, end;
+            posed(0, start);
+            posed(animation.duration, end);
+            const Mat4& a = start.world[size_t(root)];
+            const Mat4& b = end.world[size_t(root)];
+            for (int k = 0; k < 3; k++)
+                drift[k] = b[size_t(12 + k)] - a[size_t(12 + k)];
+            // The turn about the model's up (Z): where the root's most
+            // level axis points, followed through the loop, as the game
+            // adds up the root's turn frame by frame (0x441f70). (A turn of
+            // a whole circle in a loop, as the vendors' rotatel, ends where
+            // it began.)
+            const int axis = std::abs(a[2]) < std::abs(a[6]) ? 0 : 4;
+            auto yaw = [&](const Mat4& w) { return std::atan2(w[size_t(axis + 1)], w[size_t(axis)]); };
+            constexpr int kSteps = 32;
+            float total = 0, last = yaw(a);
+            for (int k = 1; k <= kSteps; k++) {
+                Pose p;
+                posed(animation.duration * float(k) / kSteps, p);
+                const float y = k == kSteps ? yaw(b) : yaw(p.world[size_t(root)]);
+                total += std::remainder(y - last, 6.2831853f);
+                last = y;
+            }
+            turn = total * kDegrees;
+        };
+        measure(false, m.drift, m.turn);
+        measure(true, m.carried, m.carriedTurn);
     }
     motions_.emplace(&animation, m);
     return m;

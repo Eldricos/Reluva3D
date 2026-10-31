@@ -80,9 +80,15 @@ public:
 
     // How far a base animation carries the body in one play: along the
     // model's axes, and turned (degrees). From its root bone (Bip01).
+    // `carried` and `carriedTurn` are what's left of that in the pose
+    // played as the base: its mask can leave the bones that carry it at
+    // rest (the walks and runs leave GrannyRootBone out), and then the
+    // body doesn't go along with the clip at all.
     struct Motion {
         float drift[3] = {0, 0, 0};
         float turn = 0;
+        float carried[3] = {0, 0, 0};
+        float carriedTurn = 0;
     };
     Motion motion(const Animation& animation);
 

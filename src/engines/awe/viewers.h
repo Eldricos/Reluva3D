@@ -791,6 +791,7 @@ private:
     // the menus return to, the view grabbed for a thumbnail.
     std::unique_ptr<SaveGame> restoring_;
     std::map<std::string, SaveGame::Placement> npcPositions_;
+    std::set<std::string> pausedNpcs_; // as npcPositions_: those left paused
     std::string gameScene_, previousMenu_;
     image::Image grab_;
     bool grabDue_ = false, quit_ = false;

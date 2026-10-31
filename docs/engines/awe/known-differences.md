@@ -56,7 +56,8 @@ The format pages give the detail; this page gathers them.
 - **Scenes aren't kept in memory.** The game keeps every scene of the
   place loaded; Reluva reads a scene again when it's shown. Characters'
   positions are recorded when a scene is left and put back when it's
-  shown again, and the player's position is kept per scene. Saves are in
+  shown again (a paused character stays paused), and the player's
+  position is kept per scene. Saves are in
   the game's own format either way. See
   [saves.md](../../formats/awe/saves.md).
 

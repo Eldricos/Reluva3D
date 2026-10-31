@@ -477,6 +477,15 @@ moves the model. Reluva instead takes out the distance the root moves in
 one loop (`Actor::motion`). Wrapping round, the root would swing back
 toward its start over the loop's last piece.
 
+Only what the pose carries is taken out. The walks' and runs' track
+masks leave `GrannyRootBone`, which carries the motion, at weight 0, so
+in the pose they're played with it stays at rest and the body doesn't
+go along at all: there's nothing to take out (`Motion::carried`, the
+drift with the slot's mask applied; the full drift still sets the
+pace). Taking out the full drift from such a walk held the body back
+through each loop, then let it jump a stride ahead as the loop began
+again.
+
 Before this, Reluva never wrapped round, and kept only a curve's first
 four values. On `poirot_walk`, looping, it was off by up to 239 units
 (the root, near the end) and 0.003 in an orientation. Scale/shear curves

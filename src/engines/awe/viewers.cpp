@@ -825,6 +825,7 @@ void ScenePage::newGame() {
     load_ = LocationLoad();
     restoring_.reset();
     npcPositions_.clear();
+    pausedNpcs_.clear();
     gameScene_.clear();
     previousMenu_.clear();
     yesNo_.reset();
@@ -1088,6 +1089,7 @@ void ScenePage::loadCharacters() {
             c.routine = std::make_unique<ScriptRunner>(state_, *this);
             c.routine->setCharacter(c.who);
             queueRoutine(c);
+            c.paused = pausedNpcs_.count(state_.scene + "|" + fs::toLower(fileNameOf(file))) != 0;
         }
         characters_.push_back(std::move(c));
     }
@@ -2265,14 +2267,16 @@ void ScenePage::placeCharacter(Character& c) const {
           s->name.find("rotate") != std::string::npos))
         return;
     // Back by how far the walk (or turn) has carried the body this loop,
-    // as the character itself moves (or turns).
+    // as the character itself moves (or turns): by what its pose carries,
+    // none when its mask leaves the root at rest, as the walks' and runs'
+    // do (else the body stood still through each loop and then jumped).
     const Actor::Motion m = c.actor->motion(*s->animation);
     const float loop = std::fmod(s->clock, s->animation->duration) / s->animation->duration;
     gfx::Mat4 back = gfx::identity();
-    const float a = -loop * m.turn / 57.29578f;
+    const float a = -loop * m.carriedTurn / 57.29578f;
     back[0] = std::cos(a), back[1] = std::sin(a), back[4] = -std::sin(a), back[5] = std::cos(a);
     for (int k = 0; k < 3; k++)
-        back[size_t(12 + k)] = -loop * m.drift[k];
+        back[size_t(12 + k)] = -loop * m.carried[k];
     c.placement = gfx::multiply(c.placement, back);
 }
 
@@ -2585,10 +2589,18 @@ bool ScenePage::changeScene(const std::string& name, int entry, bool walkIn) {
     for (const Character& c : characters_) {
         if (c.player)
             positions_[state_.scene] = {c.x, c.z, c.rotY};
-        else if (c.record)
+        else if (c.record) {
             // The game keeps the scene, so its characters stay where they
-            // are (and are saved there: POSI).
-            npcPositions_[state_.scene + "|" + fs::toLower(fileNameOf(c.name))] = {{c.x, c.y, c.z}, {0, c.rotY, 0}};
+            // are (and are saved there: POSI), and one paused stays paused
+            // (Klaus, paused for the cleaver talk, through its
+            // close-ups).
+            const std::string key = state_.scene + "|" + fs::toLower(fileNameOf(c.name));
+            npcPositions_[key] = {{c.x, c.y, c.z}, {0, c.rotY, 0}};
+            if (c.paused)
+                pausedNpcs_.insert(key);
+            else
+                pausedNpcs_.erase(key);
+        }
     }
     state_.lastScene = state_.scene;
     story_->leavingScene();

@@ -155,7 +155,7 @@ Everything else is an **overlay** that plays over the base.
 | `look` | `left`, `right`, `home`; a strength (1) | `eye<dir>` on the eye layer, looping, at that strength. `home` eases the eyes back. | no |
 | `rotate`, `rotatea` | an absolute heading in degrees, someone, a cell, `home`, `sp<n>`, `-sp<n>`, `camera` | Turns the body. See below. | `rotate`: until it's there |
 | `animate` | seconds | Moves the animations' clocks on: the door macro skips the door knob's animation to its end behind a fade. | no |
-| `pause`, `resume` | character | Stops the character's routine, with its walk or turn, and plays `idle1`. `resume` restarts the interrupted event. | no |
+| `pause`, `resume` | character | Stops the character's routine, with its walk or turn, and plays `idle1`. `resume` restarts the interrupted event. A character stays paused when its scene is left and shown again (the game keeps the scene; Reluva keeps the flag with its position): Klaus is paused for the cleaver talk, through its close-ups, until the script resumes him. | no |
 | `loop` | | In a routine: queues the routine again. | no |
 | `attach`, `detach` | object | Attaches or detaches `models\objects\<name>_model.gr2`. The prop has its own skeleton, and the character's animations move its bones too, so it isn't fixed to a bone. | no |
 | `hideshadow`, `showshadow` | | The character's shadow flag. | no |
