@@ -135,7 +135,8 @@ game's calls to it (`0x4131xx`-`0x4136c6`, `0x418990`):
   - else, by the lap (`0x4133ad`; laps counted from 0, of n): 100 on
     the last lap (or past lap 5 of an 8-lap race); 0 on lap 0 of a race
     of other than two laps, and on lap 1 of an 8-lap race; else 50;
-  - then a race setting at `0x6fd520` (`0x413403`) changes it:
+  - then the number of computer racers, `0x6fd520` (`0x413403`;
+    [physics.md](physics.md)), changes it:
     - 0: no change;
     - 1: tables by lap (0-7, `0x412d14` and `0x412d34`), one for the car
       in the lead and one for the rest:
@@ -154,8 +155,8 @@ game's calls to it (`0x4131xx`-`0x4136c6`, `0x418990`):
 
     The place is the driver record's +0x2BC (`0x412d85`), 1 for the
     leader: the race order, numbered from 1 after sorting the cars
-    (`0x4553f2`). What the setting's values stand for (race types?)
-    wasn't followed;
+    (`0x4553f2`). So with one computer racer the music goes by laps,
+    and with two or more by the player's place;
   - and 0 whenever the car is slower than 25 (its speed field, × 2,
     under 50): standing still, the music stays calm.
 
