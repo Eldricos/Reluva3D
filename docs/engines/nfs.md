@@ -505,20 +505,51 @@ Started. Done so far:
     a tenth of a second from the cursor the game sees.
 
   Checked with `nfs-host -wav`, which pulls the stream every 10 ms as an
-  audio device would. The front end's music (`show2.mus`) came out equal,
+  audio device would (then by the wall clock; now by the game's, below).
+  The front end's music (`show2.mus`) came out equal,
   sample for sample, to Reluva's own decode of the file. Each second
   recorded held exactly one second of the song: nothing skipped or
   repeated. The race's countdown beeps and engine are heard too.
+
+  `-wav` records by the game's clock (`GameHost::recordSound`). Each time
+  the clock passes a 10 ms step (checked before each system call), the
+  host mixes the frames up to the next step, in the emulation's own
+  thread. Frame n is what plays at the game's millisecond n / 22.05.
+  Where the clock jumps, the frames before it are silence. So a
+  `-deterministic` run gives the same file each time, and two runs whose
+  instruction counts differ still line up by the game's time. Pulled by
+  the wall clock, as before, the file depended on the host's speed.
+  Checked: two stereo races with the same keys (5 billion instructions,
+  100 seconds of game time) gave identical files, 100.03 seconds long. The
+  Play page is unchanged: it pulls `soundStream()` from its audio device.
+
+  `-voices file.csv` logs what the game's mixer adds, each 100 ms of the
+  game's clock, taken in the native mixers (`native_sound.cpp`): the
+  energy going to L+R and to L-R, apart for voices whose two levels
+  have the same sign (front) and opposite signs (behind, in Dolby). The
+  mixer runs about 100 ms ahead of the recording (the best match of the
+  two series' L+R, correlation 0.97).
 
   Placement, surround and slow frames were checked on 200-second runs
   into a race (`nfs-host -native -wav`):
   - **Placement.** iSND pans and places sounds itself, inside the mix it
     writes, and nothing on the way to the speakers mixes the two channels
     together: the mixer gives both the same gain unless the stream is
-    panned. Measured in the stereo race, the side channel (left minus
-    right) is 10 to 14 dB below the middle; and for the last 90 seconds,
-    driving straight on, the right channel runs about 2 dB louder than
-    the left.
+    panned. How wide the mix is depends on what is playing. Measured
+    with `-wav` and `-voices` in a stereo race (`70000:+up`, the
+    accelerator held, 240 seconds):
+    - Driving, the side channel (left minus right) is 12.6 dB below the
+      middle (10 to 14.6 in 10-second spans), and left and right are
+      within 1 dB of each other. The mixer's own sums agree (-12.6 dB).
+    - Sitting at the start line, before the accelerator, the side is 1.8
+      dB above the middle: left and right are slightly opposite
+      (correlation -0.2). The mixer's sums say the same, from voices
+      whose levels all have the same sign, so it's in a stereo sound
+      itself.
+    - An earlier run found the race near 0 dB (-1.4). Its keys tapped
+      the accelerator for 100 ms, so the car never left the line: that
+      was the second case. The 2 dB louder right channel noted then
+      isn't in the driving race.
   - **The audio mode** is one byte at 0xc0 of
     `FeData/config/config.dat` (0x6fbc00 once loaded): 0 stereo, 1 mono,
     2 Dolby, 3 D3D/EAX. Found by stopping at 0x40fb44 (`-watch`), where
@@ -553,12 +584,34 @@ Started. Done so far:
       the mixer (0x520a8e) none. In Dolby, 505 of 2913 have opposite
       signs, the rear branches run 114 and 388 times, and 1554 of 4041
       mixer settings are opposite (the lowest level -19 of 127).
-    - The recordings can't show it by themselves. Decoded as a passive
-      decoder would (S = L-R, C = L+R, 100 ms windows), the race is near
-      0 dB S/C in both modes (-1.4 stereo, -1.2 Dolby): the stereo
-      sources fill S already. Nor can the two be subtracted: the mixing
-      changes the instruction count, so the races drift apart, and
-      `-wav` pulls by the wall clock.
+    - **How loud.** Measured on two races with the same keys (modes 0
+      and 2, `-deterministic 50000`, `70000:+up`, 240 seconds, from 72
+      seconds on), with `-voices` and `-wav` lined up by the game's time:
+      - 8,439 of 216,724 mixer calls in Dolby have opposite signs (none
+        in stereo). Voices behind play in 244 of 1,681 windows of 100 ms.
+      - Over the race, the voices behind have 18.4 dB less energy than
+        those in front. Their own L-R is 5.3 dB above their L+R (their
+        two levels differ, so some stays in L+R).
+      - Their L-R is 19.3 dB below the front's L+R, and 6.6 dB below the
+        front's own L-R: the stereo spread fills L-R more than they do.
+        That adds up to the recordings: S/C -12.6 dB in stereo, -11.8 in
+        Dolby.
+      - When the voices behind are loud, Dolby shows. Window by window,
+        at the same game moments: where they come within 10 dB of the
+        front (58 windows), S/C is -10.3 dB in stereo and -5.7 in Dolby;
+        within 10 to 20 dB (69 windows), -11.3 and -9.8; elsewhere the two
+        agree within 0.2 dB. In 3 windows they are louder than the front,
+        and there S/C reaches 0 dB (-3.8 in stereo).
+      - So a Pro Logic decoder would hardly steer to the rear. It steers
+        to the surround when L-R outweighs L+R, and in this race it never
+        clearly does. The sounds behind reach the surround speakers
+        through the matrix, about 19 dB under the front over the race,
+        and 5 to 10 dB under it at their loudest moments.
+    - Before `-wav` followed the game's clock, the recordings couldn't
+      be lined up at all. Even now they can't be subtracted: they are the
+      same, sample for sample, for the first 41 seconds, and then the
+      sounds' phases drift apart (no correlation at any lag up to 0.1
+      s), though their levels match window by window.
   - **D3D/EAX** (audio mode 3). Worked out from `eacsnd.dll`'s code and
     a race with the mode set:
     - The game asks for 3D only if the sound card has 3D buffers in
@@ -1161,9 +1214,10 @@ Allowed under CONTRIBUTING.md:
 - What sets the audio option at `0x6fbbe0` to 0, which drops the
   sounds at mixing quality 50 to nearest-sample resampling
   ([bnk.md](../formats/nfs/bnk.md)).
-- How loud the Dolby surround is in a recording: the rear sounds are
-  in opposite phase in the game's levels, but the race's stereo sources
-  hide them in L-R, and two races can't be lined up to subtract.
+- Which voices are the ones behind in a Dolby race (other cars, the
+  player's own?), and how a real Pro Logic decoder of the time (with its
+  surround delay and 7 kHz low-pass) would place them; only the matrix's
+  sums are measured.
 - The race types' names (0-3; 3 is the pursuit), the network modes 2-4,
   and the 32 Hz car-dynamics task `0x4a2830`
   ([nfs-threads.md](nfs-threads.md)).

@@ -28,7 +28,6 @@
 #include <algorithm>
 #include <bit>
 #include <cmath>
-#include <atomic>
 #include <cctype>
 #include <chrono>
 #include <cstdlib>
@@ -72,7 +71,7 @@ const char* const kUsageLines =
     "                       [-frames dir] [-every N] [-framesfrom N] [-watch address]... [-watchlimit 50] [-watchmem address size]\n"
     "                       [-slice instructions] [-dump memory.bin] [-keys ms:key,...]\n"
     "                       (keys: enter, up, a..., kp0-kp9, click, moveDX/DY) [-framelog frames.csv]\n"
-    "                       [-timescale 0.1] [-thrashlog fromframe toframe] [-native] [-wav sound.wav]\n"
+    "                       [-timescale 0.1] [-thrashlog fromframe toframe] [-native] [-wav sound.wav] [-voices voices.csv]\n"
     "                       [-joystick name] (keys also joy:A=V...: axes 0-5 = V, button bB; +key/-key held)\n"
     "                       [-wheel] [-ff] (the joystick a wheel; with force feedback) [-forcelog forces.csv]\n"
     "                       [-net] (the network) [-netaddr a.b.c.d] [-broadcast a.b.c.d,...]\n"
@@ -1004,6 +1003,7 @@ int cmdNfsHost(int argc, char** argv) {
     std::string keyScript;                   // "ms:key,ms:key...": each pressed for 100 ms
     std::string frameLogFile;                // each frame's time and instructions, as CSV
     std::string wavFile;                     // what the game's sound buffers played
+    std::string voicesFile; // what the game's mixer adds, front and behind, each 100 ms (CSV)
     uint64_t hotFrom = 0, hotTo = 0;         // instructions counted by where they run, over this range
     bool gpuLog = false;
     uint64_t gpuDumpList = 0; // a list (1 the first) written out in full
@@ -1049,6 +1049,8 @@ int cmdNfsHost(int argc, char** argv) {
             frameLogFile = argv[++a];
         else if (arg == "-wav" && a + 1 < argc)
             wavFile = argv[++a];
+        else if (arg == "-voices" && a + 1 < argc)
+            voicesFile = argv[++a];
         else if (arg == "-hotspots" && a + 2 < argc) {
             hotFrom = std::strtoull(argv[++a], nullptr, 10);
             hotTo = std::strtoull(argv[++a], nullptr, 10);
@@ -1278,34 +1280,19 @@ int cmdNfsHost(int argc, char** argv) {
     if (Error err = host.load())
         return fail(err);
     uint32_t exitCode = 0;
-    // The sound, pulled as an audio device would: every 10 ms, what has
-    // played since.
+    // The sound, by the game's clock (GameHost::recordSound).
     reluva::audio::Sound sound;
     sound.rate = 22050;
     sound.channels = 2;
-    std::atomic<bool> running{true};
-    std::thread soundThread;
     if (!wavFile.empty())
-        soundThread = std::thread([&] {
-            auto stream = host.soundStream();
-            const auto t0 = std::chrono::steady_clock::now();
-            size_t pulled = 0;
-            while (running) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                const double s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
-                const size_t due = size_t(s * sound.rate);
-                if (due <= pulled)
-                    continue;
-                sound.samples.resize(due * 2);
-                stream->read(sound.samples.data() + pulled * 2, int(due - pulled), sound.rate);
-                pulled = due;
-            }
-        });
+        host.recordSound(&sound.samples, sound.rate);
+    std::vector<reluva::nfs::GameHost::VoiceEnergy> voices;
+    if (!voicesFile.empty())
+        host.logVoices(&voices, 100);
     const auto start = std::chrono::steady_clock::now();
     const Error err = host.run(exitCode);
-    running = false;
-    if (soundThread.joinable()) {
-        soundThread.join();
+    if (!wavFile.empty()) {
+        host.recordSound(nullptr, 0);
         writeFile(wavFile, reluva::audio::encodePcmWav(sound));
         const auto stats = host.soundStats();
         std::printf("sound: %llu blocks of 256 bytes played, %llu of them again without being written since "
@@ -1321,6 +1308,17 @@ int cmdNfsHost(int argc, char** argv) {
                 std::printf(" %llus:%d", (unsigned long long)second, n);
             std::printf("\n");
         }
+    }
+    if (!voicesFile.empty()) {
+        host.logVoices(nullptr, 0);
+        std::string csv = "ms,calls,rear calls,front L+R,front L-R,rear L+R,rear L-R\n";
+        char line[200];
+        for (const auto& v : voices) {
+            std::snprintf(line, sizeof line, "%llu,%u,%u,%.4g,%.4g,%.4g,%.4g\n", (unsigned long long)v.ms, v.calls,
+                          v.rearCalls, v.frontC, v.frontS, v.rearC, v.rearS);
+            csv += line;
+        }
+        writeFile(voicesFile, std::vector<uint8_t>(csv.begin(), csv.end()));
     }
     if (options.instructionsPerMs) {
         // The state the run ended in, for comparing builds: memory and

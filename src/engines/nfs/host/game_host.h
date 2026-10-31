@@ -195,8 +195,27 @@ public:
     // Fills `frames` stereo frames at `rate` with what the playing buffers
     // hold at their play cursors, from any thread.
     void mixSound(int16_t* out, int frames, int rate);
+    // Records the sound by the game's clock (-wav): each time the clock
+    // passes a 10 ms step, the frames up to the next step are mixed, in
+    // the emulation's thread, onto `to` (stereo, `rate` a second). Frame
+    // n is then what plays at the game's millisecond n * 1000 / rate, so
+    // runs with the same input line up even when their instruction counts
+    // differ. Null stops it.
+    void recordSound(std::vector<int16_t>* to, int rate);
+    // What the game's own mixer (native_sound.cpp) adds to its mix, by
+    // window of the game's clock (-voices): the energy (sum of squares, in
+    // 16-bit units) going to L+R and to L-R, for voices whose two levels
+    // have the same sign (front) and for those with opposite signs (behind,
+    // in Dolby). Mixed ahead of the play cursor, by the game's lead.
+    struct VoiceEnergy {
+        uint64_t ms = 0;
+        uint32_t calls = 0, rearCalls = 0;
+        double frontC = 0, frontS = 0, rearC = 0, rearS = 0;
+    };
+    void logVoices(std::vector<VoiceEnergy>* to, uint32_t windowMs);
 
 private:
+    void recordSoundDue(uint64_t nowMs);
     struct Message {
         uint32_t hwnd = 0, message = 0, wParam = 0, lParam = 0, time = 0;
     };
@@ -402,6 +421,12 @@ private:
     std::mutex soundMutex_; // soundBuffers_, between the game and the audio thread
     std::vector<int32_t> soundMix_;
     SoundStats soundStats_;
+    std::vector<VoiceEnergy>* voiceLog_ = nullptr; // logVoices'
+    uint32_t voiceWindowMs_ = 100;
+    void voiceMixed(bool rear, double c, double s, uint32_t calls);
+    std::vector<int16_t>* soundRecord_ = nullptr; // recordSound's
+    int soundRecordRate_ = 0;
+    uint64_t soundRecordNextMs_ = 0; // when the next step is due
     std::map<uint32_t, DsBuffer> soundBuffers_;
     uint32_t soundBufferVtable_ = 0;
 };

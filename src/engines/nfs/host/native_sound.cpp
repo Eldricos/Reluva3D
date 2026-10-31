@@ -86,22 +86,38 @@ uint32_t resample(Cpu& c, const Resampler& r, bool stereo) {
 // times that side's gain (gains[0] left, gains[1] right), or as it is
 // (full volume), or not at all (silent).
 enum class Side { Off, Full, Scaled };
-uint32_t mix(Cpu& c, bool stereoSource, Side left, Side right) {
+// What a call added, for GameHost::logVoices: the energy to L+R and L-R,
+// and whether its two gains have opposite signs.
+struct Added {
+    double c = 0, s = 0;
+    bool rear = false;
+};
+uint32_t mix(Cpu& c, bool stereoSource, Side left, Side right, Added* added = nullptr) {
     const uint32_t gains = arg(c, 0), src = arg(c, 2), dst = arg(c, 3);
     const int32_t count = int32_t(arg(c, 1));
     const double gainLeft = loadFloat(c, gains), gainRight = loadFloat(c, gains + 4);
     const uint32_t stride = stereoSource ? 8 : 4, rightOffset = stereoSource ? 4 : 0;
     for (int32_t i = 0; i < count; ++i) {
         const uint32_t from = src + uint32_t(i) * stride, to = dst + uint32_t(i) * 8;
+        double l = 0, r = 0;
         if (left != Side::Off) {
             const double s = loadFloat(c, from);
-            storeFloat(c, to, (left == Side::Scaled ? s * gainLeft : s) + double(loadFloat(c, to)));
+            l = left == Side::Scaled ? s * gainLeft : s;
+            storeFloat(c, to, l + double(loadFloat(c, to)));
         }
         if (right != Side::Off) {
             const double s = loadFloat(c, from + rightOffset);
-            storeFloat(c, to + 4, (right == Side::Scaled ? s * gainRight : s) + double(loadFloat(c, to + 4)));
+            r = right == Side::Scaled ? s * gainRight : s;
+            storeFloat(c, to + 4, r + double(loadFloat(c, to + 4)));
+        }
+        if (added) {
+            added->c += (l + r) * (l + r);
+            added->s += (l - r) * (l - r);
         }
     }
+    if (added)
+        added->rear = (left == Side::Scaled && gainLeft < 0) != (right == Side::Scaled && gainRight < 0) &&
+                      left != Side::Off && right != Side::Off;
     return 0;
 }
 
@@ -173,13 +189,40 @@ void GameHost::addNativeSound() {
     for (const Mixer& m : mixers) {
         const bool stereoSource = m.stereoSource;
         const Side left = m.left, right = m.right;
-        replaceRoutine(m.address, m.size, m.hash, m.name,
-                       [stereoSource, left, right](Cpu& c) { return mix(c, stereoSource, left, right); });
+        replaceRoutine(m.address, m.size, m.hash, m.name, [this, stereoSource, left, right](Cpu& c) {
+            if (!voiceLog_)
+                return mix(c, stereoSource, left, right);
+            Added added;
+            const uint32_t pop = mix(c, stereoSource, left, right, &added);
+            voiceMixed(added.rear, added.c, added.s, 1);
+            return pop;
+        });
     }
 
     // The mix to 16 bits.
     replaceRoutine(0x521d00, 115, 0x25d2ab7032489a2full, "nfs3.exe mix to 16 bits",
                    [](Cpu& c) { return toInt16(c, 0x55188c); });
+}
+
+void GameHost::logVoices(std::vector<VoiceEnergy>* to, uint32_t windowMs) {
+    voiceLog_ = to;
+    voiceWindowMs_ = windowMs ? windowMs : 100;
+}
+
+void GameHost::voiceMixed(bool rear, double c, double s, uint32_t calls) {
+    const uint64_t window = process_->now() / voiceWindowMs_ * voiceWindowMs_;
+    if (voiceLog_->empty() || voiceLog_->back().ms != window)
+        voiceLog_->push_back({window});
+    VoiceEnergy& e = voiceLog_->back();
+    e.calls += calls;
+    if (rear) {
+        e.rearCalls += calls;
+        e.rearC += c;
+        e.rearS += s;
+    } else {
+        e.frontC += c;
+        e.frontS += s;
+    }
 }
 
 } // namespace reluva::nfs

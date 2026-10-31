@@ -100,6 +100,11 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
     cpu_->nativeTrace = [this](Cpu& cpu, const std::string& name) {
         if (inputQueued_.load(std::memory_order_relaxed))
             applyInput();
+        if (soundRecord_) {
+            const uint64_t now = process_->now();
+            if (now >= soundRecordNextMs_)
+                recordSoundDue(now);
+        }
         if (logged_ >= options_.callLog)
             return;
         const bool routine = name.find("CriticalSection") != std::string::npos || name.find("Tls") != std::string::npos ||

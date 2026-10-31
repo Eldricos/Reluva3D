@@ -1149,6 +1149,32 @@ void GameHost::mixSound(int16_t* out, int frames, int rate) {
         out[i] = int16_t(std::clamp<int32_t>(soundMix_[i], -32768, 32767));
 }
 
+void GameHost::recordSound(std::vector<int16_t>* to, int rate) {
+    soundRecord_ = to;
+    soundRecordRate_ = rate;
+    soundRecordNextMs_ = 0;
+}
+
+void GameHost::recordSoundDue(uint64_t nowMs) {
+    // From now to the next step: the play cursors are at now, and what lies
+    // just ahead of them the game has written already. Pulled so, the
+    // stream's own pace stays on the cursors. Where the clock jumped (no
+    // system call for a while), the frames before now are silence: what
+    // they held is gone, and the frames stay on the clock.
+    const uint64_t step = 10;
+    const uint64_t rate = uint64_t(soundRecordRate_);
+    const uint64_t untilMs = nowMs / step * step + step;
+    soundRecordNextMs_ = untilMs;
+    const size_t at = size_t(nowMs * rate / 1000), due = size_t(untilMs * rate / 1000);
+    if (soundRecord_->size() / 2 < at)
+        soundRecord_->resize(at * 2, 0);
+    const size_t have = soundRecord_->size() / 2;
+    if (due <= have)
+        return;
+    soundRecord_->resize(due * 2);
+    mixSound(soundRecord_->data() + have * 2, int(due - have), soundRecordRate_);
+}
+
 namespace {
 
 float asFloat(uint32_t bits) {
