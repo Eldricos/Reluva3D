@@ -153,8 +153,9 @@ London's `sp_traflitsingle_ped_l`, a pole; San Francisco's file names
 none, so Reluva uses `sp_traflitsingle_f` and, where more than two lanes
 meet at the end, `sp_traflitdual_f`, whose arm is longer. The points are
 placed for traffic keeping right; in London, which keeps left, Reluva
-stands the pole on the other curb. Whether that's what the game does
-isn't known.
+stands the pole on the other curb, as the game does: in the gameplay
+footage London's poles stand on the left curb
+([age-footage.md](age-footage.md)).
 
 A light's body is modelled about its middle and its glows as if it stood
 on its origin ([pkg.md](../formats/age/pkg.md)); stood on the ground,
