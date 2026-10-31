@@ -55,6 +55,8 @@ void FrontEnd::netShow(Screen s) {
                 dialog_->setVisibleAt(i, false);
             for (int id = 3; id <= 12; ++id)
                 dialog_->setVisible(id, false);
+            // The row of boxes behind them is in the window's picture:
+            // covered as it's drawn (FrontEnd::update).
             dialog_->setText(0, netMessage_.empty() ? std::string() : netMessage_);
             netMessage_.clear();
         }

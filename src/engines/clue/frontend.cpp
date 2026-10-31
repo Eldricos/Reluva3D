@@ -13,6 +13,7 @@
 #include "common/fs.h"
 
 #include <algorithm>
+#include <cstring>
 #include <fstream>
 #include <iterator>
 #include <sstream>
@@ -24,6 +25,11 @@ namespace {
 constexpr int kW = 640, kH = 480;
 // The game's bar: the view of the mansion is above it.
 constexpr int kBarTop = 413;
+// The Host Game window's row of boxes for the number of players, in its
+// picture (menu:Ihostgmbg): covered when the window joins by address, by
+// the Exit window's picture (menu:Iexitbgnd), the same circle there
+// without them (and the same around them).
+constexpr int kCoverX = 218, kCoverY = 269, kCoverW = 203, kCoverH = 29;
 
 // dialogInfo.res's dialogs, by number.
 enum Dialog {
@@ -46,6 +52,13 @@ const char* const kPrefKey[Preferences::kSwitches] = {"suggest_movies", "lightin
 std::vector<uint8_t> readFile(const std::filesystem::path& p) {
     std::ifstream in(p, std::ios::binary);
     return {std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
+}
+
+// Copies the image's (x, y, w, h) to the same place on the screen.
+void copyRect(Surface& s, const image::Image& img, int x, int y, int w, int h) {
+    for (int py = std::max(y, 0); py < std::min({y + h, img.h, s.h}); ++py)
+        for (int px = std::max(x, 0); px < std::min({x + w, img.w, s.w}); ++px)
+            std::memcpy(s.pixels.data() + size_t(py) * size_t(s.pitch) + size_t(px) * 4, img.pixel(px, py), 4);
 }
 
 } // namespace
@@ -920,6 +933,9 @@ void FrontEnd::update(uint64_t nowMs) {
         if (dialog_) {
             // The storm goes between the menu's background and its controls.
             dialog_->drawBackground(screen_);
+            if (at_ == Screen::NetAddress)
+                if (const Image* cover = data_.image("menu:Iexitbgnd"))
+                    copyRect(screen_, cover->pixels, kCoverX, kCoverY, kCoverW, kCoverH);
             if (at_ != Screen::Picker && at_ != Screen::Setup && at_ != Screen::NetLobby && at_ != Screen::NetSetup &&
                 at_ != Screen::NetMessage) {
                 drawStorm();

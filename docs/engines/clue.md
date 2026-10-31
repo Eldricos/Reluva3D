@@ -311,7 +311,12 @@ Start Game, **Networked**, then:
   the Zone closed in 2006): **Host New Game** as above, and tell the
   others your address; **Join Game** asks for the host's address,
   `a.b.c.d`, `a.b.c.d:port` or a name. The host's router must forward
-  UDP port 23398 to the host's machine.
+  UDP port 23398 to the host's machine. That window is the Host Game
+  window (the original has none of its own), relabelled, without the
+  number of players: its row of boxes for them is in its picture
+  (`menu:Ihostgmbg`), so Reluva covers it with the same piece of the Exit
+  window's picture (`menu:Iexitbgnd`), the plain circle there, as both
+  pictures are the same around it.
 
 Then the original's players' picker, with its chat line (type, Enter or
 the telephone sends it). Each player clicks a suspect to take it (again
