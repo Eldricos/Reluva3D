@@ -325,8 +325,12 @@ In the game each machine shows its own player's cards and notepad, and
 only its own player's turns take clicks. A player who leaves (or whose
 machine stops answering for 15 s) is played on by a Normal computer
 player; if the host leaves, the others see "The Host Has Disconnected"
-and the game ends. Saving isn't offered in network games. The Esc menu
-doesn't pause the others: the game catches up when it's closed.
+and the game ends. Saving isn't offered in network games.
+
+**Unlike the original:** its readme says the host's "Suggest Movies" and
+"Walk Animations" settings apply to every player in a network game. In
+Reluva each player's own preferences apply on their own machine: whether
+one watches the videos or the walks changes nothing for the others.
 
 **How it works.** UDP, port 23398. Datagrams begin `CLU` and a version.
 Finding games: a broadcast "ask", each host answering with its game's
@@ -364,7 +368,13 @@ network play of the original. Not planned unless it's wanted.
 
 The game opens with its intro (a key or a click skips it), then its
 menus, as the original. In the game, the arrow keys move the view
-(**Shift**: faster) and **Esc** opens the game's menu. The preferences
+(**Shift**: faster) and **Esc** opens the game's menu: Save, Preferences,
+How To Play, Exit To Main (which asks "Are you sure you want to exit the
+current game?" first, the original's dialog 44), Continue. The game
+doesn't stop for it, as the original's doesn't: in the recordings
+computer players play on behind it ("The Classic" 46:48-47:03, a whole
+turn; Playthrough 01 4:45-4:50 and 17:25-17:32), and in network games so
+does everyone else. The preferences
 are saved in Reluva's folder for the game (`preferences.ini`). As the VM
 recording shows them: "Translucency" on draws the nearest walls
 see-through, off leaves them out (the lounge's near wall gone between

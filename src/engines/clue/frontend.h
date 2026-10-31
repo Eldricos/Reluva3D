@@ -62,12 +62,16 @@ public:
 private:
     enum class Screen {
         Intro, MainMenu, StartChoice, Connection, NetGame, LoadGame, RulesMenu, Rules, Credits, CreditsText,
-        Exit, Picker, Setup, Variants, Prefs, Loading, Deal, Game, GameMenu, SaveGame,
+        Exit, Picker, Setup, Variants, Prefs, Loading, Deal, Game, GameMenu, SaveGame, ExitConfirm,
         // Network play (frontend_net.cpp).
         NetHost, NetJoin, NetAddress, NetLobby, NetSetup, NetMessage
     };
 
     void go(Screen s);
+    // A window of the Esc menu's, over the game.
+    bool overGame() const {
+        return at_ == Screen::GameMenu || at_ == Screen::SaveGame || at_ == Screen::ExitConfirm;
+    }
     void onClick(int id);
     void showDialog(int id, int x = 0, int y = 0);
     void refreshPicker();

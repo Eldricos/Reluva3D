@@ -29,7 +29,7 @@ constexpr int kBarTop = 413;
 enum Dialog {
     kMainMenu = 1, kStartChoice = 2, kLoadGame = 3, kRulesMenu = 4, kRules = 5, kCredits = 6, kExit = 7,
     kConnection = 9, kNetGame = 10, kCreditsText = 14, kVariants = 15, kPicker = 17, kSetupFirst = 18,
-    kPrefs = 24, kLoading = 26, kGameMenu = 35, kSaveGame = 36,
+    kPrefs = 24, kLoading = 26, kGameMenu = 35, kSaveGame = 36, kExitConfirm = 44,
 };
 // Controls most dialogs share.
 constexpr int kReturn = 10000, kOk = 10001;
@@ -137,7 +137,7 @@ void FrontEnd::leave() {
 void FrontEnd::resume() {
     sys_.setWindowTitle("Clue: Murder at Boddy Mansion");
     sys_.setMouseCursorVisible(false);
-    if (at_ == Screen::Game || at_ == Screen::GameMenu || at_ == Screen::SaveGame)
+    if (at_ == Screen::Game || overGame())
         playMusic(true);
     else if (at_ != Screen::Intro && at_ != Screen::Deal)
         playMusic(false);
@@ -269,6 +269,13 @@ void FrontEnd::go(Screen s) {
             gameMenu_ = std::make_unique<DialogView>(data_, *fonts_, *d, (kW - 231) / 2, (kBarTop - 395) / 2);
             // Save: when it's a human's turn and nothing is going on.
             gameMenu_->setEnabled(0, play_ && play_->canSave() && !savesFolder().empty());
+        }
+        break;
+    case Screen::ExitConfirm:
+        // "Are you sure you want to exit the current game?" Yes, No.
+        if (const ResiDialog* d = resi_.dialog(kExitConfirm)) {
+            gameMenu_ = std::make_unique<DialogView>(data_, *fonts_, *d, (kW - 231) / 2, (kBarTop - 395) / 2);
+            gameMenu_->setVisible(1, false); // its other question: "Would you like to save ...?"
         }
         break;
     case Screen::SaveGame:
@@ -510,7 +517,18 @@ void FrontEnd::onClick(int id) {
             go(Screen::Game);
         else if (id == 0)
             go(Screen::SaveGame);
-        else if (id == 3) {
+        else if (id == 3)
+            go(Screen::ExitConfirm);
+        else if (id == 1) {
+            prefsReturn_ = Screen::GameMenu;
+            go(Screen::Prefs);
+        } else if (id == 2) {
+            rulesReturn_ = Screen::GameMenu;
+            go(Screen::RulesMenu);
+        }
+        break;
+    case Screen::ExitConfirm:
+        if (id == kOk) {
             stopMusic();
             if (play_)
                 play_->stopSounds();
@@ -519,13 +537,8 @@ void FrontEnd::onClick(int id) {
                 netLeave();
             else
                 go(Screen::MainMenu);
-        } else if (id == 1) {
-            prefsReturn_ = Screen::GameMenu;
-            go(Screen::Prefs);
-        } else if (id == 2) {
-            rulesReturn_ = Screen::GameMenu;
-            go(Screen::RulesMenu);
-        }
+        } else if (id == kReturn)
+            go(Screen::GameMenu);
         break;
     case Screen::SaveGame:
         if (id >= 2 && id < 2 + kSaveSlots) {
@@ -543,7 +556,7 @@ void FrontEnd::onClick(int id) {
             gameMenu_->focus(10 + saveSlot_);
             gameMenu_->setEnabled(1, true);
             sys_.setTextInput(true);
-        } else if (id == 1 && saveSlot_ >= 0) {
+        } else if (id == 1 && saveSlot_ >= 0 && play_ && play_->canSave()) {
             sys_.setTextInput(false);
             saveGame(saveSlot_, gameMenu_->text(10 + saveSlot_));
             go(Screen::Game);
@@ -634,11 +647,11 @@ void FrontEnd::handleEvent(const Event& ev) {
             play_->handleEvent(ev);
         return;
     }
-    if (at_ == Screen::GameMenu || at_ == Screen::SaveGame) {
+    if (overGame()) {
         if (ev.type == EventType::KeyDown && ev.key == key::Escape) {
             if (at_ == Screen::SaveGame)
                 sys_.setTextInput(false);
-            go(at_ == Screen::SaveGame ? Screen::GameMenu : Screen::Game);
+            go(at_ == Screen::GameMenu ? Screen::Game : Screen::GameMenu);
             return;
         }
         if (ev.type == EventType::KeyDown && ev.key == key::Return && at_ == Screen::SaveGame) {
@@ -855,7 +868,7 @@ void FrontEnd::update(uint64_t nowMs) {
     }
     // The game's music goes on to its next track: 2, 3, 4, 2 ...
     if (musicInGame_ && mixer_ && music_ != audio::kNoSound && !mixer_->isPlaying(music_) &&
-        (at_ == Screen::Game || at_ == Screen::GameMenu || at_ == Screen::SaveGame))
+        (at_ == Screen::Game || overGame()))
         playTrack(musicTrack_ == 4 ? 2 : musicTrack_ + 1);
     if (at_ == Screen::Loading) {
         // Shown while the mansion is put together, then the deal.
@@ -876,10 +889,18 @@ void FrontEnd::update(uint64_t nowMs) {
         go(loadSlot_ >= 0 ? Screen::Game : Screen::Deal);
         return;
     }
-    if ((at_ == Screen::Game || at_ == Screen::GameMenu || at_ == Screen::SaveGame) && play_) {
+    // The game goes on behind the Esc menu and what it opens, as the
+    // original's does (its computer players play on; recordings show it).
+    const bool behind = overGame() || (prefsReturn_ == Screen::GameMenu && at_ == Screen::Prefs) ||
+                        (rulesReturn_ == Screen::GameMenu && (at_ == Screen::RulesMenu || at_ == Screen::Rules));
+    if (play_ && (at_ == Screen::Game || behind)) {
         play_->setLook(playLook());
-        if (at_ == Screen::Game)
-            play_->update(nowMs);
+        play_->update(nowMs);
+    }
+    // Save as the game stands now (it goes on behind the menu).
+    if (at_ == Screen::GameMenu && gameMenu_ && play_)
+        gameMenu_->setEnabled(0, play_->canSave() && !savesFolder().empty());
+    if ((at_ == Screen::Game || overGame()) && play_) {
         if (play_->finished()) {
             // The game over: back to the main menu, as the original.
             play_->stopSounds();
@@ -892,7 +913,7 @@ void FrontEnd::update(uint64_t nowMs) {
             return;
         }
         play_->draw();
-        if ((at_ == Screen::GameMenu || at_ == Screen::SaveGame) && gameMenu_)
+        if (overGame() && gameMenu_)
             gameMenu_->draw(screen_);
     } else {
         fillRect(screen_, 0, 0, kW, kH, {0, 0, 0});
