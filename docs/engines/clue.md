@@ -275,7 +275,10 @@ view's middle, louder the nearer (full within 150 pixels, none beyond
 
 From the Esc menu, **Save** (when it's a human's turn and nothing is
 going on) opens the original's Save window: eight slots; click one,
-type its name, OK (or Enter). **Load Game** on the main menu lists them;
+type its name, OK (or Enter). **Load Game** on the main menu lists them
+(as the original's, from screenshots: each name in the small font,
+centred in its slot; an empty slot lights under the pointer but does
+nothing);
 choosing one goes into the mansion and on from where it was saved,
 without the deal.
 
@@ -604,11 +607,6 @@ A recording of the original 2.2 in a virtual machine, made for Reluva
 accusation and the end (7:30-7:53), a whole game won by a computer
 player (8:20-23:48), and a game of humans where one accuses wrongly and
 chooses how to go on disproving (24:00-27:40).
-
-## Reference screenshots still wanted
-
-1. The Load Game screen with saved games in it (none of the recordings
-   shows it), and the Save window.
 
 ## Reference recordings
 

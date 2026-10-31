@@ -178,12 +178,10 @@ void FrontEnd::go(Screen s) {
     case Screen::NetMessage: netShow(s); break;
     case Screen::LoadGame:
         showDialog(kLoadGame);
-        // The saved games, by their names; the empty slots can't be chosen.
-        for (int slot = 0; slot < kSaveSlots; ++slot) {
-            const std::string name = savedName(slot);
-            dialog_->setText(slot, name);
-            dialog_->setEnabled(slot, !name.empty());
-        }
+        // The saved games, by their names; the empty slots light up under
+        // the pointer all the same, as the original's do, but do nothing.
+        for (int slot = 0; slot < kSaveSlots; ++slot)
+            dialog_->setText(slot, savedName(slot));
         break;
     case Screen::RulesMenu: showDialog(kRulesMenu); break;
     case Screen::Rules:
@@ -534,7 +532,7 @@ void FrontEnd::onClick(int id) {
         }
         break;
     case Screen::LoadGame:
-        if (id >= 0 && id < kSaveSlots) {
+        if (id >= 0 && id < kSaveSlots && !savedName(id).empty()) {
             loadSlot_ = id;
             play_.reset();
             go(Screen::Loading);
