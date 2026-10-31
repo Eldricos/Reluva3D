@@ -390,6 +390,9 @@ void ScenePage::releaseGpu() {
         for (auto& [o, t] : aloneTextures_)
             if (t.texture)
                 renderer_->destroyTexture(t.texture);
+        for (auto& [name, t] : pointTextures_)
+            if (t)
+                renderer_->destroyTexture(t);
         if (quad_)
             renderer_->destroyMesh(quad_);
     }
@@ -397,6 +400,7 @@ void ScenePage::releaseGpu() {
     frameTextures_.clear();
     layers_.clear();
     aloneTextures_.clear();
+    pointTextures_.clear();
     characterOrder_.clear();
     quad_ = 0;
 }
@@ -882,6 +886,93 @@ void ScenePage::drawParticles(const ParticleSystem& system, bool keepAlpha) {
     }
 }
 
+void ScenePage::drawPointSprites(const ParticleSystem& system) {
+    // drawParticles' squares as quads for the GPU, one mesh for the frame:
+    // the texture (nearest, as the game's point sprites sample it) times
+    // each particle's colour, added or blended by its alpha.
+    const ParticleSettings& s = system.settings();
+    const Ac2Record* camr = scene_.camera();
+    if (!camr && !s.screenSpace)
+        return;
+    const SceneCamera cam = camr ? SceneCamera::fromRecord(*camr) : SceneCamera();
+    const gfx::Vec3 eye = cam.eye();
+    std::vector<ParticleSystem::Point> points;
+    system.points(points);
+    std::vector<gfx::Vertex> verts;
+    std::vector<uint32_t> indices;
+    for (const ParticleSystem::Point& p : points) {
+        float x, y, distance;
+        if (s.screenSpace) {
+            x = float(kScreenW) / 2 + p.position[0];
+            y = float(kScreenH) / 2 - p.position[1];
+            distance = std::sqrt(p.position[0] * p.position[0] + p.position[1] * p.position[1] +
+                                 p.position[2] * p.position[2]);
+        } else {
+            if (!cam.project(p.position, kScreenW, kScreenH, x, y))
+                continue;
+            const float d[3] = {p.position[0] - eye[0], p.position[1] - eye[1], p.position[2] - eye[2]};
+            distance = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+        }
+        const float size = std::min(64.0f, distance > 0 ? s.size * float(kScreenH) / distance : 64.0f);
+        if (size <= 0)
+            continue;
+        const float l = 2 * (x - size / 2) / kScreenW - 1, r = 2 * (x + size / 2) / kScreenW - 1;
+        const float t = 1 - 2 * (y - size / 2) / kScreenH, b = 1 - 2 * (y + size / 2) / kScreenH;
+        const float corners[4][4] = {{l, t, 0, 0}, {r, t, 1, 0}, {r, b, 1, 1}, {l, b, 0, 1}};
+        const uint32_t base = uint32_t(verts.size());
+        for (const auto& c : corners) {
+            gfx::Vertex v{};
+            v.pos[0] = c[0], v.pos[1] = c[1], v.pos[2] = 0.5f;
+            v.uv[0] = c[2], v.uv[1] = c[3];
+            std::copy(p.rgba, p.rgba + 4, v.color);
+            verts.push_back(v);
+        }
+        for (uint32_t i : {0u, 2u, 1u, 0u, 3u, 2u})
+            indices.push_back(base + i);
+    }
+    if (verts.empty())
+        return;
+    // Its texture, made once; the soft white dot if it isn't there.
+    gfx::TextureId& tex = pointTextures_[s.texture];
+    if (!tex) {
+        image::Image img = picture(s.texture);
+        if (img.w <= 0) {
+            img.w = img.h = 16;
+            img.rgba.assign(16 * 16 * 4, 255);
+            for (int y = 0; y < 16; y++)
+                for (int x = 0; x < 16; x++) {
+                    const float dx = (float(x) - 7.5f) / 8, dy = (float(y) - 7.5f) / 8;
+                    img.rgba[size_t(y * 16 + x) * 4 + 3] =
+                        uint8_t(255 * std::clamp(1 - std::sqrt(dx * dx + dy * dy), 0.0f, 1.0f));
+                }
+        }
+        gfx::TextureParams params;
+        params.clamp = true;
+        params.mipmaps = false;
+        params.nearest = true;
+        renderer_->createTexture(img.w, img.h, img.rgba.data(), params, tex);
+    }
+    gfx::MeshId mesh = 0;
+    if (renderer_->createMesh(verts, indices, mesh))
+        return;
+    frameMeshes_.push_back(mesh);
+    gfx::DrawCall call;
+    call.mesh = mesh;
+    call.indexCount = uint32_t(indices.size());
+    call.texture = tex;
+    call.rgbSource = call.alphaSource = gfx::ColorSource::Vertex;
+    // The pictures' brightness (applyBrightness's slope).
+    const float bright = float(32 * brightnessLevel() + 97) / 257.0f;
+    call.color = {bright, bright, bright, 1};
+    call.state.src = s.alphaBlend ? gfx::Blend::SrcAlpha : gfx::Blend::One;
+    call.state.dst = s.alphaBlend ? gfx::Blend::OneMinusSrcAlpha : gfx::Blend::One;
+    call.state.depthTest = false;
+    call.state.depthWrite = false;
+    call.state.cull = gfx::Cull::None;
+    renderer_->setView(gfx::identity(), {0, 0, 0});
+    renderer_->draw(call);
+}
+
 void ScenePage::loadLoops() {
     if (!drawing_)
         return; // (only seen)
@@ -1269,11 +1360,14 @@ void ScenePage::draw() {
             PictureLayer& layer = layers_[k];
             std::vector<const Ac2Record*> in;
             bool allReset = true, anyAlone = false;
+            // Particles are drawn by the GPU as the game's point sprites,
+            // between the pictures put together, as they move every frame.
+            auto separate = [&](const Ac2Record* o) { return alone(o) || particles_.count(o) != 0; };
             for (size_t p = 0; p < pictures.size(); p++)
                 if (layerOfPicture[p] == k) {
                     in.push_back(pictures[p]);
                     allReset &= resetsShadows(pictures[p]);
-                    anyAlone |= alone(pictures[p]);
+                    anyAlone |= separate(pictures[p]);
                 }
             // A character's breath, drawn just after it (0x425e48); none
             // with "Particle Effects" off.
@@ -1308,17 +1402,16 @@ void ScenePage::draw() {
                 }
             };
             // Put together again only when what's in it has changed: which
-            // pictures; always with particles or the options screen's
-            // sliders. Most draws (the mouse moving, a line said, a cloud
+            // pictures; always with the options screen's sliders. Most draws (the mouse moving, a line said, a cloud
             // moving on) change none of them.
             std::string key;
             {
                 auto put = [&key](const auto& v) { key.append(reinterpret_cast<const char*>(&v), sizeof v); };
                 put(layersMade_), put(brightnessLevel()), put(shadows);
-                bool remade = breath != nullptr || optionsMenu_;
+                put(breath);
+                const bool remade = optionsMenu_ != nullptr;
                 for (const Ac2Record* o : in) {
                     put(o);
-                    remade |= particles_.count(o) != 0;
                     if (const auto ov = overrides_.find(o); ov != overrides_.end())
                         put(ov->second.x), put(ov->second.y), put(ov->second.roll), put(ov->second.cx),
                             put(ov->second.cy), put(ov->second.tint);
@@ -1361,8 +1454,21 @@ void ScenePage::draw() {
             // others over what's behind.
             size_t next = 0;
             bool first = true;
-            while (next < in.size() || (first && breath)) {
-                if (!(first && breath) && next < in.size() && alone(in[next])) {
+            if (breath) {
+                PictureLayer::Part part;
+                part.particles = breath;
+                layer.parts.push_back(part);
+            }
+            while (next < in.size()) {
+                if (const auto ps = particles_.find(in[next]); ps != particles_.end()) {
+                    PictureLayer::Part part;
+                    part.particles = &ps->second;
+                    layer.parts.push_back(part);
+                    next++;
+                    first = false;
+                    continue;
+                }
+                if (alone(in[next])) {
                     PictureLayer::Part part;
                     part.alone = in[next++];
                     const image::Image& img = imageOf(part.alone);
@@ -1378,9 +1484,7 @@ void ScenePage::draw() {
                     clear(0, 0, 0);
                 else
                     std::fill(ctx_.screen.pixels.begin(), ctx_.screen.pixels.end(), 0);
-                if (first && breath)
-                    drawParticles(*breath, true);
-                for (; next < in.size() && !alone(in[next]); next++)
+                for (; next < in.size() && !separate(in[next]); next++)
                     place(in[next], !opaque);
                 if (resets && allReset && !anyAlone)
                     takeResets();
@@ -1851,6 +1955,10 @@ void ScenePage::update(uint64_t nowMs) {
             call.state.depthTest = false;
             call.state.depthWrite = false;
             call.state.cull = gfx::Cull::None;
+            if (part.particles) {
+                drawPointSprites(*part.particles);
+                continue;
+            }
             if (!part.alone) {
                 call.texture = part.texture;
                 renderer_->setView(gfx::identity(), {0, 0, 0});

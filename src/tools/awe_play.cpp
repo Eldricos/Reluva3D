@@ -133,7 +133,7 @@ public:
         const bool haveFonts = !fonts_.load(files);
         ctx_ = std::make_unique<ViewerContext>(ViewerContext{sys_, files, mixer_.get(), screen_,
                                                              std::filesystem::temp_directory_path() / "reluva-awe-solve",
-                                                             haveFonts ? &fonts_ : nullptr});
+                                                             haveFonts ? &fonts_ : nullptr, {}, -1});
         page_ = std::make_unique<ScenePage>(*ctx_);
         page_->cutLines = !sound;
         page_->onLog = [this](const std::string& l) {

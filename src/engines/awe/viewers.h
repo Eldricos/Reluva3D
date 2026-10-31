@@ -830,6 +830,7 @@ private:
         struct Part {
             gfx::TextureId texture = 0; // put together; 0 for one alone
             const Ac2Record* alone = nullptr;
+            const ParticleSystem* particles = nullptr; // or particles, drawn by the GPU
             int w = 0, h = 0;
             SpriteTransform at, at2;
             bool twice = false; // a scrolling one, at at2 as well
@@ -847,6 +848,8 @@ private:
     };
     std::map<const Ac2Record*, AloneTexture> aloneTextures_;
     void aloneTexture(const Ac2Record& o, const image::Image& img);
+    std::map<std::string, gfx::TextureId> pointTextures_; // particles' textures, by file
+    void drawPointSprites(const ParticleSystem& system);
     uint64_t layersMade_ = 0; // a new scene's layers are new
     std::vector<PictureLayer> layers_;
     std::vector<ModelSlot> characterOrder_; // characters_ and footprints in depth order, as draw() found it

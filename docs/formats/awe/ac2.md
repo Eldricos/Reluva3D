@@ -332,7 +332,9 @@ They are drawn as Direct3D point sprites (`POINTSPRITEENABLE`,
 `C` = 1, `POINTSIZE_MAX` = 64): a square of size × the screen's height ÷
 the distance from the eye pixels, at most 64. The texture (the object's
 file) is multiplied by the vertex colour, with depth tested but not
-written.
+written. Reluva draws them as quads on the GPU each frame
+(`ScenePage::drawPointSprites`), between the layers' pictures, so a
+layer with particles in it isn't put together again every frame.
 
 In Salon_01, snow falls past each window (x −730 and 580, from y 300,
 falling at 300 a second, at depth −10500: in front of the snowscape, behind

@@ -161,9 +161,11 @@ The shadows use the renderer's stencil buffer, as the game's use
 Direct3D's (`GpuModel::draw` with a `StencilShadow`, and
 `ScenePage::stencilQuad`):
 
-- each textured mesh's shadow, flattened as above (rigid ones as the
-  game does), is drawn with no colour and no depth, setting the stencil
-  to 1 where it passes the depth test;
+- each textured mesh's shadow is drawn with no colour and no depth,
+  setting the stencil to 1 where it passes the depth test: the body's
+  own mesh with `D3DXMatrixShadow` for the floor as its world matrix, as
+  the game draws it (the vertex shader keeps the position homogeneous
+  for it); a rigid mesh flattened on the CPU, as above;
 - then its body sets the stencil to 2 for the player and 0 for others
   (where it passes the depth test), and writes its depth;
 - the props attached to it follow, the same way;

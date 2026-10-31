@@ -80,12 +80,23 @@ size_t GpuModel::draw(const Pose& pose, const gfx::Mat4& placement, bool helpers
                 }
             }
         }
-        if (stencil && shadow->cast && textured)
-            drawShadow(mesh, pose, placement, positions, *shadow->scene, light, frameMeshes);
         gfx::MeshId id = 0;
         if (renderer_.createMesh(verts, mesh.indices, id))
             continue;
         frameMeshes.push_back(id);
+        if (stencil && shadow->cast && textured) {
+            if (mesh.rigid && !mesh.vertices.empty()) {
+                drawShadow(mesh, pose, placement, *shadow->scene, frameMeshes);
+            } else {
+                // A skinned mesh is already in the world: the body's own
+                // vertices, through D3DXMatrixShadow onto the floor (y = 0)
+                // as the game's world matrix.
+                gfx::Mat4 flat{};
+                flat[0] = flat[10] = flat[15] = light[1];
+                flat[4] = -light[0], flat[6] = -light[2], flat[7] = -1;
+                shadowPass(id, uint32_t(mesh.indices.size()), gfx::multiply(flat, placement));
+            }
+        }
         if (stencil) {
             renderer_.setStencilMode(gfx::Renderer3D::StencilMode::Mark);
             renderer_.setStencilReference(shadow->ref);
@@ -146,53 +157,42 @@ size_t GpuModel::draw(const Pose& pose, const gfx::Mat4& placement, bool helpers
     return triangles;
 }
 
-void GpuModel::drawShadow(const ModelMesh& mesh, const Pose& pose, const gfx::Mat4& placement,
-                          const std::vector<std::array<float, 3>>& positions, const Ac2Scene& scene,
-                          const std::array<float, 3>& light, std::vector<gfx::MeshId>& frameMeshes) {
-    // In the world, flattened: drawn with no colour (the frame kept, blend
-    // Zero/One) and no depth, setting the stencil to 1 where it passes the
-    // depth test (0x428250).
+void GpuModel::drawShadow(const ModelMesh& mesh, const Pose& pose, const gfx::Mat4& placement, const Ac2Scene& scene,
+                          std::vector<gfx::MeshId>& frameMeshes) {
+    // A rigid mesh (the cleaver's, the luggage's) is drawn with its bone's
+    // matrix as the world, which the shadow replaces (0x4285f0): its own
+    // vertices (turned to the game's axes) are flattened onto the plane at
+    // the bone's height, from a light moved by the bone's position. So its
+    // shadow lies about the world's origin, not under the prop.
     std::vector<gfx::Vertex> verts(mesh.vertices.size());
-    for (gfx::Vertex& v : verts) {
-        v = {};
-        v.color[0] = v.color[1] = v.color[2] = v.color[3] = 255;
-    }
-    if (mesh.rigid && !mesh.vertices.empty()) {
-        // A rigid mesh (the cleaver's, the luggage's) is drawn with its
-        // bone's matrix as the world, which the shadow replaces (0x4285f0):
-        // its own vertices (turned to the game's axes) are flattened onto
-        // the plane at the bone's height, from a light moved by the bone's
-        // position. So its shadow lies about the world's origin, not under
-        // the prop.
-        const size_t bone = mesh.vertices[0].bones[0];
-        const gfx::Mat4 world =
-            bone < pose.skinning.size() ? gfx::multiply(placement, pose.skinning[bone]) : placement;
-        const float origin[3] = {world[12], world[13], world[14]};
-        const std::array<float, 3> moved = shadowLight(scene, origin);
-        for (size_t v = 0; v < verts.size(); v++) {
-            const float* q = mesh.vertices[v].position;
-            const float p[3] = {q[0], q[2], -q[1]};
-            const std::array<float, 3> f = flattenOntoPlane(moved, origin[1], p);
-            std::copy(f.begin(), f.end(), verts[v].pos);
-        }
-    } else {
-        // A skinned mesh is already in the world: flattened onto the floor.
-        for (size_t v = 0; v < verts.size() && v < positions.size(); v++) {
-            const gfx::Vec3 w = gfx::transformPoint(placement, positions[v]);
-            const float p[3] = {w[0], w[1], w[2]};
-            const std::array<float, 3> f = flattenOntoFloor(light, p);
-            std::copy(f.begin(), f.end(), verts[v].pos);
-        }
+    const size_t bone = mesh.vertices[0].bones[0];
+    const gfx::Mat4 world = bone < pose.skinning.size() ? gfx::multiply(placement, pose.skinning[bone]) : placement;
+    const float origin[3] = {world[12], world[13], world[14]};
+    const std::array<float, 3> moved = shadowLight(scene, origin);
+    for (size_t v = 0; v < verts.size(); v++) {
+        verts[v] = {};
+        verts[v].color[0] = verts[v].color[1] = verts[v].color[2] = verts[v].color[3] = 255;
+        const float* q = mesh.vertices[v].position;
+        const float p[3] = {q[0], q[2], -q[1]};
+        const std::array<float, 3> f = flattenOntoPlane(moved, origin[1], p);
+        std::copy(f.begin(), f.end(), verts[v].pos);
     }
     gfx::MeshId id = 0;
     if (renderer_.createMesh(verts, mesh.indices, id))
         return;
     frameMeshes.push_back(id);
+    shadowPass(id, uint32_t(mesh.indices.size()), gfx::identity());
+}
+
+void GpuModel::shadowPass(gfx::MeshId mesh, uint32_t indexCount, const gfx::Mat4& model) {
+    // No colour (the frame kept, blend Zero/One) and no depth: the stencil
+    // set to 1 where it passes the depth test (0x428250).
     renderer_.setStencilMode(gfx::Renderer3D::StencilMode::Mark);
     renderer_.setStencilReference(1);
     gfx::DrawCall call;
-    call.mesh = id;
-    call.indexCount = uint32_t(mesh.indices.size());
+    call.mesh = mesh;
+    call.indexCount = indexCount;
+    call.model = model;
     call.state.src = gfx::Blend::Zero;
     call.state.dst = gfx::Blend::One;
     call.state.depthWrite = false;

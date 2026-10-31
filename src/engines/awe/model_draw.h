@@ -55,9 +55,9 @@ public:
                 const StencilShadow* shadow = nullptr);
 
 private:
-    void drawShadow(const ModelMesh& mesh, const Pose& pose, const gfx::Mat4& placement,
-                    const std::vector<std::array<float, 3>>& positions, const Ac2Scene& scene,
-                    const std::array<float, 3>& light, std::vector<gfx::MeshId>& frameMeshes);
+    void drawShadow(const ModelMesh& mesh, const Pose& pose, const gfx::Mat4& placement, const Ac2Scene& scene,
+                    std::vector<gfx::MeshId>& frameMeshes);
+    void shadowPass(gfx::MeshId mesh, uint32_t indexCount, const gfx::Mat4& model);
 
     gfx::Renderer3D& renderer_;
     Model model_;
