@@ -4,6 +4,7 @@
 #include "engines/clue/board.h"
 
 #include <algorithm>
+#include <climits>
 #include <cmath>
 #include <cstring>
 
@@ -197,20 +198,50 @@ Error Board::build(const Level& level) {
         }
     }
 
-    // Where suspects stand in a room: its squares nearest the middle first,
-    // those clear of furniture before the rest.
+    // Where suspects stand in a room. The original's squares, as two
+    // recorded games show them on the board from above (most used first;
+    // docs/formats/clue/board.md), when they are the room's; then the
+    // squares along the room's front edges (its largest x and y, nearest
+    // the camera, where the original stands them), those clear of
+    // furniture first, then the rest, each nearest the front corner first.
+    static const std::vector<Square> kRecorded[kRoomCount] = {
+        {{27, 17}, {26, 17}},                                                  // hall
+        {{32, 16}, {34, 16}, {33, 16}, {37, 16}},                              // lounge
+        {{32, 23}, {34, 25}, {34, 26}, {36, 26}, {32, 25}},                    // dining room
+        {},                                                                    // kitchen
+        {{24, 32}, {26, 34}, {26, 33}, {28, 31}, {24, 31}, {26, 35}, {27, 32}}, // ballroom
+        {{18, 32}, {18, 34}, {18, 33}, {18, 35}, {17, 36}, {17, 37}},          // conservatory
+        {{18, 27}, {17, 27}, {16, 27}, {16, 26}},                              // billiard room
+        {{18, 21}, {17, 21}},                                                  // library
+        {},                                                                    // study
+    };
     std::set<Square> furnished;
     for (const Placement& p : level.placements)
         if (p.layer == 5)
             furnished.insert(squareAt(p.x, p.y));
     for (int r = 0; r < kRoomCount; ++r) {
-        double cx, cy;
-        centre(r, cx, cy);
-        std::vector<Square> sq = roomSquares_[size_t(r)];
+        const std::vector<Square>& squares = roomSquares_[size_t(r)];
+        std::vector<Square> sq;
+        for (const Square& k : kRecorded[r])
+            if (roomAt(k) == r)
+                sq.push_back(k);
+        int maxX = INT_MIN, maxY = INT_MIN;
+        for (const Square& k : squares) {
+            maxX = std::max(maxX, k.x);
+            maxY = std::max(maxY, k.y);
+        }
+        std::vector<Square> rest;
+        for (const Square& k : squares)
+            if (std::find(sq.begin(), sq.end(), k) == sq.end())
+                rest.push_back(k);
         const auto rank = [&](const Square& a) {
-            return std::hypot(a.x - cx, a.y - cy) + (furnished.count(a) ? 1000.0 : 0.0);
+            // Off the front edges by how far; furniture last; then nearest
+            // the front corner.
+            const int off = std::min(maxX - a.x, maxY - a.y);
+            return off * 1000 + (furnished.count(a) ? 100000 : 0) + (maxX - a.x) + (maxY - a.y);
         };
-        std::stable_sort(sq.begin(), sq.end(), [&](const Square& a, const Square& b) { return rank(a) < rank(b); });
+        std::stable_sort(rest.begin(), rest.end(), [&](const Square& a, const Square& b) { return rank(a) < rank(b); });
+        sq.insert(sq.end(), rest.begin(), rest.end());
         standing_[size_t(r)] = sq;
     }
     return Error::success();

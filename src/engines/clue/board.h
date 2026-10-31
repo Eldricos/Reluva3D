@@ -62,8 +62,8 @@ public:
     const std::vector<Door>& doors() const { return doors_; }
     const Square& start(int suspect) const { return start_[size_t(suspect)]; }
     int passage(int room) const { return passage_[size_t(room)]; } // the room it leads to, or kNoRoom
-    // A room's squares in the order suspects and weapons take them: those
-    // clear of furniture first, each nearest the room's middle first.
+    // A room's squares in the order suspects take them: the original's, as
+    // recorded, then along the room's front edges (see board.cpp).
     const std::vector<Square>& standing(int room) const { return standing_[size_t(room)]; }
 
     // The places a step from a place leads to: a corridor's neighbours, a

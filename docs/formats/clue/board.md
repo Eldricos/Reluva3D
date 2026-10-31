@@ -61,9 +61,27 @@ away, in the opposite corner.
 
 ## In a room
 
-Where suspects stand in a room isn't in the level. Reluva puts them on
-the room's squares nearest its middle, those without furniture (no
-layer-5 object placed in them) first, in the suspects' order.
+Where suspects stand in a room isn't in the level. Two recorded games
+played on the board from above (the VM recording, 5:00-7:40, and "The
+Classic", C 33:00-56:00) show it: each pawn found on the map's 13-pixel
+grid, the squares it rested on in rooms noted. They are near the rooms'
+front edges, those nearest the camera (largest x and y), so that the
+suspects show in the house's view:
+
+| Room | Squares, most used first |
+|---|---|
+| Hall | (27, 17) (26, 17) |
+| Lounge | (32, 16) (34, 16) (33, 16) (37, 16) |
+| Dining Room | (32, 23) (34, 25) (34, 26) (36, 26) (32, 25) |
+| Ballroom | (24, 32) (26, 34) (26, 33) (28, 31) (24, 31) (26, 35) (27, 32) |
+| Conservatory | (18, 32) (18, 34) (18, 33) (18, 35) (17, 36) (17, 37) |
+| Billiard Room | (18, 27) (17, 27) (16, 27) (16, 26) |
+| Library | (18, 21) (17, 21) |
+
+None was seen in the kitchen or the study. Reluva stands suspects on
+these first, in this order, each on the first one free; then on the
+squares along the room's front edges, clear of furniture first, nearest
+the front corner first.
 
 ## Moving
 

@@ -487,8 +487,11 @@ every suspect and the newest square of a move being planned.
 
 - What the original's Auto Notes does isn't recorded (see the notepad,
   above).
-- Where suspects stand in a room, and which cards a cards window fills
-  first, are Reluva's choice.
+- Where suspects stand in the kitchen and the study isn't recorded
+  ([formats/clue/board.md](../formats/clue/board.md)). The cards window
+  fills as the original's: in card order from the bottom right, right
+  then left, row by row upwards (Playthroughs 01 and 02, both hands
+  whole).
 - The clickable objects ("please choose an active object") come later
   (step 7).
 
