@@ -477,12 +477,13 @@ static void testMansion(const std::filesystem::path& tmp) {
     CHECK(m.items().size() == 2 && m.problems().size() == 1); // the broken one is left out
     if (m.items().size() == 2) {
         const Mansion::Item& bench = m.items()[0];
-        CHECK(!bench.flat && bench.box.x == 200 && bench.box.y == 100 && bench.box.sizeX == 16);
-        CHECK(bench.anchorX == 100 && bench.anchorY == 150); // x - y, (x + y) / 2
+        // The box from the anchor by the frame's offsets (its bytes 10-13: 3, 4).
+        CHECK(!bench.flat && bench.box.x == 203 && bench.box.y == 104 && bench.box.sizeX == 16);
+        CHECK(bench.box.z == 1 && bench.anchorX == 100 && bench.anchorY == 149); // x - y, (x + y) / 2 - z
         CHECK(m.items()[1].flat);
         CHECK(m.drawOrder() == std::vector<size_t>({1, 0})); // the floor first
         // Frame 0's pieces: image Ia (3x2) at the frame's anchor offset plus its layer's.
-        CHECK(bench.rect.x == 100 - 44 && bench.rect.y == 150 - 106 - 5);
+        CHECK(bench.rect.x == 100 - 44 && bench.rect.y == 149 - 106 - 5);
         // Actors go into the order by their boxes: before the bench when
         // behind it, after it when in front; on the floor,
         // after the floors and before everything else.
@@ -490,8 +491,17 @@ static void testMansion(const std::filesystem::path& tmp) {
         actor.frame = &(*bench.frames)[0];
         actor.box = {199, 100, 16, 16, 100}; // overlapping it on screen (its picture is 3x2)
         CHECK(m.insertionPoint(actor) == 1);
-        actor.box = {202, 101, 16, 16, 100};
+        // In front by the boxes (beyond the bench's along x), its picture
+        // put over the bench's.
+        Mansion::Frame over = *actor.frame;
+        for (Mansion::Piece& p : over) {
+            p.dx -= 29; // the bench's anchor is 29 left of this one's on screen,
+            p.dy -= 16; // 16 above
+        }
+        actor.frame = &over;
+        actor.box = {230, 101, 16, 16, 100};
         CHECK(m.insertionPoint(actor) == 2);
+        actor.frame = &(*bench.frames)[0];
         actor.flat = true;
         CHECK(m.insertionPoint(actor) == 1);
         Surface s;
@@ -499,6 +509,37 @@ static void testMansion(const std::filesystem::path& tmp) {
         MansionLook look;
         look.characters = false;
         m.draw(s, 0, 0, look, 0, {actor}); // drawn, whatever its place
+
+        // What stands within 208 units beyond a revealing actor along x and
+        // y (Clue.exe's 0x428190) is see-through or left out: the bench
+        // (furniture) beyond one at (190, 90); not from a room (only walls
+        // then), nor from beyond it.
+        const auto benchPixel = [&](MansionLook::InFront inFront, int x, int y, bool inRoom) {
+            Mansion::Actor a;
+            a.reveal = true;
+            a.inRoom = inRoom;
+            a.box = {x, y, 16, 16, 100};
+            MansionLook l;
+            l.characters = false;
+            l.inFront = inFront;
+            std::fill(s.pixels.begin(), s.pixels.end(), uint8_t(0));
+            m.draw(s, 0, 0, l, 0, {a});
+            // The brightness of the bench's rectangle (the floor is elsewhere).
+            int sum = 0;
+            for (int y = bench.rect.y; y < bench.rect.y + bench.rect.h; ++y)
+                for (int x = bench.rect.x; x < bench.rect.x + bench.rect.w; ++x)
+                    for (int c = 0; c < 3; ++c)
+                        sum += s.pixels[size_t(y) * size_t(s.pitch) + size_t(x) * 4 + size_t(c)];
+            return sum;
+        };
+        const int solid = benchPixel(MansionLook::InFront::Solid, 190, 90, false);
+        CHECK(solid > 0);
+        CHECK(benchPixel(MansionLook::InFront::Hidden, 190, 90, false) == 0);
+        const int faded = benchPixel(MansionLook::InFront::SeeThrough, 190, 90, false);
+        CHECK(faded > 0 && faded < solid);
+        CHECK(benchPixel(MansionLook::InFront::Hidden, 190, 90, true) == solid);
+        CHECK(benchPixel(MansionLook::InFront::Hidden, 260, 90, false) == solid); // the bench behind it
+        CHECK(benchPixel(MansionLook::InFront::Hidden, -10, 90, false) == solid); // more than 208 away
     }
     std::filesystem::remove_all(tmp);
 }

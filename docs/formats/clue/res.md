@@ -173,14 +173,21 @@ extras:
 |---|---|---|
 | 0 | 2 | x of the frame's top left from the anchor point (signed; −44 for Miss Scarlet) |
 | 2 | 2 | y (−106 for her: the anchor is at her feet) |
-| 4 | 10 | not understood: 0, then `0x100` or 0, then three signed values (mostly 0) |
-| 14 | 2 | 1 for things that stand, −1 for flat ones (floors, the black outside), 0 for frames without a box |
+| 4 | 3 | not understood (0) |
+| 7 | 1 | the number of boxes: 1 (0 in some) |
+| 8 | 2 | the box's number |
+| 10 | 2 | its x from the anchor (signed; mostly 0, −25 for a wall lamp) |
+| 12 | 2 | its y |
+| 14 | 2 | its height off the floor: 1 for things that stand, −1 for flat ones (floors, the black outside), 0 for frames without a box |
 | 16 | 2 | the box's size along the world's x |
 | 18 | 2 | its size along y |
 | 20 | 2 | its height |
 | 22 | 2 | number of 7-byte extras that follow |
 
-The box is the space the object fills in the world, and the anchor point
+As `Clue.exe` reads it (0x4491DB on): the frame's x and y, three bytes,
+the number of boxes, then each box as a number and six signed values,
+its offset (x, y, height) and size (x, y, height; 0 taken as 1), then
+the extras. The box is the space the object fills in the world, and the anchor point
 is its back corner on the floor (see [level.md](level.md) for the world's
 axes). Walls along x are 64 × 16 × 161, along y 16 × 64 × 161; the
 characters 16 × 16 × 100; the pool table 168 × 92 × 48; a 4 × 4 floor block

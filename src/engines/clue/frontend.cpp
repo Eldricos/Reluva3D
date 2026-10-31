@@ -386,11 +386,11 @@ PlayLook FrontEnd::playLook() const {
     look.walkAnimations = prefs_.on[Preferences::WalkAnimations];
     look.mansion.lighting = prefs_.on[Preferences::Lighting];
     // As a recording of the original shows them (docs/engines/clue.md):
-    // "Mansion Walls" off, no walls at all; "Translucency" off, the near
-    // walls gone; on, the near walls see-through.
-    look.mansion.walls = !prefs_.on[Preferences::MansionWalls] ? MansionLook::Walls::None
-                         : prefs_.on[Preferences::Translucency] ? MansionLook::Walls::SeeThrough
-                                                                 : MansionLook::Walls::Hidden;
+    // "Mansion Walls" off, no walls; "Translucency": what stands in front of
+    // the suspect whose turn it is see-through, or (off) left out.
+    look.mansion.walls = prefs_.on[Preferences::MansionWalls];
+    look.mansion.inFront = prefs_.on[Preferences::Translucency] ? MansionLook::InFront::SeeThrough
+                                                                : MansionLook::InFront::Hidden;
     return look;
 }
 

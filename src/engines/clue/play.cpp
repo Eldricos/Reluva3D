@@ -210,16 +210,11 @@ Error Play::start(const std::array<Player, kSuspectCount>& players, bool noDieRo
     }
     for (auto& m : shownBy_)
         m.fill(-1);
-    // Each player's notepad starts empty, as the original's does with Auto
-    // Notes off (its players colour their own cards in by hand); with it
-    // on, their own cards are put in their colour.
-    for (int k = 0; k < kSuspectCount; ++k) {
-        for (NoteRow& row : notes_[size_t(k)])
+    // Each player's notepad starts empty, Auto Notes or not (Clue.exe's
+    // only use of it is for the cards shown).
+    for (auto& pad : notes_)
+        for (NoteRow& row : pad)
             row = {};
-        if (look_.autoNotes)
-            for (int c : game_.seat(k).hand)
-                notes_[size_t(k)][size_t(c)].colour = k;
-    }
     readTexts();
     beginTurn();
     return Error::success();
@@ -718,12 +713,13 @@ void Play::suggestionMade() {
                 ai_[size_t(k)].observe(game_);
         if (game_.shown() >= 0) {
             shownBy_[size_t(s)][size_t(game_.shown())] = d;
-            // Auto Notes: the card in the colour of who showed it, as the
-            // original's players note it by hand; a row already noted is
-            // left as it is.
+            // Auto Notes, as Clue.exe's (0x43a070, after the card is shown):
+            // the card's row in the colour of who showed it, and ticked.
             NoteRow& row = notes_[size_t(s)][size_t(game_.shown())];
-            if (look_.autoNotes && row.colour < 0)
+            if (look_.autoNotes) {
                 row.colour = d;
+                row.marks[0] = 1;
+            }
         }
         afterAction();
     });
@@ -875,25 +871,18 @@ void Play::openPick() {
     dialog_ = std::make_unique<DialogView>(data_, fonts_, *d, kRightX, kRightY);
     window_ = Window::Pick;
     pickCards_ = game_.disproving();
-    pickChosen_ = -1;
     dialog_->setGroupVisible(1, false);
-    dialog_->setVisible(who, true);       // the disprover's background
-    // "..., Please click on the card ...", then, where it was, Done.
-    dialog_->setVisible(17 + who, true);
-    dialog_->setVisible(kOk, false);
     dialog_->setText(16, "");
-    // One card in the middle; two or three in the window's other places.
-    static const int kOne[] = {12}, kMore[] = {13, 14, 15};
-    const int* slots = pickCards_.size() == 1 ? kOne : kMore;
+    // As Clue.exe's DisproveDlg (0x441c60): one card in the middle on the
+    // disprover's background, with Done, a click on either showing it; two
+    // or three in the window's other places on the background for more,
+    // the one clicked shown at once. Its words for the disprover (17-22)
+    // it never shows.
+    const bool one = pickCards_.size() == 1;
+    dialog_->setVisible(one ? who : who + 6, true);
     for (size_t i = 0; i < pickCards_.size() && i < 3; ++i)
-        dialog_->setVisible(slots[i], true);
-    // With one card there's no choosing: the original shows it, unmarked,
-    // with Done and without the words (a recording made for it, 1:30).
-    if (pickCards_.size() == 1) {
-        pickChosen_ = 0;
-        dialog_->setVisible(17 + who, false);
-        dialog_->setVisible(kOk, true);
-    }
+        dialog_->setVisible(pickSlot(i), true);
+    dialog_->setVisible(kOk, one);
 }
 
 int Play::pickSlot(size_t i) const {
@@ -902,22 +891,20 @@ int Play::pickSlot(size_t i) const {
 }
 
 void Play::clickPick(int id) {
+    // A card clicked, or Done (one card): that card shown (0x442250).
+    int chosen = -1;
     for (size_t i = 0; i < pickCards_.size(); ++i)
-        if (id == pickSlot(i) && pickCards_.size() > 1) {
-            pickChosen_ = int(i);
-            for (size_t j = 0; j < pickCards_.size(); ++j)
-                dialog_->setChosen(pickSlot(j), j == i);
-            dialog_->setVisible(17 + game_.disprover(), false);
-            dialog_->setVisible(kOk, true);
-            sound("click.wav");
-            return;
-        }
-    if (id == kOk && pickChosen_ >= 0) {
-        const int card = pickCards_[size_t(pickChosen_)];
-        window_ = Window::None;
-        dialog_.reset();
-        perform(command(netplay::Command::Show, game_.disprover(), {int16_t(card)}));
-    }
+        if (id == pickSlot(i))
+            chosen = int(i);
+    if (id == kOk && pickCards_.size() == 1)
+        chosen = 0;
+    if (chosen < 0)
+        return;
+    sound("click.wav");
+    const int card = pickCards_[size_t(chosen)];
+    window_ = Window::None;
+    dialog_.reset();
+    perform(command(netplay::Command::Show, game_.disprover(), {int16_t(card)}));
 }
 
 void Play::openShown() {
@@ -1484,9 +1471,15 @@ std::vector<Mansion::Actor> Play::actors() {
                          frames->size();
         actor.frame = &(*frames)[f];
         actor.box = {w.x, w.y, a->frames[f].sizeX, a->frames[f].sizeY, a->frames[f].height};
-        actor.reveal = true;
-        // Its square: suspects stand 24 in from its corner.
-        actor.revealBox = Mansion::revealBox(w.x - 24, w.y - 24);
+        // Only the suspect whose turn it is shows what is in front of it, as
+        // Clue.exe's (its flag at 0xd08, set for the turn); in a room, only
+        // the walls.
+        if (s == game_.turn() && game_.phase() != Game::Phase::Over) {
+            actor.reveal = true;
+            const Square sq = Board::squareAt(w.x, w.y);
+            actor.inRoom = board_.roomAt(sq) != kNoRoom;
+            actor.inCorridor = board_.isCorridor(sq);
+        }
         out.push_back(actor);
     }
     // A move being planned: its squares numbered as they are clicked (only
@@ -1503,8 +1496,8 @@ std::vector<Mansion::Actor> Play::actors() {
             actor.box = {Board::kGridOrigin + sq.x * Board::kSquareSize,
                          Board::kGridOrigin + sq.y * Board::kSquareSize, Board::kSquareSize, Board::kSquareSize, 1};
             actor.flat = true;
-            actor.reveal = true;
-            actor.revealBox = Mansion::revealBox(actor.box.x, actor.box.y);
+            actor.reveal = true; // the numbers are on the corridors
+            actor.inCorridor = true;
             out.push_back(actor);
         };
         for (size_t i = 0; i < plan_.size(); ++i)
@@ -1735,9 +1728,6 @@ void Play::drawWindows() {
             if (const ResiControl* c = dialog_->info().control(pickSlot(i)))
                 drawAnimation(std::string("UI:A") + kCardKey[pickCards_[i]] + "card", kRightX + c->left,
                               kRightY + c->top);
-        if (pickChosen_ >= 0)
-            if (const ResiControl* c = dialog_->info().control(pickSlot(size_t(pickChosen_))))
-                fillRect(screen_, kRightX + c->left, kRightY + c->top + 112, 80, 3, {230, 200, 90});
         break;
     case Window::Shown:
         drawAnimation("UI:Algcard", kShownX + 23, kRightY + 2, game_.shown());

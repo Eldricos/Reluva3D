@@ -224,7 +224,6 @@ private:
     Accusation chosen_;
     std::array<bool, 3> chosenSet_{};
     std::vector<int> pickCards_;
-    int pickChosen_ = -1;
     int viewerOut_ = 0; // the human out, whom the loser's window asks
     int solutionText_ = 3;
     int pressedAction_ = -1;

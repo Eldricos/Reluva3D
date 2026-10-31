@@ -120,10 +120,16 @@ void MansionViewer::handleEvent(const Event& ev) {
         case key::Down: scroll(0, step); break;
         case key::Home: centre(); break;
         case 'w':
-            look_.walls = look_.walls == Walls::SeeThrough ? Walls::Solid
-                          : look_.walls == Walls::Solid    ? Walls::Hidden
-                          : look_.walls == Walls::Hidden   ? Walls::None
-                                                           : Walls::SeeThrough;
+            // See-through, solid, left out; then no walls at all.
+            if (!look_.walls) {
+                look_.walls = true;
+                look_.nearWalls = NearWalls::SeeThrough;
+            } else if (look_.nearWalls == NearWalls::SeeThrough)
+                look_.nearWalls = NearWalls::Solid;
+            else if (look_.nearWalls == NearWalls::Solid)
+                look_.nearWalls = NearWalls::Hidden;
+            else
+                look_.walls = false;
             break;
         case 'o': look_.outside = !look_.outside; break;
         case 'n': look_.tileNumbers = !look_.tileNumbers; break;
@@ -207,7 +213,7 @@ const Mansion::Item* MansionViewer::pick(int x, int y) const {
     const auto& order = mansion_.drawOrder();
     for (auto it = order.rbegin(); it != order.rend(); ++it) {
         const Mansion::Item& item = mansion_.items()[*it];
-        if (!shown(item) || !item.rect.contains(x, y) || (item.layer == 4 && look_.walls == Walls::SeeThrough))
+        if (!shown(item) || !item.rect.contains(x, y) || (item.layer == 4 && look_.nearWalls == NearWalls::SeeThrough))
             continue;
         // Its frame 0's pieces, where they aren't transparent.
         for (const Mansion::Piece& p : (*item.frames)[0]) {
@@ -283,10 +289,10 @@ void MansionViewer::draw() {
                  mansion_.problems().front() + ")";
     std::string line2 =
         std::string("near walls ") +
-        (look_.walls == Walls::SeeThrough ? "see-through"
-         : look_.walls == Walls::Solid    ? "solid"
-         : look_.walls == Walls::Hidden   ? "hidden"
-                                          : "none at all") +
+        (!look_.walls                                ? "none at all"
+         : look_.nearWalls == NearWalls::SeeThrough ? "see-through"
+         : look_.nearWalls == NearWalls::Solid      ? "solid"
+                                                    : "hidden") +
         "  outside " + (look_.outside ? "on" : "off");
     if (paused_)
         line2 += "  paused";

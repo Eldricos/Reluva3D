@@ -45,14 +45,17 @@ struct ScreenRect {
 // overlapping boxes can make) by the depth of their centres.
 std::vector<size_t> depthOrder(const std::vector<WorldBox>& boxes, const std::vector<ScreenRect>& rects);
 
-// How the mansion is drawn: the walls nearest the camera (layer 4), the
-// black outside (layer 6), the move-number templates.
+// How the mansion is drawn: what stands in front of the suspect whose turn
+// it is (the original's "Translucency"), the walls (its "Mansion Walls"),
+// the black outside (layer 6), the move-number templates.
 struct MansionLook {
-    // SeeThrough: everything solid but what stands in front of a suspect
-    // or a move's square, see-through (the original's "Translucency");
-    // Solid: all of it solid; Hidden: the near walls (layer 4) left out;
-    // None: every wall left out (the original's "Mansion Walls" off).
-    enum class Walls { SeeThrough, Solid, Hidden, None } walls = Walls::SeeThrough;
+    // What stands in front of a revealing actor (Mansion::Actor::reveal):
+    // drawn see-through ("Translucency" on), left out (off), or left be.
+    enum class InFront { SeeThrough, Hidden, Solid } inFront = InFront::SeeThrough;
+    bool walls = true; // off: no walls, nor the lamps on them ("Mansion Walls" off)
+    // Reluva's own, for its mansion page: the walls nearest the camera
+    // (layer 4) as they are, see-through or left out.
+    enum class NearWalls { Solid, SeeThrough, Hidden } nearWalls = NearWalls::Solid;
     int seeThrough = 128; // the opacity of what is see-through: about half, as in recordings
     bool outside = true;
     bool tileNumbers = false;
@@ -88,6 +91,12 @@ public:
         int layer = 0;
         int anchorX = 0, anchorY = 0; // on screen
         ScreenRect rect;              // of frame 0 on screen
+        // Its kind, as Clue.exe makes its object of it (docs/formats/clue/
+        // level.md): the placement's tag's, or else the object's, primary
+        // and secondary types. 0 a wall, 3 furniture, 4 and 5 hot spots,
+        // 8 a secret passage, 12 drapes ...
+        uint8_t kind = 0, subKind = 0;
+        bool keepsSolid = false; // furniture with a timing at 2000: never see-through
     };
 
     // Something drawn among the items that isn't in the level: a suspect
@@ -97,16 +106,15 @@ public:
         const Frame* frame = nullptr;
         bool flat = false;       // on the floor: after the floors, under everything else
         int opacity = 255;
-        // What stands in front of this box is drawn see-through (with
-        // walls see-through), as the original does around the suspects
-        // and the squares of a move: a square of the floor and a suspect's
-        // height over it (Mansion::revealBox).
+        // What stands in front of it, near it, is drawn see-through or left
+        // out (MansionLook::inFront), as Clue.exe does around the suspect
+        // whose turn it is and the numbers of a planned move: from its
+        // anchor (box.x, box.y), what stands within 208 units further
+        // along x and y. In a room (a suspect's), only the walls; hot spots
+        // only from the corridors.
         bool reveal = false;
-        WorldBox revealBox;
+        bool inRoom = false, inCorridor = false;
     };
-    // The box a suspect or a move's square shows through what is in
-    // front of it: the square from (x, y), a suspect's height.
-    static WorldBox revealBox(int x, int y);
     // An animation's frames as pieces to draw (kept).
     const std::vector<Frame>* frames(const GameData& data, const Animation& anim) { return resolve(data, anim); }
 

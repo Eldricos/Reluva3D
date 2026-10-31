@@ -381,10 +381,13 @@ computer players play on behind it ("The Classic" 46:48-47:03, a whole
 turn; Playthrough 01 4:45-4:50 and 17:25-17:32), and in network games so
 does everyone else. The preferences
 are saved in Reluva's folder for the game (`preferences.ini`). As the VM
-recording shows them: "Translucency" on draws what stands in front of
-the suspects see-through (below), off leaves the nearest walls out (the
-lounge's near wall gone between 0:57 and 1:09, the same view); "Mansion Walls" off leaves out every wall
-in the house, floors, furniture and pictures left (2:53 and 3:02).
+recording shows them, and `Clue.exe` does (below): "Translucency" on
+draws what stands in front of the suspect whose turn it is see-through,
+off leaves it out (the lounge's near wall gone between 0:57 and 1:09,
+the same view); "Mansion Walls" off leaves out every wall in the house
+and the lamps on them (its Wall class draws nothing then, at 0x42B5E6;
+its furniture of the secondary type 1, the lamps' tag, neither, at
+0x42A9AF), floors, furniture and pictures left (2:53 and 3:02).
 
 ### In the game
 
@@ -416,18 +419,20 @@ As the original, from its recordings and its How to Play texts:
   turn, then none), two marks (click: tick, X, O, tick in O, X in O,
   none) and a triangle that opens a note to type beside the notepad
   (Enter closes it; the triangle shows when a row has one, and pointing
-  at it shows the note). The notepad starts empty, as the original's
-  with Auto Notes off (its default): in the recordings players colour
-  their own cards in by hand, and each card shown to them in the shower's
-  colour, without marks. With "Auto Notes" on, Reluva does that for
-  them: their own cards in their colour, each card shown in the colour
-  of who showed it, rows already noted left alone. (No recording has
-  Auto Notes on, so what the original's does is a guess.)
+  at it shows the note). The notepad starts empty: in the recordings
+  players colour their own cards in by hand. "Auto Notes" (off at first)
+  does one thing, as `Clue.exe` reads it (0x437C9D, after a card is
+  shown to a player, calling 0x43A070): the card's row in the colour of
+  who showed it, and a tick in its first mark.
 - **The board** button shows the board from above, with the suspects'
   pawns; moves can be planned on it too.
-- When a human must disprove, their matching cards are shown: click one,
-  then Done. With only one, it is shown already chosen, with Done, as the
-  original does (a recording made for it, OriginalClue 1:30). A card shown to a human is shown large, with OK.
+- When a human must disprove, their matching cards are shown, as
+  `Clue.exe`'s DisproveDlg does it (0x441C60, its clicks at 0x442250):
+  one card in the middle on the disprover's background (`...Dis2Bg`),
+  with Done; two or three in the window's other places on the other
+  background (`...Dis3Bg`), and a click on one shows it at once, no
+  Done. The window's "..., Please click on the card" lines it never
+  shows. A card shown to a human is shown large, with OK.
 - **The end.** A right accusation shows the solution; Continue plays the
   murderer's prison clip, then the main menu. A human who accuses wrongly
   while other humans play on is asked whether to go on disproving by
@@ -469,16 +474,29 @@ the right-hand frame, the clip in its middle; the card shown, large
 above (`UI:Aoverhead`) at (208, 5), its squares 13 pixels, column 9 and
 row 9 at (8, 15) in it. The solution (dialog 34) fills the screen.
 
-With "Translucency" on, the house is drawn solid, near walls and all,
-but what stands in front of a suspect, or of a square of the move being
-planned, is drawn see-through, whole pieces at a time (the walls are
-built of pieces a square long): the fireplace over Miss Scarlet at the
-start (L 3:00), the walls around Mrs. Peacock (L 3:30). A recording made
-for it (OriginalClue, 0:02-0:36, set beside NewClue, Reluva's before
-this) shows the extent: what is in front of a box a square across and
-116 high (180 pixels tall on the screen) over the suspect's square or the
-move's; elsewhere the near walls are solid. With "Translucency" off the
-near walls are left out and nothing is see-through.
+**What stands in front**, as `Clue.exe` 2.2 does it (read from its code;
+the recordings, OriginalClue 0:02-0:36 and L 3:00-3:30, show it). The
+house is drawn solid, near walls and all. Each frame the suspect whose
+turn it is (its flag at +0xD08, set with the turn by 0x425160) and each
+number of a planned move (class Number, 0x429CD0) look at what is near
+(0x428220, from slot 0x74 with 13 and 13): every object whose box on the
+floor, less 8 units on its far sides, overlaps the 208 units (13 × 16)
+beyond the actor's anchor along both x and y (0x428190). "Translucency"
+on draws those see-through (their draw flags 0x30001, about half); off,
+it leaves them out (flags 0). Only these kinds of object do it, each by
+its class (the primary type picks the class, 0x4190B0; slots 0x68 and
+0x6C): walls (0), secret passages (8), drapes (12); furniture (3)
+unless it has a timing at 2000 (0x42A96C); the hot spots (4, 5) only
+when the actor's square is a corridor (0x42A0A6). Floors, suspects,
+numbers and the rest never. A suspect in a room does it to the walls
+only (the flag 0x428080 gives, by its square's zone, 0x42A210). The
+pieces are whole objects: walls come a square long, so the faded part
+looks rectangular.
+
+One thing in the recording isn't explained yet: at the start (0:00-0:07)
+the lounge's armchair to the right of the fireplace (`Olgosch_cd`)
+stays solid, though by the code it is in front of Miss Scarlet, and
+Reluva fades it.
 
 The notepad's picture (`UI:A<sca>notepad`) is ruled: each kind's rows 15
 pixels apart below its line (22, 131 and 240), the columns of the colour,
@@ -514,8 +532,6 @@ every suspect and the newest square of a move being planned.
 
 ### Not yet as the original
 
-- What the original's Auto Notes does isn't recorded (see the notepad,
-  above).
 - Where suspects stand in the kitchen and the study isn't recorded
   ([formats/clue/board.md](../formats/clue/board.md)). The cards window
   fills as the original's: in card order from the bottom right, right

@@ -43,8 +43,10 @@ each is 2 more than the record's own length.
 | 0 | 2 | the record's length |
 | 2 | 1 | 1 |
 | 3 | 32 | the object's full name, `ballroom:Oblcouch_ad`, NUL-terminated; after the NUL, whatever memory held |
-| 35 | 1 | its type |
-| 36 | 4 | not understood (0, or 1-3 in objects with more than one state, but not their number) |
+| 35 | 1 | its primary type: `Clue.exe` makes its object by it (below) |
+| 36 | 1 | its secondary type (0, or 1 for the wall lamps, 2, 3) |
+| 37 | 2 | not understood |
+| 39 | 1 | not understood |
 | 40 | 2 | number of states |
 | 42 | 34 each | the states: a 2-byte number and a 32-byte animation name, NUL-terminated |
 | | 2 | number of timings |
@@ -90,7 +92,7 @@ A placement:
 |---|---|
 | 2 | its length |
 | 1 | flags: 0x40 always; 0x02 adds the tag; 0x20 adds timings |
-| 2 | with 0x02: a tag, not understood (1, 3, 261, 1030 ...) |
+| 2 | with 0x02: its primary and secondary types (a byte each), in place of its object's: 3 furniture, 0x103 (259) furniture of type 1 (the wall lamps), 5 a hot spot ... |
 | 2 | the object, by its number in `World.dat` |
 | 2 | x, in world units (signed) |
 | 2 | y, likewise |
@@ -114,16 +116,25 @@ The layers, by what's on them:
 | 7 | the six suspects, at their starting places |
 
 Without layer 4 the house is a cut-away dollhouse, every room open to
-view; with it the near walls hide the rooms. The original leaves layer 4
-out with "Translucency" off; with it on, it draws it solid but for what
-stands in front of the suspects ([clue.md](../../engines/clue.md)).
+view; with it the near walls hide the rooms. The original draws it solid
+and fades ("Translucency" on) or leaves out (off) only what stands in
+front of the suspect whose turn it is ([clue.md](../../engines/clue.md)).
 
 The height (the field after the position) lifts a thing off the floor:
-it is drawn that much higher on the screen. Without it the doors'
-lintels lie on the floor at their doors and the wall lamps and pictures
-at the walls' feet; with it they are where recordings of the original
-show them. 1, most things' height, is taken as the floor, as are the
-floors' −1.
+`Clue.exe` reads x, y and it as the object's position (0x4465D8) and
+places it on the screen at x − y and (x + y) / 2 − height (0x4461C5).
+Without it the doors' lintels lie on the floor at their doors and the
+wall lamps and pictures at the walls' feet. Most things have 1, the
+floors −1.
+
+`Clue.exe` makes each placed object one of its classes by its primary
+type, the tag's if it has one (0x4190B0, read through 0x4439A0): 0 Wall,
+1 Floor, 3 Passive (furniture), 4 Interactive and 5 InteractiveSeeded
+(hot spots), 6 Player (the suspects), 8 SecretPassage, 11 Number (the
+move's numbers), 12 StormObject (the drapes); anything else its base
+class. (The names are its own, from its run-time class records; its
+message "Base object [%s] has primary type %d and secondary type %d"
+names the two types.)
 
 `Workspace.dat` (32 bytes): four 4-byte numbers (1210, 540, 16068, 720),
 two 8s and a double 1.0. Probably the level editor's view: a position, a

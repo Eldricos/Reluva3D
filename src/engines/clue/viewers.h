@@ -37,7 +37,8 @@ void drawImage(Surface& s, const image::Image& img, int x, int y, int scale = 1)
 // The mansion as clue.lvl places it, its animations playing.
 //   Arrows or a mouse drag: scroll (Shift: faster)   Home: back to the middle
 //   M: the whole house, shrunk (a click there goes to that place)
-//   W: the walls nearest the camera (layer 4): see-through, solid or hidden
+//   W: the walls nearest the camera (layer 4): see-through, solid or hidden;
+//      then no walls at all
 //   O: the black outside on/off
 //   N: the move-number templates (tilenum) on/off   F: footprints (boxes) on/off
 //   Space: pause the animations
@@ -70,8 +71,8 @@ private:
     Mansion mansion_;
     std::string error_;
     int camX_ = 0, camY_ = 0;
-    using Walls = MansionLook::Walls;
-    MansionLook look_;
+    using NearWalls = MansionLook::NearWalls;
+    MansionLook look_ = [] { MansionLook l; l.nearWalls = MansionLook::NearWalls::SeeThrough; return l; }();
     bool footprints_ = false, paused_ = false;
     bool overview_ = false;
     Surface whole_;          // the whole house, for the overview; made when first asked for

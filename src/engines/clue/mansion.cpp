@@ -3,8 +3,6 @@
 
 #include "engines/clue/mansion.h"
 
-#include "engines/clue/board.h"
-
 #include <algorithm>
 #include <cmath>
 #include <numeric>
@@ -149,14 +147,25 @@ Error Mansion::build(const GameData& data, const Level& level) {
         item.box.x = pl.x;
         item.box.y = pl.y;
         const Animation::Frame& f0 = item.animation->frames[0];
+        // The box: from the anchor by the frame's offsets (bytes 10-13 of
+        // its ISOA entry, as Clue.exe reads them at 0x449361).
+        item.box.x += int16_t(f0.unknown[3]);
+        item.box.y += int16_t(f0.unknown[4]);
         item.box.sizeX = f0.sizeX;
         item.box.sizeY = f0.sizeY;
         item.box.height = f0.height;
+        const bool tagged = pl.flags & 0x02;
+        item.kind = tagged ? uint8_t(pl.tag & 0xff) : item.object->type;
+        item.subKind = tagged ? uint8_t(pl.tag >> 8) : uint8_t(item.object->unknown & 0xff);
+        const auto has2000 = [](const std::vector<Timing>& t) {
+            return std::any_of(t.begin(), t.end(), [](const Timing& x) { return x.time == 2000; });
+        };
+        item.keepsSolid = has2000(pl.timings) || has2000(item.object->timings);
         item.flat = f0.solid < 0 || !item.animation->isometric;
-        // Raised by its height: a door's lintel on its frame, the lamps and
-        // pictures on the walls. (1, most things' height, and the floors'
-        // -1 are taken as the floor.)
-        item.box.z = pl.z > 1 ? pl.z : 0;
+        // Raised by its height, as Clue.exe places it on the screen (at
+        // 0x4461c5): a door's lintel on its frame, the lamps and pictures
+        // on the walls; most things 1, the floors -1.
+        item.box.z = pl.z;
         item.anchorX = pl.x - pl.y;
         item.anchorY = floorDiv(pl.x + pl.y, 2) - item.box.z;
         // The rectangle every frame's pieces fall in.
@@ -324,7 +333,7 @@ int Mansion::itemAt(int x, int y, const MansionLook& look, uint64_t nowMs) const
         const Item& item = items_[i];
         // The near walls, see-through, don't stop the pointer.
         if (item.flat || !shown(item, look) || !item.rect.contains(x, y) ||
-            (item.layer == 4 && look.walls != MansionLook::Walls::Solid))
+            (item.layer == 4 && look.nearWalls != MansionLook::NearWalls::Solid))
             continue;
         size_t f = 0;
         const auto& frames = framesAt(i, nowMs, look, f);
@@ -343,10 +352,12 @@ bool Mansion::shown(const Item& item, const MansionLook& look) const {
         return look.tileNumbers;
     if (item.object->type == ObjectDef::Character)
         return look.characters;
-    if (look.walls == MansionLook::Walls::None && item.object->type == ObjectDef::Wall)
+    // "Mansion Walls" off: Clue.exe's walls don't draw themselves, nor its
+    // furniture of the secondary type 1 (the lamps on the walls).
+    if (!look.walls && (item.kind == 0 || (item.kind == 3 && item.subKind == 1)))
         return false;
     if (item.layer == 4)
-        return look.walls != MansionLook::Walls::Hidden;
+        return look.nearWalls != MansionLook::NearWalls::Hidden;
     if (item.layer == 6)
         return look.outside;
     return true;
@@ -376,12 +387,32 @@ ScreenRect actorRect(const Mansion::Actor& a) {
 
 } // namespace
 
-WorldBox Mansion::revealBox(int x, int y) {
-    // As measured on the original (a recording made for it, 0:24): what
-    // turns see-through is what stands in front of a box a square across
-    // and 116 high, 180 pixels tall on the screen.
-    return {x, y, Board::kSquareSize, Board::kSquareSize, 116};
+namespace {
+
+// Clue.exe's test of what stands in front of an actor (at 0x428190, with 13
+// for its reach): the object's box on the floor, less 8 on its far sides,
+// overlapping the actor's anchor and the 208 units beyond it along x and y.
+constexpr int kRevealReach = 13 * 16, kRevealSlack = 8;
+
+bool inFrontOf(const Mansion::Item& item, const Mansion::Actor& a) {
+    // Which of Clue.exe's kinds of object it does this to (their classes'
+    // methods at slots 0x68 and 0x6c): walls (0), secret passages (8) and
+    // drapes (12); furniture (3) without a timing at 2000; the hot spots
+    // (4, 5) only from the corridors. In a room, only the walls.
+    switch (item.kind) {
+    case 0: case 8: case 12: break;
+    case 3: if (item.keepsSolid) return false; break;
+    case 4: case 5: if (!a.inCorridor) return false; break;
+    default: return false;
+    }
+    if (a.inRoom && item.object->type != ObjectDef::Wall)
+        return false;
+    const WorldBox& b = item.box;
+    return b.x <= a.box.x + kRevealReach && b.x + b.sizeX - kRevealSlack > a.box.x &&
+           b.y <= a.box.y + kRevealReach && b.y + b.sizeY - kRevealSlack > a.box.y;
 }
+
+} // namespace
 
 size_t Mansion::insertionPoint(const Actor& actor) const {
     if (actor.flat)
@@ -412,15 +443,12 @@ void Mansion::draw(Surface& target, int camX, int camY, const MansionLook& look,
     // The actors in the order, each before the item it goes before; those
     // at the same point back to front.
     std::vector<std::pair<size_t, const Actor*>> placed;
-    std::vector<std::pair<WorldBox, ScreenRect>> revealed;
+    std::vector<const Actor*> revealing;
     for (const Actor& a : actors) {
         if (a.frame && actorRect(a).overlaps(view))
             placed.push_back({insertionPoint(a), &a});
-        if (a.reveal && look.walls == MansionLook::Walls::SeeThrough) {
-            const WorldBox& b = a.revealBox;
-            revealed.push_back({b, {b.x - b.y - b.sizeY, floorDiv(b.x + b.y, 2) - b.height, b.sizeX + b.sizeY,
-                                    (b.sizeX + b.sizeY) / 2 + b.height}});
-        }
+        if (a.reveal && look.inFront != MansionLook::InFront::Solid)
+            revealing.push_back(&a);
     }
     std::stable_sort(placed.begin(), placed.end(), [](const auto& x, const auto& y) {
         return x.first != y.first ? x.first < y.first : centreDepth(x.second->box) < centreDepth(y.second->box);
@@ -441,19 +469,17 @@ void Mansion::draw(Surface& target, int camX, int camY, const MansionLook& look,
             continue;
         size_t f = 0;
         const auto& frames = framesAt(order_[n], nowMs, look, f);
-        // In front of a suspect or a move's square: see-through, the whole
-        // piece (the walls are built of pieces a square long), as the
-        // original draws them.
+        // In front of the suspect whose turn it is or a move's number: see-
+        // through, or left out, the whole piece.
         int opacity = 255;
-        if (!item.flat)
-            for (const auto& [box, rect] : revealed)
-                if (item.rect.overlaps(rect)) {
-                    int c = compareDepth(item.box, box);
-                    if (c == 0)
-                        c = centreDepth(item.box) < centreDepth(box) ? -1 : 1;
-                    if (c > 0)
-                        opacity = look.seeThrough;
-                }
+        if (!item.flat &&
+            std::any_of(revealing.begin(), revealing.end(), [&](const Actor* a) { return inFrontOf(item, *a); })) {
+            if (look.inFront == MansionLook::InFront::Hidden)
+                continue;
+            opacity = look.seeThrough;
+        }
+        if (item.layer == 4 && look.nearWalls == MansionLook::NearWalls::SeeThrough)
+            opacity = std::min(opacity, look.seeThrough);
         const int level = look.lighting ? lightLevel(item.box.x + item.box.sizeX / 2,
                                                     item.box.y + item.box.sizeY / 2, look.lights)
                                         : 256;
