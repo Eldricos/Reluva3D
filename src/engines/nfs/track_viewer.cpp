@@ -197,14 +197,21 @@ gfx::TextureId TrackPage::picture(const std::string& sheet, int number, bool lan
             }
         bank = banks_.emplace(sheet, std::move(loaded)).first;
     }
-    char name[16];
-    std::snprintf(name, sizeof name, lane ? "lin%d" : "%04d", number);
+    // A track sheet's picture is the shape at that place in its directory,
+    // whatever its name: the game loads the shapes in order into its slots
+    // (0x41db10) and the texture's number indexes them (0x419ab0). The names
+    // don't always follow the order (tr010 lacks 0095, tr070 has 0001-0003
+    // twice, tr040's are HOR1, ...). Lane pictures go by name (lin3).
     const Shape* shape = nullptr;
-    for (const Shape& s : bank->second.shapes)
-        if (s.name == name)
-            shape = &s;
-    if (!shape && !lane && number >= 0 && number < static_cast<int>(bank->second.shapes.size()))
-        shape = &bank->second.shapes[number];
+    if (lane) {
+        char name[16];
+        std::snprintf(name, sizeof name, "lin%d", number);
+        for (const Shape& s : bank->second.shapes)
+            if (s.name == name)
+                shape = &s;
+    } else if (number >= 0 && number < static_cast<int>(bank->second.shapes.size())) {
+        shape = &bank->second.shapes[size_t(number)];
+    }
     image::Image img;
     gfx::TextureId id = 0;
     if (shape && !decodeShape(*shape, img) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), {}, id)) {
@@ -239,7 +246,7 @@ gfx::TextureId TrackPage::skyPicture(const std::string& name, std::string* text)
     return 0;
 }
 
-// The horizon picture: the track sheet's pictures 0000-0007 side by side,
+// The horizon picture: the track sheet's first eight pictures side by side,
 // the eight tiles nfs3.exe draws round the horizon (thrash.md's log of its
 // drawing; hrz.md).
 gfx::TextureId TrackPage::horizonStrip() {
@@ -252,12 +259,8 @@ gfx::TextureId TrackPage::horizonStrip() {
     constexpr int kTiles = 8;
     std::array<image::Image, kTiles> tiles;
     for (int i = 0; i < kTiles; ++i) {
-        char name[8];
-        std::snprintf(name, sizeof name, "%04d", i);
-        const Shape* shape = nullptr;
-        for (const Shape& s : bank->second.shapes)
-            if (s.name == name)
-                shape = &s;
+        // By place, as picture() (0000-0007 on most sheets, HOR1-HOR8 on tr040 and tr060).
+        const Shape* shape = i < static_cast<int>(bank->second.shapes.size()) ? &bank->second.shapes[size_t(i)] : nullptr;
         if (!shape || decodeShape(*shape, tiles[size_t(i)]) || tiles[size_t(i)].w != tiles[0].w ||
             tiles[size_t(i)].h != tiles[0].h)
             return 0;

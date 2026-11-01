@@ -260,13 +260,27 @@ to the points, used in place):
   runs of 1-7 slices: Summit slices 1555-1629 (blocks 194-203, both
   sides, walls 18-31 away), Aquatica 836-838 and 917-919 (blocks 104
   and 114, left, 13-15 away) and Country Woods 518-520 (block 64,
-  right, 10 away). Summit's are in the town by the finish, where the
-  street is laid with planks, with snow banks, a timber arcade and
-  a wooden railing beside it; Aquatica's block 104 is the seaward
-  edge, a low bank above the water. With its dust and the dullest of
-  the thumps (slot 30, below 100 Hz) it reads as a soft edge, snow or
-  earth banks perhaps, but nothing in the pictures sets these few
-  slices apart from the code-5 banks around them, so it stays unnamed.
+  right, 10 away). Aquatica's block 104 is the seaward edge, a low
+  bank above the water. With its dust and the dullest of the thumps
+  (slot 30, below 100 Hz) it reads as a soft edge, snow or earth banks
+  perhaps, but nothing in the pictures sets these few slices apart from
+  the code-5 banks around them, so it stays unnamed.
+
+  **Correction (November 2026).** The planks, timber arcade and railing
+  first seen at Summit's were the Tracks page's wrong pictures (it took
+  the sheet's pictures by name, not by place; [frd.md](frd.md),
+  Textures). With the right ones, Summit's code-3 slices are in a
+  small brick town with snow on the roofs and kerbs (a "Village
+  Trading Post" sign at block 194), just before the start: left
+  1555-1557, right 1562-1564 and 1568-1571 and left 1571-1573 by the
+  buildings, then a raised snow bank on the left at 1600-1601 and
+  1610-1616 and right 1621-1629 as the town ends. The rest of the
+  town's walls are code 4. `Summit_Day` (4:01-4:05) and `Summit_Night`
+  (about 5:00) drive through this town without touching a wall,
+  so the footage doesn't show a code-3 hit. Rocky Pass's sheet is off
+  by up to three from place 92 too, so its block 88 is worth a second
+  look; Hometown's and Empire City's set 0 and Country Woods' were
+  right.
 
   **Code 3 against code 5 in the code** (November 2026). The side code
   has four readers: `0x430bf1` (copied into the impact field, +0x170 =
@@ -395,6 +409,28 @@ flags; quads are sorted by depth (`0x4c7610`) with the scene's.
 kind nn, `SPnn` when the night flag (`0x6fd4c8`) is set. `SN03` (sparks)
 is 8 × 8, opaque, yellow; `SN02` (dust) a dark brown puff and `SN06`
 (smoke) a grey one, 32 × 32 with alpha.
+
+**Against footage** (November 2026; clips as in [hrz.md](hrz.md)).
+No clip has a clear wall hit near the camera, so the wall hits' own
+particles aren't seen. Two nearby events:
+- `Summit_Day` 4:45 (285.3 s): the car lands from a crest and scrapes.
+  A small yellow blob under its tail, then a fan of thin yellow
+  streaks rising and spreading, each tapered to a point at one end,
+  up to about 40 pixels long at 1280 × 720 with the chase camera close,
+  orange at their ends at the last, gone after about 0.2 s, with grey
+  puffs either side lasting longer. So the sparks' picture shows as
+  yellow, not white, and the streaks are wedges, as the corners above
+  (the kept point twice) make. That this is a kind-3 burst is a guess
+  from the look: a scrape isn't a wall hit.
+- `Rocky_Pass_Day` 3:39 (219 s): wheels on the grass verge throw dark
+  speckled clumps, like `SN05`, not the brown `SN02` puff.
+
+On the Tracks page a fast hit at 28 units (Summit block 196) gives a
+small orange cluster, then orange dots and short streaks spreading
+sideways for about 0.4 s: more orange and shorter than the clip's, but
+the camera was ten times as far and it wasn't the same event, so this
+doesn't show a fault. Life, the wedge's width and fogging stay
+unchecked.
 
 **Inferred, not followed:** that flags bit 0 means the quad is added
 rather than blended (the lights' glows set it too, `0x49155f`, and the

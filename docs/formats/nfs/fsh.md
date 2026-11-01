@@ -206,6 +206,10 @@ loads `trNNN_8.qfs` (the renderer's number decides, `0x7a3a58`; see
 Huffman scheme ([refpack.md](refpack.md)). The Tracks page shows them
 with `X`, after the two 16-bit sets.
 
+A track's polygons name their pictures by place in the sheet, not by
+name, and the names skip or repeat on most sheets ([frd.md](frd.md),
+Textures).
+
 ## Tools
 
 - `reluva-tool fsh-info <file> [name in .viv]` lists the shapes.

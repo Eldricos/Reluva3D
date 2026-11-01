@@ -370,10 +370,48 @@ the headlights comes from that and the option's name, not from seeing
 it. Over the nine tracks, every lane marking and every roadside polygon has `0x04`, as
 do 30 % of object polygons and 5 % of the road's.
 
-The picture is the shape named by its number (`0042`) in the track's
-sheet, `trNN0.qfs` (or `trNN1.qfs`, an alternative set that differs in a
-few pictures). For a lane texture it's `linN` in
-`GameData/Render/pc/sfx.fsh`.
+The picture is the shape at that place in the track's sheet,
+`trNN0.qfs` (or `trNN1.qfs`, an alternative set that differs in a few
+pictures), counted from 0, whatever its name (November 2026). The loader
+`0x41db10` loads the sheet's shapes in order into 44-byte slots
+(`0x5dd858`), and `0x419ab0` turns each texture's number into the slot
+at that index. The names don't always follow the order: `tr010` has no
+`0095`, so from place 95 each name is one more than its place;
+`tr070` has `0001`-`0003` and `0025` twice (places 26-29); `tr040` and
+`tr060` name theirs `HOR1`, `CEME`, `GOLD`...; and the `1` sets of
+Hometown, Atlantica and Empire City skip a name too. For a lane texture
+it's `linN` in `GameData/Render/pc/sfx.fsh`, by name.
+
+Found from footage: at Redrock Ridge's start the Tracks page showed a
+red tiled square on the Taco Den sign's pole and lightning-patterned
+roofs on the motel, where `Redrock_Ridge_Day` (0:12) and an `nfs-host`
+race show the Taco Den sign and red tiled roofs: the page had taken
+`0135` (the tiles) for number 135, which the game takes as place 135,
+`0136`. Summit was the worst: from place 26 nearly every picture was
+wrong, which made its forest start look like a town of planks. The page
+takes pictures by place since.
+
+**Signs read backwards on the page (open).** `Redrock_Ridge_Day`
+(0:12) and an `nfs-host` race (no mirror) both show "CACTUS MOTEL" and
+"TACO DEN" readable, from set 0. On the Tracks page, with the same
+layout (the motel on the left, the start's checks ahead), set 0's signs
+read mirrored and set 1's readable. The motel sign's corners are the
+usual (0, 0), (1, 0), (1, 1), (0, 1), so the page's pairing of corners
+with vertices, or its mirroring of the track, differs from the game's
+somewhere; not found yet.
+
+**The headlights in footage** (November 2026). In the night clips the
+pool ahead of the car is a flat band with a fairly sharp far edge on
+the road (`Hometown_Night` 0:40, `Summit_Night` 2:17, 2:53), while snow
+banks, rock faces and tunnel walls beside it only brighten broadly and
+softly, with no such edge (`Summit_Night` 2:53, 7:20; `Hometown_Night`
+1:02). That fits the code: roadside polygons all have `0x04` and only
+get the light in their vertex colours, while road polygons get the
+projected picture. At the clips' size it can't be told whether the lane
+markings inside the pool get it. The cars' tail lights glow large and
+red behind each car, and a police car's light blue (`Hometown_Night`
+1:02). The track lights glow by day too (a street lamp in
+`Summit_Day` 4:05), as the page draws them.
 
 Every polygon's texture is in the table, and every picture they use is
 in its sheet. Some entries name pictures past the sheet's end, but no

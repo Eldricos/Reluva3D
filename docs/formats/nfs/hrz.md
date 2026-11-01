@@ -150,7 +150,9 @@ tiles show, left to right.
   horizon, in the earth's colours.
 - **The horizon picture**, fogged as the sky, drawn white whatever the
   variant (`0x478310`). It is the first eight pictures of the track's
-  texture sheet (`0000` to `0007`, 64 × 64 each), not anything in
+  texture sheet, by their place in it (64 × 64 each; named `0000` to
+  `0007` on most sheets, `HOR1` to `HOR8` on Country Woods' and
+  Aquatica's, see [frd.md](frd.md), Textures), not anything in
   `sky.fsh`. `sky.fsh`'s `CHRD`, `CHRN`, `CHRW` and `CHNW` are sphere
   maps, the cars' reflections.
   - **Which sheet.** `trNN0.qfs`, or `trNN1.qfs` for a mirrored track
@@ -199,7 +201,7 @@ The Tracks page draws as the game does, above, with the functions in
   (the horizon), then the sky's from the midpoint to the top, its
   colours at the horizon by slot. Its 32 segments start at slot 0, two a
   slot, placed by the rotation as the game's.
-- **The horizon picture.** The track sheet's pictures `0000` to `0007`
+- **The horizon picture.** The track sheet's first eight pictures
   side by side, a tile a slot, twice round a band at the horizon radius,
   the second copy flipped with the mirror flag. The band is a cylinder
   in 3D, so towards the screen's sides it is spaced as a projection, not
@@ -224,6 +226,44 @@ The Tracks page draws as the game does, above, with the functions in
   ticked at 64 a second (`lightningStarts`, `makeBolt`, `tickBolt`,
   `boltFlash`), with Reluva's own random numbers. The bolts are thin
   quads, about a pixel and a half wide.
+
+Until November 2026 the page looked the pictures up by name, so Country
+Woods and Aquatica, whose sheets name them `HOR1` to `HOR8`, had no
+horizon picture: a flat band of the earth's colour where
+`Country_Woods_Day` shows hills. It takes them by place now.
+
+## Against footage of the game (November 2026)
+
+Eighteen recompressed YouTube clips of the retail game, one per track by
+day and by night, from a 3D card at high detail (`<Track>_<Day|Night>`,
+times as m:ss), against the Tracks page and frames from `nfs-host`:
+
+- **The aurora** in `Summit_Night` (2:17, 2:40, 7:20) is the night
+  "moon": `SUNN` in Summit's `sky.fsh` is a 128 × 128 green and purple
+  aurora, text `A330 B62 R185`, so about 47° across, 25° up, added,
+  without `ROTATE`. Nothing in the `.hrz` makes it. The page draws it.
+  Checked by a copy of the game whose Hometown `sky.fsh` was Summit's
+  with the text `A313 B62 R185` (down Hometown's start): `nfs-host`'s
+  night race and the page both show it upright, its bright lobes low
+  left and high right, at the same place over the road.
+- In `Summit_Night` it runs the other way, high left to low right.
+  That clip looks like a mirrored race: at its start (0:16-0:22) the
+  80 sign is on the left of the road, where `Summit_Day` (0:16) has it
+  on the right. So the game mirrors the sun's picture with the track.
+  The page has no mirrored mode to compare.
+- **Stars and moon.** `Hometown_Night` (0:40) has many one- or
+  two-pixel stars and the moon high right; the page shows the stars
+  fainter. Not measured: the clips' brightness isn't the game's.
+- **Clouds.** `Hometown_Day` (0:20) has thin white streaks on a deep
+  blue; the page's clouds are broader and paler. That may be the
+  renderer (the Direct3D path's alpha, above) or the clip's settings;
+  not settled.
+- **Distance.** The page draws power lines on far blocks as broken
+  lines along the horizon at Hometown's start, where the game draws
+  none: the game draws fewer blocks ahead (the view distance option),
+  so a setting, not a fault.
+- **Lightning** is in none of the clips (no weather), so it stays
+  unchecked.
 
 Not checked against the game:
 
