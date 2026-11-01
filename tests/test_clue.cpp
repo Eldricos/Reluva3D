@@ -257,12 +257,14 @@ static void testDriveAndImages() {
 static void testAnimations() {
     Animation a;
     CHECK(!parseAnimation(animation(false), a));
-    CHECK(a.name.empty() && a.kind[0] == 6 && a.kind[1] == 2 && a.width == 75 && a.height == 120);
+    CHECK(a.name.empty() && a.framesPerSecond == 6 && a.flags == Animation::BackAndForth && a.width == 75 && a.height == 120);
     CHECK(a.images.size() == 2 && a.images[1] == "test:Ib");
     CHECK(a.layers.size() == 2 && a.frameCount() == 2 && a.isometric && !a.shortForm);
     CHECK(a.layers[1][1].image == 1 && a.layers[1][1].x == 11 && a.layers[1][1].y == -5);
     CHECK(a.frames[0].anchorX == -44 && a.frames[0].anchorY == -106 && a.frames[1].height == 101);
-    CHECK(a.frames[0].sizeX == 16 && a.frames[0].sizeY == 16 && a.frames[0].solid == 1 && a.framesPerSecond == 10);
+    CHECK(a.frames[0].sizeX == 16 && a.frames[0].sizeY == 16 && a.frames[0].solid == 1);
+    // 6 FPS back and forth: 0 1 0 1 ...; in a window, round and round.
+    CHECK(a.frameAt(0, true) == 0 && a.frameAt(170, true) == 1 && a.frameAt(340, true) == 0 && a.frameAt(170, false) == 1);
     CHECK(a.frames[0].unknown[4] == 4 && a.frames[0].extras.empty() && a.frames[1].extras.size() == 1);
     CHECK(a.frames[1].extras.size() == 1 && a.frames[1].extras[0][0] == 0x88);
 
@@ -401,7 +403,7 @@ static Bytes levelFile(const std::vector<const char*>& names, const std::vector<
 static void testObjectsAndLevel() {
     ObjectDef o;
     CHECK(!parseObject(objectRecord("test:Obench", 3, {{0, "test:Awalk"}, {21, "test:Awalk"}}, {{1600, 21}}), o));
-    CHECK(o.name == "test:Obench" && o.type == 3 && o.unknown == 1 && o.states.size() == 2);
+    CHECK(o.name == "test:Obench" && o.type == 3 && o.subType == 1 && o.startState == 0 && o.startFrame == 0 && o.states.size() == 2);
     CHECK(o.state(21) && o.state(21)->animation == "test:Awalk" && !o.state(5));
     CHECK(o.timings.size() == 1 && o.timings[0].time == 1600 && o.timings[0].state == 21);
     Bytes cut = objectRecord("test:Ox", 0, {{0, "test:Awalk"}});

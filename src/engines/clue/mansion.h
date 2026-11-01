@@ -102,6 +102,7 @@ public:
         const Image* image = nullptr;
         int dx = 0, dy = 0;
         int layer = 0; // its layer in the animation (walls and floors are lit by it)
+        int blend = 0; // its part's own pixel function (2-4) in place of the light, or 0
     };
     using Frame = std::vector<Piece>;
 

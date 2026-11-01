@@ -137,14 +137,15 @@ clipped, flipped, scaled and sheared variants).
 | 4 | `ANIM` |
 | 2 | `0x200` |
 | 1 + n | its own name, n bytes. Most are 128 bytes of `0xCD`, the fill Visual C++'s debug heap gives new memory: unnamed |
-| 2 | not understood (two bytes, e.g. 6 and 2 in Miss Scarlet's idle animations) |
+| 1 | frames a second (`FPS`; 0 in most of the interface) |
+| 1 | how it plays (`Flags`): 0 once, 1 round and round, 2 to the end and back |
 | 1 | number of layers |
 | 2 | number of frames |
 | 2 | number of images |
 | 2 | width |
 | 2 | height |
-| 4 | frames a second: 10 in every record |
-| 4 | 136 in every record (not understood) |
+| 4 | a part's size in bytes: 10 in every record |
+| 4 | EagleM's size for an entry of its table of images in memory (8 + a 128-byte name): 136 in every record, no bearing on the file |
 | 4 | 4 + layers × frames × 10 |
 | | the images: each 1 + n bytes, a name `drive:Iname` |
 | | the layers: each a 4-byte number (0, 1, ...) and a 10-byte part for each frame |
@@ -157,7 +158,7 @@ A part is the layer's image in that frame:
 | 0 | 2 | the image's number in the list, or `0xFFFF` for none in that frame |
 | 2 | 2 | x |
 | 4 | 2 | y |
-| 6 | 4 | not understood (zero in most) |
+| 6 | 4 | its own draw flags (`Flags`), 0 in all but a few (below) |
 
 So a frame is its layers' images drawn at their places. A character has
 one layer; a floor of 4×4 tiles one frame of 16 layers, a tile each; the
@@ -173,7 +174,7 @@ extras:
 |---|---|---|
 | 0 | 2 | x of the frame's top left from the anchor point (signed; −44 for Miss Scarlet) |
 | 2 | 2 | y (−106 for her: the anchor is at her feet) |
-| 4 | 3 | not understood (0) |
+| 4 | 3 | `RelativeWorld`: a world offset, x, y and height, signed (0 in every frame) |
 | 7 | 1 | the number of boxes: 1 (0 in some) |
 | 8 | 2 | the box's number |
 | 10 | 2 | its x from the anchor (signed; mostly 0, −25 for a wall lamp) |
@@ -196,12 +197,40 @@ characters 16 × 16 × 100; the pool table 168 × 92 × 48; a 4 × 4 floor block
 
 An earlier version of this page took bytes 20-21 for the frame's time: the
 characters' 100 fitted that, but walls' 161 and the armour's 140 show it's
-the height. The frames' rate is the header's: 10 a second in every
-animation (the header's first constant).
+the height. Another took the header's 10 for the frames' rate; it is the
+parts' size (EagleM.dll reads each part with it, 0x1000F0B8), and the
+rate is the byte after the name.
 
-The extras are rare: 96 in an install, each `88 13 00 00 00 00 00`
-(5000), two in each of the six characters' eight `mult` animations (one a
-direction); perhaps a pause of up to 5 s.
+How the fields were named: EagleM.dll writes an animation as text too
+(0x1000F500): `Animation`, `Flags`, `FPS`, `FrameSize`, then each layer's
+`Frame x y "image"` with its `Flags`; Clue.exe writes the ISOA block so
+(0x4499B0): `Relative2D x y`, `RelativeWorld x y z`, `BBox` and its seven
+numbers, and a `KeyList` of the frame's keys.
+
+**Playing.** EagleM.dll plays the interface's (0x1000BFF0): a frame each
+1000 / FPS ms (integer), round and round whatever the flags, still at 0
+FPS. Clue.exe plays the house's (0x427E60 on each 66 ms tick, 0x446E30): a
+frame each 1000 / FPS ms, 10 FPS when it has none, by the flags: once (the
+last frame held), round and round, or to the end and back. In the game:
+the suspects' walks 13-16 FPS, round; their idles 4-8, to the end and
+back; the fires 8, round; the storm over the menus 15; the hot spots'
+reactions 2-100, once.
+
+**A part's flags**, when not 0, are what Clue.exe draws that image of the
+house with in place of the object's own (0x4285E8): their high 16 bits a
+pixel function of `ImageRLE16.dll`'s (`GetBlittersTable`, 0x10061030): 2 a
+quarter of the picture over three quarters of what is behind, 3 half and
+half, 4 three quarters of the picture. The conservatory's fountain's
+water (`Acnfntn`, 2, 3 and 4) and `specialfx:Abad` (2) have them. EagleM
+draws the interface's without them.
+
+**The extras** are the frame's keys, 7 bytes each as the objects'
+([level.md](level.md)): a 2-byte key, a type byte (0, a whole number) and
+a 4-byte value. The game has one: key 5000 (value 0), two in each of the
+six characters' eight `mult` (walking) animations, on the frames a foot
+comes down: Clue.exe plays a footstep there (0x426660), one of
+`male_step1`-`5` for the men (secondary type 1, 3, 5) or `female_step1`-`7`
+for the women, by chance.
 
 All 1,034 animations of every copy read this way, and all 7,262 images
 they name are found and decode. In the short form the first 4 bytes are

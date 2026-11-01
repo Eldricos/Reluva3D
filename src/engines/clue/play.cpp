@@ -1530,10 +1530,6 @@ void Play::update(uint64_t nowMs) {
                 w.fy = ty;
                 left -= d;
                 w.route.pop_front();
-                char step[32];
-                std::snprintf(step, sizeof step, "%s_step%d.wav", kFemale[s] ? "female" : "male",
-                              1 + int(now_ / 97 % 7));
-                sound(step);
             } else {
                 w.fx += dx / d * left;
                 w.fy += dy / d * left;
@@ -1542,6 +1538,23 @@ void Play::update(uint64_t nowMs) {
         }
         w.x = int(std::lround(w.fx));
         w.y = int(std::lround(w.fy));
+        // A footstep on the walk's frames that have key 5000 (Clue.exe
+        // 0x426660): one of the five men's or seven women's by chance.
+        if (const ObjectDef* o = data_.object(kCharacter[s]))
+            if (const ObjectDef::State* st = o->state(uint16_t(9 + w.facing)))
+                if (const Animation* a = data_.animation(st->animation); a && a->frameCount() > 0) {
+                    const int f = int(a->frameAt(now_ + uint64_t(s) * 337, true));
+                    if (f != w.stepFrame) {
+                        w.stepFrame = f;
+                        for (const auto& key : a->frames[size_t(f)].extras)
+                            if ((key[0] | key[1] << 8) == 5000) {
+                                char step[32];
+                                std::snprintf(step, sizeof step, "%s_step%d.wav", kFemale[s] ? "female" : "male",
+                                              1 + int(ambientRng_() % (kFemale[s] ? 7 : 5)));
+                                sound(step);
+                            }
+                    }
+                }
         if (w.route.empty())
             w.walking = false;
         if (s == follow_)
@@ -1686,8 +1699,7 @@ std::vector<Mansion::Actor> Play::actors() {
             continue;
         const auto* frames = mansion_.frames(data_, *a);
         Mansion::Actor actor;
-        const size_t f = size_t((now_ + uint64_t(s) * 337) * uint64_t(std::max(1, a->framesPerSecond)) / 1000) %
-                         frames->size();
+        const size_t f = a->frameAt(now_ + uint64_t(s) * 337, true) % frames->size();
         actor.frame = &(*frames)[f];
         actor.box = {w.x, w.y, a->frames[f].sizeX, a->frames[f].sizeY, a->frames[f].height};
         // Only the suspect whose turn it is shows what is in front of it, as

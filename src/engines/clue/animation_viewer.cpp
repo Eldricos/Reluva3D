@@ -87,7 +87,8 @@ void AnimationViewer::handleKey(uint32_t key) {
 
 void AnimationViewer::update(uint64_t nowMs) {
     if (current_ && !paused_ && current_->frameCount() > 1) {
-        if (nowMs - frameStart_ >= uint64_t(1000 / current_->framesPerSecond)) {
+        const int fps = current_->framesPerSecond ? current_->framesPerSecond : 10;
+        if (nowMs - frameStart_ >= uint64_t(1000 / fps)) {
             frame_ = (frame_ + 1) % current_->frameCount();
             frameStart_ = nowMs;
             dirty_ = true;

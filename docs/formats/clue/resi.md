@@ -38,8 +38,8 @@ The fonts: 0 `small`, 1 `notepad`, 2 `ticker`, 3 `14ptfont`, 4 `16ptfont`,
 5 `18ptup`, 6 `largeu`. A glyph is an image whose pixels sit in a cell
 ([res.md](res.md)); a character without one (the space) has no image.
 
-A dialog: a 36-byte block (its number first; the rest 0, a 6, and a
-pointer as it was in memory), its background's animation (string), a
+A dialog: a 36-byte block (its number first; the rest 0, a 6, and
+pointers as they were in memory in the tool that wrote it), its background's animation (string), a
 byte's count of controls, and the controls.
 
 A control: a 112-byte block, two strings (its text, its animation), a
@@ -60,8 +60,8 @@ As 28 numbers of 4 bytes:
 | 14 | its font |
 | 15 | another font (the same in most) |
 | 16 | 1: hidden at first, an alternative the game shows when needed (the computer player's difficulty, the "next player" title); else 0 |
-| 12, 13 | 100 and 0 in most controls, 10 and 5 in a few, pointers in some: not understood |
-| 20 | 32 in 397 controls of many dialogs, else 0: not understood |
+| 12, 13 | 100 and 0, or 10 and 5, or pointers: the same in every control of a dialog, as left by the tool that wrote it; EagleM.dll's reader copies the block whole (0x1001C070) and what it does with them isn't traced; nothing in the game shows them |
+| 20 | 32 or 0, the same in every control of a dialog (32 in dialogs 11, 37-39 ...): as 12 and 13 |
 | 21 | 2 for some two-line labels ("Locally\|on this machine") and a few names, else 0 |
 | 8, 11, 17-19, 22-27 | the same in every control (a pointer, 0, 55, −1, 1) |
 

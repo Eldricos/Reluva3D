@@ -856,7 +856,7 @@ void FrontEnd::drawStorm() {
             const Animation* a = name ? data_.animation(name) : nullptr;
             if (!a || a->layers.empty() || a->frameCount() == 0)
                 continue;
-            const size_t f = size_t(now_ * uint64_t(a->framesPerSecond) / 1000) % a->frameCount();
+            const size_t f = a->frameAt(now_, false);
             for (const auto& layer : a->layers) {
                 const Animation::Part& part = layer[f];
                 if (part.image >= a->images.size())

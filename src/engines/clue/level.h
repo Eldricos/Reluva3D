@@ -37,7 +37,12 @@ struct ObjectDef {
 
     std::string name; // "ballroom:Oblcouch_ad"
     uint8_t type = 0;
-    uint32_t unknown = 0;
+    uint8_t subType = 0; // its secondary type: 1 the wall lamps ...
+    // The state and frame it starts in (Clue.exe's object takes them as it is
+    // made, 0x446064, and a saved game notes where an object is off them,
+    // 0x446766): 0 and 0 in every object of the game.
+    int16_t startState = 0;
+    uint8_t startFrame = 0;
     std::vector<State> states;
     std::vector<Timing> timings;
 

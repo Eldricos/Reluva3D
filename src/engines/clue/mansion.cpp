@@ -188,7 +188,7 @@ const std::vector<Mansion::Frame>* Mansion::resolve(const GameData& data, const 
                 problems_.push_back(data.lastError());
                 continue;
             }
-            frames[f].push_back({img, ax + part.x + img->offsetX, ay + part.y + img->offsetY, int(l)});
+            frames[f].push_back({img, ax + part.x + img->offsetX, ay + part.y + img->offsetY, int(l), int(part.flags >> 16)});
         }
     }
     return &frames_.emplace(&anim, std::move(frames)).first->second;
@@ -211,7 +211,8 @@ Error Mansion::build(const GameData& data, const Level& level) {
             problems_.push_back(data.lastError());
             continue;
         }
-        const ObjectDef::State* state = item.object->state(0);
+        // The state it starts in (Clue.exe 0x446064): 0 in all the game's.
+        const ObjectDef::State* state = item.object->state(uint16_t(std::max<int16_t>(0, item.object->startState)));
         if (!state && !item.object->states.empty())
             state = &item.object->states.front();
         if (!state) {
@@ -241,7 +242,7 @@ Error Mansion::build(const GameData& data, const Level& level) {
         item.box.height = f0.height;
         const bool tagged = pl.flags & 0x02;
         item.kind = tagged ? uint8_t(pl.tag & 0xff) : item.object->type;
-        item.subKind = tagged ? uint8_t(pl.tag >> 8) : uint8_t(item.object->unknown & 0xff);
+        item.subKind = tagged ? uint8_t(pl.tag >> 8) : item.object->subType;
         const auto has2000 = [](const std::vector<Timing>& t) {
             return std::any_of(t.begin(), t.end(), [](const Timing& x) { return x.time == 2000; });
         };
@@ -347,7 +348,9 @@ int lightShade(int lx, int ly, int x, int y) {
 namespace {
 
 // image::blit through one of Clue.exe's shades: see-through is half the
-// picture's 5-bit colours and half what is behind (its pixel function 3).
+// picture's 5-bit colours and half what is behind (its pixel function 3);
+// 2 a quarter of the picture's and three of what is behind, 4 the other
+// way round.
 void blitShaded(Surface& dst, const image::Image& img, int x, int y, int level) {
     if (level == kShadeNone) {
         image::blit(dst, img, x, y);
@@ -368,8 +371,11 @@ void blitShaded(Surface& dst, const image::Image& img, int x, int y, int level) 
             uint8_t* d = row + dx * 4;
             for (int c = 0; c < 3; ++c) {
                 int v;
-                if (level == kShadeSeeThrough) {
-                    const int r = (s[c] >> 4) + (d[c] >> 4); // (src5 >> 1) + (dst5 >> 1)
+                if (level >= 2 && level <= 4) {
+                    const int s5 = s[c] >> 3, d5 = d[c] >> 3;
+                    const int r = level == 2   ? (d5 >> 1) + (d5 >> 2) + (s5 >> 2)
+                                  : level == 3 ? (s5 >> 1) + (d5 >> 1)
+                                               : (s5 >> 1) + (s5 >> 2) + (d5 >> 2);
                     v = (r << 3) | (r >> 2);
                 } else
                     v = shade(s[c], level);
@@ -418,8 +424,7 @@ bool Mansion::playingState(size_t item, uint64_t nowMs) const {
     const Playing& p = it->second;
     if (p.loop)
         return true;
-    const uint64_t fps = uint64_t(std::max(1, p.animation->framesPerSecond));
-    return nowMs < p.start || (nowMs - p.start) * fps / 1000 < p.frames->size();
+    return nowMs < p.start || nowMs - p.start < p.animation->onceMs();
 }
 
 const std::vector<Mansion::Frame>& Mansion::framesAt(size_t index, uint64_t nowMs, const MansionLook& look,
@@ -428,13 +433,16 @@ const std::vector<Mansion::Frame>& Mansion::framesAt(size_t index, uint64_t nowM
     frame = 0;
     if (auto it = states_.find(index); it != states_.end() && playingState(index, nowMs)) {
         const Playing& p = it->second;
-        const uint64_t fps = uint64_t(std::max(1, p.animation->framesPerSecond));
-        frame = size_t((nowMs - std::min(nowMs, p.start)) * fps / 1000) % p.frames->size();
+        // A state played once (a reaction) goes through once; looping (the
+        // drapes) by its own flags.
+        const uint64_t t = nowMs - std::min(nowMs, p.start);
+        frame = p.loop ? p.animation->frameAt(t, true) % p.frames->size()
+                       : std::min(p.frames->size() - 1, size_t(t / uint64_t(p.animation->onceMs() / p.frames->size())));
         return *p.frames;
     }
     const auto& frames = *item.frames;
     if (look.animate && frames.size() > 1)
-        frame = size_t(nowMs * uint64_t(item.animation->framesPerSecond) / 1000) % frames.size();
+        frame = item.animation->frameAt(nowMs, true) % frames.size();
     return frames;
 }
 
@@ -620,7 +628,7 @@ void Mansion::draw(Surface& target, int camX, int camY, const MansionLook& look,
             }
             for (const Piece& p : *a.frame)
                 if (a.opacity == 255)
-                    blitShaded(target, p.image->pixels, ax + p.dx, ay + p.dy, level);
+                    blitShaded(target, p.image->pixels, ax + p.dx, ay + p.dy, p.blend ? p.blend : level);
                 else
                     image::blit(target, p.image->pixels, ax + p.dx, ay + p.dy, a.opacity);
         }
@@ -647,7 +655,7 @@ void Mansion::draw(Surface& target, int camX, int camY, const MansionLook& look,
         if (seeThrough || !look.lighting) {
             for (const Piece& p : frames[f])
                 blitShaded(target, p.image->pixels, x0 + p.dx, y0 + p.dy,
-                           seeThrough ? kShadeSeeThrough : kShadeNone);
+                           p.blend ? p.blend : seeThrough ? kShadeSeeThrough : kShadeNone);
             continue;
         }
         // Its light, at the middle of its box (from the placement, as
@@ -673,7 +681,7 @@ void Mansion::draw(Surface& target, int camX, int camY, const MansionLook& look,
                 px = wx + 16 * (p.layer % 4) + 8;
                 py = wy + 16 * (p.layer / 4) + 8;
             }
-            blitShaded(target, p.image->pixels, x0 + p.dx, y0 + p.dy, lit.at(px, py));
+            blitShaded(target, p.image->pixels, x0 + p.dx, y0 + p.dy, p.blend ? p.blend : lit.at(px, py));
         }
     }
     drawActors(order_.size());

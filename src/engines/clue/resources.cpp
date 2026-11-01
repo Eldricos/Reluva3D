@@ -161,6 +161,26 @@ Error decodeImage(const std::vector<uint8_t>& r, Image& out) {
     return Error::success();
 }
 
+size_t Animation::frameAt(uint64_t ms, bool world) const {
+    const size_t n = frameCount();
+    if (n <= 1)
+        return 0;
+    if (framesPerSecond == 0 && !world)
+        return 0;
+    const uint64_t step = ms / uint64_t(1000 / (framesPerSecond ? framesPerSecond : 10));
+    if (!world || flags == Loop)
+        return size_t(step % n);
+    if (flags == BackAndForth) {
+        const uint64_t k = step % (2 * n - 2);
+        return size_t(k < n ? k : 2 * n - 2 - k);
+    }
+    return size_t(std::min<uint64_t>(step, n - 1));
+}
+
+uint64_t Animation::onceMs() const {
+    return uint64_t(frameCount()) * uint64_t(1000 / (framesPerSecond ? framesPerSecond : 10));
+}
+
 Error parseAnimation(const std::vector<uint8_t>& r, Animation& out) {
     out = {};
     size_t p = 0;
@@ -185,16 +205,17 @@ Error parseAnimation(const std::vector<uint8_t>& r, Animation& out) {
         out.name.clear();
     if (!need(23))
         return Error::fail("ANIM header cut short");
-    out.kind[0] = r[p];
-    out.kind[1] = r[p + 1];
+    out.framesPerSecond = r[p];
+    out.flags = r[p + 1];
     const int layerCount = r[p + 2];
     const int frameCount = u16(r, p + 3), imageCount = u16(r, p + 5);
     out.width = u16(r, p + 7);
     out.height = u16(r, p + 9);
-    out.framesPerSecond = int(u32(r, p + 11));
-    if (out.framesPerSecond <= 0 || out.framesPerSecond > 1000)
-        return Error::fail("ANIM speed " + std::to_string(out.framesPerSecond) + " is out of range");
-    p += 23; // and a value not understood (136 in every record), and the layers' size
+    // A part's size in bytes (EagleM.dll reads each with it): 10 in every
+    // record, and the only size this reads.
+    if (u32(r, p + 11) != 10)
+        return Error::fail("ANIM part size " + std::to_string(u32(r, p + 11)) + " isn't known");
+    p += 23; // and EagleM's size for an entry of its image table (136), and the layers' size
     for (int i = 0; i < imageCount; ++i) {
         std::string name;
         if (!text(name))
@@ -208,7 +229,7 @@ Error parseAnimation(const std::vector<uint8_t>& r, Animation& out) {
             return Error::fail("ANIM layers cut short");
         p += 4;
         for (int f = 0; f < frameCount; ++f, p += 10) {
-            Animation::Part part{u16(r, p), s16(r, p + 2), s16(r, p + 4), u16(r, p + 6), u16(r, p + 8)};
+            Animation::Part part{u16(r, p), s16(r, p + 2), s16(r, p + 4), u32(r, p + 6)};
             if (part.image >= out.images.size() && part.image != Animation::kNoImage)
                 return Error::fail("ANIM part's image " + std::to_string(part.image) + " is out of range");
             out.layers[size_t(l)].push_back(part);

@@ -332,6 +332,12 @@ the recordings, from one "..., it is your turn." to the next, as it
 does with `Clue.exe`'s timings (below). With a suggestion (its video, the boxes saying who can and
 can't disprove), 20-22 s; Reluva's, 20-22 s.
 
+**Footsteps.** A suspect walking steps on the frames of its walk that
+have key 5000 (two in each, [res.md](../formats/clue/res.md)): one of
+`male_step1`-`5` or `female_step1`-`7` by chance (`Clue.exe` 0x426660).
+The walks play at their own speed (13-16 frames a second), so the steps
+come as the feet do.
+
 **Sounds of things.** `Clue.exe` 0x42F1C6, each tick: a thing with a
 timing of time 1900 makes a sound, its value the sound (0 the
 library's fire, `LBfirepl_n.wav`; 1 the conservatory's fountain,

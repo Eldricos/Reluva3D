@@ -97,6 +97,7 @@ private:
         int facing = 2;         // 0 n, 1 ne, 2 e, ... 7 nw
         std::deque<std::pair<int, int>> route; // world points still to walk to
         bool walking = false;
+        int stepFrame = -1; // the walk's frame last stepped on
     };
 
     // The queue of what happens next, one step at a time, each when the

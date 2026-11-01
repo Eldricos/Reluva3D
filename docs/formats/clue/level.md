@@ -45,8 +45,8 @@ each is 2 more than the record's own length.
 | 3 | 32 | the object's full name, `ballroom:Oblcouch_ad`, NUL-terminated; after the NUL, whatever memory held |
 | 35 | 1 | its primary type: `Clue.exe` makes its object by it (below) |
 | 36 | 1 | its secondary type (0, or 1 for the wall lamps, 2, 3) |
-| 37 | 2 | not understood |
-| 39 | 1 | not understood |
+| 37 | 2 | the state it starts in (Clue.exe makes its object in it, 0x446064; a saved game notes those off it, 0x446766): 0 in all |
+| 39 | 1 | the frame it starts on: 0 in all |
 | 40 | 2 | number of states |
 | 42 | 34 each | the states: a 2-byte number and a 32-byte animation name, NUL-terminated |
 | | 2 | number of timings |
@@ -68,10 +68,27 @@ eight `idle` and eight `mult` animations, a direction each, and 19 its
 pawn; other objects' 20-24 are what they do when clicked (the bear in the
 billiard room has 0, 20 and 21).
 
-A timing is 7 bytes: a 2-byte time in milliseconds, a byte (0), a 2-byte
-state, 2 bytes (0). `Oblcouch_ad`'s single one is 1,600 ms and state 19
-(`40 06 00 13 00 00 00`): perhaps "after 1.6 s, go to state 19". To be
-confirmed by clicking things in the original.
+The "timings" are keys: properties by number. Each is 7 bytes: a 2-byte
+key, a type byte (0 a whole number; Clue.exe's text form has 1 a decimal
+and 2 a string too, 0x448BC0) and a 4-byte value. (Reluva's code still
+calls them timings.) Clue.exe looks one up on the placement first, then
+the object (0x4280B0, 0x428100). The keys the game has:
+
+| Key | On | Its value | Read at |
+|---|---|---|---|
+| 1000 | floors, fireplaces, the fountain, the passages | its room: 1-9 the rooms, 10 the hall's corridors; the house keeps a list of each room's objects by it | 0x4290AB |
+| 1100 | 17 pieces of the rooms' floors | a click on it from the room it is in is refused (`nogo.wav`) | 0x423B63 |
+| 1200 | the secret passages | its room, when it has no 1000 | 0x4290E2 |
+| 1300 | the secret passages | the side a suspect steps out on, coming through it: 32 units that way and facing it | 0x425CE1 |
+| 1400 | the secret passages | the room it leads to (its passage is that room's first object) | 0x42987B |
+| 1500, 1600, 1700 | hot spots | the sound of reaction 20, 21, 22 (from the sound table's 69th entry) | 0x42A3D8 |
+| 1800 | the hall's `r_logo` | not read by Clue.exe | |
+| 1900 | the fires, the fountain | a sound heard near it: 0 the fire's, 1 the fountain's | 0x42A93A |
+| 2000 | the stairway | never drawn see-through | 0x42A973 |
+| 2100 | the credits painting's two portraits | reacts to the pointer passing over, not a click | 0x42A05C |
+
+`Oblcouch_ad`'s single key, read once as "after 1.6 s, go to state 19",
+is key 1600, value 19: the sound of its bad reaction.
 
 ## `clue.lvl`: the mansion
 

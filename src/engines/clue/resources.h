@@ -68,7 +68,12 @@ struct Animation {
     struct Part {           // a layer's image in one frame
         uint16_t image = 0; // into images, or kNoImage
         int16_t x = 0, y = 0;
-        uint16_t a = 0, b = 0; // not understood yet
+        // Its own draw flags (EagleM's text form: "Flags"); 0 in all but a
+        // few. Clue.exe draws the house's with them in place of the object's
+        // (0x4285E8): the high 16 bits a pixel function of ImageRLE16.dll's,
+        // 2 a quarter of the picture over what is behind, 3 half, 4 three
+        // quarters (the fountain's water). EagleM's windows draw without.
+        uint32_t flags = 0;
     };
     // A frame's place. In the long ISOA form, also the box the object fills
     // in the world, which its anchor is the back corner of (least x and y,
@@ -79,14 +84,21 @@ struct Animation {
         int16_t anchorX = 0, anchorY = 0; // where the frame's top left is, from the anchor point
         uint16_t sizeX = 0, sizeY = 0, height = 0;
         int16_t solid = 0;                // 1 for objects, -1 for flat things (floors), 0 without a box
-        uint16_t unknown[5] = {};         // the long form's bytes 4-13, not understood yet
+        // The long form's bytes 4-13 as read: 4-6 a world offset (Clue.exe's
+        // "RelativeWorld", 0 in all), 7 the number of boxes, 8-9 the box's
+        // number, 10-13 its x and y from the anchor (unknown[3], unknown[4]).
+        uint16_t unknown[5] = {};
         std::vector<std::array<uint8_t, 7>> extras;
     };
 
     std::string name;      // the record's own; often uninitialised memory, so empty then
-    uint8_t kind[2] = {};  // not understood yet
+    // Its speed and how it plays, as EagleM.dll's text form of it names
+    // them ("FPS", "Flags"): frames a second (0 in most of the interface),
+    // and 0 once, 1 round and round, 2 to the end and back.
+    enum Flags : uint8_t { Once = 0, Loop = 1, BackAndForth = 2 };
+    int framesPerSecond = 0;
+    uint8_t flags = Once;
     int width = 0, height = 0;
-    int framesPerSecond = 10; // 10 in every animation of the game
     std::vector<std::string> images; // "drive:Iname"
     std::vector<std::vector<Part>> layers; // [layer][frame]
     std::vector<Frame> frames;
@@ -94,6 +106,14 @@ struct Animation {
     bool shortForm = false; // its ISOA block has 10-byte frames
 
     size_t frameCount() const { return frames.size(); }
+    // The frame shown `ms` after it started. `world`: as Clue.exe plays the
+    // house's objects (0x427E60, 0x446E30): a frame each 1000 / FPS ms (10
+    // FPS if it has none), by its flags, the last frame held when once is
+    // done. Else as EagleM.dll plays the windows' (0x1000BFF0): round and
+    // round whatever its flags, still if it has no FPS.
+    size_t frameAt(uint64_t ms, bool world) const;
+    // How long once takes, by the same rule (its frames' time in all).
+    uint64_t onceMs() const;
 };
 Error parseAnimation(const std::vector<uint8_t>& record, Animation& out);
 

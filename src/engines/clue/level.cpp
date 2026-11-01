@@ -10,7 +10,6 @@ namespace reluva::clue {
 namespace {
 
 uint16_t u16(const std::vector<uint8_t>& d, size_t o) { return uint16_t(d[o] | d[o + 1] << 8); }
-uint32_t u32(const std::vector<uint8_t>& d, size_t o) { return uint32_t(u16(d, o)) | uint32_t(u16(d, o + 2)) << 16; }
 
 // A NUL-terminated name in a fixed field; what follows the NUL is whatever
 // memory held.
@@ -60,7 +59,9 @@ Error parseObject(const std::vector<uint8_t>& r, ObjectDef& out) {
         return Error::fail("object version " + std::to_string(r[2]) + " isn't known");
     out.name = fixedName(r, 3, kObjectName);
     out.type = r[35];
-    out.unknown = u32(r, 36);
+    out.subType = r[36];
+    out.startState = int16_t(u16(r, 37));
+    out.startFrame = r[39];
     const size_t n = u16(r, 40);
     size_t p = 42;
     if ((end - p) / (2 + kObjectName) < n)
