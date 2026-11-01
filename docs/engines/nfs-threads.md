@@ -177,6 +177,44 @@ and at each 32nd step the target was the step or at most 3 ahead
    `0x4133ad`-`0x4136c6`; see [bnk.md](../formats/nfs/bnk.md) and
    [mus.md](../formats/nfs/mus.md)).
 
+**Seen in footage** (YouTube clips of 18 races, e.g. `Hometown_Day`,
+clip times). A loading screen with the car, then a camera flies along
+the grid to the player's car (about 5 s, clip 0:12.5-0:17.3). The HUD
+appears with a red "3" (`0x482b00`, the HUD, draws nothing before
+step 320), then an orange "2" (0:18.3), a yellow "1" (0:19.3) and a
+green "GO!" (0:20.3) as the clock leaves 0:00.00: one second apart,
+as the steps 320, 384, 448, 512 say. The player starts last ("8th of
+8"); the racer list shows bars, not gaps, until the start.
+
+The HUD's clock is the **lap** time, not the race's: g_step − the
+car's lap start (+0x238), 0 before step 512 (`0x482b00`). After the
+line it shows the lap just run for 191 steps: in `Hometown_Day` it
+holds 1:41.71 for 3.0 s (15 frames at 5 a second, clip 2:01.9-2:04.9)
+and then reads 0:03.14. Once the race is over it stays on the last
+lap (1:29.34). The total (3:11.06) is only on the results screen.
+
+The time at the top right is the **track's record lap**, the same all
+race (Hometown 1:28.90, Rocky Pass 2:58.26, Summit 3:47.75): `0x6fd2b4`,
+read from the track records at the race's set-up (`0x474d08`,
+`0x4cef00`). `Summit_Night`'s track-records screen says "Record Lap
+Time: Gotcha 550 Maranello 3:47.75". It is the default of a field with
+5 modes (`0x6fbc64`, 3 set at `0x485a45`; 1 is the gap to the leader or
+second, red or green); it blinks every 16 steps when the lap just run
+beat it (not seen: no lap beat it). Under it: "Nth of M" and, in a Hot
+Pursuit, "tickets: n/m" ([physics.md](../formats/nfs/physics.md)).
+
+The rest of the HUD in the clips: "n/2 Laps"; a round speedometer
+(0-250) and a tachometer with the red line; the gears "N123456R" with
+the current one lit; a rear-view mirror at the top centre; a track map
+at the bottom right with the cars as dots; the racer list at the
+bottom left. In the Hot Pursuit a row of lights under the mirror is
+the radar detector (`0x48c0e0`), and the gauges are green at night.
+The results screen ("Race Summary", "Sort By") lists place, player and
+car, total time and top speed (MPH) in a race, tickets in a Hot
+Pursuit; "More..." shows "Performance" (0-60, 0-100 mph, ¼ mile, 1
+mile) and the track records (place, name, car, total time, top speed,
+assists, and the record lap).
+
 The task lists are made at the race's set-up (`0x4c45f0`, named "Sc32"
 and "Sc64", `0x5401ec`, `0x5401f4`). `0x4be250(list, function, arg,
 priority)` adds a task, kept in priority order; `0x4be3a0(list)` calls

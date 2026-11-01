@@ -229,6 +229,15 @@ FUNCS = {
   0x4211c0: ('car_music_zone', CAR, 'byte 3 of the slice FRD record'),
   0x4149e0: ('sound_impact_slot', None, 'category + material -> Gen.bnk slot'),
   0x4c9990: ('fe_play_bank_sound', None, 'front end: bank entry 1 (sound < 5) or 2'),
+  # cl2 (footage: Hot Pursuit, HUD)
+  0x482b00: ('hud_draw_player', None, 'per-player HUD; nothing before step 320; lap clock = step - car+0x238; TICKETED/ARRESTED (texts 422/423)'),
+  0x489a50: ('hud_draw_tickets', None, '"tickets: n/m" (text 333, "%s: %d/%d")'),
+  0x48c0e0: ('hud_draw_radar', None, 'Hot Pursuit radar detector, level 0-4'),
+  0x4013b0: ('cop_nearest_slices', CAR, 'slices to the nearest cop'),
+  0x4043a0: ('cop_call_backup', CAR, 'sends free computer cops within t_ticket_times+0 x2 (x8) slices of the target'),
+  0x4025c0: ('cop_ai_chase', CAR, 'computer cop chase; gives up past t_ticket_times +4/+0 slices'),
+  0x455834: ('results_sort_compare', None, 'results sort by key 0x559618: 1 +0x238, 2 +0x2B8, 5 tickets given, 6 tickets, 7 quota time +0x2D4'),
+  0x4cef00: ('track_record_lap', None, '(track) -> record lap time from the track records'),
 }
 
 # globals: addr -> (name, type, desc)
@@ -281,5 +290,9 @@ GLOBALS = {
   0x552834: ('g_music_zone', 'u8', ''), 0x571240: ('g_music_lap_first', 's32', 'from 0x552864/0x5528b4'),
   0x571238: ('g_music_lap_second', 's32', ''), 0x552864: ('t_music_laps_fwd', 's32[20]', ''),
   0x5528b4: ('t_music_laps_back', 's32[20]', ''),
+  # cl2
+  0x6fd2b4: ('g_record_lap', 's32', "track record lap, HUD top right (mode 3)"),
+  0x6fbc64: ('g_hud_time_mode', 's32', 'HUD top-right field 1-5, 3 record lap'),
+  0x559618: ('g_results_sort_key', 's32', ''), 0x55961c: ('g_results_sort_reverse', 's32', ''),
   0x553740: ('t_wall_particle_kind', 's32[8]', 'by wall code'), 0x553760: ('t_wall_sound_material', 's32[8]', 'by wall code'),
 }

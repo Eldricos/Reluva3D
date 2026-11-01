@@ -695,6 +695,22 @@ or 1 with `MADLAND`; the speed wanted is × it.
 - `0x408f10`: in a network game with positional updates, a factor
   by the distance to the local player (1 + (2 − slices) × `0x53640c`).
 
+**Seen in footage** (the 17 race clips, 8 cars, 2 laps). The racer
+list at the bottom left is in place order, each name in its driver's
+colour (`0x404810`: Lead Foot green, Ram Rod and Dead Beat blue,
+Mulligan red, Wild One yellow, Gotcha and Ace white), with the gap to
+the player: red "−" ahead, green "+" behind, dashes for the player
+(gap from `0x485a60`). In `Hometown_Day` the player leads from early
+in lap 2 and the gap to second grows steadily: Lead Foot +0:00.71,
+1.23, 1.64, 1.81, 2.54, 3.85, 4.73, 5.50 every 8 s, the last car from
+7.9 to 17 s. Nobody is pulled back towards the player: with no
+computer racer ahead the catch-up's × 1.1 only cancels other factors
+(the product is kept at most 1), as read. The gap on the HUD at the
+line (Ram Rod +0:05.07) is not the finish difference (4.56 s on the
+results): it is an estimate. Traffic is seen in both directions; no
+cop car was seen in the race clips (one frame every 15 s of four
+clips looked at). Lane changes and the AI's recovery weren't measured.
+
 **Checked at run time** (`gh1-ai`: Hometown, single race, seven
 computer racers, keypad 8 held from 52 s; `-watch` on the three
 controllers' first instructions, eax the car, and `-watchmem` on car 1
@@ -872,8 +888,9 @@ then gives the car +0x200 bit 0x20.
   to **5** (`0x4058bf`) through `0x401e40`: of the record's cops the
   nearest to the target does the ticket (+0x710 | 0x80, siren off,
   record +0x50 + 1); on the first, +0x28 = step + 192 for a human cop
-  (3 s), or `0x5521b8`[tickets × 16] (384, 448: 6-7 s) for a computer
-  one, and the two cars point at each other (+0x9A4).
+  (3 s), or `0x5521b8`[the target's tickets × 16] for a computer one
+  (384 steps, 6 s, for 0-4 tickets; 448 from 5), and the two cars
+  point at each other (+0x9A4).
 - **State 5**: the stop. The speed wanted is 0 and `0x40ce70` halves
   the cop's velocity and spin each step with the brake at 255 (on the
   road, upright). `0x401fb0` ends it when the step passes the record's
@@ -881,7 +898,8 @@ then gives the car +0x200 bit 0x20.
   the cop goes back to 3 (`0x405911`):
   - the record: +0 + 1, +4 = the most of int(target +0x6F0), +0x14 0;
   - the cop: +0x2CC tickets given + 1 (reaching `0x6fd4b8`, +0x2D4 =
-    step − 512), +0x2D0 += int(the target's +0x6F0, the most it was
+    step − 512, the race clock when the cop made its quota: the clock
+    starts at step 512), +0x2D0 += int(the target's +0x6F0, the most it was
     over the speed);
   - the target: +0x2C8 tickets + 1, +0x6F0 0, and at `0x6fd4bc`
     tickets +0x2C4 = 4, **out of the race** (it then coasts,
@@ -890,9 +908,29 @@ then gives the car +0x200 bit 0x20.
     (`0x402e42`); +0x8A 0, `0x401e20`; record +0x2C, +0x50, +0x1C 0,
     which lets the racer's state 7 go back to 2 and onto the road.
   - `0x474640` sets the limits. One player as a cop: `0x6fd4b8` 6
-    (all six racers), `0x6fd4bc` 1 (one ticket and a racer is out).
-    One player as a racer: `0x6fd4bc` laps + 1, `0x6fd4b8` 100. It
-    also turns every assist off (`0x4746ab`).
+    (all six racers), `0x6fd4bc` 1 (one ticket and a racer is out),
+    six computer racers. One player as a racer: `0x6fd4bc` laps + 1,
+    `0x6fd4b8` 100, **one** computer racer (`0x6fd520` 1). Two players:
+    both cops, quota 3 and out at 1; else out at laps + 1 (quota the
+    same, or 100 with two racers). So the count comes from the race
+    length, not from a setting or the number of opponents. It also
+    turns every assist off (`0x4746ab`).
+  - `0x5521ac`, 16 bytes by the target's tickets (0-7): +0 50, 50, 70,
+    70, 90, 90, 90, 90; +4 65, 65, 75, 85, 105, 105, 115, 115; +8 the
+    steps before a cop may pick it again (960, 960, 896, 768, 640, 576,
+    512, 512); +0xC the stop (384 × 5, then 448). +0 is a slice range:
+    `0x4043a0` (from a chase) sends free computer cops on the other
+    side of the target within +0 × 2 slices, and those with +0x711
+    bit 1 within +0 × 8, after it (`0x404340`); +4 (+0 without bit 1)
+    is how far, in slices, the computer cop's driver `0x4025c0` keeps
+    up the chase. Read, not run: a racer with more tickets draws cops
+    from further away.
+  - The HUD (`0x482b00`): "TICKETED" (text 422) while the target has
+    fewer than `0x6fd4bc` − 1 tickets, else "ARRESTED" (423), while
+    +0x9A4 is set; "tickets: n/m" (text 333, `0x489a50`, "%s: %d/%d")
+    in a Hot Pursuit, for a cop as well; and for a racer the radar
+    detector `0x48c0e0` with level 4 − (d − 15) / 10 in 0-4, d the
+    slices to the nearest cop (`0x4013b0`), and a beep (`0x418990`).
 
   Checked at run time only up to the chase (`gh1-cop`: the cop with H
   at 47.0 s and keypad 8 from 48 s): the siren at 47.1 s
@@ -910,6 +948,46 @@ ran (37.4 s), the player went 0 → 3 at `0x405782` (40.8 s), and with
 H pressed at 54.0 s the siren went on (`0x404fce`) and in the same
 step `0x4019a1` targeted car 1 (`0x5e1acc`) and `0x405879` went to
 state 4. Without H (`sw1-cop2`) the player stayed in state 3.
+
+### Seen in footage (Summit_Night)
+
+A YouTube recording of a one-player Hot Pursuit (`Summit_Night`, 2
+laps; menu at 0:00: Aston Martin DB7, Summit (2 Laps), assists on,
+player OGC). **The player is a racer, not a cop.** There are two
+racers, OGC and Lead Foot (also a DB7): the one computer racer the
+code gives. The HUD says "tickets: 0/3", laps + 1, as `0x474640` sets
+`0x6fd4bc`. Times below are the race clock (the HUD's lap time).
+
+- **First ticket** (lap 1, 2:37-2:50). The player hits a row of SUVs
+  and a pickup across the road at 2:38 (a roadblock, probably) and
+  stops. At 2:42.4 the view jumps; a cop SUV drives in from the left
+  at 2:43.1. The HUD goes and a scene plays: a "TICKETED" banner, an
+  officer on foot at the driver's door, the cop car behind, lights on.
+  It lasts 6.13 s (clip 3:06.33-3:12.47); the race clock runs on
+  (2:43.59 to 2:49.79). The HUD comes back with 1/3, speed 0.
+- **Second ticket** (lap 1, 4:27-4:51). A dark cop sedan with blue
+  lights sits one or two car lengths behind from 4:27.8. The player's
+  speed is low (the needle near 50 on the 0-250 dial, mph on the
+  results screen) from about 4:36 and 0 at 4:43.6. The same scene,
+  6.13 s again (clip 5:07.10-5:13.23, clock 4:44 to 4:50.60), then
+  2/3. The player drives off at 4:51.0; no cop follows at once.
+- Both stops last 384 steps, as `0x5521b8` gives for 0 and 1 tickets
+  (6.0 s; the 0.13 s more is the time to the first step of the
+  scene). The 7 m and 20.12 m/s tests can't be measured from the
+  clip, but both times the player was slow and the cop close.
+- **Lead Foot arrested.** Out of sight (19 s behind): at 4:42.78 the
+  racer list shows "Lead Foot arrested" (text 330) instead of a gap,
+  and at 4:43.78 the place goes from "1st of 2" to "1st of 1". The
+  results screen gives him "N/A", "Busted", tickets 3: out at
+  `0x6fd4bc` = 3, as `0x401ff0` does.
+- The player finishes with 2/3 (results: 1st, 9:35.03, tickets 2/3;
+  laps 5:12.41 and 4:22.62). After the line the clock stops and the
+  car slides to a stop (camera round the car).
+- The "assists on" of the menu is "No" in the track records: the Hot
+  Pursuit turned them off (`0x4746ab`).
+- No spike strip and no "ARRESTED" banner are seen; the player is
+  never the cop, so the human cop's 3 s stop and the cop's quota
+  (+0x2D4) aren't seen either.
 
 ## Other car fields
 
@@ -1012,10 +1090,14 @@ of every access to those offsets):
 
 - The cop's stop and ticket (`0x40554a` on, state 5, `0x401ff0`) are
   read, not seen at run time: the scripted cop never caught a slow
-  target. What `0x4127b0` plays (probably the "pull over" speech) and
+  target. A computer cop's stop of a human racer is seen in footage
+  (above): 6 s, as the table says. What `0x4127b0` plays (probably the "pull over" speech) and
   `0x401580`, `0x401c20` (at the stop's start) and `0x401e20`,
-  `0x4040e0` (after the ticket) do aren't followed. What +0x2D4 means
-  to the results screen (`0x455840` reads it) isn't known.
+  `0x4040e0` (after the ticket) do aren't followed. +0x2D4 is used by
+  the results screen's sort (`0x455834`, key 7, `0x559618`; key 6
+  sorts by tickets taken, 5 by tickets given): cops that made their
+  quota first, earliest +0x2D4 first, then by tickets given. The cop
+  game's results screen isn't in the footage.
 - The computer cop's own driver (`0x4032e5`, `0x402e10`, `0x4025c0`)
   and the AI racer's busted states (6, 7 in `0x409c03`) aren't
   followed, nor are the per-track factors at `0x56ef94`.
