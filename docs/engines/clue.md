@@ -286,8 +286,8 @@ it, silently: when the original blows them isn't known. Over the menus,
 have it (10-35 s).
 
 **Pace.** A computer player's turn without a suggestion takes 5-9 s in
-the recordings, from one "..., it is your turn." to the next; Reluva's,
-7-8.5 s. With a suggestion (its video, the boxes saying who can and
+the recordings, from one "..., it is your turn." to the next, as it
+does with `Clue.exe`'s timings (below). With a suggestion (its video, the boxes saying who can and
 can't disprove), 20-22 s; Reluva's, 20-22 s.
 
 **Sounds of things.** The library's fire (`LBfirepl_n.wav`) and the
@@ -566,8 +566,17 @@ clicked. The code accounts for both: 21% is the far shades' 1/4 and
 OriginalClue at 0:02, Reluva's frame now matches it to within a few
 levels of 255 across the view.
 
-**Timings** from the VM recording: a suspect walks a square in about
-0.6 s; each "can / cannot disprove" box shows about 3 s.
+**Timings**, as `Clue.exe` has them: a suspect walks 8 units a step,
+a step each 66 ms, a square in 0.53 s (0x4253C3; the VM recording, about
+0.6 s); each "can / cannot disprove" box shows 3000 ms (0x437503);
+between turns the camera goes to the next suspect, 2000 ms, before "...,
+it is your turn" (0x4181F8). A computer player waits before each step
+until 2 has passed on a clock of whole seconds (1-2 s; 0x423775): before
+suggesting at the start of its turn, twice before rolling (its turn's
+start, then the roll), before moving; not before suggesting on
+arriving. (After 45 s stuck in a step, it is moved on, 0x4218D0.) The
+ticker scrolls in a control of the Eagle library (`EagleM.dll`); its
+timing is the recordings'.
 
 ### Not yet as the original
 

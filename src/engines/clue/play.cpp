@@ -35,11 +35,14 @@ constexpr int kShownX = 398;
 // rolled, then the end of the turn), the bulb (suggest), the handcuffs.
 constexpr int kDrawerX = 511, kSlotY = 420;
 constexpr int kSlotX[3] = {535, 574, 606}, kSlotW[3] = {33, 27, 32}, kSlotH = 42;
-// How fast suspects walk, in world units a second: a square in about 0.6 s,
-// as measured on a recording.
-constexpr int kWalkSpeed = 110;
-// How long each "can / cannot disprove" box shows (about 3 s in recordings).
-constexpr int kToldMs = 2800;
+// How fast suspects walk, in world units a second: Clue.exe's 8 units a
+// step, a step each 66 ms (0x4253C3, 1/66 at 0x451920): a square in 0.53 s.
+constexpr double kWalkSpeed = 8000.0 / 66.0;
+// How long each "can / cannot disprove" box shows (Clue.exe's 3000 ms,
+// 0x437503).
+constexpr int kToldMs = 3000;
+// Between turns the camera goes to the next suspect, 2000 ms (0x4181F8).
+constexpr int kTurnPanMs = 2000;
 // The ticker: a sentence stays centred 8 s, then scrolls left at 3.5 pixels
 // a second, coming round again from the right (as in recordings), between
 // the ticker's ends.
@@ -376,15 +379,16 @@ int Play::viewer() const {
 void Play::beginTurn() {
     const int s = game_.turn();
     plan_.clear();
+    cpuPending_ = false;
     // Hot seat: one human's cards aren't left open for the next.
     if (panel_ != Panel::None && viewer() != panelOwner_)
         panel_ = Panel::None;
+    then([this, s] { centreOn(s); });
+    pause(kTurnPanMs);
     then([this, s] {
         say(line(s, kYourTurn));
         sound(std::string("turn_") + kVoice[s] + ".WAV", true);
-        centreOn(s);
     });
-    pause(1200);
     if (localTurn())
         then([this] { promptHuman(); });
 }
@@ -533,19 +537,38 @@ void Play::apply(const netplay::Command& c) {
 void Play::computerTurn() {
     const int s = game_.turn();
     ComputerPlayer& me = ai_[size_t(s)];
-    switch (me.decide(game_)) {
+    // Clue.exe's computer players wait before each step, 2 on a clock of
+    // whole seconds (1-2 s, 0x423775 with 0x462B7C): once before
+    // suggesting at the start of a turn, twice before rolling (the turn's
+    // start, then the roll), once before moving; not before suggesting on
+    // arriving, nor accusing.
+    if (!cpuPending_) {
+        pendingAction_ = me.decide(game_);
+        cpuPending_ = true;
+        waits_ = 0;
+    }
+    using A = ComputerPlayer::Action;
+    const bool atStart = game_.phase() == Game::Phase::Start;
+    const int need = pendingAction_ == A::Roll || pendingAction_ == A::Passage ? 2
+                     : pendingAction_ == A::Walk || (pendingAction_ == A::Suggest && atStart) ? 1
+                                                                                               : 0;
+    if (waits_ < need) {
+        ++waits_;
+        then([this] { waitUntil_ = (now_ / 1000 + 2) * 1000; });
+        return;
+    }
+    cpuPending_ = false;
+    switch (pendingAction_) {
     case ComputerPlayer::Action::Roll:
         game_.rollDie();
         rollStart_ = now_;
         sound("dice shake and roll.WAV");
-        pause(900);
         break;
     case ComputerPlayer::Action::Walk: {
         const auto path = me.chooseWalk(game_);
         if (game_.walk(path))
             game_.endTurn(); // can't be: the path is one the rules gave
         startWalk(path);
-        pause(400);
         break;
     }
     case ComputerPlayer::Action::Passage:

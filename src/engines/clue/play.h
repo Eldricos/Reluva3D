@@ -194,6 +194,10 @@ private:
     int mouseX_ = 320, mouseY_ = 200;
     int follow_ = -1; // the suspect the camera follows while walking
     std::array<Walker, kSuspectCount> walkers_;
+    // A computer player's next step, decided, and the waits made for it.
+    bool cpuPending_ = false;
+    ComputerPlayer::Action pendingAction_ = ComputerPlayer::Action::EndTurn;
+    int waits_ = 0;
     // Clue.exe's walk grid: 32-unit cells, those under furniture, hot
     // spots, passages and walls blocked; and the secret passages (their
     // room, place and the way they face, 0 north ... 6 west).
