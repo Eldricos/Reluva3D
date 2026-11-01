@@ -155,7 +155,8 @@ void FrontEnd::resume() {
     sys_.setMouseCursorVisible(false);
     if (at_ == Screen::Game || overGame())
         playMusic(true);
-    else if (at_ != Screen::Intro && at_ != Screen::Deal)
+    else if (at_ == Screen::Picker || at_ == Screen::Setup || at_ == Screen::NetLobby || at_ == Screen::NetSetup ||
+             at_ == Screen::Prefs)
         playMusic(false);
     if (at_ == Screen::Intro || at_ == Screen::Deal)
         go(afterMovie_);
@@ -194,16 +195,27 @@ void FrontEnd::showDialog(int id, int x, int y) {
 void FrontEnd::go(Screen s) {
     at_ = s;
     flashClick_ = -1; // a new screen hides the lightning (Clue.exe 0x40C420)
+    // The screens without the storm stop its thunder: the character picker
+    // and the network's player setup as they open (Clue.exe 0x412F30,
+    // 0x411CB0), the game as it loads (0x404AC2).
+    const bool trackFive = s == Screen::Picker || s == Screen::Setup || s == Screen::NetLobby || s == Screen::NetSetup;
     if (mixer_ && stormSound_ != audio::kNoSound &&
-        (s == Screen::Intro || s == Screen::Loading || s == Screen::Deal || s == Screen::Game)) {
+        (trackFive || s == Screen::Intro || s == Screen::Loading || s == Screen::Deal || s == Screen::Game)) {
         mixer_->stop(stormSound_);
         stormSound_ = audio::kNoSound;
     }
+    if (s != Screen::Loading && mixer_ && loadingSound_ != audio::kNoSound) {
+        mixer_->stop(loadingSound_); // loaded (0x404E44)
+        loadingSound_ = audio::kNoSound;
+    }
+    // Those, and Preferences (0x415810), start the CD's track 5 if it
+    // isn't playing anything; the menus with the storm have none.
+    if (trackFive || s == Screen::Prefs)
+        playMusic(false);
     switch (s) {
     case Screen::Intro: startMovie("Intro.avi", Screen::MainMenu); break;
     case Screen::MainMenu:
         mansion_.reset();
-        playMusic(false);
         showDialog(kMainMenu);
         break;
     case Screen::StartChoice: showDialog(kStartChoice); break;
@@ -253,17 +265,26 @@ void FrontEnd::go(Screen s) {
         refreshPrefs();
         break;
     case Screen::Loading:
+        // Clue.exe 0x404AC2: the CD stopped, the loading's own loop.
         stopMusic();
+        if (mixer_ && loadingSound_ == audio::kNoSound)
+            if (const std::filesystem::path* p = data_.find("load music loop22khz.wav")) {
+                auto loop = std::make_shared<audio::Sound>();
+                if (!audio::decodeSound(readFile(*p), *loop))
+                    loadingSound_ = mixer_->play(loop, audio::SoundType::Effects, audio::kMaxVolume, 0, true);
+            }
         showDialog(kLoading);
         break;
     case Screen::Deal: startMovie("deal.avi", Screen::Game); break;
-    case Screen::Game:
+    case Screen::Game: {
+        bool started = false;
         dialog_.reset();
         gameMenu_.reset();
         if (!play_ && mansion_ && loadSlot_ >= 0) {
             // A saved game, in place of a new one.
             const int slot = loadSlot_;
             loadSlot_ = -1;
+            started = true;
             play_ = std::make_unique<Play>(sys_, screen_, data_, mixer_, resi_, *fonts_, *mansion_, level_);
             play_->setLook(playLook());
             if (loadGame(slot)) {
@@ -273,6 +294,7 @@ void FrontEnd::go(Screen s) {
             }
         }
         if (!play_ && mansion_) {
+            started = true;
             play_ = std::make_unique<Play>(sys_, screen_, data_, mixer_, resi_, *fonts_, *mansion_, level_);
             play_->setLook(playLook());
             const Error err = net_ ? play_->startNetwork(*net_)
@@ -283,8 +305,14 @@ void FrontEnd::go(Screen s) {
                 return;
             }
         }
-        playMusic(true);
+        // A game starting, new or saved, starts on track 2 (0x404E53); back
+        // from the Esc menu, the music is as it was.
+        if (started) {
+            musicInGame_ = true;
+            playTrack(2);
+        }
         break;
+    }
     case Screen::GameMenu:
         if (const ResiDialog* d = resi_.dialog(kGameMenu)) {
             // Over the game, in the middle of the view.
@@ -530,6 +558,9 @@ void FrontEnd::onClick(int id) {
             (id == 28 ? prefs_.musicVolume : prefs_.masterVolume) = dialog_->value(id);
             applyVolumes();
         } else if (id == kReturn) {
+            // Clue.exe 0x41650C: leaving stops the CD, in the menus or the
+            // game alike.
+            stopMusic();
             prefs_.save(prefsFile_);
             go(prefsReturn_ == Screen::GameMenu ? Screen::Game : Screen::MainMenu);
         }
@@ -763,9 +794,11 @@ void FrontEnd::stopMovie() {
 }
 
 void FrontEnd::playMusic(bool inGame) {
-    // The CD's track 5 loops alone (in the menus, it seems); tracks 2, 3
-    // and 4 follow one another (in the game). See docs/engines/clue.md.
-    if (!mixer_ || (music_ != audio::kNoSound && mixer_->isPlaying(music_) && musicInGame_ == inGame))
+    // The CD's track 5 loops alone (the picker, the player setup,
+    // Preferences); tracks 2, 3 and 4 follow one another (the game). Either
+    // only if the CD isn't playing already (Clue.exe 0x42F120). See
+    // docs/engines/clue.md.
+    if (!mixer_ || (music_ != audio::kNoSound && mixer_->isPlaying(music_)))
         return;
     musicInGame_ = inGame;
     playTrack(inGame ? 2 : 5);
@@ -937,6 +970,15 @@ void FrontEnd::update(uint64_t nowMs) {
             }
         }
     }
+    if (play_)
+        if (const int cue = play_->takeMusicCue()) {
+            if (cue < 0)
+                stopMusic();
+            else {
+                musicInGame_ = true;
+                playTrack(cue);
+            }
+        }
     // The game's music goes on to its next track: 2, 3, 4, 2 ...
     if (musicInGame_ && mixer_ && music_ != audio::kNoSound && !mixer_->isPlaying(music_) &&
         (at_ == Screen::Game || overGame()))

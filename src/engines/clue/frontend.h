@@ -167,6 +167,7 @@ private:
     audio::SoundHandle stormSound_ = audio::kNoSound;
     uint64_t flashUntil_ = 0;
     int flashClick_ = -1;
+    audio::SoundHandle loadingSound_ = audio::kNoSound;
     std::vector<Event> heldEvents_;
 };
 

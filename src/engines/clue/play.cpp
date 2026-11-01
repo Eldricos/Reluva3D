@@ -778,8 +778,15 @@ void Play::suggestionMade() {
     say(line(s, kSuggests + a.suspect * kWeaponCount * kRoomCount + a.weapon * kRoomCount + a.room));
     placeWalkers(false); // the suspect named, brought in
     pause(1800);
-    if (look_.suggestMovies)
-        then([this, a] { startVideo(std::string(kVoice[a.suspect]) + "_" + kVideoWeapon[a.weapon] + ".avi"); });
+    if (look_.suggestMovies) {
+        // Clue.exe 0x41B9EA: the CD stopped for the video, and after it one
+        // of the game's tracks by chance (0x41BA19).
+        then([this, a] {
+            musicCue_ = -1;
+            startVideo(std::string(kVoice[a.suspect]) + "_" + kVideoWeapon[a.weapon] + ".avi");
+        });
+        then([this] { musicCue_ = 2 + int(ambientRng_() % 3); });
+    }
     // Those who can't disprove it, in turn, and the one who can.
     for (int p : game_.passed()) {
         then([this, p] {

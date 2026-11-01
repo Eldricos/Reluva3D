@@ -61,6 +61,12 @@ public:
     Error startNetwork(netplay::Session& session);
     // Saved games: when it's a human's turn and nothing is going on.
     bool canSave() const;
+    // What the music is to do, once: -1 stop, 2-4 that track; 0 nothing.
+    int takeMusicCue() {
+        const int cue = musicCue_;
+        musicCue_ = 0;
+        return cue;
+    }
     void save(std::ostream& out) const;
     Error load(std::istream& in); // in place of start()
     void setLook(const PlayLook& look) { look_ = look; }
@@ -251,6 +257,7 @@ private:
 
     std::map<std::string, std::shared_ptr<audio::Sound>> sounds_;
     // The weather and the sounds of things in the house.
+    int musicCue_ = 0; // for the front end: -1 stop the music, 2-4 play that track
     std::mt19937 ambientRng_{12345};
     // The weather's cycle (Clue.exe's 0x41C690): where in it, its step, the
     // ticks not yet run, the gust looping.
