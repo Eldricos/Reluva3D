@@ -24,6 +24,10 @@
 #include <functional>
 #include <mutex>
 #include <thread>
+#if defined(__SSE2__) || defined(_M_X64)
+#include <emmintrin.h>
+#define RELUVA_SPAN4 1
+#endif
 
 namespace reluva::x86::dx {
 
@@ -811,6 +815,7 @@ void Draw::rasterize(Raster& r, const ClipVertex& a, const ClipVertex& b, const 
     for (int k = 0; k < 8; ++k)
         flatColors[k] = attr[0][k] / a.w; // the first vertex's colours
     float row[2 + kAttributes], here[kAttributes];
+    const bool quick = span4Fits();
     for (int y = y0; y <= y1; ++y) {
         if (r.bands > 1 && (y >> 3) % r.bands != r.band) // another thread's row
             continue;
@@ -850,7 +855,10 @@ void Draw::rasterize(Raster& r, const ClipVertex& a, const ClipVertex& b, const 
         for (int x = xs; x < first; ++x)
             for (int k = 0; k < n; ++k)
                 row[k] += fx[k];
-        for (int x = first; x <= last; ++x) {
+        int x = first;
+        if (quick)
+            x = span4(r, x, last, y, row, fx, n, count, flatColors);
+        for (; x <= last; ++x) {
             uint8_t* zAt;
             uint32_t zNew;
             if (depthTest(x, y, row[0], zAt, zNew)) { // the attributes only for pixels that pass
@@ -866,6 +874,293 @@ void Draw::rasterize(Raster& r, const ClipVertex& a, const ClipVertex& b, const 
                 row[k] += fx[k];
         }
     }
+}
+
+bool Draw::span4Fits() const {
+#ifdef RELUVA_SPAN4
+    const PixelConfig& cf = cfg_;
+    return cf.simpleStages && !cf.colorKey &&
+           (cf.target == PixelConfig::Target::Rgb565 || cf.target == PixelConfig::Target::Rgb888) &&
+           (!cf.blend || (cf.srcBlend == 5 && cf.destBlend == 6)) &&
+           (!cf.fog || cf.fogTableMode == 0 || cf.fogTableMode == 3);
+#else
+    return false;
+#endif
+}
+
+#ifdef RELUVA_SPAN4
+namespace {
+// floorInt, four at a time.
+__m128i floor4(__m128 v) {
+    const __m128i i = _mm_cvttps_epi32(v);
+    return _mm_add_epi32(i, _mm_castps_si128(_mm_cmpgt_ps(_mm_cvtepi32_ps(i), v)));
+}
+// Each pixel's weight (0..256) in its four 16-bit channels: pixels 0 and 1
+// (low) or 2 and 3 (high).
+__m128i weights(__m128i w, bool high) {
+    const __m128i w16 = _mm_packs_epi32(w, w); // w0 w1 w2 w3 w0 w1 w2 w3
+    const __m128i pairs = _mm_unpacklo_epi16(w16, w16); // w0 w0 w1 w1 w2 w2 w3 w3
+    return high ? _mm_unpackhi_epi32(pairs, pairs) : _mm_unpacklo_epi32(pairs, pairs);
+}
+// sample's mix on 16-bit channels: (p (256 - w) + q w) >> 8.
+__m128i mix16(__m128i p, __m128i q, __m128i w) {
+    const __m128i iw = _mm_sub_epi16(_mm_set1_epi16(256), w);
+    return _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(p, iw), _mm_mullo_epi16(q, w)), 8);
+}
+} // namespace
+
+// sample, four at a time, for a texture that wraps both ways with sizes
+// powers of two and no colour key: its texels are found by masks, as
+// sample's are (they're the same texels where all four are inside). False
+// for any other, or weights out of 0..256 (u or v beyond an int), left to
+// sample.
+bool Draw::sample4(const Raster& r, int stage, __m128 u, __m128 v, __m128i& out) const {
+    const Sampler& sm = r.samplers[stage];
+    if (!sm.argb || !sm.wrapPow2)
+        return false;
+    const __m128 fx = _mm_mul_ps(u, _mm_set1_ps(sm.fw)), fy = _mm_mul_ps(v, _mm_set1_ps(sm.fh));
+    const __m128i mx = _mm_set1_epi32(sm.width - 1), my = _mm_set1_epi32(sm.height - 1);
+    alignas(16) int32_t xs[4], ys[4];
+    alignas(16) uint32_t t[4][4]; // t00, t10, t01, t11
+    if (!sm.linear) {
+        _mm_store_si128(reinterpret_cast<__m128i*>(xs), _mm_and_si128(floor4(fx), mx));
+        _mm_store_si128(reinterpret_cast<__m128i*>(ys), _mm_and_si128(floor4(fy), my));
+        for (int i = 0; i < 4; ++i)
+            t[0][i] = sm.argb[size_t(ys[i]) * size_t(sm.width) + size_t(xs[i])];
+        out = _mm_load_si128(reinterpret_cast<const __m128i*>(t[0]));
+        return true;
+    }
+    const __m128 gx = _mm_sub_ps(fx, _mm_set1_ps(0.5f)), gy = _mm_sub_ps(fy, _mm_set1_ps(0.5f));
+    const __m128i ix = floor4(gx), iy = floor4(gy);
+    const __m128 k256 = _mm_set1_ps(256.0f);
+    const __m128i ax = _mm_cvttps_epi32(_mm_mul_ps(_mm_sub_ps(gx, _mm_cvtepi32_ps(ix)), k256));
+    const __m128i ay = _mm_cvttps_epi32(_mm_mul_ps(_mm_sub_ps(gy, _mm_cvtepi32_ps(iy)), k256));
+    // Out of 0..256 (only from coordinates no int holds): sample's way.
+    const __m128i none = _mm_setzero_si128(), most = _mm_set1_epi32(256);
+    const __m128i bad = _mm_or_si128(_mm_or_si128(_mm_cmpgt_epi32(none, ax), _mm_cmpgt_epi32(ax, most)),
+                                     _mm_or_si128(_mm_cmpgt_epi32(none, ay), _mm_cmpgt_epi32(ay, most)));
+    if (_mm_movemask_epi8(bad))
+        return false;
+    alignas(16) int32_t x1s[4], y1s[4];
+    const __m128i one = _mm_set1_epi32(1);
+    _mm_store_si128(reinterpret_cast<__m128i*>(xs), _mm_and_si128(ix, mx));
+    _mm_store_si128(reinterpret_cast<__m128i*>(x1s), _mm_and_si128(_mm_add_epi32(ix, one), mx));
+    _mm_store_si128(reinterpret_cast<__m128i*>(ys), _mm_and_si128(iy, my));
+    _mm_store_si128(reinterpret_cast<__m128i*>(y1s), _mm_and_si128(_mm_add_epi32(iy, one), my));
+    for (int i = 0; i < 4; ++i) {
+        const uint32_t* r0 = sm.argb + size_t(ys[i]) * size_t(sm.width);
+        const uint32_t* r1 = sm.argb + size_t(y1s[i]) * size_t(sm.width);
+        t[0][i] = r0[xs[i]], t[1][i] = r0[x1s[i]], t[2][i] = r1[xs[i]], t[3][i] = r1[x1s[i]];
+    }
+    const __m128i zero = _mm_setzero_si128();
+    __m128i half[2];
+    for (int h = 0; h < 2; ++h) {
+        auto unpack16 = [&](const uint32_t* p) {
+            const __m128i v4 = _mm_load_si128(reinterpret_cast<const __m128i*>(p));
+            return h ? _mm_unpackhi_epi8(v4, zero) : _mm_unpacklo_epi8(v4, zero);
+        };
+        const __m128i wx = weights(ax, h == 1), wy = weights(ay, h == 1);
+        half[h] = mix16(mix16(unpack16(t[0]), unpack16(t[1]), wx), mix16(unpack16(t[2]), unpack16(t[3]), wx), wy);
+    }
+    out = _mm_packus_epi16(half[0], half[1]);
+    return true;
+}
+#endif
+
+// The pixel loop, depthTest, shade's quick stages and finish, four pixels
+// at a time in SSE: the same operations in the same order on each, so the
+// same results to the bit (no fused multiply-adds either way). Texels and
+// the depth test are still taken one pixel at a time.
+int Draw::span4(const Raster& r, int x, int last, int y, float* row, const float* fx, int n, int count,
+                const float* flatColors) const {
+#ifdef RELUVA_SPAN4
+    const PixelConfig& cf = cfg_;
+    const __m128 zero = _mm_setzero_ps(), one = _mm_set1_ps(1.0f), half = _mm_set1_ps(0.5f);
+    // std::clamp(v, 0, 1), NaN kept as it does: (v < 0) ? 0 : (1 < v) ? 1 : v.
+    auto clamp01 = [&](__m128 v) { return _mm_max_ps(zero, _mm_min_ps(one, v)); };
+    // uint32_t(std::clamp(v, 0, 1) * max + 0.5f); a NaN gives 0, as the
+    // scalar conversion (through 64 bits) does.
+    auto channel = [&](__m128 v, float max) {
+        const __m128 c = _mm_add_ps(_mm_mul_ps(clamp01(v), _mm_set1_ps(max)), half);
+        return _mm_and_si128(_mm_cvttps_epi32(c), _mm_castps_si128(_mm_cmpord_ps(c, c)));
+    };
+    const __m128 of255 = _mm_set1_ps(255.0f);
+    // A channel of four texels as kFractions.of255 has it: float(i) / 255.
+    auto fractions = [&](__m128i t, int shift) {
+        return _mm_div_ps(_mm_cvtepi32_ps(_mm_and_si128(_mm_srli_epi32(t, shift), _mm_set1_epi32(0xff))), of255);
+    };
+    const bool rgb565 = cf.target == PixelConfig::Target::Rgb565;
+    alignas(16) float lane[2 + kAttributes][4];
+    alignas(16) uint32_t texel[4];
+    alignas(16) int32_t out[3][4];
+    alignas(16) float dst[3][4];
+    for (; x + 3 <= last; x += 4) {
+        for (int i = 0; i < 4; ++i)
+            for (int k = 0; k < n; ++k) {
+                lane[k][i] = row[k];
+                row[k] += fx[k];
+            }
+        uint8_t* zAt[4];
+        uint32_t zNew[4];
+        bool pass[4];
+        int passing = 0;
+        if (cf.zTest && cf.zBytes == 2 && x >= 0 && y >= 0 && x + 3 < cf.targetWidth && y < cf.targetHeight &&
+            x + 3 < cf.depthWidth && y < cf.depthHeight) {
+            // depthTest on a 16-bit depth buffer, four at a time:
+            // uint32_t(double(clamp(z, 0, 1)) * zMax + 0.5) against what's there.
+            const __m128 z = clamp01(_mm_load_ps(lane[0]));
+            const __m128d zMax = _mm_set1_pd(cf.zMax), halfD = _mm_set1_pd(0.5);
+            auto depth2 = [&](__m128 two) {
+                const __m128d d = _mm_add_pd(_mm_mul_pd(_mm_cvtps_pd(two), zMax), halfD);
+                return _mm_cvttpd_epi32(_mm_and_pd(d, _mm_cmpord_pd(d, d))); // two, low; a NaN gives 0
+            };
+            const __m128i zn = _mm_unpacklo_epi64(depth2(z), depth2(_mm_movehl_ps(z, z)));
+            uint8_t* base = cf.depthAt + uint32_t(y * cf.depthPitch) + uint32_t(x) * 2;
+            const __m128i stored = _mm_and_si128(
+                _mm_unpacklo_epi16(_mm_loadl_epi64(reinterpret_cast<const __m128i*>(base)), _mm_setzero_si128()),
+                _mm_set1_epi32(int(cf.zMask)));
+            __m128i ok;
+            switch (cf.zFunc) { // compare: new against stored, both whole numbers
+            case 1: ok = _mm_setzero_si128(); break;
+            case 2: ok = _mm_cmplt_epi32(zn, stored); break;
+            case 3: ok = _mm_cmpeq_epi32(zn, stored); break;
+            case 4: ok = _mm_xor_si128(_mm_cmpgt_epi32(zn, stored), _mm_set1_epi32(-1)); break;
+            case 5: ok = _mm_cmpgt_epi32(zn, stored); break;
+            case 6: ok = _mm_xor_si128(_mm_cmpeq_epi32(zn, stored), _mm_set1_epi32(-1)); break;
+            case 7: ok = _mm_xor_si128(_mm_cmplt_epi32(zn, stored), _mm_set1_epi32(-1)); break;
+            default: ok = _mm_set1_epi32(-1); break;
+            }
+            alignas(16) uint32_t zs[4], oks[4];
+            _mm_store_si128(reinterpret_cast<__m128i*>(zs), zn);
+            _mm_store_si128(reinterpret_cast<__m128i*>(oks), ok);
+            for (int i = 0; i < 4; ++i) {
+                zAt[i] = base + 2 * i, zNew[i] = zs[i];
+                passing += pass[i] = oks[i] != 0;
+            }
+        } else
+            for (int i = 0; i < 4; ++i)
+                passing += pass[i] = depthTest(x + i, y, lane[0][i], zAt[i], zNew[i]);
+        if (!passing)
+            continue;
+        // inv = rhw != 0 ? 1 / rhw : 0, and the attributes times it.
+        const __m128 rhw = _mm_load_ps(lane[1]);
+        const __m128 inv = _mm_and_ps(_mm_div_ps(one, rhw), _mm_cmpneq_ps(rhw, zero));
+        __m128 here[kAttributes];
+        for (int k = 0; k < count; ++k)
+            here[k] = _mm_mul_ps(_mm_load_ps(lane[2 + k]), inv);
+        if (cf.flat)
+            for (int k = 0; k < 8; ++k)
+                here[k] = _mm_set1_ps(flatColors[k]);
+        // Texture stages. Sources: diffuse, current, texture, factor, specular.
+        __m128 src[5][4] = {{here[0], here[1], here[2], here[3]},
+                            {here[0], here[1], here[2], here[3]},
+                            {},
+                            {_mm_set1_ps(cf.factor.r), _mm_set1_ps(cf.factor.g), _mm_set1_ps(cf.factor.b),
+                             _mm_set1_ps(cf.factor.a)},
+                            {here[4], here[5], here[6], here[7]}};
+        for (int st = 0; st < stages; ++st) {
+            const StageConfig& sc = cf.stage[st];
+            if (sc.usesTexture) {
+                __m128i t;
+                if (!sample4(r, st, here[8 + 2 * st], here[9 + 2 * st], t)) {
+                    alignas(16) float u[4], v[4];
+                    _mm_store_ps(u, here[8 + 2 * st]);
+                    _mm_store_ps(v, here[9 + 2 * st]);
+                    for (int i = 0; i < 4; ++i)
+                        texel[i] = pass[i] ? sample(r, st, u[i], v[i], nullptr) : 0;
+                    t = _mm_load_si128(reinterpret_cast<const __m128i*>(texel));
+                }
+                src[2][0] = fractions(t, 16), src[2][1] = fractions(t, 8), src[2][2] = fractions(t, 0);
+                src[2][3] = fractions(t, 24);
+            }
+            __m128 result[4];
+            auto apply = [&](uint32_t op, const __m128* x1, const __m128* x2, int from, int to) {
+                for (int i = from; i < to; ++i)
+                    result[i] = clamp01(op == 4 ? _mm_mul_ps(x1[i], x2[i]) : op == 2 ? x1[i] : x2[i]);
+            };
+            apply(sc.colorOp, src[sc.source[0]], src[sc.source[1]], 0, 3);
+            if (sc.alphaOp != 1)
+                apply(sc.alphaOp, src[sc.source[2]], src[sc.source[3]], 3, 4);
+            else
+                result[3] = src[1][3];
+            for (int i = 0; i < 4; ++i)
+                src[1][i] = result[i];
+        }
+        __m128* current = src[1];
+        // finish: specular, alpha test, fog, blending, the write.
+        if (cf.specular)
+            for (int i = 0; i < 3; ++i)
+                current[i] = _mm_min_ps(_mm_add_ps(current[i], here[4 + i]), one); // std::min(1, v)
+        if (cf.alphaTest) {
+            alignas(16) float a[4];
+            _mm_store_ps(a, current[3]);
+            for (int i = 0; i < 4; ++i)
+                if (pass[i] && !compare(cf.alphaFunc, float(floorInt(a[i] * 255 + 0.5f)), cf.alphaRef))
+                    pass[i] = false;
+        }
+        if (cf.fog) {
+            __m128 f = here[7]; // the specular alpha: the vertices' fog
+            if (cf.fogTableMode == 3) {
+                const __m128 d = cf.fogByZ ? _mm_load_ps(lane[0]) : inv;
+                f = cf.fogEnd != cf.fogStart ? _mm_div_ps(_mm_sub_ps(_mm_set1_ps(cf.fogEnd), d),
+                                                          _mm_set1_ps(cf.fogEnd - cf.fogStart))
+                                             : one;
+            }
+            f = clamp01(f);
+            const __m128 nf = _mm_sub_ps(one, f);
+            const float fog[3] = {cf.fogColor.r, cf.fogColor.g, cf.fogColor.b};
+            for (int i = 0; i < 3; ++i)
+                current[i] = _mm_add_ps(_mm_mul_ps(current[i], f), _mm_mul_ps(_mm_set1_ps(fog[i]), nf));
+        }
+        const uint32_t bytes = cf.targetBytes;
+        uint8_t* at[4];
+        for (int i = 0; i < 4; ++i)
+            at[i] = cf.targetAt + uint32_t(y * cf.targetPitch) + uint32_t(x + i) * bytes;
+        __m128 o[3] = {current[0], current[1], current[2]};
+        if (cf.blend) {
+            const Fractions& fr = kFractions;
+            for (int i = 0; i < 4; ++i) {
+                uint32_t raw = 0;
+                std::memcpy(&raw, at[i], bytes);
+                if (rgb565)
+                    dst[0][i] = fr.of31[raw >> 11 & 31], dst[1][i] = fr.of63[raw >> 5 & 63], dst[2][i] = fr.of31[raw & 31];
+                else
+                    dst[0][i] = fr.of255[raw >> 16 & 0xff], dst[1][i] = fr.of255[raw >> 8 & 0xff],
+                    dst[2][i] = fr.of255[raw & 0xff];
+            }
+            const __m128 a = current[3], ia = _mm_sub_ps(one, current[3]);
+            for (int i = 0; i < 3; ++i)
+                o[i] = _mm_add_ps(_mm_mul_ps(current[i], a), _mm_mul_ps(_mm_load_ps(dst[i]), ia));
+        }
+        if (rgb565) {
+            _mm_store_si128(reinterpret_cast<__m128i*>(out[0]), channel(o[0], 31));
+            _mm_store_si128(reinterpret_cast<__m128i*>(out[1]), channel(o[1], 63));
+            _mm_store_si128(reinterpret_cast<__m128i*>(out[2]), channel(o[2], 31));
+        } else
+            for (int i = 0; i < 3; ++i)
+                _mm_store_si128(reinterpret_cast<__m128i*>(out[i]), channel(o[i], 255));
+        for (int i = 0; i < 4; ++i) {
+            if (!pass[i])
+                continue;
+            if (rgb565) {
+                const uint16_t v = uint16_t(uint32_t(out[0][i]) << 11 | uint32_t(out[1][i]) << 5 | uint32_t(out[2][i]));
+                std::memcpy(at[i], &v, 2);
+            } else {
+                const uint32_t v = uint32_t(out[0][i]) << 16 | uint32_t(out[1][i]) << 8 | uint32_t(out[2][i]);
+                std::memcpy(at[i], &v, 4);
+            }
+            if (zAt[i] && cf.zWrite) {
+                if (cf.zBytes == 2)
+                    std::memcpy(zAt[i], &zNew[i], 2);
+                else
+                    std::memcpy(zAt[i], &zNew[i], cf.zBytes);
+            }
+        }
+    }
+#else
+    (void)r, (void)last, (void)y, (void)row, (void)fx, (void)n, (void)count, (void)flatColors;
+#endif
+    return x;
 }
 
 // --- Textures

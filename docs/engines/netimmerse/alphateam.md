@@ -728,6 +728,15 @@ Progress:
     only what's noted, and the question is one compare: the program's
     thread through the route from 54.8 s to 46.3 s, with the same
     instructions and frames.
+  - With that, the drawing was the limit: on 4 cores the program's
+    thread spent 30% of its time in `Flip` waiting for the frame before
+    to be drawn (only 1.2 s of the route in waits mid-frame), and the
+    profile at 1024x768 had the drawing threads using about four cores.
+    Of the pixels drawn, 47% take three bilinear texture stages and 37%
+    one stage blended. Drawing four pixels at a time (`Draw::span4`)
+    took the drawing threads' time on the route from 276 s to 184 s and
+    the route's wall time from 98 s to 75 s, with the same frames at
+    both resolutions.
 - Not there yet:
   - **more speed**: the program's own code (NetImmerse's scene graph,
     picking and its Direct3D renderer) in the interpreter is now most of
@@ -789,6 +798,16 @@ headers' (`directx/interfaces.cpp`).
     path handles the rest.
   - Targets, depth buffers and textures are read and converted through
     tables (`ArgbConverter`), also for presenting a frame.
+  - With SSE2 (every x86-64 build), rows go four pixels at a time
+    (`Draw::span4`) where a draw's pixels take the quick stages into a
+    16- or 32-bit RGB target, with no colour key, the usual blend or
+    none, and linear, vertex or no fog: all of this game's. The depth
+    test on a 16-bit buffer, bilinear or point sampling of wrapping
+    power-of-two textures (`sample4`, 16-bit channels), the stages, fog,
+    blending and the conversion to the target are each the scalar code's
+    operations in the same order, so the same bits (no fused
+    multiply-adds either way). Anything else falls back to one pixel at
+    a time within the group.
 
   Software first, rather than `gfx::Renderer3D`: the game locks and blits
   surfaces as well as drawing into them, and doing both in one place keeps

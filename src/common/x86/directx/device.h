@@ -11,6 +11,9 @@
 #include "common/x86/directx/internal.h"
 
 #include <array>
+#if defined(__SSE2__) || defined(_M_X64)
+#include <emmintrin.h>
+#endif
 #include <map>
 #include <memory>
 #include <set>
@@ -149,6 +152,18 @@ private:
     // A texel of a stage's texture at u, v (0xffffffff without one); with
     // `keyed`, whether it's keyed out by the colour key.
     uint32_t sample(const Raster& r, int stage, float u, float v, bool* keyed) const;
+    // Whether span4 can draw this draw's pixels: quick stages, no colour
+    // key, a 16- or 32-bit RGB target, the usual blend or none, linear or
+    // vertex fog or none.
+    bool span4Fits() const;
+    // Pixels x on of row y four at a time, while four fit up to `last`,
+    // exactly as one at a time: `row` (z, 1/w, the attributes over w) is
+    // stepped by `fx` for each. Returns where it stopped.
+    int span4(const Raster& r, int x, int last, int y, float* row, const float* fx, int n, int count,
+              const float* flatColors) const;
+#if defined(__SSE2__) || defined(_M_X64)
+    bool sample4(const Raster& r, int stage, __m128 u, __m128 v, __m128i& out) const;
+#endif
 };
 
 struct DrawQueue;
