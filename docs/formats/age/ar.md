@@ -75,3 +75,12 @@ files and logs.
   loose files in the folder over all of them. Mods are said to come as
   extra `.ar` files, so the original reads more than its own four, but
   which wins when two hold the same name hasn't been checked against it.
+  Public notes say only that the order matters: the Racing Madness
+  wiki's page on the "MM2 Game Loader" says that tool shows conflicts
+  between installed archives and "the real order of the .ar files
+  reading of the game", and MM2 Revisited names its archive `! !RV6_Dev`,
+  which sorts first by name, so archives are likely taken in name order
+  with one end winning; which end isn't stated anywhere found.
+- **Later games.** The Midnight Club II notes at knowledge.stien.org
+  describe a lowercase `Dave` header with names scrambled in a 6-bit
+  code in Angel Studios' later games; Reluva doesn't read it.

@@ -614,9 +614,10 @@ void testCityExtras() {
     CHECK(readCpvs(toBytes("PVS1"), v));
 
     // A divided road whose divider (texture 2, a barrier 1 m high) runs
-    // from vertices 0-1 to 3-2: raised to its height, sides and ends; a
-    // flat one stays on the road.
-    for (const uint16_t kind : {uint16_t(3), uint16_t(1)}) {
+    // from vertices 0-1 to 3-2: raised to its height with sides, its ends
+    // closed only where 0x40 and 0x80 say; a flat one stays on the road.
+    size_t open = 0, closed = 0;
+    for (const uint16_t kind : {uint16_t(3), uint16_t(0xc3), uint16_t(1)}) {
         const std::vector<uint16_t> divided = {
             10 << 3, 1, 0x80 | 8 << 3 | 2, uint16_t(2 << 8 | kind), 0x100, 0, 0, 0, 1, 1, 1, 3, 3, 3, 2, 2, 2};
         CHECK(!readPsdl(buildPsdl(divided), psdl));
@@ -626,8 +627,12 @@ void testCityExtras() {
             if (b.texture == "swalk_f")
                 for (uint32_t i : b.indices)
                     top = std::max(top, mesh.vertices[i].pos[1]);
-        CHECK(kind == 3 ? std::fabs(top - 1) < 1e-4f : std::fabs(top) < 1e-4f);
+        CHECK((kind & 3) == 3 ? std::fabs(top - 1) < 1e-4f : std::fabs(top) < 1e-4f);
+        for (const CityMesh::Batch& b : mesh.batches)
+            if (b.texture == "swalk_f")
+                (kind == 3 ? open : closed) += kind == 1 ? 0 : b.indices.size();
     }
+    CHECK(closed == open + 12); // two end quads
 
     // Decals: a strip over a square at height 2 in block 5, taking its
     // height and block (the points' own words are no help); an unnamed
