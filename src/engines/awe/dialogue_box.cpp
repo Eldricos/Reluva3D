@@ -4,8 +4,50 @@
 #include "engines/awe/dialogue_box.h"
 
 #include <algorithm>
+#include <string>
 
 namespace reluva::awe {
+
+namespace {
+
+// The line's rows as the game makes them (0x43d9b0 counts them, 0x43db80
+// draws them): its words, split at spaces, added to the row with a space
+// between, two after a word ending in '.', '!' or '?'; a word that would
+// take the row past `width` (the row, the word and a space, measured
+// apart) starts the next.
+std::vector<std::string> gameRows(ttf::Font& font, float pixels, const std::string& text, int width) {
+    const int space = font.width(" ", pixels);
+    auto sentenceEnd = [](const std::string& row) {
+        return !row.empty() && (row.back() == '.' || row.back() == '!' || row.back() == '?');
+    };
+    std::vector<std::string> rows;
+    std::string row;
+    size_t start = 0;
+    while (start < text.size()) {
+        size_t end = text.find(' ', start);
+        if (end == std::string::npos)
+            end = text.size();
+        const std::string word = text.substr(start, end - start);
+        start = end + 1;
+        if (word.empty())
+            continue;
+        int w = font.width(row, pixels) + font.width(word, pixels) + space;
+        if (sentenceEnd(row))
+            w += space;
+        if (w > width) {
+            rows.push_back(row);
+            row = word;
+            continue;
+        }
+        if (!row.empty())
+            row += sentenceEnd(row) ? "  " : " ";
+        row += word;
+    }
+    rows.push_back(row);
+    return rows;
+}
+
+} // namespace
 
 std::vector<DialogueChoiceArea> drawDialogueBox(Surface& dst, const GameFonts& fonts, const DialogueBoxPictures& pictures,
                                                 int top, const std::string& text, Color colour,
@@ -23,7 +65,7 @@ std::vector<DialogueChoiceArea> drawDialogueBox(Surface& dst, const GameFonts& f
     const int width = 944;
     if (choices.empty()) {
         // The line, centred both ways in the box.
-        const std::vector<std::string> lines = font.wrap(text, style->pixels, width);
+        const std::vector<std::string> lines = gameRows(font, style->pixels, text, width);
         int y = top + (boxH - int(lines.size()) * lh) / 2;
         for (const std::string& l : lines) {
             fonts.draw(dst, *style, (dst.w - font.width(l, style->pixels)) / 2, y, l, colour);

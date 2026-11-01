@@ -124,7 +124,7 @@ Lookup `0x439c70(part, code)`: the first thread with that code.
 | +0xf08 | Povent |
 | +0x1108 | text width in pixels (`0x414c10(1,text,&w)`, the dialogue font) |
 | +0x110c | row height (written by the same call, likely) |
-| +0x1110 | number of rows: 1 if width ≤ 0x3b0 (944), else word-wrapped by 0x43d9b0 at 944 px (two spaces after `.`, `!`, `?`) |
+| +0x1110 | number of rows: 1 if width ≤ 0x3b0 (944), else word-wrapped by 0x43d9b0 at 944 px (two spaces after `.`, `!`, `?`): the words, split at spaces (runs of spaces count as one), go on a row with a space between, two after a word ending in `.`, `!` or `?`; a word starts the next row when the row's width, the word's and a space's (two after such a word), measured apart, come to more than 944. 0x43db80 draws the rows the same way, the double spaces in them |
 | +0x1112 | alternative index: 0, or previous line's index + 1 if the previous line of the same thread has the same Nest code |
 | +0x1114 | Duration, second number (`"a,b"` → b) |
 | +0x1118 | Duration, first number (a) |
