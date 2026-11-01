@@ -703,7 +703,10 @@ ends. Exits exist only with gen (NPC clicks or `forcegen`).
   +0x2bc), with records of 0x90 bytes: Name wchar[32], Act wchar[32] (+0x40),
   part code (+0x80), thread code (+0x84), word status (+0x88), int resume nest
   (+0x8c, -1 = none). Find: 0x411030. Set (replace): 0x410f50. Delete: 0x4110d0.
-  Cleared at 0x4107a5, written to the save file at 0x41190e..., read back at
+  Cleared at 0x4107a5, and by `reset` (0x411aa0, the main menu's: a new
+  game starts with no conversation heard; Reluva kept it till this was
+  found, so Play after leaving a game for the menu found the first talk
+  half done), written to the save file at 0x41190e..., read back at
   0x412373. Nothing is written while `+0x2c0` (the story state's "frozen" flag)
   is set.
 * Written only when a thread stops (4.5), and by `advance` (0x43b810: status 1,

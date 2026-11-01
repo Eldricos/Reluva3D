@@ -781,6 +781,13 @@ void ScenePage::updateLoad() {
             }
             if (playing_)
                 story_->leavingScene();
+            if (story_->sceneLocation(l.location)) {
+                // A new place: the last one's scenes dropped (0x423430).
+                logScript("  (location " + l.location + ", a new place)");
+                positions_.clear();
+                npcPositions_.clear();
+                keptCharacters_.clear();
+            }
             beginLoad(l.location, false);
         }
         return;

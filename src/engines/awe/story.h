@@ -82,6 +82,12 @@ public:
     std::function<void(const std::string& location, bool flush)> onLoadLocation;
     void locationLoaded();
     const std::string& location() const { return location_; }
+    // A scene in another place is loaded (0x422640: its name up to the
+    // '_' becomes the location, the last one kept as before): true if
+    // the scenes kept so far are dropped, as for an act's location
+    // (0x4229a5). The main menu is a place of its own, so a game left
+    // for it starts again with its scenes as in their files.
+    bool sceneLocation(const std::string& location);
 
 private:
     void runnerEmpty();

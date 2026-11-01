@@ -127,6 +127,13 @@ void Story::update(float seconds) {
     }
 }
 
+bool Story::sceneLocation(const std::string& location) {
+    previousLocation_ = location_;
+    location_ = location;
+    return !previousLocation_.empty() && previousLocation_ != location_ &&
+           (state_.act < "04a" || state_.act >= "08a");
+}
+
 void Story::restore(const ActRow& row, const std::string& location) {
     row_ = row;
     previousLocation_ = location_;

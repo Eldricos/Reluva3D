@@ -312,10 +312,12 @@ bool ScriptRunner::runOwn(const ScriptEvent& e) {
         addTime(state_, number(e.arg(1)));
     } else if (v == "reset") {
         // A new game (0x411aa0): the story state and the inventory
-        // emptied, the act back to the first.
+        // emptied, the conversations' progress with it (+0x2b4), the act
+        // back to the first.
         state_.tags.clear();
         state_.texts.clear();
         state_.timers.clear();
+        state_.talks.clear();
         state_.items.clear();
         state_.held.clear();
         state_.itemPage = 0;

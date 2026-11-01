@@ -1282,11 +1282,13 @@ void testStory() {
         loaded.push_back(l + (flush ? " flush" : ""));
         story.locationLoaded();
     };
-    // reset, then a bare act: 01A.
+    // reset, then a bare act: 01A. A conversation's progress goes too
+    // (0x411aa0 empties +0x2b4).
+    state.talks[talkKey("klaus", "01a", 1, 1)] = TalkProgress{2, -1};
     main.run("tag x 1, timer clock, reset");
     for (int i = 0; i < 4; i++)
         main.update(0.01f);
-    CHECK(state.act == "01a" && state.tags.empty() && state.timers.empty());
+    CHECK(state.act == "01a" && state.tags.empty() && state.timers.empty() && state.talks.empty());
     CHECK(story.startAct("") && story.loading());
     // PreLoad runs first: the fade waits.
     story.update(0.01f);
@@ -1302,6 +1304,17 @@ void testStory() {
     for (int i = 0; i < 3; i++)
         main.update(0.01f);
     CHECK(host.started.back() == "scene sirkeci.market_01 1 0" && state.itemState("ticket") && main.idle());
+    // The main menu is a place of its own: to it, and back with Play,
+    // the scenes kept are dropped each time (0x422640, 0x4229a5).
+    CHECK(story.sceneLocation("menu.main"));
+    CHECK(!story.sceneLocation("menu.main"));
+    story.startAct("01a");
+    for (int i = 0; i < 4; i++)
+        main.update(0.01f), story.update(0.01f);
+    main.finished("fade");
+    for (int i = 0; i < 4; i++)
+        main.update(0.01f), story.update(0.01f);
+    CHECK(loaded.back() == "sirkeci.market flush");
     // 05A: its Event once its conditions hold and the queue runs dry.
     story.startAct("05a");
     story.update(0.01f);
