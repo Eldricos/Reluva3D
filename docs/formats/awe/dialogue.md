@@ -655,6 +655,9 @@ ends. Exits exist only with gen (NPC clicks or `forcegen`).
 * The spoken line is drawn **only if subtitles are on (or ham radio)**,
   horizontally centred, vertically centred in the box: y = box top +
   (h - rows*rowHeight)/2, wrapped at 944 px, in the speaker's colour.
+  The choices (each at x = 40, 0x43d1dd) and a movie's subtitles
+  (0x43d256) are drawn by the same 0x43db80, so wrapped by the same
+  rule (+0x1110) at 944, whatever their x.
   And only once the line is under way (0x43cf90): not while its Prevent
   runs (+0x3c, +0xd0), nor while a Povent runs (+0x22c, +0x2c0) or an
   action waits on it (+0x320), nor in the pause before the next line

@@ -202,4 +202,42 @@ std::vector<Subtitle> parseSubtitles(std::string_view text) {
     return out;
 }
 
+// Text's rows as the game makes them (0x43d9b0 counts a dialogue line's,
+// 0x43db80 draws a line, a choice or a movie subtitle; 0x414c30 counts and
+// 0x414720 draws interface text, by the same rule): its words, split at spaces, added to the row with a space
+// between, two after a word ending in '.', '!' or '?'; a word that would
+// take the row past `width` (the row, the word and a space, measured
+// apart) starts the next.
+std::vector<std::string> gameRows(ttf::Font& font, float pixels, const std::string& text, int width) {
+    const int space = font.width(" ", pixels);
+    auto sentenceEnd = [](const std::string& row) {
+        return !row.empty() && (row.back() == '.' || row.back() == '!' || row.back() == '?');
+    };
+    std::vector<std::string> rows;
+    std::string row;
+    size_t start = 0;
+    while (start < text.size()) {
+        size_t end = text.find(' ', start);
+        if (end == std::string::npos)
+            end = text.size();
+        const std::string word = text.substr(start, end - start);
+        start = end + 1;
+        if (word.empty())
+            continue;
+        int w = font.width(row, pixels) + font.width(word, pixels) + space;
+        if (sentenceEnd(row))
+            w += space;
+        if (w > width) {
+            rows.push_back(row);
+            row = word;
+            continue;
+        }
+        if (!row.empty())
+            row += sentenceEnd(row) ? "  " : " ";
+        row += word;
+    }
+    rows.push_back(row);
+    return rows;
+}
+
 } // namespace reluva::awe

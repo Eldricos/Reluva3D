@@ -39,7 +39,15 @@ make Reluva work with the game. The objects and the addresses read:
   pictures' fade `0x40eda0`.
 - **Text**: the screen's text call `0x414720` (font, rectangle, colour,
   text, alpha, flags: 1 centred, 2 right, 4 centred down, 8 at the foot,
-  `0x1000` struck through), which breaks lines at spaces (`0x414c30`).
+  `0x1000` struck through). A text no wider than the rectangle is drawn
+  as it is, on one row. A wider one is broken by the rule the dialogue
+  line uses ([dialogue.md](dialogue.md), +0x1110): at spaces, two kept
+  after a word ending in `.`, `!` or `?`, a word starting the next row
+  when the row, the word and a space (two after such a word) measured
+  apart come to more than the rectangle's width. `0x414c30` counts the
+  rows the same way for the height (rows × row height). One quirk: the
+  last row is drawn only if it has more than one character
+  (`0x414b34`: `cmp eax, 1; jbe`), though it is counted in the height.
   Fonts and colours are `Text\fonts.txt`'s, by their place in the list
   from 0.
 

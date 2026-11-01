@@ -66,4 +66,8 @@ struct Subtitle {
 // Duration is "start, length").
 std::vector<Subtitle> parseSubtitles(std::string_view text);
 
+// Text broken into rows no wider than `width` as the game breaks it: at
+// spaces, two kept after a sentence's end (game_text.cpp).
+std::vector<std::string> gameRows(ttf::Font& font, float pixels, const std::string& text, int width);
+
 } // namespace reluva::awe

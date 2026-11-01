@@ -19,6 +19,14 @@ namespace reluva::awe {
 
 namespace {
 
+// The letters in UTF-8 text (the game counts its UTF-16 characters).
+size_t letters(const std::string& s) {
+    size_t n = 0;
+    for (unsigned char c : s)
+        n += (c & 0xc0) != 0x80;
+    return n;
+}
+
 // The bar's sections' right ends (0x48d650): the bag, the five cars, the
 // hat; and the cars' words in a location's name (0x417760).
 constexpr int kBarEnds[7] = {75, 250, 422, 595, 771, 950, 1024};
@@ -498,7 +506,7 @@ int ScenePage::textHeight(int font, int width, const std::string& text, int* lin
     if (!s.font)
         return 0;
     const int lh = s.font->lineHeight(s.pixels);
-    const int n = s.font->width(text, s.pixels) <= width ? 1 : int(s.font->wrap(text, s.pixels, width).size());
+    const int n = s.font->width(text, s.pixels) <= width ? 1 : int(gameRows(*s.font, s.pixels, text, width).size());
     if (lines)
         *lines = n;
     return n * lh;
@@ -513,14 +521,18 @@ int ScenePage::uiText(int font, int colour, int l, int t, int r, int b, int flag
         return 0;
     const Color c = ctx_.fonts->colourAt(size_t(colour));
     const int lh = s.font->lineHeight(s.pixels);
-    std::vector<std::string> lines;
-    if (s.font->width(text, s.pixels) <= r - l)
-        lines.push_back(text);
-    else
-        lines = s.font->wrap(text, s.pixels, r - l);
+    // A text that fits is one row as it is; a wider one is broken into
+    // the game's rows, the last drawn only if it has more than one letter
+    // (0x414b34), though it is counted in the height (0x414c30).
+    const bool wrapped = s.font->width(text, s.pixels) > r - l;
+    const std::vector<std::string> lines =
+        wrapped ? gameRows(*s.font, s.pixels, text, r - l) : std::vector<std::string>{text};
     const int h = int(lines.size()) * lh;
     int y = flags & 8 ? b - h : flags & 4 ? t + (b - t - h) / 2 : t;
-    for (const std::string& line : lines) {
+    for (size_t i = 0; i < lines.size(); i++) {
+        const std::string& line = lines[i];
+        if (i + 1 == lines.size() && wrapped && letters(line) <= 1)
+            break;
         const int w = s.font->width(line, s.pixels);
         const int x = flags & 2 ? r - w : flags & 1 ? l + (r - l - w) / 2 : l;
         ctx_.fonts->draw(ctx_.screen, s, x, y, line, c, uint8_t(std::min(alpha, 255)));

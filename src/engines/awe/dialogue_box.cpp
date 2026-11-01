@@ -8,47 +8,6 @@
 
 namespace reluva::awe {
 
-namespace {
-
-// The line's rows as the game makes them (0x43d9b0 counts them, 0x43db80
-// draws them): its words, split at spaces, added to the row with a space
-// between, two after a word ending in '.', '!' or '?'; a word that would
-// take the row past `width` (the row, the word and a space, measured
-// apart) starts the next.
-std::vector<std::string> gameRows(ttf::Font& font, float pixels, const std::string& text, int width) {
-    const int space = font.width(" ", pixels);
-    auto sentenceEnd = [](const std::string& row) {
-        return !row.empty() && (row.back() == '.' || row.back() == '!' || row.back() == '?');
-    };
-    std::vector<std::string> rows;
-    std::string row;
-    size_t start = 0;
-    while (start < text.size()) {
-        size_t end = text.find(' ', start);
-        if (end == std::string::npos)
-            end = text.size();
-        const std::string word = text.substr(start, end - start);
-        start = end + 1;
-        if (word.empty())
-            continue;
-        int w = font.width(row, pixels) + font.width(word, pixels) + space;
-        if (sentenceEnd(row))
-            w += space;
-        if (w > width) {
-            rows.push_back(row);
-            row = word;
-            continue;
-        }
-        if (!row.empty())
-            row += sentenceEnd(row) ? "  " : " ";
-        row += word;
-    }
-    rows.push_back(row);
-    return rows;
-}
-
-} // namespace
-
 std::vector<DialogueChoiceArea> drawDialogueBox(Surface& dst, const GameFonts& fonts, const DialogueBoxPictures& pictures,
                                                 int top, const std::string& text, Color colour,
                                                 const std::vector<std::string>& choices, int highlighted,
@@ -97,7 +56,7 @@ std::vector<DialogueChoiceArea> drawDialogueBox(Surface& dst, const GameFonts& f
     constexpr int kLeft = 40;
     int y = top + 25;
     for (size_t i = 0; i < choices.size(); i++) {
-        const std::vector<std::string> lines = font.wrap(choices[i], style->pixels, width);
+        const std::vector<std::string> lines = gameRows(font, style->pixels, choices[i], width);
         const bool on = int(i) == highlighted;
         const image::Image* bullet = on && pictures.bulletOn ? pictures.bulletOn : pictures.bullet;
         if (bullet && bullet->w > 0)
