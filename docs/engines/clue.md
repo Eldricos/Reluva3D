@@ -488,6 +488,11 @@ As the original, from its recordings and its How to Play texts:
   hides theirs (0x429D60) and plays `unting.wav`, a square it can't go to
   `nogo.wav`. The suspect walks to the squares' middles (+32, +32).
   Reluva does the same.
+- **About the room**: on your turn, in a room, a click on its floor
+  (not a door's square, not one of the floor pieces with key 1100)
+  walks the suspect there, round the furniture, and moves it nowhere in
+  the game; a move being planned is dropped (`Clue.exe` 0x423B5B,
+  0x424900). Reluva finds the way through the room's free 32-unit cells.
 - **No Die Roll**: the first icon shows the moves left; plan the move
   the same way and click its last square again (or the icon) to walk.
   Suggesting, accusing and the secret passages cost three moves.

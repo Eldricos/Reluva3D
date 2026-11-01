@@ -659,6 +659,73 @@ void Play::buildWalkGrid() {
     }
 }
 
+bool Play::walkInRoom(int worldX, int worldY) {
+    // As Clue.exe 0x423A90 and 0x424900 do a click on the room's own floor:
+    // refused on its floor pieces with key 1100; else the move being planned
+    // is dropped and the suspect walks there, round what stands in the room,
+    // moving nowhere in the game.
+    const int s = game_.turn();
+    const int room = game_.place(s).room;
+    for (const Mansion::Item& it : mansion_.items())
+        if (it.kind == 1 && worldX >= it.box.x && worldX < it.box.x + it.box.sizeX && worldY >= it.box.y &&
+            worldY < it.box.y + it.box.sizeY)
+            for (const Timing& t : mansion_.level()->placements[it.placement].timings)
+                if (t.time == 1100)
+                    return false;
+    Walker& w = walkers_[size_t(s)];
+    if (w.walking)
+        return true;
+    // Through the room's free 32-unit cells, eight ways (not across a
+    // blocked corner): the shortest way, by a search from where it stands.
+    using Cell = std::pair<int, int>;
+    const auto inRoom = [&](const Cell& c) {
+        return !blocked_.count(c) && board_.roomAt(Board::squareAt(c.first * 32 + 16, c.second * 32 + 16)) == room;
+    };
+    const Cell from{cell32(w.x), cell32(w.y)}, to{cell32(worldX), cell32(worldY)};
+    if (!inRoom(to))
+        return false;
+    std::map<Cell, Cell> came{{from, from}};
+    std::deque<Cell> open{from};
+    while (!open.empty() && !came.count(to) && came.size() < 4096) {
+        const Cell c = open.front();
+        open.pop_front();
+        for (int dy = -1; dy <= 1; ++dy)
+            for (int dx = -1; dx <= 1; ++dx) {
+                const Cell n{c.first + dx, c.second + dy};
+                if ((dx || dy) && !came.count(n) && inRoom(n) &&
+                    (!dx || !dy || (inRoom({c.first + dx, c.second}) && inRoom({c.first, c.second + dy})))) {
+                    came[n] = c;
+                    open.push_back(n);
+                }
+            }
+    }
+    if (!came.count(to))
+        return false;
+    if (!plan_.empty()) {
+        plan_.clear();
+        sound("unting.wav");
+    }
+    std::vector<Cell> cells;
+    for (Cell c = to; c != from; c = came[c])
+        cells.push_back(c);
+    w.route.clear();
+    for (auto it = cells.rbegin(); it != cells.rend(); ++it)
+        w.route.push_back({it->first * 32 + 16, it->second * 32 + 16});
+    if (w.route.empty())
+        return true;
+    if (!look_.walkAnimations) {
+        w.x = w.route.back().first;
+        w.y = w.route.back().second;
+        w.route.clear();
+        return true;
+    }
+    w.walking = true;
+    w.fx = w.x;
+    w.fy = w.y;
+    follow_ = s;
+    return true;
+}
+
 std::pair<int, int> Play::roomSpot(int suspect, int room, int fromX, int fromY) const {
     // The cells the others stand on (where they are going) are taken.
     std::set<std::pair<int, int>> taken;
@@ -1394,11 +1461,20 @@ void Play::clickView(int x, int y) {
                 perform(command(netplay::Command::Passage, s));
                 return;
             }
-    if (!game_.canMove())
-        return;
     // The floor's square under the pointer: x - y and (x + y) / 2 undone.
     const int sx = x + camX_, sy = y + camY_;
-    const Square sq = Board::squareAt(sy + floorDiv(sx, 2), sy - floorDiv(sx, 2));
+    const int wx = sy + floorDiv(sx, 2), wy = sy - floorDiv(sx, 2);
+    const Square sq = Board::squareAt(wx, wy);
+    // The floor of the room the suspect is in: a walk about it (Clue.exe
+    // 0x423B5B), whether or not it may move.
+    if (game_.place(s).inRoom() && board_.roomAt(sq) == game_.place(s).room &&
+        std::none_of(board_.doors().begin(), board_.doors().end(), [&](const Board::Door& d) { return d.inside == sq; })) {
+        if (!walkInRoom(wx, wy))
+            sound("nogo.wav");
+        return;
+    }
+    if (!game_.canMove())
+        return;
     if (board_.isCorridor(sq))
         clickSquare({sq, kNoRoom});
     else if (const int room = board_.roomAt(sq); room != kNoRoom)
