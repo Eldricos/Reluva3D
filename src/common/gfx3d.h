@@ -172,6 +172,12 @@ public:
     // Replaces a mesh's indices (its vertices kept), as a level's visible
     // surfaces change.
     virtual Error setMeshIndices(MeshId id, const std::vector<uint32_t>& indices) = 0;
+    // Replaces a mesh's vertices (its indices kept), as a skinned model
+    // moves each frame; draws after see the new ones, frames before the old.
+    virtual Error setMeshVertices(MeshId id, const std::vector<Vertex>& vertices) {
+        (void)id, (void)vertices;
+        return Error::fail("Vertices can't be replaced");
+    }
     virtual void destroyMesh(MeshId id) = 0;
 
     // The size given to System::init3D: the frame's pixels.

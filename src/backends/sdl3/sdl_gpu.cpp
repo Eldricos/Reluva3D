@@ -63,6 +63,7 @@ uint32_t packState(const gfx::DrawState& s) {
 } // namespace
 
 SdlGpuRenderer::~SdlGpuRenderer() {
+    flush();
     if (cmd_) {
         if (pass_)
             SDL_EndGPURenderPass(pass_);
@@ -78,6 +79,8 @@ SdlGpuRenderer::~SdlGpuRenderer() {
             SDL_ReleaseGPUBuffer(device_, m.vertices);
         SDL_ReleaseGPUBuffer(device_, m.indices);
     }
+    if (transfer_)
+        SDL_ReleaseGPUTransferBuffer(device_, transfer_);
     for (auto& [key, p] : pipelines_)
         SDL_ReleaseGPUGraphicsPipeline(device_, p);
     for (SDL_GPUSampler* s : samplers_)
@@ -379,30 +382,57 @@ void SdlGpuRenderer::setStencilReference(uint8_t ref) {
 }
 
 bool SdlGpuRenderer::upload(const void* data, uint32_t size, SDL_GPUBuffer* buffer, bool cycle) {
-    SDL_GPUTransferBufferCreateInfo ti{};
-    ti.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-    ti.size = size;
-    SDL_GPUTransferBuffer* tb = SDL_CreateGPUTransferBuffer(device_, &ti);
-    if (!tb)
-        return false;
-    void* mapped = SDL_MapGPUTransferBuffer(device_, tb, false);
-    if (!mapped) {
-        SDL_ReleaseGPUTransferBuffer(device_, tb);
-        return false;
+    if (size == 0)
+        return true;
+    const auto offset = uint32_t(staging_.size());
+    const auto* bytes = static_cast<const uint8_t*>(data);
+    staging_.insert(staging_.end(), bytes, bytes + size);
+    pending_.push_back({buffer, offset, size, cycle});
+    return true;
+}
+
+bool SdlGpuRenderer::flush() {
+    if (pending_.empty())
+        return true;
+    const auto size = uint32_t(staging_.size());
+    if (!transfer_ || transferBytes_ < size) {
+        if (transfer_)
+            SDL_ReleaseGPUTransferBuffer(device_, transfer_);
+        SDL_GPUTransferBufferCreateInfo ti{};
+        ti.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+        ti.size = std::max(size + size / 2, uint32_t(1) << 20);
+        transfer_ = SDL_CreateGPUTransferBuffer(device_, &ti);
+        transferBytes_ = transfer_ ? ti.size : 0;
     }
-    std::memcpy(mapped, data, size);
-    SDL_UnmapGPUTransferBuffer(device_, tb);
-    SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device_);
-    SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
-    SDL_GPUTransferBufferLocation src{};
-    src.transfer_buffer = tb;
-    SDL_GPUBufferRegion dst{};
-    dst.buffer = buffer;
-    dst.size = size;
-    SDL_UploadToGPUBuffer(copy, &src, &dst, cycle);
-    SDL_EndGPUCopyPass(copy);
-    const bool ok = SDL_SubmitGPUCommandBuffer(cmd);
-    SDL_ReleaseGPUTransferBuffer(device_, tb);
+    bool ok = transfer_ != nullptr;
+    // Cycled as it's mapped: the last frame's copies may still be reading it.
+    void* mapped = ok ? SDL_MapGPUTransferBuffer(device_, transfer_, true) : nullptr;
+    ok = mapped != nullptr;
+    SDL_GPUCommandBuffer* cmd = ok ? SDL_AcquireGPUCommandBuffer(device_) : nullptr;
+    if (mapped) {
+        std::memcpy(mapped, staging_.data(), size);
+        SDL_UnmapGPUTransferBuffer(device_, transfer_);
+    }
+    if (cmd) {
+        SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
+        for (const PendingUpload& u : pending_) {
+            SDL_GPUTransferBufferLocation src{};
+            src.transfer_buffer = transfer_;
+            src.offset = u.offset;
+            SDL_GPUBufferRegion dst{};
+            dst.buffer = u.buffer;
+            dst.size = u.size;
+            SDL_UploadToGPUBuffer(copy, &src, &dst, u.cycle);
+        }
+        SDL_EndGPUCopyPass(copy);
+        ok = SDL_SubmitGPUCommandBuffer(cmd);
+    } else {
+        ok = false;
+    }
+    pending_.clear();
+    staging_.clear();
+    // Bound buffers may have been cycled: bound again on the next draw.
+    boundMesh_ = 0;
     return ok;
 }
 
@@ -509,8 +539,39 @@ Error SdlGpuRenderer::createMesh(const std::vector<gfx::Vertex>& vertices, const
         return err;
     }
     m.indexBytes = uint32_t(indices.size() * sizeof(uint32_t));
+    m.vertexBytes = uint32_t(vertices.size() * sizeof(gfx::Vertex));
     out = nextId_++;
     meshes_[out] = m;
+    return Error::success();
+}
+
+Error SdlGpuRenderer::setMeshVertices(gfx::MeshId id, const std::vector<gfx::Vertex>& vertices) {
+    auto it = meshes_.find(id);
+    if (it == meshes_.end() || vertices.empty() || it->second.sharedVertices)
+        return Error::fail("No such mesh, or no vertices");
+    // As setMeshIndices: into the buffer there is when they fit (cycled),
+    // else a bigger one.
+    const auto bytes = uint32_t(vertices.size() * sizeof(gfx::Vertex));
+    if (bytes <= it->second.vertexBytes) {
+        if (!upload(vertices.data(), bytes, it->second.vertices, true))
+            return sdlError("Cannot replace a mesh's vertices");
+    } else {
+        flush(); // nothing waiting for the old buffer
+        SDL_GPUBufferCreateInfo bi{};
+        bi.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
+        bi.size = bytes;
+        SDL_GPUBuffer* buffer = SDL_CreateGPUBuffer(device_, &bi);
+        if (!buffer || !upload(vertices.data(), bytes, buffer)) {
+            if (buffer)
+                SDL_ReleaseGPUBuffer(device_, buffer);
+            return sdlError("Cannot replace a mesh's vertices");
+        }
+        SDL_ReleaseGPUBuffer(device_, it->second.vertices);
+        it->second.vertices = buffer;
+        it->second.vertexBytes = bytes;
+    }
+    if (boundMesh_ == id)
+        boundMesh_ = 0;
     return Error::success();
 }
 
@@ -529,6 +590,7 @@ Error SdlGpuRenderer::setMeshIndices(gfx::MeshId id, const std::vector<uint32_t>
         SDL_GPUBufferCreateInfo bi{};
         bi.usage = SDL_GPU_BUFFERUSAGE_INDEX;
         bi.size = bytes + bytes / 2;
+        flush(); // nothing waiting for the old buffer
         SDL_GPUBuffer* buffer = SDL_CreateGPUBuffer(device_, &bi);
         if (!buffer || !upload(indices.data(), bytes, buffer)) {
             if (buffer)
@@ -572,6 +634,7 @@ void SdlGpuRenderer::destroyMesh(gfx::MeshId id) {
     auto it = meshes_.find(id);
     if (it == meshes_.end())
         return;
+    flush(); // nothing waiting for its buffers
     if (!it->second.sharedVertices)
         SDL_ReleaseGPUBuffer(device_, it->second.vertices);
     SDL_ReleaseGPUBuffer(device_, it->second.indices);
@@ -680,6 +743,7 @@ void SdlGpuRenderer::beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3& eye,
 void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     if (!pass_ || call.indexCount == 0)
         return;
+    flush();
     auto mesh = meshes_.find(call.mesh);
     if (mesh == meshes_.end())
         return;
@@ -810,6 +874,7 @@ void SdlGpuRenderer::capture(SDL_GPUTexture* frame) {
 }
 
 void SdlGpuRenderer::endFrame(const Surface* overlay) {
+    flush();
     stencilMode_ = StencilMode::None; // the brightness pass draws everything
     mirrored_ = false;
     if (pass_) {

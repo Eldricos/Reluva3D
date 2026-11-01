@@ -344,6 +344,10 @@ private:
         bool paused = false;
         // Props attached ("attach clipboard"), posed by its animations.
         std::vector<std::pair<std::string, std::shared_ptr<GpuModel>>> props;
+        // Its meshes and its props' as skinned for the last frame, kept on
+        // the GPU from frame to frame.
+        SkinnedModel skinned;
+        std::vector<SkinnedModel> propsSkinned;
         // Outdoors (scene_outdoors.cpp): the footprints it has left, the
         // time into its stride (+0x14f4) and the foot next down (+0x14f8),
         // and its breath in the cold.

@@ -32,23 +32,32 @@ GpuModel::~GpuModel() {
             renderer_.destroyTexture(t);
 }
 
-size_t GpuModel::draw(const Pose& pose, const gfx::Mat4& placement, bool helpers,
-                      std::vector<gfx::MeshId>& frameMeshes, float brightness, const SceneLighting* lighting,
-                      const Material& material, const StencilShadow* shadow) {
+void GpuModel::skinAndLight(const Pose& pose, const gfx::Mat4& placement, bool helpers, const SceneLighting* lighting,
+                            const Material& material, SkinnedModel& skinned) const {
     std::vector<std::array<float, 3>> positions, normals;
-    size_t triangles = 0;
-    const bool stencil = shadow && shadow->scene && renderer_.hasStencil();
-    const std::array<float, 3> light = stencil ? shadowLight(*shadow->scene) : std::array<float, 3>{};
-    for (const ModelMesh& mesh : model_.meshes) {
+    if (skinned.owner != this) {
+        skinned.release();
+        skinned.owner = this;
+    }
+    skinned.uploaded = false;
+    skinned.meshes.resize(model_.meshes.size());
+    for (size_t m = 0; m < model_.meshes.size(); m++) {
+        const ModelMesh& mesh = model_.meshes[m];
+        SkinnedModel::Mesh& result = skinned.meshes[m];
+        result.drawn = result.shiny = false;
         bool textured = false;
         for (const auto& g : mesh.groups)
             textured |= g.texture >= 0;
         if (!textured && !helpers)
             continue;
+        result.drawn = true;
+        result.shine.clear();
         // Skinned on the CPU into a new mesh each frame (characters have a
         // few thousand vertices).
         skin(mesh, pose, positions, normals);
-        std::vector<gfx::Vertex> verts(mesh.vertices.size()), shine;
+        std::vector<gfx::Vertex>& verts = result.verts;
+        std::vector<gfx::Vertex>& shine = result.shine;
+        verts.resize(mesh.vertices.size());
         bool shiny = false;
         if (lighting)
             shine.resize(verts.size());
@@ -80,10 +89,91 @@ size_t GpuModel::draw(const Pose& pose, const gfx::Mat4& placement, bool helpers
                 }
             }
         }
-        gfx::MeshId id = 0;
-        if (renderer_.createMesh(verts, mesh.indices, id))
+        result.shiny = shiny;
+    }
+}
+
+SkinnedModel& SkinnedModel::operator=(SkinnedModel&& o) noexcept {
+    if (this != &o) {
+        release();
+        meshes = std::move(o.meshes);
+        owner = o.owner, renderer = o.renderer, uploaded = o.uploaded;
+        o.meshes.clear();
+        o.owner = nullptr, o.renderer = nullptr, o.uploaded = false;
+    }
+    return *this;
+}
+
+void SkinnedModel::release() {
+    if (renderer)
+        for (Mesh& m : meshes) {
+            if (m.id)
+                renderer->destroyMesh(m.id);
+            if (m.shineId)
+                renderer->destroyMesh(m.shineId);
+            m.id = m.shineId = 0;
+        }
+    renderer = nullptr;
+    uploaded = false;
+}
+
+void GpuModel::upload(SkinnedModel& skinned) {
+    if (skinned.owner != this || skinned.meshes.size() != model_.meshes.size())
+        return;
+    if (skinned.renderer && skinned.renderer != &renderer_)
+        skinned.release();
+    skinned.renderer = &renderer_;
+    auto put = [&](gfx::MeshId& id, const std::vector<gfx::Vertex>& verts, const std::vector<uint32_t>& indices) {
+        if (id && renderer_.setMeshVertices(id, verts)) {
+            renderer_.destroyMesh(id);
+            id = 0;
+        }
+        if (!id && renderer_.createMesh(verts, indices, id))
+            id = 0;
+    };
+    for (size_t m = 0; m < model_.meshes.size(); m++) {
+        SkinnedModel::Mesh& made = skinned.meshes[m];
+        if (!made.drawn || made.verts.empty())
             continue;
-        frameMeshes.push_back(id);
+        put(made.id, made.verts, model_.meshes[m].indices);
+        if (made.shiny)
+            put(made.shineId, made.shine, model_.meshes[m].indices);
+    }
+    skinned.uploaded = true;
+}
+
+size_t GpuModel::draw(const Pose& pose, const gfx::Mat4& placement, bool helpers,
+                      std::vector<gfx::MeshId>& frameMeshes, float brightness, const SceneLighting* lighting,
+                      const Material& material, const StencilShadow* shadow, const SkinnedModel* skinned) {
+    SkinnedModel own;
+    if (!skinned || skinned->owner != this || skinned->meshes.size() != model_.meshes.size()) {
+        skinAndLight(pose, placement, helpers, lighting, material, own);
+        skinned = &own;
+    }
+    // Uploaded already, into meshes kept: else made for this frame alone.
+    const bool kept = skinned->uploaded;
+    size_t triangles = 0;
+    const bool stencil = shadow && shadow->scene && renderer_.hasStencil();
+    const std::array<float, 3> light = stencil ? shadowLight(*shadow->scene) : std::array<float, 3>{};
+    for (size_t m = 0; m < model_.meshes.size(); m++) {
+        const ModelMesh& mesh = model_.meshes[m];
+        const SkinnedModel::Mesh& made = skinned->meshes[m];
+        if (!made.drawn)
+            continue;
+        bool textured = false;
+        for (const auto& g : mesh.groups)
+            textured |= g.texture >= 0;
+        const std::vector<gfx::Vertex>& verts = made.verts;
+        const std::vector<gfx::Vertex>& shine = made.shine;
+        const bool shiny = made.shiny;
+        gfx::MeshId id = kept ? made.id : 0;
+        if (kept && !id)
+            continue;
+        if (!kept) {
+            if (renderer_.createMesh(verts, mesh.indices, id))
+                continue;
+            frameMeshes.push_back(id);
+        }
         if (stencil && shadow->cast && textured) {
             if (mesh.rigid && !mesh.vertices.empty()) {
                 drawShadow(mesh, pose, placement, *shadow->scene, frameMeshes);
@@ -103,8 +193,8 @@ size_t GpuModel::draw(const Pose& pose, const gfx::Mat4& placement, bool helpers
         }
         // The specular, which Direct3D adds after the texture
         // (D3DRS_SPECULARENABLE, 0x427160): a pass adding it over the model.
-        gfx::MeshId shineId = 0;
-        if (shiny && !renderer_.createMesh(shine, mesh.indices, shineId))
+        gfx::MeshId shineId = kept && shiny ? made.shineId : 0;
+        if (!kept && shiny && !renderer_.createMesh(shine, mesh.indices, shineId))
             frameMeshes.push_back(shineId);
         for (const auto& g : mesh.groups) {
             gfx::DrawCall call;

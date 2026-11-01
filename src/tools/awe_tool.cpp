@@ -1220,7 +1220,7 @@ const char* aweToolUsage() {
            "  reluva-tool awe-acts <game folder> [act|slotN...] [-hotspots] [-explore n] [-t seconds] [-v]\n"
            "  reluva-tool awe-regress <game folder> <route.txt> [-3d] [-quick]\n"
            "  reluva-tool awe-acts <game folder> -solve <out.txt> [-from <playthrough>] [-budget n] [-level n] [-noclimb] [-goal text] [-characters] [-v]\n"
-           "  reluva-tool awe-acts <game folder> -play <playthrough> [-list] [-reload] [-log n] [-mouse] [-3d | -characters] [-sound] [-wav file] [-v]\n"
+           "  reluva-tool awe-acts <game folder> -play <playthrough> [-list] [-reload] [-log n] [-mouse] [-3d [-draw] | -characters] [-sound] [-wav file] [-v]\n"
            "  reluva-tool awe-pose <game folder> <model.gr2> <animation.gr2> [seconds...]\n"
            "  reluva-tool awe-bink <game folder> <movie.bik>... [-frames n] [-yuv]\n"
            "  reluva-tool ac2-dump <scene.ac2>...\n"

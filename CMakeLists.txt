@@ -239,7 +239,8 @@ if(RELUVA_ENGINE_AWE)
         set_source_files_properties(src/engines/awe/curves.cpp PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
     endif()
 endif()
-target_link_libraries(reluva_engines PUBLIC reluva_common PRIVATE reluva_warnings)
+find_package(Threads REQUIRED)
+target_link_libraries(reluva_engines PUBLIC reluva_common Threads::Threads PRIVATE reluva_warnings)
 
 # --- executable: SDL3 backend + ImGui launcher --------------------------------
 add_executable(reluva

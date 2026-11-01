@@ -5,6 +5,7 @@
 
 #include "common/audio/decode.h"
 #include "common/font.h"
+#include "common/parallel.h"
 #include "common/fs.h"
 #include "common/text.h"
 #include "common/video/bink_audio.h"
@@ -14,6 +15,8 @@
 #include "engines/awe/tables.h"
 
 #include <algorithm>
+#include <chrono>
+#include <cstdlib>
 #include <cctype>
 #include <cstdio>
 #include <cstring>
@@ -21,6 +24,34 @@
 #include <utility>
 
 namespace reluva::awe {
+
+namespace {
+
+// RELUVA_PERF=1: where a frame's time goes, written out every few seconds
+// (docs/engines/awe.md).
+struct FramePerf {
+    bool on = std::getenv("RELUVA_PERF") != nullptr;
+    double total = 0, draw2d = 0, layers = 0, characters = 0, skin = 0, present = 0;
+    int frames = 0, draws = 0;
+    std::chrono::steady_clock::time_point since = std::chrono::steady_clock::now();
+    static double ms(std::chrono::steady_clock::time_point t) {
+        return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t).count();
+    }
+    void report(const std::string& scene) {
+        if (!on || ms(since) < 3000 || frames == 0)
+            return;
+        const double n = frames;
+        std::fprintf(stderr,
+                     "perf %s: %.1f fps; per frame %.2f ms: 2D %.2f (%.2f draws; layers %.2f), characters %.2f "
+                     "(skinning and lighting %.2f), present %.2f\n",
+                     scene.c_str(), n * 1000 / ms(since), total / n, draw2d / n, draws / n, layers / n,
+                     characters / n, skin / n, present / n);
+        *this = FramePerf();
+    }
+};
+FramePerf perf;
+
+} // namespace
 
 namespace {
 
@@ -67,12 +98,14 @@ void Page::begin2D() {
 }
 
 void Page::clear(uint8_t r, uint8_t g, uint8_t b) {
-    for (size_t i = 0; i < ctx_.screen.pixels.size(); i += 4) {
-        ctx_.screen.pixels[i] = r;
-        ctx_.screen.pixels[i + 1] = g;
-        ctx_.screen.pixels[i + 2] = b;
-        ctx_.screen.pixels[i + 3] = 255;
-    }
+    // A pixel at a time, as one word (a byte at a time took milliseconds).
+    const uint8_t px[4] = {r, g, b, 255};
+    uint32_t word;
+    std::memcpy(&word, px, 4);
+    const size_t n = ctx_.screen.pixels.size() / 4;
+    std::vector<uint32_t> row(size_t(std::max(ctx_.screen.w, 1)), word);
+    for (size_t i = 0; i < n; i += row.size())
+        std::memcpy(ctx_.screen.pixels.data() + i * 4, row.data(), std::min(row.size(), n - i) * 4);
 }
 
 void Page::fill(int x, int y, int w, int h, Color c, uint8_t alpha) {
@@ -1213,6 +1246,14 @@ void ScenePage::loadCharacters() {
 void ScenePage::draw() {
     if (!drawing_)
         return;
+    const auto drawStart = std::chrono::steady_clock::now();
+    struct Timed {
+        std::chrono::steady_clock::time_point t;
+        ~Timed() {
+            perf.draw2d += FramePerf::ms(t);
+            perf.draws++;
+        }
+    } timed{drawStart};
     const std::vector<const Ac2Record*> objects = scene_.objects();
     // Pictures and video loops back to front, by depth: the background at
     // -10000, what's behind its windows further still. A picture's d0,
@@ -1310,7 +1351,7 @@ void ScenePage::draw() {
     // Layer k is drawn after the k-th character in that order (0: the
     // background, behind them all); the labels go into the overlay.
     const bool layered = renderer_ != nullptr;
-    clear(0, 0, 0);
+    const auto layersStart = std::chrono::steady_clock::now();
     if (layered) {
         auto objectIndex = [&](const Ac2Record* r) {
             const auto it = std::find(objects.begin(), objects.end(), r);
@@ -1531,10 +1572,12 @@ void ScenePage::draw() {
         }
         std::fill(ctx_.screen.pixels.begin(), ctx_.screen.pixels.end(), 0);
     } else {
+        clear(0, 0, 0);
         for (const Ac2Record* o : pictures)
             place(o, false);
         applyBrightness();
     }
+    perf.layers += FramePerf::ms(layersStart);
     if (showGrid_)
         drawGrid();
     if (hotspots_)
@@ -1766,7 +1809,16 @@ void ScenePage::draw() {
 }
 
 void ScenePage::update(uint64_t nowMs) {
+    struct Timed {
+        std::chrono::steady_clock::time_point t = std::chrono::steady_clock::now();
+        ~Timed() {
+            perf.total += FramePerf::ms(t);
+            perf.frames++;
+        }
+    } timed;
     frame_++;
+    // Drawn once, at the end, whatever asks for it on the way.
+    bool redraw = false;
     if (startMs_ == 0)
         startMs_ = nowMs;
     const float time = float(nowMs - startMs_) / 1000.0f;
@@ -1778,7 +1830,7 @@ void ScenePage::update(uint64_t nowMs) {
     if (movie_) {
         // Over when its last frame's time has gone by (0x40c490).
         if (movie_->update(nowMs))
-            draw();
+            redraw = true;
         if (movie_->done(nowMs))
             endMovie();
     }
@@ -1791,20 +1843,20 @@ void ScenePage::update(uint64_t nowMs) {
     if (messageTime_ > 0) {
         messageTime_ = std::max(0.0f, messageTime_ - dt);
         if (messageTime_ == 0)
-            draw();
+            redraw = true;
     }
     if ((caretTime_ -= dt) <= 0) {
         caretTime_ = 0.33f;
         caretOn_ = !caretOn_;
         if (slots_ && slots_->save)
-            draw();
+            redraw = true;
     }
     if (puzzleActive())
         puzzleUpdate(dt);
     if (charactersDue_ && nowMs >= charactersAt_ + 400) {
         charactersDue_ = false;
         loadCharacters();
-        draw();
+        redraw = true;
     }
     if (playing_)
         story_->update(dt);
@@ -1821,7 +1873,7 @@ void ScenePage::update(uint64_t nowMs) {
                 r->finished("letterbox");
             }
         }
-        draw();
+        redraw = true;
     }
     if (fade_ != fadeTarget_) {
         // 8 of 255 every 0.01 s (0x40c33b, 0x4158e0): about a third of a
@@ -1834,7 +1886,7 @@ void ScenePage::update(uint64_t nowMs) {
             fadeRunner_ = nullptr;
             r->finished("fade");
         }
-        draw();
+        redraw = true;
     }
     if (soundRunner_ && !(ctx_.mixer && ctx_.mixer->isPlaying(soundWaited_))) {
         ScriptRunner* r = soundRunner_;
@@ -1842,7 +1894,7 @@ void ScenePage::update(uint64_t nowMs) {
         r->finished("sound");
     }
     if (interfaceUpdate(dt) || (ui_.open && ui_.page == 0 && !state_.fresh.empty() && caretTime_ == 0.33f))
-        draw();
+        redraw = true;
     runner_->update(dt);
     // The clicked character's routine goes on once the main script is
     // over (0x409cab).
@@ -1854,7 +1906,7 @@ void ScenePage::update(uint64_t nowMs) {
     }
     if (dialogue_->active()) {
         dialogue_->update(dt);
-        draw(); // the box moves, lines change
+        redraw = true; // the box moves, lines change
     }
     bool changed = drawing_ && advanceLoops(time); // nothing to decode for a tool not drawing
     for (Character& c : characters_) {
@@ -1901,7 +1953,7 @@ void ScenePage::update(uint64_t nowMs) {
     changed |= scrollPictures(dt);
     updateHotspots();
     changed |= std::exchange(cursorMoved_, false);
-    if (changed)
+    if (changed || redraw)
         draw();
     // A page not drawing (a tool's) makes no 3D frame either: its
     // characters still move, and are picked by their bones.
@@ -1982,6 +2034,7 @@ void ScenePage::update(uint64_t nowMs) {
         renderer_->destroyTexture(t);
     frameTextures_.clear();
     size_t layer = 1;
+    const auto charactersStart = std::chrono::steady_clock::now();
     // The characters, through the scene's camera, in depth order.
     if (const Ac2Record* camr = scene_.camera(); camr && charactersShown()) {
         const SceneCamera cam = SceneCamera::fromRecord(*camr);
@@ -2031,6 +2084,40 @@ void ScenePage::update(uint64_t nowMs) {
             const gfx::Vec3 e = cam.eye();
             lighting.eye = {e[0], e[1], e[2]};
         }
+        // Their skinning and lighting, the most of the work, all at once on
+        // the machine's cores; drawn after in their order.
+        std::vector<bool> skinnedNow(characters_.size(), false);
+        {
+            const auto skinStart = std::chrono::steady_clock::now();
+            struct Job {
+                GpuModel* model;
+                const Pose* pose;
+                const gfx::Mat4* placement;
+                Material material;
+                SkinnedModel* out;
+            };
+            std::vector<Job> jobs;
+            for (size_t i = 0; i < characters_.size(); i++) {
+                Character& c = characters_[i];
+                if (c.record && !objectShown(*c.record))
+                    continue;
+                skinnedNow[i] = true;
+                const Material material = c.record ? materialOf(*c.record) : Material();
+                jobs.push_back({c.model.get(), &poses[i], &c.placement, material, &c.skinned});
+                c.propsSkinned.resize(c.props.size());
+                for (size_t k = 0; k < c.props.size(); k++)
+                    jobs.push_back({c.props[k].second.get(), &propPoses[i][k], &c.placement, material,
+                                    &c.propsSkinned[k]});
+            }
+            parallelFor(jobs.size(), [&](size_t j) {
+                const Job& job = jobs[j];
+                job.model->skinAndLight(*job.pose, *job.placement, false, &lighting, job.material, *job.out);
+            });
+            // Onto the GPU, all before any is drawn: sent together.
+            for (const Job& job : jobs)
+                job.model->upload(*job.out);
+            perf.skin += FramePerf::ms(skinStart);
+        }
         for (const ModelSlot& slot : order) {
             const size_t i = slot.character;
             const Character& c = characters_[i];
@@ -2061,10 +2148,12 @@ void ScenePage::update(uint64_t nowMs) {
                 stencil.cast = c.shadow;
                 stencil.ref = c.player ? 2 : 0;
                 const StencilShadow* withShadow = gpuStencil ? &stencil : nullptr;
-                c.model->draw(poses[i], c.placement, false, frameMeshes_, bright, &lighting, material, withShadow);
+                c.model->draw(poses[i], c.placement, false, frameMeshes_, bright, &lighting, material, withShadow,
+                              skinnedNow[i] ? &c.skinned : nullptr);
                 for (size_t k = 0; k < c.props.size(); k++)
                     c.props[k].second->draw(propPoses[i][k], c.placement, false, frameMeshes_, bright, &lighting,
-                                            material, withShadow);
+                                            material, withShadow,
+                                            skinnedNow[i] && k < c.propsSkinned.size() ? &c.propsSkinned[k] : nullptr);
             }
             // The pictures after it, taking the shadows off under them.
             if (layer < layers_.size()) {
@@ -2095,12 +2184,16 @@ void ScenePage::update(uint64_t nowMs) {
             drawWhiteOut();
         }
     }
+    perf.characters += FramePerf::ms(charactersStart);
     for (; layer < layers_.size(); layer++)
         drawLayer(layer);
     prepareScreenshot(renderer_);
     if (grabDue_)
         renderer_->captureNextFrame();
+    const auto presentStart = std::chrono::steady_clock::now();
     renderer_->endFrame(&ctx_.screen);
+    perf.present += FramePerf::ms(presentStart);
+    perf.report(names_.empty() ? std::string() : names_[size_t(index_)]);
     if (grabDue_) {
         // The view for a save's thumbnail, the 2D over the 3D.
         image::Image img;

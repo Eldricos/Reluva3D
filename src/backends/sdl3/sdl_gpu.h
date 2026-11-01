@@ -35,6 +35,7 @@ public:
                      gfx::MeshId& out) override;
     void destroyMesh(gfx::MeshId id) override;
     Error setMeshIndices(gfx::MeshId id, const std::vector<uint32_t>& indices) override;
+    Error setMeshVertices(gfx::MeshId id, const std::vector<gfx::Vertex>& vertices) override;
     Error createIndexedMesh(gfx::MeshId vertices, const std::vector<uint32_t>& indices, gfx::MeshId& out) override;
     int width() const override { return width_; }
     int height() const override { return height_; }
@@ -84,13 +85,25 @@ private:
         SDL_GPUBuffer* vertices = nullptr;
         SDL_GPUBuffer* indices = nullptr;
         uint32_t indexBytes = 0; // the index buffer's size
+        uint32_t vertexBytes = 0; // the vertex buffer's
         bool sharedVertices = false; // another mesh's (createIndexedMesh)
     };
 
-    // Copies `size` bytes into a GPU buffer or texture region through a
-    // transfer buffer, in a command buffer of its own. `cycle`: into a
-    // fresh copy of the buffer if frames still on the GPU use it.
+    // Copies `size` bytes into a GPU buffer, `cycle`: into a fresh copy of
+    // the buffer if frames still on the GPU use it. Kept till flush(),
+    // which sends all those waiting in one command buffer of their own
+    // (done before any draw and at the frame's end, so draws see them).
     bool upload(const void* data, uint32_t size, SDL_GPUBuffer* buffer, bool cycle = false);
+    bool flush();
+    struct PendingUpload {
+        SDL_GPUBuffer* buffer;
+        uint32_t offset, size; // in staging_
+        bool cycle;
+    };
+    std::vector<PendingUpload> pending_;
+    std::vector<uint8_t> staging_;
+    SDL_GPUTransferBuffer* transfer_ = nullptr;
+    uint32_t transferBytes_ = 0;
     SDL_GPUGraphicsPipeline* pipeline(const gfx::DrawState& state);
 
     SDL_GPUDevice* device_;

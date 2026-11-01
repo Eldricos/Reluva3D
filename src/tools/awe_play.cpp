@@ -175,6 +175,7 @@ public:
     uint64_t lineShotAt_ = 0;
     std::string lineShotFile_;
     size_t action = 0; // the playthrough's action being done, from 1
+    bool drawing = false; // -draw: every frame drawn, as in a window (RELUVA_PERF times them)
 
     // -shot: the screen as it is now, drawn (the 3D under the 2D with a
     // window), saved to `file` as a TGA.
@@ -185,7 +186,7 @@ public:
         std::filesystem::remove(file, ec);
         for (int i = 0; i < 10 && !std::filesystem::exists(file); i++)
             step();
-        page_->setDrawing(false);
+        page_->setDrawing(drawing);
         return std::filesystem::exists(file);
     }
 
@@ -882,7 +883,8 @@ int aweCommandSolve(int argc, char** argv) {
     reloadDiffs = 0; // (awe-regress runs several in one process)
     // reluva-tool awe-acts <game> -solve <out> [-from <file>] [-budget n] [-level n] [-noclimb]
     //     [-goal text] [-t s] [-v]
-    // reluva-tool awe-acts <game> -play <file> [-list] [-reload] [-log n] [-mouse] [-3d | -characters] [-sound] [-wav file]
+    // reluva-tool awe-acts <game> -play <file> [-list] [-reload] [-log n] [-mouse] [-3d [-draw] | -characters]
+    // [-sound] [-wav file]
     //     [-shot n|<n>c<k> out.tga]... [-shots dir] [-v]
     DirectoryArchive files;
     if (Error e = files.open(argv[2])) {
@@ -896,6 +898,7 @@ int aweCommandSolve(int argc, char** argv) {
     bool reloadEach = false;
     Wander wanderer;
     bool verbose = false, list = false, reload = false, mouse = false, hand = false, threeD = false, characters = false;
+    bool draw = false;
     bool sound = false;
     std::string wavFile;
     std::map<size_t, std::string> shots;
@@ -941,6 +944,8 @@ int aweCommandSolve(int argc, char** argv) {
             mouse = hand = true;
         else if (a == "-3d")
             threeD = true;
+        else if (a == "-draw")
+            draw = true;
         else if (a == "-characters")
             characters = true;
         else if (a == "-sound")
@@ -977,6 +982,8 @@ int aweCommandSolve(int argc, char** argv) {
     Player player(files, limit, window.get(), characters, sound);
     player.recording = !wavFile.empty();
     player.mouse = mouse;
+    if ((player.drawing = draw))
+        player.page().setDrawing(true);
     player.hand = hand;
     player.choiceShots = choiceShots;
     player.lineShots = lineShots;

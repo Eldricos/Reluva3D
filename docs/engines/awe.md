@@ -167,7 +167,8 @@ scenes, two Granny files, the text tables, two backgrounds):
     or a player, as far as it goes: what the scripts ask that Reluva
     doesn't do; `-hotspots`, `-explore n` to click on; `-solve` to
     search for a way from a new game to the credits, `-play` to play one
-    back);
+    back; `-3d -draw` plays it in a window, every frame drawn, for timing
+    with `RELUVA_PERF`);
   - `bink-info` (a movie's header and frames; `-yuv`, `-wav`, `-tga` to
     decode it);
   - `awe-save` (a saved game's records, read and written back).
@@ -395,6 +396,41 @@ as debugging tools after the game itself runs.
   against this.
 - Generalise per game: file names, `.ac1` against `.ac2`, interface
   layout.
+
+## Frame time
+
+The game itself asks little of a machine; what costs is how Reluva does
+on the CPU what the game's Direct3D device did. `RELUVA_PERF=1` writes
+where a frame's time goes every three seconds (to the console, with the
+scene): the 2D (the pictures put together into layers, the interface,
+the text, the cursor), the characters (posed, skinned and lit, onto the
+GPU, drawn) and the present (the GPU's frame and the overlay shown).
+`reluva-tool awe-acts <install> -play <route> -mouse -3d -draw` plays a
+route in a window drawing every frame, so builds can be compared on the
+same scenes.
+
+What was done about it, checked by screenshots of the route identical
+byte for byte before and after:
+
+- **Drawn once a frame.** The 2D was put together again by each thing
+  that changed it in a frame (twice in a conversation: the box and the
+  characters); now once, at the end.
+- **No clearing for nothing.** With 3D, the pictures go into layers kept
+  on the GPU and the screen buffer is only the overlay; clearing it to
+  black first, a byte at a time, cost 3 ms a frame.
+- **Characters skinned on every core.** Each character's and prop's
+  skinning and per-vertex lighting (the game's fixed-function lighting,
+  done as Direct3D does it) is work of its own, so they're done at once
+  (`common/parallel.h`), then drawn in their order.
+- **Meshes kept on the GPU.** A character's meshes were made anew each
+  frame, each with two uploads in command buffers of their own; now
+  they're made once and only their vertices replaced, the uploads of a
+  frame sent together in one command buffer before its draws
+  (`setMeshVertices`, `SdlGpuRenderer::flush`).
+
+In the market at the start of the game (Sirkeci.Market_03, measured
+under a software GPU, so the present isn't a real card's), the 2D went
+from 5 to 2.3 ms a frame and the characters from 9 to 3.4 ms.
 
 ## Testing
 
