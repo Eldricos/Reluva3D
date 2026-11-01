@@ -142,14 +142,19 @@ size, an 8 × 8 grid and a zoom.
 
 ## Drawing order and the original's look
 
-Recordings show what stands in front of the suspects drawn see-through,
-about half. They also show the
-whole scene dark, with pools of light around the lamps and the suspects:
-the readme's "Dynamic Lighting", not done yet.
+What stands in front of the suspect whose turn it is is drawn
+see-through, and the house dark but near it ("Lighting Effects"): see
+[clue.md](../../engines/clue.md).
 
-How the original orders what it draws isn't known. Reluva draws the flat
-things first (the outside, then the floors by layer, each from the back),
-then sorts the others by their boxes: of two whose images overlap, the one
-wholly beyond the other along x, or else along y, is in front; boxes
-overlapping on the floor go by their centres. Views of the ballroom and
-the billiard room drawn this way match the recordings' frames.
+How `Clue.exe` orders what it draws (read from its code): one list,
+each object put in before the first with a greater anchor y, then x,
+then height (0x443C20); then, each frame, a pass down it (0x41CBD0):
+any object later in the list whose screen rectangle touches an earlier
+one's and whose box is behind it (starting before the earlier one's box
+ends along x, y and height alike) is moved before it, a guard keeping
+two from trading places for ever. Reluva draws the flat things first
+(the outside, then the floors by layer, each from the back: they are
+below everything, as in its order), then the rest in that order, its
+pass run until nothing moves; suspects walking go in by the same test.
+Views of the ballroom and the billiard room drawn this way match the
+recordings' frames, as the order Reluva used before this was read did.
