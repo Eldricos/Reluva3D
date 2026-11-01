@@ -30,7 +30,7 @@ cell's commands split out.
 | `uselist.txt` | Use this Item, On this character, Condition, Event |
 | `navigation.txt` | Tag, Text, Translation, Additional Text: exits' labels (`To Salon Car`) |
 | `interface.txt` | Tag, Text, Translation: interface strings (`quit2`: "Quit program?") |
-| `fonts.txt` | Font Name, Size, Desc, Effect, Uses; then rows of ARGB colours for text kinds. Calisto MT, Arial and Arial Narrow are in `Interface/Fonts`; Times New Roman and Courier New (for the newspaper clippings and the fingerprints) aren't shipped. Reluva takes sizes as Windows points at 96 DPI (12 points: an em of 16 pixels) and stands in Arial for the missing fonts |
+| `fonts.txt` | Font Name, Size, Desc, Effect, Uses; then rows of ARGB colours for text kinds. Calisto MT, Arial and Arial Narrow are in `Interface/Fonts`; Times New Roman and Courier New (for the newspaper clippings and the fingerprints) aren't shipped: the game takes them from Windows. Reluva takes sizes as Windows points at 96 DPI (12 points: an em of 16 pixels), and for those two looks for Windows' own files (`times.ttf`, `timesbd.ttf`, `cour.ttf`, `courbd.ttf`) where Windows, macOS or Linux's core fonts packages put them, then Liberation Serif and Mono, which have the same measurements; Arial only if there's none. A bold style takes the bold face, where it's otherwise drawn twice a pixel apart |
 | `Movies/<movie>.txt` | subtitles, in the dialogue tables' columns (Name, Act, Conver., Thread, Nest, Speaker, Target, Line, Line Translation, Condition, Repeat, Prevent, Event, Povent, Duration, Optional, Notes). Duration is "start, length" in seconds from the movie's start |
 
 The "Translation" columns are all `0` in the English release.

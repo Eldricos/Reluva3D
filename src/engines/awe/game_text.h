@@ -26,6 +26,7 @@ struct TextStyle {
     std::string fontName;
     float points = 12;
     bool bold = false, shadow = false;
+    bool boldFace = false;     // the font file is a bold face (not drawn bold by doubling)
     ttf::Font* font = nullptr; // null if the game doesn't ship it (and Arial doesn't load)
     float pixels = 16;         // the size for font's draw calls
 };
