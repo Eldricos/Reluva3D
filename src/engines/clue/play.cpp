@@ -1432,11 +1432,15 @@ void Play::clickSquare(const Place& p) {
     if (it != plan_.end()) {
         if (it + 1 == plan_.end() && game_.canWalk(plan_))
             walkPlan();
-        else
+        else {
             plan_.erase(it + 1, plan_.end());
+            sound("unting.wav"); // numbers taken back (Clue.exe 0x423C8E)
+        }
         return;
     }
     if (p == game_.place(s)) {
+        if (!plan_.empty())
+            sound("unting.wav");
         plan_.clear();
         return;
     }
@@ -1446,6 +1450,7 @@ void Play::clickSquare(const Place& p) {
         return;
     }
     plan_.push_back(p);
+    sound("ting.wav"); // a number put down (Clue.exe 0x423EE8)
     // The view goes to the newest square, as the original's does.
     if (!p.inRoom()) {
         int wx, wy;

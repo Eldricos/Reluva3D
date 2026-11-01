@@ -472,6 +472,16 @@ As the original, from its recordings and its How to Play texts:
   to aren't marked, as in the original). Clicking one of the move's squares again goes
   back to it. When the die's number is reached, or a room's floor is
   clicked from before its door, the suspect walks there.
+  As `Clue.exe` does it (0x423A90, a click on a square): the world keeps
+  the level's nine `tilenum` objects (class Number) by their digit
+  (0x429B60, at +0x540); putting a square in the plan shows the next one
+  (0x429D00) at the position of the object the square's cell in the
+  floor's grid holds (0x4209F0, 64-unit cells): for a corridor square its
+  hallway floor piece, anchored on the square's corner (16 + 64 × column,
+  16 + 64 × row), at height 0, and plays `ting.wav`; taking squares back
+  hides theirs (0x429D60) and plays `unting.wav`, a square it can't go to
+  `nogo.wav`. The suspect walks to the squares' middles (+32, +32).
+  Reluva does the same.
 - **No Die Roll**: the first icon shows the moves left; plan the move
   the same way and click its last square again (or the icon) to walk.
   Suggesting, accusing and the secret passages cost three moves.
