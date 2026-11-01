@@ -12,6 +12,7 @@
 #include "common/audio/decode.h"
 
 #include <algorithm>
+#include <climits>
 #include <cmath>
 #include <fstream>
 #include <istream>
@@ -118,19 +119,38 @@ const char* const kObjectSound[] = {"bear_g.wav",      "bear_b.wav",    "rhino_b
 // A hot spot's reactions: states 20 (good), 21 (bad) and 22 (neutral); the
 // sound of each is the object's timing 1500, 1600 or 1700.
 constexpr uint16_t kReactionFirst = 20, kReactionLast = 22;
-// The weather, as five recordings of the original have it (found in
-// their sound, docs/engines/clue.md): thunder, BigThunder5 two times in
-// three and MidThunder3 the third, at least 12 s apart and 38 s more on
-// average; the other thunders and the wind's gusts never heard in the
-// house. The drapes (states 23, light, and 24, heavy) blow with it.
-const char* const kThunder[] = {"BigThunder5.wav", "BigThunder5.wav", "MidThunder3.wav"};
-constexpr double kThunderMinMs = 12000, kThunderMeanMs = 38000, kThunderMaxMs = 180000;
-// Sounds heard near things in the house, louder the nearer the view's middle.
-struct Ambient {
-    const char* object;
-    const char* sound;
+// The weather, as Clue.exe has it (0x41C690, docs/engines/clue.md): a
+// cycle of 300 s, run each 66 ms tick. At set times the drapes blow
+// (state 23, light; 24, heavy; 0, still) and the wind's gusts loop; between
+// them, now and then (one tick in 100 or 80), a thunder. Each step: from
+// the cycle's ms on, to a state, the drapes' state then (-1 unchanged), the
+// gust looping then (0 none, 1 light, 2 heavy, -1 unchanged), and the
+// thunders heard by chance until the next step (0 none, 1 small, 2 middle).
+struct WeatherStep {
+    int fromMs, drapes, gust, chance;
 };
-const Ambient kAmbient[] = {{"library:Olbfirepl_an", "LBfirepl_n.wav"}, {"conservatory:Ocnfntn", "fntn_n.wav"}};
+constexpr WeatherStep kWeather[] = {
+    {0, -1, -1, 0},      // still
+    {60000, 23, 1, 1},   // light gusts
+    {75000, 0, 0, 0},    // still
+    {90000, 23, 1, 1},   // light gusts
+    {120000, 24, 2, 2},  // heavy gusts
+    {150000, -1, -1, 2}, // (a big thunder as it begins)
+    {180000, 23, 1, 1},  // light gusts
+    {210000, 0, 0, 0},   // still
+    {225000, 23, 1, 1},  // light gusts
+    {240000, 0, 0, 0},   // still to 300 s
+};
+constexpr int kWeatherCycleMs = 300000, kTickMs = 66;
+const char* const kSmallThunder[] = {"SmallThunder6.wav", "SmallThunder7.wav", "SmallThunder8.wav"};
+const char* const kMidThunder[] = {"MidThunder1.wav", "MidThunder2.wav", "MidThunder3.wav"};
+const char* const kBigThunder[] = {"BigThunder4.wav", "BigThunder5.wav"};
+const char* const kGust[] = {"", "wind light gusts.wav", "wind heavy gusts.wav"};
+// Sounds heard near things in the house (furniture with a timing at 1900,
+// its value which), as Clue.exe plays them (0x42F1C6): from the nearest
+// such thing to where the camera looks, at 100 of 127 less 100 * d / 500,
+// silent from 500 away; panned by its x on the floor.
+const char* const kAmbientSound[] = {"LBfirepl_n.wav", "fntn_n.wav"};
 
 int floorDiv(int a, int b) { return a >= 0 ? a / b : -((-a + b - 1) / b); }
 
@@ -1225,43 +1245,89 @@ bool Play::clickHotSpot(int x, int y) {
 }
 
 void Play::updateAmbience() {
-    // Gaps of 12 s and an exponential 38 s on average more.
-    const auto gap = [this]() {
-        const double u = (double(ambientRng_() % 1000000) + 0.5) / 1000000.0;
-        return uint64_t(std::min(kThunderMaxMs, kThunderMinMs - kThunderMeanMs * std::log(u)));
-    };
-    if (nextThunder_ == 0)
-        nextThunder_ = now_ + gap();
-    if (now_ >= nextThunder_) {
-        sound(kThunder[ambientRng_() % std::size(kThunder)]);
-        // The drapes stir with it; in one gust in three, hard.
-        const bool heavy = ambientRng_() % 3 == 0;
-        for (size_t i = 0; i < mansion_.items().size(); ++i)
-            if (mansion_.items()[i].object->type == ObjectDef::Drapes)
-                mansion_.playState(data_, i, heavy ? 24 : 23, now_ + ambientRng_() % 400);
-        nextThunder_ = now_ + gap();
+    // The weather's ticks, 66 ms apart.
+    weatherTickMs_ += now_ - std::min(now_, lastAmbience_);
+    lastAmbience_ = now_;
+    if (weatherTickMs_ > 1000)
+        weatherTickMs_ = 1000; // after a pause, not a burst of ticks
+    for (; weatherTickMs_ >= kTickMs; weatherTickMs_ -= kTickMs) {
+        weatherMs_ += kTickMs;
+        if (weatherMs_ > kWeatherCycleMs) {
+            weatherMs_ = 0;
+            weatherStep_ = 0;
+        }
+        const int next = weatherStep_ + 1;
+        if (next < int(std::size(kWeather)) && weatherMs_ > kWeather[next].fromMs) {
+            weatherStep_ = next;
+            const WeatherStep& w = kWeather[next];
+            if (w.drapes >= 0)
+                for (size_t i = 0; i < mansion_.items().size(); ++i)
+                    if (mansion_.items()[i].kind == ObjectDef::Drapes) {
+                        if (w.drapes == 0)
+                            mansion_.stopState(i);
+                        else // from a frame by chance (0x428EF0)
+                            mansion_.playState(data_, i, uint16_t(w.drapes), now_ - ambientRng_() % 1000, true);
+                    }
+            if (w.gust >= 0 && mixer_) {
+                if (gust_ != audio::kNoSound)
+                    mixer_->stop(gust_);
+                gust_ = audio::kNoSound;
+                if (w.gust > 0)
+                    if (const auto loop = loadSound(kGust[w.gust]))
+                        gust_ = mixer_->play(loop, audio::SoundType::Effects, audio::kMaxVolume * 100 / 127, 0, true);
+            }
+            if (next == 5)
+                sound(kBigThunder[ambientRng_() % 2]);
+            continue;
+        }
+        const int chance = kWeather[weatherStep_].chance;
+        if (chance == 1 && ambientRng_() % 100 == 0)
+            sound(kSmallThunder[ambientRng_() % 3]);
+        else if (chance == 2 && ambientRng_() % 80 == 0)
+            sound(kMidThunder[ambientRng_() % 3]);
     }
     if (!mixer_)
         return;
-    // The fire and the fountain: by how far they are from the view's middle.
-    for (size_t k = 0; k < std::size(kAmbient); ++k) {
-        int volume = 0;
-        for (const Mansion::Item& item : mansion_.items())
-            if (item.object->name == kAmbient[k].object) {
-                const int dx = item.anchorX - (camX_ + kW / 2), dy = item.anchorY - (camY_ + kBarTop / 2);
-                const double d = std::hypot(double(dx), double(dy));
-                volume = std::max(volume, int(audio::kMaxVolume * std::clamp((600 - d) / 450, 0.0, 1.0)));
-            }
+    // Where the camera looks, on the floor: the view's middle, x - y and
+    // (x + y) / 2 undone.
+    const int sx = camX_ + kW / 2, sy = camY_ + kBarTop / 2;
+    const int lx = sy + floorDiv(sx, 2), ly = sy - floorDiv(sx, 2);
+    for (size_t k = 0; k < std::size(kAmbientSound); ++k) {
+        long best = LONG_MAX;
+        int dx = 0;
+        for (const Mansion::Item& item : mansion_.items()) {
+            const auto& pl = mansion_.level()->placements[item.placement];
+            const std::vector<Timing>& ts = pl.timings.empty() ? item.object->timings : pl.timings;
+            for (const Timing& t : ts)
+                if (t.time == 1900 && t.raw[3] == k) {
+                    const long d2 =
+                        long(item.worldX - lx) * (item.worldX - lx) + long(item.worldY - ly) * (item.worldY - ly);
+                    if (d2 < best) {
+                        best = d2;
+                        dx = item.worldX - lx;
+                    }
+                }
+        }
         audio::SoundHandle& h = ambient_[k];
-        if (volume > 0 && (h == audio::kNoSound || !mixer_->isPlaying(h))) {
-            if (const auto loop = loadSound(kAmbient[k].sound))
-                h = mixer_->play(loop, audio::SoundType::Effects, volume, 0, true);
-        } else if (h != audio::kNoSound) {
-            if (volume == 0) {
+        if (best >= 500L * 500L) {
+            if (h != audio::kNoSound)
                 mixer_->stop(h);
-                h = audio::kNoSound;
-            } else
-                mixer_->setVolume(h, volume);
+            h = audio::kNoSound;
+            continue;
+        }
+        const double d = std::sqrt(double(best));
+        int volume = 100, pan = 64;
+        if (d > 1) {
+            volume = int(100 - 100 * d / 500);
+            pan = int(64 + 52 * (dx / d));
+        }
+        const int v = audio::kMaxVolume * volume / 127, p = (pan - 64) * audio::kMaxPan / 63;
+        if (h == audio::kNoSound || !mixer_->isPlaying(h)) {
+            if (const auto loop = loadSound(kAmbientSound[k]))
+                h = mixer_->play(loop, audio::SoundType::Effects, v, p, true);
+        } else {
+            mixer_->setVolume(h, v);
+            mixer_->setPan(h, p);
         }
     }
 }
@@ -1516,6 +1582,9 @@ void Play::stopVideo() {
 
 void Play::stopSounds() {
     stopVideo();
+    if (mixer_ && gust_ != audio::kNoSound)
+        mixer_->stop(gust_);
+    gust_ = audio::kNoSound;
     for (audio::SoundHandle& h : ambient_) {
         if (mixer_ && h != audio::kNoSound)
             mixer_->stop(h);

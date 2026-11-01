@@ -25,12 +25,12 @@
 
 #include <array>
 #include <deque>
-#include <set>
 #include <functional>
 #include <iosfwd>
 #include <map>
-#include <random>
 #include <memory>
+#include <set>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -252,7 +252,11 @@ private:
     std::map<std::string, std::shared_ptr<audio::Sound>> sounds_;
     // The weather and the sounds of things in the house.
     std::mt19937 ambientRng_{12345};
-    uint64_t nextThunder_ = 0;
+    // The weather's cycle (Clue.exe's 0x41C690): where in it, its step, the
+    // ticks not yet run, the gust looping.
+    uint64_t lastAmbience_ = 0, weatherTickMs_ = 0;
+    int weatherMs_ = 0, weatherStep_ = 0;
+    audio::SoundHandle gust_ = audio::kNoSound;
     std::array<audio::SoundHandle, 2> ambient_{audio::kNoSound, audio::kNoSound};
     audio::SoundHandle voice_ = audio::kNoSound;
 };

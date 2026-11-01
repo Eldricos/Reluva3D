@@ -159,7 +159,15 @@ private:
     int netMaxHumans_ = 6;
     std::string netName_ = "Player", netMessage_;
     std::vector<std::string> netChat_;
-    uint64_t nextThunder_ = 0; // in the menus
+    // The menus' storm (Clue.exe 0x40C350/0x40C4A0): mnThndr1 looping under
+    // them; a click on a storm screen plays mnThndr2 and shows the lightning
+    // for 1 s before it does what it does.
+    bool stormScreen() const;
+    void startFlash(int id);
+    audio::SoundHandle stormSound_ = audio::kNoSound;
+    uint64_t flashUntil_ = 0;
+    int flashClick_ = -1;
+    std::vector<Event> heldEvents_;
 };
 
 } // namespace reluva::clue

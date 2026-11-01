@@ -140,6 +140,9 @@ Error FrontEnd::open() {
 }
 
 void FrontEnd::leave() {
+    if (mixer_ && stormSound_ != audio::kNoSound)
+        mixer_->stop(stormSound_);
+    stormSound_ = audio::kNoSound;
     if (play_)
         play_->stopSounds();
     stopMovie();
@@ -190,6 +193,12 @@ void FrontEnd::showDialog(int id, int x, int y) {
 
 void FrontEnd::go(Screen s) {
     at_ = s;
+    flashClick_ = -1; // a new screen hides the lightning (Clue.exe 0x40C420)
+    if (mixer_ && stormSound_ != audio::kNoSound &&
+        (s == Screen::Intro || s == Screen::Loading || s == Screen::Deal || s == Screen::Game)) {
+        mixer_->stop(stormSound_);
+        stormSound_ = audio::kNoSound;
+    }
     switch (s) {
     case Screen::Intro: startMovie("Intro.avi", Screen::MainMenu); break;
     case Screen::MainMenu:
@@ -678,6 +687,12 @@ void FrontEnd::handleEvent(const Event& ev) {
         }
         return;
     }
+    if (flashClick_ >= 0) {
+        // The lightning's second keeps the screen; what is pressed meanwhile
+        // waits, as Windows queues it, and is handled afterwards.
+        heldEvents_.push_back(ev);
+        return;
+    }
     if (!dialog_)
         return;
     // The network screens: Esc goes back (a lobby is left), Enter sends.
@@ -713,8 +728,12 @@ void FrontEnd::handleEvent(const Event& ev) {
         return;
     }
     const int id = dialog_->handleEvent(ev);
-    if (id >= 0)
-        onClick(id);
+    if (id >= 0) {
+        if (stormScreen())
+            startFlash(id);
+        else
+            onClick(id);
+    }
 }
 
 void FrontEnd::startMovie(const std::string& file, Screen after) {
@@ -785,44 +804,69 @@ void FrontEnd::stopMusic() {
 
 void FrontEnd::drawStorm() {
     // The menus' lower corners: the mansion on its hill and the cliff, the
-    // storm over them. Their places measured on a recording of the original.
+    // storm over them: controls 1000-1003, placed by Clue.exe 0x40C520; while
+    // a click's lightning lasts, the flashes (1004-1007) at the same places.
     struct Panel {
-        const char* animation;
+        const char *animation, *flash;
         int x, y;
     };
-    static const Panel kPanels[] = {{"main_anim:Alt1anim", 13, 239}, {"main_anim:Alt2anim", 13, 317},
-                                    {"main_anim:Art1anim", 421, 239}, {"main_anim:Art2anim", 396, 317}};
-    for (const Panel& p : kPanels) {
-        const Animation* a = data_.animation(p.animation);
-        if (!a || a->layers.empty() || a->frameCount() == 0)
-            continue;
-        const size_t f = size_t(now_ * uint64_t(a->framesPerSecond) / 1000) % a->frameCount();
-        for (const auto& layer : a->layers) {
-            const Animation::Part& part = layer[f];
-            if (part.image >= a->images.size())
+    static const Panel kPanels[] = {{"main_anim:Alt1anim", "menu:Alt1flash", 13, 239},
+                                    {"main_anim:Alt2anim", "menu:Alt2flash", 13, 317},
+                                    {"main_anim:Art1anim", "menu:Art1flash", 421, 239},
+                                    {"main_anim:Art2anim", "menu:Art2flash", 396, 317}};
+    for (const Panel& p : kPanels)
+        for (const char* name : {p.animation, flashClick_ >= 0 ? p.flash : nullptr}) {
+            const Animation* a = name ? data_.animation(name) : nullptr;
+            if (!a || a->layers.empty() || a->frameCount() == 0)
                 continue;
-            if (const Image* img = data_.image(a->images[part.image]))
-                image::blit(screen_, img->pixels, p.x + part.x + img->offsetX, p.y + part.y + img->offsetY);
+            const size_t f = size_t(now_ * uint64_t(a->framesPerSecond) / 1000) % a->frameCount();
+            for (const auto& layer : a->layers) {
+                const Animation::Part& part = layer[f];
+                if (part.image >= a->images.size())
+                    continue;
+                if (const Image* img = data_.image(a->images[part.image]))
+                    image::blit(screen_, img->pixels, p.x + part.x + img->offsetX, p.y + part.y + img->offsetY);
+            }
         }
-    }
 }
 
+bool FrontEnd::stormScreen() const {
+    return dialog_ && !overGame() && at_ != Screen::Game && at_ != Screen::Loading && at_ != Screen::Picker &&
+           at_ != Screen::Setup && at_ != Screen::NetLobby && at_ != Screen::NetSetup && at_ != Screen::NetMessage;
+}
+
+namespace {
+std::shared_ptr<audio::Sound> loadSound(const GameData& data, const char* file) {
+    const std::filesystem::path* p = data.find(file);
+    if (!p)
+        return nullptr;
+    auto s = std::make_shared<audio::Sound>();
+    if (audio::decodeSound(readFile(*p), *s))
+        return nullptr;
+    return s;
+}
+} // namespace
+
 void FrontEnd::menuThunder() {
-    // The storm's thunder now and then (Clue.exe's mnThndr1.wav and
-    // mnThndr2.wav); when isn't known, so every 12-30 s.
-    if (!mixer_)
+    // Clue.exe 0x40C4A0, run as each storm screen opens: mnThndr1.wav
+    // (sound 2) looping, started again only if it isn't playing.
+    if (!mixer_ || (stormSound_ != audio::kNoSound && mixer_->isPlaying(stormSound_)))
         return;
-    if (nextThunder_ == 0 || nextThunder_ > now_ + 60000)
-        nextThunder_ = now_ + 8000;
-    if (now_ < nextThunder_)
-        return;
-    const char* file = (now_ / 7) % 2 ? "mnThndr1.wav" : "mnThndr2.wav";
-    if (const std::filesystem::path* p = data_.find(file)) {
-        auto s = std::make_shared<audio::Sound>();
-        if (!audio::decodeSound(readFile(*p), *s))
+    if (auto s = loadSound(data_, "mnThndr1.wav"))
+        stormSound_ = mixer_->play(s, audio::SoundType::Effects, audio::kMaxVolume, 0, true);
+}
+
+void FrontEnd::startFlash(int id) {
+    // Clue.exe 0x40C350, the storm screens' handler of a click (notify
+    // code 0): mnThndr2.wav (sound 3) once, the four flash pictures
+    // (controls 1004-1007) shown, 500 ms with the screen still and 500 ms
+    // more with it going on; then the click is acted on, and the screen it
+    // opens hides the flashes (0x40C420).
+    if (mixer_)
+        if (auto s = loadSound(data_, "mnThndr2.wav"))
             mixer_->play(s, audio::SoundType::Effects);
-    }
-    nextThunder_ = now_ + 12000 + (now_ * 2654435761u) % 18000;
+    flashUntil_ = now_ + 1000;
+    flashClick_ = id;
 }
 
 void FrontEnd::drawCursor() {
@@ -877,6 +921,20 @@ void FrontEnd::update(uint64_t nowMs) {
                 }
             }
             return;
+        }
+    }
+    if (flashClick_ >= 0 && now_ >= flashUntil_) {
+        const int id = flashClick_;
+        flashClick_ = -1;
+        onClick(id);
+        std::vector<Event> held;
+        held.swap(heldEvents_);
+        for (size_t i = 0; i < held.size(); ++i) {
+            handleEvent(held[i]);
+            if (flashClick_ >= 0) { // another flash: the rest wait for it
+                heldEvents_.insert(heldEvents_.begin(), held.begin() + i + 1, held.end());
+                break;
+            }
         }
     }
     // The game's music goes on to its next track: 2, 3, 4, 2 ...

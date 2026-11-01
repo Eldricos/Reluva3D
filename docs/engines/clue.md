@@ -270,30 +270,61 @@ Reactions don't touch the game. Reluva takes clicks on hot spots any
 time but while a human is planning a move (the clicks are then the
 move's); see-through walls don't catch the pointer.
 
-**Weather.** Found in the sound of five recordings of the original
-(the longplay, "The Classic", Playthroughs 01 and 02, the Steam Deck
-one), by cross-correlating each of the game's WAVs with their sound,
-whitened (the music under it hides a plain correlation): in the house,
-thunder only, `BigThunder5` two times in three and `MidThunder3` the
-third; gaps of 12 s at least, median 38-50 s, mean 44-57 s, up to 2-3
-minutes (57, 23, 14 and 56 thunders in four of them; the Steam Deck
-recording's game sound is too low to tell). The other thunders and the
-wind's gusts weren't heard once. Reluva plays thunder 12 s plus an
-exponential 38 s on average apart (at most 3 minutes), and blows the
-drapes (type 12 objects, their state 23, or 24 one time in three) with
-it, silently: when the original blows them isn't known. Over the menus,
-`mnThndr1`/`mnThndr2` every 12-30 s, as the recordings' first minutes
-have it (10-35 s).
+**Weather.** `Clue.exe` 0x41C690, run every game tick (66 ms; every
+path through the tick reaches it): a clock of 66 ms ticks that runs
+round a 300 s cycle, in steps. Each step, from the time it starts:
+which state the drapes (type 12 objects) are put in (23 blowing, 24
+blowing hard, 0 still; each from a frame by chance, 0x428EF0), which
+wind loop plays (`wind light gusts.wav`, `wind heavy gusts.wav`, at
+volume 100 of 127, or none), and the chance of thunder each tick.
+
+| from | drapes | wind | thunder each tick |
+|---|---|---|---|
+| 0 s | (as they are) | (as it is) | none |
+| 60 s | 23 | light | small, 1 in 100 |
+| 75 s | still | none | none |
+| 90 s | 23 | light | small, 1 in 100 |
+| 120 s | 24 | heavy | middle, 1 in 80 |
+| 150 s | (as they are) | (as it is) | a big one as it starts; middle, 1 in 80 |
+| 180 s | 23 | light | small, 1 in 100 |
+| 210 s | still | none | none |
+| 225 s | 23 | light | small, 1 in 100 |
+| 240 s | still | none | none |
+
+Small thunder is `SmallThunder6`-`8`, middle `MidThunder1`-`3`, big
+`BigThunder4`/`5`, each by chance. Reluva does the same. The sound of
+five recordings of the original (the longplay, "The Classic",
+Playthroughs 01 and 02, the Steam Deck one), cross-correlated with the
+game's WAVs, had found only `BigThunder5` and `MidThunder3` and no wind;
+the code plays them all, so the recordings' sound (music over it,
+compressed) is taken to have hidden the quieter ones.
+
+**Over the menus** (0x40C4A0, as each menu with the storm opens):
+`mnThndr1.wav` loops, started again only if it isn't playing, and the
+storm's four animations (controls 1000-1003: `main_anim:Alt1anim` at
+13,239, `Alt2anim` 13,317, `Art1anim` 421,239, `Art2anim` 396,317,
+placed by 0x40C520) run. A click on one of those menus (0x40C350, a
+control's notification code 0) plays `mnThndr2.wav` once and shows the
+lightning, `menu:Alt1flash`, `Alt2flash`, `Art1flash`, `Art2flash`
+(controls 1004-1007, at the animations' places), then waits 500 ms
+with the screen still and 500 ms more with it going on before the
+click is acted on; the screen it opens hides the flashes (0x40C420).
+Reluva does the same, and keeps what is pressed during that second for
+afterwards, as Windows queues it.
 
 **Pace.** A computer player's turn without a suggestion takes 5-9 s in
 the recordings, from one "..., it is your turn." to the next, as it
 does with `Clue.exe`'s timings (below). With a suggestion (its video, the boxes saying who can and
 can't disprove), 20-22 s; Reluva's, 20-22 s.
 
-**Sounds of things.** The library's fire (`LBfirepl_n.wav`) and the
-conservatory's fountain (`fntn_n.wav`) loop while they're near the
-view's middle, louder the nearer (full within 150 pixels, none beyond
-600).
+**Sounds of things.** `Clue.exe` 0x42F1C6, each tick: a thing with a
+timing of time 1900 makes a sound, its value the sound (0 the
+library's fire, `LBfirepl_n.wav`; 1 the conservatory's fountain,
+`fntn_n.wav`). For each, the nearest such thing to the point on the
+floor under the view's middle is heard: silent 500 or more away (in
+the floor's units), else at volume 100 × (1 − distance / 500) of 127,
+panned 64 + 52 × dx / distance (0-127, 64 the middle) by how far it is
+to the right. Reluva does the same.
 
 ## Preferences
 
