@@ -195,8 +195,11 @@ private:
     }
 
     // A divider between a divided road's carriageways: flat, or raised
-    // `height` with sides and ends (a kerbed island, a barrier).
-    void divider(uint32_t texture, const std::vector<Vec3>& left, const std::vector<Vec3>& right, float height) {
+    // `height` with sides (a kerbed island, a barrier), and ends where
+    // `capStart` and `capEnd` say (not where it runs on into the next
+    // block's).
+    void divider(uint32_t texture, const std::vector<Vec3>& left, const std::vector<Vec3>& right, float height,
+                 bool capStart = true, bool capEnd = true) {
         if (height <= 0) {
             strip(texture, left, right);
             return;
@@ -216,10 +219,12 @@ private:
         }
         if (left.empty() || right.empty())
             return;
-        quad(texture, right.front(), left.front(), topLeft.front(), topRight.front(), {{0, v}, {1, v}, {1, 0}, {0, 0}},
-             false);
-        quad(texture, left.back(), right.back(), topRight.back(), topLeft.back(), {{0, v}, {1, v}, {1, 0}, {0, 0}},
-             false);
+        if (capStart)
+            quad(texture, right.front(), left.front(), topLeft.front(), topRight.front(),
+                 {{0, v}, {1, v}, {1, 0}, {0, 0}}, false);
+        if (capEnd)
+            quad(texture, left.back(), right.back(), topRight.back(), topLeft.back(), {{0, v}, {1, v}, {1, 0}, {0, 0}},
+                 false);
     }
 
     // A wall from left to right, between two heights at each end.
@@ -351,7 +356,8 @@ private:
         case psdlattr::DividedRoad: {
             // The divider: its texture (high byte, numbered as the texture
             // attribute's) and kind (low two bits: 1 flat, 2 a kerbed
-            // island, 3 a barrier), and its height in 256ths of a metre;
+            // island, 3 a barrier; 0x40 and 0x80 its first and last ends
+            // closed), and its height in 256ths of a metre;
             // then sections of: outer left, inner left, divider left,
             // divider right, inner right, outer right (psdl.md).
             std::vector<Vec3> s[6];
@@ -364,7 +370,8 @@ private:
             strip(texture, s[3], s[4], 0, 1);
             const uint32_t dividerTexture = w.size() > 1 && (w[0] >> 8) ? uint32_t(w[0] >> 8) : texture + 1;
             const float height = w.size() > 1 && (w[0] & 3) >= 2 ? float(w[1]) / 256 : 0;
-            divider(dividerTexture, s[2], s[3], height);
+            const uint32_t kind = w.size() > 1 ? w[0] : 0;
+            divider(dividerTexture, s[2], s[3], height, kind & 0x40, kind & 0x80);
             sidewalk(texture + 1, s[1], s[0]);
             sidewalk(texture + 1, s[4], s[5]);
             if (tunnel_)

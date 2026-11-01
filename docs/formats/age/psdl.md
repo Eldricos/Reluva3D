@@ -147,11 +147,18 @@ absolute (a roof at 52.3 over ground at 36).
   divider's texture (numbered as the texture attribute's: 150 is
   `s_jersey_rail`, the freeway's concrete barrier; 138 and 144
   `swalk_f`), its low two bits its kind (1 flat, 2 a kerbed island, 3 a
-  barrier; bits 6 and 7 vary, not known), and the second word its height
+  barrier; 0x40 and 0x80 its first and last ends closed), and the second word its height
   in 256ths of a metre (0x26, 0.15 m, on the islands; 0x100, 1 m, on the
   barrier, which is 1 m wide; 0x500 on the flat ones). Reluva raises the
   islands and barriers to their height, sides and ends, in their texture;
   as part of the city's mesh they're solid.
+  Bits 0x40 and 0x80 hold exactly, in every city file and the older
+  ones: a road block's divider end is closed unless its two vertices
+  meet another road block's divider end, so a barrier runs on unbroken
+  through blocks (the freeway's are mostly 0x03) and an island is
+  capped at both ends (San Francisco's are all 0xc2); where a divider
+  meets a junction's, it's closed. Junctions' own dividers never have
+  them. Reluva draws only the closed ends.
 - **Tunnels** (below).
 
 Texture coordinates for fans, roofs and road strips' lengths are
@@ -285,7 +292,7 @@ many as the `.bai` road map's roads, in the same order), then each road:
 | u16 | more flags: below |
 | u8, u8 | lanes on each side: the `.bai`'s side 1, then side 0 (all 540 in London, 358 of 379 in San Francisco) |
 | float each | where each lane is across the road, 0-1 (0.125, 0.375, 0.625, 0.875 for four) |
-| u8, u8 | a byte for each end, as the `.bai` orders them: bits 0 and 7. Bit 7 is set on every end where traffic gives way (the `.bai`'s control 0, 81 ends) and on 207 others; bit 0 goes mostly with traffic lights (463 of its 548 ends) |
+| u8, u8 | a byte for each end, as the `.bai` orders them: bits 0 and 7 (below) |
 | 8 u16 | vertices: 0 and 1 the road's curb corners at its first point (each its curb distance across), 4 and 5 at its last; 2, 3 and 6, 7 points 20-35 m out beyond each end, across the junction |
 | u8 | blocks |
 | u16 each | the road's blocks, as the `.bai` lists them (375 of 379 and 532 of 540 the same; the `.bai` adds a junction's block now and then); 23 of San Francisco's roads list theirs negative (-408 for block 408) |
@@ -296,8 +303,31 @@ The road's flags repeat what the `.bai` says of it (compared over all
 919 roads): 0x2 is set exactly when its side 1's sidewalk kind has bit 0
 set (kinds 1 and 3), 0x4 exactly when it has bit 1 set (2 and 3), 0x8
 exactly when the `.bai`'s road flag 0x1 is, 0x10 exactly when its 0x2 is;
-0x1 is on 271 of the 369 one-way roads and 13 others; 0x40 on the roads
-with sidewalks (not on 154 roads with kinds 1 or 3 both sides).
+0x40 exactly when the road's blocks are drawn with road strips or
+divided roads (attribute types 0 and 8), not only rectangle strips
+without curbs (San Francisco 359 of 379, London 406 of 540, no
+exceptions). 0x1 marks a one-way road for traffic: it's on every
+one-way road the `.bai` doesn't mark 0x2 (not for traffic), on all 257
+with a lane-less side 0 of kind 1, and never on a road whose only lanes
+run from its last point to its first; not on London's 79 Underground
+one-ways, San Francisco's 18 ramps and alleys marked 0x2, nor its
+freeway's start (road 0). Exceptions say it was set by hand: San
+Francisco's alleys 75 and 76 have it, and 13 two-way London roads (a
+cluster of narrow `r2_nopark_l` roads round blocks 396-567, two
+`r4_royalred_l`, an alley); in the older `sfai.psdl` it's never on a
+two-way road, and the two roads made two-way since lost it.
+
+The end bytes: bit 0 is set exactly when the side arriving at that end
+has two or more lanes and tram lines (the Underground's tracks don't
+count), and the road's control at its other end isn't 0 (give way):
+San Francisco 436 ends, London 405, the older `sfai.psdl` 538, no
+exceptions. The second condition matters only for twelve two-lane
+one-way roads, those whose first word is 0x041, not 0x441; why isn't
+known. Bit 7 is set on every give-way end and on others, and goes with
+the road across the junction (whose curb corners vertices 2-3 and 6-7
+are) being a turn rather than straight on: an angle of more than 39°
+between the curb lines fits 747 of San Francisco's 753 ends, more than
+62° 1,061 of London's 1,080. The exact test isn't known.
 
 A second look, comparing each bit with everything the `.bai` and the
 blocks say of the same road, settled more of them:
@@ -309,10 +339,13 @@ blocks say of the same road, settled more of them:
 | 0x200 | a train line | set exactly on London's 28 roads with the Underground's track (`r_sub_l`) |
 | 0x400, 0x800 | one two-bit field: the control at the road's first end (the `.bai`'s end 1), numbered as the `.bai`'s: 0 give way, 1 traffic lights, 3 none | 0x800 is never without 0x400; where lanes arrive at that end it equals the `.bai`'s control at all 559 ends; where none arrive the `.bai` has 3 and the PSDL keeps 0 or 1 (on 244 roads). 0 is on 45 roads, nearly all the stem of a T |
 | second word, bits 0-1 | the control at the other end (the `.bai`'s end 0), the same way | equal on all 919 roads |
-| second word, 0x80, 0x100 | the road's end 1, end 0 leads under the Underground | in London an end with a block over it always has the bit; seven 0x100 roads have no cover there, and in San Francisco the match is weak |
+| second word, 0x80, 0x100 | the road across the junction from end 1, end 0 goes under a roof | set when the junction's own block is under a roof (block flag 0x2), or the road in the junction's list half a turn back, slot (s - n/2) mod n of n, has its block there under one: 1,837 of 1,838 ends (London's 154 all, 142 of them Underground junctions and 12 the street across from an Underground ramp; San Francisco's road 33's end 0 the one exception). Not in `sfai.psdl` |
 
-The second word's 0x40 is on 47 of the 48 roads with kind 1 both sides,
-its 0x2 mostly with no sidewalk. Reluva takes the controls and the
+The second word has no other bits but 0x40, only in London: 48 roads,
+all with kind 1 sidewalks both sides and a cobbled or alley surface
+(`r1_stone256_l`, `r_alley_l`), a pedestrian or cobbled street it
+seems; the one other road with kind 1 both sides (363, `r6_royalred_l`)
+hasn't it. (Its 0x2 is the end control's value 3, not a sidewalk bit.) Reluva takes the controls and the
 trams from the `.bai`, which says the same.
 
 ## Water
@@ -345,7 +378,6 @@ like, none). See [pathset.md](pathset.md).
 
 Block flags 0x80 and 0x20 exactly; bits 6 and 7 of the divider's
 kind; a junction tunnel's word 3 and what its masks in words 6-9 mark;
-the tunnels' flag 0x4000; the roads' flag 0x1 and the rest of the
-second word; the end bytes' bit 0 exactly. The program's
+the tunnels' flag 0x4000; the exact test for the end bytes' bit 7. The program's
 own handling of these is encrypted (see ../../engines/age.md), so they're
 for observation of the game running.
