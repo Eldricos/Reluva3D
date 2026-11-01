@@ -10,6 +10,8 @@
   strings FUNC            strings the function references
   sym NAME|ADDR           what symbols.json knows (docs, names, src file)
   structs [STRUCT]        list struct layouts
+  gdecomp FUNC [--fresh]  Ghidra's C for one function (names/types from symbols.json applied)
+  gxref ADDR [--len N] [--diff]  Ghidra's references (--diff: against xref's)
 ADDR/FUNC: hex (0x4a90a0 or 4a90a0) or a name from symbols.json; an address
 inside a function means that function."""
 import os, sys, re, pickle, json, bisect, signal
@@ -98,16 +100,8 @@ def annotate_ins(a, acc_by_ins=None):
                 notes.append('-> 0x%x%s (computed)' % (r[1], ' ' + n if n else ''))
     return '; '.join(notes)
 
-def cmd_xref(args):
-    a = addr_arg(args[0])
-    ln = 1
-    if '--len' in args:
-        ln = int(args[args.index('--len') + 1], 0)
-    D = db(); S = syms()
-    print('xref %s%s' % (label(a, S), '' if a not in D['funcs'] else '  (function)'))
-    dn = S.data_name(a)
-    if dn and dn != S.fname(a):
-        print('  = %s' % dn)
+def xref_rows(a, ln):
+    D = db()
     rows = []
     for t in range(a, a + ln):
         for ins, k, osz in D['xrefs'].get(t, []):
@@ -118,17 +112,29 @@ def cmd_xref(args):
         if r[0] == 'abs' and a <= r[1] < a + ln and (ins, r[1]) not in seen:
             rows.append((ins, {1: 'r', 2: 'w', 3: 'rw'}.get(acc, 'r'), osz, r[1], 'computed', val))
             seen.add((ins, r[1]))
-    # values written (constants)
-    vals = {}
-    for ins, r, acc, osz, val in fields()['accesses']:
-        if r[0] == 'abs' and a <= r[1] < a + ln and val is not None:
-            vals[ins] = val
     # angr's xrefs we did not find
     for t in range(a, a + ln):
         for ins, ty in D['angr_xrefs'].get(t, []):
             if (ins, t) not in seen and ins is not None:
                 rows.append((ins, {1: 'r', 2: 'w', 0: 'addr'}.get(ty, 'angr'), 0, t, 'angr', None))
                 seen.add((ins, t))
+    return rows
+
+def cmd_xref(args):
+    a = addr_arg(args[0])
+    ln = 1
+    if '--len' in args:
+        ln = int(args[args.index('--len') + 1], 0)
+    D = db(); S = syms()
+    print('xref %s%s' % (label(a, S), '' if a not in D['funcs'] else '  (function)'))
+    dn = S.data_name(a)
+    if dn and dn != S.fname(a):
+        print('  = %s' % dn)
+    rows = xref_rows(a, ln)
+    vals = {}
+    for ins, r, acc, osz, val in fields()['accesses']:
+        if r[0] == 'abs' and a <= r[1] < a + ln and val is not None:
+            vals[ins] = val
     order = {'call': 0, 'jmp': 1, 'w': 2, 'rw': 3, 'idx-w': 4, 'idx-rw': 5, 'r': 6, 'idx-r': 7, 'addr': 8, 'idx-addr': 9}
     rows.sort(key=lambda r: (order.get(r[1], 10), r[0]))
     cur = None
@@ -353,7 +359,122 @@ def cmd_structs(args):
             for o, f in sorted(s['fields'].items(), key=lambda x: int(x[0], 16)):
                 print('  +%-6s %-20s %-10s %s' % (o[2:], f['name'], f['type'], f.get('desc', '')))
 
-CMDS = dict(xref=cmd_xref, field=cmd_field, decomp=cmd_decomp, asm=cmd_asm, callers=cmd_callers,
+
+# --- Ghidra (ghidra_build.sh exports; see README.md) ---------------------------------
+GH = os.path.join(STORE, 'ghidra')
+_GF = None
+def gfuncs():
+    """Ghidra's functions: (sorted body ranges [(lo, hi, entry)], {entry: info})"""
+    global _GF
+    if _GF is None:
+        p = os.path.join(GH, 'functions.json')
+        if not os.path.exists(p):
+            raise SystemExit('no Ghidra export in %s: run tools/nfsre/ghidra_build.sh (README.md, "Ghidra")' % GH)
+        j = json.load(open(p))
+        fs = {int(k, 16): v for k, v in j.items()}
+        rs = sorted((lo, hi, e) for e, v in fs.items() for lo, hi in v['body'])
+        _GF = (rs, fs)
+    return _GF
+
+def gfunc_of(a):
+    rs, fs = gfuncs()
+    if a in fs:
+        return a
+    i = bisect.bisect_right(rs, (a, float('inf'), 0)) - 1
+    while i >= 0 and rs[i][0] <= a:
+        if a <= rs[i][1]:
+            return rs[i][2]
+        i -= 1
+    return None
+
+def glabel(e):
+    if e is None:
+        return '(no Ghidra function)'
+    n = gfuncs()[1].get(e, {}).get('name', '')
+    return '0x%x<%s>' % (e, n) if n and not n.startswith('FUN_') else '0x%x' % e
+
+def symbols_stamp():
+    import hashlib
+    return hashlib.sha256(open(os.path.join(STORE, 'symbols.json'), 'rb').read()).hexdigest()[:16]
+
+def ghidra_build(*args):
+    import subprocess
+    sh = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ghidra_build.sh')
+    r = subprocess.run([sh] + list(args), stdout=sys.stderr)
+    if r.returncode:
+        raise SystemExit('ghidra_build.sh failed')
+
+def positional(args):
+    p = [x for i, x in enumerate(args) if not x.startswith('--') and not (i and args[i - 1] == '--len')]
+    if not p:
+        raise SystemExit('give a function or address')
+    return p[0]
+
+def cmd_gdecomp(args):
+    s = positional(args)
+    try:
+        a = addr_arg(s)
+    except SystemExit:
+        m = [e for e, v in gfuncs()[1].items() if v['name'] == s]
+        if not m:
+            raise
+        a = m[0]
+    fa = gfunc_of(a)
+    if fa is None:
+        raise SystemExit('0x%x is in no Ghidra function' % a)
+    path = os.path.join(GH, 'decomp', '%x.c' % fa)
+    stamp = symbols_stamp()
+    if '--fresh' in args or not os.path.exists(path) or open(path).readline().split()[-1] != stamp:
+        # not exported yet, or symbols.json changed since: redo this function (the first time after a
+        # change this also re-applies symbols.json, about 1.5 min; then about 15 s per function).
+        # ghidra_build.sh --apply redoes every function at once.
+        print('gdecomp: running Ghidra for 0x%x (no export, symbols.json changed, or --fresh)...' % fa, file=sys.stderr)
+        ghidra_build('--only', '0x%x' % fa)
+    text = open(path).read()
+    print(text.split('\n', 1)[1] if text.startswith('// stamp') else text, end='')
+
+GROUPS = (('CALLERS', ('CALL',)), ('JUMPS', ('JUMP',)), ('WRITERS', ('WRITE',)), ('READERS', ('READ',)),
+          ('DATA / ADDRESS TAKEN', ('DATA', 'PARAM', 'INDIRECTION')))
+def cmd_gxref(args):
+    a = addr_arg(positional(args))
+    ln = int(args[args.index('--len') + 1], 0) if '--len' in args else 1
+    p = os.path.join(GH, 'xrefs.json')
+    if not os.path.exists(p):
+        raise SystemExit('no Ghidra export in %s: run tools/nfsre/ghidra_build.sh' % GH)
+    X = json.load(open(p))
+    S = syms()
+    print('gxref %s (Ghidra)' % label(a, S))
+    rows = []
+    for t in range(a, a + ln):
+        for frm, ty, src, op, fe, text in X.get(str(t), []):
+            rows.append((frm, ty, src, t, fe, text))
+    def grp(ty):
+        for g, keys in GROUPS:
+            if any(k in ty for k in keys) and not (g == 'READERS' and 'WRITE' in ty):
+                return g
+        return ty
+    order = [g for g, _ in GROUPS]
+    rows.sort(key=lambda r: (order.index(grp(r[1])) if grp(r[1]) in order else 9, r[0]))
+    cur = None
+    for frm, ty, src, t, fe, text in rows:
+        g = grp(ty)
+        if g != cur:
+            print('%s:' % g); cur = g
+        extra = []
+        if t != a:
+            extra.append('+0x%x' % (t - a))
+        if src != 'DEFAULT':
+            extra.append('computed' if src == 'ANALYSIS' else src.lower())
+        print('  0x%06x %-18s %-44s in %s %s' % (frm, ty, text[:44], glabel(fe), ' '.join(extra)))
+    if not rows:
+        print('  (no references)')
+    if '--diff' in args:
+        theirs = {r[0] for r in xref_rows(a, ln)}
+        ours = {r[0] for r in rows}
+        print('only in xref (capstone/type flow/angr): %s' % (' '.join('0x%x' % i for i in sorted(theirs - ours)) or 'none'))
+        print('only in Ghidra: %s' % (' '.join('0x%x' % i for i in sorted(ours - theirs)) or 'none'))
+
+CMDS = dict(gdecomp=cmd_gdecomp, gxref=cmd_gxref, xref=cmd_xref, field=cmd_field, decomp=cmd_decomp, asm=cmd_asm, callers=cmd_callers,
             callees=cmd_callees, strings=cmd_strings, sym=cmd_sym, structs=cmd_structs)
 
 if __name__ == '__main__':
