@@ -380,15 +380,32 @@ private:
             break;
         }
         case psdlattr::SidewalkStrip: {
-            // A pair of equal values isn't a section: 188 two-pair strips
-            // of the two cities start (0, 0) or (1, 1), what for isn't
-            // known. Read as vertices, they'd stretch across the city.
+            // A pair of equal values isn't a section. 188 two-pair strips
+            // (all in junctions) start (0, 0) or (1, 1), then one section
+            // repeating a sidewalk's end where a lane crosses it at road
+            // level: the sidewalk's end face, the value saying which side
+            // of the section the sidewalk lies on (psdl.md).
             std::vector<Vec3> inner, outer;
+            int marker = -1;
             for (size_t i = 0; i + 1 < w.size(); i += 2) {
-                if (w[i] == w[i + 1])
+                if (w[i] == w[i + 1]) {
+                    marker = w[i] == 1 ? 1 : 0;
                     continue;
+                }
                 inner.push_back(vertex(w[i]));
                 outer.push_back(vertex(w[i + 1]));
+            }
+            if (marker >= 0 && inner.size() == 1) {
+                const Vec3 a = inner[0], top{a[0], outer[0][1], a[2]}, b{outer[0][0], a[1], outer[0][2]};
+                // Facing away from the sidewalk: so wound, (0, 0) the
+                // other way round.
+                if (top[1] > a[1]) {
+                    if (marker == 1)
+                        quad(texture + 1, a, b, outer[0], top, {{0, 0}, {1, 0}, {1, 0.05f}, {0, 0.05f}}, false);
+                    else
+                        quad(texture + 1, a, top, outer[0], b, {{0, 0}, {0, 0.05f}, {1, 0.05f}, {1, 0}}, false);
+                }
+                break;
             }
             sidewalk(texture + 1, inner, outer);
             break;

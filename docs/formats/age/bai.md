@@ -184,5 +184,29 @@ value unset and the half width third.
 
 ## Not known yet
 
-The table after the junctions (a count, then for each PSDL
-block a count and its roads, it seems).
+Nothing; the table after the junctions is below.
+
+## After the junctions: roads near each block
+
+A u32, the PSDL's stored block count (1,172 in San Francisco, 1,342 in
+London, block 0 included), then twice that many lists, each a u16 count
+and that many u16 road numbers: a first table with a list for each
+block, then a second. Both files end exactly after them. Block 0's
+lists are empty.
+
+- The first table holds only roads whose side 1 has sidewalk kind 0 or
+  2 (the PSDL road's flag 0x2 clear: 357 of San Francisco's 379 roads,
+  386 of London's 540), so none of the roads not for traffic, London's 48
+  wide-pavement roads, nor its other kind 3 roads. The second holds only
+  roads with a kind 0 or 1 sidewalk on either side, the walkable ones
+  (345 and 434). Traffic's and pedestrians' tables, it seems.
+- Every list is the roads of whole junctions, so filtered: in the second
+  table a junction's own (182 of San Francisco's 214 junction blocks) or
+  for a road block those at both ends of its road (432 of 547); in the
+  first, wider, a median of 7-8 junctions two or three junctions out.
+  Which junctions exactly hasn't been found (nearest by distance, by
+  steps through the blocks or by visibility come closest, 785 of 1,066).
+
+Worked out by reading the lists against the roads' sidewalk kinds and
+the junctions' road lists. A lookup of nearby roads for each block, for
+placing traffic and people; Reluva works out its own from the roads.

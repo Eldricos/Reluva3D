@@ -1225,12 +1225,27 @@ void testEngineSound() {
 
 void testSidewalkMarkers() {
     // A two-pair sidewalk strip starting (0, 0), as 188 in the cities do:
-    // nothing is drawn for it, rather than a strip from vertex 0.
+    // not a strip from vertex 0, but the sidewalk's end face over its one
+    // section; nothing where the section is level.
     Psdl psdl;
     CHECK(!readPsdl(buildPsdl({10 << 3, 1, 0x80 | 1 << 3 | 2, 0, 0, 2, 3}), psdl));
     CityMesh mesh;
     buildCityMesh(psdl, mesh);
     CHECK(mesh.vertices.empty());
+    // From the curb (vertex 0, at 0) to the outer edge (vertex 4, 0.15 m
+    // up, 2 m along -z): a face 0.15 m high, facing +x for (1, 1), -x for
+    // (0, 0), away from the sidewalk.
+    for (const uint16_t marker : {uint16_t(1), uint16_t(0)}) {
+        CHECK(!readPsdl(buildPsdl({10 << 3, 1, 0x80 | 1 << 3 | 2, marker, marker, 0, 4}), psdl));
+        buildCityMesh(psdl, mesh);
+        CHECK(mesh.vertices.size() == 6);
+        float top = 0;
+        for (const gfx::Vertex& v : mesh.vertices) {
+            CHECK(marker == 1 ? v.normal[0] > 0.99f : v.normal[0] < -0.99f);
+            top = std::max(top, v.pos[1]);
+        }
+        CHECK(std::fabs(top - 0.15f) < 1e-5f);
+    }
 }
 
 void testRaceFiles() {

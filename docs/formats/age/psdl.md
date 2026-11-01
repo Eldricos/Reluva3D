@@ -124,8 +124,19 @@ absolute (a roof at 52.3 over ground at 36).
   (1, 1). A sidewalk can't have one vertex for both edges, so these
   aren't vertices; read as vertices they make triangles across the city
   (to the origin and to a hill in San Francisco), which the car on the
-  Drive page drove onto. Reluva skips such pairs, so these strips draw
-  nothing. What they mean isn't known.
+  Drive page drove onto. They're sidewalks' end faces: all 188 are in
+  junctions, each the marker and one real section, (curb, outer edge),
+  that repeats the first or last section of a sidewalk in the block or
+  the next road block's (70 of 72 and 114 of 116), the outer vertex
+  0.15 m above the curb's. Every such junction has a lane crossing the
+  pavement at road level (an alley, a driveway, a ramp, London's wide
+  pavements), where a sidewalk stops. The value says which side of the
+  section the sidewalk lies on: with e the curb-to-outer direction and n
+  = (e.z, -e.x), 1 toward n, 0 away (35 of 38 and 85 of 96 for 1 and 0
+  in San Francisco and London alike, the rest pairs matching two strip
+  ends). Reluva draws a face over the section from the road up to the
+  sidewalk, facing away from it; not yet compared with the game's
+  picture. Equal 0 and 1 counts in each city (36 and 58 each).
 - **Sidewalks** are 0.15 m above the road: the curb vertices are at the
   road's height and the outer edges at the sidewalk's. Reluva draws the
   sidewalk at its outer height and a curb face down to the road.

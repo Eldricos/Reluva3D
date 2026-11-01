@@ -49,11 +49,25 @@ San Francisco's are nearly all 20; Reluva reads it there as the gap
 between cars, in tenths of a metre (2-4 m, and 24 m on a 26 m line
 that then has room for one car).
 
-What the points' first words are isn't known: values like PSDL block
-numbers, some with high bits set. The start word looks like the point a
-path starts at (the San Francisco ferry's is 29 of its 30 points, and
-two of London's are 2 and 3); Reluva starts boats there. The header's
-third word isn't used.
+The points' first words are blocks in the city editor's numbering:
+`city/<map>.rid` is text, one number a line, line *i* (from 0) the PSDL's
+block *i* + 1. Through it, the word names the block the point lies in
+(San Francisco: 4,951 of 8,510 points in it, 949 more within 5 m;
+London 2,979 and 413 of 4,570; shifted a line, 25 and 22 match). The
+rest name blocks no longer in the `.rid` (2,137 and 643: the boats,
+ferries, bridges, the waves', seals' and gulls' sounds, San Francisco's
+parked cars), or lie further off, so they were tagged when the points
+were placed and went stale as the city was re-cut; points within 3 m of
+each other in different files share a word 89% and 78% of the time.
+Reluva places points by their positions and doesn't need them.
+
+The start word looks like the point a path starts at (the San Francisco
+ferry's is 29 of its 30 points, and two of London's are 2 and 3);
+Reluva starts boats there. It's 0 in 1,731 paths, the last point in 303
+(mostly loops), others in 164, and one past the end in 33, which reads
+like an editor's cursor. The header's third word is the path count less
+one in 53 of 101 files (fewer in 46), the editor's current path it
+seems; not used.
 
 Three files stop short: London's `blitz10.pathset` (in `giz_pcar01_l`'s
 points), `blitz11.pathset` (whose second path also has a nonsense end

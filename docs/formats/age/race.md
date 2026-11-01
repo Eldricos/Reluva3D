@@ -85,7 +85,17 @@ x,y,z,brake,forward offset,side offset,target speed,speed start,side start
 - The rest are points 70-220 m apart, at the street corners of the way
   the opponent drives. In 540 of the 600 files the first of them lies on
   the far side of the start from the second; it isn't driven to (Reluva
-  leaves it out; what it's for isn't known).
+  leaves it out). It's a junction of the `.bai`, the one at the back of
+  the road the opponent starts on: at a junction's centre within 1 cm in
+  516 of 612 files (about 25 more differ only in height), an end of the
+  start's nearest road in 608, the second point near that road's other
+  end in 522. Later points are at junction centres 0.4% of the time.
+  Most races' opponents share it (61 of 93). Where it isn't behind the
+  start (66 files), it's between the start and the second point, the
+  car starting in the junction. So it names the road the opponent
+  starts along, from that junction to the second point; Reluva finds the
+  same from the start's position. The 10 Blitz files (Blitz has no
+  opponents) are left over and don't follow it.
 - The other columns are 0 throughout.
 
 San Francisco has 288 such files (156 checkpoint race, 119 circuit, 9
