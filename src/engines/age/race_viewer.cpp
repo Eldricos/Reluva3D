@@ -962,6 +962,14 @@ void RaceViewer::handleEvent(const Event& ev) {
 }
 
 void RaceViewer::menuEvent(const Event& ev) {
+    if (movie_) {
+        // A key or a click skips the opening movie, to the menus.
+        if (ev.type == EventType::KeyDown || (ev.type == EventType::MouseDown && ev.button == MouseButton::Left)) {
+            endMovie();
+            front_->leaveSplash();
+        }
+        return;
+    }
     const FrontEnd::Action action = front_->handle(ev);
     if (action == FrontEnd::Action::Minimise) {
         ctx_.sys.minimizeWindow();
@@ -1622,6 +1630,15 @@ void RaceViewer::update(uint64_t nowMs) {
         gfx::lookAlong(eye, normalized(target - eye), up));
     viewProj_ = viewProj;
     if ((state_ == State::Menu || racers_.empty()) && front_) {
+        // First the opening movie, over black, the whole screen kept 4:3.
+        if (!netMenus_ && playMovie(dt)) {
+            renderer_->beginFrame(viewProj, eye, {0, 0, 0});
+            std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
+            const int w = std::min(overlay_.w, overlay_.h * 4 / 3), h = w * 3 / 4;
+            drawPicture(overlay_, movieFrame_, (overlay_.w - w) / 2, (overlay_.h - h) / 2, w, h);
+            renderer_->endFrame(&overlay_);
+            return;
+        }
         // The game's menus, over a dark frame (the garage's car in its
         // window), with their music and voices.
         menuSounds();

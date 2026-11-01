@@ -26,6 +26,7 @@
 #include "common/portmap.h"
 #include "common/riff.h"
 #include "common/text.h"
+#include "common/video.h"
 #include "common/winhelp.h"
 #include "common/x86/cpu.h"
 #include "common/x86/win32.h"
@@ -646,10 +647,11 @@ std::vector<uint8_t> buildTestDls(int32_t release = -1200 * 65536) {
 void testDls() {
     using namespace reluva::audio;
     // RIFF: nested lists and a chunk of odd size.
+    // (The chunks point into the bytes, which are kept while they're read.)
     RiffChunk top;
-    CHECK(!readRiff(
-        riffList("RIFF", "TEST", {riffChunk("abc ", {1, 2, 3}), riffList("LIST", "kids", {riffChunk("x   ", {7})})}),
-        top));
+    const std::vector<uint8_t> riff =
+        riffList("RIFF", "TEST", {riffChunk("abc ", {1, 2, 3}), riffList("LIST", "kids", {riffChunk("x   ", {7})})});
+    CHECK(!readRiff(riff, top));
     CHECK(top.type == "TEST" && top.children.size() == 2 && top.find("abc ")->size == 3 &&
           top.find("abc ")->u8(2) == 3);
     CHECK(top.findList("kids") && top.findList("kids")->find("x   ")->u8(0) == 7);
@@ -1031,6 +1033,14 @@ static void testPortMap() {
     CHECK(m.way == PortMapping::Way::None && !m.why.empty());
 }
 
+void testMovie() {
+    // Bytes that aren't a movie don't open, with or without FFmpeg.
+    std::string error;
+    CHECK(!video::Movie::open(std::vector<uint8_t>(64, 0x5a), error) && !error.empty());
+    error.clear();
+    CHECK(!video::Movie::open({}, error) && !error.empty());
+}
+
 int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_tests";
     testMd5();
@@ -1038,6 +1048,7 @@ int main() {
     testFont();
     testWav();
     testMp3();
+    testMovie();
     testMixer();
     testFsAndDetection(tmp / "fs");
     testConfig(tmp / "cfg");

@@ -72,6 +72,48 @@ void RaceViewer::playVoice(const std::string& clip) {
     }
 }
 
+bool RaceViewer::playMovie(float dt) {
+    if (!front_ || front_->screen() != FrontEnd::Screen::Splash) {
+        endMovie();
+        return false;
+    }
+    if (!movieTried_) {
+        // Played by FFmpeg where Reluva was built with it; otherwise, or
+        // if it won't open, the splash picture stands in, as with the
+        // game's "No Movie" shortcut.
+        movieTried_ = true;
+        std::vector<uint8_t> data;
+        std::string error;
+        if (!ctx_.files.read("logos.avi", data))
+            movie_ = video::Movie::open(std::move(data), error);
+        if (!movie_)
+            return false;
+        movieTime_ = 0;
+        if (ctx_.mixer && movie_->sound().frames())
+            movieSound_ = ctx_.mixer->play(std::make_shared<audio::Sound>(movie_->sound()), audio::SoundType::Music);
+    }
+    if (!movie_)
+        return false;
+    // Kept with its sound while that plays.
+    if (ctx_.mixer && movieSound_ != audio::kNoSound && ctx_.mixer->isPlaying(movieSound_))
+        movieTime_ = ctx_.mixer->position(movieSound_) / double(movie_->sound().rate);
+    else
+        movieTime_ += dt;
+    if (!movie_->frameAt(movieTime_, movieFrame_)) {
+        endMovie();
+        front_->leaveSplash();
+        return false;
+    }
+    return true;
+}
+
+void RaceViewer::endMovie() {
+    if (ctx_.mixer && movieSound_ != audio::kNoSound)
+        ctx_.mixer->stop(movieSound_);
+    movieSound_ = audio::kNoSound;
+    movie_.reset();
+}
+
 void RaceViewer::menuSounds() {
     // The menus' tune while they're up; a word as a button's pointed at.
     if (!front_ || !ctx_.mixer)

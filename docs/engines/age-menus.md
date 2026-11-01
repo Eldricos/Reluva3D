@@ -37,11 +37,15 @@ encrypted ([age.md](age.md)).
 
 ## The screens
 
-- **Splash** (`jpg/splash.jpg`), first: any key or click goes on. It
-  stands in for the opening movie, `logos.avi` (Indeo 5, 320 x 240, 332
-  frames at 15 a second, with sound), which isn't played: Indeo 5 has no
-  published description to write a decoder from, and the game's own
-  "No Movie" shortcut leaves it out too.
+- **The opening movie**, `logos.avi` (Indeo 5, 320 x 240, 333 pictures
+  at 15 a second, with 8-bit sound at 22,050 Hz), first: the whole
+  screen kept 4:3 over black, timed by its sound, then the main menu;
+  any key or click skips it. Indeo 5 has no published description to
+  write a decoder from, so it's played by FFmpeg's libraries
+  (`common/video.h`), where Reluva is built with them.
+- **Splash** (`jpg/splash.jpg`) stands in for the movie where it can't
+  be played (built without FFmpeg, or the file missing), as the game's
+  own "No Movie" shortcut leaves it out: any key or click goes on.
 - **Main Menu** (`main_bk`): Crash Course (`dvrcc`), Races (`main_sp`),
   Multiplayer (`main_mp`: the multiplayer menus, below) and Quick Race
   (`main_qck`: shown, not available); the driver's box shows the level, Amateur or Professional

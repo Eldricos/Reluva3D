@@ -53,8 +53,8 @@ void drawButtonState(Surface& overlay, const image::Image& im, int x, int y, int
 // backgrounds. See docs/engines/age-menus.md.
 class FrontEnd {
 public:
-    // Splash: jpg/splash.jpg, shown first (in place of the opening movie,
-    // logos.avi, which is Indeo 5 and not played).
+    // Splash: jpg/splash.jpg, shown first in place of the opening movie
+    // (logos.avi) when it can't be played (see RaceViewer::movie_).
     // CrashIntro: jpg/ilon_bk, choosing the school; Showcase: the garage's
     // car alone, the whole screen.
     enum class Screen { Main, Races, CrashCourse, Garage, Splash, CrashIntro, Showcase };
@@ -116,6 +116,11 @@ public:
     void draw(Surface& overlay);
 
     Screen screen() const { return screen_; }
+    // Past the splash to the main menu (after the opening movie).
+    void leaveSplash() {
+        if (screen_ == Screen::Splash)
+            go(Screen::Main);
+    }
     // Back from a race: to the screen it was chosen on (refreshed, for
     // what's been unlocked).
     void afterRace() { go(afterGarage_); }
