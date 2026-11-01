@@ -8,7 +8,8 @@ tasks themselves are listed in
 [nfs-threads.md](../../engines/nfs-threads.md); this is what they do.
 
 Status: **read from the code**, with the steering, tyres, hand brake,
-landing and the police chase's start checked at run time (below). Not
+landing, the computer cars' controllers and the police chase's start
+checked at run time (below). Not
 implemented in Reluva.
 
 ## In short
@@ -444,8 +445,8 @@ Skipped before step 512 (the start) and for a car not in play (+0x89).
    (car frame) −= downforce (doubled for computer cars) × forward speed;
    **in the air**, a drag by axis (0.006, 0.002, 0.004; traffic 0.006,
    0.004, 0.004).
-2. `0x4a00d0` the road's height under the car (+0x158; plane at +0x124,
-   normal +0x130), `0x4a21a0` a roof over the road, `0x4a0440` the lowest
+2. `0x4a00d0` the road's height under the car (+0x158; the plane through
+   the road point +0x148 with up +0x130, below), `0x4a21a0` a roof over the road, `0x4a0440` the lowest
    corner's height over the road (+0x15C, from the half sizes +0x114,
    +0x118, +0x11C).
 3. +0xB8 = max(|vx|, |vz|) + ¼ min(...), the cheap ground speed.
@@ -455,8 +456,8 @@ Skipped before step 512 (the start) and for a car not in play (+0x89).
    0.87); on a flatter one **the forward part is added while the car is
    upright** (+0x10C > 0.9, `0x4a2af7`).
 5. Clearance < 0.6: on the road (`0x4a1610`: push out of the road,
-   remove the into-road speed under 0.5 m/s, turn the body towards the
-   road at most 0.5 rad/s) or landing (`0x4a1ce0`, below). Else in
+   zero the speed along the road's up when it is under +0.5 m/s, turn
+   the body towards the road at most 0.5 rad/s) or landing (`0x4a1ce0`, below). Else in
    the air: +0x164 counts, spin kept within ±2.4 (`0x4a20c0`).
 
 **Landing** (`0x4a1ce0`): when the velocity (+0xA4) goes into the road
@@ -478,13 +479,25 @@ and keeps its sign; nothing later turns it round. Each tick that
 (`0x5efddc`, set at `0x42c636`), every spin is under 0.6, `0x49fde0`
 agrees and the clearance is 0 or less, +0x164 is cleared and
 `0x4296c0` runs (`0x4a2068`). From then on the on-road code
-(`0x4a1610`) takes the speed into the road out. So a landing is a
+(`0x4a1610`) takes the speed into the road out. The 0.5 in both tests
+is signed: "under 0.5 m/s" means any speed into the road, however
+large, and any speed away from it slower than 0.5. So a landing is a
 loss, with no bounce. Checked at run time (`sw1-f`): with +0x164 poked
 to 1 and the vertical velocity to −4 on Hometown's grid, the body's
 contact (`0x42e8f7`) left −3.17, the landing made it −1.90 (× 0.6, e =
 0.1; the spin × 0.6 too) and ended in the same tick (`0x4a2071`);
 gravity took it to −2.19 and the next tick's on-road code (store
 `0x4a1b10`) to −0.0009. It never went positive.
+
+Why all 2.19 m/s went at once: in `0x4a1610`, when the clearance is
+0 or less, the velocity is put into the road frame (`0x4e0110` of a
+copy of +0x124, `0x4a1a3d`), its up part is compared with `0x5efddc`
+(0.5, `0x4a1aa2`) and set to 0 when it is less (`0x4a1aaf`), and the
+velocity is put back (`0x4a1ac4`-`0x4a1b10`). There is no "under 0.5"
+limit on the size. The frame used is the car's road frame blended half
+way (`0x4b7680`, weight 0.5) towards the frame at the point the car
+will reach next tick, so the zeroed up is not quite the world's: the
+−0.0009 left is that difference.
 
 `0x4a1210` tests twelve points of the body box (its corners and points
 at 0.75, 0.5 and 0.8 of the half sizes) against the road slices
@@ -535,13 +548,13 @@ Each tick, per car:
 
 The computer cars use no tyres and no engine torque. They are steered
 and pushed by a few clamped controllers, read from the code
-(`0x408600` and its callees) and not checked at run time.
+(`0x408600` and its callees) and checked at run time (`gh1-ai`, below).
 
 **The fields.** +0x7B0 the speed wanted (m/s, below). +0x7B8 the car's
 side offset on the road, +0x7B4 the side offset it wants, +0x7C8 its
 present aim, moved towards +0x7B4 by 0.2 a tick (`0x408870`). +0x7C0
 is the speed along the road: the velocity (+0xA4) dotted with the
-vector at +0x13C (`0x42cdd0`); +0x7C4 is its size. Both are worked out
+road's forward at +0x13C (`0x42cdd0`); +0x7C4 is its size. Both are worked out
 for every car in the Sc32 task `0x42ce70` (stores `0x42cef8`,
 `0x42cf25`), which also sets +0x210, the heading (atan2 of the road
 frame's forward row +0x1A8 × 1024, so 1024 a turn, `0x42cee9`).
@@ -587,13 +600,123 @@ frame's forward row +0x1A8 × 1024, so 1024 a turn, `0x42cee9`).
 The gains are constants set once by `0x405e60` (from the race tasks'
 set-up, `0x4c46e1`) at `0x56ebd0`-`0x56ec54`.
 
+**The point steered at** (`0x406e50`, step 5). With no target car:
+
+- +0x620 bit 0x800: `0x406c90`, the car's own slice point, and the
+  speed wanted = its distance × 32: drive to a point and stop there.
+- On the road's lanes (`0x40f110` 0: the car's lane +0x638 or one next
+  to it is within the slice's lanes): `0x406d40`, unless the car has
+  been slow (+0x7C4 ≤ 10 m/s) and reversed more than 4 times (+0x658)
+  while outside the lanes, then `0x406c00`; more than 8 times puts it
+  back on the road (`0x429100`).
+- Off the lanes: +0x7D8 counts the ticks under 3 m/s; `0x406d40` while
+  bit 0x40 of the count is clear, `0x406c00` while it is set (64 ticks
+  each), and over 1000 the car is put back on the road.
+
+With a target (+0x624): a cop (+0x200 bit 0x20) with +0x711 bit 2
+within 4 slices of it uses `0x406b60`; with +0x620 bit 0x2000 or 0x8000,
+`0x406b00`; else `0x406d40` (the road, with the target only for the
+speed).
+
+- **`0x406d40`, the road ahead**: the slice from `0x406980` and the
+  point there moved sideways along the car's road right (+0x124) by
+  the aim +0x7C8 (10 m more to the negative side on Hometown's slices 0x205-
+  0x210 when the aim is negative). `0x406980` starts 4 slices on (the
+  way the car runs: +0x621 bit 0x10 xor `0x6fd4c0`) and steps on to the
+  look-ahead slice `0x40e1b0(car, 1.7, 4, 20)`, +0x7C4 × 1.7 / 6
+  slices, 4 to 20 (backward when reversing), but stops at the first
+  slice whose forward, in x and z, has a dot of 0.7 or less with the
+  car's slice's (`0x40ef70`): about 1.7 s ahead, or nearer where the
+  road turns by more than 45°. Hometown's slices 0x225-0x235 use the
+  look-ahead slice as it is.
+- **`0x406c00`**: the car's own slice point: back to the road's middle.
+- **`0x406b00`**: the target's position; the aim +0x7C8 is set to the
+  target's side offset (+0x7B8).
+- **`0x406b60`**: the target's position + its velocity × 0.4 (where it
+  will be in 0.4 s); the aim likewise.
+
+All return the vector from the car (+0x98) to the point.
+
+**`0x407380`, a car out of the race** (+0x2C4 3, finished, or 4,
+busted; step 1 of `0x408600`). Only on the road and upright (+0x164 0,
++0x10C > 0.9). No controls (steering, gas, hand brake 0, brake 255).
+In the car's frame, the forward speed × 0.98 a tick (× 0.95 when the
+ground speed +0xB8 is under 22.35 m/s); between −10 and 5 m/s × 0.5
+more, else the rear skid level is 0.1 × |speed|; the side speed ×
+0.85, the yaw spin (+0x4FC) × 0.5 (over 0.2 it adds to the rear skid);
+when the side speed is bigger than the forward, both skid levels are
+|side| and the side speed × 0.2. Then back to the world. The car coasts
+to a stop in a few seconds and its tyres sound. Not hit in `gh1-ai` (no
+car finished).
+
+**The drivers** (`0x55226c`, 15 rows of 0x18 bytes, indexed by the
+set-up record's +0x30): the name (Ace, Lead Foot, Gotcha, Ram Rod,
+Dead Beat, Mulligan, Wild One, then the cops Shield, Smooth, Trigger,
+Blue, Moose, Blender, Fancy, Sterno), +4 1 for a cop, +8 the **skill**
+0-2, +0xC 0 for a driver who surges, +0x10 a personality 0-5, +0x14 a
+colour (`0x404810`, the front end). **`0x404610` returns the skill**,
+at least 1 in Tournament and Knockout. Ace and Lead Foot have skill 2,
+Mulligan and Wild One 0. It is used:
+
+- the slide on a slippery surface (`0x40841e`, in `0x407fa0`): skill 0
+  every tick that `0x408459`'s test passes, skill 1 only when step bit
+  0x20 is set, skill 2 only when bits 0x60 are clear: worse drivers
+  slide more;
+- the lane vote (`0x40974d`): skill 0 votes 6 for the best line, else
+  10, or 12 with personality over 2;
+- the speed factor `0x408dc0`, below; the braking (no effect, above).
+
+`0x404690` (from `0x40cb70`) sets the grudge limits per slot
+(`0x56ea70` + slot × 20) by personality: hits 10 to 110,
+times 0x40-0xC0, a count 1-5 (less one with Aggressive).
+
+**The speed scale +0x7BC** (`0x409330`) is the product of
+`0x408dc0` × `0x4090a0` × `0x408f10` × `0x40ee80` (two more return 1:
+`0x408f00`, `0x409090`), **kept at most 1** (`0x409410`-`0x409449`),
+or 1 with `MADLAND`; the speed wanted is × it.
+
+- `0x40ee80`: a per-track factor (`0x56ef94` + track × 32 with `ai`
+  Normal outside Tournament and Knockout, else `0x56ef98` + track × 32).
+- `0x408dc0`, the driver: skill 0 × 0.94, 1 × 0.97, 2 × 1; a surging
+  driver (+0xC 0) × 1.05 or × 0.95 in alternate 128-step quarters of
+  512 steps; personality 0 × 0.95, 1 × 0.97, else 1 (with +0x620 bit
+  0x20, 0.95 + 0.05 × personality instead). 1 in a one-machine Knockout.
+- `0x4090a0`, the **catch-up**. `0x404c80` (each step, from the human's
+  states) keeps the human furthest on (`0x56ebb8`, race distance +8; a
+  cop counts as 1) and `0x56ebb4`: 0 when no computer racer is ahead
+  of him, 1 when some are, 2 when all are. With 0: a car more than 15
+  slices behind him (10 Aggressive, 5 in an Expert Tournament or
+  Knockout) gets × 1.1 (1.15 in Tournament and Knockout). With 1: a car
+  more than 50 slices ahead (70, 100) × 0.85. With 2: × 0.95
+  Aggressive, × 0.85 Hot Pursuit, else × 0.9 in places 1-5 or a
+  network game, × 0.8 behind. Never under 1 in Knockout on track 8,
+  never over 1 in a network game. As the product is kept at most 1,
+  the catch-up's × 1.1 only undoes the other factors.
+- `0x408f10`: in a network game with positional updates, a factor
+  by the distance to the local player (1 + (2 − slices) × `0x53640c`).
+
+**Checked at run time** (`gh1-ai`: Hometown, single race, seven
+computer racers, keypad 8 held from 52 s; `-watch` on the three
+controllers' first instructions, eax the car, and `-watchmem` on car 1
++0x7B0-+0x7CC). Every car ran a controller every tick from the start
+(48.9 s), about 1,300 calls each by 90 s. For car 1 (`0x5e1acc`): all
+63 calls of `0x407c30` came with +0x7C4 under 13.41 m/s, all 1,166 of
+`0x4076b0` over it; it changed from one to the other at 50.98 s, at
+13.50 m/s. `0x407fa0` ran 65 times: the first tick (+0x7C4 0, under
+0.5) and in short bursts while the aim +0x7C8 moved between lanes
+(4 → 12 and back) or after a bump (71-77 s). The aim moved 0.2 a tick
+towards +0x7B4, which took the values 4.0, 12.0 and 17.1 (lanes) and
+2.6-3.75 after 75 s. The speed followed the speed wanted to within
+about 0.5 m/s (43.6-43.7 for 44.0; 36.9 for 36.5), from 0 to 12 m/s in
+1.8 s. +0x7BC was 0.66 throughout (the human behind all of them).
+
 - **`0x4076b0`** (on the road, lined up, fast): yaw rate wanted = −2.5
   × heading error, in ±0.8; side term = −5 × (+0x7B8 − +0x7C8), in ±32
   and ±0.5 × +0xB8; under 22.35 m/s these are kept within 0.129 and
   0.012 × +0x7C4. Yaw force (into +0x2F8) = −5 × (yaw rate − wanted),
   in ±0.8. Side force = (heading term − side term) × 4 × (1 + 0.0015 ×
   speed), at most 38 × (1 + 0.0015 × speed); both × +0x7BC when it is
-  over 1. Forward force: the acceleration below when under the speed
+  over 1, which never happens: `0x409330` keeps +0x7BC at most 1. Forward force: the acceleration below when under the speed
   wanted, else minus the braking. Over 44.7 m/s a racer's drive loses
   3.45 / P's lateral grip multiplier (others: |side force| / (speed /
   2)). Skid marks when |heading term| > 7.
@@ -624,7 +747,9 @@ ahead gets × 2 (within −8..30 slices) or × 3. Traffic under 2 m/s: at most 1
 over 20 m/s with `0x55eb2e` & 0x20: × 0.5. A racer is held under P's
 top speed cap × +0x7BC. **The braking** (`0x4063e0`): brake 255 and
 P's maximum braking deceleration, × 2 for a cop, × 2 going backward, ×
-1.25 for an AI racer (with `0x404610`).
+1.25 for an AI racer. `0x404610` is called there (`0x40648a`) but
+every branch after it goes to the same `0x40649f`: the skill changes
+nothing.
 
 **The grudge** (`0x404a00`, from the impacts task `0x42b9af`): with
 `ai` Aggressive, an AI racer hit by a human's car (not a cop's) takes
@@ -682,8 +807,21 @@ So the assist brakes before bends and lifts off, but never gives more
 than the player's own pedal. It does not steer: with the steering
 assist on, the police states (`0x405740`, state 2) run the computer's
 lane functions (`0x40dd60`, `0x4096b0`, `0x40ddb0`, `0x409660`,
-`0x40de30`) for the human's car; what they change for a human isn't
-followed.
+`0x40de30`) for the human's car. **For a human they change nothing
+that drives.** They set the car's lanes (+0x638, and +0x63C, +0x640
+for its two sides, `0x40e350`), fill the lane votes (`0x56ee90`-
+`0x56ef78`, cleared each call by `0x40dd60`), pick a lane
+(`0x40da30`, into `0x56ef74`) and write the side offset wanted +0x7B4
+(`0x40daf0`). The only readers of +0x7B4 are the computer's code
+(`0x408870`, `0x406880`) and the warp `0x40cd80`; the human's tick,
+controls and the assists' driver read neither +0x7B4 nor `0x56ef74`
+(every access listed with `field car 0x7b4` and `xref 0x56ef74`).
++0x638 is read anyway by the best-line count `0x493a30`, but
+`0x40e350` sets it in the other states too. In the wheels' angle,
+`0x4ad320` compares `0x6fd494` and then adds a term that is always 0
+(`[ebp−4]`, `0x4ad330`): a steering assist that was taken out. The
+steering assist is the pedal driver and nothing more. Hot Pursuit's
+set-up (`0x4746ab`) turns it off.
 
 ## The Hot Pursuit states (`0x405740`, car +0x6E0)
 
@@ -712,9 +850,57 @@ then gives the car +0x200 bit 0x20.
     over the speed by more than 2 m/s (+0x6F0 > 2) and still racing,
     `0x4018b0(2, ...)` makes it the target (+0x624, `0x4019a1`).**
     Then state 3 → **4**, the chase (`0x405879`).
-- **State 4**: the chase. It goes to 5 when `0x405630` says so (then
-  `0x401e40`; 5 sets the speed wanted to 0, probably the stop), and
-  back to 3 when the target is gone (`0x4058db`).
+- **State 4**: the chase. Each step the steps of state 3 but
+  `0x4053b0`, then `0x405630`. The cop does nothing by itself: the
+  human drives. The chase record is +0x628 (static records from
+  `0x56e410`, one per chased racer: +0 and +0x14 counts, +4 the most
+  over the speed, +0x1C 2 when the racer is pulled over, +0x28 a step,
+  +0x2C the cops on it, +0x30 their list, +0x50 the cops stopping it).
+  `0x405630`: with the siren off (+0x710 bit 0x10) or the target over
+  **300 m** away, or a racer that has finished, the chase is lost
+  (`0x401a80`: the record's counts + 1, +0x624, +0x628, +0x734
+  cleared, siren off) and the next check (`0x4058db`) goes back to 3.
+  Else `0x405430`: when the cop is within **7 m** of the target, the
+  target's +0x7C4 is at most `0x56ebb0` (**20.12 m/s**, 45 mph, with
+  more computer cars than humans, else 11.18, 25 mph; `0x404c50`), and
+  the cop is on the road and upright (+0x10C > 0.5): the first such
+  step plays `0x4127b0` and sets +0x720 = step + 24 and +0x710 bit
+  0x40; if it still holds 24 steps (0.375 s) later, the record's +0x1C
+  = 2 and +0x28 = step + 640 (`0x40554a`). Failing a test clears bit
+  0x40. Once the target has stopped for it (an AI racer in its state
+  6, a human in 7, see state 2), `0x405430` returns 1 and the cop goes
+  to **5** (`0x4058bf`) through `0x401e40`: of the record's cops the
+  nearest to the target does the ticket (+0x710 | 0x80, siren off,
+  record +0x50 + 1); on the first, +0x28 = step + 192 for a human cop
+  (3 s), or `0x5521b8`[tickets × 16] (384, 448: 6-7 s) for a computer
+  one, and the two cars point at each other (+0x9A4).
+- **State 5**: the stop. The speed wanted is 0 and `0x40ce70` halves
+  the cop's velocity and spin each step with the brake at 255 (on the
+  road, upright). `0x401fb0` ends it when the step passes the record's
+  +0x28 (or the target is gone), with **the ticket** `0x401ff0`, and
+  the cop goes back to 3 (`0x405911`):
+  - the record: +0 + 1, +4 = the most of int(target +0x6F0), +0x14 0;
+  - the cop: +0x2CC tickets given + 1 (reaching `0x6fd4b8`, +0x2D4 =
+    step − 512), +0x2D0 += int(the target's +0x6F0, the most it was
+    over the speed);
+  - the target: +0x2C8 tickets + 1, +0x6F0 0, and at `0x6fd4bc`
+    tickets +0x2C4 = 4, **out of the race** (it then coasts,
+    `0x407380`); +0x634 = step + `0x5521b4`[tickets × 16] (960, 896,
+    768, 640, 576: 15 down to 9 s), before which no cop picks it again
+    (`0x402e42`); +0x8A 0, `0x401e20`; record +0x2C, +0x50, +0x1C 0,
+    which lets the racer's state 7 go back to 2 and onto the road.
+  - `0x474640` sets the limits. One player as a cop: `0x6fd4b8` 6
+    (all six racers), `0x6fd4bc` 1 (one ticket and a racer is out).
+    One player as a racer: `0x6fd4bc` laps + 1, `0x6fd4b8` 100. It
+    also turns every assist off (`0x4746ab`).
+
+  Checked at run time only up to the chase (`gh1-cop`: the cop with H
+  at 47.0 s and keypad 8 from 48 s): the siren at 47.1 s
+  (`0x404fce`), car 1 targeted at 52.76 s (`0x4019a1`, record
+  `0x56e410`) and state 4 (`0x405883`) to the end at 80 s. The cop,
+  driving straight, never got within 7 m of a slow enough target, so
+  `0x40554a`, state 5 and the ticket were not reached; the chase
+  wasn't lost either (within 300 m).
 
 Checked at run time (`sw1-cop3`): the Hot Pursuit pokes put at
 `0x474ca0`, before the set-up picks its function by the race type
@@ -726,6 +912,27 @@ step `0x4019a1` targeted car 1 (`0x5e1acc`) and `0x405879` went to
 state 4. Without H (`sw1-cop2`) the player stayed in state 3.
 
 ## Other car fields
+
+- **+0x124-+0x154, the road frame at the car.** `0x49ffa0` (from the
+  road contact task `0x4a08c0`, and `0x4a0580`) gets nine numbers and
+  a point from `0x420230` for the car's track position (+0xC, whose
+  +0x10 is the slice +0x1C) and stores them × 1/65536: **+0x124 the
+  road's right, +0x130 its up, +0x13C its forward, +0x148 the road
+  point** (the virtual road point's position, bytes 0-11 of the
+  36-byte point in [col.md](col.md)); +0x154 is the slice's heading
+  (`0x49fee0`). The three vectors are the point's normal, forward and
+  right bytes (16-18, 20-22, 24-26; `0x420230` reads them as ints at
+  +0xD, +0x11, +0x15 and shifts down 24). On a road polygon with its
+  own normal (track position +0x14 set, +0x6C 0, +0x64 2) up and forward
+  come from the polygon and right is their cross product. `0x4a0aa0`,
+  which puts a car on a slice (start, reset `0x429100`'s callers,
+  `0x40cd80`), writes the point's vectors directly and normalises them
+  (`0x4972f0`). So +0x13C is the road's own direction at the car,
+  not the car's: the computer's +0x7C0 is the speed along the road,
+  and the road height (`0x4a00d0`, through `0x4968a0`) is the plane
+  through +0x148 with up +0x130 (−32000 when up y ≤ 0.1). It is not
+  the matrix at +0x190 the human's tick uses. The step loop skips a car
+  whose **+0x89** is 0 (`0x49ffab`, `0x4a284d`): +0x89 is "in play".
 
 - **+0x8, the race distance** (int; the network status message sends
   its low 16 bits). `0x42ce10`, from the Sc32 task `0x42ce70`: lap
@@ -780,6 +987,13 @@ state 4. Without H (`sw1-cop2`) the player stayed in state 3.
   `-watchmem` on one car field and `-dumpmem at=ADDR#N` of the car and
   the stack; `-poke` for the Hot Pursuit (at `0x474ca0`) and for the
   landing (+0x164 and +0xA8 at 51 s).
+- The `gh1-` runs (November 2026): `gh1-ai` (`-watch 0x4076b0 -watch
+  0x407fa0 -watch 0x407c30 -watch 0x407380 -watchmem 0x5e227c 0x20`,
+  keypad 8 from 52 s) and `gh1-cop` (the Hot Pursuit pokes, H at 47 s,
+  `-watch` on the state stores and `-watchmem 0x5e1800 4`). The store
+  lines carry no time: each was given the time of the `-watch` line
+  before it. Constants read from the executable (doubles at
+  `0x536304`-`0x536344`, `0x5361b4`-`0x5361d4`, `0x5363e4`-`0x536404`).
 
 **+0x5B0 and +0x5A4** (traced to their writers with a cross-reference
 of every access to those offsets):
@@ -796,15 +1010,18 @@ of every access to those offsets):
 
 ## What isn't known
 
-- The computer cars' controllers are read, not checked at run time;
-  `0x407380` (a car out of the race), the road-point choosers
-  (`0x406d40`, `0x406c00`, `0x406b00`, `0x406b60`, `0x406c90`) and
-  `0x404610` (a driver skill?) aren't followed.
-- What the computer's lane functions do for a human's car with the
-  steering assist on (state 2 of `0x405740`).
-- What +0x13C and +0x124 are exactly (road vectors from `0x49ffa0`:
-  the speed along the road is dotted with +0x13C).
-- The cop's states 4 and 5 (the chase and the stop) beyond their
-  switches.
-- The step at which the on-road code removes the speed into the road
-  (more than 0.5 m/s was taken out at `0x4a1b10`).
+- The cop's stop and ticket (`0x40554a` on, state 5, `0x401ff0`) are
+  read, not seen at run time: the scripted cop never caught a slow
+  target. What `0x4127b0` plays (probably the "pull over" speech) and
+  `0x401580`, `0x401c20` (at the stop's start) and `0x401e20`,
+  `0x4040e0` (after the ticket) do aren't followed. What +0x2D4 means
+  to the results screen (`0x455840` reads it) isn't known.
+- The computer cop's own driver (`0x4032e5`, `0x402e10`, `0x4025c0`)
+  and the AI racer's busted states (6, 7 in `0x409c03`) aren't
+  followed, nor are the per-track factors at `0x56ef94`.
+- `0x407380` (a car out of the race) was not run in `gh1-ai`.
+- What the track position's +0x64 and +0x6C are, that pick the
+  polygon's frame over the road point's in `0x420230`.
+- The lane votes' own rules (`0x40cee0`, `0x40cfc0`, `0x40d1f0`,
+  `0x40d2e0`, `0x40d3d0`, `0x40d720`-`0x40d9f0`): how a computer car
+  weighs cars ahead and the best line.
