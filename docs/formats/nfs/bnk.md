@@ -405,7 +405,22 @@ loads the banks into a table of 12-byte entries at `0x571124`
 | 22 | another traffic bank (`s...`) | `0x413e0a` |
 
 `0x4138e0` loads the cars' banks (`scar.bnk`, `car.bnk`, `ocar.bnk`) at
-an index it is passed; entry 1 is not followed.
+an index it is passed (+0 the bank, +8 its memory, as `0x410b50`).
+Its four calls (November 2026):
+
+| Call | Entry | Bank | Which car |
+|---|---|---|---|
+| `0x413d6d` | 0 | `scar.bnk` (`genscar` if missing) | split screen (`0x6fd3b0` = 1): set-up 0 |
+| `0x413ea6` | 22 | `scar.bnk` | split screen: set-up 1, the second player |
+| `0x41402c` | 0 | `car.bnk` (`gencar` if missing) | otherwise: the local player's (`g_setups[0x6fd4f4]`), unless the `TDRIVE` cheat (`0x6fd4fc` bit 2) is on (another bank, not followed) |
+| `0x4140f5` | 1 | `ocard.bnk` with 3D sound (`0x5525a4`), else `ocar.bnk`; `genocar` if missing | one car for all the others: set-up 3 in split screen (car 0 with no computer cars), else set-up 1, or 0 when the local player is 1 |
+
+So **entry 1 is the other cars' bank**, `ocar.bnk` from one car's
+`car.viv` (path + `car.viv`, `0x536ac0`), so the other cars share one
+car's sounds. `0x417080` takes entry 1 for sound number 0 and for
+slots 1, 3 and 27-30 (`0x552798`, below). The front end also plays from entries 1 and 2
+(`0x4c9990`: entry 1 for sounds 0-4, else 2; freed at `0x4c9a00`).
+
 `0x417080` plays a sound on a voice slot. Its bank: entry 3 for slots
 18-21, 26, 32-36 (the track's sounds and the player's road loops);
 else by sound number (0 entry 1, 2 entry 0, 10 and 11 entry 2, 12
@@ -416,6 +431,74 @@ player's (8-11) are `Gen.bnk` slots 41-47 (`0x414d70`), and the moving
 objects' sounds (slots 20, 21) are slots of the track's bank. The voice
 slots are listed in [nfs.md](../../engines/nfs.md) (Dolby, which voices
 are behind).
+
+## The moving objects' sounds
+
+Read from `nfs3.exe` (November 2026), `0x410e30`, each sound step.
+
+**Which objects.** Only the `.col` file's objects block (id 7) counts:
+`0x41dcc0` keeps its address at `0x5dd840`, the one entry of the list
+at `0x552600` (the next entry is 0 and nothing writes it). Id 18,
+Atlantica's second block, is not read here, nor are the `.frd`
+objects. The n-th type-3 object of block 7 takes row n of the track's
+table (`0x552744`, one pointer a track, copied to `0x570dd0` at
+`0x4116af`). The tables overlap: no row count is stored, a track uses
+as many rows as it has objects.
+
+**A row** is nine s16 (18 bytes):
+
+| Offset | Meaning |
+|---|---|
+| 0 | range r, in world units: heard within r (x and z, then y, each by the larger plus a quarter of the smaller) |
+| 2 | phase: ticks added to the time before the object's place is worked out |
+| 4 | the main sound; below 0 the object is skipped |
+| 6, 8 | fade in: silent up to tick +6 of the object's cycle, full at +8; +6 below 0 means always on |
+| 10, 12 | fade out: from L − +10 to L − +12 (L the cycle, keys − 1 times the key delay; `0x40f6d0` gives the tick in the cycle and L) |
+| 14 | a sound played instead during the fade in; or −2 or −3, special (below) |
+| 16 | a sound played instead during the fade out; for −2/−3 rows, minus the special sound's number |
+
+The two nearest objects in range are kept (`0x410ec5`-`0x411025`) and
+played on slots 20 and 21. For the second player's listener the stop
+and the playing-sound check use 0x22 + n, but the play itself still
+adds 0x14 (`0x4113d4`); the call's last argument is the player × 32. The volume is 127 × (r² − d²) / r², scaled by the fades.
+The slots are swapped when the new first is the old second or the new
+second the old first (`0x411047`-`0x411094`, the old pair at
+`0x570dd4`, `0x570dd8`). Both start at 0 (bss), and with one object in
+reach the second is −1, so a lone object always lands on **slot 21**.
+A sound already playing that is row +14 or +16 runs to its end before
+the main one comes back (`0x4111f6`-`0x41122d`).
+
+**Special rows.** With +14 = −2 the main sound plays as usual, and when
+the cycle's tick equals +8, +10 or +12 sound −(+16) is also started on
+slot 19 (`0x411232`-`0x411286`). With +14 = −3 the same happens on
+every tick that is a multiple of +8 (`0x411290`-`0x4112d7`). The time
+used is the step count rounded down to even, plus the phase. Slot 19 is
+also one of the `.frd` placed sounds' slots (`0x41d210`).
+
+The tables, by track and object (rows past a track's objects omitted):
+
+| Track | Object | Range | Phase | Sound | Fades and specials |
+|---|---|---|---|---|---|
+| 0 Hometown | 0, the 141-key loop | 300 | 0 | 31 | none |
+| 1 Redrock Ridge, 5 Lost Canyons | 0 | 250 | −32 | 6 | none |
+| 1, 5 | 1 | 275 | 32 | 7 | −2: sound 8 at ticks 670 and 1822 |
+| 1 | 2, 3 | | | none | |
+| 5 | 2 | | | none | |
+| 2 Atlantica | 0 | 400 | 0 | 6 | none |
+| 6 Aquatica | 0 | 500 | 0 | 6 | −2: sound 7 at ticks 900, 2560, 8988 |
+| 6 | 1 | 175 | 0 | 13 | none |
+| 7 Summit | 0, 1 | 100 | 0 | 0 | −3: sound 0 every 128 ticks (2 s) |
+| 8 Empire City | 0, 1, 3 | | | none | |
+| 8 | 2 | 250 | 0 | 6 | in 32-96, out L−180 to L−120 |
+| 8 | 4 | 250 | 0 | 3 | in 32-180, out L−240 to L |
+| 3, 4 | | | | no table (0) | |
+
+So Hometown's slot 21 is its one `.col` object, the loop flown 52 m
+up (`frd.md`), sound 31 of `tr3d00`/`tram00` (a 0.42 s loop). Its
+17-key spinner is only in the `.frd` and makes no sound here. Checked
+in a run (`gh2-run1`, a single race on Hometown, `-watch 0x4113d7`):
+all 40 plays logged were slot 0x15, sound 0x1f, the volume rising
+0, 1, 3, 4, 5 as it came into range at 42 s.
 
 ## EA-XA ADPCM
 

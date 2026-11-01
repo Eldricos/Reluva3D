@@ -79,7 +79,13 @@ Every retail object is type 3, moving. A type 3 object continues with:
   4 × s16 quaternion in 2.14 fixed point.
 
 These are the same keyframe paths as the `.frd` file's moving objects
-(Hometown's 141-key loop is in both). Type 1, a still object with a
+(Hometown's 141-key loop is in both). The game's object sounds use block 7 only, its
+n-th type-3 object taking row n of a per-track table (`0x410e30`,
+`0x5dd840` set by the loader `0x41dcc0`; id 18 is not read there):
+see [bnk.md](bnk.md), The moving objects' sounds. Block 7 holds 1
+object on Hometown (the loop), 4 on Redrock Ridge, 1 on Atlantica (with
+2 more in block 18), 3 on Lost Canyons, 2 on Aquatica, 2 on Summit and
+5 on Empire City. Type 1, a still object with a
 16.16 reference point, follows the community's description, untested.
 
 ### Virtual road (id 15), 36 bytes per point
@@ -261,6 +267,19 @@ to the points, used in place):
   the thumps (slot 30, below 100 Hz) it reads as a soft edge, snow or
   earth banks perhaps, but nothing in the pictures sets these few
   slices apart from the code-5 banks around them, so it stays unnamed.
+
+  **Code 3 against code 5 in the code** (November 2026). The side code
+  has four readers: `0x430bf1` (copied into the impact field, +0x170 =
+  0x40000 + code), `0x4a03ad` (is it 0?), `0x420bf0` (is it 2?) and the
+  impact code `0x42ac40`, where the code (`+0x170 & 0xff`, `0x42ac5f`)
+  indexes only `0x553740` and `0x553760`. The other readers of +0x170,
+  the force feedback `0x471270` (it tests only the high half, hit type
+  1) and `0x468c7b` (another struct), don't look at the code. Both
+  tables give codes 3 and 5 particle kind 2; they differ only in the
+  sound's material, 16 against 17 (slot 30 against 29, `0x4149e0`).
+  So nothing else tells 3 from 5, and the exe has no material name for
+  it (no string names a surface); what code 3 is meant to be isn't in
+  the exe.
 
 This is what the game drives on and keeps cars within. It will matter
 for driving, AI and the camera. Reluva reads it, and uses it for the

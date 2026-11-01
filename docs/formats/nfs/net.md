@@ -223,11 +223,38 @@ computer's racers (`0x6fd520`, 6). The others:
 - +0xF0 (`0x6fd48c`, 1 by default, `0x4724e4`): copied at a race's
   start to `0x6fd4a8` (`0x4746c3`), which, in a one-player game after
   0x480 steps, puts a cop being reset on the slice behind the racer it
-  is after (`0x405288`-`0x4052b7`); on the main menu in Hot Pursuit it
-  adds a button (text 0x196, `0x45d199`). A cops option by the look of
-  it; its name wasn't found.
+  is after (`0x405288`-`0x4052b7`). It is the option **`copassist`**
+  (row `0x556668` of the option table `0x5563fc`, values On/Off like
+  the other driving aids, texts 228/229), the cops' assist. At a Hot
+  Pursuit's set-up the other aids' race copies are zeroed and only this
+  one is copied (`0x474640`). The main menu's assists button
+  (`0x45d15a`-`0x45d1c7`) reads "Assists On" (text 0x196 = 406) when
+  `braking`, `collision`, `steering`, `traction`, `bestline` or
+  `navigator` is on, or in Hot Pursuit `copassist`; else "Assists
+  Off" (407).
 - +0x150 (`0x6fd4ec`, 1, `0x4724db`): no reader found.
-- +0x190 (0x13) is the first car record's +0 (below). Each car (filled for players at
+- +0x190 is not a header field: it is the first car record's +0
+  (`0x6fd52c`). Each record's **+0-0xF is the car's 16-byte key**
+  (front-end car +0x31C, `0x439520`; 0x13 and zeros for the Corvette,
+  2 and 0xF for cars 3 and 8 in the capture), or 16 bytes of 0xFF for a
+  car number outside 0-0x31. `0x4781b0` writes them for the
+  `0x6fd510` cars, given the settings block `0x6fbb40`, of which the
+  records are part (`0x6fbb40` + 0x19EC): at a race's set-up
+  (`0x474d17`) and into the replay's copy before it is saved
+  (`0x4bd290`, `replay.rp3`, block `0x7a3e50`). `0x478100` turns the
+  keys back into car numbers (`0x439990`) when such a block is read
+  (the replay's loaders `0x4bd368` and `0x446116`-`0x446474`; also
+  `0x477bad`), failing on an
+  unknown key unless the number is 50-599. Checked in a run
+  (`gh2-run1`, single race, `-dumpmem` after `0x474d17`): records 0-3
+  held 13, 02, 0F and 13 then zeros, for car numbers 1, 3, 8 and 1.
+  So the key lets a replay or
+  saved setting find its car when the car list differs. Nothing in a
+  race reads it: its only other use is the copy in 05 (found by every
+  access to the records' first 16 bytes, Ghidra and the capstone pass).
+  The table's own entries:
+
+Each car (filled for players at
 `0x49acf1`-`0x49adeb` from their 03):
 
 | Offset | Contents |
@@ -244,7 +271,7 @@ computer's racers (`0x6fd520`, 6). The others:
 | 0x38 | the other five sliders, 1.0: Steering Speed, Gear Rat, Suspension, Aero, Tires |
 | 0x4C | three floats, 03's +0x54, the car's half size (players only, `0x49ade8`); no reader found |
 | 0x58 | the car's flag 0x08 (left out of the lists, `0x4395a0`, `0x473db1`); the host keeps its own (`0x4c5ff0`). Read at `0x4cf066` |
-| 0x5C | the next record's +0 (0x13, 2, 0xF, 0...), not followed |
+| 0x5C | the next record's +0-0xF: its car's key (above) |
 
 **The race** is lockstep: in the captured races no positions or speeds
 went over the network, only each car's controls (0b and 0c, which carry
@@ -414,10 +441,34 @@ Pursuit the Ferraris and the SL600 leave both lists. Seen in a run
 (`nfs-host -dumpmem`, race type set to 3 at 19 s in the main menu):
 `cars` went from cars 0, 1, 3, 4, 5, 7, 8, 9, 11 to 0, 1, 5, 7, 8, 9,
 12 (the F355 3, the 550 4 and the SL600 11 out, the Pursuit Corvette 12
-in) and `opcars` lost 3, 4 and 11 and its first choice. Which list
-the earlier run saw with the Ferraris in it isn't known; the pokes of
-the Hot Pursuit run above (spike strips) set the race type only at the race's set-up
-(`0x473bf0`), after the front end. (`0x4391d0` and the bit 0x20000 have no direct
+in) and `opcars` lost 3, 4 and 11 and its first choice.
+
+**When a Hot Pursuit list can still hold the Ferraris** (November
+2026, every path through `0x44be60` and the writers of the race type
+`0x6fd3b8`). The rebuild runs on every pass of the front end's loop
+(`0x44b382`, after the screen's handler), so a race type changed in a
+menu (`0x440160`, `0x452ac0`, `0x452f80`, `0x45dac0`) or arriving from
+the host (`0x49a805`) takes effect on the next pass. Three things leave
+them in:
+
+- the car viewers: on the `showcase` and `interior` screens the `cars`
+  list is set all on again and then cleared only by mask 0x80008 (a
+  test of the car's pictures, `0x4530c0`), on `history` by 9 and
+  0x280008, on `compare` set all on alone (`0x44c1a4`-`0x44c236`), whatever the race type, so
+  the Ferraris, the SL600 and the police cars are all in it there; the
+  next pass on another screen clears them again;
+- `postgame` skips the rebuild (`0x662968`, set at `0x44b25f`), so its
+  lists are the last ones made;
+- a race type set after the front end: the pokes of the Hot Pursuit
+  run above (spike strips) set it only at the race's set-up
+  (`0x474ca0`, `0x473bf0`), so the lists, and the car picked from
+  them, are a single race's.
+
+The earlier run's Ferraris are most likely the third (its Hot Pursuit
+came from pokes), else a viewer screen; no path through the menus
+leaves them in Player Car's or the opponents' list in Hot Pursuit.
+
+(`0x4391d0` and the bit 0x20000 have no direct
 caller or user.) In turn, between barriers 0x0F + slot, each
 player offers its own car to the host (0f, 10); then between barriers
 0x17 + slot the host offers each player's car to all the others (11, 12).
@@ -539,10 +590,10 @@ was the lower.
 
 ## What isn't known
 
-- Some numbers of the set-up records: each car record's +0-0xF (the
-  table's +0x5C of the car before, the header's +0x190 for the first);
-  what the header's +0xF0 option is called and whether +0x150 is read
-  through a pointer; why the players' driver numbers were 0 and 6.
+- Whether the header's +0x150 is read through a pointer; why the
+  players' driver numbers were 0 and 6. (Answered above: the records'
+  +0-0xF are the cars' keys, the header's +0x190 is the first of them,
+  and +0xF0 is `copassist`.)
 - What an input device's flag 4 is (09's flags are 0 only for an axis of
   a device without it); no run used a joystick over the network.
 - 0b, 0c and 0d were captured only from a patched copy: the unpatched

@@ -628,18 +628,22 @@ Started. Done so far:
         left and right (0x3fff, 0xc000).
       - **Slot 21 (0x15), a moving object's sound**: 917 updates, 437
         behind (48%, 30% of the rear ones). `0x410e30` keeps the two
-        nearest of the track's moving objects (the `.col`/`.frd` type 3
-        paths) and plays them on slots 20 and 21 (`0x4113d4`: n + 0x14;
+        nearest of the track's moving objects (the `.col` file's block 7,
+        type 3) and plays them on slots 20 and 21 (`0x4113d4`: n + 0x14;
         0x22 + n for the second player), from a per-track table in the
         exe (`0x552744`, 18-byte rows: s16 range, s16 key offset, s16
         sound, then key ranges and two more sounds, -1 none). Slots
         18-21 take the track's bank, table entry 3 (`0x417080`; loaded
         at `0x414425`: `tr3dNN`, or `tramNN` without 3D sound, with
         `n`, `w`, `nw`; `trambNN` from track 9). Hometown's rows give
-        sounds 31, 6 and 7. Only slot 21 was heard: the two nearest are
-        swapped to keep their slots (`0x411047`-`0x411094`), and here
-        one object was in reach. Slots 18 and 19 are the `.frd` placed
-        sounds (`0x41d210`).
+        sounds 31, 6 and 7, but Hometown's `.col` has one object, so
+        only row 0 is used: slot 21 is **the loop flown 52 m up**, sound
+        31 (November 2026). A lone object always lands on slot 21: the
+        swap that keeps the two nearest on their slots
+        (`0x411047`-`0x411094`) starts from 0, 0 and then -1. The rows,
+        their fades and the special sounds (-2, -3 on slot 19) are in
+        [bnk.md](../formats/nfs/bnk.md) (The moving objects' sounds).
+        Slots 18 and 19 are the `.frd` placed sounds (`0x41d210`).
       - **Slots 22-25 (0x16-0x19), the other cars' skids**: 201
         updates, 147 behind. Each car's sound list (car +0x7DC, up to 8
         of 0x18 bytes, `0x4284e0`) gets category 6 from `0x429f10`:
@@ -1306,12 +1310,14 @@ README.md.
 
 - How the wall hits' particles look in play (read from the code only;
   their sounds are measured, not listened to), and wall code 3's
-  material, looked at but not named ([col.md](../formats/nfs/col.md)).
+  material: the code tells it from code 5 only by its sound (material
+  16, not 17), and no name for it is in the exe, so only the tracks'
+  look could name it ([col.md](../formats/nfs/col.md)).
 - How a real Pro Logic decoder of the time (with its surround delay
   and 7 kHz low-pass) would place the voices behind; only the matrix's
-  sums are measured. Which object on Hometown slot 21's sound belongs
-  to, and how the other moving-object rows' key ranges and special
-  sounds (-2, -3) play, read from the code only.
+  sums are measured. The moving objects' fades and special sounds
+  (-2, -3) are read from the code only; Summit's, Aquatica's and
+  Redrock's specials weren't heard in a run.
 - The car handling in full: the tyre model, steering and gear changes,
   landing, and the computer cars' simpler model. The race types, the
   network kinds, `carp.txt`'s place in memory, the engine and the car

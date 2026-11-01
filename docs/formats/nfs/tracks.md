@@ -214,8 +214,17 @@ The pairs are all (4, 7) or (4, 9): the lap ends in zone 7 or 9 and
 starts in 4. Aquatica never enters zone 4 at all (it runs 7, 8, 9, 6,
 one FRD for both directions), so no pair of that shape can fit it.
 Atlantica's lap ends 6 to 4, so (4, 6) would have served it forward,
-and backward its 5 to 4 at slice 380 fits the (4, 5) the others have;
-why it has neither isn't known (an earlier zone layout, perhaps).
+and backward its 5 to 4 at slice 380 fits the (4, 5) the others have.
+**It is just absent data** (November 2026): the tables' only reader is
+`0x4129c0` (`0x412a02`-`0x412a22`, a plain index by `0x6fd4ac`, any
+track under 10), and the copies `0x571240`/`0x571238` are read only by
+the lap handler's zone test (`0x4135e1`-`0x413620`). The zone comes
+from `0x4211c0` (byte 3 of the slice's FRD record) with no track test,
+and the current zone `0x552834` is written only at `0x412ade` and
+`0x4136b5`. The music code has no case for track 2; the exe's
+Atlantica-only code (`0x415210`, slices 920-1066) plays track sounds,
+not music. So rows 2 hold −1 by the data alone (an earlier zone
+layout, perhaps; that part can't be read from the exe).
 Country Woods and Lost Canyons have (4, 9), but in the shipped FRDs
 their zone 9 is followed by 7 or 6, not 4, so their forward pair never
 matches either: of the forward pairs only tracks 0, 1, 3, 7 and 8 ever
@@ -231,6 +240,7 @@ line. Read from the files and the code, not watched in a race.
   Aggressive).
 - Partly answered above (Music laps): Aquatica never enters zone 4,
   so no (4, x) pair fits it; Atlantica would fit (4, 6) forward and
-  (4, 5) backward, so its −1s stay unexplained. Without a pair the
+  (4, 5) backward: no code treats track 2 apart, its −1s are only
+  data. Without a pair the
   music's lap still follows the real lap, at the line.
 - Not checked at run time.
