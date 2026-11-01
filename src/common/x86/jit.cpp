@@ -14,8 +14,10 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <intrin.h>
 #elif defined(__linux__) && defined(__x86_64__)
 #define RELUVA_JIT_LINUX 1
+#include <cpuid.h>
 #include <sys/mman.h>
 extern "C" void __register_frame(void*);
 extern "C" void __deregister_frame(void*);
@@ -139,6 +141,24 @@ enum : int { kEax = 0, kEcx = 1, kEdx = 2 };
 
 } // namespace
 
+bool Jit::flagsOps() {
+#if defined(RELUVA_JIT_WINDOWS)
+    int r[4];
+    __cpuid(r, int(0x80000000));
+    if (unsigned(r[0]) < 0x80000001u)
+        return false;
+    __cpuid(r, int(0x80000001));
+    return r[2] & 1;
+#elif defined(RELUVA_JIT_LINUX)
+    unsigned a, b, c, d;
+    if (!__get_cpuid(0x80000001u, &a, &b, &c, &d))
+        return false;
+    return c & 1;
+#else
+    return false;
+#endif
+}
+
 bool Jit::supported() {
 #if defined(RELUVA_JIT_WINDOWS) || defined(RELUVA_JIT_LINUX)
     return true;
@@ -199,6 +219,50 @@ Jit::Jit(const Layout& layout) : layout_(layout) {
     w.u8(0x49), w.u8(0xbc), w.u64(reinterpret_cast<uint64_t>(layout_.memory)); // mov r12, memory
     w.u8(0x49), w.u8(0xbd), w.u64(reinterpret_cast<uint64_t>(layout_.pages));  // mov r13, pages
     w.bytes(kEntryJump);
+    // The dispatch (see jit.h).
+    w.at = base_ + ((size_t(w.at - base_) + 15) & ~size_t(15));
+    dispatch_ = w.at;
+    {
+        const Layout& L = layout_;
+        uint8_t* exits[16];
+        int n = 0;
+        auto exitIf = [&](uint8_t cc) { w.u8(0x0f), w.u8(cc), exits[n++] = w.rel32(); };
+        w.rbx({0x8b}, kEax, L.eip);                      // mov eax, [eip]
+        w.rbx({0x3b}, kEax, L.runReturn), exitIf(0x84);  // cmp eax, [return]; je exit
+        w.rbx({0x3b}, kEax, L.runNative), exitIf(0x83);  // cmp eax, [natives]; jae exit
+        w.rbx({0x80}, 7, L.stop), w.u8(0), exitIf(0x85); // cmp byte [stop], 0; jne exit
+        w.u8(0x89), w.u8(0xc1);                          // mov ecx, eax
+        w.u8(0xc1), w.u8(0xe9), w.u8(15);                // shr ecx, 15
+        w.u8(0x31), w.u8(0xc1);                          // xor ecx, eax
+        w.u8(0x81), w.u8(0xe1), w.u32(L.blockMask);      // and ecx, mask
+        w.u8(0x48), w.u8(0x69), w.u8(0xc9), w.u32(L.blockSize); // imul rcx, rcx, size
+        w.u8(0x48), w.u8(0xba), w.u64(reinterpret_cast<uint64_t>(L.blocks)); // mov rdx, blocks
+        w.u8(0x48), w.u8(0x01), w.u8(0xd1);              // add rcx, rdx
+        auto rcxAt = [&](std::initializer_list<uint8_t> op, int r, size_t disp) { // op [rcx + disp32]
+            for (uint8_t b : op)
+                w.u8(b);
+            w.u8(uint8_t(0x81 | r << 3));
+            w.u32(uint32_t(disp));
+        };
+        rcxAt({0x39}, kEax, L.blockStart), exitIf(0x85); // cmp [start], eax; jne exit
+        w.rbx({0x8b}, kEdx, L.epoch);                    // mov edx, [codeEpoch]
+        rcxAt({0x39}, kEdx, L.blockEpoch), exitIf(0x85); // cmp [epoch], edx; jne exit
+        w.u8(0x48), w.u8(0xba), w.u64(reinterpret_cast<uint64_t>(&generation_)); // mov rdx, &generation
+        w.u8(0x8b), w.u8(0x12);                          // mov edx, [rdx]
+        rcxAt({0x39}, kEdx, L.blockGeneration), exitIf(0x85); // cmp [its generation], edx; jne exit
+        rcxAt({0x48, 0x8b}, kEdx, L.blockJit);           // mov rdx, [jit]
+        w.u8(0x48), w.u8(0x85), w.u8(0xd2), exitIf(0x84); // test rdx, rdx; jz exit
+        rcxAt({0x44, 0x0f, 0xb6}, 0, L.blockCount);      // movzx r8d, byte [count]
+        w.rbx({0x4c, 0x03}, 0, L.executed);              // add r8, [executed]
+        w.rbx({0x4c, 0x3b}, 0, L.runEnd), exitIf(0x87);  // cmp r8, [end]; ja exit
+        w.rbx({0x4c, 0x89}, 0, L.executed);              // mov [executed], r8
+        w.rbx({0x48, 0x89}, kEcx, L.countingBlock);      // mov [counting block], rcx
+        w.rbx({0x89}, kEax, L.countingStart);            // mov [counting start], eax
+        w.u8(0xff), w.u8(0xe2);                          // jmp rdx
+        for (int i = 0; i < n; ++i)
+            Emitter::patch(exits[i], w.at);
+        w.bytes(kEpilogue); // back to runCached
+    }
     bodyStart_ = used_ = (size_t(w.at - base_) + 15) & ~size_t(15);
 #if defined(RELUVA_JIT_WINDOWS)
     auto* fn = new RUNTIME_FUNCTION{};
@@ -319,11 +383,194 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end) {
     auto storeImm32 = [&](size_t disp, uint32_t v) { // mov dword [rbx + disp], v
         w.u8(0xc7), w.u8(0x83), w.u32(uint32_t(disp)), w.u32(v);
     };
+    // Whether the flags an instruction sets are read: by a later one in the
+    // block before one sets them all (moves and the like leave them), or
+    // after the block. INC and DEC keep CF, so they read it; ADC and SBB
+    // read it; a handler may read any.
+    auto flagsRead = [&](int i) {
+        for (int j = i + 1; j < count; ++j) {
+            const Op& n = ops[j];
+            switch (n.kind) {
+            case Kind::MovRegRm:
+            case Kind::MovRmReg:
+            case Kind::MovRmImm:
+            case Kind::MovRegImm:
+            case Kind::Lea:
+            case Kind::PushReg:
+            case Kind::PushImm:
+            case Kind::PopReg:
+                continue;
+            case Kind::Alu:
+                if (n.alu != 2 && n.alu != 3 && n.alu <= 8)
+                    return false;
+                return true;
+            default:
+                return true;
+            }
+        }
+        return true;
+    };
+    // r8d <- the register (zero-extended).
+    auto loadR8 = [&](int r, int size) {
+        if (size == 4)
+            w.rbx({0x44, 0x8b}, 0, regAt(r));
+        else
+            w.rbx({0x44, 0x0f, 0xb6}, 0, reg8At(r));
+    };
+    // The flags the host's last operation set, into eflags: those in
+    // `take` of LAHF's (SF ZF AF PF CF), OF if `of`, the rest of `clear`
+    // cleared. eax and ecx go.
+    auto mergeFlags = [&](uint32_t take, uint32_t clear) {
+        w.u8(0x41), w.u8(0x0f), w.u8(0x90), w.u8(0xc1); // seto r9b
+        w.u8(0x9f);                                     // lahf
+        w.u8(0x0f), w.u8(0xb6), w.u8(0xcc);             // movzx ecx, ah
+        w.u8(0x81), w.u8(0xe1), w.u32(take);            // and ecx, take
+        w.u8(0x45), w.u8(0x0f), w.u8(0xb6), w.u8(0xc9); // movzx r9d, r9b
+        w.u8(0x41), w.u8(0xc1), w.u8(0xe1), w.u8(11);   // shl r9d, 11
+        w.u8(0x44), w.u8(0x09), w.u8(0xc9);             // or ecx, r9d
+        w.rbx({0x8b}, kEax, L.eflags);                  // mov eax, [eflags]
+        w.u8(0x25), w.u32(~clear);                      // and eax, ~clear
+        w.u8(0x09), w.u8(0xc8);                         // or eax, ecx
+        w.rbx({0x89}, kEax, L.eflags);                  // mov [eflags], eax
+    };
+    // eip <- what the instruction makes it, from edx.
+    auto pushValue = [&](const Op& o) { // Cpu::push of edx: ESP down, then the store
+        w.rbx({0x8b}, kEax, regAt(4));
+        w.u8(0x83), w.u8(0xe8), w.u8(4);
+        w.rbx({0x89}, kEax, regAt(4));
+        store(o, kEdx, 4);
+    };
     bool eipSet = false; // by the last: a handler sets it
     for (int i = 0; i < count; ++i) {
         const Op& o = ops[i];
         eipSet = false;
         switch (o.kind) {
+        case Kind::Alu: {
+            const int size = o.size;
+            const bool test = o.alu == 8, incDec = o.alu >= 9;
+            const bool writes = o.alu != 7 && !test;
+            const bool memA = o.mem && (o.form == 0 || o.form == 3);
+            // The first operand into edx (its address kept in r10d), the
+            // second into r8d or the immediate.
+            if (memA) {
+                address(o);
+                load(o, kEdx, size);
+                w.u8(0x41), w.u8(0x89), w.u8(0xc2); // mov r10d, eax
+            } else if (o.form == 2)
+                loadReg(kEdx, 0, size);
+            else
+                loadReg(kEdx, o.form == 1 ? o.reg : o.rm, size);
+            if (o.form == 0)
+                loadR8(o.reg, size);
+            else if (o.form == 1) {
+                if (o.mem) {
+                    address(o);
+                    check(o, size);
+                    if (size == 4)
+                        w.u8(0x45), w.u8(0x8b), w.u8(0x04), w.u8(0x04); // mov r8d, [r12 + rax]
+                    else
+                        w.u8(0x45), w.u8(0x0f), w.u8(0xb6), w.u8(0x04), w.u8(0x04); // movzx r8d, byte [r12 + rax]
+                } else
+                    loadR8(o.rm, size);
+            }
+            if (o.alu == 2 || o.alu == 3)
+                w.rbx({0x0f, 0xba}, 4, L.eflags), w.u8(0); // bt dword [eflags], 0: CF in
+            if (incDec) {
+                w.u8(size == 4 ? 0xff : 0xfe), w.u8(o.alu == 9 ? 0xc2 : 0xca); // inc/dec edx or dl
+            } else if (o.form >= 2) {
+                if (test)
+                    w.u8(size == 4 ? 0xf7 : 0xf6), w.u8(0xc2); // test edx, imm
+                else
+                    w.u8(size == 4 ? 0x81 : 0x80), w.u8(uint8_t(0xc2 | o.alu << 3)); // op edx, imm
+                if (size == 4)
+                    w.u32(o.imm);
+                else
+                    w.u8(uint8_t(o.imm));
+            } else {
+                const uint8_t op = test ? 0x84 : uint8_t(o.alu << 3);
+                w.u8(0x44), w.u8(uint8_t(op | (size == 4 ? 1 : 0))), w.u8(0xc2); // op edx, r8d (dl, r8b)
+            }
+            if (flagsRead(i)) {
+                if (incDec)
+                    mergeFlags(0xd4, 0x8d4); // CF kept
+                else if (o.alu == 1 || o.alu == 4 || o.alu == 6 || test)
+                    mergeFlags(0xc5, 0x8d5); // AF cleared, as the interpreter has it
+                else
+                    mergeFlags(0xd5, 0x8d5);
+            }
+            if (writes) {
+                if (memA) {
+                    w.u8(0x44), w.u8(0x89), w.u8(0xd0); // mov eax, r10d
+                    store(o, kEdx, size);
+                } else
+                    storeReg(o.form == 1 ? o.reg : o.form == 2 ? 0 : o.rm, kEdx, size);
+            }
+            break;
+        }
+        case Kind::Jcc: {
+            // condition<cc> on eflags: test it, then eip one way or the other.
+            w.rbx({0x8b}, kEax, L.eflags); // mov eax, [eflags]
+            static constexpr uint32_t kMask[6] = {0x800, 0x1, 0x40, 0x41, 0x80, 0x4};
+            const int c = o.cc >> 1;
+            if (c < 6) {
+                w.u8(0xa9), w.u32(kMask[c]); // test eax, mask
+            } else {
+                w.u8(0x89), w.u8(0xc1);           // mov ecx, eax
+                w.u8(0xc1), w.u8(0xe9), w.u8(4);  // shr ecx, 4: OF to SF's place
+                w.u8(0x31), w.u8(0xc1);           // xor ecx, eax: SF != OF
+                if (c == 7) {
+                    w.u8(0xd1), w.u8(0xe0);      // shl eax, 1: ZF to SF's place
+                    w.u8(0x09), w.u8(0xc1);      // or ecx, eax
+                }
+                w.u8(0xf7), w.u8(0xc1), w.u32(0x80); // test ecx, 0x80
+            }
+            const uint32_t after = o.start + o.length;
+            w.u8(0xba), w.u32(after);                                // mov edx, after
+            w.u8(0x41), w.u8(0xb8), w.u32(after + o.imm);            // mov r8d, target
+            w.u8(0x41), w.u8(0x0f), w.u8((o.cc & 1) ? 0x44 : 0x45), w.u8(0xd0); // cmovz/cmovnz edx, r8d
+            w.rbx({0x89}, kEdx, L.eip);
+            storeImm32(L.start, o.start);
+            eipSet = true;
+            break;
+        }
+        case Kind::Jmp:
+            storeImm32(L.eip, o.start + o.length + o.imm);
+            storeImm32(L.start, o.start);
+            eipSet = true;
+            break;
+        case Kind::CallRel:
+            w.u8(0xba), w.u32(o.start + o.length); // the return address
+            pushValue(o);
+            storeImm32(L.eip, o.start + o.length + o.imm);
+            storeImm32(L.start, o.start);
+            eipSet = true;
+            break;
+        case Kind::JmpRm:
+        case Kind::CallRm:
+            if (o.mem) {
+                address(o);
+                load(o, kEdx, 4);
+            } else
+                loadReg(kEdx, o.rm, 4);
+            if (o.kind == Kind::CallRm) {
+                w.u8(0x41), w.u8(0x89), w.u8(0xd1);     // mov r9d, edx: the target
+                w.u8(0xba), w.u32(o.start + o.length); // the return address
+                pushValue(o);
+                w.rbx({0x44, 0x89}, 1, L.eip); // mov [eip], r9d
+            } else
+                w.rbx({0x89}, kEdx, L.eip);
+            storeImm32(L.start, o.start);
+            eipSet = true;
+            break;
+        case Kind::Ret:
+            // Cpu::pop, then ESP past the immediate.
+            w.rbx({0x8b}, kEax, regAt(4));
+            load(o, kEdx, 4);
+            w.rbx({0x81}, 0, regAt(4)), w.u32(4 + o.imm); // add dword [esp], 4 + imm
+            w.rbx({0x89}, kEdx, L.eip);
+            storeImm32(L.start, o.start);
+            eipSet = true;
+            break;
         case Kind::MovRegRm:
             if (o.mem) {
                 address(o);
@@ -388,7 +635,10 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end) {
         storeImm32(L.eip, end);
         storeImm32(L.start, ops[count - 1].start);
     }
-    w.bytes(kEpilogue);
+    // On to the next block (a jump within the buffer: unwinding from the
+    // call before doesn't take it for an epilogue).
+    w.u8(0xe9);
+    Emitter::patch(w.rel32(), dispatch_);
     // A write to a page holding cached code: codeEpoch_ on (inc dword), then back.
     for (int i = 0; i < nMarks; ++i) {
         Emitter::patch(marks[i].from, w.at);

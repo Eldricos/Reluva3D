@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <unordered_map>
 #include <utility>
 
 #if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
@@ -489,14 +490,37 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
         if (Jit::supported()) {
             const char* self = reinterpret_cast<const char*>(this);
             auto at = [&](const void* member) { return size_t(static_cast<const char*>(member) - self); };
-            jit_ = std::make_unique<Jit>(Jit::Layout{at(reg.data()), at(&eip), at(&instructionStart_), at(&codeEpoch_),
-                                                     at(&fsBase), memory_.data(), codePages_.data(), span_,
-                                                     &Cpu::jitMemoryFault});
+            Jit::Layout l{};
+            l.reg = at(reg.data()), l.eip = at(&eip), l.start = at(&instructionStart_), l.epoch = at(&codeEpoch_);
+            l.eflags = at(&eflags);
+            l.fsBase = at(&fsBase), l.memory = memory_.data(), l.pages = codePages_.data(), l.span = span_;
+            l.memoryFault = &Cpu::jitMemoryFault;
+            l.executed = at(&executed_), l.countingBlock = at(&counting_.block), l.countingStart = at(&counting_.start);
+            static_assert(sizeof(stop_) == 1, "the stop flag a byte, as the Jit reads it");
+            l.stop = at(&stop_), l.runReturn = at(&run_.returnAddress), l.runNative = at(&run_.nativeStart);
+            l.runEnd = at(&run_.end);
+            l.blocks = reinterpret_cast<const uint8_t*>(blocks_.data());
+            l.blockSize = uint32_t(sizeof(Block)), l.blockMask = kBlockEntries - 1;
+            l.blockStart = offsetof(Block, start), l.blockEpoch = offsetof(Block, epoch);
+            l.blockCount = offsetof(Block, count), l.blockGeneration = offsetof(Block, jitGeneration);
+            l.blockJit = offsetof(Block, jit);
+            static_assert(sizeof(Block::count) == 1 && sizeof(Block::jitGeneration) == 4, "as the Jit reads them");
+            jit_ = std::make_unique<Jit>(l);
             if (!jit_->ready())
                 jit_.reset();
         }
     }
     Jit* const jit = jitOn ? jit_.get() : nullptr;
+    // This run's bounds, for the Jit's dispatch; the run this one is
+    // inside of (a native's call back in) gets its own back after.
+    struct Bounds {
+        decltype(run_)& now;
+        const decltype(run_) before;
+        Bounds(decltype(run_)& r, uint32_t ret, uint32_t natives, uint64_t end) : now(r), before(r) {
+            now = {ret, natives, end};
+        }
+        ~Bounds() { now = before; }
+    } bounds{run_, returnAddress, nativeStart, limit_ ? limitAt_ : ~uint64_t(0)};
     const uint64_t end = limit_ ? limitAt_ : ~uint64_t(0);
     Block* const blocks = blocks_.data();
     const uint8_t* const memory = memory_.data();
@@ -541,9 +565,11 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
             counting_.block = &b; // two stores: as one, Visual Studio's build stalled on it
             counting_.start = eip;
             if (jit && b.start == eip) { // (not one rebuilt each time it runs)
-                if (b.jitGeneration != jit->generation())
+                // Made on its second run: many blocks made run once, and
+                // are made again for another address before the next.
+                if (b.jitGeneration != jit->generation() && ++b.runs >= 2)
                     compileBlock(b);
-                if (b.jit) {
+                if (b.jit && b.jitGeneration == jit->generation()) {
                     // Counted while it runs: native code a native's call back
                     // in made mustn't be forgotten under it (compileBlock).
                     struct Depth {
@@ -580,9 +606,52 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
 // called, as the loop in runCached does. With the buffer full, all the code
 // is forgotten and made again as blocks run, unless some is running (a
 // native called back in): then this block runs through the loop for now.
+namespace {
+// The handlers the Jit makes with flags, and what each is.
+struct Made {
+    Jit::Kind kind;
+    uint8_t alu, form, size, cc;
+};
+struct MadeTable {
+    std::unordered_map<const void*, Made> map;
+    template <class F>
+    Made& operator[](F* handler) {
+        return map[reinterpret_cast<const void*>(handler)];
+    }
+};
+// By the handler's address.
+const std::unordered_map<const void*, Made>& madeWithFlags() {
+    using O = CachedOps;
+    using K = Jit::Kind;
+    static const std::unordered_map<const void*, Made> made = [] {
+        MadeTable m;
+        auto sizes = [&]<int Op>(std::integral_constant<int, Op>) {
+            m[&O::aluRmReg<Op, 1>] = {K::Alu, Op, 0, 1, 0}, m[&O::aluRmReg<Op, 4>] = {K::Alu, Op, 0, 4, 0};
+            m[&O::aluRegRm<Op, 1>] = {K::Alu, Op, 1, 1, 0}, m[&O::aluRegRm<Op, 4>] = {K::Alu, Op, 1, 4, 0};
+            m[&O::aluAccImm<Op, 1>] = {K::Alu, Op, 2, 1, 0}, m[&O::aluAccImm<Op, 4>] = {K::Alu, Op, 2, 4, 0};
+            m[&O::aluRmImm<Op, 1>] = {K::Alu, Op, 3, 1, 0}, m[&O::aluRmImm<Op, 4>] = {K::Alu, Op, 3, 4, 0};
+        };
+        [&]<int... Op>(std::integer_sequence<int, Op...>) {
+            (sizes(std::integral_constant<int, Op>{}), ...);
+        }(std::make_integer_sequence<int, 8>{});
+        m[&O::testRmReg<1>] = {K::Alu, 8, 0, 1, 0}, m[&O::testRmReg<4>] = {K::Alu, 8, 0, 4, 0};
+        m[&O::testAccImm<1>] = {K::Alu, 8, 2, 1, 0}, m[&O::testAccImm<4>] = {K::Alu, 8, 2, 4, 0};
+        m[&O::incDecReg<0>] = {K::Alu, 9, 3, 4, 0}, m[&O::incDecReg<5>] = {K::Alu, 10, 3, 4, 0};
+        m[&O::incDecRm<0, 1>] = {K::Alu, 9, 3, 1, 0}, m[&O::incDecRm<0, 4>] = {K::Alu, 9, 3, 4, 0};
+        m[&O::incDecRm<5, 1>] = {K::Alu, 10, 3, 1, 0}, m[&O::incDecRm<5, 4>] = {K::Alu, 10, 3, 4, 0};
+        [&]<int... Cc>(std::integer_sequence<int, Cc...>) {
+            ((m[&O::jcc<Cc>] = {K::Jcc, 0, 0, 4, uint8_t(Cc)}), ...);
+        }(std::make_integer_sequence<int, 16>{});
+        return m.map;
+    }();
+    return made;
+}
+} // namespace
+
 void Cpu::compileBlock(Block& b) {
     using O = CachedOps;
     using K = Jit::Kind;
+    static const bool flags = Jit::flagsOps();
     Jit::Op ops[kBlockOps];
     uint32_t at = b.start;
     for (int i = 0; i < b.count; ++i) {
@@ -610,7 +679,23 @@ void Cpu::compileBlock(Block& b) {
             o.kind = K::PushImm;
         else if (run == &O::popReg)
             o.kind = K::PopReg;
-        else
+        else if (run == &O::jmp)
+            o.kind = K::Jmp;
+        else if (run == &O::call)
+            o.kind = K::CallRel;
+        else if (run == &O::jmpRm)
+            o.kind = K::JmpRm;
+        else if (run == &O::callRm)
+            o.kind = K::CallRm;
+        else if (run == &O::ret)
+            o.kind = K::Ret;
+        else if (auto it = madeWithFlags().find(reinterpret_cast<const void*>(run));
+                 flags && it != madeWithFlags().end()) {
+            o.kind = it->second.kind, o.alu = it->second.alu, o.form = it->second.form;
+            o.size = it->second.size, o.cc = it->second.cc;
+            if (run == &O::incDecReg<0> || run == &O::incDecReg<5>)
+                o.mem = false; // INC and DEC of a register: its number in rm
+        } else
             o.kind = K::Call, o.handler = reinterpret_cast<const void*>(run), o.entry = &e;
         // One run from its bytes (length 0) can't be made here: it reads eip.
         if (!e.length)
@@ -650,6 +735,7 @@ void Cpu::build(Block& b, uint32_t at) {
     b.count = 0;
     b.jit = nullptr; // made again when it runs
     b.jitGeneration = 0;
+    b.runs = 0;
     uint32_t bytes = 0;
     for (;;) {
         Cached& e = b.ops[b.count++];

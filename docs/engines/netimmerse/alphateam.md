@@ -739,8 +739,11 @@ Progress:
     both resolutions.
   - The blocks as native code (`common/x86/jit.cpp`, docs/common/x86.md):
     moves, LEA, PUSH and POP made host instructions, the rest called
-    directly. The program's thread 12% quicker on the route, the same
-    instructions and frames. `RELUVA_NO_JIT=1` in the environment runs
+    directly; then the ALU and jumps made too, with flags only where
+    read, and blocks going on to the next in the native code. The
+    program's thread on the route 26% quicker than with the
+    interpreter's loop (40 s from 54 s), the same instructions and
+    frames. A profile at 1024x768 then showed 35 to 40 frames a second. `RELUVA_NO_JIT=1` in the environment runs
     without it, to compare.
 - Not there yet:
   - **more speed**: the program's own code (NetImmerse's scene graph,

@@ -297,6 +297,7 @@ private:
         uint32_t next[2] = {0xffffffffu, 0xffffffffu};
         uint32_t jitGeneration = 0; // the Jit's when `jit` was made for it (0: none)
         const uint8_t* jit = nullptr;
+        uint8_t runs = 0; // since made, before its code (made on the second)
         Cached ops[kBlockOps];
         uint64_t lastMask = 0;
         uint64_t code[kBlockWords]{};
@@ -306,6 +307,12 @@ private:
     std::vector<Block> blocks_;
     std::unique_ptr<Jit> jit_; // made with the blocks, if it can be
     int jitDepth_ = 0;         // native code running (natives call back in): none, before the Jit forgets it
+    // runCached's bounds, for the Jit's dispatch: where the run returns,
+    // where natives start, and the count's limit.
+    struct {
+        uint32_t returnAddress = 0, nativeStart = 0;
+        uint64_t end = 0;
+    } run_;
     void compileBlock(Block& b);
     static void jitMemoryFault(void* cpu, uint32_t address, uint32_t size); // for the Jit's code
     void decode(Cached& e, uint32_t at);

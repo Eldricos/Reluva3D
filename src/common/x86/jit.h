@@ -22,25 +22,46 @@ namespace reluva::x86 {
 // only where something reads them: before each handler called, at a
 // fault, and at the block's end.
 //
+// A block's code ends in a jump to the dispatch, which does what
+// runCached's loop does between blocks where all is ready: unless the run
+// is over (eip at its return address or a native), or asked to stop, it
+// finds the next block, and if that's there with its bytes unchanged
+// since checked (the code epoch), made in this generation and within the
+// instruction limit, counts it and jumps to its code. Anything else goes
+// back to runCached, which sees to it.
+//
 // The code lives in one buffer of executable memory, which says how to
 // unwind through it (C++ exceptions, the faults, pass through it):
 // RtlAddFunctionTable on Windows, __register_frame on Linux. Every block's
 // code runs in the frame its entry made (rbx the Cpu, r12 the memory, r13
-// the code pages' marks, 32 bytes of argument space) and ends in that
-// frame's epilogue.
+// the code pages' marks, 32 bytes of argument space); the dispatch leaves
+// it through that frame's epilogue.
 class Jit {
 public:
     // Whether this build and system can make native code.
     static bool supported();
+    // Whether instructions with flags can be made (Kind::Alu): the host's
+    // LAHF in 64-bit mode, which a few of the first x86-64 processors lack.
+    static bool flagsOps();
 
     // Where the Cpu keeps what the code reads and writes.
     struct Layout {
-        size_t reg, eip, start, epoch, fsBase; // offsets into the Cpu
+        size_t reg, eip, start, epoch, fsBase, eflags; // offsets into the Cpu
         const uint8_t* memory;                 // its memory
         const uint8_t* pages;                  // a byte per page, nonzero where code was cached
         uint32_t span;                         // the memory's size less the first page (Cpu::valid)
         // Throws the fault for an access outside memory: (cpu, address, size).
         void (*memoryFault)(void*, uint32_t, uint32_t);
+        // For going from block to block (Jit::compile's dispatch): offsets
+        // into the Cpu of the count run, the block counted and its start,
+        // the stop flag (a byte), and the run's return address, where
+        // natives start and the count's limit (runCached's);
+        size_t executed, countingBlock, countingStart, stop, runReturn, runNative, runEnd;
+        // the blocks (Cpu::Block, `blockSize` bytes each, `blockMask` + 1 of
+        // them, by (eip ^ eip >> 15) & blockMask), and offsets into one.
+        const uint8_t* blocks;
+        uint32_t blockSize, blockMask;
+        size_t blockStart, blockEpoch, blockCount, blockGeneration, blockJit;
     };
     explicit Jit(const Layout& layout);
     ~Jit();
@@ -59,11 +80,25 @@ public:
         PushReg,   // push rm
         PushImm,
         PopReg,    // pop rm
+        // With flags (Jit::flagsOps: where the host has LAHF). `alu` is
+        // the operation: 0-7 ADD OR ADC SBB AND SUB XOR CMP, 8 TEST, 9
+        // INC, 10 DEC; `form` the operands: 0 r/m, reg; 1 reg, r/m; 2 the
+        // accumulator, imm; 3 r/m, imm (INC and DEC: r/m).
+        Alu,
+        // Going elsewhere (a block's last): Jcc on `cc`, and the relative
+        // JMP and CALL (to imm past the end), JMP and CALL to r/m, RET imm.
+        Jcc,
+        Jmp,
+        CallRel,
+        JmpRm,
+        CallRm,
+        Ret,
     };
     struct Op {
         Kind kind = Kind::Call;
         uint8_t size = 4, length = 0;
         uint8_t reg = 0, rm = 0, scale = 0;
+        uint8_t alu = 0, form = 0, cc = 0;
         int8_t base = -1, index = -1;
         bool mem = false, fs = false;
         uint32_t disp = 0, imm = 0;
@@ -87,6 +122,7 @@ private:
     uint8_t* base_ = nullptr;
     size_t size_ = 0, used_ = 0, bodyStart_ = 0;
     uint32_t generation_ = 1;
+    const uint8_t* dispatch_ = nullptr; // where each block's code goes at its end
     void (*entry_)(void*, const uint8_t*) = nullptr;
     void* unwind_ = nullptr; // what was registered, to take back
 };
