@@ -59,29 +59,58 @@ The rooms with a `secretpass:` object (the kitchen, lounge, study and
 conservatory) have the passages; each leads to the one of them furthest
 away, in the opposite corner.
 
+## What `Clue.exe` keeps of it
+
+Read from `Clue.exe` 2.2's code (November 2026), which confirms all of the
+above. Its board is the floors' timings (each placement's, else its
+object's; time and a 4-byte value, read at 0x42AD90): time 1000 gives
+the square's zone, 1 to 9 the rooms (hall, lounge, dining room, kitchen,
+ballroom, conservatory, billiard room, library, study, as above), 10
+the corridors, 0 the stairway's middle: 188 corridor squares and each
+room's count as in the table above. Time 1100 marks the 17 squares just
+inside the doors (`Ot_..dr_...`), its value the way out (0 north, 2
+east, 4 south, 6 west): the same doors as the lintels give. The secret
+passages (`secretpass:` objects) have 1000 their room's zone, 1400 the
+zone they lead to (lounge and conservatory, kitchen and study, as
+above) and 1300 the way they face.
+
 ## In a room
 
-Where suspects stand in a room isn't in the level. Two recorded games
-played on the board from above (the VM recording, 5:00-7:40, and "The
-Classic", C 33:00-56:00) show it: each pawn found on the map's 13-pixel
-grid, the squares it rested on in rooms noted. They are near the rooms'
-front edges, those nearest the camera (largest x and y), so that the
-suspects show in the house's view:
+Where a suspect stands in a room isn't kept anywhere: `Clue.exe` looks
+for a place (0x41C480) on its walk grid, cells 32 units square, those
+under furniture (but the wall lamps), hot spots, secret passages and
+walls on the floor blocked (0x427FC0), and those other suspects stand
+on taken. From a point, it tries the points 32 apart within 128 of it,
+then 160 ... 288, each time from the largest y down and, in each row,
+from the largest x down: the first whose cell is free and whose square
+(the one at the cell's corner plus 32) is in the room and not a door's
+is where the suspect goes. The point is the middle of the door's
+square, for a suspect walking in; 32 units in front of the room's
+passage, for one coming through it (0x425CC0); where the suggester
+stands, for one brought in by a suggestion (0x41BEA0). So suspects
+gather at the rooms' front edges, nearest the camera, as recordings
+show: entering by each door, the first places are
 
-| Room | Squares, most used first |
-|---|---|
-| Hall | (27, 17) (26, 17) |
-| Lounge | (32, 16) (34, 16) (33, 16) (37, 16) |
-| Dining Room | (32, 23) (34, 25) (34, 26) (36, 26) (32, 25) |
-| Ballroom | (24, 32) (26, 34) (26, 33) (28, 31) (24, 31) (26, 35) (27, 32) |
-| Conservatory | (18, 32) (18, 34) (18, 33) (18, 35) (17, 36) (17, 37) |
-| Billiard Room | (18, 27) (17, 27) (16, 27) (16, 26) |
-| Library | (18, 21) (17, 21) |
+| Room | Door's square | First places (their squares) |
+|---|---|---|
+| Hall | (24, 17), (25, 17) | (26, 17), (27, 17) |
+| Lounge | (30, 16) | (32, 16), (31, 16) |
+| Dining Room | (30, 20), (29, 23) | (32, 22), (31, 25) |
+| Kitchen | (32, 29) | (34, 31), (33, 31) |
+| Ballroom | four | (23, 32), (24, 30), (27, 30), (27, 32) |
+| Conservatory | (17, 30) | (18, 32), (17, 32) |
+| Billiard Room | (14, 23), (18, 26) | (13, 25), (18, 27), (17, 27) |
+| Library | (16, 21), (19, 19) | (18, 21), (17, 21) |
+| Study | (19, 14) | (18, 14), (17, 14) |
 
-None was seen in the kitchen or the study. Reluva stands suspects on
-these first, in this order, each on the first one free; then on the
-squares along the room's front edges, clear of furniture first, nearest
-the front corner first.
+Two recorded games played on the board from above (the VM recording,
+5:00-7:40, and "The Classic", C 33:00-56:00) agree: the squares pawns
+rested on in rooms were the hall's (27, 17) (26, 17), the lounge's
+(32, 16), the conservatory's (18, 32), the billiard room's (18, 27)
+(17, 27), the library's (18, 21) (17, 21), and in the dining room and
+ballroom their neighbours. (Reluva placed suspects on those recorded
+squares before this was read; `Board::standing()` keeps a list of the
+kind for the rules' own use.)
 
 ## Moving
 

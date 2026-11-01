@@ -25,6 +25,7 @@
 
 #include <array>
 #include <deque>
+#include <set>
 #include <functional>
 #include <iosfwd>
 #include <map>
@@ -106,7 +107,10 @@ private:
     void startWalk(const std::vector<Place>& path);
     void walkPlan();
     void placeWalkers(bool walk);
-    std::pair<int, int> roomSpot(int suspect, int room) const;
+    // Where a suspect stands in a room, looked for from a point (Clue.exe's
+    // 0x41C480): the walk grid's free cells around it, in the room.
+    std::pair<int, int> roomSpot(int suspect, int room, int fromX, int fromY) const;
+    void buildWalkGrid();
     void suggestionMade();
     void accusationMade(const Accusation& a);
     void endTurn();
@@ -190,6 +194,14 @@ private:
     int mouseX_ = 320, mouseY_ = 200;
     int follow_ = -1; // the suspect the camera follows while walking
     std::array<Walker, kSuspectCount> walkers_;
+    // Clue.exe's walk grid: 32-unit cells, those under furniture, hot
+    // spots, passages and walls blocked; and the secret passages (their
+    // room, place and the way they face, 0 north ... 6 west).
+    std::set<std::pair<int, int>> blocked_;
+    struct Passage {
+        int room = kNoRoom, x = 0, y = 0, facing = 0;
+    };
+    std::vector<Passage> passages_;
     std::vector<Place> plan_; // a human's move being planned
     uint64_t rollStart_ = 0;  // the die rolling, for its animation
 

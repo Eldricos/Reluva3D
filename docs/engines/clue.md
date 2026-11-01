@@ -537,13 +537,13 @@ levels of 255 across the view.
 
 ### Not yet as the original
 
-- Where suspects stand in the kitchen and the study isn't recorded
-  ([formats/clue/board.md](../formats/clue/board.md)). The cards window
-  fills as the original's: in card order from the bottom right, right
-  then left, row by row upwards (Playthroughs 01 and 02, both hands
-  whole).
-- The clickable objects ("please choose an active object") come later
-  (step 7).
+- Suspects walk straight from a door to their place in a room, where
+  `Clue.exe` finds a path over its walk grid (0x41A0C0); the place is
+  its (see [formats/clue/board.md](../formats/clue/board.md)).
+
+The cards window fills as the original's: in card order from the bottom
+right, right then left, row by row upwards (Playthroughs 01 and 02,
+both hands whole).
 
 ## The data viewer
 

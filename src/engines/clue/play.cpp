@@ -208,6 +208,7 @@ Error Play::start(const std::array<Player, kSuspectCount>& players, bool noDieRo
         Board::standingPoint(board_.start(s), walkers_[size_t(s)].x, walkers_[size_t(s)].y);
         walkers_[size_t(s)].facing = 4;
     }
+    buildWalkGrid();
     for (auto& m : shownBy_)
         m.fill(-1);
     // Each player's notepad starts empty, Auto Notes or not (Clue.exe's
@@ -290,6 +291,7 @@ Error Play::load(std::istream& in) {
         return damaged;
     if (Error err = board_.build(level_))
         return err;
+    buildWalkGrid();
     if (Error err = game_.load(in, board_))
         return err;
     for (int s = 0; s < kSuspectCount; ++s)
@@ -570,26 +572,80 @@ void Play::endTurn() {
     beginTurn();
 }
 
-// Where a suspect stands in a room: its first place no one else stands on.
-std::pair<int, int> Play::roomSpot(int suspect, int room) const {
-    for (const Square& sq : board_.standing(room)) {
-        int x, y;
-        Board::standingPoint(sq, x, y);
-        bool taken = false;
-        for (int k = 0; k < kSuspectCount; ++k) {
-            if (k == suspect)
-                continue;
+namespace {
+
+// Clue.exe's divisions towards 0 (its grids).
+int cell32(int v) { return (v + (v < 0 ? 31 : 0)) >> 5; }
+
+} // namespace
+
+void Play::buildWalkGrid() {
+    // As each kind of object marks the cells under its box (0x427FC0, from
+    // its set-up): furniture but the wall lamps (secondary type 1), the hot
+    // spots, the secret passages, and walls standing on the floor (their
+    // height and box's under 6).
+    blocked_.clear();
+    passages_.clear();
+    for (const Mansion::Item& it : mansion_.items()) {
+        const Animation::Frame& f0 = it.animation->frames[0];
+        bool blocks = false;
+        switch (it.kind) {
+        case 0: blocks = it.box.z + f0.solid <= 5; break;
+        case 3: blocks = it.subKind != 1; break;
+        case 4: case 5: case 8: blocks = true; break;
+        default: break;
+        }
+        if (blocks && f0.solid != 0)
+            for (int x = it.box.x; x < it.box.x + it.box.sizeX; x += 32)
+                for (int y = it.box.y; y < it.box.y + it.box.sizeY; y += 32)
+                    blocked_.insert({cell32(x), cell32(y)});
+        if (it.kind == 8) {
+            Passage p;
+            p.x = it.worldX;
+            p.y = it.worldY;
+            // Its timings: 1000 its room's zone (rooms 1-9), 1300 the way it
+            // faces.
+            for (const Timing& t : mansion_.level()->placements[it.placement].timings) {
+                if (t.time == 1000)
+                    p.room = int(t.raw[3]) - 1;
+                if (t.time == 1300)
+                    p.facing = int(t.raw[3]);
+            }
+            passages_.push_back(p);
+        }
+    }
+}
+
+std::pair<int, int> Play::roomSpot(int suspect, int room, int fromX, int fromY) const {
+    // The cells the others stand on (where they are going) are taken.
+    std::set<std::pair<int, int>> taken;
+    for (int k = 0; k < kSuspectCount; ++k)
+        if (k != suspect) {
             const Walker& w = walkers_[size_t(k)];
             const int ex = w.route.empty() ? w.x : w.route.back().first;
             const int ey = w.route.empty() ? w.y : w.route.back().second;
-            taken = taken || (ex == x && ey == y);
+            taken.insert({cell32(ex), cell32(ey)});
         }
-        if (!taken)
-            return {x, y};
-    }
+    // Squares of 128, 160 ... 288 around the point, 32 apart, each from its
+    // largest y and x: the first cell free, in the room, not a door's.
+    for (int r = 128; r < 320; r += 32)
+        for (int y = fromY + r; y >= fromY - r; y -= 32)
+            for (int x = fromX + r; x >= fromX - r; x -= 32) {
+                const std::pair<int, int> c{cell32(x), cell32(y)};
+                if (blocked_.count(c) || taken.count(c))
+                    continue;
+                const Square sq = Board::squareAt(c.first * 32 + 32, c.second * 32 + 32);
+                if (board_.roomAt(sq) != room)
+                    continue;
+                const bool door = std::any_of(board_.doors().begin(), board_.doors().end(),
+                                              [&](const Board::Door& d) { return d.inside == sq; });
+                if (!door)
+                    return {x, y};
+            }
+    // None: the room's first square (it can't be, with six suspects).
     int x = 0, y = 0;
-    if (!board_.standing(room).empty())
-        Board::standingPoint(board_.standing(room).front(), x, y);
+    if (!board_.roomSquares(room).empty())
+        Board::standingPoint(board_.roomSquares(room).front(), x, y);
     return {x, y};
 }
 
@@ -616,13 +672,17 @@ void Play::startWalk(const std::vector<Place>& path) {
             w.route.push_back(point(p.square));
             continue;
         }
-        // Into a room: through its door, to a free place in it.
+        // Into a room: through its door, to a free place in it looked for
+        // from the door's square's middle (Clue.exe's 0x4242A2).
+        int fromX = w.x, fromY = w.y;
         for (const Board::Door& d : board_.doors())
             if (d.room == p.room && i > 0 && d.outside == path[i - 1].square) {
                 w.route.push_back(point(d.inside));
+                fromX = Board::kGridOrigin + d.inside.x * Board::kSquareSize + 32;
+                fromY = Board::kGridOrigin + d.inside.y * Board::kSquareSize + 32;
                 break;
             }
-        w.route.push_back(roomSpot(s, p.room));
+        w.route.push_back(roomSpot(s, p.room, fromX, fromY));
     }
     if (!look_.walkAnimations || w.route.empty()) {
         if (!w.route.empty()) {
@@ -650,7 +710,17 @@ void Play::placeWalkers(bool walk) {
         const Place& p = game_.place(s);
         if (p.inRoom()) {
             if (board_.roomAt(board_.squareAt(w.x, w.y)) != p.room) {
-                const auto [x, y] = roomSpot(s, p.room);
+                // Through a secret passage: from 32 in front of the one in
+                // the room (0x425CC0); brought in by a suggestion: from
+                // where the suggester stands (0x41BEA0).
+                int fromX = walkers_[size_t(game_.turn())].x, fromY = walkers_[size_t(game_.turn())].y;
+                if (s == game_.turn())
+                    for (const Passage& ps : passages_)
+                        if (ps.room == p.room) {
+                            fromX = ps.x + (ps.facing == 2 ? 32 : ps.facing == 6 ? -32 : 0);
+                            fromY = ps.y + (ps.facing == 4 ? 32 : ps.facing == 0 ? -32 : 0);
+                        }
+                const auto [x, y] = roomSpot(s, p.room, fromX, fromY);
                 w.x = x;
                 w.y = y;
             }
