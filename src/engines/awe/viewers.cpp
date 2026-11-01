@@ -345,8 +345,11 @@ ScenePage::ScenePage(ViewerContext& ctx) : Page(ctx) {
         // forgets, for a new place, how the scenes were left.
         logScript("  (location " + location + (flush ? ", a new place" : "") + ")");
         if (flush) {
-            hiddenNames_.clear();
+            // A new place: the game drops the last one's scenes, and its
+            // characters with them.
             positions_.clear();
+            npcPositions_.clear();
+            keptCharacters_.clear();
         }
         beginLoad(location, true);
     };
@@ -429,7 +432,7 @@ void ScenePage::load() {
     slots_.reset();
     optionsMenu_.reset();
     closePuzzle();
-    shownNames_.clear();
+    shownNow_.clear();
     if (names_.empty())
         return draw();
     auto read = [&](const std::string& name, Ac2Scene& out) {
@@ -518,6 +521,10 @@ void ScenePage::load() {
         } else if (const Ac2Record* sprt = o->part("SPRT"); sprt && sprt->i("scroll") != 0) {
             scrolls_[o] = Scroll{o->f("x"), o->f("y"), 0};
         }
+    // Entering the scene switches its objects on (0x4362b0, slot 0x48):
+    // each shown or not by its condition now, whatever a script did on
+    // an earlier visit.
+    retestObjects();
     if (playing_) {
         enterScene();
     } else {
@@ -815,7 +822,6 @@ void ScenePage::newGame() {
     state_.onTest = std::move(onTest);
     state_.values["master"] = 1; // the debug switch, off ([0x48b084] = 1)
     dialogueAct_ = "-";
-    hiddenNames_.clear();
     positions_.clear();
     scriptLog_.clear();
     fade_ = fadeTarget_ = 0;
@@ -829,7 +835,7 @@ void ScenePage::newGame() {
     load_ = LocationLoad();
     restoring_.reset();
     npcPositions_.clear();
-    pausedNpcs_.clear();
+    keptCharacters_.clear();
     gameScene_.clear();
     previousMenu_.clear();
     yesNo_.reset();
@@ -1119,7 +1125,9 @@ void ScenePage::loadCharacters() {
                 const SaveGame::Placement& p = kept->second;
                 c.x = p.position[0], c.y = p.position[1], c.z = p.position[2], c.rotY = p.rotation[1];
             }
-        c.home = normalizeDegrees(c.rotY * 57.29578f);
+        // Its heading in the scene's file: one put back where it was left
+        // keeps the home it had.
+        c.home = normalizeDegrees(o->f("rotY") * 57.29578f);
         if (const Ac2Record* m = o->part("MODL"); m && m->field("shadow"))
             c.shadow = m->i("shadow") != 0;
         // Its animations: <who>_<name>.gr2 beside its model, loaded as
@@ -1179,13 +1187,25 @@ void ScenePage::loadCharacters() {
                     if (auto pm = propModel(prop))
                         c.props.push_back({prop, pm});
                 }
-        placeCharacter(c);
         if (o->tag == "NPCX") {
             c.routine = std::make_unique<ScriptRunner>(state_, *this);
             c.routine->setCharacter(c.who);
             queueRoutine(c);
-            c.paused = pausedNpcs_.count(state_.scene + "|" + fs::toLower(fileNameOf(file))) != 0;
         }
+        // Back in a scene of the place: as it was left (the game kept it).
+        if (const auto kept = keptCharacters_.find(state_.scene + "|" + fs::toLower(fileNameOf(file)));
+            kept != keptCharacters_.end()) {
+            const KeptCharacter& k = kept->second;
+            c.paused = k.paused && c.routine;
+            c.shadow = k.shadow;
+            c.props.clear();
+            for (const std::string& path : k.props)
+                if (auto pm = propModel(path))
+                    c.props.push_back({path, pm});
+            if (!k.endless.empty())
+                c.actor->play(k.endless, 0, 0);
+        }
+        placeCharacter(c);
         characters_.push_back(std::move(c));
     }
 }
@@ -1201,14 +1221,14 @@ void ScenePage::draw() {
     // (the countryside going by: "moving >0").
     std::vector<const Ac2Record*> pictures;
     for (const Ac2Record* o : objects) {
-        if (hidden(*o) || fogged(*o))
+        if (!objectShown(*o) || fogged(*o))
             continue;
-        if (const auto ps = particles_.find(o); ps != particles_.end()) {
+        if (particles_.count(o)) {
             // "Particle Effects" off: none drawn (0x42d4be).
-            if (options_.get(GameOptions::Rain) && testCondition(ps->second.settings().condition, state_))
+            if (options_.get(GameOptions::Rain))
                 pictures.push_back(o);
         } else if ((hasExtension(o->text("file"), {".jpg", ".png", ".tga", ".bmp"}) || loops_.count(o)) &&
-                   (testCondition(o->text("condition"), state_) || shown(*o)) && !puzzleDraws(*o)) {
+                   !puzzleDraws(*o)) {
             pictures.push_back(o);
         }
     }
@@ -1520,7 +1540,7 @@ void ScenePage::draw() {
     if (hotspots_)
         for (const Ac2Record* o : objects) {
             const int l = o->i("left"), t = o->i("top"), r = o->i("right"), b = o->i("bottom");
-            if (o->tag != "SPOT" || r <= l || b <= t || hidden(*o) || !testCondition(o->text("condition"), state_))
+            if (o->tag != "SPOT" || r <= l || b <= t || !objectShown(*o))
                 continue;
             // Its outline where it has one (listD), else its rectangle.
             const Ac2Value* outline = o->field("listD");
@@ -1866,41 +1886,15 @@ void ScenePage::update(uint64_t nowMs) {
         if (c.follower && c.path.empty() && c.walkIn <= 0)
             follow(c);
         if (c.path.empty()) {
+            c.leg = -1, c.turningFirst = false;
             placeCharacter(c);
             continue;
         }
-        // On towards the next point, turning to face it (at most a turn
-        // and a half a second, a guess; the game's planner turns along
-        // its path).
-        const float dx = c.path.front().first - c.x, dz = c.path.front().second - c.z;
-        const float distance = std::sqrt(dx * dx + dz * dz), stepLength = c.walkSpeed * dt;
-        if (distance > 0.001f) {
-            constexpr float kTwoPi = 6.2831853f;
-            float turn = std::remainder(std::atan2(dx, dz) - c.rotY, kTwoPi);
-            const float most = 9.4f * dt;
-            turn = std::clamp(turn, -most, most);
-            c.rotY = std::remainder(c.rotY + turn, kTwoPi);
-        }
-        if (stepLength >= distance) {
-            c.x = c.path.front().first, c.z = c.path.front().second;
-            c.path.erase(c.path.begin());
-            if (c.path.empty()) {
-                // There: standing, and a script waiting on the walk goes on.
-                c.actor->play("idle1", 0, 0);
-                if (c.waiting && (c.waitVerb == "walk" || c.waitVerb == "run")) {
-                    ScriptRunner* r = c.waiting;
-                    const std::string verb = c.waitVerb;
-                    c.waiting = nullptr;
-                    r->finished(verb);
-                }
-            }
-        } else {
-            c.x += dx / distance * stepLength, c.z += dz / distance * stepLength;
-        }
+        stepWalk(c, dt);
         placeCharacter(c);
     }
     for (auto& [o, system] : particles_)
-        if (drawing_ && options_.get(GameOptions::Rain) && testCondition(system.settings().condition, state_)) {
+        if (drawing_ && options_.get(GameOptions::Rain) && objectShown(*o)) {
             system.update(dt);
             changed = true;
         }
@@ -2366,21 +2360,106 @@ void ScenePage::drawGrid() {
     }
 }
 
+void ScenePage::beginWalk(Character& c, bool run) {
+    // With its path set: its first leg starts on the next step, turning on
+    // the spot first if it isn't facing the way (0x442780 with 1).
+    c.running = run;
+    c.leg = -1;
+    c.turnFirst = true;
+    c.turningFirst = false;
+    c.walkIn = 0;
+}
+
+void ScenePage::stepWalk(Character& c, float dt) {
+    constexpr float kTwoPi = 6.2831853f, kDegrees = 57.29578f;
+    auto headingTo = [&](const std::pair<float, float>& p) { return std::atan2(p.first - c.x, p.second - c.z); };
+    if (c.leg < 0) {
+        // A leg starts (0x442780): as long as the way to its point, if
+        // that's 10 or more (a shorter one is passed over).
+        while (!c.path.empty()) {
+            c.leg = std::hypot(c.path.front().first - c.x, c.path.front().second - c.z);
+            if (c.leg >= 10)
+                break;
+            c.path.erase(c.path.begin());
+            c.leg = -1;
+        }
+        if (c.path.empty())
+            return arrive(c);
+        // The first turns on the spot, by its turning animation, if it's 2
+        // degrees or more off (0x441c90, 0x441730, 0x441690); then walks or
+        // runs. Later legs go on walking.
+        if (std::exchange(c.turnFirst, false)) {
+            if (c.actor->rotateTo(headingTo(c.path.front()) * kDegrees, c.rotY * kDegrees))
+                c.turningFirst = true;
+            else
+                startWalk(c, c.running);
+        }
+    }
+    if (c.turningFirst) {
+        if (c.actor->rotating())
+            return;
+        c.turningFirst = false;
+        startWalk(c, c.running);
+    }
+    // Forward along its heading, as the walk carries it (0x4422c0), the
+    // leg shortened by as much; past its end, back by the overshoot
+    // (0x425a70), and the next leg (0x442690).
+    const float step = c.walkSpeed * dt;
+    c.x += std::sin(c.rotY) * step, c.z += std::cos(c.rotY) * step;
+    c.leg -= step;
+    if (c.leg <= 0) {
+        c.x += std::sin(c.rotY) * c.leg, c.z += std::cos(c.rotY) * c.leg;
+        c.path.erase(c.path.begin());
+        c.leg = -1;
+        if (c.path.empty())
+            arrive(c);
+        return;
+    }
+    // Steering (0x442160): toward its point, or in the leg's last 100
+    // units toward the next one (none on the last leg's), 100 degrees a
+    // second (200 running), until within 2 degrees.
+    const std::pair<float, float>* toward =
+        c.leg > 100 ? &c.path.front() : c.path.size() > 1 ? &c.path[1] : nullptr;
+    if (!toward)
+        return;
+    const float off = std::remainder(headingTo(*toward) - c.rotY, kTwoPi);
+    if (std::abs(off) * kDegrees < 2)
+        return;
+    const float most = (c.running ? 200.0f : 100.0f) / kDegrees * dt;
+    c.rotY = std::remainder(c.rotY + std::clamp(off, -most, most), kTwoPi);
+}
+
+void ScenePage::arrive(Character& c) {
+    // There (0x442733): idle1 eased in over half a second, and a script
+    // waiting on the walk goes on.
+    c.leg = -1, c.turningFirst = false;
+    c.actor->play("idle1", 0, 0.5f);
+    if (c.waiting && (c.waitVerb == "walk" || c.waitVerb == "run")) {
+        ScriptRunner* r = c.waiting;
+        const std::string verb = c.waitVerb;
+        c.waiting = nullptr;
+        r->finished(verb);
+    }
+}
+
 bool ScenePage::startWalk(Character& c, bool run) {
-    if (!c.actor || c.actor->play(run ? "run" : "walk", 0, 0).empty())
+    if (!c.actor)
         return false;
     // The walk carries the body forward (the biped's root, Bip01, moves
     // the whole loop's distance): that is how fast it walks. The game's
     // characters move by that much, while the loop starts again from the
     // same place.
+    const bool played = !c.actor->play(run ? "run" : "walk", 0, 0).empty();
     c.walkSpeed = 0;
-    if (const Animator::Slot* s = c.actor->animator().base(); s && s->animation->duration > 0) {
+    if (const Animator::Slot* s = c.actor->animator().base(); played && s && s->animation->duration > 0) {
         const Actor::Motion m = c.actor->motion(*s->animation);
         c.walkSpeed = std::sqrt(m.drift[0] * m.drift[0] + m.drift[1] * m.drift[1] + m.drift[2] * m.drift[2]) /
                       s->animation->duration;
     }
+    // One with no walk goes 0.075 units every half millisecond, running
+    // or not: 150 a second (0x4422d9).
     if (c.walkSpeed <= 1)
-        c.walkSpeed = run ? 300.0f : 150.0f; // a walk in place: a guess at a pace
+        c.walkSpeed = 150.0f;
     return true;
 }
 
@@ -2504,13 +2583,14 @@ void ScenePage::walkTo(int sx, int sy) {
     path_ = grid_.findPath(start, goal);
     if (who && who->player && path_.size() > 1)
         leadGoal_ = goal;
-    if (who && path_.size() > 1 && startWalk(*who)) {
+    if (who && who->actor && path_.size() > 1) {
         who->path.clear();
         for (size_t i = 1; i < path_.size(); i++) {
             float px, pz;
             grid_.centre(path_[i], px, pz);
             who->path.push_back({px, pz});
         }
+        beginWalk(*who, false);
     }
     draw();
 }
@@ -2563,39 +2643,34 @@ void ScenePage::aloneTexture(const Ac2Record& o, const image::Image& img) {
     renderer_->createTexture(img.w, img.h, rgba.data(), params, t.texture);
 }
 
-bool ScenePage::hidden(const Ac2Record& o) const {
-    if (hiddenNames_.empty())
-        return false;
-    for (const std::string& key : objectKeys(o))
-        if (hiddenNames_.count(key))
-            return true;
-    return false;
+std::string ScenePage::conditionOf(const Ac2Record& o) const {
+    // A particle object's is its class's default where it has none
+    // ("weather >0" for rain and snow).
+    if (const auto ps = particles_.find(&o); ps != particles_.end())
+        return ps->second.settings().condition;
+    return o.text("condition");
 }
 
-bool ScenePage::shown(const Ac2Record& o) const {
-    // "show" puts an object up whatever its condition (the puzzles' "0"
-    // pictures: show handle, fade in paperfull).
-    if (shownNames_.empty())
-        return false;
-    for (const std::string& key : objectKeys(o))
-        if (shownNames_.count(key))
-            return true;
-    return false;
+void ScenePage::retestObjects() {
+    // 0x40e900 on every object (0x436280, "update"; 0x4362b0, entering):
+    // shown if its condition holds, hidden if not, whatever "hide" or
+    // "show" made it.
+    for (const Ac2Record* o : scene_.objects())
+        shownNow_[o] = testCondition(conditionOf(*o), state_);
 }
 
 void ScenePage::showObject(const std::string& name, bool show) {
-    if (show) {
-        hiddenNames_.erase(name);
-        shownNames_.insert(name);
-        // A video starts from its first frame.
-        for (auto& [o, loop] : loops_)
-            for (const std::string& key : objectKeys(*o))
-                if (key == name)
-                    loop.start = time_;
-    } else {
-        shownNames_.erase(name);
-        hiddenNames_.insert(name);
-    }
+    // "hide" and "show" (0x40a240, 0x436660): the scene's object by that
+    // name, until the scene is entered again or "update" tests the
+    // conditions. A video starts from its first frame when shown.
+    for (const Ac2Record* o : scene_.objects())
+        for (const std::string& key : objectKeys(*o))
+            if (key == name) {
+                shownNow_[o] = show;
+                if (const auto loop = loops_.find(o); show && loop != loops_.end())
+                    loop->second.start = time_;
+                break;
+            }
 }
 
 namespace {
@@ -2623,7 +2698,7 @@ bool inOutline(const Ac2Record& o, int sx, int sy) {
 const Ac2Record* ScenePage::hotspotAt(int sx, int sy) const {
     const Ac2Record* hit = nullptr;
     for (const Ac2Record* o : scene_.objects()) {
-        if (o->tag != "SPOT" || hidden(*o) || !testCondition(o->text("condition"), state_))
+        if (o->tag != "SPOT" || !objectShown(*o))
             continue;
         const Ac2Value* outline = o->field("listD");
         const bool inside = outline && outline->numbers.size() >= 3
@@ -2719,7 +2794,7 @@ bool ScenePage::walkCharacter(Character& c, WalkGrid::Cell goal, bool toPoint, b
     c.walkIn = 0; // a walk replaces walking in
     const WalkGrid::Cell start = grid_.cellAt(c.x, c.z);
     path_ = grid_.findPath(start, goal, toPoint);
-    if (path_.size() < 2 || !startWalk(c, run))
+    if (path_.size() < 2 || !c.actor)
         return false;
     c.path.clear();
     for (size_t i = 1; i < path_.size(); i++) {
@@ -2727,6 +2802,7 @@ bool ScenePage::walkCharacter(Character& c, WalkGrid::Cell goal, bool toPoint, b
         grid_.centre(path_[i], px, pz);
         c.path.push_back({px, pz});
     }
+    beginWalk(c, run);
     return true;
 }
 
@@ -2750,18 +2826,28 @@ bool ScenePage::changeScene(const std::string& name, int entry, bool walkIn) {
     for (const Character& c : characters_) {
         if (c.player)
             positions_[state_.scene] = {c.x, c.z, c.rotY};
-        else if (c.record) {
+        else if (c.record)
             // The game keeps the scene, so its characters stay where they
-            // are (and are saved there: POSI), and one paused stays paused
-            // (Klaus, paused for the cleaver talk, through its
-            // close-ups).
-            const std::string key = state_.scene + "|" + fs::toLower(fileNameOf(c.name));
-            npcPositions_[key] = {{c.x, c.y, c.z}, {0, c.rotY, 0}};
-            if (c.paused)
-                pausedNpcs_.insert(key);
-            else
-                pausedNpcs_.erase(key);
-        }
+            // are (and are saved there: POSI).
+            npcPositions_[state_.scene + "|" + fs::toLower(fileNameOf(c.name))] = {{c.x, c.y, c.z}, {0, c.rotY, 0}};
+        if (!c.record || !c.actor)
+            continue;
+        // And as scripts left them: paused (Klaus, for the cleaver talk,
+        // through its close-ups), their shadow, what they hold, an
+        // animation playing for ever ("anim sitidle 1 0").
+        KeptCharacter& k = keptCharacters_[state_.scene + "|" + fs::toLower(fileNameOf(c.name))];
+        k.paused = c.paused;
+        k.shadow = c.shadow;
+        k.props.clear();
+        for (const auto& [path, model] : c.props)
+            k.props.push_back(path);
+        // (Not a walk, run or turn under way: its path isn't kept.)
+        const Animator::Slot* base = c.actor->animator().base();
+        const bool moving = base && (base->name.find("walk") != std::string::npos ||
+                                     base->name.find("run") != std::string::npos ||
+                                     base->name.find("rotate") != std::string::npos);
+        k.endless = base && base->loops == 0 && !moving && base->name.compare(0, 4, "idle") != 0 ? base->name
+                                                                                                 : std::string();
     }
     state_.lastScene = state_.scene;
     story_->leavingScene();
@@ -2894,7 +2980,9 @@ bool ScenePage::startCharacterVerb(ScriptRunner& runner, Character& c, const Scr
                                 heading += heading <= 180 ? 180 : -180;
                         }
             } else if (name == "camera" && scene_.camera()) {
-                heading = normalizeDegrees(scene_.camera()->f("yaw") * 57.29578f), have = true; // a guess
+                // The camera's azimuth (0x441941: the scene's Granny camera
+                // +0x68), never turned round.
+                heading = normalizeDegrees(scene_.camera()->f("yaw") * 57.29578f), have = true;
             } else {
                 float x, z;
                 if (objectAt(name, x, z))
@@ -3105,7 +3193,7 @@ const Ac2Record* ScenePage::characterAt(int sx, int sy) const {
     const SceneCamera cam = SceneCamera::fromRecord(*camr);
     const Ac2Record* hit = nullptr;
     for (const Ac2Record* o : scene_.objects()) {
-        if (o->tag != "NPCX" || o->text("script").empty() || !testCondition(o->text("condition"), state_))
+        if (o->tag != "NPCX" || o->text("script").empty() || !objectShown(*o))
             continue;
         // Its outline on the screen, if it has one.
         if (const Ac2Value* outline = o->field("listD"); outline && outline->numbers.size() >= 3) {
@@ -3381,10 +3469,11 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
             const size_t sce = file.find("\\sce");
             if (sce != std::string::npos)
                 item = file.substr(sce + 4, file.find('.', sce) - sce - 4);
-            hiddenNames_.insert(lower(!scriptObject_->text("name").empty() ? scriptObject_->text("name")
-                                                                           : normalizeArchiveName(scriptObject_->text("file"))));
+            showObject(lower(!scriptObject_->text("name").empty() ? scriptObject_->text("name")
+                                                                    : normalizeArchiveName(scriptObject_->text("file"))),
+                       false);
         } else {
-            hiddenNames_.insert(item);
+            showObject(item, false);
         }
         if (item != "this")
             addItem(state_, item, 1); // just taken (0x40b1de)
@@ -3392,7 +3481,9 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
         return false;
     }
     if (v == "update") {
-        // The scene's objects looked at again, for conditions now holding.
+        // The scene's objects looked at again, for conditions now holding
+        // (0x40b4be: 0x436280).
+        retestObjects();
         draw();
         return false;
     }
@@ -3582,6 +3673,7 @@ void ScenePage::handleEvent(const Event& event) {
     } else if (ev.key == 'm' || ev.key == 'w' || ev.key == 't') {
         int& v = state_.values[ev.key == 'm' ? "moving" : ev.key == 'w' ? "weather" : "time"];
         v = !v;
+        retestObjects(); // the viewer's own: shown at once
         draw();
     } else if (ev.key == 'i' || ev.key == key::F1 + 8) {
         // (In a game I is the inventory's: F9.)

@@ -33,16 +33,38 @@ files' track masks, and the scenes' and dialogue's scripts.
 ## When a character is there
 
 A character is an object like any other: drawn, shadow and all, only
-while it's shown, that is not hidden by a script and its `condition`
-holding. The character's draw (`0x425e00`, slot 0xc of the `NPCX` and
-`PCXX` vtables) asks the object's shown test (slot 0x50, `0x40ecd0`:
-+0xb00 and +0xb04) first and draws nothing if it fails; the common
-update (`0x40e900`, slot 0x4c, shared by every object class) tests the
-condition every frame and shows or hides the object by it. 49 characters
-in the install have a condition: Greta Ohlsson, for one, stands in the
-Sirkeci market's scenes only with `tag gretafollow`, and Michel in the
-corridors only until `tag micheladmonish`. The pick's list uses the same
-test ([ac2.md](ac2.md#the-pick-0x435eb0)).
+while it's shown. The character's draw (`0x425e00`, slot 0xc of the
+`NPCX` and `PCXX` vtables) asks the object's shown test (slot 0x50,
+`0x40ecd0`: +0xb00 and +0xb04) first and draws nothing if it fails. What
+an object shows is latched, not tested every frame: its condition is
+tested (the common `0x40e900`, slot 0x4c, shared by every object class)
+when the scene is entered (`0x4362b0` switches every object on: slot
+0x48, `0x40e8e0`) and when a script runs `update` (`0x436280`); `hide`
+and `show` change it between. 49 characters in the install have a
+condition: Greta Ohlsson, for one, stands in the Sirkeci market's scenes
+only with `tag gretafollow`, and Michel in the corridors only until
+`tag micheladmonish`. The pick's list uses the same test
+([ac2.md](ac2.md#the-pick-0x435eb0)).
+
+### Leaving a scene and coming back
+
+The game keeps every scene of the place it's in, so a scene's characters
+come back as they were left: where they stood, and as scripts left them.
+Reluva reads a scene again when it's shown, so it keeps those itself,
+by scene and model file (`npcPositions_`, `keptCharacters_`), until a
+new place is loaded (the game drops the last place's scenes then):
+
+- where each stands and faces (also saved: `POSI`);
+- paused or not (Klaus, paused for the cleaver talk, stays paused through
+  its close-ups until the script resumes him);
+- its shadow (`hideshadow`, `showshadow`);
+- the models it holds (`attach`, `detach`);
+- an animation it was left playing for ever (`anim sitidle 1 0`); not a
+  walk, run or turn under way.
+
+Its `home` heading is always its heading in the scene's file. Its own
+routine starts again from its beginning; whether the game's carries on
+from where it was is unchecked (routines are short loops of gestures).
 
 ## Animations on Granny controls
 
@@ -155,7 +177,7 @@ Everything else is an **overlay** that plays over the base.
 | `look` | `left`, `right`, `home`; a strength (1) | `eye<dir>` on the eye layer, looping, at that strength. `home` eases the eyes back. | no |
 | `rotate`, `rotatea` | an absolute heading in degrees, someone, a cell, `home`, `sp<n>`, `-sp<n>`, `camera` | Turns the body. See below. | `rotate`: until it's there |
 | `animate` | seconds | Moves the animations' clocks on: the door macro skips the door knob's animation to its end behind a fade. | no |
-| `pause`, `resume` | character | Stops the character's routine, with its walk or turn, and plays `idle1`. `resume` restarts the interrupted event. A character stays paused when its scene is left and shown again (the game keeps the scene; Reluva keeps the flag with its position): Klaus is paused for the cleaver talk, through its close-ups, until the script resumes him. | no |
+| `pause`, `resume` | character | Stops the character's routine, with its walk or turn, and plays `idle1`. `resume` restarts the interrupted event. A character stays paused when its scene is left and shown again (see [Leaving a scene](#leaving-a-scene-and-coming-back)). | no |
 | `loop` | | In a routine: queues the routine again. | no |
 | `attach`, `detach` | object | Attaches or detaches `models\objects\<name>_model.gr2`. The prop has its own skeleton, and the character's animations move its bones too, so it isn't fixed to a bone. | no |
 | `hideshadow`, `showshadow` | | The character's shadow flag. | no |
@@ -184,6 +206,9 @@ grows as the character turns to its own left. A model at heading θ faces
 weight 0.5. Only one character has those files.
 
 ### `rotate`: the body
+
+`rotate camera` turns it to the camera's azimuth (the scene's Granny
+camera's, `0x441941`), not turned round for `-camera`.
 
 1. If the target is within 2°, the event ends at once.
 2. Otherwise the shorter way is chosen; a tie goes right.
@@ -237,6 +262,36 @@ anim think, wait 2, anim upset01, turn -40, wait 2, turn home, wait 3, loop
 
 The main script resumes the routine of a character it was started from
 (clicked) once it's over.
+
+### Walking a path
+
+The path-finder ([ac2.md](ac2.md)) gives the points; the character walks
+them as legs (`0x442780` starts one, `0x4422c0` walks it each frame,
+`0x442160` steers, `0x442690` goes on to the next):
+
+- **A leg** is as long as the way to its point when it starts. One under
+  10 units is passed over.
+- **The first leg** turns on the spot first if the character faces 2
+  degrees or more away from the point: the turning animation, as
+  `rotate` plays it (`0x441c90` picks the shorter way, `0x441730` and
+  `0x441690` play `rotatel` or `rotater`). Then `walk` or `run` plays.
+  Later legs go on walking.
+- **Each frame** the character moves forward along its own heading, as
+  far as the walk carries it, and that much comes off the leg. Then it
+  steers: toward the leg's point, and in the leg's last 100 units toward
+  the next point (on the last leg, not at all), turning 100 degrees a
+  second, 200 running, until within 2 degrees. So it walks curves and
+  cuts the corners, rather than going from point to point.
+- **A leg's end:** gone past it, it steps back by as much (`0x425a70`);
+  then the next leg starts.
+- **At the end:** `idle1` eases in over half a second, and a script
+  waiting on the walk goes on.
+- **A character with no `walk` animation** moves 0.075 units every half
+  millisecond (150 a second), walking or running (`0x4422d9`).
+
+Reluva follows this (`ScenePage::beginWalk`, `stepWalk`). It moves the
+character at the walk's average pace, not by its root motion frame by
+frame ([known-differences.md](../../engines/awe/known-differences.md)).
 
 ### Followers
 

@@ -149,7 +149,7 @@ scenes, menus).
 | `pause`, `resume` | 48, 46 | character | stops and restarts a character's own behaviour |
 | `advance` | 46 | | (dialogue) |
 | `sound` | 39 | sound, `loop` | plays `sound\<name>.wav`, looping with `loop`; waits till it's over (`0x40bd45`, `0x425400`) |
-| `hide`, `show` | 39, 5 | object, `this`, a picture's file | hides or shows a scene object |
+| `hide`, `show` | 39, 5 | object, `this`, a picture's file | hides or shows the current scene's object by that name (`0x40a240`, `0x436660`), until the scene is entered again or `update` runs: both test every object's condition afresh (`0x4362b0`, `0x436280`). Items picked up stay out of sight by their pictures' conditions (all 52 `sce` pictures have one: `!has bowl`), not by the hide |
 | `removetag` | 36 | tag | removes a tag: `tag x` no longer holds |
 | `doorlocked` | 34 | point, side, sound | macro: above |
 | `timer` | 32 | name | starts a timer; `timer name >60` in conditions |

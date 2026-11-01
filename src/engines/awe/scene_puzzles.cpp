@@ -414,7 +414,7 @@ void ScenePage::drawPuzzleBox() {
     // The lid opening, the side in front of it within (440, 0) 583 x 436.
     for (const Ac2Record* o : scene_.objects()) {
         const std::string file = fs::toLower(o->text("file"));
-        if (file.find("topopen") == std::string::npos || !shown(*o) || hidden(*o))
+        if (file.find("topopen") == std::string::npos || !objectShown(*o))
             continue;
         if (const auto loop = loops_.find(o); loop != loops_.end() && loop->second.frame.w)
             image::blitOver(ctx_.screen, loop->second.frame, int(o->f("x")), int(o->f("y")));
@@ -433,7 +433,7 @@ void ScenePage::drawPuzzleBox() {
         }
     }
     for (const Ac2Record* o : scene_.objects())
-        if (fs::toLower(o->text("file")).find("exalocket") != std::string::npos && shown(*o) && !hidden(*o))
+        if (fs::toLower(o->text("file")).find("exalocket") != std::string::npos && objectShown(*o))
             image::blitOver(ctx_.screen, picture(o->text("file")), int(o->f("x")), int(o->f("y")));
 }
 
@@ -522,8 +522,7 @@ const Ac2Record* ScenePage::tornPick(int x, int y) const {
     const Ac2Record* best = nullptr;
     float bestDepth = -1e9f;
     for (const Ac2Record* o : scene_.objects()) {
-        if (hidden(*o) || !(testCondition(o->text("condition"), state_) || shown(*o)) ||
-            !isPicture(o->text("file")))
+        if (!objectShown(*o) || !isPicture(o->text("file")))
             continue;
         const image::Image& img = const_cast<ScenePage*>(this)->picture(o->text("file"));
         if (img.w <= 0)
@@ -701,7 +700,7 @@ bool ScenePage::puzzleStep() {
     // safe's arrows: "action left").
     auto arrow = [&](const std::string& word) {
         for (const Ac2Record* o : scene_.objects()) {
-            if (o->tag != "SPOT" || hidden(*o))
+            if (o->tag != "SPOT" || !objectShown(*o))
                 continue;
             bool match = fs::toLower(o->text("script")) == "action " + word;
             if (const Ac2Value* alternatives = o->field("listB"))
@@ -796,7 +795,7 @@ bool ScenePage::puzzleStep() {
             if (s.opening)
                 return false;
             for (const Ac2Record* o : scene_.objects())
-                if (const Ac2Value* alternatives = o->field("listB"); o->tag == "SPOT" && alternatives && !hidden(*o))
+                if (const Ac2Value* alternatives = o->field("listB"); o->tag == "SPOT" && alternatives && objectShown(*o))
                     for (const auto& [condition, run] : alternatives->pairs)
                         if (fs::toLower(condition).find("action open") != std::string::npos &&
                             testCondition(condition, state_)) {

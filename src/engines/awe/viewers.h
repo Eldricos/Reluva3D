@@ -244,7 +244,12 @@ public:
     }
     std::vector<uint8_t> saveToMemory() const;
     bool loadFromMemory(const std::vector<uint8_t>& data);
-    void setLastScene(const std::string& scene) { state_.lastScene = scene; }
+    // (For the tools' save and load: as if the scene had been entered with
+    // that scene left last, its objects tested again for "lastscene".)
+    void setLastScene(const std::string& scene) {
+        state_.lastScene = scene;
+        retestObjects();
+    }
     std::function<int(const std::vector<std::string>& choices)> chooser;
     std::vector<std::string> flippableItems();
     bool flipItem(const std::string& item);
@@ -321,6 +326,11 @@ private:
         const Ac2Record* record = nullptr; // its object in the scene
         std::vector<std::pair<float, float>> path;
         float walkSpeed = 0; // world units a second, from the walk itself
+        // The walk along it (0x442780, 0x4422c0): the current leg's length
+        // still to walk (-1: the next leg to start), whether the first leg
+        // turns on the spot first and is turning now, and running.
+        float leg = -1;
+        bool turnFirst = false, turningFirst = false, running = false;
         bool follower = false; // follows the player (FLLW, its COND holding)
         bool shadow = true;    // casts a shadow (MODL shadow, hideshadow/showshadow)
         float walkIn = 0;      // walking in: the distance left
@@ -683,13 +693,16 @@ private:
     // started it, the item in hand put back unless it's a gen_ or com_.
     void talkStarting(const std::string& name) override;
     void logScript(const std::string& line);
-    bool hidden(const Ac2Record& o) const;
-    bool shown(const Ac2Record& o) const;
+    std::string conditionOf(const Ac2Record& o) const;
+    void retestObjects();
     void showObject(const std::string& name, bool show);
     static std::vector<std::string> objectKeys(const Ac2Record& o);
     // Starts the character's walk (or run) along its path: false if it
     // has no such animation.
     bool startWalk(Character& c, bool run = false);
+    void beginWalk(Character& c, bool run);
+    void stepWalk(Character& c, float dt);
+    void arrive(Character& c);
     void placeCharacter(Character& c) const;
     // Shadows (docs/formats/awe/shadows.md): a model's meshes into the
     // stencil, each its shadow (if it casts one) then its body (`ref`); a
@@ -799,7 +812,15 @@ private:
     // the menus return to, the view grabbed for a thumbnail.
     std::unique_ptr<SaveGame> restoring_;
     std::map<std::string, SaveGame::Placement> npcPositions_;
-    std::set<std::string> pausedNpcs_; // as npcPositions_: those left paused
+    // What else a character carried when its scene was left, by the same
+    // key as npcPositions_ (the game keeps the scene, and the character
+    // as scripts left it).
+    struct KeptCharacter {
+        bool paused = false, shadow = true;
+        std::vector<std::string> props; // the models it holds
+        std::string endless;            // a base animation playing for ever, else empty
+    };
+    std::map<std::string, KeptCharacter> keptCharacters_;
     std::string gameScene_, previousMenu_;
     image::Image grab_;
     bool grabDue_ = false, quit_ = false;
@@ -814,8 +835,10 @@ private:
     int entryPoint_ = -1; // the walk point the player arrives at, after "scene"
     bool entryWalk_ = false; // and whether they walk in
     WalkGrid::Cell leadGoal_; // where the player last set off for (followers follow)
-    std::set<std::string> hiddenNames_; // objects hidden by scripts, by name or file
-    std::set<std::string> shownNames_;  // and shown, whatever their condition
+    // Whether each of the scene's objects is shown (the game's +0xb04):
+    // set by its condition on entering the scene and by "update", and by
+    // "hide", "show" and "take" between.
+    std::map<const Ac2Record*, bool> shownNow_;
     std::deque<std::string> scriptLog_;
     std::map<std::string, std::string> soundFiles_; // sound name -> file
     float time_ = 0;

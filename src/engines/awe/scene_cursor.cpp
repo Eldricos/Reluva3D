@@ -44,8 +44,12 @@ bool hasOutline(const Ac2Record& o) {
 } // namespace
 
 bool ScenePage::objectShown(const Ac2Record& o) const {
-    // The pick's list: objects loaded and shown (+0xb00, +0xb04).
-    return !hidden(o) && (testCondition(o.text("condition"), state_) || shown(o));
+    // Loaded and shown (+0xb00, +0xb04): as its condition was when the
+    // scene was entered or "update" last ran, or as "hide" or "show" left
+    // it since. One not yet tested (a scene being read) by its condition.
+    if (const auto it = shownNow_.find(&o); it != shownNow_.end())
+        return it->second;
+    return testCondition(conditionOf(o), state_);
 }
 
 bool ScenePage::clickable(const Ac2Record& o) const {

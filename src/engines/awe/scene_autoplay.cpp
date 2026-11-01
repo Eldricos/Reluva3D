@@ -100,8 +100,7 @@ std::vector<const Ac2Record*> ScenePage::clickableObjects() const {
     // whom items can be used on (uselist.txt).
     std::vector<const Ac2Record*> out;
     for (const Ac2Record* o : scene_.objects()) {
-        if ((o->tag != "SPOT" && o->tag != "NPCX" && o->tag != "PCXX" && o->tag != "2DOB") || hidden(*o) ||
-            !testCondition(o->text("condition"), state_))
+        if ((o->tag != "SPOT" && o->tag != "NPCX" && o->tag != "PCXX" && o->tag != "2DOB") || !objectShown(*o))
             continue;
         if (!scripted(*o) && o->tag != "PCXX")
             continue;
