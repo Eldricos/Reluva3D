@@ -880,6 +880,7 @@ std::shared_ptr<audio::Sound> loadSound(const GameData& data, const char* file) 
     auto s = std::make_shared<audio::Sound>();
     if (audio::decodeSound(readFile(*p), *s))
         return nullptr;
+    playAsClueExe(*s);
     return s;
 }
 } // namespace

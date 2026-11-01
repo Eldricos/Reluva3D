@@ -1682,8 +1682,10 @@ std::shared_ptr<audio::Sound> Play::loadSound(const std::string& file) {
         std::shared_ptr<audio::Sound> s;
         if (const std::filesystem::path* p = data_.find(file)) {
             auto decoded = std::make_shared<audio::Sound>();
-            if (!audio::decodeSound(readFile(*p), *decoded))
+            if (!audio::decodeSound(readFile(*p), *decoded)) {
+                playAsClueExe(*decoded);
                 s = decoded;
+            }
         }
         it = sounds_.emplace(file, s).first;
     }

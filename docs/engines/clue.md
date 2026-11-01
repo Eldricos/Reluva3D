@@ -307,12 +307,27 @@ volume 100 of 127, or none), and the chance of thunder each tick.
 | 240 s | still | none | none |
 
 Small thunder is `SmallThunder6`-`8`, middle `MidThunder1`-`3`, big
-`BigThunder4`/`5`, each by chance. Reluva does the same. The sound of
-five recordings of the original (the longplay, "The Classic",
-Playthroughs 01 and 02, the Steam Deck one), cross-correlated with the
-game's WAVs, had found only `BigThunder5` and `MidThunder3` and no wind;
-the code plays them all, so the recordings' sound (music over it,
-compressed) is taken to have hidden the quieter ones.
+`BigThunder4`/`5`, each by chance. Reluva does the same.
+
+A recording of the original ("Clue: Murder at Boddy Mansion gameplay",
+YouTube dq0uYzGq2ok, 24:33) has it all: the light gusts and the heavy
+ones in stretches (heavy at 4:08-5:20, 10:56-11:54, 17:22-17:32,
+20:21-21:19, light around them), the small and middle thunders in them.
+Searched for as recorded, none of it is found; as `Clue.exe` plays it,
+65/64 fast, all of it is, the gusts' loops matching 0.8-0.9. Every sound
+of the game's is played so (below): an earlier search, five recordings
+with the files as recorded, found only the suggestions' videos' thunder
+(their own sound, at its own speed) and took the weather for thunder
+alone.
+
+**How fast sounds play.** `Clue.exe`'s players (0x4330C0 for sounds,
+0x4331F0 for streams) set Miles' playback rate to the file's rate × (x +
+1) / 64, with x the argument most calls give as 0x40 (it reads like a
+pan's middle, but the pan is set apart, 0x433560): 22,050 Hz files play at
+22,394, 1.6% faster and higher. Measured in the recording: the gusts,
+the thunders, the steps, the voices, the clicks and the menus' thunder at
+1.016; the loading's loop, the CD's music and the videos at 1. Reluva
+plays the game's sounds at 65/64.
 
 **Over the menus** (0x40C4A0, as each menu with the storm opens):
 `mnThndr1.wav` loops, started again only if it isn't playing, and the

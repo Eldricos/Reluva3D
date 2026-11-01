@@ -36,6 +36,13 @@
 
 namespace reluva::clue {
 
+// Clue.exe plays its sounds through Miles at the file's rate times (x + 1)
+// / 64, x what most calls pass as 0x40 (0x4330C0, 0x4331F0): 65/64, a
+// little faster and higher than recorded. A recording of the original has
+// its weather, voices, steps and menu sounds so (the CD's music, the videos
+// and the loading's loop not).
+inline void playAsClueExe(audio::Sound& s) { s.rate = s.rate * 65 / 64; }
+
 // Who plays a suspect, as the set-up screens choose.
 struct Player {
     enum Kind { None, Human, Computer } kind = None;
