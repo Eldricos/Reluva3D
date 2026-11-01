@@ -126,7 +126,7 @@ private:
     void clickPick(int id);
     int actionAt(int x, int y) const;
     void clickAction(int slot);
-    bool clickHotSpot(int x, int y);
+    bool reactAt(int x, int y, bool hover); // a hot spot's reaction, if one is there
     void updateAmbience();
     void clickView(int x, int y);
     void clickSquare(const Place& p);

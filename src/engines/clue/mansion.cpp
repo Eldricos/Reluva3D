@@ -91,6 +91,42 @@ bool behind(const WorldBox& b, const WorldBox& a) {
     return b.x < a.x + a.sizeX && b.y < a.y + a.sizeY && b.z + b.zOff < a.z + a.zOff + a.height;
 }
 
+bool onBox(const WorldBox& box, int x, int y) {
+    // The eight corners on the screen, x - y across and (x + y) / 2 less the
+    // height down; their hull, round which the point must be on the inner
+    // side of every edge.
+    std::vector<std::array<long, 2>> p;
+    const int z0 = box.z + box.zOff;
+    for (int c = 0; c < 8; ++c) {
+        const int wx = box.x + (c & 1 ? box.sizeX : 0), wy = box.y + (c & 2 ? box.sizeY : 0);
+        const int wz = z0 + (c & 4 ? box.height : 0);
+        p.push_back({wx - wy, floorDiv(wx + wy, 2) - wz});
+    }
+    std::sort(p.begin(), p.end());
+    p.erase(std::unique(p.begin(), p.end()), p.end());
+    const auto cross = [](const std::array<long, 2>& o, const std::array<long, 2>& a, const std::array<long, 2>& b) {
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    };
+    std::vector<std::array<long, 2>> hull(2 * p.size());
+    size_t k = 0;
+    for (size_t i = 0; i < p.size(); ++i) {
+        while (k >= 2 && cross(hull[k - 2], hull[k - 1], p[i]) <= 0)
+            --k;
+        hull[k++] = p[i];
+    }
+    for (size_t i = p.size() - 1, t = k + 1; i-- > 0;) {
+        while (k >= t && cross(hull[k - 2], hull[k - 1], p[i]) <= 0)
+            --k;
+        hull[k++] = p[i];
+    }
+    if (k < 4) // flat on the screen: nothing to click
+        return false;
+    for (size_t i = 0; i + 1 < k; ++i)
+        if (cross(hull[i], hull[i + 1], {x, y}) < 0)
+            return false;
+    return true;
+}
+
 std::vector<size_t> exeDepthOrder(const std::vector<WorldBox>& boxes, const std::vector<ScreenRect>& rects,
                                   const std::vector<std::array<int, 3>>& keys, int maxPasses) {
     const size_t n = boxes.size();

@@ -263,12 +263,27 @@ with one of them by chance: the bear dances or mauls, the piano's lid
 opens, the telephone on the lounge's lamp table rings, the stove's pot
 boils over, and 25 or so others. The object's timings give each
 reaction's sound: time 1500, 1600, 1700 for states 20, 21, 22, the value
-a number into `Clue.exe`'s sound table from its 61st entry
-(`bear_g.wav` 0, `bear_b.wav` 1, `rhino_b.wav` 2 ... `mnky_b.wav` 21; the
-table is a list of pointers to the names at 0x5CA98 in 2.2's file).
-Reactions don't touch the game. Reluva takes clicks on hot spots any
-time but while a human is planning a move (the clicks are then the
-move's); see-through walls don't catch the pointer.
+a number into `Clue.exe`'s sound table from its 69th entry
+(`bear_g.wav` 0, `bear_b.wav` 1, `rhino_b.wav` 2 ... `mnky_b.wav` 21;
+0x42A3F6 adds 0x44 and plays it only below 0x62; the table is a list of
+pointers to the names at 0x45E698, 0x5CA98 in the file); the
+placement's timing if it has one, else the object's (0x4280B0,
+0x428100). Which reaction: one of those the object has, by chance
+(0x42A301). Reactions don't touch the game.
+
+When: `Clue.exe` 0x4196A0 handles a click in the view, 0x419600 the
+pointer moving. Either does anything only on the turn of the human at
+this machine, with no action being carried out, and with their suspect
+in one of the rooms (0x428080). Then 0x419980 goes through the hot
+spots for the first one that is in the suspect's room (0x42A250
+compares the two rooms), isn't still reacting (+0xC8, set as a
+reaction starts and cleared as it ends), and whose box's outline on the
+screen (the hexagon its corners make, not its picture) holds the point.
+On the plan from above it is the box's footprint instead. The two
+portraits in the credits painting (`credpnt:Oamespic`, `Oslcpic`) have
+a timing at 2100, which makes them react to the pointer passing over
+them (+0xC9). The others react to a click, and a click that finds none
+is the move's. Reluva does the same.
 
 **Weather.** `Clue.exe` 0x41C690, run every game tick (66 ms; every
 path through the tick reaches it): a clock of 66 ms ticks that runs

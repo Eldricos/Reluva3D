@@ -31,7 +31,10 @@ struct WorldBox {
 // box starts before a's ends along x, y and height alike.
 bool behind(const WorldBox& b, const WorldBox& a);
 
-
+// Whether a point on the screen (the world's, camera not taken off) falls in
+// a box's outline there, the hexagon its corners make: Clue.exe's test of a
+// click on a hot spot (0x419980), the box and not the picture.
+bool onBox(const WorldBox& box, int x, int y);
 
 // Whether a is drawn after b (it hides b where they overlap on screen):
 // 1 if a is in front, -1 if b is (beyond it along x, or else y, or else

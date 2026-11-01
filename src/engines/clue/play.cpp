@@ -1133,6 +1133,10 @@ void Play::handleEvent(const Event& ev) {
         if (window_ != Window::None)
             return;
     }
+    if (ev.type == EventType::MouseMove && ev.mouseY < kBarTop &&
+        !(panel_ != Panel::None && ev.mouseX >= kLeftX && ev.mouseX < kLeftX + 202 && ev.mouseY >= kLeftY &&
+          ev.mouseY < kLeftY + 408))
+        reactAt(ev.mouseX, ev.mouseY, true);
     if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
         pressedAction_ = actionAt(ev.mouseX, ev.mouseY);
         return;
@@ -1161,7 +1165,7 @@ void Play::handleEvent(const Event& ev) {
         clickPanel(x - kLeftX, y - kLeftY);
         return;
     }
-    if (!map_ && clickHotSpot(x, y))
+    if (reactAt(x, y, false))
         return;
     if (busy() || !steps_.empty() || !localTurn() || pending_)
         return;
@@ -1220,28 +1224,68 @@ void Play::walkPlan() {
     perform(command(netplay::Command::Walk, game_.turn(), args));
 }
 
-bool Play::clickHotSpot(int x, int y) {
-    // While a move is being planned, clicks are the move's.
-    if (localTurn() && game_.canMove() && !busy())
+bool Play::reactAt(int x, int y, bool hover) {
+    // Clue.exe 0x4196A0 (a click) and 0x419600 (the pointer moving), then
+    // 0x419980: only on the turn of this machine's human, with nothing being
+    // carried out and their suspect in one of the rooms (0x428080); then the
+    // first hot spot in that room, not reacting already (+0xC8), whose box's
+    // outline the point falls in. Those with a timing at 2100 (+0xC9, the
+    // credits painting's portraits) react to the pointer passing over them,
+    // the others to a click; a click that finds none is the move's.
+    if (!localTurn() || busy() || !steps_.empty() || game_.phase() == Game::Phase::Over)
         return false;
-    const int i = mansion_.itemAt(x + camX_, y + camY_, look_.mansion, now_);
-    if (i < 0 || mansion_.playingState(size_t(i), now_))
+    const Place& at = game_.place(game_.turn());
+    if (!at.inRoom())
         return false;
-    const ObjectDef* o = mansion_.items()[size_t(i)].object;
-    std::vector<uint16_t> reactions;
-    for (const ObjectDef::State& st : o->states)
-        if (st.id >= kReactionFirst && st.id <= kReactionLast)
-            reactions.push_back(st.id);
-    if (reactions.empty())
+    if (map_ && (x < kMapX || x >= kMapX + kMapW || y < kMapY || y >= kMapY + kMapH))
         return false;
-    const uint16_t state = reactions[ambientRng_() % reactions.size()];
-    if (!mansion_.playState(data_, size_t(i), state, now_))
-        return false;
-    const uint16_t code = uint16_t(1500 + 100 * (state - kReactionFirst));
-    for (const Timing& t : o->timings)
-        if (t.time == code && t.state < std::size(kObjectSound))
-            sound(kObjectSound[t.state]);
-    return true;
+    const auto findTiming = [](const std::vector<Timing>& ts, uint16_t time) -> const Timing* {
+        for (const Timing& t : ts)
+            if (t.time == time)
+                return &t;
+        return nullptr;
+    };
+    // The placement's timing, else the object's (0x4280B0, 0x428100).
+    const auto timing = [&](const Mansion::Item& item, uint16_t time) {
+        const Timing* t = findTiming(mansion_.level()->placements[item.placement].timings, time);
+        return t ? t : findTiming(item.object->timings, time);
+    };
+    for (size_t i = 0; i < mansion_.items().size(); ++i) {
+        const Mansion::Item& item = mansion_.items()[i];
+        std::vector<uint16_t> reactions;
+        for (const ObjectDef::State& st : item.object->states)
+            if (st.id >= kReactionFirst && st.id <= kReactionLast)
+                reactions.push_back(st.id);
+        if (reactions.empty() || (timing(item, 2100) != nullptr) != hover || mansion_.playingState(i, now_))
+            continue;
+        if (board_.roomAt(Board::squareAt(item.worldX, item.worldY)) != at.room)
+            continue;
+        if (map_) {
+            // On the plan from above (0x419980's other branch): the box's
+            // footprint, 13 pixels to a square of 64.
+            const auto mapX = [](int wx) {
+                return kMapX + kMapCol0X + (wx - Board::kGridOrigin - kMapFirst * Board::kSquareSize) * kMapSquare /
+                                               Board::kSquareSize;
+            };
+            const auto mapY = [](int wy) {
+                return kMapY + kMapRow0Y + (wy - Board::kGridOrigin - kMapFirst * Board::kSquareSize) * kMapSquare /
+                                               Board::kSquareSize;
+            };
+            if (x < mapX(item.box.x) || x >= mapX(item.box.x + item.box.sizeX) || y < mapY(item.box.y) ||
+                y >= mapY(item.box.y + item.box.sizeY))
+                continue;
+        } else if (!onBox(item.box, x + camX_, y + camY_))
+            continue;
+        // One of its reactions by chance (0x42A301).
+        const uint16_t state = reactions[ambientRng_() % reactions.size()];
+        if (!mansion_.playState(data_, i, state, now_))
+            return false;
+        if (const Timing* t = timing(item, uint16_t(1500 + 100 * (state - kReactionFirst))))
+            if (t->state < std::size(kObjectSound))
+                sound(kObjectSound[t->state]);
+        return true;
+    }
+    return false;
 }
 
 void Play::updateAmbience() {

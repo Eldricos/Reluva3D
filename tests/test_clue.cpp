@@ -439,6 +439,12 @@ static void testDepth() {
     CHECK(compareDepth(beyondY, a) == 1 && compareDepth(a, beyondY) == -1);
     CHECK(compareDepth(a, WorldBox{8, 8, 16, 16, 50}) == 0);
 
+    // A hot spot's click: in its box's outline on the screen, the hexagon
+    // (0,-40) (64,-8) (64,32) (0,64) (-64,32) (-64,-8) for this one.
+    const WorldBox spot{0, 0, 64, 64, 40};
+    CHECK(onBox(spot, 0, 20) && onBox(spot, 63, 0) && onBox(spot, -60, 30) && onBox(spot, 0, -39));
+    CHECK(!onBox(spot, 0, -41) && !onBox(spot, 60, 40) && !onBox(spot, 70, 0) && !onBox(spot, 0, 70));
+
     // A long wall in front of a small object whose centre is nearer the
     // camera than the wall's: the boxes say the wall goes last.
     const WorldBox wall{0, 48, 128, 16, 100}, thing{100, 20, 16, 16, 50}, far{1000, 1000, 16, 16, 50};
