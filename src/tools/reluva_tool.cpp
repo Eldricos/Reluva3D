@@ -47,8 +47,8 @@
 //   reluva-tool clue-check <game folder> [-uk]      decode every image, animation and object of a Clue
 //                                                  install or CD, and build its mansion
 //   reluva-tool clue-level <clue.lvl> [-v]          a Clue level's placements (each one with -v)
-//   reluva-tool clue-board <clue.lvl> [games]       the board a Clue level lays out; games of
-//                                                  computer players on it
+//   reluva-tool clue-board <clue.lvl> [games [level players]]  the board a Clue level lays out;
+//                                                  games of computer players on it
 //   reluva-tool bsp-check <game folder>            load every maps/*.bsp of an id Tech 3 game folder
 //                                                  (e.g. .../BaseEF), report failures and corrections
 //   reluva-tool pk3-list <game folder> [filter]    list the search path's files, with sizes and the
@@ -2838,8 +2838,8 @@ int cmdClueLevel(int argc, char** argv) {
 // The board clue.lvl lays out, drawn in characters: '.' corridors, a room's
 // letter, '#' its doors' squares, a digit a suspect's start.
 int cmdClueBoard(int argc, char** argv) {
-    if (argc != 3 && argc != 4) {
-        std::fprintf(stderr, "usage: reluva-tool clue-board <clue.lvl> [games]\n");
+    if (argc != 3 && argc != 4 && argc != 6) {
+        std::fprintf(stderr, "usage: reluva-tool clue-board <clue.lvl> [games [novice|normal|expert players]]\n");
         return 2;
     }
     reluva::clue::DataDrive file;
@@ -2897,18 +2897,29 @@ int cmdClueBoard(int argc, char** argv) {
         std::printf("suspect %d starts at %d,%d\n", k, board.start(k).x, board.start(k).y);
     // Games of six computer players on it, alternately with the die and without.
     const int games = argc > 3 ? std::atoi(argv[3]) : 0;
-    int turns = 0, unfinished = 0, wrong = 0;
+    // Or all of one level, so many of them: "novice 3", "expert 5" ...
+    int onlyLevel = -1, players = 6;
+    if (argc > 5) {
+        const std::string lv = argv[4];
+        onlyLevel = lv == "novice" ? 0 : lv == "normal" ? 1 : 2;
+        players = std::clamp(std::atoi(argv[5]), 3, 6);
+    }
+    int turns = 0, unfinished = 0, wrong = 0, suggestions = 0, selfNamed = 0, within12 = 0;
     std::array<int, 3> wins{};
     for (int g = 0; g < games; ++g) {
         using reluva::clue::ComputerPlayer;
         using reluva::clue::Game;
         Game game;
-        game.start(board, {true, true, true, true, true, true}, g % 2 == 1, uint32_t(g + 1));
+        std::array<bool, reluva::clue::kSuspectCount> playing{};
+        for (int s = 0; s < players; ++s)
+            playing[size_t(s)] = true;
+        game.start(board, playing, onlyLevel < 0 && g % 2 == 1, uint32_t(g + 1));
         std::array<ComputerPlayer, reluva::clue::kSuspectCount> ai;
         // The levels mixed: two players of each, their seats changing game
         // to game.
         for (int s = 0; s < reluva::clue::kSuspectCount; ++s)
-            ai[size_t(s)].reset(game, s, uint32_t(g * 31 + s), (s + g) % 3);
+            ai[size_t(s)].reset(game, s, uint32_t(g * 31 + s), onlyLevel >= 0 ? onlyLevel : (s + g) % 3);
+        const int turnsBefore = turns;
         int steps = 0;
         for (; game.phase() != Game::Phase::Over && steps < 100000; ++steps) {
             ComputerPlayer& me = ai[size_t(game.turn())];
@@ -2919,19 +2930,24 @@ int cmdClueBoard(int argc, char** argv) {
             case ComputerPlayer::Action::Walk: e = game.walk(me.chooseWalk(game)); break;
             case ComputerPlayer::Action::Suggest: {
                 const auto a = me.chooseSuggestion(game);
+                ++suggestions;
+                selfNamed += a.suspect == game.turn();
                 e = game.suggest(a.suspect, a.weapon);
                 if (!e && game.phase() == Game::Phase::Disprove)
                     e = game.show(ai[size_t(game.disprover())].chooseShow(game, game.turn()));
                 for (int s = 0; s < reluva::clue::kSuspectCount; ++s)
-                    ai[size_t(s)].observe(game);
+                    if (playing[size_t(s)])
+                        ai[size_t(s)].observe(game);
                 break;
             }
             case ComputerPlayer::Action::Accuse: {
                 const auto a = me.chooseAccusation();
+                const int accuser = game.turn();
                 e = game.accuse(a);
                 if (!e && game.phase() != Game::Phase::Over)
-                    for (auto& p : ai)
-                        p.observeAccusation(a);
+                    for (int s = 0; s < reluva::clue::kSuspectCount; ++s)
+                        if (playing[size_t(s)])
+                            ai[size_t(s)].observeAccusation(a, accuser);
                 break;
             }
             case ComputerPlayer::Action::EndTurn:
@@ -2945,6 +2961,7 @@ int cmdClueBoard(int argc, char** argv) {
             }
         }
         unfinished += game.phase() != Game::Phase::Over;
+        within12 += game.winner() >= 0 && turns - turnsBefore < 12 * players;
         if (game.winner() >= 0)
             ++wins[size_t(ai[size_t(game.winner())].level())];
         for (int s = 0; s < reluva::clue::kSuspectCount; ++s)
@@ -2954,6 +2971,11 @@ int cmdClueBoard(int argc, char** argv) {
         std::printf("%d games: %d unfinished, %d wrong accusations, %.1f turns a game; won by novices %d, normal "
                     "players %d, experts %d\n",
                     games, unfinished, wrong, double(turns) / games, wins[0], wins[1], wins[2]);
+    if (games && onlyLevel >= 0)
+        std::printf("%d players: %.1f rounds a game, %d%% won within 12 rounds; named itself %.0f%% of %d "
+                    "suggestions\n",
+                    players, double(turns) / games / players, within12 * 100 / games,
+                    suggestions ? 100.0 * selfNamed / suggestions : 0.0, suggestions);
     return unfinished ? 1 : 0;
 }
 #endif // RELUVA_ENGINE_CLUE
@@ -5740,7 +5762,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool clue-extract <file.res> <output dir> [name filter]\n"
                  "  reluva-tool clue-check <game folder> [-uk]\n"
                  "  reluva-tool clue-level <clue.lvl> [-v]\n"
-                 "  reluva-tool clue-board <clue.lvl> [games]\n"
+                 "  reluva-tool clue-board <clue.lvl> [games [novice|normal|expert players]]\n"
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
                  "  reluva-tool bsp-check <game folder, e.g. .../BaseEF>\n"

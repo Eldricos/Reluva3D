@@ -138,46 +138,70 @@ Each step can be seen working before the next.
 
 ## The computer players
 
-Each computer player keeps a notebook: for each card, whether each
-player and the case file hold it, lack it, or might. What it notes and
-how it chooses, by level, matched to the recordings below:
+As `Clue.exe` 2.2 plays them, read from its code (November 2026); before
+that, Reluva's were its own, fitted to the recordings below. A computer
+player (class `AI`) keeps what it knows as the original's notebook does
+(0x42CC20 on), cards as bits: what each player is known to hold and to
+lack, and for each player a list of "holds one of these three". It
+takes in, at every level:
 
-| | Novice | Normal | Expert |
-|---|---|---|---|
-| Its own cards; cards shown to it | yes | yes | yes |
-| Its suggestions nobody could answer: what it doesn't hold is the answer | yes | yes | yes |
-| Who couldn't answer its own suggestions lacks their three cards | yes | yes | yes |
-| A card is in one place; the case file holds one of each kind | yes | yes | yes |
-| A wrong accusation: not all three are the answer | | | yes |
-| What it names | anyone and anything; itself about a quarter of the time | what it doesn't know | a kind's answer once known; else the unknown card fewest might hold; never itself in doubt |
-| Which card it shows | any | one the suggester has seen | that, else one shown to someone else |
+- its own hand: held by it, and nothing else;
+- every suggestion made (the three cards, 0x42CFA0);
+- who couldn't answer a suggestion: lacks all three (0x418935);
+- the card shown to it (0x42CE90);
+- nobody answering its own suggestion: what of the three isn't in its
+  hand is the answer (0x42D1B0), as Professor Plum's accusation in the
+  VM recording shows (below).
 
-The notebook can also count each player's cards, note who couldn't
-answer others' suggestions, and work out which of three cards an unseen
-answer was; no level does, as each made experts quicker than the
-original's (with all three, 6 rounds a game where the recorded game took
-about 10; without, 9.8). The original's experts also repeat suggestions
-others have made, which fits their not noting others' answers. Computer players
-accuse only when they know the answer, so they never accuse wrongly.
-They head for the nearest room that may be the answer (once the room
-is known, any room), taking a secret passage when the room beyond is
-worth it; without the die, they keep three moves to suggest with.
+and, by level (0x421C10, 0x421C80: a novice never, a normal player half
+the time, by `rand() * 100 / 32767 > 50`, an expert always):
 
-**Measured against the original** (the recordings below; Reluva's
-figures from `reluva-tool clue-board` and 300 games each of the same
-make-up):
+- someone answering another's suggestion: holds one of the three
+  (0x418D00);
+- a wrong accusation: the accuser holds none of the three (0x41B26E),
+  which needn't be true.
+
+A "holds one of these" loses what its holder lacks and what others hold;
+down to one card, that card is held (0x42CCE0). The answer is found only
+by elimination: the one card of a kind not known to be held (0x42D0B0;
+code there meant to use cards nobody holds tests constants instead and
+never does). With all three found it accuses, at once (0x42CE90,
+0x422220): only then, so never wrongly but for the wrong-accusation rule
+above.
+
+**Its turn** (0x42C740, 0x422570). In a room it may suggest in, it
+suggests. Else it rolls and heads for a room: one neither known to be
+held nor the answer, by chance (any room in its first three moves; not
+the one it is in, 0x42D900); if it is in that room, the nearest other
+(GetClosestRoom, 0x426710: through the passage if the room has one).
+It goes the shortest way there, as far as the die goes, through the
+passage when that leads there, and suggests on arriving. Without the die
+it keeps three moves to suggest with.
+
+**What it names** (0x42D8A0): a suspect and a weapon not known to be
+held, or the answer once found; above a novice, not one a pending "holds
+one of these" is about, if it can; by chance among them. That can be
+itself, when it doesn't hold its own card. With nothing left of a kind,
+one of its own (0x42D800).
+
+**What it shows** (0x42D680): by chance, but above a novice a card the
+suggester has been shown before if it has one, else one shown to anyone.
+
+**Against the recordings** (Reluva's figures from `reluva-tool
+clue-board <clue.lvl> 300 <level> <players>`, games of that level alone):
 
 | Level | Original | Reluva |
 |---|---|---|
-| Novice (3 players) | no accusation in 14 and 12 rounds (two games); named itself 26% | 21.5 rounds a game, 20% won within 12; names itself 26% |
-| Normal (6 players) | no accusation in about 10 rounds; named itself 10% | 11.4 rounds, 57% won within 12; 16% |
-| Expert (5 and a human) | won in about 10 rounds; never named itself | 9.8 rounds, 72% won within 12; 3% |
+| Novice (3 players) | no accusation in 14 and 12 rounds (two games); named itself 26% | 41.5 rounds a game, 7% won within 12; names itself 18% |
+| Normal (6 players) | no accusation in about 10 rounds; named itself 10% | 20.3 rounds, 18% won within 12; 20% |
+| Expert (5 and a human) | won in about 10 rounds; never named itself | 5 players 19.9 rounds, 6 players 15.1, 32% won within 12; 20-21% |
 
-(Reluva's expert and normal figures for five of the level and a normal
-player in place of the human, as the recordings had.) In mixed games of
-two of each level (`clue-board ... 600`), experts won 287, normal
-players 254, novices 59: the experts' edge is in naming a kind's answer
-once known and choosing the cards that settle most.
+The novices' and normal players' recorded games fit. The recorded
+expert game was quicker than most, and its experts never named
+themselves where by the code they may (when they lack their own card,
+about one suggestion in five here): one game, which the code doesn't
+explain. In mixed games of two of each level (`clue-board ... 600`),
+experts won 402, normal players 159, novices 39.
 
 **The recordings.** Read off each game's ticker, every turn and
 suggestion:
@@ -376,7 +400,9 @@ menus, as the original. In the game, the arrow keys move the view
 (**Shift**: faster) and **Esc** opens the game's menu: Save, Preferences,
 How To Play, Exit To Main (which asks "Are you sure you want to exit the
 current game?" first, the original's dialog 44), Continue. The game
-doesn't stop for it, as the original's doesn't: in the recordings
+doesn't stop for it, as the original's doesn't (its `EscapeDialog` sets
+no pause; it waits in a loop that runs the game's own, 0x441590, and
+only disables Save in network games, 0x440AD0): in the recordings
 computer players play on behind it ("The Classic" 46:48-47:03, a whole
 turn; Playthrough 01 4:45-4:50 and 17:25-17:32), and in network games so
 does everyone else. The preferences
@@ -426,6 +452,14 @@ As the original, from its recordings and its How to Play texts:
   who showed it, and a tick in its first mark.
 - **The board** button shows the board from above, with the suspects'
   pawns; moves can be planned on it too.
+- **Suggestions**, as `Clue.exe` runs them: the suspect named is brought
+  to the room unless already there, to a place found from where the
+  suggester stands (0x41BEA0); the players are asked in turn from the
+  next seat on, those without cards passed over, until one can answer
+  or it comes back round (0x41873E). A human out of the game after a
+  wrong accusation becomes one of its "LostHumanDoDisprove" or
+  "LostHumanNoDisprove" players: disproving by hand, or left to the
+  computer, as they choose.
 - When a human must disprove, their matching cards are shown, as
   `Clue.exe`'s DisproveDlg does it (0x441C60, its clicks at 0x442250):
   one card in the middle on the disprover's background (`...Dis2Bg`),

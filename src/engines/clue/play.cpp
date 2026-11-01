@@ -817,7 +817,7 @@ void Play::accusationMade(const Accusation& a) {
         }
         for (int k = 0; k < kSuspectCount; ++k)
             if (players_[size_t(k)].kind != Player::None)
-                ai_[size_t(k)].observeAccusation(a);
+                ai_[size_t(k)].observeAccusation(a, s);
         say(line(s, kAccusedWrong));
         sound(std::string("accuse incorrect ") + kVoice[s] + ".WAV", true);
         placeWalkers(false); // off a doorway

@@ -3,21 +3,14 @@
 
 #pragma once
 
-// The computer players: a notebook of what each knows of who holds which
-// card, deduced from what it sees, and their choices. The three levels of
-// the set-up screen, matched to recordings of the original's (see
-// docs/engines/clue.md):
+// The computer players, as Clue.exe's (read from its code; see
+// docs/engines/clue.md): what each knows of who holds which card, kept as
+// it keeps it, and its choices. The set-up screen's three levels differ
+// only in what each takes in of others' suggestions and accusations, and
+// in two of the choices (below).
 //
-// - Novice: names anyone and anything, itself often; notes only what it is
-//   shown and who couldn't answer its own suggestions.
-// - Normal: names what it doesn't know; notes the same.
-// - Expert: also notes others' wrong accusations; names a kind's answer
-//   once known and, among the rest, the card fewest might hold, never
-//   itself in doubt; shows a card already seen when it can.
-//
-// The notebook can also count each player's cards and work out which of
-// three an unseen card was; no level does, as the original's experts are
-// no quicker than without (docs/engines/clue.md).
+// Notebook is a fuller deduction of who holds what, kept for its tests
+// and for later use; the computer players don't use it.
 
 #include "engines/clue/rules.h"
 
@@ -75,9 +68,9 @@ public:
     void reset(const Game& game, int me, uint32_t seed, int level = Expert);
 
     // After a suggestion is answered (or not): what this player can see of
-    // it. A wrong accusation: what was accused.
+    // it. A wrong accusation: what was accused, and by whom.
     void observe(const Game& game);
-    void observeAccusation(const Accusation& a);
+    void observeAccusation(const Accusation& a, int accuser);
 
     enum class Action { Roll, Passage, Walk, Suggest, Accuse, EndTurn };
     Action decide(const Game& game);
@@ -86,28 +79,44 @@ public:
     Accusation chooseAccusation() const;
     int chooseShow(const Game& game, int suggester);
 
-    bool ready() const { return notes_.complete(); }
+    bool ready() const;
 
     // Saved and loaded with the game (the board's distances worked out again).
     void save(std::ostream& out) const;
     Error load(std::istream& in, const Game& game);
-    const Notebook& notebook() const { return notes_; }
     int level() const { return level_; }
 
 private:
+    // What it knows, as Clue.exe's notebook keeps it (0x42CC20 on): cards
+    // as bits 0-20 (suspects, weapons, rooms).
+    struct Mind {
+        uint32_t current = 0;  // the suggestion last made
+        uint32_t known = 0;    // every card known to be held
+        uint32_t solution = 0; // the answer's cards found
+        std::array<uint32_t, kSuspectCount> has{}, hasNot{};
+        std::array<std::vector<uint32_t>, kSuspectCount> oneOf; // holds one of each
+        std::array<uint32_t, kSuspectCount> shownTo{};          // what it has shown each
+        uint32_t shownAny = 0;
+        int moves = 0; // moves made, of the room it heads for
+    };
+    void settle();
+    void findSolution();
+    bool takesIn(); // a level's chance of taking in others' play
+    uint32_t pickBit(uint32_t mask);
+    uint32_t fallback(uint32_t kind, const Game& game);
+    uint32_t pickCard(uint32_t kind, const Game& game);
+    int pickRoom(const Game& game);
+    int closestRoom(const Game& game) const;
     void measure(const Board& board);
     int distance(const Place& from, int room) const;
-    int target(const Game& game) const;
-    bool roomWanted(int room) const;
-    int pick(int kind, const Game& game);
 
     int me_ = 0;
     int level_ = Expert;
     std::mt19937 rng_;
-    Notebook notes_;
+    Mind mind_;
+    int target_ = kNoRoom; // the room it heads for this turn
     // The steps from each corridor square to each room.
     std::array<std::map<Square, int>, kRoomCount> toRoom_;
-    std::map<int, std::vector<int>> shownTo_; // the cards it has shown each suspect
 };
 
 } // namespace reluva::clue
