@@ -386,6 +386,37 @@ Which sounds use which coding:
 Some PCM sounds run past the next sound's data or the end of the bank.
 Reluva uses as much as is there.
 
+## Which bank a race sound comes from
+
+Read from `nfs3.exe` (November 2026). At a race's start `0x413bc0`
+loads the banks into a table of 12-byte entries at `0x571124`
+(`0x410b50`: +0 the bank, +8 its memory):
+
+| Entry | Bank | Loaded at |
+|---|---|---|
+| 0 | the traffic car's (`strex`, `scrate`, `struck`, `slimo`; without 3D sound `trex`...) | `0x413cd4` |
+| 2 | `Gen3d` with 3D sound (`0x5525a4`), else `Gen` | `0x414246` |
+| 3 | the track's: `tr3dNN` (3D) or `tramNN`, + `n`, `w` or `nw` by sky; `trambNN` from track 9 | `0x414425` |
+| 4 | `rain` | `0x41447d` |
+| 5 | `siren3d` or `siren` | `0x414178` |
+| 6, 7 | `cnt`, `lap` | `0x4142d2`, `0x414358` |
+| 8 | `copspch` | `0x4141d0` |
+| 9-14 | `tutor` (9), `vocasst` (10), the `off%02xA`-`C` (11-13) and `disp%02x` (14) speech | `0x4144f3`-`0x4147e1` |
+| 22 | another traffic bank (`s...`) | `0x413e0a` |
+
+`0x4138e0` loads the cars' banks (`scar.bnk`, `car.bnk`, `ocar.bnk`) at
+an index it is passed; entry 1 is not followed.
+`0x417080` plays a sound on a voice slot. Its bank: entry 3 for slots
+18-21, 26, 32-36 (the track's sounds and the player's road loops);
+else by sound number (0 entry 1, 2 entry 0, 10 and 11 entry 2, 12
+entry 5 as sound 1); else the byte for the slot in `0x552798` (4-byte
+stride): slots 0-3 0, 1, 0, 1; 4-15 2; 16 0; 17 22; 18-21 3; 22-25 2;
+26 3; 27-30 1; 31 2; 32-35 3; 36 0; 37 22. So the other cars' skids (slots 22-25) and the
+player's (8-11) are `Gen.bnk` slots 41-47 (`0x414d70`), and the moving
+objects' sounds (slots 20, 21) are slots of the track's bank. The voice
+slots are listed in [nfs.md](../../engines/nfs.md) (Dolby, which voices
+are behind).
+
 ## EA-XA ADPCM
 
 - Mono in banks: 28 samples in each 15-byte frame.

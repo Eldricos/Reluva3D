@@ -81,8 +81,15 @@ Client/Server (`0x7a22e4` 1 or 0) and "Positional Updates" ("best for
 slow network connections and Internet") or "Controller Updates" ("best
 for fast, local area networks"). `0x6fd50c` is the first of the second
 pair: the dialog starts it at 0 (`0x43f43e`-`0x43f45e`, Controller) and
-its handler can only clear it (`0x43f927`); the TCP Host Game dialog
-shows only the first pair (seen in a run). The one place that sets it
+its handler can only clear it (`0x43f927`). No dialog shows the second
+pair. The dialog code `0x445750` has one caller, `0x43f4cb` in
+`0x43f320` (whose callers are `0x43f65f`, `0x43f7a2` and `0x43fbc4`),
+and is given 5-entry lists: texts 27, 28, -, 29, 30, their
+descriptions 31, 32, -, 33, 34, and the variables `0x5f3fe4`,
+`0x7a22e4`, -, `0x6fd50c`, `0x5f3fe0` (`0x5556e0`). But the count it
+gets is 2 (ebx at `0x43f4b2`), and it draws and checks only that many
+(`0x4453ac`). So the TCP Host Game dialog shows only the first pair
+(seen in a run), and so do the others. The one place that sets it
 to 1 is `0x49e080`, reached at the first front-end entry (`0x473218`,
 `0x55b03c` starts at 1) when the command line gave a game: `-IP=`,
 `-PORT=`, `-NAME=`, `-PLAYERS=`, `-PNUM=`, `-RACE=`, `-TRACK=`, `-CAR=`,
@@ -195,18 +202,32 @@ argument of `0x4a6a10` is the barrier; the first, 0x1E for the pause and
 | 0x39 | 16 | model |
 | 0x49 | 4 | the car's colour (`0x6fd307`-`0x6fd30a`; `70 00 00 77` captured) |
 | 0x50 | 4 | the car's flags (car +0x380; 0x42 for the Corvette) |
-| 0x54 | 12 | three floats from car +0x394 (1.18326, 0.668848, 2.40644 for the Corvette); meaning not followed |
+| 0x54 | 12 | the car's half size in x, y, z (1.18326, 0.668848, 2.40644 for the Corvette): front-end car +0x394 (`0x439510`), read from `car.fce` +0x28 (`0x43b4b0` → `0x49c700`, `0x49c7fb`-`0x49c810`) |
 
 **The race set-up** (05) is a copy of memory from `0x6fd39c`, 2,192
-bytes: the race's variables, then 8 cars of 0x6C bytes at `0x6fd53c` +
-car × 0x6C, then the starting order (8 u32 at +0x850). The header's
+bytes: the race's variables, then 16 cars of 0x6C bytes at `0x6fd52c` +
+car × 0x6C (the record a race car points to at +0x220, `0x42c780`; the
+host keeps a copy of all 16, `0x4c5ee9`), then the starting order (8
+u32 at +0x850, `0x6fdbec`). The table of cars below counts from
+`0x6fd53c`, 0x10 into each record, as it was first read; add 0x10 for
+the record's own offsets. The header's
 words are the variables at `0x6fd39c` + offset: +0x18 the seed
 (`0x6fd3b4`), +0x14 the kind of play (`0x6fd3b0`, 4), +0x118 the laps,
 +0x134 `oppnumber`, +0x138 `opcars`, +0x168 `classLimiter`, +0x16C ready
 (`0x6fd508`), +0x174 the cars (`0x6fd510`, 8), +0x178 the players
 (`0x6fd514`, 2), +0x17C the human racers (`0x6fd518`), +0x184 the
-computer's racers (`0x6fd520`, 6); +0xC (2), +0xF0 (1), +0x150 (1) and
-+0x190 (0x13) weren't named. Each car (filled for players at
+computer's racers (`0x6fd520`, 6). The others:
+
+- +0xC (`0x6fd3a8`, 2): set to 2 by the settings' defaults
+  (`0x472661`, `0x472d7f`) and never read.
+- +0xF0 (`0x6fd48c`, 1 by default, `0x4724e4`): copied at a race's
+  start to `0x6fd4a8` (`0x4746c3`), which, in a one-player game after
+  0x480 steps, puts a cop being reset on the slice behind the racer it
+  is after (`0x405288`-`0x4052b7`); on the main menu in Hot Pursuit it
+  adds a button (text 0x196, `0x45d199`). A cops option by the look of
+  it; its name wasn't found.
+- +0x150 (`0x6fd4ec`, 1, `0x4724db`): no reader found.
+- +0x190 (0x13) is the first car record's +0 (below). Each car (filled for players at
 `0x49acf1`-`0x49adeb` from their 03):
 
 | Offset | Contents |
@@ -218,10 +239,12 @@ computer's racers (`0x6fd520`, 6); +0xC (2), +0xF0 (1), +0x150 (1) and
 | 0x10 | the colour (03 +0x49) |
 | 0x14, 0x18, 0x1C | the flags of 09 (03 +0x16-0x18); 1 for players, 0 for the computer's cars |
 | 0x20 | the driver's number (2-6 for `Gotcha`, `Ram Rod`, `Dead Beat`, `Mulligan`, `Wild One`; the players had 0 and 6) |
-| 0x24 | the name (16) |
-| 0x38 | five floats, 1.0 |
-| 0x4C | three floats, 03's +0x54 (players only) |
-| 0x5C | a number (0x13, 2, 0xF, 0...), not followed |
+| 0x24 | the name (12: 03's 11 and a zero) |
+| 0x30, 0x34 | the set-up sliders (7 floats from `0x55d024`, `0x473d8d`; the record's +0x40, physics.md): Engine Tuning 1.0, Brake Balance 0 |
+| 0x38 | the other five sliders, 1.0: Steering Speed, Gear Rat, Suspension, Aero, Tires |
+| 0x4C | three floats, 03's +0x54, the car's half size (players only, `0x49ade8`); no reader found |
+| 0x58 | the car's flag 0x08 (left out of the lists, `0x4395a0`, `0x473db1`); the host keeps its own (`0x4c5ff0`). Read at `0x4cf066` |
+| 0x5C | the next record's +0 (0x13, 2, 0xF, 0...), not followed |
 
 **The race** is lockstep: in the captured races no positions or speeds
 went over the network, only each car's controls (0b and 0c, which carry
@@ -286,12 +309,13 @@ pursuit) the press is sent and nothing happens.
 Seen in a run (October 2026, `nfs-host -poke`, docs/engines/nfs.md): a
 single-player Hot Pursuit with the player in the Pursuit Corvette
 (race type `0x6fd3b8` = 3 and player 1's car `0x6fd2bc` = 12, written
-at the race set-up `0x473bf0`). The player's cop runs the police states
-(`0x405740`) but stays in state 2, patrolling, where S does nothing; the
-strip is laid only in states 3 and 4, a chase. With car +0x6E0 (the
-state, `0x5e1800` for that car) set to 3, each S press laid a strip
-across the road, the next found it still out, and the one after cleared
-it. How a player's cop starts a chase in the game wasn't found.
+late, at `0x473bf0`, so the player was really a racer, state 2 of the
+police states `0x405740`). The strip is laid only in states 3 and 4.
+With car +0x6E0 (the state, `0x5e1800` for that car) set to 3, each S
+press laid a strip across the road, the next found it still out, and
+the one after cleared it. Poked in time (`0x474ca0`) the player's cop
+starts in state 3 by itself, and chases once its siren (H) is on and a
+racer near is speeding ([physics.md](physics.md)).
 
 ## IPX
 
@@ -323,7 +347,7 @@ node 6, BE socket 2); +0x14 8 bytes, zero. Then:
 
 | Tag | Bytes | After the head | Built at |
 |---|---|---|---|
-| `dec` | 176 | +0x1C the game's GUID (BE u32, u16, u16, 8 bytes: the one in its `EAGAME.` name); +0x2C its name (32, `Player1`); +0x4C-0x5F words of the game's record (+0x74-0x87), BE: only +0x5C was set, 8, the most players (`0x5132a0` stops there); +0x70 BE the mask of player rows in use (game +0x50, 0 before anyone joined) | `0x513030` |
+| `dec` | 176 | +0x1C the game's GUID (BE u32, u16, u16, 8 bytes: the one in its `EAGAME.` name); +0x2C its name (32, `Player1`); +0x4C-0x5F the game's record +0x74-0x87, which is the game's own info (`NET_newgame`'s, `0x7a0420` here) +0x3C-0x4F: 4 bytes, BE u16, u16, u32, u32 and +0x5C BE u32 the most players, 8 (`0x7a046c`: 2 for Client/Server, 8 for Peer-to-Peer, `0x49e6be`; `0x5132a0` stops there). The game never writes `0x7a045c`-`0x7a046b`, so +0x4C-0x5B are 0: room left for the application. +0x60-0x6F and +0x74 on aren't written by the builder (stack). +0x70 BE the mask of player rows in use (game +0x50, 0 before anyone joined). A copy finding the game reads them back the same way (`0x513a5e`-`0x513bcb`) | `0x513030` |
 | `add` | 140 | +0x1C a 16-byte string (zero); +0x2C 0x5C bytes of the joining player's record (+0x30 of its game object): its IPX address at +0x2C, its name at +0x74 (`Player1`); +0x88 is whatever the stack held (`fd9d64ff`) | `0x5144b0` (NET_setgame) |
 | `rsp` | 36 | +0x1C BE 1, taken; +0x20 BE the player's row in the game's table (0x64-byte rows at game +0x88), 0 for the first | `0x5137b9` |
 
@@ -367,12 +391,33 @@ caller passes it).
 own folder (`%s%s\`, car +0x315) rather than the shared one
 (`0x4530c0`-`0x453330`), as an added car would need. Two flags come
 from the code, not `fedata`: 0x20 for a car whose make is `Ferrari` or
-`Mercedes` (`0x43a22e`, `0x43a255`), whose entry mask 0x2000 clears in
-Hot Pursuit (`0x43aa56`; yet a run's Hot Pursuit list still showed the
-Ferraris, so which list that is wasn't settled); 0x08, a car left out
-of the lists (`0x439109`). Mask 0x4000 clears the police cars (0x10)
-outside Hot Pursuit (`0x43aaa1`, `0x44c100`); Hot Pursuit uses 0x2008
-instead (`0x44c10f`). (`0x4391d0` and the bit 0x20000 have no direct
+`Mercedes` (`0x43a22e`, `0x43a255`); 0x08, a car left out of the lists
+(`0x439109`).
+
+**The car lists.** `0x43a6e0` takes a mask: bit 8 picks the `cars`
+list, bit 4 the `opcars` list, the other bits what to clear in them
+(0x2000 the cars with flag 0x20, `0x43aa56`; 0x4000 the police cars,
+0x10, `0x43aaa1`; 0x80-0x800 `opcars`' four choices before the cars,
+0x800 all its cars, `0x43abd3`-`0x43ac20`). The front end's option
+table (`0x5563fc`) gives the lists' owners: `cars` (`0x55500a`, a u16
+per car) is shared by `cars`, `car2`, `carShowcase`, `carCompare1` and
+`carCompare2`, so by Player Car's lists; `opcars` (`0x55519a`, four
+choices then a u16 per car) by the opponent's. `0x44be60` remakes both
+on each pass of the front end's loop (`0x44b382`): all on, then
+0x4004 (no police among opponents), then 0x4008 outside Hot Pursuit or
+0x2008 in it (`0x44c0f7`-`0x44c119`). In Hot Pursuit `opcars` then
+gets 0x2084, or 0xF04 (empty) in split screen unless both players' cars
+are police cars, and in a network game unless `0x7a2274` >> 16 equals
+`0x55e5d0` (`0x44c11e`-`0x44c19f`). A choice left on a
+cleared entry moves to the next one on (`0x43ac61`). So in Hot
+Pursuit the Ferraris and the SL600 leave both lists. Seen in a run
+(`nfs-host -dumpmem`, race type set to 3 at 19 s in the main menu):
+`cars` went from cars 0, 1, 3, 4, 5, 7, 8, 9, 11 to 0, 1, 5, 7, 8, 9,
+12 (the F355 3, the 550 4 and the SL600 11 out, the Pursuit Corvette 12
+in) and `opcars` lost 3, 4 and 11 and its first choice. Which list
+the earlier run saw with the Ferraris in it isn't known; the pokes of
+the Hot Pursuit run above (spike strips) set the race type only at the race's set-up
+(`0x473bf0`), after the front end. (`0x4391d0` and the bit 0x20000 have no direct
 caller or user.) In turn, between barriers 0x0F + slot, each
 player offers its own car to the host (0f, 10); then between barriers
 0x17 + slot the host offers each player's car to all the others (11, 12).
@@ -396,13 +441,18 @@ the caller left at 0:
 | Transport | +0x2A acknowledge | +0x2C ask again | +0x2E resend | Set at |
 |---|---|---|---|---|
 | IPX | ÷ 30 = 4 | ÷ 15 = 8 | ÷ 15 = 8 | `0x514ec0` |
-| modem | ÷ 16 = 8 | ÷ 4 = 32 | ÷ 4 = 32 | `0x4fa550` |
+| modem | ÷ 16 = 8 | ÷ 4 = 32 | ÷ 4 = 32 | `0x4fa550` (but see below) |
 | serial | ÷ 16 = 8 | ÷ 10 = 12 | ÷ 10 = 12 | `0x4fa780` |
 | defaults | 2 | 4 | 6 | `0x4f5130` |
 | the game's IPX links | ÷ 4 = 32 | ÷ 4 = 32 | ÷ 4 = 32 | `0x49efb0` (from `0x49e8cd`, `0x49ebec`), before the open |
 
 So over IPX the game's own 32 counts win: the transport's 4 and 8 never
-apply to its players' links.
+apply to its players' links. Serial and modem links are given theirs
+too: just before the open, `0x4c4230` fills the parameters at
+`0x7a22e8` that `0x4fa550` and `0x4fa780` get, +0x2A 128 ÷ 16 = 8 and
++0x2C and +0x2E 128 ÷ 5 = 25 for a modem (`0x7a22e0` 1) or 128 ÷ 10 =
+12 for serial (`0x4c42a0`-`0x4c42db`). So a modem link resends after
+25 ticks, not 32, and serial after 12 as in the table.
 
 A data packet sent gets the +0x2E count (`0x51c958`); a request for a
 missing packet (a control with sequence 0x7F or below) the +0x2C count
@@ -423,7 +473,7 @@ serial and modem `0x4fa480`), it takes 1 from each send buffer's count
 (`0x51d010`), resends those at 0 (`0x51d040` → `0x51c8f0`) and counts
 down the acknowledgement (+0x2C of the link, an `fb` control at 0,
 `0x51d9c4`). In ms: a count n is n × 7.8 ms, so 12 is 94 ms (serial),
-32 is 250 ms (modem, and the game's IPX links).
+25 is 195 ms (modem) and 32 is 250 ms (the game's IPX links).
 
 Checked at run time (IPX, `-watch` on copy B): from the link's opening
 at 73,248 ms, 300 services in 2,360 ms (7.9 ms apart), 299 of them
@@ -445,13 +495,12 @@ cores; the clocks are each game's):
 | Link | One packet lost | Every packet lost for 2 s |
 |---|---|---|
 | serial | the receiver asks for it (a control with its sequence) when the next arrives; sent again 33-46 ms after the first copy (29 of 29) | the oldest packet sent again every 93-95 ms (12 counts), an acknowledgement (`fb`) between; 8 packets ahead, then the game stopped making frames |
-| modem | the same, 34-201 ms (46 of 47) | sent again every 195 ms or so (32 counts); 32 packets ahead before new ones stopped |
+| modem | the same, 34-201 ms (46 of 47) | sent again every 195 ms or so (25 counts); 32 packets ahead before new ones stopped |
 | IPX | | 240-260 ms (32 counts, the earlier capture); 247-251 ms, then every 250 ms (a later race) |
 
 So the counts are of ticks, 7.8 ms each, on every link: serial's 12
-counts are its 93-95 ms, modem's and IPX's 32 their 195-250 ms. (The
-modem's 195 ms is 25 counts; whether its countdown skipped ticks when
-the transport couldn't send wasn't followed.) In a race the game, not the window,
+counts are its 93-95 ms, modem's 25 its 195 ms and IPX's 32 its 250
+ms. In a race the game, not the window,
 stopped the sending: the lockstep stalls before 63 packets are out.
 
 **TCP** has no reliable layer: its open (`0x4f7380`) gives the link
@@ -490,23 +539,23 @@ was the lower.
 
 ## What isn't known
 
-- Some numbers of the player and set-up records: 03's three floats
-  (car +0x394), the set-up car's +0x5C, the header's words at +0xC,
-  +0xF0, +0x150 and +0x190; why the players' driver numbers were 0 and 6.
+- Some numbers of the set-up records: each car record's +0-0xF (the
+  table's +0x5C of the car before, the header's +0x190 for the first);
+  what the header's +0xF0 option is called and whether +0x150 is read
+  through a pointer; why the players' driver numbers were 0 and 6.
 - What an input device's flag 4 is (09's flags are 0 only for an axis of
   a device without it); no run used a joystick over the network.
 - 0b, 0c and 0d were captured only from a patched copy: the unpatched
   game sends them only when launched by EA's online service, whose NPS
-  DLL isn't on the CD. Whether the Positional/Controller choice was ever
-  shown in some dialog wasn't found.
+  DLL isn't on the CD. The Positional/Controller pair is built but never
+  shown (count 2 at `0x43f4b2`); whether some build showed it isn't known.
 - Spike strips weren't seen laid. The way there was found but not
   finished: Hot Pursuit is in the lobby's race-type list (click the
   header at 240,77, then 208,108), and police cars are offered in Hot
   Pursuit (mask 0x2008), but the script didn't reach them in Player
   Car's list.
-- Why the modem's resends came every 195 ms, not 250 (32 counts);
-  whether anything but the game's lockstep keeps a link under its 63
+- Whether anything but the game's lockstep keeps a link under its 63
   buffers.
-- `dec`'s words at +0x4C-0x5B and +0x70 beyond the captured values;
+- What other EA games put in `dec`'s +0x4C-0x5B (zero from this one);
   `add`'s 16-byte string at +0x1C (zero in the capture: perhaps a
   password).

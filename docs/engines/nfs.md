@@ -626,9 +626,33 @@ Started. Done so far:
         (0x41542b; 0x415050 by slice ranges, table 0x552d54); slot 0x24
         is the second player's in split screen, whose angles are fixed
         left and right (0x3fff, 0xc000).
-      - Slot 21: 917, 437 behind (48%, 30% of the rear ones); slots
-        22-25: 201, 147 behind. Not identified.
-      - Slots 8 and 10: 1,673 updates, none behind.
+      - **Slot 21 (0x15), a moving object's sound**: 917 updates, 437
+        behind (48%, 30% of the rear ones). `0x410e30` keeps the two
+        nearest of the track's moving objects (the `.col`/`.frd` type 3
+        paths) and plays them on slots 20 and 21 (`0x4113d4`: n + 0x14;
+        0x22 + n for the second player), from a per-track table in the
+        exe (`0x552744`, 18-byte rows: s16 range, s16 key offset, s16
+        sound, then key ranges and two more sounds, -1 none). Slots
+        18-21 take the track's bank, table entry 3 (`0x417080`; loaded
+        at `0x414425`: `tr3dNN`, or `tramNN` without 3D sound, with
+        `n`, `w`, `nw`; `trambNN` from track 9). Hometown's rows give
+        sounds 31, 6 and 7. Only slot 21 was heard: the two nearest are
+        swapped to keep their slots (`0x411047`-`0x411094`), and here
+        one object was in reach. Slots 18 and 19 are the `.frd` placed
+        sounds (`0x41d210`).
+      - **Slots 22-25 (0x16-0x19), the other cars' skids**: 201
+        updates, 147 behind. Each car's sound list (car +0x7DC, up to 8
+        of 0x18 bytes, `0x4284e0`) gets category 6 from `0x429f10`:
+        slot 8 for wheels 0-1, slot 10 for wheels 2-3, the material
+        from the skid's surface and weather (car +0x990 + wheel, table
+        `0x55309c`, `0x429d20`). The player's own play on slots 8-11;
+        for one of the four cars heard, `0x411e60` plays any entry with
+        a slot on its index + 0x16 (`0x41205b`). `0x414d70` turns the
+        material into a `Gen.bnk` slot (1 → 42, 2 → 47, 3 → 45, 4 →
+        46, 7 → 41, 14 → 43, else 44), and slots 22-25 use bank entry
+        2, `Gen.bnk` (table `0x552798`, one byte per slot).
+      - Slots 8 and 10, the player's own skids (above): 1,673 updates,
+        none behind.
       - Not heard in this race: the cops' sirens (slots 0x1b-0x1e,
         0x417fd0 via 0x411c50, for a car with +0x200 bit 0x20 and
         +0x710 bit 0x10), the traffic (slots 0-3, 0x411cb0, +0x200 bit
@@ -1037,9 +1061,11 @@ Started. Done so far:
   moment (`-dump` saves all of memory, at the end). An `at=` moment traces
   each instruction, as `-watch` does, so the run is slower.
   - **A Hot Pursuit as the police.** With the clicks of a single race,
-    two pokes at the start of the race's set-up (`0x473bf0`) make it a
-    Hot Pursuit with the player in the Pursuit Corvette:
-    `-poke at=0x473bf0:0x6fd3b8:3 -poke at=0x473bf0:0x6fd2bc:12`.
+    two pokes before the race's set-up picks its kind (`0x474ca0`) make
+    it a Hot Pursuit with the player in the Pursuit Corvette:
+    `-poke at=0x474ca0:0x6fd3b8:3 -poke at=0x474ca0:0x6fd2bc:12`. Poked
+    later, at `0x473bf0`, the single race's set-up is already chosen: the
+    race looks like a pursuit, but the player is a racer.
     `0x6fd2bc` is player 1's car (player 2's is `0x6fd328`), the number
     the car screen steps through (`0x43ac61`) and the set-up copies into
     the car's slot (`0x47373d`). The cars are numbered 0-15: 12, 13 and 14
@@ -1047,14 +1073,16 @@ Started. Done so far:
     (car record +0x380) have 0x10 (tested by `0x4396b0`). The race shows
     the police car, its radio and "tickets: 0/0" against 7 racers.
   - **The spike strip.** The player's car (record `0x5e1120`) runs the
-    police states at `0x405740` (state at +0x6E0, table `0x405714`). It
-    stays in state 2, patrolling, so S does nothing: the strip is laid
-    only in states 3 and 4, the chase. With `-poke ms=62000:0x5e1800:3`
-    (state 3) and S pressed every 2 s, the first press lays a strip
-    (`0x4c9dd0`), the second finds it still out, the third clears it
-    (`0x4c9f50`), and so on. A frame in the chase view shows the spikes
-    across the road. How the player
-    starts a chase in the game isn't followed.
+    police states at `0x405740` (state at +0x6E0, table `0x405714`). The
+    strip is laid only in states 3 and 4. As a cop the player starts in
+    state 3; the chase (4) starts when the siren is on (key H) and a
+    racer within 50 slices is over the speed limit by 2 m/s
+    ([physics.md](../formats/nfs/physics.md)). First seen with the late
+    pokes above, where the player was a racer (state 2) and had to be put
+    in state 3 by hand (`-poke ms=62000:0x5e1800:3`): with S pressed
+    every 2 s, the first press lays a strip (`0x4c9dd0`), the second
+    finds it still out, the third clears it (`0x4c9f50`). A frame in the
+    chase view shows the spikes across the road.
 
 - **Network play** (TCP). The game does its own networking through
   Windows Sockets 1.1 (`WSOCK32`, 25 functions by ordinal), with no
@@ -1272,10 +1300,11 @@ Allowed under CONTRIBUTING.md:
 - How the wall hits' particles look in play (read from the code only;
   their sounds are measured, not listened to), and wall code 3's
   material, looked at but not named ([col.md](../formats/nfs/col.md)).
-- Which sounds Dolby slots 21-25 are (the other cars' engines and the
-  player's own are identified, above), and how a real Pro Logic decoder
-  of the time (with its surround delay and 7 kHz low-pass) would place
-  them; only the matrix's sums are measured.
+- How a real Pro Logic decoder of the time (with its surround delay
+  and 7 kHz low-pass) would place the voices behind; only the matrix's
+  sums are measured. Which object on Hometown slot 21's sound belongs
+  to, and how the other moving-object rows' key ranges and special
+  sounds (-2, -3) play, read from the code only.
 - The car handling in full: the tyre model, steering and gear changes,
   landing, and the computer cars' simpler model. The race types, the
   network kinds, `carp.txt`'s place in memory, the engine and the car
