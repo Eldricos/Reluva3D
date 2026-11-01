@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <numeric>
+#include <tuple>
 
 namespace reluva::clue {
 
@@ -86,6 +87,50 @@ std::vector<size_t> depthOrder(const std::vector<WorldBox>& boxes, const std::ve
     return order;
 }
 
+bool behind(const WorldBox& b, const WorldBox& a) {
+    return b.x < a.x + a.sizeX && b.y < a.y + a.sizeY && b.z + b.zOff < a.z + a.zOff + a.height;
+}
+
+std::vector<size_t> exeDepthOrder(const std::vector<WorldBox>& boxes, const std::vector<ScreenRect>& rects,
+                                  const std::vector<std::array<int, 3>>& keys, int maxPasses) {
+    const size_t n = boxes.size();
+    // Inserted before the first with a greater y, then x, then height.
+    std::vector<size_t> list(n);
+    std::iota(list.begin(), list.end(), size_t(0));
+    std::stable_sort(list.begin(), list.end(), [&](size_t a, size_t b) {
+        return std::make_tuple(keys[a][1], keys[a][0], keys[a][2]) < std::make_tuple(keys[b][1], keys[b][0], keys[b][2]);
+    });
+    // Screen rectangles touching count as overlapping (Clue.exe's <= and >=).
+    const auto touch = [&](size_t a, size_t b) {
+        const ScreenRect &p = rects[a], &q = rects[b];
+        return p.x + p.w >= q.x && p.y + p.h >= q.y && p.x <= q.x + q.w && p.y <= q.y + q.h;
+    };
+    constexpr long kHead = -2, kUnset = -1;
+    std::vector<long> lastPrev(n, kUnset); // the guard: where each was moved from
+    for (int pass = 0; pass < maxPasses; ++pass) {
+        bool moved = false;
+        for (size_t i = 0; i < list.size(); ++i) {
+            for (size_t j = i + 1; j < list.size(); ++j) {
+                const size_t a = list[i], b = list[j];
+                if (!touch(a, b) || !behind(boxes[b], boxes[a]))
+                    continue;
+                const long prevA = i == 0 ? kHead : long(list[i - 1]);
+                if (lastPrev[b] == prevA)
+                    continue;
+                lastPrev[a] = prevA;
+                lastPrev[b] = long(list[j - 1]);
+                list.erase(list.begin() + std::ptrdiff_t(j));
+                list.insert(list.begin() + std::ptrdiff_t(i), b);
+                moved = true;
+                j = i; // on from the one moved, as Clue.exe goes on
+            }
+        }
+        if (!moved)
+            break;
+    }
+    return list;
+}
+
 const std::vector<Mansion::Frame>* Mansion::resolve(const GameData& data, const Animation& anim) {
     auto it = frames_.find(&anim);
     if (it != frames_.end())
@@ -154,6 +199,7 @@ Error Mansion::build(const GameData& data, const Level& level) {
         item.layers = int(item.animation->layers.size());
         item.box.x += int16_t(f0.unknown[3]);
         item.box.y += int16_t(f0.unknown[4]);
+        item.box.zOff = f0.solid;
         item.box.sizeX = f0.sizeX;
         item.box.sizeY = f0.sizeY;
         item.box.height = f0.height;
@@ -205,13 +251,15 @@ Error Mansion::build(const GameData& data, const Level& level) {
     });
     std::vector<WorldBox> boxes;
     std::vector<ScreenRect> rects;
+    std::vector<std::array<int, 3>> keys;
     for (size_t i : solid) {
         boxes.push_back(items_[i].box);
         rects.push_back(items_[i].rect);
+        keys.push_back({items_[i].worldX, items_[i].worldY, items_[i].box.z});
     }
     order_ = flat;
     flatCount_ = flat.size();
-    for (size_t k : depthOrder(boxes, rects))
+    for (size_t k : exeDepthOrder(boxes, rects, keys))
         order_.push_back(solid[k]);
     orderOf_.assign(items_.size(), 0);
     for (size_t n = 0; n < order_.size(); ++n)
@@ -453,9 +501,12 @@ size_t Mansion::insertionPoint(const Actor& actor) const {
         const Item& item = items_[order_[n]];
         if (!item.rect.overlaps(rect) || item.object->type == ObjectDef::Character)
             continue;
-        int c = compareDepth(actor.box, item.box);
+        // Clue.exe's test both ways; where it can't tell (or both hold),
+        // its first order: by y, then x.
+        const bool itemBehind = behind(item.box, actor.box), actorBehind = behind(actor.box, item.box);
+        int c = itemBehind && !actorBehind ? 1 : actorBehind && !itemBehind ? -1 : 0;
         if (c == 0)
-            c = centreDepth(actor.box) < centreDepth(item.box) ? -1 : 1;
+            c = std::make_pair(actor.box.y, actor.box.x) < std::make_pair(item.worldY, item.worldX) ? -1 : 1;
         if (c > 0)
             after = std::max(after, n + 1);
         else

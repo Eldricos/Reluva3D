@@ -9,6 +9,7 @@
 #include "engines/clue/game_data.h"
 #include "engines/clue/level.h"
 
+#include <array>
 #include <cstdint>
 #include <map>
 #include <string>
@@ -22,8 +23,15 @@ namespace reluva::clue {
 struct WorldBox {
     int x = 0, y = 0;
     int sizeX = 0, sizeY = 0, height = 0;
-    int z = 0; // how high above the floor it starts
+    int z = 0;    // how high above the floor it is placed
+    int zOff = 0; // where its box starts above that (the frame's box offset)
 };
+
+// Clue.exe's test of what is drawn first (0x41CBD0): b is behind a when b's
+// box starts before a's ends along x, y and height alike.
+bool behind(const WorldBox& b, const WorldBox& a);
+
+
 
 // Whether a is drawn after b (it hides b where they overlap on screen):
 // 1 if a is in front, -1 if b is (beyond it along x, or else y, or else
@@ -44,6 +52,14 @@ struct ScreenRect {
 // overlap by compareDepth, the others as they come; ties (and cycles, which
 // overlapping boxes can make) by the depth of their centres.
 std::vector<size_t> depthOrder(const std::vector<WorldBox>& boxes, const std::vector<ScreenRect>& rects);
+
+// Clue.exe's drawing order (0x443C20, 0x41CBD0): sorted by the anchors' y,
+// then x, then height; then, each frame, whatever comes later in the list
+// and is behind an earlier thing it overlaps on screen moved before it,
+// a guard against two trading places for ever. Run here until nothing
+// moves (or for so long). keys: each box's anchor (x, y, z).
+std::vector<size_t> exeDepthOrder(const std::vector<WorldBox>& boxes, const std::vector<ScreenRect>& rects,
+                                  const std::vector<std::array<int, 3>>& keys, int maxPasses = 200);
 
 // How the mansion is drawn: what stands in front of the suspect whose turn
 // it is (the original's "Translucency"), the walls (its "Mansion Walls"),
