@@ -13,9 +13,10 @@ namespace {
 
 constexpr uint32_t kMemory = 256u << 20;
 constexpr uint32_t kFileHandle = 0x4b4e4942; // the movie's, from CreateFileA
-// BinkOpen's flag for reading in the calling thread (bink.h's
-// BINKNOTHREADEDIO).
-constexpr uint32_t kNoThreadedIo = 0x08000000;
+// BinkOpen's flags: the game's for a scene's video (0x405c43: 0x100000,
+// the alpha plane decoded, and 0x2000), and reading in the calling thread
+// (bink.h's BINKNOTHREADEDIO).
+constexpr uint32_t kOpenFlags = 0x100000 | 0x2000 | 0x08000000;
 
 } // namespace
 
@@ -109,7 +110,7 @@ Error BinkDll::open(const std::vector<uint8_t>& bik, int& width, int& height, ui
     // No sound tracks: BinkSetSoundTrack(0, 0) before opening.
     if (setTracks)
         cpu_->call(setTracks, {0, 0}, ignored);
-    Error e = cpu_->call(openFn, {name, kNoThreadedIo}, bink_);
+    Error e = cpu_->call(openFn, {name, kOpenFlags}, bink_);
     mem.free(name);
     if (!e && !bink_)
         e = Error::fail("BinkOpen failed");
