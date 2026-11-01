@@ -23,6 +23,12 @@ The format pages give the detail; this page gathers them.
   makes the frame's targets again. Shadow edges stay hard (their mask is
   made on the CPU). See [options.md](../../formats/awe/options.md).
 
+- **Text is drawn by Reluva's own TrueType renderer**, not Windows'.
+  The game's fonts are used, sized as Windows sizes them, but letters can
+  differ a little in their edges: in the walkthrough the dialogue's lines
+  come out about 2 % wider than Reluva's. Where the lines break is the
+  same (the game's rule, [dialogue.md](../../formats/awe/dialogue.md)).
+
 ## Characters and animation
 
 - **A walk's root motion.** The game takes a base animation's root
