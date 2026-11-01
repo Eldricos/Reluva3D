@@ -557,14 +557,24 @@ Partly read. Each tick, per car:
   +0x1A8-+0x1B0 and +0x8; `-keys` with `52000:+up,64000:-up` for the
   throttle.
 
+**+0x5B0 and +0x5A4** (traced to their writers with a cross-reference
+of every access to those offsets):
+
+- +0x5B0 is the slip ratio: the road-frame lateral speed over the
+  forward speed, +0x4EC / +0x4F4, when |+0x4F4| is over 5, else 0
+  (`0x4ad672`, stored at `0x4ad6cd`).
+- +0x5A4 is the road speed: an approximate hypot of those two
+  (`0x4967e0`, piecewise), negative when going backward (`0x4ad6eb`,
+  stored at `0x4ad77a`).
+- Both are worked out only in the human car's tick (`0x4ad7a3`).
+  Everything else writes them 0 (`0x408950` and `0x4073c8` among the
+  computer cars' code, `0x42bf8a`), so for computer cars they stay 0.
+
 ## What isn't known
 
 - The computer cars' driving (`0x408600` and the functions it calls,
   `0x4068a0`'s +0x7C0 and +0x7C4, the slice nibble of the speed
   table), and the assists' driver `0x4a83d3`.
-- +0x5B0 (it scales the drive, the steering at speed, the automatic's
-  change down and the traction assist) and +0x5A4 (a speed, read with
-  the gear ratios) were not traced to their writers.
 - Which key sets control bit 0x04 (+0x50D, the hand brake by its
   effect).
 - Landing: whether the scaled speed into the road is reversed later;
