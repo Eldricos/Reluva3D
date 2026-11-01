@@ -1295,6 +1295,13 @@ Allowed under CONTRIBUTING.md:
   understanding of a format. No code is copied from them: Reluva's code is
   written from the format descriptions and the data (decided October 2026).
 
+**Tools for reading the executable** (November 2026): `tools/nfsre/`
+holds query scripts over your own copy of `nfs3.exe` (angr and capstone):
+`xref`, `field car 0x5b0` (every access to a struct's field), `decomp`
+with the docs' names applied, and the hand-made name map `curated.py`.
+They keep no game data; their caches go to `build/nfsre`. See its
+README.md.
+
 ## Open questions
 
 - How the wall hits' particles look in play (read from the code only;
