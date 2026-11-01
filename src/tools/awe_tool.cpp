@@ -583,7 +583,7 @@ int cmdAweBink(int argc, char** argv) {
         const bool alpha = bink.hasAlpha(); // an alpha plane: the game's surface 5
         size_t compared = 0, same = 0, worstFrame = 0;
         int worst = 0;
-        uint64_t differing = 0;
+        uint64_t differing = 0, superwhite = 0;
         std::vector<uint8_t> theirs, ours;
         for (size_t i = 0; i < bink.frameCount() && i < frames && i < limit; i++) {
             reluva::video::BinkFile::Frame f;
@@ -624,6 +624,14 @@ int cmdAweBink(int argc, char** argv) {
                     d = std::max(d, std::abs(int(ours[p + size_t(c)]) - int(theirs[p + 2 - size_t(c)])));
                 if (alpha)
                     d = std::max(d, std::abs(int(ours[p + 3]) - int(theirs[p + 3])));
+                // Over Y 235 the DLL's path without MMX (the interpreter's)
+                // clamps Y and its MMX path, which Reluva follows, doesn't:
+                // counted apart.
+                const size_t px = p / 4;
+                if (d && dec.plane(0)[int(px / size_t(w)) * dec.stride(0) + int(px % size_t(w))] > 235) {
+                    superwhite++;
+                    continue;
+                }
                 frameDiffering += d != 0;
                 frameWorst = std::max(frameWorst, d);
             }
@@ -634,8 +642,10 @@ int cmdAweBink(int argc, char** argv) {
                 worst = frameWorst, worstFrame = i;
         }
         dll.close();
-        std::printf("%s: %dx%d, %zu frames compared, %zu the same; %llu pixels differ, by at most %d (frame %zu)\n",
-                    movie.c_str(), w, h, compared, same, (unsigned long long)differing, worst, worstFrame);
+        std::printf("%s: %dx%d, %zu frames compared, %zu the same; %llu pixels differ, by at most %d (frame %zu)"
+                    "; %llu more over Y 235 (the DLL's path without MMX)\n",
+                    movie.c_str(), w, h, compared, same, (unsigned long long)differing, worst, worstFrame,
+                    (unsigned long long)superwhite);
         failed += same != compared;
     }
     return failed ? 1 : 0;

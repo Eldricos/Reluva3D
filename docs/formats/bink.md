@@ -76,7 +76,9 @@ divided by 32768 and truncated toward zero:
 
 Each chroma sample serves its 2×2 pixels. The DLL's path without MMX
 (taken in the interpreter, which has none) gives the same, except that
-it clamps Y − 16 to 219 as well: they can differ only where Y is over 235.
+it clamps Y − 16 to 219 as well: they can differ only where Y is over 235,
+by up to 24 in the install's movies. `awe-bink` counts those pixels
+apart; Reluva follows the MMX path, which players' machines take.
 
 ## Notes
 
