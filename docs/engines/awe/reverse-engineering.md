@@ -60,6 +60,10 @@ original to check Reluva's own code against them:
   `granny2.dll`'s own sampling, compared bone by bone (`awe-pose`) over
   every model and animation pair. This found the Count's slumped pose:
   curves with no knots, which Granny reads as the identity.
+- **Movies:** each movie and video loop decoded by Reluva and by the
+  game's `binkw32.dll`, its frames copied out as the game copies them,
+  compared pixel by pixel (`awe-bink`). This found Reluva's colour
+  conversion rounding differently from Bink's, by up to 7.
 - **The path-finder:** Reluva's port of `motoe.exe`'s path planning was
   compared with the game's own code in the interpreter: 22,480 searches
   over the 281 scenes with a walk grid, every point and heading the same

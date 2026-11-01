@@ -159,6 +159,8 @@ scenes, two Granny files, the text tables, two backgrounds):
     the regression test);
   - `awe-pose` (a model posed by an animation, by Reluva and by
     granny2.dll, compared bone by bone);
+  - `awe-bink` (movies decoded by Reluva and by the game's binkw32.dll,
+    compared pixel by pixel; `-yuv` before the colour conversion);
   - `awe-path` (paths planned by Reluva's port and by `motoe.exe`'s code,
     compared; `-all` over every scene);
   - `awe-acts` (every act, or developers' save, played without a window

@@ -762,6 +762,24 @@ void BinkVideoDecoder::residue(Bits& bits, int16_t block[64], int masks) {
 }
 
 void BinkVideoDecoder::toRgba(std::vector<uint8_t>& out) const {
+    // As binkw32.dll converts (its MMX path, 0x30013d00, which any machine
+    // since the late 1990s takes): BT.601, studio range, each term in
+    // fixed point and truncated on its own, before they're added and
+    // clamped. Y' = ((Y - 16, not below 0) * 4 * 0x4a85) >> 16; the chroma
+    // terms from tables of (c - 128) times 2.01723, 0.39177, 0.81300 and
+    // 1.59603, in 1/32768ths, truncated toward zero (built at 0x3000a990).
+    struct Tables {
+        int b[256], gu[256], gv[256], r[256];
+        Tables() {
+            for (int c = 0; c < 256; c++) {
+                b[c] = (-0x811a80 + 0x10235 * c) / 32768;
+                gu[c] = (0x191280 - 0x3225 * c) / 32768;
+                gv[c] = (0x340780 - 0x680f * c) / 32768;
+                r[c] = (-0x662580 + 0xcc4b * c) / 32768;
+            }
+        }
+    };
+    static const Tables t;
     out.resize(size_t(width_) * size_t(height_) * 4);
     const auto& f = planes_[size_t(cur_)];
     auto clamp = [](int v) { return uint8_t(v < 0 ? 0 : v > 255 ? 255 : v); };
@@ -772,11 +790,11 @@ void BinkVideoDecoder::toRgba(std::vector<uint8_t>& out) const {
         const uint8_t* ar = f[3].data() + y * strides_[3];
         uint8_t* o = out.data() + size_t(y) * size_t(width_) * 4;
         for (int x = 0; x < width_; x++, o += 4) {
-            // BT.601, studio range (16-235), in 16.16 fixed point.
-            const int c = (yr[x] - 16) * 76309, d = ur[x >> 1] - 128, e = vr[x >> 1] - 128;
-            o[0] = clamp((c + 104597 * e + 32768) >> 16);
-            o[1] = clamp((c - 25675 * d - 53279 * e + 32768) >> 16);
-            o[2] = clamp((c + 132201 * d + 32768) >> 16);
+            const int l = ((std::max(yr[x] - 16, 0) << 2) * 0x4a85) >> 16;
+            const int u = ur[x >> 1], v = vr[x >> 1];
+            o[0] = clamp(l + t.r[v]);
+            o[1] = clamp(l + t.gu[u] + t.gv[v]);
+            o[2] = clamp(l + t.b[u]);
             o[3] = alpha_ ? ar[x] : 255;
         }
     }

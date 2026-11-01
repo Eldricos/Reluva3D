@@ -7,6 +7,7 @@
 #include "tools/awe_tool.h"
 
 #include "engines/awe/ac2.h"
+#include "engines/awe/bink_dll.h"
 #include "engines/awe/camera.h"
 #include "engines/awe/gr2.h"
 #include "engines/awe/granny_dll.h"
@@ -520,6 +521,123 @@ int cmdAweRegress(int argc, char** argv) {
         failed += !ok;
     }
     std::printf("%s\n", failed ? "FAILED" : "all passed");
+    return failed ? 1 : 0;
+}
+
+// reluva-tool awe-bink <game folder> <movie.bik>... [-frames n]: each movie
+// decoded by Reluva and by the game's binkw32.dll (run in the x86
+// interpreter, its frames copied out as the game copies them), frame by
+// frame: how many pixels differ, and by how much at most.
+int cmdAweBink(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool awe-bink <game folder> <movie.bik>... [-frames n]\n");
+        return 1;
+    }
+    reluva::DirectoryArchive files;
+    if (reluva::Error e = files.open(argv[2])) {
+        std::fprintf(stderr, "%s\n", e.message.c_str());
+        return 1;
+    }
+    size_t limit = SIZE_MAX;
+    bool yuv = false; // -yuv: the planes, before the colour conversion
+    std::vector<std::string> movies;
+    for (int i = 3; i < argc; i++)
+        if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
+            limit = size_t(std::atol(argv[++i]));
+        else if (std::strcmp(argv[i], "-yuv") == 0)
+            yuv = true;
+        else
+            movies.push_back(argv[i]);
+    std::vector<uint8_t> dllData;
+    if (files.read("binkw32.dll", dllData)) {
+        std::fprintf(stderr, "can't read binkw32.dll\n");
+        return 1;
+    }
+    awe::BinkDll dll;
+    if (reluva::Error e = dll.load(dllData)) {
+        std::fprintf(stderr, "%s\n", e.message.c_str());
+        return 1;
+    }
+    int failed = 0;
+    for (const std::string& movie : movies) {
+        std::vector<uint8_t> data;
+        reluva::video::BinkFile bink;
+        if (files.read(movie, data) || bink.open(data)) {
+            std::printf("%s: can't read it\n", movie.c_str());
+            failed++;
+            continue;
+        }
+        int w = 0, h = 0;
+        uint32_t frames = 0;
+        if (reluva::Error e = dll.open(data, w, h, frames)) {
+            std::printf("%s: binkw32.dll: %s\n", movie.c_str(), e.message.c_str());
+            failed++;
+            continue;
+        }
+        reluva::video::BinkVideoDecoder dec;
+        if (reluva::Error e = dec.init(bink.width(), bink.height(), bink.revision(), bink.flags())) {
+            std::printf("%s: %s\n", movie.c_str(), e.message.c_str());
+            failed++;
+            continue;
+        }
+        const bool alpha = bink.hasAlpha(); // an alpha plane: the game's surface 5
+        size_t compared = 0, same = 0, worstFrame = 0;
+        int worst = 0;
+        uint64_t differing = 0;
+        std::vector<uint8_t> theirs, ours;
+        for (size_t i = 0; i < bink.frameCount() && i < frames && i < limit; i++) {
+            reluva::video::BinkFile::Frame f;
+            bink.frame(i, f);
+            if (reluva::Error e = dec.decode(f.video.data, f.video.size)) {
+                std::printf("%s frame %zu: %s\n", movie.c_str(), i, e.message.c_str());
+                break;
+            }
+            if (reluva::Error e = yuv ? dll.frameYuy2(theirs) : dll.frame(theirs, alpha)) {
+                std::printf("%s frame %zu: binkw32.dll: %s\n", movie.c_str(), i, e.message.c_str());
+                break;
+            }
+            int frameWorst = 0;
+            uint64_t frameDiffering = 0;
+            if (yuv) {
+                // Y for every pixel; U and V for each pair, from the
+                // half-size planes' row y / 2.
+                for (int y = 0; y < h; y++)
+                    for (int x = 0; x < w; x++) {
+                        const uint8_t* t = theirs.data() + (size_t(y) * size_t(w) + size_t(x & ~1)) * 2;
+                        int d = std::abs(int(dec.plane(0)[y * dec.stride(0) + x]) - int(t[(x & 1) * 2]));
+                        if ((x & 1) == 0) {
+                            const int cx = x / 2, cy = y / 2;
+                            d = std::max(d, std::abs(int(dec.plane(1)[cy * dec.stride(1) + cx]) - int(t[1])));
+                            d = std::max(d, std::abs(int(dec.plane(2)[cy * dec.stride(2) + cx]) - int(t[3])));
+                        }
+                        frameDiffering += d != 0;
+                        frameWorst = std::max(frameWorst, d);
+                    }
+                ours.clear();
+            } else {
+                dec.toRgba(ours);
+            }
+            for (size_t p = 0; p + 3 < ours.size() && p + 3 < theirs.size(); p += 4) {
+                // Theirs is B, G, R, X (A with alpha).
+                int d = 0;
+                for (int c = 0; c < 3; c++)
+                    d = std::max(d, std::abs(int(ours[p + size_t(c)]) - int(theirs[p + 2 - size_t(c)])));
+                if (alpha)
+                    d = std::max(d, std::abs(int(ours[p + 3]) - int(theirs[p + 3])));
+                frameDiffering += d != 0;
+                frameWorst = std::max(frameWorst, d);
+            }
+            compared++;
+            same += frameDiffering == 0;
+            differing += frameDiffering;
+            if (frameWorst > worst)
+                worst = frameWorst, worstFrame = i;
+        }
+        dll.close();
+        std::printf("%s: %dx%d, %zu frames compared, %zu the same; %llu pixels differ, by at most %d (frame %zu)\n",
+                    movie.c_str(), w, h, compared, same, (unsigned long long)differing, worst, worstFrame);
+        failed += same != compared;
+    }
     return failed ? 1 : 0;
 }
 
@@ -1063,6 +1181,8 @@ int aweToolCommand(int argc, char** argv) {
         return cmdAweShot(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "awe-acts") == 0)
         return cmdAweActs(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "awe-bink") == 0)
+        return cmdAweBink(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "awe-pose") == 0)
         return cmdAwePose(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "awe-regress") == 0)
@@ -1092,6 +1212,7 @@ const char* aweToolUsage() {
            "  reluva-tool awe-acts <game folder> -solve <out.txt> [-from <playthrough>] [-budget n] [-level n] [-noclimb] [-goal text] [-characters] [-v]\n"
            "  reluva-tool awe-acts <game folder> -play <playthrough> [-list] [-reload] [-log n] [-mouse] [-3d | -characters] [-sound] [-wav file] [-v]\n"
            "  reluva-tool awe-pose <game folder> <model.gr2> <animation.gr2> [seconds...]\n"
+           "  reluva-tool awe-bink <game folder> <movie.bik>... [-frames n] [-yuv]\n"
            "  reluva-tool ac2-dump <scene.ac2>...\n"
            "  reluva-tool awe-path <game folder> <scene.ac2> <a0> <b0> <a1> <b1> | -all [pairs]\n"
            "  reluva-tool awe-scripts <game folder> [-v]\n"

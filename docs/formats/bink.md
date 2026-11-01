@@ -45,6 +45,39 @@ the Orient Express has 46 movies in `Movies/`, plus looping videos in
     where 2,640 are declared): its block runs past the end of the movie.
     FFmpeg keeps the whole block.
 
+- **Checked against the game's own `binkw32.dll`** (Murder on the Orient
+  Express's, run in Reluva's x86 interpreter: `reluva-tool awe-bink
+  <game folder> <movie.bik>... [-frames n] [-yuv]`). The DLL opens the
+  movie from memory and its frames are copied out as the game copies
+  them (`BinkCopyToBufferRect`, 32-bit; with an alpha plane, 32-bit with
+  alpha). With `-yuv` they're copied as YUY2 instead, before the colour
+  conversion: every Y, U and V the same as Reluva's on every frame tried.
+  The RGB first differed in a quarter of the pixels, by up to 7, from
+  rounding: Reluva now converts as the DLL does (below), and every pixel
+  of every frame tried is the same.
+
+## Colour conversion
+
+binkw32.dll converts to RGB with BT.601 at studio range, each term in
+fixed point and truncated on its own before they're added and clamped to
+0..255. Its MMX path (`0x30013d00`), which every machine since the late
+1990s takes:
+
+    Y' = ((max(Y − 16, 0) · 4) · 0x4a85) >> 16
+    R  = Y' + r[V]          G = Y' + gu[U] + gv[V]          B = Y' + b[U]
+
+with the tables built at start-up (`0x3000a990`), for c = 0..255,
+divided by 32768 and truncated toward zero:
+
+    b[c]  = (−0x811a80 + 0x10235·c)      (c − 128) × 2.01723
+    gu[c] = ( 0x191280 −  0x3225·c)     −(c − 128) × 0.39177
+    gv[c] = ( 0x340780 −  0x680f·c)     −(c − 128) × 0.81300
+    r[c]  = (−0x662580 +  0xcc4b·c)      (c − 128) × 1.59603
+
+Each chroma sample serves its 2×2 pixels. The DLL's path without MMX
+(taken in the interpreter, which has none) gives the same, except that
+it clamps Y − 16 to 219 as well: they can differ only where Y is over 235.
+
 ## Notes
 
 - Planes are Y, then the two chroma planes (V first from revision h on),
