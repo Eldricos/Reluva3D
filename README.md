@@ -41,6 +41,13 @@ Engines only use `common/` and `engines/engine.h`. They never include SDL.
 Needs CMake 3.24+, Git and a C++20 compiler. SDL3 and Dear ImGui are
 downloaded and built automatically.
 
+Games' movies (Midtown Madness 2's opening) are played with FFmpeg's
+libraries (LGPL) where they're installed, found by pkg-config
+(`libavformat-dev libavcodec-dev libavutil-dev libswscale-dev
+libswresample-dev` on Debian and Ubuntu). Without them the movies are
+skipped. `-DRELUVA_USE_FFMPEG=ON` makes them required, `OFF` leaves them
+out.
+
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j

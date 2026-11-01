@@ -13,6 +13,9 @@ option(RELUVA_BUILD_TESTS "Build unit tests" ON)
 option(RELUVA_ENGINE_NEWWORLDS "Build the Star Trek: New Worlds engine" OFF)
 option(RELUVA_ENGINE_IDTECH3 "Build the id Tech 3 engine (Star Trek: Voyager - Elite Force)" ON)
 option(RELUVA_ENGINE_AGE "Build the Angel Game Engine (Midtown Madness 2)" ON)
+# Games' movies (Midtown Madness 2's Indeo 5 opening) are played by FFmpeg's
+# libraries when they're installed (LGPL); without them, they're skipped.
+set(RELUVA_USE_FFMPEG AUTO CACHE STRING "Play games' movies with FFmpeg: AUTO, ON or OFF")
 
 include(FetchContent)
 
@@ -84,12 +87,28 @@ add_library(reluva_common STATIC
     src/common/audio/mp3.cpp
     src/common/audio/wav.cpp
     src/common/font.cpp
-    src/common/text.cpp)
+    src/common/text.cpp
+    src/common/video.cpp)
 target_include_directories(reluva_common PUBLIC src)
 # Third-party headers (third_party/, see each README) as system includes, so
 # our warnings don't apply to them.
 target_include_directories(reluva_common SYSTEM PRIVATE third_party/minimp3 third_party/stb)
 target_link_libraries(reluva_common PRIVATE reluva_warnings)
+if(NOT RELUVA_USE_FFMPEG STREQUAL "OFF")
+    find_package(PkgConfig)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(FFMPEG IMPORTED_TARGET libavformat libavcodec libavutil libswscale libswresample)
+    endif()
+    if(FFMPEG_FOUND)
+        target_link_libraries(reluva_common PRIVATE PkgConfig::FFMPEG)
+        target_compile_definitions(reluva_common PRIVATE RELUVA_HAVE_FFMPEG)
+        message(STATUS "Movies: FFmpeg ${FFMPEG_libavcodec_VERSION}")
+    elseif(RELUVA_USE_FFMPEG STREQUAL "ON")
+        message(FATAL_ERROR "RELUVA_USE_FFMPEG is ON but FFmpeg's libraries weren't found")
+    else()
+        message(STATUS "Movies: FFmpeg not found, movies are skipped")
+    endif()
+endif()
 
 # --- engines: talk only to common/ --------------------------------------------
 add_library(reluva_engines STATIC

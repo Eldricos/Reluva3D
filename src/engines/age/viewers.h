@@ -49,6 +49,7 @@
 
 #include "common/archive.h"
 #include "common/audio/mixer.h"
+#include "common/video.h"
 #include "common/system.h"
 #include "common/gfx3d.h"
 #include "engines/age/car.h"
@@ -560,6 +561,14 @@ private:
     bool recorded_ = false; // this race's result is in the record
 
     std::unique_ptr<FrontEnd> front_;   // the game's menus, when their files are there
+    // The opening movie, logos.avi, before the menus: tried once.
+    std::unique_ptr<video::Movie> movie_;
+    bool movieTried_ = false;
+    double movieTime_ = 0;
+    audio::SoundHandle movieSound_ = audio::kNoSound;
+    image::Image movieFrame_;
+    bool playMovie(float dt); // false once it's over (or there's none)
+    void endMovie();
     std::unique_ptr<CarActor> showCar_; // the garage's car
     int showCarIndex_ = -1, showPaint_ = -1, paint_ = 0;
 
