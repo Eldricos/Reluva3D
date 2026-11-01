@@ -29,9 +29,9 @@ constexpr int kBarTop = 413, kTickerTop = 462;
 // The columns over the view: the cards and the notepad on the left, the
 // choices, disproving and videos on the right.
 constexpr int kLeftX = 5, kLeftY = 5, kRightX = 434, kRightY = 4;
-constexpr int kVideoFrameX = 427, kVideoFrameY = 4, kVideoFrameW = 208, kVideoFrameH = 408;
+constexpr int kVideoFrameX = 427, kVideoFrameY = 5, kVideoFrameW = 208, kVideoFrameH = 408;
 // The card shown to a human, wider: from further left.
-constexpr int kShownX = 398;
+constexpr int kShownX = 398, kShownY = 5; // Clue.exe 0x435AA1: dialog 33
 // The drawer's three places, over the logo: the die (then the number
 // rolled, then the end of the turn), the bulb (suggest), the handcuffs.
 constexpr int kDrawerX = 511, kSlotY = 420;
@@ -47,7 +47,7 @@ constexpr int kTurnPanMs = 2000;
 // The ticker: a sentence stays centred 8 s, then scrolls left at 3.5 pixels
 // a second, coming round again from the right (as in recordings), between
 // the ticker's ends.
-constexpr int kTickerStillMs = 8000, kTickerSpeed = 35, kTickerLeft = 48, kTickerRight = 598;
+constexpr int kTickerStillMs = 8000, kTickerSpeed = 35, kTickerLeft = 41, kTickerRight = 599; // its text: Clue.exe 0x435630, 41 in, 558 wide
 
 // dialogInfo.res's in-game dialogs.
 enum { kChooseDialog = 30, kToldDialog = 31, kPickDialog = 32, kShownDialog = 33, kSolutionDialog = 34,
@@ -1031,7 +1031,7 @@ void Play::openShown() {
     const ResiDialog* d = resi_.dialog(kShownDialog);
     if (!d || game_.shown() < 0)
         return;
-    dialog_ = std::make_unique<DialogView>(data_, fonts_, *d, kShownX, kRightY);
+    dialog_ = std::make_unique<DialogView>(data_, fonts_, *d, kShownX, kShownY);
     window_ = Window::Shown;
     sound("SDcard.WAV");
 }
@@ -1053,7 +1053,8 @@ void Play::openLoser() {
     const ResiDialog* d = resi_.dialog(kLoserDialog);
     if (!d)
         return;
-    dialog_ = std::make_unique<DialogView>(data_, fonts_, *d, (kW - 231) / 2, (kBarTop - 395) / 2);
+    // As the exit window over the game (Clue.exe 0x435C7F): (205, 11).
+    dialog_ = std::make_unique<DialogView>(data_, fonts_, *d, kW / 2 - 231 / 2, 5 + (kBarTop - 5 - 395) / 2);
     window_ = Window::Loser;
 }
 
@@ -1742,8 +1743,10 @@ void Play::draw() {
 
 void Play::drawBar() {
     drawAnimation("UI:Atopframe", 0, 0);
-    drawAnimation("UI:Aleftframe", 0, 4);
-    drawAnimation("UI:Artframe", 635, 4);
+    // Placed as Clue.exe lays the game's screen out (0x435630): the frames
+    // below the top one, from 5 down to the bar.
+    drawAnimation("UI:Aleftframe", 0, 5);
+    drawAnimation("UI:Artframe", 635, 5);
     drawAnimation("UI:Aleftorn", 0, kBarTop);
     drawAnimation("UI:Anotecardbtn", 39, kBarTop);
     drawAnimation("UI:Agamebdbtn", 84, kBarTop);
@@ -1932,7 +1935,7 @@ void Play::drawWindows() {
                               kRightY + c->top);
         break;
     case Window::Shown:
-        drawAnimation("UI:Algcard", kShownX + 23, kRightY + 2, game_.shown());
+        drawAnimation("UI:Algcard", kShownX + 23, kShownY + 2, game_.shown());
         break;
     case Window::Solution: {
         const Accusation& s = game_.solution();

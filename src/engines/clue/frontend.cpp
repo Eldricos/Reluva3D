@@ -25,6 +25,10 @@ namespace {
 constexpr int kW = 640, kH = 480;
 // The game's bar: the view of the mansion is above it.
 constexpr int kBarTop = 413;
+// The windows over the game (231 x 395): Clue.exe 0x435C7F places its exit
+// window (dialog 44) at 320 less half its width across and in the middle
+// between the top frame (5) and the bar (413) down: (205, 11).
+constexpr int kOverGameX = kW / 2 - 231 / 2, kOverGameY = 5 + (kBarTop - 5 - 395) / 2;
 // The Host Game window's row of boxes for the number of players, in its
 // picture (menu:Ihostgmbg): covered when the window joins by address, by
 // the Exit window's picture (menu:Iexitbgnd), the same circle there
@@ -316,7 +320,7 @@ void FrontEnd::go(Screen s) {
     case Screen::GameMenu:
         if (const ResiDialog* d = resi_.dialog(kGameMenu)) {
             // Over the game, in the middle of the view.
-            gameMenu_ = std::make_unique<DialogView>(data_, *fonts_, *d, (kW - 231) / 2, (kBarTop - 395) / 2);
+            gameMenu_ = std::make_unique<DialogView>(data_, *fonts_, *d, kOverGameX, kOverGameY);
             // Save: when it's a human's turn and nothing is going on.
             gameMenu_->setEnabled(0, play_ && play_->canSave() && !savesFolder().empty());
         }
@@ -324,13 +328,13 @@ void FrontEnd::go(Screen s) {
     case Screen::ExitConfirm:
         // "Are you sure you want to exit the current game?" Yes, No.
         if (const ResiDialog* d = resi_.dialog(kExitConfirm)) {
-            gameMenu_ = std::make_unique<DialogView>(data_, *fonts_, *d, (kW - 231) / 2, (kBarTop - 395) / 2);
+            gameMenu_ = std::make_unique<DialogView>(data_, *fonts_, *d, kOverGameX, kOverGameY);
             gameMenu_->setVisible(1, false); // its other question: "Would you like to save ...?"
         }
         break;
     case Screen::SaveGame:
         if (const ResiDialog* d = resi_.dialog(kSaveGame)) {
-            gameMenu_ = std::make_unique<DialogView>(data_, *fonts_, *d, (kW - 231) / 2, (kBarTop - 395) / 2);
+            gameMenu_ = std::make_unique<DialogView>(data_, *fonts_, *d, kOverGameX, kOverGameY);
             saveSlot_ = -1;
             for (int slot = 0; slot < kSaveSlots; ++slot)
                 gameMenu_->setText(2 + slot, savedName(slot));

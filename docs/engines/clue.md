@@ -535,25 +535,52 @@ picker, the network's player setup and Preferences on, the loading's
 own loop, then tracks 2, 3 and 4 in turn in the game, as `Clue.exe` has
 it (below).
 
-The game's bar, placed where a 640×480 recording of the original shows
-it (its pictures matched in the frames): the top and side frames (0, 0),
-(0, 4), (635, 4); the ornaments (0, 413), (594, 413); the notes and cards
-button (39, 413), the board button (84, 413); the six portraits from
-(141, 413), 60 apart (frame 0 as they are, 1 whose turn it is, 2 not
-playing); the logo (501, 413); the ticker (0, 462) with its sentence; the
-drawer of a human's actions (511, 413), out over the logo, its three
-icons at (535, 420), (574, 420) and (606, 420): the die (`UI:Arolldiebtn`,
-then `UI:Arolled` with the number, or `UI:Anoroll` with the moves left,
-then the suspect's pawn `UI:A<sca>end` to end the turn), the bulb, the
-handcuffs. The left column (5, 5): the cards window and the notepad. The
-right column (434, 4): the choice window (dialog 30), the box saying who
-can or can't disprove (dialog 31, with that suspect's portrait), a
-human's choice of card (dialog 32), and the videos, in their frame
-(`UI:Asuggframe`, 208 × 408, black edged in white) at (427, 4) against
-the right-hand frame, the clip in its middle; the card shown, large
-(dialog 33, `UI:Algcard`, one frame a card), at (398, 4). The board from
-above (`UI:Aoverhead`) at (208, 5), its squares 13 pixels, column 9 and
-row 9 at (8, 15) in it. The solution (dialog 34) fills the screen.
+The game's screen, as `Clue.exe` lays it out. Its windows are Hasbro's
+EagleM.dll's (`EGuiWindow`): 0x435050 makes them, the bar's at 0x43BD10
+and its layout at 0x43C2D0, and 0x435630 places them, each from the
+edges of the screen and of those already placed and the size of its
+picture. The positions below are what that code gives when it runs, in
+an emulator, with EagleM's calls stood in for (sizing a window to its
+picture, moving it, giving its rectangle). They match what a 640×480
+recording of the original shows, to the pixel, but for three it had
+one pixel off.
+
+- The frames: the top one (0, 0); the left and right ones (0, 5) and
+  (635, 5), 408 high, down to the bar.
+- The bar (0, 413), 640 × 49: the left ornament (0, 413), the notes and
+  cards button (39, 413), the board button (84, 413), the six portraits
+  from (141, 413) each against the last (60 wide: frame 0 as they are,
+  1 whose turn it is, 2 not playing), the logo (501, 413), the right
+  ornament (594, 413). Over each portrait, 47 in, a network game's
+  lights (`menu:I...Light`).
+- The ticker (0, 462), 640 × 18, its sentence in a strip from 41 to 599;
+  `UI:IrtBtmOrnNorm` (599, 463).
+- The drawer of a human's actions (511, 413), out over the logo, its
+  three icons at (535, 420), (574, 420) and (606, 420): the die
+  (`UI:Arolldiebtn`, then `UI:Arolled` with the number, or `UI:Anoroll`
+  with the moves left, then the suspect's pawn `UI:A<sca>end` to end the
+  turn), the bulb, the handcuffs.
+- The right column: the videos' frame (`UI:Asuggframe`, 208 × 408,
+  black edged in white) at (427, 5), the clip in its middle; the choice
+  window (dialog 30) at (434, 4), against the right-hand frame and the
+  bar, and a human's choice of card (dialog 32) where it is; the card
+  shown, large (dialog 33, `UI:Algcard`, one frame a card), at (398, 5).
+  The box saying who can or can't disprove (dialog 31, with that
+  suspect's portrait) is placed as dialog 30 (not in that code).
+- The windows over the game, 231 × 395: the exit window (dialog 44) at
+  320 less half its width across, in the middle between the top frame
+  and the bar down, (205, 11). The Esc menu, its Save window and the
+  loser's window are placed by EagleM itself; Reluva puts them there too.
+- The left column: the cards window and the notepad at (5, 5). The cards
+  in it (0x43A600's table, 0x43A913) go at (106, 241), (13, 241), (106,
+  124), (13, 124), (106, 7), (13, 7) from the bottom right; the code adds
+  that to each card's rectangle on the screen and gives the sum as one
+  inside the window, so the window's place counts twice: on the screen,
+  (116, 251) and so on.
+- The board from above (`UI:Aoverhead`) draws itself (class at
+  0x43CF90); it is placed where the recording shows it, (208, 5), its
+  squares 13 pixels, column 9 and row 9 at (8, 15) in it.
+- The solution (dialog 34) fills the screen.
 
 **What stands in front**, as `Clue.exe` 2.2 does it (read from its code;
 the recordings, OriginalClue 0:02-0:36 and L 3:00-3:30, show it). The
