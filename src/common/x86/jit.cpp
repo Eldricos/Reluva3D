@@ -51,22 +51,22 @@ constexpr uint8_t kEntryJump[] = {0xff, 0xe6};           // jmp rsi
 // Executable memory, near this program's code if it can be (calls to the
 // handlers then take 32-bit offsets).
 uint8_t* allocate(size_t size) {
-    const uintptr_t near = reinterpret_cast<uintptr_t>(&allocate);
+    const uintptr_t here = reinterpret_cast<uintptr_t>(&allocate);
     const uintptr_t step = 64 << 20;
 #if defined(RELUVA_JIT_WINDOWS)
     for (uintptr_t d = step; d < (uintptr_t(1) << 30); d += step)
-        for (const uintptr_t at : {near - d, near + d})
+        for (const uintptr_t at : {here - d, here + d})
             if (void* p = VirtualAlloc(reinterpret_cast<void*>(at & ~uintptr_t(0xffff)), size,
                                        MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE))
                 return static_cast<uint8_t*>(p);
     return static_cast<uint8_t*>(VirtualAlloc(nullptr, size, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE));
 #else
     for (uintptr_t d = step; d < (uintptr_t(1) << 30); d += step) {
-        void* p = mmap(reinterpret_cast<void*>((near - d) & ~uintptr_t(0xfff)), size,
+        void* p = mmap(reinterpret_cast<void*>((here - d) & ~uintptr_t(0xfff)), size,
                        PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
         if (p == MAP_FAILED)
             return nullptr;
-        const intptr_t off = intptr_t(reinterpret_cast<uintptr_t>(p) - near);
+        const intptr_t off = intptr_t(reinterpret_cast<uintptr_t>(p) - here);
         if (off > -(intptr_t(1) << 31) + intptr_t(size) && off < (intptr_t(1) << 31) - intptr_t(size))
             return static_cast<uint8_t*>(p);
         munmap(p, size); // the hint not taken: further off, try again
