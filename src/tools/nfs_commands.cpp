@@ -7,6 +7,7 @@
 #include "common/audio/wav.h"
 #include "common/events.h"
 #include "common/image.h"
+#include "common/x86/pokes.h"
 #include "engines/nfs/bnk.h"
 #include "engines/nfs/col.h"
 #include "engines/nfs/fce.h"
@@ -70,6 +71,8 @@ const char* const kUsageLines =
     "  reluva-tool nfs-host <game folder> [-args \"nfs3.exe\"] [-renderer softtria.dll] [-limit N] [-log N] [-save dir]\n"
     "                       [-frames dir] [-every N] [-framesfrom N] [-watch address]... [-watchlimit 50] [-watchmem address size]\n"
     "                       [-slice instructions] [-dump memory.bin] [-keys ms:key,...]\n"
+    "                       [-poke WHEN:ADDR:VALUE[:SIZE]]... [-pokeevery ...]... [-dumpmem WHEN:ADDR:SIZE:file]...\n"
+    "                       (WHEN ms=N or at=ADDR[#N]; VALUE a number, size 1/2/4, or bytes=0a0b...)\n"
     "                       (keys: enter, up, a..., kp0-kp9, click, moveDX/DY) [-framelog frames.csv]\n"
     "                       [-timescale 0.1] [-thrashlog fromframe toframe] [-native] [-wav sound.wav] [-voices voices.csv]\n"
     "                       [-joystick name] (keys also joy:A=V...: axes 0-5 = V, button bB; +key/-key held)\n"
@@ -1012,6 +1015,7 @@ int cmdNfsHost(int argc, char** argv) {
     std::string framesDir;
     uint64_t framesFrom = 0; // the first frame shown that -frames writes
     std::string forceLogFile; // the forces the game asks for, each time they change, as CSV
+    reluva::x86::Pokes pokes; // memory written, or saved, at moments of the run
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
         if (arg == "-args" && a + 1 < argc)
@@ -1111,6 +1115,15 @@ int cmdNfsHost(int argc, char** argv) {
             watchMemSize = uint32_t(std::strtoul(argv[++a], nullptr, 0));
         } else if (arg == "-dump" && a + 1 < argc)
             dumpFile = argv[++a];
+        else if ((arg == "-poke" || arg == "-pokeevery" || arg == "-dumpmem") && a + 1 < argc) {
+            reluva::x86::Poke p;
+            std::string error;
+            const bool ok = arg == "-dumpmem" ? reluva::x86::parseDump(argv[++a], p, error)
+                                              : reluva::x86::parsePoke(argv[++a], arg == "-pokeevery", p, error);
+            if (!ok)
+                return fail(Error::fail(arg + ": " + error));
+            pokes.list.push_back(std::move(p));
+        }
         else if (arg == "-every" && a + 1 < argc)
             every = std::max(1, std::atoi(argv[++a]));
         else if (arg == "-framesfrom" && a + 1 < argc)
@@ -1220,14 +1233,14 @@ int cmdNfsHost(int argc, char** argv) {
         };
     // Where instructions run, by 16-byte block, over a range of the run.
     std::map<uint32_t, uint64_t> hot;
-    if (hotTo > hotFrom)
-        host.cpu().trace = [&](reluva::x86::Cpu& c) {
-            if (c.executed() >= hotFrom && c.executed() < hotTo)
-                ++hot[c.eip & ~0xfu];
-        };
     // Tracing every instruction costs: only when asked for.
-    if (traceCount > 0 || !watch.empty())
+    const bool hotspots = hotTo > hotFrom, tracePokes = pokes.needsTrace();
+    if (hotspots || traceCount > 0 || !watch.empty() || tracePokes)
         host.cpu().trace = [&](reluva::x86::Cpu& c) {
+            if (hotspots && c.executed() >= hotFrom && c.executed() < hotTo)
+                ++hot[c.eip & ~0xfu];
+            if (tracePokes)
+                pokes.instruction(c, host.process().now());
             recent[recentAt++ % recent.size()] = c.eip;
             if (!watch.empty() && watched < watchLimit && std::find(watch.begin(), watch.end(), c.eip) != watch.end()) {
                 ++watched;
@@ -1237,6 +1250,11 @@ int cmdNfsHost(int argc, char** argv) {
                             c.valid(c.reg[4], 4) ? c.read32(c.reg[4]) : 0u, (unsigned long long)host.process().now());
             }
         };
+    if (!pokes.empty()) {
+        pokes.log = [](const std::string& line) { std::printf("%s\n", line.c_str()); };
+        pokes.save = [](const std::string& file, const std::vector<uint8_t>& bytes) { writeFile(file, bytes); };
+        host.process().onSlice = [&](reluva::x86::Cpu& c) { pokes.time(c, host.process().now()); };
+    }
     if (slice)
         host.process().slice = slice;
     reluva::GamepadState pad; // the joystick's state, as the script sets it

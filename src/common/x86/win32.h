@@ -225,6 +225,9 @@ public:
     void requestExit() { exiting_ = true; }
     // Instructions between thread changes.
     uint32_t slice = 20000;
+    // Called at each thread change, on the thread that ran (for checks by
+    // the clock, such as memory written at a moment).
+    std::function<void(Cpu& cpu)> onSlice;
     // How often every thread waited at once, and for how long in all
     // (microseconds): time the processor stood idle.
     std::atomic<uint64_t> idleWaits{0}, idleMicros{0};

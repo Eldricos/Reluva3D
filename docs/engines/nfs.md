@@ -1022,6 +1022,39 @@ Started. Done so far:
   on it ran the game the same; that is how each speed-up below was
   checked. The per-second line also says how much of the work was the
   game's main thread and how much the timer's.
+- **Memory written at a moment** (`nfs-host -poke WHEN:ADDR:VALUE[:SIZE]`,
+  as many as wanted). It puts a game state in place without the menus.
+  WHEN is `ms=N`, once the game's clock reaches N (checked at each thread
+  change, every 20,000 instructions), or `at=ADDR`, just before the
+  instruction at ADDR runs; `at=ADDR#N` waits for its Nth time. VALUE is
+  a number of SIZE bytes (1, 2 or 4; 4 if not given) or `bytes=` and hex
+  in memory order (`bytes=0a0b0c`). A poke is applied once. `-pokeevery`
+  takes the same text and applies it each time: an `at=` poke each time
+  the instruction comes, a `ms=` poke at each thread change from then on
+  (it holds the value). Each poke applied is logged with the old bytes
+  (an `-pokeevery` only its first three times).
+  `-dumpmem WHEN:ADDR:SIZE:file` saves SIZE bytes from ADDR at such a
+  moment (`-dump` saves all of memory, at the end). An `at=` moment traces
+  each instruction, as `-watch` does, so the run is slower.
+  - **A Hot Pursuit as the police.** With the clicks of a single race,
+    two pokes at the start of the race's set-up (`0x473bf0`) make it a
+    Hot Pursuit with the player in the Pursuit Corvette:
+    `-poke at=0x473bf0:0x6fd3b8:3 -poke at=0x473bf0:0x6fd2bc:12`.
+    `0x6fd2bc` is player 1's car (player 2's is `0x6fd328`), the number
+    the car screen steps through (`0x43ac61`) and the set-up copies into
+    the car's slot (`0x47373d`). The cars are numbered 0-15: 12, 13 and 14
+    are the Pursuit Corvette, Diablo SV and El Niño, the cars whose flags
+    (car record +0x380) have 0x10 (tested by `0x4396b0`). The race shows
+    the police car, its radio and "tickets: 0/0" against 7 racers.
+  - **The spike strip.** The player's car (record `0x5e1120`) runs the
+    police states at `0x405740` (state at +0x6E0, table `0x405714`). It
+    stays in state 2, patrolling, so S does nothing: the strip is laid
+    only in states 3 and 4, the chase. With `-poke ms=62000:0x5e1800:3`
+    (state 3) and S pressed every 2 s, the first press lays a strip
+    (`0x4c9dd0`), the second finds it still out, the third clears it
+    (`0x4c9f50`), and so on. A frame in the chase view shows the spikes
+    across the road. How the player
+    starts a chase in the game isn't followed.
 
 - **Network play** (TCP). The game does its own networking through
   Windows Sockets 1.1 (`WSOCK32`, 25 functions by ordinal), with no

@@ -235,7 +235,9 @@ Error Win32Process::run(const Module& exe, uint32_t& exitCode) {
     main->name = "main";
     threads_.insert(threads_.begin(), main);
     running_ = main.get();
-    cpu_.setSlice(slice, [this](Cpu&) {
+    cpu_.setSlice(slice, [this](Cpu& c) {
+        if (onSlice)
+            onSlice(c);
         yield();
         return !ending();
     });

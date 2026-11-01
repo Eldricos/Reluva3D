@@ -86,6 +86,7 @@ add_library(reluva_common STATIC
     src/common/x86/win32_files.cpp
     src/common/x86/win32_threads.cpp
     src/common/x86/format.cpp
+    src/common/x86/pokes.cpp
     src/common/detection.cpp
     src/common/audio/decode.cpp
     src/common/audio/ea_audio.cpp

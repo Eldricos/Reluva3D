@@ -22,6 +22,7 @@
 #include "common/net.h"
 #include "common/text.h"
 #include "common/x86/cpu.h"
+#include "common/x86/pokes.h"
 #include "common/x86/win32.h"
 #include "common/zip.h"
 #include "zip_writer.h"
@@ -744,6 +745,45 @@ static void testMicroTalk() {
     }
 }
 
+static void testPokes() {
+    x86::Poke p;
+    std::string error;
+    CHECK(x86::parsePoke("ms=12000:0x6fd3b8:3:1", false, p, error) && p.ms == 12000 && !p.atAddress &&
+          p.address == 0x6fd3b8 && p.bytes == std::vector<uint8_t>{3});
+    CHECK(x86::parsePoke("at=0x4c62fa#3:0x100:0x01020304", true, p, error) && p.atAddress == 0x4c62fa && p.nth == 3 &&
+          p.every && p.bytes == (std::vector<uint8_t>{4, 3, 2, 1}));
+    CHECK(x86::parsePoke("ms=0:0x100:-1:2", false, p, error) && p.bytes == (std::vector<uint8_t>{0xff, 0xff}));
+    CHECK(x86::parsePoke("at=0x10:0x100:bytes=0aff", false, p, error) && p.bytes == (std::vector<uint8_t>{10, 255}));
+    CHECK(!x86::parsePoke("at=0x10:0x100:bytes=0af", false, p, error));
+    CHECK(!x86::parsePoke("ms=1:0x100:5:3", false, p, error));
+    CHECK(!x86::parsePoke("soon:0x100:5", false, p, error));
+    CHECK(!x86::parsePoke("ms=1:0x100", false, p, error));
+    CHECK(x86::parseDump("at=0x401000#2:0x6fd000:4096:/a/b.bin", p, error) && p.nth == 2 && p.dumpSize == 4096 &&
+          p.dumpFile == "/a/b.bin");
+    CHECK(!x86::parseDump("ms=5:0x6fd000:0:b.bin", p, error));
+
+    // Before the second instruction, the value it reads is written.
+    x86::Cpu cpu(16u << 20);
+    cpu.setStack(0x100000);
+    x86::Pokes pokes;
+    int lines = 0;
+    pokes.log = [&](const std::string&) { ++lines; };
+    CHECK(x86::parsePoke("at=0x2001:0x3000:42", false, p, error));
+    pokes.list.push_back(p);
+    CHECK(x86::parsePoke("ms=50:0x3004:7:1", false, p, error));
+    pokes.list.push_back(p);
+    CHECK(pokes.needsTrace());
+    cpu.trace = [&](x86::Cpu& c) { pokes.instruction(c, 0); };
+    // nop; mov eax, [0x3000]; ret
+    CHECK(runX86(cpu, {0x90, 0xa1, 0x00, 0x30, 0x00, 0x00, 0xc3}) == 42);
+    cpu.trace = nullptr;
+    pokes.time(cpu, 49);
+    CHECK(cpu.read8(0x3004) == 0);
+    pokes.time(cpu, 50);
+    pokes.time(cpu, 60); // once only
+    CHECK(cpu.read8(0x3004) == 7 && lines == 2 && pokes.list[1].applied == 1);
+}
+
 int main() {
     auto tmp = std::filesystem::temp_directory_path() / "reluva_tests";
     testMd5();
@@ -766,6 +806,7 @@ int main() {
     testX86Instructions();
     testX86Dll();
     testWin32Files();
+    testPokes();
     testWin32SerialPort();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);

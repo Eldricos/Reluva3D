@@ -274,13 +274,24 @@ the jump table at `0x43c8c8` (`0x43cbe4`-`0x43cc38`): text 0x46-0x51
 (`kTextKeyLeft`...`kTextKeyReset`), and for the 12th, S, text 0x1BC,
 `kTextKeySpikeStrip` ("Spike strip"). The bit is acted on at `0x404e40`,
 called only from a cop's states (`0x405860`, `0x4058ad`, next to the
-siren's `0x404f80`): once per press (car +0x513), if the pursued car
-(car +0x714) has no strip out (`0x7dd850` + car × 0x50), it lays one on
+siren's `0x404f80`): once per press (car +0x513), if the cop
+(car +0x714, its own index in the car list, set at `0x4012e3`) has no
+strip out (`0x7dd850` + car × 0x50), it lays one on
 the track at the cop's place (`0x4c9dd0`, +0x1C) for 0xC0 ticks, drawn by
 `0x4c9f70`, and plays radio speech (`0x40b9c0`) and sound 0x10; a strip
 still out gives sound 0x12, an old one is cleared (`0x4c9f50`) with sound
 0x11. The sounds play only for the car on screen. In a race (not a
 pursuit) the press is sent and nothing happens.
+
+Seen in a run (October 2026, `nfs-host -poke`, docs/engines/nfs.md): a
+single-player Hot Pursuit with the player in the Pursuit Corvette
+(race type `0x6fd3b8` = 3 and player 1's car `0x6fd2bc` = 12, written
+at the race set-up `0x473bf0`). The player's cop runs the police states
+(`0x405740`) but stays in state 2, patrolling, where S does nothing; the
+strip is laid only in states 3 and 4, a chase. With car +0x6E0 (the
+state, `0x5e1800` for that car) set to 3, each S press laid a strip
+across the road, the next found it still out, and the one after cleared
+it. How a player's cop starts a chase in the game wasn't found.
 
 ## IPX
 
