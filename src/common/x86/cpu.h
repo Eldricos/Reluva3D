@@ -11,6 +11,7 @@
 #include <cstring>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <new>
 #include <string>
 #include <string_view>
@@ -49,6 +50,8 @@ struct PageAllocator {
 };
 using Memory = std::vector<uint8_t, PageAllocator<uint8_t>>;
 
+class Jit;
+
 // A 32-bit x86 processor, interpreted (written from Intel's published
 // instruction set reference), for running native game code (Windows DLLs
 // built for the Pentium of their day) on any machine: the integer
@@ -69,6 +72,7 @@ public:
 
     // `memorySize` bytes of memory (a multiple of 4096).
     explicit Cpu(uint32_t memorySize);
+    ~Cpu();
 
     // --- Memory --------------------------------------------------------------
     Memory& memory() { return memory_; }
@@ -157,6 +161,10 @@ public:
     // Whether instructions run through the decoded-instruction cache (on by
     // default; off runs each from its bytes, as a check).
     bool cacheOn = true;
+    // Whether the cache's blocks run as native code (jit.h) where that can
+    // be made; off, its loop calls each instruction's handler. Both run the
+    // same handlers, so they agree to the instruction.
+    bool jitOn = true;
     // Stops a run with an error after this many more instructions (0: never).
     void setInstructionLimit(uint64_t limit) { limit_ = limit; }
     uint64_t executed() const { return executed_; }
@@ -287,6 +295,8 @@ private:
         // or call's target, both ways of a conditional jump, or straight on.
         // Their blocks are fetched into the cache while this one runs.
         uint32_t next[2] = {0xffffffffu, 0xffffffffu};
+        uint32_t jitGeneration = 0; // the Jit's when `jit` was made for it (0: none)
+        const uint8_t* jit = nullptr;
         Cached ops[kBlockOps];
         uint64_t lastMask = 0;
         uint64_t code[kBlockWords]{};
@@ -294,6 +304,10 @@ private:
     static constexpr uint32_t kBlockEntries = 1u << 15;
     static_assert(sizeof(Cached) == 24, "a cached instruction in 24 bytes");
     std::vector<Block> blocks_;
+    std::unique_ptr<Jit> jit_; // made with the blocks, if it can be
+    int jitDepth_ = 0;         // native code running (natives call back in): none, before the Jit forgets it
+    void compileBlock(Block& b);
+    static void jitMemoryFault(void* cpu, uint32_t address, uint32_t size); // for the Jit's code
     void decode(Cached& e, uint32_t at);
     void build(Block& b, uint32_t at);
     // A block's bytes are checked again only when code may have changed

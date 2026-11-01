@@ -100,6 +100,7 @@ add_library(reluva_common STATIC
     src/common/pe.cpp
     src/common/x86/cpu.cpp
     src/common/x86/cpu_cache.cpp
+    src/common/x86/jit.cpp
     src/common/x86/fpu.cpp
     src/common/x86/win32.cpp
     src/common/x86/win32_files.cpp

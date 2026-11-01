@@ -2,8 +2,10 @@
 // Copyright (C) 2026 The Reluva contributors
 
 #include "common/x86/cpu.h"
+#include "common/x86/jit.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #if defined(_WIN32)
@@ -69,7 +71,11 @@ Cpu::Cpu(uint32_t memorySize) : memory_(memorySize), codePages_((size_t(memorySi
     span_ = memorySize > kPageSize ? memorySize - kPageSize : 0;
     nativeBase_ = memorySize - kMaxNatives * kNativeStride;
     std::memset(&memory_[nativeBase_ - kNativeStride * kReturnSlots], 0xf4, kMaxNatives * kNativeStride + kNativeStride);
+    if (std::getenv("RELUVA_NO_JIT")) // the interpreter's loop alone, to compare
+        jitOn = false;
 }
+
+Cpu::~Cpu() = default;
 
 uint16_t Cpu::read16(uint32_t a) const { return valid(a, 2) ? uint16_t(memory_[a] | memory_[a + 1] << 8) : 0; }
 uint32_t Cpu::read32(uint32_t a) const {

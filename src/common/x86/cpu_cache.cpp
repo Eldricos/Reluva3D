@@ -15,6 +15,7 @@
 // loader copying code with a native memcpy, say).
 
 #include "common/x86/cpu.h"
+#include "common/x86/jit.h"
 
 #include <algorithm>
 #include <cmath>
@@ -483,8 +484,19 @@ struct CachedOps {
 // goes to a native. A block's instructions run one after another: only its
 // last can go elsewhere.
 void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
-    if (blocks_.empty())
+    if (blocks_.empty()) {
         blocks_.resize(kBlockEntries);
+        if (Jit::supported()) {
+            const char* self = reinterpret_cast<const char*>(this);
+            auto at = [&](const void* member) { return size_t(static_cast<const char*>(member) - self); };
+            jit_ = std::make_unique<Jit>(Jit::Layout{at(reg.data()), at(&eip), at(&instructionStart_), at(&codeEpoch_),
+                                                     at(&fsBase), memory_.data(), codePages_.data(), span_,
+                                                     &Cpu::jitMemoryFault});
+            if (!jit_->ready())
+                jit_.reset();
+        }
+    }
+    Jit* const jit = jitOn ? jit_.get() : nullptr;
     const uint64_t end = limit_ ? limitAt_ : ~uint64_t(0);
     Block* const blocks = blocks_.data();
     const uint8_t* const memory = memory_.data();
@@ -528,6 +540,22 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
             executed_ += b.count;
             counting_.block = &b; // two stores: as one, Visual Studio's build stalled on it
             counting_.start = eip;
+            if (jit && b.start == eip) { // (not one rebuilt each time it runs)
+                if (b.jitGeneration != jit->generation())
+                    compileBlock(b);
+                if (b.jit) {
+                    // Counted while it runs: native code a native's call back
+                    // in made mustn't be forgotten under it (compileBlock).
+                    struct Depth {
+                        int& d;
+                        explicit Depth(int& n) : d(n) { ++d; }
+                        ~Depth() { --d; }
+                    } depth{jitDepth_};
+                    jit->run(this, b.jit);
+                    counting_.block = nullptr;
+                    continue;
+                }
+            }
             for (;; ++e) {
                 instructionStart_ = eip;
                 e->run(*this, *e);
@@ -548,6 +576,60 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
     } while (eip != returnAddress && eip < nativeStart);
 }
 
+// The block's native code: each instruction's start stored, its handler
+// called, as the loop in runCached does. With the buffer full, all the code
+// is forgotten and made again as blocks run, unless some is running (a
+// native called back in): then this block runs through the loop for now.
+void Cpu::compileBlock(Block& b) {
+    using O = CachedOps;
+    using K = Jit::Kind;
+    Jit::Op ops[kBlockOps];
+    uint32_t at = b.start;
+    for (int i = 0; i < b.count; ++i) {
+        const Cached& e = b.ops[i];
+        Jit::Op& o = ops[i];
+        o.start = at;
+        o.length = e.length;
+        o.reg = e.reg, o.rm = e.rm, o.scale = e.scale, o.base = e.base, o.index = e.index;
+        o.mem = e.mem, o.fs = e.fs, o.disp = e.disp, o.imm = e.imm;
+        o.size = 4;
+        const auto run = e.run;
+        if (run == &O::movRegRm<4> || run == &O::movRegRm<1>)
+            o.kind = K::MovRegRm, o.size = run == &O::movRegRm<4> ? 4 : 1;
+        else if (run == &O::movRmReg<4> || run == &O::movRmReg<1>)
+            o.kind = K::MovRmReg, o.size = run == &O::movRmReg<4> ? 4 : 1;
+        else if (run == &O::movRmImm<4> || run == &O::movRmImm<1>)
+            o.kind = K::MovRmImm, o.size = run == &O::movRmImm<4> ? 4 : 1;
+        else if (run == &O::movRegImm<4>)
+            o.kind = K::MovRegImm;
+        else if (run == &O::lea)
+            o.kind = K::Lea;
+        else if (run == &O::pushReg)
+            o.kind = K::PushReg;
+        else if (run == &O::pushImm)
+            o.kind = K::PushImm;
+        else if (run == &O::popReg)
+            o.kind = K::PopReg;
+        else
+            o.kind = K::Call, o.handler = reinterpret_cast<const void*>(run), o.entry = &e;
+        // One run from its bytes (length 0) can't be made here: it reads eip.
+        if (!e.length)
+            o.kind = K::Call, o.handler = reinterpret_cast<const void*>(run), o.entry = &e;
+        at += e.length;
+    }
+    const uint8_t* code = jit_->compile(ops, b.count, at);
+    if (!code && jitDepth_ == 0) {
+        jit_->reset();
+        code = jit_->compile(ops, b.count, at);
+    }
+    b.jit = code;
+    b.jitGeneration = code ? jit_->generation() : 0;
+}
+
+void Cpu::jitMemoryFault(void* cpu, uint32_t address, uint32_t size) {
+    static_cast<Cpu*>(cpu)->memoryFault(address, size);
+}
+
 void Cpu::uncountBlock() {
     const Block* b = counting_.block;
     if (!b)
@@ -566,6 +648,8 @@ void Cpu::uncountBlock() {
 void Cpu::build(Block& b, uint32_t at) {
     b.start = at;
     b.count = 0;
+    b.jit = nullptr; // made again when it runs
+    b.jitGeneration = 0;
     uint32_t bytes = 0;
     for (;;) {
         Cached& e = b.ops[b.count++];

@@ -461,6 +461,28 @@ static void testX86Instructions(bool cached) {
     CHECK(cpu.valid(4096, 1) && cpu.valid(4096, size - 4096) && !cpu.valid(4096, size - 4095));
     CHECK(cpu.valid(size - 4, 4) && !cpu.valid(size - 3, 4) && cpu.valid(size, 0) && !cpu.valid(size, 1));
     CHECK(!cpu.valid(0xffffffffu, 2) && !cpu.valid(8192, 0xffffffffu));
+    {
+        // Moves, LEA, PUSH and POP (made native by the Jit where it can):
+        // mov eax, 7; push eax; pop edx; lea eax, [edx + edx*2 + 1]; ret  (22)
+        CHECK(runX86(cpu, {0xb8, 7, 0, 0, 0, 0x50, 0x5a, 0x8d, 0x44, 0x52, 0x01, 0xc3}) == 22);
+        // mov eax, 0; mov ah, 5; mov dl, ah; mov ecx, 0x3000; mov [ecx], dl;
+        // mov bl, [ecx]; movzx eax, bl; ret  (5)
+        CHECK(runX86(cpu, {0xb8, 0, 0, 0, 0, 0xc6, 0xc4, 5, 0x88, 0xe2, 0xb9, 0, 0x30, 0, 0, 0x88, 0x11, 0x8a, 0x19,
+                           0x0f, 0xb6, 0xc3, 0xc3}) == 5);
+        // A fault names its instruction and leaves the registers as they were
+        // when it came: mov ecx, 0x10; mov eax, [ecx]; ret
+        bool ok = true;
+        runX86(cpu, {0xb9, 0x10, 0, 0, 0, 0x8b, 0x01, 0xc3}, &ok);
+        CHECK(!ok && cpu.faultEip == 0x2005 && cpu.faultReg[1] == 0x10);
+        // mov esp, 0x800; push eax; ret: ESP down before the store faults.
+        runX86(cpu, {0xbc, 0, 8, 0, 0, 0x50, 0xc3}, &ok);
+        CHECK(!ok && cpu.faultEip == 0x2005 && cpu.faultReg[4] == 0x7fc);
+        // mov ecx, 0x10; add eax, [ecx]; ret: through a handler.
+        runX86(cpu, {0xb9, 0x10, 0, 0, 0, 0x03, 0x01, 0xc3}, &ok);
+        CHECK(!ok && cpu.faultEip == 0x2005);
+        // And on after them.
+        CHECK(runX86(cpu, {0xb8, 7, 0, 0, 0, 0x50, 0x5a, 0x8d, 0x44, 0x52, 0x01, 0xc3}) == 22);
+    }
     // mov eax, 5; add eax, 0xfffffffb; setz al; movzx eax, al; ret
     CHECK(runX86(cpu, {0xb8, 5, 0, 0, 0, 0x83, 0xc0, 0xfb, 0x0f, 0x94, 0xc0, 0x0f, 0xb6, 0xc0, 0xc3}) == 1);
     // mov ecx, 10; xor eax, eax; loop: add eax, ecx; dec ecx; jnz loop; ret  (55)

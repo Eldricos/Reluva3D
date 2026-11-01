@@ -737,6 +737,11 @@ Progress:
     took the drawing threads' time on the route from 276 s to 184 s and
     the route's wall time from 98 s to 75 s, with the same frames at
     both resolutions.
+  - The blocks as native code (`common/x86/jit.cpp`, docs/common/x86.md):
+    moves, LEA, PUSH and POP made host instructions, the rest called
+    directly. The program's thread 12% quicker on the route, the same
+    instructions and frames. `RELUVA_NO_JIT=1` in the environment runs
+    without it, to compare.
 - Not there yet:
   - **more speed**: the program's own code (NetImmerse's scene graph,
     picking and its Direct3D renderer) in the interpreter is now most of
