@@ -23,6 +23,8 @@
 //                                                  one in an archive
 //   reluva-tool wav-info <file.wav | file.mp3 | file.cat>     show a sound's format and length, or survey an archive's
 //   reluva-tool wav-decode <in.wav | in.mp3> <out.wav>      decode a sound to 16-bit PCM
+//   reluva-tool prologic <in.wav> <out prefix> [-passive]   a stereo recording through the Pro Logic
+//                                                  decoder model: four mono WAVs and levels by window
 //   reluva-tool fif-info <file.fif | file.cat>     show a font's glyph table, or list an archive's fonts
 //   reluva-tool level-info <level.dat> [file.cat...] list the missions, with the archives holding their maps
 //   reluva-tool gmf-fit [-a] <planet.cat> [map]    check the model numbering by how tiles' edges meet
@@ -93,6 +95,7 @@
 //                                                  or draw yet, with example shaders
 
 #include "common/audio/decode.h"
+#include "common/audio/prologic.h"
 #include "common/audio/wav.h"
 #ifdef RELUVA_ENGINE_NEWWORLDS
 #include "engines/newworlds/cat_archive.h"
@@ -965,6 +968,151 @@ int cmdTable(int argc, char** argv) {
     }
     if (d.size() % 4)
         std::printf("(%zu trailing bytes)\n", d.size() % 4);
+    return 0;
+}
+
+// A stereo recording through the Pro Logic decoder model
+// (common/audio/prologic.h): the four channels as mono WAV files
+// (<prefix>-L.wav, -C, -R, -S), and the levels window by window, with a
+// passive decode alongside for comparison.
+int cmdProLogic(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool prologic <in.wav> <out prefix> [-passive] [-window ms] [-delay ms]\n"
+                             "                            [-csv windows.csv] [-quiet]\n");
+        return 2;
+    }
+    reluva::audio::ProLogicOptions options;
+    double windowMs = 1000;
+    const char* csvPath = nullptr;
+    bool quiet = false;
+    for (int a = 4; a < argc; ++a) {
+        const std::string arg = argv[a];
+        if (arg == "-passive")
+            options.active = false;
+        else if (arg == "-window" && a + 1 < argc)
+            windowMs = std::atof(argv[++a]);
+        else if (arg == "-delay" && a + 1 < argc)
+            options.surroundDelayMs = std::atof(argv[++a]);
+        else if (arg == "-csv" && a + 1 < argc)
+            csvPath = argv[++a];
+        else if (arg == "-quiet")
+            quiet = true;
+        else {
+            std::fprintf(stderr, "unknown option %s\n", arg.c_str());
+            return 2;
+        }
+    }
+    std::vector<uint8_t> data;
+    if (!readFile(argv[2], data)) {
+        std::fprintf(stderr, "cannot open %s\n", argv[2]);
+        return 1;
+    }
+    reluva::audio::Sound in;
+    if (reluva::Error err = reluva::audio::decodeSound(data, in)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    if (in.channels != 2) {
+        std::fprintf(stderr, "%s is not stereo\n", argv[2]);
+        return 1;
+    }
+    using reluva::audio::ProLogicDecoder;
+    reluva::audio::ProLogicOptions passiveOptions = options;
+    passiveOptions.active = false;
+    ProLogicDecoder dec(in.rate, options), passive(in.rate, passiveOptions);
+    const size_t frames = in.frames();
+    std::vector<float> out(4 * frames), outPassive(4);
+    const size_t window = std::max<size_t>(1, size_t(windowMs * in.rate / 1000));
+    FILE* csv = csvPath ? std::fopen(csvPath, "w") : nullptr;
+    if (csvPath && !csv) {
+        std::fprintf(stderr, "cannot write %s\n", csvPath);
+        return 1;
+    }
+    if (csv)
+        std::fprintf(csv, "ms,mid_db,side_db,L_db,C_db,R_db,S_db,S_passive_db,steering,direction,rear_pct\n");
+    auto db = [](double e, size_t n) { return n ? 10 * std::log10(e / double(n) + 1e-12) : -120.0; };
+    // Energy over the whole file: L, C, R, S, passive S; mid, side.
+    double total[7] = {};
+    size_t rearFrames = 0, steeredFrames = 0, loudRearWindows = 0, windows = 0;
+    if (!quiet)
+        std::printf("    time   mid  side |     L     C     R     S  S pass | steer   dir rear%%\n");
+    for (size_t start = 0; start < frames; start += window) {
+        const size_t n = std::min(window, frames - start);
+        double e[7] = {}, steer = 0, dirX = 0, dirY = 0; // the direction: a mean of 2 theta, by steering
+        size_t rear = 0;
+        for (size_t i = start; i < start + n; ++i) {
+            float* o = &out[4 * i];
+            dec.process(&in.samples[2 * i], o, 1);
+            passive.process(&in.samples[2 * i], outPassive.data(), 1);
+            for (int c = 0; c < 4; ++c)
+                e[c] += double(o[c]) * o[c];
+            e[4] += double(outPassive[3]) * outPassive[3];
+            const double l = in.samples[2 * i] / 32768.0, r = in.samples[2 * i + 1] / 32768.0;
+            e[5] += (l + r) * (l + r) / 2;
+            e[6] += (l - r) * (l - r) / 2;
+            steer += dec.steering();
+            dirX += dec.steering() * std::cos(dec.direction() * 3.14159265358979 / 90);
+            dirY += dec.steering() * std::sin(dec.direction() * 3.14159265358979 / 90);
+            if (dec.steering() > 0.5) {
+                ++steeredFrames;
+                if (std::fabs(dec.direction() - 135) < 22.5) {
+                    ++rear;
+                    ++rearFrames;
+                }
+            }
+        }
+        for (int c = 0; c < 7; ++c)
+            total[c] += e[c];
+        const double front = e[0] + e[1] + e[2];
+        if (e[3] * 10 > front && front > 0)
+            ++loudRearWindows;
+        ++windows;
+        const double ms = double(start) * 1000 / in.rate;
+        const double rearPct = 100.0 * double(rear) / double(n);
+        double direction = std::atan2(dirY, dirX) * 90 / 3.14159265358979;
+        if (direction < 0)
+            direction += 180;
+        if (!quiet)
+            std::printf("%8.1f %5.1f %5.1f | %5.1f %5.1f %5.1f %5.1f %6.1f | %5.2f %5.1f %5.1f\n", ms / 1000, db(e[5], n),
+                        db(e[6], n), db(e[0], n), db(e[1], n), db(e[2], n), db(e[3], n), db(e[4], n),
+                        steer / double(n), direction, rearPct);
+        if (csv)
+            std::fprintf(csv, "%.0f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.3f,%.1f,%.1f\n", ms, db(e[5], n), db(e[6], n),
+                         db(e[0], n), db(e[1], n), db(e[2], n), db(e[3], n), db(e[4], n), steer / double(n), direction, rearPct);
+    }
+    if (csv)
+        std::fclose(csv);
+    const double front = total[0] + total[1] + total[2];
+    auto rel = [](double a, double b) { return 10 * std::log10((a + 1e-20) / (b + 1e-20)); };
+    std::printf("%s: %.1f s at %d Hz, %s decode, surround delay %.0f ms\n", argv[2], double(frames) / in.rate,
+                in.rate, options.active ? "active" : "passive", options.surroundDelayMs);
+    std::printf("side/mid %.1f dB; surround/front %.1f dB (passive %.1f dB); C/(L+R) %.1f dB\n",
+                rel(total[6], total[5]), rel(total[3], front), rel(total[4], front),
+                rel(total[1], total[0] + total[2]));
+    std::printf("steered (gain > 0.5) %.1f%% of the time, to the surround (135 +- 22.5 degrees) %.2f%%;"
+                " windows with the surround within 10 dB of the front: %zu of %zu\n",
+                100.0 * double(steeredFrames) / double(std::max<size_t>(1, frames)),
+                100.0 * double(rearFrames) / double(std::max<size_t>(1, frames)), loudRearWindows, windows);
+
+    static const char* const kNames[4] = {"L", "C", "R", "S"};
+    for (int c = 0; c < 4; ++c) {
+        reluva::audio::Sound s;
+        s.rate = in.rate;
+        s.channels = 1;
+        s.format = 1;
+        s.samples.resize(frames);
+        for (size_t i = 0; i < frames; ++i)
+            s.samples[i] = static_cast<int16_t>(std::clamp<long>(std::lround(out[4 * i + c] * 32768.0), -32768L, 32767L));
+        const std::string path = std::string(argv[3]) + "-" + kNames[c] + ".wav";
+        const std::vector<uint8_t> bytes = reluva::audio::encodePcmWav(s);
+        std::ofstream f(path, std::ios::binary);
+        f.write(reinterpret_cast<const char*>(bytes.data()), std::streamsize(bytes.size()));
+        if (!f) {
+            std::fprintf(stderr, "cannot write %s\n", path.c_str());
+            return 1;
+        }
+    }
+    std::printf("wrote %s-L.wav, -C, -R, -S\n", argv[3]);
     return 0;
 }
 
@@ -5093,6 +5241,8 @@ int cmdPk3List(int argc, char** argv) {
 } // namespace
 
 int main(int argc, char** argv) {
+    if (argc >= 2 && std::strcmp(argv[1], "prologic") == 0)
+        return cmdProLogic(argc, argv);
 #ifdef RELUVA_ENGINE_NFS
     if (int code = runNfsCommand(argc, argv); code >= 0)
         return code;
@@ -5201,6 +5351,7 @@ int main(int argc, char** argv) {
                  "  reluva-tool chunks <file>\n"
                  "  reluva-tool words <file> [offset] [count]\n"
                  "  reluva-tool table <file> [values per row] [offset]\n"
+                 "  reluva-tool prologic <in.wav> <out prefix> [-passive] [-window ms] [-delay ms] [-csv file] [-quiet]\n"
 #ifdef RELUVA_ENGINE_NEWWORLDS
                  "  reluva-tool cat-probe <file.cat> [-q]\n"
                  "  reluva-tool cat-list <file.cat>\n"

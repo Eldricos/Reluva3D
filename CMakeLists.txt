@@ -82,6 +82,7 @@ add_library(reluva_common STATIC
     src/common/pe.cpp
     src/common/x86/cpu.cpp
     src/common/x86/fpu.cpp
+    src/common/x86/mmx.cpp
     src/common/x86/win32.cpp
     src/common/x86/win32_files.cpp
     src/common/x86/win32_threads.cpp
@@ -92,6 +93,7 @@ add_library(reluva_common STATIC
     src/common/audio/ea_audio.cpp
     src/common/audio/mixer.cpp
     src/common/audio/mp3.cpp
+    src/common/audio/prologic.cpp
     src/common/audio/wav.cpp
     src/common/font.cpp
     src/common/text.cpp)
@@ -264,6 +266,15 @@ if(RELUVA_BUILD_TESTS)
     target_link_libraries(reluva_tests PRIVATE reluva_common reluva_warnings)
     target_include_directories(reluva_tests PRIVATE tests)
     add_test(NAME common COMMAND reluva_tests)
+
+    # The x86 interpreter's MMX instructions.
+    add_executable(reluva_x86_mmx_tests tests/test_x86_mmx.cpp)
+    target_link_libraries(reluva_x86_mmx_tests PRIVATE reluva_common reluva_warnings)
+    add_test(NAME x86_mmx COMMAND reluva_x86_mmx_tests)
+
+    add_executable(reluva_prologic_tests tests/test_prologic.cpp)
+    target_link_libraries(reluva_prologic_tests PRIVATE reluva_common reluva_warnings)
+    add_test(NAME prologic COMMAND reluva_prologic_tests)
 
     # The SDL backend's game controllers, on SDL's virtual joysticks.
     add_executable(reluva_sdl_tests tests/test_sdl_controller.cpp

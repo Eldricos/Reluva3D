@@ -633,6 +633,10 @@ void Cpu::twoByte() {
             writeRegInline(osz, d_.regField, v);
         return;
     }
+    if ((op >= 0x60 && op <= 0x7f) || op >= 0xd0) [[unlikely]] { // MMX (mmx.cpp)
+        mmx(op);
+        return;
+    }
     if (op >= 0xc8) { // BSWAP
         uint32_t& r = reg[op & 7];
         r = (r >> 24) | ((r >> 8) & 0xff00) | ((r << 8) & 0xff0000) | (r << 24);
@@ -650,7 +654,7 @@ void Cpu::twoByte() {
         reg[EDX] = uint32_t(t >> 32);
         return;
     }
-    case 0xa2: { // CPUID: a Pentium with an FPU, a time stamp counter and CMPXCHG8B
+    case 0xa2: { // CPUID: a Pentium with an FPU, a time stamp counter and CMPXCHG8B (and MMX if reportMmx)
         const uint32_t leaf = reg[EAX];
         if (leaf == 0) {
             reg[EAX] = 1;
@@ -658,9 +662,9 @@ void Cpu::twoByte() {
             reg[EDX] = 0x49656e69;
             reg[ECX] = 0x6c65746e;
         } else {
-            reg[EAX] = 0x543; // family 5
+            reg[EAX] = 0x543; // family 5, model 4 (the Pentium MMX's)
             reg[EBX] = reg[ECX] = 0;
-            reg[EDX] = 0x1 | 0x10 | 0x100;
+            reg[EDX] = 0x1 | 0x10 | 0x100 | (reportMmx ? 1u << 23 : 0u);
         }
         return;
     }

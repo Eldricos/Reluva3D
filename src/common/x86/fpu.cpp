@@ -279,8 +279,27 @@ void Cpu::x87(uint8_t op) {
             case 1: store(a, uint32_t(toInteger(std::trunc(st(0)), 32)), 4); fpuPop(); return;
             case 2: store(a, uint32_t(toInteger(roundByMode(st(0), fpu.control), 32)), 4); return;
             case 3: store(a, uint32_t(toInteger(roundByMode(st(0), fpu.control), 32)), 4); fpuPop(); return;
-            case 5: fpuPush(fromExtended(at(a, 10))); return;
-            case 7: toExtended(fpuPop(), at(a, 10)); return;
+            case 5: { // FLD m80: the mantissa kept whole, for MMX
+                const uint8_t* e = at(a, 10);
+                fpuPush(fromExtended(e));
+                std::memcpy(&fpu.mm[fpu.top], e, 8);
+                std::memcpy(&fpu.mmDouble[fpu.top], &st(0), 8);
+                fpu.mmValid |= uint8_t(1u << fpu.top);
+                return;
+            }
+            case 7: { // FSTP m80 (an MMX register's 64 bits whole)
+                uint8_t* e = at(a, 10);
+                uint64_t doubleBits;
+                std::memcpy(&doubleBits, &st(0), 8);
+                const bool mmx = ((fpu.mmValid >> fpu.top) & 1) && fpu.mmDouble[fpu.top] == doubleBits;
+                toExtended(fpuPop(), e);
+                if (mmx) {
+                    if (doubleBits >> 32 == 0xfff84d4du) // written by MMX: exponent and sign all ones
+                        e[8] = e[9] = 0xff;
+                    std::memcpy(e, &fpu.mm[(fpu.top - 1) & 7], 8);
+                }
+                return;
+            }
             }
             break;
         case 0xdd:
@@ -299,6 +318,10 @@ void Cpu::x87(uint8_t op) {
                     const bool exact = extendedToInteger(e, v);
                     fpu.exact[phys] = exact ? v : 0;
                     fpu.exactValid = uint8_t((fpu.exactValid & ~(1u << phys)) | (exact ? 1u << phys : 0u));
+                    // Its mantissa whole, for MMX (a double has only 53 bits of it).
+                    std::memcpy(&fpu.mm[phys], e, 8);
+                    std::memcpy(&fpu.mmDouble[phys], &st(i), 8);
+                    fpu.mmValid |= uint8_t(1u << phys);
                 }
                 return;
             }
@@ -306,7 +329,17 @@ void Cpu::x87(uint8_t op) {
                 storeEnvironment();
                 for (int i = 0; i < 8; ++i) {
                     const unsigned phys = unsigned(fpu.top + i) & 7u;
-                    if (((fpu.exactValid >> phys) & 1) && double(fpu.exact[phys]) == st(i))
+                    uint64_t doubleBits;
+                    std::memcpy(&doubleBits, &st(i), 8);
+                    if (((fpu.mmValid >> phys) & 1) && fpu.mmDouble[phys] == doubleBits) { // an MMX register's
+                        // Written by MMX: its exponent and sign all ones; loaded by
+                        // FRSTOR: the double's exponent and sign, the mantissa whole.
+                        uint8_t* e = at(a + 28 + 10 * uint32_t(i), 10);
+                        toExtended(st(i), e);
+                        if (doubleBits >> 32 == 0xfff84d4du)
+                            e[8] = e[9] = 0xff;
+                        std::memcpy(e, &fpu.mm[phys], 8);
+                    } else if (((fpu.exactValid >> phys) & 1) && double(fpu.exact[phys]) == st(i))
                         integerToExtended(fpu.exact[phys], at(a + 28 + 10 * uint32_t(i), 10));
                     else
                         toExtended(st(i), at(a + 28 + 10 * uint32_t(i), 10));
@@ -382,6 +415,10 @@ void Cpu::x87(uint8_t op) {
             std::swap(fpu.exact[a], fpu.exact[b]);
             const unsigned va = (fpu.exactValid >> a) & 1u, vb = (fpu.exactValid >> b) & 1u;
             fpu.exactValid = uint8_t((fpu.exactValid & ~((1u << a) | (1u << b))) | (vb << a) | (va << b));
+            std::swap(fpu.mm[a], fpu.mm[b]); // an MMX value moves with its register
+            std::swap(fpu.mmDouble[a], fpu.mmDouble[b]);
+            const unsigned ma = (fpu.mmValid >> a) & 1u, mb = (fpu.mmValid >> b) & 1u;
+            fpu.mmValid = uint8_t((fpu.mmValid & ~((1u << a) | (1u << b))) | (mb << a) | (ma << b));
             return;
         }
         switch (modrm) {

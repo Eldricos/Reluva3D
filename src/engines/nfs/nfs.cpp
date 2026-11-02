@@ -52,9 +52,13 @@ public:
         screen_.create(kScreenW, kScreenH, PixelFormat::RGBA32);
 
         // One mixer for the pages' sounds; without audio output, none. The
-        // pages go before it.
+        // pages go before it. surround= in reluva.ini sends it through the
+        // Pro Logic decoder model, for the game's Dolby Surround mode.
         audio::Mixer mixer(sys_.audioRate());
-        const bool audioOut = !audio::startMixerOutput(sys_, mixer);
+        const auto surround = target_.settings.find("surround");
+        const bool audioOut = !audio::startMixerOutput(
+            sys_, mixer,
+            audio::surroundFromSetting(surround == target_.settings.end() ? std::string() : surround->second));
         struct AudioOff { // stops the output before the mixer goes
             System& sys;
             ~AudioOff() { sys.stopAudio(); }

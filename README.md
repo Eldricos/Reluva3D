@@ -65,7 +65,9 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   `viv-extract`, `fsh-info`, `fsh-dump`, `text-dump`, `ffn-render`, `fce-info`, `fce-obj`,
   `frd-check`, `frd-obj`, `bnk-info`, `bnk-wav`, `mus-info`, `mus-wav`, `mad-info`,
   `mad-frames`, `mad-wav`, `nfs-survey`, `nfs-page` and `nfs-host` (Need for Speed III;
-  `nfs-host` runs the retail `nfs3.exe` in the x86 interpreter and reports how it goes).
+  `nfs-host` runs the retail `nfs3.exe` in the x86 interpreter and reports how it goes),
+  and `prologic` (a stereo WAV through the Pro Logic decoder model: four channels and
+  their levels).
 - In game: **Ctrl+F5** returns to the launcher, **Alt+Enter** toggles fullscreen.
 - New Worlds currently opens as a data viewer. **Tab** switches between missions, models,
   textures, maps, sounds, strings and fonts, **Left/Right** step through them and **F** cycles filters.
@@ -134,7 +136,13 @@ Network (TCP)) uses the machine's network, other players joining on TCP port 103
 (`network=off` leaves it out); Network (IPX) works on the local network too.
 `serial=listen:2300` on one machine and `serial=host:2300` on the other make
 Serial a link between them, and `modem=listen:2400` / `modem=host:2400` do the
-same for Modem (Answer and Dial). The 3D pages
+same for Modem (Answer and Dial). The game's Dolby Surround sound mode
+encodes sounds behind into the stereo; `surround=prologic` decodes it with a model
+of a Pro Logic decoder, written from the public description, and plays it on a 4.0
+or 5.1 device when the default one has that many channels (stereo, unchanged,
+otherwise). `surround=passive` uses the passive matrix alone, and
+`surround=headphones` folds the decoded channels back to stereo. Without the
+setting the sound plays as mixed. The 3D pages
   need a GPU with Vulkan (Linux, Windows) or Metal (macOS). On tracks, **PageUp/PageDown**
   pick one, **W/A/S/D** move, the arrows or a drag look, **Space/C** go up and down,
   **Shift** goes faster, **N/B** jump to the next or previous piece of road, **1/2/3** pick

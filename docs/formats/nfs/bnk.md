@@ -267,8 +267,8 @@ every retail sound (50 or 100) gets linear interpolation and the
 nearest-sample routines are never used. With the option at 0, the 182
 sounds at 50 drop to nearest-sample and the 25 at 100 (the traffic
 cars' and `FeData/Plac`'s `car.viv`) stay linear. Reluva's x86 core
-reports a Pentium without MMX (`common/x86/cpu.cpp`, CPUID), so it runs
-the non-MMX routines.
+reports a Pentium without MMX by default (`common/x86/cpu.cpp`, CPUID),
+so it runs the non-MMX routines; `nfs-host -mmx` reports MMX (below).
 
 **The MMX path is integer throughout** (transcribed October 2026). With
 MMX `0x4ffda2` replaces the mixers (`0x51f580` 8-bit mono, `0x51f680`,
@@ -310,16 +310,11 @@ result, MMX at L = 127 differs by RMS 78 steps (max 255), nearly all
 the 127/128 gain (−42 dB); with the gain taken out, by a mean of −1.0
 and RMS 1.15 steps (max 2), at L = 64 −0.75 and 0.93.
 
-**Not run on the interpreter** (November 2026). Reluva's x86 core has no
-MMX: it decodes none of the instructions these routines use (`movd`,
-`movq`, `punpcklbw`, `punpcklwd`, `punpckhwd`, `pmulhw`, `pmaddwd`,
-`paddsw`, `paddw`, `packssdw`, `packsswb`, `psrad`, `psrld`, `psrlw`,
-`psllq`, `por`, `pxor`), and its CPUID reports none. Reporting MMX
-would send iSND into code the interpreter cannot run. So the comparison
-stays numerical, from the transcription, which was checked against the
-disassembly again (`0x51f774`, `0x52092d`). Extended to mixes, with the
-Corvette's `car.bnk` 0 and 1 and `Gen.bnk` 29, 32 and 41 (a scratch
-script, not in the repo):
+**Run on the interpreter** (November 2026). Until then Reluva's x86 core
+had no MMX, so the comparison above stayed numerical, from the
+transcription (checked against the disassembly again at `0x51f774`,
+`0x52092d`). Extended to mixes, with the Corvette's `car.bnk` 0 and 1
+and `Gen.bnk` 29, 32 and 41 (a scratch script, not in the repo):
 - **Rounding adds up.** With the gain taken out, 1, 2, 3 and 5 voices at
   L = 32 differ from the float mix by a mean of −0.8, −1.8, −2.6 and
   −4.4 steps (RMS 1.1, 2.0, 2.8, 4.6): about −0.9 a voice. One voice at
@@ -334,6 +329,50 @@ script, not in the repo):
   copies and the two negated ones take it to about 0, RMS 24,700 steps
   apart. In the other order the two agree (RMS 211, the gain). So only
   then does the order of the voices matter, and only with MMX.
+
+The interpreter now decodes MMX ([x86.md](../../engines/x86.md)), and
+`nfs-host -mmx` has CPUID report it. Every MMX instruction in
+`nfs3.exe` was found by a scan of the code database (`tools/nfsre`,
+358 instructions in 19 routines; a linear sweep of `.text` with
+capstone found no others). They are all behind the flag CPUID sets
+(`0x5643b4`, written at `0x4f1dd4`):
+- the sound mixer: the mixers `0x51f5dd`-`0x51f897` (8 and 16 bits,
+  mono and stereo), the scalar edges `0x520830` and `0x520a10`, the
+  mix downs `0x520870` and `0x52091f`, the bus clear `0x5209a0` (and
+  `emms` at `0x520a00`), the resamplers `0x5270f0`, `0x527170`
+  (8 bits), `0x527210`, `0x527290` (16 bits);
+- the EA-XA decoders `0x52d1a0` (mono) and `0x52d250` (stereo), chosen
+  at `0x521fc0` (`pmaddwd` with the nibble's coefficients, table
+  `0x56ad70`);
+- a copy of 8 bytes at a time (`0x5033e5`, all `movq`), used by the
+  `memmove` at `0x4ea4f0`;
+- `emms` after the FPU state is set (`0x4f0a06`, in `0x4f09c0`).
+
+A race with `-mmx` (the race of `nfs.md`, 5 billion instructions,
+`-deterministic 50000`, 100 seconds of the game's clock; `-count`
+counted the routines' entries) ran without a fault, the same in three
+runs. The MMX routines ran: the 16-bit mixers (`0x51f7ad` 44,405 times,
+`0x51f897` 47,030), the 16-bit resamplers (`0x527210` 29,531,
+`0x527290` 26,783), the bus clear (22,522), the EA-XA decoders (30,519
+and 47,387) and the copy (141,833). The 8-bit routines did not (the
+race's sounds are 16-bit), nor did any float mixer or resampler. The
+recording (`-wav`, by the game's clock) against the float path's:
+- **Level**: −0.03 dB over the run. The spectra agree within 0.5 dB in
+  each band (0-250 Hz up to 9-11 kHz), in the menus and in the race.
+  So nothing is added: no noise, no lost highs.
+- **Resolution**: 99.96% of the MMX run's non-zero samples are even
+  (the float run's 49.9%), as the doubling at the mix down predicts.
+- **Clipping**: 0.045% of samples at full scale, 0.043% with floats.
+- **Not sample by sample.** The two recordings part at the first sound
+  (7.15 s): it starts 44 frames (2 ms) apart, and windows aligned by
+  their best lag still correlate only 0.3-0.6, though their 10 ms
+  envelopes follow each other. The clock counts instructions, and the
+  MMX mixer runs in the interpreter (the float one natively), so the
+  voices start at slightly different moments. So the predicted rounding,
+  about −0.9 steps a voice, could not be seen in a race: it is far below
+  the content's own offset (means of −15 to +180 steps). A check of that
+  needs the two mixers run on the same voices, as `nfs-native-check`
+  runs its routines.
 
 **Unread voice fields** (`0x00`, `0x08`). The voices are one static
 array, 16 of 0x60 bytes at `0xa09b3c`, and voice pointers are only ever

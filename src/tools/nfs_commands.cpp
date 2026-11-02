@@ -85,6 +85,8 @@ const char* const kUsageLines =
     "                       [-modem listen:port | host:port] (a TAPI modem whose calls are such links)\n"
     "                       [-deterministic instructionsPerMs] (a clock of instructions; the end state hashed)\n"
     "                       [-mhz N] (the processor's clock the time stamp counter shows; 300 by default)\n"
+    "                       [-mmx] (CPUID reports MMX: the game mixes its sound with its MMX routines)\n"
+    "                       [-count ADDR] (how many times the instruction at ADDR ran; repeatable)\n"
     "                       [-hotspots from to] (instructions counted by where they run, 16-byte blocks)\n"
     "                       [-gpulog] (THRASH recorded as for the GPU; each frame's list summed up)\n"
     "                       [-gpudump list dir] (that list in full: list.csv and its textures)\n"
@@ -1006,6 +1008,7 @@ int cmdNfsHost(int argc, char** argv) {
     options.presentedRenderer = "voodoo2a.dll";
     int traceCount = 0, every = 50; // traceCount: the last instructions kept, for a failure (0: none)
     std::vector<uint32_t> watch; // addresses at which to print the registers
+    std::vector<std::pair<uint32_t, uint64_t>> counted; // addresses whose runs are counted (-count)
     int watchLimit = 50;         // how many times, at most
     std::vector<std::pair<int, uint32_t>> watchReads; // dwords printed at each watch: register (-1 none) + offset
     std::string dumpFile;        // the emulated memory, written at the end
@@ -1041,6 +1044,8 @@ int cmdNfsHost(int argc, char** argv) {
             watchLimit = std::atoi(argv[++a]);
         else if (arg == "-watch" && a + 1 < argc)
             watch.push_back(uint32_t(std::strtoul(argv[++a], nullptr, 0)));
+        else if (arg == "-count" && a + 1 < argc)
+            counted.push_back({uint32_t(std::strtoul(argv[++a], nullptr, 0)), 0});
         else if (arg == "-watchread" && a + 1 < argc) { // ADDR, or reg+OFF / reg-OFF (eax ... edi)
             const std::string spec = lowerAscii(argv[++a]);
             static const char* const kRegs[8] = {"eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi"};
@@ -1070,6 +1075,8 @@ int cmdNfsHost(int argc, char** argv) {
             options.nativeThrash = true;
         } else if (arg == "-deterministic" && a + 1 < argc) {
             options.instructionsPerMs = uint32_t(std::strtoul(argv[++a], nullptr, 0));
+        } else if (arg == "-mmx") {
+            options.mmx = true;
         } else if (arg == "-mhz" && a + 1 < argc) {
             options.cpuMhz = std::max(1u, uint32_t(std::strtoul(argv[++a], nullptr, 0)));
         } else if (arg == "-timescale" && a + 1 < argc)
@@ -1257,8 +1264,10 @@ int cmdNfsHost(int argc, char** argv) {
     std::map<uint32_t, uint64_t> hot;
     // Tracing every instruction costs: only when asked for.
     const bool hotspots = hotTo > hotFrom, tracePokes = pokes.needsTrace();
-    if (hotspots || traceCount > 0 || !watch.empty() || tracePokes)
+    if (hotspots || traceCount > 0 || !watch.empty() || tracePokes || !counted.empty())
         host.cpu().trace = [&](reluva::x86::Cpu& c) {
+            for (auto& [address, n] : counted)
+                n += c.eip == address;
             if (hotspots && c.executed() >= hotFrom && c.executed() < hotTo)
                 ++hot[c.eip & ~0xfu];
             if (tracePokes)
@@ -1414,6 +1423,8 @@ int cmdNfsHost(int argc, char** argv) {
     for (size_t i = 0; i < counts.size() && i < 400; ++i)
         std::printf("%s %s %llu", i ? "," : "", counts[i].second.c_str(), (unsigned long long)counts[i].first);
     std::printf("\n");
+    for (const auto& [address, n] : counted)
+        std::printf("%08x ran %llu times\n", address, (unsigned long long)n);
     if (!hot.empty()) {
         std::vector<std::pair<uint64_t, uint32_t>> ranked;
         uint64_t total = 0;

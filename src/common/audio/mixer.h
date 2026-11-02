@@ -11,6 +11,7 @@
 #include <deque>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <vector>
 
 namespace reluva::audio {
@@ -125,5 +126,21 @@ private:
 // Starts the System's audio output with the mixer as its source. The mixer
 // must outlive the output: call sys.stopAudio() before destroying it.
 Error startMixerOutput(System& sys, Mixer& mixer);
+
+// What a Pro Logic decoder model (prologic.h) makes of the mixer's stereo
+// on the way out; reluva.ini's surround= setting.
+enum class Surround {
+    Off,        // stereo, as mixed (the default; any other setting value)
+    ProLogic,   // "prologic": decoded, to a 4.0 or 5.1 device when the default has 4 channels or more
+    Passive,    // "passive": as ProLogic with the passive matrix alone
+    Headphones, // "headphones": decoded and folded back to stereo
+};
+Surround surroundFromSetting(const std::string& value);
+
+// startMixerOutput through the decoder. ProLogic and Passive open 6
+// channels when the device has 6 or more, 4 when it has 4 or 5, and fall
+// back to plain stereo otherwise. `channels`, when given, gets the count
+// opened.
+Error startMixerOutput(System& sys, Mixer& mixer, Surround surround, int* channels = nullptr);
 
 } // namespace reluva::audio

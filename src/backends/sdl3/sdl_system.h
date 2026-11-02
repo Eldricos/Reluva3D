@@ -48,6 +48,8 @@ public:
     uint64_t getMillis() const override;
     void delayMillis(uint32_t ms) override;
     Error startAudio(AudioCallback callback) override;
+    int audioDeviceChannels() const override;
+    Error startAudioChannels(int channels, AudioCallback callback) override;
     void stopAudio() override;
     int audioRate() const override { return kAudioRate; }
     Error openUdp(uint16_t port, std::unique_ptr<net::UdpSocket>& out) override;
@@ -79,6 +81,7 @@ private:
 
     SDL_AudioStream* audioStream_ = nullptr;
     AudioCallback audioCallback_;
+    int audioChannels_ = 2;
     std::vector<int16_t> audioBuffer_; // audio thread only
 };
 

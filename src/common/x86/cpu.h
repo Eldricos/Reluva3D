@@ -80,7 +80,21 @@ public:
         // bit set in exactValid for each register holding one.
         std::array<int64_t, 8> exact{};
         uint8_t exactValid = 0;
+        // The MMX registers: MMi is the 64-bit mantissa of physical register
+        // i, as on the Pentium MMX. A register an MMX instruction wrote (or
+        // FRSTOR loaded) keeps its 64 bits here; they hold while the double
+        // at regs[i] still has the bits it had then (mmDouble), else the
+        // mantissa is worked out from the double. A bit set in mmValid for
+        // each register holding one.
+        std::array<uint64_t, 8> mm{};
+        std::array<uint64_t, 8> mmDouble{};
+        uint8_t mmValid = 0;
     } fpu;
+    // The MMX register `i` (0-7) as an MMX instruction would read it, and
+    // written as one would: the exponent and sign set (a NaN to the x87),
+    // the stack top 0 and every register tagged valid.
+    uint64_t mmRead(int i) const;
+    void mmWrite(int i, uint64_t v);
 
     // --- Native code ---------------------------------------------------------
     // A C++ function run when the emulated code calls `address()` of it:
@@ -124,6 +138,11 @@ public:
     // Reads in the first page give 0 rather than faulting, as Windows 95
     // and 98 let programs read low memory (writes still fault).
     bool readableFirstPage = false;
+    // CPUID reports MMX (EDX bit 23); the model is 4, the Pentium MMX's, either way.
+    // Off by default: programs then take their non-MMX paths, as they
+    // have done here before MMX was decoded. The MMX instructions run
+    // either way.
+    bool reportMmx = false;
     // What RDTSC reads, if set (else the instructions run so far): a host
     // can report a processor of the speed a program expects.
     std::function<uint64_t()> timestampCounter;
@@ -285,6 +304,13 @@ private:
     void stringOp(uint8_t op);
     void twoByte();
     void x87(uint8_t op);
+    void mmx(uint8_t op); // mmx.cpp: 0f 60-7f and 0f d0-ff
+    uint64_t loadQword(uint32_t a) { return load(a, 4) | uint64_t(load(a + 4, 4)) << 32; }
+    void storeQword(uint32_t a, uint64_t v) {
+        at(a, 8);
+        store(a, uint32_t(v), 4);
+        store(a + 4, uint32_t(v >> 32), 4);
+    }
 
     // x87 helpers.
     double& st(int i) { return fpu.regs[size_t((fpu.top + i) & 7)]; }

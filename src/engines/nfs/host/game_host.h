@@ -60,6 +60,10 @@ public:
         // first run, and its movies' display mode (mad.md: 1 under 133, 2
         // under 200, else 3).
         uint32_t cpuMhz = 300;
+        // CPUID reports MMX (Cpu::reportMmx): the game's sound mixer then
+        // takes its integer MMX routines (bnk.md) instead of the float ones
+        // (which run natively, nativeRoutines).
+        bool mmx = false;
         // Frames whose THRASH calls are logged in full (arguments, results,
         // the memory pointer arguments point at): from, to (inclusive).
         uint64_t thrashLogFrom = 0, thrashLogTo = 0;

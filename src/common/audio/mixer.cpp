@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 #include "common/audio/mixer.h"
+#include "common/audio/prologic.h"
 
 #include <algorithm>
 #include <cmath>
@@ -173,6 +174,51 @@ void Mixer::mix(int16_t* out, int frames) {
 
 Error startMixerOutput(System& sys, Mixer& mixer) {
     return sys.startAudio([&mixer](int16_t* out, int frames) { mixer.mix(out, frames); });
+}
+
+Surround surroundFromSetting(const std::string& value) {
+    if (value == "prologic")
+        return Surround::ProLogic;
+    if (value == "passive")
+        return Surround::Passive;
+    if (value == "headphones")
+        return Surround::Headphones;
+    return Surround::Off;
+}
+
+Error startMixerOutput(System& sys, Mixer& mixer, Surround surround, int* channels) {
+    int count = 2;
+    if (surround == Surround::ProLogic || surround == Surround::Passive) {
+        const int device = sys.audioDeviceChannels();
+        count = device >= 6 ? 6 : device >= 4 ? 4 : 2;
+    }
+    if (channels)
+        *channels = 2;
+    if (surround == Surround::Off || (count == 2 && surround != Surround::Headphones))
+        return startMixerOutput(sys, mixer);
+    struct State {
+        ProLogicDecoder decoder;
+        std::vector<int16_t> stereo;
+        std::vector<float> decoded;
+    };
+    ProLogicOptions options;
+    options.active = surround != Surround::Passive;
+    auto state = std::make_shared<State>(State{ProLogicDecoder(mixer.outputRate(), options), {}, {}});
+    auto callback = [&mixer, state, count](int16_t* out, int frames) {
+        state->stereo.resize(size_t(frames) * 2);
+        state->decoded.resize(size_t(frames) * 4);
+        mixer.mix(state->stereo.data(), frames);
+        state->decoder.process(state->stereo.data(), state->decoded.data(), frames);
+        layOutChannels(state->decoded.data(), frames, count, out);
+    };
+    if (Error err = sys.startAudioChannels(count, callback)) {
+        if (count == 2)
+            return err;
+        return startMixerOutput(sys, mixer); // the device wouldn't open that way: stereo as mixed
+    }
+    if (channels)
+        *channels = count;
+    return Error::success();
 }
 
 void SoundQueue::push(std::shared_ptr<const Sound> sound, int tag) {

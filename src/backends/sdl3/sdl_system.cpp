@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <string>
 
 namespace reluva {
 
@@ -346,21 +347,36 @@ void SdlSystem::delayMillis(uint32_t ms) { SDL_Delay(ms); }
 
 void SDLCALL SdlSystem::audioThunk(void* userdata, SDL_AudioStream* stream, int additional, int) {
     auto* self = static_cast<SdlSystem*>(userdata);
-    const int frames = additional / (2 * static_cast<int>(sizeof(int16_t)));
+    const int frameBytes = self->audioChannels_ * static_cast<int>(sizeof(int16_t));
+    const int frames = additional / frameBytes;
     if (frames <= 0)
         return;
-    self->audioBuffer_.resize(static_cast<size_t>(frames) * 2);
+    self->audioBuffer_.resize(static_cast<size_t>(frames) * size_t(self->audioChannels_));
     self->audioCallback_(self->audioBuffer_.data(), frames);
-    SDL_PutAudioStreamData(stream, self->audioBuffer_.data(), frames * 4);
+    SDL_PutAudioStreamData(stream, self->audioBuffer_.data(), frames * frameBytes);
 }
 
-Error SdlSystem::startAudio(AudioCallback callback) {
+Error SdlSystem::startAudio(AudioCallback callback) { return startAudioChannels(2, std::move(callback)); }
+
+int SdlSystem::audioDeviceChannels() const {
+    SDL_AudioSpec spec{};
+    if (!SDL_GetAudioDeviceFormat(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr) || spec.channels <= 0)
+        return 2;
+    return spec.channels;
+}
+
+Error SdlSystem::startAudioChannels(int channels, AudioCallback callback) {
     stopAudio();
+    if (channels < 1 || channels > 8)
+        return Error::fail("Cannot open audio with " + std::to_string(channels) + " channels");
     audioCallback_ = std::move(callback);
-    const SDL_AudioSpec spec{SDL_AUDIO_S16, 2, kAudioRate};
+    audioChannels_ = channels;
+    const SDL_AudioSpec spec{SDL_AUDIO_S16, channels, kAudioRate};
     audioStream_ = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audioThunk, this);
-    if (!audioStream_)
+    if (!audioStream_) {
+        audioCallback_ = nullptr;
         return Error::fail(std::string("Cannot open audio: ") + SDL_GetError());
+    }
     SDL_ResumeAudioStreamDevice(audioStream_);
     return Error::success();
 }

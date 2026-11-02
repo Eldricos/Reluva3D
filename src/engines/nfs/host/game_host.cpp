@@ -51,6 +51,7 @@ std::string describe(const Cpu& c, uint32_t v) {
 GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(folders)), options_(std::move(options)) {
     cpu_ = std::make_unique<Cpu>(options_.memoryMb << 20);
     cpu_->setInstructionLimit(options_.instructionLimit);
+    cpu_->reportMmx = options_.mmx;
     process_ = std::make_unique<x86::Win32Process>(*cpu_);
     process_->output = [this](const std::string& s) { say("[program] " + s); };
     if (options_.instructionsPerMs) {

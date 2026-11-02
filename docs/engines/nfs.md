@@ -701,6 +701,67 @@ Started. Done so far:
       same, sample for sample, for the first 41 seconds, and then the
       sounds' phases drift apart (no correlation at any lag up to 0.1
       s), though their levels match window by window.
+    - **Decoding it** (November 2026). `common/audio/prologic.cpp` is a
+      model of a Pro Logic decoder. It is written from the public
+      description of the matrix, not from any decoder's code:
+      - The passive matrix: left = Lt, right = Rt, centre = (Lt + Rt) /
+        sqrt 2, surround = (Lt - Rt) / sqrt 2.
+      - Active steering: the power of Lt, Rt, Lt+Rt and Lt-Rt, smoothed,
+        gives the strongest sound's direction and how much it dominates.
+        The time constant is 200 ms, and 10 ms while one direction
+        clearly dominates. The decoder takes that sound out of the
+        speakers it leaks into and pans it between the two speakers next
+        to its direction. The rest stays passive.
+      - The surround is low-passed at 7 kHz and delayed 20 ms.
+      - Left out: the surround's modified Dolby B noise reduction. The
+        game never applies it (its mixer puts sounds behind straight into
+        L-R), so the decoder's half would only dull the surround. Also left
+        out: auto-balance and the centre modes.
+      - `reluva-tool prologic in.wav prefix` writes the four channels as
+        mono WAVs and prints levels window by window (`-window ms`, `-csv`,
+        `-passive`). Unit tests: `tests/test_prologic.cpp`.
+    - **What the decoder makes of a race.** The same two races as above
+      (modes 2 and 0, `-deterministic 50000`, `70000:+up`, 240 seconds;
+      the `-voices` log gave the same counts again), from 72 seconds on,
+      in 100 ms windows:
+      - The steering sits on the centre almost all the time (direction 44
+        degrees, gain 1.0): the player's engine dominates. It never
+        steers to the surround in the race, in either mode.
+      - The surround is 12.7 dB under the front in Dolby (12.2 passive)
+        and 13.4 dB in stereo (12.9 passive).
+      - Where the voices behind come within 10 dB of the front (61
+        windows), the surround rises to 8.0 dB under the front (7.0
+        passive). The steering weakens (0.73) but stays near the centre.
+      - At the loudest moment behind (211.2 s, the voices behind 3.3 dB
+        over the front), the passive surround is 2.4 dB under the front;
+        the active one 12.8 dB under it. The steering, held on the
+        centre, takes the sound out of the surround.
+      - Even alone, a voice behind wouldn't go to the surround speakers
+        clearly. Its two levels differ (its L-R is 5.3 dB above its
+        L+R), which puts it at about 163 degrees on the matrix's circle:
+        between the surround (135) and the side (180), nearer the side.
+        The model pans such a sound mostly to left or right, the
+        surround about 4 dB lower (worked out, not measured).
+      - The only steering to the surround is before the start (50 to 70
+        s), in both modes alike: there the game's stereo sound has more
+        L-R than L+R (Placement, above). That is not Dolby.
+      - So in this race Pro Logic adds little. The rear sounds are heard
+        through the matrix, mostly at the passive level.
+    - **Playing it.** `surround=` in the game's section of `reluva.ini`
+      sends the NFS engine's whole output through the decoder (the game,
+      and the pages' sounds and music too):
+      - `prologic`: active, to a 5.1 device (centre on its own, LFE
+        silent) or a 4.0 one (centre folded into left and right at -3 dB),
+        the surround to both rear speakers at -3 dB. When the default
+        device has fewer than 4 channels, the sound stays stereo, as mixed.
+      - `passive`: the same with the passive matrix alone.
+      - `headphones`: decoded and folded back to stereo: the centre to
+        both ears at -3 dB, the delayed surround to both at -6 dB.
+      - Without it the output is unchanged. `System::audioDeviceChannels`
+        and `startAudioChannels` (SDL: `SDL_GetAudioDeviceFormat`, a
+        stream of 4 or 6 channels) open the device. Checked with SDL's
+        disk driver at 6, 4 and 2 channels. `nfs-host` has no device: its
+        `-wav` recording goes through `reluva-tool prologic` instead.
   - **D3D/EAX** (audio mode 3). Worked out from `eacsnd.dll`'s code and
     a race with the mode set:
     - The game asks for 3D only if the sound card has 3D buffers in
@@ -1083,6 +1144,20 @@ Started. Done so far:
   on it ran the game the same; that is how each speed-up below was
   checked. The per-second line also says how much of the work was the
   game's main thread and how much the timer's.
+- **MMX** (`nfs-host -mmx`, November 2026). CPUID then reports MMX
+  (`Cpu::reportMmx`; off by default, as on the Play page), and the
+  game takes its MMX paths: the integer sound mixer, the MMX EA-XA
+  decoders and an 8-byte copy ([bnk.md](../formats/nfs/bnk.md), Run on
+  the interpreter, lists them). The float mixers, which run natively,
+  are then not used. On the race above (5 billion instructions,
+  `-deterministic 50000`) the game ran without a fault and the same each
+  time. It made 4,244 frames against 4,298 without MMX (1.3% fewer),
+  its main thread doing 95% of the work against 97%: the MMX mixer runs
+  in the interpreter. The interpreter's own speed was unchanged (125
+  seconds against 128 for the run). The sound is the same in level and
+  spectrum; it is not sample for sample the same (bnk.md says why).
+  `-count ADDR` (repeatable) prints how many times the instruction at
+  ADDR ran, as the routines' counts there were taken.
 - **Memory written at a moment** (`nfs-host -poke WHEN:ADDR:VALUE[:SIZE]`,
   as many as wanted). It puts a game state in place without the menus.
   WHEN is `ms=N`, once the game's clock reaches N (checked at each thread

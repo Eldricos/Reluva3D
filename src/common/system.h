@@ -86,6 +86,16 @@ public:
     virtual Error startAudio(AudioCallback callback) = 0;
     virtual void stopAudio() = 0;
     virtual int audioRate() const = 0;
+    // How many channels the default playback device has (2 when unknown).
+    virtual int audioDeviceChannels() const { return 2; }
+    // As startAudio, with `channels` interleaved samples a frame in SDL's
+    // orders (4: FL FR BL BR; 6: FL FR FC LFE BL BR). Backends that can't
+    // open more than stereo fail for other counts.
+    virtual Error startAudioChannels(int channels, AudioCallback callback) {
+        if (channels == 2)
+            return startAudio(std::move(callback));
+        return Error::fail("Only stereo audio output is available");
+    }
 
     // --- Network (optional) --------------------------------------------------
     // A UDP socket on `port` (0: any), for games played over a network;
