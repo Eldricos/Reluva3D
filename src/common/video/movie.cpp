@@ -40,6 +40,18 @@ Error playMovie(System& sys, audio::Mixer* mixer, const std::filesystem::path& f
     if (pcm)
         sound = mixer->play(pcm, audio::SoundType::Music);
     const uint64_t start = sys.getMillis();
+    // What was already waiting (the launcher's click or key, still queued
+    // as the movie starts) mustn't skip it: only a press from here on.
+    {
+        Event ev;
+        while (sys.pollEvent(ev))
+            if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher) {
+                quit = true;
+                if (sound)
+                    mixer->stop(sound);
+                return Error::success();
+            }
+    }
     Indeo5Decoder decoder;
     size_t next = 0; // the next frame to decode
     while (true) {
@@ -51,7 +63,10 @@ Error playMovie(System& sys, audio::Mixer* mixer, const std::filesystem::path& f
                     mixer->stop(sound);
                 return Error::success();
             }
-            if ((ev.type == EventType::KeyDown && !ev.repeat) || ev.type == EventType::MouseDown) {
+            // A press skips it, though not in its first half second (one
+            // queued behind the start, or a double click's second).
+            if (((ev.type == EventType::KeyDown && !ev.repeat) || ev.type == EventType::MouseDown) &&
+                sys.getMillis() - start >= 500) {
                 if (sound)
                     mixer->stop(sound);
                 return Error::success();
