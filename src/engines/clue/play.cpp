@@ -535,6 +535,33 @@ void Play::apply(const netplay::Command& c) {
             dialog_.reset();
         }
         break;
+    case Command::RoomWalk: {
+        // About its room (Clue.exe sends the click to every machine, 0x41BD90).
+        if (c.args.size() < 2 || !game_.place(s).inRoom())
+            return;
+        auto route = roomRoute(c.args[0], c.args[1]);
+        if (route.empty())
+            return;
+        if (!plan_.empty()) {
+            plan_.clear();
+            if (local(s))
+                sound("unting.wav");
+        }
+        Walker& w = walkers_[size_t(s)];
+        w.route = std::move(route);
+        if (!look_.walkAnimations) {
+            w.x = w.route.back().first;
+            w.y = w.route.back().second;
+            w.route.clear();
+            w.walking = false;
+            break;
+        }
+        w.walking = true;
+        w.fx = w.x;
+        w.fy = w.y;
+        follow_ = s;
+        break;
+    }
     case Command::TakeOver:
         // A player gone: the computer plays on for them.
         if (players_[size_t(s)].kind != Player::Human)
@@ -659,11 +686,11 @@ void Play::buildWalkGrid() {
     }
 }
 
-bool Play::walkInRoom(int worldX, int worldY) {
+std::deque<std::pair<int, int>> Play::roomRoute(int worldX, int worldY) const {
     // As Clue.exe 0x423A90 and 0x424900 do a click on the room's own floor:
-    // refused on its floor pieces with key 1100; else the move being planned
-    // is dropped and the suspect walks there, round what stands in the room,
-    // moving nowhere in the game.
+    // refused on its floor pieces with key 1100; else the suspect walks
+    // there, round what stands in the room, moving nowhere in the game.
+    // Every machine works the same way out from the same places.
     const int s = game_.turn();
     const int room = game_.place(s).room;
     for (const Mansion::Item& it : mansion_.items())
@@ -671,10 +698,8 @@ bool Play::walkInRoom(int worldX, int worldY) {
             worldY < it.box.y + it.box.sizeY)
             for (const Timing& t : mansion_.level()->placements[it.placement].timings)
                 if (t.time == 1100)
-                    return false;
-    Walker& w = walkers_[size_t(s)];
-    if (w.walking)
-        return true;
+                    return {};
+    const Walker& w = walkers_[size_t(s)];
     // Through the room's free 32-unit cells, eight ways (not across a
     // blocked corner): the shortest way, by a search from where it stands.
     using Cell = std::pair<int, int>;
@@ -682,8 +707,8 @@ bool Play::walkInRoom(int worldX, int worldY) {
         return !blocked_.count(c) && board_.roomAt(Board::squareAt(c.first * 32 + 16, c.second * 32 + 16)) == room;
     };
     const Cell from{cell32(w.x), cell32(w.y)}, to{cell32(worldX), cell32(worldY)};
-    if (!inRoom(to))
-        return false;
+    if (!inRoom(to) || from == to)
+        return {};
     std::map<Cell, Cell> came{{from, from}};
     std::deque<Cell> open{from};
     while (!open.empty() && !came.count(to) && came.size() < 4096) {
@@ -700,30 +725,11 @@ bool Play::walkInRoom(int worldX, int worldY) {
             }
     }
     if (!came.count(to))
-        return false;
-    if (!plan_.empty()) {
-        plan_.clear();
-        sound("unting.wav");
-    }
-    std::vector<Cell> cells;
-    for (Cell c = to; c != from; c = came[c])
-        cells.push_back(c);
-    w.route.clear();
-    for (auto it = cells.rbegin(); it != cells.rend(); ++it)
-        w.route.push_back({it->first * 32 + 16, it->second * 32 + 16});
-    if (w.route.empty())
-        return true;
-    if (!look_.walkAnimations) {
-        w.x = w.route.back().first;
-        w.y = w.route.back().second;
-        w.route.clear();
-        return true;
-    }
-    w.walking = true;
-    w.fx = w.x;
-    w.fy = w.y;
-    follow_ = s;
-    return true;
+        return {};
+    std::deque<std::pair<int, int>> route;
+    for (Cell c = to; c != from; c = came.at(c))
+        route.push_front({c.first * 32 + 16, c.second * 32 + 16});
+    return route;
 }
 
 std::pair<int, int> Play::roomSpot(int suspect, int room, int fromX, int fromY) const {
@@ -1469,8 +1475,10 @@ void Play::clickView(int x, int y) {
     // 0x423B5B), whether or not it may move.
     if (game_.place(s).inRoom() && board_.roomAt(sq) == game_.place(s).room &&
         std::none_of(board_.doors().begin(), board_.doors().end(), [&](const Board::Door& d) { return d.inside == sq; })) {
-        if (!walkInRoom(wx, wy))
+        if (roomRoute(wx, wy).empty())
             sound("nogo.wav");
+        else
+            perform(command(netplay::Command::RoomWalk, s, {int16_t(wx), int16_t(wy)}));
         return;
     }
     if (!game_.canMove())

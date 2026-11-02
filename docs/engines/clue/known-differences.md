@@ -14,7 +14,6 @@ may differ but haven't been settled are in
 | Saved games | The original's own format | Reluva's own format, eight slots in a `saves` folder beside its preferences | Not compatible with the original's saves, and not meant to be. |
 | Settings in network games | One machine's preferences | Each player's own | Chosen when network play was designed. |
 | CD music | Played from the disc (Miles' "redbook" functions) | Played from the tracks ripped once into the game's folder (`track02.wav` ... `track05.wav` or `.mp3`; `reluva-tool cue-rip` makes them from a BIN/CUE image) | Reluva can't read the tracks from the files on the disc. Without them the game is silent, as the original is without its CD. |
-| Walking about your room | Sent to the other machines in a network game (as everything the suspect does) | Done on your own machine only | It moves no one in the game; the others see your suspect where it came in. |
 | Preferences file | `Prefs.ini` beside the game | `preferences.ini` in Reluva's folder for the game, read from the original's `Prefs.ini` the first time | Reluva doesn't write into the game's folder. |
 
 ## The evidence over the code

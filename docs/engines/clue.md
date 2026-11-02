@@ -448,7 +448,8 @@ and the game ends. Saving isn't offered in network games.
 Reluva each player's own preferences apply on their own machine: whether
 one watches the videos or the walks changes nothing for the others.
 
-**How it works.** UDP, port 23398. Datagrams begin `CLU` and a version.
+**How it works.** UDP, port 23398. Datagrams begin `CLU` and a version
+(2: with the walk about a room).
 Finding games: a broadcast "ask", each host answering with its game's
 name, its host's name and its places. Joining: "connect" with the
 player's name, answered "accept" (with the machine's number) or "refuse"
@@ -459,7 +460,8 @@ second, and 15 s without one ends the connection. The host keeps the
 lobby and sends it whole on each change. The game: the start carries the
 random seed; then each player's action (roll, walk with its squares,
 passage, suggest, accuse, end the turn, a card shown, a player taken
-over) goes to the host, which sends every action, in one order, to
+over, a walk about one's room to a point, as `Clue.exe` sends that click
+to every machine, 0x41BD90) goes to the host, which sends every action, in one order, to
 everyone, itself included. Every machine plays the actions out from the
 same deal and seed, so the die and the computer players come out the
 same everywhere. The host checks each action is from the machine whose

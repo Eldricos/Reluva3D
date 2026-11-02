@@ -20,6 +20,7 @@ ripped (`reluva-tool cue-rip CLUE.cue <game folder>`) for the music checks.
   there without using a move; a move you had started planning is dropped
   (with `unting`). Clicking a door's square starts a move as before. Try it
   before and after rolling. [orig] Compare the way taken round furniture.
+  In a network game, the other players should see the same walk.
 - **Move numbers** [rec]: plan a move square by square. Each number should
   appear on its square with a `ting`; clicking back to an earlier square
   takes the later numbers away with an `unting`; a square you can't go to

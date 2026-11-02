@@ -128,7 +128,9 @@ private:
     // 0x41C480): the walk grid's free cells around it, in the room.
     std::pair<int, int> roomSpot(int suspect, int room, int fromX, int fromY) const;
     void buildWalkGrid();
-    bool walkInRoom(int worldX, int worldY); // the suspect whose turn it is, about its room
+    // The way the suspect whose turn it is walks about its room to a point;
+    // empty if it can't.
+    std::deque<std::pair<int, int>> roomRoute(int worldX, int worldY) const;
     void suggestionMade();
     void accusationMade(const Accusation& a);
     void endTurn();

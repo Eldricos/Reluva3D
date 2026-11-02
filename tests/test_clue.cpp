@@ -1043,13 +1043,18 @@ static void testSaveLoad() {
 // Network play over the in-memory network: finding a game, joining, the
 // lobby, chat, the start, the players' actions in one order, a lossy
 // network, and a player gone.
-static bool dropEveryThird(const net::Address&, const net::Address&, size_t index) { return index % 3 == 0; }
+// About one datagram in three lost, by a hash of its number: not every
+// third, whose rhythm can meet the resends' and lose the same message each
+// time, as no real network would.
+static bool dropAboutAThird(const net::Address&, const net::Address&, size_t index) {
+    return (uint32_t(index) * 2654435761u >> 16) % 3 == 0;
+}
 
 static void testNetplay(bool lossy) {
     using namespace netplay;
     auto network = net::LoopbackNetwork::create();
     if (lossy)
-        network->setDropFilter(dropEveryThird);
+        network->setDropFilter(dropAboutAThird);
     auto host = Session::host(network->open(kDefaultPort), "Boddy", "Hostess", 4);
     auto browser = Session::browse(network->open(0), {net::Address::broadcast(kDefaultPort)});
     uint64_t now = 1000;
@@ -1061,7 +1066,7 @@ static void testNetplay(bool lossy) {
                 s->update(now);
         }
     };
-    run(3000);
+    run(lossy ? 8000 : 3000); // each ask or its answer may be lost: more of them
     CHECK(browser->found().size() == 1);
     if (browser->found().empty())
         return;
@@ -1107,6 +1112,10 @@ static void testNetplay(bool lossy) {
     run(1000);
     CHECK(anne->state() == Session::State::Playing && anne->seed() == 4242 && bob->lobby().started);
     Command c;
+    c.type = Command::RoomWalk; // a walk about the room, to a world point
+    c.seat = Mustard;
+    c.args = {1900, -2100};
+    anne->submit(c);
     c.type = Command::Walk;
     c.seat = Mustard;
     c.args = {3, 28, 12, 28, 13, -1, 4};
@@ -1128,7 +1137,10 @@ static void testNetplay(bool lossy) {
     for (size_t i = 0; i < all.size(); ++i)
         while (all[i]->nextCommand(c))
             got[i].push_back(c);
-    CHECK(got[0].size() == 22);
+    CHECK(got[0].size() == 23);
+    CHECK(std::any_of(got[0].begin(), got[0].end(), [](const Command& k) {
+        return k.type == Command::RoomWalk && k.args == std::vector<int16_t>{1900, -2100};
+    }));
     for (size_t i = 1; i < all.size(); ++i) {
         CHECK(got[i].size() == got[0].size());
         for (size_t k = 0; k < got[0].size() && k < got[i].size(); ++k)

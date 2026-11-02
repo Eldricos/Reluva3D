@@ -72,9 +72,11 @@ knowingly does differently is in [known-differences.md](known-differences.md).
 These follow `Clue.exe` closely but haven't been tried in a real game; the
 checks are in [testing.md](testing.md).
 
-- Walking about your own room (0x423B5B, 0x424900). Reluva finds its own
-  way through the room's free 32-unit cells; the original's path-finder
-  wasn't traced, so the way taken may differ.
+- Walking about your own room (0x423B5B, 0x424900), and in a network game
+  seen by everyone (sent as the original sends the click, 0x41BD90).
+  Reluva finds its own way through the room's free 32-unit cells, the
+  same on every machine; the original's path-finder wasn't traced, so the
+  way taken may differ.
 - Hot spots: only on your turn, only in your room, hit by the box's
   outline; the credits portraits reacting to the pointer; clicks on the
   board from above.

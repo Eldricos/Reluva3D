@@ -79,10 +79,12 @@ struct Lobby {
 
 // A player's action, as every machine plays it out.
 struct Command {
-    enum Type : uint8_t { Roll, Walk, Passage, Suggest, Accuse, EndTurn, Show, TakeOver };
+    enum Type : uint8_t { Roll, Walk, Passage, Suggest, Accuse, EndTurn, Show, TakeOver, RoomWalk };
     uint8_t type = Roll;
     uint8_t seat = 0;
-    std::vector<int16_t> args; // Walk: room or x, y for each step; Suggest/Accuse: suspect, weapon(, room); Show: card
+    // Walk: room or x, y for each step; Suggest/Accuse: suspect, weapon(, room); Show: card; RoomWalk: the
+    // world x, y walked to in the suspect's room
+    std::vector<int16_t> args;
 };
 
 // A game found on the local network.

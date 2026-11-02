@@ -11,7 +11,7 @@ namespace {
 
 // Every datagram begins "CLU" and the protocol's version, then its kind.
 constexpr uint8_t kMagic[3] = {'C', 'L', 'U'};
-constexpr uint8_t kVersion = 1;
+constexpr uint8_t kVersion = 2; // 2: RoomWalk
 enum Datagram : uint8_t { Ask = 1, Info, Connect, Accept, Refuse, Data, Ack, Bye };
 // The messages a channel carries.
 enum Message : uint8_t { LobbyState = 10, ChatLine, Take, Start, Order };
@@ -105,7 +105,7 @@ bool decodeCommand(const Bytes& b, size_t& at, Command& c) {
     for (int16_t& a : c.args)
         a = int16_t(r.u16());
     at = r.at;
-    return r.ok && c.type <= Command::TakeOver && c.seat < kSeats;
+    return r.ok && c.type <= Command::RoomWalk && c.seat < kSeats;
 }
 
 // ---- The channel ------------------------------------------------------------------
