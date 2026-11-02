@@ -3,6 +3,11 @@
 Hasbro Interactive's Clue, developed by EAI. A plan for supporting it,
 and what's known so far. Formats: [formats/clue/res.md](../formats/clue/res.md).
 
+Also: [known differences](clue/known-differences.md) from the original,
+[unconfirmed items](clue/unconfirmed.md), [what to check in a
+playthrough](clue/testing.md), and [how it was worked
+out](clue/reverse-engineering.md).
+
 ## What the game is made of
 
 Source: the retail CD, a clean install from it and the 2.2 patch
