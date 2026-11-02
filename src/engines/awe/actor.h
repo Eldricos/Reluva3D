@@ -49,6 +49,9 @@ public:
     // first. The name it plays as ("" if none: no file); onAnimDone(that
     // name) when it ends.
     std::string anim(std::string_view name, float weight, int loops, float ease);
+    // The finite gestures on the body eased out over 0.3 s (0x4048f0): as
+    // a gesture is played, and as a walk starts.
+    void stopGestures();
     // "turn": the head toward a heading (degrees, the game's: 0 faces +Z,
     // more is to the character's left), up (1), down (2) or level (0)
     // (0x4412b0); within 2 degrees of the body's (`body`), nothing.

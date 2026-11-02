@@ -2462,7 +2462,11 @@ void ScenePage::drawGrid() {
 
 void ScenePage::beginWalk(Character& c, bool run) {
     // With its path set: its first leg starts on the next step, turning on
-    // the spot first if it isn't facing the way (0x442780 with 1).
+    // the spot first if it isn't facing the way (0x442780 with 1). A
+    // gesture or idle variation under way eases out over 0.3 s (0x441160
+    // calls 0x4048f0), else it would hold the body still as it moved.
+    if (c.actor)
+        c.actor->stopGestures();
     c.running = run;
     c.leg = -1;
     c.turnFirst = true;

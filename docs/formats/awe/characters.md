@@ -275,6 +275,12 @@ The path-finder ([ac2.md](ac2.md)) gives the points; the character walks
 them as legs (`0x442780` starts one, `0x4422c0` walks it each frame,
 `0x442160` steers, `0x442690` goes on to the next):
 
+- **The walk starts** (`0x441160`, once the path is set): any finite
+  gesture on the body, an idle variation (`idle2`...) or a script's
+  `anim`, eases out over 0.3 s (`0x4048f0`, as `anim` does before its
+  own). Reluva once left them playing, so a character caught in one slid
+  along in it until it ended. Looping ones (a routine's `anim talk`
+  that never ends) stay.
 - **A leg** is as long as the way to its point when it starts. One under
   10 units is passed over.
 - **The first leg** turns on the spot first if the character faces 2

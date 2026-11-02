@@ -151,9 +151,13 @@ void Actor::resetIdleTimer() {
     idleLeft_ += animator_.playing("talk") ? -2.0f : 2.0f;
 }
 
+void Actor::stopGestures() {
+    animator_.stop([](const Animator::Slot& s) { return !s.base && s.loops > 0 && s.layer == Animator::Body; }, 0.3f);
+}
+
 std::string Actor::anim(std::string_view name, float weight, int loops, float ease) {
     // Finite gestures fade over 0.3 s first (0x4048f0).
-    animator_.stop([](const Animator::Slot& s) { return !s.base && s.loops > 0 && s.layer == Animator::Body; }, 0.3f);
+    stopGestures();
     return play(name, loops, ease, weight);
 }
 
