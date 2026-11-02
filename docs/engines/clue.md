@@ -621,7 +621,11 @@ one pixel off.
 - The windows over the game, 231 × 395: the exit window (dialog 44) at
   320 less half its width across, in the middle between the top frame
   and the bar down, (205, 11). The Esc menu, its Save window and the
-  loser's window are placed by EagleM itself; Reluva puts them there too.
+  loser's window are placed by EagleM itself: in recordings of the
+  original ("The Classic", the longplay, Playthroughs 01 and 02, their
+  frames checked by where the bar's ornaments fall) the Esc menu, its
+  Save window and its Preferences (dialog 37) are at (205, 11) too. The
+  loser's window isn't in them; Reluva puts it there as well.
 - The left column: the cards window and the notepad at (5, 5). The cards
   in it (0x43A600's table, 0x43A913) go at (106, 241), (13, 241), (106,
   124), (13, 124), (106, 7), (13, 7) from the bottom right; the code adds
