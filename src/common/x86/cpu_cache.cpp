@@ -494,7 +494,7 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
             l.reg = at(reg.data()), l.eip = at(&eip), l.start = at(&instructionStart_), l.epoch = at(&codeEpoch_);
             l.eflags = at(&eflags);
             l.fpuRegs = at(fpu.regs.data()), l.fpuTop = at(&fpu.top), l.fpuTags = at(&fpu.tags);
-            l.fpuControl = at(&fpu.control);
+            l.fpuControl = at(&fpu.control), l.fpuStatus = at(&fpu.status);
             l.fsBase = at(&fsBase), l.memory = memory_.data(), l.pages = codePages_.data(), l.span = span_;
             l.memoryFault = &Cpu::jitMemoryFault;
             l.executed = at(&executed_), l.countingOps = at(&counting_.ops), l.countingCount = at(&counting_.count);
@@ -653,6 +653,11 @@ const std::unordered_map<const void*, Made>& madeWithFlags() {
         m[&O::incDecReg<0>] = {K::Alu, 9, 3, 4, 0}, m[&O::incDecReg<5>] = {K::Alu, 10, 3, 4, 0};
         m[&O::incDecRm<0, 1>] = {K::Alu, 9, 3, 1, 0}, m[&O::incDecRm<0, 4>] = {K::Alu, 9, 3, 4, 0};
         m[&O::incDecRm<5, 1>] = {K::Alu, 10, 3, 1, 0}, m[&O::incDecRm<5, 4>] = {K::Alu, 10, 3, 4, 0};
+        m[&O::testRmImm<1>] = {K::Alu, 8, 3, 1, 0}, m[&O::testRmImm<4>] = {K::Alu, 8, 3, 4, 0};
+        m[&O::fArithMem<2, true>] = {K::FCom, 0, 0, 8, 0}, m[&O::fArithMem<2, false>] = {K::FCom, 0, 0, 4, 0};
+        m[&O::fArithMem<3, true>] = {K::FCom, 0, 0, 8, 1}, m[&O::fArithMem<3, false>] = {K::FCom, 0, 0, 4, 1};
+        m[&O::fArithSt0<2>] = {K::FCom, 0, 0, 4, 0}, m[&O::fArithSt0<3>] = {K::FCom, 0, 0, 4, 1}; // LAHF too
+        m[&O::fnstswAx] = {K::FnstswAx, 0, 0, 4, 0, false};
         [&]<int... Cc>(std::integer_sequence<int, Cc...>) {
             ((m[&O::jcc<Cc>] = {K::Jcc, 0, 0, 4, uint8_t(Cc)}), ...);
         }(std::make_integer_sequence<int, 16>{});
@@ -724,6 +729,11 @@ void Cpu::compileBlock(Block& b) {
             o.kind = K::CallRm;
         else if (run == &O::ret)
             o.kind = K::Ret;
+        else if (flags && run == &O::shiftImm<4> && e.sub >= 4 && (e.imm & 31) != 0) {
+            // SHL (and SAL, 6), SHR, SAR by 1 to 31.
+            o.kind = K::Alu, o.form = 3, o.size = 4, o.imm = e.imm & 31;
+            o.alu = uint8_t(e.sub == 5 ? 12 : e.sub == 7 ? 13 : 11);
+        }
         else if (auto it = madeWithFlags().find(reinterpret_cast<const void*>(run));
                  it != madeWithFlags().end() && (flags || !it->second.lahf)) {
             o.kind = it->second.kind, o.alu = it->second.alu, o.form = it->second.form;

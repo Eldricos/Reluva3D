@@ -438,11 +438,11 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* 
             case Kind::FArithSt0:
             case Kind::FArithSti:
             case Kind::Fxch:
+            case Kind::FCom:
+            case Kind::FnstswAx:
                 continue;
-            case Kind::Alu:
-                if (n.alu != 2 && n.alu != 3 && n.alu <= 8)
-                    return false;
-                return true;
+            case Kind::Alu: // all but ADC and SBB (CF in) and INC and DEC (CF kept) set them all
+                return n.alu == 2 || n.alu == 3 || n.alu == 9 || n.alu == 10;
             default:
                 return true;
             }
@@ -574,6 +574,42 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* 
             }
             if (o.alu == 2 || o.alu == 3)
                 w.rbx({0x0f, 0xba}, 4, L.eflags), w.u8(0); // bt dword [eflags], 0: CF in
+            if (o.alu >= 11) {
+                // Cpu::shift's SHL, SHR and SAR by 1 to 31: CF, ZF, SF and PF
+                // the host's; AF cleared; OF as shift has it, SF ^ CF (SHL),
+                // the value's top bit before (SHR), clear (SAR).
+                w.u8(0x41), w.u8(0x89), w.u8(0xd3); // mov r11d, edx: the value before
+                static constexpr uint8_t kShift[3] = {0xe2, 0xea, 0xfa};
+                w.u8(0xc1), w.u8(kShift[o.alu - 11]), w.u8(uint8_t(o.imm)); // shl/shr/sar edx, imm
+                if (flagsRead(i)) {
+                    w.u8(0x9f);                                 // lahf
+                    w.u8(0x0f), w.u8(0xb6), w.u8(0xcc);         // movzx ecx, ah
+                    w.u8(0x81), w.u8(0xe1), w.u32(0xc5);        // and ecx, SF ZF PF CF
+                    if (o.alu == 11) {
+                        w.u8(0x89), w.u8(0xc8);                 // mov eax, ecx
+                        w.u8(0xc1), w.u8(0xe8), w.u8(7);        // shr eax, 7: SF to bit 0
+                        w.u8(0x31), w.u8(0xc8);                 // xor eax, ecx
+                        w.u8(0x83), w.u8(0xe0), w.u8(1);        // and eax, 1
+                        w.u8(0xc1), w.u8(0xe0), w.u8(11);       // shl eax, 11
+                        w.u8(0x09), w.u8(0xc1);                 // or ecx, eax
+                    } else if (o.alu == 12) {
+                        w.u8(0x44), w.u8(0x89), w.u8(0xd8);     // mov eax, r11d
+                        w.u8(0xc1), w.u8(0xe8), w.u8(31);       // shr eax, 31
+                        w.u8(0xc1), w.u8(0xe0), w.u8(11);       // shl eax, 11
+                        w.u8(0x09), w.u8(0xc1);                 // or ecx, eax
+                    }
+                    w.rbx({0x8b}, kEax, L.eflags);
+                    w.u8(0x25), w.u32(~0x8d5u);
+                    w.u8(0x09), w.u8(0xc8);
+                    w.rbx({0x89}, kEax, L.eflags);
+                }
+                if (memA) {
+                    w.u8(0x44), w.u8(0x89), w.u8(0xd0); // mov eax, r10d
+                    store(o, kEdx, 4);
+                } else
+                    storeReg(o.rm, kEdx, 4);
+                break;
+            }
             if (incDec) {
                 w.u8(size == 4 ? 0xff : 0xfe), w.u8(o.alu == 9 ? 0xc2 : 0xca); // inc/dec edx or dl
             } else if (o.form >= 2) {
@@ -662,6 +698,36 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* 
             fpuReg(0x10, 0, kEcx), fpuReg(0x10, 1, kEdx);
             fpuOp(o.alu);
             fpuReg(0x11, 0, kEcx);
+            break;
+        case Kind::FCom:
+            // Cpu::fpuCompare into the status word: C0, C2, C3 where UCOMISD
+            // sets CF, PF and ZF (all three unordered), C1 cleared; then pop
+            // for FCOMP.
+            if (o.mem)
+                loadRealTo(o, 1);
+            st0Index(), fpuReg(0x10, 0, kEcx);
+            if (!o.mem)
+                stIndex(o.rm), fpuReg(0x10, 1, kEdx);
+            w.u8(0x66), w.u8(0x0f), w.u8(0x2e), w.u8(0xc1);    // ucomisd xmm0, xmm1
+            w.u8(0x9f);                                        // lahf
+            w.u8(0x0f), w.u8(0xb6), w.u8(0xc4);                // movzx eax, ah
+            w.u8(0x25), w.u32(0x45);                           // and eax, ZF PF CF
+            w.u8(0xc1), w.u8(0xe0), w.u8(8);                   // shl eax, 8: C3 C2 C0
+            w.rbx({0x0f, 0xb7}, kEdx, L.fpuStatus);            // movzx edx, word [status]
+            w.u8(0x81), w.u8(0xe2), w.u32(~0x4700u);           // and edx, ~(C3 C2 C1 C0)
+            w.u8(0x09), w.u8(0xc2);                            // or edx, eax
+            w.rbx({0x66, 0x89}, kEdx, L.fpuStatus);            // mov [status], dx
+            if (o.cc)
+                st0Index(), pop();
+            break;
+        case Kind::FnstswAx:
+            // AX <- (status & ~(7 << 11)) | top << 11.
+            w.rbx({0x0f, 0xb7}, kEdx, L.fpuStatus);   // movzx edx, word [status]
+            w.u8(0x81), w.u8(0xe2), w.u32(~0x3800u);  // and edx, ~(7 << 11)
+            w.rbx({0x0f, 0xb6}, kEcx, L.fpuTop);      // movzx ecx, byte [top]
+            w.u8(0xc1), w.u8(0xe1), w.u8(11);         // shl ecx, 11
+            w.u8(0x09), w.u8(0xca);                   // or edx, ecx
+            w.rbx({0x66, 0x89}, kEdx, regAt(0));      // mov [eax], dx
             break;
         case Kind::FArithSti: {
             static constexpr int kSwap[8] = {0, 1, 2, 3, 5, 4, 7, 6};

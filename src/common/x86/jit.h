@@ -49,7 +49,7 @@ public:
     // Where the Cpu keeps what the code reads and writes.
     struct Layout {
         size_t reg, eip, start, epoch, fsBase, eflags; // offsets into the Cpu
-        size_t fpuRegs, fpuTop, fpuTags, fpuControl;   // Cpu::fpu's
+        size_t fpuRegs, fpuTop, fpuTags, fpuControl, fpuStatus; // Cpu::fpu's
         const uint8_t* memory;                 // its memory
         const uint8_t* pages;                  // a byte per page, nonzero where code was cached
         uint32_t span;                         // the memory's size less the first page (Cpu::valid)
@@ -90,8 +90,9 @@ public:
         PopReg,    // pop rm
         // With flags (Jit::flagsOps: where the host has LAHF). `alu` is
         // the operation: 0-7 ADD OR ADC SBB AND SUB XOR CMP, 8 TEST, 9
-        // INC, 10 DEC; `form` the operands: 0 r/m, reg; 1 reg, r/m; 2 the
-        // accumulator, imm; 3 r/m, imm (INC and DEC: r/m).
+        // INC, 10 DEC, 11 SHL, 12 SHR, 13 SAR (32 bits, by imm 1 to 31);
+        // `form` the operands: 0 r/m, reg; 1 reg, r/m; 2 the accumulator,
+        // imm; 3 r/m, imm (INC and DEC: r/m).
         Alu,
         // Going elsewhere (a block's last): Jcc on `cc`, and the relative
         // JMP and CALL (to imm past the end), JMP and CALL to r/m, RET imm.
@@ -115,6 +116,8 @@ public:
         FArithSt0, // st(0) <- st(0) op st(i)
         FArithSti, // st(i) <- st(i) op st(0)
         Fxch,
+        FCom,      // FCOM/FCOMP: st(0) against the memory operand (mem) or st(i), into the status word
+        FnstswAx,  // AX <- the status word, with top
     };
     struct Op {
         Kind kind = Kind::Call;
