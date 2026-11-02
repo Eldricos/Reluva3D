@@ -257,7 +257,8 @@ private:
 // The tracks in 3D, with their textures, objects, lane markings and sky.
 //   PageUp/PageDown: track   W/S/A/D: move   arrows or drag: look
 //   Space/C: up/down   Shift: faster   N/B: next/previous block
-//   1/2/3: road detail   H: day, night, weather   T: textures
+//   1/2/3/4: road detail (4: by distance, as the game)   K: all blocks, not
+//   only those the game draws from here   H: day, night, weather   T: textures
 //   V: vertex light   L: lanes   O: objects   G: the virtual road's walls and edges
 //   X: next texture set (two, then their 8-bit versions)   F: back faces   R: start
 //   I: dim the lights as the game's effects intensity does (100, 75, 50, 25%)
@@ -287,10 +288,13 @@ private:
         bool twoSided = false;  // polygon flag 0x10: never culled
         bool seeThrough = false; // texture flag 0x02: half grey, half clear
     };
-    enum Kind { kRoadLow, kRoadMedium, kRoadHigh, kObjects, kLanes, kWalls, kKinds };
+    // kObjectsDay: object layer 3 and each block's fourth group of placed
+    // objects, which the game draws only by day without weather (0x41cdc0).
+    enum Kind { kRoadLow, kRoadMedium, kRoadHigh, kObjects, kObjectsDay, kLanes, kWalls, kKinds };
     // An object moving along its keys; its vertices are stored as in the
     // file (unmirrored, relative to the key) and placed each frame.
     struct Moving {
+        int block = -1; // whose group it is in (-1: drawn from everywhere)
         std::vector<Track::ExtraObject::Key> keys;
         int keyDelay = 0;
         std::vector<Batch> batches;
@@ -327,9 +331,16 @@ private:
     std::vector<gfx::TextureId> textures_;
     std::map<std::string, ShapeBank> banks_; // loaded sheets, by file name
     std::map<std::string, std::pair<gfx::TextureId, bool>> pictures_; // "sheet/number" -> texture, additive
-    std::array<std::vector<Batch>, kKinds> batches_;
+    // By block and kind: block × kKinds + kind; one more block's worth
+    // last for what isn't drawn by block (the walls, the last group of
+    // placed objects).
+    std::vector<std::vector<Batch>> batches_;
     std::vector<Moving> moving_;
-    std::array<std::vector<Animation>, kKinds> animations_;
+    std::vector<std::vector<Animation>> animations_;
+    // The blocks the game would draw from block `here` (0x41cdc0): those
+    // in its neighbour list whose centre is within the view distance on
+    // the ground, each with the road's detail (0-2) for its distance.
+    std::vector<std::pair<int, int>> blocksInView(int here) const;
     TrackCollision collision_;
     std::string collisionError_;
     // The sky, for the variant shown (0 day, 1 night, 2 weather, 3 both).
@@ -418,8 +429,9 @@ private:
     void prepareParticles(const gfx::Vec3& eye, const gfx::Vec3& forward, const gfx::Vec3& right, const gfx::Vec3& up);
     void drawParticles();
     int variant_ = 0;
-    int detail_ = 2, textureSet_ = 0, block_ = 0;
-    bool textured_ = true, vertexLight_ = true, lanes_ = true, objects_ = true, cullBack_ = false, walls_ = false;
+    int detail_ = 3, textureSet_ = 0, block_ = 0; // detail 3: by distance, as the game
+    bool allBlocks_ = false; // K: every block at once, not the game's view
+    bool textured_ = true, vertexLight_ = true, lanes_ = true, objects_ = true, cullBack_ = true, walls_ = false;
     std::set<uint32_t> held_;
     bool dragging_ = false;
     int lastX_ = 0, lastY_ = 0;

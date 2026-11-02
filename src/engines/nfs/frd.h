@@ -114,6 +114,15 @@ struct Track {
 
 Error parseTrack(const std::vector<uint8_t>& data, Track& out);
 
+// Which of a polygon's four vertices the game draws as corner k (0-3):
+// the corner that takes Texture::corners[k] and the k-th in its winding.
+// A block's lists keep the file's order (0x41b300); the placed objects'
+// loop (0x41b640) queues vertices 1, 0, 3, 2, and the renderer (0x433840)
+// and the back-face test go by the queue. So a placed object's picture is
+// flipped left to right and its winding reversed against the file's
+// (frd.md, Polygons).
+inline int polygonSlot(int k, bool placedObject) { return placedObject ? k ^ 1 : k; }
+
 // How a light of a type looks at a game tick (64 a second), from
 // nfs3.exe's table at 0x55e3dc (frd.md, Lights): drawn with glw0 in its
 // colour (ARGB), size units from its centre to its edges, unless it's
@@ -128,6 +137,15 @@ LightLook lightLook(uint32_t type, uint64_t tick);
 // renderer's SFX_INTENSITY option, 0-1; 1 leaves it as it is), each byte
 // alpha included, as 0x491223 does.
 uint32_t dimLight(uint32_t color, float intensity);
+
+// Which road detail the game draws a block at (0 low, 1 medium, 2 high),
+// or -1 for not at all, by the distance on the ground from the camera to
+// the block's centre (0x41cdc0, 0x41aa60). The distances are set by
+// 0x41df10 and 0x41d620 for the main view of a one-player race: 500 to
+// draw, 150 for medium and 110 for high, times 1, 0.55 or 0.4 by day and
+// 0.75, 0.41 or 0.3 by night for view levels 0-1, 2 and 3 (0x6fbc28; the
+// highest, 1, is what a fresh config.dat gets on a fast machine).
+int blockDetailAt(float distance, bool night, int viewLevel = 1);
 
 // A placed sound's volume (0-127) at a distance in track units, as
 // 0x41d210 has it: 2^16 over (distance in 1/16 units)^2 / 2^10, at most 127.

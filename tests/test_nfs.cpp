@@ -999,6 +999,37 @@ void testTrack() {
     Bytes disagree = file;
     disagree[polys + 4] = 3;
     CHECK(parseTrack(disagree, t));
+
+    // The order the game draws a polygon's vertices in (0x41b300, 0x41b640):
+    // the file's for the block's lists, 1, 0, 3, 2 for placed objects.
+    for (int k = 0; k < 4; ++k)
+        CHECK(polygonSlot(k, false) == k);
+    CHECK(polygonSlot(0, true) == 1 && polygonSlot(1, true) == 0 && polygonSlot(2, true) == 3 &&
+          polygonSlot(3, true) == 2);
+    // Hometown's first 50 MPH sign (a placed object, one-sided, texture
+    // corners (0, 0), (1, 0), (1, 1), (0, 1)), on the left of the road
+    // where the race heads to -x, -z: drawn in the game's order its front,
+    // (b - a) x (c - a) as for the Taco Den sign's block polygon that reads
+    // the right way round from the start, faces the oncoming traffic
+    // (-x, -z), and corner 0 (u = 0) is vertex 1.
+    const Track::Vec3 sign[4] = {{884.5f, 25.6f, -123.3f}, {883.1f, 25.6f, -122.2f}, {883.1f, 23.2f, -122.2f},
+                                 {884.5f, 23.2f, -123.3f}};
+    const Track::Vec3& a = sign[polygonSlot(0, true)];
+    const Track::Vec3& b = sign[polygonSlot(1, true)];
+    const Track::Vec3& c = sign[polygonSlot(2, true)];
+    const float e1[3] = {b[0] - a[0], b[1] - a[1], b[2] - a[2]}, e2[3] = {c[0] - a[0], c[1] - a[1], c[2] - a[2]};
+    const float nx = e1[1] * e2[2] - e1[2] * e2[1], nz = e1[0] * e2[1] - e1[1] * e2[0];
+    CHECK(nx < 0 && nz < 0 && &a == &sign[1]);
+
+    // The blocks drawn (0x41cdc0, 0x41d620): within 500 by day, high detail
+    // within 110 and medium within 150; by night all × 0.75; the lower view
+    // levels × 0.55 and 0.4 (night 0.41, 0.3); view level 0, all high.
+    CHECK(blockDetailAt(0, false) == 2 && blockDetailAt(110, false) == 2 && blockDetailAt(111, false) == 1);
+    CHECK(blockDetailAt(150, false) == 1 && blockDetailAt(151, false) == 0 && blockDetailAt(500, false) == 0);
+    CHECK(blockDetailAt(501, false) == -1 && blockDetailAt(376, true) == -1 && blockDetailAt(374, true) == 0);
+    CHECK(blockDetailAt(83, true) == 1 && blockDetailAt(82, true) == 2);
+    CHECK(blockDetailAt(276, false, 2) == -1 && blockDetailAt(274, false, 2) == 0 && blockDetailAt(201, false, 3) == -1);
+    CHECK(blockDetailAt(499, false, 0) == 2 && blockDetailAt(501, false, 0) == -1);
 }
 
 void testHorizon() {

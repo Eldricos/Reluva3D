@@ -279,6 +279,19 @@ uint16_t Track::Polygon::textureAt(uint64_t tick) const {
     return static_cast<uint16_t>(animationBase + (tick / static_cast<uint64_t>(frameDelay())) % frameCount());
 }
 
+int blockDetailAt(float distance, bool night, int viewLevel) {
+    // 16.16 scales from the tables at 0x41a8bc (day) and 0x41a8b0 (night).
+    static constexpr int kDay[3] = {65536, 36044, 26214}, kNight[3] = {49152, 26869, 19660};
+    const int level = std::clamp(viewLevel - 1, 0, 2);
+    const float scale = static_cast<float>((night ? kNight : kDay)[level]) / 65536.0f;
+    const float far = 500 * scale;
+    // View level 0: every block in reach at high detail (0x41d6e9).
+    const float medium = viewLevel == 0 ? far : 150 * scale, high = viewLevel == 0 ? far : 110 * scale;
+    if (distance > far)
+        return -1;
+    return distance > medium ? 0 : distance > high ? 1 : 2;
+}
+
 int placedSoundVolume(float distance) {
     const int64_t d = static_cast<int64_t>(distance * 65536); // 16.16
     const int64_t square = ((d >> 12) * (d >> 12)) >> 10;

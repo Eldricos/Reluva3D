@@ -277,10 +277,28 @@ to the points, used in place):
   1610-1616 and right 1621-1629 as the town ends. The rest of the
   town's walls are code 4. `Summit_Day` (4:01-4:05) and `Summit_Night`
   (about 5:00) drive through this town without touching a wall,
-  so the footage doesn't show a code-3 hit. Rocky Pass's sheet is off
-  by up to three from place 92 too, so its block 88 is worth a second
-  look; Hometown's and Empire City's set 0 and Country Woods' were
-  right.
+  so the footage doesn't show a code-3 hit. Hometown's and Empire
+  City's set 0 and Country Woods' were right.
+
+  **Rocky Pass again** (November 2026). Its sheet is off by up to three
+  from place 92 too, so its walls were looked at again with the right
+  pictures (and the game's back-face culling, frd.md), against the
+  codes in `tr03.col`:
+  - block 88 (slices 696-719, left 1, right 4): a metal guard rail on
+    wooden posts along a drop on the left, a grey rock face on the
+    right, as first written. `Rocky_Pass_Day` (2:08) passes a place
+    like it: rail on the left above the valley, rock on the right;
+  - block 21 (162-176, left 4, right 1): a rock face on the left, a low
+    guard rail on the right above a snowy slope;
+  - block 49 (371-415, 4 on both sides): a concrete parapet on the left
+    and a rock face on the right, so code 4 is concrete too;
+  - block 68 (527-573, 5 on both sides): grass and earth verges with
+    pines behind them;
+  - block 77 (593-650, 2 on both sides): a lit concrete tunnel, as in
+    `Rocky_Pass_Day` (1:28).
+
+  So Rocky Pass's code 1 is a guard rail on either side and nothing
+  else seen.
 
   **Code 3 against code 5 in the code** (November 2026). The side code
   has four readers: `0x430bf1` (copied into the impact field, +0x170 =

@@ -205,7 +205,10 @@ The Tracks page draws as the game does, above, with the functions in
   side by side, a tile a slot, twice round a band at the horizon radius,
   the second copy flipped with the mirror flag. The band is a cylinder
   in 3D, so towards the screen's sides it is spaced as a projection, not
-  as the game's flat quads.
+  as the game's flat quads. Its v runs a texel in from the picture's top
+  and bottom: the strip's texture repeats, and at v = 0 the filter mixed
+  the bottom row into the top, a dashed line along the hills' tops that
+  the game doesn't have (it looked like far power lines; below).
 - **The sun or moon.** The variant's picture (`SUND`, `SUNN`, `SUNW`, and
   `SNNW` for night with weather where a track has one, else `SUNW`) at
   the game's place and size, facing the camera, upright or, with
@@ -213,7 +216,9 @@ The Tracks page draws as the game does, above, with the functions in
   after them with `INFRONT`.
 - **The clouds.** The game's grid, dome, nimbus and brightness (with
   Reluva's own random numbers), drifting by the game's amount at 64
-  ticks a second.
+  ticks a second. The `sky.fsh` pictures have no mipmaps, as THRASH's
+  textures have none: the night's `CLDN` is black with one-texel stars
+  (at most 100), which mipmaps averaged nearly away.
 - **Fog.** The game's curve and values, per pixel over the depth
   (`DrawCall::tableFog`). Within a dynamic fog region (by the block the
   camera is in), the colour and density go from the start's to the
@@ -252,16 +257,58 @@ times as m:ss), against the Tracks page and frames from `nfs-host`:
   on the right. So the game mirrors the sun's picture with the track.
   The page has no mirrored mode to compare.
 - **Stars and moon.** `Hometown_Night` (0:40) has many one- or
-  two-pixel stars and the moon high right; the page shows the stars
-  fainter. Not measured: the clips' brightness isn't the game's.
+  two-pixel stars and the moon high right; the page showed the stars
+  fainter. They are `CLDN`, added: the page's mipmaps averaged them
+  away (above). Against an `nfs-host` night race at Hometown's start
+  (November 2026, fresh `config.dat`, so the highest detail) the page
+  now shows as many stars, as small. The host's sky above the shaded
+  band is (8, 12, 24), near the `.hrz`'s top colour (12, 12, 27). Not
+  compared at the same height above the horizon: the page's view is
+  narrower than the game's 90°.
 - **Clouds.** `Hometown_Day` (0:20) has thin white streaks on a deep
-  blue; the page's clouds are broader and paler. That may be the
-  renderer (the Direct3D path's alpha, above) or the clip's settings;
-  not settled.
-- **Distance.** The page draws power lines on far blocks as broken
-  lines along the horizon at Hometown's start, where the game draws
-  none: the game draws fewer blocks ahead (the view distance option),
-  so a setting, not a fault.
+  blue; the page's clouds are broader and paler. Against `nfs-host`'s
+  day race at the start the sky's red (the clouds' white over the blue)
+  runs over the same range, 172-213 in the host and 186-231 on the page
+  (10th to 90th percentile, blue at 255 in both), so the brightness and
+  fog are about right; the host's clouds are smaller puffs with blue
+  between, the page's blotchier. The puffs' layout comes from the
+  random brightness of the grid's points (Reluva's own random numbers),
+  and the host point-samples where the card filters, so this is left.
+- **Distance.** The page drew a broken line along the horizon at
+  Hometown's start where neither the clips nor `nfs-host` have one.
+  It wasn't far power lines but the horizon band's top edge (above),
+  fixed. The page also drew every block of the track; it now draws the
+  blocks the game draws ([frd.md](frd.md), Which blocks are drawn):
+  those in the camera block's neighbour list within 500 units by day,
+  375 by night, at the road detail the game picks by distance. Those
+  distances depend on the **view distance** option (`viewlevel`,
+  `0x6fbc28`): levels 0 and 1 (the highest, what `nfs-host`'s fresh
+  `config.dat` has, and the clips' "high detail") 500, level 2 275 and
+  level 3 200 by day; by night 375, 205 and 150. The page uses level 1;
+  with a lower one the game draws fewer blocks ahead than the page.
+  The game also drops a polygon whose first corner is more than 500
+  ahead along the view (`0x41b3bf`, the camera's `+0x30`, 500 for the
+  main view whatever the level); the page doesn't.
+- **Rocky Pass by day** (its rotation 160°), page and `nfs-host` at the
+  start: the same scene, but the sky about 25 bluer in the host
+  ((205, 242, 222) against (213, 234, 191), 20-26° up, the host's
+  frames in 16-bit steps). The view's centre is at slot 14.9 or 0.7
+  with the rotation added or taken away, both on the sun side, so this
+  doesn't tell the rotation's sign; not explained.
+- **Rocky Pass by night**, the same: stars in both; the page's sky
+  (50, 45, 66) and horizon hills (32, 31, 48) a step brighter than the
+  host's (41, 40, 57) and (24, 20, 41); the trees by the road much
+  darker on the page ((1, 2, 5) against (8, 16, 8)), which fits the
+  car's headlights, added to the vertex colours of what is near
+  ([frd.md](frd.md), the headlights), and the page has none.
+- **By night or weather** the game leaves out each block's object
+  layer 3 and its fourth group of placed objects (`0x41cdc0`); the page
+  does too. At Hometown's start they are empty: what goes is the road
+  beyond 375.
+- **Other settings** that change these: the Horizon option, which
+  turns the sky on ([nfs.md](../../engines/nfs.md), the detail levels;
+  a saved `config.dat` can have it off), and `nfs-host`'s own drawing
+  (point-sampled), not the card's.
 - **Lightning** is in none of the clips (no weather), so it stays
   unchecked.
 

@@ -35,7 +35,9 @@ October 2026, with survey scripts over the nine tracks:
   - roads, lane lines, fences, poles, trees and buildings are where they
     belong;
   - billboard text reads the right way round (with z mirrored, as
-    models are, [fce.md](fce.md)).
+    models are, [fce.md](fce.md)), once the page culls back faces and
+    takes placed objects' vertices in the game's order (Textures,
+    below).
 
 All values are little-endian. Floats are 32-bit IEEE.
 
@@ -58,7 +60,7 @@ All values are little-endian. Floats are 32-bit IEEE.
 | 60 | 6 × u32 | vertices; high-res, low-res and medium-res counts; a duplicate of the vertex count; object vertices |
 | 84 | 12 × n | vertices |
 | | 4 × n | colours, `0xAARRGGBB` (baked lighting: white, or blue-grey in shade; alpha 255 in all but 98 of 414,641) |
-| | 300 × (s16, s16) | neighbours: block numbers (−1: none), with a second value always −1 so far |
+| | 300 × (s16, s16) | neighbours: the blocks drawn from this one (−1: none), with a road detail always −1 so far (Which blocks are drawn) |
 | | 8 × u32 | start position, then the counts of the next seven record lists |
 | | 8 each | positions |
 | | 8 each | per road polygon (as many as list 4) |
@@ -234,7 +236,7 @@ A polygon is 14 bytes:
 
 | Offset | Size | Meaning |
 |---|---|---|
-| 0 | 4 × u16 | vertices, of its block (or its object). A quad; a triangle repeats one. |
+| 0 | 4 × u16 | vertices, of its block (or its object). A quad; a triangle repeats one. Drawn in this order on a block, as 1, 0, 3, 2 on a placed object (Textures) |
 | 8 | u16 | an entry of the texture table |
 | 10 | u16 | the animation's first texture entry (as at 8 when animated); read only on animated polygons, below |
 | 12 | u8 | flags: `0x10` two-sided, `0x04` animated, `0x01` (none in the files); `0x20` and `0x40` are never tested, below |
@@ -391,14 +393,45 @@ race show the Taco Den sign and red tiled roofs: the page had taken
 wrong, which made its forest start look like a town of planks. The page
 takes pictures by place since.
 
-**Signs read backwards on the page (open).** `Redrock_Ridge_Day`
-(0:12) and an `nfs-host` race (no mirror) both show "CACTUS MOTEL" and
-"TACO DEN" readable, from set 0. On the Tracks page, with the same
-layout (the motel on the left, the start's checks ahead), set 0's signs
-read mirrored and set 1's readable. The motel sign's corners are the
-usual (0, 0), (1, 0), (1, 1), (0, 1), so the page's pairing of corners
-with vertices, or its mirroring of the track, differs from the game's
-somewhere; not found yet.
+**Signs read backwards on the page (found, November 2026).**
+`Redrock_Ridge_Day` (0:12) and an `nfs-host` race (no mirror) both
+show "CACTUS MOTEL" and "TACO DEN" readable, from set 0, where the
+Tracks page showed set 0's signs mirrored and set 1's readable. The
+pictures aren't the cause: set 0's read the right way round in the
+sheet, and set 1's 14 to 31 differing pictures a track are the same
+signs flipped left to right (or turned over), for the mirrored track
+(`0x41dbc0` loads `trNN1.qfs` when `0x6fd4c4` is set, else
+`trNN0.qfs`). The Taco Den sign is two one-sided quads back to back in
+a block's object layer (flags `0x60`, entry 193), each readable from
+its own front. The page drew both, with no culling, and the one meant
+for the far side was drawn last, mirrored as seen from the near side.
+
+How the game draws a polygon (nfs3.exe):
+
+- **Order.** The block's lists go through `0x41b300`, which queues the
+  four vertices in the file's order; the placed objects go through
+  `0x41b640`, which queues vertices 1, 0, 3, 2. Everything after goes
+  by the queue: the Direct3D path (`0x433840`, the first entry of the
+  table at `0x5f0780`, set by `0x434870`) gives queued vertex k the
+  texture's corner k (u, v at +8 + 8k), and the back-face test uses the
+  queued order. So a placed object's picture is flipped left to right
+  against the file's order, and its front is the other side. Checked
+  on Hometown's speed signs (placed, one-sided): taken in the game's
+  order, each faces the traffic on its side of the road, the sign on
+  the right (block 11) the race and the one on the left (block 5) the
+  oncoming lane; in the file's order they would face away.
+- **Culling.** A polygon is drawn only if its screen corners 0, 1, 2
+  (or 1, 2, 3) turn the front way (`0x41b432`-`0x41b493`; the way is
+  `0x554e4c`, (view = 1) xor the mirror flag, `0x4349d0`), unless it
+  has flag `0x10` or a vertex is clipped. With z mirrored into the
+  page's world the front turns the other way, so the page winds each
+  polygon backwards and culls back faces (`F` turns it off).
+
+With both, the Tracks page reads set 0's signs as the game does: the
+Taco Den and Cactus Motel on Redrock Ridge, the 50 MPH sign and the
+speedway billboard on Hometown. Set 1 (`X`) reads backwards there, as
+it would in the game on an unmirrored track. The page has no mirrored
+mode.
 
 **The headlights in footage** (November 2026). In the night clips the
 pool ahead of the car is a flat band with a fairly sharp far edge on
@@ -416,6 +449,45 @@ red behind each car, and a police car's light blue (`Hometown_Night`
 Every polygon's texture is in the table, and every picture they use is
 in its sheet. Some entries name pictures past the sheet's end, but no
 polygon uses those.
+
+## Which blocks are drawn
+
+From nfs3.exe (November 2026). For each view the game goes through
+the neighbour list of the camera's block (`0x41cdc0`) and draws a
+listed block if its centre is within the view distance on the ground
+(x and z) and passes a test against the view (`0x41bf30`, not
+followed). The road detail is the neighbour's second value, or, as
+that is always −1, by the same distance (`0x41aa60`): high (list 4, and the lane markings)
+within 110, medium (list 2) within 150, low (list 0) beyond. The
+roadside list after the road's goes with it.
+
+The distances are set per view (`0x41df10`; for the main view of a
+one-player race 500, 110 and 150) and then scaled by `0x41d620` by the
+view distance option (`viewlevel`, `0x6fbc28`) and the time of day
+(16.16 tables at `0x41a8bc` and `0x41a8b0`):
+
+| View level | By day | By night |
+|---|---|---|
+| 0, 1 | × 1 (500) | × 0.75 (375) |
+| 2 | × 0.55 (275) | × 0.41 (205) |
+| 3 | × 0.4 (200) | × 0.3 (150) |
+
+At level 0 every block in reach is at high detail. Split screen
+(`0x6fd3b0` = 1) starts from 440, 60 and 92 instead.
+
+Then, for each block drawn: layers 0-2 always, layer 3 only by day
+without weather (`0x6fd4c8`, `0x6fd4cc`); the block's four groups of
+placed objects (`0x5718d4` + block × `0x5c0` + 8 × group, loaded in
+file order by `0x419c20`), the fourth again only by day without
+weather. The last group of placed objects, after the blocks', goes to
+`0x5dd070` and is drawn last for every view. A polygon whose first
+corner is more than the view's `+0x30` ahead (500 for the main view) is
+dropped (`0x41b3bf`).
+
+The Tracks page draws the same set of blocks from the block nearest
+the camera, with view level 1 (`K` draws every block instead, and
+1, 2, 3 fix the road's detail; 4 goes back to the game's choice). It
+doesn't drop far polygons.
 
 ## Tools
 

@@ -21,7 +21,7 @@ namespace {
 constexpr int kFrameW = 640, kFrameH = 480;
 constexpr float kPi = 3.14159265358979f;
 constexpr const char* kLaneSheet = "GameData/Render/pc/sfx.fsh";
-constexpr const char* kDetailNames[] = {"low", "medium", "high"};
+constexpr const char* kDetailNames[] = {"low", "medium", "high", "game"};
 // The horizon files and sky pictures of each variant: day, night,
 // weather, night with weather. (sky.fsh's CHRD, CHRN... are the cars'
 // reflections; the horizon picture is in the track's texture sheet.)
@@ -161,10 +161,8 @@ void TrackPage::release() {
     pictures_.clear();
     banks_.clear();
     moving_.clear();
-    for (auto& b : batches_)
-        b.clear();
-    for (auto& a : animations_)
-        a.clear();
+    batches_.clear();
+    animations_.clear();
 }
 
 // The track's texture sheet: sets 0 and 1, then the same in 8 bits (for
@@ -239,7 +237,11 @@ gfx::TextureId TrackPage::skyPicture(const std::string& name, std::string* text)
             gfx::TextureId id = 0;
             if (decodeShape(s, img))
                 return 0;
-            if (!renderer_->createTexture(img.w, img.h, img.rgba.data(), {}, id))
+            // Without mipmaps, as THRASH's textures have none: averaged
+            // down, the night's one-texel stars (CLDN) all but vanish.
+            gfx::TextureParams params;
+            params.mipmaps = false;
+            if (!renderer_->createTexture(img.w, img.h, img.rgba.data(), params, id))
                 textures_.push_back(id);
             return id;
         }
@@ -388,8 +390,12 @@ void TrackPage::loadSky() {
         const uint32_t first = static_cast<uint32_t>(vertices.size());
         // White, day or night (0x478310).
         const Horizon::Rgb white{255, 255, 255};
-        ring(base + static_cast<float>(h.pixmapBottom), radius * 0.98f, &white, 1);
-        ring(base + static_cast<float>(h.pixmapTop), radius * 0.98f, &white, 0);
+        // A texel in from the top and bottom (the tiles are 64 high): the
+        // texture repeats, so at v = 0 the filter would mix in the bottom
+        // row, a dashed line along the top of the hills.
+        constexpr float kInset = 1.0f / 64;
+        ring(base + static_cast<float>(h.pixmapBottom), radius * 0.98f, &white, 1 - kInset);
+        ring(base + static_cast<float>(h.pixmapTop), radius * 0.98f, &white, kInset);
         if (h.mirror)
             for (uint32_t i = first; i < vertices.size(); ++i) {
                 const float u = vertices[i].uv[0];
@@ -667,13 +673,16 @@ void TrackPage::load(int index) {
     };
     // By picture, then two-sided, then see-through.
     using Groups = std::map<std::tuple<gfx::TextureId, bool, bool>, Group>;
-    std::array<Groups, kKinds> groups;
+    const size_t slots = (track_.blocks.size() + 1) * kKinds; // by block and kind
+    const int everywhere = static_cast<int>(track_.blocks.size()) * kKinds;
+    std::vector<Groups> groups(slots);
     std::vector<Groups> movingGroups;
     // Animated polygons by kind and animation byte, a Groups per frame.
     std::map<std::pair<int, uint8_t>, std::vector<Groups>> animatedGroups;
     // One polygon with the texture entry given.
     auto addPolygon = [&](Groups& into, const std::vector<Track::Vec3>& verts, const std::vector<uint32_t>& colours,
-                          const Track::Vec3& offset, float mirror, const Track::Polygon& p, uint16_t entry) {
+                          const Track::Vec3& offset, float mirror, bool placed, const Track::Polygon& p,
+                          uint16_t entry) {
         {
             const Track::Texture& tex = track_.textures[entry < track_.textures.size() ? entry : p.texture];
             // The game draws these in a constant half grey, half clear
@@ -684,8 +693,9 @@ void TrackPage::load(int index) {
                                                : picture(sheet, tex.picture, false, &additive);
             const uint32_t first = static_cast<uint32_t>(vertices.size());
             for (int k = 0; k < 4; ++k) {
-                const Track::Vec3& v = verts[p.vertices[k]];
-                const uint32_t c = colours[p.vertices[k]];
+                const uint16_t vertex = p.vertices[size_t(polygonSlot(k, placed))];
+                const Track::Vec3& v = verts[vertex];
+                const uint32_t c = colours[vertex];
                 gfx::Vertex out{};
                 out.pos[0] = v[0] + offset[0];
                 out.pos[1] = v[1] + offset[1];
@@ -701,48 +711,63 @@ void TrackPage::load(int index) {
             }
             Group& g = into[{id, (p.flags & Track::Polygon::kTwoSided) != 0, seeThrough}];
             g.additive = additive;
-            for (uint32_t i : {0u, 1u, 2u, 0u, 2u, 3u})
+            // The game's front faces turn the other way from the renderer's
+            // once z is mirrored: wound backwards, the game's culling
+            // (0x41b300: not drawn if back-facing, unless flag 0x10) is the
+            // renderer's back-face culling.
+            for (uint32_t i : {0u, 2u, 1u, 0u, 3u, 2u})
                 g.indices.push_back(first + i);
         }
     };
-    // Polygons of a kind (-1: a moving object's, not animated); an
-    // animated one goes in once for each frame.
+    // Polygons of a slot, block × kKinds + kind (-1: a moving object's,
+    // not animated); an animated one goes in once for each frame.
     auto add = [&](int kind, Groups& into, const std::vector<Track::Vec3>& verts,
-                   const std::vector<uint32_t>& colours, const Track::Vec3& offset, float mirror,
+                   const std::vector<uint32_t>& colours, const Track::Vec3& offset, float mirror, bool placed,
                    const std::vector<Track::Polygon>& polygons) {
         for (const Track::Polygon& p : polygons) {
             if (kind < 0 || !(p.flags & Track::Polygon::kAnimated) || p.frameDelay() == 0 || p.frameCount() < 2) {
-                addPolygon(into, verts, colours, offset, mirror, p, p.textureAt(0));
+                addPolygon(into, verts, colours, offset, mirror, placed, p, p.textureAt(0));
                 continue;
             }
             auto& frames = animatedGroups[{kind, p.animation}];
             frames.resize(static_cast<size_t>(p.frameCount()));
             for (int f = 0; f < p.frameCount(); ++f)
-                addPolygon(frames[size_t(f)], verts, colours, offset, mirror, p,
+                addPolygon(frames[size_t(f)], verts, colours, offset, mirror, placed, p,
                            p.textureAt(static_cast<uint64_t>(f * p.frameDelay())));
         }
     };
-    for (const Track::Block& b : track_.blocks) {
+    for (size_t i = 0; i < track_.blocks.size(); ++i) {
+        const Track::Block& b = track_.blocks[i];
+        const int base = static_cast<int>(i) * kKinds;
         for (int level = 0; level < 3; ++level) {
-            add(kRoadLow + level, groups[kRoadLow + level], b.vertices, b.colours, {}, -1, b.polygons[2 * level]);
-            add(kRoadLow + level, groups[kRoadLow + level], b.vertices, b.colours, {}, -1,
-                b.polygons[2 * level + 1]);
+            const int slot = base + kRoadLow + level;
+            add(slot, groups[size_t(slot)], b.vertices, b.colours, {}, -1, false, b.polygons[2 * level]);
+            add(slot, groups[size_t(slot)], b.vertices, b.colours, {}, -1, false, b.polygons[2 * level + 1]);
         }
-        add(kLanes, groups[kLanes], b.vertices, b.colours, {}, -1, b.polygons[6]);
-        for (const auto& layer : b.objectLayers)
-            for (const Track::BlockObject& o : layer)
-                add(kObjects, groups[kObjects], b.vertices, b.colours, {}, -1, o.polygons);
+        add(base + kLanes, groups[size_t(base + kLanes)], b.vertices, b.colours, {}, -1, false, b.polygons[6]);
+        for (size_t layer = 0; layer < b.objectLayers.size(); ++layer) {
+            const int slot = base + (layer == 3 ? kObjectsDay : kObjects);
+            for (const Track::BlockObject& o : b.objectLayers[layer])
+                add(slot, groups[size_t(slot)], b.vertices, b.colours, {}, -1, false, o.polygons);
+        }
     }
-    for (const auto& group : track_.extraObjects)
-        for (const Track::ExtraObject& o : group) {
+    // Four groups of placed objects a block (0x5718d4 + block × 0x5c0 +
+    // 8 × group), and a last one.
+    for (size_t gi = 0; gi < track_.extraObjects.size(); ++gi) {
+        const size_t block = gi / 4;
+        const bool own = block < track_.blocks.size();
+        const int slot = own ? static_cast<int>(block) * kKinds + (gi % 4 == 3 ? kObjectsDay : kObjects)
+                             : everywhere + kObjects;
+        for (const Track::ExtraObject& o : track_.extraObjects[gi]) {
             if (o.type == 4) {
-                add(kObjects, groups[kObjects], o.vertices, o.colours, o.reference, -1, o.polygons);
+                add(slot, groups[size_t(slot)], o.vertices, o.colours, o.reference, -1, true, o.polygons);
             } else if (!o.keys.empty()) {
-                moving_.push_back({o.keys, o.keyDelay, {}});
+                moving_.push_back({own ? static_cast<int>(block) : -1, o.keys, o.keyDelay, {}});
                 movingGroups.emplace_back();
-                add(-1, movingGroups.back(), o.vertices, o.colours, {}, 1, o.polygons);
+                add(-1, movingGroups.back(), o.vertices, o.colours, {}, 1, true, o.polygons);
             }
         }
+    }
 
     // The virtual road's walls: a barrier along each side, red on the left
     // and green on the right, from each road point to the next (a guide
@@ -773,7 +798,7 @@ void TrackPage::load(int index) {
                 vertices.push_back(out);
             }
             for (uint32_t k : {0u, 1u, 2u, 0u, 2u, 3u})
-                groups[kWalls][{0, false, false}].indices.push_back(first + k);
+                groups[size_t(everywhere + kWalls)][{0, false, false}].indices.push_back(first + k);
         }
     }
 
@@ -786,8 +811,10 @@ void TrackPage::load(int index) {
             indices.insert(indices.end(), g.indices.begin(), g.indices.end());
         }
     };
-    for (int kind = 0; kind < kKinds; ++kind)
-        flush(groups[kind], batches_[kind]);
+    batches_.resize(slots);
+    animations_.resize(slots);
+    for (size_t slot = 0; slot < slots; ++slot)
+        flush(groups[slot], batches_[slot]);
     for (size_t i = 0; i < moving_.size(); ++i)
         flush(movingGroups[i], moving_[i].batches);
     for (const auto& [key, frames] : animatedGroups) {
@@ -804,6 +831,32 @@ void TrackPage::load(int index) {
     loadSky();
     loadMarks();
     toBlock(0);
+}
+
+std::vector<std::pair<int, int>> TrackPage::blocksInView(int here) const {
+    std::vector<std::pair<int, int>> out;
+    if (here < 0 || here >= static_cast<int>(track_.blocks.size()))
+        return out;
+    const bool night = variant_ == 1 || variant_ == 3;
+    auto add = [&](int block) {
+        const Track::Vec3& c = track_.blocks[size_t(block)].centre;
+        const float dx = c[0] - eye_[0], dz = -c[2] - eye_[2];
+        const int detail = blockDetailAt(std::sqrt(dx * dx + dz * dz), night);
+        if (allBlocks_ || detail >= 0)
+            out.push_back({block, std::max(detail, 0)});
+    };
+    if (allBlocks_) {
+        for (size_t i = 0; i < track_.blocks.size(); ++i)
+            add(static_cast<int>(i));
+        return out;
+    }
+    std::vector<bool> seen(track_.blocks.size(), false);
+    for (int16_t n : track_.blocks[size_t(here)].neighbours)
+        if (n >= 0 && n < static_cast<int>(track_.blocks.size()) && !seen[size_t(n)]) {
+            seen[size_t(n)] = true;
+            add(n);
+        }
+    return out;
 }
 
 int TrackPage::nearestBlock() const {
@@ -1240,6 +1293,8 @@ void TrackPage::handleEvent(const Event& ev) {
         case '1': detail_ = 0; break;
         case '2': detail_ = 1; break;
         case '3': detail_ = 2; break;
+        case '4': detail_ = 3; break;
+        case 'k': allBlocks_ = !allBlocks_; break;
         case 'h':
             variant_ = (variant_ + 1) % 4;
             if (renderer_ && error_.empty()) {
@@ -1446,18 +1501,32 @@ void TrackPage::update(uint64_t nowMs) {
             fogDraw(call, sceneryFog);
         // Each kind's batches, and its animated polygons at this tick's
         // frame.
-        auto kind = [&](int k, std::vector<const std::vector<Batch>*>& into) {
-            into.push_back(&batches_[k]);
-            for (const Animation& a : animations_[k])
+        auto kind = [&](int slot, std::vector<const std::vector<Batch>*>& into) {
+            into.push_back(&batches_[size_t(slot)]);
+            for (const Animation& a : animations_[size_t(slot)])
                 into.push_back(&a.at(skyTick_));
         };
-        std::vector<const std::vector<Batch>*> solid;
-        kind(kRoadLow + detail_, solid);
+        // The blocks the game draws from here, each at its detail (or the
+        // one chosen), lanes only at high detail (0x41cdc0); objects of
+        // layer 3 and the fourth groups only by day without weather.
+        const bool clearDay = variant_ == 0;
+        std::vector<const std::vector<Batch>*> solid, lanes;
+        std::vector<bool> shown(track_.blocks.size() + 1, false);
+        shown.back() = true;
+        for (const auto& [block, blockDetail] : blocksInView(here)) {
+            shown[size_t(block)] = true;
+            const int base = block * kKinds, level = detail_ < 3 ? detail_ : blockDetail;
+            kind(base + kRoadLow + level, solid);
+            if (objects_) {
+                kind(base + kObjects, solid);
+                if (clearDay)
+                    kind(base + kObjectsDay, solid);
+            }
+            if (lanes_ && level == 2)
+                kind(base + kLanes, lanes);
+        }
         if (objects_)
-            kind(kObjects, solid);
-        std::vector<const std::vector<Batch>*> lanes;
-        if (lanes_)
-            kind(kLanes, lanes);
+            kind(static_cast<int>(track_.blocks.size()) * kKinds + kObjects, solid);
         std::vector<const std::vector<Batch>*> all = solid;
         all.insert(all.end(), lanes.begin(), lanes.end());
         // Additive pictures, see-through ones, or the rest.
@@ -1479,6 +1548,8 @@ void TrackPage::update(uint64_t nowMs) {
             if (!objects_)
                 return;
             for (const Moving& m : moving_) {
+                if (m.block >= 0 && !shown[size_t(m.block)])
+                    continue;
                 // As nfs3.exe (0x40f4b0): a key every `delay` ticks (1-400,
                 // else 6), round keys - 1 of them (the last is the first
                 // again), blended towards the next by the ticks since.
@@ -1511,7 +1582,8 @@ void TrackPage::update(uint64_t nowMs) {
             wall.color = {1, 1, 1, 1};
             wall.texture = 0;
             wall.state.depthTest = wall.state.depthWrite = false;
-            for (const Batch& b : batches_[kWalls]) {
+            wall.state.cull = gfx::Cull::None;
+            for (const Batch& b : batches_[track_.blocks.size() * kKinds + kWalls]) {
                 wall.firstIndex = b.firstIndex;
                 wall.indexCount = b.indexCount;
                 renderer_->draw(wall);
@@ -1553,8 +1625,9 @@ void TrackPage::update(uint64_t nowMs) {
         lines.push_back(error_);
     } else {
         char where[200];
-        std::snprintf(where, sizeof where, "block %d/%zu  at %.0f %.0f %.0f  %s detail  set %d%s  %zu quads  %zu moving",
-                      here, track_.blocks.size(), eye_[0], eye_[1], -eye_[2], kDetailNames[detail_], textureSet_ % 2, textureSet_ >= 2 ? " (8-bit)" : "", drawn,
+        std::snprintf(where, sizeof where, "block %d/%zu  at %.0f %.0f %.0f  %s detail%s  set %d%s  %zu quads  %zu moving",
+                      here, track_.blocks.size(), eye_[0], eye_[1], -eye_[2], kDetailNames[detail_],
+                      allBlocks_ ? ", all blocks" : "", textureSet_ % 2, textureSet_ >= 2 ? " (8-bit)" : "", drawn,
                       moving_.size());
         std::string line = where;
         // The nearest light or sound within 40 units.
