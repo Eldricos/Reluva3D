@@ -375,9 +375,31 @@ the cop's target (`0x4018b0` with 3), siren on. Then:
   MPH over" in yellow (frames 6036-6042 of `fr-cp-spike1`).
 The spiked wheels' effect (`0x42a560`): sound 0x13 on the first step
 and a puff at each spiked wheel (`0x4cb010`, effect 0xD) for two
-steps, while +0x621 bit 0x40 holds; other readers (`0x42a130`,
-`0x471860`, `0x4bab70`) aren't followed. A racer crossing the strip
-before its arming step wasn't run.
+steps, while +0x621 bit 0x40 holds (+0x9A0 counts its steps; when
+the bit clears, +0x99C and +0x9A0 go to 0). The other readers of
++0x99C: `0x42a130`, each step for each spiked wheel on the ground,
+adds effect 6 at the wheel over 5 m/s, effect 9 over 20 m/s, and over
+10 m/s sparks (`0x4cac20`, strength speed × 0.5) and a sound
+(category 5, 0x12): the rim on the road. `0x4bab70`, drawing the car,
+leaves out a spiked wheel's part (parts 6-9 for bits 1, 2, 8, 4).
+`0x471860`, the force feedback's centring (nfs-threads.md), pulls the
+wheel to one side, ±10000, when only one front wheel is spiked. A racer crossing the strip
+before its arming step, run (`cq-spike0`, November 2026, the cop
+pokes, the cop standing at the grid as in `cp-spike1`): S at 189.2 s
+laid a strip at the cop's slice 2, lane 9 (`0x4c9dd0` at 189.27 s),
+from (828.9, 119.7) to (820.3, 111.6) in x and z, 11.8 m, arming step
+9702 (+0x4C of the record), 192 steps on, about 192.3 s. Gotcha (car
+6), the leader at the end of lap 1, crossed it at 190.6-190.8 s at 38
+m/s, about 100 steps before that: of the wheel points the test uses
+(+0x304 + wheel × 0x78), wheels 1 and 2 crossed the strip's line 1.2
+m in from its end, wheels 0 and 3 0.5 m past it. Nothing happened:
+`0x4ca160` didn't get past its arming check for it (no stop at
+`0x4ca1e7`, the step after the slice test), no `0x4c9f50` or
+`0x401650`, its +0x99C and +0x621 bit 0x40 stayed 0, and it drove on
+in its state 2 at 38-40 m/s. The strip stayed out (record +0 1 at
+191 and 193 s). Once armed it caught the next racer: from 196.6 s racers
+came within a slice of it (`0x4ca1e7`), and at 196.78 s car 3
+(`0x5e2e24`) hit it with wheel 1 (mask 2): `0x4c9f50`, `0x401650`.
 
 The recorded game (one-player cop footage, physics.md) dims the row
 for about 3 s instead. In this exe the row is a single quad added to

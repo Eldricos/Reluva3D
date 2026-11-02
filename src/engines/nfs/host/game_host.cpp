@@ -170,6 +170,15 @@ constexpr KeyName kKeys[] = {
 
 // The character a key types, as TranslateMessage gives it (no shift): 0
 // for none.
+// Queues an event at its time: after those due no later, before those due
+// after it, so a script's events needn't be written in time order.
+template <typename Queue, typename Event> void queueInOrder(Queue& queue, Event event) {
+    auto at = queue.end();
+    while (at != queue.begin() && std::prev(at)->atMs > event.atMs)
+        --at;
+    queue.insert(at, event);
+}
+
 char keyChar(const KeyName& k) {
     if (k.name[0] && !k.name[1] && k.name[0] >= 0x20 && k.name[0] < 0x7f)
         return k.name[0];
@@ -182,7 +191,7 @@ bool GameHost::queueKey(const std::string& name, bool down, uint64_t atMs) {
     for (const KeyName& k : kKeys)
         if (lower(name) == k.name) {
             std::lock_guard<std::mutex> lock(inputMutex_);
-            pendingKeys_.push_back({k.vk, k.scan, down, atMs, keyChar(k)});
+            queueInOrder(pendingKeys_, KeyEvent{k.vk, k.scan, down, atMs, keyChar(k)});
             inputQueued_ = true;
             return true;
         }
@@ -192,9 +201,9 @@ bool GameHost::queueKey(const std::string& name, bool down, uint64_t atMs) {
 void GameHost::queueMouseMove(int dx, int dy, uint64_t atMs) {
     std::lock_guard<std::mutex> lock(inputMutex_);
     if (dx)
-        pendingMouse_.push_back({0, uint32_t(dx), atMs});
+        queueInOrder(pendingMouse_, MouseEvent{0, uint32_t(dx), atMs});
     if (dy)
-        pendingMouse_.push_back({4, uint32_t(dy), atMs});
+        queueInOrder(pendingMouse_, MouseEvent{4, uint32_t(dy), atMs});
     inputQueued_ = true;
 }
 
@@ -206,7 +215,7 @@ void GameHost::setJoystick(const GamepadState& state, uint64_t atMs) {
 
 void GameHost::queueMouseButton(bool down, uint64_t atMs) {
     std::lock_guard<std::mutex> lock(inputMutex_);
-    pendingMouse_.push_back({12, down ? 0x80u : 0u, atMs});
+    queueInOrder(pendingMouse_, MouseEvent{12, down ? 0x80u : 0u, atMs});
     inputQueued_ = true;
 }
 
