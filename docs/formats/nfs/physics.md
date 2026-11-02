@@ -932,7 +932,11 @@ then gives the car +0x200 bit 0x20.
   it faces on its slice (`0x401b50`), +0x8EC his frame from the
   heading +0x210, and +0x8E4 = +0x8E8 = 1. While both are set the car
   drawing (`0x4bbba0`) draws him (`0x4b9bc0`, within 100 m). After the
-  ticket `0x401e20` clears both and he goes.
+  ticket `0x401e20` clears both and he goes. The spot is lowered by
+  the target's half height (+0x118) and handed to `0x4205a0` with the
+  slice; on what that gives back (`0x401d78`) the other side may be
+  taken instead. Run (`r1-ram4`, below): he stood 1.99 m across and
+  0.94 m below the target's centre.
   - **The 7 m** and the 300 m are not true distances: `0x4965b0` takes
     the largest of |dx|, |dy|, |dz| plus a quarter of each of the
     others (`0x53bedc` 0.25), so straight ahead it is 7 m and on a
@@ -1065,6 +1069,23 @@ then gives the car +0x200 bit 0x20.
     were 1 (the officer); after it 0. The target: tickets 1, +0x2C4 4,
     +0x6F0 0; the cop: +0x2CC 1, put back at slice 127 behind the
     leaders.
+  - **The officer and the speech, rerun** (`r1-ram4`, the same keys,
+    November 2026; the same steps to the millisecond). At 65.074 s
+    `0x401c20` put +0x910 at (742.79, 22.14, −266.21), the target at
+    (741.09, 23.08, −267.25): 1.99 m across, 0.94 m down; +0x8E4 =
+    +0x8E8 = 1. The last race view is frame 2729 (65.19 s); the scene
+    starts at frame 2730 (65.25 s, camera fixed by the white car), the
+    officer standing at its right front, and he is in every scene
+    frame through 2788 (68.19 s). `0x401e20` ran at 68.105 s; the next
+    frame, 2790 (68.26 s), is the race view again with "tickets: 1/6"
+    and the cop moved, no officer. `0x401580` didn't run: the target
+    was a computer racer (`0x401f78` tests its +0x200 bit 4), and the
+    sound log has no speech. With that test poked out (`r1-ram4s`,
+    `r1-slot`, `0x401f7f` = 90 90) it ran at 65.074 s: tickets left
+    1 (`0x6fd4bc` 1 − 0), `0x4c8b30` picked **slot 0x21** (0x20 +
+    random of 3) at d² 100 and started it (`0x4c8c6a`); the mix was
+    louder from 65.0 to 67.0 s. Which line a human target hears
+    depends only on that rule, and wasn't run with one.
   Earlier tries: `cq-ram1` (steering right until 62.4 s, braking from
   63.2 s) and `cq-ram3` (no brake) missed: car 1 went by 4-9 m away at 40 m/s. Their H came
   late: the host then took keys from a queue in the order written, so an
@@ -1082,15 +1103,21 @@ state 4. Without H (`sw1-cop2`) the player stayed in state 3.
 
 ### The computer cops' driver (`0x4032e0`)
 
-Read, not run (November 2026). A computer cop's state is +0x70C; its
-orders come in an 8-byte record at +0x7AC (+0 the kind, +1 set once
-taken, +2 and +4 a slice range, +6 the way to face), written by
-`0x403830` for computer cops only (`0x4040e0` gives each kind 2 when a
-racer is ticketed). Each step `0x4032e0` first takes a new order
-(`0x403030`): kind 0 goes to state 3 when the car is inside the slice
-range (`0x402fd0`), else turns towards it (`0x403000`); 1 is state 2;
-2 state 1; 3 state 7 and 4 state 8, both with the siren on (+0x710
-bit 0x10). Then by state:
+Read (November 2026), then run (below). A computer cop's state is
++0x70C; its orders come in an 8-byte record at +0x7AC (+0 the kind, +1
+set once taken, +2 and +4 a slice range, +6 the way to face), written
+by `0x403830` for computer cops only (`0x4040e0` gives each kind 2 when
+a racer is ticketed). **The driver acts one call in four**: it is a
+32 Hz task, but `0x40df10` → `0x401240` lets it through only when
+(step / 2 + car +0) mod 4 is 0 (`0x4be1a0(8, ...)`), so each cop acts
+every 8 steps, 8 times a second, each on its own phase (in `r2-cop4`
+cop 2 on steps 3532, 3540, ...; cop 5 on 3942, 3950, ...). Every count
+below is in steps but tested at that rate. On a new order (+1 still 0,
+`0x404560`), and in state 1 at each call without a target,
+`0x403030` applies it: kind 0 goes to state 3 when the car is inside
+the slice range (`0x402fd0`), else turns towards it (`0x403000`); 1 is
+state 2; 2 state 1; 3 state 7 and 4 state 8 (or 10 when already in
+range), both with the siren on (+0x710 bit 0x10). Then by state:
 
 - **1**, patrol: speed wanted = the section's speed × 1.19
   (`0x401430`, kept under `0x401370`), the racers' lane votes, and
@@ -1103,16 +1130,42 @@ bit 0x10). Then by state:
   cops take another path, `0x403d7d`). A cop with a strip out radios
   once as its racer comes within 30 slices of it, and clears it when
   the racer is 50 slices past (`0x403df0`).
-- **7**, **8**: the siren on, the section's speed × 2. 8 then goes to
-  **9** (6 m/s) and, at 6.5 m/s or less, **10** (radio `0x40bac0`):
-  +0x621 bit 8 and `0x403180` (not followed), then **11**, stopped
-  hard: a roadblock. +0x711 bit 4 ends it when the racer is 5 slices
-  past (`0x403ed0`).
+- **7**, **8**: the siren on, the section's speed × 2. 7 (a call for
+  help, below) goes back to 1 with the siren off once in the order's
+  slices. 8 goes to **9** there (6 m/s) and, at 6.5 m/s or less, **10**
+  (radio `0x40bac0`): +0x621 bit 8 and `0x403180`, which waits while
+  any racer is within 240 m (`0x4965b0`) and otherwise turns the car a
+  quarter turn (`0x4dfde0`, 0.75 turn about y) on its slice
+  (`0x4a0980`), speed wanted 0, bit 8 off: then **11**, stopped hard
+  across the road, a roadblock. +0x711 bit 4 ends it when the racer is
+  5 slices past (`0x403ed0`: back to patrol, an order of kind 2).
 - **5**, the chase: `0x4025c0` drives at the target and gives up past
-  the table's slices (above); every 320 steps, with no human cop
-  (`0x6fd51c` 0), it calls others (`0x4043a0`). `0x402110` is its
-  stop test; on 1 it goes to **6** (`0x401e40`), the stop, and from
-  there back to 1 (`0x401fb0`).
+  the table's slices (above). Every 320 steps (the record's +0x24),
+  with no human cop (`0x6fd51c` 0), it asks for more: the cop that
+  radioed last time (+0x5C) only clears it; others try a strip
+  (`0x4039c0`), then a roadblock (`0x403b20`), and failing both call
+  free cops (`0x4043a0`: orders of kind 3, a run with the siren to the
+  target's slices, radio `0x40b7f0`). `0x402110` is its stop test; on 1
+  it goes to **6** (`0x401e40`), the stop, and from there back to 1
+  (`0x401fb0`).
+
+**Strips and roadblocks are ordered by heat**, h = the record's +0x14
+(chases lost) + its +0x2C (cops on it) + the target's tickets + (step
+− the record's +0x20, the first chase's step) / 2048:
+- `0x4039c0`, **a strip**, when h > 6 and none is ordered yet (record
+  +0x58 0). The first time it only radios (`0x40b910`; record +0x54 |=
+  2, +0x5C = this cop); the next time it takes the nearest free
+  computer cop (no target, no +0x711 bit 8) 51 slices to ¾ of the track
+  ahead of the target, orders it kind 0 from its slice − 6, and sets
+  its +0x711 bit 8 and the record's +0x58. That cop drives to the
+  roadside (3), stops (4) and lays its strip (`0x403d30`,
+  `0x4c9dd0(index, slice, 7, step)`).
+- `0x403b20`, **a roadblock**, for a human target only (and not with
+  command-line flag 0x20), when h > 3. The first time it radios
+  (`0x40b860`; +0x54 |= 4, +0x5C) and in the same call takes the two
+  nearest free cops 51 slices to ¾ of the track ahead, within 400
+  slices of each other, and sends both (kind 4, siren, +0x710 |=
+  0x410) to the slice halfway between them.
 
 **Picking a target** (`0x402e10`, in every state but 3, 5 and 6):
 racers still in, free (+0x634 passed) and within 16 slices, scored by
@@ -1131,11 +1184,79 @@ once at `0x40130a`), the cop on the ground and upright (+0x10C > 0.5).
 The hold is 192 steps (3 s) for a human target, for a computer one
 160 when it is more than 60 slices ahead of the leading human, 224
 when 60 behind, else 192. While it holds, a human target off the gas
-(+0x508 at most 11) takes 19 steps off it each step. Then the record
+(+0x508 at most 11) takes 19 steps off it at each of the cop's calls
+(every 8 steps), so 192 lasts 64 steps. Then the record
 +0x1C = 2 and +0x28 = step + 320. Once the target has stopped for it
-(state 6 or 7), the stop starts within 16 m. Failing a test clears
+(a computer racer in its state 6, a human in 7: state 6 of a human
+is not enough), the stop starts within 16 m. Failing a test clears
 +0x710 bit 0x40. With cheat bit 0x10, `0x401520` adds speech
 (`0x4127c0`) every 384 steps at a target over 8.94 m/s.
+
+**Run** (November 2026, nfs-host, a racer's Hot Pursuit on Hometown:
+the single race's clicks with `-poke at=0x474ca0:0x6fd3b8:3`, a normal
+car, 2 laps, 6 computer cops, one computer racer; the player's car
+driven by the computer through its task slots, as in
+[bnk.md](bnk.md)'s object-sound runs; `-watch` at the state writes,
+orders, radio calls, strip and stop addresses; the cars, the chase
+records `0x56e410` and the strips `0x7dd850` dumped each second).
+Race clock = run time − 48.9 s.
+- **The first cop met** (`r2-cop1`): cop 3 on patrol came towards the
+  two racers; car 1, 4 slices ahead of the player, came within 16
+  slices first and was picked (state 1 → 5 at 71.10 s), so the player
+  went by unchased (its +0x6F0 was never looked at, 0). Hold 160 at
+  4.87 m (75.48 s), record +0x1C = 2 at 78.09 s (168 steps: the next
+  call after 160), car 1 5 → 6, the stop (78.35 s) and the ticket 384
+  steps on (84.47 s); car 1 then free for 960 steps.
+- **The chase of the player**: cop 5 (89.17 s, lost at 97.79 s past the
+  table's slices) and cop 2 (91.39 s), which drove at 46-59 m/s (the
+  player at 50) for the next 65 s. Every 320 steps the calls for help:
+  kind 3 orders to cops 6 (104.25 s), 7 (109.38 s) and 4 (119.59 s),
+  each joining the chase (state 7 → 5).
+- **A roadblock** (`r2-cop1`): at 124.63 s (step 5364), with three cops
+  on the record and h = 0 + 3 + 0 + 1 = 4, cop 2 radioed (`0x40b860`)
+  and sent cops 3 and 6, then 398 and 111 slices ahead, to slice 822
+  (kind 4; states 8, 9 at 145.2 and 154.8 s, 10 and 11 at 158.9 and
+  162.9 s, each turned by `0x403180`). The player had stopped short of
+  it, at slice 782. In `r2-cop5` (the record's +0x14 poked to 4 at
+  92 s, so h = 5 at once) cops 4 and 7 were sent to slice 539 at 104.25
+  s; cop 4 turned across the road at 112.18 s (11); cop 7 came at
+  122.5 s with the player within 240 m, so it waited in 10 and went
+  back to patrol when the player was 5 slices past (122.86 s). The
+  player hit cop 4 at 50 m/s and drove on at 17 m/s; cop 4 took it as
+  its target from state 11 (120.83 s). Frames (`r2-cop6`, the same
+  run with `-frames`): the police car across the road at 120.5 s, the
+  player striking it at 121.3 s (111 then 38 mph).
+- **A strip** (`r2-cop5`): cop 4 radioed at 124.69 s (`0x40b910`); 320
+  steps later (129.71 s) cop 6, 50+ slices ahead, got the kind 0 order
+  from slice 777 and bit 8; it reached the roadside (3, 134.7 s),
+  stopped (4) and laid its strip at 139.51 s: `0x4c9dd0(4, 774, 7,
+  6316)`, a 12 m strip from (337.7, −30.9, 518.8) to (335.8, −30.1,
+  507.0) beside the cop. Nobody hit it: the player was stopped at slice
+  699 at 148.4 s, and car 1 went by at 170 s 6 m beyond the strip's
+  end. The strip stayed out to the end (200 s): its racer, the player,
+  never got 50 slices past.
+- **The player's ticket** (`r2-cop4`): as `r2-cop1` up to 93 s; then
+  the player's tasks were put back to the human's (the Sc32 and Sc64
+  entries, list `0x185e6d0` + 8 + 16 × n: function at +4; poking car
+  +0x600 alone does nothing, the lists hold the functions), +0x6E0 =
+  2, and keypad 2 (brake) held. Cop 2 began its hold at 19.68 m
+  (96.01 s; the player at 9.6 m/s), the player off the gas took 19 off
+  it at each call, and at 97.03 s (64 steps) record +0x1C = 2; the
+  player 2 → 6 (97.04 s) → 7 (97.08 s), and cop 2 began the stop
+  (5 → 6, 97.13 s, `0x401e40`). Cop 5 came at 102.42 s and joined it
+  (6 at 102.53 s). The ticket (`0x401ff0`) came at 103.19 s, step 3990,
+  386 steps after the stop began (+0x28 = step + 384 for 0 tickets),
+  given by cop 5 (whichever cop's `0x401fb0` first finds the step
+  past); the player 7 → 2 and put back on the road, tickets 1, free for
+  960 steps. Frames: 96.7 s, the player braking at 6 mph, "tickets:
+  0/3"; 99.6 s, the scene (no HUD, "TICKETED", the officer at the
+  car); 103.8 s, the HUD back with "tickets: 1/3".
+- In `r2-cop1` and `r2-cop5`, with the computer still driving the
+  player's car, cop 2 also stopped it (hold 192 at 4.70 m, 155.90 s;
+  record +0x1C = 2 at 156.90 s) and the car pulled over in the
+  computer racer's state 6. A human target must be in state 7, so cop
+  2 stayed in its stop test (+0x710 0x50) to the end, 43 s: an artefact
+  of driving the player's car that way.
 
 ### Seen in footage (Summit_Night)
 
@@ -1409,18 +1530,25 @@ of every access to those offsets):
   and a human cop's stop of a computer racer 3 s, with the quota time
   as `0x401ff0` gives (above). `0x4127b0` is empty, `0x401580` is
   the speech, `0x401c20` and `0x401e20` show and hide the officer
-  (above); the officer's model and his speech in a human cop's own
-  stops weren't checked in a frame or a sound log. +0x2D4 is used by
+  (above); the officer was seen in frames of a human cop's stop and
+  appears and goes with `0x401c20` and `0x401e20` (`r1-ram4`), but a
+  stop of a human racer by a computer cop, where `0x401580` speaks,
+  wasn't run (the slot was seen only with its test poked out). +0x2D4 is used by
   the results screen's sort (`0x455834`, key 7, `0x559618`; key 6
   sorts by tickets taken, 5 by tickets given): cops that made their
   quota first, earliest +0x2D4 first, then by tickets given. The cop
   game's results screen is in the footage, but with one cop only, so
   the sort isn't seen.
-- The computer cops' driver (`0x4032e0`, above) was read, not run: a
-  racer's pursuit with computer cops, a roadblock and a computer cop's
-  strip weren't watched. `0x403180`, `0x403d7d`, `0x401370` and the
-  radio calls (`0x40b7f0`, `0x40bac0`, `0x40bca0`, `0x40bd00`) aren't
-  followed.
+- The computer cops' driver (`0x4032e0`, above) was run in a racer's
+  pursuit (`r2-cop1`, `r2-cop4`, `r2-cop5`): chases, calls for help, two
+  roadblocks, a strip and the player's ticket. Not seen: a racer
+  running over a computer cop's strip (the one laid lay beside the
+  line both racers took), an odd-numbered cop's strip (`0x403d7d`), a
+  stop with three cops (the 40 m), and the player driving through a
+  whole chase by hand (the runs drove its car by the computer and gave
+  it back to the human only to stop). `0x401370` and the radio calls
+  (`0x40b7f0`, `0x40b860`, `0x40b910`, `0x40bac0`, `0x40bca0`,
+  `0x40bd00`; their sounds) aren't followed.
 - Why the recorded game's spike icon dims for 3 s and its racer list
   has no "over" text, when this exe hides the icon until the strip is
   cleared and shows the text: probably another build, not found.

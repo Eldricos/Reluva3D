@@ -635,6 +635,52 @@ esi being the kept object's record):
   to 117.4 s and from 129 to 149.6 s, the times object 2 and object 4
   play, so they are heard (and something else at 105-109 s).
 
+**When they come naturally** (November 2026). The cycle runs from the
+race's set-up: the tick is ((`0x7d3684` & ~1) + phase) mod L
+(`0x410f0d`-`0x410f33`; `0x40f6d0` takes the key as (t / delay) mod
+(keys − 1) and the tick as t mod (delay × (keys − 1))), and the step
+count is 0 at the set-up and 512 at the green light, so it is the same
+in every race. Worked out from the `.col` keys and road points (block
+15) and checked against the positions `0x40f6d0` gave in a run
+(`r2-rr-scout`, `-watch 0x410f38`, ebp+0x2e/+0x32/+0x36: exact):
+- **Redrock Ridge, the −2 row.** Object 1 (41 keys, delay 64, phase
+  32) is at tick 670 on steps 638 + 2560k, 2.0 s after the green light
+  and every 40 s after (race clock 2.0, 42.0, 82.0 s...), and at 1822
+  on steps 1790 + 2560k (20.0, 60.0, 100.0 s...). It is then at
+  (278, 50, 280) and (278, 51, 181), above the lap's last road points:
+  in reach (275) of points 1375-1462 and 0-1 at 670, 1371-1460 at
+  1822 (the lap has 1463). So it is heard by a listener in the last 90
+  slices before the line at those moments, or still on the grid 2 s
+  after the start. The listener is the camera (`0x570a78`, from
+  `0x4229c0`), not the car. A car driven by the computer
+  (`r2-rr-scout`) is at slice 3 at step 638, 282 away, and at slices
+  297 and 121 at steps 3198 and 1790 (552 and 965 away), which is why `sq-rr`
+  never heard it.
+  - On the grid (`r2-rr-grid`, the player not driving): object 1 came
+    into reach at tick 656 (volume 1-4, slot 21) and at tick 670, step
+    638, 50.84 s, the −2 row started sound 8 on slot 19 (`0x411286`) at
+    volume 4.
+  - Placed (`r2-rr-place`: the car's position, a still velocity, +0x1C
+    and +0x4 poked to road point 1419 every 100 ms of steps 3150-3260
+    and 4300-4410): sound 8 started on slot 19 at tick 670 (step 3198,
+    90.84 s, volume 121) and at tick 1822 (step 4350, 108.84 s, volume
+    120), with sounds 7 and 6 on slots 20 and 21 (up to 124). The
+    camera was at (280, 8.6, 232) both times. In `-voices` the mixer's
+    front L+R energy doubles from 91.1 s to 92.6 s and from 109.1 s,
+    about the 2.34 s of sound 8 (a one-shot, `tram01` slot 8).
+- **Empire City, the fade-outs** (phase 0). Object 2's fade (ticks
+  4195-4255) comes at steps 4195-4255 + 4375k, race clock 57.5-58.5 s,
+  with the object near road point 615 (85-98 away; in reach 452-656);
+  object 4's (2335-2575) at steps 2335-2575 + 2575k, 28.5-32.2 s and
+  68.7-72.4 s, near point 733-742 (in reach 642-770). Placed the same
+  way (`r2-ec-place`, point 738 for steps 2290-2600, 615 for
+  4150-4300): object 4 on slot 21 held 102-104 to tick 2336, fell
+  evenly (100 at 2342, 73 at 2408, 26 at 2516) to 1 at 2572 and stopped
+  at L; object 2 went from 112 at tick 4194 by 7-8 a step to 1 at 4254
+  and stopped at 4256 (L − 120; `0x4113de`). Each time the mixer's call
+  count fell by about a quarter when the sound stopped (95 to 66 at
+  81.1 s, 93 to 71 at 107.3 s, in `-voices`).
+
 ## Seen in footage (November 2026)
 
 From 18 YouTube recordings of the original game (`Hometown_Day` and so

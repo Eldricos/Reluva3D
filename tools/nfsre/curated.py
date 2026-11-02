@@ -16,7 +16,7 @@ STRUCTS = {
     0x98: ('pos', 'f32[3]'), 0xA4: ('vel', 'f32[3]', 'world velocity'), 0xB0: ('yaw_k', 'f32', 'yaw factor (used with +0x100)'),
     0xB8: ('ground_speed', 'f32'), 0xC0: ('orient', 'f32[9]', 'rows +0xC0 +0xCC +0xD8'),
     0xD0: ('orient_up_y?', 'f32'), 0xE4: ('spin', 'f32[3]'), 0xE8: ('yaw_rate', 'f32'), 0x100: ('yaw_k2', 'f32'),
-    0x10C: ('upright', 'f32', '<0.9 = tipped'),
+    0x10C: ('upright', 'f32', 'up row . road normal (0x4a2690); <0.9 = tipped'),
     0x114: ('half_size', 'f32[3]'), 0x124: ('road_right', 'f32[3]', 'road frame at the car (0x49ffa0): right, from the road point (or polygon)'), 0x130: ('road_normal', 'f32[3]', 'road frame: up'),
     0x13C: ('road_fwd_pt', 'f32[3]', 'road frame: forward; +0x7C0 = vel . this'), 0x148: ('road_point', 'f32[3]', 'the road point (slice) position'),
     0x154: ('road_heading', 's32', '0x49fee0 of the slice'),
@@ -66,6 +66,12 @@ STRUCTS = {
     0x7AC: ('cop_ai_order', 'ptr', '8 bytes: +0 kind, +1 taken, +2/+4 slices, +6 direction (0x403830)'),
     0x8E4: ('officer_shown', 's32', 'ticket scene officer (0x401c20; 0x401e20 clears)'), 0x8E8: ('officer_shown2', 's32'),
     0x8EC: ('officer_orient', 'f32[9]'), 0x910: ('officer_pos', 'f32[3]', '2 m beside the stopped car'),
+    # r1 (headlights, 0x42d160)
+    0x660: ('light_state', 's32', '0 off, 1 low, 2 high (0x40de50)'),
+    0x664: ('light_frame', 'f32[9]', 'orient turned down 1/16 (low) or 1/32 turn; +0x67C its forward row, read for the place before rewritten'),
+    0x688: ('light_frame_t', 'f32[9]', 'light_frame transposed (mat_transform)'), 0x6AC: ('light_at', 'f32[3]', 'pos + up x upright + light fwd (last step) x half_size[2]/4'),
+    0x6B8: ('light_at_in_frame', 'f32[3]', '-light_at in the light frame'), 0x6C4: ('light_scale', 'f32', '1; 0x41a800 scales the distances'),
+    0x6C8: ('light_fade_from', 'f32'), 0x6CC: ('light_reach', 'f32'), 0x6D0: ('light_colour', 'u32', 'ARGB'),
     0x9A0: ('spike_steps', 's32', 'steps since the hit while +0x621 bit 0x40'), 0x714: ('cop_index', 's32', 'a cop\'s index: its spike strip 0x7dd850 + i*0x50'),
   }),
   # carp.txt in memory (P); table in physics.md
@@ -295,6 +301,18 @@ FUNCS = {
   0x403d30: ('cop_ai_lay_spikes', None, 'computer cop (state 3 at the roadside, +0x711 bit 8): a strip at lane 7'),
   0x403df0: ('cop_ai_spike_watch', None, 'strip out: radio as +0x730 nears; clears it when 50 slices past'),
   0x403ed0: ('cop_ai_block_watch', None, '+0x711 bit 4: target 5 slices past -> back to patrol'),
+  # r2 (computer cops run, November 2026)
+  0x40df10: ('cop_ai_turn_gate', CAR, 'computer cop driver gate: 0x401240, and the +0x630 reset states'),
+  0x401240: ('ai_driver_gate', None, '(car) 1 when the driver acts this call: (step/2 + car+0) mod 4 == 0 (0x4be1a0), i.e. every 8 steps'),
+  0x4be1a0: ('step_phase_skip', None, '(n, phase) 0 when (step/2 + phase) mod (32/n) == 0'),
+  0x404560: ('cop_ai_order_is_new', None, 'order +1 clear: set it, return 1'),
+  0x402c80: ('car_on_roof', None, '1 when upright < 0 and not in the air'),
+  0x4039c0: ('cop_ai_call_strip', None, 'chasing cop, every 320 steps: heat (rec +0x14 +0x2C + tickets + t/2048) > 6: radio 0x40b910, then the nearest free cop 51+ slices ahead: kind 0 order, +0x711 bit 8'),
+  0x403b20: ('cop_ai_call_roadblock', None, 'chasing cop, human target, heat > 3: radio 0x40b860, two free cops 51+ slices ahead, within 400: kind 4 orders to the slice between'),
+  0x403180: ('cop_ai_roadblock_turn', None, 'state 10: no racer within 240 m -> a quarter turn on its slice, speed 0, +0x621 bit 8 off (-> 11)'),
+  0x4dfde0: ('mat_rot_y_turns', None, '(matrix, turns) rotation about y'),
+  0x4be2f0: ('task_remove', None, '(list, function, arg); entries 16 bytes from list+8: priority, function, arg'),
+  0x42cab0: ('car_tasks_remove', None, 'each car\'s tasks out of Sc32/Sc64'),
   0x42a130: ('wheel_spiked_effects', None, '(car, wheel) spiked wheel on the ground: effect 6 > 5 m/s, 9 > 20 m/s, sparks and sound > 10 m/s'),
   0x471860: ('ff_steer_force', None, 'force feedback centring; one spiked front wheel pulls +-10000'),
   0x4bab70: ('car_draw_wheels', None, 'a spiked wheel\'s part (6-9) is not drawn'),
@@ -309,11 +327,20 @@ FUNCS = {
   0x4103a0: ('music_menu_preview', None, 'front end: plays the tune set in the audio menu'),
   0x4a3690: ('race_run', None, 'one race from the front end: flips g_music_tech (0x4a36c6), set-up 0x474ca0, the race loop'),
   0x41bc20: ('moving_sounds_allowed', None, '0 on Hometown (track 0) with night or weather: 0x410e30 skips the objects'),
+  # r1 (headlights, see-through polygons, November 2026)
+  0x42d160: ('car_headlight_setup', CAR, 'each frame by night: +0x6AC place, +0x664 frame, reach and colour (frd.md, the headlights)'),
+  0x4a2690: ('car_road_dots', CAR, '+0x108/+0x10C/+0x110 = orient rows . road normal (+0x130)'),
+  0x41b9b0: ('track_draw_view', None, 'sets 0x552e1c, lights each car (0x42d160), queues the blocks in view, draws'),
+  0x434870: ('poly_drawers_pick', None, 'by renderer flags 0x7a3a58: the polygon drawers 0x5f0780-0x5f0794'),
+  0x4332b0: ('polys_draw', None, '(list) queued flag 1 -> THRASH 0x68 = 1 (source alpha, one), else 0; also 0x433530 0x433840 0x433a50 0x433bb0 0x4336e0'),
+  0x4c7790: ('polys_queue', None, '(list, depth) see-through texture (0x28 & 2) -> 0x4c7610; translucent or 0x04 by depth; else by texture'),
+  0x4c7610: ('polys_depth_sort', None, '(list) into 800 buckets by +0x1C, farthest first'),
   0x412d60: ('car_lap_music', CAR, 'lap handler: music lap, the control value (0x4133ad-0x41352a), reset timer event 0'),
 }
 
 # globals: addr -> (name, type, desc)
 GLOBALS = {
+  0x552e1c: ('g_seethrough_colour', 'u32', 'corner colour of texture-flag-0x02 polygons: 0x7F7F7F7F (x effects intensity with Direct3D), 0x41b9b0'),
   0x7a0420: ('g_net_gameinfo', 'u8[0x54]', 'NET_newgame info: +0x1c name, +0x4c most players (2 or 8); +0x3c-+0x4b never set'),
   0x7a22e8: ('g_net_serial_link', 'u8[0x30]', 'serial/modem open parameters'),
   0x552744: ('t_moving_object_sounds', 'ptr[10]', 'per track, 18-byte rows'),
