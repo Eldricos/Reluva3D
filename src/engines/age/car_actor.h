@@ -28,6 +28,11 @@ public:
                uint32_t paintJob);
     void unload();
     void draw(const SceneLight& light) const;
+    // Its reflection map (texture/refl_dc.tga, set at load; the garage's
+    // refl_showroom), and whether cars show reflections (the Graphics
+    // Options' Vehicle Reflections).
+    gfx::TextureId reflectionMap = 0;
+    static inline bool reflections = true;
 
     CarSetup setup;
     CarSim sim;

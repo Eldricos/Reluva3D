@@ -136,7 +136,7 @@ when the Race and Drive pages open. See `engines/age/options.h`.
 |---|---|---|
 | Main Options Menu | `opt_bk` | AUDIO, CONTROL, GRAPHICS (`opt_aud`, `opt_ctl`, `opt_gfx`), ABOUT MIDTOWN MADNESS 2 (`opt_abt`), BACK (`mnav_prev`, picture `mnav_prv`) |
 | Audio Options | `aud_bk` | Sound FX, Play Commentary, Play Music, City Sounds (`aud_fx`, `aud_com`, `aud_musc`, `aud_amb`); Device, Stereo FX, Sound Quality (shown, the system's); Sound FX Volume, Music/City Volume, Balance (bars) |
-| Graphics Options | `gfx_bk` | Textured Sky, Vehicle Reflections (not available), Show Pedestrians, Smart Rendering (`gfx_sky`, `gfx_rflx`, `gfx_peds`, `gfx_port`); Display (a window, or full screen), Renderer (shown), Resolution; Visibility and Lighting Quality (bars); Texture Quality, Object Detail, Cloud Shadows (shown) |
+| Graphics Options | `gfx_bk` | Textured Sky, Vehicle Reflections, Show Pedestrians, Smart Rendering (`gfx_sky`, `gfx_rflx`, `gfx_peds`, `gfx_port`); Display (a window, or full screen), Renderer (shown), Resolution; Visibility and Lighting Quality (bars); Texture Quality, Object Detail, Cloud Shadows (shown) |
 | Control Options | `ctrl_bk` | Auto Reverse, Use POV Hat, Force Feedback (not available) (`ctrl_aut`, `ctrl_pov`, `ctrl_fbk`); Controller (the keyboard); Steering Sensitivity (a bar); the joystick's dead zone, calibration and force feedback (not available); CUSTOMIZE CONTROLS (`ctrl_cus`) |
 | Control Custom | `cuss_bk` | each control and its two keys (`CW Array`) |
 | AboutMenu Menu | `about_bk` | the credits, `jpg/credits` (215 x 4,582), scrolling up through their box; DONE (`options_done`, picture `opt_done`) |
@@ -163,6 +163,13 @@ What the options do in Reluva:
     checking one clears the other; both may be off.
 - **Graphics.**
   - Textured Sky: the sky dome; without it, the fog's colour.
+  - Vehicle Reflections: the game's sphere maps (`texture/refl_dc.tga`
+    in the cities, a skyline under a bright sky; `refl_showroom.tga` in
+    the garage) added over the racers' and the garage car's shiny parts,
+    those whose shader has a shininess (0.5 on body paint; none on glass,
+    wheels, the underside or the far detail levels), at 0.6 times it.
+    How strong the game's are isn't known: the footage shows the option
+    ticked, not its look up close.
   - Show Pedestrians: none at all when off.
   - Smart Rendering ("USE PVS" among `mmlang.dll`'s words): the city's
     `.cpvs` visibility.

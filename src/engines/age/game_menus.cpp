@@ -217,9 +217,8 @@ std::vector<GameMenus::Item> GameMenus::items() const {
                 bar("BALANCE")};
         break;
     case Screen::Graphics:
-        // Reflections, the renderer and cloud shadows aren't Reluva's to
-        // change.
-        list = {check("gfx_sky"),  check("gfx_rflx", false),  check("gfx_peds"),       check("gfx_port"),
+        // The renderer and cloud shadows aren't Reluva's to change.
+        list = {check("gfx_sky"),  check("gfx_rflx"),         check("gfx_peds"),       check("gfx_port"),
                 choice("DISPLAY"), choice("RENDERER", false), choice("RESOLUTION"),    bar("far clip"),
                 bar("lighting"),   choice("TEXTURE QUALITY"), choice("OBJECT DETAIL"), choice("CLOUD SHADOWS", false)};
         break;
@@ -332,6 +331,8 @@ bool GameMenus::checked(const std::string& w) const {
         return o.texturedSky;
     if (w == "gfx_peds")
         return o.pedestrians;
+    if (w == "gfx_rflx")
+        return o.vehicleReflections;
     if (w == "gfx_port")
         return o.smartRendering;
     if (w == "ctrl_aut")
@@ -362,6 +363,8 @@ void GameMenus::toggle(const std::string& w) {
         o.texturedSky = !o.texturedSky;
     else if (w == "gfx_peds")
         o.pedestrians = !o.pedestrians;
+    else if (w == "gfx_rflx")
+        o.vehicleReflections = !o.vehicleReflections;
     else if (w == "gfx_port")
         o.smartRendering = !o.smartRendering;
     else if (w == "ctrl_aut")

@@ -81,6 +81,7 @@ struct ModelDraw {
     bool translucent = false;
     bool lit = true;   // by the light (the mesh has normals), else as coloured
     bool glow = false; // added to what's behind (a light's halo)
+    float shininess = 0;     // its shader's: a car's body paint has 0.5
     std::string textureName; // its shader's
     Vec3 center{};           // of its vertices' bounds
 };
@@ -130,6 +131,13 @@ void applyFog(gfx::DrawCall& call, const SceneLight& light, bool additive = fals
 // With `animate`, animated textures show their current frame.
 void drawModelMesh(gfx::Renderer3D& renderer, const ModelMesh& mesh, const gfx::Mat4& model, const SceneLight& light,
                    bool translucent, const TextureCache* animate = nullptr);
+
+// A car's reflections: the sphere map `map` (texture/refl_dc.tga in the
+// cities, refl_showroom.tga in the garage) added over its shiny draws (a
+// shader's shininess above 0), `strength` times their shininess, drawn
+// after them where they are.
+void drawModelReflection(gfx::Renderer3D& renderer, const ModelMesh& mesh, const gfx::Mat4& model,
+                         const SceneLight& light, gfx::TextureId map, float strength);
 
 // The planes of a view (left, right, bottom, top, near), to leave out
 // what's outside it.
