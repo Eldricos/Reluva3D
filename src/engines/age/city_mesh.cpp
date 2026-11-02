@@ -252,14 +252,16 @@ private:
     };
 
     // A wall `height` high along `edge`, standing on the ground there, its
-    // texture once up it and repeated along it by length over height.
+    // texture once up it, its first row at the foot (as the footage shows
+    // `s_wall_veg`: stone at the bottom, plants along the top), and
+    // repeated along it by length over height.
     void sideWall(uint32_t texture, const std::vector<Vec3>& edge, float height) {
         float u = 0;
         for (size_t i = 0; i + 1 < edge.size(); ++i) {
             const float u2 = u + length(edge[i], edge[i + 1]) / std::max(0.5f, height);
             const Vec3 top0{edge[i][0], edge[i][1] + height, edge[i][2]};
             const Vec3 top1{edge[i + 1][0], edge[i + 1][1] + height, edge[i + 1][2]};
-            quad(texture, edge[i], edge[i + 1], top1, top0, {{u, 1}, {u2, 1}, {u2, 0}, {u, 0}}, false);
+            quad(texture, edge[i], edge[i + 1], top1, top0, {{u, 0}, {u2, 0}, {u2, 1}, {u, 1}}, false);
             u = u2;
         }
     }
