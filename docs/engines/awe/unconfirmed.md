@@ -36,14 +36,6 @@ settled, move it to the format page it belongs to and take it off here.
   text in the install is known to end that way.
   [interface.md](../../formats/awe/interface.md).
 
-## Not read yet
-
-- **A character's routine when its scene is shown again.** Reluva starts
-  it from its beginning; whether the game's goes on from where it was
-  hasn't been read. Routines are short loops of gestures, so it's hard
-  to see either way.
-  [characters.md](../../formats/awe/characters.md#leaving-a-scene-and-coming-back).
-
 ## Meanings inferred
 
 - **Fields loaded but never read.** The common `b54`, `b58`, `b68`,
@@ -73,6 +65,12 @@ capture's video range read as full range. What's left after that:
 ## Settled since
 
 Moved to their format pages; kept here so the reasoning can be found:
+
+- **A character's routine when its scene is shown again:** started
+  afresh, as Reluva does. The game's switch-on at scene entry
+  (`0x440690`) empties the character's runner (`0x409760`) and runs the
+  first `IDLE` script whose condition holds from its beginning.
+  [characters.md](../../formats/awe/characters.md#leaving-a-scene-and-coming-back).
 
 - **The characters' colours:** in Salon_02 (6B, Part 7 at 6:22, the
   frame's own fit at a correlation of 0.997), Reluva's frame put through

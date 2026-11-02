@@ -81,7 +81,8 @@ The format pages give the detail; this page gathers them.
   so a game left for it starts afresh); the player's position per
   scene. Objects' `hide` and `show` don't need
   keeping: entering a scene tests every object's condition afresh in the
-  game too. A character's own routine starts from its beginning again.
+  game too. A character's routine starts again from its beginning in
+  both (`0x440690`).
   Saves are in the game's own format either way. See
   [characters.md](../../formats/awe/characters.md#leaving-a-scene-and-coming-back)
   and [saves.md](../../formats/awe/saves.md).

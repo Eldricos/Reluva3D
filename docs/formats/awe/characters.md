@@ -69,8 +69,13 @@ files. What is kept:
   walk, run or turn under way.
 
 Its `home` heading is always its heading in the scene's file. Its own
-routine starts again from its beginning; whether the game's carries on
-from where it was is unchecked (routines are short loops of gestures).
+routine starts again from its beginning, in the game as in Reluva: each
+time the scene is entered, the character's switch-on (`0x440690`, slot
+0x48 of its class, called by `0x4362b0`) plays `idle1` (`walk` for one
+walking in), forgets any path under way (`+0x12a8` = -1), takes the
+first `IDLE` script whose condition holds, empties the character's
+runner of what was queued (`0x409760`) and runs that script afresh
+(`0x408c80`).
 
 ## Animations on Granny controls
 
