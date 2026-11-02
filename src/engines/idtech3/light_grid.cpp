@@ -3,7 +3,7 @@
 
 // The grid's layout and how the original samples it were read from the
 // GPL Quake III Arena renderer (tr_bsp.c R_LoadLightGrid, tr_light.c);
-// docs/formats/idtech3/bsp.md describes it.
+// docs/engines/idtech3/formats/bsp.md describes it.
 
 #include "engines/idtech3/light_grid.h"
 #include "engines/idtech3/world_renderer.h" // brightenLight
@@ -45,7 +45,7 @@ void LightGrid::build(const Bsp& bsp, std::array<float, 3> cellSize) {
     }
 }
 
-PointLight LightGrid::sample(const std::array<float, 3>& pos) const {
+PointLight LightGrid::sample(const std::array<float, 3>& pos, bool forModel) const {
     PointLight light;
     if (data_.empty()) {
         light.ambient = {150 + kMinimumAmbient, 150 + kMinimumAmbient, 150 + kMinimumAmbient};
@@ -106,8 +106,9 @@ PointLight LightGrid::sample(const std::array<float, 3>& pos) const {
     const float len = std::sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
     if (len > 0)
         light.direction = {dir[0] / len, dir[1] / len, dir[2] / len};
-    for (float& a : light.ambient)
-        a = std::min(255.0f, a + kMinimumAmbient);
+    if (forModel)
+        for (float& a : light.ambient)
+            a = std::min(255.0f, a + kMinimumAmbient);
     return light;
 }
 

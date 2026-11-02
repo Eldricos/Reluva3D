@@ -72,6 +72,11 @@ bool Config::hasSection(const std::string& section) const { return sections_.cou
 
 void Config::removeSection(const std::string& section) { sections_.erase(section); }
 
+std::map<std::string, std::string> Config::values(const std::string& section) const {
+    const auto it = sections_.find(section);
+    return it == sections_.end() ? std::map<std::string, std::string>{} : it->second;
+}
+
 std::vector<std::string> Config::targets() const {
     std::vector<std::string> out;
     for (const auto& [name, values] : sections_)

@@ -56,6 +56,8 @@ MarkSurfaces::MarkSurfaces(const Bsp& bsp, float subdivisions) {
     const BspModel& world = bsp.models[0];
     std::vector<BspVertex> patchVerts;
     std::vector<uint32_t> patchIndices;
+    // The curves as drawn (WorldRenderer cuts them the same way).
+    const std::vector<PatchGrid> grids = buildPatchGrids(bsp, subdivisions);
     for (int si = world.firstSurface; si < world.firstSurface + world.numSurfaces; ++si) {
         const BspSurface& s = bsp.surfaces[size_t(si)];
         if (s.type != SurfaceType::Planar && s.type != SurfaceType::TriangleSoup && s.type != SurfaceType::Patch)
@@ -72,8 +74,7 @@ MarkSurfaces::MarkSurfaces(const Bsp& bsp, float subdivisions) {
         if (s.type == SurfaceType::Patch) {
             patchVerts.clear();
             patchIndices.clear();
-            tessellatePatch(v, s.patchWidth, s.patchHeight, patchLevel(v, s.patchWidth, s.patchHeight, subdivisions),
-                            patchVerts, patchIndices);
+            triangulateGrid(grids[size_t(si)], patchVerts, patchIndices);
             verts = patchVerts.data();
             patchIdx.assign(patchIndices.begin(), patchIndices.end());
             idx = patchIdx.data();

@@ -29,7 +29,7 @@ enum class Lighting { Lightmap, Vertex, Diffuse, TwoD, Effect };
 // Shaders turned into what the GPU draws, shared by everything a page
 // shows: each stage's textures loaded and states decided once, the parts
 // that change with time evaluated per draw. The rules follow the
-// original renderer, see docs/formats/idtech3/shader.md.
+// original renderer, see docs/engines/idtech3/formats/shader.md.
 class ShaderCache {
 public:
     // One stage, resolved.
@@ -92,8 +92,10 @@ public:
     void draw(int material, const gfx::DrawCall& base, gfx::TextureId lightmap, float time, bool sky = false,
               const std::array<float, 4>* entity = nullptr) const;
     // A fog pass over geometry drawn with `material`.
+    // `distance`: the fog's depth for opaque; `plane`: its surface (see
+    // gfx::DrawCall::fogPlane).
     void drawFog(int material, const gfx::DrawCall& base, const std::array<float, 3>& color, float distance,
-                 float time) const;
+                 const std::array<float, 4>& plane, float time) const;
 
     size_t imageCount() const { return images_.size(); }
     int missingImages() const { return missing_; }

@@ -57,7 +57,20 @@ enum class EventType {
     MouseUp,
     MouseWheel,
     TextInput, // text typed, after the keyboard layout and dead keys (System::setTextInput)
+    // The joystick (the first connected): a button by its number from 0,
+    // an axis moved (its number in the device's order: x, y, then the
+    // rest; -32768 to 32767, left and up negative), the hat's directions
+    // (joyhat bits), and the joystick gone (all let go).
+    JoyButtonDown,
+    JoyButtonUp,
+    JoyAxis,
+    JoyHat,
+    JoyRemoved,
 };
+
+namespace joyhat {
+constexpr uint8_t Up = 1, Right = 2, Down = 4, Left = 8;
+} // namespace joyhat
 
 enum class MouseButton { None, Left, Right, Middle };
 
@@ -72,6 +85,10 @@ struct Event {
     int clicks = 0;              // MouseDown/MouseUp: 1, or 2 for a double click, ...
     int wheelY = 0;
     char text[32] = {};          // TextInput: UTF-8, NUL-terminated
+    int joyButton = 0;           // JoyButtonDown/JoyButtonUp
+    int joyAxis = 0;             // JoyAxis
+    int joyValue = 0;            // JoyAxis: -32768 to 32767
+    uint8_t joyHat = 0;          // JoyHat: joyhat bits held
 };
 
 } // namespace reluva

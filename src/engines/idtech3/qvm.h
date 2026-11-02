@@ -16,7 +16,7 @@ namespace reluva::idtech3 {
 
 // A Quake III virtual machine program (.qvm): game code compiled to
 // bytecode, run by an interpreter, which reaches the engine only through
-// numbered system calls. See docs/formats/idtech3/qvm.md.
+// numbered system calls. See docs/engines/idtech3/formats/qvm.md.
 class Qvm {
 public:
     // The engine's side: system call `number` with the VM's argument words
@@ -36,6 +36,9 @@ public:
     // (bad address, bad jump, stack overflow, division by zero...), naming
     // the instruction.
     Error call(int32_t command, const std::vector<int32_t>& args, int32_t& result);
+    // A function of the program other than vmMain, by its first
+    // instruction (for diagnosis: reluva-tool's -vmcall).
+    Error callAt(int32_t instruction, const std::vector<int32_t>& args, int32_t& result);
 
     // From a system call: ends the run once the call returns, with this
     // error from call() (the game code's own fatal errors, or memory a
@@ -89,7 +92,7 @@ public:
     uint32_t litEnd() const { return litEnd_; }
 
 private:
-    Error run(int32_t& result);
+    Error run(int32_t& result, int32_t entry = 0);
 
     std::vector<Instruction> code_;
     std::vector<uint8_t> data_; // a power of two in size; the stack is at the top
@@ -109,7 +112,7 @@ private:
     const std::pair<uint32_t, uint32_t>* protectedOverlap(int64_t address, int64_t size) const;
 };
 
-// The opcodes (docs/formats/idtech3/qvm.md), in their numbering.
+// The opcodes (docs/engines/idtech3/formats/qvm.md), in their numbering.
 namespace qvmop {
 enum : uint8_t {
     Undef, Ignore, Break, Enter, Leave, Call, Push, Pop, Const, Local, Jump,

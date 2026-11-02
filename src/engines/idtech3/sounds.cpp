@@ -30,4 +30,20 @@ std::shared_ptr<const audio::Sound> SoundLibrary::get(std::string_view name) {
     return result;
 }
 
+std::shared_ptr<const audio::Sound> SoundLibrary::find(std::string_view name) {
+    if (name.empty())
+        return nullptr;
+    if (auto sound = get(name))
+        return sound;
+    const std::string full(name);
+    const size_t slash = full.rfind('/');
+    const size_t dot = full.find('.', slash == std::string::npos ? 0 : slash);
+    const std::string stem = dot == std::string::npos ? full : full.substr(0, dot);
+    for (const char* ext : {".wav", ".mp3"})
+        if (stem + ext != full)
+            if (auto sound = get(stem + ext))
+                return sound;
+    return nullptr;
+}
+
 } // namespace reluva::idtech3

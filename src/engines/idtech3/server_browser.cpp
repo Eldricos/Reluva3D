@@ -186,13 +186,11 @@ std::string ServerBrowser::pingInfo(int n) const {
     return n >= 0 && n < kMaxPings && pings_[n].used ? pings_[n].info : std::string();
 }
 
-std::vector<std::string> masterServerNames(CvarStore& cvars) {
-    // Raven's first, as the original; then the community's (those the GPL
-    // engine and community guides list, October 2026).
-    cvars.create("sv_master1", "master.stef1.ravensoft.com", 0);
-    cvars.create("sv_master2", "efmaster.tjps.eu", CvarStore::Archive);
-    cvars.create("sv_master3", "master.stvef.org", CvarStore::Archive);
-    cvars.create("sv_master4", "master.stef1.daggolin.de", CvarStore::Archive);
+std::vector<std::string> masterServerNames(CvarStore& cvars, const std::vector<std::string>& defaults) {
+    // The game's own first, unchanged as the original; then others, kept
+    // if the player changes them.
+    for (size_t i = 0; i < defaults.size() && i < 5; ++i)
+        cvars.create("sv_master" + std::to_string(i + 1), defaults[i], i == 0 ? 0 : CvarStore::Archive);
     std::vector<std::string> out;
     for (int i = 1; i <= 5; ++i) {
         const std::string name = cvars.string("sv_master" + std::to_string(i));

@@ -133,7 +133,7 @@ uint32_t Win32Process::Module::exportAddress(const std::string& function) const 
     return 0;
 }
 
-Win32Process::Win32Process(Cpu& cpu) : cpu_(cpu) {
+Win32Process::Win32Process(Cpu& cpu, std::string exeName) : cpu_(cpu), exeName_(std::move(exeName)) {
     arena_ = std::make_unique<Arena>(cpu, 0x10000, cpu.nativeBase() & ~0xfffu);
     startMs_ = steadyMs();
     milliseconds = [this] { return uint32_t(steadyMs() - startMs_); };
@@ -156,8 +156,8 @@ Win32Process::Win32Process(Cpu& cpu) : cpu_(cpu) {
     cpu.fsBase = tib_;
     cpu.setStack(stackTop_ - 16);
 
-    commandLine_ = arena_->alloc(64);
-    cpu.writeString(commandLine_, "stvoy.exe", 64);
+    commandLine_ = arena_->alloc(uint32_t(exeName_.size()) + 1);
+    cpu.writeString(commandLine_, exeName_, uint32_t(exeName_.size()) + 1);
     environment_ = arena_->alloc(16); // empty: two NULs
     environmentW_ = arena_->alloc(16);
     addStandIns();
@@ -362,7 +362,7 @@ void Win32Process::addStandIns() {
         return c.arg(0) ? moduleHandle(c.string(c.arg(0))) : kExeHandle;
     });
     stdcall(k, "GetModuleFileNameA", 3, [this](Cpu& c) {
-        std::string name = "stvoy.exe";
+        std::string name = exeName_;
         for (const auto& m : modules_)
             if (m->base == c.arg(0))
                 name = m->name;

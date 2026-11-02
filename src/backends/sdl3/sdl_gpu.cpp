@@ -8,10 +8,13 @@
 #include <cstddef>
 #include <cstring>
 #include <string>
+#include <vector>
 
 namespace reluva {
 
 namespace {
+
+constexpr uint8_t kStencilMarks = 3; // the stencil reference: a mirror's mark (1) and the sky's (2)
 
 Error sdlError(const char* what) { return Error::fail(std::string(what) + ": " + SDL_GetError()); }
 
@@ -29,6 +32,7 @@ struct VertexUniforms {
     float color[4];
     float mode[4];
     float mode2[4];
+    float fogPlane[4];
     float ambient[4], directed[4], lightDir[4];
     DeformUniforms deforms[2];
 };
@@ -288,7 +292,7 @@ void SdlGpuRenderer::clearDepth() {
     if (pass_ && viewport_.w > 0 && viewport_.h > 0)
         SDL_SetGPUViewport(pass_, &viewport_);
     if (pass_)
-        SDL_SetGPUStencilReference(pass_, 1);
+        SDL_SetGPUStencilReference(pass_, kStencilMarks); // both kinds of mark
 }
 
 void SdlGpuRenderer::setStencilMode(StencilMode mode) {
@@ -336,8 +340,7 @@ Error SdlGpuRenderer::createTexture(int width, int height, const uint8_t* rgba, 
     SDL_GPUTextureCreateInfo ci{};
     ci.type = SDL_GPU_TEXTURETYPE_2D;
     ci.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
-    // Generating mipmaps renders into the texture.
-    ci.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | (levels > 1 ? SDL_GPU_TEXTUREUSAGE_COLOR_TARGET : 0);
+    ci.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
     ci.width = uint32_t(width);
     ci.height = uint32_t(height);
     ci.layer_count_or_depth = 1;
@@ -346,34 +349,65 @@ Error SdlGpuRenderer::createTexture(int width, int height, const uint8_t* rgba, 
     if (!tex)
         return sdlError("Cannot create a texture");
 
-    const uint32_t size = uint32_t(width) * uint32_t(height) * 4;
+    // Every level made here, each pixel the average of the 2x2 above it
+    // (a lone row or column halves along the other side only), and all
+    // uploaded: a level left to the GPU to fill may keep whatever the
+    // memory held before.
+    struct Level {
+        int w, h;
+        uint32_t offset;
+    };
+    std::vector<Level> chain;
+    uint32_t size = 0;
+    for (int l = 0, w = width, h = height; l < levels; ++l, w = std::max(w / 2, 1), h = std::max(h / 2, 1)) {
+        chain.push_back({w, h, size});
+        size += uint32_t(w) * uint32_t(h) * 4;
+    }
     SDL_GPUTransferBufferCreateInfo ti{};
     ti.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
     ti.size = size;
     SDL_GPUTransferBuffer* tb = SDL_CreateGPUTransferBuffer(device_, &ti);
-    void* mapped = tb ? SDL_MapGPUTransferBuffer(device_, tb, false) : nullptr;
+    auto* mapped = static_cast<uint8_t*>(tb ? SDL_MapGPUTransferBuffer(device_, tb, false) : nullptr);
     if (!mapped) {
         if (tb)
             SDL_ReleaseGPUTransferBuffer(device_, tb);
         SDL_ReleaseGPUTexture(device_, tex);
         return sdlError("Cannot upload a texture");
     }
-    std::memcpy(mapped, rgba, size);
+    std::memcpy(mapped, rgba, size_t(width) * size_t(height) * 4);
+    for (size_t l = 1; l < chain.size(); ++l) {
+        const Level& up = chain[l - 1];
+        const Level& lv = chain[l];
+        const uint8_t* in = mapped + up.offset;
+        uint8_t* px = mapped + lv.offset;
+        const int sx = up.w > 1 ? 2 : 1, sy = up.h > 1 ? 2 : 1, n = sx * sy;
+        for (int y = 0; y < lv.h; ++y)
+            for (int x = 0; x < lv.w; ++x)
+                for (int c = 0; c < 4; ++c) {
+                    int sum = 0;
+                    for (int dy = 0; dy < sy; ++dy)
+                        for (int dx = 0; dx < sx; ++dx)
+                            sum += in[((y * sy + dy) * up.w + x * sx + dx) * 4 + c];
+                    px[(y * lv.w + x) * 4 + c] = uint8_t((sum + n / 2) / n);
+                }
+    }
     SDL_UnmapGPUTransferBuffer(device_, tb);
 
     SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device_);
     SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
-    SDL_GPUTextureTransferInfo src{};
-    src.transfer_buffer = tb;
-    SDL_GPUTextureRegion dst{};
-    dst.texture = tex;
-    dst.w = uint32_t(width);
-    dst.h = uint32_t(height);
-    dst.d = 1;
-    SDL_UploadToGPUTexture(copy, &src, &dst, false);
+    for (size_t l = 0; l < chain.size(); ++l) {
+        SDL_GPUTextureTransferInfo src{};
+        src.transfer_buffer = tb;
+        src.offset = chain[l].offset;
+        SDL_GPUTextureRegion dst{};
+        dst.texture = tex;
+        dst.mip_level = uint32_t(l);
+        dst.w = uint32_t(chain[l].w);
+        dst.h = uint32_t(chain[l].h);
+        dst.d = 1;
+        SDL_UploadToGPUTexture(copy, &src, &dst, false);
+    }
     SDL_EndGPUCopyPass(copy);
-    if (levels > 1)
-        SDL_GenerateMipmapsForGPUTexture(cmd, tex);
     SDL_SubmitGPUCommandBuffer(cmd);
     SDL_ReleaseGPUTransferBuffer(device_, tb);
 
@@ -497,7 +531,7 @@ void SdlGpuRenderer::destroyMesh(gfx::MeshId id) {
 }
 
 SDL_GPUGraphicsPipeline* SdlGpuRenderer::pipeline(const gfx::DrawState& state) {
-    const uint32_t key = packState(state) | uint32_t(stencilMode_) << 14 | uint32_t(mirrored_) << 16;
+    const uint32_t key = packState(state) | uint32_t(stencilMode_) << 14 | uint32_t(mirrored_) << 17;
     if (auto it = pipelines_.find(key); it != pipelines_.end())
         return it->second;
 
@@ -551,13 +585,17 @@ SDL_GPUGraphicsPipeline* SdlGpuRenderer::pipeline(const gfx::DrawState& state) {
     info.depth_stencil_state.compare_op = state.depthEqual ? SDL_GPU_COMPAREOP_EQUAL : SDL_GPU_COMPAREOP_LESS_OR_EQUAL;
     if (stencilMode_ != StencilMode::None) {
         // Mark: 1 wherever drawn; Inside: drawn only where it's 1.
+        // Mirrors' and portals' marks are the stencil's bit 1, the sky's
+        // bit 2: the reference has both, each mode masks its own.
+        const bool mark = stencilMode_ == StencilMode::Mark || stencilMode_ == StencilMode::SkyMark;
+        const bool sky = stencilMode_ == StencilMode::SkyMark || stencilMode_ == StencilMode::SkyInside;
         SDL_GPUStencilOpState op{};
         op.fail_op = op.depth_fail_op = SDL_GPU_STENCILOP_KEEP;
-        op.pass_op = stencilMode_ == StencilMode::Mark ? SDL_GPU_STENCILOP_REPLACE : SDL_GPU_STENCILOP_KEEP;
-        op.compare_op = stencilMode_ == StencilMode::Mark ? SDL_GPU_COMPAREOP_ALWAYS : SDL_GPU_COMPAREOP_EQUAL;
+        op.pass_op = mark ? SDL_GPU_STENCILOP_REPLACE : SDL_GPU_STENCILOP_KEEP;
+        op.compare_op = mark ? SDL_GPU_COMPAREOP_ALWAYS : SDL_GPU_COMPAREOP_EQUAL;
         info.depth_stencil_state.enable_stencil_test = true;
         info.depth_stencil_state.front_stencil_state = info.depth_stencil_state.back_stencil_state = op;
-        info.depth_stencil_state.compare_mask = info.depth_stencil_state.write_mask = 0xff;
+        info.depth_stencil_state.compare_mask = info.depth_stencil_state.write_mask = sky ? 2 : 1;
     }
     info.target_info.color_target_descriptions = &target;
     info.target_info.num_color_targets = 1;
@@ -598,7 +636,7 @@ void SdlGpuRenderer::beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3& eye,
     mirrored_ = false;
     pass_ = SDL_BeginGPURenderPass(cmd_, &color, 1, &depth);
     if (pass_)
-        SDL_SetGPUStencilReference(pass_, 1);
+        SDL_SetGPUStencilReference(pass_, kStencilMarks); // both kinds of mark
 }
 
 void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
@@ -660,6 +698,8 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     vu.mode[3] = call.fogDistance;
     vu.mode2[0] = call.followCamera ? 1.0f : 0.0f;
     vu.mode2[1] = call.backLerp;
+    vu.mode2[2] = call.fogDepth;
+    put(vu.fogPlane, call.fogPlane);
     for (size_t i = 0; i < call.deforms.size(); ++i) {
         const gfx::Deform& d = call.deforms[i];
         DeformUniforms& u = vu.deforms[i];
@@ -681,6 +721,7 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     SDL_PushGPUVertexUniformData(cmd_, 0, &vu, sizeof(vu));
     FragmentUniforms fu{};
     fu.params[0] = float(call.state.alphaTest);
+    fu.params[3] = call.fogDepth > 0 ? 1.0f : 0.0f;
     if (call.texture == frameTexture_) {
         fu.params[1] = 2; // the brightness pass
         fu.params[2] = 1.0f / gamma_;

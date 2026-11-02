@@ -85,13 +85,13 @@ void Cpu::fpuCompare(double a, double b, bool setEflags, bool) {
     else if (a == b)
         c = C3;
     if (setEflags) {
-        eflags &= ~(ZF | PF | CF | OF | SF | AF);
+        flagsRef() &= ~(ZF | PF | CF | OF | SF | AF);
         if (c & C3)
-            eflags |= ZF;
+            flagsRef() |= ZF;
         if (c & C2)
-            eflags |= PF;
+            flagsRef() |= PF;
         if (c & C0)
-            eflags |= CF;
+            flagsRef() |= CF;
     } else {
         fpu.status = uint16_t((fpu.status & ~(C3 | C2 | C1 | C0)) | c);
     }
@@ -401,10 +401,10 @@ void Cpu::x87(uint8_t op) {
         break;
     case 0xda:
         switch (r) {
-        case 0: fcmov(eflags & CF); return;
-        case 1: fcmov(eflags & ZF); return;
-        case 2: fcmov(eflags & (CF | ZF)); return;
-        case 3: fcmov(eflags & PF); return;
+        case 0: fcmov(flagsRef() & CF); return;
+        case 1: fcmov(flagsRef() & ZF); return;
+        case 2: fcmov(flagsRef() & (CF | ZF)); return;
+        case 3: fcmov(flagsRef() & PF); return;
         case 5:
             if (i == 1) { // FUCOMPP
                 fpuCompare(st(0), st(1), false, true);
@@ -417,10 +417,10 @@ void Cpu::x87(uint8_t op) {
         break;
     case 0xdb:
         switch (r) {
-        case 0: fcmov(!(eflags & CF)); return;
-        case 1: fcmov(!(eflags & ZF)); return;
-        case 2: fcmov(!(eflags & (CF | ZF))); return;
-        case 3: fcmov(!(eflags & PF)); return;
+        case 0: fcmov(!(flagsRef() & CF)); return;
+        case 1: fcmov(!(flagsRef() & ZF)); return;
+        case 2: fcmov(!(flagsRef() & (CF | ZF))); return;
+        case 3: fcmov(!(flagsRef() & PF)); return;
         case 4:
             if (modrm == 0xe2) { // FNCLEX
                 fpu.status &= 0x7f00;

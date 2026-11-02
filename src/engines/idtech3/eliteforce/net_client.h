@@ -41,6 +41,14 @@ public:
     // qport and challenge are added.
     NetClient(std::unique_ptr<reluva::net::UdpSocket> socket, const reluva::net::Address& server,
               std::string userinfo, uint16_t qport);
+    // Playing a recorded match instead (a .efdemo file, as the original's
+    // client writes it: each message the server sent, after its sequence
+    // number and length, ending with -1 -1). Nothing is sent; the
+    // messages are taken in as the time shown reaches them, and the
+    // state goes to Disconnected at the end.
+    explicit NetClient(std::vector<uint8_t> demo);
+    bool playingDemo() const { return demo_; }
+    bool demoFinished() const { return demo_ && state_ == State::Disconnected; }
 
     // Reads what has come and sends what's due; `now` in ms.
     void frame(uint64_t now);
@@ -106,6 +114,8 @@ private:
     void sendText(const std::string& text);
     void outOfBand(const std::string& text, uint64_t now);
     void parseMessage(wire::MessageReader& r, uint64_t now);
+    void readDemo(uint64_t now);
+    bool readDemoMessage(uint64_t now);
     void parseGamestate(wire::MessageReader& r);
     void parseSnapshot(wire::MessageReader& r, uint64_t now);
     void parseDownload(wire::MessageReader& r, uint64_t now);
@@ -127,6 +137,11 @@ private:
     int connectPackets_ = 0;
     int32_t challenge_ = 0;
     wire::Netchan chan_;
+    int32_t incoming_ = 0; // the sequence of the message being read
+    // A demo being played, and how far.
+    bool demo_ = false;
+    std::vector<uint8_t> demoData_;
+    size_t demoAt_ = 0;
 
     // From the server.
     std::map<int32_t, std::string> configstrings_;

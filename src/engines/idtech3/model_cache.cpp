@@ -164,6 +164,17 @@ int ModelCache::add(const std::string& path, const std::vector<uint8_t>& data, i
 
 int ModelCache::surfaceMaterial(int id, size_t i, const Skin* skin, const std::string& shader) {
     Loaded& m = models_[size_t(id)];
+    std::vector<int>& chosen = m.chosen[{skin, shader}];
+    if (chosen.empty()) {
+        chosen.resize(m.surfaces.size());
+        for (size_t k = 0; k < chosen.size(); ++k)
+            chosen[k] = chooseMaterial(id, k, skin, shader);
+    }
+    return chosen[i];
+}
+
+int ModelCache::chooseMaterial(int id, size_t i, const Skin* skin, const std::string& shader) {
+    Loaded& m = models_[size_t(id)];
     int material = shader.empty() ? -1 : shaders_.material(shader, Lighting::Diffuse);
     if (material < 0 && skin)
         if (auto it = skin->find(fs::toLower(m.md3.surfaces[i].name)); it != skin->end())

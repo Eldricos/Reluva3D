@@ -45,8 +45,9 @@ class Win32Process {
 public:
     static constexpr uint32_t kStackSize = 4u << 20;
 
-    // `cpu`'s memory, all of it the process's.
-    explicit Win32Process(Cpu& cpu);
+    // `cpu`'s memory, all of it the process's; `exeName` is the program
+    // the DLLs are told loaded them (its command line and module name).
+    explicit Win32Process(Cpu& cpu, std::string exeName = "host.exe");
     Cpu& cpu() { return cpu_; }
     Arena& memory() { return *arena_; }
 
@@ -91,6 +92,7 @@ private:
     std::map<std::string, uint32_t> provided_;
     std::vector<std::string> missing_;
     uint32_t stackTop_ = 0, tib_ = 0, peb_ = 0;
+    std::string exeName_;
     uint32_t commandLine_ = 0, environment_ = 0, environmentW_ = 0;
     uint32_t lastError_ = 0;
     uint32_t heapHandle_ = 0x7ffe0000; // HeapCreate's handles: never dereferenced
