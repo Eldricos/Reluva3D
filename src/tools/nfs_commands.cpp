@@ -70,6 +70,7 @@ const char* const kUsageLines =
     "  reluva-tool mad-wav <file.mad> <out.wav>\n"
     "  reluva-tool nfs-host <game folder> [-args \"nfs3.exe\"] [-renderer softtria.dll] [-limit N] [-log N] [-save dir]\n"
     "                       [-frames dir] [-every N] [-framesfrom N] [-watch address]... [-watchlimit 50] [-watchmem address size]\n"
+    "                       [-watchread address | reg+offset]... (dwords printed at each -watch stop)\n"
     "                       [-slice instructions] [-dump memory.bin] [-keys ms:key,...]\n"
     "                       [-poke WHEN:ADDR:VALUE[:SIZE]]... [-pokeevery ...]... [-dumpmem WHEN:ADDR:SIZE:file]...\n"
     "                       (WHEN ms=N or at=ADDR[#N]; VALUE a number, size 1/2/4, or bytes=0a0b...)\n"
@@ -1001,6 +1002,7 @@ int cmdNfsHost(int argc, char** argv) {
     int traceCount = 0, every = 50; // traceCount: the last instructions kept, for a failure (0: none)
     std::vector<uint32_t> watch; // addresses at which to print the registers
     int watchLimit = 50;         // how many times, at most
+    std::vector<std::pair<int, uint32_t>> watchReads; // dwords printed at each watch: register (-1 none) + offset
     std::string dumpFile;        // the emulated memory, written at the end
     uint32_t slice = 0;          // instructions between thread changes (0: the default)
     uint32_t watchMem = 0, watchMemSize = 0; // memory whose stores are printed
@@ -1034,6 +1036,21 @@ int cmdNfsHost(int argc, char** argv) {
             watchLimit = std::atoi(argv[++a]);
         else if (arg == "-watch" && a + 1 < argc)
             watch.push_back(uint32_t(std::strtoul(argv[++a], nullptr, 0)));
+        else if (arg == "-watchread" && a + 1 < argc) { // ADDR, or reg+OFF / reg-OFF (eax ... edi)
+            const std::string spec = lowerAscii(argv[++a]);
+            static const char* const kRegs[8] = {"eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi"};
+            int r = -1;
+            for (int i = 0; i < 8; ++i)
+                if (spec.rfind(kRegs[i], 0) == 0)
+                    r = i;
+            uint32_t off = 0;
+            if (r < 0)
+                off = uint32_t(std::strtoul(spec.c_str(), nullptr, 0));
+            else if (spec.size() > 4)
+                off = spec[3] == '-' ? 0u - uint32_t(std::strtoul(spec.c_str() + 4, nullptr, 0))
+                                     : uint32_t(std::strtoul(spec.c_str() + 4, nullptr, 0));
+            watchReads.push_back({r, off});
+        }
         else if (arg == "-thrashlog" && a + 2 < argc) {
             options.thrashLogFrom = std::strtoull(argv[++a], nullptr, 0);
             options.thrashLogTo = std::strtoull(argv[++a], nullptr, 0);
@@ -1248,6 +1265,16 @@ int cmdNfsHost(int argc, char** argv) {
                             " ms %llu\n",
                             c.eip, c.reg[0], c.reg[1], c.reg[2], c.reg[3], c.reg[4], c.reg[5], c.reg[6], c.reg[7],
                             c.valid(c.reg[4], 4) ? c.read32(c.reg[4]) : 0u, (unsigned long long)host.process().now());
+                if (!watchReads.empty()) {
+                    std::string line = "   read";
+                    for (const auto& [r, off] : watchReads) {
+                        const uint32_t at = (r < 0 ? 0u : c.reg[r]) + off;
+                        char item[32];
+                        std::snprintf(item, sizeof item, " %08x", c.valid(at, 4) ? c.read32(at) : 0u);
+                        line += item;
+                    }
+                    std::printf("%s\n", line.c_str());
+                }
             }
         };
     if (!pokes.empty()) {

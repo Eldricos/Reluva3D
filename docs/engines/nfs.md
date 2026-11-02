@@ -653,6 +653,10 @@ Started. Done so far:
         their fades and the special sounds (-2, -3 on slot 19) are in
         [bnk.md](../formats/nfs/bnk.md) (The moving objects' sounds).
         Slots 18 and 19 are the `.frd` placed sounds (`0x41d210`).
+        Both kinds of special play in runs where the computer drives
+        the player's car (`sn-m1`, `sn-a1`; bnk.md). `-watchread ADDR`
+        or `-watchread reg+off` (as many as wanted) prints those dwords
+        at each `-watch` stop.
       - **Slots 22-25 (0x16-0x19), the other cars' skids**: 201
         updates, 147 behind. Each car's sound list (car +0x7DC, up to 8
         of 0x18 bytes, `0x4284e0`) gets category 6 from `0x429f10`:
@@ -1326,13 +1330,18 @@ README.md.
   look could name it ([col.md](../formats/nfs/col.md)).
 - How a real Pro Logic decoder of the time (with its surround delay
   and 7 kHz low-pass) would place the voices behind; only the matrix's
-  sums are measured. The moving objects' fades and special sounds
-  (-2, -3) are read from the code only; Summit's, Aquatica's and
-  Redrock's specials weren't heard in a run, nor in footage of the
-  original, where no moving object's sound stands out of the noise
-  (November 2026, [bnk.md](../formats/nfs/bnk.md), Seen in footage).
+  sums are measured. The moving objects' specials play in runs
+  (Summit's −3, Aquatica's −2), but no moving object's sound stands out
+  of the engines, in the recordings or in footage of the original; the
+  fades (Empire City) and Redrock's −2 row weren't run
+  ([bnk.md](../formats/nfs/bnk.md), The moving objects' sounds).
   Hometown's loop and Summit's −3 row have no sound at night or in the
-  wet (their banks lack sounds 31 and 0).
+  wet (their banks lack sounds 31 and 0); what the game does then
+  wasn't followed. The music's place bonus for 2nd and 3rd, its
+  one-racer tables and 8-lap races weren't run, nor what picks a
+  track's rock or tech stream ([mus.md](../formats/nfs/mus.md)) The MMX mixer is compared
+  with the float one from its transcription only: the interpreter has
+  no MMX ([bnk.md](../formats/nfs/bnk.md)).
 - The car handling in full: the tyre model, steering and gear changes,
   landing, and the computer cars' simpler model. The race types, the
   network kinds, `carp.txt`'s place in memory, the engine and the car

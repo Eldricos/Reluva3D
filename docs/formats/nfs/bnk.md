@@ -310,6 +310,31 @@ result, MMX at L = 127 differs by RMS 78 steps (max 255), nearly all
 the 127/128 gain (−42 dB); with the gain taken out, by a mean of −1.0
 and RMS 1.15 steps (max 2), at L = 64 −0.75 and 0.93.
 
+**Not run on the interpreter** (November 2026). Reluva's x86 core has no
+MMX: it decodes none of the instructions these routines use (`movd`,
+`movq`, `punpcklbw`, `punpcklwd`, `punpckhwd`, `pmulhw`, `pmaddwd`,
+`paddsw`, `paddw`, `packssdw`, `packsswb`, `psrad`, `psrld`, `psrlw`,
+`psllq`, `por`, `pxor`), and its CPUID reports none. Reporting MMX
+would send iSND into code the interpreter cannot run. So the comparison
+stays numerical, from the transcription, which was checked against the
+disassembly again (`0x51f774`, `0x52092d`). Extended to mixes, with the
+Corvette's `car.bnk` 0 and 1 and `Gen.bnk` 29, 32 and 41 (a scratch
+script, not in the repo):
+- **Rounding adds up.** With the gain taken out, 1, 2, 3 and 5 voices at
+  L = 32 differ from the float mix by a mean of −0.8, −1.8, −2.6 and
+  −4.4 steps (RMS 1.1, 2.0, 2.8, 4.6): about −0.9 a voice. One voice at
+  L from −19 to 127 gives −0.75 to −1.0.
+- **Clipping at the end** is the same: 2 to 5 voices at 127 clip 11-53%
+  of their samples in both, within 1% of each other, and differ by RMS
+  96-134 steps, the 127/128 gain again.
+- **The bus.** One voice can't saturate it (at most 32,767 × 127 / 256,
+  16,256). Two loud voices of one sign can. Three copies of a voice
+  made loud (× 4), then two of it negated: the float mix gives the
+  voice, clipped; the MMX bus stops at 32,767 after the first two
+  copies and the two negated ones take it to about 0, RMS 24,700 steps
+  apart. In the other order the two agree (RMS 211, the gain). So only
+  then does the order of the voices matter, and only with MMX.
+
 **Unread voice fields** (`0x00`, `0x08`). The voices are one static
 array, 16 of 0x60 bytes at `0xa09b3c`, and voice pointers are only ever
 made as `0xa09b3c` + n × 0x60. A search of the whole of `nfs3.exe` for
@@ -362,18 +387,48 @@ range-6 sound at bend 77, 78 and 74 was at 121, 131 and 93 cents.
 
 bend = min(100, 127 × rpm / (redline + 1000) × Doppler),
 
-the redline from its `carp.txt` ("engine redline in rpm"). The 1000 is
-2000 for cars whose driver record (+0x220) has a flag other than 1 (the
-player's car had 1000), and 500 comes off while the car's field at
-+0x164, its gear by the look of it, is above 5. The Doppler factor
-(`0x4124d0`, 16.16) is 1 for the player's own car: the idle figures below
-match with it so.
+and at least 0, the redline from its `carp.txt` ("engine redline in
+rpm"). The raw value is worked out at `0x4119bb`; the Doppler factor
+multiplies it and the cap is applied after, at `0x41749e`. The 1000 is
+the gearbox: the car's set-up record (car +0x220; player 1's is
+`0x6fd52c`) has +0x1C 1 for the automatic (`0x6fd548`), and with the
+manual it is 2000. 500 comes off while the car's +0x164 is above 5:
+that is the time in the air ([physics.md](physics.md)), not the gear.
+The Doppler factor (`0x4124d0`, 16.16) is 1 for the player's own car:
+the idle figures below match with it so.
 So a Corvette (root key 74, fine tune 28, range 15, redline 6000) idling
 at 900 rpm is at bend 16, −2497 cents: what a memory dump of a race
-showed for its engine voice. At the redline the bend reaches 100. Other
+showed for its engine voice. Other
 sounds use the bend too: the track's sound sources (Hometown's biplane)
 are bent by their Doppler shift alone, from 78 as they come to 54 as
 they go.
+
+**The cap holds in play** (November 2026). Logged with `-watch 0x4119af`
+(the rpm, the divisor) and `-watch 0x4174b5` (the bend that is set,
+`-watchread ebp-8`), a Corvette on Hometown, the player's engine at 32
+Hz:
+- Automatic (`sn-p2`, gas held from the grid, 70 seconds): all 2,213
+  updates fit the formula exactly. Revving on the grid, in neutral, the
+  rpm goes to the redline (6,000), the raw value to 108 and the bend
+  stays at 100. In first the bend holds at 100 down to 5,513 rpm, and in
+  the air (+0x164 6 and 10) the divisor is 6,500 and the rpm reaches
+  6,250 (raw 122). 459 of 2,192 updates after the gas went on were
+  capped, most of them on the grid.
+- Manual (`sn-p1`, `0x6fd548` poked to 0): the divisor is 8,000. The
+  rpm stops at the redline, so the bend tops out at 95 and the cap is
+  never reached (2,532 updates).
+
+So with the automatic the pitch stops rising at 5,512 rpm (the
+Corvette's) while the revs go on to the redline: at 6,000 rpm it is 8
+bends, 188 cents, under the uncapped value. The automatic changes up at R − R/8 (5,250 rpm),
+so in a race the cap shows on the grid, in the air and in top gear.
+
+Footage agrees. `Summit_Night` (the DB7, range 14, automatic) revs on
+the grid at 0:17.2-0:21.7: its brightest partial holds at 328-331 Hz.
+Before the changes up it holds at 305-308 Hz (Seen in footage, below):
+bend 95, at the first tick past 5,250. The cap gives 5 bends more, 109
+cents, 327 Hz. Without it the bend would be 108, 361 Hz; a pitch in
+proportion to the revs, 350 Hz.
 
 Which sounds use which coding:
 
@@ -507,6 +562,30 @@ day does Hometown's loop or Summit's −3 row have a sound to play (read
 from the banks; what the game does with a missing sound wasn't
 followed).
 
+**Checked in runs** (November 2026). In these runs the computer drove
+the player's car, so it went round the whole track: the car's task
+slots were poked once they were filled (`-poke at=0x42c4c4#1`: car
++0x600 `0x409c00`, +0x608 `0x4088f0`, +0x614 `0x4a2f10`, as
+`0x42c400` sets them for a computer car). Logged with `-watch` at
+`0x4113d7` (the main play: slot in eax, sound in edx, volume at
+[esp]), `0x411286` and `0x4112d7` (the specials):
+- **Summit** by day (`sn-m1`, 4 laps, 800 s, stereo): slot 21 played
+  sound 0, 713 updates, the volume up to 113, from 232.8 s (the end of
+  the first lap) each lap. Only slot 21: the two objects were never in
+  reach together. The −3 row started sound 0 on slot 19 nine times:
+  234.6 s, then 244.6, 246.6 and 248.6 s (2 s apart, 128 ticks), then
+  496.2 and 518.0, 753.5, 755.6 and 773.5. Its volume is the main
+  sound's at that moment (24 to 98).
+- **Aquatica** by day (`sn-a1`, 300 s): slot 21 played sound 13 (object
+  1) from 152.2 s, 178 updates, and sound 6 (object 0) from 179.0 s,
+  1,025, both up to 121-122. The −2 row started sound 7 on slot 19
+  once, at 181.3 s, at volume 43.
+
+Redrock Ridge's and Lost Canyons' −2 row wasn't run; it is the same
+code as Aquatica's. Neither special stands out in the recordings: sound
+7 against `sn-a1`'s sound at 181.3 s correlates 0.13, no better than
+elsewhere (0.15). The engines cover it, as in the footage (below).
+
 ## Seen in footage (November 2026)
 
 From 18 YouTube recordings of the original game (`Hometown_Day` and so
@@ -538,6 +617,9 @@ fall at each change; the brightest goes 161 to 305 Hz in first
   with wheelspin. If the brightest partial is the 8th of sound 0's
   43.07 Hz cycle, the formula puts the revs 200-400 below the tach's
   reading, within what the tach can be read to.
+- **The grid.** Revving before the start (0:17.2-0:21.7) the partial
+  holds at 328-331 Hz, where the cap puts it (above, The cap holds in
+  play).
 
 **Wall hits and skids.** Not settled. The `Gen.bnk` hits (29-37) and
 skids (41-47) give no clear match in the races: most peaks are in the
@@ -547,7 +629,8 @@ sliding into a snow bank: slot 30 at −280 cents (correlation 0.46 over
 0.4 s), where a code-5 bank should give slot 29
 ([col.md](col.md)). One match isn't enough to say which.
 
-**The moving objects.** None heard. Sounds 6, 7 and 8 (`Redrock_Ridge`,
+**The moving objects.** None heard, though they play (runs above, The
+moving objects' sounds). Sounds 6, 7 and 8 (`Redrock_Ridge`,
 `Lost_Canyons`), 6, 7 and 13 (`Aquatica`), 0 (`Summit_Day`), 3 and 6
 (`Empire_City`) and 31 (`Hometown_Day`) give no peak above the clips'
 noise at ±200 cents. That fits Reluva's own Hometown run, where the

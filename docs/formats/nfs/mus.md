@@ -120,8 +120,11 @@ game's calls to it (`0x4131xx`-`0x4136c6`, `0x418990`):
     When the pursuit ends ("Back to Normal") the game sends the zone
     again.
   - **0, at once** (`SNDpatheventinterrupt`): when the car's reset
-    timer passes 600 ticks, and from `0x418c60`. The zone follows as
-    an ordinary event.
+    timer (car +0x8A0) passes 600 ticks (`0x413553`), and from
+    `0x418c60`. That one is called when a cop's stop begins
+    (`0x401e40` → `0x401580` → `0x412880` → `0x4c8b30`) and after a
+    hit's sound louder than 125 that isn't a skid (`0x411b06`). The
+    zone follows as an ordinary event.
   - **2 and 3 are never sent by the game's own code.** The only calls
     to `SNDpathevent` and `SNDpatheventinterrupt` are at `0x41356e`,
     `0x41358e`, `0x4136c6`, `0x418a37`, `0x418aac`, `0x418b2e`,
@@ -187,6 +190,40 @@ of its copy of the stream, `C:\GameData\temp.mus`, in a scripted race on
 So byte 5 is the start section: the Music page starts there. The car
 standing still kept the control value at 0, as the game's rules above
 say.
+
+**Checked in runs** (November 2026). Logged with `-watch` at
+`SNDpathevent`, `SNDpatheventinterrupt`, `SNDpathcontrol` and
+`0x4e6c87` (a section queued; the section is the word at `0x5645c4`),
+each with the music's lap (`0x552860`), the car's lap (car +0x204),
+its place (+0x2BC) and speed (+0x4F4), by `-watchread`. A section is
+queued as the one before it starts, so it plays a section later.
+- **Event 0** (`sn-h1`, Hometown, `hometech`): the reset timer poked
+  past 600 just before it is read (`-poke at=0x41354a#700`). At 62.75 s
+  the game sent interrupt 0 and then zone 4 as an event. From section
+  23 (part 2) the music went at once to section 115, `events[2][0]`
+  (part 11, 3 s), and after it to 16, part 11's event 4. So event 0
+  jumps to its own section and the zone takes the music back.
+- **The routes** (`sn-m1`, Summit by day, 4 laps, 7 computer racers,
+  the player's car driven by the computer, 800 s): 313 sections. 301
+  follow a route, each the route whose range holds the control value
+  then; the other 12 are the zones' events (5, 8, 9, 4 each lap) and
+  one at the start.
+- **The control value by lap** (`sn-m1`; the race ended in its third
+  lap): on lap 0 of the 4-lap race it was 0 the whole lap (no call was
+  needed), in 6th to 8th place. On laps 1 and 2 it was 50, falling to 0
+  each time the speed went under 25 m/s and back at 25. The music's lap
+  went up 33 s before the line, at Summit's zones 9 to 4 (291.0 s; the
+  car's lap at 324.4 s), as [tracks.md](tracks.md) says.
+- **The 2-lap rule** (`sn-h1`, a 2-lap race): 50 on lap 0, in 8th
+  place.
+- **Leading** (`sn-h2`, 4 laps, the car's lap poked to 1 and then 3):
+  the poke put the car first in the race order (place 1), and the value
+  went to 100 on lap 1 (50 + 100, at most 100) and 100 on lap 3.
+
+Not run: the place bonus for 2nd and 3rd, the one-racer tables, and
+8-lap races. In `sn-m1` Summit by day played `alpitech`, where the
+footage's `Summit_Day` plays `alpirock`: the pick changes from race to
+race.
 
 ## Seen in footage (November 2026)
 
@@ -268,9 +305,11 @@ comes back after: `Hometown_Night` pursuit at 0:43.4, 2:27.0 and
 3:53.4, back to zone 5 at 1:20.1; `Summit_Night` from about 1:50, at
 4:35.5, 5:40.8, 6:07.2 and 9:27.2.
 
-Not settled by the footage: event 0 (two candidates, `Atlantica_Night`
-0:56.9 and `Aquatica_Day` 4:31.4, unconfirmed), and the races of other
-lengths (the lap tables).
+**Event 0.** Both candidates fit what sends it: at `Aquatica_Day`
+4:31.4 a cop stops the player ("TICKETED" on screen by 4:31.5), and
+at `Atlantica_Night` 0:56.9 the player, a cop, is closing on Ram Rod,
+which slows by the wall (0:56.5-1:00): the start of a stop, by the look
+of it. Neither car is reset there. The races of other lengths aren't in the footage (runs above).
 
 ## On the Music page
 
