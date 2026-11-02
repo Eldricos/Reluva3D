@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <utility>
 
 namespace reluva::awe {
 
@@ -741,8 +742,10 @@ void DialogueManager::lineEnd() {
         line_ = next;
         if (!povent_.idle())
             pending_ = 2;
+        else if (contains(part_->name, "_movie"))
+            startLine(); // no pause: at once (0x43c64d)
         else
-            pause_ = contains(part_->name, "_movie") ? 0 : kPause;
+            pause_ = kPause;
         return;
     }
     // The thread stops here.
@@ -812,8 +815,58 @@ void DialogueManager::leaveScene(const std::string& scene) {
 }
 
 void DialogueManager::update(float dt) {
-    if (!active_ && slide_ == 0)
+    // 0x43d430, called every frame whether a conversation is on or not
+    // (0x416d8f), in this order. The Povent runner first, and what waited
+    // on it once it's idle, in the same frame.
+    povent_.update(dt);
+    if (pending_ && povent_.idle()) {
+        const int p = std::exchange(pending_, 0);
+        if (p == 1) {
+            finishTalk();
+        } else if (p == 2) {
+            pause_ = kPause; // 0 only in the movie mode, which Reluva's movies don't use
+        } else if (p == 3 && part_) {
+            const int code = thread_ >= 0 ? part_->threads[size_t(thread_)].code : 0;
+            menu(code == kOpening || code == kRegreet, false);
+        }
+    }
+    if (!povent_.idle())
         return;
+    // The pause before the next line.
+    if (pause_ >= 0) {
+        pause_ -= dt;
+        if (pause_ <= 0) {
+            pause_ = -1;
+            if (part_)
+                startLine();
+        }
+        return;
+    }
+    if (!active_)
+        return;
+    // The line's Prevent, then the line once it's idle (0x43bd30): these
+    // go on while the box slides.
+    prevent_.update(dt);
+    if (!prevent_.idle())
+        return;
+    if (waitPrevent_) {
+        waitPrevent_ = false;
+        lineTime_ = 0;
+        speak();
+    }
+    // The line's events, its lip sync and its time.
+    events_.update(dt);
+    if (playing_) {
+        lineTime_ += dt;
+        if (voice_) {
+            const int level = host_.voiceLevel();
+            if (level != -1 && level != level_) {
+                host_.mouth(speaker_, level > 0);
+                level_ = level;
+            }
+        }
+    }
+    // The box sliding in or out: the line's end waits.
     const float top = float(768 - boxHeight_);
     if (slide_ == 1) {
         boxY_ = std::max(top, boxY_ - kBoxSpeed * dt);
@@ -830,45 +883,9 @@ void DialogueManager::update(float dt) {
         }
         return;
     }
-    prevent_.update(dt);
-    povent_.update(dt);
-    if (waitPrevent_) {
-        if (prevent_.idle()) {
-            waitPrevent_ = false;
-            speak();
-        }
-        return;
-    }
-    if (pending_ && povent_.idle()) {
-        const int p = pending_;
-        pending_ = 0;
-        if (p == 1)
-            finishTalk();
-        else if (p == 2)
-            pause_ = kPause;
-        else if (p == 3 && part_)
-            menu(false, false);
-        return;
-    }
-    if (pause_ >= 0) {
-        pause_ -= dt;
-        if (pause_ < 0 && part_)
-            startLine();
-        return;
-    }
-    if (playing_) {
-        events_.update(dt);
-        lineTime_ += dt;
-        if (voice_) {
-            const int level = host_.voiceLevel();
-            if (level != -1 && level != level_) {
-                host_.mouth(speaker_, level > 0);
-                level_ = level;
-            }
-        }
-        if (voice_ ? !host_.voicePlaying() : (textLeft_ -= dt) <= 0)
-            lineEnd();
-    }
+    // The line's end: its voice over, or its time without one.
+    if (playing_ && (voice_ ? !host_.voicePlaying() : (textLeft_ -= dt) <= 0))
+        lineEnd();
 }
 
 void DialogueManager::mouseMove(int x, int y) {

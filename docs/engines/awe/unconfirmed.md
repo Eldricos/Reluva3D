@@ -7,14 +7,6 @@ settled, move it to the format page it belongs to and take it off here.
 
 ## Read from the code, not watched
 
-- **The order of two dialogue updates within a frame.** The Povent runner
-  and the pending action (+0x320) are updated in a fixed order in the
-  frame's update, with no branch between them. A difference would last
-  one frame. Two breakpoints in the original (under Wine, or x64dbg on
-  Windows) would settle it; left until the other AWE games give a
-  reason to run the original under a debugger.
-  [dialogue.md](../../formats/awe/dialogue.md), section 9.10.
-
 - **A walk eases out the gesture under way.** The game's walk start
   (`0x441160`) calls `0x4048f0`, which eases every finite gesture out
   over 0.3 s, once the path is set; Reluva does the same, so no one
@@ -65,6 +57,12 @@ capture's video range read as full range. What's left after that:
 ## Settled since
 
 Moved to their format pages; kept here so the reasoning can be found:
+
+- **The order of the dialogue's updates within a frame:** read in full
+  from 0x43d430 (the Povent runner, then what waited on it in the same
+  frame, the pause, the Prevent, the line's events, the box's slide, the
+  line's end). Reluva's differed in four small ways and now follows it.
+  [dialogue.md](../../formats/awe/dialogue.md), section 9, item 10.
 
 - **A character's routine when its scene is shown again:** started
   afresh, as Reluva does. The game's switch-on at scene entry

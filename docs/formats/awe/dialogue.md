@@ -827,13 +827,40 @@ ends. Exits exist only with gen (NPC clicks or `forcegen`).
    0x43e9f0 copies what follows the last `\`: the scene file's name, its
    case kept. Tags are looked up without regard to case (0x47fa1b,
    `_wcsicmp`), so that comes to the same.
-10. The update order between the Povent runner and the pending action
-    (+0x320) within one frame is as read from the code (a fixed order in
-    the frame's update, no branch between them); it hasn't been watched
-    in the running game. A difference would last one frame, with nothing
-    to see, so it's left as read. If the other AWE games give a reason to
-    run the original under a debugger (Wine here, or x64dbg on Windows),
-    two breakpoints would settle it.
+10. ~~The update order between the Povent runner and the pending action
+    (+0x320)~~: read in full. 0x43d430 is called every frame, whether a
+    conversation is on or not (0x416d8f), and does, in this order:
+    1. The Povent runner (0x407a70 on +0x228).
+    2. If +0x320 is set and that runner is idle (+0x22c and its queue
+       +0x2c0 both 0), the action, then +0x320 = 0: 1 tells the `talk`
+       done (0x43b9b0); 2 sets the pause to 0.4 s (0 in movie mode, which
+       starts the next line at once, 0x43c070); 3 the menu (0x43b560,
+       its first argument 1 when the thread was the opening or the
+       regreet, codes 0x60 and 0x61).
+    3. While the Povent runner is busy, nothing more.
+    4. The pause (+0x6ec), outside movie mode: counted down, and at 0 the
+       next line (0x43c070); nothing more that frame.
+    5. Not active (+0x20): nothing more.
+    6. The line's Prevent runner (+0x38); while it's busy, nothing more.
+       Once idle, a line waiting on it (+0x322) starts: its time since
+       starting (+0x30) to 0, 0x43bd30 and 0x43c100.
+    7. The line's Event runner (+0x130), the lip sync (0x43d3c0), the
+       line's times (+0x2c, +0x30).
+    8. The box sliding (+0x54a), in or out: nothing more till it's done;
+       done sliding out, +0x20 = 0 and 0x43b8f0(0).
+    9. The line's end: its voice over (+0x528), or its timer (+0x28) out
+       without one (0x43c310).
+    10. In choice mode, the choice under the mouse (+0x1c).
+
+    So the action waited on happens in the frame the Povent runner
+    empties, and a line's Prevent and Event run while the box slides in.
+    Reluva had the action end the frame's update (so the pause began a
+    frame late), ran nothing while the box slid (so a line with a
+    Prevent waited for the box to be up, a third of a second), opened
+    the menu after a busy Povent without the opening's first-offer
+    flag, and was updated only while a conversation was active (so a
+    `talk` ended with its Povent runner still busy would never have
+    been told done). It now follows the order above.
 
 
 ## In Reluva

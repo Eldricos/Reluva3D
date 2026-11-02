@@ -1253,6 +1253,21 @@ void testDialogue() {
     CHECK(d.talk(runner, "dia_hub", 0, -1, -1, true, -1, true, true));
     run(1.0f);
     CHECK(d.line() && d.line()->text == "Was it a woman?");
+
+    // A line's Prevent runs while the box slides in (0x43d430 updates the
+    // Prevent runner before the slide): the line shows before the box is
+    // up.
+    DialogueManager pre(state, scripts, host);
+    pre.book().add(parseTable(
+        "Name\tAct\tConver.\tThread\tNest\tSpeaker\tTarget\tLine\tLine Translation\tCondition\tRepeat\tPrevent\t"
+        "Event\tPovent\tDuration\tOptional\tNotes\n"
+        "dia_pre\t0\ta\t1\ta\tpoirot\t0\tSoon.\t0\t0\t0\twait .1\t0\t0\t0\t0\t0\n"
+        "dia_pre\t0\ta\ta\ta\tantoinette\t0\tAnd?\t0\t0\t0\t0\t0\t0\t0\t0\t0\n"));
+    ScriptRunner other(state, talker);
+    CHECK(pre.talk(other, "dia_pre", 0, -1, -1, false, -1, true, true));
+    for (int i = 0; i < 4; i++)
+        pre.update(0.05f);
+    CHECK(pre.lineShown() && pre.boxTop() > 768 - 160);
 }
 
 } // namespace

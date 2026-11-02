@@ -1911,10 +1911,12 @@ void ScenePage::update(uint64_t nowMs) {
                 c.paused = false;
         resumeAfter_ = nullptr;
     }
-    if (dialogue_->active()) {
-        dialogue_->update(dt);
+    // Every frame (0x416d8f): a Povent left running after the talk is
+    // still run, and the talk then told done.
+    const bool talking = dialogue_->active();
+    dialogue_->update(dt);
+    if (talking)
         redraw = true; // the box moves, lines change
-    }
     bool changed = drawing_ && advanceLoops(time); // nothing to decode for a tool not drawing
     for (Character& c : characters_) {
         // Its routine, unless paused; its animations and any turn.
