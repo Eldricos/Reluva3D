@@ -61,6 +61,10 @@ public:
     virtual void setVideoMode(int width, int height, bool fullscreen) { (void)width, (void)height, (void)fullscreen; }
     // The window put away (minimised), for a game's own minimise button.
     virtual void minimizeWindow() {}
+    // Shakes the game controllers: the low (heavy) and high (light)
+    // motors, 0..1, for `ms` milliseconds (0 stops them). Nothing where
+    // there are none.
+    virtual void rumble(float low, float high, uint32_t ms) { (void)low, (void)high, (void)ms; }
 
     // --- Time ---------------------------------------------------------------
     virtual uint64_t getMillis() const = 0;

@@ -66,6 +66,7 @@
 #include "engines/age/hud_pictures.h"
 #include "engines/age/lang.h"
 #include "engines/age/lesson.h"
+#include "engines/age/pad_input.h"
 #include "engines/age/record.h"
 #include "engines/age/view_controls.h"
 #include "engines/age/engine_sound.h"
@@ -371,6 +372,7 @@ private:
     CameraFollow cameraPos_{};
     CameraBlend blend_;      // a change of camera, blended
     ViewControls view_;      // the game's view controls (Thrill Cam, looking round...)
+    PadDrive pad_;           // a game controller's sticks and triggers
     CdPlayer cd_;            // the CD player
     float airFor_ = 0;       // seconds the player's car has been off the ground
     bool airPlayed_ = false; // the big-air motif, this jump
@@ -526,6 +528,7 @@ private:
     CameraFollow cameraPos_{};
     CameraBlend blend_;      // a change of camera, blended
     ViewControls view_;      // the game's view controls (Thrill Cam, looking round...)
+    PadDrive pad_;           // a game controller's sticks and triggers
     CdPlayer cd_;            // the CD player
     float airFor_ = 0;       // seconds the player's car has been off the ground
     bool airPlayed_ = false; // the big-air motif, this jump

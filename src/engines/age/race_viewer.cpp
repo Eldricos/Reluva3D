@@ -559,8 +559,13 @@ void RaceViewer::stepRace(float dt) {
             if (r.player) {
                 // Driving on, unless finished (a cruise has no end, and the
                 // stunt ends once stopped).
-                c = r.next < targets_.size() || targets_.empty() || stunt() ? controlsOf(chatting_ ? 0 : keys_)
-                                                                            : CarControls{0, 1, 0, false};
+                if (r.next < targets_.size() || targets_.empty() || stunt()) {
+                    c = controlsOf(chatting_ ? 0 : keys_);
+                    if (!chatting_)
+                        pad_.apply(c);
+                } else {
+                    c = CarControls{0, 1, 0, false};
+                }
                 if (wear_.wrecked())
                     c.throttle = 0; // the engine's dead
                 c.shift = shift_;
@@ -603,6 +608,8 @@ void RaceViewer::stepRace(float dt) {
             sounds_.update(dt, sim, started && (keys_ & kDriveHorn));
             wear_.update(dt, *r.car, smoke_.get());
             impact = sim.impact;
+            if (const float shake = padRumble(impact); shake > 0 && currentOptions().forceFeedback && !replaying_)
+                ctx_.sys.rumble(shake, shake * 0.6f, 200); // a knock shakes the game controller
             sim.impact = 0;
             if (sim.position[1] < scene_->psdl().min[1] - 50) { // fallen out: back to the last checkpoint
                 sunkFor_ = 3;                                   // (deep water's the way out of the city)
@@ -799,6 +806,20 @@ void RaceViewer::judgeLesson(float dt, bool checkpoint, float impact) {
 void RaceViewer::handleEvent(const Event& ev) {
     if (!renderer_)
         return;
+    // A game controller: its sticks and triggers drive (not while a replay
+    // plays back its own), its buttons press keys.
+    if (ev.type == EventType::PadAxis) {
+        if (!replaying_)
+            pad_.axis(ev.pad, ev.value);
+        return;
+    }
+    if (ev.type == EventType::PadDown || ev.type == EventType::PadUp) {
+        const bool driving = state_ != State::Menu && !racers_.empty() && !paused_ && !results_ && !replaying_ &&
+                             !(game_ && game_->isOpen()) && !(help_ && help_->isOpen());
+        if (Event key; padKeyEvent(ev, driving, currentOptions(), key))
+            handleEvent(key);
+        return;
+    }
     if (help_ && help_->isOpen()) {
         help_->handle(ev);
         return;

@@ -329,6 +329,17 @@ void DriveViewer::resetCar() {
 void DriveViewer::handleEvent(const Event& ev) {
     if (!renderer_ || cars_.empty())
         return;
+    // A game controller: its sticks and triggers drive, its buttons press
+    // keys.
+    if (ev.type == EventType::PadAxis) {
+        pad_.axis(ev.pad, ev.value);
+        return;
+    }
+    if (ev.type == EventType::PadDown || ev.type == EventType::PadUp) {
+        if (Event key; padKeyEvent(ev, true, currentOptions(), key))
+            handleEvent(key);
+        return;
+    }
     if (ev.type == EventType::KeyDown) {
         const Control control = controlOf(ev.key);
         if (control == Control::Horn && car_.hasSiren()) { // a police car's horn is its siren
@@ -465,6 +476,7 @@ void DriveViewer::update(uint64_t nowMs) {
     lastMs_ = nowMs;
 
     CarControls controls = controlsOf(keys_);
+    pad_.apply(controls);
     if (wear_.wrecked())
         controls.throttle = 0; // the engine's dead
     controls.shift = shift_;
@@ -509,6 +521,9 @@ void DriveViewer::update(uint64_t nowMs) {
     wear_.update(dt, car_, smoke_.get());
     if (smoke_)
         smoke_->wheels(dt, car_.sim);
+    // A knock shakes the game controller.
+    if (const float shake = padRumble(car_.sim.impact); shake > 0 && currentOptions().forceFeedback)
+        ctx_.sys.rumble(shake, shake * 0.6f, 200);
     car_.sim.impact = 0;
     if (smoke_)
         smoke_->update(dt);

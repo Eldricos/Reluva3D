@@ -48,8 +48,8 @@ constexpr uint16_t Alt = 1 << 2;
 
 enum class EventType {
     None,
-    Quit,              // user closed the window: leave the engine and the app
-    ReturnToLauncher,  // user asked to go back to the launcher
+    Quit,             // user closed the window: leave the engine and the app
+    ReturnToLauncher, // user asked to go back to the launcher
     KeyDown,
     KeyUp,
     MouseMove,
@@ -57,7 +57,34 @@ enum class EventType {
     MouseUp,
     MouseWheel,
     TextInput, // text typed, after the keyboard layout and dead keys (System::setTextInput)
+    PadDown,   // a game controller's button (Event::pad)
+    PadUp,
+    PadAxis, // a game controller's stick or trigger moved (Event::pad, Event::value)
 };
+
+// A game controller's buttons and axes, laid out as an Xbox pad's (other
+// pads by position: South is A or Cross).
+namespace pad {
+enum Button : int {
+    South,
+    East,
+    West,
+    North,
+    Back,
+    Guide,
+    Start,
+    LeftStick,
+    RightStick,
+    LeftShoulder,
+    RightShoulder,
+    DpadUp,
+    DpadDown,
+    DpadLeft,
+    DpadRight,
+    kButtons
+};
+enum Axis : int { LeftX, LeftY, RightX, RightY, LeftTrigger, RightTrigger, kAxes };
+} // namespace pad
 
 enum class MouseButton { None, Left, Right, Middle };
 
@@ -72,6 +99,8 @@ struct Event {
     int clicks = 0;              // MouseDown/MouseUp: 1, or 2 for a double click, ...
     int wheelY = 0;
     char text[32] = {};          // TextInput: UTF-8, NUL-terminated
+    int pad = -1;                // PadDown/PadUp: a pad::Button; PadAxis: a pad::Axis
+    float value = 0;             // PadAxis: sticks -1 (left, up) .. 1, triggers 0 .. 1
 };
 
 } // namespace reluva

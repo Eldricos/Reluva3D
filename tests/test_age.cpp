@@ -10,6 +10,7 @@
 #include "engines/age/music.h"
 #include "engines/age/ar_archive.h"
 #include "engines/age/render_cache.h"
+#include "engines/age/pad_input.h"
 #include "engines/age/bai.h"
 #include "engines/age/bound.h"
 #include "engines/age/car.h"
@@ -2750,6 +2751,33 @@ static void testTextureQuality(const std::filesystem::path& tmp) {
     CHECK(cache.size("plain", w, h) && w == 64 && h == 64); // its own size, as stored
 }
 
+static void testPadInput() {
+    // The sticks with their dead zones, added to the keys.
+    PadDrive pad;
+    pad.axis(pad::LeftX, 0.1f);
+    CHECK(pad.steer == 0 && pad.idle());
+    pad.axis(pad::LeftX, -1);
+    pad.axis(pad::RightTrigger, 0.5f);
+    CHECK(pad.steer == -1 && pad.throttle > 0.45f && pad.throttle < 0.5f);
+    CarControls c;
+    c.brake = 1;
+    pad.apply(c);
+    CHECK(c.steer == -1 && c.throttle == pad.throttle && c.brake == 1);
+    // Buttons: the controls' keys while driving, the menus' keys otherwise.
+    GameOptions o;
+    CHECK(padKey(pad::South, true, o) == o.keys[size_t(Control::Handbrake)][0]);
+    CHECK(padKey(pad::RightShoulder, true, o) == o.keys[size_t(Control::ShiftUp)][0]);
+    CHECK(padKey(pad::Start, true, o) == key::Escape && padKey(pad::South, false, o) == key::Return);
+    CHECK(padKey(pad::DpadDown, false, o) == key::Down && padKey(pad::Guide, true, o) == 0);
+    Event ev, k;
+    ev.type = EventType::PadUp;
+    ev.pad = pad::East;
+    CHECK(padKeyEvent(ev, false, o, k) && k.type == EventType::KeyUp && k.key == key::Escape);
+    ev.type = EventType::PadAxis;
+    CHECK(!padKeyEvent(ev, false, o, k));
+    CHECK(padRumble(1) == 0 && padRumble(15) == 1 && padRumble(8) > 0);
+}
+
 static void testOptions(const std::filesystem::path& tmp) {
     // The defaults: the game's (its help's keyboard table), its names.
     GameOptions o;
@@ -2842,6 +2870,8 @@ static void testReplays(const std::filesystem::path& tmp) {
     r.traffic = 0.6f;
     r.peds = 0.2f;
 
+    r.frames[7].padSteer = -90; // a game controller's stick and trigger
+    r.frames[7].padThrottle = 200;
     // Written and read back as it was.
     Replay back;
     CHECK(!decodeReplay(encodeReplay(r), back));
@@ -2849,7 +2879,8 @@ static void testReplays(const std::filesystem::path& tmp) {
           back.level == 1 && back.car == "vpbug" && back.paint == 2 && back.autoReverse &&
           std::fabs(back.steerRate - 1.25f) < 1e-6f && back.pedestrians == 0 && back.frames.size() == 130 &&
           back.frames[5].flags == kReplayManual && back.frames[4].shift == 0 && back.frames[6].keys == 6 &&
-          back.marks.size() == 2 && back.marks[1][2] == 6);
+          back.marks.size() == 2 && back.marks[1][2] == 6 && back.frames[7].padSteer == -90 &&
+          back.frames[7].padThrottle == 200 && back.frames[7].padBrake == 0);
     CHECK(back.changed && back.laps == 7 && back.opponents == 2 && back.timeOfDay == 3 && back.weather == 2 &&
           back.cops == 4 && std::fabs(back.traffic - 0.6f) < 1e-6f && std::fabs(back.peds - 0.2f) < 1e-6f);
     // A first-version replay (no conditions) still reads, unchanged.
@@ -2861,6 +2892,12 @@ static void testReplays(const std::filesystem::path& tmp) {
     const std::ptrdiff_t start =
         8 + std::ptrdiff_t(1 + r.name.size() + 1 + r.city.size() + 1 + 2 + 1 + 1 + r.car.size() + 1 + 1 + 4 + 4);
     v1.erase(v1.begin() + start, v1.begin() + start + 14);
+    // Nor each frame's game controller bytes (version 3): 8 bytes a frame
+    // after the count.
+    for (size_t i = 0; i < r.frames.size(); ++i) {
+        const std::ptrdiff_t at = start + 4 + std::ptrdiff_t(i * 8) + 8;
+        v1.erase(v1.begin() + at, v1.begin() + at + 3);
+    }
     Replay old;
     CHECK(!decodeReplay(v1, old) && !old.changed && old.pedestrians == 0 && old.frames.size() == 130 &&
           old.frames[6].keys == 6 && old.marks.size() == 2);
@@ -3127,6 +3164,7 @@ int main() {
     testNetSessionMore();
     testGoldGame();
     testOptions(tmp / "options");
+    testPadInput();
     testTextureQuality(tmp / "texquality");
     testReplays(tmp / "replays");
     testDrivers(tmp / "drivers");

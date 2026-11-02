@@ -5,6 +5,7 @@
 #include "backends/sdl3/sdl_gpu.h"
 #include "backends/sockets/socket_net.h"
 
+#include <algorithm>
 #include <cstring>
 
 namespace reluva {
@@ -79,6 +80,8 @@ SdlSystem::SdlSystem() = default;
 
 SdlSystem::~SdlSystem() {
     stopAudio();
+    for (SDL_Gamepad* p : pads_)
+        SDL_CloseGamepad(p);
     release3D();
     if (gameTexture_)
         SDL_DestroyTexture(gameTexture_);
@@ -249,6 +252,33 @@ bool SdlSystem::pollEvent(Event& out) {
             out.mods = translateMods(ev.key.mod);
             out.repeat = ev.key.repeat;
             return true;
+        case SDL_EVENT_GAMEPAD_ADDED:
+            if (SDL_Gamepad* p = SDL_OpenGamepad(ev.gdevice.which))
+                pads_.push_back(p);
+            continue;
+        case SDL_EVENT_GAMEPAD_REMOVED:
+            for (size_t i = 0; i < pads_.size(); ++i)
+                if (SDL_GetGamepadID(pads_[i]) == ev.gdevice.which) {
+                    SDL_CloseGamepad(pads_[i]);
+                    pads_.erase(pads_.begin() + std::ptrdiff_t(i));
+                    break;
+                }
+            continue;
+        case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+        case SDL_EVENT_GAMEPAD_BUTTON_UP:
+            // SDL's buttons up to the d-pad are in pad::Button's order.
+            if (ev.gbutton.button >= pad::kButtons)
+                continue;
+            out.type = ev.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN ? EventType::PadDown : EventType::PadUp;
+            out.pad = ev.gbutton.button;
+            return true;
+        case SDL_EVENT_GAMEPAD_AXIS_MOTION:
+            if (ev.gaxis.axis >= pad::kAxes)
+                continue;
+            out.type = EventType::PadAxis;
+            out.pad = ev.gaxis.axis;
+            out.value = std::max(-1.0f, float(ev.gaxis.value) / 32767.0f);
+            return true;
         case SDL_EVENT_MOUSE_MOTION:
             out.type = EventType::MouseMove;
             out.mouseX = static_cast<int>(ev.motion.x);
@@ -306,6 +336,12 @@ void SdlSystem::setMouseCursorVisible(bool visible) {
         SDL_ShowCursor();
     else
         SDL_HideCursor();
+}
+
+void SdlSystem::rumble(float low, float high, uint32_t ms) {
+    auto motor = [](float v) { return Uint16(std::clamp(v, 0.0f, 1.0f) * 65535); };
+    for (SDL_Gamepad* p : pads_)
+        SDL_RumbleGamepad(p, motor(low), motor(high), ms);
 }
 
 void SdlSystem::minimizeWindow() {
