@@ -213,7 +213,7 @@ longest, and isn't known.
 | 0x40, 0x80 | the same for the right half | |
 | 0x100 | a curved ceiling | only on tunnel textures (95) |
 | 0x200-0x1000 | four more flags with the closing ones, "offset" in what's remembered of the names | not used |
-| 0x4 | goes with a second height of exactly 2 m (all 135 with it, none without); 116 of San Francisco's 120 and London's one are in elevated (0x40) blocks, and two have no walls at all: a 2 m fascia under a raised deck, which the footage shows as a plain light band along the deck's edge seen from below (Gimme SOMA under the Transbay ramp) | not drawn by Reluva (what texture the band takes isn't known) |
+| 0x4 | goes with a second height of exactly 2 m (all 135 with it, none without); 116 of San Francisco's 120 and London's one are in elevated (0x40) blocks, and two have no walls at all: a 2 m fascia under a raised deck, which the footage shows as a plain light band along the deck's edge seen from below (Gimme SOMA under the Transbay ramp) | Reluva hangs a band the second height deep under both edges (a junction's under its walled edges), in the plain concrete middle of the current texture (`s_wall_veg`'s): what texture the game's band takes isn't known |
 | 0x4000 | on all London's railings (`s_conc_rail`, `tl_bridgerail_l`), San Francisco's 15 `s_conc_rail`, and every `s_wall_veg` wall of its road 4 (blocks 423-441); second height 1 or 3; always in 0x80 blocks | not known: not the texture's alpha (`pl_ggbridge_rail_f` is cut out too, without it), the strip, the block's height, nor what lies beyond the wall |
 
 The names of these flags (sides, flat and curved ceilings, closed and

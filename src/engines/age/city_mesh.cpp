@@ -27,8 +27,8 @@ constexpr int kArchSteps = 8;      // pieces across a curved tunnel ceiling
 // A tunnel attribute's flags (psdl.md): which sides have walls, the
 // ceiling, and which ends of a curved ceiling are closed.
 namespace tunnelflag {
-constexpr uint16_t Left = 0x1, Right = 0x2, FlatCeiling = 0x8, ClosedStartLeft = 0x10, ClosedEndLeft = 0x20,
-                   ClosedStartRight = 0x40, ClosedEndRight = 0x80, CurvedCeiling = 0x100;
+constexpr uint16_t Left = 0x1, Right = 0x2, Fascia = 0x4, FlatCeiling = 0x8, ClosedStartLeft = 0x10,
+                   ClosedEndLeft = 0x20, ClosedStartRight = 0x40, ClosedEndRight = 0x80, CurvedCeiling = 0x100;
 }
 
 float length(const Vec3& a, const Vec3& b) {
@@ -266,9 +266,29 @@ private:
         }
     }
 
+    // A band hanging `depth` below a raised deck's edge (the tunnel flag
+    // 0x4, always with a second height of 2 m): seen from below in the
+    // footage as a plain light strip along the deck. Its texture is
+    // Reluva's choice: the plain middle of the wall's (s_wall_veg's
+    // concrete, between its stone and its plants).
+    void fascia(uint32_t texture, const std::vector<Vec3>& edge, float depth) {
+        float u = 0;
+        for (size_t i = 0; i + 1 < edge.size(); ++i) {
+            const float u2 = u + length(edge[i], edge[i + 1]) / std::max(0.5f, depth * 2);
+            const Vec3 low0{edge[i][0], edge[i][1] - depth, edge[i][2]};
+            const Vec3 low1{edge[i + 1][0], edge[i + 1][1] - depth, edge[i + 1][2]};
+            quad(texture, low0, low1, edge[i + 1], edge[i], {{u, 0.45f}, {u2, 0.45f}, {u2, 0.8f}, {u, 0.8f}}, false);
+            u = u2;
+        }
+    }
+
     void tunnel(const Tunnel& t, const std::vector<Vec3>& left, const std::vector<Vec3>& right) {
         if (left.size() < 2 || left.size() != right.size())
             return;
+        if (t.flags & tunnelflag::Fascia) {
+            fascia(t.texture, left, t.second);
+            fascia(t.texture, right, t.second);
+        }
         if (t.flags & tunnelflag::Left)
             sideWall(t.texture, left, t.wall());
         if (t.flags & tunnelflag::Right)
@@ -321,9 +341,12 @@ private:
         if (n < 3)
             return;
         for (size_t i = 0; i < n && i < 32; ++i)
-            if (edges >> i & 1)
-                sideWall(t.texture, {vertex(b.perimeter[(i + n - 1) % n].first), vertex(b.perimeter[i].first)},
-                         t.first);
+            if (edges >> i & 1) {
+                const std::vector<Vec3> edge{vertex(b.perimeter[(i + n - 1) % n].first), vertex(b.perimeter[i].first)};
+                sideWall(t.texture, edge, t.first);
+                if (t.flags & tunnelflag::Fascia)
+                    fascia(t.texture, edge, t.second);
+            }
         if (t.flags & (tunnelflag::FlatCeiling | tunnelflag::CurvedCeiling)) {
             std::vector<Vec3> p;
             for (const auto& [v, beyond] : b.perimeter) {
