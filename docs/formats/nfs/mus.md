@@ -220,10 +220,62 @@ queued as the one before it starts, so it plays a section later.
   the poke put the car first in the race order (place 1), and the value
   went to 100 on lap 1 (50 + 100, at most 100) and 100 on lap 3.
 
-Not run: the place bonus for 2nd and 3rd, the one-racer tables, and
-8-lap races. In `sn-m1` Summit by day played `alpitech`, where the
-footage's `Summit_Day` plays `alpirock`: the pick changes from race to
-race.
+- **2nd and 3rd place** (`sq-pl`, Hometown, 4 laps, 7 computer
+  racers; the place the music reads poked at `0x412d85`): on lap 0
+  (0) the value went to 50 in 2nd place (53.1 s) and stayed 50 in 3rd
+  (127.7 s, after a slow corner). When the music's lap went to 1 at
+  160.7 s it went to 100 in 3rd (50 + 50), and to 50 when the place was
+  made 4th (160.9 s). So 2nd and 3rd add 50 and 4th adds nothing.
+- **8 laps** (`sq-8`, Hometown, 7 racers, 5th place held, the car's
+  lap poked to 1, 2, 5, 6, 7): 0 on laps 0 and 1 (no call was needed),
+  50 from lap 2 (80.0 s), 50 on lap 5, 100 from lap 6 (110.0 s).
+- **One racer** (`oppnumber` One, `0x6fd4d0` = 1 poked at
+  `0x474ca0`, so `0x6fd520` = 1; Hometown; the place switched between 1
+  and 2 within each lap). The values match the tables above:
+  - `sq-1b`, 2 laps: lap 0 50 leading, 0 not; lap 1 100 and 50.
+  - `sq-1a`, 4 laps: lap 0 0 both; lap 1 50 and 0; lap 2 100 and 50;
+    lap 3 100 both.
+  - `sq-1c`, 8 laps: lap 0 0 both; laps 1-3 50 and 0; laps 4 and 5 100
+    and 50; lap 7 100 both. (Lap 6 not leading wasn't seen: the music's
+    lap went to 7 at the zones before the place changed.)
+- **The sections** follow the routes for the value in all these runs
+  (`hometech`: 60 of 63 in `sq-8`, 81 of 86 in `sq-1c`; `homerock`: 36
+  of 41 in `sq-pl`); the others are the zones' events.
+
+### Which stream
+
+`0x410030` (copying the stream to `temp.mus`, from `0x477fd0` with the
+track) and `0x4107c0` (opening the map and starting the stream) name
+the file as the track's prefix (`0x5525a8`) and `rock` or `tech`.
+The pick is a setting: `0x6fbbe4`, byte 0xA4 of
+`FeData/config/config.dat` (`tunenames` in the option table at
+`0x556bf0`; its texts 463-466 and 162-172 of `text.eng`):
+
+| `0x6fbbe4` | Text | Stream |
+|---|---|---|
+| 0 | Track default (Rock) | `rock` |
+| 1 | Track default (Techno) | `tech` |
+| 2 | Track default (Rock or Techno), the default (`0x472600`) | `tech` when `0x552854` is 1 |
+| 3-12 | a tune by name: "Little Sweaty Sow" ... "Warped" | the prefix by pairs (`0x40ffd0`: 3-4 `home`, 5-6 `lost`, 7-8 `atla`, 9-10 `alpi`, 11-12 `empr`), even `tech`, odd `rock`; 11 ("Flimsy") is tech 51 times in 100 (`0x410163`) |
+| 13 | Random | `0x40ffd0`'s random 0-4 as the prefix's index: `home`, `lost`, `atla`, `alpi`, or `home` again (entry 4 is Country Woods'); `rock` |
+
+`0x552854` flips at each race's start (`0x4a36c6`, in `0x4a3690`,
+before the race loads) and is 0 when the game starts. So by default
+the first race plays tech, the next rock, and so on. The command-line flags `-e3demo`, `-msdemo` and `-demoaudio`
+(`0x55eb2c` bits 20, 21 and 24, set by `0x4a5080`) force rock. With a
+tune chosen (3-13) the race plays its `.lin` order: `0x4107c0` takes
+`.lin` when its third argument, `0x6fbbe4` > 2, is set (`0x4a37c1`).
+Tech plays quieter: when `0x6fbbe4` is 1 or `0x552854` is 1 the race
+music's volume (`0x6fbbf0`) is lowered by `0x5525d0`[track]: 15 for
+Hometown, Atlantica, Country Woods and Aquatica, 6 for Redrock Ridge
+and Lost Canyons, 0 for the rest.
+
+Checked in runs: with byte 0xA4 at 0 `sq-pl` (Hometown) played
+`homerock` (its sections follow `homerock`'s routes); at 2, the first
+race of `sn-m1`, `sn-h1`, `sq-8` and `sq-1a` played tech (`alpitech`,
+`hometech`; at `0x4108a6` esi is `0x5368e0`, `tech`). So `sn-m1`'s
+`alpitech` against the footage's `Summit_Day` `alpirock` is the
+alternation (or the setting), not day or night.
 
 ## Seen in footage (November 2026)
 
@@ -252,8 +304,9 @@ of prefixes at `0x5525a8` says (track 0-8: `home`, `lost`, `atla`,
 | 7 Summit | `alpirock` | `alpitech` |
 | 8 Empire City | `emprrock` | `emprrock` |
 
-Rock or tech isn't tied to day or night; what picks it wasn't looked
-at. No clip plays a `.lin` order.
+Rock or tech isn't tied to day or night: by default it alternates
+from race to race (Which stream, above). No clip plays a `.lin` order,
+so none had a tune chosen.
 
 **The start.** `Hometown_Day` and `Hometown_Night` play section 170
 during the loading and the grid fly-by (0:12.4, 0:11.4), as header byte

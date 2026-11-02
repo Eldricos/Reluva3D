@@ -559,8 +559,24 @@ Not every sky has these sounds. The night and wet banks of Hometown
 (`tram00n`, `tram00w`, `tram00nw` and the `tr3d` ones) have no sound
 31, and Summit's (`tram07n`, `w`, `nw`) no sound 0. So only by a dry
 day does Hometown's loop or Summit's −3 row have a sound to play (read
-from the banks; what the game does with a missing sound wasn't
-followed).
+from the banks). What the game does about it (November 2026):
+- **Hometown** never tries. `0x41bc20`, tested before anything else in
+  `0x410e30`, is 0 on track 0 with night or weather on (`g_night`,
+  `g_weather`), so the objects aren't looked at. In `sq-hn` (Hometown
+  by night, 115 s, the car driven by the computer) `0x4113d7` was
+  never reached.
+- **Summit** plays anyway, and gets nothing. Its night and wet banks
+  have 7 slots, slot 0 empty, so `iSNDplaytaggedpatch` (`0x501de8`)
+  is given no patch and returns −8. A sound number past the bank's
+  slots gives the same from `0x4e9bf8`. `0x4182b0` passes it on, and
+  `0x417080` stores −8 as the slot's voice (`0x570de8` + slot × 8) and
+  the sound as its number (`0x570dec`). Each later step the number is
+  the same, so it only sets the volume, pitch and pan of voice −8,
+  which match no voice (−8 again, `0x4e9540`). No other sound is put
+  in its place. In `sq-sn` (Summit by night, 262 s) slot 21 played
+  sound 0 from 233.1 s, 300 updates, its voice −8 throughout, and the
+  −3 row started sound 0 on slot 19 at ticks 4992, 5632, 5760 and
+  5888 (multiples of 128), each giving voice −8.
 
 **Checked in runs** (November 2026). In these runs the computer drove
 the player's car, so it went round the whole track: the car's task
@@ -581,10 +597,43 @@ slots were poked once they were filled (`-poke at=0x42c4c4#1`: car
   1,025, both up to 121-122. The −2 row started sound 7 on slot 19
   once, at 181.3 s, at volume 43.
 
-Redrock Ridge's and Lost Canyons' −2 row wasn't run; it is the same
-code as Aquatica's. Neither special stands out in the recordings: sound
-7 against `sn-a1`'s sound at 181.3 s correlates 0.13, no better than
-elsewhere (0.15). The engines cover it, as in the footage (below).
+Neither special stands out in the recordings: sound 7 against
+`sn-a1`'s sound at 181.3 s correlates 0.13, no better than elsewhere
+(0.15). The engines cover it, as in the footage (below).
+
+More runs (November 2026, by day, 4 laps, 420 s, the same watches;
+the tick in the cycle and L read at `0x4113d7` as esi+0x14 and +0x18,
+esi being the kept object's record):
+- **Redrock Ridge** (`sq-rr`): object 0 (sound 6) on slot 20 and
+  object 1 (sound 7) on slot 21, together, four times a lap's worth
+  (93.3 s, 206.4 s, 299.5 s, 391.0 s), up to volume 107. Object 1's
+  cycle L is 2560 ticks, but it was in reach only at ticks 830-1040,
+  384-664, 1218-1340 and 1960-2150: never at 670 or 1822 (+12 is −1,
+  never), so sound 8 didn't start. With +8 poked to 600 (`sq-rr2`,
+  `-poke ms=1000:0x55263c:600:2`; the run is otherwise the same) it
+  started on slot 19 at 209.75 s, tick 600, and got a voice of its own.
+  Even with the music and engines muted (`0x6fbbf0`, `0x6fbbf8` poked
+  to 0) it can't be told from sounds 6 and 7 in the recording
+  (correlation 0.15 at 210.9 s, 0.10-0.15 elsewhere).
+- **Lost Canyons** (`sq-lc`): slot 21 played sound 7 (object 1) at
+  67.4 s and 293.5 s, up to volume 125, and sound 6 (object 0) three
+  times. Object 1's cycle is 576 ticks, so its −2 row can never fire:
+  the tick never reaches 670 or 1822. The two rows are one in the
+  table (`0x552622`), but the objects differ.
+- **Empire City** (`sq-ec`): object 2 (sound 6, L 4375) and object 4
+  (sound 3, L 2575), each alone on slot 21 on lap 1 (on lap 2 object
+  4 came in while object 2 played and took slot 20). The fade in shows: object 2
+  came in at tick 33 (109.75 s) at volume 1 and rose by 12 every 6
+  ticks to 124 at tick 99, then held (the distance's share). Neither
+  fade out was reached (object 2 in reach to tick 3133, its fade from
+  4195; object 4 to 1898, its fade from 2335). With the fades poked
+  into reach (`sq-ec2`: object 2's +10, +12 to 1400, 1340; object 4's
+  to 975, 575) the volume fell from 64 at tick 2973 to 5 at 3029 and
+  the sound stopped at 3033 (L − 1340), and object 4's fell from 123 at
+  tick 1562 to 0 by 1898. Muted (`sq-ec3`, as `sq-rr2`) the race is
+  silent from 95 to 105 s, 118 to 128 s and so on; it sounds from 110
+  to 117.4 s and from 129 to 149.6 s, the times object 2 and object 4
+  play, so they are heard (and something else at 105-109 s).
 
 ## Seen in footage (November 2026)
 
