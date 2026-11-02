@@ -286,7 +286,7 @@ private:
         uint32_t firstIndex = 0, indexCount = 0;
         bool additive = false;
         bool twoSided = false;  // polygon flag 0x10: never culled
-        bool seeThrough = false; // texture flag 0x02: half grey, half clear
+        bool seeThrough = false; // texture flag 0x02: added in half grey at half alpha
         // Where its polygons' first corners lie (within radius of centre,
         // in the world), for the game's cut-off of far polygons; and
         // whether this frame draws it from the cut-off's own indices.

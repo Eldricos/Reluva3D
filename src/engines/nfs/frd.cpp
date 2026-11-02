@@ -339,6 +339,13 @@ Headlight carHeadlight(int beams, bool projected, const std::array<float, 3>& at
     return h;
 }
 
+std::array<float, 3> headlightPlace(const Headlight& light, const std::array<float, 3>& carAt, float halfLength,
+                                    float upright) {
+    const float along = halfLength * 0.25f; // 0x5373b0
+    return {carAt[0] + light.forward[0] * along, carAt[1] + upright + light.forward[1] * along,
+            carAt[2] + light.forward[2] * along};
+}
+
 HeadlightPoint headlightAt(const Headlight& light, const std::array<float, 3>& point) {
     const std::array<float, 3> d{point[0] - light.at[0], point[1] - light.at[1], point[2] - light.at[2]};
     auto dot = [&](const std::array<float, 3>& v) { return d[0] * v[0] + d[1] * v[1] + d[2] * v[2]; };

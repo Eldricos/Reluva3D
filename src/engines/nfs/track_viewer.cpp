@@ -711,8 +711,9 @@ void TrackPage::load(int index) {
                           uint16_t entry) {
         {
             const Track::Texture& tex = track_.textures[entry < track_.textures.size() ? entry : p.texture];
-            // The game draws these in a constant half grey, half clear
-            // (0x41b596), sorted by depth.
+            // The game draws these in a constant half grey at half alpha
+            // (0x41b596), sorted by depth, added: the queued polygon's flag
+            // 1 sets THRASH blend 1, source alpha and one (0x4332b0).
             const bool seeThrough = (tex.flags & Track::Texture::kSeeThrough) != 0;
             bool additive = false;
             const gfx::TextureId id = tex.lane ? picture(kLaneSheet, tex.picture, true, &additive)
@@ -940,6 +941,8 @@ void TrackPage::cutFar(std::vector<Batch>& list, const gfx::Vec3& eye, const gfx
     }
 }
 
+constexpr float kVirtualCarHalfLength = 2.40644f;
+
 // The headlights of a car at the camera, heading where it looks, as the
 // game's pass for each car does at night (0x41c670, 0x41ae90): for each
 // block drawn within 150 of the car on the ground, its road and roadside
@@ -955,7 +958,10 @@ void TrackPage::prepareHeadlights(int here, const gfx::Vec3& eye, const gfx::Vec
     const bool night = variant_ == 1 || variant_ == 3;
     if (!night || beams_ == 0 || track_.blocks.empty() || !headlightPicture_)
         return;
-    const Headlight light = carHeadlight(beams_, projected_, {eye_[0], eye_[1], -eye_[2]}, yaw_);
+    // The car at the camera, upright, as long as the Corvette (half
+    // length 2.40644, car.fce); its light where the game puts it.
+    Headlight light = carHeadlight(beams_, projected_, {eye_[0], eye_[1], -eye_[2]}, yaw_);
+    light.at = headlightPlace(light, {eye_[0], eye_[1], -eye_[2]}, kVirtualCarHalfLength);
     const std::string sheet = textureSheet();
     float ambient[3] = {1, 1, 1};
     if (skyError_.empty())
@@ -1802,11 +1808,12 @@ void TrackPage::update(uint64_t nowMs) {
             fogDraw(call, sceneryFog);
         std::vector<Batch> all = solid;
         all.insert(all.end(), lanes.begin(), lanes.end());
-        // Additive pictures, see-through ones, or the rest.
+        // See-through textures (flag 0x02, whatever the picture's text),
+        // other additive pictures, or the rest.
         enum Pass { kSolid, kSeeThrough, kAdditive };
         auto pass = [&](const std::vector<Batch>& list, Pass which) {
             for (const Batch& b : list) {
-                if ((b.additive ? kAdditive : b.seeThrough ? kSeeThrough : kSolid) != which)
+                if ((b.seeThrough ? kSeeThrough : b.additive ? kAdditive : kSolid) != which)
                     continue;
                 if (b.indexCount == 0)
                     continue;
@@ -1886,14 +1893,18 @@ void TrackPage::update(uint64_t nowMs) {
                 renderer_->draw(wall);
             }
         }
-        // See-through surfaces (glass, water) blended over what's behind,
-        // in the half grey and half alpha of their vertices. The game sorts
-        // them by depth; here they go in the mesh's order.
+        // See-through surfaces (glass, water, glints) added over what's
+        // behind by their alpha, in the constant half grey and half alpha
+        // of their vertices (0x7F7F7F7F, 0x41b9b0; no ambient light): the
+        // queued polygon's flag 1 sets THRASH blend 1, source alpha and
+        // one (0x4332b0), so a texel adds a quarter of itself. The game
+        // sorts them by depth; added, the order doesn't matter.
         {
             const gfx::DrawCall before = call;
             call.rgbSource = call.alphaSource = gfx::ColorSource::Vertex;
+            call.color = {1, 1, 1, 1};
             call.state.src = gfx::Blend::SrcAlpha;
-            call.state.dst = gfx::Blend::OneMinusSrcAlpha;
+            call.state.dst = gfx::Blend::One;
             call.state.depthWrite = false;
             call.state.alphaTest = gfx::AlphaTest::None;
             pass(all, kSeeThrough);

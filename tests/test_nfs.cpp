@@ -1083,6 +1083,11 @@ void testHeadlights() {
     CHECK(dim.fadeFrom == 2.5f && dim.reach == 10);
     const Headlight east = carHeadlight(1, true, {0, 0, 0}, 1.5707963f);
     CHECK(std::fabs(east.right[2] + 1) < 1e-5f && std::fabs(east.forward[0] - std::cos(kTilt)) < 1e-5f);
+    // The light's place (0x42d160): up by +0x10C, a quarter of the half
+    // length along the light's forward (tilted down).
+    const std::array<float, 3> at = headlightPlace(low, {10, 2, 30}, 2.4f);
+    CHECK(std::fabs(at[0] - 10) < 1e-5f && std::fabs(at[2] - (30 + 0.6f * std::cos(kTilt))) < 1e-5f);
+    CHECK(std::fabs(at[1] - (3 - 0.6f * std::sin(kTilt))) < 1e-5f);
 }
 
 void testHorizon() {

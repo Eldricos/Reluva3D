@@ -351,10 +351,40 @@ between keys this close).
 | 2 | u16 | height |
 | 4 | u32 | room for the picture's handle: the game writes it at load (`0x419b4d`); the files hold leftovers |
 | 8 | 8 floats | u, v of polygon corners 0 to 3 |
-| 40 | u8 | flags: `0x02` a see-through surface, drawn half grey and half clear and sorted by depth (`0x41b596`); `0x04` not lit by the headlights' projected texture (below). Values 0, 4, 6 |
+| 40 | u8 | flags: `0x02` a see-through surface, added in half grey at half alpha and sorted by depth (`0x41b596`, below); `0x04` not lit by the headlights' projected texture (below). Values 0, 4, 6 |
 | 41 | 3 | not read (byte 43 often `0xFF`) |
 | 44 | u8 | 1: a lane texture |
 | 45 | u16 | the picture's number |
+
+**Texture flag `0x02` is drawn added** (nfs3.exe, November 2026). The
+block's lists (`0x41b596`) and the placed objects (`0x41b86c`) give such
+a polygon's corners the colour `0x552e1c`, set each frame by `0x41b9b0`
+to `0x7F7F7F7F` (with the Direct3D renderer, bit `0x40` of `0x7a3a58`,
+and an effects intensity under 1, each byte that times the intensity),
+and set the queued polygon's flag 1 (byte 6), the flag the headlights'
+triangles have. Every polygon drawer `0x434870` can pick (`0x4332b0`,
+`0x433530`, `0x433840`, `0x433a50`, `0x433bb0`, `0x4336e0`) sends THRASH
+state 0x68 = 1 for a polygon with flag 1 and 0 for the others: blend 1,
+source alpha and one ([thrash.md](thrash.md)). So the texel times half
+grey is added by its alpha times one half, a quarter of the picture
+where it's opaque, and alpha-0 texels not at all. `0x4c7790` sends them
+to the depth-sorted list (`0x4c7610`), though added the order doesn't
+matter. The flag is the texture entry's own, not the picture's: a
+picture's `<additive>` sets bits 2 and 4 of its shape slot's byte 0x28
+(`0x4d40da`), the same place and bit in the slot's layout, but the
+drawers read the entry (`+0x18` of the queued polygon). Over the nine
+tracks the two agree: the flagged entries' pictures are exactly the
+`<additive>` ones they use, except picture 159 of `tr040` (flagged,
+no text); `tr050`'s 67-69 have the text and no entry. On Hometown it's
+two entries: the light shafts through the covered bridge's windows
+(picture 21, object layer 3 of blocks 21-27) and picture 105 on a
+moving object. The Tracks page draws flagged polygons so (source alpha
+and one, vertex colour `0x7F7F7F7F`, without the ambient light); it
+drew them added in full (`<additive>`) or blended over before. An
+`nfs-host` frame driving through the bridge by day (`r1-on2`, frame
+3342 at 0:42.79 on the race clock) shows the shafts as faint grey
+wedges from the right-hand windows across the floor, as the page now
+draws them from block 21; they weren't compared pixel for pixel.
 
 **Texture flag `0x04` and the headlights.** `0x41ae90` is called for
 each car (the loop at `0x41c6cc` over the cars, `0x5efac8`) and each
@@ -454,11 +484,18 @@ within 150 of the block's centre on the ground (`0x536cbc` = 150²):
 - **The light** (`0x42d160`, per car each frame). The car's light state
   at `car+0x660` is 0 off, 1 low beams, 2 high; the headlight key steps
   through 0, 1, 2 (`0x40de50`). The light sits at the car's position
-  plus its up row times `car+0x10c` and a quarter of its half length
-  along the vector at `car+0x67c` (not followed); its frame is
-  the car's orientation turned about its right by 1/16 of a turn (low)
-  or 1/32 (high) (`0x4ea9e0`, sine and cosine in turns), forward going
-  down. Low beams fade from 10 to 40 in `0xB0B0B0B0`, high from 20 to 60
+  (`+0x98`) plus its up row (`+0xCC`) times `car+0x10c` (its up · the
+  road's normal, set by `0x4a2690`: 1 on level road) and a quarter
+  (`0x5373b0`) of its half length (`+0x11C`) along `car+0x67c`; it is
+  kept at `+0x6AC`. Its frame, `+0x664` (rows right, up, forward), is
+  the car's orientation (`+0xC0`, copied by the same function) turned
+  about its right by 1/16 of a turn (low) or 1/32 (high) (`0x4ea9e0`,
+  sine and cosine in turns), forward going down. `+0x67c` is that
+  frame's forward row: nothing else writes it (the only instruction
+  naming it is the `lea` at `0x42d1fc`), and the function takes the
+  place before it rewrites the frame, so the place uses the tilted
+  forward of the step before (of the last time the lights were on,
+  or nothing at first). Low beams fade from 10 to 40 in `0xB0B0B0B0`, high from 20 to 60
   in `0xE0E0E0E0`; with `projtex` off or no z-buffer, 20 or 40 to 40 or
   60 in white (`0x42d253`-`0x42d31b`). `0x41a800` scales both distances
   by 1, less for each further car the pass has lit (down to 0.25), the
@@ -486,7 +523,10 @@ within 150 of the block's centre on the ground (`0x536cbc` = 150²):
   (no outcode) gets its colour raised to the light's, byte by byte
   (`0x41b0cd`), which every polygon sharing that vertex then shows.
 
-The Tracks page lights a car at the camera, heading where it looks: by
+The Tracks page lights a car at the camera, heading where it looks, its
+light placed as the game's from the car's position: the camera taken as
+the car's, upright, as long as the Corvette (half length 2.40644), so
+1 above it and 0.6 ahead along the tilted forward (`headlightPlace`). By
 night, low beams at first, `E` stepping through off, low and high as the
 game's key, and Shift+E turning the projection (`projtex`) off and on.
 The projected triangles are added with `glw2` as above; a raised colour

@@ -177,6 +177,16 @@ struct Headlight {
 // intensity (1 for the first car the pass lights, 0x41a800).
 Headlight carHeadlight(int beams, bool projected, const std::array<float, 3>& at, float heading,
                        float intensity = 1);
+// Where nfs3.exe puts a car's light (0x42d160): the car's position
+// (+0x98) plus its up row (+0xCC) times +0x10C (its up . the road's
+// normal, 1 on level road), plus a quarter of its half length (+0x11C)
+// along +0x67C. That is the forward row of the light's own frame
+// (+0x664), the car's rows turned down by the tilt, which the same
+// function rewrites only after taking the place: the frame of the step
+// before, the light's forward when the car turns slowly. Here the car
+// is upright: its up the track's.
+std::array<float, 3> headlightPlace(const Headlight& light, const std::array<float, 3>& carAt, float halfLength,
+                                    float upright = 1);
 // A point in the light: its place on the picture, its colour (0 outside
 // the reach) and the game's outcodes: 1 left, 2 right, 4 below, 8 above
 // the frustum, 0x10 before the near plane or behind, 0x20 past the reach.
