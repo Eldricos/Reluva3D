@@ -39,7 +39,8 @@ constexpr int kCoverX = 218, kCoverY = 269, kCoverW = 203, kCoverH = 29;
 enum Dialog {
     kMainMenu = 1, kStartChoice = 2, kLoadGame = 3, kRulesMenu = 4, kRules = 5, kCredits = 6, kExit = 7,
     kConnection = 9, kNetGame = 10, kCreditsText = 14, kVariants = 15, kPicker = 17, kSetupFirst = 18,
-    kPrefs = 24, kLoading = 26, kGameMenu = 35, kSaveGame = 36, kExitConfirm = 44,
+    kPrefs = 24, kLoading = 26, kGameMenu = 35, kSaveGame = 36, kGamePrefs = 37, kGameRulesMenu = 38, kGameRules = 39,
+    kExitConfirm = 44,
 };
 // Controls most dialogs share.
 constexpr int kReturn = 10000, kOk = 10001;
@@ -270,7 +271,7 @@ void FrontEnd::go(Screen s) {
         break;
     case Screen::Prefs:
         showDialog(kPrefs);
-        refreshPrefs();
+        refreshPrefs(*dialog_, 0, 28);
         break;
     case Screen::Loading:
         // Clue.exe 0x404AC2: the CD stopped, the loading's own loop.
@@ -336,6 +337,25 @@ void FrontEnd::go(Screen s) {
             gameMenu_->setVisible(1, false); // its other question: "Would you like to save ...?"
         }
         break;
+    // The Esc menu's Preferences and How to Play: windows of their own over
+    // the game, where the original has them (dialogs 37-39; recordings show
+    // them there), not the menus' screens.
+    case Screen::GamePrefs:
+        if (const ResiDialog* d = resi_.dialog(kGamePrefs)) {
+            gameMenu_ = std::make_unique<DialogView>(data_, *fonts_, *d, kOverGameX, kOverGameY);
+            refreshPrefs(*gameMenu_, 1, 29);
+        }
+        break;
+    case Screen::GameRulesMenu:
+        if (const ResiDialog* d = resi_.dialog(kGameRulesMenu))
+            gameMenu_ = std::make_unique<DialogView>(data_, *fonts_, *d, kOverGameX, kOverGameY);
+        break;
+    case Screen::GameRules:
+        if (const ResiDialog* d = resi_.dialog(kGameRules)) {
+            gameMenu_ = std::make_unique<DialogView>(data_, *fonts_, *d, kOverGameX, kOverGameY);
+            gameMenu_->setText(3, readText(kRulesFile[rulesTopic_]));
+        }
+        break;
     case Screen::SaveGame:
         if (const ResiDialog* d = resi_.dialog(kSaveGame)) {
             gameMenu_ = std::make_unique<DialogView>(data_, *fonts_, *d, kOverGameX, kOverGameY);
@@ -395,24 +415,27 @@ void FrontEnd::refreshSetup() {
     dialog_->setEnabled(12, count >= 3);
 }
 
-void FrontEnd::refreshPrefs() {
+void FrontEnd::refreshPrefs(DialogView& view, int first, int musicId) {
     // Each setting has two radio buttons, on and off, each shown lit or not
-    // by a pair of images in the same place.
+    // by a pair of images in the same place: first + 4k on (lit, unlit),
+    // first + 4k + 2 off (lit, unlit). The menus' window numbers them from
+    // 0, the one over the game (dialog 37) from 1.
     for (int k = 0; k < Preferences::kSwitches; ++k) {
         const bool on = prefs_.on[size_t(k)];
-        dialog_->setVisible(4 * k, on);
-        dialog_->setVisible(4 * k + 1, !on);
-        dialog_->setVisible(4 * k + 2, !on);
-        dialog_->setVisible(4 * k + 3, on);
+        const int b = first + 4 * k;
+        view.setVisible(b, on);
+        view.setVisible(b + 1, !on);
+        view.setVisible(b + 2, !on);
+        view.setVisible(b + 3, on);
     }
-    dialog_->setValue(28, prefs_.musicVolume);
-    dialog_->setValue(29, prefs_.masterVolume);
+    view.setValue(musicId, prefs_.musicVolume);
+    view.setValue(musicId + 1, prefs_.masterVolume);
 }
 
-void FrontEnd::scrollText(int textId, int knobId, int lines) {
-    dialog_->setScroll(textId, dialog_->scroll(textId) + lines);
-    const int most = std::max(1, dialog_->lineCount(textId) - dialog_->visibleLines(textId));
-    dialog_->setValue(knobId, dialog_->scroll(textId) * 100 / most);
+void FrontEnd::scrollText(DialogView& view, int textId, int knobId, int lines) {
+    view.setScroll(textId, view.scroll(textId) + lines);
+    const int most = std::max(1, view.lineCount(textId) - view.visibleLines(textId));
+    view.setValue(knobId, view.scroll(textId) * 100 / most);
 }
 
 void FrontEnd::startGame() {
@@ -480,9 +503,9 @@ void FrontEnd::onClick(int id) {
         break;
     case Screen::Rules:
         if (id == 8)
-            scrollText(11, 10, -1);
+            scrollText(*dialog_, 11, 10, -1);
         else if (id == 9)
-            scrollText(11, 10, 1);
+            scrollText(*dialog_, 11, 10, 1);
         else if (id == 10) {
             const int most = std::max(0, dialog_->lineCount(11) - dialog_->visibleLines(11));
             dialog_->setScroll(11, dialog_->value(10) * most / 100);
@@ -501,9 +524,9 @@ void FrontEnd::onClick(int id) {
         break;
     case Screen::CreditsText:
         if (id == 0)
-            scrollText(3, 2, -1);
+            scrollText(*dialog_, 3, 2, -1);
         else if (id == 1)
-            scrollText(3, 2, 1);
+            scrollText(*dialog_, 3, 2, 1);
         else if (id == 2) {
             const int most = std::max(0, dialog_->lineCount(3) - dialog_->visibleLines(3));
             dialog_->setScroll(3, dialog_->value(2) * most / 100);
@@ -561,7 +584,7 @@ void FrontEnd::onClick(int id) {
         if (id >= 0 && id < 4 * Preferences::kSwitches) {
             // The on column's buttons are 4k and 4k + 1, the off column's 4k + 2 and 4k + 3.
             prefs_.on[size_t(id / 4)] = id % 4 < 2;
-            refreshPrefs();
+            refreshPrefs(*dialog_, 0, 28);
         } else if (id == 28 || id == 29) {
             (id == 28 ? prefs_.musicVolume : prefs_.masterVolume) = dialog_->value(id);
             applyVolumes();
@@ -580,13 +603,46 @@ void FrontEnd::onClick(int id) {
             go(Screen::SaveGame);
         else if (id == 3)
             go(Screen::ExitConfirm);
-        else if (id == 1) {
-            prefsReturn_ = Screen::GameMenu;
-            go(Screen::Prefs);
-        } else if (id == 2) {
-            rulesReturn_ = Screen::GameMenu;
-            go(Screen::RulesMenu);
+        else if (id == 1)
+            go(Screen::GamePrefs);
+        else if (id == 2)
+            go(Screen::GameRulesMenu);
+        break;
+    case Screen::GamePrefs:
+        // As the menus' (Clue.exe 0x43F0B0 sets the volumes the same way),
+        // but leaving it doesn't touch the music; Continue, back to the game.
+        if (id >= 1 && id <= 4 * Preferences::kSwitches) {
+            prefs_.on[size_t((id - 1) / 4)] = (id - 1) % 4 < 2;
+            refreshPrefs(*gameMenu_, 1, 29);
+            if (play_)
+                play_->setLook(playLook());
+        } else if (id == 29 || id == 30) {
+            (id == 29 ? prefs_.musicVolume : prefs_.masterVolume) = gameMenu_->value(id);
+            applyVolumes();
+        } else if (id == 0) {
+            prefs_.save(prefsFile_);
+            go(Screen::Game);
         }
+        break;
+    case Screen::GameRulesMenu:
+        if (id >= 0 && id <= 6) {
+            rulesTopic_ = id;
+            go(Screen::GameRules);
+        } else if (id == 7)
+            go(Screen::Game);
+        break;
+    case Screen::GameRules:
+        if (id == 0)
+            scrollText(*gameMenu_, 3, 2, -1);
+        else if (id == 1)
+            scrollText(*gameMenu_, 3, 2, 1);
+        else if (id == 2) {
+            const int most = std::max(0, gameMenu_->lineCount(3) - gameMenu_->visibleLines(3));
+            gameMenu_->setScroll(3, gameMenu_->value(2) * most / 100);
+        } else if (id == 5)
+            go(Screen::GameRulesMenu);
+        else if (id == 4)
+            go(Screen::Game);
         break;
     case Screen::ExitConfirm:
         if (id == kOk) {

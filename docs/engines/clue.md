@@ -626,6 +626,12 @@ one pixel off.
   frames checked by where the bar's ornaments fall) the Esc menu, its
   Save window and its Preferences (dialog 37) are at (205, 11) too. The
   loser's window isn't in them; Reluva puts it there as well.
+- The Esc menu's Preferences and How to Play are windows of that size over
+  the game too, not the menus' screens: dialog 37 (the same switches and
+  sliders, its buttons numbered from 1 and its sliders 29 and 30, Continue
+  0), 38 (the seven topics, Continue 7) and 39 (the topic's text, scrolled
+  by 0, 1 and the knob 2; Back 5 to the topics, Continue 4). The game goes
+  on behind them. Reluva shows them so.
 - The left column: the cards window and the notepad at (5, 5). The cards
   in it (0x43A600's table, 0x43A913) go at (106, 241), (13, 241), (106,
   124), (13, 124), (106, 7), (13, 7) from the bottom right; the code adds
@@ -777,10 +783,11 @@ by their runtime-class records):
   and `NetPlayerSetupMenu` (0x411CB0), as they open: `mnThndr1.wav`
   stopped and, if the CD isn't playing, track 5. It plays on from there
   through the menus until something stops it.
-- `PrefMenu`, as it opens (0x415810): track 5 if the CD isn't playing.
-  Its Return (control 10000, 0x41650C) stops the CD, in the menus and
-  in the game alike; in the game the music then stays off until the
-  next suggestion's video.
+- `PrefMenu` (the menus' Preferences, dialog 24), as it opens
+  (0x415810): track 5 if the CD isn't playing. Its Return (control
+  10000, 0x41650C) stops the CD. The game's own Preferences, from the Esc
+  menu, are another window (dialog 37, its code about 0x43F0B0), which
+  touches the music only by its volume.
 - Starting a game (0x4135D0 from the picker, 0x41228F from the network
   setup) stops the CD. Loading it (0x404780) stops `mnThndr1.wav` and
   loops `load music loop22khz.wav` (sound 0x43); when it is loaded that

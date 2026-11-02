@@ -63,6 +63,7 @@ private:
     enum class Screen {
         Intro, MainMenu, StartChoice, Connection, NetGame, LoadGame, RulesMenu, Rules, Credits, CreditsText,
         Exit, Picker, Setup, Variants, Prefs, Loading, Deal, Game, GameMenu, SaveGame, ExitConfirm,
+        GamePrefs, GameRulesMenu, GameRules, // the Esc menu's Preferences and How to Play
         // Network play (frontend_net.cpp).
         NetHost, NetJoin, NetAddress, NetLobby, NetSetup, NetMessage
     };
@@ -70,14 +71,15 @@ private:
     void go(Screen s);
     // A window of the Esc menu's, over the game.
     bool overGame() const {
-        return at_ == Screen::GameMenu || at_ == Screen::SaveGame || at_ == Screen::ExitConfirm;
+        return at_ == Screen::GameMenu || at_ == Screen::SaveGame || at_ == Screen::ExitConfirm ||
+               at_ == Screen::GamePrefs || at_ == Screen::GameRulesMenu || at_ == Screen::GameRules;
     }
     void onClick(int id);
     void showDialog(int id, int x = 0, int y = 0);
     void refreshPicker();
     void refreshSetup();
-    void refreshPrefs();
-    void scrollText(int textId, int knobId, int lines);
+    void refreshPrefs(DialogView& view, int first, int musicId);
+    void scrollText(DialogView& view, int textId, int knobId, int lines);
     std::string readText(const std::string& file) const;
     void startMovie(const std::string& file, Screen after);
     void stopMovie();
