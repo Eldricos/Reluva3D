@@ -42,6 +42,7 @@ public:
     void setMouseCursorVisible(bool visible) override;
     void setVideoMode(int width, int height, bool fullscreen) override;
     void minimizeWindow() override;
+    void rumble(float low, float high, uint32_t ms) override;
     void setRelativeMouse(bool on) override;
     uint64_t getMillis() const override;
     void delayMillis(uint32_t ms) override;
@@ -71,6 +72,7 @@ private:
     uint32_t palette_[256] = {};          // RGBA32, byte order R,G,B,A
     std::vector<uint32_t> convertBuffer_; // CLUT8 -> RGBA32 staging
     bool quitRequested_ = false;
+    std::vector<SDL_Gamepad*> pads_; // opened as they're plugged in
 
     SDL_AudioStream* audioStream_ = nullptr;
     AudioCallback audioCallback_;

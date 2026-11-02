@@ -81,6 +81,7 @@ struct GameOptions {
     // Control Options.
     bool autoReverse = true; // the brake backs up when stopped
     bool startInCar = false; // the in-car view first (POV)
+    bool forceFeedback = true; // a game controller shakes when the car's knocked
     float steering = 0.5f;   // Steering Sensitivity, 0..1
     // Two keys for each control (0: none).
     std::array<std::array<uint32_t, 2>, kControls> keys{};

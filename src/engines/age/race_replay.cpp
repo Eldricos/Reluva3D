@@ -46,6 +46,9 @@ void RaceViewer::recordFrame(float dt) {
     f.keys = uint16_t(keys_ & 0xffff);
     f.shift = int8_t(shift_);
     f.flags = manual_ ? kReplayManual : 0;
+    f.padSteer = int8_t(std::lround(pad_.steer * 127));
+    f.padThrottle = uint8_t(std::lround(pad_.throttle * 255));
+    f.padBrake = uint8_t(std::lround(pad_.brake * 255));
     recording_.frames.push_back(f);
 }
 
@@ -116,6 +119,9 @@ void RaceViewer::playFrame() {
     keys_ = f.keys;
     shift_ = f.shift;
     manual_ = (f.flags & kReplayManual) != 0;
+    pad_.steer = float(f.padSteer) / 127;
+    pad_.throttle = float(f.padThrottle) / 255;
+    pad_.brake = float(f.padBrake) / 255;
     stepRace(f.dt);
     ++replayFrame_;
     // Where the recording had the car: a replay that's gone its own way
@@ -149,6 +155,7 @@ void RaceViewer::endReplay() {
     if (replayReturn_ == ReplayReturn::Menu) {
         replaying_ = false;
         keys_ = 0;
+        pad_ = {};
         endRace();
         return;
     }
@@ -158,6 +165,7 @@ void RaceViewer::endReplay() {
         playFrame();
     replaying_ = false;
     keys_ = 0;
+    pad_ = {};
     if (replayReturn_ == ReplayReturn::Results)
         results_ = true;
     else

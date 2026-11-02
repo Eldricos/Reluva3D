@@ -17,7 +17,7 @@ namespace reluva::age {
 namespace {
 
 constexpr char kMagic[] = "RLVRPLY";
-constexpr uint8_t kVersion = 2; // 2: the conditions (1 had none)
+constexpr uint8_t kVersion = 3; // 2: the conditions (1 had none); 3: a game controller's sticks
 
 class Out {
 public:
@@ -111,6 +111,9 @@ std::vector<uint8_t> encodeReplay(const Replay& r) {
         o.u16(f.keys);
         o.u8(uint8_t(f.shift));
         o.u8(f.flags);
+        o.u8(uint8_t(f.padSteer));
+        o.u8(f.padThrottle);
+        o.u8(f.padBrake);
     }
     o.u32(uint32_t(r.marks.size()));
     for (const Vec3& m : r.marks)
@@ -157,6 +160,11 @@ Error decodeReplay(const std::vector<uint8_t>& data, Replay& out) {
         f.keys = in.u16();
         f.shift = int8_t(in.u8());
         f.flags = in.u8();
+        if (version >= 3) {
+            f.padSteer = int8_t(in.u8());
+            f.padThrottle = in.u8();
+            f.padBrake = in.u8();
+        }
     }
     const uint32_t marks = in.u32();
     if (!in.ok || size_t(marks) * 12 > data.size())

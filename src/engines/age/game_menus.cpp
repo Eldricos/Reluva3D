@@ -226,7 +226,7 @@ std::vector<GameMenus::Item> GameMenus::items() const {
         // The keyboard only: no joystick to calibrate, no force feedback.
         list = {check("ctrl_aut"),
                 check("ctrl_pov"),
-                check("ctrl_fbk", false),
+                check("ctrl_fbk"),
                 choice("CONTROLLERS", false),
                 bar("Steering Sensitivity"),
                 bar("Joystick Dead Zone", false),
@@ -339,6 +339,8 @@ bool GameMenus::checked(const std::string& w) const {
         return o.autoReverse;
     if (w == "ctrl_pov")
         return o.startInCar;
+    if (w == "ctrl_fbk")
+        return o.forceFeedback;
     return false;
 }
 
@@ -367,6 +369,8 @@ void GameMenus::toggle(const std::string& w) {
         o.vehicleReflections = !o.vehicleReflections;
     else if (w == "gfx_port")
         o.smartRendering = !o.smartRendering;
+    else if (w == "ctrl_fbk")
+        o.forceFeedback = !o.forceFeedback;
     else if (w == "ctrl_aut")
         o.autoReverse = !o.autoReverse;
     else if (w == "ctrl_pov")

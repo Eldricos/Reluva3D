@@ -25,6 +25,10 @@ struct ReplayFrame {
     uint16_t keys = 0; // the driving keys held (kDrive* bits)
     int8_t shift = 0;  // a manual gear change asked
     uint8_t flags = 0; // kReplayManual
+    // A game controller's: the stick's steering (-127..127) and the
+    // triggers (0..255), 0 when there's none.
+    int8_t padSteer = 0;
+    uint8_t padThrottle = 0, padBrake = 0;
 };
 enum : uint8_t { kReplayManual = 1 };
 

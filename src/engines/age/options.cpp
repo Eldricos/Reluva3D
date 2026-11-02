@@ -170,6 +170,7 @@ void GameOptions::resetGraphics() {
 void GameOptions::resetControls() {
     autoReverse = true;
     startInCar = false;
+    forceFeedback = true;
     steering = 0.5f;
     for (int i = 0; i < kControls; ++i)
         keys[size_t(i)] = {kInfo[i].first, kInfo[i].second};
@@ -201,8 +202,8 @@ std::string GameOptions::text() const {
       << texturedSky << "\npedestrians " << pedestrians << "\nsmartrendering " << smartRendering << "\nreflections "
       << vehicleReflections << "\nfullscreen " << fullScreen << "\nresolution " << resolution << "\nvisibility "
       << visibility << "\nlighting " << lightingQuality << "\nobjectdetail " << objectDetail << "\ntexturequality "
-      << textureQuality << "\nautoreverse " << autoReverse << "\nstartincar " << startInCar << "\nsteering " << steering
-      << "\n";
+      << textureQuality << "\nautoreverse " << autoReverse << "\nforcefeedback " << forceFeedback << "\nstartincar "
+      << startInCar << "\nsteering " << steering << "\n";
     for (int i = 0; i < kControls; ++i)
         o << "key " << kNames[i] << " " << keys[size_t(i)][0] << " " << keys[size_t(i)][1] << "\n";
     return o.str();
@@ -256,6 +257,8 @@ Error GameOptions::parse(const std::string& text) {
             autoReverse = on;
         else if (name == "startincar")
             startInCar = on;
+        else if (name == "forcefeedback")
+            forceFeedback = on;
         else if (name == "steering")
             steering = number(value, 0, 1);
         else if (name == "key") {
