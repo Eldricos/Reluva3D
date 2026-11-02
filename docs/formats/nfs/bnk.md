@@ -401,7 +401,7 @@ loads the banks into a table of 12-byte entries at `0x571124`
 | 5 | `siren3d` or `siren` | `0x414178` |
 | 6, 7 | `cnt`, `lap` | `0x4142d2`, `0x414358` |
 | 8 | `copspch` | `0x4141d0` |
-| 9-14 | `tutor` (9), `vocasst` (10), the `off%02xA`-`C` (11-13) and `disp%02x` (14) speech | `0x4144f3`-`0x4147e1` |
+| 9-14 | `tutor` (9), `vocasst` (10), the `off%02xA`-`C` (11-13) and `disp%02x` (14) speech, numbered by the track modulo 4 (Seen in footage, below) | `0x4144f3`-`0x4147e1` |
 | 22 | another traffic bank (`s...`) | `0x413e0a` |
 
 `0x4138e0` loads the cars' banks (`scar.bnk`, `car.bnk`, `ocar.bnk`) at
@@ -499,6 +499,78 @@ up (`frd.md`), sound 31 of `tr3d00`/`tram00` (a 0.42 s loop). Its
 in a run (`gh2-run1`, a single race on Hometown, `-watch 0x4113d7`):
 all 40 plays logged were slot 0x15, sound 0x1f, the volume rising
 0, 1, 3, 4, 5 as it came into range at 42 s.
+
+Not every sky has these sounds. The night and wet banks of Hometown
+(`tram00n`, `tram00w`, `tram00nw` and the `tr3d` ones) have no sound
+31, and Summit's (`tram07n`, `w`, `nw`) no sound 0. So only by a dry
+day does Hometown's loop or Summit's −3 row have a sound to play (read
+from the banks; what the game does with a missing sound wasn't
+followed).
+
+## Seen in footage (November 2026)
+
+From 18 YouTube recordings of the original game (`Hometown_Day` and so
+on, one race per track by day and night; AAC, so good for what plays
+when, not sample for sample). Times are clip times, m:ss. Sounds were
+looked for by cross-correlating the decoded sounds, at a range of
+pitches, with the clips' sound.
+
+**The engine's pitch.** `Summit_Night`'s car is an Aston Martin DB7
+(`Amd7`: root 68, fine tune −7, range 14, redline 6000) with the
+automatic (N1234R). Its partials rise with the tach in each gear and
+fall at each change; the brightest goes 161 to 305 Hz in first
+(0:24.3-0:27.3). What the footage shows:
+- **The changes glide.** The pitch falls over about 0.5 s, not at
+  once: 1-2 at 0:27.6-0:28.2, 440 cents; 2-3 at 0:31.0-0:31.6, 640
+  cents. The tach falls as slowly.
+- **The shift points sound alike.** Before both changes the pitch
+  holds at 305-308 Hz for 0.3-0.5 s, with the tach still at about
+  5,300 rpm. That is below 5,512, where the formula's bend reaches its
+  cap of 100, so the cap isn't what holds it.
+- **Against the formula.** Read off the tach (about ±300 rpm), the
+  changes went 5,400 to 4,100 and 5,300 to 3,700 rpm. The formula
+  gives 520 and 640 cents; a pitch in proportion to the revs, 480 and
+  620. Over the revs seen (3,600-5,400) the pitch rises 0.37 cents an
+  rpm; the formula's is 0.40, and a proportional pitch's 0.32-0.48. So
+  the footage fits the formula, but it can't tell it from a pitch in
+  proportion to the revs: the two differ by under 10% in this range.
+  They part at low revs, which the clips only show at the launch,
+  with wheelspin. If the brightest partial is the 8th of sound 0's
+  43.07 Hz cycle, the formula puts the revs 200-400 below the tach's
+  reading, within what the tach can be read to.
+
+**Wall hits and skids.** Not settled. The `Gen.bnk` hits (29-37) and
+skids (41-47) give no clear match in the races: most peaks are in the
+menus, and the few in races don't hold over the sound's whole length.
+The one a frame bears out is `Country_Woods_Day` 2:39.4, the car
+sliding into a snow bank: slot 30 at −280 cents (correlation 0.46 over
+0.4 s), where a code-5 bank should give slot 29
+([col.md](col.md)). One match isn't enough to say which.
+
+**The moving objects.** None heard. Sounds 6, 7 and 8 (`Redrock_Ridge`,
+`Lost_Canyons`), 6, 7 and 13 (`Aquatica`), 0 (`Summit_Day`), 3 and 6
+(`Empire_City`) and 31 (`Hometown_Day`) give no peak above the clips'
+noise at ±200 cents. That fits Reluva's own Hometown run, where the
+loop played at volume 5 of 127 or less as it came into reach. The
+night clips have no sound 31 or 0 to find (above).
+
+**Sirens and speech** (the Hot Pursuit clips):
+- `Summit_Night` (a racer's pursuit, [physics.md](physics.md)) has a
+  wail at 7:20-7:27.5, the shape of `siren.bnk` slot 0 (up to about
+  1.2 kHz and down), then a yelp, slot 1 (7:27.7, correlation 0.48).
+  Slot 1 also plays in `Aquatica_Day` (4:29.8, 4:37.8) and
+  `Hometown_Night` (1:01.3).
+- The two ticket scenes of `Summit_Night` (3:06.3, 5:07.1) carry
+  `copspch` slots 17 and 19.
+- The dispatcher speaks throughout, and his lines are `disp03`'s:
+  slots 36, 38-40, 65, 78, 81 and 99, which differ in the other
+  `disp` banks, are heard. So Summit uses Rocky Pass's speech. The
+  code says why (`0x4146c6`-`0x4147c6`): in a Hot Pursuit each bank's
+  number (`%soff%02xA`, `B`, `C`, `%sdisp%02x`) is the track modulo 4, or the
+  track itself past 7. So tracks 4-7 take the speech of 0-3, and only
+  0-3 and 8 have banks. `Aquatica_Night` (track 6) likewise plays
+  `disp02` lines (slot 36, the same in `disp08`), not `disp00` or
+  `disp03` ones.
 
 ## EA-XA ADPCM
 

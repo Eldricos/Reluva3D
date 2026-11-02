@@ -368,6 +368,15 @@ Checked under Xvfb with SDL's dummy audio driver: the pages play and
 move on as they should, but nobody listened to the output. The decoded
 audio was checked as WAV files: spectrograms, and the comparisons above.
 
+Compared with footage of the original game (18 YouTube races, November
+2026): the decoded music segments are found in the clips, in the order
+the maps and the game's rules give (which stream each track plays, the
+zones, place, last lap, speed and pursuit: [mus.md](../formats/nfs/mus.md),
+Seen in footage). The sirens, the dispatcher's speech (whose bank is
+the track modulo 4) and the engine's pitch against the tach are in
+[bnk.md](../formats/nfs/bnk.md), Seen in footage; the wall hits,
+skids and moving objects' sounds couldn't be picked out.
+
 Not done yet:
 
 - (since done: the maps' events, parts and control value, as the game
@@ -661,6 +670,8 @@ Started. Done so far:
         0x417fd0 via 0x411c50, for a car with +0x200 bit 0x20 and
         +0x710 bit 0x10), the traffic (slots 0-3, 0x411cb0, +0x200 bit
         4) and the one-shots on slot 0x1f (wall hits, 0x416d90).
+        The sirens are heard in footage of the original
+        ([bnk.md](../formats/nfs/bnk.md), Seen in footage).
       So the rear channel carries mostly the other cars' engines, as
       they fall behind; the player's own car is almost always in front.
     - Before `-wav` followed the game's clock, the recordings couldn't
@@ -1317,7 +1328,11 @@ README.md.
   and 7 kHz low-pass) would place the voices behind; only the matrix's
   sums are measured. The moving objects' fades and special sounds
   (-2, -3) are read from the code only; Summit's, Aquatica's and
-  Redrock's specials weren't heard in a run.
+  Redrock's specials weren't heard in a run, nor in footage of the
+  original, where no moving object's sound stands out of the noise
+  (November 2026, [bnk.md](../formats/nfs/bnk.md), Seen in footage).
+  Hometown's loop and Summit's −3 row have no sound at night or in the
+  wet (their banks lack sounds 31 and 0).
 - The car handling in full: the tyre model, steering and gear changes,
   landing, and the computer cars' simpler model. The race types, the
   network kinds, `carp.txt`'s place in memory, the engine and the car

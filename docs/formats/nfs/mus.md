@@ -188,6 +188,90 @@ So byte 5 is the start section: the Music page starts there. The car
 standing still kept the control value at 0, as the game's rules above
 say.
 
+## Seen in footage (November 2026)
+
+From 18 YouTube recordings of the original game, one race per track by
+day and by night (`Hometown_Day` and so on; times are clip times,
+m:ss). Each segment's first 2 seconds were cross-correlated with the
+clips' sound, and the path through each map followed from section to
+section, the next one picked among the routes and events of the one
+before. Matches are clear (correlation 0.2-0.7 against 0.06 for the
+wrong segments); where the music is quiet under the engines, a few
+sections are uncertain. Places and laps come from the HUD.
+
+**Which stream.** Every clip plays its track's own pair, as the table
+of prefixes at `0x5525a8` says (track 0-8: `home`, `lost`, `atla`,
+`alpi`, `home`, `lost`, `atla`, `alpi`, `empr`):
+
+| Track | Day | Night |
+|---|---|---|
+| 0 Hometown | `homerock` | `homerock` |
+| 1 Redrock Ridge | `losttech` | `lostrock` |
+| 2 Atlantica | `atlatech` | `atlatech` |
+| 3 Rocky Pass | `alpirock` | `alpitech` |
+| 4 Country Woods | `hometech` | `hometech` |
+| 5 Lost Canyons | `lostrock` | `lostrock` |
+| 6 Aquatica | `atlarock` | `atlatech` |
+| 7 Summit | `alpirock` | `alpitech` |
+| 8 Empire City | `emprrock` | `emprrock` |
+
+Rock or tech isn't tied to day or night; what picks it wasn't looked
+at. No clip plays a `.lin` order.
+
+**The start.** `Hometown_Day` and `Hometown_Night` play section 170
+during the loading and the grid fly-by (0:12.4, 0:11.4), as header byte
+5 says; `Summit_Day` and `Lost_Canyons_Day` start at section 0, and
+`Summit_Night` and `Rocky_Pass_Night` play `alpitech`'s 190.
+
+**The zones.** Each lap's events come in the order of the FRD's zones
+([tracks.md](tracks.md), Music laps): Hometown, Redrock Ridge and
+Rocky Pass 4, 5, 6, 7; Country Woods 4, 5, 8, 9, 7; Lost Canyons 4, 5,
+8, 9, 6; Summit 4, 5, 8, 9; Atlantica 4, 5, 6; Empire City 4, 5, 6, 7.
+Empire City's one-slice zone 7 (slice 367) leaves no trace: the next
+section is zone 5's. The new part starts at a section's end, a little
+after the zone's slice: `Hometown_Day`'s lap 1 (1:41.7 long) has zone
+5 at 0:47.5, 6 at 1:19.6, 7 at 1:35.6 and 4 at 1:54.8, the line at
+2:01.9 (27, 58, 74 and 93% of the lap, against slices 191, 477, 641
+and 823 of 960).
+
+**The control value.** The rules above hold where the footage can test
+them. The clips are 2-lap races against 7 computer cars, so the value
+goes by the place, from 50 on the first lap and 100 on the last:
+- **Place.** On lap 1, 4th to 8th place plays the middle routes:
+  `Hometown_Day` 0:28-1:26 (5th-8th), `Atlantica_Day` 1:00.9-1:10.1
+  (6th, 4th), `Summit_Day` and `Lost_Canyons_Day` all lap (6th-8th).
+  Reaching 3rd turns it high at the next section decided:
+  `Atlantica_Day` is 3rd from 1:11.5 and high from 1:13.8;
+  `Hometown_Day` 3rd from 1:27, high from 1:29.2.
+- **The last lap** is high whatever the place: `Summit_Day` in 8th,
+  `Lost_Canyons_Day` in 6th.
+- **The music's own lap.** `Summit_Day` turns high at 4:26.2, after
+  zone 9 to 4 (4:18.6), 20 s before the lap line (4:46.9): Summit's
+  pair (4, 9) moves the music on early. `Lost_Canyons_Day` turns high
+  at 4:20.2, the first section after its line (4:16.6): its pair never
+  matches, so the lap counts at the line. Both as tracks.md says.
+- **Speed.** `Summit_Day` crashes and stops at 2:52 (speedometer at 0);
+  the next two sections (2:54.1, 2:57.9) take the low routes, and the
+  middle ones come back at 3:01.8 when it is moving. Low routes also
+  follow two slow corners where the needle drops to about 55 mph
+  (2:40-2:42, low from 2:42.5; 6:56-6:57, low at 6:57.7): 25 m/s is 56
+  mph, so this fits a speed of 25 in m/s. (The dial is mph on the
+  results screen, [physics.md](physics.md).)
+- **After the finish** the music drops to the low routes within a
+  section: `Hometown_Day` 3:34.0 (finish 3:31.2), `Atlantica_Day`
+  5:11.9 (5:08.5), `Lost_Canyons_Day` 7:49.0, `Summit_Day` 9:04.4.
+
+**Pursuits.** In the Hot Pursuit clips event 1 leads to the pursuit's
+part (`homerock` section 84, part 12; `alpitech` 80, part 11), which
+then switches between its high and low routes, and the zone's music
+comes back after: `Hometown_Night` pursuit at 0:43.4, 2:27.0 and
+3:53.4, back to zone 5 at 1:20.1; `Summit_Night` from about 1:50, at
+4:35.5, 5:40.8, 6:07.2 and 9:27.2.
+
+Not settled by the footage: event 0 (two candidates, `Atlantica_Night`
+0:56.9 and `Aquatica_Day` 4:31.4, unconfirmed), and the races of other
+lengths (the lap tables).
+
 ## On the Music page
 
 The segments play as one stream (`audio::SoundQueue`, `common/audio`):
