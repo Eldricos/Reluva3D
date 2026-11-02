@@ -2905,6 +2905,9 @@ int cmdClueBoard(int argc, char** argv) {
         players = std::clamp(std::atoi(argv[5]), 3, 6);
     }
     int turns = 0, unfinished = 0, wrong = 0, suggestions = 0, selfNamed = 0, within12 = 0;
+    // As a recording can show it: games whose first 15 suggestions have no
+    // one naming itself.
+    int noSelfIn15 = 0;
     std::array<int, 3> wins{};
     for (int g = 0; g < games; ++g) {
         using reluva::clue::ComputerPlayer;
@@ -2920,7 +2923,7 @@ int cmdClueBoard(int argc, char** argv) {
         for (int s = 0; s < reluva::clue::kSuspectCount; ++s)
             ai[size_t(s)].reset(game, s, uint32_t(g * 31 + s), onlyLevel >= 0 ? onlyLevel : (s + g) % 3);
         const int turnsBefore = turns;
-        int steps = 0;
+        int steps = 0, early = 0, earlySelf = 0;
         for (; game.phase() != Game::Phase::Over && steps < 100000; ++steps) {
             ComputerPlayer& me = ai[size_t(game.turn())];
             reluva::Error e;
@@ -2932,6 +2935,10 @@ int cmdClueBoard(int argc, char** argv) {
                 const auto a = me.chooseSuggestion(game);
                 ++suggestions;
                 selfNamed += a.suspect == game.turn();
+                if (early < 15) {
+                    ++early;
+                    earlySelf += a.suspect == game.turn();
+                }
                 e = game.suggest(a.suspect, a.weapon);
                 if (!e && game.phase() == Game::Phase::Disprove)
                     e = game.show(ai[size_t(game.disprover())].chooseShow(game, game.turn()));
@@ -2962,6 +2969,7 @@ int cmdClueBoard(int argc, char** argv) {
         }
         unfinished += game.phase() != Game::Phase::Over;
         within12 += game.winner() >= 0 && turns - turnsBefore < 12 * players;
+        noSelfIn15 += early == 15 && earlySelf == 0;
         if (game.winner() >= 0)
             ++wins[size_t(ai[size_t(game.winner())].level())];
         for (int s = 0; s < reluva::clue::kSuspectCount; ++s)
@@ -2976,6 +2984,8 @@ int cmdClueBoard(int argc, char** argv) {
                     "suggestions\n",
                     players, double(turns) / games / players, within12 * 100 / games,
                     suggestions ? 100.0 * selfNamed / suggestions : 0.0, suggestions);
+    if (games && onlyLevel >= 0)
+        std::printf("no one named itself in the first 15 suggestions in %d%% of games\n", noSelfIn15 * 100 / games);
     return unfinished ? 1 : 0;
 }
 #endif // RELUVA_ENGINE_CLUE

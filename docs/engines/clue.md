@@ -196,11 +196,22 @@ clue-board <clue.lvl> 300 <level> <players>`, games of that level alone):
 | Normal (6 players) | no accusation in about 10 rounds; named itself 10% | 20.3 rounds, 18% won within 12; 20% |
 | Expert (5 and a human) | won in about 10 rounds; never named itself | 5 players 19.9 rounds, 6 players 15.1, 32% won within 12; 20-21% |
 
-The novices' and normal players' recorded games fit. The recorded
-expert game was quicker than most, and its experts never named
-themselves where by the code they may (when they lack their own card,
-about one suggestion in five here): one game, which the code doesn't
-explain. In mixed games of two of each level (`clue-board ... 600`),
+The novices' recorded games fit. Naming itself, looked at again (November
+2026): the VM recording's experts made 15 suggestions before they knew
+the answer's suspect (10:39-17:52, read off its ticker), none naming
+itself; Reluva's experts have none in their first 15 in 9% of games
+(`clue-board ... expert 6` reports it), its normal players 3 or fewer in
+30 about one game in eight. Each step of the choice was gone through
+again in `Clue.exe` and matches: the cards known held (0x42CFF0, the
+seats' hands together), the "holds one of" lists that experts and normal
+players steer off (0x42D020, pared down by 0x42CCE0 as Reluva's are),
+who adds to them (0x418D00: all but the suggester and the one who
+answered), the deal (0x41C1C0: the answer, then the other 18 cards round
+the table by chance, nothing kept back for a suspect's own player), the
+pick by chance (0x42D050, `rand() % n`), and the levels (+0xCC: 2
+novice, 3 normal, 4 expert). Nothing in the code keeps a player off its
+own suspect, so Reluva doesn't either; the two recordings are short of
+what it would take to say the original does otherwise. In mixed games of two of each level (`clue-board ... 600`),
 experts won 402, normal players 159, novices 39.
 
 **The recordings.** Read off each game's ticker, every turn and
