@@ -71,6 +71,7 @@ struct GameOptions {
     float balance = 0;        // -1 left .. 1 right
     // Graphics Options.
     bool texturedSky = true, pedestrians = true, smartRendering = true;
+    bool vehicleReflections = true;
     bool fullScreen = false;
     int resolution = 0;        // into resolutions()
     float visibility = 1;      // 0..1: how far the city is drawn

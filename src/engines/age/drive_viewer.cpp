@@ -79,6 +79,7 @@ void applyGraphicsOptions(CityScene& scene, CityLife& life) {
     const GameOptions& o = currentOptions();
     static const float kDetail[4] = {0.4f, 0.6f, 0.8f, 1.0f};
     scene.setSkyShown(o.texturedSky);
+    CarActor::reflections = o.vehicleReflections;
     scene.setVisibility(o.smartRendering);
     scene.setModelDistance(300 + 600 * o.visibility);
     scene.setModelDetail(kDetail[std::clamp(o.objectDetail, 0, 3)]);

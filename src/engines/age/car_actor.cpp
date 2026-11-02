@@ -9,6 +9,15 @@
 
 namespace reluva::age {
 
+namespace {
+
+// How much of the reflection map a shader's shininess adds (body paint's
+// 0.5: a third of the map). Reluva's choice: the footage shows the
+// reflections on, not how strong.
+constexpr float kReflection = 0.6f;
+
+} // namespace
+
 gfx::Mat4 matrixOf(const Mat3& r, const Vec3& p) {
     return {r.x[0], r.x[1], r.x[2], 0, r.y[0], r.y[1], r.y[2], 0, r.z[0], r.z[1], r.z[2], 0, p[0], p[1], p[2], 1};
 }
@@ -72,6 +81,8 @@ Error CarActor::load(gfx::Renderer3D& renderer, TextureCache& textures, const Se
     }
     for (int i = 0; i < 2; ++i)
         lamp(i == 0 ? "SIREN0" : "SIREN1", sirens_[size_t(i)]);
+    bool translucent = false;
+    reflectionMap = textures.get("refl_dc", translucent, true);
     return Error::success();
 }
 
@@ -94,6 +105,8 @@ void CarActor::draw(const SceneLight& light) const {
     const gfx::Mat4 carMatrix = matrixOf(sim.orientation, sim.position);
     for (bool translucent : {false, true}) {
         drawModelMesh(*renderer_, body_, carMatrix, light, translucent);
+        if (!translucent && reflections)
+            drawModelReflection(*renderer_, body_, carMatrix, light, reflectionMap, kReflection);
         for (int i = 0; i < 4; ++i) {
             const CarSim::Wheel& w = sim.wheels[size_t(i)];
             const AxleSetup& axle = i < 2 ? setup.front : setup.back;

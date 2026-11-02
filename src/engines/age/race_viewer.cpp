@@ -1077,6 +1077,9 @@ void RaceViewer::drawGarageCar(float dt) {
             showCar_.reset();
             return;
         }
+        bool translucent = false; // the showroom's reflection
+        if (const gfx::TextureId room = scene_->textures().get("refl_showroom", translucent, true))
+            showCar_->reflectionMap = room;
         showCarIndex_ = c.car;
         showPaint_ = c.paintJob;
     }

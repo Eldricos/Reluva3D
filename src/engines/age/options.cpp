@@ -158,6 +158,7 @@ void GameOptions::resetGraphics() {
     texturedSky = d.texturedSky;
     pedestrians = d.pedestrians;
     smartRendering = d.smartRendering;
+    vehicleReflections = d.vehicleReflections;
     fullScreen = d.fullScreen;
     resolution = d.resolution;
     visibility = d.visibility;
@@ -197,10 +198,11 @@ std::string GameOptions::text() const {
     o << "# Reluva's options for Midtown Madness 2\n";
     o << "soundfx " << soundFx << "\ncommentary " << commentary << "\nmusic " << music << "\nambient " << ambient
       << "\neffectsvolume " << effectsVolume << "\nmusicvolume " << musicVolume << "\nbalance " << balance << "\nsky "
-      << texturedSky << "\npedestrians " << pedestrians << "\nsmartrendering " << smartRendering << "\nfullscreen "
-      << fullScreen << "\nresolution " << resolution << "\nvisibility " << visibility << "\nlighting "
-      << lightingQuality << "\nobjectdetail " << objectDetail << "\ntexturequality " << textureQuality
-      << "\nautoreverse " << autoReverse << "\nstartincar " << startInCar << "\nsteering " << steering << "\n";
+      << texturedSky << "\npedestrians " << pedestrians << "\nsmartrendering " << smartRendering << "\nreflections "
+      << vehicleReflections << "\nfullscreen " << fullScreen << "\nresolution " << resolution << "\nvisibility "
+      << visibility << "\nlighting " << lightingQuality << "\nobjectdetail " << objectDetail << "\ntexturequality "
+      << textureQuality << "\nautoreverse " << autoReverse << "\nstartincar " << startInCar << "\nsteering " << steering
+      << "\n";
     for (int i = 0; i < kControls; ++i)
         o << "key " << kNames[i] << " " << keys[size_t(i)][0] << " " << keys[size_t(i)][1] << "\n";
     return o.str();
@@ -236,6 +238,8 @@ Error GameOptions::parse(const std::string& text) {
             pedestrians = on;
         else if (name == "smartrendering")
             smartRendering = on;
+        else if (name == "reflections")
+            vehicleReflections = on;
         else if (name == "fullscreen")
             fullScreen = on;
         else if (name == "resolution")

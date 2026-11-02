@@ -206,6 +206,7 @@ Error buildModelMesh(gfx::Renderer3D& renderer, TextureCache& textures, const Se
                 d.color = s->diffuse;
                 d.ambient = {s->ambient[0], s->ambient[1], s->ambient[2]};
                 d.emissive = {s->emissive[0], s->emissive[1], s->emissive[2]};
+                d.shininess = s->shininess;
                 d.textureName = s->texture;
                 if (!s->texture.empty())
                     d.texture = textures.get(s->texture, d.translucent);
@@ -297,6 +298,34 @@ void drawModelMesh(gfx::Renderer3D& renderer, const ModelMesh& mesh, const gfx::
             call.state.depthWrite = false;
             call.state.alphaTest = gfx::AlphaTest::Gt0;
         }
+        renderer.draw(call);
+    }
+}
+
+void drawModelReflection(gfx::Renderer3D& renderer, const ModelMesh& mesh, const gfx::Mat4& model,
+                         const SceneLight& light, gfx::TextureId map, float strength) {
+    if (!mesh.mesh || !map)
+        return;
+    for (const ModelDraw& d : mesh.draws) {
+        if (d.translucent || d.glow || d.shininess <= 0)
+            continue;
+        gfx::DrawCall call;
+        call.mesh = mesh.mesh;
+        call.firstIndex = d.firstIndex;
+        call.indexCount = d.indexCount;
+        call.model = model;
+        call.texture = map;
+        // The renderer's reflection gives (0.5 + r.y / 2, 0.5 - r.z / 2);
+        // a sphere map wants the way across in u and up at the top in v.
+        call.texGen = gfx::TexGen::Environment;
+        call.preRow0 = {0, -1, 1};
+        call.preRow1 = {-1, 0, 1};
+        const float k = d.shininess * strength;
+        call.color = {k, k, k, 1};
+        call.state.src = call.state.dst = gfx::Blend::One;
+        call.state.depthEqual = true;
+        call.state.depthWrite = false;
+        applyFog(call, light, true);
         renderer.draw(call);
     }
 }
