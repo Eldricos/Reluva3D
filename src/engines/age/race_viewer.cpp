@@ -414,6 +414,7 @@ void RaceViewer::startRace() {
     outcome_.clear();
     beatenAll_.clear();
     finalLapFor_ = 0;
+    sunkFor_ = 0;
     lastLap_ = 0;
     lapEnds_.clear();
     splitFor_ = 0;
@@ -604,6 +605,7 @@ void RaceViewer::stepRace(float dt) {
             impact = sim.impact;
             sim.impact = 0;
             if (sim.position[1] < scene_->psdl().min[1] - 50) { // fallen out: back to the last checkpoint
+                sunkFor_ = 3;                                   // (deep water's the way out of the city)
                 const size_t last = anyOrder() ? r.lastCleared : r.next - 1;
                 const Waypoint& back = r.next > 0 ? targetPoint(last) : race_.waypoints[0];
                 sim.reset(r.car->setup, back.position + Vec3{0, 0.5f, 0}, headingToYaw(back.heading));
@@ -678,6 +680,7 @@ void RaceViewer::stepRace(float dt) {
     }
     // Into a circuit's last lap: "Final lap!" for a moment.
     finalLapFor_ = std::max(0.0f, finalLapFor_ - dt);
+    sunkFor_ = std::max(0.0f, sunkFor_ - dt);
     if (race_.kind == RaceKind::Circuit && !racers_.empty()) {
         const size_t perLap = race_.waypoints.size();
         const int laps = std::max(1, race_.settings[size_t(level_)].laps);
@@ -1398,8 +1401,8 @@ void RaceViewer::drawRaceHud() {
     const float shown = lessonLeft >= 0 ? lessonLeft
                         : blitz         ? set.timeLimit - std::max(0.0f, clock_)
                                         : std::max(0.0f, clock_);
-    if (!hudShown_)
-        ; // the HUD Toggle's off: no clock, list or gauges
+    if (!hudShown_ || (lesson() && race_.lesson.event == LessonEvent::Follow))
+        ; // the HUD Toggle's off (no clock, list or gauges), or a follow lesson's untimed
     else if (pictures_.loaded())
         pictures_.clock(overlay_, shown, kFrameW / 2, 0);
     else
@@ -1508,6 +1511,12 @@ void RaceViewer::drawRaceHud() {
     }
     if (finalLapFor_ > 0)
         drawCentred(strings_.get(62, "Final lap!"), kSplitY - 22, kMessage, 1);
+    // Put back after sinking: the game's word for it, San Francisco's
+    // seen in the footage, London's (642, by the other) Reluva's reading.
+    if (sunkFor_ > 0)
+        drawCentred(cities_[size_t(city_)].map == "london" ? strings_.get(642, "More tea, vicar?")
+                                                           : strings_.get(30, "Sleep with the fishes!"),
+                    kMessageY, kMessage, 2);
     if (state_ == State::Finished && lesson()) {
         font::drawText(overlay_, 60, 170, outcome_, {255, 255, 120}, 3);
         const bool passed = judge_.result() == LessonJudge::Result::Passed;
@@ -1558,6 +1567,7 @@ void RaceViewer::update(uint64_t nowMs) {
     if (net_)
         netUpdate(nowMs);
     const float dt = lastMs_ ? std::min(0.1f, float(nowMs - lastMs_) / 1000) : 0;
+    resultsTime_ = results_ ? resultsTime_ + dt : 0;
     lastMs_ = nowMs;
 
     Vec3 eye, target, up{0, 1, 0};

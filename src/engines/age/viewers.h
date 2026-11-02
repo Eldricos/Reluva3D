@@ -538,6 +538,8 @@ private:
     LessonJudge judge_;
     std::string beatenAll_; // "You've beaten all the Blitz races!!", once they are
     float finalLapFor_ = 0; // seconds "Final lap!" has left
+    float sunkFor_ = 0;
+    float resultsTime_ = 0; // seconds the results have been up     // and "Sleep with the fishes!", after a car's sunk
     int lastLap_ = 0;
     std::vector<float> lapEnds_;     // the clock at each of the player's laps' ends
     float splitFor_ = 0, split_ = 0; // the time shown after a checkpoint, and for how long yet

@@ -1,7 +1,7 @@
 # Midtown Madness 2: what the game's own screens show
 
 Some things the game's files don't say (where its HUD goes, how its
-damage meter moves) can be seen on its screens. Three public gameplay
+damage meter moves) can be seen on its screens. Six public gameplay
 videos were watched for this; nothing from them is in Reluva but
 measurements and observations, written down here.
 
@@ -10,6 +10,9 @@ measurements and observations, written down here.
 | "Midtown Madness 2 Walkthrough" | 5 h 55 min | 640 x 480, 30 a second | Crash Course from the first lesson to the final exam, many Blitz, Checkpoint and Circuit races in both cities, the Vehicle Showcase cars cruising, the in-car views, the options screens |
 | "Midtown Madness 2 (2000) - PC Gameplay" | 34 min | 1280 x 720 (the game at that size), 60 a second | Circuit and Checkpoint races in both cities, at night, in rain and fog |
 | "Midtown Madness 2 (2000): Old Game PC in 4K 60FPS" | 5 min | 1280 x 720 as fetched | Cruising San Francisco, a few races |
+| "Midtown Madness 2 100% Speedrun Gameplay" | 2 h 34 min | 640 x 480 | every lesson and race, the Graphics Options screen |
+| "Midtown Madness 2 on Professional 100% in 2hours, 28 minutes" | 2 h 29 min | the game at 960 x 720 in 1280 x 720 | the same at Professional |
+| "Midtown Madness 2, 100% - 1:54:43" | 2 h 01 min | the game at 960 x 720, 60 a second | the same |
 
 The walkthrough is the most useful: the game ran at 640 x 480, the size
 its HUD pictures were made for, so the HUD's places can be measured in
@@ -113,3 +116,52 @@ drawbridges, and through its sound:
   finish the beat stops for a few seconds, then the results screen's
   own music plays (0.35 s), then the menu's (0.43 s).
 - The opening movie isn't in any of them.
+
+## The three 100% runs
+
+Looked at second by second where it mattered: the races found by their
+loading screens, scenes placed on the map by the races' waypoints and
+the PSDL, the music's beat measured as before (the 640 x 480 video's
+sound runs 0.2% slow against its picture, corrected for), its
+speedometer read by digit templates, "Final lap!" found by template.
+
+- **"Final lap!" brings the chase segment**, in 19 of 20 cases in one
+  run, 3-6 s later (4.4 on average, the next measure), with each tune's
+  own Cops tempo: London 124 to 150 bpm, Bullet 140 to 155, Enemy 120 to
+  140, Duck 120 to 134, Pimphand 124.4 to 145. A police chase lesson
+  plays the Cops segment too (145 bpm for 107 s, back to 124 about 5 s
+  after). Restarting a race doesn't restart the tune. The results list
+  fills in a racer a second, the opponents named by grid slot
+  ("Opponent 1", strings 13-20), over the Results segment's pattern.
+  Reluva does all of these now ([age-racing.md](age-racing.md)).
+- **Follow lessons have no clock** and run past their TimeLimit
+  (San Francisco's `crash10`, 36, ran 88 s); they end with the car at
+  its end. Reluva's no longer timed. What the lesson table's fourth
+  extra column does in `crash10` and `crash11` still isn't seen (at
+  Professional, where `crash10`'s is 0, the target's marker was on
+  screen less of the time, a weak lead).
+- **Walls**: the freeway's and the Transbay ramp's `s_wall_veg` walls
+  have their rubble stone at the foot and plants along the top, so a
+  wall's texture runs up from its first row; Reluva drew them upside
+  down until now ([psdl.md](../formats/age/psdl.md)). From below (Gimme
+  SOMA, under the Transbay ramp) the decks' edges show a plain light
+  band about 2 m deep, the tunnel attribute's flag 0x4; from beside the
+  ramp its walls (flag 0x4000) show a plain grey face outside.
+- **Railings**: the pier's `s_conc_rail` balustrade and Tower Bridge's
+  mesh are see-through; no car touched one. The piers by the sheds have
+  none: cars drive off into the bay, and "Sleep with the fishes!" (the
+  game's string 30) shows as the car is put back; Reluva shows it now.
+- **The Graphics Options screen** of one run: Vehicle Reflections ticked
+  and available, Texture Quality High, Object Detail Very High, Cloud
+  Shadows High, and no Smart Rendering box (a different version's
+  screen from the files Reluva reads). No run uses Low textures, so
+  flag 0x8000's reading stays untested.
+- **Other things seen**: a Blitz's countdown looks down on the car from
+  above; Checkpoint and Circuit clocks count up, Blitz and timed
+  lessons' down; the loading screens' tips include "In a Checkpoint
+  Race, the finish line appears only after you've cleared the final
+  checkpoint" and "Amateurs must place in the top 3 to unlock a race's
+  characteristics", "Professionals must place first".
+- **Still not seen**: idling's music (the runs never stop long), the
+  pause menu, a drawbridge moving, the CD player, low-detail roads
+  swapping in, sidewalk and divider ends close up.

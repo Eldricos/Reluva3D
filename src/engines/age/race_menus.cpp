@@ -310,9 +310,16 @@ void RaceViewer::drawResults() {
             order.push_back(&r);
         std::stable_sort(order.begin(), order.end(),
                          [&](const Racer* a, const Racer* b) { return progressOf(*a) > progressOf(*b); });
-        for (size_t i = 0; i < order.size() && y < kBoxY + 290; ++i) {
+        // The rows come in one a second, as the game's do; its opponents
+        // go by their places on the grid ("Opponent 1"...: strings 13-20).
+        const size_t shown = size_t(resultsTime_) + 1;
+        for (size_t i = 0; i < order.size() && i < shown && y < kBoxY + 290; ++i) {
             const Racer& r = *order[i];
-            std::snprintf(line, sizeof line, "%zu. %-30.30s %s", i + 1, r.name.c_str(),
+            const size_t slot = size_t(order[i] - racers_.data());
+            const std::string name = r.player || netGame_ || slot < 1 || slot > 8
+                                         ? r.name
+                                         : strings_.get(uint32_t(12 + slot), "Opponent " + std::to_string(slot));
+            std::snprintf(line, sizeof line, "%zu. %-30.30s %s", i + 1, name.c_str(),
                           r.finishTime >= 0 ? clockText(r.finishTime).c_str() : strings_.get(499, "DNF").c_str());
             font::drawText(overlay_, kBoxX, y, line, r.player ? Color{255, 255, 120} : Color{230, 230, 230});
             y += 16;
