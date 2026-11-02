@@ -112,14 +112,28 @@ tiles show, left to right.
     the brightness less a random amount below the variance; then pushed
     from the middle, by a signed square root of (b − 128) / 128; then 20
     passes that move each towards its neighbours within two points, by
-    half the mean of (neighbour − it) × |neighbour − 128| / 128, kept
-    within 0 to the brightness. It is the colour and the alpha (on a
+    half the mean of (neighbour − it) × ((neighbour − 128) / 128)², kept
+    within 0 to the brightness when it moves, and truncated. The weight
+    is squared (`0x47b0a4`-`0x47b0e1` multiply by |n − 128| / 128 twice;
+    corrected November 2026, it was taken once), which leaves more
+    points near the ends: run on Hometown's values the points span
+    about 70 to 197, as the recorded frame's 88 to 199, where the single
+    weight gave at most about 178. It is the colour and the alpha (on a
     Voodoo; the Direct3D, Rage and PowerVR paths take bright −
     variance / 2 as the alpha). Hometown's points were 88 to 199 for
     235 and 208. Type 1 is added (source alpha, one).
   - **The drift.** Each game tick the texture coordinates move by
     (cos dir, sin dir) × speed × 0.00003, in tiles, kept within a tile
-    (`0x47b76a`). The game ticks about 64 times a second: its tick
+    (`0x47b76a`).
+  - **The camera's place** (November 2026). To that the drawing adds
+    the camera's x and z over the visual height (`0x47b88a`; the reader
+    keeps 1 / visual height at `0x55d208`, `0x47866b`), so as the camera
+    moves the grid, which follows it, shows the clouds passing over:
+    a tile for each visual height moved. That is all the visual height
+    does.
+  - **Heights.** The grid's heights are the world's: the drawing
+    subtracts the camera's y (`0x47b4f0`), and so does the sky's shaded
+    area (`0x479500`, its base and heights less the camera's y). The game ticks about 64 times a second: its tick
     count (`0x7d3684`) went up 641 in 10 seconds of a race.
 - **Lightning's bolts**, over the clouds (`0x47a1c4`, `0x4946e0`), and
   their flash on the clouds. From the code (`0x47b5c0`, `0x4945a0`,
@@ -216,7 +230,9 @@ The Tracks page draws as the game does, above, with the functions in
   after them with `INFRONT`.
 - **The clouds.** The game's grid, dome, nimbus and brightness (with
   Reluva's own random numbers), drifting by the game's amount at 64
-  ticks a second. The `sky.fsh` pictures have no mipmaps, as THRASH's
+  ticks a second and moving by the camera's place over the visual
+  height (`cloudOffset`). The sky's heights, clouds, shaded area and
+  horizon picture, are the world's less the camera's height. The `sky.fsh` pictures have no mipmaps, as THRASH's
   textures have none: the night's `CLDN` is black with one-texel stars
   (at most 100), which mipmaps averaged nearly away.
 - **Fog.** The game's curve and values, per pixel over the depth
@@ -254,8 +270,10 @@ times as m:ss), against the Tracks page and frames from `nfs-host`:
 - In `Summit_Night` it runs the other way, high left to low right.
   That clip looks like a mirrored race: at its start (0:16-0:22) the
   80 sign is on the left of the road, where `Summit_Day` (0:16) has it
-  on the right. So the game mirrors the sun's picture with the track.
-  The page has no mirrored mode to compare.
+  on the right. So the game mirrors the sun's picture with the track:
+  the mirror flag negates the projection's x scale, which flips the
+  whole 3D view, sky and all ([frd.md](frd.md), the mirrored track). The
+  page's mirrored mode (`U`) flips it the same way.
 - **Stars and moon.** `Hometown_Night` (0:40) has many one- or
   two-pixel stars and the moon high right; the page showed the stars
   fainter. They are `CLDN`, added: the page's mipmaps averaged them
@@ -288,19 +306,45 @@ times as m:ss), against the Tracks page and frames from `nfs-host`:
   with a lower one the game draws fewer blocks ahead than the page.
   The game also drops a polygon whose first corner is more than 500
   ahead along the view (`0x41b3bf`, the camera's `+0x30`, 500 for the
-  main view whatever the level); the page doesn't.
+  main view whatever the level and by night too); the page does the
+  same now.
 - **Rocky Pass by day** (its rotation 160°), page and `nfs-host` at the
   start: the same scene, but the sky about 25 bluer in the host
   ((205, 242, 222) against (213, 234, 191), 20-26° up, the host's
   frames in 16-bit steps). The view's centre is at slot 14.9 or 0.7
   with the rotation added or taken away, both on the sun side, so this
-  doesn't tell the rotation's sign; not explained.
+  doesn't tell the rotation's sign.
+
+  **It's the clouds** (November 2026). The same race was run from two
+  copies of the game whose `3tr03.hrz` changed only the clouds, and the
+  page given the same files, compared at 20° up (the host's view taken
+  as 90° across, which fits its gradient):
+
+  | | `nfs-host` | Tracks page |
+  |---|---|---|
+  | No clouds (brightness 0) | (193, 213, 173) | (184, 210, 178) |
+  | Even clouds (variance 0) | (250, 255, 225) | (248, 255, 239) |
+  | The file's clouds | (228, 246, 203) | (206, 232, 198) |
+
+  Without clouds the sky's shading agrees within the elevation's
+  uncertainty: the horizon colours, the slot, the fog and the sun are
+  right. The rotation's sign can't be what's off: at Rocky Pass's
+  start the view's slot without the rotation is 7.8, so either sign
+  lands on slots mirrored about 7.5, where the colours are the same.
+  With every cloud point alike the clouds add as much in both. Only
+  their random layout differs: the game takes the points from its own
+  generator (`0x4e0d88`, a lagged sum shared with the rest of the game),
+  so which part of the sky is thick changes from race to race; at that
+  spot the host had more cloud, which, added and fogged towards the
+  yellow-grey fog colour, lifted its sky by about 35 against the page's
+  20.
 - **Rocky Pass by night**, the same: stars in both; the page's sky
   (50, 45, 66) and horizon hills (32, 31, 48) a step brighter than the
   host's (41, 40, 57) and (24, 20, 41); the trees by the road much
   darker on the page ((1, 2, 5) against (8, 16, 8)), which fits the
   car's headlights, added to the vertex colours of what is near
-  ([frd.md](frd.md), the headlights), and the page has none.
+  ([frd.md](frd.md), the headlights). The page has them now: a car at
+  the camera, `E` for off, low and high beams.
 - **By night or weather** the game leaves out each block's object
   layer 3 and its fourth group of placed objects (`0x41cdc0`); the page
   does too. At Hometown's start they are empty: what goes is the road

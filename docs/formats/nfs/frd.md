@@ -430,8 +430,77 @@ How the game draws a polygon (nfs3.exe):
 With both, the Tracks page reads set 0's signs as the game does: the
 Taco Den and Cactus Motel on Redrock Ridge, the 50 MPH sign and the
 speedway billboard on Hometown. Set 1 (`X`) reads backwards there, as
-it would in the game on an unmirrored track. The page has no mirrored
-mode.
+it would in the game on an unmirrored track.
+
+**The mirrored track** (November 2026). The mirror flag (`0x6fd4c4`)
+doesn't touch the geometry: the view set-up (`0x4bf260`, from
+`0x4dbda0`/`0x4dbde0`) negates the projection's x scale (`0x56009c`), so
+the whole 3D view, sky included, is drawn flipped left to right, and the
+culling turns the other way with it (`0x4349a0`: the front is
+(view = 1) xor the flag). With the flag the loader takes set 1
+(`0x41dbc0`), whose signs are drawn reversed, so they read right once
+flipped. An `nfs-host` race on Hometown with the flag poked to 1 shows
+exactly that: the start's scene mirrored (the curve to the left, the
+poles and fence on the right, the corn on the left), the cockpit and
+the rest of the 2D overlay not. The Tracks page's `U` does the same:
+set 1, the view's x negated, front faces culled instead of back, and
+left and right controls swapped to follow the screen. Redrock Ridge's
+Taco Den sign then reads the right way round from set 1.
+
+**How the headlights are projected** (nfs3.exe, November 2026). Only
+by night (`0x41c670` returns at once by day), for each car in play
+within 150 of the block's centre on the ground (`0x536cbc` = 150²):
+
+- **The light** (`0x42d160`, per car each frame). The car's light state
+  at `car+0x660` is 0 off, 1 low beams, 2 high; the headlight key steps
+  through 0, 1, 2 (`0x40de50`). The light sits at the car's position
+  plus its up row times `car+0x10c` and a quarter of its half length
+  along the vector at `car+0x67c` (not followed); its frame is
+  the car's orientation turned about its right by 1/16 of a turn (low)
+  or 1/32 (high) (`0x4ea9e0`, sine and cosine in turns), forward going
+  down. Low beams fade from 10 to 40 in `0xB0B0B0B0`, high from 20 to 60
+  in `0xE0E0E0E0`; with `projtex` off or no z-buffer, 20 or 40 to 40 or
+  60 in white (`0x42d253`-`0x42d31b`). `0x41a800` scales both distances
+  by 1, less for each further car the pass has lit (down to 0.25), the
+  end at least a unit past the start.
+- **Each vertex** (`0x41a550`): x, y, z in the light's frame; the
+  picture's u = (x / z + 1) / 2, v = (y / z + 1) / 2 (1 / z taken as 1
+  below z = 1), so a square 90-degree frustum. Outcodes: 1, 2 left and
+  right of it, 4, 8 below and above, 0x10 nearer than 1 (or behind),
+  0x20 past the end. Within the end its colour is the light's, each
+  byte (alpha too) times k / 256 (`0x41a3e0`): k = (1 − (|x / z| + |y / z|)
+  / 2) times 1 up to the fade's start and falling to 0 at its end, each
+  ratio held to 0..1. Behind the car a light has no colour (`+0x74` is
+  0 for cars).
+- **Each polygon** of the block's road and roadside at its detail, object
+  layers 0 to 2 and, at high detail, the lane markings (`0x41ae90`; not
+  the placed objects), with its first corner within the reach and
+  facing the view as for drawing: if `projtex` is on with the z-buffer
+  and its texture lacks `0x04`, two triangles (corners 0, 1, 2 and 0, 2,
+  3) of `glw2` from `sfx.fsh` (128 × 128, two lamps and a halo; loaded
+  into `0x8b4814` by `0x4d5370`), each left out if its three corners are
+  outside the same side, one is past the end, or none has alpha 8 or
+  more (`0x41a360`, `0x41a120`). They are queued with flag 1, blend 1:
+  source alpha and one, so the picture times the colour is added by the
+  colour's alpha. Otherwise each of its corners fully inside the light
+  (no outcode) gets its colour raised to the light's, byte by byte
+  (`0x41b0cd`), which every polygon sharing that vertex then shows.
+
+The Tracks page lights a car at the camera, heading where it looks: by
+night, low beams at first, `E` stepping through off, low and high as the
+game's key, and Shift+E turning the projection (`projtex`) off and on.
+The projected triangles are added with `glw2` as above; a raised colour
+is drawn as its difference from the polygon's own (baked and ambient)
+colour, added over the polygon's picture. The functions are
+`carHeadlight`, `headlightAt` and `headlightTriangle` in `frd.h`.
+
+The `config.dat` that `nfs-host` writes has `projtex` 0 (the u32 at
+0xFC), so its night frames show only the raised colours: road and
+grass uniformly brighter out to the light's end, which stops at whole
+polygons. The night clips show the projected picture: a white pool with
+the lamps' lobes and a sharp far edge ahead of the car
+(`Hometown_Night` 0:40, `Summit_Night` 2:17), which is what the page
+draws by default.
 
 **The headlights in footage** (November 2026). In the night clips the
 pool ahead of the car is a flat band with a fairly sharp far edge on
@@ -481,17 +550,30 @@ placed objects (`0x5718d4` + block × `0x5c0` + 8 × group, loaded in
 file order by `0x419c20`), the fourth again only by day without
 weather. The last group of placed objects, after the blocks', goes to
 `0x5dd070` and is drawn last for every view. A polygon whose first
-corner is more than the view's `+0x30` ahead (500 for the main view) is
-dropped (`0x41b3bf`).
+corner (as queued, so vertex 1 of a placed object's) is more than the
+view's `+0x30` ahead along the view is dropped (`0x41b3bf`; also in
+the placed objects' loop, `0x41b6e2`, and the headlight pass,
+`0x41af7a`). The view is a 0x54-byte record at `0x5dd0e0`
+(`0x41d310` points `0x5dd830` at it); `+0x30` is the float of its
+`+0x24`, which `0x41df10` sets to 500 (400 split screen) and
+`0x41d620` leaves alone: only `+0x28`, `+0x38` and `+0x3c` (the
+blocks' reach and the detail distances, read as floats at `+0x34`,
+`+0x40` and `+0x44`) are scaled by the view level and the night. So
+the cut-off is 500 by night too, where the blocks' reach is 375.
 
 The Tracks page draws the same set of blocks from the block nearest
 the camera, with view level 1 (`K` draws every block instead, and
 1, 2, 3 fix the road's detail; 4 goes back to the game's choice). It
-doesn't drop far polygons.
+drops far polygons as the game does (`polygonInReach`): each frame, a
+batch whose polygons' first corners may straddle 500 ahead is drawn
+from indices of only those within it (not with `K`, nor for moving
+objects).
 
 ## Tools
 
 - `reluva-tool frd-check <file.frd>...` reads tracks and counts what's in
   them.
 - `reluva-tool frd-obj <file.frd> <out.obj> [detail]` writes the road and
-  objects as OBJ, mirrored as Reluva draws them.
+  objects as OBJ, mirrored as Reluva draws them: each face's corners in
+  the game's order (a placed object's 1, 0, 3, 2) with the texture's
+  corner k on corner k, wound so that OBJ's front is the game's.

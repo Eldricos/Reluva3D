@@ -147,6 +147,53 @@ uint32_t dimLight(uint32_t color, float intensity);
 // highest, 1, is what a fresh config.dat gets on a fast machine).
 int blockDetailAt(float distance, bool night, int viewLevel = 1);
 
+// The game drops a polygon whose first queued corner (polygonSlot(0))
+// is more than the view's +0x30 ahead along the view (0x41b3bf, and the
+// same in the placed objects' loop and the headlight pass). That's the
+// view's first distance (0x5dd104), 500 for the main view of a one-player
+// race (0x41df10; 400 split screen), which 0x41d620 doesn't scale: by
+// night and at every view level it stays 500, while the blocks' reach
+// (+0x34) shrinks.
+constexpr float kPolygonReach = 500;
+inline bool polygonInReach(float depthAhead) { return depthAhead <= kPolygonReach; }
+
+// A car's headlights (frd.md, the headlights), as nfs3.exe sets them up
+// (0x42d160) and projects them (0x41a550, 0x41a3e0): a light frame whose
+// forward is the car's tilted down, and the picture glw2 of sfx.fsh
+// projected through a 90-degree square frustum along it, coloured by how
+// far off the axis and how far along it a point is. Positions and vectors
+// in the track's coordinates.
+struct Headlight {
+    std::array<float, 3> at{}, right{}, up{}, forward{};
+    float nearPlane = 1, fadeFrom = 10, reach = 40; // fading from fadeFrom to nothing at reach
+    uint32_t colour = 0;                             // ARGB, alpha too
+};
+// beams: the car's light state (0 off, 1 low, 2 high; the headlight key
+// steps through them, 0x40de50). projected: the projtex option is on with
+// the z-buffer (0x6fbc3c, 0x7a3a60). Low beams fade from 10 to 40 in
+// 0xB0B0B0B0, tilted down 1/16 of a turn; high from 20 to 60 in
+// 0xE0E0E0E0, 1/32 of a turn; without projection 20 or 40 to 40 or 60, in
+// white. The car's heading in radians (atan2(x, z) of its forward) and
+// intensity (1 for the first car the pass lights, 0x41a800).
+Headlight carHeadlight(int beams, bool projected, const std::array<float, 3>& at, float heading,
+                       float intensity = 1);
+// A point in the light: its place on the picture, its colour (0 outside
+// the reach) and the game's outcodes: 1 left, 2 right, 4 below, 8 above
+// the frustum, 0x10 before the near plane or behind, 0x20 past the reach.
+struct HeadlightPoint {
+    float u = 0, v = 0;
+    uint32_t colour = 0;
+    uint8_t outside = 0;
+};
+HeadlightPoint headlightAt(const Headlight& light, const std::array<float, 3>& point);
+// Whether the game draws a triangle of the projected picture (0x41a360,
+// 0x41a120): not all its corners outside the same side, none past the
+// reach, and one at least with alpha 8 or more.
+bool headlightTriangle(const HeadlightPoint& a, const HeadlightPoint& b, const HeadlightPoint& c);
+// Each byte of an ARGB colour times k / 256 (k 0-255), as the game scales
+// light colours (0x41a3e0, 0x491223).
+uint32_t scaleArgb(uint32_t colour, uint32_t k);
+
 // A placed sound's volume (0-127) at a distance in track units, as
 // 0x41d210 has it: 2^16 over (distance in 1/16 units)^2 / 2^10, at most 127.
 int placedSoundVolume(float distance);

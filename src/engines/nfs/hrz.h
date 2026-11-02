@@ -78,6 +78,10 @@ constexpr float kCloudStep = 450, kCloudFirst = -3000;
 std::array<uint8_t, kCloudPoints * kCloudPoints> cloudBrightness(const Horizon& h, uint32_t seed);
 // The clouds' drift each game tick, in tiles along x and z.
 std::array<float, 2> cloudDrift(const Horizon& h);
+// The clouds' texture offset for the camera at x, z (track coordinates),
+// in tiles, added to the drift: a tile for each visual height moved, so
+// the grid, which follows the camera, shows the clouds passing over it.
+std::array<float, 2> cloudOffset(const Horizon& h, float x, float z);
 
 // Random numbers for the sky, standing in for the game's rand(): 0 to
 // 32767.

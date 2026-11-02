@@ -640,8 +640,13 @@ int cmdFrdObj(int argc, char** argv) {
     const int detail = argc > 4 ? std::clamp(std::atoi(argv[4]), 0, 2) : 2;
     std::ofstream out(argv[3]);
     size_t base = 1, uv = 1;
+    // Each polygon's corners in the order the game queues them (frd.md,
+    // Textures: a block's as stored, a placed object's 1, 0, 3, 2), corner
+    // k with the texture's u, v k; written last to first, since with z
+    // mirrored the game's front faces turn the other way (as the Tracks
+    // page winds them), so OBJ's counter-clockwise front is the game's.
     auto emit = [&](const std::vector<reluva::nfs::Track::Vec3>& verts, const reluva::nfs::Track::Vec3& offset,
-                    const std::vector<reluva::nfs::Track::Polygon>& polys, const char* group) {
+                    const std::vector<reluva::nfs::Track::Polygon>& polys, const char* group, bool placed) {
         out << "g " << group << "\n";
         for (const auto& v : verts)
             out << "v " << v[0] + offset[0] << ' ' << v[1] + offset[1] << ' ' << -(v[2] + offset[2]) << "\n";
@@ -650,8 +655,8 @@ int cmdFrdObj(int argc, char** argv) {
             for (int k = 0; k < 4; ++k)
                 out << "vt " << t.corners[2 * k] << ' ' << 1 - t.corners[2 * k + 1] << "\n";
             out << "f";
-            for (int k = 0; k < 4; ++k)
-                out << ' ' << base + p.vertices[k] << '/' << uv + k;
+            for (int k = 3; k >= 0; --k)
+                out << ' ' << base + p.vertices[size_t(reluva::nfs::polygonSlot(k, placed))] << '/' << uv + k;
             out << "\n";
             uv += 4;
         }
@@ -663,12 +668,12 @@ int cmdFrdObj(int argc, char** argv) {
         for (const auto& layer : b.objectLayers)
             for (const auto& o : layer)
                 polys.insert(polys.end(), o.polygons.begin(), o.polygons.end());
-        emit(b.vertices, {0, 0, 0}, polys, ("block" + std::to_string(i)).c_str());
+        emit(b.vertices, {0, 0, 0}, polys, ("block" + std::to_string(i)).c_str(), false);
     }
     for (const auto& g : track.extraObjects)
         for (const auto& o : g)
             if (o.type == 4)
-                emit(o.vertices, o.reference, o.polygons, "object");
+                emit(o.vertices, o.reference, o.polygons, "object", true);
     if (!out) {
         std::fprintf(stderr, "can't write %s\n", argv[3]);
         return 1;

@@ -291,6 +291,17 @@ What was built, with each format written up in `docs/formats/nfs/`:
     from `sfx.fsh` ([col.md](../formats/nfs/col.md), Particles). The
     car is made up (its speed 40 or 18, its centre a unit in from the
     wall) and the random numbers aren't the game's.
+  - the blocks the game draws from the camera's, and its cut-off of
+    polygons whose first corner is more than 500 ahead, by night too
+    ([frd.md](../formats/nfs/frd.md), Which blocks are drawn);
+  - by night, the headlights of a car at the camera as the game's pass
+    lights them: `glw2` projected on polygons whose texture lacks flag
+    `0x04`, the light's colour as a floor on the others' corners
+    (key E: off, low and high beams; Shift+E: the projection off, as
+    `nfs-host`'s `config.dat` has it);
+  - the mirrored track (key U): texture set 1 and the view flipped left
+    to right, its culling turned with it, as the game's mirror flag
+    does; checked against a mirrored `nfs-host` race on Hometown.
 - **The Cockpits page** shows each car's `dash.qfs`: the dash, the
   steering wheel, the F355's gear indicator, and the speedometer and
   tachometer needles where the picture's `0x7C` block puts them

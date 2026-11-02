@@ -1032,6 +1032,59 @@ void testTrack() {
     CHECK(blockDetailAt(499, false, 0) == 2 && blockDetailAt(501, false, 0) == -1);
 }
 
+void testHeadlights() {
+    // The cut-off of far polygons (0x41b3bf): 500 ahead, day or night.
+    CHECK(polygonInReach(500) && !polygonInReach(500.5f) && polygonInReach(-20));
+    CHECK(scaleArgb(0xFF804020u, 128) == 0x7F402010u && scaleArgb(0xB0B0B0B0u, 255) == 0xAFAFAFAFu);
+
+    // Low beams, projected (0x42d253): 10 to 40 in 0xB0B0B0B0, tilted down
+    // 1/16 of a turn; heading 0 looks along +z, its right +x.
+    const float kTilt = 0.39269908f; // 22.5 degrees
+    const Headlight low = carHeadlight(1, true, {0, 1, 0}, 0);
+    CHECK(low.fadeFrom == 10 && low.reach == 40 && low.colour == 0xB0B0B0B0u && low.nearPlane == 1);
+    CHECK(std::fabs(low.forward[1] + std::sin(kTilt)) < 1e-5f && std::fabs(low.forward[2] - std::cos(kTilt)) < 1e-5f);
+    CHECK(std::fabs(low.up[1] - std::cos(kTilt)) < 1e-5f && std::fabs(low.up[2] - std::sin(kTilt)) < 1e-5f);
+    CHECK(low.right[0] == 1 && low.right[2] == 0);
+    auto along = [&](const Headlight& h, float z, float x = 0) {
+        return std::array<float, 3>{h.at[0] + h.forward[0] * z + h.right[0] * x, h.at[1] + h.forward[1] * z,
+                                    h.at[2] + h.forward[2] * z + h.right[2] * x};
+    };
+    // On the axis: the picture's middle; full colour before the fade, two
+    // thirds at 20 (0x41a3e0), nothing past the reach or behind.
+    HeadlightPoint p = headlightAt(low, along(low, 5));
+    CHECK(std::fabs(p.u - 0.5f) < 1e-4f && std::fabs(p.v - 0.5f) < 1e-4f && p.outside == 0 && p.colour == 0xAFAFAFAFu);
+    p = headlightAt(low, along(low, 20));
+    CHECK(p.colour == 0x74747474u && p.outside == 0);
+    p = headlightAt(low, along(low, 45));
+    CHECK(p.colour == 0 && (p.outside & 0x20));
+    p = headlightAt(low, along(low, -3));
+    CHECK(p.colour == 0 && p.outside == 0x10);
+    p = headlightAt(low, along(low, 0.5f));
+    CHECK((p.outside & 0x10) && p.colour != 0);
+    // On the frustum's right edge (x = z): u 1, half the colour; past it,
+    // outcode 2, the colour as at the edge.
+    p = headlightAt(low, along(low, 5, 5));
+    CHECK(std::fabs(p.u - 1) < 1e-4f && p.colour == 0x58585858u && p.outside == 0);
+    const HeadlightPoint right = headlightAt(low, along(low, 5, 7));
+    CHECK(right.outside == 2 && right.colour == 0x58585858u);
+    // Triangles: drawn unless all outside one side, one past the reach, or
+    // all nearly transparent.
+    const HeadlightPoint a = headlightAt(low, along(low, 5)), b = headlightAt(low, along(low, 10, 2)),
+                         c = headlightAt(low, along(low, 12, -2)), far = headlightAt(low, along(low, 41));
+    CHECK(headlightTriangle(a, b, c) && !headlightTriangle(a, b, far) && !headlightTriangle(right, right, right));
+    CHECK(headlightTriangle(a, b, right));
+    // High beams, and without projection; a later car's dimmer reach.
+    const Headlight high = carHeadlight(2, true, {0, 0, 0}, 0);
+    CHECK(high.fadeFrom == 20 && high.reach == 60 && high.colour == 0xE0E0E0E0u);
+    CHECK(std::fabs(high.forward[1] + std::sin(kTilt / 2)) < 1e-5f);
+    const Headlight plain = carHeadlight(1, false, {0, 0, 0}, 0);
+    CHECK(plain.fadeFrom == 20 && plain.reach == 40 && plain.colour == 0xFFFFFFFFu);
+    const Headlight dim = carHeadlight(1, true, {0, 0, 0}, 0, 0.25f);
+    CHECK(dim.fadeFrom == 2.5f && dim.reach == 10);
+    const Headlight east = carHeadlight(1, true, {0, 0, 0}, 1.5707963f);
+    CHECK(std::fabs(east.right[2] + 1) < 1e-5f && std::fabs(east.forward[0] - std::cos(kTilt)) < 1e-5f);
+}
+
 void testHorizon() {
     // Comments (one inside a line, as the retail files have), one fog
     // region, then the 48 values after the regions.
@@ -1102,6 +1155,19 @@ void testHorizon() {
     CHECK(clouds == cloudBrightness(hometown, 1));
     CHECK(*std::max_element(clouds.begin(), clouds.end()) <= 235);
     CHECK(*std::max_element(clouds.begin(), clouds.end()) > *std::min_element(clouds.begin(), clouds.end()));
+    // Without variance every point is the brightness pushed up from the
+    // middle, (1 + sqrt(107 / 128)) x 127.5, and stays so: the passes only
+    // hold a point to the brightness when it moves.
+    Horizon even = hometown;
+    even.cloudVariance = 0;
+    const auto flat = cloudBrightness(even, 7);
+    CHECK(std::all_of(flat.begin(), flat.end(), [](uint8_t v) { return v == 244; }));
+    // The camera's place moves the clouds a tile a visual height (0x47b88a).
+    even.visualHeight = 1000;
+    const auto offset = cloudOffset(even, 500, -250);
+    CHECK(std::fabs(offset[0] - 0.5f) < 1e-6f && std::fabs(offset[1] + 0.25f) < 1e-6f);
+    even.visualHeight = 0;
+    CHECK(cloudOffset(even, 500, 20)[0] == 0);
 
     // Lightning: on ticks that are a multiple of the second value; a bolt
     // of points 40 apart on the cloud dome, starting within 750, forking.
@@ -1964,6 +2030,7 @@ int main() {
     testPolygonAnimation();
     testReflectionUv();
     testPlacedSounds();
+    testHeadlights();
     testHorizon();
     testCollision();
     testSoundBank();

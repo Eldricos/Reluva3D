@@ -4,6 +4,7 @@
 #include "engines/nfs/frd.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <string>
 
@@ -296,6 +297,89 @@ int placedSoundVolume(float distance) {
     const int64_t d = static_cast<int64_t>(distance * 65536); // 16.16
     const int64_t square = ((d >> 12) * (d >> 12)) >> 10;
     return square == 0 ? 127 : static_cast<int>(std::min<int64_t>(0x10000 / square, 127));
+}
+
+uint32_t scaleArgb(uint32_t colour, uint32_t k) {
+    return (((colour & 0xff00ff00u) >> 8) * k & 0xff00ff00u) | ((colour & 0x00ff00ffu) * k >> 8 & 0x00ff00ffu);
+}
+
+Headlight carHeadlight(int beams, bool projected, const std::array<float, 3>& at, float heading, float intensity) {
+    Headlight h;
+    h.at = at;
+    // 0x42d253-0x42d31b.
+    float tilt = 0; // turns
+    if (beams == 1) {
+        h.fadeFrom = projected ? 10.0f : 20.0f;
+        h.reach = 40;
+        h.colour = projected ? 0xB0B0B0B0u : 0xFFFFFFFFu;
+        tilt = 0.0625f;
+    } else {
+        h.fadeFrom = projected ? 20.0f : 40.0f;
+        h.reach = 60;
+        h.colour = projected ? 0xE0E0E0E0u : 0xFFFFFFFFu;
+        tilt = 0.03125f;
+    }
+    h.nearPlane = 1;
+    // 0x41a800: the fade starts at fadeFrom x intensity and ends at the
+    // reach x intensity, or a unit after the start if that's further.
+    h.fadeFrom *= intensity;
+    h.reach = std::max(h.fadeFrom + 1, h.reach * intensity);
+    // The car's rows (right, up, forward) with up and forward turned
+    // about the right by the tilt (0x4ea9e0): forward goes down.
+    constexpr float kTau = 6.28318530718f;
+    const float s = std::sin(tilt * kTau), c = std::cos(tilt * kTau);
+    const std::array<float, 3> forward{std::sin(heading), 0, std::cos(heading)};
+    const std::array<float, 3> up{0, 1, 0};
+    // Left-handed: the right of a forward (x, 0, z) is (z, 0, -x).
+    h.right = {forward[2], 0, -forward[0]};
+    for (int i = 0; i < 3; ++i) {
+        h.up[size_t(i)] = forward[size_t(i)] * s + up[size_t(i)] * c;
+        h.forward[size_t(i)] = forward[size_t(i)] * c - up[size_t(i)] * s;
+    }
+    return h;
+}
+
+HeadlightPoint headlightAt(const Headlight& light, const std::array<float, 3>& point) {
+    const std::array<float, 3> d{point[0] - light.at[0], point[1] - light.at[1], point[2] - light.at[2]};
+    auto dot = [&](const std::array<float, 3>& v) { return d[0] * v[0] + d[1] * v[1] + d[2] * v[2]; };
+    float x = dot(light.right), y = dot(light.up), z = dot(light.forward);
+    HeadlightPoint p;
+    if (std::fabs(z) == 0)
+        z = 1.5259022e-05f;
+    // 1 / z, or 1 below a unit ahead (0x41a5f5; also behind).
+    const float inverse = z < 1 ? 1.0f : 1 / z;
+    p.u = (x * inverse + 1) * 0.5f;
+    p.v = (y * inverse + 1) * 0.5f;
+    if (z <= 0) {
+        p.outside = 0x10; // and no colour: a car's light has none behind (+0x74)
+        return p;
+    }
+    if (z < light.nearPlane)
+        p.outside |= 0x10;
+    if (z > light.reach)
+        p.outside |= 0x20;
+    if (y > z)
+        p.outside |= 8;
+    else if (y < -z)
+        p.outside |= 4;
+    if (x > z)
+        p.outside |= 2;
+    else if (x < -z)
+        p.outside |= 1;
+    if (z < light.reach) {
+        // 0x41a3e0: dimmer off the axis (a diamond), and fading past fadeFrom.
+        const float across = std::clamp(std::fabs(x) / z, 0.0f, 1.0f), high = std::clamp(std::fabs(y) / z, 0.0f, 1.0f);
+        const float fade = z > light.fadeFrom ? 1 - (z - light.fadeFrom) / (light.reach - light.fadeFrom) : 1.0f;
+        const long k = std::lround((1 - (across + high) * 0.5f) * fade * 65536.0f);
+        p.colour = scaleArgb(light.colour, static_cast<uint32_t>(std::clamp(k, 0L, 0xffffL)) >> 8);
+    }
+    return p;
+}
+
+bool headlightTriangle(const HeadlightPoint& a, const HeadlightPoint& b, const HeadlightPoint& c) {
+    if ((a.outside & b.outside & c.outside) != 0 || ((a.outside | b.outside | c.outside) & 0x20) != 0)
+        return false;
+    return ((a.colour | b.colour | c.colour) >> 24) >= 8;
 }
 
 LightLook lightLook(uint32_t type, uint64_t tick) {

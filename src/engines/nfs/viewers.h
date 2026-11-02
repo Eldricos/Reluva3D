@@ -287,6 +287,12 @@ private:
         bool additive = false;
         bool twoSided = false;  // polygon flag 0x10: never culled
         bool seeThrough = false; // texture flag 0x02: half grey, half clear
+        // Where its polygons' first corners lie (within radius of centre,
+        // in the world), for the game's cut-off of far polygons; and
+        // whether this frame draws it from the cut-off's own indices.
+        std::array<float, 3> centre{};
+        float radius = 0;
+        bool cut = false;
     };
     // kObjectsDay: object layer 3 and each block's fourth group of placed
     // objects, which the game draws only by day without weather (0x41cdc0).
@@ -328,6 +334,15 @@ private:
     Track track_;
     std::string error_;
     gfx::MeshId mesh_ = 0;
+    // The mesh's vertices and indices, kept for the cut-off and the
+    // headlights; and the cut-off's indices over the same vertices, made
+    // anew each frame: the polygons of batches that straddle the reach
+    // (kPolygonReach) whose first corner is within it.
+    std::vector<gfx::Vertex> meshVertices_;
+    std::vector<uint32_t> meshIndices_;
+    gfx::MeshId cutMesh_ = 0;
+    std::vector<uint32_t> cutIndices_;
+    void cutFar(std::vector<Batch>& list, const gfx::Vec3& eye, const gfx::Vec3& forward);
     std::vector<gfx::TextureId> textures_;
     std::map<std::string, ShapeBank> banks_; // loaded sheets, by file name
     std::map<std::string, std::pair<gfx::TextureId, bool>> pictures_; // "sheet/number" -> texture, additive
@@ -357,6 +372,8 @@ private:
     // The sky mesh's vertices, kept to change as it goes: the sun turning
     // (ROTATE), the clouds lit by lightning.
     std::vector<gfx::Vertex> skyVertices_;
+    std::vector<float> skyHeights_; // their heights as made, over the world's 0
+    float skyEyeY_ = 0;             // the camera's height they were last moved by
     uint32_t sunVertex_ = 0, cloudVertex_ = 0;
     std::array<uint8_t, kCloudPoints * kCloudPoints> cloudBase_{};
     gfx::Vec3 sunCentre_{}, sunRight_{}, sunUp_{};
@@ -428,6 +445,25 @@ private:
     // Before the frame: the particles' quads; after the scene: drawn.
     void prepareParticles(const gfx::Vec3& eye, const gfx::Vec3& forward, const gfx::Vec3& right, const gfx::Vec3& up);
     void drawParticles();
+    // The headlights of a car at the camera, by night (frd.md, the
+    // headlights): the game's pass over the blocks within 150, glw2 of
+    // sfx.fsh projected on polygons whose texture lacks flag 0x04, the
+    // light's colour as a floor on the vertex colours of those that have
+    // it. Rebuilt each frame as runs of triangles: the picture's, or a
+    // texture's with the colour added.
+    int beams_ = 1;         // E: 0 off, 1 low, 2 high, as the game's key
+    bool projected_ = true; // Shift+E: the projtex option
+    gfx::MeshId lightMesh_ = 0;
+    size_t lightCapacity_ = 0; // vertices the mesh holds
+    gfx::TextureId headlightPicture_ = 0; // owned by textures_
+    struct LightRun {
+        gfx::TextureId texture = 0;
+        bool picture = false; // the projected picture, else a texture's colour floor
+        uint32_t first = 0, count = 0; // indices
+    };
+    std::vector<LightRun> lightRuns_;
+    void prepareHeadlights(int here, const gfx::Vec3& eye, const gfx::Vec3& forward);
+    bool mirrored_ = false; // U: the mirrored track (0x6fd4c4), with set 1
     int variant_ = 0;
     int detail_ = 3, textureSet_ = 0, block_ = 0; // detail 3: by distance, as the game
     bool allBlocks_ = false; // K: every block at once, not the game's view

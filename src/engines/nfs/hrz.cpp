@@ -192,8 +192,12 @@ std::array<uint8_t, kCloudPoints * kCloudPoints> cloudBrightness(const Horizon& 
                         const int r = row + dr, c = col + dc;
                         if ((dr == 0 && dc == 0) || r < 0 || r >= n || c < 0 || c >= n)
                             continue;
+                        // Weighted by the square of how far the neighbour
+                        // is from the middle (0x47b0a4-0x47b0e1: |n - 128| / 128,
+                        // twice).
                         const float other = b[size_t(r * n + c)];
-                        sum += (other - here) * std::fabs(other - 128.0f) / 128.0f;
+                        const float weight = (other - 128.0f) / 128.0f;
+                        sum += (other - here) * weight * weight;
                         count += 1;
                     }
                 const float mean = count > 0 ? sum / count : 0;
@@ -202,8 +206,16 @@ std::array<uint8_t, kCloudPoints * kCloudPoints> cloudBrightness(const Horizon& 
             }
     std::array<uint8_t, n * n> out{};
     for (size_t i = 0; i < out.size(); ++i)
-        out[i] = static_cast<uint8_t>(std::clamp(b[i], 0.0f, 255.0f));
+        out[i] = static_cast<uint8_t>(std::clamp(b[i], 0.0f, 255.0f)); // truncated (0x4dfd56 chops)
     return out;
+}
+
+// 0x47b88a: the camera's x and z over the visual height (its reciprocal
+// kept at 0x55d208, 0x47866b), added to the drift.
+std::array<float, 2> cloudOffset(const Horizon& h, float x, float z) {
+    if (h.visualHeight == 0)
+        return {0, 0};
+    return {x / static_cast<float>(h.visualHeight), z / static_cast<float>(h.visualHeight)};
 }
 
 // 0x478701: speed x 0.00003 tiles a tick, towards the direction (degrees,

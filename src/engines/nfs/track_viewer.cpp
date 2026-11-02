@@ -125,6 +125,7 @@ void TrackPage::releaseSky() {
     skyMesh_ = boltMesh_ = 0;
     boltIndices_ = 0;
     skyVertices_.clear();
+    skyHeights_.clear();
     bolts_.clear();
     sunRotate_ = skyChanged_ = false;
     horizonPicture_ = sunPicture_ = cloudPicture_ = 0; // owned by textures_
@@ -150,13 +151,24 @@ void TrackPage::release() {
     if (renderer_ && particleMesh_)
         renderer_->destroyMesh(particleMesh_);
     particleMesh_ = 0;
+    if (renderer_ && lightMesh_)
+        renderer_->destroyMesh(lightMesh_);
+    lightMesh_ = 0;
+    lightCapacity_ = 0;
+    lightRuns_.clear();
+    headlightPicture_ = 0; // owned by textures_
     if (renderer_) {
+        if (cutMesh_)
+            renderer_->destroyMesh(cutMesh_); // before the mesh whose vertices it shares
         if (mesh_)
             renderer_->destroyMesh(mesh_);
         for (gfx::TextureId t : textures_)
             renderer_->destroyTexture(t);
     }
-    mesh_ = 0;
+    mesh_ = cutMesh_ = 0;
+    meshVertices_.clear();
+    meshIndices_.clear();
+    cutIndices_.clear();
     textures_.clear();
     pictures_.clear();
     banks_.clear();
@@ -480,6 +492,10 @@ void TrackPage::loadSky() {
         cloudIndices_ = static_cast<uint32_t>(indices.size()) - cloudFirst_;
     }
     skyVertices_ = vertices;
+    skyHeights_.clear();
+    for (const gfx::Vertex& v : vertices)
+        skyHeights_.push_back(v.pos[1]);
+    skyEyeY_ = 0; // the heights as made: updateSky moves them by the camera's
     if (Error err = renderer_->createMesh(vertices, indices, skyMesh_))
         skyError_ = err.message;
 
@@ -528,8 +544,18 @@ void TrackPage::tickSky(uint64_t nowMs) {
 // points next to where it starts, the rows either side at half), and the
 // bolts' quads.
 void TrackPage::updateSky(const gfx::Vec3& forward, const gfx::Vec3& right) {
-    if (!skyMesh_ || skyVertices_.empty() || !(sunRotate_ || skyChanged_))
+    // The sky's heights are the world's, less the camera's (0x479500 takes
+    // the camera's y from the shaded area's; the clouds' 0x47b4f0 too): all
+    // but the sun's, which is placed round the camera.
+    const bool raised = std::fabs(eye_[1] - skyEyeY_) > 0.01f;
+    if (!skyMesh_ || skyVertices_.empty() || !(sunRotate_ || skyChanged_ || raised))
         return;
+    if (raised) {
+        skyEyeY_ = eye_[1];
+        for (size_t i = 0; i < skyVertices_.size() && i < skyHeights_.size(); ++i)
+            if (!sunIndices_ || i < sunVertex_ || i >= sunVertex_ + 4)
+                skyVertices_[i].pos[1] = skyHeights_[i] - eye_[1];
+    }
     constexpr float kTau = 6.28318530718f;
     if (sunRotate_ && sunIndices_) {
         const float x = sunCentre_[0] * right[0] + sunCentre_[1] * right[1] + sunCentre_[2] * right[2];
@@ -806,8 +832,23 @@ void TrackPage::load(int index) {
     auto flush = [&](const Groups& from, std::vector<Batch>& to) {
         for (const auto& [key, g] : from) {
             const auto& [texture, twoSided, seeThrough] = key;
-            to.push_back({texture, static_cast<uint32_t>(indices.size()), static_cast<uint32_t>(g.indices.size()),
-                          g.additive, twoSided, seeThrough});
+            Batch b{texture, static_cast<uint32_t>(indices.size()), static_cast<uint32_t>(g.indices.size()),
+                    g.additive, twoSided, seeThrough};
+            // The box round the polygons' first corners (each polygon's
+            // six indices start with its corner 0), for the cut-off.
+            std::array<float, 3> low{1e30f, 1e30f, 1e30f}, high{-1e30f, -1e30f, -1e30f};
+            for (size_t i = 0; i < g.indices.size(); i += 6)
+                for (int k = 0; k < 3; ++k) {
+                    low[size_t(k)] = std::min(low[size_t(k)], vertices[g.indices[i]].pos[k]);
+                    high[size_t(k)] = std::max(high[size_t(k)], vertices[g.indices[i]].pos[k]);
+                }
+            float r2 = 0;
+            for (int k = 0; k < 3; ++k) {
+                b.centre[size_t(k)] = (low[size_t(k)] + high[size_t(k)]) / 2;
+                r2 += (high[size_t(k)] - low[size_t(k)]) * (high[size_t(k)] - low[size_t(k)]) / 4;
+            }
+            b.radius = std::sqrt(r2);
+            to.push_back(b);
             indices.insert(indices.end(), g.indices.begin(), g.indices.end());
         }
     };
@@ -828,6 +869,8 @@ void TrackPage::load(int index) {
     if (!vertices.empty())
         if (Error err = renderer_->createMesh(vertices, indices, mesh_))
             error_ = err.message;
+    meshVertices_ = std::move(vertices);
+    meshIndices_ = std::move(indices);
     loadSky();
     loadMarks();
     toBlock(0);
@@ -874,6 +917,179 @@ int TrackPage::nearestBlock() const {
     return best;
 }
 
+// The game's cut-off (kPolygonReach, 0x41b3bf): each batch whose
+// polygons' first corners are all within the reach ahead is drawn whole,
+// one all beyond it not at all, and one between from cutIndices_, which
+// keeps only its polygons whose first corner is within it.
+void TrackPage::cutFar(std::vector<Batch>& list, const gfx::Vec3& eye, const gfx::Vec3& forward) {
+    for (Batch& b : list) {
+        auto ahead = [&](const float* at) {
+            return (at[0] - eye[0]) * forward[0] + (at[1] - eye[1]) * forward[1] + (at[2] - eye[2]) * forward[2];
+        };
+        const float centre = ahead(b.centre.data());
+        if (polygonInReach(centre + b.radius))
+            continue;
+        const uint32_t first = static_cast<uint32_t>(cutIndices_.size());
+        if (polygonInReach(centre - b.radius))
+            for (uint32_t i = b.firstIndex; i + 6 <= b.firstIndex + b.indexCount; i += 6)
+                if (polygonInReach(ahead(meshVertices_[meshIndices_[i]].pos)))
+                    cutIndices_.insert(cutIndices_.end(), meshIndices_.begin() + i, meshIndices_.begin() + i + 6);
+        b.firstIndex = first;
+        b.indexCount = static_cast<uint32_t>(cutIndices_.size()) - first;
+        b.cut = true;
+    }
+}
+
+// The headlights of a car at the camera, heading where it looks, as the
+// game's pass for each car does at night (0x41c670, 0x41ae90): for each
+// block drawn within 150 of the car on the ground, its road and roadside
+// at the block's detail, object layers 0-2 and, at high detail, the lane
+// markings (placed objects aren't lit). A polygon within the reach whose
+// texture lacks flag 0x04 gets glw2 projected on it, as two triangles
+// (corners 0, 1, 2 and 0, 2, 3) added in the light's colour; the others
+// raise the colours of their corners inside the light to its colour, which
+// every polygon of those lists sharing such a corner shows (drawn here as
+// the difference added over the polygon's own picture).
+void TrackPage::prepareHeadlights(int here, const gfx::Vec3& eye, const gfx::Vec3& forward) {
+    lightRuns_.clear();
+    const bool night = variant_ == 1 || variant_ == 3;
+    if (!night || beams_ == 0 || track_.blocks.empty() || !headlightPicture_)
+        return;
+    const Headlight light = carHeadlight(beams_, projected_, {eye_[0], eye_[1], -eye_[2]}, yaw_);
+    const std::string sheet = textureSheet();
+    float ambient[3] = {1, 1, 1};
+    if (skyError_.empty())
+        for (int i = 0; i < 3; ++i)
+            ambient[i] = static_cast<float>(horizon_.ambient[size_t(i)]) / 100.0f;
+    std::vector<gfx::Vertex> projectedTris; // the projected picture's triangles
+    std::map<gfx::TextureId, std::vector<gfx::Vertex>> floors; // the colour raised, by texture
+    auto vertexAt = [](const Track::Vec3& p) {
+        gfx::Vertex v{};
+        v.pos[0] = p[0];
+        v.pos[1] = p[1];
+        v.pos[2] = -p[2];
+        v.normal[1] = 1;
+        return v;
+    };
+    for (const auto& [block, blockDetail] : blocksInView(here)) {
+        const Track::Block& b = track_.blocks[size_t(block)];
+        const float dx = b.centre[0] - eye_[0], dz = -b.centre[2] - eye_[2];
+        if (dx * dx + dz * dz > 150.0f * 150.0f) // 0x41c6fe
+            continue;
+        const int level = detail_ < 3 ? detail_ : blockDetail;
+        std::vector<const std::vector<Track::Polygon>*> lists = {&b.polygons[size_t(2 * level)],
+                                                               &b.polygons[size_t(2 * level + 1)]};
+        for (size_t layer = 0; layer < 3 && layer < b.objectLayers.size(); ++layer)
+            for (const Track::BlockObject& o : b.objectLayers[layer])
+                lists.push_back(&o.polygons);
+        if (level == 2 && lanes_)
+            lists.push_back(&b.polygons[6]);
+        std::vector<HeadlightPoint> points(b.vertices.size());
+        for (size_t i = 0; i < b.vertices.size(); ++i)
+            points[i] = headlightAt(light, b.vertices[i]);
+        std::vector<bool> raised(b.vertices.size(), false);
+        auto entryOf = [&](const Track::Polygon& p) -> const Track::Texture& {
+            const uint16_t e = p.textureAt(skyTick_);
+            return track_.textures[e < track_.textures.size() ? e : p.texture];
+        };
+        for (const auto* list : lists)
+            for (const Track::Polygon& p : *list) {
+                if (p.vertices[0] >= b.vertices.size() || p.vertices[1] >= b.vertices.size() ||
+                    p.vertices[2] >= b.vertices.size() || p.vertices[3] >= b.vertices.size())
+                    continue;
+                const Track::Vec3& c0 = b.vertices[p.vertices[0]];
+                if (!polygonInReach((c0[0] - eye[0]) * forward[0] + (c0[1] - eye[1]) * forward[1] +
+                                    (-c0[2] - eye[2]) * forward[2]))
+                    continue;
+                if (projected_ && !(entryOf(p).flags & 0x04)) {
+                    // Wound backwards, as the track's polygons are here.
+                    for (const auto& tri : {std::array<int, 3>{0, 2, 1}, std::array<int, 3>{0, 3, 2}}) {
+                        const HeadlightPoint* corner[3];
+                        for (int k = 0; k < 3; ++k)
+                            corner[k] = &points[p.vertices[size_t(tri[size_t(k)])]];
+                        if (!headlightTriangle(*corner[0], *corner[1], *corner[2]))
+                            continue;
+                        for (int k = 0; k < 3; ++k) {
+                            gfx::Vertex v = vertexAt(b.vertices[p.vertices[size_t(tri[size_t(k)])]]);
+                            v.uv[0] = corner[k]->u;
+                            v.uv[1] = corner[k]->v;
+                            v.color[0] = static_cast<uint8_t>(corner[k]->colour >> 16);
+                            v.color[1] = static_cast<uint8_t>(corner[k]->colour >> 8);
+                            v.color[2] = static_cast<uint8_t>(corner[k]->colour);
+                            v.color[3] = static_cast<uint8_t>(corner[k]->colour >> 24);
+                            projectedTris.push_back(v);
+                        }
+                    }
+                } else {
+                    for (uint16_t vertex : p.vertices)
+                        if (points[vertex].outside == 0)
+                            raised[vertex] = true;
+                }
+            }
+        for (const auto* list : lists)
+            for (const Track::Polygon& p : *list) {
+                bool any = false;
+                for (uint16_t vertex : p.vertices)
+                    any = any || (vertex < raised.size() && raised[vertex]);
+                if (!any)
+                    continue;
+                const Track::Texture& tex = entryOf(p);
+                bool additive = false;
+                const gfx::TextureId id = tex.lane ? picture(kLaneSheet, tex.picture, true, &additive)
+                                                   : picture(sheet, tex.picture, false, &additive);
+                if (additive || (tex.flags & Track::Texture::kSeeThrough))
+                    continue;
+                auto& into = floors[id];
+                for (int k : {0, 2, 1, 0, 3, 2}) {
+                    const uint16_t vertex = p.vertices[size_t(k)];
+                    gfx::Vertex v = vertexAt(b.vertices[vertex]);
+                    v.uv[0] = tex.corners[size_t(2 * k)];
+                    v.uv[1] = tex.corners[size_t(2 * k + 1)];
+                    if (raised[vertex]) {
+                        const uint32_t baked = b.colours[vertex], lit = points[vertex].colour;
+                        for (int i = 0; i < 3; ++i) {
+                            const int shift = 16 - 8 * i;
+                            const float own = static_cast<float>((baked >> shift) & 0xff) * (vertexLight_ ? ambient[i] : 1);
+                            const float up = static_cast<float>((lit >> shift) & 0xff) - own;
+                            v.color[i] = static_cast<uint8_t>(std::clamp(up, 0.0f, 255.0f));
+                        }
+                    }
+                    v.color[3] = 255;
+                    into.push_back(v);
+                }
+            }
+    }
+    std::vector<gfx::Vertex> vertices = std::move(projectedTris);
+    if (!vertices.empty())
+        lightRuns_.push_back({headlightPicture_, true, 0, static_cast<uint32_t>(vertices.size())});
+    for (auto& [id, list] : floors) {
+        lightRuns_.push_back({id, false, static_cast<uint32_t>(vertices.size()), static_cast<uint32_t>(list.size())});
+        vertices.insert(vertices.end(), list.begin(), list.end());
+    }
+    if (vertices.empty())
+        return;
+    // One mesh, its indices in order, grown as needed; unused vertices
+    // left as degenerate triangles.
+    if (vertices.size() > lightCapacity_) {
+        if (lightMesh_)
+            renderer_->destroyMesh(lightMesh_);
+        lightMesh_ = 0;
+        lightCapacity_ = std::max<size_t>(vertices.size() * 3 / 2, 3000);
+        std::vector<uint32_t> indices(lightCapacity_);
+        for (size_t i = 0; i < indices.size(); ++i)
+            indices[i] = static_cast<uint32_t>(i);
+        vertices.resize(lightCapacity_);
+        if (renderer_->createMesh(vertices, indices, lightMesh_)) {
+            lightMesh_ = 0;
+            lightCapacity_ = 0;
+            lightRuns_.clear();
+        }
+        return;
+    }
+    vertices.resize(lightCapacity_);
+    renderer_->setMeshVertices(lightMesh_, vertices);
+}
+
 // The blocks' lights and sounds (frd.md), and the glow picture.
 void TrackPage::loadMarks() {
     marks_.clear();
@@ -891,6 +1107,15 @@ void TrackPage::loadMarks() {
             image::Image img;
             if (!decodeShape(shape, img) && !renderer_->createTexture(img.w, img.h, img.rgba.data(), {}, glowPicture_))
                 textures_.push_back(glowPicture_);
+        } else if (shape.name == "glw2") {
+            // The headlights' picture (0x4d5538 loads it into 0x8b4814,
+            // which 0x41a120 draws with); clamped, its edges black.
+            image::Image img;
+            gfx::TextureParams params;
+            params.clamp = true;
+            if (!decodeShape(shape, img) &&
+                !renderer_->createTexture(img.w, img.h, img.rgba.data(), params, headlightPicture_))
+                textures_.push_back(headlightPicture_);
         }
     if (marks_.empty())
         return;
@@ -1316,8 +1541,23 @@ void TrackPage::handleEvent(const Event& ev) {
             if (!marksShown_)
                 stopSounds();
             break;
+        case 'e':
+            // Shift+E: the projected picture (the projtex option) on or off;
+            // E: off, low and high beams in turn, as the game's key (0x40de50).
+            if (ev.mods & keymod::Shift)
+                projected_ = !projected_;
+            else
+                beams_ = (beams_ + 1) % 3;
+            break;
+        case 'u':
         case 'x':
-            textureSet_ = (textureSet_ + 1) % 4;
+            if (ev.key == 'u') {
+                // The mirrored track draws texture set 1 (0x41dbc0).
+                mirrored_ = !mirrored_;
+                textureSet_ = (textureSet_ & 2) | (mirrored_ ? 1 : 0);
+            } else {
+                textureSet_ = (textureSet_ + 1) % 4;
+            }
             if (renderer_) {
                 const auto eye = eye_;
                 const float yaw = yaw_, pitch = pitch_;
@@ -1340,7 +1580,7 @@ void TrackPage::handleEvent(const Event& ev) {
     } else if (ev.type == EventType::MouseUp && ev.button == MouseButton::Left) {
         dragging_ = false;
     } else if (ev.type == EventType::MouseMove && dragging_) {
-        yaw_ += static_cast<float>(ev.mouseX - lastX_) * 0.005f;
+        yaw_ += static_cast<float>(ev.mouseX - lastX_) * 0.005f * (mirrored_ ? -1.0f : 1.0f);
         pitch_ = std::clamp(pitch_ - static_cast<float>(ev.mouseY - lastY_) * 0.005f, -1.5f, 1.5f);
         lastX_ = ev.mouseX;
         lastY_ = ev.mouseY;
@@ -1361,10 +1601,12 @@ void TrackPage::update(uint64_t nowMs) {
 
     // The camera: yaw 0 looks along the track's +z (the world's -z).
     auto held = [&](uint32_t k) { return held_.count(k) != 0; };
+    // Mirrored, left and right on the screen are the world's other way.
+    const float side = mirrored_ ? -1.0f : 1.0f;
     if (held(key::Left))
-        yaw_ -= 1.5f * dt;
+        yaw_ -= 1.5f * dt * side;
     if (held(key::Right))
-        yaw_ += 1.5f * dt;
+        yaw_ += 1.5f * dt * side;
     if (held(key::Up))
         pitch_ = std::min(pitch_ + 1.0f * dt, 1.5f);
     if (held(key::Down))
@@ -1381,18 +1623,27 @@ void TrackPage::update(uint64_t nowMs) {
     if (held('s'))
         move(forward, -speed);
     if (held('d'))
-        move(right, speed);
+        move(right, speed * side);
     if (held('a'))
-        move(right, -speed);
+        move(right, -speed * side);
     if (held(' '))
         eye_[1] += speed;
     if (held('c'))
         eye_[1] -= speed;
 
     const gfx::Vec3 eye{eye_[0], eye_[1], eye_[2]};
-    const gfx::Mat4 viewProj =
+    gfx::Mat4 viewProj =
         gfx::multiply(gfx::perspective(kFieldOfView, float(kFrameW) / float(kFrameH), 0.5f, 6000.0f),
                       gfx::lookAlong(eye, forward, {0, 1, 0}));
+    // The mirrored track: the game negates its projection's x scale
+    // (0x4bf260, by 0x6fd4c4), so the picture is flipped left to right and
+    // its front faces turn the other way (0x4349a0).
+    if (mirrored_) {
+        gfx::Mat4 flip = gfx::identity();
+        flip[0] = -1;
+        viewProj = gfx::multiply(flip, viewProj);
+    }
+    const gfx::Cull backFaces = mirrored_ ? gfx::Cull::Front : gfx::Cull::Back;
     Horizon::Rgb fog;
     float fogDensity = 0;
     const int here = nearestBlock();
@@ -1404,6 +1655,53 @@ void TrackPage::update(uint64_t nowMs) {
     const gfx::Vec3 up{-std::sin(pitch_) * std::sin(yaw_), std::cos(pitch_), std::sin(pitch_) * std::cos(yaw_)};
     tickParticles(nowMs);
     prepareParticles(eye, forward, right, up);
+
+    // The batches to draw: the blocks the game draws from here, each at its
+    // detail (or the one chosen), lanes only at high detail (0x41cdc0);
+    // objects of layer 3 and the fourth groups only by day without
+    // weather. Those straddling the game's reach ahead are cut (cutFar).
+    std::vector<Batch> solid, lanes;
+    std::vector<bool> shown(track_.blocks.size() + 1, false);
+    if (mesh_) {
+        auto kind = [&](int slot, std::vector<Batch>& into) {
+            into.insert(into.end(), batches_[size_t(slot)].begin(), batches_[size_t(slot)].end());
+            for (const Animation& a : animations_[size_t(slot)]) {
+                const std::vector<Batch>& frame = a.at(skyTick_);
+                into.insert(into.end(), frame.begin(), frame.end());
+            }
+        };
+        const bool clearDay = variant_ == 0;
+        shown.back() = true;
+        for (const auto& [block, blockDetail] : blocksInView(here)) {
+            shown[size_t(block)] = true;
+            const int base = block * kKinds, level = detail_ < 3 ? detail_ : blockDetail;
+            kind(base + kRoadLow + level, solid);
+            if (objects_) {
+                kind(base + kObjects, solid);
+                if (clearDay)
+                    kind(base + kObjectsDay, solid);
+            }
+            if (lanes_ && level == 2)
+                kind(base + kLanes, lanes);
+        }
+        if (objects_)
+            kind(static_cast<int>(track_.blocks.size()) * kKinds + kObjects, solid);
+        cutIndices_.clear();
+        if (!allBlocks_) {
+            cutFar(solid, eye, forward);
+            cutFar(lanes, eye, forward);
+        }
+        if (!cutIndices_.empty()) {
+            if (cutMesh_ ? renderer_->setMeshIndices(cutMesh_, cutIndices_)
+                         : renderer_->createIndexedMesh(mesh_, cutIndices_, cutMesh_)) {
+                // Without it, drawn whole.
+                for (auto* list : {&solid, &lanes})
+                    for (Batch& b : *list)
+                        b.cut = false;
+            }
+        }
+        prepareHeadlights(here, eye, forward);
+    }
     renderer_->beginFrame(viewProj, eye,
                           {static_cast<uint8_t>(fog[0]), static_cast<uint8_t>(fog[1]), static_cast<uint8_t>(fog[2])});
     // Fog as the game has the card draw it (thrash.md, Fog): its curve over
@@ -1455,8 +1753,11 @@ void TrackPage::update(uint64_t nowMs) {
             // the texture coordinates and kept within a tile.
             const std::array<float, 2> drift = cloudDrift(horizon_);
             const float ticks = static_cast<float>(nowMs % 100000000) * kGameTicksPerSecond / 1000.0f;
-            clouds.preRow0[2] = std::fmod(drift[0] * ticks, 1.0f);
-            clouds.preRow1[2] = std::fmod(drift[1] * ticks, 1.0f);
+            // And by the camera's place over the visual height (0x47b88a):
+            // the grid follows the camera, the clouds pass over it.
+            const std::array<float, 2> offset = cloudOffset(horizon_, eye_[0], -eye_[2]);
+            clouds.preRow0[2] = std::fmod(drift[0] * ticks + offset[0], 1.0f);
+            clouds.preRow1[2] = std::fmod(drift[1] * ticks + offset[1], 1.0f);
             if (horizon_.fogClouds)
                 fogDraw(clouds, skyFog);
             renderer_->draw(clouds);
@@ -1499,35 +1800,7 @@ void TrackPage::update(uint64_t nowMs) {
         call.state.alphaTest = gfx::AlphaTest::Ge128;
         if (sceneryFog > 0)
             fogDraw(call, sceneryFog);
-        // Each kind's batches, and its animated polygons at this tick's
-        // frame.
-        auto kind = [&](int slot, std::vector<const std::vector<Batch>*>& into) {
-            into.push_back(&batches_[size_t(slot)]);
-            for (const Animation& a : animations_[size_t(slot)])
-                into.push_back(&a.at(skyTick_));
-        };
-        // The blocks the game draws from here, each at its detail (or the
-        // one chosen), lanes only at high detail (0x41cdc0); objects of
-        // layer 3 and the fourth groups only by day without weather.
-        const bool clearDay = variant_ == 0;
-        std::vector<const std::vector<Batch>*> solid, lanes;
-        std::vector<bool> shown(track_.blocks.size() + 1, false);
-        shown.back() = true;
-        for (const auto& [block, blockDetail] : blocksInView(here)) {
-            shown[size_t(block)] = true;
-            const int base = block * kKinds, level = detail_ < 3 ? detail_ : blockDetail;
-            kind(base + kRoadLow + level, solid);
-            if (objects_) {
-                kind(base + kObjects, solid);
-                if (clearDay)
-                    kind(base + kObjectsDay, solid);
-            }
-            if (lanes_ && level == 2)
-                kind(base + kLanes, lanes);
-        }
-        if (objects_)
-            kind(static_cast<int>(track_.blocks.size()) * kKinds + kObjects, solid);
-        std::vector<const std::vector<Batch>*> all = solid;
+        std::vector<Batch> all = solid;
         all.insert(all.end(), lanes.begin(), lanes.end());
         // Additive pictures, see-through ones, or the rest.
         enum Pass { kSolid, kSeeThrough, kAdditive };
@@ -1535,8 +1808,11 @@ void TrackPage::update(uint64_t nowMs) {
             for (const Batch& b : list) {
                 if ((b.additive ? kAdditive : b.seeThrough ? kSeeThrough : kSolid) != which)
                     continue;
-                call.state.cull = cullBack_ && !b.twoSided ? gfx::Cull::Back : gfx::Cull::None;
+                if (b.indexCount == 0)
+                    continue;
+                call.state.cull = cullBack_ && !b.twoSided ? backFaces : gfx::Cull::None;
                 call.texture = textured_ ? b.texture : 0;
+                call.mesh = b.cut ? cutMesh_ : mesh_;
                 call.firstIndex = b.firstIndex;
                 call.indexCount = b.indexCount;
                 renderer_->draw(call);
@@ -1563,20 +1839,41 @@ void TrackPage::update(uint64_t nowMs) {
                 pass(m.batches, which);
             }
             call.model = gfx::identity();
+            call.mesh = mesh_;
         };
         // Solid first, then the lane markings pulled onto the road, then
         // additive pictures (lights, glows) over everything.
-        for (const auto* list : solid)
-            pass(*list, kSolid);
+        pass(solid, kSolid);
         movingPass(kSolid);
         call.state.depthBias = true;
-        for (const auto* list : lanes)
-            pass(*list, kSolid);
+        pass(lanes, kSolid);
         call.state.depthBias = false;
+        // The headlights (prepareHeadlights), over the scenery: the picture
+        // added by the light's alpha (THRASH blend 1, source alpha and one,
+        // as the queued polygons' flag 1 sets it), and the raised colours.
+        if (lightMesh_ && !lightRuns_.empty()) {
+            gfx::DrawCall light;
+            light.mesh = lightMesh_;
+            light.rgbSource = light.alphaSource = gfx::ColorSource::Vertex;
+            light.state.depthWrite = false;
+            light.state.depthBias = true;
+            for (const LightRun& run : lightRuns_) {
+                light.texture = run.picture || textured_ ? run.texture : 0;
+                light.alphaSource = run.picture ? gfx::ColorSource::Vertex : gfx::ColorSource::Constant;
+                light.state.src = run.picture ? gfx::Blend::SrcAlpha : gfx::Blend::One;
+                light.state.dst = gfx::Blend::One;
+                light.state.alphaTest = run.picture ? gfx::AlphaTest::None : gfx::AlphaTest::Ge128;
+                light.state.cull = cullBack_ ? backFaces : gfx::Cull::None;
+                light.firstIndex = run.first;
+                light.indexCount = run.count;
+                renderer_->draw(light);
+            }
+        }
         if (walls_) {
             // A guide drawn over everything, so the walls show through the
             // ground and fences they follow.
             gfx::DrawCall wall = call;
+            wall.mesh = mesh_;
             wall.tableFog = 0;
             wall.rgbSource = gfx::ColorSource::Vertex;
             wall.color = {1, 1, 1, 1};
@@ -1599,16 +1896,14 @@ void TrackPage::update(uint64_t nowMs) {
             call.state.dst = gfx::Blend::OneMinusSrcAlpha;
             call.state.depthWrite = false;
             call.state.alphaTest = gfx::AlphaTest::None;
-            for (const auto* list : all)
-                pass(*list, kSeeThrough);
+            pass(all, kSeeThrough);
             movingPass(kSeeThrough);
             call = before;
         }
         call.state.src = call.state.dst = gfx::Blend::One;
         call.state.depthWrite = false;
         call.state.alphaTest = gfx::AlphaTest::None;
-        for (const auto* list : all)
-            pass(*list, kAdditive);
+        pass(all, kAdditive);
         movingPass(kAdditive);
     }
 
@@ -1652,6 +1947,12 @@ void TrackPage::update(uint64_t nowMs) {
         }
         if (lightIntensity_ < 1)
             line += "  lights " + std::to_string(static_cast<int>(lightIntensity_ * 100)) + "%";
+        if (mirrored_)
+            line += "  mirrored";
+        if (variant_ % 2 == 1) {
+            static constexpr const char* kBeams[] = {"headlights off", "low beams", "high beams"};
+            line += std::string("  ") + kBeams[beams_] + (beams_ && !projected_ ? " (not projected)" : "");
+        }
         lines.push_back(line);
         if (!hitText_.empty())
             lines.push_back(hitText_ + "  (" + std::to_string(particles_.live()) + " particles)");
@@ -1660,7 +1961,7 @@ void TrackPage::update(uint64_t nowMs) {
         if (!collisionError_.empty())
             lines.push_back(collisionError_);
     }
-    lines.push_back("PgUp/PgDn: track  WASD/arrows/drag: move  N/B: block  1-3: detail  H: sky  I: lights  P: wall hit  T V L O G X F Y M: toggles");
+    lines.push_back("PgUp/PgDn: track  WASD/arrows/drag: move  N/B: block  1-3: detail  H: sky  I: lights  P: wall hit  E: headlights  U: mirror  T V L O G X F Y M: toggles");
     for (size_t i = 0; i < lines.size(); ++i) {
         const int y = i + 1 == lines.size() ? kFrameH - font::kLineHeight - 4 : 4 + static_cast<int>(i) * font::kLineHeight;
         for (int yy = y - 2; yy < y + font::kLineHeight - 1; ++yy)
