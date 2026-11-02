@@ -195,7 +195,7 @@ FUNCS = {
   0x4090a0: ('ai_catchup_factor', CAR, 'by the leading human 0x56ebb8: x1.1/1.15 when 15 slices behind; 0.85-0.8 ahead'),
   0x408f10: ('ai_net_position_factor', CAR, ''), 0x40ee80: ('track_ai_speed_factor', None, 'per track 0x56ef94/0x56ef98'),
   0x404c80: ('race_leading_human', CAR, '0x56ebb8 the human furthest on; 0x56ebb4 0 none, 1 some, 2 all AI ahead'),
-  0x404c50: ('cop_bust_speed_init', None, '0x56ebb0 = 20.12 m/s with more AI than humans, else 11.18'),
+  0x404c50: ('cop_bust_speed_init', None, '0x56ebb0 = 20.12 m/s with fewer human racers than computer racers (all humans cops), else 11.18'),
   0x406980: ('ai_lookahead_slice', CAR, '4 slices on, up to 0x40e1b0 (speed*1.7/6, 4-20), stop where the road turns (xz dot < 0.7)'),
   0x406d40: ('ai_point_road_ahead', CAR, 'look-ahead point + road right * (+0x7C8) - pos'),
   0x406c00: ('ai_point_own_slice', CAR, 'own slice point - pos (back to the road)'),
@@ -256,6 +256,14 @@ FUNCS = {
   0x48a660: ('hud_draw_cop_list', None, "cop's racer list: rows by state 1 arrested, 2 finished, 3 far, 4 near, 5 nearest, 7 target (yellow)"),
   0x47d480: ('hud_cop_target_radar', None, 'green radar panel while the cop has a target (list state 7)'),
   0x47d580: ('hud_cop_target_box', None, 'box round the target car on screen'),
+  0x405220: ('cop_reset_place', None, '(cop, force): human cop back on the road; with the cop assist after step 0x480, 1 slice behind the leading racer still in; 0x429100'),
+  0x4965b0: ('dist_approx', None, '(a, b) max |d| + 0.25 x each other axis: the pursuit 7 m and 300 m'),
+  0x42a560: ('car_spiked_effects', None, '+0x99C wheels: sound 0x13, puffs (0x4cb010 effect 0xD) for 2 steps'),
+  0x49bd10: ('quadlist_alloc', None, '(list, n, &verts, &first) n vertices of a HUD quad list'),
+  0x49bd30: ('quadlist_add', None, '(list, v0, v1, v2, v3) add a quad (spike icon while no strip out)'),
+  0x49bdc0: ('quadlist_remove', None, '(list, v0, v1, v2, v3) take a quad out'),
+  0x49be40: ('quadlist_draw', None, '(list) draw a HUD quad list (0x749a38 etc.)'),
+  0x408c50: ('ai_out_speed_wanted', CAR, 'computer racer state 4 (out): +0x7B0 0 or 11 by the road edges'),
 }
 
 # globals: addr -> (name, type, desc)
@@ -271,7 +279,7 @@ GLOBALS = {
   0x6fd3b0: ('g_link_kind', 's32', '0 one player 1 split 2 modem 3 serial 4 IPX/TCP'),
   0x6fd3b8: ('g_racetype', 's32', ''), 0x6fd470: ('g_gamelevel', 's32', ''), 0x6fd4f0: ('g_ai_level', 's32', ''),
   0x6fd4fc: ('g_cheats', 'u32', '1 GOFAST 2 TDRIVE 4 MONKEY 8 RUSHHOUR 0x10 BULLHORN 0x20 MADLAND'),
-  0x6fd520: ('g_num_ai', 's32', ''), 0x6fd518: ('g_num_humans', 's32', ''), 0x6fd4d0: ('g_oppnumber', 's32', ''),
+  0x6fd520: ('g_num_ai', 's32', 'computer racers'), 0x6fd518: ('g_num_humans', 's32', 'human racers (human cops are 0x6fd51c)'), 0x6fd51c: ('g_num_human_cops', 's32', ''), 0x6fd524: ('g_num_ai_cops', 's32', ''), 0x6fd4d0: ('g_oppnumber', 's32', ''),
   0x6fd490: ('g_assist_braking', 's32', ''), 0x6fd4a4: ('g_assist_traction', 's32', ''),
   0x6fd4b4: ('g_num_laps', 's32', ''), 0x6fd4ac: ('g_track', 's32', ''), 0x6fd4c0: ('g_backward', 's32', ''),
   0x6fd4f4: ('g_local_slot', 's32', ''), 0x7d3680: ('g_race_started', 's32', ''), 0x7d3684: ('g_step', 's32', ''),

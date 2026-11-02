@@ -351,6 +351,41 @@ HUD row of eight spikes is not drawn while the cop has a strip out
 back at the clearing press 14 s later). The map shows the strip
 (`0x48d4c0`).
 
+A strip hit, run (`cp-spike1`, November 2026, nfs-host with the cop
+pokes; physics.md has the cop's states). The cop pressed S once, in
+state 3 on the grid at 43.1 s, with the siren off, and drove nowhere.
+`0x4c9dd0` laid it at the cop's slice 957, lane 9 (the right half of
+the road: the half is picked by lane < 7), about 12 m across, with
+the arming step 346 = the step then (154) + 192. The racers came round
+on lap 2: at 190.09 s (step 9562) Gotcha (car 6) ran over it at
+42 m/s. The same step `0x4297d0` cleared the strip (`0x4c9f50`), set
+its +0x99C to 0xC (wheels 2 and 3) and called `0x401650`, which set
+its chase record's +0x1C = 2 and, the cop having no target and the
+racer being over the speed (+0x6F0 20.3) and within 20 slices, made it
+the cop's target (`0x4018b0` with 3), siren on. Then:
+- 190.13 s: the cop to state 4, the racer (computer-driven) to its
+  state 5, pulling over.
+- 193.83 s: the racer under 3 m/s, 85 m on, in its state 6; the cop
+  to state 5 at once (`0x4058bf`), 59 m away: no 7 m test for a racer
+  already pulled over.
+- 196.89 s (192 steps): the ticket, the racer out (+0x2C4 4, coasting
+  in `0x407380`), the cop back to 3. +0x99C was 0 again by 228 s.
+- The HUD's spike row was gone from the press until the hit and came
+  back with it; the racer list showed "Gotcha 0 tickets 84 MPH - 45
+  MPH over" in yellow (frames 6036-6042 of `fr-cp-spike1`).
+The spiked wheels' effect (`0x42a560`): sound 0x13 on the first step
+and a puff at each spiked wheel (`0x4cb010`, effect 0xD) for two
+steps, while +0x621 bit 0x40 holds; other readers (`0x42a130`,
+`0x471860`, `0x4bab70`) aren't followed. A racer crossing the strip
+before its arming step wasn't run.
+
+The recorded game (one-player cop footage, physics.md) dims the row
+for about 3 s instead. In this exe the row is a single quad added to
+or taken out of the HUD's quad list `0x749a38` (`0x49bd30`,
+`0x49bdc0`) by whether a strip is out, with no dim state, so it is
+gone, not dimmed, under any renderer; the footage is probably another
+build.
+
 Seen in a run (October 2026, `nfs-host -poke`, docs/engines/nfs.md): a
 single-player Hot Pursuit with the player in the Pursuit Corvette
 (race type `0x6fd3b8` = 3 and player 1's car `0x6fd2bc` = 12, written

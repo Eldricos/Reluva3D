@@ -850,10 +850,23 @@ then gives the car +0x200 bit 0x20.
 
 - **State 0** (set at `0x40cbe5`): a cop goes to 3 with no target, any
   other car to 2.
-- **State 2**, a racer: when the record at +0x628 has +0x1C = 2
+- **State 2**, a human racer: when the record at +0x628 has +0x1C = 2
   (`0x401500`), the car goes to **6**, becomes computer-driven (+0x200
   | 2) for 320 steps and pulls over; then **7**, stopped; then back to
-  2 and reset (`0x429100`). This looks like the speeder being busted.
+  2 and reset (`0x429100`). This is the speeder being busted.
+- A **computer racer** has its own states in `0x409c00` (same field):
+  1 or 2 racing; **5** when its record has +0x1C = 2 (pulling over,
+  until it is under 3 m/s or 320 steps pass, 640 with +0x620 bit
+  0x4000; not while tipped, +0x10C ≤ 0.9); **6** stopped (speed wanted
+  0, `0x40ce70`); back to 1 when the record's +0x1C clears (the
+  ticket); and **4** once out of the race (+0x2C4 3 or 4), where each
+  step `0x408600` calls **`0x407380`**: no controls, brake 255, speed
+  × 0.98 (× 0.95 under 22.35 m/s), so it stays where it stopped. In a
+  state 5 with no cops left on the record (+0x2C 0) it goes back to 1
+  (`0x409b40`). Seen in `cp-stop7b` (car 1): 2 → 5 at 64.05 s, 5 → 6
+  at 64.16 s, 6 → 1 at 67.28 s, 1 → 4 at 67.38 s; `0x407380` first ran
+  for it at 67.22 s (`cp-stop8`), and it was still at the roadside, at
+  0 m/s, at 70 s.
 - **State 3**, a cop with no target. Each step:
   - `0x4052e0`: each racer within 50 slices gets +0x6F0 = the most it
     has been over the section's speed (`0x40ed40`);
@@ -878,8 +891,8 @@ then gives the car +0x200 bit 0x20.
   (`0x401a80`: the record's counts + 1, +0x624, +0x628, +0x734
   cleared, siren off) and the next check (`0x4058db`) goes back to 3.
   Else `0x405430`: when the cop is within **7 m** of the target, the
-  target's +0x7C4 is at most `0x56ebb0` (**20.12 m/s**, 45 mph, with
-  more computer cars than humans, else 11.18, 25 mph; `0x404c50`), and
+  target's +0x7C4 is at most `0x56ebb0` (**20.12 m/s**, 45 mph, or
+  11.18, 25 mph; `0x404c50`), and
   the cop is on the road and upright (+0x10C > 0.5): the first such
   step plays `0x4127b0` and sets +0x720 = step + 24 and +0x710 bit
   0x40; if it still holds 24 steps (0.375 s) later, the record's +0x1C
@@ -892,6 +905,26 @@ then gives the car +0x200 bit 0x20.
   (3 s), or `0x5521b8`[the target's tickets × 16] for a computer one
   (384 steps, 6 s, for 0-4 tickets; 448 from 5), and the two cars
   point at each other (+0x9A4).
+  - **The 7 m** and the 300 m are not true distances: `0x4965b0` takes
+    the largest of |dx|, |dy|, |dz| plus a quarter of each of the
+    others (`0x53bedc` 0.25), so straight ahead it is 7 m and on a
+    diagonal about 6 m.
+  - **Which limit.** `0x404c50` compares the human racers
+    (`0x6fd518`; a human cop is counted in `0x6fd51c`, not there) with
+    the computer racers (`0x6fd520`): 20.12 m/s when there are fewer
+    human racers, else 11.18. From `0x474640`: one player as a cop
+    (0 against 6) and two cops (0 against 6) get 20.12; one player as
+    a racer (1 against 1), two players with a racer, and network
+    games with a human racer (no computer racers then) get 11.18. So
+    the limit is 20.12 when every human is a cop, and 11.18 when a
+    human is being chased. Read from memory at run time: 20.12 in a
+    cop game (`cp-stop1`: `0x6fd518` 0, `0x6fd51c` 1, `0x6fd520` 6),
+    11.18 in a racer's pursuit (`cp-racer1`: 1, 0, 1, and 6 computer
+    cops at `0x6fd524`).
+  - **A strip's stop needs no 7 m.** A racer that hits a spike strip
+    has its record's +0x1C set to 2 at once (`0x401650`), and
+    `0x405430` returns 1 as soon as the target is in its state 6,
+    wherever the cop is (`cp-spike1`, below).
 - **State 5**: the stop. The speed wanted is 0 and `0x40ce70` halves
   the cop's velocity and spin each step with the brake at 255 (on the
   road, upright). `0x401fb0` ends it when the step passes the record's
@@ -908,6 +941,15 @@ then gives the car +0x200 bit 0x20.
     768, 640, 576: 15 down to 9 s), before which no cop picks it again
     (`0x402e42`); +0x8A 0, `0x401e20`; record +0x2C, +0x50, +0x1C 0,
     which lets the racer's state 7 go back to 2 and onto the road.
+  - then `0x4040e0`: the record's cops lose it; a human cop's strip is
+    cleared (`0x4c9f50`) and the cop is put back on the road by
+    `0x405220`, the same as its reset key: in a one-player game with
+    the cop assist on (`0x6fd4a8`, copied from the option `0x6fd48c`
+    by `0x474640`) and after step 0x480, at **one slice behind the
+    leading racer still in** (lowest +0x2BC), then `0x429100`. In
+    `cp-stop7b` the cop was at slice 0 beside the ticketed car and
+    was at slice 121 a step later, behind the leader (slice 117 at
+    the ticket).
   - `0x474640` sets the limits. One player as a cop: `0x6fd4b8` 6
     (all six racers), `0x6fd4bc` 1 (one ticket and a racer is out),
     six computer racers. One player as a racer: `0x6fd4bc` laps + 1,
@@ -940,6 +982,33 @@ then gives the car +0x200 bit 0x20.
   driving straight, never got within 7 m of a slow enough target, so
   `0x40554a`, state 5 and the ticket were not reached; the chase
   wasn't lost either (within 300 m).
+
+  **The whole stop, run** (`cp-stop7b`, November 2026, nfs-host with
+  the cop pokes). Car 1's +0x6F0 was poked to 5.0 at 41 s so that it
+  could be chased on the grid, and its speed wanted (+0x7B0) was
+  poked to 0 at each `0x408600` so that it stayed near the grid (it
+  crept backwards at under 2 m/s). Keys: H at 41.5 s, then gas
+  (keypad 8; the cop starts in neutral, A for first gear), left, brake.
+  The race clock started at 48.86 s.
+  - 41.57 s, step 58 (before the start): the chase (`0x405879`).
+  - 63.61 s, step 1466: the first step of the stop test (`0x40559b`).
+    Its inputs: the cop 6.99 m away by `0x4965b0` (6.82 m true: dx
+    6.28, dz 2.66), the target's +0x7C4 1.68 m/s against `0x56ebb0`
+    20.12, the cop on the ground, +0x10C 1.0. +0x720 = 1490.
+  - 64.00 s (24 steps on): record +0x1C = 2, +0x28 = step + 640
+    (`0x40554a`), and again each check until the target stops.
+  - 64.05 s the target 2 → 5, 64.16 s 5 → 6 (it was under 3 m/s).
+  - 64.17 s: state 5 (`0x4058bf`, `0x401e40`). The cop 6.48 m from the
+    target, which was at 1.33 m/s. +0x710 went 0x10 (siren) → 0x50
+    (stop test) → 0xC0 (ticket, siren off); +0x9A4 each the other.
+  - 67.21 s (192 steps, 3.04 s): the ticket (`0x401ff0`), `0x4040e0`,
+    the strip cleared (`0x4c9f50`, none was out), the cop back to 3
+    (`0x405911`). The target: tickets 1, +0x2C4 4 (out), +0x6F0 0.
+  - Frames (`fr-cp-stop7b`): 2600 (63.7 s, the target boxed beside
+    the cop), 2608 (64.2 s, the scene: no HUD, an officer at the
+    racer's door, the cop car behind), 2672 (67.1 s, the scene), 2680
+    (67.4 s, the HUD back with "tickets: 1/6", the cop on an empty road
+    ahead, by the leaders).
 
 Checked at run time (`sw1-cop3`): the Hot Pursuit pokes put at
 `0x474ca0`, before the set-up picks its function by the race type
@@ -1020,7 +1089,8 @@ second. The HUD there has the racer list on (other layouts hide it).
 - **The stop.** 18 stops, six a clip. At the step the stop scene
   starts the target shows 0-35 KPH (Atlantica 35, 3, 9, 3, 11, 13;
   Aquatica 10, 8, 9, 10, 1, 11; Empire 9, 6, 0, 0, 7, 6), so under
-  both 20.12 and 11.18 m/s; the clips can't tell which applies. Most
+  both 20.12 and 11.18 m/s. A cop game has 20.12 (above; read in
+  `cp-stop1`). Most
   targets were rammed or spun first (`Empire_City_Night` 1:26.95-1:28.34:
   Wild One 163 to 7 KPH after a side hit). The 7 m can't be measured.
   A chase can be short: 1.5 s from the yellow row to the scene (Empire,
@@ -1035,14 +1105,25 @@ second. The HUD there has the racer list on (other layouts hide it).
 - **After the ticket.** The ticket count goes up by one and the row
   says "arrested" after one ticket, with 8 laps as with 2:
   `0x6fd4bc` = 1. The arrested car stays at the roadside and the cop
-  drives on (Empire 1:31.8). The siren is off (`0x401e40`); the next
+  drives on (Empire 1:31.8). Whether the cop was moved behind the
+  leader there (`0x405220`, the cop assist) can't be told from the
+  clips: the view after the scene is a dark road with no car in
+  sight. The siren is off (`0x401e40`); the next
   yellow row comes 2.7 s after the scene at the soonest (Empire, clip
   38.17-40.83), so H was pressed again.
 - **A target not stopped.** `Atlantica_Night` 2:48-2:56: Gotcha is
   the target, crashed and at 0 KPH for 5 s, but the cop isn't within
   7 m and nothing happens. At 2:56 the yellow row moves to Ace, who is
-  stopped. How the target changed (siren off and on, probably) isn't
-  seen.
+  stopped. **The siren went off and on**: at 2:55.57 the cop's light
+  bar goes dark, the radar panel goes and Gotcha's row is no longer
+  yellow; at 2:55.78 (0.21 s later) the light bar is back and Ace's
+  row is yellow, with the panel and box. Frames at 30 a second
+  (clip 192.2-192.7). A human cop's chase ends only in `0x405630`
+  (siren off, 300 m by `0x4965b0`, or a finished target) or with the
+  ticket; nothing else changes +0x624 for it. With the siren on again
+  `0x4053b0` takes the nearest racer (+0x730) whose +0x6F0 is over 2
+  m/s, and +0x6F0 is the most it has ever been over (kept, not the
+  speed now), so a stopped racer can be taken. Ace was the nearest.
 - **The quota.** The sixth ticket ends the race. The results' quota
   time is the race clock at the end of the sixth scene: Atlantica
   scene from 5:01.7, quota 5:04.78; Aquatica 3:31.3, 3:34.34; Empire
@@ -1066,21 +1147,40 @@ second. The HUD there has the racer list on (other layouts hide it).
   fits the track-mod-4 rule (bnk.md).
 - **No computer cops** are seen on the player's side in any clip:
   the stops, scenes and racer list show only the player's car.
-- **Spike strips: not settled.** The spike row at the top right
-  dims (it is still drawn, greyer) once before each of the 18 stops,
-  1.4 to 10 s before the scene, and at no other time. The 14 dims not
-  cut by a scene or the race's end last 2.90-2.97 s, close to the
-  strip's 0xC0 steps (3 s, [net.md](net.md)). So the player probably
-  laid a strip in every chase. No strip is seen on the dark roads, and
-  no racer is seen hitting one. In nfs-host (`cop-spike2`, our exe) the row
-  goes away entirely from an S press until a later press clears the
-  strip (14 s), not for 3 s. So either the recorded game differs, or
-  the strips were cleared at once some other way.
+- **Spike strips.** The spike row at the top right dims (it is still
+  drawn, greyer) once before each of the 18 stops, 1.4 to 10 s before
+  the scene, and at no other time. The 14 dims not cut by a scene or
+  the race's end last 2.90-2.97 s, close to the strip's 0xC0 steps
+  (3 s, [net.md](net.md)). So the player probably laid a strip in
+  every chase. No strip is seen on the dark roads, and no racer is
+  seen hitting one. **Our exe can't draw that.** The icon is one quad
+  of the HUD's quad list `0x749a38` (vertices at `0x791acc` + player
+  × 4, set up at `0x47bc40`: white, the spike picture of `hud98.fsh`'s
+  atlas, u 0.709-0.9375, v 0.719-0.762, at `CopSpikeBeltIndicator` of
+  the `.pos` layout). Each frame `0x482b00` adds it (`0x49bd30`) while
+  the cop has no strip out and takes it out (`0x49bdc0`) while one is
+  out, and `0x49be40` draws the list. There is no dim picture and no
+  colour change, and nothing about the arming step: the row is gone
+  from the press until the strip is cleared. Runs agree (`cop-spike2`;
+  `cp-spike1`: gone from the press at 43.1 s until a racer hit the
+  strip at 190.1 s, then back). It isn't a renderer's alpha either:
+  the quad isn't sent at all. So the recorded game is probably
+  another build, whose icon dims for the arming time; this one is
+  not known.
 - **The racer list's "over".** `0x485180` writes "%d %s - %d %s %s"
   ("81 KPH - 8 KPH over", text 350) for a racer with +0x6F0 over 2
-  m/s. The clips never show it, not even for the target, which must
-  be over that to be chased. Not settled: another version, or the
-  text is clipped.
+  m/s, at each step of a cop's states (`0x404ff0`), and
+  `0x48a660` draws that text as the third column of every row in
+  state 4 or more (within 50 slices). The clips never show it, not
+  even for the target, which must be over that to be chased. Our exe
+  shows it (`cp-stop8`, frame 2418 at 54.4 s: "Ace 0 tickets 0 MPH -
+  11 MPH over" in yellow, the other rows "69 MPH - 19 MPH over";
+  `cp-spike1`: "Gotcha 0 tickets 84 MPH - 45 MPH over"). In those runs
+  the list itself was off in the saved options (`0x6fbc58` and
+  `0x6fbdfc` 0; `0x485880` sets them to 1 unless the renderer is
+  softtria) and was poked on. The clips' rows end at the speed, at
+  every length ("196 KPH"), so the text isn't cut by the box: another
+  build again, as for the spike icon.
 
 ## Other car fields
 
@@ -1181,22 +1281,24 @@ of every access to those offsets):
 
 ## What isn't known
 
-- The cop's stop and ticket (`0x40554a` on, state 5, `0x401ff0`) are
-  read, not seen at run time: the scripted cop never caught a slow
-  target. In footage, a computer cop's stop of a human racer lasts
-  6 s, as the table says, and a human cop's stop of a computer racer
-  3 s, with the quota time as `0x401ff0` gives (above). What `0x4127b0` plays (probably the "pull over" speech) and
-  `0x401580`, `0x401c20` (at the stop's start) and `0x401e20`,
-  `0x4040e0` (after the ticket) do aren't followed. +0x2D4 is used by
+- The cop's stop and ticket were run once each way: by the 7 m test
+  (`cp-stop7b`, a computer racer held near the cop by a poke) and by a
+  strip (`cp-spike1`); a stop made by ramming wasn't run. In footage,
+  a computer cop's stop of a human racer lasts 6 s, as the table says,
+  and a human cop's stop of a computer racer 3 s, with the quota time
+  as `0x401ff0` gives (above). What `0x4127b0` plays (probably the
+  "pull over" speech) and `0x401580`, `0x401c20` (at the stop's start)
+  and `0x401e20` (after the ticket) do aren't followed. +0x2D4 is used by
   the results screen's sort (`0x455834`, key 7, `0x559618`; key 6
   sorts by tickets taken, 5 by tickets given): cops that made their
   quota first, earliest +0x2D4 first, then by tickets given. The cop
   game's results screen is in the footage, but with one cop only, so
   the sort isn't seen.
 - The computer cop's own driver (`0x4032e5`, `0x402e10`, `0x4025c0`)
-  and the AI racer's busted states (6, 7 in `0x409c03`) aren't
-  followed, nor are the per-track factors at `0x56ef94`.
-- `0x407380` (a car out of the race) was not run in `gh1-ai`.
+  isn't followed, nor are the per-track factors at `0x56ef94`.
+- Why the recorded game's spike icon dims for 3 s and its racer list
+  has no "over" text, when this exe hides the icon until the strip is
+  cleared and shows the text: probably another build, not found.
 - What the track position's +0x64 and +0x6C are, that pick the
   polygon's frame over the road point's in `0x420230`.
 - The lane votes' own rules (`0x40cee0`, `0x40cfc0`, `0x40d1f0`,
