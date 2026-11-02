@@ -136,7 +136,7 @@ when the Race and Drive pages open. See `engines/age/options.h`.
 |---|---|---|
 | Main Options Menu | `opt_bk` | AUDIO, CONTROL, GRAPHICS (`opt_aud`, `opt_ctl`, `opt_gfx`), ABOUT MIDTOWN MADNESS 2 (`opt_abt`), BACK (`mnav_prev`, picture `mnav_prv`) |
 | Audio Options | `aud_bk` | Sound FX, Play Commentary, Play Music, City Sounds (`aud_fx`, `aud_com`, `aud_musc`, `aud_amb`); Device, Stereo FX, Sound Quality (shown, the system's); Sound FX Volume, Music/City Volume, Balance (bars) |
-| Graphics Options | `gfx_bk` | Textured Sky, Vehicle Reflections, Show Pedestrians, Smart Rendering (`gfx_sky`, `gfx_rflx`, `gfx_peds`, `gfx_port`); Display (a window, or full screen), Renderer (shown), Resolution; Visibility and Lighting Quality (bars); Texture Quality, Object Detail, Cloud Shadows (shown) |
+| Graphics Options | `gfx_bk` | Textured Sky, Vehicle Reflections, Show Pedestrians, Smart Rendering (`gfx_sky`, `gfx_rflx`, `gfx_peds`, `gfx_port`); Display (a window, or full screen), Renderer (shown), Resolution; Visibility and Lighting Quality (bars); Texture Quality, Object Detail, Cloud Shadows (None, Low, High: strings 660-662) |
 | Control Options | `ctrl_bk` | Auto Reverse, Use POV Hat, Force Feedback (`ctrl_aut`, `ctrl_pov`, `ctrl_fbk`); Controller (the keyboard, a game controller beside it); Steering Sensitivity (a bar); the joystick's dead zone, calibration and force feedback (not available); CUSTOMIZE CONTROLS (`ctrl_cus`) |
 | Control Custom | `cuss_bk` | each control and its two keys (`CW Array`) |
 | AboutMenu Menu | `about_bk` | the credits, `jpg/credits` (215 x 4,582), scrolling up through their box; DONE (`options_done`, picture `opt_done`) |
@@ -180,6 +180,14 @@ What the options do in Reluva:
   - Lighting Quality below half: no pools of headlight on the road.
   - Object Detail: how near a model must be for each finer level of
     detail.
+  - Cloud Shadows: `texture/shadmap_day.tga`, a 128-pixel tile that's
+    white with a cloud pattern in its alpha (182-255), laid on the city
+    from above and multiplied in, so the shadows darken it by up to
+    29%; still at Low, drifting with the wind at High, by day only. The
+    tile's size on the ground (240 m) and the drift (2.5 m/s) are
+    Reluva's. Its night counterpart, `shadmap_nite.tga`, is a grid of
+    soft light pools in the same form, not used: what the game laid it
+    over isn't known.
   - Texture Quality: the city's textures are halved once at High, twice
     at Medium and three times at Low (to 16 pixels at least), but for
     those whose flag 0x8000 Reluva reads as "keep full detail": the

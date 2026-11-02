@@ -356,6 +356,45 @@ void CityScene::setLighting(int index) {
     }
 }
 
+void CityScene::drawCloudShadows() {
+    // texture/shadmap_day.tga: white, its alpha a tile of cloud shadow
+    // (182-255), laid over the city from above and multiplied in. Its size
+    // on the ground and its drift are Reluva's choice.
+    constexpr float kTile = 240;   // metres the tile covers
+    constexpr float kDrift = 2.5f; // m/s, with the wind (High)
+    if (!cityMesh_ || cloudShadows_ <= 0 || lampsLit())
+        return;
+    bool translucent = false;
+    const gfx::TextureId clouds = textures_->get("shadmap_day", translucent, true);
+    if (!clouds)
+        return;
+    const float drift =
+        cloudShadows_ >= 2
+            ? kDrift / kTile * std::chrono::duration<float>(std::chrono::steady_clock::now() - loadedAt_).count()
+            : 0;
+    for (const Batch& b : batches_) {
+        if (b.translucent)
+            continue;
+        gfx::DrawCall call;
+        call.mesh = cityMesh_;
+        call.firstIndex = b.firstIndex;
+        call.indexCount = b.indexCount;
+        call.texture = clouds;
+        call.texGen = gfx::TexGen::Vector;
+        call.texVector0 = {1 / kTile, 0, 0};
+        call.texVector1 = {0, 0, 1 / kTile};
+        call.preRow0 = {1, 0, std::fmod(drift, 1.0f)};
+        call.preRow1 = {0, 1, std::fmod(drift * 0.6f, 1.0f)};
+        call.state.src = gfx::Blend::Zero; // what's there times the shadow's alpha
+        call.state.dst = gfx::Blend::SrcAlpha;
+        call.state.depthEqual = true;
+        call.state.depthWrite = false;
+        call.state.depthBias = false;
+        call.state.cull = gfx::Cull::None;
+        renderer_.draw(call);
+    }
+}
+
 size_t CityScene::draw(const gfx::Mat4& viewProj, const gfx::Vec3& eye, bool models, bool again) {
     textures_->setTime(
         std::chrono::duration<float>(std::chrono::steady_clock::now() - loadedAt_).count());
@@ -413,6 +452,7 @@ size_t CityScene::draw(const gfx::Mat4& viewProj, const gfx::Vec3& eye, bool mod
             applyFog(call, light_);
             renderer_.draw(call);
         }
+    drawCloudShadows();
     if (!models)
         return 0;
     std::vector<std::pair<const Placed*, const ModelMesh*>> shown;
