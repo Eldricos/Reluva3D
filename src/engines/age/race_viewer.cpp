@@ -24,6 +24,7 @@ constexpr int kFrameW = 640, kFrameH = 480;
 constexpr float kPi = 3.14159265358979f;
 constexpr float kBigAir = 1;                // seconds off the ground that count as big air (Reluva's)
 constexpr float kCountdown = 3;             // seconds before the start
+constexpr float kStartHigh = 28, kStartBack = 14; // metres: the camera over the grid at the countdown's start
 constexpr float kCircuitRadius = 15;        // circuits' waypoints give no radius
 constexpr float kOpponentReach = 10;        // opponents count a checkpoint this much wider
 constexpr float kSkill[2] = {0.85f, 0.95f}; // amateur, professional: opponents' share of top speed
@@ -1658,6 +1659,17 @@ void RaceViewer::update(uint64_t nowMs) {
         eye = view.eye;
         target = view.target;
         up = view.up;
+        // The start: from high over the grid, looking down on the car,
+        // down to its place behind it as the countdown runs, as the
+        // game's does (the footage: "Ready..." seen from above).
+        if (state_ == State::Countdown && !replaying_ && clock_ < 0) {
+            Vec3 back = eye - target;
+            back[1] = 0;
+            back = length(back) > 0.1f ? normalized(back) : Vec3{0, 0, 1};
+            const Vec3 high = target + back * kStartBack + Vec3{0, kStartHigh, 0};
+            const float f = std::clamp((clock_ + kCountdown) / kCountdown, 0.0f, 1.0f);
+            eye = high + (eye - high) * (f * f * (3 - 2 * f));
+        }
     }
     const gfx::Mat4 viewProj = gfx::multiply(
         gfx::perspective(fov * kPi / 180, float(kFrameW) / float(kFrameH), nearClip, currentOptions().farClip()),

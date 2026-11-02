@@ -75,7 +75,11 @@ countdown, then:
   in London Reluva shows "More tea, vicar?" (642, its neighbour in the
   list), not yet seen in footage.
   "Ready...", "Set...", "Go!" and the lessons' messages are over the
-  road, at y 110. The speed, gear, revs and damage meter are bottom left
+  road, at y 110. Through the countdown the camera comes down from high
+  over the grid, looking down on the car, to its place behind it by the
+  start, as all three 100% runs show for Blitz, Circuit and Checkpoint
+  races ([age-footage.md](age-footage.md)); Reluva's starts 28 m up and
+  14 m back. The speed, gear, revs and damage meter are bottom left
   ([age-driving.md](age-driving.md)), the map bottom right. The game's
   text is Gill Sans MT (its string table names the fonts and sizes);
   Reluva uses its own font.
