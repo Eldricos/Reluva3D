@@ -497,7 +497,8 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
             l.fpuControl = at(&fpu.control);
             l.fsBase = at(&fsBase), l.memory = memory_.data(), l.pages = codePages_.data(), l.span = span_;
             l.memoryFault = &Cpu::jitMemoryFault;
-            l.executed = at(&executed_), l.countingBlock = at(&counting_.block), l.countingStart = at(&counting_.start);
+            l.executed = at(&executed_), l.countingOps = at(&counting_.ops), l.countingCount = at(&counting_.count);
+            l.countingStart = at(&counting_.start);
             static_assert(sizeof(stop_) == 1, "the stop flag a byte, as the Jit reads it");
             l.stop = at(&stop_), l.runReturn = at(&run_.returnAddress), l.runNative = at(&run_.nativeStart);
             l.runEnd = at(&run_.end);
@@ -569,7 +570,8 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
             // rest (uncountBlock). Only a block's last instruction reads
             // the count (RDTSC ends its block).
             executed_ += b.count;
-            counting_.block = &b; // two stores: as one, Visual Studio's build stalled on it
+            counting_.ops = b.ops; // stores of their own: as one, Visual Studio's build stalled on it
+            counting_.count = b.count;
             counting_.start = eip;
             if (jit && b.start == eip) { // (not one rebuilt each time it runs)
                 // Made on its second run: many blocks made run once, and
@@ -587,7 +589,7 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
                         ~Depth() { --d; }
                     } depth{jitDepth_};
                     jit->run(this, b.jit);
-                    counting_.block = nullptr;
+                    counting_.ops = nullptr;
                     continue;
                 }
             }
@@ -597,7 +599,7 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
                 if (e == last)
                     break;
             }
-            counting_.block = nullptr;
+            counting_.ops = nullptr;
         } else {
             for (;; ++e) {
                 instructionStart_ = eip;
@@ -735,10 +737,10 @@ void Cpu::compileBlock(Block& b) {
             o.kind = K::Call, o.handler = reinterpret_cast<const void*>(run), o.entry = &e;
         at += e.length;
     }
-    const uint8_t* code = jit_->compile(ops, b.count, at);
+    const uint8_t* code = jit_->compile(ops, b.count, at, b.ops, sizeof(Cached));
     if (!code && jitDepth_ == 0) {
         jit_->reset();
-        code = jit_->compile(ops, b.count, at);
+        code = jit_->compile(ops, b.count, at, b.ops, sizeof(Cached));
     }
     b.jit = code;
     b.jitGeneration = code ? jit_->generation() : 0;
@@ -754,7 +756,7 @@ void Cpu::jitMemoryFault(void* cpu, uint32_t address, uint32_t size) {
 // the buffer afresh.
 int Cpu::jitCallNative(void* cpu) {
     Cpu& c = *static_cast<Cpu*>(cpu);
-    c.counting_.block = nullptr;
+    c.counting_.ops = nullptr;
     c.instructionStart_ = c.eip;
     struct Out {
         int& d;
@@ -766,15 +768,16 @@ int Cpu::jitCallNative(void* cpu) {
 }
 
 void Cpu::uncountBlock() {
-    const Block* b = counting_.block;
-    if (!b)
+    const Cached* ops = counting_.ops;
+    if (!ops)
         return;
-    counting_.block = nullptr;
+    counting_.ops = nullptr;
+    const int count = int(counting_.count);
     uint32_t at = counting_.start;
     int i = 0;
-    while (i < b->count - 1 && at != instructionStart_)
-        at += b->ops[i++].length;
-    executed_ -= uint64_t(b->count - 1 - i);
+    while (i < count - 1 && at != instructionStart_)
+        at += ops[i++].length;
+    executed_ -= uint64_t(count - 1 - i);
 }
 
 // Makes the block that starts at `at`: its instructions up to the first

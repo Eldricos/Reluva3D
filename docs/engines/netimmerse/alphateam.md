@@ -759,7 +759,9 @@ Progress:
     million memcpys of a few bytes, the streams' reads, each going back
     out of the native code (now called from its dispatch). The heap
     hands out the same addresses, so the instructions and frames are
-    the same. `RELUVA_NO_JIT=1` in the environment runs
+    the same. That gave 35 frames a second there (25 to 42); the next
+    profile had finding each next block a seventh of the thread, now
+    mostly gone (blocks linked to the next, docs/common/x86.md). `RELUVA_NO_JIT=1` in the environment runs
     without it, to compare.
 - Not there yet:
   - **more speed**: the program's own code (NetImmerse's scene graph,

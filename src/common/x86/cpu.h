@@ -340,10 +340,12 @@ private:
         if (codePages_[a >> 12]) [[unlikely]]
             ++codeEpoch_;
     }
-    // The block running, counted whole before it ran, and where it began.
+    // The block running, counted whole before it ran: its instructions
+    // (the table's, or the copy its native code has), how many, and where
+    // it began. No block: ops nullptr.
     struct {
-        const Block* block = nullptr;
-        uint32_t start = 0;
+        const Cached* ops = nullptr;
+        uint32_t count = 0, start = 0;
     } counting_;
     void uncountBlock(); // takes back the count of its instructions not run
     int depth_ = 0;

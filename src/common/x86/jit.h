@@ -56,10 +56,11 @@ public:
         // Throws the fault for an access outside memory: (cpu, address, size).
         void (*memoryFault)(void*, uint32_t, uint32_t);
         // For going from block to block (Jit::compile's dispatch): offsets
-        // into the Cpu of the count run, the block counted and its start,
+        // into the Cpu of the count run, the block counted (its instructions,
+        // their count and its start),
         // the stop flag (a byte), and the run's return address, where
         // natives start and the count's limit (runCached's);
-        size_t executed, countingBlock, countingStart, stop, runReturn, runNative, runEnd;
+        size_t executed, countingOps, countingCount, countingStart, stop, runReturn, runNative, runEnd;
         // Where the natives are (from here up), and what runs one at eip
         // (Cpu::callNative's way), giving whether to go on (0: the run
         // stops for the thread to yield).
@@ -127,10 +128,15 @@ public:
         const void* handler = nullptr;    // for Call
         const void* entry = nullptr;      // its Cached, for Call
     };
-    // Code for a block of `count` instructions, ending at `end` (where eip
-    // goes on if the last doesn't say); nullptr if the buffer is full
-    // (reset() makes room).
-    const uint8_t* compile(const Op* ops, int count, uint32_t end);
+    // Code for a block of `count` instructions (after a 16-byte header: its
+    // copy of the entries and their count, which the dispatch and the
+    // links read for the count's record), ending at `end` (where eip
+    // goes on if the last doesn't say), with `entries` (the Cpu's decoded
+    // instructions, `entrySize` bytes each) copied for the handlers it calls
+    // and for the count's record: the code depends on nothing in the table,
+    // so a jump to it stays good while the bytes it was made from are (the
+    // code epoch). nullptr if there's no room (reset() makes it).
+    const uint8_t* compile(const Op* ops, int count, uint32_t end, const void* entries, size_t entrySize);
     // Runs code compile() made, for the Cpu.
     void run(void* cpu, const uint8_t* code) const { entry_(cpu, code); }
     // Forgets all the code made (none may be running): the generation moves
@@ -156,6 +162,17 @@ private:
         uint32_t start = 0xffffffffu, epoch = 0, code = 0, count = 0; // code: an offset into the buffer
     };
     std::vector<Entry> index_;
+    // The blocks' copies of their decoded instructions, and their exits'
+    // links (where a jump to a known address last found its code: the code
+    // epoch then, 0xffffffff for none yet, and the code), apart from the
+    // code: writing next to code that runs costs the processor dearly.
+    // Filled in order like the buffer, and forgotten with it.
+    struct Link {
+        uint32_t epoch = 0xffffffffu, unused = 0;
+        const uint8_t* code = nullptr;
+    };
+    std::vector<uint8_t> data_;
+    size_t dataUsed_ = 0;
     void (*entry_)(void*, const uint8_t*) = nullptr;
     void* unwind_ = nullptr; // what was registered, to take back
 };

@@ -28,6 +28,7 @@ namespace reluva::x86 {
 namespace {
 
 constexpr size_t kBufferSize = size_t(32) << 20;
+constexpr size_t kDataSize = size_t(16) << 20;
 // The frame: push rbx, push r12, push r13, sub rsp 32 (rsp 16-aligned at
 // the calls, and their argument space).
 constexpr uint8_t kPrologue[] = {0x53, 0x41, 0x54, 0x41, 0x55, 0x48, 0x83, 0xec, 0x20};
@@ -167,7 +168,7 @@ bool Jit::supported() {
 #endif
 }
 
-Jit::Jit(const Layout& layout) : layout_(layout), index_(size_t(layout.blockMask) + 1) {
+Jit::Jit(const Layout& layout) : layout_(layout), index_(size_t(layout.blockMask) + 1), data_(kDataSize) {
 #if defined(RELUVA_JIT_WINDOWS) || defined(RELUVA_JIT_LINUX)
     base_ = allocate(kBufferSize);
     if (!base_)
@@ -218,6 +219,7 @@ Jit::Jit(const Layout& layout) : layout_(layout), index_(size_t(layout.blockMask
     w.bytes(kEntryTakeArgs);
     w.u8(0x49), w.u8(0xbc), w.u64(reinterpret_cast<uint64_t>(layout_.memory)); // mov r12, memory
     w.u8(0x49), w.u8(0xbd), w.u64(reinterpret_cast<uint64_t>(layout_.pages));  // mov r13, pages
+    w.u8(0x45), w.u8(0x31), w.u8(0xd2);                                        // xor r10d, r10d: no link
     w.bytes(kEntryJump);
     // The dispatch (see jit.h).
     w.at = base_ + ((size_t(w.at - base_) + 15) & ~size_t(15));
@@ -247,18 +249,24 @@ Jit::Jit(const Layout& layout) : layout_(layout), index_(size_t(layout.blockMask
         w.u8(0x44), w.u8(0x39), w.u8(0x49), w.u8(4), exitIf(0x85); // cmp [epoch], r9d; jne exit
         w.u8(0x44), w.u8(0x8b), w.u8(0x49), w.u8(8);     // mov r9d, [code]
         w.u8(0x45), w.u8(0x85), w.u8(0xc9), exitIf(0x84); // test r9d, r9d; jz exit
-        w.u8(0x44), w.u8(0x8b), w.u8(0x41), w.u8(12);    // mov r8d, [count]
+        w.u8(0x44), w.u8(0x8b), w.u8(0x59), w.u8(12);    // mov r11d, [count]
+        w.u8(0x4d), w.u8(0x89), w.u8(0xd8);              // mov r8, r11
         w.rbx({0x4c, 0x03}, 0, L.executed);              // add r8, [executed]
         w.rbx({0x4c, 0x3b}, 0, L.runEnd), exitIf(0x87);  // cmp r8, [end]; ja exit
         w.rbx({0x4c, 0x89}, 0, L.executed);              // mov [executed], r8
-        // The block counted: its place in the table (not read).
-        w.u8(0x48), w.u8(0x69), w.u8(0xd2), w.u32(L.blockSize); // imul rdx, rdx, size
-        w.u8(0x48), w.u8(0xb9), w.u64(reinterpret_cast<uint64_t>(L.blocks)); // mov rcx, blocks
-        w.u8(0x48), w.u8(0x01), w.u8(0xca);              // add rdx, rcx
-        w.rbx({0x48, 0x89}, kEdx, L.countingBlock);      // mov [counting block], rdx
-        w.rbx({0x89}, kEax, L.countingStart);            // mov [counting start], eax
         w.u8(0x48), w.u8(0xb9), w.u64(reinterpret_cast<uint64_t>(base_)); // mov rcx, buffer
-        w.u8(0x4c), w.u8(0x01), w.u8(0xc9);              // add rcx, r9
+        w.u8(0x4c), w.u8(0x01), w.u8(0xc9);              // add rcx, r9: the code
+        // The block counted: its entries (the code's header), count, start.
+        w.u8(0x4c), w.u8(0x8b), w.u8(0x41), w.u8(0xf0);  // mov r8, [rcx - 16]
+        w.rbx({0x4c, 0x89}, 0, L.countingOps);           // mov [counting ops], r8
+        w.rbx({0x44, 0x89}, 3, L.countingCount);         // mov [counting count], r11d
+        w.rbx({0x89}, kEax, L.countingStart);            // mov [counting start], eax
+        // A link that missed (r10): it goes here from now, in this epoch.
+        w.u8(0x4d), w.u8(0x85), w.u8(0xd2);              // test r10, r10
+        w.u8(0x74), w.u8(13);                            // jz past
+        w.rbx({0x8b}, kEdx, L.epoch);                    // mov edx, [codeEpoch]   (6)
+        w.u8(0x41), w.u8(0x89), w.u8(0x12);              // mov [r10], edx         (3)
+        w.u8(0x49), w.u8(0x89), w.u8(0x4a), w.u8(8);     // mov [r10 + 8], rcx     (4)
         w.u8(0xff), w.u8(0xe1);                          // jmp rcx
         // A native: called (the return address is here, in the part of the
         // buffer reset() keeps), then on to the next block, or out.
@@ -266,6 +274,7 @@ Jit::Jit(const Layout& layout) : layout_(layout), index_(size_t(layout.blockMask
         w.bytes(kFirstArgCpu);
         w.call(reinterpret_cast<const void*>(L.callNative));
         w.u8(0x85), w.u8(0xc0), exitIf(0x84);            // test eax, eax; jz exit
+        w.u8(0x45), w.u8(0x31), w.u8(0xd2);              // xor r10d, r10d: no link
         w.u8(0xe9), Emitter::patch(w.rel32(), dispatch_); // jmp dispatch
         for (int i = 0; i < n; ++i)
             Emitter::patch(exits[i], w.at);
@@ -306,14 +315,27 @@ Jit::~Jit() {
 #endif
 }
 
-const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end) {
+const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* entries, size_t entrySize) {
     if (!base_)
         return nullptr;
-    const size_t most = size_t(count) * 320 + 64;
-    if (used_ + most > size_)
+    const size_t most = size_t(count) * 320 + 256;
+    const size_t data = (size_t(count) * entrySize + 15) / 16 * 16 + 2 * sizeof(Link);
+    if (used_ + most > size_ || dataUsed_ + data > data_.size())
         return nullptr;
     const Layout& L = layout_;
-    uint8_t* code = base_ + used_;
+    // The entries' copy, then the exits' links.
+    uint8_t* copies = data_.data() + dataUsed_;
+    std::memcpy(copies, entries, size_t(count) * entrySize);
+    Link* links = reinterpret_cast<Link*>(copies + (size_t(count) * entrySize + 15) / 16 * 16);
+    links[0] = links[1] = Link{};
+    dataUsed_ += data;
+    // The header, then the code.
+    uint8_t* header = base_ + used_;
+    const uint64_t copiesAt = reinterpret_cast<uint64_t>(copies);
+    const uint64_t counted = uint64_t(uint32_t(count));
+    std::memcpy(header, &copiesAt, 8);
+    std::memcpy(header + 8, &counted, 8);
+    uint8_t* code = header + 16;
     Emitter w{code};
     auto regAt = [&](int r) { return L.reg + 4 * size_t(r); };
     // A register of `size` bytes' place: AL..BL the low bytes, AH..BH the next.
@@ -769,7 +791,7 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end) {
             storeImm32(L.eip, o.start);
             storeImm32(L.start, o.start);
             w.bytes(kFirstArgCpu);
-            w.bytes(kSecondArgImm64), w.u64(reinterpret_cast<uint64_t>(o.entry));
+            w.bytes(kSecondArgImm64), w.u64(reinterpret_cast<uint64_t>(copies + size_t(i) * entrySize)); // its copy
             w.call(o.handler);
             eipSet = true;
             break;
@@ -779,10 +801,55 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end) {
         storeImm32(L.eip, end);
         storeImm32(L.start, ops[count - 1].start);
     }
-    // On to the next block (a jump within the buffer: unwinding from the
-    // call before doesn't take it for an epilogue).
-    w.u8(0xe9);
-    Emitter::patch(w.rel32(), dispatch_);
+    // On to the next block: straight to its code by a link where where it
+    // goes is known (the code the dispatch last found for it there, if the
+    // code epoch hasn't moved since: none of the code's bytes written),
+    // else by the dispatch. (Jumps within the buffer: unwinding from the
+    // call before doesn't take them for an epilogue.)
+    auto link = [&](Link* l, uint32_t target) {
+        w.u8(0x48), w.u8(0xb8), w.u64(reinterpret_cast<uint64_t>(l)); // mov rax, link
+        w.rbx({0x8b}, kEcx, L.epoch);                                 // mov ecx, [codeEpoch]
+        w.u8(0x39), w.u8(0x08);                                       // cmp [rax], ecx
+        w.u8(0x0f), w.u8(0x85);
+        uint8_t* miss1 = w.rel32();                                   // jne miss
+        w.rbx({0x80}, 7, L.stop), w.u8(0);                            // cmp byte [stop], 0
+        w.u8(0x0f), w.u8(0x85);
+        uint8_t* miss2 = w.rel32();                                   // jne miss
+        w.u8(0x48), w.u8(0x8b), w.u8(0x50), w.u8(8);                  // mov rdx, [rax + 8]: the code
+        w.u8(0x44), w.u8(0x8b), w.u8(0x42), w.u8(0xf8);               // mov r8d, [rdx - 8]: its count
+        w.u8(0x44), w.u8(0x89), w.u8(0xc1);                           // mov ecx, r8d
+        w.rbx({0x4c, 0x03}, 0, L.executed);                           // add r8, [executed]
+        w.rbx({0x4c, 0x3b}, 0, L.runEnd);                             // cmp r8, [end]
+        w.u8(0x0f), w.u8(0x87);
+        uint8_t* miss3 = w.rel32();                                   // ja miss
+        w.rbx({0x4c, 0x89}, 0, L.executed);                           // mov [executed], r8
+        w.u8(0x4c), w.u8(0x8b), w.u8(0x42), w.u8(0xf0);               // mov r8, [rdx - 16]: its entries
+        w.rbx({0x4c, 0x89}, 0, L.countingOps);
+        w.rbx({0x89}, kEcx, L.countingCount);
+        storeImm32(L.countingStart, target);
+        w.u8(0xff), w.u8(0xe2);                                       // jmp rdx
+        Emitter::patch(miss1, w.at), Emitter::patch(miss2, w.at), Emitter::patch(miss3, w.at);
+        w.u8(0x49), w.u8(0x89), w.u8(0xc2);                           // mov r10, rax: to fill
+        w.u8(0xe9), Emitter::patch(w.rel32(), dispatch_);             // jmp dispatch
+    };
+    const Op& last = ops[count - 1];
+    if (!eipSet) {
+        link(&links[0], end);
+    } else if (last.kind == Kind::Jmp || last.kind == Kind::CallRel) {
+        link(&links[0], last.start + last.length + last.imm);
+    } else if (last.kind == Kind::Jcc) {
+        const uint32_t after = last.start + last.length, taken = after + last.imm;
+        w.u8(0x81), w.u8(0xfa), w.u32(taken); // cmp edx, taken (eip, as the condition made it)
+        w.u8(0x0f), w.u8(0x84);
+        uint8_t* toTaken = w.rel32();         // je taken
+        link(&links[0], after);
+        Emitter::patch(toTaken, w.at);
+        link(&links[1], taken);
+    } else {
+        w.u8(0x45), w.u8(0x31), w.u8(0xd2);   // xor r10d, r10d: no link
+        w.u8(0xe9);
+        Emitter::patch(w.rel32(), dispatch_);
+    }
     // A write to a page holding cached code: codeEpoch_ on (inc dword), then back.
     for (int i = 0; i < nMarks; ++i) {
         Emitter::patch(marks[i].from, w.at);
@@ -812,6 +879,7 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end) {
 
 void Jit::reset() {
     used_ = bodyStart_;
+    dataUsed_ = 0;
     ++generation_;
     for (Entry& e : index_)
         e.code = 0;
