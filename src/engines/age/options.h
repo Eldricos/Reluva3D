@@ -78,6 +78,7 @@ struct GameOptions {
     float lightingQuality = 1; // 0..1: below half, no headlight pools
     int objectDetail = 3;      // 0 Low .. 3 Very High
     int textureQuality = 3;    // the same
+    int cloudShadows = 2;      // 0 None, 1 Low, 2 High
     // Control Options.
     bool autoReverse = true; // the brake backs up when stopped
     bool startInCar = false; // the in-car view first (POV)

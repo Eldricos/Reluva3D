@@ -217,10 +217,10 @@ std::vector<GameMenus::Item> GameMenus::items() const {
                 bar("BALANCE")};
         break;
     case Screen::Graphics:
-        // The renderer and cloud shadows aren't Reluva's to change.
+        // The renderer isn't Reluva's to change.
         list = {check("gfx_sky"),  check("gfx_rflx"),         check("gfx_peds"),       check("gfx_port"),
                 choice("DISPLAY"), choice("RENDERER", false), choice("RESOLUTION"),    bar("far clip"),
-                bar("lighting"),   choice("TEXTURE QUALITY"), choice("OBJECT DETAIL"), choice("CLOUD SHADOWS", false)};
+                bar("lighting"),   choice("TEXTURE QUALITY"), choice("OBJECT DETAIL"), choice("CLOUD SHADOWS")};
         break;
     case Screen::Control:
         // The keyboard only: no joystick to calibrate, no force feedback.
@@ -441,8 +441,11 @@ std::string GameMenus::choiceText(const std::string& w) const {
         return strings_.get(kDetail[edit_.textureQuality & 3], kDetailNames[edit_.textureQuality & 3]);
     if (w == "OBJECT DETAIL")
         return strings_.get(kDetail[edit_.objectDetail & 3], kDetailNames[edit_.objectDetail & 3]);
-    if (w == "CLOUD SHADOWS")
-        return strings_.get(660, "None");
+    if (w == "CLOUD SHADOWS") {
+        static const char* const kShadows[3] = {"None", "Low", "High"};
+        const int level = std::clamp(edit_.cloudShadows, 0, 2);
+        return strings_.get(uint32_t(660 + level), kShadows[level]);
+    }
     if (w == "CONTROLLERS")
         return strings_.get(581, "Keyboard");
     return {};
@@ -464,6 +467,8 @@ void GameMenus::step(const Item& item, int dir) {
         edit_.objectDetail = std::clamp(edit_.objectDetail + dir, 0, 3);
     else if (w == "TEXTURE QUALITY")
         edit_.textureQuality = std::clamp(edit_.textureQuality + dir, 0, 3);
+    else if (w == "CLOUD SHADOWS")
+        edit_.cloudShadows = std::clamp(edit_.cloudShadows + dir, 0, 2);
     else if (item.kind == Kind::List)
         column_ = dir > 0 ? 1 : 0;
 }

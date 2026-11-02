@@ -165,6 +165,7 @@ void GameOptions::resetGraphics() {
     lightingQuality = d.lightingQuality;
     objectDetail = d.objectDetail;
     textureQuality = d.textureQuality;
+    cloudShadows = d.cloudShadows;
 }
 
 void GameOptions::resetControls() {
@@ -202,8 +203,8 @@ std::string GameOptions::text() const {
       << texturedSky << "\npedestrians " << pedestrians << "\nsmartrendering " << smartRendering << "\nreflections "
       << vehicleReflections << "\nfullscreen " << fullScreen << "\nresolution " << resolution << "\nvisibility "
       << visibility << "\nlighting " << lightingQuality << "\nobjectdetail " << objectDetail << "\ntexturequality "
-      << textureQuality << "\nautoreverse " << autoReverse << "\nforcefeedback " << forceFeedback << "\nstartincar "
-      << startInCar << "\nsteering " << steering << "\n";
+      << textureQuality << "\ncloudshadows " << cloudShadows << "\nautoreverse " << autoReverse << "\nforcefeedback "
+      << forceFeedback << "\nstartincar " << startInCar << "\nsteering " << steering << "\n";
     for (int i = 0; i < kControls; ++i)
         o << "key " << kNames[i] << " " << keys[size_t(i)][0] << " " << keys[size_t(i)][1] << "\n";
     return o.str();
@@ -253,6 +254,8 @@ Error GameOptions::parse(const std::string& text) {
             objectDetail = int(number(value, 0, 3));
         else if (name == "texturequality")
             textureQuality = int(number(value, 0, 3));
+        else if (name == "cloudshadows")
+            cloudShadows = int(number(value, 0, 2));
         else if (name == "autoreverse")
             autoReverse = on;
         else if (name == "startincar")

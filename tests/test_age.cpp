@@ -2809,6 +2809,7 @@ static void testOptions(const std::filesystem::path& tmp) {
     o.resolution = 2;
     o.objectDetail = 1;
     o.textureQuality = 2;
+    o.cloudShadows = 1;
     o.startInCar = true;
     o.keys[size_t(Control::Horn)] = {'g', 'j'};
     CHECK(!o.save(tmp));
@@ -2816,8 +2817,8 @@ static void testOptions(const std::filesystem::path& tmp) {
     CHECK(!back.load(tmp));
     CHECK(!back.music && back.ambient && std::fabs(back.effectsVolume - 0.25f) < 1e-6f &&
           std::fabs(back.balance + 0.5f) < 1e-6f && back.resolution == 2 && back.objectDetail == 1 &&
-          back.textureQuality == 2 && back.startInCar && back.controlOf('j') == Control::Horn &&
-          back.controlOf(key::Return) == Control::Count);
+          back.textureQuality == 2 && back.cloudShadows == 1 && back.startInCar &&
+          back.controlOf('j') == Control::Horn && back.controlOf(key::Return) == Control::Count);
     back.resetControls();
     CHECK(back.controlOf(key::Return) == Control::Horn && !back.startInCar && !back.music); // the audio stays
     GameOptions none;
